@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test';
 import * as THREE from 'three';
-import { DOF_MAX_BLUR_PX, cocPx, latticeDisc } from './dof';
-import { CameraRig, type CamKey } from './stage';
+import { DOF_MAX_BLUR_PX, cocPx, dofUniforms, latticeDisc } from './dof';
+import { PH, PW } from './gl';
+import { CameraRig, eachTap, stageTarget, type CamKey } from './stage';
 import { ease } from './util';
 
 // Expected values are hand-derived (Python, from the textbook thin-lens form c = A·|z − S|/z · f/(S − f) on a 16:9
@@ -125,19 +126,33 @@ test('CameraRig.apply eases between keys with the ease of the key it is heading 
   near3(dir(c), new THREE.Vector3(0.5, 0, -0.5).sub(new THREE.Vector3(1, 0.5, 4)).normalize());
   expect(c.fov).toBeCloseTo(27.5, 12);
   // the default ease is inOutCubic: a quarter of the time goes 1/16 of the way, half goes half
-  const r2 = new CameraRig([{ t: 0, pos: [0, 0, 0], target: [0, 0, -1] }, { t: 2, pos: [8, 0, 0], target: [8, 0, -1] }]);
+  const r2 = new CameraRig([{ t: 0, pos: [0, 0, 0], target: [0, 0, -1], fov: 40 }, { t: 2, pos: [8, 0, 0], target: [8, 0, -1] }]);
   const c2 = cam();
   r2.apply(c2, 0.5);
   near3(c2.position, [8 * ease.inOutCubic(0.25), 0, 0]);
   expect(c2.position.x).toBeCloseTo(0.5, 12);
   r2.apply(c2, 1);
   near3(c2.position, [4, 0, 0]);
-  // keys without a fov leave the camera's own
-  expect(c2.fov).toBe(40);
+  expect(c2.fov).toBe(40); // carried from the first key
+});
+
+test('a rig gives the fov from its first key on, so a camera two rigs share never keeps the last one\'s', () => {
+  const at = (t: number, fov?: number): CamKey => ({ t, pos: [t, 0, 5], target: [t, 0, 0], ...(fov === undefined ? {} : { fov }) });
+  expect(() => new CameraRig([at(0), at(1)])).toThrow('first key');
+  expect(() => new CameraRig([at(1, 30), at(0)])).toThrow('first key'); // the first in time
+  // her's shot-1 and shot-2 rigs share one scratch camera: whatever ran before, each gives its own fov
+  const wide = new CameraRig([at(0, 22), at(2)]), long = new CameraRig([at(0, 40), at(2, 10)]);
+  const c = cam();
+  long.apply(c, 1);
+  wide.apply(c, 1);
+  expect(c.fov).toBe(22);
+  wide.apply(c, 1.5);
+  long.apply(c, 1);
+  expect(c.fov).toBe(25);
 });
 
 test('roll turns the camera about its view axis, in degrees, counter-clockwise as seen from behind it', () => {
-  const rig = new CameraRig([{ t: 0, pos: [0, 0, 5], target: [0, 0, 0], roll: 90 }]);
+  const rig = new CameraRig([{ t: 0, pos: [0, 0, 5], target: [0, 0, 0], roll: 90, fov: 40 }]);
   const c = cam();
   rig.apply(c, 0);
   near3(dir(c), [0, 0, -1]);
@@ -151,7 +166,7 @@ test('roll turns the camera about its view axis, in degrees, counter-clockwise a
 
 test('through three keys the path is a smooth curve: exact at the keys, no kink where segments meet', () => {
   const keys: CamKey[] = [
-    { t: 0, pos: [0, 0, 6], target: [0, 0, 0], ease: ease.linear },
+    { t: 0, pos: [0, 0, 6], target: [0, 0, 0], ease: ease.linear, fov: 40 },
     { t: 1, pos: [3, 1, 4], target: [0, 0, 0], ease: ease.linear },
     { t: 2.5, pos: [5, 0, 0], target: [0, 0, 0], ease: ease.linear },
   ];
@@ -167,11 +182,74 @@ test('through three keys the path is a smooth curve: exact at the keys, no kink 
   const chordIn = new THREE.Vector3(3, 1, -2).normalize(), chordOut = new THREE.Vector3(2, -1, -4).normalize();
   expect(chordIn.angleTo(chordOut)).toBeGreaterThan(0.3);
   // collinear keys evenly spaced in time and space, with linear eases, give uniform straight motion
-  const line = new CameraRig([0, 1, 2, 3].map((i) => ({ t: i, pos: [i * 2, 0, 0] as [number, number, number], target: [i * 2, 0, -1] as [number, number, number], ease: ease.linear })));
+  const line = new CameraRig([0, 1, 2, 3].map((i) => ({ t: i, pos: [i * 2, 0, 0] as [number, number, number], target: [i * 2, 0, -1] as [number, number, number], ease: ease.linear, fov: 40 })));
   line.apply(c, 1.3);
   near3(c.position, [2.6, 0, 0]);
   // a held key (the same position twice) holds still in between
-  const hold = new CameraRig([{ t: 0, pos: [1, 2, 3], target: [0, 0, 0] }, { t: 1, pos: [1, 2, 3], target: [0, 0, 0] }, { t: 2, pos: [5, 2, 3], target: [0, 0, 0] }]);
+  const hold = new CameraRig([{ t: 0, pos: [1, 2, 3], target: [0, 0, 0], fov: 40 }, { t: 1, pos: [1, 2, 3], target: [0, 0, 0] }, { t: 2, pos: [5, 2, 3], target: [0, 0, 0] }]);
   hold.apply(c, 0.5);
   near3(c.position, [1, 2, 3]);
+});
+
+// ---- the stage
+
+test('Stage.render draws into a target of the output size, or the canvas; clear: false needs a target to keep', () => {
+  expect(() => stageTarget({ width: PW, height: PH })).not.toThrow();
+  expect(() => stageTarget(null)).not.toThrow();
+  expect(() => stageTarget({ width: PW, height: PH }, false)).not.toThrow();
+  // a picture-in-picture target showed the frame's bottom-left crop; a bigger one read past the stage's buffers
+  expect(() => stageTarget({ width: PW / 2, height: PH / 2 })).toThrow(`${PW / 2}x${PH / 2}`);
+  expect(() => stageTarget({ width: 2 * PW, height: PH })).toThrow(`${2 * PW}x${PH}`);
+  // the canvas cannot be read back: clear: false cleared it anyway
+  expect(() => stageTarget(null, false)).toThrow('clear: false');
+});
+
+/** glsl rgss(k): the rotated-grid taps, px. */
+const RGSS = [[0.125, -0.375], [0.375, 0.125], [-0.125, 0.375], [-0.375, -0.125]];
+
+test('the supersampling taps shift the whole frame, or the view offset the scene set, which comes back as it was', () => {
+  const c = cam();
+  const views: number[][] = [];
+  const run = () => {
+    views.length = 0;
+    eachTap(c, (tap) => views.push([tap, c.view!.enabled ? 1 : 0, c.view!.fullWidth, c.view!.fullHeight, c.view!.offsetX, c.view!.offsetY, c.view!.width, c.view!.height]));
+  };
+  // no view: each tap is its offset of the whole frame, and the camera ends with none
+  run();
+  expect(views).toEqual(RGSS.map(([x, y], k) => [k, 1, PW, PH, x!, y!, PW, PH]));
+  expect(c.view?.enabled ?? false).toBe(false);
+  // a view (a quarter of a frame twice as wide and tall, at twice the output's resolution): a tap moves it by its px
+  // of the output, 2 of the full frame's; then the scene's view is back, and so is its projection
+  c.setViewOffset(4 * PW, 4 * PH, 100, 50, 2 * PW, 2 * PH);
+  const proj = c.projectionMatrix.clone();
+  run();
+  expect(views).toEqual(RGSS.map(([x, y], k) => [k, 1, 4 * PW, 4 * PH, 100 + 2 * x!, 50 + 2 * y!, 2 * PW, 2 * PH]));
+  expect(c.view).toMatchObject({ enabled: true, fullWidth: 4 * PW, fullHeight: 4 * PH, offsetX: 100, offsetY: 50, width: 2 * PW, height: 2 * PH });
+  expect(c.projectionMatrix.equals(proj)).toBe(true);
+  // a draw that throws still gives the view back
+  expect(() => eachTap(c, () => { throw new Error('draw failed'); })).toThrow('draw failed');
+  expect(c.view).toMatchObject({ enabled: true, offsetX: 100, offsetY: 50 });
+});
+
+test('the DoF lens follows camera.zoom: a 1.5x punch-in blurs as the longer lens it is', () => {
+  const c = cam();
+  c.fov = 30;
+  c.updateProjectionMatrix();
+  const own = dofUniforms(lens, c, 1080);
+  c.zoom = 1.5;
+  c.updateProjectionMatrix();
+  const zoomed = dofUniforms(lens, c, 1080);
+  // the lens of the fov the zoom gives, 2·atan(tan(15°) / 1.5) = 20.25616° (a focal length 1.5x as long), and its
+  // circle 2.26x (f²·S / (S − f), at the 4 m focus) the unzoomed one's: Python
+  const long = cam();
+  long.fov = 20.256158000416356;
+  const want = dofUniforms(lens, long, 1080);
+  want.coc.forEach((x, i) => expect(zoomed.coc[i]!).toBeCloseTo(x, 9));
+  expect(zoomed.coc[1] / own.coc[1]).toBeCloseTo(2.2607804, 6);
+  // at zoom 1 it is the camera's own fov, exactly
+  c.zoom = 1;
+  expect(dofUniforms(lens, c, 1080)).toEqual(own);
+  const plain = cam();
+  plain.fov = 30;
+  expect(dofUniforms(lens, plain, 1080).coc[1]).toBe(own.coc[1]);
 });

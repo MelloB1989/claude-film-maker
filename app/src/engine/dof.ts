@@ -51,6 +51,24 @@ export function cocScale(p: DofParams, fovDeg: number, imageHeightPx: number): n
 }
 
 /**
+ * A camera's vertical fov as its lens: with camera.zoom applied (three's getEffectiveFOV), so a punch-in by zoom blurs
+ * as the longer lens it is (the circle grows with f², 2.26x for a 1.5x zoom). Exactly camera.fov at zoom 1.
+ */
+export const lensFov = (cam: THREE.PerspectiveCamera) => (cam.zoom === 1 ? cam.fov : cam.getEffectiveFOV());
+
+/**
+ * The lens as the DoF shaders take it, for an image `imgHeight` px tall: `s` its px per logical px, `maxR` the cap on
+ * the CoC radius (px), and `coc` the uCoc uniform, the signed CoC radius as c = A + B·d of a perspective depth-buffer
+ * value d (c = K·(1/S − 1/z), and 1/z = 1/n − d·(f − n)/(n·f)), with the cap. The lens is the camera's, zoom included.
+ */
+export function dofUniforms(p: DofParams, cam: THREE.PerspectiveCamera, imgHeight: number) {
+  const s = imgHeight / H, fov = lensFov(cam);
+  const K = (cocScale(p, fov, H) * s) / 2, S = focusOf(p, focal(fov)), n = cam.near, f = cam.far;
+  const maxR = ((p.maxBlurPx ?? DOF_MAX_BLUR_PX) * s) / 2;
+  return { s, maxR, coc: [K / S - K / n, (K * (f - n)) / (n * f), maxR] as [number, number, number] };
+}
+
+/**
  * Thin-lens circle of confusion: the blur-disc DIAMETER, in px of an image `imageHeightPx` tall, of a point `depth`
  * metres down the view axis, for a camera with vertical field of view `fovDeg` (on DOF_SENSOR_H) focused per `p`.
  * 0 at the focus distance, proportional to |1/focus − 1/depth|, capped at p.maxBlurPx (DOF_MAX_BLUR_PX by default).
@@ -283,16 +301,13 @@ export class DofPass {
         minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
       });
     }
-    // the lens in px of this image (maxBlurPx and cocPx are logical 1080p px), as a signed radius c = A + B·d:
-    // c = K·(1/S − 1/z), and 1/z = 1/n − d·(f − n)/(n·f) for a perspective depth-buffer value d
-    const s = img.height / H;
-    const K = (cocScale(p, cam.fov, H) * s) / 2, S = focusOf(p, focal(cam.fov)), n = cam.near, f = cam.far;
-    const maxR = ((p.maxBlurPx ?? DOF_MAX_BLUR_PX) * s) / 2;
+    // the lens in px of this image (maxBlurPx and cocPx are logical 1080p px)
+    const { s, maxR, coc } = dofUniforms(p, cam, img.height);
     const k = this.kernel(maxR), row = tap >= 0 ? tap % PARTS : PARTS;
     const g = this.gather.uniforms, u = this.composite.u;
     for (const v of [g, u]) {
       v.tDepth!.value = depth;
-      (v.uCoc!.value as THREE.Vector3).set(K / S - K / n, (K * (f - n)) / (n * f), maxR);
+      (v.uCoc!.value as THREE.Vector3).set(coc[0], coc[1], coc[2]);
       v.tColor!.value = color;
     }
     g.tKern!.value = k.tex;

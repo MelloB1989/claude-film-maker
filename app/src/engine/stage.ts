@@ -110,6 +110,39 @@ function acquire(renderer: THREE.WebGLRenderer): Shared {
   return s;
 }
 
+/**
+ * What Stage.render can draw into: a target of the output size (PWxPH: the stage's buffers are, and its passes read
+ * them texel for texel at gl_FragCoord), or the canvas. `clear: false` keeps what a target holds, so it needs one: the
+ * canvas cannot be read back.
+ */
+export function stageTarget(out: { width: number; height: number } | null, clear?: boolean) {
+  if (out && (out.width !== PW || out.height !== PH)) {
+    throw new Error(`Stage.render: the target is ${out.width}x${out.height}; a stage renders at the output size, ${PW}x${PH} (render it there and draw that texture down)`);
+  }
+  if (!out && clear === false) throw new Error('Stage.render: clear: false keeps what the target holds, and the canvas (null) cannot be read back');
+}
+
+/**
+ * Run `draw` for each rotated-grid tap (glsl rgss()), the camera shifted by the tap's offset in px of the output: of the
+ * whole frame, or within a view offset the scene set on it (setViewOffset: a tile, a crop), which is then back as it
+ * was, projection and all.
+ */
+export function eachTap(cam: THREE.PerspectiveCamera, draw: (tap: number) => void) {
+  const v = cam.view?.enabled ? { ...cam.view } : null;
+  try {
+    RGSS.forEach(([dx, dy], tap) => {
+      // (setViewOffset also updates the projection)
+      if (v) cam.setViewOffset(v.fullWidth, v.fullHeight, v.offsetX + (dx * v.width) / PW, v.offsetY + (dy * v.height) / PH, v.width, v.height);
+      else cam.setViewOffset(PW, PH, dx, dy, PW, PH);
+      cam.updateMatrixWorld();
+      draw(tap);
+    });
+  } finally {
+    if (v) cam.setViewOffset(v.fullWidth, v.fullHeight, v.offsetX, v.offsetY, v.width, v.height);
+    else cam.clearViewOffset();
+  }
+}
+
 function release(renderer: THREE.WebGLRenderer) {
   const s = SHARED.get(renderer);
   if (!s || --s.refs > 0) return;
@@ -137,15 +170,16 @@ export class Stage {
   }
 
   /**
-   * Draw the scene with the camera into `out` (every pixel): through the depth of field with `dof`, straight across
-   * without. `clear: false` starts each pass from what is already in `out` instead of the background colour; the DoF
-   * then treats it as the far distance (the camera's far plane).
+   * Draw the scene with the camera into `out` (every pixel), a target of the output size or the canvas (stageTarget):
+   * through the depth of field with `dof`, straight across without. `clear: false` starts each pass from what is already
+   * in `out` instead of the background colour; the DoF then treats it as the far distance (the camera's far plane). A
+   * view offset set on the camera is kept (eachTap).
    */
   render(out: THREE.WebGLRenderTarget | null, opts: { dof?: DofParams | null; clear?: boolean } = {}) {
+    stageTarget(out, opts.clear);
     const r = this.renderer, cam = this.camera, s = this.shared;
     const autoClear = r.autoClear;
     r.autoClear = false;
-    const taps = [0, 1, 2, 3];
     let backdrop: THREE.Texture | null = null;
     if (opts.clear === false && out) {
       s.backdrop ??= makeRT(W, H, { depthBuffer: false });
@@ -154,9 +188,7 @@ export class Stage {
       backdrop = s.backdrop.texture;
     }
     s.pass ??= makeRT(W, H, { depthBuffer: false });
-    taps.forEach((tap, i) => {
-      cam.setViewOffset(PW, PH, RGSS[tap]![0], RGSS[tap]![1], PW, PH); // also updates the projection
-      cam.updateMatrixWorld();
+    eachTap(cam, (tap) => {
       if (backdrop) {
         s.copy.u.src!.value = backdrop;
         s.copy.render(r, s.color);
@@ -170,13 +202,26 @@ export class Stage {
         s.copy.u.src!.value = s.color.texture;
         s.copy.render(r, s.pass!);
       }
-      const acc = i === 0 ? s.put : s.add;
+      const acc = tap === 0 ? s.put : s.add;
       acc.u.src!.value = s.pass!.texture;
-      acc.u.w!.value = 1 / taps.length;
+      acc.u.w!.value = 1 / RGSS.length;
       acc.render(r, out);
     });
-    cam.clearViewOffset();
     r.autoClear = autoClear;
+  }
+
+  /**
+   * Compile the scene's shaders for the stage's colour target, where its frames draw them, and the stage's own passes
+   * (copy, accumulate). three builds each program for the target bound when it compiles (its output colour space and
+   * tone mapping): renderer.compile() with nothing bound builds the canvas's variant, and the first frame builds the
+   * stage's all over again, the stall it was meant to spare.
+   */
+  compile() {
+    const r = this.renderer, s = this.shared, prev = r.getRenderTarget();
+    r.setRenderTarget(s.color);
+    r.compile(this.scene, this.camera);
+    for (const p of [s.copy, s.add, s.put]) r.compile(p.scene, p.cam);
+    r.setRenderTarget(prev);
   }
 
   /** Depth of a world point along the camera's view axis: the distance DofParams.focus is measured in. */
@@ -201,7 +246,10 @@ export interface CamKey {
   t: number;
   pos: V3;
   target: V3;
-  /** Vertical fov (degrees). A key without one carries the previous key's (none at all: the camera keeps its own). */
+  /**
+   * Vertical fov (degrees). The first key must give one; a key without one carries the previous key's. (So a rig sets
+   * the fov at every time: a camera two rigs share never keeps whichever ran last.)
+   */
   fov?: number;
   /** Degrees about the view axis, counter-clockwise as seen from behind the camera (the picture turns clockwise). */
   roll?: number;
@@ -241,13 +289,16 @@ function catmullRom(p0: V3 | undefined, p1: V3, p2: V3, p3: V3 | undefined, u: n
  * through all the keys (a straight line with two), fov and roll interpolate, all on the segment's eased progress.
  */
 export class CameraRig {
-  private keys: (CamKey & { fovR: number | undefined; rollR: number })[];
+  private keys: (CamKey & { fovR: number; rollR: number })[];
 
   constructor(keys: CamKey[]) {
     if (!keys.length) throw new Error('CameraRig needs at least one key');
     const ks = [...keys].sort((a, b) => a.t - b.t);
-    const firstFov = ks.find((k) => k.fov !== undefined)?.fov;
-    let fov = firstFov, roll = 0;
+    const first = ks[0]!;
+    if (first.fov === undefined) {
+      throw new Error(`CameraRig needs a fov on its first key (t = ${first.t}): without one it would leave the camera's own, and a camera two rigs share would keep whichever ran last`);
+    }
+    let fov = first.fov, roll = 0;
     this.keys = ks.map((k) => {
       fov = k.fov ?? fov;
       roll = k.roll ?? roll;
@@ -257,7 +308,7 @@ export class CameraRig {
 
   apply(cam: THREE.PerspectiveCamera, t: number) {
     const ks = this.keys, n = ks.length;
-    let pos: V3, target: V3, fov: number | undefined, roll: number;
+    let pos: V3, target: V3, fov: number, roll: number;
     let i = 0;
     while (i < n && ks[i]!.t <= t) i++; // ks[i - 1].t <= t < ks[i].t
     if (i === 0 || i === n || ks[i - 1]!.t === t) {
@@ -268,14 +319,14 @@ export class CameraRig {
       const e = (b.ease ?? ease.inOutCubic)((t - a.t) / (b.t - a.t));
       pos = catmullRom(ks[i - 2]?.pos, a.pos, b.pos, ks[i + 1]?.pos, e);
       target = catmullRom(ks[i - 2]?.target, a.target, b.target, ks[i + 1]?.target, e);
-      fov = a.fovR === undefined || b.fovR === undefined ? undefined : a.fovR + (b.fovR - a.fovR) * e;
+      fov = a.fovR + (b.fovR - a.fovR) * e;
       roll = a.rollR + (b.rollR - a.rollR) * e;
     }
     cam.position.set(pos[0], pos[1], pos[2]);
     cam.up.set(0, 1, 0);
     cam.lookAt(target[0], target[1], target[2]);
     if (roll) cam.rotateZ(THREE.MathUtils.degToRad(roll));
-    if (fov !== undefined) cam.fov = fov;
+    cam.fov = fov;
     cam.updateProjectionMatrix();
     cam.updateMatrixWorld();
   }

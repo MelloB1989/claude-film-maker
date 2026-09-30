@@ -33,15 +33,15 @@ export default class ThreadTest extends Scene {
   private single!: Thread;
   private pair!: Thread;
   private wide = new CameraRig([
-    { t: 0, pos: [-0.1, 0.075, 1.3], target: [0.02, 0, -0.03] },
+    { t: 0, pos: [-0.1, 0.075, 1.3], target: [0.02, 0, -0.03], fov: FOV },
     { t: MACRO, pos: [0.02, 0.05, 1.12], target: [0.03, -0.004, -0.03], ease: ease.linear },
   ]);
   private macro = new CameraRig([
-    { t: 0, pos: [-0.12, 0.05, 0.27], target: [0.0, 0.0, 0.0] },
+    { t: 0, pos: [-0.12, 0.05, 0.27], target: [0.0, 0.0, 0.0], fov: FOV },
     { t: 4, pos: [-0.06, 0.035, 0.22], target: [0.01, 0.0, -0.005], ease: ease.linear },
   ]);
   private medium = new CameraRig([
-    { t: 0, pos: [-0.2, 0.06, 0.55], target: [-0.02, 0.0, 0.0] },
+    { t: 0, pos: [-0.2, 0.06, 0.55], target: [-0.02, 0.0, 0.0], fov: FOV },
     { t: 2, pos: [-0.16, 0.05, 0.5], target: [-0.01, 0.0, 0.0], ease: ease.linear },
   ]);
 

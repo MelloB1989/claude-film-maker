@@ -61,7 +61,7 @@ export default class Weave extends Scene {
     const [, word] = COMMIT_LINE.split(' ') as [string, string];
     this.home = { x: this.ref.x + GAP + glyphX(COMMIT_LINE, COMMIT_LINE.indexOf(word), HERO.fam, HERO.px), y: this.ref.y + HERO.base };
     this.hero = new Hero(this.ctx.renderer, word, HERO.fam, HERO.px, this.home.x, this.home.y);
-    this.ctx.renderer.compile(this.hero.stage.scene, this.hero.stage.camera); // no first-slam shader hitch
+    this.hero.stage.compile(); // no first-slam shader hitch: its programs, built for the stage's own target
   }
 
   override async prepare(t: number) {

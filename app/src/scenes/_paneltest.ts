@@ -64,11 +64,11 @@ export default class PanelTest extends Scene {
   private edit!: Panel;
   private gallery: Panel[] = [];
   private rig = new CameraRig([
-    { t: 0, pos: [-0.7, 0.28, 2.22], target: [0.02, -0.03, -0.08] },
+    { t: 0, pos: [-0.7, 0.28, 2.22], target: [0.02, -0.03, -0.08], fov: FOV },
     { t: 7, pos: [-0.4, 0.18, 1.84], target: [0.06, -0.05, -0.08], ease: ease.inOutCubic },
   ]);
   private rig2 = new CameraRig([
-    { t: GALLERY, pos: [0.16, 0.1, 2.36], target: [0, -0.01, 0] },
+    { t: GALLERY, pos: [0.16, 0.1, 2.36], target: [0, -0.01, 0], fov: FOV },
     { t: GALLERY + 6, pos: [-0.06, 0.04, 2.24], target: [0, -0.01, 0], ease: ease.inOutCubic },
   ]);
 

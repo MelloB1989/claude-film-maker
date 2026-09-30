@@ -1,6 +1,7 @@
-// What only Chrome can show: how Canvas2D sets the film's type, and what a 2D context keeps from one frame to the next.
-// gl.ts and type.ts are bundled (Bun.build) into a blank page served from memory, and the fonts load off disk through
-// the page's own loadFonts(), as the film's do. Needs Google Chrome, as scripts/render.ts does.
+// What only Chrome can show: how Canvas2D sets the film's type, what a 2D context keeps from one frame to the next, and
+// which shader programs WebGL builds. gl.ts, type.ts and stage.ts (with the three they use) are bundled (Bun.build) into
+// a blank page served from memory, and the fonts load off disk through the page's own loadFonts(), as the film's do.
+// Needs Google Chrome, as scripts/render.ts does.
 import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,10 +17,16 @@ beforeAll(async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'film-chrome-'));
   const entry = path.join(dir, 'entry.ts');
   const mod = (f: string) => JSON.stringify(path.join(import.meta.dir, f));
-  writeFileSync(entry, `import * as gl from ${mod('gl.ts')};\nimport * as type from ${mod('type.ts')};\n(window as any).__t = { gl, type };\n`);
+  writeFileSync(entry, [
+    `import * as THREE from ${JSON.stringify(Bun.resolveSync('three', import.meta.dir))};`,
+    `import * as gl from ${mod('gl.ts')};`,
+    `import * as type from ${mod('type.ts')};`,
+    `import * as stage from ${mod('stage.ts')};`,
+    '(window as any).__t = { THREE, gl, type, stage };',
+  ].join('\n'));
   const built = await Bun.build({ entrypoints: [entry], target: 'browser', format: 'esm' });
   rmSync(dir, { recursive: true, force: true });
-  if (!built.success) throw new AggregateError(built.logs, 'bundling gl.ts and type.ts failed');
+  if (!built.success) throw new AggregateError(built.logs, 'bundling the engine for the page failed');
   const code = await built.outputs[0]!.text();
   browser = await chromium.launch({ channel: 'chrome', headless: true });
   page = await browser.newPage();
@@ -135,3 +142,53 @@ test('Layer2D.clear() starts the frame from a fresh context: no pixels, no state
   expect(r.px).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 0, 0, 255, 255]);
   expect(r.tinted[0]).toEqual(r.tinted[1]);
 });
+
+test('Stage.compile() builds the programs the stage draws with; render() keeps a view offset and refuses odd targets', async () => {
+  const r = await page.evaluate(() => {
+    const { THREE, gl, stage } = (window as any).__t;
+    const renderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), antialias: false });
+    const out = gl.makeRT(gl.W, gl.H);
+    const programs = (name: string) => renderer.info.programs.filter((p: { name: string }) => p.name === name).length;
+    /**
+     * A stage with one ball, its material named so its programs can be counted (three shares a program between
+     * materials of the same kind and settings, so the control and the probe are of different kinds).
+     */
+    const ball = (name: string, Kind: typeof THREE.MeshStandardMaterial) => {
+      const st = new stage.Stage(renderer, { fov: 30 });
+      const m = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 12), new Kind({ color: 0xffffff, roughness: 0.4, name }));
+      m.position.z = -5;
+      st.scene.add(m, new THREE.DirectionalLight(0xffffff, 2));
+      return st;
+    };
+    // the control, as weave compiled: with nothing bound three builds the canvas's program, and the first frame another
+    const old = ball('for-the-canvas', THREE.MeshStandardMaterial);
+    renderer.setRenderTarget(null);
+    renderer.compile(old.scene, old.camera);
+    const oldCompiled = programs('for-the-canvas');
+    old.render(out);
+    const oldRendered = programs('for-the-canvas');
+    // Stage.compile(): the stage's own, and nothing more on its first frame
+    const st = ball('for-the-stage', THREE.MeshPhysicalMaterial);
+    renderer.setRenderTarget(null);
+    st.compile();
+    const unbound = renderer.getRenderTarget() === null;
+    const compiled = programs('for-the-stage');
+    st.render(out);
+    const rendered = programs('for-the-stage');
+    // a view offset the scene set is there after the render
+    st.camera.setViewOffset(2 * gl.PW, gl.PH, gl.PW, 0, gl.PW, gl.PH);
+    st.render(out);
+    const view = { ...st.camera.view };
+    const refused = (f: () => void) => { try { f(); return ''; } catch (e) { return (e as Error).message; } };
+    return {
+      oldCompiled, oldRendered, compiled, rendered, unbound, view, PW: gl.PW, PH: gl.PH,
+      small: refused(() => st.render(gl.makeRT(gl.W / 2, gl.H / 2))), canvas: refused(() => st.render(null, { clear: false })),
+    };
+  });
+  expect([r.oldCompiled, r.oldRendered]).toEqual([1, 2]);
+  expect([r.compiled, r.rendered]).toEqual([1, 1]);
+  expect(r.unbound).toBe(true); // compile() puts back what was bound
+  expect(r.view).toMatchObject({ enabled: true, fullWidth: 2 * r.PW, fullHeight: r.PH, offsetX: r.PW, offsetY: 0, width: r.PW, height: r.PH });
+  expect(r.small).toContain('the output size');
+  expect(r.canvas).toContain('clear: false');
+}, 30000);

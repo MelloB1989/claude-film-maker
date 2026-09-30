@@ -21,7 +21,7 @@ const SPHERES: [number, number, number, number][] = [
 export default class StageTest extends Scene {
   private stage!: Stage;
   private rig = new CameraRig([
-    { t: 0, pos: [-0.06, 0.04, 0.3], target: [-0.02, 0, -4] },
+    { t: 0, pos: [-0.06, 0.04, 0.3], target: [-0.02, 0, -4], fov: FOV },
     { t: 1, pos: [0, 0, 0], target: [0, 0, -4], ease: ease.linear },
     { t: 7, pos: [0.12, -0.02, -0.25], target: [0.05, 0.02, -4], ease: ease.outCubic },
   ]);
