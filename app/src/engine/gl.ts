@@ -297,6 +297,14 @@ export class Layer2D {
     }
   }
   upload() { this.texture.needsUpdate = true; return this.texture; }
+  /**
+   * Free the layer: its texture's GPU copy and its canvas's backing store (a full-frame layer holds 8 MiB at 1080p and
+   * 32 MiB at 4K, and its texture as much again). It draws nothing after.
+   */
+  dispose() {
+    this.texture.dispose();
+    this.canvas.width = this.canvas.height = 0;
+  }
 }
 
 /** Clear a render target to a linear colour. */

@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import * as THREE from 'three';
 import { DOF_MAX_BLUR_PX, cocPx, dofUniforms, latticeDisc } from './dof';
 import { PH, PW } from './gl';
-import { CameraRig, eachTap, stageTarget, type CamKey } from './stage';
+import { CameraRig, eachTap, initAreaLights, stageTarget, type CamKey } from './stage';
 import { ease } from './util';
 
 // Expected values are hand-derived (Python, from the textbook thin-lens form c = A·|z − S|/z · f/(S − f) on a 16:9
@@ -252,4 +252,15 @@ test('the DoF lens follows camera.zoom: a 1.5x punch-in blurs as the longer lens
   const plain = cam();
   plain.fov = 30;
   expect(dofUniforms(lens, plain, 1080).coc[1]).toBe(own.coc[1]);
+});
+
+test('initAreaLights readies three for area lights once: a second call makes no new lookup textures', () => {
+  // RectAreaLightUniformsLib.init() makes four new LTC textures on every call, and the renderer keeps the ones it
+  // uploaded before: her and weave's hero both light with area lights, and each init leaked the last set
+  initAreaLights();
+  const first = [THREE.UniformsLib.LTC_FLOAT_1, THREE.UniformsLib.LTC_FLOAT_2] as unknown[];
+  expect(first.every((t) => t instanceof THREE.DataTexture)).toBe(true);
+  initAreaLights();
+  expect([THREE.UniformsLib.LTC_FLOAT_1, THREE.UniformsLib.LTC_FLOAT_2]).toEqual(first);
+  expect(THREE.UniformsLib.LTC_FLOAT_1).toBe(first[0] as THREE.DataTexture);
 });

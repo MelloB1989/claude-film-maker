@@ -6,8 +6,7 @@
 // Light: a key from the upper left, a rim from behind, the stage's studio, and a narrow strip whose reflection runs
 // across the faces left to right as the word lands (the specular sweep of motion language v2 §5).
 import * as THREE from 'three';
-import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
-import { Stage } from '../engine/stage';
+import { Stage, initAreaLights } from '../engine/stage';
 import { Mat, Type3D } from '../engine/type3d';
 import { GLOW_LEVEL } from '../engine/look';
 import { slam } from '../engine/motion';
@@ -59,7 +58,7 @@ export class Hero {
 
     // neutral light: a near-frontal key that sets the faces at bone (albedo 0.85 x 3.4 x N.L 0.87 / pi = 0.8), a long
     // softbox above whose reflection runs along the top bevels, a rim from behind and above along the top edges
-    RectAreaLightUniformsLib.init();
+    initAreaLights();
     this.key = new THREE.DirectionalLight(0xffffff, 3.4);
     this.key.position.set(-3, 4, 9);
     const [x0, x1, ym] = this.span();

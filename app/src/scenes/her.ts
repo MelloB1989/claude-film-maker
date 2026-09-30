@@ -14,9 +14,8 @@
 //    and orbits it; light, focus and a pool on the backdrop follow each hero word as it lands. On "blame" the blame
 //    gutter slides in at left. Then the whole headline drifts back out of focus.
 import * as THREE from 'three';
-import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { Scene, type Frame, type PostOverrides } from '../engine/scene';
-import { CameraRig, Stage, type CamKey, type V3 } from '../engine/stage';
+import { CameraRig, Stage, initAreaLights, type CamKey, type V3 } from '../engine/stage';
 import { H, W, makeRT } from '../engine/gl';
 import { Thread } from '../engine/thread3d';
 import { Mat, Type3D } from '../engine/type3d';
@@ -247,7 +246,7 @@ export default class Her extends Scene {
     // "Not". Shot 3, the type: a long softbox overhead whose reflection runs along the top bevels, a raking spot that
     // follows the hero word as it lands (light, focus and type agree on what matters), a low fill, and the rim. (The
     // type's sweeps are in its materials: withSweep.)
-    RectAreaLightUniformsLib.init();
+    initAreaLights();
     const box = new THREE.RectAreaLight(0xffffff, 1, 1.8, 0.6);
     box.position.set(-0.5, 1.3, 1.5);
     box.lookAt(0.5, 0, 0);

@@ -597,11 +597,8 @@ export class Panel {
     this.mat.dispose();
     this.shadow.geometry.dispose();
     this.shadowMat.dispose();
-    if (this.layer) {
-      this.layer.texture.dispose();
-      this.layer.canvas.width = this.layer.canvas.height = 0;
-      this.layer = null;
-    }
+    this.layer?.dispose();
+    this.layer = null;
   }
 
   // ------------------------------------------------------------------------------------------------ layout

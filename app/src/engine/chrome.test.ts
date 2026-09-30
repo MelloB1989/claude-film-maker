@@ -192,3 +192,21 @@ test('Stage.compile() builds the programs the stage draws with; render() keeps a
   expect(r.small).toContain('the output size');
   expect(r.canvas).toContain('clear: false');
 }, 30000);
+
+test('Layer2D.dispose() frees its texture\'s GPU copy and its canvas\'s backing store', async () => {
+  const r = await page.evaluate(() => {
+    const { THREE, gl } = (window as any).__t;
+    const renderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas') });
+    const textures = () => renderer.info.memory.textures;
+    const base = textures();
+    const L = new gl.Layer2D(64, 32, 2);
+    L.clear('#fff');
+    renderer.initTexture(L.upload());
+    const uploaded = textures();
+    L.dispose();
+    return { base, uploaded, after: textures(), size: [L.canvas.width, L.canvas.height] };
+  });
+  expect(r.uploaded).toBe(r.base + 1);
+  expect(r.after).toBe(r.base);
+  expect(r.size).toEqual([0, 0]);
+});

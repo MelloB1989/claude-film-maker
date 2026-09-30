@@ -15,6 +15,7 @@
 // step, each segment timed by the ease of the key it is heading to.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { FSPass, H, PH, PW, W, clearRT, makeRT } from './gl';
 import { LIN } from './palette';
 import { DofPass, type DofParams } from './dof';
@@ -141,6 +142,18 @@ export function eachTap(cam: THREE.PerspectiveCamera, draw: (tap: number) => voi
     if (v) cam.setViewOffset(v.fullWidth, v.fullHeight, v.offsetX, v.offsetY, v.width, v.height);
     else cam.clearViewOffset();
   }
+}
+
+let areaLights = false;
+/**
+ * Ready three for RectAreaLights, once. RectAreaLightUniformsLib.init() makes four new lookup textures (LTC) every time
+ * it runs, and the renderer keeps the ones it uploaded before: a scene that called it in its own init leaked a set on
+ * every load. Call this instead, before the first render with an area light.
+ */
+export function initAreaLights() {
+  if (areaLights) return;
+  RectAreaLightUniformsLib.init();
+  areaLights = true;
 }
 
 function release(renderer: THREE.WebGLRenderer) {
