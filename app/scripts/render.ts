@@ -6,6 +6,12 @@
 //   video:   bun scripts/render.ts video [--only id] [--from 0] [--to <duration>] [--fps 30] [--crf 16] [--x264 aq-mode=3] [--samples 1] [--shutter 0.5] [--out ../out/gitloom.mp4, or ../out/<only|module>.mp4] [--noaudio]
 //            --samples N averages N sub-frames per frame over shutter×(1/fps): motion blur + temporal AA;
 //            --samples auto picks the count per frame (4, 12, 36, 108 or 324, see Engine.render)
+//            Without --out, a range given with --from/--to is named for it too, <name>_<from>-<to>.mp4 (out/gitloom_5.5-7.mp4):
+//            only the whole film is out/gitloom.mp4, and only a scene's whole window out/<id>.mp4.
+//            A scene error (init, a missing plate frame, a throw in render) fails the export: nothing is renamed to
+//            --out, `<out>.progress` reads "FAILED: <reason>", and `<out>.partial` plays up to the failure.
+//   --proxies (all modes): a plate frame whose EXR is missing composites its 960x540 proxy (a draft, warned once);
+//            without it the missing EXR fails the export.
 //   --only ID (sheet, perf, video) with ONE scene id and neither --from nor --to: exactly the frames that scene owns,
 //            frame f being the scene's when f/fps falls in its window [start, end) (--only her: frames 469…684 at
 //            30 fps, 216 frames). The sheet's first and last stills are then its first and last frames, saved to
@@ -56,22 +62,27 @@ async function openPage(url: string) {
     headless: !flag('headed'),
     args: ['--use-angle=metal', '--enable-gpu-rasterization', '--ignore-gpu-blocklist', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'],
   });
-  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-  const logs: string[] = [];
-  page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(`[${m.type()}] ${m.text()}`); });
-  page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
-  const only = opt('only'), module = opt('module');
-  if (module && !/^[\w-]+$/.test(module)) throw new Error(`--module takes a scene file name (scenes/<name>.ts), got '${module}'`);
-  const sel = module ? `&module=${module}` : only ? `&only=${only}` : '';
-  await page.goto(`${url}/?export=1${sel}${SCALE !== 1 ? `&scale=${SCALE}` : ''}`);
-  await page.waitForFunction(() => (window as any).__film?.ready || (window as any).__film?.error, null, { timeout: 120000 });
-  const err = await page.evaluate(() => (window as any).__film.error);
-  if (err) throw new Error(`app failed to boot:\n${err}\n${logs.join('\n')}`);
-  const size: [number, number] = await page.evaluate(() => [(window as any).__film.width ?? 1920, (window as any).__film.height ?? 1080]);
-  if (size[0] !== OW || size[1] !== OH) throw new Error(`app renders ${size[0]}x${size[1]}, expected ${OW}x${OH} (--scale ${SCALE})`);
-  const sceneErrors: string[] = await page.evaluate(() => (window as any).__film.errors);
-  if (sceneErrors.length) console.error('SCENE ERRORS:\n' + sceneErrors.join('\n'));
-  return { browser, page, logs };
+  try {
+    const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+    const logs: string[] = [];
+    page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(`[${m.type()}] ${m.text()}`); });
+    page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
+    const only = opt('only'), module = opt('module');
+    if (module && !/^[\w-]+$/.test(module)) throw new Error(`--module takes a scene file name (scenes/<name>.ts), got '${module}'`);
+    const sel = module ? `&module=${module}` : only ? `&only=${only}` : '';
+    await page.goto(`${url}/?export=1${sel}${SCALE !== 1 ? `&scale=${SCALE}` : ''}${flag('proxies') ? '&proxies=1' : ''}`);
+    await page.waitForFunction(() => (window as any).__film?.ready || (window as any).__film?.error, null, { timeout: 120000 });
+    const err = await page.evaluate(() => (window as any).__film.error);
+    if (err) throw new Error(`app failed to boot:\n${err}\n${logs.join('\n')}`);
+    const size: [number, number] = await page.evaluate(() => [(window as any).__film.width ?? 1920, (window as any).__film.height ?? 1080]);
+    if (size[0] !== OW || size[1] !== OH) throw new Error(`app renders ${size[0]}x${size[1]}, expected ${OW}x${OH} (--scale ${SCALE})`);
+    const sceneErrors: string[] = await page.evaluate(() => (window as any).__film.errors);
+    if (sceneErrors.length) console.error('SCENE ERRORS:\n' + sceneErrors.join('\n'));
+    return { browser, page, logs };
+  } catch (e) {
+    await browser.close();
+    throw e;
+  }
 }
 
 /**
@@ -132,9 +143,10 @@ const clock = (s: number) => `${Math.floor(s / 60)}m${String(Math.round(s % 60))
 
 async function video(page: Page, from: number, to: number, fps: number, out: string) {
   mkdirSync(path.dirname(out), { recursive: true });
-  // Encoded under a temporary name and renamed when ffmpeg has finished, so a killed export never leaves a broken
-  // file at `out`; `<out>.progress` says how far a running one has got. The file itself grows in bursts minutes
-  // apart (x264's lookahead holds ~40 frames, and a motion-blurred frame can take seconds), so its size is no guide.
+  // Encoded under a temporary name and renamed only when ffmpeg has finished and the page reports no scene error, so
+  // a failed or killed export never leaves a file at `out`; `<out>.progress` says how far a running one has got, and
+  // "FAILED: <reason>" once one has failed. The file itself grows in bursts minutes apart (x264's lookahead holds ~40
+  // frames, and a motion-blurred frame can take seconds), so its size is no guide.
   const part = `${out}.partial`, progress = `${out}.progress`;
   const crf = opt('crf', '16')!;
   const audio = path.join(ROOT, 'audio/mix/mix.wav');
@@ -147,7 +159,8 @@ async function video(page: Page, from: number, to: number, fps: number, out: str
   if (!flag('noaudio')) args.push('-c:a', 'aac', '-b:a', '320k', '-shortest');
   args.push('-movflags', '+faststart', '-f', path.extname(out).toLowerCase() === '.mov' ? 'mov' : 'mp4', part);
   const ff = Bun.spawn(args, { stdin: 'pipe', stdout: 'inherit', stderr: 'inherit' });
-  let frames = 0;
+  let frames = 0, failed = false, quit = false;
+  void ff.exited.then(() => (quit = true));
   const total = Math.round(to * fps) - Math.round(from * fps);
   const t0 = performance.now();
   let noted = -Infinity;
@@ -167,30 +180,59 @@ async function video(page: Page, from: number, to: number, fps: number, out: str
     websocket: {
       maxPayloadLength: Math.max(64 * 1024 * 1024, OW * OH * 4 + 1024),
       async message(ws, msg) {
-        ff.stdin.write(msg as Uint8Array);
-        await ff.stdin.flush();
+        if (failed) return;
+        try {
+          ff.stdin.write(msg as Uint8Array);
+          await ff.stdin.flush();
+        } catch {
+          ws.close(); // ffmpeg has quit (its exit code says why): the page stops rendering
+          return;
+        }
         frames++;
         ws.send(String(frames)); // ack: the page keeps at most a few frames ahead of ffmpeg (bounded memory at 4K)
         note();
       },
     },
   });
-  const used: Record<string, number> = await page.evaluate((o) => (window as any).__film.stream(o), { from, to, fps, ws: `ws://localhost:${server.port}`, samples: SAMPLES, shutter: +opt('shutter', '0.5')!, inflight: 4 });
-  // wait for all frames to arrive
-  while (frames < total) await Bun.sleep(20);
-  ff.stdin.end();
-  const code = await ff.exited;
-  server.stop();
-  if (code !== 0) throw new Error(`ffmpeg exited ${code}: the unfinished encode is left at ${part}`);
-  renameSync(part, out);
-  rmSync(progress, { force: true });
-  console.log(`\nwrote ${out} (${frames} frames in ${((performance.now() - t0) / 1000).toFixed(1)}s)`);
-  console.log(`sub-frames per frame (count:frames): ${hist(used)}`);
+  try {
+    // (rejects on a scene error: the page sends no frame after it)
+    const used: Record<string, number> = await page.evaluate((o) => (window as any).__film.stream(o), { from, to, fps, ws: `ws://localhost:${server.port}`, samples: SAMPLES, shutter: +opt('shutter', '0.5')!, inflight: 4 });
+    // wait for all frames to arrive (or ffmpeg to quit)
+    while (frames < total && !quit) await Bun.sleep(20);
+    ff.stdin.end();
+    const code = await ff.exited;
+    if (code !== 0) throw new Error(`ffmpeg exited ${code}`);
+    // a scene error the page recorded without failing the stream still keeps the file from its name
+    const errors: string[] = await page.evaluate(() => (window as any).__film.errors);
+    if (errors.length) throw new Error(`the page recorded scene errors:\n${errors.join('\n')}`);
+    renameSync(part, out);
+    rmSync(progress, { force: true });
+    console.log(`\nwrote ${out} (${frames} frames in ${((performance.now() - t0) / 1000).toFixed(1)}s)`);
+    console.log(`sub-frames per frame (count:frames): ${hist(used)}`);
+  } catch (e) {
+    failed = true;
+    // ffmpeg finishes what it has (the partial plays up to the failure), and the file keeps its .partial name
+    try {
+      ff.stdin.end();
+    } catch {
+      // already closed
+    }
+    const code = await ff.exited;
+    let reason = String((e as Error)?.message ?? e).split('\n')[0]!.replace(/^(page\.)?evaluate: (Error: )?/, '');
+    if (code !== 0 && !reason.startsWith('ffmpeg')) reason += ` (ffmpeg exited ${code})`;
+    writeFileSync(progress, `FAILED: ${reason}\n${frames}/${total} frames encoded to ${path.basename(part)}, not renamed to ${path.basename(out)}\n`);
+    console.error(`\nFAILED: ${reason}\n(${frames}/${total} frames are in ${part}; see ${progress})`);
+    throw e;
+  } finally {
+    server.stop(true);
+  }
 }
 
 const { url, stop } = await ensureServer();
-const { browser, page, logs } = await openPage(url);
+let session: Awaited<ReturnType<typeof openPage>> | undefined;
 try {
+  session = await openPage(url);
+  const { page } = session;
   if (mode === 'gpu') {
     console.log(await page.evaluate(() => {
       const gl = document.createElement('canvas').getContext('webgl2')!;
@@ -247,13 +289,15 @@ try {
     // from·fps and to·fps, and the audio is cut at the same times)
     const clip = await sceneFrames(page, fps);
     const from = clip ? clip.first / fps : +opt('from', '0')!, to = clip ? (clip.last + 1) / fps : +opt('to', String(dur))!;
-    // without --out, a part of the film is named after its scenes (or module): only the whole film is out/gitloom.mp4
-    const part = opt('module') ?? opt('only');
-    const dflt = path.join(ROOT, part ? `out/${part.replace(/[,/]/g, '+')}.mp4` : 'out/gitloom.mp4');
-    await video(page, from, to, fps, path.resolve(opt('out', dflt)!));
+    // without --out, a part of the film is named after its scenes (or module), and a range given with --from/--to
+    // after its times as well: only the whole film is out/gitloom.mp4, and only a scene's whole window out/<id>.mp4
+    const name = (opt('module') ?? opt('only'))?.replace(/[,/]/g, '+') ?? 'gitloom';
+    const range = !clip && (flag('from') || flag('to')) ? `_${from}-${to}` : '';
+    await video(page, from, to, fps, path.resolve(opt('out', path.join(ROOT, `out/${name}${range}.mp4`))!));
   }
-  if (logs.length) console.error('BROWSER LOG:\n' + logs.slice(0, 40).join('\n'));
 } finally {
-  await browser.close();
+  // (a failed run too: what the page logged is often why)
+  if (session?.logs.length) console.error('BROWSER LOG:\n' + session.logs.slice(0, 40).join('\n'));
+  await session?.browser.close();
   stop();
 }
