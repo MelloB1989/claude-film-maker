@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { expect, spyOn, test } from 'bun:test';
 import * as THREE from 'three';
 import { LRU, Plate, plateIndex, type PlateKind } from './plates';
 import { Track } from './track';
@@ -74,14 +74,44 @@ test('Plate (export): an unprepared frame throws instead of showing a neighbour'
   expect(() => p.texture(at(48))).toThrow('not prepared');
 });
 
-test('Plate (export): a missing EXR falls back to the proxy; a frame missing both rejects', async () => {
+test('Plate (export): a missing EXR fails, naming it, and never falls back to the proxy unless proxies are opted into', async () => {
   const L = fakeLoader((url) => url.endsWith('.png'));
   const p = new Plate('_cube', 40, { mode: 'export', load: L.load });
+  await expect(p.prepare(at(47))).rejects.toThrow(`plate _cube frame 7 (film frame 47): no ${exr(7)}`);
+  expect(L.calls).toEqual([exr(7)]);
+  expect(() => p.texture(at(47))).toThrow('not prepared');
+});
+
+test('Plate (export, proxies opted into): the proxy stands in for a missing EXR, with one warning; a frame missing both rejects', async () => {
+  const warn = spyOn(console, 'warn').mockImplementation(() => {});
+  const L = fakeLoader((url) => url.endsWith('.png'));
+  const p = new Plate('_cube', 40, { mode: 'export', proxies: true, load: L.load });
   await p.prepare(at(47));
-  expect(L.calls).toEqual([exr(7), proxy(7)]);
+  await p.prepare(at(48));
+  expect(L.calls).toEqual([exr(7), proxy(7), exr(8), proxy(8)]);
   expect(p.texture(at(47))!.name).toBe(proxy(7));
-  const none = new Plate('_cube', 40, { mode: 'export', load: fakeLoader(() => false).load });
+  expect(warn.mock.calls.map((c) => String(c[0]))).toEqual([expect.stringContaining(`plate _cube: no EXR for frame 7 (${exr(7)})`)]);
+  warn.mockRestore();
+  const none = new Plate('_cube', 40, { mode: 'export', proxies: true, load: fakeLoader(() => false).load });
   await expect(none.prepare(at(47))).rejects.toThrow('_cube frame 7');
+});
+
+test('Plate (export): a plate smaller than the output warns once (it is upscaled); one at least its size does not', async () => {
+  const warn = spyOn(console, 'warn').mockImplementation(() => {});
+  const sized = (w: number, h: number) => async (url: string) => {
+    const tex = new THREE.Texture();
+    tex.name = url;
+    tex.image = { width: w, height: h };
+    return tex;
+  };
+  const small = new Plate('_cube', 40, { mode: 'export', output: [3840, 2160], load: sized(2560, 1440) });
+  for (let n = 40; n < 44; n++) await small.prepare(at(n));
+  expect(warn.mock.calls.map((c) => String(c[0]))).toEqual([expect.stringContaining('plate _cube is 2560x1440, smaller than the 3840x2160 output')]);
+  warn.mockClear();
+  const big = new Plate('_cube', 40, { mode: 'export', output: [1920, 1080], load: sized(2560, 1440) });
+  await big.prepare(at(40));
+  expect(warn).not.toHaveBeenCalled();
+  warn.mockRestore();
 });
 
 test('Plate: a frame is loaded once, however often and however concurrently it is prepared', async () => {
@@ -92,18 +122,43 @@ test('Plate: a frame is loaded once, however often and however concurrently it i
   expect(L.calls).toEqual([exr(7)]);
 });
 
-test('Plate: at most 8 textures are kept; the least recently used are disposed first', async () => {
+test('Plate (preview): at most 8 textures are kept; the least recently used are disposed first', async () => {
   const L = fakeLoader();
-  const p = new Plate('_cube', 40, { mode: 'export', load: L.load });
+  const p = new Plate('_cube', 40, { mode: 'preview', ahead: 0, load: L.load });
   for (let n = 40; n < 50; n++) await p.prepare(at(n)); // frames 0..9
-  expect(L.disposed).toEqual([exr(0), exr(1)]);
-  expect(() => p.texture(at(40))).toThrow('not prepared');
-  expect(p.texture(at(42))!.name).toBe(exr(2));
+  expect(L.disposed).toEqual([proxy(0), proxy(1)]);
+  expect(p.texture(at(42))!.name).toBe(proxy(2));
   // frame 2 was just used, so the next load evicts frame 3, not 2
   await p.prepare(at(50));
-  expect(L.disposed).toEqual([exr(0), exr(1), exr(3)]);
+  expect(L.disposed).toEqual([proxy(0), proxy(1), proxy(3)]);
   p.dispose(); // releases the 8 still held
   expect([...L.disposed].sort()).toEqual([...L.calls].sort());
+});
+
+test('Plate (export): at most 3 textures are kept (the most one film frame needs: engine.test.ts), the stalest disposed first', async () => {
+  const L = fakeLoader();
+  const p = new Plate('_cube', 40, { mode: 'export', load: L.load });
+  for (let n = 40; n < 45; n++) await p.prepare(at(n)); // frames 0..4
+  expect(L.disposed).toEqual([exr(0), exr(1)]);
+  expect(() => p.texture(at(41))).toThrow('not prepared');
+  expect(p.texture(at(42))!.name).toBe(exr(2));
+  // frame 2 was just used, so the next load evicts frame 3, not 2
+  await p.prepare(at(45));
+  expect(L.disposed).toEqual([exr(0), exr(1), exr(3)]);
+  p.dispose(); // releases the 3 still held
+  expect([...L.disposed].sort()).toEqual([...L.calls].sort());
+});
+
+test('Plate: a frame that finishes loading after dispose() is released, not kept', async () => {
+  let land!: () => void;
+  const gate = new Promise<void>((r) => (land = r));
+  const L = fakeLoader();
+  const p = new Plate('_cube', 40, { mode: 'preview', ahead: 0, load: async (url, kind) => (await gate, L.load(url, kind)) });
+  const loading = p.prepare(at(42)); // (the player prefetches without waiting)
+  p.dispose();
+  land();
+  await loading;
+  expect(L.disposed).toEqual([proxy(2)]);
 });
 
 test('Plate (preview): proxies, prefetching ahead; an unloaded frame shows the nearest loaded one', async () => {

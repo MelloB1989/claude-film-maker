@@ -10,11 +10,13 @@
 // of at most one frame) maps to that frame's plate: the plate carries Blender's motion blur already.
 //
 // Export awaits `prepare(t)` before every frame (Scene.prepare, Engine.prepare), and `texture(t)` is then exactly that
-// frame, or it throws: a plate never silently shows a neighbour in a render. The player prepares best-effort and shows
-// the nearest frame it has while the right one loads.
+// frame, or it throws: a plate never silently shows a neighbour in a render. It composites the EXR or fails: the
+// proxy (8-bit, clipped at 1, so its blood and moss cores stop blooming; upscaled 2x) stands in only when the export
+// opts into it (render.ts --proxies, a draft). The player prepares best-effort and shows the nearest frame it has
+// while the right one loads.
 import * as THREE from 'three';
 import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
-import type { BlendMode, Compositor } from './gl';
+import { PH, PW, type BlendMode, type Compositor } from './gl';
 import { frameIdx } from './util';
 
 export type PlateKind = 'exr' | 'proxy';
@@ -99,32 +101,50 @@ export interface PlateOpts {
   mode?: PlateMode;
   /** The plate's frame count, when known: times before it hold frame 0 and times after it the last frame. */
   count?: number;
-  /** Textures kept (default 8). */
+  /**
+   * Textures kept, each a decoded frame in CPU and GPU memory (a 2560x1440 EXR: 28 MiB of each). Default 8 in preview;
+   * 3 in export, which needs only the frame's own plate frames between its prepare() and its render(): 30·shutter/fps
+   * plate frames pass per film frame, so one at 30 fps and up to three at 24 or 25 fps with a shutter over 0.8
+   * (engine.test.ts checks fps 24 to 60 with shutters to 1). The scene's dispose() releases them all.
+   */
   cap?: number;
   /** Frames loaded ahead of the prepared one in preview (default 2; export loads only what it renders). */
   ahead?: number;
+  /**
+   * Export: composite a frame's 960x540 proxy where its EXR is missing, warning once (a draft). Default: the page's
+   * ?proxies (render.ts --proxies). Otherwise a missing EXR fails the export.
+   */
+  proxies?: boolean;
+  /** The output size in px (default the engine's, PW x PH): export warns once when a plate is smaller (upscaled). */
+  output?: [number, number];
   /** Loads one frame file (default loadPlateTexture). */
   load?: (url: string, kind: PlateKind) => Promise<THREE.Texture>;
 }
 
-const pageIsExport = () => typeof location !== 'undefined' && new URLSearchParams(location.search).has('export');
+const pageHas = (k: string) => typeof location !== 'undefined' && new URLSearchParams(location.search).has(k);
 
 export class Plate {
   readonly mode: PlateMode;
   private count?: number;
   private ahead: number;
+  private proxies: boolean;
+  private output: [number, number];
   private load: (url: string, kind: PlateKind) => Promise<THREE.Texture>;
   private cache: LRU<number, THREE.Texture>;
   private pending = new Map<number, Promise<THREE.Texture>>();
   private warned = false;
+  private warnedSize = false;
+  private disposed = false;
 
   /** `f0`: the plate's first film frame (the shot's, as blender/render.py rendered it). */
   constructor(readonly shot: string, readonly f0: number, o: PlateOpts = {}) {
-    this.mode = o.mode ?? (pageIsExport() ? 'export' : 'preview');
+    this.mode = o.mode ?? (pageHas('export') ? 'export' : 'preview');
     this.count = o.count;
     this.ahead = o.ahead ?? (this.mode === 'preview' ? 2 : 0);
+    this.proxies = o.proxies ?? pageHas('proxies');
+    this.output = o.output ?? [PW, PH];
     this.load = o.load ?? loadPlateTexture;
-    this.cache = new LRU(o.cap ?? 8, (tex) => tex.dispose());
+    this.cache = new LRU(o.cap ?? (this.mode === 'export' ? 3 : 8), (tex) => tex.dispose());
   }
 
   /** The plate frame shown at film time t (clamped into the plate when its count is known, else at 0). */
@@ -170,7 +190,9 @@ export class Plate {
     return true;
   }
 
+  /** Releases every frame it holds; one still loading is released when it lands. */
   dispose() {
+    this.disposed = true;
     this.cache.clear();
   }
 
@@ -182,7 +204,8 @@ export class Plate {
       p = this.loadFrame(i).then(
         (tex) => {
           this.pending.delete(i);
-          this.cache.set(i, tex);
+          if (this.disposed) tex.dispose();
+          else this.cache.set(i, tex);
           return tex;
         },
         (err) => {
@@ -199,20 +222,30 @@ export class Plate {
     const png = plateUrl(this.shot, i, 'proxy');
     if (this.mode === 'preview') return this.load(png, 'proxy');
     const exr = plateUrl(this.shot, i, 'exr');
+    let tex: THREE.Texture;
     try {
-      return await this.load(exr, 'exr');
-    } catch {
-      let tex: THREE.Texture;
+      tex = await this.load(exr, 'exr');
+    } catch (err) {
+      const at = `plate ${this.shot} frame ${i} (film frame ${this.f0 + i})`;
+      if (!this.proxies) {
+        throw new Error(`${at}: no ${exr} (${(err as Error)?.message ?? err}); render it (blender/render.py --shot ${this.shot}), or pass --proxies to composite its 960x540 proxy`);
+      }
       try {
         tex = await this.load(png, 'proxy');
       } catch {
-        throw new Error(`plate ${this.shot} frame ${i} (film frame ${this.f0 + i}) is missing: no ${exr} and no ${png} (render it: blender/render.py --shot ${this.shot})`);
+        throw new Error(`${at} is missing: no ${exr} and no ${png} (render it: blender/render.py --shot ${this.shot})`);
       }
       if (!this.warned) {
         this.warned = true;
-        console.warn(`plate ${this.shot}: no EXR for frame ${i} (${exr}), compositing the 960x540 proxy`);
+        console.warn(`plate ${this.shot}: no EXR for frame ${i} (${exr}), compositing the 960x540 proxy (--proxies)`);
       }
-      return tex;
     }
+    const img = tex.image as { width?: number; height?: number } | undefined;
+    const [ow, oh] = this.output;
+    if (!this.warnedSize && img?.width && img.height && (img.width < ow || img.height < oh)) {
+      this.warnedSize = true;
+      console.warn(`plate ${this.shot} is ${img.width}x${img.height}, smaller than the ${ow}x${oh} output: it is upscaled`);
+    }
+    return tex;
   }
 }
