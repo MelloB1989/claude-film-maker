@@ -52,3 +52,66 @@ def test_one_ply_is_the_thread_itself():
     plies, rp = thread.ply_paths([(0, 0, 0), (1, 0, 0)], R, plies=1, twist=10)
     assert rp == pytest.approx(R)
     np.testing.assert_allclose(_dist_to_x_axis(plies[0]), 0, atol=1e-12)
+
+
+# ------------------------------------------------------------------------------------------ the macro rope (B01)
+
+def test_the_lay_matches_the_engines_thread_look():
+    # THREAD_LOOK: plies of 0.5 R on a circle of 0.5 R, a 32 degree lay = 0.199 turns per R (5.03 R per turn)
+    assert thread.LOOK["ply_radius"] == 0.5 and thread.LOOK["ply_offset"] == 0.5 and thread.LOOK["lay_deg"] == 32
+    assert thread.lay_turns(32, 0.5) == pytest.approx(math.tan(math.radians(32)) / math.pi, rel=1e-12)
+    assert 1 / thread.lay_turns(32, 0.5) == pytest.approx(5.03, abs=0.01)
+
+
+def test_a_fray_untwists_the_middle_and_puts_the_twist_back_on_its_shoulders():
+    s = np.linspace(-40, 40, 8001)
+    u = thread.untwisted(s, 0.0, 5.0, 1.0, 1.35)
+    far = np.abs(s) >= 15  # beyond three spans the rope never turns
+    np.testing.assert_allclose(u[far], s[far], atol=1e-9)
+    rate = np.gradient(u, s)
+    assert rate[4000] == pytest.approx(1 - 1.35 + 1.35 / 3, abs=1e-3)  # 10% of the twist at the middle
+    assert np.all(np.diff(u) > 0)  # and it still turns the same way everywhere
+
+
+def test_the_rotation_minimising_frame_does_not_turn_on_a_straight_line():
+    X = np.column_stack([np.linspace(0, 1, 50), np.zeros(50), np.zeros(50)])
+    for rev in (False, True):
+        T, N, B = thread.rmf(X, [0.0, 0.3, 1.0], reverse=rev)
+        n = np.array([0.0, 0.3, 1.0]) / np.hypot(0.3, 1.0)
+        np.testing.assert_allclose(N, np.tile(n, (50, 1)), atol=1e-12)
+        np.testing.assert_allclose(np.einsum("ij,ij->i", T, N), 0, atol=1e-12)
+
+
+def test_the_fibre_rope_is_seeded():
+    a = thread.fibre_rope(0.01, 0.2, seed=3, fibres=12, fuzz_per_R=4)
+    b = thread.fibre_rope(0.01, 0.2, seed=3, fibres=12, fuzz_per_R=4)
+    c = thread.fibre_rope(0.01, 0.2, seed=4, fibres=12, fuzz_per_R=4)
+    for k in ("fib_phi", "fib_rho", "fib_break", "fz_s", "fz_len", "fib_crimp", "fib_frayloop"):
+        np.testing.assert_array_equal(getattr(a, k), getattr(b, k))
+    assert not np.array_equal(a.fib_phi, c.fib_phi)
+
+
+def _whole(rope, side):
+    s = thread.half_samples(rope, side)
+    X = np.column_stack([s - rope.break_at, np.zeros_like(s), np.zeros_like(s)])
+    _, N, _ = thread.rmf(X, [0.0, 0.0, 1.0], reverse=side == "right")
+    return thread.still_pose(rope, s, X, N)
+
+
+def test_the_halves_of_a_whole_rope_meet_fibre_for_fibre():
+    R = 0.01
+    rope = thread.fibre_rope(R, 40 * R, seed=5, fibres=16, fuzz_per_R=2)
+    geo = {}
+    for side in ("left", "right"):
+        topo = thread.half_topology(rope, side)
+        geo[side] = (topo, thread.rope_geometry(rope, _whole(rope, side), topo, fray_centre=rope.break_at, fray_amount=0))
+    (tl, gl), (tr, gr) = geo["left"], geo["right"]
+    ends = np.cumsum(gl.fibre_counts) - 1  # each left fibre's last point, each right fibre's first
+    starts = np.concatenate([[0], np.cumsum(gr.fibre_counts)[:-1]])
+    np.testing.assert_allclose(gl.fibre_pts[ends], gr.fibre_pts[starts], atol=1e-9)
+    for k in range(3):  # the cores meet ring for ring at each ply's parting
+        np.testing.assert_allclose(gl.cores[k][-1], gr.cores[k][0], atol=1e-9)
+        # and a ply's centre sits THREAD_LOOK's 0.5 R off the axis (the parting ring, between samples, on a chord of the
+        # helix: within 0.3%)
+        centre = gl.cores[k].mean(axis=1)
+        np.testing.assert_allclose(np.hypot(centre[:, 1], centre[:, 2]), 0.5 * R, rtol=3e-3)
