@@ -3,7 +3,7 @@
 //   stills:  bun scripts/render.ts stills --t 1.5,23,40.2 [--only id1,id2] [--out dir]
 //   sheet:   bun scripts/render.ts sheet [--from 0 --to 10] [--n 12] [--cols 4] [--only ids] [--out file.png]   (or --times a,b,c | --cuts)
 //   perf:    bun scripts/render.ts perf [--from 0 --to 5] [--only ids] [--samples 1] [--shutter 0.5]   (avg ms per frame incl. GPU sync and the export's pixel readback)
-//   video:   bun scripts/render.ts video [--only id] [--from 0] [--to <duration>] [--fps 30] [--crf 16] [--x264 aq-mode=3] [--samples 1] [--shutter 0.5] [--out ../out/gitloom.mp4] [--noaudio]
+//   video:   bun scripts/render.ts video [--only id] [--from 0] [--to <duration>] [--fps 30] [--crf 16] [--x264 aq-mode=3] [--samples 1] [--shutter 0.5] [--out ../out/gitloom.mp4, or ../out/<only|module>.mp4] [--noaudio]
 //            --samples N averages N sub-frames per frame over shutter×(1/fps): motion blur + temporal AA;
 //            --samples auto picks the count per frame (4, 12, 36, 108 or 324, see Engine.render)
 //   --only ID (sheet, perf, video) with ONE scene id and neither --from nor --to: exactly the frames that scene owns,
@@ -247,7 +247,10 @@ try {
     // from·fps and to·fps, and the audio is cut at the same times)
     const clip = await sceneFrames(page, fps);
     const from = clip ? clip.first / fps : +opt('from', '0')!, to = clip ? (clip.last + 1) / fps : +opt('to', String(dur))!;
-    await video(page, from, to, fps, path.resolve(opt('out', path.join(ROOT, 'out/gitloom.mp4'))!));
+    // without --out, a part of the film is named after its scenes (or module): only the whole film is out/gitloom.mp4
+    const part = opt('module') ?? opt('only');
+    const dflt = path.join(ROOT, part ? `out/${part.replace(/[,/]/g, '+')}.mp4` : 'out/gitloom.mp4');
+    await video(page, from, to, fps, path.resolve(opt('out', dflt)!));
   }
   if (logs.length) console.error('BROWSER LOG:\n' + logs.slice(0, 40).join('\n'));
 } finally {
