@@ -1,7 +1,7 @@
 // Animatic card: one per scene until the scene's real module exists. It shows the act, the scene, what the picture
 // will be, and her lines lighting word by word exactly as she says them, over a ruler of the scene's beats.
 import type * as THREE from 'three';
-import { Scene, type Frame } from '../engine/scene';
+import { Scene, disposeLayer, type Frame } from '../engine/scene';
 import { Layer2D, W, H, clearRT } from '../engine/gl';
 import { LIN, rgba } from '../engine/palette';
 import { F, font, layout } from '../engine/type';
@@ -114,5 +114,9 @@ export default class Card extends Scene {
     c.textAlign = 'right';
     c.fillText(`${f.t.toFixed(2)}s · beat ${f.beat.toFixed(2)} · bar ${f.bar.toFixed(2)}`, W - 120, 120);
     c.textAlign = 'left';
+  }
+
+  override dispose() {
+    disposeLayer(this.layer);
   }
 }

@@ -14,7 +14,7 @@
 // The plate carries the slow motion; the word's own springs run on the same speed ramp (motion.speedRamp), so they
 // slow with it.
 import * as THREE from 'three';
-import { Scene, type Frame } from '../engine/scene';
+import { Scene, disposeLayer, type Frame } from '../engine/scene';
 import { Stage } from '../engine/stage';
 import { Type3D } from '../engine/type3d';
 import { Layer2D, W, H, clearRT } from '../engine/gl';
@@ -229,6 +229,7 @@ export default class ThreadScene extends Scene {
 
   override dispose() {
     this.plate?.dispose();
+    disposeLayer(this.layer);
     for (const h of this.halves) {
       h.line.dispose();
       h.mat.dispose();

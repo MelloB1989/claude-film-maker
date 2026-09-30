@@ -13,7 +13,7 @@
 // The type column is anchored to the mark's tracked corner and scales with the mark's tracked size, so type and plate
 // move as one world through the camera's truck and push.
 import type * as THREE from 'three';
-import { Scene, type Frame, type PostOverrides } from '../engine/scene';
+import { Scene, disposeLayer, type Frame, type PostOverrides } from '../engine/scene';
 import { Layer2D, clearRT } from '../engine/gl';
 import { LIN, rgba } from '../engine/palette';
 import { Plate } from '../engine/plates';
@@ -186,6 +186,7 @@ export default class Weave extends Scene {
 
   override dispose() {
     this.plate?.dispose();
+    disposeLayer(this.layer);
     this.hero?.dispose();
   }
 }
