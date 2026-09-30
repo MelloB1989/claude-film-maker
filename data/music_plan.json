@@ -194,6 +194,6 @@
  "chosen": "audio/music/score-seed11-edit.wav",
  "edit": {
   "source": "audio/music/score-seed11.wav",
-  "map": "0-27,32-35,24-27,36-38"
+  "map": "0-25,30-35,24-27,36-38"
  }
 }
