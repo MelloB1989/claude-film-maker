@@ -1,25 +1,32 @@
-// The commit bead for `her`: a satin-glass sphere with a bore, its hash engraved round its face.
+// The commit bead for `her`: a glass sphere with a bore and chamfered lips, its hash etched round its face.
+//
+// Geometry: a lathe round the bore (built on y, turned onto x), one closed profile: the sphere from lip to lip, a
+// 45° chamfer in to the bore at each end, and the bore's wall between them. three smooths the profile's normals across
+// its corners, so the lips read as rounded bevels catching the light rather than hard black discs.
 //
 // Local frame: the bore runs along x (the thread passes through it), the engraving faces +z, its letters stand up
 // along +y. The engraving is laid on the great circle through the bore and the face: a point of the sphere at angle
 // α = atan2(x, z) round that circle and latitude β = asin(y / r) off it takes the texture coordinate
 // (0.5 + (α − α0) / 2A, 0.5 + (β − β0) / 2B), so the letters keep their proportions where the band is centred (α0, β0:
-// where the camera looks) and wrap round the sphere toward the bore holes, foreshortening as the surface turns away.
-// Outside the band the coordinates leave [0, 1] and clamp to the texture's empty border: plain glass. (The seam where α
-// wraps is at the back, −z.)
+// where the camera looks) and wrap round the sphere toward the bore, foreshortening as the surface turns away. Outside
+// the band the coordinates leave [0, 1] and clamp to the texture's empty border: plain glass. (The seam where α wraps
+// is at the back, −z; the bore and the chamfers fall outside the band.)
 //
-// Material: three's physical transmission, its body a satin glass (rough enough that the thread inside it, and its
-// glowing strands, spread into a soft light filling the bead) under a clear coat that keeps the reflections and the
-// rim crisp; its letters frosted (rough and opaque, so they read as the white of etched glass under the key), cut into
-// the surface by a bump map whose soft edges catch the light.
+// Material: real glass through three's physical transmission (IOR 1.5, satin roughness 0.15, a faint warm attenuation
+// toward bone), so the thread shows through it, refracted: its glowing cores bend inside the glass. The letters are a
+// frosted etch: rough, opaque (no transmission) and white, cut a little into the surface by a bump map whose soft edges
+// catch the light. A light clear coat keeps the reflections and the rim crisp over the satin.
 import * as THREE from 'three';
 import { F, font } from '../engine/type';
+import { LIN } from '../engine/palette';
 
 export interface BeadOpts {
   /** Sphere radius (world units). */
   radius: number;
-  /** Bore radius: the holes at ±x where the thread goes in and out. */
+  /** Bore radius: the hole along x the thread passes through. */
   bore: number;
+  /** The chamfer at each end of the bore: how far the lip opens beyond the bore radius (world units). */
+  chamfer: number;
   /** The engraving (JetBrains Mono). */
   text: string;
   /** Half the engraved band's length and height round the sphere (radians). */
@@ -34,6 +41,18 @@ export interface BeadOpts {
 /** Texture px of the engraving band, along and across. */
 const TEX_W = 2048;
 
+/** The lathe profile (radius from the bore's axis, height along it), bottom lip to bottom lip, counter-clockwise. */
+export function beadProfile(r: number, bore: number, chamfer: number, arc = 120): THREE.Vector2[] {
+  const lip = Math.min(bore + chamfer, 0.9 * r), hLip = Math.sqrt(r * r - lip * lip), hBore = hLip - (lip - bore);
+  const phi = Math.atan2(hLip, lip), pts: THREE.Vector2[] = [];
+  for (let i = 0; i <= arc; i++) {
+    const a = -phi + (2 * phi * i) / arc;
+    pts.push(new THREE.Vector2(r * Math.cos(a), r * Math.sin(a)));
+  }
+  pts.push(new THREE.Vector2(bore, hBore), new THREE.Vector2(bore, -hBore), new THREE.Vector2(lip, -hLip));
+  return pts;
+}
+
 export class Bead {
   mesh: THREE.Mesh;
   material: THREE.MeshPhysicalMaterial;
@@ -43,15 +62,14 @@ export class Bead {
     const [A, B] = o.span ?? [0.95, 0.3];
     const [a0, b0] = o.centre ?? [0, 0];
     const r = o.radius;
-    const cap = Math.asin(Math.min(0.95, o.bore / r));
-    // poles on y, opened by the bore's caps, then turned so the bore runs along x
-    const geo = new THREE.SphereGeometry(r, 160, 120, 0, Math.PI * 2, cap, Math.PI - 2 * cap);
-    geo.rotateZ(-Math.PI / 2);
+    const geo = new THREE.LatheGeometry(beadProfile(r, o.bore, o.chamfer), 160);
+    geo.rotateZ(-Math.PI / 2); // the lathe's axis (y) onto the bore (x)
     const pos = geo.getAttribute('position'), uv = geo.getAttribute('uv');
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      const onSphere = Math.hypot(x, y, z) > 0.97 * r; // the bore and the chamfers stay plain glass
       const a = Math.atan2(x, z), b = Math.asin(Math.max(-1, Math.min(1, y / r)));
-      uv.setXY(i, 0.5 + (a - a0) / (2 * A), 0.5 + (b - b0) / (2 * B));
+      uv.setXY(i, onSphere ? 0.5 + (a - a0) / (2 * A) : -1, onSphere ? 0.5 + (b - b0) / (2 * B) : -1);
     }
     uv.needsUpdate = true;
 
@@ -79,25 +97,31 @@ export class Bead {
       this.maps.push(t);
       return t;
     };
-    // roughnessMap reads g, transmissionMap reads r: a satin body (r 1, g 0.72) and frosted letters (r 0, g 1);
+    // roughnessMap reads g, transmissionMap reads r: clear satin glass (r 1, g 0.15) and the frosted etch (r 0, g 0.9);
     // bumpMap reads r: the surface at 1 and the letters cut to 0, with soft edges for the bump's slope
-    const surface = paint('rgb(255, 184, 0)', 'rgb(0, 255, 0)');
+    const surface = paint('rgb(255, 38, 0)', 'rgb(0, 230, 0)');
     const height = paint('#fff', '#000', em * 0.03);
 
+    const warm = new THREE.Color().setRGB(...LIN.bone);
     this.material = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       metalness: 0,
-      roughness: 0.7,
+      roughness: 1,
       roughnessMap: surface,
       transmission: 1,
       transmissionMap: surface,
-      thickness: 1.6 * r,
-      ior: 1.48,
+      // three refracts once, on entry, along `thickness`; a sphere bends the ray back on its way out, so the radius (not
+      // the diameter) gives a ball lens's look: at the full diameter the sample lands far off and the bead mirrors the
+      // bright thread like chrome
+      thickness: r,
+      ior: 1.5,
+      attenuationColor: warm,
+      attenuationDistance: 0.3,
       specularIntensity: 1,
-      clearcoat: 1,
-      clearcoatRoughness: 0.05,
+      clearcoat: 0.6,
+      clearcoatRoughness: 0.06,
       bumpMap: height,
-      bumpScale: 1.6,
+      bumpScale: 0.7,
     });
     this.mesh = new THREE.Mesh(geo, this.material);
   }

@@ -61,24 +61,33 @@ const THREAD_R = 0.0042;
 /** A long lay (14° against the default 32°): fewer, longer stripes, a luxury cable rather than a candy cane. */
 const LAY_DEG = 14;
 const TWIST = Math.tan((LAY_DEG * Math.PI) / 180) / (2 * Math.PI * 0.5 * THREAD_R);
-/** The strands' glow: low, so they read as deep dyed fibre lit from inside rather than neon; it flares on the hits. */
-const THREAD_GLOW = 1.5;
+/**
+ * The blood and moss strands: colour as light, not paint. Their fibre is dyed near ink (strandDye) and slimmed a little
+ * (strandScale), so the colour is carried by the glowing core alone, a thin line of light in the grooves, fibre optic
+ * rather than paint. The glow flares on the hits.
+ */
+const STRAND = { dye: 0.03, scale: 0.62, glow: 3.6 };
+const THREAD_GLOW = STRAND.glow;
 /** The thread's sag before the snap (world units at its middle), and the whip's wave (world units at the tip). */
 const SAG = 0.02;
 const WAVE = 0.012;
 /** Macro f-numbers: at 10–15 cm the depth of field is millimetres, so the thread and the bead stop down. */
 const F_THREAD = 8;
-const F_BEAD = 11;
+const F_BEAD = 8;
 const F_TYPE = 2.8;
 /** Where along the thread (arc fraction) shot 1 looks, and where the bead comes to rest. */
 const SHOT1_U = 0.26;
 const BEAD_U = 0.56;
 const BEAD_R = 0.024;
-/** Shot 2's camera at the end of the shot, from the bead: out to the viewer's side, up, and back along the thread. */
-const BEAD_CAM = { off: 0.112, up: 0.01, along: -0.066 };
+/** Shot 2's camera at the end of the shot, from the bead: out to the viewer's side, up, and back along the thread. At
+ * 25 cm on the 24° lens the bead fills about 45% of the frame's height: a product macro, with room round it. */
+const BEAD_CAM = { off: 0.216, up: 0.02, along: -0.118 };
+/** How far the etched band rises above the bore's equator (radians). */
+const ETCH_RISE = 0.4;
 
 type Pose = { pos: THREE.Vector3; quat: THREE.Quaternion; fov: number };
 const Y = new THREE.Vector3(0, 1, 0);
+const INK = new THREE.Color().setRGB(...LIN.ink);
 
 export default class Her extends Scene {
   private stage!: Stage;
@@ -97,8 +106,10 @@ export default class Her extends Scene {
   /** Each + line's specular sweep (its hero materials share one band). */
   private sweeps: THREE.IUniform<THREE.Vector4>[] = [];
   private backdrop!: Backdrop;
-  /** The kicker behind the bead: a small softbox whose reflection rings its edge. */
+  /** The kicker behind the bead: a softbox whose reflection rings its silhouette out of the ink. */
   private kicker!: THREE.RectAreaLight;
+  /** A small softbox whose reflection travels across the bead as it lands (the specular kick). */
+  private kick!: THREE.RectAreaLight;
   private sweep!: THREE.PointLight;
   private pool!: THREE.SpotLight;
   private fill!: THREE.PointLight;
@@ -129,13 +140,16 @@ export default class Her extends Scene {
     const A = new THREE.Vector3(...THREAD_A), B = new THREE.Vector3(...THREAD_B);
     this.dir.subVectors(B, A).normalize();
     this.side.set(-this.dir.z, 0, this.dir.x).normalize();
-    this.thread = new Thread(this.threadPoints(Infinity), { radius: THREAD_R, twist: TWIST, glow: THREAD_GLOW, fuzz: 0.6 });
+    this.thread = new Thread(this.threadPoints(Infinity), {
+      radius: THREAD_R, twist: TWIST, glow: THREAD_GLOW, fuzz: 0.6, strandDye: STRAND.dye, strandScale: STRAND.scale,
+    });
     s.add(this.thread.mesh);
 
     // the engraving faces square to the bore; the camera sees the bead from back along the thread, so the band is
-    // centred where it looks
-    const look: [number, number] = [Math.atan2(BEAD_CAM.along, BEAD_CAM.off), Math.atan2(BEAD_CAM.up, Math.hypot(BEAD_CAM.off, BEAD_CAM.along))];
-    this.bead = new Bead({ radius: BEAD_R, bore: THREAD_R * 1.3, text: HASH, centre: look });
+    // centred where it looks, raised above the bore's equator so the frosted letters sit over dark glass, not over the
+    // bright thread refracted through the middle of the bead
+    const look: [number, number] = [Math.atan2(BEAD_CAM.along, BEAD_CAM.off), Math.atan2(BEAD_CAM.up, Math.hypot(BEAD_CAM.off, BEAD_CAM.along)) + ETCH_RISE];
+    this.bead = new Bead({ radius: BEAD_R, bore: THREAD_R * 1.3, chamfer: THREAD_R * 0.7, text: HASH, centre: look });
     s.add(this.bead.mesh);
 
     this.buildHeadline();
@@ -249,8 +263,9 @@ export default class Her extends Scene {
     this.pool = new THREE.SpotLight(0xffffff, 0, 0, THREE.MathUtils.degToRad(24), 0.95, 2);
     this.sweep = new THREE.PointLight(0xffffff, 0, 0, 2);
     this.fill = new THREE.PointLight(0xffffff, 0, 0, 2);
-    this.kicker = new THREE.RectAreaLight(0xffffff, 0, 0.16, 0.16);
-    s.add(box, top, key, key.target, rim, rim.target, this.pool, this.pool.target, this.sweep, this.fill, this.kicker);
+    this.kicker = new THREE.RectAreaLight(0xffffff, 0, 0.34, 0.34);
+    this.kick = new THREE.RectAreaLight(0xffffff, 0, 0.02, 0.1);
+    s.add(box, top, key, key.target, rim, rim.target, this.pool, this.pool.target, this.sweep, this.fill, this.kicker, this.kick);
     this.lights = [
       { light: box, thread: 0.35, type: 0 },
       { light: top, thread: 0, type: 7 },
@@ -286,10 +301,10 @@ export default class Her extends Scene {
     const b = th.pointAt(BEAD_U);
     const bp = (off: number, up: number, along: number): V3 => b.clone().addScaledVector(n, off).addScaledVector(d, along).addScaledVector(Y, up).toArray() as V3;
     const bt = (along: number, up = 0): V3 => b.clone().addScaledVector(d, along).addScaledVector(Y, up).toArray() as V3;
-    const land = bp(0.125, 0.012, -0.075), late = bp(BEAD_CAM.off, BEAD_CAM.up, BEAD_CAM.along);
+    const late = bp(BEAD_CAM.off, BEAD_CAM.up, BEAD_CAM.along), land = bp(1.08 * BEAD_CAM.off, 1.08 * BEAD_CAM.up, 1.08 * BEAD_CAM.along);
     this.beadFace.copy(n);
     this.rig2 = new CameraRig([
-      { t: T.down - 0.2, pos: bp(0.16, 0.02, -0.16), target: bt(0.0), fov: 24, roll: -6 },
+      { t: T.down - 0.2, pos: bp(0.28, 0.03, -0.24), target: bt(0.0), fov: 24, roll: -6 },
       { t: T.down + 0.12, pos: land, target: bt(0.012, 0.004), roll: -8, ease: ease.outCubic },
       { t: T.beatAfterDown, pos: late, target: bt(0.012, 0.004), roll: -8.5, ease: ease.linear },
     ]);
@@ -395,7 +410,8 @@ export default class Her extends Scene {
     if (!headline) {
       th.setPoints(this.threadPoints(t));
       th.setDraw(0, this.tipU(t));
-      th.setGlow(THREAD_GLOW * (1 + 1.1 * pulse(t, T.not, 0.2) + 0.45 * pulse(t, T.down, 0.28)));
+      // the flares stay under the level where a core whitens (about 4 on its brightest channel, look.ts)
+      th.setGlow(THREAD_GLOW * (1 + 0.25 * pulse(t, T.not, 0.2) + 0.12 * pulse(t, T.down, 0.28)));
     }
 
     // the specular sweep on "Not": a light racing along the thread just off its near side
@@ -411,11 +427,21 @@ export default class Her extends Scene {
     const fr = th.frameAt(lerp(BEAD_U + 0.035, BEAD_U, bs));
     this.bead.place(fr.pos, fr.tangent, this.beadFace, (1 - bs) * 1.1);
     this.bead.mesh.visible = !headline && t > T.down - 0.15;
-    this.fill.intensity = this.bead.mesh.visible ? 0.05 : 0;
-    this.kicker.intensity = this.bead.mesh.visible ? 26 : 0;
-    this.kicker.position.copy(fr.pos).addScaledVector(this.dir, 0.1).addScaledVector(this.side, -0.12).addScaledVector(Y, 0.1);
+    const onBead = this.bead.mesh.visible;
+    this.fill.intensity = onBead ? 0.12 : 0;
+    this.fill.position.copy(fr.pos).addScaledVector(this.side, 0.2).addScaledVector(Y, 0.12).addScaledVector(this.dir, -0.16);
+    // the kicker: a softbox behind the bead and to the right, whose reflection rings its silhouette out of the ink
+    this.kicker.intensity = onBead ? 30 : 0;
+    this.kicker.position.copy(fr.pos).addScaledVector(this.dir, 0.2).addScaledVector(this.side, -0.26).addScaledVector(Y, 0.14);
     this.kicker.lookAt(fr.pos);
-    this.fill.position.copy(fr.pos).addScaledVector(this.side, 0.12).addScaledVector(Y, 0.09).addScaledVector(this.dir, -0.1);
+    // the kick: a small softbox swinging round above the camera as the bead lands, so its reflection slides across
+    // the glass and the etch catches it
+    const kk = prog(t, T.down - 0.04, T.down + 0.5, ease.inOutQuad);
+    this.kick.intensity = onBead ? 160 * Math.sin(Math.PI * kk) : 0;
+    const toCam = new THREE.Vector3(BEAD_CAM.off, 0, BEAD_CAM.along).normalize(); // in (side, dir) coordinates
+    const swing = lerp(-0.95, 0.95, kk), ks = Math.cos(swing) * toCam.x - Math.sin(swing) * toCam.z, kd = Math.sin(swing) * toCam.x + Math.cos(swing) * toCam.z;
+    this.kick.position.copy(fr.pos).addScaledVector(this.side, 0.26 * ks).addScaledVector(this.dir, 0.26 * kd).addScaledVector(Y, 0.16);
+    this.kick.lookAt(fr.pos);
 
     // the camera: shot 1 until the whip on the downbeat, the bead until the cut on the next beat, then the headline
     const cam = st.camera;
@@ -454,7 +480,11 @@ export default class Her extends Scene {
       D = this.focusDiopters(t);
       fstop = F_TYPE;
     }
+    // three clears the bead's transmission pass with the renderer's clear colour: make it ink, what the glass sees
+    const r = this.ctx.renderer, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha();
+    r.setClearColor(INK, 1);
     st.render(out, { dof: { focus: 1 / D, fstop } });
+    r.setClearColor(cc, ca);
 
     const hit = Math.max(pulse(t, T.memory, 0.08), pulse(t, T.commit, 0.08), pulse(t, T.fact, 0.08), pulse(t, T.blame, 0.08));
     // the snap on "Not" jolts the frame a few px, up then settling (the thread pulls the camera's eye with it)
