@@ -1,6 +1,6 @@
 // The film's look: the post-processing defaults every scene starts from (DEFAULT_POST takes them), glow() for
 // emissive accents, and pure mirrors of the two pieces of GPU math that decide how a frame reads: the bloom
-// prefilter's key, a soft threshold gated by chroma (post.ts), and the display-space "over" that 2D layers composite
+// prefilter's key, a soft threshold gated by chroma (post.ts), and the display-space draws that 2D layers composite
 // with (gl.ts, Compositor). Pure TS, so bun can test them.
 import type { PostOverrides } from './scene';
 import { LIN, type PaletteKey } from './palette';
@@ -61,6 +61,8 @@ export const GLOW_LEVEL = 3;
 /**
  * An emissive accent: the palette colour scaled so the bloom key reads `level`, hue kept. Use glow('blood'|'moss') for
  * any emissive accent (a material's emissive, a 2D glow layer's tint); it is the one way scenes set emissive levels.
+ * A glow layer is drawn 'add' (or 'screen', 'max'), which the Compositor mixes as light (gl.ts blendSpace), so its
+ * halo blooms at these levels.
  */
 export function glow(key: GlowKey, level = GLOW_LEVEL): RGB {
   const c = LIN[key], m = Math.max(c[0], c[1], c[2]);
@@ -71,11 +73,50 @@ export function glow(key: GlowKey, level = GLOW_LEVEL): RGB {
  * Display-space "over", as design tools, browsers and Canvas2D blend: `src` (sRGB-encoded, straight) at alpha `a` over
  * `dst` (linear, may be HDR), mixed as display values, returned as linear light. The Compositor's 'srgb' space runs
  * the same math on the GPU. 28% bone over ink shows as 28% of the way from ink to bone, not the 53% grey that mixing
- * linear light gives.
+ * linear light gives. (compositeSRGB is the whole display-space draw, every mode.)
  */
 export function blendSRGB(dst: RGB, src: RGB, a: number): RGB {
   const mix = (d: number, s: number) => srgbToLinear(a * s + (1 - a) * linearToSrgb(Math.max(d, 0)));
   return [mix(dst[0], src[0]), mix(dst[1], src[1]), mix(dst[2], src[2])];
+}
+
+/** A texel or a target's pixel: linear colour and alpha. */
+export type RGBA = [number, number, number, number];
+/** The modes the Compositor can mix in display space (gl.ts BlendMode, all but 'replace'). */
+export type DisplayBlend = 'normal' | 'add' | 'screen' | 'multiply' | 'max';
+
+// GLSL's toSRGB and toLinear (glsl/common.ts) as the GPU runs them, NaN included: mix() weighs both sides of the step,
+// so toLinear of a value below -0.055 takes pow of a negative base, and the NaN survives the zero weight.
+// (linearToSrgb and srgbToLinear pick one side and never make a NaN.)
+const step = (edge: number, x: number) => (x < edge ? 0 : 1);
+const mixGL = (a: number, b: number, s: number) => a * (1 - s) + b * s;
+const toSRGB = (c: number) => mixGL(12.92 * c, 1.055 * Math.pow(Math.max(c, 0), 1 / 2.4) - 0.055, step(0.0031308, c));
+const toLinear = (c: number) => mixGL(c / 12.92, Math.pow((c + 0.055) / 1.055, 2.4), step(0.04045, c));
+
+/**
+ * The Compositor's display-space draw (gl.ts, its srgbFrag), mirrored exactly: texel `tex` (its colour as sampled, so
+ * linear, and straight alpha) drawn with `mode`, `opacity`, `tint` and `premult` (default: all but 'multiply') over a
+ * target pixel `dst` (linear light, may be HDR). The layer is encoded to display values and the target to how it would
+ * show, the mode's fixed-function equation (the Compositor's linear path, gl.ts get()) runs on them, and the result is
+ * decoded back to light, from no lower than 0: a display value below 0 (`normal` at opacity above 1, a screen of a hot
+ * tint over a hot target) would decode to NaN. Returns the pixel's new colour and alpha; `dst` itself where the texel
+ * draws nothing.
+ */
+export function compositeSRGB(mode: DisplayBlend, dst: RGBA, tex: RGBA, o: { opacity?: number; tint?: RGB; premult?: boolean } = {}): RGBA {
+  const opacity = o.opacity ?? 1, tint = o.tint ?? [1, 1, 1], premult = o.premult ?? mode !== 'multiply';
+  const s = [0, 1, 2].map((i) => toSRGB(Math.max(tex[i]! * tint[i]!, 0)) * (premult ? tex[3] : 1) * opacity);
+  const a = tex[3] * opacity;
+  if (a <= 0 && s.every((x) => x === 0)) return dst; // the shader discards: the target keeps its exact value
+  const D = [0, 1, 2].map((i) => toSRGB(Math.max(dst[i]!, 0)));
+  const eq = (s: number, d: number) =>
+    mode === 'normal' ? s + d * (1 - a)
+      : mode === 'add' ? s + d
+        : mode === 'screen' ? s + d * (1 - s)
+          : mode === 'multiply' ? s * d + d * (1 - a)
+            : Math.max(s, d);
+  const oa = mode === 'normal' ? a + dst[3] * (1 - a) : mode === 'max' ? Math.max(a, dst[3]) : dst[3];
+  const out = (i: number) => toLinear(Math.max(eq(s[i]!, D[i]!), 0));
+  return [out(0), out(1), out(2), oa];
 }
 
 /**
