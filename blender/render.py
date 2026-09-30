@@ -33,6 +33,12 @@ the film frame and the plate's path; the frames after it are not rendered.
   GITLOOM_FORCE_BLANK=F[:N],...   test hook (Cycles): film frame F renders black on its first N attempts (default 1),
                                   to prove the retry. Unset, it does nothing.
 
+A frame-change handler that raises fails its frame (lib/handlers.py). Blender prints a handler's exception and carries
+on, so a shot posed by a handler would render (and track) a stale pose with exit code 0. Once the shot is built, every
+function in frame_change_pre and frame_change_post is wrapped to record its exception; a frame whose frame_set or
+render (its motion-blur steps) saw one stops the render with exit code 1, naming the handler and the frame, and the
+frames after it are not rendered. The tracking pass fails the same way. The pure half of this file is lib/cli.py.
+
   mode     resolution         samples  frames                              writes
   look     960x540            32       --frames, else SHOT["look"], else all  plates + look stills (AgX)
   preview  960x540            16       all (or --frames)                     plates
@@ -47,7 +53,6 @@ names objects whose screen positions go to data/track/<shot>.json for the whole 
 """
 from __future__ import annotations
 
-import argparse
 import importlib.util
 import os
 import sys
@@ -61,14 +66,7 @@ sys.path.insert(0, str(HERE))
 
 import bpy  # noqa: E402
 
-from lib import blank, export, scan, setup, timing  # noqa: E402
-
-MODES = {
-    "look": {"res": (960, 540), "samples": 32},
-    "preview": {"res": (960, 540), "samples": 16},
-    "final": {"res": (2560, 1440), "samples": 128},
-}
-EXIT_BLANK = 3  # a blank frame stopped the render, or --scan found blank or unreadable plates
+from lib import blank, cli, export, handlers, scan, setup, timing  # noqa: E402
 
 
 @dataclass
@@ -91,30 +89,6 @@ class Ctx:
         return f / timing.FPS
 
 
-def parse_args(argv: list[str]):
-    ap = argparse.ArgumentParser(prog="blender -b -P blender/render.py --", description=__doc__.split("\n\n")[0])
-    ap.add_argument("--shot", required=True, help="blender/shots/<shot>.py")
-    ap.add_argument("--mode", choices=list(MODES), help="required, except with --scan")
-    ap.add_argument("--frames", help="film frames to render: a-b (inclusive), comma-separated")
-    ap.add_argument("--res", help="WxH, 16:9")
-    ap.add_argument("--samples", type=int)
-    ap.add_argument("--engine", choices=["cycles", "eevee"], default="cycles")
-    ap.add_argument("--save-blend", action="store_true", help="save the built scene to out/blender/<shot>.blend")
-    ap.add_argument("--scan", action="store_true",
-                    help="list the blank frames of the shot's existing plates; renders nothing (exit 3 if any)")
-    a = ap.parse_args(argv)
-    if not a.scan and not a.mode:
-        ap.error("--mode is required (unless --scan)")
-    return a
-
-
-def parse_res(s: str) -> tuple[int, int]:
-    w, h = (int(v) for v in s.lower().split("x"))
-    if w * 9 != h * 16:
-        raise ValueError(f"--res {s} is not 16:9: tracks map the frame onto 1920x1080")
-    return w, h
-
-
 def load_shot(name: str):
     path = HERE / "shots" / f"{name}.py"
     if not path.exists():
@@ -125,45 +99,25 @@ def load_shot(name: str):
     return mod
 
 
-def shot_frames(shot: dict) -> tuple[int, int]:
-    fr = shot.get("frames", "scene")
-    if fr == "scene":
-        return timing.scene_frames(shot["scene"])
-    f0, f1 = (int(v) for v in fr)
-    if f1 <= f0:
-        raise ValueError(f"SHOT frames {fr}: f1 must be after f0")
-    return f0, f1
-
-
-def frames_to_render(a, shot: dict, f0: int, f1: int) -> list[int]:
-    spec = a.frames or (shot.get("look") if a.mode == "look" else None)
-    if spec is None:
-        return list(range(f0, f1))
-    frames = timing.parse_frames(spec) if isinstance(spec, str) else sorted(set(int(f) for f in spec))
-    bad = [f for f in frames if not f0 <= f < f1]
-    if bad:
-        raise ValueError(f"frames {bad} are outside the shot's film frames [{f0}, {f1})")
-    return frames
-
-
 def main(argv: list[str]) -> int:
-    """Render (or --scan) a shot. Returns the exit code: 0, or EXIT_BLANK for a blank frame."""
-    a = parse_args(argv)
+    """Render (or --scan) a shot. Returns the exit code (lib/cli.py): 0; 1 when a frame-change handler failed;
+    cli.EXIT_BLANK for a blank frame. Any other error raises (exit 1 below)."""
+    a = cli.parse_args(argv)
     mod = load_shot(a.shot)
     shot = mod.SHOT
-    f0, f1 = shot_frames(shot)
+    f0, f1 = cli.shot_frames(shot)
     black_ok = blank.black_ok(shot)  # a bad spec fails here, before anything is rendered
     if a.scan:
         res = scan.scan_plates(a.shot, f0, black_ok)
         for line in scan.report(res):
             print(line, flush=True)
-        return 0 if res.clean else EXIT_BLANK
+        return cli.EXIT_OK if res.clean else cli.EXIT_BLANK
 
-    cfg = MODES[a.mode]
-    res = parse_res(a.res) if a.res else cfg["res"]
+    cfg = cli.MODES[a.mode]
+    res = cli.parse_res(a.res) if a.res else cfg["res"]
     samples = a.samples or cfg["samples"]
     engine = "BLENDER_EEVEE" if a.engine == "eevee" else "CYCLES"
-    frames = frames_to_render(a, shot, f0, f1)
+    frames = cli.frames_to_render(a, shot, f0, f1)
     exempt = [f for f in frames if black_ok(f)]
     if exempt:
         print(f"[{a.shot}] {len(exempt)} of {len(frames)} frames are declared black_ok: the blank-frame guard "
@@ -186,6 +140,11 @@ def main(argv: list[str]) -> int:
         raise RuntimeError(f"{a.shot}.build() set no scene.camera")
     print(f"[{a.shot}] built in {time.time() - t0:.1f}s: film frames [{f0}, {f1}), {a.mode} {res[0]}x{res[1]}, "
           f"{engine} {samples} samples, device {scene.cycles.device if engine == 'CYCLES' else 'EEVEE'}")
+    guarded = handlers.GUARD.install(frame_change_pre=bpy.app.handlers.frame_change_pre,
+                                     frame_change_post=bpy.app.handlers.frame_change_post)
+    if guarded:
+        print(f"[{a.shot}] {guarded} frame-change handler{'s' if guarded > 1 else ''} guarded: an exception in one "
+              "fails its frame (exit 1)", flush=True)
 
     if shot.get("track"):
         p = export.track(shot["track"], scene.camera, f0, f1, shot=a.shot)
@@ -196,23 +155,11 @@ def main(argv: list[str]) -> int:
         bpy.ops.wm.save_as_mainfile(filepath=str(blend), copy=True)
         print(f"[{a.shot}] saved {blend}")
 
-    took = []
-    for i, f in enumerate(frames):
-        t1 = time.time()
-        try:
-            written = export.render_frame(scene, f, a.shot, f0, look=a.mode == "look", black_ok=black_ok(f))
-        except blank.BlankFrameError as e:
-            print(f"ERROR: {e}", file=sys.stderr, flush=True)
-            print(f"[{a.shot}] the render stopped at film frame {f} ({i} of {len(frames)} frames written). "
-                  f"To finish it: --frames {blank.frames_spec(frames[i:])}", file=sys.stderr, flush=True)
-            return EXIT_BLANK
-        took.append(time.time() - t1)
-        print(f"[{a.shot}] film frame {f} ({i + 1}/{len(frames)}) {took[-1]:.1f}s -> "
-              + ", ".join(str(p.relative_to(export.REPO)) for p in written), flush=True)
-    if took:
-        print(f"[{a.shot}] {len(took)} frames in {sum(took):.1f}s: first {took[0]:.1f}s, "
-              f"then {sum(took[1:]) / max(1, len(took) - 1):.1f}s a frame")
-    return 0
+    def render_one(f: int) -> list[str]:
+        written = export.render_frame(scene, f, a.shot, f0, look=a.mode == "look", black_ok=black_ok(f))
+        return [str(p.relative_to(export.REPO)) for p in written]
+
+    return cli.render_frames(frames, render_one, shot=a.shot)
 
 
 if __name__ == "__main__":

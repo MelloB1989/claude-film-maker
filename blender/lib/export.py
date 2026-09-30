@@ -13,7 +13,9 @@ film frame from f0, in the film's logical 1920x1080 px (engine: track.ts).
 
 Every frame is checked as soon as its EXR is written: one that comes out blank (Cycles on Metal has written runs of
 black frames, silently, with two renders sharing the GPU) is rendered again, and one that stays blank fails the render
-with BlankFrameError (lib/blank.py). SHOT["black_ok"] exempts the frames a shot means to be black.
+with BlankFrameError (lib/blank.py). SHOT["black_ok"] exempts the frames a shot means to be black. A frame whose
+frame_set or render ran a frame-change handler that raised fails with HandlerError before its plate is written, and
+so does a tracked frame (lib/handlers.py: render.py installs the guard once the shot is built).
 
 The path, pixel and PNG helpers are bpy-free (tested under the tools project); the rest imports bpy when called.
 """
@@ -30,7 +32,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import blank
+from . import blank, handlers
 
 REPO = Path(__file__).resolve().parents[2]
 FPS = 30
@@ -240,15 +242,19 @@ def render_frame(scene, film_frame: int, shot: str, f0: int, look: bool = False,
     attempt logged, and one that stays blank raises BlankFrameError with its plate left where it was written.
     `black_ok`, for a frame the shot declares black, skips the check. The test hook GITLOOM_FORCE_BLANK ("F" or "F:N",
     comma-separated) makes film frame F render black on its first N attempts (default 1) to prove the retry; unset, it
-    does nothing."""
+    does nothing. A frame-change handler that raised during the frame_set or the render (its motion-blur steps) raises
+    HandlerError before anything is written (lib/handlers.py), and is not retried: it is a fault in the shot."""
     import bpy
 
     p = plate_paths(shot, film_frame - f0)
     lp = look_path(shot, film_frame) if look else None
     forced = blank.parse_force_blank(os.environ.get(blank.FORCE_ENV)).get(film_frame, 0)
+    where = f"[{shot}] film frame {film_frame}"
 
     def once(attempt: int) -> np.ndarray:
+        handlers.GUARD.reset()
         scene.frame_set(film_frame)
+        handlers.GUARD.check(where)
         if attempt <= forced:
             print(f"[{shot}] film frame {film_frame}: attempt {attempt} rendered black on purpose ({blank.FORCE_ENV})",
                   flush=True)
@@ -256,6 +262,7 @@ def render_frame(scene, film_frame: int, shot: str, f0: int, look: bool = False,
                 bpy.ops.render.render()
         else:
             bpy.ops.render.render()
+        handlers.GUARD.check(f"{where}, while rendering it (a motion-blur step)")
         rr = bpy.data.images["Render Result"]
         save_exr(rr, scene, p.exr)
         px = read_linear(p.exr)  # what was written: the check and the proxy both come from the file
@@ -271,7 +278,8 @@ def render_frame(scene, film_frame: int, shot: str, f0: int, look: bool = False,
 def track(names, cam, f0: int, f1: int, shot: str | None = None, root: Path = REPO) -> Path:
     """Project the objects `names` (empties, usually) through `cam` at every film frame in [f0, f1) and write
     data/track/<shot>.json (shot: the scene's 'shot' property, which render.py sets). Positions are taken at each
-    frame's own time, the middle of the motion-blur shutter, where the plate's motion blur is centred."""
+    frame's own time, the middle of the motion-blur shutter, where the plate's motion blur is centred. A frame-change
+    handler that raises on a frame raises HandlerError, and nothing is written (lib/handlers.py)."""
     import bpy
     from bpy_extras.object_utils import world_to_camera_view
 
@@ -285,7 +293,9 @@ def track(names, cam, f0: int, f1: int, shot: str | None = None, root: Path = RE
     anchors: dict[str, list] = {n: [] for n in names}
     keep = scene.frame_current
     for f in range(f0, f1):
+        handlers.GUARD.reset()
         scene.frame_set(f)
+        handlers.GUARD.check(f"[{shot}] tracking film frame {f}")
         dg = bpy.context.evaluated_depsgraph_get()
         cam_ev = cam.evaluated_get(dg)
         for n in names:
