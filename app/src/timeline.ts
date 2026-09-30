@@ -6,7 +6,8 @@ import type { VO } from './engine/vo';
 import type { AudioData } from './engine/audio';
 import { entriesFrom } from './edit';
 
-const modules = import.meta.glob<{ default: SceneClass }>('./scenes/*.ts');
+// (not the tests beside them: a build would bundle bun:test)
+const modules = import.meta.glob<{ default: SceneClass }>(['./scenes/*.ts', '!./scenes/*.test.ts']);
 
 export function makeTimeline(vo: VO, _audio: AudioData): TimelineEntry[] {
   return entriesFrom(vo, Object.keys(modules)).map((e) => ({

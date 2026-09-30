@@ -19,7 +19,8 @@ const canvas = document.getElementById('c') as HTMLCanvasElement;
 canvas.width = PW;
 canvas.height = PH;
 
-const sceneModules = import.meta.glob<{ default: SceneClass }>('./scenes/*.ts');
+// (not the tests beside them, as in timeline.ts)
+const sceneModules = import.meta.glob<{ default: SceneClass }>(['./scenes/*.ts', '!./scenes/*.test.ts']);
 
 /** A timeline of one entry: scenes/<name>.ts from 0 to the end of the film (a harness like _stagetest, or any scene). */
 function moduleTimeline(name: string) {
