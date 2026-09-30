@@ -2,13 +2,8 @@
  "plan": {
   "positive_global_styles": [
    "nocturnal, sensual, minimal electronic",
-   "warm sub bass",
-   "soft round kick",
-   "crisp brushed hats",
-   "breathy analog pads",
-   "a plucked motif like a taut thread being pulled, muted harp or koto",
-   "tape saturation",
    "intimate and expensive-sounding",
+   "tape saturation",
    "100 BPM",
    "minor key",
    "instrumental"
@@ -25,81 +20,130 @@
    {
     "section_name": "cold open",
     "positive_local_styles": [
-     "low sub drone",
-     "slow heartbeat pulse in the sub",
+     "very quiet",
+     "a low sub drone",
+     "a slow heartbeat pulse in the sub",
      "a single plucked note",
-     "no drums"
+     "lots of space"
     ],
-    "negative_local_styles": [],
+    "negative_local_styles": [
+     "drums",
+     "kick",
+     "hi-hats",
+     "bassline",
+     "groove",
+     "loud"
+    ],
     "duration_ms": 7200,
-    "lines": []
+    "lines": [],
+    "context_adherence": "high"
    },
    {
     "section_name": "the ex",
     "positive_local_styles": [
-     "filtered pulse",
+     "low-pass filtered pulse",
      "rising tension",
      "glassy ticks",
-     "no kick yet"
+     "breathy analog pads"
     ],
-    "negative_local_styles": [],
+    "negative_local_styles": [
+     "kick",
+     "full drum kit",
+     "loud"
+    ],
     "duration_ms": 9600,
-    "lines": []
+    "lines": [],
+    "context_adherence": "high"
    },
    {
     "section_name": "her",
     "positive_local_styles": [
+     "warm sub bass",
+     "soft round kick",
+     "crisp brushed hats",
+     "breathy analog pads",
+     "a plucked motif like a taut thread being pulled, muted harp or koto",
      "kick and warm sub bass enter on the first beat",
      "sparse, confident groove"
     ],
     "negative_local_styles": [],
     "duration_ms": 12000,
-    "lines": []
+    "lines": [],
+    "context_adherence": "high"
    },
    {
     "section_name": "the tour",
     "positive_local_styles": [
+     "warm sub bass",
+     "soft round kick",
+     "crisp brushed hats",
+     "breathy analog pads",
+     "a plucked motif like a taut thread being pulled, muted harp or koto",
      "full groove",
      "sensual bassline",
-     "plucked thread motif",
      "a subtle variation every 8 bars"
     ],
     "negative_local_styles": [],
     "duration_ms": 33600,
-    "lines": []
+    "lines": [],
+    "context_adherence": "high"
    },
    {
     "section_name": "honest",
     "positive_local_styles": [
      "everything drops out",
      "near silence",
-     "one soft pad breath at most"
+     "one soft pad breath"
     ],
-    "negative_local_styles": [],
+    "negative_local_styles": [
+     "drums",
+     "kick",
+     "hi-hats",
+     "bassline",
+     "groove",
+     "loud",
+     "melody"
+    ],
     "duration_ms": 4800,
-    "lines": []
+    "lines": [],
+    "context_adherence": "low"
    },
    {
     "section_name": "proof and everywhere",
     "positive_local_styles": [
+     "warm sub bass",
+     "soft round kick",
+     "crisp brushed hats",
+     "breathy analog pads",
+     "a plucked motif like a taut thread being pulled, muted harp or koto",
      "the full groove slams back in on the first beat",
      "fuller",
      "confident lift"
     ],
-    "negative_local_styles": [],
+    "negative_local_styles": [
+     "silence",
+     "fade-in",
+     "slow build"
+    ],
     "duration_ms": 19200,
-    "lines": []
+    "lines": [],
+    "context_adherence": "low"
    },
    {
     "section_name": "weave",
     "positive_local_styles": [
      "one big hit on the first beat",
      "long reverb tail",
-     "the plucked motif alone to the end"
+     "the plucked motif alone to the end",
+     "fading out"
     ],
-    "negative_local_styles": [],
+    "negative_local_styles": [
+     "drums after the first beat",
+     "abrupt ending"
+    ],
     "duration_ms": 7200,
-    "lines": []
+    "lines": [],
+    "context_adherence": "high"
    }
   ]
  },
@@ -144,9 +188,8 @@
   ]
  },
  "variants": [
-  "audio/music/score-seed11.wav",
-  "audio/music/score-seed12.wav",
-  "audio/music/score-seed13.wav"
+  "audio/music/score-seed21.wav",
+  "audio/music/score-seed22.wav"
  ],
  "chosen": null
 }
