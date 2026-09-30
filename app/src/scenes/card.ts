@@ -34,8 +34,8 @@ export default class Card extends Scene {
     const id = this.ctx.params.scene as string, n = this.ctx.params.n as number, act = this.ctx.params.act as string;
     clearRT(renderer, out, LIN.ink);
     const L = this.layer;
-    // painted on ink, so the alphas below mix in sRGB as designed: a clear layer composites in linear light, where
-    // the 6% watermark reads as a 27% grey and the 28% upcoming words as 54%
+    // painted on ink, as the approved animatic was: 2D layers blend in sRGB now, so a clear layer shows the same card
+    // to within 2 levels, but the paint keeps it byte-identical
     L.clear(rgba('ink'));
     const c = L.ctx;
     c.textBaseline = 'alphabetic';
