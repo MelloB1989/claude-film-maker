@@ -53,6 +53,87 @@ export function beadProfile(r: number, bore: number, chamfer: number, arc = 120)
   return pts;
 }
 
+/** The bead's shape: everything in BeadOpts but the text. */
+export type BeadShape = Omit<BeadOpts, 'text'>;
+
+/**
+ * The bead's geometry: the lathe turned onto x, with the engraving band's texture coordinates (see the header).
+ *
+ * A triangle's UVs are interpolated across it, so two kinds of triangle would smear the band across themselves, and
+ * take their own copies of the corners that need other UVs (the lathe is otherwise untouched, triangle for triangle):
+ * - the back seam, where α wraps from π to −π: a triangle across it takes its −π corners round to +π, so it lies whole
+ *   past the band's far end;
+ * - the chamfers: an inner corner (off the sphere, plain glass at −1) of a triangle that also has a lip corner takes the
+ *   UV of the lip at its angle round the bore, so the chamfer carries the lip's texel (plain glass, the band's margin)
+ *   down to the bore instead of sweeping from the lip across the band to −1.
+ */
+export function beadGeometry(o: BeadShape): THREE.BufferGeometry {
+  const [A, B] = o.span ?? [0.95, 0.3];
+  const [a0, b0] = o.centre ?? [0, 0];
+  const r = o.radius;
+  const lip = Math.min(o.bore + o.chamfer, 0.9 * r), hLip = Math.sqrt(r * r - lip * lip); // as beadProfile
+  const geo = new THREE.LatheGeometry(beadProfile(r, o.bore, o.chamfer), 160);
+  geo.rotateZ(-Math.PI / 2); // the lathe's axis (y) onto the bore (x)
+  const pos = geo.getAttribute('position'), nor = geo.getAttribute('normal'), uv = geo.getAttribute('uv');
+  /** The band UV of a point on the sphere, `turn` added to its α. */
+  const band = (x: number, y: number, z: number, turn = 0): [number, number] => {
+    const a = Math.atan2(x, z) + turn, b = Math.asin(Math.max(-1, Math.min(1, y / r)));
+    return [0.5 + (a - a0) / (2 * A), 0.5 + (b - b0) / (2 * B)];
+  };
+  const n = pos.count, on: boolean[] = [], alpha: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    on.push(Math.hypot(x, y, z) > 0.97 * r); // the bore and the chamfers stay plain glass
+    alpha.push(Math.atan2(x, z));
+    const [u, v] = band(x, y, z);
+    uv.setXY(i, on[i] ? u : -1, on[i] ? v : -1);
+  }
+  // the corners that need other UVs, copied: `${why}:${vertex}` -> the copy's index
+  const copies = new Map<string, number>(), extra: { src: number; uv: [number, number] }[] = [];
+  const copy = (why: string, i: number, at: () => [number, number]) => {
+    const key = `${why}:${i}`;
+    let j = copies.get(key);
+    if (j === undefined) copies.set(key, (j = n + extra.push({ src: i, uv: at() }) - 1));
+    return j;
+  };
+  const index = Array.from(geo.getIndex()!.array);
+  for (let t = 0; t < index.length; t += 3) {
+    const tri = [index[t]!, index[t + 1]!, index[t + 2]!];
+    const lips = tri.filter((i) => on[i]).length;
+    if (lips === 3) {
+      const as = tri.map((i) => alpha[i]!);
+      if (Math.max(...as) - Math.min(...as) <= Math.PI) continue;
+      tri.forEach((i, k) => {
+        if (alpha[i]! < 0) index[t + k] = copy('seam', i, () => band(pos.getX(i), pos.getY(i), pos.getZ(i), 2 * Math.PI));
+      });
+    } else if (lips > 0) {
+      tri.forEach((i, k) => {
+        if (on[i]) return;
+        const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), k2 = lip / Math.hypot(y, z);
+        index[t + k] = copy('lip', i, () => band(Math.sign(x) * hLip, y * k2, z * k2));
+      });
+    }
+  }
+  if (!extra.length) return geo;
+  // the lathe's vertices as they are, then the copies
+  const total = n + extra.length;
+  const P = new Float32Array(total * 3), N = new Float32Array(total * 3), U = new Float32Array(total * 2);
+  P.set(pos.array as Float32Array);
+  N.set(nor.array as Float32Array);
+  U.set(uv.array as Float32Array);
+  extra.forEach((e, k) => {
+    const j = n + k;
+    P.set([pos.getX(e.src), pos.getY(e.src), pos.getZ(e.src)], 3 * j);
+    N.set([nor.getX(e.src), nor.getY(e.src), nor.getZ(e.src)], 3 * j);
+    U.set(e.uv, 2 * j);
+  });
+  geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(U, 2));
+  geo.setIndex(index);
+  return geo;
+}
+
 export class Bead {
   mesh: THREE.Mesh;
   material: THREE.MeshPhysicalMaterial;
@@ -60,18 +141,7 @@ export class Bead {
 
   constructor(o: BeadOpts) {
     const [A, B] = o.span ?? [0.95, 0.3];
-    const [a0, b0] = o.centre ?? [0, 0];
-    const r = o.radius;
-    const geo = new THREE.LatheGeometry(beadProfile(r, o.bore, o.chamfer), 160);
-    geo.rotateZ(-Math.PI / 2); // the lathe's axis (y) onto the bore (x)
-    const pos = geo.getAttribute('position'), uv = geo.getAttribute('uv');
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-      const onSphere = Math.hypot(x, y, z) > 0.97 * r; // the bore and the chamfers stay plain glass
-      const a = Math.atan2(x, z), b = Math.asin(Math.max(-1, Math.min(1, y / r)));
-      uv.setXY(i, onSphere ? 0.5 + (a - a0) / (2 * A) : -1, onSphere ? 0.5 + (b - b0) / (2 * B) : -1);
-    }
-    uv.needsUpdate = true;
+    const geo = beadGeometry(o);
 
     const texH = Math.round((TEX_W * B) / A);
     // the letters: an em that fills the band's length at 64% (7 mono cells of 0.6 em), within its height
@@ -113,7 +183,7 @@ export class Bead {
       // three refracts once, on entry, along `thickness`; a sphere bends the ray back on its way out, so the radius (not
       // the diameter) gives a ball lens's look: at the full diameter the sample lands far off and the bead mirrors the
       // bright thread like chrome
-      thickness: r,
+      thickness: o.radius,
       ior: 1.5,
       attenuationColor: warm,
       attenuationDistance: 0.3,
