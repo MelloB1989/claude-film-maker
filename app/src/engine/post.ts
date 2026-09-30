@@ -21,7 +21,7 @@ export interface PostParams {
   bloomThreshold: number;
   bloomKnee: number; // soft knee half-width
   bloomRadius: number; // 0..1 upsample spread
-  halation: number; // blood-red film halation around highlights
+  halation: number; // blood-red film halation around glows, driven by their red: blood halates, moss doesn't
   ca: number; // chromatic aberration: R and B shift 1.58·ca px at the left/right frame edges (2.4·ca px in the corners)
   grain: number; // grain amplitude (sRGB units), ~0.04-0.1
   vignette: number; // 0..1
@@ -126,7 +126,9 @@ ${SCALE === 1 ? `        c += texture(src, vUv + texel * vec2(-1, -1)).rgb; c +=
         vec3 bl = texture(bloomTex, uv).rgb;
         vec3 ha = texture(haloTex, uv).rgb;
         col += bl * bloom;
-        col += C_BLOOD_BRIGHT * luma(ha) * halation;
+        // film halation is the red layer's: it follows the red in the glow, scaled so blood halates exactly as a luma
+        // drive would. (On luma, moss, bright in green and low in red, threw 4x blood's red haze and muddied its glow.)
+        col += C_BLOOD_BRIGHT * ha.r * (luma(C_BLOOD) / C_BLOOD.r) * halation;
         col *= exposure;
         // the HUD is a 2D layer: it mixes in display space like every Layer2D (gl.ts, Compositor 'srgb'), before the
         // shoulder so it gets grain & vignette too. A canvas uploads straight alpha: h.rgb is its colour as drawn.

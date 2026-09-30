@@ -52,7 +52,7 @@ export function blendSRGB(dst: RGB, src: RGB, a: number): RGB {
  *   Accents glow only when a scene drives them past white (`glow`): 17% of their light at 1.5, 38% at 2, 58% at 3.
  *   The knee lets a brightening glow come in without a pop.
  * - bloom 0.6: a soft crimson aura around a level-3 hero word that stays off the bone beside it.
- * - halation 0.35: a faint warm haze, a few levels deep, around blood glows.
+ * - halation 0.35: a faint warm haze, a few levels deep, around blood (post.ts drives it by the glow's red).
  * - ca 0.38: R and B shift 0.6 px at the left/right frame edges (1.58·ca); Plan 1's 1.2 fringed the titles by ~1.6 px.
  * - grain 0.045, vignette 0.28: texture and falloff that are felt rather than seen. Exposure and radius unchanged.
  * Glow cores keep their hue up to about level 1.5 (blood) and 1.25 (moss); above that the per-channel tone shoulder
