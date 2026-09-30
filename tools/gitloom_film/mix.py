@@ -1,6 +1,7 @@
 """Mix the voice over the score. The music ducks under her through a sidechain compressor (about 6–9 dB for a spoken
-voice), then two-pass EBU R128 normalisation brings it to −14 LUFS with true peak ≤ −1 dBTP, at 48 kHz / 24-bit.
-Given the analysed sections, the score's arc (automate.py) is drawn into the music before it is ducked."""
+voice). Mastering is a static gain to −14 LUFS followed by a peak limiter at −2 dBFS, which keeps the true peak under
+−1 dBTP, at 48 kHz / 24-bit; it replaces two-pass loudnorm, whose gain riding would flatten the drawn arc. Given the
+analysed sections, the score's arc (automate.py) is drawn into the music before it is ducked."""
 import argparse
 import json
 import re
@@ -12,7 +13,7 @@ from .automate import apply, lanes
 from .paths import AUDIO, DATA, ROOT
 from .wav import read_wav, write_wav
 
-TARGET_I, TARGET_TP = -14.0, -1.5  # aim under −1.0 so the true-peak estimate has margin
+TARGET_I = -14.0
 
 
 def _ff(args: list[str]) -> subprocess.CompletedProcess:
@@ -37,15 +38,24 @@ def measure(path: Path) -> dict:
             "TP": float(re.search(r"Peak:\s+(-?[\d.]+) dBFS", tail).group(1))}
 
 
+LIMIT_DBFS = -2.0  # sample-peak ceiling; the true peak lands ~0.3–0.6 dB higher, still under −1.0 dBTP
+
+
 def loudnorm(src: Path, out: Path) -> dict:
-    base = f"loudnorm=I={TARGET_I}:TP={TARGET_TP}:LRA=11"
-    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(src), "-af", f"{base}:print_format=json",
-                        "-f", "null", "-"], capture_output=True, text=True, check=True)
-    m = json.loads(r.stderr[r.stderr.rfind("{"):r.stderr.rfind("}") + 1])
-    af = (f"{base}:measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}:"
-          f"measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true")
-    _ff(["-i", str(src), "-af", af, "-ar", "48000", "-c:a", "pcm_s24le", str(out)])
-    return measure(out)
+    """Static gain to −14 LUFS, then a peak limiter at −2 dBFS. ffmpeg's loudnorm rides the gain whenever the peaks
+    don't fit linearly or the loudness range is over its target, which would flatten the drawn arc; a static gain
+    keeps it. `latency=1` makes the limiter's look-ahead delay-free: without it the whole mix would land 5 ms
+    (239 samples) late against the picture."""
+    gain = TARGET_I - measure(src)["I"]
+    for _ in range(3):
+        af = (f"volume={gain:.3f}dB,"
+              f"alimiter=limit={10 ** (LIMIT_DBFS / 20):.4f}:attack=5:release=50:level=0:latency=1")
+        _ff(["-i", str(src), "-af", af, "-ar", "48000", "-c:a", "pcm_s24le", str(out)])
+        r = measure(out)
+        if abs(r["I"] - TARGET_I) <= 0.2:
+            break
+        gain += TARGET_I - r["I"]
+    return r
 
 
 def mix(vo: Path, music: Path, out: Path, sections: list[dict] | None = None) -> dict:

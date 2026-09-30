@@ -127,6 +127,7 @@ dependencies = [
     { name = "fonttools" },
     { name = "librosa" },
     { name = "numpy" },
+    { name = "scipy" },
     { name = "soundfile" },
 ]
 
@@ -140,6 +141,7 @@ requires-dist = [
     { name = "fonttools", specifier = ">=4.53" },
     { name = "librosa", specifier = ">=0.10.2" },
     { name = "numpy", specifier = ">=2.0" },
+    { name = "scipy", specifier = ">=1.11" },
     { name = "soundfile", specifier = ">=0.12" },
 ]
 

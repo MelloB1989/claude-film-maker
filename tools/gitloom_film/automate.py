@@ -2,8 +2,8 @@
 
 The music model ignores per-section loudness, so the arc is drawn here, exactly on the beat grid. The cold open is
 muffled at −10 dB (low-pass 300 Hz, a heartbeat through a wall). The ex sweeps the filter open to 4 kHz and climbs to
-−3 dB. Her opens fully on its first downbeat (the reveal on "Not me"). The tour stays open. Honest falls to silence
-within 120 ms. Proof and everywhere slams back on its first downbeat. The last 2 s fade out.
+−3 dB. Her opens fully on its first downbeat (the reveal on "Not me"). The tour stays open. Honest dips 12 dB into the
+score's own drop within 120 ms. Proof and everywhere slams back on its first downbeat. The last 2 s fade out.
 """
 import numpy as np
 from scipy.signal import butter, lfilter, lfilter_zi
@@ -17,7 +17,7 @@ RULES: dict[str, tuple[float, float, float, float, float]] = {
     "the ex": (-10.0, -3.0, 300.0, 4000.0, 0.0),
     "her": (0.0, 0.0, OPEN, OPEN, 0.005),
     "the tour": (0.0, 0.0, OPEN, OPEN, 0.0),
-    "honest": (-60.0, -60.0, OPEN, OPEN, 0.12),
+    "honest": (-12.0, -12.0, OPEN, OPEN, 0.12),
     "proof and everywhere": (0.0, 0.0, OPEN, OPEN, 0.005),
     "weave": (0.0, 0.0, OPEN, OPEN, 0.0),
 }

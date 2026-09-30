@@ -24,8 +24,8 @@ def test_gain_lane_draws_the_arc():
     assert db(g[at(0.5)]) == pytest.approx(-10, abs=0.01)
     assert db(g[at(1.5)]) == pytest.approx(-6.5, abs=0.05)  # halfway from −10 to −3
     assert db(g[at(2.5)]) == pytest.approx(0, abs=0.01)
-    assert -60 < db(g[at(4.05)]) < 0  # inside honest's 120 ms fall
-    assert db(g[at(4.2)]) == pytest.approx(-60, abs=0.01)
+    assert -12 < db(g[at(4.05)]) < 0  # inside honest's 120 ms dip
+    assert db(g[at(4.2)]) == pytest.approx(-12, abs=0.01)
     assert db(g[at(5.01)]) == pytest.approx(0, abs=0.01)  # slammed back within 5 ms
     assert db(g[at(6.5)]) == pytest.approx(0, abs=0.01)  # the fade is only the last 2 s
     assert g[-1] < 1e-3
@@ -43,13 +43,13 @@ def hi_db(seg):
     return 10 * np.log10(spec[np.fft.rfftfreq(len(seg), 1 / SR) > 2000].mean() + 1e-20)
 
 
-def test_filter_muffles_the_cold_open_and_honest_is_silent():
+def test_filter_muffles_the_cold_open_and_honest_dips():
     y = (0.3 * np.random.default_rng(3).standard_normal(N)).astype(np.float32)
     out = apply(y, SR, *lanes(SECTIONS, SR, N))
     cold, tour = out[at(0.2):at(0.8)], out[at(3.2):at(3.8)]
     assert hi_db(cold) < hi_db(tour) - 30
     honest = out[at(4.2):at(4.9)]
-    assert db(np.sqrt(np.mean(honest ** 2)) / np.sqrt(np.mean(tour ** 2))) < -55
+    assert -13 < db(np.sqrt(np.mean(honest ** 2)) / np.sqrt(np.mean(tour ** 2))) < -11
 
 
 def test_stereo_channels_stay_independent_and_dc_passes():

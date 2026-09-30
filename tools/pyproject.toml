@@ -8,6 +8,7 @@ dependencies = [
   "soundfile>=0.12",
   "librosa>=0.10.2",
   "fonttools>=4.53",
+  "scipy>=1.11",
 ]
 
 [project.scripts]
