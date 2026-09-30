@@ -1,7 +1,7 @@
 {
   "lead_in": 0.9,
-  "tail": 3.0,
-  "gap": {"line": 0.35, "scene": 0.6, "act": 1.25},
+  "tail": 2.3,
+  "gap": {"line": 0.35, "scene": 0.55, "act": 1.0},
   "scene_lead": 0.35,
   "word_lead": 0.05,
   "overrides": {
