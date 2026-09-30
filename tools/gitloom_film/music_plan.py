@@ -1,5 +1,5 @@
-"""The score's composition plan: one section per story beat, each a whole number of bars, starting at the bar line
-nearest its first scene (spec §5.2)."""
+"""The score's composition plan: one section per story beat, each a whole number of bars, starting on the bar line
+at or before its first scene's cut (spec §5.2), so the music has turned by the time the picture does."""
 import math
 
 PALETTE = ["nocturnal, sensual, minimal electronic", "intimate and expensive-sounding", "tape saturation", "100 BPM",
@@ -32,7 +32,7 @@ def bar_seconds(bpm: float) -> float:
 def section_bounds(vo: dict, bpm: float, min_bars: int = 2) -> list[float]:
     bar = bar_seconds(bpm)
     start = {s["id"]: s["start"] for s in vo["scenes"]}
-    bars = [0] + [round(start[s[1]] / bar) for s in SECTIONS[1:]] + [math.ceil(vo["duration"] / bar)]
+    bars = [0] + [math.floor(start[s[1]] / bar + 1e-9) for s in SECTIONS[1:]] + [math.ceil(vo["duration"] / bar)]
     for i in range(1, len(bars)):
         bars[i] = max(bars[i], bars[i - 1] + min_bars)
     return [b * bar for b in bars]

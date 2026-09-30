@@ -76,3 +76,68 @@ def test_a_short_final_bar_can_only_end_the_map():
     assert len(edges) == 4  # the short bar still counts as a bar
     with pytest.raises(ValueError, match="only end the map"):
         splice(y, SR, edges, [2, 0, 1])  # mid-map it would shift every join after it by the shortfall
+
+
+def project(tmp_path, monkeypatch, mp, audio=None, source=None):
+    """A throwaway repo root for film-splice: data/music_plan.json, data/audio.json and a source WAV."""
+    import json
+
+    from gitloom_film import splice as sp
+    from gitloom_film.wav import write_wav
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "music_plan.json").write_text(json.dumps(mp))
+    if audio is not None:
+        (tmp_path / "data" / "audio.json").write_text(json.dumps(audio))
+    if source is not None:
+        write_wav(tmp_path / "audio" / "music" / "src.wav", source, SR)
+    monkeypatch.setattr(sp, "DATA", tmp_path / "data")
+    monkeypatch.setattr(sp, "ROOT", tmp_path)
+    return sp, lambda: json.loads((tmp_path / "data" / "music_plan.json").read_text())
+
+
+SRC_AUDIO = {"duration": 4.0, "beat_period": 0.25, "downbeats": [0.0, 1.0, 2.0, 3.0]}  # the source's own grid
+
+
+def test_splice_refuses_an_edit_as_its_source(tmp_path, monkeypatch):
+    sp, _ = project(tmp_path, monkeypatch, {"chosen": "audio/music/src-edit.wav"})
+    with pytest.raises(SystemExit, match="-edit.wav"):
+        sp.main(["--map", "0-1"])
+
+
+def test_the_first_splice_stores_the_sources_downbeats(tmp_path, monkeypatch):
+    sp, read = project(tmp_path, monkeypatch, {"chosen": "audio/music/src.wav"}, SRC_AUDIO,
+                       bars([0.1, 0.2, 0.3, 0.4]))
+    sp.main(["--map", "0-1,3,2"])
+    mp = read()
+    assert mp["chosen"] == "audio/music/src-edit.wav"
+    assert mp["edit"] == {"source": "audio/music/src.wav", "map": "0-1,3,2",
+                          "source_downbeats": [0.0, 1.0, 2.0, 3.0], "source_beat_period": 0.25}
+
+
+def test_a_later_splice_cuts_on_the_stored_downbeats_not_the_edits_analysis(tmp_path, monkeypatch):
+    from gitloom_film.wav import read_wav
+    y = bars([0.1, 0.2, 0.3, 0.4])
+    sp, read = project(tmp_path, monkeypatch, {"chosen": "audio/music/src.wav"}, SRC_AUDIO, y)
+    sp.main(["--map", "0-1,3,2"])
+    # film-beats then analyses the edit, whose grid lands a few ms elsewhere; a re-cut must still use the source's
+    (tmp_path / "data" / "audio.json").write_text('{"duration": 4.0, "beat_period": 0.25, '
+                                                  '"downbeats": [0.003, 1.003, 2.003, 3.003]}')
+    sp.main(["--map", "3,2,1,0"])
+    out, _ = read_wav(tmp_path / "audio" / "music" / "src-edit.wav")
+    assert np.allclose(out, splice(y, SR, [0.0, 1.0, 2.0, 3.0, 4.0], [3, 2, 1, 0]), atol=1e-6)
+    assert read()["edit"]["source_downbeats"] == [0.0, 1.0, 2.0, 3.0] and read()["edit"]["map"] == "3,2,1,0"
+
+
+def test_an_edit_without_stored_downbeats_is_not_recut_on_the_current_analysis(tmp_path, monkeypatch):
+    sp, _ = project(tmp_path, monkeypatch, {"chosen": "audio/music/src-edit.wav",
+                                            "edit": {"source": "audio/music/src.wav", "map": "0-3"}},
+                    SRC_AUDIO, bars([0.1, 0.2, 0.3, 0.4]))
+    with pytest.raises(SystemExit, match="source_downbeats"):
+        sp.main(["--map", "0-1"])
+
+
+def test_the_first_splice_needs_the_analysis_of_its_source(tmp_path, monkeypatch):
+    sp, _ = project(tmp_path, monkeypatch, {"chosen": "audio/music/src.wav"}, {**SRC_AUDIO, "duration": 5.0},
+                    bars([0.1, 0.2, 0.3, 0.4]))
+    with pytest.raises(SystemExit, match="film-beats"):
+        sp.main(["--map", "0-1"])

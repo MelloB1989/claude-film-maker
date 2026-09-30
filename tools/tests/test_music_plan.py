@@ -13,7 +13,7 @@ def vo_fixture(duration=91.0, starts=STARTS):
                        for i, s in enumerate(ORDER)]}
 
 
-def test_sections_are_whole_bars_near_their_scenes():
+def test_sections_are_whole_bars_starting_on_the_bar_at_or_before_their_scene():
     plan, meta = build_plan(vo_fixture(), bpm=100)
     bar = 2.4
     assert [s["section_name"] for s in plan["sections"]] == [
@@ -24,7 +24,11 @@ def test_sections_are_whole_bars_near_their_scenes():
         assert bars == pytest.approx(round(bars), abs=1e-3)
         assert s["lines"] == []
     starts = {m["name"]: m["start"] for m in meta["sections"]}
-    assert abs(starts["honest"] - 64.2) <= bar / 2 and abs(starts["her"] - 15.1) <= bar / 2
+    scene = dict(zip(ORDER, STARTS))
+    for name, first in (("the ex", "ex"), ("her", "her"), ("the tour", "loom"), ("honest", "honest"),
+                        ("proof and everywhere", "proof"), ("weave", "weave")):
+        assert 0 <= scene[first] - starts[name] < bar  # never after its scene's cut, so the music can land on it
+    assert starts["the ex"] == pytest.approx(4.8)  # 6.2 s is 2.58 bars: bar 2, not the nearer bar 3 (7.2 s)
     assert sum(s["duration_ms"] for s in plan["sections"]) / 1000 >= 91.0
     assert "vocals" in plan["negative_global_styles"] and meta["bpm"] == 100
 

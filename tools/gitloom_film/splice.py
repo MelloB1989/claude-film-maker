@@ -1,6 +1,7 @@
 """Cut the score to picture on its bar grid.
 
-A bar map lists, for each output bar, the source bar to play there. Bars are cut on the analysed downbeats. Wherever
+A bar map lists, for each output bar, the source bar to play there. Bars are cut on the source's analysed downbeats
+(kept in the edit, so a re-cut never uses the edit's own analysis), and only a raw seed is ever cut. Wherever
 consecutive output bars aren't consecutive in the source, the join is an equal-power crossfade centred on the output
 bar line: the outgoing bar's continuation fades out while the incoming bar's lead-in fades in, so its downbeat still
 lands exactly on the line. Tempo and sound are untouched; only the order of bars changes.
@@ -78,20 +79,38 @@ def bar_edges(downbeats: list[float], bar: float, duration: float) -> list[float
     return d
 
 
+def source_grid(mp: dict, audio: dict | None, duration: float) -> tuple[list[float], float]:
+    """The source's downbeats and beat period. The first splice takes them from data/audio.json, which then still
+    describes the source; it stores them in the edit, because film-beats goes on to analyse the edit, and every
+    later splice cuts the source on the stored grid."""
+    edit = mp.get("edit") or {}
+    if "source_downbeats" in edit:
+        return edit["source_downbeats"], edit["source_beat_period"]
+    if edit:
+        raise SystemExit("the edit has no source_downbeats, and data/audio.json now describes the edit, not its "
+                         "source: store the source's analysis in edit.source_downbeats/source_beat_period first")
+    if audio is None or abs(audio["duration"] - duration) > 0.01:
+        raise SystemExit("data/audio.json is not the analysis of the score being cut: run film-beats on it first")
+    return audio["downbeats"], audio["beat_period"]
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Re-order the chosen score's bars to fit the picture")
     ap.add_argument("--map", required=True, help="source bar per output bar, e.g. 0-27,32-35,24-27,36-38")
     a = ap.parse_args(argv)
     mp_path = DATA / "music_plan.json"
     mp = json.loads(mp_path.read_text())
-    src = mp.get("edit", {}).get("source") or mp["chosen"]
-    audio = json.loads((DATA / "audio.json").read_text())
+    src = (mp.get("edit") or {}).get("source") or mp["chosen"]
+    if src.endswith("-edit.wav"):
+        raise SystemExit(f"{src} is already a splice; cut its source instead (edit.source in data/music_plan.json)")
     y, sr = read_wav(ROOT / src, mono=False)
-    edges = bar_edges(audio["downbeats"], 4 * audio["beat_period"], len(y) / sr)
+    audio_path = DATA / "audio.json"
+    downs, period = source_grid(mp, json.loads(audio_path.read_text()) if audio_path.exists() else None, len(y) / sr)
+    edges = bar_edges(downs, 4 * period, len(y) / sr)
     out = splice(y, sr, edges, parse_map(a.map))
     dst = f"{src.removesuffix('.wav')}-edit.wav"
     write_wav(ROOT / dst, out, sr)
-    mp["edit"] = {"source": src, "map": a.map}
+    mp["edit"] = {"source": src, "map": a.map, "source_downbeats": list(downs), "source_beat_period": period}
     mp["chosen"] = dst
     mp_path.write_text(json.dumps(mp, indent=1))
     print(f"{dst}: {len(out) / sr:.3f}s from {len(edges) - 1} source bars (map {a.map})")

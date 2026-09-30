@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from gitloom_film.elevenlabs import ElevenLabsError, MusicResult
-from gitloom_film.music import generate_variants
+from gitloom_film.music import generate_variants, merge_plan
 from gitloom_film.wav import read_wav
 
 PLAN = {"positive_global_styles": [], "negative_global_styles": [],
@@ -75,3 +75,48 @@ def test_existing_variant_is_not_regenerated(tmp_path):
     generate_variants(c, PLAN, tmp_path, [11], **QUIET)
     generate_variants(c, PLAN, tmp_path, [11], **QUIET)
     assert len(c.calls) == 1
+
+
+PLAN2 = {**PLAN, "positive_global_styles": ["tape saturation"]}  # a later plan: different styles, same seeds
+
+
+def test_a_changed_plan_gets_its_own_file_and_never_overwrites(tmp_path):
+    c = FakeMusic()
+    [first] = generate_variants(c, PLAN, tmp_path, [11], **QUIET)
+    before = first.read_bytes()
+    [second] = generate_variants(c, PLAN2, tmp_path, [11], **QUIET)
+    assert len(c.calls) == 2 and second != first
+    assert second.name.startswith("score-seed11-") and len(second.stem.split("-")[-1]) == 8
+    assert first.read_bytes() == before  # the chosen seed's audio is untouched
+    assert json.loads((tmp_path / "score-seed11.plan.json").read_text())["plan"] == PLAN
+    assert json.loads(second.with_suffix(".plan.json").read_text())["plan"] == PLAN2
+    assert generate_variants(c, PLAN2, tmp_path, [11], **QUIET) == [second] and len(c.calls) == 2  # reused
+
+
+def test_a_seed_file_of_unknown_plan_is_not_reused(tmp_path):
+    (tmp_path / "score-seed11.wav").write_bytes(b"RIFF-legacy")  # no sidecar: which plan made it is unknown
+    c = FakeMusic()
+    [p] = generate_variants(c, PLAN, tmp_path, [11], **QUIET)
+    assert len(c.calls) == 1 and p.name != "score-seed11.wav"
+    assert (tmp_path / "score-seed11.wav").read_bytes() == b"RIFF-legacy"
+
+
+def test_merge_keeps_the_pick_and_the_edit_and_adds_variants(tmp_path):
+    music = tmp_path / "audio" / "music"
+    music.mkdir(parents=True)
+    (music / "score-seed11.plan.json").write_text(json.dumps({"format": "pcm_48000", "plan": PLAN, "chunks": {}}))
+    old = {"plan": PLAN, "meta": {"bpm": 100}, "variants": ["audio/music/score-seed11.wav", "audio/music/score-seed12.wav"],
+           "chosen": "audio/music/score-seed11-edit.wav",
+           "edit": {"source": "audio/music/score-seed11.wav", "map": "0-3", "source_downbeats": [0.0]}}
+    mp = merge_plan(old, PLAN2, {"bpm": 101}, ["audio/music/score-seed12.wav", "audio/music/score-seed21.wav"],
+                    tmp_path)
+    assert mp["chosen"] == old["chosen"] and mp["edit"] == old["edit"]
+    assert mp["variants"] == ["audio/music/score-seed11.wav", "audio/music/score-seed12.wav",
+                              "audio/music/score-seed21.wav"]
+    assert (mp["plan"], mp["meta"]) == (PLAN2, {"bpm": 101})  # the latest run's plan
+    assert mp["chosen_plan"] == PLAN  # the plan the chosen score was composed from
+
+
+def test_merge_into_nothing_starts_a_fresh_plan(tmp_path):
+    mp = merge_plan(None, PLAN, {"bpm": 100}, ["audio/music/score-seed11.wav"], tmp_path)
+    assert mp == {"plan": PLAN, "meta": {"bpm": 100}, "variants": ["audio/music/score-seed11.wav"], "chosen": None}
