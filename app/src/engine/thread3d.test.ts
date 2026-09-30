@@ -236,3 +236,52 @@ test('fibres are seeded: two threads build identical geometry whatever Math.rand
   expect(A.length).toBeGreaterThan(1); // the plies and the fibres
   expect(A).toEqual(B);
 });
+
+// ------------------------------------------------------------------------------------------------ strand options
+
+/** A palette hex in linear light, through the sRGB curve (IEC 61966-2-1). */
+const hexLin = (hex: string) =>
+  [0, 2, 4].map((i) => parseInt(hex.slice(1 + i, 3 + i), 16) / 255).map((s) => (s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4));
+/** Today's dyed strand: the palette colour 82% of the way to its dim shade (THREAD_LOOK.dye). */
+const dyed = (hex: string, dim: string) => hexLin(hex).map((x, k) => x + (hexLin(dim)[k]! - x) * 0.82);
+const DIFF = { radius: R, plies: 3 as const, colors: ['bone', 'blood', 'moss'] as ('bone' | 'blood' | 'moss')[] };
+/** The strands' tubes: the diff thread's first three tubes are the bone plies, then the `−` and `+` strands. */
+const strandTubes = (t: Thread) => t.uniforms.uTube.value.slice(3, 5).map((q) => q.toArray());
+
+test('strandDye and strandScale default to 1: today\'s look, and both options are live', () => {
+  const t = new Thread(S_CURVE, DIFF), same = new Thread(S_CURVE, { ...DIFF, strandDye: 1, strandScale: 1 });
+  expect(same.uniforms.uColors.value.map((c) => c.toArray())).toEqual(t.uniforms.uColors.value.map((c) => c.toArray()));
+  expect(same.uniforms.uTube.value.map((q) => q.toArray())).toEqual(t.uniforms.uTube.value.map((q) => q.toArray()));
+  // today's look, hand-derived: strands of radius 0.2 at 0.8 from the axis, dyed 82% toward bloodDim and mossDim
+  dyed('#c22b45', '#8e1f35').forEach((x, k) => expect(t.uniforms.uColors.value[1]!.getComponent(k)).toBeCloseTo(x, 6));
+  dyed('#4aad63', '#1c3324').forEach((x, k) => expect(t.uniforms.uColors.value[2]!.getComponent(k)).toBeCloseTo(x, 6));
+  for (const q of strandTubes(t)) expect([q[0], q[1]]).toEqual([expect.closeTo(0.2, 12), expect.closeTo(0.8, 12)]);
+  // live: another value changes the thread
+  expect(new Thread(S_CURVE, { ...DIFF, strandDye: 0.5 }).uniforms.uColors.value[1]!.toArray()).not.toEqual(t.uniforms.uColors.value[1]!.toArray());
+  expect(strandTubes(new Thread(S_CURVE, { ...DIFF, strandScale: 0.5 }))).not.toEqual(strandTubes(t));
+});
+
+test('strandDye scales the blood and moss strands\' base colour; bone and the glowing cores keep theirs', () => {
+  const t = new Thread(S_CURVE, DIFF), d = new Thread(S_CURVE, { ...DIFF, strandDye: 0.1 });
+  expect(d.uniforms.uColors.value[0]!.toArray()).toEqual(t.uniforms.uColors.value[0]!.toArray());
+  for (const i of [1, 2]) {
+    const a = t.uniforms.uColors.value[i]!, b = d.uniforms.uColors.value[i]!;
+    for (let k = 0; k < 3; k++) expect(b.getComponent(k)).toBeCloseTo(0.1 * a.getComponent(k), 12);
+  }
+  expect(d.uniforms.uGlow.value.map((c) => c.toArray())).toEqual(t.uniforms.uGlow.value.map((c) => c.toArray()));
+  // clamped to 0..1: a dye can darken the fibre, never lighten it past the look
+  expect(new Thread(S_CURVE, { ...DIFF, strandDye: 3 }).uniforms.uColors.value[1]!.toArray()).toEqual(t.uniforms.uColors.value[1]!.toArray());
+});
+
+test('strandScale scales the strands\' radius; they stay in their grooves, touching the plies either side', () => {
+  const s = new Thread(S_CURVE, { ...DIFF, strandScale: 0.5 });
+  // bone plies of radius 0.5 at 0.5 from the axis; a strand of radius 0.1 in a groove, touching both plies, sits at
+  // 0.5·cos 60° + √((0.5 + 0.1)² − (0.5·sin 60°)²) = 0.25 + √0.1725 from the axis: deeper in the groove than 0.8
+  const D = 0.25 + Math.sqrt(0.1725);
+  for (const q of strandTubes(s)) expect([q[0], q[1]]).toEqual([expect.closeTo(0.1, 12), expect.closeTo(D, 12)]);
+  for (let i = 0; i < 3; i++) expect(s.uniforms.uTube.value[i]!.toArray().slice(0, 3)).toEqual(new Thread(S_CURVE, DIFF).uniforms.uTube.value[i]!.toArray().slice(0, 3));
+  for (const u of [0.3, 0.7]) {
+    expect(s.plyCentre(u, 1).distanceTo(s.pointAt(u))).toBeCloseTo(D * R, 9);
+    expect(s.plyCentre(u, 2).distanceTo(s.pointAt(u))).toBeCloseTo(D * R, 9);
+  }
+});

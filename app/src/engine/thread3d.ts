@@ -30,7 +30,8 @@
 //   fibres), occlusion in the crevices where plies press together, and per-ply colour.
 // - Blood and moss plies are dyed fibre (toward bloodDim and mossDim) with an emissive core in the palette colour:
 //   glow('blood'|'moss', level) across the strand as a sharp power of N·V over a soft one, a luminous filament down its
-//   middle that the post halates. Bone never emits.
+//   middle that the post halates. Bone never emits. A scene can darken the strands' fibre (strandDye) and slim them
+//   (strandScale) so the colour is carried by the light of the core alone; the defaults are the look.
 // - Fibres off the surface are their own instanced mesh (a child of `mesh`): a sparse fuzz that catches the rim light
 //   (Kajiya-Kay plus forward scatter), and fray fibres that grow and lift where setFray opens the plies.
 import * as THREE from 'three';
@@ -62,6 +63,18 @@ export interface ThreadOpts {
   /** The first ply is a 3-ply core with the others laid in its grooves (default: a bone first ply among other
    * colours, the diff thread). */
   core?: boolean;
+  /**
+   * The blood and moss strands' fibre colour, as a multiple of the look's dyed colour (THREAD_LOOK.dye), 0..1: toward 0
+   * the fibre goes dark and the strand's glowing core carries the colour, light rather than paint. Bone and the glow
+   * are untouched (default 1: the look).
+   */
+  strandDye?: number;
+  /**
+   * The diff thread's blood and moss strands' radius, as a multiple of THREAD_LOOK.wormRadius. A strand stays in its
+   * groove, touching the bone plies either side, so a thinner one sits deeper. Plies twisted as equals keep their
+   * radius (default 1: the look).
+   */
+  strandScale?: number;
   /** Fibres off the surface: 1 the look's density, 0 none (default 1). */
   fuzz?: number;
   /** Seed for where the fibres grow (default fixed). */
@@ -155,11 +168,11 @@ interface Tube { r: number; d: number; phase: number; ply: number }
  * The cross-section: equal plies on a circle, or the bone 3-ply with the other plies laid in its grooves. Also the lay
  * the default twist is set from: the angle, at the plies' offset.
  */
-function layout(n: number, core: boolean): { tubes: Tube[]; layDeg: number; layOffset: number } {
+function layout(n: number, core: boolean, strandScale = 1): { tubes: Tube[]; layDeg: number; layOffset: number } {
   const L = THREAD_LOOK;
   if (n === 1) return { tubes: [{ r: 1, d: 0, phase: 0, ply: 0 }], layDeg: L.singleDeg, layOffset: 1 };
   if (core) {
-    const r = L.plyRadius[2], d = L.plyOffset[2], rw = L.wormRadius;
+    const r = L.plyRadius[2], d = L.plyOffset[2], rw = L.wormRadius * strandScale;
     const bone = [0, 1, 2].map((i) => ({ r, d, phase: i / 3, ply: 0 }));
     // a groove lies between two plies (1/6 of a turn from each); a strand in it touching both sits D from the axis
     const D = d * Math.cos(Math.PI / 3) + Math.sqrt((r + rw) ** 2 - (d * Math.sin(Math.PI / 3)) ** 2);
@@ -712,7 +725,7 @@ export class Thread {
     const cols = opts.colors?.length ? opts.colors : DEFAULT_COLORS;
     this.colors = Array.from({ length: n }, (_, i) => cols[i % cols.length]!);
     const core = opts.core ?? (n > 1 && this.colors[0] === 'bone' && this.colors.some((c) => c !== 'bone'));
-    const lay = layout(n, core);
+    const lay = layout(n, core, Math.max(1e-3, opts.strandScale ?? 1));
     const tubes = (this.tubes = lay.tubes);
     this.plyTube = this.colors.map((_, i) => (core && i === 0 ? -1 : tubes.findIndex((t) => t.ply === i)));
     // the length at construction sets the turns (material coordinates) and the ring count
@@ -738,9 +751,11 @@ export class Thread {
       return (this.L0 * tanG - (p.d + p.r) * R * TAU * turns) / (p.r * R);
     };
     const cont = contacts(tubes);
+    const strandDye = clamp(opts.strandDye ?? 1, 0, 1);
     const col = (c: ThreadColor) => {
       const a = LIN[c], b = c === 'blood' ? LIN.bloodDim : c === 'moss' ? LIN.mossDim : a;
-      return new THREE.Vector3(...a.map((x, k) => x + (b[k]! - x) * L.dye));
+      const k = c === 'bone' ? 1 : strandDye;
+      return new THREE.Vector3(...a.map((x, j) => (x + (b[j]! - x) * L.dye) * k));
     };
     const slots = <T>(k: number, count: number, f: (i: number) => T) => Array.from({ length: k }, (_, i) => f(Math.min(i, count - 1)));
     this.uniforms = {
