@@ -1,0 +1,91 @@
+"""Pace a take: cut the silence around the words, then time-stretch with Rubber Band's R3 engine (pitch and timbre
+are kept; nothing is pitch-shifted). Jean runs slow, so the default tightens by 10%."""
+import argparse
+import json
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+import numpy as np
+
+from .paths import AUDIO
+from .wav import read_wav, write_wav
+
+MIN_FACTOR, MAX_FACTOR = 0.85, 1.0  # never slow her down, never squeeze more than 15%
+DEFAULT_FACTOR = 0.9
+
+
+def trim(samples: np.ndarray, sr: int, words: list[dict], pad: float = 0.04):
+    a = max(0.0, words[0]["start"] - pad)
+    b = min(len(samples) / sr, words[-1]["end"] + 2 * pad)
+    out = samples[int(round(a * sr)):int(round(b * sr))].copy()
+    f = int(0.005 * sr)
+    if len(out) > 2 * f:
+        ramp = np.linspace(0.0, 1.0, f, dtype=np.float32)
+        out[:f] *= ramp
+        out[-f:] *= ramp[::-1]
+    return out, [{**w, "start": w["start"] - a, "end": w["end"] - a} for w in words]
+
+
+def speech_rate(words: list[dict]) -> float:
+    span = words[-1]["end"] - words[0]["start"]
+    return len(words) / span if span > 0 else 0.0
+
+
+def factor_for(words: list[dict], target_wps: float) -> float:
+    r = speech_rate(words)
+    return 1.0 if r <= 0 else float(np.clip(r / target_wps, MIN_FACTOR, MAX_FACTOR))
+
+
+def stretch(samples: np.ndarray, sr: int, factor: float, rubberband: str = "rubberband") -> np.ndarray:
+    if abs(factor - 1.0) < 1e-4:
+        return samples.copy()
+    if not shutil.which(rubberband):
+        raise RuntimeError("rubberband not found: brew install rubberband")
+    with tempfile.TemporaryDirectory() as td:
+        src, dst = Path(td) / "in.wav", Path(td) / "out.wav"
+        write_wav(src, samples, sr)
+        subprocess.run([rubberband, "-q", "-3", "-t", f"{factor:.6f}", str(src), str(dst)], check=True)
+        out, _ = read_wav(dst)
+    return out
+
+
+def pace_take(take_wav: Path, take_json: Path, out_dir: Path, factor: float) -> dict:
+    meta = json.loads(take_json.read_text())
+    x, sr = read_wav(take_wav)
+    x, words = trim(x, sr, meta["words"])
+    y = stretch(x, sr, factor)
+    words = [{**w, "start": round(w["start"] * factor, 4), "end": round(w["end"] * factor, 4)} for w in words]
+    out = {**meta, "factor": factor, "duration": round(len(y) / sr, 4), "words": words}
+    write_wav(out_dir / take_wav.name, y, sr)
+    (out_dir / take_json.name).write_text(json.dumps(out, indent=1))
+    return out
+
+
+def load_selects(path: Path = AUDIO / "vo" / "selects.json") -> dict:
+    return json.loads(path.read_text()) if path.exists() else {}
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Trim and time-stretch voiceover takes")
+    ap.add_argument("--only", help="comma-separated line ids")
+    ap.add_argument("--factor", type=float, default=DEFAULT_FACTOR, help="duration multiplier (0.9 = 10%% faster)")
+    ap.add_argument("--target-wps", type=float, help="pick each take's factor from a target speech rate instead")
+    a = ap.parse_args(argv)
+    selects = load_selects()
+    only = set(a.only.split(",")) if a.only else None
+    takes_root, paced_root = AUDIO / "vo" / "takes", AUDIO / "vo" / "paced"
+    n = 0
+    for tj in sorted(takes_root.glob("*/*.json")):
+        line = tj.parent.name
+        if only and line not in only:
+            continue
+        meta = json.loads(tj.read_text())
+        k = selects.get(line, {}).get("factor")
+        if k is None:
+            k = factor_for(meta["words"], a.target_wps) if a.target_wps else a.factor
+        out = pace_take(tj.with_suffix(".wav"), tj, paced_root / line, float(np.clip(k, MIN_FACTOR, MAX_FACTOR)))
+        n += 1
+        print(f"{line} take {out['take']}: ×{out['factor']:.2f} → {out['duration']:.2f}s")
+    print(f"{n} takes paced")
