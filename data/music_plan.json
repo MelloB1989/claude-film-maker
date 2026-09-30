@@ -191,5 +191,9 @@
   "audio/music/score-seed21.wav",
   "audio/music/score-seed22.wav"
  ],
- "chosen": "audio/music/score-seed11.wav"
+ "chosen": "audio/music/score-seed11-edit.wav",
+ "edit": {
+  "source": "audio/music/score-seed11.wav",
+  "map": "0-27,32-35,24-27,36-38"
+ }
 }
