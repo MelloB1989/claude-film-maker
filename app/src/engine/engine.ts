@@ -27,7 +27,14 @@ export interface TimelineEntry {
   maxSamples?: number;
 }
 
-interface Loaded { entry: TimelineEntry; scene: Scene | null; error?: string; lastT: number }
+interface Loaded {
+  entry: TimelineEntry;
+  scene: Scene | null;
+  error?: string;
+  lastT: number;
+  /** Export: the scene's load in flight (module, construct, init), which concurrent prepares share. */
+  loading?: Promise<Scene>;
+}
 
 /**
  * Per-frame adaptive motion-blur sampling (see Engine.render): the sub-frame count steps through
@@ -50,11 +57,32 @@ function ternaryOffsets(steps: number) {
   return u;
 }
 
+/** An adaptive run's steps (Engine.render): it starts at 4·3^lo sub-frames and may go on to 4·3^hi, hi from `max`. */
+function adaptiveSteps(s: AdaptiveSampling, max = s.max) {
+  const lg3 = (x: number) => Math.log(x / 4) / Math.log(3);
+  const lo = Math.max(0, Math.round(lg3(s.min)));
+  return { lo, hi: Math.max(lo, Math.floor(lg3(max) + 1e-9)) };
+}
+
+/**
+ * The shutter offsets (-0.5..0.5) of a frame's sub-frames, in rendering order: a fixed count evenly spread ([0] for
+ * one), and for adaptive sampling every sub-frame a run may render (ternaryOffsets up to `max`: a run that converges
+ * early, or is capped by an entry's maxSamples, renders a prefix). render() takes its sub-frames from this one list and
+ * prepare() prepares them, so what a frame renders has always been loaded.
+ */
+export function shutterOffsets(samples: number | AdaptiveSampling): number[] {
+  if (typeof samples !== 'number') return ternaryOffsets(adaptiveSteps(samples).hi);
+  return Array.from({ length: samples }, (_, k) => (k + 0.5) / samples - 0.5);
+}
+
 /** A timeline window: song seconds [start, end). */
 type Span = Pick<TimelineEntry, 'start' | 'end'>;
 
-/** An entry to render in one sub-frame, and the time to render it at. */
-export interface EntryAt<E extends Span = TimelineEntry> { entry: E; time: number }
+/**
+ * An entry to render in one sub-frame, and the time to render it at; `held` when that time is held inside the entry's
+ * window (the sub-frame falls before its start or at or past its end): no time passes for it there.
+ */
+export interface EntryAt<E extends Span = TimelineEntry> { entry: E; time: number; held: boolean }
 
 /** How far before its end (s) an entry holds when a sub-frame falls at or past it. */
 const HOLD = 1e-6;
@@ -77,7 +105,7 @@ export function shutterPlan<E extends Span>(timeline: readonly E[], t: number, d
   const on = onScreen(timeline, t);
   return offsets.map((u) => {
     const s = t + dt * shutter * u;
-    return on.map((entry) => ({ entry, time: s < entry.start ? entry.start : s < entry.end ? s : entry.end - HOLD }));
+    return on.map((entry) => (s < entry.start ? { entry, time: entry.start, held: true } : s < entry.end ? { entry, time: s, held: false } : { entry, time: entry.end - HOLD, held: true }));
   });
 }
 
@@ -127,9 +155,15 @@ export class Engine {
   private accum: FSPass;
   private lastT = -1;
   lastPost: PostParams = { ...DEFAULT_POST };
+  /** Every scene failure (init, prepare, render). In export each is also thrown: the still, or the export, fails. */
   errors: string[] = [];
   /** Suppress the HUD (crop marks). */
   hudOff = false;
+  /**
+   * Export (init({ exporting: true })): a scene loads when a frame first needs it (prepare) and an export lets it go
+   * after its last frame (releaseEnded), and a scene error is fatal instead of a red frame.
+   */
+  exporting = false;
 
   timeline: TimelineEntry[] = [];
 
@@ -138,6 +172,9 @@ export class Engine {
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(PW, PH, false);
     this.renderer.autoClear = false;
+    // glass (transmission) refracts a copy of the frame three renders per scene and camera, at 4x MSAA with mips: at
+    // the layout's 1920x1080 whatever the output scale (satin glass needs no 4K refraction; about 464 MiB at 4K)
+    this.renderer.transmissionResolutionScale = 1 / SCALE;
     this.blit = new FSPass(`uniform sampler2D src; void main(){ fragColor = texture(src, vUv); }`, { src: { value: null } });
     this.xfade = new FSPass(`uniform sampler2D a; uniform sampler2D b; uniform float k;
       void main(){ fragColor = mix(texture(a, vUv), texture(b, vUv), k); }`, { a: { value: null }, b: { value: null }, k: { value: 0 } });
@@ -187,29 +224,99 @@ export class Engine {
       }`, { e: { value: null } });
   }
 
-  async init(only?: (e: TimelineEntry) => boolean) {
+  /**
+   * Load the film's data and the timeline's scenes: those `only` passes (--only; the rest render as red fill). The
+   * player loads every scene now, to scrub anywhere without a stall; export (`exporting`) loads none yet: each loads
+   * when a frame first needs it (prepare), so an export holds only the scenes on screen.
+   */
+  async init(only?: (e: TimelineEntry) => boolean, opts: { exporting?: boolean } = {}) {
+    this.exporting = !!opts.exporting;
     [this.audio, this.vo] = await Promise.all([AudioData.load(), VO.load(), loadFonts(), loadStrokeFonts()]) as [AudioData, VO, void, void];
     this.timeline = this.makeTimeline(this.vo, this.audio);
     this.ctx = { renderer: this.renderer, audio: this.audio, vo: this.vo, comp: this.comp, W, H, id: '', params: {}, start: 0, end: 0 };
     this.post = new Post();
     this.hud = new Hud();
     const entries = only ? this.timeline.filter(only) : this.timeline;
-    await Promise.all(entries.map((e) => this.loadEntry(e)));
+    if (this.exporting) for (const e of entries) this.loaded.set(e.id, { entry: e, scene: null, lastT: -1 });
+    else await Promise.all(entries.map((e) => this.loadEntry(e)));
   }
 
+  /** Import an entry's module, construct its scene and init it (a failed init disposes what it built, best effort). */
+  private async construct(e: TimelineEntry): Promise<Scene> {
+    const mod = await e.load();
+    const s = new mod.default({ ...this.ctx, id: e.id, params: e.params ?? {}, start: e.start, end: e.end });
+    try {
+      await s.init();
+    } catch (err) {
+      try {
+        s.dispose();
+      } catch {
+        // half built: its dispose may trip on what init never made
+      }
+      throw err;
+    }
+    return s;
+  }
+
+  /** Player: load an entry's scene now; a failure is logged, and the scene renders as red fill. */
   private async loadEntry(e: TimelineEntry) {
     const rec: Loaded = { entry: e, scene: null, lastT: -1 };
     this.loaded.set(e.id, rec);
     try {
-      const mod = await e.load();
-      const s = new mod.default({ ...this.ctx, id: e.id, params: e.params ?? {}, start: e.start, end: e.end });
-      await s.init();
-      rec.scene = s;
+      rec.scene = await this.construct(e);
     } catch (err) {
       rec.error = String((err as Error)?.stack ?? err);
       this.errors.push(`[${e.id}] ${rec.error}`);
       console.error(`scene ${e.id} failed`, err);
     }
+  }
+
+  /** Export: an entry's scene, loaded the first time a frame needs it (one load, however many prepares ask at once). */
+  private load(rec: Loaded): Promise<Scene> {
+    if (rec.scene) return Promise.resolve(rec.scene);
+    return (rec.loading ??= this.construct(rec.entry).then(
+      (s) => {
+        rec.scene = s;
+        rec.lastT = -1;
+        rec.loading = undefined;
+        return s;
+      },
+      (err) => {
+        rec.loading = undefined;
+        throw this.fail(rec.entry, 'init', err);
+      },
+    ));
+  }
+
+  /** Export: dispose an entry's scene (its plates, layers, targets and GPU memory); a later frame would load it anew. */
+  private unload(rec: Loaded) {
+    const s = rec.scene;
+    rec.scene = null;
+    rec.lastT = -1;
+    try {
+      s?.dispose();
+    } catch (err) {
+      throw this.fail(rec.entry, 'dispose', err);
+    }
+  }
+
+  /**
+   * Export: dispose every loaded scene whose window ends at or before t. An export renders its frames in order, so
+   * from the frame at t on such a scene is never on screen again (onScreen): what it holds goes now, not at the end.
+   */
+  releaseEnded(t: number) {
+    if (!this.exporting) return;
+    for (const rec of this.loaded.values()) if (rec.scene && rec.entry.end <= t) this.unload(rec);
+  }
+
+  /**
+   * Records a scene's failure in `errors` and returns it as an error to throw (export), naming the scene and the step:
+   * `scene <id> <what> failed: <message>`.
+   */
+  private fail(e: TimelineEntry, what: string, err: unknown): Error {
+    this.errors.push(`[${e.id}] ${what}: ${String((err as Error)?.stack ?? err)}`);
+    console.error(`scene ${e.id} ${what} failed`, err);
+    return new Error(`scene ${e.id} ${what} failed: ${(err as Error)?.message ?? err}`, { cause: err });
   }
 
   /** Hot-swap a scene module (used by Vite HMR in preview). */
@@ -224,17 +331,78 @@ export class Engine {
   get duration() { return Math.max(this.audio.duration, this.vo.duration); }
 
   /**
-   * Await prepare() of every scene on screen in the frame at t (as render() decides it, see shutterPlan): at t, and
-   * with motion blur (`samples` other than 1) at the shutter's ends (t ± dt x shutter / 2) held in the scene's window
-   * as its sub-frames are. At most three distinct times, and every sub-frame lies between them: with a shutter of at
-   * most a frame, a plate needs no other frames. Export calls it before rendering each frame; render() stays synchronous.
+   * Await prepare() of every scene on screen in the frame at t (as render() decides it, see shutterPlan), at each time
+   * a sub-frame of it will render the scene: from the one list of shutter offsets render() takes (shutterOffsets),
+   * held in the scene's window as its sub-frames are (a plate dedups the times that share a plate frame). Export calls
+   * it before rendering each frame, render() staying synchronous, and loads a scene here the first time a frame needs
+   * it; a scene that fails to load or prepare rejects it.
    */
   async prepare(t: number, dt = 1 / FPS, samples: number | AdaptiveSampling = 1, shutter = 0.5): Promise<void> {
-    const plan = shutterPlan(this.timeline, t, dt, shutter, samples === 1 ? [0] : [-0.5, 0, 0.5]);
-    await Promise.all(plan[0]!.flatMap(({ entry }, i) => {
-      const s = this.loaded.get(entry.id)?.scene;
-      return [...new Set(plan.map((sub) => sub[i]!.time))].map((x) => s?.prepare?.(x));
+    const plan = shutterPlan(this.timeline, t, dt, shutter, shutterOffsets(samples));
+    await Promise.all((plan[0] ?? []).map(async ({ entry }, i) => {
+      const rec = this.loaded.get(entry.id);
+      if (!rec) return; // left out by --only: it renders as red fill
+      const s = this.exporting ? await this.load(rec) : rec.scene;
+      if (!s?.prepare) return;
+      try {
+        await Promise.all([...new Set(plan.map((sub) => sub[i]!.time))].map((x) => s.prepare!(x)));
+      } catch (err) {
+        throw this.exporting ? this.fail(entry, `prepare(${t})`, err) : err;
+      }
     }));
+  }
+
+  /**
+   * Export frames [round(from·fps), round(to·fps)) in order, awaiting `emit(n, k)` after frame n renders (k sub-frames:
+   * the caller reads its pixels and sends them). In export (`exporting`):
+   * - first every scene that owns a later frame of the range loads and is disposed again, one at a time, so a scene
+   *   that cannot init fails the export before its first frame, not hours into it;
+   * - a warm-up frame before the range makes the first frame sequential for stateful scenes. It is never sent, so it is
+   *   best effort: its scenes may lack plate frames the range never shows;
+   * - each scene loads just before its first frame (prepare) and is disposed after its last (releaseEnded), its plates
+   *   with it, so the export holds only what is on screen.
+   * Rejects on the first scene error. Resolves with a histogram: sub-frames per frame -> frames.
+   */
+  async exportFrames(o: { from: number; to: number; fps: number; samples?: number | AdaptiveSampling; shutter?: number }, emit: (n: number, k: number) => Promise<void> | void): Promise<Record<number, number>> {
+    const { fps } = o, dt = 1 / fps, S = o.samples ?? 1, SH = o.shutter ?? 0.5;
+    const n0 = Math.round(o.from * fps), n1 = Math.round(o.to * fps);
+    // frame n is at n / fps (as ownedFrames counts it); n·dt can land an ulp early, in the scene before a cut exactly
+    // on that frame's time
+    const at = (n: number) => n / fps;
+    if (this.exporting) {
+      // (the scenes on screen at the first frame load for it at once, and fail just as early)
+      const first = onScreen(this.timeline, at(n0));
+      for (const e of this.timeline) {
+        const { first: f0, last: f1 } = ownedFrames(e, fps), rec = this.loaded.get(e.id);
+        if (f0 > f1 || f0 >= n1 || f1 < n0 || first.includes(e)) continue;
+        if (!rec) console.warn(`${e.id} is not loaded (--only): its frames in the range render as red fill`);
+        else if (!rec.scene) {
+          await this.load(rec);
+          this.unload(rec);
+        }
+      }
+    }
+    if (n0 > 0) {
+      // (adaptive sampling only runs stateless scenes: one sample is enough for the warm-up)
+      const S0 = typeof S === 'number' ? S : 1, mark = this.errors.length;
+      try {
+        await this.prepare(at(n0 - 1), dt, S0, SH);
+        this.render(at(n0 - 1), dt, false, S0, SH);
+      } catch (err) {
+        this.errors.splice(mark); // not an error of the export: the frame is not in it
+        console.warn(`warm-up frame ${n0 - 1} skipped (it is not exported): ${(err as Error)?.message ?? err}`);
+      }
+      this.releaseEnded(at(n0));
+    }
+    const used: Record<number, number> = {};
+    for (let n = n0; n < n1; n++) {
+      await this.prepare(at(n), dt, S, SH);
+      const k = this.render(at(n), dt, false, S, SH);
+      used[k] = (used[k] ?? 0) + 1;
+      await emit(n, k);
+      this.releaseEnded(at(n + 1));
+    }
+    return used;
   }
 
   private frameFor(e: TimelineEntry, t: number, dt: number, seeked: boolean, preroll: boolean, under: THREE.Texture | null, tin: number, tout: number): Frame {
@@ -271,7 +439,7 @@ export class Engine {
     let n = 1;
     if (samples === 1) {
       SS_TAP.value = -1;
-      ({ outTex, post } = this.composite(shutterPlan(this.timeline, t, dt, shutter, [0])[0]!, dt, seeked));
+      ({ outTex, post } = this.composite(shutterPlan(this.timeline, t, dt, shutter, shutterOffsets(1))[0]!, dt, seeked));
     } else {
       const adaptive = typeof samples !== 'number';
       let maxAdaptive = adaptive ? samples.max : 0;
@@ -304,14 +472,12 @@ export class Engine {
       clearRT(r, this.sumRT, [0, 0, 0], 0);
       if (!adaptive) {
         n = samples;
-        const u: number[] = [];
-        for (let k = 0; k < n; k++) u.push((k + 0.5) / n - 0.5);
+        const u = shutterOffsets(samples);
         plan = shutterPlan(this.timeline, t, dt, shutter, u);
         for (let k = 0; k < n; k++) sub(k, u[k]!, this.sumRT, dt / n);
       } else {
-        const lg3 = (x: number) => Math.log(x / 4) / Math.log(3);
-        const lo = Math.max(0, Math.round(lg3(samples.min))), hi = Math.max(lo, Math.floor(lg3(maxAdaptive) + 1e-9));
-        const u = ternaryOffsets(hi);
+        const { lo, hi } = adaptiveSteps(samples, maxAdaptive);
+        const u = shutterOffsets({ ...samples, max: maxAdaptive });
         plan = shutterPlan(this.timeline, t, dt, shutter, u);
         n = 4 * 3 ** lo;
         this.lastErrors = [];
@@ -364,7 +530,9 @@ export class Engine {
   /**
    * Render and composite one sub-frame into an HDR texture (no post): the entries of `active` (a shutterPlan
    * sub-frame, in compositing order), each at its own time. `dt` is the step handed to scenes (the frame step, or
-   * the sub-frame spacing); `seeked` says time jumped before this call.
+   * the sub-frame spacing; 0 for an entry held in its window, where no time passes); `seeked` says time jumped before
+   * this call. A scene that throws (or is not loaded) fails the render in export; the player fills it red and goes on.
+   * An entry --only left out is red fill either way.
    */
   private composite(active: EntryAt[], dt: number, seeked: boolean): { outTex: THREE.Texture; post: PostParams } {
     const r = this.renderer;
@@ -373,13 +541,14 @@ export class Engine {
     let under: THREE.Texture | null = null;
     let outTex: THREE.Texture | null = null;
 
-    active.forEach(({ entry: e, time: t }, idx) => {
+    active.forEach(({ entry: e, time: t, held }, idx) => {
       const rec = this.loaded.get(e.id);
       const rt = this.rts[idx % this.rts.length]!;
       const prev = active[idx - 1]?.entry, next = active[idx + 1]?.entry;
       const tin = prev ? Math.min(1, (t - e.start) / Math.max(1e-3, prev.end - e.start)) : 1;
       const tout = next ? Math.max(0, (t - next.start) / Math.max(1e-3, e.end - next.start)) : 0;
       if (!rec?.scene) {
+        if (this.exporting && rec) throw this.fail(e, `render(${t})`, new Error('not loaded: prepare(t) must be awaited before render(t)'));
         clearRT(r, rt, [0.25, 0.0, 0.0]);
         under = rt.texture; outTex = rt.texture;
         return;
@@ -387,20 +556,21 @@ export class Engine {
       const s = rec.scene;
       // (sub-frames of one frame may step back within its shutter: not a seek)
       const sceneSeeked = seeked || rec.lastT < 0 || Math.abs(t - rec.lastT) > 0.25;
-      if (s.stateful && sceneSeeked) {
-        s.reset();
-        const from = Math.max(e.start, t - s.prerollMax);
-        const step = 1 / FPS;
-        let first = true;
-        for (let pt = from; pt < t - step * 0.5; pt += step) {
-          s.render(this.frameFor(e, pt, first ? 0 : step, first, true, null, 1, 0), rt);
-          first = false;
-        }
-      }
       let ov: PostOverrides | void = undefined;
       try {
-        ov = s.render(this.frameFor(e, t, sceneSeeked ? 0 : dt, sceneSeeked && !s.stateful, false, idx > 0 ? under : null, tin, tout), rt);
+        if (s.stateful && sceneSeeked) {
+          s.reset();
+          const from = Math.max(e.start, t - s.prerollMax);
+          const step = 1 / FPS;
+          let first = true;
+          for (let pt = from; pt < t - step * 0.5; pt += step) {
+            s.render(this.frameFor(e, pt, first ? 0 : step, first, true, null, 1, 0), rt);
+            first = false;
+          }
+        }
+        ov = s.render(this.frameFor(e, t, sceneSeeked || held ? 0 : dt, sceneSeeked && !s.stateful, false, idx > 0 ? under : null, tin, tout), rt);
       } catch (err) {
+        if (this.exporting) throw this.fail(e, `render(${t})`, err);
         console.error(`scene ${e.id} render error`, err);
         clearRT(r, rt, [0.25, 0.0, 0.0]);
       }

@@ -4,7 +4,7 @@
 import type * as THREE from 'three';
 import type { AudioData, AudioSample } from './audio';
 import type { VO } from './vo';
-import type { Compositor } from './gl';
+import type { Compositor, Layer2D } from './gl';
 import type { PostParams } from './post';
 
 export interface SceneCtx {
@@ -57,6 +57,12 @@ export interface Frame {
 
 export type PostOverrides = Partial<PostParams>;
 
+/**
+ * A scene's life: constructed, init() once, then prepare() and render() for its frames, then dispose(); it is never
+ * inited again (a later need constructs a new one). The player loads every scene at boot. Export constructs and inits
+ * each just before a frame first needs it, and a video export disposes it after its last frame, so dispose() must free
+ * everything it made: layers (disposeLayer), render targets, textures, geometries, materials, plates.
+ */
 export abstract class Scene {
   /** If true, the engine fast-forwards (calls render with preroll=true) after seeks. */
   stateful = false;
@@ -67,7 +73,7 @@ export abstract class Scene {
 
   constructor(protected ctx: SceneCtx) {}
 
-  /** Load/create resources. Called once before first render. */
+  /** Load/create resources. Called once, before the first prepare() and render(). A throw fails an export. */
   init(): Promise<void> | void {}
 
   /**
@@ -81,10 +87,23 @@ export abstract class Scene {
   /** Reset internal state (called on seeks for stateful scenes). */
   reset(): void {}
 
-  /** Render into `out` (HalfFloat, linear HDR). Must fully overwrite/clear it. Return post-processing overrides. */
+  /**
+   * Render into `out` (HalfFloat, linear HDR). Must fully overwrite/clear it. Return post-processing overrides. A throw
+   * fails an export (the player fills the frame red).
+   */
   abstract render(f: Frame, out: THREE.WebGLRenderTarget): PostOverrides | void;
 
+  /** Free everything init() and render() made (see the class doc): export calls it after the scene's last frame. */
   dispose(): void {}
 }
 
 export type SceneClass = new (ctx: SceneCtx) => Scene;
+
+/**
+ * Free a Layer2D: its texture's GPU copy, and its canvas's backing store (a full-frame layer is 8 MiB at 1080p, 32 MiB
+ * at 4K, plus as much again for the texture).
+ */
+export function disposeLayer(layer: Layer2D) {
+  layer.texture.dispose();
+  layer.canvas.width = layer.canvas.height = 0;
+}

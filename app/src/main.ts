@@ -43,7 +43,8 @@ let TIMELINE: typeof engine.timeline = [];
 
 async function boot() {
   const onlySet = ONLY && !MODULE ? new Set(ONLY.split(',')) : null;
-  await engine.init(onlySet ? (e) => onlySet.has(e.id) : undefined);
+  // export loads each scene when a frame first needs it, and a scene error fails the still or the export
+  await engine.init(onlySet ? (e) => onlySet.has(e.id) : undefined, { exporting: EXPORT });
   TIMELINE = engine.timeline;
   if (EXPORT) setupExport();
   else setupPlayer();
@@ -61,7 +62,10 @@ function setupExport() {
     width: PW,
     height: PH,
     timeline: TIMELINE.map(({ id, start, end }) => ({ id, start, end })),
-    /** Render a single frame at t (seeks as needed), once its scenes have prepared it (plates). */
+    /**
+     * Render a single frame at t (seeks as needed), once its scenes have loaded (the first still that needs one loads
+     * it, and it stays) and prepared it (plates). Rejects on any scene error.
+     */
     async still(t: number, samples: number | AdaptiveSampling = 1, shutter = 0.5) {
       await engine.prepare(t, 1 / FPS, samples, shutter);
       return engine.render(t, 1 / FPS, true, samples, shutter);
@@ -79,8 +83,9 @@ function setupExport() {
       return btoa(s);
     },
     /**
-     * Render [from, to) at fps and stream raw RGBA frames (bottom-up) over a WebSocket.
-     * Returns when all frames were sent, with a histogram of sub-frames per frame. With `inflight`, the
+     * Render [from, to) at fps and stream raw RGBA frames (bottom-up) over a WebSocket (Engine.exportFrames: each
+     * scene loads just before its first frame and goes after its last; a scene error rejects, and no frame after it
+     * is sent). Returns when all frames were sent, with a histogram of sub-frames per frame. With `inflight`, the
      * receiver acknowledges each frame it has handed on (a text message with its running count) and at
      * most `inflight` frames are unacknowledged:
      * backpressure from the encoder, so a slow encode (4K) cannot pile frames up in the receiver's memory.
@@ -88,37 +93,26 @@ function setupExport() {
     async stream(opts: { from: number; to: number; fps: number; ws: string; samples?: number | AdaptiveSampling; shutter?: number; inflight?: number }) {
       const ws = new WebSocket(opts.ws);
       ws.binaryType = 'arraybuffer';
-      let acked = 0;
+      let acked = 0, closed = false;
       ws.onmessage = (e) => { if (typeof e.data === 'string') acked = Math.max(acked, +e.data || 0); };
       await new Promise<void>((res, rej) => { ws.onopen = () => res(); ws.onerror = (e) => rej(e); });
-      const dt = 1 / opts.fps;
-      const n0 = Math.round(opts.from * opts.fps), n1 = Math.round(opts.to * opts.fps);
-      // frame n is at n / fps (as ownedFrames counts it); n·dt can land an ulp early, in the scene before a cut exactly
-      // on that frame's time
-      const at = (n: number) => n / opts.fps;
-      const buf = new Uint8Array(PW * PH * 4);
-      // warm-up: render one frame before the range so the first frame is sequential for stateful scenes
-      const S = opts.samples ?? 1, SH = opts.shutter ?? 0.5;
-      // (adaptive sampling only runs stateless scenes: one sample is enough for the warm-up)
-      const S0 = typeof S === 'number' ? S : 1;
-      if (n0 > 0) {
-        await engine.prepare(at(n0 - 1), dt, S0, SH);
-        engine.render(at(n0 - 1), dt, false, S0, SH);
+      ws.onclose = () => { closed = true; }; // the receiver gave up (its encoder quit): stop, don't wait for acks
+      try {
+        const n0 = Math.round(opts.from * opts.fps);
+        const buf = new Uint8Array(PW * PH * 4);
+        const used = await engine.exportFrames(opts, async (n) => {
+          await engine.readPixelsAsync(buf);
+          if (opts.inflight) while (!closed && n - n0 - acked >= opts.inflight) await new Promise((r) => setTimeout(r, 2));
+          if (closed) throw new Error(`the receiver closed the stream at frame ${n}`);
+          while (ws.bufferedAmount > 64 * 1024 * 1024) await new Promise((r) => setTimeout(r, 2));
+          ws.send(buf);
+          if (n % 30 === 0) await new Promise((r) => setTimeout(r, 0)); // let the socket flush
+        });
+        while (ws.bufferedAmount > 0) await new Promise((r) => setTimeout(r, 5));
+        return used;
+      } finally {
+        ws.close();
       }
-      const used: Record<number, number> = {}; // sub-frames per frame -> frames
-      for (let n = n0; n < n1; n++) {
-        await engine.prepare(at(n), dt, S, SH);
-        const k = engine.render(at(n), dt, false, S, SH);
-        used[k] = (used[k] ?? 0) + 1;
-        await engine.readPixelsAsync(buf);
-        if (opts.inflight) while (n - n0 - acked >= opts.inflight) await new Promise((r) => setTimeout(r, 2));
-        while (ws.bufferedAmount > 64 * 1024 * 1024) await new Promise((r) => setTimeout(r, 2));
-        ws.send(buf);
-        if (n % 30 === 0) await new Promise((r) => setTimeout(r, 0)); // let the socket flush
-      }
-      while (ws.bufferedAmount > 0) await new Promise((r) => setTimeout(r, 5));
-      ws.close();
-      return used;
     },
   };
   window.__film.ready = true;
