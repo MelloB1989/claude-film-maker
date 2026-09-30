@@ -1,5 +1,6 @@
-"""Pace a take: cut the silence around the words, then time-stretch with Rubber Band's R3 engine (pitch and timbre
-are kept; nothing is pitch-shifted). Jean runs slow, so the default tightens by 10%."""
+"""Pace a take: cut the silence around the words (never the speech the aligner left outside them), then time-stretch
+with Rubber Band's R3 engine (pitch and timbre are kept; nothing is pitch-shifted). Jean runs slow, so the default
+tightens by 10%."""
 import argparse
 import json
 import shutil
@@ -16,9 +17,32 @@ MIN_FACTOR, MAX_FACTOR = 0.85, 1.0  # never slow her down, never squeeze more th
 DEFAULT_FACTOR = 0.9
 
 
-def trim(samples: np.ndarray, sr: int, words: list[dict], pad: float = 0.04):
-    a = max(0.0, words[0]["start"] - pad)
-    b = min(len(samples) / sr, words[-1]["end"] + 2 * pad)
+def _widen(samples: np.ndarray, sr: int, start: float, end: float, thresh_db: float, frame: float = 0.005):
+    """Move `start` earlier and `end` later over audio that runs on, unbroken, from the words and stays within
+    `thresh_db` of the take's loudest frame. Forced alignment starts the first word late and ends the last one early:
+    on Jean's 106 takes speech runs a median 85 ms before the first aligned word and 80-110 ms after the last, so
+    cutting at its times removed audio within 30 dB of the take's peak from the start of 97 takes and the end of 25.
+    At -45 dB no speech is left outside: Jean's room tone is typically below -60 dB and what remains beyond the
+    widened cut is a start-up transient and an end-of-file blip."""
+    n = int(frame * sr)
+    m = len(samples) // n
+    if m == 0:
+        return start, end
+    rms = np.sqrt(np.mean(samples[:m * n].reshape(m, n) ** 2, axis=1))
+    loud = rms > rms.max() * 10 ** (thresh_db / 20)
+    i = i0 = min(int(round(start * sr)) // n, m - 1)
+    while i > 0 and loud[i - 1]:
+        i -= 1
+    j = j0 = min(int(round(end * sr)) // n, m - 1)
+    while j < m - 1 and loud[j + 1]:
+        j += 1
+    return (i * n / sr if i < i0 else start), ((j + 1) * n / sr if j > j0 else end)
+
+
+def trim(samples: np.ndarray, sr: int, words: list[dict], pad: float = 0.04, thresh_db: float = -45.0):
+    first, last = _widen(samples, sr, words[0]["start"], words[-1]["end"], thresh_db)
+    a = max(0.0, first - pad)
+    b = min(len(samples) / sr, last + 2 * pad)
     out = samples[int(round(a * sr)):int(round(b * sr))].copy()
     f = int(0.005 * sr)
     if len(out) > 2 * f:

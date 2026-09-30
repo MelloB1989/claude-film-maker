@@ -24,6 +24,32 @@ def test_trim_cuts_silence_and_shifts_words():
     assert abs(y[0]) < 1e-6  # faded in, never clicks
 
 
+def test_trim_keeps_speech_the_aligner_puts_outside_its_words():
+    # Forced alignment starts the first word late and ends the last one early (on Jean's takes: speech runs a median
+    # 85 ms before the first aligned word and 80-110 ms after the last), so the audio just outside the aligned words
+    # is still speech and has to survive the cut.
+    x = np.concatenate([np.zeros(SR // 2, np.float32), tone(1.0), np.zeros(SR // 2, np.float32)])  # tone: 0.5-1.5 s
+    words = [{"w": "a", "start": 0.6, "end": 0.9}, {"w": "b.", "start": 1.0, "end": 1.4}]
+    y, w = trim(x, SR, words)
+    assert len(y) / SR == pytest.approx(0.04 + 1.0 + 0.08, abs=1e-3)
+    assert w[0]["start"] == pytest.approx(0.6 - 0.46) and w[1]["end"] == pytest.approx(1.4 - 0.46)
+    assert np.abs(y[int(0.05 * SR):int(0.06 * SR)]).max() > 0.25  # the first 10 ms of the tone are still there
+
+
+def test_trim_still_cuts_room_noise_and_isolated_clicks():
+    rng = np.random.default_rng(0)
+
+    def noise(n):  # room tone, about -57 dB re the tone
+        return (0.0003 * rng.standard_normal(n)).astype(np.float32)
+
+    x = np.concatenate([noise(SR // 2), tone(1.0), noise(SR // 2)])
+    x[int(0.1 * SR):int(0.105 * SR)] += 0.2  # a click in the lead-in that does not touch the words
+    words = [{"w": "a", "start": 0.5, "end": 0.9}, {"w": "b.", "start": 1.0, "end": 1.5}]
+    y, w = trim(x, SR, words)
+    assert len(y) / SR == pytest.approx(0.04 + 1.0 + 0.08, abs=1e-3)
+    assert w[0]["start"] == pytest.approx(0.04)
+
+
 def test_rate_and_clamped_factor():
     words = [{"w": str(i), "start": i * 0.5, "end": i * 0.5 + 0.4} for i in range(5)]  # 5 words over 2.4 s
     assert speech_rate(words) == pytest.approx(5 / 2.4)
