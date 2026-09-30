@@ -12,6 +12,7 @@ dependencies = [
 
 [project.scripts]
 film-vo = "gitloom_film.vo:main"
+film-realign = "gitloom_film.realign:main"
 film-pace = "gitloom_film.pace:main"
 film-audition = "gitloom_film.audition:main"
 film-edit = "gitloom_film.edit:main"

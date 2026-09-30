@@ -84,3 +84,18 @@ def test_load_key_strips_whitespace(tmp_path):
     f.write_text("\n")
     with pytest.raises(RuntimeError, match="empty"):
         load_key(f)
+
+
+def test_forced_alignment_sends_multipart_without_query():
+    calls = []
+    body = json.dumps({"words": [{"text": "Hi.", "start": 0.1, "end": 0.3, "loss": 0.5}], "loss": 0.5}).encode()
+    c = ElevenLabs(KEY, fake([Response(200, {"character-cost": "1"}, body)], calls))
+    d = c.forced_alignment(b"RIFFWAVEDATA", "Hi.", "1.wav")
+    assert d["words"][0]["start"] == 0.1
+    method, url, headers, sent = calls[0]
+    assert url == "https://api.elevenlabs.io/v1/forced-alignment"
+    assert headers["Content-Type"].startswith("multipart/form-data; boundary=")
+    boundary = headers["Content-Type"].split("boundary=")[1]
+    assert sent.startswith(f"--{boundary}\r\n".encode()) and sent.endswith(f"--{boundary}--\r\n".encode())
+    assert b'name="file"; filename="1.wav"' in sent and b"RIFFWAVEDATA" in sent
+    assert b'name="text"\r\n\r\nHi.\r\n' in sent

@@ -1,4 +1,4 @@
-"""ElevenLabs client: text-to-speech with timestamps, and music from a composition plan.
+"""ElevenLabs client: text-to-speech with timestamps, music from a composition plan, and forced alignment.
 
 The API key is read from ~/11labs. It is sent only in the xi-api-key header and never appears in a repr, an
 exception, a log line or a file.
@@ -12,6 +12,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -87,9 +88,11 @@ class ElevenLabs:
         return s.replace(self._key, "<redacted>")
 
     def _request(self, path: str, payload: dict, accept: str, params: dict) -> Response:
-        url = f"{self._base}{path}?{urllib.parse.urlencode(params)}"
-        headers = {"xi-api-key": self._key, "Accept": accept, "Content-Type": "application/json"}
-        body = json.dumps(payload).encode()
+        return self._send(path, json.dumps(payload).encode(), "application/json", accept, params)
+
+    def _send(self, path: str, body: bytes, content_type: str, accept: str, params: dict) -> Response:
+        url = f"{self._base}{path}" + (f"?{urllib.parse.urlencode(params)}" if params else "")
+        headers = {"xi-api-key": self._key, "Accept": accept, "Content-Type": content_type}
         delay = 2.0
         for attempt in range(4):
             r = self._transport("POST", url, headers, body)
@@ -133,3 +136,16 @@ class ElevenLabs:
         r = self._request("/v1/music", payload, "*/*", {"output_format": output_format})
         return MusicResult(r.body, output_format, int(r.headers.get("character-cost", "0") or 0),
                            r.headers.get("request-id", ""))
+
+    def forced_alignment(self, audio: bytes, text: str, filename: str = "take.wav") -> dict:
+        """Word and character times measured on `audio` for the given transcript (1 credit per call)."""
+        boundary = f"gitloomfilm{uuid.uuid4().hex}"
+        body = b"".join([
+            (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+             f"Content-Type: audio/wav\r\n\r\n").encode() + audio + b"\r\n",
+            f'--{boundary}\r\nContent-Disposition: form-data; name="text"\r\n\r\n{text}\r\n'.encode(),
+            f"--{boundary}--\r\n".encode(),
+        ])
+        r = self._send("/v1/forced-alignment", body, f"multipart/form-data; boundary={boundary}",
+                       "application/json", {})
+        return json.loads(r.body)
