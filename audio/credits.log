@@ -210,3 +210,6 @@
 {"ts": "2026-09-30T18:13:38", "path": "/v1/forced-alignment", "cost": 0, "request_id": ""}
 {"ts": "2026-09-30T18:13:38", "path": "/v1/forced-alignment", "cost": 0, "request_id": ""}
 {"ts": "2026-09-30T18:13:39", "path": "/v1/forced-alignment", "cost": 0, "request_id": ""}
+{"ts": "2026-09-30T19:01:15", "path": "/v1/music", "cost": 0, "request_id": ""}
+{"ts": "2026-09-30T19:01:35", "path": "/v1/music", "cost": 0, "request_id": ""}
+{"ts": "2026-09-30T19:01:56", "path": "/v1/music", "cost": 0, "request_id": ""}
