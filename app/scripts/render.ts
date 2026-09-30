@@ -12,7 +12,7 @@
 //            harness such as _stagetest; ?module= in main.ts). --only is ignored then.
 // Uses the Vite dev server at --url (default http://localhost:5173); starts a private one if unreachable.
 import { chromium, type Page } from 'playwright-core';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const argv = process.argv.slice(2);
@@ -106,8 +106,14 @@ async function sheet(page: Page, times: number[], cols: number, out: string) {
   await Bun.write(out, Buffer.from(dataUrl.split(',')[1]!, 'base64'));
 }
 
+const clock = (s: number) => `${Math.floor(s / 60)}m${String(Math.round(s % 60)).padStart(2, '0')}s`;
+
 async function video(page: Page, from: number, to: number, fps: number, out: string) {
   mkdirSync(path.dirname(out), { recursive: true });
+  // Encoded under a temporary name and renamed when ffmpeg has finished, so a killed export never leaves a broken
+  // file at `out`; `<out>.progress` says how far a running one has got. The file itself grows in bursts minutes
+  // apart (x264's lookahead holds ~40 frames, and a motion-blurred frame can take seconds), so its size is no guide.
+  const part = `${out}.partial`, progress = `${out}.progress`;
   const crf = opt('crf', '16')!;
   const audio = path.join(ROOT, 'audio/mix/mix.wav');
   const args = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${OW}x${OH}`, '-r', String(fps), '-i', 'pipe:0'];
@@ -117,11 +123,22 @@ async function video(page: Page, from: number, to: number, fps: number, out: str
   // scale tags the matrix and range; primaries and transfer need setparams (the -color_* output flags don't reach the stream).
   args.push('-vf', 'vflip,scale=out_color_matrix=bt709,setparams=color_primaries=bt709:color_trc=bt709', '-c:v', 'libx264', '-preset', opt('preset', 'slow')!, '-crf', crf, '-pix_fmt', 'yuv420p', '-tune', 'grain', '-x264-params', opt('x264', 'aq-mode=3')!);
   if (!flag('noaudio')) args.push('-c:a', 'aac', '-b:a', '320k', '-shortest');
-  args.push('-movflags', '+faststart', out);
+  args.push('-movflags', '+faststart', '-f', path.extname(out).toLowerCase() === '.mov' ? 'mov' : 'mp4', part);
   const ff = Bun.spawn(args, { stdin: 'pipe', stdout: 'inherit', stderr: 'inherit' });
   let frames = 0;
   const total = Math.round(to * fps) - Math.round(from * fps);
   const t0 = performance.now();
+  let noted = -Infinity;
+  const note = () => {
+    const el = (performance.now() - t0) / 1000, rate = frames / el;
+    const line = `${frames}/${total} frames  ${rate.toFixed(2)} fps  eta ${clock((total - frames) / rate)}`;
+    process.stdout.write(`\r${line}   `);
+    if (performance.now() - noted >= 1000 || frames === total) {
+      writeFileSync(progress, `${line}  (${clock(el)} elapsed, encoding to ${path.basename(part)})\n`);
+      noted = performance.now();
+    }
+  };
+  writeFileSync(progress, `0/${total} frames  starting\n`);
   const server = Bun.serve({
     port: 0,
     fetch(req, srv) { return srv.upgrade(req) ? undefined : new Response('ws only', { status: 400 }); },
@@ -132,10 +149,7 @@ async function video(page: Page, from: number, to: number, fps: number, out: str
         await ff.stdin.flush();
         frames++;
         ws.send(String(frames)); // ack: the page keeps at most a few frames ahead of ffmpeg (bounded memory at 4K)
-        if (frames % 30 === 0 || frames === total) {
-          const el = (performance.now() - t0) / 1000;
-          process.stdout.write(`\r${frames}/${total} frames  ${(frames / el).toFixed(1)} fps  eta ${((total - frames) / (frames / el)).toFixed(0)}s   `);
-        }
+        note();
       },
     },
   });
@@ -143,8 +157,11 @@ async function video(page: Page, from: number, to: number, fps: number, out: str
   // wait for all frames to arrive
   while (frames < total) await Bun.sleep(20);
   ff.stdin.end();
-  await ff.exited;
+  const code = await ff.exited;
   server.stop();
+  if (code !== 0) throw new Error(`ffmpeg exited ${code}: the unfinished encode is left at ${part}`);
+  renameSync(part, out);
+  rmSync(progress, { force: true });
   console.log(`\nwrote ${out} (${frames} frames in ${((performance.now() - t0) / 1000).toFixed(1)}s)`);
   console.log(`sub-frames per frame (count:frames): ${hist(used)}`);
 }
