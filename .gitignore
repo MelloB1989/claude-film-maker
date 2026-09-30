@@ -8,3 +8,7 @@ app/node_modules/
 app/dist/
 .pytest_cache/
 __pycache__/
+audio/vo/paced/
+audio/vo/vo.wav
+audio/music/
+audio/mix/
