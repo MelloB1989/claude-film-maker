@@ -62,9 +62,48 @@ def test_any_failure_exits_1_and_only_the_failures_are_printed(tmp_path, capsys)
     assert "facts OK" not in out and "2 of 6 strings" in err
 
 
-def test_no_strings_files_is_fine(tmp_path, capsys):
+def test_an_empty_scenes_dir_is_fine(tmp_path, capsys):
     assert run(tmp_path, capsys) == (0, "facts OK (0 strings in 0 files)\n", "")
-    assert run(tmp_path / "missing", capsys) == (0, "facts OK (0 strings in 0 files)\n", "")
+
+
+def test_a_scenes_dir_that_does_not_exist_fails(tmp_path, capsys):
+    rc, out, err = run(tmp_path / "missing", capsys)
+    assert rc == 1 and "facts OK" not in out
+    assert str(tmp_path / "missing") in err and "does not exist" in err
+
+
+# --- a scene module draws its strings from its <id>.strings.json: the gate can see nothing else ---
+
+IMPORTS = "import S from './{id}.strings.json';\n"
+
+
+def test_a_scene_module_that_imports_its_strings_file_passes(tmp_path, capsys):
+    (tmp_path / "her.ts").write_text("import * as THREE from 'three';\n" + IMPORTS.format(id="her") + "draw(S[0]);\n")
+    strings_file(tmp_path, "her", ["Not me."])
+    assert run(tmp_path, capsys)[:2] == (0, "facts OK (1 strings in 1 files)\n")
+
+
+def test_a_scene_module_without_its_strings_file_fails(tmp_path, capsys):
+    mod = tmp_path / "loom.ts"  # loom is a scene id in data/script.json
+    mod.write_text("c.fillText('gc: expire 3 incidents', 96, 230);\n")
+    rc, out, err = run(tmp_path, capsys)
+    assert rc == 1 and "facts OK" not in out
+    assert f"{mod}: no loom.strings.json" in out and "1 scene module" in err
+
+
+def test_a_scene_module_that_does_not_import_its_strings_file_fails(tmp_path, capsys):
+    mod = tmp_path / "her.ts"
+    mod.write_text("// import S from './her.strings.json';\nc.fillText('made up', 96, 230);\n")  # commented out
+    strings_file(tmp_path, "her", ["Not me."])
+    rc, out, _ = run(tmp_path, capsys)
+    assert rc == 1 and f"{mod}: does not import ./her.strings.json" in out
+
+
+def test_harness_scenes_the_card_and_helper_modules_are_not_scene_modules(tmp_path, capsys):
+    # _*.ts are test harnesses, card.ts is the animatic's placeholder, her-camera.ts a helper: none is a scene id
+    for name in ("_platetest.ts", "card.ts", "her-camera.ts"):
+        (tmp_path / name).write_text("c.fillText('made up', 96, 230);\n")
+    assert run(tmp_path, capsys)[:2] == (0, "facts OK (0 strings in 0 files)\n")
 
 
 def test_every_strings_file_under_the_scenes_dir_is_read(tmp_path, capsys):
@@ -73,7 +112,7 @@ def test_every_strings_file_under_the_scenes_dir_is_read(tmp_path, capsys):
     (tmp_path / "sub").mkdir()
     strings_file(tmp_path / "sub", "loom", ["gc: expire 3 incidents"])
     (tmp_path / "notes.json").write_text('["not a strings file"]')
-    (tmp_path / "loom.ts").write_text("// not a strings file")
+    (tmp_path / "loom-camera.ts").write_text("// not a strings file")
     assert run(tmp_path, capsys)[:2] == (0, "facts OK (4 strings in 3 files)\n")
 
 
@@ -124,9 +163,9 @@ SMALL = build_allowed(FACTS, VO, SCRIPT)
     ("diff a", "verbatim"),  # a substring
     ("a b\nsecond", "verbatim"),  # a substring across a line break
     (f"{MINUS} no history", "copy"),
-    ("no hist", "copy"),
+    ("no history", "copy"),  # a substring of whole words
     ("cosine 0.8127", "illustrative"),
-    ("0.81", "illustrative"),
+    ("0.8127", "illustrative"),  # a whole number
     ("#123", "illustrative"),  # a pattern, matched in full
     ("Your agent forgets.", "vo"),  # one of her lines
     ("forgets.", "vo"),  # one of her words, as displayed
@@ -143,6 +182,10 @@ def test_what_passes(s, kind):
 
 @pytest.mark.parametrize("s", [
     "gitloom diff a b c",  # longer than the entry it starts like
+    "no hist",  # a word cut short: a substring must start and end on a token boundary
+    "0.81",  # a number cut short
+    "8127",  # a number's tail: "0." before it continues the number
+    "cosine 0",  # a number's head: ".8127" after it continues the number
     "Gitloom diff a b",  # the sheet is case sensitive
     "cosine 0.8128",
     "#12", "#1234", "x#123", "#123\n",  # off the pattern: a pattern has to match the whole string
@@ -191,7 +234,7 @@ def test_a_phrase_of_her_lines_passes_if_it_is_whole_words_in_order(s, kind):
 
 
 def test_the_phrases_pass_the_real_gate():
-    # `to zer` is not checked here: the sheet also lists `back to zero` as copy, and any substring of copy passes
+    # `to zer` fails the real gate too: test_cut_off_words_of_her_lines_fail
     assert classify("back to zero.", real()) is not None
     assert classify("vector store", real()) is not None
 
@@ -423,6 +466,19 @@ def test_quoted_lines_and_footnotes_from_the_spec_pass():
     for s in shown:
         assert s in text, f"{s!r} is not in the spec"
         assert classify(s, real()) is not None, f"{s!r} is not on the sheet"
+
+
+def test_truncated_numbers_and_words_of_the_sheet_fail():
+    # each is a substring of a verbatim or copy entry cut inside a number or a word: a digit dropped from the proof
+    # scene's strings must not pass
+    for s in ["56/499", "456/49",  # LongMemEval 456/499
+              "preference 10",  # preference 100
+              "0 of 10,000 files visited",  # 50 of 10,000 files visited
+              "536 dims",  # 1536 dims
+              "Storage is fre"]:  # Storage is free.
+        assert classify(s, real()) is None, s
+    for s in ["456/499", "preference 100", "50 of 10,000 files visited", "1536 dims", "Storage is free"]:
+        assert classify(s, real()) is not None, s  # the whole tokens still pass
 
 
 def test_cut_off_words_of_her_lines_fail():
