@@ -1,6 +1,9 @@
 // Entry: preview player (default) or export mode (?export=1, driven by scripts/render.ts).
-import { Engine, type AdaptiveSampling } from './engine/engine';
+import { Engine, type AdaptiveSampling, type TimelineEntry } from './engine/engine';
 import { PW, PH, SCALE } from './engine/gl';
+import type { SceneClass } from './engine/scene';
+import type { VO } from './engine/vo';
+import type { AudioData } from './engine/audio';
 import { makeTimeline } from './timeline';
 import { FPS } from './engine/util';
 
@@ -8,13 +11,28 @@ const params = new URLSearchParams(location.search);
 const EXPORT = params.has('export');
 const ONLY = params.get('only'); // comma-separated scene ids to load (faster stills)
 const FROM = params.get('t') ? parseFloat(params.get('t')!) : null;
+// dev harness: ?module=<name> plays scenes/<name>.ts alone, over the whole film [0, duration] (render.ts --module)
+const MODULE = params.get('module');
 
 const canvas = document.getElementById('c') as HTMLCanvasElement;
 // physical size: 1920x1080 times ?scale= (the page CSS keeps showing it at 1920x1080)
 canvas.width = PW;
 canvas.height = PH;
 
-const engine = new Engine(canvas, makeTimeline);
+const sceneModules = import.meta.glob<{ default: SceneClass }>('./scenes/*.ts');
+
+/** A timeline of one entry: scenes/<name>.ts from 0 to the end of the film (a harness like _stagetest, or any scene). */
+function moduleTimeline(name: string) {
+  return (vo: VO, audio: AudioData): TimelineEntry[] => [{
+    id: name, file: name, start: 0, end: Math.max(audio.duration, vo.duration), params: { scene: name, module: true },
+    load: () => {
+      const m = sceneModules[`./scenes/${name}.ts`];
+      return m ? m() : Promise.reject(new Error(`scene module not found: scenes/${name}.ts`));
+    },
+  }];
+}
+
+const engine = new Engine(canvas, MODULE ? moduleTimeline(MODULE) : makeTimeline);
 
 declare global {
   interface Window { __film: any }
@@ -23,7 +41,7 @@ declare global {
 let TIMELINE: typeof engine.timeline = [];
 
 async function boot() {
-  const onlySet = ONLY ? new Set(ONLY.split(',')) : null;
+  const onlySet = ONLY && !MODULE ? new Set(ONLY.split(',')) : null;
   await engine.init(onlySet ? (e) => onlySet.has(e.id) : undefined);
   TIMELINE = engine.timeline;
   if (EXPORT) setupExport();

@@ -8,6 +8,8 @@
 //            --samples auto picks the count per frame (4, 12, 36, 108 or 324, see Engine.render)
 //   --scale N (all modes): render at N× the 1920x1080 layout (--scale 2 = true 3840x2160); stills are then saved
 //            full-res from the pixel buffer, videos are encoded at the physical size.
+//   --module NAME (all modes): play scenes/NAME.ts alone over [0, duration] instead of the film's timeline (a dev
+//            harness such as _stagetest; ?module= in main.ts). --only is ignored then.
 // Uses the Vite dev server at --url (default http://localhost:5173); starts a private one if unreachable.
 import { chromium, type Page } from 'playwright-core';
 import { mkdirSync } from 'node:fs';
@@ -52,8 +54,10 @@ async function openPage(url: string) {
   const logs: string[] = [];
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(`[${m.type()}] ${m.text()}`); });
   page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
-  const only = opt('only');
-  await page.goto(`${url}/?export=1${only ? `&only=${only}` : ''}${SCALE !== 1 ? `&scale=${SCALE}` : ''}`);
+  const only = opt('only'), module = opt('module');
+  if (module && !/^[\w-]+$/.test(module)) throw new Error(`--module takes a scene file name (scenes/<name>.ts), got '${module}'`);
+  const sel = module ? `&module=${module}` : only ? `&only=${only}` : '';
+  await page.goto(`${url}/?export=1${sel}${SCALE !== 1 ? `&scale=${SCALE}` : ''}`);
   await page.waitForFunction(() => (window as any).__film?.ready || (window as any).__film?.error, null, { timeout: 120000 });
   const err = await page.evaluate(() => (window as any).__film.error);
   if (err) throw new Error(`app failed to boot:\n${err}\n${logs.join('\n')}`);
