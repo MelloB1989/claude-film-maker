@@ -5,7 +5,8 @@ import pytest
 from gitloom_film.beats import analyze, fit_grid, grid_fit
 
 SR = 22050
-META = {"bpm": 100.0, "sections": [{"name": "a", "start": 0.0, "end": 14.4}, {"name": "b", "start": 14.4, "end": 30.0}]}
+META = {"bpm": 100.0, "sections": [{"name": "the tour", "start": 0.0, "end": 14.4},
+                                   {"name": "proof and everywhere", "start": 14.4, "end": 30.0}]}
 
 
 def clicks(bpm=100.0, dur=30.0, offset=0.25, silent=None, bpm2=None, switch=15.0):
@@ -80,3 +81,39 @@ def test_grid_holds_at_the_pipelines_sample_rate():
     y = librosa.resample(clicks(), orig_sr=SR, target_sr=48000)  # the score is 48 kHz, so is the voiceover
     a = analyze(y, 48000, META)
     assert a["bpm"] == pytest.approx(100.0, abs=0.05) and abs(a["beats"][0] - 0.25) < 0.005 and a["grid_fit"] >= 0.9
+
+
+def test_fit_grid_keeps_beat_0_when_its_fitted_phase_wraps():
+    # The first beat is at +3 ms, but the tracker's beats land a few ms early (median jitter -4.5 ms), so the fitted
+    # phase is -1.5 ms and wraps round to the end of the period: without the guard the grid would start at 0.5985.
+    jitter = np.resize([-0.006, -0.005, 0.004, -0.007, -0.004, 0.003], 48)
+    grid, period, _ = fit_grid(0.003 + 0.6 * np.arange(48) + jitter, 30.0)
+    assert grid[0] == pytest.approx(0.003, abs=0.006) and grid[0] >= -0.03
+    assert grid[1] - grid[0] == pytest.approx(period) and len(grid) == 51  # -0.0015 … 29.9985
+
+
+def test_fit_grid_does_not_invent_a_beat_before_a_late_first_beat():
+    grid, _, _ = fit_grid(0.5 + 0.6 * np.arange(48), 30.0)  # phase 0.5 s: 100 ms short of the period, no wrap
+    assert grid[0] == pytest.approx(0.5, abs=0.001)
+
+
+def test_envelopes_follow_the_automated_mix_and_the_grid_follows_the_score():
+    rng = np.random.default_rng(4)
+    y = clicks() + (0.05 * rng.standard_normal(30 * SR)).astype(np.float32)  # a steady score, no drop of its own
+    meta = {"bpm": 100.0, "sections": [{"name": "the tour", "start": 0.0, "end": 12.0},
+                                       {"name": "honest", "start": 12.0, "end": 19.2},
+                                       {"name": "proof and everywhere", "start": 19.2, "end": 30.0}]}
+    heard, raw = analyze(y, SR, meta), analyze(y, SR, meta, automate=False)
+    assert heard["sections"][1]["start"] == pytest.approx(12.25, abs=0.03)  # snapped to the score's downbeat
+    t = np.arange(len(heard["rms"])) / 100
+
+    def mean(env, a, b):
+        return float(np.mean(np.asarray(env)[(t >= a) & (t < b)]))
+
+    tour, honest = (2.0, 11.0), (13.0, 19.0)
+    assert mean(raw["rms"], *honest) > 0.8 * mean(raw["rms"], *tour)  # the score itself does not dip
+    assert mean(heard["rms"], *honest) < 0.3 * mean(heard["rms"], *tour)  # what is heard: honest sits 12 dB down
+    assert mean(heard["low"], *honest) < 0.3 * mean(heard["low"], *tour)
+    assert sum(1 for p, _ in heard["onsets"]["hat"] if 13 < p < 19) <= sum(1 for p, _ in raw["onsets"]["hat"] if 13 < p < 19)
+    for k in ("beats", "downbeats", "sections", "bpm", "grid_fit", "grid_error_ms"):
+        assert heard[k] == raw[k]  # the grid is the raw score's

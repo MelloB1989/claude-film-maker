@@ -26,13 +26,16 @@ RULES: dict[str, tuple[float, float, float, float, float]] = {
 def lanes(sections: list[dict], sr: int, n: int) -> tuple[np.ndarray, np.ndarray]:
     """Per-sample gain (linear) and low-pass cutoff (Hz). Within a section the gain moves linearly in dB and the
     cutoff geometrically. A section with a glide-in moves there from the previous section's end values over that
-    many seconds. Unlisted names and any time outside the sections stay open at 0 dB."""
+    many seconds. Time outside the sections stays open at 0 dB; a section with no rule is an error (a misspelt
+    name would otherwise play open, silently)."""
     t = np.arange(n) / sr
     gain_db = np.zeros(n)
     cut = np.full(n, OPEN)
     prev: tuple[float, float] | None = None
     for s in sections:
-        g0, g1, c0, c1, glide = RULES.get(s["name"], (0.0, 0.0, OPEN, OPEN, 0.0))
+        if s["name"] not in RULES:
+            raise ValueError(f"no automation rule for section {s['name']!r} (rules: {', '.join(RULES)})")
+        g0, g1, c0, c1, glide = RULES[s["name"]]
         m = (t >= s["start"]) & (t < s["end"])
         if m.any():
             u = (t[m] - s["start"]) / max(1e-9, s["end"] - s["start"])

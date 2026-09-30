@@ -5,6 +5,9 @@
 - every word that opens a line or follows a pause lights up within one frame after the onset measured on the
   voiceover itself (onsets.py), never ahead of it;
 - the film runs 85–95 s.
+
+A ruled exception is listed in data/sync_waivers.json as {"cut <scene>": "<ruling>"}: its problems print as waived and
+do not fail the gate. Where each music section starts against the cut it opens is printed for information only.
 """
 import argparse
 import json
@@ -13,6 +16,7 @@ import sys
 
 import numpy as np
 
+from .music_plan import SECTIONS
 from .onsets import voice_onsets
 from .paths import AUDIO, DATA
 from .vo import load_script
@@ -90,12 +94,43 @@ def word_sync(vo: dict, samples: np.ndarray, sr: int) -> tuple[list[str], list[d
     return problems, rows
 
 
+def section_table(vo: dict, audio: dict) -> list[dict]:
+    """Each music section's start against the cut of the scene it opens (information, not a rule)."""
+    opens = {name: scene for name, scene, *_ in SECTIONS}
+    cut = {s["id"]: s["start"] for s in vo["scenes"]}
+    return [{"section": s["name"], "scene": opens[s["name"]], "start": s["start"], "cut": cut[opens[s["name"]]],
+             "delta_ms": round((s["start"] - cut[opens[s["name"]]]) * 1000)}
+            for s in audio["sections"] if opens.get(s["name"]) in cut]
+
+
+def report(problems: list[str], waivers: dict[str, str]) -> tuple[list[str], bool]:
+    """The verdict, line by line, and whether it fails. A waiver key ("cut her") covers the problems that name that
+    cut; they print as waived and do not fail the gate."""
+    lines, failing, waived, used = [], 0, 0, set()
+    for p in problems:
+        key = next((k for k in waivers if p.startswith(k + " ")), None)
+        if key is None:
+            failing += 1
+            lines.append(f"✗ {p}")
+        else:
+            waived += 1
+            used.add(key)
+            lines.append(f"waived: {p} ({waivers[key]})")
+    lines += [f"note: waiver {k!r} matches no problem" for k in waivers if k not in used]
+    if failing:
+        lines.append(f"{failing} problem(s)" + (f", {waived} waived" if waived else ""))
+    else:
+        lines.append("sync OK" + (f" ({waived} waived)" if waived else ""))
+    return lines, failing > 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Check the timing contract")
     ap.add_argument("--words", action="store_true", help="list every measured word: onset, first lit frame, error")
     a = ap.parse_args(argv)
     vo = json.loads((DATA / "vo.json").read_text())
-    problems = check(vo, json.loads((DATA / "audio.json").read_text()), load_script())
+    audio = json.loads((DATA / "audio.json").read_text())
+    problems = check(vo, audio, load_script())
     y, sr = read_wav(AUDIO / "vo" / "vo.wav")
     word_problems, rows = word_sync(vo, y, sr)
     problems += word_problems
@@ -107,7 +142,11 @@ def main(argv=None):
         errs = [r["error_ms"] for r in rows]
         print(f"word sync: {len(rows)} words measured on vo.wav, each lit {min(errs):+.1f} to {max(errs):+.1f} ms "
               f"after its spoken onset (allowed 0 to +{LATE * 1000:.1f})")
-    for p in problems:
-        print("✗", p)
-    print("sync OK" if not problems else f"{len(problems)} problem(s)")
-    sys.exit(1 if problems else 0)
+    print("music sections against the cuts they open (information only):")
+    for r in section_table(vo, audio):
+        print(f"  {r['section']:<22} opens {r['scene']:<8} at {r['start']:7.3f}s   cut {r['cut']:7.3f}s   "
+              f"section − cut {r['delta_ms']:+6d} ms")
+    wp = DATA / "sync_waivers.json"
+    lines, failed = report(problems, json.loads(wp.read_text()) if wp.exists() else {})
+    print("\n".join(lines))
+    sys.exit(1 if failed else 0)

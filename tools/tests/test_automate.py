@@ -57,3 +57,8 @@ def test_stereo_channels_stay_independent_and_dc_passes():
     out = apply(y, SR, *lanes(SECTIONS, SR, N))
     assert out.shape == (N, 2)
     assert out[at(3.5), 0] == pytest.approx(1.0, abs=1e-3) and out[at(3.5), 1] == pytest.approx(-1.0, abs=1e-3)
+
+
+def test_a_section_without_a_rule_is_an_error():
+    with pytest.raises(ValueError, match="'the drop'"):
+        lanes([*SECTIONS[:3], {"name": "the drop", "start": 3.0, "end": 4.0}], SR, N)  # a typo would play it open

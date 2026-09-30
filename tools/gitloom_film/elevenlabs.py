@@ -1,7 +1,7 @@
 """ElevenLabs client: text-to-speech with timestamps, music from a composition plan, and forced alignment.
 
-The API key is read from ~/11labs. It is sent only in the xi-api-key header and never appears in a repr, an
-exception, a log line or a file.
+The API key is read from ~/11labs. It is sent only in the xi-api-key header, only to the API host (redirects are
+refused, never followed), and never appears in a repr, an exception, a log line or a file.
 """
 from __future__ import annotations
 
@@ -38,10 +38,21 @@ class Response:
 Transport = Callable[[str, str, dict[str, str], "bytes | None"], Response]
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """urllib re-sends a request's headers, the xi-api-key among them, to wherever a 3xx points. Refuse instead: the
+    3xx comes back as a Response with its own status, and the client raises on it."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
 def urllib_transport(method: str, url: str, headers: dict[str, str], body: bytes | None) -> Response:
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=900) as r:
+        with _OPENER.open(req, timeout=900) as r:
             return Response(r.status, {k.lower(): v for k, v in r.headers.items()}, r.read())
     except urllib.error.HTTPError as e:
         return Response(e.code, {k.lower(): v for k, v in e.headers.items()}, e.read())
@@ -100,7 +111,7 @@ class ElevenLabs:
                 self._sleep(delay)
                 delay *= 2
                 continue
-            if r.status >= 400:
+            if not 200 <= r.status < 300:  # a redirect is not followed (see _NoRedirect), so it is an error too
                 raise ElevenLabsError(r.status, self._scrub(r.body.decode(errors="replace")[:800]))
             self._log_cost(path, r)
             return r

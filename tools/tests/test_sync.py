@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from gitloom_film.sync import check, word_sync
+from gitloom_film.sync import check, report, section_table, word_sync
 
 BEATS = [round(0.2 + 0.6 * k, 4) for k in range(160)]
 AUDIO = {"beats": BEATS, "downbeats": BEATS[::4]}  # downbeats 0.2, 2.6, 5.0, 7.4, 9.8, …
@@ -93,3 +93,42 @@ def test_a_line_whose_first_word_has_no_onset_is_reported():
     y = voice(5.0, [1.1])  # L2 is silent in the track: the voiceover is out of step with vo.json
     problems, _ = word_sync(spoken([1.1, 3.2]), y, SR)
     assert problems == ["L2 word 'commit.': no spoken onset near its start"]
+
+
+WAIVERS = {"cut her": "act cut on a beat: no downbeat fits; ruled at Task 15, C3-approved"}
+
+
+def test_waived_problems_are_listed_but_do_not_fail():
+    problems = ["cut her at 16.208s is 600 ms off the downbeat", "cut hero at 20.000s is 100 ms off the beat",
+                "L32 word 'I' lights 108 ms after its spoken onset (90.258 s)"]
+    lines, failed = report(problems, WAIVERS)
+    assert failed
+    assert "waived: cut her at 16.208s is 600 ms off the downbeat (act cut on a beat: no downbeat fits; ruled at "
+    "Task 15, C3-approved)" in lines
+    assert "✗ cut hero at 20.000s is 100 ms off the beat" in lines  # a waiver names one scene, whole
+    assert lines[-1] == "2 problem(s), 1 waived"
+
+
+def test_only_waived_problems_pass_the_gate():
+    lines, failed = report(["cut her at 16.208s is 600 ms off the downbeat"], WAIVERS)
+    assert not failed and lines[-1] == "sync OK (1 waived)"
+
+
+def test_a_waiver_that_matches_nothing_is_pointed_out_without_failing():
+    lines, failed = report([], {**WAIVERS, "cut loom": "ruled"})
+    assert not failed and lines[-1] == "sync OK"
+    assert "note: waiver 'cut her' matches no problem" in lines and "note: waiver 'cut loom' matches no problem" in lines
+
+
+def test_section_table_gives_each_section_start_against_the_cut_it_opens():
+    vo = {"scenes": [{"id": "thread", "start": 0.0}, {"id": "ex", "start": 6.008}, {"id": "her", "start": 16.208},
+                     {"id": "loom", "start": 28.208}, {"id": "honest", "start": 61.208}, {"id": "proof", "start": 66.008},
+                     {"id": "weave", "start": 86.408}]}
+    audio = {"sections": [{"name": "cold open", "start": 0.0}, {"name": "the ex", "start": 7.208},
+                          {"name": "her", "start": 16.808}, {"name": "the tour", "start": 28.808},
+                          {"name": "honest", "start": 62.408}, {"name": "proof and everywhere", "start": 67.208},
+                          {"name": "weave", "start": 86.408}]}
+    rows = section_table(vo, audio)
+    assert [(r["section"], r["scene"], r["delta_ms"]) for r in rows] == [
+        ("cold open", "thread", 0), ("the ex", "ex", 1200), ("her", "her", 600), ("the tour", "loom", 600),
+        ("honest", "honest", 1200), ("proof and everywhere", "proof", 1200), ("weave", "weave", 0)]

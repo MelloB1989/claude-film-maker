@@ -3,7 +3,8 @@
 The score is generated at one tempo, so the grid is a straight line fitted to librosa's tracked beats. It carries
 on through drumless stretches (the cold open, the honesty drop-out) where a tracker loses the beat. `grid_fit`
 measures the grid against the audio's own onsets. Below 0.9 the tempo drifts, and a human decides (regenerate the
-score, or cut on its downbeats); the music is the truth (spec §5.2).
+score, or cut on its downbeats); the music is the truth (spec §5.2). The envelopes and band onsets are taken from
+the music as the mix plays it, with its automation drawn in.
 """
 import argparse
 import json
@@ -11,6 +12,7 @@ import json
 import librosa
 import numpy as np
 
+from .automate import apply, lanes
 from .paths import AUDIO, DATA, ROOT
 from .wav import read_wav
 
@@ -20,6 +22,8 @@ HOP = 256
 # a little more once the tracker has stepped it onto whole frames. Beats and onsets are read off it, so both are
 # shifted back by this much (frames, so it scales with the sample rate).
 LAG = 1.5
+# A fitted phase within this much of a whole period is a first beat just before 0 (at most 30 ms), not a late one.
+WRAP = 0.03
 
 
 def fit_grid(beats: np.ndarray, duration: float) -> tuple[np.ndarray, float, float]:
@@ -36,7 +40,10 @@ def fit_grid(beats: np.ndarray, duration: float) -> tuple[np.ndarray, float, flo
     period = float(np.median((b[j] - b[i])[span != 0] / span[span != 0]))
     phase = float(np.median(b - period * x)) % period
     resid = beats - (phase + np.round((beats - phase) / period) * period)
-    return np.arange(phase, duration, period), period, float(np.median(np.abs(resid)))
+    grid = np.arange(phase, duration, period)
+    if phase > period - WRAP:  # a first beat a hair before 0 wrapped round to the end of the period: keep it
+        grid = np.concatenate([[phase - period], grid])
+    return grid, period, float(np.median(np.abs(resid)))
 
 
 def _norm(x: np.ndarray) -> np.ndarray:
@@ -86,7 +93,20 @@ def _downbeat_phase(beats: np.ndarray, low: np.ndarray, starts: list[float], per
     return best
 
 
-def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np.ndarray | None = None) -> dict:
+def _envelopes(y: np.ndarray, sr: int, n: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """low, mid and high band envelopes and the RMS, at FPS, each 0..1."""
+    hop = max(1, sr // FPS)
+    S = np.abs(librosa.stft(y, n_fft=2048, hop_length=hop))
+    freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)
+    low, mid, high = (_norm(_fit(_band(S, freqs, lo, hi), n)) for lo, hi in ((20, 150), (150, 2000), (4000, 16000)))
+    return low, mid, high, _norm(_fit(librosa.feature.rms(y=y, frame_length=2048, hop_length=hop)[0], n))
+
+
+def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np.ndarray | None = None,
+            automate: bool = True) -> dict:
+    """The beat grid, downbeats and sections come from the score as generated. The envelopes and band onsets that
+    drive the visuals come from the music as heard: with `automate`, the mix's arc (automate.py) is drawn over
+    those sections first, so the honest dip and the muffled cold open show in them as they do in the mix."""
     duration = len(y) / sr
     n = int(np.ceil(duration * FPS))
     lag = LAG * HOP / sr  # onset times are read off the envelope, so every one of them is this late
@@ -95,11 +115,7 @@ def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np
                                     tightness=400, trim=False)
     tracked = librosa.frames_to_time(bf, sr=sr, hop_length=HOP) - lag
     beats, period, err = fit_grid(tracked, duration)
-    hop = max(1, sr // FPS)
-    S = np.abs(librosa.stft(y, n_fft=2048, hop_length=hop))
-    freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)
-    low, mid, high = (_norm(_fit(_band(S, freqs, lo, hi), n)) for lo, hi in ((20, 150), (150, 2000), (4000, 16000)))
-    rms = _norm(_fit(librosa.feature.rms(y=y, frame_length=2048, hop_length=hop)[0], n))
+    low, _, _, rms = _envelopes(y, sr, n)
     onset_t = librosa.onset.onset_detect(onset_envelope=oenv, sr=sr, hop_length=HOP, units="time",
                                          backtrack=False) - lag
     # an audible stretch: sound within a beat of the beat. Loudness at the instant would keep only the beats that
@@ -107,14 +123,18 @@ def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np
     sounding = np.convolve((rms > 0.05).astype(float), np.ones(2 * round(period * FPS) + 1), mode="same") > 0
     active = sounding[np.clip(np.round(beats * FPS).astype(int), 0, n - 1)]
     fit = grid_fit(beats, onset_t, active)
-    t = np.arange(n) / FPS
-    drums = _norm(np.interp(t, librosa.frames_to_time(np.arange(len(oenv)), sr=sr, hop_length=HOP) - lag, oenv))
     starts = [s["start"] for s in meta["sections"]]
     downs = beats[_downbeat_phase(beats, low, starts, period)::4]
     snapped = [float(downs[np.argmin(np.abs(downs - s))]) if i else 0.0 for i, s in enumerate(starts)]
     sections = [{"name": s["name"], "start": round(snapped[i], 3),
                  "end": round(snapped[i + 1], 3) if i + 1 < len(snapped) else round(duration, 3)}
                 for i, s in enumerate(meta["sections"])]
+    if automate:  # from here on, the music as heard
+        y = apply(y, sr, *lanes(sections, sr, len(y)))
+        oenv = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP)
+    low, mid, high, rms = _envelopes(y, sr, n)
+    t = np.arange(n) / FPS
+    drums = _norm(np.interp(t, librosa.frames_to_time(np.arange(len(oenv)), sr=sr, hop_length=HOP) - lag, oenv))
     vocal = np.zeros(n)
     if vo_y is not None:
         vr = max(1, sr // FPS) if len(vo_y) else 1
@@ -134,6 +154,8 @@ def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Analyse the chosen score into data/audio.json")
     ap.add_argument("--music", help="WAV to analyse (default: the chosen variant in data/music_plan.json)")
+    ap.add_argument("--no-automation", action="store_true",
+                    help="take the envelopes from the score as generated (to go with film-mix --no-automation)")
     a = ap.parse_args(argv)
     mp = json.loads((DATA / "music_plan.json").read_text())
     path = ROOT / (a.music or mp["chosen"] or "")
@@ -144,7 +166,7 @@ def main(argv=None):
     vo_y, vsr = read_wav(AUDIO / "vo" / "vo.wav")
     if vsr != sr:
         vo_y = librosa.resample(vo_y, orig_sr=vsr, target_sr=sr)
-    out = analyze(y, sr, mp["meta"], vo, vo_y)
+    out = analyze(y, sr, mp["meta"], vo, vo_y, automate=not a.no_automation)
     (DATA / "audio.json").write_text(json.dumps(out))
     print(f"{out['bpm']} BPM · grid fit {out['grid_fit']:.2f} · grid error {out['grid_error_ms']} ms · "
           f"{len(out['beats'])} beats · {len(out['downbeats'])} downbeats"
