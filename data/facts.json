@@ -53,17 +53,13 @@
     {"text": "Storage is free.", "source": "docs/content/pricing.md:6; web/src/sections/Pricing.tsx:79"}
   ],
   "copy": [
-    {"text": "back to zero", "source": "spec §4 thread"},
     {"text": "0.2143", "source": "spec §4 ex"},
     {"text": "−0.0931", "source": "spec §4 ex"},
     {"text": "0.7715", "source": "spec §4 ex"},
-    {"text": "It's not you.", "source": "spec §4 ex"},
-    {"text": "it's your vector store", "source": "spec §4 ex"},
     {"text": "vectors.bin · 1536 dims · 0 commits", "source": "spec §4 ex"},
     {"text": "Maya lives in Berlin.", "source": "spec §4 ex"},
     {"text": "Maya moved to Lisbon in March 2026.", "source": "spec §4 ex"},
     {"text": "berlin?", "source": "spec §4 ex"},
-    {"text": "why?", "source": "spec §4 ex"},
     {"text": "cosine 0.8127", "source": "spec §4 ex"},
     {"text": "− no history", "source": "spec §4 ex"},
     {"text": "− no provenance", "source": "spec §4 ex"},
@@ -99,7 +95,6 @@
     {"text": "1 file changed, 2 insertions(+), 2 deletions(-)", "source": "spec §4 diff"},
     {"text": "what editor do I use?", "source": "spec §4 cite"},
     {"text": "neovim.", "source": "spec §4 cite"},
-    {"text": "why?", "source": "spec §4 cite"},
     {"text": "facts/people/user.md#editor · L11–14 · 3f9a1c2", "source": "spec §4 cite"},
     {"text": "3f9a1c2 · 2026-07-26", "source": "spec §4 cite"},
     {"text": "lexical · your words", "source": "spec §4 braid"},
@@ -124,7 +119,6 @@
     {"text": "\"memories\": []", "source": "spec §4 honest"},
     {"text": "\"candidates\": 2", "source": "spec §4 honest"},
     {"text": "\"filtered_out\": 2", "source": "spec §4 honest"},
-    {"text": "I don't know.", "source": "spec §4 honest"},
     {"text": "the engine returns nothing rather than the nearest vector.", "source": "spec §4 honest"},
     {"text": "44", "source": "spec §4 proof"},
     {"text": "72", "source": "spec §4 proof"},
@@ -153,10 +147,8 @@
     {"text": "Go", "source": "spec §4 connect"},
     {"text": "Rust", "source": "spec §4 connect"},
     {"text": "<private>", "source": "spec §4 connect"},
-    {"text": "On your machine", "source": "spec §4 anywhere"},
     {"text": "$ curl -fsSL https://gitloom.cloud/install.sh | sh   # current: 0.3.0", "source": "spec §4 anywhere"},
     {"text": "one static binary · no CGo · arm64 + amd64 · licence verified offline", "source": "spec §4 anywhere"},
-    {"text": "or in my cloud", "source": "spec §4 anywhere"},
     {"text": "Playground", "source": "spec §4 anywhere"},
     {"text": "Memory Graph", "source": "spec §4 anywhere"},
     {"text": "Namespaces", "source": "spec §4 anywhere"},
@@ -191,6 +183,6 @@
   "illustrative_patterns": [
     {"pattern": "^[−-]?\\d\\.\\d{4}$", "why": "spec §11.10: the float numerals"},
     {"pattern": "^user-\\d{4}$", "why": "spec §11.10: the namespace rows, user-0001 … user-2048"},
-    {"pattern": "^[0-9a-f]{7}$", "why": "spec §11.10: the commit hashes in git log beyond 3f9a1c2, 8b21e04 and 105ca74"}
+    {"pattern": "^(?=[0-9a-f]*[0-9])(?=[0-9a-f]*[a-f])[0-9a-f]{7}$", "why": "spec §11.10: the commit hashes in git log beyond 3f9a1c2, 8b21e04 and 105ca74 (seven hex with a digit and a letter: not a number, not a word spelt in a-f)"}
   ]
 }

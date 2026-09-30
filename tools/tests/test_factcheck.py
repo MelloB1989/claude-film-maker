@@ -279,8 +279,10 @@ def test_the_sheet_is_well_formed():
     assert len(every) == len(set(every)), "an entry is listed twice"
 
 
-def test_every_scene_has_copy():
-    assert {e["source"].split()[-1] for e in sheet()["copy"]} == scene_ids()
+def test_every_scene_has_copy_unless_it_shows_only_her_words():
+    # thread shows only her words ("Your agent forgets.", "back to", "zero."), which pass as hers: a copy entry that
+    # repeated them would let their cut-off substrings through
+    assert scene_ids() - {e["source"].split()[-1] for e in sheet()["copy"]} == {"thread"}
 
 
 @pytest.mark.parametrize("s", [
@@ -314,7 +316,7 @@ def test_display_type_uses_the_same_sheet_as_typed_input():
 
 # --- the illustrative patterns: the shapes of values that are invented (spec 11.10) ---
 
-PATTERNS = ["^[" + MINUS + r"-]?\d\.\d{4}$", r"^user-\d{4}$", "^[0-9a-f]{7}$"]
+PATTERNS = ["^[" + MINUS + r"-]?\d\.\d{4}$", r"^user-\d{4}$", "^(?=[0-9a-f]*[0-9])(?=[0-9a-f]*[a-f])[0-9a-f]{7}$"]
 
 
 def without_patterns():
@@ -421,3 +423,23 @@ def test_quoted_lines_and_footnotes_from_the_spec_pass():
     for s in shown:
         assert s in text, f"{s!r} is not in the spec"
         assert classify(s, real()) is not None, f"{s!r} is not on the sheet"
+
+
+def test_cut_off_words_of_her_lines_fail():
+    # her lines pass word by word; a word cut short is nobody's (a copy entry that only repeats her words would let
+    # its substrings through, so the sheet holds none)
+    for s in ["to zer", "t's not yo", "your vector sto", "n your machin", "r in my clo", "I don't kno"]:
+        assert classify(s, real()) is None, s
+
+
+def test_her_phrases_pass_as_hers():
+    for s in ["back to zero", "It's not you.", "it's your vector store", "why?", "I don't know.", "On your machine",
+              "or in my cloud"]:
+        assert classify(s, real()) == "vo", s
+
+
+def test_an_invented_hash_has_a_digit_and_a_letter():
+    for s in ["7d3e9b0", "e4a1f07", "0c5b2a9"]:
+        assert classify(s, real()) == "illustrative", s
+    for s in ["1234567", "defaced", "acceded"]:  # seven digits, or a word spelt in a-f, is not a commit hash
+        assert classify(s, real()) is None, s
