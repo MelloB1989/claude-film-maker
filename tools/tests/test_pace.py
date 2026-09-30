@@ -83,3 +83,20 @@ def test_pace_take_writes_scaled_words(tmp_path):
     assert out["words"][0]["start"] == pytest.approx(0.04 * 0.9, abs=1e-3)
     assert out["duration"] == pytest.approx(len(y) / SR, abs=1e-3)
     assert json.loads((tmp_path / "paced" / "1.json").read_text())["factor"] == 0.9
+
+
+@needs_rb
+def test_pace_take_stores_each_words_measured_onset(tmp_path):
+    # "I" is aligned 110 ms after the voice starts; "keep" follows it without a pause, so it keeps its aligned start
+    x = np.concatenate([np.zeros(SR // 4, np.float32), tone(0.6), np.zeros(SR // 4, np.float32)])
+    words = [{"w": "I", "start": 0.36, "end": 0.5}, {"w": "keep.", "start": 0.52, "end": 0.85}]
+    write_wav(tmp_path / "1.wav", x)
+    (tmp_path / "1.json").write_text(json.dumps({"line": "L31", "take": 1, "duration": 1.1, "words": words}))
+    out = pace_take(tmp_path / "1.wav", tmp_path / "1.json", tmp_path / "paced", 0.9)
+    y, _ = read_wav(tmp_path / "paced" / "1.wav")
+    voice = int(np.argmax(np.abs(y) > 0.05)) / SR  # where the tone starts in the paced file
+    first, second = out["words"]
+    assert first["start"] == pytest.approx((0.36 - 0.21) * 0.9, abs=1e-3)  # the aligned start, trimmed and scaled
+    assert first["onset"] == pytest.approx(voice, abs=0.006)  # the measured one, on the paced audio
+    assert second["onset"] is None
+    assert json.loads((tmp_path / "paced" / "1.json").read_text())["words"] == out["words"]

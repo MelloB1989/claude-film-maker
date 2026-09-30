@@ -1,4 +1,7 @@
-from gitloom_film.sync import check
+import numpy as np
+import pytest
+
+from gitloom_film.sync import check, word_sync
 
 BEATS = [round(0.2 + 0.6 * k, 4) for k in range(160)]
 AUDIO = {"beats": BEATS, "downbeats": BEATS[::4]}  # downbeats 0.2, 2.6, 5.0, 7.4, 9.8, …
@@ -38,3 +41,55 @@ def test_line_outside_its_scene_is_reported():
     vo = good()
     vo["scenes"][1]["start"] = vo["scenes"][0]["end"] = 4.4  # cuts after L2's first word
     assert any("L2 is not inside its scene" in x for x in check(vo, AUDIO, SCRIPT))
+
+
+def test_word_outside_its_line_is_reported():
+    vo = good()
+    vo["lines"][0]["words"][0]["end"] = vo["lines"][0]["end"] + 0.5  # past its line, still inside its scene
+    assert check(vo, AUDIO, SCRIPT) == ["L1 word 'a' lies outside its line"]
+
+
+SR = 48000
+
+
+def voice(duration, onsets, length=0.5):
+    """A voiceover track: a 150 Hz voice starting at each onset (seconds, exact), silence elsewhere."""
+    y = np.zeros(int(duration * SR), np.float32)
+    for t in onsets:
+        i = int(round(t * SR))
+        n = int(length * SR)
+        y[i:i + n] = 0.3 * np.sin(2 * np.pi * 150 * np.arange(n) / SR)
+    return y
+
+
+def spoken(starts):
+    """Two lines; each word lasts 0.3 s. `starts` holds the placed (vo.json) start of L1's and L2's first word."""
+    return {"lines": [{"id": "L1", "start": 1.0, "end": 2.0, "words": [{"w": "I", "start": starts[0], "end": 1.5}]},
+                      {"id": "L2", "start": 3.0, "end": 4.0,
+                       "words": [{"w": "commit.", "start": starts[1], "end": 3.6}]}]}
+
+
+def test_words_that_light_within_a_frame_after_their_onset_pass():
+    y = voice(5.0, [1.1, 3.2011])  # 3.2011 is not on a frame: the word lights on the next one, 32 ms later
+    problems, rows = word_sync(spoken([1.1, 3.2011]), y, SR)
+    assert problems == []
+    assert [(r["line"], r["word"]) for r in rows] == [("L1", "I"), ("L2", "commit.")]
+    assert rows[0]["error_ms"] == pytest.approx(0, abs=0.2) and 0 <= rows[1]["error_ms"] <= 35
+
+
+def test_a_word_that_lights_late_is_reported_in_ms():
+    y = voice(5.0, [1.1, 3.2])
+    problems, _ = word_sync(spoken([1.2, 3.2]), y, SR)  # lit at 1.2, spoken at 1.1
+    assert problems == ["L1 word 'I' lights 100 ms after its spoken onset (1.100 s)"]
+
+
+def test_a_word_that_lights_ahead_of_the_voice_is_reported():
+    y = voice(5.0, [1.1, 3.2])
+    problems, _ = word_sync(spoken([1.1, 3.15]), y, SR)  # lit at 3.1667, spoken at 3.2
+    assert problems == ["L2 word 'commit.' lights 33 ms ahead of its spoken onset (3.200 s)"]
+
+
+def test_a_line_whose_first_word_has_no_onset_is_reported():
+    y = voice(5.0, [1.1])  # L2 is silent in the track: the voiceover is out of step with vo.json
+    problems, _ = word_sync(spoken([1.1, 3.2]), y, SR)
+    assert problems == ["L2 word 'commit.': no spoken onset near its start"]

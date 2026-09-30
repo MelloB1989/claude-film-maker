@@ -3,7 +3,6 @@
   "tail": 2.3,
   "gap": {"line": 0.35, "scene": 0.55, "act": 1.0},
   "scene_lead": 0.35,
-  "word_lead": 0.05,
   "overrides": {
     "L23": {"gap_before": 1.4},
     "L24": {"gap_before": 1.2},

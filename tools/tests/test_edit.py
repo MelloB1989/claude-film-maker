@@ -33,14 +33,24 @@ def test_place_applies_gaps_and_overrides():
     assert (l1["act"], l1["take"], l1["factor"]) == ("I", 1, 0.9)
 
 
-def test_word_lead_moves_starts_earlier_but_keeps_order_and_line_start():
-    takes = {**TAKES, "L1": take(1.0, [{"w": "I", "start": 0.04, "end": 0.041}, {"w": "b", "start": 0.08, "end": 0.9}])}
-    vo = place(SCRIPT, takes, {**CFG, "word_lead": 0.05})
+def test_a_measured_onset_places_the_word_and_an_unmeasured_word_keeps_its_aligned_start():
+    takes = {**TAKES,
+             "L1": take(1.0, [{"w": "I", "start": 0.16, "end": 0.3, "onset": 0.03},  # aligned 130 ms late
+                              {"w": "b", "start": 0.5, "end": 0.9, "onset": None}]),
+             "L2": take(0.5, [{"w": "c", "start": 0.04, "end": 0.4, "onset": 0.07}])}  # the voice starts after it
+    vo = place(SCRIPT, takes, {**CFG, "word_lead": 0.05})  # a stale word_lead is ignored
     w = vo["lines"][0]["words"]
-    assert w[0]["start"] == 1.0  # 1.04 − 0.05 would precede the line start
-    assert w[1]["start"] == 1.03  # 1.08 − 0.05
-    assert w[1]["end"] == 1.9  # ends are untouched
-    assert vo["lines"][1]["words"][0]["start"] == 2.5  # 2.54 − 0.05 clamps to L2's start
+    assert w[0] == {"w": "I", "start": 1.03, "end": 1.3}  # the onset; the end is untouched
+    assert w[1] == {"w": "b", "start": 1.5, "end": 1.9}  # no onset measured: the aligned start
+    assert vo["lines"][1]["words"][0]["start"] == 2.57  # never pulled ahead of the voice
+
+
+def test_word_starts_stay_in_order_and_never_precede_their_line():
+    takes = {**TAKES, "L1": take(1.0, [{"w": "a", "start": 0.04, "end": 0.2, "onset": -0.01},
+                                       {"w": "b", "start": 0.3, "end": 0.9, "onset": None},
+                                       {"w": "c", "start": 0.5, "end": 0.9, "onset": 0.25}])}
+    w = place(SCRIPT, takes, CFG)["lines"][0]["words"]
+    assert [x["start"] for x in w] == [1.0, 1.3, 1.3]
 
 
 def test_optional_line_included_when_enabled():

@@ -1,9 +1,10 @@
 """Place the chosen takes on the film timeline, derive scene and act windows, and assemble the voiceover.
 
 Gaps come from data/edit.json: line / scene / act gaps by boundary type, with per-line overrides. A scene starts
-`scene_lead` seconds before its first word, but never before the previous scene's last word has ended. Forced
-alignment puts word starts a median 53-72 ms after the audible onset, so `word_lead` moves every word's start
-earlier by that much (ends untouched), keeping the starts in order and never before their line's own start.
+`scene_lead` seconds before its first word, but never before the previous scene's last word has ended. A word starts
+at its spoken onset where film-pace measured one (the first word of a line, and any word after a pause; forced
+alignment is 0-190 ms off there), and at its aligned start otherwise; ends are the aligned ends. Starts stay in order
+and never precede their line's own start.
 """
 import argparse
 import json
@@ -51,10 +52,9 @@ def place(script: dict, takes: dict[str, dict], cfg: dict) -> dict:
             gap = cfg["gap"]["line"]
         gap = cfg.get("overrides", {}).get(line["id"], {}).get("gap_before", gap)
         start = t + gap
-        lead = cfg.get("word_lead", 0.0)
         words, prev_ws = [], start
         for w in tk["words"]:
-            ws = max(prev_ws, start + w["start"] - lead)
+            ws = max(prev_ws, start + (w["onset"] if w.get("onset") is not None else w["start"]))
             words.append({"w": w["w"], "start": round(ws, 4), "end": round(start + w["end"], 4)})
             prev_ws = ws
         lines.append({

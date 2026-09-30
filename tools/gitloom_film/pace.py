@@ -1,6 +1,7 @@
 """Pace a take: cut the silence around the words (never the speech the aligner left outside them), then time-stretch
 with Rubber Band's R3 engine (pitch and timbre are kept; nothing is pitch-shifted). Jean runs slow, so the default
-tightens by 10%."""
+tightens by 10%. Each word that opens the line or follows a pause then gets its spoken onset, measured on the paced
+audio (onsets.py), as `onset` (seconds into the paced take, or null)."""
 import argparse
 import json
 import shutil
@@ -10,6 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .onsets import voice_onsets
 from .paths import AUDIO
 from .wav import read_wav, write_wav
 
@@ -81,6 +83,7 @@ def pace_take(take_wav: Path, take_json: Path, out_dir: Path, factor: float) -> 
     x, words = trim(x, sr, meta["words"])
     y = stretch(x, sr, factor)
     words = [{**w, "start": round(w["start"] * factor, 4), "end": round(w["end"] * factor, 4)} for w in words]
+    words = [{**w, "onset": on} for w, on in zip(words, voice_onsets(y, sr, words))]
     out = {**meta, "factor": factor, "duration": round(len(y) / sr, 4), "words": words}
     write_wav(out_dir / take_wav.name, y, sr)
     (out_dir / take_json.name).write_text(json.dumps(out, indent=1))
