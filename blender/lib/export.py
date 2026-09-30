@@ -12,8 +12,9 @@ Tracks: data/track/<shot>.json = {"fps": 30, "f0": f0, "anchors": {name: [[x, y,
 film frame from f0, in the film's logical 1920x1080 px (engine: track.ts).
 
 Every frame is checked as soon as its EXR is written: one that comes out blank (Cycles on Metal has written runs of
-black frames, silently, with two renders sharing the GPU) is rendered again, and one that stays blank fails the render
-with BlankFrameError (lib/blank.py). SHOT["black_ok"] exempts the frames a shot means to be black. A frame whose
+black frames, silently, with two renders sharing the GPU), with a black tile, or with values that are not finite is
+rendered again, and one that stays so fails the render with BadFrameError (lib/blank.py). SHOT["black_ok"] exempts the
+frames a shot means to be black from being lit, not from holding finite values. A frame whose
 frame_set or render ran a frame-change handler that raised fails with HandlerError before its plate is written, and
 so does a tracked frame (lib/handlers.py: render.py installs the guard once the shot is built).
 
@@ -238,9 +239,10 @@ def _film_off(scene):
 def render_frame(scene, film_frame: int, shot: str, f0: int, look: bool = False, black_ok: bool = False) -> list[Path]:
     """Render one film frame and write its plate (EXR and proxy), plus its look still. Returns what it wrote.
 
-    The frame is checked once its EXR is written (lib/blank.py): a blank one is rendered again, up to twice, each
-    attempt logged, and one that stays blank raises BlankFrameError with its plate left where it was written.
-    `black_ok`, for a frame the shot declares black, skips the check. The test hook GITLOOM_FORCE_BLANK ("F" or "F:N",
+    The frame is checked once its EXR is written (lib/blank.py fault): a blank or bad one (a black Cycles tile, values
+    that are not finite) is rendered again, up to twice, each attempt logged, and one that stays so raises BadFrameError
+    with its plate left where it was written. `black_ok`, for a frame the shot declares black, checks only that its
+    values are finite. The test hook GITLOOM_FORCE_BLANK ("F" or "F:N",
     comma-separated) makes film frame F render black on its first N attempts (default 1) to prove the retry; unset, it
     does nothing. A frame-change handler that raised during the frame_set or the render (its motion-blur steps) raises
     HandlerError before anything is written (lib/handlers.py), and is not retried: it is a fault in the shot."""
@@ -271,7 +273,8 @@ def render_frame(scene, film_frame: int, shot: str, f0: int, look: bool = False,
             save_view_png(rr, scene, lp)
         return px
 
-    blank.render_checked(once, shot=shot, film_frame=film_frame, path=p.exr, black_ok=black_ok)
+    tile = scene.cycles.tile_size if scene.render.engine == "CYCLES" else None  # Cycles 5.2 always renders in tiles
+    blank.render_checked(once, shot=shot, film_frame=film_frame, path=p.exr, black_ok=black_ok, tile=tile)
     return [p.exr, p.proxy] + ([lp] if lp is not None else [])
 
 

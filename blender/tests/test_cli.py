@@ -79,6 +79,13 @@ def test_mode_is_required_except_for_a_scan(capsys):
     assert "--mode is required" in capsys.readouterr().err
 
 
+def test_a_scan_can_demand_one_plate_size():
+    assert cli.parse_args(["--shot", "b15_weave", "--scan", "--expect-res", "3840x2160"]).expect_res == (3840, 2160)
+    assert cli.parse_args(["--shot", "b15_weave", "--scan"]).expect_res is None
+    with pytest.raises(SystemExit):
+        cli.parse_args(["--shot", "b15_weave", "--scan", "--expect-res", "3840x2000"])  # not 16:9
+
+
 # -------------------------------------------------------------------------------- render_frames: exit codes
 
 
@@ -106,7 +113,7 @@ def test_a_run_that_writes_every_frame_exits_0():
 
 
 def test_a_frame_that_stays_blank_stops_the_run_with_exit_3_and_says_how_to_finish_it():
-    r = Run({41: blank.BlankFrameError("b07_test", 41, Path("/x/0001.exr"), 3, 0.0)})
+    r = Run({41: blank.BadFrameError("b07_test", 41, Path("/x/0001.exr"), 3, blank.Fault("blank", "brightest RGB value 0"))})
     assert r.run([40, 41, 42, 44]) == 3
     assert r.asked == [40, 41]  # nothing after it is rendered
     text = "\n".join(r.err)

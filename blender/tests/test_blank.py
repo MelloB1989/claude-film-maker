@@ -1,9 +1,9 @@
-"""The black-frame guard (lib/blank.py): what counts as blank, the retry loop, the shot's opt-out and the test hook.
+"""The black-frame guard (lib/blank.py): what counts as blank or bad, the retry loop, the shot's opt-out and the hook.
 
-Expected values are worked out by hand from the rule: a frame is blank when its brightest RGB value is at most 1e-4 in
-the linear EXR, or one code value (1/255) in the 8-bit proxy. NaNs are not blank.
+Expected values are worked out by hand from the rules: a frame is blank when its brightest RGB value is at most 1e-4 in
+the linear EXR, or one code value (1/255) in the 8-bit proxy. NaNs are not blank, but a NaN or an infinity anywhere in
+RGB makes the frame bad, and so does a black tile in a frame that is otherwise lit.
 """
-import logging
 import warnings
 from pathlib import Path
 
@@ -62,36 +62,12 @@ def test_three_channels_are_enough_without_alpha():
     assert blank.is_blank(np.zeros((2, 2, 3), np.float32)) is True
 
 
-def test_a_frame_with_nans_is_not_blank_and_its_nans_are_logged():
+def test_a_frame_with_nans_is_not_blank():
+    # not blank: a bad frame is not an empty one (fault() below says what is wrong with it)
     px = np.zeros((4, 6, 4), np.float32)
     px[0, 0, 0] = np.nan
-    px[3, 5, 2] = np.nan
-    px[1, 1, 3] = np.nan  # alpha is not looked at: not counted
-    logged = []
-    assert blank.is_blank(px, log=logged.append) is False
-    assert len(logged) == 1
-    assert "NaN" in logged[0] and "2 of 72" in logged[0]  # 2 NaNs among the 4 x 6 x 3 RGB values
-
-
-def test_a_frame_of_nothing_but_nans_is_not_blank():
-    logged = []
-    assert blank.is_blank(np.full((2, 2, 3), np.nan, np.float32), log=logged.append) is False
-    assert "12 of 12" in logged[0]
-
-
-def test_nans_go_to_the_logging_module_when_no_log_is_given(caplog):
-    px = np.zeros((2, 2, 3), np.float32)
-    px[0, 0, 0] = np.nan
-    with caplog.at_level(logging.WARNING):
-        assert blank.is_blank(px) is False
-    assert any("NaN" in r.getMessage() for r in caplog.records)
-
-
-def test_a_clean_frame_logs_nothing(caplog):
-    with caplog.at_level(logging.DEBUG):
-        blank.is_blank(np.zeros((2, 2, 3), np.float32))
-        blank.is_blank(np.ones((2, 2, 3), np.float32))
-    assert caplog.records == []
+    assert blank.is_blank(px) is False
+    assert blank.is_blank(np.full((2, 2, 3), np.nan, np.float32)) is False
 
 
 def test_infinity_is_bright_not_blank():
@@ -151,6 +127,90 @@ def test_peak_of_a_frame_of_nans_is_nan_without_a_warning_and_of_an_empty_frame_
         warnings.simplefilter("error")
         assert np.isnan(blank.peak(np.full((2, 2, 3), np.nan, np.float32)))
     assert blank.peak(np.zeros((0, 0, 3), np.float32)) == -np.inf
+
+
+# -------------------------------------------------------------------------------------------------------- fault
+
+
+def ink(h=6, w=10):
+    """A frame lit only by the ink world, about 0.006 linear everywhere: dark, but lit."""
+    px = np.full((h, w, 4), 0.006, np.float32)
+    px[..., 3] = 1.0
+    return px
+
+
+def test_a_dark_lit_frame_of_finite_values_has_no_fault():
+    assert blank.fault(ink()) is None
+    assert blank.fault(ink(), tile=4) is None
+
+
+def test_a_frame_with_nans_or_infs_is_bad_and_says_how_many():
+    px = ink(4, 6)
+    px[0, 0, 0] = np.nan
+    px[3, 5, 2] = np.nan
+    px[2, 2, 1] = np.inf
+    px[1, 1, 3] = np.nan  # alpha is not looked at: not counted
+    f = blank.fault(px)
+    assert f.kind == "nonfinite"
+    for part in ("3 of 72", "2 NaN", "1 inf"):  # among the 4 x 6 x 3 RGB values
+        assert part in f.detail
+
+
+def test_minus_infinity_is_bad_too():
+    px = ink()
+    px[1, 1, 1] = -np.inf
+    assert blank.fault(px).kind == "nonfinite"
+
+
+def test_a_blank_frame_is_a_blank_fault():
+    f = blank.fault(np.zeros((2, 2, 4), np.float32))
+    assert f.kind == "blank" and "brightest RGB value 0" in f.detail
+
+
+def test_a_proxy_is_judged_in_its_own_code_values():
+    px = np.zeros((2, 2, 4), np.uint8)
+    px[..., 3] = 255
+    assert blank.fault(px).kind == "blank"
+    px[0, 0, 0] = 2
+    assert blank.fault(px) is None
+
+
+# A 10 x 6 frame in tiles of 4 px. Cycles lays its tiles from the image's bottom-left corner (Blender's first row):
+# columns 0-4, 4-8, 8-10 and, counted from the top as the pixels are stored here, rows 2-6 and 0-2. The grid laid
+# from the top-left has rows 0-4 and 4-6. A tile that failed is black while the rest of the frame is lit, so the
+# frame's brightest value is fine and only the tile shows it.
+
+
+def test_a_black_tile_is_a_fault_though_the_rest_of_the_frame_is_lit():
+    px = ink()
+    px[2:6, 4:8, :3] = 0.0  # the middle tile of the bottom row
+    f = blank.fault(px, tile=4)
+    assert f.kind == "tile"
+    assert "x 4-8, y 2-6" in f.detail  # px from the top-left, ends exclusive
+
+
+def test_the_thin_tiles_at_the_frames_far_edges_are_checked():
+    px = ink()
+    px[0:2, 8:10, :3] = 0.0  # the top-right tile of Cycles' grid: 2 x 2 px
+    assert "x 8-10, y 0-2" in blank.fault(px, tile=4).detail
+
+
+def test_a_black_tile_on_a_grid_laid_from_the_top_left_is_a_fault_too():
+    px = ink()
+    px[4:6, 0:4, :3] = 0.0  # inside Cycles' tile at rows 2-6, which stays lit, but a whole tile of the top-left grid
+    assert "x 0-4, y 4-6" in blank.fault(px, tile=4).detail
+
+
+def test_a_black_patch_smaller_than_a_tile_is_not_a_fault():
+    px = ink()
+    px[2:6, 4:6, :3] = 0.0  # half a tile: a dark object, not a lost tile
+    assert blank.fault(px, tile=4) is None
+
+
+def test_a_frame_that_fits_in_one_tile_is_judged_whole():
+    px = ink()
+    px[:, :5, :3] = 0.0  # half the frame black, but at the default 2048-px tile this 10 x 6 frame is one tile, lit
+    assert blank.fault(px) is None
 
 
 # ------------------------------------------------------------------------------------------ render_checked
@@ -219,7 +279,7 @@ def test_the_second_retry_waits_longer_and_can_be_the_one_that_works():
 
 def test_a_frame_that_stays_blank_fails_after_the_first_attempt_and_two_retries():
     rig = Rig(black())
-    with pytest.raises(blank.BlankFrameError) as err:
+    with pytest.raises(blank.BadFrameError) as err:
         rig.run()
     assert rig.attempts == [1, 2, 3]
     e = err.value
@@ -240,7 +300,7 @@ def test_two_retries_is_the_default():
 
 def test_no_retries_fails_on_the_first_blank_frame():
     rig = Rig(black())
-    with pytest.raises(blank.BlankFrameError) as err:
+    with pytest.raises(blank.BadFrameError) as err:
         rig.run(retries=0)
     assert rig.attempts == [1]
     assert "1 attempt" in str(err.value) and "1 attempts" not in str(err.value)
@@ -261,14 +321,61 @@ def test_a_declared_black_frame_is_neither_checked_nor_retried():
     assert rig.sleeps == [] and rig.lines == []
 
 
-def test_a_frame_with_nans_is_not_retried_but_its_nans_are_logged_with_the_frame():
-    px = black()
-    px[0, 0, 0] = np.nan
+def with_nan():
+    px = lit()
+    px[1, 1, 0] = np.nan  # a NaN from the denoiser: it would bloom into a black or garbage block in the film
+    return px
+
+
+def with_inf():
+    px = lit()
+    px[1, 0, 2] = np.inf  # a half-float overflow
+    return px
+
+
+def test_a_frame_with_nans_or_infs_is_retried_and_fails_if_it_stays_bad():
+    rig = Rig(with_nan(), with_inf())
+    with pytest.raises(blank.BadFrameError) as err:
+        rig.run()
+    assert rig.attempts == [1, 2, 3]
+    e = err.value
+    assert (e.shot, e.film_frame, e.path, e.attempts) == ("b07_test", 312, PATH, 3)
+    for part in ("b07_test", "312", str(PATH), "3 attempts", "not finite", "inf"):
+        assert part in str(e)
+    assert "NaN" in rig.lines[0] and "again" in rig.lines[0] and "b07_test" in rig.lines[0] and "312" in rig.lines[0]
+    assert "inf" in rig.lines[1] and "again" in rig.lines[1]
+    assert "giving up" in rig.lines[2]
+
+
+def test_a_bad_frame_that_comes_out_clean_on_a_retry_is_kept():
+    good = lit()
+    rig = Rig(with_nan(), good)
+    assert rig.run() is good
+    assert rig.attempts == [1, 2]
+    assert "NaN" in rig.lines[0] and "again" in rig.lines[0]
+    assert "attempt 2 of 3" in rig.lines[1] and "kept" in rig.lines[1]
+
+
+def test_a_frame_with_a_black_tile_is_retried_and_fails_if_it_stays_bad():
+    px = ink()
+    px[2:6, 4:8, :3] = 0.0
     rig = Rig(px)
-    assert rig.run() is px
-    assert rig.attempts == [1]
-    assert len(rig.lines) == 1
-    assert "NaN" in rig.lines[0] and "b07_test" in rig.lines[0] and "312" in rig.lines[0]
+    with pytest.raises(blank.BadFrameError) as err:
+        rig.run(tile=4)
+    assert rig.attempts == [1, 2, 3]
+    assert "black tile" in str(err.value) and "x 4-8, y 2-6" in str(err.value)
+    assert "black tile" in rig.lines[0] and "again" in rig.lines[0]
+
+
+def test_a_declared_black_frame_is_still_bad_with_nans():
+    # black_ok says the frame may be black, not that it may hold NaNs: they would bloom in the film all the same
+    nan_black = black()
+    nan_black[0, 1, 1] = np.nan
+    clean_black = black()
+    rig = Rig(nan_black, clean_black)
+    assert rig.run(black_ok=True) is clean_black
+    assert rig.attempts == [1, 2]
+    assert "NaN" in rig.lines[0] and "again" in rig.lines[0]
 
 
 # ------------------------------------------------------------------------------------------------- black_ok

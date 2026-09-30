@@ -2,7 +2,7 @@
 
   /Applications/Blender.app/Contents/MacOS/Blender -b -P blender/render.py -- --shot <name> --mode look|preview|final
       [--frames a-b[,c,...]] [--res WxH] [--samples N] [--engine cycles|eevee] [--save-blend]
-  /Applications/Blender.app/Contents/MacOS/Blender -b -P blender/render.py -- --shot <name> --scan
+  /Applications/Blender.app/Contents/MacOS/Blender -b -P blender/render.py -- --shot <name> --scan [--expect-res WxH]
 
 The shot is blender/shots/<name>.py. It defines
   SHOT = {"scene": "<scene id>", "frames": "scene" | [f0, f1], "track": [object names], "look": "<frames>",
@@ -16,20 +16,24 @@ build(ctx) makes the camera (as scene.camera), the lights and the animation; ctx
 timing (lib.timing.Timing), frame(t) and time(f).
 
 "black_ok" (optional) names the film frames that are legitimately black, say a fade from black with nothing lit; the
-blank-frame guard below skips them. It takes what "look" takes, "a-b,c", or a list or range of film frames
+blank-frame guard below does not ask them to be lit (their values must still be finite). It takes what "look" takes, "a-b,c", or a list or range of film frames
 (range(0, 18)), or a function of the film frame (lambda f: f < 18). A shot without it has no black frames: each must
 come out lit. Declare only what is meant to be black. A dark frame is not blank: the ink world alone reads about 0.006
 linear.
 
 The blank-frame guard (lib/blank.py). With two renders on one GPU, Cycles on Metal has written runs of all-black frames,
-with no error and a clean exit code, so every frame is checked once its EXR is written. Blank: the brightest RGB value
-is at most 1e-4 (linear; at most 1/255 in a proxy, when a plate has no EXR). A frame with NaNs is not blank, and its
-NaNs are logged. A blank frame is rendered again, up to twice, each attempt logged (after 15 s, then 30 s: a spell of
-contention takes time to pass). One that is still blank stops the render with exit code 3 and an error naming the shot,
-the film frame and the plate's path; the frames after it are not rendered.
-  --scan                          checks a shot's existing plates the same way (the EXR, else the proxy) and lists the
-                                  blank ones, rendering nothing: exit 3 if any are blank or unreadable, else 0.
-                                  --mode and the render options are not used.
+with no error and a clean exit code, so every frame is checked once its EXR is written. It is bad when any RGB value is
+not finite (a NaN or an inf: the engine's bloom would spread it into a block of the film), when it is blank (the
+brightest RGB value is at most 1e-4 linear; at most 1/255 in a proxy, when a plate has no EXR), or when one of its
+Cycles tiles (2048 px) is black while the rest is lit. A bad frame is rendered again, up to twice, each attempt logged
+(after 15 s, then 30 s: a spell of contention takes time to pass). One that is still bad stops the render with exit
+code 3 and an error naming the shot, the film frame, what is wrong and the plate's path; the frames after it are not
+rendered. A black_ok frame is only checked for values that are not finite.
+  --scan                          checks a shot's existing plates against its window, rendering nothing: every plate
+                                  there and no plate beyond it, the EXRs all one size, each plate judged as above (the
+                                  EXR, else the proxy). Exit 3 on any missing, extra, blank, bad or unreadable plate or
+                                  mixed sizes, else 0. --mode and the render options are not used.
+  --expect-res WxH                with --scan: every EXR plate must be this size (a final's).
   GITLOOM_FORCE_BLANK=F[:N],...   test hook (Cycles): film frame F renders black on its first N attempts (default 1),
                                   to prove the retry. Unset, it does nothing.
 
@@ -101,17 +105,18 @@ def load_shot(name: str):
 
 def main(argv: list[str]) -> int:
     """Render (or --scan) a shot. Returns the exit code (lib/cli.py): 0; 1 when a frame-change handler failed;
-    cli.EXIT_BLANK for a blank frame. Any other error raises (exit 1 below)."""
+    cli.EXIT_BAD for a frame that stayed blank or bad, or a scan that found a problem. Any other error raises (exit 1
+    below)."""
     a = cli.parse_args(argv)
     mod = load_shot(a.shot)
     shot = mod.SHOT
     f0, f1 = cli.shot_frames(shot)
     black_ok = blank.black_ok(shot)  # a bad spec fails here, before anything is rendered
     if a.scan:
-        res = scan.scan_plates(a.shot, f0, black_ok)
+        res = scan.scan_plates(a.shot, f0, f1, black_ok, expect_res=a.expect_res)
         for line in scan.report(res):
             print(line, flush=True)
-        return cli.EXIT_OK if res.clean else cli.EXIT_BLANK
+        return cli.EXIT_OK if res.clean else cli.EXIT_BAD
 
     cfg = cli.MODES[a.mode]
     res = cli.parse_res(a.res) if a.res else cfg["res"]
@@ -120,8 +125,8 @@ def main(argv: list[str]) -> int:
     frames = cli.frames_to_render(a, shot, f0, f1)
     exempt = [f for f in frames if black_ok(f)]
     if exempt:
-        print(f"[{a.shot}] {len(exempt)} of {len(frames)} frames are declared black_ok: the blank-frame guard "
-              "skips them", flush=True)
+        print(f"[{a.shot}] {len(exempt)} of {len(frames)} frames are declared black_ok: the blank-frame guard does "
+              "not ask them to be lit", flush=True)
     forced = blank.parse_force_blank(os.environ.get(blank.FORCE_ENV))
     if forced:
         outside = sorted(set(forced) - set(frames))

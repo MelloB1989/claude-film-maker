@@ -5,8 +5,8 @@ project's pytest (blender/tests/test_cli.py). render.py keeps what needs Blender
 (lib/export.py), and the scan's EXR reader.
 
 Exit codes: 0, every frame written (or the scan found nothing wrong); 1, an error, including a frame-change handler that
-raised (lib/handlers.py); 3, a frame that stayed blank after its retries (lib/blank.py), or a scan that found blank or
-unreadable plates.
+raised (lib/handlers.py); 3, a frame that stayed blank or bad after its retries (lib/blank.py: blank, a black tile, or
+values that are not finite), or a scan that found a problem (lib/scan.py).
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ MODES = {
 }
 EXIT_OK = 0
 EXIT_ERROR = 1  # any error: render.py prints its traceback; a failed frame-change handler stops the run with it too
-EXIT_BLANK = 3  # a blank frame stopped the render, or --scan found blank or unreadable plates
+EXIT_BAD = 3  # a frame stayed blank or bad after its retries, or --scan found a problem with the plates
 
 
 def parse_args(argv: list[str]):
@@ -38,7 +38,10 @@ def parse_args(argv: list[str]):
     ap.add_argument("--engine", choices=["cycles", "eevee"], default="cycles")
     ap.add_argument("--save-blend", action="store_true", help="save the built scene to out/blender/<shot>.blend")
     ap.add_argument("--scan", action="store_true",
-                    help="list the blank frames of the shot's existing plates; renders nothing (exit 3 if any)")
+                    help="check the shot's existing plates: all there, all one size, none blank or bad; renders "
+                         "nothing (exit 3 on any problem)")
+    ap.add_argument("--expect-res", type=parse_res, metavar="WxH",
+                    help="with --scan: every EXR plate must be this size (a final's, say)")
     a = ap.parse_args(argv)
     if not a.scan and not a.mode:
         ap.error("--mode is required (unless --scan)")
@@ -88,7 +91,7 @@ def render_frames(frames: list[int], render_one: Callable[[int], Iterable[str]],
                   clock: Callable[[], float] = time.time) -> int:
     """Render `frames` in order, each with render_one(film frame), which returns what it wrote; returns the exit code.
 
-    A frame that stays blank (blank.BlankFrameError) stops the run with EXIT_BLANK, and a frame-change handler that
+    A frame that stays blank or bad (blank.BadFrameError) stops the run with EXIT_BAD, and a frame-change handler that
     raised (handlers.HandlerError) with EXIT_ERROR; either way the frames after it are not rendered, and the error says
     which --frames finish the run. Any other exception is raised on (render.py prints it and exits 1)."""
     took = []
@@ -96,11 +99,11 @@ def render_frames(frames: list[int], render_one: Callable[[int], Iterable[str]],
         t1 = clock()
         try:
             written = list(render_one(f))
-        except (blank.BlankFrameError, handlers.HandlerError) as e:
+        except (blank.BadFrameError, handlers.HandlerError) as e:
             err(f"ERROR: {e}")
             err(f"[{shot}] the render stopped at film frame {f} ({i} of {len(frames)} frames written). "
                 f"To finish it: --frames {blank.frames_spec(frames[i:])}")
-            return EXIT_BLANK if isinstance(e, blank.BlankFrameError) else EXIT_ERROR
+            return EXIT_BAD if isinstance(e, blank.BadFrameError) else EXIT_ERROR
         took.append(clock() - t1)
         out(f"[{shot}] film frame {f} ({i + 1}/{len(frames)}) {took[-1]:.1f}s -> " + ", ".join(written))
     if took:
