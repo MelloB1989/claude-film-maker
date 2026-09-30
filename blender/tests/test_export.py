@@ -1,5 +1,7 @@
 import shutil
+import struct
 import subprocess
+import zlib
 
 import numpy as np
 import pytest
@@ -69,3 +71,78 @@ def test_write_png_writes_what_a_decoder_reads_back(tmp_path):
     raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-f", "rawvideo", "-pix_fmt", "rgba", "-"],
                          check=True, capture_output=True).stdout
     assert raw == rgba.tobytes()
+
+
+def test_read_png_gives_back_what_write_png_wrote(tmp_path):
+    rgba = np.array([[[255, 0, 0, 255], [0, 255, 0, 128], [0, 0, 255, 0]],
+                     [[17, 34, 51, 255], [237, 231, 234, 255], [1, 2, 3, 4]]], dtype=np.uint8)
+    path = tmp_path / "x.png"
+    export.write_png(path, rgba)
+    out = export.read_png(path)
+    assert out.dtype == np.uint8 and out.shape == (2, 3, 4)  # 2 rows of 3 px, top row first
+    assert out.tolist() == rgba.tolist()
+
+
+def _chunk(tag: bytes, data: bytes) -> bytes:
+    return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+
+def _png(w: int, h: int, raw: bytes, color_type: int = 6, depth: int = 8, interlace: int = 0) -> bytes:
+    """A PNG built by hand: `raw` is the filtered scanlines (a filter byte, then the row's bytes, per row)."""
+    return (b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, depth, color_type, 0, 0, interlace))
+            + _chunk(b"IDAT", zlib.compress(raw)) + _chunk(b"IEND", b""))
+
+
+def test_read_png_reads_rgb_too(tmp_path):
+    path = tmp_path / "rgb.png"
+    path.write_bytes(_png(2, 1, bytes([0, 1, 2, 3, 4, 5, 6]), color_type=2))  # one row: filter 0, then (1,2,3), (4,5,6)
+    assert export.read_png(path).tolist() == [[[1, 2, 3], [4, 5, 6]]]
+
+
+def test_read_png_refuses_what_it_cannot_decode_exactly(tmp_path):
+    cases = {
+        "not a png": b"GIF89a not a png at all",
+        "filtered": _png(2, 1, bytes([1, 1, 2, 3, 4, 5, 6, 7, 8])),  # filter 1 (Sub): write_png never writes it
+        "16 bit": _png(1, 1, bytes([0]) + bytes(8), depth=16),
+        "greyscale": _png(2, 1, bytes([0, 9, 9]), color_type=0),
+        "interlaced": _png(1, 1, bytes([0, 1, 2, 3, 4]), interlace=1),
+    }
+    for name, data in cases.items():
+        path = tmp_path / f"{name.replace(' ', '_')}.png"
+        path.write_bytes(data)
+        with pytest.raises(ValueError):
+            export.read_png(path)
+
+
+def test_read_png_notices_a_file_cut_off_anywhere(tmp_path):
+    rgba = np.random.default_rng(3).integers(0, 256, (16, 16, 4), dtype=np.uint8)  # noise: a chunk of real length
+    good = tmp_path / "good.png"
+    export.write_png(good, rgba)
+    data = good.read_bytes()
+    assert export.read_png(good).tolist() == rgba.tolist()
+    cut = tmp_path / "cut.png"
+    for n in range(len(data)):  # every shorter prefix: in the signature, or a chunk's header, body or CRC
+        cut.write_bytes(data[:n])
+        with pytest.raises(ValueError):
+            export.read_png(cut)
+
+
+def test_read_png_notices_a_failed_crc_a_missing_chunk_and_the_wrong_amount_of_data(tmp_path):
+    good = tmp_path / "good.png"
+    export.write_png(good, np.full((8, 8, 4), 200, np.uint8))
+    data = good.read_bytes()
+    i = data.index(b"IDAT")
+    crc_at = i + 4 + struct.unpack(">I", data[i - 4:i])[0]  # the IDAT chunk's CRC: the data itself is untouched
+    signature, header = data[:8], data[8:8 + 25]  # the signature and the IHDR chunk (13 bytes of data in 25)
+    cases = {
+        "crc": (data[:crc_at] + bytes([data[crc_at] ^ 0xFF]) + data[crc_at + 1:], "CRC"),
+        "no_end": (data[:-12], "truncated"),  # the IEND chunk is 12 bytes
+        "no_data": (signature + header + _chunk(b"IEND", b""), "truncated"),
+        "short": (_png(2, 2, bytes([0]) + bytes(8)), "bytes of image data"),  # one row of the two the header says
+        "long": (_png(1, 1, bytes([0]) + bytes(8)), "bytes of image data"),
+    }
+    for name, (content, message) in cases.items():
+        path = tmp_path / f"{name}.png"
+        path.write_bytes(content)
+        with pytest.raises(ValueError, match=message):
+            export.read_png(path)
