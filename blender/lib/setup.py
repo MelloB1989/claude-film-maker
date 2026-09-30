@@ -38,12 +38,13 @@ def clear_scene() -> None:
 
 
 def new_scene(res=(960, 540), fps: int = 30, engine: str = "CYCLES", samples: int = 32, denoise: bool = True,
-              motion_blur: float = 0.5, view: str = "AgX", transparent: bool = False):
+              motion_blur: float = 0.5, view: str = "AgX", transparent: bool = False, require_gpu: bool = False):
     """Reset the current scene for a shot and return it.
 
     res: render size in px (16:9: tracks map it onto the film's 1920x1080). engine: 'CYCLES' or 'BLENDER_EEVEE'.
     motion_blur: the shutter in frames, centred on the frame (0 turns it off); the engine's own motion blur is centred
-    too. transparent: a transparent film (the world still lights the scene).
+    too. transparent: a transparent film (the world still lights the scene). require_gpu: raise cli.NoGpuError rather
+    than fall back to the CPU when no Metal GPU is found (render.py sets it for a final, unless --allow-cpu).
     """
     scene = bpy.context.scene
     clear_scene()
@@ -75,9 +76,11 @@ def new_scene(res=(960, 540), fps: int = 30, engine: str = "CYCLES", samples: in
     vs.use_curve_mapping = False
 
     if engine == "CYCLES":
+        from .cli import cycles_device
+
         c = scene.cycles
         gpus = use_metal_gpu()
-        c.device = "GPU" if gpus else "CPU"
+        c.device = cycles_device(gpus, require_gpu=require_gpu)
         if not gpus:
             print("setup: no Metal GPU found, rendering on the CPU")
         c.samples = samples

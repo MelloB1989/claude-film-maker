@@ -1,7 +1,7 @@
 """Render a Blender shot of the film (headless).
 
   /Applications/Blender.app/Contents/MacOS/Blender -b -P blender/render.py -- --shot <name> --mode look|preview|final
-      [--frames a-b[,c,...]] [--res WxH] [--samples N] [--engine cycles|eevee] [--save-blend]
+      [--frames a-b[,c,...]] [--res WxH] [--samples N] [--engine cycles|eevee] [--save-blend] [--allow-cpu]
   /Applications/Blender.app/Contents/MacOS/Blender -b -P blender/render.py -- --shot <name> --scan [--expect-res WxH]
 
 The shot is blender/shots/<name>.py. It defines
@@ -54,6 +54,8 @@ out/look/<shot>/<film frame>.png through the view transform. A new render of a f
 names objects whose screen positions go to data/track/<shot>.json for the whole shot, in every mode (lib/export.py).
 --frames are film frames, inclusive ("40-45,52"). --res overrides the size (16:9: tracks map it onto 1920x1080);
 --samples the sample count; --engine eevee renders with EEVEE (preview); --save-blend keeps out/blender/<shot>.blend.
+A final on Cycles stops (exit 1) when no Metal GPU is found, rather than run many times slower on the CPU with other
+noise; --allow-cpu lets it. An empty --frames is an error, never "every frame".
 """
 from __future__ import annotations
 
@@ -135,7 +137,7 @@ def main(argv: list[str]) -> int:
         print(f"[{a.shot}] TEST HOOK {blank.FORCE_ENV}={os.environ[blank.FORCE_ENV]!r}: these frames render black on "
               f"purpose (film frame: attempts) {forced}", flush=True)
 
-    scene = setup.new_scene(res, samples=samples, engine=engine)
+    scene = setup.new_scene(res, samples=samples, engine=engine, require_gpu=cli.requires_gpu(a))
     scene.frame_start, scene.frame_end = f0, f1 - 1
     scene["shot"] = a.shot
     ctx = Ctx(scene, a.shot, a.mode, f0, f1, res, timing.film())

@@ -37,6 +37,8 @@ def parse_args(argv: list[str]):
     ap.add_argument("--samples", type=int)
     ap.add_argument("--engine", choices=["cycles", "eevee"], default="cycles")
     ap.add_argument("--save-blend", action="store_true", help="save the built scene to out/blender/<shot>.blend")
+    ap.add_argument("--allow-cpu", action="store_true",
+                    help="let a final render on the CPU when no Metal GPU is found (otherwise it stops)")
     ap.add_argument("--scan", action="store_true",
                     help="check the shot's existing plates: all there, all one size, none blank or bad; renders "
                          "nothing (exit 3 on any problem)")
@@ -67,8 +69,10 @@ def shot_frames(shot: dict) -> tuple[int, int]:
 
 
 def frames_to_render(a, shot: dict, f0: int, f1: int) -> list[int]:
-    """The film frames this run renders: --frames, else in look mode the shot's look frames, else all of [f0, f1)."""
-    spec = a.frames or (shot.get("look") if a.mode == "look" else None)
+    """The film frames this run renders: --frames, else in look mode the shot's look frames, else all of [f0, f1). An
+    empty --frames is an error (timing.parse_frames), not "everything": a resuming driver with nothing left to render
+    must not render the whole shot again, or in look mode overwrite the plates with look frames."""
+    spec = a.frames if a.frames is not None else (shot.get("look") if a.mode == "look" else None)
     if spec is None:
         return list(range(f0, f1))
     frames = timing.parse_frames(spec) if isinstance(spec, str) else sorted(set(int(f) for f in spec))
@@ -76,6 +80,27 @@ def frames_to_render(a, shot: dict, f0: int, f1: int) -> list[int]:
     if bad:
         raise ValueError(f"frames {bad} are outside the shot's film frames [{f0}, {f1})")
     return frames
+
+
+class NoGpuError(RuntimeError):
+    """A final found no Metal GPU to render on."""
+
+
+def requires_gpu(a) -> bool:
+    """A Cycles final needs the Metal GPU, unless --allow-cpu."""
+    return a.mode == "final" and a.engine == "cycles" and not a.allow_cpu
+
+
+def cycles_device(gpus: list[str], *, require_gpu: bool) -> str:
+    """Cycles' device for the Metal GPUs found (lib/setup.py use_metal_gpu): "GPU", else "CPU", unless the run requires
+    the GPU. A final on the CPU runs many times slower, so the night's budget is gone, and its noise differs from the GPU
+    frames around it: it raises NoGpuError instead of carrying on with exit 0."""
+    if gpus:
+        return "GPU"
+    if require_gpu:
+        raise NoGpuError("no Metal GPU found: a final on the CPU would run many times slower, with noise unlike the GPU "
+                         "frames around it. Pass --allow-cpu to render it on the CPU anyway")
+    return "CPU"
 
 
 def _say(line: str) -> None:

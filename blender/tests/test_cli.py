@@ -40,6 +40,15 @@ def test_frames_to_render_in_look_mode_falls_back_to_the_shots_look_frames():
         cli.frames_to_render(args("look"), {"look": "45"}, 40, 45)
 
 
+def test_an_empty_frames_is_an_error_not_the_whole_shot():
+    # a driver that resumes with --frames "$REMAINING" (blank.frames_spec([]) is "") has nothing left to render: it
+    # must not render every frame again, nor in look mode overwrite the finals with look-quality plates
+    with pytest.raises(ValueError, match="--frames"):
+        cli.frames_to_render(args(frames=""), {}, 40, 45)
+    with pytest.raises(ValueError, match="--frames"):
+        cli.frames_to_render(args("look", ""), {"look": "41"}, 40, 45)
+
+
 # ------------------------------------------------------------------------------------------------ parse_res
 
 
@@ -84,6 +93,28 @@ def test_a_scan_can_demand_one_plate_size():
     assert cli.parse_args(["--shot", "b15_weave", "--scan"]).expect_res is None
     with pytest.raises(SystemExit):
         cli.parse_args(["--shot", "b15_weave", "--scan", "--expect-res", "3840x2000"])  # not 16:9
+
+
+# ------------------------------------------------------------------------------------------ the Metal GPU
+
+GPU = ["Apple M4 Max"]
+
+
+def test_a_final_without_a_metal_gpu_fails_unless_the_cpu_is_allowed():
+    # on the CPU a final runs many times slower (the night's budget is gone) and its noise differs from the GPU frames
+    final = cli.parse_args(["--shot", "b15_weave", "--mode", "final"])
+    with pytest.raises(cli.NoGpuError, match="--allow-cpu"):
+        cli.cycles_device([], require_gpu=cli.requires_gpu(final))
+    allowed = cli.parse_args(["--shot", "b15_weave", "--mode", "final", "--allow-cpu"])
+    assert cli.cycles_device([], require_gpu=cli.requires_gpu(allowed)) == "CPU"
+    assert cli.cycles_device(GPU, require_gpu=cli.requires_gpu(final)) == "GPU"
+
+
+def test_previews_look_frames_and_eevee_may_run_without_the_metal_gpu():
+    for argv in (["--mode", "preview"], ["--mode", "look"], ["--mode", "final", "--engine", "eevee"]):
+        a = cli.parse_args(["--shot", "b15_weave", *argv])
+        assert cli.cycles_device([], require_gpu=cli.requires_gpu(a)) == "CPU", argv
+        assert cli.cycles_device(GPU, require_gpu=cli.requires_gpu(a)) == "GPU", argv
 
 
 # -------------------------------------------------------------------------------- render_frames: exit codes
