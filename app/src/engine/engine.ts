@@ -320,7 +320,7 @@ export class Engine {
       if (s.stateful && sceneSeeked) {
         s.reset();
         const from = Math.max(e.start, t - s.prerollMax);
-        const step = 1 / 60;
+        const step = 1 / FPS;
         let first = true;
         for (let pt = from; pt < t - step * 0.5; pt += step) {
           s.render(this.frameFor(e, pt, first ? 0 : step, first, true, null, 1, 0), rt);

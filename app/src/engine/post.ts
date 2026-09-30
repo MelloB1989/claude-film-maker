@@ -19,7 +19,7 @@ export interface PostParams {
   bloomThreshold: number; // linear luminance where bloom starts
   bloomKnee: number; // soft knee width
   bloomRadius: number; // 0..1 upsample spread
-  halation: number; // red-orange film halation around highlights
+  halation: number; // blood-red film halation around highlights
   ca: number; // chromatic aberration in px at the frame edge
   grain: number; // grain amplitude (sRGB units), ~0.04-0.1
   vignette: number; // 0..1
@@ -131,7 +131,7 @@ ${SCALE === 1 ? `        c += texture(src, vUv + texel * vec2(-1, -1)).rgb; c +=
         vec3 bl = texture(bloomTex, uv).rgb;
         vec3 ha = texture(haloTex, uv).rgb;
         col += bl * bloom;
-        col += vec3(1.0, 0.18, 0.04) * luma(ha) * halation;
+        col += C_BLOOD_BRIGHT * luma(ha) * halation;
         col *= exposure;
         // HUD is composited in linear space before the shoulder so it gets grain & vignette too
         vec4 h = texture(hudTex, vUv);
