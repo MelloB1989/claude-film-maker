@@ -207,14 +207,17 @@ export class Engine {
   get duration() { return Math.max(this.audio.duration, this.vo.duration); }
 
   /**
-   * Await prepare(t) of every scene on screen in the frame at t: with motion blur (`samples` other than 1), every scene
-   * whose window meets the shutter, dt x shutter wide around t. Export calls it before rendering each frame; render()
-   * stays synchronous. (Sub-frames of one frame share its plate frame: plates.ts.)
+   * Await prepare() of every scene on screen in the frame at t (as render() decides it, see shutterPlan): at t, and
+   * with motion blur (`samples` other than 1) at the shutter's ends (t ± dt x shutter / 2) held in the scene's window
+   * as its sub-frames are. At most three distinct times, and every sub-frame lies between them: with a shutter of at
+   * most a frame, a plate needs no other frames. Export calls it before rendering each frame; render() stays synchronous.
    */
   async prepare(t: number, dt = 1 / FPS, samples: number | AdaptiveSampling = 1, shutter = 0.5): Promise<void> {
-    const w = samples === 1 ? 0 : dt * shutter;
-    const on = this.timeline.filter((e) => t + w / 2 >= e.start && t - w / 2 < e.end);
-    await Promise.all(on.map((e) => this.loaded.get(e.id)?.scene?.prepare?.(t)));
+    const plan = shutterPlan(this.timeline, t, dt, shutter, samples === 1 ? [0] : [-0.5, 0, 0.5]);
+    await Promise.all(plan[0]!.flatMap(({ entry }, i) => {
+      const s = this.loaded.get(entry.id)?.scene;
+      return [...new Set(plan.map((sub) => sub[i]!.time))].map((x) => s?.prepare?.(x));
+    }));
   }
 
   private frameFor(e: TimelineEntry, t: number, dt: number, seeked: boolean, preroll: boolean, under: THREE.Texture | null, tin: number, tout: number): Frame {

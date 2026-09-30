@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { shutterPlan } from './engine';
+import { Engine, shutterPlan } from './engine';
 
 // Expected values are hand-derived. Film frame n is at t = n / 30. A 0.5 shutter spans t ± 1/120 s (a quarter frame
 // either side), and a fixed set of n sub-frames sits at offsets u = (k + 0.5) / n - 0.5, at times t + u / 60. An entry
@@ -68,4 +68,38 @@ test('shutterPlan: the preview (samples 1) renders one sub-frame at t, of the en
   // t itself is never moved, even within ε of the cut
   expect(at(CUT - 1e-7)).toEqual([[['hud', CUT - 1e-7], ['ex', CUT - 1e-7]]]);
   expect(at(100)).toEqual([[]]); // after the film: nothing on screen
+});
+
+/**
+ * Engine.prepare on a stand-in engine (no WebGL): the timeline, and per entry a scene that records the times it is
+ * asked to prepare, except the `bare` entries (no scene: a module that failed, or one --only left unloaded).
+ */
+function preparing(timeline: { id: string; start: number; end: number }[], bare: string[] = []) {
+  const calls: Record<string, number[]> = {};
+  const scene = (id: string) => ({ prepare: async (x: number) => void (calls[id] ??= []).push(x) });
+  const loaded = new Map(timeline.map((entry) => [entry.id, { entry, lastT: -1, scene: bare.includes(entry.id) ? null : scene(entry.id) }]));
+  return { engine: Object.assign(Object.create(Engine.prototype), { timeline, loaded }) as Engine, calls };
+}
+
+test('prepare: with motion blur, each scene on screen at t prepares t and its shutter ends, held in its window', async () => {
+  const t = 468 / 30;
+  for (const samples of [4, { min: 4, max: 324, tol: 3 }]) {
+    const { engine, calls } = preparing([ex, her, hud]);
+    await engine.prepare(t, 1 / 30, samples, 0.5);
+    // her is not on screen at t (it starts inside the shutter), and ex's shutter end holds before the cut
+    expect(calls).toEqual({
+      ex: [expect.closeTo(t - 1 / 120, 12), t, CUT - EPS],
+      hud: [expect.closeTo(t - 1 / 120, 12), t, expect.closeTo(t + 1 / 120, 12)],
+    });
+  }
+  // at the cut, her's shutter opens before its start and holds there, at t: two times, not three (hud has no scene)
+  const { engine, calls } = preparing([ex, her, hud], ['hud']);
+  await engine.prepare(CUT, 1 / 30, 4, 0.5);
+  expect(calls).toEqual({ her: [CUT, expect.closeTo(CUT + 1 / 120, 12)] });
+});
+
+test('prepare: without motion blur (samples 1), each scene on screen at t prepares t only', async () => {
+  const { engine, calls } = preparing([ex, her, hud]);
+  await engine.prepare(468 / 30, 1 / 30, 1, 0.5);
+  expect(calls).toEqual({ ex: [468 / 30], hud: [468 / 30] });
 });

@@ -150,9 +150,7 @@ export default class ThreadScene extends Scene {
   }
 
   override async prepare(t: number) {
-    // motion blur samples a shutter around t, and off a frame's centre (a still at 2.01 s is frame 60.3) it crosses into
-    // the next plate frame; Engine.prepare passes the centre time only, so load every frame half a frame either side
-    await Promise.all([t - 0.5 / 30, t, t + 0.5 / 30].map((x) => this.plate.prepare(x)));
+    await this.plate.prepare(t);
   }
 
   /** The thread's own time at film time t (the plate's speed ramp). */

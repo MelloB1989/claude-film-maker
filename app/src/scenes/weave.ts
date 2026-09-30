@@ -65,9 +65,7 @@ export default class Weave extends Scene {
   }
 
   override async prepare(t: number) {
-    // the shutter's ends too: a still between frames has motion-blur steps either side of a plate frame's boundary
-    // (the engine prepares a frame at its middle time only; at frame times, as in a video, these are one plate)
-    await Promise.all([t - 1 / 120, t, t + 1 / 120].map((x) => this.plate.prepare(x)));
+    await this.plate.prepare(t);
   }
 
   /** The column's frame at t: where the final layout's reference corner is now, and its scale (the camera's push). */
