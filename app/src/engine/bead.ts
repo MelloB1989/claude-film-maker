@@ -1,4 +1,4 @@
-// The commit bead for `her`: a glass sphere with a bore and chamfered lips, its hash etched round its face.
+// A commit bead (`her`, `repo`, `braid`): a glass sphere with a bore and chamfered lips, its hash etched round its face.
 //
 // Geometry: a lathe round the bore (built on y, turned onto x), one closed profile: the sphere from lip to lip, a
 // 45° chamfer in to the bore at each end, and the bore's wall between them. three smooths the profile's normals across
@@ -17,8 +17,8 @@
 // frosted etch: rough, opaque (no transmission) and white, cut a little into the surface by a bump map whose soft edges
 // catch the light. A light clear coat keeps the reflections and the rim crisp over the satin.
 import * as THREE from 'three';
-import { F, font } from '../engine/type';
-import { LIN } from '../engine/palette';
+import { F, font } from './type';
+import { LIN } from './palette';
 
 export interface BeadOpts {
   /** Sphere radius (world units). */

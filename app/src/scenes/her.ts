@@ -27,7 +27,7 @@ import { onBeat, slam, whip, wordTimes } from '../engine/motion';
 import { norm, type VO } from '../engine/vo';
 import type { AudioData } from '../engine/audio';
 import { clamp, ease, keys, lerp, prog, pulse } from '../engine/util';
-import { Bead } from './her-bead';
+import { Bead } from '../engine/bead';
 import { Backdrop, DiffLine, FLAT, unlit, withSweep } from './her-type';
 import { fitKey } from './her-camera';
 import S from './her.strings.json';
