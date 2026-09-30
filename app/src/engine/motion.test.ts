@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { AudioData } from './audio';
-import { onBeat, onDownbeat, remap, slam, spring, whip, wordTimes } from './motion';
+import { onBeat, onDownbeat, slam, speedRamp, spring, whip, wordTimes } from './motion';
 import type { Frame } from './scene';
 import { keys } from './util';
 import { VO } from './vo';
@@ -108,28 +108,28 @@ test('slam of a spring that never overshoots starts at the hit', () => {
   expect(slam(1.2, 1, { damping: 1.5 })).toBeGreaterThan(0);
 });
 
-// ---- remap ----
+// ---- speedRamp ----
 
 // 1x, then a fast ramp down to 0.25x, a long hold, and back up to 1x.
 const SNAP: [number, number][] = [[0, 1], [1, 1], [1.2, 0.25], [3, 0.25], [3.2, 1]];
 
-test('remap maps a speed-1 segment 1:1', () => {
+test('speedRamp maps a speed-1 segment 1:1', () => {
   const ks: [number, number][] = [[0, 1], [2, 1]];
-  for (const t of [0, 0.3, 1, 1.999, 2, 5]) expect(remap(t, ks)).toBeCloseTo(t, 12);
-  expect(remap(0.8, SNAP)).toBeCloseTo(0.8, 12); // and the run-up before the ramp
+  for (const t of [0, 0.3, 1, 1.999, 2, 5]) expect(speedRamp(t, ks)).toBeCloseTo(t, 12);
+  expect(speedRamp(0.8, SNAP)).toBeCloseTo(0.8, 12); // and the run-up before the ramp
 });
 
-test('remap advances a 0.25 segment at a quarter', () => {
-  expect(remap(3, SNAP) - remap(1.2, SNAP)).toBeCloseTo(0.25 * 1.8, 12);
-  expect(remap(2, SNAP) - remap(1.5, SNAP)).toBeCloseTo(0.125, 12);
-  expect(remap(5, SNAP) - remap(4, SNAP)).toBeCloseTo(1, 12); // back at real time, held past the last key
+test('speedRamp advances a 0.25 segment at a quarter', () => {
+  expect(speedRamp(3, SNAP) - speedRamp(1.2, SNAP)).toBeCloseTo(0.25 * 1.8, 12);
+  expect(speedRamp(2, SNAP) - speedRamp(1.5, SNAP)).toBeCloseTo(0.125, 12);
+  expect(speedRamp(5, SNAP) - speedRamp(4, SNAP)).toBeCloseTo(1, 12); // back at real time, held past the last key
 });
 
-test('remap is monotonic and continuous through the ramps', () => {
+test('speedRamp is monotonic and continuous through the ramps', () => {
   const dt = 1 / 240;
-  let prev = remap(-0.5, SNAP);
+  let prev = speedRamp(-0.5, SNAP);
   for (let t = -0.5 + dt; t < 5; t += dt) {
-    const v = remap(t, SNAP);
+    const v = speedRamp(t, SNAP);
     expect(v).toBeGreaterThanOrEqual(prev);
     expect(v - prev).toBeLessThanOrEqual(dt + 1e-12); // never faster than the fastest speed
     expect(v - prev).toBeGreaterThanOrEqual(0.25 * dt - 1e-12); // nor slower than the slowest
@@ -137,44 +137,44 @@ test('remap is monotonic and continuous through the ramps', () => {
   }
 });
 
-test('remap: two keys at one time are an instant change of speed, and the mapped time stays continuous', () => {
+test('speedRamp: two keys at one time are an instant change of speed, and the mapped time stays continuous', () => {
   const ks: [number, number][] = [[0, 1], [1, 1], [1, 0.25], [2, 0.25], [2, 1]];
-  expect(remap(1, ks)).toBeCloseTo(1, 12);
-  expect(remap(1.5, ks) - remap(1, ks)).toBeCloseTo(0.125, 12);
-  expect(remap(2, ks)).toBeCloseTo(1.25, 12);
-  expect(remap(3, ks)).toBeCloseTo(2.25, 12);
+  expect(speedRamp(1, ks)).toBeCloseTo(1, 12);
+  expect(speedRamp(1.5, ks) - speedRamp(1, ks)).toBeCloseTo(0.125, 12);
+  expect(speedRamp(2, ks)).toBeCloseTo(1.25, 12);
+  expect(speedRamp(3, ks)).toBeCloseTo(2.25, 12);
   const eps = 1e-9;
-  expect(Math.abs(remap(1 + eps, ks) - remap(1 - eps, ks))).toBeLessThan(2 * eps);
-  expect(Math.abs(remap(2 + eps, ks) - remap(2 - eps, ks))).toBeLessThan(2 * eps);
+  expect(Math.abs(speedRamp(1 + eps, ks) - speedRamp(1 - eps, ks))).toBeLessThan(2 * eps);
+  expect(Math.abs(speedRamp(2 + eps, ks) - speedRamp(2 - eps, ks))).toBeLessThan(2 * eps);
 });
 
-test('remap is the integral of the speed curve that util keys() describes', () => {
+test('speedRamp is the integral of the speed curve that util keys() describes', () => {
   const ks: [number, number][] = [[0.5, 1], [1.5, 0.25], [2.5, 0.25], [3, 2], [4, 0.5]];
   const h = 1e-5;
   for (let t = 0.05; t < 4.5; t += 0.037) {
-    const speed = (remap(t + h, ks) - remap(t - h, ks)) / (2 * h);
+    const speed = (speedRamp(t + h, ks) - speedRamp(t - h, ks)) / (2 * h);
     expect(Math.abs(speed - keys(t, ks))).toBeLessThan(1e-5); // in the ramps too, not only on the plateaus
   }
   let area = 0;
   const dt = 1e-4;
   for (let t = 0; t < 4.5; t += dt) area += keys(t + dt / 2, ks) * dt;
-  expect(Math.abs(remap(4.5, ks) - area)).toBeLessThan(1e-4);
+  expect(Math.abs(speedRamp(4.5, ks) - area)).toBeLessThan(1e-4);
 });
 
-test('remap holds the end speeds, treats no keys as real time, and ignores key order', () => {
-  expect(remap(0.5, [[1, 0.5], [2, 0.5]])).toBeCloseTo(0.25, 12); // before the first key: its speed
-  expect(remap(7, [[0, 2]])).toBeCloseTo(14, 12); // one key: a constant speed
-  expect(remap(3.3, [])).toBeCloseTo(3.3, 12);
-  expect(remap(1.7, [[2, 1], [0, 0.5]])).toBeCloseTo(remap(1.7, [[0, 0.5], [2, 1]]), 12);
+test('speedRamp holds the end speeds, treats no keys as real time, and ignores key order', () => {
+  expect(speedRamp(0.5, [[1, 0.5], [2, 0.5]])).toBeCloseTo(0.25, 12); // before the first key: its speed
+  expect(speedRamp(7, [[0, 2]])).toBeCloseTo(14, 12); // one key: a constant speed
+  expect(speedRamp(3.3, [])).toBeCloseTo(3.3, 12);
+  expect(speedRamp(1.7, [[2, 1], [0, 0.5]])).toBeCloseTo(speedRamp(1.7, [[0, 0.5], [2, 1]]), 12);
 });
 
-test('remap: zero speed freezes time and negative speed runs it backwards', () => {
-  expect(remap(3, [[0, 0]])).toBeCloseTo(0, 12);
-  expect(remap(2, [[0, -1]])).toBeCloseTo(-2, 12);
+test('speedRamp: zero speed freezes time and negative speed runs it backwards', () => {
+  expect(speedRamp(3, [[0, 0]])).toBeCloseTo(0, 12);
+  expect(speedRamp(2, [[0, -1]])).toBeCloseTo(-2, 12);
   // a scrub: forward, back through a smooth stop, and forward again
   const scrub: [number, number][] = [[0, 1], [1, -1], [2, -1], [3, 1]];
-  expect(remap(2, scrub)).toBeLessThan(remap(1, scrub));
-  expect(remap(5, scrub)).toBeGreaterThan(remap(2, scrub));
+  expect(speedRamp(2, scrub)).toBeLessThan(speedRamp(1, scrub));
+  expect(speedRamp(5, scrub)).toBeGreaterThan(speedRamp(2, scrub));
 });
 
 // ---- whip ----
@@ -345,7 +345,7 @@ test('onDownbeat halves every halfLife beats after the downbeat, and its accent 
 
 test('every helper is a pure function of its inputs: the same answer in any order of calls', () => {
   const ts = Array.from({ length: 60 }, (_, i) => i * 0.0377);
-  const all = (t: number) => [spring(t), slam(t, 1), remap(t, SNAP), whip(t, 1), onBeat(frameAt(t)), onDownbeat(frameAt(t))];
+  const all = (t: number) => [spring(t), slam(t, 1), speedRamp(t, SNAP), whip(t, 1), onBeat(frameAt(t)), onDownbeat(frameAt(t))];
   const forward = ts.map(all);
   const backward = [...ts].reverse().map(all).reverse();
   expect(backward).toEqual(forward);

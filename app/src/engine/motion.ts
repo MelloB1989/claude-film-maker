@@ -61,16 +61,16 @@ export function slam(t: number, hit: number, o: { lead?: number; freq?: number; 
 const rampArea = (u: number) => (u <= 0.5 ? u ** 4 : u - 0.5 + (1 - u) ** 4);
 
 /**
- * Speed-ramp time remap: the time to play at local time `tLocal`, the integral of a speed curve (0 at tLocal = 0).
+ * Speed-ramp time map: the time to play at local time `tLocal`, the integral of a speed curve (0 at tLocal = 0).
  * `keys` are [time, speed] and the curve eases between them exactly as util keys() does (inOutCubic, so a ramp into
  * slow motion has no kink), holding the first key's speed before it and the last key's after it. So a run of speed 1
  * maps 1:1 and two keys at 0.25 advance at a quarter. Two keys at the same time change speed instantly (the snap back
  * to real time on a beat) and the mapped time stays continuous. It is monotonic while the speeds are >= 0; a negative
  * speed runs time backwards (a scrub). No keys means real time. Exact (no sampling) and O(keys).
  *
- * util.ts exports a different `remap` (a range remap): import one of the two under an alias.
+ * Named speedRamp so a scene can import it beside util's `remap`, which is an unrelated range remap.
  */
-export function remap(tLocal: number, keys: [t: number, speed: number][]): number {
+export function speedRamp(tLocal: number, keys: [t: number, speed: number][]): number {
   if (keys.length === 0) return tLocal;
   const pts = [...keys].sort((a, b) => a[0] - b[0]);
   /** The integral of the speed curve from the first key to x. */
