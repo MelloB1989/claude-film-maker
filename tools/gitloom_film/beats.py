@@ -13,6 +13,7 @@ import librosa
 import numpy as np
 
 from .automate import apply, lanes
+from .music import pick_meta, pick_sidecar
 from .paths import AUDIO, DATA, ROOT
 from .wav import read_wav
 
@@ -161,12 +162,19 @@ def main(argv=None):
     path = ROOT / (a.music or mp["chosen"] or "")
     if not path.is_file():
         raise SystemExit("no chosen score: set 'chosen' in data/music_plan.json (checkpoint C2)")
+    if mp.get("chosen"):  # the pick's own section timing, from its sidecar: `meta` is the latest film-music run's
+        meta = pick_meta(mp, ROOT)
+        if meta is None:
+            raise SystemExit(f"the chosen score's section timing is unknown: {pick_sidecar(mp, ROOT)} is missing, or "
+                             "records no meta and its plan names no single tempo (film-music writes one beside every "
+                             "variant)")
+    else:  # nothing chosen, a --music file: the latest run's plan is all there is
+        meta = mp["meta"]
     y, sr = read_wav(path)
     vo = json.loads((DATA / "vo.json").read_text())
     vo_y, vsr = read_wav(AUDIO / "vo" / "vo.wav")
     if vsr != sr:
         vo_y = librosa.resample(vo_y, orig_sr=vsr, target_sr=sr)
-    meta = mp.get("chosen_meta") or mp["meta"]  # the pick's own section timing; `meta` is the latest film-music run's
     out = analyze(y, sr, meta, vo, vo_y, automate=not a.no_automation)
     (DATA / "audio.json").write_text(json.dumps(out))
     print(f"{out['bpm']} BPM · grid fit {out['grid_fit']:.2f} · grid error {out['grid_error_ms']} ms · "

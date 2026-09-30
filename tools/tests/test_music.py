@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from gitloom_film.elevenlabs import ElevenLabsError, MusicResult
-from gitloom_film.music import generate_variants, merge_plan
+from gitloom_film.music import generate_variants, merge_plan, pick_meta
 from gitloom_film.wav import read_wav
 
 PLAN = {"positive_global_styles": [], "negative_global_styles": [],
@@ -122,11 +122,70 @@ def test_merge_into_nothing_starts_a_fresh_plan(tmp_path):
     assert mp == {"plan": PLAN, "meta": {"bpm": 100}, "variants": ["audio/music/score-seed11.wav"], "chosen": None}
 
 
-def test_merge_keeps_the_picks_section_timing_as_chosen_meta(tmp_path):
-    picked = {"bpm": 100.0, "sections": [{"name": "honest", "start": 62.4, "end": 67.2}]}
-    old = {"plan": PLAN, "meta": picked, "variants": [], "chosen": "audio/music/score-seed11-edit.wav"}
-    mp = merge_plan(old, PLAN2, {"bpm": 100.0, "sections": [{"name": "honest", "start": 60.0, "end": 64.8}]}, [],
-                    tmp_path)
-    assert mp["chosen_meta"] == picked and mp["meta"]["sections"][0]["start"] == 60.0
-    again = merge_plan(mp, PLAN, {"bpm": 101.0, "sections": []}, [], tmp_path)
-    assert again["chosen_meta"] == picked  # no later run moves the pick's sections
+# --- the pick's own section timing (chosen_meta), which film-beats reads ---
+
+
+def timed(*sections, tempo="100 BPM"):
+    """A plan of (name, ms) sections composed at `tempo`, a global style as music_plan.PALETTE writes it."""
+    return {"positive_global_styles": ["minor key", tempo], "negative_global_styles": [],
+            "sections": [{"section_name": n, "positive_local_styles": [], "negative_local_styles": [],
+                          "duration_ms": ms, "lines": []} for n, ms in sections]}
+
+
+RUN1 = timed(("cold open", 7200), ("honest", 4800))
+RUN2 = timed(("cold open", 9600), ("honest", 2400))
+# worked by hand: each section starts where the durations before it end
+META1 = {"bpm": 100.0, "sections": [{"name": "cold open", "start": 0.0, "end": 7.2},
+                                    {"name": "honest", "start": 7.2, "end": 12.0}]}
+META2 = {"bpm": 100.0, "sections": [{"name": "cold open", "start": 0.0, "end": 9.6},
+                                    {"name": "honest", "start": 9.6, "end": 12.0}]}
+
+
+def sidecar_at(root, name, plan, meta=None):
+    """A variant's sidecar under root/audio/music; one written before sidecars recorded their meta has none."""
+    d = root / "audio" / "music"
+    d.mkdir(parents=True, exist_ok=True)
+    doc = {"format": "pcm_48000", "plan": plan, "chunks": {}, **({"meta": meta} if meta is not None else {})}
+    (d / f"{name}.plan.json").write_text(json.dumps(doc))
+
+
+def test_the_sidecar_records_the_section_timing_the_variant_was_composed_to(tmp_path):
+    generate_variants(FakeMusic(), RUN1, tmp_path, [11], meta=META1, **QUIET)
+    assert json.loads((tmp_path / "score-seed11.plan.json").read_text())["meta"] == META1
+
+
+def test_a_picks_timing_is_its_own_though_it_came_from_an_earlier_run(tmp_path):
+    # seed 11 came from run 1 (an old sidecar, no meta of its own), but was picked after run 2 wrote `meta`
+    sidecar_at(tmp_path, "score-seed11", RUN1)
+    sidecar_at(tmp_path, "score-seed21", RUN2, META2)
+    old = {"plan": RUN2, "meta": META2, "variants": ["audio/music/score-seed11.wav", "audio/music/score-seed21.wav"],
+           "chosen": "audio/music/score-seed11.wav"}
+    mp = merge_plan(old, RUN2, META2, [], tmp_path)
+    assert mp["chosen_meta"] == META1 and mp["meta"] == META2
+
+
+def test_a_pick_changed_by_hand_gets_its_own_timing_back(tmp_path):
+    # checkpoint C2: `chosen` edited by hand to a newer run's variant, while chosen_meta still holds the old pick's
+    sidecar_at(tmp_path, "score-seed11", RUN1)
+    sidecar_at(tmp_path, "score-seed21", RUN2, META2)
+    mp = {"plan": RUN2, "meta": META2, "variants": [], "chosen": "audio/music/score-seed21.wav", "chosen_meta": META1}
+    assert pick_meta(mp, tmp_path) == META2
+    assert merge_plan(mp, RUN1, META1, [], tmp_path)["chosen_meta"] == META2  # recomputed on every merge
+
+
+def test_a_spliced_pick_has_its_source_seeds_timing_and_no_later_run_moves_it(tmp_path):
+    sidecar_at(tmp_path, "score-seed11", RUN1)
+    old = {"plan": RUN1, "meta": META1, "variants": [], "chosen": "audio/music/score-seed11-edit.wav",
+           "edit": {"source": "audio/music/score-seed11.wav", "map": "0-3", "source_downbeats": [0.0]}}
+    mp = merge_plan(old, RUN2, META2, [], tmp_path)
+    assert mp["chosen_meta"] == META1 and mp["meta"] == META2
+    assert merge_plan(mp, RUN2, {"bpm": 101.0, "sections": []}, [], tmp_path)["chosen_meta"] == META1
+
+
+def test_a_pick_whose_timing_cannot_be_known_keeps_no_stale_one(tmp_path):
+    sidecar_at(tmp_path, "score-seed11", timed(("cold open", 7200), tempo="minor key"))  # no tempo, no meta
+    mp = {"plan": RUN2, "meta": META2, "variants": [], "chosen": "audio/music/score-seed11.wav", "chosen_meta": META2}
+    assert pick_meta(mp, tmp_path) is None
+    assert "chosen_meta" not in merge_plan(mp, RUN2, META2, [], tmp_path)
+    assert pick_meta({"chosen": "audio/music/score-seed99.wav"}, tmp_path) is None  # no sidecar at all
+    assert pick_meta({"chosen": None}, tmp_path) is None

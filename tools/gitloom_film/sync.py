@@ -8,6 +8,12 @@
   that sound is (the any-sound check);
 - the film runs 85–95 s.
 
+The words are measured in the windows each line's paced take gave film-pace (audio/vo/paced/<line>/<take>.json), on
+the voiceover film-edit and film-snap assembled from those takes. If film-pace has been run again since (a new factor
+makes a new take), vo.wav and vo.json still hold the old one, and every measurement would be of the old audio in the
+new take's windows. So each take must still match its placed line (as many words; the same length, within 1 ms), and
+film-sync stops if one does not, asking for film-edit and then film-snap.
+
 A ruled exception is listed in data/sync_waivers.json as {"cut <scene>": "<ruling>"}. It covers only that act cut's
 "off the downbeat" problem, which then prints as waived and does not fail the gate; an act cut off the beat grid, and
 every other problem, can't be waived. Where each music section starts against the cut it opens is printed for
@@ -32,6 +38,7 @@ FRAME = 1 / FPS
 LATE = FRAME + 0.002  # a word lights on the first frame at or after its start: up to a frame late, plus 2 ms
 SLACK = 1e-4  # vo.json keeps times to 0.1 ms and the voiceover places each take on the nearest sample
 ANY_SOUND = 0.040  # a line's first word lights at most this long after the first audible frame in its window
+TAKE_SLACK = 0.001  # s: a paced take lasts as long as its placed line, to the sample (vo.json keeps 0.1 ms)
 WAIVABLE = re.compile(r"(cut \S+) at \S+ is \d+ ms off the downbeat")
 
 
@@ -66,6 +73,22 @@ def check(vo: dict, audio: dict, script: dict) -> list[str]:
             problems.append(f"{l['id']} is not inside its scene {sc['id']}")
     if not 85.0 <= vo["duration"] <= 95.0:
         problems.append(f"duration {vo['duration']:.2f}s is outside 85–95 s")
+    return problems
+
+
+def stale_takes(vo: dict, takes: dict[str, dict]) -> list[str]:
+    """Each line's paced take (its JSON: `duration` and `words`) against the line as vo.json places it: a take with
+    another number of words, or another length (by TAKE_SLACK or more), is not the take vo.wav and vo.json hold."""
+    problems = []
+    for l in vo["lines"]:
+        t = takes[l["id"]]
+        if len(t["words"]) != len(l["words"]):
+            problems.append(f"{l['id']} take {l['take']} has {len(t['words'])} words, but its line in vo.json has "
+                            f"{len(l['words'])}")
+        span = l["end"] - l["start"]
+        if abs(t["duration"] - span) >= TAKE_SLACK:
+            problems.append(f"{l['id']} take {l['take']} lasts {t['duration']:.3f} s, but its line in vo.json lasts "
+                            f"{span:.3f} s")
     return problems
 
 
@@ -181,12 +204,17 @@ def main(argv=None):
     vo = json.loads((DATA / "vo.json").read_text())
     audio = json.loads((DATA / "audio.json").read_text())
     problems = check(vo, audio, load_script())
-    takes = {}
+    paced = {}
     for l in vo["lines"]:
         p = AUDIO / "vo" / "paced" / l["id"] / f"{l['take']}.json"
         if not p.is_file():
             raise SystemExit(f"{p.relative_to(AUDIO.parent)} is missing: run film-pace")
-        takes[l["id"]] = json.loads(p.read_text())["words"]
+        paced[l["id"]] = json.loads(p.read_text())
+    stale = stale_takes(vo, paced)
+    if stale:
+        raise SystemExit("\n".join(stale) + "\nthe paced takes are not the ones vo.wav and vo.json were assembled "
+                         "from: run film-edit, then film-snap")
+    takes = {line_id: doc["words"] for line_id, doc in paced.items()}
     y, sr = read_wav(wav)
     word_problems, rows = word_sync(vo, y, sr, takes)
     problems += word_problems + any_sound(vo, y, sr, takes)

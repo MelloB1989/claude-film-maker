@@ -1,7 +1,9 @@
+import json
+
 import numpy as np
 import pytest
 
-from gitloom_film.sync import any_sound, check, report, section_table, word_sync
+from gitloom_film.sync import any_sound, check, report, section_table, stale_takes, word_sync
 
 BEATS = [round(0.2 + 0.6 * k, 4) for k in range(160)]
 AUDIO = {"beats": BEATS, "downbeats": BEATS[::4]}  # downbeats 0.2, 2.6, 5.0, 7.4, 9.8, …
@@ -190,3 +192,49 @@ def test_a_missing_voiceover_is_a_clear_message(tmp_path, monkeypatch):
 def test_a_line_with_no_sound_near_its_first_word_fails_the_any_sound_check():
     y = hissed(5.0, [(1.10, 1.22)])  # L2 is silent in the track
     assert any_sound(spoken([1.12, 3.2]), y, SR) == ["L2 word 'commit.': no audible sound in its window"]
+
+
+# --- the paced takes against vo.json: film-pace re-run for a line without film-edit and film-snap ---
+
+WORDS = [{"w": "Your", "start": 0.93, "end": 1.116}, {"w": "agent", "start": 1.175, "end": 1.62},
+         {"w": "forgets.", "start": 1.7, "end": 2.5}]
+PLACED = {"lines": [{"id": "L01", "take": 2, "start": 0.9, "end": 2.529, "words": WORDS}]}  # 1.629 s long
+
+
+def take(duration=1.629, words=3):
+    return {"L01": {"duration": duration, "words": [{"w": w["w"], "start": 0.1, "end": 0.2} for w in WORDS[:words]]}}
+
+
+def test_a_take_that_matches_its_placed_line_passes():
+    assert stale_takes(PLACED, take()) == []
+    assert stale_takes(PLACED, take(1.6299)) == []  # under a millisecond: the voiceover places takes on samples
+
+
+def test_a_take_of_another_length_or_word_count_is_stale():
+    # a new pacing factor makes a new take of another length; vo.wav and vo.json still hold the old one
+    assert stale_takes(PLACED, take(1.731)) == ["L01 take 2 lasts 1.731 s, but its line in vo.json lasts 1.629 s"]
+    assert stale_takes(PLACED, take(words=2)) == ["L01 take 2 has 2 words, but its line in vo.json has 3"]
+
+
+def test_film_sync_stops_on_a_stale_take_and_says_what_to_run(tmp_path, monkeypatch):
+    from gitloom_film import sync
+    vo = good()
+    for line in vo["lines"]:
+        line["take"] = 1
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "vo.json").write_text(json.dumps(vo))
+    (tmp_path / "data" / "audio.json").write_text(json.dumps(AUDIO))
+    (tmp_path / "audio" / "vo").mkdir(parents=True)
+    (tmp_path / "audio" / "vo" / "vo.wav").write_bytes(b"")  # never read: the takes are checked first
+    for line in vo["lines"]:
+        d = tmp_path / "audio" / "vo" / "paced" / line["id"]
+        d.mkdir(parents=True)
+        length = line["end"] - line["start"] + (0.05 if line["id"] == "L2" else 0.0)  # L2 was paced again
+        (d / "1.json").write_text(json.dumps({"duration": length, "words": line["words"]}))
+    monkeypatch.setattr(sync, "DATA", tmp_path / "data")
+    monkeypatch.setattr(sync, "AUDIO", tmp_path / "audio")
+    with pytest.raises(SystemExit) as stop:
+        sync.main([])
+    message = str(stop.value)
+    assert "L2 take 1 lasts 1.050 s" in message and "L1" not in message and "L3" not in message
+    assert "run film-edit, then film-snap" in message
