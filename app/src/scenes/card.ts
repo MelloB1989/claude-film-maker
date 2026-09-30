@@ -5,7 +5,7 @@ import { Scene, type Frame } from '../engine/scene';
 import { Layer2D, W, H, clearRT } from '../engine/gl';
 import { LIN, rgba } from '../engine/palette';
 import { F, font, layout } from '../engine/type';
-import { VO, type Line } from '../engine/vo';
+import type { Line } from '../engine/vo';
 import type { AudioData } from '../engine/audio';
 
 const PICTURE: Record<string, string> = {
@@ -67,10 +67,17 @@ export default class Card extends Scene {
     return { bloom: 0, halation: 0 };
   }
 
-  /** Her lines, one per row: spoken words in bone, the word being spoken in bright blood, the rest dim. */
+  /**
+   * Her lines, one per row: spoken words in bone, upcoming words dim, and one current word in bright blood: the
+   * scene's most recent word to start, held through the gap to the next word (no flicker between close words) but let
+   * go 0.6 s after it ends, so a long pause goes quiet.
+   */
   private lines(c: CanvasRenderingContext2D, lines: Line[], t: number) {
     const size = 56, fam = F.display(100, 600);
     c.font = font(fam, size);
+    const words = lines.flatMap((l) => l.words);
+    const k = words.findLastIndex((w) => w.start <= t), cur = words[k];
+    const lit = cur && t < Math.min(words[k + 1]?.start ?? Infinity, cur.end + 0.6) ? cur : null;
     lines.forEach((l, row) => {
       const y = 470 + row * 84; // the first row clears the numeral (ink to y 405) even when it runs full width (braid)
       const lay = layout(l.text, fam, size);
@@ -79,8 +86,7 @@ export default class Card extends Scene {
         const at = l.text.indexOf(w.w, from);
         const gi = at >= 0 ? Array.from(l.text.slice(0, at)).length : 0;
         if (at >= 0) from = at + w.w.length;
-        const p = VO.wordProgress(w, t);
-        c.fillStyle = t < w.start ? rgba('bone', 0.28) : p < 1 ? rgba('bloodBright') : rgba('bone', 0.96);
+        c.fillStyle = w === lit ? rgba('bloodBright') : t < w.start ? rgba('bone', 0.28) : rgba('bone', 0.96);
         c.fillText(w.w, 96 + (lay.glyphs[gi]?.x ?? 0), y);
       }
     });
