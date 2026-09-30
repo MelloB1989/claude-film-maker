@@ -3,3 +3,8 @@ node_modules/
 .env*
 audio/vo/takes/
 .DS_Store
+tools/.venv/
+app/node_modules/
+app/dist/
+.pytest_cache/
+__pycache__/
