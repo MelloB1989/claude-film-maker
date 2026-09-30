@@ -1,0 +1,1353 @@
+{
+ "duration": 95.6355,
+ "lines": [
+  {
+   "id": "L01",
+   "scene": "thread",
+   "act": "I",
+   "text": "Your agent forgets.",
+   "start": 0.9,
+   "end": 2.529,
+   "take": 2,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Your",
+     "start": 0.958,
+     "end": 1.116
+    },
+    {
+     "w": "agent",
+     "start": 1.192,
+     "end": 1.62
+    },
+    {
+     "w": "forgets.",
+     "start": 1.66,
+     "end": 2.322
+    }
+   ]
+  },
+  {
+   "id": "L02",
+   "scene": "thread",
+   "act": "I",
+   "text": "Every conversation... back to zero.",
+   "start": 2.879,
+   "end": 5.8355,
+   "take": 3,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Every",
+     "start": 2.928,
+     "end": 3.212
+    },
+    {
+     "w": "conversation...",
+     "start": 3.234,
+     "end": 4.112
+    },
+    {
+     "w": "back",
+     "start": 4.764,
+     "end": 5.012
+    },
+    {
+     "w": "to",
+     "start": 5.052,
+     "end": 5.174
+    },
+    {
+     "w": "zero.",
+     "start": 5.196,
+     "end": 5.642
+    }
+   ]
+  },
+  {
+   "id": "L03",
+   "scene": "ex",
+   "act": "I",
+   "text": "It's not you... it's your vector store.",
+   "start": 6.4355,
+   "end": 9.2975,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "It's",
+     "start": 6.4575,
+     "end": 6.6695
+    },
+    {
+     "w": "not",
+     "start": 6.6735,
+     "end": 6.9935
+    },
+    {
+     "w": "you...",
+     "start": 7.0515,
+     "end": 7.3895
+    },
+    {
+     "w": "it's",
+     "start": 7.9155,
+     "end": 8.1095
+    },
+    {
+     "w": "your",
+     "start": 8.1135,
+     "end": 8.2355
+    },
+    {
+     "w": "vector",
+     "start": 8.3115,
+     "end": 8.6675
+    },
+    {
+     "w": "store.",
+     "start": 8.7615,
+     "end": 9.1355
+    }
+   ]
+  },
+  {
+   "id": "L04",
+   "scene": "ex",
+   "act": "I",
+   "text": "It overwrites what it knew... and never tells you why.",
+   "start": 9.6475,
+   "end": 13.5985,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "It",
+     "start": 9.683,
+     "end": 9.859
+    },
+    {
+     "w": "overwrites",
+     "start": 9.917,
+     "end": 10.561
+    },
+    {
+     "w": "what",
+     "start": 10.601,
+     "end": 10.741
+    },
+    {
+     "w": "it",
+     "start": 10.727,
+     "end": 10.903
+    },
+    {
+     "w": "knew...",
+     "start": 10.871,
+     "end": 11.281
+    },
+    {
+     "w": "and",
+     "start": 11.969,
+     "end": 12.181
+    },
+    {
+     "w": "never",
+     "start": 12.203,
+     "end": 12.523
+    },
+    {
+     "w": "tells",
+     "start": 12.545,
+     "end": 12.829
+    },
+    {
+     "w": "you",
+     "start": 12.833,
+     "end": 12.991
+    },
+    {
+     "w": "why.",
+     "start": 12.995,
+     "end": 13.405
+    }
+   ]
+  },
+  {
+   "id": "L05",
+   "scene": "ex",
+   "act": "I",
+   "text": "Commitment issues.",
+   "start": 13.9485,
+   "end": 15.357,
+   "take": 3,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Commitment",
+     "start": 13.9705,
+     "end": 14.5245
+    },
+    {
+     "w": "issues.",
+     "start": 14.5645,
+     "end": 15.1365
+    }
+   ]
+  },
+  {
+   "id": "L06",
+   "scene": "her",
+   "act": "II",
+   "text": "Not me.",
+   "start": 16.607,
+   "end": 17.543,
+   "take": 4,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Not",
+     "start": 16.683,
+     "end": 16.949
+    },
+    {
+     "w": "me.",
+     "start": 16.953,
+     "end": 17.291
+    }
+   ]
+  },
+  {
+   "id": "L07",
+   "scene": "her",
+   "act": "II",
+   "text": "Every memory... a commit.",
+   "start": 17.893,
+   "end": 20.296,
+   "take": 2,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Every",
+     "start": 17.96,
+     "end": 18.316
+    },
+    {
+     "w": "memory...",
+     "start": 18.41,
+     "end": 18.91
+    },
+    {
+     "w": "a",
+     "start": 19.472,
+     "end": 19.594
+    },
+    {
+     "w": "commit.",
+     "start": 19.598,
+     "end": 20.116
+    }
+   ]
+  },
+  {
+   "id": "L08",
+   "scene": "her",
+   "act": "II",
+   "text": "Every fact... a blame.",
+   "start": 20.646,
+   "end": 22.9995,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Every",
+     "start": 20.686,
+     "end": 21.006
+    },
+    {
+     "w": "fact...",
+     "start": 21.136,
+     "end": 21.6
+    },
+    {
+     "w": "a",
+     "start": 22.108,
+     "end": 22.194
+    },
+    {
+     "w": "blame.",
+     "start": 22.252,
+     "end": 22.77
+    }
+   ]
+  },
+  {
+   "id": "L09",
+   "scene": "repo",
+   "act": "II",
+   "text": "I'm just a git repo.",
+   "start": 23.5995,
+   "end": 25.197,
+   "take": 3,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "I'm",
+     "start": 23.6575,
+     "end": 23.8515
+    },
+    {
+     "w": "just",
+     "start": 23.8555,
+     "end": 24.0855
+    },
+    {
+     "w": "a",
+     "start": 24.0895,
+     "end": 24.1755
+    },
+    {
+     "w": "git",
+     "start": 24.2695,
+     "end": 24.5175
+    },
+    {
+     "w": "repo.",
+     "start": 24.5215,
+     "end": 25.0035
+    }
+   ]
+  },
+  {
+   "id": "L10",
+   "scene": "repo",
+   "act": "II",
+   "text": "You already know how to read me.",
+   "start": 25.547,
+   "end": 27.7565,
+   "take": 2,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "You",
+     "start": 25.605,
+     "end": 25.763
+    },
+    {
+     "w": "already",
+     "start": 25.875,
+     "end": 26.267
+    },
+    {
+     "w": "know",
+     "start": 26.361,
+     "end": 26.681
+    },
+    {
+     "w": "how",
+     "start": 26.739,
+     "end": 26.879
+    },
+    {
+     "w": "to",
+     "start": 26.865,
+     "end": 26.987
+    },
+    {
+     "w": "read",
+     "start": 27.045,
+     "end": 27.329
+    },
+    {
+     "w": "me.",
+     "start": 27.333,
+     "end": 27.545
+    }
+   ]
+  },
+  {
+   "id": "L11",
+   "scene": "loom",
+   "act": "III",
+   "text": "Facts I keep.",
+   "start": 29.0065,
+   "end": 30.271,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Facts",
+     "start": 29.0825,
+     "end": 29.4925
+    },
+    {
+     "w": "I",
+     "start": 29.5865,
+     "end": 29.6905
+    },
+    {
+     "w": "keep.",
+     "start": 29.7485,
+     "end": 30.1405
+    }
+   ]
+  },
+  {
+   "id": "L12",
+   "scene": "loom",
+   "act": "III",
+   "text": "Incidents... I let go.",
+   "start": 30.621,
+   "end": 32.9835,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Incidents...",
+     "start": 30.6745,
+     "end": 31.3365
+    },
+    {
+     "w": "I",
+     "start": 32.1865,
+     "end": 32.2545
+    },
+    {
+     "w": "let",
+     "start": 32.2765,
+     "end": 32.4345
+    },
+    {
+     "w": "go.",
+     "start": 32.4925,
+     "end": 32.7585
+    }
+   ]
+  },
+  {
+   "id": "L13",
+   "scene": "loom",
+   "act": "III",
+   "text": "Rules I never break.",
+   "start": 33.3335,
+   "end": 35.291,
+   "take": 3,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Rules",
+     "start": 33.3915,
+     "end": 33.8375
+    },
+    {
+     "w": "I",
+     "start": 33.9855,
+     "end": 34.0895
+    },
+    {
+     "w": "never",
+     "start": 34.2375,
+     "end": 34.6115
+    },
+    {
+     "w": "break.",
+     "start": 34.6695,
+     "end": 35.0975
+    }
+   ]
+  },
+  {
+   "id": "L14",
+   "scene": "loom",
+   "act": "III",
+   "text": "Skills, only when you need them.",
+   "start": 35.641,
+   "end": 37.981,
+   "take": 3,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Skills,",
+     "start": 35.717,
+     "end": 36.271
+    },
+    {
+     "w": "only",
+     "start": 36.743,
+     "end": 37.063
+    },
+    {
+     "w": "when",
+     "start": 37.049,
+     "end": 37.243
+    },
+    {
+     "w": "you",
+     "start": 37.229,
+     "end": 37.351
+    },
+    {
+     "w": "need",
+     "start": 37.337,
+     "end": 37.567
+    },
+    {
+     "w": "them.",
+     "start": 37.571,
+     "end": 37.873
+    }
+   ]
+  },
+  {
+   "id": "L15",
+   "scene": "diff",
+   "act": "III",
+   "text": "Change your mind?",
+   "start": 38.581,
+   "end": 39.778,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Change",
+     "start": 38.648,
+     "end": 38.968
+    },
+    {
+     "w": "your",
+     "start": 38.954,
+     "end": 39.076
+    },
+    {
+     "w": "mind?",
+     "start": 39.134,
+     "end": 39.598
+    }
+   ]
+  },
+  {
+   "id": "L16",
+   "scene": "diff",
+   "act": "III",
+   "text": "I'll change mine.",
+   "start": 40.128,
+   "end": 41.244,
+   "take": 2,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "I'll",
+     "start": 40.168,
+     "end": 40.362
+    },
+    {
+     "w": "change",
+     "start": 40.366,
+     "end": 40.668
+    },
+    {
+     "w": "mine.",
+     "start": 40.708,
+     "end": 41.1
+    }
+   ]
+  },
+  {
+   "id": "L17",
+   "scene": "diff",
+   "act": "III",
+   "text": "We'll always have the diff.",
+   "start": 41.594,
+   "end": 43.421,
+   "take": 4,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "We'll",
+     "start": 41.6475,
+     "end": 41.9675
+    },
+    {
+     "w": "always",
+     "start": 42.0255,
+     "end": 42.5075
+    },
+    {
+     "w": "have",
+     "start": 42.5115,
+     "end": 42.7235
+    },
+    {
+     "w": "the",
+     "start": 42.7095,
+     "end": 42.8495
+    },
+    {
+     "w": "diff.",
+     "start": 42.8535,
+     "end": 43.2455
+    }
+   ]
+  },
+  {
+   "id": "L18",
+   "scene": "cite",
+   "act": "III",
+   "text": "Ask me why I believe something... I'll show you the line.",
+   "start": 44.021,
+   "end": 47.5265,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Ask",
+     "start": 44.079,
+     "end": 44.327
+    },
+    {
+     "w": "me",
+     "start": 44.349,
+     "end": 44.471
+    },
+    {
+     "w": "why",
+     "start": 44.511,
+     "end": 44.705
+    },
+    {
+     "w": "I",
+     "start": 44.745,
+     "end": 44.849
+    },
+    {
+     "w": "believe",
+     "start": 44.835,
+     "end": 45.245
+    },
+    {
+     "w": "something...",
+     "start": 45.303,
+     "end": 45.893
+    },
+    {
+     "w": "I'll",
+     "start": 46.383,
+     "end": 46.577
+    },
+    {
+     "w": "show",
+     "start": 46.563,
+     "end": 46.775
+    },
+    {
+     "w": "you",
+     "start": 46.761,
+     "end": 46.883
+    },
+    {
+     "w": "the",
+     "start": 46.887,
+     "end": 46.991
+    },
+    {
+     "w": "line.",
+     "start": 46.995,
+     "end": 47.387
+    }
+   ]
+  },
+  {
+   "id": "L19",
+   "scene": "braid",
+   "act": "III",
+   "text": "Your words. What you meant. How you'd ask... braided into one answer.",
+   "start": 48.1265,
+   "end": 54.233,
+   "take": 2,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Your",
+     "start": 48.189,
+     "end": 48.383
+    },
+    {
+     "w": "words.",
+     "start": 48.459,
+     "end": 49.067
+    },
+    {
+     "w": "What",
+     "start": 49.593,
+     "end": 49.787
+    },
+    {
+     "w": "you",
+     "start": 49.791,
+     "end": 49.895
+    },
+    {
+     "w": "meant.",
+     "start": 49.989,
+     "end": 50.417
+    },
+    {
+     "w": "How",
+     "start": 50.997,
+     "end": 51.173
+    },
+    {
+     "w": "you'd",
+     "start": 51.177,
+     "end": 51.407
+    },
+    {
+     "w": "ask...",
+     "start": 51.465,
+     "end": 51.911
+    },
+    {
+     "w": "braided",
+     "start": 52.365,
+     "end": 52.847
+    },
+    {
+     "w": "into",
+     "start": 52.851,
+     "end": 53.117
+    },
+    {
+     "w": "one",
+     "start": 53.283,
+     "end": 53.531
+    },
+    {
+     "w": "answer.",
+     "start": 53.589,
+     "end": 54.053
+    }
+   ]
+  },
+  {
+   "id": "L20",
+   "scene": "merkle",
+   "act": "III",
+   "text": "Fifty things changed? I only look at fifty.",
+   "start": 54.833,
+   "end": 57.9425,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Fifty",
+     "start": 54.909,
+     "end": 55.247
+    },
+    {
+     "w": "things",
+     "start": 55.305,
+     "end": 55.679
+    },
+    {
+     "w": "changed?",
+     "start": 55.737,
+     "end": 56.273
+    },
+    {
+     "w": "I",
+     "start": 56.709,
+     "end": 56.813
+    },
+    {
+     "w": "only",
+     "start": 56.799,
+     "end": 57.047
+    },
+    {
+     "w": "look",
+     "start": 57.033,
+     "end": 57.191
+    },
+    {
+     "w": "at",
+     "start": 57.177,
+     "end": 57.335
+    },
+    {
+     "w": "fifty.",
+     "start": 57.339,
+     "end": 57.821
+    }
+   ]
+  },
+  {
+   "id": "L21",
+   "scene": "graph",
+   "act": "III",
+   "text": "I connect the dots... and I learn your language.",
+   "start": 58.5425,
+   "end": 61.94,
+   "take": 2,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "I",
+     "start": 58.6005,
+     "end": 58.7045
+    },
+    {
+     "w": "connect",
+     "start": 58.6905,
+     "end": 59.0465
+    },
+    {
+     "w": "the",
+     "start": 59.0505,
+     "end": 59.2085
+    },
+    {
+     "w": "dots...",
+     "start": 59.1945,
+     "end": 59.7485
+    },
+    {
+     "w": "and",
+     "start": 60.1485,
+     "end": 60.4865
+    },
+    {
+     "w": "I",
+     "start": 60.7245,
+     "end": 60.8285
+    },
+    {
+     "w": "learn",
+     "start": 60.8505,
+     "end": 61.0985
+    },
+    {
+     "w": "your",
+     "start": 61.0845,
+     "end": 61.2245
+    },
+    {
+     "w": "language.",
+     "start": 61.2105,
+     "end": 61.7645
+    }
+   ]
+  },
+  {
+   "id": "L22",
+   "scene": "honest",
+   "act": "III",
+   "text": "And when I don't know...",
+   "start": 62.54,
+   "end": 63.998,
+   "take": 3,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "And",
+     "start": 62.5575,
+     "end": 62.7335
+    },
+    {
+     "w": "when",
+     "start": 62.7735,
+     "end": 62.9135
+    },
+    {
+     "w": "I",
+     "start": 62.9535,
+     "end": 63.0935
+    },
+    {
+     "w": "don't",
+     "start": 63.0795,
+     "end": 63.3995
+    },
+    {
+     "w": "know...",
+     "start": 63.4035,
+     "end": 63.7235
+    }
+   ]
+  },
+  {
+   "id": "L23",
+   "scene": "honest",
+   "act": "III",
+   "text": "...I say so.",
+   "start": 65.398,
+   "end": 66.37,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "...I",
+     "start": 65.398,
+     "end": 65.5915
+    },
+    {
+     "w": "say",
+     "start": 65.6495,
+     "end": 65.8435
+    },
+    {
+     "w": "so.",
+     "start": 65.9195,
+     "end": 66.2035
+    }
+   ]
+  },
+  {
+   "id": "L24",
+   "scene": "proof",
+   "act": "III",
+   "text": "Forty-four... to ninety-one point four.",
+   "start": 67.57,
+   "end": 70.5625,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Forty-four...",
+     "start": 67.646,
+     "end": 68.416
+    },
+    {
+     "w": "to",
+     "start": 68.834,
+     "end": 68.938
+    },
+    {
+     "w": "ninety-one",
+     "start": 68.996,
+     "end": 69.658
+    },
+    {
+     "w": "point",
+     "start": 69.716,
+     "end": 69.982
+    },
+    {
+     "w": "four.",
+     "start": 70.058,
+     "end": 70.432
+    }
+   ]
+  },
+  {
+   "id": "L25",
+   "scene": "proof",
+   "act": "III",
+   "text": "Not bad... for a memory.",
+   "start": 70.9125,
+   "end": 73.185,
+   "take": 2,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Not",
+     "start": 70.9885,
+     "end": 71.2725
+    },
+    {
+     "w": "bad...",
+     "start": 71.2765,
+     "end": 71.7225
+    },
+    {
+     "w": "for",
+     "start": 72.2485,
+     "end": 72.4245
+    },
+    {
+     "w": "a",
+     "start": 72.4105,
+     "end": 72.5145
+    },
+    {
+     "w": "memory.",
+     "start": 72.5185,
+     "end": 72.9825
+    }
+   ]
+  },
+  {
+   "id": "L26",
+   "scene": "connect",
+   "act": "IV",
+   "text": "One command... and I'm in Claude Code.",
+   "start": 74.435,
+   "end": 77.3915,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "One",
+     "start": 74.529,
+     "end": 74.741
+    },
+    {
+     "w": "command...",
+     "start": 74.781,
+     "end": 75.389
+    },
+    {
+     "w": "and",
+     "start": 75.879,
+     "end": 76.037
+    },
+    {
+     "w": "I'm",
+     "start": 76.077,
+     "end": 76.253
+    },
+    {
+     "w": "in",
+     "start": 76.239,
+     "end": 76.361
+    },
+    {
+     "w": "Claude",
+     "start": 76.419,
+     "end": 76.757
+    },
+    {
+     "w": "Code.",
+     "start": 76.815,
+     "end": 77.243
+    }
+   ]
+  },
+  {
+   "id": "L27",
+   "scene": "connect",
+   "act": "IV",
+   "text": "Or any agent, in any language.",
+   "start": 77.7415,
+   "end": 80.2975,
+   "take": 1,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "Or",
+     "start": 77.7815,
+     "end": 77.9395
+    },
+    {
+     "w": "any",
+     "start": 78.0155,
+     "end": 78.2635
+    },
+    {
+     "w": "agent,",
+     "start": 78.3215,
+     "end": 78.8035
+    },
+    {
+     "w": "in",
+     "start": 79.1135,
+     "end": 79.3435
+    },
+    {
+     "w": "any",
+     "start": 79.3655,
+     "end": 79.5595
+    },
+    {
+     "w": "language.",
+     "start": 79.5995,
+     "end": 80.1535
+    }
+   ]
+  },
+  {
+   "id": "L28",
+   "scene": "anywhere",
+   "act": "IV",
+   "text": "On your machine... or in my cloud.",
+   "start": 80.8975,
+   "end": 83.908,
+   "take": 2,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "On",
+     "start": 80.9555,
+     "end": 81.1135
+    },
+    {
+     "w": "your",
+     "start": 81.1175,
+     "end": 81.2755
+    },
+    {
+     "w": "machine...",
+     "start": 81.2615,
+     "end": 81.8695
+    },
+    {
+     "w": "or",
+     "start": 82.3595,
+     "end": 82.6795
+    },
+    {
+     "w": "in",
+     "start": 82.8995,
+     "end": 83.0395
+    },
+    {
+     "w": "my",
+     "start": 83.0435,
+     "end": 83.2015
+    },
+    {
+     "w": "cloud.",
+     "start": 83.2415,
+     "end": 83.7595
+    }
+   ]
+  },
+  {
+   "id": "L29",
+   "scene": "anywhere",
+   "act": "IV",
+   "text": "One memory for every user you have.",
+   "start": 84.258,
+   "end": 86.8995,
+   "take": 2,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "One",
+     "start": 84.334,
+     "end": 84.564
+    },
+    {
+     "w": "memory",
+     "start": 84.604,
+     "end": 85.068
+    },
+    {
+     "w": "for",
+     "start": 85.162,
+     "end": 85.284
+    },
+    {
+     "w": "every",
+     "start": 85.45,
+     "end": 85.752
+    },
+    {
+     "w": "user",
+     "start": 85.864,
+     "end": 86.148
+    },
+    {
+     "w": "you",
+     "start": 86.188,
+     "end": 86.328
+    },
+    {
+     "w": "have.",
+     "start": 86.332,
+     "end": 86.796
+    }
+   ]
+  },
+  {
+   "id": "L30",
+   "scene": "weave",
+   "act": "V",
+   "text": "GitLoom.",
+   "start": 88.1495,
+   "end": 89.0405,
+   "take": 3,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "GitLoom.",
+     "start": 88.2255,
+     "end": 88.8875
+    }
+   ]
+  },
+  {
+   "id": "L31",
+   "scene": "weave",
+   "act": "V",
+   "text": "I don't forget.",
+   "start": 89.7405,
+   "end": 91.0635,
+   "take": 4,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "I",
+     "start": 89.8795,
+     "end": 90.0195
+    },
+    {
+     "w": "don't",
+     "start": 90.0235,
+     "end": 90.3255
+    },
+    {
+     "w": "forget.",
+     "start": 90.3295,
+     "end": 90.9015
+    }
+   ]
+  },
+  {
+   "id": "L32",
+   "scene": "weave",
+   "act": "V",
+   "text": "I commit.",
+   "start": 91.6635,
+   "end": 92.6355,
+   "take": 2,
+   "factor": 0.9,
+   "words": [
+    {
+     "w": "I",
+     "start": 91.7935,
+     "end": 91.9155
+    },
+    {
+     "w": "commit.",
+     "start": 91.9195,
+     "end": 92.4735
+    }
+   ]
+  }
+ ],
+ "scenes": [
+  {
+   "id": "thread",
+   "act": "I",
+   "start": 0.0,
+   "end": 6.1075
+  },
+  {
+   "id": "ex",
+   "act": "I",
+   "start": 6.1075,
+   "end": 16.333
+  },
+  {
+   "id": "her",
+   "act": "II",
+   "start": 16.333,
+   "end": 23.3075
+  },
+  {
+   "id": "repo",
+   "act": "II",
+   "start": 23.3075,
+   "end": 28.7325
+  },
+  {
+   "id": "loom",
+   "act": "III",
+   "start": 28.7325,
+   "end": 38.298
+  },
+  {
+   "id": "diff",
+   "act": "III",
+   "start": 38.298,
+   "end": 43.729
+  },
+  {
+   "id": "cite",
+   "act": "III",
+   "start": 43.729,
+   "end": 47.839
+  },
+  {
+   "id": "braid",
+   "act": "III",
+   "start": 47.839,
+   "end": 54.559
+  },
+  {
+   "id": "merkle",
+   "act": "III",
+   "start": 54.559,
+   "end": 58.2505
+  },
+  {
+   "id": "graph",
+   "act": "III",
+   "start": 58.2505,
+   "end": 62.2075
+  },
+  {
+   "id": "honest",
+   "act": "III",
+   "start": 62.2075,
+   "end": 67.296
+  },
+  {
+   "id": "proof",
+   "act": "III",
+   "start": 67.296,
+   "end": 74.179
+  },
+  {
+   "id": "connect",
+   "act": "IV",
+   "start": 74.179,
+   "end": 80.6055
+  },
+  {
+   "id": "anywhere",
+   "act": "IV",
+   "start": 80.6055,
+   "end": 87.8755
+  },
+  {
+   "id": "weave",
+   "act": "V",
+   "start": 87.8755,
+   "end": 95.6355
+  }
+ ],
+ "acts": [
+  {
+   "id": "I",
+   "name": "The Ex",
+   "start": 0.0,
+   "end": 16.333
+  },
+  {
+   "id": "II",
+   "name": "Her",
+   "start": 16.333,
+   "end": 28.7325
+  },
+  {
+   "id": "III",
+   "name": "The Tour",
+   "start": 28.7325,
+   "end": 74.179
+  },
+  {
+   "id": "IV",
+   "name": "Everywhere",
+   "start": 74.179,
+   "end": 87.8755
+  },
+  {
+   "id": "V",
+   "name": "The Weave",
+   "start": 87.8755,
+   "end": 95.6355
+  }
+ ]
+}

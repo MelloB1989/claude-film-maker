@@ -1,0 +1,14 @@
+{
+  "lead_in": 0.9,
+  "tail": 3.0,
+  "gap": {"line": 0.35, "scene": 0.6, "act": 1.25},
+  "scene_lead": 0.35,
+  "word_lead": 0.05,
+  "overrides": {
+    "L23": {"gap_before": 1.4},
+    "L24": {"gap_before": 1.2},
+    "L31": {"gap_before": 0.7},
+    "L32": {"gap_before": 0.6}
+  },
+  "optional": {"L18b": false}
+}
