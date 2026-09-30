@@ -15,6 +15,8 @@ export interface TimelineEntry {
   id: string;
   /** Lazy module loader; the module's default export is the Scene class. */
   load: () => Promise<{ default: SceneClass }>;
+  /** Scene module file name, when it differs from the id (the animatic card); used by Vite HMR in preview. */
+  file?: string;
   start: number;
   end: number;
   /** Default post overrides for this entry (the scene's own overrides win). */
