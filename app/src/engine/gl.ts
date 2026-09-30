@@ -279,15 +279,22 @@ export class Layer2D {
     this.texture.generateMipmaps = false;
     this.texture.flipY = true;
   }
+  /**
+   * Start a frame: the canvas cleared (filled with `color`, if given) and the context as a fresh one's, so no frame
+   * depends on the one drawn before it. ctx.reset() takes everything back to its default (font, alignment, spacing,
+   * styles, line and dash, shadow, alpha, compositing, filter, the path and any unrestored save()), then the base scale
+   * goes back on (scaleContext2D).
+   */
   clear(color?: string) {
     const c = this.ctx;
+    c.reset();
     c.setTransform(1, 0, 0, 1, 0, 0);
-    c.globalAlpha = 1;
-    c.globalCompositeOperation = 'source-over';
-    c.filter = 'none';
-    c.shadowBlur = 0;
-    if (color) { c.fillStyle = color; c.fillRect(0, 0, this.w, this.h); }
-    else c.clearRect(0, 0, this.w, this.h);
+    if (color) {
+      c.save();
+      c.fillStyle = color;
+      c.fillRect(0, 0, this.w, this.h);
+      c.restore();
+    }
   }
   upload() { this.texture.needsUpdate = true; return this.texture; }
 }
