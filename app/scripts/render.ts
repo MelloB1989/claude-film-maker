@@ -1,11 +1,16 @@
 #!/usr/bin/env bun
 // Offline renderer. Drives the app in headless Chrome (?export=1) and either
 //   stills:  bun scripts/render.ts stills --t 1.5,23,40.2 [--only id1,id2] [--out dir]
-//   sheet:   bun scripts/render.ts sheet --from 20 --to 35 [--n 12] [--cols 4] [--only ids] [--out file.png]   (or --times a,b,c | --cuts)
-//   perf:    bun scripts/render.ts perf --from 20 --to 25 [--only ids] [--samples 1] [--shutter 0.5]   (avg ms per frame incl. GPU sync and the export's pixel readback)
-//   video:   bun scripts/render.ts video [--from 0] [--to <duration>] [--fps 30] [--crf 16] [--x264 aq-mode=3] [--samples 1] [--shutter 0.5] [--out ../out/gitloom.mp4] [--noaudio]
+//   sheet:   bun scripts/render.ts sheet [--from 0 --to 10] [--n 12] [--cols 4] [--only ids] [--out file.png]   (or --times a,b,c | --cuts)
+//   perf:    bun scripts/render.ts perf [--from 0 --to 5] [--only ids] [--samples 1] [--shutter 0.5]   (avg ms per frame incl. GPU sync and the export's pixel readback)
+//   video:   bun scripts/render.ts video [--only id] [--from 0] [--to <duration>] [--fps 30] [--crf 16] [--x264 aq-mode=3] [--samples 1] [--shutter 0.5] [--out ../out/gitloom.mp4] [--noaudio]
 //            --samples N averages N sub-frames per frame over shutter×(1/fps): motion blur + temporal AA;
 //            --samples auto picks the count per frame (4, 12, 36, 108 or 324, see Engine.render)
+//   --only ID (sheet, perf, video) with ONE scene id and neither --from nor --to: exactly the frames that scene owns,
+//            frame f being the scene's when f/fps falls in its window [start, end) (--only her: frames 469…684 at
+//            30 fps, 216 frames). The sheet's first and last stills are then its first and last frames, saved to
+//            out/sheets/sheet_<id>.png by default. With several ids, or --from/--to given, the window is as given.
+//            (--only loads just those scenes: a frame of any other scene renders as red fill.)
 //   --scale N (all modes): render at N× the 1920x1080 layout (--scale 2 = true 3840x2160); stills are then saved
 //            full-res from the pixel buffer, videos are encoded at the physical size.
 //   --module NAME (all modes): play scenes/NAME.ts alone over [0, duration] instead of the film's timeline (a dev
@@ -14,6 +19,7 @@
 import { chromium, type Page } from 'playwright-core';
 import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { ownedFrames } from '../src/engine/engine';
 
 const argv = process.argv.slice(2);
 const mode = argv[0] ?? 'stills';
@@ -66,6 +72,22 @@ async function openPage(url: string) {
   const sceneErrors: string[] = await page.evaluate(() => (window as any).__film.errors);
   if (sceneErrors.length) console.error('SCENE ERRORS:\n' + sceneErrors.join('\n'));
   return { browser, page, logs };
+}
+
+/**
+ * With --only and ONE scene id, and neither --from nor --to (nor --module): the frames that scene owns at fps
+ * (ownedFrames), else null.
+ */
+async function sceneFrames(page: Page, fps: number): Promise<{ id: string; first: number; last: number } | null> {
+  const id = opt('only');
+  if (!id || id.includes(',') || opt('module') || flag('from') || flag('to')) return null;
+  const tl: { id: string; start: number; end: number }[] = await page.evaluate(() => (window as any).__film.timeline);
+  const e = tl.find((x) => x.id === id);
+  if (!e) throw new Error(`--only ${id}: no such scene (the timeline has ${tl.map((x) => x.id).join(', ')})`);
+  const { first, last } = ownedFrames(e, fps);
+  if (last < first) throw new Error(`--only ${id}: its window [${e.start}, ${e.end}) holds no frame at ${fps} fps`);
+  console.log(`${id}: frames ${first}…${last} (${last - first + 1}) at ${fps} fps, its window [${e.start}, ${e.end})`);
+  return { id, first, last };
 }
 
 async function stills(page: Page, times: number[], outDir: string) {
@@ -180,7 +202,9 @@ try {
     const files = await stills(page, times, opt('out', path.join(ROOT, 'out/stills'))!);
     console.log(files.join('\n'));
   } else if (mode === 'sheet') {
-    const from = +opt('from', '0')!, to = +opt('to', '10')!, n = +opt('n', '12')!;
+    // --only <scene>: its first and last frames are the first and last stills
+    const clip = await sceneFrames(page, 30);
+    const from = clip ? clip.first / 30 : +opt('from', '0')!, to = clip ? clip.last / 30 : +opt('to', '10')!, n = +opt('n', '12')!;
     let times = Array.from({ length: n }, (_, i) => from + ((to - from) * i) / Math.max(1, n - 1));
     if (opt('times')) times = opt('times')!.split(',').map(Number);
     if (flag('cuts')) {
@@ -188,11 +212,13 @@ try {
       const tl: { id: string; start: number }[] = await page.evaluate(() => (window as any).__film.timeline);
       times = tl.slice(1).flatMap((e) => [e.start - 0.1, e.start - 1 / 30, e.start + 1 / 30, e.start + 0.1]);
     }
-    const out = opt('out', path.join(ROOT, `out/sheets/sheet_${from}-${to}.png`))!;
+    const out = opt('out', path.join(ROOT, `out/sheets/sheet_${clip ? clip.id : `${from}-${to}`}.png`))!;
     await sheet(page, times, +opt('cols', '4')!, out);
     console.log(out);
   } else if (mode === 'perf') {
-    const from = +opt('from', '0')!, to = +opt('to', '5')!;
+    // --only <scene>: from its first frame, and to half a frame past its last, where no sum of 1/30 steps lands
+    const clip = await sceneFrames(page, 30);
+    const from = clip ? clip.first / 30 : +opt('from', '0')!, to = clip ? (clip.last + 0.5) / 30 : +opt('to', '5')!;
     const r = await page.evaluate(async ({ from, to, samples, shutter }) => {
       const P = (window as any).__film;
       const ms: number[] = [];
@@ -216,7 +242,12 @@ try {
     console.log(`frames ${r.n}  avg ${r.avg.toFixed(1)}ms  p50 ${r.p50.toFixed(1)}  p95 ${r.p95.toFixed(1)}  max ${r.max.toFixed(1)}  sub-frames ${hist(r.used)}  (prepare ${r.prep.toFixed(1)}ms/frame, untimed)`);
   } else if (mode === 'video') {
     const dur: number = await page.evaluate(() => (window as any).__film.duration);
-    await video(page, +opt('from', '0')!, +opt('to', String(dur))!, +opt('fps', '30')!, path.resolve(opt('out', path.join(ROOT, 'out/gitloom.mp4'))!));
+    const fps = +opt('fps', '30')!;
+    // --only <scene>: from its first frame's time to the time after its last, both whole frames (stream() rounds
+    // from·fps and to·fps, and the audio is cut at the same times)
+    const clip = await sceneFrames(page, fps);
+    const from = clip ? clip.first / fps : +opt('from', '0')!, to = clip ? (clip.last + 1) / fps : +opt('to', String(dur))!;
+    await video(page, from, to, fps, path.resolve(opt('out', path.join(ROOT, 'out/gitloom.mp4'))!));
   }
   if (logs.length) console.error('BROWSER LOG:\n' + logs.slice(0, 40).join('\n'));
 } finally {

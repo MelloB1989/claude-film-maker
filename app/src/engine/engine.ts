@@ -81,6 +81,23 @@ export function shutterPlan<E extends Span>(timeline: readonly E[], t: number, d
   });
 }
 
+/**
+ * The frames a timeline window owns at `fps`: frame f is the window's when the window is on screen at the frame's time
+ * f / fps, so [start, end) owns frames ceil(start·fps) … ceil(end·fps) − 1 (`last` < `first` when it holds none).
+ * Counted on the frame times themselves: a boundary exactly on a frame time gives that frame to the later window even
+ * where start·fps rounds past the integer (8.3·30 is 249.00000000000003, and frame 249 is at 8.3).
+ */
+export function ownedFrames(w: Span, fps: number): { first: number; last: number } {
+  // the first frame at or after x
+  const from = (x: number) => {
+    let f = Math.ceil(x * fps);
+    while ((f - 1) / fps >= x) f--;
+    while (f / fps < x) f++;
+    return f;
+  };
+  return { first: from(w.start), last: from(w.end) - 1 };
+}
+
 export class Engine {
   renderer: THREE.WebGLRenderer;
   ctx!: SceneCtx;

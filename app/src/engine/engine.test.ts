@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { Engine, shutterPlan } from './engine';
+import { Engine, onScreen, ownedFrames, shutterPlan } from './engine';
 
 // Expected values are hand-derived. Film frame n is at t = n / 30. A 0.5 shutter spans t ± 1/120 s (a quarter frame
 // either side), and a fixed set of n sub-frames sits at offsets u = (k + 0.5) / n - 0.5, at times t + u / 60. An entry
@@ -102,4 +102,29 @@ test('prepare: without motion blur (samples 1), each scene on screen at t prepar
   const { engine, calls } = preparing([ex, her, hud]);
   await engine.prepare(468 / 30, 1 / 30, 1, 0.5);
   expect(calls).toEqual({ ex: [468 / 30], hud: [468 / 30] });
+});
+
+test('ownedFrames: a window [s, e) owns frames ceil(s·fps) … ceil(e·fps) − 1', () => {
+  expect(ownedFrames(her, 30)).toEqual({ first: 469, last: 684 }); // 15.608·30 = 468.24, 22.808·30 = 684.24: 216 frames
+  expect(ownedFrames(her, 60)).toEqual({ first: 937, last: 1368 }); // 936.48 and 1368.48: 432 frames
+  // a boundary exactly on a frame time: that frame is the later window's (the film ends at 93.6, frame 2808)
+  expect(ownedFrames({ start: 86.408, end: 93.6 }, 30)).toEqual({ first: 2593, last: 2807 });
+  expect(ownedFrames({ start: 2, end: 4 }, 30)).toEqual({ first: 60, last: 119 });
+  expect(ownedFrames({ start: 2, end: 4 }, 60)).toEqual({ first: 120, last: 239 });
+  // even where s·fps rounds past it: 8.3·30 is 249.00000000000003, but frame 249 is at 249 / 30 = 8.3 itself
+  expect(ownedFrames({ start: 8.3, end: 16.1 }, 30)).toEqual({ first: 249, last: 482 });
+  expect(ownedFrames({ start: 8.3, end: 16.1 }, 60)).toEqual({ first: 498, last: 965 });
+  // a window between two frame times owns none
+  expect(ownedFrames({ start: 15.608, end: 15.62 }, 30)).toEqual({ first: 469, last: 468 });
+});
+
+test("ownedFrames: frame f is a window's exactly when the window is on screen at f / fps (boundaries on a 0.1 s grid)", () => {
+  for (const fps of [24, 25, 30, 60]) {
+    for (let i = 0; i < 1000; i++) {
+      const w = { start: i / 10, end: (i + 1 + (i % 7)) / 10 };
+      const { first, last } = ownedFrames(w, fps);
+      const on = (f: number) => onScreen([w], f / fps).length === 1;
+      expect([on(first - 1), on(first), on(last), on(last + 1)]).toEqual([false, true, true, false]);
+    }
+  }
 });

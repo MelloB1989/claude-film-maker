@@ -92,19 +92,22 @@ function setupExport() {
       await new Promise<void>((res, rej) => { ws.onopen = () => res(); ws.onerror = (e) => rej(e); });
       const dt = 1 / opts.fps;
       const n0 = Math.round(opts.from * opts.fps), n1 = Math.round(opts.to * opts.fps);
+      // frame n is at n / fps (as ownedFrames counts it); n·dt can land an ulp early, in the scene before a cut exactly
+      // on that frame's time
+      const at = (n: number) => n / opts.fps;
       const buf = new Uint8Array(PW * PH * 4);
       // warm-up: render one frame before the range so the first frame is sequential for stateful scenes
       const S = opts.samples ?? 1, SH = opts.shutter ?? 0.5;
       // (adaptive sampling only runs stateless scenes: one sample is enough for the warm-up)
       const S0 = typeof S === 'number' ? S : 1;
       if (n0 > 0) {
-        await engine.prepare((n0 - 1) * dt, dt, S0, SH);
-        engine.render((n0 - 1) * dt, dt, false, S0, SH);
+        await engine.prepare(at(n0 - 1), dt, S0, SH);
+        engine.render(at(n0 - 1), dt, false, S0, SH);
       }
       const used: Record<number, number> = {}; // sub-frames per frame -> frames
       for (let n = n0; n < n1; n++) {
-        await engine.prepare(n * dt, dt, S, SH);
-        const k = engine.render(n * dt, dt, false, S, SH);
+        await engine.prepare(at(n), dt, S, SH);
+        const k = engine.render(at(n), dt, false, S, SH);
         used[k] = (used[k] ?? 0) + 1;
         await engine.readPixelsAsync(buf);
         if (opts.inflight) while (n - n0 - acked >= opts.inflight) await new Promise((r) => setTimeout(r, 2));
