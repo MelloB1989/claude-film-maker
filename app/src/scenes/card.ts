@@ -63,8 +63,6 @@ export default class Card extends Scene {
     this.lines(c, vo.lines.filter((l) => l.scene === id), f.t);
     this.ruler(c, f, audio);
     comp.draw(renderer, L.upload(), out);
-    // nothing on the card is brighter than bone, and bone never blooms (spec §6): no bloom, and no halation off it
-    return { bloom: 0, halation: 0 };
   }
 
   /**

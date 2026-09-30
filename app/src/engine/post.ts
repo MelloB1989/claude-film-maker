@@ -2,6 +2,7 @@
 // film grain, vignette, fades/flash. Operates on the composited HDR (linear) frame.
 import * as THREE from 'three';
 import { FSPass, makeRT, W, H, SCALE } from './gl';
+import { LOOK } from './look';
 
 /** The tone shoulder (linear HDR -> 0..1 linear), shared with the engine's sampling error estimate. */
 export const SHOULDER_GLSL = /* glsl */ `
@@ -16,11 +17,12 @@ vec3 shoulder(vec3 x) {
 export interface PostParams {
   exposure: number;
   bloom: number; // bloom strength
-  bloomThreshold: number; // linear luminance where bloom starts
-  bloomKnee: number; // soft knee width
+  /** On the prefilter's key, a pixel's brightest channel (look.ts bloomLum): bloom opens at threshold - knee. */
+  bloomThreshold: number;
+  bloomKnee: number; // soft knee half-width
   bloomRadius: number; // 0..1 upsample spread
   halation: number; // blood-red film halation around highlights
-  ca: number; // chromatic aberration in px at the frame edge
+  ca: number; // chromatic aberration: R and B shift 1.58·ca px at the left/right frame edges (2.4·ca px in the corners)
   grain: number; // grain amplitude (sRGB units), ~0.04-0.1
   vignette: number; // 0..1
   hud: number; // HUD opacity multiplier (crop marks)
@@ -35,16 +37,9 @@ export interface PostParams {
   invert: number; // 0..1 invert (ink <-> bone), applied before grain
 }
 
+/** Every frame starts from the film look (look.ts: the values and the renders that set them); scenes override. */
 export const DEFAULT_POST: PostParams = {
-  exposure: 1,
-  bloom: 0.55,
-  bloomThreshold: 0.85,
-  bloomKnee: 0.5,
-  bloomRadius: 0.75,
-  halation: 0.25,
-  ca: 1.2,
-  grain: 0.055,
-  vignette: 0.35,
+  ...LOOK,
   hud: 1,
   frame: 0,
   paper: 0,
@@ -133,9 +128,11 @@ ${SCALE === 1 ? `        c += texture(src, vUv + texel * vec2(-1, -1)).rgb; c +=
         col += bl * bloom;
         col += C_BLOOD_BRIGHT * luma(ha) * halation;
         col *= exposure;
-        // HUD is composited in linear space before the shoulder so it gets grain & vignette too
+        // the HUD is a 2D layer: it mixes in display space like every Layer2D (gl.ts, Compositor 'srgb'), before the
+        // shoulder so it gets grain & vignette too. A canvas uploads straight alpha: h.rgb is its colour as drawn.
         vec4 h = texture(hudTex, vUv);
-        col = mix(col, h.rgb / max(h.a, 1e-4), h.a * hud);
+        float hudA = h.a * hud;
+        if (hudA > 0.0) col = toLinear(mix(toSRGB(max(col, 0.0)), toSRGB(h.rgb), hudA));
         col = shoulder(col);
         col = mix(col, vec3(0.8515) - col * 0.84, invert); // ink<->bone in linear-ish space
         col += C_BONE * flash;
