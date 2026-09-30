@@ -85,19 +85,31 @@ def test_speed_ramp_matches_motion_ts():
     assert C.speed_ramp(3, inst) == pytest.approx(2.25, abs=1e-12)
 
 
-def test_times_come_from_the_data():
-    tm = timing.film()
-    T = C.times(tm)
-    f0, f1 = tm.scene_frames("weave")
-    assert (T.f0, T.f1) == (f0, f1)
-    downs = tm.downbeats_in(f0, f1)
-    assert downs[0] == f0  # the cut is on a downbeat
-    assert T.lock_frame == downs[1]  # the lock is the next one
+def test_times_are_the_scenes_seconds_and_the_scores_downbeats():
+    # read off data/vo.json (weave: 86.408 .. 93.6 s) and data/audio.json (downbeats 86.408, 88.808, 91.208; the beat
+    # after 88.808 is 89.408), never computed with timing.py
+    T = C.times(timing.film())
+    assert (T.f0, T.f1) == (2593, 2808)  # the frames the engine shows weave on: the plate's window
+    assert (T.start, T.end) == (86.408, 93.6)  # the cut and the film's end, not f0 / 30 (86.4333) or 86.4
+    assert T.lock == 88.808  # the first downbeat after the cut's own, where the engine's timesOf puts it too
+    assert T.real == 89.408  # the next beat
+    assert T.settle == 91.208  # the scene's last downbeat
+    assert T.lock_frame == 2664
     assert T.l30 < T.lock < T.real < T.settle < T.end
     # the ramp: real time until just before the lock, half speed through it, real time again from the next beat
     lk = C.tau_at(T, T.lock)
     assert C.tau_at(T, T.real) - lk == pytest.approx(C.SLOW * (T.real - T.lock), abs=1e-9)
     assert C.tau_at(T, T.real + 1) - C.tau_at(T, T.real) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_the_weave_runs_on_the_scenes_seconds_not_its_first_frame():
+    # the animation's clock starts at the cut (86.408 s), whatever frame the plate starts on: tau is 0 there and runs
+    # in real time until the ramp (1.95 s after the cut). By hand: the lock is 2.4 s after the cut, the ease to half
+    # speed spans 0.3 s ending 0.15 s before it, so tau at the lock is 1.95 + 0.3 * (1 + 0.5) / 2 + 0.15 * 0.5 = 2.25
+    T = C.times(timing.film())
+    assert C.tau_at(T, 86.408) == pytest.approx(0.0, abs=1e-9)
+    assert C.tau(T, 2593) == pytest.approx(2593 / 30 - 86.408, abs=1e-9)  # the plate's first frame: 0.0253 s in
+    assert C.tau_at(T, T.lock) == pytest.approx(2.25, abs=1e-9)
 
 
 def test_the_last_pass_crosses_the_stem_on_the_lock_and_everything_rests(strands):

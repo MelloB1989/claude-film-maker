@@ -8,8 +8,10 @@ The shot is blender/shots/<name>.py. It defines
   SHOT = {"scene": "<scene id>", "frames": "scene" | [f0, f1], "track": [object names], "look": "<frames>",
           "black_ok": <frames>}
   build(ctx)
-"frames" is the shot's span in film frames, [f0, f1): "scene" takes the scene's window from data/vo.json. Blender's
-frame numbers are film frames (frame_start = f0), so keyframes set with ctx.frame(t) land on the engine's frames.
+"frames" is the shot's span in film frames, [f0, f1): "scene" takes the frames the engine shows the scene on
+(lib/timing.py scene_frames: from the first frame at or after its start in data/vo.json to the first at or after its
+end). Blender's frame numbers are film frames (frame_start = f0), so keyframes set with ctx.frame(t) land on the
+engine's frames.
 build(ctx) makes the camera (as scene.camera), the lights and the animation; ctx has scene, shot, mode, f0, f1, res,
 timing (lib.timing.Timing), frame(t) and time(f).
 

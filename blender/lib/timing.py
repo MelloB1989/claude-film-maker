@@ -7,7 +7,10 @@ the engine's frame for t.
 
 `frame(t)` rounds exactly as the engine's `frameIdx` does (JavaScript's Math.round: a half frame goes up). Python's
 round() rounds halves to even and would put some events one frame early: the half-frame drift the plates must not
-have. Frame ranges are half-open, [f0, f1), like the engine's scene windows: a scene's f1 is the next scene's f0.
+have. `frame(t)` places an event (a keyframe, a plate index); a scene's window is another rule. The engine shows a
+scene on frame n when start <= n / 30 < end (engine.ts onScreen and ownedFrames), so `scene_frames` gives the frames
+[f0, f1) from the first frame at or after the start to the first at or after the end. Every cut sits 8 ms after a frame
+time, so rounding would put both ends a frame early. Frame ranges are half-open: a scene's f1 is the next scene's f0.
 """
 from __future__ import annotations
 
@@ -32,6 +35,18 @@ def frame(t: float) -> int:
     return js_round(t * FPS)
 
 
+def first_frame_from(t: float) -> int:
+    """The first film frame at or after song time t: the engine's ownedFrames `from`. It is counted on the frame times
+    themselves, so a time exactly on a frame gives that frame even where t * 30 lands an ulp past the integer (8.3 * 30
+    is 249.00000000000003, and frame 249 is at 8.3)."""
+    f = math.ceil(t * FPS)
+    while (f - 1) / FPS >= t:
+        f -= 1
+    while f / FPS < t:
+        f += 1
+    return f
+
+
 @dataclass(frozen=True)
 class Word:
     w: str
@@ -53,12 +68,18 @@ class Timing:
         self._scenes = {s["id"]: s for s in vo["scenes"]}
         self._lines = {line["id"]: line for line in vo["lines"]}
 
-    def scene_frames(self, scene_id: str) -> tuple[int, int]:
-        """A scene's window as film frames [f0, f1)."""
+    def scene(self, scene_id: str) -> tuple[float, float]:
+        """A scene's window in song seconds [start, end), as vo.json has it."""
         s = self._scenes.get(scene_id)
         if s is None:
             raise KeyError(f"no scene {scene_id!r} in vo.json (scenes: {', '.join(self._scenes)})")
-        return frame(s["start"]), frame(s["end"])
+        return s["start"], s["end"]
+
+    def scene_frames(self, scene_id: str) -> tuple[int, int]:
+        """The film frames [f0, f1) the engine shows a scene on: f0 is the first frame at or after its start and f1 the
+        first at or after its end (engine.ts ownedFrames: first = f0, last = f1 - 1)."""
+        start, end = self.scene(scene_id)
+        return first_frame_from(start), first_frame_from(end)
 
     def line(self, line_id: str) -> dict:
         line = self._lines.get(line_id)

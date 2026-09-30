@@ -24,12 +24,29 @@ def test_frame_rounds_half_frames_up_like_the_engine():
     assert timing.frame(-2.5 / 30) == -2  # Math.round(-2.5) is -2
 
 
-def test_scene_frames_are_the_vo_scene_windows_times_30_rounded():
-    assert timing.scene_frames("thread") == (0, 180)  # 0.0 .. 6.008 s
-    assert timing.scene_frames("ex") == (180, 468)  # 6.008 .. 15.608 s
-    assert timing.scene_frames("her") == (468, 684)  # 15.608 .. 22.808 s
-    assert timing.scene_frames("honest") == (1836, 1980)  # 61.208 .. 66.008 s (1980.2399999999998)
-    assert timing.scene_frames("weave") == (2592, 2808)  # 86.408 .. 93.6 s
+def test_scene_frames_match_the_engines_owned_frames():
+    # the engine shows a scene on frame n when start <= n / 30 < end (engine.ts onScreen, ownedFrames), so a scene's
+    # frames run from the first frame at or after its start to the last one before its end; the values the engine's
+    # own tests pin (engine.test.ts: her 469 .. 684, weave from 2593)
+    assert timing.scene_frames("thread") == (0, 181)  # 0.0 .. 6.008 s: frame 180 (6.000 s) is still thread's
+    assert timing.scene_frames("ex") == (181, 469)  # 6.008 .. 15.608 s
+    assert timing.scene_frames("her") == (469, 685)  # 15.608 .. 22.808 s: 468.24 .. 684.24 frames
+    assert timing.scene_frames("honest") == (1837, 1981)  # 61.208 .. 66.008 s (1980.2399999999998)
+    assert timing.scene_frames("weave") == (2593, 2808)  # 86.408 .. 93.6 s: the film's end is exactly frame 2808
+
+
+@pytest.mark.parametrize("start, end, frames", [
+    (8.3, 16.1, (249, 483)),  # 8.3 * 30 is 249.00000000000003, and frame 249 is at 8.3: it is the window's
+    (2.0, 4.0, (60, 120)),  # both ends on frame times: a frame on the end belongs to the next window
+    (15.608, 15.62, (469, 469)),  # a window between two frame times owns no frame
+])
+def test_scene_frames_take_a_boundary_on_a_frame_time_as_the_engine_does(tmp_path, start, end, frames):
+    # engine.test.ts's ownedFrames cases, as [first, last + 1)
+    (tmp_path / "data").mkdir()
+    vo = {"duration": 20, "lines": [], "scenes": [{"id": "s", "act": "I", "start": start, "end": end}], "acts": []}
+    (tmp_path / "data" / "vo.json").write_text(json.dumps(vo))
+    (tmp_path / "data" / "audio.json").write_text(json.dumps({"beats": [], "downbeats": []}))
+    assert timing.load(tmp_path).scene_frames("s") == frames
 
 
 def test_scene_windows_tile_the_film_without_gaps_or_overlaps():
@@ -86,7 +103,7 @@ def test_load_reads_another_root_and_beats_round_like_frame(tmp_path):
     assert t.scene_frames("s") == (0, 30)
     assert t.beats_in(0, 30) == [3, 5]  # Python's round() would say 2 and 4
     assert t.downbeats_in(0, 30) == [3]
-    assert timing.scene_frames("thread") == (0, 180)  # the module's own functions keep the film's data
+    assert timing.scene_frames("thread") == (0, 181)  # the module's own functions keep the film's data
 
 
 def test_parse_frames_takes_inclusive_ranges_and_lists():

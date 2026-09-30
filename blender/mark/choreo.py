@@ -1,8 +1,10 @@
 """The weave's choreography (shot B15), bpy-free: every time from the data, the speed ramp, each thread's window, the
 mark's turn, the camera and the light, as functions of the film frame.
 
-Times (lib.timing, from data/vo.json and data/audio.json):
-  the scene     `weave`, film frames [f0, f1)
+Times, in song seconds straight from the data (data/vo.json and data/audio.json, as app/src/scenes/weave.ts timesOf
+reads them), never from frame numbers:
+  the scene     `weave`, [start, end); its plate covers the film frames [f0, f1) the engine shows it on
+                (lib.timing.scene_frames), but the animation's clock starts at the cut, whatever frame is first
   the lock      the first downbeat after the scene's own opening one (the cut lands on a downbeat, the score's big
                 hit); it falls on "forget." in "I don't forget."
   back to 1x    the next beat after the lock
@@ -54,10 +56,10 @@ def speed_ramp(t: float, keys) -> float:
 
 @dataclass(frozen=True)
 class Times:
-    f0: int
-    f1: int
-    start: float  # the scene's start (s)
-    end: float
+    f0: int  # the plate's first film frame
+    f1: int  # and the one after its last
+    start: float  # the scene's start, the cut (s)
+    end: float  # its end (s)
     lock: float  # the lock (s)
     real: float  # back to real time (s)
     l30: float  # "GitLoom."
@@ -68,16 +70,22 @@ class Times:
         return round(self.lock * FPS)
 
 
+AFTER = 0.05  # s: a downbeat or beat this soon after an event is that event's own (the engine's timesOf uses it too)
+
+
 def times(tm) -> Times:
-    """The weave's times from a lib.timing.Timing."""
+    """The weave's times from a lib.timing.Timing, in seconds from the data."""
     f0, f1 = tm.scene_frames("weave")
-    downs = tm.downbeats_in(f0 + 1, f1)  # after the scene's opening downbeat (the cut)
+    start, end = tm.scene("weave")
+    downs = [d for d in tm.audio["downbeats"] if start + AFTER < d < end]  # after the cut's own downbeat
     if not downs:
         raise ValueError("weave: no downbeat after the scene's first")
     lock = downs[0]
-    beats = tm.beats_in(lock + 1, f1)
-    return Times(f0=f0, f1=f1, start=f0 / FPS, end=f1 / FPS, lock=lock / FPS, real=beats[0] / FPS,
-                 l30=tm.word("L30", 0).start, settle=downs[-1] / FPS)
+    beats = [b for b in tm.audio["beats"] if lock + AFTER < b < end]
+    if not beats:
+        raise ValueError("weave: no beat after the lock")
+    return Times(f0=f0, f1=f1, start=start, end=end, lock=lock, real=beats[0], l30=tm.word("L30", 0).start,
+                 settle=downs[-1])
 
 
 # the ramp: real time, easing to half speed over EASE seconds ending LEAD before the lock, held to the next beat
