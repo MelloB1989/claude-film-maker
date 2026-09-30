@@ -1,12 +1,14 @@
 import { expect, test } from 'bun:test';
 import { LIN } from './palette';
 import { DEFAULT_POST } from './post';
-import { LOOK, bloomLum, bloomWeight, blendSRGB, glow, linearToSrgb, srgbToLinear, type RGB } from './look';
+import { BLOOM_CHROMA, LOOK, bloomKey, bloomLum, bloomWeight, blendSRGB, glow, linearToSrgb, srgbToLinear, type RGB } from './look';
 
 // Expected values are hand-derived (Python, from the sRGB formula and the shader text), never from look.ts.
 const T = DEFAULT_POST.bloomThreshold, K = DEFAULT_POST.bloomKnee;
 const levels = (c: RGB) => c.map((x) => linearToSrgb(x) * 255);
 const BONE_SRGB: RGB = [237 / 255, 231 / 255, 234 / 255]; // #ede7ea as designed
+/** Input helper: a colour lit so its brightest channel reads `level` (bone under a key light, a specular). */
+const lit = (c: RGB, level: number): RGB => c.map((x) => (x * level) / Math.max(...c)) as RGB;
 
 test('the sRGB transfer matches IEC 61966-2-1 both ways', () => {
   expect(srgbToLinear(0.5)).toBeCloseTo(0.214041, 6);
@@ -40,11 +42,36 @@ test('the film look never blooms bone, nor anything up to display white', () => 
   expect(bloomWeight(bloomLum([1, 1, 1]), T, K)).toBe(0);
 });
 
-test('blood and moss driven to 3.0 pass at least half their light to the bloom', () => {
-  expect(glow(LIN.blood, 3)[0]).toBeCloseTo(3, 9);
-  expect(glow(LIN.blood, 3)[2]).toBeCloseTo(0.330937, 6); // the hue is kept
-  expect(glow(LIN.moss, 3)[1]).toBeCloseTo(3, 9);
-  for (const c of [LIN.blood, LIN.bloodBright, LIN.moss]) expect(bloomWeight(bloomLum(glow(c, 3)), T, K)).toBeGreaterThanOrEqual(0.5);
+test('glow() drives a blood or moss accent to a bloom-key level, hue kept', () => {
+  expect(glow('blood', 3)[0]).toBeCloseTo(3, 9);
+  expect(glow('blood', 3)[2]).toBeCloseTo(0.330937, 6);
+  expect(glow('moss', 1.5)[1]).toBeCloseTo(1.5, 9);
+});
+
+test('blood and moss at the glow level pass at least half their light to the bloom', () => {
+  for (const key of ['blood', 'bloodBright', 'moss'] as const) expect(bloomKey(glow(key), T, K)).toBeGreaterThanOrEqual(0.5);
+});
+
+test('blood and moss, dim or bright, pass the chroma gate whole', () => {
+  for (const key of ['blood', 'bloodBright', 'bloodDim', 'moss', 'mossDim'] as const)
+    expect(bloomKey(glow(key, 4), 1, 0.1)).toBeCloseTo(0.75, 9); // the plain weight at 4: (4 - 1) / 4
+});
+
+test('a dim accent at the glow level still glows', () => {
+  expect(bloomKey(glow('bloodDim'), T, K)).toBeGreaterThan(0);
+  expect(bloomKey(glow('mossDim'), T, K)).toBeGreaterThan(0);
+});
+
+test('bone never blooms, lit or specular, at any intensity', () => {
+  for (const level of [1, 2, 4, 40]) expect(bloomKey(lit(LIN.bone, level), T, K)).toBe(0);
+  expect(bloomKey([3, 2.94, 2.97], T, K)).toBe(0); // a desaturated specular white at 3.0
+});
+
+test('the chroma gate: grey light passes nothing, pure colour the whole weight, a quarter up the gate 0.156 of it', () => {
+  expect(bloomKey([4, 4, 4], 1, 0.1)).toBe(0);
+  expect(bloomKey([4, 0, 0], 1, 0.1)).toBeCloseTo(0.75, 9); // chroma 1: the plain weight, (4 - 1) / 4
+  const [lo, hi] = BLOOM_CHROMA, chroma = lo + 0.25 * (hi - lo), g = 4 * (1 - chroma); // (max - min) / max = chroma
+  expect(bloomKey([4, g, g], 1, 0.1)).toBeCloseTo(0.75 * 0.15625, 9); // smoothstep at a quarter: 0.25^2 * 2.5
 });
 
 test('bloomWeight is monotonic in lum and never passes more than all the light', () => {

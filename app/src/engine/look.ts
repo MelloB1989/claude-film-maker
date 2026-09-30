@@ -1,7 +1,10 @@
-// The film's look: the post-processing defaults every scene starts from (DEFAULT_POST takes them), and pure mirrors
-// of the two pieces of GPU math that decide how a frame reads: the bloom prefilter's soft threshold (post.ts) and the
-// display-space "over" that 2D layers composite with (gl.ts, Compositor). Pure TS, so bun can test them.
+// The film's look: the post-processing defaults every scene starts from (DEFAULT_POST takes them), glow() for
+// emissive accents, and pure mirrors of the two pieces of GPU math that decide how a frame reads: the bloom
+// prefilter's key, a soft threshold gated by chroma (post.ts), and the display-space "over" that 2D layers composite
+// with (gl.ts, Compositor). Pure TS, so bun can test them.
 import type { PostOverrides } from './scene';
+import { LIN, type PaletteKey } from './palette';
+import { smoothstep } from './util';
 
 export type RGB = [number, number, number];
 
@@ -27,9 +30,40 @@ export function bloomWeight(lum: number, threshold: number, knee: number): numbe
   return Math.max(rq, lum - threshold) / Math.max(lum, 1e-5);
 }
 
-/** A linear colour scaled so the bloom key reads `level`, hue kept: how a scene drives blood or moss into glow. */
-export function glow(c: RGB, level: number): RGB {
-  const m = Math.max(c[0], c[1], c[2], 1e-9);
+/**
+ * The prefilter's chroma gate (post.ts): its weight is scaled by smoothstep(lo, hi, chroma), chroma being
+ * (max - min) / max of the linear colour. Chroma doesn't change with intensity, so neutral light never blooms however
+ * bright: bone (0.056), a specular white (~0.02), bone under a warm 4000 K key (0.27). A warmer key on bone opens the
+ * gate: 3500 K reads about 0.37. Blood (0.96), bloodDim (0.95), moss (0.84) and mossDim (0.67) pass whole.
+ */
+export const BLOOM_CHROMA: readonly [number, number] = [0.3, 0.6];
+
+/** Chroma as the prefilter sees it: (max - min) / max of the colour after its clamp at 40. */
+export function bloomChroma(c: RGB): number {
+  const r = Math.min(c[0], 40), g = Math.min(c[1], 40), b = Math.min(c[2], 40);
+  const hi = Math.max(r, g, b);
+  return (hi - Math.min(r, g, b)) / Math.max(hi, 1e-5);
+}
+
+/**
+ * The fraction of a colour's light that reaches the bloom (post.ts, mirrored exactly): the soft threshold, gated by
+ * chroma.
+ */
+export function bloomKey(c: RGB, threshold: number, knee: number): number {
+  return bloomWeight(bloomLum(c), threshold, knee) * smoothstep(BLOOM_CHROMA[0], BLOOM_CHROMA[1], bloomChroma(c));
+}
+
+/** The palette colours that may glow: blood and moss, and their dim and bright shades. Bone never does. */
+export type GlowKey = Extract<PaletteKey, 'blood' | 'bloodBright' | 'bloodDim' | 'moss' | 'mossDim'>;
+/** The film's emissive level: a soft glow whose core stays blood or moss. Hot cores (about 4 and up) whiten. */
+export const GLOW_LEVEL = 3;
+
+/**
+ * An emissive accent: the palette colour scaled so the bloom key reads `level`, hue kept. Use glow('blood'|'moss') for
+ * any emissive accent (a material's emissive, a 2D glow layer's tint); it is the one way scenes set emissive levels.
+ */
+export function glow(key: GlowKey, level = GLOW_LEVEL): RGB {
+  const c = LIN[key], m = Math.max(c[0], c[1], c[2]);
   return [(c[0] * level) / m, (c[1] * level) / m, (c[2] * level) / m];
 }
 
@@ -55,8 +89,11 @@ export function blendSRGB(dst: RGB, src: RGB, a: number): RGB {
  * - halation 0.35: a faint warm haze, a few levels deep, around blood (post.ts drives it by the glow's red).
  * - ca 0.38: R and B shift 0.6 px at the left/right frame edges (1.58·ca); Plan 1's 1.2 fringed the titles by ~1.6 px.
  * - grain 0.045, vignette 0.28: texture and falloff that are felt rather than seen. Exposure and radius unchanged.
- * Glow cores keep their hue up to about level 1.5 (blood) and 1.25 (moss); above that the per-channel tone shoulder
- * takes them toward pink and mint.
+ * Fix round 1 (the controller's ruling) made two changes and left the values above as they were:
+ * - The chroma gate (BLOOM_CHROMA 0.3..0.6) keeps bone, white light and speculars out of the bloom at any intensity.
+ *   Bone lit to 2, 4 or 40, a specular white at 3 and bone under a 4000 K key add nothing. Blood and moss pass whole.
+ * - The tone shoulder (post.ts) keeps a glow's hue. At level 3 a core stays blood (255, 62, 96) or moss
+ *   (113, 255, 148), not pink or mint. Only hot cores whiten, from about 4 on the brightest channel after bloom.
  */
 export const LOOK = {
   exposure: 1,

@@ -2,22 +2,24 @@
 // film grain, vignette, fades/flash. Operates on the composited HDR (linear) frame.
 import * as THREE from 'three';
 import { FSPass, makeRT, W, H, SCALE } from './gl';
-import { LOOK } from './look';
+import { BLOOM_CHROMA, LOOK } from './look';
 
 /** The tone shoulder (linear HDR -> 0..1 linear), shared with the engine's sampling error estimate. */
 export const SHOULDER_GLSL = /* glsl */ `
 vec3 shoulder(vec3 x) {
-  // identity below k, smooth exponential shoulder above; very bright values desaturate toward white
+  // Identity below k. Above it the brightest channel rolls off along a smooth exponential shoulder and the other two
+  // scale with it, so a glow keeps its hue and saturation: per channel, red clipped first and hot blood went pink,
+  // hot moss mint. Only hot cores, from about 4 on the brightest channel, whiten.
   const float k = 0.72;
-  vec3 y = mix(x, k + (1.0 - k) * (1.0 - exp(-(x - k) / (1.0 - k))), step(k, x));
-  float over = max(max(x.r, x.g), x.b);
-  return mix(y, vec3(1.0), smoothstep(2.0, 12.0, over) * 0.85);
+  float m = max(max(x.r, x.g), x.b);
+  vec3 y = m <= k ? x : x * ((k + (1.0 - k) * (1.0 - exp(-(m - k) / (1.0 - k)))) / m);
+  return mix(y, vec3(1.0), smoothstep(4.0, 16.0, m) * 0.85);
 }`;
 
 export interface PostParams {
   exposure: number;
   bloom: number; // bloom strength
-  /** On the prefilter's key, a pixel's brightest channel (look.ts bloomLum): bloom opens at threshold - knee. */
+  /** On a pixel's brightest channel (look.ts bloomLum): bloom opens at threshold - knee, gated by chroma (bloomKey). */
   bloomThreshold: number;
   bloomKnee: number; // soft knee half-width
   bloomRadius: number; // 0..1 upsample spread
@@ -85,6 +87,9 @@ ${SCALE === 1 ? `        c += texture(src, vUv + texel * vec2(-1, -1)).rgb; c +=
         float rq = clamp(l - threshold + knee, 0.0, 2.0 * knee);
         rq = rq * rq / (4.0 * knee + 1e-5);
         float w = max(rq, l - threshold) / max(l, 1e-5);
+        // only colour glows (look.ts bloomKey): gated by chroma, (max - min) / max, which no intensity changes, so bone,
+        // white light and specular highlights never bloom however bright, while blood and moss pass whole
+        w *= smoothstep(${BLOOM_CHROMA[0].toFixed(3)}, ${BLOOM_CHROMA[1].toFixed(3)}, (l - min(c.r, min(c.g, c.b))) / max(l, 1e-5));
         fragColor = vec4(c * w, 1.0);
       }`, { src: { value: null }, texel: { value: new THREE.Vector2() }, threshold: { value: 1 }, knee: { value: 0.5 } });
     this.down = new FSPass(/* glsl */ `
