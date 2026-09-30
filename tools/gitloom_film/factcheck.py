@@ -2,18 +2,21 @@
 illustrative, or her voice.
 
 A scene declares its text in app/src/scenes/<id>.strings.json (a JSON array of strings) and imports that file, so no
-string is written twice. A string passes if, after typographic punctuation is folded to its typed form (’ → ', “ ” → ",
-… → ...):
+string is written twice. A string passes if, after typographic punctuation is folded to its typed form (’ ‘ → ',
+“ ” → ", … → ...):
 
   1. it equals, or is a substring of, a `verbatim` or `copy` entry of data/facts.json;
-  2. it equals, or is a substring of, an `illustrative` entry;
-  3. it equals a line of hers or a word of hers in data/vo.json, as displayed (a word carries its punctuation); or
+  2. it equals, or is a substring of, an `illustrative` entry, or matches in full one of the sheet's
+     `illustrative_patterns` (the shape of a value that is invented: a float numeral, a namespace row, a commit hash);
+  3. its words, with the punctuation and whitespace at its ends and on each word stripped, are a contiguous run of
+     whole words of one line of hers in data/vo.json (a whole line, a phrase of one, or a single word); or
   4. it equals a scene id or an act name in data/script.json.
 
 Anything else is printed with its file, and the exit code is 1.
 """
 import argparse
 import json
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,13 +35,27 @@ def norm(s: str) -> str:
     return s.translate(_FOLD)
 
 
+_EDGES = re.compile(r"\A[\W_]+|[\W_]+\Z")  # punctuation and whitespace at either end
+
+
+def _words(s: str) -> tuple[str, ...]:
+    """`s` as whole words: the ends of `s`, and of each word, stripped of punctuation. A mark standing alone between
+    words is an empty word, so it matches nothing of hers."""
+    return tuple(_EDGES.sub("", w) for w in _EDGES.sub("", s).split())
+
+
+def _has_run(line: tuple[str, ...], run: tuple[str, ...]) -> bool:
+    return any(line[i:i + len(run)] == run for i in range(len(line) - len(run) + 1))
+
+
 @dataclass(frozen=True)
 class Allowed:
     """What a string may be, everything already folded by `norm`."""
     verbatim: tuple[str, ...]  # equal to an entry, or a substring of one
     copy: tuple[str, ...]  # likewise
     illustrative: tuple[str, ...]  # likewise
-    voice: frozenset[str]  # her lines and her words: equality only
+    patterns: tuple[re.Pattern[str], ...]  # illustrative values by shape: the whole string must match
+    lines: tuple[tuple[str, ...], ...]  # each line of hers, as words: a string may be any run of them
     labels: frozenset[str]  # scene ids and act names: equality only
 
 
@@ -60,17 +77,29 @@ def load_facts(path: Path = DATA / "facts.json") -> dict:
         for i, e in enumerate(entries):
             if not (isinstance(e, dict) and isinstance(e.get("text"), str) and e["text"]):
                 raise SystemExit(f"{path}: {kind}[{i}] needs a non-empty text")
+    patterns = facts.get("illustrative_patterns")
+    if not isinstance(patterns, list):
+        raise SystemExit(f"{path}: 'illustrative_patterns' must be a list")
+    for i, e in enumerate(patterns):
+        if not (isinstance(e, dict) and isinstance(e.get("pattern"), str) and e["pattern"]
+                and isinstance(e.get("why"), str) and e["why"]):
+            raise SystemExit(f"{path}: illustrative_patterns[{i}] needs a pattern and a why")
+        try:
+            re.compile(e["pattern"], re.ASCII)
+        except re.error as err:
+            raise SystemExit(f"{path}: illustrative_patterns[{i}] is not a regex ({err})") from None
     return facts
 
 
 def build_allowed(facts: dict, vo: dict, script: dict) -> Allowed:
-    voice = {norm(l["text"]) for l in vo["lines"]} | {norm(w["w"]) for l in vo["lines"] for w in l.get("words", [])}
+    lines = tuple(_words(norm(l["text"])) for l in vo["lines"])
     labels = {norm(s) for a in script["acts"] for s in (a["name"], *a["scenes"])}
+    patterns = tuple(re.compile(p["pattern"], re.ASCII) for p in facts.get("illustrative_patterns", ()))
 
     def texts(kind: str) -> tuple[str, ...]:
         return tuple(norm(e["text"]) for e in facts[kind])
 
-    return Allowed(texts("verbatim"), texts("copy"), texts("illustrative"), frozenset(voice), frozenset(labels))
+    return Allowed(texts("verbatim"), texts("copy"), texts("illustrative"), patterns, lines, frozenset(labels))
 
 
 def load_allowed(facts: Path = DATA / "facts.json", vo: Path = DATA / "vo.json",
@@ -84,7 +113,10 @@ def classify(s: str, allowed: Allowed) -> str | None:
     for kind in KINDS:
         if any(n in t for t in getattr(allowed, kind)):
             return kind
-    if n in allowed.voice:
+    if any(p.fullmatch(s) for p in allowed.patterns):
+        return "illustrative"
+    words = _words(n)
+    if words and any(_has_run(line, words) for line in allowed.lines):
         return "vo"
     if n in allowed.labels:
         return "label"

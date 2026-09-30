@@ -111,6 +111,7 @@ FACTS = {
     "copy": [{"text": f"{MINUS} no history", "source": "spec §4 ex"},
              {"text": f"it{RSQ}s a {LDQ}quote{RDQ}", "source": "spec §4 her"}],
     "illustrative": [{"text": "cosine 0.8127"}],
+    "illustrative_patterns": [{"pattern": r"^#\d{3}$", "why": "a pattern for these tests"}],
 }
 VO = {"lines": [{"id": "L1", "text": "Your agent forgets.", "words": [{"w": "Your"}, {"w": "agent"}, {"w": "forgets."}]},
                 {"id": "L2", "text": "It's not you... it's me.", "words": [{"w": "It's"}, {"w": "you..."}, {"w": "me."}]}]}
@@ -126,9 +127,13 @@ SMALL = build_allowed(FACTS, VO, SCRIPT)
     ("no hist", "copy"),
     ("cosine 0.8127", "illustrative"),
     ("0.81", "illustrative"),
+    ("#123", "illustrative"),  # a pattern, matched in full
     ("Your agent forgets.", "vo"),  # one of her lines
     ("forgets.", "vo"),  # one of her words, as displayed
     ("Your", "vo"),
+    ("Your agent", "vo"),  # a phrase of one of her lines: whole words, in order
+    ("forgets", "vo"),  # her word without its punctuation
+    ("you... it's", "vo"),  # a run that crosses her ellipsis
     ("thread", "label"),  # a scene id
     ("The Ex", "label"),  # an act name
 ])
@@ -140,9 +145,12 @@ def test_what_passes(s, kind):
     "gitloom diff a b c",  # longer than the entry it starts like
     "Gitloom diff a b",  # the sheet is case sensitive
     "cosine 0.8128",
-    "Your agent",  # her words are matched whole: a line or a single word, never a phrase of a line
-    "forgets",  # as displayed: the word carries its punctuation
-    "thre",  # scene ids and act names are matched whole too
+    "#12", "#1234", "x#123", "#123\n",  # off the pattern: a pattern has to match the whole string
+    "#١٢٣",  # \d in a pattern is an ASCII digit
+    "Your forgets",  # not contiguous
+    "agent Your",  # not in her order
+    "agen",  # not whole words
+    "thre",  # scene ids and act names are matched whole
     "The",
     "I",  # an act's roman numeral is not an act name
     "gitloom log --blame",
@@ -155,18 +163,85 @@ def test_typographic_punctuation_matches_the_typed_forms():
     assert norm(f"it{RSQ}s {LDQ}x{RDQ} {LSQ}y{RSQ} wait{ELLIPSIS}") == "it's \"x\" 'y' wait..."
     assert classify(f"It{RSQ}s not you{ELLIPSIS} it{RSQ}s me.", SMALL) == "vo"
     assert classify(f"you{ELLIPSIS}", SMALL) == "vo"
+    assert classify(f"{LDQ}Your agent{RDQ}", SMALL) == "vo"
+    assert classify(f"not you{ELLIPSIS} it{RSQ}s", SMALL) == "vo"
     assert classify("it's a \"quote\"", SMALL) == "copy"  # typed input against typographic copy
     assert classify(f"{LDQ}quote{RDQ}", SMALL) == "copy"
 
 
-def test_a_sheet_needs_all_three_lists(tmp_path):
+# --- phrases of her lines: a contiguous run of her whole words, punctuation aside ---
+
+
+@functools.cache
+def her_words_only():
+    """Her real lines and the real scenes on a sheet with nothing on it: only her words and the labels can pass."""
+    nothing = {"verbatim": [], "copy": [], "illustrative": []}
+    return build_allowed(nothing, json.loads((DATA / "vo.json").read_text(encoding="utf-8")),
+                         json.loads((DATA / "script.json").read_text(encoding="utf-8")))
+
+
+@pytest.mark.parametrize("s, kind", [
+    ("back to zero.", "vo"),  # L02 "Every conversation... back to zero."
+    ("vector store", "vo"),  # L03 "It's not you... it's your vector store."
+    ("to zer", None),  # not whole words
+    ("zero back", None),  # not contiguous
+])
+def test_a_phrase_of_her_lines_passes_if_it_is_whole_words_in_order(s, kind):
+    assert classify(s, her_words_only()) == kind
+
+
+def test_the_phrases_pass_the_real_gate():
+    # `to zer` is not checked here: the sheet also lists `back to zero` as copy, and any substring of copy passes
+    assert classify("back to zero.", real()) is not None
+    assert classify("vector store", real()) is not None
+
+
+def test_a_phrase_of_her_lines_passes_the_command(tmp_path, capsys):
+    strings_file(tmp_path, "ex", ["back to zero.", "vector store", f"It{RSQ}s not you{ELLIPSIS}"])
+    assert run(tmp_path, capsys)[:2] == (0, "facts OK (3 strings in 1 files)\n")
+
+
+@pytest.mark.parametrize("s", [
+    f"Every conversation{ELLIPSIS} back to zero.",  # a whole line, typographic
+    "  back to zero  ",  # whitespace at the ends
+    "— back to zero —",  # and punctuation
+    f"{LDQ}vector store{RDQ}",
+    f"{ELLIPSIS}I say so.",  # L23 begins with its ellipsis
+    "back to\nzero",  # broken over two lines
+    "conversation",  # a word without its punctuation
+    "Forty-four",  # a hyphen inside a word stays
+])
+def test_punctuation_and_whitespace_at_the_ends_do_not_count(s):
+    assert classify(s, her_words_only()) == "vo"
+
+
+@pytest.mark.parametrize("s", [
+    "", " ", "...", "—",  # no words at all is not a run of hers
+    "Back to zero",  # case sensitive
+    "back · to zero",  # a mark standing between her words is not one of her words
+    "forgets. Every conversation",  # a run stays inside one of her lines
+    "back to zero please",
+])
+def test_what_is_not_a_phrase_of_hers(s):
+    assert classify(s, her_words_only()) is None
+
+
+def test_a_sheet_needs_all_four_lists(tmp_path):
     p = tmp_path / "facts.json"
     p.write_text(json.dumps({"verbatim": [], "copy": []}))
     with pytest.raises(SystemExit, match="illustrative"):
         factcheck.load_facts(p)
-    p.write_text(json.dumps({"verbatim": [{"text": ""}], "copy": [], "illustrative": []}))
+    p.write_text(json.dumps({"verbatim": [{"text": ""}], "copy": [], "illustrative": [], "illustrative_patterns": []}))
     with pytest.raises(SystemExit, match=r"verbatim\[0\]"):
         factcheck.load_facts(p)
+    p.write_text(json.dumps({"verbatim": [], "copy": [], "illustrative": []}))
+    with pytest.raises(SystemExit, match="illustrative_patterns"):
+        factcheck.load_facts(p)
+    for bad, why in [({"pattern": "("}, r"needs a pattern and a why"), ({"pattern": "(", "why": "x"}, "not a regex"),
+                     ({"why": "x"}, r"needs a pattern and a why")]:
+        p.write_text(json.dumps({"verbatim": [], "copy": [], "illustrative": [], "illustrative_patterns": [bad]}))
+        with pytest.raises(SystemExit, match=rf"illustrative_patterns\[0\].*{why}"):
+            factcheck.load_facts(p)
 
 
 # --- the real sheet ---
@@ -187,17 +262,20 @@ def scene_ids():
 
 def test_the_sheet_is_well_formed():
     facts = sheet()
-    assert list(facts) == ["verbatim", "copy", "illustrative"]
+    assert list(facts) == ["verbatim", "copy", "illustrative", "illustrative_patterns"]
     for kind in ("verbatim", "copy"):
         for e in facts[kind]:
             assert sorted(e) == ["source", "text"] and e["text"].strip() and e["source"].strip(), e
     assert all(sorted(e) == ["text"] and e["text"].strip() for e in facts["illustrative"])
+    for e in facts["illustrative_patterns"]:
+        assert sorted(e) == ["pattern", "why"] and e["why"].strip(), e
+        re.compile(e["pattern"], re.ASCII)
     for e in facts["verbatim"]:  # a path and the line(s) in it
         assert re.search(r"[\w./-]+\.\w+:\d+", e["source"]), e
     for e in facts["copy"]:
         m = re.fullmatch(r"spec §4 (\w+)", e["source"])
         assert m and m.group(1) in scene_ids(), e
-    every = [(kind, e["text"], e.get("source")) for kind, entries in facts.items() for e in entries]
+    every = [(kind, e["text"], e.get("source")) for kind in ("verbatim", "copy", "illustrative") for e in facts[kind]]
     assert len(every) == len(set(every)), "an entry is listed twice"
 
 
@@ -221,6 +299,7 @@ def test_the_real_sheet_sorts_strings_into_the_right_kinds():
     assert classify("$ gitloom diff facts/people/user.md 8b21e04 3f9a1c2", real()) == "verbatim"
     assert classify(f"{MINUS} no history", real()) == "copy"
     assert classify("hotel", real()) == "illustrative"  # 11.10: a graph node
+    assert classify("0.5512", real()) == "illustrative"  # 11.10: a float numeral, by its pattern
     assert classify("forgets.", real()) == "vo"
     assert classify("The Tour", real()) == "label"
     assert classify("merkle", real()) == "label"
@@ -231,6 +310,50 @@ def test_display_type_uses_the_same_sheet_as_typed_input():
     assert classify(f"{LDQ}candidates{RDQ}: 2", real()) == "copy"
     assert classify(f"It{RSQ}s not you{ELLIPSIS} it{RSQ}s your vector store.", real()) == "vo"
     assert classify(f"user-0001 {ELLIPSIS} user-2048", real()) == "copy"
+
+
+# --- the illustrative patterns: the shapes of values that are invented (spec 11.10) ---
+
+PATTERNS = ["^[" + MINUS + r"-]?\d\.\d{4}$", r"^user-\d{4}$", "^[0-9a-f]{7}$"]
+
+
+def without_patterns():
+    facts = {k: v for k, v in sheet().items() if k != "illustrative_patterns"}
+    return build_allowed(facts, json.loads((DATA / "vo.json").read_text(encoding="utf-8")),
+                         json.loads((DATA / "script.json").read_text(encoding="utf-8")))
+
+
+def test_the_sheet_holds_exactly_the_three_patterns_of_spec_11_10():
+    patterns = sheet()["illustrative_patterns"]
+    assert [p["pattern"] for p in patterns] == PATTERNS
+    assert all("§11.10" in p["why"] for p in patterns)
+
+
+@pytest.mark.parametrize("s, passes", [
+    (f"{MINUS}0.0931", True),  # a float numeral
+    ("0.2143", True),
+    ("user-0042", True),  # a namespace row
+    ("a41c9d0", True),  # an illustrative commit hash
+    ("0.21435", False),  # five decimals
+    ("user-42", False),  # two digits
+])
+def test_the_patterns_let_invented_values_through(s, passes):
+    assert (classify(s, real()) is not None) == passes
+
+
+@pytest.mark.parametrize("s", ["0.5512", f"{MINUS}0.7301", "-0.7301", "user-0042", "user-9999", "b7e3a19"])
+def test_a_value_the_sheet_does_not_list_passes_on_its_pattern_alone(s):
+    assert classify(s, without_patterns()) is None
+    assert classify(s, real()) == "illustrative"
+
+
+@pytest.mark.parametrize("s", [
+    "0.551", "12.5512", ".5512", "0,5512", "0.5512 ", "0.5512\n", "x0.5512", "--0.5512",  # not a four decimal numeral
+    "user-00042", "User-0042", "user_0042", "user-0042\n", "user-٤٢٠٠",  # not a namespace row
+    "b7e3a1", "b7e3a19f", "B7E3A19", "g7e3a19", "b7e3a1\n",  # not seven lowercase hex digits
+])
+def test_a_value_off_its_pattern_fails(s):
+    assert classify(s, real()) is None
 
 
 def spec_lines():

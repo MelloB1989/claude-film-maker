@@ -187,5 +187,10 @@
     {"text": "lisbon-2026.md"},
     {"text": "hotel"},
     {"text": "city"}
+  ],
+  "illustrative_patterns": [
+    {"pattern": "^[−-]?\\d\\.\\d{4}$", "why": "spec §11.10: the float numerals"},
+    {"pattern": "^user-\\d{4}$", "why": "spec §11.10: the namespace rows, user-0001 … user-2048"},
+    {"pattern": "^[0-9a-f]{7}$", "why": "spec §11.10: the commit hashes in git log beyond 3f9a1c2, 8b21e04 and 105ca74"}
   ]
 }
