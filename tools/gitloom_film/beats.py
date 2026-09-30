@@ -166,7 +166,8 @@ def main(argv=None):
     vo_y, vsr = read_wav(AUDIO / "vo" / "vo.wav")
     if vsr != sr:
         vo_y = librosa.resample(vo_y, orig_sr=vsr, target_sr=sr)
-    out = analyze(y, sr, mp["meta"], vo, vo_y, automate=not a.no_automation)
+    meta = mp.get("chosen_meta") or mp["meta"]  # the pick's own section timing; `meta` is the latest film-music run's
+    out = analyze(y, sr, meta, vo, vo_y, automate=not a.no_automation)
     (DATA / "audio.json").write_text(json.dumps(out))
     print(f"{out['bpm']} BPM · grid fit {out['grid_fit']:.2f} · grid error {out['grid_error_ms']} ms · "
           f"{len(out['beats'])} beats · {len(out['downbeats'])} downbeats"

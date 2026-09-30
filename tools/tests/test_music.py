@@ -120,3 +120,13 @@ def test_merge_keeps_the_pick_and_the_edit_and_adds_variants(tmp_path):
 def test_merge_into_nothing_starts_a_fresh_plan(tmp_path):
     mp = merge_plan(None, PLAN, {"bpm": 100}, ["audio/music/score-seed11.wav"], tmp_path)
     assert mp == {"plan": PLAN, "meta": {"bpm": 100}, "variants": ["audio/music/score-seed11.wav"], "chosen": None}
+
+
+def test_merge_keeps_the_picks_section_timing_as_chosen_meta(tmp_path):
+    picked = {"bpm": 100.0, "sections": [{"name": "honest", "start": 62.4, "end": 67.2}]}
+    old = {"plan": PLAN, "meta": picked, "variants": [], "chosen": "audio/music/score-seed11-edit.wav"}
+    mp = merge_plan(old, PLAN2, {"bpm": 100.0, "sections": [{"name": "honest", "start": 60.0, "end": 64.8}]}, [],
+                    tmp_path)
+    assert mp["chosen_meta"] == picked and mp["meta"]["sections"][0]["start"] == 60.0
+    again = merge_plan(mp, PLAN, {"bpm": 101.0, "sections": []}, [], tmp_path)
+    assert again["chosen_meta"] == picked  # no later run moves the pick's sections

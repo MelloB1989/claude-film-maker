@@ -13,12 +13,12 @@
    "words": [
     {
      "w": "Your",
-     "start": 0.935,
+     "start": 0.93,
      "end": 1.116
     },
     {
      "w": "agent",
-     "start": 1.18,
+     "start": 1.175,
      "end": 1.62
     },
     {
@@ -45,7 +45,7 @@
     },
     {
      "w": "conversation...",
-     "start": 3.368,
+     "start": 3.338,
      "end": 4.206
     },
     {
@@ -55,7 +55,7 @@
     },
     {
      "w": "to",
-     "start": 5.203,
+     "start": 5.158,
      "end": 5.268
     },
     {
@@ -77,7 +77,7 @@
    "words": [
     {
      "w": "It's",
-     "start": 6.4205,
+     "start": 6.4155,
      "end": 6.6195
     },
     {
@@ -107,7 +107,7 @@
     },
     {
      "w": "store.",
-     "start": 8.7955,
+     "start": 8.6355,
      "end": 9.0855
     }
    ]
@@ -117,60 +117,60 @@
    "scene": "ex",
    "act": "I",
    "text": "It overwrites what it knew... and never tells you why.",
-   "start": 9.568,
-   "end": 13.519,
+   "start": 9.573,
+   "end": 13.524,
    "take": 1,
    "factor": 0.9,
    "words": [
     {
      "w": "It",
      "start": 9.608,
-     "end": 9.7795
+     "end": 9.7845
     },
     {
      "w": "overwrites",
      "start": 9.798,
-     "end": 10.4815
+     "end": 10.4865
     },
     {
      "w": "what",
-     "start": 10.573,
-     "end": 10.6615
+     "start": 10.558,
+     "end": 10.6665
     },
     {
      "w": "it",
-     "start": 10.6975,
-     "end": 10.8235
+     "start": 10.7025,
+     "end": 10.8285
     },
     {
      "w": "knew...",
-     "start": 10.8415,
-     "end": 11.2015
+     "start": 10.8465,
+     "end": 11.2065
     },
     {
      "w": "and",
-     "start": 11.953,
-     "end": 12.1015
+     "start": 11.913,
+     "end": 12.1065
     },
     {
      "w": "never",
-     "start": 12.1735,
-     "end": 12.4435
+     "start": 12.1785,
+     "end": 12.4485
     },
     {
      "w": "tells",
-     "start": 12.548,
-     "end": 12.7495
+     "start": 12.463,
+     "end": 12.7545
     },
     {
      "w": "you",
-     "start": 12.8035,
-     "end": 12.9115
+     "start": 12.8085,
+     "end": 12.9165
     },
     {
      "w": "why.",
-     "start": 12.9655,
-     "end": 13.3255
+     "start": 12.9705,
+     "end": 13.3305
     }
    ]
   },
@@ -179,20 +179,20 @@
    "scene": "ex",
    "act": "I",
    "text": "Commitment issues.",
-   "start": 13.8985,
-   "end": 15.307,
+   "start": 13.773,
+   "end": 15.1815,
    "take": 3,
    "factor": 0.9,
    "words": [
     {
      "w": "Commitment",
-     "start": 13.9985,
-     "end": 14.4745
+     "start": 13.808,
+     "end": 14.349
     },
     {
      "w": "issues.",
-     "start": 14.5645,
-     "end": 15.0865
+     "start": 14.439,
+     "end": 14.961
     }
    ]
   },
@@ -201,20 +201,20 @@
    "scene": "her",
    "act": "II",
    "text": "Not me.",
-   "start": 16.168,
-   "end": 17.104,
+   "start": 16.173,
+   "end": 17.109,
    "take": 4,
    "factor": 0.9,
    "words": [
     {
      "w": "Not",
      "start": 16.208,
-     "end": 16.51
+     "end": 16.515
     },
     {
      "w": "me.",
-     "start": 16.564,
-     "end": 16.852
+     "start": 16.569,
+     "end": 16.857
     }
    ]
   },
@@ -309,7 +309,7 @@
     },
     {
      "w": "git",
-     "start": 24.103,
+     "start": 24.083,
      "end": 24.301
     },
     {
@@ -324,45 +324,45 @@
    "scene": "repo",
    "act": "II",
    "text": "You already know how to read me.",
-   "start": 25.183,
-   "end": 27.3925,
+   "start": 25.188,
+   "end": 27.3975,
    "take": 2,
    "factor": 0.9,
    "words": [
     {
      "w": "You",
      "start": 25.208,
-     "end": 25.399
+     "end": 25.404
     },
     {
      "w": "already",
-     "start": 25.463,
-     "end": 25.903
+     "start": 25.468,
+     "end": 25.908
     },
     {
      "w": "know",
-     "start": 26.047,
-     "end": 26.317
+     "start": 26.052,
+     "end": 26.322
     },
     {
      "w": "how",
-     "start": 26.425,
-     "end": 26.515
+     "start": 26.43,
+     "end": 26.52
     },
     {
      "w": "to",
-     "start": 26.551,
-     "end": 26.623
+     "start": 26.556,
+     "end": 26.628
     },
     {
      "w": "read",
-     "start": 26.731,
-     "end": 26.965
+     "start": 26.736,
+     "end": 26.97
     },
     {
      "w": "me.",
-     "start": 27.019,
-     "end": 27.181
+     "start": 27.024,
+     "end": 27.186
     }
    ]
   },
@@ -378,7 +378,7 @@
    "words": [
     {
      "w": "Facts",
-     "start": 28.5365,
+     "start": 28.4565,
      "end": 28.8925
     },
     {
@@ -388,7 +388,7 @@
     },
     {
      "w": "keep.",
-     "start": 29.2365,
+     "start": 29.1465,
      "end": 29.5405
     }
    ]
@@ -398,30 +398,30 @@
    "scene": "loom",
    "act": "III",
    "text": "Incidents... I let go.",
-   "start": 29.963,
-   "end": 32.3255,
+   "start": 29.968,
+   "end": 32.3305,
    "take": 1,
    "factor": 0.9,
    "words": [
     {
      "w": "Incidents...",
      "start": 30.008,
-     "end": 30.6785
+     "end": 30.6835
     },
     {
      "w": "I",
-     "start": 31.498,
-     "end": 31.5965
+     "start": 31.503,
+     "end": 31.6015
     },
     {
      "w": "let",
-     "start": 31.6685,
-     "end": 31.7765
+     "start": 31.6735,
+     "end": 31.7815
     },
     {
      "w": "go.",
-     "start": 31.878,
-     "end": 32.1005
+     "start": 31.858,
+     "end": 32.1055
     }
    ]
   },
@@ -437,12 +437,12 @@
    "words": [
     {
      "w": "Rules",
-     "start": 32.7685,
+     "start": 32.7635,
      "end": 33.2375
     },
     {
      "w": "I",
-     "start": 33.3435,
+     "start": 33.3385,
      "end": 33.4895
     },
     {
@@ -452,7 +452,7 @@
     },
     {
      "w": "break.",
-     "start": 34.1235,
+     "start": 34.1135,
      "end": 34.4975
     }
    ]
@@ -469,12 +469,12 @@
    "words": [
     {
      "w": "Skills,",
-     "start": 35.236,
+     "start": 35.071,
      "end": 35.671
     },
     {
      "w": "only",
-     "start": 36.116,
+     "start": 36.111,
      "end": 36.463
     },
     {
@@ -511,7 +511,7 @@
    "words": [
     {
      "w": "Change",
-     "start": 38.071,
+     "start": 37.971,
      "end": 38.318
     },
     {
@@ -570,7 +570,7 @@
     },
     {
      "w": "always",
-     "start": 41.329,
+     "start": 41.324,
      "end": 41.8575
     },
     {
@@ -694,7 +694,7 @@
     },
     {
      "w": "How",
-     "start": 50.193,
+     "start": 50.188,
      "end": 50.4145
     },
     {
@@ -724,7 +724,7 @@
     },
     {
      "w": "answer.",
-     "start": 52.793,
+     "start": 52.788,
      "end": 53.2945
     }
    ]
@@ -734,50 +734,50 @@
    "scene": "merkle",
    "act": "III",
    "text": "Fifty things changed? I only look at fifty.",
-   "start": 53.893,
-   "end": 57.0025,
+   "start": 53.988,
+   "end": 57.0975,
    "take": 1,
    "factor": 0.9,
    "words": [
     {
      "w": "Fifty",
      "start": 54.008,
-     "end": 54.307
+     "end": 54.402
     },
     {
      "w": "things",
-     "start": 54.448,
-     "end": 54.739
+     "start": 54.538,
+     "end": 54.834
     },
     {
      "w": "changed?",
-     "start": 54.847,
-     "end": 55.333
+     "start": 54.942,
+     "end": 55.428
     },
     {
      "w": "I",
-     "start": 55.733,
-     "end": 55.873
+     "start": 55.828,
+     "end": 55.968
     },
     {
      "w": "only",
-     "start": 55.909,
-     "end": 56.107
+     "start": 56.004,
+     "end": 56.202
     },
     {
      "w": "look",
-     "start": 56.143,
-     "end": 56.251
+     "start": 56.238,
+     "end": 56.346
     },
     {
      "w": "at",
-     "start": 56.287,
-     "end": 56.395
+     "start": 56.382,
+     "end": 56.49
     },
     {
      "w": "fifty.",
-     "start": 56.449,
-     "end": 56.881
+     "start": 56.544,
+     "end": 56.976
     }
    ]
   },
@@ -786,55 +786,55 @@
    "scene": "graph",
    "act": "III",
    "text": "I connect the dots... and I learn your language.",
-   "start": 57.568,
-   "end": 60.9655,
+   "start": 57.573,
+   "end": 60.9705,
    "take": 2,
    "factor": 0.9,
    "words": [
     {
      "w": "I",
      "start": 57.608,
-     "end": 57.73
+     "end": 57.735
     },
     {
      "w": "connect",
-     "start": 57.766,
-     "end": 58.072
+     "start": 57.771,
+     "end": 58.077
     },
     {
      "w": "the",
-     "start": 58.126,
-     "end": 58.234
+     "start": 58.131,
+     "end": 58.239
     },
     {
      "w": "dots...",
-     "start": 58.27,
-     "end": 58.774
+     "start": 58.275,
+     "end": 58.779
     },
     {
      "w": "and",
      "start": 59.143,
-     "end": 59.512
+     "end": 59.517
     },
     {
      "w": "I",
-     "start": 59.693,
-     "end": 59.854
+     "start": 59.698,
+     "end": 59.859
     },
     {
      "w": "learn",
-     "start": 59.926,
-     "end": 60.124
+     "start": 59.931,
+     "end": 60.129
     },
     {
      "w": "your",
-     "start": 60.16,
-     "end": 60.25
+     "start": 60.165,
+     "end": 60.255
     },
     {
      "w": "language.",
-     "start": 60.286,
-     "end": 60.79
+     "start": 60.291,
+     "end": 60.795
     }
    ]
   },
@@ -907,35 +907,35 @@
    "scene": "proof",
    "act": "III",
    "text": "Forty-four... to ninety-one point four.",
-   "start": 66.67,
-   "end": 69.6625,
+   "start": 66.558,
+   "end": 69.5505,
    "take": 1,
    "factor": 0.9,
    "words": [
     {
      "w": "Forty-four...",
-     "start": 66.8,
-     "end": 67.516
+     "start": 66.608,
+     "end": 67.404
     },
     {
      "w": "to",
-     "start": 67.99,
-     "end": 68.038
+     "start": 67.828,
+     "end": 67.926
     },
     {
      "w": "ninety-one",
-     "start": 68.146,
-     "end": 68.758
+     "start": 68.034,
+     "end": 68.646
     },
     {
      "w": "point",
-     "start": 68.9,
-     "end": 69.082
+     "start": 68.763,
+     "end": 68.97
     },
     {
      "w": "four.",
-     "start": 69.215,
-     "end": 69.532
+     "start": 69.098,
+     "end": 69.42
     }
    ]
   },
@@ -961,7 +961,7 @@
     },
     {
      "w": "for",
-     "start": 71.3975,
+     "start": 71.3125,
      "end": 71.5245
     },
     {
@@ -993,12 +993,12 @@
     },
     {
      "w": "command...",
-     "start": 73.578,
+     "start": 73.548,
      "end": 74.132
     },
     {
      "w": "and",
-     "start": 74.628,
+     "start": 74.623,
      "end": 74.78
     },
     {
@@ -1013,12 +1013,12 @@
     },
     {
      "w": "Claude",
-     "start": 75.223,
+     "start": 75.178,
      "end": 75.5
     },
     {
      "w": "Code.",
-     "start": 75.588,
+     "start": 75.563,
      "end": 75.986
     }
    ]
@@ -1035,12 +1035,12 @@
    "words": [
     {
      "w": "Or",
-     "start": 76.6265,
+     "start": 76.6215,
      "end": 76.7895
     },
     {
      "w": "any",
-     "start": 76.9065,
+     "start": 76.9015,
      "end": 77.1135
     },
     {
@@ -1050,12 +1050,12 @@
     },
     {
      "w": "in",
-     "start": 77.9715,
+     "start": 77.9665,
      "end": 78.1935
     },
     {
      "w": "any",
-     "start": 78.2065,
+     "start": 78.2015,
      "end": 78.4095
     },
     {
@@ -1070,45 +1070,45 @@
    "scene": "anywhere",
    "act": "IV",
    "text": "On your machine... or in my cloud.",
-   "start": 79.763,
-   "end": 82.7735,
+   "start": 79.768,
+   "end": 82.7785,
    "take": 2,
    "factor": 0.9,
    "words": [
     {
      "w": "On",
      "start": 79.808,
-     "end": 79.979
+     "end": 79.984
     },
     {
      "w": "your",
-     "start": 80.033,
-     "end": 80.141
+     "start": 80.038,
+     "end": 80.146
     },
     {
      "w": "machine...",
-     "start": 80.177,
-     "end": 80.735
+     "start": 80.182,
+     "end": 80.74
     },
     {
      "w": "or",
-     "start": 81.203,
-     "end": 81.545
+     "start": 81.208,
+     "end": 81.55
     },
     {
      "w": "in",
-     "start": 81.783,
-     "end": 81.905
+     "start": 81.733,
+     "end": 81.91
     },
     {
      "w": "my",
-     "start": 81.959,
-     "end": 82.067
+     "start": 81.964,
+     "end": 82.072
     },
     {
      "w": "cloud.",
-     "start": 82.198,
-     "end": 82.625
+     "start": 82.128,
+     "end": 82.63
     }
    ]
   },
@@ -1181,25 +1181,25 @@
    "scene": "weave",
    "act": "V",
    "text": "I don't forget.",
-   "start": 88.148,
-   "end": 89.471,
+   "start": 88.163,
+   "end": 89.486,
    "take": 4,
    "factor": 0.9,
    "words": [
     {
      "w": "I",
      "start": 88.208,
-     "end": 88.427
+     "end": 88.442
     },
     {
      "w": "don't",
-     "start": 88.481,
-     "end": 88.733
+     "start": 88.496,
+     "end": 88.748
     },
     {
      "w": "forget.",
-     "start": 88.787,
-     "end": 89.309
+     "start": 88.802,
+     "end": 89.324
     }
    ]
   },
@@ -1215,7 +1215,7 @@
    "words": [
     {
      "w": "I",
-     "start": 90.2585,
+     "start": 90.2535,
      "end": 90.4655
     },
     {
@@ -1291,12 +1291,12 @@
    "id": "honest",
    "act": "III",
    "start": 61.208,
-   "end": 66.608
+   "end": 66.008
   },
   {
    "id": "proof",
    "act": "III",
-   "start": 66.608,
+   "start": 66.008,
    "end": 72.608
   },
   {

@@ -1,5 +1,5 @@
 {
- "cut her": "act cut on a beat: no downbeat fits between the previous scene's last word and 0.12 s before the first word; ruled at Task 15, C3-approved",
- "cut loom": "act cut on a beat: no downbeat fits between the previous scene's last word and 0.12 s before the first word; ruled at Task 15, C3-approved",
- "cut connect": "act cut on a beat: no downbeat fits between the previous scene's last word and 0.12 s before the first word; ruled at Task 15, C3-approved"
+ "cut her": "act cut on the 15.608 beat, 1200 ms before the 16.808 downbeat: no downbeat lies between the ex's last word (ends 14.961) and 0.12 s before \"Not\" (16.208, on its beat); ruled at Task 15, moved one beat after C3 by the Plan 1 fix wave and ruled to stand",
+ "cut loom": "act cut on the 28.208 beat, 600 ms before the 28.808 downbeat: no downbeat lies between repo's last word (ends 27.186) and 0.12 s before \"Facts\" (28.456); ruled at Task 15, C3-approved",
+ "cut connect": "act cut on the 72.608 beat, 600 ms after the 72.008 downbeat: no downbeat lies between proof's last word (ends 72.082) and 0.12 s before \"One\" (73.208, on its beat); ruled at Task 15, moved one beat after C3 by the Plan 1 fix wave and ruled to stand"
 }

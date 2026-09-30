@@ -1,3 +1,5 @@
+import json
+
 import librosa
 import numpy as np
 import pytest
@@ -117,3 +119,21 @@ def test_envelopes_follow_the_automated_mix_and_the_grid_follows_the_score():
     assert sum(1 for p, _ in heard["onsets"]["hat"] if 13 < p < 19) <= sum(1 for p, _ in raw["onsets"]["hat"] if 13 < p < 19)
     for k in ("beats", "downbeats", "sections", "bpm", "grid_fit", "grid_error_ms"):
         assert heard[k] == raw[k]  # the grid is the raw score's
+
+
+def test_film_beats_takes_its_sections_from_the_picks_own_timing(tmp_path, monkeypatch):
+    from gitloom_film import beats as bt
+    from gitloom_film.wav import write_wav
+    write_wav(tmp_path / "audio" / "music" / "s.wav", clicks(), SR)
+    write_wav(tmp_path / "audio" / "vo" / "vo.wav", np.zeros(SR, np.float32), SR)
+    later = {"bpm": 100.0, "sections": [{"name": "the tour", "start": 0.0, "end": 7.2},
+                                        {"name": "honest", "start": 7.2, "end": 30.0}]}  # a later film-music run's
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "music_plan.json").write_text(json.dumps(
+        {"chosen": "audio/music/s.wav", "meta": later, "chosen_meta": META}))
+    (tmp_path / "data" / "vo.json").write_text(json.dumps({"lines": []}))
+    for name, value in (("DATA", tmp_path / "data"), ("AUDIO", tmp_path / "audio"), ("ROOT", tmp_path)):
+        monkeypatch.setattr(bt, name, value)
+    bt.main([])
+    sections = json.loads((tmp_path / "data" / "audio.json").read_text())["sections"]
+    assert sections[1]["start"] == pytest.approx(14.65, abs=0.03)  # chosen_meta's 14.4 on its downbeat, not 7.45

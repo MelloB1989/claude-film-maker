@@ -94,8 +94,12 @@ def chosen_plan(mp: dict, root: Path = ROOT) -> dict | None:
 
 def merge_plan(old: dict | None, plan: dict, meta: dict, variants: list[str], root: Path = ROOT) -> dict:
     """A film-music run's result merged into data/music_plan.json: the pick (`chosen`) and its `edit` stay, new
-    variants join the list once, `plan`/`meta` record the latest run, and `chosen_plan` keeps the pick's own plan."""
-    mp = {**(old or {}), "plan": plan, "meta": meta}
+    variants join the list once, `plan`/`meta` record the latest run, `chosen_plan` keeps the pick's own plan, and
+    `chosen_meta` the section timing the pick has, which film-beats reads (so a new run can't move its sections)."""
+    old = old or {}
+    mp = {**old, "plan": plan, "meta": meta}
+    if old.get("chosen") and "chosen_meta" not in old and "meta" in old:
+        mp["chosen_meta"] = old["meta"]
     mp["variants"] = list(dict.fromkeys([*mp.get("variants", []), *variants]))
     mp.setdefault("chosen", None)
     cp = chosen_plan(mp, root)
