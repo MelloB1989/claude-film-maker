@@ -340,7 +340,8 @@ interface LineState {
 
 const OPEN_S = 0.14;
 
-function lineStates(lines: PanelLine[], tq: number): LineState[] {
+/** Each line's state at frame time tq; `terminal`: typed input waits at its prompt from when the line before it is done. */
+function lineStates(lines: PanelLine[], tq: number, terminal: boolean): LineState[] {
   const out: LineState[] = [];
   let prevEnd = -Infinity;
   for (const l of lines) {
@@ -350,8 +351,9 @@ function lineStates(lines: PanelLine[], tq: number): LineState[] {
       struck = l.at === undefined ? n : tq < l.at ? 0 : typing(l) ? Math.min(n, (tq - l.at) * l.cps!) : n;
     } else if (l.at !== undefined) {
       const p = promptLen(l);
-      // typed input starts (its prompt appears) as soon as the line before it is complete: ready for input
-      start = l.kind === 'cmd' ? Math.min(l.at, prevEnd) : l.at;
+      // a terminal's typed input starts (its prompt appears) as soon as the line before it is complete: ready for
+      // input. Anywhere else a line starts at `at`: a chat's user turn opens its row as its text starts typing
+      start = terminal && l.kind === 'cmd' ? Math.min(l.at, prevEnd) : l.at;
       shown = p && tq >= start ? p : 0;
       if (tq >= l.at) shown = typing(l) ? Math.min(n, p + Math.floor((tq - l.at) * l.cps! + EPS) + 1) : n;
     }
@@ -379,7 +381,7 @@ const STYLE: Record<Exclude<TokenClass, 'ok'>, { family: string; color: string }
 const BASE_PX = 28;
 /** Cursor blink: this many frames on, as many off (about 0.53 s each), restarting on each keystroke. */
 const BLINK = 16;
-/** Check-mark slots drawn by the shader (further ones fall back to a canvas path). */
+/** Check-mark slots drawn by the shader (further ones, and one in a row under the title bar, fall back to a canvas path). */
 const CHECKS = 4;
 /** The check mark in em, from its cell's left end of the baseline, y up: the short arm, the heel, the long arm. */
 const CHECK_PTS: [number, number][] = [[0.05, 0.37], [0.225, 0.075], [0.565, 0.7]];
@@ -492,14 +494,18 @@ interface Geometry {
   numW: number; signW: number; textX: number;
 }
 
-interface PanelFrame {
+export interface PanelFrame {
   tq: number;
   st: LineState[];
   /** Row tops (px), after the terminal's scroll. */
   top: number[];
   /** Line numbers in a `numbers` gutter (0: none). */
   num: number[];
+  /** Whether each line shows anything: text, or the prompt it waits at. */
+  started: boolean[];
   cursor: { i: number; col: number; on: boolean; block: boolean } | null;
+  /** Check marks (each cell's left end of the baseline, px): in the shader's slots, and on the canvas. */
+  checks: { slot: [number, number][]; canvas: [number, number][] };
   key: string;
 }
 
@@ -567,12 +573,12 @@ export class Panel {
 
   /** Characters shown per line at t (pure). A deletion's text is always shown: `at`/cps time its strike instead. */
   revealed(t: number): number[] {
-    return lineStates(this.spec.lines, frameT(t)).map((s) => s.n);
+    return lineStates(this.spec.lines, frameT(t), this.spec.kind === 'terminal').map((s) => s.n);
   }
 
   /** Characters struck through per line at t (pure): a `del` line's strike, fractional; 0 for other lines. */
   struck(t: number): number[] {
-    return lineStates(this.spec.lines, frameT(t)).map((s) => s.struck);
+    return lineStates(this.spec.lines, frameT(t), this.spec.kind === 'terminal').map((s) => s.struck);
   }
 
   /** Repaint for time t: lines typed in by `at`/cps, the cursor blinking on the frame grid. Cheap when nothing changed. */
@@ -634,12 +640,12 @@ export class Panel {
     return { s, size, adv, lineH, bar, padX, padTop: Math.round(20 * s), padBottom: Math.round(22 * s), numW, signW, textX: padX + numW + signW };
   }
 
-  /** Everything the canvas shows at t, and a key that changes exactly when it does. */
-  private frame(t: number): PanelFrame {
+  /** Everything the canvas shows at t (pure), and a key that changes exactly when it does. */
+  frame(t: number): PanelFrame {
     const tq = frameT(t);
     const { spec, g } = this;
     const lines = spec.lines;
-    const st = lineStates(lines, tq);
+    const st = lineStates(lines, tq, spec.kind === 'terminal');
     // rows: each as tall as it has opened; a terminal scrolls to keep its newest row in view
     const y0 = g.bar + g.padTop, avail = spec.h - y0 - g.padBottom;
     const top: number[] = [];
@@ -657,13 +663,24 @@ export class Panel {
       if (counted) n++;
       num.push(counted ? n : 0);
     }
+    const started = st.map((s, i) => this.started(i, s, tq));
+    // check marks, in line order. A shader slot draws over the whole face, so it takes a check whose row is wholly below
+    // the title bar (the first CHECKS of them); the rest, and a check in a row scrolled up under the bar, are drawn on the
+    // canvas inside the rows' clip, cut at the bar as the row's text is
+    const slot: [number, number][] = [], canvas: [number, number][] = [];
+    lines.forEach((_, i) => {
+      const s = st[i]!, rowTop = top[i]!;
+      if (s.open <= 0 || rowTop > spec.h || rowTop + g.lineH < g.bar) return; // a row paint() skips
+      const base = rowTop + g.lineH / 2 + 0.365 * g.size, x = this.textX(i) + (this.chromePrompt[i] ? 2 * g.adv : 0);
+      for (let k = 0; k < s.n; k++) {
+        if (this.cls[i]![k] === 'ok') (rowTop >= g.bar && slot.length < CHECKS ? slot : canvas).push([x + k * g.adv, base]);
+      }
+    });
     const cursor = this.cursor(st, tq);
-    const key = [
-      st.map((s) => `${s.n}:${s.struck.toFixed(2)}:${s.open.toFixed(3)}`).join(','),
-      cursor ? `${cursor.i}:${cursor.col}:${cursor.on}` : '-',
-      scroll.toFixed(2),
-    ].join('|');
-    return { tq, st, top, num, cursor, key };
+    // the key is what paint() reads, exact (numbers print as the shortest string that reads back the same double): two
+    // states a rounded key took for one (a row 1e-4 open and a shut one) would repaint in any order, not in sequence
+    const key = JSON.stringify([st.map((s) => [s.n, s.struck, s.open]), top, num, started, cursor, slot, canvas]);
+    return { tq, st, top, num, started, cursor, checks: { slot, canvas }, key };
   }
 
   /** Whether line i shows anything at the frame: text, or the prompt it waits at. */
@@ -715,7 +732,6 @@ export class Panel {
     this.layer!.clear(HEX.panel);
     c.textBaseline = 'alphabetic';
     c.textAlign = 'left';
-    const checks: [number, number][] = [];
 
     c.save();
     c.beginPath();
@@ -752,13 +768,13 @@ export class Panel {
         c.roundRect(x0 - pad, top + inset, this.chars[i]!.length * g.adv + 2 * pad, g.lineH - 2 * inset, Math.round(12 * g.s));
         c.fill();
       }
-      if (this.chromePrompt[i] && this.started(i, s, fr.tq)) {
+      if (this.chromePrompt[i] && fr.started[i]) {
         c.font = font(STYLE.prompt.family, g.size);
         c.fillStyle = STYLE.prompt.color;
         c.fillText('$', x0, base);
       }
       const xt = x0 + (this.chromePrompt[i] ? 2 * g.adv : 0);
-      this.text(c, i, s.n, xt, base, l.kind === 'del' ? s.struck : 0, checks);
+      this.text(c, i, s.n, xt, base, l.kind === 'del' ? s.struck : 0);
       if (struckOn) {
         const lead = this.chars[i]!.findIndex((ch) => !/\s/.test(ch));
         const from = Math.max(0, lead), to = Math.min(s.struck, this.chars[i]!.length);
@@ -768,6 +784,7 @@ export class Panel {
         }
       }
     });
+    this.canvasChecks(c, fr.checks.canvas);
     c.restore();
 
     if (fr.cursor) {
@@ -780,7 +797,7 @@ export class Panel {
       }
     }
     this.chrome(c);
-    this.setChecks(checks);
+    this.setChecks(fr.checks);
   }
 
   /** Whether line i is a chat's user turn, drawn in a bubble on the right. */
@@ -796,12 +813,12 @@ export class Panel {
   }
 
   /** Line i's first n characters from x at the baseline, one glyph at a time on the mono grid (no ligatures). */
-  private text(c: CanvasRenderingContext2D, i: number, n: number, x: number, base: number, struck: number, checks: [number, number][]) {
+  private text(c: CanvasRenderingContext2D, i: number, n: number, x: number, base: number, struck: number) {
     const g = this.g, chars = this.chars[i]!, cls = this.cls[i]!;
     let cur = '';
     for (let k = 0; k < n; k++) {
       const ch = chars[k]!, kc = cls[k]!, cx = x + k * g.adv;
-      if (kc === 'ok') { checks.push([cx, base]); continue; }
+      if (kc === 'ok') continue; // a check mark: frame() placed it
       if (/\s/.test(ch)) continue;
       const st = STYLE[kc];
       if (cur !== st.family) { c.font = font(st.family, g.size); cur = st.family; }
@@ -863,20 +880,24 @@ export class Panel {
     }
   }
 
-  /** Check marks to the shader's slots (sharp at any zoom); any beyond them are drawn on the canvas instead. */
-  private setChecks(pts: [number, number][]) {
+  /** Check marks to the shader's slots (sharp at any zoom). */
+  private setChecks(checks: PanelFrame['checks']) {
     const u = this.mat.uniforms.uChecks!.value as THREE.Vector4[];
     const size = this.g.size;
     u.forEach((v, k) => {
-      const p = pts[k];
+      const p = checks.slot[k];
       if (p) v.set(p[0], p[1], size, 1); else v.set(0, 0, 0, 0);
     });
-    if (pts.length <= CHECKS) return;
-    const c = this.layer!.ctx;
+  }
+
+  /** Check marks without a slot, as canvas paths (paint() draws them inside the rows' clip). */
+  private canvasChecks(c: CanvasRenderingContext2D, pts: [number, number][]) {
+    if (!pts.length) return;
+    const size = this.g.size;
     c.strokeStyle = rgba('moss');
     c.lineWidth = CHECK_W * size;
     c.lineCap = c.lineJoin = 'round';
-    for (const [x, y] of pts.slice(CHECKS)) {
+    for (const [x, y] of pts) {
       c.beginPath();
       CHECK_PTS.forEach(([px, py], j) => (j ? c.lineTo : c.moveTo).call(c, x + px * size, y - py * size));
       c.stroke();

@@ -97,6 +97,8 @@ test('tokenize is lossless: the tokens put back together are the line, in every 
 
 const panel = (lines: PanelLine[], kind: PanelSpec['kind'] = 'editor') => new Panel({ kind, w: 1200, h: 600, lines });
 const ALPHA = 'abcdefghijklmnopqrst'; // 20 characters
+/** A row opens over the 0.14 s before its line starts: a start this far after a frame time has its row begin to open 3 ms before the frame. */
+const OPEN_EDGE = 0.14 - 0.003;
 
 test('revealed: a line without `at` is shown whole at any time', () => {
   const p = panel([{ text: 'tier: facts' }, { text: '' }]);
@@ -201,4 +203,74 @@ test('the mesh is a plane of w/1000 by h/1000 world units, built without a DOM',
   expect(bb.max.y - bb.min.y).toBeCloseTo(0.42, 6);
   expect(bb.max.z - bb.min.z).toBe(0);
   p.dispose();
+});
+
+// ------------------------------------------------------------------------------------------------------ repaint
+
+/** Everything paint() reads from a frame. */
+const paintInputs = (p: Panel, t: number) => {
+  const fr = p.frame(t);
+  return { key: fr.key, paint: JSON.stringify({ st: fr.st, top: fr.top, num: fr.num, started: fr.started, cursor: fr.cursor, checks: fr.checks }) };
+};
+
+test('two frames with the same repaint key paint the same: rows, numbers, prompts, cursor and checks', () => {
+  // a row that starts to open 3 ms before a frame is open 1e-4 on it (smootherstep of 0.021: 10 x 0.021^3), a sliver
+  // no rounded key can tell from shut, and the row below it moves by 0.004 px; so do rows whose strike or scroll moves
+  const specs: PanelSpec[] = [
+    { kind: 'editor', w: 900, h: 400, lines: [{ text: 'tier: facts' }, { text: 'opens', kind: 'out', at: 1 + OPEN_EDGE }, { text: 'below' }] },
+    { kind: 'editor', w: 900, h: 400, gutter: 'diff', lines: [{ text: 'Uses VS Code.', kind: 'del', at: 0.6, cps: 40 }, { text: ALPHA, kind: 'add', at: 1.05, cps: 30 }] },
+    { kind: 'terminal', w: 900, h: 300, lines: [
+      { text: '$ claude mcp list', kind: 'cmd', at: 0.5, cps: 25 }, { text: 'gitloom: ✔ Connected', kind: 'out', at: 1.4 + OPEN_EDGE },
+      { text: 'ls', kind: 'cmd', at: 2.2, cps: 12 }, { text: 'a b c', kind: 'out', at: 3.11 }, { text: 'd e f', kind: 'out', at: 3.9 },
+      { text: 'g h i', kind: 'out', at: 4.7 + OPEN_EDGE }, { text: '', kind: 'cmd', at: Infinity },
+    ] },
+    { kind: 'chat', w: 900, h: 300, lines: [{ text: 'what editor?', kind: 'cmd', at: 0.4, cps: 24 }, { text: '' }, { text: 'neovim.', kind: 'out', at: 1.8 + OPEN_EDGE, cps: 14 }] },
+  ];
+  for (const spec of specs) {
+    const p = new Panel(spec), seen = new Map<string, string>();
+    for (let f = -30; f <= 240; f++) {
+      const { key, paint } = paintInputs(p, f / 30);
+      const had = seen.get(key);
+      if (had === undefined) seen.set(key, paint);
+      else expect({ kind: spec.kind, f, paint }).toEqual({ kind: spec.kind, f, paint: had });
+    }
+  }
+});
+
+test('a chat\'s user turn opens its row as its text starts; a terminal\'s typed input opens when it is ready for input', () => {
+  const lines: PanelLine[] = [
+    { text: 'first answer', kind: 'out', at: 1, cps: 20 }, // 12 characters: complete at 1 + 11/20 = 1.55
+    { text: 'and my question', kind: 'cmd', at: 4, cps: 20 },
+    { text: 'reply', kind: 'out', at: 6 },
+  ];
+  // the chat: at 3 s the answer is done and the question a second away, and its row stays shut until it is due; it
+  // opens over the 0.14 s before 4 (not at 1.55, pushing the reply down to sit empty for 2.5 s)
+  const chat = new Panel({ kind: 'chat', w: 900, h: 400, lines });
+  expect(chat.frame(3).st[1]!.open).toBe(0);
+  expect(chat.frame(3.9).st[1]!.open).toBeGreaterThan(0);
+  expect(chat.frame(3.9).st[1]!.open).toBeLessThan(1);
+  expect(chat.frame(4).st[1]!.open).toBe(1);
+  expect(chat.frame(3).top[2]).toBe(chat.frame(3).top[1]); // the reply's row sits under the answer's
+  // the terminal: the command's prompt waits from the moment the answer is complete
+  const term = new Panel({ kind: 'terminal', w: 900, h: 400, lines });
+  expect(term.frame(1.5).st[1]!.open).toBeLessThan(1);
+  expect(term.frame(1.55).st[1]!.open).toBe(1);
+  expect(term.frame(3).st[1]!.open).toBe(1);
+});
+
+test('a check mark in a row scrolled up under the title bar leaves the shader\'s slots for the canvas, drawn in its clip', () => {
+  // 28 px code: rows of 45 px (1.6 em, to the half px), 278 px of them under the 52 px bar (372 - 52 - 20 - 22); with 7
+  // rows open the terminal scrolls 315 - 278 = 37 px and the ✔ row's top goes from 72 to 35, its cell's baseline at
+  // top + 22.5 + 0.365 x 28
+  const lines: PanelLine[] = [{ text: '✔ Connected', kind: 'out', at: 0 }, ...[1, 2, 3, 4, 5, 6].map((k): PanelLine => ({ text: `line ${k}`, kind: 'out', at: k }))];
+  const p = new Panel({ kind: 'terminal', w: 900, h: 372, lines });
+  const six = p.frame(5.5), seven = p.frame(6);
+  expect(six.top[0]).toBe(72);
+  expect(six.checks).toEqual({ slot: [[28, 72 + 22.5 + 10.22]], canvas: [] });
+  expect(seven.top[0]).toBe(35);
+  expect(seven.checks).toEqual({ slot: [], canvas: [[28, 35 + 22.5 + 10.22]] });
+  // a fifth check has no slot either, below the bar or not
+  const five = new Panel({ kind: 'terminal', w: 900, h: 372, lines: [{ text: '✔ ✔ ✔ ✔ ✔', kind: 'out' }] }).frame(0);
+  expect(five.checks.slot).toHaveLength(4);
+  expect(five.checks.canvas).toHaveLength(1);
 });
