@@ -311,13 +311,32 @@ function nest(loops: readonly (readonly P[])[]): THREE.Shape[] {
 /** Shapes (em, y up) for contours filled by the nonzero rule: overlaps merged, counters nested in their outlines. */
 export const shapesOf = (contours: readonly (readonly P[])[]): THREE.Shape[] => nest(unionNonzero(contours));
 
+/** An export (?export=1). Read per call, as scale.ts reads ?scale=, so a test can take the export's part. */
+const exporting = () => typeof location !== 'undefined' && new URLSearchParams(location.search).has('export');
+const WARNED = new Set<string>();
+
+/**
+ * The font's glyph for `ch`. A character the family lacks comes back from opentype as glyph 0, the font's .notdef box,
+ * which would be extruded as a 3D tofu box at the fallback font's advance (Canvas2D, layout() and the flat line, draw it
+ * from another font). While authoring (the preview, bun tests) that throws, naming the character; in an export it warns
+ * once per family and character and goes on, so a render never dies mid-film over one glyph (Panel warns the same way).
+ */
+function glyphOf(family: string, ch: string) {
+  const f = ot(family);
+  if (f.charToGlyphIndex(ch) === 0 && !/\s/u.test(ch)) {
+    const msg = `type3d: ${family} has no glyph for ${JSON.stringify(ch)} (U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}): it would extrude the font's .notdef box`;
+    if (!exporting()) throw new Error(msg);
+    if (!WARNED.has(family + ch)) (WARNED.add(family + ch), console.warn(msg));
+  }
+  return f.charToGlyph(ch);
+}
+
 const OUTLINES = new Map<string, P[][]>();
 function outline(family: string, ch: string, perQuarter: number): P[][] {
   const key = `${family}\u0000${ch}\u0000${perQuarter}`;
   let o = OUTLINES.get(key);
   if (!o) {
-    const f = ot(family);
-    o = unionNonzero(flatten(f.charToGlyph(ch).path.commands, f.unitsPerEm, perQuarter));
+    o = unionNonzero(flatten(glyphOf(family, ch).path.commands, ot(family).unitsPerEm, perQuarter));
     OUTLINES.set(key, o);
   }
   return o;
@@ -420,7 +439,7 @@ function build(family: string, ch: string, depth: number, bevel: number, perQuar
   geo.setAttribute('type3dDepth', new THREE.BufferAttribute(behind, 1)); // em behind the face, for the accent's rim
   const f = ot(family), upm = f.unitsPerEm;
   const xHeight = ((f.tables.os2?.sxHeight as number | undefined) || 0.5 * upm) / upm;
-  const pivot = new THREE.Vector3((f.charToGlyph(ch).advanceWidth ?? 0) / upm / 2, xHeight / 2, -depth / 2);
+  const pivot = new THREE.Vector3((glyphOf(family, ch).advanceWidth ?? 0) / upm / 2, xHeight / 2, -depth / 2);
   geo.translate(-pivot.x, -pivot.y, -pivot.z);
   geo.computeBoundingBox();
   geo.computeBoundingSphere();

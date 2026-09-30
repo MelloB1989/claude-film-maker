@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, spyOn, test } from 'bun:test';
 import path from 'node:path';
 import * as opentype from 'opentype.js';
 import * as THREE from 'three';
@@ -218,6 +218,30 @@ describe('unionNonzero', () => {
 describe('Type3D', () => {
   const SIZE = 0.37; // world units per em
   const bone = new THREE.MeshBasicMaterial();
+
+  test('a character the family lacks throws while authoring, naming it; an export (?export=1) warns once and goes on', () => {
+    // Bricolage has no ✔: charToGlyph would give glyph 0, the font's .notdef box, extruded, while Canvas2D (layout(),
+    // the flat line) draws a ✔ from a fallback font
+    expect(() => new Type3D('ok ✔', { family: FAM, size: SIZE }, bone)).toThrow('no glyph for "✔" (U+2714)');
+    expect(() => glyphShapes(FAM, '✔')).toThrow('U+2714');
+    const saved = (globalThis as any).location;
+    (globalThis as any).location = { search: '?export=1' };
+    const warn = spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const t = new Type3D('✔ ✔', { family: FAM, size: SIZE }, bone);
+      expect(t.glyphs.map((g) => g.ch)).toEqual(['✔', '✔']);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]![0])).toContain('no glyph for "✔" (U+2714)');
+      t.dispose();
+    } finally {
+      warn.mockRestore();
+      (globalThis as any).location = saved;
+    }
+    // every character the film sets in 3D is there
+    for (const [fam, text] of [[FAM, 'every memory has a commit − + “’” …'], [F.mono(500), '− +'], [F.mono(400), '3f9a1c2 (you 2026-07-26)']] as const) {
+      new Type3D(text, { family: fam, size: SIZE }, bone).dispose();
+    }
+  });
 
   test("the width is layout()'s width × scale (within 1%)", () => {
     const t = new Type3D('commit', { family: FAM, size: SIZE }, bone);

@@ -101,9 +101,12 @@ const WHIP_BLUR_PX = 200;
 
 /**
  * A whip around a cut: over `dur` seconds centred on `cut`, `k` eases 0 to 1 (0 before the window, 1 after, 0.5 at the cut
- * where the shots change) and `blurPx` is the directional blur that goes with it, following k's speed as a real whip's
- * smear does: 0 outside the window, 200 logical px at the cut. Drive the pan with k and the blur pass with blurPx. A `dur`
- * of 0 or less is an instant cut with no blur.
+ * where the shots change): drive the pan with k. A `dur` of 0 or less is an instant cut.
+ *
+ * `blurPx` is the smear a whip of that speed makes (it follows k's speed: 0 outside the window, 200 logical px at the
+ * cut), for a 1-sample stand-in only: the engine has no directional blur pass, and a render with sub-frames (--samples,
+ * the export) already smears the whip by moving the camera within the shutter, so a blur built from blurPx there would
+ * smear it twice. Use it, if at all, for a preview or a single-sample still; her ignores it.
  */
 export function whip(t: number, cut: number, dur = WHIP_DUR): { k: number; blurPx: number } {
   if (dur <= 0) return { k: t < cut ? 0 : 1, blurPx: 0 };
