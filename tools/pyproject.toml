@@ -24,6 +24,7 @@ film-snap = "gitloom_film.snap:main"
 film-mix = "gitloom_film.mix:main"
 film-fonts = "gitloom_film.fonts:main"
 film-sync = "gitloom_film.sync:main"
+film-facts = "gitloom_film.factcheck:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]
