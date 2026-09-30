@@ -188,12 +188,161 @@
   ]
  },
  "variants": [
+  "audio/music/score-seed11.wav",
+  "audio/music/score-seed12.wav",
+  "audio/music/score-seed13.wav",
   "audio/music/score-seed21.wav",
   "audio/music/score-seed22.wav"
  ],
  "chosen": "audio/music/score-seed11-edit.wav",
  "edit": {
   "source": "audio/music/score-seed11.wav",
-  "map": "0-25,30-35,24-27,36-38"
+  "map": "0-25,30-35,24-27,36-38",
+  "source_downbeats": [
+   0.005,
+   2.406,
+   4.806,
+   7.206,
+   9.606,
+   12.006,
+   14.407,
+   16.807,
+   19.207,
+   21.607,
+   24.007,
+   26.408,
+   28.808,
+   31.208,
+   33.608,
+   36.008,
+   38.409,
+   40.809,
+   43.209,
+   45.609,
+   48.009,
+   50.41,
+   52.81,
+   55.21,
+   57.61,
+   60.01,
+   62.411,
+   64.811,
+   67.211,
+   69.611,
+   72.011,
+   74.411,
+   76.812,
+   79.212,
+   81.612,
+   84.012,
+   86.412,
+   88.813,
+   91.213
+  ],
+  "source_beat_period": 0.60005
+ },
+ "chosen_plan": {
+  "positive_global_styles": [
+   "nocturnal, sensual, minimal electronic",
+   "warm sub bass",
+   "soft round kick",
+   "crisp brushed hats",
+   "breathy analog pads",
+   "a plucked motif like a taut thread being pulled, muted harp or koto",
+   "tape saturation",
+   "intimate and expensive-sounding",
+   "100 BPM",
+   "minor key",
+   "instrumental"
+  ],
+  "negative_global_styles": [
+   "EDM drop",
+   "trap hi-hat rolls",
+   "cheesy synth brass",
+   "vocals",
+   "choir",
+   "dubstep wobble"
+  ],
+  "sections": [
+   {
+    "section_name": "cold open",
+    "positive_local_styles": [
+     "low sub drone",
+     "slow heartbeat pulse in the sub",
+     "a single plucked note",
+     "no drums"
+    ],
+    "negative_local_styles": [],
+    "duration_ms": 7200,
+    "lines": []
+   },
+   {
+    "section_name": "the ex",
+    "positive_local_styles": [
+     "filtered pulse",
+     "rising tension",
+     "glassy ticks",
+     "no kick yet"
+    ],
+    "negative_local_styles": [],
+    "duration_ms": 9600,
+    "lines": []
+   },
+   {
+    "section_name": "her",
+    "positive_local_styles": [
+     "kick and warm sub bass enter on the first beat",
+     "sparse, confident groove"
+    ],
+    "negative_local_styles": [],
+    "duration_ms": 12000,
+    "lines": []
+   },
+   {
+    "section_name": "the tour",
+    "positive_local_styles": [
+     "full groove",
+     "sensual bassline",
+     "plucked thread motif",
+     "a subtle variation every 8 bars"
+    ],
+    "negative_local_styles": [],
+    "duration_ms": 33600,
+    "lines": []
+   },
+   {
+    "section_name": "honest",
+    "positive_local_styles": [
+     "everything drops out",
+     "near silence",
+     "one soft pad breath at most"
+    ],
+    "negative_local_styles": [],
+    "duration_ms": 4800,
+    "lines": []
+   },
+   {
+    "section_name": "proof and everywhere",
+    "positive_local_styles": [
+     "the full groove slams back in on the first beat",
+     "fuller",
+     "confident lift"
+    ],
+    "negative_local_styles": [],
+    "duration_ms": 19200,
+    "lines": []
+   },
+   {
+    "section_name": "weave",
+    "positive_local_styles": [
+     "one big hit on the first beat",
+     "long reverb tail",
+     "the plucked motif alone to the end"
+    ],
+    "negative_local_styles": [],
+    "duration_ms": 7200,
+    "lines": []
+   }
+  ]
  }
 }

@@ -13,17 +13,17 @@
    "words": [
     {
      "w": "Your",
-     "start": 0.958,
+     "start": 0.935,
      "end": 1.116
     },
     {
      "w": "agent",
-     "start": 1.192,
+     "start": 1.18,
      "end": 1.62
     },
     {
      "w": "forgets.",
-     "start": 1.66,
+     "start": 1.71,
      "end": 2.322
     }
    ]
@@ -33,35 +33,35 @@
    "scene": "thread",
    "act": "I",
    "text": "Every conversation... back to zero.",
-   "start": 2.959,
-   "end": 5.9155,
+   "start": 2.973,
+   "end": 5.9295,
    "take": 3,
    "factor": 0.9,
    "words": [
     {
      "w": "Every",
      "start": 3.008,
-     "end": 3.292
+     "end": 3.306
     },
     {
      "w": "conversation...",
-     "start": 3.314,
-     "end": 4.192
+     "start": 3.368,
+     "end": 4.206
     },
     {
      "w": "back",
-     "start": 4.844,
-     "end": 5.092
+     "start": 4.788,
+     "end": 5.106
     },
     {
      "w": "to",
-     "start": 5.132,
-     "end": 5.254
+     "start": 5.203,
+     "end": 5.268
     },
     {
      "w": "zero.",
-     "start": 5.276,
-     "end": 5.722
+     "start": 5.34,
+     "end": 5.736
     }
    ]
   },
@@ -77,37 +77,37 @@
    "words": [
     {
      "w": "It's",
-     "start": 6.4075,
+     "start": 6.4205,
      "end": 6.6195
     },
     {
      "w": "not",
-     "start": 6.6235,
+     "start": 6.6735,
      "end": 6.9435
     },
     {
      "w": "you...",
-     "start": 7.0015,
+     "start": 7.0515,
      "end": 7.3395
     },
     {
      "w": "it's",
-     "start": 7.8655,
+     "start": 7.8605,
      "end": 8.0595
     },
     {
      "w": "your",
-     "start": 8.0635,
+     "start": 8.1135,
      "end": 8.1855
     },
     {
      "w": "vector",
-     "start": 8.2615,
+     "start": 8.3115,
      "end": 8.6175
     },
     {
      "w": "store.",
-     "start": 8.7115,
+     "start": 8.7955,
      "end": 9.0855
     }
    ]
@@ -117,60 +117,60 @@
    "scene": "ex",
    "act": "I",
    "text": "It overwrites what it knew... and never tells you why.",
-   "start": 9.5725,
-   "end": 13.5235,
+   "start": 9.568,
+   "end": 13.519,
    "take": 1,
    "factor": 0.9,
    "words": [
     {
      "w": "It",
      "start": 9.608,
-     "end": 9.784
+     "end": 9.7795
     },
     {
      "w": "overwrites",
-     "start": 9.842,
-     "end": 10.486
+     "start": 9.798,
+     "end": 10.4815
     },
     {
      "w": "what",
-     "start": 10.526,
-     "end": 10.666
+     "start": 10.573,
+     "end": 10.6615
     },
     {
      "w": "it",
-     "start": 10.652,
-     "end": 10.828
+     "start": 10.6975,
+     "end": 10.8235
     },
     {
      "w": "knew...",
-     "start": 10.796,
-     "end": 11.206
+     "start": 10.8415,
+     "end": 11.2015
     },
     {
      "w": "and",
-     "start": 11.894,
-     "end": 12.106
+     "start": 11.953,
+     "end": 12.1015
     },
     {
      "w": "never",
-     "start": 12.128,
-     "end": 12.448
+     "start": 12.1735,
+     "end": 12.4435
     },
     {
      "w": "tells",
-     "start": 12.47,
-     "end": 12.754
+     "start": 12.548,
+     "end": 12.7495
     },
     {
      "w": "you",
-     "start": 12.758,
-     "end": 12.916
+     "start": 12.8035,
+     "end": 12.9115
     },
     {
      "w": "why.",
-     "start": 12.92,
-     "end": 13.33
+     "start": 12.9655,
+     "end": 13.3255
     }
    ]
   },
@@ -179,20 +179,20 @@
    "scene": "ex",
    "act": "I",
    "text": "Commitment issues.",
-   "start": 13.786,
-   "end": 15.1945,
+   "start": 13.8985,
+   "end": 15.307,
    "take": 3,
    "factor": 0.9,
    "words": [
     {
      "w": "Commitment",
-     "start": 13.808,
-     "end": 14.362
+     "start": 13.9985,
+     "end": 14.4745
     },
     {
      "w": "issues.",
-     "start": 14.402,
-     "end": 14.974
+     "start": 14.5645,
+     "end": 15.0865
     }
    ]
   },
@@ -201,20 +201,20 @@
    "scene": "her",
    "act": "II",
    "text": "Not me.",
-   "start": 16.307,
-   "end": 17.243,
+   "start": 16.168,
+   "end": 17.104,
    "take": 4,
    "factor": 0.9,
    "words": [
     {
      "w": "Not",
-     "start": 16.383,
-     "end": 16.649
+     "start": 16.208,
+     "end": 16.51
     },
     {
      "w": "me.",
-     "start": 16.653,
-     "end": 16.991
+     "start": 16.564,
+     "end": 16.852
     }
    ]
   },
@@ -230,22 +230,22 @@
    "words": [
     {
      "w": "Every",
-     "start": 17.66,
+     "start": 17.638,
      "end": 18.016
     },
     {
      "w": "memory...",
-     "start": 18.11,
+     "start": 18.16,
      "end": 18.61
     },
     {
      "w": "a",
-     "start": 19.172,
+     "start": 19.193,
      "end": 19.294
     },
     {
      "w": "commit.",
-     "start": 19.298,
+     "start": 19.348,
      "end": 19.816
     }
    ]
@@ -267,17 +267,17 @@
     },
     {
      "w": "fact...",
-     "start": 20.858,
+     "start": 20.908,
      "end": 21.322
     },
     {
      "w": "a",
-     "start": 21.83,
+     "start": 21.838,
      "end": 21.916
     },
     {
      "w": "blame.",
-     "start": 21.974,
+     "start": 22.008,
      "end": 22.492
     }
    ]
@@ -287,35 +287,35 @@
    "scene": "repo",
    "act": "II",
    "text": "I'm just a git repo.",
-   "start": 23.35,
-   "end": 24.9475,
+   "start": 23.383,
+   "end": 24.9805,
    "take": 3,
    "factor": 0.9,
    "words": [
     {
      "w": "I'm",
      "start": 23.408,
-     "end": 23.602
+     "end": 23.635
     },
     {
      "w": "just",
-     "start": 23.606,
-     "end": 23.836
+     "start": 23.689,
+     "end": 23.869
     },
     {
      "w": "a",
-     "start": 23.84,
-     "end": 23.926
+     "start": 23.923,
+     "end": 23.959
     },
     {
      "w": "git",
-     "start": 24.02,
-     "end": 24.268
+     "start": 24.103,
+     "end": 24.301
     },
     {
      "w": "repo.",
-     "start": 24.272,
-     "end": 24.754
+     "start": 24.355,
+     "end": 24.787
     }
    ]
   },
@@ -324,45 +324,45 @@
    "scene": "repo",
    "act": "II",
    "text": "You already know how to read me.",
-   "start": 25.15,
-   "end": 27.3595,
+   "start": 25.183,
+   "end": 27.3925,
    "take": 2,
    "factor": 0.9,
    "words": [
     {
      "w": "You",
      "start": 25.208,
-     "end": 25.366
+     "end": 25.399
     },
     {
      "w": "already",
-     "start": 25.478,
-     "end": 25.87
+     "start": 25.463,
+     "end": 25.903
     },
     {
      "w": "know",
-     "start": 25.964,
-     "end": 26.284
+     "start": 26.047,
+     "end": 26.317
     },
     {
      "w": "how",
-     "start": 26.342,
-     "end": 26.482
+     "start": 26.425,
+     "end": 26.515
     },
     {
      "w": "to",
-     "start": 26.468,
-     "end": 26.59
+     "start": 26.551,
+     "end": 26.623
     },
     {
      "w": "read",
-     "start": 26.648,
-     "end": 26.932
+     "start": 26.731,
+     "end": 26.965
     },
     {
      "w": "me.",
-     "start": 26.936,
-     "end": 27.148
+     "start": 27.019,
+     "end": 27.181
     }
    ]
   },
@@ -378,17 +378,17 @@
    "words": [
     {
      "w": "Facts",
-     "start": 28.4825,
+     "start": 28.5365,
      "end": 28.8925
     },
     {
      "w": "I",
-     "start": 28.9865,
+     "start": 28.9765,
      "end": 29.0905
     },
     {
      "w": "keep.",
-     "start": 29.1485,
+     "start": 29.2365,
      "end": 29.5405
     }
    ]
@@ -398,30 +398,30 @@
    "scene": "loom",
    "act": "III",
    "text": "Incidents... I let go.",
-   "start": 29.9545,
-   "end": 32.317,
+   "start": 29.963,
+   "end": 32.3255,
    "take": 1,
    "factor": 0.9,
    "words": [
     {
      "w": "Incidents...",
      "start": 30.008,
-     "end": 30.67
+     "end": 30.6785
     },
     {
      "w": "I",
-     "start": 31.52,
-     "end": 31.588
+     "start": 31.498,
+     "end": 31.5965
     },
     {
      "w": "let",
-     "start": 31.61,
-     "end": 31.768
+     "start": 31.6685,
+     "end": 31.7765
     },
     {
      "w": "go.",
-     "start": 31.826,
-     "end": 32.092
+     "start": 31.878,
+     "end": 32.1005
     }
    ]
   },
@@ -437,22 +437,22 @@
    "words": [
     {
      "w": "Rules",
-     "start": 32.7915,
+     "start": 32.7685,
      "end": 33.2375
     },
     {
      "w": "I",
-     "start": 33.3855,
+     "start": 33.3435,
      "end": 33.4895
     },
     {
      "w": "never",
-     "start": 33.6375,
+     "start": 33.6875,
      "end": 34.0115
     },
     {
      "w": "break.",
-     "start": 34.0695,
+     "start": 34.1235,
      "end": 34.4975
     }
    ]
@@ -469,32 +469,32 @@
    "words": [
     {
      "w": "Skills,",
-     "start": 35.117,
+     "start": 35.236,
      "end": 35.671
     },
     {
      "w": "only",
-     "start": 36.143,
+     "start": 36.116,
      "end": 36.463
     },
     {
      "w": "when",
-     "start": 36.449,
+     "start": 36.499,
      "end": 36.643
     },
     {
      "w": "you",
-     "start": 36.629,
+     "start": 36.679,
      "end": 36.751
     },
     {
      "w": "need",
-     "start": 36.737,
+     "start": 36.787,
      "end": 36.967
     },
     {
      "w": "them.",
-     "start": 36.971,
+     "start": 37.021,
      "end": 37.273
     }
    ]
@@ -511,17 +511,17 @@
    "words": [
     {
      "w": "Change",
-     "start": 37.998,
+     "start": 38.071,
      "end": 38.318
     },
     {
      "w": "your",
-     "start": 38.304,
+     "start": 38.354,
      "end": 38.426
     },
     {
      "w": "mind?",
-     "start": 38.484,
+     "start": 38.534,
      "end": 38.948
     }
    ]
@@ -543,12 +543,12 @@
     },
     {
      "w": "change",
-     "start": 39.806,
+     "start": 39.856,
      "end": 40.108
     },
     {
      "w": "mine.",
-     "start": 40.148,
+     "start": 40.198,
      "end": 40.54
     }
    ]
@@ -565,27 +565,27 @@
    "words": [
     {
      "w": "We'll",
-     "start": 40.9975,
+     "start": 40.979,
      "end": 41.3175
     },
     {
      "w": "always",
-     "start": 41.3755,
+     "start": 41.329,
      "end": 41.8575
     },
     {
      "w": "have",
-     "start": 41.8615,
+     "start": 41.9115,
      "end": 42.0735
     },
     {
      "w": "the",
-     "start": 42.0595,
+     "start": 42.1095,
      "end": 42.1995
     },
     {
      "w": "diff.",
-     "start": 42.2035,
+     "start": 42.2535,
      "end": 42.5955
     }
    ]
@@ -595,65 +595,65 @@
    "scene": "cite",
    "act": "III",
    "text": "Ask me why I believe something... I'll show you the line.",
-   "start": 43.321,
-   "end": 46.8265,
+   "start": 43.173,
+   "end": 46.6785,
    "take": 1,
    "factor": 0.9,
    "words": [
     {
      "w": "Ask",
-     "start": 43.379,
-     "end": 43.627
+     "start": 43.208,
+     "end": 43.479
     },
     {
      "w": "me",
-     "start": 43.649,
-     "end": 43.771
+     "start": 43.518,
+     "end": 43.623
     },
     {
      "w": "why",
-     "start": 43.811,
-     "end": 44.005
+     "start": 43.713,
+     "end": 43.857
     },
     {
      "w": "I",
-     "start": 44.045,
-     "end": 44.149
+     "start": 43.947,
+     "end": 44.001
     },
     {
      "w": "believe",
-     "start": 44.135,
-     "end": 44.545
+     "start": 44.037,
+     "end": 44.397
     },
     {
      "w": "something...",
-     "start": 44.603,
-     "end": 45.193
+     "start": 44.505,
+     "end": 45.045
     },
     {
      "w": "I'll",
-     "start": 45.683,
-     "end": 45.877
+     "start": 45.543,
+     "end": 45.729
     },
     {
      "w": "show",
-     "start": 45.863,
-     "end": 46.075
+     "start": 45.765,
+     "end": 45.927
     },
     {
      "w": "you",
-     "start": 46.061,
-     "end": 46.183
+     "start": 45.963,
+     "end": 46.035
     },
     {
      "w": "the",
-     "start": 46.187,
-     "end": 46.291
+     "start": 46.089,
+     "end": 46.143
     },
     {
      "w": "line.",
-     "start": 46.295,
-     "end": 46.687
+     "start": 46.197,
+     "end": 46.539
     }
    ]
   },
@@ -662,70 +662,70 @@
    "scene": "braid",
    "act": "III",
    "text": "Your words. What you meant. How you'd ask... braided into one answer.",
-   "start": 47.3455,
-   "end": 53.452,
+   "start": 47.368,
+   "end": 53.4745,
    "take": 2,
    "factor": 0.9,
    "words": [
     {
      "w": "Your",
      "start": 47.408,
-     "end": 47.602
+     "end": 47.6245
     },
     {
      "w": "words.",
-     "start": 47.678,
-     "end": 48.286
+     "start": 47.7505,
+     "end": 48.3085
     },
     {
      "w": "What",
-     "start": 48.812,
-     "end": 49.006
+     "start": 48.813,
+     "end": 49.0285
     },
     {
      "w": "you",
-     "start": 49.01,
-     "end": 49.114
+     "start": 49.0825,
+     "end": 49.1365
     },
     {
      "w": "meant.",
-     "start": 49.208,
-     "end": 49.636
+     "start": 49.2805,
+     "end": 49.6585
     },
     {
      "w": "How",
-     "start": 50.216,
-     "end": 50.392
+     "start": 50.193,
+     "end": 50.4145
     },
     {
      "w": "you'd",
-     "start": 50.396,
-     "end": 50.626
+     "start": 50.4685,
+     "end": 50.6485
     },
     {
      "w": "ask...",
-     "start": 50.684,
-     "end": 51.13
+     "start": 50.653,
+     "end": 51.1525
     },
     {
      "w": "braided",
-     "start": 51.584,
-     "end": 52.066
+     "start": 51.563,
+     "end": 52.0885
     },
     {
      "w": "into",
-     "start": 52.07,
-     "end": 52.336
+     "start": 52.1425,
+     "end": 52.3585
     },
     {
      "w": "one",
-     "start": 52.502,
-     "end": 52.75
+     "start": 52.5745,
+     "end": 52.7725
     },
     {
      "w": "answer.",
-     "start": 52.808,
-     "end": 53.272
+     "start": 52.793,
+     "end": 53.2945
     }
    ]
   },
@@ -734,50 +734,50 @@
    "scene": "merkle",
    "act": "III",
    "text": "Fifty things changed? I only look at fifty.",
-   "start": 53.932,
-   "end": 57.0415,
+   "start": 53.893,
+   "end": 57.0025,
    "take": 1,
    "factor": 0.9,
    "words": [
     {
      "w": "Fifty",
      "start": 54.008,
-     "end": 54.346
+     "end": 54.307
     },
     {
      "w": "things",
-     "start": 54.404,
-     "end": 54.778
+     "start": 54.448,
+     "end": 54.739
     },
     {
      "w": "changed?",
-     "start": 54.836,
-     "end": 55.372
+     "start": 54.847,
+     "end": 55.333
     },
     {
      "w": "I",
-     "start": 55.808,
-     "end": 55.912
+     "start": 55.733,
+     "end": 55.873
     },
     {
      "w": "only",
-     "start": 55.898,
-     "end": 56.146
+     "start": 55.909,
+     "end": 56.107
     },
     {
      "w": "look",
-     "start": 56.132,
-     "end": 56.29
+     "start": 56.143,
+     "end": 56.251
     },
     {
      "w": "at",
-     "start": 56.276,
-     "end": 56.434
+     "start": 56.287,
+     "end": 56.395
     },
     {
      "w": "fifty.",
-     "start": 56.438,
-     "end": 56.92
+     "start": 56.449,
+     "end": 56.881
     }
    ]
   },
@@ -786,55 +786,55 @@
    "scene": "graph",
    "act": "III",
    "text": "I connect the dots... and I learn your language.",
-   "start": 57.55,
-   "end": 60.9475,
+   "start": 57.568,
+   "end": 60.9655,
    "take": 2,
    "factor": 0.9,
    "words": [
     {
      "w": "I",
      "start": 57.608,
-     "end": 57.712
+     "end": 57.73
     },
     {
      "w": "connect",
-     "start": 57.698,
-     "end": 58.054
+     "start": 57.766,
+     "end": 58.072
     },
     {
      "w": "the",
-     "start": 58.058,
-     "end": 58.216
+     "start": 58.126,
+     "end": 58.234
     },
     {
      "w": "dots...",
-     "start": 58.202,
-     "end": 58.756
+     "start": 58.27,
+     "end": 58.774
     },
     {
      "w": "and",
-     "start": 59.156,
-     "end": 59.494
+     "start": 59.143,
+     "end": 59.512
     },
     {
      "w": "I",
-     "start": 59.732,
-     "end": 59.836
+     "start": 59.693,
+     "end": 59.854
     },
     {
      "w": "learn",
-     "start": 59.858,
-     "end": 60.106
+     "start": 59.926,
+     "end": 60.124
     },
     {
      "w": "your",
-     "start": 60.092,
-     "end": 60.232
+     "start": 60.16,
+     "end": 60.25
     },
     {
      "w": "language.",
-     "start": 60.218,
-     "end": 60.772
+     "start": 60.286,
+     "end": 60.79
     }
    ]
   },
@@ -843,35 +843,35 @@
    "scene": "honest",
    "act": "III",
    "text": "And when I don't know...",
-   "start": 61.64,
-   "end": 63.098,
+   "start": 61.758,
+   "end": 63.216,
    "take": 3,
    "factor": 0.9,
    "words": [
     {
      "w": "And",
-     "start": 61.6575,
-     "end": 61.8335
+     "start": 61.808,
+     "end": 61.9515
     },
     {
      "w": "when",
-     "start": 61.8735,
-     "end": 62.0135
+     "start": 62.0415,
+     "end": 62.1315
     },
     {
      "w": "I",
-     "start": 62.0535,
-     "end": 62.1935
+     "start": 62.2215,
+     "end": 62.3115
     },
     {
      "w": "don't",
-     "start": 62.1795,
-     "end": 62.4995
+     "start": 62.3475,
+     "end": 62.6175
     },
     {
      "w": "know...",
-     "start": 62.5035,
-     "end": 62.8235
+     "start": 62.6715,
+     "end": 62.9415
     }
    ]
   },
@@ -887,17 +887,17 @@
    "words": [
     {
      "w": "...I",
-     "start": 64.498,
+     "start": 64.538,
      "end": 64.6915
     },
     {
      "w": "say",
-     "start": 64.7495,
+     "start": 64.7995,
      "end": 64.9435
     },
     {
      "w": "so.",
-     "start": 65.0195,
+     "start": 65.0695,
      "end": 65.3035
     }
    ]
@@ -907,35 +907,35 @@
    "scene": "proof",
    "act": "III",
    "text": "Forty-four... to ninety-one point four.",
-   "start": 66.532,
-   "end": 69.5245,
+   "start": 66.67,
+   "end": 69.6625,
    "take": 1,
    "factor": 0.9,
    "words": [
     {
      "w": "Forty-four...",
-     "start": 66.608,
-     "end": 67.378
+     "start": 66.8,
+     "end": 67.516
     },
     {
      "w": "to",
-     "start": 67.796,
-     "end": 67.9
+     "start": 67.99,
+     "end": 68.038
     },
     {
      "w": "ninety-one",
-     "start": 67.958,
-     "end": 68.62
+     "start": 68.146,
+     "end": 68.758
     },
     {
      "w": "point",
-     "start": 68.678,
-     "end": 68.944
+     "start": 68.9,
+     "end": 69.082
     },
     {
      "w": "four.",
-     "start": 69.02,
-     "end": 69.394
+     "start": 69.215,
+     "end": 69.532
     }
    ]
   },
@@ -944,35 +944,35 @@
    "scene": "proof",
    "act": "III",
    "text": "Not bad... for a memory.",
-   "start": 70.132,
-   "end": 72.4045,
+   "start": 70.0125,
+   "end": 72.285,
    "take": 2,
    "factor": 0.9,
    "words": [
     {
      "w": "Not",
-     "start": 70.208,
-     "end": 70.492
+     "start": 70.0475,
+     "end": 70.3725
     },
     {
      "w": "bad...",
-     "start": 70.496,
-     "end": 70.942
+     "start": 70.4265,
+     "end": 70.8225
     },
     {
      "w": "for",
-     "start": 71.468,
-     "end": 71.644
+     "start": 71.3975,
+     "end": 71.5245
     },
     {
      "w": "a",
-     "start": 71.63,
-     "end": 71.734
+     "start": 71.5605,
+     "end": 71.6145
     },
     {
      "w": "memory.",
-     "start": 71.738,
-     "end": 72.202
+     "start": 71.6685,
+     "end": 72.0825
     }
    ]
   },
@@ -981,45 +981,45 @@
    "scene": "connect",
    "act": "IV",
    "text": "One command... and I'm in Claude Code.",
-   "start": 73.285,
-   "end": 76.2415,
+   "start": 73.178,
+   "end": 76.1345,
    "take": 1,
    "factor": 0.9,
    "words": [
     {
      "w": "One",
-     "start": 73.379,
-     "end": 73.591
+     "start": 73.208,
+     "end": 73.484
     },
     {
      "w": "command...",
-     "start": 73.631,
-     "end": 74.239
+     "start": 73.578,
+     "end": 74.132
     },
     {
      "w": "and",
-     "start": 74.729,
-     "end": 74.887
+     "start": 74.628,
+     "end": 74.78
     },
     {
      "w": "I'm",
-     "start": 74.927,
-     "end": 75.103
+     "start": 74.87,
+     "end": 74.996
     },
     {
      "w": "in",
-     "start": 75.089,
-     "end": 75.211
+     "start": 75.032,
+     "end": 75.104
     },
     {
      "w": "Claude",
-     "start": 75.269,
-     "end": 75.607
+     "start": 75.223,
+     "end": 75.5
     },
     {
      "w": "Code.",
-     "start": 75.665,
-     "end": 76.093
+     "start": 75.588,
+     "end": 75.986
     }
    ]
   },
@@ -1035,32 +1035,32 @@
    "words": [
     {
      "w": "Or",
-     "start": 76.6315,
+     "start": 76.6265,
      "end": 76.7895
     },
     {
      "w": "any",
-     "start": 76.8655,
+     "start": 76.9065,
      "end": 77.1135
     },
     {
      "w": "agent,",
-     "start": 77.1715,
+     "start": 77.2215,
      "end": 77.6535
     },
     {
      "w": "in",
-     "start": 77.9635,
+     "start": 77.9715,
      "end": 78.1935
     },
     {
      "w": "any",
-     "start": 78.2155,
+     "start": 78.2065,
      "end": 78.4095
     },
     {
      "w": "language.",
-     "start": 78.4495,
+     "start": 78.4995,
      "end": 79.0035
     }
    ]
@@ -1070,45 +1070,45 @@
    "scene": "anywhere",
    "act": "IV",
    "text": "On your machine... or in my cloud.",
-   "start": 79.75,
-   "end": 82.7605,
+   "start": 79.763,
+   "end": 82.7735,
    "take": 2,
    "factor": 0.9,
    "words": [
     {
      "w": "On",
      "start": 79.808,
-     "end": 79.966
+     "end": 79.979
     },
     {
      "w": "your",
-     "start": 79.97,
-     "end": 80.128
+     "start": 80.033,
+     "end": 80.141
     },
     {
      "w": "machine...",
-     "start": 80.114,
-     "end": 80.722
+     "start": 80.177,
+     "end": 80.735
     },
     {
      "w": "or",
-     "start": 81.212,
-     "end": 81.532
+     "start": 81.203,
+     "end": 81.545
     },
     {
      "w": "in",
-     "start": 81.752,
-     "end": 81.892
+     "start": 81.783,
+     "end": 81.905
     },
     {
      "w": "my",
-     "start": 81.896,
-     "end": 82.054
+     "start": 81.959,
+     "end": 82.067
     },
     {
      "w": "cloud.",
-     "start": 82.094,
-     "end": 82.612
+     "start": 82.198,
+     "end": 82.625
     }
    ]
   },
@@ -1124,37 +1124,37 @@
    "words": [
     {
      "w": "One",
-     "start": 83.134,
+     "start": 83.078,
      "end": 83.364
     },
     {
      "w": "memory",
-     "start": 83.404,
+     "start": 83.454,
      "end": 83.868
     },
     {
      "w": "for",
-     "start": 83.962,
+     "start": 84.012,
      "end": 84.084
     },
     {
      "w": "every",
-     "start": 84.25,
+     "start": 84.228,
      "end": 84.552
     },
     {
      "w": "user",
-     "start": 84.664,
+     "start": 84.714,
      "end": 84.948
     },
     {
      "w": "you",
-     "start": 84.988,
+     "start": 85.038,
      "end": 85.128
     },
     {
      "w": "have.",
-     "start": 85.132,
+     "start": 85.182,
      "end": 85.596
     }
    ]
@@ -1171,7 +1171,7 @@
    "words": [
     {
      "w": "GitLoom.",
-     "start": 86.7755,
+     "start": 86.7195,
      "end": 87.4375
     }
    ]
@@ -1181,25 +1181,25 @@
    "scene": "weave",
    "act": "V",
    "text": "I don't forget.",
-   "start": 88.2905,
-   "end": 89.6135,
+   "start": 88.148,
+   "end": 89.471,
    "take": 4,
    "factor": 0.9,
    "words": [
     {
      "w": "I",
-     "start": 88.4295,
-     "end": 88.5695
+     "start": 88.208,
+     "end": 88.427
     },
     {
      "w": "don't",
-     "start": 88.5735,
-     "end": 88.8755
+     "start": 88.481,
+     "end": 88.733
     },
     {
      "w": "forget.",
-     "start": 88.8795,
-     "end": 89.4515
+     "start": 88.787,
+     "end": 89.309
     }
    ]
   },
@@ -1215,12 +1215,12 @@
    "words": [
     {
      "w": "I",
-     "start": 90.3435,
+     "start": 90.2585,
      "end": 90.4655
     },
     {
      "w": "commit.",
-     "start": 90.4695,
+     "start": 90.5195,
      "end": 91.0235
     }
    ]
@@ -1237,12 +1237,12 @@
    "id": "ex",
    "act": "I",
    "start": 6.008,
-   "end": 16.208
+   "end": 15.608
   },
   {
    "id": "her",
    "act": "II",
-   "start": 16.208,
+   "start": 15.608,
    "end": 22.808
   },
   {
@@ -1261,12 +1261,12 @@
    "id": "diff",
    "act": "III",
    "start": 37.808,
-   "end": 43.208
+   "end": 42.608
   },
   {
    "id": "cite",
    "act": "III",
-   "start": 43.208,
+   "start": 42.608,
    "end": 46.808
   },
   {
@@ -1291,18 +1291,18 @@
    "id": "honest",
    "act": "III",
    "start": 61.208,
-   "end": 66.008
+   "end": 66.608
   },
   {
    "id": "proof",
    "act": "III",
-   "start": 66.008,
-   "end": 73.208
+   "start": 66.608,
+   "end": 72.608
   },
   {
    "id": "connect",
    "act": "IV",
-   "start": 73.208,
+   "start": 72.608,
    "end": 79.208
   },
   {
@@ -1323,24 +1323,24 @@
    "id": "I",
    "name": "The Ex",
    "start": 0.0,
-   "end": 16.208
+   "end": 15.608
   },
   {
    "id": "II",
    "name": "Her",
-   "start": 16.208,
+   "start": 15.608,
    "end": 28.208
   },
   {
    "id": "III",
    "name": "The Tour",
    "start": 28.208,
-   "end": 73.208
+   "end": 72.608
   },
   {
    "id": "IV",
    "name": "Everywhere",
-   "start": 73.208,
+   "start": 72.608,
    "end": 86.408
   },
   {
