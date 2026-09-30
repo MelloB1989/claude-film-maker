@@ -50,6 +50,37 @@ function ternaryOffsets(steps: number) {
   return u;
 }
 
+/** A timeline window: song seconds [start, end). */
+type Span = Pick<TimelineEntry, 'start' | 'end'>;
+
+/** An entry to render in one sub-frame, and the time to render it at. */
+export interface EntryAt<E extends Span = TimelineEntry> { entry: E; time: number }
+
+/** How far before its end (s) an entry holds when a sub-frame falls at or past it. */
+const HOLD = 1e-6;
+
+/** The entries on screen in the frame at t: those whose window [start, end) holds t, in compositing order (by start). */
+export function onScreen<E extends Span>(timeline: readonly E[], t: number): E[] {
+  return timeline.filter((e) => t >= e.start && t < e.end).sort((a, b) => a.start - b.start);
+}
+
+/**
+ * The cut-aware shutter: what each sub-frame of the frame at t renders, and at what time. A camera exposes a frame
+ * within one shot, so every sub-frame shows the entries on screen at the frame's own time t (onScreen), each at the
+ * sub-frame's time t + dt·shutter·u (u = `offsets[k]`, -0.5..0.5) held inside its own window: before it, at its start;
+ * at or past its end, HOLD before it. An entry that ends inside the shutter holds its last instant, one that starts
+ * inside it after t first shows on the next frame, and one whose window covers the shutter (an overlay across a cut)
+ * is untouched. (Sub-frames from both sides of a hard cut would ghost the next shot into the frame before it.)
+ * Returns, per sub-frame, its entries in compositing order.
+ */
+export function shutterPlan<E extends Span>(timeline: readonly E[], t: number, dt: number, shutter: number, offsets: readonly number[]): EntryAt<E>[][] {
+  const on = onScreen(timeline, t);
+  return offsets.map((u) => {
+    const s = t + dt * shutter * u;
+    return on.map((entry) => ({ entry, time: s < entry.start ? entry.start : s < entry.end ? s : entry.end - HOLD }));
+  });
+}
+
 export class Engine {
   renderer: THREE.WebGLRenderer;
   ctx!: SceneCtx;
@@ -207,6 +238,8 @@ export class Engine {
    * edge shrink as 1/count, so when a step changes the frame by e, what is left is about e/2
    * (e·(1/3 + 1/9 + …)). A still frame stops at 3 x min; a whip pan goes on until its streaks are
    * continuous instead of stepped copies.
+   * Every sub-frame shows the entries on screen at t, each at its sub-frame's time held inside its own window
+   * (shutterPlan): a frame never mixes the two sides of a cut.
    * Returns the number of sub-frames used.
    */
   render(t: number, dt = 1 / FPS, toScreen = true, samples: number | AdaptiveSampling = 1, shutter = 0.5): number {
@@ -218,14 +251,13 @@ export class Engine {
     let n = 1;
     if (samples === 1) {
       SS_TAP.value = -1;
-      ({ outTex, post } = this.composite(t, dt, seeked));
+      ({ outTex, post } = this.composite(shutterPlan(this.timeline, t, dt, shutter, [0])[0]!, dt, seeked));
     } else {
       const adaptive = typeof samples !== 'number';
       let maxAdaptive = adaptive ? samples.max : 0;
       if (adaptive) {
         // sub-frames are rendered out of time order: fine for pure functions of t, not for scenes that integrate state
-        const w = dt * shutter;
-        const on = this.timeline.filter((e) => t + w / 2 >= e.start && t - w / 2 < e.end);
+        const on = onScreen(this.timeline, t);
         const st = on.find((e) => this.loaded.get(e.id)?.scene?.stateful);
         if (st) throw new Error(`adaptive sampling needs stateless scenes; '${st.id}' is stateful (use a fixed --samples)`);
         for (const e of on) if (e.maxSamples) maxAdaptive = Math.min(maxAdaptive, e.maxSamples);
@@ -238,11 +270,12 @@ export class Engine {
       // includes. (A flash that starts between t and there shows at its peak on this frame, not one frame on.)
       const POST_U = 0.125;
       let nearest = Infinity;
+      // what each sub-frame renders, per shutter offset (the cut-aware shutter, see shutterPlan)
+      let plan: EntryAt[][] = [];
       // sub-frame k at shutter offset u (-0.5..0.5), summed into `into`; `step` = the sub-frame spacing
       const sub = (k: number, u: number, into: THREE.WebGLRenderTarget, step: number) => {
         SS_TAP.value = cycle ? (k + (k >> 2)) % 4 : -1;
-        // (clamped at 0: before the song no scene is active, and frame 0 would come out half black)
-        const res = this.composite(Math.max(0, t + dt * shutter * u), step, seeked && k === 0);
+        const res = this.composite(plan[k]!, step, seeked && k === 0);
         this.accum.u.src!.value = res.outTex;
         this.accum.render(r, into);
         const d = Math.abs(u - POST_U);
@@ -251,11 +284,15 @@ export class Engine {
       clearRT(r, this.sumRT, [0, 0, 0], 0);
       if (!adaptive) {
         n = samples;
-        for (let k = 0; k < n; k++) sub(k, (k + 0.5) / n - 0.5, this.sumRT, dt / n);
+        const u: number[] = [];
+        for (let k = 0; k < n; k++) u.push((k + 0.5) / n - 0.5);
+        plan = shutterPlan(this.timeline, t, dt, shutter, u);
+        for (let k = 0; k < n; k++) sub(k, u[k]!, this.sumRT, dt / n);
       } else {
         const lg3 = (x: number) => Math.log(x / 4) / Math.log(3);
         const lo = Math.max(0, Math.round(lg3(samples.min))), hi = Math.max(lo, Math.floor(lg3(maxAdaptive) + 1e-9));
         const u = ternaryOffsets(hi);
+        plan = shutterPlan(this.timeline, t, dt, shutter, u);
         n = 4 * 3 ** lo;
         this.lastErrors = [];
         for (let k = 0; k < n; k++) sub(k, u[k]!, this.sumRT, dt / n);
@@ -305,21 +342,21 @@ export class Engine {
   }
 
   /**
-   * Render and composite all scenes active at t into an HDR texture (no post). `dt` is the step handed to
-   * scenes (the frame step, or the sub-frame spacing); `seeked` says time jumped before this call.
+   * Render and composite one sub-frame into an HDR texture (no post): the entries of `active` (a shutterPlan
+   * sub-frame, in compositing order), each at its own time. `dt` is the step handed to scenes (the frame step, or
+   * the sub-frame spacing); `seeked` says time jumped before this call.
    */
-  private composite(t: number, dt: number, seeked: boolean): { outTex: THREE.Texture; post: PostParams } {
+  private composite(active: EntryAt[], dt: number, seeked: boolean): { outTex: THREE.Texture; post: PostParams } {
     const r = this.renderer;
 
-    const active = this.timeline.filter((e) => t >= e.start && t < e.end).sort((a, b) => a.start - b.start);
     let post: PostParams = { ...DEFAULT_POST };
     let under: THREE.Texture | null = null;
     let outTex: THREE.Texture | null = null;
 
-    active.forEach((e, idx) => {
+    active.forEach(({ entry: e, time: t }, idx) => {
       const rec = this.loaded.get(e.id);
       const rt = this.rts[idx % this.rts.length]!;
-      const prev = active[idx - 1], next = active[idx + 1];
+      const prev = active[idx - 1]?.entry, next = active[idx + 1]?.entry;
       const tin = prev ? Math.min(1, (t - e.start) / Math.max(1e-3, prev.end - e.start)) : 1;
       const tout = next ? Math.max(0, (t - next.start) / Math.max(1e-3, e.end - next.start)) : 0;
       if (!rec?.scene) {
