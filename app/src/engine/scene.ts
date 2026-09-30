@@ -70,6 +70,14 @@ export abstract class Scene {
   /** Load/create resources. Called once before first render. */
   init(): Promise<void> | void {}
 
+  /**
+   * Optional: load what render() needs at song time t, such as a Blender plate's frame (plates.ts). Export awaits it
+   * for every scene on screen in a frame (over its motion-blur shutter) before `still()` and before each streamed
+   * frame, so render() can then stay synchronous and exact. The player calls it best-effort, without waiting: there
+   * render() must cope with the frame not being loaded yet (Plate.texture shows the nearest one it has).
+   */
+  prepare?(t: number): Promise<void>;
+
   /** Reset internal state (called on seeks for stateful scenes). */
   reset(): void {}
 

@@ -60,8 +60,11 @@ function setupExport() {
     width: PW,
     height: PH,
     timeline: TIMELINE.map(({ id, start, end }) => ({ id, start, end })),
-    /** Render a single frame at t (seeks as needed). */
-    still(t: number, samples: number | AdaptiveSampling = 1, shutter = 0.5) { return engine.render(t, 1 / FPS, true, samples, shutter); },
+    /** Render a single frame at t (seeks as needed), once its scenes have prepared it (plates). */
+    async still(t: number, samples: number | AdaptiveSampling = 1, shutter = 0.5) {
+      await engine.prepare(t, 1 / FPS, samples, shutter);
+      return engine.render(t, 1 / FPS, true, samples, shutter);
+    },
     /** The last rendered frame as a full-resolution (PW x PH) PNG, base64 (for stills at scale > 1). */
     async png() {
       const px = await engine.readPixelsAsync(), row = PW * 4;
@@ -93,9 +96,14 @@ function setupExport() {
       // warm-up: render one frame before the range so the first frame is sequential for stateful scenes
       const S = opts.samples ?? 1, SH = opts.shutter ?? 0.5;
       // (adaptive sampling only runs stateless scenes: one sample is enough for the warm-up)
-      if (n0 > 0) engine.render((n0 - 1) * dt, dt, false, typeof S === 'number' ? S : 1, SH);
+      const S0 = typeof S === 'number' ? S : 1;
+      if (n0 > 0) {
+        await engine.prepare((n0 - 1) * dt, dt, S0, SH);
+        engine.render((n0 - 1) * dt, dt, false, S0, SH);
+      }
       const used: Record<number, number> = {}; // sub-frames per frame -> frames
       for (let n = n0; n < n1; n++) {
+        await engine.prepare(n * dt, dt, S, SH);
         const k = engine.render(n * dt, dt, false, S, SH);
         used[k] = (used[k] ?? 0) + 1;
         await engine.readPixelsAsync(buf);
@@ -161,6 +169,13 @@ function setupPlayer() {
     if (ev.key === '[') { const es = TIMELINE.filter((x) => x.start < t - 0.3); const e = es[es.length - 1]; if (e) seek(e.start); }
   });
 
+  // scenes load what a frame needs (plate frames) without holding the player up; a failure is logged once
+  let prepErr = '';
+  const prepare = (x: number) => engine.prepare(x).catch((e) => {
+    const m = String(e?.message ?? e);
+    if (m !== prepErr) { prepErr = m; console.warn(`prepare(${x.toFixed(3)}): ${m}`); }
+  });
+
   let frames = 0, fpsT = performance.now(), fps = 0;
   const tick = () => {
     if (playing) {
@@ -171,6 +186,7 @@ function setupPlayer() {
       if (loop && t >= loop[1]) seek(loop[0]);
       if (audio.ended) playing = false;
     }
+    prepare(t);
     engine.render(t, 1 / FPS);
     scrub.value = String(t);
     frames++;

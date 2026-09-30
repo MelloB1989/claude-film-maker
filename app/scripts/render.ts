@@ -93,12 +93,13 @@ async function sheet(page: Page, times: number[], cols: number, out: string) {
     const c = cv.getContext('2d')!;
     c.fillStyle = '#222'; c.fillRect(0, 0, cv.width, cv.height);
     const src = document.getElementById('c') as HTMLCanvasElement;
-    times.forEach((t: number, i: number) => {
-      P.still(t);
+    for (let i = 0; i < times.length; i++) {
+      const t = times[i]!;
+      await P.still(t); // (after the frame's scenes have prepared it: plates)
       const x = pad + (i % cols) * (cw + pad), y = pad + Math.floor(i / cols) * (ch + lab + pad);
       c.drawImage(src, x, y + lab, cw, ch);
       c.fillStyle = '#ddd'; c.font = '13px monospace'; c.fillText(`${t.toFixed(2)}s`, x + 2, y + 13);
-    });
+    }
     return cv.toDataURL('image/png');
   }, { times, cols });
   mkdirSync(path.dirname(out), { recursive: true });
@@ -178,20 +179,24 @@ try {
     const r = await page.evaluate(async ({ from, to, samples, shutter }) => {
       const P = (window as any).__film;
       const ms: number[] = [];
+      let prep = 0;
       const buf = new Uint8Array(P.width * P.height * 4);
-      P.still(from);
+      await P.still(from);
       const used: Record<number, number> = {};
       for (let t = from; t < to; t += 1 / 30) {
+        const p0 = performance.now();
+        await P.engine.prepare(t, 1 / 30, samples, shutter); // plate loads, outside the render timing
         const a = performance.now();
+        prep += a - p0;
         const k = P.engine.render(t, 1 / 30, false, samples, shutter);
         used[k] = (used[k] ?? 0) + 1;
         await P.engine.readPixelsAsync(buf);
         ms.push(performance.now() - a);
       }
       ms.sort((a, b) => a - b);
-      return { n: ms.length, avg: ms.reduce((a, b) => a + b, 0) / ms.length, p50: ms[ms.length >> 1], p95: ms[Math.floor(ms.length * 0.95)], max: ms[ms.length - 1], used };
+      return { n: ms.length, avg: ms.reduce((a, b) => a + b, 0) / ms.length, p50: ms[ms.length >> 1], p95: ms[Math.floor(ms.length * 0.95)], max: ms[ms.length - 1], used, prep: prep / ms.length };
     }, { from, to, samples: SAMPLES, shutter: +opt('shutter', '0.5')! });
-    console.log(`frames ${r.n}  avg ${r.avg.toFixed(1)}ms  p50 ${r.p50.toFixed(1)}  p95 ${r.p95.toFixed(1)}  max ${r.max.toFixed(1)}  sub-frames ${hist(r.used)}`);
+    console.log(`frames ${r.n}  avg ${r.avg.toFixed(1)}ms  p50 ${r.p50.toFixed(1)}  p95 ${r.p95.toFixed(1)}  max ${r.max.toFixed(1)}  sub-frames ${hist(r.used)}  (prepare ${r.prep.toFixed(1)}ms/frame, untimed)`);
   } else if (mode === 'video') {
     const dur: number = await page.evaluate(() => (window as any).__film.duration);
     await video(page, +opt('from', '0')!, +opt('to', String(dur))!, +opt('fps', '30')!, path.resolve(opt('out', path.join(ROOT, 'out/gitloom.mp4'))!));
