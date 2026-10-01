@@ -32,7 +32,7 @@ import { LIN } from '../engine/palette';
 import { LOOK, glow } from '../engine/look';
 import { slam } from '../engine/motion';
 import { cocPx } from '../engine/dof';
-import { clamp, ease, keys, lerp, prog, pulse } from '../engine/util';
+import { FPS, clamp, ease, frameIdx, keys, lerp, prog, pulse } from '../engine/util';
 import { fitKey } from './diff-fx';
 import { timesOf, type Times } from './graph-time';
 import {
@@ -71,13 +71,19 @@ const EDIT_SCALE = 0.4;
 const EDIT_AT: V3 = [-0.47, 0.03, 0.02];
 const EDIT_YAW = 0.36;
 /**
- * The thread lies this far off the page (panel px, its centre) under the link; as it goes taut its far end peels up off
- * the page to PEEL px, the root staying under `[[`, a lever lifting off the text; and before that it hums (TENSION: its
- * amplitude in px, and frequency in Hz).
+ * The thread lies this far off the page (panel px, its centre) under the link; before it lifts it hums (TENSION: its
+ * amplitude in px and frequency in Hz). Its free end curls up off the page past `]]` (OUT: how far along the line, up
+ * and out of the page it reaches, m), and on the downbeat the whole underline zips along under the text and leaves the
+ * page there, after its head: the link's thread lifting off it, never crossing its letters.
  */
 const LIE = 6.5;
-const PEEL = 54;
 const TENSION = { px: 1.6, hz: 23 };
+const OUT = { along: 0.03, up: 0.012, out: 0.042 };
+/**
+ * The studio turns as the scene plays (radians a second), and swings further on its hits, so the softboxes' reflections
+ * sweep across the glass: the lift, the heal and the find (each `swing` radians, over `dur` s).
+ */
+const STUDIO = { drift: 0.22, swing: 0.55, dur: 0.45 };
 /** The terminal: code size, width (panel px); its distance from the lens in the summary (m) and its centre in frame (px). */
 const TERM_SIZE = 32;
 const TERM_W = 1020;
@@ -130,6 +136,7 @@ export default class Graph extends Scene {
   private nodes = {} as Record<NodeId, Node>;
   private link!: Thread;
   private linkU = 0;
+  private linkU1 = 0;
   private dangle!: Thread;
   private dangleVecs: THREE.Vector3[] = [];
   private tripHotel!: Thread;
@@ -197,15 +204,17 @@ export default class Graph extends Scene {
    * The link's centreline: along under the link's characters (lying on the page, lifted off it by `lift` 0..1), then
    * off the page and out into the dark to acme.md's pearl.
    */
-  private linkPts(lift: number, hum = 0) {
+  private linkPts(hum = 0) {
     const { x0, x1, base } = this.linkCells();
-    const under = [0, 0.34, 0.67, 1].map((s) => this.edPt(lerp(x0 - 4, x1 + 2, s), base + 7 - 4 * lift * s, LIE + (PEEL - LIE) * lift * s * s + hum * Math.sin(Math.PI * s)));
-    const L1 = under[3]!, A = P('acme');
     const n = new THREE.Vector3(0, 0, 1).applyQuaternion(this.editG.quaternion);
     const r = new THREE.Vector3(1, 0, 0).applyQuaternion(this.editG.quaternion);
-    const off1 = L1.clone().addScaledVector(r, 0.035).addScaledVector(n, 0.03).addScaledVector(Y, 0.012);
-    const mid = L1.clone().lerp(A, 0.55).addScaledVector(Y, 0.05).addScaledVector(n, 0.05);
-    return [...under, off1, mid, A];
+    const under = [0, 0.34, 0.67, 1].map((s) => this.edPt(lerp(x0 - 4, x1 + 2, s), base + 7, LIE + hum * Math.sin(Math.PI * s)));
+    const L1 = under[3]!;
+    // past `]]` it curls up off the page, and out into the dark to acme.md's pearl
+    const pull = L1.clone().addScaledVector(r, OUT.along).addScaledVector(Y, OUT.up).addScaledVector(n, OUT.out);
+    const A = P('acme');
+    const mid = pull.clone().lerp(A, 0.5).addScaledVector(Y, 0.05).addScaledVector(n, 0.04);
+    return [...under, pull, mid, A];
   }
 
   // ---------------------------------------------------------------------------------------------- the constellation
@@ -250,9 +259,10 @@ export default class Graph extends Scene {
 
   private buildThreads() {
     // the link: along the underline, then off the page and out to acme.md's pearl
-    const pts = this.linkPts(0);
+    const pts = this.linkPts();
     this.link = this.thread(pts, { fuzz: 0.6, seed: 0x11c });
     this.linkU = this.uNear(this.link, pts[3]!);
+    this.linkU1 = this.uNear(this.link, pts[4]!);
     // the dangling link, maya.md to where the trip will be
     this.dangleVecs = Array.from({ length: N_DANGLE }, () => new THREE.Vector3());
     this.dangle = this.thread(this.danglePts(this.T.heal + 0.4), { fuzz: 0.4, seed: 0xd4 });
@@ -401,7 +411,7 @@ export default class Graph extends Scene {
     const mL = M.clone().add(new THREE.Vector3(-NODES.maya.r * 2.2, 0.01, 0)), ringTop = Tp.clone().add(new THREE.Vector3(0, NODES.trip.r * 1.8, 0));
     const label = (id: NodeId, n: number) => P(id).add(new THREE.Vector3(NODES[id].r * LABEL_GAP + n * ADV * LABEL_EM, 0, 0));
     const graph = [A, M, Tp, Hh, C, label('hotel', len(HOTEL)), label('city', len(CITY))];
-    const summary = fitKey(T.answer, graph, { az: 8, el: 7, fov: FOV, margin: [0.09, 0.08], bias: [0.01, 0.44], roll: 0.4 }, WORLD, ease.linear);
+    const summary = fitKey(T.answer, graph, { az: 8, el: 7, fov: FOV, margin: [0.075, 0.065], bias: [0.01, 0.44], roll: 0.4 }, WORLD, ease.inOutQuad);
     // as `k8s` lifts off, the camera tips up after the thread, toward the graph
     const up = (k: CamKey, t: number, dy: number, toward: THREE.Vector3, w: number): CamKey => {
       const target = v3(k.target).lerp(toward, w).add(new THREE.Vector3(0, dy, 0));
@@ -420,9 +430,9 @@ export default class Graph extends Scene {
       fitKey(T.land + 0.12, [L1, A, A.clone().add(new THREE.Vector3(NODES.acme.r * LABEL_GAP + len(ACME) * ADV * LABEL_EM, 0, 0))], { az: 3, el: 5, fov: FOV, margin: [0.14, 0.3], bias: [0.02, -0.08], roll: -0.9 }, WORLD, ease.inOutCubic),
       // "the dots…": open on the constellation, the dangling link in the middle of the frame
       fitKey(T.ping + 0.1, [mL, end, tag, ringTop], { az: 3, el: 12, fov: FOV, margin: [0.1, 0.22], bias: [0, 0], roll: -3.2 }, WORLD, ease.inOutCubic),
-      fitKey(T.heal - 0.03, [mL, end, tag, ringTop], { az: 5, el: 10, fov: FOV, margin: [0.11, 0.24], bias: [0, 0], roll: -2.2 }, WORLD, ease.inOutQuad),
+      fitKey(T.heal - 0.03, [mL, end, tag, ringTop], { az: 5, el: 10, fov: FOV, margin: [0.045, 0.12], bias: [0, 0], roll: -2.2 }, WORLD, ease.inOutQuad),
       // the walk: the camera pulls back with it, and on as the terminal rises into the foreground under the graph
-      fitKey(T.hops[2]! + 0.12, graph, { az: 7, el: 7, fov: FOV, margin: [0.07, 0.06], bias: [0, 0.44], roll: 0.3 }, WORLD, ease.inOutCubic),
+      fitKey(T.hops[2]! + 0.12, graph, { az: 7, el: 7, fov: FOV, margin: [0.1, 0.09], bias: [0, 0.44], roll: 0.3 }, WORLD, ease.inOutCubic),
       summary,
       up(summary, T.cut, 0.05, A, 0.3),
     ];
@@ -445,15 +455,17 @@ export default class Graph extends Scene {
   private poseLink(t: number) {
     const T = this.T, th = this.link;
     // under the link, drawn on in the beat before the downbeat; then off the page and out to acme.md, landing on the eighth
+    // it hums as it tightens under the link; its free end curls up off the page past `]]`; on the downbeat the head whips
+    // away out into the dark to acme.md, landing on the eighth, and the underline zips along under the text after it
+    const tense = t > T.underline.end - 0.05 && t < T.lift - 0.1 ? TENSION.px * Math.sin(2 * Math.PI * TENSION.hz * t) * prog(t, T.underline.end - 0.05, T.lift - 0.13) : 0;
+    th.setPoints(this.linkPts(tense));
     const under = prog(t, T.underline.at, T.underline.end, ease.outCubic);
-    const fly = prog(t, T.lift - 0.03, T.land, (x) => 1 - Math.pow(1 - x, 2.6));
-    const head = t < T.lift - 0.03 ? this.linkU * under : lerp(this.linkU, 1, fly);
-    th.setDraw(0, Math.max(1e-4, head));
-    th.mesh.visible = head > 0.002;
-    // as it goes taut it lifts off the page (the points under the link rise)
-    // it hums as it tightens under the link, and on the downbeat peels up off the page, root first to tip
-    const tense = t > T.underline.end - 0.05 && t < T.lift ? TENSION.px * Math.sin(2 * Math.PI * TENSION.hz * t) * prog(t, T.underline.end - 0.05, T.lift - 0.06) : 0;
-    th.setPoints(this.linkPts(prog(t, T.lift - 0.09, T.lift + 0.05, ease.inOutCubic), tense));
+    const curl = prog(t, T.lift - 0.14, T.lift, ease.inOutCubic);
+    const fly = prog(t, T.lift, T.land, (x) => 1 - Math.pow(1 - x, 2.4));
+    const head = t < T.lift ? lerp(this.linkU * under, this.linkU1, curl) : lerp(this.linkU1, 1, fly);
+    const tail = this.linkU * prog(t, T.lift - 0.02, T.lift + 0.16, ease.inCubic);
+    th.setDraw(tail, Math.max(tail + 1e-4, head));
+    th.mesh.visible = head - tail > 0.002;
     // the moss of the edge landing runs back down it to the link, and leaves an ember
     th.setStrandGlow({ moss: DIFF_THREAD.rest, blood: DIFF_THREAD.rest });
     th.setStrandLight({ moss: Float64Array.from({ length: 128 }, (_, i) => runAt(t, 1 - i / 127, T.land, T.land + 0.32, 0.3)) });
@@ -541,14 +553,14 @@ export default class Graph extends Scene {
     this.termG.quaternion.copy(this.termQ).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.9 * (1 - s)));
     this.term.opacity = clamp(s * 1.6);
     // `k8s` is selected as the search takes it (on the frame grid: one state per shutter)
-    const tq = Math.round(t * 30) / 30;
+    const tq = frameIdx(t) / FPS;
     const sel = prog(tq, T.seek - 0.12, T.seek, ease.outCubic) * (1 - prog(tq, T.found + 0.1, T.found + 0.5));
     this.term.select(sel > 0.02 ? 1 : null, ALIAS.from, ALIAS.to, 0.16 * sel);
     this.term.draw(t);
     // the answer: the arrow's moss flares as it lands, and keeps a glow
     const a = this.term.cellOrigin(1, ARROW);
     const flare = strandFlare(t, T.answer + 0.04, { lead: 0.02, decay: 0.6 });
-    this.arrowHalo.set(a.x + 0.5 * this.term.adv, a.baseline - 0.32 * TERM_SIZE, (t >= T.answer ? 0.18 : 0) + 1.1 * flare, 22);
+    this.arrowHalo.set(a.x + 0.5 * this.term.adv, a.baseline - 0.3 * TERM_SIZE, 0.45 * flare, 16);
   }
 
   private poseSearch(t: number) {
@@ -585,7 +597,9 @@ export default class Graph extends Scene {
 
     // the forward link's tag at the loose end, typed on as the thread falls short; on the heal it becomes the trip's name
     const thrown = prog(t, T.land + 0.05, T.ping - 0.04, ease.outCubic);
-    const typed = Math.floor(clamp((t - (T.ping - 0.1)) * 260, 0, len(FORWARD)));
+    // (typed on the output frame grid: one state per shutter, so a character never lands mid-frame)
+    const tq = frameIdx(t) / FPS;
+    const typed = Math.floor(clamp((tq - (T.ping - 0.1)) * 260, 0, len(FORWARD)));
     if (typed > 0) {
       const { end } = looseEnd(t, NODES.maya.pos, NODES.trip.pos, T.heal);
       const tagAt = v3(end).addScaledVector(right, -0.004).addScaledVector(up, -0.03);
@@ -617,7 +631,7 @@ export default class Graph extends Scene {
     // the word the search finds, under acme.md's name, in moss light
     const word = prog(t, T.found, T.found + 0.1);
     const wAt = place('acme').addScaledVector(up, -1.6 * LABEL_EM);
-    L.text(KUBE, wAt, { em: LABEL_EM, color: bone, alpha: word, n: Math.floor(clamp((t - T.found) * 160 + 1, 0, len(KUBE))) });
+    L.text(KUBE, wAt, { em: LABEL_EM, color: bone, alpha: word, n: Math.floor(clamp((tq - T.found) * 160 + 1, 0, len(KUBE))) });
     L.end();
     // the highlighter under it
     const fill = prog(t, T.found - 0.01, T.found + 0.16, ease.outCubic);
@@ -738,7 +752,7 @@ export default class Graph extends Scene {
       [T.ping, inv(P('maya').lerp(end, 0.75)), ease.inOutCubic],
       [T.heal, inv(P('trip')), ease.inOutQuad],
       [T.hops[2]!, inv(P('trip').lerp(P('hotel'), 0.5)), ease.inOutQuad],
-      [T.type.at + 0.3, inv(head), ease.inOutCubic],
+      [T.rise + 0.22, inv(head), ease.inOutCubic],
       [T.answer, inv(head)],
     ];
     // after the cut, acme.md and its name
@@ -762,6 +776,8 @@ export default class Graph extends Scene {
 
   private pose(t: number) {
     this.aim(this.stage.camera, t);
+    const T = this.T, sw = (at: number) => STUDIO.swing * prog(t, at - 0.05, at - 0.05 + STUDIO.dur, ease.inOutCubic);
+    this.stage.scene.environmentRotation.set(0, STUDIO.drift * (t - T.start) + sw(T.lift) + sw(T.heal) + sw(T.found), 0);
     this.dof = this.focus(t);
     this.poseLink(t);
     this.poseConstellation(t);

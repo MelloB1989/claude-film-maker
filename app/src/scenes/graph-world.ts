@@ -57,6 +57,10 @@ export const NODES: Record<NodeId, NodeSpec> = {
   c13: { pos: [0.19, 0.13, -0.36], r: 0.015 },
   c14: { pos: [0.43, 0.24, -0.52], r: 0.016 },
   c15: { pos: [-0.2, 0.0, -0.42], r: 0.015 },
+  // high in the deep field, behind the dangling link: soft glass in the top of its frame
+  c16: { pos: [0.28, 0.2, -0.95], r: 0.019 },
+  c17: { pos: [0.68, 0.33, -1.05], r: 0.019 },
+  c18: { pos: [-0.05, 0.42, -1.0], r: 0.018 },
 };
 
 /**
@@ -87,6 +91,11 @@ export const STANDING: [NodeId, NodeId, number, number][] = [
   ['c15', 'acme', 0.01, 0.75],
   ['c15', 'c3', 0.02, 0.75],
   ['c15', 'c8', 0.03, 0.9],
+  ['c16', 'c17', 0.03, 0.9],
+  ['c16', 'c13', 0.03, 0.9],
+  ['c17', 'c9', 0.03, 0.9],
+  ['c18', 'c16', 0.03, 0.9],
+  ['c18', 'c1', 0.03, 0.9],
 ];
 
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -213,7 +222,7 @@ export function runAt(t: number, u: number, t0: number, t1: number, tail = 0.35)
   const behind = Math.exp(-Math.max(0, d) / tail);
   // once it has arrived the whole edge keeps an ember that fades
   const after = t > t1 ? Math.exp(-(t - t1) / 0.45) : 1;
-  return clamp(front * lerp(0.4, 1, behind) * after + (t > t1 ? 0.2 * Math.exp(-(t - t1) / 1.4) : 0));
+  return clamp(front * lerp(0.4, 1, behind) * after + (t > t1 ? 0.2 * Math.exp(-(t - t1) / 0.7) : 0));
 }
 
 /** A seeded unit vector (the beads' turn round their bores). */
