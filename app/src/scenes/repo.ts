@@ -23,7 +23,7 @@
 //    bokeh behind it.
 import * as THREE from 'three';
 import { Scene, disposeLayer, type Frame, type PostOverrides } from '../engine/scene';
-import { CameraRig, Stage, initAreaLights, type CamKey, type V3 } from '../engine/stage';
+import { CameraRig, Stage, freeTransmission, initAreaLights, type CamKey, type V3 } from '../engine/stage';
 import { Layer2D, W, H, makeRT } from '../engine/gl';
 import { Panel, lineEnd, type PanelLine } from '../engine/panels';
 import { DIFF_THREAD, Thread, envelopeOf, strandFlare, type StrandGlow } from '../engine/thread3d';
@@ -393,9 +393,7 @@ export default class Repo extends Scene {
     const shape = { radius: BEAD_R, bore: THREAD_R * 1.3, chamfer: THREAD_R * 0.7, centre: look };
     this.beadGeo = beadGeometry(shape);
     LOG.forEach((entry, i) => {
-      const bead = new Bead({ ...shape, text: entry.hash });
-      bead.mesh.geometry.dispose();
-      bead.mesh.geometry = this.beadGeo;
+      const bead = new Bead({ ...shape, text: entry.hash }, { geometry: this.beadGeo });
       this.stage.scene.add(bead.mesh);
       const hashLen = Array.from(entry.hash).length;
       const labelMats = [unlit(LIN.boneDim, { transparent: true }), unlit(LIN.bone, { transparent: true })];
@@ -689,7 +687,7 @@ export default class Repo extends Scene {
 
   override dispose() {
     const r = this.ctx.renderer;
-    if (this.commits[0]) transmissionTarget(r, this.commits[0].bead.material)?.dispose();
+    if (this.commits[0]) freeTransmission(r, this.commits[0].bead.material);
     this.term?.dispose();
     for (const c of this.chips) {
       c.mesh.geometry.dispose();
@@ -708,15 +706,4 @@ export default class Repo extends Scene {
     disposeLayer(this.layer);
     this.stage?.dispose();
   }
-}
-
-/**
- * The transmission target three's renderer made for a glass material's last render (null if it never rendered): the
- * texture three binds to the material's transmissionSamplerMap uniform, and the target that owns it (three's internals,
- * as her.ts reads them: no public API frees it).
- */
-function transmissionTarget(renderer: THREE.WebGLRenderer, m: THREE.Material): THREE.RenderTarget | null {
-  if (!renderer.properties.has(m)) return null;
-  const p = renderer.properties.get(m) as { uniforms?: { transmissionSamplerMap?: { value: THREE.Texture | null } } };
-  return p.uniforms?.transmissionSamplerMap?.value?.renderTarget ?? null;
 }

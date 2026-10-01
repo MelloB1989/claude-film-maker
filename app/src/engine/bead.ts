@@ -138,10 +138,19 @@ export class Bead {
   mesh: THREE.Mesh;
   material: THREE.MeshPhysicalMaterial;
   private maps: THREE.CanvasTexture[] = [];
+  /** The geometry the bead built for itself (none when it shares one). */
+  private own: THREE.BufferGeometry | null;
 
-  constructor(o: BeadOpts) {
+  /**
+   * A bead of `o`'s shape with its hash etched. Beads of one shape can share one geometry: pass `geometry`, built by
+   * beadGeometry for the same shape (its span and centre lay the engraving's band), and the bead uses it without freeing
+   * it (whoever built it frees it, after the beads). The glass's transmission target is three's: freeTransmission
+   * (stage.ts) frees it.
+   */
+  constructor(o: BeadOpts, shared: { geometry?: THREE.BufferGeometry } = {}) {
     const [A, B] = o.span ?? [0.95, 0.3];
-    const geo = beadGeometry(o);
+    const geo = shared.geometry ?? beadGeometry(o);
+    this.own = shared.geometry ? null : geo;
 
     const texH = Math.round((TEX_W * B) / A);
     // the letters: an em that fills the band's length at 64% (7 mono cells of 0.6 em), within its height
@@ -209,8 +218,9 @@ export class Bead {
     this.mesh.position.copy(pos);
   }
 
+  /** Free its material, its engraving's maps and the geometry it built (a shared one is left to its owner). */
   dispose() {
-    this.mesh.geometry.dispose();
+    this.own?.dispose();
     this.material.dispose();
     for (const t of this.maps) t.dispose();
   }

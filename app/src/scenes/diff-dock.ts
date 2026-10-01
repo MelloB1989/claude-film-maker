@@ -143,9 +143,7 @@ export class Dock {
     for (const x of D.commitX) {
       const u = (x - D.from) / (D.to - D.from), fr = this.thread.frameAt(u);
       this.places.push({ pos: fr.pos.clone(), tangent: fr.tangent.clone() });
-      const bead = new Bead({ ...shape, text: '' });
-      bead.mesh.geometry.dispose();
-      bead.mesh.geometry = this.beadGeo;
+      const bead = new Bead({ ...shape, text: '' }, { geometry: this.beadGeo });
       bead.place(fr.pos, fr.tangent, this.front);
       this.beads.push(bead);
     }

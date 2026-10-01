@@ -4,7 +4,7 @@
 // built `opaque` (in the opaque list the pass copies), and the bead shows the panel's face and code bent through it.
 import * as THREE from 'three';
 import { Scene, type Frame } from '../engine/scene';
-import { Stage, initAreaLights } from '../engine/stage';
+import { Stage, freeTransmission, initAreaLights } from '../engine/stage';
 import { Panel, type PanelLine } from '../engine/panels';
 import { Bead } from '../engine/bead';
 import { LIN } from '../engine/palette';
@@ -61,6 +61,7 @@ export default class GlassTest extends Scene {
   }
 
   override dispose() {
+    freeTransmission(this.ctx.renderer, this.bead.material);
     for (const p of this.panels) p.dispose();
     this.bead.dispose();
     this.stage.dispose();

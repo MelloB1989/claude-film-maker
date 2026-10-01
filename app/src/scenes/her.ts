@@ -22,7 +22,7 @@
 //    gutter slides in at left. Then the whole headline drifts back out of focus.
 import * as THREE from 'three';
 import { Scene, type Frame, type PostOverrides } from '../engine/scene';
-import { CameraRig, Stage, initAreaLights, type CamKey, type V3 } from '../engine/stage';
+import { CameraRig, Stage, freeTransmission, initAreaLights, type CamKey, type V3 } from '../engine/stage';
 import { H, W, clearRT, makeRT } from '../engine/gl';
 import { Plate } from '../engine/plates';
 import { Track } from '../engine/track';
@@ -561,7 +561,7 @@ export default class Her extends Scene {
     // the bead's glass: three renders what it refracts into a target of its own for this stage's scene and camera
     // (frame-sized, 4x MSAA half float with mips), which it frees only with the whole renderer (read it before the
     // bead's material goes: three finds it through the material)
-    transmissionTarget(this.ctx.renderer, this.bead.material)?.dispose();
+    freeTransmission(this.ctx.renderer, this.bead.material);
     this.plate?.dispose();
     this.thread.dispose();
     this.bead.dispose();
@@ -604,15 +604,4 @@ function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
 /** A linear colour scaled. */
 function scaled(c: readonly [number, number, number], k: number): [number, number, number] {
   return [c[0] * k, c[1] * k, c[2] * k];
-}
-
-/**
- * The transmission target three's renderer made for a glass material's last render (null if it never rendered): the
- * texture three binds to the material's transmissionSamplerMap uniform, and the target that owns it. (three's
- * internals: the renderer's per-material properties, the texture's renderTarget.)
- */
-function transmissionTarget(renderer: THREE.WebGLRenderer, m: THREE.Material): THREE.RenderTarget | null {
-  if (!renderer.properties.has(m)) return null;
-  const p = renderer.properties.get(m) as { uniforms?: { transmissionSamplerMap?: { value: THREE.Texture | null } } };
-  return p.uniforms?.transmissionSamplerMap?.value?.renderTarget ?? null;
 }

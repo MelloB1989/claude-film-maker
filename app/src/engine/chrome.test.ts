@@ -23,7 +23,8 @@ beforeAll(async () => {
     `import * as type from ${mod('type.ts')};`,
     `import * as stage from ${mod('stage.ts')};`,
     `import * as panels from ${mod('panels.ts')};`,
-    '(window as any).__t = { THREE, gl, type, stage, panels };',
+    `import * as bead from ${mod('bead.ts')};`,
+    '(window as any).__t = { THREE, gl, type, stage, panels, bead };',
   ].join('\n'));
   const built = await Bun.build({ entrypoints: [entry], target: 'browser', format: 'esm' });
   rmSync(dir, { recursive: true, force: true });
@@ -263,3 +264,50 @@ test('a highlight is painted under the text: the glyphs stand on it untinted, th
   expect(r.lit.band[1]!).toBeGreaterThan(r.plain.band[1]! + 20); // beside it: the moss wash
   expect(r.lit.band[1]!).toBeGreaterThan(r.lit.band[0]!);
 });
+
+test('Bead: beads can share one geometry (theirs to use, not to free); a bead without one builds its own and frees it', async () => {
+  const r = await page.evaluate(() => {
+    const { THREE, bead } = (window as any).__t;
+    const shape = { radius: 0.024, bore: 0.0055, chamfer: 0.003 };
+    const shared = bead.beadGeometry(shape);
+    let sharedFreed = 0;
+    shared.addEventListener('dispose', () => sharedFreed++);
+    const a = new bead.Bead({ ...shape, text: '105ca74' }, { geometry: shared });
+    const b = new bead.Bead({ ...shape, text: 'a41c9d0' }, { geometry: shared });
+    const same = a.mesh.geometry === shared && b.mesh.geometry === shared;
+    a.dispose();
+    b.dispose();
+    const own = new bead.Bead({ ...shape, text: '3f9a1c2' });
+    let ownFreed = 0;
+    own.mesh.geometry.addEventListener('dispose', () => ownFreed++);
+    const built = own.mesh.geometry !== shared && own.mesh.geometry instanceof THREE.BufferGeometry;
+    own.dispose();
+    return { same, sharedFreed, built, ownFreed };
+  });
+  expect(r.same).toBe(true);
+  expect(r.sharedFreed).toBe(0);
+  expect(r.built).toBe(true);
+  expect(r.ownFreed).toBe(1);
+});
+
+test('freeTransmission frees the target three made for a glass material\'s scene and camera, once it has rendered', async () => {
+  const r = await page.evaluate(() => {
+    const { THREE, gl, stage, bead } = (window as any).__t;
+    const renderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), antialias: false });
+    const st = new stage.Stage(renderer, { fov: 30 });
+    const b = new bead.Bead({ radius: 0.2, bore: 0.04, chamfer: 0.02, text: '3f9a1c2' });
+    b.mesh.position.z = -2;
+    st.scene.add(b.mesh, new THREE.DirectionalLight(0xffffff, 2));
+    const before = stage.freeTransmission(renderer, b.material); // never rendered: nothing to free
+    st.render(gl.makeRT(gl.W, gl.H));
+    const target = renderer.properties.get(b.material).uniforms.transmissionSamplerMap.value.renderTarget;
+    let freed = 0;
+    target.addEventListener('dispose', () => freed++);
+    const result = stage.freeTransmission(renderer, b.material);
+    return { before, freedOne: result === true, freed, again: stage.freeTransmission(renderer, new THREE.MeshPhysicalMaterial({ transmission: 1 })) };
+  });
+  expect(r.before).toBe(false);
+  expect(r.freedOne).toBe(true);
+  expect(r.freed).toBe(1);
+  expect(r.again).toBe(false);
+}, 30000);

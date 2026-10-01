@@ -344,3 +344,18 @@ export class CameraRig {
     cam.updateMatrixWorld();
   }
 }
+
+/**
+ * Free the transmission target three made for a glass material (transmission > 0): three renders what glass refracts
+ * into a target of its own for each scene and camera it draws glass in (frame-sized, 4x MSAA half float with mips),
+ * shared by all the glass there, and frees it only with the whole renderer. A scene with glass calls
+ * this in dispose(), before the glass's material goes (three finds the target through the material it last bound it
+ * to). Returns whether there was one to free (false if the material never rendered).
+ */
+export function freeTransmission(renderer: THREE.WebGLRenderer, material: THREE.Material): boolean {
+  if (!renderer.properties.has(material)) return false;
+  const p = renderer.properties.get(material) as { uniforms?: { transmissionSamplerMap?: { value: THREE.Texture | null } } };
+  const target = p.uniforms?.transmissionSamplerMap?.value?.renderTarget ?? null;
+  target?.dispose();
+  return !!target;
+}

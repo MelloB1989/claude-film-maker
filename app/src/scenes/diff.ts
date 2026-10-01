@@ -26,7 +26,7 @@
 //    them, the rest of the file falling into shadow, and the old line's cut glowing faintly in blood, breathing, a memory.
 import * as THREE from 'three';
 import { Scene, type Frame, type PostOverrides } from '../engine/scene';
-import { CameraRig, Stage, initAreaLights, type CamKey } from '../engine/stage';
+import { CameraRig, Stage, freeTransmission, initAreaLights, type CamKey } from '../engine/stage';
 import { W, H, makeRT } from '../engine/gl';
 import { Panel, panelLayout, type PanelLine } from '../engine/panels';
 import { DIFF_THREAD, strandFlare } from '../engine/thread3d';
@@ -451,7 +451,7 @@ export default class Diff extends Scene {
 
   override dispose() {
     const r = this.ctx.renderer;
-    if (this.dock?.beads[0]) transmissionTarget(r, this.dock.beads[0].material)?.dispose();
+    if (this.dock?.beads[0]) freeTransmission(r, this.dock.beads[0].material);
     this.edit?.dispose();
     this.caret?.geometry.dispose();
     for (const x of [this.band, this.selection, this.flash, this.blade, this.bladeConf, this.spot, this.aura, this.pen, this.backdrop]) x?.dispose();
@@ -460,15 +460,4 @@ export default class Diff extends Scene {
     for (const m of this.mats) m.dispose();
     this.stage?.dispose();
   }
-}
-
-/**
- * The transmission target three's renderer made for a glass material's last render (null if it never rendered): the
- * texture three binds to the material's transmissionSamplerMap uniform, and the target that owns it (three's internals,
- * as her.ts and repo.ts read them: no public API frees it).
- */
-function transmissionTarget(renderer: THREE.WebGLRenderer, m: THREE.Material): THREE.RenderTarget | null {
-  if (!renderer.properties.has(m)) return null;
-  const p = renderer.properties.get(m) as { uniforms?: { transmissionSamplerMap?: { value: THREE.Texture | null } } };
-  return p.uniforms?.transmissionSamplerMap?.value?.renderTarget ?? null;
 }
