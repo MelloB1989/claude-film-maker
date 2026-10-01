@@ -412,8 +412,7 @@ export default class Graph extends Scene {
     const end = v3(looseEnd(T.ping + 0.1, NODES.maya.pos, NODES.trip.pos, T.heal).end);
     const tag = end.clone().add(new THREE.Vector3(TAG.dx - len(FORWARD) * ADV * LABEL_EM, TAG.dy + LABEL_EM, 0));
     const mL = M.clone().add(new THREE.Vector3(-NODES.maya.r * 2.2, 0.01, 0)), ringTop = Tp.clone().add(new THREE.Vector3(0, NODES.trip.r * 1.8, 0));
-    // the tag follows its end onto the trip as the link heals: its far end then
-    const tagHome = P('trip').add(new THREE.Vector3(NODES.trip.r * LABEL_GAP + len(TRIP) * ADV * LABEL_EM, 0, 0));
+    const ringRight = Tp.clone().add(new THREE.Vector3(NODES.trip.r * 1.8, 0, 0));
     const label = (id: NodeId, n: number) => P(id).add(new THREE.Vector3(NODES[id].r * LABEL_GAP + n * ADV * LABEL_EM, 0, 0));
     const graph = [A, M, Tp, Hh, C, label('hotel', len(HOTEL)), label('city', len(CITY))];
     const summary = fitKey(T.answer, graph, { az: 8, el: 7, fov: FOV, margin: [0.075, 0.065], bias: [0.01, 0.44], roll: 0.4 }, WORLD, ease.inOutQuad);
@@ -434,8 +433,8 @@ export default class Graph extends Scene {
       // the thread races off the page: the camera pulls back and round after it, and holds the edge as it lands
       fitKey(T.land + 0.12, [L1, A, A.clone().add(new THREE.Vector3(NODES.acme.r * LABEL_GAP + len(ACME) * ADV * LABEL_EM, 0, 0))], { az: 3, el: 5, fov: FOV, margin: [0.14, 0.3], bias: [0.02, -0.08], roll: -0.9 }, WORLD, ease.inOutCubic),
       // "the dots…": open on the constellation, the dangling link in the middle of the frame
-      fitKey(T.ping + 0.1, [mL, end, tag, ringTop], { az: 3, el: 10, fov: FOV, margin: [0.1, 0.2], bias: [0, 0], roll: -3.2 }, WORLD, ease.inOutCubic),
-      fitKey(T.heal - 0.03, [mL, end, tag, ringTop, tagHome], { az: 5, el: 9, fov: FOV, margin: [0.07, 0.15], bias: [0, 0], roll: -2.2 }, WORLD, ease.inOutQuad),
+      fitKey(T.ping + 0.1, [mL, end, tag, ringTop, ringRight], { az: 3, el: 10, fov: FOV, margin: [0.1, 0.2], bias: [0, 0.06], roll: -3.2 }, WORLD, ease.inOutCubic),
+      fitKey(T.heal - 0.03, [mL, end, tag, ringTop, ringRight], { az: 5, el: 9, fov: FOV, margin: [0.065, 0.14], bias: [0, 0.06], roll: -2.2 }, WORLD, ease.inOutQuad),
       // the walk: the camera pulls back with it, and on as the terminal rises into the foreground under the graph
       fitKey(T.hops[2]! + 0.12, graph, { az: 7, el: 7, fov: FOV, margin: [0.1, 0.09], bias: [0, 0.44], roll: 0.3 }, WORLD, ease.inOutCubic),
       summary,
