@@ -258,14 +258,13 @@ export default class Repo extends Scene {
 
   // ---------------------------------------------------------------------------------------------- the terminal
 
-  /** Row r's top (panel px) with every row above it open (panels.ts's layout: the bar, the padding, rows of lineH). */
+  /** Row r's top (panel px) with every row above it open. */
   private rowTop(r: number) {
-    const s = TERM.size / 28;
-    return Math.round(52 * s) + Math.round(20 * s) + r * this.lineH();
+    return this.term.rowTop(r);
   }
 
   private lineH() {
-    return Math.round(TERM.size * 1.6 * 2) / 2;
+    return this.term.lineH;
   }
 
   /** A point on the terminal (panel px from its top left; z px in front of its face), in the world. */
@@ -275,7 +274,7 @@ export default class Repo extends Scene {
   }
 
   private buildTerminal() {
-    const T = this.T, padX = Math.round(28 * (TERM.size / 28));
+    const T = this.T;
     const typed = (text: string, at: number, end: number): PanelLine => ({ text, kind: 'cmd', at, cps: (Array.from(text).length - 3) / (end - at) });
     const cd = typed(CD!, T.cd.at, T.cd.end), log = typed(GITLOG!, T.log.at, T.log.end);
     this.term = new Panel({
@@ -297,7 +296,8 @@ export default class Repo extends Scene {
     this.chipSweep = withSweep(this.chipMat);
     const name = unlit(LIN.bone);
     this.mats.push(this.chipMat, name);
-    const specs = layoutChips(DIRS, padX, 0.6 * CHIP.em, CHIP.pad, CHIP.gap);
+    // (the listing's row is the chips': they start where its text would)
+    const specs = layoutChips(DIRS, this.term.textOrigin(1).x, 0.6 * CHIP.em, CHIP.pad, CHIP.gap);
     const row = this.rowTop(1) + this.lineH() / 2;
     specs.forEach((spec, i) => {
       // in panel px: the group scales them into the panel's space (its mesh is w/1000 wide)
@@ -514,9 +514,9 @@ export default class Repo extends Scene {
 
   /** The terminal shot's keys (they also set the dive's direction: its last key looks down it). */
   private terminalKeys(): CamKey[] {
-    const T = this.T, adv = 0.6 * TERM.size, padX = Math.round(28 * (TERM.size / 28)), mid = this.lineH() / 2;
-    const cmd = this.termPoint(padX + 9 * adv, this.rowTop(0) + mid);
-    const chips = this.termPoint(padX + 16 * adv, this.rowTop(1) + mid, CHIP.lift * 0.6);
+    const T = this.T, mid = this.lineH() / 2;
+    const cmd = this.termPoint(this.term.cellOrigin(0, 9).x, this.rowTop(0) + mid);
+    const chips = this.termPoint(this.term.cellOrigin(1, 16).x, this.rowTop(1) + mid, CHIP.lift * 0.6);
     // a slow push and turn while she types; on the downbeat the camera snaps in onto the chips as they pop and drifts
     // on them while the light crosses them; then it turns down the line of the dive as `git log` is entered
     return [
@@ -659,8 +659,8 @@ export default class Repo extends Scene {
   private focus(t: number) {
     const T = this.T, st = this.stage;
     const inv = (p: THREE.Vector3) => 1 / Math.max(0.03, st.depthOf(p));
-    const adv = 0.6 * TERM.size, padX = Math.round(28 * (TERM.size / 28)), mid = this.lineH() / 2;
-    const head = (row: number, at: number, end: number) => this.termPoint(padX + (2 + 17 * clamp((t - at) / (end - at))) * adv, this.rowTop(row) + mid);
+    const mid = this.lineH() / 2;
+    const head = (row: number, at: number, end: number) => this.termPoint(this.term.cellOrigin(row, 2 + 17 * clamp((t - at) / (end - at))).x, this.rowTop(row) + mid);
     const chip = this.chips[1]!;
     const ks: [number, number, ((x: number) => number)?][] = [
       [T.cd.at, inv(head(0, T.cd.at, T.cd.end))],

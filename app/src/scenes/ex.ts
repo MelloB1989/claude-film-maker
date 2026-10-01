@@ -208,10 +208,9 @@ export default class Ex extends Scene {
     this.termGroup.add(this.term.mesh);
     this.term.mesh.renderOrder = 1;
     this.stage.scene.add(this.termGroup);
-    // the output row's first cell, on its baseline (panels.ts: the title bar, the top padding, rows of lineH, the cap
-    // height centred in the row), a hair in front of the panel's face
-    const lineH = Math.round(TERM.size * 1.6 * 2) / 2, base = 52 + 20 + TERM.row * lineH + lineH / 2 + 0.365 * TERM.size;
-    this.line.copy(this.panelPoint(this.term, this.termGroup, 28, base, 0.6));
+    // the output row's first cell, on its baseline, a hair in front of the panel's face
+    const cell = this.term.cellOrigin(TERM.row, 0);
+    this.line.copy(this.panelPoint(this.term, this.termGroup, cell.x, cell.baseline, 0.6));
 
     this.buildField();
     this.actors = new Actors(256, this.atlas);
@@ -514,8 +513,8 @@ export default class Ex extends Scene {
     g.quaternion.copy(cam.quaternion).slerp(new THREE.Quaternion(), ease.inOutQuad(k));
     g.position.copy(pos);
     // the panel hangs about the text: its row's left end, on the baseline, at `pos`
-    const lineH = 45, base = 20 + lineH / 2 + 0.365 * CARD_PX;
-    g.position.sub(this.panelPoint(c.panel, g, CARD_PX, base).sub(g.position));
+    const { x: x0, baseline: base } = c.panel.textOrigin(0);
+    g.position.sub(this.panelPoint(c.panel, g, x0, base).sub(g.position));
     g.updateMatrixWorld(true);
     // the card fades as its letters melt
     const fade = prog(t, morph0 + 0.08, morph0 + 0.32, ease.inOutCubic);
@@ -529,7 +528,8 @@ export default class Ex extends Scene {
     for (let i = 0; i < c.chars.length; i++) {
       const a = this.atlas.of(c.chars[i]!), b = this.atlas.of(c.targets[i]!);
       if (a < 0 && b < 0) continue;
-      const at = this.panelPoint(c.panel, g, CARD_PX + i * 0.6 * CARD_PX, base, 0.6);
+      // (its cell on the card's mono grid: (i·0.6)·size, not cellOrigin's i·adv, which can differ in the last bit)
+      const at = this.panelPoint(c.panel, g, x0 + i * 0.6 * CARD_PX, base, 0.6);
       // the melt: a cascade from the left, each letter over 0.16 s
       const m = prog(t, morph0 + 0.011 * i, morph0 + 0.011 * i + 0.16, ease.inOutCubic);
       // then the float this cell belongs to goes to the row: Berlin's to its slot, Lisbon's into its slot and gone

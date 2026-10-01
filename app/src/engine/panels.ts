@@ -488,10 +488,56 @@ function mixLin(a: keyof typeof HEX, b: keyof typeof HEX, k: number) {
 
 // ---------------------------------------------------------------------------------------------------- panel
 
-interface Geometry {
-  s: number; size: number; adv: number; lineH: number;
-  bar: number; padX: number; padTop: number; padBottom: number;
-  numW: number; signW: number; textX: number;
+/**
+ * A panel's layout in panel px (from its top left, y down): the code's metrics and the chrome's, all fixed by its spec.
+ * Rows of `lineH` start under the title bar and `padTop`; a row's text starts at `textX` (after the side padding, the
+ * numbers gutter and the diff's sign column) on the mono grid of `adv`, its baseline half a row plus 0.365 em down
+ * from the row's top (the cap height centred in the row).
+ */
+export interface PanelLayout {
+  /** The chrome's scale: the code size over the 28 px it is designed at. */
+  s: number;
+  /** Code size (panel px per em). */
+  size: number;
+  /** One mono cell's advance: 0.6 em (JetBrains Mono's every advance). */
+  adv: number;
+  /** A row's height: 1.6 em, to the half px. */
+  lineH: number;
+  /** The title bar's height (a card's label; a card without a title has none). */
+  bar: number;
+  /** The side padding, and the padding above the first row and below the last. */
+  padX: number;
+  padTop: number;
+  padBottom: number;
+  /** The numbers gutter's width and the diff's sign column's (0 without them). */
+  numW: number;
+  signW: number;
+  /** Where a row's text starts: padX + numW + signW. */
+  textX: number;
+}
+
+/** What a panel's layout depends on: its kind, code size, title (a card's label), gutter and lines (their count and kinds). */
+export type PanelLayoutSpec = Pick<PanelSpec, 'kind' | 'title' | 'gutter' | 'firstLine' | 'size'> & { lines: readonly Pick<PanelLine, 'kind'>[] };
+
+/** The gutter a spec draws: as given, or an editor's line numbers. */
+const gutterOf = (spec: Pick<PanelSpec, 'kind' | 'gutter'>) => spec.gutter ?? (spec.kind === 'editor' ? 'numbers' : 'none');
+
+/**
+ * The layout a panel of this spec has (Panel.layout), before there is one: it needs neither w nor h, so a scene can
+ * size a panel by its rows (an editor's window of N rows is bar + padTop + N·lineH + its bottom margin tall).
+ */
+export function panelLayout(spec: PanelLayoutSpec): PanelLayout {
+  const size = spec.size ?? BASE_PX, s = size / BASE_PX;
+  const adv = size * 0.6; // JetBrains Mono: every advance is 600 of 1000 units
+  const lineH = Math.round(size * 1.6 * 2) / 2;
+  const bar = spec.kind === 'card' ? (spec.title ? Math.round(58 * s) : 0) : Math.round(52 * s);
+  const gutter = gutterOf(spec);
+  const hasDiff = spec.lines.some((l) => l.kind === 'add' || l.kind === 'del');
+  const last = (spec.firstLine ?? 1) + spec.lines.length - 1;
+  const numW = gutter === 'numbers' ? Math.max(2, String(last).length) * adv + Math.round(22 * s) : 0;
+  const signW = gutter === 'diff' || (gutter === 'numbers' && hasDiff) ? 2 * adv : 0;
+  const padX = Math.round(28 * s);
+  return { s, size, adv, lineH, bar, padX, padTop: Math.round(20 * s), padBottom: Math.round(22 * s), numW, signW, textX: padX + numW + signW };
 }
 
 export interface PanelFrame {
@@ -518,7 +564,7 @@ export class Panel {
   private mat: THREE.ShaderMaterial;
   private shadowMat: THREE.ShaderMaterial;
   private layer: Layer2D | null = null;
-  private g: Geometry;
+  private g: PanelLayout;
   private chars: string[][];
   private cls: TokenClass[][];
   /** A terminal's typed line with no `$ ` of its own gets one drawn before it (not a continuation after a `\`). */
@@ -527,7 +573,7 @@ export class Panel {
 
   constructor(public readonly spec: PanelSpec, private pxScale = 2) {
     const { w, h } = spec;
-    this.g = this.measure();
+    this.g = panelLayout(spec);
     const lines = spec.lines;
     this.chars = lines.map((l) => glyphs(l.text));
     this.cls = lines.map((l, i) => {
@@ -581,6 +627,72 @@ export class Panel {
     return lineStates(this.spec.lines, frameT(t), this.spec.kind === 'terminal').map((s) => s.struck);
   }
 
+  // ------------------------------------------------------------------------------------------------ geometry
+  //
+  // Where things are on the panel, in panel px from its top left (y down), so a scene can put light, a caret, a glyph
+  // actor or a chip on a row without copying the layout. Without t, the layout with every row open (no row opening, no
+  // scroll): where a row sits once the rows above it have opened. With t, where the panel draws it in the frame at t
+  // (rows opening as their lines start, a terminal scrolling its newest row into view), one state per output frame as
+  // draw(t) paints it. A line index the panel doesn't have throws.
+
+  /** The panel's layout (its code's metrics and its chrome's). */
+  get layout(): Readonly<PanelLayout> {
+    return this.g;
+  }
+
+  /** One mono cell's advance (px). */
+  get adv() {
+    return this.g.adv;
+  }
+
+  /** A row's height (px). */
+  get lineH() {
+    return this.g.lineH;
+  }
+
+  /** Line `line`'s row top (px): with every row above it open, or as drawn at t. */
+  rowTop(line: number, t?: number): number {
+    this.checkLine(line);
+    if (t !== undefined) return this.topsAt(t)[line]!;
+    const g = this.g;
+    let y = 0;
+    for (let i = 0; i < line; i++) y += g.lineH;
+    return g.bar + g.padTop + y;
+  }
+
+  /**
+   * Where line `line`'s own text starts on its baseline (px): after the gutter (or, in a terminal, after the `$ ` it
+   * draws before a typed line without one; a chat's user turn on the right). With t, as drawn at t.
+   */
+  textOrigin(line: number, t?: number): { x: number; baseline: number } {
+    const top = this.rowTop(line, t), g = this.g;
+    return { x: this.textX(line) + (this.chromePrompt[line] ? 2 * g.adv : 0), baseline: top + g.lineH / 2 + 0.365 * g.size };
+  }
+
+  /**
+   * The left end of the baseline of character `col` of line `line` (px): where the panel draws it, on the mono grid.
+   * `col` may be fractional (a caret between cells, a typing head) or past the text's end. With t, as drawn at t.
+   */
+  cellOrigin(line: number, col: number, t?: number): { x: number; baseline: number } {
+    const o = this.textOrigin(line, t);
+    return { x: o.x + col * this.g.adv, baseline: o.baseline };
+  }
+
+  private checkLine(line: number) {
+    if (!Number.isInteger(line) || line < 0 || line >= this.spec.lines.length) {
+      throw new RangeError(`Panel: no line ${line} (it has ${this.spec.lines.length})`);
+    }
+  }
+
+  /** The last frame's row tops the geometry read, by frame time (a scene asks for several rows a frame). */
+  private tops: { tq: number; top: number[] } | null = null;
+
+  private topsAt(t: number): number[] {
+    const tq = frameT(t);
+    if (this.tops?.tq !== tq) this.tops = { tq, top: this.rows(tq).top };
+    return this.tops.top;
+  }
+
   /** Repaint for time t: lines typed in by `at`/cps, the cursor blinking on the frame grid. Cheap when nothing changed. */
   draw(t: number) {
     this.mat.uniforms.uOpacity!.value = this.opacity;
@@ -618,31 +730,10 @@ export class Panel {
     return lang;
   }
 
-  private gutter() {
-    return this.spec.gutter ?? (this.spec.kind === 'editor' ? 'numbers' : 'none');
-  }
-
-  private measure(): Geometry {
-    const { spec } = this;
-    const size = spec.size ?? BASE_PX, s = size / BASE_PX;
-    const adv = size * 0.6; // JetBrains Mono: every advance is 600 of 1000 units
-    const lineH = Math.round(size * 1.6 * 2) / 2;
-    const bar = spec.kind === 'card' ? (spec.title ? Math.round(58 * s) : 0) : Math.round(52 * s);
-    const gutter = this.gutter();
-    const hasDiff = spec.lines.some((l) => l.kind === 'add' || l.kind === 'del');
-    const last = (spec.firstLine ?? 1) + spec.lines.length - 1;
-    const numW = gutter === 'numbers' ? Math.max(2, String(last).length) * adv + Math.round(22 * s) : 0;
-    const signW = gutter === 'diff' || (gutter === 'numbers' && hasDiff) ? 2 * adv : 0;
-    const padX = Math.round(28 * s);
-    return { s, size, adv, lineH, bar, padX, padTop: Math.round(20 * s), padBottom: Math.round(22 * s), numW, signW, textX: padX + numW + signW };
-  }
-
-  /** Everything the canvas shows at t (pure), and a key that changes exactly when it does. */
-  frame(t: number): PanelFrame {
-    const tq = frameT(t);
+  /** Each line's state at frame time tq, and its row's top: each row as tall as it has opened, a terminal scrolled. */
+  private rows(tq: number): { st: LineState[]; top: number[] } {
     const { spec, g } = this;
-    const lines = spec.lines;
-    const st = lineStates(lines, tq, spec.kind === 'terminal');
+    const st = lineStates(spec.lines, tq, spec.kind === 'terminal');
     // rows: each as tall as it has opened; a terminal scrolls to keep its newest row in view
     const y0 = g.bar + g.padTop, avail = spec.h - y0 - g.padBottom;
     const top: number[] = [];
@@ -650,11 +741,20 @@ export class Panel {
     for (const s of st) { top.push(y); y += g.lineH * s.open; }
     const scroll = spec.kind === 'terminal' ? Math.max(0, y - avail) : 0;
     for (let i = 0; i < top.length; i++) top[i] = y0 + top[i]! - scroll;
+    return { st, top };
+  }
+
+  /** Everything the canvas shows at t (pure), and a key that changes exactly when it does. */
+  frame(t: number): PanelFrame {
+    const tq = frameT(t);
+    const { spec, g } = this;
+    const lines = spec.lines;
+    const { st, top } = this.rows(tq);
     // line numbers (a `numbers` gutter) count the rows that are open; a deletion gives its number up once its strike
     // begins (it is no longer in the file), and the rows below renumber
     const num: number[] = [];
     let n = (spec.firstLine ?? 1) - 1;
-    const numbered = this.gutter() === 'numbers';
+    const numbered = gutterOf(spec) === 'numbers';
     for (let i = 0; i < lines.length; i++) {
       const counted = numbered && !(lines[i]!.kind === 'del' && st[i]!.struck > 0) && st[i]!.open > 0.5;
       if (counted) n++;

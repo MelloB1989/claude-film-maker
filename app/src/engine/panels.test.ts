@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { Panel, lineEnd, tokenize, type Lang, type PanelLine, type PanelSpec } from './panels';
+import { Panel, lineEnd, panelLayout, tokenize, type Lang, type PanelLine, type PanelSpec } from './panels';
 
 // Expected values are counted by hand from the strings (character positions, cps arithmetic), never from panels.ts.
 
@@ -273,4 +273,93 @@ test('a check mark in a row scrolled up under the title bar leaves the shader\'s
   const five = new Panel({ kind: 'terminal', w: 900, h: 372, lines: [{ text: '✔ ✔ ✔ ✔ ✔', kind: 'out' }] }).frame(0);
   expect(five.checks.slot).toHaveLength(4);
   expect(five.checks.canvas).toHaveLength(1);
+});
+
+// ----------------------------------------------------------------------------------------------------- geometry
+
+// The layout, counted by hand from the chrome's design sizes at 28 px code (a 52 px bar, 20 px above the first row,
+// 22 below the last, 28 px side padding, 22 px after the line numbers), scaled by size/28 and rounded to whole px;
+// rows 1.6 em to the half px; a mono cell 0.6 em; a row's baseline its top + half a row + 0.365 em (the cap height
+// centred in it).
+
+test('geometry: the layout getters (code size, advance, row height) at 28, 30 and 24 px', () => {
+  const t28 = new Panel({ kind: 'terminal', w: 1120, h: 232, lines: [] });
+  expect([t28.layout.size, t28.adv, t28.lineH]).toEqual([28, 16.8, 45]); // 1.6 x 28 = 44.8, to the half px
+  expect(t28.layout.bar).toBe(52);
+  expect(t28.layout.textX).toBe(28);
+  const t30 = new Panel({ kind: 'terminal', w: 900, h: 300, size: 30, lines: [] });
+  expect([t30.adv, t30.lineH, t30.layout.bar, t30.layout.padTop, t30.layout.textX]).toEqual([18, 48, 56, 21, 30]);
+  // an editor at 24 px with a numbers gutter (two digits) and a diff's sign column (two cells): 24 + 2 x 14.4 + 19 + 2 x 14.4
+  const ed = new Panel({ kind: 'editor', w: 640, h: 687, size: 24, gutter: 'numbers', lines: [{ text: 'a' }, { text: 'b', kind: 'del' }] });
+  expect(ed.lineH).toBe(38.5); // 1.6 x 24 = 38.4
+  expect(ed.adv).toBeCloseTo(14.4, 12);
+  expect([ed.layout.bar, ed.layout.padTop, ed.layout.padBottom, ed.layout.padX]).toEqual([45, 17, 19, 24]);
+  expect(ed.layout.numW).toBeCloseTo(47.8, 12);
+  expect(ed.layout.signW).toBeCloseTo(28.8, 12);
+  expect(ed.layout.textX).toBeCloseTo(100.6, 12);
+});
+
+test('geometry: panelLayout is the layout a panel would have, before there is one (no w or h needed)', () => {
+  const spec = { kind: 'editor', size: 24, gutter: 'numbers', lines: [{ text: 'a' }, { text: 'b', kind: 'add' }] } as const;
+  const L = panelLayout(spec);
+  expect(L).toEqual(new Panel({ ...spec, w: 640, h: 400 }).layout);
+  // what it reads from the lines: a sign column only with a diff in them, a gutter as wide as the last number
+  expect(panelLayout({ kind: 'editor', lines: [{ text: 'a' }] }).signW).toBe(0);
+  const hundred = panelLayout({ kind: 'editor', lines: Array.from({ length: 100 }, () => ({ text: '' })) });
+  expect(hundred.numW).toBeCloseTo(3 * 16.8 + 22, 12);
+});
+
+test('geometry: rowTop without t is the layout with every row above open: the bar, the padding, rows of lineH', () => {
+  const lines: PanelLine[] = [{ text: '$ git log', kind: 'cmd' }, { text: '', kind: 'out', at: 5 }, { text: '', kind: 'cmd', at: 5 }];
+  const p = new Panel({ kind: 'terminal', w: 1120, h: 232, lines });
+  expect([0, 1, 2].map((i) => p.rowTop(i))).toEqual([72, 117, 162]);
+  const q = new Panel({ kind: 'terminal', w: 900, h: 300, size: 30, lines: [...lines, { text: '', kind: 'out', at: 6 }] });
+  expect([0, 1, 2, 3].map((i) => q.rowTop(i))).toEqual([77, 125, 173, 221]);
+});
+
+test('geometry: rowTop at t is where the panel draws the row then: rows opening, a terminal scrolling', () => {
+  const lines: PanelLine[] = [{ text: '$ ls', kind: 'cmd' }, { text: 'a', kind: 'out', at: 1 }, { text: 'b', kind: 'out', at: 2 }];
+  const p = new Panel({ kind: 'terminal', w: 900, h: 400, lines });
+  expect(p.rowTop(2, 0.5)).toBe(117); // row 1 not yet open (it opens over 0.86..1)
+  expect(p.rowTop(2, 1.5)).toBe(162);
+  expect(p.rowTop(1, 0.5)).toBe(117);
+  // as frame() lays it out, for every row at every frame
+  for (let f = 0; f < 90; f++) {
+    const fr = p.frame(f / 30);
+    for (let i = 0; i < lines.length; i++) expect(p.rowTop(i, f / 30)).toBe(fr.top[i]!);
+  }
+  // 7 rows of 45 in a 372 px terminal (278 px under the bar) scroll it 37 px: row 0's top from 72 to 35
+  const many: PanelLine[] = [0, 1, 2, 3, 4, 5, 6].map((k): PanelLine => ({ text: `line ${k}`, kind: 'out', at: k }));
+  const s = new Panel({ kind: 'terminal', w: 900, h: 372, lines: many });
+  expect(s.rowTop(0, 6)).toBe(35);
+  expect(s.rowTop(0)).toBe(72); // (without t: unscrolled)
+});
+
+test('geometry: textOrigin and cellOrigin: where a line\'s text, and its character col, sit on the baseline', () => {
+  const p = new Panel({ kind: 'terminal', w: 1120, h: 232, lines: [{ text: '$ git log', kind: 'cmd' }, { text: 'fatal', kind: 'out' }] });
+  expect(p.textOrigin(1)).toEqual({ x: 28, baseline: 117 + 22.5 + 10.22 });
+  expect(p.cellOrigin(1, 0)).toEqual({ x: 28, baseline: 117 + 22.5 + 10.22 });
+  expect(p.cellOrigin(1, 3).x).toBeCloseTo(28 + 3 * 16.8, 12);
+  expect(p.cellOrigin(1, 2.5).x).toBeCloseTo(28 + 2.5 * 16.8, 12); // between cells (a caret, a head)
+  // a terminal's typed line without a `$ ` of its own: the panel draws one before it, and its text starts 2 cells on
+  const q = new Panel({ kind: 'terminal', w: 900, h: 300, lines: [{ text: 'ls', kind: 'cmd' }] });
+  expect(q.textOrigin(0).x).toBeCloseTo(28 + 2 * 16.8, 12);
+  expect(q.cellOrigin(0, 1).x).toBeCloseTo(28 + 3 * 16.8, 12);
+  // a chat's user turn sits on the right: its 3 characters end 28 + 16 px from the right edge
+  const c = new Panel({ kind: 'chat', w: 900, h: 300, lines: [{ text: 'hey', kind: 'cmd' }] });
+  expect(c.textOrigin(0).x).toBeCloseTo(900 - 28 - 16 - 3 * 16.8, 12);
+  // an editor's text is past its gutter; at t its baseline follows its row
+  const e = new Panel({ kind: 'editor', w: 640, h: 687, size: 24, gutter: 'numbers', lines: [{ text: 'a' }, { text: 'b', kind: 'add', at: 1 }, { text: 'c' }] });
+  expect(e.textOrigin(2).x).toBeCloseTo(100.6, 12);
+  expect(e.textOrigin(2, 0).baseline).toBeCloseTo(62 + 38.5 + 19.25 + 8.76, 12); // row 1 shut: row 2 right under row 0
+  expect(e.textOrigin(2, 1).baseline).toBeCloseTo(62 + 77 + 19.25 + 8.76, 12);
+});
+
+test('geometry: a row the panel does not have is an error, not a guess', () => {
+  const p = new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'a' }, { text: 'b' }] });
+  for (const i of [-1, 2, 1.5, NaN]) {
+    expect(() => p.rowTop(i)).toThrow();
+    expect(() => p.textOrigin(i, 1)).toThrow();
+    expect(() => p.cellOrigin(i, 0)).toThrow();
+  }
 });

@@ -28,7 +28,7 @@ import * as THREE from 'three';
 import { Scene, type Frame, type PostOverrides } from '../engine/scene';
 import { CameraRig, Stage, initAreaLights, type CamKey } from '../engine/stage';
 import { W, H, makeRT } from '../engine/gl';
-import { Panel, type PanelLine } from '../engine/panels';
+import { Panel, panelLayout, type PanelLine } from '../engine/panels';
 import { DIFF_THREAD, strandFlare } from '../engine/thread3d';
 import { LIN } from '../engine/palette';
 import { LOOK } from '../engine/look';
@@ -72,13 +72,9 @@ const OLD = 2, HEAD = 3;
 /** The editor: repo's file (640 wide at 24 px code), its window 16 rows tall: the file down to line 16, and once the
  * two added rows have opened, down to line 14 (an editor's viewport: the rows below the diff scroll out of it). */
 const SIZE = 24;
-const PS = SIZE / 28;
-/** panels.ts's layout for this panel (measure(): an editor with a numbers gutter and a diff's sign column). */
-const G = (() => {
-  const adv = 0.6 * SIZE, lineH = Math.round(SIZE * 1.6 * 2) / 2, bar = Math.round(52 * PS), padTop = Math.round(20 * PS);
-  const padX = Math.round(28 * PS), numW = 2 * adv + Math.round(22 * PS), signW = 2 * adv;
-  return { adv, lineH, bar, padTop, padX, numW, signW, textX: padX + numW + signW };
-})();
+/** The editor's layout, the Panel's own for its spec (an editor with a numbers gutter and the diff's sign column): the
+ * layout reads only the file's lines' kinds and count, so they come untimed here. */
+const G = panelLayout({ kind: 'editor', size: SIZE, gutter: 'numbers', lines: fileLines({ strike: { at: 0, end: 1 }, conf: { at: 0, end: 1 }, add: 0, addEnd: 1 }) });
 /** 16 rows, and below the last a margin that stops short of the next row's glyphs (they start 10.5 px into a row). */
 const ROWS = 16;
 export const EDIT = { w: 640, h: G.bar + G.padTop + ROWS * G.lineH + 9 };
@@ -175,18 +171,9 @@ export default class Diff extends Scene {
     for (const b of Object.values(this.signs)) this.editG.add(b.mesh);
   }
 
-  /** The panel's row tops at the file's time `d` (px), cached for the frame being drawn. */
-  private tops: number[] = [];
-  private topsAt = NaN;
-
   /** Row i's top and its text's baseline (px) in the panel's layout at the file's time d (its rows open as they do). */
   private row(i: number, d: number) {
-    if (d !== this.topsAt) {
-      this.tops = this.edit.frame(d).top;
-      this.topsAt = d;
-    }
-    const top = this.tops[i]!;
-    return { top, base: top + G.lineH / 2 + 0.365 * SIZE };
+    return { top: this.edit.rowTop(i, d), base: this.edit.textOrigin(i, d).baseline };
   }
 
   /** The file's clock on the frame grid: what the Panel draws for the frame at t (one state across its shutter). */
