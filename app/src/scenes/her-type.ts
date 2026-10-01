@@ -7,8 +7,8 @@
 // one baseline with the line's own spacing. The gutter mark (`+` or `−`, JetBrains Mono) is flat, in its own column
 // left of the text as on the site (Hero.tsx).
 //
-// Also here: withSweep (a specular sweep band in a hero material's own light) and Backdrop (the studio's dark wall,
-// lifting softly behind the hero word).
+// Also here: Backdrop (the studio's dark wall, lifting softly behind the hero word). The specular sweep across the hero
+// words is the engine's (engine/sweep.ts).
 import * as THREE from 'three';
 import { Type3D, type Glyph3D } from '../engine/type3d';
 
@@ -84,38 +84,6 @@ export class DiffLine {
     this.flat.dispose();
     this.mark.dispose();
   }
-}
-
-/**
- * A specular sweep on hero type: a diagonal band of light that runs across a word as it lands, strongest on its bevels
- * and walls, where a passing light glints, and faint on its face. The film's satin bone is too diffuse for a physical
- * strip light to draw a band (its spill lights the whole word first), so the band is added to the material's outgoing
- * light: uniform (x) band centre in world x, (y) half-width, (z) slope (world x per unit of world y: the band leans),
- * (w) level. Chained onto whatever the material patches already (Mat.accent's diff glow), on a material this scene
- * owns. Neutral light: bone stays out of the bloom's chroma gate however bright the glint.
- */
-export function withSweep(m: THREE.MeshPhysicalMaterial): THREE.IUniform<THREE.Vector4> {
-  const u = { value: new THREE.Vector4(0, 0.04, 0.4, 0) };
-  const prev = m.onBeforeCompile.bind(m);
-  const base = m.customProgramCacheKey();
-  m.onBeforeCompile = (sh, r) => {
-    prev(sh, r);
-    sh.uniforms.uHerSweep = u;
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vHerW;\nvarying vec3 vHerN;')
-      .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\n\tvHerN = objectNormal;')
-      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n\tvHerW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform vec4 uHerSweep;\nvarying vec3 vHerW;\nvarying vec3 vHerN;')
-      .replace('#include <opaque_fragment>', /* glsl */ `{
-		float herS = (vHerW.x + uHerSweep.z * vHerW.y - uHerSweep.x) / uHerSweep.y;
-		float herEdge = smoothstep(0.08, 0.55, 1.0 - abs(normalize(vHerN).z));
-		outgoingLight += vec3(uHerSweep.w * exp(-herS * herS) * (0.16 + 1.3 * herEdge));
-	}
-	#include <opaque_fragment>`);
-  };
-  m.customProgramCacheKey = () => `${base}|her-sweep`;
-  return u;
 }
 
 /**

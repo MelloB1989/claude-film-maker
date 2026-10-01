@@ -27,7 +27,8 @@ import { norm, type VO } from '../engine/vo';
 import type { AudioData } from '../engine/audio';
 import { clamp, ease, keys, lerp, prog, pulse } from '../engine/util';
 import { Bead } from '../engine/bead';
-import { Backdrop, DiffLine, FLAT, unlit, withSweep } from './her-type';
+import { sweepAt, withSweep, type SweepBand } from '../engine/sweep';
+import { Backdrop, DiffLine, FLAT, unlit } from './her-type';
 import { fitKey } from './her-camera';
 import S from './her.strings.json';
 
@@ -103,7 +104,7 @@ export default class Her extends Scene {
   private mats: THREE.Material[] = [];
   private accent: THREE.MeshPhysicalMaterial[] = [];
   /** Each + line's specular sweep (its hero materials share one band). */
-  private sweeps: THREE.IUniform<THREE.Vector4>[] = [];
+  private sweeps: SweepBand[] = [];
   private backdrop!: Backdrop;
   /** The kicker behind the bead: a softbox whose reflection rings its silhouette out of the ink. */
   private kicker!: THREE.RectAreaLight;
@@ -539,18 +540,16 @@ export default class Her extends Scene {
     this.pool.target.position.copy(aim).add(new THREE.Vector3(0.06, -0.02, 0));
     this.pool.target.updateMatrixWorld();
     this.pool.intensity = 2.6 * prog(t, T.beatAfterDown, T.beatAfterDown + 0.3);
-    // the sweep: a band of light runs across each hero word left to right as it lands (0.5 s from the impact)
+    // the sweep: a band of light runs across each hero word left to right as it lands (0.5 s from the impact), from a
+    // band-width before the word to one after it along its line's baseline
     const lines = [this.plus1, this.plus2];
     this.sweeps.forEach((sw, i) => {
-      const l = lines[i]!, hits: [number, number][] = [[1, i === 0 ? T.memory : T.fact], [4, i === 0 ? T.commit : T.blame]];
-      sw.value.w = 0;
-      for (const [w, at] of hits) {
-        const u = prog(t, at + 0.03, at + 0.53, ease.inOutQuad);
-        if (u <= 0 || u >= 1) continue;
-        const [x0, x1] = l.wordSpan(w), sz = l.solid.size;
-        const origin = l.group.localToWorld(new THREE.Vector3(0, 0, 0));
-        sw.value.set(origin.x + lerp(x0 - 1.0 * sz, x1 + 1.0 * sz, u) + 0.4 * origin.y, 0.35 * sz, 0.4, 2.2 * Math.sin(Math.PI * u));
-      }
+      const l = lines[i]!, sz = l.solid.size, origin = l.group.localToWorld(new THREE.Vector3(0, 0, 0));
+      const hits: [number, number][] = [[1, i === 0 ? T.memory : T.fact], [4, i === 0 ? T.commit : T.blame]];
+      sweepAt(sw, t, hits.map(([w, at]) => {
+        const [x0, x1] = l.wordSpan(w);
+        return { t0: at + 0.03, t1: at + 0.53, x0: origin.x + (x0 - 1.0 * sz), x1: origin.x + (x1 + 1.0 * sz), y: origin.y };
+      }), { width: 0.35 * sz });
     });
     // the backdrop's pool follows the hero word
     const eye = this.stage.camera.position, zb = this.backdrop.mesh.position.z;
