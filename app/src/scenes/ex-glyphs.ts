@@ -295,7 +295,7 @@ uniform vec4 uSweepK;    // half-width (m), level
 uniform vec4 uLine;      // the line's first cell origin (x, y, z), cell pitch
 uniform vec4 uCollapse;  // drop time, gravity (m/s²), cells on the line, fade (s)
 uniform vec4 uRegion;    // the region's lift, Berlin's landing time, breath (m), extra
-uniform vec4 uFade;      // the whole cloud's strength, the far side's dimming, unused, unused
+uniform vec4 uFade;      // the whole cloud's strength, the far side's dimming, a lift of light (the beat's breath), unused
 uniform vec4 uFocus;     // the focus distance (m down the view axis), dimming from, to (m off it), level there
 uniform vec3 uSpheroid;
 
@@ -327,6 +327,7 @@ void main() {
   float b = (0.25 + 0.35 * mix(own, lit, uKey.w)) * mix(0.45, 1.0, edge);
   float band = dot(c, uSweep.xyz) - uSweep.w;
   b += uSweepK.y * exp(-band * band / (uSweepK.x * uSweepK.x)) * edge;
+  b += uFade.z * edge;
   for (int s = 0; s < 2; s++) {
     vec4 pg = uPing[s];
     float dt = t - pg.w;
