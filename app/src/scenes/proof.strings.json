@@ -1,0 +1,20 @@
+[
+  "v1",
+  "44",
+  "v3",
+  "72",
+  "v4",
+  "80",
+  "v5",
+  "83",
+  "v7",
+  "91.4%",
+  "knowledge-update 94.9",
+  "multi-session 87.9",
+  "single-session-assistant 96.4",
+  "preference 100",
+  "single-session-user 97.1",
+  "temporal 85.7",
+  "LongMemEval · oracle split · 456/499",
+  "Every round was diagnosed from the previous round’s failures."
+]
