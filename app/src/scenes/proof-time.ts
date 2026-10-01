@@ -5,7 +5,7 @@
 // - The slam: the score comes back on a downbeat (the start of its section inside the scene's window). The odometer's
 //   rounds roll one per beat from there: each round is kicked on its beat (the drums tear into motion with the hit) and
 //   clicks home an eighth note later, on the "and", so 91.4 lands as she says "four.".
-// - The next downbeat flashes the per-category bars; the `%`, the last drum still turning, settles on "bad".
+// - The next downbeat flashes the per-category bars; the `%`, the last drum, flips up into its window on "bad".
 import { wordTimes } from '../engine/motion';
 import { norm, type VO, type Word } from '../engine/vo';
 import type { AudioData } from '../engine/audio';

@@ -26,8 +26,8 @@ export function roundsOf(pairs: readonly string[]): Round[] {
   return out;
 }
 
-/** The roll's ease: full speed on the kick, decelerating into the landing (outQuart: a quarter of the run left at a
- * third of the time, the last tenth taking half of it). */
+/** The roll's ease: full speed on the kick, decelerating into the landing (outQuart: a fifth of the run left at a third
+ * of the time, the last tenth taking over half of it). */
 export const ROLL_POWER = 4;
 export const rollEase = (u: number) => 1 - (1 - clamp(u)) ** ROLL_POWER;
 
