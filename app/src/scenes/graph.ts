@@ -88,9 +88,12 @@ const STUDIO = { drift: 0.22, swing: 0.55, dur: 0.45 };
 const TERM_SIZE = 32;
 const TERM_W = 1020;
 export const TERM_AT = { dist: 0.6, x: 960, y: 826 };
-/** Label em (m) and gap from its bead (bead radii). */
+/** The forward link's tag rides above its loose end, its right end there (m: across, up to its baseline). */
+const TAG = { dx: 0.004, dy: 0.018 };
+/** Label em (m), gap from its bead (bead radii), and how far it floats toward the lens from it (m). */
 const LABEL_EM = 0.0102;
 const LABEL_GAP = 1.5;
+const LABEL_FLOAT = 0.024;
 /** Glow levels (look.ts): the blood dashes, the moss of a heal and a walk, a pearl lit. */
 const GLOW = { blood: 2.2, moss: 2.0, pearl: 3.2 };
 /** Dangling thread samples. */
@@ -407,8 +410,10 @@ export default class Graph extends Scene {
     const { x0, x1 } = this.linkCells();
     const L1 = this.edPt(x1, rb), A = P('acme'), M = P('maya'), Tp = P('trip'), Hh = P('hotel'), C = P('city');
     const end = v3(looseEnd(T.ping + 0.1, NODES.maya.pos, NODES.trip.pos, T.heal).end);
-    const tag = end.clone().add(new THREE.Vector3(0.012 + len(FORWARD) * ADV * LABEL_EM, -0.016, 0));
+    const tag = end.clone().add(new THREE.Vector3(TAG.dx - len(FORWARD) * ADV * LABEL_EM, TAG.dy + LABEL_EM, 0));
     const mL = M.clone().add(new THREE.Vector3(-NODES.maya.r * 2.2, 0.01, 0)), ringTop = Tp.clone().add(new THREE.Vector3(0, NODES.trip.r * 1.8, 0));
+    // the tag follows its end onto the trip as the link heals: its far end then
+    const tagHome = P('trip').add(new THREE.Vector3(NODES.trip.r * LABEL_GAP + len(TRIP) * ADV * LABEL_EM, 0, 0));
     const label = (id: NodeId, n: number) => P(id).add(new THREE.Vector3(NODES[id].r * LABEL_GAP + n * ADV * LABEL_EM, 0, 0));
     const graph = [A, M, Tp, Hh, C, label('hotel', len(HOTEL)), label('city', len(CITY))];
     const summary = fitKey(T.answer, graph, { az: 8, el: 7, fov: FOV, margin: [0.075, 0.065], bias: [0.01, 0.44], roll: 0.4 }, WORLD, ease.inOutQuad);
@@ -429,8 +434,8 @@ export default class Graph extends Scene {
       // the thread races off the page: the camera pulls back and round after it, and holds the edge as it lands
       fitKey(T.land + 0.12, [L1, A, A.clone().add(new THREE.Vector3(NODES.acme.r * LABEL_GAP + len(ACME) * ADV * LABEL_EM, 0, 0))], { az: 3, el: 5, fov: FOV, margin: [0.14, 0.3], bias: [0.02, -0.08], roll: -0.9 }, WORLD, ease.inOutCubic),
       // "the dots…": open on the constellation, the dangling link in the middle of the frame
-      fitKey(T.ping + 0.1, [mL, end, tag, ringTop], { az: 3, el: 12, fov: FOV, margin: [0.1, 0.22], bias: [0, 0], roll: -3.2 }, WORLD, ease.inOutCubic),
-      fitKey(T.heal - 0.03, [mL, end, tag, ringTop], { az: 5, el: 10, fov: FOV, margin: [0.045, 0.12], bias: [0, 0], roll: -2.2 }, WORLD, ease.inOutQuad),
+      fitKey(T.ping + 0.1, [mL, end, tag, ringTop], { az: 3, el: 10, fov: FOV, margin: [0.1, 0.2], bias: [0, 0], roll: -3.2 }, WORLD, ease.inOutCubic),
+      fitKey(T.heal - 0.03, [mL, end, tag, ringTop, tagHome], { az: 5, el: 9, fov: FOV, margin: [0.07, 0.15], bias: [0, 0], roll: -2.2 }, WORLD, ease.inOutQuad),
       // the walk: the camera pulls back with it, and on as the terminal rises into the foreground under the graph
       fitKey(T.hops[2]! + 0.12, graph, { az: 7, el: 7, fov: FOV, margin: [0.1, 0.09], bias: [0, 0.44], roll: 0.3 }, WORLD, ease.inOutCubic),
       summary,
@@ -580,9 +585,10 @@ export default class Graph extends Scene {
   private poseLabels(t: number) {
     const T = this.T, L = this.labels, cam = this.stage.camera;
     L.begin(cam);
-    const { right, up } = L.basis;
+    const { right, up, back } = L.basis;
     const bone = LIN.bone, dim = LIN.boneDim, moss = LIN.moss;
-    const place = (id: NodeId) => P(id).addScaledVector(right, NODES[id].r * LABEL_GAP).addScaledVector(up, -0.36 * LABEL_EM);
+    // a label floats a little toward the lens from its bead, so neither the glass nor a thread ever cuts through it
+    const place = (id: NodeId) => P(id).addScaledVector(right, NODES[id].r * LABEL_GAP).addScaledVector(up, -0.36 * LABEL_EM).addScaledVector(back, LABEL_FLOAT);
     const mixc = (a: readonly number[], b: readonly number[], k: number) => [lerp(a[0]!, b[0]!, k), lerp(a[1]!, b[1]!, k), lerp(a[2]!, b[2]!, k)] as [number, number, number];
     // acme.md: its name comes up as the edge lands
     const acmeIn = prog(t, T.land - 0.02, T.land + 0.12, ease.outCubic);
@@ -602,7 +608,7 @@ export default class Graph extends Scene {
     const typed = Math.floor(clamp((tq - (T.ping - 0.1)) * 260, 0, len(FORWARD)));
     if (typed > 0) {
       const { end } = looseEnd(t, NODES.maya.pos, NODES.trip.pos, T.heal);
-      const tagAt = v3(end).addScaledVector(right, -0.004).addScaledVector(up, -0.03);
+      const tagAt = v3(end).addScaledVector(right, TAG.dx - len(FORWARD) * ADV * LABEL_EM).addScaledVector(up, TAG.dy).addScaledVector(back, LABEL_FLOAT);
       const home = place('trip');
       const k = prog(t, T.heal - 0.05, T.heal + 0.22, ease.inOutCubic);
       const gone = prog(t, T.heal - 0.06, T.heal + 0.1, ease.inQuad);
@@ -756,7 +762,10 @@ export default class Graph extends Scene {
       [T.answer, inv(head)],
     ];
     // after the cut, acme.md and its name
-    if (t >= T.cut) return { focus: st.depthOf(P('acme').add(new THREE.Vector3(0.01, 0, 0))), fstop: FSTOP.wide };
+    if (t >= T.cut) {
+      const A = P('acme'), toLens = st.camera.position.clone().sub(A).normalize();
+      return { focus: st.depthOf(A.addScaledVector(toLens, 0.85 * LABEL_FLOAT)), fstop: FSTOP.wide };
+    }
     return { focus: 1 / keys(t, ks), fstop: t < T.lift + 0.1 ? FSTOP.close : FSTOP.wide };
   }
 
