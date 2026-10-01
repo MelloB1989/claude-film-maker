@@ -324,7 +324,22 @@ export interface PanelSpec {
   firstLine?: number;
   /** Code size in panel px (default 28); the chrome scales with it. */
   size?: number;
+  /**
+   * A window `rows` rows tall (an editor's viewport on a longer file), from under the top padding: rows outside it are
+   * not drawn and a row across its edge is cut there, so at rest (a whole number of rows scrolled) no row is ever cut
+   * through its glyphs. A panel built without an `h` is as tall as the window and the chrome round it.
+   */
+  rows?: number;
+  /**
+   * Rows scrolled up out of the top of the panel (fractional: a smooth scroll), a constant or a pure function of song
+   * time (called at the frame grid's time, one state per output frame). A terminal scrolls its newest row into view on
+   * its own; this adds to that.
+   */
+  scroll?: number | ((t: number) => number);
 }
+
+/** What a Panel is built from: a PanelSpec whose `h` may be left out when it has `rows` (it is then sized by them). */
+export type PanelInput = Omit<PanelSpec, 'h'> & { h?: number };
 
 const EPS = 1e-6;
 const glyphs = (s: string) => Array.from(s);
@@ -596,9 +611,15 @@ export class Panel {
   private chromePrompt: boolean[];
   private key = '';
 
-  constructor(public readonly spec: PanelSpec, private pxScale = 2) {
+  /** The spec, its `h` resolved (from `rows`, when it was left out). */
+  readonly spec: PanelSpec;
+
+  constructor(input: PanelInput, private pxScale = 2) {
+    this.g = panelLayout(input);
+    if (input.rows !== undefined && !(input.rows > 0 && Number.isFinite(input.rows))) throw new RangeError(`Panel: rows must be a count > 0, not ${input.rows}`);
+    if (input.h === undefined && input.rows === undefined) throw new Error('Panel: needs an h, or rows to be sized by');
+    const spec = (this.spec = input.h === undefined ? { ...input, h: this.g.bar + this.g.padTop + input.rows! * this.g.lineH + this.g.padBottom } : (input as PanelSpec));
     const { w, h } = spec;
-    this.g = panelLayout(spec);
     const lines = spec.lines;
     this.chars = lines.map((l) => glyphs(l.text));
     this.cls = lines.map((l, i) => {
@@ -713,6 +734,30 @@ export class Panel {
     return { x: o.x + col * this.g.adv, baseline: o.baseline };
   }
 
+  /**
+   * The band rows are drawn in (px from the top): with `rows`, the window from under the top padding, rows·lineH tall;
+   * without, the face under the title bar.
+   */
+  get viewport(): { top: number; bottom: number } {
+    const g = this.g, rows = this.spec.rows;
+    return rows === undefined ? { top: g.bar, bottom: this.spec.h } : { top: g.bar + g.padTop, bottom: g.bar + g.padTop + rows * g.lineH };
+  }
+
+  /** Whether a row whose top is at `top` reaches into the band rows are drawn in (paint draws it, cut at its edges). */
+  private inView(top: number) {
+    const g = this.g;
+    if (this.spec.rows === undefined) return !(top > this.spec.h || top + g.lineH < g.bar);
+    const v = this.viewport;
+    return top < v.bottom && top + g.lineH > v.top;
+  }
+
+  /** Whether a row whose top is at `top` lies whole in that band (no edge cuts it). */
+  private wholeInView(top: number) {
+    if (this.spec.rows === undefined) return top >= this.g.bar;
+    const v = this.viewport;
+    return top >= v.top && top + this.g.lineH <= v.bottom;
+  }
+
   private checkLine(line: number) {
     if (!Number.isInteger(line) || line < 0 || line >= this.spec.lines.length) {
       throw new RangeError(`Panel: no line ${line} (it has ${this.spec.lines.length})`);
@@ -770,11 +815,12 @@ export class Panel {
     const { spec, g } = this;
     const st = lineStates(spec.lines, tq, spec.kind === 'terminal');
     // rows: each as tall as it has opened; a terminal scrolls to keep its newest row in view
-    const y0 = g.bar + g.padTop, avail = spec.h - y0 - g.padBottom;
+    const y0 = g.bar + g.padTop, avail = spec.rows !== undefined ? spec.rows * g.lineH : spec.h - y0 - g.padBottom;
     const top: number[] = [];
     let y = 0;
     for (const s of st) { top.push(y); y += g.lineH * s.open; }
-    const scroll = spec.kind === 'terminal' ? Math.max(0, y - avail) : 0;
+    let scroll = spec.kind === 'terminal' ? Math.max(0, y - avail) : 0;
+    if (spec.scroll !== undefined) scroll += (typeof spec.scroll === 'function' ? spec.scroll(tq) : spec.scroll) * g.lineH;
     for (let i = 0; i < top.length; i++) top[i] = y0 + top[i]! - scroll;
     return { st, top };
   }
@@ -802,10 +848,10 @@ export class Panel {
     const slot: [number, number][] = [], canvas: [number, number][] = [];
     lines.forEach((_, i) => {
       const s = st[i]!, rowTop = top[i]!;
-      if (s.open <= 0 || rowTop > spec.h || rowTop + g.lineH < g.bar) return; // a row paint() skips
+      if (s.open <= 0 || !this.inView(rowTop)) return; // a row paint() skips
       const base = rowTop + g.lineH / 2 + 0.365 * g.size, x = this.textX(i) + (this.chromePrompt[i] ? 2 * g.adv : 0);
       for (let k = 0; k < s.n; k++) {
-        if (this.cls[i]![k] === 'ok') (rowTop >= g.bar && slot.length < CHECKS ? slot : canvas).push([x + k * g.adv, base]);
+        if (this.cls[i]![k] === 'ok') (this.wholeInView(rowTop) && slot.length < CHECKS ? slot : canvas).push([x + k * g.adv, base]);
       }
     });
     const cursor = this.cursor(st, tq);
@@ -860,18 +906,19 @@ export class Panel {
   private paint(fr: PanelFrame) {
     const c = this.canvas();
     const { spec, g } = this;
-    const { w, h } = spec;
+    const { w } = spec;
     this.layer!.clear(HEX.panel);
     c.textBaseline = 'alphabetic';
     c.textAlign = 'left';
 
     c.save();
     c.beginPath();
-    c.rect(0, g.bar, w, h - g.bar);
+    const view = this.viewport;
+    c.rect(0, view.top, w, view.bottom - view.top);
     c.clip();
     spec.lines.forEach((l, i) => {
       const s = fr.st[i]!, top = fr.top[i]!, rowH = g.lineH * s.open;
-      if (s.open <= 0 || top > h || top + g.lineH < g.bar) return;
+      if (s.open <= 0 || !this.inView(top)) return;
       const base = top + g.lineH / 2 + 0.365 * g.size; // the cap height centred in the row
       const struckOn = l.kind === 'del' && s.struck > 0;
       // the diff: a wash across the row and the mark in the gutter
@@ -922,7 +969,7 @@ export class Panel {
     if (fr.cursor) {
       const { i, col, on, block } = fr.cursor;
       const base = fr.top[i]! + g.lineH / 2 + 0.365 * g.size;
-      if (on && base > g.bar) {
+      if (on && (this.spec.rows === undefined ? base > g.bar : this.wholeInView(fr.top[i]!))) {
         c.fillStyle = rgba('bone', block ? 0.82 : 0.95);
         const x = this.textX(i) + col * g.adv, y = base - 0.98 * g.size, ch = 1.25 * g.size;
         c.fillRect(x, y, block ? g.adv : Math.max(2, 0.08 * g.size), ch);

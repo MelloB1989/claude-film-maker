@@ -410,3 +410,49 @@ test('spans: a check mark stays the panel\'s moss path; a span that is empty or 
   expect(bad(0, 3)).not.toThrow();
   expect(() => p.charStyle(0, 11)).toThrow(); // past the line
 });
+
+// ----------------------------------------------------------------------------------------------------- viewport
+
+// An editor's window on a longer file: `rows` rows tall from under the top padding, rows outside it not drawn and rows
+// across its edges cut there; `scroll` (rows, fractional for a smooth scroll; constant or a pure function of time,
+// read on the frame grid) moves the file up through it. At 28 px: rows of 45 from 72 (a 52 px bar and 20 px padding).
+
+const TEN: PanelLine[] = Array.from({ length: 10 }, (_, k) => ({ text: `line ${k + 1}` }));
+
+test('viewport: without an h, a panel of `rows` is the chrome plus its window; an h given still wins', () => {
+  const p = new Panel({ kind: 'editor', w: 640, rows: 4, lines: TEN });
+  expect(p.spec.h).toBe(52 + 20 + 4 * 45 + 22);
+  const d = new Panel({ kind: 'editor', w: 640, size: 24, rows: 16, lines: TEN });
+  expect(d.spec.h).toBe(45 + 17 + 16 * 38.5 + 19);
+  expect(new Panel({ kind: 'editor', w: 640, h: 687, size: 24, rows: 16, lines: TEN }).spec.h).toBe(687); // diff's margin
+  expect(() => new Panel({ kind: 'editor', w: 640, lines: TEN })).toThrow(); // neither
+  for (const rows of [0, -2, NaN]) expect(() => new Panel({ kind: 'editor', w: 640, rows, lines: TEN })).toThrow();
+});
+
+test('viewport: the window rows are drawn in (px), and the whole face under the bar without one', () => {
+  expect(new Panel({ kind: 'editor', w: 640, rows: 4, lines: TEN }).viewport).toEqual({ top: 72, bottom: 72 + 180 });
+  expect(new Panel({ kind: 'editor', w: 640, h: 300, lines: TEN }).viewport).toEqual({ top: 52, bottom: 300 });
+});
+
+test('viewport: scroll moves the rows up through the window, constant or as a function of time on the frame grid', () => {
+  const p = new Panel({ kind: 'editor', w: 640, rows: 4, scroll: 2, lines: TEN });
+  expect(p.rowTop(5, 0)).toBe(72 + 3 * 45);
+  expect(p.rowTop(5)).toBe(72 + 5 * 45); // (without t: the layout at rest, unscrolled)
+  const q = new Panel({ kind: 'editor', w: 640, rows: 4, scroll: (t) => t, lines: TEN });
+  expect(q.rowTop(0, 1)).toBe(72 - 45);
+  expect(q.rowTop(0, 1.01)).toBe(72 - 45); // one state per frame: 1.01 s is frame 30
+  expect(q.rowTop(0, 1.5)).toBe(72 - 1.5 * 45);
+  expect(q.frame(1).key).not.toBe(q.frame(1.5).key); // a scroll repaints
+});
+
+test('viewport: a row outside the window is not drawn, a row across its edge is cut there (its checks show it)', () => {
+  // a check mark per row: a row wholly in the window takes a shader slot (up to 4), one across an edge is drawn on the
+  // canvas inside the window's clip, one outside it is not drawn at all
+  const lines: PanelLine[] = Array.from({ length: 8 }, () => ({ text: '✔' }));
+  const at = (scroll: number) => new Panel({ kind: 'editor', w: 640, rows: 3, scroll, gutter: 'none', lines }).frame(0).checks;
+  const base = (row: number, scroll: number) => [28, 72 + (row - scroll) * 45 + 22.5 + 10.22] as [number, number];
+  expect(at(0)).toEqual({ slot: [base(0, 0), base(1, 0), base(2, 0)], canvas: [] });
+  expect(at(2)).toEqual({ slot: [base(2, 2), base(3, 2), base(4, 2)], canvas: [] });
+  // half a row on: rows 2 and 5 are cut by the window's top and bottom
+  expect(at(2.5)).toEqual({ slot: [base(3, 2.5), base(4, 2.5)], canvas: [base(2, 2.5), base(5, 2.5)] });
+});

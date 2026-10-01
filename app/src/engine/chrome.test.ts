@@ -22,7 +22,8 @@ beforeAll(async () => {
     `import * as gl from ${mod('gl.ts')};`,
     `import * as type from ${mod('type.ts')};`,
     `import * as stage from ${mod('stage.ts')};`,
-    '(window as any).__t = { THREE, gl, type, stage };',
+    `import * as panels from ${mod('panels.ts')};`,
+    '(window as any).__t = { THREE, gl, type, stage, panels };',
   ].join('\n'));
   const built = await Bun.build({ entrypoints: [entry], target: 'browser', format: 'esm' });
   rmSync(dir, { recursive: true, force: true });
@@ -209,4 +210,37 @@ test('Layer2D.dispose() frees its texture\'s GPU copy and its canvas\'s backing 
   expect(r.uploaded).toBe(r.base + 1);
   expect(r.after).toBe(r.base);
   expect(r.size).toEqual([0, 0]);
+});
+
+/** How many of a panel's canvas px in its rows y0..y1 (panel px) are ink (brighter than the panel's face), drawn at t. */
+const INK_FN = `(p, t, y0, y1) => {
+  p.draw(t);
+  const c = p.layer.canvas, s = c.width / p.spec.w;
+  const d = c.getContext('2d').getImageData(0, Math.round(y0 * s), c.width, Math.round((y1 - y0) * s)).data;
+  let n = 0;
+  for (let i = 0; i < d.length; i += 4) if (d[i] > 80) n++;
+  return n;
+}`;
+
+test('a panel with rows draws only its window: the rows past it leave the padding under it bare', async () => {
+  const r = await page.evaluate((inkSrc) => {
+    const { panels } = (window as any).__t, ink = eval(inkSrc);
+    const lines = Array.from({ length: 10 }, (_, k) => ({ text: `line ${k + 1} WWWWWWWWWW` }));
+    // 28 px code: a 4-row window from 72 to 252, the panel 274 tall (22 px of padding under it)
+    const p = new panels.Panel({ kind: 'editor', w: 640, rows: 4, lines });
+    const q = new panels.Panel({ kind: 'editor', w: 640, h: 274, lines }); // the same size, no window
+    const s = new panels.Panel({ kind: 'editor', w: 640, rows: 4, scroll: 0.5, lines }); // half a row on
+    return {
+      h: p.spec.h, window: ink(p, 0, 72, 252), below: ink(p, 0, 252, 274), noWindowBelow: ink(q, 0, 252, 274),
+      scrolledAbove: ink(s, 0, 52, 72), scrolledBelow: ink(s, 0, 252, 274), scrolledWindow: ink(s, 0, 72, 252),
+    };
+  }, INK_FN);
+  expect(r.h).toBe(274);
+  expect(r.window).toBeGreaterThan(0);
+  expect(r.below).toBe(0);
+  expect(r.noWindowBelow).toBeGreaterThan(0); // without the window, line 5's glyphs show in the padding
+  // scrolled half a row, the rows across the window's edges are cut there: nothing in the padding above or below
+  expect(r.scrolledAbove).toBe(0);
+  expect(r.scrolledBelow).toBe(0);
+  expect(r.scrolledWindow).toBeGreaterThan(0);
 });
