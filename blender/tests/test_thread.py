@@ -1,4 +1,7 @@
+import json
 import math
+import re
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -115,3 +118,126 @@ def test_the_halves_of_a_whole_rope_meet_fibre_for_fibre():
         # helix: within 0.3%)
         centre = gl.cores[k].mean(axis=1)
         np.testing.assert_allclose(np.hypot(centre[:, 1], centre[:, 2]), 0.5 * R, rtol=3e-3)
+
+
+# ------------------------------------------------------------------------------------------ the diff thread (E3)
+
+REPO = Path(__file__).resolve().parents[2]
+ENGINE = (REPO / "app/src/engine/thread3d.ts").read_text()
+
+
+def _engine_look(key: str):
+    """A number, or a list of them, from the engine's THREAD_LOOK (app/src/engine/thread3d.ts)."""
+    block = ENGINE[ENGINE.index("export const THREAD_LOOK = {"):]
+    block = block[:block.index("} as const;")]
+    m = re.search(rf"\b{key}: (\[[^\]]*\]|[-\d.]+),", block)
+    assert m, f"THREAD_LOOK.{key} not found"
+    v = m.group(1)
+    return [float(x) for x in v.strip("[]").split(",")] if v.startswith("[") else float(v)
+
+
+def _hex_linear(h: str):
+    return [(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4) for c in (int(h[i:i + 2], 16) / 255 for i in (1, 3, 5))]
+
+
+def test_the_diff_thread_preset_is_the_engines_own_numbers():
+    assert thread.DIFF_THREAD == {"lay_deg": 14, "strand_dye": 0.03, "strand_scale": 0.62, "glow": 3.6, "rest": 0.15,
+                                  "flare_lead": 0.05, "flare_decay": 0.6}
+    # read from the file the engine reads, and the engine builds its DIFF_THREAD from that file, not numbers of its own
+    d = json.loads((REPO / "data/look/thread.json").read_text())["diffThread"]
+    assert thread.DIFF_THREAD == {"lay_deg": d["layDeg"], "strand_dye": d["strandDye"], "strand_scale": d["strandScale"],
+                                  "glow": d["glow"], "rest": d["rest"], "flare_lead": d["flare"]["lead"],
+                                  "flare_decay": d["flare"]["decay"]}
+    assert "import LOOK_DATA from '../../../data/look/thread.json';" in ENGINE
+    assert "const DIFF = LOOK_DATA.diffThread;" in ENGINE
+    for k in ("layDeg", "strandDye", "strandScale", "glow", "rest"):
+        assert re.search(rf"^  {k}: DIFF\.{k},$", ENGINE, re.M), k
+    assert "export const STRAND_FLARE = { lead: DIFF.flare.lead, decay: DIFF.flare.decay };" in ENGINE
+
+
+def test_the_mirror_carries_the_engines_thread_look():
+    assert thread.LOOK["ply_radius"] == _engine_look("plyRadius")[2]
+    assert thread.LOOK["ply_offset"] == _engine_look("plyOffset")[2]
+    assert thread.LOOK["lay_deg"] == _engine_look("helixDeg")  # the bone rope's own lay (B01)
+    assert thread.LOOK["worm_radius"] == _engine_look("wormRadius")
+    assert thread.LOOK["dye"] == _engine_look("dye")
+    assert list(thread.LOOK["glow_falloff"]) == _engine_look("glowFalloff")
+    assert thread.LOOK["glow_soft"] == _engine_look("glowSoft")
+    for py, ts in (("roughness", "roughness"), ("specular", "specular"), ("ior", "ior"), ("sheen", "sheen"),
+                   ("sheen_roughness", "sheenRoughness")):
+        assert thread.LOOK[py] == _engine_look(ts), py
+
+
+def test_the_diff_threads_lay_is_hers():
+    R = 0.0042
+    # her.ts before the preset: a 14 degree lay at the bone plies' offset, tan 14° / (2π · R/2) turns per unit length
+    assert thread.diff_twist(R) == pytest.approx(math.tan(math.radians(14)) / (2 * math.pi * 0.5 * R), rel=1e-12)
+    assert thread.diff_twist(R, {**thread.DIFF_THREAD, "lay_deg": 32}) == pytest.approx(thread.lay_turns(32, 0.5 * R))
+
+
+def test_the_strands_lie_in_the_grooves_of_the_bone_plies_slimmed_and_touching_both_neighbours():
+    tubes = thread.diff_tubes()
+    assert [t["color"] for t in tubes] == ["bone", "bone", "bone", "blood", "moss"]
+    for k, t in enumerate(tubes[:3]):
+        assert (t["r"], t["d"]) == (0.5, 0.5) and t["phase"] == pytest.approx(k / 3)
+    rw = 0.2 * 0.62
+    D = 0.25 + math.sqrt((0.5 + rw) ** 2 - (0.5 * math.sin(math.pi / 3)) ** 2)  # deeper in the groove than 0.8
+    blood, moss = tubes[3], tubes[4]
+    for s in (blood, moss):
+        assert s["r"] == pytest.approx(rw, abs=1e-15) and s["d"] == pytest.approx(D, abs=1e-15)
+        c = s["d"] * np.exp(2j * np.pi * s["phase"])
+        gaps = sorted(abs(c - 0.5 * np.exp(2j * np.pi * k / 3)) for k in range(3))
+        np.testing.assert_allclose(gaps[:2], 0.5 + rw, atol=1e-12)  # touching the plies either side
+    # the − a groove ahead of the +: blood at half a turn, moss at a sixth
+    assert blood["phase"] == 0.5 and moss["phase"] == pytest.approx(1 / 6)
+
+
+def test_diff_thread_paths_wind_every_tube_at_its_offset_with_the_lay():
+    R = 0.01
+    paths = thread.diff_thread_paths([(0, 0, 0), (0.5, 0, 0), (1, 0, 0)], R)
+    assert [p[0]["color"] for p in paths] == ["bone", "bone", "bone", "blood", "moss"]
+    twist = thread.diff_twist(R)
+    ang = {}
+    for tube, P, r in paths:
+        assert r == pytest.approx(tube["r"] * R)
+        np.testing.assert_allclose(np.hypot(P[:, 1], P[:, 2]), tube["d"] * R, atol=1e-12)
+        assert P[0, 0] == pytest.approx(0) and P[-1, 0] == pytest.approx(1)
+        a = np.unwrap(np.arctan2(P[:, 1], P[:, 2]))
+        np.testing.assert_allclose(np.abs(a - a[0]), 2 * np.pi * twist * P[:, 0], atol=1e-6)  # the lay's turns
+        ang[tube["color"]] = a
+    # along the thread the blood strand is a third of a turn ahead of the moss
+    np.testing.assert_allclose(np.mod(np.abs(ang["blood"] - ang["moss"]), 2 * np.pi), 2 * np.pi / 3, atol=1e-6)
+
+
+def test_the_strands_colour_is_the_engines_dyed_fibre_and_their_glow_its_emission():
+    # dyed 82% of the way to the dim shade (THREAD_LOOK.dye), then near ink (strand_dye 0.03): the engine's uColors
+    for color, base, dim in (("blood", "#c22b45", "#8e1f35"), ("moss", "#4aad63", "#1c3324")):
+        want = [(x + (y - x) * 0.82) * 0.03 for x, y in zip(_hex_linear(base), _hex_linear(dim))]
+        np.testing.assert_allclose(thread.strand_albedo(color), want, rtol=1e-9)
+    np.testing.assert_allclose(thread.strand_albedo("blood", 1.0), [0.319, 0.0156, 0.0399], atol=5e-4)  # report §4
+    # the emission: the palette colour with its brightest channel 1, at strength = the glow level, is look.ts glow():
+    # the engine's thread test pins these at level 2.5
+    np.testing.assert_allclose(np.multiply(thread.glow_color("blood"), 2.5), [2.5, 0.1119488, 0.2757808], atol=1e-6)
+    np.testing.assert_allclose(np.multiply(thread.glow_color("moss"), 2.5), [0.4096711, 2.5, 0.7464482], atol=1e-6)
+    # and across the strand, a filament over a soft base: 0.8 (N·V)^28 + 0.2 (N·V)^3 (report §4)
+    assert thread.glow_profile(1.0) == pytest.approx(1.0)
+    assert thread.glow_profile(0.9) == pytest.approx(0.8 * 0.9 ** 28 + 0.2 * 0.9 ** 3)
+    assert thread.glow_profile(0.0) == 0.0
+
+
+def test_strand_flare_and_strand_glow_are_the_engines():
+    at = 10.0
+    assert thread.strand_flare(at - 0.2, at) == 0
+    assert thread.strand_flare(at - 0.05, at) == 0
+    assert thread.strand_flare(at - 0.025, at) == pytest.approx(0.5, abs=1e-9)
+    assert thread.strand_flare(at, at) == 1
+    assert thread.strand_flare(at + 0.15, at) == pytest.approx(0.5625, abs=1e-9)
+    assert thread.strand_flare(at + 0.3, at) == pytest.approx(0.25, abs=1e-9)
+    assert thread.strand_flare(at + 0.6, at) == 0
+    assert thread.strand_flare(at + 0.3, [at, at + 0.3]) == 1
+    assert thread.strand_flare(at, []) == 0
+    assert thread.strand_flare(at + 0.5, at, decay=1.0) == pytest.approx(0.25, abs=1e-9)
+    assert thread.strand_glow(0.0, 5.0) == 0.15
+    assert thread.strand_glow(5.0, 5.0) == 3.6
+    assert thread.strand_glow(5.3, [5.0]) == pytest.approx(0.15 + 0.25 * (3.6 - 0.15), abs=1e-9)
+    assert thread.strand_glow(5.0, 5.0, rest=0.0, lit=2.0) == 2.0
