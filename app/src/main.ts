@@ -1,6 +1,7 @@
 // Entry: preview player (default) or export mode (?export=1, driven by scripts/render.ts).
 import { Engine, type AdaptiveSampling, type TimelineEntry } from './engine/engine';
 import { PW, PH, SCALE } from './engine/gl';
+import { unmaskedRenderer } from './engine/gpu';
 import type { SceneClass } from './engine/scene';
 import type { VO } from './engine/vo';
 import type { AudioData } from './engine/audio';
@@ -53,10 +54,48 @@ async function boot() {
 // ------------------------------------------------------------------ export API
 function setupExport() {
   document.body.classList.add('export');
+  // A lost WebGL context (under heavy GPU load Chrome can reset the GPU process, or run the GPU out of memory): GL calls
+  // after it do nothing, so what is rendered or read back is not the frame, and no scene reports it. A still or a stream
+  // that finds the context lost rejects (the export fails), and no frame read after the loss is sent.
+  const gl = engine.renderer.getContext();
+  const LOST = 'the WebGL context was lost (the GPU process reset, or the GPU ran short of memory): frames rendered after it cannot be trusted';
+  let lost = false;
+  const whenLost = new Promise<never>((_, reject) => {
+    canvas.addEventListener('webglcontextlost', () => {
+      lost = true;
+      reject(new Error(LOST));
+    });
+  });
+  whenLost.catch(() => {}); // (nothing may be racing it: a loss between exports is found by the next still or stream)
+  const assertLive = () => {
+    if (lost || gl.isContextLost()) throw new Error(LOST);
+  };
+  /**
+   * Run `work`, rejecting as soon as the context is lost, or if it is by the time `work` ends. Whatever a call died of
+   * after the loss (a readback of a lost context rejects with undefined), the loss is the reason reported.
+   */
+  const guard = async <T>(work: () => Promise<T>): Promise<T> => {
+    assertLive();
+    try {
+      const r = await Promise.race([work(), whenLost]);
+      assertLive();
+      return r;
+    } catch (e) {
+      assertLive();
+      throw e;
+    }
+  };
   window.__film = {
     engine,
     duration: engine.duration,
     errors: engine.errors,
+    /** The engine's unmasked renderer string (the GPU, or the software fallback); throws once the context is lost. */
+    renderer: () => {
+      assertLive();
+      return unmaskedRenderer(gl);
+    },
+    /** Throws if the WebGL context was lost: what render.ts calls after it has captured a still. */
+    assertLive,
     /** Output size in px (1920x1080 times scale); stream() sends frames of width*height*4 bytes. */
     scale: SCALE,
     width: PW,
@@ -64,15 +103,17 @@ function setupExport() {
     timeline: TIMELINE.map(({ id, start, end }) => ({ id, start, end })),
     /**
      * Render a single frame at t (seeks as needed), once its scenes have loaded (the first still that needs one loads
-     * it, and it stays) and prepared it (plates). Rejects on any scene error.
+     * it, and it stays) and prepared it (plates). Rejects on any scene error, and when the WebGL context is lost.
      */
-    async still(t: number, samples: number | AdaptiveSampling = 1, shutter = 0.5) {
-      await engine.prepare(t, 1 / FPS, samples, shutter);
-      return engine.render(t, 1 / FPS, true, samples, shutter);
+    still(t: number, samples: number | AdaptiveSampling = 1, shutter = 0.5) {
+      return guard(async () => {
+        await engine.prepare(t, 1 / FPS, samples, shutter);
+        return engine.render(t, 1 / FPS, true, samples, shutter);
+      });
     },
-    /** The last rendered frame as a full-resolution (PW x PH) PNG, base64 (for stills at scale > 1). */
+    /** The last rendered frame as a full-resolution (PW x PH) PNG, base64 (for stills at scale > 1). Rejects when the context is lost. */
     async png() {
-      const px = await engine.readPixelsAsync(), row = PW * 4;
+      const px = await guard(() => engine.readPixelsAsync()), row = PW * 4;
       const img = new ImageData(PW, PH);
       for (let y = 0; y < PH; y++) img.data.set(px.subarray((PH - 1 - y) * row, (PH - y) * row), y * row); // bottom-up -> top-down
       const oc = new OffscreenCanvas(PW, PH);
@@ -89,8 +130,11 @@ function setupExport() {
      * receiver acknowledges each frame it has handed on (a text message with its running count) and at
      * most `inflight` frames are unacknowledged:
      * backpressure from the encoder, so a slow encode (4K) cannot pile frames up in the receiver's memory.
+     * Rejects when the WebGL context is lost, however long ago: no frame read after the loss is sent.
+     * `loseContextAfter` is for tests (render.ts --test-lose-context): the page loses its own context (WEBGL_lose_context)
+     * once that frame is sent, which the stream must then fail on.
      */
-    async stream(opts: { from: number; to: number; fps: number; ws: string; samples?: number | AdaptiveSampling; shutter?: number; inflight?: number }) {
+    async stream(opts: { from: number; to: number; fps: number; ws: string; samples?: number | AdaptiveSampling; shutter?: number; inflight?: number; loseContextAfter?: number }) {
       const ws = new WebSocket(opts.ws);
       ws.binaryType = 'arraybuffer';
       let acked = 0, closed = false;
@@ -100,14 +144,16 @@ function setupExport() {
       try {
         const n0 = Math.round(opts.from * opts.fps);
         const buf = new Uint8Array(PW * PH * 4);
-        const used = await engine.exportFrames(opts, async (n) => {
+        const used = await guard(() => engine.exportFrames(opts, async (n) => {
           await engine.readPixelsAsync(buf);
+          assertLive();
           if (opts.inflight) while (!closed && n - n0 - acked >= opts.inflight) await new Promise((r) => setTimeout(r, 2));
           if (closed) throw new Error(`the receiver closed the stream at frame ${n}`);
           while (ws.bufferedAmount > 64 * 1024 * 1024) await new Promise((r) => setTimeout(r, 2));
           ws.send(buf);
           if (n % 30 === 0) await new Promise((r) => setTimeout(r, 0)); // let the socket flush
-        });
+          if (n === opts.loseContextAfter) gl.getExtension('WEBGL_lose_context')?.loseContext();
+        }));
         while (ws.bufferedAmount > 0) await new Promise((r) => setTimeout(r, 5));
         return used;
       } finally {

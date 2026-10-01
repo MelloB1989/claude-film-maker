@@ -9,8 +9,8 @@
 //            --samples auto picks the count per frame (4, 12, 36, 108 or 324, see Engine.render)
 //            Without --out, a range given with --from/--to is named for it too, <name>_<from>-<to>.mp4 (out/gitloom_5.5-7.mp4):
 //            only the whole film is out/gitloom.mp4, and only a scene's whole window out/<id>.mp4.
-//            A scene error (init, a missing plate frame, a throw in render) fails the export: nothing is renamed to
-//            --out, `<out>.progress` reads "FAILED: <reason>", and `<out>.partial` plays up to the failure.
+//            A scene error (init, a missing plate frame, a throw in render) or a lost WebGL context fails the export: nothing
+//            is renamed to --out, `<out>.progress` reads "FAILED: <reason>", and `<out>.partial` plays up to the failure.
 //   --proxies (all modes): a plate frame whose EXR is missing composites its 960x540 proxy (a draft, warned once);
 //            without it the missing EXR fails the export.
 //   --only ID (sheet, perf, video) with ONE scene id and neither --from nor --to: exactly the frames that scene owns,
@@ -22,11 +22,21 @@
 //            full-res from the pixel buffer, videos are encoded at the physical size.
 //   --module NAME (all modes): play scenes/NAME.ts alone over [0, duration] instead of the film's timeline (a dev
 //            harness such as _stagetest; ?module= in main.ts). --only is ignored then.
+//   --allow-software (all modes, `gpu` aside): the hardware check. The engine's unmasked renderer string is printed once at
+//            startup, and a software one (SwiftShader, llvmpipe, Software, Basic Render) fails the run unless this is given.
+//            Under heavy GPU load (a Blender render beside this) Chrome can fall back to SwiftShader without a word, and what it
+//            renders differs from the GPU's (grain hash noise, edges: 2-3 levels on average, up to 133 in a still). A video reads
+//            the string again after its last frame and fails if it changed; a still or a stream fails if the page saw its WebGL
+//            context lost.
+//   --test-lose-context N (video, test only): the page loses its WebGL context (WEBGL_lose_context) once frame N has been
+//            sent (frames as --from/--to count them: at --fps from 0). The export must fail: exit 1, "FAILED: the WebGL
+//            context was lost…" in <out>.progress, <out>.partial left, nothing at --out.
 // Uses the Vite dev server at --url (default http://localhost:5173); starts a private one if unreachable.
 import { chromium, type Page } from 'playwright-core';
 import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { ownedFrames, straddledFrames } from '../src/engine/engine';
+import { isSoftwareRenderer } from '../src/engine/gpu';
 
 const argv = process.argv.slice(2);
 const mode = argv[0] ?? 'stills';
@@ -41,6 +51,8 @@ const SAMPLES = opt('samples', '1') === 'auto'
   : +opt('samples', '1')!;
 const hist = (h: Record<string, number>) => Object.entries(h).sort((a, b) => +a[0] - +b[0]).map(([k, v]) => `${k}:${v}`).join(' ');
 const ROOT = path.resolve(APP, '..');
+const LOSE_AFTER = flag('test-lose-context') ? +opt('test-lose-context')! : undefined; // (video, test only)
+if (LOSE_AFTER !== undefined && !Number.isInteger(LOSE_AFTER)) throw new Error('--test-lose-context takes a frame number');
 
 async function reachable(url: string) {
   try { const r = await fetch(url, { signal: AbortSignal.timeout(1500) }); return r.ok; } catch { return false; }
@@ -87,6 +99,18 @@ async function openPage(url: string) {
 }
 
 /**
+ * The hardware check, in every mode but `gpu`: prints the renderer string once, and fails the run when it is a software
+ * one (isSoftwareRenderer) unless --allow-software.
+ */
+function checkRenderer(gpu: string) {
+  const soft = isSoftwareRenderer(gpu);
+  if (soft && !flag('allow-software')) {
+    throw new Error(`WebGL runs on a software renderer (${gpu}), not the GPU: its frames differ from the GPU's in grain hash noise and edges. Chrome falls back to it when the GPU is overloaded or lost (a Blender render beside this one?): free the GPU and run again, or pass --allow-software to render a draft anyway.`);
+  }
+  console.log(`renderer: ${gpu}${soft ? '  (software, --allow-software)' : ''}`);
+}
+
+/**
  * With --only and ONE scene id, and neither --from nor --to (nor --module): the frames that scene owns at fps
  * (ownedFrames), else null.
  */
@@ -114,7 +138,11 @@ async function stills(page: Page, times: number[], outDir: string) {
     if (typeof SAMPLES !== 'number') console.log(`t=${t}: ${k} sub-frames`);
     // at scale > 1 the canvas is shown downscaled on the page: save the full-res pixel buffer instead
     if (SCALE !== 1) await Bun.write(f, Buffer.from(await page.evaluate(() => (window as any).__film.png()), 'base64'));
-    else await page.screenshot({ path: f, clip: { x: 0, y: 0, width: 1920, height: 1080 } });
+    else {
+      const shot = await page.screenshot({ clip: { x: 0, y: 0, width: 1920, height: 1080 } });
+      await page.evaluate(() => (window as any).__film.assertLive()); // a canvas whose context was lost since the still is not the frame: no file
+      await Bun.write(f, shot);
+    }
     files.push(f);
   }
   return files;
@@ -145,7 +173,7 @@ async function sheet(page: Page, times: number[], cols: number, out: string) {
 
 const clock = (s: number) => `${Math.floor(s / 60)}m${String(Math.round(s % 60)).padStart(2, '0')}s`;
 
-async function video(page: Page, from: number, to: number, fps: number, out: string) {
+async function video(page: Page, from: number, to: number, fps: number, out: string, gpu: string) {
   mkdirSync(path.dirname(out), { recursive: true });
   // Encoded under a temporary name and renamed only when ffmpeg has finished and the page reports no scene error, so
   // a failed or killed export never leaves a file at `out`; `<out>.progress` says how far a running one has got, and
@@ -200,7 +228,11 @@ async function video(page: Page, from: number, to: number, fps: number, out: str
   });
   try {
     // (rejects on a scene error: the page sends no frame after it)
-    const used: Record<string, number> = await page.evaluate((o) => (window as any).__film.stream(o), { from, to, fps, ws: `ws://localhost:${server.port}`, samples: SAMPLES, shutter: +opt('shutter', '0.5')!, inflight: 4 });
+    const used: Record<string, number> = await page.evaluate((o) => (window as any).__film.stream(o), { from, to, fps, ws: `ws://localhost:${server.port}`, samples: SAMPLES, shutter: +opt('shutter', '0.5')!, inflight: 4, loseContextAfter: LOSE_AFTER });
+    // the GPU this export began on rendered its last frame too (a context restored on a software renderer already failed the
+    // stream; this catches a change that did not): reading the string from a lost context throws
+    const end: string = await page.evaluate(() => (window as any).__film.renderer());
+    if (end !== gpu) throw new Error(`the renderer changed during the export: it began on ${gpu} and ended on ${end}`);
     // wait for all frames to arrive (or ffmpeg to quit)
     while (frames < total && !quit) await Bun.sleep(20);
     ff.stdin.end();
@@ -237,12 +269,11 @@ let session: Awaited<ReturnType<typeof openPage>> | undefined;
 try {
   session = await openPage(url);
   const { page } = session;
+  // the engine's own context, the one that renders: Chrome under GPU load can fall back to a software renderer
+  const gpu: string = await page.evaluate(() => (window as any).__film.renderer());
+  if (mode !== 'gpu') checkRenderer(gpu);
   if (mode === 'gpu') {
-    console.log(await page.evaluate(() => {
-      const gl = document.createElement('canvas').getContext('webgl2')!;
-      const ext = gl.getExtension('WEBGL_debug_renderer_info');
-      return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
-    }));
+    console.log(gpu);
   } else if (mode === 'stills') {
     const times = (opt('t') ?? '0').split(',').map(Number);
     const files = await stills(page, times, opt('out', path.join(ROOT, 'out/stills'))!);
@@ -297,7 +328,7 @@ try {
     // after its times as well: only the whole film is out/gitloom.mp4, and only a scene's whole window out/<id>.mp4
     const name = (opt('module') ?? opt('only'))?.replace(/[,/]/g, '+') ?? 'gitloom';
     const range = !clip && (flag('from') || flag('to')) ? `_${from}-${to}` : '';
-    await video(page, from, to, fps, path.resolve(opt('out', path.join(ROOT, `out/${name}${range}.mp4`))!));
+    await video(page, from, to, fps, path.resolve(opt('out', path.join(ROOT, `out/${name}${range}.mp4`))!), gpu);
   }
 } finally {
   // (a failed run too: what the page logged is often why)
