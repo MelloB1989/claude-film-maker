@@ -492,10 +492,10 @@ export default class Cite extends Scene {
       fitKey(T.strike + 0.07, this.box(320, -80, EW + 30, FOOT - 50), { az: -25, el: 12, fov: FOV, margin: [0.05, 0.05], bias: [0, 0], roll: -1.6 }, F, ease.inQuad),
       // through the slow motion under the lines, easing back to hold both holes as the point comes out of the second
       fitKey(T.exit, this.box(230, -40, EW + 70, FOOT + 60), { az: -23, el: 10, fov: FOV, margin: [0.05, 0.05], bias: [0, 0], roll: -1.4 }, F, ease.inOutQuad),
-      // the pull: back out to all of it, the question and its claim, the citation, the thread, the lines it was sewn
-      // through, the blame beside them (inside the title-safe frame)
-      fitKey(T.pull + 0.16, [...this.chatBox(0, r(0) - 10, CW, r(3)), ...this.labelBox(), ...this.box(TAB.tuck - TAB.w - 12, TOP - 10, EW + 180, EH + 4)], { az: -13, el: 6, fov: FOV, margin: [0.07, 0.095], bias: [0, -0.02], roll: -0.9 }, F, ease.inOutCubic),
-      fitKey(T.end, [...this.chatBox(10, r(0) - 4, CW, r(3)), ...this.labelBox(LABEL.x + 10, LABEL.x + LABEL.w - 10), ...this.box(TAB.tuck - TAB.w - 4, TOP, EW + 170, EH - 6)], { az: -12, el: 5.5, fov: FOV, margin: [0.07, 0.095], bias: [0, -0.02], roll: -0.8 }, F, ease.outQuad),
+      // from the needle's way out, one long pull back through the pull and the light, easing in from the close-up so the
+      // needle is seen drawn through its eye, and settling as the scene ends on all of it: the question and its claim, the
+      // citation, the thread, the lines it was sewn through, the blame beside them (inside the title-safe frame)
+      fitKey(T.end - 0.02, [...this.chatBox(0, r(0) - 8, CW, r(3)), ...this.labelBox(), ...this.box(TAB.tuck - TAB.w - 10, TOP - 6, EW + 175, EH)], { az: -12.5, el: 5.8, fov: FOV, margin: [0.07, 0.095], bias: [0, -0.02], roll: -0.85 }, F, ease.inOutQuad),
     ];
   }
 
