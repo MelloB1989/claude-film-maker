@@ -1,7 +1,7 @@
 // The thread's route for `cite` (Plan 2 Task 17), in the editor's px (x right, y down from its top edge, z out of its
-// face): drawn out of the citation's end in the chat, down through the air into the editor's right margin at the top of
-// line 11 (A), behind the panel under lines 11–14, out again at the foot of line 14 (B), and on past the panel's edge to
-// where the eye comes to rest (the route's end).
+// face): drawn out of the end of the citation's label, down through the air in front of the file to the top of line 11
+// just past the lines' ends (A), behind the panel under lines 11–14, out again at the foot of line 14 (B), and on past
+// the panel's edge to where the eye comes to rest (the route's end).
 //
 // The route through the air is drawn slack (a living S as it is drawn out and hangs) and pulled taut by the stitch: a
 // straight line from the citation to A. Behind the panel and after B it never moves.

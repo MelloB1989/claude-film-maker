@@ -9,14 +9,14 @@
 // 2. Why. A `why?` chip pops in after the answer; the pointer glides to it and clicks on "why", the chip pressing in,
 //    and lets go on the beat: the citation label springs open out of the chip and streams in, `facts/people/user.md#editor
 //    · L11–14 · 3f9a1c2`, and the file below jumps to its lines on the next beat.
-// 3. The thread. As the citation lands the diff thread is drawn out of the label's end, falling in a long S in front of
-//    the file, the camera craning down with its tip, a little moss light running down inside it. It comes to hang over
-//    line 11 in the file's right margin through "something…" and her pause.
-// 4. The needle. On "I'll" the thread's tip stiffens into a needle, the change running back from the point to the eye
-//    (cite-needle.ts), moss light in its point. It draws back a hair and strikes into the file on the downbeat, the camera
-//    driving in with it; behind the panel it runs in slow motion under lines 11–14, its light showing through the panel as
-//    it passes and each line lighting moss in its wake; it bursts out under line 14 on the eighth and pulls through, past
-//    the panel's edge.
+// 3. The thread. As the citation lands the diff thread is drawn out of the label's end, falling in a long curve in front
+//    of the file and on in a straight run, the camera craning down with its tip, a little moss light running down inside
+//    it. It comes to hang over line 11, just past the lines' ends, through "something…" and her pause.
+// 4. The needle. Out of the pause the thread's tip stiffens into a needle, the change running back from the point to the
+//    eye (cite-needle.ts), moss light in its point, done as she says "I'll". It draws back a hair and strikes into the
+//    file on the downbeat, the camera driving in with it, a highlight running down its glaze; behind the panel it runs in
+//    slow motion under lines 11–14, its light showing through the panel as it passes and each line lighting moss in its
+//    wake; it bursts out under line 14 on the eighth and pulls through, past the panel's edge.
 // 5. The line. On "line." the pull lands: the thread snaps taut from the citation into the file and rings, moss light
 //    floods up it from the stitch to the label, the four lines flare, `L11–14` lights in the label, and the blame gutter
 //    slides out of the file beside them, `3f9a1c2 · 2026-07-26`, as the camera pulls back to all of it: the claim, the
@@ -93,9 +93,9 @@ const LABEL_HEAD = { x: LG.padX + len(CITE) * LG.adv + 11, y: LG.padTop + LG.lin
 /**
  * The chat's top left in the editor's px, and its depth (px, in front of the file's face, so the thread falls from the
  * label through the air in front of the file all the way to the stitch): placed so the thread drops just about straight
- * down from the label's end into the margin, the label's foot 46 px above the file.
+ * down from the label's end into the margin, the label's foot 80 px above the file.
  */
-const CHAT: P3 = [STITCH_X + 6 - (LABEL.x + LABEL_HEAD.x), -46 - (LABEL.y + LABEL.h), 60];
+const CHAT: P3 = [STITCH_X + 6 - (LABEL.x + LABEL_HEAD.x), -80 - (LABEL.y + LABEL.h), 60];
 /** The blame gutter: a tab that slides out of the file's left edge beside the cited lines (its code size, width, and how
  * far it stays tucked behind the file). */
 const TAB = { size: 20, w: 320, tuck: 30 };
@@ -156,6 +156,7 @@ export default class Cite extends Scene {
     this.T = timesOf(vo, audio, start, end);
     this.stage = new Stage(renderer, { fov: FOV, near: 0.01, far: 30, envIntensity: 0.22 });
     this.edG.scale.setScalar(PXW * 1000);
+    this.edG.updateMatrixWorld(true); // the file's frame, fixed from here on: edPx reads it
     this.chatG.scale.setScalar(PXW * 1000);
     this.stage.scene.add(this.edG, this.chatG);
     this.chatG.position.copy(this.edPx(CHAT[0] + CW / 2, CHAT[1] + CH / 2, CHAT[2]));
@@ -175,7 +176,6 @@ export default class Cite extends Scene {
 
   /** A point in the editor's px (x right, y down from its top edge, z out of its face), in the world. */
   private edPx(x: number, y: number, z = 0) {
-    this.edG.updateMatrixWorld(true);
     return new THREE.Vector3((x - EW / 2) / 1000, (EH / 2 - y) / 1000, z / 1000).applyMatrix4(this.edG.matrixWorld);
   }
 
@@ -322,7 +322,7 @@ export default class Cite extends Scene {
     // the moss light: down inside the thread behind its tip as it is drawn out; in the eye while the needle sews; then the
     // pull's flood, from the stitch up to the label, and the strand lit after it
     const glows: StrandGlow[] = [];
-    if (t > T.draw.at && t < T.form.end) glows.push({ u: (tip - 24) / L, w: 28 / L, k: 0.42 * prog(t, T.draw.at, T.draw.at + 0.2) });
+    if (t > T.draw.at && t < T.form.end) glows.push({ u: (tip - 30) / L, w: 40 / L, k: 0.75 * prog(t, T.draw.at, T.draw.at + 0.2) });
     if (k > 0 && t < T.pull + 0.25) glows.push({ u: eyeAt(tip) / L, w: 34 / L, k: 0.8 * (1 - prog(t, T.pull, T.pull + 0.25)) });
     if (t > T.pull - 0.04) {
       const r = prog(t, T.pull - 0.04, T.pull + 0.16, ease.outCubic);
@@ -423,10 +423,10 @@ export default class Cite extends Scene {
     // neutral light only (lit bone stays out of the bloom's chroma gate): diff's set, a key from the upper left, a softbox
     // in front of it, a hard rim from behind that sculpts the plies and edges the needle, and a kicker that rides the needle
     initAreaLights();
-    const box = new THREE.RectAreaLight(0xffffff, 0.55, 1.2, 0.4);
+    const box = new THREE.RectAreaLight(0xffffff, 1.0, 1.2, 0.4);
     box.position.copy(c).add(new THREE.Vector3(-0.5, 0.55, 0.7));
     box.lookAt(c);
-    const key = new THREE.DirectionalLight(0xffffff, 0.35);
+    const key = new THREE.DirectionalLight(0xffffff, 0.6);
     key.position.copy(c).add(new THREE.Vector3(-1.2, 1.6, 1.4));
     key.target.position.copy(c);
     const rim = new THREE.DirectionalLight(0xffffff, 4);
@@ -472,7 +472,6 @@ export default class Cite extends Scene {
 
   private keys(): CamKey[] {
     const T = this.T, F = this.edG.matrixWorld, r = chatRow;
-    this.edG.updateMatrixWorld(true);
     const c = Cite.chipAt();
     return [
       // the question: in close on its bubble as it types, the rest of the chat falling away to the left
@@ -495,8 +494,8 @@ export default class Cite extends Scene {
       fitKey(T.exit, this.box(230, -40, EW + 70, FOOT + 60), { az: -23, el: 10, fov: FOV, margin: [0.05, 0.05], bias: [0, 0], roll: -1.4 }, F, ease.inOutQuad),
       // the pull: back out to all of it, the question and its claim, the citation, the thread, the lines it was sewn
       // through, the blame beside them (inside the title-safe frame)
-      fitKey(T.pull + 0.16, [...this.chatBox(0, r(0) - 10, CW, r(3)), ...this.labelBox(), ...this.box(TAB.tuck - TAB.w - 12, TOP - 10, EW + 180, EH + 4)], { az: -13, el: 6, fov: FOV, margin: [0.07, 0.075], bias: [0, 0], roll: -0.9 }, F, ease.inOutCubic),
-      fitKey(T.end, [...this.chatBox(10, r(0) - 4, CW, r(3)), ...this.labelBox(LABEL.x + 10, LABEL.x + LABEL.w - 10), ...this.box(TAB.tuck - TAB.w - 4, TOP, EW + 170, EH - 6)], { az: -12, el: 5.5, fov: FOV, margin: [0.07, 0.075], bias: [0, 0], roll: -0.8 }, F, ease.outQuad),
+      fitKey(T.pull + 0.16, [...this.chatBox(0, r(0) - 10, CW, r(3)), ...this.labelBox(), ...this.box(TAB.tuck - TAB.w - 12, TOP - 10, EW + 180, EH + 4)], { az: -13, el: 6, fov: FOV, margin: [0.07, 0.095], bias: [0, -0.02], roll: -0.9 }, F, ease.inOutCubic),
+      fitKey(T.end, [...this.chatBox(10, r(0) - 4, CW, r(3)), ...this.labelBox(LABEL.x + 10, LABEL.x + LABEL.w - 10), ...this.box(TAB.tuck - TAB.w - 4, TOP, EW + 170, EH - 6)], { az: -12, el: 5.5, fov: FOV, margin: [0.07, 0.095], bias: [0, -0.02], roll: -0.8 }, F, ease.outQuad),
     ];
   }
 
@@ -509,9 +508,14 @@ export default class Cite extends Scene {
       return D(this.edPx(p.x, p.y, p.z));
     };
     const c = Cite.chipAt(), R = CITE_RUNS.range;
+    // the question's typing head, then where it ended
+    const head = () => {
+      const o = this.chat.cellOrigin(0, this.chat.revealed(t)[0]!, t);
+      return D(this.chatPx(o.x, o.baseline - 0.35 * SIZE));
+    };
     const stops: [number, () => number, ((x: number) => number)?][] = [
-      [T.start, () => D(this.chatPx(CW - 150, r(0) + lh / 2))],
-      [T.answer - 0.1, () => D(this.chatPx(CW - 150, r(0) + lh / 2))],
+      [T.start, head],
+      [T.answer - 0.1, head],
       [T.answer + 0.1, () => D(this.chatPx(70, r(2) + lh / 2)), ease.inOutQuad],
       [T.click - 0.05, () => D(this.chatPx(c.x, c.y)), ease.inOutQuad],
       [T.cite.end - 0.1, () => D(this.chatPx(LABEL.x + LG.padX + R[0] * LG.adv, LABEL.y + LABEL_HEAD.y, LABEL.z)), ease.inOutQuad],
