@@ -1,0 +1,20 @@
+[
+  "facts/people/user.md",
+  "---",
+  "tier: facts",
+  "tags: [user, prefs]",
+  "confidence: 0.9",
+  "updated: 2026-07-26",
+  "Dark mode preferred.",
+  "Ships on Fridays without ceremony.",
+  "## Editor",
+  "Uses neovim. Has since 2019.",
+  "## Timezone",
+  "IST. Prefers async review to calls.",
+  "Works with [[facts/orgs/acme.md]].",
+  "what editor do I use?",
+  "neovim.",
+  "why?",
+  "facts/people/user.md#editor · L11–14 · 3f9a1c2",
+  "3f9a1c2 · 2026-07-26"
+]
