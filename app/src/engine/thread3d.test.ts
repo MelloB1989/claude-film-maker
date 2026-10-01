@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as THREE from 'three';
-import { Thread } from './thread3d';
+import { DIFF_THREAD, STRAND_FLARE, Thread, strandFlare, strandGlow } from './thread3d';
 
 // Expected values are hand-derived (straight runs, a semicircle, the palette hex through the sRGB curve) or integrated
 // here from three's own centripetal CatmullRomCurve3, never read back from thread3d.ts.
@@ -284,4 +284,123 @@ test('strandScale scales the strands\' radius; they stay in their grooves, touch
     expect(s.plyCentre(u, 1).distanceTo(s.pointAt(u))).toBeCloseTo(D * R, 9);
     expect(s.plyCentre(u, 2).distanceTo(s.pointAt(u))).toBeCloseTo(D * R, 9);
   }
+});
+
+// ------------------------------------------------------------------------------------------------ the diff thread preset
+
+/** her's thread before the preset: its points and radius, and the twist it computed by hand for a 14° lay. */
+const HER = { points: [v(-1.9, -0.72, 0.62), v(2.8, -0.56, -1.62)], radius: 0.0042 };
+const HER_TWIST = Math.tan((14 * Math.PI) / 180) / (2 * Math.PI * 0.5 * HER.radius);
+
+test('layDeg sets the lay at the thread\'s radius: 14° is the twist her computed by hand, and an explicit twist wins', () => {
+  const byLay = new Thread(HER.points, { radius: HER.radius, layDeg: 14 });
+  const byTwist = new Thread(HER.points, { radius: HER.radius, twist: HER_TWIST });
+  expect(byLay.uniforms.uTurns.value).toBe(byTwist.uniforms.uTurns.value); // to the bit: the same plies
+  expect(byLay.uniforms.uTurns.value / byLay.length()).toBeCloseTo(HER_TWIST, 6);
+  expect(byLay.uniforms.uTube.value.map((q) => q.toArray())).toEqual(byTwist.uniforms.uTube.value.map((q) => q.toArray()));
+  // an explicit twist wins
+  const both = new Thread(HER.points, { radius: HER.radius, layDeg: 14, twist: 30 });
+  expect(both.uniforms.uTurns.value).toBe(new Thread(HER.points, { radius: HER.radius, twist: 30 }).uniforms.uTurns.value);
+  // without either, THREAD_LOOK's 32° lay, as before: tan 32° / (2π · R/2) turns per unit length
+  const plain = new Thread(HER.points, { radius: HER.radius });
+  expect(plain.uniforms.uTurns.value / plain.length()).toBeCloseTo(Math.tan((32 * Math.PI) / 180) / (Math.PI * HER.radius), 6);
+  // a steeper lay winds more turns into the same length
+  expect(new Thread(HER.points, { radius: HER.radius, layDeg: 40 }).uniforms.uTurns.value).toBeGreaterThan(plain.uniforms.uTurns.value);
+});
+
+test('DIFF_THREAD pins the diff thread\'s look: 14° lay, strands dyed near ink and slimmed, lit to 3.6, resting dim', () => {
+  expect(DIFF_THREAD).toEqual({ layDeg: 14, strandDye: 0.03, strandScale: 0.62, glow: 3.6, rest: 0.4 });
+  expect(STRAND_FLARE).toEqual({ lead: 0.05, decay: 0.6 });
+  // spread into a thread, it is her's thread as it was: the same plies, colours and lit level as her's hand options
+  const preset = new Thread(HER.points, { ...DIFF_THREAD, radius: HER.radius });
+  const byHand = new Thread(HER.points, { radius: HER.radius, twist: HER_TWIST, glow: 3.6, strandDye: 0.03, strandScale: 0.62 });
+  for (const k of ['uTurns', 'uTube', 'uColors', 'uContact'] as const) {
+    expect(JSON.stringify(preset.uniforms[k].value)).toBe(JSON.stringify(byHand.uniforms[k].value));
+  }
+});
+
+/** blood #c22b45 and moss #4aad63 in linear light, scaled so the brightest channel is 1 (look.ts glow() at level 1). */
+const BLOOD_1 = [1, 0.04477952, 0.11031232];
+const MOSS_1 = [0.16386844, 1, 0.29857928];
+const expectGlow = (got: number[], unit: number[], level: number) => unit.forEach((x, k) => expect(got[k]!).toBeCloseTo(x * level, 5));
+
+test('a strand lights on its own: setStrandGlow sets blood or moss and leaves the other; setGlow still sets both', () => {
+  const t = new Thread(S_CURVE, { ...DIFF_THREAD, radius: R });
+  const g = () => t.uniforms.uGlow.value.map((c) => c.toArray());
+  // built from the preset, both strands start at rest (bone never glows)
+  expect(g()[0]).toEqual([0, 0, 0]);
+  expectGlow(g()[1]!, BLOOD_1, DIFF_THREAD.rest);
+  expectGlow(g()[2]!, MOSS_1, DIFF_THREAD.rest);
+  t.setStrandGlow({ moss: 3.6 });
+  expectGlow(g()[1]!, BLOOD_1, DIFF_THREAD.rest);
+  expectGlow(g()[2]!, MOSS_1, 3.6);
+  t.setStrandGlow({ blood: 2 });
+  expectGlow(g()[1]!, BLOOD_1, 2);
+  expectGlow(g()[2]!, MOSS_1, 3.6);
+  t.setStrandGlow({});
+  expectGlow(g()[1]!, BLOOD_1, 2);
+  expectGlow(g()[2]!, MOSS_1, 3.6);
+  t.setStrandGlow({ blood: 0, moss: 1.2 });
+  expect(g()[1]).toEqual([0, 0, 0]);
+  expectGlow(g()[2]!, MOSS_1, 1.2);
+  expect(g()[0]).toEqual([0, 0, 0]);
+  // setGlow sets both strands, as it always has
+  t.setGlow(1.5);
+  expectGlow(g()[1]!, BLOOD_1, 1.5);
+  expectGlow(g()[2]!, MOSS_1, 1.5);
+  // without `rest` a thread starts lit at its glow, as before
+  expectGlow(new Thread(S_CURVE, { ...DIFF, glow: 2.5 }).uniforms.uGlow.value[1]!.toArray(), BLOOD_1, 2.5);
+  // a strand's key reaches every ply of its colour, and only those
+  const moss = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['moss', 'moss', 'moss'], glow: 0 });
+  moss.setStrandGlow({ blood: 3 });
+  expect(moss.uniforms.uGlow.value.flatMap((c) => c.toArray())).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  moss.setStrandGlow({ moss: 2 });
+  for (const c of moss.uniforms.uGlow.value) expectGlow(c.toArray(), MOSS_1, 2);
+});
+
+test('strandFlare rises over its lead into the onset, peaks on it, and falls back to exactly 0 over the decay', () => {
+  const at = 10;
+  expect(strandFlare(at - 0.2, at)).toBe(0);
+  expect(strandFlare(at - 0.05, at)).toBe(0); // the lead: it starts rising 50 ms before the onset
+  expect(strandFlare(at - 0.025, at)).toBeCloseTo(0.5, 9); // a smoothstep up
+  expect(strandFlare(at, at)).toBe(1); // the peak lands on the sound
+  expect(strandFlare(at + 0.15, at)).toBeCloseTo(0.5625, 9); // (1 - 0.25)²: the light dies away, fast then slow
+  expect(strandFlare(at + 0.3, at)).toBeCloseTo(0.25, 9);
+  expect(strandFlare(at + 0.6, at)).toBe(0); // and is out at 0.6 s, exactly
+  expect(strandFlare(at + 9, at)).toBe(0);
+  // up to the onset it only rises, after it it only falls
+  let prev = 0;
+  for (let k = 0; k <= 100; k++) {
+    const x = strandFlare(at - 0.06 + (0.06 * k) / 100, at);
+    expect(x).toBeGreaterThanOrEqual(prev);
+    prev = x;
+  }
+  prev = 1;
+  for (let k = 0; k <= 100; k++) {
+    const x = strandFlare(at + (0.7 * k) / 100, at);
+    expect(x).toBeLessThanOrEqual(prev);
+    prev = x;
+  }
+  // several onsets: the brightest of their flares (a second hit relights a dying strand)
+  expect(strandFlare(at + 0.3, [at, at + 0.3])).toBe(1);
+  expect(strandFlare(at + 0.45, [at, at + 0.3])).toBeCloseTo(0.5625, 9);
+  expect(strandFlare(at, [])).toBe(0);
+  // the envelope's timings can be set
+  expect(strandFlare(at + 0.5, at, { decay: 1 })).toBeCloseTo(0.25, 9);
+  expect(strandFlare(at - 0.1, at, { lead: 0.2 })).toBeCloseTo(0.5, 9);
+  expect(strandFlare(at - 1e-9, at, { lead: 0 })).toBe(0);
+  expect(strandFlare(at, at, { lead: 0 })).toBe(1);
+});
+
+test('strandGlow: a strand rests at DIFF_THREAD.rest and lights to DIFF_THREAD.glow on its onsets', () => {
+  const { rest, glow } = DIFF_THREAD;
+  expect(strandGlow(0, 5)).toBe(rest);
+  expect(strandGlow(5, 5)).toBe(glow);
+  expect(strandGlow(5.3, [5])).toBeCloseTo(rest + 0.25 * (glow - rest), 9);
+  expect(strandGlow(9, 5)).toBe(rest);
+  expect(strandGlow(5, [])).toBe(rest);
+  // another rest or lit level
+  expect(strandGlow(5, 5, { rest: 0, lit: 2 })).toBe(2);
+  expect(strandGlow(1, 5, { rest: 0, lit: 2 })).toBe(0);
+  expect(strandGlow(5.3, 5, { rest: 0, lit: 2, decay: 1.2 })).toBeCloseTo(2 * 0.5625, 9);
 });

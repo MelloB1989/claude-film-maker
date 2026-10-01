@@ -34,11 +34,18 @@
 //   (strandScale) so the colour is carried by the light of the core alone; the defaults are the look.
 // - Fibres off the surface are their own instanced mesh (a child of `mesh`): a sparse fuzz that catches the rim light
 //   (Kajiya-Kay plus forward scatter), and fray fibres that grow and lift where setFray opens the plies.
+//
+// The diff thread every scene shows (her, then Part C) is DIFF_THREAD, a preset of these options: a 14° lay, the strands
+// dyed near ink and slimmed so their colour is light, not paint, and that light off at rest. A scene lights one strand on
+// meaning (setStrandGlow, strandGlow): moss when something is committed or added, blood when something is struck or
+// removed. Its numbers are data/look/thread.json, which Blender's lib/thread.py reads too, so the two renderers' diff
+// threads match for intercuts.
 import * as THREE from 'three';
 import { GLSL_COMMON } from './glsl/common';
 import { glow as glowLevel, type GlowKey } from './look';
 import { LIN } from './palette';
-import { mulberry32 } from './util';
+import { mulberry32, smoothstep } from './util';
+import LOOK_DATA from '../../../data/look/thread.json';
 
 export type ThreadColor = 'bone' | 'blood' | 'moss';
 
@@ -48,14 +55,28 @@ export interface ThreadOpts {
   /** Plies (default 3). One ply is a single strand whose fibres carry the twist. */
   plies?: 1 | 2 | 3;
   /**
-   * Ply turns per world unit of length, set against the length at construction (default: the lay angle
-   * THREAD_LOOK.helixDeg at this radius). With one ply, the turns of its surface fibres.
+   * Ply turns per world unit of length, set against the length at construction (default: from layDeg). With one ply,
+   * the turns of its surface fibres. Wins over layDeg.
    */
   twist?: number;
+  /**
+   * The lay: the plies' angle against the thread's axis in degrees, at their offset from it at this radius (one ply:
+   * its surface fibres' angle), which sets the twist (default THREAD_LOOK.helixDeg; one ply, THREAD_LOOK.singleDeg). A
+   * longer lay (a smaller angle) reads as fewer, longer stripes.
+   */
+  layDeg?: number;
   /** Colour of each ply (default bone, blood, moss; cycled when shorter than `plies`). */
   colors?: ThreadColor[];
-  /** Emissive level of the blood and moss cores: a look.ts glow() level, the bloom key at the core (default THREAD_LOOK.glow). */
+  /**
+   * Emissive level of the blood and moss cores: a look.ts glow() level, the bloom key at the core (default
+   * THREAD_LOOK.glow). With `rest`, the level a strand lights to on meaning (strandGlow's default).
+   */
   glow?: number;
+  /**
+   * The blood and moss cores' level at rest, where the thread starts (default: glow, always lit). A thread whose strands
+   * light on meaning (DIFF_THREAD) rests here, dim, and setStrandGlow lights a strand from it.
+   */
+  rest?: number;
   /** Segments round each tube (default 16). */
   radialSegments?: number;
   /** Rings along the thread (default: 24 per ply turn, at least 2 per radius of length; at most 4095). */
@@ -141,6 +162,64 @@ export const THREAD_LOOK = {
   frayLength: [0.4, 1.6],
   fibreWidth: 0.008,
 } as const;
+
+const DIFF = LOOK_DATA.diffThread;
+
+/**
+ * The diff thread's look, the options every scene spreads in: `new Thread(points, { ...DIFF_THREAD, radius, … })`. It is
+ * her's thread (Plan 2 Task 10) made the film's (E3), with the C4a verdict (b): bone at rest, colour lit on meaning.
+ * - layDeg 14: a long lay against the default 32°, fewer and longer turns: a luxury cable rather than a candy cane.
+ * - strandDye 0.03, strandScale 0.62: the blood and moss strands' fibre dyed near ink and slimmed, so they sit deeper
+ *   in their grooves and their colour is carried by the glowing core alone: light, not paint.
+ * - rest: the cores' level at rest, where the thread starts. Dim, under the bloom: the strands read as dark grooves in a
+ *   bone rope, not as stripes.
+ * - glow 3.6: the level a strand lights to on meaning, just under the level where a core whitens (about 4, look.ts).
+ *   Every frame a scene sets each strand's level from its own moments, `th.setStrandGlow({ moss: strandGlow(t, T.commit),
+ *   blood: strandGlow(t, T.strike) })`: moss when something is committed or added, blood when something is struck or
+ *   removed. A strand with no moment stays at rest; setGlow(level) sets both, for a thread that is lit throughout.
+ * The numbers are data/look/thread.json, which Blender's lib/thread.py reads for its DIFF_THREAD (B03, B05, B08), so the
+ * engine and Blender threads match for intercuts.
+ */
+export const DIFF_THREAD = {
+  layDeg: DIFF.layDeg,
+  strandDye: DIFF.strandDye,
+  strandScale: DIFF.strandScale,
+  glow: DIFF.glow,
+  rest: DIFF.rest,
+} satisfies Partial<ThreadOpts>;
+
+/** strandFlare's envelope: a strand lights over `lead` s into its moment and dies away over `decay` s (thread.json). */
+export const STRAND_FLARE = { lead: DIFF.flare.lead, decay: DIFF.flare.decay };
+
+/**
+ * Flare on meaning, 0..1: a strand's light rises over `lead` seconds into an onset `at` (a word's spoken onset from
+ * motion.ts wordTimes, a downbeat, a bead landing), peaks on it, as slam's impact lands on the sound, and dies away, fast
+ * then slow, to exactly 0 `decay` seconds after it. Several onsets: the brightest of their flares, so a second hit
+ * relights a dying strand. A pure function of t, like motion.ts's helpers (the defaults are STRAND_FLARE).
+ */
+export function strandFlare(t: number, at: number | readonly number[], o: { lead?: number; decay?: number } = {}): number {
+  const { lead = STRAND_FLARE.lead, decay = STRAND_FLARE.decay } = o;
+  let k = 0;
+  for (const a of typeof at === 'number' ? [at] : at) {
+    if (t < a) k = Math.max(k, lead > 0 ? smoothstep(a - lead, a, t) : 0);
+    else if (t < a + decay) k = Math.max(k, (1 - (t - a) / decay) ** 2);
+  }
+  return k;
+}
+
+/**
+ * A strand's glow level at t, for setStrandGlow: `rest` (DIFF_THREAD.rest) lit toward `lit` (DIFF_THREAD.glow) by
+ * strandFlare on its onsets, so exactly `rest` away from them and exactly `lit` on one.
+ */
+export function strandGlow(
+  t: number,
+  at: number | readonly number[],
+  o: { rest?: number; lit?: number; lead?: number; decay?: number } = {},
+): number {
+  const { rest = DIFF_THREAD.rest, lit = DIFF_THREAD.glow } = o;
+  const k = strandFlare(t, at, o);
+  return rest * (1 - k) + lit * k;
+}
 
 const TAU = Math.PI * 2;
 const DEFAULT_COLORS: ThreadColor[] = ['bone', 'blood', 'moss'];
@@ -730,7 +809,7 @@ export class Thread {
     this.plyTube = this.colors.map((_, i) => (core && i === 0 ? -1 : tubes.findIndex((t) => t.ply === i)));
     // the length at construction sets the turns (material coordinates) and the ring count
     this.L0 = sampleArc(points, 2, new Float64Array(6));
-    const twist = opts.twist ?? Math.tan(deg(lay.layDeg)) / (TAU * lay.layOffset * R);
+    const twist = opts.twist ?? Math.tan(deg(opts.layDeg ?? lay.layDeg)) / (TAU * lay.layOffset * R);
     const turns = twist * this.L0;
     const rings = clamp(Math.round(opts.tubularSegments ?? Math.max(Math.ceil(turns * 24), Math.ceil((2 * this.L0) / R), 64)), 2, MAX_RINGS);
     const radial = Math.max(3, Math.round(opts.radialSegments ?? 16));
@@ -775,7 +854,7 @@ export class Thread {
       uAlong: { value: (this.L0 / R) * 0.25 },
       uRes: { value: new THREE.Vector2(1920, 1080) },
     };
-    this.setGlow(opts.glow ?? L.glow);
+    this.setGlow(opts.rest ?? opts.glow ?? L.glow);
     this.setPoints(points);
 
     const mat = new THREE.MeshPhysicalMaterial({
@@ -858,11 +937,26 @@ export class Thread {
     this.uniforms.uFray.value.set(this.fray.at, this.fray.amount, this.fray.half);
   }
 
-  /** Emissive level of the blood and moss cores (look.ts glow level); bone stays dark whatever the level. */
+  /** Emissive level of the blood and moss cores, both (look.ts glow level); bone stays dark whatever the level. */
   setGlow(level: number) {
     this.uniforms.uGlow.value.forEach((g, i) => {
       const key = i < this.colors.length ? GLOW_KEY[this.colors[i]!] : null;
       if (key && level > 0) g.set(...glowLevel(key, level));
+      else g.set(0, 0, 0);
+    });
+  }
+
+  /**
+   * Emissive level of the blood strand, the moss strand, or each (look.ts glow levels): a strand left out keeps its
+   * level. A scene lights one on meaning, moss when something is committed or added, blood when something is struck or
+   * removed, with strandGlow giving the level at t (DIFF_THREAD). Bone stays dark.
+   */
+  setStrandGlow(levels: { blood?: number; moss?: number }) {
+    this.uniforms.uGlow.value.forEach((g, i) => {
+      const key = i < this.colors.length ? GLOW_KEY[this.colors[i]!] : null;
+      const level = key === 'blood' ? levels.blood : key === 'moss' ? levels.moss : undefined;
+      if (key === null || level === undefined) return;
+      if (level > 0) g.set(...glowLevel(key, level));
       else g.set(0, 0, 0);
     });
   }
