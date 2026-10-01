@@ -289,6 +289,26 @@ export interface PanelLine {
   at?: number;
   /** Characters per second from `at`; without it the line appears whole at `at`. A `del` line is struck instead. */
   cps?: number;
+  /**
+   * Tones over runs of the line's characters, over the highlighter's look: `fatal: … commits yet` with "commits" in
+   * blood. Character indices are code points, as the line types; a later span wins where spans overlap. A check mark
+   * stays the panel's moss path.
+   */
+  spans?: readonly PanelSpan[];
+}
+
+/**
+ * A span's tone: a token class's look (its family and colour: `kw` the brightest and a weight heavier, `com` faint and
+ * italic, `prompt` bright blood, …), or an accent on the character's own family: `blood` (the panel's bright blood, as
+ * its prompt and its `−`: blood proper reads darker than moss on the panel) or `moss`.
+ */
+export type PanelTone = Exclude<TokenClass, 'ok'> | 'blood' | 'moss';
+
+/** Characters [from, to) of a line, in a tone. */
+export interface PanelSpan {
+  from: number;
+  to: number;
+  tone: PanelTone;
 }
 
 export interface PanelSpec {
@@ -376,6 +396,9 @@ const STYLE: Record<Exclude<TokenClass, 'ok'>, { family: string; color: string }
   punc: { family: F.mono(400), color: rgba('boneFaint') },
   prompt: { family: F.mono(500), color: rgba('bloodBright') },
 };
+
+/** The accents a span can tone characters in (on their own family). */
+const ACCENT: Record<'blood' | 'moss', string> = { blood: rgba('bloodBright'), moss: rgba('moss') };
 
 /** The design size the chrome is drawn for; the chrome scales with the code size. */
 const BASE_PX = 28;
@@ -567,6 +590,8 @@ export class Panel {
   private g: PanelLayout;
   private chars: string[][];
   private cls: TokenClass[][];
+  /** Each character's span tone, if a span tones it. */
+  private tones: (PanelTone | undefined)[][];
   /** A terminal's typed line with no `$ ` of its own gets one drawn before it (not a continuation after a `\`). */
   private chromePrompt: boolean[];
   private key = '';
@@ -580,6 +605,16 @@ export class Panel {
       const lang = this.langOf(i);
       const toks = l.kind === 'com' ? [{ text: l.text, cls: 'com' as const }] : tokenize(l.text, lang);
       return toks.flatMap((t) => glyphs(t.text).map(() => t.cls));
+    });
+    this.tones = lines.map((l, i) => {
+      const n = this.chars[i]!.length, tones: (PanelTone | undefined)[] = [];
+      for (const sp of l.spans ?? []) {
+        if (!Number.isInteger(sp.from) || !Number.isInteger(sp.to) || sp.from < 0 || sp.to > n || sp.from >= sp.to) {
+          throw new RangeError(`Panel: line ${i}'s span [${sp.from}, ${sp.to}) is not a run of its ${n} characters`);
+        }
+        for (let k = sp.from; k < sp.to; k++) tones[k] = sp.tone;
+      }
+      return tones;
     });
     this.chromePrompt = lines.map((l, i) => {
       const prev = lines[i - 1];
@@ -917,13 +952,34 @@ export class Panel {
       const ch = chars[k]!, kc = cls[k]!, cx = x + k * g.adv;
       if (kc === 'ok') continue; // a check mark: frame() placed it
       if (/\s/.test(ch)) continue;
-      const st = STYLE[kc];
+      const st = this.styleOf(i, k);
       if (cur !== st.family) { c.font = font(st.family, g.size); cur = st.family; }
       c.fillStyle = st.color;
       c.globalAlpha = k < struck ? 0.62 : 1; // the struck part of a deletion recedes
       c.fillText(ch, cx, base);
     }
     c.globalAlpha = 1;
+  }
+
+  /**
+   * The family and colour the panel draws character `col` of line `line` in: its span's tone over the highlighter's
+   * look. Null for one it doesn't draw as text (a blank; a check mark, drawn as a moss path).
+   */
+  charStyle(line: number, col: number): { family: string; color: string } | null {
+    this.checkLine(line);
+    const chars = this.chars[line]!;
+    if (!Number.isInteger(col) || col < 0 || col >= chars.length) throw new RangeError(`Panel: line ${line} has no character ${col}`);
+    if (this.cls[line]![col] === 'ok' || /\s/.test(chars[col]!)) return null;
+    const { family, color } = this.styleOf(line, col);
+    return { family, color };
+  }
+
+  /** Character k of line i's look (not a check mark): its token class's, or its span's tone. */
+  private styleOf(i: number, k: number): { family: string; color: string } {
+    const kc = this.cls[i]![k] as Exclude<TokenClass, 'ok'>, tone = this.tones[i]![k];
+    if (tone === undefined) return STYLE[kc];
+    if (tone === 'blood' || tone === 'moss') return { family: STYLE[kc].family, color: ACCENT[tone] };
+    return STYLE[tone];
   }
 
   /**
@@ -935,7 +991,7 @@ export class Panel {
     this.chars.forEach((chars, i) => chars.forEach((ch, k) => {
       const kc = this.cls[i]![k]!;
       if (kc === 'ok' || /\s/.test(ch)) return;
-      const family = STYLE[kc].family;
+      const family = this.styleOf(i, k).family;
       if (seen.has(family + ch)) return;
       seen.add(family + ch);
       try {

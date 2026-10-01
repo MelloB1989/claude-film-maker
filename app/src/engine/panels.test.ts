@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test';
 import { Panel, lineEnd, panelLayout, tokenize, type Lang, type PanelLine, type PanelSpec } from './panels';
+import { rgba } from './palette';
+import { F } from './type';
 
 // Expected values are counted by hand from the strings (character positions, cps arithmetic), never from panels.ts.
 
@@ -362,4 +364,49 @@ test('geometry: a row the panel does not have is an error, not a guess', () => {
     expect(() => p.textOrigin(i, 1)).toThrow();
     expect(() => p.cellOrigin(i, 0)).toThrow();
   }
+});
+
+// -------------------------------------------------------------------------------------------------------- spans
+
+// A line's characters take the highlighter's look (bone at five strengths, the prompt in bright blood) unless a span
+// tones them: a token class's look (its family and colour), or an accent, blood or moss, on the character's own family.
+
+const FATAL = "fatal: your current branch 'main' does not have any commits yet"; // "commits" is characters 52..58
+
+test('spans: without any, every character keeps the highlighter\'s look', () => {
+  const p = new Panel({ kind: 'terminal', w: 1120, h: 232, lines: [{ text: '$ git log', kind: 'cmd' }, { text: FATAL, kind: 'out' }] });
+  expect(p.charStyle(0, 0)).toEqual({ family: F.mono(500), color: rgba('bloodBright') }); // the prompt
+  expect(p.charStyle(0, 2)).toEqual({ family: F.mono(500), color: rgba('bone', 1) }); // `git`, the command
+  expect(p.charStyle(1, 0)).toEqual({ family: F.mono(400), color: rgba('bone', 0.88) }); // output reads as plain
+  expect(p.charStyle(1, 6)).toBeNull(); // a blank draws nothing
+});
+
+test('spans: an accent tones its run, on the characters\' own family; the rest of the line is untouched', () => {
+  const at = FATAL.indexOf('commits');
+  expect(at).toBe(52);
+  const p = new Panel({ kind: 'terminal', w: 1120, h: 232, lines: [{ text: FATAL, kind: 'out', spans: [{ from: 52, to: 59, tone: 'blood' }] }] });
+  for (let k = 52; k < 59; k++) expect(p.charStyle(0, k)).toEqual({ family: F.mono(400), color: rgba('bloodBright') });
+  expect(p.charStyle(0, 51)).toBeNull(); // the blank before it
+  expect(p.charStyle(0, 50)).toEqual({ family: F.mono(400), color: rgba('bone', 0.88) });
+  expect(p.charStyle(0, 60)).toEqual({ family: F.mono(400), color: rgba('bone', 0.88) });
+  const moss = new Panel({ kind: 'editor', w: 900, h: 300, lang: 'ts', lines: [{ text: 'const x = 1', spans: [{ from: 0, to: 5, tone: 'moss' }] }] });
+  expect(moss.charStyle(0, 0)).toEqual({ family: F.mono(500), color: rgba('moss') }); // a keyword keeps its weight
+});
+
+test('spans: a token class tone gives its run that class\'s look; where spans overlap the later one wins', () => {
+  const p = new Panel({ kind: 'editor', w: 900, h: 300, lines: [{ text: 'abcdefgh', spans: [{ from: 0, to: 6, tone: 'com' }, { from: 4, to: 8, tone: 'kw' }] }] });
+  expect(p.charStyle(0, 0)).toEqual({ family: F.mono(400, true), color: rgba('boneFaint') });
+  expect(p.charStyle(0, 3)).toEqual({ family: F.mono(400, true), color: rgba('boneFaint') });
+  expect(p.charStyle(0, 4)).toEqual({ family: F.mono(500), color: rgba('bone', 1) });
+  expect(p.charStyle(0, 7)).toEqual({ family: F.mono(500), color: rgba('bone', 1) });
+});
+
+test('spans: a check mark stays the panel\'s moss path; a span that is empty or off the line is an error', () => {
+  const p = new Panel({ kind: 'terminal', w: 900, h: 300, lines: [{ text: '✔ Connected', kind: 'out', spans: [{ from: 0, to: 4, tone: 'blood' }] }] });
+  expect(p.charStyle(0, 0)).toBeNull(); // drawn by the shader, not as text
+  expect(p.charStyle(0, 2)).toEqual({ family: F.mono(400), color: rgba('bloodBright') });
+  const bad = (from: number, to: number) => () => new Panel({ kind: 'editor', w: 900, h: 300, lines: [{ text: 'abc', spans: [{ from, to, tone: 'moss' }] }] });
+  for (const [from, to] of [[2, 2], [2, 1], [-1, 2], [0, 4], [0.5, 2]] as const) expect(bad(from, to)).toThrow();
+  expect(bad(0, 3)).not.toThrow();
+  expect(() => p.charStyle(0, 11)).toThrow(); // past the line
 });
