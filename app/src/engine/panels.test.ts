@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test';
 import { Panel, lineEnd, panelLayout, tokenize, type Lang, type PanelLine, type PanelSpec } from './panels';
+import * as THREE from 'three';
 import { rgba } from './palette';
 import { F } from './type';
 
@@ -515,4 +516,23 @@ test('highlights: a run off the line, or backwards, is an error', () => {
   for (const [from, to] of [[2, 1], [-1, 2], [0, 4]] as const) expect(bad(from, to)).toThrow();
   expect(bad(0, 3)).not.toThrow();
   expect(bad(1, 1)).not.toThrow(); // empty: nothing to draw
+});
+
+// ------------------------------------------------------------------------------------------------------- opaque
+
+test('opaque: an opt-in panel sits in three\'s opaque list (glass in front refracts it), its edges still blending as before', () => {
+  const m = (p: Panel) => p.mesh.material as THREE.ShaderMaterial;
+  const plain = new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'a' }] });
+  expect([m(plain).transparent, m(plain).blending]).toEqual([true, THREE.NormalBlending]); // unchanged
+  const solid = new Panel({ kind: 'editor', w: 640, h: 400, opaque: true, lines: [{ text: 'a' }] });
+  const o = m(solid);
+  expect(o.transparent).toBe(false); // three's opaque list: what its transmission pass copies for the glass to refract
+  // the transparent panel's blend (NormalBlending without premultiplied alpha), kept on in the opaque list
+  expect([o.blending, o.blendEquation, o.blendSrc, o.blendDst, o.blendSrcAlpha, o.blendDstAlpha]).toEqual([
+    THREE.CustomBlending, THREE.AddEquation, THREE.SrcAlphaFactor, THREE.OneMinusSrcAlphaFactor, THREE.OneFactor, THREE.OneMinusSrcAlphaFactor,
+  ]);
+  expect([o.depthWrite, o.side]).toEqual([true, THREE.DoubleSide]);
+  expect(o.fragmentShader).toBe(m(plain).fragmentShader);
+  // the drop shadow stays a soft transparent quad behind it
+  expect((solid.shadow.material as THREE.ShaderMaterial).transparent).toBe(true);
 });

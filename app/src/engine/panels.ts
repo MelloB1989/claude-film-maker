@@ -359,6 +359,14 @@ export interface PanelSpec {
    * its own; this adds to that.
    */
   scroll?: number | ((t: number) => number);
+  /**
+   * Drawn with the solid objects (three's opaque list) instead of the transparent ones, so glass in front of it (a bead,
+   * the needle) refracts it: three's transmission pass copies only the opaque list. Its rounded edge keeps blending as a
+   * transparent panel's does (the Stage supersamples rather than multisampling, so alpha-to-coverage would cut it hard).
+   * It writes depth like any solid: while it fades (opacity), what lies behind it and draws after it does not show
+   * through. Off by default: glass sees through a transparent panel to whatever is behind it.
+   */
+  opaque?: boolean;
 }
 
 /** What a Panel is built from: a PanelSpec whose `h` may be left out when it has `rows` (it is then sized by them). */
@@ -695,6 +703,18 @@ export class Panel {
       transparent: true,
       side: THREE.DoubleSide,
     });
+    if (spec.opaque) {
+      // in the opaque list, with the blend NormalBlending gives a transparent panel (three turns blending off for an
+      // opaque material only when it is NormalBlending)
+      const m = this.mat;
+      m.transparent = false;
+      m.blending = THREE.CustomBlending;
+      m.blendEquation = THREE.AddEquation;
+      m.blendSrc = THREE.SrcAlphaFactor;
+      m.blendDst = THREE.OneMinusSrcAlphaFactor;
+      m.blendSrcAlpha = THREE.OneFactor;
+      m.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
+    }
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(w / 1000, h / 1000), this.mat);
     this.verifyGlyphs();
     const pad = SHADOW.blur + SHADOW.offset;
