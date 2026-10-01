@@ -232,8 +232,9 @@ export function armAt(a: Arm, t: number, T: SearchTimes & Pick<Times, 'rise' | '
   const R0 = held.pts[0]!, P0 = held.pts[N_PTS - 1]!;
   const root: V3 = [R0[0], R0[1] - drop(tau - ROOT_LAG), R0[2]];
   let tip: V3 = [P0[0], P0[1] - drop(tau), P0[2]];
-  // the thread holds the tip to its length (it cannot fall further from the root than the thread is long)
-  const d = sub(tip, root), far = len(d), reach = 0.985 * L;
+  // the thread holds the tip to its length (it cannot fall further from the root than the thread is long): never
+  // nearer than the span it let go at, so the hold never moves the tip at the release itself
+  const d = sub(tip, root), far = len(d), reach = Math.max(0.985 * L, len(sub(P0, R0)));
   if (far > reach) tip = add(root, scale(d, reach / far));
   const pts = catenary(root, tip, L, N_PTS);
   // what the air does to a slack thread falling through it, displaced square to the thread in the plane it hangs in

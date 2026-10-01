@@ -11,7 +11,7 @@
 // - The embers: the faint blood light that runs down each arm as it lets go, drawn on the scene's glow layer.
 import { F, font, measure } from '../engine/type';
 import { rgba } from '../engine/palette';
-import { clamp, ease, frameIdx, lerp, prog } from '../engine/util';
+import { FPS, clamp, ease, frameIdx, lerp, prog } from '../engine/util';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -30,21 +30,23 @@ export const NOTE = { px: 22, fam: F.mono(400), cps: 120 };
 
 /** The question at t: typed from `at` at `cps`, its caret solid while typing then blinking, gone after `until`. */
 export function drawQuery(c: Ctx, t: number, text: string, at: number, cps: number, alpha: number, until: number) {
-  if (t < at - 0.02 || alpha <= 0.003) return;
+  // the keys land on the output frame grid: a frame shows one state across its whole motion-blur shutter (as Panel types)
+  const tq = frameIdx(t) / FPS;
+  if (tq < at - 0.02 || alpha <= 0.003) return;
   const { px, fam, base } = QUERY;
   const chars = Array.from(text);
   c.save();
   c.font = font(fam, px);
   const w = measure(text, fam, px);
   const x0 = 960 - w / 2;
-  const n = clamp(Math.floor((t - at) * cps) + 1, 0, chars.length);
+  const n = clamp(Math.floor((tq - at) * cps) + 1, 0, chars.length);
   const typed = chars.slice(0, n).join('');
   c.globalAlpha = alpha;
   c.fillStyle = rgba('bone', 0.92);
   c.fillText(typed, x0, base);
   // a block caret: solid while the keys land, then blinking 16 frames on and off, from the frame the typing ends
   const done = at + (chars.length - 1) / cps;
-  const on = t < done + 0.03 || Math.floor((frameIdx(t) - frameIdx(done)) / 16) % 2 === 1;
+  const on = tq < done + 0.03 || Math.floor((frameIdx(t) - frameIdx(done)) / 16) % 2 === 1;
   const caret = 1 - prog(t, until - 0.04, until + 0.08);
   if (on && caret > 0) {
     c.globalAlpha = alpha * caret;
@@ -123,10 +125,10 @@ export function drawKnow(c: Ctx, t: number, text: string, at: number, alpha = 1)
   c.restore();
 }
 
-/** The footnote, typed in from `at`, centred on x (it does not move as it types: it is laid out whole). */
+/** The footnote, typed in from `at` on the frame grid, centred on x (it does not move as it types: it is laid out whole). */
 export function drawNote(c: Ctx, t: number, text: string, at: number, x: number, base: number, alpha = 1) {
   const chars = Array.from(text);
-  const n = clamp(Math.floor((t - at) * NOTE.cps + 1), 0, chars.length);
+  const n = clamp(Math.floor((frameIdx(t) / FPS - at) * NOTE.cps + 1), 0, chars.length);
   if (n <= 0 || alpha <= 0.003) return;
   c.save();
   c.font = font(NOTE.fam, NOTE.px);

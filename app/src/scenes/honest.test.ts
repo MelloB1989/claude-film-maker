@@ -154,6 +154,18 @@ describe('honest: the fall', () => {
     }
   });
 
+  test('takes up from the search without a jump: the release moves no point more than the frames around it do', () => {
+    for (const a of ARMS) {
+      const at = T.slack(a), dt = 1 / 2000;
+      const step = (t: number) => {
+        const p = armAt(a, t, T).pts, q = armAt(a, t + dt, T).pts;
+        return Math.max(...p.map((x, i) => dist(x, q[i]!)));
+      };
+      expect(step(at - dt / 2)).toBeLessThan(0.002);
+      for (let t = at - 0.05; t < at + 0.05; t += dt) expect(step(t)).toBeLessThan(0.002);
+    }
+  });
+
   test('is a pure function of t: any order, the same points', () => {
     const ts = [T.slack('cues') + 0.37, T.hush + 0.01, T.release + 0.2, T.rise('body') + 0.1];
     const first = ts.map((t) => ARMS.map((a) => armAt(a, t, T).pts));
