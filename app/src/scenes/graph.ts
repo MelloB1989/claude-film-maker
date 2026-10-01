@@ -601,7 +601,8 @@ export default class Graph extends Scene {
     L.text(HOTEL, place('hotel'), { em: LABEL_EM, color: mixc(dim, moss, visited(1)), alpha: open });
     L.text(CITY, place('city'), { em: LABEL_EM, color: mixc(dim, moss, visited(2)), alpha: open });
 
-    // the forward link's tag at the loose end, typed on as the thread falls short; on the heal it becomes the trip's name
+    // the forward link's tag at the loose end, typed on as the thread falls short; it rides up with the end into the trip's
+    // bead, and when the moss reaches the trip it resolves: its path and brackets fall away and the name slides home
     const thrown = prog(t, T.land + 0.05, T.ping - 0.04, ease.outCubic);
     // (typed on the output frame grid: one state per shutter, so a character never lands mid-frame)
     const tq = frameIdx(t) / FPS;
@@ -610,8 +611,8 @@ export default class Graph extends Scene {
       const { end } = looseEnd(t, NODES.maya.pos, NODES.trip.pos, T.heal);
       const tagAt = v3(end).addScaledVector(right, TAG.dx - len(FORWARD) * ADV * LABEL_EM).addScaledVector(up, TAG.dy).addScaledVector(back, LABEL_FLOAT);
       const home = place('trip');
-      const k = prog(t, T.heal - 0.05, T.heal + 0.22, ease.inOutCubic);
-      const gone = prog(t, T.heal - 0.06, T.heal + 0.1, ease.inQuad);
+      const k = prog(t, T.hops[0]! - 0.03, T.hops[0]! + 0.16, ease.inOutCubic);
+      const gone = prog(t, T.hops[0]! - 0.04, T.hops[0]! + 0.08, ease.inQuad);
       const col = mixc(mixc(LIN.bloodBright, dim, k), moss, visited(0));
       L.text(FORWARD, tagAt, {
         em: LABEL_EM, color: col, alpha: thrown, n: typed,
