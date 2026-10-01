@@ -241,3 +241,68 @@ def test_strand_flare_and_strand_glow_are_the_engines():
     assert thread.strand_glow(5.0, 5.0) == 3.6
     assert thread.strand_glow(5.3, [5.0]) == pytest.approx(0.15 + 0.25 * (3.6 - 0.15), abs=1e-9)
     assert thread.strand_glow(5.0, 5.0, rest=0.0, lit=2.0) == 2.0
+
+
+# ------------------------------------------------------------------------------------------ strands in the macro rope (B03)
+
+def _straight(rope, s, n0=(0.0, 0.0, 1.0)):
+    X = np.column_stack([s - rope.break_at, np.zeros_like(s), np.zeros_like(s)])
+    _, N, _ = thread.rmf(X, list(n0))
+    return thread.still_pose(rope, s, X, N)
+
+
+def test_a_groove_strand_lies_between_two_plies_at_the_strand_offset():
+    R = 0.01
+    rope = thread.fibre_rope(R, 30 * R, seed=2, fibres=8, fuzz_per_R=1, lay_deg=14)
+    s = rope.grid
+    pose = _straight(rope, s)
+    D = thread.diff_tubes()[3]["d"]
+    for groove in (0.5, 1 / 6):
+        P, out = thread.groove_path(rope, pose, groove, fray_centre=rope.break_at, fray_amount=0.0)
+        np.testing.assert_allclose(np.hypot(P[:, 1], P[:, 2]), D * R, atol=1e-12)  # D R off the axis
+        np.testing.assert_allclose(np.linalg.norm(out, axis=1), 1, atol=1e-12)
+        # at the groove's phase: a sixth of a turn from each ply either side, winding with the lay
+        # N is +z here and B = T x N is -y, so the angle round from N toward B is atan2(-y, z)
+        want = 2 * np.pi * (groove + rope.twist * s)
+        np.testing.assert_allclose(np.angle(np.exp(1j * (np.arctan2(-P[:, 1], P[:, 2]) - want))), 0, atol=1e-9)
+
+
+def test_a_groove_strand_follows_the_poses_unravel_and_its_depth_can_vary():
+    R = 0.01
+    rope = thread.fibre_rope(R, 30 * R, seed=2, fibres=8, fuzz_per_R=1, lay_deg=24)
+    s = rope.grid
+    pose = _straight(rope, s)
+    pose.unravel = np.full(len(s), 0.25)  # a quarter turn more everywhere
+    P, _ = thread.groove_path(rope, pose, 0.5, fray_centre=rope.break_at, fray_amount=0.0)
+    want = 2 * np.pi * (0.75 + rope.twist * s)
+    np.testing.assert_allclose(np.angle(np.exp(1j * (np.arctan2(-P[:, 1], P[:, 2]) - want))), 0, atol=1e-9)
+    depth = np.linspace(0, 0.7, len(s))  # rising out of the axis
+    P2, _ = thread.groove_path(rope, pose, 0.5, depth=depth, fray_centre=rope.break_at, fray_amount=0.0)
+    np.testing.assert_allclose(np.hypot(P2[:, 1], P2[:, 2]), depth * R, atol=1e-12)
+
+
+def test_the_macro_ropes_strand_at_the_diff_lay_is_the_diff_threads_strand():
+    # a fibre rope laid at DIFF_THREAD's 14 degrees, straight, carries its blood strand where diff_thread_paths puts it
+    R = 0.01
+    L = 20 * R
+    rope = thread.fibre_rope(R, L, seed=2, fibres=8, fuzz_per_R=1, lay_deg=thread.DIFF_THREAD["lay_deg"])
+    assert rope.twist == pytest.approx(thread.diff_twist(R), rel=1e-12)
+    (tube, Q, r) = thread.diff_thread_paths([(-L / 2, 0, 0), (L / 2, 0, 0)], R)[3]
+    assert tube["color"] == "blood"
+    s = Q[:, 0] + L / 2  # the rope posed on the diff thread's own samples
+    P, _ = thread.groove_path(rope, _straight(rope, s), 0.5, fray_centre=rope.break_at, fray_amount=0.0)
+    np.testing.assert_allclose(P, Q, atol=1e-9 * R)
+
+
+def test_tube_rings_are_round_square_to_the_path_and_vanish_at_radius_zero():
+    t = np.linspace(0, 4 * np.pi, 200)
+    P = np.column_stack([np.cos(t), np.sin(t), 0.3 * t])  # a helix
+    r = np.linspace(0, 0.05, 200)
+    rings = thread.tube_rings(P, r, seg=10)
+    assert rings.shape == (200, 10, 3)
+    T = np.gradient(P, axis=0)
+    T /= np.linalg.norm(T, axis=1, keepdims=True)
+    off = rings - P[:, None]
+    np.testing.assert_allclose(np.linalg.norm(off, axis=2), np.repeat(r[:, None], 10, 1), atol=1e-12)
+    np.testing.assert_allclose(np.einsum("mkj,mj->mk", off, T), 0, atol=1e-12)
+    np.testing.assert_allclose(rings[0], np.repeat(P[:1], 10, 0), atol=0)  # radius 0: a point

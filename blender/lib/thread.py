@@ -917,10 +917,12 @@ def ply_material(name: str = "diff_bone"):
     return mat
 
 
-def strand_material(color: str, *, preset: dict = DIFF_THREAD, name: str | None = None):
+def strand_material(color: str, *, preset: dict = DIFF_THREAD, name: str | None = None, heat_attr: str | None = None):
     """A blood or moss strand: its fibre dyed near ink (strand_albedo) with a glowing core, an emission of
     glow_color(color) at strength glow x glow_profile(N.V), where N.V = 1 - Layer Weight's Facing at blend 0.5. The glow
-    level is the Value node named 'glow' (glow_socket), starting at preset['rest']: set or key it (DiffThread.set_glow)."""
+    level is the Value node named 'glow' (glow_socket), starting at preset['rest']: set or key it (DiffThread.set_glow).
+    `heat_attr` names a geometry attribute added to that level where the strand has it (StrandTube's `heat`: a tip that
+    burns hotter as it lays in); without it the material is exactly as before."""
     from . import materials
 
     mat, bsdf = materials._principled(name or f"diff_{color}")
@@ -949,7 +951,13 @@ def strand_material(color: str, *, preset: dict = DIFF_THREAD, name: str | None 
     glow = nt.nodes.new("ShaderNodeValue")
     glow.name = glow.label = "glow"
     glow.outputs[0].default_value = preset["rest"]
-    nt.links.new(math_node("MULTIPLY", profile, glow.outputs[0]), bsdf.inputs["Emission Strength"])
+    level = glow.outputs[0]
+    if heat_attr:
+        attr = nt.nodes.new("ShaderNodeAttribute")
+        attr.attribute_type = "GEOMETRY"
+        attr.attribute_name = heat_attr
+        level = math_node("ADD", level, attr.outputs["Fac"])
+    nt.links.new(math_node("MULTIPLY", profile, level), bsdf.inputs["Emission Strength"])
     return mat
 
 
@@ -1028,3 +1036,80 @@ def diff_thread(points, radius: float, *, preset: dict = DIFF_THREAD, name: str 
         coll.objects.link(ob)
         th.tubes.append(ob)
     return th
+
+
+# ------------------------------------------------------------------------------------------ strands in the macro rope
+#
+# The diff thread at macro (B03, the re-form): DIFF_THREAD's blood and moss strands laid in the grooves of the fibre
+# rope (FibreRope), in any pose. A groove lies between two plies, a sixth of a turn from each; a strand in groove g
+# (turns from ply 0: blood 1/2, moss 1/6, as diff_tubes) winds with the plies' phase, the pose's unravel and the fray's
+# untwist included, at diff_tubes' strand offset, opened with the plies' fray and splay. The strands are smooth tubes
+# (StrandTube): at macro their glowing core (strand_material) is the detail, and the plies round them are fibre.
+
+def groove_path(rope: FibreRope, pose: RopePose, groove: float, *, depth=None, fray_centre: float, fray_amount: float,
+                fray_span: float | None = None):
+    """The centreline of a strand in groove `groove` (turns from ply 0) of `rope` in `pose`, at the pose's samples:
+    (points (m, 3), unit outward directions (m, 3)). `depth` is its offset from the axis in R, a number or one per sample
+    (a strand rising out of the axis); by default diff_tubes' strand offset (0.70 R, touching the plies either side).
+    The fray's untwist is the one rope_geometry gives the plies (`fray_centre`, `fray_amount`, `fray_span`)."""
+    span = (fray_span or LOOK["fray_span"]) * rope.R
+    s, X = pose.s, pose.X
+    T = np.gradient(X, s, axis=0)
+    T /= np.maximum(np.linalg.norm(T, axis=1, keepdims=True), 1e-12)
+    N = pose.N - T * np.sum(pose.N * T, axis=1, keepdims=True)
+    N /= np.maximum(np.linalg.norm(N, axis=1, keepdims=True), 1e-12)
+    B = np.cross(T, N)
+    phase = rope.twist * untwisted(s, fray_centre, span, fray_amount, rope.fray_untwist) + pose.unravel
+    th = 2 * np.pi * (groove + phase)
+    out = np.cos(th)[:, None] * N + np.sin(th)[:, None] * B
+    D = diff_tubes()[3]["d"] if depth is None else np.asarray(depth, float)
+    # the plies either side of the groove stand out with the fray, and with their own splay at a broken end
+    k1, k2 = int(round(3 * (groove - 1 / 6))) % 3, int(round(3 * (groove + 1 / 6))) % 3
+    d = D * rope.R * (1 + rope.fray_separation * pose.fray + 0.5 * (pose.splay[k1] + pose.splay[k2]))
+    return X + np.broadcast_to(d, s.shape)[:, None] * out, out
+
+
+def tube_rings(P, radius, seg: int = 12, up=None) -> np.ndarray:
+    """The vertices of a round tube along a path P (m, 3): (m, seg, 3), ring i of radius radius[i] (a number, or one per
+    ring) square to the path, starting from `up` (one direction per ring, or one for all; default +z) made square to the
+    path's tangent."""
+    P = np.asarray(P, float)
+    T = np.gradient(P, axis=0)
+    T /= np.maximum(np.linalg.norm(T, axis=1, keepdims=True), 1e-12)
+    ref = np.broadcast_to(np.asarray((0.0, 0.0, 1.0) if up is None else up, float), P.shape)
+    U = ref - T * np.sum(ref * T, axis=1, keepdims=True)
+    U /= np.maximum(np.linalg.norm(U, axis=1, keepdims=True), 1e-12)
+    V = np.cross(T, U)
+    a = np.linspace(0, 2 * np.pi, seg, endpoint=False)
+    r = np.broadcast_to(np.asarray(radius, float), (len(P),))[:, None, None]
+    return P[:, None] + r * (np.cos(a)[None, :, None] * U[:, None] + np.sin(a)[None, :, None] * V[:, None])
+
+
+class StrandTube:
+    """A strand as a smooth mesh tube whose path, radius and heat a frame handler sets every (sub-)frame (`update`):
+    `rings` cross-sections of `seg` vertices (tube_rings), a ring at radius 0 gone (so a strand can grow along its
+    groove out of nothing), and a per-vertex float attribute `heat` that its material adds to its glow level
+    (strand_material(heat_attr="heat")). It carries `deform_blur`, so Cycles motion-blurs what the handler moves."""
+
+    def __init__(self, name: str, rings: int, material=None, *, seg: int = 12, collection=None, parent=None):
+        import bpy
+
+        self.rings, self.seg = rings, seg
+        coll = collection or bpy.context.scene.collection
+        me = bpy.data.meshes.new(name)
+        me.from_pydata(np.zeros((rings * seg, 3)).tolist(), [], _tube_faces(rings, seg))
+        me.shade_smooth()
+        me.attributes.new("heat", "FLOAT", "POINT")
+        if material is not None:
+            me.materials.append(material)
+        self.ob = bpy.data.objects.new(name, me)
+        self.ob.parent = parent
+        coll.objects.link(self.ob)
+        deform_blur(self.ob)
+
+    def update(self, P, radius, heat=None, up=None) -> None:
+        me = self.ob.data
+        me.vertices.foreach_set("co", tube_rings(P, radius, self.seg, up).astype(np.float32).ravel())
+        h = np.zeros(self.rings) if heat is None else np.broadcast_to(np.asarray(heat, float), (self.rings,))
+        me.attributes["heat"].data.foreach_set("value", np.repeat(h, self.seg).astype(np.float32))
+        me.update()
