@@ -11,6 +11,14 @@
 import { wordTimes } from '../engine/motion';
 import { norm, type VO, type Word } from '../engine/vo';
 import type { AudioData } from '../engine/audio';
+import { hash } from '../engine/util';
+import { DEPTH, N, levelOf, type Tree } from './merkle-tree';
+
+/** A time that never comes (s). */
+export const NEVER = 1e6;
+/** How long a skipped subtree takes to fold shut (s), and when in that its stamp hits (share). */
+export const FOLD_S = 0.42;
+export const STAMP_AT = 0.5;
 
 export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
   const ws = wordTimes(vo, 'merkle').map((x) => x.w);
@@ -42,3 +50,32 @@ export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
   };
 }
 export type Times = ReturnType<typeof timesOf>;
+
+/** Per-node times the shaders read (scene time: s from the scene's start). */
+export interface TreeTimes {
+  /** When the moss reaches a node (lit nodes; NEVER otherwise). */
+  moss: Float32Array;
+  /** When the walk reaches a node (lit nodes; NEVER otherwise). */
+  walk: Float32Array;
+  /** When each skipped subtree starts to fold, by its root (NEVER where a node roots none). */
+  fold: Float32Array;
+}
+
+/**
+ * Every node's times. The moss climbs every changed file's path from "changed?" to the root on the downbeat, level by
+ * level, the files themselves a few frames apart (they pulse as a scatter, not a flash); the walk reaches level k on
+ * its word; each skipped subtree starts to fold as the walk reaches its parent, the siblings a few frames apart.
+ */
+export function nodeTimes(tree: Tree, T: Times): TreeTimes {
+  const s = T.start, moss = new Float32Array(N).fill(NEVER), walk = new Float32Array(N).fill(NEVER), fold = new Float32Array(N).fill(NEVER);
+  const climb = [1, 0.82, 0.6, 0.35, 0].map((x) => T.changed + (T.root - T.changed) * x - s);
+  for (let id = 0; id < N; id++) {
+    const k = levelOf(id);
+    if (tree.lit[id]) {
+      moss[id] = climb[k]! + (k === DEPTH ? 0.05 * hash(id, 3) : 0);
+      walk[id] = T.walk[k]! - s;
+    }
+    if (tree.fold[id] === id) fold[id] = T.walk[k - 1]! - s + 0.06 * hash(id, 5);
+  }
+  return { moss, walk, fold };
+}

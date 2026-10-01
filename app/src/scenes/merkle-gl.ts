@@ -21,10 +21,9 @@
 import * as THREE from 'three';
 import { HEX } from '../engine/palette';
 import { glow } from '../engine/look';
-import { BRANCH, DEPTH, N, levelOf, parentOf, type Tree } from './merkle-tree';
+import { DEPTH, N, levelOf, parentOf, type Tree } from './merkle-tree';
+import { FOLD_S, NEVER, type TreeTimes } from './merkle-time';
 
-/** A time that never comes (s). */
-export const NEVER = 1e6;
 
 const f = (x: number) => x.toFixed(5);
 const srgb = (c: string) => {
@@ -41,7 +40,7 @@ export function treeUniforms() {
     /** Logical frame size (px), physical px per logical px. */
     uScreen: { value: new THREE.Vector3(1920, 1080, 1) },
     /** The fold: its length (s), the share of it the cone takes to close, where the draw-up starts (share). */
-    uFold: { value: new THREE.Vector3(0.42, 0.55, 0.3) },
+    uFold: { value: new THREE.Vector3(FOLD_S, 0.55, 0.3) },
     /** Line widths: bone (px), lit (px), the floor in metres, the near plane (m, view depth). */
     uWidth: { value: new THREE.Vector4(1, 1.7, 0.00007, 0.004) },
     /** Bone level of edges into each level 1..4 (b of the way from ink to bone). */
@@ -66,6 +65,8 @@ export function treeUniforms() {
     uSweepK: { value: new THREE.Vector2(0.06, 0) },
     /** How dark a sealed subtree's stub and node go (0..1 of their light kept). */
     uSealed: { value: 0.32 },
+    /** The changed files twinkle in bone before they are named (from time x, spread over y s, by z of bone). */
+    uTwinkle: { value: new THREE.Vector3(NEVER, 0.14, 0.55) },
   };
 }
 export type TreeUniforms = ReturnType<typeof treeUniforms>;
@@ -87,6 +88,7 @@ uniform vec3 uFar;
 uniform vec4 uSweep;
 uniform vec2 uSweepK;
 uniform float uSealed;
+uniform vec3 uTwinkle;
 const vec3 INK_S = ${srgb(HEX.ink)};
 const vec3 BONE_S = ${srgb(HEX.bone)};
 const vec3 MOSS = ${v3(glow('moss', 1))};
@@ -270,6 +272,10 @@ void main() {
   vec3 col;
   // sealed: a fold's root dims and takes a ring; what folds into it fades as it arrives
   float seal = root ? smoothstep(0.35, 0.8, fu) : 0.0;
+  // the fifty twinkle as she says "things", each on its own frame of the spread, before the moss names them
+  float tw = uTwinkle.x + uTwinkle.y * aT.w;
+  float twinkle = file && uT >= tw ? exp(-(uT - tw) / 0.09) : 0.0;
+  b += uTwinkle.z * twinkle;
   if (root) b *= mix(1.0, uSealed * 1.4, seal);
   else if (aF.w < 1e5) {
     // a folding subtree's dots crowd into its root: each dims so they never pile up into a flare, and goes
@@ -286,6 +292,7 @@ void main() {
     col = mix(col, MOSS * uMoss.x * 1.15 * far, m) + MOSS * (uMoss.y * (file ? 1.2 : 0.6) * flash + uMoss.z * 0.8 * walk);
     r *= 1.0 + m * (file ? 0.6 : 0.35) + 0.9 * flash + 0.8 * walk;
   }
+  r *= 1.0 + 1.2 * twinkle;
   float ring = root ? 2.6 * r + 1.5 * uScreen.z : 0.0;
   float ext = (root ? ring : r) + 1.5 * uScreen.z;
   vec2 s = c.xy / c.w * 0.5 * res + corner * ext;
@@ -321,16 +328,6 @@ void main() {
 }`;
 
 // ------------------------------------------------------------------------------------------------ the draws
-
-/** Per-node times the shaders read (scene time, s): the moss's arrival, the walk's, the fold each node is in. */
-export interface TreeTimes {
-  /** When the moss reaches a node (lit nodes; NEVER otherwise). */
-  moss: Float32Array;
-  /** When the walk reaches a node (lit nodes). */
-  walk: Float32Array;
-  /** When each fold root's subtree starts to fold (by root id; NEVER where a node roots none). */
-  fold: Float32Array;
-}
 
 function material(vert: string, frag: string, u: TreeUniforms, depth: boolean) {
   const m = new THREE.RawShaderMaterial({
@@ -422,5 +419,3 @@ export class TreeDraw {
   }
 }
 
-/** Branching, for the scene's own arithmetic. */
-export { BRANCH };

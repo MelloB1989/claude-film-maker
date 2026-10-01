@@ -3,10 +3,11 @@ import * as THREE from 'three';
 import { Scene, disposeLayer, type Frame, type PostOverrides } from '../engine/scene';
 import { CameraRig, Stage, type CamKey, type V3 } from '../engine/stage';
 import { LIN } from '../engine/palette';
-import { ease, hash, keys } from '../engine/util';
-import { timesOf, type Times } from './merkle-time';
-import { DEPTH, N, SHAPE, buildTree, levelOf, parentOf, pickChanged, pathTo, type Tree } from './merkle-tree';
-import { NEVER, TreeDraw, type TreeTimes } from './merkle-gl';
+import { ease, hash, keys, lerp, prog, pulse } from '../engine/util';
+import { onBeat } from '../engine/motion';
+import { nodeTimes, timesOf, type Times } from './merkle-time';
+import { SEED, SHAPE, buildTree, diveLeaf, pickChanged, pathTo, type Tree } from './merkle-tree';
+import { TreeDraw } from './merkle-gl';
 import { LABEL_CHARS, LabelField, STAMP } from './merkle-labels';
 import { GlyphAtlas } from '../engine/glyphs';
 import { F } from '../engine/type';
@@ -17,21 +18,8 @@ import S from './merkle.strings.json';
 
 const [STAMP_TEXT, COUNTER_TEXT, FOOTNOTE] = S as [string, string, string];
 
-/** The seed of the fifty changed files. */
-const SEED = 1;
 const INK = new THREE.Color().setRGB(...LIN.ink);
 const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
-
-/**
- * The file the camera dives to: a changed file alone among its ten (its rosette shows one lit and nine skipped) on the
- * path with the fewest lit siblings (the most folds beside the dive); the lowest id of those.
- */
-export function diveLeaf(t: Tree): number {
-  const litKids = (id: number) => t.changed.filter((leaf) => pathTo(leaf).includes(id)).map((leaf) => pathTo(leaf)[levelOf(id) + 1]!);
-  const crowd = (leaf: number) => pathTo(leaf).slice(1, DEPTH).reduce((a, id) => a + new Set(litKids(id)).size, 0);
-  const lone = t.changed.filter((leaf) => t.changed.filter((x) => parentOf(x) === parentOf(leaf)).length === 1);
-  return lone.sort((a, b) => crowd(a) - crowd(b) || a - b)[0]!;
-}
 
 export default class Merkle extends Scene {
   private T!: Times;
@@ -54,7 +42,7 @@ export default class Merkle extends Scene {
     this.tree = buildTree(pickChanged(SEED));
     this.path = pathTo(diveLeaf(this.tree));
     this.P = this.path.map((id) => v(this.tree.pos[id * 3]!, this.tree.pos[id * 3 + 1]!, this.tree.pos[id * 3 + 2]!));
-    const times = this.timesFor(T);
+    const times = nodeTimes(this.tree, T);
     this.draw = new TreeDraw(this.tree, times, new Set(this.path));
     this.draw.u.uScreen.value.set(W, H, SCALE);
     this.stage.scene.add(this.draw.group);
@@ -86,21 +74,6 @@ export default class Merkle extends Scene {
     rt.dispose();
   }
 
-  /** Every node's times, scene-local (s from the start). */
-  private timesFor(T: Times): TreeTimes {
-    const s = T.start, moss = new Float32Array(N).fill(NEVER), walk = new Float32Array(N).fill(NEVER), fold = new Float32Array(N).fill(NEVER);
-    const climb = [1, 0.82, 0.6, 0.35, 0].map((x) => T.changed + (T.root - T.changed) * x - s);
-    for (let id = 0; id < N; id++) {
-      const k = levelOf(id);
-      if (this.tree.lit[id]) {
-        moss[id] = climb[k]! + (k === DEPTH ? 0.05 * hash(id, 3) : 0);
-        walk[id] = T.walk[k]! - s;
-      }
-      if (this.tree.fold[id] === id) fold[id] = T.walk[k - 1]! - s + 0.06 * hash(id, 5);
-    }
-    return { moss, walk, fold };
-  }
-
   // ---------------------------------------------------------------------------------------------- the camera
 
   private buildRig() {
@@ -123,8 +96,8 @@ export default class Merkle extends Scene {
       key(T.start, at(d(-12), 0.86, 0.04), v(0, 0.46, 0), 44),
       key(T.fifty + 0.55, at(d(10), 1.3, 0.62), v(0, 0.25, 0), 34, ease.inOutQuad),
       // high over the lit tree as the moss reaches the root, then easing in for the walk
-      key(T.root, at(d(4), 0.98, 1.02), v(0, 0.25, 0), 34, ease.inOutCubic),
-      key(T.walk[0]!, at(d(1), 0.86, 0.96), v(0, 0.27, 0.0), 36, ease.inOutCubic),
+      key(T.root, at(d(4), 1.04, 1.06), v(0, 0.31, 0), 34, ease.inOutCubic),
+      key(T.walk[0]!, at(d(1), 0.9, 1.0), v(0, 0.32, 0.0), 36, ease.inOutCubic),
       // the dive: down outside the lit branch, lagging the walk (the comet leads), slow while the top-level folds close,
       // then faster, level by level, tipping up from the drop to the vault as it lands with "fifty."
       key(T.walk[1]! + 0.06, outside(P1, 0.34, 0.16), inside(P1, 0.06, -0.13), 40, ease.inQuad),
@@ -157,6 +130,13 @@ export default class Merkle extends Scene {
     const t = f.t, T = this.T, st = this.stage, u = this.draw.u;
     this.rig.apply(st.camera, t);
     u.uT.value = t - T.start;
+    // the index as the cut finds it: a band of light rises through the tree from the files to the root, landing on the
+    // beat she says "Fifty" on (each node's hash covers its children's); a breath on every beat after
+    const rise = prog(t, T.start + 0.02, T.fifty, ease.inOutCubic);
+    u.uSweep.value.set(0, 1, 0, lerp(-0.06, SHAPE.y[0]! + 0.04, rise));
+    u.uSweepK.value.set(0.055, 0.85 * Math.sin(Math.PI * Math.min(1, rise * 1.08)) + 0.5 * pulse(t, T.fifty, 0.08) * (rise >= 1 ? 0 : 1));
+    u.uLight.value.y = t > T.fifty ? 0.035 * onBeat(f, 0.3) : 0;
+    u.uTwinkle.value.x = T.things - T.start;
     const r = this.ctx.renderer, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha();
     r.setClearColor(INK, 1);
     const dof = this.focus(t);
@@ -173,7 +153,11 @@ export default class Merkle extends Scene {
     this.layer.clear();
     drawCounter(this.layer.ctx, t, COUNTER_TEXT, FOOTNOTE, T.walk[0]!, T.walk[0]! + 0.26, T.land);
     this.ctx.comp.draw(r, this.layer.upload(), out);
-    return {};
+
+    // the root's hash changes on the downbeat, and the number lands: the frame punches in a hair, and jolts on the slam
+    const dl = t - T.land;
+    const shake = dl > 0 ? 3.5 * Math.exp(-dl * 22) * Math.cos(dl * 2 * Math.PI * 11) : 0;
+    return { zoom: 1 + 0.006 * pulse(t, T.root, 0.1) + 0.009 * pulse(t, T.land + 0.02, 0.09), shake: [0, shake] };
   }
 
   override dispose() {

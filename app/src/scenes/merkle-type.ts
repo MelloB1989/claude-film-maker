@@ -105,7 +105,7 @@ export class HeroNumber {
       m.scale.setScalar(size);
     });
     // the diff glow comes up as it lands, flares on the impact and settles
-    this.mat.emissiveIntensity = GLOW_LEVEL * 0.95 * clamp(slam(t, hit + 0.04, { freq: 3 })) * (1 + 0.4 * pulse(t, hit + 0.05, 0.2));
+    this.mat.emissiveIntensity = GLOW_LEVEL * 1.15 * clamp(slam(t, hit + 0.04, { freq: 3 })) * (1 + 0.4 * pulse(t, hit + 0.05, 0.2));
     // the sweep: a strip mirrored in the faces, running across the number as it lands
     const u = prog(t, hit + 0.02, hit + 0.42, ease.inOutQuad);
     const [x0, x1, ym] = this.span();

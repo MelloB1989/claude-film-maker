@@ -85,6 +85,9 @@ export function layout(s: Shape = SHAPE): { pos: Float32Array; ang: Float32Array
 
 // ------------------------------------------------------------------------------------------------ the change
 
+/** The seed of the fifty changed files the scene shows. */
+export const SEED = 1;
+
 /**
  * How many children a node at each level spreads its changes over: the commit touches four of the ten top-level
  * directories, a few subdirectories in each, a few of theirs; the last level is the files themselves.
@@ -194,4 +197,15 @@ export function visited(t: Tree): number[] {
 export function leavesUnder(id: number): [first: number, count: number] {
   const k = levelOf(id), n = BRANCH ** (DEPTH - k);
   return [OFF[DEPTH]! + (id - OFF[k]!) * n, n];
+}
+
+/**
+ * The file the camera dives to: a changed file alone among its ten (its rosette shows one lit and nine skipped) on the
+ * path with the fewest lit siblings (the most folds beside the dive); the lowest id of those.
+ */
+export function diveLeaf(t: Tree): number {
+  const litKids = (id: number) => new Set(t.changed.filter((leaf) => pathTo(leaf).includes(id)).map((leaf) => pathTo(leaf)[levelOf(id) + 1]!)).size;
+  const crowd = (leaf: number) => pathTo(leaf).slice(1, DEPTH).reduce((a, id) => a + litKids(id), 0);
+  const lone = t.changed.filter((leaf) => t.changed.filter((x) => parentOf(x) === parentOf(leaf)).length === 1);
+  return lone.sort((a, b) => crowd(a) - crowd(b) || a - b)[0]!;
 }

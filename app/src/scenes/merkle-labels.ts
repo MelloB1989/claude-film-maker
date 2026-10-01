@@ -14,8 +14,8 @@ import * as THREE from 'three';
 import { GLYPH_VERT_HEAD, glyphMaterial, glyphQuad, type GlyphAtlas } from '../engine/glyphs';
 import { glow } from '../engine/look';
 import { DEPTH, N, hashOf, levelOf, type Tree } from './merkle-tree';
-import type { TreeTimes, TreeUniforms } from './merkle-gl';
-import { NEVER } from './merkle-gl';
+import type { TreeUniforms } from './merkle-gl';
+import { NEVER, STAMP_AT, type TreeTimes } from './merkle-time';
 
 /** The characters the labels use: the hex digits first (digit d at atlas index d), then the stamp's. */
 export const LABEL_CHARS = '0123456789abcdef=·hskiped';
@@ -139,7 +139,7 @@ export class LabelField {
       const old = hashOf(id, 0), now = lit[id] ? hashOf(id, 1) : old;
       for (let c = 0; c < 7; c++) push(id, c, 0, atlas.of(old[c]!), atlas.of(now[c]!), lit[id] ? times.moss[id]! : NEVER, NEVER);
       if (fold[id] === id) {
-        const hit = times.fold[id]! + 0.5 * tu.uFold.value.x;
+        const hit = times.fold[id]! + STAMP_AT * tu.uFold.value.x;
         // (a directory of ten files is skipped by its "=" alone: a hundred whole stamps down there would be a texture)
         Array.from(k === DEPTH - 1 ? stamp.slice(0, 1) : stamp).forEach((ch, c) => {
           const g = atlas.of(ch);
