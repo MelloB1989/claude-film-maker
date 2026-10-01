@@ -8,7 +8,7 @@
 // - "I don't": they search under the floor; on the downbeat where the music drops out they press up to it, and nothing
 //   clears it. "know…": they hang there, stilling.
 // - The silence: from the beat after "know…" they go slack one by one and fall, in slow motion, out of the frame,
-//   which is clear by the beat before "…I".
+//   which is empty for a breath before "…I".
 // - "…I": the response card; "say", on its downbeat: I don't know., quiet and centred; the footnote under the card.
 import type { AudioData } from '../engine/audio';
 import { wordTimes } from '../engine/motion';
@@ -19,7 +19,7 @@ export const ARMS = ['lexical', 'body', 'cues'] as const;
 export type Arm = (typeof ARMS)[number];
 /** Who lets go first (the middle arm, then the left, then the right) and how far apart (s). */
 export const RELEASE_ORDER: Record<Arm, number> = { body: 0, lexical: 1, cues: 2 };
-export const RELEASE_GAP = 0.11;
+export const RELEASE_GAP = 0.1;
 /** How long each arm takes to reach up under the floor (s), and how far apart they set out. */
 export const RISE_S = 0.36;
 export const RISE_GAP = 0.06;
@@ -47,10 +47,9 @@ export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
   if (!(hush < know.start)) throw new Error('honest: the music must drop out before "know"');
   // they set out as the question is sent, a little apart, and are up under the floor by "I"
   const reach = and.start - 0.04;
-  // the silence: the first arm lets go on the beat after "know…" ends; the frame is clear by the beat before "…I"
+  // the silence: the first arm lets go on the beat after "know…" ends; the fall needs a second and a half before "…I"
   const release = after(know.end - 0.03, audio.beats, 'beat');
-  const clear = [...audio.beats].reverse().find((b) => b < i2.start - 0.15);
-  if (clear === undefined || !(clear > release + 0.8)) throw new Error('honest: no room for the fall between "know" and "…I"');
+  if (!(i2.start - release > 1.4)) throw new Error('honest: no room for the fall between "know" and "…I"');
   // "…I": the response card; "say" (on its downbeat if it has one): I don't know.
   const say0 = audio.downbeats.find((d) => Math.abs(d - say.start) < 0.08) ?? say.start;
   return {
@@ -69,8 +68,6 @@ export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
     release,
     /** When arm `a` goes slack. */
     slack: (a: Arm) => release + RELEASE_ORDER[a] * RELEASE_GAP,
-    /** The last arm is out of the frame. */
-    clear,
     /** The response card comes up with her "…I", and its rows stream in. */
     respond: i2.start - 0.02,
     /** "say": I don't know. */

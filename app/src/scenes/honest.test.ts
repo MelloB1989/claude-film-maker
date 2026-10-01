@@ -40,14 +40,13 @@ describe('honest: its times come from the data', () => {
     expect(T.hush).toBeLessThan(word('know').start);
   });
 
-  test('they let go from the beat after "know…", one by one, and the frame is clear by the beat before "…I"', () => {
+  test('they let go from the beat after "know…", one by one, with room for the fall before "…I"', () => {
     expect(onGrid(T.release, audio.beats)).toBe(true);
     expect(T.release).toBeGreaterThan(word('know').end - 0.03);
     const slack = ARMS.map((a) => T.slack(a)).sort((x, y) => x - y);
     expect(slack[0]).toBe(T.release);
     expect(slack[2]! - slack[0]!).toBeCloseTo(2 * RELEASE_GAP, 12);
-    expect(onGrid(T.clear, audio.beats)).toBe(true);
-    expect(T.clear).toBeLessThan(word('i', 1).start);
+    expect(word('i', 1).start - T.release).toBeGreaterThan(1.4);
   });
 
   test('the card comes with her "…I"; I don\'t know. on "say", on its downbeat; all inside the scene', () => {
@@ -56,7 +55,7 @@ describe('honest: its times come from the data', () => {
     expect(Math.abs(T.say - word('say').start)).toBeLessThan(0.08);
     const note = Array.from(S[7]!).length;
     expect(T.note + (note - 1) / 120).toBeLessThan(span.end - 0.5); // the footnote is whole well before the cut
-    for (const t of [T.hush, T.release, T.clear, T.respond, T.say]) {
+    for (const t of [T.hush, T.release, T.respond, T.say]) {
       expect(t).toBeGreaterThan(span.start);
       expect(t).toBeLessThan(span.end - 0.6);
     }

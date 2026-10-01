@@ -6,8 +6,9 @@
 // - The evidence floor: a hairline across the dark at the floor's level, drawn out from the middle as she says "And",
 //   fading off at both ends like a horizon. Where a tip comes up under it the line lifts a little, quietly, as if it
 //   felt the touch; it never gives.
-// - I don't know.: quiet, centred, flat Bricolage in bone, coming into focus on "say" (no slam, no glow).
+// - I don't know.: quiet, centred, flat Bricolage Light in bone, coming into focus on "say" (no slam, no glow).
 // - The footnote, verbatim, in mono under the card.
+// - The embers: the faint blood light that runs down each arm as it lets go, drawn on the scene's glow layer.
 import { F, font, measure } from '../engine/type';
 import { rgba } from '../engine/palette';
 import { clamp, ease, frameIdx, lerp, prog } from '../engine/util';
@@ -22,8 +23,8 @@ export const QUERY = { px: 30, fam: F.mono(500), base: 172 };
  * edge of a dark pane seen from under it (strength, height px).
  */
 export const FLOOR = { w: 1.25, alpha: 0.75, fade: 330, lift: 0.85, reach: 130, near: 64, above: 0.22, aboveH: 180 };
-/** I don't know.: her voice, quiet. Baseline (px). */
-export const KNOW = { px: 112, fam: F.display(100, 500), base: 560 };
+/** I don't know.: her voice, quiet (Bricolage at its lightest weight). Baseline (px). */
+export const KNOW = { px: 112, fam: F.display(100, 300), base: 560 };
 /** The footnote under the card. */
 export const NOTE = { px: 22, fam: F.mono(400), cps: 120 };
 
@@ -138,3 +139,37 @@ export function drawNote(c: Ctx, t: number, text: string, at: number, x: number,
 
 /** A linear ramp from a to b over [t0, t1] (eased), for dims. */
 export const dim = (t: number, t0: number, t1: number, a: number, b: number) => lerp(a, b, prog(t, t0, t1, ease.inOutCubic));
+
+/**
+ * The ember: a short soft run of light along a thread on screen (`pts`, its centreline projected, even in arc length),
+ * centred at arc fraction `u`, `w` its half-width, `k` its strength; drawn in white on the glow layer, which the scene
+ * composites as blood light (look.ts glow). Brightest at its centre, fading either way.
+ */
+export function drawEmber(c: Ctx, pts: { x: number; y: number }[], u: number, w: number, k: number) {
+  if (k <= 0.004 || pts.length < 2) return;
+  const n = pts.length - 1;
+  const at = (s: number) => {
+    const x = clamp(s, 0, 1) * n, i = Math.min(n - 1, Math.floor(x)), f = x - i;
+    return { x: lerp(pts[i]!.x, pts[i + 1]!.x, f), y: lerp(pts[i]!.y, pts[i + 1]!.y, f) };
+  };
+  const steps = 28, s0 = u - 2.2 * w, ds = (4.4 * w) / steps;
+  c.save();
+  c.lineCap = 'round';
+  for (const [width, gain] of [[6, 0.22], [2, 0.85]] as const) {
+    c.lineWidth = width;
+    for (let j = 0; j < steps; j++) {
+      const a = s0 + j * ds, b = a + ds;
+      if (b < 0 || a > 1) continue;
+      const m = (a + b) / 2 - u;
+      const alpha = k * gain * Math.exp(-((m / w) ** 2));
+      if (alpha <= 0.004) continue;
+      const p = at(a), q = at(b);
+      c.strokeStyle = `rgba(255,255,255,${Math.min(1, alpha).toFixed(4)})`;
+      c.beginPath();
+      c.moveTo(p.x, p.y);
+      c.lineTo(q.x, q.y);
+      c.stroke();
+    }
+  }
+  c.restore();
+}

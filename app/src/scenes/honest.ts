@@ -3,18 +3,20 @@
 //
 // The music is out. Restraint is the scene: near-black, one slow fall, quiet type. One world, one camera, every time
 // from the data (honest-time.ts), the arms' every pose a pure function of it (honest-fall.ts):
-// 1. The question. On the cut `what's my sister's name?` types in at the top, braid's query, centred this time.
+// 1. The question. On the cut `what's my sister's name?` types in at the top: braid's query, centred this time.
 // 2. L22. The evidence floor draws across the dark as she says "And", a hairline fading off at both ends, and the three
-//    arms reach up out of the dark, one after another: thin diff threads, bone at rest, rooted off the frame near the
-//    lens, their tips curled up under the floor. They search there; on the downbeat where the music drops out they press
-//    up to it (the line lifts a little where each comes close) and stop short. Nothing clears it. On "know…" they still.
-// 3. The silence. From the beat after, one by one, they go slack and fall, in slow motion: each relaxes into the
-//    catenary its length hangs in, its tip dropping through the air, the root letting go after it, the curve deepening
-//    as it sinks out of the frame; a faint blood flicker runs down each from its tip as it lets go (filtered out). Then
-//    the dark, the floor and the question's caret blinking, waiting.
-// 4. L23. "…I": a small response card comes up under the floor, `"memories": []`, `"candidates": 2`,
-//    `"filtered_out": 2` streaming in; on "say", I don't know. comes into focus, quiet, centred, flat bone; the footnote
-//    types in under the card, verbatim: the engine returns nothing rather than the nearest vector.
+//    arms reach up out of the dark one after another: thin diff threads, bone at rest, rooted off the frame, each hung
+//    nearly taut from its root to a tip under the floor. They search there; on the downbeat where the music drops out
+//    they press up to it and quiver against it (the line lifts a little above each) and stop short. Nothing clears it.
+//    On "know…" they still.
+// 3. The silence. From the beat after, one by one, they go slack and fall, in slow motion: a ripple runs down each from
+//    its tip as the tension leaves it, a faint flicker of blood light riding it (filtered out), and the tip drops, the
+//    catenary deepening, undulating, its free end trailing, the root letting go after it, until the frame is empty: the
+//    dark, the floor, and the question's caret blinking, waiting.
+// 4. L23. With her "…I" a small response card comes up under the floor, the real shape of the response:
+//    `"memories": []`, `"candidates": 2`, `"filtered_out": 2`. On "say", on its downbeat, I don't know. comes into
+//    focus, quiet, centred, flat light bone, the card stepping back; and the footnote types in under the card, verbatim:
+//    the engine returns nothing rather than the nearest vector.
 import * as THREE from 'three';
 import { Scene, disposeLayer, type Frame, type PostOverrides } from '../engine/scene';
 import { Stage } from '../engine/stage';
@@ -22,11 +24,11 @@ import { H, Layer2D, W, makeRT } from '../engine/gl';
 import { Panel, panelLayout, type PanelLine, type PanelSpec } from '../engine/panels';
 import { DIFF_THREAD, Thread, envelopeOf } from '../engine/thread3d';
 import { LIN } from '../engine/palette';
-import { LOOK } from '../engine/look';
+import { LOOK, glow } from '../engine/look';
 import { ease, frameIdx, hash, prog } from '../engine/util';
 import { ARMS, timesOf, type Arm, type Times } from './honest-time';
 import { FLOOR_Y, FOV, FSTOP, N_PTS, RADIUS, armAt, cameraAt, reachAt, toVectors, type V3 } from './honest-fall';
-import { dim, drawFloor, drawKnow, drawNote, drawQuery, nearness } from './honest-type';
+import { dim, drawEmber, drawFloor, drawKnow, drawNote, drawQuery, nearness } from './honest-type';
 import S from './honest.strings.json';
 
 // ------------------------------------------------------------------------------------------------ the copy
@@ -66,9 +68,13 @@ export function cardSpec(): PanelSpec {
 
 // ------------------------------------------------------------------------------------------------ the arms' light
 
-/** The blood flicker as an arm lets go: its level (a look.ts glow level, just past the bloom's opening) and its width
- * along the thread (arc fraction). It rides the release ripple from the tip toward the root (honest-fall.ts waveAt). */
-const FLICKER = { lit: 3.4, width: 0.08 };
+/**
+ * The blood flicker as an arm lets go: it rides the release ripple from the tip toward the root (honest-fall.ts
+ * waveAt), lighting the blood strand there (to the diff thread's lit level) and, since a strand a few metres off is
+ * under a pixel wide, an ember of blood light along the thread on screen (its look.ts glow level, and its half-width
+ * along the thread, arc fraction).
+ */
+const FLICKER = { lit: DIFF_THREAD.glow, glow: 1.9, width: 0.045 };
 
 /** The flicker's unevenness: a quick flutter on the frame grid (one state per output frame), never quite out. */
 const flicker = (t: number, seed: number) => 0.6 + 0.4 * hash(frameIdx(t), seed);
@@ -83,6 +89,8 @@ export default class Honest extends Scene {
   private card!: Panel;
   private cardG = new THREE.Group();
   private layer = new Layer2D();
+  /** The embers' light, low-res (it is soft), composited as blood glow. */
+  private glowLayer = new Layer2D(W, H, 1);
   private v = new THREE.Vector3();
   /** The card's world scale and place (it stands at CARD_TOP on screen when "say" lands). */
   private cardHome = new THREE.Vector3();
@@ -93,7 +101,8 @@ export default class Honest extends Scene {
     this.stage = new Stage(renderer, { fov: FOV, near: 0.05, far: 40, envIntensity: 0.14 });
     const s = this.stage.scene;
 
-    // the arms: thin diff threads, bone at rest (their strands dark), built on the reach they settle into
+    // the arms: thin diff threads, bone at rest (their strands dark), built on the reach they settle into (no fibres off
+    // them: at a few px across they would be under a pixel)
     for (const a of ARMS) {
       const pts = reachAt(a, T.rise(a) + 0.6, T).pts;
       const th = new Thread(toVectors(pts, []), { ...DIFF_THREAD, radius: RADIUS, fuzz: 0, radialSegments: 10, tubularSegments: 640, seed: 0x5ee0 + ARMS.indexOf(a) });
@@ -177,7 +186,7 @@ export default class Honest extends Scene {
    * stage's passes. Nothing it sets outlives it: render() sets all state from t.
    */
   private warmUp() {
-    const st = this.stage, rt = makeRT(W, H), T = this.T;
+    const st = this.stage, rt = makeRT(W, H), T = this.T, { renderer, comp } = this.ctx;
     this.aim(T.hush);
     for (const a of ARMS) this.poseArm(a, T.hush);
     this.card.opacity = 1;
@@ -185,20 +194,29 @@ export default class Honest extends Scene {
     this.cardG.visible = true;
     st.compile();
     st.render(rt, { dof: { focus: 4.5, fstop: FSTOP } });
+    // the layers' textures and the composites they go through: the embers' (added as blood light) and the type's (with
+    // I don't know. caught mid-focus, under its blur)
+    this.glowLayer.clear();
+    comp.draw(renderer, this.glowLayer.upload(), rt, { mode: 'add', tint: glow('blood', FLICKER.glow) });
+    this.layer.clear();
+    drawKnow(this.layer.ctx, T.say + 0.1, KNOW_TEXT, T.say);
+    comp.draw(renderer, this.layer.upload(), rt);
     rt.dispose();
   }
 
-  /** Arm `a` at t: its centreline, draw window, and the flicker of blood light as it lets go. Returns its pose. */
+  /**
+   * Arm `a` at t: its centreline, draw window, and the blood flicker riding its release ripple down the strand. Returns
+   * its pose and the flicker's strength there (for the ember on screen).
+   */
   private poseArm(a: Arm, t: number) {
     const th = this.threads[a], T = this.T;
     const pose = armAt(a, t, T);
     th.setPoints(toVectors(pose.pts, this.vecs[a]));
     th.setDraw(pose.draw[0], Math.max(pose.draw[1], 1e-4));
     th.mesh.visible = pose.draw[1] > 0.002;
-    // the blood flicker rides the ripple down the thread
-    const k = pose.wave.k * flicker(t, ARMS.indexOf(a) + 11);
-    th.setStrandLight({ blood: k > 0.002 ? envelopeOf([{ u: pose.wave.u, w: FLICKER.width, k }]) : null }, FLICKER.lit);
-    return pose;
+    const flare = pose.wave.k * flicker(t, ARMS.indexOf(a) + 11);
+    th.setStrandLight({ blood: flare > 0.002 ? envelopeOf([{ u: pose.wave.u, w: FLICKER.width, k: flare }]) : null }, FLICKER.lit);
+    return { ...pose, flare };
   }
 
   render(f: Frame, out: THREE.WebGLRenderTarget): PostOverrides {
@@ -208,9 +226,11 @@ export default class Honest extends Scene {
 
     // ---- the arms; each hidden once every point of it is below the frame
     const tips: { x: number; near: number }[] = [];
+    const embers: { pts: { x: number; y: number }[]; u: number; k: number }[] = [];
     const floorY = this.toScreen([st.camera.position.x, FLOOR_Y, 0]).y;
     for (const a of ARMS) {
       const pose = this.poseArm(a, t);
+      if (pose.flare > 0.004) embers.push({ pts: pose.pts.map((p) => this.toScreen(p)), u: pose.wave.u, k: pose.flare });
       if (pose.slack > 0 && t > T.slack(a) + 0.3) {
         const gone = pose.pts.every((p) => this.toScreen(p).y > H + 12);
         if (gone) this.threads[a].mesh.visible = false;
@@ -227,7 +247,8 @@ export default class Honest extends Scene {
     if (up > 0) {
       const k = this.cardG.scale.x;
       this.cardG.position.copy(this.cardHome).add(this.v.set(0, (-10 * (1 - up) * k) / 1000, 0));
-      this.card.opacity = up;
+      // it steps back a little as I don't know. lands, so the line leads
+      this.card.opacity = up * dim(t, T.say, T.say + 0.5, 1, 0.84);
       this.card.draw(t);
     }
 
@@ -235,6 +256,14 @@ export default class Honest extends Scene {
     r.setClearColor(INK, 1);
     st.render(out, { dof: { focus: st.depthOf([st.camera.position.x, FLOOR_Y, 0]), fstop: FSTOP } });
     r.setClearColor(cc, ca);
+
+    // ---- the embers of blood light running down the arms as they let go
+    if (embers.length) {
+      const G = this.glowLayer;
+      G.clear();
+      for (const e of embers) drawEmber(G.ctx, e.pts, e.u, FLICKER.width, e.k);
+      comp.draw(renderer, G.upload(), out, { mode: 'add', tint: glow('blood', FLICKER.glow) });
+    }
 
     // ---- the flat type and the floor
     const L = this.layer, c = L.ctx;
@@ -269,6 +298,7 @@ export default class Honest extends Scene {
     this.card?.dispose();
     this.stage?.dispose();
     disposeLayer(this.layer);
+    disposeLayer(this.glowLayer);
   }
 }
 

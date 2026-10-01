@@ -1,21 +1,22 @@
 // The world of scene `honest` and its three arms, as pure functions of time (honest-time.ts gives the times).
 //
 // The arms are the three retrieval arms `braid` named (lexical, body, cues), thin diff threads now, bone at rest. Each
-// is rooted off the frame, near the lens (the left edge, below the frame, the right edge), and reaches up and away into
-// the dark to a tip under the evidence floor, a level line at FLOOR_Y across the plane z = 0. There the tips search:
-// they wander a little, the bodies following a beat behind like tendrils, the last stretch of each curled up toward the
-// floor, and on the downbeat where the music drops out they press up to it and stop short. Nothing clears it.
+// is rooted off the frame (one far off to the left, one close to the lens below the bottom left corner, one off to the
+// right) and hangs, nearly taut, in the catenary its length makes from that root to a tip held up under the evidence
+// floor, a level line at FLOOR_Y across the plane z = 0. There the tips search: they wander a little, and on the
+// downbeat where the music drops out they press up to the floor, quiver against it and stop short. Nothing clears it.
 //
-// Then each goes slack and falls: a physical catenary drop. At its release the thread's length is fixed (the reach's,
-// so the plies never stretch) and its tip lets go: the curl and the arch relax into the catenary that length hangs in
-// between root and tip (one quarter of a second), and the tip drops through air that slows it (quadratic drag,
-// terminal speed VT), the root letting go a moment after, so the whole slack thread sinks with its tip leading, the
-// catenary deepening and swinging as the ends fall at their own rates. Its time is the physical time of a speed ramp
-// (motion.ts speedRamp): slow motion through the slack and the first of the drop, back to real time as it leaves.
+// Then each goes slack and falls: a physical catenary drop. At its release the thread keeps its length (so the plies
+// never stretch) and its tip lets go, dropping through air that slows it (quadratic drag, terminal speed VT); the chord
+// shortens, so the slack shows as the catenary deepening, and the root lets go a moment after, so the whole thread sinks
+// with its tip leading. The air shapes it as it goes: a ripple runs down it from the tip as the tension leaves, a slow
+// undulation grows along it, and its free end trails up as it gathers speed. Its time is the physical time of a speed
+// ramp (motion.ts speedRamp): slow motion through the slack and the first of the drop, then a little faster than real
+// time as it leaves the frame.
 import * as THREE from 'three';
 import { speedRamp } from '../engine/motion';
 import { TAU, clamp, ease, lerp, prog, smoothstep } from '../engine/util';
-import { ARMS, type Arm, RISE_S, type Times } from './honest-time';
+import { type Arm, RISE_S, type Times } from './honest-time';
 
 export type V3 = [number, number, number];
 
@@ -36,8 +37,8 @@ export interface ArmSpec {
   tip: V3;
   /** The tip's resting gap under the floor. */
   gap: number;
-  /** How much longer than the span it is while it searches (held nearly taut: a slight sag). */
-  ease: number;
+  /** How much longer than the span it is while it searches, a share of it (held nearly taut: a slight sag). */
+  give: number;
   /** The search: sway amplitudes (x, z), and phases. */
   sway: [number, number];
   phase: [number, number, number, number];
@@ -50,9 +51,9 @@ export interface ArmSpec {
  * another. The tips search in a loose, uneven row there, the middle one lowest.
  */
 export const ARM: Record<Arm, ArmSpec> = {
-  lexical: { root: [-1.0, -0.62, 3.05], tip: [-0.04, 0, -0.02], gap: 0.075, ease: 0.006, sway: [0.03, 0.025], phase: [1.9, 0.4, 2.6, 3.3] },
-  body: { root: [-2.6, -0.22, -0.35], tip: [-0.66, 0, 0.02], gap: 0.036, ease: 0.014, sway: [0.034, 0.03], phase: [0.3, 2.1, 4.0, 1.2] },
-  cues: { root: [2.45, -0.42, 0.75], tip: [0.6, 0, 0.02], gap: 0.05, ease: 0.011, sway: [0.036, 0.03], phase: [4.4, 3.1, 0.9, 5.2] },
+  lexical: { root: [-1.0, -0.62, 3.05], tip: [-0.04, 0, -0.02], gap: 0.075, give: 0.006, sway: [0.03, 0.025], phase: [1.9, 0.4, 2.6, 3.3] },
+  body: { root: [-2.6, -0.22, -0.35], tip: [-0.66, 0, 0.02], gap: 0.036, give: 0.014, sway: [0.034, 0.03], phase: [0.3, 2.1, 4.0, 1.2] },
+  cues: { root: [2.45, -0.42, 0.75], tip: [0.6, 0, 0.02], gap: 0.05, give: 0.011, sway: [0.036, 0.03], phase: [4.4, 3.1, 0.9, 5.2] },
 };
 
 // ------------------------------------------------------------------------------------------------ the camera
@@ -77,22 +78,6 @@ const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a: V3, k: number): V3 => [a[0] * k, a[1] * k, a[2] * k];
 const len = (a: V3) => Math.hypot(a[0], a[1], a[2]);
 const mix = (a: V3, b: V3, k: number): V3 => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
-
-/** `n` points evenly spaced in arc length along the polyline `p` (dense enough to stand for its curve); its length. */
-export function resample(p: V3[], n: number): { pts: V3[]; length: number } {
-  const S = [0];
-  for (let i = 1; i < p.length; i++) S.push(S[i - 1]! + len(sub(p[i]!, p[i - 1]!)));
-  const L = S[S.length - 1]!;
-  const pts: V3[] = [];
-  let k = 0;
-  for (let i = 0; i < n; i++) {
-    const s = (i / (n - 1)) * L;
-    while (k < p.length - 2 && S[k + 1]! < s) k++;
-    const seg = S[k + 1]! - S[k]!;
-    pts.push(mix(p[k]!, p[k + 1]!, seg > 0 ? clamp((s - S[k]!) / seg) : 0));
-  }
-  return { pts, length: L };
-}
 
 // ------------------------------------------------------------------------------------------------ the catenary
 
@@ -165,12 +150,12 @@ export function tipAt(a: Arm, t: number, T: SearchTimes): V3 {
 
 /**
  * Arm `a` as it searches at t: the catenary it hangs in from its root to the tip the search holds up, nearly taut (a
- * shade longer than the span, ArmSpec.ease), as `N_PTS` points even in arc length.
+ * shade longer than the span, ArmSpec.give), as `N_PTS` points even in arc length.
  */
 export function reachAt(a: Arm, t: number, T: SearchTimes): { pts: V3[]; length: number } {
   const s = ARM[a];
   const P = tipAt(a, t, T), R = s.root;
-  const L = len(sub(P, R)) * (1 + s.ease);
+  const L = len(sub(P, R)) * (1 + s.give);
   const pts = catenary(R, P, L, N_PTS);
   // pressed up against the floor, the last of it quivers (strained, a few px, dying in a fifth of a second)
   const q = quiverAt(t, T.hush);
@@ -195,8 +180,8 @@ export const ROOT_LAG = 0.3;
 /** How long after its release an arm counts as slack (screen s): the floor's lift above its tip dies over this. */
 export const SLACK_S = 0.26;
 /** The fall's speed ramp (screen s from its release, speed): slow motion through the slack and the first of the drop,
- * then back to real time as it leaves the frame. */
-export const SLOWMO: [number, number][] = [[0, 0.42], [0.5, 0.42], [0.95, 1]];
+ * then a little faster than real time as it leaves the frame. */
+export const SLOWMO: [number, number][] = [[0, 0.4], [0.62, 0.4], [1.0, 1.1]];
 
 /**
  * The ripple that runs down an arm as it lets go (the tension leaving it): a short wave packet launched at the tip that
@@ -285,4 +270,3 @@ export function toVectors(pts: V3[], out: THREE.Vector3[]): THREE.Vector3[] {
   return out;
 }
 
-export { ARMS };
