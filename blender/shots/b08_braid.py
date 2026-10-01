@@ -727,7 +727,7 @@ def build(ctx):
 
 
 # the light (W) and where it stands (engine metres): key, rim and top as offsets from the subject they follow
-LIGHT = {"key": 22.0, "rim": 190.0, "top": 2.0, "kick": 10.0, "glint": 2.5, "sweep": 9.0, "void": 60.0}
+LIGHT = {"key": 22.0, "rim": 190.0, "top": 2.0, "kick": 10.0, "glint": 2.5, "sweep": 1.6, "void": 60.0}
 SWEEP_OFF = (-0.05, 0.10, 0.08)  # the sweep's softbox, from the point of the plait it lights
 KEY_FROM = (-0.55, 0.36, 0.10)
 RIM_FROM = (0.32, 0.46, -0.56)
