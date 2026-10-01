@@ -420,11 +420,7 @@ export default class Repo extends Scene {
       const sx = (c.pos.clone().project(cam).x + 1) * (W / 2), left = sx + LABEL.dx * r;
       const em = Math.min(LABEL.px, (W - 96 - left) / (0.6 * c.labelLen));
       const size = em * px;
-      for (const g of c.label.glyphs) {
-        g.mesh.scale.setScalar(size);
-        g.mesh.position.copy(g.home).multiplyScalar(size);
-      }
-      c.label.size = size;
+      c.label.setSize(size);
       const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion), up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
       c.label.group.quaternion.copy(cam.quaternion);
       // in the plane of the bead's near face, where the focus holds it (and its etched hash)

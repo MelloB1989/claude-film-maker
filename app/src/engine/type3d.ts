@@ -540,6 +540,24 @@ export class Type3D {
     }
   }
 
+  /**
+   * Set the line at another size (world units per em), as if it had been built at it: every glyph's place and width
+   * scale with it (the layout is linear in the size; the geometry is per em and shared), and every glyph goes back to
+   * rest. For type whose size depends on what exists only after construction (a label sized by the camera's framing).
+   */
+  setSize(size: number) {
+    if (!(size > 0 && Number.isFinite(size))) throw new RangeError(`Type3D: a size must be a positive number, not ${size}`);
+    const r = size / this.size;
+    for (const g of this.glyphs) {
+      g.home.multiplyScalar(r);
+      g.x *= r;
+      g.w *= r;
+    }
+    this.width *= r;
+    this.size = size;
+    this.reset();
+  }
+
   /** Every glyph back at rest: at home, unrotated, at scale `size`. */
   reset() {
     for (const g of this.glyphs) {

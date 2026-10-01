@@ -452,3 +452,49 @@ describe('Mat', () => {
     }
   });
 });
+
+describe('Type3D.setSize', () => {
+  const bone = new THREE.MeshBasicMaterial();
+
+  test('a line built at one size and set to another is the line built at that size, every glyph back at rest', () => {
+    const t = new Type3D('every memory', { family: FAM, size: 1 }, bone);
+    t.glyphs[0]!.mesh.rotation.set(0.3, 0, 0); // posed by a scene: setSize puts it back at rest
+    t.glyphs[1]!.mesh.position.set(9, 9, 9);
+    t.setSize(2.5);
+    const ref = new Type3D('every memory', { family: FAM, size: 2.5 }, bone);
+    expect(t.size).toBe(2.5);
+    expect(t.width).toBeCloseTo(ref.width, 9);
+    t.glyphs.forEach((g, k) => {
+      const r = ref.glyphs[k]!;
+      expect(g.x).toBeCloseTo(r.x, 9);
+      expect(g.w).toBeCloseTo(r.w, 9);
+      for (const a of ['x', 'y', 'z'] as const) {
+        expect(g.home[a]).toBeCloseTo(r.home[a], 9);
+        expect(g.mesh.position[a]).toBe(g.home[a]);
+        expect(g.mesh.scale[a]).toBe(2.5);
+        expect(g.mesh.rotation[a]).toBe(0);
+      }
+    });
+    t.setSize(1); // and back
+    const one = new Type3D('every memory', { family: FAM, size: 1 }, bone);
+    t.glyphs.forEach((g, k) => expect(g.home.x).toBeCloseTo(one.glyphs[k]!.home.x, 9));
+    for (const x of [t, ref, one]) x.dispose();
+  });
+
+  test('from size 1 its rest is exactly each home times the size (as a scene scaled its glyphs by hand)', () => {
+    const t = new Type3D('3f9a1c2 remember', { family: F.mono(400), size: 1 }, bone);
+    const homes = t.glyphs.map((g) => g.home.clone());
+    t.setSize(0.0123);
+    t.glyphs.forEach((g, k) => {
+      expect(g.mesh.position.toArray()).toEqual(homes[k]!.clone().multiplyScalar(0.0123).toArray());
+      expect(g.mesh.scale.x).toBe(0.0123);
+    });
+    t.dispose();
+  });
+
+  test('a size that is not a positive number is an error', () => {
+    const t = new Type3D('ab', { family: FAM, size: 1 }, bone);
+    for (const s of [0, -1, NaN, Infinity]) expect(() => t.setSize(s)).toThrow();
+    t.dispose();
+  });
+});
