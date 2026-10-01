@@ -642,7 +642,40 @@ def fibre_material(name: str = "fibre_bone", *, color=None, sheen: float = 0.35,
     return mat
 
 
+def _pass_through():
+    """A Geometry Nodes group that hands its geometry straight back."""
+    import bpy
+
+    ng = bpy.data.node_groups.get("motion_pass_through")
+    if ng is None:
+        ng = bpy.data.node_groups.new("motion_pass_through", "GeometryNodeTree")
+        ng.interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
+        ng.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
+        gi, go = ng.nodes.new("NodeGroupInput"), ng.nodes.new("NodeGroupOutput")
+        go.location = (300, 0)
+        ng.links.new(gi.outputs[0], go.inputs[0])
+    return ng
+
+
+def deform_blur(ob) -> None:
+    """Let Cycles motion-blur the points a frame handler moves on `ob`.
+
+    Cycles exports an object's points at each motion-blur step only when Blender reports the object as deform-modified;
+    for any other object it copies the frame's own positions into every step, so handler-posed geometry renders sharp
+    while its camera blurs (blender/check_deform.py finds such objects). A modifier that changes nothing is enough: on
+    a mesh, a Displace whose offset is (1 - mid level) x strength = 0 (a Displace of strength 0 counts as disabled, so
+    it would not do); on hair curves, which take only Geometry Nodes modifiers, a group that passes its geometry
+    straight through."""
+    if ob.type == "MESH":
+        m = ob.modifiers.new("motion", "DISPLACE")
+        m.direction, m.strength, m.mid_level = "X", 1.0, 1.0  # offsets along x by (1 - 1) x 1: no normals needed
+    else:
+        m = ob.modifiers.new("motion", "NODES")
+        m.node_group = _pass_through()
+
+
 def _new_curves(name: str, counts, radii_per_curve_tone, material, coll, parent):
+    """Hair curves whose points a frame handler moves (`_set_curves`), so they carry the `deform_blur` modifier."""
     import bpy
 
     hc = bpy.data.hair_curves.new(name)
@@ -656,6 +689,7 @@ def _new_curves(name: str, counts, radii_per_curve_tone, material, coll, parent)
     ob = bpy.data.objects.new(name, hc)
     ob.parent = parent
     coll.objects.link(ob)
+    deform_blur(ob)
     return ob
 
 
@@ -679,7 +713,8 @@ def _tube_faces(rings: int, seg: int) -> list:
 class MacroRope:
     """A FibreRope in Blender: per half (left, right), three core tubes (meshes, smooth-shaded), the surface fibres
     and the fuzz (hair curves), all under one empty. Topology is fixed at construction; `update(poses)` moves every
-    point, so a frame handler can pose it at each motion-blur step and Cycles blurs the motion."""
+    point, so a frame handler can pose it at each motion-blur step, and each object carries the no-op `deform_blur`
+    modifier, so Cycles exports every step and blurs the motion."""
 
     def __init__(self, rope: FibreRope, *, name: str = "rope", fibre_mat=None, core_mat=None, fuzz_mat=None,
                  collection=None, ring: int = 12):
@@ -703,6 +738,7 @@ class MacroRope:
                 ob = bpy.data.objects.new(me.name, me)
                 ob.parent = self.root
                 coll.objects.link(ob)
+                deform_blur(ob)
                 obs.append(ob)
             self.cores[side] = obs
             fib = np.array([len(fs) for fs in topo["fibres"]])
