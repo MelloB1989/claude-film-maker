@@ -450,9 +450,11 @@ export default class Anywhere extends Scene {
     const p = { x: 0, y: 0 }, right = new THREE.Vector3(em / 1000, 0, 0), up = new THREE.Vector3(0, em / 1000, 0);
     this.tierIdx.forEach((i, k) => {
       this.graph.at(tick, i, p);
-      const name = TIER_NAMES[k]!, r = 8 * Math.max(0.75, Math.min(1.3, this.graph.k));
+      const name = TIER_NAMES[k]!, r = 8 * Math.max(0.75, Math.min(1.3, this.graph.k)), w = Array.from(name).length * 0.6 * em;
+      // beside its node, on the left of it where the right would run off the card
+      const x0 = p.x + r + 5 + w <= GRAPH.area.x1 - 6 ? p.x + r + 5 : p.x - r - 5 - w;
       Array.from(name).forEach((ch, j) => {
-        const x = p.x + r + 5 + j * 0.6 * em, y = p.y + 0.36 * em;
+        const x = x0 + j * 0.6 * em, y = p.y + 0.36 * em;
         L.add({
           origin: this.graphCard.local(x, y, 0.6), right, up,
           glyph: [this.tierAtlas.of(ch), -1, 0, 0],
@@ -499,9 +501,25 @@ export default class Anywhere extends Scene {
     return { nx, ny, n: nx + ny };
   }
 
+  /**
+   * The doublings the camera frames at t: the count done, averaged over one doubling's period (a sixteenth) centred on
+   * t, so the staircase of doublings becomes a ramp: the camera glides back at an even rate along the path the blocks
+   * take, instead of lurching on each sixteenth (the copies landing keep the rhythm).
+   */
+  private framed(t: number) {
+    const W = this.T.beat / 4, M = 12;
+    let nx = 0, ny = 0;
+    for (let j = 0; j < M; j++) {
+      const d = this.doubled(t + W * ((j + 0.5) / M - 0.5));
+      nx += d.nx / M;
+      ny += d.ny / M;
+    }
+    return { nx, ny, n: nx + ny };
+  }
+
   /** The field's camera at t: framing the block as it doubles, pulling back √2 a doubling and turning a little. */
   private fieldCam(cam: THREE.PerspectiveCamera, t: number) {
-    const T = this.T, { nx, ny, n } = this.doubled(t), along = n / DOUBLINGS;
+    const T = this.T, { nx, ny, n } = this.framed(t), along = n / DOUBLINGS;
     const b = this.block(nx, ny);
     const hold = prog(t, T.doublings[DOUBLINGS - 1]!, T.end, ease.linear);
     const d0 = this.fieldDistance(1, 1, 0), d1 = this.fieldFinal.d;
