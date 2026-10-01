@@ -4,27 +4,31 @@
 //
 // One world, two shots, every time from the data (her measured onsets, the score's beats; anywhere-time.ts):
 // 1. The machine. Cut in on the downbeat: a terminal in close 3D on the left page of an open book in the dark, its
-//    prompt breathing blood light, waiting. On "On" (its beat) the install line, `curl -fsSL https://gitloom.cloud/
-//    install.sh | sh   # current: 0.3.0`, types in with her, the focus on it as the camera drifts along; over it her
-//    headline "On your machine…" types in word by word and "machine" slams in from depth on her onset, extruded satin
-//    bone. Enter, and the four chips are dealt out from under the terminal on sixteenths into the pause, `one static
-//    binary` `no CGo` `arm64 + amd64` `licence verified offline`, the last with a ✔ drawn on in moss (verified); a light
-//    glints across them.
+//    prompt breathing blood light, waiting, the camera swinging round onto it from the left with the focus on the
+//    prompt. On "On" (its beat) the install line, `curl -fsSL https://gitloom.cloud/install.sh | sh   # current:
+//    0.3.0`, types in with her; over it her headline "On your machine…" types in word by word and "machine" slams in
+//    from depth on her onset, extruded satin bone, a light running along its bevels. Enter, and the four chips are dealt
+//    out from under the terminal on sixteenths into the pause, a spec list: `one static binary` `no CGo`
+//    `arm64 + amd64` `licence verified offline`, the last with a ✔ drawn on in moss (verified); a light glints across
+//    them.
 // 2. The split, on the downbeat between "or" and "in": the camera whips back and right onto both pages, a hairline
 //    drawing down the spine between them. The right page is her cloud, the console recreated (anywhere-console.ts): the
-//    Playground, the Memory Graph and Namespaces deal in on sixteenths, and "…or in my cloud." comes up over them,
+//    Playground, the Memory Graph and Namespaces deal in on sixteenths, and "or in my cloud." comes up over them,
 //    "cloud" slamming in on her onset. In the Playground the user's turn says "Maya moved to Lisbon in March 2026.";
 //    on the beat on "cloud." the agent's `gitloom_retrieve` row opens, lit moss, and on the next `gitloom_remember`, lit
 //    blood (it checks what it knows, then remembers), the reply's blood caret waiting under them. The Memory Graph
 //    settles into its tier regions (anywhere-graph.ts: the console's own simulation, seeded, its time speed-ramped so the
-//    burst reads), its green relations drawing on and flaring as they connect. The camera drifts in toward the cloud,
-//    the focus racking from card to card; on "One" the first namespace, user-0001, opens in Namespaces.
+//    settle reads), its green relations drawing on and flaring as they connect. The camera drifts in toward the cloud,
+//    the focus racking from card to card; on "One" the first namespace, user-0001, opens in Namespaces, and the camera
+//    pushes in on its row.
 // 3. The namespaces, on the downbeat on "for": a cut (half a frame before it) to user-0001 alone, a tile of its own,
-//    and on each sixteenth after it the namespaces double (anywhere-field.ts), each copy sliding out from under its block
-//    and landing with a moss flash, 1, 2, 4… 2,048 as she says "for every user you have.", the camera pulling back at a
-//    constant rate on the doubling (√2 a doubling) and turning a little until the whole field of 64 by 32 recedes in the
-//    dark, the far side soft. The label types in on "user", "one per end user · a storage boundary, not a WHERE clause",
-//    the footnote on "have.", "free plan · no card · storage is free", and a light runs across the field as it lands.
+//    and on each sixteenth after it the namespaces double (anywhere-field.ts), each copy sliding out from under its
+//    original and landing with a moss flash, a doubling's copies landing in a quick ripple, 1, 2, 4… 2,048 as she says
+//    "for every user you have.", the camera pulling back at a constant rate on the doubling (√2 a doubling) and turning
+//    until the whole field of 64 by 32 recedes in the dark: the names and icons give way to the tiles' edges, the
+//    boundaries, a pool of light on the near side, the far side soft. The label types in on "user", "one per end user ·
+//    a storage boundary, not a WHERE clause", the footnote on "have.", "free plan · no card · storage is free", and a
+//    light runs across the field as it lands.
 import * as THREE from 'three';
 import { Scene, type Frame, type PostOverrides } from '../engine/scene';
 import { CameraRig, Stage, initAreaLights, type CamKey, type V3 } from '../engine/stage';
@@ -109,7 +113,6 @@ interface Page {
 interface Chip {
   place: ChipPlace;
   g: THREE.Group;
-  label: THREE.Group;
   shadow: ChipShadow;
   check: Check | null;
   land: number;
@@ -122,7 +125,6 @@ export default class Anywhere extends Scene {
   private T!: Times;
   private stage!: Stage;
   private rig!: CameraRig;
-  private scratch = new THREE.PerspectiveCamera(FOV, W / H, 0.005, 200);
   private left!: Page;
   private right!: Page;
   // the machine
@@ -161,8 +163,6 @@ export default class Anywhere extends Scene {
   // the captions
   private layer = new Layer2D();
   private captionKey = '';
-  // light
-  private lights: THREE.Light[] = [];
   private mats: THREE.Material[] = [];
 
   override init() {
@@ -211,10 +211,11 @@ export default class Anywhere extends Scene {
 
   private buildMachine() {
     const T = this.T, pg = this.left;
-    // the terminal, as wide as the install line, two rows: the line typed with her, the new prompt on Enter
+    // the terminal, as wide as the install line, two rows: the line typed with her, and on Enter the new prompt (an
+    // empty typed line: the terminal draws its own `$` before it)
     const lines: PanelLine[] = [
       { text: INSTALL, kind: 'cmd', at: T.type.at, cps: (Array.from(INSTALL).length - 3) / (T.type.end - T.type.at) },
-      { text: '$', kind: 'cmd', at: T.enter },
+      { text: '', kind: 'cmd', at: T.enter },
     ];
     const g = panelLayout({ kind: 'terminal', size: TERM.size, lines });
     const w = Math.ceil(2 * g.padX + Array.from(INSTALL).length * g.adv);
@@ -237,7 +238,7 @@ export default class Anywhere extends Scene {
     this.chipSweep = withSweep(this.chipMat);
     this.chipName = unlit(LIN.bone);
     this.mats.push(this.chipMat, this.chipName);
-    const places = layoutChipRows(chipNames(CHIP_LINE), PAGE.left.x0, TERM.y + this.termBox.h + 28, PAGE.left.x1 - PAGE.left.x0);
+    const places = layoutChipRows(chipNames(CHIP_LINE), PAGE.left.x0, TERM.y + this.termBox.h + 30, 1);
     places.forEach((place, i) => {
       const cg = new THREE.Group();
       const mesh = new THREE.Mesh(chipGeometry(place.w, CHIP.h, CHIP.r, CHIP.depth, CHIP.bevel), this.chipMat);
@@ -255,7 +256,7 @@ export default class Anywhere extends Scene {
       // behind the terminal: its middle, a hair behind its face
       const from = this.local(pg, place.x + place.w / 2, TERM.y + this.termBox.h * 0.45, -(CHIP.depth + 6));
       pg.g.add(cg, shadow.mesh);
-      this.chips.push({ place, g: cg, label, shadow, check, land: this.T.chips[i]!, home, from });
+      this.chips.push({ place, g: cg, shadow, check, land: this.T.chips[i]!, home, from });
     });
   }
 
@@ -360,7 +361,7 @@ export default class Anywhere extends Scene {
     this.play = new Card(PLAY.w, PLAY.h);
     this.graphCard = new Card(GRAPH.w, GRAPH.h);
     this.nsCard = new Card(NS.w, NS.h);
-    const colX = x0 + PLAY.w + CARDS.gap;
+    // two cards across the top (the Playground, the Memory Graph), Namespaces the page's width under them
     const place = (c: Card, x: number, y: number) => {
       const home = this.local(pg, x + c.w / 2, y + c.h / 2);
       c.group.position.copy(home);
@@ -368,12 +369,12 @@ export default class Anywhere extends Scene {
       pg.g.add(c.group);
     };
     place(this.play, x0, top);
-    place(this.graphCard, colX, top);
-    place(this.nsCard, colX, top + GRAPH.h + CARDS.gap);
+    place(this.graphCard, x0 + PLAY.w + CARDS.gap, top);
+    place(this.nsCard, x0, top + PLAY.h + CARDS.gap);
     // the tool rows' light: a wash over each row and a halo at its wrench, moss for retrieve, blood for remember
     for (const k of [0, 1]) {
       const wash = new Wash(PLAY, glow(k === 0 ? 'moss' : 'bloodBright', 1));
-      const halo = new Halo(PLAY, k === 0 ? 'moss' : 'bloodBright', 34);
+      const halo = new Halo(PLAY, k === 0 ? 'moss' : 'bloodBright', 18);
       this.play.group.add(wash.mesh, halo.mesh);
       this.washes.push(wash);
       this.halos.push(halo);
@@ -390,10 +391,13 @@ export default class Anywhere extends Scene {
     if (TIERS.some((tier, i) => TIER_NAMES[i] !== tier)) throw new Error('anywhere: the tier labels are not the tiers');
   }
 
-  /** The graph's fractional tick at t: its time speed-ramped, slow through the burst, quick through the long settle. */
+  /**
+   * The graph's fractional tick at t: its time speed-ramped (the cube of its progress), slow through the first ticks'
+   * big moves, quick through the long creep of the settle, so it slows to rest rather than stopping.
+   */
   private tickAt(t: number) {
     const T = this.T, u = clamp((t - T.settle.at) / (T.settle.end - T.settle.at));
-    return (this.sim.ticks.length - 1) * Math.pow(u, 2.4);
+    return (this.sim.ticks.length - 1) * u * u * u;
   }
 
   private poseCloud(t: number) {
@@ -422,7 +426,7 @@ export default class Anywhere extends Scene {
       // the call runs: a band of its colour's light sweeps the row left to right, leading edge bright, and goes
       const run = prog(t, at - 0.06, at + 0.16, ease.outCubic), fadeOut = 1 - prog(t, at + 0.1, at + 0.42, ease.inOutQuad);
       this.washes[k]!.set(box.x, box.y, box.x + box.w * run, box.y + box.h, 0.05 * fadeOut, 0.5 * fadeOut * (run < 1 ? 1 : 0));
-      this.halos[k]!.set(box.x + 12 + 15 + 8 + 7.5, box.y + box.h / 2, 1.1 * pulse(t, at, 0.16) * smootherstep(at - 0.06, at, t), 18);
+      this.halos[k]!.set(box.x + 12 + 15 + 8 + 7.5, box.y + box.h / 2, 1.1 * pulse(t, at, 0.16) * smootherstep(at - 0.06, at, t));
     });
     // the Memory Graph
     this.graphCard.draw('g', (c) => paintGraph(c, COPY));
@@ -468,7 +472,7 @@ export default class Anywhere extends Scene {
     this.fieldG.scale.setScalar(FIELD_SCALE);
     this.stage.scene.add(this.fieldG);
     // the final framing: the whole field, turned, high in the frame over the captions
-    this.fieldFinal = { d: this.fieldDistance(64, 32, 1), az: 19, el: 14 };
+    this.fieldFinal = { d: this.fieldDistance(64, 32, 1), az: 25, el: 17 };
   }
 
   /** The block's extent after a continuous count of doublings along x and y (field px). */
@@ -526,11 +530,14 @@ export default class Anywhere extends Scene {
     // a light runs across the whole field as the last doubling settles
     const span = 64 * PITCH.x + 0.35 * 32 * PITCH.y;
     const u = prog(t, last + 0.12, last + 0.75, ease.inOutQuad);
-    const sweep: [number, number, number] = u > 0 && u < 1 ? [lerp(-0.1, 1.1, u) * span, 900, 0.1 * Math.sin(Math.PI * u)] : [0, 1, 0];
+    const sweep: [number, number, number] = u > 0 && u < 1 ? [lerp(-0.1, 1.1, u) * span, 520, 0.16 * Math.sin(Math.PI * u)] : [0, 1, 0];
     // a tile's name and icon go as they get too small to read, leaving the tiles and their edges: the boundaries
     const d = this.stage.camera.position.distanceTo(this.fieldCentre);
     const emPx = (TILE.em * FIELD_SCALE * H) / (2 * d * TAN_V);
-    this.field.set({ t, land: T.doublings, fade: 1, sweep, detail: smootherstep(4.5, 9, emPx) });
+    // the studio's light pools on the near side of the field as it grows; the far side falls away into the dark
+    const { nx, ny, n } = this.doubled(t), b = this.block(nx, ny);
+    const pool: [number, number, number, number] = [b.w * 0.74, b.h * 0.45, b.w * 0.4, 0.85 * smootherstep(5, 10.5, n)];
+    this.field.set({ t, land: T.doublings, fade: 1, sweep, detail: smootherstep(4.5, 9, emPx), pool });
   }
 
   // ---------------------------------------------------------------------------------------------- the camera
@@ -548,14 +555,16 @@ export default class Anywhere extends Scene {
     const T = this.T;
     return [
       // the machine: in close on the left page, a little low and from the left of square, drifting in along the line
-      this.frame(T.start, 470, 356, 1060, 4, -3, -1.2),
-      this.frame(T.type.end, 540, 352, 960, 6.5, -2, -0.8, inOutSine),
-      this.frame(T.split, 505, 392, 1010, 7.5, -1.2, -0.6, ease.inOutCubic),
+      this.frame(T.start, 360, 368, 920, -17, -4.5, -2.2),
+      this.frame(T.machine, 470, 352, 1000, 2, -3, -1.2, ease.inOutCubic),
+      this.frame(T.type.end, 520, 372, 1010, 6, -2, -0.8, inOutSine),
+      this.frame(T.split, 500, 420, 1080, 7.5, -1.2, -0.6, ease.inOutCubic),
       // the split: on the downbeat the camera whips back and right onto both pages, settling into the spread
       this.frame(T.split + 0.34, 960, 540, 1920, 0, 1.5, 0, ease.outExpo),
       // into the cloud: a slow drift right and in, as the cards come alive
       this.frame(T.remember, 1050, 548, 1810, -2.2, 1.6, 0.3, inOutSine),
-      this.frame(T.cut, 1210, 590, 1540, -4.5, 2.2, 0.7, inOutSine),
+      this.frame(T.first, 1150, 560, 1690, -3.5, 1.9, 0.5, inOutSine),
+      this.frame(T.cut, 1240, 700, 1240, -5, 2.6, 0.8, ease.inOutCubic),
     ];
   }
 
@@ -565,11 +574,15 @@ export default class Anywhere extends Scene {
     const inv = (p: THREE.Vector3) => 1 / Math.max(0.05, st.depthOf(p));
     const tb = this.termBox;
     const term = this.world(this.left, tb.x + tb.w * 0.4, tb.y + tb.h / 2);
-    const playC = this.world(this.right, PAGE.right.x0 + PLAY.w * 0.4, CARDS.top + 200);
+    const playC = this.world(this.right, PAGE.right.x0 + PLAY.w * 0.4, CARDS.top + 180);
     const graphC = this.world(this.right, PAGE.right.x0 + PLAY.w + CARDS.gap + GRAPH.w / 2, CARDS.top + GRAPH.h / 2);
-    const nsC = this.world(this.right, PAGE.right.x0 + PLAY.w + CARDS.gap + NS.w / 2, CARDS.top + GRAPH.h + CARDS.gap + 90);
+    const nsC = this.world(this.right, PAGE.right.x0 + 160, CARDS.top + PLAY.h + CARDS.gap + 90);
+    const o = this.term.cellOrigin(0, 1);
+    const prompt = this.world(this.left, tb.x + o.x, tb.y + o.baseline - 8);
     const ks: [number, number, ((x: number) => number)?][] = [
-      [T.start, inv(term)],
+      [T.start, inv(prompt)],
+      [T.type.at, inv(prompt)],
+      [T.machine, inv(term), ease.inOutCubic],
       [T.split, inv(term)],
       [T.split + 0.3, inv(playC), ease.inOutCubic],
       [T.remember - 0.1, inv(playC)],
@@ -605,7 +618,6 @@ export default class Anywhere extends Scene {
     rim.position.set(1.2, 1.1, -1.6);
     rim.target.position.set(0, 0, 0);
     s.add(top, key, key.target, fill, fill.target, rim, rim.target);
-    this.lights.push(top, key, fill, rim);
   }
 
   // ---------------------------------------------------------------------------------------------- render
@@ -656,7 +668,7 @@ export default class Anywhere extends Scene {
     } else {
       const { d } = this.fieldCam(st.camera, t);
       this.poseField(t);
-      dof = { focus: d, fstop: keys(t, [[T.doublings[0]!, 4], [T.doublings[DOUBLINGS - 1]!, 2.2, inOutSine]]) };
+      dof = { focus: d * keys(t, [[T.doublings[3]!, 1], [T.doublings[DOUBLINGS - 1]!, 0.94, inOutSine]]), fstop: keys(t, [[T.doublings[0]!, 4], [T.doublings[DOUBLINGS - 1]!, 1.7, inOutSine]]) };
     }
     const cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha();
     r.setClearColor(INK, 1);

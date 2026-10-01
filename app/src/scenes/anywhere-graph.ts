@@ -5,12 +5,13 @@
 // The layout is the console's own force simulation (repulsion, springs to the parent and along relations, a pull toward
 // the tier's direction, damping, the heat `alpha` cooling 1.5% a tick, four steps a tick for the first forty then two),
 // run once in init from seeded starting places, every tick's positions kept. So the graph is a pure function of time:
-// the scene maps its time to a fractional tick and reads the two ticks either side. It starts packed at the centre (the
-// console reheats from its tier directions; the film starts it tighter, so the settle reads as a burst that sorts
-// itself into four regions).
+// the scene maps its time to a fractional tick and reads the two ticks either side. It starts as one even disc, each
+// tier in its own sector of it (the console reheats from its tier directions, jittered; an even start flings nothing),
+// and the settle opens the disc out into the four regions.
 //
 // Drawn on the GPU over the card's face in its px (y down from its top edge): edges as instanced quads with an
-// anti-aliased line in the fragment shader, nodes as instanced quads with a disc or a ring. Colours are the palette's:
+// anti-aliased line in the fragment shader, nodes as instanced quads with a disc or a ring (both sides drawn: y down in
+// px is y up in the card's frame, which turns the quads' winding over). Colours are the palette's:
 // a memory file in one of blood's three shades by its content (the console hashes into a band round blood), a section
 // in blood's dim shade and smaller, a directory a ring; relations moss, lit when they draw on.
 import * as THREE from 'three';
@@ -310,7 +311,6 @@ const NODE_VERT = /* glsl */ `${QUAD_VERT_HEAD}
     vec2 px = aNode.xy + q;
     vec3 pos = vec3((px.x - 0.5 * uSize.x) / 1000.0, (0.5 * uSize.y - px.y) / 1000.0, (uLift + 0.05) / 1000.0);
     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-
   }`;
 
 const NODE_FRAG = /* glsl */ `

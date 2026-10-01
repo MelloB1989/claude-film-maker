@@ -11,6 +11,7 @@ import { CHIPS, DOUBLINGS, NAMESPACES, blockAfter, cellOf, copyOffset, levelOf, 
 import { PEN, chipNames, dealAt, layoutChipRows, penAt } from './anywhere-machine';
 import { TIERS, memoryGraph, placeAt, simulate, tierAngle } from './anywhere-graph';
 import { PLAY, toolWidth } from './anywhere-console';
+import { RIPPLE, rippleDelay } from './anywhere-field';
 import S from './anywhere.strings.json';
 
 const DATA = path.resolve(import.meta.dir, '../../../data');
@@ -156,6 +157,26 @@ describe('anywhere: the namespaces double', () => {
   });
 });
 
+describe('anywhere: a doubling lands in a ripple', () => {
+  test('each doubling\'s first copy lands on its sixteenth, the rest within the ripple after it, the far corner last', () => {
+    expect(rippleDelay(0)).toBe(0);
+    for (let k = 0; k < DOUBLINGS; k++) {
+      const first = 2 ** k, last = 2 ** (k + 1) - 1;
+      expect(rippleDelay(first)).toBe(0);
+      expect(rippleDelay(last)).toBeCloseTo(k === 0 ? 0 : RIPPLE, 9);
+      for (let i = first; i <= last; i++) {
+        expect(rippleDelay(i)).toBeGreaterThanOrEqual(0);
+        expect(rippleDelay(i)).toBeLessThanOrEqual(RIPPLE + 1e-12);
+      }
+    }
+  });
+
+  test('every copy has landed before the next doubling launches, and the last before the cut out', () => {
+    for (let k = 0; k + 1 < DOUBLINGS; k++) expect(T.doublings[k]! + RIPPLE).toBeLessThan(T.doublings[k + 1]! - 0.05);
+    expect(T.doublings[DOUBLINGS - 1]! + RIPPLE).toBeLessThan(span.end - 0.5);
+  });
+});
+
 describe('anywhere: the Memory Graph settles', () => {
   const g = memoryGraph();
   const sim = simulate(g, 300);
@@ -224,6 +245,12 @@ describe('anywhere: the machine', () => {
     expect(rows).toHaveLength(4);
     for (const r of rows) expect(r.x + r.w).toBeLessThanOrEqual(112 + 790 + 1e-6);
     expect(rows.map((r) => r.check)).toEqual([false, false, false, true]);
+  });
+
+  test('as the page sets them, a column: one a row from the left edge, each below the last', () => {
+    const col = layoutChipRows(chipNames(strings[3]!), 112, 440, 1);
+    for (const r of col) expect(r.x).toBe(112);
+    for (let i = 1; i < col.length; i++) expect(col[i]!.y).toBeGreaterThan(col[i - 1]!.y);
   });
 
   test('the ✔\'s pen sets down, runs and lands with its chip', () => {

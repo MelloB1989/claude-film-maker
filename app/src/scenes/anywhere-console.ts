@@ -21,7 +21,7 @@ import * as THREE from 'three';
 import { Layer2D } from '../engine/gl';
 import { HEX, LIN, rgba } from '../engine/palette';
 import { F, font, measure } from '../engine/type';
-import { FPS, clamp, frameIdx, smootherstep } from '../engine/util';
+import { FPS, frameIdx, smootherstep } from '../engine/util';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -218,7 +218,7 @@ function title(c: Ctx, text: string, w: number) {
 
 /** The Playground card's layout (card px). */
 export const PLAY = {
-  w: 440, h: 604,
+  w: 436, h: 430,
   /** The user's bubble: its top, height, the text's px (Geist), its padding, its right inset. */
   bubble: { y: 88, h: 46, px: 18, pad: 17, right: 24, r: 20 },
   /** The tool rows: their left, tops, height, corner, the mono px of the name, the icons' size. */
@@ -331,9 +331,9 @@ export function paintPlayground(c: Ctx, copy: ConsoleCopy, s: PlayState) {
 // ------------------------------------------------------------------------------------------------ Memory Graph
 
 export const GRAPH = {
-  w: 344, h: 330,
+  w: 336, h: 430,
   /** Where the graph is drawn (card px). */
-  area: { x0: 6, y0: 64, x1: 338, y1: 326 },
+  area: { x0: 6, y0: 66, x1: 330, y1: 426 },
 } as const;
 
 export function paintGraph(c: Ctx, copy: ConsoleCopy) {
@@ -343,7 +343,7 @@ export function paintGraph(c: Ctx, copy: ConsoleCopy) {
 // ------------------------------------------------------------------------------------------------ Namespaces
 
 export const NS = {
-  w: 344, h: 254,
+  w: 790, h: 156,
   /** List rows: the first's top, height, the name's mono px, the icon's size, the left inset. */
   row: { y: 64, h: 50, px: 17, icon: 17, x: 24 },
 } as const;
@@ -366,12 +366,3 @@ export function paintNamespaces(c: Ctx, copy: ConsoleCopy, s: NsState) {
   c.fillRect(0, r.y + r.h, NS.w, 1);
   c.globalAlpha = 1;
 }
-
-/** Where the first namespace's row sits on its card (px): the icon's top left and the name's baseline. */
-export function firstRow() {
-  const r = NS.row;
-  return { iconX: r.x, iconY: r.y + (r.h - r.icon) / 2, size: r.icon, nameX: r.x + r.icon + 12, base: r.y + r.h / 2 + 0.36 * r.px };
-}
-
-/** A clamp of a fade to 0..1 (re-exported for the scene's card fades). */
-export const fade01 = (x: number) => clamp(x);

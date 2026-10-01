@@ -20,9 +20,9 @@ export const FLAT = { depth: 0.002, bevel: 0 } as const;
 
 // ------------------------------------------------------------------------------------------------ the chips
 
-/** The chips: height, padding round the name, the gap between chips and rows, corner, depth, bevel, the name's em,
- * and the ✔'s cell (em wide) before the licence chip's name. Panel px. */
-export const CHIP = { h: 46, pad: 16, gap: 14, r: 13, depth: 12, bevel: 3, em: 22, check: 1.15 } as const;
+/** The chips: height, padding round the name, the gap between chips and between rows, corner, depth, bevel, the
+ * name's em, and the ✔'s cell (em wide) before the licence chip's name. Panel px. */
+export const CHIP = { h: 46, pad: 16, gap: 14, row: 12, r: 13, depth: 12, bevel: 3, em: 22, check: 1.15 } as const;
 
 export interface ChipPlace {
   name: string;
@@ -38,8 +38,8 @@ export interface ChipPlace {
 export const chipNames = (line: string) => line.split(' · ');
 
 /**
- * Lay the chips out in rows from (x0, y0), wrapping before `maxW`: each as wide as its name in mono cells plus padding
- * (and the ✔'s cell on the licence chip).
+ * Lay the chips out in rows from (x0, y0), wrapping before `maxW` (1: one a row, a column): each as wide as its name in
+ * mono cells plus padding (and the ✔'s cell on the licence chip).
  */
 export function layoutChipRows(names: readonly string[], x0: number, y0: number, maxW: number): ChipPlace[] {
   const adv = 0.6 * CHIP.em, out: ChipPlace[] = [];
@@ -47,7 +47,7 @@ export function layoutChipRows(names: readonly string[], x0: number, y0: number,
   names.forEach((name, i) => {
     const check = i === names.length - 1;
     const w = Array.from(name).length * adv + 2 * CHIP.pad + (check ? CHIP.check * CHIP.em : 0);
-    if (x > x0 && x + w > x0 + maxW) (x = x0), (y += CHIP.h + CHIP.gap);
+    if (x > x0 && x + w > x0 + maxW) (x = x0), (y += CHIP.h + CHIP.row);
     out.push({ name, x, y, w, check });
     x += w + CHIP.gap;
   });
