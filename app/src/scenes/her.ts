@@ -17,7 +17,7 @@ import * as THREE from 'three';
 import { Scene, type Frame, type PostOverrides } from '../engine/scene';
 import { CameraRig, Stage, initAreaLights, type CamKey, type V3 } from '../engine/stage';
 import { H, W, makeRT } from '../engine/gl';
-import { Thread } from '../engine/thread3d';
+import { DIFF_THREAD, Thread } from '../engine/thread3d';
 import { Mat, Type3D } from '../engine/type3d';
 import { F } from '../engine/type';
 import { LIN } from '../engine/palette';
@@ -58,16 +58,6 @@ const BLAME_GAP = 0.3;
 const THREAD_A: V3 = [-1.9, -0.72, 0.62];
 const THREAD_B: V3 = [2.8, -0.56, -1.62];
 const THREAD_R = 0.0042;
-/** A long lay (14° against the default 32°): fewer, longer stripes, a luxury cable rather than a candy cane. */
-const LAY_DEG = 14;
-const TWIST = Math.tan((LAY_DEG * Math.PI) / 180) / (2 * Math.PI * 0.5 * THREAD_R);
-/**
- * The blood and moss strands: colour as light, not paint. Their fibre is dyed near ink (strandDye) and slimmed a little
- * (strandScale), so the colour is carried by the glowing core alone, a thin line of light in the grooves, fibre optic
- * rather than paint. The glow flares on the hits.
- */
-const STRAND = { dye: 0.03, scale: 0.62, glow: 3.6 };
-const THREAD_GLOW = STRAND.glow;
 /** The thread's sag before the snap (world units at its middle), and the whip's wave (world units at the tip). */
 const SAG = 0.02;
 const WAVE = 0.012;
@@ -140,9 +130,7 @@ export default class Her extends Scene {
     const A = new THREE.Vector3(...THREAD_A), B = new THREE.Vector3(...THREAD_B);
     this.dir.subVectors(B, A).normalize();
     this.side.set(-this.dir.z, 0, this.dir.x).normalize();
-    this.thread = new Thread(this.threadPoints(Infinity), {
-      radius: THREAD_R, twist: TWIST, glow: THREAD_GLOW, fuzz: 0.6, strandDye: STRAND.dye, strandScale: STRAND.scale,
-    });
+    this.thread = new Thread(this.threadPoints(Infinity), { ...DIFF_THREAD, radius: THREAD_R, fuzz: 0.6 });
     s.add(this.thread.mesh);
 
     // the engraving faces square to the bore; the camera sees the bead from back along the thread, so the band is
@@ -411,7 +399,7 @@ export default class Her extends Scene {
       th.setPoints(this.threadPoints(t));
       th.setDraw(0, this.tipU(t));
       // the flares stay under the level where a core whitens (about 4 on its brightest channel, look.ts)
-      th.setGlow(THREAD_GLOW * (1 + 0.25 * pulse(t, T.not, 0.2) + 0.12 * pulse(t, T.down, 0.28)));
+      th.setGlow(DIFF_THREAD.glow * (1 + 0.25 * pulse(t, T.not, 0.2) + 0.12 * pulse(t, T.down, 0.28)));
     }
 
     // the specular sweep on "Not": a light racing along the thread just off its near side
