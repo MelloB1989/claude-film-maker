@@ -217,7 +217,7 @@ export default class Proof extends Scene {
     const c = drumsAt(t, ROUNDS, T.kicks, T.lands);
     this.poseCounter(t, c, f);
     this.board.update(t, {
-      first: T.slam - 0.02, rule: T.slam, drop: [T.kicks[3]! - 0.12, T.kicks[3]! + 0.32], kicks: T.kicks, lands: T.lands,
+      first: T.slam + 0.03, rule: T.slam, drop: [T.kicks[3]! - 0.12, T.kicks[3]! + 0.32], kicks: T.kicks, lands: T.lands,
       bars: T.bars, note1: T.bars + 0.12, note2: T.quote,
     }, c.round, rollEase(c.u), T.beat);
     this.rig.apply(st.camera, t);

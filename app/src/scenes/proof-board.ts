@@ -29,6 +29,27 @@ function fromInk(m: THREE.MeshBasicMaterial, rgb: RGB, k: number) {
   m.color.setRGB(lerp(i[0], rgb[0], k), lerp(i[1], rgb[1], k), lerp(i[2], rgb[2], k));
 }
 
+/** How much taller than its bar a bar's flash band is: its gaussian falls to a few percent at the band's edges. */
+const FLASH_SPAN = 6;
+
+/** A bar's flash: additive moss light, a gaussian across the band and soft at its two ends. `uColor` is its peak. */
+function flashMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Vector3() } },
+    vertexShader: /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `uniform vec3 uColor; varying vec2 vUv;
+      void main() {
+        float y = (vUv.y - 0.5) * ${FLASH_SPAN.toFixed(1)};
+        float across = exp(-y * y * 0.9);
+        float along = smoothstep(0.0, 0.03, vUv.x) * (1.0 - smoothstep(0.97, 1.0, vUv.x));
+        gl_FragColor = vec4(uColor * across * along, 1.0);
+      }`,
+    blending: THREE.AdditiveBlending,
+    transparent: true,
+    depthWrite: false,
+  });
+}
+
 /** The board's geometry (em). `width` is the figure's (the final figure's advance). */
 export function boardLayout(width: number) {
   const top = -0.27;
@@ -151,8 +172,10 @@ export class Board {
     bars.forEach((b, k) => {
       const y = B.top - k * B.pitch;
       const lm = mat(LIN.boneDim), vm = mat(LIN.bone), wm = mat(LIN.panel2), fm = mat(LIN.moss);
-      // the flash adds light over the fill (a plane a hair in front, no depth write: the depth of field reads the fill)
-      const gm = this.mat(new THREE.MeshBasicMaterial({ color: 0x000000, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+      // the flash: a soft band of moss light over the fill (a plane a hair in front, no depth write: the depth of field
+      // reads the fill), a gaussian across the bar, so what blooms is a glow and never a hard line (a thin bright line
+      // nearly level steps through the bloom's coarse mips)
+      const gm = this.mat(flashMaterial());
       const label = flat(b.label, F.mono(400), B.label, lm);
       // (the label's x-height centred on the bar: JetBrains Mono's x-height is 0.55 em)
       label.group.position.set(B.x0 * size, (y - 0.275 * B.label) * size, 0);
@@ -161,10 +184,10 @@ export class Board {
       const well = new THREE.Mesh(plane, wm), fill = new THREE.Mesh(plane, fm), flash = new THREE.Mesh(plane, gm);
       for (const [m, z] of [[well, 0], [fill, 0.0004], [flash, 0.0008]] as const) {
         m.position.set(barX * size, y * size, z);
-        m.scale.set(barW * size, B.h * size, 1);
+        m.scale.set(barW * size, (m === flash ? FLASH_SPAN : 1) * B.h * size, 1);
         this.group.add(m);
       }
-      this.rows.push({ label, value, well, fill, flash, v: Number(b.value), mats: [lm, vm, wm, fm, gm] });
+      this.rows.push({ label, value, well, fill, flash, v: Number(b.value), mats: [lm, vm, wm, fm] });
     });
 
     // the footnotes
@@ -254,11 +277,13 @@ export class Board {
       fromInk(r.mats[0]!, LIN.boneDim, on);
       fromInk(r.mats[1]!, LIN.bone, prog(t, t0 + 0.12, t0 + 0.24));
       // the flash: the fill's own length, burning moss as it lands and dying back to the fill
-      const fl = 0.5 * Math.sin(Math.PI * clamp(grow * 1.2)) + 1.4 * pulse(t, t0 + 0.2, 0.09);
+      // (a soft bloom: a thin bright line blooms in steps through the bloom's coarse mips, so the flash stays near the
+      // bloom's opening, a glow rather than a burn)
+      const fl = 0.35 * Math.sin(Math.PI * clamp(grow * 1.2)) + 0.65 * pulse(t, t0 + 0.2, 0.1);
       r.flash.visible = fl > 0.01;
       r.flash.scale.x = r.fill.scale.x;
-      const g = glow('moss', 2.2);
-      (r.flash.material as THREE.MeshBasicMaterial).color.setRGB(g[0] * fl, g[1] * fl, g[2] * fl);
+      const g = glow('moss', 2.4);
+      ((r.flash.material as THREE.ShaderMaterial).uniforms.uColor!.value as THREE.Vector3).set(g[0] * fl, g[1] * fl, g[2] * fl);
     });
 
     // the footnotes, typed
