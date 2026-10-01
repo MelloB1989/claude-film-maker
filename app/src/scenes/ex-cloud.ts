@@ -199,27 +199,3 @@ export function fall(dt: number, h: number, g: number): { k: number; landed: boo
   const y = 0.5 * g * dt * dt;
   return { k: Math.min(1, y / Math.max(h, 1e-6)), landed: y >= h, dur };
 }
-
-// ------------------------------------------------------------------------------------------------ split-flap
-
-/**
- * A split-flap run that lands at `land`: `steps` flaps of `step` seconds each, the last one coming down exactly on
- * `land`. Returns the flap under way at t (0-based) and its progress 0..1, or -1 before the run and `steps` after it.
- */
-export function flapAt(t: number, land: number, steps: number, step: number): { k: number; p: number } {
-  const t0 = land - steps * step;
-  if (steps <= 0 || t < t0) return { k: -1, p: 0 };
-  if (t >= land) return { k: steps, p: 0 };
-  const u = (t - t0) / step;
-  const k = Math.min(steps - 1, Math.floor(u));
-  return { k, p: u - k };
-}
-
-/** A digit the board shows between two values (seeded): never the value it is leaving or the one it lands on. */
-export function flapDigit(seed: number, k: number, from: string, to: string): string {
-  for (let a = 0; a < 6; a++) {
-    const d = String(Math.floor(hash(seed, 41 + k, a) * 10));
-    if (d !== from && d !== to) return d;
-  }
-  return String((Number(from) + 5) % 10);
-}

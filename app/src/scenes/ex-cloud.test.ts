@@ -1,13 +1,11 @@
-// Scene `ex`: the float cloud's data (ex-cloud.ts), the glyph atlas's distance field (ex-glyphs.ts), and the scene's
-// times (ex.ts timesOf) against the film's own voiceover and beat grid.
+// Scene `ex`: the float cloud's data (ex-cloud.ts) and the scene's times (ex.ts timesOf) against the film's own
+// voiceover and beat grid. (The glyph atlas's distance field and the split-flap's schedule are the engine's: glyphs.test.ts.)
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import {
-  ADV, BERLIN_SLOTS, CELLS, EM, PITCH, REGION, SPHEROID, buildCloud, cardFloats, cells, fall, fallOf, flapAt, flapDigit, floatOf,
-  morphTargets, shown,
+  ADV, BERLIN_SLOTS, CELLS, EM, PITCH, REGION, SPHEROID, buildCloud, cardFloats, cells, fall, fallOf, floatOf, morphTargets, shown,
 } from './ex-cloud';
-import { edt, sdfOf } from './ex-glyphs';
 import { timesOf } from './ex';
 import { VO } from '../engine/vo';
 import { AudioData } from '../engine/audio';
@@ -90,7 +88,7 @@ describe('ex: the cards', () => {
   });
 });
 
-describe('ex: the collapse and the flaps', () => {
+describe('ex: the collapse', () => {
   test('a numeral falls under gravity and lands after sqrt(2h/g); every slot of the line is within it', () => {
     const f = fall(0.5, 0.75, 6);
     expect(f.dur).toBeCloseTo(0.5, 9);
@@ -104,43 +102,6 @@ describe('ex: the collapse and the flaps', () => {
       expect(delay).toBeLessThan(0.02); // the sculpture drops as one
     }
     expect(SPHEROID.rx).toBeGreaterThan(SPHEROID.ry);
-  });
-
-  test('a split-flap run lands its last flap exactly on its beat', () => {
-    const land = 10.808, step = 0.07;
-    expect(flapAt(land - 3 * step - 1e-6, land, 3, step).k).toBe(-1);
-    expect(flapAt(land - 3 * step, land, 3, step)).toEqual({ k: 0, p: 0 });
-    const last = flapAt(land - 1e-6, land, 3, step);
-    expect(last.k).toBe(2);
-    expect(last.p).toBeCloseTo(1, 4);
-    expect(flapAt(land, land, 3, step).k).toBe(3);
-    for (let k = 0; k < 50; k++) {
-      const d = flapDigit(k * 13, k, '4', '7');
-      expect(d).not.toBe('4');
-      expect(d).not.toBe('7');
-      expect(d).toMatch(/^\d$/);
-    }
-  });
-});
-
-describe('ex: the distance field', () => {
-  test('the exact transform gives squared distances to the nearest feature', () => {
-    const w = 7, h = 5, g = new Float64Array(w * h).fill(1e20);
-    g[2 * w + 3] = 0;
-    edt(g, w, h);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) expect(g[y * w + x]).toBe((x - 3) ** 2 + (y - 2) ** 2);
-  });
-
-  test('a filled square reads above 0.5 inside, below outside, and 0.5 on its anti-aliased edge', () => {
-    const w = 40, h = 40, cover = new Float32Array(w * h);
-    for (let y = 10; y < 30; y++) for (let x = 10; x < 30; x++) cover[y * w + x] = 1;
-    for (let y = 10; y < 30; y++) cover[y * w + 30] = 0.5; // a half-covered column on the right edge
-    const f = sdfOf(cover, w, h, 8);
-    expect(f[20 * w + 20]!).toBeCloseTo(1, 6); // 10 px in: past the spread
-    expect(f[20 * w + 2]!).toBeCloseTo(0, 6); // 8 px out
-    expect(f[20 * w + 30]!).toBeCloseTo(0.5, 2); // the half-covered pixel holds the outline
-    expect(f[20 * w + 12]!).toBeGreaterThan(0.5);
-    expect(f[20 * w + 7]!).toBeLessThan(0.5);
   });
 });
 

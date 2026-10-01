@@ -2,7 +2,7 @@
 // "Commitment issues." (Plan 2 Task 13; spec §4 02.) The ex is the vector store, and the joke is how beautiful she was.
 //
 // One world, every time from the data (her measured onsets, the score's beats and downbeats):
-// - The float cloud (ex-cloud.ts, ex-glyphs.ts): about six thousand mono float numerals in a jittered lattice filling a
+// - The float cloud (ex-cloud.ts, ex-glyphs.ts on engine/glyphs.ts): about six thousand mono float numerals in a jittered lattice filling a
 //   thick shell of a loose spheroid, lit from the upper left, a crisp band where the shell crosses the focus plane and
 //   the rest falling away into soft depth. The cut lands close and soft (the thread's fibres were); the camera pulls
 //   back to reveal it, a band of light sweeping across it on the downbeat, then orbits it slowly.
@@ -32,9 +32,10 @@ import { onBeat, wordTimes } from '../engine/motion';
 import { norm, type VO, type Word } from '../engine/vo';
 import type { AudioData } from '../engine/audio';
 import { clamp, ease, hash, keys, lerp, prog, pulse } from '../engine/util';
-import { Actors, Atlas, CloudField, type CloudCell } from './ex-glyphs';
+import { GlyphActors, GlyphAtlas, flapAt, flapDigit } from '../engine/glyphs';
+import { CloudField, type CloudCell } from './ex-glyphs';
 import {
-  ADV, BERLIN_SLOTS, CELLS, EM, MINUS, SPHEROID, buildCloud, cardFloats, cells, fall, fallOf, flapAt, flapDigit, morphTargets, type Cloud,
+  ADV, BERLIN_SLOTS, CELLS, EM, MINUS, SPHEROID, buildCloud, cardFloats, cells, fall, fallOf, morphTargets, type Cloud,
   type Numeral,
 } from './ex-cloud';
 import { HeroWord, drawBrackets, drawQuery, drawStamp, drawStampGlow, drawTooltip, drawTyped, drawWords, stampPose } from './ex-type';
@@ -150,10 +151,10 @@ interface Card {
 export default class Ex extends Scene {
   private T!: Times;
   private stage!: Stage;
-  private atlas!: Atlas;
+  private atlas!: GlyphAtlas;
   private cloud!: Cloud;
   private field!: CloudField;
-  private actors!: Actors;
+  private actors!: GlyphActors;
   private hero!: HeroWord;
   private layer = new Layer2D();
   /** The stamps' glow: drawn soft and white, added as blood light. */
@@ -181,7 +182,7 @@ export default class Ex extends Scene {
     const { renderer, vo, audio, start, end } = this.ctx;
     const T = (this.T = timesOf(vo, audio, start, end));
     this.stage = new Stage(renderer, { fov: FOV, near: 0.02, far: 20 });
-    this.atlas = new Atlas('0123456789.' + MINUS + BERLIN + LISBON + FATAL, F.mono(400));
+    this.atlas = new GlyphAtlas('0123456789.' + MINUS + BERLIN + LISBON + FATAL, F.mono(400));
 
     // the cards and their floats; the cloud, with Berlin's floats in their slots of the region's centre row
     this.berlin = this.card(BERLIN, 7);
@@ -213,7 +214,7 @@ export default class Ex extends Scene {
     this.line.copy(this.panelPoint(this.term, this.termGroup, cell.x, cell.baseline, 0.6));
 
     this.buildField();
-    this.actors = new Actors(256, this.atlas);
+    this.actors = new GlyphActors(256, this.atlas);
     this.actors.mesh.renderOrder = 2;
     this.stage.scene.add(this.actors.mesh);
 
