@@ -127,14 +127,14 @@ export function tipAt(t: number, T: Pick<Times, 'draw' | 'form' | 'strike' | 'ex
 export const eyeAt = (tip: number) => tip - EYE_TO_TIP;
 
 /**
- * The needle's forming, 0..1 over `form`: it crystallises out of the thread's tip back to its eye (the front's place
+ * The needle's forming, 0..1 over `form`: it stiffens out of the thread's tip back to its eye (the front's place
  * along the needle, from the tip at 0 to the head at 1).
  */
 export const formAt = (t: number, T: Pick<Times, 'form'>) => clamp((t - T.form.at) / (T.form.end - T.form.at));
 
 /**
  * Where the drawn thread ends (px along the path): its own tip until the needle forms; while it forms, the front the
- * glass runs back along (the thread's last length turning into the needle); after, the eye.
+ * needle runs back along (the thread's last length turning into it); after, the eye.
  */
 export function threadEnd(t: number, T: Pick<Times, 'draw' | 'form' | 'strike' | 'exit' | 'pull'>, run: Run): number {
   const tip = tipAt(t, T, run), k = formAt(t, T);
