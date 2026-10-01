@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import * as THREE from 'three';
 import { DOF_MAX_BLUR_PX, cocPx, dofUniforms, latticeDisc } from './dof';
 import { PH, PW } from './gl';
-import { CameraRig, eachTap, initAreaLights, stageTarget, type CamKey } from './stage';
+import { CameraRig, aimTypeCamera, eachTap, initAreaLights, stageTarget, typePxPerUnit, type CamKey } from './stage';
 import { ease } from './util';
 
 // Expected values are hand-derived (Python, from the textbook thin-lens form c = A·|z − S|/z · f/(S − f) on a 16:9
@@ -263,4 +263,23 @@ test('initAreaLights readies three for area lights once: a second call makes no 
   initAreaLights();
   expect([THREE.UniformsLib.LTC_FLOAT_1, THREE.UniformsLib.LTC_FLOAT_2]).toEqual(first);
   expect(THREE.UniformsLib.LTC_FLOAT_1).toBe(first[0] as THREE.DataTexture);
+});
+
+test('a type stage maps its type plane 1:1 to the frame however far off it the eye stands (its walls show)', () => {
+  // a 7° lens 30 units away: 1080 px span 2·30·tan(3.5°) units
+  const ppu = typePxPerUnit(7, 30);
+  expect(ppu).toBeCloseTo(1080 / (60 * Math.tan((3.5 * Math.PI) / 180)), 9);
+  for (const eye of [{ x: 960, y: 540 }, { x: -1300, y: 1150 }, { x: 300, y: 540 }]) {
+    const cam = new THREE.PerspectiveCamera(7, 16 / 9, 1, 80);
+    aimTypeCamera(cam, { fov: 7, distance: 30, eye });
+    // the eye stands at frame px `eye` (on the plane's scale), 30 units out, looking straight at the plane
+    expect(cam.position.x).toBeCloseTo((eye.x - 960) / ppu, 9);
+    expect(cam.position.y).toBeCloseTo((540 - eye.y) / ppu, 9);
+    expect(cam.position.z).toBe(30);
+    for (const [px, py] of [[960, 540], [150, 640], [1800, 90], [eye.x, eye.y]]) {
+      const p = new THREE.Vector3((px! - 960) / ppu, (540 - py!) / ppu, 0).project(cam);
+      expect((p.x + 1) * 960).toBeCloseTo(px!, 6);
+      expect((1 - p.y) * 540).toBeCloseTo(py!, 6);
+    }
+  }
 });

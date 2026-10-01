@@ -359,3 +359,30 @@ export function freeTransmission(renderer: THREE.WebGLRenderer, material: THREE.
   target?.dispose();
   return !!target;
 }
+
+// ------------------------------------------------------------------------------------------------ type stage
+
+/** Logical px per world unit on a type stage's plane (aimTypeCamera): a `fov`° lens `distance` units from it. */
+export function typePxPerUnit(fov: number, distance: number) {
+  return 1080 / (2 * distance * Math.tan((fov * Math.PI) / 360));
+}
+
+/**
+ * A type stage's camera, for extruded type that sits at rest exactly where flat 2D type would: a long lens (`fov`°)
+ * looking straight at the plane z = 0 from `distance`, standing at logical frame px `eye` (off the frame, so every glyph
+ * shows its walls on the far side, where an accent seam glows against shadow), its view offset so the plane still maps
+ * to the frame as if centred: a world point (x, y, 0) shows at logical px (960 + x·ppu, 540 − y·ppu), with ppu =
+ * typePxPerUnit(fov, distance), which it returns. ex's "vector store" stands on one (her's headline and weave's
+ * "commit." build theirs their own way). Set Type3D at emPx / ppu world units per em, its origin at
+ * ((x − 960) / ppu, (540 − y) / ppu, 0) for logical px (x, y).
+ */
+export function aimTypeCamera(cam: THREE.PerspectiveCamera, o: { fov: number; distance: number; eye: { x: number; y: number } }): number {
+  const ppu = typePxPerUnit(o.fov, o.distance);
+  const xc = (o.eye.x - 960) / ppu, yc = (540 - o.eye.y) / ppu;
+  cam.fov = o.fov;
+  cam.position.set(xc, yc, o.distance);
+  cam.lookAt(xc, yc, 0);
+  cam.setViewOffset(1920, 1080, -xc * ppu, yc * ppu, 1920, 1080);
+  cam.updateMatrixWorld();
+  return ppu;
+}

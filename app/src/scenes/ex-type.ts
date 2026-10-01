@@ -5,7 +5,7 @@
 // The hero stage looks straight at the type's plane through a long lens, so at rest a glyph sits exactly where the flat
 // 2D layout would set it: a world point (x, y, 0) shows at logical px (960 + x * PX_PER_UNIT, 540 - y * PX_PER_UNIT).
 import * as THREE from 'three';
-import { Stage, initAreaLights } from '../engine/stage';
+import { Stage, aimTypeCamera, initAreaLights, typePxPerUnit } from '../engine/stage';
 import { Mat, Type3D } from '../engine/type3d';
 import { GLOW_LEVEL } from '../engine/look';
 import { slam, spring } from '../engine/motion';
@@ -18,7 +18,7 @@ import { clamp, ease, hash, lerp, prog, pulse } from '../engine/util';
 const FOV = 7;
 const CAM_D = 30;
 /** Logical px per world unit on the hero's plane (z = 0). */
-export const PX_PER_UNIT = 1080 / (2 * CAM_D * Math.tan((FOV * Math.PI) / 360));
+export const PX_PER_UNIT = typePxPerUnit(FOV, CAM_D);
 /** Where the hero's camera stands (logical px of the frame: off its lower left). */
 const CAM_AT = { x: -1300, y: 1150 };
 /** How deep a glyph launches from (em), how far it tips back (rad), the stagger between glyphs (s). */
@@ -42,14 +42,9 @@ export class HeroWord {
   /** `text` set in `family` at `emPx` logical px per em, its origin (left end, baseline) at logical px (x, y). */
   constructor(renderer: THREE.WebGLRenderer, text: string, family: string, emPx: number, x: number, y: number) {
     this.stage = new Stage(renderer, { fov: FOV, near: 1, far: 80, envIntensity: 0.3 });
-    const cam = this.stage.camera;
     // the camera stands off the frame's lower left looking straight ahead, its view offset so the type's plane still maps
     // as if centred: every glyph shows the wall on its left and its foot, where the blood seam glows along the edge
-    const xc = (CAM_AT.x - 960) / PX_PER_UNIT, yc = (540 - CAM_AT.y) / PX_PER_UNIT;
-    cam.position.set(xc, yc, CAM_D);
-    cam.lookAt(xc, yc, 0);
-    cam.setViewOffset(1920, 1080, -xc * PX_PER_UNIT, yc * PX_PER_UNIT, 1920, 1080);
-    cam.updateMatrixWorld();
+    aimTypeCamera(this.stage.camera, { fov: FOV, distance: CAM_D, eye: CAM_AT });
     this.mat = Mat.accent('blood', 0);
     this.mat.transparent = true; // (it fades as it flies past the camera)
     this.word = new Type3D(text, { family, size: emPx / PX_PER_UNIT }, this.mat);
