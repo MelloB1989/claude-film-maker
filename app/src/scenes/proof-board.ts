@@ -74,7 +74,7 @@ export function sparkPoint(L: BoardLayout, i: number, n: number, value: number):
 
 /** When each element of the board moves (song seconds). */
 export interface BoardTimes {
-  /** The first node and its tag, as the first figure is said. */
+  /** The first node and its tag pop (the scene has them pop just after the slam's snap, with the rule). */
   first: number;
   /** The rule draws on. */
   rule: number;
@@ -242,7 +242,7 @@ export class Board {
     this.head.position.set(hx * s, hy * s, 0.0012);
     this.head.scale.setScalar(L.spark.node * 0.85 * s);
 
-    // the nodes and tags: each pops as its figure lands (the first as it is said); the current tag brightest
+    // the nodes and tags: each pops as its figure lands (the first at `first`); the current tag brightest
     const at = (i: number) => (i === 0 ? T.first : T.lands[i - 1]!);
     const last = this.nodes.length - 1;
     this.nodes.forEach((n, i) => {
@@ -260,8 +260,8 @@ export class Board {
       tag.type.group.visible = on > 0;
     });
 
-    // the bars: a 64th note apart from the downbeat, each fill shooting out to its score with a moss flash at its
-    // head, the row's type coming up with it, then the whole bar flashing once and settling
+    // the bars: a 64th note apart from the downbeat, each fill shooting out to its score in a glow of moss, the row's
+    // type coming up with it, then the whole bar flashing once and settling
     const stagger = beat / 16;
     this.rows.forEach((r, k) => {
       const t0 = T.bars + k * stagger;
@@ -276,9 +276,8 @@ export class Board {
       fromInk(r.mats[2]!, LIN.panel2, on);
       fromInk(r.mats[0]!, LIN.boneDim, on);
       fromInk(r.mats[1]!, LIN.bone, prog(t, t0 + 0.12, t0 + 0.24));
-      // the flash: the fill's own length, burning moss as it lands and dying back to the fill
-      // (a soft bloom: a thin bright line blooms in steps through the bloom's coarse mips, so the flash stays near the
-      // bloom's opening, a glow rather than a burn)
+      // the flash: a band the fill's own length, glowing as it grows, flaring once as it lands and dying back to the
+      // fill (it stays near the bloom's opening: a glow rather than a burn)
       const fl = 0.35 * Math.sin(Math.PI * clamp(grow * 1.2)) + 0.65 * pulse(t, t0 + 0.2, 0.1);
       r.flash.visible = fl > 0.01;
       r.flash.scale.x = r.fill.scale.x;
