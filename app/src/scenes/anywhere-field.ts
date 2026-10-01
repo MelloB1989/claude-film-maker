@@ -4,9 +4,10 @@
 //
 // The doubling (anywhere-time.ts cellOf): namespace i's index bits are dealt alternately to its column and its row, so
 // each doubling copies the whole block beside itself, along x then y. A copy slides out from under the block (it
-// starts at its original's place, a hair behind it, so the original hides it), lands on its sixteenth with a tight
-// spring and a click, and its face and edge flash moss as it lands: namespaces added. Eleven doublings, 64 columns by
-// 32 rows.
+// starts at its original's place, a hair behind it, so the original hides it, and materializes as it slides clear),
+// lands with a tight spring and a click, and its face and edge flash moss as it lands: namespaces added. A doubling's
+// copies land in a quick ripple from the corner nearest their originals, the first on its sixteenth. Eleven doublings,
+// 64 columns by 32 rows.
 //
 // All on the GPU as a pure function of the song time and a few uniforms: one instanced draw of tiles (the rounded
 // rectangle, its edge and the box icon from signed distances) and one of name glyphs on the engine's atlas
@@ -99,7 +100,8 @@ vec4 tileAt(vec4 cell, vec2 from, float delay, out float flash) {
   vec2 c = cell.xy - from * (1.0 - s);
   // out from under its original: a little behind the block while it slides, back in its plane as it lands
   float lift = -${f(SLIDE.lift)} * sin(3.14159265 * clamp(s, 0.0, 1.0)) - ${f(SLIDE.behind)} * (1.0 - clamp(s * 4.0, 0.0, 1.0));
-  float alpha = level > -0.5 ? step(1e-4, s) : 1.0;
+  // a copy materializes as it slides clear of its original (behind it, it would show through the gaps between tiles)
+  float alpha = level > -0.5 ? smoothstep(0.12, 0.7, s) : 1.0;
   return vec4(c.x * ${f(PITCH.x)}, c.y * ${f(PITCH.y)}, lift, alpha * uFade);
 }
 
