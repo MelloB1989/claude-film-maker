@@ -96,6 +96,8 @@ const TERM_SCALE = 0.4;
 const TPX = TERM_SCALE / 1000;
 /** The terminal: panel px; its code size. */
 const TERM = { w: 900, h: 300, size: 30 };
+/** Where along the output row the dive goes in (a fraction of the panel's width). */
+const DIVE_X = 0.37;
 /** The chips: height (of the row), padding round the name, the gap between, corner radius, depth and bevel, how far
  * out of the face they pop, the names' em (panel px). */
 const CHIP = { h: 46, pad: 15, gap: 16, r: 13, depth: 12, bevel: 3, lift: 46, em: 26 };
@@ -120,19 +122,22 @@ const GLIDE = { travel: 0.24, freq: 4, damping: 0.7 };
 /** The camera on a bead in close-up: out from the string (toward the terminal), along it (−: left), up (m); where the
  * bead sits in frame (half-frame fractions from the centre, +x right, +y up). */
 const BEAD_CAM = { off: 0.34, along: -0.05, up: 0.05, sx: -0.3, sy: 0.08 };
+/** The pull-back off the last bead: its distance (in close-ups), its rise (m), and how much the camera breathes in over
+ * the file's hold (a fraction of it). */
+const PULL = { back: 1.62, lift: 0.02, breathe: 0.035 };
 /** How far the engraving's band rises above the bore's equator (radians): over dark glass, not the refracted thread. */
 const ETCH_RISE = 0.42;
 /** A label: its em (frame px at its bead's close-up); its left end and baseline from the bead's centre (bead radii in
  * frame, right and down); how fast it types in (characters a second). */
-const LABEL = { px: 28, dx: -0.92, dy: 1.5, cps: 150 };
+const LABEL = { px: 28, dx: -0.92, dy: 1.5, cps: 200 };
 /** Where the focus holds a bead in close-up, and its label sits: its near face, this many radii toward the camera. */
 const FACE = 0.8;
 /** The file: panel px, code size; where its centre lands in frame (px), its height there (px), its distance (m). */
 const FILE_SPEC = { w: 640, h: 774, size: 24 };
-const FILE_AT = { x: 1330, y: 520, hpx: 690, dist: 0.4 };
+const FILE_AT = { x: 1480, y: 520, hpx: 690, dist: 0.4 };
 /** Its swing on the hinge (radians, from nearly edge-on to a few degrees open) and its timing: it starts `lead` before
  * the beat and decelerates into place over `dur`, all but there on the beat (a reveal, not a slam). */
-const FILE_SWING = { from: 1.42, to: 0.1, dur: 0.42, lead: 0.3 };
+const FILE_SWING = { from: 1.42, to: 0.1, dur: 0.36, lead: 0.24 };
 /** The footnote: mono px, its baseline's left end (frame px), typing speed. */
 const NOTE = { px: 24, x: 150, y: 958, cps: 95 };
 
@@ -305,8 +310,8 @@ export default class Repo extends Scene {
       this.termG.add(g, shadow.mesh);
       this.chips.push({ spec, g, mesh, label, shadow, home, land: T.chips[i]! });
     });
-    // the dive aims at the middle of the output row under `git log`
-    this.O.copy(this.termPoint(TERM.w / 2, this.rowTop(3) + this.lineH() / 2));
+    // the dive aims at the output row under `git log`, below the command's middle
+    this.O.copy(this.termPoint(DIVE_X * TERM.w, this.rowTop(3) + this.lineH() / 2));
     this.N.set(0, 0, 1).applyQuaternion(this.termG.quaternion);
   }
 
@@ -336,7 +341,7 @@ export default class Repo extends Scene {
     // a light glints across the chips on "repo"
     const a = this.chips[0]!, b = this.chips[this.chips.length - 1]!;
     const x0 = this.termPoint(a.spec.x - 60, 0).x, x1 = this.termPoint(b.spec.x + b.spec.w + 60, 0).x, y = this.termPoint(0, this.rowTop(1)).y;
-    sweepAt(this.chipSweep, t, [{ t0: T.repo, t1: T.repo + 0.55, x0, x1, y }], { width: 40 * TPX, strength: 1.6 });
+    sweepAt(this.chipSweep, t, [{ t0: T.repo, t1: T.repo + 0.42, x0, x1, y }], { width: 40 * TPX, strength: 1.6 });
   }
 
   // ---------------------------------------------------------------------------------------------- the string
@@ -510,13 +515,14 @@ export default class Repo extends Scene {
     const T = this.T, adv = 0.6 * TERM.size, padX = Math.round(28 * (TERM.size / 28)), mid = this.lineH() / 2;
     const cmd = this.termPoint(padX + 9 * adv, this.rowTop(0) + mid);
     const chips = this.termPoint(padX + 16 * adv, this.rowTop(1) + mid, CHIP.lift * 0.6);
-    // a slow push and turn while she types; on the downbeat the camera snaps in onto the chips as they pop; then it
-    // settles down the line of the dive while `git log` types
+    // a slow push and turn while she types; on the downbeat the camera snaps in onto the chips as they pop and drifts
+    // on them while the light crosses them; then it turns down the line of the dive as `git log` is entered
     return [
       { ...this.orbit(T.start, this.termPoint(0.4 * TERM.w, this.rowTop(1)), -32, 7.5, 0.5), fov: FOV, roll: -2.5 },
       this.orbit(T.pop - 0.02, cmd.clone().lerp(chips, 0.3), -28, 6, 0.44, { roll: -2, ease: ease.linear }),
       this.orbit(T.pop + 0.3, chips, -23, 4.5, 0.37, { roll: -1.2, ease: ease.outCubic }),
-      this.orbit(T.enter, this.O, -15, 3, 0.36, { roll: -1, ease: ease.inOutQuad }),
+      this.orbit(T.repo + 0.3, chips, -21.5, 4.2, 0.355, { roll: -1.1, ease: ease.linear }),
+      this.orbit(T.enter, this.O, -18, 3, 0.36, { roll: -1, ease: ease.inOutCubic }),
     ];
   }
 
@@ -537,19 +543,14 @@ export default class Repo extends Scene {
       const eye = this.beadEye(c, k, lift);
       return { pos: eye.toArray() as V3, target: this.aim(eye, at, sx, sy).toArray() as V3 };
     };
-    // the track: on each bead as it lands, gliding on between them (a touch of ease into each landing)
-    const glide = (x: number) => lerp(x, ease.inOutQuad(x), 0.4);
-    this.commits.forEach((c, i) => keys.push({ t: c.at + 0.08, ...view(c), roll: -3 - 0.6 * i, ease: i === 0 ? ease.outCubic : glide }));
-    // on "me." the camera pulls back and up off the last bead to the whole string, history running left to right into
-    // the dark (the file lands over its far end), then drifts on
-    const c2 = this.commits[1]!, c3 = this.commits[2]!;
-    const whole = { pos: c2.pos.clone().lerp(c3.pos, 0.5), tangent: c2.tangent.clone().lerp(c3.tangent, 0.5).normalize(), side: c2.side.clone().lerp(c3.side, 0.5).normalize() };
-    const wide = (k: number, lift: number, sx: number): { pos: V3; target: V3 } => {
-      const eye = this.beadEye(whole, k, lift);
-      return { pos: eye.toArray() as V3, target: this.aim(eye, whole.pos, sx, 0.1).toArray() as V3 };
-    };
-    keys.push({ t: T.beads[T.beads.length - 1]! + 0.45, ...wide(1.85, 0.04, -0.06), roll: -3.5, ease: ease.inOutCubic });
-    keys.push({ t: T.end, ...wide(1.95, 0.045, -0.3), roll: -3.8, ease: ease.inOutQuad });
+    // the track: settling on each bead as it lands (it reads as its line types in), gliding on to the next
+    this.commits.forEach((c, i) => keys.push({ t: c.at + 0.16, ...view(c), roll: -3 - 0.6 * i, ease: i === 0 ? ease.outCubic : ease.inOutCubic }));
+    // on "me." the camera dollies straight back off the last bead (it keeps its place in frame, so nothing smears) and
+    // the whole string opens out to the right of it, history to HEAD; the file lands over its far end, and the camera
+    // only breathes in while it holds
+    const last = this.commits[this.commits.length - 1]!;
+    keys.push({ t: T.fileLand - 0.06, ...view(last, PULL.back, PULL.lift), roll: -3.6, ease: ease.inOutCubic });
+    keys.push({ t: T.end, ...view(last, PULL.back * (1 - PULL.breathe), PULL.lift), roll: -3.8, ease: ease.linear });
     return keys;
   }
 
