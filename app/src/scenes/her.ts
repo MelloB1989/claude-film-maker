@@ -3,9 +3,11 @@
 //
 // One world, three shots, every time from the data (the voiceover's measured onsets, the score's beats):
 // 1. The thread. Black, then the diff thread whips in from frame left and pulls taut, the camera riding along it in a
-//    slow macro push. On "Not" it snaps taut and a specular sweep runs along it; on "me." it hums.
+//    slow macro push: bone, its blood and moss strands dark in their grooves. On "Not" it snaps taut, a specular sweep
+//    runs along it and its blood strand flares (the strike); on "me." it hums.
 // 2. The bead. On the downbeat after "me." (the score opens) the camera whips along the thread onto the commit bead,
-//    a satin-glass sphere engraved 3f9a1c2, sliding onto the thread and settling in the rim light.
+//    a satin-glass sphere engraved 3f9a1c2, sliding onto the thread and settling in the rim light, as the moss strand
+//    flares (the commit).
 // 3. The headline. A hard cut on the next beat to the site's headline hanging in the dark: `− your agent forgets`,
 //    small, struck through in blood on the cut; then `+ every memory has a commit` and `+ every fact has a blame` type
 //    in with her, the hero words slamming in from depth on their onsets as extruded satin bone ("commit" and "blame"
@@ -17,7 +19,7 @@ import * as THREE from 'three';
 import { Scene, type Frame, type PostOverrides } from '../engine/scene';
 import { CameraRig, Stage, initAreaLights, type CamKey, type V3 } from '../engine/stage';
 import { H, W, makeRT } from '../engine/gl';
-import { DIFF_THREAD, Thread } from '../engine/thread3d';
+import { DIFF_THREAD, Thread, strandGlow } from '../engine/thread3d';
 import { Mat, Type3D } from '../engine/type3d';
 import { F } from '../engine/type';
 import { LIN } from '../engine/palette';
@@ -398,8 +400,10 @@ export default class Her extends Scene {
     if (!headline) {
       th.setPoints(this.threadPoints(t));
       th.setDraw(0, this.tipU(t));
-      // the flares stay under the level where a core whitens (about 4 on its brightest channel, look.ts)
-      th.setGlow(DIFF_THREAD.glow * (1 + 0.25 * pulse(t, T.not, 0.2) + 0.12 * pulse(t, T.down, 0.28)));
+      // bone at rest, its strands dark grooves; a strand lights on meaning (DIFF_THREAD): blood as "Not" strikes "your
+      // agent forgets" (the − of the headline to come), moss as the commit bead lands on the downbeat (its +). Each
+      // dies away over a beat, out as the next hit lands.
+      th.setStrandGlow({ blood: strandGlow(t, T.not), moss: strandGlow(t, T.down) });
     }
 
     // the specular sweep on "Not": a light racing along the thread just off its near side

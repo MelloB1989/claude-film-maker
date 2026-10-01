@@ -4,7 +4,7 @@
     "strandDye": 0.03,
     "strandScale": 0.62,
     "glow": 3.6,
-    "rest": 0.4,
+    "rest": 0.15,
     "flare": { "lead": 0.05, "decay": 0.6 }
   }
 }

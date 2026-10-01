@@ -309,7 +309,7 @@ test('layDeg sets the lay at the thread\'s radius: 14° is the twist her compute
 });
 
 test('DIFF_THREAD pins the diff thread\'s look: 14° lay, strands dyed near ink and slimmed, lit to 3.6, resting dim', () => {
-  expect(DIFF_THREAD).toEqual({ layDeg: 14, strandDye: 0.03, strandScale: 0.62, glow: 3.6, rest: 0.4 });
+  expect(DIFF_THREAD).toEqual({ layDeg: 14, strandDye: 0.03, strandScale: 0.62, glow: 3.6, rest: 0.15 });
   expect(STRAND_FLARE).toEqual({ lead: 0.05, decay: 0.6 });
   // spread into a thread, it is her's thread as it was: the same plies, colours and lit level as her's hand options
   const preset = new Thread(HER.points, { ...DIFF_THREAD, radius: HER.radius });
