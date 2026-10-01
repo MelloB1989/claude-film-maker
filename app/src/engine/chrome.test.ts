@@ -244,3 +244,22 @@ test('a panel with rows draws only its window: the rows past it leave the paddin
   expect(r.scrolledBelow).toBe(0);
   expect(r.scrolledWindow).toBeGreaterThan(0);
 });
+
+test('a highlight is painted under the text: the glyphs stand on it untinted, the row beside them takes it', async () => {
+  const r = await page.evaluate(() => {
+    const { panels } = (window as any).__t;
+    // 28 px code: row 0 from 72 to 117, its text from 83.6 (after the line numbers); a full block fills its cell
+    const at = (highlight: unknown) => {
+      const p = new panels.Panel({ kind: 'editor', w: 640, h: 200, lines: [{ text: '██████', spans: [{ from: 0, to: 6, tone: 'kw' }], highlight }] });
+      p.draw(0);
+      const c = p.layer.canvas as HTMLCanvasElement, k = c.width / 640;
+      const px = (x: number, y: number) => Array.from(c.getContext('2d')!.getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data);
+      return { glyph: px(92, 95), band: px(600, 95) };
+    };
+    return { plain: at(undefined), lit: at({ tone: 'moss', alpha: 0.5 }) };
+  });
+  expect(r.plain.glyph.slice(0, 3)).toEqual([237, 231, 234]); // bone at full strength (the kw tone)
+  expect(r.lit.glyph).toEqual(r.plain.glyph); // under the glyph: untouched
+  expect(r.lit.band[1]!).toBeGreaterThan(r.plain.band[1]! + 20); // beside it: the moss wash
+  expect(r.lit.band[1]!).toBeGreaterThan(r.lit.band[0]!);
+});

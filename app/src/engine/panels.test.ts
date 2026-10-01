@@ -212,7 +212,7 @@ test('the mesh is a plane of w/1000 by h/1000 world units, built without a DOM',
 /** Everything paint() reads from a frame. */
 const paintInputs = (p: Panel, t: number) => {
   const fr = p.frame(t);
-  return { key: fr.key, paint: JSON.stringify({ st: fr.st, top: fr.top, num: fr.num, started: fr.started, cursor: fr.cursor, checks: fr.checks }) };
+  return { key: fr.key, paint: JSON.stringify({ st: fr.st, top: fr.top, num: fr.num, started: fr.started, cursor: fr.cursor, checks: fr.checks, marks: fr.marks }) };
 };
 
 test('two frames with the same repaint key paint the same: rows, numbers, prompts, cursor and checks', () => {
@@ -455,4 +455,64 @@ test('viewport: a row outside the window is not drawn, a row across its edge is 
   expect(at(2)).toEqual({ slot: [base(2, 2), base(3, 2), base(4, 2)], canvas: [] });
   // half a row on: rows 2 and 5 are cut by the window's top and bottom
   expect(at(2.5)).toEqual({ slot: [base(3, 2.5), base(4, 2.5)], canvas: [base(2, 2.5), base(5, 2.5)] });
+});
+
+// --------------------------------------------------------------------------------------------------- highlights
+
+// Bands painted on the canvas under a row's text: a line's highlights (the whole row edge to edge, or characters
+// [from, to) of it; bone, moss or blood; static, or coming up at `at` and going at `until` over `fade` s, on the frame
+// grid) and the selection a scene sets each frame (select(line, from, to)). At 28 px code: text from x = 28 + the
+// numbers gutter (two digits: 2 x 16.8 + 22), cells of 16.8.
+
+const TX = 28 + 2 * 16.8 + 22;
+
+test('highlights: a whole row edge to edge, or a run of its characters, under the text (frame().marks)', () => {
+  const p = new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'a' }, { text: 'Uses neovim.', highlight: {} }, { text: 'xyz', highlight: { from: 1, to: 3, tone: 'moss', alpha: 0.2 } }] });
+  const m = p.frame(0).marks;
+  expect(m).toHaveLength(2);
+  expect(m[0]).toEqual({ i: 1, x0: 0, x1: 640, color: rgba('bone', 0.07), cells: false });
+  expect(m[1]!.i).toBe(2);
+  expect(m[1]!.x0).toBeCloseTo(TX + 16.8, 9);
+  expect(m[1]!.x1).toBeCloseTo(TX + 3 * 16.8, 9);
+  expect([m[1]!.color, m[1]!.cells]).toEqual([rgba('moss', 0.2), true]);
+  // several on a line, in order; blood's default is a wash a little stronger than bone's
+  const q = new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'abc', highlight: [{ tone: 'blood' }, { from: 0, to: 1 }] }] });
+  expect(q.frame(0).marks.map((x) => x.color)).toEqual([rgba('blood', 0.1), rgba('bone', 0.07)]);
+});
+
+test('highlights: timed ones come up at `at` and go at `until` over `fade`, one state per frame', () => {
+  const p = new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'a', highlight: { at: 1, until: 2, fade: 0.2 } }] });
+  expect(p.frame(0.9).marks).toEqual([]);
+  expect(p.frame(1.2).marks[0]!.color).toBe(rgba('bone', 0.07));
+  const mid = p.frame(1.1).marks[0]!.color; // half way up: smootherstep(0.5) = 0.5
+  expect(mid).toBe(rgba('bone', 0.07 * 0.5));
+  expect(p.frame(1.1 + 0.01).marks[0]!.color).toBe(mid); // the same frame
+  expect(p.frame(1.9).marks[0]!.color).toBe(rgba('bone', 0.07 * 0.5)); // going: half way down at 1.9
+  expect(p.frame(2).marks).toEqual([]);
+  expect(p.frame(0.9).key).not.toBe(p.frame(1.2).key); // a highlight repaints
+});
+
+test('highlights: select() is the scene\'s per-frame selection, a run of one line in the selection\'s bone; null clears it', () => {
+  const p = new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'Uses VS Code.' }] });
+  const k0 = p.frame(0).key;
+  p.select(0, 0, 12.5); // fractional: a selection running across the line
+  const m = p.frame(0).marks;
+  expect(m).toHaveLength(1);
+  expect([m[0]!.i, m[0]!.x0, m[0]!.color, m[0]!.cells]).toEqual([0, TX, rgba('bone', 0.14), true]);
+  expect(m[0]!.x1).toBeCloseTo(TX + 12.5 * 16.8, 9);
+  expect(p.frame(0).key).not.toBe(k0);
+  p.select(0, 2, 4, 0.3);
+  expect(p.frame(0).marks[0]!.color).toBe(rgba('bone', 0.3));
+  p.select(null);
+  expect(p.frame(0).marks).toEqual([]);
+  expect(p.frame(0).key).toBe(k0);
+  expect(() => p.select(1, 0, 1)).toThrow(); // no such line
+  expect(() => p.select(0, 3, 1)).toThrow(); // backwards
+});
+
+test('highlights: a run off the line, or backwards, is an error', () => {
+  const bad = (from: number, to: number) => () => new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'abc', highlight: { from, to } }] });
+  for (const [from, to] of [[2, 1], [-1, 2], [0, 4]] as const) expect(bad(from, to)).toThrow();
+  expect(bad(0, 3)).not.toThrow();
+  expect(bad(1, 1)).not.toThrow(); // empty: nothing to draw
 });

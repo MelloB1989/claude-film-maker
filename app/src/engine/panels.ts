@@ -295,7 +295,30 @@ export interface PanelLine {
    * stays the panel's moss path.
    */
   spans?: readonly PanelSpan[];
+  /** Bands painted on the canvas under the row's text (cite's highlighted lines): see PanelMark. */
+  highlight?: PanelMark | readonly PanelMark[];
 }
+
+/**
+ * A band painted on the canvas under a row's text, as tall as the row: the whole row edge to edge, or (with `from` or
+ * `to`) the cells of characters [from, to) (fractional is fine; from defaults to 0, to to the line's end). Bone (a
+ * quiet lift of the face), moss or blood (a wash), `alpha` strong (default 0.07 for bone, 0.1 for moss and blood). There
+ * throughout, or coming up over `fade` s (default 0.12) from `at` and gone by `until`, on the frame grid.
+ */
+export interface PanelMark {
+  from?: number;
+  to?: number;
+  tone?: 'bone' | 'moss' | 'blood';
+  alpha?: number;
+  at?: number;
+  until?: number;
+  fade?: number;
+}
+
+/** A mark's default strength per tone, the selection's (Panel.select), and a timed mark's fade (s). */
+const MARK_ALPHA = { bone: 0.07, moss: 0.1, blood: 0.1 } as const;
+const SELECT_ALPHA = 0.14;
+const MARK_FADE = 0.12;
 
 /**
  * A span's tone: a token class's look (its family and colour: `kw` the brightest and a weight heavier, `com` faint and
@@ -590,6 +613,11 @@ export interface PanelFrame {
   cursor: { i: number; col: number; on: boolean; block: boolean } | null;
   /** Check marks (each cell's left end of the baseline, px): in the shader's slots, and on the canvas. */
   checks: { slot: [number, number][]; canvas: [number, number][] };
+  /**
+   * The bands painted under rows' text, in order (highlights, then the selection): line i's row from x0 to x1 (px), in
+   * a CSS colour; `cells`: a run of characters (its corners rounded), else the whole row.
+   */
+  marks: { i: number; x0: number; x1: number; color: string; cells: boolean }[];
   key: string;
 }
 
@@ -607,6 +635,10 @@ export class Panel {
   private cls: TokenClass[][];
   /** Each character's span tone, if a span tones it. */
   private tones: (PanelTone | undefined)[][];
+  /** Each line's highlights. */
+  private hl: PanelMark[][];
+  /** The selection a scene set for this frame (select()). */
+  private selection: { line: number; from: number; to: number; alpha: number } | null = null;
   /** A terminal's typed line with no `$ ` of its own gets one drawn before it (not a continuation after a `\`). */
   private chromePrompt: boolean[];
   private key = '';
@@ -636,6 +668,14 @@ export class Panel {
         for (let k = sp.from; k < sp.to; k++) tones[k] = sp.tone;
       }
       return tones;
+    });
+    this.hl = lines.map((l, i) => {
+      const n = this.chars[i]!.length, marks = l.highlight === undefined ? [] : Array.isArray(l.highlight) ? [...l.highlight] : [l.highlight as PanelMark];
+      for (const m of marks) {
+        const from = m.from ?? 0, to = m.to ?? n;
+        if (!(from >= 0 && from <= to && to <= n)) throw new RangeError(`Panel: line ${i}'s highlight [${m.from}, ${m.to}) is not a run of its ${n} characters`);
+      }
+      return marks;
     });
     this.chromePrompt = lines.map((l, i) => {
       const prev = lines[i - 1];
@@ -855,10 +895,11 @@ export class Panel {
       }
     });
     const cursor = this.cursor(st, tq);
+    const marks = this.marks(st, top, tq);
     // the key is what paint() reads, exact (numbers print as the shortest string that reads back the same double): two
     // states a rounded key took for one (a row 1e-4 open and a shut one) would repaint in any order, not in sequence
-    const key = JSON.stringify([st.map((s) => [s.n, s.struck, s.open]), top, num, started, cursor, slot, canvas]);
-    return { tq, st, top, num, started, cursor, checks: { slot, canvas }, key };
+    const key = JSON.stringify([st.map((s) => [s.n, s.struck, s.open]), top, num, started, cursor, slot, canvas, marks]);
+    return { tq, st, top, num, started, cursor, checks: { slot, canvas }, marks, key };
   }
 
   /** Whether line i shows anything at the frame: text, or the prompt it waits at. */
@@ -930,6 +971,17 @@ export class Panel {
           c.font = font(F.mono(500), g.size);
           c.fillStyle = rgba(key === 'moss' ? 'moss' : 'bloodBright'); // blood proper reads darker than moss on the panel
           c.fillText(l.kind === 'add' ? '+' : '−', g.padX + g.numW, base);
+        }
+      }
+      // highlights and the selection, under the text
+      for (const m of fr.marks) {
+        if (m.i !== i) continue;
+        c.fillStyle = m.color;
+        if (!m.cells) c.fillRect(m.x0, top, m.x1 - m.x0, rowH);
+        else {
+          c.beginPath();
+          c.roundRect(m.x0, top, m.x1 - m.x0, rowH, Math.min(Math.round(3 * g.s), rowH / 2, (m.x1 - m.x0) / 2));
+          c.fill();
         }
       }
       if (fr.num[i]) {
@@ -1006,6 +1058,51 @@ export class Panel {
       c.fillText(ch, cx, base);
     }
     c.globalAlpha = 1;
+  }
+
+  /**
+   * The selection for the frames drawn from now on: characters [from, to) of line `line` (fractional is fine: a
+   * selection running across the line), painted under the text in bone at `alpha`; `select(null)` clears it. A scene
+   * sets it from t every frame, before draw(t), as it sets `opacity`.
+   */
+  select(line: number | null, from = 0, to?: number, alpha = SELECT_ALPHA) {
+    if (line === null) {
+      this.selection = null;
+      return;
+    }
+    this.checkLine(line);
+    const end = to ?? this.chars[line]!.length;
+    if (!(from >= 0 && from <= end && end <= this.chars[line]!.length)) throw new RangeError(`Panel: no run [${from}, ${to}) on line ${line}`);
+    this.selection = { line, from, to: end, alpha };
+  }
+
+  /** The bands under the rows' text at frame time tq: each drawn row's highlights at their strength then, and the selection. */
+  private marks(st: LineState[], top: number[], tq: number): PanelFrame['marks'] {
+    const out: PanelFrame['marks'] = [], g = this.g;
+    const run = (i: number, from: number, to: number) => {
+      const x = this.textX(i) + (this.chromePrompt[i] ? 2 * g.adv : 0);
+      return { x0: x + from * g.adv, x1: x + to * g.adv };
+    };
+    const strength = (a: number) => Math.round(a * 1e4) / 1e4; // (far under 8-bit alpha: a fade's frames key alike)
+    this.hl.forEach((marks, i) => {
+      if (!marks.length || st[i]!.open <= 0 || !this.inView(top[i]!)) return;
+      for (const m of marks) {
+        const tone = m.tone ?? 'bone', fade = m.fade ?? MARK_FADE;
+        let a = m.alpha ?? MARK_ALPHA[tone];
+        if (m.at !== undefined) a *= smootherstep(m.at, m.at + fade, tq);
+        if (m.until !== undefined) a *= 1 - smootherstep(m.until - fade, m.until, tq);
+        a = strength(a);
+        if (a <= 0) continue;
+        const cells = m.from !== undefined || m.to !== undefined;
+        const { x0, x1 } = cells ? run(i, m.from ?? 0, m.to ?? this.chars[i]!.length) : { x0: 0, x1: this.spec.w };
+        if (x1 > x0) out.push({ i, x0, x1, color: rgba(tone, a), cells });
+      }
+    });
+    const sel = this.selection;
+    if (sel && sel.to > sel.from && st[sel.line]!.open > 0 && this.inView(top[sel.line]!)) {
+      out.push({ i: sel.line, ...run(sel.line, sel.from, sel.to), color: rgba('bone', strength(sel.alpha)), cells: true });
+    }
+    return out;
   }
 
   /**
