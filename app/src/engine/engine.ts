@@ -34,6 +34,8 @@ interface Loaded {
   lastT: number;
   /** Export: the scene's load in flight (module, construct, init), which concurrent prepares share. */
   loading?: Promise<Scene>;
+  /** Export: the scene has rendered since it loaded (prepare's warm-up). */
+  warm?: boolean;
 }
 
 /**
@@ -279,6 +281,7 @@ export class Engine {
         rec.scene = s;
         rec.lastT = -1;
         rec.loading = undefined;
+        rec.warm = false;
         return s;
       },
       (err) => {
@@ -293,6 +296,7 @@ export class Engine {
     const s = rec.scene;
     rec.scene = null;
     rec.lastT = -1;
+    rec.warm = false;
     try {
       s?.dispose();
     } catch (err) {
@@ -339,7 +343,8 @@ export class Engine {
    */
   async prepare(t: number, dt = 1 / FPS, samples: number | AdaptiveSampling = 1, shutter = 0.5): Promise<void> {
     const plan = shutterPlan(this.timeline, t, dt, shutter, shutterOffsets(samples));
-    await Promise.all((plan[0] ?? []).map(async ({ entry }, i) => {
+    const on = plan[0] ?? [];
+    await Promise.all(on.map(async ({ entry }, i) => {
       const rec = this.loaded.get(entry.id);
       if (!rec) return; // left out by --only: it renders as red fill
       const s = this.exporting ? await this.load(rec) : rec.scene;
@@ -350,6 +355,29 @@ export class Engine {
         throw this.exporting ? this.fail(entry, `prepare(${t})`, err) : err;
       }
     }));
+    if (this.exporting) this.warmUp(on.map((x) => x.entry), t, dt, samples, shutter);
+  }
+
+  /**
+   * Export (stills and video): the first time a scene is on screen after it loads, render the frame at t once, off
+   * screen, with the frame's own sampling, and throw it away. So the frame itself is never the first a scene renders:
+   * the GPU work a first render does once (programs, texture uploads and their mip chains, render targets) is done, and
+   * the first frame of a session or a scene renders as any later render of the same time does (without it a few pixels
+   * of `ex`'s first still differed by a level, run to run). The seek state (the engine's last time and each scene's) is
+   * put back, so the frame renders exactly as it would have. Skipped while a stateful scene is on screen: it would step
+   * twice.
+   */
+  private warmUp(entries: TimelineEntry[], t: number, dt: number, samples: number | AdaptiveSampling, shutter: number) {
+    const recs = entries.map((e) => this.loaded.get(e.id)).filter((r): r is Loaded => !!r?.scene);
+    if (recs.every((r) => r.warm) || recs.some((r) => r.scene!.stateful)) return;
+    const lastT = this.lastT, seen = [...this.loaded.values()].map((r) => [r, r.lastT] as const);
+    try {
+      this.render(t, dt, false, samples, shutter);
+    } finally {
+      this.lastT = lastT;
+      for (const [r, x] of seen) r.lastT = x;
+    }
+    for (const r of recs) r.warm = true;
   }
 
   /**

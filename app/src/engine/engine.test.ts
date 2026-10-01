@@ -279,8 +279,9 @@ test('prepare() covers render(): every sub-frame of every frame finds its plate 
         const { engine } = await standIn(shots, { exporting: true });
         // an export's frames around each cut, in order
         for (const n of [c1, c2, c3].flatMap((c) => range(Math.round(c * fps) - 3, Math.round(c * fps) + 4))) {
-          await engine.prepare(n / fps, 1 / fps, samples, shutter);
+          // (prepare() renders a scene's first frame once, off-screen, as its warm-up: the same frame's plate frames)
           for (const s of shots) seen.set(s.id, new Set());
+          await engine.prepare(n / fps, 1 / fps, samples, shutter);
           engine.render(n / fps, 1 / fps, false, samples, shutter);
           for (const s of seen.values()) most[fps] = Math.max(most[fps] ?? 0, s.size);
         }
@@ -375,7 +376,8 @@ test('export: the warm-up frame before the range is best effort: a plate frame t
   expect(sent).toEqual(range(31, 60));
   expect(engine.errors).toEqual([]);
   // (b's window ends where the range does, at 2: it goes after its last frame too)
-  expect(log).toEqual(['init a', 'dispose a', 'init b', ...range(31, 60).map((n) => `render b ${n}`), 'dispose b']);
+  // (b's first frame renders twice: its warm-up, off-screen, then the frame)
+  expect(log).toEqual(['init a', 'dispose a', 'init b', 'render b 31', ...range(31, 60).map((n) => `render b ${n}`), 'dispose b']);
   restore();
 });
 
@@ -391,10 +393,10 @@ test('export: each scene loads just before its first frame and is disposed after
   await engine.exportFrames({ from: 28 / 30, to: 33 / 30, fps: 30 }, (n) => void log.push(`sent ${n}`));
   expect(log).toEqual([
     'init b', 'dispose b', // the check: a later scene of the range inits once before any frame goes out (c has none)
-    'init a', 'render a 27', // the warm-up frame
+    'init a', 'render a 27', 'render a 27', // a's warm-up (off-screen), then the range's warm-up frame
     'render a 28', 'sent 28', 'render a 29', 'sent 29', 'render a 30', 'sent 30',
     'dispose a', // after its last frame (its window ends at 1.01, before frame 31)
-    'init b', 'render b 31', 'sent 31', 'render b 32', 'sent 32',
+    'init b', 'render b 31', 'render b 31', 'sent 31', 'render b 32', 'sent 32', // b's warm-up, then its first frame
   ]);
   expect(L.calls.length).toBe(4); // plate frames 27…30, each loaded once
   expect([...L.disposed].sort()).toEqual([...L.calls].sort()); // and each released
@@ -409,11 +411,57 @@ test('export stills: a scene loads when a frame first needs it and stays loaded;
     await engine.prepare(t);
     engine.render(t, 1 / 30, false);
   }
-  expect(log).toEqual(['init b', 'render b 45', 'init a', 'render a 15', 'render b 48']);
+  // (each scene's first frame renders twice: its warm-up, off-screen, then the still)
+  expect(log).toEqual(['init b', 'render b 45', 'render b 45', 'init a', 'render a 15', 'render a 15', 'render b 48']);
   // a scene --only left out renders red, as documented; a loaded one rendered without its prepare() is an error
   const { engine: only, clears } = await standIn(shots, { exporting: true, only: ['b'] });
   expect(() => only.render(0.5, 1 / 30, false)).not.toThrow();
   expect(clears).toContainEqual([0.25, 0, 0]);
   expect(() => only.render(1.5, 1 / 30, false)).toThrow('scene b render(1.5) failed');
   restore();
+});
+
+test('export: a scene\'s first frame renders once off-screen first (its warm-up), with the frame\'s own sampling and seek state', async () => {
+  const frames: string[] = [];
+  class Rec extends Scene {
+    render(f: Frame) {
+      frames.push(`${this.ctx.id} ${f.t.toFixed(4)} dt ${f.dt.toFixed(5)}${f.seeked ? ' seeked' : ''}`);
+    }
+  }
+  const shots = [{ id: 'a', start: 0, end: 1, scene: Rec }, { id: 'b', start: 1, end: 2, scene: Rec }];
+  const { engine } = await standIn(shots, { exporting: true });
+  await engine.prepare(0.5, 1 / 30, 4, 0.5);
+  const warm = [...frames];
+  frames.length = 0;
+  engine.render(0.5, 1 / 30, false, 4, 0.5);
+  // the warm-up is the frame itself: its four sub-frames, the first a seek (dt 0), and the frame renders the same after it
+  expect(warm).toHaveLength(4);
+  expect(frames).toEqual(warm);
+  expect(warm[0]).toContain('seeked');
+  // once per load: the next frame has no warm-up, and stays sequential
+  frames.length = 0;
+  await engine.prepare(0.5 + 1 / 30, 1 / 30, 4, 0.5);
+  expect(frames).toEqual([]);
+  engine.render(0.5 + 1 / 30, 1 / 30, false, 4, 0.5);
+  expect(frames.some((x) => x.includes('seeked'))).toBe(false);
+});
+
+test('export: no warm-up in the player, or while a stateful scene is on screen (it would step twice)', async () => {
+  const log: string[] = [];
+  const player = (await standIn([{ id: 'a', start: 0, end: 1, scene: logged('a', log) }])).engine;
+  await player.prepare(0.5);
+  expect(log).toEqual(['init a']); // (the player inits every scene up front)
+  const slog: string[] = [];
+  const { engine } = await standIn([{ id: 's', start: 0, end: 1, scene: logged('s', slog, { stateful: true }) }], { exporting: true });
+  await engine.prepare(0.5);
+  expect(slog).toEqual(['init s']);
+});
+
+test('export: a scene disposed and loaded again warms up again', async () => {
+  const log: string[] = [];
+  const shots = [{ id: 'a', start: 0, end: 1, scene: logged('a', log) }, { id: 'b', start: 1, end: 2, scene: logged('b', log) }];
+  const { engine } = await standIn(shots, { exporting: true });
+  await engine.exportFrames({ from: 29 / 30, to: 31 / 30, fps: 30 }, () => {});
+  await engine.exportFrames({ from: 29 / 30, to: 30 / 30, fps: 30 }, () => {});
+  expect(log.filter((x) => x === 'render a 28')).toHaveLength(4); // each export's warm-up frame, after a's warm-up
 });
