@@ -128,6 +128,16 @@ export function ownedFrames(w: Span, fps: number): { first: number; last: number
   return { first: from(w.start), last: from(w.end) - 1 };
 }
 
+/**
+ * The two frames a still at t straddles, when t·fps is within `tol` frames of half way between them (n + 0.5): its
+ * shutter takes sub-frames from both frames' states (a Panel's text, anything on the frame grid), a blend no export ever
+ * renders (its frames are at n / fps). Null for a time inside one frame's state. render.ts stills warns of them.
+ */
+export function straddledFrames(t: number, fps: number, tol = 0.1): [number, number] | null {
+  const x = t * fps, n = Math.floor(x);
+  return Math.abs(x - n - 0.5) < tol ? [n, n + 1] : null;
+}
+
 export class Engine {
   renderer: THREE.WebGLRenderer;
   ctx!: SceneCtx;

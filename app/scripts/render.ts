@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // Offline renderer. Drives the app in headless Chrome (?export=1) and either
-//   stills:  bun scripts/render.ts stills --t 1.5,23,40.2 [--only id1,id2] [--out dir]
+//   stills:  bun scripts/render.ts stills --t 1.5,23,40.2 [--only id1,id2] [--out dir]   (warns of a time half way between two
+//            frames, t·30 within 0.1 of n + 0.5: its shutter straddles both frames' states)
 //   sheet:   bun scripts/render.ts sheet [--from 0 --to 10] [--n 12] [--cols 4] [--only ids] [--out file.png]   (or --times a,b,c | --cuts)
 //   perf:    bun scripts/render.ts perf [--from 0 --to 5] [--only ids] [--samples 1] [--shutter 0.5]   (avg ms per frame incl. GPU sync and the export's pixel readback)
 //   video:   bun scripts/render.ts video [--only id] [--from 0] [--to <duration>] [--fps 30] [--crf 16] [--x264 aq-mode=3] [--samples 1] [--shutter 0.5] [--out ../out/gitloom.mp4, or ../out/<only|module>.mp4] [--noaudio]
@@ -25,7 +26,7 @@
 import { chromium, type Page } from 'playwright-core';
 import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { ownedFrames } from '../src/engine/engine';
+import { ownedFrames, straddledFrames } from '../src/engine/engine';
 
 const argv = process.argv.slice(2);
 const mode = argv[0] ?? 'stills';
@@ -105,6 +106,9 @@ async function stills(page: Page, times: number[], outDir: string) {
   mkdirSync(outDir, { recursive: true });
   const files: string[] = [];
   for (const t of times) {
+    // a time half way between two frames blends both frames' states across its shutter (an export never renders one)
+    const two = straddledFrames(t, 30);
+    if (two) console.warn(`WARNING t=${t}: ${(t * 30).toFixed(2)} frames, half way between frames ${two[0]} and ${two[1]}: its shutter straddles both frames' states, which no export renders (frame times: ${(two[0] / 30).toFixed(4)}, ${(two[1] / 30).toFixed(4)})`);
     const k: number = await page.evaluate(([t, s, sh]) => (window as any).__film.still(t, s, sh), [t, SAMPLES, +opt('shutter', '0.5')!] as const);
     const f = path.join(outDir, `f_${t.toFixed(2).padStart(7, '0')}.png`);
     if (typeof SAMPLES !== 'number') console.log(`t=${t}: ${k} sub-frames`);

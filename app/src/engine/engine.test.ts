@@ -1,6 +1,6 @@
 import { expect, spyOn, test } from 'bun:test';
 import * as THREE from 'three';
-import { Engine, onScreen, ownedFrames, shutterOffsets, shutterPlan, type AdaptiveSampling, type TimelineEntry } from './engine';
+import { Engine, onScreen, ownedFrames, shutterOffsets, shutterPlan, straddledFrames, type AdaptiveSampling, type TimelineEntry } from './engine';
 import { Plate, type PlateKind } from './plates';
 import { Scene, type Frame, type SceneClass, type SceneCtx } from './scene';
 import { mulberry32 } from './util';
@@ -464,4 +464,16 @@ test('export: a scene disposed and loaded again warms up again', async () => {
   await engine.exportFrames({ from: 29 / 30, to: 31 / 30, fps: 30 }, () => {});
   await engine.exportFrames({ from: 29 / 30, to: 30 / 30, fps: 30 }, () => {});
   expect(log.filter((x) => x === 'render a 28')).toHaveLength(4); // each export's warm-up frame, after a's warm-up
+});
+
+test('straddledFrames: a still within 0.1 frame of half way between two frames straddles both frames\' states', () => {
+  // 39.85 s at 30 fps is frame 1195.5: its shutter (± a quarter frame) takes half its sub-frames from each frame's state
+  expect(straddledFrames(39.85, 30)).toEqual([1195, 1196]);
+  expect(straddledFrames(1195.41 / 30, 30)).toEqual([1195, 1196]); // 0.09 frame off
+  expect(straddledFrames(1195.59 / 30, 30)).toEqual([1195, 1196]);
+  expect(straddledFrames(1195.39 / 30, 30)).toBeNull(); // 0.11 off: inside frame 1195's state
+  expect(straddledFrames(39.8, 30)).toBeNull(); // a frame's own time, as an export renders it
+  expect(straddledFrames(41.23, 30)).toBeNull(); // 1236.9
+  expect(straddledFrames(10.5 / 24, 24)).toEqual([10, 11]);
+  expect(straddledFrames(0, 30)).toBeNull();
 });
