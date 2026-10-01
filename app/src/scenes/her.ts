@@ -2,9 +2,14 @@
 // typographic hero (Plan 2 Task 10; spec §4 03).
 //
 // One world, three shots, every time from the data (the voiceover's measured onsets, the score's beats):
-// 1. The thread. Black, then the diff thread whips in from frame left and pulls taut, the camera riding along it in a
-//    slow macro push: bone, its blood and moss strands dark in their grooves. On "Not" it snaps taut, a specular sweep
-//    runs along it and its blood strand flares (the strike); on "me." it hums.
+// 1. The re-form: Blender's B03 plate (blender/shots/b03_reform.py, Plan 2 Task 25). The two frayed ends of the thread
+//    that snapped in the cold open glide in from off frame and hang a breath apart, then are drawn together faster and
+//    faster, their facing tips blushing with a blood light from between them, and click shut on "Not": the light is
+//    born inside the join as the blood strand, racing out along its groove both ways with the moss strand dark behind
+//    it, the ends twist into each other, the fray heals, and the lay draws out from the cold open's 24° to the diff
+//    thread's 14°. Through "me." it hums and settles to the diff thread's rest, the camera pushing in all the while.
+//    The plate shares this scene's world (her-reform.ts): it hands off to the engine thread on the whip's first
+//    frame, through one camera rig.
 // 2. The bead. On the downbeat after "me." (the score opens) the camera whips along the thread onto the commit bead,
 //    a satin-glass sphere engraved 3f9a1c2, sliding onto the thread and settling in the rim light, as the moss strand
 //    flares (the commit).
@@ -18,7 +23,9 @@
 import * as THREE from 'three';
 import { Scene, type Frame, type PostOverrides } from '../engine/scene';
 import { CameraRig, Stage, initAreaLights, type CamKey, type V3 } from '../engine/stage';
-import { H, W, makeRT } from '../engine/gl';
+import { H, W, clearRT, makeRT } from '../engine/gl';
+import { Plate } from '../engine/plates';
+import { Track } from '../engine/track';
 import { DIFF_THREAD, Thread, strandGlow } from '../engine/thread3d';
 import { Mat, Type3D } from '../engine/type3d';
 import { F } from '../engine/type';
@@ -32,6 +39,7 @@ import { Bead } from '../engine/bead';
 import { sweepAt, withSweep, type SweepBand } from '../engine/sweep';
 import { Backdrop, DiffLine, FLAT, unlit } from './her-type';
 import { fitKey } from './her-camera';
+import { PLATE, REFORM, ReformWorld, reformCues, reformKeys } from './her-reform';
 import S from './her.strings.json';
 
 // ------------------------------------------------------------------------------------------------ the copy
@@ -56,19 +64,15 @@ const TRACK = -0.022;
 const BLAME_SIZE = 0.22;
 const BLAME_GAP = 0.3;
 
-/** The thread: a long diagonal in the dark, from front left to back right (shots 1 and 2; the headline is shot 3). */
-const THREAD_A: V3 = [-1.9, -0.72, 0.62];
-const THREAD_B: V3 = [2.8, -0.56, -1.62];
-const THREAD_R = 0.0042;
-/** The thread's sag before the snap (world units at its middle), and the whip's wave (world units at the tip). */
-const SAG = 0.02;
-const WAVE = 0.012;
-/** Macro f-numbers: at 10–15 cm the depth of field is millimetres, so the thread and the bead stop down. */
-const F_THREAD = 8;
+/** The thread: a long diagonal in the dark, from front left to back right (shots 1 and 2; the headline is shot 3). Its
+ * line and radius are B03's world too (data/look/b03_reform.json, her-reform.ts). */
+const THREAD_R = REFORM.thread.radius;
+/** Macro f-numbers: at 10–15 cm the depth of field is millimetres, so the bead stops down; the re-form's lens is B03's
+ * (the cold open's look at her thread's scale), where the whip starts. */
+const F_REFORM = REFORM.fstop;
 const F_BEAD = 8;
 const F_TYPE = 2.8;
-/** Where along the thread (arc fraction) shot 1 looks, and where the bead comes to rest. */
-const SHOT1_U = 0.26;
+/** Where along the thread (arc fraction) the bead comes to rest. */
 const BEAD_U = 0.56;
 const BEAD_R = 0.024;
 /** Shot 2's camera at the end of the shot, from the bead: out to the viewer's side, up, and back along the thread. At
@@ -102,7 +106,6 @@ export default class Her extends Scene {
   private kicker!: THREE.RectAreaLight;
   /** A small softbox whose reflection travels across the bead as it lands (the specular kick). */
   private kick!: THREE.RectAreaLight;
-  private sweep!: THREE.PointLight;
   private pool!: THREE.SpotLight;
   private fill!: THREE.PointLight;
   /** Shots 1 and 2 are lit by `thread`, shot 3 by `type`: each light's intensity per set (lights stay in the scene,
@@ -110,8 +113,10 @@ export default class Her extends Scene {
   private lights: { light: THREE.Light; thread: number; type: number }[] = [];
   /** Where the bead's face points: square to the bore on the viewer's side (the engraving is centred on the camera). */
   private beadFace = new THREE.Vector3();
-  /** Shot 1's push along the thread (world units) over its length, and how far ahead of its point the camera looks. */
-  private shot1 = { push: 0.06, ahead: 0.045 };
+  /** Shot 1, the re-form: B03's plate (her-reform.ts), its join tracked, and its camera, which starts the whip. */
+  private plate!: Plate;
+  private track!: Track;
+  private world = new ReformWorld();
   private rig1!: CameraRig;
   private rig2!: CameraRig;
   private rig3!: CameraRig;
@@ -119,20 +124,20 @@ export default class Her extends Scene {
   /** Times from the data (song seconds). */
   private T!: ReturnType<typeof timesOf>;
   /** The thread's direction, and the horizontal square to it on the viewer's side. */
-  private dir = new THREE.Vector3();
-  private side = new THREE.Vector3();
+  private dir = this.world.dir;
+  private side = this.world.side;
 
-  override init() {
+  override async init() {
     const { renderer, vo, audio } = this.ctx;
     this.T = timesOf(vo, audio, this.ctx.start, this.ctx.end);
+    this.track = await Track.load(PLATE);
+    this.plate = new Plate(PLATE, this.track.f0, { count: this.track.frames });
     this.stage = new Stage(renderer, { fov: 24 });
     const s = this.stage.scene;
 
-    // the thread, built at its full length and drawn on (its twist is in material coordinates)
-    const A = new THREE.Vector3(...THREAD_A), B = new THREE.Vector3(...THREAD_B);
-    this.dir.subVectors(B, A).normalize();
-    this.side.set(-this.dir.z, 0, this.dir.x).normalize();
-    this.thread = new Thread(this.threadPoints(Infinity), { ...DIFF_THREAD, radius: THREAD_R, fuzz: 0.6 });
+    // the thread: the re-formed diff thread at rest on B03's line, as the plate leaves it at the hand-off (its twist is
+    // in material coordinates from A, which B03's lay ends on at the join)
+    this.thread = new Thread(this.threadPoints(), { ...DIFF_THREAD, radius: THREAD_R, fuzz: 0.6 });
     s.add(this.thread.mesh);
 
     // the engraving faces square to the bore; the camera sees the bead from back along the thread, so the band is
@@ -231,12 +236,12 @@ export default class Her extends Scene {
 
   private buildLights() {
     const s = this.stage.scene;
-    // neutral light only (lit bone stays out of the bloom's chroma gate). Shots 1 and 2: a key from the upper left, a
-    // softbox in front of it, a hard rim from behind on the right that sculpts the plies, a small fill on the bead's
-    // face and a kicker behind it that rings its edge; a point light runs the specular sweep along the thread on
-    // "Not". Shot 3, the type: a long softbox overhead whose reflection runs along the top bevels, a raking spot that
-    // follows the hero word as it lands (light, focus and type agree on what matters), a low fill, and the rim. (The
-    // type's sweeps are in its materials: withSweep.)
+    // neutral light only (lit bone stays out of the bloom's chroma gate). The whip and shot 2: a key from the upper left,
+    // a softbox in front of it, a hard rim from behind on the right that sculpts the plies, a small fill on the bead's
+    // face and a kicker behind it that rings its edge (shot 1's light is in the plate). Shot 3, the type: a long
+    // softbox overhead whose reflection runs along the top bevels, a raking spot that follows the hero word as it lands
+    // (light, focus and type agree on what matters), a low fill, and the rim. (The type's sweeps are in its materials:
+    // withSweep.)
     initAreaLights();
     const box = new THREE.RectAreaLight(0xffffff, 1, 1.8, 0.6);
     box.position.set(-0.5, 1.3, 1.5);
@@ -251,11 +256,10 @@ export default class Her extends Scene {
     rim.position.set(1.6, 1.6, -3);
     rim.target.position.set(0.4, -0.3, -0.3);
     this.pool = new THREE.SpotLight(0xffffff, 0, 0, THREE.MathUtils.degToRad(24), 0.95, 2);
-    this.sweep = new THREE.PointLight(0xffffff, 0, 0, 2);
     this.fill = new THREE.PointLight(0xffffff, 0, 0, 2);
     this.kicker = new THREE.RectAreaLight(0xffffff, 0, 0.34, 0.34);
     this.kick = new THREE.RectAreaLight(0xffffff, 0, 0.02, 0.1);
-    s.add(box, top, key, key.target, rim, rim.target, this.pool, this.pool.target, this.sweep, this.fill, this.kicker, this.kick);
+    s.add(box, top, key, key.target, rim, rim.target, this.pool, this.pool.target, this.fill, this.kicker, this.kick);
     this.lights = [
       { light: box, thread: 0.35, type: 0 },
       { light: top, thread: 0, type: 7 },
@@ -273,19 +277,9 @@ export default class Her extends Scene {
 
   private buildRigs() {
     const T = this.T, th = this.thread, d = this.dir, n = this.side;
-    // shot 1: a macro beside the thread and a little below it, looking along it as it recedes up to the right (the
-    // camera rolled so it crosses the frame on a diagonal); a slow push along it. It frames the thread half way
-    // between its slack and taut lines, so the snap on "Not" lifts it through the frame.
-    const f1 = th.pointAt(SHOT1_U).addScaledVector(Y, -0.5 * SAG * Math.sin(Math.PI * SHOT1_U));
-    const at1 = (push: number): [V3, V3] => [
-      f1.clone().addScaledVector(n, 0.1).addScaledVector(d, -0.07 + push).addScaledVector(Y, -0.012).toArray() as V3,
-      f1.clone().addScaledVector(d, this.shot1.ahead + push).addScaledVector(Y, 0.002).toArray() as V3,
-    ];
-    const [p0, t0] = at1(0), [p1, t1] = at1(this.shot1.push);
-    this.rig1 = new CameraRig([
-      { t: T.start, pos: p0, target: t0, fov: 22, roll: -17 },
-      { t: T.down, pos: p1, target: t1, roll: -14, ease: ease.linear },
-    ]);
+    // shot 1: the re-form's camera, B03's own (an 85 mm macro side on to the join, pushing in slowly from the cut to the
+    // whip): the plate is seen through it until the whip, which starts from it
+    this.rig1 = new CameraRig(reformKeys(this.world, reformCues(T.start, T.not, T.me, T.down)));
     // shot 2: the bead from its near side, a little behind it along the thread so the thread runs away up to the
     // right through it; landing from the whip and pushing in slowly
     const b = th.pointAt(BEAD_U);
@@ -345,73 +339,40 @@ export default class Her extends Scene {
   // ---------------------------------------------------------------------------------------------- the thread
 
   /**
-   * The thread's centreline at time t: a straight run from A to B that sags a little until the snap on "Not", with a
-   * decaying travelling wave while it whips in, and the hum of a plucked string after the snap. (Infinity: at rest.)
+   * The thread's centreline: the re-formed diff thread taut from A to B, as B03 leaves it at the hand-off (its hum has
+   * died away by then). The engine shows it only from the whip on, the plate before.
    */
-  private threadPoints(t: number): THREE.Vector3[] {
-    const A = new THREE.Vector3(...THREAD_A), B = new THREE.Vector3(...THREAD_B);
-    const T = this.T, side = this.side;
-    const N = 48, L = A.distanceTo(B);
-    const pts: THREE.Vector3[] = [];
-    const rest = !Number.isFinite(t);
-    // slack before the snap, taut after it (the spring overshoots a hair: the snap)
-    const slack = rest ? 0 : 1 - slam(t, T.not, { freq: 6, damping: 0.55 });
-    // the whip: a wave running out along the thread behind the drawn tip, dying as it goes
-    const age = rest ? 99 : t - (T.start + 0.04);
-    const tip = rest ? 1 : this.tipU(t);
-    // the hum after the snap, and again on "me.": a plucked string, a few cycles, decaying
-    const pluck = (t0: number, a: number) => (t >= t0 ? a * Math.exp(-(t - t0) * 5.5) * Math.sin((t - t0) * 2 * Math.PI * 7.5) : 0);
-    const hum = rest ? 0 : pluck(T.not, 1) + pluck(T.me, 0.45);
-    for (let i = 0; i <= N; i++) {
-      const u = i / N, p = A.clone().lerp(B, u);
-      const bell = Math.sin(Math.PI * u);
-      p.addScaledVector(Y, -SAG * slack * bell);
-      if (age > -0.1 && age < 1.5) {
-        const behind = Math.max(0, tip - u);
-        const amp = u < tip ? WAVE * Math.exp(-age * 3.2) * Math.exp(-behind * 2.4) : 0;
-        p.addScaledVector(side, amp * Math.sin(behind * L * 7.5));
-        p.addScaledVector(Y, 0.5 * amp * Math.cos(behind * L * 6.1));
-      }
-      p.addScaledVector(Y, 0.0025 * hum * bell);
-      pts.push(p);
-    }
-    return pts;
-  }
-
-  /**
-   * The drawn tip of the thread (arc fraction): it enters at frame left, crosses the near part of the frame in a fifth
-   * of a second, easing as the wave catches up, then races away up the thread into the distance.
-   */
-  private tipU(t: number) {
-    const t0 = this.T.start + 0.05;
-    return keys(t, [[t0, 0.236], [t0 + 0.21, 0.302, ease.outCubic], [t0 + 0.42, 1.02, ease.inQuad]]);
+  private threadPoints(): THREE.Vector3[] {
+    const { A, B } = this.world;
+    return Array.from({ length: 49 }, (_, i) => A.clone().lerp(B, i / 48));
   }
 
   // ---------------------------------------------------------------------------------------------- render
 
+  override async prepare(t: number) {
+    if (t < this.T.hand) await this.plate.prepare(t);
+  }
+
   render(f: Frame, out: THREE.WebGLRenderTarget): PostOverrides {
     const t = f.t, T = this.T, st = this.stage, th = this.thread;
+    // the snap on "Not" jolts the frame a few px, up then settling (the thread pulls the camera's eye with it)
+    const jolt = t >= T.not ? 3.5 * Math.exp(-(t - T.not) * 14) * Math.cos((t - T.not) * 2 * Math.PI * 9) : 0;
+    if (t < T.hand) {
+      // shot 1, the re-form: B03's plate, the whole picture, until the whip's first instant
+      const { renderer, comp } = this.ctx;
+      clearRT(renderer, out, LIN.ink);
+      this.plate.draw(renderer, comp, out, t);
+      return { shake: [0, jolt] };
+    }
     const headline = t >= T.beatAfterDown; // shot 3, after the cut on the beat
     for (const l of this.lights) l.light.intensity = headline ? l.type : l.thread;
     st.scene.environmentIntensity = headline ? 0.28 : 0.2;
 
-    // the thread: whips in (drawn on from the left), pulls taut, snaps on "Not", hums
+    // the thread, re-formed and at rest, from the whip on. Bone at rest, its strands dark grooves; a strand lights on
+    // meaning (DIFF_THREAD): blood as "Not" strikes "your agent forgets" (the − of the headline to come: born lit in the
+    // plate, dying back here), moss as the commit bead lands on the downbeat (its +). Each dies away over a beat.
     th.mesh.visible = !headline;
-    if (!headline) {
-      th.setPoints(this.threadPoints(t));
-      th.setDraw(0, this.tipU(t));
-      // bone at rest, its strands dark grooves; a strand lights on meaning (DIFF_THREAD): blood as "Not" strikes "your
-      // agent forgets" (the − of the headline to come), moss as the commit bead lands on the downbeat (its +). Each
-      // dies away over a beat, out as the next hit lands.
-      th.setStrandGlow({ blood: strandGlow(t, T.not), moss: strandGlow(t, T.down) });
-    }
-
-    // the specular sweep on "Not": a light racing along the thread just off its near side
-    const sw = prog(t, T.not - 0.02, T.not + 0.36);
-    if (sw > 0 && sw < 1) {
-      this.sweep.position.copy(th.pointAt(lerp(0.24, 0.32, ease.inOutQuad(sw)))).addScaledVector(this.side, 0.016).addScaledVector(Y, 0.012);
-      this.sweep.intensity = 0.03 * Math.sin(Math.PI * sw) ** 1.5;
-    } else this.sweep.intensity = 0;
+    if (!headline) th.setStrandGlow({ blood: strandGlow(t, T.not), moss: strandGlow(t, T.down) });
 
     // the bead threads on from further along the thread, landing on the downbeat as the camera lands on it and turning
     // its face to us; a stiff spring, so it has all but settled a few frames later and its engraving reads
@@ -440,7 +401,7 @@ export default class Her extends Scene {
     let k = 1;
     if (headline) this.rig3.apply(cam, t);
     else {
-      const w = whip(t, T.down, 0.11);
+      const w = whip(t, T.down, REFORM.whip);
       const a = this.pose(this.rig1, t), b = this.pose(this.rig2, t);
       cam.position.lerpVectors(a.pos, b.pos, w.k);
       cam.quaternion.slerpQuaternions(a.quat, b.quat, w.k);
@@ -462,12 +423,11 @@ export default class Her extends Scene {
     let D: number, fstop: number;
     const inv = (p: THREE.Vector3) => 1 / Math.max(0.03, st.depthOf(p));
     if (!headline) {
-      // the thread where the camera looks: the push moves the look-at point along it
-      const look = SHOT1_U + (this.shot1.ahead + this.shot1.push * prog(t, T.start, T.down)) / this.thread.length();
-      const d1 = inv(this.thread.pointAt(look).addScaledVector(this.side, THREAD_R));
+      // from the join, where B03 holds focus, to the bead's face
+      const d1 = inv(this.world.join);
       const dBead = inv(this.bead.mesh.position.clone().addScaledVector(this.side, BEAD_R * 0.85));
       D = lerp(d1, dBead, k);
-      fstop = lerp(F_THREAD, F_BEAD, k);
+      fstop = lerp(F_REFORM, F_BEAD, k);
     } else {
       D = this.focusDiopters(t);
       fstop = F_TYPE;
@@ -479,8 +439,6 @@ export default class Her extends Scene {
     r.setClearColor(cc, ca);
 
     const hit = Math.max(pulse(t, T.memory, 0.08), pulse(t, T.commit, 0.08), pulse(t, T.fact, 0.08), pulse(t, T.blame, 0.08));
-    // the snap on "Not" jolts the frame a few px, up then settling (the thread pulls the camera's eye with it)
-    const jolt = t >= T.not ? 3.5 * Math.exp(-(t - T.not) * 14) * Math.cos((t - T.not) * 2 * Math.PI * 9) : 0;
     return { zoom: 1 + 0.006 * hit, shake: [0, jolt] };
   }
 
@@ -517,7 +475,6 @@ export default class Her extends Scene {
     const T = this.T;
     this.head.updateMatrixWorld(true);
     // the pool eases from word to word with the focus (the point light's sweep is the thread's; off here)
-    this.sweep.intensity = 0;
     const spots: [number, THREE.Vector3][] = [
       [T.beatAfterDown, this.minus.group.localToWorld(this.minus.wordCentre(1))],
       [T.memory, this.plus1.group.localToWorld(this.plus1.wordCentre(1))],
@@ -605,6 +562,7 @@ export default class Her extends Scene {
     // (frame-sized, 4x MSAA half float with mips), which it frees only with the whole renderer (read it before the
     // bead's material goes: three finds it through the material)
     transmissionTarget(this.ctx.renderer, this.bead.material)?.dispose();
+    this.plate?.dispose();
     this.thread.dispose();
     this.bead.dispose();
     this.backdrop.dispose();
@@ -637,7 +595,7 @@ function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
   const hasBefore = (after: number, a: number) => audio.downbeats.find((d) => d > after + 0.2 && d < a - 0.12) ?? a - 0.13;
   const memory = find('memory'), fact = find('fact');
   return {
-    start, end, not, me, down, beatAfterDown,
+    start, end, not, me, down, beatAfterDown, hand: reformCues(start, not, me, down).hand,
     every1: find('every', 0), memory, has1: hasBefore(memory, a1), a1, commit: find('commit'),
     every2: find('every', 1), fact, has2: hasBefore(fact, a2), a2, blame: find('blame'),
   };
