@@ -32,7 +32,7 @@ import { sweepAt, withSweep, type SweepBand } from '../engine/sweep';
 import { clamp, ease, keys, lerp, prog, pulse } from '../engine/util';
 import { timesOf, type Times } from './proof-time';
 import { drumsAt, rollEase, roundsOf, type Round } from './proof-count';
-import { CENTRE, DIGITS, Drum, windowUniforms, withWindow, type WindowUniforms } from './proof-drums';
+import { CENTRE, DIGITS, Drum, withWindow } from './proof-drums';
 import { Board } from './proof-board';
 import { box, fitKey } from './proof-camera';
 import S from './proof.strings.json';
@@ -61,6 +61,16 @@ const FOV = 24;
 const STOPS = { dark: 2.4, roll: 3.6, final: 6.3 };
 const INK = new THREE.Color().setRGB(...LIN.ink);
 
+/** The %'s smirk on "bad": a hop (em) and a rock of its head (rad), each a damped ring of the house's springiness. */
+const SMIRK = { hop: 0.045, rock: 0.11, freq: 4.5, rockFreq: 4, damping: 0.55 };
+
+/** An impulse's ring: 0 before dt = 0, then a damped sine rising first, `amp` its envelope. */
+function ring(dt: number, amp: number, freq: number, damping: number): number {
+  if (dt <= 0) return 0;
+  const w = 2 * Math.PI * freq;
+  return amp * Math.exp(-damping * w * dt) * Math.sin(w * Math.sqrt(1 - damping * damping) * dt);
+}
+
 /** The drums, left to right: tens, ones, the point, tenths, the percent sign. */
 const D = { TENS: 0, ONES: 1, DOT: 2, TENTHS: 3, PCT: 4 } as const;
 
@@ -72,7 +82,6 @@ export default class Proof extends Scene {
   private presence: THREE.IUniform<number>[] = [];
   private mats: THREE.MeshPhysicalMaterial[] = [];
   private sweep!: SweepBand;
-  private win!: WindowUniforms;
   private board!: Board;
   private backdrop!: Backdrop;
   private rig!: CameraRig;
@@ -103,24 +112,23 @@ export default class Proof extends Scene {
   // ---------------------------------------------------------------------------------------------- build
 
   private buildCounter() {
-    this.win = windowUniforms(EM);
-    const ring = (slots: readonly string[]) => {
+    const addDrum = (slots: readonly string[]) => {
       const m = Mat.accent('moss', 0);
       const band = withSweep(m);
       if (this.sweep) band.value = this.sweep.value; // one band across the whole figure
       else this.sweep = band;
-      this.presence.push(withWindow(m, this.win));
       this.mats.push(m);
       const d = new Drum(slots, FAMILY, EM, m);
+      this.presence.push(withWindow(m, d.win)); // each drum's own window
       this.counter.add(d.group);
       this.drums.push(d);
     };
     const mark = (c: string) => [c, ...Array<string>(9).fill('')];
-    ring(DIGITS);
-    ring(DIGITS);
-    ring(mark('.'));
-    ring(DIGITS);
-    ring(mark('%'));
+    addDrum(DIGITS);
+    addDrum(DIGITS);
+    addDrum(mark('.'));
+    addDrum(DIGITS);
+    addDrum(mark('%'));
     // each round's figure as one kerned line: its glyphs' centres (em), then the drums it leaves out, chained on
     const lay = (s: string) => layout(s, FAMILY, 1000);
     const centres = (s: string) => lay(s).glyphs.map((g) => (g.x + g.w / 2) / 1000);
@@ -215,9 +223,8 @@ export default class Proof extends Scene {
     this.rig.apply(st.camera, t);
     this.light(t, c.round);
 
-    // the window, in the counter's frame
-    this.counter.updateMatrixWorld(true);
-    this.win.uWinInv.value.copy(this.counter.matrixWorld).invert();
+    // each drum's window, where the drum stands now
+    for (const d of this.drums) d.frame();
 
     const r = this.ctx.renderer, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha();
     r.setClearColor(INK, 1);
@@ -252,13 +259,16 @@ export default class Proof extends Scene {
     this.drums[D.ONES]!.turn(c.ones);
     this.drums[D.TENTHS]!.turn(c.tenths);
     const last = T.kicks[3]!, land = T.lands[3]!;
-    // the point rolls up into the window as the tenths drum slows; the % is the last drum, flipping up on "bad" with a
-    // tiny smirk: a little past the window and a rock of its head
+    // the point rolls up into the window as the tenths drum slows (a spring whose overshoot turns it toward the window's
+    // middle, never out of it)
     this.drums[D.DOT]!.turn(-1 + slam(t, land - 0.05, { freq: 5, damping: 0.62 }));
-    this.drums[D.PCT]!.turn(-1 + slam(t, T.bad, { freq: 4.6, damping: 0.5 }));
-    const dt = t - T.bad;
-    const rock = dt > 0 ? 0.13 * Math.exp(-dt * 7) * Math.sin(dt * 2 * Math.PI * 2.6) : 0;
-    this.drums[D.PCT]!.place(() => -rock);
+    // the % is the last drum: it flips up into the window on "bad", its wheel landing dead (a turn past would carry its
+    // top into the window's fade), and the smirk is the drum's own: a tiny hop and a rock of its head, its window riding
+    // with it
+    const pct = this.drums[D.PCT]!, dt = t - T.bad;
+    pct.turn(-1 + prog(t, T.bad - 0.1, T.bad + 0.02, ease.outCubic));
+    pct.group.position.y = (CENTRE + ring(dt - 0.02, SMIRK.hop, SMIRK.freq, SMIRK.damping)) * EM;
+    pct.group.rotation.z = -ring(dt - 0.03, SMIRK.rock, SMIRK.rockFreq, SMIRK.damping);
     this.presence[D.TENS]!.value = this.presence[D.ONES]!.value = 1;
     this.presence[D.DOT]!.value = this.presence[D.TENTHS]!.value = prog(t, last + 0.04, last + 0.1);
     this.presence[D.PCT]!.value = t > last ? 1 : 0;

@@ -150,7 +150,9 @@ export class Board {
     const B = L.bars, barX = B.x0 + B.labelW, barW = B.x1 - B.valueW - barX;
     bars.forEach((b, k) => {
       const y = B.top - k * B.pitch;
-      const lm = mat(LIN.boneDim), vm = mat(LIN.bone), wm = mat(LIN.panel2), fm = mat(LIN.moss), gm = mat(glow('moss', 3));
+      const lm = mat(LIN.boneDim), vm = mat(LIN.bone), wm = mat(LIN.panel2), fm = mat(LIN.moss);
+      // the flash adds light over the fill (a plane a hair in front, no depth write: the depth of field reads the fill)
+      const gm = this.mat(new THREE.MeshBasicMaterial({ color: 0x000000, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
       const label = flat(b.label, F.mono(400), B.label, lm);
       // (the label's x-height centred on the bar: JetBrains Mono's x-height is 0.55 em)
       label.group.position.set(B.x0 * size, (y - 0.275 * B.label) * size, 0);

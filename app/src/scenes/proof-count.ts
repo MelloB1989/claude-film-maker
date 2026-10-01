@@ -32,7 +32,7 @@ export const ROLL_POWER = 4;
 export const rollEase = (u: number) => 1 - (1 - clamp(u)) ** ROLL_POWER;
 
 /** The detent's click on the fastest drum (steps, Hz, 1/s): past the mark by `amp` and back, dying within ~0.2 s. */
-export const CLICK = { amp: 0.11, freq: 6, decay: 16 };
+export const CLICK = { amp: 0.08, freq: 6, decay: 16 };
 export function click(dt: number): number {
   // (gone after a second: exp(-16) is under a millionth of a step; and never NaN, before any landing)
   return dt > 0 && dt < 1 ? CLICK.amp * Math.sin(2 * Math.PI * CLICK.freq * dt) * Math.exp(-CLICK.decay * dt) : 0;

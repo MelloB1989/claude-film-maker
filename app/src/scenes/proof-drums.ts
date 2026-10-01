@@ -7,11 +7,13 @@
 // shaft at a digit's centre (mid-advance); slot k of its ring stands at k·(2π/slots) round the shaft below the window,
 // face out, so turning the wheel by one slot brings the next digit up into the window, as a counting odometer does.
 //
-// The window: there is no housing. A digit is seen only within a band round the shaft, fading out past WINDOW[0] and
-// gone by WINDOW[1] (radians from square to the viewer), so a figure at rest stands alone in the dark and a rolling drum
-// shows its digits wheeling up through the band. The fade is an ordered dither (a 4×4 Bayer screen) rather than alpha:
-// the type stays opaque, depth stays whole for the depth of field, and the stage's four supersampling taps and the
-// motion blur's sub-frames average the dither into a smooth fade.
+// The window: there is no housing. A digit is seen only within a band round its drum's axle, fading out past WINDOW[0]
+// and gone by WINDOW[1] (radians from square to the viewer), so a figure at rest stands alone in the dark and a rolling
+// drum shows its digits wheeling up through the band. Each drum carries its own window (measured in its own frame), so
+// a drum that hops or tilts takes its window with it; only turning its wheel moves a face through the band. The fade is
+// an ordered dither (a 4×4 Bayer screen) rather than alpha: the type stays opaque, depth stays whole for the depth of
+// field, and the stage's four supersampling taps and the motion blur's sub-frames average the dither into a smooth fade
+// as a face wheels through. (Nothing should rest in the band: a still face there would show the screen.)
 import * as THREE from 'three';
 import { Type3D, type Glyph3D } from '../engine/type3d';
 
@@ -21,28 +23,26 @@ export const RADIUS = 1.6;
 /** The digits' middle above the baseline (em): Bricolage's figures run from −0.014 to 0.674 em. */
 export const CENTRE = 0.33;
 /** The window (radians from square to the viewer): whole within the first, gone by the second. A digit at rest spans
- * ±0.24 rad (its back included); its neighbours start 0.39 rad out. */
-export const WINDOW: readonly [number, number] = [0.255, 0.37];
+ * ±0.235 rad (its back included), so the detent's click (a few degrees) keeps it whole; its neighbours start 0.393 rad
+ * out. */
+export const WINDOW: readonly [number, number] = [0.28, 0.385];
 
-/** The window's uniforms, one set for the whole counter (every drum turns on its shaft). */
+/** A drum's window uniforms. */
 export interface WindowUniforms {
-  /** World → counter frame. */
+  /** World → the drum's frame (its axle the frame's x axis). */
   uWinInv: THREE.IUniform<THREE.Matrix4>;
-  /** (shaft y, shaft z) in the counter frame, then the window's two angles. */
+  /** (axle y, axle z) in that frame, then the window's two angles. */
   uWin: THREE.IUniform<THREE.Vector4>;
 }
 
-export function windowUniforms(size: number): WindowUniforms {
-  return {
-    uWinInv: { value: new THREE.Matrix4() },
-    uWin: { value: new THREE.Vector4(CENTRE * size, -RADIUS * size, WINDOW[0], WINDOW[1]) },
-  };
+export function windowUniforms(): WindowUniforms {
+  return { uWinInv: { value: new THREE.Matrix4() }, uWin: { value: new THREE.Vector4(0, 0, WINDOW[0], WINDOW[1]) } };
 }
 
 /**
  * Patch `m` (a Type3D material the scene owns, Mat.accent's or not, with or without a sweep) so it shows only within
- * the counter's window, times `presence` (0..1: a drum fading in). Chained onto the material's patches so far.
- * Returns the presence uniform.
+ * a drum's window, times `presence` (0..1: a drum fading in). Chained onto the material's patches so far. Returns the
+ * presence uniform.
  */
 export function withWindow(m: THREE.MeshPhysicalMaterial, win: WindowUniforms): THREE.IUniform<number> {
   const presence = { value: 1 };
@@ -85,8 +85,9 @@ const float WIN_BAYER[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11.
 export class Drum {
   readonly group = new THREE.Group();
   readonly wheel = new THREE.Group();
-  /** The slot meshes, each with its own tilt (the `%`'s smirk turns one). */
   readonly faces: { slot: number; glyph: Glyph3D }[] = [];
+  /** The drum's window: set its frame each render with `frame()`. */
+  readonly win = windowUniforms();
   private type: Type3D;
   readonly step: number;
 
@@ -106,20 +107,24 @@ export class Drum {
     this.place();
   }
 
-  /** Every face on its slot, square and upright on the ring (tilt: an extra turn about the face's own normal). */
-  place(tilt: (slot: number) => number = () => 0) {
+  /** Every face on its slot, square and upright on the ring. */
+  place() {
     const s = this.size;
     for (const { slot, glyph } of this.faces) {
       const a = slot * this.step;
       // the glyph's pivot (mid-advance, half its x-height, mid-depth) at the front slot: its face on the drum's skin,
-      // its figure's middle on the shaft's height
+      // its figure's middle on the axle's height
       const y = glyph.home.y - CENTRE * s, z = RADIUS * s + glyph.home.z;
       glyph.mesh.position.set(0, y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a));
       glyph.mesh.rotation.set(a, 0, 0);
-      const k = tilt(slot);
-      if (k) glyph.mesh.rotateZ(k);
       glyph.mesh.scale.setScalar(s);
     }
+  }
+
+  /** Point the window at the drum where it stands now (after the scene has placed it and its parents). */
+  frame() {
+    this.group.updateWorldMatrix(true, false);
+    this.win.uWinInv.value.copy(this.group.matrixWorld).invert();
   }
 
   /** The drum's centre along the counter's x (world units in the counter frame). */
