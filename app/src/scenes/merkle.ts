@@ -12,8 +12,9 @@
 //   value as it passes, until the root's flips on the downbeat.
 // - "I only look at fifty.": the walk goes down the lit paths one level a word, a comet on each; as it reaches a node,
 //   each child whose hash did not move folds shut like an umbrella and draws up into its node, which seals, darkens and
-//   takes the stamp `= hash · skipped` (a directory of files only its `=`). The crane comes in over the apex and dives
-//   down outside the lit branch, level by level, landing low beside its file as she says "fifty.", looking up into the
+//   takes the stamp `= hash · skipped` (a directory of files only its `=`). The crane comes in over the apex and all but
+//   holds through "I only" while the top two levels fold and stamp around it (still enough to read them), then plunges
+//   down outside the lit branch on "look at", landing low beside its file as she says "fifty.", looking up into the
 //   same vault with only the fifty paths left in it.
 // - The counter (merkle-type.ts): `visited ___ of 10,000` types in as the walk sets out, and on "fifty." the 50 slams
 //   into its blank in extruded Bricolage with the moss diff glow; the footnote, `index is a pure cache · gitloom
@@ -110,18 +111,22 @@ export default class Merkle extends Scene {
     // out from a node of the path and up, and a point in from it and up
     const outside = (p: THREE.Vector3, r: number, h: number) => p.clone().addScaledVector(out, r).addScaledVector(Y, h);
     const inside = (p: THREE.Vector3, r: number, h: number) => p.clone().addScaledVector(out, -r).addScaledVector(Y, h);
+    const apex = at(d(1), 0.9, 1.0), apexAt = v(0, 0.32, 0);
+    const crest = apex.clone().lerp(outside(P1, 0.34, 0.16), 0.3), crestAt = apexAt.clone().lerp(inside(P1, 0.06, -0.13), 0.45);
     this.rig = new CameraRig([
       // low at the tree's edge, looking up into the vault; the crane rises and pulls back over it
       key(T.start, at(d(-12), 0.86, 0.04), v(0, 0.46, 0), 44),
       key(T.fifty + 0.55, at(d(10), 1.42, 0.7), v(0, 0.215, 0), 34, ease.inOutQuad),
       // high over the lit tree as the moss reaches the root, then easing in for the walk
       key(T.root, at(d(4), 1.04, 1.06), v(0, 0.31, 0), 34, ease.inOutCubic),
-      key(T.walk[0]!, at(d(1), 0.9, 1.0), v(0, 0.32, 0.0), 36, ease.inOutCubic),
-      // the dive: down outside the lit branch, lagging the walk (the comet leads), slow while the top-level folds close,
-      // then faster, level by level, tipping up from the drop to the vault as it lands with "fifty."
-      key(T.walk[1]! + 0.06, outside(P1, 0.34, 0.16), inside(P1, 0.06, -0.13), 40, ease.inQuad),
-      key(T.walk[2]! + 0.04, outside(P2, 0.2, 0.05), inside(P3, 0.0, 0.0), 44, ease.linear),
-      key(T.walk[3]! + 0.06, outside(P3, 0.13, 0.012), inside(P4, 0.12, 0.08), 48, ease.linear),
+      key(T.walk[0]!, apex, apexAt, 36, ease.inOutCubic),
+      // the crest: through "I only" it all but holds, pushing in over the lit branch while the top two levels' unchanged
+      // subtrees fold shut around it and take their stamps (still enough to read them)
+      key(T.walk[2]! - 0.04, crest, crestAt, 38, ease.inOutQuad),
+      // the plunge on "look at": down outside the lit branch, level by level, the comet leading, tipping up from the
+      // drop to the vault as it lands with "fifty."
+      key(T.walk[3]! - 0.04, outside(P2, 0.2, 0.05), inside(P3, 0.0, 0.0), 44, ease.inQuad),
+      key(T.walk[3]! + 0.08, outside(P3, 0.13, 0.012), inside(P4, 0.12, 0.08), 48, ease.linear),
       key(T.land + 0.01, outside(P4, 0.1, 0.016), inside(P4, 0.4, 0.075), 60, ease.outCubic),
       key(T.end, outside(P4, 0.094, 0.018), inside(P4, 0.4, 0.08), 60, ease.linear),
     ]);
@@ -136,12 +141,12 @@ export default class Merkle extends Scene {
       [T.root - 0.3, inv(v(0, 0.3, 0))],
       [T.root, inv(P[0]!), ease.inOutCubic],
       [T.walk[0]!, inv(P[1]!), ease.inOutCubic],
-      [T.walk[1]! + 0.06, inv(P[2]!), ease.linear],
-      [T.walk[2]! + 0.04, inv(P[3]!), ease.linear],
-      [T.walk[3]! + 0.06, inv(P[4]!), ease.linear],
+      [T.walk[2]! - 0.04, inv(P[1]!)],
+      [T.walk[3]! - 0.04, inv(P[3]!), ease.inQuad],
+      [T.walk[3]! + 0.08, inv(P[4]!), ease.linear],
       [T.end, inv(P[4]!)],
     ]);
-    const fstop = keys(t, [[T.start, 5.6], [T.root, 8], [T.walk[0]!, 8], [T.land, 16, ease.inOutCubic], [T.end, 16]]);
+    const fstop = keys(t, [[T.start, 5.6], [T.root, 8], [T.walk[2]!, 8], [T.land, 16, ease.inOutCubic], [T.end, 16]]);
     return { focus: 1 / D, fstop };
   }
 
