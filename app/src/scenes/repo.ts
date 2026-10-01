@@ -14,7 +14,7 @@
 //    camera than the last: so the string reads in time from left to right, history to HEAD (3f9a1c2, her bead), and
 //    every bead in close-up has the ones before it receding behind it. Each glides in along the thread past the lens
 //    with its moss light riding inside it, lands on its beat with a click, blooms, sends the light running out along
-//    the thread both ways and keeps an ember of it (repo-pulse.ts); its oneline entry types in under it, and the lines
+//    the thread both ways and keeps an ember of it (the thread's strand light); its oneline entry types in under it, and the lines
 //    printed before it step back with their beads, so the log reads back into the dark. The camera tracks along the
 //    string bead to bead, racking focus to each as it glides in; a softbox's reflection slides over each as it lands.
 // 4. The file. On "read" the footnote types in, low on the left: Nothing about that is a metaphor — you can cd into
@@ -26,7 +26,7 @@ import { Scene, disposeLayer, type Frame, type PostOverrides } from '../engine/s
 import { CameraRig, Stage, initAreaLights, type CamKey, type V3 } from '../engine/stage';
 import { Layer2D, W, H, makeRT } from '../engine/gl';
 import { Panel, lineEnd, type PanelLine } from '../engine/panels';
-import { DIFF_THREAD, Thread, strandFlare } from '../engine/thread3d';
+import { DIFF_THREAD, Thread, envelopeOf, strandFlare, type StrandGlow } from '../engine/thread3d';
 import { Bead, beadGeometry } from '../engine/bead';
 import { Type3D } from '../engine/type3d';
 import { F, font } from '../engine/type';
@@ -36,7 +36,6 @@ import { sweepAt, withSweep, type SweepBand } from '../engine/sweep';
 import { norm, type VO, type Word } from '../engine/vo';
 import type { AudioData } from '../engine/audio';
 import { clamp, ease, keys, lerp, prog, pulse } from '../engine/util';
-import { StrandLight, type Glow } from './repo-pulse';
 import { ChipShadow, chipGeometry, chipPop, layoutChips, recoil, type ChipSpec } from './repo-chips';
 import S from './repo.strings.json';
 
@@ -192,8 +191,8 @@ const RIPPLE = { speed: 0.42, level: 0.9, life: 0.8, width: 1.25 };
  * The moss light on a thread `len` m long at t, for commits landing at `at` on `u` (arc fractions): riding in inside
  * its bead, blooming as it lands, running out both ways along the thread, and an ember left in the bead.
  */
-export function commitGlows(t: number, commits: readonly { u: number; at: number }[], len: number): Glow[] {
-  const core = (0.75 * BEAD_R) / len, out: Glow[] = [];
+export function commitGlows(t: number, commits: readonly { u: number; at: number }[], len: number): StrandGlow[] {
+  const core = (0.75 * BEAD_R) / len, out: StrandGlow[] = [];
   for (const c of commits) {
     const g = glideU(t, c.u, c.at, len);
     if (g.s <= 0) continue;
@@ -227,7 +226,6 @@ export default class Repo extends Scene {
   private D = new THREE.Vector3();
   // the string
   private thread!: Thread;
-  private light!: StrandLight;
   private beadGeo!: THREE.BufferGeometry;
   private commits: Commit[] = [];
   // the file
@@ -373,9 +371,9 @@ export default class Repo extends Scene {
     const k = this.terminalKeys();
     this.D.copy(this.O).sub(new THREE.Vector3(...k[k.length - 1]!.pos)).normalize();
     this.thread = new Thread(this.threadPoints(), { ...DIFF_THREAD, radius: THREAD_R, fuzz: 0.6 });
-    // both strands rest; the strip lights the moss strand along its length (repo-pulse.ts)
+    // both strands rest; the strand light lights the moss strand along its length, from rest up to the lit level
     this.thread.setStrandGlow({ blood: DIFF_THREAD.rest, moss: DIFF_THREAD.rest });
-    this.light = new StrandLight(this.thread, DIFF_THREAD.rest, DIFF_THREAD.glow);
+    this.thread.setStrandLight({}, DIFF_THREAD.glow);
     this.stage.scene.add(this.thread.mesh);
 
     // each bead's place, and the frame it is seen in from the camera on its close-up
@@ -446,7 +444,7 @@ export default class Repo extends Scene {
     const T = this.T, th = this.thread, len = th.length();
     // the thread draws on behind the terminal from Enter (the panel hides it), whole by the time the camera is through
     th.setDraw(0, keys(t, [[T.enter, 0], [T.cross, 1, ease.outQuad]]));
-    this.light.set(commitGlows(t, this.commits, len));
+    this.thread.setStrandLight({ moss: envelopeOf(commitGlows(t, this.commits, len)) });
     this.commits.forEach((c, i) => {
       const g = glideU(t, c.u, c.at, len);
       c.bead.mesh.visible = g.s > 0 && t > T.enter;
@@ -699,7 +697,6 @@ export default class Repo extends Scene {
       c.shadow.dispose();
     }
     this.thread?.dispose();
-    this.light?.dispose();
     for (const c of this.commits) {
       c.bead.dispose();
       c.label.dispose();

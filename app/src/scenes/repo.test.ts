@@ -1,14 +1,13 @@
 // Scene `repo`: its times against the film's own voiceover and beat grid (repo.ts timesOf), its copy against the facts
-// sheet, the commits' glide and light, the chips' pop (repo-chips.ts), and the strand light's shader patch on the real
-// thread shader (repo-pulse.ts).
+// sheet, the commits' glide and light, and the chips' pop (repo-chips.ts). (The light along the strand is the thread's:
+// thread3d.test.ts.)
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import * as THREE from 'three';
 import { EMBER, FILE, LOG, commitGlows, fileSwing, glideU, timesOf } from './repo';
-import { LIGHT_N, StrandLight, envelope, patchPlyFragment } from './repo-pulse';
 import { LAUNCH, POP, chipGeometry, chipPop, layoutChips, recoil } from './repo-chips';
-import { DIFF_THREAD, Thread } from '../engine/thread3d';
+import { envelopeAt } from '../engine/thread3d';
 import { VO, norm } from '../engine/vo';
 import { AudioData } from '../engine/audio';
 import S from './repo.strings.json';
@@ -86,7 +85,7 @@ describe('repo: a commit glides in and clicks into place', () => {
 
   test('its light rides in with it, blooms to full on the landing, runs out both ways and leaves an ember', () => {
     const c = [{ u: 0.5, at: 10 }];
-    const peak = (t: number) => envelope(0.5, commitGlows(t, c, len));
+    const peak = (t: number) => envelopeAt(0.5, commitGlows(t, c, len));
     expect(commitGlows(9, c, len)).toEqual([]);
     expect(peak(10)).toBeCloseTo(1, 6);
     expect(peak(12)).toBeCloseTo(EMBER, 2);
@@ -94,13 +93,13 @@ describe('repo: a commit glides in and clicks into place', () => {
     const front = (t: number) => {
       let best = 0.5, k = 0;
       for (let u = 0.52; u < 0.9; u += 0.001) {
-        const e = envelope(u, commitGlows(t, c, len));
+        const e = envelopeAt(u, commitGlows(t, c, len));
         if (e > k + 1e-9) (k = e), (best = u);
       }
       return best;
     };
     expect(front(10.3)).toBeGreaterThan(front(10.15));
-    for (let t = 9.8; t < 11; t += 0.05) for (let u = 0; u <= 1; u += 0.01) expect(envelope(u, commitGlows(t, c, len))).toBeLessThanOrEqual(1);
+    for (let t = 9.8; t < 11; t += 0.05) for (let u = 0; u <= 1; u += 0.01) expect(envelopeAt(u, commitGlows(t, c, len))).toBeLessThanOrEqual(1);
     // a pure function of t
     expect(commitGlows(10.2, c, len)).toEqual(commitGlows(10.2, c, len));
   });
@@ -166,44 +165,5 @@ describe('repo: the ls chips', () => {
       const avg = new THREE.Vector3(N.getX(a) + N.getX(b2) + N.getX(c), N.getY(a) + N.getY(b2) + N.getY(c), N.getZ(a) + N.getZ(b2) + N.getZ(c));
       expect(n.dot(avg)).toBeGreaterThan(0);
     }
-  });
-});
-
-describe('repo: light along the strand', () => {
-  test('the envelope is the brightest glow at a point, 0 away from them, never past 1', () => {
-    const gs = [{ u: 0.3, w: 0.02, k: 0.5 }, { u: 0.32, w: 0.02, k: 1.4 }];
-    expect(envelope(0.32, gs)).toBe(1);
-    expect(envelope(0.3, [gs[0]!])).toBeCloseTo(0.5, 9);
-    expect(envelope(0.8, gs)).toBe(0);
-    expect(envelope(0.5, [])).toBe(0);
-  });
-
-  test('the patch reads the strip in the real thread shader, after the strand\'s glow and before the lights', () => {
-    const th = new Thread([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.5, 0.02, 0), new THREE.Vector3(1, 0, 0)], { ...DIFF_THREAD, radius: 0.004 });
-    const light = new StrandLight(th, DIFF_THREAD.rest, DIFF_THREAD.glow);
-    const m = th.mesh.material as THREE.MeshPhysicalMaterial;
-    const sh = { vertexShader: THREE.ShaderLib.physical.vertexShader, fragmentShader: THREE.ShaderLib.physical.fragmentShader, uniforms: {} as Record<string, THREE.IUniform> };
-    m.onBeforeCompile(sh as any, null as any);
-    const f = sh.fragmentShader;
-    const glowAt = f.lastIndexOf('totalEmissiveRadiance +='), patchAt = f.indexOf('tStrandLight, vec2'), lightsAt = f.indexOf('#include <lights_physical_fragment>');
-    expect(glowAt).toBeGreaterThan(0);
-    expect(patchAt).toBeGreaterThan(glowAt);
-    expect(lightsAt).toBeGreaterThan(patchAt);
-    expect(sh.uniforms.tStrandLight!.value).toBe(light.texture);
-    expect((sh.uniforms.uStrandGain!.value as THREE.Vector2).y).toBeCloseTo(DIFF_THREAD.glow / DIFF_THREAD.rest - 1, 9);
-    expect(m.customProgramCacheKey()).toContain('repo-strand-light');
-    // the strip: blood in r, moss in g, LIGHT_N texels with u = 0 and 1 at the first and last
-    light.set([{ u: 1, w: 0.01, k: 1 }], [{ u: 0, w: 0.01, k: 0.5 }]);
-    const d = light.texture.image.data as Uint8Array;
-    expect(d.length).toBe(4 * LIGHT_N);
-    expect(d[1]).toBe(0);
-    expect(d[0]).toBe(128);
-    expect(d[4 * (LIGHT_N - 1) + 1]).toBe(255);
-    light.dispose();
-    th.dispose();
-  });
-
-  test('a shader without what the patch reads fails loudly', () => {
-    expect(() => patchPlyFragment('#include <common>\nvoid main() {}')).toThrow(/repo-pulse/);
   });
 });

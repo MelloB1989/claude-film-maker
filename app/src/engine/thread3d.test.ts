@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import * as THREE from 'three';
-import { DIFF_THREAD, STRAND_FLARE, Thread, strandFlare, strandGlow } from './thread3d';
+import { DIFF_THREAD, STRAND_FLARE, STRAND_LIGHT_N, Thread, envelopeAt, envelopeOf, strandFlare, strandGlow } from './thread3d';
 
 // Expected values are hand-derived (straight runs, a semicircle, the palette hex through the sRGB curve) or integrated
 // here from three's own centripetal CatmullRomCurve3, never read back from thread3d.ts.
@@ -404,3 +404,95 @@ test('strandGlow: a strand rests at DIFF_THREAD.rest and lights to DIFF_THREAD.g
   expect(strandGlow(1, 5, { rest: 0, lit: 2 })).toBe(0);
   expect(strandGlow(5.3, 5, { rest: 0, lit: 2, decay: 1.2 })).toBeCloseTo(2 * 0.5625, 9);
 });
+
+// ---------------------------------------------------------------------------------------------- strand light
+
+/** The ply material's fragment shader as three would compile it now (its onBeforeCompile run on the physical shader). */
+function plyShader(th: Thread) {
+  const m = th.mesh.material as THREE.MeshPhysicalMaterial;
+  const sh = { vertexShader: THREE.ShaderLib.physical.vertexShader, fragmentShader: THREE.ShaderLib.physical.fragmentShader, uniforms: {} as Record<string, THREE.IUniform> };
+  m.onBeforeCompile(sh as any, null as any);
+  return { f: sh.fragmentShader, u: sh.uniforms, key: m.customProgramCacheKey() };
+}
+const LINE = [v(0, 0, 0), v(0.5, 0.02, 0), v(1, 0, 0)];
+
+test('envelopes: the brightest moving light at a point (centre, 1/e half-width, level), 0 away from them, never past 1', () => {
+  const gs = [{ u: 0.3, w: 0.02, k: 0.5 }, { u: 0.32, w: 0.02, k: 1.4 }];
+  expect(envelopeAt(0.32, gs)).toBe(1);
+  expect(envelopeAt(0.3, [gs[0]!])).toBeCloseTo(0.5, 9);
+  expect(envelopeAt(0.32, [gs[0]!])).toBeCloseTo(0.5 * Math.exp(-1), 9);
+  expect(envelopeAt(0.8, gs)).toBe(0);
+  expect(envelopeAt(0.5, [])).toBe(0);
+  // sampled along the thread: n samples, u = 0 at the first and 1 at the last
+  const e = envelopeOf([{ u: 1, w: 0.01, k: 1 }], 5);
+  expect(Array.from(e)).toEqual([0, 0, 0, 0, 1]);
+  expect(envelopeOf([]).length).toBe(STRAND_LIGHT_N);
+});
+
+test('setStrandLight: a thread that never calls it keeps its own program; the first call adds the strip to the ply shader', () => {
+  const th = new Thread(LINE, { ...DIFF_THREAD, radius: 0.004 });
+  const plain = plyShader(th);
+  expect(plain.key).toBe('thread3d-ply-4');
+  expect(plain.f).not.toContain('tStrandLight');
+  const before = (th.mesh.material as THREE.Material).version;
+  th.setStrandLight({});
+  expect((th.mesh.material as THREE.Material).version).toBeGreaterThan(before); // three rebuilds the program
+  const lit = plyShader(th);
+  expect(lit.key).toBe('thread3d-ply-4|strand-light');
+  // read after the strand's glow is added and before the lights: it scales the strand's whole emission
+  const glowAt = lit.f.lastIndexOf('totalEmissiveRadiance +='), readAt = lit.f.indexOf('tStrandLight, vec2'), lightsAt = lit.f.indexOf('#include <lights_physical_fragment>');
+  expect(glowAt).toBeGreaterThan(0);
+  expect(readAt).toBeGreaterThan(glowAt);
+  expect(lightsAt).toBeGreaterThan(readAt);
+  // the diff thread's plies are bone, blood, moss: blood reads r, moss g (the text repo's patch compiled, exactly)
+  expect(lit.f).toContain(`{
+  vec4 slK = texture2D(tStrandLight, vec2((clamp(vU, 0.0, 1.0) * ${STRAND_LIGHT_N - 1}.0 + 0.5) / ${STRAND_LIGHT_N}.0, 0.5));
+  totalEmissiveRadiance *= 1.0 + (thPi == 1 ? uStrandGain.x * slK.r : thPi == 2 ? uStrandGain.y * slK.g : 0.0);
+}
+#include <lights_physical_fragment>`);
+  expect(lit.f).toContain('#include <common>\n\nuniform sampler2D tStrandLight;\nuniform vec2 uStrandGain;\n');
+  // the rest of the shader is the plain one's
+  expect(lit.f.replace(/\n\nuniform sampler2D tStrandLight;\nuniform vec2 uStrandGain;/, '').replace(/\n\{\n  vec4 slK[^}]*\}\n/, '')).toBe(plain.f);
+  th.dispose();
+});
+
+test('setStrandLight: the strip holds blood in r and moss in g along the arc fraction; a strand left out keeps its envelope', () => {
+  const th = new Thread(LINE, { ...DIFF_THREAD, radius: 0.004 });
+  th.setStrandLight({ moss: envelopeOf([{ u: 1, w: 0.01, k: 1 }]), blood: envelopeOf([{ u: 0, w: 0.01, k: 0.5 }]) });
+  const { u } = plyShader(th);
+  const d = (u.tStrandLight!.value as THREE.DataTexture).image.data as Uint8Array;
+  expect(d.length).toBe(4 * STRAND_LIGHT_N);
+  expect([d[0], d[1], d[3]]).toEqual([128, 0, 255]); // u = 0: blood at half
+  expect([d[4 * (STRAND_LIGHT_N - 1)], d[4 * (STRAND_LIGHT_N - 1) + 1]]).toEqual([0, 255]); // u = 1: moss full
+  th.setStrandLight({ moss: envelopeOf([]) });
+  expect([d[0], d[4 * (STRAND_LIGHT_N - 1) + 1]]).toEqual([128, 0]); // blood kept, moss out
+  th.setStrandLight({ blood: null });
+  expect(d[0]).toBe(0);
+  // an envelope of another length is resampled along the thread
+  th.setStrandLight({ moss: [0, 1] });
+  expect(d[1]).toBe(0);
+  expect(d[4 * Math.round((STRAND_LIGHT_N - 1) / 2) + 1]).toBe(128);
+  expect(d[4 * (STRAND_LIGHT_N - 1) + 1]).toBe(255);
+  th.dispose();
+});
+
+test('setStrandLight lights a strand from its setStrandGlow level up to `lit` where the envelope is 1', () => {
+  const th = new Thread(LINE, { ...DIFF_THREAD, radius: 0.004 });
+  th.setStrandLight({}); // up to DIFF_THREAD.glow
+  const gain = () => (plyShader(th).u.uStrandGain!.value as THREE.Vector2).toArray();
+  close2(gain(), [DIFF_THREAD.glow / DIFF_THREAD.rest - 1, DIFF_THREAD.glow / DIFF_THREAD.rest - 1]);
+  th.setStrandGlow({ moss: 1.2 });
+  close2(gain(), [DIFF_THREAD.glow / DIFF_THREAD.rest - 1, DIFF_THREAD.glow / 1.2 - 1]);
+  th.setStrandLight({}, 2.4);
+  close2(gain(), [2.4 / DIFF_THREAD.rest - 1, 1]);
+  th.setStrandGlow({ blood: 0 }); // a dark strand: nothing to scale
+  expect(gain()[0]).toBe(0);
+  th.setStrandGlow({ blood: 3 }); // past `lit`: it never darkens
+  expect(gain()[0]).toBe(0);
+  th.dispose();
+});
+
+function close2(a: number[], b: number[]) {
+  expect(a[0]!).toBeCloseTo(b[0]!, 6);
+  expect(a[1]!).toBeCloseTo(b[1]!, 6);
+}

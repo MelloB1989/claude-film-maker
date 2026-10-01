@@ -221,6 +221,63 @@ export function strandGlow(
   return rest * (1 - k) + lit * k;
 }
 
+// ------------------------------------------------------------------------------------------------ light along a strand
+//
+// setStrandGlow lights a strand whole; setStrandLight lights it along its length: an envelope 0..1 over the thread's
+// arc fraction per strand (blood, moss) scales that strand's core from its setStrandGlow level, where the envelope is 0,
+// up to a lit level (DIFF_THREAD.glow) where it is 1. A commit's moss light rides in with its bead, blooms as it lands
+// and runs out along the thread both ways (repo); a flare travels out from her bead (her, Plan 3), along the braid.
+// The envelope is usually a sum of moving lights (StrandGlow: a centre, a half-width and a level, all in arc fraction,
+// the brightest winning where they overlap) sampled by envelopeOf, all a pure function of the glows a scene makes from t.
+// The fibres keep the strand's level: they carry 3% of a core's light, and a lit window of them would not read.
+
+/** Samples of the strand light's strip along the thread's arc fraction (u = 0 at the first, 1 at the last). */
+export const STRAND_LIGHT_N = 512;
+
+/** A light on a strand: centred at arc fraction `u`, `w` its half-width (arc fraction, where it has fallen to 1/e), `k` its level 0..1. */
+export interface StrandGlow {
+  u: number;
+  w: number;
+  k: number;
+}
+
+/** The envelope at arc fraction u: the brightest of the glows there (0..1). */
+export function envelopeAt(u: number, glows: readonly StrandGlow[]): number {
+  let e = 0;
+  for (const g of glows) {
+    if (g.k <= 0 || g.w <= 0) continue;
+    const x = (u - g.u) / g.w;
+    if (x * x < 30) e = Math.max(e, g.k * Math.exp(-x * x));
+  }
+  return clamp(e, 0, 1);
+}
+
+/** The envelope of `glows` sampled n times along the thread (u = 0 at the first sample, 1 at the last): setStrandLight's input. */
+export function envelopeOf(glows: readonly StrandGlow[], n = STRAND_LIGHT_N): Float64Array {
+  const out = new Float64Array(n);
+  for (let i = 0; i < n; i++) out[i] = envelopeAt(n > 1 ? i / (n - 1) : 0, glows);
+  return out;
+}
+
+/** The strip's uniforms, after three's common chunk. */
+const LIGHT_PARS = /* glsl */ `
+uniform sampler2D tStrandLight;
+uniform vec2 uStrandGain;`;
+
+/**
+ * The strip read at the fragment's arc fraction (its texel centres span the thread), scaling the strand's emission (all
+ * the ply emits: the core's glow is the only emissive term) before the lights: blood reads r with gain x, moss g with
+ * gain y, by the thread's ply colours.
+ */
+function lightMain(colors: readonly ThreadColor[]) {
+  const pick = colors.map((c, i) => (c === 'blood' ? `thPi == ${i} ? uStrandGain.x * slK.r : ` : c === 'moss' ? `thPi == ${i} ? uStrandGain.y * slK.g : ` : '')).join('');
+  return /* glsl */ `
+{
+  vec4 slK = texture2D(tStrandLight, vec2((clamp(vU, 0.0, 1.0) * ${STRAND_LIGHT_N - 1}.0 + 0.5) / ${STRAND_LIGHT_N}.0, 0.5));
+  totalEmissiveRadiance *= 1.0 + (${pick}0.0);
+}`;
+}
+
 const TAU = Math.PI * 2;
 const DEFAULT_COLORS: ThreadColor[] = ['bone', 'blood', 'moss'];
 const GLOW_KEY: Record<ThreadColor, GlowKey | null> = { bone: null, blood: 'blood', moss: 'moss' };
@@ -794,6 +851,10 @@ export class Thread {
   private readonly L0: number;
   private draw: [number, number] = [0, 1];
   private fray = { at: 0.5, amount: 0, half: 1 };
+  /** The strands' glow levels (setGlow, setStrandGlow): the strand light scales each from its own. */
+  private levels = { blood: 0, moss: 0 };
+  /** The light along the strands (setStrandLight): its strip (blood in r, moss in g), gains and lit level; none until asked. */
+  private strip: { tex: THREE.DataTexture; data: Uint8Array; map: { value: THREE.DataTexture }; gain: { value: THREE.Vector2 }; lit: number } | null = null;
 
   constructor(points: THREE.Vector3[], opts: ThreadOpts) {
     if (points.length < 2) throw new Error('Thread needs at least two points');
@@ -883,8 +944,15 @@ export class Thread {
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${PLY_FRAG_EMISSIVE}`)
         .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>\n${PLY_FRAG_SHEEN}`)
         .replace('#include <aomap_fragment>', `#include <aomap_fragment>\n${PLY_FRAG_AO}`);
+      if (this.strip) {
+        shader.uniforms.tStrandLight = this.strip.map;
+        shader.uniforms.uStrandGain = this.strip.gain;
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', `#include <common>\n${LIGHT_PARS}`)
+          .replace('#include <lights_physical_fragment>', `${lightMain(this.colors)}\n#include <lights_physical_fragment>`);
+      }
     };
-    mat.customProgramCacheKey = () => 'thread3d-ply-4';
+    mat.customProgramCacheKey = () => (this.strip ? 'thread3d-ply-4|strand-light' : 'thread3d-ply-4');
     this.mesh = new THREE.Mesh(tubeGeometry(tubes.length, rings, radial), mat);
     this.mesh.frustumCulled = false; // the geometry is built in the shader: its attributes are no bounds
 
@@ -944,6 +1012,8 @@ export class Thread {
       if (key && level > 0) g.set(...glowLevel(key, level));
       else g.set(0, 0, 0);
     });
+    this.levels.blood = this.levels.moss = level;
+    this.lightGain();
   }
 
   /**
@@ -959,6 +1029,57 @@ export class Thread {
       if (level > 0) g.set(...glowLevel(key, level));
       else g.set(0, 0, 0);
     });
+    if (levels.blood !== undefined) this.levels.blood = levels.blood;
+    if (levels.moss !== undefined) this.levels.moss = levels.moss;
+    this.lightGain();
+  }
+
+  /**
+   * Light the strands along their length (see STRAND_LIGHT_N above): `blood` and `moss` are envelopes 0..1 over the arc
+   * fraction, evenly from u = 0 to u = 1 (envelopeOf makes one from moving lights; any length is resampled to the
+   * strip), each lighting its strand from its setStrandGlow level where it is 0 up to `lit` where it is 1. A strand
+   * left out keeps its envelope; null puts it out. The first call adds the strip to the thread's shader (a program of
+   * its own; threads that never call it keep theirs): call it in init(), even with nothing lit ({}), so the scene's
+   * warm-up compiles it. A dark strand (level 0) has nothing to scale, and a strand at or past `lit` stays as it is.
+   */
+  setStrandLight(env: { blood?: ArrayLike<number> | null; moss?: ArrayLike<number> | null }, lit: number = DIFF_THREAD.glow) {
+    if (!this.strip) {
+      const N = STRAND_LIGHT_N, data = new Uint8Array(N * 4);
+      for (let i = 0; i < N; i++) data[4 * i + 3] = 255;
+      const tex = new THREE.DataTexture(data, N, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
+      tex.minFilter = tex.magFilter = THREE.LinearFilter;
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.generateMipmaps = false;
+      tex.colorSpace = THREE.NoColorSpace;
+      this.strip = { tex, data, map: { value: tex }, gain: { value: new THREE.Vector2() }, lit };
+      (this.mesh.material as THREE.Material).needsUpdate = true; // three builds the program with the strip
+    }
+    this.strip.lit = lit;
+    this.lightGain();
+    const N = STRAND_LIGHT_N, d = this.strip.data;
+    for (const [key, ch] of [['blood', 0], ['moss', 1]] as const) {
+      const e = env[key];
+      if (e === undefined) continue;
+      const n = e?.length ?? 0;
+      for (let i = 0; i < N; i++) {
+        let k = 0;
+        if (e && n === N) k = e[i]!;
+        else if (e && n > 0) {
+          const x = n > 1 ? (i / (N - 1)) * (n - 1) : 0, j = Math.min(n - 1, Math.floor(x)), f = x - j;
+          k = e[j]! * (1 - f) + e[Math.min(n - 1, j + 1)]! * f;
+        }
+        d[4 * i + ch] = Math.round(255 * clamp(k, 0, 1));
+      }
+    }
+    this.strip.tex.needsUpdate = true;
+  }
+
+  /** Each strand's gain from its level to the strand light's lit level. */
+  private lightGain() {
+    const s = this.strip;
+    if (!s) return;
+    const g = (level: number) => (level > 0 ? Math.max(0, s.lit / level - 1) : 0);
+    s.gain.value.set(g(this.levels.blood), g(this.levels.moss));
   }
 
   /** Arc length now. */
@@ -1014,5 +1135,6 @@ export class Thread {
       (this.fibres.material as THREE.Material).dispose();
     }
     this.frames.dispose();
+    this.strip?.tex.dispose();
   }
 }
