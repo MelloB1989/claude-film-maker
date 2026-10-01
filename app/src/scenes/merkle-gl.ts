@@ -66,7 +66,7 @@ export function treeUniforms() {
     /** How dark a sealed subtree's stub and node go (0..1 of their light kept). */
     uSealed: { value: 0.32 },
     /** The changed files twinkle in bone before they are named (from time x, spread over y s, by z of bone). */
-    uTwinkle: { value: new THREE.Vector3(NEVER, 0.14, 0.55) },
+    uTwinkle: { value: new THREE.Vector3(NEVER, 0.14, 0.8) },
   };
 }
 export type TreeUniforms = ReturnType<typeof treeUniforms>;

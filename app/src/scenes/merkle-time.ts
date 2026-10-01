@@ -18,7 +18,7 @@ import { DEPTH, N, levelOf, type Tree } from './merkle-tree';
 export const NEVER = 1e6;
 /** How long a skipped subtree takes to fold shut (s), and when in that its stamp hits (share). */
 export const FOLD_S = 0.42;
-export const STAMP_AT = 0.5;
+export const STAMP_AT = 0.32;
 
 export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
   const ws = wordTimes(vo, 'merkle').map((x) => x.w);

@@ -18,7 +18,7 @@ import type { TreeUniforms } from './merkle-gl';
 import { NEVER, STAMP_AT, type TreeTimes } from './merkle-time';
 
 /** The characters the labels use: the hex digits first (digit d at atlas index d), then the stamp's. */
-export const LABEL_CHARS = '0123456789abcdef=·hskiped';
+export const labelChars = (stamp: string) => '0123456789abcdef' + stamp;
 /** A label's em (m) by level, root first, the files last: about a fifth of the gap to the node's nearest sibling. */
 const EM = [0.017, 0.0115, 0.0052, 0.0019, 0.0011] as const;
 const f = (x: number) => x.toFixed(5);
@@ -107,9 +107,6 @@ void main() {
   gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
 }`;
 
-/** The stamp under a skipped subtree's root. */
-export const STAMP = '= hash · skipped';
-
 export class LabelField {
   mesh: THREE.Mesh;
   private geo: THREE.InstancedBufferGeometry;
@@ -117,8 +114,9 @@ export class LabelField {
   readonly u: { uLabel: THREE.IUniform<THREE.Vector4>; uDefocus: THREE.IUniform<THREE.Vector4> };
 
   /**
-   * Every internal node's hash, and the stamp under each skipped subtree's root above the files (`stamp` its text,
-   * from the strings file). `tu` are the tree's uniforms (shared: one clock, one fold).
+   * Every internal node's hash and every changed file's, and the stamp under each skipped subtree's root above the files
+   * (`stamp`, from the strings file: `= hash · skipped`, a directory of files skipped by its `=` alone). `tu` are the
+   * tree's uniforms (shared: one clock, one fold). The atlas holds labelChars(stamp).
    */
   constructor(tree: Tree, times: TreeTimes, atlas: GlyphAtlas, tu: TreeUniforms, stamp: string) {
     const A: number[] = [], F: number[] = [], G: number[] = [], Tt: number[] = [];
@@ -126,7 +124,8 @@ export class LabelField {
     const at = (id: number) => [pos[id * 3]!, pos[id * 3 + 1]!, pos[id * 3 + 2]!];
     const push = (id: number, col: number, row: number, g: number, g2: number, flip: number, hit: number) => {
       const k = levelOf(id), r = fold[id]!;
-      A.push(...at(id), EM[k]!);
+      // (a stamp is set a little larger than the hash it sits under: it is the news)
+      A.push(...at(id), EM[k]! * (row > 0 ? 1.12 : 1));
       F.push(...(r < 0 ? [0, 0, 0, NEVER] : [...at(r), times.fold[r]!]));
       G.push(col, row, g, g2);
       const flags = (lit[id] ? 1 : 0) + (r === id ? 2 : 0) + (r >= 0 && r !== id ? 4 : 0);
@@ -154,7 +153,7 @@ export class LabelField {
       this.geo.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(arr), 4));
     }
     this.geo.instanceCount = n;
-    this.u = { uLabel: { value: new THREE.Vector4(0.62, 0.66, 4.5, 7.5) }, uDefocus: { value: new THREE.Vector4(0, 0, 3, 9) } };
+    this.u = { uLabel: { value: new THREE.Vector4(0.62, 0.74, 4.5, 7.5) }, uDefocus: { value: new THREE.Vector4(0, 0, 3, 9) } };
     this.mat = glyphMaterial(LABEL_VERT, atlas, {
       uT: tu.uT, uScreen: tu.uScreen, uFold: tu.uFold, uLight: tu.uLight, uSealed: tu.uSealed, uLabel: this.u.uLabel,
       uDefocus: this.u.uDefocus,

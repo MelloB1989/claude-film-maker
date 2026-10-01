@@ -1,14 +1,33 @@
-// Scene 09 `merkle`: "Fifty things changed? I only look at fifty." (Plan 2 Task 19; spec §4 09.)
+// Scene 09 `merkle`: "Fifty things changed? I only look at fifty." (Plan 2 Task 19; spec §4 09.) GitLoom indexes
+// incrementally: a directory whose hash did not move is skipped whole, so a commit of fifty files reads fifty files.
+//
+// One world, every time from the data (her onsets, the score's beats and downbeats; merkle-time.ts):
+// - The tree (merkle-tree.ts, drawn by merkle-gl.ts): a Merkle tree of 10,000 files, ten children a node, four levels,
+//   as a cone tree in hairlines, the root high, each node's children on a ring under it, the files in rosettes on the
+//   floor; every internal node carries its hash (merkle-labels.ts, on engine/glyphs.ts), legible where the lens brings
+//   it. The cut lands low at its edge, looking up into the vault, as a band of light rises through it from the files to
+//   the root (each hash covers its children's), landing on "Fifty"; the crane rises and pulls back over it, and the
+//   fifty changed files twinkle in bone on "things".
+// - "changed?": the fifty pulse moss and the moss climbs their paths, every hash above them split-flapping to its new
+//   value as it passes, until the root's flips on the downbeat.
+// - "I only look at fifty.": the walk goes down the lit paths one level a word, a comet on each; as it reaches a node,
+//   each child whose hash did not move folds shut like an umbrella and draws up into its node, which seals, darkens and
+//   takes the stamp `= hash · skipped` (a directory of files only its `=`). The crane comes in over the apex and dives
+//   down outside the lit branch, level by level, landing low beside its file as she says "fifty.", looking up into the
+//   same vault with only the fifty paths left in it.
+// - The counter (merkle-type.ts): `visited ___ of 10,000` types in as the walk sets out, and on "fifty." the 50 slams
+//   into its blank in extruded Bricolage with the moss diff glow; the footnote, `index is a pure cache · gitloom
+//   rebuild`, types in under it, deadpan.
 import * as THREE from 'three';
 import { Scene, disposeLayer, type Frame, type PostOverrides } from '../engine/scene';
 import { CameraRig, Stage, type CamKey, type V3 } from '../engine/stage';
 import { LIN } from '../engine/palette';
-import { ease, hash, keys, lerp, prog, pulse } from '../engine/util';
+import { ease, keys, lerp, prog, pulse } from '../engine/util';
 import { onBeat } from '../engine/motion';
 import { nodeTimes, timesOf, type Times } from './merkle-time';
 import { SEED, SHAPE, buildTree, diveLeaf, pickChanged, pathTo, type Tree } from './merkle-tree';
 import { TreeDraw } from './merkle-gl';
-import { LABEL_CHARS, LabelField, STAMP } from './merkle-labels';
+import { LabelField, labelChars } from './merkle-labels';
 import { GlyphAtlas } from '../engine/glyphs';
 import { F } from '../engine/type';
 import { H, Layer2D, SCALE, W, makeRT } from '../engine/gl';
@@ -45,9 +64,9 @@ export default class Merkle extends Scene {
     const times = nodeTimes(this.tree, T);
     this.draw = new TreeDraw(this.tree, times, new Set(this.path));
     this.draw.u.uScreen.value.set(W, H, SCALE);
+    this.draw.u.uTwinkle.value.x = T.things - T.start;
     this.stage.scene.add(this.draw.group);
-    if (STAMP_TEXT !== STAMP) throw new Error('merkle: the stamp is not the strings file\'s');
-    this.atlas = new GlyphAtlas(LABEL_CHARS, F.mono(500));
+    this.atlas = new GlyphAtlas(labelChars(STAMP_TEXT), F.mono(500));
     this.labels = new LabelField(this.tree, times, this.atlas, this.draw.u, STAMP_TEXT);
     this.stage.scene.add(this.labels.mesh);
     const L = counterLayout(COUNTER_TEXT);
@@ -94,7 +113,7 @@ export default class Merkle extends Scene {
     this.rig = new CameraRig([
       // low at the tree's edge, looking up into the vault; the crane rises and pulls back over it
       key(T.start, at(d(-12), 0.86, 0.04), v(0, 0.46, 0), 44),
-      key(T.fifty + 0.55, at(d(10), 1.3, 0.62), v(0, 0.25, 0), 34, ease.inOutQuad),
+      key(T.fifty + 0.55, at(d(10), 1.42, 0.7), v(0, 0.215, 0), 34, ease.inOutQuad),
       // high over the lit tree as the moss reaches the root, then easing in for the walk
       key(T.root, at(d(4), 1.04, 1.06), v(0, 0.31, 0), 34, ease.inOutCubic),
       key(T.walk[0]!, at(d(1), 0.9, 1.0), v(0, 0.32, 0.0), 36, ease.inOutCubic),
@@ -134,9 +153,8 @@ export default class Merkle extends Scene {
     // beat she says "Fifty" on (each node's hash covers its children's); a breath on every beat after
     const rise = prog(t, T.start + 0.02, T.fifty, ease.inOutCubic);
     u.uSweep.value.set(0, 1, 0, lerp(-0.06, SHAPE.y[0]! + 0.04, rise));
-    u.uSweepK.value.set(0.055, 0.85 * Math.sin(Math.PI * Math.min(1, rise * 1.08)) + 0.5 * pulse(t, T.fifty, 0.08) * (rise >= 1 ? 0 : 1));
+    u.uSweepK.value.set(0.055, 0.85 * Math.sin(Math.PI * Math.min(1, rise * 1.08)));
     u.uLight.value.y = t > T.fifty ? 0.035 * onBeat(f, 0.3) : 0;
-    u.uTwinkle.value.x = T.things - T.start;
     const r = this.ctx.renderer, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha();
     r.setClearColor(INK, 1);
     const dof = this.focus(t);
