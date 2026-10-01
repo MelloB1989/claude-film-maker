@@ -14,9 +14,9 @@
 //    camera than the last: so the string reads in time from left to right, history to HEAD (3f9a1c2, her bead), and
 //    every bead in close-up has the ones before it receding behind it. Each glides in along the thread past the lens
 //    with its moss light riding inside it, lands on its beat with a click, blooms, sends the light running out along
-//    the thread both ways and keeps an ember of it (repo-pulse.ts); its oneline entry types in under it. The camera
-//    tracks along the string bead to bead, racking focus to each as it glides in; a softbox's reflection slides over
-//    each as it lands.
+//    the thread both ways and keeps an ember of it (repo-pulse.ts); its oneline entry types in under it, and the lines
+//    printed before it step back with their beads, so the log reads back into the dark. The camera tracks along the
+//    string bead to bead, racking focus to each as it glides in; a softbox's reflection slides over each as it lands.
 // 4. The file. On "read" the footnote types in, low on the left: Nothing about that is a metaphor — you can cd into
 //    it. As the last bead lands on "me." the camera pulls back to the whole string; on the next beat the file itself,
 //    facts/people/user.md (spec §11.4, line numbers and all), swings in over its far end on a hinge, the beads going to
@@ -128,8 +128,9 @@ const PULL = { back: 1.62, lift: 0.02, breathe: 0.035 };
 /** How far the engraving's band rises above the bore's equator (radians): over dark glass, not the refracted thread. */
 const ETCH_RISE = 0.42;
 /** A label: its em (frame px at its bead's close-up); its left end and baseline from the bead's centre (bead radii in
- * frame, right and down); how fast it types in (characters a second). */
-const LABEL = { px: 28, dx: -0.92, dy: 1.5, cps: 200 };
+ * frame, right and down); how fast it types in (characters a second); its strength once the next commit has landed
+ * (the lines printed before stay, receding with their beads: the log reads back into the dark). */
+const LABEL = { px: 28, dx: -0.92, dy: 1.5, cps: 200, after: 0.4 };
 /** Where the focus holds a bead in close-up, and its label sits: its near face, this many radii toward the camera. */
 const FACE = 0.8;
 /** The file: panel px, code size; where its centre lands in frame (px), its height there (px), its distance (m). */
@@ -455,10 +456,11 @@ export default class Repo extends Scene {
       }
       // its label rides with it (through the click's overshoot)
       c.label.group.position.copy(c.bead.mesh.visible ? c.bead.mesh.position : c.pos).add(c.labelAt);
-      // its log line types in under it as it lands, steps back as the next lands, and gives way to the file
+      // its log line types in under it as it lands, steps back as the next lands (it stays, receding with its bead), and
+      // gives way to the file
       const n = Math.floor(clamp((t - c.at - 0.04) * LABEL.cps, -1, c.labelLen));
       const next = this.commits[i + 1];
-      const k = next ? 1 - prog(t, next.at - 0.2, next.at, ease.inOutQuad) : 1 - prog(t, T.fileLand - 0.3, T.fileLand - 0.05, ease.inOutQuad);
+      const k = (next ? 1 - (1 - LABEL.after) * prog(t, next.at - 0.05, next.at + 0.2, ease.inOutQuad) : 1) * (1 - prog(t, T.fileLand - 0.3, T.fileLand - 0.05, ease.inOutQuad));
       c.label.group.visible = n >= 0 && k > 0;
       for (const gl of c.label.glyphs) gl.mesh.visible = gl.i <= n;
       for (const m of c.labelMats) m.opacity = k;
