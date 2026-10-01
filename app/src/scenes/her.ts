@@ -553,6 +553,8 @@ export default class Her extends Scene {
 
   private animateHeadline(t: number, f: Frame) {
     const T = this.T;
+    // the exit: the whole headline drifts back (first: the lights below aim at where its words are now)
+    this.head.position.z = -keys(t, [[T.end - 0.42, 0], [T.end, 0.38, ease.inCubic]]);
     this.lightHeadline(t);
     // the − line is there as we cut to it; the strike runs through it on the cut's beat
     const sk = prog(t, T.beatAfterDown + 0.03, T.beatAfterDown + 0.26, ease.outCubic);
@@ -575,9 +577,6 @@ export default class Her extends Scene {
     this.placeBlame(bk);
     for (const mt of this.blameMats) mt.opacity = bk;
     (this.blameRule.material as THREE.MeshBasicMaterial).opacity = bk;
-
-    // the exit: the whole headline drifts back
-    this.head.position.z = -keys(t, [[T.end - 0.42, 0], [T.end, 0.38, ease.inCubic]]);
   }
 
   /** A + line: its mark and flat words type in on their times, its hero words slam in from depth on their onsets. */
