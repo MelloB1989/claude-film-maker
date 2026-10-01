@@ -35,7 +35,8 @@ import { LOOK } from '../engine/look';
 import { slam } from '../engine/motion';
 import { FPS, clamp, ease, frameIdx, keys, lerp, prog, pulse } from '../engine/util';
 import { bladeHeat, docTime, historyAt, romance, struckAt, timesOf, type Times } from './diff-time';
-import { Backdrop, Bar, Blade, Halo, Spot, Wash, fitKey } from './diff-fx';
+import { Bar, Blade, Halo, Spot, Wash } from '../engine/panel-light';
+import { Backdrop, fitKey } from './diff-fx';
 import { DOCK, Dock } from './diff-dock';
 import S from './diff.strings.json';
 
