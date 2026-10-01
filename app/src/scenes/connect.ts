@@ -233,8 +233,9 @@ export default class Connect extends Scene {
       fitKey(T.start, waiting, { az: -19, el: 5, fov: FOV, margin: [0.02, 0.2], bias: [0.1, -0.02], roll: -2 }, F),
       fitKey(T.type.at, waiting, { az: -18, el: 5, fov: FOV, margin: [0.0, 0.17], bias: [0.08, -0.02], roll: -1.9 }, F, ease.inOutQuad),
       fitKey(T.type.at + 0.38, cmd, { az: -14, el: 5, fov: FOV, margin: [0.04, 0.16], bias: [0.04, -0.04], roll: -1.6 }, F, ease.inOutQuad),
-      // drifting with the command as it types, the whole of it in frame
+      // drifting with the command as it types, the whole of it in frame, and holding on it, typed, until Enter
       fitKey(T.type.end, cmd, { az: -12, el: 4.5, fov: FOV, margin: [0.05, 0.14], bias: [0, -0.03], roll: -1.4 }, F, ease.inOutQuad),
+      fitKey(T.enter - 0.04, cmd, { az: -11.5, el: 4.5, fov: FOV, margin: [0.06, 0.15], bias: [0, -0.03], roll: -1.35 }, F, ease.linear),
       // Enter on the downbeat: the camera drops onto the new prompt and the answer's row
       fitKey(T.enter + 0.2, this.box(x0 - 50, top(1), cell(ROW.out, 46), top(ROW.prompt) + lh), { az: -11, el: 4, fov: FOV, margin: [0.05, 0.12], bias: [0, 0.02], roll: -1.1 }, F, ease.outCubic),
       // the answer prints and the ✔ is drawn: the camera all but holds, so the pen reads, and leans in a hair as it lands
