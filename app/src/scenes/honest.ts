@@ -112,15 +112,16 @@ export default class Honest extends Scene {
       s.add(th.mesh);
     }
 
-    // neutral light only (lit bone stays out of the bloom): two keys high on either side and in front, each laying a
-    // long highlight down the arms that run square to it, so the light travels along them as they move; and a rim from
-    // behind that draws their edges out of the dark
-    const keyL = new THREE.DirectionalLight(0xffffff, 2.2);
-    keyL.position.set(-1.7, 2.8, 2.1);
-    const keyR = new THREE.DirectionalLight(0xffffff, 1.8);
-    keyR.position.set(2.1, 2.3, 1.7);
-    const rim = new THREE.DirectionalLight(0xffffff, 6);
-    rim.position.set(0.6, 2.2, -3);
+    // neutral light only (lit bone stays out of the bloom), all of it close over the tips, so the light pools where the
+    // search is: the arms fall away into the dark toward their roots, and as they fall they fall out of the light. Two
+    // keys above the floor on either side and a little in front, each laying a highlight along the arms that run square
+    // to it, and a rim behind them that draws their edges out of the dark.
+    const keyL = new THREE.PointLight(0xffffff, 2.4, 0, 2);
+    keyL.position.set(-0.35, 0.95, 0.65);
+    const keyR = new THREE.PointLight(0xffffff, 1.9, 0, 2);
+    keyR.position.set(0.75, 0.9, 0.55);
+    const rim = new THREE.PointLight(0xffffff, 20, 0, 2);
+    rim.position.set(0.2, 1.2, -1.6);
     s.add(keyL, keyR, rim);
 
     // the card: in the plane of the tips (in focus), facing the lens with the slightest turn
