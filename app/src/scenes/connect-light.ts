@@ -99,6 +99,72 @@ export class Tick {
 }
 
 /**
+ * A tall strip softbox's reflection in a panel's glossy face: where the half-vector between the light and the eye lies
+ * square to the face across it (within `across` radians) the face takes a band of neutral light, soft up and down
+ * (`along`), and its 1 px edge glints where the band crosses it. Physical in its motion: as a face turns, the band runs
+ * across it, and a face square to the camera with the light off to its side shows none. `set` takes the light's
+ * direction (world, toward the light), the band's level (a fraction of bone: 0.05 is a gloss) and the edge's.
+ */
+export class Gloss {
+  mesh: THREE.Mesh;
+  private u: Record<string, THREE.IUniform>;
+
+  constructor(private panel: { w: number; h: number }, radius = 16, across = 0.05, along = 0.6) {
+    this.u = {
+      uSize: { value: new THREE.Vector2(panel.w, panel.h) }, uL: { value: new THREE.Vector3(0, 0, 1) },
+      uAcross: { value: across }, uAlong: { value: along }, uLevel: { value: 0 }, uEdge: { value: 0 }, uRadius: { value: radius },
+      uColor: { value: new THREE.Vector3(...LIN.bone) },
+    };
+    const vert = /* glsl */ `
+      varying vec2 vUv; varying vec3 vW, vR, vU, vN;
+      void main() {
+        vUv = uv;
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        vW = w.xyz;
+        mat3 m = mat3(modelMatrix);
+        vR = normalize(m * vec3(1.0, 0.0, 0.0)); vU = normalize(m * vec3(0.0, 1.0, 0.0)); vN = normalize(m * vec3(0.0, 0.0, 1.0));
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`;
+    const frag = /* glsl */ `
+      uniform vec2 uSize; uniform vec3 uL, uColor; uniform float uAcross, uAlong, uLevel, uEdge, uRadius;
+      varying vec2 vUv; varying vec3 vW, vR, vU, vN;
+      float sdRoundRect(vec2 p, vec2 b, float r) { vec2 q = abs(p) - b + r; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }
+      void main() {
+        vec3 V = normalize(cameraPosition - vW), H = normalize(normalize(uL) + V);
+        float hz = max(dot(H, vN), 1e-3);
+        float ax = atan(dot(H, vR) / hz) / uAcross, ay = atan(dot(H, vU) / hz) / uAlong;
+        float band = exp(-ax * ax - ay * ay) * step(0.0, dot(V, vN));
+        vec2 p = vec2(vUv.x, 1.0 - vUv.y) * uSize;
+        float d = sdRoundRect(p - 0.5 * uSize, 0.5 * uSize, uRadius);
+        float aa = max(fwidth(d), 1e-4);
+        float inside = clamp(-d / aa, 0.0, 1.0);
+        float rim = clamp(1.0 - abs(d + 0.75) / (1.2 * aa + 0.6), 0.0, 1.0);
+        float edgeBand = exp(-0.3 * ax * ax - ay * ay) * step(0.0, dot(V, vN));
+        gl_FragColor = vec4(uColor * (uLevel * band * inside + uEdge * edgeBand * rim), 1.0);
+      }`;
+    this.mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(panel.w / 1000, panel.h / 1000),
+      new THREE.ShaderMaterial({ uniforms: this.u, vertexShader: vert, fragmentShader: frag, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }),
+    );
+    this.mesh.position.z = 0.45 / 1000;
+    this.mesh.renderOrder = OVER;
+    this.mesh.frustumCulled = false;
+  }
+
+  set(light: THREE.Vector3, level: number, edge: number) {
+    this.mesh.visible = level > 1e-4 || edge > 1e-4;
+    (this.u.uL!.value as THREE.Vector3).copy(light);
+    this.u.uLevel!.value = level;
+    this.u.uEdge!.value = edge;
+  }
+
+  dispose() {
+    this.mesh.geometry.dispose();
+    (this.mesh.material as THREE.Material).dispose();
+  }
+}
+
+/**
  * A band of neutral light across a panel's face, leaning a little, and a glint on its 1 px edge where the band crosses
  * it. `set` takes the band's centre (px along the face's middle row, from its left end), half-width (px), level (a
  * fraction of bone: 0.04 is a glossy sheen) and the edge glint's level.

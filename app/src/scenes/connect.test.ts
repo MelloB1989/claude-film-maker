@@ -6,7 +6,7 @@ import path from 'node:path';
 import { lineEnd } from '../engine/panels';
 import { VO, norm } from '../engine/vo';
 import { AudioData } from '../engine/audio';
-import { CARDS, FACES, STEP, TICK_DRAW, faceAngle, flipAt, penAt, penHeat, tickLevel, timesOf, turnAt } from './connect-time';
+import { CARDS, FACES, FLIP, STEP, TICK_DRAW, TURN, faceAngle, flipAt, penAt, penHeat, tickLevel, timesOf, turnAt } from './connect-time';
 import { NAME, ROW, SIZE, cardSpecs, copyOf, faceOf, sdkLayout, terminalLines } from './connect-cards';
 import { CHECK } from './connect-light';
 import S from './connect.strings.json';
@@ -135,23 +135,26 @@ describe('connect: the ✔ is drawn on by a pen that lands on the beat', () => {
 });
 
 describe('connect: the carousel turns a face and flips a card in on each beat', () => {
-  test('a face a beat: card k is in front from its beat (the turn lands on it exactly) and settles there', () => {
+  test('a face a beat: card k is in front from its beat (the turn lands on it exactly) and holds there', () => {
     expect(FACES).toBe(CARDS + 1);
     expect(turnAt(T.cards[0]! - 0.3, T.cards)).toBe(0);
     T.cards.forEach((c, i) => {
       expect(turnAt(c, T.cards)).toBeCloseTo((i + 1) * STEP, 2);
-      // settled before the next turn launches (a tenth of a second before its beat)
-      expect(faceAngle(i + 1, turnAt(c + 0.45, T.cards))).toBeCloseTo(0, 3);
+      // still from its beat until the next turn sets off
+      expect(faceAngle(i + 1, turnAt(c + 0.3, T.cards))).toBeCloseTo(0, 9);
+      expect(turnAt(c - TURN.dur, T.cards)).toBeCloseTo(i * STEP, 9);
     });
-    expect(turnAt(T.end, T.cards)).toBeCloseTo(CARDS * STEP, 4);
+    expect(turnAt(T.end, T.cards)).toBeCloseTo(CARDS * STEP, 9);
   });
 
   test('the terminal is face up throughout; a card lies face down until it flips in, face up from its beat', () => {
     for (const t of [T.start, T.tick, T.end]) expect(flipAt(t, 0, T.cards)).toBe(0);
     T.cards.forEach((c, i) => {
-      expect(flipAt(c - 0.4, i + 1, T.cards)).toBe(-Math.PI);
-      expect(flipAt(c, i + 1, T.cards)).toBeCloseTo(0, 2);
-      expect(Math.abs(flipAt(c + 0.6, i + 1, T.cards))).toBeLessThan(0.01);
+      expect(flipAt(c - 0.4, i + 1, T.cards)).toBe(Math.PI);
+      expect(flipAt(c, i + 1, T.cards)).toBe(0);
+      // it turns over only once its turn has it most of the way round
+      expect(flipAt(c - FLIP.dur, i + 1, T.cards)).toBe(Math.PI);
+      expect(TURN.dur).toBeGreaterThan(FLIP.dur);
     });
   });
 

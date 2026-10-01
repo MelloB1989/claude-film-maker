@@ -9,8 +9,8 @@
 // - "Claude Code.": the camera pulls back off the ✔ and the terminal is one face of a carousel.
 // - From the beat on "Code." to the last beat before the cut, six beats: one card flips in on each (L27).
 import type { AudioData } from '../engine/audio';
-import { slam, wordTimes } from '../engine/motion';
-import { clamp, prog } from '../engine/util';
+import { wordTimes } from '../engine/motion';
+import { ease, prog } from '../engine/util';
 import { norm, type VO, type Word } from '../engine/vo';
 
 /** The cards that flip in after the terminal (the MCP config, `gitloom install`, the four SDKs): one a beat. */
@@ -99,35 +99,43 @@ export function tickLevel(t: number, T: Pick<Times, 'tick' | 'cards'>): number {
 }
 
 /** The ✔'s light (glow levels): the stroke behind the pen as it draws, the flare as it lands and its decay (s), at rest. */
-export const TICK_LIGHT = { drawing: 2.1, flare: 1.5, decay: 0.2, rest: 1.25 };
+export const TICK_LIGHT = { drawing: 2.1, flare: 1.1, decay: 0.16, rest: 1.1 };
 
 // ------------------------------------------------------------------------------------------------ the carousel
 
-/** The carousel's spring: a turn snaps in about a tenth of a second, lands on its beat, overshoots 8% and settles. */
-export const TURN = { freq: 4.2, damping: 0.62 };
-/** A card's flip: the same snap, damped a little more (a half turn's overshoot would wobble). */
-export const FLIP = { freq: 4.2, damping: 0.74 };
+/**
+ * The carousel's turn on each card's beat: it whips round a face and decelerates into the beat (outQuart over `dur`),
+ * so a card lands still and sharp on its beat and holds there for the rest of it. (A spring landing on the beat would
+ * still be moving fast on it: a face a beat is a long way to turn, and every landing would be a smear.)
+ */
+export const TURN = { dur: 0.26 };
+/**
+ * A card's flip: it starts once the turn has it nearly round (its back to the camera still), turns over through its
+ * middle (inOutCubic, fastest edge-on) and lands face up on the beat with the turn.
+ */
+export const FLIP = { dur: 0.2 };
+
+/** A turn's progress (0..1) at t, landing on `hit`. */
+export const turnStep = (t: number, hit: number) => prog(t, hit - TURN.dur, hit, ease.outQuart);
+/** A flip's progress (0..1) at t, landing on `hit`. */
+export const flipStep = (t: number, hit: number) => prog(t, hit - FLIP.dur, hit, ease.inOutCubic);
 
 /** The carousel's turn at t (radians): a face's turn on each card's beat, so card k (1-based) is in front from its beat. */
 export function turnAt(t: number, cards: readonly number[]): number {
   let a = 0;
-  for (const c of cards) a += slam(t, c, TURN);
+  for (const c of cards) a += turnStep(t, c);
   return a * STEP;
 }
 
 /**
  * Face k's flip at t (radians about its own upright axis; 0: face up). The terminal (face 0) is face up throughout; a
- * card lies face down (−π: its back to the world) until it flips in with its turn, landing face up on its beat.
+ * card lies face down (π: its back to the world) until it flips in as its turn ends, landing face up on its beat. It
+ * turns the way the ring does, so it comes round showing its back and shows its face only as it lands.
  */
 export function flipAt(t: number, k: number, cards: readonly number[]): number {
   if (k === 0) return 0;
-  return -Math.PI * (1 - slam(t, cards[k - 1]!, FLIP));
+  return Math.PI * (1 - flipStep(t, cards[k - 1]!));
 }
 
 /** Face k's place round the carousel at turn `turn` (radians; 0: in front, + to the right as the camera sees it). */
 export const faceAngle = (k: number, turn: number) => k * STEP - turn;
-
-/** How far through its landing card k is (0..1): the light's sweep across it as it comes round into the front. */
-export function landing(t: number, at: number): number {
-  return clamp(prog(t, at - 0.12, at + 0.3));
-}
