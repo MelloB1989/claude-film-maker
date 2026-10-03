@@ -100,3 +100,20 @@ def test_ig4x5_is_1080x1350_on_ink(tmp_path):
 def test_the_snap_cue_is_b01s_snap_frame():
     cue_frame, plate_frame = snap_frames()
     assert cue_frame == plate_frame == 161
+
+
+def test_lag_against_finds_a_late_audio_and_the_snap_hit(tmp_path):
+    import soundfile as sf
+    from gitloom_film.deliver import lag_against, onset_near
+    sr = 48000
+    rng = np.random.default_rng(3)
+    x = (rng.standard_normal(sr * 2) * 0.1).astype(np.float32)
+    x[int(1.0 * sr):int(1.01 * sr)] += 0.8  # a hit at 1.0 s
+    ref = tmp_path / "ref.wav"
+    sf.write(ref, np.stack([x, x], 1), sr)
+    late = tmp_path / "late.wav"
+    y = np.concatenate([np.zeros(int(0.05 * sr), np.float32), x])[:len(x)]
+    sf.write(late, np.stack([y, y], 1), sr)
+    assert abs(lag_against(late, ref, 1.0) - 0.05) < 1e-3
+    assert abs(lag_against(ref, ref, 1.0)) < 1e-4
+    assert abs(onset_near(ref, 1.0) - 1.0) <= 0.002

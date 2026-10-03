@@ -110,13 +110,14 @@ def loudness(path: Path) -> tuple[float, float]:
     return i, tp
 
 
-def decode_audio(path: Path, t0: float, t1: float, sr: int = 48000) -> np.ndarray:
-    """Mono abs-max of the decoded audio over [t0, t1) (an output filter trim, so the decoder's own timing stands)."""
+def decode_audio(path: Path, t0: float, t1: float, sr: int = 48000, signed: bool = False) -> np.ndarray:
+    """The decoded audio over [t0, t1), mono: abs-max of the channels, or with signed their mean (an output filter
+    trim, so the decoder's own timing stands)."""
     r = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-map", "0:a:0", "-af",
                         f"atrim=start={t0}:end={t1}", "-f", "f32le", "-ac", "2", "-ar", str(sr), "-"],
                        capture_output=True, check=True)
     x = np.frombuffer(r.stdout, np.float32).reshape(-1, 2)
-    return np.abs(x).max(1)
+    return x.mean(1) if signed else np.abs(x).max(1)
 
 
 def onset_near(path: Path, t: float, window: float = 0.15, hop: float = 0.002) -> float:
@@ -129,6 +130,16 @@ def onset_near(path: Path, t: float, window: float = 0.15, hop: float = 0.002) -
     return t - window + j * hop
 
 
+def lag_against(path: Path, ref: Path, t: float, window: float = 0.5, search: float = 0.1) -> float:
+    """How late (s) path's audio plays against ref's around t: the cross-correlation peak of the two, ±search."""
+    sr = 48000
+    a = decode_audio(path, t - window - search, t + window + search, sr, signed=True)
+    b = decode_audio(ref, t - window, t + window, sr, signed=True)
+    n = int(search * sr)
+    scores = [float(np.dot(a[k:k + len(b)], b)) for k in range(0, 2 * n + 1)]
+    return (int(np.argmax(scores)) - n) / sr
+
+
 def snap_frames() -> tuple[int, int]:
     """(the first frame at or after thread_snap's cue, B01's first frame with the thread in two)."""
     cue = next(c for c in json.loads((DATA / "sfx.json").read_text())["cues"] if c["sound"] == "thread_snap")
@@ -138,8 +149,11 @@ def snap_frames() -> tuple[int, int]:
     return math.ceil(cue["t"] * FPS - 1e-6), plate
 
 
-def check(path: Path, kind: str, expect_frames: int = 2808, expect_seconds: float = 93.6) -> list[str]:
-    """Problems with one output (an empty list when it is right)."""
+def check(path: Path, kind: str, expect_frames: int = 2808, expect_seconds: float = 93.6,
+          stems: Path = AUDIO / "mix") -> list[str]:
+    """Problems with one output (an empty list when it is right). For the film, the snap: the thread_snap hit is found
+    in the SFX stem (in the mix her "zero." onset masks it), and the output's audio is lined up against the mix there;
+    the hit as the output plays it must land within a frame of the cue."""
     if not path.exists():
         return [f"{path.name}: missing"]
     p = probe(path)
@@ -181,7 +195,7 @@ def check(path: Path, kind: str, expect_frames: int = 2808, expect_seconds: floa
         if cue_f != plate_f:
             probs.append(f"snap: thread_snap's cue frame {cue_f} != B01's snap frame {plate_f}")
         cue_t = next(c["t"] for c in json.loads((DATA / "sfx.json").read_text())["cues"] if c["sound"] == "thread_snap")
-        hit = onset_near(path, cue_t)
+        hit = onset_near(stems / "sfx.wav", cue_t) + lag_against(path, stems / "mix.wav", cue_t)
         if abs(hit - cue_t) > tol:
             probs.append(f"snap: the audio's hit at {hit:.3f} s, cue at {cue_t:.3f} s (> 1 frame)")
     return [f"{path.name}: {x}" for x in probs]
