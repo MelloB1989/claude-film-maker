@@ -94,14 +94,14 @@ def clicks_every(period, peak, seconds):
 
 
 def synth3(tmp, seconds=10):
-    """A voice at a spoken level (−18 dBFS RMS while on, where her processed voice's envelope sits mid-phrase), on
+    """A voice at a spoken level (−17 dBFS RMS while on, where her processed voice's envelope sits mid-phrase), on
     1 s in every 2,
     a noise score at about the score's level, and light effects clicks."""
     t = np.arange(seconds * SR) / SR
     vo = np.zeros_like(t, dtype=np.float32)
     for k in range(0, seconds, 2):
         on = (t >= k) & (t < k + 1)
-        vo[on] = 0.178 * np.sin(2 * np.pi * 1000 * t[on])
+        vo[on] = 0.2 * np.sin(2 * np.pi * 1000 * t[on])
     music = (0.1 * np.random.default_rng(1).standard_normal(len(t))).astype(np.float32)
     write_wav(tmp / "vo.wav", vo)
     write_wav(tmp / "music.wav", np.stack([music, music], axis=1))
@@ -239,4 +239,17 @@ def test_review_flags_effects_that_crowd_a_word(tmp_path):
     a, b = r["scenes"]
     assert [w["w"] for w in a["sfx_near_voice"]] == ["two"] and b["sfx_near_voice"] == []
     assert r["flagged_words"] == 1 and r["sfx_peaks"][0]["scene"] == "a" and r["sfx_peaks"][0]["cues"] == ["hiss@4.200"]
+    assert a["music_to_vo_median_lu"] < 0 and a["bed_I"] < a["I"]  # the voice over the ducked score
     assert -30 < a["I"] < 0 and (tmp_path / "mix.png").stat().st_size > 10_000
+
+
+def test_the_music_duck_holds_through_a_breath(tmp_path):
+    """Between two words a 0.3 s breath must not let the score swell back (pumping); after the line it comes back."""
+    from gitloom_film.mix import MUSIC_DUCK, sidechain_gain
+    n = 5 * SR
+    t = np.arange(n) / SR
+    vo = np.where(((t >= 1.0) & (t < 2.0)) | ((t >= 2.3) & (t < 3.0)), 0.2 * np.sin(2 * np.pi * 1000 * t), 0.0)
+    g = 20 * np.log10(sidechain_gain(vo, n, SR, **MUSIC_DUCK))
+    assert g[int(1.5 * SR)] <= -6.0
+    assert g[int(2.0 * SR):int(2.3 * SR)].max() <= -5.0  # held through the breath
+    assert g[int(4.5 * SR)] >= -1.0  # back up after the line

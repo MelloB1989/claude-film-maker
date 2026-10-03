@@ -6016,7 +6016,7 @@
    "sound": "sub_impact",
    "t": 88.8,
    "anchor": "weave:lock",
-   "gain": -8,
+   "gain": -18,
    "pan": 0,
    "scene": "weave",
    "prompt": "one deep cinematic sub boom impact, a warm low thud hit with a short tail, restrained, close-mic, dry, no music, no voice",

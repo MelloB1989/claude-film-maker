@@ -79,14 +79,18 @@ def mix(vo: Path, music: Path, out: Path, sections: list[dict] | None = None) ->
 
 # ---------------------------------------------------------------- the final mix with stems (Plan 3)
 
-MUSIC_GAIN_DB = -2.0  # the score into the mix, as Plan 1's premix
+# The score into the mix: 2 dB under Plan 1's premix (−2). With her processed voice and the duck, Plan 1's level left
+# the score only ~4 LU (K-weighted) under her words in repo and proof; at −4 it sits ~6 LU or more under her in every
+# scene, while between her lines the arc plays as drawn (the master gain barely moves: she carries the loudness).
+MUSIC_GAIN_DB = -4.0
 # Sidechains keyed by her voice. The music ducks 6–9 dB under her (Plan 1's 4:1 with a 20 ms attack and a 350 ms
-# release, here in true milliseconds, so the score breathes back between phrases instead of pumping between words);
+# release, here in true milliseconds, with a 250 ms hold, so the score breathes back between phrases instead of
+# pumping in the breaths between her words);
 # its depth is capped so the score never drops out. The effects duck lightly (2:1, about 3 dB): they stay up front.
-# Thresholds were set on her processed voice, whose 1 ms-power envelope sits near −18 dBFS mid-phrase: the music's
-# median duck while she speaks is 7.6 dB (a quarter of the time at the 9 dB cap), the effects' 3.1 dB.
-MUSIC_DUCK = {"thresh_db": -28.0, "ratio": 4.0, "attack_ms": 20.0, "release_ms": 350.0, "knee_db": 9.0,
-              "range_db": 9.0}
+# Thresholds were set on her processed voice, whose 1 ms-power envelope (held through breaths) sits near −16 dBFS mid-phrase: the music's
+# median duck while she speaks is 7.6 dB (11 % of it at the 9 dB cap), the effects' 3.2 dB.
+MUSIC_DUCK = {"thresh_db": -26.0, "ratio": 4.0, "attack_ms": 20.0, "release_ms": 350.0, "knee_db": 9.0,
+              "range_db": 9.0, "hold_ms": 250.0}
 SFX_DUCK = {"thresh_db": -24.0, "ratio": 2.0, "attack_ms": 20.0, "release_ms": 350.0, "knee_db": 9.0,
             "range_db": 4.0}
 DET_BLOCK = 48  # 1 ms detector blocks at 48 kHz
@@ -102,7 +106,7 @@ def _stereo(y: np.ndarray, n: int) -> np.ndarray:
 
 
 def sidechain_gain(key: np.ndarray, n: int, sr: int, thresh_db: float, ratio: float, attack_ms: float,
-                   release_ms: float, knee_db: float, range_db: float) -> np.ndarray:
+                   release_ms: float, knee_db: float, range_db: float, hold_ms: float = 0.0) -> np.ndarray:
     """Per-sample linear gain from a feed-forward compressor keyed by `key` (mono): the key's power in 1 ms blocks,
     smoothed with an attack/release one-pole, its RMS level through a soft-knee gain computer, the reduction capped at
     range_db. The gain is causal (each block's gain reaches the samples after it) and moves linearly in between."""
@@ -116,9 +120,15 @@ def sidechain_gain(key: np.ndarray, n: int, sr: int, thresh_db: float, ratio: fl
     aa, ar = math.exp(-1 / (attack_ms * 1e-3 * bsr)), math.exp(-1 / (release_ms * 1e-3 * bsr))
     env = np.empty(nb)
     e = 0.0
+    hold = int(round(hold_ms * 1e-3 * bsr))
+    since = hold + 1
     for i, p in enumerate(pw.tolist()):
-        c = aa if p > e else ar
-        e = c * e + (1 - c) * p
+        if p > e:
+            e, since = aa * e + (1 - aa) * p, 0
+        else:
+            since += 1
+            if since > hold:  # a breath shorter than the hold keeps the duck where the word left it
+                e = ar * e + (1 - ar) * p
         env[i] = e
     over = 10 * np.log10(env + 1e-20) - thresh_db
     slope = 1 - 1 / ratio
@@ -211,7 +221,7 @@ def mix_stems(vo: Path, music: Path, sfx: Path | None, out_dir: Path, sections: 
             af = f"alimiter=limit={10 ** (ceiling / 20):.4f}:attack=5:release=50:level=0:latency=1"
             _ff(["-i", str(src), "-af", af, "-ar", "48000", "-c:a", "pcm_s24le", str(out_dir / "mix.wav")])
             r = measure(out_dir / "mix.wav")
-            if abs(r["I"] - TARGET_I) <= 0.2 and r["TP"] <= TP_MAX:
+            if abs(r["I"] - TARGET_I) <= 0.05 and r["TP"] <= TP_MAX:
                 break
             gain += TARGET_I - r["I"]
             if r["TP"] > TP_MAX:  # a sample-peak limiter misses intersample overs on hard transients: lower it
@@ -244,14 +254,24 @@ def _rms_db(x: np.ndarray) -> float:
     return float(10 * np.log10(np.mean(np.asarray(x, np.float64) ** 2) + 1e-20))
 
 
-def review(out_dir: Path, vo_data: dict, sheet: dict | None, png: Path | None = None) -> dict:
+def _kweight(y: np.ndarray, sr: int) -> np.ndarray:
+    from .vochain import _K1, _K2, _filt
+    assert sr == 48000, "the K-weighting coefficients are for 48 kHz"
+    y = np.asarray(y, np.float64)
+    return _filt(_filt(y.mean(axis=1) if y.ndim == 2 else y, _K1), _K2)
+
+
+def review(out_dir: Path, vo_data: dict, sheet: dict | None, png: Path | None = None,
+           sections: list[dict] | None = None) -> dict:
     """Per scene: the mix's integrated loudness and sample peak, and the effects against her voice word by word
-    (stem RMS over each word; a word with the effects within SFX_NEAR_DB of the voice is flagged). Then the loudest
-    effects moments (100 ms windows, at least 1 s apart) with the cues under them, and the honest → proof contrast."""
+    (stem RMS over each word; a word with the effects within SFX_NEAR_DB of the voice is flagged) and the score
+    against her words as loudness (K-weighted, LU). Then the loudest
+    effects moments (100 ms windows, at least 1 s apart); bed_I is the score and effects without her with the cues under them, and the honest → proof contrast."""
     out_dir = Path(out_dir)
     mix, sr = read_wav(out_dir / "mix.wav", mono=False)
     st = {k: read_wav(out_dir / f"{k}.wav", mono=False)[0] for k in ("vo", "music", "sfx")}
     cues = (sheet or {}).get("cues", [])
+    kw = {k: _kweight(st[k], sr) for k in ("vo", "music")}  # her words against the score, as loudness
     scenes = []
     with tempfile.TemporaryDirectory() as td:
         for sc in vo_data["scenes"]:
@@ -265,13 +285,17 @@ def review(out_dir: Path, vo_data: dict, sheet: dict | None, png: Path | None = 
                 for i, w in enumerate(ln["words"]):
                     wa, wb = int(w["start"] * sr), int(w["end"] * sr)
                     v, f = _rms_db(st["vo"][wa:wb]), _rms_db(st["sfx"][wa:wb])
-                    words.append({"line": ln["id"], "i": i, "w": w["w"], "t": w["start"], "sfx_to_vo_db": f - v})
+                    words.append({"line": ln["id"], "i": i, "w": w["w"], "t": w["start"], "sfx_to_vo_db": f - v,
+                                  "music_to_vo_lu": _rms_db(kw["music"][wa:wb]) - _rms_db(kw["vo"][wa:wb])})
             near = [w for w in words if w["sfx_to_vo_db"] > -SFX_NEAR_DB]
+            bed = Path(td) / "bed.wav"
+            _float_wav(bed, st["music"][a:b] + st["sfx"][a:b], sr)
             scenes.append({"id": sc["id"], "start": sc["start"], "end": sc["end"], **{
-                "I": measure(seg)["I"], "peak_dbfs": float(20 * np.log10(np.abs(mix[a:b]).max() + 1e-20)),
+                "I": measure(seg)["I"], "bed_I": measure(bed)["I"], "peak_dbfs": float(20 * np.log10(np.abs(mix[a:b]).max() + 1e-20)),
                 "sfx_rms_db": _rms_db(st["sfx"][a:b]), "music_rms_db": _rms_db(st["music"][a:b]),
                 "vo_rms_db": _rms_db(st["vo"][a:b]),
                 "sfx_to_vo_median_db": float(np.median([w["sfx_to_vo_db"] for w in words])) if words else None,
+                "music_to_vo_median_lu": float(np.median([w["music_to_vo_lu"] for w in words])) if words else None,
                 "words": len(words), "sfx_near_voice": near,
                 "cues": sum(1 for c in cues if sc["start"] <= c["t"] < sc["end"])}})
     win = int(0.1 * sr)
@@ -290,7 +314,14 @@ def review(out_dir: Path, vo_data: dict, sheet: dict | None, png: Path | None = 
                       "sfx_to_mix_db": float(blk[i] - mixb[i]), "cues": under})
         if len(peaks) == 12:
             break
-    res = {"scenes": scenes, "sfx_peaks": peaks, "flagged_words": sum(len(s["sfx_near_voice"]) for s in scenes)}
+    arc = []
+    with tempfile.TemporaryDirectory() as td:
+        for sec in sections or []:
+            a, b = int(sec["start"] * sr), int(sec["end"] * sr)
+            bed = Path(td) / "bed.wav"
+            _float_wav(bed, st["music"][a:b] + st["sfx"][a:b], sr)
+            arc.append({"name": sec["name"], "start": sec["start"], "end": sec["end"], "bed_I": measure(bed)["I"]})
+    res = {"scenes": scenes, "sections": arc, "sfx_peaks": peaks, "flagged_words": sum(len(s["sfx_near_voice"]) for s in scenes)}
     if png is not None:
         _plot(st, vo_data, sr, png)
     return res
@@ -352,7 +383,8 @@ def main(argv=None):
     out = AUDIO / "mix"
     m = mix_stems(vo, music, sfx, out, sections=sections, ducks=(sheet or {}).get("ducks"))
     vo_data = json.loads((DATA / "vo.json").read_text())
-    r = review(out, vo_data, sheet, png=OUT / "review" / "c5" / "mix.png")
+    r = review(out, vo_data, sheet, png=OUT / "review" / "c5" / "mix.png",
+               sections=json.loads((DATA / "audio.json").read_text())["sections"])
     report = {"master": m, **r}
     (OUT / "review" / "c5").mkdir(parents=True, exist_ok=True)
     (OUT / "review" / "c5" / "mix.json").write_text(json.dumps(report, indent=1))
@@ -363,11 +395,16 @@ def main(argv=None):
           f"music duck {m['duck_db']:.1f} dB · sfx duck {m['sfx_duck_db']:.1f} dB · "
           f"stem residual {m['stem_residual_db']:.0f} dB · limiter ≤ {m['limiter_max_db']:.1f} dB "
           f"({m['limiter_busy_pct']:.1f}% of the film)")
-    print("scene        LUFS   peak   sfx−vo (median, per word)   flagged")
+    print("scene        LUFS  bed LUFS  peak   music−vo (LU)  sfx−vo (dB), medians over her words   sfx within 6 dB of a word")
     for sc in r["scenes"]:
-        med = "—" if sc["sfx_to_vo_median_db"] is None else f"{sc['sfx_to_vo_median_db']:6.1f} dB"
+        fmt = lambda k: "     —" if sc[k] is None else f"{sc[k]:6.1f}"  # noqa: E731
         fl = ", ".join(f"{w['line']}:{w['w']} ({w['sfx_to_vo_db']:+.1f})" for w in sc["sfx_near_voice"])
-        print(f"{sc['id']:<11} {sc['I']:6.1f} {sc['peak_dbfs']:6.1f}   {med:>10}               {fl}")
+        print(f"{sc['id']:<11} {sc['I']:6.1f}  {sc['bed_I']:6.1f}  {sc['peak_dbfs']:6.1f}   {fmt('music_to_vo_median_lu')}   "
+              f"       {fmt('sfx_to_vo_median_db')}                                {fl}")
+    print("the arc, score and effects without her (LUFS): " +
+          " · ".join(f"{a['name']} {a['bed_I']:.1f}" for a in r["sections"]))
+    print("loudest effects: " + " · ".join(f"{p['t']:.2f} {p['scene']} ({p['sfx_to_mix_db']:+.1f} dB re mix)"
+                                             for p in r["sfx_peaks"][:5]))
     print("out/review/c5/mix.json · out/review/c5/mix.png")
     bad = [k for k, ok in checks.items() if not ok]
     if bad:

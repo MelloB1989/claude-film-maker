@@ -13,7 +13,9 @@ const weave: SceneCues = (c) => {
   arcArrivals(T).forEach((t, i) => out.push(cue('weave_swish', event(c, `arc${i}`, t), { gain: -2 - i, pan: [-0.3, 0.3, -0.15][i] ?? 0 })));
   const lock = event(c, 'lock', lockFrameTime(T));
   out.push(cue('riser', lock));
-  out.push(cue('sub_impact', lock));
+  // the lock lands on her "forget.": at the palette's −8 the impact sat 3.6 dB over the word (Task 9's mix review),
+  // so it is trimmed 10 dB to sit 6 dB under her; its tail still blooms as the word ends
+  out.push(cue('sub_impact', lock, { gain: -10 }));
   const n = Array.from(WORDMARK).length;
   out.push(...typing('weave:wordmark', (t) => wordmarkShown(t, T.settle, n), T.settle, T.settle + 0.1 + n / 30, 'weave.wordmark').map((k) => ({ ...k, gain: (k.gain ?? 0) - 4 })));
   return out;
