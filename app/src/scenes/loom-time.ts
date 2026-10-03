@@ -60,3 +60,33 @@ export function reachTime(track: Track, after: number): number {
   }
   throw new Error('loom: the tracked shuttle never reaches the skills lane');
 }
+
+/** A frame-to-frame move of the labels (px a frame, averaged over the four) fast enough to be one of the tour's snaps. */
+const SNAP_PX = 40;
+
+/**
+ * The way the camera travelled on the tour's last snap (a unit vector, logical px axes, +y down): the tracked labels'
+ * mean frame-to-frame move over the frames of the last snap, reversed (the picture moves the other way). loom → diff
+ * whips on in that direction. Throws if the track has no snap.
+ */
+export function lastSnapDir(track: Track): [number, number] {
+  const fps = 30, at = (k: string, f: number) => track.at(`lbl_${k}`, f / fps);
+  const step = (f: number) => {
+    let dx = 0, dy = 0;
+    for (const k of TIERS) {
+      const a = at(k, f - 1), b = at(k, f);
+      dx += (b.x - a.x) / TIERS.length;
+      dy += (b.y - a.y) / TIERS.length;
+    }
+    return { dx, dy };
+  };
+  let sx = 0, sy = 0, inSnap = false;
+  for (let f = track.f0 + track.frames - 1; f > track.f0; f--) {
+    const s = step(f), fast = Math.hypot(s.dx, s.dy) > SNAP_PX;
+    if (fast) (sx += s.dx), (sy += s.dy), (inSnap = true);
+    else if (inSnap) break;
+  }
+  const d = Math.hypot(sx, sy);
+  if (!(d > 0)) throw new Error('loom: the tracked labels never snap');
+  return [-sx / d, -sy / d];
+}

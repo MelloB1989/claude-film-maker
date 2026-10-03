@@ -119,6 +119,12 @@ export function editorSpec(T: Pick<Times, 'strike' | 'conf' | 'add' | 'addEnd'>)
   return { kind: 'editor' as const, title: PATH, w: EDIT.w, h: EDIT.h, lang: 'md' as const, gutter: 'numbers' as const, size: SIZE, lines: fileLines(T) };
 }
 
+/**
+ * The landing out of loom's whip (loom → diff, camera right): the camera arrives still travelling right, the file
+ * swung a little and standing right of its place, and settles onto the first framing as the whip's tail dies.
+ */
+export const ARRIVE = { az: -6, bias: 0.16, settle: 0.3 };
+
 /** The romance's close-up, the camera's last stop: the two lines, the old one's ember. `top(i)`: row i's top, every row open. */
 function closeUp(t: number, top: (i: number) => number): CamKey {
   const lh = G.lineH, xn = G.textX + len(NEOVIM) * G.adv;
@@ -134,8 +140,10 @@ export function cameraKeys(T: Times, top: (i: number, d: number) => number): Cam
   const H0 = headX(1), H1 = headX(0);
   const first = { az: -25, el: 8, fov: FOV, margin: [0.1, 0.12] as [number, number], bias: [-0.04, 0] as [number, number], roll: -2 };
   return [
-    // the cut: the top of the file, close, the caret on line 1 under the title bar
-    fitKey(T.start, boxAt(0, 0, 600, top(6, old)), first, F),
+    // the cut: loom's whip lands here, the camera still travelling right, swung and the file right of its place ...
+    fitKey(T.start, boxAt(0, 0, 600, top(6, old)), { ...first, az: first.az + ARRIVE.az, bias: [first.bias[0] + ARRIVE.bias, 0] }, F),
+    // ... braking onto the top of the file, close, the caret on line 1 under the title bar
+    fitKey(T.start + ARRIVE.settle, boxAt(0, 0, 600, top(6, old)), first, F, ease.outCubic),
     // craning down the file with the caret, landing with it on `Uses VS Code.`
     fitKey(T.land + 0.12, boxAt(0, top(3, old), 600, top(ROW.old, old) + 2.2 * lh), { az: -22, el: 5, fov: FOV, margin: [0.1, 0.12], bias: [-0.04, 0.02], roll: -1.6 }, F, ease.inOutCubic),
     // a slow push toward the line through "mind?"
