@@ -45,6 +45,7 @@ FADE_OUT_S = 0.020
 SEAM_S = 0.050   # a loop's equal-power seam crossfade
 TAIL_S = 0.030   # kept after the last audible frame
 SILENT_DBFS = -60.0
+NORM_DBFS = -1.0  # every written take and slice peaks here; palette gains are relative to it (QC is pre-normalisation)
 
 
 # ---------------------------------------------------------------- palette and requests
@@ -417,13 +418,22 @@ def _fetch(client, palette: dict, req: dict, formats: list[str]):
     raise AssertionError("unreachable")
 
 
+def normalise(y: np.ndarray, peak_dbfs: float = NORM_DBFS) -> tuple[np.ndarray, float]:
+    pk = float(np.abs(y).max()) if len(y) else 0.0
+    if pk <= 0:
+        return y, 0.0
+    g = peak_dbfs - 20 * math.log10(pk)
+    return (y * np.float32(10 ** (g / 20))).astype(np.float32), round(g, 3)
+
+
 def _record(lib: Path, sid: str, v: int, key: str, req: dict, seed: int, fmt: str, cost: int, measured: bool,
             request_id: str, y: np.ndarray, hit: float | None, q: dict, suffix: str = "", parent: str | None = None):
     wav = lib / sid.split("/")[0] / f"{key[:12]}{suffix}.wav"
+    y, norm_db = normalise(y)
     write_wav(wav, y)
     return {"key": key, "request": {k: x for k, x in req.items() if k != "output_format"}, "seed": seed,
             "output_format": fmt, "cost": cost, "cost_measured": measured, "request_id": request_id,
-            "wav": str(wav.relative_to(lib)), "sha256": _sha(wav), "qc": q,
+            "wav": str(wav.relative_to(lib)), "sha256": _sha(wav), "qc": q, "norm_db": norm_db,
             "hit_s": None if hit is None else round(hit, 6), "parent": parent,
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
 
@@ -635,7 +645,8 @@ def sheet(palette: dict, manifest: dict, lib: Path = LIB, out_dir: Path = OUT / 
                 ax_s.set_title(f"{sid}/{v}{star}  [{spec.get('align') or 'loop'}]  "
                                f"pk {q['peak_dbfs']} dB  {q['lufs']} LUFS  dur {q['dur_s']}s  "
                                f"sil {q['silence_ratio']}  cen {q['centroid_hz']:.0f} Hz  att {q['attack_ms']:.0f} ms  "
-                               f"rough {q['roughness_db']}{'  CLIP' if q['clipped'] else ''}", fontsize=8)
+                               f"rough {q['roughness_db']}  norm {e.get('norm_db', 0):+.0f} dB{'  CLIP' if q['clipped'] else ''}",
+                               fontsize=8)
                 t = np.arange(len(y)) / sr
                 ax_w.plot(t, y, lw=0.4, color="#333")
                 ax_w.set_xlim(0, len(y) / sr)

@@ -469,3 +469,18 @@ def test_a_take_with_fewer_hits_than_asked_is_still_cached(tmp_path):
     assert not plan(pal, man, tmp_path / "lib")
     run(pal, client, tmp_path)
     assert client.calls == 1
+
+
+def test_every_written_take_peaks_at_minus_1_dbfs_and_records_the_normalisation(tmp_path):
+    from gitloom_film.wav import read_wav
+    class Quiet(CountingClient):
+        def sound(self, *a, **kw):
+            r = super().sound(*a, **kw)
+            return SoundResult(pcm16(pcm16_to_float(r.audio) * 0.05), r.output_format, r.cost, r.request_id)
+    from gitloom_film.wav import pcm16_to_float
+    run(palette_with("glass_clink", variants=1), Quiet(), tmp_path)
+    e = json.loads((tmp_path / "manifest.json").read_text())["variants"]["glass_clink/0"]
+    y, _ = read_wav(tmp_path / "lib" / e["wav"])
+    assert 20 * np.log10(np.abs(y).max()) == pytest.approx(-1.0, abs=0.05)
+    assert e["qc"]["peak_dbfs"] == pytest.approx(-32.0, abs=0.3)          # QC is the take as generated
+    assert e["norm_db"] == pytest.approx(31.0, abs=0.3)
