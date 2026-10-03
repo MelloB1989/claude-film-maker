@@ -404,3 +404,17 @@ def test_reprocess_rebuilds_every_take_from_its_raw_without_a_call(tmp_path):
     man = json.loads((tmp_path / "manifest.json").read_text())
     assert n == 2 and client.calls == 2 and not plan(pal, man, tmp_path / "lib")
     assert man["picks"]["glass_clink"]["gain"] == -11.0
+
+
+def test_a_slice_ends_before_the_next_hit_even_one_not_chosen():
+    rng = np.random.default_rng(11)
+    y = rng.normal(0, 1e-5, 3 * SR).astype(np.float32)
+    starts = [0.2, 0.5, 0.8, 1.1, 1.4, 1.7]
+    amps = [1.0, 0.3, 0.9, 0.3, 0.8, 0.3]                                # choose 3 of 6: the loud ones
+    for s, amp in zip(starts, amps):
+        i, n = int(s * SR), int(0.08 * SR)
+        y[i:i + n] += (amp * 0.5 * rng.normal(0, 1, n) * np.exp(-np.arange(n) / (0.01 * SR))).astype(np.float32)
+    parts = slice_hits(y, SR, 3)
+    assert len(parts) == 3
+    for p in parts:
+        assert len(p) < 0.3 * SR                                        # never reaches the quiet hit 0.3 s later

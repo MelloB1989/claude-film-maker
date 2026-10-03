@@ -249,8 +249,10 @@ def process(y: np.ndarray, sr: int, spec: dict) -> tuple[np.ndarray, float | Non
 
 
 def slice_hits(y: np.ndarray, sr: int, n: int, min_gap: float = 0.08) -> list[np.ndarray]:
-    """The n strongest hits at least min_gap apart, in time order, each cut up to the next and trimmed like a
-    one-shot (its onset at 5 ms, faded)."""
+    """The n strongest hits at least min_gap apart, in time order, each trimmed like a one-shot (its onset at 5 ms,
+    faded). Every distinct hit is a boundary, chosen or not, so a slice ends before the next hit of any size. A
+    candidate 30 dB under the loudest is not a hit; a bump in a tail (rising under 3 dB above its valley) is not a
+    boundary."""
     y = np.asarray(y, dtype=np.float32)
     a = np.abs(y.astype(np.float64))
     hop = max(1, int(0.001 * sr))
@@ -259,13 +261,13 @@ def slice_hits(y: np.ndarray, sr: int, n: int, min_gap: float = 0.08) -> list[np
     peaks, props = find_peaks(env, distance=max(1, int(min_gap * sr / hop)), prominence=0)
     if not len(peaks):
         return []
-    loud = env[peaks] >= env[peaks].max() * 10 ** (-30 / 20)  # a candidate 30 dB under the loudest is not a hit
-    peaks, prom = peaks[loud], props["prominences"][loud]
-    best = sorted(peaks[np.argsort(prom)[::-1][:n]])
-    onsets = []
+    prom = props["prominences"]
+    keep = (env[peaks] >= env[peaks].max() * 10 ** (-30 / 20)) & (prom >= 0.3 * env[peaks])
+    peaks, prom = peaks[keep], prom[keep]
+    chosen = set(peaks[np.argsort(prom)[::-1][:n]].tolist())
     w = max(1, int(0.0005 * sr))
-    floor = 0  # a hit's onset never walks back past the previous hit's peak (a quiet hit inside a loud tail)
-    for p in best:
+    onsets, floor = [], 0  # a hit's onset never walks back past the previous hit's peak
+    for p in peaks:  # time order
         lo_i, hi_i = p * hop, min(len(a), (p + 1) * hop)
         pk = lo_i + int(np.argmax(a[lo_i:hi_i]))
         hi = 0.1 * a[pk]
@@ -278,7 +280,9 @@ def slice_hits(y: np.ndarray, sr: int, n: int, min_gap: float = 0.08) -> list[np
     out = []
     pre = int(round(PRE_S * sr))
     min_len = int(0.02 * sr)
-    for i, o in enumerate(onsets):
+    for i, (p, o) in enumerate(zip(peaks, onsets)):
+        if int(p) not in chosen:
+            continue
         end = onsets[i + 1] - pre if i + 1 < len(onsets) else len(y)
         seg = y[:max(end, min(len(y), o + min_len))]
         out.append(_trim_onset(seg, sr, o))
