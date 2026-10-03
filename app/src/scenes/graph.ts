@@ -32,7 +32,7 @@ import { LIN } from '../engine/palette';
 import { LOOK, glow } from '../engine/look';
 import { slam } from '../engine/motion';
 import { cocPx } from '../engine/dof';
-import { FPS, clamp, ease, frameIdx, keys, lerp, prog, pulse } from '../engine/util';
+import { FPS, clamp, ease, frameIdx, keys, lerp, prog, pulse, smoothstep } from '../engine/util';
 import { fitKey } from './diff-fx';
 import { timesOf, type Times } from './graph-time';
 import {
@@ -118,8 +118,6 @@ export default class Graph extends Scene {
   private T!: Times;
   private stage!: Stage;
   private rig!: CameraRig;
-  /** After the cut: acme.md in close-up as the search lands. */
-  private closeRig!: CameraRig;
   private scratch = new THREE.PerspectiveCamera(FOV, W / H, 0.01, 40);
   // the editor
   private edit!: Panel;
@@ -140,6 +138,8 @@ export default class Graph extends Scene {
   private link!: Thread;
   private linkU = 0;
   private linkU1 = 0;
+  /** The link's head this frame (arc fraction). */
+  private linkHead = 0;
   private dangle!: Thread;
   private dangleVecs: THREE.Vector3[] = [];
   private tripHotel!: Thread;
@@ -167,11 +167,13 @@ export default class Graph extends Scene {
     this.buildNodes();
     this.buildThreads();
     this.buildLights();
-    const k = this.keys();
-    this.rig = new CameraRig(k.main);
-    this.closeRig = new CameraRig(k.close);
+    // the camera to the vocabulary's answer first: the terminal stands square to it there, and the search starts from the
+    // terminal; then the flight up the search into acme.md, one move, no cut
+    const main = this.keys();
+    this.rig = new CameraRig(main);
     this.buildTerminal();
     this.buildSearch();
+    this.rig = new CameraRig([...main, ...this.flightKeys()]);
     this.labels = new Labels([ACME, MAYA, FORWARD, TRIP, HOTEL, CITY, KUBE, K8S].join(''), 160);
     this.stage.scene.add(this.labels.actors.mesh);
     this.buildBand();
@@ -402,7 +404,7 @@ export default class Graph extends Scene {
     return [this.edPt(x0, y0), this.edPt(x1, y0), this.edPt(x0, y1), this.edPt(x1, y1)];
   }
 
-  private keys(): { main: CamKey[]; close: CamKey[] } {
+  private keys(): CamKey[] {
     const T = this.T, E = this.editG.matrixWorld, g = this.edit.layout;
     this.editG.updateMatrixWorld(true);
     const r6 = this.edit.rowTop(6), r7 = this.edit.rowTop(7), rb = r7 + g.lineH;
@@ -416,36 +418,58 @@ export default class Graph extends Scene {
     const label = (id: NodeId, n: number) => P(id).add(new THREE.Vector3(NODES[id].r * LABEL_GAP + n * ADV * LABEL_EM, 0, 0));
     const graph = [A, M, Tp, Hh, C, label('hotel', len(HOTEL)), label('city', len(CITY))];
     const summary = fitKey(T.answer, graph, { az: 8, el: 7, fov: FOV, margin: [0.075, 0.065], bias: [0.01, 0.44], roll: 0.4 }, WORLD, ease.inOutQuad);
-    // as `k8s` lifts off, the camera tips up after the thread, toward the graph
-    const up = (k: CamKey, t: number, dy: number, toward: THREE.Vector3, w: number): CamKey => {
-      const target = v3(k.target).lerp(toward, w).add(new THREE.Vector3(0, dy, 0));
-      return { t, pos: v3(k.pos).add(new THREE.Vector3(0, 0.6 * dy, 0)).toArray() as V3, target: target.toArray() as V3, fov: FOV, roll: 0.2, ease: ease.inCubic };
-    };
-    const acmeBox = [A, label('acme', len(KUBE) + 1), A.clone().add(new THREE.Vector3(0, -0.035, 0)), A.clone().add(new THREE.Vector3(-0.03, 0.03, 0))];
-    const close = [
-      fitKey(T.cut, acmeBox, { az: 9, el: 4, fov: FOV, margin: [0.3, 0.33], bias: [0.02, 0.0], roll: 0.9 }, WORLD),
-      fitKey(T.end, acmeBox, { az: 6, el: 5, fov: FOV, margin: [0.36, 0.4], bias: [0.02, 0.02], roll: 1.1 }, WORLD, ease.outQuad),
-    ];
-    const main = [
+    return [
       // the cut: in close on the line, from a little left of square, drifting in along it toward the link
       fitKey(T.start, this.edBox(g.padX - 6, r6 + 6, xEnd + 12, rb + 4), { az: -17, el: 7, fov: FOV, margin: [0.08, 0.3], bias: [0.02, -0.16], roll: -2.2 }, E),
       fitKey(T.lift - 0.03, this.edBox(x0 - 150, r7 - 6, x1 + 26, rb + 8), { az: -13, el: 6, fov: FOV, margin: [0.12, 0.36], bias: [0.06, -0.12], roll: -1.6 }, E, ease.inOutQuad),
       // the thread races off the page: the camera pulls back and round after it, and holds the edge as it lands
       fitKey(T.land + 0.12, [L1, A, A.clone().add(new THREE.Vector3(NODES.acme.r * LABEL_GAP + len(ACME) * ADV * LABEL_EM, 0, 0))], { az: 3, el: 5, fov: FOV, margin: [0.14, 0.3], bias: [0.02, -0.08], roll: -0.9 }, WORLD, ease.inOutCubic),
-      // "the dots…": open on the constellation, the dangling link in the middle of the frame
+      // "the dots…": out over the constellation, acme.md and maya.md in one frame (the graph between them, one space, not a
+      // cut) ...
+      fitKey(lerp(T.land + 0.12, T.ping + 0.1, 0.5), [A, M, end, Tp, mL], { az: 4, el: 8, fov: FOV, margin: [0.08, 0.12], bias: [0, 0.02], roll: -2 }, WORLD, ease.inOutQuad),
+      // ... and in on the dangling link, in the middle of the frame
       fitKey(T.ping + 0.1, [mL, end, tag, ringTop, ringRight], { az: 3, el: 10, fov: FOV, margin: [0.1, 0.2], bias: [0, 0.06], roll: -3.2 }, WORLD, ease.inOutCubic),
       fitKey(T.heal - 0.03, [mL, end, tag, ringTop, ringRight], { az: 5, el: 9, fov: FOV, margin: [0.065, 0.14], bias: [0, 0.06], roll: -2.2 }, WORLD, ease.inOutQuad),
       // the walk: the camera pulls back with it, and on as the terminal rises into the foreground under the graph
       fitKey(T.hops[2]! + 0.12, graph, { az: 7, el: 7, fov: FOV, margin: [0.1, 0.09], bias: [0, 0.44], roll: 0.3 }, WORLD, ease.inOutCubic),
       summary,
-      up(summary, T.cut, 0.05, A, 0.3),
     ];
-    return { main, close };
   }
 
-  /** Place a camera for t: the continuous shot, then acme.md in close-up from the cut. */
+  /** acme.md's close-up: its bead, its name and the word under it (the search's find). */
+  private acmeBox() {
+    const A = P('acme'), r = NODES.acme.r * LABEL_GAP + (len(KUBE) + 1) * ADV * LABEL_EM;
+    return [A, A.clone().add(new THREE.Vector3(r, 0, 0)), A.clone().add(new THREE.Vector3(0, -0.035, 0)), A.clone().add(new THREE.Vector3(-0.03, 0.03, 0))];
+  }
+
+  /**
+   * The search's flight, one move from the summary into acme.md's close-up (no cut): the camera holds as `k8s` lifts off,
+   * then rides up after the thread's head, the terminal falling away below, and decelerates into the close-up as the head
+   * lands in the bead on the beat. The thread stays whole from the answer to the bead throughout.
+   */
+  private flightKeys(): CamKey[] {
+    const T = this.T, A = P('acme'), box = this.acmeBox();
+    // one curve from the summary into the close-up: it eases out as the head leaps off the answer (the head, which
+    // flies fastest at first, keeps ahead of it up the frame), and eases into the close-up as the head lands, rising
+    // into the bead along the thread the camera has just ridden up
+    const hold0 = T.seek - 0.04;
+    // the summary held while `k8s` is taken, a hair pushed in
+    const sum = this.rig;
+    const hold = new THREE.PerspectiveCamera(FOV, W / H, 0.01, 40);
+    sum.apply(hold, T.answer);
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(hold.quaternion);
+    const at = hold.position.clone().addScaledVector(fwd, 0.015);
+    const tgt = at.clone().addScaledVector(fwd, 0.8);
+    return [
+      { t: hold0, pos: at.toArray() as V3, target: tgt.toArray() as V3, fov: FOV, roll: 0.4, ease: ease.inOutQuad },
+      fitKey(T.found, box, { az: 9, el: 4, fov: FOV, margin: [0.3, 0.33], bias: [0.02, 0.0], roll: 0.9 }, WORLD, ease.inOutCubic),
+      fitKey(T.end, box, { az: 6, el: 5, fov: FOV, margin: [0.36, 0.4], bias: [0.02, 0.02], roll: 1.1 }, WORLD, ease.outQuad),
+    ];
+  }
+
+  /** Place a camera for t: one continuous shot. */
   private aim(cam: THREE.PerspectiveCamera, t: number) {
-    (t < this.T.cut ? this.rig : this.closeRig).apply(cam, t);
+    this.rig.apply(cam, t);
   }
 
   /** A scratch camera where the rig has the stage's at t. */
@@ -467,6 +491,7 @@ export default class Graph extends Scene {
     const curl = prog(t, T.lift - 0.14, T.lift, ease.inOutCubic);
     const fly = prog(t, T.lift, T.land, (x) => 1 - Math.pow(1 - x, 2.4));
     const head = t < T.lift ? lerp(this.linkU * under, this.linkU1, curl) : lerp(this.linkU1, 1, fly);
+    this.linkHead = head;
     const tail = this.linkU * prog(t, T.lift - 0.02, T.lift + 0.16, ease.inCubic);
     th.setDraw(tail, Math.max(tail + 1e-4, head));
     th.mesh.visible = head - tail > 0.002;
@@ -567,11 +592,17 @@ export default class Graph extends Scene {
     this.arrowHalo.set(a.x + 0.5 * this.term.adv, a.baseline - 0.3 * TERM_SIZE, 0.45 * flare, 16);
   }
 
-  private poseSearch(t: number) {
-    const T = this.T, th = this.search;
+  /** The search thread's head at t (arc fraction): along under `k8s`, then out and up into acme.md, landing on the beat. */
+  private searchHeadAt(t: number) {
+    const T = this.T;
     const under = prog(t, T.seek - 0.14, T.seek, ease.outCubic);
     const fly = prog(t, T.seek, T.found, (x) => 1 - Math.pow(1 - x, 2.4));
-    const head = t < T.seek ? this.searchU * under : lerp(this.searchU, 1, fly);
+    return t < T.seek ? this.searchU * under : lerp(this.searchU, 1, fly);
+  }
+
+  private poseSearch(t: number) {
+    const T = this.T, th = this.search;
+    const head = this.searchHeadAt(t);
     this.searchHead = head;
     th.setDraw(0, Math.max(1e-4, head));
     th.mesh.visible = head > 0.002;
@@ -660,15 +691,37 @@ export default class Graph extends Scene {
     return { x: ((q.x + 1) / 2) * W, y: ((1 - q.y) / 2) * H };
   }
 
-  /** A thread's centreline on screen, and the lens's blur along it (px). */
-  private onScreen(th: Thread, n = 48): { pts: P2[]; blur: (u: number) => number } {
-    const pts: P2[] = [], coc: number[] = [];
+  /**
+   * A thread's centreline on screen, the lens's blur along it (px), and where its light may fall: only on the thread as
+   * drawn (its draw window, softened like its taper) and only in front of the lens (a point behind it projects mirrored).
+   */
+  private onScreen(th: Thread, n = 48): { pts: P2[]; blur: (u: number) => number; shown: (u: number) => number } {
+    const pts: P2[] = [], coc: number[] = [], front: number[] = [];
     for (let i = 0; i <= n; i++) {
-      const p = th.pointAt(i / n);
+      const p = th.pointAt(i / n), d = this.stage.depthOf(p);
       pts.push(this.toScreen(p));
-      coc.push(cocPx(Math.max(0.02, this.stage.depthOf(p)), this.dof, FOV, H));
+      coc.push(cocPx(Math.max(0.02, d), this.dof, FOV, H));
+      front.push(d > 0.02 ? 1 : 0);
     }
-    return { pts, blur: (u) => coc[Math.min(n, Math.round(u * n))]! };
+    const w = th.uniforms.uDraw.value, soft = 0.012;
+    const at = (a: number[], u: number) => a[Math.min(n, Math.round(u * n))]!;
+    return {
+      pts,
+      blur: (u) => at(coc, u),
+      shown: (u) => (th.mesh.visible ? at(front, u) * smoothstep(w.x - 1e-4, w.x + soft, u) * (1 - smoothstep(w.y - soft, w.y + 1e-4, u)) : 0),
+    };
+  }
+
+  /**
+   * A thread's lit head as it draws on: a soft light where its tip is (arc fraction u), the size of the lens's blur
+   * there at least, so a thread being drawn never ends in a hard cut. Nothing behind the lens.
+   */
+  private headLight(c: CanvasRenderingContext2D, th: Thread, u: number, k: number, r = 9) {
+    if (k <= 0.004) return;
+    const p = th.pointAt(clamp(u)), d = this.stage.depthOf(p);
+    if (d <= 0.02) return;
+    const q = this.toScreen(p);
+    glowDot(c, q.x, q.y, r + 0.6 * cocPx(Math.max(0.02, d), this.dof, FOV, H), k);
   }
 
   /** The light the threads carry, on screen: blood dashes, moss heal, walk, landings; pearls lit. */
@@ -681,7 +734,7 @@ export default class Graph extends Scene {
     const any = { b: false, m: false };
     const along = (c: CanvasRenderingContext2D, th: Thread, n: number, level: (u: number) => number, gain = 1) => {
       const s = this.onScreen(th, n);
-      glowAlong(c, s.pts, level, gain, undefined, s.blur);
+      glowAlong(c, s.pts, (u) => level(u) * s.shown(u), gain, undefined, s.blur);
     };
     // the dangling link
     const thrown = prog(t, T.land + 0.05, T.ping - 0.04, ease.outCubic);
@@ -695,26 +748,43 @@ export default class Graph extends Scene {
         const q = this.toScreen(P('trip')), r = this.pxPerM(P('trip')) * NODES.trip.r;
         glowRing(B, q.x, q.y, r, 0.55 * ring * (0.8 + 0.5 * pulse(t, T.ping, 0.15)), 0.12 * t);
       }
-      // the loose end pings on the beat, unanswered
-      const k = pulse(t, T.ping, 0.12) * (t < T.heal ? 1 : 0);
-      if (k > 0.004) {
-        const end = v3(looseEnd(t, NODES.maya.pos, NODES.trip.pos, T.heal).end), q = this.toScreen(end);
-        glowDot(B, q.x, q.y, 26, 0.8 * k);
-      }
+      // the loose end: lit as it is thrown, an ember of blood while it hangs (a loose end, not a cut one), pinging on the
+      // beat, unanswered; out as the heal takes it home
+      const loose = 1 - prog(t, T.heal - 0.02, T.heal + 0.04);
+      const k = (0.3 + 0.25 * (1 - prog(t, T.land + 0.05, T.ping - 0.04))) * loose;
+      this.headLight(B, this.dangle, thrown, k, 8);
+      const kp = pulse(t, T.ping, 0.12) * (t < T.heal ? 1 : 0);
+      if (kp > 0.004) this.headLight(B, this.dangle, 1, 0.8 * kp, 26);
       if (t > T.heal) {
         along(M, this.dangle, 80, (u) => mossAt(u, t, T.heal, T.hops[0]!));
         any.m = true;
       }
+    }
+    // the link's head as it flies out to acme.md, lit until it lands
+    if (t > T.lift - 0.14 && t < T.land + 0.08) {
+      this.headLight(M, this.link, this.linkHead, 0.55 * prog(t, T.lift - 0.14, T.lift) * (1 - prog(t, T.land - 0.01, T.land + 0.06)));
+      any.m = true;
     }
     // the edge landing in acme.md, its moss running back to the link
     if (t > T.land - 0.02 && t < T.land + 1.6) {
       along(M, this.link, 64, (u) => runAt(t, 1 - u, T.land, T.land + 0.32, 0.3), 0.8);
       any.m = true;
     }
+    // the trip's own link to its hotel, its head lit as it draws on
+    if (t > T.heal && t < T.hops[0]! + 0.08) {
+      const th2 = prog(t, T.heal, T.hops[0]! + 0.02, ease.outCubic);
+      this.headLight(M, this.tripHotel, th2, 0.45 * (1 - prog(t, T.hops[0]!, T.hops[0]! + 0.08)), 7);
+      any.m = true;
+    }
     // the walk
     if (t > T.hops[0]! - 0.05) {
       along(M, this.tripHotel, 40, (u) => runAt(t, u, T.hops[0]!, T.hops[1]!, 0.4));
       along(M, this.hotelCity, 40, (u) => runAt(t, u, T.hops[1]!, T.hops[2]!, 0.4));
+      any.m = true;
+    }
+    // the search's head as it flies up into acme.md, lit until it lands
+    if (t > T.seek - 0.14 && t < T.found + 0.08) {
+      this.headLight(M, this.search, this.searchHead, 0.55 * prog(t, T.seek - 0.14, T.seek) * (1 - prog(t, T.found - 0.01, T.found + 0.06)));
       any.m = true;
     }
     // the search landing
@@ -726,7 +796,7 @@ export default class Graph extends Scene {
     const lit = this.pearlLight(t);
     for (const id of Object.keys(lit) as NodeId[]) {
       const k = lit[id] ?? 0;
-      if (k <= 0.004 || !this.nodes[id].pearl.visible) continue;
+      if (k <= 0.004 || !this.nodes[id].pearl.visible || this.stage.depthOf(this.nodes[id].pearl.position) <= 0.02) continue;
       const p = this.nodes[id].pearl.position, q = this.toScreen(p);
       const r = this.pxPerM(p) * NODES[id].r * 1.15 + 0.5 * cocPx(Math.max(0.02, this.stage.depthOf(p)), this.dof, FOV, H);
       glowDot(M, q.x, q.y, r, 0.45 * k);
@@ -760,12 +830,11 @@ export default class Graph extends Scene {
       [T.hops[2]!, inv(P('trip').lerp(P('hotel'), 0.5)), ease.inOutQuad],
       [T.rise + 0.22, inv(head), ease.inOutCubic],
       [T.answer, inv(head)],
+      [T.seek, inv(head)],
+      // the flight: focus rides the search's head up, and settles on acme.md and its name as it lands
+      [lerp(T.seek, T.found, 0.42), inv(this.search.pointAt(this.searchHeadAt(t))), ease.inOutQuad],
+      [T.found - 0.04, inv(P('acme').addScaledVector(st.camera.position.clone().sub(P('acme')).normalize(), 0.85 * LABEL_FLOAT)), ease.outCubic],
     ];
-    // after the cut, acme.md and its name
-    if (t >= T.cut) {
-      const A = P('acme'), toLens = st.camera.position.clone().sub(A).normalize();
-      return { focus: st.depthOf(A.addScaledVector(toLens, 0.85 * LABEL_FLOAT)), fstop: FSTOP.wide };
-    }
     return { focus: 1 / keys(t, ks), fstop: t < T.lift + 0.1 ? FSTOP.close : FSTOP.wide };
   }
 

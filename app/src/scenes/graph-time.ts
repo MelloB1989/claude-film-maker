@@ -14,11 +14,11 @@
 // - "and I learn": a terminal rises into the foreground and `gitloom vocab add --term kubernetes --alias k8s` types in
 //   with her; on the downbeat the answer, `k8s → kubernetes  ·  search finds either form`.
 // - "your language.": `k8s` lifts off the answer as a thread (the link's rhyme) and searches up into the graph; on the
-//   beat it finds acme.md, and the word it says, kubernetes, lights.
+//   beat it finds acme.md, and the word it says, kubernetes, lights. The camera rides up the thread into acme.md's
+//   close-up: one move from the link to the find, no cut.
 import type { AudioData } from '../engine/audio';
 import { wordTimes } from '../engine/motion';
 import { norm, type VO, type Word } from '../engine/vo';
-import { FPS } from '../engine/util';
 
 /** The walk's hops after the heal: trip, hotel, city, one each this fraction of a beat apart (a sixteenth triplet). */
 export const HOP = 1 / 6;
@@ -65,16 +65,14 @@ export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
   const seek = your.start - 0.03;
   const found = beats.find((b) => b > language.start && b < language.end) ?? language.start + 0.3;
   if (!(found - seek > 0.25)) throw new Error('graph: no time for the search to fly');
-  // the cut to acme.md in close-up, a few frames before the search lands: half way between two frames, where no frame's
-  // shutter reaches (each frame exposes a quarter frame either side of its time), so no frame mixes the two shots
-  const cut = (Math.floor((found - 0.09) * FPS) + 0.5) / FPS;
+  // (no cut: the camera rides the search up into acme.md's close-up in one move, graph.ts flightKeys)
   return {
     start, end, beat,
     underline, lift, land,
     i1: i1.start, connect: connect.start, dots: dots.start, dotsEnd: dots.end,
     ping, heal, hops,
     and: and.start, rise, type, answer,
-    your: your.start, language: language.start, seek, found, cut,
+    your: your.start, language: language.start, seek, found,
   };
 }
 export type Times = ReturnType<typeof timesOf>;

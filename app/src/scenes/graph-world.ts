@@ -89,7 +89,7 @@ export const STANDING: [NodeId, NodeId, number, number][] = [
   ['c14', 'hotel', 0.012, 0.75],
   ['c14', 'c9', 0.03, 0.9],
   ['c15', 'acme', 0.01, 0.75],
-  ['c15', 'c3', 0.02, 0.75],
+  ['c15', 'c3', 0.006, 0.75], // seen end on from the walk: a deeper sag hooks
   ['c15', 'c8', 0.03, 0.9],
   ['c16', 'c17', 0.03, 0.9],
   ['c16', 'c13', 0.03, 0.9],

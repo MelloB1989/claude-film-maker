@@ -7,7 +7,6 @@ import path from 'node:path';
 import { VO, norm } from '../engine/vo';
 import { AudioData } from '../engine/audio';
 import { lineEnd } from '../engine/panels';
-import { FPS } from '../engine/util';
 import { HOP, HOPS, timesOf } from './graph-time';
 import { DANGLE, NODES, STANDING, bloodAt, dangleAt, dashAt, dist3, healFront, looseEnd, mossAt, runAt, type V3 } from './graph-world';
 import { ALIAS, ANSWER_LINE, FILE_LINES, LINK, TAG_NAME, TERM_AT } from './graph';
@@ -57,17 +56,15 @@ describe('graph: its times come from the data', () => {
     expect(lineEnd(cmd)).toBeCloseTo(T.type.end, 9);
   });
 
-  test('k8s lifts off on "your" and the search lands on the beat inside "language."; the cut to it falls between two frames', () => {
+  test('k8s lifts off on "your" and the search lands on the beat inside "language.", with time to fly there in one move', () => {
     expect(T.seek).toBeGreaterThan(T.answer);
     expect(Math.abs(T.seek - word('your').start)).toBeLessThan(0.05);
     expect(onGrid(T.found, audio.beats)).toBe(true);
     expect(T.found).toBeGreaterThan(word('language').start);
     expect(T.found).toBeLessThan(word('language').end);
-    // each frame's shutter reaches a quarter frame either side of it: a cut half way between frames is in none
-    const f = T.cut * FPS;
-    expect(Math.abs(f - Math.floor(f) - 0.5)).toBeLessThan(1e-9);
-    expect(T.cut).toBeGreaterThan(T.seek + 0.2);
-    expect(T.cut).toBeLessThan(T.found);
+    // one continuous move from the answer up the thread into acme.md: no cut in the scene
+    expect('cut' in T).toBe(false);
+    expect(T.found - T.seek).toBeGreaterThan(0.35);
     expect(span.end - T.found).toBeGreaterThan(0.5); // the find holds before the cut to honest
     for (const t of [T.lift, T.land, T.ping, T.heal, T.answer, T.found]) {
       expect(t).toBeGreaterThan(span.start);
