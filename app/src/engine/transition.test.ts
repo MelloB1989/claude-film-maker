@@ -141,12 +141,18 @@ describe('kinds', () => {
     expect(taps[7]!.a.s).toBeCloseTo(5, 6);
     expect(tapCount(z, 4.0, 1 / 30, 0.5, 1)).toBeGreaterThan(10); // a radial streak
   });
-  test('match: the threshold runs 1 → 0.5 at the cut → 0', () => {
+  test('match: the threshold runs 1 + soft → 0.5 at the cut → −soft', () => {
     const m = entry({ kind: 'match', dir: undefined });
-    expect(stateAt(m, 3.908).match).toBeCloseTo(1, 9);
+    expect(stateAt(m, 3.908).match).toBeCloseTo(1.12, 9);
     expect(stateAt(m, 4.008).match).toBeCloseTo(0.5, 9);
-    expect(stateAt(m, 4.108).match).toBeCloseTo(0, 9);
+    expect(stateAt(m, 4.108).match).toBeCloseTo(-0.12, 9);
     expect(matchWeight(0.5, 0.5, 0.12)).toBeCloseTo(0.5, 9);
+  });
+  test('match: first frame is all A for every luma, last frame is all B even for luma 0', () => {
+    const m = entry({ kind: 'match', dir: undefined });
+    const first = stateAt(m, 3.908).match, last = stateAt(m, 4.108).match;
+    for (let l = 0; l <= 1.0001; l += 0.05) expect(matchWeight(first, Math.min(l, 1), 0.12)).toBe(0);
+    expect(matchWeight(last, 0, 0.12)).toBe(1);
   });
   test('xfade: B weighs in with inOutCubic', () => {
     const x = entry({ kind: 'xfade', dir: undefined });

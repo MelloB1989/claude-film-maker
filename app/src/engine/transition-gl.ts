@@ -81,7 +81,7 @@ export class TransitionPass {
   /** `o.soft`: match's luma-key softness (the spec's `soft`, default 0.12). */
   render(r: THREE.WebGLRenderer, a: THREE.Texture, b: THREE.Texture, taps: TransitionState[], out: THREE.WebGLRenderTarget, o: { soft?: number } = {}): void {
     if (taps.length < 1 || taps.length > MAX_TAPS) throw new Error(`TransitionPass takes 1 to ${MAX_TAPS} taps, got ${taps.length}`);
-    const u = this.pass.u, isMatch = taps[0]!.match >= 0;
+    const u = this.pass.u, isMatch = taps[0]!.match > -1;
     taps.forEach((s, k) => {
       this.buf.set([s.a.tx, s.a.ty, s.a.s, s.wB, s.b.tx, s.b.ty, s.b.s, isMatch ? s.match : s.ink], 8 * k);
     });

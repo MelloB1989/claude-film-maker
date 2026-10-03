@@ -59,7 +59,7 @@ export interface TransitionState {
   b: Xform;
   /** 0..1 dip toward ink. */
   ink: number;
-  /** match: the luma threshold, 1 → 0 (1 = all A); other kinds: -1. */
+  /** match: the luma threshold, 1 + soft → −soft (all A → all B); other kinds: -1. */
   match: number;
 }
 
@@ -186,7 +186,9 @@ function stateOn(e: TransitionEntry, s: number, sideB: boolean): TransitionState
     }
     case 'match': {
       const k = throughCut(e, s);
-      st.match = 1 - k;
+      // over [1 + soft, −soft], so the first frame is all A and the last all B (the smoothstep spans thr ± soft)
+      const soft = sp.soft ?? 0.12;
+      st.match = 1 + soft - k * (1 + 2 * soft);
       st.wB = k;
       return st;
     }
@@ -244,7 +246,7 @@ export function tapCount(e: TransitionEntry, t: number, dt: number, shutter: num
     const p = s[k - 1]!, q = s[k]!;
     sa += moved(p.a, q.a);
     sb += moved(p.b, q.b);
-    levels += 255 * (Math.abs(q.wB - p.wB) * (e.spec.kind === 'xfade' ? 1 : 0) + Math.abs(q.ink - p.ink) + (q.match >= 0 ? Math.abs(q.match - p.match) : 0));
+    levels += 255 * (Math.abs(q.wB - p.wB) * (e.spec.kind === 'xfade' ? 1 : 0) + Math.abs(q.ink - p.ink) + (q.match > -1 ? Math.abs(q.match - p.match) : 0));
   }
   streak = Math.max(sa, sb) * pxScale;
   const samples = Math.max(streak / STEP_PX, levels / STEP_PX);
