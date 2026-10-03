@@ -9,11 +9,12 @@ import { Track, type TrackData } from '../engine/track';
 import { TITLE_SAFE, fibreSeeds } from '../scenes/ex-cloud';
 import threadEx from './thread-ex';
 import exHer from './ex-her';
+import herRepo from './her-repo';
 import B01 from '../../../data/track/b01_thread.json';
 
 const DATA = path.resolve(import.meta.dir, '../../../data');
 const vo = new VO(JSON.parse(readFileSync(path.join(DATA, 'vo.json'), 'utf8')));
-const GROUP: TransitionSpec[] = [threadEx, exHer];
+const GROUP: TransitionSpec[] = [threadEx, exHer, herRepo];
 const scene = (id: string) => vo.scenes.find((s) => s.id === id)!;
 
 describe('group A: the specs', () => {
@@ -31,6 +32,21 @@ describe('group A: the specs', () => {
   });
   test('the cold open is a plate: it holds (never runs past its last frame)', () => {
     expect(threadEx.fromMode ?? 'hold').toBe('hold');
+  });
+});
+
+describe('her → repo: the whip', () => {
+  test('the camera tilts up (the picture goes down), within a few degrees of the vertical', () => {
+    const [dx, dy] = herRepo.dir!;
+    expect(herRepo.kind).toBe('whip');
+    expect(dy).toBeLessThan(-0.99);
+    expect(Math.abs(dx)).toBeLessThan(0.1);
+  });
+  test('a whip of 60–120 ms each side of the cut, clear of "I\'m"', () => {
+    expect(herRepo.pre).toBeGreaterThanOrEqual(0.06);
+    expect(herRepo.pre).toBeLessThanOrEqual(0.12);
+    expect(herRepo.post).toBeGreaterThanOrEqual(0.06);
+    expect(herRepo.post).toBeLessThanOrEqual(0.12);
   });
 });
 
