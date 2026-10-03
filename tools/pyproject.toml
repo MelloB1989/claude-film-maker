@@ -28,6 +28,7 @@ film-sync = "gitloom_film.sync:main"
 film-facts = "gitloom_film.factcheck:main"
 film-vo-chain = "gitloom_film.vochain:main"
 film-sfx-lib = "gitloom_film.sfxlib:main"
+film-sfx = "gitloom_film.sfx:main"
 film-deliver = "gitloom_film.deliver:main"
 
 [dependency-groups]
