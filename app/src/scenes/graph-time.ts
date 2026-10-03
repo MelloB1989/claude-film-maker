@@ -73,6 +73,8 @@ export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
     ping, heal, hops,
     and: and.start, rise, type, answer,
     your: your.start, language: language.start, seek, found,
+    /** The drain: from the end of "language." the light leaves the constellation, ahead of the dip to ink at the cut. */
+    drain: language.end,
   };
 }
 export type Times = ReturnType<typeof timesOf>;

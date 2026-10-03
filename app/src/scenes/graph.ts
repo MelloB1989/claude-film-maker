@@ -99,6 +99,17 @@ const LABEL_FLOAT = 0.024;
 const GLOW = { blood: 2.2, moss: 2.0, pearl: 3.2 };
 /** Dangling thread samples. */
 const N_DANGLE = 40;
+/**
+ * The drain (graph → honest dips to ink, transitions/graph-honest.ts): from the end of "language." the found memory's
+ * moss goes out first, the pearl and the highlighter with it, then the room's light closes in around the bead, and the
+ * dip takes what is left to ink on the cut. `light` is how much exposure goes, `vignette` how far it closes.
+ */
+export const DRAIN = { light: 0.45, vignette: 0.3 };
+/** The drain at t: the moss's (0..1, first) and the room's (0..1, after it). */
+export const drainAt = (t: number, T: Pick<Times, 'drain' | 'end'>) => ({
+  moss: prog(t, T.drain, T.end - 0.08, ease.inOutCubic),
+  light: prog(t, T.drain + 0.12, T.end, ease.inQuad),
+});
 /** Apertures: the close-up on the line, and the constellation. */
 const FSTOP = { close: 3.2, wide: 3.4 };
 
@@ -577,9 +588,9 @@ export default class Graph extends Scene {
     this.hotelCity.setStrandLight({ moss: hop(T.hops[1]!, T.hops[2]!) });
 
     // pearls: lit moss as the walk reaches them (and acme.md as the edge lands, and as the search finds it)
-    const lit = this.pearlLight(t);
+    const lit = this.pearlLight(t), keep = 1 - drainAt(t, T).moss;
     for (const id of Object.keys(this.nodes) as NodeId[]) {
-      const k = lit[id] ?? 0;
+      const k = (lit[id] ?? 0) * keep;
       const e = this.nodes[id].pearlMat.emissive;
       if (k > 0.001) e.setRGB(...glow('moss', GLOW.pearl * k));
       else e.setRGB(0, 0, 0);
@@ -708,7 +719,7 @@ export default class Graph extends Scene {
       this.band.position.copy(wAt).addScaledVector(right, w / 2 - 0.18 * LABEL_EM).addScaledVector(up, 0.14 * LABEL_EM);
       (this.bandMat.uniforms.uSize!.value as THREE.Vector2).set(w * 1000, h * 1000);
       this.bandMat.uniforms.uFill!.value = fill;
-      this.bandMat.uniforms.uLevel!.value = 0.34;
+      this.bandMat.uniforms.uLevel!.value = 0.34 * (1 - drainAt(t, T).moss);
     }
   }
 
@@ -902,13 +913,14 @@ export default class Graph extends Scene {
 
     const any = this.drawGlow(t);
     if (any.b) comp.draw(renderer, this.blood.upload(), out, { mode: 'add', tint: glow('blood', GLOW.blood) });
-    if (any.m) comp.draw(renderer, this.moss.upload(), out, { mode: 'add', tint: glow('moss', GLOW.moss) });
+    const dr = drainAt(t, T);
+    if (any.m && dr.moss < 1) comp.draw(renderer, this.moss.upload(), out, { mode: 'add', tint: glow('moss', GLOW.moss * (1 - dr.moss)) });
 
     // hits: the lift on the downbeat, the landing, the heal, the answer on its downbeat, the find
     const zoom = 0.006 * pulse(t, T.lift, 0.1) + 0.004 * pulse(t, T.land, 0.1) + 0.006 * pulse(t, T.heal, 0.12) + 0.005 * pulse(t, T.answer, 0.12) + 0.004 * pulse(t, T.found, 0.12);
     const dh = t - T.heal;
     const shake = dh >= 0 ? 2.2 * Math.exp(-dh * 20) * Math.cos(dh * 2 * Math.PI * 9) : 0;
-    return { zoom: 1 + zoom, shake: [0, shake], vignette: LOOK.vignette + 0.04 };
+    return { zoom: 1 + zoom, shake: [0, shake], vignette: LOOK.vignette + 0.04 + DRAIN.vignette * dr.light, exposure: LOOK.exposure * (1 - DRAIN.light * dr.light) };
   }
 
   override dispose() {
