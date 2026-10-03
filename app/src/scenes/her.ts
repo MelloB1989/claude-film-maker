@@ -31,15 +31,14 @@ import { Mat, Type3D } from '../engine/type3d';
 import { F } from '../engine/type';
 import { LIN } from '../engine/palette';
 import { GLOW_LEVEL, glow } from '../engine/look';
-import { onBeat, slam, whip, wordTimes } from '../engine/motion';
-import { norm, type VO } from '../engine/vo';
-import type { AudioData } from '../engine/audio';
+import { onBeat, slam, whip } from '../engine/motion';
 import { clamp, ease, keys, lerp, prog, pulse } from '../engine/util';
 import { Bead } from '../engine/bead';
 import { sweepAt, withSweep, type SweepBand } from '../engine/sweep';
 import { Backdrop, DiffLine, FLAT, unlit } from './her-type';
 import { fitKey } from './her-camera';
 import { PLATE, REFORM, ReformWorld, reformCues, reformKeys } from './her-reform';
+import { BLAME_GUTTER, STRIKE, flatShown, plusTimes, timesOf } from './her-time';
 import S from './her.strings.json';
 
 // ------------------------------------------------------------------------------------------------ the copy
@@ -519,13 +518,14 @@ export default class Her extends Scene {
     this.head.position.z = -keys(t, [[T.end - 0.42, 0], [T.end, 0.38, ease.inCubic]]);
     this.lightHeadline(t);
     // the − line is there as we cut to it; the strike runs through it on the cut's beat
-    const sk = prog(t, T.beatAfterDown + 0.03, T.beatAfterDown + 0.26, ease.outCubic);
+    const sk = prog(t, T.beatAfterDown + STRIKE.at, T.beatAfterDown + STRIKE.end, ease.outCubic);
     this.strike.visible = sk > 0;
     const [x0, x1] = [this.minus.wordSpan(0)[0] - 0.04 * EM, this.minus.wordSpan(2)[1] + 0.04 * EM];
     this.strike.scale.x = Math.max(1e-4, sk * (x1 - x0));
 
-    this.typeLine(this.plus1, t, [T.every1, T.memory, T.has1, T.a1, T.commit]);
-    this.typeLine(this.plus2, t, [T.every2, T.fact, T.has2, T.a2, T.blame]);
+    const [at1, at2] = plusTimes(T) as [number[], number[]];
+    this.typeLine(this.plus1, t, at1);
+    this.typeLine(this.plus2, t, at2);
 
     // the diff glow comes up as the accent lands, flaring on the impact and settling to the film's level
     this.accent.forEach((m, i) => {
@@ -534,7 +534,7 @@ export default class Her extends Scene {
     });
 
     // the blame gutter slides in at left on "blame"
-    const bk = prog(t, T.blame + 0.02, T.blame + 0.45, ease.outExpo);
+    const bk = prog(t, T.blame + BLAME_GUTTER.at, T.blame + BLAME_GUTTER.end, ease.outExpo);
     this.blame.group.visible = this.blameRule.visible = bk > 0;
     this.placeBlame(bk);
     for (const mt of this.blameMats) mt.opacity = bk;
@@ -549,7 +549,7 @@ export default class Her extends Scene {
       gs.forEach((g, k) => {
         const m = g.mesh;
         if (!hero) {
-          m.visible = t >= t0 + k / 30;
+          m.visible = k < flatShown(t, t0, gs.length);
           return;
         }
         const s = slam(t, t0 + 0.016 * k);
@@ -578,32 +578,6 @@ export default class Her extends Scene {
     for (const m of this.mats) m.dispose();
     this.stage.dispose();
   }
-}
-
-// ------------------------------------------------------------------------------------------------ timing
-
-/** Every time the scene keys on, from the voiceover's onsets and the score's grid. */
-function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
-  const ws = wordTimes(vo, 'her');
-  const find = (w: string, nth = 0) => {
-    const h = ws.filter((x) => norm(x.w.w) === w)[nth];
-    if (!h) throw new Error(`her: no spoken "${w}" (#${nth})`);
-    return h.at;
-  };
-  const not = find('not'), me = find('me');
-  const down = audio.downbeats.find((d) => d > me);
-  if (down === undefined) throw new Error('her: no downbeat after "me."');
-  const beatAfterDown = audio.beats.find((b) => b > down + 0.05) ?? down + 60 / audio.bpm;
-  const a1 = find('a', 0), a2 = find('a', 1);
-  // "has" is never spoken: it types in just before her "a", or on a downbeat that falls in the pause before it (the
-  // downbeat is an event)
-  const hasBefore = (after: number, a: number) => audio.downbeats.find((d) => d > after + 0.2 && d < a - 0.12) ?? a - 0.13;
-  const memory = find('memory'), fact = find('fact');
-  return {
-    start, end, not, me, down, beatAfterDown, hand: reformCues(start, not, me, down).hand,
-    every1: find('every', 0), memory, has1: hasBefore(memory, a1), a1, commit: find('commit'),
-    every2: find('every', 1), fact, has2: hasBefore(fact, a2), a2, blame: find('blame'),
-  };
 }
 
 /** A linear colour scaled. */

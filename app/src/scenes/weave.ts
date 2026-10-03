@@ -21,12 +21,12 @@ import { LIN, rgba } from '../engine/palette';
 import { Plate } from '../engine/plates';
 import { Track } from '../engine/track';
 import { F, font, glyphX, measure } from '../engine/type';
-import { wordTimes } from '../engine/motion';
-import { norm, type VO } from '../engine/vo';
-import type { AudioData } from '../engine/audio';
 import { clamp, ease, prog, pulse } from '../engine/util';
 import { Hero, PX_PER_UNIT } from './weave-hero';
+import { WORDMARK_LEAD, timesOf, wordmarkShown } from './weave-time';
 import S from './weave.strings.json';
+
+export { timesOf };
 
 const [FORGET, COMMIT_LINE, WORDMARK, URL, CTA, CREDIT_LINE] = S as [string, string, string, string, string, string];
 const SHOT = 'b15_weave';
@@ -153,7 +153,7 @@ export default class Weave extends Scene {
     }
     // the wordmark: one character a frame from the settle, the name in bone and the hash faint, as the site's nav
     const chars = Array.from(WORDMARK), space = WORDMARK.indexOf(' ');
-    const n = Math.min(chars.length, Math.max(0, Math.floor((t - T.settle - 0.08) * 30) + 1));
+    const n = wordmarkShown(t, T.settle, chars.length);
     c.font = font(MARK.fam, MARK.px);
     const y = y0 + MARK.base;
     if (n > 0) {
@@ -165,7 +165,7 @@ export default class Weave extends Scene {
       }
     }
     // the block cursor: rides the typing, blinks twice, and is gone well before the end (the last frame is clean)
-    const typed = T.settle + 0.08 + chars.length / 30;
+    const typed = T.settle + WORDMARK_LEAD + chars.length / 30;
     const on = t >= T.settle && t < T.end - 1.1 && (t < typed || Math.floor((t - typed) / 0.36) % 2 === 1);
     if (on) {
       const cx = x0 + glyphX(WORDMARK, n, MARK.fam, MARK.px) + (n > 0 ? 3 : 0);
@@ -215,31 +215,6 @@ export default class Weave extends Scene {
     disposeLayer(this.layer);
     this.hero?.dispose();
   }
-}
-
-// ------------------------------------------------------------------------------------------------ timing
-
-/** Every time the scene keys on, from the voiceover's onsets and the score's grid. */
-export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
-  const ws = wordTimes(vo, 'weave');
-  const at = (w: string, nth = 0) => {
-    const h = ws.filter((x) => norm(x.w.w) === w)[nth];
-    if (!h) throw new Error(`weave: no spoken "${w}" (#${nth})`);
-    return h.at;
-  };
-  // the cut is on a downbeat (the score's one big hit); the lock is the next one, and the settle the last
-  const downs = audio.downbeats.filter((d) => d > start + 0.05 && d < end);
-  if (downs.length < 2) throw new Error('weave: needs two downbeats after the cut');
-  const lock = downs[0]!, settle = downs[downs.length - 1]!;
-  const after = audio.beats.find((b) => b > settle + 0.05) ?? settle + 60 / audio.bpm;
-  // the signature: the first beat after the call to action has settled (it lands at after + 0.41)
-  const credit = audio.beats.find((b) => b > after + 0.45) ?? after + 60 / audio.bpm;
-  return {
-    start, end, lock, settle, after, credit,
-    gitloom: at('gitloom'),
-    forget: [at('i', 0), at('dont'), at('forget')],
-    i: at('i', 1), commit: at('commit'),
-  };
 }
 
 /** A linear palette colour as a CSS colour at alpha a (Canvas2D takes sRGB). */

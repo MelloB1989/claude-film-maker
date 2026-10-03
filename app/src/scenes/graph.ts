@@ -59,6 +59,8 @@ export const LINK = { from: WORKS.indexOf('[['), to: WORKS.indexOf(']]') + 2 };
 export const TAG_NAME = { from: len(FORWARD) - 2 - len(TRIP), to: len(FORWARD) - 2 };
 /** The answer, as the terminal prints it (indented as output), and where `k8s` and the arrow sit in it. */
 export const ANSWER_LINE = `  ${ANSWER}`;
+/** The vocabulary command, typed in with "and I learn" (its `$ ` prompt there, not typed). */
+export const vocabLine = (T: Pick<Times, 'type'>): PanelLine => ({ text: VOCAB, kind: 'cmd', at: T.type.at, cps: (len(VOCAB) - 3) / (T.type.end - T.type.at) });
 export const ALIAS = { from: 2, to: 2 + len(K8S) };
 const ARROW = ANSWER_LINE.indexOf('→');
 
@@ -316,7 +318,7 @@ export default class Graph extends Scene {
 
   private buildTerminal() {
     const T = this.T;
-    const cmd: PanelLine = { text: VOCAB, kind: 'cmd', at: T.type.at, cps: (len(VOCAB) - 3) / (T.type.end - T.type.at) };
+    const cmd = vocabLine(T);
     const out: PanelLine = { text: ANSWER_LINE, kind: 'out', at: T.answer, spans: [{ from: ARROW, to: ARROW + 1, tone: 'moss' }] };
     const g = panelLayout({ kind: 'terminal', size: TERM_SIZE, lines: [cmd, out] });
     const h = g.bar + g.padTop + 2 * g.lineH + g.padBottom;
@@ -548,7 +550,7 @@ export default class Graph extends Scene {
   private poseConstellation(t: number) {
     const T = this.T;
     // the dangling link: thrown out from maya.md as the camera opens out, falling short; dashes of blood running down it
-    const thrown = prog(t, T.land + 0.05, T.ping - 0.04, ease.outCubic);
+    const thrown = prog(t, T.thrown.at, T.thrown.end, ease.outCubic);
     const dg = this.dangle;
     dg.setPoints(this.danglePts(t));
     dg.setDraw(0, Math.max(1e-4, thrown));
@@ -672,7 +674,7 @@ export default class Graph extends Scene {
 
     // the forward link's tag at the loose end, typed on as the thread falls short; it rides up with the end into the trip's
     // bead, and when the moss reaches the trip it resolves: its path and brackets fall away and the name slides home
-    const thrown = prog(t, T.land + 0.05, T.ping - 0.04, ease.outCubic);
+    const thrown = prog(t, T.thrown.at, T.thrown.end, ease.outCubic);
     // (typed on the output frame grid: one state per shutter, so a character never lands mid-frame)
     const tq = frameIdx(t) / FPS;
     const typed = Math.floor(clamp((tq - (T.ping - 0.1)) * 260, 0, len(FORWARD)));
@@ -776,7 +778,7 @@ export default class Graph extends Scene {
       glowAlong(c, s.pts, (u) => level(u) * s.shown(u), gain, undefined, s.blur);
     };
     // the dangling link
-    const thrown = prog(t, T.land + 0.05, T.ping - 0.04, ease.outCubic);
+    const thrown = prog(t, T.thrown.at, T.thrown.end, ease.outCubic);
     if (thrown > 0.002) {
       const ping = pulse(t, T.ping, 0.18);
       along(B, this.dangle, 80, (u) => bloodAt(u, t, T.heal, T.hops[0]!) * (u <= thrown ? 1 : 0) * (0.8 + 0.6 * ping));
@@ -790,7 +792,7 @@ export default class Graph extends Scene {
       // the loose end: lit as it is thrown, an ember of blood while it hangs (a loose end, not a cut one), pinging on the
       // beat, unanswered; out as the heal takes it home
       const loose = 1 - prog(t, T.heal - 0.02, T.heal + 0.04);
-      const k = (0.3 + 0.25 * (1 - prog(t, T.land + 0.05, T.ping - 0.04))) * loose;
+      const k = (0.3 + 0.25 * (1 - prog(t, T.thrown.at, T.thrown.end))) * loose;
       this.headLight(B, this.dangle, thrown, k, 8);
       const kp = pulse(t, T.ping, 0.12) * (t < T.heal ? 1 : 0);
       if (kp > 0.004) this.headLight(B, this.dangle, 1, 0.8 * kp, 26);

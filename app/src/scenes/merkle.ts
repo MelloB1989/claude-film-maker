@@ -25,7 +25,7 @@ import { CameraRig, Stage } from '../engine/stage';
 import { LIN } from '../engine/palette';
 import { ease, keys, lerp, prog, pulse } from '../engine/util';
 import { onBeat } from '../engine/motion';
-import { nodeTimes, timesOf, type Times } from './merkle-time';
+import { PLUNGE, nodeTimes, timesOf, type Times } from './merkle-time';
 import { SHAPE, type Tree } from './merkle-tree';
 import { aimAt, divePath, rigKeys } from './merkle-camera';
 import { TreeDraw } from './merkle-gl';
@@ -109,8 +109,8 @@ export default class Merkle extends Scene {
       [T.root, inv(P[0]!), ease.inOutCubic],
       [T.walk[0]!, inv(P[1]!), ease.inOutCubic],
       [T.walk[2]! - 0.04, inv(P[1]!)],
-      [T.walk[3]! - 0.04, inv(P[3]!), ease.inQuad],
-      [T.walk[3]! + 0.08, inv(P[4]!), ease.linear],
+      [T.walk[3]! + PLUNGE.from, inv(P[3]!), ease.inQuad],
+      [T.walk[3]! + PLUNGE.to, inv(P[4]!), ease.linear],
       [T.end, inv(P[4]!)],
     ]);
     const fstop = keys(t, [[T.start, 5.6], [T.root, 8], [T.walk[2]!, 8], [T.land, 16, ease.inOutCubic], [T.end, 16]]);

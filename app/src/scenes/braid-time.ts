@@ -6,7 +6,7 @@
 // hinge to the engine's projection of it).
 import type { AudioData } from '../engine/audio';
 import type { CamKey, V3 } from '../engine/stage';
-import { ease } from '../engine/util';
+import { clamp, ease } from '../engine/util';
 import { norm, type VO, type Word } from '../engine/vo';
 import SPEC from '../../../data/look/b08_braid.json';
 
@@ -118,3 +118,11 @@ export function cardTimes(T: BraidTimes): CardTimes {
     note: T.one + 0.2,
   };
 }
+
+// ------------------------------------------------------------------------------------------------ the query
+
+/** The query `what camera did I buy`: typed in from `lead` after the cut at `cps` characters a second. */
+export const QUERY_TYPE = { lead: 0.06, cps: 48 } as const;
+
+/** How many of the query's n characters show at t, typed from `at` (braid-type.ts drawQuery). */
+export const queryShown = (t: number, at: number, n: number) => clamp(Math.floor((t - at) * QUERY_TYPE.cps) + 1, 0, n);

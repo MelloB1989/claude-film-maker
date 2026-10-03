@@ -12,6 +12,7 @@
 // - "…I": the response card; "say", on its downbeat: I don't know., quiet and centred; the footnote under the card.
 import type { AudioData } from '../engine/audio';
 import { wordTimes } from '../engine/motion';
+import { clamp } from '../engine/util';
 import { norm, type VO, type Word } from '../engine/vo';
 
 /** The arms, in the order she gave them in `braid`; they go slack in the order RELEASE_ORDER gives (an index each). */
@@ -79,3 +80,9 @@ export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
   };
 }
 export type Times = ReturnType<typeof timesOf>;
+
+/** The question's typing speed (characters a second): its n characters typed from `ask`, the last on `asked`. */
+export const questionCps = (T: Pick<Times, 'ask' | 'asked'>, n: number) => (n - 1) / (T.asked - T.ask);
+
+/** How many of n characters typed from `at` at `cps` show at frame time tq (honest-type.ts drawQuery). */
+export const typedShown = (tq: number, at: number, cps: number, n: number) => clamp(Math.floor((tq - at) * cps) + 1, 0, n);

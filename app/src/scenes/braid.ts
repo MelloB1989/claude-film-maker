@@ -29,7 +29,7 @@ import { Track } from '../engine/track';
 import { Panel, panelLayout, type PanelLine, type PanelSpec } from '../engine/panels';
 import { spring } from '../engine/motion';
 import { FPS, clamp, ease, frameIdx, lerp, prog, pulse } from '../engine/util';
-import { ARMS, SHOT, WORLD, braidKeys, braidTimes, cardTimes, landOf, type Arm, type BraidTimes, type CardTimes } from './braid-time';
+import { ARMS, QUERY_TYPE, SHOT, WORLD, braidKeys, braidTimes, cardTimes, landOf, type Arm, type BraidTimes, type CardTimes } from './braid-time';
 import { LBL, NOTE, RIDE, drawLabel, drawName, drawNote, drawQuery, drawSheen, flight, flightPoint, rowWord, splitLabel, steadyAt } from './braid-type';
 import S from './braid.strings.json';
 
@@ -174,7 +174,7 @@ export default class Braid extends Scene {
     const L = this.layer, c = L.ctx;
     L.clear();
     c.textBaseline = 'alphabetic';
-    drawQuery(c, t, QUERY, T.start + 0.06, lerp(1, 0.55, prog(t, T.one, T.one + 0.4)));
+    drawQuery(c, t, QUERY, T.start + QUERY_TYPE.lead, lerp(1, 0.55, prog(t, T.one, T.one + 0.4)));
     const head = this.track.at('head', t), p0 = this.track.at('p0', t);
     for (const arm of ARMS) {
       const fl = flight(t, arm, T.zip, C.matched);

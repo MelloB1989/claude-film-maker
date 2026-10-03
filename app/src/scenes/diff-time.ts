@@ -63,6 +63,9 @@ export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
 }
 export type Times = ReturnType<typeof timesOf>;
 
+/** The camera's whip down onto the dock, round its downbeat (s from it): its two keys (inOutCubic between them). */
+export const DOCK_WHIP = { from: -0.22, to: 0.02 } as const;
+
 /**
  * The slash: the blade's progress through its window (0..1 of the line), a launch that reaches full speed a quarter
  * of the way in, then the cut at full speed into the impact (the panel's strike is linear in doc time, so the slash is

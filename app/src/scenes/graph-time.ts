@@ -71,6 +71,8 @@ export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
     underline, lift, land,
     i1: i1.start, connect: connect.start, dots: dots.start, dotsEnd: dots.end,
     ping, heal, hops,
+    /** maya.md's thread is thrown out as the camera opens out, falling short by the ping. */
+    thrown: { at: land + 0.05, end: ping - 0.04 },
     and: and.start, rise, type, answer,
     your: your.start, language: language.start, seek, found,
     /** The drain: from the end of "language." the light leaves the constellation, ahead of the dip to ink at the cut. */

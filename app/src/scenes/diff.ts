@@ -34,7 +34,7 @@ import { LIN } from '../engine/palette';
 import { LOOK } from '../engine/look';
 import { slam } from '../engine/motion';
 import { FPS, clamp, ease, frameIdx, keys, lerp, prog, pulse } from '../engine/util';
-import { bladeHeat, docTime, historyAt, romance, struckAt, timesOf, type Times } from './diff-time';
+import { DOCK_WHIP, bladeHeat, docTime, historyAt, romance, struckAt, timesOf, type Times } from './diff-time';
 import { Bar, Blade, Halo, Spot, Wash } from '../engine/panel-light';
 import { Backdrop, fitKey } from './diff-fx';
 import { DOCK, Dock } from './diff-dock';
@@ -153,9 +153,9 @@ export function cameraKeys(T: Times, top: (i: number, d: number) => number): Cam
     // and takes the blow, easing back as the two new rows open: both changes in frame, the new line typing in
     fitKey(T.add + 0.2, boxAt(G.textX - 60, top(3, now), xn + 40, top(ROW.neo, now) + 1.4 * lh), { az: -17, el: 4, fov: FOV, margin: [0.08, 0.09], bias: [0, 0.04], roll: -1 }, F, ease.inOutCubic),
     // drifting along it as it types
-    fitKey(T.dock - 0.22, boxAt(G.textX - 40, top(3, now), xn + 60, top(ROW.neo, now) + 1.4 * lh), { az: -16, el: 4, fov: FOV, margin: [0.08, 0.09], bias: [0, 0.04], roll: -1 }, F, ease.inOutQuad),
+    fitKey(T.dock + DOCK_WHIP.from, boxAt(G.textX - 40, top(3, now), xn + 60, top(ROW.neo, now) + 1.4 * lh), { az: -16, el: 4, fov: FOV, margin: [0.08, 0.09], bias: [0, 0.04], roll: -1 }, F, ease.inOutQuad),
     // the dock lands under the editor on the downbeat: the camera whips down onto it, holding the two lines above
-    fitKey(T.dock + 0.02, boxAt(0, top(ROW.old, now) - 1.3 * lh, EDIT.w + 10, dockLow + 6, DOCK.z / 2), { az: -14.5, el: 7, fov: FOV, margin: [0.065, 0.065], bias: [0, 0], roll: -1.1 }, F, ease.inOutCubic),
+    fitKey(T.dock + DOCK_WHIP.to, boxAt(0, top(ROW.old, now) - 1.3 * lh, EDIT.w + 10, dockLow + 6, DOCK.z / 2), { az: -14.5, el: 7, fov: FOV, margin: [0.065, 0.065], bias: [0, 0], roll: -1.1 }, F, ease.inOutCubic),
     fitKey(T.well, boxAt(0, top(ROW.old, now) - 1.2 * lh, EDIT.w + 10, dockLow, DOCK.z / 2), { az: -14, el: 7, fov: FOV, margin: [0.07, 0.07], bias: [0, 0], roll: -1 }, F, ease.outQuad),
     // L17, slowly in all the while: leaning toward 8b21e04 as the playhead runs back to it, home again with it, and on in
     // to the two lines as the dock sinks out of the bottom of the frame

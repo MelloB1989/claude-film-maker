@@ -393,6 +393,23 @@ export function lineEnd(l: PanelLine): number {
 /** The frame-grid time every panel state is computed at: one state per output frame, whatever the shutter samples. */
 const frameT = (t: number) => frameIdx(t) / FPS;
 
+/**
+ * Characters of a line typed by song time t (pure; on the frame grid, as Panel.revealed shows them): a typed line's
+ * first character lands on `at` and each next one 1/cps later; its `$ ` prompt is shown whole, not typed, and is not
+ * counted. 0 for a deletion (it is struck, not typed) and for a line with no `at` (there from the start); all of a
+ * line shown whole at `at`.
+ */
+export function typedCount(l: PanelLine, t: number): number {
+  return typedAt(l, frameT(t));
+}
+
+/** typedCount at frame time tq. */
+function typedAt(l: PanelLine, tq: number): number {
+  if (l.kind === 'del' || l.at === undefined || tq < l.at) return 0;
+  const n = glyphs(l.text).length, p = promptLen(l);
+  return typing(l) ? Math.min(n, p + Math.floor((tq - l.at) * l.cps! + EPS) + 1) - p : n - p;
+}
+
 interface LineState {
   /** Characters of the text shown. */
   n: number;
@@ -421,7 +438,7 @@ function lineStates(lines: PanelLine[], tq: number, terminal: boolean): LineStat
       // input. Anywhere else a line starts at `at`: a chat's user turn opens its row as its text starts typing
       start = terminal && l.kind === 'cmd' ? Math.min(l.at, prevEnd) : l.at;
       shown = p && tq >= start ? p : 0;
-      if (tq >= l.at) shown = typing(l) ? Math.min(n, p + Math.floor((tq - l.at) * l.cps! + EPS) + 1) : n;
+      if (tq >= l.at) shown = p + typedAt(l, tq);
     }
     const open = start === -Infinity ? 1 : smootherstep(start - OPEN_S, start, tq);
     out.push({ n: shown, struck, start, open });

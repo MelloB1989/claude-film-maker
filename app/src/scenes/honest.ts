@@ -26,7 +26,7 @@ import { DIFF_THREAD, Thread, envelopeOf } from '../engine/thread3d';
 import { LIN } from '../engine/palette';
 import { LOOK, glow } from '../engine/look';
 import { ease, frameIdx, hash, prog } from '../engine/util';
-import { ARMS, timesOf, type Arm, type Times } from './honest-time';
+import { ARMS, questionCps, timesOf, type Arm, type Times } from './honest-time';
 import { FLOOR_Y, FOV, FSTOP, N_PTS, RADIUS, armAt, cameraAt, reachAt, toVectors, type V3 } from './honest-fall';
 import { dim, drawEmber, drawFloor, drawKnow, drawNote, drawQuery, nearness } from './honest-type';
 import S from './honest.strings.json';
@@ -288,7 +288,7 @@ export default class Honest extends Scene {
     L.clear();
     c.textBaseline = 'alphabetic';
     const n = Array.from(QUESTION).length;
-    const cps = (n - 1) / (T.asked - T.ask);
+    const cps = questionCps(T, n);
     drawQuery(c, t, QUESTION, T.ask, cps, dim(t, T.respond - 0.1, T.say + 0.3, 1, 0.5) * still, T.respond);
     const floorA = dim(t, T.say, T.say + 0.5, 1, 0.55) * still;
     drawFloor(c, floorY, prog(t, T.floor.at, T.floor.end), floorA, tips);

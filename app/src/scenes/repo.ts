@@ -34,61 +34,27 @@ import { Bead, beadGeometry } from '../engine/bead';
 import { Type3D } from '../engine/type3d';
 import { F, font } from '../engine/type';
 import { LIN, rgba } from '../engine/palette';
-import { slam, wordTimes } from '../engine/motion';
+import { slam } from '../engine/motion';
 import { sweepAt, withSweep, type SweepBand } from '../engine/sweep';
-import { norm, type VO, type Word } from '../engine/vo';
-import type { AudioData } from '../engine/audio';
 import { clamp, ease, keys, lerp, prog, pulse } from '../engine/util';
 import { ChipShadow, chipGeometry, chipPop, layoutChips, recoil, type ChipSpec } from './repo-chips';
 import { Track } from '../engine/track';
 import { exitError, fitLine, lineThrough, solve2, type Px, type ScreenLine } from './repo-exit';
+import { DIRS, LOG, terminalLines, timesOf } from './repo-time';
 import S from './repo.strings.json';
+
+export { LOG, timesOf };
 
 // ------------------------------------------------------------------------------------------------ the copy
 
-const [CD, LS, GITLOG, ...REST] = S as string[];
-/** The log, newest first (spec §4): each a hash, a space, a message. */
-export const LOG = REST.slice(0, 4).map((s) => ({ line: s, hash: s.slice(0, s.indexOf(' ')) }));
+const [, , , ...REST] = S as string[];
 const PATH = REST[4]!;
 /** The memory file's non-empty lines (spec §11.4), and the footnote (§11.9). */
 const MEMORY = REST.slice(5, 18);
 const FOOTNOTE = REST[18]!;
 /** The file's 18 lines: its non-empty lines, and the blank ones between them (-1). */
 export const FILE: PanelLine[] = [0, 1, 2, 3, 4, 5, -1, 6, 7, -1, 8, -1, 9, -1, 10, -1, 11, 12].map((i) => ({ text: i < 0 ? '' : MEMORY[i]! }));
-const DIRS = LS!.split(/\s+/).filter(Boolean);
 
-// ------------------------------------------------------------------------------------------------ timing
-
-/** Every time the scene keys on, from her onsets and the score's grid (song seconds). */
-export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
-  const ws = wordTimes(vo, 'repo').map((x) => x.w);
-  const word = (w: string, nth = 0): Word => {
-    const h = ws.filter((x) => norm(x.w) === w)[nth];
-    if (!h) throw new Error(`repo: no spoken "${w}" (#${nth})`);
-    return h;
-  };
-  const beat = 60 / audio.bpm;
-  const im = word('im'), git = word('git'), repo = word('repo'), you = word('you'), read = word('read'), me = word('me');
-  // the listing pops on the downbeat she reaches "git repo" on, its chips a 32nd note apart
-  const pop = audio.downbeats.find((d) => d > im.start + 0.25 && d < repo.start) ?? git.start;
-  const chips = DIRS.map((_, i) => pop + (i * beat) / 8);
-  // `cd ~/memory && ls` types in with "I'm just a…", done just before the pop; `git log --oneline` types in the pause
-  // after "repo." and is entered as the camera starts its dive
-  const cd = { at: im.start, end: pop - 0.13 };
-  const log = { at: repo.start + 0.1, end: Math.min(you.start - 0.32, repo.start + 0.5) };
-  // the commits land on the beats from "You", one a beat
-  const beads = audio.beats.filter((b) => b >= you.start - 0.06).slice(0, LOG.length);
-  if (beads.length < LOG.length || beads[beads.length - 1]! > end - 0.9) throw new Error('repo: the commits need four beats from "You" with a second left for the file');
-  // the footnote types in on "read"; the file swings in on the beat after the last commit
-  const fileLand = beads[beads.length - 1]! + beat;
-  return {
-    start, end, beat, im: im.start, repo: repo.start, you: you.start, me: me.start,
-    pop, chips, cd, log, enter: log.end + 0.05,
-    /** The camera crosses the terminal's face. */
-    cross: beads[0]! - 0.1,
-    beads, note: read.start - 0.02, fileLand,
-  };
-}
 type Times = ReturnType<typeof timesOf>;
 
 // ------------------------------------------------------------------------------------------------ the world (metres)
@@ -294,13 +260,8 @@ export default class Repo extends Scene {
 
   private buildTerminal() {
     const T = this.T;
-    const typed = (text: string, at: number, end: number): PanelLine => ({ text, kind: 'cmd', at, cps: (Array.from(text).length - 3) / (end - at) });
-    const cd = typed(CD!, T.cd.at, T.cd.end), log = typed(GITLOG!, T.log.at, T.log.end);
-    this.term = new Panel({
-      kind: 'terminal', w: TERM.w, h: TERM.h, size: TERM.size,
-      // the listing's row is the chips' (they are the output); the dive's row opens on Enter
-      lines: [cd, { text: '', kind: 'out', at: T.pop - 0.1 }, log, { text: '', kind: 'out', at: T.enter }],
-    });
+    const lines = terminalLines(T), cd = lines[0]!, log = lines[2]!;
+    this.term = new Panel({ kind: 'terminal', w: TERM.w, h: TERM.h, size: TERM.size, lines });
     if (Math.abs(lineEnd(cd) - T.cd.end) > 1e-6 || Math.abs(lineEnd(log) - T.log.end) > 1e-6) throw new Error('repo: a command does not finish typing when it should');
     this.termG.scale.setScalar(TERM_SCALE);
     this.termG.rotation.set(-0.03, 0, 0);

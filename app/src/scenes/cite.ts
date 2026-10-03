@@ -132,6 +132,35 @@ export { THREAD_PX };
  * Where the thread lies (editor px): the underline under the citation's range on the label's face (the range's cells on
  * the label's mono grid, its baseline as the Panel sets it), the label's foot, and the seam beside the cited rows.
  */
+/** The thread's route at t (pure): the seam's, drawn in as the pull comes, breathing while it is drawn out. */
+export function routeAt(t: number, T: Times, seam: SeamSpec): P3[] {
+  // the air breathes while the thread is drawn and is still by the landing, so the seam lies down from a steady line
+  const live = smoothstep(T.draw.at, T.draw.at + 0.4, t) * (1 - smoothstep(T.form.at, T.strike, t));
+  const sway: P3 = live > 0 ? [6 * live * noise1(t * 1.1, 3), 4 * live * noise1(t * 0.8, 7), 5 * live * noise1(t * 0.9, 11)] : [0, 0, 0];
+  return seamRoute(seam, tautAt(t, T), sway);
+}
+
+/** Where the thread lands on the file and where it ends, along a route's measure. */
+export function runOf(path: ArcPath): Run {
+  return { land: path.atPoint(LAND), end: path.length };
+}
+
+/** When each cited line (CITED, in order) lights: as the seam's tip passes it, laying down the margin (pure). */
+export function citedLit(T: Times, seam: SeamSpec = seamSpec()): number[] {
+  const path = new ArcPath(routeAt(T.strike, T, seam));
+  const run = runOf(path);
+  return CITED.map((i) => {
+    const s = path.crossing(1, rowTop(i) + EG.lineH / 2, run.land, run.end);
+    return tipPasses(Number.isNaN(s) ? run.land : s, T, run);
+  });
+}
+
+/** The question typed into the chat as the cut lands, sent a little before the answer's downbeat. */
+export const askLine = (T: Pick<Times, 'question'>): PanelLine => ({ text: ASK, kind: 'cmd', at: T.question.at, cps: (len(ASK) - 1) / (T.question.end - T.question.at) });
+
+/** The blame tab lands this long after the pull (s): a firm spring, overshooting a hair. */
+export const TAB_LAND = 0.04;
+
 export function seamSpec(): SeamSpec {
   const R = CITE_RUNS.range, base = LG.bar + LG.padTop + LG.lineH / 2 + 0.365 * LABEL_SIZE;
   const y = LABEL.y + base + UNDER.drop;
@@ -276,7 +305,7 @@ export default class Cite extends Scene {
     this.chat = new Panel({
       kind: 'chat', w: CW, h: CH, size: SIZE, opaque: true,
       lines: [
-        { text: ASK, kind: 'cmd', at: T.question.at, cps: (len(ASK) - 1) / (T.question.end - T.question.at) },
+        askLine(T),
         { text: '' },
         { text: ANSWER, kind: 'out', at: T.answer - 0.01, cps: (len(ANSWER) - 1) / (T.answerEnd - T.answer + 0.01) },
       ],
@@ -356,16 +385,12 @@ export default class Cite extends Scene {
 
   /** The route at t (editor px): the underline, the air (slack, breathing while it is drawn, drawn in on the pull), the seam. */
   private routeAt(t: number): P3[] {
-    const T = this.T;
-    // the air breathes while the thread is drawn and is still by the landing, so the seam lies down from a steady line
-    const live = smoothstep(T.draw.at, T.draw.at + 0.4, t) * (1 - smoothstep(T.form.at, T.strike, t));
-    const sway: P3 = live > 0 ? [6 * live * noise1(t * 1.1, 3), 4 * live * noise1(t * 0.8, 7), 5 * live * noise1(t * 0.9, 11)] : [0, 0, 0];
-    return seamRoute(this.seam, tautAt(t, T), sway);
+    return routeAt(t, this.T, this.seam);
   }
 
   /** Where the thread lands on the file and where it ends, along a route's measure. */
   private static runOf(path: ArcPath): Run {
-    return { land: path.atPoint(LAND), end: path.length };
+    return runOf(path);
   }
 
   private buildThread() {
@@ -415,12 +440,10 @@ export default class Cite extends Scene {
   private buildEditor() {
     const T = this.T;
     // each cited line lights moss as the seam's tip passes it, spreading in like ink, and flares with the pull
-    const path = new ArcPath(this.routeAt(T.strike));
-    const run = Cite.runOf(path);
+    const lits = citedLit(T, this.seam);
     const lines: PanelLine[] = FILE_TEXT.map((text, i) => {
       if (!(CITED as readonly number[]).includes(i)) return { text };
-      const s = path.crossing(1, rowTop(i) + EG.lineH / 2, run.land, run.end);
-      const lit = tipPasses(Number.isNaN(s) ? run.land : s, T, run);
+      const lit = lits[CITED.indexOf(i as (typeof CITED)[number])]!;
       const marks: PanelMark[] = [
         { tone: 'moss', alpha: 0.1, at: lit - 0.04, fade: 0.16 },
         { tone: 'moss', alpha: 0.07, at: T.pull - 0.02, until: T.pull + 0.5, fade: 0.08 },
@@ -477,7 +500,7 @@ export default class Cite extends Scene {
     const T = this.T;
     const hidden = 10, out = TAB.tuck - TAB.w;
     // a firm spring that lands just after the pull, overshooting a hair and settling home
-    const x = lerp(hidden, out, slam(t, T.pull + 0.04, { freq: 4.5, damping: 0.66 }));
+    const x = lerp(hidden, out, slam(t, T.pull + TAB_LAND, { freq: 4.5, damping: 0.66 }));
     this.tabG.visible = t >= T.pull - 0.1;
     this.tabG.position.copy(Cite.local(EW, EH, x + TAB.w / 2, TAB_TOP + TAB_H / 2, -6));
     this.tab.draw(t);

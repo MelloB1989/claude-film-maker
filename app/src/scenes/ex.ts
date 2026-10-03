@@ -32,9 +32,7 @@ import { Panel } from '../engine/panels';
 import { F } from '../engine/type';
 import { HEX, LIN, rgba } from '../engine/palette';
 import { glow } from '../engine/look';
-import { onBeat, wordTimes } from '../engine/motion';
-import { norm, type VO, type Word } from '../engine/vo';
-import type { AudioData } from '../engine/audio';
+import { onBeat } from '../engine/motion';
 import { clamp, ease, hash, keys, lerp, prog, pulse } from '../engine/util';
 import { GlyphActors, GlyphAtlas, flapAt, flapDigit } from '../engine/glyphs';
 import { CloudField, type CloudCell } from './ex-glyphs';
@@ -44,7 +42,10 @@ import {
   type Cloud, type Numeral,
 } from './ex-cloud';
 import { HeroWord, drawBrackets, drawQuery, drawStamp, drawStampGlow, drawTooltip, drawTyped, drawWords, stampPose } from './ex-type';
+import { FLAP, PING, fatalFlap, timesOf } from './ex-time';
 import S from './ex.strings.json';
+
+export { timesOf };
 
 // ------------------------------------------------------------------------------------------------ the copy
 
@@ -76,8 +77,6 @@ const STAMP_TILT = [-0.035, 0.022, -0.014];
 
 // ------------------------------------------------------------------------------------------------ the world (m)
 
-/** One flap of a split-flap cell (s). */
-const FLAP = 0.07;
 /** Gravity in the collapse (m/s²): the cloud's top lands about half a second after the drop. */
 const GRAVITY = 6;
 /** The cards' and the terminal's text size (panel px per em): one panel px is EM / 28 m, so it is the cloud's em. */
@@ -110,48 +109,6 @@ function boneAt(b: number): [number, number, number] {
 
 const Y = new THREE.Vector3(0, 1, 0);
 
-// ------------------------------------------------------------------------------------------------ timing
-
-/** Every time the scene keys on, from her onsets and the score's grid (song seconds). */
-export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
-  const ws = wordTimes(vo, 'ex').map((x) => x.w);
-  const word = (w: string, nth = 0): Word => {
-    const h = ws.filter((x) => norm(x.w) === w)[nth];
-    if (!h) throw new Error(`ex: no spoken "${w}" (#${nth})`);
-    return h;
-  };
-  const beat = 60 / audio.bpm;
-  const beatAfter = (t: number) => audio.beats.find((b) => b > t + 1e-6) ?? t + beat;
-  const downAfter = (t: number) => audio.downbeats.find((b) => b > t + 1e-6) ?? t + 4 * beat;
-  const store = word('store'), overwrites = word('overwrites'), knew = word('knew'), why = word('why');
-  const commitment = word('commitment');
-  // the drop is on the beat she says "Commitment" on (or the next one)
-  const drop = audio.beats.find((b) => b >= commitment.start - 0.08) ?? commitment.start;
-  const berlin = downAfter(store.end);
-  const wave1 = beatAfter(overwrites.start + 0.55);
-  const stamp0 = downAfter(knew.end);
-  const stamps = [stamp0, beatAfter(stamp0), beatAfter(beatAfter(stamp0))];
-  if (!(stamps[2]! < drop)) throw new Error('ex: the stamps must land before the drop');
-  const resolve = downAfter(drop);
-  return {
-    start, end,
-    its: word('its', 0).start, not: word('not').start, you: word('you', 0).start,
-    its2: word('its', 1).start, your: word('your').start, vector: word('vector').start, store: store.start,
-    /** The cloud is revealed and a band of light sweeps it, on the first downbeat. */
-    reveal: downAfter(start + 0.2),
-    /** The type clears as the camera pushes in; the Berlin card flies in and lands on the downbeat ("It"). */
-    typeOut: store.end + 0.05, berlin,
-    /** Its letters melt, its floats drop into their row, and the cloud takes them over. */
-    berlinMorph: berlin + 0.02, berlinSettle: berlin + 0.42,
-    /** Lisbon flies in during "overwrites", its letters melt and dive into the row; the flaps land on the beats. */
-    lisbonIn: berlin + 0.26, lisbonMorph: wave1 - 0.48, lisbonDive: wave1 - 0.31, wave1, wave2: beatAfter(wave1),
-    /** The ghost query, after the overwrite (gone before the first stamp). */
-    query: beatAfter(wave1) + 0.06,
-    stamps, why: why.start, drop, resolve,
-    /** "commits" turns blood a beat after the fatal line. */
-    punch: beatAfter(resolve),
-  };
-}
 type Times = ReturnType<typeof timesOf>;
 
 // ------------------------------------------------------------------------------------------------ the scene
@@ -437,8 +394,8 @@ export default class Ex extends Scene {
     u.uFade.value.set(lerp(SEED.cloud0, 1, prog(t, T.start, T.start + SEED.rise, ease.inOutCubic)), 0.85, 0.03 * onBeat(f, 0.25), 0);
     u.uRegion.value.x = prog(t, T.berlin - 0.3, T.berlin + 0.2) * (1 - prog(t, T.stamps[0]! - 0.4, T.stamps[0]!));
     u.uRegion.value.w = 0.06 * pulse(t, T.berlinSettle, 0.25);
-    u.uPing.value[0]!.set(this.R.x, this.R.y, this.R.z, T.query + 0.12);
-    u.uPing.value[1]!.set(this.whyAt.x, this.whyAt.y, this.whyAt.z, T.why + 0.06);
+    u.uPing.value[0]!.set(this.R.x, this.R.y, this.R.z, T.query + PING.query);
+    u.uPing.value[1]!.set(this.whyAt.x, this.whyAt.y, this.whyAt.z, T.why + PING.why);
     u.uLit.value.set(this.whyNumeral.id, prog(t, T.why + 0.2, T.why + 0.32) * (1 - prog(t, T.drop - 0.02, T.drop + 0.1)), 0, 0);
     // shockwaves: the Berlin card's landing, and the stamps
     u.uShock.value[0]!.set(this.R.x, this.R.y, this.R.z, T.berlin);
@@ -668,7 +625,7 @@ export default class Ex extends Scene {
       let landed = 0;
       while (landed < arr.length && arr[landed]! <= t) landed++;
       const g = this.atlas.of(ch);
-      const step = 0.042 + 0.03 * hash(s, 62), steps = 2 + Math.floor(hash(s, 61) * 3);
+      const { step, steps } = fatalFlap(s);
       const origin = this.line.clone().add(new THREE.Vector3(s * ADV, 0, 0));
       if (t >= T.resolve) {
         if (g < 0) return;

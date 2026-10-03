@@ -22,11 +22,12 @@ import { LIN } from '../engine/palette';
 import { Plate } from '../engine/plates';
 import { Track, type Anchor } from '../engine/track';
 import { F } from '../engine/type';
-import { slam, speedRamp, wordTimes } from '../engine/motion';
-import { norm, type Word } from '../engine/vo';
+import { slam, speedRamp } from '../engine/motion';
+import type { Word } from '../engine/vo';
 import { clamp, ease, keys } from '../engine/util';
 import { crackMaterial, setCrack, setPose, type CrackUniforms } from './thread-crack';
 import { drawLine, type WordAt } from './thread-type';
+import { threadTimes } from './thread-time';
 import S from './thread.strings.json';
 
 const [L01, BACK_TO, ZERO] = S as [string, string, string];
@@ -97,22 +98,14 @@ export default class ThreadScene extends Scene {
     this.track = await Track.load(SHOT);
     this.plate = new Plate(SHOT, this.track.f0, { count: this.track.frames });
 
-    const ws = wordTimes(this.ctx.vo, 'thread').map((x) => x.w);
-    const find = (s: string) => {
-      const w = ws.find((x) => norm(x.w) === norm(s));
-      if (!w) throw new Error(`thread: no spoken word "${s}"`);
-      return w;
-    };
-    this.words = Object.fromEntries(['your', 'agent', 'forgets', 'back', 'to', 'zero'].map((k) => [k, find(k)]));
-    const { to, zero } = this.words as Record<string, Word>;
-    // the plate's speed ramp (b01_thread.py Clock): 1x until "to", 0.25x at "zero", held to the cut
-    const lt = (t: number) => t - this.ctx.start;
-    this.ramp = [[lt(to!.start), 1], [lt(zero!.start), 0.25], [lt(this.ctx.end), 0.25], [lt(this.ctx.end), 1]];
-    this.snapTau = this.tau(zero!.start);
-    // the light comes up on the first beat after the opening's half second of black (b01_thread.py Clock.light_on)
-    this.lightOn = this.ctx.audio.beats.find((b) => b > this.ctx.start + 0.4) ?? this.ctx.start;
+    // every time from thread-time.ts: the words, the plate's speed ramp, the light, the snap
+    const T = threadTimes(this.ctx.vo, this.ctx.audio, this.ctx.start, this.ctx.end);
+    this.words = T.words;
+    this.ramp = T.ramp;
+    this.snapTau = this.tau(T.snap);
+    this.lightOn = T.lightOn;
     // the break point: where both ends are on the last frame before the snap
-    this.preSnap = Math.floor(zero!.start * 30) / 30;
+    this.preSnap = T.preSnap;
     this.breakAt = this.track.at('end_l', this.preSnap);
 
     // the stage: the word hangs over the break, lit like the plate (warm-neutral key from the upper left, rim behind)

@@ -51,6 +51,10 @@ export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
 }
 export type Times = ReturnType<typeof timesOf>;
 
+/** The crane's plunge onto the fifty, round "at" (s from the walk reaching level 3): it accelerates into `from` and runs
+ * on at full speed to `to`. */
+export const PLUNGE = { from: -0.04, to: 0.08 } as const;
+
 /** Per-node times the shaders read (scene time: s from the scene's start). */
 export interface TreeTimes {
   /** When the moss reaches a node (lit nodes; NEVER otherwise). */

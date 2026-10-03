@@ -12,6 +12,7 @@
 import { F, font, measure } from '../engine/type';
 import { rgba } from '../engine/palette';
 import { FPS, clamp, ease, frameIdx, lerp, prog } from '../engine/util';
+import { typedShown } from './honest-time';
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -39,7 +40,7 @@ export function drawQuery(c: Ctx, t: number, text: string, at: number, cps: numb
   c.font = font(fam, px);
   const w = measure(text, fam, px);
   const x0 = 960 - w / 2;
-  const n = clamp(Math.floor((tq - at) * cps) + 1, 0, chars.length);
+  const n = typedShown(tq, at, cps, chars.length);
   const typed = chars.slice(0, n).join('');
   c.globalAlpha = alpha;
   c.fillStyle = rgba('bone', 0.92);

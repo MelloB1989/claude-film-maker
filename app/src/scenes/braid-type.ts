@@ -18,7 +18,7 @@ import { rgba } from '../engine/palette';
 import { spring } from '../engine/motion';
 import { clamp, ease, frameIdx, lerp, prog } from '../engine/util';
 import type { Word } from '../engine/vo';
-import { ARMS, type Arm } from './braid-time';
+import { ARMS, QUERY_TYPE, queryShown, type Arm } from './braid-time';
 
 /** The labels: mono on a hairline leader from the arm to a dark chip (loom's labels). */
 export const LBL = { px: 22, fam: F.mono(500), padX: 10, padY: 7, dot: 3.4 };
@@ -29,7 +29,7 @@ export const CHIP: Record<Arm, { dx: number; dy: number; side: 'left' | 'right' 
   cues: { dx: -22, dy: -72, side: 'right' },
 };
 /** The query: mono, right-aligned to the title-safe edge, at the top. */
-export const QUERY = { px: 30, fam: F.mono(500), right: 1824, base: 158, cps: 48 };
+export const QUERY = { px: 30, fam: F.mono(500), right: 1824, base: 158, cps: QUERY_TYPE.cps };
 /** The footnote: mono, bone-dim, under the card; typing speed. */
 export const NOTE = { px: 24, fam: F.mono(400), below: 64, cps: 100 };
 
@@ -243,7 +243,7 @@ export function drawQuery(c: Ctx, t: number, text: string, at: number, alpha: nu
   c.font = font(fam, px);
   const w = measure(text, fam, px);
   const x0 = right - w;
-  const n = clamp(Math.floor((t - at) * cps) + 1, 0, Array.from(text).length);
+  const n = queryShown(t, at, Array.from(text).length);
   const typed = Array.from(text).slice(0, n).join('');
   c.globalAlpha = alpha;
   c.fillStyle = rgba('bone', 0.92);
