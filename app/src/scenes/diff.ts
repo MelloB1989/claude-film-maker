@@ -102,8 +102,125 @@ const KICK = { px: 10, freq: 4.2 };
 
 const INK = new THREE.Color().setRGB(...LIN.ink);
 
+// ------------------------------------------------------------------------------------------------ the camera (pure)
+
+/** The editor's frame in the world: it hangs at the origin, EDIT_SCALE world units to 1000 px, facing +z. */
+const EDIT_FRAME = new THREE.Matrix4().makeScale(EDIT_SCALE, EDIT_SCALE, EDIT_SCALE);
+/** A point on the editor (px from its top left, y down; z px out of its face), in the world, the editor at rest. */
+const edAt = (x: number, y: number, z = 0) => new THREE.Vector3((x - EDIT.w / 2) / 1000, (EDIT.h / 2 - y) / 1000, z / 1000).applyMatrix4(EDIT_FRAME);
+/** World points boxing editor px [x0, x1] × [y0, y1] (z px out of its face). */
+const boxAt = (x0: number, y0: number, x1: number, y1: number, z = 0) => [edAt(x0, y0, z), edAt(x1, y0, z), edAt(x0, y1, z), edAt(x1, y1, z)];
+/** The playhead's x at history h (1: HEAD, 0: 8b21e04). */
+const headX = (h: number) => lerp(DOCK.commitX[OLD]!, DOCK.commitX[HEAD]!, h);
+const cosine = (u: number) => 0.5 - 0.5 * Math.cos(Math.PI * u);
+
+/** The editor Panel's spec for these times (the scene's editor; a test builds the same one, headless). */
+export function editorSpec(T: Pick<Times, 'strike' | 'conf' | 'add' | 'addEnd'>) {
+  return { kind: 'editor' as const, title: PATH, w: EDIT.w, h: EDIT.h, lang: 'md' as const, gutter: 'numbers' as const, size: SIZE, lines: fileLines(T) };
+}
+
+/** The romance's close-up, the camera's last stop: the two lines, the old one's ember. `top(i)`: row i's top, every row open. */
+function closeUp(t: number, top: (i: number) => number): CamKey {
+  const lh = G.lineH, xn = G.textX + len(NEOVIM) * G.adv;
+  return fitKey(t, boxAt(G.textX - 70, top(11) - 0.1 * lh, xn + 20, top(ROW.neo) + 1.5 * lh), { az: -21, el: 2, fov: FOV, margin: [0.05, 0.12], bias: [0.03, -0.02], roll: -1.4 }, EDIT_FRAME, cosine);
+}
+
+/** The camera's keys, every one from the times and the editor's rows (`top(i, d)`: row i's top at the file's time d). */
+export function cameraKeys(T: Times, top: (i: number, d: number) => number): CamKey[] {
+  const F = EDIT_FRAME, lh = G.lineH;
+  const old = T.old, now = T.head + 1;
+  const x1 = G.textX + len(VSCODE) * G.adv, xn = G.textX + len(NEOVIM) * G.adv;
+  const dockLow = EDIT.h + DOCK.threadY + DOCK.msgY + 10;
+  const H0 = headX(1), H1 = headX(0);
+  const first = { az: -25, el: 8, fov: FOV, margin: [0.1, 0.12] as [number, number], bias: [-0.04, 0] as [number, number], roll: -2 };
+  return [
+    // the cut: the top of the file, close, the caret on line 1 under the title bar
+    fitKey(T.start, boxAt(0, 0, 600, top(6, old)), first, F),
+    // craning down the file with the caret, landing with it on `Uses VS Code.`
+    fitKey(T.land + 0.12, boxAt(0, top(3, old), 600, top(ROW.old, old) + 2.2 * lh), { az: -22, el: 5, fov: FOV, margin: [0.1, 0.12], bias: [-0.04, 0.02], roll: -1.6 }, F, ease.inOutCubic),
+    // a slow push toward the line through "mind?"
+    fitKey(T.strike.at - 0.05, boxAt(10, top(7, old), 540, top(ROW.old, old) + 2.6 * lh), { az: -19, el: 3, fov: FOV, margin: [0.08, 0.07], bias: [-0.02, 0], roll: -1.3 }, F, ease.inOutQuad),
+    // the blade cuts: the camera drives in with it and the blow lands, the line just under the frame's middle
+    fitKey(T.strike.end + 0.06, boxAt(G.textX - 70, top(8, old) + 0.3 * lh, x1 + 230, top(ROW.old, old) + 2.6 * lh), { az: -18, el: 3, fov: FOV, margin: [0.07, 0.07], bias: [-0.02, -0.02], roll: -1.1 }, F, ease.inQuad),
+    // and takes the blow, easing back as the two new rows open: both changes in frame, the new line typing in
+    fitKey(T.add + 0.2, boxAt(G.textX - 60, top(3, now), xn + 40, top(ROW.neo, now) + 1.4 * lh), { az: -17, el: 4, fov: FOV, margin: [0.08, 0.09], bias: [0, 0.04], roll: -1 }, F, ease.inOutCubic),
+    // drifting along it as it types
+    fitKey(T.dock - 0.22, boxAt(G.textX - 40, top(3, now), xn + 60, top(ROW.neo, now) + 1.4 * lh), { az: -16, el: 4, fov: FOV, margin: [0.08, 0.09], bias: [0, 0.04], roll: -1 }, F, ease.inOutQuad),
+    // the dock lands under the editor on the downbeat: the camera whips down onto it, holding the two lines above
+    fitKey(T.dock + 0.02, boxAt(0, top(ROW.old, now) - 1.3 * lh, EDIT.w + 10, dockLow + 6, DOCK.z / 2), { az: -14.5, el: 7, fov: FOV, margin: [0.065, 0.065], bias: [0, 0], roll: -1.1 }, F, ease.inOutCubic),
+    fitKey(T.well, boxAt(0, top(ROW.old, now) - 1.2 * lh, EDIT.w + 10, dockLow, DOCK.z / 2), { az: -14, el: 7, fov: FOV, margin: [0.07, 0.07], bias: [0, 0], roll: -1 }, F, ease.outQuad),
+    // L17, slowly in all the while: leaning toward 8b21e04 as the playhead runs back to it, home again with it, and on in
+    // to the two lines as the dock sinks out of the bottom of the frame
+    fitKey(T.back.end + 0.06, boxAt(-20, top(ROW.old, now) - 1.0 * lh, EDIT.w + 5, dockLow - 10, DOCK.z / 2), { az: -13, el: 6.5, fov: FOV, margin: [0.07, 0.07], bias: [0.05 * (H0 - H1) / 220, 0], roll: -0.9 }, F, ease.inOutQuad),
+    fitKey(T.fwd.at + 0.1, boxAt(10, top(ROW.old, now) - 0.9 * lh, EDIT.w + 10, EDIT.h + DOCK.threadY + 28, DOCK.z / 2), { az: -12, el: 5.5, fov: FOV, margin: [0.06, 0.05], bias: [0, -0.02], roll: -0.85 }, F, ease.inOutQuad),
+    // the romance: in close on the two lines, the old one's ember, coming round and down a little
+    closeUp(T.end, (i) => top(i, now)),
+  ];
+}
+
+// ------------------------------------------------------------------------------------------------ the dive (diff → cite)
+
+/**
+ * The dive into the ember, from "diff." to the cut: over `turn` s the camera turns onto the ember until it stands where
+ * the close-up frames it, and holds it there while it drives in along that line of sight, faster and faster, `reach` of
+ * the way to it by the cut; the ember flares as the camera comes into it. The zoom-through to cite pushes on through the
+ * same point (transitions/diff-cite.ts), so the two moves are one.
+ */
+export const DIVE = { turn: 0.15, reach: 0.82, flare: 1.9 };
+
+/** Where a world point shows in the frame through `cam` (logical px, y down). */
+export function onScreen(cam: THREE.PerspectiveCamera, p: THREE.Vector3): [number, number] {
+  cam.updateMatrixWorld();
+  const v = p.clone().project(cam);
+  return [((v.x + 1) / 2) * W, ((1 - v.y) / 2) * H];
+}
+
+/** The ember in the world: mid-way along the cut through `Uses VS Code.`, on the blade's line; `top`: its row's top (px). */
+export function emberAt(top: number): THREE.Vector3 {
+  return edAt(G.textX + (len(VSCODE) * G.adv) / 2, top + G.lineH / 2 + 0.365 * SIZE - 0.3 * SIZE);
+}
+
+/**
+ * The ember the romance dives into: its point in the world, and where it shows in the frame through the close-up (the
+ * point the dive holds it at, and the zoom-through's centre). Pure: the editor's layout and the close-up's framing.
+ */
+export function emberAim(): { world: THREE.Vector3; screen: [number, number] } {
+  const top = (i: number) => G.bar + G.padTop + i * G.lineH; // every row open
+  const world = emberAt(top(ROW.old));
+  const cam = new THREE.PerspectiveCamera(FOV, W / H, 0.01, 30);
+  new CameraRig([closeUp(0, top)]).apply(cam, 0);
+  return { world, screen: onScreen(cam, world) };
+}
+
+/** The frame's punch-in at t (post zoom about the frame's centre): the blow, the dock's landing, the playhead's arrivals. */
+export const punch = (t: number, T: Pick<Times, 'strike' | 'dock' | 'back' | 'fwd'>) =>
+  1 + 0.006 * pulse(t, T.strike.end, 0.1) + 0.004 * pulse(t, T.dock, 0.12) + 0.003 * pulse(t, T.back.end, 0.12) + 0.004 * pulse(t, T.fwd.end, 0.14);
+
+/** How far into the dive the camera is at t (0..1 of the run from "diff." to the cut). */
+export const diveAt = (t: number, T: Pick<Times, 'diff' | 'end'>) => prog(t, T.diff, T.end);
+
+/**
+ * The dive on a camera the rig has placed for t: turned so the ember stands on `aim.screen` (fully from `turn` s after
+ * "diff."), then moved along that line toward it. Returns how far it has gone (0..reach).
+ */
+export function aimDive(cam: THREE.PerspectiveCamera, t: number, T: Pick<Times, 'diff' | 'end'>, aim: { world: THREE.Vector3; screen: [number, number] }): number {
+  if (t <= T.diff) return 0;
+  cam.updateMatrixWorld();
+  const v = aim.world.clone().applyMatrix4(cam.matrixWorldInverse).normalize();
+  const ty = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);
+  const q = new THREE.Vector3(((aim.screen[0] / W) * 2 - 1) * ty * cam.aspect, (1 - (aim.screen[1] / H) * 2) * ty, -1).normalize();
+  const turn = new THREE.Quaternion().slerp(new THREE.Quaternion().setFromUnitVectors(q, v), prog(t, T.diff, T.diff + DIVE.turn, ease.inOutCubic));
+  cam.quaternion.multiply(turn);
+  const k = DIVE.reach * ease.inCubic(diveAt(t, T));
+  cam.position.lerp(aim.world, k);
+  cam.updateMatrixWorld();
+  return k;
+}
+
 export default class Diff extends Scene {
   private T!: Times;
+  /** The ember the romance dives into (emberAim). */
+  private ember = emberAim();
   private stage!: Stage;
   private rig!: CameraRig;
   private edit!: Panel;
@@ -149,7 +266,7 @@ export default class Diff extends Scene {
   }
 
   private buildEditor() {
-    this.edit = new Panel({ kind: 'editor', title: PATH, w: EDIT.w, h: EDIT.h, lang: 'md', gutter: 'numbers', size: SIZE, lines: fileLines(this.T) });
+    this.edit = new Panel(editorSpec(this.T));
     this.editG.scale.setScalar(EDIT_SCALE);
     this.editG.add(this.edit.mesh);
     this.stage.scene.add(this.editG);
@@ -224,14 +341,16 @@ export default class Diff extends Scene {
     const heat = bladeHeat(d, T.strike);
     const rom = romance(t, T), breath = 0.5 - 0.5 * Math.cos(Math.max(0, t - T.fwd.end) * 2 * Math.PI * 0.75);
     // in the romance the cut softens to a faint line, and the words it struck take a faint blood light: a memory
-    const ember = lerp(EMBER, 0.98 + 0.08 * breath, ease.inOutQuad(rom));
+    // and as the camera dives into it (to cite), the ember catches again and its light swells to fill the lens
+    const dive = ease.inCubic(diveAt(t, T));
+    const ember = lerp(lerp(EMBER, 0.98 + 0.08 * breath, ease.inOutQuad(rom)), DIVE.flare, dive);
     this.blade.set(G.textX - 1, G.textX + cut * G.adv, y, heat, ember);
     const hit = d >= T.strike.end ? Math.exp(-(d - T.strike.end) / 0.07) : 0;
     const words = len(VSCODE) * G.adv;
     this.flash.set(G.textX + words / 2, y, 0.38 * hit, 1);
     this.flash.mesh.scale.set((words + 180) / 1000, 76 / 1000, 1);
-    this.aura.set(G.textX + words / 2, ro.base - 0.35 * SIZE, (0.16 + 0.1 * breath) * ease.inOutQuad(rom), 1);
-    this.aura.mesh.scale.set((words + 120) / 1000, 70 / 1000, 1);
+    this.aura.set(G.textX + words / 2, ro.base - 0.35 * SIZE, (0.16 + 0.1 * breath) * ease.inOutQuad(rom) + 0.22 * dive, 1);
+    this.aura.mesh.scale.set((words + 120 + 80 * dive) / 1000, (70 + 60 * dive) / 1000, 1);
     // the confidence's quick cut, a smaller blade that cools further
     const rc = this.row(ROW.confOld, dq), cutC = struckAt(d, T.conf, len(CONF_OLD));
     this.bladeConf.set(G.textX - 1, G.textX + cutC * G.adv, rc.base - 0.3 * SIZE, bladeHeat(d, T.conf, 0.25) * 0.8, 1.04, 2.6);
@@ -264,11 +383,6 @@ export default class Diff extends Scene {
     for (const b of this.dock.beads) this.stage.scene.add(b.mesh);
   }
 
-  /** The playhead's x at history h (1: HEAD, 0: 8b21e04). */
-  private headX(h: number) {
-    return lerp(DOCK.commitX[OLD]!, DOCK.commitX[HEAD]!, h);
-  }
-
   private poseDock(t: number) {
     const T = this.T, dk = this.dock;
     // it rises under the editor and lands on the downbeat (a firm spring), its type with it; the thread draws on across
@@ -292,7 +406,7 @@ export default class Diff extends Scene {
     });
     // the playhead: on HEAD, then back and forth with the history; the hash it stands on comes up, the other recedes
     const h = historyAt(t, T);
-    dk.setHead(this.headX(h));
+    dk.setHead(headX(h));
     dk.head.visible = t > T.dock + 0.09 && fade > 0.01;
     const named = [[OLD, 1 - h], [HEAD, h]] as const;
     for (const [i, k] of named) dk.hashMats[i]!.opacity = fade * (0.45 + 0.55 * k);
@@ -341,42 +455,8 @@ export default class Diff extends Scene {
 
   // ---------------------------------------------------------------------------------------------- the camera
 
-  /** World points boxing editor px [x0, x1] × [y0, y1] (z px out of its face). */
-  private box(x0: number, y0: number, x1: number, y1: number, z = 0) {
-    return [this.px(x0, y0, z), this.px(x1, y0, z), this.px(x0, y1, z), this.px(x1, y1, z)];
-  }
-
   private keys(): CamKey[] {
-    const T = this.T, F = this.editG.matrixWorld, lh = G.lineH;
-    this.editG.updateMatrixWorld(true);
-    const top = (i: number, d: number) => this.row(i, d).top;
-    const old = T.old, now = T.head + 1;
-    const x1 = G.textX + len(VSCODE) * G.adv, xn = G.textX + len(NEOVIM) * G.adv;
-    const dockLow = EDIT.h + DOCK.threadY + DOCK.msgY + 10;
-    const H0 = this.headX(1), H1 = this.headX(0);
-    return [
-      // the cut: the top of the file, close, the caret on line 1 under the title bar
-      fitKey(T.start, this.box(0, 0, 600, top(6, old)), { az: -25, el: 8, fov: FOV, margin: [0.1, 0.12], bias: [-0.04, 0], roll: -2 }, F),
-      // craning down the file with the caret, landing with it on `Uses VS Code.`
-      fitKey(T.land + 0.12, this.box(0, top(3, old), 600, top(ROW.old, old) + 2.2 * lh), { az: -22, el: 5, fov: FOV, margin: [0.1, 0.12], bias: [-0.04, 0.02], roll: -1.6 }, F, ease.inOutCubic),
-      // a slow push toward the line through "mind?"
-      fitKey(T.strike.at - 0.05, this.box(10, top(7, old), 540, top(ROW.old, old) + 2.6 * lh), { az: -19, el: 3, fov: FOV, margin: [0.08, 0.07], bias: [-0.02, 0], roll: -1.3 }, F, ease.inOutQuad),
-      // the blade cuts: the camera drives in with it and the blow lands, the line just under the frame's middle
-      fitKey(T.strike.end + 0.06, this.box(G.textX - 70, top(8, old) + 0.3 * lh, x1 + 230, top(ROW.old, old) + 2.6 * lh), { az: -18, el: 3, fov: FOV, margin: [0.07, 0.07], bias: [-0.02, -0.02], roll: -1.1 }, F, ease.inQuad),
-      // and takes the blow, easing back as the two new rows open: both changes in frame, the new line typing in
-      fitKey(T.add + 0.2, this.box(G.textX - 60, top(3, now), xn + 40, top(ROW.neo, now) + 1.4 * lh), { az: -17, el: 4, fov: FOV, margin: [0.08, 0.09], bias: [0, 0.04], roll: -1 }, F, ease.inOutCubic),
-      // drifting along it as it types
-      fitKey(T.dock - 0.22, this.box(G.textX - 40, top(3, now), xn + 60, top(ROW.neo, now) + 1.4 * lh), { az: -16, el: 4, fov: FOV, margin: [0.08, 0.09], bias: [0, 0.04], roll: -1 }, F, ease.inOutQuad),
-      // the dock lands under the editor on the downbeat: the camera whips down onto it, holding the two lines above
-      fitKey(T.dock + 0.02, this.box(0, top(ROW.old, now) - 1.3 * lh, EDIT.w + 10, dockLow + 6, DOCK.z / 2), { az: -14.5, el: 7, fov: FOV, margin: [0.065, 0.065], bias: [0, 0], roll: -1.1 }, F, ease.inOutCubic),
-      fitKey(T.well, this.box(0, top(ROW.old, now) - 1.2 * lh, EDIT.w + 10, dockLow, DOCK.z / 2), { az: -14, el: 7, fov: FOV, margin: [0.07, 0.07], bias: [0, 0], roll: -1 }, F, ease.outQuad),
-      // L17, slowly in all the while: leaning toward 8b21e04 as the playhead runs back to it, home again with it, and on in
-      // to the two lines as the dock sinks out of the bottom of the frame
-      fitKey(T.back.end + 0.06, this.box(-20, top(ROW.old, now) - 1.0 * lh, EDIT.w + 5, dockLow - 10, DOCK.z / 2), { az: -13, el: 6.5, fov: FOV, margin: [0.07, 0.07], bias: [0.05 * (H0 - H1) / 220, 0], roll: -0.9 }, F, ease.inOutQuad),
-      fitKey(T.fwd.at + 0.1, this.box(10, top(ROW.old, now) - 0.9 * lh, EDIT.w + 10, EDIT.h + DOCK.threadY + 28, DOCK.z / 2), { az: -12, el: 5.5, fov: FOV, margin: [0.06, 0.05], bias: [0, -0.02], roll: -0.85 }, F, ease.inOutQuad),
-      // the romance: in close on the two lines, the old one's ember, coming round and down a little
-      fitKey(T.end, this.box(G.textX - 70, top(11, now) - 0.1 * lh, xn + 20, top(ROW.neo, now) + 1.5 * lh), { az: -21, el: 2, fov: FOV, margin: [0.05, 0.12], bias: [0.03, -0.02], roll: -1.4 }, F, (u: number) => 0.5 - 0.5 * Math.cos(Math.PI * u)),
-    ];
+    return cameraKeys(this.T, (i, d) => this.row(i, d).top);
   }
 
   // ---------------------------------------------------------------------------------------------- render
@@ -404,6 +484,7 @@ export default class Diff extends Scene {
   render(f: Frame, out: THREE.WebGLRenderTarget): PostOverrides {
     const t = f.t, T = this.T, st = this.stage;
     this.rig.apply(st.camera, t);
+    const dive = aimDive(st.camera, t, T, this.ember);
     this.poseEditor(t);
     this.poseDock(t);
     this.poseLights(t);
@@ -417,12 +498,12 @@ export default class Diff extends Scene {
     // the lens (its fringes open as the playhead runs); the romance warms the glow's halation and closes the vignette
     const dt = t - T.strike.end;
     const shake = dt >= 0 ? 3.2 * Math.exp(-dt * 16) * Math.cos(dt * 2 * Math.PI * 9) : 0;
-    const zoom = 0.006 * pulse(t, T.strike.end, 0.1) + 0.004 * pulse(t, T.dock, 0.12) + 0.003 * pulse(t, T.back.end, 0.12) + 0.004 * pulse(t, T.fwd.end, 0.14);
+    const zoom = punch(t, T);
     const speed = Math.abs(historyAt(t + 0.01, T) - historyAt(t - 0.01, T)) / 0.02;
     const rom = romance(t, T);
     return {
-      shake: [0, shake], zoom: 1 + zoom, ca: LOOK.ca * (1 + 0.9 * clamp(speed / 4)),
-      halation: LOOK.halation + 0.3 * rom, bloom: LOOK.bloom + 0.15 * rom, vignette: LOOK.vignette + 0.12 * rom,
+      shake: [0, shake], zoom, ca: LOOK.ca * (1 + 0.9 * clamp(speed / 4)),
+      halation: LOOK.halation + 0.3 * rom + 0.15 * dive, bloom: LOOK.bloom + 0.15 * rom + 0.05 * dive, vignette: LOOK.vignette + 0.12 * rom + 0.25 * dive,
     };
   }
 
@@ -442,7 +523,9 @@ export default class Diff extends Scene {
       [T.addEnd, at(head, ROW.neo), ease.inOutQuad],
       [T.dock + 0.1, at(G.textX + 200, ROW.neo, DOCK.z / 3), ease.inOutCubic],
       [T.fwd.end, at(G.textX + 150, ROW.old)],
-      [T.end, at(G.textX + len(VSCODE) * G.adv, ROW.old), ease.inOutQuad],
+      // the ember, as the camera turns onto it and dives
+      [T.diff + DIVE.turn, at(G.textX + len(VSCODE) * G.adv, ROW.old), ease.inOutQuad],
+      [T.end, at(G.textX + (len(VSCODE) * G.adv) / 2, ROW.old), ease.inOutQuad],
     ];
     const rom = romance(t, T);
     const fstop = t < T.dock - 0.1 ? 2.8 : lerp(4, 2, ease.inOutQuad(rom));
