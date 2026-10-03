@@ -21,12 +21,13 @@
 //   rebuild`, types in under it, deadpan.
 import * as THREE from 'three';
 import { Scene, disposeLayer, type Frame, type PostOverrides } from '../engine/scene';
-import { CameraRig, Stage, type CamKey, type V3 } from '../engine/stage';
+import { CameraRig, Stage } from '../engine/stage';
 import { LIN } from '../engine/palette';
 import { ease, keys, lerp, prog, pulse } from '../engine/util';
 import { onBeat } from '../engine/motion';
 import { nodeTimes, timesOf, type Times } from './merkle-time';
-import { SEED, SHAPE, buildTree, diveLeaf, pickChanged, pathTo, type Tree } from './merkle-tree';
+import { SHAPE, type Tree } from './merkle-tree';
+import { aimAt, divePath, rigKeys } from './merkle-camera';
 import { TreeDraw } from './merkle-gl';
 import { LabelField, labelChars } from './merkle-labels';
 import { GlyphAtlas } from '../engine/glyphs';
@@ -59,9 +60,7 @@ export default class Merkle extends Scene {
     const { renderer, vo, audio, start, end } = this.ctx;
     const T = (this.T = timesOf(vo, audio, start, end));
     this.stage = new Stage(renderer, { fov: 34, near: 0.004, far: 20 });
-    this.tree = buildTree(pickChanged(SEED));
-    this.path = pathTo(diveLeaf(this.tree));
-    this.P = this.path.map((id) => v(this.tree.pos[id * 3]!, this.tree.pos[id * 3 + 1]!, this.tree.pos[id * 3 + 2]!));
+    ({ tree: this.tree, path: this.path, P: this.P } = divePath());
     const times = nodeTimes(this.tree, T);
     this.draw = new TreeDraw(this.tree, times, new Set(this.path));
     this.draw.u.uScreen.value.set(W, H, SCALE);
@@ -97,39 +96,7 @@ export default class Merkle extends Scene {
   // ---------------------------------------------------------------------------------------------- the camera
 
   private buildRig() {
-    const T = this.T, [, P1, P2, P3, P4] = this.P as [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3];
-    const key = (t: number, pos: THREE.Vector3, target: THREE.Vector3, fov?: number, e?: (x: number) => number): CamKey =>
-      ({ t, pos: pos.toArray() as V3, target: target.toArray() as V3, fov, ease: e });
-    // one side of the tree, the dive's file's (`out`, from the trunk through the file): the crane cuts in low there,
-    // looking up into the vault, rises over it as the moss climbs, and drops back down outside the lit branch to land
-    // low beside the file, looking up into the same vault with only the fifty paths left in it
-    const out = v(P4.x, 0, P4.z).normalize();
-    const az = Math.atan2(out.x, out.z);
-    const at = (a: number, r: number, y: number) => v(r * Math.sin(az + a), y, r * Math.cos(az + a));
-    const d = THREE.MathUtils.degToRad;
-    const Y = v(0, 1, 0);
-    // out from a node of the path and up, and a point in from it and up
-    const outside = (p: THREE.Vector3, r: number, h: number) => p.clone().addScaledVector(out, r).addScaledVector(Y, h);
-    const inside = (p: THREE.Vector3, r: number, h: number) => p.clone().addScaledVector(out, -r).addScaledVector(Y, h);
-    const apex = at(d(1), 0.9, 1.0), apexAt = v(0, 0.32, 0);
-    const crest = apex.clone().lerp(outside(P1, 0.34, 0.16), 0.3), crestAt = apexAt.clone().lerp(inside(P1, 0.06, -0.13), 0.45);
-    this.rig = new CameraRig([
-      // low at the tree's edge, looking up into the vault; the crane rises and pulls back over it
-      key(T.start, at(d(-12), 0.86, 0.04), v(0, 0.46, 0), 44),
-      key(T.fifty + 0.55, at(d(10), 1.42, 0.7), v(0, 0.215, 0), 34, ease.inOutQuad),
-      // high over the lit tree as the moss reaches the root, then easing in for the walk
-      key(T.root, at(d(4), 1.04, 1.06), v(0, 0.31, 0), 34, ease.inOutCubic),
-      key(T.walk[0]!, apex, apexAt, 36, ease.inOutCubic),
-      // the crest: through "I only" it all but holds, pushing in over the lit branch while the top two levels' unchanged
-      // subtrees fold shut around it and take their stamps (still enough to read them)
-      key(T.walk[2]! - 0.04, crest, crestAt, 38, ease.inOutQuad),
-      // the plunge on "look at": down outside the lit branch, level by level, the comet leading, tipping up from the
-      // drop to the vault as it lands with "fifty."
-      key(T.walk[3]! - 0.04, outside(P2, 0.2, 0.05), inside(P3, 0.0, 0.0), 44, ease.inQuad),
-      key(T.walk[3]! + 0.08, outside(P3, 0.13, 0.012), inside(P4, 0.12, 0.08), 48, ease.linear),
-      key(T.land + 0.01, outside(P4, 0.1, 0.016), inside(P4, 0.4, 0.075), 60, ease.outCubic),
-      key(T.end, outside(P4, 0.094, 0.018), inside(P4, 0.4, 0.08), 60, ease.linear),
-    ]);
+    this.rig = new CameraRig(rigKeys(this.T, this.P));
   }
 
   /** Focus (m) and stop: the tree, the root, the walk's next node, the file. */
@@ -152,7 +119,7 @@ export default class Merkle extends Scene {
 
   render(f: Frame, out: THREE.WebGLRenderTarget): PostOverrides {
     const t = f.t, T = this.T, st = this.stage, u = this.draw.u;
-    this.rig.apply(st.camera, t);
+    aimAt(st.camera, this.rig, t, T, this.P[4]!);
     u.uT.value = t - T.start;
     // the index as the cut finds it: a band of light rises through the tree from the files to the root, landing on the
     // beat she says "Fifty" on (each node's hash covers its children's); a breath on every beat after

@@ -34,6 +34,7 @@ import { slam } from '../engine/motion';
 import { cocPx } from '../engine/dof';
 import { FPS, clamp, ease, frameIdx, keys, lerp, prog, pulse, smoothstep } from '../engine/util';
 import { fitKey } from './diff-fx';
+import { landingAim } from './merkle-camera';
 import { timesOf, type Times } from './graph-time';
 import {
   BEAD_R, FOV, NODES, PEARL, STANDING, THREAD_R, bloodAt, dangleAt, hang, looseEnd, mossAt, runAt, seeded,
@@ -118,6 +119,8 @@ export default class Graph extends Scene {
   private T!: Times;
   private stage!: Stage;
   private rig!: CameraRig;
+  /** The camera's shift at the cut (pinLink): world m, eased out by the lift. */
+  private openShift = new THREE.Vector3();
   private scratch = new THREE.PerspectiveCamera(FOV, W / H, 0.01, 40);
   // the editor
   private edit!: Panel;
@@ -174,6 +177,7 @@ export default class Graph extends Scene {
     this.buildTerminal();
     this.buildSearch();
     this.rig = new CameraRig([...main, ...this.flightKeys()]);
+    this.openShift = this.pinLink();
     this.labels = new Labels([ACME, MAYA, FORWARD, TRIP, HOTEL, CITY, KUBE, K8S].join(''), 160);
     this.stage.scene.add(this.labels.actors.mesh);
     this.buildBand();
@@ -467,9 +471,33 @@ export default class Graph extends Scene {
     ];
   }
 
-  /** Place a camera for t: one continuous shot. */
+  /**
+   * The cut (merkle → graph's zoom-through): the camera opens shifted in its own plane so the link's middle stands where
+   * merkle's file landed (merkle-camera.ts landingAim), and the zoom-through emerges from it, file to file; the shift
+   * then glides out by the beat before the lift, into the line's own framing.
+   */
+  private pinLink(): THREE.Vector3 {
+    const cam = this.scratch, T = this.T;
+    this.rig.apply(cam, T.start);
+    const { x0, x1 } = this.linkCells(), g = this.edit.layout;
+    const mid = this.edPt((x0 + x1) / 2, this.edit.rowTop(LINK_ROW) + g.lineH / 2);
+    const q = mid.clone().project(cam), at = landingAim().screen;
+    const dx = at[0] - ((q.x + 1) / 2) * W, dy = at[1] - ((1 - q.y) / 2) * H;
+    // logical px to metres in the plane through the link, square to the lens
+    const z = -mid.clone().applyMatrix4(cam.matrixWorldInverse).z;
+    const m = (2 * z * Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2)) / H;
+    const r = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion), u = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+    return r.multiplyScalar(-dx * m).addScaledVector(u, dy * m);
+  }
+
+  /** Place a camera for t: one continuous shot (opening on the cut's shift, pinLink). */
   private aim(cam: THREE.PerspectiveCamera, t: number) {
     this.rig.apply(cam, t);
+    const k = 1 - prog(t, this.T.start, this.T.lift - 0.03, ease.inOutQuart);
+    if (k > 0) {
+      cam.position.addScaledVector(this.openShift, k);
+      cam.updateMatrixWorld();
+    }
   }
 
   /** A scratch camera where the rig has the stage's at t. */
