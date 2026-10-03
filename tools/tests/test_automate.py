@@ -62,3 +62,19 @@ def test_stereo_channels_stay_independent_and_dc_passes():
 def test_a_section_without_a_rule_is_an_error():
     with pytest.raises(ValueError, match="'the drop'"):
         lanes([*SECTIONS[:3], {"name": "the drop", "start": 3.0, "end": 4.0}], SR, N)  # a typo would play it open
+
+
+def test_duck_lanes_hold_full_depth_with_fades_either_side():
+    from gitloom_film.automate import duck_lanes
+    ducks = [{"t": 1.0, "dur": 0.5, "depth": -30, "fade": 0.1, "bus": "music"},
+             {"t": 3.0, "dur": 0.5, "depth": -12, "fade": 0.0, "bus": "all"}]
+    g = duck_lanes(ducks, SR, N, "music")
+    assert db(g[at(1.0)]) == pytest.approx(-30, abs=0.01) and db(g[at(1.499)]) == pytest.approx(-30, abs=0.01)
+    assert -30 < db(g[at(0.95)]) < 0 and -30 < db(g[at(1.55)]) < 0  # inside the fades
+    assert g[at(0.89)] == pytest.approx(1.0) and g[at(1.61)] == pytest.approx(1.0)
+    assert g[at(3.2)] == pytest.approx(1.0)  # an 'all' duck is not on the music lane by itself
+    a = duck_lanes(ducks, SR, N, "all")
+    assert db(a[at(3.2)]) == pytest.approx(-12, abs=0.01) and a[at(1.2)] == pytest.approx(1.0)
+    assert np.all(np.diff(g[at(0.85):at(1.0)]) <= 1e-9)  # the fade-in only goes down
+    with pytest.raises(ValueError, match="'voice'"):
+        duck_lanes(ducks, SR, N, "voice")
