@@ -460,6 +460,7 @@ def _store(palette: dict, manifest: dict, lib: Path, sid: str, v: int, req: dict
     out, hit = process(y, SR, spec)
     q = qc(out, SR)
     q["raw_onset_s"] = round(find_hit(y - np.mean(y), SR, "onset"), 5)
+    q["clipped"] = bool(int((np.abs(y) >= 0.999).sum()) >= 2)  # as generated: the high-pass's overshoot is not a clip
     manifest["variants"][f"{sid}/{v}"] = _record(lib, sid, v, key, req, seed, fmt, cost, measured, request_id,
                                                  out, hit, q)
     n = int(spec.get("slice", 0) or 0)

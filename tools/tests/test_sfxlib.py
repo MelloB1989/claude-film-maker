@@ -497,3 +497,14 @@ def test_dc_removal_is_a_subsonic_high_pass():
     db = lambda hz: 20 * np.log10(spec[np.argmin(np.abs(f - hz))] + 1e-12)
     assert db(200) - db(6) > 30 and abs(np.mean(mid)) < 1e-3
     assert np.abs(mid).max() == pytest.approx(0.2, abs=0.01)
+
+
+def test_clipping_is_judged_on_the_take_as_generated_not_after_the_high_pass(tmp_path):
+    class Square(CountingClient):
+        def sound(self, text, duration_seconds=None, **kw):
+            self.calls += 1
+            t = np.arange(int(duration_seconds * SR)) / SR
+            y = (0.95 * np.sign(np.sin(2 * np.pi * 8 * t))).astype(np.float32)  # overshoots past 1 when filtered
+            return SoundResult(pcm16(y), "pcm_48000", 20, "r")
+    run(palette_with("riser", variants=1, align="end", duration=1.0), Square(), tmp_path)
+    assert not json.loads((tmp_path / "manifest.json").read_text())["variants"]["riser/0"]["qc"]["clipped"]
