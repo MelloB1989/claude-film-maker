@@ -51,7 +51,16 @@ import {
 } from './anywhere-console';
 import { GraphView, TIERS, memoryGraph, simulate, type Sim } from './anywhere-graph';
 import { Field, PITCH, TILE } from './anywhere-field';
+import { Track, type TrackData } from '../engine/track';
+import type { VO } from '../engine/vo';
+import type { AudioData } from '../engine/audio';
 import S from './anywhere.strings.json';
+import { frontFaceAt } from './connect';
+import { EXIT, timesOf as connectTimes } from './connect-time';
+import { copyOf as connectCopy, faceOf } from './connect-cards';
+import CONNECT_S from './connect.strings.json';
+// B15's track (the cut into `weave` dives where its mark is centred on its first frame)
+import WEAVE_TRACK from '../../../data/track/b15_weave.json';
 
 // ------------------------------------------------------------------------------------------------ the copy
 
@@ -73,6 +82,8 @@ export { TIER_NAMES, RANGE, LABEL, NOTE, HEAD_L, HEAD_R, INSTALL, CHIP_LINE };
 
 /** The lens: the house's short tele (24° vertical). */
 const FOV = 24;
+/** The camera's near plane (m); the dive draws it in as it closes on the field. */
+const NEAR = 0.005;
 const TAN_V = Math.tan(THREE.MathUtils.degToRad(FOV / 2)), TAN_H = TAN_V * (W / H);
 /** The board: the two pages laid out in 1080p px at the split's framing; world metres per board px (a page's group is
  * scaled by BOARD_SCALE and holds panel px / 1000, as repo's terminal). */
@@ -156,8 +167,11 @@ export default class Anywhere extends Scene {
   // the field
   private field!: Field;
   private fieldG = new THREE.Group();
-  private fieldFinal = { d: 1, az: 0, el: 0 };
   private fieldCentre = new THREE.Vector3();
+  /** The dive at the cut into `weave`: the screen point it holds, the crossing of gaps it plunges into. */
+  private dive!: { aim: [number, number]; target: THREE.Vector3 };
+  /** Where connect's carousel face stood as it whipped round (the terminal lands there). */
+  private land!: Landing;
   // the captions
   private layer = new Layer2D();
   private captionKey = '';
@@ -166,7 +180,10 @@ export default class Anywhere extends Scene {
   override init() {
     const { renderer, vo, audio, start, end } = this.ctx;
     this.T = timesOf(vo, audio, start, end);
-    this.stage = new Stage(renderer, { fov: FOV, near: 0.005, far: 200, envIntensity: 0.3 });
+    const aim = diveAim(end);
+    this.dive = { aim, target: diveTarget(this.T, aim) };
+    this.land = connectLanding(vo, audio);
+    this.stage = new Stage(renderer, { fov: FOV, near: NEAR, far: 200, envIntensity: 0.3 });
     this.left = this.page(PAGE.left);
     this.right = this.page(PAGE.right, -1);
     this.buildMachine();
@@ -208,17 +225,10 @@ export default class Anywhere extends Scene {
   // ---------------------------------------------------------------------------------------------- the machine
 
   private buildMachine() {
-    const T = this.T, pg = this.left;
-    // the terminal, as wide as the install line, two rows: the line typed with her, and on Enter the new prompt (an
-    // empty typed line: the terminal draws its own `$` before it)
-    const lines: PanelLine[] = [
-      { text: INSTALL, kind: 'cmd', at: T.type.at, cps: (Array.from(INSTALL).length - 3) / (T.type.end - T.type.at) },
-      { text: '', kind: 'cmd', at: T.enter },
-    ];
-    const g = panelLayout({ kind: 'terminal', size: TERM.size, lines });
-    const w = Math.ceil(2 * g.padX + Array.from(INSTALL).length * g.adv);
-    this.term = new Panel({ kind: 'terminal', w, rows: 2, size: TERM.size, lines, opaque: true });
-    this.termBox = { x: PAGE.left.x0, y: TERM.y, w, h: this.term.spec.h };
+    const pg = this.left;
+    this.term = new Panel(terminalSpec(this.T));
+    const w = this.term.spec.w!;
+    this.termBox = terminalBox(this.term);
     // the terminal's frame: its centre (the panel and the light on it share it)
     const termG = new THREE.Group();
     termG.position.copy(this.local(pg, this.termBox.x + w / 2, TERM.y + this.termBox.h / 2));
@@ -462,73 +472,13 @@ export default class Anywhere extends Scene {
     this.fieldG.position.copy(FIELD_AT);
     this.fieldG.scale.setScalar(FIELD_SCALE);
     this.stage.scene.add(this.fieldG);
-    // the final framing: the whole field, turned, high in the frame over the captions
-    this.fieldFinal = { d: this.fieldDistance(64, 32, 1), az: 25, el: 17 };
   }
 
-  /** The block's extent after a continuous count of doublings along x and y (field px). */
-  private block(nx: number, ny: number) {
-    const w = 2 ** nx * PITCH.x - TILE.gap, h = 2 ** ny * PITCH.y - TILE.gap;
-    return { cx: w / 2, cy: -h / 2, w, h };
-  }
-
-  /** The camera's distance (m) that frames a block of `cols` by `rows`, by how far it is along the doubling (0..1). */
-  private fieldDistance(cols: number, rows: number, along: number) {
-    const b = this.block(Math.log2(cols), Math.log2(rows));
-    const fillW = lerp(0.36, 0.9, along), fillH = lerp(0.42, 0.7, along);
-    return Math.max((b.w * FIELD_SCALE) / (2 * TAN_H * fillW), (b.h * FIELD_SCALE) / (2 * TAN_V * fillH));
-  }
-
-  /** Doublings done by t along x and along y, eased into each so the camera anticipates a hair. */
-  private doubled(t: number) {
-    let nx = 0, ny = 0;
-    this.T.doublings.forEach((d, k) => {
-      const s = smootherstep(d - 0.11, d + 0.05, t);
-      if (k % 2 === 0) nx += s;
-      else ny += s;
-    });
-    return { nx, ny, n: nx + ny };
-  }
-
-  /**
-   * The doublings the camera frames at t: the count done, averaged over one doubling's period (a sixteenth) centred on
-   * t, so the staircase of doublings becomes a ramp: the camera glides back at an even rate along the path the blocks
-   * take, instead of lurching on each sixteenth (the copies landing keep the rhythm).
-   */
-  private framed(t: number) {
-    const W = this.T.beat / 4, M = 12;
-    let nx = 0, ny = 0;
-    for (let j = 0; j < M; j++) {
-      const d = this.doubled(t + W * ((j + 0.5) / M - 0.5));
-      nx += d.nx / M;
-      ny += d.ny / M;
-    }
-    return { nx, ny, n: nx + ny };
-  }
-
-  /** The field's camera at t: framing the block as it doubles, pulling back √2 a doubling and turning a little. */
+  /** The field's camera at t (fieldCamera), the dive into the dark between the tiles at the end (diveCamera). */
   private fieldCam(cam: THREE.PerspectiveCamera, t: number) {
-    const T = this.T, { nx, ny, n } = this.framed(t), along = n / DOUBLINGS;
-    const b = this.block(nx, ny);
-    const hold = prog(t, T.doublings[DOUBLINGS - 1]!, T.end, ease.linear);
-    const d0 = this.fieldDistance(1, 1, 0), d1 = this.fieldFinal.d;
-    const d = d0 * Math.pow(d1 / d0, along) * (1 + 0.05 * hold);
-    const az = THREE.MathUtils.degToRad(lerp(3, this.fieldFinal.az, inOutSine(along)) + 1.5 * hold);
-    const el = THREE.MathUtils.degToRad(lerp(2, this.fieldFinal.el, inOutSine(along)));
-    const centre = new THREE.Vector3(b.cx * FIELD_SCALE, b.cy * FIELD_SCALE, 0).add(FIELD_AT);
-    this.fieldCentre.copy(centre);
-    const back = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
-    cam.position.copy(centre).addScaledVector(back, d);
-    // the field rides high in the frame as it grows, over the captions
-    const bias = lerp(0, 0.16, along) * d * TAN_V;
-    const target = centre.clone().add(new THREE.Vector3(0, -bias, 0));
-    cam.up.set(0, 1, 0);
-    cam.lookAt(target);
-    cam.rotateZ(THREE.MathUtils.degToRad(lerp(-0.6, -2.6, along)));
-    cam.fov = FOV;
-    cam.updateProjectionMatrix();
-    cam.updateMatrixWorld();
-    return { centre, d };
+    const r = diveCamera(cam, t, this.T, this.dive.aim, this.dive.target);
+    this.fieldCentre.copy(r.centre);
+    return r;
   }
 
   private poseField(t: number) {
@@ -542,37 +492,15 @@ export default class Anywhere extends Scene {
     const d = this.stage.camera.position.distanceTo(this.fieldCentre);
     const emPx = (TILE.em * FIELD_SCALE * H) / (2 * d * TAN_V);
     // the studio's light pools on the near side of the field as it grows; the far side falls away into the dark
-    const { nx, ny, n } = this.doubled(t), b = this.block(nx, ny);
+    const { nx, ny, n } = doubled(t, this.T), b = block(nx, ny);
     const pool: [number, number, number, number] = [b.w * 0.74, b.h * 0.45, b.w * 0.4, 0.85 * smootherstep(5, 10.5, n)];
     this.field.set({ t, land: T.doublings, fade: 1, sweep, detail: smootherstep(4.5, 9, emPx), pool });
   }
 
   // ---------------------------------------------------------------------------------------------- the camera
 
-  /** A key looking at board point (x, y) on a page's plane, `width` board px across the frame, from az/el (degrees). */
-  private frame(t: number, x: number, y: number, width: number, az: number, el: number, roll = 0, e?: (u: number) => number): CamKey {
-    const target = new THREE.Vector3((x - 960) * K, (540 - y) * K, 0);
-    const d = (width * K) / 2 / TAN_H;
-    const a = THREE.MathUtils.degToRad(az), b = THREE.MathUtils.degToRad(el);
-    const pos = target.clone().add(new THREE.Vector3(Math.sin(a) * Math.cos(b), Math.sin(b), Math.cos(a) * Math.cos(b)).multiplyScalar(d));
-    return { t, pos: pos.toArray() as V3, target: target.toArray() as V3, fov: FOV, roll, ease: e };
-  }
-
   private keys(): CamKey[] {
-    const T = this.T;
-    return [
-      // the machine: in close on the left page, a little low and from the left of square, drifting in along the line
-      this.frame(T.start, 360, 368, 920, -17, -4.5, -2.2),
-      this.frame(T.machine, 470, 352, 1000, 2, -3, -1.2, ease.inOutCubic),
-      this.frame(T.type.end, 520, 372, 1010, 6, -2, -0.8, inOutSine),
-      this.frame(T.split, 500, 420, 1080, 7.5, -1.2, -0.6, ease.inOutCubic),
-      // the split: on the downbeat the camera whips back and right onto both pages, settling into the spread
-      this.frame(T.split + 0.34, 960, 540, 1920, 0, 1.5, 0, ease.outExpo),
-      // into the cloud: a slow drift right and in, as the cards come alive
-      this.frame(T.remember, 1050, 548, 1810, -2.2, 1.6, 0.3, inOutSine),
-      this.frame(T.first, 1150, 560, 1690, -3.5, 1.9, 0.5, inOutSine),
-      this.frame(T.cut, 1240, 700, 1240, -5, 2.6, 0.8, ease.inOutCubic),
-    ];
+    return cameraKeys(this.T, terminalCorners(this.termBox), this.land);
   }
 
   /** Focus as a focus ring turns (diopters between keys): the terminal, then card to card across the cloud. */
@@ -655,6 +583,7 @@ export default class Anywhere extends Scene {
 
   render(f: Frame, out: THREE.WebGLRenderTarget): PostOverrides {
     const t = f.t, T = this.T, st = this.stage, r = this.ctx.renderer;
+    st.camera.near = NEAR; // (every frame: the dive draws it in, and frames render in any order)
     // the shot is the frame's, not the sub-frame's: the cut sits half way between two frames, where no shutter reaches
     const inField = t >= T.cut;
     this.left.g.visible = this.right.g.visible = this.spine.visible = !inField;
@@ -663,6 +592,7 @@ export default class Anywhere extends Scene {
     let dof: { focus: number; fstop: number };
     if (!inField) {
       this.rig.apply(st.camera, t);
+      arrivalOrbit(st.camera, t, T, terminalCorners(this.termBox));
       this.poseMachine(t);
       this.poseHeadlines(t);
       this.poseSpine(t);
@@ -737,4 +667,285 @@ export default class Anywhere extends Scene {
     this.layer.dispose();
     this.stage?.dispose();
   }
+}
+
+// ------------------------------------------------------------------------------------------------ the field's camera
+// Pure functions of time and the scene's clock, so a test (and the cut into `weave`) can build the camera headless.
+
+/** The block's extent after a continuous count of doublings along x and y (field px). */
+function block(nx: number, ny: number) {
+  const w = 2 ** nx * PITCH.x - TILE.gap, h = 2 ** ny * PITCH.y - TILE.gap;
+  return { cx: w / 2, cy: -h / 2, w, h };
+}
+
+/** The camera's distance (m) that frames a block of `cols` by `rows`, by how far it is along the doubling (0..1). */
+function fieldDistance(cols: number, rows: number, along: number) {
+  const b = block(Math.log2(cols), Math.log2(rows));
+  const fillW = lerp(0.36, 0.9, along), fillH = lerp(0.42, 0.7, along);
+  return Math.max((b.w * FIELD_SCALE) / (2 * TAN_H * fillW), (b.h * FIELD_SCALE) / (2 * TAN_V * fillH));
+}
+
+/** The final framing: the whole field, turned, high in the frame over the captions. */
+const FIELD_FINAL = { d: fieldDistance(64, 32, 1), az: 25, el: 17 };
+
+/** Doublings done by t along x and along y, eased into each so the camera anticipates a hair. */
+function doubled(t: number, T: Times) {
+  let nx = 0, ny = 0;
+  T.doublings.forEach((d, k) => {
+    const s = smootherstep(d - 0.11, d + 0.05, t);
+    if (k % 2 === 0) nx += s;
+    else ny += s;
+  });
+  return { nx, ny, n: nx + ny };
+}
+
+/**
+ * The doublings the camera frames at t: the count done, averaged over one doubling's period (a sixteenth) centred on
+ * t, so the staircase of doublings becomes a ramp: the camera glides back at an even rate along the path the blocks
+ * take, instead of lurching on each sixteenth (the copies landing keep the rhythm).
+ */
+function framed(t: number, T: Times) {
+  const W = T.beat / 4, M = 12;
+  let nx = 0, ny = 0;
+  for (let j = 0; j < M; j++) {
+    const d = doubled(t + W * ((j + 0.5) / M - 0.5), T);
+    nx += d.nx / M;
+    ny += d.ny / M;
+  }
+  return { nx, ny, n: nx + ny };
+}
+
+/** The field's camera at t: framing the block as it doubles, pulling back √2 a doubling and turning a little. */
+export function fieldCamera(cam: THREE.PerspectiveCamera, t: number, T: Times) {
+  const { nx, ny, n } = framed(t, T), along = n / DOUBLINGS;
+  const b = block(nx, ny);
+  const hold = prog(t, T.doublings[DOUBLINGS - 1]!, T.end, ease.linear);
+  const d0 = fieldDistance(1, 1, 0), d1 = FIELD_FINAL.d;
+  const d = d0 * Math.pow(d1 / d0, along) * (1 + 0.05 * hold);
+  const az = THREE.MathUtils.degToRad(lerp(3, FIELD_FINAL.az, inOutSine(along)) + 1.5 * hold);
+  const el = THREE.MathUtils.degToRad(lerp(2, FIELD_FINAL.el, inOutSine(along)));
+  const centre = new THREE.Vector3(b.cx * FIELD_SCALE, b.cy * FIELD_SCALE, 0).add(FIELD_AT);
+  const back = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+  cam.position.copy(centre).addScaledVector(back, d);
+  // the field rides high in the frame as it grows, over the captions
+  const bias = lerp(0, 0.16, along) * d * TAN_V;
+  const target = centre.clone().add(new THREE.Vector3(0, -bias, 0));
+  cam.up.set(0, 1, 0);
+  cam.lookAt(target);
+  cam.rotateZ(THREE.MathUtils.degToRad(lerp(-0.6, -2.6, along)));
+  cam.fov = FOV;
+  cam.updateProjectionMatrix();
+  cam.updateMatrixWorld();
+  return { centre, d };
+}
+
+/**
+ * The dive (anywhere → weave, the cut into the film's last image): over the scene's last `lead` s the camera stops
+ * pulling back, turns a hair so the crossing of the gaps between four tiles nearest `aim` sits exactly on it, and
+ * plunges along its line of sight into that crossing, `push` times closer by the cut, the push accelerating all the
+ * way (in-quart in log distance) so the cut is its fastest moment and the zoom-through carries it on. The crossing
+ * stays on `aim` every frame, so the zoom's centre and the camera's dive are one move. `aim` is where weave's mark is
+ * centred on its first frame (the threads arc out of that dark and weave the mark there).
+ */
+export const DIVE = { lead: 0.2, push: 1500 } as const;
+
+/** Weave's first frame's mark centre (logical px), from B15's track: where the dive's crossing sits on screen. */
+export function diveAim(end: number): [number, number] {
+  const p = new Track(WEAVE_TRACK as unknown as TrackData).at('mark_c', end);
+  return [p.x, p.y];
+}
+
+/** A screen point (logical px) for a world point through `cam`. */
+export function onScreen(cam: THREE.PerspectiveCamera, p: THREE.Vector3): [number, number] {
+  const v = p.clone().project(cam);
+  return [((v.x + 1) / 2) * W, ((1 - v.y) / 2) * H];
+}
+
+/** The crossing of the gaps between columns c, c+1 and rows r, r+1 (world). */
+function crossing(c: number, r: number) {
+  return new THREE.Vector3(((c + 1) * PITCH.x - TILE.gap / 2) * FIELD_SCALE, -((r + 1) * PITCH.y - TILE.gap / 2) * FIELD_SCALE, 0).add(FIELD_AT);
+}
+
+/** The crossing the dive takes: the one nearest `aim` on screen as the dive begins (inside the field, 63 × 31 of them). */
+export function diveTarget(T: Times, aim: [number, number]) {
+  const cam = new THREE.PerspectiveCamera(FOV, W / H, 0.005, 200);
+  fieldCamera(cam, T.end - DIVE.lead, T);
+  let best = crossing(0, 0), bd = Infinity;
+  for (let c = 0; c < 63; c++) {
+    for (let r = 0; r < 31; r++) {
+      const p = crossing(c, r), [x, y] = onScreen(cam, p), dd = (x - aim[0]) ** 2 + (y - aim[1]) ** 2;
+      if (dd < bd) (bd = dd), (best = p);
+    }
+  }
+  return best;
+}
+
+/**
+ * The field's camera with the dive: before it, fieldCamera; through it, fieldCamera held where the dive begins, turned
+ * (eased over the dive's first half) so `target` shows at `aim`, and pushed along its line of sight to `target`.
+ * Returns the field's centre and the distance to focus at.
+ */
+export function diveCamera(cam: THREE.PerspectiveCamera, t: number, T: Times, aim = diveAim(T.end), target = diveTarget(T, aim)) {
+  const t0 = T.end - DIVE.lead;
+  if (t < t0) return fieldCamera(cam, t, T);
+  const { centre } = fieldCamera(cam, t0, T);
+  const u = prog(t, t0, T.end);
+  // turn: the ray to the target onto the ray through `aim` (camera space), eased in over the first half
+  const toT = target.clone().applyMatrix4(cam.matrixWorldInverse).normalize();
+  const toA = new THREE.Vector3((aim[0] / W) * 2 - 1, 1 - (aim[1] / H) * 2, 0.5).unproject(cam).applyMatrix4(cam.matrixWorldInverse).normalize();
+  const q = new THREE.Quaternion().setFromUnitVectors(toA, toT);
+  cam.quaternion.multiply(new THREE.Quaternion().slerp(q, ease.inOutCubic(clamp(u * 2))));
+  // the plunge: log distance, in-quart, `push` times closer by the cut
+  const k = Math.exp(-Math.log(DIVE.push) * u * u * u * u);
+  cam.position.sub(target).multiplyScalar(k).add(target);
+  cam.near = Math.min(NEAR, 0.2 * cam.position.distanceTo(target));
+  cam.updateProjectionMatrix();
+  cam.updateMatrixWorld();
+  return { centre, d: cam.position.distanceTo(target) };
+}
+
+// ------------------------------------------------------------------------------------------------ the machine's camera
+
+/** A key looking at board point (x, y) on a page's plane, `width` board px across the frame, from az/el (degrees). */
+function frameKey(t: number, x: number, y: number, width: number, az: number, el: number, roll = 0, e?: (u: number) => number): CamKey {
+  const target = new THREE.Vector3((x - 960) * K, (540 - y) * K, 0);
+  const d = (width * K) / 2 / TAN_H;
+  const a = THREE.MathUtils.degToRad(az), b = THREE.MathUtils.degToRad(el);
+  const pos = target.clone().add(new THREE.Vector3(Math.sin(a) * Math.cos(b), Math.sin(b), Math.cos(a) * Math.cos(b)).multiplyScalar(d));
+  return { t, pos: pos.toArray() as V3, target: target.toArray() as V3, fov: FOV, roll, ease: e };
+}
+
+/** The scene's camera keys (the field has its own camera): the machine, the split, the cloud. */
+export function cameraKeys(T: Times, corners: THREE.Vector3[], land: Landing): CamKey[] {
+  return [
+    // the machine: the terminal lands where connect's carousel face stood, still turning in (a face of the carousel
+    // coming round from the right), braking square-ish onto the page, a little low and from the left
+    ...arrivalKeys(T, corners, land),
+    frameKey(T.machine, 470, 352, 1000, 2, -3, -1.2, ease.inOutCubic),
+    frameKey(T.type.end, 520, 372, 1010, 6, -2, -0.8, inOutSine),
+    frameKey(T.split, 500, 420, 1080, 7.5, -1.2, -0.6, ease.inOutCubic),
+    // the split: on the downbeat the camera whips back and right onto both pages, settling into the spread
+    frameKey(T.split + 0.34, 960, 540, 1920, 0, 1.5, 0, ease.outExpo),
+    // into the cloud: a slow drift right and in, as the cards come alive
+    frameKey(T.remember, 1050, 548, 1810, -2.2, 1.6, 0.3, inOutSine),
+    frameKey(T.first, 1150, 560, 1690, -3.5, 1.9, 0.5, inOutSine),
+    frameKey(T.cut, 1240, 700, 1240, -5, 2.6, 0.8, ease.inOutCubic),
+  ];
+}
+
+/**
+ * Where connect's face in front stands as the carousel starts its last turn (its rest before the whip: connect-time.ts
+ * EXIT), from connect's own camera: the terminal lands there.
+ */
+export function connectLanding(vo: VO, audio: AudioData): Landing {
+  const s = vo.scenes.find((x) => x.id === 'connect')!;
+  const T = connectTimes(vo, audio, s.start, s.end);
+  const f = frontFaceAt(s.end - EXIT.lead, T, faceOf(connectCopy(CONNECT_S as string[])));
+  return { centre: f.centre, width: f.width };
+}
+
+/** Where the terminal lands (logical px): its centre and its width on screen (connect.ts frontFaceAt). */
+export interface Landing { centre: [number, number]; width: number }
+
+/**
+ * The terminal, as wide as the install line, two rows: the line typed with her, and on Enter the new prompt (an empty
+ * typed line: the terminal draws its own `$` before it).
+ */
+export function terminalSpec(T: Times) {
+  const lines: PanelLine[] = [
+    { text: INSTALL, kind: 'cmd', at: T.type.at, cps: (Array.from(INSTALL).length - 3) / (T.type.end - T.type.at) },
+    { text: '', kind: 'cmd', at: T.enter },
+  ];
+  const g = panelLayout({ kind: 'terminal', size: TERM.size, lines });
+  const w = Math.ceil(2 * g.padX + Array.from(INSTALL).length * g.adv);
+  return { kind: 'terminal' as const, w, rows: 2, size: TERM.size, lines, opaque: true };
+}
+
+/** The terminal's box on the left page (board px). */
+export function terminalBox(term: Panel) {
+  return { x: PAGE.left.x0, y: TERM.y, w: term.spec.w!, h: term.spec.h };
+}
+
+/** The left page's transform (as Anywhere.page builds it). */
+function pageMatrix(p: { x0: number; x1: number }, side = 1) {
+  const cx = (p.x0 + p.x1) / 2;
+  return new THREE.Matrix4().compose(
+    new THREE.Vector3((cx - 960) * K, 0, 0),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(0, THREE.MathUtils.degToRad(side * PAGE.yaw), 0)),
+    new THREE.Vector3(BOARD_SCALE, BOARD_SCALE, BOARD_SCALE),
+  );
+}
+
+/** The terminal's corners in the world (TL, TR, BL, BR), from its box on the left page (board px). */
+export function terminalCorners(box: { x: number; y: number; w: number; h: number }) {
+  const m = pageMatrix(PAGE.left), cx = (PAGE.left.x0 + PAGE.left.x1) / 2;
+  const at = (x: number, y: number) => new THREE.Vector3((x - cx) / 1000, (540 - y) / 1000, 0).applyMatrix4(m);
+  return [at(box.x, box.y), at(box.x + box.w, box.y), at(box.x, box.y + box.h), at(box.x + box.w, box.y + box.h)];
+}
+
+/** A quad through a camera (logical px): its corners, its centre (the projected middle) and width (the mean of its top and bottom edges). */
+function quadOnScreen(cam: THREE.PerspectiveCamera, corners: THREE.Vector3[]) {
+  const px = corners.map((p) => onScreen(cam, p));
+  return {
+    corners: px,
+    centre: onScreen(cam, corners.reduce((s, p) => s.add(p), new THREE.Vector3()).divideScalar(4)),
+    width: (px[1]![0] - px[0]![0] + px[3]![0] - px[2]![0]) / 2,
+  };
+}
+
+/**
+ * The cut in from `connect` (transitions/connect-anywhere.ts): the carousel whips round and the face that comes round is
+ * this terminal. It lands where connect's face in front stood, centred on it and as wide, and it is still turning in:
+ * seen from `swing` degrees further round (a face still to the right of the front, its near edge the left), braking
+ * over `brake` s onto the opening's angle, held centred and as wide all the while (each key solved for it).
+ */
+export const ARRIVE = { swing: 26, brake: 0.42 } as const;
+/** The opening's angle (degrees): a little low and from the left of square, rolled a hair. */
+const OPEN = { az: -17, el: -4.5, roll: -2.2 } as const;
+
+/** A key from az/el/roll whose camera shows the quad `corners` centred on `land.centre` and `land.width` wide. */
+function landKey(t: number, corners: THREE.Vector3[], land: Landing, az: number, e?: (u: number) => number): CamKey {
+  const cam = new THREE.PerspectiveCamera(FOV, W / H, NEAR, 200);
+  const a = THREE.MathUtils.degToRad(az), b = THREE.MathUtils.degToRad(OPEN.el);
+  const back = new THREE.Vector3(Math.sin(a) * Math.cos(b), Math.sin(b), Math.cos(a) * Math.cos(b));
+  const target = corners.reduce((s, p) => s.add(p), new THREE.Vector3()).divideScalar(4);
+  let D = 1;
+  const key = (): CamKey => ({ t, pos: target.clone().addScaledVector(back, D).toArray() as V3, target: target.toArray() as V3, fov: FOV, roll: OPEN.roll, ease: e });
+  for (let it = 0; it < 40; it++) {
+    new CameraRig([key()]).apply(cam, t);
+    const q = quadOnScreen(cam, corners);
+    D *= q.width / land.width;
+    const s = (2 * D * TAN_V) / H;
+    const r = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion), u = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+    target.addScaledVector(r, (q.centre[0] - land.centre[0]) * s).addScaledVector(u, -(q.centre[1] - land.centre[1]) * s);
+  }
+  return key();
+}
+
+/** The landing: the terminal centred where connect's face stood and as wide, from the opening's angle, once braked. */
+export function arrivalKeys(T: Times, corners: THREE.Vector3[], land: Landing): CamKey[] {
+  return [landKey(T.start + ARRIVE.brake, corners, land, OPEN.az)];
+}
+
+/**
+ * The arrival's turn: until the landing key, the camera (holding it) is orbited round the vertical through the
+ * terminal's centre, `swing` degrees further left braking (out-cubic) to none, so the terminal stays centred where it
+ * landed while it turns in, as a carousel's face does coming round to the front.
+ */
+export function arrivalOrbit(cam: THREE.PerspectiveCamera, t: number, T: Times, corners: THREE.Vector3[]) {
+  const u = prog(t, T.start, T.start + ARRIVE.brake);
+  if (u >= 1) return;
+  const c = corners.reduce((s, p) => s.add(p), new THREE.Vector3()).divideScalar(4);
+  const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -THREE.MathUtils.degToRad(ARRIVE.swing) * (1 - ease.outCubic(u)));
+  cam.position.sub(c).applyQuaternion(q).add(c);
+  cam.quaternion.premultiply(q);
+  cam.updateMatrixWorld();
+}
+
+/** Where the terminal shows at t (logical px), through the scene's own camera keys. */
+export function terminalAt(t: number, T: Times, corners: THREE.Vector3[], land: Landing) {
+  const cam = new THREE.PerspectiveCamera(FOV, W / H, NEAR, 200);
+  new CameraRig(cameraKeys(T, corners, land)).apply(cam, t);
+  arrivalOrbit(cam, t, T, corners);
+  return quadOnScreen(cam, corners);
 }
