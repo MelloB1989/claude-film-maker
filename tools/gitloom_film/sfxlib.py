@@ -26,7 +26,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-from scipy.signal import find_peaks, lfilter, resample_poly
+from scipy.signal import butter, find_peaks, lfilter, resample_poly, sosfilt
 
 from .elevenlabs import ElevenLabs, ElevenLabsError
 from .paths import AUDIO, DATA, OUT
@@ -244,17 +244,30 @@ def _seam(y: np.ndarray, sr: int) -> np.ndarray:
     return out.astype(np.float32)
 
 
+HPF_HZ = 25.0
+
+
+def remove_dc(y: np.ndarray, sr: int = SR) -> np.ndarray:
+    """DC and subsonic rumble out: a 4th-order 25 Hz Butterworth high-pass (causal, so an onset never pre-rings).
+    Generated whooshes carry 5–20 Hz pulses that eat several dB of headroom and are inaudible."""
+    y = np.asarray(y, dtype=np.float64)
+    y = y - y[:min(len(y), 480)].mean() if len(y) else y  # start the filter near rest
+    return sosfilt(butter(4, HPF_HZ, "highpass", fs=sr, output="sos"), y).astype(np.float32)
+
+
 def process(y: np.ndarray, sr: int, spec: dict) -> tuple[np.ndarray, float | None]:
-    """Remove DC, then: a loop gets the seam crossfade and no trim (hit None); an onset sound is trimmed to 5 ms
-    before its hit; an end sound is cut after its audible end. All but loops get the 2 ms / 20 ms fades."""
-    y = (np.asarray(y, dtype=np.float32) - np.float32(np.mean(y))).astype(np.float32)
+    """Remove DC (remove_dc), then: a loop gets the seam crossfade and no trim (hit None); an onset sound is trimmed
+    to 5 ms before its hit; an end sound is cut after its audible end, found on the unfiltered take so the filter's
+    ring never moves it. All but loops get the 2 ms / 20 ms fades."""
+    y0 = np.asarray(y, dtype=np.float32)
+    y = remove_dc(y0)
     if spec.get("loop"):
         return _seam(y, sr), None
     align = spec.get("align")
     if align == "onset":
         out = _trim_onset(y, sr, int(round(find_hit(y, sr, "onset") * sr)))
         return out, round(PRE_S * sr) / sr
-    end = min(len(y), _audible_end(y, sr) + (0 if align == "end" else int(TAIL_S * sr)))
+    end = min(len(y), _audible_end(y0 - y0.mean(), sr) + (0 if align == "end" else int(TAIL_S * sr)))
     out = _fades(y[:end], sr)
     return out, (len(out) / sr if align == "end" else find_hit(out, sr, "peak"))
 
@@ -451,7 +464,7 @@ def _store(palette: dict, manifest: dict, lib: Path, sid: str, v: int, req: dict
                                                  out, hit, q)
     n = int(spec.get("slice", 0) or 0)
     if n:
-        parts = slice_hits(y - np.mean(y), SR, n, float(spec.get("slice_gap", 0.08)))
+        parts = slice_hits(remove_dc(y), SR, n, float(spec.get("slice_gap", 0.08)))
         for k, part in enumerate(parts, 1):
             manifest["variants"][f"{sid}_{k}/{v}"] = _record(
                 lib, sid, v, key, req, seed, fmt, 0, measured, request_id, part, PRE_S, qc(part, SR),

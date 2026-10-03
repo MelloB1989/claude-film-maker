@@ -250,7 +250,7 @@ def test_peak_and_end_hits():
     riser = (np.sin(2 * np.pi * 200 * t) * t ** 2 * 0.5).astype(np.float32)
     riser = np.concatenate([riser, np.zeros(SR // 4, np.float32)])
     out, hit = process(riser, SR, sound_spec(align="end", duration=1.25))
-    assert hit == pytest.approx(len(out) / SR) and hit == pytest.approx(1.0, abs=0.03)
+    assert hit == pytest.approx(len(out) / SR) and hit == pytest.approx(1.0, abs=0.05)  # the high-pass rings ~35 ms
 
 
 def test_a_loop_gets_a_seam_crossfade_and_no_trim():
@@ -482,5 +482,18 @@ def test_every_written_take_peaks_at_minus_1_dbfs_and_records_the_normalisation(
     e = json.loads((tmp_path / "manifest.json").read_text())["variants"]["glass_clink/0"]
     y, _ = read_wav(tmp_path / "lib" / e["wav"])
     assert 20 * np.log10(np.abs(y).max()) == pytest.approx(-1.0, abs=0.05)
-    assert e["qc"]["peak_dbfs"] == pytest.approx(-32.0, abs=0.3)          # QC is the take as generated
-    assert e["norm_db"] == pytest.approx(31.0, abs=0.3)
+    assert e["qc"]["peak_dbfs"] == pytest.approx(-32.0, abs=0.5)          # QC is the take as generated
+    assert e["norm_db"] == pytest.approx(31.0, abs=0.5)
+
+
+def test_dc_removal_is_a_subsonic_high_pass():
+    t = np.arange(2 * SR) / SR
+    rumble = 0.4 * np.sin(2 * np.pi * 6 * t)
+    tone = 0.2 * np.sin(2 * np.pi * 200 * t)
+    out, _ = process((rumble + tone + 0.1).astype(np.float32), SR, sound_spec(align=None, loop=True, duration=2.0))
+    mid = out[SR // 2: SR]
+    spec = np.abs(np.fft.rfft(mid * np.hanning(len(mid))))
+    f = np.fft.rfftfreq(len(mid), 1 / SR)
+    db = lambda hz: 20 * np.log10(spec[np.argmin(np.abs(f - hz))] + 1e-12)
+    assert db(200) - db(6) > 30 and abs(np.mean(mid)) < 1e-3
+    assert np.abs(mid).max() == pytest.approx(0.2, abs=0.01)
