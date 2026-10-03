@@ -40,8 +40,11 @@ const GC = S[8]!;
 const LINE = { x: 150, y: 196, px: 60, fam: F.display(100, 500) };
 /** Alpha of a spoken word, of a tier word before it lights (Skills dimmer: it waits), and lit. */
 const SPOKEN = 0.7, UNLIT = 0.55, UNLIT_SKILLS = 0.36;
-/** The labels: mono on a hairline leader rising from the lane. */
-const LBL = { px: 22, fam: F.mono(500), lead: 54, dot: 3.4, padX: 10, padY: 7 };
+/** The labels: mono on a hairline leader rising from the lane, big enough to read on a phone: the path in bone, the
+ * tier's property after it a step down, on a near-ink chip lifted off the cloth by a soft shadow. */
+const LBL = { px: 30, fam: F.mono(500), lead: 66, dot: 4.4, padX: 14, padY: 10 };
+/** A chip never rises into her line: its top stays this far below the line's baseline. */
+const LBL_CLEAR = LINE.y + 40;
 /** The stamp: by the expiring rows, up and to the right of them, a little askew. */
 const STAMP = { px: 26, fam: F.mono(500), dx: 40, dy: -118, tilt: -0.045, padX: 14, padY: 10 };
 
@@ -165,37 +168,48 @@ export default class Loom extends Scene {
     const lit = tier === 'skills' ? lightWipe(t, this.reach) : 1;
     const { px, fam, lead, dot, padX, padY } = LBL;
     const w = measure(text, fam, px);
-    const chipX = p.x - padX, chipH = px + 2 * padY, chipB = p.y - 7 - lead;
+    const chipX = p.x - padX, chipH = px + 2 * padY;
+    const chipB = Math.max(p.y - 7 - lead, LBL_CLEAR + chipH); // shortens the leader rather than crowd her line
     // fade out at the frame's edges, as the slide carries the lane away
     const edge = clamp((chipX - 40) / 90) * clamp((1920 - 40 - (chipX + w + 2 * padX)) / 90) * clamp((chipB - chipH - 60) / 60);
     if (edge <= 0) return;
     c.save();
     c.globalAlpha = edge;
-    // the dot on the lane, and the leader rising from it to the tag
-    c.fillStyle = rgba('bone', lerp(0.45, 0.95, lit));
+    // the dot on the lane (ringed in ink, so it reads on bone), and the leader rising from it to the tag
     c.beginPath();
     c.arc(p.x, p.y, dot * on.dot, 0, Math.PI * 2);
+    c.fillStyle = rgba('bone', lerp(0.5, 1, lit));
     c.fill();
-    const top = p.y - 7 - lead * on.leader;
-    c.fillStyle = rgba('boneDim', lerp(0.4, 0.75, lit));
-    c.fillRect(p.x - 0.75, top, 1.5, (p.y - 7) - top);
+    c.lineWidth = 2;
+    c.strokeStyle = rgba('ink', 0.75);
+    c.stroke();
+    const top = p.y - 7 - (p.y - 7 - chipB) * on.leader;
+    c.fillStyle = rgba('ink', 0.5);
+    c.fillRect(p.x - 2, top, 4, (p.y - 7) - top);
+    c.fillStyle = rgba('bone', lerp(0.45, 0.85, lit));
+    c.fillRect(p.x - 1, top, 2, (p.y - 7) - top);
     // the tag: a dark chip that grows as the path types in, the path bright and the property dim
     const typed = Array.from(text).slice(0, on.typed).join('');
     if (typed && on.leader >= 1) {
       c.font = font(fam, px);
       const tw = measure(typed, fam, px);
-      roundRect(c, chipX, chipB - chipH, tw + 2 * padX, chipH, 4);
-      c.fillStyle = rgba('panel', 0.9);
+      roundRect(c, chipX, chipB - chipH, tw + 2 * padX, chipH, 6);
+      c.save();
+      c.shadowColor = rgba('ink', 0.85);
+      c.shadowBlur = 22;
+      c.shadowOffsetY = 4;
+      c.fillStyle = rgba('ink', 0.88);
       c.fill();
-      c.lineWidth = 1;
-      c.strokeStyle = rgba('ruleStrong', 0.9);
+      c.restore();
+      c.lineWidth = 1.5;
+      c.strokeStyle = rgba('ruleStrong', 1);
       c.stroke();
       const by = chipB - padY - px * 0.2;
       const h = typed.slice(0, head.length), rest = typed.slice(head.length);
-      c.fillStyle = rgba('bone', lerp(0.42, 1, lit));
+      c.fillStyle = rgba('bone', lerp(0.45, 1, lit));
       c.fillText(h, p.x, by);
       if (rest) {
-        c.fillStyle = rgba('boneDim', lerp(0.5, 0.9, lit));
+        c.fillStyle = rgba('boneDim', lerp(0.6, 1, lit));
         c.fillText(rest, p.x + measure(head, fam, px), by);
       }
     }
