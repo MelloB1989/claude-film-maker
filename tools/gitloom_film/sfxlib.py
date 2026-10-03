@@ -259,7 +259,9 @@ def slice_hits(y: np.ndarray, sr: int, n: int, min_gap: float = 0.08) -> list[np
     peaks, props = find_peaks(env, distance=max(1, int(min_gap * sr / hop)), prominence=0)
     if not len(peaks):
         return []
-    best = sorted(peaks[np.argsort(props["prominences"])[::-1][:n]])
+    loud = env[peaks] >= env[peaks].max() * 10 ** (-30 / 20)  # a candidate 30 dB under the loudest is not a hit
+    peaks, prom = peaks[loud], props["prominences"][loud]
+    best = sorted(peaks[np.argsort(prom)[::-1][:n]])
     onsets = []
     w = max(1, int(0.0005 * sr))
     floor = 0  # a hit's onset never walks back past the previous hit's peak (a quiet hit inside a loud tail)
@@ -432,11 +434,13 @@ def _store(palette: dict, manifest: dict, lib: Path, sid: str, v: int, req: dict
             manifest["variants"].pop(f"{sid}_{k}/{v}", None)
 
 
-def _pick_entry(palette: dict, manifest: dict, sid: str, src: str, auto: int) -> dict | None:
+def _pick_entry(palette: dict, manifest: dict, target: str, src: str, auto: int) -> dict | None:
     spec = palette["sounds"][src]
     chosen = spec.get("pick")
-    chosen = chosen if chosen is not None else (auto if auto >= 0 else 0)
-    e = manifest["variants"].get(f"{sid}/{chosen}")
+    if chosen is None or f"{target}/{chosen}" not in manifest["variants"]:
+        chosen = auto if auto >= 0 else next((v for v in range(int(palette["variants"]))
+                                              if f"{target}/{v}" in manifest["variants"]), None)
+    e = manifest["variants"].get(f"{target}/{chosen}")
     if e is None:
         return None
     return {"variant": chosen, "auto": auto, "rejected": auto < 0 and spec.get("pick") is None,
@@ -445,16 +449,20 @@ def _pick_entry(palette: dict, manifest: dict, sid: str, src: str, auto: int) ->
 
 
 def update_picks(palette: dict, manifest: dict) -> None:
+    """One pick per sound, and for a sliced sound one per slice id (`key_soft_3`): each slice is judged on its own
+    across the variants that produced it, since a take with gaps fails the whole-take silence rule by design. A
+    palette `pick` (an int) overrides the auto pick wherever that variant exists."""
     picks = {}
+    nv = int(palette["variants"])
     for sid, spec in palette["sounds"].items():
-        vs = [manifest["variants"].get(f"{sid}/{v}") for v in range(int(palette["variants"]))]
-        if any(e is None for e in vs):
-            continue
-        auto = pick([{"qc": e["qc"], "align": spec.get("align"), "loop": spec.get("loop", False)} for e in vs],
-                    spec["family"])
         n = int(spec.get("slice", 0) or 0)
         for target in ([f"{sid}_{k}" for k in range(1, n + 1)] if n else [sid]):
-            p = _pick_entry(palette, manifest, target, sid, auto)
+            have = [v for v in range(nv) if f"{target}/{v}" in manifest["variants"]]
+            if not have or (not n and len(have) < nv):
+                continue
+            k = pick([{"qc": manifest["variants"][f"{target}/{v}"]["qc"], "align": spec.get("align"),
+                       "loop": spec.get("loop", False)} for v in have], spec["family"])
+            p = _pick_entry(palette, manifest, target, sid, have[k] if k >= 0 else -1)
             if p:
                 picks[target] = p
     manifest["picks"] = picks
@@ -514,6 +522,30 @@ def generate(palette: dict, client, lib: Path, manifest_path: Path, budget: int,
     res["spent"] = spent
     res["credits_per_second"] = cps
     return res
+
+
+def reprocess(palette: dict, lib: Path, manifest_path: Path) -> int:
+    """Re-decode, re-trim, re-slice and re-QC every take whose raw bytes are on disk, for the palette's current
+    requests (free: no API call). Used after a change to the post-processing."""
+    manifest = _load_manifest(manifest_path)
+    n = 0
+    for sid in palette["sounds"]:
+        for v in range(int(palette["variants"])):
+            req = request_of(palette, sid, v)
+            key = request_key(req)
+            raw = lib / sid / f"{key[:12]}.raw"
+            meta_path = raw.with_suffix(".rawmeta.json")
+            if not (raw.exists() and meta_path.exists()):
+                continue
+            meta = json.loads(meta_path.read_text())
+            if meta.get("key") != key:
+                continue
+            _store(palette, manifest, lib, sid, v, req, raw.read_bytes(), meta["output_format"], meta["cost"],
+                   meta["cost_measured"], meta["request_id"])
+            n += 1
+    update_picks(palette, manifest)
+    _save_manifest(manifest_path, manifest)
+    return n
 
 
 # ---------------------------------------------------------------- the determinism probe
@@ -659,6 +691,7 @@ def main(argv=None):
     g.add_argument("--dry-run", action="store_true")
     sub.add_parser("sheet")
     sub.add_parser("backup")
+    sub.add_parser("reprocess")
     args = ap.parse_args(argv)
 
     palette = load_palette()
@@ -675,6 +708,10 @@ def main(argv=None):
     if args.cmd == "sheet":
         for f in sheet(palette, _load_manifest(MANIFEST)):
             print(f)
+        return 0
+    if args.cmd == "reprocess":
+        print(f"{reprocess(palette, LIB, MANIFEST)} takes rebuilt from their raw bytes")
+        print(f"backup: {backup(_load_manifest(MANIFEST))} files → {BACKUP}")
         return 0
     if args.cmd == "backup":
         print(f"{backup(_load_manifest(MANIFEST))} files copied to {BACKUP}")

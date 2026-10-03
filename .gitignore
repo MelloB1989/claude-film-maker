@@ -10,6 +10,7 @@ app/dist/
 __pycache__/
 audio/vo/paced/
 audio/vo/vo.wav
+audio/vo/vo-chain.wav
 audio/music/
 audio/mix/
 # Blender plate proxies (blender/render.py; the EXRs are under out/), and test shots' tracks

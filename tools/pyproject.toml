@@ -26,6 +26,7 @@ film-mix = "gitloom_film.mix:main"
 film-fonts = "gitloom_film.fonts:main"
 film-sync = "gitloom_film.sync:main"
 film-facts = "gitloom_film.factcheck:main"
+film-vo-chain = "gitloom_film.vochain:main"
 film-sfx-lib = "gitloom_film.sfxlib:main"
 
 [dependency-groups]

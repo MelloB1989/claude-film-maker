@@ -365,3 +365,42 @@ def test_slice_hits_stops_a_walk_back_at_the_previous_hit():
     hit(1.2, 0.5, 0.02)
     parts = slice_hits(y, SR, 3)
     assert len(parts) == 3 and all(len(p) > int(0.02 * SR) for p in parts)
+
+
+def test_slice_hits_ignores_hits_far_below_the_loudest():
+    rng = np.random.default_rng(9)
+    y = rng.normal(0, 1e-5, 2 * SR).astype(np.float32)
+    for s, amp in ((0.2, 1.0), (0.7, 0.8), (1.2, 0.9), (1.6, 0.008)):  # the last is 42 dB down: noise, not a hit
+        i, n = int(s * SR), int(0.08 * SR)
+        y[i:i + n] += (amp * 0.5 * rng.normal(0, 1, n) * np.exp(-np.arange(n) / (0.01 * SR))).astype(np.float32)
+    assert len(slice_hits(y, SR, 4)) == 3
+
+
+def test_each_slice_is_picked_on_its_own():
+    from gitloom_film.sfxlib import update_picks
+    good = qc(process(click_take(), SR, sound_spec())[0], SR)
+    silent = dict(good, silence_ratio=0.9)
+    pal = palette_with("insert_pop", duration=2.0, slice=2)
+    e = lambda q, k, v: {"qc": q, "wav": f"insert_pop/x{v}_{k}.wav", "hit_s": 0.005}
+    man = {"variants": {"insert_pop/0": {"qc": silent, "wav": "a", "hit_s": 0.005},
+                        "insert_pop/1": {"qc": silent, "wav": "b", "hit_s": 0.005},
+                        "insert_pop_1/0": e(silent, 1, 0), "insert_pop_1/1": e(good, 1, 1),
+                        "insert_pop_2/0": e(good, 2, 0)}, "picks": {}}
+    update_picks(pal, man)
+    assert man["picks"]["insert_pop_1"]["variant"] == 1 and man["picks"]["insert_pop_1"]["wav"] == "insert_pop/x1_1.wav"
+    assert man["picks"]["insert_pop_2"]["variant"] == 0 and not man["picks"]["insert_pop_2"]["rejected"]
+    assert "insert_pop" not in man["picks"]
+
+
+def test_reprocess_rebuilds_every_take_from_its_raw_without_a_call(tmp_path):
+    from gitloom_film.sfxlib import reprocess
+    pal = palette_with("glass_clink", variants=2)
+    client = CountingClient()
+    run(pal, client, tmp_path)
+    man = json.loads((tmp_path / "manifest.json").read_text())
+    (tmp_path / "lib" / man["variants"]["glass_clink/0"]["wav"]).unlink()
+    pal["sounds"]["glass_clink"]["gain"] = -11.0                         # not part of the request
+    n = reprocess(pal, tmp_path / "lib", tmp_path / "manifest.json")
+    man = json.loads((tmp_path / "manifest.json").read_text())
+    assert n == 2 and client.calls == 2 and not plan(pal, man, tmp_path / "lib")
+    assert man["picks"]["glass_clink"]["gain"] == -11.0
