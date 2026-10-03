@@ -450,3 +450,22 @@ def test_a_sound_can_set_its_own_slice_gap(tmp_path):
     from gitloom_film.sfxlib import reprocess
     reprocess(pal, tmp_path / "lib", tmp_path / "manifest.json")
     assert "flap_4/0" in json.loads((tmp_path / "manifest.json").read_text())["variants"]
+
+
+def test_a_take_with_fewer_hits_than_asked_is_still_cached(tmp_path):
+    class Two(CountingClient):
+        def sound(self, text, duration_seconds=None, **kw):
+            self.calls += 1
+            y = np.zeros(int(duration_seconds * SR), np.float32)
+            for k, s in enumerate([0.1, 0.9]):
+                y += np.roll(click_take(dur=duration_seconds, at=0.0, seed=k), int(s * SR)) * \
+                     (np.arange(len(y)) >= int(s * SR))
+            return SoundResult(pcm16(y), "pcm_48000", 80, f"r{self.calls}")
+    pal = palette_with("insert_pop", variants=1, duration=2.0, slice=4)
+    client = Two()
+    run(pal, client, tmp_path)
+    man = json.loads((tmp_path / "manifest.json").read_text())
+    assert "insert_pop_2/0" in man["variants"] and "insert_pop_3/0" not in man["variants"]
+    assert not plan(pal, man, tmp_path / "lib")
+    run(pal, client, tmp_path)
+    assert client.calls == 1

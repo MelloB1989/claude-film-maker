@@ -92,7 +92,11 @@ def _cached(palette: dict, manifest: dict, lib: Path | None, sound_id: str, vari
     vs = manifest.get("variants", {})
     if not _file_ok(lib, vs.get(f"{sound_id}/{variant}"), key):
         return False
-    n = int(palette["sounds"][sound_id].get("slice", 0) or 0)
+    if not int(palette["sounds"][sound_id].get("slice", 0) or 0):
+        return True
+    n = vs[f"{sound_id}/{variant}"].get("slices")  # what the take yielded, which may be fewer than asked
+    if n is None:
+        return False
     return all(_file_ok(lib, vs.get(f"{sound_id}_{k}/{variant}"), key) for k in range(1, n + 1))
 
 
@@ -444,6 +448,7 @@ def _store(palette: dict, manifest: dict, lib: Path, sid: str, v: int, req: dict
                 suffix=f"_{k}", parent=f"{sid}/{v}")
         for k in range(len(parts) + 1, n + 1):
             manifest["variants"].pop(f"{sid}_{k}/{v}", None)
+        manifest["variants"][f"{sid}/{v}"]["slices"] = len(parts)
 
 
 def _pick_entry(palette: dict, manifest: dict, target: str, src: str, auto: int) -> dict | None:
