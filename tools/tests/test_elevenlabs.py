@@ -144,3 +144,40 @@ def test_the_transport_does_not_follow_redirects():
         srv.server_close()
     assert r.status == 302 and r.headers["location"].endswith("/collect")
     assert seen == [("/v1/music", KEY)]  # the key went to the API host only; the redirect target never saw it
+
+
+def test_sound_posts_the_request_and_logs_cost(tmp_path):
+    calls, log = [], tmp_path / "credits.log"
+    c = ElevenLabs(KEY, fake([Response(200, {"character-cost": "20", "request-id": "s1"}, b"\x01\x00" * 480)], calls), log)
+    r = c.sound("a snap", duration_seconds=1.0, prompt_influence=0.4, seed=7)
+    method, url, headers, body = calls[0]
+    assert url == "https://api.elevenlabs.io/v1/sound-generation?output_format=pcm_48000"
+    assert json.loads(body) == {"text": "a snap", "model_id": "eleven_text_to_sound_v2", "duration_seconds": 1.0,
+                                "prompt_influence": 0.4, "loop": False, "seed": 7}
+    assert (r.cost, r.request_id, r.output_format) == (20, "s1", "pcm_48000")
+    assert r.audio == b"\x01\x00" * 480
+    assert json.loads(log.read_text())["path"] == "/v1/sound-generation"
+
+
+def test_sound_omits_unset_options():
+    calls = []
+    c = ElevenLabs(KEY, fake([Response(200, {}, b"\x00\x00")], calls))
+    c.sound("hum", loop=True, output_format="pcm_44100")
+    assert calls[0][1].endswith("?output_format=pcm_44100")
+    assert json.loads(calls[0][3]) == {"text": "hum", "model_id": "eleven_text_to_sound_v2", "loop": True}
+
+
+def test_sound_error_never_leaks_the_key():
+    c = ElevenLabs(KEY, fake([Response(422, {}, f"bad {KEY}".encode())], []))
+    with pytest.raises(ElevenLabsError) as e:
+        c.sound("x")
+    assert KEY not in str(e.value)
+
+
+def test_credits_used_reads_the_subscription_with_a_get():
+    calls = []
+    body = json.dumps({"character_count": 1234, "character_limit": 40000}).encode()
+    c = ElevenLabs(KEY, fake([Response(200, {}, body)], calls))
+    assert c.credits_used() == 1234
+    method, url, headers, sent = calls[0]
+    assert (method, url, sent) == ("GET", "https://api.elevenlabs.io/v1/user/subscription", None)
