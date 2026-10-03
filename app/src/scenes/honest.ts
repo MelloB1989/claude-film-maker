@@ -81,7 +81,20 @@ const flicker = (t: number, seed: number) => 0.6 + 0.4 * hash(frameIdx(t), seed)
 
 const INK = new THREE.Color().setRGB(...LIN.ink);
 
+/**
+ * The hush (0..1): from `QUIET.lead` s before the scene's end the question, the floor, the card and the footnote let go,
+ * until only I don't know. is left, `QUIET.after` s past the end (honest runs on into its tail under the dissolve).
+ */
+export const QUIET = { lead: 0.3, after: 0.12 };
+export const quietAt = (t: number, T: Pick<Times, 'end'>) => prog(t, T.end - QUIET.lead, T.end + QUIET.after, ease.inOutCubic);
+/**
+ * honest → proof dissolves (transitions/honest-proof.ts): honest runs on past its end under proof's drums, I don't
+ * know. alone and the caret still blinking, rather than freezing. All engine-built, every pose from t.
+ */
+export const HANDLES = { head: 0, tail: 0.5 };
+
 export default class Honest extends Scene {
+  override handles = HANDLES;
   private T!: Times;
   private stage!: Stage;
   private threads = {} as Record<Arm, Thread>;
@@ -242,6 +255,10 @@ export default class Honest extends Scene {
       tips.push({ x: sp.x, near: nearness(sp.y - floorY) * (1 - pose.slack) * (pose.draw[1] > 0.6 ? 1 : 0) });
     }
 
+    // ---- the hush before the dissolve (honest → proof): everything around I don't know. leaves, so the line is alone
+    // when proof's drums come up through it
+    const still = 1 - quietAt(t, T);
+
     // ---- the card: up with her "…I", rising a hair as it fades in
     const up = prog(t, T.respond - 0.06, T.respond + 0.3, ease.outCubic);
     this.cardG.visible = up > 0;
@@ -249,7 +266,7 @@ export default class Honest extends Scene {
       const k = this.cardG.scale.x;
       this.cardG.position.copy(this.cardHome).add(this.v.set(0, (-10 * (1 - up) * k) / 1000, 0));
       // it steps back a little as I don't know. lands, so the line leads
-      this.card.opacity = up * dim(t, T.say, T.say + 0.5, 1, 0.84);
+      this.card.opacity = up * dim(t, T.say, T.say + 0.5, 1, 0.84) * still;
       this.card.draw(t);
     }
 
@@ -272,13 +289,13 @@ export default class Honest extends Scene {
     c.textBaseline = 'alphabetic';
     const n = Array.from(QUESTION).length;
     const cps = (n - 1) / (T.asked - T.ask);
-    drawQuery(c, t, QUESTION, T.ask, cps, dim(t, T.respond - 0.1, T.say + 0.3, 1, 0.5), T.respond);
-    const floorA = dim(t, T.say, T.say + 0.5, 1, 0.55);
+    drawQuery(c, t, QUESTION, T.ask, cps, dim(t, T.respond - 0.1, T.say + 0.3, 1, 0.5) * still, T.respond);
+    const floorA = dim(t, T.say, T.say + 0.5, 1, 0.55) * still;
     drawFloor(c, floorY, prog(t, T.floor.at, T.floor.end), floorA, tips);
     drawKnow(c, t, KNOW_TEXT, T.say);
     if (up > 0) {
       const bottom = this.cardBottom();
-      drawNote(c, t, NOTE_TEXT, T.note, bottom.x, bottom.y + NOTE_BELOW);
+      drawNote(c, t, NOTE_TEXT, T.note, bottom.x, bottom.y + NOTE_BELOW, still);
     }
     comp.draw(renderer, L.upload(), out);
 
