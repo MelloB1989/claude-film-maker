@@ -1,5 +1,5 @@
 // The engine: owns the renderer, loads scenes for the timeline, renders any song time
-// deterministically (with preroll for stateful scenes), composites transitions, HUD, post.
+// deterministically (with preroll for stateful scenes), composites transitions and overlays, HUD, post.
 import * as THREE from 'three';
 import { AudioData } from './audio';
 import { VO } from './vo';
@@ -7,6 +7,8 @@ import { Compositor, FSPass, W, H, PW, PH, SCALE, SS_TAP, makeRT, clearRT } from
 import { DEFAULT_POST, Post, SHOULDER_GLSL, type PostParams } from './post';
 import { Hud } from './hud';
 import type { Frame, Scene, SceneClass, SceneCtx, PostOverrides } from './scene';
+import { HOLD, shutterTaps, sideTime, tapCount, transitionEntries, type Handles, type TransitionEntry, type TransitionSpec, type TransitionState } from './transition';
+import { TransitionPass } from './transition-gl';
 import { loadFonts } from './type';
 import { loadStrokeFonts } from './stroke';
 import { FPS } from './util';
@@ -25,6 +27,11 @@ export interface TimelineEntry {
   params?: Record<string, any>;
   /** Cap on adaptive motion-blur sub-frames while this entry is on screen (for noise that converges slowly). */
   maxSamples?: number;
+  /**
+   * 'scene' (default): one of the film's shots, cut to or transitioned into its neighbours. 'overlay': drawn over the
+   * scenes (alpha-premultiplied, 'normal' blend), after them in start order, at its own times, never crossfaded.
+   */
+  kind?: 'scene' | 'overlay';
 }
 
 interface Loaded {
@@ -78,16 +85,13 @@ export function shutterOffsets(samples: number | AdaptiveSampling): number[] {
 }
 
 /** A timeline window: song seconds [start, end). */
-type Span = Pick<TimelineEntry, 'start' | 'end'>;
+export type Span = Pick<TimelineEntry, 'start' | 'end'>;
 
 /**
  * An entry to render in one sub-frame, and the time to render it at; `held` when that time is held inside the entry's
  * window (the sub-frame falls before its start or at or past its end): no time passes for it there.
  */
 export interface EntryAt<E extends Span = TimelineEntry> { entry: E; time: number; held: boolean }
-
-/** How far before its end (s) an entry holds when a sub-frame falls at or past it. */
-const HOLD = 1e-6;
 
 /** The entries on screen in the frame at t: those whose window [start, end) holds t, in compositing order (by start). */
 export function onScreen<E extends Span>(timeline: readonly E[], t: number): E[] {
@@ -138,6 +142,73 @@ export function straddledFrames(t: number, fps: number, tol = 0.1): [number, num
   return Math.abs(x - n - 0.5) < tol ? [n, n + 1] : null;
 }
 
+/**
+ * One layer of a sub-frame, in compositing order: a scene at its time; a transition, its two scenes each at its side
+ * time (sideTime), drawn by TransitionPass; or an overlay at its own time, drawn over what is below it.
+ */
+export type Layer<E extends Span = TimelineEntry> =
+  | { kind: 'scene'; at: EntryAt<E> }
+  | { kind: 'transition'; tr: TransitionEntry; a: EntryAt<E>; b: EntryAt<E> }
+  | { kind: 'overlay'; at: EntryAt<E> };
+
+const NO_HANDLES: Handles = { head: 0, tail: 0 };
+
+/**
+ * What each sub-frame of the frame at t renders: per shutter offset (`offsets`, as shutterPlan takes them), its layers in
+ * compositing order. Scene entries come first, then overlays (kind 'overlay') in start order, each at its own time held
+ * in its window (shutterPlan). When t lies in a transition's window [start, end), its two scenes are one transition
+ * layer instead, each side at sideTime(its mode, the sub-frame's time, its window, its handles): 'hold' clamps into the
+ * scene's own window, 'run' into its handles. Otherwise the scenes are exactly shutterPlan's, as scene layers. (The
+ * transition's own motion is not per sub-frame: render() draws every sub-frame with the frame's shutterTaps.)
+ */
+export function framePlan<E extends Span & { id: string; kind?: 'scene' | 'overlay' }>(timeline: readonly E[], transitions: readonly TransitionEntry[], t: number, dt: number, shutter: number, offsets: readonly number[], handles: (id: string) => Handles = () => NO_HANDLES): Layer<E>[][] {
+  const scenes = timeline.filter((e) => e.kind !== 'overlay'), overlays = timeline.filter((e) => e.kind === 'overlay');
+  const ov = shutterPlan(overlays, t, dt, shutter, offsets);
+  const tr = transitions.find((x) => t >= x.start && t < x.end);
+  const a = tr && scenes.find((e) => e.id === tr.spec.from), b = tr && scenes.find((e) => e.id === tr.spec.to);
+  if (!tr || !a || !b) {
+    const sc = shutterPlan(scenes, t, dt, shutter, offsets);
+    return sc.map((sub, k) => [...sub.map((at) => ({ kind: 'scene' as const, at })), ...ov[k]!.map((at) => ({ kind: 'overlay' as const, at }))]);
+  }
+  const ha = handles(a.id), hb = handles(b.id);
+  return offsets.map((u, k) => {
+    const s = t + dt * shutter * u;
+    const layer: Layer<E> = {
+      kind: 'transition', tr,
+      a: { entry: a, ...sideTime(tr.spec.fromMode ?? 'hold', s, a, ha) },
+      b: { entry: b, ...sideTime(tr.spec.toMode ?? 'hold', s, b, hb) },
+    };
+    return [layer, ...ov[k]!.map((at) => ({ kind: 'overlay' as const, at }))];
+  });
+}
+
+/** The entries a sub-frame's layers render (a transition: both its sides), in compositing order. */
+export function layerEntries<E extends Span>(sub: readonly Layer<E>[]): EntryAt<E>[] {
+  return sub.flatMap((l) => (l.kind === 'transition' ? [l.a, l.b] : [l.at]));
+}
+
+/**
+ * A frame shows one scene, or two inside a transition's window: scene windows (entries not 'overlay') never overlap.
+ * Throws naming the two that do (Engine.init).
+ */
+export function checkScenes(timeline: readonly (Span & { id: string; kind?: 'scene' | 'overlay' })[]) {
+  const sc = timeline.filter((e) => e.kind !== 'overlay').sort((a, b) => a.start - b.start);
+  for (let i = 1; i < sc.length; i++) {
+    const p = sc[i - 1]!, q = sc[i]!;
+    if (q.start < p.end) throw new Error(`scenes ${p.id} [${p.start}, ${p.end}) and ${q.id} [${q.start}, ${q.end}) overlap: two scenes share a frame only inside a transition's window (transitions/<from>-<to>.ts), and an overlay is kind 'overlay'`);
+  }
+}
+
+/** When an entry is last needed: the end of its window, or of a transition out of it if later. */
+export function lastUse(e: Span & { id: string }, transitions: readonly TransitionEntry[]): number {
+  return transitions.reduce((m, x) => (x.spec.from === e.id ? Math.max(m, x.end) : m), e.end);
+}
+
+/** When an entry is first needed: the start of its window, or of a transition into it if earlier. */
+export function firstUse(e: Span & { id: string }, transitions: readonly TransitionEntry[]): number {
+  return transitions.reduce((m, x) => (x.spec.to === e.id ? Math.min(m, x.start) : m), e.start);
+}
+
 export class Engine {
   renderer: THREE.WebGLRenderer;
   ctx!: SceneCtx;
@@ -147,8 +218,18 @@ export class Engine {
   post!: Post;
   comp = new Compositor();
   loaded = new Map<string, Loaded>();
-  private rts = [makeRT(), makeRT(), makeRT()];
-  private mixRT = makeRT(W, H, { depthBuffer: false });
+  /**
+   * Each layer of a sub-frame renders into a target of its own, and no pass reads the target it writes: a scene layer
+   * into sceneRT; a transition's sides into trA and trB and its pass into trOut; an overlay into ovRT, drawn over what is
+   * below it into one of the overlays' ping-pong pair (made when an overlay first renders).
+   */
+  private sceneRT = makeRT();
+  private trA = makeRT();
+  private trB = makeRT();
+  private trOut = makeRT(W, H, { depthBuffer: false });
+  private ovRT: THREE.WebGLRenderTarget | null = null;
+  private ovPP: THREE.WebGLRenderTarget[] = [];
+  private trPass: TransitionPass | null = null;
   // motion-blur sub-frame sums (float: up to hundreds of sub-frames), their average, and the error estimate
   private sumRT = makeRT(W, H, { depthBuffer: false, type: THREE.FloatType });
   private newRT = makeRT(W, H, { depthBuffer: false, type: THREE.FloatType });
@@ -163,7 +244,6 @@ export class Engine {
   lastErrors: number[] = [];
   private finalRT = new THREE.WebGLRenderTarget(PW, PH, { type: THREE.UnsignedByteType, depthBuffer: false });
   private blit: FSPass;
-  private xfade: FSPass;
   private accum: FSPass;
   private lastT = -1;
   lastPost: PostParams = { ...DEFAULT_POST };
@@ -178,8 +258,10 @@ export class Engine {
   exporting = false;
 
   timeline: TimelineEntry[] = [];
+  /** The film's transitions (makeTransitions, validated against vo.json at init), in cut order. */
+  transitions: TransitionEntry[] = [];
 
-  constructor(public canvas: HTMLCanvasElement, private makeTimeline: (vo: VO, audio: AudioData) => TimelineEntry[]) {
+  constructor(public canvas: HTMLCanvasElement, private makeTimeline: (vo: VO, audio: AudioData) => TimelineEntry[], private makeTransitions?: (vo: VO) => TransitionSpec[]) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(PW, PH, false);
@@ -188,8 +270,6 @@ export class Engine {
     // the layout's 1920x1080 whatever the output scale (satin glass needs no 4K refraction; about 464 MiB at 4K)
     this.renderer.transmissionResolutionScale = 1 / SCALE;
     this.blit = new FSPass(`uniform sampler2D src; void main(){ fragColor = texture(src, vUv); }`, { src: { value: null } });
-    this.xfade = new FSPass(`uniform sampler2D a; uniform sampler2D b; uniform float k;
-      void main(){ fragColor = mix(texture(a, vUv), texture(b, vUv), k); }`, { a: { value: null }, b: { value: null }, k: { value: 0 } });
     // adds a sub-frame to a sum; a non-finite pixel (a stray NaN from some shader in one sub-frame out of
     // hundreds) is dropped, or it would poison the average and bloom into a disc
     this.accum = new FSPass(`uniform sampler2D src;
@@ -245,6 +325,8 @@ export class Engine {
     this.exporting = !!opts.exporting;
     [this.audio, this.vo] = await Promise.all([AudioData.load(), VO.load(), loadFonts(), loadStrokeFonts()]) as [AudioData, VO, void, void];
     this.timeline = this.makeTimeline(this.vo, this.audio);
+    this.transitions = transitionEntries(this.makeTransitions?.(this.vo) ?? [], this.vo.scenes, this.vo.words);
+    checkScenes(this.timeline);
     this.ctx = { renderer: this.renderer, audio: this.audio, vo: this.vo, comp: this.comp, W, H, id: '', params: {}, start: 0, end: 0 };
     this.post = new Post();
     this.hud = new Hud();
@@ -315,12 +397,28 @@ export class Engine {
   }
 
   /**
-   * Export: dispose every loaded scene whose window ends at or before t. An export renders its frames in order, so
-   * from the frame at t on such a scene is never on screen again (onScreen): what it holds goes now, not at the end.
+   * Export: dispose every loaded scene last needed at or before t (lastUse: its window's end, or the end of a transition
+   * out of it). An export renders its frames in order, so from the frame at t on such a scene is never rendered again:
+   * what it holds goes now, not at the end.
    */
   releaseEnded(t: number) {
     if (!this.exporting) return;
-    for (const rec of this.loaded.values()) if (rec.scene && rec.entry.end <= t) this.unload(rec);
+    for (const rec of this.loaded.values()) if (rec.scene && lastUse(rec.entry, this.transitions ?? []) <= t) this.unload(rec);
+  }
+
+  /** A scene's handles (Scene.handles), once it is loaded; none before. */
+  private handlesOf(id: string): Handles {
+    return this.loaded.get(id)?.scene?.handles ?? { head: 0, tail: 0 };
+  }
+
+  /** The frame at t's layers per sub-frame (framePlan over this engine's timeline and transitions). */
+  plan(t: number, dt: number, shutter: number, offsets: readonly number[]): Layer[][] {
+    return framePlan(this.timeline, this.transitions ?? [], t, dt, shutter, offsets, (id) => this.handlesOf(id));
+  }
+
+  /** The entries the frame at t renders (a transition's two sides included), in compositing order. */
+  private entriesAt(t: number): TimelineEntry[] {
+    return layerEntries(this.plan(t, 0, 0, [0])[0] ?? []).map((x) => x.entry);
   }
 
   /**
@@ -345,27 +443,35 @@ export class Engine {
   get duration() { return Math.max(this.audio.duration, this.vo.duration); }
 
   /**
-   * Await prepare() of every scene on screen in the frame at t (as render() decides it, see shutterPlan), at each time
-   * a sub-frame of it will render the scene: from the one list of shutter offsets render() takes (shutterOffsets),
-   * held in the scene's window as its sub-frames are (a plate dedups the times that share a plate frame). Export calls
-   * it before rendering each frame, render() staying synchronous, and loads a scene here the first time a frame needs
-   * it; a scene that fails to load or prepare rejects it.
+   * Await prepare() of every scene the frame at t renders (as render() decides it, see framePlan: a transition's two
+   * sides too), at each time a sub-frame of it will render the scene: from the one list of shutter offsets render()
+   * takes (shutterOffsets), held in the scene's window (or a transition side's, sideTime) as its sub-frames are (a plate
+   * dedups the times that share a plate frame). Export calls it before rendering each frame, render() staying
+   * synchronous, and loads a scene here the first time a frame needs it (before the plan, which reads its handles); a
+   * scene that fails to load or prepare rejects it.
    */
   async prepare(t: number, dt = 1 / FPS, samples: number | AdaptiveSampling = 1, shutter = 0.5): Promise<void> {
-    const plan = shutterPlan(this.timeline, t, dt, shutter, shutterOffsets(samples));
-    const on = plan[0] ?? [];
-    await Promise.all(on.map(async ({ entry }, i) => {
-      const rec = this.loaded.get(entry.id);
-      if (!rec) return; // left out by --only: it renders as red fill
-      const s = this.exporting ? await this.load(rec) : rec.scene;
+    const on = this.entriesAt(t);
+    const recs = on.map((e) => this.loaded.get(e.id));
+    const scenes = await Promise.all(recs.map((rec) => (!rec ? null : this.exporting ? this.load(rec) : rec.scene))); // (no rec: --only left it out, red fill)
+    const times = new Map<string, Set<number>>();
+    for (const sub of this.plan(t, dt, shutter, shutterOffsets(samples))) {
+      for (const { entry, time } of layerEntries(sub)) {
+        let set = times.get(entry.id);
+        if (!set) times.set(entry.id, (set = new Set()));
+        set.add(time);
+      }
+    }
+    await Promise.all(on.map(async (entry, i) => {
+      const s = scenes[i];
       if (!s?.prepare) return;
       try {
-        await Promise.all([...new Set(plan.map((sub) => sub[i]!.time))].map((x) => s.prepare!(x)));
+        await Promise.all([...(times.get(entry.id) ?? [])].map((x) => s.prepare!(x)));
       } catch (err) {
         throw this.exporting ? this.fail(entry, `prepare(${t})`, err) : err;
       }
     }));
-    if (this.exporting) this.warmUp(on.map((x) => x.entry), t, dt, samples, shutter);
+    if (this.exporting) this.warmUp(on, t, dt, samples, shutter);
   }
 
   /**
@@ -408,10 +514,12 @@ export class Engine {
     // on that frame's time
     const at = (n: number) => n / fps;
     if (this.exporting) {
-      // (the scenes on screen at the first frame load for it at once, and fail just as early)
-      const first = onScreen(this.timeline, at(n0));
+      // (the scenes the first frame renders load for it at once, and fail just as early)
+      const first = this.entriesAt(at(n0));
       for (const e of this.timeline) {
-        const { first: f0, last: f1 } = ownedFrames(e, fps), rec = this.loaded.get(e.id);
+        // the frames a scene renders: its own, and those of the transitions into and out of it
+        const tr = this.transitions ?? [];
+        const { first: f0, last: f1 } = ownedFrames({ start: firstUse(e, tr), end: lastUse(e, tr) }, fps), rec = this.loaded.get(e.id);
         if (f0 > f1 || f0 >= n1 || f1 < n0 || first.includes(e)) continue;
         if (!rec) console.warn(`${e.id} is not loaded (--only): its frames in the range render as red fill`);
         else if (!rec.scene) {
@@ -443,13 +551,23 @@ export class Engine {
     return used;
   }
 
-  private frameFor(e: TimelineEntry, t: number, dt: number, seeked: boolean, preroll: boolean, under: THREE.Texture | null, tin: number, tout: number): Frame {
+  private frameFor(e: TimelineEntry, t: number, dt: number, seeked: boolean, preroll: boolean): Frame {
     const beat = this.audio.beatAt(t), bar = this.audio.barAt(t);
     return {
       t, dt, lt: t - e.start, p: (t - e.start) / (e.end - e.start), start: e.start, end: e.end, seeked, preroll,
       beat, bar, beatPhase: beat - Math.floor(beat), barPhase: bar - Math.floor(bar),
-      a: this.audio.sample(t), under, tin, tout,
+      a: this.audio.sample(t),
     };
+  }
+
+  /**
+   * The transition's states for the frame at t, when t lies in one's window: shutterTaps with tapCount taps (at the
+   * output's physical scale). Every sub-frame of the frame draws the transition with these same taps, so its motion is
+   * blurred once, analytically, over the whole shutter, and the sub-frames sample only the scenes' own motion.
+   */
+  private framesTaps(t: number, dt: number, shutter: number): TransitionState[] | null {
+    const tr = (this.transitions ?? []).find((x) => t >= x.start && t < x.end);
+    return tr ? shutterTaps(tr, t, dt, shutter, tapCount(tr, t, dt, shutter, SCALE)) : null;
   }
 
   /**
@@ -465,7 +583,8 @@ export class Engine {
    * (e·(1/3 + 1/9 + …)). A still frame stops at 3 x min; a whip pan goes on until its streaks are
    * continuous instead of stepped copies.
    * Every sub-frame shows the entries on screen at t, each at its sub-frame's time held inside its own window
-   * (shutterPlan): a frame never mixes the two sides of a cut.
+   * (shutterPlan): a frame never mixes the two sides of a cut, except inside a transition's window, where both its
+   * scenes render (framePlan) and the transition's own motion is drawn from the frame's shutterTaps.
    * Returns the number of sub-frames used.
    */
   render(t: number, dt = 1 / FPS, toScreen = true, samples: number | AdaptiveSampling = 1, shutter = 0.5): number {
@@ -475,15 +594,17 @@ export class Engine {
     let outTex: THREE.Texture;
     let post: PostParams = { ...DEFAULT_POST };
     let n = 1;
+    const taps = this.framesTaps(t, dt, shutter);
     if (samples === 1) {
       SS_TAP.value = -1;
-      ({ outTex, post } = this.composite(shutterPlan(this.timeline, t, dt, shutter, shutterOffsets(1))[0]!, dt, seeked));
+      ({ outTex, post } = this.composite(this.plan(t, dt, shutter, shutterOffsets(1))[0]!, dt, seeked, t, taps));
     } else {
       const adaptive = typeof samples !== 'number';
       let maxAdaptive = adaptive ? samples.max : 0;
       if (adaptive) {
         // sub-frames are rendered out of time order: fine for pure functions of t, not for scenes that integrate state
-        const on = onScreen(this.timeline, t);
+        // (a transition's two sides included)
+        const on = this.entriesAt(t);
         const st = on.find((e) => this.loaded.get(e.id)?.scene?.stateful);
         if (st) throw new Error(`adaptive sampling needs stateless scenes; '${st.id}' is stateful (use a fixed --samples)`);
         for (const e of on) if (e.maxSamples) maxAdaptive = Math.min(maxAdaptive, e.maxSamples);
@@ -497,11 +618,11 @@ export class Engine {
       const POST_U = 0.125;
       let nearest = Infinity;
       // what each sub-frame renders, per shutter offset (the cut-aware shutter, see shutterPlan)
-      let plan: EntryAt[][] = [];
+      let plan: Layer[][] = [];
       // sub-frame k at shutter offset u (-0.5..0.5), summed into `into`; `step` = the sub-frame spacing
       const sub = (k: number, u: number, into: THREE.WebGLRenderTarget, step: number) => {
         SS_TAP.value = cycle ? (k + (k >> 2)) % 4 : -1;
-        const res = this.composite(plan[k]!, step, seeked && k === 0);
+        const res = this.composite(plan[k]!, step, seeked && k === 0, t, taps);
         this.accum.u.src!.value = res.outTex;
         this.accum.render(r, into);
         const d = Math.abs(u - POST_U);
@@ -511,12 +632,12 @@ export class Engine {
       if (!adaptive) {
         n = samples;
         const u = shutterOffsets(samples);
-        plan = shutterPlan(this.timeline, t, dt, shutter, u);
+        plan = this.plan(t, dt, shutter, u);
         for (let k = 0; k < n; k++) sub(k, u[k]!, this.sumRT, dt / n);
       } else {
         const { lo, hi } = adaptiveSteps(samples, maxAdaptive);
         const u = shutterOffsets({ ...samples, max: maxAdaptive });
-        plan = shutterPlan(this.timeline, t, dt, shutter, u);
+        plan = this.plan(t, dt, shutter, u);
         n = 4 * 3 ** lo;
         this.lastErrors = [];
         for (let k = 0; k < n; k++) sub(k, u[k]!, this.sumRT, dt / n);
@@ -566,67 +687,80 @@ export class Engine {
   }
 
   /**
-   * Render and composite one sub-frame into an HDR texture (no post): the entries of `active` (a shutterPlan
-   * sub-frame, in compositing order), each at its own time. `dt` is the step handed to scenes (the frame step, or
-   * the sub-frame spacing; 0 for an entry held in its window, where no time passes); `seeked` says time jumped before
-   * this call. A scene that throws (or is not loaded) fails the render in export; the player fills it red and goes on.
-   * An entry --only left out is red fill either way.
+   * Render and composite one sub-frame into an HDR texture (no post): its layers (a framePlan sub-frame, in compositing
+   * order). A scene renders into sceneRT. A transition renders its sides into trA and trB at their side times and draws
+   * them through `taps` (the frame's) into trOut; its post overrides are the side the frame t is on. An overlay renders
+   * into ovRT and is drawn ('normal', premultiplied) over what is below it into one of a ping-pong pair. `dt` is the
+   * step handed to scenes (the frame step, or the sub-frame spacing; 0 for an entry held in its window, where no time
+   * passes); `seeked` says time jumped before this call. A scene that throws (or is not loaded) fails the render in
+   * export; the player fills it red and goes on. An entry --only left out is red fill either way.
    */
-  private composite(active: EntryAt[], dt: number, seeked: boolean): { outTex: THREE.Texture; post: PostParams } {
+  private composite(layers: Layer[], dt: number, seeked: boolean, t: number, taps: TransitionState[] | null): { outTex: THREE.Texture; post: PostParams } {
     const r = this.renderer;
-
     let post: PostParams = { ...DEFAULT_POST };
-    let under: THREE.Texture | null = null;
     let outTex: THREE.Texture | null = null;
-
-    active.forEach(({ entry: e, time: t, held }, idx) => {
-      const rec = this.loaded.get(e.id);
-      const rt = this.rts[idx % this.rts.length]!;
-      const prev = active[idx - 1]?.entry, next = active[idx + 1]?.entry;
-      const tin = prev ? Math.min(1, (t - e.start) / Math.max(1e-3, prev.end - e.start)) : 1;
-      const tout = next ? Math.max(0, (t - next.start) / Math.max(1e-3, e.end - next.start)) : 0;
-      if (!rec?.scene) {
-        if (this.exporting && rec) throw this.fail(e, `render(${t})`, new Error('not loaded: prepare(t) must be awaited before render(t)'));
-        clearRT(r, rt, [0.25, 0.0, 0.0]);
-        under = rt.texture; outTex = rt.texture;
-        return;
+    let pp = 0;
+    for (const l of layers) {
+      if (l.kind === 'scene') {
+        post = { ...post, ...this.renderEntry(l.at, this.sceneRT, dt, seeked) };
+        outTex = this.sceneRT.texture;
+      } else if (l.kind === 'transition') {
+        const pa = this.renderEntry(l.a, this.trA, dt, seeked), pb = this.renderEntry(l.b, this.trB, dt, seeked);
+        post = { ...post, ...(t >= l.tr.cut ? pb : pa) };
+        this.trPass ??= new TransitionPass();
+        this.trPass.render(r, this.trA.texture, this.trB.texture, taps ?? shutterTaps(l.tr, t, 0, 0, 1), this.trOut, { soft: l.tr.spec.soft });
+        outTex = this.trOut.texture;
+      } else {
+        this.ovRT ??= makeRT();
+        if (!this.ovPP.length) this.ovPP = [makeRT(W, H, { depthBuffer: false }), makeRT(W, H, { depthBuffer: false })];
+        clearRT(r, this.ovRT, [0, 0, 0], 0);
+        post = { ...post, ...this.renderEntry(l.at, this.ovRT, dt, seeked) };
+        const dst = this.ovPP[pp]!;
+        pp ^= 1;
+        if (outTex) this.comp.draw(r, outTex, dst, { mode: 'replace', premult: false });
+        else clearRT(r, dst, [0, 0, 0]);
+        this.comp.draw(r, this.ovRT.texture, dst, { mode: 'normal', premult: false });
+        outTex = dst.texture;
       }
-      const s = rec.scene;
-      // (sub-frames of one frame may step back within its shutter: not a seek)
-      const sceneSeeked = seeked || rec.lastT < 0 || Math.abs(t - rec.lastT) > 0.25;
-      let ov: PostOverrides | void = undefined;
-      try {
-        if (s.stateful && sceneSeeked) {
-          s.reset();
-          const from = Math.max(e.start, t - s.prerollMax);
-          const step = 1 / FPS;
-          let first = true;
-          for (let pt = from; pt < t - step * 0.5; pt += step) {
-            s.render(this.frameFor(e, pt, first ? 0 : step, first, true, null, 1, 0), rt);
-            first = false;
-          }
-        }
-        ov = s.render(this.frameFor(e, t, sceneSeeked || held ? 0 : dt, sceneSeeked && !s.stateful, false, idx > 0 ? under : null, tin, tout), rt);
-      } catch (err) {
-        if (this.exporting) throw this.fail(e, `render(${t})`, err);
-        console.error(`scene ${e.id} render error`, err);
-        clearRT(r, rt, [0.25, 0.0, 0.0]);
-      }
-      rec.lastT = t;
-      post = { ...post, ...(e.post ?? {}), ...(ov ?? {}) };
-      if (idx > 0 && !s.handlesTransition && under) {
-        // default: crossfade from the previous scene over the overlap
-        this.xfade.u.a!.value = under;
-        this.xfade.u.b!.value = rt.texture;
-        this.xfade.u.k!.value = tin;
-        this.xfade.render(r, this.mixRT);
-        outTex = this.mixRT.texture;
-      } else outTex = rt.texture;
-      under = outTex;
-    });
-
-    if (!outTex) { clearRT(r, this.rts[0]!, [0, 0, 0]); outTex = this.rts[0]!.texture; }
+    }
+    if (!outTex) { clearRT(r, this.sceneRT, [0, 0, 0]); outTex = this.sceneRT.texture; }
     return { outTex, post };
+  }
+
+  /**
+   * Render one entry at its time into `rt` (fast-forwarding a stateful scene after a seek), and return its post
+   * overrides (the entry's defaults, then the scene's). Not loaded, or a throw: export fails, the player fills it red.
+   */
+  private renderEntry({ entry: e, time: t, held }: EntryAt, rt: THREE.WebGLRenderTarget, dt: number, seeked: boolean): PostOverrides {
+    const r = this.renderer, rec = this.loaded.get(e.id);
+    if (!rec?.scene) {
+      if (this.exporting && rec) throw this.fail(e, `render(${t})`, new Error('not loaded: prepare(t) must be awaited before render(t)'));
+      clearRT(r, rt, [0.25, 0.0, 0.0]);
+      return {};
+    }
+    const s = rec.scene;
+    // (sub-frames of one frame may step back within its shutter: not a seek)
+    const sceneSeeked = seeked || rec.lastT < 0 || Math.abs(t - rec.lastT) > 0.25;
+    let ov: PostOverrides | void = undefined;
+    try {
+      if (s.stateful && sceneSeeked) {
+        s.reset();
+        const from = Math.max(e.start, t - s.prerollMax);
+        const step = 1 / FPS;
+        let first = true;
+        for (let pt = from; pt < t - step * 0.5; pt += step) {
+          s.render(this.frameFor(e, pt, first ? 0 : step, first, true), rt);
+          first = false;
+        }
+      }
+      ov = s.render(this.frameFor(e, t, sceneSeeked || held ? 0 : dt, sceneSeeked && !s.stateful, false), rt);
+    } catch (err) {
+      if (this.exporting) throw this.fail(e, `render(${t})`, err);
+      console.error(`scene ${e.id} render error`, err);
+      clearRT(r, rt, [0.25, 0.0, 0.0]);
+    }
+    rec.lastT = t;
+    return { ...(e.post ?? {}), ...(ov ?? {}) };
   }
 
   /** RGBA8 pixels of the last rendered frame (bottom-up rows), PW x PH. */

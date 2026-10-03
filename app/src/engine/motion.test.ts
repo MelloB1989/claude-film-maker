@@ -293,7 +293,7 @@ const frameAt = (t: number): Frame => {
   return {
     t, dt: 1 / 30, lt: t, p: 0, start: 0, end: 24, seeked: false, preroll: false,
     beat, bar, beatPhase: beat - Math.floor(beat), barPhase: bar - Math.floor(bar),
-    a: audio.sample(t), under: null, tin: 1, tout: 0,
+    a: audio.sample(t),
   };
 };
 

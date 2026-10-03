@@ -1,9 +1,10 @@
 import { expect, spyOn, test } from 'bun:test';
 import * as THREE from 'three';
-import { Engine, onScreen, ownedFrames, shutterOffsets, shutterPlan, straddledFrames, type AdaptiveSampling, type TimelineEntry } from './engine';
+import { checkScenes, Engine, onScreen, ownedFrames, shutterOffsets, shutterPlan, straddledFrames, type AdaptiveSampling, type TimelineEntry } from './engine';
 import { Plate, type PlateKind } from './plates';
 import { Scene, type Frame, type SceneClass, type SceneCtx } from './scene';
 import { mulberry32 } from './util';
+import { transitionEntries, type TransitionEntry, type TransitionSpec } from './transition';
 
 // Expected values are hand-derived. Film frame n is at t = n / 30. A 0.5 shutter spans t ± 1/120 s (a quarter frame
 // either side), and a fixed set of n sub-frames sits at offsets u = (k + 0.5) / n - 0.5, at times t + u / 60. An entry
@@ -161,7 +162,7 @@ interface Shot {
  * Export mode (`exporting`) starts with no scene loaded, as init({ exporting: true }) leaves it; the player has every
  * scene loaded. `only`: the ids --only loads (default all). `clears` records every clear colour (the red fill).
  */
-async function standIn(shots: Shot[], o: { exporting?: boolean; only?: string[] } = {}) {
+async function standIn(shots: Shot[], o: { exporting?: boolean; only?: string[]; transitions?: TransitionEntry[]; overlays?: string[] } = {}) {
   const clears: number[][] = [];
   const tex = new THREE.Texture();
   const rt = () => ({ texture: tex, width: 1920, height: 1080 });
@@ -175,14 +176,15 @@ async function standIn(shots: Shot[], o: { exporting?: boolean; only?: string[] 
   };
   const audio = { beatAt: () => 0, barAt: () => 0, sample: () => ({}) };
   const timeline: TimelineEntry[] = shots.map(({ id, start, end, scene }) => ({
-    id, start, end,
+    id, start, end, ...(o.overlays?.includes(id) ? { kind: 'overlay' as const } : {}),
     load: () => (scene ? Promise.resolve({ default: scene }) : Promise.reject(new Error(`scene module not found: scenes/${id}.ts`))),
   }));
   const ctx = { renderer, audio, vo: {}, comp: { draw() {} }, W: 1920, H: 1080, id: '', params: {}, start: 0, end: 0 } as unknown as SceneCtx;
   const engine = Object.assign(Object.create(Engine.prototype), {
     renderer, audio, ctx, timeline, exporting: !!o.exporting, loaded: new Map(), errors: [], lastT: -1, lastSamples: 1,
-    lastErrors: [], hudOff: false, rts: [rt(), rt(), rt()], mixRT: rt(), sumRT: rt(), newRT: rt(), avgRT: rt(), finalRT: rt(),
-    accum: pass(), xfade: pass(), blit: pass(), comp: ctx.comp, hud: { draw: () => tex }, post: { render() {} },
+    lastErrors: [], hudOff: false, sceneRT: rt(), trA: rt(), trB: rt(), trOut: rt(), ovRT: null, ovPP: [], sumRT: rt(), newRT: rt(), avgRT: rt(), finalRT: rt(),
+    transitions: o.transitions ?? [], trPass: { render() {}, dispose() {} },
+    accum: pass(), blit: pass(), comp: ctx.comp, hud: { draw: () => tex }, post: { render() {} },
     sampleError: () => 99, // an adaptive run never converges here: it renders every sub-frame up to its max
   }) as Engine;
   for (const entry of timeline.filter((e) => !o.only || o.only.includes(e.id))) {
@@ -476,4 +478,130 @@ test('straddledFrames: a still within 0.1 frame of half way between two frames s
   expect(straddledFrames(41.23, 30)).toBeNull(); // 1236.9
   expect(straddledFrames(10.5 / 24, 24)).toEqual([10, 11]);
   expect(straddledFrames(0, 30)).toBeNull();
+});
+
+// ------------------------------------------------------------------ transitions (Plan 3 Task 1)
+
+/** The film's thread → ex cut as a stand-in pair: a [0, 6.008) and b [6.008, 15.608), and a spec between them. */
+const A = { id: 'a', start: 0, end: 6.008 }, B = { id: 'b', start: 6.008, end: 15.608 };
+const pair = (spec: Partial<TransitionSpec>) =>
+  transitionEntries([{ from: 'a', to: 'b', kind: 'whip', pre: 0.1, post: 0.15, dir: [1, 0], ...spec } as TransitionSpec], [{ ...A, act: 'I' }, { ...B, act: 'I' }], []);
+
+/** A stand-in scene that records every time it is prepared and rendered at (a plate scene, when `handles` is none). */
+function recorder(id: string, rec: { prepared: number[]; rendered: number[] }, o: { handles?: { head: number; tail: number }; stateful?: boolean } = {}): SceneClass {
+  return class extends Scene {
+    override stateful = !!o.stateful;
+    override handles = o.handles ?? { head: 0, tail: 0 };
+    override async prepare(t: number) {
+      rec.prepared.push(t);
+    }
+    render(f: Frame) {
+      if (!f.preroll) rec.rendered.push(f.t);
+      void id;
+    }
+  };
+}
+
+test("a 'hold' plate scene in a transition is prepared and rendered only inside its window (Review Focus 4)", async () => {
+  for (const samples of [1, 4, { min: 4, max: 324, tol: 3 }] as (number | AdaptiveSampling)[]) {
+    const ra = { prepared: [] as number[], rendered: [] as number[] }, rb = { prepared: [] as number[], rendered: [] as number[] };
+    const tr = pair({});
+    const { engine } = await standIn([{ ...A, scene: recorder('a', ra) }, { ...B, scene: recorder('b', rb) }], { exporting: true, transitions: tr });
+    await engine.exportFrames({ from: 170 / 30, to: 192 / 30, fps: 30, samples }, () => {});
+    // a's window ends at 6.008 and b's starts there: across the window [5.908, 6.158) both rendered, neither outside
+    expect(ra.prepared.length).toBeGreaterThan(0);
+    expect(rb.prepared.some((x) => x < 6.1)).toBe(true); // b is a side from the window's start, before its own frames
+    for (const x of [...ra.prepared, ...ra.rendered]) { expect(x).toBeGreaterThanOrEqual(0); expect(x).toBeLessThan(6.008); }
+    for (const x of [...rb.prepared, ...rb.rendered]) expect(x).toBeGreaterThanOrEqual(6.008);
+    // whatever is rendered was prepared
+    for (const x of ra.rendered) expect(ra.prepared).toContain(x);
+    for (const x of rb.rendered) expect(rb.prepared).toContain(x);
+  }
+});
+
+test("a 'run' side renders into its handles and no further", async () => {
+  const ra = { prepared: [] as number[], rendered: [] as number[] }, rb = { prepared: [] as number[], rendered: [] as number[] };
+  const tr = pair({ fromMode: 'run', toMode: 'run' });
+  const { engine } = await standIn([
+    { ...A, scene: recorder('a', ra, { handles: { head: 0, tail: 0.05 } }) }, { ...B, scene: recorder('b', rb, { handles: { head: 0.04, tail: 0 } }) },
+  ], { exporting: true, transitions: tr });
+  await engine.exportFrames({ from: 175 / 30, to: 188 / 30, fps: 30, samples: 12 }, () => {});
+  expect(Math.max(...ra.rendered)).toBeGreaterThan(6.008); // a ran past its end
+  expect(Math.max(...ra.prepared)).toBeLessThan(6.058);
+  expect(Math.min(...rb.rendered)).toBeLessThan(6.008); // b started before its start
+  expect(Math.min(...rb.prepared)).toBeGreaterThanOrEqual(6.008 - 0.04 - 1e-12);
+  for (const x of ra.rendered) expect(ra.prepared).toContain(x);
+  for (const x of rb.rendered) expect(rb.prepared).toContain(x);
+});
+
+test('export: a scene loads for the first frame of a transition into it, and is disposed only after the transition out of it ends', async () => {
+  const log: string[] = [];
+  const tr = pair({});
+  const { engine } = await standIn([{ ...A, scene: logged('a', log) }, { ...B, scene: logged('b', log) }], { exporting: true, transitions: tr });
+  // window [5.908, 6.158): frames 178…184 (frame 178 is 5.9333); b owns from 181
+  await engine.exportFrames({ from: 176 / 30, to: 187 / 30, fps: 30 }, (n) => void log.push(`sent ${n}`));
+  const at = (x: string) => log.indexOf(x);
+  expect(at('init b')).toBeGreaterThan(-1);
+  // (the check inits b once up front; its real load is the one just before the window's first frame)
+  const loads = log.flatMap((x, i) => (x === 'init b' ? [i] : []));
+  expect(loads.length).toBe(2);
+  expect(loads[1]!).toBeGreaterThan(at('sent 177'));
+  expect(loads[1]!).toBeLessThan(at('sent 178'));
+  // a renders in frames 178…184 (held at its last instant from the cut on), and goes after the window's last frame,
+  // not at its own end
+  expect(log.slice(at('sent 183') + 1, at('sent 184'))).toEqual(['render a 180', 'render b 184']);
+  expect(at('dispose a')).toBeGreaterThan(at('sent 184'));
+  expect(at('dispose a')).toBeLessThan(at('sent 185'));
+});
+
+test('export: the pre-flight loads a scene that is only a transition side in the range', async () => {
+  const restore = quiet();
+  const log: string[] = [];
+  const tr = pair({});
+  const shots = [{ ...A, scene: logged('a', log) }, { ...B, scene: logged('b', log, { fail: 'init' }) }];
+  const { engine } = await standIn(shots, { exporting: true, transitions: tr });
+  // frames 170…179: b owns none of them, but frames 178 and 179 render it (the window opens at 5.908)
+  const sent: number[] = [];
+  await expect(engine.exportFrames({ from: 170 / 30, to: 180 / 30, fps: 30 }, (n) => void sent.push(n))).rejects.toThrow('scene b init failed');
+  expect(sent).toEqual([]);
+  restore();
+});
+
+test('adaptive sampling refuses a stateful scene that is a transition side', async () => {
+  const ra = { prepared: [] as number[], rendered: [] as number[] }, rb = { prepared: [] as number[], rendered: [] as number[] };
+  const { engine } = await standIn([{ ...A, scene: recorder('a', ra) }, { ...B, scene: recorder('b', rb, { stateful: true }) }], { transitions: pair({}) });
+  expect(() => engine.render(5.95, 1 / 30, false, { min: 4, max: 36, tol: 3 }, 0.5)).toThrow("'b' is stateful");
+  expect(() => engine.render(5.5, 1 / 30, false, { min: 4, max: 36, tol: 3 }, 0.5)).not.toThrow();
+});
+
+test('render: a transition frame renders both sides at their side times, every sub-frame through the same taps', async () => {
+  const ra = { prepared: [] as number[], rendered: [] as number[] }, rb = { prepared: [] as number[], rendered: [] as number[] };
+  const { engine } = await standIn([{ ...A, scene: recorder('a', ra) }, { ...B, scene: recorder('b', rb) }], { transitions: pair({}) });
+  const taps: number[] = [];
+  (engine as any).trPass = { render: (_r: unknown, _a: unknown, _b: unknown, s: unknown[]) => void taps.push(s.length) };
+  engine.render(180 / 30, 1 / 30, false, 12, 0.5);
+  expect(ra.rendered).toHaveLength(12);
+  expect(rb.rendered).toEqual(Array(12).fill(6.008)); // b holds its first instant until the cut
+  expect(new Set(taps).size).toBe(1);
+  expect(taps).toHaveLength(12);
+  expect(taps[0]!).toBeGreaterThan(1); // the whip streaks
+});
+
+test('overlays draw last, over a transition too, never crossfaded', async () => {
+  const order: string[] = [];
+  const rec = (id: string): SceneClass => class extends Scene {
+    render() { order.push(id); }
+  };
+  const { engine } = await standIn([{ ...A, scene: rec('a') }, { ...B, scene: rec('b') }, { id: 'hud', start: 0, end: 15.608, scene: rec('hud') }], { transitions: pair({}), overlays: ['hud'] });
+  (engine as any).trPass = { render: () => void order.push('pass') };
+  engine.render(180 / 30, 1 / 30, false);
+  expect(order).toEqual(['a', 'b', 'pass', 'hud']);
+  order.length = 0;
+  engine.render(3, 1 / 30, false);
+  expect(order).toEqual(['a', 'hud']);
+});
+
+test('checkScenes: overlapping scene windows without a transition are an error; overlays may cover anything', () => {
+  expect(() => checkScenes([A, { id: 'b', start: 6, end: 9 }])).toThrow(/a .*and b .*overlap/);
+  expect(() => checkScenes([A, B, { id: 'hud', start: 0, end: 20, kind: 'overlay' }])).not.toThrow();
 });

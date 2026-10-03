@@ -6,6 +6,7 @@ import type { AudioData, AudioSample } from './audio';
 import type { VO } from './vo';
 import type { Compositor, Layer2D } from './gl';
 import type { PostParams } from './post';
+import type { Handles } from './transition';
 
 export interface SceneCtx {
   renderer: THREE.WebGLRenderer;
@@ -43,16 +44,6 @@ export interface Frame {
   barPhase: number;
   /** Audio features at t (envelopes 0..1 and decaying hit pulses). */
   a: AudioSample;
-  /**
-   * When this scene overlaps the previous one (a transition), the previous scene's
-   * output texture for this frame; otherwise null. Scenes that set
-   * `handlesTransition = true` composite it themselves.
-   */
-  under: THREE.Texture | null;
-  /** 0..1 progress through the overlap with the previous scene (1 when not overlapping). */
-  tin: number;
-  /** 0..1 progress through the overlap with the next scene (0 when not overlapping). */
-  tout: number;
 }
 
 export type PostOverrides = Partial<PostParams>;
@@ -68,8 +59,12 @@ export abstract class Scene {
   stateful = false;
   /** Max seconds of history the engine re-simulates when seeking into a stateful scene. */
   prerollMax = 6;
-  /** If true, this scene composites `f.under` itself during its incoming transition. */
-  handlesTransition = false;
+  /**
+   * How far (s) this scene can render before its start (head) and past its end (tail): a transition side in 'run' mode
+   * runs into them (transition.ts sideTime). Only engine-built content may declare any; a plate scene keeps 0, 0 and
+   * holds its first or last frame instead.
+   */
+  handles: Handles = { head: 0, tail: 0 };
 
   constructor(protected ctx: SceneCtx) {}
 
