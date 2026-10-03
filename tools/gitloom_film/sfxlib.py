@@ -169,11 +169,11 @@ def _noise_floor(y: np.ndarray, sr: int) -> float:
     return float(np.percentile(_frame_rms(y, sr, 0.005), 10))
 
 
-def _walk_back(a: np.ndarray, j: int, lo: float, w: int) -> int:
-    """From index j, step back while anything in the w samples before is above `lo`; then the first sample above
-    `lo` in what was walked is the onset."""
+def _walk_back(a: np.ndarray, j: int, lo: float, w: int, floor: int = 0) -> int:
+    """From index j, step back (never before `floor`) while anything in the w samples before is above `lo`; then
+    the first sample above `lo` in what was walked is the onset."""
     k = j
-    while k > 0 and a[max(0, k - w):k].max() > lo:
+    while k > floor and a[max(floor, k - w):k].max() > lo:
         k -= 1
     above = np.nonzero(a[k:j + 1] > lo)[0]
     return k + int(above[0]) if len(above) else j
@@ -262,20 +262,23 @@ def slice_hits(y: np.ndarray, sr: int, n: int, min_gap: float = 0.08) -> list[np
     best = sorted(peaks[np.argsort(props["prominences"])[::-1][:n]])
     onsets = []
     w = max(1, int(0.0005 * sr))
+    floor = 0  # a hit's onset never walks back past the previous hit's peak (a quiet hit inside a loud tail)
     for p in best:
         lo_i, hi_i = p * hop, min(len(a), (p + 1) * hop)
         pk = lo_i + int(np.argmax(a[lo_i:hi_i]))
         hi = 0.1 * a[pk]
         j = pk
-        while j > 0 and a[j - 1] > hi:
+        while j > floor and a[j - 1] > hi:
             j -= 1
         lo = min(max(0.02 * a[pk], 3 * noise), hi)
-        onsets.append(_walk_back(a, j, lo, w))
+        onsets.append(_walk_back(a, j, lo, w, floor))
+        floor = pk + 1
     out = []
     pre = int(round(PRE_S * sr))
+    min_len = int(0.02 * sr)
     for i, o in enumerate(onsets):
         end = onsets[i + 1] - pre if i + 1 < len(onsets) else len(y)
-        seg = y[:end]
+        seg = y[:max(end, min(len(y), o + min_len))]
         out.append(_trim_onset(seg, sr, o))
     return out
 
@@ -317,8 +320,8 @@ def qc(y: np.ndarray, sr: int) -> dict:
     e20 = 20 * np.log10(np.maximum(_frame_rms(y, sr, 0.02), 1e-6))
     loud = e20 > (e20.max() - 40)
     rough = float(np.std(np.diff(e20[loud]))) if loud.sum() > 2 else 0.0
-    spec = np.abs(np.fft.rfft(y.astype(np.float64)))
-    freqs = np.fft.rfftfreq(len(y), 1 / sr)
+    spec = np.abs(np.fft.rfft(y.astype(np.float64))) if len(y) else np.zeros(1)
+    freqs = np.fft.rfftfreq(len(y), 1 / sr) if len(y) else np.zeros(1)
     centroid = float((spec * freqs).sum() / spec.sum()) if spec.sum() > 0 else 0.0
     frames = _frame_rms(y, sr, 0.01)
     return {

@@ -337,3 +337,31 @@ def test_to_wav48_downmixes_interleaved_stereo_by_the_requested_duration():
     mono = to_wav48(pcm16(left), "pcm_48000", duration=0.5)
     assert len(mono) == len(t)
 
+
+
+def test_slice_hits_never_returns_an_empty_slice_when_hits_ride_a_sustained_bed():
+    t = np.arange(2 * SR) / SR
+    y = (0.05 * np.sin(2 * np.pi * 300 * t)).astype(np.float32)          # never falls below the walk-back floor
+    for s in (0.3, 0.42, 1.2):
+        y += np.roll(click_take(dur=2.0, at=0.0, seed=int(s * 10)), int(s * SR)) * (np.arange(2 * SR) >= int(s * SR))
+    parts = slice_hits(y, SR, 3)
+    assert len(parts) == 3 and all(len(p) > int(0.02 * SR) for p in parts)
+    assert all(np.isfinite(list(qc(p, SR).values())[:6]).all() for p in parts)
+
+
+def test_qc_survives_an_empty_take():
+    q = qc(np.zeros(0, np.float32), SR)
+    assert q["dur_s"] == 0 and q["peak_dbfs"] == -120.0
+
+
+def test_slice_hits_stops_a_walk_back_at_the_previous_hit():
+    rng = np.random.default_rng(5)
+    y = rng.normal(0, 1e-4, 2 * SR).astype(np.float32)
+    def hit(at, amp, tau):
+        i, n = int(at * SR), int(0.6 * SR)
+        y[i:i + n] += (amp * rng.normal(0, 1, n) * np.exp(-np.arange(n) / (tau * SR))).astype(np.float32)
+    hit(0.2, 0.8, 0.15)                                                 # a long ringing tail…
+    hit(0.32, 0.3, 0.02)                                                # …that a quieter hit lands inside
+    hit(1.2, 0.5, 0.02)
+    parts = slice_hits(y, SR, 3)
+    assert len(parts) == 3 and all(len(p) > int(0.02 * SR) for p in parts)
