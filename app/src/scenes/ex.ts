@@ -2,6 +2,10 @@
 // "Commitment issues." (Plan 2 Task 13; spec §4 02.) The ex is the vector store, and the joke is how beautiful she was.
 //
 // One world, every time from the data (her measured onsets, the score's beats and downbeats):
+// - The match cut in (transitions/thread-ex.ts): the cold open's freed fibres become the first numerals. A seed sits on
+//   each fibre's tracked screen point (B01's fibre_* track, ex-cloud.ts fibreSeeds) as a bright stroke of seven dashes
+//   that morph into a float's cells, then glides into the cloud's face onto the numeral it becomes, dimming to its
+//   strength, as the camera pulls back; the cloud itself comes up out of the dark around them.
 // - The float cloud (ex-cloud.ts, ex-glyphs.ts on engine/glyphs.ts): about six thousand mono float numerals in a jittered lattice filling a
 //   thick shell of a loose spheroid, lit from the upper left, a crisp band where the shell crosses the focus plane and
 //   the rest falling away into soft depth. The cut lands close and soft (the thread's fibres were); the camera pulls
@@ -34,9 +38,10 @@ import type { AudioData } from '../engine/audio';
 import { clamp, ease, hash, keys, lerp, prog, pulse } from '../engine/util';
 import { GlyphActors, GlyphAtlas, flapAt, flapDigit } from '../engine/glyphs';
 import { CloudField, type CloudCell } from './ex-glyphs';
+import { Track } from '../engine/track';
 import {
-  ADV, BERLIN_SLOTS, CELLS, EM, MINUS, SPHEROID, buildCloud, cardFloats, cells, fall, fallOf, morphTargets, type Cloud,
-  type Numeral,
+  ADV, BERLIN_SLOTS, CELLS, EM, MINUS, SPHEROID, buildCloud, cardFloats, cells, fall, fallOf, fibreSeeds, morphTargets,
+  type Cloud, type Numeral,
 } from './ex-cloud';
 import { HeroWord, drawBrackets, drawQuery, drawStamp, drawStampGlow, drawTooltip, drawTyped, drawWords, stampPose } from './ex-type';
 import S from './ex.strings.json';
@@ -82,6 +87,18 @@ const PANEL_SCALE = (EM / CARD_PX) * 1000;
 const TERM = { w: 1120, h: 232, size: 28, row: 1 };
 /** The lens: a short tele (18° vertical fov, a 64 mm on the full-frame gate). */
 const FOV = 18;
+
+/**
+ * The match cut in: the cold open's shot (its fibre track), and the seeds. Each lands as a fibre-length stroke (em px on
+ * screen; its seven rules one line like the fibre), turns into its numeral's cells from the left (`cascade` s apart,
+ * each over `cell` s) from the cut, holds,
+ * then glides into the cloud over [glide0, glide1] s, handing over to the numeral it lands on by `gone`. The cloud
+ * comes up from `cloud0` of its strength over `rise` s, so at the cut the seeds are the bright points.
+ */
+const SEED_SHOT = 'b01_thread';
+/** A seed's stroke: the box-drawing rule, which runs the whole cell, so seven of them make one unbroken line. */
+const RULE = '─';
+const SEED = { em: 30, glide0: 0.1, glide1: 0.62, gone: 0.7, tilt: 0.16, cloud0: 0.1, rise: 0.5, cascade: 0.012, cell: 0.05 };
 
 /** A display-space mix of ink to bone by b, as linear light (what the cloud's shader gives a numeral). */
 const sToL = (x: number) => (x < 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4));
@@ -178,11 +195,15 @@ export default class Ex extends Scene {
   /** Where the why? ping starts (world). */
   private whyAt = new THREE.Vector3();
 
-  override init() {
+  /** The match cut's seeds: the fibre's screen point at the cut, the numeral it lands on, its tilt (rad). */
+  private seeds: { p: { x: number; y: number }; n: Numeral; tilt: number }[] = [];
+
+  override async init() {
     const { renderer, vo, audio, start, end } = this.ctx;
+    const track = await Track.load(SEED_SHOT);
     const T = (this.T = timesOf(vo, audio, start, end));
     this.stage = new Stage(renderer, { fov: FOV, near: 0.02, far: 20 });
-    this.atlas = new GlyphAtlas('0123456789.' + MINUS + BERLIN + LISBON + FATAL, F.mono(400));
+    this.atlas = new GlyphAtlas('0123456789.' + MINUS + BERLIN + LISBON + FATAL + RULE, F.mono(400));
 
     // the cards and their floats; the cloud, with Berlin's floats in their slots of the region's centre row
     this.berlin = this.card(BERLIN, 7);
@@ -213,13 +234,14 @@ export default class Ex extends Scene {
     const cell = this.term.cellOrigin(TERM.row, 0);
     this.line.copy(this.panelPoint(this.term, this.termGroup, cell.x, cell.baseline, 0.6));
 
+    this.buildRig();
+    this.pickSeeds(fibreSeeds(track, start));
     this.buildField();
     this.actors = new GlyphActors(256, this.atlas);
     this.actors.mesh.renderOrder = 2;
     this.stage.scene.add(this.actors.mesh);
 
     this.hero = new HeroWord(renderer, HERO, F.mono(700), HERO_PX, X0, HERO_Y);
-    this.buildRig();
     this.shocks = T.stamps.map((t, i) => this.unproject(t, X0 + 260, STAMP_Y[i]! - 16, this.R.z - 0.1));
     this.pickWhy();
     this.warmUp();
@@ -411,7 +433,8 @@ export default class Ex extends Scene {
     const sw = sw1 > 0 && sw1 < 1 ? sw1 : sw2;
     u.uSweep.value.set(0.94, 0.12, 0.32, lerp(-0.9, 0.9, sw));
     u.uSweepK.value.set(0.07, sw > 0 && sw < 1 ? (sw1 > 0 && sw1 < 1 ? 0.28 : 0.2) * Math.sin(Math.PI * sw) : 0, 0, 0);
-    u.uFade.value.set(1, 0.85, 0.03 * onBeat(f, 0.25), 0);
+    // (at the cut the cloud is dark round the seeds, and comes up as they glide in)
+    u.uFade.value.set(lerp(SEED.cloud0, 1, prog(t, T.start, T.start + SEED.rise, ease.inOutCubic)), 0.85, 0.03 * onBeat(f, 0.25), 0);
     u.uRegion.value.x = prog(t, T.berlin - 0.3, T.berlin + 0.2) * (1 - prog(t, T.stamps[0]! - 0.4, T.stamps[0]!));
     u.uRegion.value.w = 0.06 * pulse(t, T.berlinSettle, 0.25);
     u.uPing.value[0]!.set(this.R.x, this.R.y, this.R.z, T.query + 0.12);
@@ -430,6 +453,7 @@ export default class Ex extends Scene {
     this.poseCard(this.berlin, t, true);
     this.poseCard(this.lisbon, t, false);
     this.poseLine(t);
+    this.poseSeeds(t);
     this.actors.end();
     this.term.opacity = prog(t, T.resolve - 0.2, T.resolve + 0.06, ease.outCubic);
     this.term.mesh.visible = this.term.opacity > 0;
@@ -437,7 +461,8 @@ export default class Ex extends Scene {
 
     // focus, in diopters, as a focus ring turns: the cloud's face, the card, the region, the line
     const focus = 1 / this.focusDiopters(t);
-    u.uFocus.value.set(focus, 0.012, 0.07, lerp(1, 0.34, prog(t, T.start + 0.05, T.start + 0.45)));
+    // (the soft haze off the focus plane steps back from the start; at the cut it is lower still, round the seeds)
+    u.uFocus.value.set(focus, 0.012, 0.07, lerp(1, 0.34, prog(t, T.start + 0.05, T.start + 0.45)) * lerp(0.55, 1, prog(t, T.start, T.start + SEED.rise)));
     st.render(out, { dof: { focus, fstop: t < T.drop ? 1.2 : 2.4 } });
 
     // L03's hero over the cloud
@@ -482,6 +507,80 @@ export default class Ex extends Scene {
       [T.drop + 0.35, lineAt, ease.inOutCubic],
       [T.end, lineAt],
     ]);
+  }
+
+  // ---------------------------------------------------------------------------------------------- the match cut in
+
+  /**
+   * The numeral each seed lands on: the one on the cloud's face (the focus's depth once it has racked there) that the
+   * camera shows nearest the seed's fibre at the cut, each its own; not the region's or the named three (they have
+   * their own business).
+   */
+  private pickSeeds(pts: { x: number; y: number }[]) {
+    const T = this.T, cam = this.camAt(T.start);
+    const depth = (p: THREE.Vector3) => -p.clone().applyMatrix4(cam.matrixWorldInverse).z;
+    const face = depth(new THREE.Vector3(-0.08, 0.02, SPHEROID.rz * 0.93));
+    const taken = new Set<number>(this.cloud.named.map((n) => n.id));
+    const centreOf = (n: Numeral) => new THREE.Vector3(n.x + (CELLS / 2) * ADV, n.y + 0.365 * EM, n.z);
+    const near = this.cloud.numerals.filter((n) => n.regionRow < 0 && Math.abs(depth(centreOf(n)) - face) < 0.03).map((n) => {
+      const v = centreOf(n).project(cam);
+      return { n, x: (v.x + 1) * 960, y: (1 - v.y) * 540 };
+    });
+    this.seeds = pts.map((p, i) => {
+      let best = near[0]!, bd = Infinity;
+      for (const c of near) {
+        if (taken.has(c.n.id)) continue;
+        const d = Math.hypot(c.x - p.x, c.y - p.y);
+        if (d < bd) (bd = d), (best = c);
+      }
+      taken.add(best.n.id);
+      return { p, n: best.n, tilt: SEED.tilt * (2 * hash(i, 4041) - 1) };
+    });
+  }
+
+  /**
+   * The seeds: on its fibre's point at the cut, sharp (at the focus) and bright, a stroke of dashes morphing into its
+   * numeral's cells; then each glides on screen from the fibre's point to its numeral's, in depth from the focus to the
+   * numeral, growing to the cloud's em and dimming to the numeral's strength, and is gone as it arrives (the numeral is
+   * there, the same text).
+   */
+  private poseSeeds(t: number) {
+    const T = this.T, st = this.stage, cam = st.camera, dt = t - T.start;
+    if (dt > SEED.gone || !this.seeds.length) return;
+    const pxPerM = (d: number) => H / 2 / (d * Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2));
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion), up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+    const focus = 1 / this.focusDiopters(t);
+    const k = prog(dt, SEED.glide0, SEED.glide1, ease.inOutCubic);
+    const dash = this.atlas.of(RULE);
+    this.seeds.forEach((s, i) => {
+      const n = s.n, Q = new THREE.Vector3(n.x + (CELLS / 2) * ADV, n.y + 0.365 * EM, n.z);
+      const dQ = st.depthOf(Q), q = this.toPx(Q);
+      // where it is on screen and in depth, and its em on screen
+      const x = lerp(s.p.x, q.x, k), y = lerp(s.p.y, q.y, k), d = lerp(focus, dQ, k);
+      const emPx = lerp(SEED.em, EM * pxPerM(dQ), k);
+      const m2w = 1 / pxPerM(d);
+      const c = cam.position.clone().addScaledVector(fwd, d).addScaledVector(right, (x - W / 2) * m2w).addScaledVector(up, (H / 2 - y) * m2w);
+      // its em, turned in the screen's plane by its tilt (the fibre's slant), which straightens as it glides
+      const a = s.tilt * (1 - k), em = emPx * m2w;
+      const r = right.clone().multiplyScalar(Math.cos(a)).addScaledVector(up, Math.sin(a)).multiplyScalar(em);
+      const u = up.clone().multiplyScalar(Math.cos(a)).addScaledVector(right, -Math.sin(a)).multiplyScalar(em);
+      const origin = c.addScaledVector(r, -(CELLS / 2) * 0.6).addScaledVector(u, -0.365);
+      // bright on the cut, settling to the numeral's strength as it lands; gone as it arrives
+      // the stroke turns into its cells from the left, one after another: on the cut half line, half numeral
+      const m0 = 0.012 * hash(i, 4042);
+      const col = boneAt(lerp(1, n.bright, k));
+      const alpha = 1 - prog(dt, SEED.glide1 - 0.06, SEED.gone, ease.inOutQuad);
+      Array.from(n.text).forEach((ch, ci) => {
+        const g = this.atlas.of(ch);
+        if (g < 0 && ch === ' ') return;
+        const m = prog(dt, m0 + ci * SEED.cascade, m0 + ci * SEED.cascade + SEED.cell, ease.inOutCubic);
+        this.actors.add({
+          origin: origin.clone().addScaledVector(r, ci * 0.6), right: r, up: u,
+          glyph: m >= 1 ? [g, -1, 0, 0] : [dash, g, m, 2], color: [...col, alpha],
+        });
+      });
+    });
   }
 
   // ---------------------------------------------------------------------------------------------- the cards

@@ -17,7 +17,8 @@ every ply turn, a soft top light, and a hard rim from behind that lights the fuz
 The camera pushes in slowly all shot (a small push on the downbeat after "forgets"); the thread's time runs through
 the ramp, the camera and the light with it. Everything is a pure function of the film frame (+ subframe) and the
 seeded rope: a frame_change_pre handler poses it, so Cycles motion-blurs every fibre at every step. The break ends are
-tracked (`end_l`, `end_r`) for the engine's cracked "zero.".
+tracked (`end_l`, `end_r`) for the engine's cracked "zero.". So are twelve freed fibres (`fibre_0` ... `fibre_11`, empties
+on their midpoints), the brightest the cut can catch: scene `ex` seeds its first float numerals on them (the match cut).
 
   Blender -b -P blender/render.py -- --shot b01_thread --mode look            (the key moments, 960x540)
   Blender -b -P blender/render.py -- --shot b01_thread --mode preview         (the whole window, proxies + track)
@@ -28,7 +29,13 @@ import math
 
 import numpy as np
 
-SHOT = {"scene": "thread", "frames": "scene", "track": ["end_l", "end_r"], "look": "30,60,168"}
+FIBRES = 12  # freed fibres tracked for the match cut into `ex` (fibre_0 ... fibre_11)
+SHOT = {"scene": "thread", "frames": "scene", "track": ["end_l", "end_r"] + [f"fibre_{k}" for k in range(FIBRES)],
+        "look": "30,60,168"}
+# where the tracked fibres must be on the shot's last frame: inside title-safe (the inner 90% of the frame), a little
+# apart, and as near the focal plane as can be (sharp, so bright)
+SAFE = (0.05, 0.95)
+FIBRE_GAP = 0.035  # of the frame's width, between any two tracked fibres
 
 R = 0.012  # thread radius (m): at 85 mm f/1.8 and 63 R the fibres on the focal plane stay sharp (+-1 R in 4.6 px)
 LENGTH = 80 * R  # material length; the anchors are far outside the frame
@@ -258,6 +265,13 @@ def build(ctx):
         e.empty_display_size = R
         coll.objects.link(e)
         ends[name] = e
+    picked = pick_fibres(scene, cam, clock, debris, place_camera, f1=ctx.f1)
+    fibres = []
+    for k in range(FIBRES):
+        e = bpy.data.objects.new(f"fibre_{k}", None)
+        e.empty_display_size = 0.2 * R
+        coll.objects.link(e)
+        fibres.append(e)
 
     def pose(sc, *_):
         t = (sc.frame_current + sc.frame_subframe) / 30.0
@@ -316,6 +330,9 @@ def build(ctx):
                                           lift=0.35 * flutter * (0.3 + F), broken=min(1.0, max(0.0, after) / 0.01))
         mr.update(poses, fray_centre=sc_, fray_amount=F)
         debris.update(deb_ob, after, poses)
+        mids = debris.centres(after)
+        for e, i in zip(fibres, picked):
+            e.location = Vector(mids[i])
 
         for name, side in (("end_l", "left"), ("end_r", "right")):
             p = poses[side]
@@ -334,6 +351,36 @@ def build(ctx):
 
     bpy.app.handlers.frame_change_pre.append(pose)
     pose(scene)
+
+
+def pick_fibres(scene, cam, clock, debris, place_camera, f1: int) -> list[int]:
+    """The freed fibres to track (debris indices): on the shot's last frame (film frame f1 - 1, held over the cut), each
+    in front of the camera and inside title-safe, at least FIBRE_GAP apart, the ones nearest the focal plane first (the
+    sharpest, so the brightest points). Deterministic: a function of the seeded debris and the clock."""
+    from bpy_extras.object_utils import world_to_camera_view
+    from mathutils import Vector
+
+    tau = clock.tau((f1 - 1) / 30.0)
+    focus = place_camera(tau)
+    cam_inv = cam.matrix_world.inverted()
+    mids = debris.centres(tau - clock.snap)
+    cands = []
+    for i, c in enumerate(mids):
+        v = world_to_camera_view(scene, cam, Vector(c))
+        if not (v.z > 0 and SAFE[0] <= v.x <= SAFE[1] and SAFE[0] <= v.y <= SAFE[1]):
+            continue
+        depth = -(cam_inv @ Vector(c)).z
+        cands.append((abs(depth - focus), i, v.x, v.y * 9 / 16))
+    cands.sort()
+    out: list[tuple[int, float, float]] = []
+    for _, i, x, y in cands:
+        if all(math.hypot(x - a, y - b) >= FIBRE_GAP for _, a, b in out):
+            out.append((i, x, y))
+        if len(out) == FIBRES:
+            break
+    if len(out) < FIBRES:
+        raise RuntimeError(f"b01_thread: only {len(out)} freed fibres are in title-safe on the last frame (want {FIBRES})")
+    return [i for i, _, _ in out]
 
 
 class Debris:
@@ -385,6 +432,12 @@ class Debris:
 
         return thread._new_curves("debris", np.full(self.n, self.PTS), self.tone, material, coll, None)
 
+    def centres(self, after: float) -> np.ndarray:
+        """Each fibre's midpoint (n, 3): where it sat in the thread until the snap, then where it has flown."""
+        if after <= 0:
+            return self.p0.copy()
+        return self.p0 + self.v0 * (self.drag * (1 - np.exp(-after / self.drag)))[:, None] + self.drift * after
+
     def update(self, ob, after: float, poses) -> None:
         from lib import thread
 
@@ -393,8 +446,7 @@ class Debris:
             pts = np.zeros((n, self.PTS, 3))
             rad = np.zeros((n, self.PTS))
         else:
-            fly = self.v0 * (self.drag * (1 - np.exp(-after / self.drag)))[:, None] + self.drift * after
-            c = self.p0 + fly
+            c = self.centres(after)
             pts = _rotate(_orient(self.shape, self.orient), self.axis, self.spin * after) + c[:, None, :]
             grow = min(1.0, after / 0.006)
             rad = np.repeat(self.radius[:, None] * grow, self.PTS, axis=1) * np.linspace(1, 0.5, self.PTS)[None]

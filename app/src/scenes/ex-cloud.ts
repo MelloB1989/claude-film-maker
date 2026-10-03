@@ -6,6 +6,7 @@
 // A numeral is seven mono cells, as an array prints its floats: a sign cell (− or blank) then d.dddd, so the columns
 // line up. Its text without the blank is a float numeral of the facts sheet (§11.10: `0.2143`, `−0.0931`).
 import { hash } from '../engine/util';
+import type { Track } from '../engine/track';
 
 /** World units (m) per em of the cloud's numerals, and a cell's advance (JetBrains Mono: 600 of 1000 units). */
 export const EM = 0.0075;
@@ -198,4 +199,23 @@ export function fall(dt: number, h: number, g: number): { k: number; landed: boo
   if (dt <= 0) return { k: 0, landed: false, dur };
   const y = 0.5 * g * dt * dt;
   return { k: Math.min(1, y / Math.max(h, 1e-6)), landed: y >= h, dur };
+}
+
+// ------------------------------------------------------------------------------------------------ the match cut in
+
+/** Title-safe: the inner 90% of the 1920x1080 frame (logical px). */
+export const TITLE_SAFE = { x0: 96, y0: 54, x1: 1824, y1: 1026 } as const;
+
+/**
+ * Where the cold open's freed fibres are at the cut (B01's track: `fibre_0` … `fibre_11`, empties on their midpoints),
+ * logical px: the bright points `ex` seeds its first numerals on (the match cut thread → ex). Only the fibres in front of
+ * the camera and inside title-safe, in the track's order. Pure: a function of the track and the cut.
+ */
+export function fibreSeeds(track: Track, cut: number): { x: number; y: number }[] {
+  const names = track.names().filter((n) => /^fibre_\d+$/.test(n)).sort((a, b) => +a.slice(6) - +b.slice(6));
+  const S = TITLE_SAFE;
+  return names
+    .map((n) => track.at(n, cut))
+    .filter((a) => a.visible >= 1 && a.x >= S.x0 && a.x <= S.x1 && a.y >= S.y0 && a.y <= S.y1)
+    .map((a) => ({ x: a.x, y: a.y }));
 }
