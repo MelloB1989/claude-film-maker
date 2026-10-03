@@ -90,3 +90,50 @@ export function lastSnapDir(track: Track): [number, number] {
   if (!(d > 0)) throw new Error('loom: the tracked labels never snap');
   return [-sx / d, -sy / d];
 }
+
+/** A frame-to-frame move of the shuttle along its race (px) fast enough to be a pass in flight. */
+const FLY_PX = 40;
+/** A landing: the box checks the shuttle to under this share of its speed from one frame to the next. */
+const CHECK = 0.2;
+
+/** A pass of the shuttle, as the plate shows it (film times): when it leaves its box and when it lands in the other. */
+export interface Pass {
+  /** Its last still frame before it flies (null when it was already flying on the plate's first frame). */
+  depart: number | null;
+  land: number;
+  /** Which way it flew: +1 to the right of the frame, −1 to the left. */
+  dir: 1 | -1;
+}
+
+/**
+ * The tracked shuttle's passes (film times, frame times): it lands where it is flying (its x along the race, taken from
+ * the tracked lane edge `reach` on the same race so the camera's moves cancel, changing fast) and on the next frame has
+ * all but stopped, and the pass after it flies back the other way (its x velocity changes sign). It departs on the frame
+ * after the last one it is still on. The plate lands one on every beat (b05_loom.py WeaveClock); a landing on the
+ * plate's last frame has no next frame to see it stop by, so it is not found.
+ */
+export function shuttlePasses(track: Track): Pass[] {
+  const fps = 30, f0 = track.f0, n = track.frames;
+  const x = (f: number) => track.at('shuttle', f / fps).x - track.at('reach', f / fps).x;
+  const v = (f: number) => x(f) - x(f - 1);
+  const out: Pass[] = [];
+  for (let f = f0 + 1; f < f0 + n - 1; f++) {
+    const a = v(f), b = v(f + 1);
+    if (!(Math.abs(a) > FLY_PX && Math.abs(b) < CHECK * Math.abs(a))) continue;
+    // the next pass, if the plate has one, flies back (moving at half this landing's speed or more: off frame, where the
+    // projection stretches the race, the box's recoil alone can cross FLY_PX)
+    const fast = Math.max(FLY_PX, CHECK * Math.abs(a));
+    for (let g = f + 2; g < f0 + n; g++) {
+      const w = v(g);
+      if (Math.abs(w) > 0.5 * Math.abs(a)) {
+        if (Math.sign(w) === Math.sign(a)) throw new Error(`loom: the shuttle lands at frame ${f} and flies on the same way`);
+        break;
+      }
+    }
+    // where this pass set out: the frame before its run of flying frames
+    let g = f;
+    while (g > f0 + 1 && Math.abs(v(g - 1)) > fast) g--;
+    out.push({ depart: g > f0 + 1 ? (g - 1) / fps : null, land: f / fps, dir: a > 0 ? 1 : -1 });
+  }
+  return out;
+}
