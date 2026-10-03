@@ -1,6 +1,6 @@
 // Scene 07 `cite`: "Ask me why I believe something... I'll show you the line." (Plan 2 Task 17; spec §4 07.) Every
-// answer cites its source, and the source is a line of a file you can open: provenance as a thread sewn from the claim
-// into the file.
+// answer cites its source, and the source is a line of a file you can open: provenance as one thread laid from the
+// citation onto the lines it cites.
 //
 // One world and one camera, every time from the data (her measured onsets, the score's beats; cite-time.ts):
 // 1. The question. An agent chat hangs in close 3D, the memory file below and behind it. `what editor do I use?` is
@@ -9,18 +9,16 @@
 // 2. Why. A `why?` chip pops in after the answer; the pointer glides to it and clicks on "why", the chip pressing in,
 //    and lets go on the beat: the citation label springs open out of the chip and streams in, `facts/people/user.md#editor
 //    · L11–14 · 3f9a1c2`, and the file below jumps to its lines on the next beat.
-// 3. The thread. As the citation lands the diff thread is drawn out of the label's end, falling in a long curve in front
-//    of the file and on in a straight run, the camera craning down with its tip, a little moss light running down inside
-//    it. It comes to hang over line 11, just past the lines' ends, through "something…" and her pause.
-// 4. The needle. Out of the pause the thread's tip stiffens into a needle, the change running back from the point to the
-//    eye (cite-needle.ts), moss light in its point, done as she says "I'll". It draws back a hair and strikes into the
-//    file on the downbeat, the camera driving in with it, a highlight running down its glaze; behind the panel it runs in
-//    slow motion under lines 11–14, its light showing through the panel as it passes and each line lighting moss in its
-//    wake; it bursts out under line 14 on the eighth and pulls through, past the panel's edge.
-// 5. The line. On "line." the pull lands: the thread snaps taut from the citation into the file and rings, moss light
-//    floods up it from the stitch to the label, the four lines flare, `L11–14` lights in the label, and the blame gutter
-//    slides out of the file beside them, `3f9a1c2 · 2026-07-26`, as the camera pulls back to all of it: the claim, the
-//    thread, the source.
+// 3. The thread. As the citation lands a fine diff thread is drawn out under `L11–14`: it lies on the label's face as
+//    an underline, runs off the label's foot and falls in one long curve through the air in front of the file, a little
+//    moss light running inside it behind its tip, the camera following the tip down in one move. It never stops: it
+//    drifts through her pause, coming down onto the file just past the lines' ends.
+// 4. The seam. On the downbeat ("I'll") it lands on the file's face at the top of line 11 and lies down the margin
+//    beside lines 11–14, a seam a hair above the face (cite-path.ts), turning in under line 14 like a bracket's foot;
+//    each line lights moss as the tip passes it, the light spreading under it like ink.
+// 5. The line. On "line." the light lands: the air draws in and rings, moss light floods up the thread from the seam to
+//    the underline, the four lines flare, `L11–14` lights in the label, and the blame gutter slides out of the file
+//    beside them, `3f9a1c2 · 2026-07-26`, as the camera pulls back to all of it: the claim, the thread, the source.
 import * as THREE from 'three';
 import { Scene, type Frame, type PostOverrides } from '../engine/scene';
 import { CameraRig, Stage, initAreaLights, type CamKey } from '../engine/stage';
@@ -33,9 +31,8 @@ import { LOOK } from '../engine/look';
 import { slam, spring } from '../engine/motion';
 import { clamp, ease, keys, lerp, noise1, prog, pulse, smoothstep } from '../engine/util';
 import { Backdrop, fitKey } from './diff-fx';
-import { EYE_TO_TIP, eyeAt, formAt, tautAt, threadEnd, timesOf, tipAt, tipPasses, type Run, type Times } from './cite-time';
-import { ArcPath, airRoute, stitchRoute, type P3 } from './cite-path';
-import { Needle } from './cite-needle';
+import { layEnd, tautAt, timesOf, tipAt, tipPasses, type Run, type Times } from './cite-time';
+import { ArcPath, LAND, seamRoute, type P3, type SeamSpec } from './cite-path';
 import { Chip, Pointer } from './cite-ui';
 import S from './cite.strings.json';
 
@@ -70,7 +67,7 @@ const EG = panelLayout({ kind: 'editor', size: SIZE, gutter: 'numbers', lines: F
 const EH = EG.bar + EG.padTop + ROWS * EG.lineH + EG.padBottom;
 /** A row's top in the editor once it has jumped (px). */
 const rowTop = (i: number) => EG.bar + EG.padTop + (i - SCROLL) * EG.lineH;
-/** The rows the stitch binds: the top of line 11 and the foot of line 14; its x just past their longest line. */
+/** The rows the seam runs beside: the top of line 11 and the foot of line 14; its x just past their longest line. */
 const TOP = rowTop(CITED[0]), FOOT = rowTop(CITED[3]) + EG.lineH;
 const STITCH_X = 520;
 /** The chat: the question, a gap, the answer; just wide enough for the question's bubble. */
@@ -88,12 +85,14 @@ const CHIP = { gap: 18, w: 70, h: 30, em: 17 };
 const LABEL_SIZE = 22;
 const LG = panelLayout({ kind: 'card', size: LABEL_SIZE, lines: [{}] });
 const LABEL = { x: 10, y: chatRow(3) - 6, z: 18, w: Math.ceil(2 * LG.padX + len(CITE) * LG.adv), h: LG.padTop + LG.lineH + LG.padBottom };
-/** Where the thread comes out of the label (label px): just after the citation's last character, mid-row. */
+/** The label's right end, past the citation's last character, mid-row (label px): the chat is placed by it. */
 const LABEL_HEAD = { x: LG.padX + len(CITE) * LG.adv + 11, y: LG.padTop + LG.lineH / 2 };
+/** The underline under `L11–14` (label px): how far below the baseline, how far past the range either side. */
+const UNDER = { drop: 7, pad: 2 };
 /**
  * The chat's top left in the editor's px, and its depth (px, in front of the file's face, so the thread falls from the
- * label through the air in front of the file all the way to the stitch): placed so the thread drops just about straight
- * down from the label's end into the margin, the label's foot 80 px above the file.
+ * label through the air in front of the file all the way to the seam): placed so the label's right end stands over the
+ * margin, the label's foot 80 px above the file.
  */
 const CHAT: P3 = [STITCH_X + 6 - (LABEL.x + LABEL_HEAD.x), -80 - (LABEL.y + LABEL.h), 60];
 /** The blame gutter: a tab that slides out of the file's left edge beside the cited lines (its code size, width, and how
@@ -108,14 +107,60 @@ const TAB_H = FOOT + 9 - TAB_TOP;
 
 /** The lens: repo's and diff's short tele. */
 const FOV = 24;
-/** The thread's radius (px): diff's dock thread, a hair finer, as a sewing thread is. */
-const THREAD_PX = 3;
-/** The needle's moss: its point while it sews, at rest after; the forming front's ring. */
-const TIP = { sew: 2.6, rest: 1.05, ring: 3.4 };
+/** The thread's radius (px): a fine thread, a stroke of the type's weight, so it sits in the UI's scale. */
+const THREAD_PX = 1.8;
+/** How far above a face the thread's axis lies where it lies on one (px): its radius and a little air. */
+const LIFT = THREAD_PX + 1.3;
 
 const INK = new THREE.Color().setRGB(...LIN.ink);
 
-type Sew = { path: ArcPath; run: Run; tip: number; tipLevel: number };
+type Sew = { path: ArcPath; run: Run; tip: number };
+
+/** A point in the chat's px, in the editor's px. */
+const chatToEd = (x: number, y: number, z = 0): P3 => [CHAT[0] + x, CHAT[1] + y, CHAT[2] + z];
+
+/** The label's and the file's faces (editor px): x0, y0, x1, y1 and the face's z. */
+export const FACES = {
+  label: { x0: CHAT[0] + LABEL.x, y0: CHAT[1] + LABEL.y, x1: CHAT[0] + LABEL.x + LABEL.w, y1: CHAT[1] + LABEL.y + LABEL.h, z: CHAT[2] + LABEL.z },
+  file: { x0: 0, y0: 0, x1: EW, y1: EH, z: 0 },
+};
+export { THREAD_PX };
+
+/**
+ * Where the thread lies (editor px): the underline under the citation's range on the label's face (the range's cells on
+ * the label's mono grid, its baseline as the Panel sets it), the label's foot, and the seam beside the cited rows.
+ */
+export function seamSpec(): SeamSpec {
+  const R = CITE_RUNS.range, base = LG.bar + LG.padTop + LG.lineH / 2 + 0.365 * LABEL_SIZE;
+  const y = LABEL.y + base + UNDER.drop;
+  const [x0, uy, uz] = chatToEd(LABEL.x + LG.textX + R[0] * LG.adv - UNDER.pad, y, LABEL.z);
+  const x1 = chatToEd(LABEL.x + LG.textX + R[1] * LG.adv + UNDER.pad, y)[0];
+  return { under: { x0, x1, y: uy, z: uz }, labelFoot: FACES.label.y1, x: STITCH_X, top: TOP, foot: FOOT, lift: LIFT };
+}
+
+/** An ease 0..1 that leaves at speed a and arrives at speed b (multiples of the segment's mean speed): a cubic Hermite. */
+const hermiteEase = (a: number, b: number) => (u: number) => {
+  const u2 = u * u, u3 = u2 * u;
+  return (u3 - 2 * u2 + u) * a + (-2 * u3 + 3 * u2) + (u3 - u2) * b;
+};
+
+/**
+ * Keys `move` after the stop `from`, as one move: the camera leaves `from` and stops on the last key, passing the keys
+ * between at speed. Each inner key's speed is the mean of the segments either side of it (the camera's travel per s),
+ * and each segment's ease leaves and arrives at those speeds, so the speed is continuous through the keys.
+ */
+function glide(from: CamKey, move: CamKey[]): CamKey[] {
+  const all = [from, ...move];
+  const d = (i: number) => Math.hypot(...all[i + 1]!.pos.map((v, j) => v - all[i]!.pos[j]!)) + Math.hypot(...all[i + 1]!.target.map((v, j) => v - all[i]!.target[j]!));
+  const mean = (i: number) => d(i) / (all[i + 1]!.t - all[i]!.t);
+  // the speed at each key: 0 at the ends, the mean of its segments' mean speeds between
+  const v = all.map((_, i) => (i === 0 || i === all.length - 1 ? 0 : (mean(i - 1) + mean(i)) / 2));
+  return move.map((k, j) => {
+    const m = mean(j);
+    const a = m > 0 ? Math.min(2.5, v[j]! / m) : 0, b = m > 0 ? Math.min(2.5, v[j + 1]! / m) : 0;
+    return { ...k, ease: hermiteEase(a, b) };
+  });
+}
 
 export default class Cite extends Scene {
   private T!: Times;
@@ -132,24 +177,19 @@ export default class Cite extends Scene {
   private chip!: Chip;
   private pointer!: Pointer;
   private thread!: Thread;
-  private needle!: Needle;
-  /** The route's fixed part, from A (behind the panel, out through B, to the rest). */
-  private stitch!: P3[];
-  /** Where the thread comes out of the label (editor px). */
-  private from!: P3;
+  /** Where the thread lies: the underline, the label's foot, the seam (editor px). */
+  private seam!: SeamSpec;
   /** The route as last set on the thread (its key), and its measure. */
   private routeKey = '';
   private path!: ArcPath;
-  /** Light on the panels: the needle's point seen through the file, the holes' flashes, the four lines' flare, the
+  /** Light on the panels: the ink under the seam's tip as it lays, the landing's bloom, the four lines' flare, the
    * citation's range, the blame gutter's sign. */
-  private through!: Halo;
-  private flashA!: Halo;
-  private flashB!: Halo;
+  private ink!: Halo;
+  private bloom!: Halo;
   private flare!: Halo;
   private rangeGlow!: Halo;
   private sign!: Bar;
   private backdrop!: Backdrop;
-  private kicker!: THREE.RectAreaLight;
 
   override init() {
     const { renderer, vo, audio, start, end } = this.ctx;
@@ -181,7 +221,7 @@ export default class Cite extends Scene {
 
   /** A point in the chat's px, in the editor's px. */
   private static chatToEd(x: number, y: number, z = 0): P3 {
-    return [CHAT[0] + x, CHAT[1] + y, CHAT[2] + z];
+    return chatToEd(x, y, z);
   }
 
   /** A point in the chat's px, in the world. */
@@ -211,7 +251,7 @@ export default class Cite extends Scene {
     this.chip = new Chip(WHY, CHIP.w, CHIP.h, CHIP.em);
     this.pointer = new Pointer(1.1);
     this.chatG.add(this.chip.g, this.pointer.g);
-    // the citation label: streams in once it has opened; its range lights moss when the stitch lands
+    // the citation label: streams in once it has opened; its range lights moss when the light lands
     this.label = new Panel({
       kind: 'card', w: LABEL.w, h: LABEL.h, size: LABEL_SIZE,
       lines: [{
@@ -270,7 +310,7 @@ export default class Cite extends Scene {
     this.labelG.scale.set(Math.max(1e-3, 0.12 + 0.88 * open), Math.max(1e-3, 0.3 + 0.7 * open), 1);
     this.label.opacity = clamp((t - T.release) / 0.06);
     this.label.draw(t);
-    // the citation's range glows with the stitch's light once it has run up the thread
+    // the citation's range glows with the seam's light once it has run up the thread
     const R = CITE_RUNS.range, o = this.label.cellOrigin(0, (R[0] + R[1]) / 2);
     const g = 0.5 * strandFlare(t, T.pull + 0.12, { lead: 0.06, decay: 0.7 }) + (t > T.pull + 0.12 ? 0.1 : 0);
     this.rangeGlow.set(o.x, o.baseline - 0.33 * LABEL_SIZE, g, 1);
@@ -279,34 +319,31 @@ export default class Cite extends Scene {
 
   // ---------------------------------------------------------------------------------------------- the thread
 
-  /** The route at t (editor px): the air from the label's end to A, slack or taut, swaying while it hangs; then the stitch. */
+  /** The route at t (editor px): the underline, the air (slack, breathing while it is drawn, drawn in on the pull), the seam. */
   private routeAt(t: number): P3[] {
     const T = this.T;
-    const live = smoothstep(T.draw.at, T.draw.at + 0.4, t) * (1 - smoothstep(T.form.at - 0.3, T.form.at, t));
-    const sway: P3 = live > 0 ? [7 * live * noise1(t * 1.1, 3), 2 * live * noise1(t * 0.8, 7), 6 * live * noise1(t * 0.9, 11)] : [0, 0, 0];
-    return [...airRoute(this.from, this.stitch[0]!, tautAt(t, T), sway), ...this.stitch.slice(1)];
+    // the air breathes while the thread is drawn and is still by the landing, so the seam lies down from a steady line
+    const live = smoothstep(T.draw.at, T.draw.at + 0.4, t) * (1 - smoothstep(T.form.at, T.strike, t));
+    const sway: P3 = live > 0 ? [6 * live * noise1(t * 1.1, 3), 4 * live * noise1(t * 0.8, 7), 5 * live * noise1(t * 0.9, 11)] : [0, 0, 0];
+    return seamRoute(this.seam, tautAt(t, T), sway);
   }
 
-  /** How many points the air route has (A is its last). */
-  private static readonly AIR = airRoute([0, 0, 0], [0, 1, 0], 0).length;
-
-  /** Where the run's holes and end are along a route's measure. */
+  /** Where the thread lands on the file and where it ends, along a route's measure. */
   private static runOf(path: ArcPath): Run {
-    return { a: path.atPoint(Cite.AIR - 1), b: path.atPoint(Cite.AIR + 3), end: path.length };
+    return { land: path.atPoint(LAND), end: path.length };
   }
 
   private buildThread() {
-    this.from = Cite.chatToEd(LABEL.x + LABEL_HEAD.x, LABEL.y + LABEL_HEAD.y, LABEL.z - 3);
-    this.stitch = stitchRoute({ x: STITCH_X, top: TOP, foot: FOOT });
+    this.seam = seamSpec();
+    const R = CITE_RUNS.range, o = this.label.cellOrigin(0, R[0]);
+    if (Math.abs(LABEL.x + o.x - UNDER.pad - (this.seam.under.x0 - CHAT[0])) > 0.01) throw new Error('cite: the underline is off the label\'s range');
     const route = this.routeAt(this.T.start);
     this.path = new ArcPath(route);
     this.routeKey = JSON.stringify(route);
-    this.thread = new Thread(route.map((p) => this.edPx(...p)), { ...DIFF_THREAD, radius: THREAD_PX * PXW, fuzz: 0.5 });
+    this.thread = new Thread(route.map((p) => this.edPx(...p)), { ...DIFF_THREAD, radius: THREAD_PX * PXW, fuzz: 0.3 });
     this.thread.setStrandLight({}); // the strip's program, compiled in the warm-up
     this.thread.setDraw(0, 0);
     this.stage.scene.add(this.thread.mesh);
-    this.needle = new Needle(PXW);
-    this.stage.scene.add(this.needle.mesh);
   }
 
   private poseThread(t: number): Sew {
@@ -317,43 +354,36 @@ export default class Cite extends Scene {
       this.thread.setPoints(route.map((p) => this.edPx(...p)));
     }
     const path = this.path, L = path.length, run = Cite.runOf(path);
-    const tip = tipAt(t, T, run), end = threadEnd(t, T, run), k = formAt(t, T);
-    this.thread.setDraw(0, clamp(end / L));
-    // the moss light: down inside the thread behind its tip as it is drawn out; in the eye while the needle sews; then the
-    // pull's flood, from the stitch up to the label, and the strand lit after it
+    const tip = tipAt(t, T, run);
+    this.thread.setDraw(0, clamp(tip / L));
+    // the moss light: inside the thread behind its tip as it is drawn and lays the seam; the seam keeps a little of it
+    // once laid (the ink settled); then the pull's flood, from the seam's foot up to the underline, and the strand lit after
     const glows: StrandGlow[] = [];
-    if (t > T.draw.at && t < T.form.end) glows.push({ u: (tip - 30) / L, w: 40 / L, k: 0.75 * prog(t, T.draw.at, T.draw.at + 0.2) });
-    if (k > 0 && t < T.pull + 0.25) glows.push({ u: eyeAt(tip) / L, w: 34 / L, k: 0.8 * (1 - prog(t, T.pull, T.pull + 0.25)) });
+    const laid = layEnd(T);
+    if (t > T.draw.at && t < laid + 0.3) glows.push({ u: (tip - 26) / L, w: 34 / L, k: 0.75 * prog(t, T.draw.at, T.draw.at + 0.2) * (1 - prog(t, laid, laid + 0.3)) });
+    if (t > T.strike) glows.push({ u: (run.land + run.end) / 2 / L, w: (0.5 * (run.end - run.land)) / L, k: 0.3 * prog(t, T.strike, laid + 0.2, ease.inOutQuad) });
     if (t > T.pull - 0.04) {
       const r = prog(t, T.pull - 0.04, T.pull + 0.16, ease.outCubic);
-      glows.push({ u: lerp(run.a / L, 0, r), w: 0.16, k: 1 - 0.35 * r });
+      glows.push({ u: lerp(1, 0, r), w: 0.16, k: 1 - 0.35 * r });
     }
     this.thread.setStrandLight({ moss: envelopeOf(glows) });
     this.thread.setStrandGlow({ moss: strandGlow(t, T.pull, { lead: 0.02, decay: 1.6 }) });
-
-    // the needle: once its tip has stiffened, its eye on the thread's end and its point down the route
-    const eye = path.at(eyeAt(tip)).pos, point = path.at(tip).pos;
-    const we = this.edPx(eye.x, eye.y, eye.z), wp = this.edPx(point.x, point.y, point.z);
-    const sewing = t >= T.form.end;
-    const tipLevel = k <= 0 ? 0 : !sewing ? TIP.sew * smoothstep(0.5, 1, k) : t < T.pull ? TIP.sew : lerp(TIP.sew, TIP.rest, prog(t, T.pull, T.pull + 0.4, ease.outQuad));
-    const ring = TIP.ring * Math.sin(Math.PI * k);
-    this.needle.set(we, wp.clone().sub(we), this.stage.camera.position.clone().sub(we), k, tipLevel, ring);
-    return { path, run, tip, tipLevel };
+    return { path, run, tip };
   }
 
   // ---------------------------------------------------------------------------------------------- the file
 
   private buildEditor() {
     const T = this.T;
-    // each cited line lights moss as the needle's point passes under it, and flares with the pull
+    // each cited line lights moss as the seam's tip passes it, spreading in like ink, and flares with the pull
     const path = new ArcPath(this.routeAt(T.strike));
     const run = Cite.runOf(path);
     const lines: PanelLine[] = FILE_TEXT.map((text, i) => {
       if (!(CITED as readonly number[]).includes(i)) return { text };
-      const s = path.crossing(1, rowTop(i) + EG.lineH / 2, run.a, run.b);
-      const lit = tipPasses(Number.isNaN(s) ? run.a : s, T, run);
+      const s = path.crossing(1, rowTop(i) + EG.lineH / 2, run.land, run.end);
+      const lit = tipPasses(Number.isNaN(s) ? run.land : s, T, run);
       const marks: PanelMark[] = [
-        { tone: 'moss', alpha: 0.1, at: lit - 0.02, fade: 0.09 },
+        { tone: 'moss', alpha: 0.1, at: lit - 0.04, fade: 0.16 },
         { tone: 'moss', alpha: 0.07, at: T.pull - 0.02, until: T.pull + 0.5, fade: 0.08 },
       ];
       return { text, highlight: marks };
@@ -365,24 +395,22 @@ export default class Cite extends Scene {
     });
     this.edG.add(this.edit.mesh);
     const dims = { w: EW, h: EH };
-    this.through = new Halo(dims, 'moss', 16);
-    this.flashA = new Halo(dims, 'moss', 15);
-    this.flashB = new Halo(dims, 'moss', 14);
+    this.ink = new Halo(dims, 'moss', 22);
+    this.bloom = new Halo(dims, 'moss', 34);
     this.flare = new Halo(dims, 'moss', 1);
-    this.edG.add(this.through.mesh, this.flashA.mesh, this.flashB.mesh, this.flare.mesh);
+    this.edG.add(this.ink.mesh, this.bloom.mesh, this.flare.mesh);
   }
 
   private poseEditor(t: number, sew: Sew) {
     const T = this.T;
     this.edit.draw(t);
-    // the needle's point seen through the panel while it runs behind it: a soft moss light, wider and fainter the deeper
-    const p = sew.path.at(sew.tip).pos;
-    const behind = p.z < -0.5 && sew.tip > sew.run.a && sew.tip < sew.run.b + 2;
-    this.through.set(p.x, p.y, behind ? 0.42 * (sew.tipLevel / TIP.sew) * Math.exp(p.z / 30) : 0, 13 + 0.3 * Math.abs(p.z));
-    // the holes flash as the point goes in and comes out
-    const A = this.stitch[0]!, B = this.stitch[4]!;
-    this.flashA.set(A[0], A[1], t >= T.strike ? 1.1 * Math.exp(-(t - T.strike) / 0.05) : 0, 15);
-    this.flashB.set(B[0], B[1], t >= T.exit ? 0.9 * Math.exp(-(t - T.exit) / 0.05) : 0, 14);
+    // the ink: a soft moss light on the face under the seam's tip while it lays, fading as it comes to rest
+    const p = sew.path.at(sew.tip).pos, laid = layEnd(T);
+    const laying = t >= T.strike ? 0.1 * prog(t, T.strike, T.strike + 0.08) * (1 - prog(t, laid - 0.05, laid + 0.25)) : 0;
+    this.ink.set(p.x, p.y, laying, 30);
+    // the landing: a slow bloom where the thread touches the file, spreading and fading
+    const A = this.seam, dl = t - T.strike;
+    this.bloom.set(A.x, A.top + 6, dl >= 0 ? 0.1 * smoothstep(0, 0.05, dl) * Math.exp(-dl / 0.3) : 0, 40 + 50 * clamp(dl / 0.5));
     // the four lines flare with the pull
     const f = strandFlare(t, T.pull, { lead: 0.03, decay: 0.55 });
     this.flare.set(EW / 2 - 20, (TOP + FOOT) / 2, 0.09 * f, 1);
@@ -421,7 +449,7 @@ export default class Cite extends Scene {
   private buildLights() {
     const s = this.stage.scene, c = this.edPx(STITCH_X - 120, (TOP + FOOT) / 2 - 80, 30);
     // neutral light only (lit bone stays out of the bloom's chroma gate): diff's set, a key from the upper left, a softbox
-    // in front of it, a hard rim from behind that sculpts the plies and edges the needle, and a kicker that rides the needle
+    // in front of it, and a hard rim from behind that draws the fine thread's edge against the dark
     initAreaLights();
     const box = new THREE.RectAreaLight(0xffffff, 1.0, 1.2, 0.4);
     box.position.copy(c).add(new THREE.Vector3(-0.5, 0.55, 0.7));
@@ -432,20 +460,11 @@ export default class Cite extends Scene {
     const rim = new THREE.DirectionalLight(0xffffff, 4);
     rim.position.copy(c).add(new THREE.Vector3(1.0, 1.1, -1.6));
     rim.target.position.copy(c);
-    this.kicker = new THREE.RectAreaLight(0xffffff, 0, 0.12, 0.12);
-    s.add(box, key, key.target, rim, rim.target, this.kicker);
+    s.add(box, key, key.target, rim, rim.target);
   }
 
-  private poseLights(t: number, sew: Sew) {
+  private poseLights(t: number) {
     const T = this.T;
-    // the kicker rides above the needle from its forming to its rest, ringing it on the strike and the pull; through the
-    // forming and the strike it slides from its head to its point, a highlight running down the glaze
-    const slide = prog(t, T.form.at, T.strike + 0.06, ease.inOutQuad) * (1 - prog(t, T.exit, T.pull, ease.inOutQuad));
-    const p = sew.path.at(sew.tip - EYE_TO_TIP * (0.95 - 0.8 * slide)).pos, w = this.edPx(p.x, p.y, p.z);
-    const on = t > T.form.at - 0.05;
-    this.kicker.intensity = on ? 9 * (0.55 + 0.45 * Math.max(pulse(t, T.strike, 0.12), pulse(t, T.pull, 0.2), pulse(t, T.form.end, 0.1))) : 0;
-    this.kicker.position.copy(w).add(new THREE.Vector3(-0.03, 0.05, 0.07));
-    this.kicker.lookAt(w);
     // the wall behind lifts a little behind the lines once they are lit (the pool where the camera sees them against it)
     const r = prog(t, T.pull - 0.05, T.end, ease.outQuad);
     const at = this.edPx(320, (TOP + FOOT) / 2), eye = this.stage.camera.position, b = this.backdrop.mesh.position;
@@ -473,7 +492,7 @@ export default class Cite extends Scene {
   private keys(): CamKey[] {
     const T = this.T, F = this.edG.matrixWorld, r = chatRow;
     const c = Cite.chipAt();
-    return [
+    const ks: CamKey[] = [
       // the question: in close on its bubble as it types, the rest of the chat falling away to the left
       fitKey(T.start, this.chatBox(56, r(0) - 16, CW, r(1) + 22), { az: -22, el: 2, fov: FOV, margin: [0.08, 0.16], bias: [0.02, 0.02], roll: -1.6 }, F),
       // sliding left and down along the conversation as the answer streams in on the downbeat
@@ -482,24 +501,24 @@ export default class Cite extends Scene {
       fitKey(T.click, this.chatBox(0, r(2) - 30, c.x + 120, r(3) + 34), { az: -14, el: 4, fov: FOV, margin: [0.08, 0.14], bias: [-0.02, 0.02], roll: -1.1 }, F, ease.inOutCubic),
       // back out with the label as it opens and the citation streams into it
       fitKey(T.cite.end, [...this.chatBox(0, r(2) - 16, CW, r(3)), ...this.labelBox(LABEL.x, LABEL.x + LABEL.w, 12)], { az: -12, el: 5, fov: FOV, margin: [0.05, 0.14], bias: [0, 0.02], roll: -1 }, F, ease.inOutQuad),
-      // the thread drawn out: the camera cranes down with its tip from the label's end toward the file
-      fitKey(T.draw.at + 0.5, [...this.labelBox(LABEL.x + LABEL.w / 2), ...this.box(260, -30, EW + 70, TOP + 40)], { az: -12, el: 7, fov: FOV, margin: [0.06, 0.07], bias: [0, 0], roll: -1 }, F, ease.inOutCubic),
-      // the tip comes to hang over line 11 by the lines' ends: the file, the thread falling to it from the label
-      fitKey(T.draw.end, [...this.labelBox(LABEL.x + LABEL.w - 220), ...this.box(40, -20, EW + 60, FOOT + 40)], { az: -15, el: 8, fov: FOV, margin: [0.05, 0.06], bias: [0, 0], roll: -1.1 }, F, ease.inOutQuad),
-      // the pause: in on the hanging thread over the lines' ends as its tip turns into a needle, the whole of it in frame
-      fitKey(T.form.at, this.box(250, -110, EW + 50, FOOT - 20), { az: -19, el: 10, fov: FOV, margin: [0.05, 0.06], bias: [0, 0], roll: -1.3 }, F, ease.inOutQuad),
-      // the strike: the camera drives in with it and round, close on the needle going into the lines
-      fitKey(T.strike + 0.07, this.box(320, -80, EW + 30, FOOT - 50), { az: -25, el: 12, fov: FOV, margin: [0.05, 0.05], bias: [0, 0], roll: -1.6 }, F, ease.inQuad),
-      // through the slow motion under the lines, easing back to hold both holes as the point comes out of the second
-      fitKey(T.exit, this.box(230, -40, EW + 70, FOOT + 60), { az: -23, el: 10, fov: FOV, margin: [0.05, 0.05], bias: [0, 0], roll: -1.4 }, F, ease.inOutQuad),
-      // from the needle's way out, one long pull back through the pull and the light, easing in from the close-up so the
-      // needle is seen drawn through its eye, and settling as the scene ends on all of it: the question and its claim, the
-      // citation, the thread, the lines it was sewn through, the blame beside them (inside the title-safe frame)
-      fitKey(T.end - 0.02, [...this.chatBox(0, r(0) - 8, CW, r(3)), ...this.labelBox(), ...this.box(TAB.tuck - TAB.w - 10, TOP - 6, EW + 175, EH)], { az: -12.5, el: 5.8, fov: FOV, margin: [0.07, 0.095], bias: [0, -0.02], roll: -0.85 }, F, ease.inOutQuad),
     ];
+    // From the citation to the end, one move that never stops: down with the thread's tip as it falls, through its
+    // landing, a drift along the seam as it lays, and the pull back on "line." to all of it. The keys between are passed
+    // through at speed (glide matches the camera's speed either side of each), so only the citation and the end are stops.
+    const under = this.seam.under, ux = (x: number) => x - CHAT[0];
+    const move: CamKey[] = [
+      // the landing: the thread's whole fall from the underline to the top of line 11, the lines below it
+      fitKey(T.strike, [...this.labelBox(ux(under.x0) - 30, LABEL.x + LABEL.w), ...this.box(230, -40, EW + 60, FOOT + 30)], { az: -16, el: 8, fov: FOV, margin: [0.06, 0.07], bias: [0, 0], roll: -1.2 }, F),
+      // the light lands: the seam laid, the thread from the underline down to it, a little closer and round
+      fitKey(T.pull, [...this.labelBox(ux(under.x0) - 20, LABEL.x + LABEL.w), ...this.box(150, -20, EW + 50, FOOT + 24)], { az: -18, el: 8.5, fov: FOV, margin: [0.06, 0.07], bias: [0, 0], roll: -1.3 }, F),
+      // settling as the scene ends on all of it: the question and its claim, the citation, the thread, the lines it lies
+      // beside, the blame beside them (inside the title-safe frame)
+      fitKey(T.end - 0.02, [...this.chatBox(0, r(0) - 8, CW, r(3)), ...this.labelBox(), ...this.box(TAB.tuck - TAB.w - 10, TOP - 6, EW + 175, EH)], { az: -12.5, el: 5.8, fov: FOV, margin: [0.07, 0.095], bias: [0, -0.02], roll: -0.85 }, F),
+    ];
+    return [...ks, ...glide(ks[ks.length - 1]!, move)];
   }
 
-  /** Focus as a focus ring turns (diopters): the question, the answer, the chip, the citation, the thread's tip, the holes, the lines. */
+  /** Focus as a focus ring turns (diopters): the question, the answer, the chip, the citation, the thread's tip, the lines. */
   private focus(t: number, sew: Sew) {
     const T = this.T, st = this.stage, r = chatRow, lh = CG.lineH;
     const D = (p: THREE.Vector3) => 1 / Math.max(0.03, st.depthOf(p));
@@ -520,9 +539,7 @@ export default class Cite extends Scene {
       [T.click - 0.05, () => D(this.chatPx(c.x, c.y)), ease.inOutQuad],
       [T.cite.end - 0.1, () => D(this.chatPx(LABEL.x + LG.padX + R[0] * LG.adv, LABEL.y + LABEL_HEAD.y, LABEL.z)), ease.inOutQuad],
       [T.draw.at + 0.3, tipP, ease.inOutQuad],
-      [T.draw.end, tipP],
-      [T.form.end, () => D(this.edPx(STITCH_X, TOP + 10)), ease.inOutQuad],
-      [T.exit, () => D(this.edPx(STITCH_X, FOOT)), ease.inOutQuad],
+      [layEnd(T), tipP],
       [T.pull + 0.14, () => D(this.edPx(300, (TOP + FOOT) / 2)), ease.inOutCubic],
     ];
     let d = stops[0]![1]();
@@ -537,7 +554,7 @@ export default class Cite extends Scene {
       }
       d = fi();
     }
-    const fstop = keys(t, [[T.start, 2.8], [T.cite.end, 3.2], [T.form.at, 3.4], [T.strike, 3.2], [T.exit, 3.4], [T.pull + 0.16, 5.6, ease.inOutCubic]]);
+    const fstop = keys(t, [[T.start, 2.8], [T.cite.end, 3.2], [T.strike, 4], [T.pull + 0.16, 5.6, ease.inOutCubic]]);
     return { focus: 1 / d, fstop };
   }
 
@@ -555,11 +572,11 @@ export default class Cite extends Scene {
     });
     this.rig.apply(st.camera, T.exit);
     this.poseChat(T.end);
-    const sew = this.poseThread(T.form.end + 0.05);
-    this.poseEditor(T.exit + 0.01, sew);
+    const sew = this.poseThread(T.exit);
+    this.poseEditor(T.exit, sew);
     this.poseTab(T.end);
-    this.poseLights(T.strike, sew);
-    for (const m of [this.through.mesh, this.flashA.mesh, this.flashB.mesh, this.flare.mesh, this.rangeGlow.mesh, this.sign.mesh, this.needle.mesh]) m.visible = true;
+    this.poseLights(T.strike);
+    for (const m of [this.ink.mesh, this.bloom.mesh, this.flare.mesh, this.rangeGlow.mesh, this.sign.mesh]) m.visible = true;
     this.tabG.visible = this.chip.g.visible = this.pointer.g.visible = this.labelG.visible = true;
     st.compile();
     st.render(rt, { dof: { focus: 0.5, fstop: 4 } });
@@ -574,19 +591,19 @@ export default class Cite extends Scene {
     const sew = this.poseThread(t);
     this.poseEditor(t, sew);
     this.poseTab(t);
-    this.poseLights(t, sew);
+    this.poseLights(t);
 
     const r = this.ctx.renderer, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha();
     r.setClearColor(INK, 1);
     st.render(out, { dof: this.focus(t, sew) });
     r.setClearColor(cc, ca);
 
-    // the strike jolts the frame and the pull lands with a punch; the lens strains as the needle runs; the glow opens a
+    // the landing breathes the frame a hair and the light lands with a soft punch and a small settle; the glow opens a
     // little with the lines' light
-    const ds = t - T.strike, dp = t - T.pull;
-    const shake = (ds >= 0 ? 2.6 * Math.exp(-ds * 18) * Math.cos(ds * 2 * Math.PI * 10) : 0) + (dp >= 0 ? 1.6 * Math.exp(-dp * 16) * Math.cos(dp * 2 * Math.PI * 8) : 0);
-    const zoom = 0.003 * pulse(t, T.answer, 0.1) + 0.003 * pulse(t, T.click, 0.08) + 0.007 * pulse(t, T.strike, 0.09) + 0.004 * pulse(t, T.exit, 0.08) + 0.008 * pulse(t, T.pull, 0.12);
-    const strain = Math.max(pulse(t, T.strike, 0.1), 0.7 * pulse(t, T.exit, 0.1), 0.6 * prog(t, T.exit, T.pull) * (1 - prog(t, T.pull, T.pull + 0.1)));
+    const dp = t - T.pull;
+    const shake = dp >= 0 ? 0.8 * Math.exp(-dp * 16) * Math.cos(dp * 2 * Math.PI * 8) : 0;
+    const zoom = 0.003 * pulse(t, T.answer, 0.1) + 0.003 * pulse(t, T.click, 0.08) + 0.002 * pulse(t, T.strike, 0.12) + 0.006 * pulse(t, T.pull, 0.12);
+    const strain = 0.5 * pulse(t, T.pull, 0.1);
     const glowUp = strandFlare(t, T.pull, { lead: 0.03, decay: 0.8 });
     return {
       shake: [0, shake], zoom: 1 + zoom, ca: LOOK.ca * (1 + 0.9 * strain),
@@ -601,9 +618,8 @@ export default class Cite extends Scene {
     this.tab?.dispose();
     this.chip?.dispose();
     this.pointer?.dispose();
-    for (const x of [this.through, this.flashA, this.flashB, this.flare, this.rangeGlow, this.sign, this.backdrop]) x?.dispose();
+    for (const x of [this.ink, this.bloom, this.flare, this.rangeGlow, this.sign, this.backdrop]) x?.dispose();
     this.thread?.dispose();
-    this.needle?.dispose();
     this.stage?.dispose();
   }
 }

@@ -1,14 +1,13 @@
-// Scene `cite`: its times against the film's own voiceover and beat grid (cite-time.ts timesOf), the needle's run along
-// its thread (where its tip is, the thread's end, the slack taken up), the thread's route (in front of the file's face in
-// the air, behind it under the cited lines, out again under line 14), the needle's shape, and the copy against the facts
-// sheet (the file line for line, the citation's line range on the shown file's own lines, the blame).
+// Scene `cite`: its times against the film's own voiceover and beat grid (cite-time.ts timesOf), the thread's run along
+// its route (where its drawn tip is, the slack drawn in), the route (on the label's face, through the air, lying on the
+// file's face beside the cited lines, never into a panel), and the copy against the facts sheet (the file line for line,
+// the citation's line range on the shown file's own lines, the blame).
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { EYE_TO_TIP, NEEDLE, POISE, eyeAt, formAt, hermite, tautAt, threadEnd, timesOf, tipAt, tipPasses, type Run } from './cite-time';
-import { ArcPath, airRoute, stitchRoute, type P3 } from './cite-path';
-import { SHAPE, needleProfile } from './cite-needle';
-import { CITED, CITE_RUNS, FILE_TEXT } from './cite';
+import { hermite, layEnd, tautAt, timesOf, tipAt, tipPasses, type Run } from './cite-time';
+import { ArcPath, LAND, seamRoute } from './cite-path';
+import { CITED, CITE_RUNS, FACES, FILE_TEXT, THREAD_PX, seamSpec } from './cite';
 import { VO, norm } from '../engine/vo';
 import { AudioData } from '../engine/audio';
 import S from './cite.strings.json';
@@ -52,7 +51,7 @@ describe('cite: its times come from the data', () => {
     expect(T.draw.end).toBeLessThan(at("i'll"));
   });
 
-  test('the needle forms out of the pause, done with "I\'ll"; strikes on the downbeat; out an eighth later; the pull lands on "line."', () => {
+  test('the approach runs through the pause, done with "I\'ll"; it lands on the downbeat; the light lands on "line."', () => {
     expect(T.form.at).toBeGreaterThan(T.draw.end);
     expect(T.form.end).toBeGreaterThan(at("i'll"));
     expect(T.form.end).toBeLessThan(T.strike);
@@ -65,53 +64,36 @@ describe('cite: its times come from the data', () => {
   });
 });
 
-describe('cite: the needle runs along its thread', () => {
-  const run: Run = { a: 300, b: 500, end: 600 };
-  test('the thread is drawn out of the label from nothing, the tip hanging over the entry through the pause', () => {
+describe('cite: the thread runs along its route', () => {
+  const run: Run = { land: 400, end: 600 };
+  const speed = (t: number) => (tipAt(t + 0.002, T, run) - tipAt(t - 0.002, T, run)) / 0.004;
+
+  test('it is drawn out of the underline from nothing and never stops until the seam is laid', () => {
     expect(tipAt(T.draw.at - 0.01, T, run)).toBe(0);
-    expect(tipAt(T.draw.end, T, run)).toBeCloseTo(run.a - POISE, 9);
-    expect(tipAt((T.draw.end + T.form.at) / 2, T, run)).toBe(run.a - POISE);
-    for (let t = T.draw.at; t < T.draw.end; t += 0.01) expect(tipAt(t + 0.01, T, run)).toBeGreaterThanOrEqual(tipAt(t, T, run));
+    for (let t = T.draw.at + 0.004; t + 0.004 < layEnd(T); t += 0.004) expect(tipAt(t + 0.004, T, run)).toBeGreaterThan(tipAt(t, T, run));
+    expect(tipAt(layEnd(T), T, run)).toBe(run.end);
+    expect(tipAt(T.end, T, run)).toBe(run.end);
   });
 
-  test('it strikes into the entry on the downbeat, runs under the lines slower than it struck, and is out of the exit on the eighth', () => {
-    expect(tipAt(T.strike, T, run)).toBeCloseTo(run.a, 9);
-    expect(tipAt(T.exit, T, run)).toBeCloseTo(run.b, 9);
-    for (let t = T.form.end; t + 0.004 <= T.pull; t += 0.004) expect(tipAt(t + 0.004, T, run)).toBeGreaterThan(tipAt(t, T, run));
-    const speed = (t: number) => (tipAt(t + 0.002, T, run) - tipAt(t - 0.002, T, run)) / 0.004;
-    const mid = (T.strike + T.exit) / 2;
-    expect(speed(T.strike + 0.004)).toBeGreaterThan(3 * speed(mid));
-    expect(speed(T.exit - 0.004)).toBeGreaterThan(2 * speed(mid));
+  test('it lands on the file on the downbeat at the speed it lays the seam, which is laid before the light lands', () => {
+    expect(tipAt(T.strike, T, run)).toBeCloseTo(run.land, 9);
+    expect(Math.abs(speed(T.strike) / speed(T.strike - 0.004) - 1)).toBeLessThan(0.05);
+    expect(layEnd(T)).toBeLessThan(T.pull);
+    expect(layEnd(T)).toBeGreaterThan(T.exit);
   });
 
-  test('the pull brakes into the rest on the beat, the eye at the thread\'s end, and the tug rings out', () => {
-    expect(eyeAt(tipAt(T.pull, T, run))).toBeCloseTo(run.end, 9);
-    expect(Math.abs(tipAt(T.pull + 0.5, T, run) - (run.end + EYE_TO_TIP))).toBeLessThan(0.01);
-    expect(Math.abs(tipAt(T.pull + 0.03, T, run) - (run.end + EYE_TO_TIP))).toBeGreaterThan(1);
-  });
-
-  test('the thread ends at its tip until the needle forms, the front running back to the eye, then at the eye', () => {
-    expect(formAt(T.form.at, T)).toBe(0);
-    expect(formAt(T.form.end, T)).toBe(1);
-    expect(threadEnd(T.draw.end, T, run)).toBe(tipAt(T.draw.end, T, run));
-    expect(threadEnd(T.form.end, T, run)).toBeCloseTo(eyeAt(tipAt(T.form.end, T, run)), 9);
-    expect(threadEnd(T.exit, T, run)).toBeCloseTo(eyeAt(run.b), 9);
-    for (let t = T.form.at; t <= T.form.end; t += 0.01) expect(threadEnd(t, T, run)).toBeLessThanOrEqual(tipAt(t, T, run));
-  });
-
-  test('the slack is taken up through the pull and rings past straight after it', () => {
+  test('the air draws in as the light lands on "line." and rings past it, settling', () => {
     expect(tautAt(T.exit, T)).toBe(0);
     expect(tautAt(T.pull, T)).toBeCloseTo(1, 9);
     expect(tautAt(T.pull + 0.02, T)).toBeGreaterThan(1);
-    expect(Math.abs(tautAt(T.pull + 0.4, T) - 1)).toBeLessThan(0.01);
+    expect(Math.abs(tautAt(T.pull + 0.5, T) - 1)).toBeLessThan(0.01);
   });
 
-  test('the lines light in order as the point passes under them', () => {
-    const ss = [320, 360, 400, 440, 480];
-    const ts = ss.map((s) => tipPasses(s, T, run));
+  test('the lines light in order as the tip passes them', () => {
+    const ts = [420, 460, 500, 540, 580].map((s) => tipPasses(s, T, run));
     for (let i = 1; i < ts.length; i++) expect(ts[i]!).toBeGreaterThan(ts[i - 1]!);
     expect(ts[0]!).toBeGreaterThan(T.strike);
-    expect(ts[ts.length - 1]!).toBeLessThan(T.exit);
+    expect(ts[ts.length - 1]!).toBeLessThan(layEnd(T));
   });
 
   test('a Hermite segment holds its ends and speeds', () => {
@@ -121,65 +103,40 @@ describe('cite: the needle runs along its thread', () => {
   });
 });
 
-describe('cite: the thread\'s route', () => {
-  const from: P3 = [526, -80, 75], stitch = stitchRoute({ x: 520, top: 72, foot: 226 });
-  const A = stitch[0]!, B = stitch[4]!;
-  const route = (taut: number) => [...airRoute(from, A, taut), ...stitch.slice(1)];
-  const air = airRoute(from, A, 0).length;
+describe('cite: the thread\'s route never goes into a panel', () => {
+  const spec = seamSpec();
+  const inside = (p: { x: number; y: number }, f: { x0: number; y0: number; x1: number; y1: number }) => p.x > f.x0 && p.x < f.x1 && p.y > f.y0 && p.y < f.y1;
 
-  test('it is drawn out of the label, through the air in front of the file, into its face at A', () => {
-    const r = route(0);
-    expect(r[0]).toEqual(from);
-    expect(r[air - 1]).toEqual(A);
-    for (const p of r.slice(1, air - 1)) expect(p[2]).toBeGreaterThan(0);
-    // the run into A is straight and at 45°: the needle's line
-    const [p, q] = [r[air - 3]!, r[air - 2]!];
-    const d1 = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], d2 = [A[0] - q[0], A[1] - q[1], A[2] - q[2]];
-    const cos = (d1[0]! * d2[0]! + d1[1]! * d2[1]! + d1[2]! * d2[2]!) / (Math.hypot(...d1) * Math.hypot(...d2));
-    expect(cos).toBeGreaterThan(0.999);
-    expect(Math.abs(d2[1]! / -d2[2]! - 1)).toBeLessThan(0.15);
+  test('it starts under `L11–14` on the label\'s face and lands on the file at the top of line 11, past the lines\' ends', () => {
+    const r = seamRoute(spec);
+    expect(r[0]![2]).toBeCloseTo(FACES.label.z + spec.lift, 9);
+    expect(r[LAND]![1]).toBeGreaterThan(spec.top);
+    expect(r[LAND]![1]).toBeLessThan(spec.top + 20);
+    expect(r[LAND]![2]).toBeCloseTo(spec.lift, 9);
+    for (const p of r.slice(LAND)) expect(p[2]).toBe(spec.lift);
+    expect(r[r.length - 1]![1]).toBeLessThan(spec.foot);
   });
 
-  test('behind the panel from A to B, then out and past it', () => {
-    expect(A[2]).toBe(0);
-    expect(B[2]).toBe(0);
-    for (const p of stitch.slice(1, 4)) expect(p[2]).toBeLessThan(0);
-    for (const p of stitch.slice(5)) expect(p[2]).toBeGreaterThan(0);
-    const path = new ArcPath(route(0));
-    for (let s = path.atPoint(air - 1) + 2; s < path.atPoint(air + 3) - 2; s += 4) expect(path.at(s).pos.z).toBeLessThan(0);
-  });
-
-  test('taut, the air is the straight line from the label to A; slack, it is longer', () => {
-    const taut = route(1).slice(0, air);
-    for (const p of taut) {
-      const f = (p[1] - from[1]) / (A[1] - from[1]);
-      expect(p[0]).toBeCloseTo(from[0] + (A[0] - from[0]) * f, 9);
-      expect(p[2]).toBeCloseTo(from[2] + (A[2] - from[2]) * f, 9);
-    }
-    expect(new ArcPath(route(0)).atPoint(air - 1)).toBeGreaterThan(new ArcPath(route(1)).atPoint(air - 1));
-  });
+  for (const [name, taut] of [['slack', 0], ['drawn in', 1], ['ringing', 1.12]] as const) {
+    test(`${name}: over a panel's face it is always at least its radius in front of it`, () => {
+      const path = new ArcPath(seamRoute(spec, taut, [6, 4, 5]));
+      for (let s = 0; s <= path.length; s += 0.5) {
+        const p = path.at(s).pos;
+        if (inside(p, FACES.label)) expect(p.z - FACES.label.z).toBeGreaterThan(THREAD_PX);
+        if (inside(p, FACES.file)) expect(p.z - FACES.file.z).toBeGreaterThan(THREAD_PX);
+        expect(p.z).toBeGreaterThan(THREAD_PX); // nothing behind the file either
+      }
+    });
+  }
 
   test('a measured route passes through its points, and runs on past its ends along them', () => {
-    const path = new ArcPath(route(0));
-    for (const i of [0, air - 1, air + 3, route(0).length - 1]) {
-      const p = path.at(path.atPoint(i)).pos, q = route(0)[i]!;
+    const r = seamRoute(spec), path = new ArcPath(r);
+    for (const i of [0, LAND, r.length - 1]) {
+      const p = path.at(path.atPoint(i)).pos, q = r[i]!;
       expect(Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2])).toBeLessThan(0.05);
     }
     const end = path.at(path.length).pos, past = path.at(path.length + 10);
     expect(past.pos.distanceTo(end)).toBeCloseTo(10, 6);
-  });
-});
-
-describe('cite: the needle', () => {
-  test('a slim lathe from a round head to a fine point, its eye in the head', () => {
-    const p = needleProfile();
-    expect(p[0]!.x).toBe(0);
-    expect(p[p.length - 1]!.x).toBe(0);
-    expect(p[p.length - 1]!.y).toBe(NEEDLE.len);
-    for (let i = 1; i < p.length; i++) expect(p[i]!.y).toBeGreaterThan(p[i - 1]!.y);
-    expect(Math.max(...p.map((v) => v.x))).toBeLessThan(SHAPE.shaft + SHAPE.swell + 0.01);
-    expect(NEEDLE.eye - SHAPE.eyeHalf).toBeGreaterThan(SHAPE.cap);
-    expect(NEEDLE.eye + SHAPE.eyeHalf).toBeLessThan(NEEDLE.len - SHAPE.taper);
   });
 });
 

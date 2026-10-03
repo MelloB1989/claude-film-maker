@@ -1,10 +1,11 @@
-// The thread's route for `cite` (Plan 2 Task 17), in the editor's px (x right, y down from its top edge, z out of its
-// face): drawn out of the end of the citation's label, down through the air in front of the file to the top of line 11
-// just past the lines' ends (A), behind the panel under lines 11–14, out again at the foot of line 14 (B), and on past
-// the panel's edge to where the eye comes to rest (the route's end).
+// The thread's route for `cite` (Plan 2 Task 17, fix 1), in the editor's px (x right, y down from its top edge, z out of
+// its face). One continuous line, never through anything: it starts as an underline lying on the citation label's face
+// under `L11–14`, runs off the label's foot, falls in one long curve through the air in front of the file, and comes
+// down onto the file's face at the top of line 11 just past the lines' ends (the landing), where it lies flat and runs
+// down the margin beside lines 11–14 as a seam, turning in under line 14 like a bracket's foot (the route's end).
 //
-// The route through the air is drawn slack (a living S as it is drawn out and hangs) and pulled taut by the stitch: a
-// straight line from the citation to A. Behind the panel and after B it never moves.
+// Wherever it lies on a face it lies a hair above it (its radius plus a little), so no geometry ever passes into a panel.
+// The air between is a slack curve that breathes while it is drawn and draws in a little when the light lands (taut).
 //
 // ArcPath measures a route as the Thread draws it: a centripetal Catmull-Rom through the points (three's
 // CatmullRomCurve3, as thread3d's sampleArc), by arc length on a dense polyline. The centripetal curve keeps its shape
@@ -83,60 +84,61 @@ export class ArcPath {
   }
 }
 
-/** The holes and the stitch's shape behind the panel and after it, from the margin's x and the rows it binds. */
-export interface StitchSpec {
-  /** The stitch's x in the right margin. */
+/** Where the seam lies: the underline on the label, the margin's x and the rows it runs beside (editor px). */
+export interface SeamSpec {
+  /** The underline under the citation's range: its left and right ends, its y, and the label's face z. */
+  under: { x0: number; x1: number; y: number; z: number };
+  /** The label's foot (y), where the thread runs off it. */
+  labelFoot: number;
+  /** The seam's x in the file's right margin, and the top of the first row and the foot of the last it runs beside. */
   x: number;
-  /** The top of the first row it binds and the foot of the last (px). */
   top: number;
   foot: number;
+  /** How far above a face the thread's axis lies (px): its radius and a little air. */
+  lift: number;
 }
 
-/** How far inside the bound rows the holes are, how deep the needle runs behind the panel (px). */
-const INSET = 7;
-const DEPTH = 46;
+/** The index of the landing (the first point lying on the file's face) in seamRoute's points. */
+export const LAND = 8;
+
+/** The air's arc: the angles (degrees, 0 at the underline's end, 90 at the approach) its points sit at. */
+const ARC = [18, 38, 56, 73];
 
 /**
- * The route behind the panel and on to the rest, from A: in at 45° to the face, down behind lines 11–14 at DEPTH, up
- * through B at 45°, then out and away past the panel's right edge, the eye coming to rest in the air. Index 0 is A, 4 is B.
+ * The route from the underline to the seam's foot. The air is one quarter-ellipse in the label's and file's plane, from
+ * the underline's end (running on right, so the underline flows into it) round to the approach straight down onto the
+ * margin, so it never turns back on itself; it stays a hair over the label's face until it has passed its foot, then
+ * swells toward the lens and comes down to lie on the file. `taut` 0..1 draws the arc in toward its chord and the swell
+ * back (past 1 it rings the other way); `sway` (px) breathes the air while it is drawn.
  */
-export function stitchRoute(s: StitchSpec): P3[] {
-  const a = s.top + INSET, b = s.foot - INSET, mid = (a + b) / 2, x = s.x;
+export function seamRoute(s: SeamSpec, taut = 0, sway: P3 = [0, 0, 0]): P3[] {
+  const { under: u, x, top, foot, lift } = s, zl = u.z + lift, zf = lift;
+  const k = 1 - 0.3 * taut;
+  const near: P3 = [x, top - 40, zf + 14];
+  const rx = near[0] - u.x1, ry = near[1] - u.y;
+  // the angle where the arc runs off the label's foot, with a little margin: the face's z holds until past it
+  const off = (Math.acos(clamp((near[1] - s.labelFoot) / ry, -1, 1)) * 180) / Math.PI + 4;
+  const air = ARC.map((deg): P3 => {
+    const th = (deg * Math.PI) / 180, f = deg / 90;
+    const ex = u.x1 + rx * Math.sin(th), ey = near[1] - ry * Math.cos(th);
+    const cx = lerp(u.x1, near[0], f), cy = lerp(u.y, near[1], f);
+    const w = Math.sin(Math.PI * f); // the sway is largest mid-arc and nothing at its ends
+    const fall = smooth(clamp((deg - off) / (90 - off)));
+    const swell = deg > off ? 34 * k * Math.sin((Math.PI * (deg - off)) / (90 - off)) : 0;
+    return [lerp(cx, ex, k) + w * sway[0], lerp(cy, ey, k) + w * sway[1], lerp(zl, near[2], fall) + swell + w * Math.max(0, sway[2])];
+  });
   return [
-    [x, a, 0],
-    [x, a + 0.33 * (mid - a) + 8, -0.55 * DEPTH],
-    [x, mid, -DEPTH],
-    [x, b - 0.33 * (b - mid) - 8, -0.55 * DEPTH],
-    [x, b, 0],
-    [x + 1, b + 22, 22],
-    [x + 20, b + 42, 36],
-    [x + 62, b + 56, 44],
+    [u.x0, u.y, zl],
+    [u.x1, u.y, zl],
+    ...air,
+    near,
+    [x, top - 12, zf + 3],
+    [x, top + 6, zf],
+    [x, (top + foot) / 2, zf],
+    [x, foot - 16, zf],
+    [x - 9, foot - 4, zf],
+    [x - 30, foot - 1, zf],
   ];
 }
 
-/**
- * The route through the air from the citation's end `from` (just behind the label's face, so the thread comes out of
- * it) to A, slack: out of the label toward the camera, falling in a long curve that swells toward the lens, then a
- * straight run into A from above at 45° (the needle's line when it strikes, so the thread trails straight out of its
- * eye). `taut` 0..1 straightens it into the line from `from` to A (past 1, it bows the other way: the twang); `sway` (px)
- * breathes it sideways while it hangs. A is the route's last point.
- */
-export function airRoute(from: P3, A: P3, taut: number, sway: P3 = [0, 0, 0]): P3[] {
-  const [fx, fy, fz] = from, [ax, ay, az] = A, dy = ay - fy;
-  const line = (f: number): P3 => [lerp(fx, ax, f), fy + dy * f, lerp(fz, az, f)];
-  const k = 1 - taut;
-  const at = (f: number, slack: P3): P3 => {
-    const l = line(f), w = Math.sin(Math.PI * f); // the sway is largest mid-fall and nothing at the ends
-    return [lerp(l[0], slack[0], k) + w * sway[0], lerp(l[1], slack[1], k) + w * sway[1], lerp(l[2], slack[2], k) + w * sway[2]];
-  };
-  // the curve: offsets from the straight line at fractions of the fall
-  const curve: { f: number; off: P3 }[] = [{ f: 0.05, off: [3, 0, 13] }, { f: 0.22, off: [13, 0, 30] }];
-  // the straight run in: points on the 45° line above A, at their own fractions of the fall
-  const run: P3[] = [[ax + 8, ay - 88, az + 82], [ax + 4, ay - 44, az + 41]];
-  return [
-    [fx, fy, fz],
-    ...curve.map(({ f, off }) => { const l = line(f); return at(f, [l[0] + off[0], l[1] + off[1], l[2] + off[2]]); }),
-    ...run.map((p) => at((p[1] - fy) / dy, p)),
-    [ax, ay, az],
-  ];
-}
+const smooth = (x: number) => x * x * (3 - 2 * x);
