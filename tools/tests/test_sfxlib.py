@@ -418,3 +418,35 @@ def test_a_slice_ends_before_the_next_hit_even_one_not_chosen():
     assert len(parts) == 3
     for p in parts:
         assert len(p) < 0.3 * SR                                        # never reaches the quiet hit 0.3 s later
+
+
+def test_find_hit_skips_a_hissy_pre_roll():
+    rng = np.random.default_rng(4)
+    y = click_take(dur=0.5, at=0.15)
+    y[: int(0.15 * SR)] += (0.03 * rng.normal(0, 1, int(0.15 * SR))).astype(np.float32)  # −24 dB hiss before
+    assert find_hit(y, SR, "onset") == pytest.approx(0.15, abs=0.001)
+
+
+def test_pick_passes_over_a_variant_far_quieter_than_the_rest():
+    loud = qc(process(click_take(), SR, sound_spec())[0], SR)
+    faint = dict(loud, peak_dbfs=-38.0, lufs=loud["lufs"] - 30, attack_ms=0.0)
+    assert pick([{"qc": faint, "align": "onset"}, {"qc": dict(loud, attack_ms=5.0), "align": "onset"}], "x") == 1
+
+
+def test_a_sound_can_set_its_own_slice_gap(tmp_path):
+    class Rapid(CountingClient):
+        def sound(self, text, duration_seconds=None, **kw):
+            self.calls += 1
+            rng = np.random.default_rng(self.calls)
+            y = rng.normal(0, 1e-5, int(duration_seconds * SR)).astype(np.float32)
+            for s in (0.1, 0.16, 0.22, 0.28):                            # 60 ms apart: under the 80 ms default
+                i, n = int(s * SR), int(0.03 * SR)
+                y[i:i + n] += (0.4 * rng.normal(0, 1, n) * np.exp(-np.arange(n) / (0.004 * SR))).astype(np.float32)
+            return SoundResult(pcm16(y), "pcm_48000", 20, "r")
+    pal = palette_with("flap", variants=1, duration=1.0, slice=4)
+    run(pal, Rapid(), tmp_path)
+    assert "flap_4/0" not in json.loads((tmp_path / "manifest.json").read_text())["variants"]
+    pal["sounds"]["flap"]["slice_gap"] = 0.04
+    from gitloom_film.sfxlib import reprocess
+    reprocess(pal, tmp_path / "lib", tmp_path / "manifest.json")
+    assert "flap_4/0" in json.loads((tmp_path / "manifest.json").read_text())["variants"]

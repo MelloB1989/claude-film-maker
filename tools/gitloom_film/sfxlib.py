@@ -190,11 +190,17 @@ def find_hit(y: np.ndarray, sr: int, align: str | None) -> float:
         return float(np.argmax(a)) / sr
     if align == "end":
         return _audible_end(y, sr) / sr
-    noise = _noise_floor(y, sr)
-    hi = min(max(0.1 * peak, 4 * noise), 0.5 * peak)
-    j = int(np.argmax(a > hi))
-    lo = min(max(0.02 * peak, 3 * noise), hi)
-    return _walk_back(a, j, lo, max(1, int(0.0005 * sr))) / sr
+    # The first 1 ms frame within 12 dB of the loudest frame is the hit; walk back from its first loud sample to
+    # where the signal falls to the background just before it (hiss or room before a hit is not the hit).
+    hop = max(1, int(0.001 * sr))
+    env = _frame_rms(y, sr, 0.001)
+    f = int(np.argmax(env >= 0.25 * env.max()))
+    seg = a[f * hop:(f + 1) * hop]
+    j = f * hop + int(np.argmax(seg >= 0.5 * seg.max()))
+    bg_lo, bg_hi = max(0, f - 50), max(0, f - 5)
+    bg = float(np.median(env[bg_lo:bg_hi])) if bg_hi > bg_lo else 0.0
+    lo = min(max(0.02 * peak, 3 * _noise_floor(y, sr), 2.5 * bg), 0.5 * a[j])
+    return _walk_back(a, j, lo, max(1, int(0.0005 * sr)), floor=max(0, j - int(0.03 * sr))) / sr
 
 
 def _audible_end(y: np.ndarray, sr: int) -> int:
@@ -359,11 +365,13 @@ def faults(q: dict, align: str | None, loop: bool = False) -> list[str]:
 
 def pick(variants: list[dict], family: str) -> int:
     """The auto pick: drop clipped, >60 % silent, peaking under −40 dBFS, or (one-shots) no onset in the first
-    300 ms; of the rest, the sharpest attack for onset sounds, the smoothest envelope for beds, risers and whooshes.
+    300 ms, and any more than 20 LU quieter than the loudest survivor; of the rest, the sharpest attack for onset sounds, the smoothest envelope for beds, risers and whooshes.
     −1 when every variant fails. `family` is kept for the record; the shape comes from each variant's align/loop."""
     ok = [i for i, v in enumerate(variants) if not faults(v["qc"], v.get("align"), v.get("loop", False))]
     if not ok:
         return -1
+    top = max(variants[i]["qc"]["lufs"] for i in ok)
+    ok = [i for i in ok if variants[i]["qc"]["lufs"] >= top - 20]  # a take 20 LU under the best is a near-miss
     if all(variants[i].get("align") == "onset" and not variants[i].get("loop") for i in ok):
         return min(ok, key=lambda i: (variants[i]["qc"]["attack_ms"], -variants[i]["qc"]["peak_dbfs"]))
     return min(ok, key=lambda i: variants[i]["qc"]["roughness_db"])
@@ -429,7 +437,7 @@ def _store(palette: dict, manifest: dict, lib: Path, sid: str, v: int, req: dict
                                                  out, hit, q)
     n = int(spec.get("slice", 0) or 0)
     if n:
-        parts = slice_hits(y - np.mean(y), SR, n)
+        parts = slice_hits(y - np.mean(y), SR, n, float(spec.get("slice_gap", 0.08)))
         for k, part in enumerate(parts, 1):
             manifest["variants"][f"{sid}_{k}/{v}"] = _record(
                 lib, sid, v, key, req, seed, fmt, 0, measured, request_id, part, PRE_S, qc(part, SR),
