@@ -109,6 +109,8 @@ const TAB_H = FOOT + 9 - TAB_TOP;
 const FOV = 24;
 /** The thread's radius (px): a fine thread, a stroke of the type's weight, so it sits in the UI's scale. */
 const THREAD_PX = 1.8;
+/** The send-off's run down the seam before the cut (s). */
+const SEND_OFF = 0.22;
 /** How far above a face the thread's axis lies where it lies on one (px): its radius and a little air. */
 const LIFT = THREAD_PX + 1.3;
 
@@ -136,6 +138,39 @@ export function seamSpec(): SeamSpec {
   const [x0, uy, uz] = chatToEd(LABEL.x + LG.textX + R[0] * LG.adv - UNDER.pad, y, LABEL.z);
   const x1 = chatToEd(LABEL.x + LG.textX + R[1] * LG.adv + UNDER.pad, y)[0];
   return { under: { x0, x1, y: uy, z: uz }, labelFoot: FACES.label.y1, x: STITCH_X, top: TOP, foot: FOOT, lift: LIFT };
+}
+
+// ------------------------------------------------------------------------------------------------ the last stop (pure)
+
+/** The file's frame in the world: it hangs at the origin, PXW world units a px, facing +z (Cite.init sets edG so). */
+const ED_FRAME = new THREE.Matrix4().makeScale(PXW * 1000, PXW * 1000, PXW * 1000);
+/** A point in the editor's px (x right, y down from its top edge, z out of its face), in the world (as Cite.edPx). */
+const edAt = (x: number, y: number, z = 0) => new THREE.Vector3((x - EW / 2) / 1000, (EH / 2 - y) / 1000, z / 1000).applyMatrix4(ED_FRAME);
+/** World points boxing editor px [x0, x1] × [y0, y1] at depth z (px). */
+const boxAt = (x0: number, y0: number, x1: number, y1: number, z = 0) => [edAt(x0, y0, z), edAt(x1, y0, z), edAt(x0, y1, z), edAt(x1, y1, z)];
+/** The same for a box in the chat's px (on its face, or `z` in front of it), as Cite.chatBox. */
+const chatBoxAt = (x0: number, y0: number, x1: number, y1: number, z = 0) => [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].map(([x, y]) => edAt(...chatToEd(x!, y!, z)));
+
+/**
+ * The camera's last stop, as the scene ends on all of it: the question and its claim, the citation, the thread, the lines
+ * it lies beside, the blame beside them (inside the title-safe frame).
+ */
+function restKey(t: number): CamKey {
+  const label = chatBoxAt(LABEL.x, LABEL.y, LABEL.x + LABEL.w, LABEL.y + LABEL.h, LABEL.z);
+  return fitKey(t, [...chatBoxAt(0, chatRow(0) - 8, CW, chatRow(3)), ...label, ...boxAt(TAB.tuck - TAB.w - 10, TOP - 6, EW + 175, EH)], { az: -12.5, el: 5.8, fov: FOV, margin: [0.07, 0.095], bias: [0, -0.02], roll: -0.85 }, ED_FRAME);
+}
+
+/**
+ * The seam's run in the frame as the scene ends (cite → braid whips out along it): the unit direction, logical px with
+ * y down, from where it lies down onto line 11 to its foot beside line 14, through the camera's last stop.
+ */
+export function seamAxis(): [number, number] {
+  const cam = new THREE.PerspectiveCamera(FOV, W / H, 0.01, 30);
+  new CameraRig([restKey(0)]).apply(cam, 0);
+  const px = (p: THREE.Vector3) => { const v = p.clone().project(cam); return [((v.x + 1) / 2) * W, ((1 - v.y) / 2) * H] as const; };
+  const a = px(edAt(STITCH_X, TOP, LIFT)), b = px(edAt(STITCH_X, FOOT, LIFT));
+  const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  return [(b[0] - a[0]) / d, (b[1] - a[1]) / d];
 }
 
 /** An ease 0..1 that leaves at speed a and arrives at speed b (multiples of the segment's mean speed): a cubic Hermite. */
@@ -366,6 +401,10 @@ export default class Cite extends Scene {
       const r = prog(t, T.pull - 0.04, T.pull + 0.16, ease.outCubic);
       glows.push({ u: lerp(1, 0, r), w: 0.16, k: 1 - 0.35 * r });
     }
+    // the send-off: as the scene ends a light runs down the seam from the landing to its foot and on out of it, faster
+    // and faster, and the camera whips after it (cite → braid, along the seam: seamAxis)
+    const go = prog(t, T.end - SEND_OFF, T.end, ease.inQuad);
+    if (go > 0) glows.push({ u: lerp(run.land / L, 1.05, go), w: 0.06, k: 0.9 * clamp(go * 5) });
     this.thread.setStrandLight({ moss: envelopeOf(glows) });
     this.thread.setStrandGlow({ moss: strandGlow(t, T.pull, { lead: 0.02, decay: 1.6 }) });
     return { path, run, tip };
@@ -407,7 +446,10 @@ export default class Cite extends Scene {
     // the ink: a soft moss light on the face under the seam's tip while it lays, fading as it comes to rest
     const p = sew.path.at(sew.tip).pos, laid = layEnd(T);
     const laying = t >= T.strike ? 0.1 * prog(t, T.strike, T.strike + 0.08) * (1 - prog(t, laid - 0.05, laid + 0.25)) : 0;
-    this.ink.set(p.x, p.y, laying, 30);
+    // and the send-off's light runs down the seam to its foot on the face beside it, the camera whipping after it
+    const go = prog(t, T.end - SEND_OFF, T.end, ease.inQuad);
+    const q = go > 0 ? sew.path.at(lerp(sew.run.land, sew.run.end, go)).pos : p;
+    this.ink.set(q.x, q.y, Math.max(laying, 0.3 * clamp(go * 5)), 30);
     // the landing: a slow bloom where the thread touches the file, spreading and fading
     const A = this.seam, dl = t - T.strike;
     this.bloom.set(A.x, A.top + 6, dl >= 0 ? 0.1 * smoothstep(0, 0.05, dl) * Math.exp(-dl / 0.3) : 0, 40 + 50 * clamp(dl / 0.5));
@@ -513,7 +555,7 @@ export default class Cite extends Scene {
       fitKey(T.pull, [...this.labelBox(ux(under.x0) - 20, LABEL.x + LABEL.w), ...this.box(150, -20, EW + 50, FOOT + 24)], { az: -18, el: 8.5, fov: FOV, margin: [0.06, 0.07], bias: [0, 0], roll: -1.3 }, F),
       // settling as the scene ends on all of it: the question and its claim, the citation, the thread, the lines it lies
       // beside, the blame beside them (inside the title-safe frame)
-      fitKey(T.end - 0.02, [...this.chatBox(0, r(0) - 8, CW, r(3)), ...this.labelBox(), ...this.box(TAB.tuck - TAB.w - 10, TOP - 6, EW + 175, EH)], { az: -12.5, el: 5.8, fov: FOV, margin: [0.07, 0.095], bias: [0, -0.02], roll: -0.85 }, F),
+      restKey(T.end - 0.02),
     ];
     return [...ks, ...glide(ks[ks.length - 1]!, move)];
   }
