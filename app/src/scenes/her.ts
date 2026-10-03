@@ -72,6 +72,8 @@ const THREAD_R = REFORM.thread.radius;
 const F_REFORM = REFORM.fstop;
 const F_BEAD = 8;
 const F_TYPE = 2.8;
+/** Frames over which the re-form's plate comes up from ink after the hard cut in (its first frame is ink). */
+const OPEN_FRAMES = 4;
 /** Where along the thread (arc fraction) the bead comes to rest. */
 const BEAD_U = 0.56;
 const BEAD_R = 0.024;
@@ -361,7 +363,10 @@ export default class Her extends Scene {
       // shot 1, the re-form: B03's plate, the whole picture, until the whip's first instant
       const { renderer, comp } = this.ctx;
       clearRT(renderer, out, LIN.ink);
-      this.plate.draw(renderer, comp, out, t);
+      // the cut from ex is hard, to black (transitions/ex-her.ts): the scene's first frame is ink whatever its shutter,
+      // then the plate's light comes up over a few frames, as the cold open's came on
+      const f0 = Math.ceil(this.ctx.start * 30), on = prog(t, (f0 + 0.5) / 30, (f0 + 0.5 + OPEN_FRAMES) / 30, ease.outCubic);
+      if (on > 0) this.plate.draw(renderer, comp, out, t, on < 1 ? { mode: 'normal', opacity: on } : {});
       return { shake: [0, jolt] };
     }
     const headline = t >= T.beatAfterDown; // shot 3, after the cut on the beat

@@ -8,11 +8,12 @@ import { VO } from '../engine/vo';
 import { Track, type TrackData } from '../engine/track';
 import { TITLE_SAFE, fibreSeeds } from '../scenes/ex-cloud';
 import threadEx from './thread-ex';
+import exHer from './ex-her';
 import B01 from '../../../data/track/b01_thread.json';
 
 const DATA = path.resolve(import.meta.dir, '../../../data');
 const vo = new VO(JSON.parse(readFileSync(path.join(DATA, 'vo.json'), 'utf8')));
-const GROUP: TransitionSpec[] = [threadEx];
+const GROUP: TransitionSpec[] = [threadEx, exHer];
 const scene = (id: string) => vo.scenes.find((s) => s.id === id)!;
 
 describe('group A: the specs', () => {
@@ -24,7 +25,10 @@ describe('group A: the specs', () => {
   test('each cut is its scene boundary', () => {
     for (const e of transitionEntries(GROUP, vo.scenes, vo.words)) expect(e.cut).toBe(scene(e.spec.to).start);
   });
-  test('thread → ex is a match', () => expect(threadEx.kind).toBe('match'));
+  test('ex → her is a hard cut; thread → ex is a match', () => {
+    expect(exHer.kind).toBe('cut');
+    expect(threadEx.kind).toBe('match');
+  });
   test('the cold open is a plate: it holds (never runs past its last frame)', () => {
     expect(threadEx.fromMode ?? 'hold').toBe('hold');
   });
