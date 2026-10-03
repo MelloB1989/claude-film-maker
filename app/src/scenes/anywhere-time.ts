@@ -23,7 +23,7 @@ import { norm, type VO, type Word } from '../engine/vo';
 export const DOUBLINGS = 11;
 export const NAMESPACES = 2 ** DOUBLINGS;
 /** The chips under the terminal (the facts sheet's line, split at its dots). */
-export const CHIPS = 4;
+export const CHIPS = 3;
 
 /** A window of song time (s). */
 export interface Span {

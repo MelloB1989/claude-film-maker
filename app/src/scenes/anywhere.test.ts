@@ -1,6 +1,6 @@
 // Scene `anywhere`: its times against the film's own voiceover and beat grid (anywhere-time.ts), its copy against the
 // facts sheet, the namespaces' doubling (each copy's place and where it comes from), the Memory Graph's simulation (pure,
-// settling, its tiers in their regions), the chips' deal and the ✔'s pen.
+// settling, its tiers in their regions) and the chips' deal.
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -8,7 +8,7 @@ import { VO, norm } from '../engine/vo';
 import { AudioData } from '../engine/audio';
 import { lineEnd } from '../engine/panels';
 import { CHIPS, DOUBLINGS, NAMESPACES, blockAfter, cellOf, copyOffset, levelOf, nsName, timesOf } from './anywhere-time';
-import { PEN, chipNames, dealAt, layoutChipRows, penAt } from './anywhere-machine';
+import { CHIP, chipNames, dealAt, layoutChipRows, stackGap } from './anywhere-machine';
 import { TIERS, memoryGraph, placeAt, simulate, tierAngle } from './anywhere-graph';
 import { PLAY, toolWidth } from './anywhere-console';
 import { RIPPLE, rippleDelay } from './anywhere-field';
@@ -36,7 +36,7 @@ describe('anywhere: its times come from the data', () => {
     expect(T.type.end).toBeLessThan(T.enter);
   });
 
-  test('the four chips are dealt a sixteenth apart from the first beat in her pause, Enter a sixteenth before', () => {
+  test('the three chips are dealt a sixteenth apart from the first beat in her pause, Enter a sixteenth before', () => {
     expect(T.chips).toHaveLength(CHIPS);
     expect(onGrid(T.chips[0]!, audio.beats)).toBe(true);
     expect(T.chips[0]!).toBeGreaterThan(word('machine...').end);
@@ -97,8 +97,13 @@ describe('anywhere: the copy is the facts sheet\'s', () => {
     }
   });
 
-  test('the chips are the line\'s four, split at its dots', () => {
-    expect(chipNames(strings[3]!)).toEqual(['one static binary', 'no CGo', 'arm64 + amd64', 'licence verified offline']);
+  test('the chips are the line\'s three, split at its dots', () => {
+    expect(chipNames(strings[3]!)).toEqual(['one static binary', 'no CGo', 'arm64 + amd64']);
+    expect(CHIPS).toBe(3);
+  });
+
+  test('no licence on screen: the product has dropped licensing', () => {
+    for (const s of strings) expect(s).not.toMatch(/licen[cs]e/i);
   });
 
   test('the headlines are her line, split at its pause', () => {
@@ -240,11 +245,10 @@ describe('anywhere: the machine', () => {
     expect(dealAt(land + 0.5, land).tilt).toBeLessThan(0.02);
   });
 
-  test('the chips lay out in rows inside the page, the licence chip last with its ✔', () => {
+  test('the chips lay out in rows inside the page', () => {
     const rows = layoutChipRows(chipNames(strings[3]!), 112, 440, 790);
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(3);
     for (const r of rows) expect(r.x + r.w).toBeLessThanOrEqual(112 + 790 + 1e-6);
-    expect(rows.map((r) => r.check)).toEqual([false, false, false, true]);
   });
 
   test('as the page sets them, a column: one a row from the left edge, each below the last', () => {
@@ -253,10 +257,12 @@ describe('anywhere: the machine', () => {
     for (let i = 1; i < col.length; i++) expect(col[i]!.y).toBeGreaterThan(col[i - 1]!.y);
   });
 
-  test('the ✔\'s pen sets down, runs and lands with its chip', () => {
-    expect(penAt(10 - PEN - 0.01, 10)).toBe(0);
-    expect(penAt(10, 10)).toBeCloseTo(1, 9);
-    expect(penAt(10 - PEN / 2, 10)).toBeGreaterThan(0.2);
+  test('the three spread over the stack\'s height (four chips\' worth), evenly, so the page keeps its weight', () => {
+    const n = chipNames(strings[3]!).length;
+    const col = layoutChipRows(chipNames(strings[3]!), 112, 440, 1, stackGap(n));
+    expect(col[n - 1]!.y + CHIP.h).toBeCloseTo(440 + CHIP.stack, 9);
+    expect(CHIP.stack).toBe(4 * CHIP.h + 3 * CHIP.row);
+    for (let i = 2; i < n; i++) expect(col[i]!.y - col[i - 1]!.y).toBeCloseTo(col[1]!.y - col[0]!.y, 9);
   });
 
   test('the tool rows fit the Playground card', () => {

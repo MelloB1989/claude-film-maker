@@ -148,7 +148,7 @@
     {"text": "Rust", "source": "spec §4 connect"},
     {"text": "<private>", "source": "spec §4 connect"},
     {"text": "$ curl -fsSL https://gitloom.cloud/install.sh | sh   # current: 0.3.0", "source": "spec §4 anywhere"},
-    {"text": "one static binary · no CGo · arm64 + amd64 · licence verified offline", "source": "spec §4 anywhere"},
+    {"text": "one static binary · no CGo · arm64 + amd64", "source": "spec §4 anywhere"},
     {"text": "Playground", "source": "spec §4 anywhere"},
     {"text": "Memory Graph", "source": "spec §4 anywhere"},
     {"text": "Namespaces", "source": "spec §4 anywhere"},

@@ -7,10 +7,9 @@
 //    prompt breathing blood light, waiting, the camera swinging round onto it from the left with the focus on the
 //    prompt. On "On" (its beat) the install line, `curl -fsSL https://gitloom.cloud/install.sh | sh   # current:
 //    0.3.0`, types in with her; over it her headline "On your machine…" types in word by word and "machine" slams in
-//    from depth on her onset, extruded satin bone, a light running along its bevels. Enter, and the four chips are dealt
-//    out from under the terminal on sixteenths into the pause, a spec list: `one static binary` `no CGo`
-//    `arm64 + amd64` `licence verified offline`, the last with a ✔ drawn on in moss (verified); a light glints across
-//    them.
+//    from depth on her onset, extruded satin bone, a light running along its bevels. Enter, and the three chips are dealt
+//    out from under the terminal on sixteenths into the pause, a spec list spread over four chips' height:
+//    `one static binary` `no CGo` `arm64 + amd64`; a light glints across them.
 // 2. The split, on the downbeat between "or" and "in": the camera whips back and right onto both pages, a hairline
 //    drawing down the spine between them. The right page is her cloud, the console recreated (anywhere-console.ts): the
 //    Playground, the Memory Graph and Namespaces deal in on sixteenths, and "or in my cloud." comes up over them,
@@ -46,7 +45,7 @@ import { FPS, clamp, ease, frameIdx, keys, lerp, prog, pulse, smootherstep } fro
 import { Backdrop } from './diff-fx';
 import { ChipShadow, chipGeometry } from './repo-chips';
 import { DOUBLINGS, timesOf, type Times } from './anywhere-time';
-import { CHIP, Check, Headline, chipNames, dealAt, layoutChipRows, penAt, type ChipPlace } from './anywhere-machine';
+import { CHIP, Headline, chipNames, dealAt, layoutChipRows, stackGap, type ChipPlace } from './anywhere-machine';
 import {
   Card, GRAPH, NS, PLAY, opening, paintGraph, paintNamespaces, paintPlayground, playKey, toolBox, type ConsoleCopy, type PlayState,
 } from './anywhere-console';
@@ -114,7 +113,6 @@ interface Chip {
   place: ChipPlace;
   g: THREE.Group;
   shadow: ChipShadow;
-  check: Check | null;
   land: number;
   /** Rest and start (page-local units). */
   home: THREE.Vector3;
@@ -238,25 +236,21 @@ export default class Anywhere extends Scene {
     this.chipSweep = withSweep(this.chipMat);
     this.chipName = unlit(LIN.bone);
     this.mats.push(this.chipMat, this.chipName);
-    const places = layoutChipRows(chipNames(CHIP_LINE), PAGE.left.x0, TERM.y + this.termBox.h + 30, 1);
+    const names = chipNames(CHIP_LINE);
+    const places = layoutChipRows(names, PAGE.left.x0, TERM.y + this.termBox.h + 30, 1, stackGap(names.length));
     places.forEach((place, i) => {
       const cg = new THREE.Group();
       const mesh = new THREE.Mesh(chipGeometry(place.w, CHIP.h, CHIP.r, CHIP.depth, CHIP.bevel), this.chipMat);
-      const nameX = -place.w / 2 + CHIP.pad + (place.check ? 1.15 * CHIP.em : 0);
+      const nameX = -place.w / 2 + CHIP.pad;
       const label = this.flatMono(place.name, CHIP.em, this.chipName);
       label.position.set(nameX, -0.365 * CHIP.em, 0.6);
       cg.add(mesh, label);
-      let check: Check | null = null;
-      if (place.check) {
-        check = new Check(CHIP.em, -place.w / 2 + CHIP.pad - 0.05 * CHIP.em, -0.365 * CHIP.em, 0.8);
-        cg.add(check.mesh);
-      }
       const shadow = new ChipShadow(place.w, CHIP.h, CHIP.r, 36, 1 / 1000);
       const home = this.local(pg, place.x + place.w / 2, place.y + CHIP.h / 2);
       // behind the terminal: its middle, a hair behind its face
       const from = this.local(pg, place.x + place.w / 2, TERM.y + this.termBox.h * 0.45, -(CHIP.depth + 6));
       pg.g.add(cg, shadow.mesh);
-      this.chips.push({ place, g: cg, shadow, check, land: this.T.chips[i]!, home, from });
+      this.chips.push({ place, g: cg, shadow, land: this.T.chips[i]!, home, from });
     });
   }
 
@@ -287,11 +281,6 @@ export default class Anywhere extends Scene {
       c.shadow.u.uOpacity.value = 0.55 * out;
       c.shadow.u.uBlur.value = 8 + 10 * out;
       c.shadow.mesh.position.copy(c.g.position).add(new THREE.Vector3(3 / 1000, -9 / 1000, -(CHIP.depth + 1) / 1000));
-      // the ✔: the pen lands with the chip, hot at its head, the stroke lit as it lands and settling to flat moss
-      if (c.check) {
-        const pen = penAt(t, c.land + 0.05);
-        c.check.set(pen, 0.42 + 1.6 * pulse(t, c.land + 0.05, 0.16), pen > 0 && pen < 1 ? 1 : 0);
-      }
     }
     // a light glints across the chips as the last lands
     const first = this.chips[0]!, last = this.chips[this.chips.length - 1]!;
@@ -651,7 +640,7 @@ export default class Anywhere extends Scene {
       if (o.frustumCulled) (o.frustumCulled = false), culled.push(o);
     });
     this.rig.apply(st.camera, T.split + 0.5);
-    this.poseMachine(T.chips[3]! + 0.2);
+    this.poseMachine(T.chips[T.chips.length - 1]! + 0.2);
     this.poseHeadlines(T.cloud + 0.3);
     this.poseSpine(T.split + 0.5);
     this.poseCloud(T.remember + 0.05);
@@ -732,7 +721,6 @@ export default class Anywhere extends Scene {
     for (const c of this.chips) {
       (c.g.children[0] as THREE.Mesh).geometry.dispose();
       c.shadow.dispose();
-      c.check?.dispose();
     }
     for (const t of this.typeObjs) t.dispose();
     for (const h of this.heads) h.line.dispose();

@@ -2,7 +2,7 @@
   "On your machine…",
   "or in my cloud.",
   "$ curl -fsSL https://gitloom.cloud/install.sh | sh   # current: 0.3.0",
-  "one static binary · no CGo · arm64 + amd64 · licence verified offline",
+  "one static binary · no CGo · arm64 + amd64",
   "Playground",
   "Memory Graph",
   "Namespaces",

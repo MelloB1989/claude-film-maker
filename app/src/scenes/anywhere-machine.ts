@@ -1,19 +1,17 @@
 // The machine's page of scene `anywhere` (Plan 2 Task 24), and the two pages' headlines.
 //
-// - The chips under the terminal: `one static binary` `no CGo` `arm64 + amd64` `licence verified offline` (the facts
-//   sheet's line, split at its dots). repo's solid tiles (repo-chips.ts chipGeometry: satin panel2 under a clear coat,
-//   the name in flat mono bone), dealt out of the machine: each starts hidden behind the terminal (an opaque panel),
-//   slides down out from under its bottom edge on a tight spring that lands on its sixteenth, tipped back and righting,
-//   and a light glints across the row as the last lands. The licence chip carries a ✔ drawn on in moss as it lands:
-//   verified (the panels' check mark, by a pen: connect's ✔ Connected).
+// - The chips under the terminal: `one static binary` `no CGo` `arm64 + amd64` (the facts sheet's line, split at its
+//   dots). repo's solid tiles (repo-chips.ts chipGeometry: satin panel2 under a clear coat, the name in flat mono bone),
+//   dealt out of the machine: each starts hidden behind the terminal (an opaque panel), slides down out from under its
+//   bottom edge on a tight spring that lands on its sixteenth, tipped back and righting, and a light glints across the
+//   row as the last lands. A spec list, spread over the height four chips would take so the page keeps its weight.
 // - The headlines: her words over each page, "On your machine…" and "or in my cloud.", one kerned line each, its hero
 //   word extruded satin bone that slams in from depth on her onset (her's headline), the rest flat Bricolage that types
 //   in word by word as she says it, glyph by glyph on the output frame grid.
 import * as THREE from 'three';
 import { Type3D, type Glyph3D } from '../engine/type3d';
 import { slam } from '../engine/motion';
-import { glow } from '../engine/look';
-import { FPS, frameIdx, prog } from '../engine/util';
+import { FPS, frameIdx } from '../engine/util';
 
 /** Flat type: a sliver of depth (em), no bevel. */
 export const FLAT = { depth: 0.002, bevel: 0 } as const;
@@ -21,8 +19,11 @@ export const FLAT = { depth: 0.002, bevel: 0 } as const;
 // ------------------------------------------------------------------------------------------------ the chips
 
 /** The chips: height, padding round the name, the gap between chips and between rows, corner, depth, bevel, the
- * name's em, and the ✔'s cell (em wide) before the licence chip's name. Panel px. */
-export const CHIP = { h: 46, pad: 16, gap: 14, row: 12, r: 13, depth: 12, bevel: 3, em: 22, check: 1.15 } as const;
+ * name's em, and the stack's height as a column (four chips' worth at the row gap). Panel px. */
+export const CHIP = { h: 46, pad: 16, gap: 14, row: 12, r: 13, depth: 12, bevel: 3, em: 22, stack: 4 * 46 + 3 * 12 } as const;
+
+/** The row gap that spreads `n` chips in a column over the stack's height. */
+export const stackGap = (n: number) => (n > 1 ? (CHIP.stack - n * CHIP.h) / (n - 1) : CHIP.row);
 
 export interface ChipPlace {
   name: string;
@@ -30,25 +31,22 @@ export interface ChipPlace {
   x: number;
   y: number;
   w: number;
-  /** Whether it carries the ✔. */
-  check: boolean;
 }
 
 /** The chip names: the facts sheet's line split at its dots. */
 export const chipNames = (line: string) => line.split(' · ');
 
 /**
- * Lay the chips out in rows from (x0, y0), wrapping before `maxW` (1: one a row, a column): each as wide as its name in
- * mono cells plus padding (and the ✔'s cell on the licence chip).
+ * Lay the chips out in rows from (x0, y0), wrapping before `maxW` (1: one a row, a column), `row` px between rows:
+ * each as wide as its name in mono cells plus padding.
  */
-export function layoutChipRows(names: readonly string[], x0: number, y0: number, maxW: number): ChipPlace[] {
+export function layoutChipRows(names: readonly string[], x0: number, y0: number, maxW: number, row: number = CHIP.row): ChipPlace[] {
   const adv = 0.6 * CHIP.em, out: ChipPlace[] = [];
   let x = x0, y = y0;
-  names.forEach((name, i) => {
-    const check = i === names.length - 1;
-    const w = Array.from(name).length * adv + 2 * CHIP.pad + (check ? CHIP.check * CHIP.em : 0);
-    if (x > x0 && x + w > x0 + maxW) (x = x0), (y += CHIP.h + CHIP.row);
-    out.push({ name, x, y, w, check });
+  names.forEach((name) => {
+    const w = Array.from(name).length * adv + 2 * CHIP.pad;
+    if (x > x0 && x + w > x0 + maxW) (x = x0), (y += CHIP.h + row);
+    out.push({ name, x, y, w });
     x += w + CHIP.gap;
   });
   return out;
@@ -65,80 +63,6 @@ export function dealAt(t: number, land: number) {
   const s = slam(t, land, DEAL);
   const right = slam(t, land + 0.035, { freq: 4.4, damping: 0.66 });
   return { on: s > 0, s, tilt: DEAL.tilt * (1 - right), scale: DEAL.scale + (1 - DEAL.scale) * Math.min(1, s) };
-}
-
-// ------------------------------------------------------------------------------------------------ the ✔
-
-/** The panels' check mark in em from its cell's left end of the baseline, y up (engine/panels.ts CHECK_PTS, CHECK_W). */
-export const CHECK = { pts: [[0.05, 0.37], [0.225, 0.075], [0.565, 0.7]] as const, w: 0.12 };
-/** How long the pen takes (s): it lands with the chip. */
-export const PEN = 0.16;
-
-const UV_VERT = /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
-const v2 = (p: readonly [number, number]) => `vec2(${p[0].toFixed(4)}, ${p[1].toFixed(4)})`;
-
-/**
- * The ✔ on a chip's face, drawn on by a pen: a plane `2·half` em square round the check, its cell's left end of the
- * baseline at the plane's (cx, cy) em offset; premultiplied, its stroke covering the face and its light added.
- */
-export class Check {
-  mesh: THREE.Mesh;
-  private u: Record<string, THREE.IUniform>;
-
-  /** `em`: px per em; the cell's left end of the baseline at (x, y) in the parent's px (y up), z px off the face. */
-  constructor(em: number, x: number, y: number, z: number) {
-    const half = 1.1, mid = { x: 0.3, y: 0.38 };
-    const { pts, w } = CHECK;
-    this.u = { uDraw: { value: 0 }, uLevel: { value: 0 }, uHeat: { value: 0 }, uColor: { value: new THREE.Vector3(...glow('moss', 1)) } };
-    const frag = /* glsl */ `
-      uniform float uDraw, uLevel, uHeat;
-      uniform vec3 uColor;
-      varying vec2 vUv;
-      float sdSeg(vec2 p, vec2 a, vec2 b) {
-        vec2 pa = p - a, ba = b - a;
-        return length(pa - ba * clamp(dot(pa, ba) / max(dot(ba, ba), 1e-9), 0.0, 1.0));
-      }
-      void main() {
-        const vec2 P0 = ${v2(pts[0])}, P1 = ${v2(pts[1])}, P2 = ${v2(pts[2])};
-        vec2 q = (vUv - 0.5) * ${(2 * half).toFixed(3)} + vec2(${mid.x.toFixed(3)}, ${mid.y.toFixed(3)});
-        float l0 = length(P1 - P0), l1 = length(P2 - P1), s = uDraw * (l0 + l1);
-        vec2 head = s <= l0 ? mix(P0, P1, s / l0) : mix(P1, P2, (s - l0) / l1);
-        float d = min(sdSeg(q, P0, s <= l0 ? head : P1), s > l0 ? sdSeg(q, P1, head) : 1e3);
-        float on = step(1e-5, uDraw);
-        float e = d - ${(w / 2).toFixed(4)};
-        float c = clamp(0.5 - e / max(fwidth(e), 1e-5), 0.0, 1.0) * on;
-        vec2 hd = (q - head) / 0.09;
-        float hot = uHeat * exp(-dot(hd, hd)) * on;
-        gl_FragColor = vec4(uColor * (uLevel * c + 3.0 * hot), c);
-      }`;
-    const m = new THREE.ShaderMaterial({ uniforms: this.u, vertexShader: UV_VERT, fragmentShader: frag, transparent: true, depthWrite: false });
-    m.blending = THREE.CustomBlending;
-    m.blendEquation = THREE.AddEquation;
-    m.blendSrc = THREE.OneFactor;
-    m.blendDst = THREE.OneMinusSrcAlphaFactor;
-    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * half * em, 2 * half * em), m);
-    this.mesh.position.set(x + mid.x * em, y + mid.y * em, z);
-    this.mesh.renderOrder = 3;
-  }
-
-  /** How far the pen is (0..1), the stroke's light (a glow() level; 0.42 is flat moss), the pen's head's heat. */
-  set(draw: number, level: number, heat: number) {
-    this.mesh.visible = draw > 0;
-    this.u.uDraw!.value = Math.min(1, Math.max(0, draw));
-    this.u.uLevel!.value = level;
-    this.u.uHeat!.value = heat;
-  }
-
-  dispose() {
-    this.mesh.geometry.dispose();
-    (this.mesh.material as THREE.Material).dispose();
-  }
-}
-
-/** The pen along the ✔ at t, landing at `land`: it sets down, runs the short arm, flicks up the long one. */
-export function penAt(t: number, land: number) {
-  const u = prog(t, land - PEN, land);
-  return 0.3 * u + 0.7 * u * u;
 }
 
 // ------------------------------------------------------------------------------------------------ the headlines
