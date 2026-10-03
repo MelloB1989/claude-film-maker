@@ -315,9 +315,9 @@ def test_the_sheet_is_well_formed():
         re.compile(e["pattern"], re.ASCII)
     for e in facts["verbatim"]:  # a path and the line(s) in it
         assert re.search(r"[\w./-]+\.\w+:\d+", e["source"]), e
-    for e in facts["copy"]:
+    for e in facts["copy"]:  # a scene's treatment in the spec, or the user's own request
         m = re.fullmatch(r"spec §4 (\w+)", e["source"])
-        assert m and m.group(1) in scene_ids(), e
+        assert (m and m.group(1) in scene_ids()) or re.fullmatch(r"user request: \S.*", e["source"]), e
     every = [(kind, e["text"], e.get("source")) for kind in ("verbatim", "copy", "illustrative") for e in facts[kind]]
     assert len(every) == len(set(every)), "an entry is listed twice"
 

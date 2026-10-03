@@ -394,6 +394,7 @@ That's about 169 words. At Jean's tightened pace it's roughly 75 s of speech, pl
 - **L31 and L32**
   - The wordmark types in mono beside the mark, as a git log entry: `gitloom 3f9a1c2`.
   - Below it: `gitloom.cloud` and `start free — no card`.
+  - Once those settle, a small signature credit at the bottom right, inside title-safe: `Created by MelloB`.
 - **Out:** hold 2–3 s on the music tail. The final frame is clean and poster-worthy.
 - **Sung-hook A/B:** the alternate score sings *"I don't forget… I commit"* here (§5.2).
 - **Covers:** brand, CTA.

@@ -9,7 +9,9 @@
 //   L32  "I commit."         "I" flat; "commit." extruded, satin bone with the moss diff glow, slamming in from depth
 //                            on its onset: the callback to the headline in `her` (weave-hero.ts).
 //   the settle (the last downbeat): the site's wordmark, `gitloom 3f9a1c2`, types in as a git log entry under a
-//   hairline, and on the next beat `gitloom.cloud` and the call to action; then a clean hold.
+//   hairline, and on the next beat `gitloom.cloud` and the call to action; on the beat after that settles, the
+//   signature, "Created by MelloB", fades up small in light Bricolage at the frame's bottom right (inside title-safe,
+//   fixed to the screen like a filmmaker's credit, not the column); then a clean hold.
 // The type column is anchored to the mark's tracked corner and scales with the mark's tracked size, so type and plate
 // move as one world through the camera's truck and push.
 import type * as THREE from 'three';
@@ -26,7 +28,7 @@ import { clamp, ease, prog, pulse } from '../engine/util';
 import { Hero, PX_PER_UNIT } from './weave-hero';
 import S from './weave.strings.json';
 
-const [FORGET, COMMIT_LINE, WORDMARK, URL, CTA] = S as [string, string, string, string, string];
+const [FORGET, COMMIT_LINE, WORDMARK, URL, CTA, CREDIT_LINE] = S as [string, string, string, string, string, string];
 const SHOT = 'b15_weave';
 
 // ------------------------------------------------------------------------------------------------ the layout
@@ -38,6 +40,11 @@ const HERO = { fam: F.display(75, 600), px: 300, base: 352 }; // "I commit."
 const RULE = { y: 404, w: 596 };
 const MARK = { fam: F.mono(500), px: 42, base: 470 }; // the wordmark
 const FOOT = { fam: F.mono(400), px: 28, base: 546, dot: 22 }; // gitloom.cloud · start free — no card
+/** The signature: screen px, its right end on title-safe's right edge, its baseline just inside title-safe's bottom
+ * (descenders too), and its fade (s). */
+export const CREDIT = { fam: F.display(100, 300), px: 24, right: 1824, base: 1010, track: 0.6, fade: 0.6 } as const;
+/** When the signature comes up: the beat after the call to action has settled. */
+export const creditAt = (T: { credit: number }) => T.credit;
 
 export default class Weave extends Scene {
   private plate!: Plate;
@@ -102,6 +109,7 @@ export default class Weave extends Scene {
     this.heroI(c, t, x0, y0);
     this.wordmark(c, t, x0, y0);
     c.restore();
+    this.credit(c, t);
     comp.draw(renderer, L.upload(), out);
 
     // a camera punch on the lock and on the slam
@@ -184,6 +192,24 @@ export default class Weave extends Scene {
     }
   }
 
+  /** The signature, bottom right: "Created by" faint, the name a step up in dim bone; a slow fade, no motion. */
+  private credit(c: CanvasRenderingContext2D, t: number) {
+    const u = prog(t, creditAt(this.T), creditAt(this.T) + CREDIT.fade, ease.inOutCubic);
+    if (u <= 0) return;
+    const sp = CREDIT_LINE.lastIndexOf(' ');
+    const by = CREDIT_LINE.slice(0, sp + 1), name = CREDIT_LINE.slice(sp + 1);
+    c.save();
+    c.font = font(CREDIT.fam, CREDIT.px);
+    c.letterSpacing = `${CREDIT.track}px`;
+    c.textAlign = 'right';
+    c.textBaseline = 'alphabetic';
+    c.fillStyle = cssLin(LIN.boneDim, 0.8 * u);
+    c.fillText(name, CREDIT.right, CREDIT.base);
+    c.fillStyle = cssLin(LIN.boneFaint, 0.8 * u);
+    c.fillText(by, CREDIT.right - c.measureText(name).width, CREDIT.base);
+    c.restore();
+  }
+
   override dispose() {
     this.plate?.dispose();
     disposeLayer(this.layer);
@@ -206,8 +232,10 @@ export function timesOf(vo: VO, audio: AudioData, start: number, end: number) {
   if (downs.length < 2) throw new Error('weave: needs two downbeats after the cut');
   const lock = downs[0]!, settle = downs[downs.length - 1]!;
   const after = audio.beats.find((b) => b > settle + 0.05) ?? settle + 60 / audio.bpm;
+  // the signature: the first beat after the call to action has settled (it lands at after + 0.41)
+  const credit = audio.beats.find((b) => b > after + 0.45) ?? after + 60 / audio.bpm;
   return {
-    start, end, lock, settle, after,
+    start, end, lock, settle, after, credit,
     gitloom: at('gitloom'),
     forget: [at('i', 0), at('dont'), at('forget')],
     i: at('i', 1), commit: at('commit'),

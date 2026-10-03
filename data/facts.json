@@ -159,7 +159,8 @@
     {"text": "free plan · no card · storage is free", "source": "spec §4 anywhere"},
     {"text": "gitloom 3f9a1c2", "source": "spec §4 weave"},
     {"text": "gitloom.cloud", "source": "spec §4 weave"},
-    {"text": "start free — no card", "source": "spec §4 weave"}
+    {"text": "start free — no card", "source": "spec §4 weave"},
+    {"text": "Created by MelloB", "source": "user request: end-card credit"}
   ],
   "illustrative": [
     {"text": "vectors.bin · 1536 dims · 0 commits"},
