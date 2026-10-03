@@ -162,19 +162,21 @@ export function cameraKeys(T: Times, top: (i: number, d: number) => number): Cam
     fitKey(T.back.end + 0.06, boxAt(-20, top(ROW.old, now) - 1.0 * lh, EDIT.w + 5, dockLow - 10, DOCK.z / 2), { az: -13, el: 6.5, fov: FOV, margin: [0.07, 0.07], bias: [0.05 * (H0 - H1) / 220, 0], roll: -0.9 }, F, ease.inOutQuad),
     fitKey(T.fwd.at + 0.1, boxAt(10, top(ROW.old, now) - 0.9 * lh, EDIT.w + 10, EDIT.h + DOCK.threadY + 28, DOCK.z / 2), { az: -12, el: 5.5, fov: FOV, margin: [0.06, 0.05], bias: [0, -0.02], roll: -0.85 }, F, ease.inOutQuad),
     // the romance: in close on the two lines, the old one's ember, coming round and down a little
-    closeUp(T.end, (i) => top(i, now)),
+    // (it arrives DIVE.lock s before the cut and holds there, the dive driving on from it: the ember stays put in the frame)
+    closeUp(T.end - DIVE.lock, (i) => top(i, now)),
   ];
 }
 
 // ------------------------------------------------------------------------------------------------ the dive (diff → cite)
 
 /**
- * The dive into the ember, from "diff." to the cut: over `turn` s the camera turns onto the ember until it stands where
- * the close-up frames it, and holds it there while it drives in along that line of sight, faster and faster, `reach` of
- * the way to it by the cut; the ember flares as the camera comes into it. The zoom-through to cite pushes on through the
- * same point (transitions/diff-cite.ts), so the two moves are one.
+ * The dive into the ember, from "diff." to the cut: the camera drives in toward the ember along its line of sight, faster
+ * and faster, `reach` of the way to it by the cut, and the ember flares as the camera comes into it. The romance's
+ * close-up lands `lock` s before the cut, so from then the ember stands still in the frame, where the close-up frames it
+ * (emberAim): the zoom-through to cite (transitions/diff-cite.ts, its `pre` no longer than `lock`) pushes on through that
+ * same point, and the two moves are one.
  */
-export const DIVE = { turn: 0.15, reach: 0.82, flare: 1.9 };
+export const DIVE = { lock: 0.2, reach: 0.82, flare: 1.9 };
 
 /** Where a world point shows in the frame through `cam` (logical px, y down). */
 export function onScreen(cam: THREE.PerspectiveCamera, p: THREE.Vector3): [number, number] {
@@ -208,17 +210,11 @@ export const punch = (t: number, T: Pick<Times, 'strike' | 'dock' | 'back' | 'fw
 export const diveAt = (t: number, T: Pick<Times, 'diff' | 'end'>) => prog(t, T.diff, T.end);
 
 /**
- * The dive on a camera the rig has placed for t: turned so the ember stands on `aim.screen` (fully from `turn` s after
- * "diff."), then moved along that line toward it. Returns how far it has gone (0..reach).
+ * The dive on a camera the rig has placed for t: moved along its line to the ember (so the ember keeps its place in the
+ * frame). Returns how far it has gone (0..reach).
  */
-export function aimDive(cam: THREE.PerspectiveCamera, t: number, T: Pick<Times, 'diff' | 'end'>, aim: { world: THREE.Vector3; screen: [number, number] }): number {
+export function aimDive(cam: THREE.PerspectiveCamera, t: number, T: Pick<Times, 'diff' | 'end'>, aim: { world: THREE.Vector3 }): number {
   if (t <= T.diff) return 0;
-  cam.updateMatrixWorld();
-  const v = aim.world.clone().applyMatrix4(cam.matrixWorldInverse).normalize();
-  const ty = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);
-  const q = new THREE.Vector3(((aim.screen[0] / W) * 2 - 1) * ty * cam.aspect, (1 - (aim.screen[1] / H) * 2) * ty, -1).normalize();
-  const turn = new THREE.Quaternion().slerp(new THREE.Quaternion().setFromUnitVectors(q, v), prog(t, T.diff, T.diff + DIVE.turn, ease.inOutCubic));
-  cam.quaternion.multiply(turn);
   const k = DIVE.reach * ease.inCubic(diveAt(t, T));
   cam.position.lerp(aim.world, k);
   cam.updateMatrixWorld();
@@ -532,7 +528,7 @@ export default class Diff extends Scene {
       [T.dock + 0.1, at(G.textX + 200, ROW.neo, DOCK.z / 3), ease.inOutCubic],
       [T.fwd.end, at(G.textX + 150, ROW.old)],
       // the ember, as the camera turns onto it and dives
-      [T.diff + DIVE.turn, at(G.textX + len(VSCODE) * G.adv, ROW.old), ease.inOutQuad],
+      [T.diff, at(G.textX + len(VSCODE) * G.adv, ROW.old), ease.inOutQuad],
       [T.end, at(G.textX + (len(VSCODE) * G.adv) / 2, ROW.old), ease.inOutQuad],
     ];
     const rom = romance(t, T);
