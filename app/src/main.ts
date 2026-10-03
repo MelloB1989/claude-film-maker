@@ -5,7 +5,8 @@ import { unmaskedRenderer } from './engine/gpu';
 import type { SceneClass } from './engine/scene';
 import type { VO } from './engine/vo';
 import type { AudioData } from './engine/audio';
-import { makeTimeline } from './timeline';
+import { makeTimeline, makeTransitions } from './timeline';
+import { specOf, type TransitionModule } from './engine/transition';
 import { FPS } from './engine/util';
 
 const params = new URLSearchParams(location.search);
@@ -14,6 +15,9 @@ const ONLY = params.get('only'); // comma-separated scene ids to load (faster st
 const FROM = params.get('t') ? parseFloat(params.get('t')!) : null;
 // dev harness: ?module=<name> plays scenes/<name>.ts alone, over the whole film [0, duration] (render.ts --module)
 const MODULE = params.get('module');
+// review harness: ?transition=<file> plays transitions/<file>.ts as the film's only transition (a dev probe, _probe-*.ts,
+// too), usually with only=<from>,<to> (render.ts --transition)
+const TRANSITION = params.get('transition');
 
 const canvas = document.getElementById('c') as HTMLCanvasElement;
 // physical size: 1920x1080 times ?scale= (the page CSS keeps showing it at 1920x1080)
@@ -34,7 +38,19 @@ function moduleTimeline(name: string) {
   }];
 }
 
-const engine = new Engine(canvas, MODULE ? moduleTimeline(MODULE) : makeTimeline);
+// every transition module, the dev probes included (not the tests beside them, as in timeline.ts)
+const transitionModules = import.meta.glob<TransitionModule>(['./transitions/*.ts', '!./transitions/*.test.ts'], { eager: true });
+
+/** The transitions ?transition=<file> plays: that module's alone. */
+function oneTransition(file: string) {
+  return (vo: VO) => {
+    const m = transitionModules[`./transitions/${file}.ts`];
+    if (!m) throw new Error(`transition module not found: transitions/${file}.ts`);
+    return [specOf(m, vo)];
+  };
+}
+
+const engine = new Engine(canvas, MODULE ? moduleTimeline(MODULE) : makeTimeline, MODULE ? undefined : TRANSITION ? oneTransition(TRANSITION) : makeTransitions);
 
 declare global {
   interface Window { __film: any }
@@ -101,6 +117,8 @@ function setupExport() {
     width: PW,
     height: PH,
     timeline: TIMELINE.map(({ id, start, end }) => ({ id, start, end })),
+    /** The transitions in play (validated): their windows around the cut. */
+    transitions: engine.transitions.map(({ id, cut, start, end, spec }) => ({ id, cut, start, end, kind: spec.kind, from: spec.from, to: spec.to })),
     /**
      * Render a single frame at t (seeks as needed), once its scenes have loaded (the first still that needs one loads
      * it, and it stays) and prepared it (plates). Rejects on any scene error, and when the WebGL context is lost.

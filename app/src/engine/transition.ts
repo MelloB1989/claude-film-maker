@@ -2,7 +2,7 @@
 // each side renders at, and the transition's own motion (whip, zoom, match, xfade, dip) as states over the shutter.
 // Pure: no three.js, so bun tests it, and every value is a function of the spec, the scene windows and time.
 // transition-gl.ts draws the states; engine.ts plans which layers a frame renders (framePlan).
-import type { SceneSpan } from './vo';
+import type { SceneSpan, VO } from './vo';
 import { ease as EASE } from './util';
 
 export type TransitionKind = 'cut' | 'whip' | 'match' | 'zoom' | 'xfade' | 'dip';
@@ -36,6 +36,14 @@ export interface TransitionSpec {
   soft?: number;
   /** Default 'inOutQuart'. */
   ease?: 'inOutQuart' | 'inOutCubic' | 'outExpo';
+}
+
+/** A transition module's default export (transitions/<from>-<to>.ts): its spec, or a function of the voiceover that makes it. */
+export type TransitionModule = { default: TransitionSpec | ((vo: VO) => TransitionSpec) };
+
+/** The spec a transition module gives for this voiceover. */
+export function specOf(m: TransitionModule, vo: VO): TransitionSpec {
+  return typeof m.default === 'function' ? m.default(vo) : m.default;
 }
 
 /** A validated spec on the timeline: `id` = `${from}-${to}`, its window [start, end) around `cut`. */
