@@ -98,7 +98,7 @@ def test_the_three_oldest_incidents_fray_from_incidents_and_let_go_across_let_go
         assert S.fray(i, S.release[i]) == pytest.approx(1)
     e = b05.Expiring(S)
     before = e.pose(S.release[0] - 0.01)
-    after = e.pose(S.release[-1] + 1.4)
+    after = e.pose(S.release[-1] + 1.95)
     # in place until they go, then risen away and thinned to nothing
     assert np.max(before["bone"][0][:, 2]) < 3.0
     assert np.mean(after["bone"][0][:, 2]) > 5.0
@@ -135,3 +135,30 @@ def test_the_weave_crosses_warp_and_weft_on_opposite_sides():
     for r in range(3):
         for j in range(4):
             assert np.sign(weave.warp_crimp(r, j, b05.AW)) == -np.sign(weave.weft_crimp(j, r, b05.AF))
+
+
+def test_the_shuttle_is_thrown_glides_and_strikes_its_box_on_the_beat():
+    assert b05.throw(0) == 0 and b05.throw(1) == pytest.approx(1)
+    us = np.linspace(0, 1, 401)
+    xs = np.array([b05.throw(u) for u in us])
+    assert np.all(np.diff(xs) >= 0)  # never back during a flight
+    v = np.gradient(xs, us)
+    assert v[200] == pytest.approx(b05.THROW_PEAK, rel=1e-3)  # full speed mid-flight
+    assert v[-2] > 0.15 * b05.THROW_PEAK  # still moving when it strikes
+    p = S.clock.passes[3]
+    x1 = S.ends(p.k)[1]
+    back = [S.shuttle_x(p.land + d) for d in (0.02, 0.035, 0.05)]
+    assert all(abs(x - x1) > 0.05 for x in back)  # the box throws it back a hair
+    assert S.shuttle_x(p.land + S.clock.settle) == pytest.approx(x1, abs=0.02)  # and it is home before the next pick
+    lift, _, speed = S.shuttle_pose(0.5 * (p.depart + p.land))
+    assert lift == pytest.approx(b05.SH_LIFT) and speed > 0.95
+
+
+def test_the_camera_dollies_in_on_each_hold_and_breathes():
+    rig = b05.CameraRig(S, b05.Expiring(S))
+    for t0, t1, (e0, l0), (e1, l1) in rig.holds:
+        assert np.linalg.norm(np.subtract(l1, e1)) < np.linalg.norm(np.subtract(l0, e0))
+    ts = np.linspace(C.start, C.end, 2000)
+    eyes = np.array([rig.at(t)[0] for t in ts])
+    assert np.max(np.linalg.norm(np.diff(eyes, axis=0), axis=1)) < 2.0  # continuous: no jump between samples
+    assert np.ptp(np.array([b05.breath(t, 0) for t in ts]), axis=0).min() > 0.5

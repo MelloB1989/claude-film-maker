@@ -108,6 +108,30 @@ def spring(t: float, freq: float = 5.0, damping: float = 0.6) -> float:
     return 1 - math.exp(-a * t) * (math.cos(b * t) + (a / b) * math.sin(b * t))
 
 
+THROW_A, THROW_B, THROW_END = 0.14, 0.16, 0.2  # the throw's speed: full within its first A of the flight, checked
+# over its last B down to END of full at the strike
+_THROW_AREA = THROW_A / 2 + (1 - THROW_A - THROW_B) + THROW_B * (1 + THROW_END) / 2
+THROW_PEAK = 1.0 / _THROW_AREA  # its top speed against the flight's mean
+RECOIL = 0.8  # how far the box's end throws it back on landing (loom units)
+SH_LIFT = 0.55  # how far it rides up mid-flight
+ROLL_PER = 46.0  # loom units of travel per turn of roll
+
+
+def throw(u: float) -> float:
+    """0..1 across a flight: the picker throws the shuttle (full speed within THROW_A of the flight), it glides, and the
+    box checks it over the last THROW_B, still moving when it strikes on the beat (a trapezoid of speed, integrated)."""
+    u = _clip01(u)
+    a, b, e = THROW_A, THROW_B, THROW_END
+    if u < a:
+        x = u * u / (2 * a)
+    elif u <= 1 - b:
+        x = a / 2 + (u - a)
+    else:
+        w = u - (1 - b)
+        x = a / 2 + (1 - a - b) + w - (1 - e) * w * w / (2 * b)
+    return x / _THROW_AREA
+
+
 class Cues:
     """The shot's times, from the data: the scene's window, the beat before its first frame (row 0 was beaten in on
     it), the beats the passes land on (to the cut, which the last one lands on), and her words."""
@@ -215,10 +239,30 @@ class Story:
         if p is None:  # after the last landing
             return self.ends(clock.passes[-1].k)[1]
         x0, x1 = self.ends(p.k)
-        return x0 + (x1 - x0) * clock.flight(t, p)  # flight() is 0 until it departs: it waits in its box
+        u = (t - p.depart) / (p.land - p.depart)
+        x = x0 + (x1 - x0) * throw(u)  # 0 until it departs: it waits in its box
+        d = t - p.land
+        if d > 0:  # the box checks it on the beat: it strikes the end and recoils a hair
+            x -= math.copysign(RECOIL, x1 - x0) * math.exp(-d / 0.03) * math.sin(math.pi * min(d / 0.07, 1.0))
+        return x
 
     def shuttle_y(self, t: float) -> float:
         return RACE
+
+    def shuttle_pose(self, t: float) -> tuple[float, float, float]:
+        """(lift, roll, speed 0..1): the shuttle rides up a hair over the lower warps mid-flight, rolls on its long axis
+        as it goes (the pirn's thread turning in the glass catches the light), and how fast it is going."""
+        p = self.clock.current(t)
+        if p is None:
+            p = self.clock.passes[-1]
+        u = _clip01((t - p.depart) / (p.land - p.depart))
+        lift = SH_LIFT * math.sin(math.pi * u) ** 1.5
+        roll = 2 * math.pi * self.shuttle_x(t) / ROLL_PER
+        h = 1e-3
+        x0, x1 = self.ends(p.k)
+        v = abs(self.shuttle_x(t + h) - self.shuttle_x(t - h)) / (2 * h)
+        top = abs(x1 - x0) / (p.land - p.depart) * THROW_PEAK
+        return lift, roll, min(1.0, v / max(top, 1e-9))
 
     # ---- the tiers
     def facts_light(self, t: float) -> float:
@@ -271,8 +315,8 @@ class Story:
         """(y, 0..1): a light running along the skills warps from where the shuttle reached them into the dark beyond
         the fell, as they light (where it is aimed, and how bright)."""
         d = t - self.skills_reached()
-        y = -18.0 + 150.0 * out_cubic(d / 0.7)
-        level = smooth(d / 0.06) * (1 - smooth((d - 0.35) / 0.5))
+        y = -18.0 + 240.0 * out_cubic(d / 1.15)
+        level = smooth(d / 0.06) * (1 - 0.8 * smooth((d - 0.45) / 0.8))  # it runs on into the dark and stays a glow
         return y, level
 
     def skills_shed(self, t: float) -> float:
@@ -488,11 +532,14 @@ class Expiring:
     @staticmethod
     def _flight(rng, i: int) -> dict:
         ax = rng.normal(size=3)
-        return {"row": i, "delay": float(rng.uniform(0.0, 0.16)),
-                "v": np.array([rng.normal(0, 2.5), rng.uniform(1.0, 5.0), rng.uniform(5.0, 10.0)]),
-                "drift": np.array([rng.normal(0, 0.8), rng.uniform(1.0, 3.0), rng.uniform(2.0, 4.0)]),
-                "axis": ax / np.linalg.norm(ax), "spin": float(rng.uniform(0.6, 2.4) * rng.choice([-1, 1])),
-                "drag": float(rng.uniform(0.25, 0.45)), "life": float(rng.uniform(0.55, 0.95))}
+        # let go, not blown apart: a soft lift out of the weave, then a slow rise that curls like ash over a flame
+        return {"row": i, "delay": float(rng.uniform(0.0, 0.22)),
+                "v": np.array([rng.normal(0, 1.6), rng.uniform(0.5, 3.0), rng.uniform(3.0, 6.0)]),
+                "drift": np.array([rng.normal(0, 0.6), rng.uniform(5.0, 9.0), rng.uniform(3.0, 5.0)]),  # into the dark
+                "axis": ax / np.linalg.norm(ax), "spin": float(rng.uniform(0.4, 1.4) * rng.choice([-1, 1])),
+                "drag": float(rng.uniform(0.35, 0.6)), "life": float(rng.uniform(0.9, 1.35)),
+                "curl": float(rng.uniform(0.6, 1.6)), "freq": float(rng.uniform(0.7, 1.4)),
+                "phase": float(rng.uniform(0, 2 * np.pi))}
 
     def _fibres(self, rng) -> dict:
         n = 260
@@ -506,11 +553,11 @@ class Expiring:
         return {"row": rows, "x": x, "ang": ang, "len": length, "lean": lean,
                 "axis": ax / np.linalg.norm(ax, axis=1, keepdims=True),
                 "spin": rng.uniform(2, 9, len(rows)) * rng.choice([-1, 1], len(rows)),
-                "v": np.column_stack([rng.normal(0, 4, len(rows)), rng.uniform(1, 7, len(rows)),
-                                      rng.uniform(6, 16, len(rows))]),
-                "drift": np.column_stack([rng.normal(0, 1.5, len(rows)), rng.uniform(1, 4, len(rows)),
-                                          rng.uniform(2, 5, len(rows))]),
-                "delay": rng.uniform(0.0, 0.2, len(rows)), "life": rng.uniform(0.5, 1.1, len(rows)),
+                "v": np.column_stack([rng.normal(0, 2.5, len(rows)), rng.uniform(1, 4, len(rows)),
+                                      rng.uniform(4, 9, len(rows))]),
+                "drift": np.column_stack([rng.normal(0, 1.2, len(rows)), rng.uniform(5, 10, len(rows)),
+                                          rng.uniform(3, 6, len(rows))]),
+                "delay": rng.uniform(0.0, 0.25, len(rows)), "life": rng.uniform(0.8, 1.3, len(rows)),
                 "radius": 0.018 * rng.uniform(0.7, 1.3, len(rows)), "kink": rng.normal(0.0, 0.3, (len(rows), 2))}
 
     def row_y(self, i: int, t: float) -> float:
@@ -550,10 +597,12 @@ class Expiring:
                         c0 = seg.mean(axis=0)
                         dr = fl["drag"]
                         move = fl["v"] * dr * (1 - math.exp(-age / dr)) + fl["drift"] * age
+                        sw = fl["curl"] * smooth(age / 0.4) * math.sin(2 * math.pi * fl["freq"] * age + fl["phase"])
+                        move = move + np.array([sw, 0.45 * sw * math.cos(fl["phase"]), 0.0])
                         seg = _rotate_about(seg - c0, fl["axis"], fl["spin"] * age) + c0 + move
                         r = r * (1 - smooth((age - 0.15 * fl["life"]) / fl["life"])) ** 1.5
                         if col == "blood":
-                            h = 3.4 * math.exp(-age / 0.45)
+                            h = 3.4 * math.exp(-age / 0.5)
                     if col == "blood":
                         h = h + s.fray(i, t) * 1.1 + 0.15
                     elif col == "moss":
@@ -716,6 +765,17 @@ def label_anchor(story: Story, lane: str) -> tuple[float, float, float]:
 
 # ------------------------------------------------------------------------------------------------ the camera (pure)
 
+def breath(t: float, seed: int) -> np.ndarray:
+    """A smooth, never-repeating wander (each axis about -1..1): a few slow sines at unrelated rates, the operator's
+    breath on a macro rig. Seeded per point (eye, look), so they wander apart and the frame turns as well as drifts."""
+    out = np.zeros(3)
+    for ax in range(3):
+        for k, (f, w) in enumerate(((0.21, 0.55), (0.47, 0.3), (1.13, 0.15))):
+            ph = 2 * math.pi * ((seed * 0.618 + ax * 0.382 + k * 0.137) % 1.0)
+            out[ax] += w * math.sin(2 * math.pi * f * (1 + 0.07 * ax) * t + ph)
+    return out
+
+
 class CameraRig:
     """Low on the cloth side, close to the fell: a macro tour of the tiers. It holds on each tier while she names it,
     drifting slowly (the camera's sultriness), and snaps across to the next on the beat before her next line, a slide
@@ -726,6 +786,8 @@ class CameraRig:
     FOV = 32.0  # vertical, degrees
     FSTOP = 2.2
     SLIDE = 0.3  # a snap's length (s): it lands just after its beat
+    PUSH = 0.14  # how far each hold dollies in on its subject (of the eye's distance to it)
+    BREATH = (0.16, 0.07)  # the handheld macro rig's breath (loom units): the eye's, the look's
 
     def __init__(self, story: Story, expiring: "Expiring | None" = None):
         c, s = story.c, story
@@ -748,6 +810,11 @@ class CameraRig:
             (lands[2], c.end + 0.1, ((sk - 16.0, -46.0, 11.3), (sk - 5.0, 4.0, 0.0)),
              ((sk - 9.5, -43.0, 10.6), (sk + 1.0, 4.0, 0.0))),
         ]
+        # each hold also dollies in on its subject as she speaks (baked into its end key, so the drift stays even and
+        # the snaps' Hermite still meets it at its own speed), and settles a touch lower: intimate, never static
+        self.holds = [(t0, t1, k0, (tuple(np.asarray(k1[0]) + self.PUSH * (np.asarray(k1[1]) - np.asarray(k1[0]))
+                                          + np.array([0.0, 0.0, -0.6])), k1[1]))
+                      for t0, t1, k0, k1 in self.holds]
         self.rack = [(c.incidents - 0.1, c.incidents + 0.45), (c.go + 0.25, lands[1] - 0.05)]
 
     def _pose(self, t: float) -> tuple[np.ndarray, np.ndarray]:
@@ -774,7 +841,7 @@ class CameraRig:
 
     def at(self, t: float) -> tuple[np.ndarray, np.ndarray]:
         eye, look = self._pose(t)
-        return np.asarray(eye, float), np.asarray(look, float)
+        return np.asarray(eye, float) + self.BREATH[0] * breath(t, 0), np.asarray(look, float) + self.BREATH[1] * breath(t, 7)
 
     def focus_point(self, t: float) -> np.ndarray:
         """Where focus is: on the subject the camera looks at (the featured lane's fell, so focus walks tier to tier with
@@ -952,6 +1019,8 @@ def build(ctx):
     S_ = story.lane["skills"]
     sweep = light("skills_sweep", "SPOT", LIGHT["sweep"], (S_.centre - 6.0, -40.0, 26.0), (S_.centre, 0.0, 0.0),
                   spot=math.radians(14), soft=3 * U, temperature=6000, blend=0.7)
+    wake = light("wake", "SPOT", LIGHT["wake"], (0.0, RACE + 26.0, 30.0), (0.0, -3.0, 0.0), spot=math.radians(22),
+                 soft=6 * U, temperature=5000, blend=0.95)
     sheen = _card("sheen", SHEEN_AT, SHEEN_SIZE, LIGHT["sheen"])
     coll.objects.link(sheen)
     blood_rgb = thread.glow_color("blood")
@@ -972,6 +1041,7 @@ def build(ctx):
     _link(pool, dim, "EXCLUDE")
     _link(rim, dim, "EXCLUDE")
     _link(fill, dim, "EXCLUDE")
+    _link(wake, dim, "EXCLUDE")
     _link(top, lane_objs["facts"], "INCLUDE")
     _link(rrim, lane_objs["rules"], "INCLUDE")
     _link(skey, dim, "INCLUDE")
@@ -1045,13 +1115,20 @@ def build(ctx):
             a = story.released(i, t)
             L = story.lane["incidents"]
             c = np.array([L.centre, exp.row_y(i, t), 1.2 + 0.45 * story.fray(i, t)])
-            if a > 0:
-                c = c + np.array([0.0, -1.0, 12.0]) * 0.4 * (1 - math.exp(-a / 0.4)) + np.array([0.0, 0.0, 3.0]) * a
+            if a > 0:  # it rises with the pieces it lights
+                c = c + np.array([0.0, -1.0, 12.0]) * 0.35 * (1 - math.exp(-a / 0.5)) + np.array([0.0, 6.0, 4.0]) * a
             ob.location = Vector(c * U)
-            ob.data.energy = EMBER_W * (0.25 * story.fray(i, t) + (2.2 * math.exp(-a / 0.4) if a > 0 else 0.0))
+            ob.data.energy = EMBER_W * (0.25 * story.fray(i, t) + (2.2 * math.exp(-a / 0.6) if a > 0 else 0.0))
         # the shuttle
         sx = story.shuttle_x(t)
-        shuttle.location = Vector(np.array([sx, RACE, 0.15]) * U)
+        lift, roll, speed = story.shuttle_pose(t)
+        shuttle.location = Vector(np.array([sx, RACE, 0.15 + lift]) * U)
+        shuttle.rotation_euler = (roll, 0.0, 0.0)
+        # the wake: a pool of light that runs along the fell with the shuttle, brightest at full flight
+        wat = np.array([sx - 4.0, RACE + 26.0, 30.0])
+        wake.location = Vector(wat * U)
+        wake.rotation_euler = Vector((np.array([sx, -3.0, 0.0]) - wat) * U).to_track_quat("-Z", "Y").to_euler()
+        wake.data.energy = rigl["wake"][1] * (0.15 + 0.85 * smooth(speed))
         kat = np.array([sx - 6.0, RACE - 16.0, 22.0])
         kick.location = Vector(kat * U)
         kick.rotation_euler = Vector((np.array([sx, RACE, 0.0]) - kat) * U).to_track_quat("-Z", "Y").to_euler()
@@ -1090,8 +1167,8 @@ def build(ctx):
 
 DIFF_REST = 0.15  # DIFF_THREAD's rest level (data/look/thread.json), checked in the tests
 # the light (W), and where the key and rim stand (loom units)
-LIGHT = {"key": 85.0, "pool": 310.0, "rim": 220.0, "fill": 0.0, "facts": 0.9, "rules": 90.0, "sheen": 0.0,
-         "kicker": 5.0, "sweep": 260.0}
+LIGHT = {"key": 85.0, "pool": 310.0, "rim": 260.0, "fill": 0.0, "facts": 0.9, "rules": 90.0, "sheen": 0.0,
+         "kicker": 5.0, "sweep": 300.0, "wake": 7.0}
 LIGHT["facts"] = 3.2
 POOL_FROM, POOL_CONE = (-84.0, 46.0, 22.0), 20.0
 KEY_AT = (-175.0, 95.0, 46.0)
