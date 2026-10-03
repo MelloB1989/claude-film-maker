@@ -724,7 +724,7 @@ def backup(manifest: dict, lib: Path = LIB, dest: Path = BACKUP) -> int:
         for src in [lib / e["wav"], (lib / e["wav"]).with_suffix(".raw")]:
             if src.exists():
                 dst = dest / "lib" / src.relative_to(lib)
-                if not dst.exists() or dst.stat().st_size != src.stat().st_size:
+                if not dst.exists() or _sha(dst) != _sha(src):  # a rebuilt take keeps its size
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(src, dst)
                     n += 1

@@ -517,3 +517,16 @@ def test_a_clip_is_a_flat_run_not_a_sample_that_touches_full_scale():
     assert not is_clipped(y)
     y[9000:9003] = 1.0
     assert is_clipped(y)
+
+
+def test_backup_recopies_a_take_whose_content_changed_at_the_same_size(tmp_path, monkeypatch):
+    from gitloom_film.sfxlib import backup
+    monkeypatch.setattr(sfxlib, "MANIFEST", tmp_path / "manifest.json")
+    run(palette_with("glass_clink", variants=1), CountingClient(), tmp_path)
+    man = json.loads((tmp_path / "manifest.json").read_text())
+    dest = tmp_path / "bk"
+    assert backup(man, tmp_path / "lib", dest) == 2
+    wav = tmp_path / "lib" / man["variants"]["glass_clink/0"]["wav"]
+    b = bytearray(wav.read_bytes()); b[-1] ^= 1; wav.write_bytes(bytes(b))
+    assert backup(man, tmp_path / "lib", dest) == 1
+    assert (dest / "lib" / man["variants"]["glass_clink/0"]["wav"]).read_bytes() == wav.read_bytes()
