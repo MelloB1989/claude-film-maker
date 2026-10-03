@@ -76,11 +76,18 @@ class Plates:
                                 read_png=self.read_png, **kw)
 
 
+def on_ink(peak):
+    """A 32 x 32 plate of near-ink (0.003) with one pixel at `peak`: its brightest value varies, its level hardly."""
+    px = np.full((32, 32, 4), 0.003, np.float32)
+    px[0, 0, :3] = peak
+    return px
+
+
 def test_a_clean_shot_scans_clean_and_reports_its_dimmest_frame(tmp_path):
     t = Plates(tmp_path)
-    t.exr(0, lit(0.5))
-    t.exr(1, lit(0.004))
-    t.exr(2, lit(2.0))
+    t.exr(0, on_ink(0.5))
+    t.exr(1, on_ink(0.004))
+    t.exr(2, on_ink(2.0))
     res = t.scan()
     assert res.plates == 3 and res.from_proxy == 0
     assert res.blank == [] and res.unreadable == [] and res.exempt == []
@@ -258,3 +265,45 @@ def test_files_that_are_not_plates_are_ignored(tmp_path):
 def test_a_shot_with_no_plates_is_an_error_not_a_clean_scan(tmp_path):
     with pytest.raises(FileNotFoundError, match="b07_test"):
         Plates(tmp_path).scan()
+
+
+def level(mean):
+    """A 4 x 4 lit plate whose mean RGB value is `mean`."""
+    px = np.zeros((4, 4, 4), np.float32)
+    px[..., :3] = mean
+    px[..., 3] = 1.0
+    return px
+
+
+def test_a_run_of_plates_whose_level_drops_and_comes_back_is_a_jump(tmp_path):
+    # B05's chunk 4: eleven frames in the middle of a still camera came out with every warp shaded black (the frame lit,
+    # so the blank guard passed it), the frame's mean falling to a third and coming back where the run ended
+    t = Plates(tmp_path)
+    means = [0.05, 0.051, 0.012, 0.012, 0.0118, 0.049, 0.05]
+    for i, m in enumerate(means):
+        t.exr(i, level(m))
+    res = t.scan()
+    assert res.clean is False and res.blank == []
+    assert [(a, b) for a, b, _, _ in res.jumps] == [(F0 + 2, F0 + 4)]
+    text = "\n".join(scan.report(res))
+    assert "1 JUMP" in text and f"JUMP film frames {F0 + 2}-{F0 + 4}" in text and "x4.2" in text
+    assert f"--frames {F0 + 2}-{F0 + 4}" in text
+
+
+def test_a_gentle_change_of_level_is_not_a_jump_and_declared_black_frames_are_left_out(tmp_path):
+    t = Plates(tmp_path)
+    for i, m in enumerate([0.05, 0.07, 0.1, 0.13, 0.1, 0.0, 0.05]):  # a camera snap's x2 at most; a fade through black
+        t.exr(i, level(m))
+    res = t.scan(exempt=lambda f: f == F0 + 5)
+    assert res.jumps == [] and res.clean
+    # a plate judged on its proxy alone has no linear level: no jump is measured across it
+    t.proxy(7, png(200))
+    assert t.scan(exempt=lambda f: f == F0 + 5).jumps == []
+
+
+def test_a_subject_entering_from_ink_steps_once_and_is_not_a_jump(tmp_path):
+    # B03's first frames: ink, then the rope swings in and stays
+    t = Plates(tmp_path)
+    for i, m in enumerate([0.006, 0.033, 0.04, 0.045, 0.045]):
+        t.exr(i, level(m))
+    assert t.scan().jumps == []
