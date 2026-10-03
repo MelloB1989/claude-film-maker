@@ -121,10 +121,26 @@ export const turnStep = (t: number, hit: number) => prog(t, hit - TURN.dur, hit,
 export const flipStep = (t: number, hit: number) => prog(t, hit - FLIP.dur, hit, ease.inOutCubic);
 
 /** The carousel's turn at t (radians): a face's turn on each card's beat, so card k (1-based) is in front from its beat. */
-export function turnAt(t: number, cards: readonly number[]): number {
+export function turnAt(t: number, cards: readonly number[], end?: number): number {
   let a = 0;
   for (const c of cards) a += turnStep(t, c);
+  if (end !== undefined) a += exitStep(t, end);
   return a * STEP;
+}
+
+/**
+ * The cut into `anywhere` (transitions/connect-anywhere.ts): the carousel whips round once more. From `lead` before the
+ * cut the ring starts round to its next face, accelerating (in-quad) through the cut and on into the scene's tail, so
+ * the whip carries the turn: the Rust card swings away to the left as the camera whips right, and the face that comes
+ * round is anywhere's terminal. `lead` is the transition's `pre` (the cards keep their read: the last lands 0.6 s
+ * before it), `tail` its `post` (the scene's handle: it renders on past its end inside the window).
+ */
+export const EXIT = { lead: 0.1, tail: 0.1 } as const;
+
+/** The exit turn's progress (faces, 0..1) at t, for the scene ending at `end`. */
+export function exitStep(t: number, end: number): number {
+  const u = prog(t, end - EXIT.lead, end + EXIT.tail);
+  return u * u;
 }
 
 /**

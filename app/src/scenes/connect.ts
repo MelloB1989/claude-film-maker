@@ -33,7 +33,7 @@ import { LIN } from '../engine/palette';
 import { LOOK } from '../engine/look';
 import { clamp, ease, keys, lerp, prog, pulse } from '../engine/util';
 import { Backdrop, fitKey } from './diff-fx';
-import { FACES, STEP, faceAngle, flipAt, flipStep, penAt, penHeat, tickLevel, timesOf, turnAt, type Times } from './connect-time';
+import { EXIT, FACES, STEP, faceAngle, flipAt, flipStep, penAt, penHeat, tickLevel, timesOf, turnAt, type Times } from './connect-time';
 import { NAME, ROW, SIZE, cardSpecs, copyOf, faceOf, sdkLayout, terminalSpec, type Copy } from './connect-cards';
 import { CHECK_MID, Gloss, Sheen, Tick } from './connect-light';
 import S from './connect.strings.json';
@@ -61,6 +61,15 @@ const SOFTBOX = new THREE.Vector3(Math.sin(THREE.MathUtils.degToRad(34)), -0.05,
 const DEPTH_FADE = 0.3;
 
 const INK = new THREE.Color().setRGB(...LIN.ink);
+const UP = new THREE.Vector3(0, 1, 0);
+
+/**
+ * The whip in from proof (transitions/proof-connect.ts): the camera arrives still swinging right, `yaw` degrees short,
+ * and brakes (out-cubic) onto its first framing over `brake` s.
+ */
+export const ARRIVE = { yaw: 8, brake: 0.4 } as const;
+/** The ring renders on past the end through the cut into `anywhere` (its exit turn: connect-time.ts EXIT). */
+export const HANDLES = { head: 0, tail: EXIT.tail };
 
 interface Face {
   /** Turns the face round the ring's axis to its place; the face's own group sits out on the ring in it. */
@@ -76,6 +85,8 @@ interface Face {
 }
 
 export default class Connect extends Scene {
+  /** The ring renders on past the end through the cut into `anywhere` (its exit turn: connect-time.ts EXIT). */
+  override handles = HANDLES;
   private T!: Times;
   private copy!: Copy;
   private face!: { w: number; h: number };
@@ -112,7 +123,7 @@ export default class Connect extends Scene {
 
   private buildRing() {
     const { w, h } = this.face;
-    this.R = ((w / 2 + GAP / 2) / Math.tan(Math.PI / FACES)) * PX;
+    this.R = ringRadius(this.face);
     const specs = [terminalSpec(this.copy, this.T), ...cardSpecs(this.copy)];
     const sdk = sdkLayout(h);
     specs.forEach((spec, k) => {
@@ -171,7 +182,7 @@ export default class Connect extends Scene {
   }
 
   private poseRing(t: number) {
-    const T = this.T, { w, h } = this.face, sdk = sdkLayout(h), turn = turnAt(t, T.cards);
+    const T = this.T, { w, h } = this.face, sdk = sdkLayout(h), turn = turnAt(t, T.cards, T.end);
     // (the gloss is quieter on the terminal while the camera is in close on it)
     const carousel = prog(t, T.reveal.at, T.reveal.end);
     this.ring.rotation.y = -turn;
@@ -222,7 +233,7 @@ export default class Connect extends Scene {
   }
 
   private keys(): CamKey[] {
-    const T = this.T, term = this.term(), F = this.frontFrame(), { w, h } = this.face;
+    const T = this.T, term = this.term(), F = this.frontFrame();
     const top = (i: number) => term.rowTop(i), lh = term.lineH;
     const cell = (i: number, c: number) => term.cellOrigin(i, c).x;
     const x0 = term.layout.textX;
@@ -242,12 +253,7 @@ export default class Connect extends Scene {
       fitKey(T.out, this.box(x0 - 30, top(ROW.list) - 20, cell(ROW.out, 46), top(ROW.prompt) + lh), { az: -10, el: 4, fov: FOV, margin: [0.05, 0.14], bias: [0, 0.02], roll: -1 }, F, ease.inOutQuad),
       fitKey(T.tick + 0.04, this.box(x0 - 10, top(ROW.list) - 10, cell(ROW.out, 46), top(ROW.prompt) + 0.8 * lh), { az: -9.5, el: 4, fov: FOV, margin: [0.05, 0.13], bias: [0, 0.02], roll: -0.9 }, F, ease.inOutQuad),
       fitKey(T.reveal.at, this.box(cell(ROW.out, 3), top(ROW.list), cell(ROW.out, 46), top(ROW.prompt) + 0.6 * lh), { az: -9, el: 3.8, fov: FOV, margin: [0.05, 0.13], bias: [0, 0.02], roll: -0.8 }, F, ease.linear),
-      // Claude Code: the pull back and up to the carousel, the terminal one face of a ring of them
-      fitKey(T.reveal.end, this.box(-30, -20, w + 30, h + 20), { az: 8, el: 9.5, fov: FOV, margin: [0.22, 0.25], bias: [0, -0.08], roll: 0.5 }, F, ease.inOutCubic),
-      // settling in as the first card flips in, to read them
-      fitKey(T.cards[0]! + 0.3, this.box(-30, -20, w + 30, h + 20), { az: 4, el: 7, fov: FOV, margin: [0.13, 0.2], bias: [0, -0.05], roll: 0.2 }, F, ease.inOutQuad),
-      // and drifting round it as they do
-      fitKey(T.end, this.box(-30, -20, w + 30, h + 20), { az: -6, el: 5.5, fov: FOV, margin: [0.1, 0.18], bias: [0, -0.04], roll: -0.3 }, F, ease.inOutQuad),
+      ...carouselKeys(T, this.face),
     ];
   }
 
@@ -332,6 +338,9 @@ export default class Connect extends Scene {
   render(f: Frame, out: THREE.WebGLRenderTarget): PostOverrides {
     const t = f.t, T = this.T, st = this.stage;
     this.rig.apply(st.camera, t);
+    // the whip in from proof: the camera lands still swinging right, braking onto the prompt
+    const brake = prog(t, T.start, T.start + ARRIVE.brake);
+    if (brake < 1) st.camera.rotateOnWorldAxis(UP, THREE.MathUtils.degToRad(ARRIVE.yaw) * (1 - ease.outCubic(brake)));
     this.poseRing(t);
     this.poseBackdrop(t);
 
@@ -369,4 +378,49 @@ export default class Connect extends Scene {
     this.backdrop?.dispose();
     this.stage?.dispose();
   }
+}
+
+// ------------------------------------------------------------------------------------------------ the carousel's camera
+// Pure, so the cut into `anywhere` can find where the face in front stands on screen (anywhere.ts lands its terminal
+// there).
+
+/** The ring's radius (world) for faces of this size. */
+export function ringRadius(face: { w: number; h: number }) {
+  return ((face.w / 2 + GAP / 2) / Math.tan(Math.PI / FACES)) * PX;
+}
+
+/** The face in front's corners, padded (face px), in the world: TL, TR, BL, BR. */
+function frontBox(face: { w: number; h: number }, pad = [0, 0]) {
+  const R = ringRadius(face), { w, h } = face;
+  const at = (x: number, y: number) => new THREE.Vector3((x - w / 2) * PX, (h / 2 - y) * PX, R);
+  return [at(-pad[0]!, -pad[1]!), at(w + pad[0]!, -pad[1]!), at(-pad[0]!, h + pad[1]!), at(w + pad[0]!, h + pad[1]!)];
+}
+
+/** The carousel's camera keys: the pull back to the ring, settling in as the first card lands, drifting round to the cut. */
+export function carouselKeys(T: Times, face: { w: number; h: number }): CamKey[] {
+  const F = new THREE.Matrix4().makeTranslation(0, 0, ringRadius(face)), ring = frontBox(face, [30, 20]);
+  return [
+    // Claude Code: the pull back and up to the carousel, the terminal one face of a ring of them
+    fitKey(T.reveal.end, ring, { az: 8, el: 9.5, fov: FOV, margin: [0.22, 0.25], bias: [0, -0.08], roll: 0.5 }, F, ease.inOutCubic),
+    // settling in as the first card flips in, to read them
+    fitKey(T.cards[0]! + 0.3, ring, { az: 4, el: 7, fov: FOV, margin: [0.13, 0.2], bias: [0, -0.05], roll: 0.2 }, F, ease.inOutQuad),
+    // and drifting round it as they do
+    fitKey(T.end, ring, { az: -6, el: 5.5, fov: FOV, margin: [0.1, 0.18], bias: [0, -0.04], roll: -0.3 }, F, ease.inOutQuad),
+  ];
+}
+
+/**
+ * Where the face in front stands on screen (logical px) at t, between the first card's landing and the end: its
+ * corners (TL, TR, BL, BR), centre (its middle, projected) and width (the mean of its top and bottom edges).
+ */
+export function frontFaceAt(t: number, T: Times, face: { w: number; h: number }) {
+  const cam = new THREE.PerspectiveCamera(FOV, W / H, 0.01, 30);
+  new CameraRig(carouselKeys(T, face)).apply(cam, t);
+  const screen = (p: THREE.Vector3) => {
+    const v = p.clone().project(cam);
+    return [((v.x + 1) / 2) * W, ((1 - v.y) / 2) * H] as [number, number];
+  };
+  const box = frontBox(face), px = box.map(screen);
+  const centre = screen(box.reduce((s, p) => s.add(p), new THREE.Vector3()).divideScalar(4));
+  return { corners: px, centre, width: (px[1]![0] - px[0]![0] + px[3]![0] - px[2]![0]) / 2 };
 }

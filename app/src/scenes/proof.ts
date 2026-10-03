@@ -60,6 +60,14 @@ const TAB = 0.62;
 const FOV = 24;
 const STOPS = { dark: 2.4, roll: 3.6, final: 6.3 };
 const INK = new THREE.Color().setRGB(...LIN.ink);
+const UP = new THREE.Vector3(0, 1, 0);
+
+/**
+ * The whip into connect (transitions/proof-connect.ts): over the last `lead` s (the transition's `pre`) the camera
+ * swings `yaw` degrees right, in-cubic, so the figure starts away to the left in perspective as the whip takes it. From
+ * the last downbeat the studio's light goes down by `dim` behind the last band of light.
+ */
+export const EXIT = { lead: 0.12, yaw: 7, dim: 0.6 } as const;
 
 /** The %'s smirk on "bad": a hop (em) and a rock of its head (rad), each a damped ring of the house's springiness. */
 const SMIRK = { hop: 0.045, rock: 0.11, freq: 4.5, rockFreq: 4, damping: 0.55 };
@@ -221,6 +229,9 @@ export default class Proof extends Scene {
       bars: T.bars, note1: T.bars + 0.12, note2: T.quote,
     }, c.round, rollEase(c.u), T.beat);
     this.rig.apply(st.camera, t);
+    // the whip into connect: the camera starts to swing right after the light, accelerating into the cut
+    const go = prog(t, T.end - EXIT.lead, T.end);
+    if (go > 0) st.camera.rotateOnWorldAxis(UP, -THREE.MathUtils.degToRad(EXIT.yaw) * go * go * go);
     this.light(t, c.round);
 
     // each drum's window, where the drum stands now
@@ -288,16 +299,19 @@ export default class Proof extends Scene {
     // (in the dark the faces stay near black: bone takes any fill as grey plastic, so only the rim and the sweep's
     // glint on the bevels draw the 44, and a faint top light gives its faces a breath of form)
     Lt.rim.intensity = lerp(lerp(1.1, 1.5, reveal), 2.4, on) * (1 + 0.5 * kick);
-    Lt.top.intensity = lerp(lerp(0, 0.16, reveal), 2.8, on);
-    Lt.key.intensity = lerp(0, 0.14, on);
-    this.stage.scene.environmentIntensity = lerp(lerp(0.012, 0.03, reveal), 0.13, on);
+    // before the cut the studio's light goes down behind the last band, so the band reads as it runs (a scanner across
+    // the figure) and leads the whip out (the faces would hold it white otherwise)
+    const down = T.shine !== null ? 1 - EXIT.dim * ease.inOutCubic(prog(t, T.shine - 0.1, T.shine + 0.25)) : 1;
+    Lt.top.intensity = lerp(lerp(0, 0.16, reveal), 2.8, on) * down;
+    Lt.key.intensity = lerp(0, 0.14, on) * down;
+    this.stage.scene.environmentIntensity = lerp(lerp(0.012, 0.03, reveal), 0.13, on) * down;
     // the pool: a narrow raking spot from the upper left on the figure's left side, so its faces fall off to the right
     const w = this.widths[Math.min(round, this.widths.length - 1)]!;
     const aim = new THREE.Vector3(0.32 * w * EM, CENTRE * EM, 0);
     Lt.pool.position.copy(aim).add(new THREE.Vector3(-0.4, 0.36, 0.5));
     Lt.pool.target.position.copy(aim).add(new THREE.Vector3(0.04, -0.02, 0));
     Lt.pool.target.updateMatrixWorld();
-    Lt.pool.intensity = lerp(lerp(0, 0.16, reveal), 2.4, on);
+    Lt.pool.intensity = lerp(lerp(0, 0.16, reveal), 2.4, on) * down;
     // the backdrop lifts behind the figure with the light
     this.backdrop.set((w / 2) * EM, CENTRE * EM, 0.9, 0.42, lerp(0.3 * reveal, 1, on));
     // the sweeps: the reveal across the 44 as she says it, a narrow glint in the dark; across 91.4 as it lands
@@ -305,9 +319,12 @@ export default class Proof extends Scene {
     if (t < T.slam) sweepAt(this.sweep, t, [{ t0: T.forty, t1: T.forty + 1.1, x0: -0.4 * EM, x1: (w0 + 0.4) * EM, y: 0 }], { width: 0.2 * EM, strength: 4 });
     else {
       // and a last shine across 91.4% on the scene's last downbeat, before the cut
-      const passes = [{ t0: land + 0.03, t1: land + 0.62, x0: -0.4 * EM, x1: (w4 + 0.4) * EM, y: 0 }];
-      if (T.shine !== null) passes.push({ t0: T.shine + 0.02, t1: T.shine + 0.58, x0: -0.4 * EM, x1: (w4 + 0.4) * EM, y: 0 });
-      sweepAt(this.sweep, t, passes, { width: 0.36 * EM });
+      sweepAt(this.sweep, t, [{ t0: land + 0.03, t1: land + 0.62, x0: -0.4 * EM, x1: (w4 + 0.4) * EM, y: 0 }], { width: 0.36 * EM });
+      // the last, from the scene's last downbeat to the cut, accelerating all the way: it leads the whip into connect,
+      // racing off the % to the right as the camera whips after it (transitions/proof-connect.ts)
+      if (T.shine !== null && t >= T.shine + 0.02 && t < T.end) {
+        sweepAt(this.sweep, t, [{ t0: T.shine + 0.02, t1: T.end, x0: -0.4 * EM, x1: (w4 + 1.6) * EM, y: 0 }], { width: 0.5 * EM, strength: 3.6, ease: ease.inCubic });
+      }
     }
   }
 
