@@ -21,6 +21,9 @@
 //    it. As the last bead lands on "me." the camera pulls back to the whole string; on the next beat the file itself,
 //    facts/people/user.md (spec §11.4, line numbers and all), swings in over its far end on a hinge, the beads going to
 //    bokeh behind it.
+// 5. The exit (transitions/repo-loom.ts, a match along the thread): the pull-back lands the string on the screen line of
+//    loom's first fell (B05's track at loom's first frame, repo-exit.ts), and on the last beat its moss light runs out
+//    from HEAD along it both ways, reaching the frame's edges on the cut, where the string becomes loom's weft.
 import * as THREE from 'three';
 import { Scene, disposeLayer, type Frame, type PostOverrides } from '../engine/scene';
 import { CameraRig, Stage, freeTransmission, initAreaLights, type CamKey, type V3 } from '../engine/stage';
@@ -37,6 +40,8 @@ import { norm, type VO, type Word } from '../engine/vo';
 import type { AudioData } from '../engine/audio';
 import { clamp, ease, keys, lerp, prog, pulse } from '../engine/util';
 import { ChipShadow, chipGeometry, chipPop, layoutChips, recoil, type ChipSpec } from './repo-chips';
+import { Track } from '../engine/track';
+import { exitError, fitLine, lineThrough, solve2, type Px, type ScreenLine } from './repo-exit';
 import S from './repo.strings.json';
 
 // ------------------------------------------------------------------------------------------------ the copy
@@ -138,6 +143,14 @@ const FILE_AT = { x: 1480, y: 520, hpx: 690, dist: 0.4 };
 /** Its swing on the hinge (radians, from nearly edge-on to a few degrees open) and its timing: it starts `lead` before
  * the beat and decelerates into place over `dur`, all but there on the beat (a reveal, not a slam). */
 const FILE_SWING = { from: 1.42, to: 0.1, dur: 0.36, lead: 0.24 };
+/** loom's shot: its track has the fell (fell_l, fell_r) the string lands on for the cut. */
+const LOOM_SHOT = 'b05_loom';
+/**
+ * The exit light: the moss runs out from HEAD's bead along the string both ways, from `from` of the way between the
+ * file's landing and the cut, reaching both ends on the cut, accelerating (`n` lights per side, `level` of the lit level).
+ */
+const EXIT = { from: 0.45, n: 24, level: 0.85 };
+
 /** The footnote: mono px, its baseline's left end (frame px), typing speed. */
 const NOTE = { px: 24, x: 150, y: 958, cps: 95 };
 
@@ -239,16 +252,24 @@ export default class Repo extends Scene {
   private kicker!: THREE.RectAreaLight;
   private kick!: THREE.RectAreaLight;
   private mats: THREE.Material[] = [];
+  /** loom's first fell on screen, and the middle of its stretch in frame (px): where the string lands for the cut. */
+  private fell!: ScreenLine;
+  private fellX = 0;
 
-  override init() {
+  override async init() {
     const { renderer, vo, audio, start, end } = this.ctx;
+    // loom's first fell, at loom's first frame (the frame the cut lands on)
+    const loom = await Track.load(LOOM_SHOT), F = Math.ceil(end * 30) / 30;
+    const fl = loom.at('fell_l', F), fr = loom.at('fell_r', F);
+    this.fell = lineThrough(fl, fr);
+    this.fellX = (clamp(Math.min(fl.x, fr.x), 0, W) + clamp(Math.max(fl.x, fr.x), 0, W)) / 2;
     this.T = timesOf(vo, audio, start, end);
     this.stage = new Stage(renderer, { fov: FOV, near: 0.01, far: 30, envIntensity: 0.22 });
     this.buildTerminal();
     this.buildString();
     this.buildFile();
     this.buildLights();
-    this.rig = new CameraRig(this.keys());
+    this.rig = new CameraRig(this.alignExit(this.keys()));
     this.placeLabels();
     this.placeFile();
     this.warmUp();
@@ -438,7 +459,7 @@ export default class Repo extends Scene {
     const T = this.T, th = this.thread, len = th.length();
     // the thread draws on behind the terminal from Enter (the panel hides it), whole by the time the camera is through
     th.setDraw(0, keys(t, [[T.enter, 0], [T.cross, 1, ease.outQuad]]));
-    this.thread.setStrandLight({ moss: envelopeOf(commitGlows(t, this.commits, len)) });
+    this.thread.setStrandLight({ moss: envelopeOf([...commitGlows(t, this.commits, len), ...this.exitGlows(t)]) });
     this.commits.forEach((c, i) => {
       const g = glideU(t, c.u, c.at, len);
       c.bead.mesh.visible = g.s > 0 && t > T.enter;
@@ -457,6 +478,54 @@ export default class Repo extends Scene {
       for (const gl of c.label.glyphs) gl.mesh.visible = gl.i <= n;
       for (const m of c.labelMats) m.opacity = k;
     });
+  }
+
+  /**
+   * The exit light: from HEAD's bead, a lit span runs out along the string both ways, accelerating, so it reaches both
+   * ends of the thread on the cut. The brightest thing in frame then, it is where loom's weft shows through first.
+   */
+  private exitGlows(t: number): StrandGlow[] {
+    const T = this.T, head = this.commits[this.commits.length - 1]!, t0 = lerp(T.fileLand, T.end, EXIT.from);
+    const k = prog(t, t0, T.end, ease.inCubic);
+    if (k <= 0) return [];
+    const reach = k * Math.max(head.u, 1 - head.u), w = reach / EXIT.n + 1e-4, out: StrandGlow[] = [];
+    for (let i = 0; i <= EXIT.n; i++) {
+      const d = (reach * i) / EXIT.n, lv = EXIT.level * (0.55 + 0.45 * k);
+      out.push({ u: head.u - d, w, k: lv }, { u: head.u + d, w, k: lv });
+    }
+    return out;
+  }
+
+  /**
+   * The string on screen at t through a rig: the thread's points in front of the camera and in frame, over the fell's
+   * stretch (px).
+   */
+  private stringOnScreen(rig: CameraRig, t: number): Px[] {
+    const cam = this.scratch, out: Px[] = [], p = new THREE.Vector3();
+    rig.apply(cam, t);
+    cam.updateMatrixWorld();
+    const x0 = clamp(this.fellX * 2 - W, 0, W);
+    for (let i = 0; i <= 400; i++) {
+      this.thread.pointAt(i / 400, p);
+      if (-p.clone().applyMatrix4(cam.matrixWorldInverse).z <= 0) continue;
+      const v = p.project(cam), x = (v.x + 1) * (W / 2), y = (1 - v.y) * (H / 2);
+      if (x >= x0 && x <= W && y >= 0 && y <= H) out.push({ x, y });
+    }
+    return out;
+  }
+
+  /**
+   * The pull-back's last two keys turned (roll) and tilted (their target raised or lowered) by the same amounts, so that
+   * at the cut the string lies on loom's first fell: its angle within 0.05°, its height within half a px at the middle
+   * of the fell's stretch. The file is placed after this, through the same rig, so it keeps its place in frame.
+   */
+  private alignExit(keys: CamKey[]): CamKey[] {
+    const T = this.T, n = keys.length, ends = new Set([n - 2, n - 1]);
+    const shifted = ([dr, dv]: [number, number]) =>
+      keys.map((k, i): CamKey => (ends.has(i) ? { ...k, roll: (k.roll ?? 0) + dr, target: [k.target[0], k.target[1] + dv, k.target[2]] } : k));
+    const err = (p: [number, number]) => exitError(fitLine(this.stringOnScreen(new CameraRig(shifted(p)), T.end)), this.fell, this.fellX);
+    const p = solve2(err, [0, 0], [0.05, 0.0005], [THREE.MathUtils.degToRad(0.05), 0.5]);
+    return shifted(p);
   }
 
   // ---------------------------------------------------------------------------------------------- the file
