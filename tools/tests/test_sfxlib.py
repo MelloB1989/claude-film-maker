@@ -325,3 +325,15 @@ def test_slices_become_sounds_of_their_own(tmp_path):
         assert (tmp_path / "lib" / e["wav"]).exists() and e["hit_s"] == pytest.approx(0.005, abs=1 / SR)
         assert man["picks"][f"insert_pop_{k}"]["gain"] == -22.0
     assert len(plan(pal, man, tmp_path / "lib")) == 0
+
+
+def test_to_wav48_downmixes_interleaved_stereo_by_the_requested_duration():
+    t = np.arange(int(0.48 * SR)) / SR
+    left = (0.4 * np.sin(2 * np.pi * 3000 * t)).astype(np.float32)
+    right = left * 0.8
+    raw = pcm16(np.stack([left, right], axis=1).reshape(-1))
+    out = to_wav48(raw, "pcm_48000", duration=0.5)
+    assert len(out) == len(t) and np.abs(out).max() == pytest.approx(0.36, abs=0.01)
+    mono = to_wav48(pcm16(left), "pcm_48000", duration=0.5)
+    assert len(mono) == len(t)
+

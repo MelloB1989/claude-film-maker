@@ -123,11 +123,25 @@ def estimate(todo, credits_per_second: float) -> int:
 
 # ---------------------------------------------------------------- decoding
 
-def to_wav48(raw: bytes, output_format: str) -> np.ndarray:
-    """API bytes → mono float32 at 48 kHz. pcm_<rate> is PCM16 LE mono; anything else (mp3) goes through ffmpeg."""
+def pcm_channels(n_bytes: int, sr: int, duration: float | None) -> int:
+    """sound-generation's pcm_* comes back as interleaved PCM16 *stereo* (measured: 0.5 s at pcm_48000 is 92160
+    bytes = 0.48 s × 2 channels), although the docs say mono. The requested duration decides: 1 or 2 channels,
+    whichever puts the length nearer it. Without a duration, mono."""
+    if not duration:
+        return 1
+    ratio = (n_bytes / 2) / (duration * sr)
+    return 2 if abs(ratio - 2) < abs(ratio - 1) else 1
+
+
+def to_wav48(raw: bytes, output_format: str, duration: float | None = None) -> np.ndarray:
+    """API bytes → mono float32 at 48 kHz. pcm_<rate> is PCM16 LE, stereo downmixed (see pcm_channels); anything
+    else (mp3) goes through ffmpeg."""
     if output_format.startswith("pcm_"):
         sr = int(output_format.split("_")[1])
-        y = pcm16_to_float(raw)
+        ch = pcm_channels(len(raw), sr, duration)
+        y = pcm16_to_float(raw[:len(raw) - len(raw) % (2 * ch)], ch)
+        if ch > 1:
+            y = y.mean(axis=1)
         if sr != SR:
             g = math.gcd(SR, sr)
             y = resample_poly(y, SR // g, sr // g).astype(np.float32)
@@ -398,7 +412,7 @@ def _store(palette: dict, manifest: dict, lib: Path, sid: str, v: int, req: dict
     spec = palette["sounds"][sid]
     key = request_key(req)
     seed = seed_of(palette, sid, v)
-    y = to_wav48(raw, fmt)
+    y = to_wav48(raw, fmt, req["duration_seconds"])
     out, hit = process(y, SR, spec)
     q = qc(out, SR)
     q["raw_onset_s"] = round(find_hit(y - np.mean(y), SR, "onset"), 5)
