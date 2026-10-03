@@ -284,7 +284,7 @@ def test_qc_rejects_clipped_and_silent():
     q = qc(good, SR)
     assert not q["clipped"] and q["peak_dbfs"] == pytest.approx(-6.0, abs=0.2) and q["silence_ratio"] < 0.6
     assert q["onset_s"] == pytest.approx(0.005, abs=1 / SR)
-    clipped = np.clip(good * 4, -1, 1)
+    clipped = np.clip(good * 40, -1, 1)                                  # flat-topped
     silent = np.zeros(SR, np.float32)
     silent[100:200] = 0.2
     late = click_take(dur=1.0, at=0.6)
@@ -508,3 +508,12 @@ def test_clipping_is_judged_on_the_take_as_generated_not_after_the_high_pass(tmp
             return SoundResult(pcm16(y), "pcm_48000", 20, "r")
     run(palette_with("riser", variants=1, align="end", duration=1.0), Square(), tmp_path)
     assert not json.loads((tmp_path / "manifest.json").read_text())["variants"]["riser/0"]["qc"]["clipped"]
+
+
+def test_a_clip_is_a_flat_run_not_a_sample_that_touches_full_scale():
+    from gitloom_film.sfxlib import is_clipped
+    y = np.sin(2 * np.pi * 200 * np.arange(SR) / SR).astype(np.float32) * 0.9
+    y[1000], y[1001], y[5000] = 1.0, 1.0, -1.0
+    assert not is_clipped(y)
+    y[9000:9003] = 1.0
+    assert is_clipped(y)

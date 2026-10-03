@@ -339,6 +339,16 @@ def lufs(y: np.ndarray, sr: int = SR) -> float:
     return float(-0.691 + 10 * np.log10(np.mean(g)))
 
 
+def is_clipped(y: np.ndarray, run: int = 3) -> bool:
+    """A digital clip is a flat top: `run` or more consecutive samples at full scale. A take normalised to 0 dBFS
+    touches it in a sample or two without clipping."""
+    a = (np.abs(np.asarray(y)) >= 0.999).astype(np.int8)
+    if a.sum() < run:
+        return False
+    edges = np.diff(np.concatenate([[0], a, [0]]))
+    return bool((np.flatnonzero(edges == -1) - np.flatnonzero(edges == 1)).max() >= run)
+
+
 def qc(y: np.ndarray, sr: int) -> dict:
     y = np.asarray(y, dtype=np.float32)
     a = np.abs(y)
@@ -361,7 +371,7 @@ def qc(y: np.ndarray, sr: int) -> dict:
         "dur_s": round(len(y) / sr, 4),
         "centroid_hz": round(centroid, 1),
         "silence_ratio": round(float(np.mean(frames < 10 ** (SILENT_DBFS / 20))), 3),
-        "clipped": bool(int((a >= 0.999).sum()) >= 2),
+        "clipped": is_clipped(y),
         "dc": round(float(np.mean(y)), 6) if len(y) else 0.0,
         "attack_ms": attack_ms,
         "roughness_db": round(rough, 3),
@@ -460,7 +470,7 @@ def _store(palette: dict, manifest: dict, lib: Path, sid: str, v: int, req: dict
     out, hit = process(y, SR, spec)
     q = qc(out, SR)
     q["raw_onset_s"] = round(find_hit(y - np.mean(y), SR, "onset"), 5)
-    q["clipped"] = bool(int((np.abs(y) >= 0.999).sum()) >= 2)  # as generated: the high-pass's overshoot is not a clip
+    q["clipped"] = is_clipped(y)  # as generated: the high-pass's overshoot is not a clip
     manifest["variants"][f"{sid}/{v}"] = _record(lib, sid, v, key, req, seed, fmt, cost, measured, request_id,
                                                  out, hit, q)
     n = int(spec.get("slice", 0) or 0)
