@@ -1,0 +1,11 @@
+[
+  "Facts I keep.",
+  "Incidents… I let go.",
+  "Rules I never break.",
+  "Skills, only when you need them.",
+  "facts/ · long-term",
+  "incidents/ · ttl 30d",
+  "rules/ · loaded whole",
+  "skills/ · lazy",
+  "gc: expire 3 incidents"
+]

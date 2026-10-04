@@ -10,5 +10,12 @@ app/dist/
 __pycache__/
 audio/vo/paced/
 audio/vo/vo.wav
+audio/vo/vo-chain.wav
 audio/music/
 audio/mix/
+# Blender plate proxies (blender/render.py; the EXRs are under out/), and test shots' tracks
+app/public/plates/
+data/track/_*.json
+# the sound library (tools/gitloom_film/sfxlib.py): paid takes and renders; audio/sfx/manifest.json is committed
+audio/sfx/lib/
+audio/sfx/*.wav

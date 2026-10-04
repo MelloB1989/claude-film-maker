@@ -1,4 +1,5 @@
-"""ElevenLabs client: text-to-speech with timestamps, music from a composition plan, and forced alignment.
+"""ElevenLabs client: text-to-speech with timestamps, music from a composition plan, sound generation, and forced
+alignment.
 
 The API key is read from ~/11labs. It is sent only in the xi-api-key header, only to the API host (redirects are
 refused, never followed), and never appears in a repr, an exception, a log line or a file.
@@ -74,6 +75,14 @@ class TTSResult:
 
 
 @dataclass
+class SoundResult:
+    audio: bytes  # raw bytes in output_format (PCM16 LE mono for pcm_*)
+    output_format: str
+    cost: int
+    request_id: str
+
+
+@dataclass
 class MusicResult:
     audio: bytes
     output_format: str
@@ -101,19 +110,23 @@ class ElevenLabs:
     def _request(self, path: str, payload: dict, accept: str, params: dict) -> Response:
         return self._send(path, json.dumps(payload).encode(), "application/json", accept, params)
 
-    def _send(self, path: str, body: bytes, content_type: str, accept: str, params: dict) -> Response:
+    def _send(self, path: str, body: bytes | None, content_type: str, accept: str, params: dict,
+              method: str = "POST") -> Response:
         url = f"{self._base}{path}" + (f"?{urllib.parse.urlencode(params)}" if params else "")
-        headers = {"xi-api-key": self._key, "Accept": accept, "Content-Type": content_type}
+        headers = {"xi-api-key": self._key, "Accept": accept}
+        if body is not None:
+            headers["Content-Type"] = content_type
         delay = 2.0
         for attempt in range(4):
-            r = self._transport("POST", url, headers, body)
+            r = self._transport(method, url, headers, body)
             if (r.status == 429 or r.status >= 500) and attempt < 3:
                 self._sleep(delay)
                 delay *= 2
                 continue
             if not 200 <= r.status < 300:  # a redirect is not followed (see _NoRedirect), so it is an error too
                 raise ElevenLabsError(r.status, self._scrub(r.body.decode(errors="replace")[:800]))
-            self._log_cost(path, r)
+            if method == "POST":
+                self._log_cost(path, r)
             return r
         raise AssertionError("unreachable")
 
@@ -147,6 +160,27 @@ class ElevenLabs:
         r = self._request("/v1/music", payload, "*/*", {"output_format": output_format})
         return MusicResult(r.body, output_format, int(r.headers.get("character-cost", "0") or 0),
                            r.headers.get("request-id", ""))
+
+    def sound(self, text: str, duration_seconds: float | None = None, prompt_influence: float | None = None,
+              loop: bool = False, model_id: str = "eleven_text_to_sound_v2", output_format: str = "pcm_48000",
+              seed: int | None = None) -> SoundResult:
+        payload: dict = {"text": text, "model_id": model_id}
+        if duration_seconds is not None:
+            payload["duration_seconds"] = duration_seconds
+        if prompt_influence is not None:
+            payload["prompt_influence"] = prompt_influence
+        payload["loop"] = loop
+        if seed is not None:
+            payload["seed"] = seed
+        r = self._request("/v1/sound-generation", payload, "*/*", {"output_format": output_format})
+        return SoundResult(r.body, output_format, int(r.headers.get("character-cost", "0") or 0),
+                           r.headers.get("request-id", ""))
+
+    def credits_used(self) -> int:
+        """This cycle's credits used so far (GET /v1/user/subscription, free). Read before and after a batch to
+        measure its spend when an endpoint does not return a character-cost header."""
+        r = self._send("/v1/user/subscription", None, "", "application/json", {}, method="GET")
+        return int(json.loads(r.body)["character_count"])
 
     def forced_alignment(self, audio: bytes, text: str, filename: str = "take.wav") -> dict:
         """Word and character times measured on `audio` for the given transcript (1 credit per call)."""

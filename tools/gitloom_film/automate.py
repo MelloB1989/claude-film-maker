@@ -70,3 +70,31 @@ def apply(y: np.ndarray, sr: int, gain: np.ndarray, cutoff: np.ndarray) -> np.nd
         out[i:i + BLOCK] = blk
     out *= gain[:len(out), None]
     return out[:, 0] if y.ndim == 1 else out
+
+
+DUCK_BUSES = ("music", "all")
+
+
+def duck_lanes(ducks: list[dict], sr: int, n: int, bus: str) -> np.ndarray:
+    """Per-sample linear gain from the cue sheet's ducks on one bus ('music', or 'all' for music and effects; the
+    voice is never ducked). A duck holds its full depth over [t, t + dur] and moves there and back along a
+    raised-cosine over `fade` seconds either side (cue.ts). Overlapping ducks multiply."""
+    if bus not in DUCK_BUSES:
+        raise ValueError(f"no duck bus {bus!r} (buses: {', '.join(DUCK_BUSES)})")
+    g = np.ones(n)
+    t = np.arange(n) / sr
+    for d in ducks:
+        if d["bus"] != bus:
+            continue
+        t0, t1, f = d["t"], d["t"] + d["dur"], max(d.get("fade", 0.0), 0.0)
+        m = (t >= t0 - f) & (t < t1 + f)
+        if not m.any():
+            continue
+        tt = t[m]
+        if f > 0:
+            u = np.clip(np.minimum(tt - (t0 - f), (t1 + f) - tt) / f, 0.0, 1.0)  # 0 outside → 1 at full depth
+            w = 0.5 * (1 - np.cos(np.pi * u))
+        else:
+            w = ((tt >= t0) & (tt < t1)).astype(float)
+        g[m] *= 10 ** (d["depth"] * w / 20)
+    return g.astype(np.float32)

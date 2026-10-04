@@ -9,6 +9,7 @@ dependencies = [
   "librosa>=0.10.2",
   "fonttools>=4.53",
   "scipy>=1.11",
+  "matplotlib>=3.8",
 ]
 
 [project.scripts]
@@ -24,6 +25,11 @@ film-snap = "gitloom_film.snap:main"
 film-mix = "gitloom_film.mix:main"
 film-fonts = "gitloom_film.fonts:main"
 film-sync = "gitloom_film.sync:main"
+film-facts = "gitloom_film.factcheck:main"
+film-vo-chain = "gitloom_film.vochain:main"
+film-sfx-lib = "gitloom_film.sfxlib:main"
+film-sfx = "gitloom_film.sfx:main"
+film-deliver = "gitloom_film.deliver:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]

@@ -8,8 +8,12 @@ const v3 = (c: [number, number, number]) => `vec3(${c.map((x) => x.toFixed(5)).j
  * ShaderMaterials. Palette colours are LINEAR RGB.
  */
 export const GLSL_COMMON = /* glsl */ `
+#ifndef PI
 #define PI 3.14159265359
+#endif
+#ifndef TAU
 #define TAU 6.28318530718
+#endif
 // Output scale: physical px per logical (1920x1080) px. gl_FragCoord, fwidth and dFdx are in
 // physical px; FRAG_PX is the fragment's position in logical px (use it for anything that is
 // meant to be N logical px: grain/dither cells, hatch spacing, pixel-snapped patterns).

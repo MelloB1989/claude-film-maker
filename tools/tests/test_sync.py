@@ -1,7 +1,9 @@
+import json
+
 import numpy as np
 import pytest
 
-from gitloom_film.sync import check, report, section_table, word_sync
+from gitloom_film.sync import any_sound, check, report, section_table, stale_takes, word_sync
 
 BEATS = [round(0.2 + 0.6 * k, 4) for k in range(160)]
 AUDIO = {"beats": BEATS, "downbeats": BEATS[::4]}  # downbeats 0.2, 2.6, 5.0, 7.4, 9.8, …
@@ -103,8 +105,8 @@ def test_waived_problems_are_listed_but_do_not_fail():
                 "L32 word 'I' lights 108 ms after its spoken onset (90.258 s)"]
     lines, failed = report(problems, WAIVERS)
     assert failed
-    assert "waived: cut her at 16.208s is 600 ms off the downbeat (act cut on a beat: no downbeat fits; ruled at "
-    "Task 15, C3-approved)" in lines
+    assert ("waived: cut her at 16.208s is 600 ms off the downbeat (act cut on a beat: no downbeat fits; ruled at "
+            "Task 15, C3-approved)") in lines
     assert "✗ cut hero at 20.000s is 100 ms off the beat" in lines  # a waiver names one scene, whole
     assert lines[-1] == "2 problem(s), 1 waived"
 
@@ -132,3 +134,107 @@ def test_section_table_gives_each_section_start_against_the_cut_it_opens():
     assert [(r["section"], r["scene"], r["delta_ms"]) for r in rows] == [
         ("cold open", "thread", 0), ("the ex", "ex", 1200), ("her", "her", 600), ("the tour", "loom", 600),
         ("honest", "honest", 1200), ("proof and everywhere", "proof", 1200), ("weave", "weave", 0)]
+
+
+def test_an_act_cut_off_the_beat_grid_cannot_be_waived():
+    vo = good()
+    vo["scenes"][1]["end"] = vo["scenes"][2]["start"] = 8.1  # s3 opens act II, 100 ms after the 8.0 beat
+    problems = check(vo, AUDIO, SCRIPT)
+    assert problems == ["cut s3 at 8.100s: act cut not on a beat (100 ms off the nearest beat)"]
+    lines, failed = report(problems, {"cut s3": "act cut on a beat: no downbeat fits"})
+    assert failed and lines[0] == "✗ cut s3 at 8.100s: act cut not on a beat (100 ms off the nearest beat)"
+
+
+def hissed(duration, lines):
+    """A voiceover track: for each (head, voice) an audible /s/ (4-8 kHz noise at -12 dB) from `head` running into a
+    150 Hz voice at `voice`."""
+    y = np.zeros(int(duration * SR), np.float32)
+    rng = np.random.default_rng(0)
+    for head, at in lines:
+        n, i = int(round((at - head) * SR)), int(round(head * SR))
+        if n:
+            spec = np.fft.rfft(rng.standard_normal(n))
+            f = np.fft.rfftfreq(n, 1 / SR)
+            spec[(f < 4000) | (f > 8000)] = 0
+            hiss = np.fft.irfft(spec, n)
+            y[i:i + n] = 0.3 / np.sqrt(2) * 10 ** (-12 / 20) * hiss / np.sqrt(np.mean(hiss ** 2))
+        k = int(0.5 * SR)
+        y[i + n:i + n + k] = 0.3 * np.sin(2 * np.pi * 150 * np.arange(k) / SR)
+    return y
+
+
+def test_a_line_that_lights_well_after_its_first_sound_fails_the_any_sound_check():
+    y = hissed(5.0, [(1.10, 1.22), (3.2, 3.2)])  # L1 opens with 120 ms of /s/
+    assert any_sound(spoken([1.16, 3.2]), y, SR) == [
+        "L1 word 'I' lights 67 ms after the first sound in its window (1.100 s)"]  # lit at 1.1667
+    assert any_sound(spoken([1.12, 3.2]), y, SR) == []  # lit at 1.1333, 33 ms after it
+
+
+def test_word_sync_measures_each_word_on_its_takes_own_window():
+    # L1's word is placed at its onset, the start of a 150 ms /s/; its voiced run is at 1.25. The take's aligned
+    # times (relative to the line) give the window film-pace measured it in; a window around the placed start
+    # alone ends at 1.18 and never reaches the voice.
+    y = hissed(5.0, [(1.10, 1.25), (3.2, 3.2)])
+    vo = spoken([1.1, 3.2])
+    takes = {"L1": [{"w": "I", "start": 0.27, "end": 0.5}], "L2": [{"w": "commit.", "start": 0.2, "end": 0.6}]}
+    problems, rows = word_sync(vo, y, SR, takes)
+    assert problems == [] and rows[0]["onset"] == pytest.approx(1.10, abs=0.005)
+    assert word_sync(vo, y, SR)[0] == ["L1 word 'I': no spoken onset near its start"]
+
+
+def test_a_missing_voiceover_is_a_clear_message(tmp_path, monkeypatch):
+    from gitloom_film import sync
+    monkeypatch.setattr(sync, "AUDIO", tmp_path)
+    with pytest.raises(SystemExit, match="audio/vo/vo.wav is missing: run film-edit"):
+        sync.main([])
+
+
+def test_a_line_with_no_sound_near_its_first_word_fails_the_any_sound_check():
+    y = hissed(5.0, [(1.10, 1.22)])  # L2 is silent in the track
+    assert any_sound(spoken([1.12, 3.2]), y, SR) == ["L2 word 'commit.': no audible sound in its window"]
+
+
+# --- the paced takes against vo.json: film-pace re-run for a line without film-edit and film-snap ---
+
+WORDS = [{"w": "Your", "start": 0.93, "end": 1.116}, {"w": "agent", "start": 1.175, "end": 1.62},
+         {"w": "forgets.", "start": 1.7, "end": 2.5}]
+PLACED = {"lines": [{"id": "L01", "take": 2, "start": 0.9, "end": 2.529, "words": WORDS}]}  # 1.629 s long
+
+
+def take(duration=1.629, words=3):
+    return {"L01": {"duration": duration, "words": [{"w": w["w"], "start": 0.1, "end": 0.2} for w in WORDS[:words]]}}
+
+
+def test_a_take_that_matches_its_placed_line_passes():
+    assert stale_takes(PLACED, take()) == []
+    assert stale_takes(PLACED, take(1.6299)) == []  # under a millisecond: the voiceover places takes on samples
+
+
+def test_a_take_of_another_length_or_word_count_is_stale():
+    # a new pacing factor makes a new take of another length; vo.wav and vo.json still hold the old one
+    assert stale_takes(PLACED, take(1.731)) == ["L01 take 2 lasts 1.731 s, but its line in vo.json lasts 1.629 s"]
+    assert stale_takes(PLACED, take(words=2)) == ["L01 take 2 has 2 words, but its line in vo.json has 3"]
+
+
+def test_film_sync_stops_on_a_stale_take_and_says_what_to_run(tmp_path, monkeypatch):
+    from gitloom_film import sync
+    vo = good()
+    for line in vo["lines"]:
+        line["take"] = 1
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "vo.json").write_text(json.dumps(vo))
+    (tmp_path / "data" / "audio.json").write_text(json.dumps(AUDIO))
+    (tmp_path / "audio" / "vo").mkdir(parents=True)
+    (tmp_path / "audio" / "vo" / "vo.wav").write_bytes(b"")  # never read: the takes are checked first
+    for line in vo["lines"]:
+        d = tmp_path / "audio" / "vo" / "paced" / line["id"]
+        d.mkdir(parents=True)
+        length = line["end"] - line["start"] + (0.05 if line["id"] == "L2" else 0.0)  # L2 was paced again
+        (d / "1.json").write_text(json.dumps({"duration": length, "words": line["words"]}))
+    monkeypatch.setattr(sync, "DATA", tmp_path / "data")
+    monkeypatch.setattr(sync, "AUDIO", tmp_path / "audio")
+    with pytest.raises(SystemExit) as stop:
+        sync.main([])
+    message = str(stop.value)
+    assert "L2 take 1 lasts 1.050 s" in message and "L1" not in message and "L3" not in message
+    assert "run film-edit, then film-snap" in message

@@ -459,7 +459,7 @@ DoF, drawing on from 0 to 1 over 2 s.
 ```ts
 export function spring(t: number, freq?: number, damping?: number): number;          // 0 at t≤0 → 1, tight overshoot
 export function slam(t: number, hit: number, o?: { lead?: number; freq?: number; damping?: number }): number; // 0 before hit−lead
-export function remap(tLocal: number, keys: [t: number, speed: number][]): number;  // speed-ramp time remap (∫speed)
+export function speedRamp(tLocal: number, keys: [t: number, speed: number][]): number;  // speed-ramp time remap (∫speed)
 export function whip(t: number, cut: number, dur?: number): { k: number; blurPx: number }; // around a cut
 export function wordTimes(vo: VO, scene: string): { w: Word; at: number }[];      // spoken onsets for a scene
 export function onBeat(f: Frame, halfLife?: number): number;                        // decaying pulse on each beat
@@ -469,7 +469,7 @@ export function onDownbeat(f: Frame, halfLife?: number): number;
 **Tests (bun):**
 - `spring(0) = 0`; `spring(2) ≈ 1` (±0.001); the peak overshoot is ≤ 12% at damping 0.6;
 - `slam` is 0 before `hit − lead`;
-- `remap` is monotonic and continuous: the speed-1 identity segment maps 1:1, and a 0.25 segment advances at a quarter;
+- `speedRamp` is monotonic and continuous: the speed-1 identity segment maps 1:1, and a 0.25 segment advances at a quarter;
 - `wordTimes` returns the scene's words in order, with `at == word.start`.
 
 **Commit:** `Beat-locked motion helpers: slams, springs, ramps, whips`.

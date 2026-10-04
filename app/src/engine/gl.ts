@@ -100,10 +100,57 @@ export class FSPass {
 }
 
 export type BlendMode = 'normal' | 'add' | 'screen' | 'multiply' | 'max' | 'replace';
+/**
+ * Where a draw mixes. 'srgb' mixes display-encoded values, the way design tools, browsers and Canvas2D blend, so a
+ * 2D layer's alpha of 0.28 looks like 28% (look.ts compositeSRGB is the same math); it reads the target back through a
+ * copy, one extra fullscreen pass. 'linear' mixes light in the fixed-function blender: HDR glows that add in light.
+ */
+export type BlendSpace = 'srgb' | 'linear';
+const SRGB_MODE: Record<Exclude<BlendMode, 'replace'>, number> = { normal: 0, add: 1, screen: 2, multiply: 3, max: 4 };
+
+/**
+ * Where a Compositor draw of `tex` with `mode` mixes; `space` is the caller's choice, if it made one. By default an sRGB
+ * texture (every Layer2D upload) mixes in display space for 'normal' and 'multiply', so its alphas read as designed,
+ * and adds light for 'add', 'screen' and 'max': a 2D glow tinted with glow() blooms at glow()'s levels (mixed as display
+ * values, a level-3 tint at alpha 0.5 lands at 0.73 over ink, under the bloom's opening at 1: look.ts). Everything else
+ * (render targets, plates) mixes light; 'replace' never mixes.
+ */
+export function blendSpace(mode: BlendMode, tex: THREE.Texture, space?: BlendSpace): BlendSpace {
+  if (mode === 'replace') return 'linear';
+  return space ?? (tex.colorSpace === THREE.SRGBColorSpace && (mode === 'normal' || mode === 'multiply') ? 'srgb' : 'linear');
+}
 
 /** Draws a texture over a target with a blend mode, opacity, tint and optional UV transform. */
 export class Compositor {
   private passes = new Map<BlendMode, FSPass>();
+  private srgb: FSPass | null = null;
+  private copy: FSPass | null = null;
+  private copies = new Map<string, THREE.WebGLRenderTarget>();
+  // The same draw as `frag`, mixed as display values: the layer as designed (an sRGB texture decodes to linear when
+  // sampled, so it is encoded back) over the target as it would show, then back to linear light. Each mode is its
+  // fixed-function equation from get() with display values in place of linear ones. A display value below 0 (`normal`
+  // at opacity above 1, a screen of a hot tint over a hot target) decodes from 0: toLinear would make it NaN.
+  // look.ts compositeSRGB mirrors it.
+  private srgbFrag = /* glsl */ `
+    uniform sampler2D tex; uniform sampler2D dst; uniform float opacity; uniform vec3 tint; uniform vec4 uvXform;
+    uniform bool premult; uniform int mode;
+    void main() {
+      vec2 uv = (vUv - 0.5) * uvXform.xy + 0.5 + uvXform.zw;
+      if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
+      vec4 c = texture(tex, uv);
+      vec3 s = toSRGB(max(c.rgb * tint, 0.0)) * (premult ? c.a : 1.0) * opacity;
+      float a = c.a * opacity;
+      if (a <= 0.0 && s == vec3(0.0)) discard; // nothing drawn here: the target keeps its exact value
+      vec4 d = texelFetch(dst, ivec2(gl_FragCoord.xy), 0);
+      vec3 D = toSRGB(max(d.rgb, 0.0));
+      vec3 o = mode == 0 ? s + D * (1.0 - a)   // normal
+        : mode == 1 ? s + D                    // add
+        : mode == 2 ? s + D * (1.0 - s)        // screen
+        : mode == 3 ? s * D + D * (1.0 - a)    // multiply
+        : max(s, D);                           // max
+      float oa = mode == 0 ? a + d.a * (1.0 - a) : mode == 4 ? max(a, d.a) : d.a;
+      fragColor = vec4(toLinear(max(o, 0.0)), oa);
+    }`;
   private frag = /* glsl */ `
     uniform sampler2D tex; uniform float opacity; uniform vec3 tint; uniform vec4 uvXform; uniform bool premult;
     void main() {
@@ -134,15 +181,45 @@ export class Compositor {
   /**
    * uvScale >1 zooms out (texture appears smaller), offset shifts in UV units.
    * For 'multiply' the texture should be a white-background image (premult off).
+   * `space` defaults per blendSpace(): 'srgb' for a 'normal' or 'multiply' draw of an sRGB texture (every Layer2D
+   * upload), 'linear' for its 'add', 'screen' and 'max' (a 2D glow adds light) and for everything else (render targets).
+   * 'replace', and a draw to the canvas (null), always take the linear path.
    */
-  draw(renderer: THREE.WebGLRenderer, tex: THREE.Texture, target: THREE.WebGLRenderTarget | null, o: { mode?: BlendMode; opacity?: number; tint?: [number, number, number]; scale?: [number, number]; offset?: [number, number]; premult?: boolean } = {}) {
-    const p = this.get(o.mode ?? 'normal');
+  draw(renderer: THREE.WebGLRenderer, tex: THREE.Texture, target: THREE.WebGLRenderTarget | null, o: { mode?: BlendMode; opacity?: number; tint?: [number, number, number]; scale?: [number, number]; offset?: [number, number]; premult?: boolean; space?: BlendSpace } = {}) {
+    const mode = o.mode ?? 'normal';
+    const p = blendSpace(mode, tex, o.space) === 'srgb' && target ? this.srgbPass() : this.get(mode);
     p.u.tex!.value = tex;
     p.u.opacity!.value = o.opacity ?? 1;
     (p.u.tint!.value as THREE.Vector3).set(...(o.tint ?? [1, 1, 1]));
     (p.u.uvXform!.value as THREE.Vector4).set(o.scale?.[0] ?? 1, o.scale?.[1] ?? 1, o.offset?.[0] ?? 0, o.offset?.[1] ?? 0);
-    p.u.premult!.value = o.premult ?? o.mode !== 'multiply';
+    p.u.premult!.value = o.premult ?? mode !== 'multiply';
+    if (p === this.srgb) {
+      p.u.dst!.value = this.copyOf(renderer, target!).texture;
+      p.u.mode!.value = SRGB_MODE[mode as Exclude<BlendMode, 'replace'>];
+    }
     p.render(renderer, target);
+  }
+
+  private srgbPass() {
+    this.srgb ??= new FSPass(this.srgbFrag, {
+      tex: { value: null }, dst: { value: null }, opacity: { value: 1 }, tint: { value: new THREE.Vector3(1, 1, 1) },
+      uvXform: { value: new THREE.Vector4(1, 1, 0, 0) }, premult: { value: true }, mode: { value: 0 },
+    });
+    return this.srgb;
+  }
+
+  /** The target's current pixels, copied to a same-sized scratch target the display-space pass can read. */
+  private copyOf(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget) {
+    const t = target.texture, key = `${target.width}x${target.height}:${t.type}`;
+    let rt = this.copies.get(key);
+    if (!rt) {
+      rt = new THREE.WebGLRenderTarget(target.width, target.height, { type: t.type, format: THREE.RGBAFormat, depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+      this.copies.set(key, rt);
+    }
+    this.copy ??= new FSPass(`uniform sampler2D src; void main() { fragColor = texelFetch(src, ivec2(gl_FragCoord.xy), 0); }`, { src: { value: null } });
+    this.copy.u.src!.value = t;
+    this.copy.render(renderer, rt);
+    return rt;
   }
 }
 
@@ -179,7 +256,9 @@ export function scaleContext2D(c: CanvasRenderingContext2D, s: number) {
 }
 
 /**
- * A 1920x1080 (logical) Canvas2D surface uploaded as an sRGB texture (decoded to linear when sampled).
+ * A 1920x1080 (logical) Canvas2D surface uploaded as an sRGB texture (decoded to linear when sampled). The Compositor
+ * mixes it in display space by default ('normal', 'multiply'), so its alphas read as designed over whatever is under
+ * it; drawn 'add', 'screen' or 'max' (a glow layer) it adds light.
  * Draw in CSS pixels with origin top-left. Call `upload()` after drawing each frame.
  * The backing canvas is SCALE times larger (`canvas.width` = w*SCALE); the context is pre-scaled
  * (see scaleContext2D), so drawing code works in logical px at every output scale.
@@ -200,17 +279,32 @@ export class Layer2D {
     this.texture.generateMipmaps = false;
     this.texture.flipY = true;
   }
+  /**
+   * Start a frame: the canvas cleared (filled with `color`, if given) and the context as a fresh one's, so no frame
+   * depends on the one drawn before it. ctx.reset() takes everything back to its default (font, alignment, spacing,
+   * styles, line and dash, shadow, alpha, compositing, filter, the path and any unrestored save()), then the base scale
+   * goes back on (scaleContext2D).
+   */
   clear(color?: string) {
     const c = this.ctx;
+    c.reset();
     c.setTransform(1, 0, 0, 1, 0, 0);
-    c.globalAlpha = 1;
-    c.globalCompositeOperation = 'source-over';
-    c.filter = 'none';
-    c.shadowBlur = 0;
-    if (color) { c.fillStyle = color; c.fillRect(0, 0, this.w, this.h); }
-    else c.clearRect(0, 0, this.w, this.h);
+    if (color) {
+      c.save();
+      c.fillStyle = color;
+      c.fillRect(0, 0, this.w, this.h);
+      c.restore();
+    }
   }
   upload() { this.texture.needsUpdate = true; return this.texture; }
+  /**
+   * Free the layer: its texture's GPU copy and its canvas's backing store (a full-frame layer holds 8 MiB at 1080p and
+   * 32 MiB at 4K, and its texture as much again). It draws nothing after.
+   */
+  dispose() {
+    this.texture.dispose();
+    this.canvas.width = this.canvas.height = 0;
+  }
 }
 
 /** Clear a render target to a linear colour. */

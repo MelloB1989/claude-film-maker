@@ -1,9 +1,11 @@
 """Generate score variants from the composition plan. Prefers 48 kHz PCM; if the plan tier refuses it (HTTP 403),
 falls back to 128 kbps MP3 and decodes it. Every variant is written as 48 kHz stereo 24-bit WAV, next to a sidecar
-recording the plan it came from. A re-run merges into data/music_plan.json: the pick and its edit survive it."""
+recording the plan it came from and its section timing. A re-run merges into data/music_plan.json: the pick and its
+edit survive it, and the pick's own section timing (`chosen_meta`) is recomputed from its sidecar."""
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import tempfile
 import webbrowser
@@ -45,7 +47,7 @@ def decode(audio: bytes, fmt: str, planned_seconds: float) -> np.ndarray:
 
 
 def sidecar(wav: Path) -> Path:
-    """A variant's record of what made it: {format, plan, chunks}."""
+    """A variant's record of what made it: {format, plan, chunks, meta} (sidecars written before meta have none)."""
     return wav.with_suffix(".plan.json")
 
 
@@ -65,9 +67,9 @@ def variant_path(out_dir: Path, label: str, seed: int, chunks: dict) -> Path:
 
 
 def generate_variants(client, plan: dict, out_dir: Path, seeds: list[int], label: str = "score",
-                      log=print) -> list[Path]:
+                      log=print, meta: dict | None = None) -> list[Path]:
     """One variant per seed. A seed's file is reused only when its sidecar holds this plan's chunks; existing
-    audio is never overwritten."""
+    audio is never overwritten. `meta` (the plan's section timing, music_plan.build_plan) goes into each new sidecar."""
     secs = sum(s["duration_ms"] for s in plan["sections"]) / 1000
     chunks = to_chunks(plan)
     paths = []
@@ -78,29 +80,72 @@ def generate_variants(client, plan: dict, out_dir: Path, seeds: list[int], label
                 raise FileExistsError(f"{wav} exists but its sidecar does not hold this plan; not overwriting it")
             audio, fmt = compose_with_fallback(client, plan, seed)
             write_wav(wav, decode(audio, fmt, secs))
-            sidecar(wav).write_text(json.dumps({"format": fmt, "plan": plan, "chunks": chunks}, indent=1))
+            side = {"format": fmt, "plan": plan, "chunks": chunks, **({"meta": meta} if meta is not None else {})}
+            sidecar(wav).write_text(json.dumps(side, indent=1))
             log(f"{wav.name}: {fmt}")
         paths.append(wav)
     return paths
 
 
-def chosen_plan(mp: dict, root: Path = ROOT) -> dict | None:
-    """The composition plan the chosen score was composed from: its source seed's (a splice's source, else the
-    chosen file itself), read from that seed's sidecar."""
+def pick_sidecar(mp: dict, root: Path = ROOT) -> Path | None:
+    """The sidecar of the seed the chosen score was composed as: a splice's source, else the chosen file itself."""
     src = (mp.get("edit") or {}).get("source") or mp.get("chosen")
-    side = sidecar(root / src) if src else None
+    return sidecar(root / src) if src else None
+
+
+def chosen_plan(mp: dict, root: Path = ROOT) -> dict | None:
+    """The composition plan the chosen score was composed from, read from its seed's sidecar."""
+    side = pick_sidecar(mp, root)
     return json.loads(side.read_text())["plan"] if side and side.exists() else None
+
+
+_TEMPO = re.compile(r"\s*(\d+(?:\.\d+)?)\s*BPM\s*", re.IGNORECASE)
+
+
+def plan_meta(plan: dict, bpm: float) -> dict:
+    """The section timing a plan was composed to (music_plan.build_plan's meta): each section from where the ones
+    before it end, in seconds."""
+    sections, at = [], 0
+    for s in plan["sections"]:
+        sections.append({"name": s["section_name"], "start": round(at / 1000, 4),
+                         "end": round((at + s["duration_ms"]) / 1000, 4)})
+        at += s["duration_ms"]
+    return {"bpm": bpm, "sections": sections}
+
+
+def pick_meta(mp: dict, root: Path = ROOT) -> dict | None:
+    """The chosen score's own section timing, from its seed's sidecar, never from whichever film-music run wrote
+    `meta` last: the meta the sidecar records, else (a sidecar from before sidecars kept it) its plan's sections at
+    their durations, at the one tempo its plan's global styles name ("100 BPM"). None when nothing is chosen, the
+    sidecar is missing, or it holds no meta and its plan names no single tempo."""
+    side = pick_sidecar(mp, root)
+    if side is None or not side.exists():
+        return None
+    doc = json.loads(side.read_text())
+    if "meta" in doc:
+        return doc["meta"]
+    tempos = [float(m.group(1)) for style in doc["plan"].get("positive_global_styles", [])
+              if (m := _TEMPO.fullmatch(style))]
+    return plan_meta(doc["plan"], tempos[0]) if len(tempos) == 1 else None
 
 
 def merge_plan(old: dict | None, plan: dict, meta: dict, variants: list[str], root: Path = ROOT) -> dict:
     """A film-music run's result merged into data/music_plan.json: the pick (`chosen`) and its `edit` stay, new
-    variants join the list once, `plan`/`meta` record the latest run, and `chosen_plan` keeps the pick's own plan."""
-    mp = {**(old or {}), "plan": plan, "meta": meta}
+    variants join the list once, `plan`/`meta` record the latest run, `chosen_plan` keeps the pick's own plan, and
+    `chosen_meta` the pick's own section timing (pick_meta), recomputed from its sidecar on every merge: no later run
+    moves the pick's sections, and a pick changed by hand gets its own (it is dropped when it cannot be known)."""
+    old = old or {}
+    mp = {**old, "plan": plan, "meta": meta}
     mp["variants"] = list(dict.fromkeys([*mp.get("variants", []), *variants]))
     mp.setdefault("chosen", None)
     cp = chosen_plan(mp, root)
     if cp is not None:
         mp["chosen_plan"] = cp
+    cm = pick_meta(mp, root)
+    if cm is not None:
+        mp["chosen_meta"] = cm
+    else:
+        mp.pop("chosen_meta", None)
     return mp
 
 
@@ -113,7 +158,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     plan, meta = build_plan(json.loads((DATA / "vo.json").read_text()), a.bpm)
     client = ElevenLabs(credit_log=AUDIO / "credits.log")
-    paths = generate_variants(client, plan, AUDIO / "music", [a.seed_base + i for i in range(a.variants)])
+    paths = generate_variants(client, plan, AUDIO / "music", [a.seed_base + i for i in range(a.variants)], meta=meta)
     rel = [str(p.relative_to(ROOT)) for p in paths]
     mp_path = DATA / "music_plan.json"
     old = json.loads(mp_path.read_text()) if mp_path.exists() else None

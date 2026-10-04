@@ -1,0 +1,18 @@
+[
+  "facts/people/user.md",
+  "## Editor",
+  "Uses neovim. Has since 2019.",
+  "## Timezone",
+  "IST. Prefers async review to calls.",
+  "Works with [[facts/orgs/acme.md]].",
+  "acme.md",
+  "maya.md",
+  "[[facts/trips/lisbon-2026.md]]",
+  "lisbon-2026.md",
+  "hotel",
+  "city",
+  "$ gitloom vocab add --term kubernetes --alias k8s",
+  "k8s → kubernetes  ·  search finds either form",
+  "k8s",
+  "kubernetes"
+]

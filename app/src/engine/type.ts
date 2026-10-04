@@ -9,12 +9,17 @@ import * as opentype from 'opentype.js';
 export const BRICOLAGE_WIDTHS = [750, 875, 1000] as const;
 export const BRICOLAGE_WEIGHTS = [300, 500, 600, 800] as const;
 
-/** `features`: OpenType features switched on for the face (Canvas2D has no font-feature-settings). */
+/** `features`: OpenType feature settings for the face (Canvas2D has no font-feature-settings of its own). */
 type FontDef = { family: string; file: string; features?: string };
+/**
+ * The machine's text is verbatim: JetBrains Mono's ligatures and contextual alternates would join `--scope` into one
+ * long rule, `//` into a single glyph, `->` into an arrow. They are off for every mono face.
+ */
+const MONO_FEATURES = '"calt" 0, "liga" 0';
 const DEFS: FontDef[] = [];
 for (const w of BRICOLAGE_WIDTHS) for (const wt of BRICOLAGE_WEIGHTS) DEFS.push({ family: `Bricolage-${w}-${wt}`, file: `Bricolage-w${w}-${wt}.ttf` });
-for (const wt of [400, 500, 700]) DEFS.push({ family: `JBMono-${wt}`, file: `JetBrainsMono-${wt}.ttf` });
-DEFS.push({ family: 'JBMonoItalic-400', file: 'JetBrainsMonoItalic-400.ttf' });
+for (const wt of [400, 500, 700]) DEFS.push({ family: `JBMono-${wt}`, file: `JetBrainsMono-${wt}.ttf`, features: MONO_FEATURES });
+DEFS.push({ family: 'JBMonoItalic-400', file: 'JetBrainsMonoItalic-400.ttf', features: MONO_FEATURES });
 for (const wt of [400, 500, 600]) DEFS.push({ family: `Geist-${wt}`, file: `Geist-${wt}.ttf` });
 
 /** Convenience family names. */
@@ -47,12 +52,22 @@ export const font = (family: string, sizePx: number) => `${sizePx}px "${family}"
 const otCache = new Map<string, opentype.Font>();
 const bufCache = new Map<string, ArrayBuffer>();
 
+/** Every registered family name. */
+export const fontFamilies = () => DEFS.map((d) => d.family);
+
+/** The FontFace descriptors loadFonts gives a family (undefined: the font's own defaults). */
+export function fontFaceDescriptors(family: string): FontFaceDescriptors | undefined {
+  const d = DEFS.find((x) => x.family === family);
+  if (!d) throw new Error(`unknown font family: ${family}`);
+  return d.features ? { featureSettings: d.features } : undefined;
+}
+
 export async function loadFonts(): Promise<void> {
   await Promise.all(
     DEFS.map(async (d) => {
       const buf = await (await fetch(`fonts/${d.file}`)).arrayBuffer();
       bufCache.set(d.family, buf);
-      const ff = new FontFace(d.family, buf, d.features ? { featureSettings: d.features } : undefined);
+      const ff = new FontFace(d.family, buf, fontFaceDescriptors(d.family));
       await ff.load();
       document.fonts.add(ff);
     }),

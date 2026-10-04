@@ -2,25 +2,29 @@
 // film grain, vignette, fades/flash. Operates on the composited HDR (linear) frame.
 import * as THREE from 'three';
 import { FSPass, makeRT, W, H, SCALE } from './gl';
+import { BLOOM_CHROMA, LOOK } from './look';
 
 /** The tone shoulder (linear HDR -> 0..1 linear), shared with the engine's sampling error estimate. */
 export const SHOULDER_GLSL = /* glsl */ `
 vec3 shoulder(vec3 x) {
-  // identity below k, smooth exponential shoulder above; very bright values desaturate toward white
+  // Identity below k. Above it the brightest channel rolls off along a smooth exponential shoulder and the other two
+  // scale with it, so a glow keeps its hue and saturation: per channel, red clipped first and hot blood went pink,
+  // hot moss mint. Only hot cores, from about 4 on the brightest channel, whiten.
   const float k = 0.72;
-  vec3 y = mix(x, k + (1.0 - k) * (1.0 - exp(-(x - k) / (1.0 - k))), step(k, x));
-  float over = max(max(x.r, x.g), x.b);
-  return mix(y, vec3(1.0), smoothstep(2.0, 12.0, over) * 0.85);
+  float m = max(max(x.r, x.g), x.b);
+  vec3 y = m <= k ? x : x * ((k + (1.0 - k) * (1.0 - exp(-(m - k) / (1.0 - k)))) / m);
+  return mix(y, vec3(1.0), smoothstep(4.0, 16.0, m) * 0.85);
 }`;
 
 export interface PostParams {
   exposure: number;
   bloom: number; // bloom strength
-  bloomThreshold: number; // linear luminance where bloom starts
-  bloomKnee: number; // soft knee width
+  /** On a pixel's brightest channel (look.ts bloomLum): bloom opens at threshold - knee, gated by chroma (bloomKey). */
+  bloomThreshold: number;
+  bloomKnee: number; // soft knee half-width
   bloomRadius: number; // 0..1 upsample spread
-  halation: number; // blood-red film halation around highlights
-  ca: number; // chromatic aberration in px at the frame edge
+  halation: number; // blood-red film halation around glows, driven by their red: blood halates, moss doesn't
+  ca: number; // chromatic aberration: R and B shift 1.58·ca px at the left/right frame edges (2.4·ca px in the corners)
   grain: number; // grain amplitude (sRGB units), ~0.04-0.1
   vignette: number; // 0..1
   hud: number; // HUD opacity multiplier (crop marks)
@@ -35,16 +39,9 @@ export interface PostParams {
   invert: number; // 0..1 invert (ink <-> bone), applied before grain
 }
 
+/** Every frame starts from the film look (look.ts: the values and the renders that set them); scenes override. */
 export const DEFAULT_POST: PostParams = {
-  exposure: 1,
-  bloom: 0.55,
-  bloomThreshold: 0.85,
-  bloomKnee: 0.5,
-  bloomRadius: 0.75,
-  halation: 0.25,
-  ca: 1.2,
-  grain: 0.055,
-  vignette: 0.35,
+  ...LOOK,
   hud: 1,
   frame: 0,
   paper: 0,
@@ -90,6 +87,9 @@ ${SCALE === 1 ? `        c += texture(src, vUv + texel * vec2(-1, -1)).rgb; c +=
         float rq = clamp(l - threshold + knee, 0.0, 2.0 * knee);
         rq = rq * rq / (4.0 * knee + 1e-5);
         float w = max(rq, l - threshold) / max(l, 1e-5);
+        // only colour glows (look.ts bloomKey): gated by chroma, (max - min) / max, which no intensity changes, so bone,
+        // white light and specular highlights never bloom however bright, while blood and moss pass whole
+        w *= smoothstep(${BLOOM_CHROMA[0].toFixed(3)}, ${BLOOM_CHROMA[1].toFixed(3)}, (l - min(c.r, min(c.g, c.b))) / max(l, 1e-5));
         fragColor = vec4(c * w, 1.0);
       }`, { src: { value: null }, texel: { value: new THREE.Vector2() }, threshold: { value: 1 }, knee: { value: 0.5 } });
     this.down = new FSPass(/* glsl */ `
@@ -131,11 +131,15 @@ ${SCALE === 1 ? `        c += texture(src, vUv + texel * vec2(-1, -1)).rgb; c +=
         vec3 bl = texture(bloomTex, uv).rgb;
         vec3 ha = texture(haloTex, uv).rgb;
         col += bl * bloom;
-        col += C_BLOOD_BRIGHT * luma(ha) * halation;
+        // film halation is the red layer's: it follows the red in the glow, scaled so blood halates exactly as a luma
+        // drive would. (On luma, moss, bright in green and low in red, threw 4x blood's red haze and muddied its glow.)
+        col += C_BLOOD_BRIGHT * ha.r * (luma(C_BLOOD) / C_BLOOD.r) * halation;
         col *= exposure;
-        // HUD is composited in linear space before the shoulder so it gets grain & vignette too
+        // the HUD is a 2D layer: it mixes in display space like every Layer2D (gl.ts, Compositor 'srgb'), before the
+        // shoulder so it gets grain & vignette too. A canvas uploads straight alpha: h.rgb is its colour as drawn.
         vec4 h = texture(hudTex, vUv);
-        col = mix(col, h.rgb / max(h.a, 1e-4), h.a * hud);
+        float hudA = h.a * hud;
+        if (hudA > 0.0) col = toLinear(mix(toSRGB(max(col, 0.0)), toSRGB(h.rgb), hudA));
         col = shoulder(col);
         col = mix(col, vec3(0.8515) - col * 0.84, invert); // ink<->bone in linear-ish space
         col += C_BONE * flash;

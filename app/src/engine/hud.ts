@@ -1,6 +1,8 @@
 // Global overlay: the crop-mark frame. Off unless a scene asks for it (post.frame > 0).
+import * as THREE from 'three';
 import { Layer2D, W, H } from './gl';
 import { rgba } from './palette';
+import { disposeLayer } from './scene';
 import { clamp, ease, lerp } from './util';
 
 export interface HudState {
@@ -12,16 +14,28 @@ export interface HudState {
 }
 
 export class Hud {
-  layer = new Layer2D();
+  /** The marks' full-frame layer, made the first time they show: until then the HUD holds no frame-sized canvas. */
+  private layer: Layer2D | null = null;
+  /** What post composites while the marks are off: one clear texel (post skips a HUD texel of alpha 0). */
+  private none = new THREE.DataTexture(new Uint8Array(4), 1, 1);
+
+  constructor() {
+    this.none.needsUpdate = true;
+  }
 
   draw(_t: number, st: HudState) {
-    const L = this.layer;
+    if (!(st.opacity > 0.001 && st.frame > 0.001)) return this.none;
+    const L = (this.layer ??= new Layer2D());
     L.clear();
-    if (st.opacity > 0.001 && st.frame > 0.001) {
-      L.ctx.globalAlpha = st.opacity;
-      this.cropMarks(L.ctx, st.frame, st.paper > 0.5);
-    }
+    L.ctx.globalAlpha = st.opacity;
+    this.cropMarks(L.ctx, st.frame, st.paper > 0.5);
     return L.upload();
+  }
+
+  dispose() {
+    if (this.layer) disposeLayer(this.layer);
+    this.layer = null;
+    this.none.dispose();
   }
 
   /** Corner marks; as `k` drops they fly out along the diagonals and past the edges. */

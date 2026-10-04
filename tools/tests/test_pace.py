@@ -94,7 +94,7 @@ def test_pace_take_stores_each_words_measured_onset(tmp_path):
     (tmp_path / "1.json").write_text(json.dumps({"line": "L31", "take": 1, "duration": 1.1, "words": words}))
     out = pace_take(tmp_path / "1.wav", tmp_path / "1.json", tmp_path / "paced", 0.9)
     y, _ = read_wav(tmp_path / "paced" / "1.wav")
-    voice = int(np.argmax(np.abs(y) > 0.05)) / SR  # where the tone starts in the paced file
+    voice = int(np.argmax(np.abs(y) > 0.3 * 10 ** (-35 / 20))) / SR  # where the paced tone is first heard (-35 dB)
     first, second = out["words"]
     assert first["start"] == pytest.approx((0.36 - 0.21) * 0.9, abs=1e-3)  # the aligned start, trimmed and scaled
     assert first["onset"] == pytest.approx(voice, abs=0.006)  # the measured one, on the paced audio

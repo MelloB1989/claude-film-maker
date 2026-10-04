@@ -1,7 +1,7 @@
 // Animatic card: one per scene until the scene's real module exists. It shows the act, the scene, what the picture
 // will be, and her lines lighting word by word exactly as she says them, over a ruler of the scene's beats.
 import type * as THREE from 'three';
-import { Scene, type Frame } from '../engine/scene';
+import { Scene, disposeLayer, type Frame } from '../engine/scene';
 import { Layer2D, W, H, clearRT } from '../engine/gl';
 import { LIN, rgba } from '../engine/palette';
 import { F, font, layout } from '../engine/type';
@@ -34,8 +34,8 @@ export default class Card extends Scene {
     const id = this.ctx.params.scene as string, n = this.ctx.params.n as number, act = this.ctx.params.act as string;
     clearRT(renderer, out, LIN.ink);
     const L = this.layer;
-    // painted on ink, so the alphas below mix in sRGB as designed: a clear layer composites in linear light, where
-    // the 6% watermark reads as a 27% grey and the 28% upcoming words as 54%
+    // painted on ink, as the approved animatic was: 2D layers blend in sRGB now, so a clear layer shows the same card
+    // to within 2 levels, but the paint keeps it byte-identical
     L.clear(rgba('ink'));
     const c = L.ctx;
     c.textBaseline = 'alphabetic';
@@ -63,8 +63,6 @@ export default class Card extends Scene {
     this.lines(c, vo.lines.filter((l) => l.scene === id), f.t);
     this.ruler(c, f, audio);
     comp.draw(renderer, L.upload(), out);
-    // nothing on the card is brighter than bone, and bone never blooms (spec §6): no bloom, and no halation off it
-    return { bloom: 0, halation: 0 };
   }
 
   /**
@@ -116,5 +114,9 @@ export default class Card extends Scene {
     c.textAlign = 'right';
     c.fillText(`${f.t.toFixed(2)}s · beat ${f.beat.toFixed(2)} · bar ${f.bar.toFixed(2)}`, W - 120, 120);
     c.textAlign = 'left';
+  }
+
+  override dispose() {
+    disposeLayer(this.layer);
   }
 }

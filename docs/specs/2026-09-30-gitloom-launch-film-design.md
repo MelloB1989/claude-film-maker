@@ -370,7 +370,7 @@ That's about 169 words. At Jean's tightened pace it's roughly 75 s of speech, pl
 - **Picture:** a split composition.
 - **Left (*On your machine*)**
   - `$ curl -fsSL https://gitloom.cloud/install.sh | sh   # current: 0.3.0`
-  - Chips: `one static binary · no CGo · arm64 + amd64 · licence verified offline`
+  - Chips: `one static binary · no CGo · arm64 + amd64`
 - **Right (*or in my cloud*)** — recreated console panels, built from the real layouts in `web/src/app` (no
   screenshots):
   - Playground: a chat with tool chips, `gitloom_retrieve` in moss and `gitloom_remember` in blood.
@@ -380,7 +380,7 @@ That's about 169 words. At Jean's tightened pace it's roughly 75 s of speech, pl
   - The Namespaces list multiplies (`user-0001 … user-2048`), each an isolated repo icon.
   - Label: *one per end user · a storage boundary, not a WHERE clause*.
 - **Footnote:** `free plan · no card · storage is free`.
-- **Covers:** the self-hosted binary, portability, the offline licence, the cloud console (Playground, Graph,
+- **Covers:** the self-hosted binary, portability, the cloud console (Playground, Graph,
   Namespaces), namespace isolation, the free plan.
 
 ### 15 `weave`: I don't forget. I commit.
@@ -394,13 +394,14 @@ That's about 169 words. At Jean's tightened pace it's roughly 75 s of speech, pl
 - **L31 and L32**
   - The wordmark types in mono beside the mark, as a git log entry: `gitloom 3f9a1c2`.
   - Below it: `gitloom.cloud` and `start free — no card`.
+  - Once those settle, a small signature credit at the bottom right, inside title-safe: `Created by MelloB`.
 - **Out:** hold 2–3 s on the music tail. The final frame is clean and poster-worthy.
 - **Sung-hook A/B:** the alternate score sings *"I don't forget… I commit"* here (§5.2).
 - **Covers:** brand, CTA.
 
 **Covered on screen only (not in the voiceover):** YAML frontmatter, TTL garbage collection, the navigable tree, the
 index as a rebuildable cache, plugin hooks and `<private>` tags (a card in 13 if time allows), conversations (the
-Playground), the offline CLI licence, the free plan.
+Playground), the free plan.
 
 ## 5. Sound
 

@@ -4,8 +4,9 @@
 import type * as THREE from 'three';
 import type { AudioData, AudioSample } from './audio';
 import type { VO } from './vo';
-import type { Compositor } from './gl';
+import type { Compositor, Layer2D } from './gl';
 import type { PostParams } from './post';
+import type { Handles } from './transition';
 
 export interface SceneCtx {
   renderer: THREE.WebGLRenderer;
@@ -43,40 +44,61 @@ export interface Frame {
   barPhase: number;
   /** Audio features at t (envelopes 0..1 and decaying hit pulses). */
   a: AudioSample;
-  /**
-   * When this scene overlaps the previous one (a transition), the previous scene's
-   * output texture for this frame; otherwise null. Scenes that set
-   * `handlesTransition = true` composite it themselves.
-   */
-  under: THREE.Texture | null;
-  /** 0..1 progress through the overlap with the previous scene (1 when not overlapping). */
-  tin: number;
-  /** 0..1 progress through the overlap with the next scene (0 when not overlapping). */
-  tout: number;
 }
 
 export type PostOverrides = Partial<PostParams>;
 
+/**
+ * A scene's life: constructed, init() once, then prepare() and render() for its frames, then dispose(); it is never
+ * inited again (a later need constructs a new one). The player loads every scene at boot. Export constructs and inits
+ * each just before a frame first needs it, and a video export disposes it after its last frame, so dispose() must free
+ * everything it made: layers (disposeLayer), render targets, textures, geometries, materials, plates.
+ */
 export abstract class Scene {
   /** If true, the engine fast-forwards (calls render with preroll=true) after seeks. */
   stateful = false;
   /** Max seconds of history the engine re-simulates when seeking into a stateful scene. */
   prerollMax = 6;
-  /** If true, this scene composites `f.under` itself during its incoming transition. */
-  handlesTransition = false;
+  /**
+   * How far (s) this scene can render before its start (head) and past its end (tail): a transition side in 'run' mode
+   * runs into them (transition.ts sideTime). Only engine-built content may declare any; a plate scene keeps 0, 0 and
+   * holds its first or last frame instead.
+   */
+  handles: Handles = { head: 0, tail: 0 };
 
   constructor(protected ctx: SceneCtx) {}
 
-  /** Load/create resources. Called once before first render. */
+  /** Load/create resources. Called once, before the first prepare() and render(). A throw fails an export. */
   init(): Promise<void> | void {}
+
+  /**
+   * Optional: load what render() needs at song time t, such as a Blender plate's frame (plates.ts). Export awaits it
+   * for every scene on screen in a frame (over its motion-blur shutter) before `still()` and before each streamed
+   * frame, so render() can then stay synchronous and exact. The player calls it best-effort, without waiting: there
+   * render() must cope with the frame not being loaded yet (Plate.texture shows the nearest one it has).
+   */
+  prepare?(t: number): Promise<void>;
 
   /** Reset internal state (called on seeks for stateful scenes). */
   reset(): void {}
 
-  /** Render into `out` (HalfFloat, linear HDR). Must fully overwrite/clear it. Return post-processing overrides. */
+  /**
+   * Render into `out` (HalfFloat, linear HDR). Must fully overwrite/clear it. Return post-processing overrides. A throw
+   * fails an export (the player fills the frame red).
+   */
   abstract render(f: Frame, out: THREE.WebGLRenderTarget): PostOverrides | void;
 
+  /** Free everything init() and render() made (see the class doc): export calls it after the scene's last frame. */
   dispose(): void {}
 }
 
 export type SceneClass = new (ctx: SceneCtx) => Scene;
+
+/**
+ * Free a Layer2D: its texture's GPU copy, and its canvas's backing store (a full-frame layer is 8 MiB at 1080p, 32 MiB
+ * at 4K, plus as much again for the texture).
+ */
+export function disposeLayer(layer: Layer2D) {
+  layer.texture.dispose();
+  layer.canvas.width = layer.canvas.height = 0;
+}
