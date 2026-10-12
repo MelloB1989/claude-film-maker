@@ -65,6 +65,9 @@ interface Shared {
   /** Adds a pass into `out`, weighted (`add` blends, `put` replaces). */
   add: FSPass;
   put: FSPass;
+  /** The same, the pass's colour with the sharp render's coverage as its alpha (Stage.render's `alpha`; made on first use). */
+  addA: FSPass | null;
+  putA: FSPass | null;
   refs: number;
 }
 const SHARED = new WeakMap<THREE.WebGLRenderer, Shared>();
@@ -103,6 +106,8 @@ function acquire(renderer: THREE.WebGLRenderer): Shared {
       copy: new FSPass(`uniform sampler2D src; void main() { fragColor = texelFetch(src, ivec2(gl_FragCoord.xy), 0); }`, { src: { value: null } }),
       add,
       put: new FSPass(texel, { src: { value: null }, w: { value: 1 } }),
+      addA: null,
+      putA: null,
       refs: 0,
     };
     SHARED.set(renderer, s);
@@ -163,7 +168,7 @@ function release(renderer: THREE.WebGLRenderer) {
   s.color.depthTexture?.dispose();
   for (const rt of [s.color, s.pass, s.backdrop]) rt?.dispose();
   s.dof.dispose();
-  for (const p of [s.copy, s.add, s.put]) p.mat.dispose();
+  for (const p of [s.copy, s.add, s.put, s.addA, s.putA]) p?.mat.dispose();
   SHARED.delete(renderer);
 }
 
@@ -187,10 +192,27 @@ export class Stage {
    * through the depth of field with `dof`, straight across without. `clear: false` starts each pass from what is already
    * in `out` instead of the background colour; the DoF then treats it as the far distance (the camera's far plane). A
    * view offset set on the camera is kept (eachTap).
+   *
+   * `alpha` (off by default; existing renders are untouched) keeps coverage in alpha for a stage drawn over nothing:
+   * clear `out` to transparent black and render with `clear: false`, and each tap's alpha is the sharp render's
+   * coverage (the DoF composite writes 1), averaged over the taps, clamped to 1, with the DoF's colour premultiplied
+   * against the transparent black it gathered. So in-focus edges are exact; a defocused subject keeps its sharp
+   * silhouette's alpha while its colour spreads past it a little (added as light where alpha is 0) and darkens a
+   * little inside it.
    */
-  render(out: THREE.WebGLRenderTarget | null, opts: { dof?: DofParams | null; clear?: boolean } = {}) {
+  render(out: THREE.WebGLRenderTarget | null, opts: { dof?: DofParams | null; clear?: boolean; alpha?: boolean } = {}) {
     stageTarget(out, opts.clear);
     const r = this.renderer, cam = this.camera, s = this.shared;
+    if (opts.alpha && !s.putA) {
+      const cov = `uniform sampler2D src; uniform sampler2D cov; uniform float w;
+        void main() { ivec2 p = ivec2(gl_FragCoord.xy); fragColor = vec4(texelFetch(src, p, 0).rgb, min(texelFetch(cov, p, 0).a, 1.0)) * w; }`;
+      const u = () => ({ src: { value: null }, cov: { value: null }, w: { value: 1 } });
+      const addA = new FSPass(cov, u(), { blending: THREE.CustomBlending, transparent: true });
+      addA.mat.blendEquation = THREE.AddEquation;
+      addA.mat.blendSrc = addA.mat.blendDst = addA.mat.blendSrcAlpha = addA.mat.blendDstAlpha = THREE.OneFactor;
+      s.addA = addA;
+      s.putA = new FSPass(cov, u());
+    }
     const autoClear = r.autoClear;
     r.autoClear = false;
     let backdrop: THREE.Texture | null = null;
@@ -215,8 +237,9 @@ export class Stage {
         s.copy.u.src!.value = s.color.texture;
         s.copy.render(r, s.pass!);
       }
-      const acc = tap === 0 ? s.put : s.add;
+      const acc = opts.alpha ? (tap === 0 ? s.putA! : s.addA!) : tap === 0 ? s.put : s.add;
       acc.u.src!.value = s.pass!.texture;
+      if (opts.alpha) acc.u.cov!.value = s.color.texture;
       acc.u.w!.value = 1 / RGSS.length;
       acc.render(r, out);
     });
