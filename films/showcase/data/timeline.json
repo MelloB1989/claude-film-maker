@@ -64,6 +64,16 @@
  ],
  "overlays": [
   {
+   "id": "hits",
+   "start": 4,
+   "end": 7.7
+  },
+  {
+   "id": "kicks",
+   "start": 18.3,
+   "end": 25.7
+  },
+  {
    "id": "captions",
    "start": 21.9,
    "end": 34
@@ -96,14 +106,14 @@
   },
   {
    "id": "frame-code",
-   "kind": "xfade",
+   "kind": "slide",
    "cut": 12,
    "start": 11.75,
    "end": 12.25
   },
   {
    "id": "code-formats",
-   "kind": "whip",
+   "kind": "wipe",
    "cut": 18,
    "start": 17.75,
    "end": 18.25
@@ -117,28 +127,28 @@
   },
   {
    "id": "stats-blur",
-   "kind": "xfade",
+   "kind": "iris",
    "cut": 26,
    "start": 25.75,
    "end": 26.25
   },
   {
    "id": "blur-player",
-   "kind": "dip",
+   "kind": "glitch",
    "cut": 30,
    "start": 29.75,
    "end": 30.25
   },
   {
    "id": "player-cards",
-   "kind": "whip",
+   "kind": "spin",
    "cut": 34,
    "start": 33.75,
    "end": 34.25
   },
   {
    "id": "cards-logo",
-   "kind": "zoom",
+   "kind": "flash",
    "cut": 40,
    "start": 39.75,
    "end": 40.25

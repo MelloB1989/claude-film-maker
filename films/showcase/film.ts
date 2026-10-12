@@ -9,6 +9,7 @@ import { Cards3D, GlyphCloud, Hero3D, Logo3D, Panel3D } from '@kit/3d';
 import { Aurora, Grid, MeshGradient, Particles } from '@kit/bg';
 import { Stack } from '@kit/stack';
 import { Device } from '@kit/media';
+import { BeatFx } from '@kit/fx';
 import config from './film.json';
 
 /** A bar at the film's tempo (s). The shots in order and their lengths in bars. */
@@ -36,7 +37,7 @@ export default defineFilm({
     },
     {
       // the camera dives through the resolved words into the title: extruded, slammed in a word a beat
-      id: 'hero', scene: Hero3D, length: len('hero'), transition: { kind: 'zoom', scale: 3 },
+      id: 'hero', scene: Hero3D, length: len('hero'), transition: { kind: 'zoom', scale: 3 }, look: 'cinematic',
       params: { text: 'Films,\nwritten in code.', emphasis: ['code.'], sync: 'beats', reveal: 'slam', exit: 'blow', exitDur: 0.45, whip: 'left' },
     },
     {
@@ -51,7 +52,7 @@ export default defineFilm({
     },
     {
       // the tools themselves: a terminal starts a film and renders it while the editor writes its first shot
-      id: 'code', scene: Panel3D, length: len('code'), transition: 'xfade',
+      id: 'code', scene: Panel3D, length: len('code'), transition: 'slide',
       params: {
         layout: 'pair',
         panels: [
@@ -73,7 +74,7 @@ export default defineFilm({
     },
     {
       // one film, every format: the specimen lands a line a beat over a floor grid running to the horizon
-      id: 'formats', scene: Stack, length: len('formats'), transition: { kind: 'whip', dir: [0, -1] },
+      id: 'formats', scene: Stack, length: len('formats'), transition: { kind: 'wipe', dir: 0, edge: 'accent' }, look: 'neon',
       params: {
         layers: [
           { scene: Grid, params: { horizon: 0.62, pulse: 'beat', intensity: 0.8 } },
@@ -102,7 +103,7 @@ export default defineFilm({
       },
     },
     {
-      id: 'blur', scene: Stack, length: len('blur'), transition: 'xfade',
+      id: 'blur', scene: Stack, length: len('blur'), transition: { kind: 'iris', edge: 'accent2' },
       params: {
         layers: [
           { scene: MeshGradient, params: { intensity: 0.45 } },
@@ -112,7 +113,7 @@ export default defineFilm({
     },
     {
       // the player, in a browser window floating over soft light
-      id: 'player', scene: Stack, length: len('player'), transition: 'dip',
+      id: 'player', scene: Stack, length: len('player'), transition: 'glitch', look: 'clean',
       params: {
         layers: [
           { scene: MeshGradient, params: { intensity: 0.6 } },
@@ -121,7 +122,7 @@ export default defineFilm({
       },
     },
     {
-      id: 'cards', scene: Cards3D, length: len('cards'), transition: { kind: 'whip', dir: [1, 0] },
+      id: 'cards', scene: Cards3D, length: len('cards'), transition: { kind: 'spin', angle: 90 },
       params: {
         layout: 'carousel', every: 2,
         cards: [
@@ -134,7 +135,7 @@ export default defineFilm({
       },
     },
     {
-      id: 'logo', scene: Logo3D, length: len('logo'), transition: { kind: 'zoom', scale: 2.5 },
+      id: 'logo', scene: Logo3D, length: len('logo'), transition: 'flash',
       params: { tagline: 'Films, written in code.', reveal: 'spin' },
     },
     {
@@ -143,6 +144,9 @@ export default defineFilm({
     },
   ],
   overlays: [
+    // hits on the grid: the title punches in on every beat; the formats and stats kick, shaking on the downbeat
+    { id: 'hits', scene: BeatFx, start: at('hero'), end: at('frame', -0.3), params: { punch: true } },
+    { id: 'kicks', scene: BeatFx, start: at('formats', 0.3), end: at('blur', -0.3), params: { punch: { amount: 0.02 }, shake: { on: 'downbeat', amount: 5 } } },
     { id: 'captions', scene: Captions, start: at('stats', -0.1), end: at('cards'), params: { style: 'karaoke' } },
     { id: 'watermark', scene: Watermark, start: at('frame'), end: at('logo'), params: { text: 'claude-film-maker', corner: 'tr' } },
     { id: 'progress', scene: ProgressBar, params: { marks: ORDER.slice(1).map((s) => at(s)) } },
