@@ -30,6 +30,8 @@ film-vo-chain = "filmtools.vochain:main"
 film-sfx-lib = "filmtools.sfxlib:main"
 film-sfx = "filmtools.sfx:main"
 film-deliver = "filmtools.deliver:main"
+film-temptrack = "filmtools.temptrack:main"
+film-init = "filmtools.init:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]

@@ -104,19 +104,25 @@ def _envelopes(y: np.ndarray, sr: int, n: int) -> tuple[np.ndarray, np.ndarray, 
 
 def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np.ndarray | None = None,
             automate: bool = True, rules: dict | None = None, fade_out: float = FADE_OUT,
-            beats_per_bar: int = 4) -> dict:
+            beats_per_bar: int = 4, grid: dict | None = None) -> dict:
     """The beat grid, downbeats and sections come from the score as generated. The envelopes and band onsets that
     drive the visuals come from the music as heard: with `automate`, the mix's arc (automate.lanes with `rules` and
     `fade_out`) is drawn over those sections first, so a drop or a muffled intro shows in them as it does in the
-    mix."""
+    mix. A score made on a known grid (`grid`: {bpm, offset}, film-temptrack's) keeps that grid exactly, its first
+    beat a downbeat; it is not tracked."""
     duration = len(y) / sr
     n = int(np.ceil(duration * FPS))
     lag = LAG * HOP / sr  # onset times are read off the envelope, so every one of them is this late
     oenv = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP)
-    _, bf = librosa.beat.beat_track(onset_envelope=oenv, sr=sr, hop_length=HOP, start_bpm=meta["bpm"],
-                                    tightness=400, trim=False)
-    tracked = librosa.frames_to_time(bf, sr=sr, hop_length=HOP) - lag
-    beats, period, err = fit_grid(tracked, duration)
+    if grid is None:
+        _, bf = librosa.beat.beat_track(onset_envelope=oenv, sr=sr, hop_length=HOP, start_bpm=meta["bpm"],
+                                        tightness=400, trim=False)
+        tracked = librosa.frames_to_time(bf, sr=sr, hop_length=HOP) - lag
+        beats, period, err = fit_grid(tracked, duration)
+    else:
+        period, err = 60.0 / float(grid["bpm"]), 0.0
+        beats = float(grid.get("offset", 0.0)) + period * np.arange(int(np.ceil(duration / period)) + 1)
+        beats = beats[beats < duration - 1e-9]
     low, _, _, rms = _envelopes(y, sr, n)
     onset_t = librosa.onset.onset_detect(onset_envelope=oenv, sr=sr, hop_length=HOP, units="time",
                                          backtrack=False) - lag
@@ -127,7 +133,7 @@ def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np
     fit = grid_fit(beats, onset_t, active)
     starts = [s["start"] for s in meta["sections"]]
     bpb = int(beats_per_bar)
-    downs = beats[_downbeat_phase(beats, low, starts, period, bpb)::bpb]
+    downs = beats[(_downbeat_phase(beats, low, starts, period, bpb) if grid is None else 0)::bpb]
     snapped = [float(downs[np.argmin(np.abs(downs - s))]) if i else 0.0 for i, s in enumerate(starts)]
     sections = [{"name": s["name"], "start": round(snapped[i], 3),
                  "end": round(snapped[i + 1], 3) if i + 1 < len(snapped) else round(duration, 3)}
@@ -144,9 +150,16 @@ def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np
         vocal = _norm(_fit(librosa.feature.rms(y=vo_y, frame_length=2048, hop_length=vr)[0], n))
     vocal_on = [[w["start"], 1.0] for l in (vo or {}).get("lines", []) for w in l["words"]]
     r3 = lambda a: [round(float(v), 3) for v in a]  # noqa: E731
+    exact = 6 if grid is not None else 3  # a known grid keeps its times to the microsecond, as film-temptrack wrote
+    rg = lambda a: [round(float(v), exact) for v in a]  # noqa: E731
+    if grid is not None:
+        sections = [{**s, "start": round(snapped[i], exact),
+                     "end": round(snapped[i + 1], exact) if i + 1 < len(snapped) else round(duration, exact)}
+                    for i, s in enumerate(sections)]
     return {
-        "duration": round(duration, 3), "bpm": round(60.0 / period, 3), "beat_period": round(period, 5),
-        "time_signature": bpb, "beats": r3(beats), "downbeats": r3(downs), "sections": sections, "fps": FPS,
+        "duration": round(duration, exact), "bpm": round(60.0 / period, exact),
+        "beat_period": round(period, max(5, exact)), "time_signature": bpb, "beats": rg(beats), "downbeats": rg(downs),
+        "sections": sections, "fps": FPS,
         "rms": r3(rms), "low": r3(low), "mid": r3(mid), "high": r3(high), "vocal": r3(vocal), "drums": r3(drums),
         "bass": r3(low), "other": r3(mid),
         "onsets": {"kick": _onsets(low), "snare": _onsets(mid), "hat": _onsets(high), "vocal": vocal_on},
@@ -176,6 +189,16 @@ def score_meta(mp: dict, chosen: str | None, music: str | None, root, bpm: float
     return meta
 
 
+def known_grid(mp: dict, chosen: str | None, music: str | None, root) -> dict | None:
+    """The grid a score was made on, when its sidecar records one (film-temptrack's {bpm, offset, beats_per_bar}):
+    a splice of it keeps it, since bars move whole on that grid."""
+    side = pick_sidecar({**mp, "chosen": chosen} if chosen else {"chosen": music}, root)
+    if side is None or not side.exists():
+        return None
+    doc = json.loads(side.read_text())
+    return doc.get("temptrack") if doc.get("format") == "temptrack" else None
+
+
 def main(argv=None):
     ap = cli.parser("Analyse the chosen score into data/audio.json")
     ap.add_argument("--music", help="WAV to analyse, relative to the film folder (default: the chosen score)")
@@ -194,6 +217,9 @@ def main(argv=None):
                          "--music")
     y, sr = read_wav(fp.dir / rel)
     meta = score_meta(mp, chosen, a.music, fp.dir, a.bpm or film.bpm, len(y) / sr)
+    grid, bpb = known_grid(mp, chosen, a.music, fp.dir), film.beats_per_bar
+    if grid is not None:
+        bpb = int(grid.get("beats_per_bar", bpb))
     vo_path, vo_wav = fp.data / "vo.json", fp.audio / "vo" / "vo.wav"
     vo = json.loads(vo_path.read_text()) if vo_path.is_file() else None
     vo_y = None
@@ -202,11 +228,13 @@ def main(argv=None):
         if vsr != sr:
             vo_y = librosa.resample(vo_y, orig_sr=vsr, target_sr=sr)
     out = analyze(y, sr, meta, vo, vo_y, automate=not a.no_automation, rules=rules_from(film.music),
-                  fade_out=float(film.music["fade_out"]), beats_per_bar=film.beats_per_bar)
+                  fade_out=float(film.music["fade_out"]), beats_per_bar=bpb, grid=grid)
     film.analysis_path.parent.mkdir(parents=True, exist_ok=True)
     film.analysis_path.write_text(json.dumps(out))
-    print(f"{out['bpm']} BPM · grid fit {out['grid_fit']:.2f} · grid error {out['grid_error_ms']} ms · "
-          f"{len(out['beats'])} beats · {len(out['downbeats'])} downbeats"
-          + ("" if out["grid_fit"] >= 0.9 else "   ⚠ the tempo drifts: ask the user (regenerate, or cut on downbeats)"))
+    drift = "" if grid is not None or out["grid_fit"] >= 0.9 else \
+        "   ⚠ the tempo drifts: ask the user (regenerate, or cut on downbeats)"
+    print(f"{out['bpm']} BPM · " + ("the score's own grid (film-temptrack) · " if grid is not None else "")
+          + f"grid fit {out['grid_fit']:.2f} · grid error {out['grid_error_ms']} ms · "
+          f"{len(out['beats'])} beats · {len(out['downbeats'])} downbeats" + drift)
     for s in out["sections"]:
         print(f"  {s['name']:<22} {s['start']:7.3f} → {s['end']:7.3f}")

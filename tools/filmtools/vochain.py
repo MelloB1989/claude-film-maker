@@ -163,14 +163,17 @@ _K2 = (np.array([1.0, -2.0, 1.0]), np.array([1.0, -1.99004745483398, 0.990072250
 
 
 def loudness(y: np.ndarray, sr: int) -> float:
-    """Integrated loudness (ITU-R BS.1770-4, mono, gated) in LUFS. 48 kHz only."""
+    """Integrated loudness (ITU-R BS.1770-4, gated) in LUFS, of a mono signal or of (n, channels) whose channels'
+    powers sum (left and right weigh 1). 48 kHz only."""
     assert sr == 48000, "the K-weighting coefficients are for 48 kHz"
-    k = _filt(_filt(np.asarray(y, dtype=np.float64), _K1), _K2)
+    y = np.asarray(y, dtype=np.float64)
+    k = _filt(_filt(y, _K1), _K2) if y.ndim == 1 else signal.lfilter(*_K2, signal.lfilter(*_K1, y, axis=0), axis=0)
+    p = k ** 2 if k.ndim == 1 else (k ** 2).sum(axis=1)
     blk, hop = int(0.4 * sr), int(0.1 * sr)
-    if len(k) < blk:
-        z = np.array([np.mean(k ** 2)])
+    if len(p) < blk:
+        z = np.array([np.mean(p)])
     else:
-        c = np.concatenate([[0.0], np.cumsum(k ** 2)])
+        c = np.concatenate([[0.0], np.cumsum(p)])
         starts = np.arange(0, len(k) - blk + 1, hop)
         z = (c[starts + blk] - c[starts]) / blk
     lz = -0.691 + 10 * np.log10(z + EPS)
