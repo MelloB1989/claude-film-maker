@@ -26,7 +26,7 @@ def test_one_lit_pixel_makes_the_frame_not_blank():
 
 
 def test_a_very_dark_legitimate_frame_is_not_blank():
-    # ink under no light reads about 0.006 on the real plates; here an even dimmer frame, brightest value 0.003
+    # a dark world under no light reads about 0.006 on real plates; here an even dimmer frame, brightest value 0.003
     px = np.zeros((4, 6, 4), np.float32)
     px[..., :3] = np.linspace(0.0, 0.003, 6, dtype=np.float32)[None, :, None]
     px[..., 3] = 1.0
@@ -132,20 +132,20 @@ def test_peak_of_a_frame_of_nans_is_nan_without_a_warning_and_of_an_empty_frame_
 # -------------------------------------------------------------------------------------------------------- fault
 
 
-def ink(h=6, w=10):
-    """A frame lit only by the ink world, about 0.006 linear everywhere: dark, but lit."""
+def dark(h=6, w=10):
+    """A frame lit only by a dark world, about 0.006 linear everywhere: dark, but lit."""
     px = np.full((h, w, 4), 0.006, np.float32)
     px[..., 3] = 1.0
     return px
 
 
 def test_a_dark_lit_frame_of_finite_values_has_no_fault():
-    assert blank.fault(ink()) is None
-    assert blank.fault(ink(), tile=4) is None
+    assert blank.fault(dark()) is None
+    assert blank.fault(dark(), tile=4) is None
 
 
 def test_a_frame_with_nans_or_infs_is_bad_and_says_how_many():
-    px = ink(4, 6)
+    px = dark(4, 6)
     px[0, 0, 0] = np.nan
     px[3, 5, 2] = np.nan
     px[2, 2, 1] = np.inf
@@ -157,7 +157,7 @@ def test_a_frame_with_nans_or_infs_is_bad_and_says_how_many():
 
 
 def test_minus_infinity_is_bad_too():
-    px = ink()
+    px = dark()
     px[1, 1, 1] = -np.inf
     assert blank.fault(px).kind == "nonfinite"
 
@@ -182,7 +182,7 @@ def test_a_proxy_is_judged_in_its_own_code_values():
 
 
 def test_a_black_tile_is_a_fault_though_the_rest_of_the_frame_is_lit():
-    px = ink()
+    px = dark()
     px[2:6, 4:8, :3] = 0.0  # the middle tile of the bottom row
     f = blank.fault(px, tile=4)
     assert f.kind == "tile"
@@ -190,32 +190,32 @@ def test_a_black_tile_is_a_fault_though_the_rest_of_the_frame_is_lit():
 
 
 def test_the_thin_tiles_at_the_frames_far_edges_are_checked():
-    px = ink()
+    px = dark()
     px[0:2, 8:10, :3] = 0.0  # the top-right tile of Cycles' grid: 2 x 2 px
     assert "x 8-10, y 0-2" in blank.fault(px, tile=4).detail
 
 
 def test_a_black_tile_on_a_grid_laid_from_the_top_left_is_a_fault_too():
-    px = ink()
+    px = dark()
     px[4:6, 0:4, :3] = 0.0  # inside Cycles' tile at rows 2-6, which stays lit, but a whole tile of the top-left grid
     assert "x 0-4, y 4-6" in blank.fault(px, tile=4).detail
 
 
 def test_a_black_patch_smaller_than_a_tile_is_not_a_fault():
-    px = ink()
+    px = dark()
     px[2:6, 4:6, :3] = 0.0  # half a tile: a dark object, not a lost tile
     assert blank.fault(px, tile=4) is None
 
 
 def test_a_frame_that_fits_in_one_tile_is_judged_whole():
-    px = ink()
+    px = dark()
     px[:, :5, :3] = 0.0  # half the frame black, but at the default 2048-px tile this 10 x 6 frame is one tile, lit
     assert blank.fault(px) is None
 
 
 # ------------------------------------------------------------------------------------------ render_checked
 
-PATH = Path("/repo/out/plates/b07_test/0012.exr")
+PATH = Path("/repo/out/demo/plates/hero/0012.exr")
 
 
 def lit():
@@ -240,7 +240,7 @@ class Rig:
         return self.frames[min(len(self.attempts), len(self.frames)) - 1]
 
     def run(self, **kw):
-        return blank.render_checked(self.render_once, shot="b07_test", film_frame=312, path=PATH,
+        return blank.render_checked(self.render_once, shot="hero", film_frame=312, path=PATH,
                                     log=self.lines.append, sleep=self.sleeps.append, **kw)
 
 
@@ -261,9 +261,9 @@ def test_a_blank_frame_is_rendered_again_and_each_attempt_is_logged():
     assert rig.sleeps == [blank.RETRY_PAUSE]
     assert len(rig.lines) == 2
     first, second = rig.lines
-    for part in ("b07_test", "312", "attempt 1 of 3", "blank", str(PATH), "again"):
+    for part in ("hero", "312", "attempt 1 of 3", "blank", str(PATH), "again"):
         assert part in first
-    assert "attempt 2 of 3" in second and "lit" in second and "b07_test" in second and "312" in second
+    assert "attempt 2 of 3" in second and "lit" in second and "hero" in second and "312" in second
 
 
 def test_the_second_retry_waits_longer_and_can_be_the_one_that_works():
@@ -283,9 +283,9 @@ def test_a_frame_that_stays_blank_fails_after_the_first_attempt_and_two_retries(
         rig.run()
     assert rig.attempts == [1, 2, 3]
     e = err.value
-    assert (e.shot, e.film_frame, e.path, e.attempts) == ("b07_test", 312, PATH, 3)
+    assert (e.shot, e.film_frame, e.path, e.attempts) == ("hero", 312, PATH, 3)
     msg = str(e)
-    for part in ("b07_test", "312", str(PATH), "3 attempts"):
+    for part in ("hero", "312", str(PATH), "3 attempts"):
         assert part in msg
     assert len(rig.lines) == 3  # every attempt is logged, the last one as the failure
     assert all("blank" in line and "again" in line for line in rig.lines[:2])
@@ -339,10 +339,10 @@ def test_a_frame_with_nans_or_infs_is_retried_and_fails_if_it_stays_bad():
         rig.run()
     assert rig.attempts == [1, 2, 3]
     e = err.value
-    assert (e.shot, e.film_frame, e.path, e.attempts) == ("b07_test", 312, PATH, 3)
-    for part in ("b07_test", "312", str(PATH), "3 attempts", "not finite", "inf"):
+    assert (e.shot, e.film_frame, e.path, e.attempts) == ("hero", 312, PATH, 3)
+    for part in ("hero", "312", str(PATH), "3 attempts", "not finite", "inf"):
         assert part in str(e)
-    assert "NaN" in rig.lines[0] and "again" in rig.lines[0] and "b07_test" in rig.lines[0] and "312" in rig.lines[0]
+    assert "NaN" in rig.lines[0] and "again" in rig.lines[0] and "hero" in rig.lines[0] and "312" in rig.lines[0]
     assert "inf" in rig.lines[1] and "again" in rig.lines[1]
     assert "giving up" in rig.lines[2]
 
@@ -357,7 +357,7 @@ def test_a_bad_frame_that_comes_out_clean_on_a_retry_is_kept():
 
 
 def test_a_frame_with_a_black_tile_is_retried_and_fails_if_it_stays_bad():
-    px = ink()
+    px = dark()
     px[2:6, 4:8, :3] = 0.0
     rig = Rig(px)
     with pytest.raises(blank.BadFrameError) as err:
@@ -435,7 +435,7 @@ def test_frames_spec_round_trips_through_parse_frames():
 
 
 def test_the_hook_does_nothing_unless_its_variable_is_set():
-    assert blank.FORCE_ENV == "GITLOOM_FORCE_BLANK"
+    assert blank.FORCE_ENV == "FILM_FORCE_BLANK"
     assert blank.parse_force_blank(None) == {}
     assert blank.parse_force_blank("") == {}
     assert blank.parse_force_blank("   ") == {}
@@ -449,5 +449,5 @@ def test_the_hook_names_film_frames_and_how_many_attempts_to_blank():
 
 @pytest.mark.parametrize("bad", ["x", "41:", "41:0", "41:x", "-3", "41:2:1", "41,,43", "4.5"])
 def test_a_mistyped_hook_value_fails_loudly_instead_of_doing_nothing(bad):
-    with pytest.raises(ValueError, match="GITLOOM_FORCE_BLANK"):
+    with pytest.raises(ValueError, match="FILM_FORCE_BLANK"):
         blank.parse_force_blank(bad)

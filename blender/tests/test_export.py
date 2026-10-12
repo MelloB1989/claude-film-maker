@@ -8,18 +8,8 @@ import pytest
 
 from lib import export
 
-# Expected values are derived by hand (the sRGB formula, box averages worked on paper), never with export.py.
-
-
-def test_plate_paths_are_where_the_engine_reads_them():
-    # app/src/engine/plates.ts plateUrl: out/plates/<shot>/####.exr, and plates/<shot>/proxy/####.png under app/public
-    p = export.plate_paths("_cube", 7)
-    assert p.exr == export.REPO / "out/plates/_cube/0007.exr"
-    assert p.proxy == export.REPO / "app/public/plates/_cube/proxy/0007.png"
-
-
-def test_look_stills_are_named_by_film_frame():
-    assert export.look_path("_cube", 47) == export.REPO / "out/look/_cube/0047.png"
+# Expected values are derived by hand (the sRGB formula, box averages worked on paper), never with export.py. Where
+# plates, proxies and tracks go is lib/film.py's (test_film.py).
 
 
 def test_to_logical_maps_the_camera_view_onto_the_1920x1080_frame():
@@ -28,6 +18,13 @@ def test_to_logical_maps_the_camera_view_onto_the_1920x1080_frame():
     assert export.to_logical((0.0, 1.0, 2.0)) == (0.0, 0.0, 1)  # top-left
     assert export.to_logical((1.0, 0.0, 2.0)) == (1920.0, 1080.0, 1)  # bottom-right
     assert export.to_logical((0.25, 0.75, 1.0)) == (480.0, 270.0, 1)
+
+
+def test_to_logical_maps_onto_any_films_logical_frame():
+    assert export.to_logical((0.5, 0.5, 3.0), (1080, 1920)) == (540.0, 960.0, 1)  # vertical
+    assert export.to_logical((0.25, 0.75, 1.0), (1080, 1350)) == (270.0, 337.5, 1)  # portrait
+    assert export.to_logical((1.0, 0.0, 2.0), (1920, 804)) == (1920.0, 804.0, 1)  # cinema: bottom-right
+    assert export.to_logical((1.1, 0.5, 2.0), (1080, 1080)) == (1188.0, 540.0, 0)  # off the square's right edge
 
 
 def test_to_logical_hides_anchors_off_frame_or_behind_the_camera_but_keeps_their_place():
@@ -39,7 +36,21 @@ def test_to_logical_hides_anchors_off_frame_or_behind_the_camera_but_keeps_their
 
 def test_track_doc_is_the_engine_format_with_rounded_px():
     doc = export.track_doc(40, {"corner": [(100.123456, 200.5, 1), (130.0004, 180.9996, 0)]})
-    assert doc == {"fps": 30, "f0": 40, "anchors": {"corner": [[100.123, 200.5, 1], [130.0, 181.0, 0]]}}
+    assert doc == {"fps": 30, "f0": 40, "width": 1920, "height": 1080,
+                   "anchors": {"corner": [[100.123, 200.5, 1], [130.0, 181.0, 0]]}}
+    # a film's own fps and logical size go with its samples
+    doc = export.track_doc(0, {"a": [(1, 2, 1)]}, fps=24, size=(1080, 1920))
+    assert (doc["fps"], doc["width"], doc["height"]) == (24, 1080, 1920)
+
+
+def test_the_proxy_is_the_plate_at_the_films_proxy_size_in_srgb():
+    px = np.zeros((4, 8, 4), np.float32)
+    px[..., :3], px[..., 3] = 0.5, 1.0  # premultiplied linear 0.5, opaque
+    px[:, :4, :3], px[:, :4, 3] = 0.25, 0.5  # the left half: half covered, so straight 0.5 too
+    out = export.proxy_from_linear(px, (4, 2))  # half size: 2x2 px blocks
+    assert out.shape == (2, 4, 4) and out.dtype == np.uint8
+    assert out[..., :3].tolist() == [[[188] * 3] * 4] * 2  # 0.5 linear is sRGB 187.52
+    assert out[:, :2, 3].tolist() == [[128, 128]] * 2 and out[:, 2:, 3].tolist() == [[255, 255]] * 2
 
 
 def test_resample_area_averages_whole_pixels():

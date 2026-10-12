@@ -1,7 +1,7 @@
 """The black-frame guard: a frame that comes out blank or bad is rendered again, and one that stays so stops the render.
 
-Why: with two Blender renders sharing the GPU, Cycles 5.2.2 on Metal wrote runs of all-black frames, with no error and a
-clean exit code (Task 12). Rendered alone, the same frames were fine. A silent black frame in a delivered plate is not
+Why: with two Blender renders sharing the GPU, Cycles (5.2.2, on Metal) has written runs of all-black frames, with no
+error and a clean exit code. Rendered alone, the same frames were fine. A silent black frame in a delivered plate is not
 acceptable, so every frame is checked as soon as it is written (lib/export.py render_frame). A frame is not fit to
 deliver (`fault`) when:
   - any RGB value is not finite (NaN, or +-inf from a half-float overflow): the engine's bloom spreads one such pixel
@@ -10,18 +10,18 @@ deliver (`fault`) when:
     PNG proxy; alpha is not looked at;
   - one of its tiles is black: Cycles 5.2 always renders in tiles (TILE px, laid from the image's bottom-left corner),
     and a tile that failed comes out black while the rest is lit, so the whole frame's brightest value misses it. Every
-    tile-sized block must have a value above the limit (the ink world alone reads about 0.006).
+    tile-sized block must have a value above the limit (a dark world alone reads about 0.006).
 
   is_blank(px)            blank = the brightest RGB value is at most the limit (NaNs are not blank: fault() says so).
   fault(px, tile=...)     what is wrong with a frame (non-finite values, blank, a black tile), or None.
   render_checked(...)     render, check, and on a bad frame render again, up to MAX_RETRIES more times, logging every
-                          attempt. Before retry k it waits k * RETRY_PAUSE s: the incident's runs were 19 and 21 frames
+                          attempt. Before retry k it waits k * RETRY_PAUSE s: the runs seen were 19 and 21 frames
                           long (20 to 40 s of rendering), and an instant retry would land in the same spell. A frame
                           that is still bad raises BadFrameError, naming the shot, the film frame, the fault and the
                           path. A frame the shot declares black is only checked for non-finite values.
   black_ok(SHOT)          the film frames a shot declares legitimately black (SHOT["black_ok"], documented in
                           render.py): the guard does not ask them to be lit.
-  parse_force_blank(env)  the test hook's variable, GITLOOM_FORCE_BLANK, which makes export.render_frame render chosen
+  parse_force_blank(env)  the test hook's variable, FILM_FORCE_BLANK, which makes export.render_frame render chosen
                           frames black on purpose, to prove the retry path. It does nothing unless it is set.
   frames_spec(frames)     film frames as a --frames value, for the error's "to finish it".
 
@@ -44,7 +44,7 @@ BLANK_LINEAR = 1e-4  # a linear plate is blank when its brightest RGB value is a
 TILE = 2048  # px: Cycles' render tile (scene.cycles.tile_size, whose default this is)
 MAX_RETRIES = 2  # a bad frame is rendered again up to this many more times, then the render fails
 RETRY_PAUSE = 15.0  # s: retry k waits k * RETRY_PAUSE first (15 s, then 30 s)
-FORCE_ENV = "GITLOOM_FORCE_BLANK"
+FORCE_ENV = "FILM_FORCE_BLANK"
 
 
 def _say(message: str) -> None:
@@ -228,7 +228,7 @@ _FORCE_ITEM = re.compile(r"\s*(\d+)(?::(\d+))?\s*")
 
 
 def parse_force_blank(value: str | None) -> dict[int, int]:
-    """GITLOOM_FORCE_BLANK, the test hook: "F" or "F:N" items, comma-separated, each a film frame to render black on its
+    """FILM_FORCE_BLANK, the test hook: "F" or "F:N" items, comma-separated, each a film frame to render black on its
     first N attempts (default 1). Unset or empty: no frames. Anything else that does not parse raises ValueError, so a
     mistyped hook is noticed and never just does nothing."""
     if value is None or not value.strip():

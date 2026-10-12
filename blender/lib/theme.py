@@ -23,7 +23,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PRESETS_FILE = REPO / "app" / "src" / "engine" / "themes.json"
+PRESETS_REL = Path("app/src/engine/themes.json")  # in a checkout
+PRESETS_FILE = REPO / PRESETS_REL
 DEFAULT_PRESET = "noir"
 ROLES = ("bg", "bg2", "surface", "surface2", "rule", "ruleStrong", "fg", "fgDim", "fgFaint",
          "accent", "accentBright", "accentDim", "accent2", "accent2Bright", "accent2Dim")

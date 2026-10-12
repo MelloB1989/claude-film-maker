@@ -6,7 +6,7 @@ A plate's index is its film frame minus the shot's f0; the film frames are what 
 import numpy as np
 import pytest
 
-from lib import blank, export, scan
+from lib import blank, export, film, scan
 
 F0 = 100
 
@@ -40,12 +40,12 @@ def png(peak):
 class Plates:
     """A plate tree under tmp_path for one shot. EXR files are placeholders: the reader answers from `exr_px`."""
 
-    def __init__(self, root, shot="b07_test"):
-        self.root, self.shot = root, shot
+    def __init__(self, root, shot="hero"):
+        self.root, self.shot, self.film = root, shot, film.Film("demo", repo=root)
         self.exr_px, self.exr_reads, self.png_reads, self.indices = {}, [], [], set()
 
     def exr(self, index, px):
-        p = export.plate_paths(self.shot, index, self.root).exr
+        p = self.film.plate_paths(self.shot, index).exr
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(b"placeholder: the fake reader answers")
         self.exr_px[p] = px
@@ -53,7 +53,7 @@ class Plates:
         return p
 
     def proxy(self, index, rgba):
-        p = export.plate_paths(self.shot, index, self.root).proxy
+        p = self.film.plate_paths(self.shot, index).proxy
         export.write_png(p, rgba)
         self.indices.add(index)
         return p
@@ -72,12 +72,12 @@ class Plates:
     def scan(self, exempt=lambda f: False, f0=F0, f1=None, **kw):
         """Scan the plates; the shot's window defaults to the plates written: up to the last one, gaps and all."""
         f1 = f0 + max(self.indices, default=-1) + 1 if f1 is None else f1
-        return scan.scan_plates(self.shot, f0, f1, exempt, root=self.root, read_exr=self.read_exr,
+        return scan.scan_plates(self.film, self.shot, f0, f1, exempt, read_exr=self.read_exr,
                                 read_png=self.read_png, **kw)
 
 
-def on_ink(peak):
-    """A 32 x 32 plate of near-ink (0.003) with one pixel at `peak`: its brightest value varies, its level hardly."""
+def on_dark(peak):
+    """A 32 x 32 plate of near-black (0.003) with one pixel at `peak`: its brightest value varies, its level hardly."""
     px = np.full((32, 32, 4), 0.003, np.float32)
     px[0, 0, :3] = peak
     return px
@@ -85,9 +85,9 @@ def on_ink(peak):
 
 def test_a_clean_shot_scans_clean_and_reports_its_dimmest_frame(tmp_path):
     t = Plates(tmp_path)
-    t.exr(0, on_ink(0.5))
-    t.exr(1, on_ink(0.004))
-    t.exr(2, on_ink(2.0))
+    t.exr(0, on_dark(0.5))
+    t.exr(1, on_dark(0.004))
+    t.exr(2, on_dark(2.0))
     res = t.scan()
     assert res.plates == 3 and res.from_proxy == 0
     assert res.blank == [] and res.unreadable == [] and res.exempt == []
@@ -95,7 +95,7 @@ def test_a_clean_shot_scans_clean_and_reports_its_dimmest_frame(tmp_path):
     peak, film_frame = res.dimmest
     assert peak == pytest.approx(0.004) and film_frame == F0 + 1
     text = "\n".join(scan.report(res))
-    for part in ("b07_test", "3 plates", "0000-0002", "all lit", "film frame 101", "0.004"):
+    for part in ("hero", "3 plates", "0000-0002", "all lit", "film frame 101", "0.004"):
         assert part in text
 
 
@@ -130,7 +130,7 @@ def test_a_plate_with_only_a_proxy_is_judged_by_the_proxy(tmp_path):
     assert res.plates == 4 and res.from_exr == 1 and res.from_proxy == 3
     assert res.dimmest == (5.0, F0)  # the proxies' 8-bit codes are another unit: only EXR plates count
     assert [(f.film_frame, f.path) for f in res.blank] == [(F0 + 1, blank_proxy),
-                                                          (F0 + 2, export.plate_paths("b07_test", 2, tmp_path).proxy)]
+                                                          (F0 + 2, t.film.plate_paths("hero", 2).proxy)]
 
 
 def test_the_exr_decides_when_a_plate_has_both_and_the_proxy_is_not_read(tmp_path):
@@ -254,7 +254,7 @@ def test_expect_res_fails_every_plate_of_another_size(tmp_path):
 def test_files_that_are_not_plates_are_ignored(tmp_path):
     t = Plates(tmp_path)
     t.exr(0, lit())
-    d = export.plate_paths("b07_test", 0, tmp_path).exr.parent
+    d = t.film.plate_paths("hero", 0).exr.parent
     (d / "0003.npy").write_bytes(b"not a plate")
     (d / "notes.txt").write_text("x")
     (d / "preview.exr").write_bytes(b"not numbered")
@@ -263,7 +263,7 @@ def test_files_that_are_not_plates_are_ignored(tmp_path):
 
 
 def test_a_shot_with_no_plates_is_an_error_not_a_clean_scan(tmp_path):
-    with pytest.raises(FileNotFoundError, match="b07_test"):
+    with pytest.raises(FileNotFoundError, match="hero"):
         Plates(tmp_path).scan()
 
 
@@ -276,8 +276,8 @@ def level(mean):
 
 
 def test_a_run_of_plates_whose_level_drops_and_comes_back_is_a_jump(tmp_path):
-    # B05's chunk 4: eleven frames in the middle of a still camera came out with every warp shaded black (the frame lit,
-    # so the blank guard passed it), the frame's mean falling to a third and coming back where the run ended
+    # a chunk rendered across a sleep and wake: frames in the middle of a still camera came out with one material shaded
+    # black (the frame lit, so the blank guard passed it), the frame's mean falling to a third and back where it ended
     t = Plates(tmp_path)
     means = [0.05, 0.051, 0.012, 0.012, 0.0118, 0.049, 0.05]
     for i, m in enumerate(means):
@@ -301,8 +301,8 @@ def test_a_gentle_change_of_level_is_not_a_jump_and_declared_black_frames_are_le
     assert t.scan(exempt=lambda f: f == F0 + 5).jumps == []
 
 
-def test_a_subject_entering_from_ink_steps_once_and_is_not_a_jump(tmp_path):
-    # B03's first frames: ink, then the rope swings in and stays
+def test_a_subject_entering_from_black_steps_once_and_is_not_a_jump(tmp_path):
+    # a shot's first frames: black, then the subject swings in and stays
     t = Plates(tmp_path)
     for i, m in enumerate([0.006, 0.033, 0.04, 0.045, 0.045]):
         t.exr(i, level(m))

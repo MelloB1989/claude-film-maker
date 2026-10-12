@@ -1,22 +1,24 @@
 """Scan a shot's existing plates, rendering nothing (render.py --scan): are they all there, all one size, all fit?
 
-The plate directory is walked as render.py writes it: out/plates/<shot>/####.exr (the linear plate) and
-app/public/plates/<shot>/proxy/####.png (the 8-bit proxy), #### = film frame - f0. The shot's window [f0, f1) says which
-plates there must be: one per film frame, #### from 0 to f1 - f0 - 1. The scan fails (render.py exits 3) on
+The plate directory is walked as render.py writes it: out/<film>/plates/<shot>/####.exr (the linear plate) and
+out/<film>/plates/<shot>/proxy/####.png (the 8-bit proxy), #### = film frame - f0 (lib/film.py Film.plate_paths). The
+shot's window [f0, f1) says which plates there must be: one per film frame, #### from 0 to f1 - f0 - 1. The scan fails
+(render.py exits 3) on
   MISSING      a plate of the window with no file at all;
   EXTRA        a plate file beyond the window (a set rendered for another window: its numbers mean other frames);
   BLANK        a plate that is blank, or has a black tile (lib/blank.py fault);
   BAD          a plate with a NaN or an infinite RGB value;
   UNREADABLE   a plate that cannot be read (a truncated or damaged file), never passed over;
   JUMP         a run of EXR plates whose mean level steps more than JUMP times away from the plates either side and back
-               (none declared black): frames that rendered lit but wrong. B05's chunk 4 (rendered across sleep and wake on battery)
-               wrote eleven frames with every warp shaded black while the rest of the frame was right; the blank guard
-               passed them, and the film's mean fell to a third (x4 in linear) and came back where the run ended. A
-               flash in a shot is one too, so the scan says so and someone looks;
+               (none declared black): frames that rendered lit but wrong. A chunk rendered across a machine's sleep and
+               wake has written a run of frames with one material shaded black while the rest of the frame was right;
+               the blank guard passed them, and the mean fell to a third (x4 in linear) and came back where the run
+               ended. A flash in a shot is one too, so the scan says so and someone looks;
   MIXED SIZES  EXR plates of more than one size (an interrupted final among preview plates, or look frames rendered
                over a final: the last render of a frame wins), or with `expect_res`, WRONG SIZE: any other than it.
-A plate is judged on its EXR when it has one and on its proxy when it has only that (the proxy is 960x540 whatever the
-render's size, so only EXRs have their size checked, and only EXRs are checked tile by tile). Frames a shot declares
+A plate is judged on its EXR when it has one and on its proxy when it has only that (the proxy is half the film's
+logical size whatever the render's size, so only EXRs have their size checked, and only EXRs are checked tile by
+tile). Frames a shot declares
 black (SHOT["black_ok"]) are not judged blank, but they must not hold NaNs either.
 
 Reading an EXR needs Blender (export.read_linear); the walk, the judging and the report are bpy-free, tested with the
@@ -32,11 +34,12 @@ from typing import Callable
 import numpy as np
 
 from . import blank, export
+from .film import Film
 
 JUMP = 3.0  # neighbouring plates' mean linear levels differ by more than this: a jump (a camera snap is about x2)
 JUMP_RUN = 48  # frames: the longest run looked for
 JUMP_BACK = 1.6  # the levels either side of a run agree within this (the shot carried on as it was)
-JUMP_FLOOR = 2e-3  # levels below this count as this (the ink world reads about 0.006), so a fade from black is no jump
+JUMP_FLOOR = 2e-3  # levels below this count as this (a dark world reads about 0.006), so a fade from black is no jump
 
 
 @dataclass(frozen=True)
@@ -94,16 +97,16 @@ def _numbered(directory: Path, suffix: str) -> dict[int, Path]:
     return found
 
 
-def scan_plates(shot: str, f0: int, f1: int, exempt: Callable[[int], bool] = lambda f: False, *,
-                expect_res: tuple[int, int] | None = None, tile: int | None = blank.TILE, root: Path = export.REPO,
+def scan_plates(film: Film, shot: str, f0: int, f1: int, exempt: Callable[[int], bool] = lambda f: False, *,
+                expect_res: tuple[int, int] | None = None, tile: int | None = blank.TILE,
                 read_exr: Callable[[Path], object] | None = None,
                 read_png: Callable[[Path], object] | None = None) -> ScanResult:
-    """Judge every plate of `shot` under `root` against its window [f0, f1); `exempt(film frame)` says which frames are
+    """Judge every plate of `film`'s `shot` against its window [f0, f1); `exempt(film frame)` says which frames are
     declared black, `expect_res` (w, h) the one size every EXR must be (default: any, so long as they agree), and
     `tile` the render tile in px for the black-tile check. `read_exr` and `read_png` return a plate's pixels (defaults:
     export.read_linear, which needs Blender, and export.read_png). Raises FileNotFoundError when the shot has no plates
     at all: a typo'd shot name must not scan clean."""
-    paths = export.plate_paths(shot, 0, root)
+    paths = film.plate_paths(shot, 0)
     exrs, pngs = _numbered(paths.exr.parent, ".exr"), _numbered(paths.proxy.parent, ".png")
     numbers = sorted(set(exrs) | set(pngs))
     if not numbers:
@@ -150,7 +153,7 @@ def scan_plates(shot: str, f0: int, f1: int, exempt: Callable[[int], bool] = lam
 def jumps(levels: dict[int, float], f0: int) -> list[tuple[int, int, float, float]]:
     """Runs of plates (at most JUMP_RUN long) whose level steps away from their neighbours' by more than JUMP times and
     steps back to it where the run ends: (first film frame, last film frame, level either side, level inside). A
-    subject entering from ink steps once and stays, so it is not one."""
+    subject entering from black steps once and stays, so it is not one."""
     lv = lambda i: max(levels[i], JUMP_FLOOR)  # noqa: E731
     out = []
     keys = sorted(levels)

@@ -2,8 +2,8 @@
 
 Blender calls bpy.app.handlers from C. When a handler raises, Blender prints the traceback, clears the exception and
 carries on, so neither scene.frame_set() nor bpy.ops.render.render() (whose motion-blur steps set sub-frames and run
-the handlers again) ever sees it. A shot posed by a handler (b01_thread.py's `pose`) that raises on one frame or one
-motion-blur step keeps the previous pose, or a half-updated one: the frame renders lit, passes the blank guard, is
+the handlers again) ever sees it. A shot posed by a handler (a `pose` function in frame_change_pre) that raises on one
+frame or one motion-blur step keeps the previous pose, or a half-updated one: the frame renders lit, passes the blank guard, is
 tracked, and the run exits 0 with a traceback somewhere in a long log.
 
 So once a shot is built, render.py wraps every function in frame_change_pre and frame_change_post (`GUARD.install`).
@@ -19,7 +19,7 @@ import functools
 import traceback
 from dataclasses import dataclass
 
-_MARK = "_gitloom_guarded"
+_MARK = "_film_guarded"
 
 
 @dataclass(frozen=True)

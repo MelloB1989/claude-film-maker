@@ -1,24 +1,27 @@
 """What a Blender render hands the engine: plates (EXR + PNG proxy per frame), look stills, and tracked anchors.
 
 A shot numbers its Blender frames as film frames (render.py sets frame_start to the shot's first film frame f0).
-Per rendered film frame f, with #### = f - f0 (the plate's index, as app/src/engine/plates.ts reads it):
-  out/plates/<shot>/####.exr           linear half-float RGBA (ZIP), Blender's premultiplied alpha: the plate
-  app/public/plates/<shot>/proxy/####.png  8-bit sRGB, 960x540 (half the film's 1920x1080): the preview's stand-in,
-                                           encoded from the EXR with the plain sRGB transfer (clipped at 1), so it
-                                           decodes to the plate's own linear values, not a second tone map
-  out/look/<shot>/<f>.png              look mode only: the render through the scene's view transform (AgX), named by
-                                       film frame, for looking at
-Tracks: data/track/<shot>.json = {"fps": 30, "f0": f0, "anchors": {name: [[x, y, visible], ...]}}, one sample per
-film frame from f0, in the film's logical 1920x1080 px (engine: track.ts).
+Per rendered film frame f of film <id>, with #### = f - f0 (the plate's index, as app/src/engine/plates.ts reads it;
+the paths are lib/film.py Film's):
+  out/<id>/plates/<shot>/####.exr        linear half-float RGBA (ZIP), Blender's premultiplied alpha: the plate
+  out/<id>/plates/<shot>/proxy/####.png  8-bit sRGB at half the film's logical size (960x540 for a 1920x1080 film):
+                                         the preview's stand-in, encoded from the EXR with the plain sRGB transfer
+                                         (clipped at 1), so it decodes to the plate's own linear values, not a second
+                                         tone map
+  out/<id>/look/<shot>/<f>.png           look mode only: the render through the scene's view transform (AgX), named
+                                         by film frame, for looking at
+Tracks: films/<id>/data/track/<shot>.json = {"fps": fps, "f0": f0, "width": W, "height": H, "anchors": {name:
+[[x, y, visible], ...]}}, one sample per film frame from f0, in the film's logical W x H px (film.json `format`;
+engine: track.ts), from the top-left.
 
-Every frame is checked as soon as its EXR is written: one that comes out blank (Cycles on Metal has written runs of
-black frames, silently, with two renders sharing the GPU), with a black tile, or with values that are not finite is
-rendered again, and one that stays so fails the render with BadFrameError (lib/blank.py). SHOT["black_ok"] exempts the
-frames a shot means to be black from being lit, not from holding finite values. A frame whose
-frame_set or render ran a frame-change handler that raised fails with HandlerError before its plate is written, and
-so does a tracked frame (lib/handlers.py: render.py installs the guard once the shot is built).
+Every frame is checked as soon as its EXR is written: one that comes out blank (a GPU shared by two renders has
+written runs of black frames, silently), with a black tile, or with values that are not finite is rendered again, and
+one that stays so fails the render with BadFrameError (lib/blank.py). SHOT["black_ok"] exempts the frames a shot means
+to be black from being lit, not from holding finite values. A frame whose frame_set or render ran a frame-change
+handler that raised fails with HandlerError before its plate is written, and so does a tracked frame
+(lib/handlers.py: render.py installs the guard once the shot is built).
 
-The path, pixel and PNG helpers are bpy-free (tested without Blender); the rest imports bpy when called.
+The pixel and PNG helpers are bpy-free (tested without Blender); the rest imports bpy when called.
 """
 from __future__ import annotations
 
@@ -28,50 +31,28 @@ import os
 import struct
 import zlib
 from contextlib import contextmanager
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
 from . import blank, handlers
 
-REPO = Path(__file__).resolve().parents[2]
-FPS = 30
-W, H = 1920, 1080  # the film's logical frame
-PROXY_RES = (960, 540)
+LOGICAL = (1920, 1080)  # a landscape film's logical frame: the default where no film's is given
 
 
-@dataclass(frozen=True)
-class PlatePaths:
-    exr: Path
-    proxy: Path
-
-
-def plate_paths(shot: str, index: int, root: Path = REPO) -> PlatePaths:
-    """Where frame `index` (film frame - f0) of a shot's plate goes."""
-    n = f"{index:04d}"
-    return PlatePaths(root / "out" / "plates" / shot / f"{n}.exr", root / "app" / "public" / "plates" / shot / "proxy" / f"{n}.png")
-
-
-def look_path(shot: str, film_frame: int, root: Path = REPO) -> Path:
-    return root / "out" / "look" / shot / f"{film_frame:04d}.png"
-
-
-def track_path(shot: str, root: Path = REPO) -> Path:
-    return root / "data" / "track" / f"{shot}.json"
-
-
-def to_logical(co) -> tuple[float, float, int]:
+def to_logical(co, size: tuple[int, int] = LOGICAL) -> tuple[float, float, int]:
     """A world_to_camera_view result (x, y across the frame from its bottom-left, z the depth in front of the camera)
-    as the film's logical px from the top-left, and 1 if the point is in front of the camera and inside the frame."""
+    as px of the film's logical frame of `size` (width, height) from the top-left, and 1 if the point is in front of the
+    camera and inside the frame."""
     x, y, z = co[0], co[1], co[2]
+    w, h = size
     visible = 1 if z > 0 and 0 <= x <= 1 and 0 <= y <= 1 else 0
-    return float(x * W), float(H - y * H), visible
+    return float(x * w), float(h - y * h), visible
 
 
-def track_doc(f0: int, anchors: dict) -> dict:
-    """The track file's content: px to a thousandth, visibility as 0/1."""
-    return {"fps": FPS, "f0": f0,
+def track_doc(f0: int, anchors: dict, *, fps: float = 30, size: tuple[int, int] = LOGICAL) -> dict:
+    """The track file's content: px to a thousandth, visibility as 0/1, with the film's fps and logical size."""
+    return {"fps": fps, "f0": f0, "width": size[0], "height": size[1],
             "anchors": {k: [[round(x, 3), round(y, 3), int(v)] for x, y, v in s] for k, s in anchors.items()}}
 
 
@@ -162,8 +143,9 @@ def read_png(path: Path) -> np.ndarray:
     return rows[:, 1:].reshape(h, w, channels).copy()
 
 
-def proxy_from_linear(px: np.ndarray, res=PROXY_RES) -> np.ndarray:
-    """A plate's premultiplied linear RGBA (h, w, 4), top row first, as the proxy's 8-bit straight-alpha sRGB."""
+def proxy_from_linear(px: np.ndarray, res: tuple[int, int]) -> np.ndarray:
+    """A plate's premultiplied linear RGBA (h, w, 4), top row first, as the proxy's 8-bit straight-alpha sRGB at `res`
+    (width, height; the film's proxy_res)."""
     if (px.shape[1], px.shape[0]) != tuple(res):
         px = resample_area(px, res[0], res[1])
     a = np.clip(px[..., 3:4], 0.0, 1.0)
@@ -215,15 +197,15 @@ def read_linear(path: Path) -> np.ndarray:
     return px.reshape(h, w, 4)[::-1]  # Blender stores rows bottom-up
 
 
-def write_proxy(exr: Path, png: Path, res=PROXY_RES) -> None:
+def write_proxy(exr: Path, png: Path, res: tuple[int, int]) -> None:
     write_png(png, proxy_from_linear(read_linear(exr), res))
 
 
 @contextmanager
 def _film_off(scene):
     """The test hook: Cycles' film exposure at 0 for the render inside, so a real render comes out black, lights, world
-    and emissive materials alike (Task 11 found that toggling hide_render per frame crashes Cycles 5.2.2 with motion
-    blur, so nothing is hidden)."""
+    and emissive materials alike (toggling hide_render per frame has crashed Cycles with motion blur, so nothing is
+    hidden)."""
     if scene.render.engine != "CYCLES":
         raise RuntimeError(f"{blank.FORCE_ENV} renders black through Cycles' film exposure, and the engine is "
                            f"{scene.render.engine}")
@@ -236,20 +218,21 @@ def _film_off(scene):
         cycles.film_exposure = keep
 
 
-def render_frame(scene, film_frame: int, shot: str, f0: int, look: bool = False, black_ok: bool = False) -> list[Path]:
-    """Render one film frame and write its plate (EXR and proxy), plus its look still. Returns what it wrote.
+def render_frame(scene, film, film_frame: int, shot: str, f0: int, look: bool = False,
+                 black_ok: bool = False) -> list[Path]:
+    """Render one film frame of `film` (lib/film.py Film) and write its plate (EXR and proxy), plus its look still.
+    Returns what it wrote.
 
     The frame is checked once its EXR is written (lib/blank.py fault): a blank or bad one (a black Cycles tile, values
     that are not finite) is rendered again, up to twice, each attempt logged, and one that stays so raises BadFrameError
     with its plate left where it was written. `black_ok`, for a frame the shot declares black, checks only that its
-    values are finite. The test hook GITLOOM_FORCE_BLANK ("F" or "F:N",
-    comma-separated) makes film frame F render black on its first N attempts (default 1) to prove the retry; unset, it
-    does nothing. A frame-change handler that raised during the frame_set or the render (its motion-blur steps) raises
+    values are finite. The test hook FILM_FORCE_BLANK ("F" or "F:N", comma-separated) makes film frame F render black
+    on its first N attempts (default 1) to prove the retry; unset, it does nothing. A frame-change handler that raised during the frame_set or the render (its motion-blur steps) raises
     HandlerError before anything is written (lib/handlers.py), and is not retried: it is a fault in the shot."""
     import bpy
 
-    p = plate_paths(shot, film_frame - f0)
-    lp = look_path(shot, film_frame) if look else None
+    p = film.plate_paths(shot, film_frame - f0)
+    lp = film.look_still(shot, film_frame) if look else None
     forced = blank.parse_force_blank(os.environ.get(blank.FORCE_ENV)).get(film_frame, 0)
     where = f"[{shot}] film frame {film_frame}"
 
@@ -268,7 +251,7 @@ def render_frame(scene, film_frame: int, shot: str, f0: int, look: bool = False,
         rr = bpy.data.images["Render Result"]
         save_exr(rr, scene, p.exr)
         px = read_linear(p.exr)  # what was written: the check and the proxy both come from the file
-        write_png(p.proxy, proxy_from_linear(px))
+        write_png(p.proxy, proxy_from_linear(px, film.proxy_res))
         if lp is not None:
             save_view_png(rr, scene, lp)
         return px
@@ -278,11 +261,12 @@ def render_frame(scene, film_frame: int, shot: str, f0: int, look: bool = False,
     return [p.exr, p.proxy] + ([lp] if lp is not None else [])
 
 
-def track(names, cam, f0: int, f1: int, shot: str | None = None, root: Path = REPO) -> Path:
+def track(film, names, cam, f0: int, f1: int, shot: str | None = None) -> Path:
     """Project the objects `names` (empties, usually) through `cam` at every film frame in [f0, f1) and write
-    data/track/<shot>.json (shot: the scene's 'shot' property, which render.py sets). Positions are taken at each
-    frame's own time, the middle of the motion-blur shutter, where the plate's motion blur is centred. A frame-change
-    handler that raises on a frame raises HandlerError, and nothing is written (lib/handlers.py)."""
+    films/<id>/data/track/<shot>.json (film: lib/film.py Film; shot: the scene's 'shot' property, which render.py sets),
+    in the film's logical px. Positions are taken at each frame's own time, the middle of the motion-blur shutter, where
+    the plate's motion blur is centred. A frame-change handler that raises on a frame raises HandlerError, and nothing
+    is written (lib/handlers.py)."""
     import bpy
     from bpy_extras.object_utils import world_to_camera_view
 
@@ -303,9 +287,9 @@ def track(names, cam, f0: int, f1: int, shot: str | None = None, root: Path = RE
         cam_ev = cam.evaluated_get(dg)
         for n in names:
             ob = bpy.data.objects[n].evaluated_get(dg)
-            anchors[n].append(to_logical(world_to_camera_view(scene, cam_ev, ob.matrix_world.translation)))
+            anchors[n].append(to_logical(world_to_camera_view(scene, cam_ev, ob.matrix_world.translation), film.size))
     scene.frame_set(keep)
-    path = track_path(shot, root)
+    path = film.track_path(shot)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(track_doc(f0, anchors), separators=(",", ":")) + "\n")
+    path.write_text(json.dumps(track_doc(f0, anchors, fps=film.fps, size=film.size), separators=(",", ":")) + "\n")
     return path

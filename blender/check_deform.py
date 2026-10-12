@@ -1,11 +1,13 @@
 """Will Cycles motion-blur every deforming object of a shot? A headless check that builds the shot and renders nothing.
 
-  /Applications/Blender.app/Contents/MacOS/Blender -b -P blender/check_deform.py -- --shot b01_thread [--shot ...]
+  blender -b -P blender/check_deform.py -- [--film <id>] --shot <name> [--shot ...]
+
+(`blender` on the PATH, or $BLENDER; the film and the shots are found as render.py finds them.)
 
 Cycles exports an object's points at each motion-blur step only when Blender reports the object as deform-modified
 (Object.is_deform_modified: a deforming or Geometry Nodes modifier, or shape keys). For any other object it copies the
-frame's own positions into every step, so geometry whose points a frame handler moves (lib/thread.py MacroRope, the
-debris of b01_thread) renders sharp with motion blur on, while its camera still blurs.
+frame's own positions into every step, so geometry whose points a frame handler moves (lib/thread.py MacroRope, say,
+or debris a handler scatters) renders sharp with motion blur on, while its camera still blurs.
 
 Each shot is built as render.py builds it; then every mesh, curve and hair-curves object's evaluated points (object
 space, so keyed transforms, which Cycles blurs anyway, don't count) are sampled at frames across the shot. Per object
@@ -26,7 +28,7 @@ import bpy  # noqa: E402
 import numpy as np  # noqa: E402
 
 import render  # noqa: E402  (load_shot and Ctx; its main() runs only as __main__)
-from lib import cli, setup, timing  # noqa: E402
+from lib import cli, setup  # noqa: E402
 
 SAMPLES = 13  # frames across the shot at which each object's points are compared
 GEOMETRY = ("MESH", "CURVE", "CURVES")
@@ -49,16 +51,18 @@ def points(ob, depsgraph) -> np.ndarray:
         ev.to_mesh_clear()
 
 
-def check(name: str) -> list[str]:
-    """Build shot `name`, print its geometry objects, and return the ones that move their points unseen by Cycles."""
+def check(film: str | None, shot: str) -> tuple[str, list[str]]:
+    """Build `shot` of `film` (render.py's --film and --shot), print its geometry objects, and return its name and the
+    objects that move their points unseen by Cycles."""
     for handlers in (bpy.app.handlers.frame_change_pre, bpy.app.handlers.frame_change_post):
         handlers.clear()  # an earlier shot's handlers must not pose this one
-    mod = render.load_shot(name)
-    f0, f1 = cli.shot_frames(mod.SHOT)
-    scene = setup.new_scene((960, 540), samples=1)  # Cycles: is_deform_modified is asked for render settings
+    f, name, mod, _shot, f0, f1 = render.prepare(argparse.Namespace(film=film, shot=shot))
+    res = cli.mode_res("preview", f.size)
+    scene = setup.new_scene(res, fps=f.fps, samples=1)  # Cycles: is_deform_modified is asked for render settings
     scene.frame_start, scene.frame_end = f0, f1 - 1
     scene["shot"] = name
-    mod.build(render.Ctx(scene, name, "preview", f0, f1, (960, 540), timing.film()))
+    scene["film"] = f.id
+    mod.build(render.Ctx(scene, f, name, "preview", f0, f1, res, f.timing(), f.spec(name)))
     obs = sorted((ob for ob in scene.objects if ob.type in GEOMETRY), key=lambda o: o.name)
     frames = sorted({int(round(f)) for f in np.linspace(f0, f1 - 1, SAMPLES)})
     seen: dict[str, list[np.ndarray]] = {ob.name: [] for ob in obs}
@@ -79,15 +83,17 @@ def check(name: str) -> list[str]:
               f"is_deform_modified: {deform!s:<5}  modifiers: {mods:<24} {verdict}")
         if moves and not deform:
             unseen.append(ob.name)
-    return unseen
+    return name, unseen
 
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="blender -b -P blender/check_deform.py --",
                                  description="Check that Cycles will motion-blur every deforming object of a shot")
-    ap.add_argument("--shot", action="append", required=True, help="blender/shots/<shot>.py (repeatable)")
+    ap.add_argument("--film", help="the film: films/<id>/ (default: $FILM, else showcase)")
+    ap.add_argument("--shot", action="append", required=True,
+                    help="films/<film>/blender/shots/<shot>.py by name, or a path to a shot file (repeatable)")
     a = ap.parse_args(argv)
-    unseen = {name: check(name) for name in a.shot}
+    unseen = dict(check(a.film, shot) for shot in a.shot)
     bad = {k: v for k, v in unseen.items() if v}
     for name, obs in bad.items():
         print(f"[{name}] {len(obs)} object(s) move their points but are not deform-modified: Cycles renders them "

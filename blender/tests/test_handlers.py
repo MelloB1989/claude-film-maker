@@ -52,13 +52,13 @@ def test_a_handler_error_fails_the_frame():
     guard = bl.guard()
     guard.reset()
     bl.frame_set(167)
-    guard.check("[b01_thread] film frame 167")  # a frame whose handlers ran clean passes
+    guard.check("[hero] film frame 167")  # a frame whose handlers ran clean passes
     guard.reset()
     bl.frame_set(168)
     with pytest.raises(handlers.HandlerError) as err:
-        guard.check("[b01_thread] film frame 168")
+        guard.check("[hero] film frame 168")
     msg = str(err.value)
-    for part in ("[b01_thread] film frame 168", "frame_change_pre", "pose", "IndexError", "list index out of range"):
+    for part in ("[hero] film frame 168", "frame_change_pre", "pose", "IndexError", "list index out of range"):
         assert part in msg
     assert posed == [167]
     assert bl.printed == ["IndexError('list index out of range')"]  # raised on to Blender, which still prints it
@@ -71,11 +71,11 @@ def test_an_error_on_a_motion_blur_step_fails_the_frame_and_names_the_step():
     guard = bl.guard()
     guard.reset()
     bl.frame_set(168)
-    guard.check("[b01_thread] film frame 168")
+    guard.check("[hero] film frame 168")
     for frame, sub in ((167, 0.75), (168, 0.0), (168, 0.25)):  # the render's motion-blur steps: frame_set at sub-frames
         bl.frame_set(frame, sub)
     with pytest.raises(handlers.HandlerError, match=r"frame_change_post.*168\.25"):
-        guard.check("[b01_thread] film frame 168, while rendering")
+        guard.check("[hero] film frame 168, while rendering")
     assert posed == [168, 167.75, 168]
 
 
