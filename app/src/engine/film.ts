@@ -5,6 +5,7 @@
 // into transition specs at the cuts. Pure: no DOM, no three.js, so bun tests it and scripts/timeline.ts runs it.
 import type { AudioData } from './audio';
 import { configure, type FormatSpec } from './config';
+import { shotLookPost, type LookName } from './looks';
 import { setTheme, type ThemeSpec } from './palette';
 import type { PostOverrides, SceneClass } from './scene';
 import type { TransitionKind, TransitionSpec } from './transition';
@@ -36,6 +37,8 @@ export interface ShotSpec {
   end?: number;
   /** Handed to the scene as ctx.params. */
   params?: Record<string, unknown>;
+  /** This shot's look (looks.ts LOOKS), in place of the film's; the film's `post`, then this shot's, still apply over it. */
+  look?: LookName | (string & {});
   /** This shot's post overrides (the scene's own win over them). */
   post?: PostOverrides;
   /** Cap on adaptive motion-blur sub-frames while this shot is on screen. */
@@ -77,7 +80,9 @@ export interface FilmSpec {
   overlays?: OverlaySpec[];
   /** Transitions between adjacent shots, besides those the shots give inline. */
   transitions?: TransitionSpec[];
-  /** The film's look: every frame starts from DEFAULT_POST with these over it. */
+  /** The film's look, a preset (looks.ts LOOKS: film, clean, cinematic, neon, dreamy, gritty, retro; default 'film'). */
+  look?: LookName | (string & {});
+  /** The film's post overrides: every frame starts from DEFAULT_POST with its look, then these, over it (looks.ts). */
   post?: PostOverrides;
   /** Total length (default: the end of the last shot). */
   duration?: number;
@@ -169,7 +174,7 @@ export function filmTimeline(film: FilmSpec, audio?: AudioData, vo?: VO): FilmEn
   const win = shotWindows(film, audio, vo);
   const shots: FilmEntry[] = film.scenes.map((s, i) => ({
     id: s.id, load: loaderOf(s.scene), start: win[i]!.start, end: win[i]!.end,
-    params: { ...(s.params ?? {}), shot: s.id, n: i + 1 }, post: s.post, maxSamples: s.maxSamples,
+    params: { ...(s.params ?? {}), shot: s.id, n: i + 1 }, post: shotLookPost(film, s), maxSamples: s.maxSamples,
   }));
   const dur = filmDuration(film, shots);
   const overlays: FilmEntry[] = (film.overlays ?? []).map((o) => {

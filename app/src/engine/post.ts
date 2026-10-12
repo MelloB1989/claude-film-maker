@@ -1,8 +1,12 @@
-// Global post-processing: bloom + halation, chromatic aberration, tone shoulder,
-// film grain, vignette, fades/flash. Operates on the composited HDR (linear) frame.
+// Global post-processing: bloom + halation, chromatic aberration, tone shoulder, the grade (saturation, contrast,
+// warmth, a tint wash, lift, scanlines), film grain, vignette, fades/flash, letterbox bars. Operates on the composited
+// HDR (linear) frame. The grade is neutral by default and skipped when neutral, so a frame that sets none of it renders
+// exactly as before it existed.
 import * as THREE from 'three';
 import { FSPass, makeRT, W, H, SCALE } from './gl';
-import { BLOOM_CHROMA, LOOK } from './look';
+import { BLOOM_CHROMA, LOOK, linearToSrgb } from './look';
+import { NEUTRAL_GRADE, letterboxBar } from './looks';
+import { lin } from './palette';
 
 /** The tone shoulder (linear HDR -> 0..1 linear), shared with the engine's sampling error estimate. */
 export const SHOULDER_GLSL = /* glsl */ `
@@ -37,6 +41,15 @@ export interface PostParams {
   shake: [number, number]; // frame offset in px
   zoom: number; // frame zoom (1 = none), for punch-ins on hits
   invert: number; // 0..1 invert (ink <-> bone), applied before grain
+  // the grade (looks.ts NEUTRAL_GRADE documents each; neutral by default)
+  saturation: number;
+  contrast: number;
+  warmth: number;
+  tint: number;
+  tintColor: string;
+  lift: number;
+  letterbox: number;
+  scanlines: number;
 }
 
 /** Every frame starts from the film look (look.ts: the values and the renders that set them); scenes override. */
@@ -50,9 +63,15 @@ export const DEFAULT_POST: PostParams = {
   shake: [0, 0],
   zoom: 1,
   invert: 0,
+  ...NEUTRAL_GRADE,
 };
 
+/** True when a frame's grade does anything (else the shader skips it: the frame renders as it did before it existed). */
+export const isGraded = (p: PostParams) =>
+  p.saturation !== 1 || p.contrast !== 1 || p.warmth !== 0 || p.tint !== 0 || p.lift !== 0 || p.scanlines !== 0;
+
 const MIPS = 7;
+const displayOf = (c: [number, number, number]): [number, number, number] => [linearToSrgb(c[0]), linearToSrgb(c[1]), linearToSrgb(c[2])];
 
 export class Post {
   private prefilter: FSPass;
@@ -118,6 +137,8 @@ ${SCALE === 1 ? `        c += texture(src, vUv + texel * vec2(-1, -1)).rgb; c +=
       uniform sampler2D src; uniform sampler2D bloomTex; uniform sampler2D haloTex; uniform sampler2D hudTex;
       uniform float exposure, bloom, halation, ca, grain, vignette, hud, fade, flash, time, zoom, invert;
       uniform vec2 shake; uniform vec2 res;
+      uniform bool graded; uniform float saturation, contrast, warmth, tint, lift, scanlines, bar;
+      uniform vec3 tintS; uniform vec3 liftS;
       ${SHOULDER_GLSL}
       void main() {
         vec2 uv = (vUv - 0.5) / zoom + 0.5 - shake / res;
@@ -143,11 +164,27 @@ ${SCALE === 1 ? `        c += texture(src, vUv + texel * vec2(-1, -1)).rgb; c +=
         col = shoulder(col);
         col = mix(col, vec3(0.8515) - col * 0.84, invert); // ink<->bone in linear-ish space
         col += C_FG * flash;
+        if (graded) {
+          // white balance (luma kept), then saturation about luma, in light
+          if (warmth != 0.0) {
+            float l0 = luma(col);
+            col *= vec3(1.0 + 0.14 * warmth, 1.0 + 0.02 * warmth, 1.0 - 0.2 * warmth);
+            col *= l0 / max(luma(col), 1e-6);
+          }
+          if (saturation != 1.0) col = max(mix(vec3(luma(col)), col, saturation), 0.0);
+        }
         // vignette
         float v = smoothstep(0.95, 0.25, length(dc * vec2(1.0, 0.8)));
         col *= mix(1.0, v, vignette);
         col *= (1.0 - fade);
         vec3 s = toSRGB(sat(col));
+        if (graded) {
+          // in display values: an S-curve about mid-grey (0 and 1 kept), a soft-light wash, the lifted black, scanlines
+          if (contrast != 1.0) { vec3 a = pow(s, vec3(contrast)), b = pow(1.0 - s, vec3(contrast)); s = a / max(a + b, 1e-6); }
+          if (tint > 0.0) s = mix(s, (1.0 - 2.0 * tintS) * s * s + 2.0 * tintS * s, tint);
+          if (lift > 0.0) s += lift * (1.0 - s) * liftS;
+          if (scanlines > 0.0) s *= 1.0 - scanlines * 0.35 * (0.5 + 0.5 * cos(TAU * FRAG_PX.y / max(2.0, min(res.x, res.y) / 360.0)));
+        }
         // film grain: two scales, stronger in mid-tones
 ${SCALE === 1 ? `        float g1 = hash12(gl_FragCoord.xy + fract(time * 13.37) * 1000.0) - 0.5;
         float g2 = hash12(floor(gl_FragCoord.xy / 2.0) + fract(time * 7.13) * 1000.0) - 0.5;` : `        // output scale > 1: the fine grain is per physical px with its amplitude raised by PX_SCALE so its
@@ -158,12 +195,19 @@ ${SCALE === 1 ? `        float g1 = hash12(gl_FragCoord.xy + fract(time * 13.37)
         float amt = grain * (0.55 + 1.2 * lm * (1.0 - lm));
         s += (g1 * 0.6 + g2 * 0.4) * amt;
         s += (hash12(gl_FragCoord.xy * 1.37 + time) - 0.5) / 255.0; // dither
+        // letterbox bars in the theme's bg, clean (after grain), anti-aliased over a physical px
+        if (bar > 0.0) {
+          float y = gl_FragCoord.y, ph = res.y * PX_SCALE;
+          s = mix(toSRGB(C_BG), s, sat(min(y, ph - y) - bar * ph + 0.5));
+        }
         fragColor = vec4(sat(s), 1.0);
       }`, {
       src: { value: null }, bloomTex: { value: null }, haloTex: { value: null }, hudTex: { value: null },
       exposure: { value: 1 }, bloom: { value: 0.5 }, halation: { value: 0.2 }, ca: { value: 1 }, grain: { value: 0.05 },
       vignette: { value: 0.3 }, hud: { value: 1 }, fade: { value: 0 }, flash: { value: 0 }, time: { value: 0 },
       zoom: { value: 1 }, invert: { value: 0 }, shake: { value: new THREE.Vector2() }, res: { value: new THREE.Vector2(W, H) },
+      graded: { value: false }, saturation: { value: 1 }, contrast: { value: 1 }, warmth: { value: 0 }, tint: { value: 0 },
+      lift: { value: 0 }, scanlines: { value: 0 }, bar: { value: 0 }, tintS: { value: new THREE.Vector3() }, liftS: { value: new THREE.Vector3() },
     });
   }
 
@@ -210,6 +254,20 @@ ${SCALE === 1 ? `        float g1 = hash12(gl_FragCoord.xy + fract(time * 13.37)
     f.zoom!.value = p.zoom;
     f.invert!.value = p.invert;
     (f.shake!.value as THREE.Vector2).set(p.shake[0], p.shake[1]);
+    f.graded!.value = isGraded(p);
+    f.saturation!.value = p.saturation;
+    f.contrast!.value = p.contrast;
+    f.warmth!.value = p.warmth;
+    f.tint!.value = p.tint;
+    f.lift!.value = p.lift;
+    f.scanlines!.value = p.scanlines;
+    f.bar!.value = letterboxBar(p.letterbox, W, H);
+    if (p.tint !== 0) (f.tintS!.value as THREE.Vector3).set(...displayOf(lin(p.tintColor)));
+    if (p.lift !== 0) {
+      // the theme's bg2, its brightest display channel at 1: the lift's hue
+      const d = displayOf(lin('bg2')), m = Math.max(d[0], d[1], d[2], 1e-6);
+      (f.liftS!.value as THREE.Vector3).set(d[0] / m, d[1] / m, d[2] / m);
+    }
     this.final.render(renderer, out);
   }
 }
