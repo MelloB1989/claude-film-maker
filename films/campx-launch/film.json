@@ -1,0 +1,15 @@
+{
+  "id": "campx-launch",
+  "title": "CampX Digital Evaluation",
+  "format": "landscape",
+  "fps": 30,
+  "theme": {
+    "extends": "midnight",
+    "bg": "#06060b", "bg2": "#0d0a1c", "surface": "#141029", "surface2": "#1c1736", "rule": "#231c40", "ruleStrong": "#352a5e",
+    "fg": "#f4f1ea", "fgDim": "#a9a3b8", "fgFaint": "#6b6580",
+    "accent": "#c2369f", "accentBright": "#e05bc0", "accentDim": "#5a1370",
+    "accent2": "#e43341", "accent2Bright": "#ff5e6a", "accent2Dim": "#4a1018"
+  },
+  "look": "cinematic",
+  "audio": { "bpm": 96 }
+}
