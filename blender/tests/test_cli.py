@@ -221,7 +221,8 @@ def test_a_run_that_writes_every_frame_exits_0():
 
 
 def test_a_frame_that_stays_blank_stops_the_run_with_exit_3_and_says_how_to_finish_it():
-    r = Run({41: blank.BadFrameError("hero", 41, Path("/x/0001.exr"), 3, blank.Fault("blank", "brightest RGB value 0"))})
+    bad = blank.BadFrameError("hero", 41, Path("/x/0001.exr"), 3, blank.Fault("blank", "brightest RGB value 0"))
+    r = Run({41: bad})
     assert r.run([40, 41, 42, 44]) == 3
     assert r.asked == [40, 41]  # nothing after it is rendered
     text = "\n".join(r.err)

@@ -51,7 +51,8 @@ def test_hex_to_linear_is_the_srgb_transfer():
     assert theme.hex_to_linear("#ede7ea") == pytest.approx((0.846873, 0.799103, 0.822786), abs=1e-6)
     assert theme.hex_to_linear("#c22b45") == pytest.approx((0.539479, 0.024158, 0.059511), abs=1e-6)
     assert theme.hex_to_linear("#0a0a0a") == pytest.approx((0.0030353,) * 3, abs=1e-7)  # the linear toe
-    assert theme.hex_to_linear("#000000") == (0.0, 0.0, 0.0) and theme.hex_to_linear("#ffffff") == pytest.approx((1, 1, 1))
+    assert theme.hex_to_linear("#000000") == (0.0, 0.0, 0.0)
+    assert theme.hex_to_linear("#ffffff") == pytest.approx((1, 1, 1))
     for bad in ("ede7ea", "#ede7e", "#ggg000", "", None):
         with pytest.raises(theme.ThemeError):
             theme.hex_to_linear(bad)

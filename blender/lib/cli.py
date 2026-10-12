@@ -89,8 +89,9 @@ def mode_res(mode: str, size: tuple[int, int]) -> tuple[int, int]:
 
 def shot_source(film, shot: str) -> tuple[str, Path]:
     """(name, file) of --shot: a name is films/<film>/blender/shots/<name>.py (film: lib/film.py Film); a path to a .py
-    file (anything with a '/' or ending in .py) is that file, named by its stem. The name names the plates and the track,
-    so it must be a plain file name. Raises FileNotFoundError, naming the film's shots, when there is no such file."""
+    file (anything with a '/' or ending in .py) is that file, named by its stem. The name names the plates and the
+    track, so it must be a plain file name. Raises FileNotFoundError, naming the film's shots, when there is no such
+    file."""
     if "/" in shot or "\\" in shot or shot.endswith(".py"):
         path = Path(shot).expanduser().resolve()
         name = path.stem
@@ -118,7 +119,8 @@ def check_shot(mod, name: str = "shot") -> dict:
     if extra:
         raise ValueError(f"{name}: SHOT has unknown keys {extra} (it takes {', '.join(SHOT_KEYS)})")
     if shot.get("frames", "scene") == "scene" and not isinstance(shot.get("scene"), str):
-        raise ValueError(f'{name}: SHOT needs a "scene" (an id in the film\'s timeline), or explicit "frames": [f0, f1]')
+        raise ValueError(f'{name}: SHOT needs a "scene" (an id in the film\'s timeline), or explicit '
+                         '"frames": [f0, f1]')
     track = shot.get("track", [])
     if isinstance(track, str) or not all(isinstance(t, str) for t in track):
         raise ValueError(f'{name}: SHOT["track"] is a list of object names, not {track!r}')
@@ -191,7 +193,8 @@ def cycles_device(gpus: list[str], *, require_gpu: bool, tried: Iterable[str] = 
         return "GPU"
     if require_gpu:
         raise NoGpuError(f"no GPU found (tried {', '.join(tried) or 'none'}): a final on the CPU would run many times "
-                         "slower, with noise unlike GPU frames around it. Pass --allow-cpu to render it on the CPU anyway")
+                         "slower, with noise unlike GPU frames around it. Pass --allow-cpu to render it on the CPU "
+                         "anyway")
     return "CPU"
 
 

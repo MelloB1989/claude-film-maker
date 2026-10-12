@@ -46,7 +46,8 @@ MARGIN = 1.35  # the frame's half-height (or half-width) over the hero's radius
 def torus_knot(p: int = KNOT["p"], q: int = KNOT["q"], R: float = KNOT["R"], r: float = KNOT["r"],
                n: int = 480) -> tuple[np.ndarray, np.ndarray]:
     """A (p, q) torus knot round the z axis: its centreline (n, 3), a closed loop (the point after the last is the
-    first), and at each point the outward direction from the torus's core circle (n, 3), a normal that closes with it."""
+    first), and at each point the outward direction from the torus's core circle (n, 3), a normal that closes with
+    it."""
     t = np.linspace(0.0, 2 * np.pi, n, endpoint=False)
     ring = np.column_stack([np.cos(p * t), np.sin(p * t), np.zeros_like(t)])
     out = np.cos(q * t)[:, None] * ring + np.sin(q * t)[:, None] * np.array([0.0, 0.0, 1.0])

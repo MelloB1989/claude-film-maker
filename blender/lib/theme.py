@@ -1,5 +1,6 @@
-"""The film's palette for Blender: colours by role (docs/CONVENTIONS.md), resolved from film.json's `theme` exactly as the
-engine resolves it (app/src/engine/palette.ts resolveTheme), and turned into the linear light Blender's shaders take.
+"""The film's palette for Blender: colours by role (docs/CONVENTIONS.md), resolved from film.json's `theme` exactly as
+the engine resolves it (app/src/engine/palette.ts resolveTheme), and turned into the linear light Blender's shaders
+take.
 
 A theme spec is a preset's name in app/src/engine/themes.json, or an object `{"extends": "<preset>", <role>: "#rrggbb",
 "kind": "dark" | "light"}` whose roles override the preset's (`extends` defaults to DEFAULT_PRESET). Every role must end

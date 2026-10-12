@@ -70,7 +70,7 @@ def test_resample_area_splits_pixels_at_fractional_scales():
 
 def test_srgb8_is_the_srgb_transfer_clipped_to_8_bits():
     lin = np.array([0.0, 0.001, 0.5, 0.846873, 1.0, 2.0, -1.0])
-    assert export.srgb8(lin).tolist() == [0, 3, 188, 237, 255, 255, 0]  # 3.29, 187.52, bone's 237
+    assert export.srgb8(lin).tolist() == [0, 3, 188, 237, 255, 255, 0]  # 3.29, 187.52, noir fg's red 237
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="needs ffmpeg to decode the PNG")

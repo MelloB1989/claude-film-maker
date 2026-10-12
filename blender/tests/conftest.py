@@ -3,8 +3,8 @@
 # Put blender/ on the path so the tests import `lib` the way render.py does inside Blender.
 #
 # Nothing here reads the repo's films/ or data/: a test that needs a film builds one under tmp_path (`make_film`), and
-# theme presets come from PRESETS below, not from the engine's themes.json (test_theme.py cross-checks that file when the
-# checkout has it).
+# theme presets come from PRESETS below, not from the engine's themes.json (test_theme.py cross-checks that file when
+# the checkout has it).
 import json
 import sys
 from pathlib import Path

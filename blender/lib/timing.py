@@ -68,13 +68,15 @@ class Word:
 def beat_grid(duration: float | None, bpm: float = GRID["bpm"], offset: float = GRID["offset"],
               beats_per_bar: int = GRID["beatsPerBar"]) -> tuple[list[float], list[float]]:
     """A synthesised grid: (beats, downbeats) in s, a beat every 60 / bpm s on the grid through `offset` (beat 0 is a
-    downbeat), those in [0, duration); every `beats_per_bar`-th beat from beat 0 is a downbeat. No duration: no beats."""
+    downbeat), those in [0, duration); every `beats_per_bar`-th beat from beat 0 is a downbeat. No duration: no
+    beats."""
     if not bpm or bpm <= 0 or beats_per_bar < 1:
         raise ValueError(f"a beat grid needs bpm > 0 and beatsPerBar >= 1 (bpm {bpm}, beatsPerBar {beats_per_bar})")
     if duration is None:
         return [], []
     period = 60.0 / bpm
-    k0, k1 = math.ceil(-offset / period - 1e-9), math.ceil((duration - offset) / period - 1e-9)  # beats in [0, duration)
+    # the beats k in [k0, k1) are those in [0, duration)
+    k0, k1 = math.ceil(-offset / period - 1e-9), math.ceil((duration - offset) / period - 1e-9)
     ks = range(k0, k1)
     beats = [offset + k * period for k in ks]
     return beats, [offset + k * period for k in ks if k % int(beats_per_bar) == 0]

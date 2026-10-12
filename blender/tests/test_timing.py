@@ -81,7 +81,8 @@ def test_scene_windows_come_from_the_timeline_else_the_voiceover(tmp_path):
     t = timing.load(root)
     assert t.scene_frames("hero") == (30, 60) and t.source.endswith("vo.json")
     assert t.word("L01", 1).frame == 45 and t.word("L01", 1).w == "there."
-    _write(root, "data/timeline.json", {"fps": 30, "duration": 10.0, "scenes": [{"id": "hero", "start": 3.0, "end": 4.0}]})
+    _write(root, "data/timeline.json",
+           {"fps": 30, "duration": 10.0, "scenes": [{"id": "hero", "start": 3.0, "end": 4.0}]})
     t = timing.load(root)  # the engine's export wins over the voiceover's scenes; the words are still the voiceover's
     assert t.scene_frames("hero") == (90, 120) and t.source.endswith("timeline.json")
     assert t.duration == 10.0 and t.word("L01", 0).start == 1.1

@@ -61,7 +61,8 @@ def parse_format(fmt) -> tuple[int, int]:
         return FORMATS[DEFAULT_FORMAT]
     if isinstance(fmt, str):
         if fmt not in FORMATS:
-            raise ValueError(f"unknown format {fmt!r} (presets: {', '.join(FORMATS)}; or {{\"width\": W, \"height\": H}})")
+            raise ValueError(f"unknown format {fmt!r} (presets: {', '.join(FORMATS)}; "
+                             'or {"width": W, "height": H})')
         return FORMATS[fmt]
     if isinstance(fmt, dict):
         w, h = fmt.get("width"), fmt.get("height")

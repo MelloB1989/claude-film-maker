@@ -115,7 +115,8 @@ def test_the_eases_are_the_engines_curves():
         assert f(0) == pytest.approx(0, abs=1e-12) and f(1) == pytest.approx(1), name
 
 
-@pytest.mark.skipif(not (REPO / "app/src/engine/util.ts").exists(), reason="the engine's util.ts is not in this checkout")
+@pytest.mark.skipif(not (REPO / "app/src/engine/util.ts").exists(),
+                    reason="the engine's util.ts is not in this checkout")
 def test_every_ease_a_key_can_name_is_one_the_engine_has():
     src = (REPO / "app" / "src" / "engine" / "util.ts").read_text()
     body = src[src.index("export const ease = {"):]

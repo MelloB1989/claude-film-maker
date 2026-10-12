@@ -227,8 +227,9 @@ def render_frame(scene, film, film_frame: int, shot: str, f0: int, look: bool = 
     that are not finite) is rendered again, up to twice, each attempt logged, and one that stays so raises BadFrameError
     with its plate left where it was written. `black_ok`, for a frame the shot declares black, checks only that its
     values are finite. The test hook FILM_FORCE_BLANK ("F" or "F:N", comma-separated) makes film frame F render black
-    on its first N attempts (default 1) to prove the retry; unset, it does nothing. A frame-change handler that raised during the frame_set or the render (its motion-blur steps) raises
-    HandlerError before anything is written (lib/handlers.py), and is not retried: it is a fault in the shot."""
+    on its first N attempts (default 1) to prove the retry; unset, it does nothing. A frame-change handler that raised
+    during the frame_set or the render (its motion-blur steps) raises HandlerError before anything is written
+    (lib/handlers.py), and is not retried: it is a fault in the shot."""
     import bpy
 
     p = film.plate_paths(shot, film_frame - f0)
