@@ -99,6 +99,23 @@ def test_a_timeline_exported_at_another_fps_is_refused(tmp_path):
     assert timing.load(tmp_path, fps=30).fps == 30
 
 
+def test_the_engines_export_is_read_whole_and_a_stale_format_is_refused(make_film):
+    # app/scripts/timeline.ts writes {fps, duration, format: [w, h], scenes, overlays, transitions}
+    repo = make_film("demo", format="square", fps=30)
+    _write(repo / "films" / "demo", "data/timeline.json", {
+        "fps": 30, "duration": 8.0, "format": [1080, 1080],
+        "scenes": [{"id": "open", "start": 0.0, "end": 3.0}, {"id": "hero", "start": 3.0, "end": 8.0}],
+        "overlays": [{"id": "title", "start": 0.5, "end": 2.5}],
+        "transitions": [{"id": "open>hero", "kind": "fade", "cut": 3.0, "start": 2.75, "end": 3.25}]})
+    t = film.load("demo", repo).timing()
+    assert t.scene_ids == ["open", "hero"] and t.scene_frames("hero") == (90, 240) and t.duration == 8.0
+    stale = make_film("stale", format="vertical")  # the same repo: a second film, exported before its format changed
+    _write(stale / "films" / "stale", "data/timeline.json", {"fps": 30, "duration": 1.0, "format": [1920, 1080],
+                                                             "scenes": []})
+    with pytest.raises(ValueError, match="1920x1080 frame but the film's is 1080x1920.*timeline.ts --film stale"):
+        film.load("stale", stale).timing()
+
+
 def test_a_film_with_no_timing_files_still_loads(tmp_path):
     t = timing.load(tmp_path)
     assert t.scene_ids == [] and t.beats == [] and t.duration is None

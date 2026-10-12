@@ -153,18 +153,23 @@ def _read(path: Path):
 
 
 def load(root: str | Path, *, fps: float = DEFAULT_FPS, timeline: str = "data/timeline.json", vo: str = "data/vo.json",
-         audio: str = "data/audio.json", grid: dict | None = None) -> Timing:
+         audio: str = "data/audio.json", grid: dict | None = None, size: tuple[int, int] | None = None) -> Timing:
     """The timing of the film folder `root`: scenes from `timeline` (else `vo`'s scenes), lines from `vo`, beats from
     `audio` (else the grid synthesised from `grid`'s bpm, offset and beatsPerBar, defaults GRID, over the film's
     duration: the timeline's, else the voiceover's, else the last scene's end). Paths are relative to `root`; a missing
-    file is passed over. Raises ValueError when the timeline was exported at another fps than `fps`."""
+    file is passed over. Raises ValueError when the timeline was exported at another fps than `fps`, or for another
+    logical frame than `size` (its `format`, [w, h]): it is stale, export it again."""
     root = Path(root)
     tl, voice, analysis = _read(root / timeline), _read(root / vo), _read(root / audio)
     if tl is not None:
+        again = f"export it again (cd app && bun scripts/timeline.ts --film {root.name})"
         tl_fps = tl.get("fps", fps)
         if abs(float(tl_fps) - float(fps)) > 1e-9:
-            raise ValueError(f"{root / timeline} was exported at {tl_fps} fps but the film runs at {fps}: export it "
-                             f"again (cd app && bun scripts/timeline.ts --film {root.name})")
+            raise ValueError(f"{root / timeline} was exported at {tl_fps} fps but the film runs at {fps}: {again}")
+        tl_size = tl.get("format")
+        if size is not None and tl_size is not None and list(tl_size) != list(size):
+            raise ValueError(f"{root / timeline} was exported for a {tl_size[0]}x{tl_size[1]} frame but the film's is "
+                             f"{size[0]}x{size[1]}: {again}")
         scenes, source = tl.get("scenes", []), str(root / timeline)
     elif voice is not None and voice.get("scenes"):
         scenes, source = voice["scenes"], str(root / vo)
@@ -182,11 +187,11 @@ def load(root: str | Path, *, fps: float = DEFAULT_FPS, timeline: str = "data/ti
 
 
 def for_film(film) -> Timing:
-    """A film's timing (lib/film.py Film): its folder, its fps, and film.json's `vo` and `audio` settings."""
+    """A film's timing (lib/film.py Film): its folder, fps and logical frame, and film.json's `vo` and `audio`."""
     cfg = film.config
     audio = cfg.get("audio") or {}
     return load(film.root, fps=film.fps, vo=cfg.get("vo") or "data/vo.json",
-                audio=audio.get("analysis") or "data/audio.json", grid=audio)
+                audio=audio.get("analysis") or "data/audio.json", grid=audio, size=film.size)
 
 
 _PART = re.compile(r"(\d+)(?:-(\d+))?")

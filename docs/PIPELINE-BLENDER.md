@@ -36,7 +36,9 @@ out/<id>/
 
 1. Start from an example: `cp blender/examples/shots/hero_orbit.py films/<id>/blender/shots/` (see
    [blender/examples/README.md](../blender/examples/README.md)), or write one.
-2. Give it a window: a `scene` id from the film's timeline, or explicit `frames`.
+2. Give it a window: a `scene` id from the film's timeline, or explicit `frames`. Export the timeline after editing
+   `film.ts` (`cd app && bun scripts/timeline.ts --film <id>`); one exported at another fps or format than
+   film.json's is refused as stale.
 3. Render a look pass, then previews, then the final; composite the plate in the engine scene.
 
 ### The shot file
