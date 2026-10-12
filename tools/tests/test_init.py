@@ -10,7 +10,9 @@ def test_a_scaffolded_film_is_one_every_tool_reads(tmp_path):
     fp, written = init.scaffold("my-film", tmp_path, title="My Film", fmt="vertical", fps=24, theme="noir", bpm=96)
     assert fp.dir == tmp_path / "films" / "my-film"
     assert {p.relative_to(fp.dir).as_posix() for p in written} == {
-        "film.json", "data/script.json", "data/.gitkeep", "audio/.gitkeep"}
+        "film.json", "data/script.json", "data/.gitkeep", "audio/.gitkeep", ".gitignore"}
+    ignored = (fp.dir / ".gitignore").read_text().split()
+    assert "audio/vo/takes/" in ignored and "audio/mix/" in ignored and "audio/sfx/lib/" in ignored
     assert not (fp.dir / "film.ts").exists() and not (fp.dir / "scenes").exists()  # the engine's to write
     f = config.load(fp)
     assert (f.id, f.title, f.size, f.fps, f.raw["theme"], f.bpm, f.beats_per_bar) == (

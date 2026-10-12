@@ -4,8 +4,9 @@
                    [--bpm 120] [--force]
 
 writes films/<id>/film.json (id, title, format, fps, theme, audio, and the pipeline section with its defaults spelt
-out, the voice id left to fill in), data/script.json (a one-line stub in the shape film-vo and film-edit read), and
-data/ and audio/ with a .gitkeep each. It never writes film.ts or scenes: the engine owns those (copy
+out, the voice id left to fill in), data/script.json (a one-line stub in the shape film-vo and film-edit read),
+data/ and audio/ with a .gitkeep each, and a .gitignore for the generated audio (takes, voiceover, scores, mixes,
+the sound library's takes). It never writes film.ts or scenes: the engine owns those (copy
 films/starter/film.ts, or start the film with `cd app && bun scripts/new.ts <id>`). An existing film.json or
 script.json is kept unless --force.
 """
@@ -64,6 +65,21 @@ def film_json(fid: str, title: str | None = None, fmt="landscape", fps: int = 30
     }
 
 
+# what the pipeline writes that is paid for once and kept outside git (re-made, or restored from a backup):
+# takes, paced takes, the assembled voice, scores, mixes and the sound library's takes
+GITIGNORE = """\
+# generated audio (tools/README.md): takes, voiceover, scores, mixes, the sound library's takes
+audio/vo/takes/
+audio/vo/paced/
+audio/vo/vo.wav
+audio/vo/vo-chain.wav
+audio/music/
+audio/mix/
+audio/sfx/lib/
+audio/sfx/*.wav
+"""
+
+
 def script_stub(title: str) -> dict:
     return {"title": title,
             "acts": [{"id": "1", "name": title, "scenes": ["open"]}],
@@ -90,6 +106,10 @@ def scaffold(fid: str, root: Path | None = None, force: bool = False, **opts) ->
             continue
         path.write_text(json.dumps(content, indent=2, ensure_ascii=False) + "\n")
         written.append(path)
+    ignore = fp.dir / ".gitignore"
+    if not ignore.exists():
+        ignore.write_text(GITIGNORE)
+        written.append(ignore)
     return fp, written
 
 
