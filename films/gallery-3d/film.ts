@@ -66,11 +66,11 @@ export default defineFilm({
       params: {
         layout: 'carousel', every: 2,
         cards: [
-          { title: 'Type', lines: ['Extruded, bevelled,', 'on the beat.'] },
-          { title: 'Panels', lines: ['Terminals and editors', 'typing in.'] },
-          { title: 'Glyphs', lines: ['Thousands of them,', 'resolving.'] },
-          { title: 'Logo', lines: ['Your mark,', 'in satin and light.'] },
-          { title: 'Cards', lines: ['A carousel', 'that keeps time.'] },
+          { kicker: 'Type', title: 'Extruded, on the beat.', body: 'Bevelled headlines that slam, tip and rise on the grid.' },
+          { kicker: 'Panels', title: 'Code that types itself.', body: 'Terminals and editors floating in the studio.' },
+          { kicker: 'Studio', title: 'Lit like a set.', body: 'Key, rim and softbox from the palette.', image: 'assets/studio.png' },
+          { kicker: 'Glyphs', title: 'Thousands, resolving.', body: 'A field that flies into a word.' },
+          { kicker: 'Logo', title: 'Your mark in satin.', body: 'An SVG, extruded, its accent alight.' },
         ],
       },
     },

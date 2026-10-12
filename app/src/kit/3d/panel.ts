@@ -12,7 +12,7 @@
 //                      (cmd and code lines at `cps`, default 42; output lines whole, 0.12 s apart)
 //                      a panel's `enter` (TimeRef, default 0.08 s + 0.22 s per panel): when it rises in
 //   layout             'single' | 'pair' | 'stack' | 'fan' (default by count: 1 single, 2 pair, more fan); tilt 14 (deg)
-//   fill               the share of the frame's width the layout's box at rest fills (single 0.64, pair 0.78 (about 0.85
+//   span               the share of the frame's width the layout's box at rest fills (single 0.64, pair 0.78 (about 0.85
 //                      in perspective), stack 0.68, fan 0.8;
 //                      0.84 in a tall frame), never taller than 0.8 of the frame
 //   highlight          { panel 0, line, at (TimeRef), color 'accent' | 'accent2' } or a list: the line lit
@@ -100,7 +100,7 @@ export class Panel3D extends Scene3D {
     // framing: the layout fills `fill` of the frame's width (FILL), never more than 0.8 of its
     // height; turned panels reach toward the lens, so their box is taken a little wide
     const b = boundsOf(places, sizes);
-    const fill = this.p('fill', isTall() ? 0.84 : FILL[layout]);
+    const fill = this.p('span', isTall() ? 0.84 : FILL[layout]);
     this.frame({ centre: b.centre, w: b.w * 1.04, h: b.h, margin: [(1 - fill) / 2, 0.1] });
   }
 
