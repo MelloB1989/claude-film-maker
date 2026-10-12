@@ -37,17 +37,18 @@ export default defineFilm({
       params: {
         layout: 'pair',
         panels: [
-          { kind: 'terminal', title: 'zsh', rows: 7, type: 0.4, lines: [
+          { kind: 'terminal', title: 'zsh', rows: 8, type: 0.4, lines: [
             { text: '$ bun scripts/render.ts stills', kind: 'cmd' },
             { text: 'rendering 12 frames…', kind: 'out' },
             { text: '✔ out/stills/f_0001.png', kind: 'out' },
             { text: '$ bun test src', kind: 'cmd' },
             { text: '✔ 412 pass  0 fail', kind: 'out' },
           ] },
-          { kind: 'editor', title: 'film.ts', lang: 'ts', rows: 7, type: { beat: 4 }, enter: 0.3, lines: [
+          { kind: 'editor', title: 'film.ts', lang: 'ts', rows: 8, type: { beat: 4 }, enter: 0.3, lines: [
             { text: 'scenes: [' },
             { text: "  { id: 'hero', scene: Hero3D," },
             { text: "    params: { text: 'Launch.' } }," },
+            { text: "  { id: 'logo', scene: Logo3D }," },
             { text: '],' },
           ] },
         ],
