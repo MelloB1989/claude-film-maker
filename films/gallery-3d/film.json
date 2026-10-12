@@ -1,0 +1,8 @@
+{
+  "id": "gallery-3d",
+  "title": "Gallery: the 3D blocks",
+  "format": "landscape",
+  "fps": 30,
+  "theme": "midnight",
+  "audio": { "bpm": 110 }
+}
