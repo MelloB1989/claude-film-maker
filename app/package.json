@@ -1,11 +1,15 @@
 {
-  "name": "gitloom-film-app",
+  "name": "claude-film-maker",
   "type": "module",
   "private": true,
   "scripts": {
     "dev": "vite",
     "test": "bun test src",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.scripts.json",
+    "new": "bun scripts/new.ts",
+    "render": "bun scripts/render.ts",
+    "timeline": "bun scripts/timeline.ts",
+    "cues": "bun scripts/cues.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -15,5 +19,8 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.0"
   },
-  "dependencies": { "opentype.js": "^2.0.0", "three": "^0.186.0" }
+  "dependencies": {
+    "opentype.js": "^2.0.0",
+    "three": "^0.186.0"
+  }
 }
