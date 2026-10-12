@@ -5,10 +5,11 @@ segment timed by the ease of the key it heads to (default inOutCubic); before th
 them. Poses are in the engine's coordinates (metres, y up, the camera looking down -z); `ENGINE_TO_BLENDER` turns them
 into Blender's (z up), a proper rotation, so handedness and cross products carry over.
 
-The lens is the engine's DoF camera: a 36 mm gate shooting 16:9, the picture 20.25 mm tall (dof.ts DOF_SENSOR_H), so a
-vertical fov is a focal length (`lens_mm`). B03 (b03_reform.py) has its own copy of this port; this is the shared one.
+The lens is the engine's DoF camera: a gate 20.25 mm tall (dof.ts DOF_SENSOR_H; 36 mm wide at 16:9, and as wide as the
+film's aspect makes it otherwise), fit vertically, so a vertical fov is a focal length (`lens_mm`) whatever the film's
+format. Projections land on the film's logical frame (film.json `format`: `size` = (width, height) px).
 
-numpy only (tested under the tools project); `place_camera` sets a Blender camera from a pose.
+numpy only (tested without Blender); `place_camera` and `engine_camera` set up a Blender camera.
 """
 from __future__ import annotations
 
@@ -17,8 +18,9 @@ import math
 import numpy as np
 
 ENGINE_TO_BLENDER = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]])
-SENSOR_H_MM = 20.25  # the engine's DoF camera: a 36 mm gate shooting 16:9
+SENSOR_H_MM = 20.25  # the engine's DoF camera: the gate's height (36 mm wide at 16:9)
 SENSOR_W_MM = 36.0
+LOGICAL = (1920, 1080)  # the default logical frame (a landscape film's)
 
 
 def to_blender(v) -> np.ndarray:
@@ -101,21 +103,23 @@ class Pose:
         """A point's depth along the view axis (stage.ts depthOf: what a focus distance is measured in)."""
         return float(-(self.basis()[:, 2] @ (np.asarray(p, float) - self.pos)))
 
-    def project(self, p, aspect: float = 16 / 9) -> tuple[float, float]:
-        """A point's place on the film's logical 1920x1080 frame (px from the top left)."""
+    def project(self, p, size: tuple[int, int] = LOGICAL) -> tuple[float, float]:
+        """A point's place on the film's logical frame of `size` (width, height) px, from the top left."""
+        w, h = size
         v = self.basis().T @ (np.asarray(p, float) - self.pos)
         ty = math.tan(math.radians(self.fov) / 2)
-        x, y = v[0] / (-v[2] * ty * aspect), v[1] / (-v[2] * ty)
-        return 960 * (1 + x), 540 * (1 - y)
+        x, y = v[0] / (-v[2] * ty * (w / h)), v[1] / (-v[2] * ty)
+        return w / 2 * (1 + x), h / 2 * (1 - y)
 
-    def project_many(self, P, aspect: float = 16 / 9) -> np.ndarray:
+    def project_many(self, P, size: tuple[int, int] = LOGICAL) -> np.ndarray:
         """project() for points (n, 3): (n, 2) px, and NaN where a point is behind the camera."""
+        w, h = size
         v = (np.asarray(P, float) - self.pos) @ self.basis()
         ty = math.tan(math.radians(self.fov) / 2)
         with np.errstate(divide="ignore", invalid="ignore"):
-            x = v[:, 0] / (-v[:, 2] * ty * aspect)
+            x = v[:, 0] / (-v[:, 2] * ty * (w / h))
             y = v[:, 1] / (-v[:, 2] * ty)
-        out = np.column_stack([960 * (1 + x), 540 * (1 - y)])
+        out = np.column_stack([w / 2 * (1 + x), h / 2 * (1 - y)])
         out[v[:, 2] >= 0] = np.nan
         return out
 
@@ -166,7 +170,8 @@ class Rig:
 
 def place_camera(cam, pose: Pose, focus: float | None = None) -> None:
     """Set a Blender camera object to an engine pose: its world matrix, its lens for the pose's fov on the engine's gate
-    (the camera's sensor must be the 36 x 20.25 mm one, fit vertically), and its focus distance (metres) if given."""
+    (the camera's sensor must be 20.25 mm tall and fit vertically, as `engine_camera` makes it), and its focus distance
+    (metres) if given."""
     from mathutils import Matrix
 
     cam.matrix_world = Matrix(pose.blender_matrix())
@@ -175,14 +180,21 @@ def place_camera(cam, pose: Pose, focus: float | None = None) -> None:
         cam.data.dof.focus_distance = float(focus)
 
 
-def engine_camera(name: str = "camera", fstop: float = 4.0, collection=None):
-    """A Blender camera on the engine's gate (36 x 20.25 mm, fit vertically) with depth of field at `fstop`."""
+def sensor_mm(size: tuple[int, int] = LOGICAL) -> tuple[float, float]:
+    """The engine's gate for a film of logical `size`: (width, height) mm, 20.25 mm tall and as wide as the frame's
+    aspect makes it (36 mm at 16:9)."""
+    w, h = size
+    return SENSOR_H_MM * w / h, SENSOR_H_MM
+
+
+def engine_camera(name: str = "camera", fstop: float = 4.0, collection=None, size: tuple[int, int] = LOGICAL):
+    """A Blender camera on the engine's gate for a film of logical `size` (sensor_mm, fit vertically) with depth of
+    field at `fstop`."""
     import bpy
 
     cam = bpy.data.objects.new(name, bpy.data.cameras.new(name))
     cam.data.sensor_fit = "VERTICAL"
-    cam.data.sensor_height = SENSOR_H_MM
-    cam.data.sensor_width = SENSOR_W_MM
+    cam.data.sensor_width, cam.data.sensor_height = sensor_mm(size)
     cam.data.clip_start, cam.data.clip_end = 0.005, 60.0
     cam.data.dof.use_dof = True
     cam.data.dof.aperture_fstop = fstop
