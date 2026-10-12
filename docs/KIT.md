@@ -53,6 +53,45 @@ Overlays go in `film.ts` `overlays` (default: the whole film), drawn over whatev
 | `ProgressBar` | a thin progress bar with chapter ticks | `position`, `marks`, `color` |
 | `SafeArea` | action/title-safe guides and a feed's UI zones (for layout checks) | `thirds`, `social` |
 
+## 3D: `@kit/3d`
+
+Blocks on the engine's Stage: a dim studio, depth of field and supersampling; extruded type and logos in satin with
+glowing accent seams. Every block takes a camera move (`camera`: `push`, `pull`, `orbit`, `drift`, `dolly`, `crane`,
+`static`, or keys), `whip` (a whip out on the cut), depth-of-field params (`dof`, `fstop`, `focus: 'auto'`), the light
+rig's levels, and `background` (`'none'` stacks it). Full reference: [kit/3d.md](kit/3d.md).
+
+| block | what it does | key params |
+|---|---|---|
+| `Hero3D` | an extruded headline landing word by word, glyph by glyph or line by line | `text`, `emphasis`, `reveal` (`slam` `rise` `tip` `drop` `scale`), `sync` (`stagger` `beats` `vo`), `exit` (`fall` `blow` `scatter`), `pulse` |
+| `Panel3D` | terminals, editors, JSON and chat panels floating in 3D, typing in | `panels` or `panel` (`kind`, `title`, `lines`, `type`), `layout` (`single` `pair` `stack` `fan`), `highlight` |
+| `GlyphCloud` | thousands of glyphs drifting past the lens, resolving into a word | `resolve`, `resolveAt`, `count`, `sparkle` |
+| `Logo3D` | the film's SVG extruded and bevelled, spinning in; colour fills take the accent | `logo`, `name`, `reveal` (`spin` `rise` `scale`), `tagline` |
+| `Cards3D` | editorial cards in a carousel, fan, stack or grid, advancing on the beat | `cards: [{ title, lines, image }]`, `layout`, `every` |
+
+## Backgrounds, layering and media: `@kit/bg`, `@kit/stack`, `@kit/media`
+
+Full reference: [kit/bg-media.md](kit/bg-media.md).
+
+| block | what it does | key params |
+|---|---|---|
+| `Aurora`, `MeshGradient`, `Grid`, `Particles`, `Warp` | shader backgrounds in the theme's accents | `color`, `color2`, `intensity`, `speed`, `scale`, `seed`, `pulse` (`beat` `downbeat`), `glow` |
+| `Stack` | several blocks layered in one shot; layers above the first default to a transparent background | `layers: [{ scene, params, blend, opacity, start, end, fade }]` |
+| `Image` | a picture, framed, with a Ken Burns move and an entry | `src`, `fit`, `from`/`to`, `radius`, `shadow`, `entry` |
+| `Video` | a clip, frame-exact (`bun scripts/media.ts --film <id>` extracts its frames) | `src`, `clipStart`, `rate`, `loop`, and Image's framing |
+| `Device` | a screenshot or clip in a browser window or a phone | `device` (`browser` `phone`), `src`, `url`, `scroll`, `rim` |
+
+## Transitions, looks and beat effects: `@kit/fx`
+
+Full reference: [kit/fx.md](kit/fx.md).
+
+- **Transitions**, on a shot (`transition: 'wipe'` or `{ kind: 'iris', edge: 'accent2' }`): `cut`, `whip`, `zoom`,
+  `match`, `xfade`, `dip`, `wipe`, `iris`, `slide`, `spin`, `flash`, `glitch`.
+- **Looks**, on the film (`"look"` in film.json) or a shot (`look`): `film`, `clean`, `cinematic`, `neon`, `dreamy`,
+  `gritty`, `retro`. The grade params (`saturation`, `contrast`, `warmth`, `tint`, `lift`, `letterbox`, `scanlines`)
+  go in any `post`.
+- **`BeatFx`**, an overlay: `punch` (zoom kicks), `shake`, `flash`, `pump` (exposure) and `bars` (letterbox),
+  each `on` beats, downbeats, backbeats or given times.
+
 ## Your own scenes
 
 A film's own scenes go in `films/<id>/scenes/*.ts` and are loaded lazily (`scene: () => import('./scenes/pulse')`).

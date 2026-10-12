@@ -41,6 +41,8 @@ Paths inside `film.json` are relative to the film folder.
                                     // portrait 1080x1350 | cinema 1920x804 — or { "width": W, "height": H } (logical px)
   "fps": 30,
   "theme": "noir",                  // a preset in app/src/engine/themes.json, or { "extends": "noir", "accent": "#..." }
+  "look": "film",                   // optional: a look preset (app/src/engine/looks.ts): film, clean, cinematic, neon,
+                                    // dreamy, gritty, retro; film.ts `post` and each shot's `look`/`post` go over it
   "audio": {                        // all optional: a film may be silent
     "mix": "audio/mix/mix.wav",     // what the player plays and render.ts muxes
     "analysis": "data/audio.json",  // beat grid + features (film-beats); without it the grid is synthesised:
