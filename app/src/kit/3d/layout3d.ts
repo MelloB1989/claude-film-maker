@@ -70,7 +70,7 @@ export function cardPlacement(layout: CardLayout, i: number, n: number, k: numbe
   const { w, h } = size, d = i - k;
   switch (layout) {
     case 'carousel': {
-      const step = (2 * Math.PI) / Math.max(n, 9), R = (w * 0.6) / Math.tan(step / 2);
+      const step = (2 * Math.PI) / Math.max(n, 9), R = (w * 0.74) / Math.tan(step / 2);
       const a = d * step;
       return { pos: [R * Math.sin(a), 0, R * (Math.cos(a) - 1)], rot: [0, a, 0] };
     }

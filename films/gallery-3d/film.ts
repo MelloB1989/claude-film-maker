@@ -37,17 +37,18 @@ export default defineFilm({
       params: {
         layout: 'pair',
         panels: [
-          { kind: 'terminal', title: 'zsh', rows: 7, type: 0.4, lines: [
+          { kind: 'terminal', title: 'zsh', rows: 8, type: 0.4, lines: [
             { text: '$ bun scripts/render.ts stills', kind: 'cmd' },
             { text: 'rendering 12 frames…', kind: 'out' },
             { text: '✔ out/stills/f_0001.png', kind: 'out' },
             { text: '$ bun test src', kind: 'cmd' },
             { text: '✔ 412 pass  0 fail', kind: 'out' },
           ] },
-          { kind: 'editor', title: 'film.ts', lang: 'ts', rows: 7, type: { beat: 4 }, enter: 0.3, lines: [
+          { kind: 'editor', title: 'film.ts', lang: 'ts', rows: 8, type: { beat: 4 }, enter: 0.3, lines: [
             { text: 'scenes: [' },
             { text: "  { id: 'hero', scene: Hero3D," },
             { text: "    params: { text: 'Launch.' } }," },
+            { text: "  { id: 'logo', scene: Logo3D }," },
             { text: '],' },
           ] },
         ],
@@ -65,11 +66,11 @@ export default defineFilm({
       params: {
         layout: 'carousel', every: 2,
         cards: [
-          { title: 'Type', lines: ['Extruded, bevelled,', 'on the beat.'] },
-          { title: 'Panels', lines: ['Terminals and editors', 'typing in.'] },
-          { title: 'Glyphs', lines: ['Thousands of them,', 'resolving.'] },
-          { title: 'Logo', lines: ['Your mark,', 'in satin and light.'] },
-          { title: 'Cards', lines: ['A carousel', 'that keeps time.'] },
+          { kicker: 'Type', title: 'Extruded, on the beat.', body: 'Bevelled headlines that slam, tip and rise on the grid.' },
+          { kicker: 'Panels', title: 'Code that types itself.', body: 'Terminals and editors floating in the studio.' },
+          { kicker: 'Studio', title: 'Lit like a set.', body: 'Key, rim and softbox from the palette.', image: 'assets/studio.png' },
+          { kicker: 'Glyphs', title: 'Thousands, resolving.', body: 'A field that flies into a word.' },
+          { kicker: 'Logo', title: 'Your mark in satin.', body: 'An SVG, extruded, its accent alight.' },
         ],
       },
     },
