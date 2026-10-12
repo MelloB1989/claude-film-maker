@@ -1,0 +1,8 @@
+{
+  "id": "gallery-fx",
+  "title": "Gallery: transitions, looks and beat effects",
+  "format": "landscape",
+  "fps": 30,
+  "theme": "midnight",
+  "audio": { "bpm": 116 }
+}
