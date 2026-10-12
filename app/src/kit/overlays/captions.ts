@@ -52,6 +52,8 @@ export class Captions extends Scene2D {
     const chunks = fx.captionChunks(lines.map((l) => ({ words: l.words.map((w) => ({ ...w, w: upper ? w.w.toUpperCase() : w.w })) })), {
       maxWords: this.p('maxWords', style === 'line' ? 99 : tall ? 3 : 6),
       maxChars: this.p('maxChars', style === 'line' ? 999 : tall ? 22 : 42),
+      // a line caption keeps its line whole; the others break early at a phrase's end
+      minWords: style === 'line' ? 999 : 2,
       lead: this.p('lead', 0.06),
       hold: this.p('hold', 0.7),
     });
@@ -110,7 +112,7 @@ export class Captions extends Scene2D {
     if (this.p('box', false)) {
       const padX = 0.42 * size, padY = 0.34 * size;
       const w = Math.max(...S.lines.map((l) => l.width));
-      c.fillStyle = rgba('bg', 0.62);
+      c.fillStyle = rgba('surface', 0.82);
       c.beginPath();
       c.roundRect(cx - w / 2 - padX, top - padY, w + 2 * padX, blockH + m.desc * size + 2 * padY, 0.28 * size);
       c.fill();

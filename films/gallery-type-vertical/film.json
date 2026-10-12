@@ -1,0 +1,8 @@
+{
+  "id": "gallery-type-vertical",
+  "title": "Gallery: type in a vertical frame",
+  "format": "vertical",
+  "fps": 30,
+  "theme": "midnight",
+  "audio": { "bpm": 110 }
+}

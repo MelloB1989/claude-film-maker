@@ -1,0 +1,8 @@
+{
+  "id": "gallery-type",
+  "title": "Gallery: type, overlays and data",
+  "format": "landscape",
+  "fps": 30,
+  "theme": "aurora",
+  "audio": { "bpm": 110 }
+}
