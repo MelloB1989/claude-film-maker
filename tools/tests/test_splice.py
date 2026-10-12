@@ -78,34 +78,31 @@ def test_a_short_final_bar_can_only_end_the_map():
         splice(y, SR, edges, [2, 0, 1])  # mid-map it would shift every join after it by the shortfall
 
 
-def project(tmp_path, monkeypatch, mp, audio=None, source=None):
-    """A throwaway repo root for film-splice: data/music_plan.json, data/audio.json and a source WAV."""
+def project(film, mp, audio=None, source=None):
+    """A throwaway film for film-splice: data/music_plan.json, data/audio.json and a source WAV."""
     import json
 
     from filmtools import splice as sp
     from filmtools.wav import write_wav
-    (tmp_path / "data").mkdir()
-    (tmp_path / "data" / "music_plan.json").write_text(json.dumps(mp))
+    (film.data / "music_plan.json").write_text(json.dumps(mp))
     if audio is not None:
-        (tmp_path / "data" / "audio.json").write_text(json.dumps(audio))
+        (film.data / "audio.json").write_text(json.dumps(audio))
     if source is not None:
-        write_wav(tmp_path / "audio" / "music" / "src.wav", source, SR)
-    monkeypatch.setattr(sp, "DATA", tmp_path / "data")
-    monkeypatch.setattr(sp, "ROOT", tmp_path)
-    return sp, lambda: json.loads((tmp_path / "data" / "music_plan.json").read_text())
+        write_wav(film.audio / "music" / "src.wav", source, SR)
+    return sp, lambda: json.loads((film.data / "music_plan.json").read_text())
 
 
 SRC_AUDIO = {"duration": 4.0, "beat_period": 0.25, "downbeats": [0.0, 1.0, 2.0, 3.0]}  # the source's own grid
 
 
-def test_splice_refuses_an_edit_as_its_source(tmp_path, monkeypatch):
-    sp, _ = project(tmp_path, monkeypatch, {"chosen": "audio/music/src-edit.wav"})
+def test_splice_refuses_an_edit_as_its_source(film):
+    sp, _ = project(film, {"chosen": "audio/music/src-edit.wav"})
     with pytest.raises(SystemExit, match="-edit.wav"):
         sp.main(["--map", "0-1"])
 
 
-def test_the_first_splice_stores_the_sources_downbeats(tmp_path, monkeypatch):
-    sp, read = project(tmp_path, monkeypatch, {"chosen": "audio/music/src.wav"}, SRC_AUDIO,
+def test_the_first_splice_stores_the_sources_downbeats(film):
+    sp, read = project(film, {"chosen": "audio/music/src.wav"}, SRC_AUDIO,
                        bars([0.1, 0.2, 0.3, 0.4]))
     sp.main(["--map", "0-1,3,2"])
     mp = read()
@@ -114,30 +111,51 @@ def test_the_first_splice_stores_the_sources_downbeats(tmp_path, monkeypatch):
                           "source_downbeats": [0.0, 1.0, 2.0, 3.0], "source_beat_period": 0.25}
 
 
-def test_a_later_splice_cuts_on_the_stored_downbeats_not_the_edits_analysis(tmp_path, monkeypatch):
+def test_a_later_splice_cuts_on_the_stored_downbeats_not_the_edits_analysis(film):
     from filmtools.wav import read_wav
     y = bars([0.1, 0.2, 0.3, 0.4])
-    sp, read = project(tmp_path, monkeypatch, {"chosen": "audio/music/src.wav"}, SRC_AUDIO, y)
+    sp, read = project(film, {"chosen": "audio/music/src.wav"}, SRC_AUDIO, y)
     sp.main(["--map", "0-1,3,2"])
     # film-beats then analyses the edit, whose grid lands a few ms elsewhere; a re-cut must still use the source's
-    (tmp_path / "data" / "audio.json").write_text('{"duration": 4.0, "beat_period": 0.25, '
+    (film.data / "audio.json").write_text('{"duration": 4.0, "beat_period": 0.25, '
                                                   '"downbeats": [0.003, 1.003, 2.003, 3.003]}')
     sp.main(["--map", "3,2,1,0"])
-    out, _ = read_wav(tmp_path / "audio" / "music" / "src-edit.wav")
+    out, _ = read_wav(film.audio / "music" / "src-edit.wav")
     assert np.allclose(out, splice(y, SR, [0.0, 1.0, 2.0, 3.0, 4.0], [3, 2, 1, 0]), atol=1e-6)
     assert read()["edit"]["source_downbeats"] == [0.0, 1.0, 2.0, 3.0] and read()["edit"]["map"] == "3,2,1,0"
 
 
-def test_an_edit_without_stored_downbeats_is_not_recut_on_the_current_analysis(tmp_path, monkeypatch):
-    sp, _ = project(tmp_path, monkeypatch, {"chosen": "audio/music/src-edit.wav",
+def test_an_edit_without_stored_downbeats_is_not_recut_on_the_current_analysis(film):
+    sp, _ = project(film, {"chosen": "audio/music/src-edit.wav",
                                             "edit": {"source": "audio/music/src.wav", "map": "0-3"}},
                     SRC_AUDIO, bars([0.1, 0.2, 0.3, 0.4]))
     with pytest.raises(SystemExit, match="source_downbeats"):
         sp.main(["--map", "0-1"])
 
 
-def test_the_first_splice_needs_the_analysis_of_its_source(tmp_path, monkeypatch):
-    sp, _ = project(tmp_path, monkeypatch, {"chosen": "audio/music/src.wav"}, {**SRC_AUDIO, "duration": 5.0},
+def test_the_first_splice_needs_the_analysis_of_its_source(film):
+    sp, _ = project(film, {"chosen": "audio/music/src.wav"}, {**SRC_AUDIO, "duration": 5.0},
                     bars([0.1, 0.2, 0.3, 0.4]))
     with pytest.raises(SystemExit, match="film-beats"):
         sp.main(["--map", "0-1"])
+
+
+def test_the_chosen_score_may_come_from_film_json(film):
+    import json
+    (film.config).write_text(json.dumps({"id": "demo", "pipeline": {"music": {"chosen": "audio/music/src.wav"}}}))
+    sp, read = project(film, {}, SRC_AUDIO, bars([0.1, 0.2, 0.3, 0.4]))
+    sp.main(["--map", "1,0,2,3"])
+    assert read()["chosen"] == "audio/music/src-edit.wav" and read()["edit"]["source"] == "audio/music/src.wav"
+
+
+def test_a_bar_holds_the_films_beats_per_bar(film):
+    import json
+
+    from filmtools.wav import read_wav
+    (film.config).write_text(json.dumps({"id": "demo", "audio": {"beatsPerBar": 2}}))
+    y = bars([0.1, 0.2, 0.3, 0.4])  # bars of 1 s are two 0.5 s beats here
+    sp, _ = project(film, {"chosen": "audio/music/src.wav"},
+                    {"duration": 4.0, "beat_period": 0.5, "downbeats": [0.0, 1.0, 2.0, 3.0]}, y)
+    sp.main(["--map", "3,2,1,0"])
+    out, _ = read_wav(film.audio / "music" / "src-edit.wav")
+    assert out[500] == pytest.approx(0.4) and out[3500] == pytest.approx(0.1)

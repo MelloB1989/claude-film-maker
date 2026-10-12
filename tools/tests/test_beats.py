@@ -7,8 +7,10 @@ import pytest
 from filmtools.beats import analyze, fit_grid, grid_fit
 
 SR = 22050
-META = {"bpm": 100.0, "sections": [{"name": "the tour", "start": 0.0, "end": 14.4},
-                                   {"name": "proof and everywhere", "start": 14.4, "end": 30.0}]}
+META = {"bpm": 100.0, "sections": [{"name": "tour", "start": 0.0, "end": 14.4},
+                                   {"name": "lift", "start": 14.4, "end": 30.0}]}
+RULES = {"tour": (0.0, 0.0, 20000.0, 20000.0, 0.0), "drop": (-12.0, -12.0, 20000.0, 20000.0, 0.12),
+         "lift": (0.0, 0.0, 20000.0, 20000.0, 0.005)}
 
 
 def clicks(bpm=100.0, dur=30.0, offset=0.25, silent=None, bpm2=None, switch=15.0):
@@ -102,59 +104,70 @@ def test_fit_grid_does_not_invent_a_beat_before_a_late_first_beat():
 def test_envelopes_follow_the_automated_mix_and_the_grid_follows_the_score():
     rng = np.random.default_rng(4)
     y = clicks() + (0.05 * rng.standard_normal(30 * SR)).astype(np.float32)  # a steady score, no drop of its own
-    meta = {"bpm": 100.0, "sections": [{"name": "the tour", "start": 0.0, "end": 12.0},
-                                       {"name": "honest", "start": 12.0, "end": 19.2},
-                                       {"name": "proof and everywhere", "start": 19.2, "end": 30.0}]}
-    heard, raw = analyze(y, SR, meta), analyze(y, SR, meta, automate=False)
+    meta = {"bpm": 100.0, "sections": [{"name": "tour", "start": 0.0, "end": 12.0},
+                                       {"name": "drop", "start": 12.0, "end": 19.2},
+                                       {"name": "lift", "start": 19.2, "end": 30.0}]}
+    heard, raw = analyze(y, SR, meta, rules=RULES), analyze(y, SR, meta, automate=False)
     assert heard["sections"][1]["start"] == pytest.approx(12.25, abs=0.03)  # snapped to the score's downbeat
     t = np.arange(len(heard["rms"])) / 100
 
     def mean(env, a, b):
         return float(np.mean(np.asarray(env)[(t >= a) & (t < b)]))
 
-    tour, honest = (2.0, 11.0), (13.0, 19.0)
-    assert mean(raw["rms"], *honest) > 0.8 * mean(raw["rms"], *tour)  # the score itself does not dip
-    assert mean(heard["rms"], *honest) < 0.3 * mean(heard["rms"], *tour)  # what is heard: honest sits 12 dB down
-    assert mean(heard["low"], *honest) < 0.3 * mean(heard["low"], *tour)
+    tour, drop = (2.0, 11.0), (13.0, 19.0)
+    assert mean(raw["rms"], *drop) > 0.8 * mean(raw["rms"], *tour)  # the score itself does not dip
+    assert mean(heard["rms"], *drop) < 0.3 * mean(heard["rms"], *tour)  # what is heard: the drop sits 12 dB down
+    assert mean(heard["low"], *drop) < 0.3 * mean(heard["low"], *tour)
     assert sum(1 for p, _ in heard["onsets"]["hat"] if 13 < p < 19) <= sum(1 for p, _ in raw["onsets"]["hat"] if 13 < p < 19)
     for k in ("beats", "downbeats", "sections", "bpm", "grid_fit", "grid_error_ms"):
         assert heard[k] == raw[k]  # the grid is the raw score's
 
 
-def test_film_beats_takes_its_sections_from_the_picks_own_timing(tmp_path, monkeypatch):
+def test_film_beats_takes_its_sections_from_the_picks_own_timing(film):
     from filmtools import beats as bt
     from filmtools.wav import write_wav
-    write_wav(tmp_path / "audio" / "music" / "s.wav", clicks(), SR)
-    write_wav(tmp_path / "audio" / "vo" / "vo.wav", np.zeros(SR, np.float32), SR)
-    later = {"bpm": 100.0, "sections": [{"name": "the tour", "start": 0.0, "end": 7.2},
-                                        {"name": "honest", "start": 7.2, "end": 30.0}]}  # a later film-music run's
+    write_wav(film.audio / "music" / "s.wav", clicks(), SR)
+    write_wav(film.audio / "vo" / "vo.wav", np.zeros(SR, np.float32), SR)
+    later = {"bpm": 100.0, "sections": [{"name": "tour", "start": 0.0, "end": 7.2},
+                                        {"name": "drop", "start": 7.2, "end": 30.0}]}  # a later film-music run's
     # the pick's own sidecar: its plan's sections last 14.4 s and 15.6 s (META), and it records no meta of its own
     plan = {"positive_global_styles": ["100 BPM"], "negative_global_styles": [],
             "sections": [{"section_name": s["name"], "positive_local_styles": [], "negative_local_styles": [],
                           "duration_ms": round((s["end"] - s["start"]) * 1000), "lines": []} for s in META["sections"]]}
-    (tmp_path / "audio" / "music" / "s.plan.json").write_text(json.dumps({"format": "pcm_48000", "plan": plan}))
-    (tmp_path / "data").mkdir()
-    (tmp_path / "data" / "music_plan.json").write_text(json.dumps(
+    (film.audio / "music" / "s.plan.json").write_text(json.dumps({"format": "pcm_48000", "plan": plan}))
+    (film.data / "music_plan.json").write_text(json.dumps(
         {"chosen": "audio/music/s.wav", "meta": later, "chosen_meta": later}))  # chosen_meta stale: not trusted
-    (tmp_path / "data" / "vo.json").write_text(json.dumps({"lines": []}))
-    for name, value in (("DATA", tmp_path / "data"), ("AUDIO", tmp_path / "audio"), ("ROOT", tmp_path)):
-        monkeypatch.setattr(bt, name, value)
+    (film.data / "vo.json").write_text(json.dumps({"lines": []}))
     bt.main([])
-    sections = json.loads((tmp_path / "data" / "audio.json").read_text())["sections"]
+    sections = json.loads((film.data / "audio.json").read_text())["sections"]
     assert sections[1]["start"] == pytest.approx(14.65, abs=0.03)  # the pick's 14.4 on its downbeat, not 7.45
 
 
-def test_film_beats_stops_when_the_picks_timing_cannot_be_known(tmp_path, monkeypatch):
+def test_film_beats_stops_when_the_picks_timing_cannot_be_known(film):
     from filmtools import beats as bt
     from filmtools.wav import write_wav
-    write_wav(tmp_path / "audio" / "music" / "s.wav", clicks(), SR)  # a pick with no sidecar: its plan is unknown
-    write_wav(tmp_path / "audio" / "vo" / "vo.wav", np.zeros(SR, np.float32), SR)
-    (tmp_path / "data").mkdir()
-    (tmp_path / "data" / "music_plan.json").write_text(json.dumps(
+    write_wav(film.audio / "music" / "s.wav", clicks(), SR)  # a pick with no sidecar: its plan is unknown
+    write_wav(film.audio / "vo" / "vo.wav", np.zeros(SR, np.float32), SR)
+    (film.data / "music_plan.json").write_text(json.dumps(
         {"chosen": "audio/music/s.wav", "meta": META, "chosen_meta": META}))
-    (tmp_path / "data" / "vo.json").write_text(json.dumps({"lines": []}))
-    for name, value in (("DATA", tmp_path / "data"), ("AUDIO", tmp_path / "audio"), ("ROOT", tmp_path)):
-        monkeypatch.setattr(bt, name, value)
+    (film.data / "vo.json").write_text(json.dumps({"lines": []}))
     with pytest.raises(SystemExit, match="s.plan.json"):
         bt.main([])
-    assert not (tmp_path / "data" / "audio.json").exists()
+    assert not (film.data / "audio.json").exists()
+
+
+def test_film_beats_analyses_a_file_with_no_plan_at_the_films_tempo(film):
+    from filmtools import beats as bt
+    from filmtools.wav import write_wav
+    write_wav(film.audio / "music" / "licensed.wav", clicks(), SR)  # no music_plan.json, no voiceover
+    with pytest.raises(SystemExit, match="--bpm"):
+        bt.main(["--music", "audio/music/licensed.wav"])
+    bt.main(["--music", "audio/music/licensed.wav", "--bpm", "100"])
+    a = json.loads((film.data / "audio.json").read_text())
+    assert a["bpm"] == pytest.approx(100.0, abs=0.3) and [s["name"] for s in a["sections"]] == ["score"]
+    assert not any(a["vocal"]) and a["onsets"]["vocal"] == []
+
+
+def test_beats_per_bar_set_the_downbeats():
+    a = analyze(clicks(), SR, META, beats_per_bar=3)
+    assert a["time_signature"] == 3 and len(a["downbeats"]) == pytest.approx(len(a["beats"]) / 3, abs=1)

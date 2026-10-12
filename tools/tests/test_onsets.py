@@ -77,7 +77,7 @@ def test_a_click_before_the_voice_is_not_an_onset():
 def test_a_plosive_burst_counts_as_the_start():
     burst = breath(0.008, amp=0.25, seed=1)  # 8 ms of broadband release, then voicing
     x = np.concatenate([quiet(0.3), burst, tone(0.5)])
-    [on] = voice_onsets(x, SR, [{"w": "GitLoom.", "start": 0.40, "end": 0.9}])
+    [on] = voice_onsets(x, SR, [{"w": "Hello.", "start": 0.40, "end": 0.9}])
     assert on == pytest.approx(0.30, abs=0.005)
 
 
@@ -155,11 +155,11 @@ def test_the_previous_words_final_fricative_is_not_bridged():
 
 
 def test_an_s_that_follows_the_previous_words_voice_starts_the_word():
-    # "vector store": no silence between "vector" and the /s/, but the /s/ begins inside the window, where the
+    # "never stop": no silence between "never" and the /s/, but the /s/ begins inside the window, where the
     # previous word's voicing stops; then a 20 ms closure, the /t/ burst and the vowel
     x = np.concatenate([quiet(0.1), tone(0.35), noise(0.12, -15, 4000, 8000, seed=12), noise(0.02, -47, seed=13),
                         noise(0.01, -12, seed=14), noise(0.02, -20, 1000, 8000, seed=15), tone(0.5)])
-    words = [{"w": "vector", "start": 0.1, "end": 0.43}, {"w": "store.", "start": 0.576, "end": 0.9}]
+    words = [{"w": "never", "start": 0.1, "end": 0.43}, {"w": "stop.", "start": 0.576, "end": 0.9}]
     assert voice_onsets(x, SR, words)[1] == pytest.approx(0.45, abs=0.005)
 
 

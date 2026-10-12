@@ -1,20 +1,19 @@
 """Beat grid, sections, envelopes and onsets for the engine (data/audio.json).
 
 The score is generated at one tempo, so the grid is a straight line fitted to librosa's tracked beats. It carries
-on through drumless stretches (the cold open, the honesty drop-out) where a tracker loses the beat. `grid_fit`
-measures the grid against the audio's own onsets. Below 0.9 the tempo drifts, and a human decides (regenerate the
-score, or cut on its downbeats); the music is the truth (spec §5.2). The envelopes and band onsets are taken from
-the music as the mix plays it, with its automation drawn in.
+on through drumless stretches (a quiet intro, a drop-out) where a tracker loses the beat. `grid_fit` measures the grid
+against the audio's own onsets. Below 0.9 the tempo drifts, and a human decides (regenerate the score, or cut on its
+downbeats); the music is the truth. The envelopes and band onsets are taken from the music as the mix plays it, with
+its automation (automate.py, film.json pipeline.music.sections) drawn in. Bars have film.json audio.beatsPerBar beats.
 """
-import argparse
 import json
 
 import librosa
 import numpy as np
 
-from .automate import apply, lanes
-from .music import pick_meta, pick_sidecar
-from .paths import AUDIO, DATA, ROOT
+from . import cli, config
+from .automate import FADE_OUT, apply, lanes, rules_from
+from .music import chosen_score, load_plan, pick_meta, pick_sidecar
 from .wav import read_wav
 
 FPS = 100
@@ -82,13 +81,13 @@ def _onsets(env: np.ndarray) -> list[list[float]]:
     return [[round(p / FPS, 3), round(float(flux[p]), 3)] for p in peaks]
 
 
-def _downbeat_phase(beats: np.ndarray, low: np.ndarray, starts: list[float], period: float) -> int:
+def _downbeat_phase(beats: np.ndarray, low: np.ndarray, starts: list[float], period: float, bpb: int = 4) -> int:
     at = low[np.clip(np.round(beats * FPS).astype(int), 0, len(low) - 1)]
     best, best_score = 0, -np.inf
-    for p in range(4):
-        db = beats[p::4]
+    for p in range(bpb):
+        db = beats[p::bpb]
         dist = np.mean([np.min(np.abs(db - s)) for s in starts]) / period if starts and len(db) else 0.0
-        score = at[p::4].mean() - at.mean() - 0.5 * dist
+        score = at[p::bpb].mean() - at.mean() - 0.5 * dist
         if score > best_score:
             best, best_score = p, score
     return best
@@ -104,10 +103,12 @@ def _envelopes(y: np.ndarray, sr: int, n: int) -> tuple[np.ndarray, np.ndarray, 
 
 
 def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np.ndarray | None = None,
-            automate: bool = True) -> dict:
+            automate: bool = True, rules: dict | None = None, fade_out: float = FADE_OUT,
+            beats_per_bar: int = 4) -> dict:
     """The beat grid, downbeats and sections come from the score as generated. The envelopes and band onsets that
-    drive the visuals come from the music as heard: with `automate`, the mix's arc (automate.py) is drawn over
-    those sections first, so the honest dip and the muffled cold open show in them as they do in the mix."""
+    drive the visuals come from the music as heard: with `automate`, the mix's arc (automate.lanes with `rules` and
+    `fade_out`) is drawn over those sections first, so a drop or a muffled intro shows in them as it does in the
+    mix."""
     duration = len(y) / sr
     n = int(np.ceil(duration * FPS))
     lag = LAG * HOP / sr  # onset times are read off the envelope, so every one of them is this late
@@ -125,13 +126,14 @@ def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np
     active = sounding[np.clip(np.round(beats * FPS).astype(int), 0, n - 1)]
     fit = grid_fit(beats, onset_t, active)
     starts = [s["start"] for s in meta["sections"]]
-    downs = beats[_downbeat_phase(beats, low, starts, period)::4]
+    bpb = int(beats_per_bar)
+    downs = beats[_downbeat_phase(beats, low, starts, period, bpb)::bpb]
     snapped = [float(downs[np.argmin(np.abs(downs - s))]) if i else 0.0 for i, s in enumerate(starts)]
     sections = [{"name": s["name"], "start": round(snapped[i], 3),
                  "end": round(snapped[i + 1], 3) if i + 1 < len(snapped) else round(duration, 3)}
                 for i, s in enumerate(meta["sections"])]
     if automate:  # from here on, the music as heard
-        y = apply(y, sr, *lanes(sections, sr, len(y)))
+        y = apply(y, sr, *lanes(sections, sr, len(y), rules, fade_out))
         oenv = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP)
     low, mid, high, rms = _envelopes(y, sr, n)
     t = np.arange(n) / FPS
@@ -144,7 +146,7 @@ def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np
     r3 = lambda a: [round(float(v), 3) for v in a]  # noqa: E731
     return {
         "duration": round(duration, 3), "bpm": round(60.0 / period, 3), "beat_period": round(period, 5),
-        "time_signature": 4, "beats": r3(beats), "downbeats": r3(downs), "sections": sections, "fps": FPS,
+        "time_signature": bpb, "beats": r3(beats), "downbeats": r3(downs), "sections": sections, "fps": FPS,
         "rms": r3(rms), "low": r3(low), "mid": r3(mid), "high": r3(high), "vocal": r3(vocal), "drums": r3(drums),
         "bass": r3(low), "other": r3(mid),
         "onsets": {"kick": _onsets(low), "snare": _onsets(mid), "hat": _onsets(high), "vocal": vocal_on},
@@ -152,31 +154,57 @@ def analyze(y: np.ndarray, sr: int, meta: dict, vo: dict | None = None, vo_y: np
     }
 
 
+def score_meta(mp: dict, chosen: str | None, music: str | None, root, bpm: float | None, duration: float) -> dict:
+    """The section timing to analyse against. With a pick, the pick's own, from its seed's sidecar (`meta` is only
+    the latest film-music run's; a --music file then is the pick or its splice). Without, a --music file's own
+    sidecar, else the latest run's `meta`, else one section over the whole file at `bpm`."""
+    if chosen:
+        side = {**mp, "chosen": chosen}
+        meta = pick_meta(side, root)
+        if meta is None:
+            raise SystemExit(f"the chosen score's section timing is unknown: {pick_sidecar(side, root)} is missing, "
+                             "or records no meta and its plan names no single tempo (film-music and film-temptrack "
+                             "write one beside every score)")
+        return meta
+    meta = pick_meta({"chosen": music}, root) if music else None
+    if meta is None:
+        meta = mp.get("meta")
+    if meta is None:
+        if not bpm:
+            raise SystemExit("the score's tempo is unknown: pass --bpm, or set audio.bpm in film.json")
+        meta = {"bpm": bpm, "sections": [{"name": "score", "start": 0.0, "end": round(duration, 4)}]}
+    return meta
+
+
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Analyse the chosen score into data/audio.json")
-    ap.add_argument("--music", help="WAV to analyse (default: the chosen variant in data/music_plan.json)")
+    ap = cli.parser("Analyse the chosen score into data/audio.json")
+    ap.add_argument("--music", help="WAV to analyse, relative to the film folder (default: the chosen score)")
+    ap.add_argument("--bpm", type=float, help="the tempo of a --music file with no recorded plan")
     ap.add_argument("--no-automation", action="store_true",
                     help="take the envelopes from the score as generated (to go with film-mix --no-automation)")
-    a = ap.parse_args(argv)
-    mp = json.loads((DATA / "music_plan.json").read_text())
-    path = ROOT / (a.music or mp["chosen"] or "")
-    if not path.is_file():
-        raise SystemExit("no chosen score: set 'chosen' in data/music_plan.json (checkpoint C2)")
-    if mp.get("chosen"):  # the pick's own section timing, from its sidecar: `meta` is the latest film-music run's
-        meta = pick_meta(mp, ROOT)
-        if meta is None:
-            raise SystemExit(f"the chosen score's section timing is unknown: {pick_sidecar(mp, ROOT)} is missing, or "
-                             "records no meta and its plan names no single tempo (film-music writes one beside every "
-                             "variant)")
-    else:  # nothing chosen, a --music file: the latest run's plan is all there is
-        meta = mp["meta"]
-    y, sr = read_wav(path)
-    vo = json.loads((DATA / "vo.json").read_text())
-    vo_y, vsr = read_wav(AUDIO / "vo" / "vo.wav")
-    if vsr != sr:
-        vo_y = librosa.resample(vo_y, orig_sr=vsr, target_sr=sr)
-    out = analyze(y, sr, meta, vo, vo_y, automate=not a.no_automation)
-    (DATA / "audio.json").write_text(json.dumps(out))
+    a = cli.parse(ap, argv)
+    film = config.load()
+    fp = film.paths
+    mp = load_plan()
+    chosen = chosen_score(mp, film)
+    rel = a.music or chosen
+    if not rel or not (fp.dir / rel).is_file():
+        raise SystemExit(f"no score to analyse{f' ({fp.dir / rel} is missing)' if rel else ''}: set 'chosen' in "
+                         "data/music_plan.json (checkpoint C2) or pipeline.music.chosen, run film-temptrack, or pass "
+                         "--music")
+    y, sr = read_wav(fp.dir / rel)
+    meta = score_meta(mp, chosen, a.music, fp.dir, a.bpm or film.bpm, len(y) / sr)
+    vo_path, vo_wav = fp.data / "vo.json", fp.audio / "vo" / "vo.wav"
+    vo = json.loads(vo_path.read_text()) if vo_path.is_file() else None
+    vo_y = None
+    if vo_wav.is_file():
+        vo_y, vsr = read_wav(vo_wav)
+        if vsr != sr:
+            vo_y = librosa.resample(vo_y, orig_sr=vsr, target_sr=sr)
+    out = analyze(y, sr, meta, vo, vo_y, automate=not a.no_automation, rules=rules_from(film.music),
+                  fade_out=float(film.music["fade_out"]), beats_per_bar=film.beats_per_bar)
+    film.analysis_path.parent.mkdir(parents=True, exist_ok=True)
+    film.analysis_path.write_text(json.dumps(out))
     print(f"{out['bpm']} BPM · grid fit {out['grid_fit']:.2f} · grid error {out['grid_error_ms']} ms · "
           f"{len(out['beats'])} beats · {len(out['downbeats'])} downbeats"
           + ("" if out["grid_fit"] >= 0.9 else "   ⚠ the tempo drifts: ask the user (regenerate, or cut on downbeats)"))

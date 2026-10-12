@@ -1,22 +1,32 @@
 """Place the chosen takes on the film timeline, derive scene and act windows, and assemble the voiceover.
 
-Gaps come from data/edit.json: line / scene / act gaps by boundary type, with per-line overrides. A scene starts
+Gaps come from data/edit.json (EDIT_DEFAULTS where it is missing or silent): lead-in, line / scene / act gaps by
+boundary type, tail, scene lead, per-line overrides and the optional lines to include. A scene starts
 `scene_lead` seconds before its first word, but never before the previous scene's last word has ended. A word starts
 at its spoken onset where film-pace measured one (the first word of a line, and any word after a pause; forced
 alignment is 0-190 ms off there), and at its aligned start otherwise; ends are the aligned ends. Starts stay in order
 and never precede their line's own start.
 """
-import argparse
 import json
 import math
 from pathlib import Path
 
 import numpy as np
 
+from . import cli, config, paths
 from .pace import load_selects
-from .paths import AUDIO, DATA
 from .vo import load_script
 from .wav import SR, read_wav, write_wav
+
+EDIT_DEFAULTS = {"lead_in": 0.5, "tail": 1.5, "gap": {"line": 0.35, "scene": 0.8, "act": 1.4}, "scene_lead": 0.3,
+                 "overrides": {}, "optional": {}}
+
+
+def load_edit(path: Path | None = None) -> dict:
+    """data/edit.json over EDIT_DEFAULTS (the gaps merge key by key)."""
+    path = path or paths.current().data / "edit.json"
+    cfg = json.loads(path.read_text()) if path.exists() else {}
+    return {**EDIT_DEFAULTS, **cfg, "gap": {**EDIT_DEFAULTS["gap"], **cfg.get("gap", {})}}
 
 
 def load_takes(script: dict, paced_dir: Path, selects: dict) -> dict[str, dict]:
@@ -107,16 +117,26 @@ def assemble(vo: dict, paced_dir: Path, sr: int = SR) -> np.ndarray:
 
 
 def write_vo(vo: dict) -> None:
-    (DATA / "vo.json").write_text(json.dumps(vo, indent=1))
-    write_wav(AUDIO / "vo" / "vo.wav", assemble(vo, AUDIO / "vo" / "paced"))
+    fp = paths.current()
+    fp.data.mkdir(parents=True, exist_ok=True)
+    (fp.data / "vo.json").write_text(json.dumps(vo, indent=1))
+    write_wav(fp.audio / "vo" / "vo.wav", assemble(vo, fp.audio / "vo" / "paced"))
+
+
+def duration_note(duration: float, film: config.Film) -> str:
+    """A warning when the film runs outside pipeline.sync.duration ([min, max] seconds), else nothing."""
+    rng = film.sync["duration"]
+    if not rng or rng[0] <= duration <= rng[1]:
+        return ""
+    return f"   ⚠ outside {rng[0]:g}–{rng[1]:g} s"
 
 
 def main(argv=None):
-    argparse.ArgumentParser(description="Place takes on the timeline and assemble the voiceover").parse_args(argv)
+    cli.parse(cli.parser("Place takes on the timeline and assemble the voiceover"), argv)
+    film = config.load()
     script = load_script()
-    cfg = json.loads((DATA / "edit.json").read_text())
-    vo = place(script, load_takes(script, AUDIO / "vo" / "paced", load_selects()), cfg)
+    vo = place(script, load_takes(script, film.paths.audio / "vo" / "paced", load_selects()), load_edit())
     write_vo(vo)
     for a in vo["acts"]:
         print(f"act {a['id']:>3} {a['name']:<12} {a['start']:6.2f} → {a['end']:6.2f}")
-    print(f"duration {vo['duration']:.2f}s" + ("" if 85 <= vo["duration"] <= 95 else "   ⚠ outside 85–95 s"))
+    print(f"duration {vo['duration']:.2f}s" + duration_note(vo["duration"], film))

@@ -6,24 +6,26 @@ round(t·sr), exactly; a take that would start before the film is cut, never shi
 (every take is normalised to −1 dBFS peak). Pan is constant power (−3 dB each side at centre). A bed (a cue with
 `dur`) tiles its loop with 50 ms equal-power seams, fades 30 ms in and out, and is cut to `dur`.
 
-film-sfx writes audio/sfx/sfx.wav (48 kHz / 24-bit stereo, the length of the voice).
+film-sfx writes audio/sfx/sfx.wav (48 kHz / 24-bit stereo, the length of the film: data/timeline.json's duration,
+else data/vo.json's).
 """
-import argparse
 import json
 import math
 from pathlib import Path
 
 import numpy as np
 
-from .paths import AUDIO, DATA
+from . import cli, paths, timeline
 from .wav import SR, read_wav, write_wav
 
 SEAM_S = 0.05
 EDGE_S = 0.03
 
 
-def load_sheet(path: Path = DATA / "sfx.json") -> dict:
-    s = json.loads(Path(path).read_text())
+def load_sheet(path: Path | None = None) -> dict:
+    """data/sfx.json (app/scripts/cues.ts): {cues, ducks, fps}; an empty sheet when the film has none."""
+    path = Path(path) if path is not None else paths.current().data / "sfx.json"
+    s = json.loads(path.read_text()) if path.is_file() else {}
     return {"cues": s.get("cues", []), "ducks": s.get("ducks", []), "fps": s.get("fps", 30)}
 
 
@@ -101,15 +103,22 @@ def render_bus(sheet: dict, manifest: dict, lib: Path, duration: float, sr: int 
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Render the cue sheet into audio/sfx/sfx.wav")
-    ap.add_argument("--sheet", default=str(DATA / "sfx.json"))
-    ap.add_argument("--out", default=str(AUDIO / "sfx" / "sfx.wav"))
-    a = ap.parse_args(argv)
-    sheet = load_sheet(Path(a.sheet))
-    manifest = json.loads((AUDIO / "sfx" / "manifest.json").read_text())
-    vo = json.loads((DATA / "vo.json").read_text())
-    duration = float(vo["duration"])
-    bus = render_bus(sheet, manifest, AUDIO / "sfx" / "lib", duration)
+    ap = cli.parser("Render the cue sheet into audio/sfx/sfx.wav")
+    ap.add_argument("--sheet", help="the cue sheet (default: data/sfx.json)")
+    ap.add_argument("--out", help="the stem (default: audio/sfx/sfx.wav)")
+    a = cli.parse(ap, argv)
+    fp = paths.current()
+    sheet_path = Path(a.sheet) if a.sheet else fp.data / "sfx.json"
+    if not sheet_path.is_file():
+        raise SystemExit(f"{sheet_path} is missing: cd app && bun scripts/cues.ts --film {fp.id}")
+    sheet = load_sheet(sheet_path)
+    a.out = a.out or str(fp.audio / "sfx" / "sfx.wav")
+    manifest_path = fp.audio / "sfx" / "manifest.json"
+    if not manifest_path.is_file():
+        raise SystemExit(f"{manifest_path} is missing: build the library with film-sfx-lib gen")
+    manifest = json.loads(manifest_path.read_text())
+    duration = timeline.require(fp.data)["duration"]
+    bus = render_bus(sheet, manifest, fp.audio / "sfx" / "lib", duration)
     write_wav(Path(a.out), bus)
     pk = 20 * np.log10(np.abs(bus).max() + 1e-12)
     print(f"{a.out} · {len(sheet['cues'])} cues · {duration:.3f} s · peak {pk:.1f} dBFS")

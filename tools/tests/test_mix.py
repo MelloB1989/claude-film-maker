@@ -5,6 +5,9 @@ from filmtools.mix import mix
 from filmtools.wav import read_wav, write_wav
 
 SR = 48000
+OPEN = 20000.0
+RULES = {"tour": (0.0, 0.0, OPEN, OPEN, 0.0), "drop": (-12.0, -12.0, OPEN, OPEN, 0.12),
+         "lift": (0.0, 0.0, OPEN, OPEN, 0.005)}  # automate.rules_from of a drop 12 dB down
 
 
 def synth(tmp):
@@ -43,9 +46,9 @@ def test_music_ducks_under_the_voice(tmp_path):
 
 def test_mix_applies_automation_when_given_sections(tmp_path):
     vo, mu = synth(tmp_path)
-    sections = [{"name": "the tour", "start": 0.0, "end": 4.0}, {"name": "honest", "start": 4.0, "end": 6.0},
-                {"name": "proof and everywhere", "start": 6.0, "end": 10.0}]
-    mix(vo, mu, tmp_path / "mix.wav", sections=sections)
+    sections = [{"name": "tour", "start": 0.0, "end": 4.0}, {"name": "drop", "start": 4.0, "end": 6.0},
+                {"name": "lift", "start": 6.0, "end": 10.0}]
+    mix(vo, mu, tmp_path / "mix.wav", sections=sections, rules=RULES)
     y, _ = read_wav(tmp_path / "mix.wav")
     dipped = hi_band_db(y[int(4.3 * SR):int(5.8 * SR)])  # music dipped 12 dB (the voice is a 1 kHz tone)
     open_ = hi_band_db(y[int(1.2 * SR):int(1.8 * SR)])  # music playing, voice off
@@ -57,11 +60,11 @@ def test_mastering_keeps_the_drawn_arc(tmp_path):
     music = (0.2 * np.random.default_rng(2).standard_normal(len(t))).astype(np.float32)
     write_wav(tmp_path / "m.wav", np.stack([music, music], axis=1))
     write_wav(tmp_path / "v.wav", np.zeros(len(t), np.float32))
-    sections = [{"name": "the tour", "start": 0.0, "end": 6.0}, {"name": "honest", "start": 6.0, "end": 12.0}]
-    mix(tmp_path / "v.wav", tmp_path / "m.wav", tmp_path / "mix.wav", sections=sections)
+    sections = [{"name": "tour", "start": 0.0, "end": 6.0}, {"name": "drop", "start": 6.0, "end": 12.0}]
+    mix(tmp_path / "v.wav", tmp_path / "m.wav", tmp_path / "mix.wav", sections=sections, rules=RULES)
     y, _ = read_wav(tmp_path / "mix.wav")
     rms = lambda a, b: 20 * np.log10(np.sqrt(np.mean(y[int(a * SR):int(b * SR)] ** 2)))  # noqa: E731
-    assert rms(7.0, 9.5) - rms(1.0, 5.0) == pytest.approx(-12.0, abs=1.0)  # honest sits 12 dB under the tour
+    assert rms(7.0, 9.5) - rms(1.0, 5.0) == pytest.approx(-12.0, abs=1.0)  # the drop sits 12 dB under the tour
 
 
 def test_mastering_keeps_the_voice_on_its_sample(tmp_path):
@@ -77,7 +80,7 @@ def test_mastering_keeps_the_voice_on_its_sample(tmp_path):
     assert abs(onset(y) - onset(vo)) <= 1  # a look-ahead limiter must not delay the mix against the picture
 
 
-# ---------------------------------------------------------------- the final mix with stems (Plan 3, Task 9)
+# ---------------------------------------------------------------- the final mix with stems
 
 from filmtools.mix import duck_depth, mix_stems  # noqa: E402
 
@@ -94,7 +97,7 @@ def clicks_every(period, peak, seconds):
 
 
 def synth3(tmp, seconds=10):
-    """A voice at a spoken level (−17 dBFS RMS while on, where her processed voice's envelope sits mid-phrase), on
+    """A voice at a spoken level (−17 dBFS RMS while on, where a processed voice's envelope sits mid-phrase), on
     1 s in every 2,
     a noise score at about the score's level, and light effects clicks."""
     t = np.arange(seconds * SR) / SR
@@ -144,11 +147,12 @@ def test_the_arc_survives_with_sfx(tmp_path):
     write_wav(tmp_path / "m.wav", np.stack([music, music], axis=1))
     write_wav(tmp_path / "v.wav", np.zeros(len(t), np.float32))
     write_wav(tmp_path / "s.wav", clicks_every(1.0, 0.02, 12))
-    sections = [{"name": "the tour", "start": 0.0, "end": 6.0}, {"name": "honest", "start": 6.0, "end": 12.0}]
-    mix_stems(tmp_path / "v.wav", tmp_path / "m.wav", tmp_path / "s.wav", tmp_path / "mix", sections=sections)
+    sections = [{"name": "tour", "start": 0.0, "end": 6.0}, {"name": "drop", "start": 6.0, "end": 12.0}]
+    mix_stems(tmp_path / "v.wav", tmp_path / "m.wav", tmp_path / "s.wav", tmp_path / "mix", sections=sections,
+              rules=RULES)
     y, _ = read_wav(tmp_path / "mix" / "mix.wav")
     rms = lambda a, b: 20 * np.log10(np.sqrt(np.mean(y[int(a * SR):int(b * SR)] ** 2)))  # noqa: E731
-    assert rms(7.0, 9.5) - rms(1.0, 5.0) == pytest.approx(-12.0, abs=1.0)  # honest sits 12 dB under the tour
+    assert rms(7.0, 9.5) - rms(1.0, 5.0) == pytest.approx(-12.0, abs=1.0)  # the drop sits 12 dB under the tour
 
 
 def test_a_music_duck_silences_only_the_music(tmp_path):
@@ -216,11 +220,35 @@ def test_stems_keep_their_overs(tmp_path):
                                                                               rel=1e-4)
 
 
-def test_film_mix_needs_the_processed_voice(tmp_path, monkeypatch):
+def test_film_mix_needs_the_processed_voice(film):
     import filmtools.mix as mixmod
-    monkeypatch.setattr(mixmod, "AUDIO", tmp_path)
     with pytest.raises(SystemExit, match="film-vo-chain"):
         mixmod.main([])
+
+
+def test_a_mix_without_a_voice_runs_the_films_length_at_the_films_target(tmp_path):
+    t = np.arange(6 * SR) / SR
+    music = (0.2 * np.random.default_rng(2).standard_normal(len(t))).astype(np.float32)
+    write_wav(tmp_path / "m.wav", np.stack([music, music], axis=1))
+    m = mix_stems(None, tmp_path / "m.wav", None, tmp_path / "mix", duration=5.0, settings={"lufs": -16.0})
+    y, _ = read_wav(tmp_path / "mix" / "mix.wav", mono=False)
+    assert y.shape == (5 * SR, 2) and m["I"] == pytest.approx(-16.0, abs=0.5) and m["TP"] <= -1.0
+    v, _ = read_wav(tmp_path / "mix" / "vo.wav")
+    assert not v.any()
+
+
+def test_film_mix_mixes_the_chosen_score_of_the_film(film):
+    import json
+
+    import filmtools.mix as mixmod
+    vo, mu, _ = synth3(film.audio)
+    (film.audio / "vo").mkdir()
+    vo.rename(film.audio / "vo" / "vo-chain.wav")
+    (film.data / "music_plan.json").write_text(json.dumps({"chosen": "audio/music.wav"}))
+    (film.data / "audio.json").write_text(json.dumps({"sections": [{"name": "score", "start": 0.0, "end": 10.0}]}))
+    mixmod.main(["--no-sfx"])  # within every target, or it exits
+    y, _ = read_wav(film.audio / "mix" / "mix.wav", mono=False)
+    assert y.shape == (10 * SR, 2)
 
 
 def test_review_flags_effects_that_crowd_a_word(tmp_path):

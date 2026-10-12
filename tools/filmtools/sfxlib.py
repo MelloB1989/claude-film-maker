@@ -1,19 +1,20 @@
-"""The sound-effects library: ElevenLabs sound generation from data/sfx_palette.json, cached by request.
+"""The sound-effects library: ElevenLabs sound generation from the film's palette (film.json pipeline.sfx.palette,
+default data/sfx_palette.json), cached by request.
 
 Each variant of each sound is one API request. Its key is the sha256 of the request's canonical JSON, and its files
 are audio/sfx/lib/<id>/<key[:12]>.{raw,wav}: the raw API bytes, and the trimmed, faded 48 kHz / 24-bit mono take.
 audio/sfx/manifest.json records every variant (request, seed, cost, QC, hit time, the wav's sha256) and the pick per
 sound. A request already in the manifest whose wav still has its recorded sha256 is never fetched again, and a raw
-file already on disk is decoded rather than paid for twice.
+file already on disk is decoded rather than paid for twice. With pipeline.sfx.backup set, every paid take is also
+copied there (the library itself is not committed).
 
     film-sfx-lib probe            # once: are seeds accepted, and are they deterministic?
     film-sfx-lib plan             # what is still to fetch, and its estimated credits
     film-sfx-lib gen --budget N   # fetch it, never crossing N credits this run
-    film-sfx-lib sheet            # out/review/sfx/<family>.png: spectrograms, waveforms, hit marks, QC
+    film-sfx-lib sheet            # out/<id>/review/sfx/<family>.png: spectrograms, waveforms, hit marks, QC
 """
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import math
@@ -23,21 +24,38 @@ import subprocess
 import sys
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 from scipy.signal import butter, find_peaks, lfilter, resample_poly, sosfilt
 
+from . import cli, config
 from .elevenlabs import ElevenLabs, ElevenLabsError
-from .paths import AUDIO, DATA, OUT
 from .wav import SR, pcm16_to_float, read_wav, write_wav
 
-PALETTE = DATA / "sfx_palette.json"
-LIB = AUDIO / "sfx" / "lib"
-MANIFEST = AUDIO / "sfx" / "manifest.json"
-CREDIT_LOG = AUDIO / "credits.log"
-BACKUP = Path(os.path.expanduser("~/Developer/code/gitloom-film-audio-backup/sfx"))
 DEFAULT_CPS = 40.0  # credits per second of requested audio, until a real call measures it
+
+
+@dataclass(frozen=True)
+class Library:
+    """Where a film's sound library lives: the palette, the takes, the manifest, the credit log, the backup."""
+    palette: Path
+    lib: Path
+    manifest: Path
+    credit_log: Path
+    backup: Path | None
+    review: Path
+
+
+def library(film: config.Film | None = None) -> Library:
+    film = film or config.load()
+    fp, sfx = film.paths, film.sfx
+    backup = Path(os.path.expanduser(sfx["backup"])) if sfx.get("backup") else None
+    if backup is not None and not backup.is_absolute():
+        backup = fp.dir / backup
+    return Library(fp.path(sfx["palette"]), fp.audio / "sfx" / "lib", fp.audio / "sfx" / "manifest.json",
+                   fp.audio / "credits.log", backup, fp.out / "review" / "sfx")
 
 PRE_S = 0.005    # an onset lands this long into its file
 FADE_IN_S = 0.002
@@ -50,8 +68,11 @@ NORM_DBFS = -1.0  # every written take and slice peaks here; palette gains are r
 
 # ---------------------------------------------------------------- palette and requests
 
-def load_palette(path: Path = PALETTE) -> dict:
-    return json.loads(Path(path).read_text())
+def load_palette(path: Path) -> dict:
+    path = Path(path)
+    if not path.is_file():
+        raise SystemExit(f"{path} is missing: the film's sound palette (film.json pipeline.sfx.palette)")
+    return json.loads(path.read_text())
 
 
 def seed_of(palette: dict, sound_id: str, variant: int) -> int:
@@ -101,7 +122,7 @@ def _cached(palette: dict, manifest: dict, lib: Path | None, sound_id: str, vari
     return all(_file_ok(lib, vs.get(f"{sound_id}_{k}/{variant}"), key) for k in range(1, n + 1))
 
 
-def plan(palette: dict, manifest: dict, lib: Path | None = LIB) -> list[tuple[str, int, dict]]:
+def plan(palette: dict, manifest: dict, lib: Path | None) -> list[tuple[str, int, dict]]:
     """(sound_id, variant, request) for every request not yet in the manifest with an intact wav. With lib=None
     only the manifest's keys are checked."""
     todo = []
@@ -601,9 +622,10 @@ def reprocess(palette: dict, lib: Path, manifest_path: Path) -> int:
 
 # ---------------------------------------------------------------- the determinism probe
 
-def probe(palette: dict, client, lib: Path = LIB, sound_id: str = "glass_clink") -> dict:
-    """Two identical requests with the same seed. Rejected seed → seeds_honoured false and seeds never sent;
-    otherwise identical PCM → true, different → false."""
+def probe(palette: dict, client, lib: Path, sound_id: str | None = None) -> dict:
+    """Two identical requests with the same seed (for `sound_id`, default the palette's first sound). Rejected seed
+    → seeds_honoured false and seeds never sent; otherwise identical PCM → true, different → false."""
+    sound_id = sound_id or next(iter(palette["sounds"]))
     s = palette["sounds"][sound_id]
     seed = seed_of(palette, sound_id, 0)
     outs, spent = [], 0
@@ -630,13 +652,13 @@ def probe(palette: dict, client, lib: Path = LIB, sound_id: str = "glass_clink")
             "correlation": round(corr, 4)}
 
 
-def save_palette(palette: dict, path: Path = PALETTE) -> None:
+def save_palette(palette: dict, path: Path) -> None:
     Path(path).write_text(json.dumps(palette, indent=2, ensure_ascii=False) + "\n")
 
 
 # ---------------------------------------------------------------- review sheets
 
-def sheet(palette: dict, manifest: dict, lib: Path = LIB, out_dir: Path = OUT / "review" / "sfx") -> list[Path]:
+def sheet(palette: dict, manifest: dict, lib: Path, out_dir: Path) -> list[Path]:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -718,7 +740,8 @@ def sheet(palette: dict, manifest: dict, lib: Path = LIB, out_dir: Path = OUT / 
 
 # ---------------------------------------------------------------- CLI
 
-def backup(manifest: dict, lib: Path = LIB, dest: Path = BACKUP) -> int:
+def backup(manifest: dict, lib: Path, dest: Path, manifest_path: Path | None = None) -> int:
+    """Copy every take (wav and raw bytes) not already at `dest` with the same content, and the manifest."""
     n = 0
     for e in manifest["variants"].values():
         for src in [lib / e["wav"], (lib / e["wav"]).with_suffix(".raw")]:
@@ -728,13 +751,14 @@ def backup(manifest: dict, lib: Path = LIB, dest: Path = BACKUP) -> int:
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(src, dst)
                     n += 1
-    if MANIFEST.exists():
-        shutil.copy2(MANIFEST, dest / "manifest.json")
+    if manifest_path is not None and manifest_path.exists():
+        dest.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(manifest_path, dest / "manifest.json")
     return n
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="film-sfx-lib", description=__doc__.split("\n\n")[0])
+    ap = cli.parser(__doc__.split("\n\n")[0], prog="film-sfx-lib")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("probe")
     sub.add_parser("plan")
@@ -744,13 +768,20 @@ def main(argv=None):
     sub.add_parser("sheet")
     sub.add_parser("backup")
     sub.add_parser("reprocess")
-    args = ap.parse_args(argv)
+    args = cli.parse(ap, argv)
 
-    palette = load_palette()
+    film = config.load()
+    lb = library(film)
+    palette = load_palette(lb.palette)
     log = lambda *a: print(*a, flush=True)  # noqa: E731
+
+    def back_up() -> None:
+        if lb.backup is not None:
+            print(f"backup: {backup(_load_manifest(lb.manifest), lb.lib, lb.backup, lb.manifest)} files → {lb.backup}")
+
     if args.cmd == "plan":
-        man = _load_manifest(MANIFEST)
-        todo = plan(palette, man, LIB)
+        man = _load_manifest(lb.manifest)
+        todo = plan(palette, man, lb.lib)
         cps = measured_rate(man) or DEFAULT_CPS
         for sid, v, req in todo:
             print(f"{sid}/{v}  {req['duration_seconds']}s  seed {req.get('seed', '-')}")
@@ -758,33 +789,35 @@ def main(argv=None):
               f"estimate {estimate(todo, cps)} credits at {cps:.1f}/s")
         return 0
     if args.cmd == "sheet":
-        for f in sheet(palette, _load_manifest(MANIFEST)):
+        for f in sheet(palette, _load_manifest(lb.manifest), lb.lib, lb.review):
             print(f)
         return 0
     if args.cmd == "reprocess":
-        print(f"{reprocess(palette, LIB, MANIFEST)} takes rebuilt from their raw bytes")
-        print(f"backup: {backup(_load_manifest(MANIFEST))} files → {BACKUP}")
+        print(f"{reprocess(palette, lb.lib, lb.manifest)} takes rebuilt from their raw bytes")
+        back_up()
         return 0
     if args.cmd == "backup":
-        print(f"{backup(_load_manifest(MANIFEST))} files copied to {BACKUP}")
+        if lb.backup is None:
+            raise SystemExit(f"no backup folder: set pipeline.sfx.backup in {film.paths.config}")
+        back_up()
         return 0
 
-    client = ElevenLabs(credit_log=CREDIT_LOG)
+    client = ElevenLabs(credit_log=lb.credit_log, key_file=film.voice["key_file"])
     try:
         before = client.credits_used()
     except Exception:  # noqa: BLE001 (the key may lack user_read; the per-call headers still count)
         before = None
     if args.cmd == "probe":
-        res = probe(palette, client)
-        save_palette(palette)
+        res = probe(palette, client, lb.lib)
+        save_palette(palette, lb.palette)
         print(json.dumps(res))
     else:
-        res = generate(palette, client, LIB, MANIFEST, args.budget, dry_run=args.dry_run, log=log)
+        res = generate(palette, client, lb.lib, lb.manifest, args.budget, dry_run=args.dry_run, log=log)
         print(f"fetched {len(res['fetched'])}, spent {res['spent']} (headers), left {args.budget - res['spent']}"
               f"{', REFUSED: estimate ' + str(res['estimate']) if res['refused'] else ''}"
               f"{', stopped at the budget' if res['stopped'] else ''}")
         if res["fetched"]:
-            print(f"backup: {backup(_load_manifest(MANIFEST))} files → {BACKUP}")
+            back_up()
         if res["refused"]:
             return 1
     if before is not None:

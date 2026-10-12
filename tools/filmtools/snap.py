@@ -6,13 +6,12 @@
    scene's last word; an act's first scene prefers a downbeat. If no beat fits, the cut takes the latest allowed
    moment, and the sync report flags it.
 """
-import argparse
 import json
 
 import numpy as np
 
+from . import cli, config, paths
 from .edit import act_spans, write_vo
-from .paths import DATA
 from .vo import load_script
 
 
@@ -68,9 +67,13 @@ def snap(vo: dict, audio: dict, script: dict) -> dict:
 
 
 def main(argv=None):
-    argparse.ArgumentParser(description="Nudge lines onto beats and cut scenes on beats").parse_args(argv)
-    vo = json.loads((DATA / "vo.json").read_text())
-    audio = json.loads((DATA / "audio.json").read_text())
+    cli.parse(cli.parser("Nudge lines onto beats and cut scenes on beats (data/vo.json)"), argv)
+    film = config.load()
+    vo_path = paths.current().data / "vo.json"
+    if not vo_path.is_file() or not film.analysis_path.is_file():
+        raise SystemExit("film-snap needs data/vo.json (film-edit) and the beat grid (film-beats or film-temptrack)")
+    vo = json.loads(vo_path.read_text())
+    audio = json.loads(film.analysis_path.read_text())
     out = snap(vo, audio, load_script())
     moved = sum(1 for a, b in zip(vo["lines"], out["lines"]) if a["start"] != b["start"])
     write_vo(out)

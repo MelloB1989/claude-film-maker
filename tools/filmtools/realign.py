@@ -1,16 +1,15 @@
 """Re-time voiceover takes on the audio itself.
 
-Eleven v4's own alignment snaps to an 80 ms grid and can sit ~180 ms off the audio. Forced alignment
+A TTS model's own alignment can snap to a coarse grid (80 ms) and sit up to ~180 ms off the audio. Forced alignment
 (/v1/forced-alignment, 1 credit a take) measures each word on the take at 20 ms resolution. Our tokens (the script
 text split on whitespace, with punctuation-only tokens merged into the word before) keep their display text; only
 their times change. Idempotent: a take already marked `aligned` is skipped.
 """
-import argparse
 import json
 from pathlib import Path
 
-from .elevenlabs import ElevenLabs
-from .paths import AUDIO
+from . import cli, config
+from .vo import client_for
 
 
 def _spoken(t: str) -> bool:
@@ -52,13 +51,14 @@ def realign_take(client, wav: Path, meta_path: Path, log=print) -> str:
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Re-time voiceover takes with forced alignment")
+    ap = cli.parser("Re-time voiceover takes with forced alignment")
     ap.add_argument("--only", help="comma-separated line ids")
-    a = ap.parse_args(argv)
+    a = cli.parse(ap, argv)
     only = set(a.only.split(",")) if a.only else None
-    client = ElevenLabs(credit_log=AUDIO / "credits.log")
+    film = config.load()
+    client = client_for(film)
     counts: dict[str, int] = {}
-    for tj in sorted((AUDIO / "vo" / "takes").glob("*/*.json")):
+    for tj in sorted((film.paths.audio / "vo" / "takes").glob("*/*.json")):
         if only and tj.parent.name not in only:
             continue
         r = realign_take(client, tj.with_suffix(".wav"), tj)

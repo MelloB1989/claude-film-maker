@@ -1,5 +1,5 @@
-"""Spoken word onsets, measured on the audio (spec §2: a word lights within one frame of its spoken onset, never
-ahead of the voice).
+"""Spoken word onsets, measured on the audio (the timing contract: a word lights within one frame of its spoken
+onset, never ahead of the voice).
 
 Forced alignment starts a word that follows silence anywhere from 0 to 190 ms late (short words such as "I" are the
 worst), so one constant lead can't fix it. The onset of every word that opens a line or follows a pause is measured:
@@ -27,7 +27,7 @@ FRAME = 0.005
 ON_DB = -30.0  # a voiced run starts at least this loud
 RUN_DB = -35.0  # its next RUN seconds stay above this, and the walk back runs over sound at or above it
 RUN = 0.03
-# Calibrated on the 106 paced takes (5 ms frames). In-word frames at or above -30 dB split into a voiced mode (median
+# Calibrated on 106 paced takes of one generated voice (5 ms frames). In-word frames at or above -30 dB split into a voiced mode (median
 # 0.025, p75 0.050, thinning out by 0.10) and an unvoiced one (fricatives and aspiration, 0.20-0.44). Breath-like
 # sound in the pauses between words (-50 to -25 dB, 150 ms or more from any word) has median 0.126 and p25 0.105;
 # room tone 0.37. A frame under 0.10 is voiced; breath rarely is, and four such frames in six almost never.
@@ -62,7 +62,7 @@ def walk_back(db: np.ndarray, zcr: np.ndarray, j: int, a: int) -> int:
 
     Back from j, over sound at or above RUN_DB. A stretch that is still sounding when the window opens (at frame a)
     runs on from the previous word: of it, only unvoiced frames that begin after its voicing, inside the window, can
-    be this word's consonant (the /s/ of "store" right after "vector"), and the walk ends there. Gaps up to SHORT_GAP
+    be this word's consonant (the /s/ of "stop" right after "never"), and the walk ends there. Gaps up to SHORT_GAP
     are crossed. One gap up to CLOSURE is crossed as a stop closure only when it is released (the frame after it is
     unvoiced) and the sound before it is a real fricative: FRICATIVE_MIN at FRICATIVE_DB or louder, mostly unvoiced.
     A breath before a pause ends in silence, and the voice after it starts voiced, so it is never joined."""

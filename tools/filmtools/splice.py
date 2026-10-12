@@ -6,12 +6,12 @@ consecutive output bars aren't consecutive in the source, the join is an equal-p
 bar line: the outgoing bar's continuation fades out while the incoming bar's lead-in fades in, so its downbeat still
 lands exactly on the line. Tempo and sound are untouched; only the order of bars changes.
 """
-import argparse
 import json
 
 import numpy as np
 
-from .paths import DATA, ROOT
+from . import cli, config
+from .music import chosen_score
 from .wav import read_wav, write_wav
 
 
@@ -67,7 +67,7 @@ def splice(y: np.ndarray, sr: int, edges: list[float], bar_map: list[int], xfade
 
 
 # The tempo is fitted, so it is a hair off the generator's and the grid ends a few ms past the end of the file (13 ms
-# over seed 11's 39 bars). A final bar that is all but there still counts as a bar.
+# over one generated score's 39 bars). A final bar that is all but there still counts as a bar.
 END_SLACK = 0.05
 
 
@@ -95,21 +95,26 @@ def source_grid(mp: dict, audio: dict | None, duration: float) -> tuple[list[flo
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Re-order the chosen score's bars to fit the picture")
+    ap = cli.parser("Re-order the chosen score's bars to fit the picture")
     ap.add_argument("--map", required=True, help="source bar per output bar, e.g. 0-27,32-35,24-27,36-38")
-    a = ap.parse_args(argv)
-    mp_path = DATA / "music_plan.json"
-    mp = json.loads(mp_path.read_text())
-    src = (mp.get("edit") or {}).get("source") or mp["chosen"]
+    a = cli.parse(ap, argv)
+    film = config.load()
+    root = film.paths.dir
+    mp_path = film.paths.data / "music_plan.json"
+    mp = json.loads(mp_path.read_text()) if mp_path.exists() else {}
+    src = (mp.get("edit") or {}).get("source") or chosen_score(mp, film)
+    if not src:
+        raise SystemExit("no chosen score to cut: set 'chosen' in data/music_plan.json or pipeline.music.chosen")
     if src.endswith("-edit.wav"):
         raise SystemExit(f"{src} is already a splice; cut its source instead (edit.source in data/music_plan.json)")
-    y, sr = read_wav(ROOT / src, mono=False)
-    audio_path = DATA / "audio.json"
-    downs, period = source_grid(mp, json.loads(audio_path.read_text()) if audio_path.exists() else None, len(y) / sr)
-    edges = bar_edges(downs, 4 * period, len(y) / sr)
+    y, sr = read_wav(root / src, mono=False)
+    audio = json.loads(film.analysis_path.read_text()) if film.analysis_path.exists() else None
+    downs, period = source_grid(mp, audio, len(y) / sr)
+    bpb = int((audio or {}).get("time_signature") or film.beats_per_bar)
+    edges = bar_edges(downs, bpb * period, len(y) / sr)
     out = splice(y, sr, edges, parse_map(a.map))
     dst = f"{src.removesuffix('.wav')}-edit.wav"
-    write_wav(ROOT / dst, out, sr)
+    write_wav(root / dst, out, sr)
     mp["edit"] = {"source": src, "map": a.map, "source_downbeats": list(downs), "source_beat_period": period}
     mp["chosen"] = dst
     mp_path.write_text(json.dumps(mp, indent=1))

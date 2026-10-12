@@ -16,7 +16,7 @@ def test_vo_page_lists_every_line_and_links_real_files(tmp_path):
     make_take(paced, "L01", 1)
     make_take(paced, "L01", 2)
     make_take(paced, "L02", 1)
-    script = {"lines": [{"id": "L01", "text": "Your agent forgets."}, {"id": "L02", "text": "It's <you>."}]}
+    script = {"lines": [{"id": "L01", "text": "Every morning starts."}, {"id": "L02", "text": "It's <you>."}]}
     out = vo_page(script, paced, {"L01": {"take": 2}}, tmp_path / "out" / "vo.html")
     html = out.read_text()
     assert "L01" in html and "L02" in html and "It&#x27;s &lt;you&gt;." in html
@@ -30,7 +30,7 @@ def test_music_page_links_variants(tmp_path):
     v = tmp_path / "audio" / "music" / "score-seed1.wav"
     v.parent.mkdir(parents=True)
     v.write_bytes(b"RIFF")
-    out = music_page([v], tmp_path / "out" / "music.html", [{"name": "cold open", "start": 0.0, "end": 7.2}])
+    out = music_page([v], tmp_path / "out" / "music.html", [{"name": "intro", "start": 0.0, "end": 7.2}])
     html = out.read_text()
-    assert "score-seed1" in html and "cold open" in html
+    assert "score-seed1" in html and "intro" in html
     assert all((out.parent / s).resolve().exists() for s in re.findall(r'src="([^"]+)"', html))

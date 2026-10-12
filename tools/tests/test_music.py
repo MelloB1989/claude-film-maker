@@ -126,19 +126,19 @@ def test_merge_into_nothing_starts_a_fresh_plan(tmp_path):
 
 
 def timed(*sections, tempo="100 BPM"):
-    """A plan of (name, ms) sections composed at `tempo`, a global style as music_plan.PALETTE writes it."""
+    """A plan of (name, ms) sections composed at `tempo`, a global style as music_plan.build_plan writes it."""
     return {"positive_global_styles": ["minor key", tempo], "negative_global_styles": [],
             "sections": [{"section_name": n, "positive_local_styles": [], "negative_local_styles": [],
                           "duration_ms": ms, "lines": []} for n, ms in sections]}
 
 
-RUN1 = timed(("cold open", 7200), ("honest", 4800))
-RUN2 = timed(("cold open", 9600), ("honest", 2400))
+RUN1 = timed(("intro", 7200), ("drop", 4800))
+RUN2 = timed(("intro", 9600), ("drop", 2400))
 # worked by hand: each section starts where the durations before it end
-META1 = {"bpm": 100.0, "sections": [{"name": "cold open", "start": 0.0, "end": 7.2},
-                                    {"name": "honest", "start": 7.2, "end": 12.0}]}
-META2 = {"bpm": 100.0, "sections": [{"name": "cold open", "start": 0.0, "end": 9.6},
-                                    {"name": "honest", "start": 9.6, "end": 12.0}]}
+META1 = {"bpm": 100.0, "sections": [{"name": "intro", "start": 0.0, "end": 7.2},
+                                    {"name": "drop", "start": 7.2, "end": 12.0}]}
+META2 = {"bpm": 100.0, "sections": [{"name": "intro", "start": 0.0, "end": 9.6},
+                                    {"name": "drop", "start": 9.6, "end": 12.0}]}
 
 
 def sidecar_at(root, name, plan, meta=None):
@@ -183,9 +183,34 @@ def test_a_spliced_pick_has_its_source_seeds_timing_and_no_later_run_moves_it(tm
 
 
 def test_a_pick_whose_timing_cannot_be_known_keeps_no_stale_one(tmp_path):
-    sidecar_at(tmp_path, "score-seed11", timed(("cold open", 7200), tempo="minor key"))  # no tempo, no meta
+    sidecar_at(tmp_path, "score-seed11", timed(("intro", 7200), tempo="minor key"))  # no tempo, no meta
     mp = {"plan": RUN2, "meta": META2, "variants": [], "chosen": "audio/music/score-seed11.wav", "chosen_meta": META2}
     assert pick_meta(mp, tmp_path) is None
     assert "chosen_meta" not in merge_plan(mp, RUN2, META2, [], tmp_path)
     assert pick_meta({"chosen": "audio/music/score-seed99.wav"}, tmp_path) is None  # no sidecar at all
     assert pick_meta({"chosen": None}, tmp_path) is None
+
+
+def test_pick_meta_reads_the_current_films_sidecars_by_default(film):
+    sidecar_at(film.dir, "score-seed11", RUN1, META1)
+    assert pick_meta({"chosen": "audio/music/score-seed11.wav"}) == META1
+
+
+def test_the_chosen_score_is_the_plans_else_film_json(film):
+    import json
+
+    from filmtools import config
+    from filmtools.music import chosen_score
+    assert chosen_score({"chosen": "audio/music/a.wav"}) == "audio/music/a.wav"
+    assert chosen_score({}) is None
+    film.config.write_text(json.dumps({"id": "demo", "pipeline": {"music": {"chosen": "audio/music/temp.wav"}}}))
+    assert chosen_score({"chosen": None}, config.load()) == "audio/music/temp.wav"
+
+
+def test_variants_take_the_films_label_and_model(tmp_path):
+    c = FakeMusic()
+    models = []
+    compose = c.compose
+    c.compose = lambda plan, model_id="music_v2_5", **kw: models.append(model_id) or compose(plan, model_id, **kw)
+    [p] = generate_variants(c, PLAN, tmp_path, [4], label="theme", model="music_v9", **QUIET)
+    assert p.name == "theme-seed4.wav" and models == ["music_v9"]

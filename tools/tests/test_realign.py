@@ -23,7 +23,7 @@ class FakeFA:
         return self.result
 
 
-def take(tmp_path, text="Every conversation... back to zero."):
+def take(tmp_path, text="Every evening... back to work."):
     d = tmp_path / "L02"
     d.mkdir(parents=True)
     (d / "1.wav").write_bytes(b"RIFF")
@@ -33,7 +33,7 @@ def take(tmp_path, text="Every conversation... back to zero."):
 
 
 def test_tokens_keep_attached_and_merge_detached_punctuation():
-    assert tokens("Every conversation... back to zero.") == ["Every", "conversation...", "back", "to", "zero."]
+    assert tokens("Every evening... back to work.") == ["Every", "evening...", "back", "to", "work."]
     assert tokens("...I say so.") == ["...I", "say", "so."]
     assert tokens("Go ahead ... Blame me.") == ["Go", "ahead...", "Blame", "me."]
 
@@ -50,14 +50,14 @@ def test_map_words_count_mismatch_raises():
 
 def test_realign_take_rewrites_times_and_is_idempotent(tmp_path):
     wav, meta = take(tmp_path)
-    c = FakeFA(fa(("Every", 0.16, 0.42), ("conversation...", 0.5, 1.44), ("back", 2.2, 2.42), ("to", 2.52, 2.6),
-                  ("zero.", 2.7, 3.14)))
+    c = FakeFA(fa(("Every", 0.16, 0.42), ("evening...", 0.5, 1.44), ("back", 2.2, 2.42), ("to", 2.52, 2.6),
+                  ("work.", 2.7, 3.14)))
     assert realign_take(c, wav, meta, log=lambda *_: None) == "forced"
     m = json.loads(meta.read_text())
     assert m["aligned"] == "forced" and m["align_loss"] == 0.8
     assert [w["start"] for w in m["words"]] == [0.16, 0.5, 2.2, 2.52, 2.7]
-    assert m["words"][1]["w"] == "conversation..."
-    assert c.calls == [(4, "Every conversation... back to zero.", "1.wav")]
+    assert m["words"][1]["w"] == "evening..."
+    assert c.calls == [(4, "Every evening... back to work.", "1.wav")]
     assert realign_take(c, wav, meta, log=lambda *_: None) == "skipped"
     assert len(c.calls) == 1  # never pays twice
 

@@ -1,55 +1,80 @@
-"""The score's composition plan: one section per story beat, each a whole number of bars, starting on the bar line
-at or before its first scene's cut (spec §5.2), so the music has turned by the time the picture does."""
+"""The score's composition plan, from film.json pipeline.music: one section per story beat, each a whole number of
+bars, starting on the bar line at or before the cut of the scene it opens, so the music has turned by the time the
+picture does.
+
+A section is {"name", "scene" (the scene it opens) or "at" (seconds), "styles", "avoid", "adherence" ("high" or
+"low"), "lines" (sung lines, rarely)}; the first section starts at 0 whatever it names. Without sections the score is
+one section over the film, split into equal whole-bar sections where the API's 120 s limit needs it.
+"""
 import math
 
-PALETTE = ["nocturnal, sensual, minimal electronic", "intimate and expensive-sounding", "tape saturation", "100 BPM",
-           "minor key", "instrumental"]
-GROOVE_KIT = ["warm sub bass", "soft round kick", "crisp brushed hats", "breathy analog pads",
-              "a plucked motif like a taut thread being pulled, muted harp or koto"]
-QUIET_NEG = ["drums", "kick", "hi-hats", "bassline", "groove", "loud"]
-GLOBAL_NEG = ["EDM drop", "trap hi-hat rolls", "cheesy synth brass", "vocals", "choir", "dubstep wobble"]
-
-# (name, first scene, positive styles, negative styles, context adherence)
-SECTIONS: list[tuple[str, str, list[str], list[str], str]] = [
-    ("cold open", "thread", ["very quiet", "a low sub drone", "a slow heartbeat pulse in the sub", "a single plucked note",
-                             "lots of space"], QUIET_NEG, "high"),
-    ("the ex", "ex", ["low-pass filtered pulse", "rising tension", "glassy ticks", "breathy analog pads"],
-     ["kick", "full drum kit", "loud"], "high"),
-    ("her", "her", GROOVE_KIT + ["kick and warm sub bass enter on the first beat", "sparse, confident groove"], [], "high"),
-    ("the tour", "loom", GROOVE_KIT + ["full groove", "sensual bassline", "a subtle variation every 8 bars"], [], "high"),
-    ("honest", "honest", ["everything drops out", "near silence", "one soft pad breath"], QUIET_NEG + ["melody"], "low"),
-    ("proof and everywhere", "proof", GROOVE_KIT + ["the full groove slams back in on the first beat", "fuller",
-                                                    "confident lift"], ["silence", "fade-in", "slow build"], "low"),
-    ("weave", "weave", ["one big hit on the first beat", "long reverb tail", "the plucked motif alone to the end",
-                        "fading out"], ["drums after the first beat", "abrupt ending"], "high"),
-]
+MIN_MS, MAX_MS = 3000, 120000  # the API's section lengths
 
 
-def bar_seconds(bpm: float) -> float:
-    return 240.0 / bpm
+def bar_seconds(bpm: float, beats_per_bar: int = 4) -> float:
+    return 60.0 * beats_per_bar / bpm
 
 
-def section_bounds(vo: dict, bpm: float, min_bars: int = 2) -> list[float]:
-    bar = bar_seconds(bpm)
-    start = {s["id"]: s["start"] for s in vo["scenes"]}
-    bars = [0] + [math.floor(start[s[1]] / bar + 1e-9) for s in SECTIONS[1:]] + [math.ceil(vo["duration"] / bar)]
+def default_sections(duration: float, bpm: float, beats_per_bar: int = 4) -> list[dict]:
+    """One section over the film, or as few equal whole-bar sections as keep each within MAX_MS."""
+    bar = bar_seconds(bpm, beats_per_bar)
+    bars = max(1, math.ceil(duration / bar - 1e-9))
+    n = max(1, math.ceil(bars * bar * 1000 / MAX_MS))
+    if n == 1:
+        return [{"name": "score", "at": 0.0}]
+    per = math.ceil(bars / n)
+    return [{"name": f"score {i + 1}", "at": i * per * bar} for i in range(n)]
+
+
+def _start(sec: dict, starts: dict[str, float]) -> float:
+    if "at" in sec:
+        return float(sec["at"])
+    if "scene" not in sec:
+        raise SystemExit(f"music section {sec.get('name')!r} needs a scene it opens (or an 'at' time)")
+    if sec["scene"] not in starts:
+        raise SystemExit(f"music section {sec['name']!r} opens scene {sec['scene']!r}, which the film does not have "
+                         f"(scenes: {', '.join(starts)})")
+    return starts[sec["scene"]]
+
+
+def section_bounds(vo: dict, sections: list[dict], bpm: float, min_bars: int = 2, beats_per_bar: int = 4) -> list[float]:
+    """Each section's start on the bar line at or before its scene's cut (whole bars, at least `min_bars` each), and
+    the end of the last bar the film reaches. `vo` is any {duration, scenes: [{id, start}]} (timeline.load())."""
+    bar = bar_seconds(bpm, beats_per_bar)
+    starts = {s["id"]: s["start"] for s in vo["scenes"]}
+    bars = [0] + [math.floor(_start(s, starts) / bar + 1e-9) for s in sections[1:]] + [math.ceil(vo["duration"] / bar)]
     for i in range(1, len(bars)):
         bars[i] = max(bars[i], bars[i - 1] + min_bars)
     return [b * bar for b in bars]
 
 
-def build_plan(vo: dict, bpm: float = 100.0) -> tuple[dict, dict]:
-    b = section_bounds(vo, bpm)
-    sections = []
-    for i, (name, _, pos, neg, adherence) in enumerate(SECTIONS):
+def tempo_style(bpm: float) -> str:
+    return f"{bpm:g} BPM"
+
+
+def build_plan(vo: dict, bpm: float = 120.0, music: dict | None = None, beats_per_bar: int = 4) -> tuple[dict, dict]:
+    """(the readable section plan, its timing meta {bpm, sections: [{name, start, end}]}). `music` is
+    pipeline.music: styles, avoid and sections."""
+    music = music or {}
+    sections = music.get("sections") or default_sections(vo["duration"], bpm, beats_per_bar)
+    names = [s.get("name") for s in sections]
+    if not all(names) or len(set(names)) != len(names):
+        raise SystemExit(f"music sections need distinct names, not {names}")
+    b = section_bounds(vo, sections, bpm, beats_per_bar=beats_per_bar)
+    out = []
+    for i, s in enumerate(sections):
         dur_ms = int(round((b[i + 1] - b[i]) * 1000))
-        if not 3000 <= dur_ms <= 120000:
-            raise ValueError(f"section {name!r} is {dur_ms} ms; the API allows 3000–120000")
-        sections.append({"section_name": name, "positive_local_styles": pos, "negative_local_styles": neg,
-                         "duration_ms": dur_ms, "lines": [], "context_adherence": adherence})
-    plan = {"positive_global_styles": PALETTE, "negative_global_styles": GLOBAL_NEG, "sections": sections}
-    meta = {"bpm": bpm, "sections": [{"name": n, "start": round(b[i], 4), "end": round(b[i + 1], 4)}
-                                     for i, (n, *_) in enumerate(SECTIONS)]}
+        if not MIN_MS <= dur_ms <= MAX_MS:
+            raise ValueError(f"section {s['name']!r} is {dur_ms} ms; the API allows {MIN_MS}–{MAX_MS}")
+        out.append({"section_name": s["name"], "positive_local_styles": list(s.get("styles", [])),
+                    "negative_local_styles": list(s.get("avoid", [])), "duration_ms": dur_ms,
+                    "lines": list(s.get("lines", [])), "context_adherence": s.get("adherence", "high")})
+    styles = list(music.get("styles", []))
+    if tempo_style(bpm) not in styles:
+        styles.append(tempo_style(bpm))
+    plan = {"positive_global_styles": styles, "negative_global_styles": list(music.get("avoid", [])), "sections": out}
+    meta = {"bpm": bpm, "sections": [{"name": s["name"], "start": round(b[i], 4), "end": round(b[i + 1], 4)}
+                                     for i, s in enumerate(sections)]}
     return plan, meta
 
 

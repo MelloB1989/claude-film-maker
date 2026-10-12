@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pytest
 
-from filmtools.sync import any_sound, check, report, section_table, stale_takes, word_sync
+from filmtools.sync import any_sound, check, late, lit, report, section_table, stale_takes, word_sync
 
 BEATS = [round(0.2 + 0.6 * k, 4) for k in range(160)]
 AUDIO = {"beats": BEATS, "downbeats": BEATS[::4]}  # downbeats 0.2, 2.6, 5.0, 7.4, 9.8, …
@@ -35,8 +35,30 @@ def test_overlap_and_duration_are_reported():
     vo = good()
     vo["lines"][1]["start"] = 1.5
     vo["duration"] = 97.0
-    p = check(vo, AUDIO, SCRIPT)
-    assert any("L2 overlaps" in x for x in p) and any("duration" in x for x in p)
+    p = check(vo, AUDIO, SCRIPT, duration=[85, 95])
+    assert any("L2 overlaps" in x for x in p) and "duration 97.00s is outside 85–95 s" in p
+    assert not any("duration" in x for x in check(vo, AUDIO, SCRIPT))  # no range set: no check
+
+
+def test_the_frame_is_the_films():
+    vo = good()
+    vo["scenes"][0]["end"] = vo["scenes"][1]["start"] = 3.83  # 30 ms after a beat: within a frame at 30 fps
+    assert check(vo, AUDIO, SCRIPT) == []
+    assert check(vo, AUDIO, SCRIPT, fps=60) == ["cut s2 at 3.830s is 30 ms off the beat"]  # a frame is 16.7 ms
+
+
+def test_the_timelines_scenes_are_the_cuts():
+    vo = good()
+    scenes = [{"id": "s1", "start": 0.0, "end": 3.9}, {"id": "s2", "start": 3.9, "end": 7.4},
+              {"id": "s3", "start": 7.4, "end": 90.0}]
+    assert check(vo, AUDIO, SCRIPT, scenes=scenes) == ["cut s2 at 3.900s is 100 ms off the beat"]
+    lone = [{"id": "s1", "start": 0.0, "end": 90.0}]
+    assert "L2 names scene 's2', which the film's scene windows do not have" in check(vo, AUDIO, SCRIPT, scenes=lone)
+
+
+def test_a_word_lights_on_the_films_frames():
+    assert lit(1.0101, 30) == pytest.approx(31 / 30) and lit(1.0101, 24) == pytest.approx(25 / 24)
+    assert lit(1.0, 30) == pytest.approx(1.0) and late(24) == pytest.approx(1 / 24 + 0.002)
 
 
 def test_line_outside_its_scene_is_reported():
@@ -97,43 +119,46 @@ def test_a_line_whose_first_word_has_no_onset_is_reported():
     assert problems == ["L2 word 'commit.': no spoken onset near its start"]
 
 
-WAIVERS = {"cut her": "act cut on a beat: no downbeat fits; ruled at Task 15, C3-approved"}
+WAIVERS = {"cut chorus": "act cut on a beat: no downbeat fits; ruled at review, approved"}
 
 
 def test_waived_problems_are_listed_but_do_not_fail():
-    problems = ["cut her at 16.208s is 600 ms off the downbeat", "cut hero at 20.000s is 100 ms off the beat",
+    problems = ["cut chorus at 16.208s is 600 ms off the downbeat", "cut chorus2 at 20.000s is 100 ms off the beat",
                 "L32 word 'I' lights 108 ms after its spoken onset (90.258 s)"]
     lines, failed = report(problems, WAIVERS)
     assert failed
-    assert ("waived: cut her at 16.208s is 600 ms off the downbeat (act cut on a beat: no downbeat fits; ruled at "
-            "Task 15, C3-approved)") in lines
-    assert "✗ cut hero at 20.000s is 100 ms off the beat" in lines  # a waiver names one scene, whole
+    assert ("waived: cut chorus at 16.208s is 600 ms off the downbeat (act cut on a beat: no downbeat fits; ruled at "
+            "review, approved)") in lines
+    assert "✗ cut chorus2 at 20.000s is 100 ms off the beat" in lines  # a waiver names one scene, whole
     assert lines[-1] == "2 problem(s), 1 waived"
 
 
 def test_only_waived_problems_pass_the_gate():
-    lines, failed = report(["cut her at 16.208s is 600 ms off the downbeat"], WAIVERS)
+    lines, failed = report(["cut chorus at 16.208s is 600 ms off the downbeat"], WAIVERS)
     assert not failed and lines[-1] == "sync OK (1 waived)"
 
 
 def test_a_waiver_that_matches_nothing_is_pointed_out_without_failing():
-    lines, failed = report([], {**WAIVERS, "cut loom": "ruled"})
+    lines, failed = report([], {**WAIVERS, "cut tour": "ruled"})
     assert not failed and lines[-1] == "sync OK"
-    assert "note: waiver 'cut her' matches no problem" in lines and "note: waiver 'cut loom' matches no problem" in lines
+    assert "note: waiver 'cut chorus' matches no problem" in lines and "note: waiver 'cut tour' matches no problem" in lines
 
 
 def test_section_table_gives_each_section_start_against_the_cut_it_opens():
-    vo = {"scenes": [{"id": "thread", "start": 0.0}, {"id": "ex", "start": 6.008}, {"id": "her", "start": 16.208},
-                     {"id": "loom", "start": 28.208}, {"id": "honest", "start": 61.208}, {"id": "proof", "start": 66.008},
-                     {"id": "weave", "start": 86.408}]}
-    audio = {"sections": [{"name": "cold open", "start": 0.0}, {"name": "the ex", "start": 7.208},
-                          {"name": "her", "start": 16.808}, {"name": "the tour", "start": 28.808},
-                          {"name": "honest", "start": 62.408}, {"name": "proof and everywhere", "start": 67.208},
-                          {"name": "weave", "start": 86.408}]}
-    rows = section_table(vo, audio)
+    scenes = [{"id": "open", "start": 0.0}, {"id": "problem", "start": 6.008}, {"id": "turn", "start": 16.208},
+              {"id": "tour1", "start": 28.208}, {"id": "drop", "start": 61.208}, {"id": "end", "start": 86.408}]
+    audio = {"sections": [{"name": "intro", "start": 0.0}, {"name": "build", "start": 7.208},
+                          {"name": "chorus", "start": 16.808}, {"name": "tour", "start": 28.808},
+                          {"name": "drop", "start": 62.408}, {"name": "outro", "start": 86.408},
+                          {"name": "unplanned", "start": 90.0}]}
+    sections = [{"name": "intro", "scene": "open"}, {"name": "build", "scene": "problem"},
+                {"name": "chorus", "scene": "turn"}, {"name": "tour", "scene": "tour1"},
+                {"name": "drop", "scene": "drop"}, {"name": "outro", "scene": "end"}]
+    rows = section_table(scenes, audio, sections)
     assert [(r["section"], r["scene"], r["delta_ms"]) for r in rows] == [
-        ("cold open", "thread", 0), ("the ex", "ex", 1200), ("her", "her", 600), ("the tour", "loom", 600),
-        ("honest", "honest", 1200), ("proof and everywhere", "proof", 1200), ("weave", "weave", 0)]
+        ("intro", "open", 0), ("build", "problem", 1200), ("chorus", "turn", 600), ("tour", "tour1", 600),
+        ("drop", "drop", 1200), ("outro", "end", 0)]
+    assert section_table(scenes, audio, []) == []
 
 
 def test_an_act_cut_off_the_beat_grid_cannot_be_waived():
@@ -182,9 +207,8 @@ def test_word_sync_measures_each_word_on_its_takes_own_window():
     assert word_sync(vo, y, SR)[0] == ["L1 word 'I': no spoken onset near its start"]
 
 
-def test_a_missing_voiceover_is_a_clear_message(tmp_path, monkeypatch):
+def test_a_missing_voiceover_is_a_clear_message(film):
     from filmtools import sync
-    monkeypatch.setattr(sync, "AUDIO", tmp_path)
     with pytest.raises(SystemExit, match="audio/vo/vo.wav is missing: run film-edit"):
         sync.main([])
 
@@ -196,8 +220,8 @@ def test_a_line_with_no_sound_near_its_first_word_fails_the_any_sound_check():
 
 # --- the paced takes against vo.json: film-pace re-run for a line without film-edit and film-snap ---
 
-WORDS = [{"w": "Your", "start": 0.93, "end": 1.116}, {"w": "agent", "start": 1.175, "end": 1.62},
-         {"w": "forgets.", "start": 1.7, "end": 2.5}]
+WORDS = [{"w": "Every", "start": 0.93, "end": 1.116}, {"w": "morning", "start": 1.175, "end": 1.62},
+         {"w": "starts.", "start": 1.7, "end": 2.5}]
 PLACED = {"lines": [{"id": "L01", "take": 2, "start": 0.9, "end": 2.529, "words": WORDS}]}  # 1.629 s long
 
 
@@ -216,23 +240,21 @@ def test_a_take_of_another_length_or_word_count_is_stale():
     assert stale_takes(PLACED, take(words=2)) == ["L01 take 2 has 2 words, but its line in vo.json has 3"]
 
 
-def test_film_sync_stops_on_a_stale_take_and_says_what_to_run(tmp_path, monkeypatch):
+def test_film_sync_stops_on_a_stale_take_and_says_what_to_run(film):
     from filmtools import sync
     vo = good()
     for line in vo["lines"]:
         line["take"] = 1
-    (tmp_path / "data").mkdir()
-    (tmp_path / "data" / "vo.json").write_text(json.dumps(vo))
-    (tmp_path / "data" / "audio.json").write_text(json.dumps(AUDIO))
-    (tmp_path / "audio" / "vo").mkdir(parents=True)
-    (tmp_path / "audio" / "vo" / "vo.wav").write_bytes(b"")  # never read: the takes are checked first
+    (film.data / "vo.json").write_text(json.dumps(vo))
+    (film.data / "audio.json").write_text(json.dumps(AUDIO))
+    (film.data / "script.json").write_text(json.dumps({**SCRIPT, "lines": []}))
+    (film.audio / "vo").mkdir(parents=True)
+    (film.audio / "vo" / "vo.wav").write_bytes(b"")  # never read: the takes are checked first
     for line in vo["lines"]:
-        d = tmp_path / "audio" / "vo" / "paced" / line["id"]
+        d = film.audio / "vo" / "paced" / line["id"]
         d.mkdir(parents=True)
         length = line["end"] - line["start"] + (0.05 if line["id"] == "L2" else 0.0)  # L2 was paced again
         (d / "1.json").write_text(json.dumps({"duration": length, "words": line["words"]}))
-    monkeypatch.setattr(sync, "DATA", tmp_path / "data")
-    monkeypatch.setattr(sync, "AUDIO", tmp_path / "audio")
     with pytest.raises(SystemExit) as stop:
         sync.main([])
     message = str(stop.value)

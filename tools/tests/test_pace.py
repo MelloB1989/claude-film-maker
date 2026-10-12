@@ -25,7 +25,7 @@ def test_trim_cuts_silence_and_shifts_words():
 
 
 def test_trim_keeps_speech_the_aligner_puts_outside_its_words():
-    # Forced alignment starts the first word late and ends the last one early (on Jean's takes: speech runs a median
+    # Forced alignment starts the first word late and ends the last one early (on one voice's takes: speech ran a median
     # 85 ms before the first aligned word and 80-110 ms after the last), so the audio just outside the aligned words
     # is still speech and has to survive the cut.
     x = np.concatenate([np.zeros(SR // 2, np.float32), tone(1.0), np.zeros(SR // 2, np.float32)])  # tone: 0.5-1.5 s

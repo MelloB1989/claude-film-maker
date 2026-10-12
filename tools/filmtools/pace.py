@@ -1,8 +1,9 @@
 """Pace a take: cut the silence around the words (never the speech the aligner left outside them), then time-stretch
-with Rubber Band's R3 engine (pitch and timbre are kept; nothing is pitch-shifted). Jean runs slow, so the default
-tightens by 10%. Each word that opens the line or follows a pause then gets its spoken onset, measured on the paced
-audio (onsets.py), as `onset` (seconds into the paced take, or null)."""
-import argparse
+with Rubber Band's R3 engine (pitch and timbre are kept; nothing is pitch-shifted). The factor comes from
+audio/vo/selects.json per line, else --factor or --target-wps, else film.json pipeline.voice.pace (factor 1.0: trim
+only), clamped to [pace.min, pace.max] (default 0.85-1.0: never slow a voice down, never squeeze more than 15%). Each
+word that opens the line or follows a pause then gets its spoken onset, measured on the paced audio (onsets.py), as
+`onset` (seconds into the paced take, or null)."""
 import json
 import shutil
 import subprocess
@@ -11,20 +12,19 @@ from pathlib import Path
 
 import numpy as np
 
+from . import cli, config, paths
 from .onsets import voice_onsets
-from .paths import AUDIO
 from .wav import read_wav, write_wav
 
-MIN_FACTOR, MAX_FACTOR = 0.85, 1.0  # never slow her down, never squeeze more than 15%
-DEFAULT_FACTOR = 0.9
+MIN_FACTOR, MAX_FACTOR = 0.85, 1.0  # the default clamp: never slow a voice down, never squeeze more than 15%
 
 
 def _widen(samples: np.ndarray, sr: int, start: float, end: float, thresh_db: float, frame: float = 0.005):
     """Move `start` earlier and `end` later over audio that runs on, unbroken, from the words and stays within
     `thresh_db` of the take's loudest frame. Forced alignment starts the first word late and ends the last one early:
-    on Jean's 106 takes speech runs a median 85 ms before the first aligned word and 80-110 ms after the last, so
+    on one voice's 106 takes speech ran a median 85 ms before the first aligned word and 80-110 ms after the last, so
     cutting at its times removed audio within 30 dB of the take's peak from the start of 97 takes and the end of 25.
-    At -45 dB no speech is left outside: Jean's room tone is typically below -60 dB and what remains beyond the
+    At -45 dB no speech is left outside: generated room tone is typically below -60 dB and what remains beyond the
     widened cut is a start-up transient and an end-of-file blip."""
     n = int(frame * sr)
     m = len(samples) // n
@@ -59,16 +59,17 @@ def speech_rate(words: list[dict]) -> float:
     return len(words) / span if span > 0 else 0.0
 
 
-def factor_for(words: list[dict], target_wps: float) -> float:
+def factor_for(words: list[dict], target_wps: float, lo: float = MIN_FACTOR, hi: float = MAX_FACTOR) -> float:
     r = speech_rate(words)
-    return 1.0 if r <= 0 else float(np.clip(r / target_wps, MIN_FACTOR, MAX_FACTOR))
+    return 1.0 if r <= 0 else float(np.clip(r / target_wps, lo, hi))
 
 
 def stretch(samples: np.ndarray, sr: int, factor: float, rubberband: str = "rubberband") -> np.ndarray:
     if abs(factor - 1.0) < 1e-4:
         return samples.copy()
     if not shutil.which(rubberband):
-        raise RuntimeError("rubberband not found: brew install rubberband")
+        raise RuntimeError("rubberband not found: install Rubber Band (brew install rubberband, "
+                           "apt install rubberband-cli), or pace with factor 1.0")
     with tempfile.TemporaryDirectory() as td:
         src, dst = Path(td) / "in.wav", Path(td) / "out.wav"
         write_wav(src, samples, sr)
@@ -90,19 +91,26 @@ def pace_take(take_wav: Path, take_json: Path, out_dir: Path, factor: float) -> 
     return out
 
 
-def load_selects(path: Path = AUDIO / "vo" / "selects.json") -> dict:
+def load_selects(path: Path | None = None) -> dict:
+    """audio/vo/selects.json: {line id: {"take": k, "factor": f}}, each optional (checkpoint C1)."""
+    path = path or paths.current().audio / "vo" / "selects.json"
     return json.loads(path.read_text()) if path.exists() else {}
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Trim and time-stretch voiceover takes")
+    ap = cli.parser("Trim and time-stretch voiceover takes")
     ap.add_argument("--only", help="comma-separated line ids")
-    ap.add_argument("--factor", type=float, default=DEFAULT_FACTOR, help="duration multiplier (0.9 = 10%% faster)")
+    ap.add_argument("--factor", type=float, help="duration multiplier, 0.9 = 10%% faster (default: pipeline.voice.pace)")
     ap.add_argument("--target-wps", type=float, help="pick each take's factor from a target speech rate instead")
-    a = ap.parse_args(argv)
+    a = cli.parse(ap, argv)
+    pace = config.load().voice["pace"]
+    lo, hi = float(pace["min"]), float(pace["max"])
+    factor = a.factor if a.factor is not None else float(pace["factor"])
+    target = a.target_wps or (pace["target_wps"] if a.factor is None else None)
     selects = load_selects()
     only = set(a.only.split(",")) if a.only else None
-    takes_root, paced_root = AUDIO / "vo" / "takes", AUDIO / "vo" / "paced"
+    audio = paths.current().audio
+    takes_root, paced_root = audio / "vo" / "takes", audio / "vo" / "paced"
     n = 0
     for tj in sorted(takes_root.glob("*/*.json")):
         line = tj.parent.name
@@ -111,8 +119,8 @@ def main(argv=None):
         meta = json.loads(tj.read_text())
         k = selects.get(line, {}).get("factor")
         if k is None:
-            k = factor_for(meta["words"], a.target_wps) if a.target_wps else a.factor
-        out = pace_take(tj.with_suffix(".wav"), tj, paced_root / line, float(np.clip(k, MIN_FACTOR, MAX_FACTOR)))
+            k = factor_for(meta["words"], target, lo, hi) if target else factor
+        out = pace_take(tj.with_suffix(".wav"), tj, paced_root / line, float(np.clip(k, lo, hi)))
         n += 1
         print(f"{line} take {out['take']}: ×{out['factor']:.2f} → {out['duration']:.2f}s")
     print(f"{n} takes paced")

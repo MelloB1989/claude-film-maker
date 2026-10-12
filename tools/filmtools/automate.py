@@ -1,9 +1,11 @@
-"""Draw the score's arc in the mix: a gain lane and a low-pass lane keyed to the analysed sections (spec §5.2).
+"""Draw the score's arc in the mix: a gain lane and a low-pass lane keyed to the analysed sections.
 
-The music model ignores per-section loudness, so the arc is drawn here, exactly on the beat grid. The cold open is
-muffled at −10 dB (low-pass 300 Hz, a heartbeat through a wall). The ex sweeps the filter open to 4 kHz and climbs to
-−3 dB. Her opens fully on its first downbeat (the reveal on "Not me"). The tour stays open. Honest dips 12 dB into the
-score's own drop within 120 ms. Proof and everywhere slams back on its first downbeat. The last 2 s fade out.
+A music model ignores per-section loudness, so the arc is drawn here, exactly on the beat grid. Each section of
+film.json pipeline.music.sections may set `gain_db` (a value, or [start, end] moved linearly in dB), `cutoff_hz` (a
+low-pass, a value or [start, end] moved geometrically; default open) and `glide` (seconds to move there from the
+previous section's end values; 0 changes on the section's first sample). For example: an intro muffled at -10 dB
+(cutoff 300 Hz), a build that sweeps the filter open and climbs to -3 dB, a chorus that opens fully on its first
+downbeat, a drop that dips 12 dB within 120 ms. The last `fade_out` seconds (pipeline.music.fade_out) fade out.
 """
 import numpy as np
 from scipy.signal import butter, lfilter, lfilter_zi
@@ -11,31 +13,47 @@ from scipy.signal import butter, lfilter, lfilter_zi
 OPEN = 20000.0
 FADE_OUT = 2.0
 BLOCK = 256
-# section: (gain dB at start, gain dB at end, cutoff Hz at start, cutoff Hz at end, glide-in seconds)
-RULES: dict[str, tuple[float, float, float, float, float]] = {
-    "cold open": (-10.0, -10.0, 300.0, 300.0, 0.0),
-    "the ex": (-10.0, -3.0, 300.0, 4000.0, 0.0),
-    "her": (0.0, 0.0, OPEN, OPEN, 0.005),
-    "the tour": (0.0, 0.0, OPEN, OPEN, 0.0),
-    "honest": (-12.0, -12.0, OPEN, OPEN, 0.12),
-    "proof and everywhere": (0.0, 0.0, OPEN, OPEN, 0.005),
-    "weave": (0.0, 0.0, OPEN, OPEN, 0.0),
-}
+Rule = tuple[float, float, float, float, float]  # (gain dB at start, at end, cutoff Hz at start, at end, glide-in s)
 
 
-def lanes(sections: list[dict], sr: int, n: int) -> tuple[np.ndarray, np.ndarray]:
+def _pair(v, default: float) -> tuple[float, float]:
+    if v is None:
+        return default, default
+    if isinstance(v, (int, float)):
+        return float(v), float(v)
+    a, b = v
+    return float(a), float(b)
+
+
+def rules_from(music: dict) -> dict[str, Rule] | None:
+    """The automation of pipeline.music.sections, by section name; None when the film configures no sections
+    (then nothing is drawn but the fade-out)."""
+    secs = music.get("sections") or []
+    if not secs:
+        return None
+    rules = {}
+    for s in secs:
+        g0, g1 = _pair(s.get("gain_db"), 0.0)
+        c0, c1 = _pair(s.get("cutoff_hz"), OPEN)
+        rules[s["name"]] = (g0, g1, c0, c1, float(s.get("glide", 0.0)))
+    return rules
+
+
+def lanes(sections: list[dict], sr: int, n: int, rules: dict[str, Rule] | None = None,
+          fade_out: float = FADE_OUT) -> tuple[np.ndarray, np.ndarray]:
     """Per-sample gain (linear) and low-pass cutoff (Hz). Within a section the gain moves linearly in dB and the
     cutoff geometrically. A section with a glide-in moves there from the previous section's end values over that
-    many seconds. Time outside the sections stays open at 0 dB; a section with no rule is an error (a misspelt
-    name would otherwise play open, silently)."""
+    many seconds. Time outside the sections stays open at 0 dB. Given `rules`, a section with no rule is an error (a
+    misspelt name would otherwise play open, silently); without them every section plays open. The last `fade_out`
+    seconds fade out along a raised cosine."""
     t = np.arange(n) / sr
     gain_db = np.zeros(n)
     cut = np.full(n, OPEN)
     prev: tuple[float, float] | None = None
-    for s in sections:
-        if s["name"] not in RULES:
-            raise ValueError(f"no automation rule for section {s['name']!r} (rules: {', '.join(RULES)})")
-        g0, g1, c0, c1, glide = RULES[s["name"]]
+    for s in sections if rules is not None else []:
+        if s["name"] not in rules:
+            raise ValueError(f"no automation rule for section {s['name']!r} (rules: {', '.join(rules)})")
+        g0, g1, c0, c1, glide = rules[s["name"]]
         m = (t >= s["start"]) & (t < s["end"])
         if m.any():
             u = (t[m] - s["start"]) / max(1e-9, s["end"] - s["start"])
@@ -48,8 +66,8 @@ def lanes(sections: list[dict], sr: int, n: int) -> tuple[np.ndarray, np.ndarray
             gain_db[m], cut[m] = g, c
         prev = (g1, c1)
     gain = 10 ** (gain_db / 20)
-    f = int(FADE_OUT * sr)
-    if n > f:
+    f = int(fade_out * sr)
+    if 0 < f < n:
         gain[-f:] *= 0.5 * (1 + np.cos(np.linspace(0.0, np.pi, f)))
     return gain.astype(np.float32), cut.astype(np.float32)
 

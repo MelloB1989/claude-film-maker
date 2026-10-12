@@ -10,10 +10,10 @@ def al(text, dt=0.1):
 
 
 def test_words_carry_punctuation_and_letter_times():
-    ws = words_from_alignment(al("Every conversation... back to zero."))
-    assert [w.w for w in ws] == ["Every", "conversation...", "back", "to", "zero."]
-    assert ws[1].start == pytest.approx(0.6)  # 'c' is character 6
-    assert ws[1].end == pytest.approx(1.8)  # its last letter 'n' is character 17
+    ws = words_from_alignment(al("Every evening... back to work."))
+    assert [w.w for w in ws] == ["Every", "evening...", "back", "to", "work."]
+    assert ws[1].start == pytest.approx(0.6)  # 'e' is character 6
+    assert ws[1].end == pytest.approx(1.3)  # its last letter 'g' is character 12
 
 
 def test_leading_ellipsis_attaches_to_first_word():

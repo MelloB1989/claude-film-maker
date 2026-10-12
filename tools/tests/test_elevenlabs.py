@@ -28,7 +28,7 @@ def test_tts_decodes_audio_and_logs_cost(tmp_path):
     calls = []
     log = tmp_path / "credits.log"
     c = ElevenLabs(KEY, fake([Response(200, {"character-cost": "3", "request-id": "r1"}, tts_body())], calls), log)
-    r = c.tts("voice123", "Hi.", speed=1.1)
+    r = c.tts("voice123", "Hi.", "some_model", speed=1.1, settings={"stability": 0.5})
     assert r.audio == b"\x01\x00\x02\x00"
     assert r.alignment["characters"] == ["H", "i", "."]
     assert (r.cost, r.request_id) == (3, "r1")
@@ -36,7 +36,8 @@ def test_tts_decodes_audio_and_logs_cost(tmp_path):
     assert method == "POST"
     assert url == "https://api.elevenlabs.io/v1/text-to-speech/voice123/with-timestamps?output_format=pcm_48000"
     assert headers["xi-api-key"] == KEY
-    assert json.loads(body) == {"text": "Hi.", "model_id": "eleven_v4", "voice_settings": {"speed": 1.1}}
+    assert json.loads(body) == {"text": "Hi.", "model_id": "some_model",
+                                "voice_settings": {"stability": 0.5, "speed": 1.1}}
     rec = json.loads(log.read_text().strip())
     assert rec["cost"] == 3 and rec["request_id"] == "r1" and rec["path"].startswith("/v1/text-to-speech/")
 
@@ -76,14 +77,32 @@ def test_compose_sends_the_plan():
     assert json.loads(calls[0][3]) == {"composition_plan": plan, "model_id": "music_v2_5", "seed": 7}
 
 
-def test_load_key_strips_whitespace(tmp_path):
+def test_load_key_strips_whitespace(tmp_path, monkeypatch):
     from filmtools.elevenlabs import load_key
+    monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
     f = tmp_path / "k"
     f.write_text(f"  {KEY}\n")
     assert load_key(f) == KEY
     f.write_text("\n")
     with pytest.raises(RuntimeError, match="empty"):
         load_key(f)
+
+
+def test_the_environment_key_wins_and_a_missing_file_says_where_to_put_one(tmp_path, monkeypatch):
+    from filmtools.elevenlabs import load_key
+    monkeypatch.setenv("ELEVENLABS_API_KEY", f" {KEY} ")
+    assert load_key(tmp_path / "nowhere") == KEY
+    monkeypatch.delenv("ELEVENLABS_API_KEY")
+    with pytest.raises(RuntimeError, match=r"ELEVENLABS_API_KEY.*nowhere") as e:
+        load_key(tmp_path / "nowhere")
+    assert KEY not in str(e.value)
+
+
+def test_a_tts_without_settings_sends_none():
+    calls = []
+    c = ElevenLabs(KEY, fake([Response(200, {"character-cost": "1"}, tts_body())], calls))
+    c.tts("v", "Hi.")
+    assert json.loads(calls[0][3]) == {"text": "Hi.", "model_id": "eleven_multilingual_v2"}
 
 
 def test_forced_alignment_sends_multipart_without_query():

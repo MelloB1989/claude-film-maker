@@ -1,35 +1,33 @@
-"""The facts gate: every string a scene puts on screen is verbatim from GitLoom's docs and site, approved copy,
-illustrative, or her voice.
+"""The facts gate: every string a scene puts on screen is verbatim from the subject's own docs and site, approved
+copy, illustrative, or the voiceover's.
 
-A scene declares its text in app/src/scenes/<id>.strings.json (a JSON array of strings) and imports that file, so no
-string is written twice. The gate can see no other text, so a scene module (scenes/<id>.ts for a scene id in
-data/script.json) without its strings file beside it, or that does not import it, fails; harness scenes (_*.ts), the
-animatic's card.ts and helper modules are not scene ids. A --scenes directory that does not exist fails too. A string
-passes if, after typographic punctuation is folded to its typed form (’ ‘ → ',
-“ ” → ", … → ...):
+A scene declares its text in films/<id>/scenes/<scene>.strings.json (a JSON array of strings) and imports that file, so
+no string is written twice. The gate can see no other text, so a scene module (scenes/<scene>.ts for a scene id in
+data/script.json or data/timeline.json) without its strings file beside it, or that does not import it, fails; harness
+scenes (_*.ts) and helper modules are not scene ids. A --scenes directory that does not exist fails too. A string
+passes if, after typographic punctuation is folded to its typed form (’ ‘ → ', “ ” → ", … → ...):
 
-  1. it equals, or is a substring of, a `verbatim` or `copy` entry of data/facts.json;
+  1. it equals, or is a substring of, a `verbatim` or `copy` entry of the film's data/facts.json;
   2. it equals, or is a substring of, an `illustrative` entry, or matches in full one of the sheet's
-     `illustrative_patterns` (the shape of a value that is invented: a float numeral, a namespace row, a commit hash);
-     a substring must start and end on token boundaries: no letter, digit or underscore just outside it on either side,
-     and no `.` or `,` that carries a number on across its edge, so "456/49" of "456/499", "preference 10" of
-     "preference 100" and "Storage is fre" of "Storage is free." fail;
+     `illustrative_patterns` (the shape of a value that is invented: a float numeral, an id, a hash); a substring must
+     start and end on token boundaries: no letter, digit or underscore just outside it on either side, and no `.` or
+     `,` that carries a number on across its edge, so "456/49" of "456/499", "preference 10" of "preference 100" and
+     "Storage is fre" of "Storage is free." fail;
   3. its words, with the punctuation and whitespace at its ends and on each word stripped, are a contiguous run of
-     whole words of one line of hers in data/vo.json (a whole line, a phrase of one, or a single word); or
-  4. it equals a scene id or an act name in data/script.json.
+     whole words of one voiceover line in data/vo.json (a whole line, a phrase of one, or a single word); or
+  4. it equals a scene id or an act name (data/script.json, data/timeline.json).
 
-Anything else is printed with its file, and the exit code is 1.
+Anything else is printed with its file, and the exit code is 1. data/vo.json, data/script.json and data/timeline.json
+are optional: a film without a voiceover passes on its sheet and its labels alone.
 """
-import argparse
 import json
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from .paths import APP, DATA, ROOT
+from . import cli, paths
 
-SCENES = APP / "src" / "scenes"
 KINDS = ("verbatim", "copy", "illustrative")
 
 # Display type uses typographic punctuation and typed input keeps typewriter quotes. The sheet and vo.json hold the
@@ -46,7 +44,7 @@ _EDGES = re.compile(r"\A[\W_]+|[\W_]+\Z")  # punctuation and whitespace at eithe
 
 def _words(s: str) -> tuple[str, ...]:
     """`s` as whole words: the ends of `s`, and of each word, stripped of punctuation. A mark standing alone between
-    words is an empty word, so it matches nothing of hers."""
+    words is an empty word, so it matches no voiceover word."""
     return tuple(_EDGES.sub("", w) for w in _EDGES.sub("", s).split())
 
 
@@ -61,7 +59,7 @@ class Allowed:
     copy: tuple[str, ...]  # likewise
     illustrative: tuple[str, ...]  # likewise
     patterns: tuple[re.Pattern[str], ...]  # illustrative values by shape: the whole string must match
-    lines: tuple[tuple[str, ...], ...]  # each line of hers, as words: a string may be any run of them
+    lines: tuple[tuple[str, ...], ...]  # each voiceover line, as words: a string may be any run of them
     labels: frozenset[str]  # scene ids and act names: equality only
 
 
@@ -72,7 +70,11 @@ def _read_json(path: Path):
         raise SystemExit(f"{path}: {e}") from None
 
 
-def load_facts(path: Path = DATA / "facts.json") -> dict:
+def load_facts(path: Path | None = None) -> dict:
+    path = path or paths.current().data / "facts.json"
+    if not path.is_file():
+        raise SystemExit(f"{path} is missing: the facts sheet lists what a scene may show "
+                         "(verbatim, copy, illustrative, illustrative_patterns)")
     facts = _read_json(path)
     if not isinstance(facts, dict):
         raise SystemExit(f"{path}: expected an object with the lists {', '.join(KINDS)}")
@@ -97,9 +99,12 @@ def load_facts(path: Path = DATA / "facts.json") -> dict:
     return facts
 
 
-def build_allowed(facts: dict, vo: dict, script: dict) -> Allowed:
-    lines = tuple(_words(norm(l["text"])) for l in vo["lines"])
-    labels = {norm(s) for a in script["acts"] for s in (a["name"], *a["scenes"])}
+def build_allowed(facts: dict, vo: dict, script: dict, more_labels: tuple[str, ...] = ()) -> Allowed:
+    """The sheet's entries, the voiceover's lines (vo.json), and the labels: the script's scene ids and act names
+    and `more_labels` (the timeline's scene ids)."""
+    lines = tuple(_words(norm(l["text"])) for l in vo.get("lines", []))
+    labels = {norm(s) for a in script.get("acts", []) for s in (a["name"], *a["scenes"]) if s}
+    labels |= {norm(s) for s in more_labels}
     patterns = tuple(re.compile(p["pattern"], re.ASCII) for p in facts.get("illustrative_patterns", ()))
 
     def texts(kind: str) -> tuple[str, ...]:
@@ -108,9 +113,16 @@ def build_allowed(facts: dict, vo: dict, script: dict) -> Allowed:
     return Allowed(texts("verbatim"), texts("copy"), texts("illustrative"), patterns, lines, frozenset(labels))
 
 
-def load_allowed(facts: Path = DATA / "facts.json", vo: Path = DATA / "vo.json",
-                 script: Path = DATA / "script.json") -> Allowed:
-    return build_allowed(load_facts(facts), _read_json(vo), _read_json(script))
+def _optional(path: Path) -> dict:
+    return _read_json(path) if path.is_file() else {}
+
+
+def load_allowed(data: Path | None = None) -> Allowed:
+    """The gate for the film whose data folder is `data` (default: the current film's)."""
+    data = data or paths.current().data
+    timeline = _optional(data / "timeline.json")
+    return build_allowed(load_facts(data / "facts.json"), _optional(data / "vo.json"),
+                         _optional(data / "script.json"), tuple(s["id"] for s in timeline.get("scenes", [])))
 
 
 def _within(n: str) -> re.Pattern[str]:
@@ -151,13 +163,18 @@ def read_strings(path: Path) -> list[str]:
 
 def _shown(path: Path) -> str:
     try:
-        return str(path.relative_to(ROOT))
+        return str(path.relative_to(paths.ROOT))
     except ValueError:
         return str(path)
 
 
-def scene_ids(script: dict) -> list[str]:
-    return [s for act in script["acts"] for s in act["scenes"]]
+def scene_ids(script: dict, timeline: dict | None = None) -> list[str]:
+    """The film's scene ids: the script's, then the timeline's."""
+    ids = [s for act in script.get("acts", []) for s in act["scenes"]]
+    ids += [s["id"] for s in (timeline or {}).get("scenes", [])]
+    if not script.get("acts"):  # a script without acts names its scenes on its lines
+        ids += [line["scene"] for line in script.get("lines", [])]
+    return list(dict.fromkeys(ids))
 
 
 def imports_strings(module: Path, scene: str) -> bool:
@@ -183,18 +200,21 @@ def unlinked_scenes(scenes: Path, ids: list[str]) -> list[str]:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Check that every string a scene shows is on the facts sheet or is hers")
-    ap.add_argument("--scenes", type=Path, default=SCENES,
-                    help="where the scene modules and their <scene>.strings.json files are (default: app/src/scenes)")
-    a = ap.parse_args(argv)
-    if not a.scenes.is_dir():
-        print(f"facts FAILED: the scenes directory {a.scenes} does not exist", file=sys.stderr)
+    ap = cli.parser("Check that every string a scene shows is on the facts sheet or is the voiceover's")
+    ap.add_argument("--scenes", type=Path,
+                    help="where the scene modules and their <scene>.strings.json files are (default: films/<id>/scenes)")
+    a = cli.parse(ap, argv)
+    fp = paths.current()
+    scenes = a.scenes or fp.dir / "scenes"
+    if not scenes.is_dir():
+        print(f"facts FAILED: the scenes directory {scenes} does not exist", file=sys.stderr)
         return 1
-    allowed = load_allowed()
-    unlinked = unlinked_scenes(a.scenes, scene_ids(_read_json(DATA / "script.json")))
+    allowed = load_allowed(fp.data)
+    unlinked = unlinked_scenes(scenes, scene_ids(_optional(fp.data / "script.json"),
+                                                 _optional(fp.data / "timeline.json")))
     for problem in unlinked:
         print(problem)
-    files = sorted(a.scenes.rglob("*.strings.json"))
+    files = sorted(scenes.rglob("*.strings.json"))
     total = bad = unreadable = 0
     for f in files:
         try:
@@ -209,7 +229,7 @@ def main(argv=None) -> int:
                 print(f"{_shown(f)}: {json.dumps(s, ensure_ascii=False)}")
                 bad += 1
     if bad or unreadable or unlinked:
-        why = f"{bad} of {total} strings are not verbatim, approved copy, illustrative or her words"
+        why = f"{bad} of {total} strings are not verbatim, approved copy, illustrative or the voiceover's words"
         if unreadable:
             why += f"; {unreadable} unreadable file{'s' if unreadable > 1 else ''}"
         if unlinked:

@@ -519,14 +519,40 @@ def test_a_clip_is_a_flat_run_not_a_sample_that_touches_full_scale():
     assert is_clipped(y)
 
 
-def test_backup_recopies_a_take_whose_content_changed_at_the_same_size(tmp_path, monkeypatch):
+def test_backup_recopies_a_take_whose_content_changed_at_the_same_size(tmp_path):
     from filmtools.sfxlib import backup
-    monkeypatch.setattr(sfxlib, "MANIFEST", tmp_path / "manifest.json")
     run(palette_with("glass_clink", variants=1), CountingClient(), tmp_path)
     man = json.loads((tmp_path / "manifest.json").read_text())
     dest = tmp_path / "bk"
-    assert backup(man, tmp_path / "lib", dest) == 2
+    assert backup(man, tmp_path / "lib", dest, tmp_path / "manifest.json") == 2
+    assert json.loads((dest / "manifest.json").read_text()) == man
     wav = tmp_path / "lib" / man["variants"]["glass_clink/0"]["wav"]
     b = bytearray(wav.read_bytes()); b[-1] ^= 1; wav.write_bytes(bytes(b))
     assert backup(man, tmp_path / "lib", dest) == 1
     assert (dest / "lib" / man["variants"]["glass_clink/0"]["wav"]).read_bytes() == wav.read_bytes()
+
+
+def test_a_films_library_lives_in_its_audio_folder(film):
+    import json as _json
+
+    from filmtools import config
+    lb = sfxlib.library(config.load())
+    assert lb.palette == film.data / "sfx_palette.json" and lb.lib == film.audio / "sfx" / "lib"
+    assert lb.manifest == film.audio / "sfx" / "manifest.json" and lb.credit_log == film.audio / "credits.log"
+    assert lb.backup is None and lb.review == film.out / "review" / "sfx"
+    film.config.write_text(_json.dumps({"id": "demo", "pipeline": {"sfx": {"palette": "sfx/palette.json",
+                                                                           "backup": "/backups/demo-sfx"}}}))
+    lb = sfxlib.library(config.load())
+    assert lb.palette == film.dir / "sfx" / "palette.json" and str(lb.backup) == "/backups/demo-sfx"
+
+
+def test_a_missing_palette_names_the_setting(film):
+    with pytest.raises(SystemExit, match="pipeline.sfx.palette"):
+        sfxlib.main(["plan"])
+
+
+def test_the_probe_defaults_to_the_palettes_first_sound(tmp_path):
+    pal = palette_with("first_one", "second_one")
+    res = sfxlib.probe(pal, CountingClient(), tmp_path / "lib")
+    assert (tmp_path / "lib" / "_probe").is_dir() and any("first_one" in p.name for p in (tmp_path / "lib" / "_probe").iterdir())
+    assert "seeds_honoured" in res

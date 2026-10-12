@@ -1,6 +1,6 @@
-"""The voice chain (spec §5.1): high-pass at 80 Hz, a gentle cut around 300 Hz, a split-band de-esser, 2:1
-compression, presence and air shelves, a touch of tape saturation and a very short plate at low mix, then a static
-makeup gain back to the raw voice's integrated loudness.
+"""The voice chain: high-pass at 80 Hz, a gentle cut around 300 Hz, a split-band de-esser, 2:1 compression,
+presence and air shelves, a touch of tape saturation and a very short plate at low mix, then a static makeup gain
+back to the raw voice's integrated loudness. film.json pipeline.voice.chain overrides any stage's values (CHAIN).
 
 Word sync is sacred, so every stage is causal and zero-latency: IIR biquads (minimum phase, no look-ahead), a
 feed-forward compressor and de-esser whose gain follows the signal without delaying it, a memoryless saturator, and a
@@ -8,24 +8,23 @@ plate whose impulse response is convolved from sample 0 (its pre-delay is part o
 untouched). The processed voice is the same length as audio/vo/vo.wav and every word stays on its sample.
 
 film-vo-chain writes audio/vo/vo-chain.wav (mono 48 kHz / 24-bit) and the objective checks per line to
-out/review/c5/vo-chain.json. film-sync keeps reading the raw vo.wav.
+out/<id>/review/vo-chain.json. film-sync keeps reading the raw vo.wav.
 """
-import argparse
 import json
 import math
 
 import numpy as np
 from scipy import signal
 
-from .paths import AUDIO, DATA, OUT
+from . import cli, config
 from .wav import read_wav, write_wav
 
-CHAIN = {  # the spec's chain; values are starting points the objective checks in report() confirm
+CHAIN = {  # the default chain; values are starting points the objective checks in report() confirm
     "hpf": {"f": 80.0, "order": 4},                       # Butterworth high-pass
     "cut": {"f": 300.0, "q": 1.0, "gain_db": -2.5},       # gentle bell cut (RBJ peaking)
-    # the de-esser was tuned on the voice (out/review/c5/vo-chain.json): from the brief's 5–9 kHz / −28 dB / 6 dB
-    # it barely touched most lines, and the 2:1 and the shelves lift every line's sibilance ratio (~1–4 dB), so
-    # the band is wider (−3 dB at 4.5 and 10 kHz), the threshold lower and the reduction deeper
+    # the de-esser as tuned on a generated voice: a 5–9 kHz band at −28 dB / 6 dB barely touched most lines, and the
+    # 2:1 and the shelves lift every line's sibilance ratio (~1–4 dB), so the band is wider (−3 dB at 4.5 and
+    # 10 kHz), the threshold lower and the reduction deeper
     "deess": {"lo": 4500.0, "hi": 10000.0, "thresh_db": -40.0, "max_red_db": 10.0, "attack_ms": 1.0,
               "release_ms": 60.0},
     "comp": {"ratio": 2.0, "thresh_db": -20.0, "attack_ms": 10.0, "release_ms": 120.0, "knee_db": 6.0},
@@ -305,18 +304,35 @@ def report(raw: np.ndarray, out: np.ndarray, sr: int, vo: dict) -> dict:
     return r
 
 
+def chain_config(overrides: dict | None) -> dict:
+    """CHAIN with pipeline.voice.chain's values over it, stage by stage; an unknown stage or value is an error."""
+    cfg = {k: dict(v) for k, v in CHAIN.items()}
+    for stage, values in (overrides or {}).items():
+        if stage not in cfg:
+            raise SystemExit(f"pipeline.voice.chain: no stage {stage!r} (stages: {', '.join(CHAIN)})")
+        unknown = set(values) - set(cfg[stage])
+        if unknown:
+            raise SystemExit(f"pipeline.voice.chain.{stage}: unknown {', '.join(sorted(unknown))} "
+                             f"(known: {', '.join(cfg[stage])})")
+        cfg[stage].update(values)
+    return cfg
+
+
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Process audio/vo/vo.wav through the voice chain into "
-                                             "audio/vo/vo-chain.wav, with its report in out/review/c5/vo-chain.json")
-    ap.parse_args(argv)
-    raw, sr = read_wav(AUDIO / "vo" / "vo.wav")
-    vo = json.loads((DATA / "vo.json").read_text())
-    out = chain(raw, sr)
+    ap = cli.parser("Process audio/vo/vo.wav through the voice chain into audio/vo/vo-chain.wav, with its report "
+                    "in out/<id>/review/vo-chain.json")
+    cli.parse(ap, argv)
+    film = config.load()
+    fp = film.paths
+    raw, sr = read_wav(fp.audio / "vo" / "vo.wav")
+    vo = json.loads((fp.data / "vo.json").read_text())
+    cfg = chain_config(film.voice["chain"])
+    out = chain(raw, sr, cfg)
     assert len(out) == len(raw)
-    write_wav(AUDIO / "vo" / "vo-chain.wav", out, sr)
+    write_wav(fp.audio / "vo" / "vo-chain.wav", out, sr)
     r = report(raw, out, sr, vo)
-    r["chain"] = CHAIN
-    dest = OUT / "review" / "c5" / "vo-chain.json"
+    r["chain"] = cfg
+    dest = fp.out / "review" / "vo-chain.json"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(json.dumps(r, indent=1) + "\n")
     drops = [ln["sib_drop"] for ln in r["lines"]]
@@ -328,7 +344,7 @@ def main(argv=None):
     off = [f"{ln['id']} {ln['sib_drop']:+.1f}" for ln in r["lines"] if not 2 <= ln["sib_drop"] <= 6]
     if off:
         print(f"  sibilance drop outside 2–6 dB: {', '.join(off)}")
-    print(f"report: {dest.relative_to(OUT.parent)}")
+    print(f"report: {dest}")
     # sync, clipping and the gap floor are hard gates; the sibilance band is a target (a line with no /s/ can't
     # drop, and the shelves lift every line's ratio), reported for the ear to judge
     return 0 if all(v for k, v in r["ok"].items() if k != "sibilance") else 1

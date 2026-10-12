@@ -1,8 +1,9 @@
 """ElevenLabs client: text-to-speech with timestamps, music from a composition plan, sound generation, and forced
 alignment.
 
-The API key is read from ~/11labs. It is sent only in the xi-api-key header, only to the API host (redirects are
-refused, never followed), and never appears in a repr, an exception, a log line or a file.
+The API key comes from $ELEVENLABS_API_KEY, else from a key file (default ~/11labs; film.json
+pipeline.voice.key_file). It is sent only in the xi-api-key header, only to the API host (redirects are refused, never
+followed), and never appears in a repr, an exception, a log line or a file.
 """
 from __future__ import annotations
 
@@ -19,7 +20,9 @@ from pathlib import Path
 from typing import Callable
 
 BASE = "https://api.elevenlabs.io"
+KEY_ENV = "ELEVENLABS_API_KEY"
 KEY_FILE = Path(os.path.expanduser("~/11labs"))
+TTS_MODEL = "eleven_multilingual_v2"
 
 
 class ElevenLabsError(RuntimeError):
@@ -59,7 +62,13 @@ def urllib_transport(method: str, url: str, headers: dict[str, str], body: bytes
         return Response(e.code, {k.lower(): v for k, v in e.headers.items()}, e.read())
 
 
-def load_key(path: Path = KEY_FILE) -> str:
+def load_key(path: Path | str | None = None, env: bool = True) -> str:
+    """The API key: $ELEVENLABS_API_KEY when set (and `env`), else the first line of the key file."""
+    if env and os.environ.get(KEY_ENV, "").strip():
+        return os.environ[KEY_ENV].strip()
+    path = Path(os.path.expanduser(str(path))) if path is not None else KEY_FILE
+    if not path.is_file():
+        raise RuntimeError(f"no ElevenLabs key: set ${KEY_ENV} or put the key in {path}")
     key = path.read_text().strip()
     if not key:
         raise RuntimeError(f"empty ElevenLabs key file: {path}")
@@ -92,8 +101,9 @@ class MusicResult:
 
 class ElevenLabs:
     def __init__(self, key: str | None = None, transport: Transport = urllib_transport,
-                 credit_log: Path | None = None, sleep: Callable[[float], None] = time.sleep, base: str = BASE):
-        self._key = key if key is not None else load_key()
+                 credit_log: Path | None = None, sleep: Callable[[float], None] = time.sleep, base: str = BASE,
+                 key_file: Path | str | None = None):
+        self._key = key if key is not None else load_key(key_file)
         self._transport = transport
         self._log = credit_log
         self._sleep = sleep
@@ -139,11 +149,13 @@ class ElevenLabs:
         with self._log.open("a") as f:
             f.write(json.dumps(rec) + "\n")
 
-    def tts(self, voice_id: str, text: str, model_id: str = "eleven_v4", output_format: str = "pcm_48000",
-            speed: float | None = None, seed: int | None = None) -> TTSResult:
+    def tts(self, voice_id: str, text: str, model_id: str = TTS_MODEL, output_format: str = "pcm_48000",
+            speed: float | None = None, seed: int | None = None, settings: dict | None = None) -> TTSResult:
+        """`settings` are more voice_settings (stability, similarity_boost, style, ...); `speed` joins them."""
         payload: dict = {"text": text, "model_id": model_id}
-        if speed is not None:
-            payload["voice_settings"] = {"speed": speed}
+        vs = {**(settings or {}), **({"speed": speed} if speed is not None else {})}
+        if vs:
+            payload["voice_settings"] = vs
         if seed is not None:
             payload["seed"] = seed
         r = self._request(f"/v1/text-to-speech/{voice_id}/with-timestamps", payload, "application/json",
@@ -184,7 +196,7 @@ class ElevenLabs:
 
     def forced_alignment(self, audio: bytes, text: str, filename: str = "take.wav") -> dict:
         """Word and character times measured on `audio` for the given transcript (1 credit per call)."""
-        boundary = f"gitloomfilm{uuid.uuid4().hex}"
+        boundary = f"filmtools{uuid.uuid4().hex}"
         body = b"".join([
             (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\n'
              f"Content-Type: audio/wav\r\n\r\n").encode() + audio + b"\r\n",
