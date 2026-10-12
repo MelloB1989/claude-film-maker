@@ -230,7 +230,24 @@ function setupPlayer(film: FilmSpec) {
   scrub.step = '0.001';
   if (engine.errors.length) { errs.textContent = engine.errors.join('\n\n'); errs.style.display = 'block'; }
 
+  // the film picker (every films/*/film.ts), the format, and the safe areas: action 5%, title 10% in from each edge
+  const pick = document.getElementById('films') as HTMLSelectElement;
+  for (const id of Object.keys(FILMS).map((k) => k.split('/')[3]!).sort()) pick.add(new Option(id, id, id === film.id, id === film.id));
+  pick.onchange = () => { const q = new URLSearchParams(location.search); q.set('film', pick.value); q.delete('t'); location.search = q.toString(); };
+  document.getElementById('fmt')!.textContent = `${W}×${H} @ ${FPS} fps · ${engine.duration.toFixed(2)} s · ${TIMELINE.filter((e) => e.kind !== 'overlay').length} shots · ${engine.transitions.length} transitions`;
+  for (const [id, k] of [['action', 0.05], ['title', 0.1]] as const) Object.assign(document.getElementById(id)!.style, { inset: `${k * 100}% ${k * 100}%` });
+  /** The frame on screen as a PNG download (named for the film and the time). */
+  const snapshot = () => canvas.toBlob((b) => {
+    if (!b) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = `${film.id}_${t.toFixed(3)}s.png`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, 'image/png');
+
   for (const e of TIMELINE) {
+    if (e.kind === 'overlay') continue;
     const m = document.createElement('div');
     m.className = 'mark';
     m.style.left = `${(e.start / engine.duration) * 100}%`;
@@ -262,6 +279,8 @@ function setupPlayer(film: FilmSpec) {
       loop = loop ? null : e ? [e.start, e.end] : null;
     }
     if (ev.key === 'h') ui.classList.toggle('hidden');
+    if (ev.key === 'g') document.getElementById('safe')!.classList.toggle('on');
+    if (ev.key === 'p') snapshot();
     if (ev.key === ']') { const e = TIMELINE.find((x) => x.start > t + 0.01); if (e) seek(e.start); }
     if (ev.key === '[') { const es = TIMELINE.filter((x) => x.start < t - 0.3); const e = es[es.length - 1]; if (e) seek(e.start); }
   });
