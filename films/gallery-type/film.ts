@@ -43,7 +43,7 @@ export default defineFilm({
       // a type specimen: one line per reveal, each landing on its beat
       id: 'reveals', scene: KineticText, length: len('reveals'), transition: { kind: 'whip', dir: [0, -1] },
       params: {
-        size: 124, leading: 1.04,
+        size: 124, leading: 1.04, exit: 'rise', exitDur: 0.35,
         lines: [
           { text: 'SLAM.', reveal: 'slam', unit: 'glyph', stagger: 0.06, at: { beat: 0 }, emphasis: ['slam.'] },
           { text: 'Blur into focus', reveal: 'blur', at: { beat: 1 }, weight: 500, width: 100 },
@@ -110,7 +110,7 @@ export default defineFilm({
     },
     {
       id: 'marquee', scene: Marquee, length: len('marquee'), transition: 'cut',
-      params: { words: ['Kinetic type', 'Captions', 'Counters', 'Charts', 'End cards', 'Lower thirds'], emphasis: ['Captions', 'End cards'], rows: 3, size: 140 },
+      params: { words: ['Kinetic type', 'Captions', 'Counters', 'Charts', 'End cards', 'Lower thirds'], emphasis: ['Captions', 'End cards'], rows: 3, size: 140, exit: 'rise' },
     },
     // a scene of the film's own, written on the kit's Scene2D (scenes/pulse.ts)
     { id: 'custom', scene: () => import('./scenes/pulse'), length: len('custom'), transition: 'cut', params: { word: 'Your scene' } },
