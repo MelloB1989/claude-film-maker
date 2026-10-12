@@ -258,7 +258,22 @@ function setupPlayer(film: FilmSpec) {
     marks.appendChild(m);
   }
 
-  let t = FROM ?? 0;
+  // a reload (an edit to a scene or film.ts reloads the page) comes back to where it was, per film
+  const KEY = `film-player:${film.id}`;
+  let saved: { t?: number } = {};
+  try {
+    saved = JSON.parse(sessionStorage.getItem(KEY) ?? '{}');
+  } catch {
+    // no session storage: start from 0
+  }
+  let t = FROM ?? saved.t ?? 0;
+  window.addEventListener('pagehide', () => {
+    try {
+      sessionStorage.setItem(KEY, JSON.stringify({ t }));
+    } catch {
+      // nothing to keep it in
+    }
+  });
   let playing = false;
   let loop: [number, number] | null = null;
   let lastAudioT = 0, lastPerf = 0;
