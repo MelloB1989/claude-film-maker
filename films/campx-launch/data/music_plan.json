@@ -1,0 +1,235 @@
+{
+ "plan": {
+  "positive_global_styles": [
+   "instrumental",
+   "premium cinematic underscore for a product launch film",
+   "restrained and elegant, minimalist modern film score, slow-building ostinato",
+   "felt piano, warm strings, soft analog synth pulse",
+   "D major, hopeful and reverent",
+   "wide stereo, clean modern production",
+   "120 BPM"
+  ],
+  "negative_global_styles": [
+   "vocals",
+   "choir",
+   "EDM drop",
+   "dubstep",
+   "trap hi-hats",
+   "ukulele",
+   "whistling",
+   "cheesy corporate pop",
+   "guitar",
+   "brass stabs",
+   "full drum kit"
+  ],
+  "sections": [
+   {
+    "section_name": "intro",
+    "positive_local_styles": [
+     "very quiet",
+     "a low warm drone",
+     "sparse felt piano notes with long sustain",
+     "reverent, lots of space"
+    ],
+    "negative_local_styles": [
+     "drums",
+     "percussion",
+     "pulse",
+     "arpeggio",
+     "bassline"
+    ],
+    "duration_ms": 8000,
+    "lines": [],
+    "context_adherence": "high"
+   },
+   {
+    "section_name": "stakes",
+    "positive_local_styles": [
+     "a gentle felt piano motif",
+     "soft sustained strings underneath",
+     "intimate and tender"
+    ],
+    "negative_local_styles": [
+     "drums",
+     "percussion",
+     "pulse"
+    ],
+    "duration_ms": 6000,
+    "lines": [],
+    "context_adherence": "high"
+   },
+   {
+    "section_name": "title",
+    "positive_local_styles": [
+     "a slow lift and swell",
+     "strings and pads bloom",
+     "one soft deep cinematic impact on the first downbeat",
+     "a sense of arrival"
+    ],
+    "negative_local_styles": [
+     "EDM drop",
+     "drum fill"
+    ],
+    "duration_ms": 6000,
+    "lines": [],
+    "context_adherence": "high"
+   },
+   {
+    "section_name": "ingest",
+    "positive_local_styles": [
+     "modern minimal cinematic-tech underscore",
+     "a soft pulsing synth arpeggio in eighth notes",
+     "light ticking percussion",
+     "the piano motif returns softly",
+     "precise and steady"
+    ],
+    "negative_local_styles": [
+     "heavy drums",
+     "EDM",
+     "loud"
+    ],
+    "duration_ms": 14000,
+    "lines": [],
+    "context_adherence": "high"
+   },
+   {
+    "section_name": "read",
+    "positive_local_styles": [
+     "the synth arpeggio continues",
+     "a soft low pulse joins",
+     "light percussion",
+     "building gently"
+    ],
+    "negative_local_styles": [
+     "heavy drums",
+     "EDM",
+     "drop"
+    ],
+    "duration_ms": 14000,
+    "lines": [],
+    "context_adherence": "high"
+   },
+   {
+    "section_name": "mark",
+    "positive_local_styles": [
+     "building",
+     "a warm bass pulse under the arpeggio",
+     "strings enter softly",
+     "more momentum, still restrained"
+    ],
+    "negative_local_styles": [
+     "heavy drums",
+     "EDM",
+     "drop"
+    ],
+    "duration_ms": 14000,
+    "lines": [],
+    "context_adherence": "high"
+   },
+   {
+    "section_name": "control",
+    "positive_local_styles": [
+     "warmest and fullest",
+     "confident warm strings over the pulse",
+     "the felt piano motif",
+     "assured and human"
+    ],
+    "negative_local_styles": [
+     "EDM",
+     "drop",
+     "aggressive drums"
+    ],
+    "duration_ms": 16000,
+    "lines": [],
+    "context_adherence": "high"
+   },
+   {
+    "section_name": "outcome",
+    "positive_local_styles": [
+     "the peak",
+     "full strings and pulse",
+     "broad, uplifting and confident"
+    ],
+    "negative_local_styles": [
+     "EDM drop",
+     "cymbal crash wash"
+    ],
+    "duration_ms": 6000,
+    "lines": [],
+    "context_adherence": "high"
+   },
+   {
+    "section_name": "end",
+    "positive_local_styles": [
+     "resolve to the home chord",
+     "a final soft deep impact on the first beat",
+     "long reverb tail",
+     "the piano motif alone, fading"
+    ],
+    "negative_local_styles": [
+     "drums after the first beat",
+     "abrupt ending"
+    ],
+    "duration_ms": 6000,
+    "lines": [],
+    "context_adherence": "high"
+   }
+  ]
+ },
+ "meta": {
+  "bpm": 120.0,
+  "sections": [
+   {
+    "name": "intro",
+    "start": 0.0,
+    "end": 8.0
+   },
+   {
+    "name": "stakes",
+    "start": 8.0,
+    "end": 14.0
+   },
+   {
+    "name": "title",
+    "start": 14.0,
+    "end": 20.0
+   },
+   {
+    "name": "ingest",
+    "start": 20.0,
+    "end": 34.0
+   },
+   {
+    "name": "read",
+    "start": 34.0,
+    "end": 48.0
+   },
+   {
+    "name": "mark",
+    "start": 48.0,
+    "end": 62.0
+   },
+   {
+    "name": "control",
+    "start": 62.0,
+    "end": 78.0
+   },
+   {
+    "name": "outcome",
+    "start": 78.0,
+    "end": 84.0
+   },
+   {
+    "name": "end",
+    "start": 84.0,
+    "end": 90.0
+   }
+  ]
+ },
+ "variants": [
+  "audio/music/score-seed11.wav",
+  "audio/music/score-seed12.wav",
+  "audio/music/score-seed13.wav"
+ ],
+ "chosen": "audio/music/score-seed13-aligned.wav"
+}

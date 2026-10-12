@@ -1,11 +1,42 @@
-// The starter film: copy this folder to films/<your-id>/, set the id in film.json, and build from here.
-import { defineFilm } from '@engine/film';
+// CampX Digital Evaluation × Medha AI: the 90 s launch film. The scene windows are a contract (BRIEF.md): the plates,
+// the product scenes and the audio all key off them, so every length is in seconds and the sum is 90.
+import { defineFilm, type ShotSpec } from '../../app/src/engine/film';
+// (a relative import: bun 1.2 here does not resolve @engine/* for scripts/timeline.ts; vite resolves both to one module)
 import config from './film.json';
+
+// Product scenes are the product agent's files, scenes/product/<id>.ts. Until one exists the placeholder stands in; the
+// glob (the dev server and the renderer) finds it as soon as it is written. (Under bun, timeline.ts, scenes are never
+// loaded, so there is no glob.)
+const product: Record<string, () => Promise<any>> =
+  typeof window === 'undefined' ? {} : import.meta.glob('./scenes/product/*.ts');
+const productScene = (id: string): ShotSpec['scene'] => product[`./scenes/product/${id}.ts`] ?? (() => import('./scenes/placeholder'));
+const plate = () => import('./scenes/plate');
 
 export default defineFilm({
   ...config,
+  // the voice: data/vo.json (the manager's). Transition windows are kept clear of every spoken word (wordGuard).
+  vo: 'data/vo.json',
+  fonts: { faces: [{ family: 'InstrumentSerif-Italic', url: 'fonts/InstrumentSerif-Italic.ttf', role: 'serif', weight: 400, italic: true }] },
+  // the film look: grain, halation, a grade toward the brand (a cool indigo in the shadows, warm paper in the lights);
+  // no letterbox: the product's UI is shown whole. No Captions overlay.
+  look: 'film',
+  post: { grain: 0.05, halation: 0.4, vignette: 0.34, contrast: 1.08, saturation: 0.96, warmth: 0.06, tint: 0.07, tintColor: 'accentDim', lift: 0.01 },
   scenes: [
-    { id: 'hello', scene: () => import('./scenes/hello'), length: { bars: 2 }, params: { title: 'Hello, film.' } },
-    { id: 'world', scene: () => import('./scenes/hello'), length: { bars: 2 }, params: { title: 'Cut on the beat.' }, transition: { kind: 'whip', dir: [1, 0] } },
+    // act 1: the stakes
+    { id: 'open', scene: plate, length: 9, params: { variant: 'rise' } },
+    { id: 'stakes', scene: () => import('./scenes/stakes'), length: 6, transition: { kind: 'match', pre: 0.5, post: 0.5 } },
+    { id: 'title', scene: () => import('./scenes/title'), length: 6, transition: { kind: 'wipe', dir: 0, edge: 'accent', pre: 0.5, post: 0.45 } },
+    // act 2: the pipeline
+    { id: 'ingest3d', scene: plate, length: 8, params: { variant: 'push', sheet: 'assets/sheets/hires_38189_p03.jpg' }, transition: { kind: 'zoom', scale: 2.4, pre: 0.3, post: 0.45 } },
+    { id: 'ingestui', scene: productScene('ingestui'), length: 6, transition: { kind: 'xfade', pre: 0.4, post: 0.4 } },
+    { id: 'read3d', scene: plate, length: 7, params: { variant: 'scan', sheet: 'assets/sheets/hires_38189_p01.jpg' }, transition: { kind: 'xfade', pre: 0.4, post: 0.4 } },
+    { id: 'readui', scene: productScene('readui'), length: 7, transition: { kind: 'xfade', pre: 0.25, post: 0.25 } },
+    { id: 'mark3d', scene: plate, length: 6, params: { variant: 'push', overlay: 'mark', sheet: 'assets/sheets/hires_38189_p04.jpg' }, transition: { kind: 'xfade', pre: 0.4, post: 0.4 } },
+    { id: 'markui', scene: productScene('markui'), length: 7, transition: { kind: 'xfade', pre: 0.2, post: 0.1 } },
+    // act 3: the faculty's word
+    { id: 'control', scene: productScene('control'), length: 16, transition: { kind: 'whip', dir: [1, 0], pre: 0.25, post: 0.35 } },
+    // act 4: the outcome
+    { id: 'outcome', scene: () => import('./scenes/outcome'), length: 7, transition: { kind: 'dip', pre: 0.4, post: 0.45 } },
+    { id: 'end', scene: () => import('./scenes/end'), length: 5, transition: { kind: 'xfade', pre: 0.5, post: 0.45 } },
   ],
 });

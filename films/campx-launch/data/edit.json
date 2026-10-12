@@ -1,0 +1,37 @@
+{
+ "lead_in": 1.975,
+ "tail": 1.275,
+ "gap": {
+  "line": 0.35,
+  "scene": 0.8,
+  "act": 1.4
+ },
+ "scene_lead": 0.3,
+ "overrides": {
+  "L02": {
+   "gap_before": 3.28
+  },
+  "L03": {
+   "gap_before": 2.655
+  },
+  "L04": {
+   "gap_before": 1.76
+  },
+  "L05": {
+   "gap_before": 1.335
+  },
+  "L06": {
+   "gap_before": 4.39
+  },
+  "L07": {
+   "gap_before": 5.93
+  },
+  "L08": {
+   "gap_before": 2.345
+  },
+  "L09": {
+   "gap_before": 3.375
+  }
+ },
+ "optional": {}
+}

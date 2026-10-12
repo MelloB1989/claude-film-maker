@@ -1,0 +1,150 @@
+{
+ "fps": 30,
+ "duration": 90,
+ "format": [
+  1920,
+  1080
+ ],
+ "scenes": [
+  {
+   "id": "open",
+   "start": 0,
+   "end": 9
+  },
+  {
+   "id": "stakes",
+   "start": 9,
+   "end": 15
+  },
+  {
+   "id": "title",
+   "start": 15,
+   "end": 21
+  },
+  {
+   "id": "ingest3d",
+   "start": 21,
+   "end": 29
+  },
+  {
+   "id": "ingestui",
+   "start": 29,
+   "end": 35
+  },
+  {
+   "id": "read3d",
+   "start": 35,
+   "end": 42
+  },
+  {
+   "id": "readui",
+   "start": 42,
+   "end": 49
+  },
+  {
+   "id": "mark3d",
+   "start": 49,
+   "end": 55
+  },
+  {
+   "id": "markui",
+   "start": 55,
+   "end": 62
+  },
+  {
+   "id": "control",
+   "start": 62,
+   "end": 78
+  },
+  {
+   "id": "outcome",
+   "start": 78,
+   "end": 85
+  },
+  {
+   "id": "end",
+   "start": 85,
+   "end": 90
+  }
+ ],
+ "overlays": [],
+ "transitions": [
+  {
+   "id": "open-stakes",
+   "kind": "match",
+   "cut": 9,
+   "start": 8.5,
+   "end": 9.5
+  },
+  {
+   "id": "stakes-title",
+   "kind": "wipe",
+   "cut": 15,
+   "start": 14.5,
+   "end": 15.45
+  },
+  {
+   "id": "title-ingest3d",
+   "kind": "zoom",
+   "cut": 21,
+   "start": 20.7,
+   "end": 21.45
+  },
+  {
+   "id": "ingest3d-ingestui",
+   "kind": "xfade",
+   "cut": 29,
+   "start": 28.6,
+   "end": 29.4
+  },
+  {
+   "id": "ingestui-read3d",
+   "kind": "xfade",
+   "cut": 35,
+   "start": 34.6,
+   "end": 35.4
+  },
+  {
+   "id": "read3d-readui",
+   "kind": "xfade",
+   "cut": 42,
+   "start": 41.75,
+   "end": 42.25
+  },
+  {
+   "id": "readui-mark3d",
+   "kind": "xfade",
+   "cut": 49,
+   "start": 48.6,
+   "end": 49.4
+  },
+  {
+   "id": "mark3d-markui",
+   "kind": "xfade",
+   "cut": 55,
+   "start": 54.8,
+   "end": 55.1
+  },
+  {
+   "id": "markui-control",
+   "kind": "whip",
+   "cut": 62,
+   "start": 61.75,
+   "end": 62.35
+  },
+  {
+   "id": "control-outcome",
+   "kind": "dip",
+   "cut": 78,
+   "start": 77.6,
+   "end": 78.45
+  },
+  {
+   "id": "outcome-end",
+   "kind": "xfade",
+   "cut": 85,
+   "start": 84.5,
+   "end": 85.45
+  }
+ ]
+}

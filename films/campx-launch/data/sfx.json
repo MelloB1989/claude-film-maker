@@ -1,0 +1,383 @@
+{
+ "fps": 30,
+ "generated_by": "hand-written (audio producer): scene cuts and voiceover word onsets; regenerate with app/scripts/cues.ts once the scenes carry cue modules",
+ "cues": [
+  {
+   "sound": "paper_rustle",
+   "t": 1.0,
+   "anchor": "cut:open+1.00s",
+   "gain": -26,
+   "pan": -0.3,
+   "id": "open.0001",
+   "scene": "open",
+   "prompt": "a stack of paper exam pages being fanned and riffled softly, crisp gentle paper rustle, close-mic, dry, no music, no voice",
+   "duration": 2.0
+  },
+  {
+   "sound": "paper_flutter",
+   "t": 5.0,
+   "anchor": "cut:open+5.00s",
+   "gain": -22,
+   "pan": 0.1,
+   "id": "open.0002",
+   "scene": "open",
+   "prompt": "a single sheet of paper lifting into the air and fluttering softly, delicate paper flutter, close-mic, dry, no music, no voice",
+   "duration": 2.0
+  },
+  {
+   "sound": "whoosh_soft",
+   "t": 9.0,
+   "anchor": "cut:stakes",
+   "gain": -23,
+   "id": "open.0003",
+   "scene": "open",
+   "prompt": "a soft airy cinematic whoosh, smooth gentle air movement passing by, silky and quiet, no rumble, no wind gust, close-mic, dry, no music, no voice",
+   "duration": 1.5
+  },
+  {
+   "sound": "riser_title",
+   "t": 15.0,
+   "anchor": "cut:title",
+   "gain": -22,
+   "id": "stakes.0001",
+   "scene": "stakes",
+   "prompt": "a smooth cinematic riser, an airy reversed shimmer swelling steadily louder, loudest at the very end, then cut off sharply, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "impact_title",
+   "t": 15.0,
+   "anchor": "cut:title",
+   "gain": -15,
+   "id": "title.0001",
+   "scene": "title",
+   "prompt": "one deep soft cinematic boom, a warm low sub impact with a long smooth reverb tail, no metal, no crash, no cymbal, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "whoosh_zoom",
+   "t": 21.0,
+   "anchor": "cut:ingest3d",
+   "gain": -18,
+   "id": "title.0002",
+   "scene": "title",
+   "prompt": "a smooth forward rushing whoosh like flying through a tunnel of light, airy, rising then passing, single pass, close-mic, dry, no music, no voice",
+   "duration": 1.5
+  },
+  {
+   "sound": "scanner_hum",
+   "t": 21.4,
+   "anchor": "cut:ingest3d+0.40s",
+   "gain": -34,
+   "dur": 7.2,
+   "id": "ingest3d.0001",
+   "scene": "ingest3d",
+   "prompt": "a soft low electronic hum of a document scanner, steady and smooth with a faint high shimmer, seamless loop, close-mic, dry, no music, no voice",
+   "duration": 4.0
+  },
+  {
+   "sound": "scan_sweep",
+   "t": 22.269,
+   "anchor": "word:L04:2",
+   "gain": -22,
+   "id": "ingest3d.0002",
+   "scene": "ingest3d",
+   "prompt": "a document scanner light bar gliding smoothly across a page, a soft mechanical glide with a faint rising electronic tone, close-mic, dry, no music, no voice",
+   "duration": 2.0
+  },
+  {
+   "sound": "paper_rustle",
+   "t": 24.704,
+   "anchor": "word:L04:7",
+   "gain": -22,
+   "pan": 0.2,
+   "id": "ingest3d.0003",
+   "scene": "ingest3d",
+   "prompt": "a stack of paper exam pages being fanned and riffled softly, crisp gentle paper rustle, close-mic, dry, no music, no voice",
+   "duration": 2.0
+  },
+  {
+   "sound": "dissolve_shimmer",
+   "t": 27.374,
+   "anchor": "word:L04:13",
+   "gain": -22,
+   "id": "ingest3d.0004",
+   "scene": "ingest3d",
+   "prompt": "fine glittering particles dissolving and scattering into the air, a delicate crystalline shimmer fading away, close-mic, dry, no music, no voice",
+   "duration": 2.0
+  },
+  {
+   "sound": "digital_tick_2",
+   "t": 29.644,
+   "anchor": "word:L04:18",
+   "gain": -28,
+   "pan": -0.15,
+   "id": "ingestui.0001",
+   "scene": "ingestui",
+   "prompt": "tiny soft high digital ticks, isolated single clicks with clear gaps of silence between them, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "digital_tick_4",
+   "t": 31.089,
+   "anchor": "word:L04:22",
+   "gain": -28,
+   "pan": 0.15,
+   "id": "ingestui.0002",
+   "scene": "ingestui",
+   "prompt": "tiny soft high digital ticks, isolated single clicks with clear gaps of silence between them, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "whoosh_soft",
+   "t": 35.0,
+   "anchor": "cut:read3d",
+   "gain": -25,
+   "id": "read3d.0001",
+   "scene": "read3d",
+   "prompt": "a soft airy cinematic whoosh, smooth gentle air movement passing by, silky and quiet, no rumble, no wind gust, close-mic, dry, no music, no voice",
+   "duration": 1.5
+  },
+  {
+   "sound": "scan_sweep",
+   "t": 36.086,
+   "anchor": "word:L05:2",
+   "gain": -23,
+   "id": "read3d.0002",
+   "scene": "read3d",
+   "prompt": "a document scanner light bar gliding smoothly across a page, a soft mechanical glide with a faint rising electronic tone, close-mic, dry, no music, no voice",
+   "duration": 2.0
+  },
+  {
+   "sound": "digital_tick_1",
+   "t": 37.086,
+   "anchor": "word:L05:4",
+   "gain": -30,
+   "pan": 0.2,
+   "id": "read3d.0003",
+   "scene": "read3d",
+   "prompt": "tiny soft high digital ticks, isolated single clicks with clear gaps of silence between them, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "digital_tick_2",
+   "t": 37.386,
+   "anchor": "word:L05:5",
+   "gain": -30,
+   "pan": -0.2,
+   "id": "read3d.0004",
+   "scene": "read3d",
+   "prompt": "tiny soft high digital ticks, isolated single clicks with clear gaps of silence between them, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "digital_tick_3",
+   "t": 37.641,
+   "anchor": "word:L05:6",
+   "gain": -30,
+   "pan": 0.2,
+   "id": "read3d.0005",
+   "scene": "read3d",
+   "prompt": "tiny soft high digital ticks, isolated single clicks with clear gaps of silence between them, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "digital_tick_4",
+   "t": 38.376,
+   "anchor": "word:L05:7",
+   "gain": -30,
+   "pan": -0.2,
+   "id": "read3d.0006",
+   "scene": "read3d",
+   "prompt": "tiny soft high digital ticks, isolated single clicks with clear gaps of silence between them, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "digital_tick_5",
+   "t": 38.626,
+   "anchor": "word:L05:8",
+   "gain": -30,
+   "pan": 0.2,
+   "id": "read3d.0007",
+   "scene": "read3d",
+   "prompt": "tiny soft high digital ticks, isolated single clicks with clear gaps of silence between them, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "digital_tick_6",
+   "t": 39.931,
+   "anchor": "word:L05:9",
+   "gain": -30,
+   "pan": -0.2,
+   "id": "read3d.0008",
+   "scene": "read3d",
+   "prompt": "tiny soft high digital ticks, isolated single clicks with clear gaps of silence between them, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "digital_tick_3",
+   "t": 40.746,
+   "anchor": "word:L05:11",
+   "gain": -29,
+   "id": "read3d.0009",
+   "scene": "read3d",
+   "prompt": "tiny soft high digital ticks, isolated single clicks with clear gaps of silence between them, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "digital_tick_5",
+   "t": 41.736,
+   "anchor": "word:L05:15",
+   "gain": -29,
+   "id": "read3d.0010",
+   "scene": "read3d",
+   "prompt": "tiny soft high digital ticks, isolated single clicks with clear gaps of silence between them, close-mic, dry, no music, no voice",
+   "duration": 3.0
+  },
+  {
+   "sound": "whoosh_soft",
+   "t": 49.0,
+   "anchor": "cut:mark3d",
+   "gain": -25,
+   "id": "mark3d.0001",
+   "scene": "mark3d",
+   "prompt": "a soft airy cinematic whoosh, smooth gentle air movement passing by, silky and quiet, no rumble, no wind gust, close-mic, dry, no music, no voice",
+   "duration": 1.5
+  },
+  {
+   "sound": "glass_chime",
+   "t": 51.752,
+   "anchor": "word:L06:7",
+   "gain": -23,
+   "pan": -0.3,
+   "id": "mark3d.0002",
+   "scene": "mark3d",
+   "prompt": "one soft glass chime, a single clean delicate bell-like ping with a short shimmering tail, close-mic, dry, no music, no voice",
+   "duration": 1.5
+  },
+  {
+   "sound": "glass_chime",
+   "t": 52.237,
+   "anchor": "word:L06:8",
+   "gain": -22,
+   "id": "mark3d.0003",
+   "scene": "mark3d",
+   "prompt": "one soft glass chime, a single clean delicate bell-like ping with a short shimmering tail, close-mic, dry, no music, no voice",
+   "duration": 1.5
+  },
+  {
+   "sound": "glass_chime",
+   "t": 52.707,
+   "anchor": "word:L06:10",
+   "gain": -21,
+   "pan": 0.3,
+   "id": "mark3d.0004",
+   "scene": "mark3d",
+   "prompt": "one soft glass chime, a single clean delicate bell-like ping with a short shimmering tail, close-mic, dry, no music, no voice",
+   "duration": 1.5
+  },
+  {
+   "sound": "ui_click",
+   "t": 54.727,
+   "anchor": "word:L06:14",
+   "gain": -23,
+   "id": "markui.0001",
+   "scene": "markui",
+   "prompt": "one soft clean modern interface click, a single gentle tap, close-mic, dry, no music, no voice",
+   "duration": 0.5
+  },
+  {
+   "sound": "whoosh_whip",
+   "t": 62.0,
+   "anchor": "cut:control",
+   "gain": -18,
+   "id": "control.0001",
+   "scene": "control",
+   "prompt": "one fast clean whip whoosh, a quick swish of air past the ear, single pass, no rumble, close-mic, dry, no music, no voice",
+   "duration": 1.0
+  },
+  {
+   "sound": "ui_click",
+   "t": 70.309,
+   "anchor": "word:L07:18",
+   "gain": -21,
+   "id": "control.0002",
+   "scene": "control",
+   "prompt": "one soft clean modern interface click, a single gentle tap, close-mic, dry, no music, no voice",
+   "duration": 0.5
+  },
+  {
+   "sound": "ui_confirm",
+   "t": 70.429,
+   "anchor": "word:L07:18+0.12s",
+   "gain": -21,
+   "id": "control.0003",
+   "scene": "control",
+   "prompt": "a soft warm two-note confirmation chime for an accepted action, gentle rounded digital tone, premium interface sound, close-mic, dry, no music, no voice",
+   "duration": 1.0
+  },
+  {
+   "sound": "ui_click",
+   "t": 71.044,
+   "anchor": "word:L07:19",
+   "gain": -23,
+   "pan": 0.1,
+   "id": "control.0004",
+   "scene": "control",
+   "prompt": "one soft clean modern interface click, a single gentle tap, close-mic, dry, no music, no voice",
+   "duration": 0.5
+  },
+  {
+   "sound": "ui_click",
+   "t": 71.909,
+   "anchor": "word:L07:21",
+   "gain": -23,
+   "pan": -0.1,
+   "id": "control.0005",
+   "scene": "control",
+   "prompt": "one soft clean modern interface click, a single gentle tap, close-mic, dry, no music, no voice",
+   "duration": 0.5
+  },
+  {
+   "sound": "alert_pulse",
+   "t": 74.794,
+   "anchor": "word:L07:27",
+   "gain": -22,
+   "id": "control.0006",
+   "scene": "control",
+   "prompt": "a gentle soft notification pulse, one low warm rounded digital tone pulsing twice, calm and not alarming, close-mic, dry, no music, no voice",
+   "duration": 1.2
+  },
+  {
+   "sound": "whoosh_soft",
+   "t": 78.0,
+   "anchor": "cut:outcome",
+   "gain": -25,
+   "id": "outcome.0001",
+   "scene": "outcome",
+   "prompt": "a soft airy cinematic whoosh, smooth gentle air movement passing by, silky and quiet, no rumble, no wind gust, close-mic, dry, no music, no voice",
+   "duration": 1.5
+  },
+  {
+   "sound": "whoosh_soft",
+   "t": 85.0,
+   "anchor": "cut:end",
+   "gain": -26,
+   "id": "end.0001",
+   "scene": "end",
+   "prompt": "a soft airy cinematic whoosh, smooth gentle air movement passing by, silky and quiet, no rumble, no wind gust, close-mic, dry, no music, no voice",
+   "duration": 1.5
+  },
+  {
+   "sound": "impact_logo",
+   "t": 85.0,
+   "anchor": "cut:end",
+   "gain": -19,
+   "id": "end.0002",
+   "scene": "end",
+   "prompt": "one final soft deep cinematic impact, a warm low boom with an airy shimmering tail fading slowly to silence, no metal, no cymbal, close-mic, dry, no music, no voice",
+   "duration": 4.0
+  }
+ ],
+ "ducks": []
+}

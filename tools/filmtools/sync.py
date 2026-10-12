@@ -2,7 +2,8 @@
 data/vo.json, data/audio.json and audio/vo/vo.wav, at the film's frame rate (film.json fps).
 
 - every cut sits on a beat, and every act's first cut on a downbeat, within one frame;
-- lines never overlap, words sit inside their line, and each line sits inside its scene;
+- lines never overlap, words sit inside their line, and each line sits inside its scene (or, for a script line
+  with `"until": "<scene>"`, starts in its scene and ends by the end of that later one);
 - every word that opens a line or follows a pause lights up within one frame after the onset measured on the
   voiceover itself (onsets.py), never ahead of it, each measured in the window its take gave film-pace;
 - every line's first word lights no more than 40 ms after the first audible frame (-30 dB) in its window, whatever
@@ -69,6 +70,9 @@ def check(vo: dict, audio: dict, script: dict, fps: float = FPS, duration: list[
             problems.append(f"cut {s['id']} at {s['start']:.3f}s is {d * 1000:.0f} ms off the beat")
     prev_end = -np.inf
     by_id = {s["id"]: s for s in scenes}
+    # a script line may run on into a later scene ("until": "<scene id>"): it starts in its own scene and ends by the
+    # end of that one
+    until = {line["id"]: line["until"] for line in script.get("lines", []) if line.get("until")}
     for l in vo["lines"]:
         if l["start"] < prev_end - 1e-9:
             problems.append(f"{l['id']} overlaps the line before it")
@@ -77,10 +81,15 @@ def check(vo: dict, audio: dict, script: dict, fps: float = FPS, duration: list[
             if not l["start"] - 1e-6 <= w["start"] <= w["end"] <= l["end"] + 1e-6:
                 problems.append(f"{l['id']} word {w['w']!r} lies outside its line")
         sc = by_id.get(l["scene"])
+        last = by_id.get(until.get(l["id"], l["scene"]))
         if sc is None:
             problems.append(f"{l['id']} names scene {l['scene']!r}, which the film's scene windows do not have")
-        elif not (sc["start"] <= l["words"][0]["start"] and l["words"][-1]["end"] <= sc["end"] + 1e-6):
-            problems.append(f"{l['id']} is not inside its scene {sc['id']}")
+        elif last is None:
+            problems.append(f"{l['id']} runs until scene {until[l['id']]!r}, which the film's scene windows do not "
+                            "have")
+        elif not (sc["start"] <= l["words"][0]["start"] and l["words"][-1]["end"] <= last["end"] + 1e-6):
+            where = sc["id"] if last is sc else f"{sc['id']}..{last['id']}"
+            problems.append(f"{l['id']} is not inside its scene {where}")
     length = vo["duration"] if length is None else length
     if duration and not duration[0] <= length <= duration[1]:
         problems.append(f"duration {length:.2f}s is outside {duration[0]:g}–{duration[1]:g} s")

@@ -10,6 +10,55 @@
     "accent": "#c2369f", "accentBright": "#e05bc0", "accentDim": "#5a1370",
     "accent2": "#e43341", "accent2Bright": "#ff5e6a", "accent2Dim": "#4a1018"
   },
-  "look": "cinematic",
-  "audio": { "bpm": 96 }
+  "look": "film",
+  "audio": { "bpm": 120, "beatsPerBar": 4, "mix": "audio/mix/mix.wav", "analysis": "data/audio.json" },
+  "pipeline": {
+    "voice": {
+      "provider": "elevenlabs",
+      "name": "Varsha",
+      "voice_id": "kL06KYMvPY56NluIQ72m",
+      "model": "eleven_multilingual_v2",
+      "output_format": "pcm_48000",
+      "speed": 1.0,
+      "settings": { "stability": 0.45, "similarity_boost": 0.75, "style": 0.1, "use_speaker_boost": true },
+      "key_file": "~/code/secrets/elevenlabs/11labs",
+      "pace": { "factor": 1.0, "min": 0.85, "max": 1.0, "target_wps": null }
+    },
+    "music": {
+      "provider": "elevenlabs",
+      "model": "music_v2_5",
+      "bpm": 120,
+      "seed_base": 11,
+      "variants": 3,
+      "label": "score",
+      "styles": ["instrumental", "premium cinematic underscore for a product launch film", "restrained and elegant, minimalist modern film score, slow-building ostinato",
+                 "felt piano, warm strings, soft analog synth pulse", "D major, hopeful and reverent", "wide stereo, clean modern production"],
+      "avoid": ["vocals", "choir", "EDM drop", "dubstep", "trap hi-hats", "ukulele", "whistling", "cheesy corporate pop", "guitar", "brass stabs", "full drum kit"],
+      "sections": [
+        { "name": "intro", "scene": "open", "styles": ["very quiet", "a low warm drone", "sparse felt piano notes with long sustain", "reverent, lots of space"],
+          "avoid": ["drums", "percussion", "pulse", "arpeggio", "bassline"], "adherence": "high", "gain_db": [-5, -3], "cutoff_hz": [3000, 12000] },
+        { "name": "stakes", "scene": "stakes", "styles": ["a gentle felt piano motif", "soft sustained strings underneath", "intimate and tender"],
+          "avoid": ["drums", "percussion", "pulse"], "adherence": "high", "gain_db": -3, "glide": 0.8 },
+        { "name": "title", "scene": "title", "styles": ["a slow lift and swell", "strings and pads bloom", "one soft deep cinematic impact on the first downbeat", "a sense of arrival"],
+          "avoid": ["EDM drop", "drum fill"], "adherence": "high", "gain_db": [0, -1], "glide": 1.0 },
+        { "name": "ingest", "scene": "ingest3d", "styles": ["modern minimal cinematic-tech underscore", "a soft pulsing synth arpeggio in eighth notes", "light ticking percussion", "the piano motif returns softly", "precise and steady"],
+          "avoid": ["heavy drums", "EDM", "loud"], "adherence": "high", "gain_db": -3, "glide": 0.5 },
+        { "name": "read", "scene": "read3d", "styles": ["the synth arpeggio continues", "a soft low pulse joins", "light percussion", "building gently"],
+          "avoid": ["heavy drums", "EDM", "drop"], "adherence": "high", "gain_db": [-3, -2], "glide": 0.5 },
+        { "name": "mark", "scene": "mark3d", "styles": ["building", "a warm bass pulse under the arpeggio", "strings enter softly", "more momentum, still restrained"],
+          "avoid": ["heavy drums", "EDM", "drop"], "adherence": "high", "gain_db": [-2, -1], "glide": 0.5 },
+        { "name": "control", "scene": "control", "styles": ["warmest and fullest", "confident warm strings over the pulse", "the felt piano motif", "assured and human"],
+          "avoid": ["EDM", "drop", "aggressive drums"], "adherence": "high", "gain_db": [-1, -1], "glide": 0.6 },
+        { "name": "outcome", "scene": "outcome", "styles": ["the peak", "full strings and pulse", "broad, uplifting and confident"],
+          "avoid": ["EDM drop", "cymbal crash wash"], "adherence": "high", "gain_db": 0, "glide": 0.6 },
+        { "name": "end", "scene": "end", "styles": ["resolve to the home chord", "a final soft deep impact on the first beat", "long reverb tail", "the piano motif alone, fading"],
+          "avoid": ["drums after the first beat", "abrupt ending"], "adherence": "high", "gain_db": [0, -2], "glide": 0.4 }
+      ],
+      "fade_out": 1.5,
+      "temp": { "style": "cinematic", "seed": 1, "phrase": 4 }
+    },
+    "mix": { "lufs": -14.0, "true_peak": -1.0, "limit_dbfs": -2.0, "music_gain_db": -4.0, "sfx_gain_db": 0.0 },
+    "sfx": { "palette": "data/sfx_palette.json", "backup": null },
+    "sync": { "duration": [89.5, 90.5] }
+  }
 }

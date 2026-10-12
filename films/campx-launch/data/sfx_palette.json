@@ -1,0 +1,190 @@
+{
+  "model_id": "eleven_text_to_sound_v2",
+  "output_formats": [
+    "pcm_48000",
+    "pcm_44100",
+    "mp3_44100_128"
+  ],
+  "variants": 2,
+  "seed_base": 4100,
+  "seeds_honoured": false,
+  "send_seed": true,
+  "sounds": {
+    "whoosh_soft": {
+      "family": "transitions",
+      "prompt": "a soft airy cinematic whoosh, smooth gentle air movement passing by, silky and quiet, no rumble, no wind gust, close-mic, dry, no music, no voice",
+      "duration": 1.5,
+      "influence": 0.5,
+      "loop": false,
+      "align": "peak",
+      "gain": -20,
+      "slice": 0,
+      "pick": null
+    },
+    "whoosh_whip": {
+      "family": "transitions",
+      "prompt": "one fast clean whip whoosh, a quick swish of air past the ear, single pass, no rumble, close-mic, dry, no music, no voice",
+      "duration": 1.0,
+      "influence": 0.55,
+      "loop": false,
+      "align": "peak",
+      "gain": -16,
+      "slice": 0,
+      "pick": null
+    },
+    "whoosh_zoom": {
+      "family": "transitions",
+      "prompt": "a smooth forward rushing whoosh like flying through a tunnel of light, airy, rising then passing, single pass, close-mic, dry, no music, no voice",
+      "duration": 1.5,
+      "influence": 0.5,
+      "loop": false,
+      "align": "peak",
+      "gain": -18,
+      "slice": 0,
+      "pick": null
+    },
+    "paper_rustle": {
+      "family": "paper",
+      "prompt": "a stack of paper exam pages being fanned and riffled softly, crisp gentle paper rustle, close-mic, dry, no music, no voice",
+      "duration": 2.0,
+      "influence": 0.55,
+      "loop": false,
+      "align": "onset",
+      "gain": -22,
+      "slice": 0,
+      "pick": null
+    },
+    "paper_flutter": {
+      "family": "paper",
+      "prompt": "a single sheet of paper lifting into the air and fluttering softly, delicate paper flutter, close-mic, dry, no music, no voice",
+      "duration": 2.0,
+      "influence": 0.5,
+      "loop": false,
+      "align": "onset",
+      "gain": -22,
+      "slice": 0,
+      "pick": null
+    },
+    "scanner_hum": {
+      "family": "scan",
+      "prompt": "a soft low electronic hum of a document scanner, steady and smooth with a faint high shimmer, seamless loop, close-mic, dry, no music, no voice",
+      "duration": 4.0,
+      "influence": 0.45,
+      "loop": true,
+      "align": null,
+      "gain": -32,
+      "slice": 0,
+      "pick": null
+    },
+    "scan_sweep": {
+      "family": "scan",
+      "prompt": "a document scanner light bar gliding smoothly across a page, a soft mechanical glide with a faint rising electronic tone, close-mic, dry, no music, no voice",
+      "duration": 2.0,
+      "influence": 0.5,
+      "loop": false,
+      "align": "onset",
+      "gain": -22,
+      "slice": 0,
+      "pick": null
+    },
+    "dissolve_shimmer": {
+      "family": "scan",
+      "prompt": "fine glittering particles dissolving and scattering into the air, a delicate crystalline shimmer fading away, close-mic, dry, no music, no voice",
+      "duration": 2.0,
+      "influence": 0.5,
+      "loop": false,
+      "align": "onset",
+      "gain": -22,
+      "slice": 0,
+      "pick": null
+    },
+    "digital_tick": {
+      "family": "digital",
+      "prompt": "tiny soft high digital ticks, isolated single clicks with clear gaps of silence between them, close-mic, dry, no music, no voice",
+      "duration": 3.0,
+      "influence": 0.55,
+      "loop": false,
+      "align": "onset",
+      "gain": -26,
+      "slice": 6,
+      "pick": null
+    },
+    "glass_chime": {
+      "family": "digital",
+      "prompt": "one soft glass chime, a single clean delicate bell-like ping with a short shimmering tail, close-mic, dry, no music, no voice",
+      "duration": 1.5,
+      "influence": 0.55,
+      "loop": false,
+      "align": "onset",
+      "gain": -20,
+      "slice": 0,
+      "pick": null
+    },
+    "ui_click": {
+      "family": "ui",
+      "prompt": "one soft clean modern interface click, a single gentle tap, close-mic, dry, no music, no voice",
+      "duration": 0.5,
+      "influence": 0.6,
+      "loop": false,
+      "align": "onset",
+      "gain": -20,
+      "slice": 0,
+      "pick": null
+    },
+    "ui_confirm": {
+      "family": "ui",
+      "prompt": "a soft warm two-note confirmation chime for an accepted action, gentle rounded digital tone, premium interface sound, close-mic, dry, no music, no voice",
+      "duration": 1.0,
+      "influence": 0.55,
+      "loop": false,
+      "align": "onset",
+      "gain": -20,
+      "slice": 0,
+      "pick": null
+    },
+    "alert_pulse": {
+      "family": "ui",
+      "prompt": "a gentle soft notification pulse, one low warm rounded digital tone pulsing twice, calm and not alarming, close-mic, dry, no music, no voice",
+      "duration": 1.2,
+      "influence": 0.55,
+      "loop": false,
+      "align": "onset",
+      "gain": -22,
+      "slice": 0,
+      "pick": 1
+    },
+    "riser_title": {
+      "family": "impacts",
+      "prompt": "a smooth cinematic riser, an airy reversed shimmer swelling steadily louder, loudest at the very end, then cut off sharply, close-mic, dry, no music, no voice",
+      "duration": 3.0,
+      "influence": 0.55,
+      "loop": false,
+      "align": "end",
+      "gain": -20,
+      "slice": 0,
+      "pick": null
+    },
+    "impact_title": {
+      "family": "impacts",
+      "prompt": "one deep soft cinematic boom, a warm low sub impact with a long smooth reverb tail, no metal, no crash, no cymbal, close-mic, dry, no music, no voice",
+      "duration": 3.0,
+      "influence": 0.55,
+      "loop": false,
+      "align": "onset",
+      "gain": -17,
+      "slice": 0,
+      "pick": 0
+    },
+    "impact_logo": {
+      "family": "impacts",
+      "prompt": "one final soft deep cinematic impact, a warm low boom with an airy shimmering tail fading slowly to silence, no metal, no cymbal, close-mic, dry, no music, no voice",
+      "duration": 4.0,
+      "influence": 0.55,
+      "loop": false,
+      "align": "onset",
+      "gain": -17,
+      "slice": 0,
+      "pick": null
+    }
+  }
+}

@@ -1,0 +1,872 @@
+{
+ "duration": 90.0,
+ "lines": [
+  {
+   "id": "L01",
+   "scene": "open",
+   "act": "1",
+   "text": "Every semester, thousands of answer scripts. Millions of handwritten pages.",
+   "start": 1.973,
+   "end": 6.698,
+   "take": 3,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Every",
+     "start": 1.998,
+     "end": 2.253
+    },
+    {
+     "w": "semester,",
+     "start": 2.353,
+     "end": 2.793
+    },
+    {
+     "w": "thousands",
+     "start": 3.183,
+     "end": 3.613
+    },
+    {
+     "w": "of",
+     "start": 3.673,
+     "end": 3.813
+    },
+    {
+     "w": "answer",
+     "start": 3.813,
+     "end": 4.113
+    },
+    {
+     "w": "scripts.",
+     "start": 4.193,
+     "end": 4.593
+    },
+    {
+     "w": "Millions",
+     "start": 5.033,
+     "end": 5.453
+    },
+    {
+     "w": "of",
+     "start": 5.583,
+     "end": 5.613
+    },
+    {
+     "w": "handwritten",
+     "start": 5.653,
+     "end": 6.093
+    },
+    {
+     "w": "pages.",
+     "start": 6.193,
+     "end": 6.593
+    }
+   ]
+  },
+  {
+   "id": "L02",
+   "scene": "stakes",
+   "act": "1",
+   "text": "And behind every page, a student's future.",
+   "start": 9.978,
+   "end": 12.808,
+   "take": 4,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "And",
+     "start": 9.998,
+     "end": 10.218
+    },
+    {
+     "w": "behind",
+     "start": 10.258,
+     "end": 10.498
+    },
+    {
+     "w": "every",
+     "start": 10.553,
+     "end": 10.858
+    },
+    {
+     "w": "page,",
+     "start": 10.883,
+     "end": 11.258
+    },
+    {
+     "w": "a",
+     "start": 11.633,
+     "end": 11.738
+    },
+    {
+     "w": "student's",
+     "start": 11.813,
+     "end": 12.278
+    },
+    {
+     "w": "future.",
+     "start": 12.328,
+     "end": 12.698
+    }
+   ]
+  },
+  {
+   "id": "L03",
+   "scene": "title",
+   "act": "1",
+   "text": "Introducing CampX Digital Evaluation. Powered by Medha AI.",
+   "start": 15.464,
+   "end": 19.709,
+   "take": 4,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Introducing",
+     "start": 15.499,
+     "end": 16.044
+    },
+    {
+     "w": "CampX",
+     "start": 16.129,
+     "end": 16.564
+    },
+    {
+     "w": "Digital",
+     "start": 16.639,
+     "end": 16.964
+    },
+    {
+     "w": "Evaluation.",
+     "start": 17.024,
+     "end": 17.684
+    },
+    {
+     "w": "Powered",
+     "start": 18.234,
+     "end": 18.574
+    },
+    {
+     "w": "by",
+     "start": 18.614,
+     "end": 18.754
+    },
+    {
+     "w": "Medha",
+     "start": 18.814,
+     "end": 19.074
+    },
+    {
+     "w": "AI.",
+     "start": 19.189,
+     "end": 19.574
+    }
+   ]
+  },
+  {
+   "id": "L04",
+   "scene": "ingest3d",
+   "act": "1",
+   "text": "Upload one ZIP of scanned scripts. CampX splits every booklet, reads its cover, removes the student's identity, and checks each script for tampering, before an evaluator ever sees it.",
+   "start": 21.469,
+   "end": 34.119,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Upload",
+     "start": 21.499,
+     "end": 21.929
+    },
+    {
+     "w": "one",
+     "start": 22.029,
+     "end": 22.189
+    },
+    {
+     "w": "ZIP",
+     "start": 22.269,
+     "end": 22.469
+    },
+    {
+     "w": "of",
+     "start": 22.479,
+     "end": 22.609
+    },
+    {
+     "w": "scanned",
+     "start": 22.774,
+     "end": 23.049
+    },
+    {
+     "w": "scripts.",
+     "start": 23.204,
+     "end": 23.549
+    },
+    {
+     "w": "CampX",
+     "start": 23.979,
+     "end": 24.489
+    },
+    {
+     "w": "splits",
+     "start": 24.704,
+     "end": 24.969
+    },
+    {
+     "w": "every",
+     "start": 24.974,
+     "end": 25.229
+    },
+    {
+     "w": "booklet,",
+     "start": 25.394,
+     "end": 25.729
+    },
+    {
+     "w": "reads",
+     "start": 26.189,
+     "end": 26.449
+    },
+    {
+     "w": "its",
+     "start": 26.489,
+     "end": 26.689
+    },
+    {
+     "w": "cover,",
+     "start": 26.729,
+     "end": 27.049
+    },
+    {
+     "w": "removes",
+     "start": 27.374,
+     "end": 27.869
+    },
+    {
+     "w": "the",
+     "start": 27.909,
+     "end": 28.009
+    },
+    {
+     "w": "student's",
+     "start": 28.069,
+     "end": 28.529
+    },
+    {
+     "w": "identity,",
+     "start": 28.559,
+     "end": 29.149
+    },
+    {
+     "w": "and",
+     "start": 29.439,
+     "end": 29.569
+    },
+    {
+     "w": "checks",
+     "start": 29.644,
+     "end": 30.009
+    },
+    {
+     "w": "each",
+     "start": 30.029,
+     "end": 30.289
+    },
+    {
+     "w": "script",
+     "start": 30.429,
+     "end": 30.749
+    },
+    {
+     "w": "for",
+     "start": 30.914,
+     "end": 31.029
+    },
+    {
+     "w": "tampering,",
+     "start": 31.089,
+     "end": 31.529
+    },
+    {
+     "w": "before",
+     "start": 31.984,
+     "end": 32.349
+    },
+    {
+     "w": "an",
+     "start": 32.409,
+     "end": 32.529
+    },
+    {
+     "w": "evaluator",
+     "start": 32.589,
+     "end": 33.249
+    },
+    {
+     "w": "ever",
+     "start": 33.289,
+     "end": 33.569
+    },
+    {
+     "w": "sees",
+     "start": 33.639,
+     "end": 33.829
+    },
+    {
+     "w": "it.",
+     "start": 33.889,
+     "end": 34.029
+    }
+   ]
+  },
+  {
+   "id": "L05",
+   "scene": "read3d",
+   "act": "1",
+   "text": "Then Medha reads. Every line of handwriting is transcribed, corrected, and mapped to the right question, even when an answer runs across pages.",
+   "start": 35.456,
+   "end": 45.066,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Then",
+     "start": 35.501,
+     "end": 35.646
+    },
+    {
+     "w": "Medha",
+     "start": 35.686,
+     "end": 36.006
+    },
+    {
+     "w": "reads.",
+     "start": 36.086,
+     "end": 36.426
+    },
+    {
+     "w": "Every",
+     "start": 36.731,
+     "end": 36.986
+    },
+    {
+     "w": "line",
+     "start": 37.086,
+     "end": 37.326
+    },
+    {
+     "w": "of",
+     "start": 37.386,
+     "end": 37.546
+    },
+    {
+     "w": "handwriting",
+     "start": 37.641,
+     "end": 38.366
+    },
+    {
+     "w": "is",
+     "start": 38.376,
+     "end": 38.586
+    },
+    {
+     "w": "transcribed,",
+     "start": 38.626,
+     "end": 39.366
+    },
+    {
+     "w": "corrected,",
+     "start": 39.931,
+     "end": 40.426
+    },
+    {
+     "w": "and",
+     "start": 40.491,
+     "end": 40.666
+    },
+    {
+     "w": "mapped",
+     "start": 40.746,
+     "end": 41.126
+    },
+    {
+     "w": "to",
+     "start": 41.166,
+     "end": 41.246
+    },
+    {
+     "w": "the",
+     "start": 41.286,
+     "end": 41.366
+    },
+    {
+     "w": "right",
+     "start": 41.426,
+     "end": 41.646
+    },
+    {
+     "w": "question,",
+     "start": 41.736,
+     "end": 42.206
+    },
+    {
+     "w": "even",
+     "start": 42.631,
+     "end": 42.926
+    },
+    {
+     "w": "when",
+     "start": 42.966,
+     "end": 43.086
+    },
+    {
+     "w": "an",
+     "start": 43.126,
+     "end": 43.326
+    },
+    {
+     "w": "answer",
+     "start": 43.341,
+     "end": 43.826
+    },
+    {
+     "w": "runs",
+     "start": 43.906,
+     "end": 44.086
+    },
+    {
+     "w": "across",
+     "start": 44.126,
+     "end": 44.406
+    },
+    {
+     "w": "pages.",
+     "start": 44.516,
+     "end": 44.966
+    }
+   ]
+  },
+  {
+   "id": "L06",
+   "scene": "mark3d",
+   "act": "1",
+   "text": "Each answer is checked against your answer key, point by point. Medha suggests a mark, and shows exactly why.",
+   "start": 49.457,
+   "end": 56.532,
+   "take": 2,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Each",
+     "start": 49.502,
+     "end": 49.767
+    },
+    {
+     "w": "answer",
+     "start": 49.767,
+     "end": 50.247
+    },
+    {
+     "w": "is",
+     "start": 50.302,
+     "end": 50.427
+    },
+    {
+     "w": "checked",
+     "start": 50.502,
+     "end": 50.747
+    },
+    {
+     "w": "against",
+     "start": 50.807,
+     "end": 51.107
+    },
+    {
+     "w": "your",
+     "start": 51.142,
+     "end": 51.267
+    },
+    {
+     "w": "answer",
+     "start": 51.272,
+     "end": 51.587
+    },
+    {
+     "w": "key,",
+     "start": 51.752,
+     "end": 51.887
+    },
+    {
+     "w": "point",
+     "start": 52.237,
+     "end": 52.487
+    },
+    {
+     "w": "by",
+     "start": 52.527,
+     "end": 52.667
+    },
+    {
+     "w": "point.",
+     "start": 52.707,
+     "end": 52.987
+    },
+    {
+     "w": "Medha",
+     "start": 53.782,
+     "end": 54.107
+    },
+    {
+     "w": "suggests",
+     "start": 54.127,
+     "end": 54.547
+    },
+    {
+     "w": "a",
+     "start": 54.577,
+     "end": 54.667
+    },
+    {
+     "w": "mark,",
+     "start": 54.727,
+     "end": 54.987
+    },
+    {
+     "w": "and",
+     "start": 55.172,
+     "end": 55.287
+    },
+    {
+     "w": "shows",
+     "start": 55.367,
+     "end": 55.627
+    },
+    {
+     "w": "exactly",
+     "start": 55.627,
+     "end": 56.187
+    },
+    {
+     "w": "why.",
+     "start": 56.227,
+     "end": 56.407
+    }
+   ]
+  },
+  {
+   "id": "L07",
+   "scene": "control",
+   "act": "1",
+   "text": "But the final word belongs to your faculty. Evaluators see the script and Medha's suggestions side by side. Accept, adjust, or override, in seconds. Anything uncertain is flagged for a closer look.",
+   "start": 62.464,
+   "end": 76.114,
+   "take": 3,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "But",
+     "start": 62.504,
+     "end": 62.634
+    },
+    {
+     "w": "the",
+     "start": 62.654,
+     "end": 62.774
+    },
+    {
+     "w": "final",
+     "start": 62.814,
+     "end": 63.074
+    },
+    {
+     "w": "word",
+     "start": 63.154,
+     "end": 63.354
+    },
+    {
+     "w": "belongs",
+     "start": 63.414,
+     "end": 63.854
+    },
+    {
+     "w": "to",
+     "start": 63.894,
+     "end": 63.974
+    },
+    {
+     "w": "your",
+     "start": 64.014,
+     "end": 64.114
+    },
+    {
+     "w": "faculty.",
+     "start": 64.229,
+     "end": 64.774
+    },
+    {
+     "w": "Evaluators",
+     "start": 65.614,
+     "end": 66.414
+    },
+    {
+     "w": "see",
+     "start": 66.454,
+     "end": 66.554
+    },
+    {
+     "w": "the",
+     "start": 66.594,
+     "end": 66.694
+    },
+    {
+     "w": "script",
+     "start": 66.714,
+     "end": 67.054
+    },
+    {
+     "w": "and",
+     "start": 67.204,
+     "end": 67.394
+    },
+    {
+     "w": "Medha's",
+     "start": 67.454,
+     "end": 67.974
+    },
+    {
+     "w": "suggestions",
+     "start": 68.014,
+     "end": 68.634
+    },
+    {
+     "w": "side",
+     "start": 68.844,
+     "end": 69.054
+    },
+    {
+     "w": "by",
+     "start": 69.094,
+     "end": 69.254
+    },
+    {
+     "w": "side.",
+     "start": 69.314,
+     "end": 69.594
+    },
+    {
+     "w": "Accept,",
+     "start": 70.309,
+     "end": 70.794
+    },
+    {
+     "w": "adjust,",
+     "start": 71.044,
+     "end": 71.474
+    },
+    {
+     "w": "or",
+     "start": 71.699,
+     "end": 71.854
+    },
+    {
+     "w": "override,",
+     "start": 71.909,
+     "end": 72.414
+    },
+    {
+     "w": "in",
+     "start": 72.419,
+     "end": 72.554
+    },
+    {
+     "w": "seconds.",
+     "start": 72.609,
+     "end": 73.034
+    },
+    {
+     "w": "Anything",
+     "start": 73.519,
+     "end": 73.934
+    },
+    {
+     "w": "uncertain",
+     "start": 73.944,
+     "end": 74.534
+    },
+    {
+     "w": "is",
+     "start": 74.574,
+     "end": 74.714
+    },
+    {
+     "w": "flagged",
+     "start": 74.794,
+     "end": 75.114
+    },
+    {
+     "w": "for",
+     "start": 75.189,
+     "end": 75.274
+    },
+    {
+     "w": "a",
+     "start": 75.314,
+     "end": 75.374
+    },
+    {
+     "w": "closer",
+     "start": 75.414,
+     "end": 75.734
+    },
+    {
+     "w": "look.",
+     "start": 75.814,
+     "end": 76.034
+    }
+   ]
+  },
+  {
+   "id": "L08",
+   "scene": "outcome",
+   "act": "1",
+   "text": "Faster results. Consistent marking. Complete control.",
+   "start": 78.46,
+   "end": 82.085,
+   "take": 4,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Faster",
+     "start": 78.505,
+     "end": 78.815
+    },
+    {
+     "w": "results.",
+     "start": 78.855,
+     "end": 79.255
+    },
+    {
+     "w": "Consistent",
+     "start": 79.775,
+     "end": 80.215
+    },
+    {
+     "w": "marking.",
+     "start": 80.295,
+     "end": 80.675
+    },
+    {
+     "w": "Complete",
+     "start": 81.19,
+     "end": 81.555
+    },
+    {
+     "w": "control.",
+     "start": 81.62,
+     "end": 81.995
+    }
+   ]
+  },
+  {
+   "id": "L09",
+   "scene": "end",
+   "act": "1",
+   "text": "CampX. Evaluate smarter. Decide faster.",
+   "start": 85.461,
+   "end": 88.731,
+   "take": 4,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "CampX.",
+     "start": 85.506,
+     "end": 85.981
+    },
+    {
+     "w": "Evaluate",
+     "start": 86.451,
+     "end": 86.881
+    },
+    {
+     "w": "smarter.",
+     "start": 87.021,
+     "end": 87.401
+    },
+    {
+     "w": "Decide",
+     "start": 87.761,
+     "end": 88.121
+    },
+    {
+     "w": "faster.",
+     "start": 88.221,
+     "end": 88.581
+    }
+   ]
+  }
+ ],
+ "scenes": [
+  {
+   "id": "open",
+   "act": "1",
+   "start": 0.0,
+   "end": 9.498
+  },
+  {
+   "id": "stakes",
+   "act": "1",
+   "start": 9.498,
+   "end": 14.999
+  },
+  {
+   "id": "title",
+   "act": "1",
+   "start": 14.999,
+   "end": 20.999
+  },
+  {
+   "id": "ingest3d",
+   "act": "1",
+   "start": 20.999,
+   "end": 35.001
+  },
+  {
+   "id": "read3d",
+   "act": "1",
+   "start": 35.001,
+   "end": 49.002
+  },
+  {
+   "id": "mark3d",
+   "act": "1",
+   "start": 49.002,
+   "end": 62.003
+  },
+  {
+   "id": "control",
+   "act": "1",
+   "start": 62.003,
+   "end": 78.005
+  },
+  {
+   "id": "outcome",
+   "act": "1",
+   "start": 78.005,
+   "end": 85.006
+  },
+  {
+   "id": "end",
+   "act": "1",
+   "start": 85.006,
+   "end": 90.0
+  }
+ ],
+ "acts": [
+  {
+   "id": "1",
+   "name": "CampX Digital Evaluation",
+   "start": 0.0,
+   "end": 90.0
+  }
+ ]
+}

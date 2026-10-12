@@ -46,8 +46,9 @@ anywhere. Credits spent are logged to `audio/credits.log`. Only `film-vo`, `film
 | `film-fonts [--src F --axis wght=600 --out F]` | `pipeline.fonts` | `films/<id>/fonts/` (static instances for opentype.js) |
 | `film-deliver segments \| render \| assemble \| check [--segments N] [--scale S] [--mix F]` | scene windows, `pipeline.deliver`, the mix | `out/<id>/deliver/` (segments, `video.mp4`, stems), `out/<id>/<id>-<output>.mp4` |
 
-`data/script.json` is `{"lines": [{"id", "scene", "text", "takes"?, "optional"?}], "acts"?: [{"id", "name",
-"scenes"}]}`; without acts the scenes form one act in the order the lines name them. `audio/vo/selects.json` is
+`data/script.json` is `{"lines": [{"id", "scene", "text", "takes"?, "optional"?, "until"?}], "acts"?: [{"id", "name",
+"scenes"}]}`; without acts the scenes form one act in the order the lines name them. A line's `until` names a later
+scene it may run on into (film-sync then checks it ends by the end of that scene, not its own). `audio/vo/selects.json` is
 `{"<line>": {"take": k, "factor": f}}` (checkpoint C1). `data/edit.json` overrides the placement defaults:
 `{"lead_in": 0.5, "tail": 1.5, "gap": {"line": 0.35, "scene": 0.8, "act": 1.4}, "scene_lead": 0.3, "overrides":
 {"L04": {"gap_before": 2.0}}, "optional": {"L03b": true}}`. The chosen score is `data/music_plan.json`'s `chosen`

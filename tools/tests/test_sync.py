@@ -67,6 +67,20 @@ def test_line_outside_its_scene_is_reported():
     assert any("L2 is not inside its scene" in x for x in check(vo, AUDIO, SCRIPT))
 
 
+def test_a_line_may_run_on_until_a_later_scene():
+    vo = good()
+    vo["lines"][0]["words"][0]["end"] = vo["lines"][0]["end"] = 4.5  # L1 (s1) runs on into s2
+    vo["lines"][1].update(start=4.6, end=5.6, words=[{"w": "a", "start": 4.64, "end": 5.5}])
+    assert any("L1 is not inside its scene s1" in x for x in check(vo, AUDIO, SCRIPT))
+    script = {**SCRIPT, "lines": [{"id": "L1", "scene": "s1", "until": "s2"}]}
+    assert check(vo, AUDIO, script) == []
+    vo["lines"][0]["words"][0]["end"] = vo["lines"][0]["end"] = 8.0  # past the end of s2
+    vo["lines"][1].update(start=8.1, end=8.9, words=[{"w": "a", "start": 8.14, "end": 8.8}])
+    assert any("L1 is not inside its scene s1..s2" in x for x in check(vo, AUDIO, script))
+    bad = {**SCRIPT, "lines": [{"id": "L1", "scene": "s1", "until": "nope"}]}
+    assert any("runs until scene 'nope'" in x for x in check(vo, AUDIO, bad))
+
+
 def test_word_outside_its_line_is_reported():
     vo = good()
     vo["lines"][0]["words"][0]["end"] = vo["lines"][0]["end"] + 0.5  # past its line, still inside its scene

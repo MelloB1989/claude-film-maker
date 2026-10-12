@@ -1,0 +1,14 @@
+{
+  "title": "CampX Digital Evaluation",
+  "lines": [
+    {"id": "L01", "scene": "open", "text": "Every semester, thousands of answer scripts. Millions of handwritten pages.", "takes": 3},
+    {"id": "L02", "scene": "stakes", "text": "And behind every page, a student's future.", "takes": 3},
+    {"id": "L03", "scene": "title", "text": "Introducing CampX Digital Evaluation. Powered by Medha AI.", "takes": 3},
+    {"id": "L04", "scene": "ingest3d", "until": "ingestui", "text": "Upload one ZIP of scanned scripts. CampX splits every booklet, reads its cover, removes the student's identity, and checks each script for tampering, before an evaluator ever sees it.", "takes": 3},
+    {"id": "L05", "scene": "read3d", "until": "readui", "text": "Then Medha reads. Every line of handwriting is transcribed, corrected, and mapped to the right question, even when an answer runs across pages.", "takes": 3},
+    {"id": "L06", "scene": "mark3d", "until": "markui", "text": "Each answer is checked against your answer key, point by point. Medha suggests a mark, and shows exactly why.", "takes": 3},
+    {"id": "L07", "scene": "control", "text": "But the final word belongs to your faculty. Evaluators see the script and Medha's suggestions side by side. Accept, adjust, or override, in seconds. Anything uncertain is flagged for a closer look.", "takes": 3},
+    {"id": "L08", "scene": "outcome", "text": "Faster results. Consistent marking. Complete control.", "takes": 3},
+    {"id": "L09", "scene": "end", "text": "CampX. Evaluate smarter. Decide faster.", "takes": 3}
+  ]
+}

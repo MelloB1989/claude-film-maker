@@ -1,0 +1,7 @@
+audio/vo/takes/
+audio/vo/paced/
+audio/voice-trials/
+audio/music/
+audio/sfx/lib/
+audio/mix/*
+!audio/mix/mix.wav
