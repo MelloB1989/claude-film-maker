@@ -135,7 +135,11 @@ def main(argv=None):
     cli.parse(cli.parser("Place takes on the timeline and assemble the voiceover"), argv)
     film = config.load()
     script = load_script()
-    vo = place(script, load_takes(script, film.paths.audio / "vo" / "paced", load_selects()), load_edit())
+    try:
+        vo = place(script, load_takes(script, film.paths.audio / "vo" / "paced", load_selects()), load_edit())
+    except KeyError as e:
+        raise SystemExit(f"{e.args[0]}: run film-vo, film-realign and film-pace first (or pick another take in "
+                         "audio/vo/selects.json)") from None
     write_vo(vo)
     for a in vo["acts"]:
         print(f"act {a['id']:>3} {a['name']:<12} {a['start']:6.2f} → {a['end']:6.2f}")
