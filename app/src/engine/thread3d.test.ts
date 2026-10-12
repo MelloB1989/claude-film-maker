@@ -128,7 +128,7 @@ test('the plies run continuously along the thread, through the S-curve inflectio
 
 test('stretching the thread stretches its plies: their phase stays with the material, it never crawls', () => {
   const t = new Thread(S_CURVE, { radius: R, plies: 3 });
-  // the angle of the accent strand round the centreline, in the thread's own frame (not ply 0: the diff thread's bone
+  // the angle of the accent strand round the centreline, in the thread's own frame (not ply 0: the diff thread's fg
   // core is centred on the axis, and has no angle)
   const angle = (u: number) => {
     const f = t.frameAt(u), d = t.plyCentre(u, 1).sub(f.pos);
@@ -155,7 +155,7 @@ test('a small change of the points moves the plies by about as much (no phase ju
   }
 });
 
-test('the diff thread is the bone 3-ply with the accent and accent2 strands laid in its grooves, `−` a groove ahead', () => {
+test('the diff thread is the fg 3-ply with the accent and accent2 strands laid in its grooves, `−` a groove ahead', () => {
   const t = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'accent', 'accent2'] });
   // the angle of a ply round the centreline, in the thread's own frame
   const angle = (p: THREE.Vector3, u: number) => {
@@ -163,8 +163,8 @@ test('the diff thread is the bone 3-ply with the accent and accent2 strands laid
     return Math.atan2(d.dot(f.binormal), d.dot(f.normal));
   };
   for (const u of [0.2, 0.5, 0.8]) {
-    const c = t.pointAt(u), bone = t.plyCentre(u, 0), accent = t.plyCentre(u, 1), accent2 = t.plyCentre(u, 2);
-    expect(bone.distanceTo(c)).toBeLessThan(1e-9); // the core's centre is the axis
+    const c = t.pointAt(u), core = t.plyCentre(u, 0), accent = t.plyCentre(u, 1), accent2 = t.plyCentre(u, 2);
+    expect(core.distanceTo(c)).toBeLessThan(1e-9); // the core's centre is the axis
     // plies of radius 0.5 at 0.5 from the axis leave grooves between them; a strand of radius 0.2 touching the plies
     // either side sits at 0.5·cos 60° + √(0.7² − (0.5·sin 60°)²) = 0.8 from the axis, flush with the outer radius
     expect(accent.distanceTo(c)).toBeCloseTo(0.8 * R, 9);
@@ -174,8 +174,8 @@ test('the diff thread is the bone 3-ply with the accent and accent2 strands laid
     expect(Math.atan2(Math.sin(d), Math.cos(d))).toBeCloseTo((2 * Math.PI) / 3, 6);
   }
   // one colour twists as equals: three plies on a circle, none on the axis
-  const bone = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'fg', 'fg'] });
-  for (let i = 0; i < 3; i++) expect(bone.plyCentre(0.5, i).distanceTo(bone.pointAt(0.5))).toBeCloseTo(0.5 * R, 9);
+  const plain = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'fg', 'fg'] });
+  for (let i = 0; i < 3; i++) expect(plain.plyCentre(0.5, i).distanceTo(plain.pointAt(0.5))).toBeCloseTo(0.5 * R, 9);
 });
 
 test('setFray separates the plies around `at` and leaves the rest of the thread where it was', () => {
@@ -198,7 +198,7 @@ test('setFray separates the plies around `at` and leaves the rest of the thread 
   expect(spread(0.5)).toBeCloseTo(tight, 12);
 });
 
-test('bone never glows; accent and accent2 glow at the level asked, their hue kept', () => {
+test('fg never glows; accent and accent2 glow at the level asked, their hue kept', () => {
   const t = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'accent', 'accent2'], glow: 2.5 });
   const g = t.uniforms.uGlow.value.map((c) => c.toArray());
   expect(g[0]).toEqual([0, 0, 0]);
@@ -207,9 +207,9 @@ test('bone never glows; accent and accent2 glow at the level asked, their hue ke
   [0.4096711, 2.5, 0.7464482].forEach((x, k) => expect(g[2]![k]!).toBeCloseTo(x, 5));
   t.setGlow(0);
   expect(t.uniforms.uGlow.value.flatMap((c) => c.toArray())).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  // an all-bone thread gets no glow at any level
-  const bone = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'fg', 'fg'], glow: 6 });
-  expect(bone.uniforms.uGlow.value.flatMap((c) => c.toArray())).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  // an all-fg thread gets no glow at any level
+  const plain = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'fg', 'fg'], glow: 6 });
+  expect(plain.uniforms.uGlow.value.flatMap((c) => c.toArray())).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
 });
 
 test('fibres are seeded: two threads build identical geometry whatever Math.random says', () => {
@@ -245,7 +245,7 @@ const hexLin = (hex: string) =>
 /** Today's dyed strand: the palette colour 82% of the way to its dim shade (THREAD_LOOK.dye). */
 const dyed = (hex: string, dim: string) => hexLin(hex).map((x, k) => x + (hexLin(dim)[k]! - x) * 0.82);
 const DIFF = { radius: R, plies: 3 as const, colors: ['fg', 'accent', 'accent2'] as ('fg' | 'accent' | 'accent2')[] };
-/** The strands' tubes: the diff thread's first three tubes are the bone plies, then the `−` and `+` strands. */
+/** The strands' tubes: the diff thread's first three tubes are the fg plies, then the `−` and `+` strands. */
 const strandTubes = (t: Thread) => t.uniforms.uTube.value.slice(3, 5).map((q) => q.toArray());
 
 test('strandDye and strandScale default to 1: today\'s look, and both options are live', () => {
@@ -261,7 +261,7 @@ test('strandDye and strandScale default to 1: today\'s look, and both options ar
   expect(strandTubes(new Thread(S_CURVE, { ...DIFF, strandScale: 0.5 }))).not.toEqual(strandTubes(t));
 });
 
-test('strandDye scales the accent and accent2 strands\' base colour; bone and the glowing cores keep theirs', () => {
+test('strandDye scales the accent and accent2 strands\' base colour; fg and the glowing cores keep theirs', () => {
   const t = new Thread(S_CURVE, DIFF), d = new Thread(S_CURVE, { ...DIFF, strandDye: 0.1 });
   expect(d.uniforms.uColors.value[0]!.toArray()).toEqual(t.uniforms.uColors.value[0]!.toArray());
   for (const i of [1, 2]) {
@@ -275,7 +275,7 @@ test('strandDye scales the accent and accent2 strands\' base colour; bone and th
 
 test('strandScale scales the strands\' radius; they stay in their grooves, touching the plies either side', () => {
   const s = new Thread(S_CURVE, { ...DIFF, strandScale: 0.5 });
-  // bone plies of radius 0.5 at 0.5 from the axis; a strand of radius 0.1 in a groove, touching both plies, sits at
+  // fg plies of radius 0.5 at 0.5 from the axis; a strand of radius 0.1 in a groove, touching both plies, sits at
   // 0.5·cos 60° + √((0.5 + 0.1)² − (0.5·sin 60°)²) = 0.25 + √0.1725 from the axis: deeper in the groove than 0.8
   const D = 0.25 + Math.sqrt(0.1725);
   for (const q of strandTubes(s)) expect([q[0], q[1]]).toEqual([expect.closeTo(0.1, 12), expect.closeTo(D, 12)]);
@@ -288,74 +288,74 @@ test('strandScale scales the strands\' radius; they stay in their grooves, touch
 
 // ------------------------------------------------------------------------------------------------ the diff thread preset
 
-/** her's thread before the preset: its points and radius, and the twist it computed by hand for a 14° lay. */
-const HER = { points: [v(-1.9, -0.72, 0.62), v(2.8, -0.56, -1.62)], radius: 0.0042 };
-const HER_TWIST = Math.tan((14 * Math.PI) / 180) / (2 * Math.PI * 0.5 * HER.radius);
+/** A hand-built thread from before the preset: its points and radius, and the twist computed by hand for a 14° lay. */
+const HAND = { points: [v(-1.9, -0.72, 0.62), v(2.8, -0.56, -1.62)], radius: 0.0042 };
+const HAND_TWIST = Math.tan((14 * Math.PI) / 180) / (2 * Math.PI * 0.5 * HAND.radius);
 
-test('layDeg sets the lay at the thread\'s radius: 14° is the twist her computed by hand, and an explicit twist wins', () => {
-  const byLay = new Thread(HER.points, { radius: HER.radius, layDeg: 14 });
-  const byTwist = new Thread(HER.points, { radius: HER.radius, twist: HER_TWIST });
+test('layDeg sets the lay at the thread\'s radius: 14° is the twist computed by hand, and an explicit twist wins', () => {
+  const byLay = new Thread(HAND.points, { radius: HAND.radius, layDeg: 14 });
+  const byTwist = new Thread(HAND.points, { radius: HAND.radius, twist: HAND_TWIST });
   expect(byLay.uniforms.uTurns.value).toBe(byTwist.uniforms.uTurns.value); // to the bit: the same plies
-  expect(byLay.uniforms.uTurns.value / byLay.length()).toBeCloseTo(HER_TWIST, 6);
+  expect(byLay.uniforms.uTurns.value / byLay.length()).toBeCloseTo(HAND_TWIST, 6);
   expect(byLay.uniforms.uTube.value.map((q) => q.toArray())).toEqual(byTwist.uniforms.uTube.value.map((q) => q.toArray()));
   // an explicit twist wins
-  const both = new Thread(HER.points, { radius: HER.radius, layDeg: 14, twist: 30 });
-  expect(both.uniforms.uTurns.value).toBe(new Thread(HER.points, { radius: HER.radius, twist: 30 }).uniforms.uTurns.value);
+  const both = new Thread(HAND.points, { radius: HAND.radius, layDeg: 14, twist: 30 });
+  expect(both.uniforms.uTurns.value).toBe(new Thread(HAND.points, { radius: HAND.radius, twist: 30 }).uniforms.uTurns.value);
   // without either, THREAD_LOOK's 32° lay, as before: tan 32° / (2π · R/2) turns per unit length
-  const plain = new Thread(HER.points, { radius: HER.radius });
-  expect(plain.uniforms.uTurns.value / plain.length()).toBeCloseTo(Math.tan((32 * Math.PI) / 180) / (Math.PI * HER.radius), 6);
+  const plain = new Thread(HAND.points, { radius: HAND.radius });
+  expect(plain.uniforms.uTurns.value / plain.length()).toBeCloseTo(Math.tan((32 * Math.PI) / 180) / (Math.PI * HAND.radius), 6);
   // a steeper lay winds more turns into the same length
-  expect(new Thread(HER.points, { radius: HER.radius, layDeg: 40 }).uniforms.uTurns.value).toBeGreaterThan(plain.uniforms.uTurns.value);
+  expect(new Thread(HAND.points, { radius: HAND.radius, layDeg: 40 }).uniforms.uTurns.value).toBeGreaterThan(plain.uniforms.uTurns.value);
 });
 
-test('DIFF_THREAD pins the diff thread\'s look: 14° lay, strands dyed near ink and slimmed, lit to 3.6, resting dim', () => {
+test('DIFF_THREAD pins the diff thread\'s look: 14° lay, strands dyed nearly black and slimmed, lit to 3.6, resting dim', () => {
   expect(DIFF_THREAD).toEqual({ layDeg: 14, strandDye: 0.03, strandScale: 0.62, glow: 3.6, rest: 0.15 });
   expect(STRAND_FLARE).toEqual({ lead: 0.05, decay: 0.6 });
-  // spread into a thread, it is her's thread as it was: the same plies, colours and lit level as her's hand options
-  const preset = new Thread(HER.points, { ...DIFF_THREAD, radius: HER.radius });
-  const byHand = new Thread(HER.points, { radius: HER.radius, twist: HER_TWIST, glow: 3.6, strandDye: 0.03, strandScale: 0.62 });
+  // spread into a thread, it is the hand-built thread: the same plies, colours and lit level as its hand options
+  const preset = new Thread(HAND.points, { ...DIFF_THREAD, radius: HAND.radius });
+  const byHand = new Thread(HAND.points, { radius: HAND.radius, twist: HAND_TWIST, glow: 3.6, strandDye: 0.03, strandScale: 0.62 });
   for (const k of ['uTurns', 'uTube', 'uColors', 'uContact'] as const) {
     expect(JSON.stringify(preset.uniforms[k].value)).toBe(JSON.stringify(byHand.uniforms[k].value));
   }
 });
 
 /** accent #c22b45 and accent2 #4aad63 in linear light, scaled so the brightest channel is 1 (look.ts glow() at level 1). */
-const BLOOD_1 = [1, 0.04477952, 0.11031232];
-const MOSS_1 = [0.16386844, 1, 0.29857928];
+const ACCENT_1 = [1, 0.04477952, 0.11031232];
+const ACCENT2_1 = [0.16386844, 1, 0.29857928];
 const expectGlow = (got: number[], unit: number[], level: number) => unit.forEach((x, k) => expect(got[k]!).toBeCloseTo(x * level, 5));
 
 test('a strand lights on its own: setStrandGlow sets accent or accent2 and leaves the other; setGlow still sets both', () => {
   const t = new Thread(S_CURVE, { ...DIFF_THREAD, radius: R });
   const g = () => t.uniforms.uGlow.value.map((c) => c.toArray());
-  // built from the preset, both strands start at rest (bone never glows)
+  // built from the preset, both strands start at rest (fg never glows)
   expect(g()[0]).toEqual([0, 0, 0]);
-  expectGlow(g()[1]!, BLOOD_1, DIFF_THREAD.rest);
-  expectGlow(g()[2]!, MOSS_1, DIFF_THREAD.rest);
+  expectGlow(g()[1]!, ACCENT_1, DIFF_THREAD.rest);
+  expectGlow(g()[2]!, ACCENT2_1, DIFF_THREAD.rest);
   t.setStrandGlow({ accent2: 3.6 });
-  expectGlow(g()[1]!, BLOOD_1, DIFF_THREAD.rest);
-  expectGlow(g()[2]!, MOSS_1, 3.6);
+  expectGlow(g()[1]!, ACCENT_1, DIFF_THREAD.rest);
+  expectGlow(g()[2]!, ACCENT2_1, 3.6);
   t.setStrandGlow({ accent: 2 });
-  expectGlow(g()[1]!, BLOOD_1, 2);
-  expectGlow(g()[2]!, MOSS_1, 3.6);
+  expectGlow(g()[1]!, ACCENT_1, 2);
+  expectGlow(g()[2]!, ACCENT2_1, 3.6);
   t.setStrandGlow({});
-  expectGlow(g()[1]!, BLOOD_1, 2);
-  expectGlow(g()[2]!, MOSS_1, 3.6);
+  expectGlow(g()[1]!, ACCENT_1, 2);
+  expectGlow(g()[2]!, ACCENT2_1, 3.6);
   t.setStrandGlow({ accent: 0, accent2: 1.2 });
   expect(g()[1]).toEqual([0, 0, 0]);
-  expectGlow(g()[2]!, MOSS_1, 1.2);
+  expectGlow(g()[2]!, ACCENT2_1, 1.2);
   expect(g()[0]).toEqual([0, 0, 0]);
   // setGlow sets both strands, as it always has
   t.setGlow(1.5);
-  expectGlow(g()[1]!, BLOOD_1, 1.5);
-  expectGlow(g()[2]!, MOSS_1, 1.5);
+  expectGlow(g()[1]!, ACCENT_1, 1.5);
+  expectGlow(g()[2]!, ACCENT2_1, 1.5);
   // without `rest` a thread starts lit at its glow, as before
-  expectGlow(new Thread(S_CURVE, { ...DIFF, glow: 2.5 }).uniforms.uGlow.value[1]!.toArray(), BLOOD_1, 2.5);
+  expectGlow(new Thread(S_CURVE, { ...DIFF, glow: 2.5 }).uniforms.uGlow.value[1]!.toArray(), ACCENT_1, 2.5);
   // a strand's key reaches every ply of its colour, and only those
   const accent2 = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['accent2', 'accent2', 'accent2'], glow: 0 });
   accent2.setStrandGlow({ accent: 3 });
   expect(accent2.uniforms.uGlow.value.flatMap((c) => c.toArray())).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
   accent2.setStrandGlow({ accent2: 2 });
-  for (const c of accent2.uniforms.uGlow.value) expectGlow(c.toArray(), MOSS_1, 2);
+  for (const c of accent2.uniforms.uGlow.value) expectGlow(c.toArray(), ACCENT2_1, 2);
 });
 
 test('strandFlare rises over its lead into the onset, peaks on it, and falls back to exactly 0 over the decay', () => {
@@ -444,7 +444,7 @@ test('setStrandLight: a thread that never calls it keeps its own program; the fi
   expect(glowAt).toBeGreaterThan(0);
   expect(readAt).toBeGreaterThan(glowAt);
   expect(lightsAt).toBeGreaterThan(readAt);
-  // the diff thread's plies are bone, accent, accent2: accent reads r, accent2 g (the text repo's patch compiled, exactly)
+  // the diff thread's plies are fg, accent, accent2: accent reads r, accent2 g (the patch's compiled text, exactly)
   expect(lit.f).toContain(`{
   vec4 slK = texture2D(tStrandLight, vec2((clamp(vU, 0.0, 1.0) * ${STRAND_LIGHT_N - 1}.0 + 0.5) / ${STRAND_LIGHT_N}.0, 0.5));
   totalEmissiveRadiance *= 1.0 + (thPi == 1 ? uStrandGain.x * slK.r : thPi == 2 ? uStrandGain.y * slK.g : 0.0);

@@ -9,7 +9,7 @@ export interface HudState {
   opacity: number;
   /** 0..1 the crop-mark frame: 1 in place, 0 flown out past the edges. */
   frame: number;
-  /** 0..1: the frame is light — draw the marks in ink. */
+  /** 0..1: the frame is light — draw the marks in the background colour (bg). */
   paper: number;
 }
 
@@ -39,11 +39,11 @@ export class Hud {
   }
 
   /** Corner marks; as `k` drops they fly out along the diagonals and past the edges. */
-  private cropMarks(c: CanvasRenderingContext2D, k: number, ink: boolean) {
+  private cropMarks(c: CanvasRenderingContext2D, k: number, onLight: boolean) {
     const e = ease.inOutCubic(clamp(k));
     c.save();
     c.globalAlpha *= clamp(k * 3);
-    c.strokeStyle = ink ? rgba('bg', 0.45) : rgba('fg', 0.34);
+    c.strokeStyle = onLight ? rgba('bg', 0.45) : rgba('fg', 0.34);
     c.lineWidth = 1.25;
     const m = lerp(-40, 36, e), l = 22;
     c.beginPath();

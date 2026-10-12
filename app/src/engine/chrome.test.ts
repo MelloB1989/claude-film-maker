@@ -1,6 +1,6 @@
-// What only Chrome can show: how Canvas2D sets the film's type, what a 2D context keeps from one frame to the next, and
+// What only Chrome can show: how Canvas2D sets a film's type, what a 2D context keeps from one frame to the next, and
 // which shader programs WebGL builds. gl.ts, type.ts and stage.ts (with the three they use) are bundled (Bun.build) into
-// a blank page served from memory, and the fonts load off disk through the page's own loadFonts(), as the film's do.
+// a blank page served from memory, and the fonts load off disk through the page's own loadFonts(), as a film's do.
 // Needs Google Chrome, as scripts/render.ts does.
 import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -163,7 +163,8 @@ test('Stage.compile() builds the programs the stage draws with; render() keeps a
       st.scene.add(m, new THREE.DirectionalLight(0xffffff, 2));
       return st;
     };
-    // the control, as weave compiled: with nothing bound three builds the canvas's program, and the first frame another
+    // the control, compiled the naive way: with nothing bound three builds the canvas's program, and the first frame
+    // another
     const old = ball('for-the-canvas', THREE.MeshStandardMaterial);
     renderer.setRenderTarget(null);
     renderer.compile(old.scene, old.camera);
@@ -260,7 +261,7 @@ test('a highlight is painted under the text: the glyphs stand on it untinted, th
     };
     return { plain: at(undefined), lit: at({ tone: 'accent2', alpha: 0.5 }) };
   });
-  expect(r.plain.glyph.slice(0, 3)).toEqual([237, 231, 234]); // bone at full strength (the kw tone)
+  expect(r.plain.glyph.slice(0, 3)).toEqual([237, 231, 234]); // fg at full strength (the kw tone)
   expect(r.lit.glyph).toEqual(r.plain.glyph); // under the glyph: untouched
   expect(r.lit.band[1]!).toBeGreaterThan(r.plain.band[1]! + 20); // beside it: the accent2 wash
   expect(r.lit.band[1]!).toBeGreaterThan(r.lit.band[0]!);

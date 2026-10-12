@@ -25,7 +25,7 @@ export interface DofParams {
   focus: number;
   /** Aperture as an f-number (1.4 is wide open and shallow, 8 is deep). */
   fstop: number;
-  /** Cap on the CoC diameter, in px of the logical 1080p frame (the same look at every output scale). */
+  /** Cap on the CoC diameter, in logical px (config.ts W x H: the same look at every output scale). */
   maxBlurPx?: number;
 }
 
@@ -92,8 +92,8 @@ export function cocPx(depth: number, p: DofParams, fovDeg: number, imageHeightPx
  * With `parts` > 1 it is dealt into interleaved parts: all of them share the dense core, and each outer ring's picks
  * (in angle order, with their mirrors) go round the parts; each part is a whole disc on its own, and together they
  * are the full one. Returns one Float32Array of [x, y, r, area] per part. The full disc has about 12·R samples at
- * core 2 (296 at R = 24, the default cap at 1080p): it grows linearly with R, not with the disc's area. Core 2 renders
- * the stage test within a level or two of core 3 (mean 0.09 levels) for two thirds of the gather's cost.
+ * core 2 (296 at R = 24, the default cap at output scale 1): it grows linearly with R, not with the disc's area. Core 2
+ * renders the stage test within a level or two of core 3 (mean 0.09 levels) for two thirds of the gather's cost.
  */
 export function latticeDisc(R: number, parts = 1, core = 2): Float32Array[] {
   const rings: [number, number, number][][] = [];
@@ -301,7 +301,7 @@ export class DofPass {
         minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
       });
     }
-    // the lens in px of this image (maxBlurPx and cocPx are logical 1080p px)
+    // the lens in px of this image (maxBlurPx and cocPx are logical px)
     const { s, maxR, coc } = dofUniforms(p, cam, img.height);
     const k = this.kernel(maxR), row = tap >= 0 ? tap % PARTS : PARTS;
     const g = this.gather.uniforms, u = this.composite.u;

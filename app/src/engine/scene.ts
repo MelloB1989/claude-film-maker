@@ -1,4 +1,4 @@
-// Scene API. A scene owns a time window of the song and renders HDR linear colour
+// Scene API. A scene owns a time window of the film and renders HDR linear colour
 // into the render target it is given. Everything must be a deterministic function of
 // time (plus internal state advanced only through render() calls, see `stateful`).
 import type * as THREE from 'three';
@@ -18,13 +18,13 @@ export interface SceneCtx {
   /** Timeline entry id and its free-form params (lets one scene module serve several entries). */
   id: string;
   params: Record<string, any>;
-  /** Entry window (song seconds). */
+  /** Entry window (film seconds). */
   start: number;
   end: number;
 }
 
 export interface Frame {
-  /** Song time (s). */
+  /** Film time (s). */
   t: number;
   /** Time since the previous rendered frame (1/fps on export; 0 after a seek). */
   dt: number;
@@ -74,7 +74,7 @@ export abstract class Scene {
   init(): Promise<void> | void {}
 
   /**
-   * Optional: load what render() needs at song time t, such as a Blender plate's frame (plates.ts). Export awaits it
+   * Optional: load what render() needs at film time t, such as a Blender plate's frame (plates.ts). Export awaits it
    * for every scene on screen in a frame (over its motion-blur shutter) before `still()` and before each streamed
    * frame, so render() can then stay synchronous and exact. The player calls it best-effort, without waiting: there
    * render() must cope with the frame not being loaded yet (Plate.texture shows the nearest one it has).

@@ -113,7 +113,7 @@ export interface PlateOpts {
   /** Frames loaded ahead of the prepared one in preview (default 2; export loads only what it renders). */
   ahead?: number;
   /**
-   * Export: composite a frame's 960x540 proxy where its EXR is missing, warning once (a draft). Default: the page's
+   * Export: composite a frame's half-size proxy where its EXR is missing, warning once (a draft). Default: the page's
    * ?proxies (render.ts --proxies). Otherwise a missing EXR fails the export.
    */
   proxies?: boolean;

@@ -107,7 +107,7 @@ const SRGB_MODE: Record<Exclude<BlendMode, 'replace'>, number> = { normal: 0, ad
  * Where a Compositor draw of `tex` with `mode` mixes; `space` is the caller's choice, if it made one. By default an sRGB
  * texture (every Layer2D upload) mixes in display space for 'normal' and 'multiply', so its alphas read as designed,
  * and adds light for 'add', 'screen' and 'max': a 2D glow tinted with glow() blooms at glow()'s levels (mixed as display
- * values, a level-3 tint at alpha 0.5 lands at 0.73 over ink, under the bloom's opening at 1: look.ts). Everything else
+ * values, a level-3 tint at alpha 0.5 lands at 0.73 over bg, under the bloom's opening at 1: look.ts). Everything else
  * (render targets, plates) mixes light; 'replace' never mixes.
  */
 export function blendSpace(mode: BlendMode, tex: THREE.Texture, space?: BlendSpace): BlendSpace {
@@ -251,9 +251,9 @@ export function scaleContext2D(c: CanvasRenderingContext2D, s: number) {
 }
 
 /**
- * A 1920x1080 (logical) Canvas2D surface uploaded as an sRGB texture (decoded to linear when sampled). The Compositor
- * mixes it in display space by default ('normal', 'multiply'), so its alphas read as designed over whatever is under
- * it; drawn 'add', 'screen' or 'max' (a glow layer) it adds light.
+ * A Canvas2D surface, by default the logical canvas (W x H, the film's format), uploaded as an sRGB texture (decoded to
+ * linear when sampled). The Compositor mixes it in display space by default ('normal', 'multiply'), so its alphas read
+ * as designed over whatever is under it; drawn 'add', 'screen' or 'max' (a glow layer) it adds light.
  * Draw in CSS pixels with origin top-left. Call `upload()` after drawing each frame.
  * The backing canvas is SCALE times larger (`canvas.width` = w*SCALE); the context is pre-scaled
  * (see scaleContext2D), so drawing code works in logical px at every output scale.

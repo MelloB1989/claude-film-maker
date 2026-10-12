@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test';
 import { HEX, LIN, rgba } from './palette';
 
-test('GitLoom tokens replace the P(doom) palette', () => {
+test('the palette starts as the default theme (noir): its roles, and no stray keys', () => {
   expect(HEX.bg).toBe('#110d10');
   expect(HEX.accent).toBe('#c22b45');
   expect(HEX.accent2).toBe('#4aad63');

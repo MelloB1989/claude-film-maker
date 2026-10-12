@@ -1,9 +1,9 @@
 // Glyphs as GPU cells: a signed-distance atlas of a font's characters, and instanced quads that each draw one of them
-// (scene `ex`'s float cloud and fatal line; `merkle`'s leaves, `proof`'s digit drums and `graph`'s labels). Thousands
-// of glyphs in one draw, crisp in a close-up and mipped for the far ones, each able to flip like a split-flap board or
-// morph into another.
+// (a floating cloud of characters, a line of code, a tree's hashed leaves, a counter's digit drums, a graph's labels).
+// Thousands of glyphs in one draw, crisp in a close-up and mipped for the far ones, each able to flip like a split-flap
+// board or morph into another.
 //
-// The atlas (GlyphAtlas). Each glyph is set by Canvas2D (the film's loaded FontFace) into a cell of 1.0 x 1.5 em (CELL),
+// The atlas (GlyphAtlas). Each glyph is set by Canvas2D (a loaded FontFace) into a cell of 1.0 x 1.5 em (CELL),
 // its origin (left end of the advance, on the baseline) 0.2 em from the cell's left and 0.4 em above its bottom, and
 // turned into a signed distance field (Felzenszwalb and Huttenlocher's exact Euclidean transform of the inside and the
 // outside, the anti-aliased edge taken as a sub-pixel offset). 0.5 is the outline. So a cell stays crisp in a close-up,
@@ -18,12 +18,13 @@
 //   top; past half way B's bottom comes down over A's. A tile, the board's card, shows behind a flipping cell, split at
 //   the hinge. flapAt schedules a run of flaps to land on a beat, flapDigit the digits between;
 // - morph: A's field mixed into B's by k, so a letter's shape melts into a numeral's.
-// Ink and tile are drawn premultiplied and write depth (the depth of field reads it); empty pixels are discarded.
+// A glyph's ink (its coverage in its colour) and the tile are drawn premultiplied and write depth (the depth of field
+// reads it); empty pixels are discarded.
 //
 // Two ways to pose cells, both on the one fragment shader:
 // - GlyphActors: a few hundred cells posed on the CPU each frame (begin, add, end): an origin, the em's two axes in the
 //   world, the glyph state and a linear colour (past 1 for a glow);
-// - a field of thousands animated on the GPU, a pure function of time and a few uniforms (ex's cloud, ex-glyphs.ts): an
+// - a field of thousands animated on the GPU, a pure function of time and a few uniforms (a dense glyph cloud): an
 //   InstancedBufferGeometry with glyphQuad's corners and the scene's own per-instance attributes, drawn by
 //   glyphMaterial with a vertex shader that starts with glyphVertHead() and sets gl_Position and the four outputs the
 //   fragment shader reads: vUv (0..1 across the atlas cell, y up), vGlyph (A, B, progress, mode: 0 plain, 1 flip,
@@ -200,15 +201,17 @@ float lin(float c) { return c < 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2
 vec3 lin3(vec3 c) { return vec3(lin(c.r), lin(c.g), lin(c.b)); }
 `;
 
-/** The fragment shader every glyph draw shares: a cell's glyph(s) from the atlas, plain, flipping or morphing, over a tile. */
-/** The fragment shader (the palette baked in when a material is made: after the film's theme is set). */
+/**
+ * The fragment shader every glyph draw shares: a cell's glyph(s) from the atlas, plain, flipping or morphing, over a
+ * tile. The palette is baked in when a material is made, after the film's theme is set.
+ */
 const glyphFrag = () => /* glsl */ `
 precision highp float;
 uniform sampler2D uAtlas;
 uniform vec2 uGrid; // atlas columns, rows
 in vec2 vUv;    // 0..1 across the cell, y up
 in vec4 vGlyph; // A, B, progress, mode (0 plain, 1 flip, 2 morph)
-in vec4 vCol;   // linear ink colour, opacity
+in vec4 vCol;   // the glyph's ink: linear colour, opacity
 in vec2 vTile;  // tile alpha, tile brightness
 out vec4 fragColor;
 ${COMMON}
@@ -277,7 +280,8 @@ void main() {
 /**
  * The head of a glyph draw's vertex shader (GLSL 3): the matrices, the quad's `corner` (0..1, from glyphQuad), the four
  * outputs the fragment shader reads (vUv, vGlyph, vCol, vTile), the cell's constants (CELL_X0, CELL_Y0, CELL_W, CELL_H),
- * the sRGB decode (lin, lin3) and boneAt(b): b of the way from ink to bone as the eye sees it, as linear light.
+ * the sRGB decode (lin, lin3) and fgAt(b): b of the way from the background (bg) to fg as the eye sees it, as linear
+ * light.
  */
 export const glyphVertHead = () => /* glsl */ `
 precision highp float;
@@ -288,10 +292,10 @@ out vec4 vGlyph;
 out vec4 vCol;
 out vec2 vTile;
 ${COMMON}
-const vec3 INK_S = ${srgb(HEX.bg)};
-const vec3 BONE_S = ${srgb(HEX.fg)};
-// b of the way from ink to bone as the eye sees it (display space), as linear light
-vec3 boneAt(float b) { return lin3(mix(INK_S, BONE_S, clamp(b, 0.0, 1.0))); }
+const vec3 BG_S = ${srgb(HEX.bg)};
+const vec3 FG_S = ${srgb(HEX.fg)};
+// b of the way from bg to fg as the eye sees it (display space), as linear light
+vec3 fgAt(float b) { return lin3(mix(BG_S, FG_S, clamp(b, 0.0, 1.0))); }
 `;
 
 /** A quad of the cell's four corners (0..1), two triangles: the instanced geometry's own attribute `corner`. */
@@ -422,7 +426,7 @@ export class GlyphActors {
 /**
  * A split-flap run that lands at `land`: `steps` flaps of `step` seconds each, the last one coming down exactly on
  * `land`. Returns the flap under way at t (0-based) and its progress 0..1, or -1 before the run and `steps` after it.
- * (A cell flipping from A to B with that progress is GlyphPose glyph [A, B, p, 1]; ex eases it as p·p, the flap
+ * (A cell flipping from A to B with that progress is GlyphPose glyph [A, B, p, 1]; easing it as p·p reads as the flap
  * falling under gravity, slow off the hinge and hard onto the stop.)
  */
 export function flapAt(t: number, land: number, steps: number, step: number): { k: number; p: number } {

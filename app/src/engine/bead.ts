@@ -1,4 +1,5 @@
-// A commit bead (`her`, `repo`, `braid`): a glass sphere with a bore and chamfered lips, its hash etched round its face.
+// A glass bead, a motif primitive (a commit strung on a thread, say): a glass sphere with a bore and chamfered lips,
+// its text (a short hash) etched round its face.
 //
 // Geometry: a lathe round the bore (built on y, turned onto x), one closed profile: the sphere from lip to lip, a
 // 45° chamfer in to the bore at each end, and the bore's wall between them. three smooths the profile's normals across
@@ -13,7 +14,7 @@
 // is at the back, −z; the bore and the chamfers fall outside the band.)
 //
 // Material: real glass through three's physical transmission (IOR 1.5, satin roughness 0.15, a faint warm attenuation
-// toward bone), so the thread shows through it, refracted: its glowing cores bend inside the glass. The letters are a
+// toward fg), so the thread shows through it, refracted: its glowing cores bend inside the glass. The letters are a
 // frosted etch: rough, opaque (no transmission) and white, cut a little into the surface by a bump map whose soft edges
 // catch the light. A light clear coat keeps the reflections and the rim crisp over the satin.
 import * as THREE from 'three';
@@ -142,7 +143,7 @@ export class Bead {
   private own: THREE.BufferGeometry | null;
 
   /**
-   * A bead of `o`'s shape with its hash etched. Beads of one shape can share one geometry: pass `geometry`, built by
+   * A bead of `o`'s shape with its text etched. Beads of one shape can share one geometry: pass `geometry`, built by
    * beadGeometry for the same shape (its span and centre lay the engraving's band), and the bead uses it without freeing
    * it (whoever built it frees it, after the beads). The glass's transmission target is three's: freeTransmission
    * (stage.ts) frees it.
@@ -153,7 +154,8 @@ export class Bead {
     this.own = shared.geometry ? null : geo;
 
     const texH = Math.round((TEX_W * B) / A);
-    // the letters: an em that fills the band's length at 64% (7 mono cells of 0.6 em), within its height
+    // the letters: an em that fills the band's length at 64% (n mono cells of 0.6 em; 7 for a short hash), within its
+    // height
     const n = Array.from(o.text).length;
     const em = Math.min((0.64 * TEX_W) / (0.6 * n), 0.9 * texH / 0.73);
     const paint = (bg: string, fg: string, blur = 0) => {

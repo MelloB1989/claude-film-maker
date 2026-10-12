@@ -43,7 +43,7 @@ test('sweepAt runs the band across a pass, eased, at strength sin(πu); off befo
   sweepAt(band, 2.25, [pass], look);
   expect(band.value.x).toBeCloseTo(1 + 0.2, 12);
   expect(band.value.w).toBeCloseTo(2.2, 12);
-  // the defaults are her's band: slope 0.4, strength 2.2, inOutQuad
+  // the defaults: slope 0.4, strength 2.2, inOutQuad
   const d = withSweep(Mat.satinBone());
   sweepAt(d, 2.125, [pass], { width: 0.035 });
   sweepAt(band, 2.125, [pass], look);

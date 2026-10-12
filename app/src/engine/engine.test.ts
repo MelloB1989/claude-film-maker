@@ -8,12 +8,12 @@ import { transitionEntries, type TransitionEntry, type TransitionSpec } from './
 
 // Expected values are hand-derived. Film frame n is at t = n / 30. A 0.5 shutter spans t ± 1/120 s (a quarter frame
 // either side), and a fixed set of n sub-frames sits at offsets u = (k + 0.5) / n - 0.5, at times t + u / 60. An entry
-// holds ε = 1e-6 s before its end. The cut is the film's (data/vo.json): ex [6.008, 15.608) cuts to her
-// [15.608, 22.808), 8 ms after frame 468 (t = 15.6), so frame 468's shutter (to 15.6083) crosses it.
+// holds ε = 1e-6 s before its end. The cut: intro [6.008, 15.608) cuts to title [15.608, 22.808), 8 ms after frame 468
+// (t = 15.6), so frame 468's shutter (to 15.6083) crosses it.
 
-const ex = { id: 'ex', start: 6.008, end: 15.608 };
-const her = { id: 'her', start: 15.608, end: 22.808 };
-const hud = { id: 'hud', start: 0, end: 93.6 }; // an overlay across the cut (a HUD, the karaoke)
+const intro = { id: 'intro', start: 6.008, end: 15.608 };
+const title = { id: 'title', start: 15.608, end: 22.808 };
+const hud = { id: 'hud', start: 0, end: 93.6 }; // an overlay across the cut (a HUD, captions)
 const CUT = 15.608, EPS = 1e-6;
 const offsets = (n: number) => Array.from({ length: n }, (_, k) => (k + 0.5) / n - 0.5);
 const ids = (sub: { entry: { id: string } }[]) => sub.map((x) => x.entry.id);
@@ -22,11 +22,11 @@ test('shutterPlan: the frame before a cut shows only the outgoing scene, its sub
   const t = 468 / 30;
   for (const n of [36, 324]) {
     const u = offsets(n);
-    const plan = shutterPlan([ex, her], t, 1 / 30, 0.5, u);
+    const plan = shutterPlan([intro, title], t, 1 / 30, 0.5, u);
     expect(plan.length).toBe(n);
     let held = 0;
     plan.forEach((sub, k) => {
-      expect(ids(sub)).toEqual(['ex']);
+      expect(ids(sub)).toEqual(['intro']);
       const s = t + u[k]! / 60, time = sub[0]!.time;
       expect(time).toBeLessThanOrEqual(CUT - EPS);
       if (s < CUT) expect(time).toBeCloseTo(s, 12);
@@ -42,8 +42,8 @@ test('shutterPlan: the frame before a cut shows only the outgoing scene, its sub
 
 test('shutterPlan: the first frame after a cut shows only the incoming scene, from the cut on', () => {
   // frame 469 (15.6333): its shutter opens at 15.625, after the cut
-  for (const sub of shutterPlan([ex, her], 469 / 30, 1 / 30, 0.5, offsets(36))) {
-    expect(ids(sub)).toEqual(['her']);
+  for (const sub of shutterPlan([intro, title], 469 / 30, 1 / 30, 0.5, offsets(36))) {
+    expect(ids(sub)).toEqual(['title']);
     expect(sub[0]!.time).toBeGreaterThanOrEqual(CUT);
   }
   // a cut exactly on a frame time (a [0, 2) to b [2, 4), frame 60): the frame is b's, and its early sub-frames (t - 3/480
@@ -56,9 +56,9 @@ test('shutterPlan: the first frame after a cut shows only the incoming scene, fr
 
 test('shutterPlan: an overlay whose window covers the shutter is in every sub-frame, at the sub-frame time itself', () => {
   const t = 468 / 30, u = offsets(36);
-  const plan = shutterPlan([ex, her, hud], t, 1 / 30, 0.5, u);
+  const plan = shutterPlan([intro, title, hud], t, 1 / 30, 0.5, u);
   plan.forEach((sub, k) => {
-    expect(ids(sub)).toEqual(['hud', 'ex']); // compositing order: by start
+    expect(ids(sub)).toEqual(['hud', 'intro']); // compositing order: by start
     expect(sub[0]!.time).toBeCloseTo(t + u[k]! / 60, 12);
   });
   // the last sub-frame (15.60810): the overlay runs on past the cut, the scene holds
@@ -67,11 +67,11 @@ test('shutterPlan: an overlay whose window covers the shutter is in every sub-fr
 });
 
 test('shutterPlan: the preview (samples 1) renders one sub-frame at t, of the entries on screen at t', () => {
-  const at = (t: number) => shutterPlan([ex, her, hud], t, 1 / 30, 0.5, [0]).map((sub) => sub.map((x) => [x.entry.id, x.time]));
-  expect(at(15.6)).toEqual([[['hud', 15.6], ['ex', 15.6]]]);
-  expect(at(CUT)).toEqual([[['hud', CUT], ['her', CUT]]]); // the cut's own time is the incoming scene's
+  const at = (t: number) => shutterPlan([intro, title, hud], t, 1 / 30, 0.5, [0]).map((sub) => sub.map((x) => [x.entry.id, x.time]));
+  expect(at(15.6)).toEqual([[['hud', 15.6], ['intro', 15.6]]]);
+  expect(at(CUT)).toEqual([[['hud', CUT], ['title', CUT]]]); // the cut's own time is the incoming scene's
   // t itself is never moved, even within ε of the cut
-  expect(at(CUT - 1e-7)).toEqual([[['hud', CUT - 1e-7], ['ex', CUT - 1e-7]]]);
+  expect(at(CUT - 1e-7)).toEqual([[['hud', CUT - 1e-7], ['intro', CUT - 1e-7]]]);
   expect(at(100)).toEqual([[]]); // after the film: nothing on screen
 });
 
@@ -91,29 +91,29 @@ test('prepare: with motion blur, each scene on screen at t prepares every sub-fr
   // the times of a frame's sub-frames: t + u / 60 at a 0.5 shutter, held before the end of the entry's window
   const subTimes = (end: number, u: number[]) => [...new Set(u.map((x) => (t + x / 60 < end ? t + x / 60 : end - EPS)))];
   for (const samples of [4, { min: 4, max: 324, tol: 3 }]) {
-    const { engine, calls } = preparing([ex, her, hud]);
+    const { engine, calls } = preparing([intro, title, hud]);
     await engine.prepare(t, 1 / 30, samples, 0.5);
-    // her is not on screen at t (it starts inside the shutter), and ex's sub-frames past the cut hold before it
+    // title is not on screen at t (it starts inside the shutter), and intro's sub-frames past the cut hold before it
     const u = shutterOffsets(samples);
-    expect(calls.ex!.length).toBe(samples === 4 ? 4 : 324 - 5); // (6 of 324 are past the cut, held at one time)
-    expect(calls).toEqual({ ex: subTimes(CUT, u).map((x) => expect.closeTo(x, 12)), hud: subTimes(93.6, u).map((x) => expect.closeTo(x, 12)) });
+    expect(calls.intro!.length).toBe(samples === 4 ? 4 : 324 - 5); // (6 of 324 are past the cut, held at one time)
+    expect(calls).toEqual({ intro: subTimes(CUT, u).map((x) => expect.closeTo(x, 12)), hud: subTimes(93.6, u).map((x) => expect.closeTo(x, 12)) });
   }
-  // at the cut, her's early sub-frames hold at its start: three times for four sub-frames (hud has no scene)
-  const { engine, calls } = preparing([ex, her, hud], ['hud']);
+  // at the cut, title's early sub-frames hold at its start: three times for four sub-frames (hud has no scene)
+  const { engine, calls } = preparing([intro, title, hud], ['hud']);
   await engine.prepare(CUT, 1 / 30, 4, 0.5);
-  expect(calls).toEqual({ her: [CUT, expect.closeTo(CUT + 0.125 / 60, 12), expect.closeTo(CUT + 0.375 / 60, 12)] });
+  expect(calls).toEqual({ title: [CUT, expect.closeTo(CUT + 0.125 / 60, 12), expect.closeTo(CUT + 0.375 / 60, 12)] });
 });
 
 test('prepare: without motion blur (samples 1), each scene on screen at t prepares t only', async () => {
-  const { engine, calls } = preparing([ex, her, hud]);
+  const { engine, calls } = preparing([intro, title, hud]);
   await engine.prepare(468 / 30, 1 / 30, 1, 0.5);
-  expect(calls).toEqual({ ex: [468 / 30], hud: [468 / 30] });
+  expect(calls).toEqual({ intro: [468 / 30], hud: [468 / 30] });
 });
 
 test('ownedFrames: a window [s, e) owns frames ceil(s·fps) … ceil(e·fps) − 1', () => {
-  expect(ownedFrames(her, 30)).toEqual({ first: 469, last: 684 }); // 15.608·30 = 468.24, 22.808·30 = 684.24: 216 frames
-  expect(ownedFrames(her, 60)).toEqual({ first: 937, last: 1368 }); // 936.48 and 1368.48: 432 frames
-  // a boundary exactly on a frame time: that frame is the later window's (the film ends at 93.6, frame 2808)
+  expect(ownedFrames(title, 30)).toEqual({ first: 469, last: 684 }); // 15.608·30 = 468.24, 22.808·30 = 684.24: 216 frames
+  expect(ownedFrames(title, 60)).toEqual({ first: 937, last: 1368 }); // 936.48 and 1368.48: 432 frames
+  // a boundary exactly on a frame time: that frame is the later window's (a film that ends at 93.6, frame 2808)
   expect(ownedFrames({ start: 86.408, end: 93.6 }, 30)).toEqual({ first: 2593, last: 2807 });
   expect(ownedFrames({ start: 2, end: 4 }, 30)).toEqual({ first: 60, last: 119 });
   expect(ownedFrames({ start: 2, end: 4 }, 60)).toEqual({ first: 120, last: 239 });
@@ -302,10 +302,10 @@ test('render: a sub-frame held at the end of its window gets dt = 0 (no time pas
       dts.push([f.t, f.dt]);
     }
   }
-  const { engine } = await standIn([{ ...ex, scene: Rec }, { ...her, scene: Rec }]);
+  const { engine } = await standIn([{ ...intro, scene: Rec }, { ...title, scene: Rec }]);
   engine.render(467 / 30, 1 / 30, false, 36, 0.5);
   dts.length = 0;
-  // frame 468's last sub-frame (15.6 + 0.486 / 60) is past the cut: ex holds just before it
+  // frame 468's last sub-frame (15.6 + 0.486 / 60) is past the cut: intro holds just before it
   engine.render(468 / 30, 1 / 30, false, 36, 0.5);
   expect(dts.slice(0, 35).map(([, dt]) => dt)).toEqual(Array(35).fill(expect.closeTo(1 / 30 / 36, 15)));
   expect(dts[35]).toEqual([CUT - EPS, 0]);
@@ -480,9 +480,9 @@ test('straddledFrames: a still within 0.1 frame of half way between two frames s
   expect(straddledFrames(0, 30)).toBeNull();
 });
 
-// ------------------------------------------------------------------ transitions (Plan 3 Task 1)
+// ------------------------------------------------------------------ transitions
 
-/** The film's thread → ex cut as a stand-in pair: a [0, 6.008) and b [6.008, 15.608), and a spec between them. */
+/** A cut as a stand-in pair: a [0, 6.008) and b [6.008, 15.608), and a spec between them. */
 const A = { id: 'a', start: 0, end: 6.008 }, B = { id: 'b', start: 6.008, end: 15.608 };
 const pair = (spec: Partial<TransitionSpec>) =>
   transitionEntries([{ from: 'a', to: 'b', kind: 'whip', pre: 0.1, post: 0.15, dir: [1, 0], ...spec } as TransitionSpec], [{ ...A, act: 'I' }, { ...B, act: 'I' }], []);
@@ -502,7 +502,7 @@ function recorder(id: string, rec: { prepared: number[]; rendered: number[] }, o
   };
 }
 
-test("a 'hold' plate scene in a transition is prepared and rendered only inside its window (Review Focus 4)", async () => {
+test("a 'hold' plate scene in a transition is prepared and rendered only inside its window", async () => {
   for (const samples of [1, 4, { min: 4, max: 324, tol: 3 }] as (number | AdaptiveSampling)[]) {
     const ra = { prepared: [] as number[], rendered: [] as number[] }, rb = { prepared: [] as number[], rendered: [] as number[] };
     const tr = pair({});

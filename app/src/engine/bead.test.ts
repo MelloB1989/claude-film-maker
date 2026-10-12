@@ -2,8 +2,8 @@ import { expect, test } from 'bun:test';
 import * as THREE from 'three';
 import { beadGeometry, beadProfile, type BeadShape } from './bead';
 
-// her's bead (her.ts): a 24 mm sphere on the 4.2 mm thread, its band centred where shot 2's camera looks, raised 0.4 rad
-const HER: BeadShape = {
+// a hero bead: a 24 mm sphere on a 4.2 mm thread, its band centred where an oblique camera looks, raised 0.4 rad
+const HERO: BeadShape = {
   radius: 0.024, bore: 0.0042 * 1.3, chamfer: 0.0042 * 0.7,
   centre: [Math.atan2(-0.118, 0.216), Math.atan2(0.02, Math.hypot(0.216, -0.118)) + 0.4],
 };
@@ -26,7 +26,7 @@ function corners(geo: THREE.BufferGeometry) {
 
 test('no triangle of the bead smears the engraving: one that reaches the band spans only its own patch of it', () => {
   // the band is UV [0, 1]²; a lathe step moves a UV by about 0.02 along the band and 0.07 across it
-  for (const o of [HER, PLAIN, WIDE]) {
+  for (const o of [HERO, PLAIN, WIDE]) {
     const bad: string[] = [];
     for (const tri of corners(beadGeometry(o))) {
       const us = tri.map((c) => c.uv[0]), vs = tri.map((c) => c.uv[1]);
@@ -39,8 +39,8 @@ test('no triangle of the bead smears the engraving: one that reaches the band sp
 });
 
 test('the bead is the same lathe, triangle for triangle: positions and normals, in the same order', () => {
-  const lathe = new THREE.LatheGeometry(beadProfile(HER.radius, HER.bore, HER.chamfer), 160).rotateZ(-Math.PI / 2);
-  const want = corners(lathe), got = corners(beadGeometry(HER));
+  const lathe = new THREE.LatheGeometry(beadProfile(HERO.radius, HERO.bore, HERO.chamfer), 160).rotateZ(-Math.PI / 2);
+  const want = corners(lathe), got = corners(beadGeometry(HERO));
   expect(got.length).toBe(want.length);
   got.forEach((tri, t) => tri.forEach((c, k) => {
     expect(c.p).toEqual(want[t]![k]!.p);
@@ -49,9 +49,9 @@ test('the bead is the same lathe, triangle for triangle: positions and normals, 
 });
 
 test('away from the back seam and the chamfers, every corner keeps the band UV of its own position (the face as before)', () => {
-  const [A, B] = HER.span ?? [0.95, 0.3], [a0, b0] = HER.centre!, r = HER.radius;
+  const [A, B] = HERO.span ?? [0.95, 0.3], [a0, b0] = HERO.centre!, r = HERO.radius;
   let checked = 0;
-  for (const tri of corners(beadGeometry(HER))) {
+  for (const tri of corners(beadGeometry(HERO))) {
     const on = tri.every((c) => Math.hypot(...c.p) > 0.97 * r);
     const as = tri.map((c) => Math.atan2(c.p[0]!, c.p[2]!));
     if (!on || Math.max(...as) - Math.min(...as) > Math.PI) continue;

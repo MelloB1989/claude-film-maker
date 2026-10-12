@@ -1,14 +1,15 @@
-// The thread in 3D: the film's motif (spec §3). One luminous thread: a bone core with a accent-red `−` ply and a
-// accent2-green `+` ply laid round it (the identity is a git diff). It draws on, frays and snaps, strings beads, weaves.
+// The thread in 3D: a motif primitive, one luminous plied thread. By default an fg (foreground) core with an accent
+// `−` ply and an accent2 `+` ply laid round it: the diff motif, removal in the accent and addition in the secondary
+// accent. It draws on, frays and snaps, strings beads, weaves.
 //
-// Construction. Plies of one colour twist together as equals: the classic 3-ply, the opening's bone thread (Blender
-// B01). A bone first ply with coloured plies after it is the diff thread (spec §3; Plan 2 Tasks 10 and 25: "accent and
-// accent2 plies twisting around the bone core"): the bone ply is that same 3-ply rope, and the coloured plies are laid in
-// its grooves, the way rope is wormed. So the thread that snaps in the opening is the core of the one that re-forms.
-// Each coloured strand touches the two bone plies either side, flush with the rope's surface, and the `−` lies one
-// groove ahead of the `+`: along the thread every turn reads `−`, `+`, then bone, diff hunks between context. `core`
-// overrides the choice. Inside, a thread is up to five tubes (three bone plies and two worms); the public ply indices
-// stay the colours' (0 the bone core, whose centre is the axis; 1 and 2 the strands).
+// Construction. Plies of one colour twist together as equals: the classic 3-ply, a plain fg thread. An fg first ply
+// with coloured plies after it is the diff thread (the accent and accent2 plies twisting around the fg core): the fg
+// ply is that same 3-ply rope, and the coloured plies are laid in its grooves, the way rope is wormed. So a plain
+// thread that snaps is the core of the diff thread it re-forms as. Each coloured strand touches the two fg plies either
+// side, flush with the rope's surface, and the `−` lies one groove ahead of the `+`: along the thread every turn reads
+// `−`, `+`, then fg, diff hunks between context. `core` overrides the choice. Inside, a thread is up to five tubes
+// (three fg plies and two worms); the public ply indices stay the colours' (0 the fg core, whose centre is the axis;
+// 1 and 2 the strands).
 //
 // Geometry. The centreline is a centripetal Catmull-Rom through the points, resampled evenly in arc length into a
 // float texture (`frames`, M samples × 4 rows: point, tangent, normal, binormal). The normal is a rotation-minimising
@@ -28,18 +29,18 @@
 //   a streak where the half vector is square to the fibres, as on real cord.
 // - The shader adds the fibre striation (grooves and per-fibre tone along iso-lines of vQ, which run with the
 //   fibres), occlusion in the crevices where plies press together, and per-ply colour.
-// - Blood and accent2 plies are dyed fibre (toward accentDim and accent2Dim) with an emissive core in the palette colour:
-//   glow('accent'|'accent2', level) across the strand as a sharp power of N·V over a soft one, a luminous filament down its
-//   middle that the post halates. Bone never emits. A scene can darken the strands' fibre (strandDye) and slim them
-//   (strandScale) so the colour is carried by the light of the core alone; the defaults are the look.
+// - Accent and accent2 plies are dyed fibre (toward accentDim and accent2Dim) with an emissive core in the palette
+//   colour: glow('accent'|'accent2', level) across the strand as a sharp power of N·V over a soft one, a luminous
+//   filament down its middle that the post halates. Fg never emits. A scene can darken the strands' fibre (strandDye)
+//   and slim them (strandScale) so the colour is carried by the light of the core alone; the defaults are the look.
 // - Fibres off the surface are their own instanced mesh (a child of `mesh`): a sparse fuzz that catches the rim light
 //   (Kajiya-Kay plus forward scatter), and fray fibres that grow and lift where setFray opens the plies.
 //
-// The diff thread every scene shows (her, then Part C) is DIFF_THREAD, a preset of these options: a 14° lay, the strands
-// dyed near ink and slimmed so their colour is light, not paint, and that light off at rest. A scene lights one strand on
-// meaning (setStrandGlow, strandGlow): accent2 when something is committed or added, accent when something is struck or
-// removed. Its numbers are data/look/thread.json, which Blender's lib/thread.py reads too, so the two renderers' diff
-// threads match for intercuts.
+// The diff thread a scene shows is DIFF_THREAD, a preset of these options: a 14° lay, the strands dyed nearly black
+// and slimmed so their colour is light, not paint, and that light off at rest. A scene lights one strand on meaning
+// (setStrandGlow, strandGlow): accent2 when something is committed or added, accent when something is struck or
+// removed. Its numbers are thread-look.json (`diffThread`), which Blender's lib/thread.py reads too, so the two
+// renderers' diff threads match for intercuts.
 import * as THREE from 'three';
 import { glslCommon } from './glsl/common';
 import { H, W } from './config';
@@ -66,7 +67,7 @@ export interface ThreadOpts {
    * longer lay (a smaller angle) reads as fewer, longer stripes.
    */
   layDeg?: number;
-  /** Colour of each ply (default bone, accent, accent2; cycled when shorter than `plies`). */
+  /** Colour of each ply (default fg, accent, accent2; cycled when shorter than `plies`). */
   colors?: ThreadColor[];
   /**
    * Emissive level of the accent and accent2 cores: a look.ts glow() level, the bloom key at the core (default
@@ -82,18 +83,18 @@ export interface ThreadOpts {
   radialSegments?: number;
   /** Rings along the thread (default: 24 per ply turn, at least 2 per radius of length; at most 4095). */
   tubularSegments?: number;
-  /** The first ply is a 3-ply core with the others laid in its grooves (default: a bone first ply among other
+  /** The first ply is a 3-ply core with the others laid in its grooves (default: an fg first ply among other
    * colours, the diff thread). */
   core?: boolean;
   /**
    * The accent and accent2 strands' fibre colour, as a multiple of the look's dyed colour (THREAD_LOOK.dye), 0..1: toward 0
-   * the fibre goes dark and the strand's glowing core carries the colour, light rather than paint. Bone and the glow
-   * are untouched (default 1: the look).
+   * the fibre goes dark and the strand's glowing core carries the colour, light rather than paint. The fg ply and the
+   * glow are untouched (default 1: the look).
    */
   strandDye?: number;
   /**
    * The diff thread's accent and accent2 strands' radius, as a multiple of THREAD_LOOK.wormRadius. A strand stays in its
-   * groove, touching the bone plies either side, so a thinner one sits deeper. Plies twisted as equals keep their
+   * groove, touching the fg plies either side, so a thinner one sits deeper. Plies twisted as equals keep their
    * radius (default 1: the look).
    */
   strandScale?: number;
@@ -104,8 +105,8 @@ export interface ThreadOpts {
 }
 
 /**
- * The thread's look, one set of numbers for both renderers: the engine (here) and Blender (Task 8's thread.ply_thread
- * and materials.fiber). Lengths are in thread radii unless noted. The ply twist is right-handed (Z).
+ * The thread's look, one set of numbers for both renderers: the engine (here) and Blender (blender/lib's
+ * thread.ply_thread and materials.fiber). Lengths are in thread radii unless noted. The ply twist is right-handed (Z).
  */
 export const THREAD_LOOK = {
   /** Equal plies (one colour), by count 1, 2, 3: ply radius and ply-centre offset. Three of radius 0.5 on a circle of
@@ -114,10 +115,10 @@ export const THREAD_LOOK = {
   plyOffset: [0, 0.5, 0.5],
   /** Their lay angle against the thread axis (degrees); sets the default twist. */
   helixDeg: 32,
-  /** The diff thread's coloured strands, laid in the grooves of the bone 3-ply: this radius, touching the plies either
+  /** The diff thread's coloured strands, laid in the grooves of the fg 3-ply: this radius, touching the plies either
    * side, puts them 0.8 from the axis, flush with the rope's outer radius. The grooves sit 1/6, 1/2 and 5/6 of a turn
    * round from the first ply; the `−` takes the one at 1/2 and the `+` the one at 1/6, so along the thread the `−`
-   * passes each point a third of a turn before the `+`, and the groove at 5/6 is bare: `−`, `+`, then bone. */
+   * passes each point a third of a turn before the `+`, and the groove at 5/6 is bare: `−`, `+`, then fg. */
   wormRadius: 0.2,
   /** A single strand's fibre angle (degrees against its axis). */
   singleDeg: 24,
@@ -137,7 +138,7 @@ export const THREAD_LOOK = {
   ior: 1.5,
   sheen: 1,
   sheenRoughness: 0.35,
-  /** Blood and accent2 plies are dyed fibre: their albedo lies this far from the palette colour toward its dim shade
+  /** Accent and accent2 plies are dyed fibre: their albedo lies this far from the palette colour toward its dim shade
    * (accentDim, accent2Dim), so the glowing core, in the palette colour itself, reads as light inside the strand. */
   dye: 0.82,
   /** The emissive core of accent and accent2 plies: its level (look.ts glow(), the brightest point), and its profile
@@ -167,19 +168,19 @@ export const THREAD_LOOK = {
 const DIFF = LOOK_DATA.diffThread;
 
 /**
- * The diff thread's look, the options every scene spreads in: `new Thread(points, { ...DIFF_THREAD, radius, … })`. It is
- * her's thread (Plan 2 Task 10) made the film's (E3), with the C4a verdict (b): bone at rest, colour lit on meaning.
+ * The diff thread's look, the options a scene spreads in: `new Thread(points, { ...DIFF_THREAD, radius, … })`. Fg at
+ * rest, colour lit on meaning.
  * - layDeg 14: a long lay against the default 32°, fewer and longer turns: a luxury cable rather than a candy cane.
- * - strandDye 0.03, strandScale 0.62: the accent and accent2 strands' fibre dyed near ink and slimmed, so they sit deeper
- *   in their grooves and their colour is carried by the glowing core alone: light, not paint.
- * - rest: the cores' level at rest, where the thread starts. Dim, under the bloom: the strands read as dark grooves in a
- *   bone rope, not as stripes.
+ * - strandDye 0.03, strandScale 0.62: the accent and accent2 strands' fibre dyed nearly black and slimmed, so they sit
+ *   deeper in their grooves and their colour is carried by the glowing core alone: light, not paint.
+ * - rest: the cores' level at rest, where the thread starts. Dim, under the bloom: the strands read as dark grooves in
+ *   an fg rope, not as stripes.
  * - glow 3.6: the level a strand lights to on meaning, just under the level where a core whitens (about 4, look.ts).
  *   Every frame a scene sets each strand's level from its own moments, `th.setStrandGlow({ accent2: strandGlow(t, T.commit),
  *   accent: strandGlow(t, T.strike) })`: accent2 when something is committed or added, accent when something is struck or
  *   removed. A strand with no moment stays at rest; setGlow(level) sets both, for a thread that is lit throughout.
- * The numbers are data/look/thread.json, which Blender's lib/thread.py reads for its DIFF_THREAD (B03, B05, B08), so the
- * engine and Blender threads match for intercuts.
+ * The numbers are thread-look.json's `diffThread`, which Blender's lib/thread.py reads for its DIFF_THREAD, so the
+ * engine's and Blender's threads match for intercuts.
  */
 export const DIFF_THREAD = {
   layDeg: DIFF.layDeg,
@@ -189,7 +190,7 @@ export const DIFF_THREAD = {
   rest: DIFF.rest,
 } satisfies Partial<ThreadOpts>;
 
-/** strandFlare's envelope: a strand lights over `lead` s into its moment and dies away over `decay` s (thread.json). */
+/** strandFlare's envelope: a strand lights over `lead` s into its moment and dies away over `decay` s (thread-look). */
 export const STRAND_FLARE = { lead: DIFF.flare.lead, decay: DIFF.flare.decay };
 
 /**
@@ -226,8 +227,8 @@ export function strandGlow(
 //
 // setStrandGlow lights a strand whole; setStrandLight lights it along its length: an envelope 0..1 over the thread's
 // arc fraction per strand (accent, accent2) scales that strand's core from its setStrandGlow level, where the envelope is 0,
-// up to a lit level (DIFF_THREAD.glow) where it is 1. A commit's accent2 light rides in with its bead, blooms as it lands
-// and runs out along the thread both ways (repo); a flare travels out from her bead (her, Plan 3), along the braid.
+// up to a lit level (DIFF_THREAD.glow) where it is 1. An accent2 light can ride in with a bead, bloom as it lands and
+// run out along the thread both ways; a flare can travel out from a bead along a braid.
 // The envelope is usually a sum of moving lights (StrandGlow: a centre, a half-width and a level, all in arc fraction,
 // the brightest winning where they overlap) sampled by envelopeOf, all a pure function of the glows a scene makes from t.
 // The fibres keep the strand's level: they carry 3% of a core's light, and a lit window of them would not read.
@@ -302,7 +303,7 @@ const angDist = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), M
 interface Tube { r: number; d: number; phase: number; ply: number }
 
 /**
- * The cross-section: equal plies on a circle, or the bone 3-ply with the other plies laid in its grooves. Also the lay
+ * The cross-section: equal plies on a circle, or the fg 3-ply with the other plies laid in its grooves. Also the lay
  * the default twist is set from: the angle, at the plies' offset.
  */
 function layout(n: number, core: boolean, strandScale = 1): { tubes: Tube[]; layDeg: number; layOffset: number } {
@@ -310,11 +311,11 @@ function layout(n: number, core: boolean, strandScale = 1): { tubes: Tube[]; lay
   if (n === 1) return { tubes: [{ r: 1, d: 0, phase: 0, ply: 0 }], layDeg: L.singleDeg, layOffset: 1 };
   if (core) {
     const r = L.plyRadius[2], d = L.plyOffset[2], rw = L.wormRadius * strandScale;
-    const bone = [0, 1, 2].map((i) => ({ r, d, phase: i / 3, ply: 0 }));
+    const fgPlies = [0, 1, 2].map((i) => ({ r, d, phase: i / 3, ply: 0 }));
     // a groove lies between two plies (1/6 of a turn from each); a strand in it touching both sits D from the axis
     const D = d * Math.cos(Math.PI / 3) + Math.sqrt((r + rw) ** 2 - (d * Math.sin(Math.PI / 3)) ** 2);
     const worms = Array.from({ length: n - 1 }, (_, j) => ({ r: rw, d: D, phase: 0.5 - j / 3, ply: j + 1 }));
-    return { tubes: [...bone, ...worms], layDeg: L.helixDeg, layOffset: d };
+    return { tubes: [...fgPlies, ...worms], layDeg: L.helixDeg, layOffset: d };
   }
   const r = L.plyRadius[n - 1]!, d = L.plyOffset[n - 1]!;
   return { tubes: Array.from({ length: n }, (_, i) => ({ r, d, phase: i / n, ply: i })), layDeg: L.helixDeg, layOffset: d };
@@ -365,7 +366,7 @@ export interface ThreadUniforms {
   uTubePly: Uniform<number[]>;
   /** Per ply: the fibre's albedo (linear). */
   uColors: Uniform<THREE.Vector3[]>;
-  /** Per ply: the emissive core (linear, the look.ts glow level); zero for bone. */
+  /** Per ply: the emissive core (linear, the look.ts glow level); zero for fg. */
   uGlow: Uniform<THREE.Vector3[]>;
   /** Scales the along-fibre tone noise: arc fraction to fibre lengths. */
   uAlong: Uniform<number>;
@@ -1006,7 +1007,7 @@ export class Thread {
     this.uniforms.uFray.value.set(this.fray.at, this.fray.amount, this.fray.half);
   }
 
-  /** Emissive level of the accent and accent2 cores, both (look.ts glow level); bone stays dark whatever the level. */
+  /** Emissive level of the accent and accent2 cores, both (look.ts glow level); fg stays dark whatever the level. */
   setGlow(level: number) {
     this.uniforms.uGlow.value.forEach((g, i) => {
       const key = i < this.colors.length ? GLOW_KEY[this.colors[i]!] : null;
@@ -1020,7 +1021,7 @@ export class Thread {
   /**
    * Emissive level of the accent strand, the accent2 strand, or each (look.ts glow levels): a strand left out keeps its
    * level. A scene lights one on meaning, accent2 when something is committed or added, accent when something is struck or
-   * removed, with strandGlow giving the level at t (DIFF_THREAD). Bone stays dark.
+   * removed, with strandGlow giving the level at t (DIFF_THREAD). Fg stays dark.
    */
   setStrandGlow(levels: { accent?: number; accent2?: number }) {
     this.uniforms.uGlow.value.forEach((g, i) => {

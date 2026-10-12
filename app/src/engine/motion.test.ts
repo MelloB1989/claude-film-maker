@@ -240,27 +240,27 @@ test('whip with no duration is an instant cut with no blur', () => {
 const voData = {
   duration: 12,
   lines: [
-    { id: 'L01', scene: 'ex', act: 'I', text: 'Not me.', start: 1, end: 2,
-      words: [{ w: 'Not', start: 1.0, end: 1.4 }, { w: 'me.', start: 1.5, end: 2.0 }] },
-    { id: 'L02', scene: 'her', act: 'I', text: 'Every memory, a commit.', start: 3, end: 5,
-      words: [{ w: 'Every', start: 3.0, end: 3.3 }, { w: 'memory,', start: 3.35, end: 3.9 },
-        { w: 'a', start: 4.2, end: 4.3 }, { w: 'commit.', start: 4.35, end: 5.0 }] },
-    { id: 'L03', scene: 'her', act: 'I', text: 'Every fact, a blame.', start: 6, end: 8,
-      words: [{ w: 'Every', start: 6.0, end: 6.3 }, { w: 'fact,', start: 6.35, end: 6.9 },
-        { w: 'a', start: 7.2, end: 7.3 }, { w: 'blame.', start: 7.35, end: 8.0 }] },
-    { id: 'L04', scene: 'loom', act: 'II', text: 'Loom.', start: 9, end: 10, words: [{ w: 'Loom.', start: 9.1, end: 9.8 }] },
+    { id: 'L01', scene: 'intro', act: 'I', text: 'Hello there.', start: 1, end: 2,
+      words: [{ w: 'Hello', start: 1.0, end: 1.4 }, { w: 'there.', start: 1.5, end: 2.0 }] },
+    { id: 'L02', scene: 'title', act: 'I', text: 'Every frame, a beat.', start: 3, end: 5,
+      words: [{ w: 'Every', start: 3.0, end: 3.3 }, { w: 'frame,', start: 3.35, end: 3.9 },
+        { w: 'a', start: 4.2, end: 4.3 }, { w: 'beat.', start: 4.35, end: 5.0 }] },
+    { id: 'L03', scene: 'title', act: 'I', text: 'Every word, a cue.', start: 6, end: 8,
+      words: [{ w: 'Every', start: 6.0, end: 6.3 }, { w: 'word,', start: 6.35, end: 6.9 },
+        { w: 'a', start: 7.2, end: 7.3 }, { w: 'cue.', start: 7.35, end: 8.0 }] },
+    { id: 'L04', scene: 'outro', act: 'II', text: 'Fin.', start: 9, end: 10, words: [{ w: 'Fin.', start: 9.1, end: 9.8 }] },
   ],
   scenes: [
-    { id: 'ex', act: 'I', start: 0, end: 2.5 }, { id: 'her', act: 'I', start: 2.5, end: 8.5 },
-    { id: 'loom', act: 'II', start: 8.5, end: 10.5 }, { id: 'quiet', act: 'II', start: 10.5, end: 12 },
+    { id: 'intro', act: 'I', start: 0, end: 2.5 }, { id: 'title', act: 'I', start: 2.5, end: 8.5 },
+    { id: 'outro', act: 'II', start: 8.5, end: 10.5 }, { id: 'quiet', act: 'II', start: 10.5, end: 12 },
   ],
   acts: [{ id: 'I', name: 'One', start: 0, end: 8.5 }, { id: 'II', name: 'Two', start: 8.5, end: 12 }],
 };
 
 test('wordTimes returns the scene\'s words in spoken order, with at = the word\'s start', () => {
   const vo = new VO(voData);
-  const wt = wordTimes(vo, 'her');
-  expect(wt.map((x) => x.w.w)).toEqual(['Every', 'memory,', 'a', 'commit.', 'Every', 'fact,', 'a', 'blame.']);
+  const wt = wordTimes(vo, 'title');
+  expect(wt.map((x) => x.w.w)).toEqual(['Every', 'frame,', 'a', 'beat.', 'Every', 'word,', 'a', 'cue.']);
   for (const x of wt) expect(x.at).toBe(x.w.start);
   for (let i = 1; i < wt.length; i++) expect(wt[i]!.at).toBeGreaterThan(wt[i - 1]!.at);
   expect(wt.map((x) => x.at)).toEqual([3.0, 3.35, 4.2, 4.35, 6.0, 6.35, 7.2, 7.35]);
@@ -268,21 +268,21 @@ test('wordTimes returns the scene\'s words in spoken order, with at = the word\'
 
 test('wordTimes hands back the VO\'s own words, and only the requested scene\'s', () => {
   const vo = new VO(voData);
-  const wt = wordTimes(vo, 'her');
+  const wt = wordTimes(vo, 'title');
   for (const x of wt) expect(x.w).toBe(vo.words[x.w.gi]!); // same objects: line, index and gi intact
-  expect(wordTimes(vo, 'ex').map((x) => x.w.w)).toEqual(['Not', 'me.']);
-  expect(wordTimes(vo, 'loom').map((x) => x.at)).toEqual([9.1]);
+  expect(wordTimes(vo, 'intro').map((x) => x.w.w)).toEqual(['Hello', 'there.']);
+  expect(wordTimes(vo, 'outro').map((x) => x.at)).toEqual([9.1]);
 });
 
 test('wordTimes: a scene with no spoken words is empty; a scene the VO has never heard of throws', () => {
   const vo = new VO(voData);
   expect(wordTimes(vo, 'quiet')).toEqual([]);
-  expect(() => wordTimes(vo, 'hre')).toThrow('hre');
+  expect(() => wordTimes(vo, 'titel')).toThrow('titel');
 });
 
 // ---- onBeat / onDownbeat ----
 
-// 100 BPM in 4/4, offset like the score's grid: a beat every 0.6 s, a downbeat every 4th beat.
+// 100 BPM in 4/4, offset a little from 0 as a real grid is: a beat every 0.6 s, a downbeat every 4th beat.
 const beats = Array.from({ length: 40 }, (_, i) => 0.008 + 0.6 * i);
 const downbeats = beats.filter((_, i) => i % 4 === 0);
 const audio = new AudioData({ duration: 24, bpm: 100, fps: 100, beats, downbeats, sections: [], features: {}, onsets: {} });

@@ -69,8 +69,8 @@ describe('glyphs: the cells', () => {
   });
 
   test('a scene\'s own vertex shader draws on the shared fragment shader: premultiplied, writing depth', () => {
-    // what a vertex shader built on GLYPH_VERT_HEAD hands the fragment shader
-    for (const decl of ['in vec2 corner;', 'out vec2 vUv;', 'out vec4 vGlyph;', 'out vec4 vCol;', 'out vec2 vTile;', 'vec3 boneAt(float b)']) {
+    // what a vertex shader built on glyphVertHead() hands the fragment shader
+    for (const decl of ['in vec2 corner;', 'out vec2 vUv;', 'out vec4 vGlyph;', 'out vec4 vCol;', 'out vec2 vTile;', 'vec3 fgAt(float b)']) {
       expect(glyphVertHead()).toContain(decl);
     }
     const vert = `${glyphVertHead()}\nuniform float uMine;\nvoid main() { vUv = corner; gl_Position = vec4(corner, 0.0, 1.0); }`;

@@ -51,7 +51,7 @@ test('Halo: a round glow centred on a point, its level a glow() level; off at 0'
   h.dispose();
 });
 
-test('Wash: a box of faint bone light from (x0, y0) to (x1, y1); Bar: a sign the height of its row', () => {
+test('Wash: a box of faint fg light from (x0, y0) to (x1, y1); Bar: a sign the height of its row', () => {
   const w = new Wash(P);
   w.set(0, 300, 640, 338.5, 0.007, 0.05);
   close(w.mesh.position.toArray(), [0, (200 - 319.25) / 1000, 0.4 / 1000]);

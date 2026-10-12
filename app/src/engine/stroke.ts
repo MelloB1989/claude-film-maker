@@ -308,7 +308,7 @@ export function drawStrokeText(c: CanvasRenderingContext2D, st: StrokeText, len:
 }
 
 /**
- * Map song time -> written length so each char is written while its word is sung.
+ * Map film time -> written length so each char is written while its word is spoken (or sung).
  * `charTimes[i]` = [start, end] time for char i (e.g. derived from word timings).
  */
 export function writtenLength(st: StrokeText, charTimes: [number, number][], t: number): number {

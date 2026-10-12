@@ -1,13 +1,13 @@
 // Light on a Panel (engine/panels.ts): a blade of light along a strike (Blade), soft glows (Halo: an impact's flare, a
 // struck line's aura, the light that rides a typing head), a diff's sign in the margin (Bar), a wash over a box (Wash:
 // a caret's row, a selection made of light), and a pool of light with the rest of the panel falling into shadow (Spot).
-// Made for `diff`; `cite` (the stitch, highlighted lines, a blame gutter) and `connect` (the ✔) light their panels with
-// them.
+// An editor's diff being struck and added, highlighted lines, a blame gutter, a checkmark's flare: any panel can be lit
+// with them.
 //
 // A Panel is unlit (its canvas is its colour), so what lights it is light added over its face: each overlay is a plane
 // a hair in front of the face (0.3 to 0.6 panel px), drawn after the panel (renderOrder OVER; the Spot after the rest)
 // with additive blending (the Spot premultiplied) and no depth write, so the depth of field reads the panel's depth under
-// them. Only accent and accent2 glow, at glow() levels (look.ts); bone washes stay far under the bloom's opening.
+// them. Only accent and accent2 glow, at glow() levels (look.ts); fg washes stay far under the bloom's opening.
 //
 // Each takes the panel's size in panel px ({ w, h }: pass the Panel's spec) and is placed in panel px from its top
 // left, y down, as the panel's own canvas is (Panel.rowTop, textOrigin and cellOrigin give the places): add its mesh to
@@ -28,8 +28,9 @@ const UV_VERT = /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Positio
 /**
  * The blade: a line of accent light along a strike, from the line's first character (its tail) to the cut's leading
  * edge (its tip). Its core is a hairline as thick as the Panel's own strike, which it lies on; its light falls off
- * across it over a few px (the bloom carries it further). Hot, the tip burns at the strand's lit level and the light
- * runs back along the cut; cooled, the whole line is an ember just over the bloom's opening: a memory of the cut.
+ * across it over a few px (the bloom carries it further). Hot, the tip burns at a lit thread strand's level (3.6,
+ * DIFF_THREAD.glow) and the light runs back along the cut; cooled, the whole line is an ember just over the bloom's
+ * opening: a memory of the cut.
  *
  * In the panel's px (its group scales them): `set` takes the tail's x, the tip's x, the strike's centre y (px from the
  * panel's top), the heat (0..1) and the ember's level.
@@ -119,8 +120,8 @@ export class Halo {
 }
 
 /**
- * A wash of bone light over a box on the panel (the caret's row, a selection): additive and faint, its edges a px
- * soft. Bone is added well under the bloom's opening, so it lifts the panel and its type without ever blooming.
+ * A wash of fg light over a box on the panel (the caret's row, a selection): additive and faint, its edges a px
+ * soft. Fg is added well under the bloom's opening, so it lifts the panel and its type without ever blooming.
  */
 export class Wash {
   mesh: THREE.Mesh;
@@ -141,7 +142,7 @@ export class Wash {
     this.mesh.frustumCulled = false;
   }
 
-  /** The box from (x0, y0) to (x1, y1) px, its wash at `level` (a fraction of bone), its left edge lit by `edge`. */
+  /** The box from (x0, y0) to (x1, y1) px, its wash at `level` (a fraction of fg), its left edge lit by `edge`. */
   set(x0: number, y0: number, x1: number, y1: number, level: number, edge = 0) {
     const { w, h } = this.panel, bw = Math.max(1e-3, x1 - x0), bh = Math.max(1e-3, y1 - y0);
     this.mesh.visible = level > 1e-4 && x1 - x0 > 0.25;
@@ -198,9 +199,9 @@ export class Bar {
 }
 
 /**
- * The romance's light on the editor: a pool round the diff's two lines, warm (bone with a breath of accent: the light
- * the ember gives), and the rest of the panel falling into shadow (ink over it, premultiplied: what is outside the pool
- * darkens, what is in it is lit). In panel px; `set` takes the pool's centre and radii and its strength.
+ * A spotlight on the panel: a pool round a few lines, warm (fg with a breath of accent: the light an ember gives), and
+ * the rest of the panel falling into shadow (bg over it, premultiplied: what is outside the pool darkens, what is in it
+ * is lit). In panel px; `set` takes the pool's centre and radii and its strength.
  */
 export class Spot {
   mesh: THREE.Mesh;
@@ -209,16 +210,16 @@ export class Spot {
   constructor(private panel: { w: number; h: number }) {
     const warm = LIN.fg.map((c, i) => 0.72 * c + 0.28 * LIN.accent[i]!) as [number, number, number];
     this.u = {
-      uWarm: { value: new THREE.Vector3(...warm) }, uInk: { value: new THREE.Vector3(...LIN.bg) },
+      uWarm: { value: new THREE.Vector3(...warm) }, uBg: { value: new THREE.Vector3(...LIN.bg) },
       uCentre: { value: new THREE.Vector2() }, uRadius: { value: new THREE.Vector2(1, 1) }, uLevel: { value: 0 }, uSize: { value: new THREE.Vector2(panel.w, panel.h) },
     };
     const frag = /* glsl */ `
-      uniform vec3 uWarm, uInk; uniform vec2 uCentre, uRadius, uSize; uniform float uLevel; varying vec2 vUv;
+      uniform vec3 uWarm, uBg; uniform vec2 uCentre, uRadius, uSize; uniform float uLevel; varying vec2 vUv;
       void main() {
         vec2 p = vec2(vUv.x, 1.0 - vUv.y) * uSize, d = (p - uCentre) / uRadius;
         float pool = exp(-dot(d, d));
         float dark = uLevel * 0.62 * (1.0 - pool);
-        gl_FragColor = vec4(uWarm * uLevel * 0.05 * pool + uInk * dark, dark);
+        gl_FragColor = vec4(uWarm * uLevel * 0.05 * pool + uBg * dark, dark);
       }`;
     const m = new THREE.ShaderMaterial({ uniforms: this.u, vertexShader: UV_VERT, fragmentShader: frag, transparent: true, depthWrite: false });
     m.blending = THREE.CustomBlending;

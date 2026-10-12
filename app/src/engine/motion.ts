@@ -1,7 +1,7 @@
 // Beat-locked motion helpers for scenes: springs, slams, speed ramps, whips, word onsets and beat pulses.
 // Each is a pure function of its inputs (a time, the Frame's beat grid, the voiceover) with no state, so any frame
 // renders identically in any order, which adaptive motion blur and seeking depend on. They compose util.ts (TAU, ease,
-// prog, pulse) instead of repeating it. The feel is the plan's motion language v2: springs are fast and tight
+// prog, pulse) instead of repeating it. The feel is the engine's motion language: springs are fast and tight
 // (4-6 Hz, damping 0.5-0.7), a whip is 60-120 ms, and nothing bounces like a cartoon.
 import type { Frame } from './scene';
 import { ease, prog, pulse, TAU } from './util';
@@ -96,7 +96,7 @@ export function speedRamp(tLocal: number, keys: [t: number, speed: number][]): n
 
 /** The middle of the motion language's 60-120 ms. */
 const WHIP_DUR = 0.09;
-/** Peak directional blur, in the logical 1920x1080 px scenes lay out in (multiply by SCALE for physical pixels). */
+/** Peak directional blur, in the logical px scenes lay out in (config.ts W x H; times SCALE for physical pixels). */
 const WHIP_BLUR_PX = 200;
 
 /**
@@ -106,7 +106,7 @@ const WHIP_BLUR_PX = 200;
  * `blurPx` is the smear a whip of that speed makes (it follows k's speed: 0 outside the window, 200 logical px at the
  * cut), for a 1-sample stand-in only: the engine has no directional blur pass, and a render with sub-frames (--samples,
  * the export) already smears the whip by moving the camera within the shutter, so a blur built from blurPx there would
- * smear it twice. Use it, if at all, for a preview or a single-sample still; her ignores it.
+ * smear it twice. Use it, if at all, for a preview or a single-sample still.
  */
 export function whip(t: number, cut: number, dur = WHIP_DUR): { k: number; blurPx: number } {
   if (dur <= 0) return { k: t < cut ? 0 : 1, blurPx: 0 };
@@ -131,8 +131,7 @@ export function wordTimes(vo: VO, scene: string): { w: Word; at: number }[] {
 
 /**
  * A decaying pulse on every beat: 1 on the beat, halving every `halfLife` beats. The unit is beats, not seconds: a Frame
- * carries the grid's beat phase and not the tempo, so the decay follows the tempo (0.2 beats is 120 ms at the score's
- * 100 BPM).
+ * carries the grid's beat phase and not the tempo, so the decay follows the tempo (0.2 beats is 120 ms at 100 BPM).
  */
 export function onBeat(f: Frame, halfLife = 0.2): number {
   return pulse(f.beatPhase, 0, halfLife);
