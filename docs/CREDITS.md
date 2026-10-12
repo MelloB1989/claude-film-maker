@@ -25,12 +25,9 @@ The single-stroke fonts in `app/public/fonts/stroke/` come with that engine: the
 Laboratories (SIL OFL) and the Hershey fonts (free use, with attribution to Dr. A. V. Hershey).
 
 ## Fonts
-- Bricolage Grotesque, JetBrains Mono and Geist, all under the SIL Open Font License. The texts are in `fonts/src/`.
-  Sources are pinned to google/fonts commit 9710da1eacb3be272583c3224dcb70f9da6eadbb.
+- The engine's default faces: Bricolage Grotesque, JetBrains Mono and Geist, all under the SIL Open Font License. The
+  texts are in `fonts/src/`. Sources are pinned to google/fonts commit 9710da1eacb3be272583c3224dcb70f9da6eadbb.
 
-## Voice, music and sound effects
-- Voice: the ElevenLabs voice library voice "Jean – Alluring and Playful Femme Fatale" (eVItLK1UvXctxuaRV2Oq).
-- Music and sound effects: generated with ElevenLabs.
-
-## Brand
-GitLoom mark and design tokens © GitLoom.
+## Films
+Each film credits its own voice, music, sound effects, images and brand in `films/<id>/CREDITS.md`. The engine ships
+none of them.
