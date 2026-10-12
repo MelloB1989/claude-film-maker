@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from gitloom_film.edit import assemble, place
-from gitloom_film.wav import SR, write_wav
+from filmtools.edit import assemble, place
+from filmtools.wav import SR, write_wav
 
 SCRIPT = {"acts": [{"id": "I", "name": "A", "scenes": ["s1", "s2"]}, {"id": "II", "name": "B", "scenes": ["s3"]}],
           "lines": [{"id": "L1", "scene": "s1", "text": "a b"}, {"id": "L2", "scene": "s1", "text": "c"},

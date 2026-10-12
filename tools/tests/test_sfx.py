@@ -3,8 +3,8 @@ import json
 import numpy as np
 import pytest
 
-from gitloom_film.sfx import load_sheet, render_bus
-from gitloom_film.wav import write_wav
+from filmtools.sfx import load_sheet, render_bus
+from filmtools.wav import write_wav
 
 SR = 48000
 

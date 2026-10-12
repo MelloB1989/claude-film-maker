@@ -4,8 +4,8 @@ from pathlib import Path
 
 import numpy as np
 
-from gitloom_film.deliver import check, encode_args, render_cmds, segments, snap_frames
-from gitloom_film.paths import DATA
+from filmtools.deliver import check, encode_args, render_cmds, segments, snap_frames
+from filmtools.paths import DATA
 
 
 def ff(*args):
@@ -104,7 +104,7 @@ def test_the_snap_cue_is_b01s_snap_frame():
 
 def test_lag_against_finds_a_late_audio_and_the_snap_hit(tmp_path):
     import soundfile as sf
-    from gitloom_film.deliver import lag_against, onset_near
+    from filmtools.deliver import lag_against, onset_near
     sr = 48000
     rng = np.random.default_rng(3)
     x = (rng.standard_normal(sr * 2) * 0.1).astype(np.float32)

@@ -4,8 +4,8 @@ import shutil
 import numpy as np
 import pytest
 
-from gitloom_film.pace import MAX_FACTOR, MIN_FACTOR, factor_for, pace_take, speech_rate, stretch, trim
-from gitloom_film.wav import SR, read_wav, write_wav
+from filmtools.pace import MAX_FACTOR, MIN_FACTOR, factor_for, pace_take, speech_rate, stretch, trim
+from filmtools.wav import SR, read_wav, write_wav
 
 needs_rb = pytest.mark.skipif(not shutil.which("rubberband"), reason="brew install rubberband")
 

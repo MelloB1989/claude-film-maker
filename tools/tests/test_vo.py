@@ -3,8 +3,8 @@ import json
 import numpy as np
 import pytest
 
-from gitloom_film.elevenlabs import TTSResult
-from gitloom_film.vo import generate_takes, load_script
+from filmtools.elevenlabs import TTSResult
+from filmtools.vo import generate_takes, load_script
 
 QUIET = {"log": lambda *_: None}
 

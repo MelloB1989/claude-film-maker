@@ -1,7 +1,7 @@
 import json
 import re
 
-from gitloom_film.audition import music_page, vo_page
+from filmtools.audition import music_page, vo_page
 
 
 def make_take(root, line, k, dur=1.0, factor=0.9):

@@ -1,6 +1,6 @@
 import numpy as np
 
-from gitloom_film.vochain import CHAIN, chain, compress, deess, loudness, onset_shift, plate, report, saturate
+from filmtools.vochain import CHAIN, chain, compress, deess, loudness, onset_shift, plate, report, saturate
 
 SR = 48000
 

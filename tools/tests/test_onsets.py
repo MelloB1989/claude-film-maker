@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from gitloom_film.onsets import ZCR_MAX, frames, voice_onsets
+from filmtools.onsets import ZCR_MAX, frames, voice_onsets
 
 SR = 48000
 

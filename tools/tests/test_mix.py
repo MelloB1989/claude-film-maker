@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from gitloom_film.mix import mix
-from gitloom_film.wav import read_wav, write_wav
+from filmtools.mix import mix
+from filmtools.wav import read_wav, write_wav
 
 SR = 48000
 
@@ -79,7 +79,7 @@ def test_mastering_keeps_the_voice_on_its_sample(tmp_path):
 
 # ---------------------------------------------------------------- the final mix with stems (Plan 3, Task 9)
 
-from gitloom_film.mix import duck_depth, mix_stems  # noqa: E402
+from filmtools.mix import duck_depth, mix_stems  # noqa: E402
 
 
 def clicks_every(period, peak, seconds):
@@ -217,14 +217,14 @@ def test_stems_keep_their_overs(tmp_path):
 
 
 def test_film_mix_needs_the_processed_voice(tmp_path, monkeypatch):
-    import gitloom_film.mix as mixmod
+    import filmtools.mix as mixmod
     monkeypatch.setattr(mixmod, "AUDIO", tmp_path)
     with pytest.raises(SystemExit, match="film-vo-chain"):
         mixmod.main([])
 
 
 def test_review_flags_effects_that_crowd_a_word(tmp_path):
-    from gitloom_film.mix import review
+    from filmtools.mix import review
     vo, mu, _ = synth3(tmp_path)
     sfx = tmp_path / "loud.wav"
     y = np.zeros((10 * SR, 2), np.float32)
@@ -245,7 +245,7 @@ def test_review_flags_effects_that_crowd_a_word(tmp_path):
 
 def test_the_music_duck_holds_through_a_breath(tmp_path):
     """Between two words a 0.3 s breath must not let the score swell back (pumping); after the line it comes back."""
-    from gitloom_film.mix import MUSIC_DUCK, sidechain_gain
+    from filmtools.mix import MUSIC_DUCK, sidechain_gain
     n = 5 * SR
     t = np.arange(n) / SR
     vo = np.where(((t >= 1.0) & (t < 2.0)) | ((t >= 2.3) & (t < 3.0)), 0.2 * np.sin(2 * np.pi * 1000 * t), 0.0)

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from gitloom_film.automate import apply, lanes
+from filmtools.automate import apply, lanes
 
 SR = 8000
 SECTIONS = [{"name": "cold open", "start": 0.0, "end": 1.0}, {"name": "the ex", "start": 1.0, "end": 2.0},
@@ -65,7 +65,7 @@ def test_a_section_without_a_rule_is_an_error():
 
 
 def test_duck_lanes_hold_full_depth_with_fades_either_side():
-    from gitloom_film.automate import duck_lanes
+    from filmtools.automate import duck_lanes
     ducks = [{"t": 1.0, "dur": 0.5, "depth": -30, "fade": 0.1, "bus": "music"},
              {"t": 3.0, "dur": 0.5, "depth": -12, "fade": 0.0, "bus": "all"}]
     g = duck_lanes(ducks, SR, N, "music")

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from gitloom_film.realign import map_words, realign_take, tokens
+from filmtools.realign import map_words, realign_take, tokens
 
 
 def fa(*words):

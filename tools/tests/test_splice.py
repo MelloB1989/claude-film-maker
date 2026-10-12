@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from gitloom_film.splice import bar_edges, parse_map, splice
+from filmtools.splice import bar_edges, parse_map, splice
 
 SR = 1000  # 1 kHz keeps the arrays small; bars of 1 s
 
@@ -82,8 +82,8 @@ def project(tmp_path, monkeypatch, mp, audio=None, source=None):
     """A throwaway repo root for film-splice: data/music_plan.json, data/audio.json and a source WAV."""
     import json
 
-    from gitloom_film import splice as sp
-    from gitloom_film.wav import write_wav
+    from filmtools import splice as sp
+    from filmtools.wav import write_wav
     (tmp_path / "data").mkdir()
     (tmp_path / "data" / "music_plan.json").write_text(json.dumps(mp))
     if audio is not None:
@@ -115,7 +115,7 @@ def test_the_first_splice_stores_the_sources_downbeats(tmp_path, monkeypatch):
 
 
 def test_a_later_splice_cuts_on_the_stored_downbeats_not_the_edits_analysis(tmp_path, monkeypatch):
-    from gitloom_film.wav import read_wav
+    from filmtools.wav import read_wav
     y = bars([0.1, 0.2, 0.3, 0.4])
     sp, read = project(tmp_path, monkeypatch, {"chosen": "audio/music/src.wav"}, SRC_AUDIO, y)
     sp.main(["--map", "0-1,3,2"])

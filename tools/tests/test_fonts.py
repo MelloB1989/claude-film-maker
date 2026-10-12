@@ -1,6 +1,6 @@
 from fontTools.ttLib import TTFont
 
-from gitloom_film.fonts import SRC, bricolage_name, make_instance
+from filmtools.fonts import SRC, bricolage_name, make_instance
 
 
 def advance(path, ch="M"):

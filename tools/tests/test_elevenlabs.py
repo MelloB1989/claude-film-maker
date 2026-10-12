@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from gitloom_film.elevenlabs import ElevenLabs, ElevenLabsError, Response
+from filmtools.elevenlabs import ElevenLabs, ElevenLabsError, Response
 
 KEY = "sk_test_SECRET_1234567890"
 
@@ -77,7 +77,7 @@ def test_compose_sends_the_plan():
 
 
 def test_load_key_strips_whitespace(tmp_path):
-    from gitloom_film.elevenlabs import load_key
+    from filmtools.elevenlabs import load_key
     f = tmp_path / "k"
     f.write_text(f"  {KEY}\n")
     assert load_key(f) == KEY
@@ -114,7 +114,7 @@ def test_the_transport_does_not_follow_redirects():
     import threading
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-    from gitloom_film.elevenlabs import urllib_transport
+    from filmtools.elevenlabs import urllib_transport
     seen = []
 
     class Handler(BaseHTTPRequestHandler):

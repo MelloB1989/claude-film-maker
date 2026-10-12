@@ -1,6 +1,6 @@
 import pytest
 
-from gitloom_film.align import words_from_alignment, words_to_dicts
+from filmtools.align import words_from_alignment, words_to_dicts
 
 
 def al(text, dt=0.1):

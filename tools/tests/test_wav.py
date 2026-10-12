@@ -1,6 +1,6 @@
 import numpy as np
 
-from gitloom_film.wav import SR, pcm16_to_float, read_wav, write_wav
+from filmtools.wav import SR, pcm16_to_float, read_wav, write_wav
 
 
 def test_pcm16_to_float_scales():

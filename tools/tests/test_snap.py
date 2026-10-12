@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from gitloom_film.snap import cut_scenes, snap, snap_lines
+from filmtools.snap import cut_scenes, snap, snap_lines
 
 BEATS = np.round(np.arange(0.2, 30.0, 0.6), 4)  # 0.2, 0.8, 1.4, …
 DOWNS = BEATS[::4]  # 0.2, 2.6, 5.0, 7.4, 9.8, …

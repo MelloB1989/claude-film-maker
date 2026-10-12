@@ -4,7 +4,7 @@ import librosa
 import numpy as np
 import pytest
 
-from gitloom_film.beats import analyze, fit_grid, grid_fit
+from filmtools.beats import analyze, fit_grid, grid_fit
 
 SR = 22050
 META = {"bpm": 100.0, "sections": [{"name": "the tour", "start": 0.0, "end": 14.4},
@@ -122,8 +122,8 @@ def test_envelopes_follow_the_automated_mix_and_the_grid_follows_the_score():
 
 
 def test_film_beats_takes_its_sections_from_the_picks_own_timing(tmp_path, monkeypatch):
-    from gitloom_film import beats as bt
-    from gitloom_film.wav import write_wav
+    from filmtools import beats as bt
+    from filmtools.wav import write_wav
     write_wav(tmp_path / "audio" / "music" / "s.wav", clicks(), SR)
     write_wav(tmp_path / "audio" / "vo" / "vo.wav", np.zeros(SR, np.float32), SR)
     later = {"bpm": 100.0, "sections": [{"name": "the tour", "start": 0.0, "end": 7.2},
@@ -145,8 +145,8 @@ def test_film_beats_takes_its_sections_from_the_picks_own_timing(tmp_path, monke
 
 
 def test_film_beats_stops_when_the_picks_timing_cannot_be_known(tmp_path, monkeypatch):
-    from gitloom_film import beats as bt
-    from gitloom_film.wav import write_wav
+    from filmtools import beats as bt
+    from filmtools.wav import write_wav
     write_wav(tmp_path / "audio" / "music" / "s.wav", clicks(), SR)  # a pick with no sidecar: its plan is unknown
     write_wav(tmp_path / "audio" / "vo" / "vo.wav", np.zeros(SR, np.float32), SR)
     (tmp_path / "data").mkdir()

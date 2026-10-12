@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pytest
 
-from gitloom_film.sync import any_sound, check, report, section_table, stale_takes, word_sync
+from filmtools.sync import any_sound, check, report, section_table, stale_takes, word_sync
 
 BEATS = [round(0.2 + 0.6 * k, 4) for k in range(160)]
 AUDIO = {"beats": BEATS, "downbeats": BEATS[::4]}  # downbeats 0.2, 2.6, 5.0, 7.4, 9.8, …
@@ -183,7 +183,7 @@ def test_word_sync_measures_each_word_on_its_takes_own_window():
 
 
 def test_a_missing_voiceover_is_a_clear_message(tmp_path, monkeypatch):
-    from gitloom_film import sync
+    from filmtools import sync
     monkeypatch.setattr(sync, "AUDIO", tmp_path)
     with pytest.raises(SystemExit, match="audio/vo/vo.wav is missing: run film-edit"):
         sync.main([])
@@ -217,7 +217,7 @@ def test_a_take_of_another_length_or_word_count_is_stale():
 
 
 def test_film_sync_stops_on_a_stale_take_and_says_what_to_run(tmp_path, monkeypatch):
-    from gitloom_film import sync
+    from filmtools import sync
     vo = good()
     for line in vo["lines"]:
         line["take"] = 1

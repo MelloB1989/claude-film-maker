@@ -4,9 +4,9 @@ import json
 import numpy as np
 import pytest
 
-from gitloom_film import sfxlib
-from gitloom_film.elevenlabs import ElevenLabs, ElevenLabsError, Response, SoundResult
-from gitloom_film.sfxlib import (estimate, find_hit, generate, pick, plan, process, qc, request_key, request_of,
+from filmtools import sfxlib
+from filmtools.elevenlabs import ElevenLabs, ElevenLabsError, Response, SoundResult
+from filmtools.sfxlib import (estimate, find_hit, generate, pick, plan, process, qc, request_key, request_of,
                                  slice_hits, to_wav48)
 
 KEY = "sk_test_SECRET_1234567890"
@@ -377,7 +377,7 @@ def test_slice_hits_ignores_hits_far_below_the_loudest():
 
 
 def test_each_slice_is_picked_on_its_own():
-    from gitloom_film.sfxlib import update_picks
+    from filmtools.sfxlib import update_picks
     good = qc(process(click_take(), SR, sound_spec())[0], SR)
     silent = dict(good, silence_ratio=0.9)
     pal = palette_with("insert_pop", duration=2.0, slice=2)
@@ -393,7 +393,7 @@ def test_each_slice_is_picked_on_its_own():
 
 
 def test_reprocess_rebuilds_every_take_from_its_raw_without_a_call(tmp_path):
-    from gitloom_film.sfxlib import reprocess
+    from filmtools.sfxlib import reprocess
     pal = palette_with("glass_clink", variants=2)
     client = CountingClient()
     run(pal, client, tmp_path)
@@ -447,7 +447,7 @@ def test_a_sound_can_set_its_own_slice_gap(tmp_path):
     run(pal, Rapid(), tmp_path)
     assert "flap_4/0" not in json.loads((tmp_path / "manifest.json").read_text())["variants"]
     pal["sounds"]["flap"]["slice_gap"] = 0.04
-    from gitloom_film.sfxlib import reprocess
+    from filmtools.sfxlib import reprocess
     reprocess(pal, tmp_path / "lib", tmp_path / "manifest.json")
     assert "flap_4/0" in json.loads((tmp_path / "manifest.json").read_text())["variants"]
 
@@ -472,12 +472,12 @@ def test_a_take_with_fewer_hits_than_asked_is_still_cached(tmp_path):
 
 
 def test_every_written_take_peaks_at_minus_1_dbfs_and_records_the_normalisation(tmp_path):
-    from gitloom_film.wav import read_wav
+    from filmtools.wav import read_wav
     class Quiet(CountingClient):
         def sound(self, *a, **kw):
             r = super().sound(*a, **kw)
             return SoundResult(pcm16(pcm16_to_float(r.audio) * 0.05), r.output_format, r.cost, r.request_id)
-    from gitloom_film.wav import pcm16_to_float
+    from filmtools.wav import pcm16_to_float
     run(palette_with("glass_clink", variants=1), Quiet(), tmp_path)
     e = json.loads((tmp_path / "manifest.json").read_text())["variants"]["glass_clink/0"]
     y, _ = read_wav(tmp_path / "lib" / e["wav"])
@@ -511,7 +511,7 @@ def test_clipping_is_judged_on_the_take_as_generated_not_after_the_high_pass(tmp
 
 
 def test_a_clip_is_a_flat_run_not_a_sample_that_touches_full_scale():
-    from gitloom_film.sfxlib import is_clipped
+    from filmtools.sfxlib import is_clipped
     y = np.sin(2 * np.pi * 200 * np.arange(SR) / SR).astype(np.float32) * 0.9
     y[1000], y[1001], y[5000] = 1.0, 1.0, -1.0
     assert not is_clipped(y)
@@ -520,7 +520,7 @@ def test_a_clip_is_a_flat_run_not_a_sample_that_touches_full_scale():
 
 
 def test_backup_recopies_a_take_whose_content_changed_at_the_same_size(tmp_path, monkeypatch):
-    from gitloom_film.sfxlib import backup
+    from filmtools.sfxlib import backup
     monkeypatch.setattr(sfxlib, "MANIFEST", tmp_path / "manifest.json")
     run(palette_with("glass_clink", variants=1), CountingClient(), tmp_path)
     man = json.loads((tmp_path / "manifest.json").read_text())

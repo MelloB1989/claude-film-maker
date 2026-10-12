@@ -5,9 +5,9 @@ import tomllib
 
 import pytest
 
-from gitloom_film import factcheck
-from gitloom_film.factcheck import build_allowed, classify, load_allowed, main, norm
-from gitloom_film.paths import APP, DATA, ROOT
+from filmtools import factcheck
+from filmtools.factcheck import build_allowed, classify, load_allowed, main, norm
+from filmtools.paths import APP, DATA, ROOT
 
 SPEC = ROOT / "docs" / "specs" / "2026-09-30-gitloom-launch-film-design.md"
 MINUS, ELLIPSIS, LSQ, RSQ, LDQ, RDQ = "−", "…", "‘", "’", "“", "”"
@@ -140,7 +140,7 @@ def test_scenes_default_to_the_apps_scenes_dir():
 
 def test_film_facts_is_a_registered_command():
     scripts = tomllib.loads((ROOT / "tools" / "pyproject.toml").read_text())["project"]["scripts"]
-    assert scripts["film-facts"] == "gitloom_film.factcheck:main"
+    assert scripts["film-facts"] == "filmtools.factcheck:main"
 
 
 # --- the matching rules, on a small sheet ---

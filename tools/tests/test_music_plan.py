@@ -1,6 +1,6 @@
 import pytest
 
-from gitloom_film.music_plan import build_plan, to_chunks
+from filmtools.music_plan import build_plan, to_chunks
 
 ORDER = ["thread", "ex", "her", "repo", "loom", "diff", "cite", "braid", "merkle", "graph", "honest", "proof",
          "connect", "anywhere", "weave"]

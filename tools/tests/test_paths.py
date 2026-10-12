@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from gitloom_film import paths
+from filmtools import paths
 
 
 def test_root_is_the_film_repo():

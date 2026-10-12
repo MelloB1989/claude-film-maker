@@ -4,9 +4,9 @@ import subprocess
 import numpy as np
 import pytest
 
-from gitloom_film.elevenlabs import ElevenLabsError, MusicResult
-from gitloom_film.music import generate_variants, merge_plan, pick_meta
-from gitloom_film.wav import read_wav
+from filmtools.elevenlabs import ElevenLabsError, MusicResult
+from filmtools.music import generate_variants, merge_plan, pick_meta
+from filmtools.wav import read_wav
 
 PLAN = {"positive_global_styles": [], "negative_global_styles": [],
         "sections": [{"section_name": "a", "positive_local_styles": [], "negative_local_styles": [],
