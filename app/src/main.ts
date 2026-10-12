@@ -72,8 +72,17 @@ async function boot() {
   await engine.init(onlySet ? (e) => onlySet.has(e.id) : undefined, { exporting: EXPORT });
   TIMELINE = engine.timeline;
   if (EXPORT) setupExport(film);
-  else setupPlayer(film);
+  else {
+    // a mix named in film.json but not made yet (tools/ film-mix, film-temptrack --mix) plays silent
+    const url = film.audio?.mix ? filmUrl(film.audio.mix) : null;
+    MIX = url && (await fetch(url, { method: 'HEAD' }).then((r) => r.ok, () => false)) ? url : null;
+    if (url && !MIX) console.warn(`${url} is missing: the player runs silent (make it with tools/ film-mix, or film-temptrack --mix)`);
+    setupPlayer(film);
+  }
 }
+
+/** The mix the player plays, when the film has one and it exists. */
+let MIX: string | null = null;
 
 // ------------------------------------------------------------------ export API
 function setupExport(film: FilmSpec) {
@@ -215,12 +224,12 @@ function silentClock(duration: number): Clock {
 }
 
 function setupPlayer(film: FilmSpec) {
-  let audio: Clock;
-  if (film.audio?.mix) {
-    const el = new Audio(filmUrl(film.audio.mix));
+  let audio: Clock = silentClock(engine.duration);
+  if (MIX) {
+    const el = new Audio(MIX);
     el.preload = 'auto';
     audio = el;
-  } else audio = silentClock(engine.duration);
+  }
   const ui = document.getElementById('ui')!;
   const scrub = document.getElementById('scrub') as HTMLInputElement;
   const info = document.getElementById('info')!;
