@@ -1,0 +1,11 @@
+{
+  "id": "showcase",
+  "title": "Showcase: films, written in code",
+  "format": "landscape",
+  "fps": 30,
+  "theme": "ember",
+  "audio": { "bpm": 120, "mix": "audio/mix/mix.wav", "analysis": "data/audio.json" },
+  "pipeline": {
+    "music": { "temp": { "style": "pulse", "seed": 7, "phrase": 4 } }
+  }
+}

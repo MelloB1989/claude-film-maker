@@ -1,0 +1,31 @@
+{
+ "chosen": "audio/music/temp.wav",
+ "chosen_meta": {
+  "bpm": 120.0,
+  "sections": [
+   {
+    "name": "intro",
+    "start": 0.0,
+    "end": 8.0
+   },
+   {
+    "name": "groove",
+    "start": 8.0,
+    "end": 16.0
+   },
+   {
+    "name": "break",
+    "start": 16.0,
+    "end": 24.0
+   },
+   {
+    "name": "groove 2",
+    "start": 24.0,
+    "end": 32.0
+   }
+  ]
+ },
+ "variants": [
+  "audio/music/temp.wav"
+ ]
+}
