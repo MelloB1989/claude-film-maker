@@ -1,0 +1,8 @@
+{
+  "id": "gallery-bg",
+  "title": "Gallery: backgrounds, stacks and media",
+  "format": "landscape",
+  "fps": 30,
+  "theme": "midnight",
+  "audio": { "bpm": 110 }
+}
