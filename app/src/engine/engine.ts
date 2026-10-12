@@ -740,7 +740,7 @@ export class Engine {
         const pa = this.renderEntry(l.a, this.trA, dt, seeked), pb = this.renderEntry(l.b, this.trB, dt, seeked);
         post = { ...post, ...(t >= l.tr.cut ? pb : pa) };
         this.trPass ??= new TransitionPass();
-        this.trPass.render(r, this.trA.texture, this.trB.texture, taps ?? shutterTaps(l.tr, t, 0, 0, 1), this.trOut, { soft: l.tr.spec.soft });
+        this.trPass.render(r, this.trA.texture, this.trB.texture, taps ?? shutterTaps(l.tr, t, 0, 0, 1), this.trOut, { soft: l.tr.spec.soft, entry: l.tr });
         outTex = this.trOut.texture;
       } else {
         this.ovRT ??= makeRT();
