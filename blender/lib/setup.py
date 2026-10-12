@@ -78,7 +78,12 @@ def new_scene(res=(960, 540), fps: float = 30, engine: str = "CYCLES", samples: 
         raise RuntimeError(f"the blend file's working colour space is {ws}, not Linear Rec.709")
 
     r = scene.render
-    r.engine = engine
+    try:
+        r.engine = engine
+    except TypeError:  # Blender 4.2 to 4.4 call EEVEE BLENDER_EEVEE_NEXT
+        if engine != "BLENDER_EEVEE":
+            raise
+        r.engine = engine = "BLENDER_EEVEE_NEXT"
     r.resolution_x, r.resolution_y = res
     r.resolution_percentage = 100
     r.pixel_aspect_x = r.pixel_aspect_y = 1.0
