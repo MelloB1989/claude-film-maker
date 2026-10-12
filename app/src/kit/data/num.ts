@@ -2,7 +2,7 @@
 // (digits that roll or flip, and the marks between them), odometer drum positions and split-flap runs. No DOM, so bun
 // tests them; every value is a function of its inputs and time.
 import { flapAt, flapDigit } from '../../engine/glyphs';
-import { clamp, ease, prog } from '../../engine/util';
+import { clamp, ease, prog, type V2 } from '../../engine/util';
 
 /** Decimal places in a number as written (91.4 → 1, 1200 → 0, 0.125 → 3). */
 export function decimalsOf(v: number): number {
@@ -31,6 +31,21 @@ export type CountEase = 'outExpo' | 'outCubic' | 'outQuart' | 'inOutCubic' | 'li
 export function countAt(t: number, from: number, to: number, land: number, dur = 1.4, e: CountEase = 'outExpo'): number {
   const u = prog(t, land - dur, land, ease[e]);
   return t >= land ? to : from + (to - from) * u;
+}
+
+/**
+ * The change from `from` to `to`, written: 'diff' (+47.4, with `unit` after it: ' pts'), 'ratio' (2.1×) or 'percent'
+ * (the relative change: +108%). Signed with + or −; `decimals` defaults to the inputs'.
+ */
+export function deltaText(from: number, to: number, kind: 'diff' | 'ratio' | 'percent' = 'diff', o: { unit?: string; decimals?: number } = {}): string {
+  if (kind === 'ratio') {
+    const r = to / (from || 1e-9);
+    return formatNumber(r, o.decimals ?? (Math.abs(r) >= 10 ? 0 : 1)) + '×';
+  }
+  const d = kind === 'percent' ? ((to - from) / Math.abs(from || 1e-9)) * 100 : to - from;
+  const dec = o.decimals ?? (kind === 'percent' ? 0 : Math.max(decimalsOf(from), decimalsOf(to)));
+  const s = formatNumber(Math.abs(d), dec);
+  return (d >= 0 ? '+' : '−') + s + (kind === 'percent' ? '%' : o.unit ?? '');
 }
 
 /** A column of a figure: a digit (it rolls or flips) or a mark between digits (a separator, the point, a sign, a unit). */
@@ -84,4 +99,32 @@ export function flapColumn(t: number, from: string, to: string, i: number, n: nu
   if (k >= steps) return { a: to, b: to, p: 0 };
   const face = (j: number) => (j <= 0 ? from : j >= steps ? to : flapDigit(seed, j, from, to));
   return { a: face(k), b: face(k + 1), p: clamp(p * p) };
+}
+
+// ------------------------------------------------------------------------------------------------ charts
+
+/** A Catmull-Rom curve through `pts`, as a dense polyline (`k` samples a span), and the sample index of each point. */
+export function smoothLine(pts: V2[], k = 24): { line: V2[]; at: number[] } {
+  if (pts.length < 2) return { line: [...pts], at: pts.map(() => 0) };
+  const line: V2[] = [], at: number[] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)]!, p1 = pts[i]!, p2 = pts[i + 1]!, p3 = pts[Math.min(pts.length - 1, i + 2)]!;
+    at.push(line.length);
+    for (let j = 0; j < k; j++) {
+      const s = j / k, s2 = s * s, s3 = s2 * s;
+      const f = (a: number, b: number, c: number, d: number) => 0.5 * (2 * b + (-a + c) * s + (2 * a - 5 * b + 4 * c - d) * s2 + (-a + 3 * b - 3 * c + d) * s3);
+      line.push({ x: f(p0.x, p1.x, p2.x, p3.x), y: f(p0.y, p1.y, p2.y, p3.y) });
+    }
+  }
+  at.push(line.length);
+  line.push({ ...pts[pts.length - 1]! });
+  return { line, at };
+}
+
+/** Rounded scale bounds and ticks for values in [lo, hi]: about `n` steps of 1, 2 or 5 × 10^k. */
+export function niceScale(lo: number, hi: number, n = 4): { min: number; max: number; step: number } {
+  const span = Math.max(1e-9, hi - lo);
+  const raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) ?? 10 * mag;
+  return { min: Math.floor(lo / step) * step, max: Math.ceil(hi / step) * step, step };
 }

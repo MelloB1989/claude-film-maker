@@ -1,5 +1,34 @@
 import { expect, test } from 'bun:test';
-import { columnsOf, countAt, decimalsOf, drumAt, drumFace, flapColumn, formatNumber } from './num';
+import { columnsOf, countAt, decimalsOf, deltaText, drumAt, drumFace, flapColumn, formatNumber, niceScale, smoothLine } from './num';
+
+test('deltaText: points, ratios and relative change, signed', () => {
+  expect(deltaText(44, 91.4, 'diff', { unit: ' pts' })).toBe('+47.4 pts');
+  expect(deltaText(91.4, 44)).toBe('−47.4');
+  expect(deltaText(44, 91.4, 'ratio')).toBe('2.1×');
+  expect(deltaText(50, 104, 'percent')).toBe('+108%');
+  expect(deltaText(3, 60, 'ratio')).toBe('20×');
+});
+
+test('smoothLine passes through every point, in order, and marks where each falls', () => {
+  const pts = [{ x: 0, y: 0 }, { x: 10, y: 5 }, { x: 20, y: 2 }, { x: 30, y: 8 }];
+  const { line, at } = smoothLine(pts, 8);
+  expect(at.length).toBe(pts.length);
+  at.forEach((k, i) => {
+    expect(line[k]!.x).toBeCloseTo(pts[i]!.x, 9);
+    expect(line[k]!.y).toBeCloseTo(pts[i]!.y, 9);
+  });
+  for (let i = 1; i < line.length; i++) expect(line[i]!.x).toBeGreaterThanOrEqual(line[i - 1]!.x - 1e-9);
+});
+
+test('niceScale: round bounds that hold the data, steps of 1, 2, 2.5 or 5 x 10^k', () => {
+  const s = niceScale(0, 91.4);
+  expect(s.min).toBe(0);
+  expect(s.max).toBeGreaterThanOrEqual(91.4);
+  expect([1, 2, 2.5, 5, 10].some((m) => Math.abs(s.step / Math.pow(10, Math.floor(Math.log10(s.step))) - m) < 1e-9)).toBe(true);
+  const t = niceScale(12, 17, 5);
+  expect(t.min).toBeLessThanOrEqual(12);
+  expect(t.max).toBeGreaterThanOrEqual(17);
+});
 
 test('decimalsOf and formatNumber', () => {
   expect(decimalsOf(91.4)).toBe(1);

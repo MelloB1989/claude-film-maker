@@ -58,10 +58,11 @@ export class EndCard extends KineticText {
     const { audio } = this.ctx;
     // what stands below the block: the button and the url
     const cta = this.p('cta', ''), url = this.p('url', '');
-    const fs = 30 * u, pfam = family({ role: 'ui', weight: 600 });
+    const tall = H > W;
+    const fs = (tall ? 38 : 30) * u, pfam = family({ role: 'ui', weight: 600 });
     const arrow = this.p('arrow', true) ? 1.1 * fs : 0;
     const pw = cta ? measure(cta, pfam, fs) + arrow + 2 * 1.05 * fs : 0, ph = cta ? 2.3 * fs : 0;
-    const ufs = 26 * u, ufam = family({ role: 'mono', weight: 500 });
+    const ufs = (tall ? 32 : 26) * u, ufam = family({ role: 'mono', weight: 500 });
     const gapA = 54 * u, gapB = 34 * u;
     const below = (cta ? gapA + ph : 0) + (url ? (cta ? gapB : gapA) + metrics(ufam).cap * ufs : 0);
     // and above it: the logo

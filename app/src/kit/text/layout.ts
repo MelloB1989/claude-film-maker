@@ -99,3 +99,14 @@ export function fillTracked(c: CanvasRenderingContext2D, text: string, x: number
 
 /** Width of a run drawn with fillTracked (no trailing spacing). */
 export const trackedWidth = (text: string, fam: string, size: number, track: number) => measure(text, fam, size, track);
+
+/**
+ * The ink of a run set at `size`, from its origin: px above the baseline (asc), below it (desc; negative when the ink
+ * ends above the baseline, as a quote mark's does) and its width.
+ */
+export function inkBox(text: string, fam: string, size: number): { asc: number; desc: number; w: number } {
+  mc ??= document.createElement('canvas').getContext('2d')!;
+  mc.font = font(fam, size);
+  const m = mc.measureText(text);
+  return { asc: m.actualBoundingBoxAscent, desc: m.actualBoundingBoxDescent, w: m.actualBoundingBoxLeft + m.actualBoundingBoxRight };
+}

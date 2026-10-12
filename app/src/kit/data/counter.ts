@@ -73,7 +73,7 @@ export class Counter extends Scene2D {
     this.kicker = kicker ? layLabel(kicker, ls) : null;
     this.land = fx.resolveTime(this.p<fx.TimeRef>('land', { beat: 4 }), this.ctx.start, this.ctx.audio);
     // the block: kicker, the figure's cap height, the label
-    const cap = fig.m.cap * size, gap = Math.max(26 * u, 0.2 * size) + (style === 'flip' ? 0.31 * cap : 0);
+    const cap = fig.m.cap * size, gap = this.gap(style, size, cap);
     const top = (this.kicker ? this.kicker.m.cap * ls + gap : 0);
     const h = top + cap + (this.label ? gap + this.label.m.cap * ls : 0);
     const y0 = this.p('y', 0.5) * H - h / 2;
@@ -81,8 +81,13 @@ export class Counter extends Scene2D {
     this.y = y0 + top + cap; // the figure's baseline
   }
 
+  /** Between the figure and its kicker or label: clear of a board's tiles and a drum's window, which stand past the caps. */
+  private gap(style: FigureStyle, size: number, cap: number) {
+    return Math.max(26 * this.u, 0.2 * size) + (style === 'flip' ? 0.31 * cap : style === 'roll' ? 0.12 * size : 0);
+  }
+
   draw(c: CanvasRenderingContext2D, f: Frame) {
-    const t = f.t, fig = this.fig, u = this.u;
+    const t = f.t, fig = this.fig;
     const style = this.p<FigureStyle>('style', 'roll');
     const push = 1 + this.p('push', 0.02) * f.p;
     const pop = 1 + 0.035 * pulse(t, this.land, 0.12) * (t >= this.land ? 1 : 0);
@@ -102,8 +107,7 @@ export class Counter extends Scene2D {
       style, land: this.land, dur, stagger: this.p('stagger', style === 'flip' ? 0.06 : 0.07), ease: this.p<CountEase>('ease', 'outExpo'), seed: this.p('seed', 1),
     }, { color: this.p('color', 'fg'), affixColor: this.p('affixColor', 'accent'), flare, affixGlow: 0.3 * inK });
     c.globalAlpha = 1;
-    // (a board's tiles stand taller than the digits' caps)
-    const gap = Math.max(26 * u, 0.2 * fig.size) + (style === 'flip' ? 0.31 * fig.m.cap * fig.size : 0);
+    const gap = this.gap(style, fig.size, fig.m.cap * fig.size);
     const at = this.ctx.start + 0.15;
     if (this.kicker) drawLabel(c, this.kicker, this.x - this.kicker.width / 2, this.y - fig.m.cap * fig.size - gap, t, at, this.p('kickerColor', 'accent'));
     if (this.label) drawLabel(c, this.label, this.x - this.label.width / 2, this.y + gap + this.label.m.cap * this.label.size, t, at + 0.1, this.p('labelColor', 'fgDim'));
