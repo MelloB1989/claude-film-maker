@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- an original geometric mark: a hexagonal ring round a smaller hexagon, the core in a colour (the kit's accent) -->
+  <path fill="#f2f2f2" fill-rule="evenodd" d="M60 4 L108.5 32 L108.5 88 L60 116 L11.5 88 L11.5 32 Z M60 22 L92.9 41 L92.9 79 L60 98 L27.1 79 L27.1 41 Z"/>
+  <path fill="#3d7bff" d="M60 40 L77.3 50 L77.3 70 L60 80 L42.7 70 L42.7 50 Z"/>
+</svg>

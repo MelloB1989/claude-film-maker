@@ -1,0 +1,8 @@
+{
+  "id": "gallery-3d-vertical",
+  "title": "Gallery: the 3D blocks in a vertical frame",
+  "format": "vertical",
+  "fps": 30,
+  "theme": "ember",
+  "audio": { "bpm": 110 }
+}
