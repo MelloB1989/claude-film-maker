@@ -6,7 +6,7 @@
 //
 // A custom scene is a few lines:
 //
-//   import { Scene2D, type Frame } from '@kit/scene2d';
+//   import { Scene2D, glowInk, type Frame } from '@kit/scene2d';
 //   import { F, font } from '@engine/type';
 //   import { rgba } from '@engine/palette';
 //   import { W, H } from '@engine/gl';
@@ -137,8 +137,9 @@ export abstract class Scene2D extends Scene {
     // the whole layer's exit (a block that leaves unit by unit plays its own)
     const ex = this.ownExit ? null : exitState(this.p<Exit>('exit', 'none'), f.t, f.end, this.p('exitDur', 0.35));
     const opacity = ex ? ex.alpha : 1;
-    // an offset moves the picture by -offset (uv, y up): a rise of dy em is dy * 0.1 of the frame's height
-    const offset: [number, number] = ex ? [0, (ex.dy * 0.1 * H) / H] : [0, 0];
+    // the draw samples at uv + offset (y up), so the picture moves by -offset: an exit's dy (em, y down) moves it a
+    // tenth of the frame's height per em, up for a rise
+    const offset: [number, number] = ex ? [0, ex.dy * 0.1] : [0, 0];
     if (opacity > 0.001) {
       comp.draw(renderer, this.layer.upload(), out, { opacity, offset });
       const lvl = this.glowLevel;

@@ -31,7 +31,7 @@ import { W, H } from '../../engine/gl';
 import { rgba } from '../../engine/palette';
 import { font } from '../../engine/type';
 import { onBeat, wordTimes } from '../../engine/motion';
-import { clamp, lerp } from '../../engine/util';
+import { clamp, ease, lerp, prog } from '../../engine/util';
 import type { Spoken } from './fx';
 import * as fx from './fx';
 import { family, fillTracked, layLine, metrics, setToMeasure, type FaceSpec, type LaidLine } from './layout';
@@ -417,6 +417,11 @@ export class KineticText extends Scene2D {
           : [{ text: w.w, x: w.x0, w: w.x1 - w.x0, at: w.at, track: L.track }];
         for (const pc of pieces) {
           const st = fx.compose(fx.revealState(l.reveal, t, pc.at), ex);
+          // a line wiped as one: one sweep across it, each word uncovered as the sweep passes it
+          if (l.reveal === 'wipe' && l.unit === 'line') {
+            const sweepX = prog(t, pc.at, pc.at + 0.45, ease.outCubic) * (L.width + 0.1 * size);
+            st.clip = clamp((sweepX - pc.x) / Math.max(1, pc.w));
+          }
           const cx = l.x + pc.x + pc.w / 2;
           this.run(c, L.family, pc.text, l.x + pc.x, l.y, size, pc.track, st, rgba(ink, lineAlpha), cx, cy, pc.w);
           // the glow: emphasis words flare as they land and keep a soft light; a + line glows a little throughout
