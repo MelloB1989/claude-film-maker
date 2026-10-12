@@ -1,17 +1,20 @@
-"""The film's thread in Blender: plies twisted around a smooth centreline, as bevelled curve objects, with fibre fuzz
-as hair curves.
+"""A hero motif: thread. Plies twisted around a smooth centreline, as bevelled curve objects, with fibre fuzz as hair
+curves.
 
-The geometry (`centreline`, `ply_paths`) is numpy only and tested under the tools project; `ply_thread` builds the
-objects in Blender. Units are the scene's (a macro shot can work in real millimetres or scale the thread up: the
-twist and the fuzz follow the radius).
+The geometry (`centreline`, `ply_paths`) is numpy only and tested without Blender; `ply_thread` builds the objects in
+Blender. Units are the scene's (a macro shot can work in real millimetres or scale the thread up: the twist and the
+fuzz follow the radius).
 
 Plies that just touch inside a thread of radius R: n round plies of radius r = R s / (1 + s) on a ring of radius
 R / (1 + s), s = sin(pi / n) (three plies: r = 0.464 R). They wind around the centreline at `twist` turns per unit of
 length, carried along it by parallel transport, so a bent thread does not corkscrew its plies.
 
-Two more threads, both the engine's look: the macro rope (B01's bone 3-ply, fibre by fibre: `fibre_rope`, `MacroRope`)
-and the diff thread every later shot shows (`DIFF_THREAD`, `diff_thread`: the engine's preset, read from
-data/look/thread.json, with its strands lit on meaning by `strand_glow`).
+Two more threads, both matching the engine's thread look (app/src/engine/thread3d.ts THREAD_LOOK), so a plate can cut
+with an engine scene that draws the same thread: the macro rope (an fg 3-ply, fibre by fibre, that can fray and break:
+`fibre_rope`, `MacroRope`), and the strand thread (`strand_thread`: the fg 3-ply with an accent and an accent2 strand
+glowing in its grooves, lit on cue by `strand_glow`; its numbers are `strand_preset()`'s: the engine's
+app/src/engine/thread-look.json, or a film's own data/look/thread.json). Colours are palette roles of the theme in use
+(lib/theme.py).
 """
 from __future__ import annotations
 
@@ -204,8 +207,8 @@ def ply_thread(points, radius: float, plies: int = 3, twist: float | None = None
 
 # ------------------------------------------------------------------------------------------------ the macro rope
 #
-# The macro thread (B01, and any shot close enough to see fibres): the bone 3-ply rope of the engine's THREAD_LOOK,
-# built fibre by fibre. Each ply is a round core wrapped in a sheath of surface fibres, each fibre a curve that winds
+# The macro thread (any shot close enough to see fibres): the 3-ply rope of the engine's THREAD_LOOK, built fibre by
+# fibre. Each ply is a round core wrapped in a sheath of surface fibres, each fibre a curve that winds
 # round its ply against the ply's own lay (the singles twist), dives in and out of the surface (migration) and now and
 # then stands off it in a loop; fuzz fibres stand off the plies and catch the rim light. So the striation, the crevice
 # shading and the fibre sheen of the engine's shader come from real geometry here.
@@ -217,17 +220,17 @@ def ply_thread(points, radius: float, plies: int = 3, twist: float | None = None
 # and how frayed, unravelled and splayed each part is; `rope_geometry` turns the two into points. The halves overlap
 # round the break (fibres break at staggered places); posed alike, they make one continuous rope.
 #
-# The geometry is numpy only (tested under the tools project); `MacroRope` builds and updates the Blender objects.
+# The geometry is numpy only (tested without Blender); `MacroRope` builds and updates the Blender objects.
 
 LOOK = {
-    # the engine's THREAD_LOOK (app/src/engine/thread3d.ts) for the bone 3-ply; lengths in thread radii R
+    # the engine's THREAD_LOOK (app/src/engine/thread3d.ts) for the 3-ply; lengths in thread radii R
     "ply_radius": 0.5, "ply_offset": 0.5,  # three plies of 0.5 R on a circle of 0.5 R: pressed 13% into each other
     "lay_deg": 32.0,  # right-hand (Z) lay against the axis: 0.199 turns per R, a lay length of 5.03 R
     "fibre_lay": 0.6,  # crown fibres lean 60% of the way from the ply's lay to the thread axis (about 13 degrees)
     "fibres": 40,  # striations round a ply
     "fray_span": 10.0, "fray_separation": 1.4, "fray_swell": 0.12, "fray_untwist": 1.35,
     "fuzz_density": 2.0, "fuzz_length": (0.15, 0.5), "fray_density": 4.0, "fray_length": (0.4, 1.6),
-    # the diff thread (below): its strands in the bone plies' grooves, of radius worm_radius (x DIFF_THREAD's
+    # the strand thread (below): its strands in the plies' grooves, of radius worm_radius (x the preset's
     # strand_scale), dyed `dye` of the way to their dim shade, with a core glowing (1 - soft)(N.V)^28 + soft (N.V)^3
     "worm_radius": 0.2, "dye": 0.82, "glow_falloff": (28, 3), "glow_soft": 0.2,
     # the plies' fibre surface on a smooth tube: roughness along the fibres, specular (x F0 at the IOR), sheen
@@ -347,7 +350,7 @@ def fibre_rope(R: float, length: float, *, break_at: float | None = None, seed: 
                core: float = 0.8, samples_per_R: float = 8.0, fuzz_per_R: float = 10.0,
                fray_per_R: float = LOOK["fray_density"] * 3, fray_span: float = LOOK["fray_span"],
                loops: float = 0.12, reach: float = 3.0) -> FibreRope:
-    """A seeded fibre-level 3-ply rope of radius R and material length `length` (world units), THREAD_LOOK's bone rope:
+    """A seeded fibre-level 3-ply rope of radius R and material length `length` (world units), THREAD_LOOK's rope:
     plies of 0.5 R on a circle of 0.5 R at a `lay_deg` lay, each a core of `core` x its radius under `fibres` surface
     fibres (radius `fibre_radius` R) whose crown runs `LOOK['fibre_lay']` of the way to the rope's axis. `fuzz_per_R`
     fuzz fibres per R of length stand off the plies, and `fray_per_R` fray fibres lie within `fray_span` R of
@@ -598,18 +601,18 @@ def _tangent_rows(r: np.ndarray) -> np.ndarray:
 
 # ----------------------------------------------------------------------------------------- the rope in Blender
 
-def fibre_material(name: str = "fibre_bone", *, color=None, sheen: float = 0.35, roughness: float = 0.36,
+def fibre_material(name: str = "fibre_fg", *, color: str = "fg", sheen: float = 0.35, roughness: float = 0.36,
                    translucency: float = 0.25, tone_attr: str | None = "tone", core: bool = False):
-    """The macro thread's fibre: bone (THREAD_LOOK's albedo, the palette's bone in linear light), a soft dielectric
-    (roughness along the fibre 0.42-0.46, specular F0 0.032 at IOR 1.5) with a fabric sheen that lifts at grazing angles,
-    mixed with a little diffuse translucency so thin fibres glow when the rim light is behind them. `tone_attr` scales
-    the colour by a per-curve attribute (fibre-to-fibre variation). `core`: the shadowed inside of a ply, darker, no
-    translucency."""
+    """The macro thread's fibre: `color` (a palette role or '#rrggbb'; the theme's fg by default) in linear light, a soft
+    dielectric (roughness along the fibre 0.42-0.46, specular F0 0.032 at IOR 1.5) with a fabric sheen that lifts at
+    grazing angles, mixed with a little diffuse translucency so thin fibres glow when the rim light is behind them.
+    `tone_attr` scales the colour by a per-curve attribute (fibre-to-fibre variation). `core`: the shadowed inside of a
+    ply, darker, no translucency."""
     import bpy
 
     from . import materials
 
-    base = color or materials.linear("bone")
+    base = materials.linear(color)
     mat = bpy.data.materials.new(name)
     if mat.node_tree is None:
         mat.use_nodes = True
@@ -777,56 +780,90 @@ class MacroRope:
         return out
 
 
-# ------------------------------------------------------------------------------------------------ the diff thread
+# ------------------------------------------------------------------------------------------------ the strand thread
 #
-# The engine's DIFF_THREAD (app/src/engine/thread3d.ts), from the file it reads, data/look/thread.json, so the two
-# renderers' diff threads match for intercuts (B03 re-form, B05 loom, B08 braid): THREAD_LOOK's bone 3-ply at a 14
-# degree lay, with the blood and moss strands laid in its grooves, slimmed, and dyed near ink so their colour is the
-# light of their cores. That light rests dim and lights on meaning (the C4a verdict (b)): moss when something is
-# committed or added, blood when something is struck or removed. The numbers are the engine's: a glow level is an
-# emission strength (Task 6 report §4), with the core's colour at its brightest channel 1.
+# The engine's strand thread (app/src/engine/thread3d.ts), from the numbers it reads, app/src/engine/thread-look.json
+# (a film may override them in its own data/look/thread.json), so the two renderers' threads match for intercuts:
+# THREAD_LOOK's fg 3-ply at a 14 degree lay, with an accent and an accent2 strand laid in its grooves, slimmed, and dyed
+# near black so their colour is the light of their cores. That light rests dim and lights on cue (`strand_glow`): say
+# accent2 when something is added, accent when something is removed. A glow level is an emission strength, with the
+# core's colour at its brightest channel 1 (look.ts glow()).
 #
-# The geometry and the look's numbers are numpy only (tested under the tools project); `diff_thread` builds the curves
-# and materials in Blender.
+# The geometry and the look's numbers are numpy only (tested without Blender); `strand_thread` builds the curves and
+# materials in Blender.
 
-LOOK_FILE = Path(__file__).resolve().parents[2] / "data" / "look" / "thread.json"
-
-
-def _diff_thread() -> dict:
-    d = json.loads(LOOK_FILE.read_text())["diffThread"]
-    return {"lay_deg": d["layDeg"], "strand_dye": d["strandDye"], "strand_scale": d["strandScale"], "glow": d["glow"],
-            "rest": d["rest"], "flare_lead": d["flare"]["lead"], "flare_decay": d["flare"]["decay"]}
-
+REPO = Path(__file__).resolve().parents[2]
+LOOK_FILE = REPO / "app" / "src" / "engine" / "thread-look.json"  # the engine's numbers (the engine owns the file)
 
 # lay_deg: the plies' lay against the axis; strand_dye: the strands' albedo as a multiple of the dyed colour
 # (strand_albedo); strand_scale: their radius as a multiple of LOOK['worm_radius']; glow and rest: the strands' emission
-# strength lit on meaning and at rest; flare_lead and flare_decay: strand_flare's envelope (s)
-DIFF_THREAD = _diff_thread()
+# strength lit on cue and at rest; flare_lead and flare_decay: strand_flare's envelope (s). These are the engine's
+# defaults, used when its thread-look.json is not in the checkout.
+STRAND_DEFAULTS = {"lay_deg": 14.0, "strand_dye": 0.03, "strand_scale": 0.62, "glow": 3.6, "rest": 0.15,
+                   "flare_lead": 0.05, "flare_decay": 0.6}
+_KEYS = {"layDeg": "lay_deg", "strandDye": "strand_dye", "strandScale": "strand_scale", "glow": "glow", "rest": "rest"}
 
 
-def diff_twist(radius: float, preset: dict = DIFF_THREAD) -> float:
-    """The diff thread's ply turns per unit length: its lay at the bone plies' offset (the engine's layDeg)."""
+def parse_strand_look(doc: dict) -> dict:
+    """The strand thread's numbers in a thread look file ({"diffThread" or "strandThread": {layDeg, strandDye,
+    strandScale, glow, rest, flare: {lead, decay}}}), as a preset's keys: only those the file gives."""
+    d = doc.get("strandThread", doc.get("diffThread"))
+    if not isinstance(d, dict):
+        raise ValueError('a thread look file holds {"strandThread": {...}} (or the engine\'s "diffThread")')
+    out = {_KEYS[k]: float(v) for k, v in d.items() if k in _KEYS}
+    flare = d.get("flare") or {}
+    if "lead" in flare:
+        out["flare_lead"] = float(flare["lead"])
+    if "decay" in flare:
+        out["flare_decay"] = float(flare["decay"])
+    return out
+
+
+def strand_preset(film=None, *, engine_file: str | Path = LOOK_FILE) -> dict:
+    """The strand thread's numbers: STRAND_DEFAULTS, then the engine's thread-look.json (when the checkout has it), then
+    the film's own data/look/thread.json (when it has one; `film`: a lib.film.Film, or a film folder), each overriding
+    the keys it gives."""
+    out = dict(STRAND_DEFAULTS)
+    files = [Path(engine_file)]
+    if film is not None:
+        root = Path(film) if isinstance(film, (str, Path)) else Path(film.root)
+        files.append(root / "data" / "look" / "thread.json")
+    for f in files:
+        if f.exists():
+            out.update(parse_strand_look(json.loads(f.read_text())))
+    return out
+
+
+STRAND_THREAD = strand_preset()  # the engine's numbers (no film's overrides): the default preset
+
+
+def strand_twist(radius: float, preset: dict = STRAND_THREAD) -> float:
+    """The strand thread's ply turns per unit length: its lay at the plies' offset (the engine's layDeg)."""
     return lay_turns(preset["lay_deg"], LOOK["ply_offset"] * radius)
 
 
-def diff_tubes(strand_scale: float | None = None) -> list[dict]:
-    """The diff thread's cross-section in thread radii, as the engine lays it out: the bone 3-ply (radius 0.5 on a circle
-    of 0.5, at 0, 1/3 and 2/3 of a turn), then the blood and the moss strand, each in a groove touching the plies either
-    side, the blood at half a turn and the moss at a sixth, so along the thread the `-` passes each point a third of a
-    turn before the `+`. Each tube: {"color", "r", "d" (offset from the axis), "phase" (turns)}."""
-    s = DIFF_THREAD["strand_scale"] if strand_scale is None else strand_scale
+STRAND_COLORS = ("accent", "accent2")  # the strands' palette roles, in groove order
+
+
+def strand_tubes(strand_scale: float | None = None) -> list[dict]:
+    """The strand thread's cross-section in thread radii, as the engine lays it out: the fg 3-ply (radius 0.5 on a
+    circle of 0.5, at 0, 1/3 and 2/3 of a turn), then the accent and the accent2 strand, each in a groove touching the
+    plies either side, the accent at half a turn and the accent2 at a sixth, so along the thread the accent passes each
+    point a third of a turn before the accent2. Each tube: {"color" (a palette role), "r", "d" (offset from the axis),
+    "phase" (turns)}."""
+    s = STRAND_THREAD["strand_scale"] if strand_scale is None else strand_scale
     r, d, rw = LOOK["ply_radius"], LOOK["ply_offset"], LOOK["worm_radius"] * s
     D = d * math.cos(math.pi / 3) + math.sqrt((r + rw) ** 2 - (d * math.sin(math.pi / 3)) ** 2)
-    bone = [{"color": "bone", "r": r, "d": d, "phase": k / 3} for k in range(3)]
-    return bone + [{"color": c, "r": rw, "d": D, "phase": 0.5 - j / 3} for j, c in enumerate(("blood", "moss"))]
+    plies = [{"color": "fg", "r": r, "d": d, "phase": k / 3} for k in range(3)]
+    return plies + [{"color": c, "r": rw, "d": D, "phase": 0.5 - j / 3} for j, c in enumerate(STRAND_COLORS)]
 
 
-def diff_thread_paths(points, radius: float, preset: dict = DIFF_THREAD, *, up=(0.0, 0.0, 1.0),
-                      samples_per_turn: int = 24) -> list:
+def strand_thread_paths(points, radius: float, preset: dict = STRAND_THREAD, *, up=(0.0, 0.0, 1.0),
+                        samples_per_turn: int = 24) -> list:
     """Each tube's centreline through `points` (scene units), placed as the engine's shader places it: round the
     centreline (centripetal Catmull-Rom) in a rotation-minimising frame whose normal starts from `up`, at the tube's
-    offset and phase plus the lay's turns over the arc length. [(tube (diff_tubes), points (m, 3), tube radius)]."""
-    twist = diff_twist(radius, preset)
+    offset and phase plus the lay's turns over the arc length. [(tube (strand_tubes), points (m, 3), tube radius)]."""
+    twist = strand_twist(radius, preset)
     c = centreline(points, min(1 / (abs(twist) * samples_per_turn), radius * 2))
     s = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(c, axis=0), axis=1))])
     t0 = (c[1] - c[0]) / np.linalg.norm(c[1] - c[0])
@@ -835,24 +872,25 @@ def diff_thread_paths(points, radius: float, preset: dict = DIFF_THREAD, *, up=(
         n0 = np.array([0.0, 1.0, 0.0]) if abs(t0[1]) < 0.9 else np.array([1.0, 0.0, 0.0])
     _, N, B = rmf(c, n0)
     out = []
-    for tube in diff_tubes(preset["strand_scale"]):
+    for tube in strand_tubes(preset["strand_scale"]):
         th = (2 * np.pi * (twist * s + tube["phase"]))[:, None]
         out.append((tube, c + tube["d"] * radius * (np.cos(th) * N + np.sin(th) * B), tube["r"] * radius))
     return out
 
 
 def strand_albedo(color: str, strand_dye: float | None = None) -> tuple[float, float, float]:
-    """A strand's fibre colour (linear): the palette colour LOOK['dye'] of the way to its dim shade, as the engine dyes
-    it, times `strand_dye` (DIFF_THREAD's 0.03: near ink, so the core's light carries the colour)."""
+    """A strand's fibre colour (linear): the palette role `color` (accent, accent2) LOOK['dye'] of the way to its dim
+    shade (accentDim, accent2Dim), as the engine dyes it, times `strand_dye` (the preset's 0.03: near black, so the
+    core's light carries the colour)."""
     from . import materials
 
-    k = DIFF_THREAD["strand_dye"] if strand_dye is None else strand_dye
+    k = STRAND_THREAD["strand_dye"] if strand_dye is None else strand_dye
     a, b = materials.linear(color), materials.linear(color + "Dim")
     return tuple((x + (y - x) * LOOK["dye"]) * k for x, y in zip(a, b))  # type: ignore[return-value]
 
 
 def glow_color(color: str) -> tuple[float, float, float]:
-    """The colour of a strand's core: the palette colour in linear light with its brightest channel at 1 (look.ts
+    """The colour of a strand's core: the palette role's colour in linear light with its brightest channel at 1 (look.ts
     glow(color, 1)). At an emission strength of the glow level it is the engine's glow(color, level)."""
     from . import materials
 
@@ -870,10 +908,10 @@ def glow_profile(n_dot_v):
 
 
 def strand_flare(t: float, at, lead: float | None = None, decay: float | None = None) -> float:
-    """Flare on meaning, 0..1, the engine's strandFlare: rising over `lead` s into the onset `at` (seconds; or a list of
+    """Flare on cue, 0..1, the engine's strandFlare: rising over `lead` s into the onset `at` (seconds; or a list of
     onsets, the brightest wins), peaking on it, and dying away as (1 - age/decay)^2 to exactly 0 `decay` s after it."""
-    lead = DIFF_THREAD["flare_lead"] if lead is None else lead
-    decay = DIFF_THREAD["flare_decay"] if decay is None else decay
+    lead = STRAND_THREAD["flare_lead"] if lead is None else lead
+    decay = STRAND_THREAD["flare_decay"] if decay is None else decay
     k = 0.0
     for a in ([at] if isinstance(at, (int, float)) else at):
         if t < a:
@@ -887,10 +925,10 @@ def strand_flare(t: float, at, lead: float | None = None, decay: float | None = 
 
 def strand_glow(t: float, at, rest: float | None = None, lit: float | None = None, lead: float | None = None,
                 decay: float | None = None) -> float:
-    """A strand's glow level (emission strength) at t, the engine's strandGlow: `rest` (DIFF_THREAD's) lit toward `lit`
-    (DIFF_THREAD's glow) by strand_flare on its onsets."""
-    rest = DIFF_THREAD["rest"] if rest is None else rest
-    lit = DIFF_THREAD["glow"] if lit is None else lit
+    """A strand's glow level (emission strength) at t, the engine's strandGlow: `rest` (the preset's) lit toward `lit`
+    (the preset's glow) by strand_flare on its onsets."""
+    rest = STRAND_THREAD["rest"] if rest is None else rest
+    lit = STRAND_THREAD["glow"] if lit is None else lit
     k = strand_flare(t, at, lead, decay)
     return rest * (1 - k) + lit * k
 
@@ -907,25 +945,26 @@ def _fibre_surface(bsdf, base) -> None:
     bsdf.inputs["Sheen Tint"].default_value = (*[c + (1 - c) * 0.15 for c in base], 1.0)
 
 
-def ply_material(name: str = "diff_bone"):
-    """The diff thread's bone plies: bone with THREAD_LOOK's fibre surface. No anisotropy (a bevelled curve's tangent
-    runs round the tube, not along its fibres); the macro rope has real fibres."""
+def ply_material(name: str = "strand_fg", *, color: str = "fg"):
+    """The strand thread's plies: `color` (the theme's fg by default) with THREAD_LOOK's fibre surface. No anisotropy (a
+    bevelled curve's tangent runs round the tube, not along its fibres); the macro rope has real fibres."""
     from . import materials
 
     mat, bsdf = materials._principled(name)
-    _fibre_surface(bsdf, materials.linear("bone"))
+    _fibre_surface(bsdf, materials.linear(color))
     return mat
 
 
-def strand_material(color: str, *, preset: dict = DIFF_THREAD, name: str | None = None, heat_attr: str | None = None):
-    """A blood or moss strand: its fibre dyed near ink (strand_albedo) with a glowing core, an emission of
+def strand_material(color: str, *, preset: dict = STRAND_THREAD, name: str | None = None, heat_attr: str | None = None):
+    """An accent or accent2 strand (`color`, a palette role): its fibre dyed near black (strand_albedo) with a glowing
+    core, an emission of
     glow_color(color) at strength glow x glow_profile(N.V), where N.V = 1 - Layer Weight's Facing at blend 0.5. The glow
-    level is the Value node named 'glow' (glow_socket), starting at preset['rest']: set or key it (DiffThread.set_glow).
+    level is the Value node named 'glow' (glow_socket), starting at preset['rest']: set or key it (StrandThread.set_glow).
     `heat_attr` names a geometry attribute added to that level where the strand has it (StrandTube's `heat`: a tip that
     burns hotter as it lays in); without it the material is exactly as before."""
     from . import materials
 
-    mat, bsdf = materials._principled(name or f"diff_{color}")
+    mat, bsdf = materials._principled(name or f"strand_{color}")
     _fibre_surface(bsdf, strand_albedo(color, preset["strand_dye"]))
     bsdf.inputs["Emission Color"].default_value = (*glow_color(color), 1.0)
     nt = mat.node_tree
@@ -967,19 +1006,19 @@ def glow_socket(material):
 
 
 @dataclass
-class DiffThread:
-    """The diff thread in Blender (`diff_thread`): its five tube curves under one empty (the three bone plies, then the
-    blood and the moss strand) and the strands' materials."""
+class StrandThread:
+    """The strand thread in Blender (`strand_thread`): its five tube curves under one empty (the three plies, then the
+    accent and the accent2 strand) and the strands' materials."""
     root: object
     radius: float
     preset: dict
     tubes: list = field(default_factory=list)
-    strands: dict = field(default_factory=dict)  # "blood", "moss": material
+    strands: dict = field(default_factory=dict)  # "accent", "accent2": material
 
-    def set_glow(self, blood: float | None = None, moss: float | None = None, *, frame: int | None = None) -> None:
+    def set_glow(self, accent: float | None = None, accent2: float | None = None, *, frame: int | None = None) -> None:
         """Each strand's glow level (emission strength; strand_glow gives it at a time), the other left as it is; with
         `frame`, keyed there too, so a render plays it back (keys interpolate linearly between frames)."""
-        for c, level in (("blood", blood), ("moss", moss)):
+        for c, level in (("accent", accent), ("accent2", accent2)):
             if level is None:
                 continue
             sock = glow_socket(self.strands[c])
@@ -1004,22 +1043,23 @@ def _fcurves(action) -> list:
     return out
 
 
-def diff_thread(points, radius: float, *, preset: dict = DIFF_THREAD, name: str = "diff_thread", collection=None,
-                up=(0.0, 0.0, 1.0), bevel_resolution: int = 4, bone_material=None) -> DiffThread:
-    """Build the diff thread through `points` (scene units) of radius `radius` from `preset` (DIFF_THREAD): the bone
-    plies and the two strands as round bevelled curves (diff_thread_paths), parented to an empty named `name`, the
-    strands resting at the preset's rest level until set_glow lights one. The curves are static: a shot that moves the
-    thread rebuilds them, or poses its own geometry with `deform_blur` on what a handler moves."""
+def strand_thread(points, radius: float, *, preset: dict = STRAND_THREAD, name: str = "strand_thread", collection=None,
+                  up=(0.0, 0.0, 1.0), bevel_resolution: int = 4, ply_mat=None) -> StrandThread:
+    """Build the strand thread through `points` (scene units) of radius `radius` from `preset` (STRAND_THREAD, or a
+    film's strand_preset(film)): the fg plies and the two strands as round bevelled curves (strand_thread_paths),
+    parented to an empty named `name`, the strands resting at the preset's rest level until set_glow lights one. The
+    curves are static: a shot that moves the thread rebuilds them, or poses its own geometry with `deform_blur` on what
+    a handler moves."""
     import bpy
 
     coll = collection or bpy.context.scene.collection
     root = bpy.data.objects.new(name, None)
     root.empty_display_size = radius * 4
     coll.objects.link(root)
-    th = DiffThread(root=root, radius=radius, preset=dict(preset))
-    th.strands = {c: strand_material(c, preset=preset, name=f"{name}.{c}") for c in ("blood", "moss")}
-    bone = bone_material or ply_material(f"{name}.bone")
-    for k, (tube, P, r) in enumerate(diff_thread_paths(points, radius, preset, up=up)):
+    th = StrandThread(root=root, radius=radius, preset=dict(preset))
+    th.strands = {c: strand_material(c, preset=preset, name=f"{name}.{c}") for c in STRAND_COLORS}
+    plies = ply_mat or ply_material(f"{name}.fg")
+    for k, (tube, P, r) in enumerate(strand_thread_paths(points, radius, preset, up=up)):
         cu = bpy.data.curves.new(f"{name}.{k}.{tube['color']}", "CURVE")
         cu.dimensions = "3D"
         cu.bevel_mode = "ROUND"
@@ -1030,7 +1070,7 @@ def diff_thread(points, radius: float, *, preset: dict = DIFF_THREAD, name: str 
         sp.use_smooth = True
         sp.points.add(len(P) - 1)
         sp.points.foreach_set("co", np.column_stack([P, np.ones(len(P))]).ravel().tolist())
-        cu.materials.append(bone if tube["color"] == "bone" else th.strands[tube["color"]])
+        cu.materials.append(plies if tube["color"] == "fg" else th.strands[tube["color"]])
         ob = bpy.data.objects.new(cu.name, cu)
         ob.parent = root
         coll.objects.link(ob)
@@ -1040,17 +1080,17 @@ def diff_thread(points, radius: float, *, preset: dict = DIFF_THREAD, name: str 
 
 # ------------------------------------------------------------------------------------------ strands in the macro rope
 #
-# The diff thread at macro (B03, the re-form): DIFF_THREAD's blood and moss strands laid in the grooves of the fibre
-# rope (FibreRope), in any pose. A groove lies between two plies, a sixth of a turn from each; a strand in groove g
-# (turns from ply 0: blood 1/2, moss 1/6, as diff_tubes) winds with the plies' phase, the pose's unravel and the fray's
-# untwist included, at diff_tubes' strand offset, opened with the plies' fray and splay. The strands are smooth tubes
+# The strand thread at macro: its accent and accent2 strands laid in the grooves of the fibre rope (FibreRope), in any
+# pose. A groove lies between two plies, a sixth of a turn from each; a strand in groove g (turns from ply 0: accent
+# 1/2, accent2 1/6, as strand_tubes) winds with the plies' phase, the pose's unravel and the fray's untwist included,
+# at strand_tubes' strand offset, opened with the plies' fray and splay. The strands are smooth tubes
 # (StrandTube): at macro their glowing core (strand_material) is the detail, and the plies round them are fibre.
 
 def groove_path(rope: FibreRope, pose: RopePose, groove: float, *, depth=None, fray_centre: float, fray_amount: float,
                 fray_span: float | None = None):
     """The centreline of a strand in groove `groove` (turns from ply 0) of `rope` in `pose`, at the pose's samples:
     (points (m, 3), unit outward directions (m, 3)). `depth` is its offset from the axis in R, a number or one per sample
-    (a strand rising out of the axis); by default diff_tubes' strand offset (0.70 R, touching the plies either side).
+    (a strand rising out of the axis); by default strand_tubes' strand offset (0.70 R, touching the plies either side).
     The fray's untwist is the one rope_geometry gives the plies (`fray_centre`, `fray_amount`, `fray_span`)."""
     span = (fray_span or LOOK["fray_span"]) * rope.R
     s, X = pose.s, pose.X
@@ -1062,7 +1102,7 @@ def groove_path(rope: FibreRope, pose: RopePose, groove: float, *, depth=None, f
     phase = rope.twist * untwisted(s, fray_centre, span, fray_amount, rope.fray_untwist) + pose.unravel
     th = 2 * np.pi * (groove + phase)
     out = np.cos(th)[:, None] * N + np.sin(th)[:, None] * B
-    D = diff_tubes()[3]["d"] if depth is None else np.asarray(depth, float)
+    D = strand_tubes()[3]["d"] if depth is None else np.asarray(depth, float)
     # the plies either side of the groove stand out with the fray, and with their own splay at a broken end
     k1, k2 = int(round(3 * (groove - 1 / 6))) % 3, int(round(3 * (groove + 1 / 6))) % 3
     d = D * rope.R * (1 + rope.fray_separation * pose.fray + 0.5 * (pose.splay[k1] + pose.splay[k2]))

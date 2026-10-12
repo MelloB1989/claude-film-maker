@@ -1,4 +1,4 @@
-# lib/braid.py: the three-strand plait (B08) and threads that move along their own length.
+# lib/braid.py: the three-strand plait and threads that move along their own length.
 import math
 
 import numpy as np
@@ -53,11 +53,11 @@ def test_a_strand_is_longer_than_its_plait_and_arc_inverts():
     assert 1.35 < pl.stretch < 1.5
 
 
-def test_tubes_along_lay_the_diff_thread_as_diff_thread_paths_does():
+def test_tubes_along_lay_the_strand_thread_as_strand_thread_paths_does():
     pts = np.array([[0, 0, 0], [0.3, 0.05, 0.02], [0.6, 0.0, 0.1]])
-    ref = thread.diff_thread_paths(pts, R)
+    ref = thread.strand_thread_paths(pts, R)
     X = ref[0][1]  # any tube's path is the centreline offset; rebuild the centreline as the engine does
-    c = thread.centreline(pts, min(1 / (abs(thread.diff_twist(R)) * 24), R * 2))
+    c = thread.centreline(pts, min(1 / (abs(thread.strand_twist(R)) * 24), R * 2))
     u = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(c, axis=0), axis=1))])
     got = braid.tubes_along(c, u, R, (0.0, 0.0, 1.0))
     assert len(got) == len(ref) == 5
@@ -78,7 +78,7 @@ def test_a_thread_pulled_along_carries_its_lay_with_its_material():
         assert np.allclose(Pb - Pa, [d, 0, 0])
     # whereas the material shifted under a fixed path turns every tube by the lay over d
     s = braid.tubes_along(c, u + d, R, (0, 0, 1))
-    turn = 2 * math.pi * thread.diff_twist(R) * d
+    turn = 2 * math.pi * thread.strand_twist(R) * d
     ang = lambda P: np.arctan2(P[:, 2], P[:, 1])  # noqa: E731
     for (_, Pa, _), (_, Ps, _) in zip(a[:3], s[:3]):
         dang = np.angle(np.exp(1j * (ang(Ps) - ang(Pa))))

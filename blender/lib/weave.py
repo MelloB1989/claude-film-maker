@@ -1,4 +1,4 @@
-"""The loom (B05): plain weave on four warp lanes, the shed, and the weaving clock that puts a pick on every beat.
+"""A hero motif: a loom. Plain weave on warp lanes, the shed, and the weaving clock that puts a pick on every beat.
 
 Coordinates are the loom's own, in units of one length L (a shot scales them to metres): x across the loom, y along the
 warps (the woven cloth toward -y, the open warps and the back beam toward +y), z up. The fell, the edge where the newest
@@ -16,7 +16,7 @@ cloth beam winds it in: so the fabric grows toward a camera on the cloth side.
   - `ply_offsets`: three plies wound round a centreline that lies in a plane (a warp in the y-z plane, a weft in the x-z
     plane), framed by that plane's normal, without the per-point transport loop a general path needs.
 
-numpy only: tested under the tools project (blender/tests/test_weave.py).
+numpy only: tested without Blender (blender/tests/test_weave.py).
 """
 from __future__ import annotations
 
@@ -30,8 +30,8 @@ import numpy as np
 
 @dataclass(frozen=True)
 class Lane:
-    """One warp lane (a tier): its name and its warps' x, left to right; `first` is the index of its first warp in the
-    loom (warps are numbered left to right across all lanes)."""
+    """One warp lane (a band of warps: one per track, tier or topic): its name and its warps' x, left to right; `first`
+    is the index of its first warp in the loom (warps are numbered left to right across all lanes)."""
     name: str
     xs: tuple
     first: int

@@ -25,7 +25,7 @@ deliver (`fault`) when:
                           frames black on purpose, to prove the retry path. It does nothing unless it is set.
   frames_spec(frames)     film frames as a --frames value, for the error's "to finish it".
 
-Everything here is bpy-free (tested under the tools project); lib/export.py wires it to Blender.
+Everything here is bpy-free (tested without Blender); lib/export.py wires it to Blender.
 """
 from __future__ import annotations
 

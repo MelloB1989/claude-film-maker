@@ -57,7 +57,7 @@ def test_one_ply_is_the_thread_itself():
     np.testing.assert_allclose(_dist_to_x_axis(plies[0]), 0, atol=1e-12)
 
 
-# ------------------------------------------------------------------------------------------ the macro rope (B01)
+# ------------------------------------------------------------------------------------------ the macro rope
 
 def test_the_lay_matches_the_engines_thread_look():
     # THREAD_LOOK: plies of 0.5 R on a circle of 0.5 R, a 32 degree lay = 0.199 turns per R (5.03 R per turn)
@@ -120,15 +120,18 @@ def test_the_halves_of_a_whole_rope_meet_fibre_for_fibre():
         np.testing.assert_allclose(np.hypot(centre[:, 1], centre[:, 2]), 0.5 * R, rtol=3e-3)
 
 
-# ------------------------------------------------------------------------------------------ the diff thread (E3)
+# ------------------------------------------------------------------------------------------ the strand thread
 
 REPO = Path(__file__).resolve().parents[2]
-ENGINE = (REPO / "app/src/engine/thread3d.ts").read_text()
+ENGINE_TS = REPO / "app/src/engine/thread3d.ts"
+WANT = {"lay_deg": 14, "strand_dye": 0.03, "strand_scale": 0.62, "glow": 3.6, "rest": 0.15, "flare_lead": 0.05,
+        "flare_decay": 0.6}
 
 
 def _engine_look(key: str):
     """A number, or a list of them, from the engine's THREAD_LOOK (app/src/engine/thread3d.ts)."""
-    block = ENGINE[ENGINE.index("export const THREAD_LOOK = {"):]
+    src = ENGINE_TS.read_text()
+    block = src[src.index("export const THREAD_LOOK = {"):]
     block = block[:block.index("} as const;")]
     m = re.search(rf"\b{key}: (\[[^\]]*\]|[-\d.]+),", block)
     assert m, f"THREAD_LOOK.{key} not found"
@@ -140,25 +143,42 @@ def _hex_linear(h: str):
     return [(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4) for c in (int(h[i:i + 2], 16) / 255 for i in (1, 3, 5))]
 
 
-def test_the_diff_thread_preset_is_the_engines_own_numbers():
-    assert thread.DIFF_THREAD == {"lay_deg": 14, "strand_dye": 0.03, "strand_scale": 0.62, "glow": 3.6, "rest": 0.15,
-                                  "flare_lead": 0.05, "flare_decay": 0.6}
-    # read from the file the engine reads, and the engine builds its DIFF_THREAD from that file, not numbers of its own
-    d = json.loads((REPO / "data/look/thread.json").read_text())["diffThread"]
-    assert thread.DIFF_THREAD == {"lay_deg": d["layDeg"], "strand_dye": d["strandDye"], "strand_scale": d["strandScale"],
-                                  "glow": d["glow"], "rest": d["rest"], "flare_lead": d["flare"]["lead"],
-                                  "flare_decay": d["flare"]["decay"]}
-    assert "import LOOK_DATA from '../../../data/look/thread.json';" in ENGINE
-    assert "const DIFF = LOOK_DATA.diffThread;" in ENGINE
-    for k in ("layDeg", "strandDye", "strandScale", "glow", "rest"):
-        assert re.search(rf"^  {k}: DIFF\.{k},$", ENGINE, re.M), k
-    assert "export const STRAND_FLARE = { lead: DIFF.flare.lead, decay: DIFF.flare.decay };" in ENGINE
+def _look(**d):
+    return {"diffThread": {"layDeg": 14, "strandDye": 0.03, "strandScale": 0.62, "glow": 3.6, "rest": 0.15,
+                           "flare": {"lead": 0.05, "decay": 0.6}, **d}}
 
 
+def test_the_strand_threads_defaults_are_the_engines_numbers():
+    assert thread.STRAND_DEFAULTS == WANT
+
+
+def test_the_preset_reads_the_engines_file_and_a_film_may_override_it(tmp_path):
+    engine = tmp_path / "thread-look.json"
+    assert thread.strand_preset(engine_file=engine) == WANT  # no engine file in the checkout: the defaults
+    engine.write_text(json.dumps(_look(glow=4.0, flare={"lead": 0.1, "decay": 0.5})))
+    assert thread.strand_preset(engine_file=engine) == {**WANT, "glow": 4.0, "flare_lead": 0.1, "flare_decay": 0.5}
+    film = tmp_path / "films" / "demo"
+    (film / "data" / "look").mkdir(parents=True)
+    assert thread.strand_preset(film, engine_file=engine)["glow"] == 4.0  # the film has no look of its own yet
+    (film / "data" / "look" / "thread.json").write_text(json.dumps({"strandThread": {"layDeg": 20, "flare": {"decay": 1}}}))
+    got = thread.strand_preset(film, engine_file=engine)  # a film's file overrides only what it gives
+    assert got == {**WANT, "glow": 4.0, "flare_lead": 0.1, "lay_deg": 20.0, "flare_decay": 1.0}
+    assert thread.strand_preset(type("Film", (), {"root": film})(), engine_file=engine) == got  # a Film works too
+    with pytest.raises(ValueError, match="strandThread"):
+        thread.parse_strand_look({"thread": {}})
+
+
+@pytest.mark.skipif(not thread.LOOK_FILE.exists(), reason="the engine's thread-look.json is not in this checkout")
+def test_the_default_preset_is_the_engines_file():
+    d = json.loads(thread.LOOK_FILE.read_text())
+    assert thread.STRAND_THREAD == {**thread.STRAND_DEFAULTS, **thread.parse_strand_look(d)}
+
+
+@pytest.mark.skipif(not ENGINE_TS.exists(), reason="the engine's thread3d.ts is not in this checkout")
 def test_the_mirror_carries_the_engines_thread_look():
     assert thread.LOOK["ply_radius"] == _engine_look("plyRadius")[2]
     assert thread.LOOK["ply_offset"] == _engine_look("plyOffset")[2]
-    assert thread.LOOK["lay_deg"] == _engine_look("helixDeg")  # the bone rope's own lay (B01)
+    assert thread.LOOK["lay_deg"] == _engine_look("helixDeg")  # the macro rope's own lay
     assert thread.LOOK["worm_radius"] == _engine_look("wormRadius")
     assert thread.LOOK["dye"] == _engine_look("dye")
     assert list(thread.LOOK["glow_falloff"]) == _engine_look("glowFalloff")
@@ -168,35 +188,36 @@ def test_the_mirror_carries_the_engines_thread_look():
         assert thread.LOOK[py] == _engine_look(ts), py
 
 
-def test_the_diff_threads_lay_is_hers():
+def test_the_strand_threads_lay_is_the_presets():
     R = 0.0042
-    # her.ts before the preset: a 14 degree lay at the bone plies' offset, tan 14° / (2π · R/2) turns per unit length
-    assert thread.diff_twist(R) == pytest.approx(math.tan(math.radians(14)) / (2 * math.pi * 0.5 * R), rel=1e-12)
-    assert thread.diff_twist(R, {**thread.DIFF_THREAD, "lay_deg": 32}) == pytest.approx(thread.lay_turns(32, 0.5 * R))
+    # a 14 degree lay at the plies' offset: tan 14° / (2π · R/2) turns per unit length
+    preset = {**thread.STRAND_DEFAULTS}
+    assert thread.strand_twist(R, preset) == pytest.approx(math.tan(math.radians(14)) / (2 * math.pi * 0.5 * R), rel=1e-12)
+    assert thread.strand_twist(R, {**preset, "lay_deg": 32}) == pytest.approx(thread.lay_turns(32, 0.5 * R))
 
 
-def test_the_strands_lie_in_the_grooves_of_the_bone_plies_slimmed_and_touching_both_neighbours():
-    tubes = thread.diff_tubes()
-    assert [t["color"] for t in tubes] == ["bone", "bone", "bone", "blood", "moss"]
+def test_the_strands_lie_in_the_grooves_of_the_plies_slimmed_and_touching_both_neighbours():
+    tubes = thread.strand_tubes(0.62)
+    assert [t["color"] for t in tubes] == ["fg", "fg", "fg", "accent", "accent2"]
     for k, t in enumerate(tubes[:3]):
         assert (t["r"], t["d"]) == (0.5, 0.5) and t["phase"] == pytest.approx(k / 3)
     rw = 0.2 * 0.62
     D = 0.25 + math.sqrt((0.5 + rw) ** 2 - (0.5 * math.sin(math.pi / 3)) ** 2)  # deeper in the groove than 0.8
-    blood, moss = tubes[3], tubes[4]
-    for s in (blood, moss):
+    accent, accent2 = tubes[3], tubes[4]
+    for s in (accent, accent2):
         assert s["r"] == pytest.approx(rw, abs=1e-15) and s["d"] == pytest.approx(D, abs=1e-15)
         c = s["d"] * np.exp(2j * np.pi * s["phase"])
         gaps = sorted(abs(c - 0.5 * np.exp(2j * np.pi * k / 3)) for k in range(3))
         np.testing.assert_allclose(gaps[:2], 0.5 + rw, atol=1e-12)  # touching the plies either side
-    # the − a groove ahead of the +: blood at half a turn, moss at a sixth
-    assert blood["phase"] == 0.5 and moss["phase"] == pytest.approx(1 / 6)
+    # the accent a groove ahead of the accent2: at half a turn, the accent2 at a sixth
+    assert accent["phase"] == 0.5 and accent2["phase"] == pytest.approx(1 / 6)
 
 
-def test_diff_thread_paths_wind_every_tube_at_its_offset_with_the_lay():
+def test_strand_thread_paths_wind_every_tube_at_its_offset_with_the_lay():
     R = 0.01
-    paths = thread.diff_thread_paths([(0, 0, 0), (0.5, 0, 0), (1, 0, 0)], R)
-    assert [p[0]["color"] for p in paths] == ["bone", "bone", "bone", "blood", "moss"]
-    twist = thread.diff_twist(R)
+    paths = thread.strand_thread_paths([(0, 0, 0), (0.5, 0, 0), (1, 0, 0)], R)
+    assert [p[0]["color"] for p in paths] == ["fg", "fg", "fg", "accent", "accent2"]
+    twist = thread.strand_twist(R)
     ang = {}
     for tube, P, r in paths:
         assert r == pytest.approx(tube["r"] * R)
@@ -205,27 +226,30 @@ def test_diff_thread_paths_wind_every_tube_at_its_offset_with_the_lay():
         a = np.unwrap(np.arctan2(P[:, 1], P[:, 2]))
         np.testing.assert_allclose(np.abs(a - a[0]), 2 * np.pi * twist * P[:, 0], atol=1e-6)  # the lay's turns
         ang[tube["color"]] = a
-    # along the thread the blood strand is a third of a turn ahead of the moss
-    np.testing.assert_allclose(np.mod(np.abs(ang["blood"] - ang["moss"]), 2 * np.pi), 2 * np.pi / 3, atol=1e-6)
+    # along the thread the accent strand is a third of a turn ahead of the accent2
+    np.testing.assert_allclose(np.mod(np.abs(ang["accent"] - ang["accent2"]), 2 * np.pi), 2 * np.pi / 3, atol=1e-6)
 
 
-def test_the_strands_colour_is_the_engines_dyed_fibre_and_their_glow_its_emission():
-    # dyed 82% of the way to the dim shade (THREAD_LOOK.dye), then near ink (strand_dye 0.03): the engine's uColors
-    for color, base, dim in (("blood", "#c22b45", "#8e1f35"), ("moss", "#4aad63", "#1c3324")):
+def test_the_strands_colour_is_the_engines_dyed_fibre_and_their_glow_its_emission(noir):
+    # dyed 82% of the way to the role's dim shade (THREAD_LOOK.dye), then near black (strand_dye 0.03): the engine's
+    # uColors. noir: accent #c22b45 (dim #8e1f35), accent2 #4aad63 (dim #1c3324)
+    for color, base, dim in (("accent", "#c22b45", "#8e1f35"), ("accent2", "#4aad63", "#1c3324")):
         want = [(x + (y - x) * 0.82) * 0.03 for x, y in zip(_hex_linear(base), _hex_linear(dim))]
-        np.testing.assert_allclose(thread.strand_albedo(color), want, rtol=1e-9)
-    np.testing.assert_allclose(thread.strand_albedo("blood", 1.0), [0.319, 0.0156, 0.0399], atol=5e-4)  # report §4
-    # the emission: the palette colour with its brightest channel 1, at strength = the glow level, is look.ts glow():
+        np.testing.assert_allclose(thread.strand_albedo(color, 0.03), want, rtol=1e-9)
+    np.testing.assert_allclose(thread.strand_albedo("accent", 1.0), [0.319, 0.0156, 0.0399], atol=5e-4)
+    # the emission: the role's colour with its brightest channel 1, at strength = the glow level, is look.ts glow():
     # the engine's thread test pins these at level 2.5
-    np.testing.assert_allclose(np.multiply(thread.glow_color("blood"), 2.5), [2.5, 0.1119488, 0.2757808], atol=1e-6)
-    np.testing.assert_allclose(np.multiply(thread.glow_color("moss"), 2.5), [0.4096711, 2.5, 0.7464482], atol=1e-6)
-    # and across the strand, a filament over a soft base: 0.8 (N·V)^28 + 0.2 (N·V)^3 (report §4)
+    np.testing.assert_allclose(np.multiply(thread.glow_color("accent"), 2.5), [2.5, 0.1119488, 0.2757808], atol=1e-6)
+    np.testing.assert_allclose(np.multiply(thread.glow_color("accent2"), 2.5), [0.4096711, 2.5, 0.7464482], atol=1e-6)
+    # and across the strand, a filament over a soft base: 0.8 (N·V)^28 + 0.2 (N·V)^3
     assert thread.glow_profile(1.0) == pytest.approx(1.0)
     assert thread.glow_profile(0.9) == pytest.approx(0.8 * 0.9 ** 28 + 0.2 * 0.9 ** 3)
     assert thread.glow_profile(0.0) == 0.0
 
 
 def test_strand_flare_and_strand_glow_are_the_engines():
+    if thread.STRAND_THREAD != WANT:
+        pytest.skip("the engine's thread-look.json has numbers of its own: the expectations below are the defaults'")
     at = 10.0
     assert thread.strand_flare(at - 0.2, at) == 0
     assert thread.strand_flare(at - 0.05, at) == 0
@@ -243,7 +267,7 @@ def test_strand_flare_and_strand_glow_are_the_engines():
     assert thread.strand_glow(5.0, 5.0, rest=0.0, lit=2.0) == 2.0
 
 
-# ------------------------------------------------------------------------------------------ strands in the macro rope (B03)
+# ------------------------------------------------------------------------------------------ strands in the macro rope
 
 def _straight(rope, s, n0=(0.0, 0.0, 1.0)):
     X = np.column_stack([s - rope.break_at, np.zeros_like(s), np.zeros_like(s)])
@@ -256,7 +280,7 @@ def test_a_groove_strand_lies_between_two_plies_at_the_strand_offset():
     rope = thread.fibre_rope(R, 30 * R, seed=2, fibres=8, fuzz_per_R=1, lay_deg=14)
     s = rope.grid
     pose = _straight(rope, s)
-    D = thread.diff_tubes()[3]["d"]
+    D = thread.strand_tubes()[3]["d"]
     for groove in (0.5, 1 / 6):
         P, out = thread.groove_path(rope, pose, groove, fray_centre=rope.break_at, fray_amount=0.0)
         np.testing.assert_allclose(np.hypot(P[:, 1], P[:, 2]), D * R, atol=1e-12)  # D R off the axis
@@ -281,15 +305,15 @@ def test_a_groove_strand_follows_the_poses_unravel_and_its_depth_can_vary():
     np.testing.assert_allclose(np.hypot(P2[:, 1], P2[:, 2]), depth * R, atol=1e-12)
 
 
-def test_the_macro_ropes_strand_at_the_diff_lay_is_the_diff_threads_strand():
-    # a fibre rope laid at DIFF_THREAD's 14 degrees, straight, carries its blood strand where diff_thread_paths puts it
+def test_the_macro_ropes_strand_at_the_presets_lay_is_the_strand_threads_strand():
+    # a fibre rope laid at the preset's 14 degrees, straight, carries its accent strand where strand_thread_paths puts it
     R = 0.01
     L = 20 * R
-    rope = thread.fibre_rope(R, L, seed=2, fibres=8, fuzz_per_R=1, lay_deg=thread.DIFF_THREAD["lay_deg"])
-    assert rope.twist == pytest.approx(thread.diff_twist(R), rel=1e-12)
-    (tube, Q, r) = thread.diff_thread_paths([(-L / 2, 0, 0), (L / 2, 0, 0)], R)[3]
-    assert tube["color"] == "blood"
-    s = Q[:, 0] + L / 2  # the rope posed on the diff thread's own samples
+    rope = thread.fibre_rope(R, L, seed=2, fibres=8, fuzz_per_R=1, lay_deg=thread.STRAND_THREAD["lay_deg"])
+    assert rope.twist == pytest.approx(thread.strand_twist(R), rel=1e-12)
+    (tube, Q, r) = thread.strand_thread_paths([(-L / 2, 0, 0), (L / 2, 0, 0)], R)[3]
+    assert tube["color"] == "accent"
+    s = Q[:, 0] + L / 2  # the rope posed on the strand thread's own samples
     P, _ = thread.groove_path(rope, _straight(rope, s), 0.5, fray_centre=rope.break_at, fray_amount=0.0)
     np.testing.assert_allclose(P, Q, atol=1e-9 * R)
 

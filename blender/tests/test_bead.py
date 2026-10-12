@@ -1,4 +1,4 @@
-# lib/bead.py: the commit bead in Blender, the engine's bead (app/src/engine/bead.ts) mirrored.
+# lib/bead.py: the engraved glass bead, the engine's bead (app/src/engine/bead.ts) mirrored.
 import math
 
 import numpy as np
@@ -56,3 +56,11 @@ def test_a_bead_turns_its_bore_onto_the_thread_and_its_face_to_the_camera():
     assert np.allclose(M.T @ M, np.eye(3)) and np.isclose(np.linalg.det(M), 1.0)
     assert np.allclose(M[:, 0], np.array([0.0, 0.2, 1.0]) / np.linalg.norm([0.0, 0.2, 1.0]))
     assert M[:, 2] @ np.array([1.0, 0.0, 0.3]) > 0
+
+
+def test_the_glass_is_white_a_breath_toward_the_themes_fg(noir):
+    assert bead.glass_tint("#000000", 1.0) == pytest.approx((0, 0, 0))  # all the way to black
+    # 10% of the way from white to noir's fg (#ede7ea: 0.846873, 0.799103, 0.822786 linear)
+    want = tuple(1 - 0.1 * (1 - c) for c in (0.846873, 0.799103, 0.822786))
+    assert bead.glass_tint() == pytest.approx(want, abs=1e-6)
+    assert bead.glass_tint("accent", 0.0) == pytest.approx((1, 1, 1))

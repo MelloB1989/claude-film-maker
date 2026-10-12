@@ -1,9 +1,11 @@
-"""The studio: a soft key from the upper left, a hard rim from behind on the right, a low fill, and a dark world.
+"""The studio: three-point lighting, a soft key from the upper left, a hard rim from behind on the right, a low fill,
+and the theme's background as the world.
 
 The rig is placed around `target` for a camera looking down +Y (Blender's front view: the camera on -Y), with
 distances in units of `scale`; powers are the watts at scale 1 and grow with scale squared, so the light reaching the
-subject stays the same. Keep the key near neutral: a key warmer than about 4000 K tints bone past the engine's bloom
-gate (only blood and moss may glow). Each light takes a power, or None to leave it out.
+subject stays the same. Keep the key near neutral: a key warmer than about 4000 K tints an fg surface past the engine's
+bloom gate (only the accents may glow). Each light takes a power, or None to leave it out. Colours are palette roles of
+the theme in use (lib/theme.py) or '#rrggbb'.
 """
 from __future__ import annotations
 
@@ -39,7 +41,7 @@ def _light(name, kind, power, pos, target, *, size=None, temperature=None, spot_
 
 
 def world_color(color: str | None, strength: float = 1.0):
-    """The world as a flat colour (a palette name or hex; None for black) at `strength`."""
+    """The world as a flat colour (a palette role or '#rrggbb'; None for black) at `strength`."""
     scene = bpy.context.scene
     w = scene.world or bpy.data.worlds.new("world")
     scene.world = w
@@ -55,13 +57,14 @@ def world_color(color: str | None, strength: float = 1.0):
     return w
 
 
-def studio(key: float | None = 200.0, rim: float | None = 600.0, fill: float | None = 40.0, world: str | None = "ink",
+def studio(key: float | None = 200.0, rim: float | None = 600.0, fill: float | None = 40.0, world: str | None = "bg",
            *, target=(0.0, 0.0, 0.0), scale: float = 1.0, key_temperature: float = 6000.0, world_strength: float = 1.0,
            collection=None) -> dict:
     """Light the subject at `target`. Returns {'key', 'rim', 'fill', 'world'} (the lights left out are absent).
 
-    The defaults expose for the engine's look: a bone surface facing the key comes out near bone's own albedo (about
-    0.85 linear), the fill side about a stop under it, and the rim a bright edge."""
+    The defaults expose for the engine's look: a near-white surface facing the key comes out near its own albedo (about
+    0.85 linear), the fill side about a stop under it, and the rim a bright edge. The world is `world` (a palette
+    role, default the theme's background) at `world_strength`."""
     t = Vector(target)
     s2 = scale * scale
     out = {}

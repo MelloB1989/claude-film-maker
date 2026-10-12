@@ -1,4 +1,4 @@
-"""A three-strand plait of diff threads (B08, the braid), and threads that move along their own length.
+"""A hero motif: a three-strand plait of threads, and threads that move along their own length.
 
 The plait. Three threads of radius R plaited flat: strand k's centre sits off the plait's axis by
   x = A sin 2pi(phase + k/3)   (across the plait's face)
@@ -11,12 +11,12 @@ in their figures of eight as new plait forms. PLAIT's numbers make neighbours ju
 closest; test_braid.py), a plait 2A + 2R wide and 2B + 2R deep.
 
 Threads that move along their length. A thread pulled along a path carries its lay with its material: its twist is a
-function of the material coordinate u, not of where the material happens to be. `tubes_along` lays the diff thread's
-five tubes (lib/thread.py diff_tubes: the bone plies, the blood and moss strands in their grooves) round a centreline
-sampled at material coordinates, in a rotation-minimising frame, so the stripes run along the path at the material's
-speed and Cycles blurs them as they go. `fuzz_along` stands seeded fuzz fibres on it, rooted in the material.
+function of the material coordinate u, not of where the material happens to be. `tubes_along` lays the strand
+thread's five tubes (lib/thread.py strand_tubes: the fg plies, the accent and accent2 strands in their grooves) round a
+centreline sampled at material coordinates, in a rotation-minimising frame, so the stripes run along the path at the
+material's speed and Cycles blurs them as they go. `fuzz_along` stands seeded fuzz fibres on it, rooted in the material.
 
-numpy only (tested under the tools project).
+numpy only (tested without Blender).
 """
 from __future__ import annotations
 
@@ -112,18 +112,18 @@ def frames_along(X: np.ndarray, n0) -> tuple[np.ndarray, np.ndarray, np.ndarray]
     return thread.rmf(X, n0)
 
 
-def tubes_along(X, u, radius: float, n0, preset: dict = thread.DIFF_THREAD, *, strand_scale: float | None = None):
-    """The diff thread's five tubes round a centreline X (m, 3) whose points sit at material coordinates u (m,):
-    [(tube (thread.diff_tubes), points (m, 3), tube radius)], bone plies first. Each tube winds at its offset and phase
-    plus the lay's turns over u (thread.diff_twist), so the twist belongs to the material: a thread pulled along its path
+def tubes_along(X, u, radius: float, n0, preset: dict = thread.STRAND_THREAD, *, strand_scale: float | None = None):
+    """The strand thread's five tubes round a centreline X (m, 3) whose points sit at material coordinates u (m,):
+    [(tube (thread.strand_tubes), points (m, 3), tube radius)], the plies first. Each tube winds at its offset and phase
+    plus the lay's turns over u (thread.strand_twist), so the twist belongs to the material: a thread pulled along its path
     carries its stripes with it. The frame is rotation-minimising along X from n0 at X[0]. With u the arc length from
-    X[0] this is thread.diff_thread_paths' own layout (test_braid.py)."""
+    X[0] this is thread.strand_thread_paths' own layout (test_braid.py)."""
     X = np.asarray(X, float)
     u = np.asarray(u, float)
-    twist = thread.diff_twist(radius, preset)
+    twist = thread.strand_twist(radius, preset)
     _, N, B = frames_along(X, n0)
     out = []
-    for tube in thread.diff_tubes(preset["strand_scale"] if strand_scale is None else strand_scale):
+    for tube in thread.strand_tubes(preset["strand_scale"] if strand_scale is None else strand_scale):
         th = (2 * np.pi * (twist * u + tube["phase"]))[:, None]
         out.append((tube, X + tube["d"] * radius * (np.cos(th) * N + np.sin(th) * B), tube["r"] * radius))
     return out

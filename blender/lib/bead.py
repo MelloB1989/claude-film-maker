@@ -1,5 +1,6 @@
-"""The commit bead in Blender, mirroring the engine's (app/src/engine/bead.ts): a glass sphere with a bore and chamfered
-lips, its hash etched round its face in JetBrains Mono, frosted.
+"""A hero motif: an engraved glass bead, mirroring the engine's (app/src/engine/bead.ts): a glass sphere with a bore and
+chamfered lips, a short text (a code, a version, a hash) etched round its face, frosted. It threads onto lib/thread.py's
+threads (its bore along the thread) or stands alone as a product-style jewel.
 
 The bead's own frame is the engine's: the bore runs along x (the thread passes through it), the engraving faces +z and
 its letters stand up along +y. The geometry is bead.ts's lathe profile (`bead_profile`: the sphere from lip to lip, a
@@ -10,10 +11,11 @@ face and foreshorten as the surface turns away. It lies a hair proud of the glas
 surface itself): under even a thin skin of glass Cycles could light it only through refraction, a caustic it barely
 samples, and the letters render black.
 
-Materials: clear satin glass (IOR 1.5, roughness 0.15, a light clear coat: bead.ts and B05's shuttle) and the frosted
-etch (rough, opaque, bone white).
+Materials: clear satin glass (IOR 1.5, roughness 0.15, a light clear coat, as bead.ts), tinted a breath toward the
+theme's fg, and the frosted etch (rough, opaque, in the theme's fg; it never glows). Colours are palette roles of the
+theme in use (lib/theme.py).
 
-The profile, the lathe and the wrap are numpy only (tested under the tools project); the rest imports bpy.
+The profile, the lathe and the wrap are numpy only (tested without Blender); the rest imports bpy.
 """
 from __future__ import annotations
 
@@ -21,8 +23,6 @@ import math
 from pathlib import Path
 
 import numpy as np
-
-FONT = Path(__file__).resolve().parents[2] / "app" / "public" / "fonts" / "JetBrainsMono-500.ttf"
 
 
 def bead_profile(r: float, bore: float, chamfer: float, arc: int = 72) -> np.ndarray:
@@ -76,17 +76,25 @@ def bead_basis(bore, face) -> np.ndarray:
     return np.column_stack([x, y, z])
 
 
+def glass_tint(color: str = "fg", amount: float = 0.1) -> tuple[float, float, float]:
+    """The glass's colour (linear): white, `amount` of the way toward `color` (a palette role or '#rrggbb'), so clear
+    glass picks up a breath of the film's own light."""
+    from . import materials
+
+    return tuple(1.0 + (c - 1.0) * amount for c in materials.linear(color))  # type: ignore[return-value]
+
+
 # ---------------------------------------------------------------------------------------------------- Blender side
 
-def glass_material(name: str = "bead_glass"):
-    """The bead's glass: clear satin (roughness 0.15), IOR 1.5, a light clear coat, a breath of warmth toward bone."""
+def glass_material(name: str = "bead_glass", *, tint: str = "fg"):
+    """The bead's glass: clear satin (roughness 0.15), IOR 1.5, a light clear coat, tinted a breath toward `tint`."""
     import bpy
 
     mat = bpy.data.materials.new(name)
     if mat.node_tree is None:
         mat.use_nodes = True
     b = next(n for n in mat.node_tree.nodes if n.bl_idname == "ShaderNodeBsdfPrincipled")
-    b.inputs["Base Color"].default_value = (0.985, 0.972, 0.975, 1.0)
+    b.inputs["Base Color"].default_value = (*glass_tint(tint), 1.0)
     b.inputs["Roughness"].default_value = 0.15
     b.inputs["IOR"].default_value = 1.5
     b.inputs["Transmission Weight"].default_value = 1.0
@@ -95,12 +103,12 @@ def glass_material(name: str = "bead_glass"):
     return mat
 
 
-def etch_material(name: str = "bead_etch"):
-    """The frosted etch: rough, opaque, bone white (it never glows)."""
+def etch_material(name: str = "bead_etch", *, color: str = "fg"):
+    """The frosted etch: rough, opaque, in `color` (the theme's fg by default; it never glows)."""
     from . import materials
 
     mat, b = materials._principled(name)
-    b.inputs["Base Color"].default_value = (*[0.9 * c for c in materials.linear("bone")], 1.0)
+    b.inputs["Base Color"].default_value = (*[0.9 * c for c in materials.linear(color)], 1.0)
     b.inputs["Roughness"].default_value = 0.85
     b.inputs["Specular IOR Level"].default_value = 0.3
     return mat
@@ -119,17 +127,20 @@ def bead_mesh(name: str, r: float, bore: float, chamfer: float, material, segmen
     return me
 
 
-def etch_mesh(name: str, text: str, r: float, material, *, em: float | None = None, lift: float = 0.004):
-    """The hash as a flat mesh wrapped onto the bead (radius r) a hair proud of its surface (lift x r: clear of the
-    faceted glass, whose faces lie inside the true sphere), centred on the face: JetBrains Mono 500 at `em` (default
-    bead.ts's: the band's length at 64%, 7 mono cells of 0.6 em)."""
+def etch_mesh(name: str, text: str, r: float, material, *, font: str | Path | None = None, em: float | None = None,
+              lift: float = 0.004):
+    """`text` as a flat mesh wrapped onto the bead (radius r) a hair proud of its surface (lift x r: clear of the
+    faceted glass, whose faces lie inside the true sphere), centred on the face, at `em` (default bead.ts's: the band's
+    length at 64%, in mono cells of 0.6 em). `font` is a font file (a film's, say films/<id>/fonts/...); None uses
+    Blender's built-in font."""
     import bpy
 
-    font = bpy.data.fonts.get(FONT.name) or bpy.data.fonts.load(str(FONT))
     em = em if em is not None else 0.64 * 2 * 0.95 * r / (0.6 * max(1, len(text)))
     cu = bpy.data.curves.new(f"{name}.text", "FONT")
     cu.body = text
-    cu.font = font
+    if font is not None:
+        font = Path(font)
+        cu.font = bpy.data.fonts.get(font.name) or bpy.data.fonts.load(str(font))
     cu.size = em
     cu.align_x = "CENTER"
     cu.align_y = "CENTER"

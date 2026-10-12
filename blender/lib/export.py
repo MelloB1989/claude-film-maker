@@ -18,7 +18,7 @@ frames a shot means to be black from being lit, not from holding finite values. 
 frame_set or render ran a frame-change handler that raised fails with HandlerError before its plate is written, and
 so does a tracked frame (lib/handlers.py: render.py installs the guard once the shot is built).
 
-The path, pixel and PNG helpers are bpy-free (tested under the tools project); the rest imports bpy when called.
+The path, pixel and PNG helpers are bpy-free (tested without Blender); the rest imports bpy when called.
 """
 from __future__ import annotations
 
