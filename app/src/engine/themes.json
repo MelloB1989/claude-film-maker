@@ -1,0 +1,44 @@
+{
+  "noir": {
+    "kind": "dark",
+    "bg": "#110d10", "bg2": "#161114", "surface": "#1e181c", "surface2": "#282027", "rule": "#2b2229", "ruleStrong": "#3e323b",
+    "fg": "#ede7ea", "fgDim": "#a99fa5", "fgFaint": "#6f6469",
+    "accent": "#c22b45", "accentBright": "#dc4a63", "accentDim": "#8e1f35",
+    "accent2": "#4aad63", "accent2Bright": "#6fcb85", "accent2Dim": "#1c3324"
+  },
+  "midnight": {
+    "kind": "dark",
+    "bg": "#070a12", "bg2": "#0b1020", "surface": "#111830", "surface2": "#18213d", "rule": "#1c2540", "ruleStrong": "#2c3a60",
+    "fg": "#e8edf7", "fgDim": "#9aa6c0", "fgFaint": "#5c6886",
+    "accent": "#3d7bff", "accentBright": "#6b9bff", "accentDim": "#24479a",
+    "accent2": "#2fd6a3", "accent2Bright": "#66e8c0", "accent2Dim": "#0f3a30"
+  },
+  "ember": {
+    "kind": "dark",
+    "bg": "#0e0a07", "bg2": "#15100b", "surface": "#1d1610", "surface2": "#271e16", "rule": "#2c2219", "ruleStrong": "#463626",
+    "fg": "#f4ece1", "fgDim": "#b5a690", "fgFaint": "#74685a",
+    "accent": "#ff6a1f", "accentBright": "#ff8c4d", "accentDim": "#a3400c",
+    "accent2": "#f2c14e", "accent2Bright": "#ffd77a", "accent2Dim": "#4a3a12"
+  },
+  "aurora": {
+    "kind": "dark",
+    "bg": "#05090a", "bg2": "#0a1112", "surface": "#101a1c", "surface2": "#172426", "rule": "#1a2729", "ruleStrong": "#2a3e41",
+    "fg": "#e6f2f0", "fgDim": "#94aaa7", "fgFaint": "#586b69",
+    "accent": "#8b5cf6", "accentBright": "#a78bfa", "accentDim": "#5b35b0",
+    "accent2": "#22d3ee", "accent2Bright": "#67e8f9", "accent2Dim": "#0b3d47"
+  },
+  "mono": {
+    "kind": "dark",
+    "bg": "#0a0a0a", "bg2": "#111111", "surface": "#181818", "surface2": "#222222", "rule": "#262626", "ruleStrong": "#3a3a3a",
+    "fg": "#f2f2f2", "fgDim": "#a3a3a3", "fgFaint": "#666666",
+    "accent": "#e8ff3a", "accentBright": "#f2ff7a", "accentDim": "#8a9a12",
+    "accent2": "#ff4d6d", "accent2Bright": "#ff7a92", "accent2Dim": "#4a1420"
+  },
+  "paper": {
+    "kind": "light",
+    "bg": "#f3efe7", "bg2": "#ebe5da", "surface": "#ffffff", "surface2": "#f7f3ec", "rule": "#dcd3c5", "ruleStrong": "#c2b6a3",
+    "fg": "#17141a", "fgDim": "#5a5560", "fgFaint": "#8f8a93",
+    "accent": "#d6283f", "accentBright": "#e8475c", "accentDim": "#9b1a2c",
+    "accent2": "#1f8a5b", "accent2Bright": "#2fae75", "accent2Dim": "#cfe8db"
+  }
+}
