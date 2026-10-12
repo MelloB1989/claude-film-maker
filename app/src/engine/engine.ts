@@ -8,6 +8,7 @@ import { Compositor, FSPass, W, H, PW, PH, SCALE, SS_TAP, makeRT, clearRT } from
 import { filmUrl } from './config';
 import { applyFilm, filmDuration, filmTimeline, filmTransitions, sceneSpans, type FilmSpec } from './film';
 import { DEFAULT_POST, Post, SHOULDER_GLSL, type PostParams } from './post';
+import { filmLookPost } from './looks';
 import { Hud } from './hud';
 import type { Frame, Scene, SceneClass, SceneCtx, PostOverrides } from './scene';
 import { HOLD, shutterTaps, sideTime, tapCount, transitionEntries, type Handles, type TransitionEntry, type TransitionSpec, type TransitionState } from './transition';
@@ -250,7 +251,7 @@ export class Engine {
   private accum: FSPass;
   private lastT = -1;
   lastPost: PostParams = { ...DEFAULT_POST };
-  /** Where every frame's post starts: DEFAULT_POST with the film's look (`post`) over it. */
+  /** Where every frame's post starts: DEFAULT_POST with the film's look and its `post` over it (looks.ts). */
   basePost: PostParams = { ...DEFAULT_POST };
   /** Every scene failure (init, prepare, render). In export each is also thrown: the still, or the export, fails. */
   errors: string[] = [];
@@ -282,7 +283,7 @@ export class Engine {
     this.newRT = makeRT(W, H, { depthBuffer: false, type: THREE.FloatType });
     this.avgRT = makeRT(W, H, { depthBuffer: false });
     this.finalRT = new THREE.WebGLRenderTarget(PW, PH, { type: THREE.UnsignedByteType, depthBuffer: false });
-    this.basePost = { ...DEFAULT_POST, ...(film.post ?? {}) } as PostParams;
+    this.basePost = { ...DEFAULT_POST, ...filmLookPost(film) } as PostParams;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(PW, PH, false);
