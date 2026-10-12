@@ -369,44 +369,44 @@ test('geometry: a row the panel does not have is an error, not a guess', () => {
 
 // -------------------------------------------------------------------------------------------------------- spans
 
-// A line's characters take the highlighter's look (bone at five strengths, the prompt in bright blood) unless a span
-// tones them: a token class's look (its family and colour), or an accent, blood or moss, on the character's own family.
+// A line's characters take the highlighter's look (bone at five strengths, the prompt in bright accent) unless a span
+// tones them: a token class's look (its family and colour), or an accent, accent or accent2, on the character's own family.
 
 const FATAL = "fatal: your current branch 'main' does not have any commits yet"; // "commits" is characters 52..58
 
 test('spans: without any, every character keeps the highlighter\'s look', () => {
   const p = new Panel({ kind: 'terminal', w: 1120, h: 232, lines: [{ text: '$ git log', kind: 'cmd' }, { text: FATAL, kind: 'out' }] });
-  expect(p.charStyle(0, 0)).toEqual({ family: F.mono(500), color: rgba('bloodBright') }); // the prompt
-  expect(p.charStyle(0, 2)).toEqual({ family: F.mono(500), color: rgba('bone', 1) }); // `git`, the command
-  expect(p.charStyle(1, 0)).toEqual({ family: F.mono(400), color: rgba('bone', 0.88) }); // output reads as plain
+  expect(p.charStyle(0, 0)).toEqual({ family: F.mono(500), color: rgba('accentBright') }); // the prompt
+  expect(p.charStyle(0, 2)).toEqual({ family: F.mono(500), color: rgba('fg', 1) }); // `git`, the command
+  expect(p.charStyle(1, 0)).toEqual({ family: F.mono(400), color: rgba('fg', 0.88) }); // output reads as plain
   expect(p.charStyle(1, 6)).toBeNull(); // a blank draws nothing
 });
 
 test('spans: an accent tones its run, on the characters\' own family; the rest of the line is untouched', () => {
   const at = FATAL.indexOf('commits');
   expect(at).toBe(52);
-  const p = new Panel({ kind: 'terminal', w: 1120, h: 232, lines: [{ text: FATAL, kind: 'out', spans: [{ from: 52, to: 59, tone: 'blood' }] }] });
-  for (let k = 52; k < 59; k++) expect(p.charStyle(0, k)).toEqual({ family: F.mono(400), color: rgba('bloodBright') });
+  const p = new Panel({ kind: 'terminal', w: 1120, h: 232, lines: [{ text: FATAL, kind: 'out', spans: [{ from: 52, to: 59, tone: 'accent' }] }] });
+  for (let k = 52; k < 59; k++) expect(p.charStyle(0, k)).toEqual({ family: F.mono(400), color: rgba('accentBright') });
   expect(p.charStyle(0, 51)).toBeNull(); // the blank before it
-  expect(p.charStyle(0, 50)).toEqual({ family: F.mono(400), color: rgba('bone', 0.88) });
-  expect(p.charStyle(0, 60)).toEqual({ family: F.mono(400), color: rgba('bone', 0.88) });
-  const moss = new Panel({ kind: 'editor', w: 900, h: 300, lang: 'ts', lines: [{ text: 'const x = 1', spans: [{ from: 0, to: 5, tone: 'moss' }] }] });
-  expect(moss.charStyle(0, 0)).toEqual({ family: F.mono(500), color: rgba('moss') }); // a keyword keeps its weight
+  expect(p.charStyle(0, 50)).toEqual({ family: F.mono(400), color: rgba('fg', 0.88) });
+  expect(p.charStyle(0, 60)).toEqual({ family: F.mono(400), color: rgba('fg', 0.88) });
+  const accent2 = new Panel({ kind: 'editor', w: 900, h: 300, lang: 'ts', lines: [{ text: 'const x = 1', spans: [{ from: 0, to: 5, tone: 'accent2' }] }] });
+  expect(accent2.charStyle(0, 0)).toEqual({ family: F.mono(500), color: rgba('accent2') }); // a keyword keeps its weight
 });
 
 test('spans: a token class tone gives its run that class\'s look; where spans overlap the later one wins', () => {
   const p = new Panel({ kind: 'editor', w: 900, h: 300, lines: [{ text: 'abcdefgh', spans: [{ from: 0, to: 6, tone: 'com' }, { from: 4, to: 8, tone: 'kw' }] }] });
-  expect(p.charStyle(0, 0)).toEqual({ family: F.mono(400, true), color: rgba('boneFaint') });
-  expect(p.charStyle(0, 3)).toEqual({ family: F.mono(400, true), color: rgba('boneFaint') });
-  expect(p.charStyle(0, 4)).toEqual({ family: F.mono(500), color: rgba('bone', 1) });
-  expect(p.charStyle(0, 7)).toEqual({ family: F.mono(500), color: rgba('bone', 1) });
+  expect(p.charStyle(0, 0)).toEqual({ family: F.mono(400, true), color: rgba('fgFaint') });
+  expect(p.charStyle(0, 3)).toEqual({ family: F.mono(400, true), color: rgba('fgFaint') });
+  expect(p.charStyle(0, 4)).toEqual({ family: F.mono(500), color: rgba('fg', 1) });
+  expect(p.charStyle(0, 7)).toEqual({ family: F.mono(500), color: rgba('fg', 1) });
 });
 
-test('spans: a check mark stays the panel\'s moss path; a span that is empty or off the line is an error', () => {
-  const p = new Panel({ kind: 'terminal', w: 900, h: 300, lines: [{ text: '✔ Connected', kind: 'out', spans: [{ from: 0, to: 4, tone: 'blood' }] }] });
+test('spans: a check mark stays the panel\'s accent2 path; a span that is empty or off the line is an error', () => {
+  const p = new Panel({ kind: 'terminal', w: 900, h: 300, lines: [{ text: '✔ Connected', kind: 'out', spans: [{ from: 0, to: 4, tone: 'accent' }] }] });
   expect(p.charStyle(0, 0)).toBeNull(); // drawn by the shader, not as text
-  expect(p.charStyle(0, 2)).toEqual({ family: F.mono(400), color: rgba('bloodBright') });
-  const bad = (from: number, to: number) => () => new Panel({ kind: 'editor', w: 900, h: 300, lines: [{ text: 'abc', spans: [{ from, to, tone: 'moss' }] }] });
+  expect(p.charStyle(0, 2)).toEqual({ family: F.mono(400), color: rgba('accentBright') });
+  const bad = (from: number, to: number) => () => new Panel({ kind: 'editor', w: 900, h: 300, lines: [{ text: 'abc', spans: [{ from, to, tone: 'accent2' }] }] });
   for (const [from, to] of [[2, 2], [2, 1], [-1, 2], [0, 4], [0.5, 2]] as const) expect(bad(from, to)).toThrow();
   expect(bad(0, 3)).not.toThrow();
   expect(() => p.charStyle(0, 11)).toThrow(); // past the line
@@ -461,34 +461,34 @@ test('viewport: a row outside the window is not drawn, a row across its edge is 
 // --------------------------------------------------------------------------------------------------- highlights
 
 // Bands painted on the canvas under a row's text: a line's highlights (the whole row edge to edge, or characters
-// [from, to) of it; bone, moss or blood; static, or coming up at `at` and going at `until` over `fade` s, on the frame
+// [from, to) of it; bone, accent2 or accent; static, or coming up at `at` and going at `until` over `fade` s, on the frame
 // grid) and the selection a scene sets each frame (select(line, from, to)). At 28 px code: text from x = 28 + the
 // numbers gutter (two digits: 2 x 16.8 + 22), cells of 16.8.
 
 const TX = 28 + 2 * 16.8 + 22;
 
 test('highlights: a whole row edge to edge, or a run of its characters, under the text (frame().marks)', () => {
-  const p = new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'a' }, { text: 'Uses neovim.', highlight: {} }, { text: 'xyz', highlight: { from: 1, to: 3, tone: 'moss', alpha: 0.2 } }] });
+  const p = new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'a' }, { text: 'Uses neovim.', highlight: {} }, { text: 'xyz', highlight: { from: 1, to: 3, tone: 'accent2', alpha: 0.2 } }] });
   const m = p.frame(0).marks;
   expect(m).toHaveLength(2);
-  expect(m[0]).toEqual({ i: 1, x0: 0, x1: 640, color: rgba('bone', 0.07), cells: false });
+  expect(m[0]).toEqual({ i: 1, x0: 0, x1: 640, color: rgba('fg', 0.07), cells: false });
   expect(m[1]!.i).toBe(2);
   expect(m[1]!.x0).toBeCloseTo(TX + 16.8, 9);
   expect(m[1]!.x1).toBeCloseTo(TX + 3 * 16.8, 9);
-  expect([m[1]!.color, m[1]!.cells]).toEqual([rgba('moss', 0.2), true]);
-  // several on a line, in order; blood's default is a wash a little stronger than bone's
-  const q = new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'abc', highlight: [{ tone: 'blood' }, { from: 0, to: 1 }] }] });
-  expect(q.frame(0).marks.map((x) => x.color)).toEqual([rgba('blood', 0.1), rgba('bone', 0.07)]);
+  expect([m[1]!.color, m[1]!.cells]).toEqual([rgba('accent2', 0.2), true]);
+  // several on a line, in order; accent's default is a wash a little stronger than bone's
+  const q = new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'abc', highlight: [{ tone: 'accent' }, { from: 0, to: 1 }] }] });
+  expect(q.frame(0).marks.map((x) => x.color)).toEqual([rgba('accent', 0.1), rgba('fg', 0.07)]);
 });
 
 test('highlights: timed ones come up at `at` and go at `until` over `fade`, one state per frame', () => {
   const p = new Panel({ kind: 'editor', w: 640, h: 400, lines: [{ text: 'a', highlight: { at: 1, until: 2, fade: 0.2 } }] });
   expect(p.frame(0.9).marks).toEqual([]);
-  expect(p.frame(1.2).marks[0]!.color).toBe(rgba('bone', 0.07));
+  expect(p.frame(1.2).marks[0]!.color).toBe(rgba('fg', 0.07));
   const mid = p.frame(1.1).marks[0]!.color; // half way up: smootherstep(0.5) = 0.5
-  expect(mid).toBe(rgba('bone', 0.07 * 0.5));
+  expect(mid).toBe(rgba('fg', 0.07 * 0.5));
   expect(p.frame(1.1 + 0.01).marks[0]!.color).toBe(mid); // the same frame
-  expect(p.frame(1.9).marks[0]!.color).toBe(rgba('bone', 0.07 * 0.5)); // going: half way down at 1.9
+  expect(p.frame(1.9).marks[0]!.color).toBe(rgba('fg', 0.07 * 0.5)); // going: half way down at 1.9
   expect(p.frame(2).marks).toEqual([]);
   expect(p.frame(0.9).key).not.toBe(p.frame(1.2).key); // a highlight repaints
 });
@@ -499,11 +499,11 @@ test('highlights: select() is the scene\'s per-frame selection, a run of one lin
   p.select(0, 0, 12.5); // fractional: a selection running across the line
   const m = p.frame(0).marks;
   expect(m).toHaveLength(1);
-  expect([m[0]!.i, m[0]!.x0, m[0]!.color, m[0]!.cells]).toEqual([0, TX, rgba('bone', 0.14), true]);
+  expect([m[0]!.i, m[0]!.x0, m[0]!.color, m[0]!.cells]).toEqual([0, TX, rgba('fg', 0.14), true]);
   expect(m[0]!.x1).toBeCloseTo(TX + 12.5 * 16.8, 9);
   expect(p.frame(0).key).not.toBe(k0);
   p.select(0, 2, 4, 0.3);
-  expect(p.frame(0).marks[0]!.color).toBe(rgba('bone', 0.3));
+  expect(p.frame(0).marks[0]!.color).toBe(rgba('fg', 0.3));
   p.select(null);
   expect(p.frame(0).marks).toEqual([]);
   expect(p.frame(0).key).toBe(k0);

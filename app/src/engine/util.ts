@@ -72,8 +72,10 @@ export function mulberry32(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-/** The film's frame rate. */
-export const FPS = 30;
+import { FPS } from './config';
+
+/** The film's frame rate (live: config.ts). */
+export { FPS };
 
 /**
  * Index of the output frame nearest t, for per-frame jitter/flicker. Constant over a frame's whole motion-blur

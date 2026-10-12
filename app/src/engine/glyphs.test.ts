@@ -3,7 +3,7 @@
 // draws with Canvas2D, which bun lacks: its draws take a stand-in with the atlas's texture and grid.
 import { describe, expect, test } from 'bun:test';
 import * as THREE from 'three';
-import { CELL, GLYPH_VERT_HEAD, GlyphActors, HINGE, edt, flapAt, flapDigit, glyphMaterial, glyphQuad, sdfOf, type GlyphPose } from './glyphs';
+import { CELL, glyphVertHead, GlyphActors, HINGE, edt, flapAt, flapDigit, glyphMaterial, glyphQuad, sdfOf, type GlyphPose } from './glyphs';
 
 const atlas = { texture: new THREE.DataTexture(new Uint8Array(4), 2, 2), cols: 16, rows: 3 };
 const pose = (x: number, o: Partial<GlyphPose> = {}): GlyphPose => ({
@@ -71,9 +71,9 @@ describe('glyphs: the cells', () => {
   test('a scene\'s own vertex shader draws on the shared fragment shader: premultiplied, writing depth', () => {
     // what a vertex shader built on GLYPH_VERT_HEAD hands the fragment shader
     for (const decl of ['in vec2 corner;', 'out vec2 vUv;', 'out vec4 vGlyph;', 'out vec4 vCol;', 'out vec2 vTile;', 'vec3 boneAt(float b)']) {
-      expect(GLYPH_VERT_HEAD).toContain(decl);
+      expect(glyphVertHead()).toContain(decl);
     }
-    const vert = `${GLYPH_VERT_HEAD}\nuniform float uMine;\nvoid main() { vUv = corner; gl_Position = vec4(corner, 0.0, 1.0); }`;
+    const vert = `${glyphVertHead()}\nuniform float uMine;\nvoid main() { vUv = corner; gl_Position = vec4(corner, 0.0, 1.0); }`;
     const m = glyphMaterial(vert, atlas, { uMine: { value: 2 } });
     expect(m.vertexShader).toBe(vert);
     for (const decl of ['in vec2 vUv;', 'in vec4 vGlyph;', 'in vec4 vCol;', 'in vec2 vTile;', 'uniform sampler2D uAtlas;']) expect(m.fragmentShader).toContain(decl);

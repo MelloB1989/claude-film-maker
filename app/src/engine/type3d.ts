@@ -23,7 +23,7 @@
 // the group's origin.
 //
 // Materials. Mat.satinBone() is the film's type surface. Mat.accent() is the same satin with the diff glow: a line of
-// blood or moss light at a glow() level along the seam where the bevel meets the wall, fading back along the wall,
+// accent or accent2 light at a glow() level along the seam where the bevel meets the wall, fading back along the wall,
 // spliced into three's physical shader. The face and the inner bevel stay bone (bone never blooms), so the word reads
 // as bone type lit from its edges: not a glowing word, not a neon outline, not a pastel-sided slab.
 import * as THREE from 'three';
@@ -590,7 +590,7 @@ const RIM_EDGE: readonly [number, number] = [0.25, 0.75];
 /** Where the seam is for the default bevel; a bevel of another size moves its line by the difference (hundredths of an em). */
 const RIM_SEAM = BEVEL;
 const RIM_FADE = 0.025;
-/** How much of the bone surface the glow takes over where it is whole: the lit edge reads as moss light, not pale mint. */
+/** How much of the bone surface the glow takes over where it is whole: the lit edge reads as accent2 light, not pale mint. */
 const RIM_TAKE = 0.8;
 const RIM_SURFACE_GLSL = /* glsl */ `
 	material.diffuseColor *= 1.0 - ${RIM_TAKE.toFixed(4)} * type3dK;
@@ -605,7 +605,7 @@ float type3dRim( vec3 n, float d ) {
 	return edge * exp( -max( d - ${RIM_SEAM.toFixed(4)}, 0.0 ) / ${RIM_FADE.toFixed(4)} );
 }`;
 
-const bone = () => new THREE.Color().setRGB(LIN.bone[0], LIN.bone[1], LIN.bone[2]);
+const bone = () => new THREE.Color().setRGB(LIN.fg[0], LIN.fg[1], LIN.fg[2]);
 
 function satinBone(): THREE.MeshPhysicalMaterial {
   return new THREE.MeshPhysicalMaterial({
@@ -625,7 +625,7 @@ export const Mat = {
    * it. Made for Type3D geometry (the fade reads its `type3dDepth` attribute; elsewhere the whole edge takes the seam's
    * level). A new material; the caller owns it.
    */
-  accent(c: 'blood' | 'moss', emissive = GLOW_LEVEL): THREE.MeshPhysicalMaterial {
+  accent(c: 'accent' | 'accent2', emissive = GLOW_LEVEL): THREE.MeshPhysicalMaterial {
     const m = satinBone();
     const [r, g, b] = glow(c, 1);
     m.emissive.setRGB(r, g, b);

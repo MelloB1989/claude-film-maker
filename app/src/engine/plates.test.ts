@@ -53,8 +53,8 @@ function fakeLoader(have?: (url: string) => boolean) {
   return { load, calls, disposed };
 }
 
-const proxy = (i: number) => `plates/_cube/proxy/${String(i).padStart(4, '0')}.png`;
-const exr = (i: number) => `out/plates/_cube/${String(i).padStart(4, '0')}.exr`;
+const proxy = (i: number) => `out/showcase/plates/_cube/proxy/${String(i).padStart(4, '0')}.png`;
+const exr = (i: number) => `out/showcase/plates/_cube/${String(i).padStart(4, '0')}.exr`;
 const at = (n: number) => n / 30; // film frame n
 const flush = () => new Promise((r) => setTimeout(r, 0));
 

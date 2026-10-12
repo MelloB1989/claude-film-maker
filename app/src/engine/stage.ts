@@ -176,7 +176,7 @@ export class Stage {
 
   constructor(private renderer: THREE.WebGLRenderer, opts: StageOpts = {}) {
     this.camera = new THREE.PerspectiveCamera(opts.fov ?? 30, W / H, opts.near ?? 0.1, opts.far ?? 100);
-    this.background = opts.background ?? LIN.ink;
+    this.background = opts.background ?? LIN.bg;
     this.shared = acquire(renderer);
     this.scene.environment = this.shared.studio.texture;
     this.scene.environmentIntensity = opts.envIntensity ?? 0.4;
@@ -364,25 +364,25 @@ export function freeTransmission(renderer: THREE.WebGLRenderer, material: THREE.
 
 /** Logical px per world unit on a type stage's plane (aimTypeCamera): a `fov`° lens `distance` units from it. */
 export function typePxPerUnit(fov: number, distance: number) {
-  return 1080 / (2 * distance * Math.tan((fov * Math.PI) / 360));
+  return H / (2 * distance * Math.tan((fov * Math.PI) / 360));
 }
 
 /**
  * A type stage's camera, for extruded type that sits at rest exactly where flat 2D type would: a long lens (`fov`°)
  * looking straight at the plane z = 0 from `distance`, standing at logical frame px `eye` (off the frame, so every glyph
  * shows its walls on the far side, where an accent seam glows against shadow), its view offset so the plane still maps
- * to the frame as if centred: a world point (x, y, 0) shows at logical px (960 + x·ppu, 540 − y·ppu), with ppu =
+ * to the frame as if centred: a world point (x, y, 0) shows at logical px (W/2 + x·ppu, H/2 − y·ppu), with ppu =
  * typePxPerUnit(fov, distance), which it returns. ex's "vector store" stands on one (her's headline and weave's
  * "commit." build theirs their own way). Set Type3D at emPx / ppu world units per em, its origin at
- * ((x − 960) / ppu, (540 − y) / ppu, 0) for logical px (x, y).
+ * ((x − W/2) / ppu, (H/2 − y) / ppu, 0) for logical px (x, y).
  */
 export function aimTypeCamera(cam: THREE.PerspectiveCamera, o: { fov: number; distance: number; eye: { x: number; y: number } }): number {
   const ppu = typePxPerUnit(o.fov, o.distance);
-  const xc = (o.eye.x - 960) / ppu, yc = (540 - o.eye.y) / ppu;
+  const xc = (o.eye.x - W / 2) / ppu, yc = (H / 2 - o.eye.y) / ppu;
   cam.fov = o.fov;
   cam.position.set(xc, yc, o.distance);
   cam.lookAt(xc, yc, 0);
-  cam.setViewOffset(1920, 1080, -xc * ppu, yc * ppu, 1920, 1080);
+  cam.setViewOffset(W, H, -xc * ppu, yc * ppu, W, H);
   cam.updateMatrixWorld();
   return ppu;
 }

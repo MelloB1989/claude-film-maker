@@ -1,12 +1,12 @@
 // The specular sweep: a diagonal band of light that runs across hero type as it lands (her's "memory", "commit", "fact"
-// and "blame"; proof's figure landing in moss), strongest on the bevels and walls, where a passing light glints, and
+// and "blame"; proof's figure landing in accent2), strongest on the bevels and walls, where a passing light glints, and
 // faint on the face. The film's satin bone is too diffuse for a physical strip light to draw a band (its spill lights
 // the whole word first), so the band is added to the material's outgoing light: neutral light, so bone stays out of the
 // bloom's chroma gate however bright the glint.
 //
 // How a scene uses it:
 //   init:    const band = withSweep(mat);
-//            // one band across several materials (a word's bone and its moss accent): v.value = band.value
+//            // one band across several materials (a word's bone and its accent2 accent): v.value = band.value
 //            const v = withSweep(accent); v.value = band.value;
 //   render:  // a pass across each hero word as it lands: half a second from 30 ms after its onset (wordTimes), the
 //            // band's centre running from a band-width before the word to one after it, along its baseline

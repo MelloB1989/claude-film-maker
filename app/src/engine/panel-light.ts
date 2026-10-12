@@ -7,7 +7,7 @@
 // A Panel is unlit (its canvas is its colour), so what lights it is light added over its face: each overlay is a plane
 // a hair in front of the face (0.3 to 0.6 panel px), drawn after the panel (renderOrder OVER; the Spot after the rest)
 // with additive blending (the Spot premultiplied) and no depth write, so the depth of field reads the panel's depth under
-// them. Only blood and moss glow, at glow() levels (look.ts); bone washes stay far under the bloom's opening.
+// them. Only accent and accent2 glow, at glow() levels (look.ts); bone washes stay far under the bloom's opening.
 //
 // Each takes the panel's size in panel px ({ w, h }: pass the Panel's spec) and is placed in panel px from its top
 // left, y down, as the panel's own canvas is (Panel.rowTop, textOrigin and cellOrigin give the places): add its mesh to
@@ -26,7 +26,7 @@ const additive = (u: Record<string, THREE.IUniform>, vertexShader: string, fragm
 const UV_VERT = /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 
 /**
- * The blade: a line of blood light along a strike, from the line's first character (its tail) to the cut's leading
+ * The blade: a line of accent light along a strike, from the line's first character (its tail) to the cut's leading
  * edge (its tip). Its core is a hairline as thick as the Panel's own strike, which it lies on; its light falls off
  * across it over a few px (the bloom carries it further). Hot, the tip burns at the strand's lit level and the light
  * runs back along the cut; cooled, the whole line is an ember just over the bloom's opening: a memory of the cut.
@@ -39,7 +39,7 @@ export class Blade {
   private u: Record<string, THREE.IUniform>;
 
   /** `core`: the hairline's half-thickness (px); `halo`: how far its light reaches across (px). */
-  constructor(private panel: { w: number; h: number }, private core: number, private halo: number, key: GlowKey = 'blood') {
+  constructor(private panel: { w: number; h: number }, private core: number, private halo: number, key: GlowKey = 'accent') {
     this.u = {
       uColor: { value: new THREE.Vector3(...glow(key, 1)) },
       uLen: { value: 1 }, uHalf: { value: halo }, uCore: { value: core },
@@ -88,7 +88,7 @@ export class Blade {
   }
 }
 
-/** A soft round light (blood or moss) on the panel: a mark's glow. In panel px; its level is a glow() level. */
+/** A soft round light (accent or accent2) on the panel: a mark's glow. In panel px; its level is a glow() level. */
 export class Halo {
   mesh: THREE.Mesh;
   private u: Record<string, THREE.IUniform>;
@@ -126,7 +126,7 @@ export class Wash {
   mesh: THREE.Mesh;
   private u: Record<string, THREE.IUniform>;
 
-  constructor(private panel: { w: number; h: number }, rgb: readonly [number, number, number] = LIN.bone) {
+  constructor(private panel: { w: number; h: number }, rgb: readonly [number, number, number] = LIN.fg) {
     this.u = { uColor: { value: new THREE.Vector3(...rgb) }, uLevel: { value: 0 }, uSize: { value: new THREE.Vector2(1, 1) }, uEdge: { value: 0 } };
     const frag = /* glsl */ `
       uniform vec3 uColor; uniform float uLevel, uEdge; uniform vec2 uSize; varying vec2 vUv;
@@ -159,7 +159,7 @@ export class Wash {
 }
 
 /**
- * A diff's sign in the editor's left margin (as gitsigns draws it): a slim bar the height of its row, lit blood or moss
+ * A diff's sign in the editor's left margin (as gitsigns draws it): a slim bar the height of its row, lit accent or accent2
  * at a glow() level. In panel px.
  */
 export class Bar {
@@ -198,7 +198,7 @@ export class Bar {
 }
 
 /**
- * The romance's light on the editor: a pool round the diff's two lines, warm (bone with a breath of blood: the light
+ * The romance's light on the editor: a pool round the diff's two lines, warm (bone with a breath of accent: the light
  * the ember gives), and the rest of the panel falling into shadow (ink over it, premultiplied: what is outside the pool
  * darkens, what is in it is lit). In panel px; `set` takes the pool's centre and radii and its strength.
  */
@@ -207,9 +207,9 @@ export class Spot {
   private u: Record<string, THREE.IUniform>;
 
   constructor(private panel: { w: number; h: number }) {
-    const warm = LIN.bone.map((c, i) => 0.72 * c + 0.28 * LIN.blood[i]!) as [number, number, number];
+    const warm = LIN.fg.map((c, i) => 0.72 * c + 0.28 * LIN.accent[i]!) as [number, number, number];
     this.u = {
-      uWarm: { value: new THREE.Vector3(...warm) }, uInk: { value: new THREE.Vector3(...LIN.ink) },
+      uWarm: { value: new THREE.Vector3(...warm) }, uInk: { value: new THREE.Vector3(...LIN.bg) },
       uCentre: { value: new THREE.Vector2() }, uRadius: { value: new THREE.Vector2(1, 1) }, uLevel: { value: 0 }, uSize: { value: new THREE.Vector2(panel.w, panel.h) },
     };
     const frag = /* glsl */ `

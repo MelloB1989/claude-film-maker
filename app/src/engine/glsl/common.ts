@@ -1,36 +1,29 @@
-import { LIN } from '../palette';
+import { LIN, ROLES, type PaletteKey } from '../palette';
 import { SCALE } from '../scale';
 
 const v3 = (c: [number, number, number]) => `vec3(${c.map((x) => x.toFixed(5)).join(',')})`;
 
+/** A palette role's GLSL constant name: accent2Dim → C_ACCENT2_DIM. */
+export const glslName = (k: PaletteKey) => `C_${k.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toUpperCase()}`;
+
 /**
- * Shared GLSL (ES 3.0) prepended to every FSPass. Also importable into custom three.js
- * ShaderMaterials. Palette colours are LINEAR RGB.
+ * Shared GLSL (ES 3.0) prepended to every FSPass. Also importable into custom three.js ShaderMaterials. The current
+ * theme's palette is baked in as linear-RGB constants, one per role (C_BG, C_FG, C_ACCENT, C_ACCENT2_DIM, ...), so call
+ * it when a shader is built, after the film's theme is set (palette.ts setTheme), never at import.
  */
-export const GLSL_COMMON = /* glsl */ `
+export const glslCommon = () => /* glsl */ `
 #ifndef PI
 #define PI 3.14159265359
 #endif
 #ifndef TAU
 #define TAU 6.28318530718
 #endif
-// Output scale: physical px per logical (1920x1080) px. gl_FragCoord, fwidth and dFdx are in
+// Output scale: physical px per logical px (the film's W x H layout). gl_FragCoord, fwidth and dFdx are in
 // physical px; FRAG_PX is the fragment's position in logical px (use it for anything that is
 // meant to be N logical px: grain/dither cells, hatch spacing, pixel-snapped patterns).
 const float PX_SCALE = ${SCALE.toFixed(1)};
 #define FRAG_PX (gl_FragCoord.xy / PX_SCALE)
-const vec3 C_INK = ${v3(LIN.ink)};
-const vec3 C_INK2 = ${v3(LIN.ink2)};
-const vec3 C_PANEL = ${v3(LIN.panel)};
-const vec3 C_RULE = ${v3(LIN.rule)};
-const vec3 C_BONE = ${v3(LIN.bone)};
-const vec3 C_BONE_DIM = ${v3(LIN.boneDim)};
-const vec3 C_BONE_FAINT = ${v3(LIN.boneFaint)};
-const vec3 C_BLOOD = ${v3(LIN.blood)};
-const vec3 C_BLOOD_BRIGHT = ${v3(LIN.bloodBright)};
-const vec3 C_BLOOD_DIM = ${v3(LIN.bloodDim)};
-const vec3 C_MOSS = ${v3(LIN.moss)};
-const vec3 C_MOSS_DIM = ${v3(LIN.mossDim)};
+${ROLES.map((k) => `const vec3 ${glslName(k)} = ${v3(LIN[k])};`).join('\n')}
 
 /** Rotated-grid supersample offset k (0..3) within one pixel, in pixels. See SS_TAP (gl.ts). */
 vec2 rgss(int k) { return k == 0 ? vec2(0.125, -0.375) : k == 1 ? vec2(0.375, 0.125) : k == 2 ? vec2(-0.125, 0.375) : vec2(-0.375, -0.125); }
@@ -160,12 +153,12 @@ float engrave(vec2 uv, float darkness, float freq, float angle) {
 // ---- colour ----
 vec3 toSRGB(vec3 c) { return mix(12.92 * c, 1.055 * pow(max(c, 0.0), vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
 vec3 toLinear(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
-/** Blood heat ramp for a glowing thread: 0 = ink, 0.5 = blood, 1 = white-hot. */
+/** Blood heat ramp for a glowing thread: 0 = ink, 0.5 = accent, 1 = white-hot. */
 vec3 heat(float x) {
   x = sat(x);
-  vec3 c = mix(C_INK, C_BLOOD_DIM, smoothstep(0.0, 0.3, x));
-  c = mix(c, C_BLOOD, smoothstep(0.25, 0.55, x));
-  c = mix(c, C_BLOOD_BRIGHT, smoothstep(0.55, 0.8, x));
+  vec3 c = mix(C_BG, C_ACCENT_DIM, smoothstep(0.0, 0.3, x));
+  c = mix(c, C_ACCENT, smoothstep(0.25, 0.55, x));
+  c = mix(c, C_ACCENT_BRIGHT, smoothstep(0.55, 0.8, x));
   return mix(c, vec3(1.0, 0.92, 0.94), smoothstep(0.8, 1.0, x));
 }
 `;

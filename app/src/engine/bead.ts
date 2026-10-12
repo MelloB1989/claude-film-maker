@@ -181,7 +181,7 @@ export class Bead {
     const surface = paint('rgb(255, 38, 0)', 'rgb(0, 230, 0)');
     const height = paint('#fff', '#000', em * 0.03);
 
-    const warm = new THREE.Color().setRGB(...LIN.bone);
+    const warm = new THREE.Color().setRGB(...LIN.fg);
     this.material = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       metalness: 0,

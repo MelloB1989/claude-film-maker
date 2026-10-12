@@ -274,17 +274,17 @@ describe('Type3D', () => {
 
   test('spaces make no glyphs; each glyph knows its word, and the material callback is asked per glyph', () => {
     const asked: { ch: string; i: number; word: number }[] = [];
-    const moss = new THREE.MeshBasicMaterial();
+    const accent2 = new THREE.MeshBasicMaterial();
     const t = new Type3D('every memory has a commit', { family: FAM, size: SIZE }, (g) => {
       asked.push(g);
-      return g.word === 4 ? moss : bone;
+      return g.word === 4 ? accent2 : bone;
     });
     expect(t.glyphs.map((g) => g.word).join('')).toBe('000001111112223444444');
     const words = 'every memory has a commit'.split(' ');
     words.forEach((w, k) => expect(t.glyphs.filter((g) => g.word === k).map((g) => g.ch).join('')).toBe(w));
     expect(asked.map((a) => a.ch).join('')).toBe('everymemoryhasacommit');
     expect(asked.map((a) => a.i)).toEqual(t.glyphs.map((g) => g.i));
-    for (const g of t.glyphs) expect(g.mesh.material).toBe(g.word === 4 ? moss : bone);
+    for (const g of t.glyphs) expect(g.mesh.material).toBe(g.word === 4 ? accent2 : bone);
     t.dispose();
   });
 
@@ -426,7 +426,7 @@ describe('Mat', () => {
   test('satin bone: physical, bone, roughness 0.38, clearcoat 0.25, sheen 0.3, no glow', () => {
     const m = Mat.satinBone();
     expect(m).toBeInstanceOf(THREE.MeshPhysicalMaterial);
-    close(m.color.toArray(), LIN.bone);
+    close(m.color.toArray(), LIN.fg);
     expect(m.roughness).toBeCloseTo(0.38, 9);
     expect(m.clearcoat).toBeCloseTo(0.25, 9);
     expect(m.sheen).toBeCloseTo(0.3, 9);
@@ -435,10 +435,10 @@ describe('Mat', () => {
   });
 
   test('accents: satin bone whose emissive is glow(c, level), confined to the edge in the physical shader', () => {
-    for (const [c, level] of [['moss', GLOW_LEVEL], ['blood', 2]] as const) {
+    for (const [c, level] of [['accent2', GLOW_LEVEL], ['accent', 2]] as const) {
       const m = level === GLOW_LEVEL ? Mat.accent(c) : Mat.accent(c, level);
       expect(m).toBeInstanceOf(THREE.MeshPhysicalMaterial);
-      close(m.color.toArray(), LIN.bone);
+      close(m.color.toArray(), LIN.fg);
       close(m.emissive.clone().multiplyScalar(m.emissiveIntensity).toArray(), glow(c, level));
       // the rim is spliced into three's own physical shader: both anchors must still exist
       const sh = { vertexShader: THREE.ShaderLib.physical.vertexShader, fragmentShader: THREE.ShaderLib.physical.fragmentShader, uniforms: {} };

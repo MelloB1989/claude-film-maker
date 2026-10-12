@@ -2,28 +2,30 @@
 //
 // Each frame of a plate is a file named by its index in the plate, #### = film frame - f0 (the plate's first film
 // frame), in two forms (blender/lib/export.py):
-//   out/plates/<shot>/####.exr          linear half-float RGBA, premultiplied: the plate itself (served at /out/plates/)
-//   public/plates/<shot>/proxy/####.png 8-bit sRGB at 960x540 (half the film's 1920x1080): the preview's stand-in
+//   out/<film>/plates/<shot>/####.exr        linear half-float RGBA, premultiplied: the plate itself
+//   out/<film>/plates/<shot>/proxy/####.png  8-bit sRGB at half the film's logical size: the preview's stand-in
+// (both served by the dev server at /out/<film>/plates/)
 //
-// Frame mapping (Review Focus 4): the plate frame for film time t is round(t * 30) - f0, rounded as the engine rounds
+// Frame mapping: the plate frame for film time t is round(t * FPS) - f0, rounded as the engine rounds
 // (frameIdx), so plate frame n is on screen for exactly film frame n. Every motion-blur sub-frame of a frame (a shutter
 // of at most one frame) maps to that frame's plate: the plate carries Blender's motion blur already.
 //
 // Export awaits `prepare(t)` before every frame (Scene.prepare, Engine.prepare), and `texture(t)` is then exactly that
 // frame, or it throws: a plate never silently shows a neighbour in a render. It composites the EXR or fails: the
-// proxy (8-bit, clipped at 1, so its blood and moss cores stop blooming; upscaled 2x) stands in only when the export
+// proxy (8-bit, clipped at 1, so its accent and accent2 cores stop blooming; upscaled 2x) stands in only when the export
 // opts into it (render.ts --proxies, a draft). The player prepares best-effort and shows the nearest frame it has
 // while the right one loads.
 import * as THREE from 'three';
 import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
 import { PH, PW, type BlendMode, type Compositor } from './gl';
 import { frameIdx } from './util';
+import { outUrl } from './config';
 
 export type PlateKind = 'exr' | 'proxy';
 /** 'export': exact frames or an error, EXR first. 'preview': best effort, proxies. */
 export type PlateMode = 'export' | 'preview';
 
-/** The plate frame (file index) for film time t: film frame round(t * 30) minus the plate's first film frame. */
+/** The plate frame (file index) for film time t: film frame round(t * FPS) minus the plate's first film frame. */
 export function plateIndex(t: number, f0: number): number {
   return frameIdx(t) - f0;
 }
@@ -31,7 +33,7 @@ export function plateIndex(t: number, f0: number): number {
 /** Where frame i of a shot's plate is served (relative to the page, like data/ and audio/). */
 export function plateUrl(shot: string, i: number, kind: PlateKind): string {
   const n = String(i).padStart(4, '0');
-  return kind === 'exr' ? `out/plates/${shot}/${n}.exr` : `plates/${shot}/proxy/${n}.png`;
+  return outUrl(kind === 'exr' ? `plates/${shot}/${n}.exr` : `plates/${shot}/proxy/${n}.png`);
 }
 
 /** A small least-recently-used map: `get` refreshes an entry, and `set` past the cap evicts the stalest. */

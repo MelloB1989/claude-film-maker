@@ -89,7 +89,7 @@ test('setDraw clamps to [0, 1], and an empty window hides the thread', () => {
 });
 
 test('the drawn end tapers to a point: at the end of the window the plies meet on the centreline', () => {
-  const t = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['bone', 'bone', 'bone'] });
+  const t = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'fg', 'fg'] });
   t.setDraw(0, 0.4);
   const tip = t.pointAt(0.4);
   for (let i = 0; i < 3; i++) expect(t.plyCentre(0.4, i).distanceTo(tip)).toBeLessThan(1e-9);
@@ -128,7 +128,7 @@ test('the plies run continuously along the thread, through the S-curve inflectio
 
 test('stretching the thread stretches its plies: their phase stays with the material, it never crawls', () => {
   const t = new Thread(S_CURVE, { radius: R, plies: 3 });
-  // the angle of the blood strand round the centreline, in the thread's own frame (not ply 0: the diff thread's bone
+  // the angle of the accent strand round the centreline, in the thread's own frame (not ply 0: the diff thread's bone
   // core is centred on the axis, and has no angle)
   const angle = (u: number) => {
     const f = t.frameAt(u), d = t.plyCentre(u, 1).sub(f.pos);
@@ -155,31 +155,31 @@ test('a small change of the points moves the plies by about as much (no phase ju
   }
 });
 
-test('the diff thread is the bone 3-ply with the blood and moss strands laid in its grooves, `−` a groove ahead', () => {
-  const t = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['bone', 'blood', 'moss'] });
+test('the diff thread is the bone 3-ply with the accent and accent2 strands laid in its grooves, `−` a groove ahead', () => {
+  const t = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'accent', 'accent2'] });
   // the angle of a ply round the centreline, in the thread's own frame
   const angle = (p: THREE.Vector3, u: number) => {
     const f = t.frameAt(u), d = p.clone().sub(f.pos);
     return Math.atan2(d.dot(f.binormal), d.dot(f.normal));
   };
   for (const u of [0.2, 0.5, 0.8]) {
-    const c = t.pointAt(u), bone = t.plyCentre(u, 0), blood = t.plyCentre(u, 1), moss = t.plyCentre(u, 2);
+    const c = t.pointAt(u), bone = t.plyCentre(u, 0), accent = t.plyCentre(u, 1), accent2 = t.plyCentre(u, 2);
     expect(bone.distanceTo(c)).toBeLessThan(1e-9); // the core's centre is the axis
     // plies of radius 0.5 at 0.5 from the axis leave grooves between them; a strand of radius 0.2 touching the plies
     // either side sits at 0.5·cos 60° + √(0.7² − (0.5·sin 60°)²) = 0.8 from the axis, flush with the outer radius
-    expect(blood.distanceTo(c)).toBeCloseTo(0.8 * R, 9);
-    expect(moss.distanceTo(c)).toBeCloseTo(0.8 * R, 9);
-    // neighbouring grooves, the blood a third of a turn ahead: it passes each point along the thread first
-    const d = angle(blood, u) - angle(moss, u);
+    expect(accent.distanceTo(c)).toBeCloseTo(0.8 * R, 9);
+    expect(accent2.distanceTo(c)).toBeCloseTo(0.8 * R, 9);
+    // neighbouring grooves, the accent a third of a turn ahead: it passes each point along the thread first
+    const d = angle(accent, u) - angle(accent2, u);
     expect(Math.atan2(Math.sin(d), Math.cos(d))).toBeCloseTo((2 * Math.PI) / 3, 6);
   }
   // one colour twists as equals: three plies on a circle, none on the axis
-  const bone = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['bone', 'bone', 'bone'] });
+  const bone = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'fg', 'fg'] });
   for (let i = 0; i < 3; i++) expect(bone.plyCentre(0.5, i).distanceTo(bone.pointAt(0.5))).toBeCloseTo(0.5 * R, 9);
 });
 
 test('setFray separates the plies around `at` and leaves the rest of the thread where it was', () => {
-  const t = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['bone', 'bone', 'bone'] });
+  const t = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'fg', 'fg'] });
   const spread = (u: number) => t.plyCentre(u, 0).distanceTo(t.plyCentre(u, 1));
   const far = [0.1, 0.9].map((u) => [0, 1, 2].map((i) => t.plyCentre(u, i)));
   const tight = spread(0.5);
@@ -198,17 +198,17 @@ test('setFray separates the plies around `at` and leaves the rest of the thread 
   expect(spread(0.5)).toBeCloseTo(tight, 12);
 });
 
-test('bone never glows; blood and moss glow at the level asked, their hue kept', () => {
-  const t = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['bone', 'blood', 'moss'], glow: 2.5 });
+test('bone never glows; accent and accent2 glow at the level asked, their hue kept', () => {
+  const t = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'accent', 'accent2'], glow: 2.5 });
   const g = t.uniforms.uGlow.value.map((c) => c.toArray());
   expect(g[0]).toEqual([0, 0, 0]);
-  // blood #c22b45 and moss #4aad63 in linear light, scaled so the brightest channel reads 2.5 (look.ts glow())
+  // accent #c22b45 and accent2 #4aad63 in linear light, scaled so the brightest channel reads 2.5 (look.ts glow())
   [2.5, 0.1119488, 0.2757808].forEach((x, k) => expect(g[1]![k]!).toBeCloseTo(x, 5));
   [0.4096711, 2.5, 0.7464482].forEach((x, k) => expect(g[2]![k]!).toBeCloseTo(x, 5));
   t.setGlow(0);
   expect(t.uniforms.uGlow.value.flatMap((c) => c.toArray())).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
   // an all-bone thread gets no glow at any level
-  const bone = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['bone', 'bone', 'bone'], glow: 6 });
+  const bone = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['fg', 'fg', 'fg'], glow: 6 });
   expect(bone.uniforms.uGlow.value.flatMap((c) => c.toArray())).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
 });
 
@@ -244,7 +244,7 @@ const hexLin = (hex: string) =>
   [0, 2, 4].map((i) => parseInt(hex.slice(1 + i, 3 + i), 16) / 255).map((s) => (s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4));
 /** Today's dyed strand: the palette colour 82% of the way to its dim shade (THREAD_LOOK.dye). */
 const dyed = (hex: string, dim: string) => hexLin(hex).map((x, k) => x + (hexLin(dim)[k]! - x) * 0.82);
-const DIFF = { radius: R, plies: 3 as const, colors: ['bone', 'blood', 'moss'] as ('bone' | 'blood' | 'moss')[] };
+const DIFF = { radius: R, plies: 3 as const, colors: ['fg', 'accent', 'accent2'] as ('fg' | 'accent' | 'accent2')[] };
 /** The strands' tubes: the diff thread's first three tubes are the bone plies, then the `−` and `+` strands. */
 const strandTubes = (t: Thread) => t.uniforms.uTube.value.slice(3, 5).map((q) => q.toArray());
 
@@ -252,7 +252,7 @@ test('strandDye and strandScale default to 1: today\'s look, and both options ar
   const t = new Thread(S_CURVE, DIFF), same = new Thread(S_CURVE, { ...DIFF, strandDye: 1, strandScale: 1 });
   expect(same.uniforms.uColors.value.map((c) => c.toArray())).toEqual(t.uniforms.uColors.value.map((c) => c.toArray()));
   expect(same.uniforms.uTube.value.map((q) => q.toArray())).toEqual(t.uniforms.uTube.value.map((q) => q.toArray()));
-  // today's look, hand-derived: strands of radius 0.2 at 0.8 from the axis, dyed 82% toward bloodDim and mossDim
+  // today's look, hand-derived: strands of radius 0.2 at 0.8 from the axis, dyed 82% toward accentDim and accent2Dim
   dyed('#c22b45', '#8e1f35').forEach((x, k) => expect(t.uniforms.uColors.value[1]!.getComponent(k)).toBeCloseTo(x, 6));
   dyed('#4aad63', '#1c3324').forEach((x, k) => expect(t.uniforms.uColors.value[2]!.getComponent(k)).toBeCloseTo(x, 6));
   for (const q of strandTubes(t)) expect([q[0], q[1]]).toEqual([expect.closeTo(0.2, 12), expect.closeTo(0.8, 12)]);
@@ -261,7 +261,7 @@ test('strandDye and strandScale default to 1: today\'s look, and both options ar
   expect(strandTubes(new Thread(S_CURVE, { ...DIFF, strandScale: 0.5 }))).not.toEqual(strandTubes(t));
 });
 
-test('strandDye scales the blood and moss strands\' base colour; bone and the glowing cores keep theirs', () => {
+test('strandDye scales the accent and accent2 strands\' base colour; bone and the glowing cores keep theirs', () => {
   const t = new Thread(S_CURVE, DIFF), d = new Thread(S_CURVE, { ...DIFF, strandDye: 0.1 });
   expect(d.uniforms.uColors.value[0]!.toArray()).toEqual(t.uniforms.uColors.value[0]!.toArray());
   for (const i of [1, 2]) {
@@ -319,28 +319,28 @@ test('DIFF_THREAD pins the diff thread\'s look: 14° lay, strands dyed near ink 
   }
 });
 
-/** blood #c22b45 and moss #4aad63 in linear light, scaled so the brightest channel is 1 (look.ts glow() at level 1). */
+/** accent #c22b45 and accent2 #4aad63 in linear light, scaled so the brightest channel is 1 (look.ts glow() at level 1). */
 const BLOOD_1 = [1, 0.04477952, 0.11031232];
 const MOSS_1 = [0.16386844, 1, 0.29857928];
 const expectGlow = (got: number[], unit: number[], level: number) => unit.forEach((x, k) => expect(got[k]!).toBeCloseTo(x * level, 5));
 
-test('a strand lights on its own: setStrandGlow sets blood or moss and leaves the other; setGlow still sets both', () => {
+test('a strand lights on its own: setStrandGlow sets accent or accent2 and leaves the other; setGlow still sets both', () => {
   const t = new Thread(S_CURVE, { ...DIFF_THREAD, radius: R });
   const g = () => t.uniforms.uGlow.value.map((c) => c.toArray());
   // built from the preset, both strands start at rest (bone never glows)
   expect(g()[0]).toEqual([0, 0, 0]);
   expectGlow(g()[1]!, BLOOD_1, DIFF_THREAD.rest);
   expectGlow(g()[2]!, MOSS_1, DIFF_THREAD.rest);
-  t.setStrandGlow({ moss: 3.6 });
+  t.setStrandGlow({ accent2: 3.6 });
   expectGlow(g()[1]!, BLOOD_1, DIFF_THREAD.rest);
   expectGlow(g()[2]!, MOSS_1, 3.6);
-  t.setStrandGlow({ blood: 2 });
+  t.setStrandGlow({ accent: 2 });
   expectGlow(g()[1]!, BLOOD_1, 2);
   expectGlow(g()[2]!, MOSS_1, 3.6);
   t.setStrandGlow({});
   expectGlow(g()[1]!, BLOOD_1, 2);
   expectGlow(g()[2]!, MOSS_1, 3.6);
-  t.setStrandGlow({ blood: 0, moss: 1.2 });
+  t.setStrandGlow({ accent: 0, accent2: 1.2 });
   expect(g()[1]).toEqual([0, 0, 0]);
   expectGlow(g()[2]!, MOSS_1, 1.2);
   expect(g()[0]).toEqual([0, 0, 0]);
@@ -351,11 +351,11 @@ test('a strand lights on its own: setStrandGlow sets blood or moss and leaves th
   // without `rest` a thread starts lit at its glow, as before
   expectGlow(new Thread(S_CURVE, { ...DIFF, glow: 2.5 }).uniforms.uGlow.value[1]!.toArray(), BLOOD_1, 2.5);
   // a strand's key reaches every ply of its colour, and only those
-  const moss = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['moss', 'moss', 'moss'], glow: 0 });
-  moss.setStrandGlow({ blood: 3 });
-  expect(moss.uniforms.uGlow.value.flatMap((c) => c.toArray())).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  moss.setStrandGlow({ moss: 2 });
-  for (const c of moss.uniforms.uGlow.value) expectGlow(c.toArray(), MOSS_1, 2);
+  const accent2 = new Thread(S_CURVE, { radius: R, plies: 3, colors: ['accent2', 'accent2', 'accent2'], glow: 0 });
+  accent2.setStrandGlow({ accent: 3 });
+  expect(accent2.uniforms.uGlow.value.flatMap((c) => c.toArray())).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  accent2.setStrandGlow({ accent2: 2 });
+  for (const c of accent2.uniforms.uGlow.value) expectGlow(c.toArray(), MOSS_1, 2);
 });
 
 test('strandFlare rises over its lead into the onset, peaks on it, and falls back to exactly 0 over the decay', () => {
@@ -444,7 +444,7 @@ test('setStrandLight: a thread that never calls it keeps its own program; the fi
   expect(glowAt).toBeGreaterThan(0);
   expect(readAt).toBeGreaterThan(glowAt);
   expect(lightsAt).toBeGreaterThan(readAt);
-  // the diff thread's plies are bone, blood, moss: blood reads r, moss g (the text repo's patch compiled, exactly)
+  // the diff thread's plies are bone, accent, accent2: accent reads r, accent2 g (the text repo's patch compiled, exactly)
   expect(lit.f).toContain(`{
   vec4 slK = texture2D(tStrandLight, vec2((clamp(vU, 0.0, 1.0) * ${STRAND_LIGHT_N - 1}.0 + 0.5) / ${STRAND_LIGHT_N}.0, 0.5));
   totalEmissiveRadiance *= 1.0 + (thPi == 1 ? uStrandGain.x * slK.r : thPi == 2 ? uStrandGain.y * slK.g : 0.0);
@@ -456,20 +456,20 @@ test('setStrandLight: a thread that never calls it keeps its own program; the fi
   th.dispose();
 });
 
-test('setStrandLight: the strip holds blood in r and moss in g along the arc fraction; a strand left out keeps its envelope', () => {
+test('setStrandLight: the strip holds accent in r and accent2 in g along the arc fraction; a strand left out keeps its envelope', () => {
   const th = new Thread(LINE, { ...DIFF_THREAD, radius: 0.004 });
-  th.setStrandLight({ moss: envelopeOf([{ u: 1, w: 0.01, k: 1 }]), blood: envelopeOf([{ u: 0, w: 0.01, k: 0.5 }]) });
+  th.setStrandLight({ accent2: envelopeOf([{ u: 1, w: 0.01, k: 1 }]), accent: envelopeOf([{ u: 0, w: 0.01, k: 0.5 }]) });
   const { u } = plyShader(th);
   const d = (u.tStrandLight!.value as THREE.DataTexture).image.data as Uint8Array;
   expect(d.length).toBe(4 * STRAND_LIGHT_N);
-  expect([d[0], d[1], d[3]]).toEqual([128, 0, 255]); // u = 0: blood at half
-  expect([d[4 * (STRAND_LIGHT_N - 1)], d[4 * (STRAND_LIGHT_N - 1) + 1]]).toEqual([0, 255]); // u = 1: moss full
-  th.setStrandLight({ moss: envelopeOf([]) });
-  expect([d[0], d[4 * (STRAND_LIGHT_N - 1) + 1]]).toEqual([128, 0]); // blood kept, moss out
-  th.setStrandLight({ blood: null });
+  expect([d[0], d[1], d[3]]).toEqual([128, 0, 255]); // u = 0: accent at half
+  expect([d[4 * (STRAND_LIGHT_N - 1)], d[4 * (STRAND_LIGHT_N - 1) + 1]]).toEqual([0, 255]); // u = 1: accent2 full
+  th.setStrandLight({ accent2: envelopeOf([]) });
+  expect([d[0], d[4 * (STRAND_LIGHT_N - 1) + 1]]).toEqual([128, 0]); // accent kept, accent2 out
+  th.setStrandLight({ accent: null });
   expect(d[0]).toBe(0);
   // an envelope of another length is resampled along the thread
-  th.setStrandLight({ moss: [0, 1] });
+  th.setStrandLight({ accent2: [0, 1] });
   expect(d[1]).toBe(0);
   expect(d[4 * Math.round((STRAND_LIGHT_N - 1) / 2) + 1]).toBe(128);
   expect(d[4 * (STRAND_LIGHT_N - 1) + 1]).toBe(255);
@@ -481,13 +481,13 @@ test('setStrandLight lights a strand from its setStrandGlow level up to `lit` wh
   th.setStrandLight({}); // up to DIFF_THREAD.glow
   const gain = () => (plyShader(th).u.uStrandGain!.value as THREE.Vector2).toArray();
   close2(gain(), [DIFF_THREAD.glow / DIFF_THREAD.rest - 1, DIFF_THREAD.glow / DIFF_THREAD.rest - 1]);
-  th.setStrandGlow({ moss: 1.2 });
+  th.setStrandGlow({ accent2: 1.2 });
   close2(gain(), [DIFF_THREAD.glow / DIFF_THREAD.rest - 1, DIFF_THREAD.glow / 1.2 - 1]);
   th.setStrandLight({}, 2.4);
   close2(gain(), [2.4 / DIFF_THREAD.rest - 1, 1]);
-  th.setStrandGlow({ blood: 0 }); // a dark strand: nothing to scale
+  th.setStrandGlow({ accent: 0 }); // a dark strand: nothing to scale
   expect(gain()[0]).toBe(0);
-  th.setStrandGlow({ blood: 3 }); // past `lit`: it never darkens
+  th.setStrandGlow({ accent: 3 }); // past `lit`: it never darkens
   expect(gain()[0]).toBe(0);
   th.dispose();
 });

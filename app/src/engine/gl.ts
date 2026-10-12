@@ -1,16 +1,11 @@
 // GL plumbing on top of three.js: HDR render targets, fullscreen shader passes,
 // a texture compositor and Canvas2D layers uploaded as textures.
 import * as THREE from 'three';
-import { GLSL_COMMON } from './glsl/common';
-import { SCALE } from './scale';
+import { glslCommon } from './glsl/common';
+import { H, PH, PW, SCALE, W } from './config';
 
-export { SCALE };
-/** Logical canvas: scenes lay out in these px at every output scale. */
-export const W = 1920;
-export const H = 1080;
-/** Physical (output) size: the logical canvas times SCALE (`?scale=2` → 3840x2160). */
-export const PW = W * SCALE;
-export const PH = H * SCALE;
+// The logical canvas (W x H, the film's format), the output scale and the physical size: live bindings from config.ts.
+export { H, PH, PW, SCALE, W };
 
 /**
  * Supersampling shared across motion-blur sub-frames. Shaders that supersample internally with the
@@ -69,7 +64,7 @@ function fullscreenGeometry() {
 /**
  * A fullscreen fragment-shader pass. Write `frag` as the body of a GLSL ES 3.0 shader that
  * declares its own uniforms and `void main()` writing `fragColor`. `vUv` (0..1) is provided,
- * and GLSL_COMMON (noise, hashes, sdf, palette, hatch helpers) is prepended.
+ * and glslCommon() (noise, hashes, sdf, palette, hatch helpers) is prepended.
  */
 export class FSPass {
   mat: THREE.RawShaderMaterial;
@@ -80,7 +75,7 @@ export class FSPass {
     this.mat = new THREE.RawShaderMaterial({
       glslVersion: THREE.GLSL3,
       vertexShader: `precision highp float;\nin vec3 position;\n${FS_VERT}`,
-      fragmentShader: `precision highp float;\nprecision highp int;\nin vec2 vUv;\nout vec4 fragColor;\n${GLSL_COMMON}\n${frag}`,
+      fragmentShader: `precision highp float;\nprecision highp int;\nin vec2 vUv;\nout vec4 fragColor;\n${glslCommon()}\n${frag}`,
       uniforms,
       depthTest: false,
       depthWrite: false,

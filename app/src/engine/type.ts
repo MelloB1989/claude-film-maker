@@ -3,48 +3,103 @@
 import * as opentype from 'opentype.js';
 
 /**
- * Font keys. Bricolage Grotesque comes in static instances (w = wdth*10) x weights, so width animates in steps:
- * 750, 875, 1000 and weights 300/500/600/800 (cut at opsz 96 by tools/gitloom_film/fonts.py).
+ * A font face the engine loads: its family name (what Canvas2D and opentype.js know it by), its file, and what it is
+ * for. `role` groups faces F picks from: 'display' (headlines; F.display picks by width and weight), 'mono' (code and
+ * machine text), 'ui' (chrome), or any role of a film's own (F.role). `url` is relative to the page (the engine's
+ * defaults are in public/fonts/; a film's are films/<id>/fonts/..., see film.ts). `features`: OpenType feature settings
+ * for the face (Canvas2D has no font-feature-settings of its own).
  */
-export const BRICOLAGE_WIDTHS = [750, 875, 1000] as const;
-export const BRICOLAGE_WEIGHTS = [300, 500, 600, 800] as const;
+export interface FontDef {
+  family: string;
+  url: string;
+  role: string;
+  weight: number;
+  /** Width in % of normal (display faces cut at several widths animate width in steps). */
+  width?: number;
+  italic?: boolean;
+  features?: string;
+}
 
-/** `features`: OpenType feature settings for the face (Canvas2D has no font-feature-settings of its own). */
-type FontDef = { family: string; file: string; features?: string };
 /**
- * The machine's text is verbatim: JetBrains Mono's ligatures and contextual alternates would join `--scope` into one
- * long rule, `//` into a single glyph, `->` into an arrow. They are off for every mono face.
+ * Mono text is verbatim: JetBrains Mono's ligatures and contextual alternates would join `--scope` into one long rule,
+ * `//` into a single glyph, `->` into an arrow. They are off for every mono face.
  */
-const MONO_FEATURES = '"calt" 0, "liga" 0';
-const DEFS: FontDef[] = [];
-for (const w of BRICOLAGE_WIDTHS) for (const wt of BRICOLAGE_WEIGHTS) DEFS.push({ family: `Bricolage-${w}-${wt}`, file: `Bricolage-w${w}-${wt}.ttf` });
-for (const wt of [400, 500, 700]) DEFS.push({ family: `JBMono-${wt}`, file: `JetBrainsMono-${wt}.ttf`, features: MONO_FEATURES });
-DEFS.push({ family: 'JBMonoItalic-400', file: 'JetBrainsMonoItalic-400.ttf', features: MONO_FEATURES });
-for (const wt of [400, 500, 600]) DEFS.push({ family: `Geist-${wt}`, file: `Geist-${wt}.ttf` });
+export const MONO_FEATURES = '"calt" 0, "liga" 0';
 
-/** Convenience family names. */
+/**
+ * The engine's default faces (SIL OFL, docs/CREDITS.md): Bricolage Grotesque in static instances at widths 75, 87.5
+ * and 100 % and weights 300/500/600/800 (cut by tools/ film-fonts), JetBrains Mono 400/500/700 and italic 400, Geist
+ * 400/500/600.
+ */
+export function defaultFonts(): FontDef[] {
+  const d: FontDef[] = [];
+  for (const w of [750, 875, 1000]) for (const wt of [300, 500, 600, 800]) d.push({ family: `Bricolage-${w}-${wt}`, url: `fonts/Bricolage-w${w}-${wt}.ttf`, role: 'display', weight: wt, width: w / 10 });
+  for (const wt of [400, 500, 700]) d.push({ family: `JBMono-${wt}`, url: `fonts/JetBrainsMono-${wt}.ttf`, role: 'mono', weight: wt, features: MONO_FEATURES });
+  d.push({ family: 'JBMonoItalic-400', url: 'fonts/JetBrainsMonoItalic-400.ttf', role: 'mono', weight: 400, italic: true, features: MONO_FEATURES });
+  for (const wt of [400, 500, 600]) d.push({ family: `Geist-${wt}`, url: `fonts/Geist-${wt}.ttf`, role: 'ui', weight: wt });
+  return d;
+}
+
+let DEFS: FontDef[] = defaultFonts();
+
+/**
+ * Add a film's faces (before loadFonts: Engine.init does it from the film's `fonts`). A role the film gives faces for
+ * replaces the default faces of that role when `replace` names it ('display', say, to set every headline in the
+ * film's own face); otherwise the faces join the role's. A family registered twice is an error.
+ */
+export function registerFonts(defs: readonly FontDef[], o: { replace?: readonly string[] } = {}) {
+  const drop = new Set(o.replace ?? []);
+  DEFS = [...DEFS.filter((d) => !drop.has(d.role)), ...defs];
+  const seen = new Set<string>();
+  for (const d of DEFS) {
+    if (seen.has(d.family)) throw new Error(`font family ${d.family} is registered twice`);
+    seen.add(d.family);
+  }
+}
+
+/** Back to the default faces (tests). */
+export function resetFonts() {
+  DEFS = defaultFonts();
+}
+
+/** The faces of a role, or throws naming the roles there are. */
+function facesOf(role: string, italic?: boolean): FontDef[] {
+  let faces = DEFS.filter((d) => d.role === role);
+  if (!faces.length) throw new Error(`no fonts for role '${role}' (roles: ${[...new Set(DEFS.map((d) => d.role))].join(', ')})`);
+  if (italic !== undefined) {
+    const it = faces.filter((d) => !!d.italic === italic);
+    if (it.length) faces = it;
+  }
+  return faces;
+}
+
+/** The face of `faces` nearest the asked width (when given), then weight. */
+function pick(faces: FontDef[], weight: number, width?: number): string {
+  let best = faces[0]!;
+  const score = (d: FontDef) => (width === undefined ? 0 : Math.abs((d.width ?? 100) - width) * 1000) + Math.abs(d.weight - weight);
+  for (const d of faces) if (score(d) < score(best)) best = d;
+  return best.family;
+}
+
+/** Family names by role: the registered face nearest the asked width and weight. */
 export const F = {
-  /** Her voice: Bricolage at the nearest width (75..100 %) and weight (300..800). */
+  /** Headlines: the display face nearest `width` (% of normal) and `weight`. */
   display(width = 100, weight = 600): string {
-    const w = nearest(BRICOLAGE_WIDTHS as unknown as number[], width * 10);
-    const wt = nearest(BRICOLAGE_WEIGHTS as unknown as number[], weight);
-    return `Bricolage-${w}-${wt}`;
+    return pick(facesOf('display'), weight, width);
   },
-  /** The machine: JetBrains Mono 400/500/700, italic 400. */
+  /** Code and machine text: the mono face nearest `weight`, italic when asked (if the role has one). */
   mono(weight = 400, italic = false): string {
-    return italic ? 'JBMonoItalic-400' : `JBMono-${nearest([400, 500, 700], weight)}`;
+    return pick(facesOf('mono', italic), weight);
   },
-  /** UI chrome: Geist 400/500/600. */
+  /** UI chrome. */
   ui(weight = 400): string {
-    return `Geist-${nearest([400, 500, 600], weight)}`;
+    return pick(facesOf('ui'), weight);
+  },
+  /** Any role, a film's own included (`F.role('serif', 400)`). */
+  role(role: string, weight = 400, italic?: boolean): string {
+    return pick(facesOf(role, italic), weight);
   },
 };
-
-function nearest(list: number[], v: number) {
-  let best = list[0]!;
-  for (const x of list) if (Math.abs(x - v) < Math.abs(best - v)) best = x;
-  return best;
-}
 
 /** CSS font string for Canvas2D. */
 export const font = (family: string, sizePx: number) => `${sizePx}px "${family}"`;
@@ -54,6 +109,8 @@ const bufCache = new Map<string, ArrayBuffer>();
 
 /** Every registered family name. */
 export const fontFamilies = () => DEFS.map((d) => d.family);
+/** Every registered face. */
+export const fontDefs = (): readonly FontDef[] => DEFS;
 
 /** The FontFace descriptors loadFonts gives a family (undefined: the font's own defaults). */
 export function fontFaceDescriptors(family: string): FontFaceDescriptors | undefined {
@@ -65,7 +122,9 @@ export function fontFaceDescriptors(family: string): FontFaceDescriptors | undef
 export async function loadFonts(): Promise<void> {
   await Promise.all(
     DEFS.map(async (d) => {
-      const buf = await (await fetch(`fonts/${d.file}`)).arrayBuffer();
+      const r = await fetch(d.url);
+      if (!r.ok) throw new Error(`font ${d.family}: ${d.url}: HTTP ${r.status}`);
+      const buf = await r.arrayBuffer();
       bufCache.set(d.family, buf);
       const ff = new FontFace(d.family, buf, fontFaceDescriptors(d.family));
       await ff.load();

@@ -3,8 +3,8 @@
 //
 // The look is monochrome with hierarchy: code is bone at five strengths (keywords brightest and a weight heavier,
 // comments faint and italic, punctuation faintest), and colour is only ever semantic: the prompt's `$` in bright
-// blood; in the diff gutters `+` in moss and `−` in bright blood (blood proper reads darker than moss on the panel),
-// with a 6% moss or blood wash across their rows; a deletion struck through in bright blood; ✔ in moss. JetBrains
+// accent; in the diff gutters `+` in accent2 and `−` in bright accent (accent proper reads darker than accent2 on the panel),
+// with a 6% accent2 or accent wash across their rows; a deletion struck through in bright accent; ✔ in accent2. JetBrains
 // Mono has no ✔, so it is drawn as a path (in the panel's shader, sharp at any zoom); every other glyph comes from the
 // three families (a missing one is reported when the panel is built).
 //
@@ -291,8 +291,8 @@ export interface PanelLine {
   cps?: number;
   /**
    * Tones over runs of the line's characters, over the highlighter's look: `fatal: … commits yet` with "commits" in
-   * blood. Character indices are code points, as the line types; a later span wins where spans overlap. A check mark
-   * stays the panel's moss path.
+   * accent. Character indices are code points, as the line types; a later span wins where spans overlap. A check mark
+   * stays the panel's accent2 path.
    */
   spans?: readonly PanelSpan[];
   /** Bands painted on the canvas under the row's text (cite's highlighted lines): see PanelMark. */
@@ -302,13 +302,13 @@ export interface PanelLine {
 /**
  * A band painted on the canvas under a row's text, as tall as the row: the whole row edge to edge, or (with `from` or
  * `to`) the cells of characters [from, to) (fractional is fine; from defaults to 0, to to the line's end). Bone (a
- * quiet lift of the face), moss or blood (a wash), `alpha` strong (default 0.07 for bone, 0.1 for moss and blood). There
+ * quiet lift of the face), accent2 or accent (a wash), `alpha` strong (default 0.07 for bone, 0.1 for accent2 and accent). There
  * throughout, or coming up over `fade` s (default 0.12) from `at` and gone by `until`, on the frame grid.
  */
 export interface PanelMark {
   from?: number;
   to?: number;
-  tone?: 'bone' | 'moss' | 'blood';
+  tone?: 'fg' | 'accent2' | 'accent';
   alpha?: number;
   at?: number;
   until?: number;
@@ -316,16 +316,16 @@ export interface PanelMark {
 }
 
 /** A mark's default strength per tone, the selection's (Panel.select), and a timed mark's fade (s). */
-const MARK_ALPHA = { bone: 0.07, moss: 0.1, blood: 0.1 } as const;
+const MARK_ALPHA = { fg: 0.07, accent2: 0.1, accent: 0.1 } as const;
 const SELECT_ALPHA = 0.14;
 const MARK_FADE = 0.12;
 
 /**
  * A span's tone: a token class's look (its family and colour: `kw` the brightest and a weight heavier, `com` faint and
- * italic, `prompt` bright blood, …), or an accent on the character's own family: `blood` (the panel's bright blood, as
- * its prompt and its `−`: blood proper reads darker than moss on the panel) or `moss`.
+ * italic, `prompt` bright accent, …), or an accent on the character's own family: `accent` (the panel's bright accent, as
+ * its prompt and its `−`: accent proper reads darker than accent2 on the panel) or `accent2`.
  */
-export type PanelTone = Exclude<TokenClass, 'ok'> | 'blood' | 'moss';
+export type PanelTone = Exclude<TokenClass, 'ok'> | 'accent' | 'accent2';
 
 /** Characters [from, to) of a line, in a tone. */
 export interface PanelSpan {
@@ -450,18 +450,18 @@ function lineStates(lines: PanelLine[], tq: number, terminal: boolean): LineStat
 // ---------------------------------------------------------------------------------------------------- style
 
 /** Font and colour for each class: bone at five strengths, and the two semantic accents. */
-const STYLE: Record<Exclude<TokenClass, 'ok'>, { family: string; color: string }> = {
-  kw: { family: F.mono(500), color: rgba('bone', 1) },
-  id: { family: F.mono(400), color: rgba('bone', 0.88) },
-  num: { family: F.mono(400), color: rgba('bone', 0.95) },
-  str: { family: F.mono(400), color: rgba('boneDim') },
-  com: { family: F.mono(400, true), color: rgba('boneFaint') },
-  punc: { family: F.mono(400), color: rgba('boneFaint') },
-  prompt: { family: F.mono(500), color: rgba('bloodBright') },
-};
+const style = (): Record<Exclude<TokenClass, 'ok'>, { family: string; color: string }> => ({
+  kw: { family: F.mono(500), color: rgba('fg', 1) },
+  id: { family: F.mono(400), color: rgba('fg', 0.88) },
+  num: { family: F.mono(400), color: rgba('fg', 0.95) },
+  str: { family: F.mono(400), color: rgba('fgDim') },
+  com: { family: F.mono(400, true), color: rgba('fgFaint') },
+  punc: { family: F.mono(400), color: rgba('fgFaint') },
+  prompt: { family: F.mono(500), color: rgba('accentBright') },
+});
 
 /** The accents a span can tone characters in (on their own family). */
-const ACCENT: Record<'blood' | 'moss', string> = { blood: rgba('bloodBright'), moss: rgba('moss') };
+const accentOf = (tone: 'accent' | 'accent2') => rgba(tone === 'accent' ? 'accentBright' : 'accent2');
 
 /** The design size the chrome is drawn for; the chrome scales with the code size. */
 const BASE_PX = 28;
@@ -511,7 +511,7 @@ const FRAG = /* glsl */ `
     if (cov <= 0.0) discard;
     vec3 face = uFace;
     if (gl_FrontFacing && uHasMap) face = texture2D(uMap, vec2(vPx.x / uSize.x, 1.0 - vPx.y / uSize.y)).rgb;
-    // check marks: two capsules each, in moss, with a faint halo of moss light around them
+    // check marks: two capsules each, in accent2, with a faint halo of accent2 light around them
     for (int i = 0; i < ${CHECKS}; i++) {
       vec4 k = uChecks[i];
       if (!gl_FrontFacing || k.w <= 0.0) continue; // uniform control flow: fwidth below stays defined
@@ -713,8 +713,8 @@ export class Panel {
       uniforms: {
         uMap: { value: null }, uHasMap: { value: false }, uSize: { value: new THREE.Vector2(w, h) },
         uRadius: { value: 16 }, uOpacity: { value: 1 },
-        uFace: { value: new THREE.Vector3(...LIN.panel) }, uEdge: { value: new THREE.Vector3(...LIN.ruleStrong) },
-        uEdgeHi: { value: mixLin('ruleStrong', 'bone', 0.22) }, uMoss: { value: new THREE.Vector3(...LIN.moss) },
+        uFace: { value: new THREE.Vector3(...LIN.surface) }, uEdge: { value: new THREE.Vector3(...LIN.ruleStrong) },
+        uEdgeHi: { value: mixLin('ruleStrong', 'fg', 0.22) }, uMoss: { value: new THREE.Vector3(...LIN.accent2) },
         uChecks: { value: Array.from({ length: CHECKS }, () => new THREE.Vector4()) }, uHalo: { value: 0.035 },
       },
       transparent: true,
@@ -985,7 +985,7 @@ export class Panel {
     const c = this.canvas();
     const { spec, g } = this;
     const { w } = spec;
-    this.layer!.clear(HEX.panel);
+    this.layer!.clear(HEX.surface);
     c.textBaseline = 'alphabetic';
     c.textAlign = 'left';
 
@@ -1001,12 +1001,12 @@ export class Panel {
       const struckOn = l.kind === 'del' && s.struck > 0;
       // the diff: a wash across the row and the mark in the gutter
       if (l.kind === 'add' || struckOn) {
-        const key = l.kind === 'add' ? 'moss' : 'blood';
+        const key = l.kind === 'add' ? 'accent2' : 'accent';
         c.fillStyle = rgba(key, 0.06);
         c.fillRect(0, top, w, rowH);
         if (g.signW && s.open > 0.5) {
           c.font = font(F.mono(500), g.size);
-          c.fillStyle = rgba(key === 'moss' ? 'moss' : 'bloodBright'); // blood proper reads darker than moss on the panel
+          c.fillStyle = rgba(key === 'accent2' ? 'accent2' : 'accentBright'); // accent proper reads darker than accent2 on the panel
           c.fillText(l.kind === 'add' ? '+' : '−', g.padX + g.numW, base);
         }
       }
@@ -1023,7 +1023,7 @@ export class Panel {
       }
       if (fr.num[i]) {
         c.font = font(F.mono(400), g.size);
-        c.fillStyle = rgba('boneFaint', 0.85);
+        c.fillStyle = rgba('fgFaint', 0.85);
         c.textAlign = 'right';
         c.fillText(String(fr.num[i]), g.padX + g.numW - Math.round(22 * g.s), base);
         c.textAlign = 'left';
@@ -1031,14 +1031,15 @@ export class Panel {
       const x0 = this.textX(i);
       if (this.bubble(i) && s.n > 0) { // a chat's user turn: a quiet bubble on the right, the text typing inside it
         const pad = Math.round(16 * g.s), inset = Math.round(4 * g.s);
-        c.fillStyle = HEX.panel2;
+        c.fillStyle = HEX.surface2;
         c.beginPath();
         c.roundRect(x0 - pad, top + inset, this.chars[i]!.length * g.adv + 2 * pad, g.lineH - 2 * inset, Math.round(12 * g.s));
         c.fill();
       }
       if (this.chromePrompt[i] && fr.started[i]) {
-        c.font = font(STYLE.prompt.family, g.size);
-        c.fillStyle = STYLE.prompt.color;
+        const prompt = style().prompt;
+        c.font = font(prompt.family, g.size);
+        c.fillStyle = prompt.color;
         c.fillText('$', x0, base);
       }
       const xt = x0 + (this.chromePrompt[i] ? 2 * g.adv : 0);
@@ -1047,7 +1048,7 @@ export class Panel {
         const lead = this.chars[i]!.findIndex((ch) => !/\s/.test(ch));
         const from = Math.max(0, lead), to = Math.min(s.struck, this.chars[i]!.length);
         if (to > from) {
-          c.fillStyle = rgba('bloodBright');
+          c.fillStyle = rgba('accentBright');
           c.fillRect(xt + from * g.adv, base - 0.3 * g.size - g.s, (to - from) * g.adv, 2 * g.s);
         }
       }
@@ -1059,7 +1060,7 @@ export class Panel {
       const { i, col, on, block } = fr.cursor;
       const base = fr.top[i]! + g.lineH / 2 + 0.365 * g.size;
       if (on && (this.spec.rows === undefined ? base > g.bar : this.wholeInView(fr.top[i]!))) {
-        c.fillStyle = rgba('bone', block ? 0.82 : 0.95);
+        c.fillStyle = rgba('fg', block ? 0.82 : 0.95);
         const x = this.textX(i) + col * g.adv, y = base - 0.98 * g.size, ch = 1.25 * g.size;
         c.fillRect(x, y, block ? g.adv : Math.max(2, 0.08 * g.size), ch);
       }
@@ -1124,7 +1125,7 @@ export class Panel {
     this.hl.forEach((marks, i) => {
       if (!marks.length || st[i]!.open <= 0 || !this.inView(top[i]!)) return;
       for (const m of marks) {
-        const tone = m.tone ?? 'bone', fade = m.fade ?? MARK_FADE;
+        const tone = m.tone ?? 'fg', fade = m.fade ?? MARK_FADE;
         let a = m.alpha ?? MARK_ALPHA[tone];
         if (m.at !== undefined) a *= smootherstep(m.at, m.at + fade, tq);
         if (m.until !== undefined) a *= 1 - smootherstep(m.until - fade, m.until, tq);
@@ -1137,14 +1138,14 @@ export class Panel {
     });
     const sel = this.selection;
     if (sel && sel.to > sel.from && st[sel.line]!.open > 0 && this.inView(top[sel.line]!)) {
-      out.push({ i: sel.line, ...run(sel.line, sel.from, sel.to), color: rgba('bone', strength(sel.alpha)), cells: true });
+      out.push({ i: sel.line, ...run(sel.line, sel.from, sel.to), color: rgba('fg', strength(sel.alpha)), cells: true });
     }
     return out;
   }
 
   /**
    * The family and colour the panel draws character `col` of line `line` in: its span's tone over the highlighter's
-   * look. Null for one it doesn't draw as text (a blank; a check mark, drawn as a moss path).
+   * look. Null for one it doesn't draw as text (a blank; a check mark, drawn as a accent2 path).
    */
   charStyle(line: number, col: number): { family: string; color: string } | null {
     this.checkLine(line);
@@ -1158,9 +1159,10 @@ export class Panel {
   /** Character k of line i's look (not a check mark): its token class's, or its span's tone. */
   private styleOf(i: number, k: number): { family: string; color: string } {
     const kc = this.cls[i]![k] as Exclude<TokenClass, 'ok'>, tone = this.tones[i]![k];
-    if (tone === undefined) return STYLE[kc];
-    if (tone === 'blood' || tone === 'moss') return { family: STYLE[kc].family, color: ACCENT[tone] };
-    return STYLE[tone];
+    const st = style();
+    if (tone === undefined) return st[kc];
+    if (tone === 'accent' || tone === 'accent2') return { family: st[kc].family, color: accentOf(tone) };
+    return st[tone];
   }
 
   /**
@@ -1185,7 +1187,7 @@ export class Panel {
   private chrome(c: CanvasRenderingContext2D) {
     const { spec, g } = this;
     if (!g.bar) return;
-    c.fillStyle = HEX.panel;
+    c.fillStyle = HEX.surface;
     c.fillRect(0, 0, spec.w, g.bar);
     c.fillStyle = HEX.rule;
     c.fillRect(0, g.bar - 1, spec.w, 1);
@@ -1193,7 +1195,7 @@ export class Panel {
       if (spec.title) { // a card's label is copy (TypeScript, Go, …): never under the 16 px floor for mono labels
         const size = Math.max(16, Math.round(0.72 * g.size));
         c.font = font(F.ui(500), size);
-        c.fillStyle = rgba('boneDim');
+        c.fillStyle = rgba('fgDim');
         c.fillText(spec.title, g.padX, g.bar / 2 + 0.36 * size);
       }
       return;
@@ -1207,7 +1209,7 @@ export class Panel {
     if (spec.title) {
       const size = Math.max(16, Math.round(18 * g.s));
       c.font = font(F.ui(500), size);
-      c.fillStyle = rgba('boneDim', 0.9);
+      c.fillStyle = rgba('fgDim', 0.9);
       c.textAlign = 'center';
       c.fillText(spec.title, spec.w / 2, g.bar / 2 + 0.36 * size);
       c.textAlign = 'left';
@@ -1228,7 +1230,7 @@ export class Panel {
   private canvasChecks(c: CanvasRenderingContext2D, pts: [number, number][]) {
     if (!pts.length) return;
     const size = this.g.size;
-    c.strokeStyle = rgba('moss');
+    c.strokeStyle = rgba('accent2');
     c.lineWidth = CHECK_W * size;
     c.lineCap = c.lineJoin = 'round';
     for (const [x, y] of pts) {

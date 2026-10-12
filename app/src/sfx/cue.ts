@@ -1,18 +1,18 @@
-// The cue sheet's vocabulary (Plan 3 Task 8): a cue is one sound placed on one moment of the film, and every moment is
-// an anchor in the data: a word's onset, a beat, a downbeat, a tracked Blender event, a scene's own event (its time
-// module), or a transition's cut. A scene's cue module (sfx/scenes/<id>.ts) is a pure function of the voiceover, the
-// score's grid, the tracks and the transitions; nothing in it is a hard-coded second.
+// The cue sheet's vocabulary: a cue is one sound placed on one moment of the film, and every moment is an anchor in the
+// data: a word's onset, a beat, a downbeat, a tracked Blender event, a scene's own event (its time module), or a
+// transition's cut. A shot's cue module (film.ts `sfx.cues[<shot>]`, usually films/<id>/sfx/<shot>.ts) is a pure
+// function of the voiceover, the score's grid, the tracks and the transitions; nothing in it is a hard-coded second.
 //
 // Anchors, as the sheet records them:
 //   word:<line>:<i>    the onset of word i (0-based) of line <line> (t is exactly its start)
 //   beat:<n>           audio.beats[n];  downbeat:<n>  audio.downbeats[n]
 //   cut:<from>-<to>    a transition's cut (the scene boundary)
-//   <scene>:<event>    a scene's own moment, from its time module (plus an offset in frames: `thread:snap+2f`)
+//   <scene>:<event>    a scene's own moment, from its time module (plus an offset in frames: `intro:hit+2f`)
 //   <prefix>:key:<i>   the i-th key of a typed line (typing())
 import type { AudioData } from '../engine/audio';
 import type { Track } from '../engine/track';
 import type { TransitionEntry } from '../engine/transition';
-import { hash } from '../engine/util';
+import { FPS, hash } from '../engine/util';
 import { norm, type SceneSpan, type VO } from '../engine/vo';
 
 /** One sound on one moment: its hit (onset, peak or end, as the palette aligns it) lands on t. */
@@ -47,7 +47,7 @@ export interface Duck {
 export interface CueCtx {
   vo: VO;
   audio: AudioData;
-  /** The scene the module places sounds for (its window in vo.json). */
+  /** The shot the module places sounds for (its window on the timeline). */
   scene: SceneSpan;
   track: (shot: string) => Track;
   transitions: TransitionEntry[];
@@ -116,11 +116,11 @@ export const KEYS = 8;
 export function typing(prefix: string, count: (t: number) => number, from: number, to: number, seed: string): Cue[] {
   const s = seedOf(seed);
   // to the first frame at or after `to`: a line whose last key is due between two frames shows it on the later one
-  const f0 = Math.ceil(from * 30 - 1e-6), f1 = Math.ceil(to * 30 - 1e-6);
+  const f0 = Math.ceil(from * FPS - 1e-6), f1 = Math.ceil(to * FPS - 1e-6);
   const out: Cue[] = [];
-  let shown = count((f0 - 1) / 30), i = 0;
+  let shown = count((f0 - 1) / FPS), i = 0;
   for (let f = f0; f <= f1; f++) {
-    const now = count(f / 30), k = now - shown;
+    const now = count(f / FPS), k = now - shown;
     for (let j = 0; j < k; j++, i++) {
       out.push({
         sound: `key_soft_${1 + Math.floor(hash(s, i, 1) * KEYS)}`,

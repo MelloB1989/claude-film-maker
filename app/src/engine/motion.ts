@@ -122,14 +122,12 @@ export function whip(t: number, cut: number, dur = WHIP_DUR): { k: number; blurP
  */
 export function wordTimes(vo: VO, scene: string): { w: Word; at: number }[] {
   const words = vo.lines.filter((l) => l.scene === scene).flatMap((l) => l.words);
-  if (words.length === 0 && !vo.scenes.some((s) => s.id === scene)) {
+  if (words.length === 0 && vo.scenes.length > 0 && !vo.scenes.some((s) => s.id === scene)) {
     throw new Error(`wordTimes: no voiceover scene "${scene}" (have ${vo.scenes.map((s) => s.id).join(', ')})`);
   }
   return words.map((w) => ({ w, at: w.start }));
 }
 
-/** The locked score is 4/4 (AudioData.barAt assumes the same when it has no downbeats). */
-const BEATS_PER_BAR = 4;
 
 /**
  * A decaying pulse on every beat: 1 on the beat, halving every `halfLife` beats. The unit is beats, not seconds: a Frame
@@ -142,5 +140,5 @@ export function onBeat(f: Frame, halfLife = 0.2): number {
 
 /** The same on every downbeat (the first beat of a bar), with a longer default since it is the accent. `halfLife` is in beats. */
 export function onDownbeat(f: Frame, halfLife = 0.5): number {
-  return pulse(f.barPhase * BEATS_PER_BAR, 0, halfLife);
+  return pulse(f.barPhase * (f.beatsPerBar || 4), 0, halfLife);
 }

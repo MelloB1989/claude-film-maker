@@ -6,7 +6,8 @@ import { afterAll, beforeAll, expect, test } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { chromium, type Browser, type Page } from 'playwright-core';
+import type { Browser, Page } from 'playwright-core';
+import { launchBrowser } from '../../scripts/browser';
 
 const ORIGIN = 'http://film.test';
 const FONTS = path.resolve(import.meta.dir, '../../public/fonts');
@@ -30,7 +31,7 @@ beforeAll(async () => {
   rmSync(dir, { recursive: true, force: true });
   if (!built.success) throw new AggregateError(built.logs, 'bundling the engine for the page failed');
   const code = await built.outputs[0]!.text();
-  browser = await chromium.launch({ channel: 'chrome', headless: true });
+  browser = await launchBrowser({ headless: true });
   page = await browser.newPage();
   await page.route(`${ORIGIN}/**`, (route) => {
     const p = new URL(route.request().url()).pathname;
@@ -257,11 +258,11 @@ test('a highlight is painted under the text: the glyphs stand on it untinted, th
       const px = (x: number, y: number) => Array.from(c.getContext('2d')!.getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data);
       return { glyph: px(92, 95), band: px(600, 95) };
     };
-    return { plain: at(undefined), lit: at({ tone: 'moss', alpha: 0.5 }) };
+    return { plain: at(undefined), lit: at({ tone: 'accent2', alpha: 0.5 }) };
   });
   expect(r.plain.glyph.slice(0, 3)).toEqual([237, 231, 234]); // bone at full strength (the kw tone)
   expect(r.lit.glyph).toEqual(r.plain.glyph); // under the glyph: untouched
-  expect(r.lit.band[1]!).toBeGreaterThan(r.plain.band[1]! + 20); // beside it: the moss wash
+  expect(r.lit.band[1]!).toBeGreaterThan(r.plain.band[1]! + 20); // beside it: the accent2 wash
   expect(r.lit.band[1]!).toBeGreaterThan(r.lit.band[0]!);
 });
 

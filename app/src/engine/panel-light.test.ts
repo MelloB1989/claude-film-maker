@@ -13,7 +13,7 @@ const mat = (m: THREE.Mesh) => m.material as THREE.ShaderMaterial;
 const u = (m: THREE.Mesh, k: string) => mat(m).uniforms[k]!.value;
 
 test('every light is unlit, added over the panel after it (renderOrder), and writes no depth', () => {
-  const lights = [new Blade(P, 1.4, 10), new Halo(P, 'blood', 1), new Wash(P), new Bar(P, 'moss'), new Spot(P)];
+  const lights = [new Blade(P, 1.4, 10), new Halo(P, 'accent', 1), new Wash(P), new Bar(P, 'accent2'), new Spot(P)];
   for (const l of lights) {
     expect(mat(l.mesh).depthWrite).toBe(false);
     expect(mat(l.mesh).transparent).toBe(true);
@@ -28,7 +28,7 @@ test('every light is unlit, added over the panel after it (renderOrder), and wri
 
 test('Blade: from its tail to its tip along y, in the glow\'s colour; hidden until it is longer than a px and a half', () => {
   const b = new Blade(P, 1.4, 10);
-  expect((u(b.mesh, 'uColor') as THREE.Vector3).toArray()).toEqual(glow('blood', 1));
+  expect((u(b.mesh, 'uColor') as THREE.Vector3).toArray()).toEqual(glow('accent', 1));
   b.set(100, 300, 210, 0.7, 1.16);
   close(b.mesh.position.toArray(), [(100 - 320) / 1000, (200 - 210) / 1000, 0.6 / 1000]);
   close(b.mesh.scale.toArray(), [(200 + 14) / 1000, 20 / 1000, 1]); // the plane reaches 14 px past the tip, for the head's light
@@ -40,12 +40,12 @@ test('Blade: from its tail to its tip along y, in the glow\'s colour; hidden unt
 });
 
 test('Halo: a round glow centred on a point, its level a glow() level; off at 0', () => {
-  const h = new Halo(P, 'moss', 13);
+  const h = new Halo(P, 'accent2', 13);
   h.set(150, 320, 1.25);
   close(h.mesh.position.toArray(), [(150 - 320) / 1000, (200 - 320) / 1000, 0.5 / 1000]);
   close(h.mesh.scale.toArray(), [0.026, 0.026, 1]);
   expect(u(h.mesh, 'uLevel')).toBe(1.25);
-  expect((u(h.mesh, 'uColor') as THREE.Vector3).toArray()).toEqual(glow('moss', 1));
+  expect((u(h.mesh, 'uColor') as THREE.Vector3).toArray()).toEqual(glow('accent2', 1));
   h.set(150, 320, 0);
   expect(h.mesh.visible).toBe(false);
   h.dispose();
@@ -56,11 +56,11 @@ test('Wash: a box of faint bone light from (x0, y0) to (x1, y1); Bar: a sign the
   w.set(0, 300, 640, 338.5, 0.007, 0.05);
   close(w.mesh.position.toArray(), [0, (200 - 319.25) / 1000, 0.4 / 1000]);
   close(w.mesh.scale.toArray(), [0.64, 0.0385, 1]);
-  expect((u(w.mesh, 'uColor') as THREE.Vector3).toArray()).toEqual([...LIN.bone]);
+  expect((u(w.mesh, 'uColor') as THREE.Vector3).toArray()).toEqual([...LIN.fg]);
   expect([u(w.mesh, 'uLevel'), u(w.mesh, 'uEdge')]).toEqual([0.007, 0.05]);
   w.set(0, 300, 0.2, 338.5, 0.5);
   expect(w.mesh.visible).toBe(false); // narrower than a quarter px
-  const b = new Bar(P, 'blood');
+  const b = new Bar(P, 'accent');
   b.set(11, 300, 338.5, 2.6);
   close(b.mesh.position.toArray(), [(11 - 320) / 1000, (200 - 319.25) / 1000, 0.5 / 1000]);
   close(b.mesh.scale.toArray(), [0.014, 0.0385, 1]);

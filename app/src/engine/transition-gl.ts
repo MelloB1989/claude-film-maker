@@ -8,7 +8,7 @@ import { LIN } from './palette';
 import { SHOULDER_GLSL } from './post';
 import { MAX_TAPS, SUB_TAPS, type TransitionState } from './transition';
 
-const FRAG = /* glsl */ `
+const frag = () => /* glsl */ `
 uniform sampler2D A; uniform sampler2D B;
 uniform vec4 taps[${2 * MAX_TAPS}];   // per tap: (a.tx, a.ty, a.s, wB), (b.tx, b.ty, b.s, ink or match threshold)
 uniform int n;                        // taps in use
@@ -71,10 +71,10 @@ export class TransitionPass {
   private buf = new Float32Array(2 * MAX_TAPS * 4);
 
   constructor() {
-    this.pass = new FSPass(FRAG, {
+    this.pass = new FSPass(frag(), {
       A: { value: null }, B: { value: null }, taps: { value: this.buf }, n: { value: 1 }, isMatch: { value: false },
       cA: { value: new THREE.Vector2(W / 2, H / 2) }, cB: { value: new THREE.Vector2(W / 2, H / 2) }, soft: { value: 0.12 },
-      ink: { value: new THREE.Vector3(...LIN.ink) },
+      ink: { value: new THREE.Vector3(...LIN.bg) },
     });
   }
 

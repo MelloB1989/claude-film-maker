@@ -12,8 +12,10 @@
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "resolveJsonModule": true,
+    "paths": { "@engine/*": ["./src/engine/*"], "@kit/*": ["./src/kit/*"] }
   },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "include": ["src", "../films"],
+  "exclude": ["src/**/*.test.ts", "../films/**/*.test.ts"]
 }

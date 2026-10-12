@@ -1,75 +1,85 @@
-// Entry: preview player (default) or export mode (?export=1, driven by scripts/render.ts).
+// Entry: preview player (default) or export mode (?export=1, driven by scripts/render.ts), for one film:
+// films/<id>/film.ts, picked by ?film=<id> (else the build's FILM, else 'showcase').
 import { Engine, type AdaptiveSampling, type TimelineEntry } from './engine/engine';
-import { PW, PH, SCALE } from './engine/gl';
+import { PW, PH, SCALE, W, H } from './engine/gl';
 import { unmaskedRenderer } from './engine/gpu';
 import type { SceneClass } from './engine/scene';
 import type { VO } from './engine/vo';
 import type { AudioData } from './engine/audio';
-import { makeTimeline, makeTransitions } from './timeline';
-import { specOf, type TransitionModule } from './engine/transition';
+import type { FilmSpec } from './engine/film';
+import { filmUrl } from './engine/config';
 import { FPS } from './engine/util';
 
 const params = new URLSearchParams(location.search);
 const EXPORT = params.has('export');
-const ONLY = params.get('only'); // comma-separated scene ids to load (faster stills)
+const ONLY = params.get('only'); // comma-separated shot ids to load (faster stills)
 const FROM = params.get('t') ? parseFloat(params.get('t')!) : null;
-// dev harness: ?module=<name> plays scenes/<name>.ts alone, over the whole film [0, duration] (render.ts --module)
+// dev harness: ?module=<name> plays films/<id>/scenes/<name>.ts alone, over the whole film (render.ts --module)
 const MODULE = params.get('module');
-// review harness: ?transition=<file> plays transitions/<file>.ts as the film's only transition (a dev probe, _probe-*.ts,
-// too), usually with only=<from>,<to> (render.ts --transition)
+// review harness: ?transition=<from>-<to> plays that one of the film's transitions alone, usually with only=<from>,<to>
+// (render.ts --transition)
 const TRANSITION = params.get('transition');
 
+const FILMS = import.meta.glob<{ default: FilmSpec }>('../../films/*/film.ts');
+const SCENES = import.meta.glob<{ default: SceneClass }>(['../../films/*/scenes/*.ts', '!../../films/*/scenes/*.test.ts']);
+const FILM_ID = params.get('film') || (import.meta.env.VITE_FILM as string | undefined) || 'showcase';
+
 const canvas = document.getElementById('c') as HTMLCanvasElement;
-// physical size: 1920x1080 times ?scale= (the page CSS keeps showing it at 1920x1080)
-canvas.width = PW;
-canvas.height = PH;
 
-// (not the tests beside them, as in timeline.ts)
-const sceneModules = import.meta.glob<{ default: SceneClass }>(['./scenes/*.ts', '!./scenes/*.test.ts']);
+async function loadFilm(): Promise<FilmSpec> {
+  const m = FILMS[`../../films/${FILM_ID}/film.ts`];
+  if (!m) throw new Error(`no film '${FILM_ID}' (films: ${Object.keys(FILMS).map((k) => k.split('/')[3]).join(', ') || 'none'}): pass ?film=<id>`);
+  const film = (await m()).default;
+  if (film.id !== FILM_ID) throw new Error(`films/${FILM_ID}/film.ts says its id is '${film.id}': the id is the folder's name`);
+  return film;
+}
 
-/** A timeline of one entry: scenes/<name>.ts from 0 to the end of the film (a harness like _stagetest, or any scene). */
-function moduleTimeline(name: string) {
-  return (vo: VO, audio: AudioData): TimelineEntry[] => [{
-    id: name, file: name, start: 0, end: Math.max(audio.duration, vo.duration), params: { scene: name, module: true },
+/** A timeline of one entry: films/<id>/scenes/<name>.ts over the whole film (a dev harness, or any scene). */
+function moduleTimeline(name: string, duration: number) {
+  return (_vo: VO, _audio: AudioData): TimelineEntry[] => [{
+    id: name, file: name, start: 0, end: duration, params: { shot: name, module: true },
     load: () => {
-      const m = sceneModules[`./scenes/${name}.ts`];
-      return m ? m() : Promise.reject(new Error(`scene module not found: scenes/${name}.ts`));
+      const m = SCENES[`../../films/${FILM_ID}/scenes/${name}.ts`];
+      return m ? m() : Promise.reject(new Error(`scene module not found: films/${FILM_ID}/scenes/${name}.ts`));
     },
   }];
 }
 
-// every transition module, the dev probes included (not the tests beside them, as in timeline.ts)
-const transitionModules = import.meta.glob<TransitionModule>(['./transitions/*.ts', '!./transitions/*.test.ts'], { eager: true });
-
-/** The transitions ?transition=<file> plays: that module's alone. */
-function oneTransition(file: string) {
-  return (vo: VO) => {
-    const m = transitionModules[`./transitions/${file}.ts`];
-    if (!m) throw new Error(`transition module not found: transitions/${file}.ts`);
-    return [specOf(m, vo)];
-  };
-}
-
-const engine = new Engine(canvas, MODULE ? moduleTimeline(MODULE) : makeTimeline, MODULE ? undefined : TRANSITION ? oneTransition(TRANSITION) : makeTransitions);
-
+let engine: Engine;
 declare global {
   interface Window { __film: any }
 }
 
-let TIMELINE: typeof engine.timeline = [];
+let TIMELINE: TimelineEntry[] = [];
 
 async function boot() {
+  const film = await loadFilm();
+  engine = new Engine(canvas, film, {
+    timeline: MODULE ? moduleTimeline(MODULE, film.duration ?? 10) : undefined,
+    transitions: TRANSITION ? (all) => {
+      const one = all.filter((x) => `${x.from}-${x.to}` === TRANSITION);
+      if (!one.length) throw new Error(`the film has no transition ${TRANSITION} (it has: ${all.map((x) => `${x.from}-${x.to}`).join(', ') || 'none'})`);
+      return one;
+    } : undefined,
+  });
+  // physical size: the film's format times ?scale= (the page shows it at its logical size)
+  canvas.width = PW;
+  canvas.height = PH;
+  canvas.style.aspectRatio = `${W} / ${H}`;
+  document.title = film.title ?? film.id;
   const onlySet = ONLY && !MODULE ? new Set(ONLY.split(',')) : null;
   // export loads each scene when a frame first needs it, and a scene error fails the still or the export
   await engine.init(onlySet ? (e) => onlySet.has(e.id) : undefined, { exporting: EXPORT });
   TIMELINE = engine.timeline;
-  if (EXPORT) setupExport();
-  else setupPlayer();
+  if (EXPORT) setupExport(film);
+  else setupPlayer(film);
 }
 
 // ------------------------------------------------------------------ export API
-function setupExport() {
+function setupExport(film: FilmSpec) {
   document.body.classList.add('export');
+  canvas.style.width = `${W}px`;
+  canvas.style.height = `${H}px`;
   // A lost WebGL context (under heavy GPU load Chrome can reset the GPU process, or run the GPU out of memory): GL calls
   // after it do nothing, so what is rendered or read back is not the frame, and no scene reports it. A still or a stream
   // that finds the context lost rejects (the export fails), and no frame read after the loss is sent.
@@ -112,7 +122,9 @@ function setupExport() {
     },
     /** Throws if the WebGL context was lost: what render.ts calls after it has captured a still. */
     assertLive,
-    /** Output size in px (1920x1080 times scale); stream() sends frames of width*height*4 bytes. */
+    /** The film: its id, title, logical format, frame rate and the audio the export muxes (relative to the film). */
+    film: { id: film.id, title: film.title ?? film.id, format: [W, H], fps: FPS, mix: film.audio?.mix ?? null },
+    /** Output size in px (the format times scale); stream() sends frames of width*height*4 bytes. */
     scale: SCALE,
     width: PW,
     height: PH,
@@ -183,9 +195,32 @@ function setupExport() {
 }
 
 // ------------------------------------------------------------------ preview player
-function setupPlayer() {
-  const audio = new Audio('audio/mix/mix.wav');
-  audio.preload = 'auto';
+/**
+ * The player's clock: the film's mix when it has one (smoothed with performance.now(), as the media clock is coarse),
+ * otherwise a silent clock that runs on performance.now().
+ */
+interface Clock { readonly paused: boolean; readonly ended: boolean; currentTime: number; play(): void; pause(): void }
+
+function silentClock(duration: number): Clock {
+  let at = 0, since = 0, paused = true;
+  const now = () => (paused ? at : at + (performance.now() - since) / 1000);
+  return {
+    get paused() { return paused; },
+    get ended() { return now() >= duration; },
+    get currentTime() { return Math.min(now(), duration); },
+    set currentTime(x: number) { at = x; since = performance.now(); },
+    play() { if (paused) { since = performance.now(); paused = false; } },
+    pause() { if (!paused) { at = now(); paused = true; } },
+  };
+}
+
+function setupPlayer(film: FilmSpec) {
+  let audio: Clock;
+  if (film.audio?.mix) {
+    const el = new Audio(filmUrl(film.audio.mix));
+    el.preload = 'auto';
+    audio = el;
+  } else audio = silentClock(engine.duration);
   const ui = document.getElementById('ui')!;
   const scrub = document.getElementById('scrub') as HTMLInputElement;
   const info = document.getElementById('info')!;
@@ -213,7 +248,7 @@ function setupPlayer() {
   const seek = (x: number) => { t = Math.max(0, Math.min(engine.duration - 0.001, x)); audio.currentTime = t; };
   seek(t);
 
-  const toggle = () => { playing = !playing; if (playing) { audio.currentTime = t; audio.play(); } else audio.pause(); };
+  const toggle = () => { playing = !playing; if (playing) { audio.currentTime = t; void audio.play(); } else audio.pause(); };
   canvas.onclick = toggle;
   scrub.oninput = () => seek(parseFloat(scrub.value));
   window.addEventListener('keydown', (ev) => {
@@ -256,7 +291,7 @@ function setupPlayer() {
     if (now - fpsT > 500) { fps = (frames * 1000) / (now - fpsT); frames = 0; fpsT = now; }
     const e = TIMELINE.find((x) => t >= x.start && t < x.end);
     const l = engine.vo.lineAt(t);
-    info.textContent = `${t.toFixed(2)}s  beat ${engine.audio.beatAt(t).toFixed(2)}  bar ${engine.audio.barAt(t).toFixed(2)}  [${e?.id ?? '—'}]  ${fps.toFixed(0)}fps   ${l ? '“' + l.text + '”' : ''}${loop ? '  LOOP' : ''}`;
+    info.textContent = `${film.title ?? film.id}  ${t.toFixed(2)}s  beat ${engine.audio.beatAt(t).toFixed(2)}  bar ${engine.audio.barAt(t).toFixed(2)}  [${e?.id ?? '—'}]  ${fps.toFixed(0)}fps   ${l ? '“' + l.text + '”' : ''}${loop ? '  LOOP' : ''}`;
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);

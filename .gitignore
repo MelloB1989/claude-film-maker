@@ -19,3 +19,6 @@ data/track/_*.json
 # the sound library (tools/gitloom_film/sfxlib.py): paid takes and renders; audio/sfx/manifest.json is committed
 audio/sfx/lib/
 audio/sfx/*.wav
+
+# agent worktrees
+.claude/worktrees/

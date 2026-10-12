@@ -1,9 +1,9 @@
-// The thread in 3D: the film's motif (spec §3). One luminous thread: a bone core with a blood-red `−` ply and a
-// moss-green `+` ply laid round it (the identity is a git diff). It draws on, frays and snaps, strings beads, weaves.
+// The thread in 3D: the film's motif (spec §3). One luminous thread: a bone core with a accent-red `−` ply and a
+// accent2-green `+` ply laid round it (the identity is a git diff). It draws on, frays and snaps, strings beads, weaves.
 //
 // Construction. Plies of one colour twist together as equals: the classic 3-ply, the opening's bone thread (Blender
-// B01). A bone first ply with coloured plies after it is the diff thread (spec §3; Plan 2 Tasks 10 and 25: "blood and
-// moss plies twisting around the bone core"): the bone ply is that same 3-ply rope, and the coloured plies are laid in
+// B01). A bone first ply with coloured plies after it is the diff thread (spec §3; Plan 2 Tasks 10 and 25: "accent and
+// accent2 plies twisting around the bone core"): the bone ply is that same 3-ply rope, and the coloured plies are laid in
 // its grooves, the way rope is wormed. So the thread that snaps in the opening is the core of the one that re-forms.
 // Each coloured strand touches the two bone plies either side, flush with the rope's surface, and the `−` lies one
 // groove ahead of the `+`: along the thread every turn reads `−`, `+`, then bone, diff hunks between context. `core`
@@ -28,8 +28,8 @@
 //   a streak where the half vector is square to the fibres, as on real cord.
 // - The shader adds the fibre striation (grooves and per-fibre tone along iso-lines of vQ, which run with the
 //   fibres), occlusion in the crevices where plies press together, and per-ply colour.
-// - Blood and moss plies are dyed fibre (toward bloodDim and mossDim) with an emissive core in the palette colour:
-//   glow('blood'|'moss', level) across the strand as a sharp power of N·V over a soft one, a luminous filament down its
+// - Blood and accent2 plies are dyed fibre (toward accentDim and accent2Dim) with an emissive core in the palette colour:
+//   glow('accent'|'accent2', level) across the strand as a sharp power of N·V over a soft one, a luminous filament down its
 //   middle that the post halates. Bone never emits. A scene can darken the strands' fibre (strandDye) and slim them
 //   (strandScale) so the colour is carried by the light of the core alone; the defaults are the look.
 // - Fibres off the surface are their own instanced mesh (a child of `mesh`): a sparse fuzz that catches the rim light
@@ -37,17 +37,18 @@
 //
 // The diff thread every scene shows (her, then Part C) is DIFF_THREAD, a preset of these options: a 14° lay, the strands
 // dyed near ink and slimmed so their colour is light, not paint, and that light off at rest. A scene lights one strand on
-// meaning (setStrandGlow, strandGlow): moss when something is committed or added, blood when something is struck or
+// meaning (setStrandGlow, strandGlow): accent2 when something is committed or added, accent when something is struck or
 // removed. Its numbers are data/look/thread.json, which Blender's lib/thread.py reads too, so the two renderers' diff
 // threads match for intercuts.
 import * as THREE from 'three';
-import { GLSL_COMMON } from './glsl/common';
+import { glslCommon } from './glsl/common';
+import { H, W } from './config';
 import { glow as glowLevel, type GlowKey } from './look';
 import { LIN } from './palette';
 import { mulberry32, smoothstep } from './util';
-import LOOK_DATA from '../../../data/look/thread.json';
+import LOOK_DATA from './thread-look.json';
 
-export type ThreadColor = 'bone' | 'blood' | 'moss';
+export type ThreadColor = 'fg' | 'accent' | 'accent2';
 
 export interface ThreadOpts {
   /** Outer radius of the whole thread, world units. */
@@ -65,15 +66,15 @@ export interface ThreadOpts {
    * longer lay (a smaller angle) reads as fewer, longer stripes.
    */
   layDeg?: number;
-  /** Colour of each ply (default bone, blood, moss; cycled when shorter than `plies`). */
+  /** Colour of each ply (default bone, accent, accent2; cycled when shorter than `plies`). */
   colors?: ThreadColor[];
   /**
-   * Emissive level of the blood and moss cores: a look.ts glow() level, the bloom key at the core (default
+   * Emissive level of the accent and accent2 cores: a look.ts glow() level, the bloom key at the core (default
    * THREAD_LOOK.glow). With `rest`, the level a strand lights to on meaning (strandGlow's default).
    */
   glow?: number;
   /**
-   * The blood and moss cores' level at rest, where the thread starts (default: glow, always lit). A thread whose strands
+   * The accent and accent2 cores' level at rest, where the thread starts (default: glow, always lit). A thread whose strands
    * light on meaning (DIFF_THREAD) rests here, dim, and setStrandGlow lights a strand from it.
    */
   rest?: number;
@@ -85,13 +86,13 @@ export interface ThreadOpts {
    * colours, the diff thread). */
   core?: boolean;
   /**
-   * The blood and moss strands' fibre colour, as a multiple of the look's dyed colour (THREAD_LOOK.dye), 0..1: toward 0
+   * The accent and accent2 strands' fibre colour, as a multiple of the look's dyed colour (THREAD_LOOK.dye), 0..1: toward 0
    * the fibre goes dark and the strand's glowing core carries the colour, light rather than paint. Bone and the glow
    * are untouched (default 1: the look).
    */
   strandDye?: number;
   /**
-   * The diff thread's blood and moss strands' radius, as a multiple of THREAD_LOOK.wormRadius. A strand stays in its
+   * The diff thread's accent and accent2 strands' radius, as a multiple of THREAD_LOOK.wormRadius. A strand stays in its
    * groove, touching the bone plies either side, so a thinner one sits deeper. Plies twisted as equals keep their
    * radius (default 1: the look).
    */
@@ -136,10 +137,10 @@ export const THREAD_LOOK = {
   ior: 1.5,
   sheen: 1,
   sheenRoughness: 0.35,
-  /** Blood and moss plies are dyed fibre: their albedo lies this far from the palette colour toward its dim shade
-   * (bloodDim, mossDim), so the glowing core, in the palette colour itself, reads as light inside the strand. */
+  /** Blood and accent2 plies are dyed fibre: their albedo lies this far from the palette colour toward its dim shade
+   * (accentDim, accent2Dim), so the glowing core, in the palette colour itself, reads as light inside the strand. */
   dye: 0.82,
-  /** The emissive core of blood and moss plies: its level (look.ts glow(), the brightest point), and its profile
+  /** The emissive core of accent and accent2 plies: its level (look.ts glow(), the brightest point), and its profile
    * across the strand, a filament inside translucent fibre: a sharp line, (N·V)^glowFalloff[0], over a soft scattered
    * base, (N·V)^glowFalloff[1], the base weighted glowSoft. Close up the line reads inside the strand; far off, the
    * strand glows. */
@@ -169,13 +170,13 @@ const DIFF = LOOK_DATA.diffThread;
  * The diff thread's look, the options every scene spreads in: `new Thread(points, { ...DIFF_THREAD, radius, … })`. It is
  * her's thread (Plan 2 Task 10) made the film's (E3), with the C4a verdict (b): bone at rest, colour lit on meaning.
  * - layDeg 14: a long lay against the default 32°, fewer and longer turns: a luxury cable rather than a candy cane.
- * - strandDye 0.03, strandScale 0.62: the blood and moss strands' fibre dyed near ink and slimmed, so they sit deeper
+ * - strandDye 0.03, strandScale 0.62: the accent and accent2 strands' fibre dyed near ink and slimmed, so they sit deeper
  *   in their grooves and their colour is carried by the glowing core alone: light, not paint.
  * - rest: the cores' level at rest, where the thread starts. Dim, under the bloom: the strands read as dark grooves in a
  *   bone rope, not as stripes.
  * - glow 3.6: the level a strand lights to on meaning, just under the level where a core whitens (about 4, look.ts).
- *   Every frame a scene sets each strand's level from its own moments, `th.setStrandGlow({ moss: strandGlow(t, T.commit),
- *   blood: strandGlow(t, T.strike) })`: moss when something is committed or added, blood when something is struck or
+ *   Every frame a scene sets each strand's level from its own moments, `th.setStrandGlow({ accent2: strandGlow(t, T.commit),
+ *   accent: strandGlow(t, T.strike) })`: accent2 when something is committed or added, accent when something is struck or
  *   removed. A strand with no moment stays at rest; setGlow(level) sets both, for a thread that is lit throughout.
  * The numbers are data/look/thread.json, which Blender's lib/thread.py reads for its DIFF_THREAD (B03, B05, B08), so the
  * engine and Blender threads match for intercuts.
@@ -224,8 +225,8 @@ export function strandGlow(
 // ------------------------------------------------------------------------------------------------ light along a strand
 //
 // setStrandGlow lights a strand whole; setStrandLight lights it along its length: an envelope 0..1 over the thread's
-// arc fraction per strand (blood, moss) scales that strand's core from its setStrandGlow level, where the envelope is 0,
-// up to a lit level (DIFF_THREAD.glow) where it is 1. A commit's moss light rides in with its bead, blooms as it lands
+// arc fraction per strand (accent, accent2) scales that strand's core from its setStrandGlow level, where the envelope is 0,
+// up to a lit level (DIFF_THREAD.glow) where it is 1. A commit's accent2 light rides in with its bead, blooms as it lands
 // and runs out along the thread both ways (repo); a flare travels out from her bead (her, Plan 3), along the braid.
 // The envelope is usually a sum of moving lights (StrandGlow: a centre, a half-width and a level, all in arc fraction,
 // the brightest winning where they overlap) sampled by envelopeOf, all a pure function of the glows a scene makes from t.
@@ -266,11 +267,11 @@ uniform vec2 uStrandGain;`;
 
 /**
  * The strip read at the fragment's arc fraction (its texel centres span the thread), scaling the strand's emission (all
- * the ply emits: the core's glow is the only emissive term) before the lights: blood reads r with gain x, moss g with
+ * the ply emits: the core's glow is the only emissive term) before the lights: accent reads r with gain x, accent2 g with
  * gain y, by the thread's ply colours.
  */
 function lightMain(colors: readonly ThreadColor[]) {
-  const pick = colors.map((c, i) => (c === 'blood' ? `thPi == ${i} ? uStrandGain.x * slK.r : ` : c === 'moss' ? `thPi == ${i} ? uStrandGain.y * slK.g : ` : '')).join('');
+  const pick = colors.map((c, i) => (c === 'accent' ? `thPi == ${i} ? uStrandGain.x * slK.r : ` : c === 'accent2' ? `thPi == ${i} ? uStrandGain.y * slK.g : ` : '')).join('');
   return /* glsl */ `
 {
   vec4 slK = texture2D(tStrandLight, vec2((clamp(vU, 0.0, 1.0) * ${STRAND_LIGHT_N - 1}.0 + 0.5) / ${STRAND_LIGHT_N}.0, 0.5));
@@ -279,8 +280,8 @@ function lightMain(colors: readonly ThreadColor[]) {
 }
 
 const TAU = Math.PI * 2;
-const DEFAULT_COLORS: ThreadColor[] = ['bone', 'blood', 'moss'];
-const GLOW_KEY: Record<ThreadColor, GlowKey | null> = { bone: null, blood: 'blood', moss: 'moss' };
+const DEFAULT_COLORS: ThreadColor[] = ['fg', 'accent', 'accent2'];
+const GLOW_KEY: Record<ThreadColor, GlowKey | null> = { fg: null, accent: 'accent', accent2: 'accent2' };
 const MAX_RINGS = 4095;
 const MAX_TUBES = 5;
 const MAX_FIBRES = 24000;
@@ -470,9 +471,9 @@ vU = thp.u;
 #endif
 `;
 
-const PLY_FRAG_PARS = /* glsl */ `
+const PLY_FRAG_PARS = () => /* glsl */ `
 #undef PI
-${GLSL_COMMON}
+${glslCommon()}
 uniform vec3 uColors[3];
 uniform vec3 uGlow[3];
 uniform vec4 uContact[${MAX_TUBES}];
@@ -852,8 +853,8 @@ export class Thread {
   private draw: [number, number] = [0, 1];
   private fray = { at: 0.5, amount: 0, half: 1 };
   /** The strands' glow levels (setGlow, setStrandGlow): the strand light scales each from its own. */
-  private levels = { blood: 0, moss: 0 };
-  /** The light along the strands (setStrandLight): its strip (blood in r, moss in g), gains and lit level; none until asked. */
+  private levels = { accent: 0, accent2: 0 };
+  /** The light along the strands (setStrandLight): its strip (accent in r, accent2 in g), gains and lit level; none until asked. */
   private strip: { tex: THREE.DataTexture; data: Uint8Array; map: { value: THREE.DataTexture }; gain: { value: THREE.Vector2 }; lit: number } | null = null;
 
   constructor(points: THREE.Vector3[], opts: ThreadOpts) {
@@ -864,7 +865,7 @@ export class Thread {
     const n = opts.plies ?? 3;
     const cols = opts.colors?.length ? opts.colors : DEFAULT_COLORS;
     this.colors = Array.from({ length: n }, (_, i) => cols[i % cols.length]!);
-    const core = opts.core ?? (n > 1 && this.colors[0] === 'bone' && this.colors.some((c) => c !== 'bone'));
+    const core = opts.core ?? (n > 1 && this.colors[0] === 'fg' && this.colors.some((c) => c !== 'fg'));
     const lay = layout(n, core, Math.max(1e-3, opts.strandScale ?? 1));
     const tubes = (this.tubes = lay.tubes);
     this.plyTube = this.colors.map((_, i) => (core && i === 0 ? -1 : tubes.findIndex((t) => t.ply === i)));
@@ -893,8 +894,8 @@ export class Thread {
     const cont = contacts(tubes);
     const strandDye = clamp(opts.strandDye ?? 1, 0, 1);
     const col = (c: ThreadColor) => {
-      const a = LIN[c], b = c === 'blood' ? LIN.bloodDim : c === 'moss' ? LIN.mossDim : a;
-      const k = c === 'bone' ? 1 : strandDye;
+      const a = LIN[c], b = c === 'accent' ? LIN.accentDim : c === 'accent2' ? LIN.accent2Dim : a;
+      const k = c === 'fg' ? 1 : strandDye;
       return new THREE.Vector3(...a.map((x, j) => (x + (b[j]! - x) * L.dye) * k));
     };
     const slots = <T>(k: number, count: number, f: (i: number) => T) => Array.from({ length: k }, (_, i) => f(Math.min(i, count - 1)));
@@ -913,7 +914,7 @@ export class Thread {
       uColors: { value: slots(3, n, (i) => col(this.colors[i]!)) },
       uGlow: { value: slots(3, n, () => new THREE.Vector3()) },
       uAlong: { value: (this.L0 / R) * 0.25 },
-      uRes: { value: new THREE.Vector2(1920, 1080) },
+      uRes: { value: new THREE.Vector2(W, H) },
     };
     this.setGlow(opts.rest ?? opts.glow ?? L.glow);
     this.setPoints(points);
@@ -938,7 +939,7 @@ export class Thread {
         .replace('#include <beginnormal_vertex>', PLY_VERT_MAIN)
         .replace('#include <begin_vertex>', 'vec3 transformed = thPos;');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', `#include <common>\n${PLY_FRAG_PARS}`)
+        .replace('#include <common>', `#include <common>\n${PLY_FRAG_PARS()}`)
         .replace('#include <color_fragment>', `#include <color_fragment>\n${PLY_FRAG_COLOR}`)
         .replace('#include <normal_fragment_begin>', PLY_FRAG_NORMAL)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${PLY_FRAG_EMISSIVE}`)
@@ -1005,44 +1006,44 @@ export class Thread {
     this.uniforms.uFray.value.set(this.fray.at, this.fray.amount, this.fray.half);
   }
 
-  /** Emissive level of the blood and moss cores, both (look.ts glow level); bone stays dark whatever the level. */
+  /** Emissive level of the accent and accent2 cores, both (look.ts glow level); bone stays dark whatever the level. */
   setGlow(level: number) {
     this.uniforms.uGlow.value.forEach((g, i) => {
       const key = i < this.colors.length ? GLOW_KEY[this.colors[i]!] : null;
       if (key && level > 0) g.set(...glowLevel(key, level));
       else g.set(0, 0, 0);
     });
-    this.levels.blood = this.levels.moss = level;
+    this.levels.accent = this.levels.accent2 = level;
     this.lightGain();
   }
 
   /**
-   * Emissive level of the blood strand, the moss strand, or each (look.ts glow levels): a strand left out keeps its
-   * level. A scene lights one on meaning, moss when something is committed or added, blood when something is struck or
+   * Emissive level of the accent strand, the accent2 strand, or each (look.ts glow levels): a strand left out keeps its
+   * level. A scene lights one on meaning, accent2 when something is committed or added, accent when something is struck or
    * removed, with strandGlow giving the level at t (DIFF_THREAD). Bone stays dark.
    */
-  setStrandGlow(levels: { blood?: number; moss?: number }) {
+  setStrandGlow(levels: { accent?: number; accent2?: number }) {
     this.uniforms.uGlow.value.forEach((g, i) => {
       const key = i < this.colors.length ? GLOW_KEY[this.colors[i]!] : null;
-      const level = key === 'blood' ? levels.blood : key === 'moss' ? levels.moss : undefined;
+      const level = key === 'accent' ? levels.accent : key === 'accent2' ? levels.accent2 : undefined;
       if (key === null || level === undefined) return;
       if (level > 0) g.set(...glowLevel(key, level));
       else g.set(0, 0, 0);
     });
-    if (levels.blood !== undefined) this.levels.blood = levels.blood;
-    if (levels.moss !== undefined) this.levels.moss = levels.moss;
+    if (levels.accent !== undefined) this.levels.accent = levels.accent;
+    if (levels.accent2 !== undefined) this.levels.accent2 = levels.accent2;
     this.lightGain();
   }
 
   /**
-   * Light the strands along their length (see STRAND_LIGHT_N above): `blood` and `moss` are envelopes 0..1 over the arc
+   * Light the strands along their length (see STRAND_LIGHT_N above): `accent` and `accent2` are envelopes 0..1 over the arc
    * fraction, evenly from u = 0 to u = 1 (envelopeOf makes one from moving lights; any length is resampled to the
    * strip), each lighting its strand from its setStrandGlow level where it is 0 up to `lit` where it is 1. A strand
    * left out keeps its envelope; null puts it out. The first call adds the strip to the thread's shader (a program of
    * its own; threads that never call it keep theirs): call it in init(), even with nothing lit ({}), so the scene's
    * warm-up compiles it. A dark strand (level 0) has nothing to scale, and a strand at or past `lit` stays as it is.
    */
-  setStrandLight(env: { blood?: ArrayLike<number> | null; moss?: ArrayLike<number> | null }, lit: number = DIFF_THREAD.glow) {
+  setStrandLight(env: { accent?: ArrayLike<number> | null; accent2?: ArrayLike<number> | null }, lit: number = DIFF_THREAD.glow) {
     if (!this.strip) {
       const N = STRAND_LIGHT_N, data = new Uint8Array(N * 4);
       for (let i = 0; i < N; i++) data[4 * i + 3] = 255;
@@ -1057,7 +1058,7 @@ export class Thread {
     this.strip.lit = lit;
     this.lightGain();
     const N = STRAND_LIGHT_N, d = this.strip.data;
-    for (const [key, ch] of [['blood', 0], ['moss', 1]] as const) {
+    for (const [key, ch] of [['accent', 0], ['accent2', 1]] as const) {
       const e = env[key];
       if (e === undefined) continue;
       const n = e?.length ?? 0;
@@ -1079,7 +1080,7 @@ export class Thread {
     const s = this.strip;
     if (!s) return;
     const g = (level: number) => (level > 0 ? Math.max(0, s.lit / level - 1) : 0);
-    s.gain.value.set(g(this.levels.blood), g(this.levels.moss));
+    s.gain.value.set(g(this.levels.accent), g(this.levels.accent2));
   }
 
   /** Arc length now. */

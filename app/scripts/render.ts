@@ -1,52 +1,53 @@
 #!/usr/bin/env bun
-// Offline renderer. Drives the app in headless Chrome (?export=1) and either
+// Offline renderer for one film (--film <id>, else $FILM, else showcase). Drives the app in headless Chrome or Chromium
+// (?export=1, scripts/browser.ts) and either
 //   stills:  bun scripts/render.ts stills --t 1.5,23,40.2 [--only id1,id2] [--out dir]   (warns of a time half way between two
-//            frames, t·30 within 0.1 of n + 0.5: its shutter straddles both frames' states)
+//            frames, t·fps within 0.1 of n + 0.5: its shutter straddles both frames' states)
 //   sheet:   bun scripts/render.ts sheet [--from 0 --to 10] [--n 12] [--cols 4] [--only ids] [--out file.png]   (or --times a,b,c | --cuts)
 //   perf:    bun scripts/render.ts perf [--from 0 --to 5] [--only ids] [--samples 1] [--shutter 0.5]   (avg ms per frame incl. GPU sync and the export's pixel readback)
-//   video:   bun scripts/render.ts video [--only id] [--from 0] [--to <duration>] [--fps 30] [--crf 16] [--x264 aq-mode=3] [--samples 1] [--shutter 0.5] [--out ../out/gitloom.mp4, or ../out/<only|module>.mp4] [--noaudio]
+//   video:   bun scripts/render.ts video [--only id] [--from 0] [--to <duration>] [--fps <film fps>] [--crf 16] [--x264 aq-mode=3] [--samples 1] [--shutter 0.5] [--out out/<film>/<film>.mp4, or out/<film>/<only|module>.mp4] [--noaudio] [--prores]
 //            --samples N averages N sub-frames per frame over shutter×(1/fps): motion blur + temporal AA;
 //            --samples auto picks the count per frame (4, 12, 36, 108 or 324, see Engine.render)
-//            Without --out, a range given with --from/--to is named for it too, <name>_<from>-<to>.mp4 (out/gitloom_5.5-7.mp4):
-//            only the whole film is out/gitloom.mp4, and only a scene's whole window out/<id>.mp4.
+//            Without --out, a range given with --from/--to is named for it too, <name>_<from>-<to>.mp4 (out/<film>/<film>_5.5-7.mp4):
+//            only the whole film is out/<film>/<film>.mp4, and only a shot's whole window out/<film>/<id>.mp4.
+//            --prores writes a ProRes 422 HQ master (.mov) instead of H.264.
 //            A scene error (init, a missing plate frame, a throw in render) or a lost WebGL context fails the export: nothing
 //            is renamed to --out, `<out>.progress` reads "FAILED: <reason>", and `<out>.partial` plays up to the failure.
 //   --proxies (all modes): a plate frame whose EXR is missing composites its 960x540 proxy (a draft, warned once);
 //            without it the missing EXR fails the export.
 //   --only ID (sheet, perf, video) with ONE scene id and neither --from nor --to: exactly the frames that scene owns,
-//            frame f being the scene's when f/fps falls in its window [start, end) (--only her: frames 469…684 at
-//            30 fps, 216 frames). The sheet's first and last stills are then its first and last frames, saved to
-//            out/sheets/sheet_<id>.png by default. With several ids, or --from/--to given, the window is as given.
+//            frame f being the scene's when f/fps falls in its window [start, end). The sheet's first and last stills
+//            are then its first and last frames, saved to out/<film>/sheets/sheet_<id>.png by default. With several ids, or --from/--to given, the window is as given.
 //            (--only loads just those scenes: a frame of any other scene renders as red fill.)
-//   --scale N (all modes): render at N× the 1920x1080 layout (--scale 2 = true 3840x2160); stills are then saved
-//            full-res from the pixel buffer, videos are encoded at the physical size.
-//   --module NAME (all modes): play scenes/NAME.ts alone over [0, duration] instead of the film's timeline (a dev
-//            harness such as _stagetest; ?module= in main.ts). --only is ignored then.
+//   --scale N (all modes): render at N× the film's layout (--scale 2 of a 1920x1080 film = 3840x2160); stills are
+//            saved full-res from the pixel buffer, videos are encoded at the physical size.
+//   --module NAME (all modes): play films/<film>/scenes/NAME.ts alone over [0, duration] instead of the film's timeline
+//            (a dev harness; ?module= in main.ts). --only is ignored then.
 //   --allow-software (all modes, `gpu` aside): the hardware check. The engine's unmasked renderer string is printed once at
 //            startup, and a software one (SwiftShader, llvmpipe, Software, Basic Render) fails the run unless this is given.
 //            Under heavy GPU load (a Blender render beside this) Chrome can fall back to SwiftShader without a word, and what it
 //            renders differs from the GPU's (grain hash noise, edges: 2-3 levels on average, up to 133 in a still). A video reads
 //            the string again after its last frame and fails if it changed; a still or a stream fails if the page saw its WebGL
 //            context lost.
-//   --transition FILE (stills, video, sheet): review transitions/FILE.ts (a dev probe, _probe-*.ts, too) as the film's only
-//            transition, loading only its two scenes (unless --only says otherwise). Its window [start, end) around the cut
-//            sets the defaults: video renders [start − 1, end + 1] (cut ± 1 for a 'cut'), whole frames, to
-//            out/transitions/FILE.mp4; sheet shows every frame of the window ±3 frames (a 'cut': frames F − 3 … F + 2) to
-//            out/transitions/FILE-sheet.png; stills render --frames (default -3,-2,-1,0,1,2), or --t, to
-//            out/transitions/FILE/. --from/--to/--times/--out override them.
-//   --frames K,K… (stills, with --transition): film frames relative to B's first frame F = ceil(cut·30), saved as
+//   --transition FROM-TO (stills, video, sheet): review that one of the film's transitions alone (the page loads only
+//            the scenes its frames need). Its window [start, end) around the cut sets the defaults: video renders
+//            [start − 1, end + 1] (cut ± 1 for a 'cut'), whole frames, to out/<film>/transitions/FROM-TO.mp4; sheet shows
+//            every frame of the window ±3 frames (a 'cut': frames F − 3 … F + 2) to out/<film>/transitions/FROM-TO-sheet.png;
+//            stills render --frames (default -3,-2,-1,0,1,2), or --t, to out/<film>/transitions/FROM-TO/.
+//            --from/--to/--times/--out override them.
+//   --frames K,K… (stills, with --transition): film frames relative to B's first frame F = ceil(cut·fps), saved as
 //            f<±K>_<frame>.png.
 //   --test-lose-context N (video, test only): the page loses its WebGL context (WEBGL_lose_context) once frame N has been
 //            sent (frames as --from/--to count them: at --fps from 0). The export must fail: exit 1, "FAILED: the WebGL
 //            context was lost…" in <out>.progress, <out>.partial left, nothing at --out.
+//   --headed (all modes): show the browser.
 // Uses the Vite dev server at --url (default http://localhost:5173); starts a private one if unreachable.
-import { chromium, type Page } from 'playwright-core';
-import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import type { Page } from 'playwright-core';
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { ownedFrames, straddledFrames } from '../src/engine/engine';
 import { isSoftwareRenderer } from '../src/engine/gpu';
-import { VO } from '../src/engine/vo';
-import { specOf, type TransitionModule } from '../src/engine/transition';
+import { launchBrowser } from './browser';
 
 const argv = process.argv.slice(2);
 const mode = argv[0] ?? 'stills';
@@ -54,19 +55,24 @@ const opt = (k: string, d?: string) => { const i = argv.indexOf(`--${k}`); retur
 const flag = (k: string) => argv.includes(`--${k}`);
 const APP = path.resolve(import.meta.dir, '..');
 const SCALE = Math.max(1, Math.round(+opt('scale', '1')!));
-const OW = 1920 * SCALE, OH = 1080 * SCALE; // output size
+const FILM = opt('film') ?? process.env.FILM ?? 'showcase';
+if (!/^[\w-]+$/.test(FILM)) throw new Error(`--film takes a film id (films/<id>/), got '${FILM}'`);
+// the output's size and the film's frame rate, as the page reports them once it has loaded the film
+let OW = 0, OH = 0, FILM_FPS = 30;
 // --samples N (fixed) or --samples auto [--min-samples 4] [--max-samples 324] [--tol 3] (adaptive, see Engine.render)
 const SAMPLES = opt('samples', '1') === 'auto'
   ? { min: +opt('min-samples', '4')!, max: +opt('max-samples', '324')!, tol: +opt('tol', '3')! }
   : +opt('samples', '1')!;
 const hist = (h: Record<string, number>) => Object.entries(h).sort((a, b) => +a[0] - +b[0]).map(([k, v]) => `${k}:${v}`).join(' ');
 const ROOT = path.resolve(APP, '..');
+if (!existsSync(path.join(ROOT, 'films', FILM, 'film.ts'))) throw new Error(`no film '${FILM}': films/${FILM}/film.ts does not exist`);
+/** The film's render output: out/<film>/. */
+const OUT = path.join(ROOT, 'out', FILM);
 const LOSE_AFTER = flag('test-lose-context') ? +opt('test-lose-context')! : undefined; // (video, test only)
 if (LOSE_AFTER !== undefined && !Number.isInteger(LOSE_AFTER)) throw new Error('--test-lose-context takes a frame number');
-// --transition FILE: its spec, read here for the two scenes to load (the page validates it and reports its window)
+// --transition FROM-TO: the one transition the page plays (it validates it and reports its window)
 const TRANSITION = opt('transition');
-if (TRANSITION !== undefined && !/^[\w-]+$/.test(TRANSITION)) throw new Error(`--transition takes a transition file name (transitions/<name>.ts), got '${TRANSITION}'`);
-const TR_SPEC = TRANSITION ? specOf(await import(path.join(APP, 'src/transitions', `${TRANSITION}.ts`)) as TransitionModule, new VO(await Bun.file(path.join(ROOT, 'data/vo.json')).json())) : null;
+if (TRANSITION !== undefined && !/^[\w-]+$/.test(TRANSITION)) throw new Error(`--transition takes <from>-<to>, got '${TRANSITION}'`);
 /** A transition in play on the page (main.ts __film.transitions). */
 interface PageTransition { id: string; cut: number; start: number; end: number; kind: string; from: string; to: string }
 
@@ -86,25 +92,31 @@ async function ensureServer(): Promise<{ url: string; stop: () => void }> {
 }
 
 async function openPage(url: string) {
-  const browser = await chromium.launch({
-    channel: 'chrome',
+  const browser = await launchBrowser({
     headless: !flag('headed'),
-    args: ['--use-angle=metal', '--enable-gpu-rasterization', '--ignore-gpu-blocklist', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'],
+    args: ['--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'],
   });
   try {
     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
     const logs: string[] = [];
     page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(`[${m.type()}] ${m.text()}`); });
     page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
-    const only = opt('only') ?? (TR_SPEC ? `${TR_SPEC.from},${TR_SPEC.to}` : undefined), module = opt('module');
-    if (module && !/^[\w-]+$/.test(module)) throw new Error(`--module takes a scene file name (scenes/<name>.ts), got '${module}'`);
+    const only = opt('only'), module = opt('module');
+    if (module && !/^[\w-]+$/.test(module)) throw new Error(`--module takes a scene file name (films/<film>/scenes/<name>.ts), got '${module}'`);
     const sel = (module ? `&module=${module}` : only ? `&only=${only}` : '') + (TRANSITION && !module ? `&transition=${TRANSITION}` : '');
-    await page.goto(`${url}/?export=1${sel}${SCALE !== 1 ? `&scale=${SCALE}` : ''}${flag('proxies') ? '&proxies=1' : ''}`);
+    await page.goto(`${url}/?export=1&film=${FILM}${sel}${SCALE !== 1 ? `&scale=${SCALE}` : ''}${flag('proxies') ? '&proxies=1' : ''}`);
     await page.waitForFunction(() => (window as any).__film?.ready || (window as any).__film?.error, null, { timeout: 120000 });
     const err = await page.evaluate(() => (window as any).__film.error);
     if (err) throw new Error(`app failed to boot:\n${err}\n${logs.join('\n')}`);
-    const size: [number, number] = await page.evaluate(() => [(window as any).__film.width ?? 1920, (window as any).__film.height ?? 1080]);
-    if (size[0] !== OW || size[1] !== OH) throw new Error(`app renders ${size[0]}x${size[1]}, expected ${OW}x${OH} (--scale ${SCALE})`);
+    const info: { width: number; height: number; scale: number; film: { format: [number, number]; fps: number } } = await page.evaluate(() => {
+      const f = (window as any).__film;
+      return { width: f.width, height: f.height, scale: f.scale, film: f.film };
+    });
+    if (info.scale !== SCALE) throw new Error(`app renders at scale ${info.scale}, expected ${SCALE}`);
+    [OW, OH] = [info.width, info.height];
+    FILM_FPS = info.film.fps;
+    // the page lays the canvas out at the film's logical size: the viewport holds it whole
+    await page.setViewportSize({ width: info.film.format[0], height: info.film.format[1] });
     const sceneErrors: string[] = await page.evaluate(() => (window as any).__film.errors);
     if (sceneErrors.length) console.error('SCENE ERRORS:\n' + sceneErrors.join('\n'));
     return { browser, page, logs };
@@ -147,18 +159,13 @@ async function stills(page: Page, times: number[], outDir: string, names?: strin
   const files: string[] = [];
   for (const [i, t] of times.entries()) {
     // a time half way between two frames blends both frames' states across its shutter (an export never renders one)
-    const two = straddledFrames(t, 30);
-    if (two) console.warn(`WARNING t=${t}: ${(t * 30).toFixed(2)} frames, half way between frames ${two[0]} and ${two[1]}: its shutter straddles both frames' states, which no export renders (frame times: ${(two[0] / 30).toFixed(4)}, ${(two[1] / 30).toFixed(4)})`);
+    const fps = FILM_FPS, two = straddledFrames(t, fps);
+    if (two) console.warn(`WARNING t=${t}: ${(t * fps).toFixed(2)} frames, half way between frames ${two[0]} and ${two[1]}: its shutter straddles both frames' states, which no export renders (frame times: ${(two[0] / fps).toFixed(4)}, ${(two[1] / fps).toFixed(4)})`);
     const k: number = await page.evaluate(([t, s, sh]) => (window as any).__film.still(t, s, sh), [t, SAMPLES, +opt('shutter', '0.5')!] as const);
     const f = path.join(outDir, names?.[i] ?? `f_${t.toFixed(2).padStart(7, '0')}.png`);
     if (typeof SAMPLES !== 'number') console.log(`t=${t}: ${k} sub-frames`);
-    // at scale > 1 the canvas is shown downscaled on the page: save the full-res pixel buffer instead
-    if (SCALE !== 1) await Bun.write(f, Buffer.from(await page.evaluate(() => (window as any).__film.png()), 'base64'));
-    else {
-      const shot = await page.screenshot({ clip: { x: 0, y: 0, width: 1920, height: 1080 } });
-      await page.evaluate(() => (window as any).__film.assertLive()); // a canvas whose context was lost since the still is not the frame: no file
-      await Bun.write(f, shot);
-    }
+    // the full-res pixel buffer, at any format and scale (png() rejects when the context is lost: no file)
+    await Bun.write(f, Buffer.from(await page.evaluate(() => (window as any).__film.png()), 'base64'));
     files.push(f);
   }
   return files;
@@ -167,7 +174,8 @@ async function stills(page: Page, times: number[], outDir: string, names?: strin
 async function sheet(page: Page, times: number[], cols: number, out: string) {
   const dataUrl: string = await page.evaluate(async ({ times, cols }) => {
     const P = (window as any).__film;
-    const cw = 480, ch = 270, pad = 4, lab = 18;
+    const src0 = document.getElementById('c') as HTMLCanvasElement;
+    const cw = 480, ch = Math.round((480 * src0.height) / src0.width), pad = 4, lab = 18;
     const rows = Math.ceil(times.length / cols);
     const cv = document.createElement('canvas');
     cv.width = cols * (cw + pad) + pad; cv.height = rows * (ch + lab + pad) + pad;
@@ -197,15 +205,21 @@ async function video(page: Page, from: number, to: number, fps: number, out: str
   // frames, and a motion-blurred frame can take seconds), so its size is no guide.
   const part = `${out}.partial`, progress = `${out}.progress`;
   const crf = opt('crf', '16')!;
-  const audio = path.join(ROOT, 'audio/mix/mix.wav');
+  const mix: string | null = await page.evaluate(() => (window as any).__film.film.mix);
+  const audio = mix ? path.join(ROOT, 'films', FILM, mix) : null;
+  if (!flag('noaudio') && audio && !existsSync(audio)) throw new Error(`the film's mix ${path.relative(ROOT, audio)} is missing: render it (tools/ film-mix or film-temptrack --mix) or pass --noaudio`);
+  const withAudio = !flag('noaudio') && !!audio;
+  const prores = flag('prores') || path.extname(out).toLowerCase() === '.mov';
   const args = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${OW}x${OH}`, '-r', String(fps), '-i', 'pipe:0'];
-  if (!flag('noaudio')) args.push('-ss', String(from), '-t', String(to - from), '-i', audio);
+  if (withAudio) args.push('-ss', String(from), '-t', String(to - from), '-i', audio!);
   // Frames are sRGB (toSRGB in the final pass): convert with the BT.709 matrix and tag the stream,
   // otherwise ffmpeg converts with BT.601 while players and YouTube decode untagged HD as BT.709.
   // scale tags the matrix and range; primaries and transfer need setparams (the -color_* output flags don't reach the stream).
-  args.push('-vf', 'vflip,scale=out_color_matrix=bt709,setparams=color_primaries=bt709:color_trc=bt709', '-c:v', 'libx264', '-preset', opt('preset', 'slow')!, '-crf', crf, '-pix_fmt', 'yuv420p', '-tune', 'grain', '-x264-params', opt('x264', 'aq-mode=3')!);
-  if (!flag('noaudio')) args.push('-c:a', 'aac', '-b:a', '320k', '-shortest');
-  args.push('-movflags', '+faststart', '-f', path.extname(out).toLowerCase() === '.mov' ? 'mov' : 'mp4', part);
+  args.push('-vf', 'vflip,scale=out_color_matrix=bt709,setparams=color_primaries=bt709:color_trc=bt709');
+  if (prores) args.push('-c:v', 'prores_ks', '-profile:v', '3', '-pix_fmt', 'yuv422p10le', '-vendor', 'apl0');
+  else args.push('-c:v', 'libx264', '-preset', opt('preset', 'slow')!, '-crf', crf, '-pix_fmt', 'yuv420p', '-tune', 'grain', '-x264-params', opt('x264', 'aq-mode=3')!);
+  if (withAudio) args.push(...(prores ? ['-c:a', 'pcm_s24le'] : ['-c:a', 'aac', '-b:a', '320k']), '-shortest');
+  args.push('-movflags', '+faststart', '-f', prores ? 'mov' : 'mp4', part);
   const ff = Bun.spawn(args, { stdin: 'pipe', stdout: 'inherit', stderr: 'inherit' });
   let frames = 0, failed = false, quit = false;
   void ff.exited.then(() => (quit = true));
@@ -294,7 +308,7 @@ try {
     const trs: PageTransition[] = await page.evaluate(() => (window as any).__film.transitions);
     tr = trs[0] ?? null;
     if (!tr) throw new Error(`--transition ${TRANSITION}: the page plays no transition`);
-    console.log(`transition ${tr.id} (${tr.kind}): cut ${tr.cut}, window [${tr.start}, ${tr.end}), B's first frame ${ownedFrames({ start: tr.cut, end: tr.cut }, 30).first}`);
+    console.log(`transition ${tr.id} (${tr.kind}): cut ${tr.cut}, window [${tr.start}, ${tr.end}), B's first frame ${ownedFrames({ start: tr.cut, end: tr.cut }, FILM_FPS).first}`);
   }
   if (mode === 'gpu') {
     console.log(gpu);
@@ -302,62 +316,63 @@ try {
     let times = (opt('t') ?? '0').split(',').map(Number), names: string[] | undefined;
     if (tr && !opt('t')) {
       // film frames relative to B's first frame F
-      const F = ownedFrames({ start: tr.cut, end: tr.cut }, 30).first;
+      const F = ownedFrames({ start: tr.cut, end: tr.cut }, FILM_FPS).first;
       const ks = (opt('frames') ?? '-3,-2,-1,0,1,2').split(',').map(Number);
       if (ks.some((k) => !Number.isInteger(k))) throw new Error(`--frames takes whole frame offsets, got '${opt('frames')}'`);
-      times = ks.map((k) => (F + k) / 30);
+      times = ks.map((k) => (F + k) / FILM_FPS);
       names = ks.map((k) => `f${k >= 0 ? '+' : ''}${k}_${String(F + k).padStart(4, '0')}.png`);
     }
-    const files = await stills(page, times, opt('out', path.join(ROOT, tr ? `out/transitions/${TRANSITION}` : 'out/stills'))!, names);
+    const files = await stills(page, times, opt('out', path.join(OUT, tr ? `transitions/${TRANSITION}` : 'stills'))!, names);
     console.log(files.join('\n'));
   } else if (mode === 'sheet') {
     // --only <scene>: its first and last frames are the first and last stills
-    const clip = await sceneFrames(page, 30);
-    const from = clip ? clip.first / 30 : +opt('from', '0')!, to = clip ? clip.last / 30 : +opt('to', '10')!, n = +opt('n', '12')!;
+    const fps = FILM_FPS, clip = await sceneFrames(page, fps);
+    const dur: number = await page.evaluate(() => (window as any).__film.duration);
+    const from = clip ? clip.first / fps : +opt('from', '0')!, to = clip ? clip.last / fps : +opt('to', String(Math.min(dur, 10)))!, n = +opt('n', '12')!;
     let times = Array.from({ length: n }, (_, i) => from + ((to - from) * i) / Math.max(1, n - 1));
     if (tr && !flag('from') && !flag('to')) {
       // every frame of the window, and 3 either side (a 'cut': F − 3 … F + 2)
-      const w = ownedFrames(tr, 30), F = ownedFrames({ start: tr.cut, end: tr.cut }, 30).first;
+      const w = ownedFrames(tr, fps), F = ownedFrames({ start: tr.cut, end: tr.cut }, fps).first;
       const f0 = (w.last >= w.first ? w.first : F) - 3, f1 = (w.last >= w.first ? w.last : F - 1) + 3;
-      times = Array.from({ length: f1 - f0 + 1 }, (_, i) => (f0 + i) / 30);
+      times = Array.from({ length: f1 - f0 + 1 }, (_, i) => (f0 + i) / fps);
     }
     if (opt('times')) times = opt('times')!.split(',').map(Number);
     if (flag('cuts')) {
       // 4 frames around every timeline boundary: 2 frames before, 2 after
       const tl: { id: string; start: number }[] = await page.evaluate(() => (window as any).__film.timeline);
-      times = tl.slice(1).flatMap((e) => [e.start - 0.1, e.start - 1 / 30, e.start + 1 / 30, e.start + 0.1]);
+      times = tl.slice(1).flatMap((e) => [e.start - 0.1, e.start - 1 / fps, e.start + 1 / fps, e.start + 0.1]);
     }
-    const out = opt('out', path.join(ROOT, tr ? `out/transitions/${TRANSITION}-sheet.png` : `out/sheets/sheet_${clip ? clip.id : `${from}-${to}`}.png`))!;
+    const out = opt('out', path.join(OUT, tr ? `transitions/${TRANSITION}-sheet.png` : `sheets/sheet_${clip ? clip.id : `${from}-${to}`}.png`))!;
     await sheet(page, times, +opt('cols', '4')!, out);
     console.log(out);
   } else if (mode === 'perf') {
-    // --only <scene>: from its first frame, and to half a frame past its last, where no sum of 1/30 steps lands
-    const clip = await sceneFrames(page, 30);
-    const from = clip ? clip.first / 30 : +opt('from', '0')!, to = clip ? (clip.last + 0.5) / 30 : +opt('to', '5')!;
-    const r = await page.evaluate(async ({ from, to, samples, shutter }) => {
+    // --only <scene>: from its first frame, and to half a frame past its last, where no sum of 1/fps steps lands
+    const fps = FILM_FPS, clip = await sceneFrames(page, fps);
+    const from = clip ? clip.first / fps : +opt('from', '0')!, to = clip ? (clip.last + 0.5) / fps : +opt('to', '5')!;
+    const r = await page.evaluate(async ({ from, to, samples, shutter, fps }) => {
       const P = (window as any).__film;
       const ms: number[] = [];
       let prep = 0;
       const buf = new Uint8Array(P.width * P.height * 4);
       await P.still(from);
       const used: Record<number, number> = {};
-      for (let t = from; t < to; t += 1 / 30) {
+      for (let t = from; t < to; t += 1 / fps) {
         const p0 = performance.now();
-        await P.engine.prepare(t, 1 / 30, samples, shutter); // plate loads, outside the render timing
+        await P.engine.prepare(t, 1 / fps, samples, shutter); // plate loads, outside the render timing
         const a = performance.now();
         prep += a - p0;
-        const k = P.engine.render(t, 1 / 30, false, samples, shutter);
+        const k = P.engine.render(t, 1 / fps, false, samples, shutter);
         used[k] = (used[k] ?? 0) + 1;
         await P.engine.readPixelsAsync(buf);
         ms.push(performance.now() - a);
       }
       ms.sort((a, b) => a - b);
       return { n: ms.length, avg: ms.reduce((a, b) => a + b, 0) / ms.length, p50: ms[ms.length >> 1], p95: ms[Math.floor(ms.length * 0.95)], max: ms[ms.length - 1], used, prep: prep / ms.length };
-    }, { from, to, samples: SAMPLES, shutter: +opt('shutter', '0.5')! });
+    }, { from, to, samples: SAMPLES, shutter: +opt('shutter', '0.5')!, fps });
     console.log(`frames ${r.n}  avg ${r.avg.toFixed(1)}ms  p50 ${r.p50.toFixed(1)}  p95 ${r.p95.toFixed(1)}  max ${r.max.toFixed(1)}  sub-frames ${hist(r.used)}  (prepare ${r.prep.toFixed(1)}ms/frame, untimed)`);
   } else if (mode === 'video') {
     const dur: number = await page.evaluate(() => (window as any).__film.duration);
-    const fps = +opt('fps', '30')!;
+    const fps = +opt('fps', String(FILM_FPS))!;
     // --only <scene>: from its first frame's time to the time after its last, both whole frames (stream() rounds
     // from·fps and to·fps, and the audio is cut at the same times)
     const clip = tr ? null : await sceneFrames(page, fps);
@@ -365,11 +380,12 @@ try {
     const trFrom = tr ? Math.floor((tr.start - 1) * fps) / fps : 0, trTo = tr ? Math.ceil((tr.end + 1) * fps) / fps : dur;
     const from = clip ? clip.first / fps : +opt('from', String(trFrom))!, to = clip ? (clip.last + 1) / fps : +opt('to', String(Math.min(dur, trTo)))!;
     // without --out, a part of the film is named after its scenes (or module), and a range given with --from/--to
-    // after its times as well: only the whole film is out/gitloom.mp4, and only a scene's whole window out/<id>.mp4
-    const name = (opt('module') ?? opt('only'))?.replace(/[,/]/g, '+') ?? 'gitloom';
+    // after its times as well: only the whole film is out/<film>/<film>.mp4, and only a shot's whole window out/<film>/<id>.mp4
+    const name = (opt('module') ?? opt('only'))?.replace(/[,/]/g, '+') ?? FILM;
     const range = !clip && (flag('from') || flag('to')) ? `_${from}-${to}` : '';
-    const def = tr ? `out/transitions/${TRANSITION}${range}.mp4` : `out/${name}${range}.mp4`;
-    await video(page, from, to, fps, path.resolve(opt('out', path.join(ROOT, def))!), gpu);
+    const ext = flag('prores') ? 'mov' : 'mp4';
+    const def = tr ? `transitions/${TRANSITION}${range}.${ext}` : `${name}${range}.${ext}`;
+    await video(page, from, to, fps, path.resolve(opt('out', path.join(OUT, def))!), gpu);
   }
 } finally {
   // (a failed run too: what the page logged is often why)

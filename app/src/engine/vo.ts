@@ -1,5 +1,20 @@
-// Word-timed voiceover (data/vo.json, written by tools/ film-edit and film-snap) with queries for kinetic type.
+// Word-timed voiceover (films/<id>/data/vo.json, written by tools/ film-edit and film-snap) with queries for kinetic type.
+// A film without a voiceover gets VO.empty(), or captions written in film.ts (VO.fromCaptions): lines with times and,
+// optionally, each word's; words without times are spread over their line by length.
 import { smart } from './type';
+import { filmUrl } from './config';
+
+/** A caption line authored in film.ts: its text and when it shows; words timed or spread over [start, end]. */
+export interface CaptionLine {
+  text: string;
+  start: number;
+  /** Default: 0.32 s a word after start. */
+  end?: number;
+  id?: string;
+  /** The scene it belongs to (wordTimes(vo, scene) finds it); default: the scene on screen at `start`. */
+  scene?: string;
+  words?: { w: string; start: number; end: number }[];
+}
 
 export interface Word {
   w: string; // display token (punctuation attached, typographic: it’s, you…)
@@ -46,10 +61,42 @@ export class VO {
     this.duration = j.duration;
   }
 
-  static async load(): Promise<VO> {
-    const r = await fetch('data/vo.json');
-    if (!r.ok || !(r.headers.get('content-type') ?? '').includes('json')) throw new Error('data/vo.json not found: run film-edit');
+  /** Load a voiceover (default: the film's data/vo.json). */
+  static async load(url = filmUrl('data/vo.json')): Promise<VO> {
+    const r = await fetch(url);
+    if (!r.ok || !(r.headers.get('content-type') ?? '').includes('json')) throw new Error(`voiceover ${url}: HTTP ${r.status} (run tools/ film-edit, or leave the film's vo out)`);
     return new VO(await r.json());
+  }
+
+  /** No voiceover: no lines, no words, no scenes. */
+  static empty(duration = 0): VO {
+    return new VO({ duration, lines: [], scenes: [], acts: [] });
+  }
+
+  /**
+   * Captions as a voiceover: each line's words timed as given, or spread over [start, end] in proportion to their
+   * length (a word's share of the line's characters, a tenth of it held back as the gap after it). `sceneAt` names the
+   * scene a line without `scene` belongs to.
+   */
+  static fromCaptions(lines: CaptionLine[], sceneAt: (t: number) => string = () => '', duration = 0): VO {
+    const out = [...lines].sort((a, b) => a.start - b.start).map((l, i) => {
+      const toks = l.text.split(/\s+/).filter(Boolean);
+      const end = l.end ?? l.start + 0.32 * Math.max(1, toks.length);
+      if (!(end > l.start)) throw new Error(`caption "${l.text}": end ${end} is not after start ${l.start}`);
+      let words = l.words;
+      if (!words) {
+        const total = toks.reduce((s, w) => s + w.length + 1, 0);
+        let at = l.start;
+        words = toks.map((w) => {
+          const span = ((w.length + 1) / total) * (end - l.start);
+          const word = { w, start: +at.toFixed(4), end: +(at + span * 0.9).toFixed(4) };
+          at += span;
+          return word;
+        });
+      }
+      return { id: l.id ?? `C${String(i + 1).padStart(2, '0')}`, scene: l.scene ?? sceneAt(l.start), act: '', text: l.text, start: l.start, end, words };
+    });
+    return new VO({ duration: Math.max(duration, ...out.map((l) => l.end)), lines: out, scenes: [], acts: [] });
   }
 
   /** The line being spoken at t (or null in gaps). */

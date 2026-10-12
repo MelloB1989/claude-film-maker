@@ -42,6 +42,8 @@ export interface Frame {
   bar: number;
   beatPhase: number;
   barPhase: number;
+  /** Beats per bar of the film's grid (the score's time signature). */
+  beatsPerBar: number;
   /** Audio features at t (envelopes 0..1 and decaying hit pulses). */
   a: AudioSample;
 }

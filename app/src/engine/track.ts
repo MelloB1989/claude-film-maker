@@ -1,10 +1,11 @@
 // Tracked 2D anchors of a Blender shot: where named objects (empties) land on screen, frame by frame, so engine
-// overlays sit on the plate. blender/lib/export.py `track()` writes data/track/<shot>.json:
-//   { "fps": 30, "f0": <the shot's first film frame>, "anchors": { name: [[x, y, visible], ...] } }
-// with one sample per film frame from f0, x and y in the film's logical 1920x1080 px (top-left origin, the frame's
-// edges at 0 and 1920/1080, as Canvas2D draws), and visible 1 when the anchor is in front of the camera and inside
-// the frame. Sample i is film frame f0 + i, at t = (f0 + i) / 30: the middle of Blender's shutter.
+// overlays sit on the plate. blender/lib/export.py `track()` writes films/<id>/data/track/<shot>.json:
+//   { "fps": <film fps>, "f0": <the shot's first film frame>, "anchors": { name: [[x, y, visible], ...] } }
+// with one sample per film frame from f0, x and y in the film's logical px (top-left origin, the frame's edges at 0
+// and W/H, as Canvas2D draws), and visible 1 when the anchor is in front of the camera and inside the frame. Sample i
+// is film frame f0 + i, at t = (f0 + i) / fps: the middle of Blender's shutter.
 import { clamp, lerp } from './util';
+import { filmUrl } from './config';
 
 export interface TrackData {
   fps: number;
@@ -22,11 +23,11 @@ export interface Anchor {
 export class Track {
   constructor(private data: TrackData) {}
 
-  /** data/track/<shot>.json */
+  /** films/<id>/data/track/<shot>.json */
   static async load(shot: string): Promise<Track> {
-    const url = `data/track/${shot}.json`;
+    const url = filmUrl(`data/track/${shot}.json`);
     const r = await fetch(url);
-    if (!r.ok) throw new Error(`track ${url}: HTTP ${r.status} (render it: blender/render.py --shot ${shot})`);
+    if (!r.ok) throw new Error(`track ${url}: HTTP ${r.status} (render it: blender/render.py --film <id> --shot ${shot})`);
     return new Track((await r.json()) as TrackData);
   }
 

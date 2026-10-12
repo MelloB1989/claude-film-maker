@@ -43,7 +43,7 @@ export class Hud {
     const e = ease.inOutCubic(clamp(k));
     c.save();
     c.globalAlpha *= clamp(k * 3);
-    c.strokeStyle = ink ? rgba('ink', 0.45) : rgba('bone', 0.34);
+    c.strokeStyle = ink ? rgba('bg', 0.45) : rgba('fg', 0.34);
     c.lineWidth = 1.25;
     const m = lerp(-40, 36, e), l = 22;
     c.beginPath();

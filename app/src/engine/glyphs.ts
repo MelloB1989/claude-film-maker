@@ -25,7 +25,7 @@
 //   world, the glyph state and a linear colour (past 1 for a glow);
 // - a field of thousands animated on the GPU, a pure function of time and a few uniforms (ex's cloud, ex-glyphs.ts): an
 //   InstancedBufferGeometry with glyphQuad's corners and the scene's own per-instance attributes, drawn by
-//   glyphMaterial with a vertex shader that starts with GLYPH_VERT_HEAD and sets gl_Position and the four outputs the
+//   glyphMaterial with a vertex shader that starts with glyphVertHead() and sets gl_Position and the four outputs the
 //   fragment shader reads: vUv (0..1 across the atlas cell, y up), vGlyph (A, B, progress, mode: 0 plain, 1 flip,
 //   2 morph; glyphs are atlas indices, -1 blank), vCol (linear colour, opacity) and vTile (tile alpha, brightness).
 import * as THREE from 'three';
@@ -201,7 +201,8 @@ vec3 lin3(vec3 c) { return vec3(lin(c.r), lin(c.g), lin(c.b)); }
 `;
 
 /** The fragment shader every glyph draw shares: a cell's glyph(s) from the atlas, plain, flipping or morphing, over a tile. */
-const FRAG = /* glsl */ `
+/** The fragment shader (the palette baked in when a material is made: after the film's theme is set). */
+const glyphFrag = () => /* glsl */ `
 precision highp float;
 uniform sampler2D uAtlas;
 uniform vec2 uGrid; // atlas columns, rows
@@ -278,7 +279,7 @@ void main() {
  * outputs the fragment shader reads (vUv, vGlyph, vCol, vTile), the cell's constants (CELL_X0, CELL_Y0, CELL_W, CELL_H),
  * the sRGB decode (lin, lin3) and boneAt(b): b of the way from ink to bone as the eye sees it, as linear light.
  */
-export const GLYPH_VERT_HEAD = /* glsl */ `
+export const glyphVertHead = () => /* glsl */ `
 precision highp float;
 uniform mat4 projectionMatrix, viewMatrix, modelMatrix;
 in vec2 corner;
@@ -287,8 +288,8 @@ out vec4 vGlyph;
 out vec4 vCol;
 out vec2 vTile;
 ${COMMON}
-const vec3 INK_S = ${srgb(HEX.ink)};
-const vec3 BONE_S = ${srgb(HEX.bone)};
+const vec3 INK_S = ${srgb(HEX.bg)};
+const vec3 BONE_S = ${srgb(HEX.fg)};
 // b of the way from ink to bone as the eye sees it (display space), as linear light
 vec3 boneAt(float b) { return lin3(mix(INK_S, BONE_S, clamp(b, 0.0, 1.0))); }
 `;
@@ -300,14 +301,14 @@ export function glyphQuad(g: THREE.InstancedBufferGeometry) {
 }
 
 /**
- * A glyph draw's material: `vert` (built on GLYPH_VERT_HEAD) on the shared fragment shader, reading `atlas`, with the
+ * A glyph draw's material: `vert` (built on glyphVertHead()) on the shared fragment shader, reading `atlas`, with the
  * scene's own `uniforms`. Premultiplied, writing depth, both sides.
  */
 export function glyphMaterial(vert: string, atlas: GlyphGrid, uniforms: Record<string, THREE.IUniform>) {
   const m = new THREE.RawShaderMaterial({
     glslVersion: THREE.GLSL3,
     vertexShader: vert,
-    fragmentShader: FRAG,
+    fragmentShader: glyphFrag(),
     uniforms: { uAtlas: { value: atlas.texture }, uGrid: { value: new THREE.Vector2(atlas.cols, atlas.rows) }, ...uniforms },
     transparent: true,
     depthWrite: true,
@@ -324,7 +325,7 @@ export function glyphMaterial(vert: string, atlas: GlyphGrid, uniforms: Record<s
 // ------------------------------------------------------------------------------------------------ the actors
 
 /** The actors' vertex shader: each instance posed on the CPU (origin, the em's two axes, glyph state, colour). */
-const ACTOR_VERT = /* glsl */ `${GLYPH_VERT_HEAD}
+const actorVert = () => /* glsl */ `${glyphVertHead()}
 in vec3 aOrigin; // the cell's origin (left end, baseline)
 in vec3 aRight;  // one em along the line
 in vec3 aUp;     // one em up
@@ -375,7 +376,7 @@ export class GlyphActors {
       this.attrs.push(a);
     }
     this.geo.instanceCount = 0;
-    this.mat = glyphMaterial(ACTOR_VERT, atlas, {});
+    this.mat = glyphMaterial(actorVert(), atlas, {});
     this.mesh = new THREE.Mesh(this.geo, this.mat);
     this.mesh.frustumCulled = false;
   }

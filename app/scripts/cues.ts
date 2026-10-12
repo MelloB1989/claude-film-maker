@@ -1,22 +1,35 @@
-// The cue sheet (Plan 3 Task 8): runs every scene's cue module and the transitions' on the film's data and writes
-// data/sfx.json, then prints the cues per scene and per sound.
-//   bun scripts/cues.ts            write data/sfx.json
-//   bun scripts/cues.ts --check    fail if data/sfx.json is not what the data gives now (nothing written)
-//   bun scripts/cues.ts --plot     also draw out/review/sfx/cues.png: every cue over her words and the beats, a row a
-//                                  scene (tools/' matplotlib)
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+// The cue sheet: runs a film's cue modules (film.ts `sfx.cues`) and its transitions' sounds on the film's data and
+// writes films/<id>/data/sfx.json, then prints the cues per shot and per sound.
+//   bun scripts/cues.ts [--film <id>]            write films/<id>/data/sfx.json
+//   bun scripts/cues.ts [--film <id>] --check    fail if sfx.json is not what the data gives now (nothing written)
+//   bun scripts/cues.ts [--film <id>] --plot     also draw out/<id>/review/sfx/cues.png: every cue over the words and the
+//                                                beats, a row a shot (tools/' matplotlib)
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { buildSheet } from '../src/sfx/sheet';
-import { load } from '../src/sfx/testdata';
+import { buildSheet, type Palette } from '../src/sfx/sheet';
+import { Track, type TrackData } from '../src/engine/track';
+import { sceneSpans } from '../src/engine/film';
+import { ROOT, filmArg, loadFilm } from './film';
 
-const ROOT = path.resolve(import.meta.dir, '../..');
-const OUT = path.join(ROOT, 'data/sfx.json');
 const argv = process.argv.slice(2);
-
-const inputs = load();
-const [vo] = inputs;
-const sheet = buildSheet(...inputs);
+const ID = filmArg(argv);
+const F = await loadFilm(ID);
+const OUT = path.join(F.dir, 'data/sfx.json');
+const palettePath = path.join(F.dir, F.film.sfx?.palette ?? 'data/sfx_palette.json');
+if (!existsSync(palettePath)) throw new Error(`no sound palette at ${path.relative(ROOT, palettePath)} (tools/ film-sfx-lib documents it)`);
+const trackDir = path.join(F.dir, 'data/track');
+const tracks: Record<string, Track> = {};
+if (existsSync(trackDir)) {
+  for (const f of new Bun.Glob('*.json').scanSync(trackDir)) tracks[f.replace(/\.json$/, '')] = new Track(JSON.parse(readFileSync(path.join(trackDir, f), 'utf8')) as TrackData);
+}
+const vo = F.vo;
+const shots = sceneSpans(F.timeline);
+const sheet = buildSheet({
+  vo, audio: F.audio, shots, cues: F.film.sfx?.cues ?? {}, tracks, transitions: F.transitions, duration: F.duration,
+  palette: JSON.parse(readFileSync(palettePath, 'utf8')) as Palette, transitionSounds: F.film.sfx?.transitions,
+});
 const json = JSON.stringify(sheet, null, 1) + '\n';
+const rel = path.relative(ROOT, OUT);
 
 if (argv.includes('--check')) {
   let now = '';
@@ -24,22 +37,22 @@ if (argv.includes('--check')) {
     now = readFileSync(OUT, 'utf8');
   } catch {}
   if (now !== json) {
-    console.error('data/sfx.json is stale: run bun scripts/cues.ts');
+    console.error(`${rel} is stale: run bun scripts/cues.ts --film ${ID}`);
     process.exit(1);
   }
-  console.log('data/sfx.json is up to date');
+  console.log(`${rel} is up to date`);
 } else {
   writeFileSync(OUT, json);
-  console.log(`wrote ${path.relative(ROOT, OUT)}: ${sheet.cues.length} cues, ${sheet.ducks.length} ducks`);
+  console.log(`wrote ${rel}: ${sheet.cues.length} cues, ${sheet.ducks.length} ducks`);
 }
 
 // ---- the counts
 const pad = (s: string | number, n: number) => String(s).padEnd(n);
 console.log('\nper scene (cues, of which keys; cues a second; without the keys)');
-const scenes = [...vo.scenes.map((s) => s.id), ...new Set(sheet.cues.map((c) => c.scene).filter((s) => !vo.scenes.some((x) => x.id === s)))];
+const scenes = [...shots.map((s) => s.id), ...new Set(sheet.cues.map((c) => c.scene).filter((s) => !shots.some((x) => x.id === s)))];
 for (const id of scenes) {
   const cs = sheet.cues.filter((c) => c.scene === id), keys = cs.filter((c) => c.anchor.includes(':key:')).length;
-  const span = vo.scenes.find((s) => s.id === id);
+  const span = shots.find((s) => s.id === id);
   const len = span ? span.end - span.start : 0;
   const rate = len ? `${(cs.length / len).toFixed(1)}/s; ${((cs.length - keys) / len).toFixed(1)}/s` : '(a transition)';
   console.log(`  ${pad(id, 18)}${pad(cs.length, 5)}${pad(keys, 5)}${rate}`);
@@ -48,14 +61,14 @@ for (const d of sheet.ducks) console.log(`  duck ${pad(d.id, 14)} ${d.bus} ${d.d
 console.log('\nper sound');
 const bySound = new Map<string, number>();
 for (const c of sheet.cues) {
-  const base = /^(key_soft|flap|insert_pop|visited_tick)_\d+$/.exec(c.sound)?.[1] ?? c.sound;
+  const base = c.sound.replace(/_\d+$/, '');
   bySound.set(base, (bySound.get(base) ?? 0) + 1);
 }
 for (const [s, n] of [...bySound].sort((a, b) => b[1] - a[1])) console.log(`  ${pad(s, 18)}${n}`);
 
 // ---- the plot
 if (argv.includes('--plot')) {
-  const dir = path.join(ROOT, 'out/review/sfx');
+  const dir = path.join(ROOT, 'out', ID, 'review/sfx');
   mkdirSync(dir, { recursive: true });
   const png = path.join(dir, 'cues.png');
   const py = `
@@ -64,7 +77,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 sheet = json.load(open(sys.argv[1])); vo = json.load(open(sys.argv[2])); au = json.load(open(sys.argv[3]))
-scenes = vo["scenes"]
+scenes = vo["shots"]
 fig, axes = plt.subplots(len(scenes), 1, figsize=(22, 2.0 * len(scenes)))
 fam = {}
 cmap = plt.get_cmap("tab20")
@@ -102,7 +115,12 @@ for ax, sc in zip(axes, scenes):
         if a <= d["t"] <= b: ax.axvspan(d["t"], d["t"] + d["dur"], color="#6aa", alpha=0.4)
 fig.tight_layout(); fig.savefig(sys.argv[4], dpi=70)
 `;
-  const r = Bun.spawnSync(['uv', 'run', '--project', path.join(ROOT, 'tools'), 'python', '-c', py, OUT, path.join(ROOT, 'data/vo.json'), path.join(ROOT, 'data/audio.json'), png], { stdout: 'inherit', stderr: 'inherit' });
+  // the shots and words, and the grid, as the plot reads them
+  const tmp = path.join(dir, 'plot-input');
+  mkdirSync(tmp, { recursive: true });
+  writeFileSync(path.join(tmp, 'vo.json'), JSON.stringify({ shots, lines: vo.lines }));
+  writeFileSync(path.join(tmp, 'audio.json'), JSON.stringify({ beats: F.audio.beats, downbeats: F.audio.downbeats }));
+  const r = Bun.spawnSync(['uv', 'run', '--project', path.join(ROOT, 'tools'), 'python', '-c', py, OUT, path.join(tmp, 'vo.json'), path.join(tmp, 'audio.json'), png], { stdout: 'inherit', stderr: 'inherit' });
   if (r.exitCode !== 0) throw new Error('the plot failed');
   console.log(`\nplotted ${path.relative(ROOT, png)}`);
 }

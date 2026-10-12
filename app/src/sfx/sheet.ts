@@ -1,34 +1,16 @@
-// The cue sheet (Plan 3 Task 8, spec §5.3): every scene's cue module and the transitions' whooshes, run on the film's
-// own data and resolved against the sound palette (data/sfx_palette.json) into data/sfx.json, which tools/ renders into
-// the SFX bus (film-sfx). Pure and deterministic: the same data gives the same sheet, byte for byte.
+// The cue sheet: each shot's cue module (a film's sfx cues, film.ts `sfx`) and the transitions' whooshes, run on the
+// film's own data and resolved against its sound palette (films/<id>/data/sfx_palette.json) into
+// films/<id>/data/sfx.json, which tools/ renders into the SFX bus (film-sfx). Pure and deterministic: the same data
+// gives the same sheet, byte for byte.
 import type { AudioData } from '../engine/audio';
 import type { Track } from '../engine/track';
 import type { TransitionEntry } from '../engine/transition';
-import type { VO } from '../engine/vo';
+import { FPS } from '../engine/util';
+import type { SceneSpan, VO } from '../engine/vo';
 import type { Cue, CueCtx, Duck, SceneCues } from './cue';
-import { transitionCues } from './transitions';
-import thread from './scenes/thread';
-import ex from './scenes/ex';
-import her from './scenes/her';
-import repo from './scenes/repo';
-import loom from './scenes/loom';
-import diff from './scenes/diff';
-import cite from './scenes/cite';
-import braid from './scenes/braid';
-import merkle from './scenes/merkle';
-import graph from './scenes/graph';
-import honest from './scenes/honest';
-import proof from './scenes/proof';
-import connect from './scenes/connect';
-import anywhere from './scenes/anywhere';
-import weave from './scenes/weave';
+import { transitionCues, type TransitionSounds } from './transitions';
 
-/** Every scene's cue module, by its id in vo.json. */
-export const SCENES: Record<string, SceneCues> = {
-  thread, ex, her, repo, loom, diff, cite, braid, merkle, graph, honest, proof, connect, anywhere, weave,
-};
-
-/** data/sfx_palette.json: each sound's prompt, length, alignment and gain (tools/ film-sfx-lib generates from it). */
+/** films/<id>/data/sfx_palette.json: each sound's prompt, length, alignment and gain (tools/ film-sfx-lib generates from it). */
 export interface PaletteSound {
   family: string;
   prompt: string;
@@ -47,7 +29,7 @@ export type SheetCue = Cue & { id: string; scene: string; prompt: string; durati
 export type SheetDuck = Duck & { id: string; scene: string };
 
 export interface SfxSheet {
-  fps: 30;
+  fps: number;
   generated_by: string;
   cues: SheetCue[];
   ducks: SheetDuck[];
@@ -65,25 +47,48 @@ export function paletteSound(palette: Palette, id: string): PaletteSound | null 
 
 const isDuck = (x: Cue | Duck): x is Duck => (x as Duck).kind === 'duck';
 
+/** What a sheet is built from. */
+export interface SheetInputs {
+  vo: VO;
+  audio: AudioData;
+  /** The film's shots (their windows), in order. */
+  shots: SceneSpan[];
+  /** Cue modules by shot id; a shot without one places no sounds. */
+  cues: Record<string, SceneCues>;
+  tracks: Record<string, Track>;
+  palette: Palette;
+  transitions: TransitionEntry[];
+  /** The film's length: every cue falls in [0, duration). */
+  duration: number;
+  /** The sounds a whip and a zoom-through make at their cuts (default whoosh_whip, whoosh_zoom; null: none). */
+  transitionSounds?: TransitionSounds;
+}
+
 /**
- * The sheet: every scene module and the transitions' cues, each cue's gain the palette's plus its own, sorted by time,
- * ids `<scene>.<nnnn>` in time order within each scene (ducks `<scene>.duck<n>`). Throws, naming the cue, on a sound the
- * palette doesn't have, a time that isn't a finite number, or a cue outside the film [0, duration).
+ * The sheet: every shot's cue module and the transitions' cues, each cue's gain the palette's plus its own, sorted by
+ * time, ids `<shot>.<nnnn>` in time order within each shot (ducks `<shot>.duck<n>`). Throws, naming the cue, on a
+ * sound the palette doesn't have, a time that isn't a finite number, a cue outside the film [0, duration), or a cue
+ * module for a shot the film doesn't have. A transition sound the palette lacks is left out.
  */
-export function buildSheet(vo: VO, audio: AudioData, tracks: Record<string, Track>, palette: Palette, transitions: TransitionEntry[]): SfxSheet {
+export function buildSheet(o: SheetInputs): SfxSheet {
+  const { vo, audio, tracks, palette, transitions, duration } = o;
   const track = (shot: string) => {
     const t = tracks[shot];
-    if (!t) throw new Error(`cue: no track ${shot} (have ${Object.keys(tracks).join(', ')})`);
+    if (!t) throw new Error(`cue: no track ${shot} (have ${Object.keys(tracks).join(', ') || 'none'})`);
     return t;
   };
+  for (const id of Object.keys(o.cues)) if (!o.shots.some((s) => s.id === id)) throw new Error(`cue: a cue module for '${id}', which is not a shot of the film`);
   const groups: { scene: string; items: (Cue | Duck)[] }[] = [];
-  for (const span of vo.scenes) {
-    const mod = SCENES[span.id];
-    if (!mod) throw new Error(`cue: no cue module for scene ${span.id} (sfx/scenes/${span.id}.ts)`);
+  for (const span of o.shots) {
+    const mod = o.cues[span.id];
+    if (!mod) continue;
     const c: CueCtx = { vo, audio, scene: span, track, transitions };
     groups.push({ scene: span.id, items: mod(c) });
   }
-  for (const g of transitionCues(transitions)) groups.push(g);
+  for (const g of transitionCues(transitions, o.transitionSounds)) {
+    g.items = g.items.filter((x) => isDuck(x) || paletteSound(palette, x.sound));
+    if (g.items.length) groups.push(g);
+  }
 
   const cues: Omit<SheetCue, 'id'>[] = [];
   const ducks: Omit<SheetDuck, 'id'>[] = [];
@@ -91,7 +96,7 @@ export function buildSheet(vo: VO, audio: AudioData, tracks: Record<string, Trac
     for (const x of items) {
       const name = `${scene} @ ${x.anchor}`;
       if (!Number.isFinite(x.t)) throw new Error(`cue ${name}: its time is not a number (${x.t})`);
-      if (!(x.t >= 0 && x.t < vo.duration)) throw new Error(`cue ${name}: ${x.t} is outside the film [0, ${vo.duration})`);
+      if (!(x.t >= 0 && x.t < duration)) throw new Error(`cue ${name}: ${x.t} is outside the film [0, ${duration})`);
       if (isDuck(x)) {
         if (!(x.dur > 0 && Number.isFinite(x.dur))) throw new Error(`cue ${name}: a duck needs a length (dur ${x.dur})`);
         ducks.push({ ...x, scene });
@@ -113,7 +118,7 @@ export function buildSheet(vo: VO, audio: AudioData, tracks: Record<string, Trac
   const n: Record<string, number> = {};
   const nd: Record<string, number> = {};
   return {
-    fps: 30,
+    fps: FPS,
     generated_by: 'app/scripts/cues.ts (app/src/sfx/sheet.ts buildSheet)',
     cues: cues.map((c) => ({ id: `${c.scene}.${String((n[c.scene] = (n[c.scene] ?? 0) + 1)).padStart(4, '0')}`, ...c })),
     ducks: ducks.map((d) => ({ id: `${d.scene}.duck${(nd[d.scene] = (nd[d.scene] ?? 0) + 1)}`, ...d })),

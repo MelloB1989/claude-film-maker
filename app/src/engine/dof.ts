@@ -18,7 +18,7 @@
 // tap (SS_TAP, or the Stage's own passes) gathers one quarter, so the four taps of a frame add up to the whole disc.
 import * as THREE from 'three';
 import { FSPass, H, SS_TAP } from './gl';
-import { GLSL_COMMON } from './glsl/common';
+import { glslCommon } from './glsl/common';
 
 export interface DofParams {
   /** Focus distance: world units (metres) along the camera's view axis (Stage.depthOf gives it for a point). */
@@ -151,11 +151,11 @@ uniform sampler2D tDepth;
 uniform vec3 uCoc; // A, B, cap
 float cocAt(ivec2 q) { return clamp(uCoc.x + uCoc.y * texelFetch(tDepth, q, 0).r, -uCoc.z, uCoc.z); }`;
 
-const GATHER_FRAG = /* glsl */ `
+const GATHER_FRAG = () => /* glsl */ `
 precision highp float;
 precision highp int;
 precision highp sampler2D;
-${GLSL_COMMON}
+${glslCommon()}
 uniform sampler2D tColor;
 uniform sampler2D tKern;  // latticeDisc, one row per part (the last row: the whole disc), a texel per sample
 uniform int uRow, uN;
@@ -257,7 +257,7 @@ export class DofPass {
     this.gather = new THREE.RawShaderMaterial({
       glslVersion: THREE.GLSL3,
       vertexShader: 'precision highp float;\nin vec3 position;\nvoid main() { gl_Position = vec4(position.xy, 0.0, 1.0); }',
-      fragmentShader: GATHER_FRAG,
+      fragmentShader: GATHER_FRAG(),
       uniforms: {
         tDepth: { value: null }, uCoc: { value: new THREE.Vector3() }, tColor: { value: null },
         tKern: { value: null }, uRow: { value: 0 }, uN: { value: 0 }, uNearMin: { value: 1 },

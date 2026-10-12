@@ -23,14 +23,14 @@ test('the sRGB transfer matches IEC 61966-2-1 both ways', () => {
 
 test('bloomLum is the prefilter key: the brightest channel (clamped at 40), not luma', () => {
   expect(bloomLum([0.2, 0.7, 0.1])).toBe(0.7);
-  expect(bloomLum(LIN.bone)).toBeCloseTo(0.846873, 6);
+  expect(bloomLum(LIN.fg)).toBeCloseTo(0.846873, 6);
   expect(bloomLum([100, 2, 3])).toBe(40);
 });
 
-test('bloomWeight mirrors the shader: Plan 1 settings give bone 0.146, blood 0.033, moss 0.0055', () => {
-  expect(bloomWeight(bloomLum(LIN.bone), 0.85, 0.5)).toBeCloseTo(0.14576, 5);
-  expect(bloomWeight(bloomLum(LIN.blood), 0.85, 0.5)).toBeCloseTo(0.033275, 6);
-  expect(bloomWeight(bloomLum(LIN.moss), 0.85, 0.5)).toBeCloseTo(0.0055139, 7);
+test('bloomWeight mirrors the shader: Plan 1 settings give bone 0.146, accent 0.033, accent2 0.0055', () => {
+  expect(bloomWeight(bloomLum(LIN.fg), 0.85, 0.5)).toBeCloseTo(0.14576, 5);
+  expect(bloomWeight(bloomLum(LIN.accent), 0.85, 0.5)).toBeCloseTo(0.033275, 6);
+  expect(bloomWeight(bloomLum(LIN.accent2), 0.85, 0.5)).toBeCloseTo(0.0055139, 7);
 });
 
 test('bloomWeight: zero below the knee, quadratic in it, 1 - threshold/lum above it', () => {
@@ -41,32 +41,32 @@ test('bloomWeight: zero below the knee, quadratic in it, 1 - threshold/lum above
 });
 
 test('the film look never blooms bone, nor anything up to display white', () => {
-  expect(bloomWeight(bloomLum(LIN.bone), T, K)).toBe(0);
+  expect(bloomWeight(bloomLum(LIN.fg), T, K)).toBe(0);
   expect(bloomWeight(bloomLum([1, 1, 1]), T, K)).toBe(0);
 });
 
-test('glow() drives a blood or moss accent to a bloom-key level, hue kept', () => {
-  expect(glow('blood', 3)[0]).toBeCloseTo(3, 9);
-  expect(glow('blood', 3)[2]).toBeCloseTo(0.330937, 6);
-  expect(glow('moss', 1.5)[1]).toBeCloseTo(1.5, 9);
+test('glow() drives a accent or accent2 accent to a bloom-key level, hue kept', () => {
+  expect(glow('accent', 3)[0]).toBeCloseTo(3, 9);
+  expect(glow('accent', 3)[2]).toBeCloseTo(0.330937, 6);
+  expect(glow('accent2', 1.5)[1]).toBeCloseTo(1.5, 9);
 });
 
-test('blood and moss at the glow level pass at least half their light to the bloom', () => {
-  for (const key of ['blood', 'bloodBright', 'moss'] as const) expect(bloomKey(glow(key), T, K)).toBeGreaterThanOrEqual(0.5);
+test('accent and accent2 at the glow level pass at least half their light to the bloom', () => {
+  for (const key of ['accent', 'accentBright', 'accent2'] as const) expect(bloomKey(glow(key), T, K)).toBeGreaterThanOrEqual(0.5);
 });
 
-test('blood and moss, dim or bright, pass the chroma gate whole', () => {
-  for (const key of ['blood', 'bloodBright', 'bloodDim', 'moss', 'mossDim'] as const)
+test('accent and accent2, dim or bright, pass the chroma gate whole', () => {
+  for (const key of ['accent', 'accentBright', 'accentDim', 'accent2', 'accent2Dim'] as const)
     expect(bloomKey(glow(key, 4), 1, 0.1)).toBeCloseTo(0.75, 9); // the plain weight at 4: (4 - 1) / 4
 });
 
 test('a dim accent at the glow level still glows', () => {
-  expect(bloomKey(glow('bloodDim'), T, K)).toBeGreaterThan(0);
-  expect(bloomKey(glow('mossDim'), T, K)).toBeGreaterThan(0);
+  expect(bloomKey(glow('accentDim'), T, K)).toBeGreaterThan(0);
+  expect(bloomKey(glow('accent2Dim'), T, K)).toBeGreaterThan(0);
 });
 
 test('bone never blooms, lit or specular, at any intensity', () => {
-  for (const level of [1, 2, 4, 40]) expect(bloomKey(lit(LIN.bone, level), T, K)).toBe(0);
+  for (const level of [1, 2, 4, 40]) expect(bloomKey(lit(LIN.fg, level), T, K)).toBe(0);
   expect(bloomKey([3, 2.94, 2.97], T, K)).toBe(0); // a desaturated specular white at 3.0
 });
 
@@ -95,13 +95,13 @@ test('blendSRGB: 28% bone over black shows 28% of bone as designed, not the 52% 
 });
 
 test('blendSRGB: 28% bone over ink mixes the display values', () => {
-  const out = levels(blendSRGB(LIN.ink, BONE_SRGB, 0.28));
+  const out = levels(blendSRGB(LIN.bg, BONE_SRGB, 0.28));
   [78.6, 74.04, 77.04].forEach((want, i) => expect(Math.abs(out[i]! - want)).toBeLessThanOrEqual(1));
 });
 
 test('blendSRGB keeps the destination at alpha 0 and shows the source at alpha 1', () => {
-  blendSRGB(LIN.ink, BONE_SRGB, 0).forEach((x, i) => expect(x).toBeCloseTo(LIN.ink[i]!, 9));
-  blendSRGB(LIN.ink, BONE_SRGB, 1).forEach((x, i) => expect(x).toBeCloseTo(LIN.bone[i]!, 9));
+  blendSRGB(LIN.bg, BONE_SRGB, 0).forEach((x, i) => expect(x).toBeCloseTo(LIN.bg[i]!, 9));
+  blendSRGB(LIN.bg, BONE_SRGB, 1).forEach((x, i) => expect(x).toBeCloseTo(LIN.fg[i]!, 9));
 });
 
 test('the engine renders with the film look', () => {
@@ -142,9 +142,9 @@ test('compositeSRGB: each mode is its fixed-function blend run on display values
 });
 
 test('compositeSRGB: a glow() layer added in display space, the reviewer\'s numbers', () => {
-  // a white texel at alpha 0.5, tinted glow('blood') (3, 0.134, 0.331), over ink: the display-space add lands the red
+  // a white texel at alpha 0.5, tinted glow('accent') (3, 0.134, 0.331), over ink: the display-space add lands the red
   // at 0.735, under the bloom's opening at 1.0; added as light it is 1.506 (Python, from the shader text)
-  const out = compositeSRGB('add', [...LIN.ink, 1], [1, 1, 1, 0.5], { tint: glow('blood') });
+  const out = compositeSRGB('add', [...LIN.bg, 1], [1, 1, 1, 0.5], { tint: glow('accent') });
   [0.7348317, 0.0516909, 0.1115310].forEach((want, i) => expect(out[i]!).toBeCloseTo(want, 6));
   expect(out[3]).toBe(1);
   // nothing drawn (alpha 0, no light): the target keeps its exact value
@@ -156,8 +156,8 @@ test('compositeSRGB never goes below 0, nor to NaN: HDR cores under it, opacity 
   // two that did: `normal` at opacity 1.5 leaves the target at 1 - 1.5 of itself, and a screen of a level-3 tint over a
   // specular core at 12 is s + D(1 - s) = 1.61 + 2.92 * (1 - 1.61) = -0.17 in display values (Python); both decoded to NaN
   expect(compositeSRGB('normal', [1, 1, 1, 1], [0, 0, 0, 1], { opacity: 1.5 })[0]).toBe(0);
-  expect(compositeSRGB('screen', [12, 12, 12, 1], [1, 1, 1, 1], { tint: glow('blood') })[0]).toBe(0);
-  const tints: RGB[] = [[1, 1, 1], glow('blood'), glow('moss', 6)];
+  expect(compositeSRGB('screen', [12, 12, 12, 1], [1, 1, 1, 1], { tint: glow('accent') })[0]).toBe(0);
+  const tints: RGB[] = [[1, 1, 1], glow('accent'), glow('accent2', 6)];
   for (const mode of MODES) for (const d of [0, 0.05, 1, 4, 12, 40]) for (const c of [0, 0.2, 1]) for (const a of [0, 0.3, 1])
     for (const opacity of [0.5, 1, 1.5, 3]) for (const tint of tints) {
       for (const x of compositeSRGB(mode, [d, 0.5 * d, d, 1], [c, c, 1 - c, a], { opacity, tint })) {

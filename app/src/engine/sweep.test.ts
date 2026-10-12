@@ -6,7 +6,7 @@ import { Mat } from './type3d';
 const physical = () => ({ vertexShader: THREE.ShaderLib.physical.vertexShader, fragmentShader: THREE.ShaderLib.physical.fragmentShader, uniforms: {} as Record<string, THREE.IUniform> });
 
 test('withSweep adds the band to a physical material\'s outgoing light, chained onto its own patches', () => {
-  const m = Mat.accent('moss');
+  const m = Mat.accent('accent2');
   const base = m.customProgramCacheKey();
   const band = withSweep(m);
   expect(band.value.toArray()).toEqual([0, 0.04, 0.4, 0]); // off until driven
@@ -21,7 +21,7 @@ test('withSweep adds the band to a physical material\'s outgoing light, chained 
   expect(sh.fragmentShader).toContain('totalEmissiveRadiance *= type3dK;');
   // a program of its own (three caches programs by this key), still keyed by what it chained onto
   expect(m.customProgramCacheKey()).toBe(`${base}|sweep`);
-  expect(m.customProgramCacheKey()).not.toBe(Mat.accent('moss').customProgramCacheKey());
+  expect(m.customProgramCacheKey()).not.toBe(Mat.accent('accent2').customProgramCacheKey());
 });
 
 test('sweepAt runs the band across a pass, eased, at strength sin(πu); off before, after and between passes', () => {

@@ -1,9 +1,12 @@
-// The engine: owns the renderer, loads scenes for the timeline, renders any song time
-// deterministically (with preroll for stateful scenes), composites transitions and overlays, HUD, post.
+// The engine: owns the renderer, loads a film (its audio grid, voiceover, fonts and timeline), loads scenes for the
+// timeline, renders any film time deterministically (with preroll for stateful scenes), composites transitions and
+// overlays, HUD, post.
 import * as THREE from 'three';
 import { AudioData } from './audio';
 import { VO } from './vo';
 import { Compositor, FSPass, W, H, PW, PH, SCALE, SS_TAP, makeRT, clearRT } from './gl';
+import { filmUrl } from './config';
+import { applyFilm, filmDuration, filmTimeline, filmTransitions, sceneSpans, type FilmSpec } from './film';
 import { DEFAULT_POST, Post, SHOULDER_GLSL, type PostParams } from './post';
 import { Hud } from './hud';
 import type { Frame, Scene, SceneClass, SceneCtx, PostOverrides } from './scene';
@@ -17,7 +20,7 @@ export interface TimelineEntry {
   id: string;
   /** Lazy module loader; the module's default export is the Scene class. */
   load: () => Promise<{ default: SceneClass }>;
-  /** Scene module file name, when it differs from the id (the animatic card); used by Vite HMR in preview. */
+  /** Scene module file name, when it differs from the id; used by Vite HMR in preview. */
   file?: string;
   start: number;
   end: number;
@@ -223,17 +226,17 @@ export class Engine {
    * into sceneRT; a transition's sides into trA and trB and its pass into trOut; an overlay into ovRT, drawn over what is
    * below it into one of the overlays' ping-pong pair (made when an overlay first renders).
    */
-  private sceneRT = makeRT();
-  private trA = makeRT();
-  private trB = makeRT();
-  private trOut = makeRT(W, H, { depthBuffer: false });
+  private sceneRT: THREE.WebGLRenderTarget;
+  private trA: THREE.WebGLRenderTarget;
+  private trB: THREE.WebGLRenderTarget;
+  private trOut: THREE.WebGLRenderTarget;
   private ovRT: THREE.WebGLRenderTarget | null = null;
   private ovPP: THREE.WebGLRenderTarget[] = [];
   private trPass: TransitionPass | null = null;
   // motion-blur sub-frame sums (float: up to hundreds of sub-frames), their average, and the error estimate
-  private sumRT = makeRT(W, H, { depthBuffer: false, type: THREE.FloatType });
-  private newRT = makeRT(W, H, { depthBuffer: false, type: THREE.FloatType });
-  private avgRT = makeRT(W, H, { depthBuffer: false });
+  private sumRT: THREE.WebGLRenderTarget;
+  private newRT: THREE.WebGLRenderTarget;
+  private avgRT: THREE.WebGLRenderTarget;
   private errRT: THREE.WebGLRenderTarget;
   private maxRT: THREE.WebGLRenderTarget;
   private errPass: FSPass;
@@ -242,11 +245,13 @@ export class Engine {
   /** Sub-frames used for the last rendered frame, and its estimated sampling error after each step. */
   lastSamples = 1;
   lastErrors: number[] = [];
-  private finalRT = new THREE.WebGLRenderTarget(PW, PH, { type: THREE.UnsignedByteType, depthBuffer: false });
+  private finalRT: THREE.WebGLRenderTarget;
   private blit: FSPass;
   private accum: FSPass;
   private lastT = -1;
   lastPost: PostParams = { ...DEFAULT_POST };
+  /** Where every frame's post starts: DEFAULT_POST with the film's look (`post`) over it. */
+  basePost: PostParams = { ...DEFAULT_POST };
   /** Every scene failure (init, prepare, render). In export each is also thrown: the still, or the export, fails. */
   errors: string[] = [];
   /** Suppress the HUD (crop marks). */
@@ -258,10 +263,26 @@ export class Engine {
   exporting = false;
 
   timeline: TimelineEntry[] = [];
-  /** The film's transitions (makeTransitions, validated against vo.json at init), in cut order. */
+  /** The film's transitions (validated against its shots and voiceover at init), in cut order. */
   transitions: TransitionEntry[] = [];
+  private _duration = 0;
 
-  constructor(public canvas: HTMLCanvasElement, private makeTimeline: (vo: VO, audio: AudioData) => TimelineEntry[], private makeTransitions?: (vo: VO) => TransitionSpec[]) {
+  /**
+   * An engine for `film`: its format, frame rate, theme and fonts are put in force first (applyFilm), so everything
+   * built after renders in them. `o.timeline` and `o.transitions` replace the film's own (dev harnesses: one scene
+   * module alone, one transition); `o.base` is the film folder's URL.
+   */
+  constructor(public canvas: HTMLCanvasElement, public film: FilmSpec, private o: { base?: string; timeline?: (vo: VO, audio: AudioData) => TimelineEntry[]; transitions?: (all: TransitionSpec[]) => TransitionSpec[] } = {}) {
+    applyFilm(film, o.base);
+    this.sceneRT = makeRT();
+    this.trA = makeRT();
+    this.trB = makeRT();
+    this.trOut = makeRT(W, H, { depthBuffer: false });
+    this.sumRT = makeRT(W, H, { depthBuffer: false, type: THREE.FloatType });
+    this.newRT = makeRT(W, H, { depthBuffer: false, type: THREE.FloatType });
+    this.avgRT = makeRT(W, H, { depthBuffer: false });
+    this.finalRT = new THREE.WebGLRenderTarget(PW, PH, { type: THREE.UnsignedByteType, depthBuffer: false });
+    this.basePost = { ...DEFAULT_POST, ...(film.post ?? {}) } as PostParams;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(PW, PH, false);
@@ -318,14 +339,24 @@ export class Engine {
 
   /**
    * Load the film's data and the timeline's scenes: those `only` passes (--only; the rest render as red fill). The
-   * player loads every scene now, to scrub anywhere without a stall; export (`exporting`) loads none yet: each loads
-   * when a frame first needs it (prepare), so an export holds only the scenes on screen.
+   * audio grid is the film's analysis, else a synthetic grid at its bpm; the voiceover is its vo.json, its captions, or
+   * none. The player loads every scene now, to scrub anywhere without a stall; export (`exporting`) loads none yet:
+   * each loads when a frame first needs it (prepare), so an export holds only the scenes on screen.
    */
   async init(only?: (e: TimelineEntry) => boolean, opts: { exporting?: boolean } = {}) {
     this.exporting = !!opts.exporting;
-    [this.audio, this.vo] = await Promise.all([AudioData.load(), VO.load(), loadFonts(), loadStrokeFonts()]) as [AudioData, VO, void, void];
-    this.timeline = this.makeTimeline(this.vo, this.audio);
-    this.transitions = transitionEntries(this.makeTransitions?.(this.vo) ?? [], this.vo.scenes, this.vo.words);
+    const f = this.film, a = f.audio ?? {};
+    const audio = a.analysis
+      ? AudioData.load(filmUrl(a.analysis))
+      : Promise.resolve(AudioData.grid({ duration: f.duration ?? 3600, bpm: a.bpm, offset: a.offset, beatsPerBar: a.beatsPerBar }));
+    const vo = typeof f.vo === 'string' ? VO.load(filmUrl(f.vo)) : Promise.resolve(VO.empty());
+    [this.audio, this.vo] = await Promise.all([audio, vo, loadFonts(), loadStrokeFonts()]) as [AudioData, VO, void, void];
+    this.timeline = this.o.timeline ? this.o.timeline(this.vo, this.audio) : filmTimeline(f, this.audio, this.vo);
+    this._duration = this.o.timeline ? Math.max(0, ...this.timeline.map((e) => e.end)) : filmDuration(f, this.timeline);
+    // captions written in film.ts: lines without a scene belong to the shot on screen when they start
+    if (Array.isArray(f.vo)) this.vo = VO.fromCaptions(f.vo, (t) => this.timeline.find((e) => e.kind !== 'overlay' && t >= e.start && t < e.end)?.id ?? '', this._duration);
+    const specs = filmTransitions(f);
+    this.transitions = transitionEntries(this.o.transitions ? this.o.transitions(specs) : this.o.timeline ? [] : specs, sceneSpans(this.timeline), f.wordGuard === false ? [] : this.vo.words);
     checkScenes(this.timeline);
     this.ctx = { renderer: this.renderer, audio: this.audio, vo: this.vo, comp: this.comp, W, H, id: '', params: {}, start: 0, end: 0 };
     this.post = new Post();
@@ -440,7 +471,8 @@ export class Engine {
     this.lastT = -1;
   }
 
-  get duration() { return Math.max(this.audio.duration, this.vo.duration); }
+  /** The film's length (s): its `duration`, else the end of its last shot. */
+  get duration() { return this._duration; }
 
   /**
    * Await prepare() of every scene the frame at t renders (as render() decides it, see framePlan: a transition's two
@@ -555,7 +587,7 @@ export class Engine {
     const beat = this.audio.beatAt(t), bar = this.audio.barAt(t);
     return {
       t, dt, lt: t - e.start, p: (t - e.start) / (e.end - e.start), start: e.start, end: e.end, seeked, preroll,
-      beat, bar, beatPhase: beat - Math.floor(beat), barPhase: bar - Math.floor(bar),
+      beat, bar, beatPhase: beat - Math.floor(beat), barPhase: bar - Math.floor(bar), beatsPerBar: this.audio.beatsPerBar,
       a: this.audio.sample(t),
     };
   }
@@ -592,7 +624,7 @@ export class Engine {
     const seeked = this.lastT < 0 || t < this.lastT - 1e-6 || t - this.lastT > Math.max(0.25, dt * 4);
     this.lastT = t;
     let outTex: THREE.Texture;
-    let post: PostParams = { ...DEFAULT_POST };
+    let post: PostParams = { ...this.basePost };
     let n = 1;
     const taps = this.framesTaps(t, dt, shutter);
     if (samples === 1) {
@@ -697,7 +729,7 @@ export class Engine {
    */
   private composite(layers: Layer[], dt: number, seeked: boolean, t: number, taps: TransitionState[] | null): { outTex: THREE.Texture; post: PostParams } {
     const r = this.renderer;
-    let post: PostParams = { ...DEFAULT_POST };
+    let post: PostParams = { ...this.basePost };
     let outTex: THREE.Texture | null = null;
     let pp = 0;
     for (const l of layers) {

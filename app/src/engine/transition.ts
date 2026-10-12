@@ -4,6 +4,7 @@
 // transition-gl.ts draws the states; engine.ts plans which layers a frame renders (framePlan).
 import type { SceneSpan, VO } from './vo';
 import { ease as EASE } from './util';
+import { FPS, H as FH, W as FW } from './config';
 
 export type TransitionKind = 'cut' | 'whip' | 'match' | 'zoom' | 'xfade' | 'dip';
 /** How a side renders inside the window: 'hold' clamps into its own window, 'run' into its handles. */
@@ -74,11 +75,10 @@ export const SUB_TAPS = 8;
 const STEP_PX = 1.5;
 /** How far before its end (s) a side holds at or past it (as engine.ts holds an entry). */
 export const HOLD = 1e-6;
-/** The logical frame. */
-const FW = 1920, FH = 1080;
 /** The longest side, s, and the largest share of its scene's window. */
 const MAX_SIDE = 0.5, MAX_SHARE = 0.25;
-const FRAME = 1 / 30;
+/** One frame of the film (s). */
+const frame = () => 1 / FPS;
 
 const r3 = (x: number) => x.toFixed(3);
 const num = (x: number) => String(+x.toFixed(3));
@@ -121,7 +121,7 @@ export function transitionEntries(specs: TransitionSpec[], scenes: SceneSpan[], 
     const cut = A.end;
     const e: TransitionEntry = { id, spec, cut, start: cut - pre, end: cut + post };
     if (spec.kind !== 'cut') {
-      const lo = cut - pre, hi = cut + post + FRAME;
+      const lo = cut - pre, hi = cut + post + frame();
       const w = words.find((x) => x.start >= lo && x.start < hi);
       if (w) throw bad(`${w.w !== undefined ? `word "${w.w}"` : 'a word'} (${num(w.start)}) starts inside [${r3(lo)}, ${r3(hi)})`);
     }

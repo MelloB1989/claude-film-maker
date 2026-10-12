@@ -22,10 +22,10 @@ test('render targets always mix light, a space the caller passes wins, and repla
 });
 
 test('why: a soft glow texel tinted glow() reaches the bloom added as light, and not mixed as display values', () => {
-  // a white texel at alpha 0.5 over ink, tinted glow('blood'): its light is tint x 0.5 over the ink
-  const tint = glow('blood'), a = 0.5;
-  const asLight = LIN.ink.map((d, i) => d + tint[i]! * a) as RGB;
-  const asDisplay = compositeSRGB('add', [...LIN.ink, 1], [1, 1, 1, a], { tint }).slice(0, 3) as RGB;
+  // a white texel at alpha 0.5 over ink, tinted glow('accent'): its light is tint x 0.5 over the ink
+  const tint = glow('accent'), a = 0.5;
+  const asLight = LIN.bg.map((d, i) => d + tint[i]! * a) as RGB;
+  const asDisplay = compositeSRGB('add', [...LIN.bg, 1], [1, 1, 1, a], { tint }).slice(0, 3) as RGB;
   expect(bloomKey(asLight, LOOK.bloomThreshold, LOOK.bloomKnee)).toBeGreaterThan(0.15);
   expect(bloomKey(asDisplay, LOOK.bloomThreshold, LOOK.bloomKnee)).toBe(0);
 });
