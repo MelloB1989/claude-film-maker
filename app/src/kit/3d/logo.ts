@@ -4,8 +4,9 @@
 // layer). Without an SVG, the `name` is set as an extruded wordmark instead.
 //
 // Params (all optional, but one of logo and name):
-//   logo 'assets/logo.svg'   the SVG (a path in the film's folder); paths with a fill of chroma (saturation > 0.3) take
-//                      the accent, the rest satin fg
+//   logo 'assets/logo.svg'   the SVG (a path in the film's folder); paths whose fill has colour (chroma, (max − min) / max
+//                      of its linear RGB, above 0.3: the bloom's gate) take the accent, the rest (whites, greys, near-whites
+//                      like a warm theme's fg) satin fg
 //   name               the wordmark when there is no SVG (or no logo param and the file is missing)
 //   accentColor 'accent' | 'accent2'; accentStyle 'solid' (accent satin, a soft inner light) | 'seam' (fg with a glowing seam)
 //   depth 0.18, bevel 0.014   the extrusion and its bevel (fractions of the logo's height)
@@ -93,10 +94,8 @@ export class Logo3D extends Scene3D {
       data.paths.forEach((pth) => {
         const shapes = SVGLoader.createShapes(pth);
         if (!shapes.length) return;
-        const hsl = { h: 0, s: 0, l: 0 };
-        pth.color.getHSL(hsl);
         const geo = this.own(extrudeShapes(shapes, box, depth, bevel));
-        this.pivot.add(new THREE.Mesh(geo, hsl.s > 0.3 && hsl.l > 0.08 && hsl.l < 0.92 ? accentMat : satin));
+        this.pivot.add(new THREE.Mesh(geo, isColoured(pth.color) ? accentMat : satin));
       });
       this.aspect = (box.x1 - box.x0) / Math.max(1e-6, box.y1 - box.y0);
       w = this.aspect;
@@ -185,6 +184,16 @@ export class Logo3D extends Scene3D {
     this.word = null;
     super.dispose();
   }
+}
+
+/**
+ * Whether an SVG fill is a colour (it takes the accent) rather than a neutral (satin fg): its chroma, (max − min) / max of
+ * the linear colour, is above 0.3, as look.ts bloomChroma measures it. Not HSL saturation, which calls a near-white like
+ * #f4ece1 47% saturated.
+ */
+export function isColoured(c: { r: number; g: number; b: number }): boolean {
+  const hi = Math.max(c.r, c.g, c.b), lo = Math.min(c.r, c.g, c.b);
+  return hi > 0.02 && (hi - lo) / hi > 0.3;
 }
 
 /** The accent as a solid satin with a soft inner light (its emissive is set per frame). */

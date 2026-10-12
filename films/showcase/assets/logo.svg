@@ -1,11 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ff8c4d"/>
-      <stop offset="1" stop-color="#f2c14e"/>
-    </linearGradient>
-  </defs>
-  <rect x="12" y="12" width="216" height="216" rx="56" fill="url(#g)"/>
-  <path d="M60 84 L60 60 L84 60 M156 60 L180 60 L180 84 M180 156 L180 180 L156 180 M84 180 L60 180 L60 156" fill="none" stroke="#0e0a07" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M100 88 L156 120 L100 152 Z" fill="#0e0a07" stroke="#0e0a07" stroke-width="10" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- the film's mark: a viewfinder's four corners round a play triangle; the corners in fg, the triangle in the accent -->
+  <path fill="#f4ece1" d="M8 8 H40 V19 H19 V40 H8 Z M112 8 V40 H101 V19 H80 V8 Z M112 112 H80 V101 H101 V80 H112 Z M8 112 V80 H19 V101 H40 V112 Z"/>
+  <path fill="#ff6a1f" d="M47 36 L88 60 L47 84 Z"/>
 </svg>

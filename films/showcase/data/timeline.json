@@ -1,106 +1,154 @@
 {
  "fps": 30,
- "duration": 32,
+ "duration": 48,
  "format": [
   1920,
   1080
  ],
  "scenes": [
   {
-   "id": "open",
+   "id": "cloud",
    "start": 0,
    "end": 4
   },
   {
-   "id": "frame",
+   "id": "hero",
    "start": 4,
    "end": 8
   },
   {
-   "id": "formats",
+   "id": "frame",
    "start": 8,
    "end": 12
   },
   {
-   "id": "stats",
+   "id": "code",
    "start": 12,
-   "end": 16
+   "end": 18
   },
   {
-   "id": "blur",
-   "start": 16,
-   "end": 20
+   "id": "formats",
+   "start": 18,
+   "end": 22
   },
   {
-   "id": "features",
-   "start": 20,
+   "id": "stats",
+   "start": 22,
    "end": 26
   },
   {
-   "id": "end",
+   "id": "blur",
    "start": 26,
-   "end": 32
+   "end": 30
+  },
+  {
+   "id": "player",
+   "start": 30,
+   "end": 34
+  },
+  {
+   "id": "cards",
+   "start": 34,
+   "end": 40
+  },
+  {
+   "id": "logo",
+   "start": 40,
+   "end": 44
+  },
+  {
+   "id": "end",
+   "start": 44,
+   "end": 48
   }
  ],
  "overlays": [
   {
    "id": "captions",
-   "start": 11.9,
-   "end": 20
+   "start": 21.9,
+   "end": 34
   },
   {
    "id": "watermark",
-   "start": 0,
-   "end": 26
+   "start": 8,
+   "end": 40
   },
   {
    "id": "progress",
    "start": 0,
-   "end": 32
+   "end": 48
   }
  ],
  "transitions": [
   {
-   "id": "open-frame",
-   "kind": "whip",
+   "id": "cloud-hero",
+   "kind": "zoom",
    "cut": 4,
    "start": 3.75,
    "end": 4.25
   },
   {
-   "id": "frame-formats",
+   "id": "hero-frame",
    "kind": "whip",
    "cut": 8,
    "start": 7.75,
    "end": 8.25
   },
   {
+   "id": "frame-code",
+   "kind": "xfade",
+   "cut": 12,
+   "start": 11.75,
+   "end": 12.25
+  },
+  {
+   "id": "code-formats",
+   "kind": "whip",
+   "cut": 18,
+   "start": 17.75,
+   "end": 18.25
+  },
+  {
    "id": "formats-stats",
    "kind": "cut",
-   "cut": 12,
-   "start": 12,
-   "end": 12
+   "cut": 22,
+   "start": 22,
+   "end": 22
   },
   {
    "id": "stats-blur",
    "kind": "xfade",
-   "cut": 16,
-   "start": 15.75,
-   "end": 16.25
-  },
-  {
-   "id": "blur-features",
-   "kind": "whip",
-   "cut": 20,
-   "start": 19.75,
-   "end": 20.25
-  },
-  {
-   "id": "features-end",
-   "kind": "zoom",
    "cut": 26,
    "start": 25.75,
    "end": 26.25
+  },
+  {
+   "id": "blur-player",
+   "kind": "dip",
+   "cut": 30,
+   "start": 29.75,
+   "end": 30.25
+  },
+  {
+   "id": "player-cards",
+   "kind": "whip",
+   "cut": 34,
+   "start": 33.75,
+   "end": 34.25
+  },
+  {
+   "id": "cards-logo",
+   "kind": "zoom",
+   "cut": 40,
+   "start": 39.75,
+   "end": 40.25
+  },
+  {
+   "id": "logo-end",
+   "kind": "xfade",
+   "cut": 44,
+   "start": 43.75,
+   "end": 44.25
   }
  ]
 }
