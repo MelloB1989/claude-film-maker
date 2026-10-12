@@ -63,7 +63,7 @@ pipeline settings. Colours are roles (`bg`, `fg`, `accent`, `accent2`, …), nev
 | data | `@kit/data` | Counter (odometer, split-flap or count-up), BarChart, LineChart, StatGrid, Compare, Figure |
 | overlays | `@kit/overlays` | Captions (karaoke, line, pop), Watermark, ProgressBar, SafeArea |
 
-Example films: `films/gallery-type`, `films/gallery-type-vertical`.
+Reference: [docs/KIT.md](docs/KIT.md). Example films: `films/gallery-type`, `films/gallery-type-vertical`.
 
 ## Sound
 
