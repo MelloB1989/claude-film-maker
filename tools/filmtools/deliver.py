@@ -13,7 +13,7 @@ pipeline.deliver names.
   film-deliver check                          check() on each output; exit 1 on any problem
 
 Each output lands at out/<id>/<id>-<name>.mp4. An output is {"size": [W, H] (default: the film's own size × scale),
-"fit": "pad" (letterbox in pipeline.deliver.pad) or "crop", "codec": "libx264" or "copy" (the render as it is), "crf",
+"fit": "pad" (letterboxed in pipeline.deliver.pad, default the theme's bg) or "crop", "codec": "libx264" or "copy" (the render as it is), "crf",
 "preset", "maxrate", "bufsize", "profile", "audio_kbps"}. The film's length is its scene windows' duration
 (data/timeline.json, else data/vo.json) at film.json fps. The audio is never offset or trimmed (no -itsoffset, no -ss,
 no -shortest): the mix and the picture both run that long from 0, and check() measures the lengths instead.
@@ -63,6 +63,20 @@ def output_size(spec: dict, native: tuple[int, int]) -> tuple[int, int]:
 
 def output_path(out_dir: Path, film_id: str, name: str) -> Path:
     return out_dir / f"{film_id}-{name}.mp4"
+
+
+def theme_bg(theme, themes_path: Path | None = None) -> str | None:
+    """The `bg` of a film.json theme: a preset name in app/src/engine/themes.json, or {"extends": name, "bg"?: ...}.
+    None when it cannot be told."""
+    try:
+        presets = json.loads((themes_path or paths.APP / "src" / "engine" / "themes.json").read_text())
+    except (OSError, ValueError):
+        presets = {}
+    if isinstance(theme, str):
+        return (presets.get(theme) or {}).get("bg")
+    if isinstance(theme, dict):
+        return theme.get("bg") or (presets.get(theme.get("extends", "")) or {}).get("bg")
+    return None
 
 
 def segments(scenes: list[dict], total_frames: int, n: int, margin: float = 1.0, fps: float = FPS) -> list[tuple[int, int]]:
@@ -276,6 +290,7 @@ class Delivery:
         self.frames = round(windows["duration"] * self.fps)
         self.seconds = self.frames / self.fps
         self.work = film.paths.out / "deliver"
+        self.pad = d["pad"] or theme_bg(film.raw.get("theme")) or "#000000"
         self.outputs = {name: output_spec(spec) for name, spec in d["outputs"].items()}
         if not self.outputs:
             raise SystemExit(f"no outputs: list them in pipeline.deliver.outputs in {film.paths.config}")
@@ -319,7 +334,7 @@ def run_assemble(dl: Delivery, n: int, mix: Path) -> int:
         out = dl.path(name)
         out.parent.mkdir(parents=True, exist_ok=True)
         print(f"encoding {name} → {out}", flush=True)
-        subprocess.run(encode_args(spec, video, mix, out, dl.native, dl.film.deliver["pad"]), check=True)
+        subprocess.run(encode_args(spec, video, mix, out, dl.native, dl.pad), check=True)
     stems = dl.work / "stems"
     stems.mkdir(parents=True, exist_ok=True)
     for s in ("mix", "vo", "music", "sfx"):

@@ -69,7 +69,7 @@ PIPELINE_DEFAULTS: dict = {
         "segments": 4,
         "scale": 1,
         "samples": "auto",
-        "pad": "#000000",                  # colour around a picture fitted into another aspect ratio
+        "pad": None,                       # colour around a picture fitted into another aspect: default the theme's bg
         "outputs": {"rough": {"codec": "copy"}, "master": {"crf": 16}},
         "hits": [],                        # [{sound, frame?}]: cues whose hit must land on its frame in each output
     },

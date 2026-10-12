@@ -83,3 +83,13 @@ def test_assemble_places_audio_at_line_starts(tmp_path):
     y = assemble(vo, tmp_path)
     assert len(y) >= int(10.0 * SR)
     assert list(np.round(np.flatnonzero(y > 0.5) / SR, 3)) == [1.0, 2.5, 4.0, 7.5]
+
+
+def test_edit_json_overrides_the_default_gaps(film):
+    import json
+
+    from filmtools.edit import EDIT_DEFAULTS, load_edit
+    assert load_edit() == EDIT_DEFAULTS
+    (film.data / "edit.json").write_text(json.dumps({"lead_in": 2.0, "gap": {"act": 3.0}}))
+    cfg = load_edit()
+    assert cfg["lead_in"] == 2.0 and cfg["gap"] == {**EDIT_DEFAULTS["gap"], "act": 3.0} and cfg["tail"] == 1.5

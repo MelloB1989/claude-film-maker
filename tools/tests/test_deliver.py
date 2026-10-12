@@ -177,3 +177,13 @@ def test_a_delivery_reads_the_films_length_rate_size_and_outputs(film):
     assert dl.path("4x5") == output_path(film.out, "demo", "4x5") == film.out / "demo-4x5.mp4"
     assert output_size(dl.outputs["master"], dl.native) == (2160, 2160)
     assert output_size(dl.outputs["4x5"], dl.native) == (1080, 1350)
+
+
+def test_the_letterbox_is_the_themes_background(tmp_path):
+    from filmtools.deliver import theme_bg
+    themes = tmp_path / "themes.json"
+    themes.write_text(json.dumps({"noir": {"bg": "#110d10"}, "paper": {"bg": "#f4f1ea"}}))
+    assert theme_bg("noir", themes) == "#110d10"
+    assert theme_bg({"extends": "paper", "accent": "#123456"}, themes) == "#f4f1ea"
+    assert theme_bg({"extends": "paper", "bg": "#000001"}, themes) == "#000001"
+    assert theme_bg("unknown", themes) is None and theme_bg(None, themes) is None
