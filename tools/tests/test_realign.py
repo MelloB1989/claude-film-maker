@@ -69,3 +69,13 @@ def test_realign_take_falls_back_when_counts_differ(tmp_path):
     m = json.loads(meta.read_text())
     assert m["aligned"] == "tts-fallback" and m["words"] == [{"w": "Every", "start": 0.0, "end": 0.4}]
     assert "keeping the TTS times" in logged[0]
+
+
+def test_realign_take_aligns_what_was_said_and_keeps_the_display_text(tmp_path):
+    wav, meta = take(tmp_path, text="Powered by Medha AI.")
+    m = json.loads(meta.read_text())
+    meta.write_text(json.dumps({**m, "say": "Powered by Maydha AI."}))
+    c = FakeFA(fa(("Powered", 0.0, 0.4), ("by", 0.5, 0.6), ("Maydha", 0.7, 1.0), ("AI.", 1.1, 1.4)))
+    assert realign_take(c, wav, meta, log=lambda *_: None) == "forced"
+    assert c.calls[0][1] == "Powered by Maydha AI."
+    assert [w["w"] for w in json.loads(meta.read_text())["words"]] == ["Powered", "by", "Medha", "AI."]

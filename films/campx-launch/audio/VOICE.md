@@ -26,13 +26,12 @@ naturally at about 2.2-2.4 words/s, and she phrases in whole sentences. Tripti r
 was too slow for the fixed scene windows.
 
 ### Pronunciation ("CampX" = camp-ex, "Medha" = MAY-dhaa)
-The script keeps the brief's spellings; no respelling was needed in the TTS text. I checked this with a proxy, since I
-cannot listen. In every take, "CampX" carries **two** syllable nuclei (vowel-band energy peaks) and lasts about 0.42 s.
-A control take with the spelling "Camp Ex" gives the same 1+1 nuclei. "Campks" would carry one. "Medha" carries two
-nuclei in every take, and its length matches a control take spelled "Maydha". This is **not proof**, so please listen to
-L03 and L09 ("CampX") and L03, L05, L06 and L07 ("Medha"). If "Medha" comes out as "MED-ha", regenerate those lines with
-"Maydha" in the TTS text. The tools send `text` as is, so that needs a separate spoken-text field, which they do not
-have yet.
+- "CampX" is spoken from the plain spelling: in every take it carries two syllables (vowel-band energy peaks), the same
+  as a test take spelled "Camp Ex".
+- "Medha" was mispronounced (the user listened). L03, L05, L06 and L07 were re-voiced with the user's chosen respelling
+  **"Meddha"** ("Meddha's" in L07). The respelling goes in each script line's new `say` field, which film-vo sends to the
+  voice and film-realign aligns against. `text` (with "Medha") stays the display and caption text, so data/vo.json still
+  reads "Medha". New takes: seed 7 (the seed of the user's approved sample), then seeds 8 and 9.
 
 ## Takes (audio/vo/selects.json)
 I generated 3 takes per line, then force-aligned and paced them (factor 1.0, no time-stretch). I picked takes by
@@ -43,15 +42,19 @@ words/s (target 2.3-2.6), pauses at sentence and list boundaries only, a falling
 |---|---|---|
 | L01 | 3 | 2.2 w/s, clear comma and sentence pauses, falling end |
 | L02 | 4 = take 3 with the pause after "page," lengthened 0.20 → 0.42 s | take 3 was the slowest read; the longer pause gives "a student's future" its weight |
-| L03 | 4 = take 2 with the pause after "Evaluation." lengthened 0.26 → 0.55 s | a beat between the product name and "Powered by Medha AI" |
+| L03 | 16 = take 6 (Meddha, seed 8) fitted to the old take 4 | closest rhythm to the old select; keeps the beat after "Evaluation." |
 | L04 | 1 | 2.32 w/s and the tightest of the clean reads (it has to finish before 35 s); take 2 hitched after "Upload" |
-| L05 | 1 | 2.44 w/s, unhurried |
-| L06 | 2 | take 1 ran too fast (3.1 w/s); take 3 was choppy |
-| L07 | 3 | 2.37 w/s, sentence pauses of 0.5-0.9 s; take 2 broke up inside phrases |
+| L05 | 15 = take 5 (Meddha, seed 8) fitted to the old take 1 | closest rhythm of the three |
+| L06 | 16 = take 6 (Meddha, seed 9) fitted to the old take 2 | closest rhythm of the three; "suggests" within 0.04 s |
+| L07 | 14 = take 4 (Meddha, seed 7) fitted to the old take 3 | closest rhythm of the three; Accept / adjust / override / flagged within 0.05 s |
 | L08 | 4 = take 3 with both sentence pauses lengthened to 0.5 s | a tagline read, three statements; take 2 rose at the end |
 | L09 | 4 = take 1 with the pause after "smarter." lengthened 0.24 → 0.42 s | "CampX. / Evaluate smarter. / Decide faster." |
 
-The derived takes (number 4) were made by `audio/scripts/breathe.py`. It inserts digital silence at the quietest point
+The re-voiced Medha lines were fitted to the old selects' rhythm by `audio/scripts/fit_gaps.py`, because the picture
+is synced to the old word times. At each pause, silence is added or removed at the quietest point, never inside a
+breath, and never making a pause more than 0.15 s longer than the old one. The take picked for each line was the one
+with the lowest weighted drift after fitting (critical words weighted ×3). Old takes 1-4 remain on disk. The derived
+takes numbered 4 were made by `audio/scripts/breathe.py`. It inserts digital silence at the quietest point
 of the gap, with 4 ms fades, and shifts the later word times. Each JSON records `derived_from` and `edit`.
 
 ## Placement (data/edit.json → data/vo.json)
@@ -114,8 +117,12 @@ film-edit → film-snap → film-beats → film-vo-chain → `python3 ../films/c
 ../films/campx-launch` → film-sfx → film-mix → film-sync. Do not run film-vo again: every take exists and it skips
 them. A new film-pace run keeps the derived take-4 files, because they live in `takes/`.
 
-## Tool change
+## Tool changes
 `tools/filmtools/sync.py` now accepts an optional `"until": "<scene>"` on a script line: the line may run on into
 that later scene, and film-sync checks it ends by that scene's end. The brief has lines 4-6 spill from each 3d plate
 into the UI scene after it, and without this film-sync could not pass. The change is additive, with a test in
 `tools/tests/test_sync.py` and a sentence in `tools/README.md`.
+`tools/filmtools/vo.py` and `realign.py` accept an optional `"say"` on a script line. The voice is sent `say` (same
+word count as `text`, checked before paying), forced alignment runs against it, and the words keep `text` for display.
+Take metadata now records the seed. Tests are in `tools/tests/test_vo.py` and `test_realign.py`.
+`audio/scripts/place.py` rewrites data/edit.json so every line's first word lands on its fixed target time.

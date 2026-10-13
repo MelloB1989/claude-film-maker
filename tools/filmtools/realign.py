@@ -1,9 +1,9 @@
 """Re-time voiceover takes on the audio itself.
 
 A TTS model's own alignment can snap to a coarse grid (80 ms) and sit up to ~180 ms off the audio. Forced alignment
-(/v1/forced-alignment, 1 credit a take) measures each word on the take at 20 ms resolution. Our tokens (the script
-text split on whitespace, with punctuation-only tokens merged into the word before) keep their display text; only
-their times change. Idempotent: a take already marked `aligned` is skipped.
+(/v1/forced-alignment, 1 credit a take) measures each word on the take at 20 ms resolution, against what the voice
+was sent (the take's `say`, else its `text`). Our tokens (the script text split on whitespace, with punctuation-only
+tokens merged into the word before) keep their display text; only their times change. Idempotent: a take already marked `aligned` is skipped.
 """
 import json
 from pathlib import Path
@@ -38,7 +38,7 @@ def realign_take(client, wav: Path, meta_path: Path, log=print) -> str:
     meta = json.loads(meta_path.read_text())
     if meta.get("aligned") in ("forced", "tts-fallback"):
         return "skipped"
-    d = client.forced_alignment(wav.read_bytes(), meta["text"], wav.name)
+    d = client.forced_alignment(wav.read_bytes(), meta.get("say") or meta["text"], wav.name)  # what was spoken
     try:
         meta["words"] = map_words(tokens(meta["text"]), d["words"])
         meta["aligned"] = "forced"

@@ -86,3 +86,24 @@ def test_the_voice_must_be_set_before_any_take_is_paid_for(film):
     (film.data / "script.json").write_text(json.dumps({"lines": LINES}))
     with pytest.raises(SystemExit, match=r"pipeline\.voice\.voice_id"):
         main([])
+
+
+def test_say_is_spoken_and_text_is_displayed(tmp_path):
+    c = FakeClient()
+    line = {"id": "L03", "scene": "title", "text": "Powered by Medha AI.", "say": "Powered by Maydha AI.", "takes": 1}
+    assert generate_takes([line], c, tmp_path, VOICE, **QUIET) == 1
+    assert c.calls[0][1] == "Powered by Maydha AI."
+    meta = json.loads((tmp_path / "L03" / "1.json").read_text())
+    assert meta["text"] == "Powered by Medha AI." and meta["say"] == "Powered by Maydha AI."
+    assert [w["w"] for w in meta["words"]] == ["Powered", "by", "Medha", "AI."]
+    plain = json.loads(json.dumps(LINES[1]))
+    generate_takes([plain], c, tmp_path, VOICE, **QUIET)
+    assert "say" not in json.loads((tmp_path / "L02" / "1.json").read_text())
+
+
+def test_a_say_with_another_word_count_is_refused_before_paying(tmp_path):
+    c = FakeClient()
+    line = {"id": "L03", "scene": "title", "text": "Powered by Medha AI.", "say": "Powered by May dha AI.", "takes": 1}
+    with pytest.raises(ValueError, match="word for word"):
+        generate_takes([line], c, tmp_path, VOICE, **QUIET)
+    assert c.calls == []

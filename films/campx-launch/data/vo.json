@@ -115,50 +115,50 @@
    "scene": "title",
    "act": "1",
    "text": "Introducing CampX Digital Evaluation. Powered by Medha AI.",
-   "start": 15.464,
-   "end": 19.709,
-   "take": 4,
+   "start": 15.459,
+   "end": 19.659,
+   "take": 16,
    "factor": 1.0,
    "words": [
     {
      "w": "Introducing",
      "start": 15.499,
-     "end": 16.044
+     "end": 15.999
     },
     {
      "w": "CampX",
-     "start": 16.129,
-     "end": 16.564
+     "start": 16.064,
+     "end": 16.559
     },
     {
      "w": "Digital",
-     "start": 16.639,
-     "end": 16.964
+     "start": 16.619,
+     "end": 16.899
     },
     {
      "w": "Evaluation.",
-     "start": 17.024,
-     "end": 17.684
+     "start": 16.984,
+     "end": 17.759
     },
     {
      "w": "Powered",
-     "start": 18.234,
-     "end": 18.574
+     "start": 18.219,
+     "end": 18.529
     },
     {
      "w": "by",
-     "start": 18.614,
-     "end": 18.754
+     "start": 18.569,
+     "end": 18.709
     },
     {
      "w": "Medha",
-     "start": 18.814,
-     "end": 19.074
+     "start": 18.749,
+     "end": 18.989
     },
     {
      "w": "AI.",
-     "start": 19.189,
-     "end": 19.574
+     "start": 19.179,
+     "end": 19.529
     }
    ]
   },
@@ -325,124 +325,124 @@
    "act": "1",
    "text": "Then Medha reads. Every line of handwriting is transcribed, corrected, and mapped to the right question, even when an answer runs across pages.",
    "start": 35.456,
-   "end": 45.066,
-   "take": 1,
+   "end": 45.096,
+   "take": 15,
    "factor": 1.0,
    "words": [
     {
      "w": "Then",
      "start": 35.501,
-     "end": 35.646
+     "end": 35.696
     },
     {
      "w": "Medha",
-     "start": 35.686,
-     "end": 36.006
+     "start": 35.756,
+     "end": 36.016
     },
     {
      "w": "reads.",
-     "start": 36.086,
-     "end": 36.426
+     "start": 36.096,
+     "end": 36.456
     },
     {
      "w": "Every",
-     "start": 36.731,
-     "end": 36.986
+     "start": 36.796,
+     "end": 37.036
     },
     {
      "w": "line",
-     "start": 37.086,
-     "end": 37.326
+     "start": 37.136,
+     "end": 37.356
     },
     {
      "w": "of",
-     "start": 37.386,
-     "end": 37.546
+     "start": 37.416,
+     "end": 37.556
     },
     {
      "w": "handwriting",
-     "start": 37.641,
-     "end": 38.366
+     "start": 37.646,
+     "end": 38.196
     },
     {
      "w": "is",
-     "start": 38.376,
-     "end": 38.586
+     "start": 38.236,
+     "end": 38.336
     },
     {
      "w": "transcribed,",
-     "start": 38.626,
-     "end": 39.366
+     "start": 38.376,
+     "end": 39.016
     },
     {
      "w": "corrected,",
-     "start": 39.931,
-     "end": 40.426
+     "start": 39.721,
+     "end": 40.206
     },
     {
      "w": "and",
-     "start": 40.491,
-     "end": 40.666
+     "start": 40.416,
+     "end": 40.596
     },
     {
      "w": "mapped",
-     "start": 40.746,
-     "end": 41.126
+     "start": 40.696,
+     "end": 41.076
     },
     {
      "w": "to",
-     "start": 41.166,
-     "end": 41.246
+     "start": 41.136,
+     "end": 41.216
     },
     {
      "w": "the",
-     "start": 41.286,
-     "end": 41.366
+     "start": 41.256,
+     "end": 41.336
     },
     {
      "w": "right",
-     "start": 41.426,
-     "end": 41.646
+     "start": 41.376,
+     "end": 41.616
     },
     {
      "w": "question,",
-     "start": 41.736,
-     "end": 42.206
+     "start": 41.721,
+     "end": 42.116
     },
     {
      "w": "even",
-     "start": 42.631,
-     "end": 42.926
+     "start": 42.666,
+     "end": 42.996
     },
     {
      "w": "when",
-     "start": 42.966,
-     "end": 43.086
+     "start": 43.036,
+     "end": 43.156
     },
     {
      "w": "an",
-     "start": 43.126,
-     "end": 43.326
+     "start": 43.196,
+     "end": 43.296
     },
     {
      "w": "answer",
-     "start": 43.341,
-     "end": 43.826
+     "start": 43.376,
+     "end": 43.696
     },
     {
      "w": "runs",
-     "start": 43.906,
-     "end": 44.086
+     "start": 43.756,
+     "end": 43.956
     },
     {
      "w": "across",
-     "start": 44.126,
-     "end": 44.406
+     "start": 43.996,
+     "end": 44.316
     },
     {
      "w": "pages.",
-     "start": 44.516,
-     "end": 44.966
+     "start": 44.556,
+     "end": 45.016
     }
    ]
   },
@@ -451,105 +451,105 @@
    "scene": "mark3d",
    "act": "1",
    "text": "Each answer is checked against your answer key, point by point. Medha suggests a mark, and shows exactly why.",
-   "start": 49.457,
-   "end": 56.532,
-   "take": 2,
+   "start": 49.462,
+   "end": 56.647,
+   "take": 16,
    "factor": 1.0,
    "words": [
     {
      "w": "Each",
      "start": 49.502,
-     "end": 49.767
+     "end": 49.732
     },
     {
      "w": "answer",
-     "start": 49.767,
-     "end": 50.247
+     "start": 49.742,
+     "end": 50.192
     },
     {
      "w": "is",
-     "start": 50.302,
-     "end": 50.427
+     "start": 50.252,
+     "end": 50.352
     },
     {
      "w": "checked",
-     "start": 50.502,
-     "end": 50.747
+     "start": 50.392,
+     "end": 50.612
     },
     {
      "w": "against",
-     "start": 50.807,
-     "end": 51.107
+     "start": 50.612,
+     "end": 51.152
     },
     {
      "w": "your",
-     "start": 51.142,
-     "end": 51.267
+     "start": 51.212,
+     "end": 51.352
     },
     {
      "w": "answer",
-     "start": 51.272,
-     "end": 51.587
+     "start": 51.392,
+     "end": 51.672
     },
     {
      "w": "key,",
-     "start": 51.752,
-     "end": 51.887
+     "start": 51.812,
+     "end": 51.932
     },
     {
      "w": "point",
-     "start": 52.237,
-     "end": 52.487
+     "start": 52.212,
+     "end": 52.452
     },
     {
      "w": "by",
-     "start": 52.527,
-     "end": 52.667
+     "start": 52.492,
+     "end": 52.652
     },
     {
      "w": "point.",
-     "start": 52.707,
-     "end": 52.987
+     "start": 52.692,
+     "end": 53.032
     },
     {
      "w": "Medha",
-     "start": 53.782,
-     "end": 54.107
+     "start": 53.732,
+     "end": 54.052
     },
     {
      "w": "suggests",
-     "start": 54.127,
-     "end": 54.547
+     "start": 54.087,
+     "end": 54.532
     },
     {
      "w": "a",
-     "start": 54.577,
-     "end": 54.667
+     "start": 54.592,
+     "end": 54.652
     },
     {
      "w": "mark,",
-     "start": 54.727,
-     "end": 54.987
+     "start": 54.712,
+     "end": 55.012
     },
     {
      "w": "and",
-     "start": 55.172,
-     "end": 55.287
+     "start": 55.127,
+     "end": 55.252
     },
     {
      "w": "shows",
-     "start": 55.367,
-     "end": 55.627
+     "start": 55.372,
+     "end": 55.672
     },
     {
      "w": "exactly",
-     "start": 55.627,
-     "end": 56.187
+     "start": 55.707,
+     "end": 56.312
     },
     {
      "w": "why.",
-     "start": 56.227,
-     "end": 56.407
+     "start": 56.352,
+     "end": 56.532
     }
    ]
   },
@@ -558,15 +558,15 @@
    "scene": "control",
    "act": "1",
    "text": "But the final word belongs to your faculty. Evaluators see the script and Medha's suggestions side by side. Accept, adjust, or override, in seconds. Anything uncertain is flagged for a closer look.",
-   "start": 62.464,
-   "end": 76.114,
-   "take": 3,
+   "start": 62.454,
+   "end": 76.164,
+   "take": 14,
    "factor": 1.0,
    "words": [
     {
      "w": "But",
      "start": 62.504,
-     "end": 62.634
+     "end": 62.614
     },
     {
      "w": "the",
@@ -576,152 +576,152 @@
     {
      "w": "final",
      "start": 62.814,
-     "end": 63.074
+     "end": 63.134
     },
     {
      "w": "word",
-     "start": 63.154,
-     "end": 63.354
+     "start": 63.214,
+     "end": 63.494
     },
     {
      "w": "belongs",
-     "start": 63.414,
-     "end": 63.854
+     "start": 63.569,
+     "end": 63.934
     },
     {
      "w": "to",
-     "start": 63.894,
-     "end": 63.974
+     "start": 63.974,
+     "end": 64.034
     },
     {
      "w": "your",
-     "start": 64.014,
-     "end": 64.114
+     "start": 64.094,
+     "end": 64.234
     },
     {
      "w": "faculty.",
-     "start": 64.229,
-     "end": 64.774
+     "start": 64.264,
+     "end": 64.814
     },
     {
      "w": "Evaluators",
-     "start": 65.614,
-     "end": 66.414
+     "start": 65.599,
+     "end": 66.434
     },
     {
      "w": "see",
-     "start": 66.454,
-     "end": 66.554
+     "start": 66.534,
+     "end": 66.654
     },
     {
      "w": "the",
-     "start": 66.594,
-     "end": 66.694
+     "start": 66.714,
+     "end": 66.794
     },
     {
      "w": "script",
-     "start": 66.714,
-     "end": 67.054
+     "start": 66.924,
+     "end": 67.214
     },
     {
      "w": "and",
-     "start": 67.204,
-     "end": 67.394
+     "start": 67.314,
+     "end": 67.446
     },
     {
      "w": "Medha's",
-     "start": 67.454,
-     "end": 67.974
+     "start": 67.526,
+     "end": 67.786
     },
     {
      "w": "suggestions",
-     "start": 68.014,
-     "end": 68.634
+     "start": 67.826,
+     "end": 68.446
     },
     {
      "w": "side",
-     "start": 68.844,
-     "end": 69.054
+     "start": 68.699,
+     "end": 69.036
     },
     {
      "w": "by",
-     "start": 69.094,
-     "end": 69.254
+     "start": 69.076,
+     "end": 69.236
     },
     {
      "w": "side.",
-     "start": 69.314,
-     "end": 69.594
+     "start": 69.276,
+     "end": 69.556
     },
     {
      "w": "Accept,",
-     "start": 70.309,
-     "end": 70.794
+     "start": 70.254,
+     "end": 70.814
     },
     {
      "w": "adjust,",
-     "start": 71.044,
-     "end": 71.474
+     "start": 71.009,
+     "end": 71.494
     },
     {
      "w": "or",
-     "start": 71.699,
-     "end": 71.854
+     "start": 71.649,
+     "end": 71.834
     },
     {
      "w": "override,",
-     "start": 71.909,
-     "end": 72.414
+     "start": 71.889,
+     "end": 72.454
     },
     {
      "w": "in",
-     "start": 72.419,
-     "end": 72.554
+     "start": 72.504,
+     "end": 72.634
     },
     {
      "w": "seconds.",
-     "start": 72.609,
-     "end": 73.034
+     "start": 72.664,
+     "end": 73.194
     },
     {
      "w": "Anything",
-     "start": 73.519,
-     "end": 73.934
+     "start": 73.499,
+     "end": 73.874
     },
     {
      "w": "uncertain",
-     "start": 73.944,
-     "end": 74.534
+     "start": 73.909,
+     "end": 74.454
     },
     {
      "w": "is",
-     "start": 74.574,
+     "start": 74.484,
      "end": 74.714
     },
     {
      "w": "flagged",
-     "start": 74.794,
-     "end": 75.114
+     "start": 74.754,
+     "end": 75.134
     },
     {
      "w": "for",
-     "start": 75.189,
-     "end": 75.274
+     "start": 75.204,
+     "end": 75.294
     },
     {
      "w": "a",
-     "start": 75.314,
-     "end": 75.374
+     "start": 75.334,
+     "end": 75.394
     },
     {
      "w": "closer",
-     "start": 75.414,
-     "end": 75.734
+     "start": 75.439,
+     "end": 75.774
     },
     {
      "w": "look.",
-     "start": 75.814,
-     "end": 76.034
+     "start": 75.854,
+     "end": 76.074
     }
    ]
   },

@@ -1,8 +1,10 @@
 """Generate voiceover takes: one WAV + JSON per (line, take), with the voice set in film.json pipeline.voice.
 Idempotent: a take whose WAV and JSON both exist is skipped, so an interrupted run resumes without paying twice.
 
-data/script.json holds the lines: {"lines": [{"id", "scene", "text", "takes"?, "optional"?}], "acts"?: [{"id",
-"name", "scenes"}]}. Without acts, the scenes are one act, in the order the lines first name them.
+data/script.json holds the lines: {"lines": [{"id", "scene", "text", "say"?, "takes"?, "optional"?}], "acts"?: [{"id",
+"name", "scenes"}]}. Without acts, the scenes are one act, in the order the lines first name them. A line's `say` is
+what the voice is sent instead of `text` (a respelling for pronunciation: "Maydha" for "Medha"); it must have as many
+words as `text`, word for word, and the take keeps `text`'s words as its display text.
 """
 import json
 from pathlib import Path
@@ -32,6 +34,29 @@ def take_paths(root: Path, line_id: str, k: int) -> tuple[Path, Path]:
     return root / line_id / f"{k}.wav", root / line_id / f"{k}.json"
 
 
+def spoken_text(line: dict) -> str:
+    """What the voice is sent for a line: its `say` when set (as many words as its `text`), else its `text`."""
+    say = line.get("say")
+    if not say:
+        return line["text"]
+    from .realign import tokens  # realign imports this module
+    if len(tokens(say)) != len(tokens(line["text"])):
+        raise ValueError(f"{line['id']}: say has {len(tokens(say))} words, text has {len(tokens(line['text']))}; "
+                         "respell word for word")
+    return say
+
+
+def display_words(line: dict, words: list[dict]) -> list[dict]:
+    """A take's words with the line's `text` as their display text (the voice was sent its `say`)."""
+    if not line.get("say"):
+        return words
+    from .realign import tokens
+    toks = tokens(line["text"])
+    if len(toks) != len(words):
+        raise ValueError(f"{line['id']}: the voice's alignment has {len(words)} words, text has {len(toks)}")
+    return [{**w, "w": t} for t, w in zip(toks, words)]
+
+
 def generate_takes(lines, client, out_dir: Path, voice: dict, only: set[str] | None = None,
                    takes: int | None = None, log=print) -> int:
     """Every missing take of every line (or of `only`). `voice` is pipeline.voice: voice_id, model, output_format,
@@ -44,18 +69,21 @@ def generate_takes(lines, client, out_dir: Path, voice: dict, only: set[str] | N
     for line in lines:
         if only and line["id"] not in only:
             continue
+        spoken = spoken_text(line)
         for k in range(1, (takes or line.get("takes", 2)) + 1):
             wav, meta = take_paths(out_dir, line["id"], k)
             if wav.exists() and meta.exists():
                 continue
-            r = client.tts(voice["voice_id"], line["text"], voice["model"], fmt, speed=voice.get("speed"),
+            r = client.tts(voice["voice_id"], spoken, voice["model"], fmt, speed=voice.get("speed"),
                            seed=voice.get("seed"), settings=voice.get("settings") or None)
             x = pcm16_to_float(r.audio)
             write_wav(wav, x, sr)
+            words = display_words(line, words_to_dicts(words_from_alignment(r.alignment)))
             meta.write_text(json.dumps({
-                "line": line["id"], "take": k, "text": line["text"], "voice_id": voice["voice_id"],
-                "model_id": voice["model"], "speed": voice.get("speed"), "sr": sr, "duration": round(len(x) / sr, 4),
-                "cost": r.cost, "request_id": r.request_id, "words": words_to_dicts(words_from_alignment(r.alignment)),
+                "line": line["id"], "take": k, "text": line["text"], **({"say": spoken} if spoken != line["text"] else {}),
+                "voice_id": voice["voice_id"], "model_id": voice["model"], "speed": voice.get("speed"), "seed": voice.get("seed"),
+                "sr": sr,
+                "duration": round(len(x) / sr, 4), "cost": r.cost, "request_id": r.request_id, "words": words,
             }, indent=1))
             made += 1
             log(f"{line['id']} take {k}: {len(x) / sr:.2f}s, {r.cost} credits")

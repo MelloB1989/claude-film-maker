@@ -97,3 +97,27 @@
 {"ts": "2026-10-13T02:39:20", "path": "/v1/sound-generation", "cost": 40, "request_id": ""}
 {"ts": "2026-10-13T02:39:24", "path": "/v1/sound-generation", "cost": 40, "request_id": ""}
 {"ts": "2026-10-13T02:35:00", "path": "/v1/music", "cost": 2250, "request_id": "", "note": "measured: subscription character_count before and after the three film-music variants (seeds 11-13); the endpoint sends no character-cost header, so the three rows above log 0"}
+{"ts": "2026-10-13T08:17:43", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 24, "request_id": "UIeuLJOZTc5f5jPNkLq2"}
+{"ts": "2026-10-13T08:17:44", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 24, "request_id": "yQ9cuvxaClz0ULRvTCYB"}
+{"ts": "2026-10-13T08:17:45", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 24, "request_id": "oap1gYod2vskgPpJq5h8"}
+{"ts": "2026-10-13T08:17:47", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 58, "request_id": "2vLm5at0qpUALBq9QFGH"}
+{"ts": "2026-10-13T08:17:50", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 58, "request_id": "vBQKOrrAUSWOBRYQHv0M"}
+{"ts": "2026-10-13T08:17:52", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 58, "request_id": "o5svxAlHgAqlP9HLyBDx"}
+{"ts": "2026-10-13T08:17:54", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 44, "request_id": "BQUNTXsNKvYmEfEinJ82"}
+{"ts": "2026-10-13T08:17:56", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 44, "request_id": "yCu01ozTmDG992B3aAQE"}
+{"ts": "2026-10-13T08:17:57", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 44, "request_id": "VwclXymszqYSvIC5qh2M"}
+{"ts": "2026-10-13T08:18:00", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 79, "request_id": "WQerpKR2VpmxJggQezWs"}
+{"ts": "2026-10-13T08:18:02", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 79, "request_id": "9HZ949JKuMoSkKVs3fRs"}
+{"ts": "2026-10-13T08:18:05", "path": "/v1/text-to-speech/kL06KYMvPY56NluIQ72m/with-timestamps", "cost": 79, "request_id": "it3P0EwMWAyrUArAuXTR"}
+{"ts": "2026-10-13T08:18:06", "path": "/v1/forced-alignment", "cost": 1, "request_id": ""}
+{"ts": "2026-10-13T08:18:07", "path": "/v1/forced-alignment", "cost": 1, "request_id": ""}
+{"ts": "2026-10-13T08:18:09", "path": "/v1/forced-alignment", "cost": 1, "request_id": ""}
+{"ts": "2026-10-13T08:18:10", "path": "/v1/forced-alignment", "cost": 3, "request_id": ""}
+{"ts": "2026-10-13T08:18:12", "path": "/v1/forced-alignment", "cost": 3, "request_id": ""}
+{"ts": "2026-10-13T08:18:14", "path": "/v1/forced-alignment", "cost": 3, "request_id": ""}
+{"ts": "2026-10-13T08:18:16", "path": "/v1/forced-alignment", "cost": 2, "request_id": ""}
+{"ts": "2026-10-13T08:18:18", "path": "/v1/forced-alignment", "cost": 2, "request_id": ""}
+{"ts": "2026-10-13T08:18:19", "path": "/v1/forced-alignment", "cost": 2, "request_id": ""}
+{"ts": "2026-10-13T08:18:21", "path": "/v1/forced-alignment", "cost": 4, "request_id": ""}
+{"ts": "2026-10-13T08:18:23", "path": "/v1/forced-alignment", "cost": 4, "request_id": ""}
+{"ts": "2026-10-13T08:18:25", "path": "/v1/forced-alignment", "cost": 4, "request_id": ""}
