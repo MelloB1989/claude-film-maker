@@ -17,30 +17,35 @@ const pxT = pxOf(2500), rgT = rgOf(2500);
 
 // Times are the scene's local seconds, set on the VO words (data/vo.json; film time = scene start + t).
 
-// ingestui (film 29-35): 'and checks each script for tampering' 29.44, 'before an evaluator ever sees it' 32.0-34.1.
-// The tall capture shows the whole ingestion pipeline; every callout points at a row that says it.
+// ingestui (film 29-35): 'and checks each script for tampering' 29.44-31.6, 'before an evaluator ever sees it' 32.0-34.1.
+// Opens close on the tall capture's Ingestion pipeline (row text about 24 px on a 1080p frame): the seven stage
+// circles light one after another, 0.18 s apart from 29.4, as if each script passes every stage; then on 'before
+// an evaluator ever sees it' a slow pull back and up to the green 'All scripts processed' banner.
+// Every callout points at a row that says it.
+const STAGE_Y = [1430, 1530, 1630, 1730, 1830, 1930, 2029]; // the stage circles' centres (x 646, radius about 20 px)
 export const ingestui: Cfg = {
   images: [{ src: UI + 'ingestui_batch_stages_tall.png' }],
   base: { h: 0.9 },
   yaw: -12,
   cam: [
-    { t: 0, x: 0.46, y: 0.72, z: 1.1, ax: 0.5, ay: 0.5 },
-    { t: 2.6, x: 0.43, y: 0.75, z: 1.34, ax: 0.5, ay: 0.5 },
-    { t: 4.6, x: 0.47, y: 0.53, z: 1.2, ax: 0.5, ay: 0.52 },
-    { t: 6, x: 0.47, y: 0.53, z: 1.16, ax: 0.5, ay: 0.52 },
+    { t: -0.4, x: 0.325, y: 0.688, z: 2.2, ax: 0.4, ay: 0.52 },
+    { t: 3.0, x: 0.335, y: 0.694, z: 2.38, ax: 0.4, ay: 0.52 },
+    { t: 5.3, x: 0.565, y: 0.3, z: 1.78, ax: 0.5, ay: 0.44 },
+    { t: 6.4, x: 0.565, y: 0.3, z: 1.72, ax: 0.5, ay: 0.44 },
   ],
   spots: [
-    // the pipeline rows, then the banner down to them
-    { t0: -0.7, t1: 3.6, rect: rgT(594, 1373, 2528, 707), pad: 0.004 },
-    { t0: 3.4, t1: 6.8, rect: rgT(558, 637, 2599, 1443), pad: 0.004 },
+    // the pipeline rows, then the banner above them
+    { t0: -0.7, t1: 4.9, rect: rgT(592, 1262, 2532, 800), pad: 0.004 },
+    { t0: 3.3, t1: 6.8, rect: rgT(566, 628, 2574, 152), pad: 0.004 },
   ],
+  ticks: STAGE_Y.map((y, i) => ({ t: 0.4 + 0.18 * i, at: pxT(646, y), r: 21 / 3200, until: 4.7, tone: 'accent' as const })),
   callouts: [
-    // 'Page preparation & tamper checks': the leader lands at 29.6 on 'checks', the label is in by 29.7
-    { t: 0.1, text: 'Tamper-checked', at: pxT(1290, 1834), off: [90, -100] },
-    // 'Anonymisation'
-    { t: 1.5, text: 'Identity removed', at: pxT(1000, 1934), off: [170, 45] },
+    // 'Page preparation & tamper checks': the leader lands at 29.6 on 'checks'
+    { t: 1.2, until: 4.3, text: 'Tamper-checked', at: pxT(1250, 1830), off: [150, -70] },
+    // 'Anonymisation', in by 30.55
+    { t: 1.4, until: 4.4, text: 'Identity removed', at: pxT(980, 1930), off: [380, 60] },
     // 'This ZIP held 2 scripts: ...'
-    { t: 3.5, text: 'Split per booklet', at: pxT(1700, 726), off: [200, 52] },
+    { t: 4.2, text: 'Split per booklet', at: pxT(925, 764), off: [150, 90] },
   ],
 };
 

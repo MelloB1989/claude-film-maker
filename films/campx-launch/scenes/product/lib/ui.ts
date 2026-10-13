@@ -17,6 +17,11 @@ import { camAt, cursorAt, project, quad, rise, window, type Cfg, type View } fro
 
 const SLICES = 560;
 
+// Ticks drawn over a circle in the capture (ingestui's pipeline stages) carry its radius and pulse when they land.
+declare module './geometry' {
+  interface Tick { /** radius of the capture's circle, as a fraction of the image width (opts into stageTick) */ r?: number; /** stageTick only: fades out by then */ until?: number }
+}
+
 export abstract class UiScene extends Scene2D {
   protected abstract readonly cfg: Cfg;
   private media: MediaSource[] = [];
@@ -324,8 +329,13 @@ export abstract class UiScene extends Scene2D {
       const a = rise(t, tk.t, 0.35);
       if (a < 0.003) continue;
       const p = project(v, tk.at[0], tk.at[1]);
-      const r = 17 * u * p.s;
       const key = tk.tone ?? 'accent2';
+      if (tk.r !== undefined) {
+        const w = tk.until === undefined ? 1 : 1 - rise(t, tk.until - 0.5, 0.5);
+        if (w > 0.003) this.stageTick(c, p, tk.r * v.bw * p.s, t - tk.t, a * w, key);
+        continue;
+      }
+      const r = 17 * u * p.s;
       for (const [cx, ink] of [[c, (x: number) => rgba(key + 'Bright', x)], [g, (x: number) => glowInk(key, x * 0.8)]] as const) {
         cx.save();
         cx.strokeStyle = ink(a);
@@ -349,6 +359,57 @@ export abstract class UiScene extends Scene2D {
         cx.restore();
       }
     }
+  }
+
+  /** A tick sized to a circle in the capture (radius r px): the circle lights in the tone, the check redraws over
+   * it, and an accent ring pulses out once. Opt-in through Tick.r, so the drawn ticks above keep their look. */
+  private stageTick(c: CanvasRenderingContext2D, p: { x: number; y: number }, r: number, age: number, a: number, key: string) {
+    const u = this.u, g = this.glow;
+    const k = clamp(age / 0.9);
+    const flash = Math.exp(-Math.max(0, age) * 3.2) * (age > 0 ? 1 : 0);
+    // the pulse: one ring easing outward and fading
+    if (k > 0 && k < 1) {
+      const e = 1 - (1 - k) * (1 - k);
+      for (const [cx, ink, lw] of [[c, (x: number) => rgba(key + 'Bright', x), 2 * u], [g, (x: number) => glowInk(key, x), 4 * u]] as const) {
+        cx.save();
+        cx.strokeStyle = ink(0.85 * (1 - k) * (1 - k));
+        cx.lineWidth = lw;
+        cx.beginPath();
+        cx.arc(p.x, p.y, r * (1.05 + 1.9 * e), 0, Math.PI * 2);
+        cx.stroke();
+        cx.restore();
+      }
+    }
+    // the lit circle over the capture's own, with a soft bloom that settles
+    // (a ring of light round the circle, clear in the middle so the check stays white)
+    const R = r * (1.7 + 0.6 * flash);
+    const bl = g.createRadialGradient(p.x, p.y, r * 0.95, p.x, p.y, R);
+    bl.addColorStop(0, glowInk(key, (0.3 + 0.6 * flash) * a));
+    bl.addColorStop(1, glowInk(key, 0));
+    g.save();
+    g.fillStyle = bl;
+    g.beginPath();
+    g.arc(p.x, p.y, R, 0, Math.PI * 2);
+    g.arc(p.x, p.y, r * 0.95, 0, Math.PI * 2, true);
+    g.fill();
+    g.restore();
+    c.save();
+    c.fillStyle = rgba(key, a);
+    c.beginPath();
+    c.arc(p.x, p.y, r * (1.04 + 0.1 * flash) * (0.85 + 0.15 * a), 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = rgba('fg', a);
+    c.lineWidth = Math.max(1.6 * u, r * 0.17);
+    c.lineCap = c.lineJoin = 'round';
+    const d = clamp((age - 0.05) / 0.3);
+    const pts = [[-0.4, 0.02], [-0.1, 0.3], [0.42, -0.26]].map(([x, y]) => [p.x + x! * r, p.y + y! * r] as const);
+    c.beginPath();
+    c.moveTo(pts[0][0], pts[0][1]);
+    const k1 = Math.min(1, d * 2);
+    c.lineTo(lerp(pts[0][0], pts[1][0], k1), lerp(pts[0][1], pts[1][1], k1));
+    if (d > 0.5) c.lineTo(lerp(pts[1][0], pts[2][0], (d - 0.5) * 2), lerp(pts[1][1], pts[2][1], (d - 0.5) * 2));
+    c.stroke();
+    c.restore();
   }
 
   private callouts(c: CanvasRenderingContext2D, cfg: Cfg, v: View, t: number) {

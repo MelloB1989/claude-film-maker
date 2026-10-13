@@ -1,16 +1,19 @@
-"""open: the cold open (9 s). Darkness, then a slow low dolly forward through a hall of towering answer-script stacks
-receding into haze under a high slit of light; near the end of the dolly one page lifts off the nearest stack, turns
-to face the camera and rises toward it. A light sweep in the brand gradient crosses its handwriting and by the last
-frame the page nearly fills the frame, in focus, ready to match-cut into the macro handwriting.
+"""open: the cold open (9 s). Near-total darkness; at f24 one hard, narrow shaft of light snaps on like a stage light and
+slices down through drifting dust onto the nearest stack of answer scripts. On 'thousands of answer scripts' (f95) the
+camera cranes up and back (fast, easing out) to show the true scale, rows of stacks to a vanishing point, while more
+shafts switch on in sequence down the hall like a cathedral lighting up; loose pages drift down through the beams. On
+'Millions of handwritten pages' (f151) the hero page lifts off the nearest stack and flies toward the camera as the
+camera pushes in to meet it, with a hard rack focus and a backlit rim on its edges; by f269 it fills the frame,
+face-on, evenly lit and razor sharp, ready for the match cut.
 
-Cheap by design (target <= 6 s per 1280x720 frame at 24 samples + OIDN on 16 vCPU): the stacks are a dozen shared
-meshes instanced a few hundred times, the shafts are camera-only emissive ribbons (no volumes), the dust is a few
-dozen small spheres lit by the beam, and the haze is a depth fade in the materials. Everything is seeded and every
-animated value is a pure function of the frame, so a re-render is identical.
+Cheap by design (<= 3 s per 1920x1080 frame at 96 spp on an RTX 4090): the stacks are a dozen shared meshes instanced
+a couple of thousand times, the shafts are spot lights plus camera-only emissive cones (no volumes), the dust is small
+spheres lit by the beams, and the haze is a depth fade in the materials. Everything is seeded and every animated value
+is a pure function of the frame, so a re-render is identical.
 
-Roles used: fg (paper), bg/bg2/surface2 (world, floor, haze), accentDim/accent/accent2 (the sweep), ruleStrong (the cool
-ambient). The beam is the key's own colour (a 4300 K blackbody).
-Emissive non-accent bits: the shafts (fg, kept faint) and the haze (surface2, kept faint).
+Roles used: fg (paper), bg/bg2/surface2 (world, floor, haze), accentDim/accent/accent2 (the thin rim sweep on the hero
+page's edge), ruleStrong (the cool ambient). The beams are a 4300 K blackbody.
+Emissive non-accent bits: the beam cones (blackbody, camera-only) and the haze (surface2, kept faint).
 """
 from __future__ import annotations
 
@@ -19,21 +22,36 @@ import random
 
 import numpy as np
 
-SHOT = {"frames": [0, 270], "look": "0,45,110,175,215,269", "black_ok": "0-6"}
+SHOT = {"frames": [0, 270], "look": "15,40,100,130,170,230,269", "black_ok": "0-23"}
 
-# ---- scale: a booklet is 0.316 x 0.475 m (the sheets' own aspect), stacks are towering
+# ---- scale: a booklet is 0.316 x 0.475 m (the sheets' own aspect)
 W, H = 0.316, 0.475
 HERO_XY = (0.04, 2.3)  # the nearest stack, on the aisle
 HERO_TOP = 0.95  # the hero stack's height (m)
-LIFT0, LIFT1 = 150, 269  # the page's flight (frames): it lifts on the VO's 'Millions' (5.0 s)  # the page's flight (frames)
+LIFT0, LIFT1 = 151, 258  # the page's flight (frames): it lifts on the VO's 'Millions' (5.03 s)
 FOV = 30.0  # vertical, degrees
-FILL = 0.93  # the page's share of the frame height on the last frame
+FILL = 0.93  # the page's share of the frame height at the end
 SHEETS = ["giet_38189_p03", "giet_38179_p03", "giet_38205_p04", "giet_38189_p05", "giet_38179_p06", "giet_38205_p07"]
 HERO_SHEET = "hires_38189_p01"
 HERO_UNDER = "hires_38189_p02"
-HEIGHTS = [1.2, 1.7, 2.2, 2.8, 3.4, 4.0, 4.7, 5.4, 6.2, 7.0]
-WINDOW = np.array([-7.0, 16.0, 27.0])  # where the light comes from
-WINDOW_AIM = np.array([1.0, 6.0, 0.0])
+HEIGHTS = [0.75, 0.95, 1.15, 1.35, 1.6, 1.85, 2.1, 2.4, 2.8, 3.3]
+BEAM = np.array([0.30, -0.35, -1.0]) / np.linalg.norm([0.30, -0.35, -1.0])  # shafts fall toward the camera (backlight)
+BEAM_TOP = 14.0  # the height the shafts come from
+FIRST_ON = 24  # the first shaft snaps on
+KEY_W = 60.0  # the page key at full (W)
+# the shafts: (x, y, z of the spot they land on, switch-on frame); the first is the hero stack's
+SHAFTS = [(HERO_XY[0], HERO_XY[1], HERO_TOP, FIRST_ON)] + [
+    (x, y, 0.0, 97 + 5 * i)
+    for i, (x, y) in enumerate([(-0.9, 5.6), (1.1, 9.0), (-0.2, 12.8), (1.6, 17.0), (-1.4, 21.5), (0.5, 27.0),
+                                (-0.8, 33.5), (1.3, 41.0), (-0.3, 50.0)])
+]
+# camera keys: position and look target
+P0, T0 = np.array([0.16, 0.42, 1.10]), np.array([0.04, 2.3, 0.97])
+P1, T1 = np.array([0.15, 0.72, 1.14]), np.array([0.04, 2.3, 1.00])
+P2, T2 = np.array([0.22, -5.2, 4.2]), np.array([0.0, 13.0, 0.2])
+P3, T3 = np.array([0.08, -0.35, 1.72]), np.array([0.05, 8.0, 1.36])
+CRANE0, CRANE1 = 95, 150
+PUSH0, PUSH1 = 151, 262
 
 
 def sstep(x: float) -> float:
@@ -46,24 +64,51 @@ def sstep5(x: float) -> float:
     return x * x * x * (x * (6 * x - 15) + 10)
 
 
+def crane_ease(x: float, a: float = 0.08) -> float:
+    """Fast then a long ease-out (a cubic out), with a few frames of ease-in so the start is not a jolt."""
+    x = min(1.0, max(0.0, x))
+    xe = (x * x / (2 * a) if x < a else x - a / 2) / (1 - a / 2)
+    return 1 - (1 - xe) ** 3
+
+
+def shaft_on(f: float, f_on: float) -> float:
+    """A stage light: a fast ease-in over ~5 frames, a touch of overshoot, settle."""
+    x = (f - f_on) / 5.0
+    if x <= 0:
+        return 0.0
+    if x >= 1:
+        return 1.0 + 0.06 * math.exp(-(x - 1) * 1.2) * (1 if x < 4 else 0)
+    return 1 - (1 - x) ** 3
+
+
 # ----------------------------------------------------------------------------------------------- camera path
+
+def cam_look(f: float) -> tuple[np.ndarray, np.ndarray]:
+    if f < CRANE0:
+        e = max(0.0, f) / CRANE0
+        return P0 + (P1 - P0) * e, T0 + (T1 - T0) * e
+    if f < PUSH0:
+        e = crane_ease((f - CRANE0) / (CRANE1 - CRANE0))
+        return P1 + (P2 - P1) * e, T1 + (T2 - T1) * e
+    e = sstep5((f - PUSH0) / (PUSH1 - PUSH0))
+    tail = max(0.0, f - PUSH1) / 20.0  # a creep of a centimetre or two so the stop is not dead
+    pos = P2 + (P3 - P2) * e
+    pos = pos + (T3 - P3) / np.linalg.norm(T3 - P3) * 0.015 * min(tail, 1.0)
+    return pos, T2 + (T3 - T2) * e
+
 
 def cam_pose(f: float) -> tuple[np.ndarray, float, float]:
     """(position, pitch deg, yaw deg) at film frame f."""
-    t = f / 180.0
-    e = sstep(min(t, 1.0))
-    tail = max(0.0, f - 180.0) / 90.0  # a creep of a few cm after the dolly ends, so the stop is not dead
-    y = -4.2 + 4.2 * e + 0.12 * (1 - (1 - min(tail, 1.0)) ** 2)
-    z = 0.34 + 0.46 * sstep(f / 130.0) + 0.38 * sstep((f - 120.0) / 110.0)
-    x = 0.05 * math.sin(f / 70.0)
-    pitch = 2.0 + 3.2 * sstep(f / 120.0) - 6.4 * sstep((f - 120.0) / 110.0)
-    yaw = 1.2 * math.sin(f / 95.0)
-    return np.array([x, y, z]), pitch, yaw
+    p, t = cam_look(f)
+    d = t - p
+    pitch = math.degrees(math.atan2(d[2], math.hypot(d[0], d[1])))
+    yaw = math.degrees(math.atan2(d[0], d[1]))
+    return p, pitch, -yaw
 
 
 def cam_basis(pitch: float, yaw: float):
-    """forward, right, up (world) for the camera at pitch/yaw degrees (yaw 0 looks down +y)."""
-    p, w = math.radians(pitch), math.radians(yaw)
+    """forward, right, up (world) for the camera at pitch/yaw degrees (yaw 0 looks down +y; Blender's z rotation)."""
+    p, w = math.radians(pitch), math.radians(-yaw)
     fwd = np.array([math.sin(w) * math.cos(p), math.cos(w) * math.cos(p), math.sin(p)])
     right = np.cross(fwd, [0, 0, 1.0])
     right /= np.linalg.norm(right)
@@ -76,18 +121,16 @@ def page_dist_end() -> float:
 
 
 def page_state(f: float):
-    """(position, 3x3 rotation matrix with columns = page x, y, normal, curl, progress) at frame f."""
+    """(position, 3x3 rotation matrix with columns = page x, y, normal, progress) at frame f."""
     cp, pitch, yaw = cam_pose(f)
     fwd, right, up = cam_basis(pitch, yaw)
-    p = sstep((f - LIFT0) / 125.0)
-    # start: lying on the stack top (flat, text up the +y); end: facing the camera
+    p = sstep5((f - LIFT0) / (LIFT1 - LIFT0))
     start = np.array([HERO_XY[0], HERO_XY[1], HERO_TOP + 0.002])
     end_pos = cp + fwd * page_dist_end()
-    lift = math.sin(math.pi * min(1.0, p * 1.15)) * 0.22 * (1 - p)  # a rise, then settle
-    pos = start + (end_pos - start) * (p ** 1.15) + np.array([0.0, 0.0, 0.0])
-    pos[2] += lift + 0.30 * sstep(p / 0.35) * (1 - sstep((p - 0.35) / 0.65))
-    pos[0] += 0.10 * math.sin(math.pi * p) * (1 - p)  # a gentle drift sideways
-    # orientation: slerp flat -> facing, with a late-leaning turn
+    q = p ** 1.3
+    pos = start + (end_pos - start) * q
+    pos[2] += 0.32 * math.sin(math.pi * min(1.0, p * 1.25)) * (1 - p) ** 0.6  # it lifts first, then flies
+    pos[0] += 0.08 * math.sin(math.pi * p) * (1 - p)  # a gentle drift sideways
     r1 = np.stack([right, up, -fwd], axis=1)
     return pos, r1, p
 
@@ -119,6 +162,8 @@ def build(ctx):
     def image(name):
         return bpy.data.images.load(str(sheets_dir / f"{name}.jpg"), check_existing=True)
 
+    fog_gain = []  # (socket, strength): the haze comes up with the light
+
     # ---- shared bits of node trees
     def fog_mix(nt, shader_out, density=0.07, strength=0.3):
         """Fade a shader into a dim indigo haze with the distance from the camera (a fake, volume-free atmosphere)."""
@@ -137,6 +182,7 @@ def build(ctx):
         em = nt.nodes.new("ShaderNodeEmission")
         em.inputs["Color"].default_value = lin("surface2")
         em.inputs["Strength"].default_value = strength
+        fog_gain.append((em.inputs["Strength"], strength))
         mix = nt.nodes.new("ShaderNodeMixShader")
         nt.links.new(inv.outputs[0], mix.inputs[0])
         nt.links.new(shader_out, mix.inputs[1])
@@ -330,34 +376,36 @@ def build(ctx):
     hs.location = (*HERO_XY, 0.0)
     coll.objects.link(hs)
 
-    # ---- the hall: a seeded scatter, dense and tall about the aisle, thinning into the haze
+    # ---- the hall: rows of stacks either side of the aisle, running to a vanishing point in the haze
     aisle = 0.62
     placed = 0
-    y = -5.5
-    while y < 30.0:
-        x = -7.0
-        while x < 7.0:
-            jx, jy = rnd.uniform(-0.22, 0.22), rnd.uniform(-0.25, 0.25)
-            px, py = x + jx, y + jy
-            gap = abs(px) - aisle
-            near_hero = math.hypot(px - HERO_XY[0], py - HERO_XY[1]) < 0.85
-            skip = rnd.random() < (0.10 + 0.012 * max(0.0, py))  # gaps, more of them the farther away
-            if gap > 0 and not near_hero and not skip:
-                hi = min(len(HEIGHTS) - 1, int(abs(rnd.gauss(0.55 - gap * 0.03, 0.3)) * len(HEIGHTS)) + 1)
-                if py < 1.0:
-                    hi = max(hi, 3)
-                me, h = variants[hi]
-                if 0.0 < gap < 2.5 and py > -2.0 and rnd.random() < 0.16:
-                    me, h = lows[rnd.randrange(len(lows))]
-                ob = bpy.data.objects.new("stack", me)
-                ob.location = (px, py, 0.0)
-                lean = 0.9 + 0.12 * h
-                ob.rotation_euler = (math.radians(rnd.uniform(-lean, lean)), math.radians(rnd.uniform(-lean, lean)),
-                                     math.radians(rnd.uniform(-7, 7)))
-                coll.objects.link(ob)
-                placed += 1
-            x += rnd.uniform(0.75, 1.1)
-        y += rnd.uniform(0.85, 1.2)
+    row = 0
+    y = -6.5
+    while y < 72.0:
+        x0 = 0.42 * (row % 2)
+        for side in (-1, 1):
+            x = aisle + 0.3 + (x0 if side > 0 else 0.42 - x0)
+            while x < 13.0:
+                px, py = side * (x + rnd.uniform(-0.05, 0.05)), y + rnd.uniform(-0.06, 0.06)
+                near_hero = math.hypot(px - HERO_XY[0], py - HERO_XY[1]) < 0.85
+                if not near_hero and rnd.random() > 0.05:
+                    gap = abs(px) - aisle
+                    hi = int(round(rnd.gauss(5.0 if gap < 1.5 else 3.6, 1.8)))
+                    if rnd.random() < 0.05:
+                        hi = len(HEIGHTS) - 1  # the odd tower
+                    me, h = variants[min(len(HEIGHTS) - 1, max(0, hi))]
+                    if gap < 2.5 and rnd.random() < 0.10:
+                        me, h = lows[rnd.randrange(len(lows))]
+                    ob = bpy.data.objects.new("stack", me)
+                    ob.location = (px, py, 0.0)
+                    lean = 0.6 + 0.12 * h
+                    ob.rotation_euler = (math.radians(rnd.uniform(-lean, lean)), math.radians(rnd.uniform(-lean, lean)),
+                                         math.radians(rnd.uniform(-5, 5)))
+                    coll.objects.link(ob)
+                    placed += 1
+                x += 0.84
+        y += 0.98
+        row += 1
     print(f"open: {placed} stacks")
 
     # ---- the floor
@@ -371,7 +419,22 @@ def build(ctx):
     floor = bpy.data.objects.new("floor", fme)
     coll.objects.link(floor)
 
-    # ---- the hero page: a thin curved slab, a real sheet, the light sweep in the brand gradient on its ink
+    # ---- math-node helper
+    def mth(nt, op, a, b=None, clamp=False):
+        n = nt.nodes.new("ShaderNodeMath")
+        n.operation = op
+        n.use_clamp = clamp
+        for k, v in enumerate((a, b)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                n.inputs[k].default_value = float(v)
+            else:
+                nt.links.new(v, n.inputs[k])
+        return n.outputs[0]
+
+    # ---- the hero page: a thin slab, a real sheet with its ink deepened; the brand gradient is only a thin rim
+    # light gliding along the page's edge, never a wash
     NX, NY = 20, 28
     verts = [((i / NX - 0.5) * W, (j / NY - 0.5) * H, 0.0) for j in range(NY + 1) for i in range(NX + 1)]
     faces = [(j * (NX + 1) + i, j * (NX + 1) + i + 1, (j + 1) * (NX + 1) + i + 1, (j + 1) * (NX + 1) + i)
@@ -391,8 +454,8 @@ def build(ctx):
         nt.nodes.remove(n)
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    bsdf.inputs["Roughness"].default_value = 0.7
-    bsdf.inputs["Specular IOR Level"].default_value = 0.3
+    bsdf.inputs["Roughness"].default_value = 0.72
+    bsdf.inputs["Specular IOR Level"].default_value = 0.2
     bsdf.inputs["Subsurface Weight"].default_value = 0.0
     uvn = nt.nodes.new("ShaderNodeTexCoord")
     img = nt.nodes.new("ShaderNodeTexImage")
@@ -400,79 +463,72 @@ def build(ctx):
     img.interpolation = "Cubic"
     img.extension = "EXTEND"
     nt.links.new(uvn.outputs["UV"], img.inputs["Vector"])
+    # ink mask from the scan's luminance: the ink is pushed darker so the handwriting reads crisp at any exposure
+    ink = nt.nodes.new("ShaderNodeRGBToBW")
+    nt.links.new(img.outputs["Color"], ink.inputs["Color"])
+    inkm = nt.nodes.new("ShaderNodeMapRange")
+    inkm.inputs[1].default_value, inkm.inputs[2].default_value = 0.80, 0.30
+    nt.links.new(ink.outputs[0], inkm.inputs[0])
+    deepen = mth(nt, "MULTIPLY_ADD", inkm.outputs[0], -0.6)
+    deepen.node.inputs[2].default_value = 1.0
+    dk = nt.nodes.new("ShaderNodeMix")
+    dk.data_type, dk.blend_type = "RGBA", "MULTIPLY"
+    dk.inputs[0].default_value = 1.0
+    nt.links.new(img.outputs["Color"], dk.inputs[6])
+    dkc = nt.nodes.new("ShaderNodeCombineColor")
+    for k in range(3):
+        nt.links.new(deepen, dkc.inputs[k])
+    nt.links.new(dkc.outputs[0], dk.inputs[7])
     paper = nt.nodes.new("ShaderNodeMix")
     paper.data_type, paper.blend_type = "RGBA", "MULTIPLY"
     paper.inputs[0].default_value = 1.0
     paper.inputs[7].default_value = lin("fg", 0.97)
-    nt.links.new(img.outputs["Color"], paper.inputs[6])
+    nt.links.new(dk.outputs[2], paper.inputs[6])
     nt.links.new(paper.outputs[2], bsdf.inputs["Base Color"])
     bump_n = nt.nodes.new("ShaderNodeTexNoise")
     bump_n.inputs["Scale"].default_value = 900.0
     bump_n.inputs["Detail"].default_value = 3.0
     nt.links.new(uvn.outputs["UV"], bump_n.inputs["Vector"])
     bump = nt.nodes.new("ShaderNodeBump")
-    bump.inputs["Strength"].default_value = 0.08
-    bump.inputs["Distance"].default_value = 0.0006
+    bump.inputs["Strength"].default_value = 0.05
+    bump.inputs["Distance"].default_value = 0.0004
     nt.links.new(bump_n.outputs["Fac"], bump.inputs["Height"])
     nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
-    # ink mask from the scan's luminance, and the sweep band along u + 0.35 v
-    ink = nt.nodes.new("ShaderNodeRGBToBW")
-    nt.links.new(img.outputs["Color"], ink.inputs["Color"])
-    inkm = nt.nodes.new("ShaderNodeMapRange")
-    inkm.inputs[1].default_value, inkm.inputs[2].default_value = 0.88, 0.45
-    nt.links.new(ink.outputs[0], inkm.inputs[0])
+    # the rim: distance to the page's nearest edge (m), a band ~2.5 mm wide, times a sweep gliding along u + 0.35 v
     sepuv = nt.nodes.new("ShaderNodeSeparateXYZ")
     nt.links.new(uvn.outputs["UV"], sepuv.inputs[0])
-    diag = nt.nodes.new("ShaderNodeMath")
-    diag.operation = "MULTIPLY_ADD"
-    diag.inputs[1].default_value = 0.35
-    nt.links.new(sepuv.outputs["Y"], diag.inputs[0])
-    nt.links.new(sepuv.outputs["X"], diag.inputs[2])
+    u, v = sepuv.outputs["X"], sepuv.outputs["Y"]
+    du = mth(nt, "MULTIPLY", mth(nt, "MINIMUM", u, mth(nt, "SUBTRACT", 1.0, u)), W)
+    dv = mth(nt, "MULTIPLY", mth(nt, "MINIMUM", v, mth(nt, "SUBTRACT", 1.0, v)), H)
+    dedge = mth(nt, "MINIMUM", du, dv)
+    edge = mth(nt, "SUBTRACT", 1.0, mth(nt, "DIVIDE", dedge, 0.0025), clamp=True)
+    edge = mth(nt, "MULTIPLY", edge, edge)
     pos_v = nt.nodes.new("ShaderNodeValue")
     pos_v.label = "sweep"
-    sub = nt.nodes.new("ShaderNodeMath")
-    sub.operation = "SUBTRACT"
-    nt.links.new(diag.outputs[0], sub.inputs[0])
-    nt.links.new(pos_v.outputs[0], sub.inputs[1])
-    # band profile: exp(-(d/w)^2), asymmetric colour ramp across it (indigo trailing, magenta, coral leading)
-    sq = nt.nodes.new("ShaderNodeMath")
-    sq.operation = "MULTIPLY"
-    nt.links.new(sub.outputs[0], sq.inputs[0])
-    nt.links.new(sub.outputs[0], sq.inputs[1])
-    neg = nt.nodes.new("ShaderNodeMath")
-    neg.operation, neg.inputs[1].default_value = "MULTIPLY", -1.0 / (0.075 ** 2)
-    nt.links.new(sq.outputs[0], neg.inputs[0])
-    band = nt.nodes.new("ShaderNodeMath")
-    band.operation = "EXPONENT"
-    nt.links.new(neg.outputs[0], band.inputs[0])
+    diag = mth(nt, "MULTIPLY_ADD", v, 0.35)
+    nt.links.new(u, diag.node.inputs[2])
+    sub = mth(nt, "SUBTRACT", diag, pos_v.outputs[0])
+    band = mth(nt, "EXPONENT", mth(nt, "MULTIPLY", mth(nt, "MULTIPLY", sub, sub), -1.0 / (0.16 ** 2)))
     gradpos = nt.nodes.new("ShaderNodeMapRange")
-    gradpos.inputs[1].default_value, gradpos.inputs[2].default_value = -0.16, 0.16
-    nt.links.new(sub.outputs[0], gradpos.inputs[0])
+    gradpos.inputs[1].default_value, gradpos.inputs[2].default_value = -0.3, 0.3
+    nt.links.new(sub, gradpos.inputs[0])
     grad = nt.nodes.new("ShaderNodeValToRGB")
     grad.color_ramp.elements[0].position, grad.color_ramp.elements[0].color = 0.0, lin("accentDim")
     mid = grad.color_ramp.elements.new(0.5)
     mid.color = lin("accent")
     grad.color_ramp.elements[2].position, grad.color_ramp.elements[2].color = 1.0, lin("accent2")
     nt.links.new(gradpos.outputs[0], grad.inputs["Fac"])
-    amt = nt.nodes.new("ShaderNodeMath")  # band x (a soft paper wash + the ink lit up)
-    amt.operation = "MULTIPLY_ADD"
-    amt.inputs[1].default_value, amt.inputs[2].default_value = 2.6, 0.22
-    nt.links.new(inkm.outputs[0], amt.inputs[0])
-    amt2 = nt.nodes.new("ShaderNodeMath")
-    amt2.operation = "MULTIPLY"
-    nt.links.new(band.outputs[0], amt2.inputs[0])
-    nt.links.new(amt.outputs[0], amt2.inputs[1])
-    strength = nt.nodes.new("ShaderNodeMath")
-    strength.operation, strength.inputs[1].default_value = "MULTIPLY", 2.3
-    nt.links.new(amt2.outputs[0], strength.inputs[0])
+    rim_k = nt.nodes.new("ShaderNodeValue")
+    rim_k.label = "rim gain"
+    strength = mth(nt, "MULTIPLY", mth(nt, "MULTIPLY", edge, band), rim_k.outputs[0])
     nt.links.new(grad.outputs["Color"], bsdf.inputs["Emission Color"])
-    nt.links.new(strength.outputs[0], bsdf.inputs["Emission Strength"])
+    nt.links.new(strength, bsdf.inputs["Emission Strength"])
     nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
     pme.materials.append(pm)
     page = bpy.data.objects.new("page", pme)
     coll.objects.link(page)
     sol = page.modifiers.new("slab", "SOLIDIFY")
-    sol.thickness, sol.offset = 0.0007, 0.0
+    sol.thickness, sol.offset = 0.0011, 0.0
     bend = page.modifiers.new("curl", "SIMPLE_DEFORM")
     bend.deform_method, bend.deform_axis = "BEND", "X"
     bend.angle = 0.0
@@ -484,180 +540,250 @@ def build(ctx):
     # ---- the camera
     cam = rig.engine_camera("camera", fstop=2.0, size=ctx.size)
     cam.data.lens = rig.lens_mm(FOV)
-    cam.data.clip_start, cam.data.clip_end = 0.05, 90.0
+    cam.data.clip_start, cam.data.clip_end = 0.05, 110.0
     scene.camera = cam
 
-    # ---- lights: the high slit (spot + a visible slit), an indigo fill from above, a key that follows the camera
+    # ---- lights: an indigo fill from above (the shadows' colour), a soft key that follows the camera and lights the
+    # page alone, a backlight behind the page for its rim, a faint cool fill at the camera
     def aim(ob, target):
-        ob.rotation_euler = (Vector(target) - ob.location).to_track_quat("-Z", "Y").to_euler()
+        ob.rotation_euler = (Vector(tuple(target)) - ob.location).to_track_quat("-Z", "Y").to_euler()
 
-    spot_d = bpy.data.lights.new("slit", "SPOT")
-    spot_d.energy, spot_d.spot_size, spot_d.spot_blend, spot_d.shadow_soft_size = 120000.0, math.radians(30), 0.55, 0.9
-    spot_d.use_temperature, spot_d.temperature = True, 4300
-    spot = bpy.data.objects.new("slit", spot_d)
-    spot.location = tuple(WINDOW)
-    coll.objects.link(spot)
-    aim(spot, WINDOW_AIM)
-    # the slit itself, a bright narrow rectangle far down the hall so the glare reads as a window
-    win_d = bpy.data.lights.new("window", "AREA")
-    win_d.shape, win_d.size, win_d.size_y, win_d.energy = "RECTANGLE", 1.6, 11.0, 9000.0
-    win_d.use_temperature, win_d.temperature = True, 4800
-    win = bpy.data.objects.new("window", win_d)
-    win.location = (-2.0, 52.0, 9.0)
-    coll.objects.link(win)
-    aim(win, (0.0, 0.0, 3.0))
     fill_d = bpy.data.lights.new("indigo", "AREA")
-    fill_d.shape, fill_d.size, fill_d.size_y, fill_d.energy = "RECTANGLE", 14.0, 40.0, 9000.0
+    fill_d.shape, fill_d.size, fill_d.size_y = "RECTANGLE", 18.0, 60.0
     fill_d.color = lin("ruleStrong")[:3]
     fill = bpy.data.objects.new("indigo", fill_d)
-    fill.location = (0.0, 18.0, 16.0)
+    fill.location = (0.0, 25.0, 18.0)
     coll.objects.link(fill)
-    aim(fill, (0.0, 18.0, 0.0))
+    aim(fill, (0.0, 25.0, 0.0))
+
+    page_only = bpy.data.collections.new("page_receivers")  # light linking: these light the page alone
+    page_only.objects.link(page)
     key_d = bpy.data.lights.new("page_key", "AREA")
-    key_d.shape, key_d.size, key_d.size_y = "RECTANGLE", 0.9, 0.9
-    key_d.use_temperature, key_d.temperature = True, 4500
+    key_d.shape, key_d.size, key_d.size_y = "RECTANGLE", 1.8, 1.8
+    key_d.use_temperature, key_d.temperature = True, 4800
     key = bpy.data.objects.new("page_key", key_d)
     coll.objects.link(key)
-    lit = bpy.data.collections.new("page_key_receivers")  # light linking: the key lights the page alone
-    lit.objects.link(page)
-    key.light_linking.receiver_collection = lit
+    key.light_linking.receiver_collection = page_only
+    back_d = bpy.data.lights.new("page_back", "AREA")
+    back_d.shape, back_d.size, back_d.size_y = "RECTANGLE", 0.5, 0.5
+    back_d.use_temperature, back_d.temperature = True, 4300
+    back = bpy.data.objects.new("page_back", back_d)
+    coll.objects.link(back)
+    back.light_linking.receiver_collection = page_only
 
     cf_d = bpy.data.lights.new("cam_fill", "AREA")
-    cf_d.shape, cf_d.size, cf_d.size_y, cf_d.energy = "RECTANGLE", 2.5, 2.5, 90.0
-    cf_d.color = lin("ruleStrong")[:3]  # the cool side: indigo ambient against the warm key
+    cf_d.shape, cf_d.size, cf_d.size_y = "RECTANGLE", 2.5, 2.5
+    cf_d.color = lin("ruleStrong")[:3]
     camfill = bpy.data.objects.new("cam_fill", cf_d)
     coll.objects.link(camfill)
 
-    # ---- shafts: camera-only emissive ribbons along the beam, crossed, fading along their length and across
-    d = (WINDOW_AIM - WINDOW)
-    d = d / np.linalg.norm(d)
-    h_dir = np.cross(d, [0, 0, 1.0])
-    h_dir /= np.linalg.norm(h_dir)
-    v_dir = np.cross(h_dir, d)
-    length = 30.0
+    # ---- the shafts: a hard narrow spot each, plus a camera-only emissive cone (brightest through its middle, where
+    # the eye looks through the most air) with dust streaks, switched on like stage lights
+    import bmesh
 
-    shaft_gain = []  # (socket, strength): the beam fades as the page takes the frame
+    shafts = []  # (spot data, cone gain socket, base energy, base gain, switch-on frame)
 
-    def shaft_material(strength, seed):
-        mat = bpy.data.materials.new("shaft")
+    def cone_material(seed):
+        mat = bpy.data.materials.new("beam")
         mat.use_nodes = True
         nt = mat.node_tree
         for n in list(nt.nodes):
             nt.nodes.remove(n)
         out = nt.nodes.new("ShaderNodeOutputMaterial")
-        mix = nt.nodes.new("ShaderNodeMixShader")
+        add = nt.nodes.new("ShaderNodeAddShader")
         tr = nt.nodes.new("ShaderNodeBsdfTransparent")
         em = nt.nodes.new("ShaderNodeEmission")
-        bb = nt.nodes.new("ShaderNodeBlackbody")  # the beam is the key's own light: its colour temperature
+        bb = nt.nodes.new("ShaderNodeBlackbody")
         bb.inputs["Temperature"].default_value = 4300.0
         nt.links.new(bb.outputs[0], em.inputs["Color"])
+        lw = nt.nodes.new("ShaderNodeLayerWeight")
+        lw.inputs["Blend"].default_value = 0.5
+        core = mth(nt, "POWER", mth(nt, "SUBTRACT", 1.0, lw.outputs["Facing"]), 4.0)  # soft radial falloff
         tc = nt.nodes.new("ShaderNodeTexCoord")
         sep = nt.nodes.new("ShaderNodeSeparateXYZ")
         nt.links.new(tc.outputs["UV"], sep.inputs[0])
-        # across: sin(pi u)^2 ; along: v * (1-v)^0.5 fade (a hot start, a long fall-off)
-        a = nt.nodes.new("ShaderNodeMath")
-        a.operation, a.inputs[1].default_value = "MULTIPLY", math.pi
-        nt.links.new(sep.outputs["X"], a.inputs[0])
-        sn = nt.nodes.new("ShaderNodeMath")
-        sn.operation = "SINE"
-        nt.links.new(a.outputs[0], sn.inputs[0])
-        sq = nt.nodes.new("ShaderNodeMath")
-        sq.operation, sq.inputs[1].default_value = "POWER", 3.0
-        nt.links.new(sn.outputs[0], sq.inputs[0])
-        al = nt.nodes.new("ShaderNodeMath")
-        al.operation, al.inputs[1].default_value = "POWER", 0.6
-        inv = nt.nodes.new("ShaderNodeMath")
-        inv.operation = "SUBTRACT"
-        inv.inputs[0].default_value = 1.0
-        nt.links.new(sep.outputs["Y"], inv.inputs[1])
-        nt.links.new(inv.outputs[0], al.inputs[0])
-        ml = nt.nodes.new("ShaderNodeMath")
-        ml.operation = "MULTIPLY"
-        nt.links.new(sq.outputs[0], ml.inputs[0])
-        nt.links.new(al.outputs[0], ml.inputs[1])
+        # along (v: 0 at the source, 1 where it lands): fade in from the source, a little brighter low down
+        along = mth(nt, "MULTIPLY", mth(nt, "POWER", sep.outputs["Y"], 0.8),
+                    mth(nt, "SUBTRACT", 1.0, mth(nt, "POWER", sep.outputs["Y"], 12.0)))
         nz = nt.nodes.new("ShaderNodeTexNoise")
-        nz.inputs["Scale"].default_value = 5.0
         nz.noise_dimensions = "4D"
+        nz.inputs["Scale"].default_value = 3.0
         nz.inputs["W"].default_value = seed
-        nt.links.new(tc.outputs["UV"], nz.inputs["Vector"])
+        ob_c = nt.nodes.new("ShaderNodeTexCoord")
+        nt.links.new(ob_c.outputs["Object"], nz.inputs["Vector"])
         nzr = nt.nodes.new("ShaderNodeMapRange")
-        nzr.inputs[1].default_value, nzr.inputs[2].default_value = 0.35, 0.75
-        nzr.inputs[3].default_value, nzr.inputs[4].default_value = 0.35, 1.0
+        nzr.inputs[1].default_value, nzr.inputs[2].default_value = 0.3, 0.75
+        nzr.inputs[3].default_value, nzr.inputs[4].default_value = 0.45, 1.0
         nt.links.new(nz.outputs["Fac"], nzr.inputs[0])
-        m2 = nt.nodes.new("ShaderNodeMath")
-        m2.operation = "MULTIPLY"
-        nt.links.new(ml.outputs[0], m2.inputs[0])
-        nt.links.new(nzr.outputs[0], m2.inputs[1])
-        # near-camera fade (view distance 0.5..3 m)
-        cd = nt.nodes.new("ShaderNodeCameraData")
+        nz2 = nt.nodes.new("ShaderNodeTexNoise")  # a slow break-up along the beam's length
+        nz2.inputs["Scale"].default_value = 1.0
+        nz2.inputs["Detail"].default_value = 1.0
+        mp = nt.nodes.new("ShaderNodeMapping")
+        mp.inputs["Scale"].default_value = (0.0, 6.0, 0.0)
+        mp.inputs["Location"].default_value = (seed, 0.0, 0.0)
+        nt.links.new(tc.outputs["UV"], mp.inputs["Vector"])
+        nt.links.new(mp.outputs[0], nz2.inputs["Vector"])
+        nzr2 = nt.nodes.new("ShaderNodeMapRange")
+        nzr2.inputs[1].default_value, nzr2.inputs[2].default_value = 0.35, 0.65
+        nzr2.inputs[3].default_value, nzr2.inputs[4].default_value = 0.7, 1.0
+        nt.links.new(nz2.outputs["Fac"], nzr2.inputs[0])
+        brk = mth(nt, "MULTIPLY", nzr.outputs[0], nzr2.outputs[0])
+        cd = nt.nodes.new("ShaderNodeCameraData")  # never a hot wall of light right at the lens
         nr = nt.nodes.new("ShaderNodeMapRange")
-        nr.inputs[1].default_value, nr.inputs[2].default_value = 0.8, 4.0
+        nr.inputs[1].default_value, nr.inputs[2].default_value = 0.6, 2.5
         nt.links.new(cd.outputs["View Distance"], nr.inputs[0])
-        m3 = nt.nodes.new("ShaderNodeMath")
-        m3.operation = "MULTIPLY"
-        nt.links.new(m2.outputs[0], m3.inputs[0])
-        nt.links.new(nr.outputs[0], m3.inputs[1])
-        k = nt.nodes.new("ShaderNodeMath")
-        k.operation, k.inputs[1].default_value = "MULTIPLY", strength
-        shaft_gain.append((k.inputs[1], strength))
-        nt.links.new(m3.outputs[0], k.inputs[0])
-        em.inputs["Strength"].default_value = 1.0
-        nt.links.new(k.outputs[0], mix.inputs[0])
-        nt.links.new(tr.outputs[0], mix.inputs[1])
-        nt.links.new(em.outputs[0], mix.inputs[2])
-        nt.links.new(mix.outputs[0], out.inputs["Surface"])
-        # the mix factor drives how much emission: scale the emission colour by the factor's small value
-        return mat
+        gain = nt.nodes.new("ShaderNodeValue")
+        k = mth(nt, "MULTIPLY", mth(nt, "MULTIPLY", mth(nt, "MULTIPLY", core, along), brk),
+                mth(nt, "MULTIPLY", nr.outputs[0], gain.outputs[0]))
+        nt.links.new(k, em.inputs["Strength"])
+        nt.links.new(tr.outputs[0], add.inputs[0])
+        nt.links.new(em.outputs[0], add.inputs[1])
+        nt.links.new(add.outputs[0], out.inputs["Surface"])
+        return mat, gain.outputs[0]
 
-    shaft_specs = [(-1.4, 1.6, 0.55), (-0.3, 2.4, 0.8), (0.9, 1.2, 0.6), (1.9, 2.0, 0.5), (3.2, 1.6, 0.4), (0.4, 4.5, 0.25)]
-    for si, (off, wdt, stg) in enumerate(shaft_specs):
-        for kind, wdir in (("h", h_dir), ("v", v_dir)):
-            me = bpy.data.meshes.new(f"shaft{si}{kind}")
-            o = WINDOW + h_dir * off
-            p = [o - wdir * wdt / 2, o + wdir * wdt / 2, o + wdir * wdt / 2 + d * length, o - wdir * wdt / 2 + d * length]
-            me.from_pydata([tuple(q) for q in p], [], [(0, 1, 2, 3)])
-            uvs = me.uv_layers.new(name="uv")
-            for li, uvp in enumerate([(0, 0), (1, 0), (1, 1), (0, 1)]):
-                uvs.data[li].uv = uvp
-            me.materials.append(shaft_material(stg, si * 1.7 + (0.4 if kind == "v" else 0.0)))
-            ob = bpy.data.objects.new(f"shaft{si}{kind}", me)
-            coll.objects.link(ob)
-            ob.visible_shadow = ob.visible_diffuse = ob.visible_glossy = ob.visible_transmission = False
-            ob.visible_volume_scatter = False
+    mote_specs = []
+    for si, (tx, ty, tz, f_on) in enumerate(SHAFTS):
+        target = np.array([tx, ty, tz])
+        spot_half = math.radians(1.5 if si == 0 else 2.0)
+        L = (BEAM_TOP - tz) / -BEAM[2]
+        apex = target - BEAM * L
+        sd = bpy.data.lights.new(f"shaft{si}", "SPOT")
+        sd.spot_size, sd.spot_blend, sd.shadow_soft_size = 2 * spot_half, 0.12, 0.02
+        sd.use_temperature, sd.temperature = True, 4300
+        sp = bpy.data.objects.new(f"shaft{si}", sd)
+        sp.location = tuple(apex)
+        coll.objects.link(sp)
+        aim(sp, target)
+        # the cone, apex to the floor beyond the target
+        L2 = (BEAM_TOP - 0.0) / -BEAM[2]
+        a1 = BEAM / np.linalg.norm(BEAM)
+        e1 = np.cross(a1, [0, 0, 1.0])
+        e1 /= np.linalg.norm(e1)
+        e2 = np.cross(e1, a1)
+        bm = bmesh.new()
+        uvl_b = bm.loops.layers.uv.new("uv")
+        NS = 160
+        tip = [bm.verts.new(tuple(apex + a1 * 0.05)) for _ in range(NS)]
+        rad = L2 * math.tan(spot_half) * 0.92
+        ring = [bm.verts.new(tuple(apex + a1 * L2 + rad * (math.cos(2 * math.pi * k / NS) * e1 +
+                                                        math.sin(2 * math.pi * k / NS) * e2))) for k in range(NS)]
+        for k in range(NS):
+            k2 = (k + 1) % NS
+            fc = bm.faces.new((tip[k], tip[k2], ring[k2], ring[k]))
+            for lp, uvp in zip(fc.loops, ((k / NS, 0), ((k + 1) / NS, 0), ((k + 1) / NS, 1), (k / NS, 1))):
+                lp[uvl_b].uv = uvp
+        me = bpy.data.meshes.new(f"beam{si}")
+        bm.to_mesh(me)
+        bm.free()
+        me.shade_smooth()  # smooth normals: the falloff across the beam is continuous, no facets
+        cmat, gsock = cone_material(si * 1.7)
+        me.materials.append(cmat)
+        ob = bpy.data.objects.new(f"beam{si}", me)
+        coll.objects.link(ob)
+        ob.visible_shadow = ob.visible_diffuse = ob.visible_glossy = ob.visible_transmission = False
+        ob.visible_volume_scatter = False
+        energy = 6300.0 if si == 0 else 14000.0
+        shafts.append((sd, gsock, energy, 0.4 if si == 0 else 0.32, f_on))
+        # dust inside this beam's lower part: the near one thick with it
+        for _ in range(170 if si == 0 else (40 if si < 5 else 0)):
+            uu = rnd.uniform(0.45, 1.0) * (L - 0.05) + 0.05
+            rr = math.sqrt(rnd.random()) * uu * math.tan(spot_half) * 0.95
+            th = rnd.uniform(0, 2 * math.pi)
+            mote_specs.append(apex + a1 * uu + rr * (math.cos(th) * e1 + math.sin(th) * e2))
 
-    # ---- dust: small spheres drifting in the beam (lit by it: only the ones in the light show)
+    # ---- dust: small spheres drifting in the beams (lit by them: only the ones in the light show)
     ico = bpy.data.meshes.new("mote")
-    import bmesh
-
     bm = bmesh.new()
     bmesh.ops.create_icosphere(bm, subdivisions=1, radius=1.0)
     bm.to_mesh(ico)
     bm.free()
     mm = materials.satin("fg", roughness=0.4, coat=0.0, sheen=0.5, name="mote")
     ico.materials.append(mm)
-    def mote(pos, r, drift, ph):
+
+    for pos in mote_specs:
+        r = rnd.uniform(0.0025, 0.007)
+        drift = (rnd.uniform(-0.03, 0.03), rnd.uniform(-0.03, 0.03), rnd.uniform(-0.035, 0.01))
+        ph = rnd.uniform(0, 6.28)
         ob = bpy.data.objects.new("mote", ico)
         ob.scale = (r, r, r)
         coll.objects.link(ob)
         for f in (first, ctx.f0 + 90, ctx.f0 + 180, last):
             tt = (f - first) / 30.0
-            ob.location = (pos[0] + drift[0] * tt + 0.04 * math.sin(tt * 1.3 + ph), pos[1] + drift[1] * tt,
-                           pos[2] + drift[2] * tt + 0.03 * math.cos(tt * 0.9 + ph))
+            ob.location = (pos[0] + drift[0] * tt + 0.03 * math.sin(tt * 1.3 + ph), pos[1] + drift[1] * tt,
+                           pos[2] + drift[2] * tt + 0.02 * math.cos(tt * 0.9 + ph))
             ob.keyframe_insert("location", frame=f)
 
-    for mi in range(420):  # along the beam, inside its cone, where the camera passes
-        u = rnd.uniform(0.62, 1.0)
-        c0 = WINDOW + (WINDOW_AIM - WINDOW) * u
-        off = h_dir * rnd.gauss(0, 1.3) + v_dir * rnd.gauss(0, 1.3)
-        pos = c0 + off
-        if not (-2.0 < pos[1] < 14.0 and 0.15 < pos[2] < 6.0):
-            continue
-        mote(pos, rnd.uniform(0.003, 0.009), (rnd.uniform(-0.03, 0.03), rnd.uniform(-0.01, 0.05), rnd.uniform(-0.04, 0.02)),
-             rnd.uniform(0, 6.28))
-    for mi in range(60):  # around where the page ends: out of focus behind it
-        pos = (rnd.uniform(-1.2, 1.2), rnd.uniform(1.4, 5.0), rnd.uniform(0.6, 2.2))
-        mote(pos, rnd.uniform(0.004, 0.01), (rnd.uniform(-0.02, 0.02), rnd.uniform(-0.01, 0.02), rnd.uniform(-0.02, 0.01)),
-             rnd.uniform(0, 6.28))
+    # ---- loose pages drifting down in slow motion through the shafts (seeded)
+    lp_mats = []
+    for si_, nm in enumerate(SHEETS):
+        m = bpy.data.materials.new(f"loose{si_}")
+        m.use_nodes = True
+        lnt = m.node_tree
+        for n in list(lnt.nodes):
+            lnt.nodes.remove(n)
+        lout = lnt.nodes.new("ShaderNodeOutputMaterial")
+        lb = lnt.nodes.new("ShaderNodeBsdfPrincipled")
+        lb.inputs["Roughness"].default_value = 0.75
+        lb.inputs["Specular IOR Level"].default_value = 0.2
+        limg = lnt.nodes.new("ShaderNodeTexImage")
+        limg.image = image(nm)
+        ltc = lnt.nodes.new("ShaderNodeTexCoord")
+        lnt.links.new(ltc.outputs["UV"], limg.inputs["Vector"])
+        lmul = lnt.nodes.new("ShaderNodeMix")
+        lmul.data_type, lmul.blend_type = "RGBA", "MULTIPLY"
+        lmul.inputs[0].default_value = 1.0
+        lmul.inputs[7].default_value = lin("fg", 0.85)
+        lnt.links.new(limg.outputs["Color"], lmul.inputs[6])
+        lnt.links.new(lmul.outputs[2], lb.inputs["Base Color"])
+        finish(m, lb.outputs["BSDF"])
+        lp_mats.append(m)
+    lp_meshes = []
+    for k, m in enumerate(lp_mats):
+        me = bpy.data.meshes.new(f"loose{k}")
+        nb = 6
+        lv = [((i / nb - 0.5) * W, (j / 8 - 0.5) * H, 0.0) for j in range(9) for i in range(nb + 1)]
+        lf = [(j * (nb + 1) + i, j * (nb + 1) + i + 1, (j + 1) * (nb + 1) + i + 1, (j + 1) * (nb + 1) + i)
+              for j in range(8) for i in range(nb)]
+        me.from_pydata(lv, [], lf)
+        me.shade_smooth()
+        luv = me.uv_layers.new(name="uv")
+        for poly in me.polygons:
+            for li in poly.loop_indices:
+                vx, vy, _ = me.vertices[me.loops[li].vertex_index].co
+                luv.data[li].uv = (vx / W + 0.5, vy / H + 0.5)
+        me.materials.append(m)
+        lp_meshes.append(me)
+    lrnd = random.Random(31)
+    loose = []
+    while len(loose) < 34:
+        if len(loose) < 20:  # most fall through a beam
+            tx, ty, tz, _ = SHAFTS[lrnd.randrange(1, 6)]
+            z0 = lrnd.uniform(1.6, 5.5)
+            ctr = np.array([tx, ty, tz]) - BEAM * (z0 - tz) / -BEAM[2]
+            x, y = ctr[0] + lrnd.gauss(0, 0.35), ctr[1] + lrnd.gauss(0, 0.35)
+        else:
+            x, y, z0 = lrnd.uniform(-4.0, 4.0), lrnd.uniform(-2.5, 24.0), lrnd.uniform(1.5, 6.5)
+        if y < 3.2 and abs(x) < 1.0:
+            continue  # keep the camera's path and the hero's flight clear
+        t0 = np.array(SHAFTS[0][:3])
+        if any(np.hypot(*(np.array([x, y]) - (t0 - BEAM * (z - t0[2]) / -BEAM[2])[:2])) < 0.8 for z in (z0, z0 - 1.3)):
+            continue  # and the first shaft: a page falling through it would shadow the hero stack
+        loose.append((x, y, z0, lrnd.uniform(0.07, 0.14), lrnd.uniform(0, 6.28), lrnd.uniform(-0.6, 0.6),
+                      lrnd.uniform(0.15, 0.35), lrnd.randrange(len(lp_meshes))))
+    for li_, (x, y, z0, vz, ph, spin, rock, mi) in enumerate(loose):
+        ob = bpy.data.objects.new(f"loose{li_}", lp_meshes[mi])
+        ob.rotation_mode = "XYZ"
+        coll.objects.link(ob)
+        bend_l = ob.modifiers.new("curl", "SIMPLE_DEFORM")
+        bend_l.deform_method, bend_l.deform_axis = "BEND", "X"
+        bend_l.angle = 0.35
+        for f in range(first, last + 1, 3):
+            tt = f / 30.0
+            ob.location = (x + 0.12 * math.sin(tt * 0.8 + ph), y + 0.06 * math.cos(tt * 0.6 + ph), z0 - vz * tt)
+            ob.rotation_euler = (rock * math.sin(tt * 0.9 + ph), rock * 0.7 * math.cos(tt * 0.7 + ph * 1.3),
+                                 ph + spin * tt)
+            ob.keyframe_insert("location", frame=f)
+            ob.keyframe_insert("rotation_euler", frame=f)
 
     # ---- the fade from black: a camera-only black plane in front of the lens whose opacity is keyed
     fade_me = bpy.data.meshes.new("fade")
@@ -679,10 +805,10 @@ def build(ctx):
     fade = bpy.data.objects.new("fade", fade_me)
     fade.parent = cam
     fade.visible_shadow = fade.visible_diffuse = fade.visible_glossy = fade.visible_transmission = False
+    fade.scale = (0.3, 0.3, 1.0)
     coll.objects.link(fade)
 
     # ---- animation: everything a function of the frame, keyed on every frame (plus one beyond each end)
-    focus_ex = [0.0]
     for f in range(first, last + 1):
         cp, pitch, yaw = cam_pose(f)
         cam.location = tuple(cp)
@@ -692,66 +818,79 @@ def build(ctx):
         fwd, right, up = cam_basis(pitch, yaw)
 
         pos, r1, p = page_state(f)
-        # the page's orientation: flat -> facing, turning gracefully (a slight roll and yaw in between)
         q0 = Quaternion((1, 0, 0, 0))
         q1 = Matrix(r1.tolist()).to_quaternion()
-        qm = q0.slerp(q1, sstep5(p))
+        qm = q0.slerp(q1, sstep5(min(1.0, p * 1.08)))
         wob = math.sin(math.pi * min(1.0, p * 1.1)) * (1 - p)
-        qm = qm @ Quaternion((0, 0, 1), 0.35 * wob) @ Quaternion((1, 0, 0), -0.12 * wob)
+        qm = qm @ Quaternion((0, 0, 1), 0.30 * wob) @ Quaternion((1, 0, 0), -0.10 * wob)
         page.location = tuple(pos)
         page.rotation_quaternion = qm
         page.keyframe_insert("location", frame=f)
         page.keyframe_insert("rotation_quaternion", frame=f)
-        bend.angle = 0.3 * math.sin(math.pi * min(1.0, p * 1.05)) ** 1.5 * (1 - p) + 0.03
+        bend.angle = 0.28 * math.sin(math.pi * min(1.0, p * 1.05)) ** 1.5 * (1 - p)
         bend.keyframe_insert("angle", frame=f)
-        twist.angle = 0.08 * wob
+        twist.angle = 0.07 * wob
         twist.keyframe_insert("angle", frame=f)
-        pos_v.outputs[0].default_value = -0.4 + 1.9 * sstep5((f - 205.0) / 60.0)
+        # the rim sweep glides along the edge once the page is up (u + 0.35 v runs 0..1.35)
+        pos_v.outputs[0].default_value = -0.35 + 2.0 * sstep((f - 185.0) / 84.0)
         pos_v.outputs[0].keyframe_insert("default_value", frame=f)
+        rim_k.outputs[0].default_value = 1.6 * sstep((f - 175.0) / 30.0)
+        rim_k.outputs[0].keyframe_insert("default_value", frame=f)
+
+        # the shafts: off, then each snaps on at its frame
+        n_on = 0.0
+        for sd, gsock, energy, g, f_on in shafts:
+            o = shaft_on(f, f_on)
+            n_on += min(o, 1.0)
+            sd.energy = energy * o
+            sd.keyframe_insert("energy", frame=f)
+            gsock.default_value = g * o
+            gsock.keyframe_insert("default_value", frame=f)
+        hall = sstep((f - CRANE0) / 50.0)  # the hall's air and ambient come up with the cathedral
+        fill_d.energy = 200.0 + 3200.0 * hall
+        fill_d.keyframe_insert("energy", frame=f)
+        for sock, base in fog_gain:
+            sock.default_value = base * (0.06 + 0.22 * min(1.0, shaft_on(f, FIRST_ON)) + 0.72 * hall)
+            sock.keyframe_insert("default_value", frame=f)
 
         camfill.location = tuple(cp + up * 0.6 - fwd * 0.5)
         camfill.rotation_euler = (math.radians(90 + pitch), 0.0, math.radians(yaw))
         camfill.keyframe_insert("location", frame=f)
         camfill.keyframe_insert("rotation_euler", frame=f)
-        # key light on the page, rising with it
-        kp = cp + right * -0.7 + up * 0.55 - fwd * 0.2
+        cf_d.energy = 6.0 + 30.0 * hall
+        cf_d.keyframe_insert("energy", frame=f)
+        # the page's soft key: from just above and behind the camera, so the page lands evenly lit
+        kp = cp + up * 0.55 - fwd * 0.6 + right * -0.25
         key.location = tuple(kp)
         key.rotation_euler = (Vector(pos.tolist()) - Vector(kp.tolist())).to_track_quat("-Z", "Y").to_euler()
         key.keyframe_insert("location", frame=f)
         key.keyframe_insert("rotation_euler", frame=f)
-        key_d.energy = 0.0 + 110.0 * sstep((f - LIFT0 + 10.0) / 80.0)
+        key_d.energy = KEY_W * sstep((f - LIFT0 - 15.0) / 80.0)
         key_d.keyframe_insert("energy", frame=f)
-        dim = 1.0 - 0.75 * sstep((f - LIFT0 - 25.0) / 80.0)
-        cf_d.energy = 90.0 * dim * dim
-        for sock, base in shaft_gain:
-            sock.default_value = base * (0.15 + 0.85 * dim)
-            sock.keyframe_insert("default_value", frame=f)
-        cf_d.keyframe_insert("energy", frame=f)
-        fill_d.energy = 9000.0 * (0.25 + 0.75 * dim)
-        spot_d.energy = 120000.0 * (0.5 + 0.5 * dim)
-        spot_d.keyframe_insert("energy", frame=f)
-        fill_d.keyframe_insert("energy", frame=f)
+        # the backlight: behind and above the page (from the camera), for the bright rim on its edges
+        bp = pos + fwd * 0.45 + up * 0.32
+        back.location = tuple(bp)
+        back.rotation_euler = (Vector(pos.tolist()) - Vector(bp.tolist())).to_track_quat("-Z", "Y").to_euler()
+        back.keyframe_insert("location", frame=f)
+        back.keyframe_insert("rotation_euler", frame=f)
+        back_d.energy = 40.0 * sstep((f - LIFT0) / 25.0)
+        back_d.keyframe_insert("energy", frame=f)
 
-        # focus: on the middle of the hall, then the hero stack, then the page, which lands sharp
+        # focus: the lit stack top, then deep into the hall for the reveal; on 'Millions' it holds on the hall while
+        # the page comes in soft, then racks hard onto the page, which lands razor sharp
         dist_page = float(np.linalg.norm(pos - cp))
         stack = float(np.linalg.norm(np.array([HERO_XY[0], HERO_XY[1], HERO_TOP]) - cp))
-        far = 7.0 - 3.6 * sstep(f / 130.0)
-        fd = far + (stack - far) * sstep((f - 90.0) / 80.0)
-        fd = fd + (dist_page - fd) * sstep((f - LIFT0 - 2.0) / 70.0)
-        fd += 0.35 * (1 - sstep((f - LIFT0 - 55.0) / 55.0)) * sstep((f - LIFT0 - 2.0) / 20.0)  # lags, then locks on
+        hallpt = float(np.linalg.norm(np.array([0.0, 11.0, 0.8]) - cp))
+        fd = stack + (hallpt - stack) * sstep((f - CRANE0 - 5.0) / 40.0)
+        fd = fd + (dist_page - fd) * sstep5((f - 186.0) / 26.0)
         cam.data.dof.focus_distance = fd
         cam.data.dof.keyframe_insert("focus_distance", frame=f)
 
-        # black fade: opacity 1 -> 0 over frames 6..42 (the mix factor is 0 = transparent, 1 = black)
-        fmix.inputs[0].default_value = 1.0 - sstep((f - 6.0) / 36.0)
+        # black fade: opacity 1 -> 0 over frames 2..18 (the darkness then holds until the first shaft)
+        fmix.inputs[0].default_value = 1.0 - sstep((f - 2.0) / 16.0)
         fmix.inputs[0].keyframe_insert("default_value", frame=f)
-        fade.location = (0.0, 0.0, 0.0)
-    fade.scale = (0.3, 0.3, 1.0)
-
-    # linear keys on the straight-line data would be fine; everything keyed per frame so the interpolation is moot
-    # (the shaft materials' emission is the Mix factor above times the colour; the fade plane is camera-only)
 
     # world: nearly black, a trace of indigo so the far haze has somewhere to go
     from lib import lights
 
-    lights.world_color("bg2", 0.8)
+    lights.world_color("bg2", 0.3)
