@@ -26,7 +26,7 @@ SHOT = {"frames": [630, 870], "look": "650,690,730,760,800,830,869"}
 
 N_BOOK = 6  # the last one is the hero
 HERO = N_BOOK - 1
-N_PAGE = 4
+N_PAGE = 2  # two pages per booklet: a calm, legible cascade
 PAGE_W, PAGE_H = 0.21, 0.297
 BODY = 0.010  # the paper block under the leaves
 TH = 0.0032  # leaf spacing
@@ -46,9 +46,9 @@ SLIDE0, SLIDE_STEP, SLIDE_N = 54, 3, 18
 LINE_X0, LINE_PITCH = -0.40, 0.26  # booklet j waits at LINE_X0 - j * LINE_PITCH
 RUN0, SPEED = 80, 0.036  # the line starts gliding at L 80 (8-frame ease in), m per frame
 SPLIT_X = 0.16  # past the gate: where a booklet splits
-FLIGHT = 26
+FLIGHT = 36
 # grid wall behind the gate, one column per booklet, page 0 on top
-GX0, GPX, GY, GZ0, GPZ, GSCALE = 0.22, 0.19, 0.75, 0.20, 0.255, 0.8
+GX0, GPX, GY, GZ0, GPZ, GSCALE = 0.55, 0.19, 1.05, 0.24, 0.255, 0.8
 # hero: leaves the line at L 118, comes to rest at x 0.34, rises and tilts to the camera
 HERO_STOP = (118, 160, 0.34)
 HERO_RISE = (146, 168, 0.11, 35.0)  # start, end, height, tilt (deg)
@@ -161,7 +161,7 @@ def split_frame(j: int) -> int:
 def launch_frame(j: int, k: int) -> int:
     if j == HERO:
         return HERO_LAUNCH + 4 * k
-    return split_frame(j) + 3 * k
+    return split_frame(j) + 8 * k
 
 
 def slot(j: int, k: int):
@@ -437,6 +437,8 @@ def build(ctx):
     box(0, 0, 0.0005, BAR, 2 * GATE_Y + BAR, 0.001, gv, gf)
     gate = mesh_ob("gate", gv, gf, gradient_emission("gate_light", 7.0))
     gate.visible_shadow = False
+    gs = next(n for n in gate.data.materials[0].node_tree.nodes if n.bl_idname == "ShaderNodeEmission").inputs["Strength"]
+    keyval(gs, 7.0, 140); keyval(gs, 0.12, 168)  # the gate recedes in the close-up
     laser = mesh_ob("laser", [(0, -GATE_Y, 0), (0, GATE_Y, 0), (0, GATE_Y, GATE_H), (0, -GATE_Y, GATE_H)],
                     [(0, 1, 2, 3)], gradient_emission("laser_plane", 2.0, alpha=0.02, falloff=3.0))
 
@@ -456,7 +458,7 @@ def build(ctx):
         r_.scale = (1e-4, 1, 1); key(r_, "scale", -1); key(r_, "scale", 48)
         r_.scale = (1, 1, 1); key(r_, "scale", 70)
         rails.append(r_)
-    keyval(rail_a, 1.0, 140); keyval(rail_a, 0.25, 165)  # quiet for the close-up
+    keyval(rail_a, 1.0, 140); keyval(rail_a, 0.0, 168)  # gone for the close-up
 
     # ---------------------------------------------------------------------------------------- the ZIP block
     sw, sd, sh = PAGE_W + 0.06, PAGE_H + 0.06, 0.012 + N_BOOK * STK + 0.012
@@ -582,7 +584,7 @@ def build(ctx):
             for L in list(range(La + 2, min(La + fl, last) + 1, 2)) + ([last] if La + fl < last else []):
                 u = min(1.0, (L - La) / fl)
                 ea, eb_ = smoother(u), smoother((u - 0.14) / 0.86)
-                p = p0.lerp(sl, eb_) + Vector((0, -0.02 * math.sin(math.pi * ea), 0.11 * math.sin(math.pi * ea)))
+                p = p0.lerp(sl, eb_) + Vector((0, 0.0, 0.07 * math.sin(math.pi * ea)))
                 q = q0.slerp(q_slot, smoother(u / 0.72))
                 s_ = 1 + (GSCALE - 1) * eb_
                 put(pg, Matrix.Translation(p) @ q.to_matrix().to_4x4(), L, prev)
@@ -609,17 +611,17 @@ def build(ctx):
 
     # scan line over the cover (child of the cover, cover-local coordinates)
     sc_mat, sc_a, _ = faded_emission("scanline", "accentBright", 9.0)
-    scn = mesh_ob("scanline", *quad(-PAGE_W / 2 - 0.006, -0.0009, PAGE_W / 2 + 0.006, 0.0009, 0.0009), sc_mat)
+    scn = mesh_ob("scanline", *quad(-PAGE_W / 2 - 0.002, -0.00028, PAGE_W / 2 + 0.002, 0.00028, 0.0009), sc_mat)
     scn.parent = cv
-    glow_mat, glow_a, _ = faded_emission("scanglow", "accent", 1.6)
-    glow = mesh_ob("scanglow", *quad(-PAGE_W / 2, -0.018, PAGE_W / 2, 0.0, 0.0007), glow_mat)
+    glow_mat, glow_a, _ = faded_emission("scanglow", "accent", 0.9)
+    glow = mesh_ob("scanglow", *quad(-PAGE_W / 2, -0.0035, PAGE_W / 2, 0.0035, 0.0007), glow_mat)
     glow.parent = scn
     for L in range(SCAN[0] - 1, SCAN[1] + 2):
         u = smooth((L - SCAN[0]) / (SCAN[1] - SCAN[0]))
         scn.location = (0, -PAGE_H / 2 - 0.004 + (PAGE_H + 0.008) * u, 0)
         key(scn, "location", L)
-    for sock in (sc_a, glow_a):
-        keyval(sock, 0.0, SCAN[0] - 2); keyval(sock, 1.0, SCAN[0]); keyval(sock, 1.0, SCAN[1] - 1)
+    for sock, a_ in ((sc_a, 1.0), (glow_a, 0.3)):
+        keyval(sock, 0.0, SCAN[0] - 2); keyval(sock, a_, SCAN[0]); keyval(sock, a_, SCAN[1] - 1)
         keyval(sock, 0.0, SCAN[1] + 1)
 
     # detection boxes, labels and the redaction fills
