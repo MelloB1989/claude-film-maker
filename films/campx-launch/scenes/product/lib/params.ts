@@ -52,8 +52,8 @@ export const readui: Cfg = {
   yaw: -12,
   cam: [
     { t: 0, x: 0.55, y: 0.45, z: 0.96 },
-    { t: 1.6, x: 0.78, y: 0.32, z: 1.5, ax: 0.58 },
-    { t: 3.4, x: 0.78, y: 0.33, z: 1.55, ax: 0.58 },
+    { t: 1.6, x: 0.82, y: 0.32, z: 2.45, ax: 0.58 },
+    { t: 3.4, x: 0.82, y: 0.33, z: 2.5, ax: 0.58 },
     { t: 5.0, x: 0.56, y: 0.46, z: 1.04, ax: 0.5 },
     { t: 7, x: 0.57, y: 0.47, z: 1.08, ax: 0.5 },
   ],
@@ -80,10 +80,10 @@ export const markui: Cfg = {
   yaw: -12,
   cam: [
     { t: 0, x: 0.78, y: 0.56, z: 1.3, ax: 0.6 },
-    { t: 1.1, x: 0.84, y: 0.6, z: 1.62, ax: 0.62 },
-    { t: 3.4, x: 0.84, y: 0.6, z: 1.66, ax: 0.62 },
-    { t: 5.0, x: 0.82, y: 0.46, z: 1.4, ax: 0.6 },
-    { t: 7, x: 0.79, y: 0.47, z: 1.3, ax: 0.58 },
+    { t: 1.1, x: 0.86, y: 0.59, z: 2.4, ax: 0.62 },
+    { t: 3.4, x: 0.86, y: 0.59, z: 2.45, ax: 0.62 },
+    { t: 5.0, x: 0.84, y: 0.5, z: 1.75, ax: 0.6 },
+    { t: 7, x: 0.83, y: 0.5, z: 1.68, ax: 0.58 },
   ],
   spots: [
     // 'Identifies high-rise buildings...' with its written reasoning
@@ -112,11 +112,14 @@ export const control: Cfg = {
     { t: 3.6, x: 0.5, y: 0.5, z: 0.93, yaw: 2 },
     { t: 7.5, x: 0.53, y: 0.5, z: 1.06, yaw: -1.5 },
     // then across to Medha's panel: Accept, the marks field
-    { t: 9.6, x: 0.77, y: 0.56, z: 1.38, ax: 0.6 },
-    { t: 11.0, x: 0.79, y: 0.55, z: 1.42, ax: 0.6 },
+    // a decisive push onto Accept as it is spoken (70.25), then down to the marks field for 'adjust, or override'
+    { t: 8.05, x: 0.88, y: 0.3, z: 2.2, ax: 0.6 },
+    { t: 8.6, x: 0.88, y: 0.31, z: 2.25, ax: 0.6 },
+    { t: 9.3, x: 0.8, y: 0.68, z: 2.1, ax: 0.6 },
+    { t: 11.0, x: 0.8, y: 0.68, z: 2.15, ax: 0.6 },
     // uncertain
-    { t: 12.3, x: 0.8, y: 0.47, z: 1.68, ax: 0.6 },
-    { t: 16, x: 0.79, y: 0.48, z: 1.55, ax: 0.6 },
+    { t: 12.3, x: 0.8, y: 0.46, z: 2.5, ax: 0.6 },
+    { t: 16, x: 0.8, y: 0.46, z: 2.35, ax: 0.6 },
   ],
   spots: [
     { t0: 7.4, t1: 9.4, rect: rg(2424, 426, 714, 64), pad: 0.008 },

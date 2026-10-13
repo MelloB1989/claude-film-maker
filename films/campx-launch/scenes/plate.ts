@@ -117,7 +117,7 @@ export default class PlateScene extends Scene {
     const lt = f.lt - at;
     if (lt < 0) return;
     const k = Math.min(1.15, spring(lt, 3, 0.7)), a = Math.min(1, lt * 5);
-    const cx = W * 0.66, cy = H * 0.4;
+    const cx = W * 0.73, cy = H * 0.13;
     const label = 'Suggested', val = '7 / 8';
     c.save();
     c.translate(cx, cy);

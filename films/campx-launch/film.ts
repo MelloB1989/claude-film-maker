@@ -54,7 +54,7 @@ export default defineFilm({
     { id: 'read3d', scene: plate, length: 7, params: { variant: 'scan', sheet: 'assets/sheets/hires_38189_p01.jpg' }, transition: { kind: 'xfade', pre: 0.4, post: 0.4 } },
     { id: 'readui', scene: productScene('readui'), length: 7, transition: { kind: 'xfade', pre: 0.25, post: 0.25 } },
     { id: 'mark3d', scene: plate, length: 6, params: { variant: 'push', overlay: 'mark', sheet: 'assets/sheets/hires_38189_p04.jpg' }, transition: { kind: 'xfade', pre: 0.4, post: 0.4 } },
-    { id: 'markui', scene: productScene('markui'), length: 7, transition: { kind: 'xfade', pre: 0.2, post: 0.1 } },
+    { id: 'markui', scene: productScene('markui'), length: 7, transition: { kind: 'xfade', pre: 0.2, post: 0.05 } },
     // act 3: the faculty's word
     { id: 'control', scene: productScene('control'), length: 16, transition: { kind: 'whip', dir: [1, 0], pre: 0.25, post: 0.35 } },
     // act 4: the outcome

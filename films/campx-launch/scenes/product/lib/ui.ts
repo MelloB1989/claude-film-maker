@@ -60,7 +60,7 @@ export abstract class UiScene extends Scene2D {
     const live: { a: number; q: { x: number; y: number }[]; dim: number }[] = [];
     for (const s of cfg.spots ?? []) {
       const a = window(t, s.t0, s.t1, 0.7, 0.7);
-      if (a > 0.002) live.push({ a, q: quad(view, s.rect, s.pad ?? 0.01), dim: s.dim ?? 0.86 });
+      if (a > 0.002) live.push({ a, q: quad(view, s.rect, s.pad ?? 0.01), dim: s.dim ?? 0.72 });
     }
     const spot = Math.min(1, live.reduce((m, l) => m + l.a, 0));
     const dim = live.reduce((m, l) => Math.max(m, l.dim), 0);
