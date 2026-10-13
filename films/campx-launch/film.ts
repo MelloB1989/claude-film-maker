@@ -11,6 +11,20 @@ const product: Record<string, () => Promise<any>> =
   typeof window === 'undefined' ? {} : import.meta.glob('./scenes/product/*.ts');
 const productScene = (id: string): ShotSpec['scene'] => product[`./scenes/product/${id}.ts`] ?? (() => import('./scenes/placeholder'));
 const plate = () => import('./scenes/plate');
+const stack = () => import('./scenes/kit-stack');
+const aurora = () => import('./scenes/kit-aurora');
+const logo3d = () => import('./scenes/kit-logo3d');
+
+// Logo3D frames its logo (unit height, centred on the origin) by camera keys here: the logo `h` of the frame's height,
+// its centre `y` of the frame's height above the middle, the camera easing in from `from`× the distance over the shot.
+const FOV = 28, TAN = Math.tan((FOV * Math.PI) / 360);
+const logoCam = (h: number, y: number, len: number, from = 1.08) => {
+  const d = 1 / (2 * TAN * h), dy = -y * 2 * TAN * d;
+  return [
+    { t: 0, pos: [0, dy, d * from], target: [0, dy, 0] },
+    { t: len, pos: [0, dy, d], target: [0, dy, 0], ease: 'outCubic' },
+  ];
+};
 
 export default defineFilm({
   ...config,
@@ -25,7 +39,15 @@ export default defineFilm({
     // act 1: the stakes
     { id: 'open', scene: plate, length: 9, params: { variant: 'rise' } },
     { id: 'stakes', scene: () => import('./scenes/stakes'), length: 6, transition: { kind: 'match', pre: 0.5, post: 0.5 } },
-    { id: 'title', scene: () => import('./scenes/title'), length: 6, transition: { kind: 'wipe', dir: 0, edge: 'accent', pre: 0.5, post: 0.45 } },
+    // the title card: a low aurora in the brand inks, the X-mark in 3D spinning in on "Introducing", the name swept in
+    {
+      id: 'title', scene: stack, length: 6, transition: { kind: 'wipe', dir: 0, edge: 'accent', pre: 0.5, post: 0.45 },
+      params: { layers: [
+        { scene: aurora, params: { color: 'accentDim', color2: 'accent', intensity: 0.55, height: 0.12, spread: 0.2, stars: 0, speed: 0.6 } },
+        { scene: logo3d, params: { logo: 'assets/brand/campx-xmark.svg', colors: 'svg', reveal: 'spin', landAt: 0.9, depth: 0.22, pulse: 0.12, sway: 6, fov: FOV, camera: logoCam(0.2, 0.21, 6) } },
+        { scene: () => import('./scenes/title'), params: { nameY: 0.58 } },
+      ] },
+    },
     // act 2: the pipeline
     { id: 'ingest3d', scene: plate, length: 8, params: { variant: 'push', sheet: 'assets/sheets/hires_38189_p03.jpg' }, transition: { kind: 'zoom', scale: 2.4, pre: 0.3, post: 0.45 } },
     { id: 'ingestui', scene: productScene('ingestui'), length: 6, transition: { kind: 'xfade', pre: 0.4, post: 0.4 } },
@@ -36,7 +58,21 @@ export default defineFilm({
     // act 3: the faculty's word
     { id: 'control', scene: productScene('control'), length: 16, transition: { kind: 'whip', dir: [1, 0], pre: 0.25, post: 0.35 } },
     // act 4: the outcome
-    { id: 'outcome', scene: () => import('./scenes/outcome'), length: 7, transition: { kind: 'dip', pre: 0.4, post: 0.45 } },
-    { id: 'end', scene: () => import('./scenes/end'), length: 5, transition: { kind: 'xfade', pre: 0.5, post: 0.45 } },
+    {
+      id: 'outcome', scene: stack, length: 7, transition: { kind: 'dip', pre: 0.4, post: 0.45 },
+      params: { layers: [
+        { scene: aurora, params: { color: 'accentDim', color2: 'accent2', intensity: 0.4, height: 0.1, spread: 0.25, stars: 0, speed: 0.5, seed: 3 } },
+        { scene: () => import('./scenes/outcome') },
+      ] },
+    },
+    // the logo in 3D rising on "CampX.", the lines under it on the voice
+    {
+      id: 'end', scene: stack, length: 5, transition: { kind: 'xfade', pre: 0.5, post: 0.45 },
+      params: { layers: [
+        { scene: aurora, params: { color: 'accentDim', color2: 'accent', intensity: 0.3, height: 0.08, spread: 0.2, stars: 0, speed: 0.4, seed: 7 } },
+        { scene: logo3d, params: { logo: 'assets/brand/campx-logo-3d.svg', colors: 'svg', reveal: 'rise', landAt: 0.55, depth: 0.16, pulse: 0.1, sway: 5, fov: FOV, camera: logoCam(0.17, 0.1, 5) } },
+        { scene: () => import('./scenes/end'), params: { logo: false } },
+      ] },
+    },
   ],
 });

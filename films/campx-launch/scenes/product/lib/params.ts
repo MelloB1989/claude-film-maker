@@ -8,108 +8,132 @@ const Q1 = UI + 'control_flagged_q1.png';
 const Q4 = UI + 'control_workspace_q4.png';
 const Q4H = UI + 'control_hover_accept_q4.png';
 
-/** PNG pixels (the captures are 3200x1800) to image coordinates. */
-const px = (x: number, y: number): [number, number] => [x / 3200, y / 1800];
-/** An INDEX.md region (x, y, w, h in PNG pixels) as [u0, v0, u1, v1]. */
-const rg = (x: number, y: number, w: number, h: number): [number, number, number, number] => [x / 3200, y / 1800, (x + w) / 3200, (y + h) / 1800];
+/** PNG pixels to image coordinates, for a capture `h` px tall (the captures are 3200 wide; most are 1800 tall). */
+const pxOf = (h: number) => (x: number, y: number): [number, number] => [x / 3200, y / h];
+/** An INDEX.md region (x, y, w, h in PNG pixels) as [u0, v0, u1, v1], for a capture `ih` px tall. */
+const rgOf = (ih: number) => (x: number, y: number, w: number, h: number): [number, number, number, number] => [x / 3200, y / ih, (x + w) / 3200, (y + h) / ih];
+const px = pxOf(1800), rg = rgOf(1800);
+const pxT = pxOf(2500), rgT = rgOf(2500);
 
+// Times are the scene's local seconds, set on the VO words (data/vo.json; film time = scene start + t).
 
+// ingestui (film 29-35): 'and checks each script for tampering' 29.44, 'before an evaluator ever sees it' 32.0-34.1.
+// The tall capture shows the whole ingestion pipeline; every callout points at a row that says it.
 export const ingestui: Cfg = {
-  images: [{ src: UI + 'ingestui_batch_stages.png' }],
-  base: { w: 0.74 },
+  images: [{ src: UI + 'ingestui_batch_stages_tall.png' }],
+  base: { h: 0.9 },
   yaw: -12,
   cam: [
-    { t: 0, x: 0.5, y: 0.5, z: 1 },
-    { t: 1.6, x: 0.42, y: 0.3, z: 1.55, ax: 0.52 },
-    { t: 3.0, x: 0.42, y: 0.3, z: 1.55, ax: 0.52 },
-    { t: 4.2, x: 0.42, y: 0.86, z: 1.6, ax: 0.52, ay: 0.6 },
-    { t: 6, x: 0.44, y: 0.86, z: 1.66, ax: 0.52, ay: 0.6 },
+    { t: 0, x: 0.46, y: 0.72, z: 1.1, ax: 0.5, ay: 0.5 },
+    { t: 2.6, x: 0.43, y: 0.75, z: 1.34, ax: 0.5, ay: 0.5 },
+    { t: 4.6, x: 0.47, y: 0.53, z: 1.2, ax: 0.5, ay: 0.52 },
+    { t: 6, x: 0.47, y: 0.53, z: 1.16, ax: 0.5, ay: 0.52 },
   ],
   spots: [
-    { t0: 1.2, t1: 3.4, rect: rg(560, 640, 2600, 140), dim: 0.5, pad: 0.004 },
-    { t0: 3.6, t1: 6, rect: rg(600, 1390, 2560, 380), dim: 0.5, pad: 0.004 },
+    // the pipeline rows, then the banner down to them
+    { t0: -0.7, t1: 3.6, rect: rgT(594, 1373, 2528, 707), pad: 0.004 },
+    { t0: 3.4, t1: 6.8, rect: rgT(558, 637, 2599, 1443), pad: 0.004 },
   ],
   callouts: [
-    { t: 1.6, until: 3.4, text: 'Split per booklet', at: px(568, 685), off: [-40, -120] },
-    { t: 4.0, text: 'Tamper-checked', at: px(596, 1533), off: [-60, -130] },
-    { t: 4.6, text: 'Identity removed', at: px(596, 1634), off: [-60, 110] },
+    // 'Page preparation & tamper checks': the leader lands at 29.6 on 'checks', the label is in by 29.7
+    { t: 0.1, text: 'Tamper-checked', at: pxT(1290, 1834), off: [90, -100] },
+    // 'Anonymisation'
+    { t: 1.5, text: 'Identity removed', at: pxT(1000, 1934), off: [170, 45] },
+    // 'This ZIP held 2 scripts: ...'
+    { t: 3.5, text: 'Split per booklet', at: pxT(1700, 726), off: [200, 52] },
   ],
 };
 
+// readui (film 42-49): 'even when an answer runs across pages' 43.1-45.0. Q1's card says
+// 'Where this answer sits / Check: page 11 may belong to 1 or 7'; then the page beside its transcription.
 export const readui: Cfg = {
-  images: [{ src: UI + 'readui_transcript_q4.png' }],
+  images: [{ src: Q1 }, { src: UI + 'readui_transcript_q4.png', from: 3.7, fade: 0.9 }],
   base: { w: 0.74 },
   yaw: -12,
   cam: [
-    { t: 0, x: 0.5, y: 0.5, z: 1 },
-    { t: 2.0, x: 0.3, y: 0.4, z: 1.75, ax: 0.42 },
-    { t: 3.9, x: 0.3, y: 0.42, z: 1.75, ax: 0.42 },
-    { t: 5.2, x: 0.86, y: 0.52, z: 1.9, ax: 0.6 },
-    { t: 7, x: 0.86, y: 0.54, z: 1.95, ax: 0.6 },
+    { t: 0, x: 0.55, y: 0.45, z: 0.96 },
+    { t: 1.6, x: 0.78, y: 0.32, z: 1.5, ax: 0.58 },
+    { t: 3.4, x: 0.78, y: 0.33, z: 1.55, ax: 0.58 },
+    { t: 5.0, x: 0.56, y: 0.46, z: 1.04, ax: 0.5 },
+    { t: 7, x: 0.57, y: 0.47, z: 1.08, ax: 0.5 },
   ],
   spots: [
-    { t0: 1.6, t1: 4.2, rect: rg(380, 520, 1700, 560), dim: 0.5, pad: 0.004 },
-    { t0: 4.5, t1: 7, rect: rg(2428, 758, 706, 640), dim: 0.5, pad: 0.004 },
+    // (they overlap, so the crossfade between the captures happens on the dark stage)
+    { t0: 0.7, t1: 4.1, rect: rg(2426, 512, 713, 106), pad: 0.006 },
+    { t0: 3.5, t1: 7.4, rect: rg(380, 520, 2760, 900), pad: 0.004 },
   ],
   boxes: [
-    { t: 2.6, until: 6.9, rect: rg(392, 560, 1650, 100), tone: 'accent2' },
+    { t: 4.6, until: 6.9, rect: rg(392, 560, 1650, 100), tone: 'accent2' },
     { t: 5.0, until: 6.9, rect: rg(2440, 785, 560, 100), tone: 'accent2' },
   ],
   callouts: [
-    { t: 2.0, until: 4.2, text: 'Mapped to Q4', at: px(366, 533), off: [-60, -110] },
-    { t: 5.2, text: 'Transcribed', at: px(2422, 1000), off: [-120, 40] },
+    { t: 1.1, until: 3.7, text: 'Pages mapped to questions', at: px(2418, 565), off: [-150, 90] },
+    { t: 4.8, until: 7.0, text: 'Transcribed', at: px(2422, 1000), off: [-120, 40] },
   ],
 };
 
+// markui (film 55-62): 'Medha suggests a mark' 54.6-55.6, 'and shows exactly why' 55.6-56.5. Opens on the
+// written reasoning (lands about t=1.0), then lets the card breathe: the suggested mark and the point-by-point ticks.
 export const markui: Cfg = {
-  images: [{ src: Q1 }, { src: Q4, from: 4.6, fade: 0.8 }],
+  images: [{ src: Q4 }],
   base: { w: 0.74 },
   yaw: -12,
   cam: [
-    { t: 0, x: 0.5, y: 0.5, z: 1 },
-    { t: 1.6, x: 0.86, y: 0.42, z: 2.0, ax: 0.66 },
-    { t: 4.4, x: 0.86, y: 0.5, z: 2.0, ax: 0.66 },
-    { t: 5.6, x: 0.86, y: 0.5, z: 2.1, ax: 0.66 },
-    { t: 7, x: 0.7, y: 0.5, z: 1.3 },
+    { t: 0, x: 0.78, y: 0.56, z: 1.3, ax: 0.6 },
+    { t: 1.1, x: 0.84, y: 0.6, z: 1.62, ax: 0.62 },
+    { t: 3.4, x: 0.84, y: 0.6, z: 1.66, ax: 0.62 },
+    { t: 5.0, x: 0.82, y: 0.46, z: 1.4, ax: 0.6 },
+    { t: 7, x: 0.79, y: 0.47, z: 1.3, ax: 0.58 },
   ],
   spots: [
-    { t0: 1.2, t1: 4.5, rect: rg(2394, 400, 774, 640), dim: 0.5, pad: 0.004 },
-    { t0: 4.7, t1: 7, rect: rg(2394, 970, 774, 300), dim: 0.5, pad: 0.004 },
+    // 'Identifies high-rise buildings...' with its written reasoning
+    { t0: 0.2, t1: 3.9, rect: rg(2394, 880, 774, 370), pad: 0.004 },
+    { t0: 3.9, t1: 7.6, rect: rg(2394, 400, 774, 1040), pad: 0.004 },
   ],
   callouts: [
-    { t: 1.8, until: 4.4, text: 'Suggested mark', at: px(2795, 459), off: [-300, 60] },
-    { t: 3.0, until: 4.4, text: 'Point by point', at: px(2412, 690), off: [-120, 30] },
-    { t: 5.2, until: 6.9, text: 'Shows exactly why', at: px(2412, 1100), off: [-120, 0] },
+    { t: 0.35, until: 3.9, text: 'Shows exactly why', at: px(2412, 990), off: [-130, 0] },
+    { t: 4.4, text: 'Suggested mark', at: px(2800, 459), off: [-300, 60] },
+    { t: 5.2, text: 'Point by point', at: px(2412, 660), off: [-130, 40] },
   ],
 };
 
+// control (film 62-78): 'Evaluators see the script and Medha's suggestions side by side' 65.6-69.6 (t 3.6-7.6),
+// 'Accept' 70.31 (t 8.31), 'adjust' 71.04 (t 9.04), 'override' 71.91 (t 9.91), 'in seconds' 72.4-73.0,
+// 'Anything uncertain is flagged for a closer look' 73.52-76.1, 'flagged' 74.79 (t 12.79).
+// No capture shows a changed mark, so 'adjust' and 'override' are clicks into the empty marks field: no number.
 export const control: Cfg = {
-  images: [{ src: Q4 }, { src: Q4H, from: 5.0, fade: 0.25 }],
+  images: [{ src: Q4 }, { src: Q4H, from: 7.9, fade: 0.25 }],
   base: { w: 0.74 },
   yaw: -9,
   cam: [
-    { t: 0, x: 0.5, y: 0.5, z: 1 },
-    { t: 3.4, x: 0.55, y: 0.5, z: 1.08 },
-    { t: 4.6, x: 0.82, y: 0.36, z: 2.0, ax: 0.64 },
-    { t: 7.6, x: 0.82, y: 0.36, z: 2.0, ax: 0.64 },
-    { t: 8.6, x: 0.82, y: 0.88, z: 2.1, ax: 0.64 },
-    { t: 11.6, x: 0.82, y: 0.88, z: 2.1, ax: 0.64 },
-    { t: 12.6, x: 0.8, y: 0.52, z: 2.1, ax: 0.62 },
-    { t: 16, x: 0.7, y: 0.5, z: 1.25 },
+    // the hero: the whole workspace floating crisp in the dark, under a slow parallax push (the frame turns
+    // a few degrees against the far lights) through 'side by side' (t 3.6-7.6)
+    { t: 0, x: 0.5, y: 0.5, z: 0.88, yaw: 3 },
+    { t: 3.6, x: 0.5, y: 0.5, z: 0.93, yaw: 2 },
+    { t: 7.5, x: 0.53, y: 0.5, z: 1.06, yaw: -1.5 },
+    // then across to Medha's panel: Accept, the marks field
+    { t: 9.6, x: 0.77, y: 0.56, z: 1.38, ax: 0.6 },
+    { t: 11.0, x: 0.79, y: 0.55, z: 1.42, ax: 0.6 },
+    // uncertain
+    { t: 12.3, x: 0.8, y: 0.47, z: 1.68, ax: 0.6 },
+    { t: 16, x: 0.79, y: 0.48, z: 1.55, ax: 0.6 },
   ],
   spots: [
-    { t0: 4.4, t1: 7.8, rect: rg(2394, 400, 774, 640), dim: 0.5, pad: 0.004 },
-    { t0: 8.4, t1: 11.8, rect: rg(2362, 1463, 838, 337), dim: 0.5, pad: 0.004 },
-    { t0: 12.4, t1: 16, rect: rg(2394, 770, 774, 160), dim: 0.5, pad: 0.004 },
+    { t0: 7.4, t1: 9.4, rect: rg(2424, 426, 714, 64), pad: 0.008 },
+    { t0: 8.7, t1: 11.4, rect: rg(2362, 1463, 838, 337), pad: 0.004 },
+    { t0: 11.5, t1: 16.6, rect: rg(2394, 740, 774, 130), pad: 0.004 },
   ],
   cursor: [
-    { t: 3.0, at: px(2100, 1000) },
-    { t: 5.6, at: px(3054, 458), click: true },
-    { t: 8.8, at: px(3054, 458) },
-    { t: 10.2, at: px(2600, 1535), click: true },
-    { t: 12.0, at: px(2900, 1535) },
-    { t: 13.4, at: px(2960, 850) },
+    { t: 6.0, at: px(2100, 1000) },
+    { t: 8.31, at: px(3054, 458), click: true },
+    { t: 9.04, at: px(2560, 1537), click: true },
+    { t: 9.91, at: px(2590, 1530), click: true },
+    { t: 11.2, at: px(2840, 1537) },
   ],
-  boxes: [{ t: 12.7, rect: rg(2476, 822, 662, 52), tone: 'accent' }],
-  chips: [{ t: 12.9, text: 'Flagged for review', at: px(2180, 851), tone: 'accent', pulse: true }],
+  boxes: [
+    { t: 8.95, until: 11.4, rect: rg(2493, 1499, 216, 77), tone: 'accent' },
+    { t: 12.3, rect: rg(2476, 822, 662, 52), tone: 'accent' },
+  ],
+  // the pulse peaks 0.31 s after `t`: on 'flagged'
+  chips: [{ t: 12.48, text: 'Flagged for review', at: px(2180, 851), tone: 'accent', pulse: true }],
 };

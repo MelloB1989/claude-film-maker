@@ -23,7 +23,7 @@ export default class Stakes extends Scene2D {
 
   draw(c: CanvasRenderingContext2D, f: Frame): PostOverrides {
     const img = this.img!, u = this.u, lt = f.lt, p = f.p;
-    const words = spoken(this.ctx.vo, this.ctx.id);
+    const words = spoken(this.ctx);
     const e = 0.5 - 0.5 * Math.cos(Math.PI * p);
     const cx = lerp(FROM.cx, TO.cx, e), cy = lerp(FROM.cy, TO.cy, e), sw = lerp(FROM.w, TO.w, e);
     const sh = (sw * H) / W;

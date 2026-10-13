@@ -11,7 +11,7 @@ export type Region = [number, number, number, number];
 
 /** A camera key: at local time t the camera looks at image point (x, y) with zoom z (1 = the fitted screenshot). */
 export interface CamKey { t: number; x: number; y: number; z: number; yaw?: number; /** where the focus sits on screen (fractions of the frame); default Cfg.anchor */ ax?: number; ay?: number }
-export interface Spot { t0: number; t1: number; rect: Region; /** how dark the rest goes (0..1), default 0.62 */ dim?: number; /** padding in image units */ pad?: number }
+export interface Spot { t0: number; t1: number; rect: Region; /** how dark the rest goes (0..1, toward near-black), default 0.86 */ dim?: number; /** padding in image units */ pad?: number }
 export interface Callout { t: number; until?: number; text: string; sub?: string; at: UV; /** label offset from the anchor, ref px (x right, y down) */ off: [number, number] }
 export interface Box { t: number; until?: number; rect: Region; label?: string; tone?: 'accent' | 'accent2' }
 export interface Tick { t: number; at: UV; /** a drawn check mark (the key point is met) */ tone?: 'accent2' | 'accent' }

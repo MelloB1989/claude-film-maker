@@ -12,22 +12,26 @@ import math
 
 import numpy as np
 
-SHOT = {"frames": [1050, 1260], "look": [1050, 1085, 1120, 1160, 1200, 1259]}
+SHOT = {"frames": [1050, 1260], "look": [1050, 1095, 1130, 1170, 1205, 1259]}
 
 PAGE_W = 0.210  # A4 sheet (m); height follows the scan's aspect
 IMG_PX = (2392, 3517)
 PAGE_H = PAGE_W * IMG_PX[1] / IMG_PX[0]
 DISP = (1360.0, 2000.0)  # the coordinates the line table below was measured in (the scan shown at 1360 x 2000)
-FONT = "/usr/share/fonts/opentype/inter/Inter-Regular.otf"
+FONT = "app/public/fonts/Geist-400.ttf"  # the engine's text face, in the repo (so every render host has it)
 
-HOVER = 0.026  # how far above the paper the typeset layer floats (m)
+HOVER = 0.040  # how far above the paper the typeset layer floats (m)
 UNDER = -0.003  # where a line waits: under the paper
-BEAM_FRAMES = (1056, 1250)  # the beam enters above the page and leaves below it
-BEAM_Y = (20.0, 2080.0)  # in display px
+BEAM_FRAMES = (1045, 1263)  # the beam glides in from above the page and leaves below it: on line 1 at ~36.1 s
+CORRECT_FRAME = 1198  # "corrected," (39.93 s): a misread digit in the lifted layer flips, with an accent flash
+CORRECT = (2, 2, 2, "−20")  # (matrix, row, column, the first misreading): -28 was first read as -20
+TAG_FRAME = 1222  # "and mapped to the right question" (40.8 s): a Q2 tag settles beside the lifted block
+BEAM_Y = (-250.0, 2080.0)  # in display px
 LIFT_FRAMES = 26
-SHIFT = HOVER / math.tan(math.radians(58.0))  # the layer slides toward the camera as it rises, so from the closing
-TOWARD = (0.087, -0.996)  # high view each line sits right over its source (in the page's frame)
-EM_MAX, EM_MIN = 0.0078, 0.0042  # the typeset size range (m)
+SHIFT = 0.012  # the layer drifts a little toward the reader as it rises (m), so the 3/4 close keeps it near its source
+TOWARD = (0.0, -1.0)  # in the page's frame
+VEIL = 0.66  # how far a source line fades back under a paper-white veil once its typeset line has lifted
+EM_MAX, EM_MIN = 0.0066, 0.0042  # the typeset size range (m)
 
 # --- the transcription: (text, x0, x1, y) for a line, ("row", [cells], [x centres], y) for a matrix row, in display px
 LINES = [
@@ -41,6 +45,7 @@ LINES = [
     ("R2 → R2 − 2R1", 440, 655, 885),
     ("R3 → R3 − 3R1", 440, 670, 945),
     ("=", 335, 355, 1050),
+    ("R3 → R3 / 7", 460, 685, 1250),
 ]
 MATRICES = [  # (rows, x centres of the four columns, y of each row, x of the brackets)
     ([["3", "1", "−1", "3"], ["2", "−8", "1", "−5"], ["1", "−2", "9", "8"]],
@@ -49,8 +54,6 @@ MATRICES = [  # (rows, x centres of the four columns, y of each row, x of the br
      [455, 520, 598, 665], [685, 745, 805], (380, 700)),
     ([["1", "−2", "9", "8"], ["0", "−4", "−17", "−21"], ["0", "7", "−28", "−21"]],
      [455, 525, 595, 665], [1045, 1105, 1170], (385, 715)),
-    ([["1", "−2", "9", "8"], ["0", "−4", "−17", "−21"], ["0", "1", "−4", "−3"]],
-     [450, 525, 600, 665], [1335, 1395, 1465], (385, 710)),
 ]
 
 
@@ -147,6 +150,12 @@ def build(ctx):
     L(tex.outputs["Color"], warm.inputs["A"])
     bs = N("ShaderNodeBsdfPrincipled")
     L(warm.outputs["Result"], bs.inputs["Base Color"])
+    fibre = N("ShaderNodeTexNoise")  # the paper's tooth, seen only in the macro opening
+    fibre.inputs["Scale"].default_value, fibre.inputs["Detail"].default_value = 1400.0, 4.0
+    bump = N("ShaderNodeBump")
+    bump.inputs["Strength"].default_value, bump.inputs["Distance"].default_value = 0.06, 0.0002
+    L(fibre.outputs["Fac"], bump.inputs["Height"])
+    L(bump.outputs["Normal"], bs.inputs["Normal"])
     bs.inputs["Roughness"].default_value = 0.78
     bs.inputs["Sheen Weight"].default_value = 0.25
     bs.inputs["Sheen Roughness"].default_value = 0.5
@@ -156,7 +165,7 @@ def build(ctx):
     me.materials.append(mat)
     paper = link(bpy.data.objects.new("paper", me), root)
     sol = paper.modifiers.new("slab", "SOLIDIFY")
-    sol.thickness, sol.offset = 0.00032, -1.0
+    sol.thickness, sol.offset = 0.00032, 1.0  # the grid's normals face down: the slab grows under the printed face
 
     # --- the desk: a dark, finely uneven satin, wide enough that its edge is never seen
     dme = bpy.data.meshes.new("desk")
@@ -168,7 +177,7 @@ def build(ctx):
     DN, DL = dn.nodes.new, dn.links.new
     dbs = DN("ShaderNodeBsdfPrincipled")
     dbs.inputs["Base Color"].default_value = (*[c * 0.9 for c in lin("surface")], 1.0)
-    dbs.inputs["Coat Weight"].default_value = 0.35
+    dbs.inputs["Coat Weight"].default_value = 0.12
     dbs.inputs["Coat Roughness"].default_value = 0.25
     dnoise = DN("ShaderNodeTexNoise")
     dnoise.inputs["Scale"].default_value, dnoise.inputs["Detail"].default_value = 140.0, 2.0
@@ -210,19 +219,62 @@ def build(ctx):
     tb.inputs["Emission Color"].default_value = (*lin("accent"), 1.0)
     mulg = TN("ShaderNodeMath")
     mulg.operation = "MULTIPLY"
-    mulg.inputs[1].default_value = 7.0
+    mulg.inputs[1].default_value = 2.5
     TL(sq.outputs["Value"], mulg.inputs[0])
     TL(mulg.outputs["Value"], tb.inputs["Emission Strength"])
     tout = TN("ShaderNodeOutputMaterial")
     TL(tb.outputs["BSDF"], tout.inputs["Surface"])
 
-    font = bpy.data.fonts.load(FONT)
+    font = bpy.data.fonts.load(str(ctx.film.repo / FONT))
     bpy.context.view_layer.update()
 
     def start_frame(yd: float) -> int:
         return int(round(frame_for_y(yd))) - 2
 
-    def keyed_lift(ob, yd, delay=0):
+    def veil_material():
+        """Paper-white over the handwriting, with a breath of accent; returns (material, the fade value socket)."""
+        vm = bpy.data.materials.new("veil")
+        vn = vm.node_tree
+        vn.nodes.clear()
+        VN, VL = vn.nodes.new, vn.links.new
+        va = VN("ShaderNodeValue")
+        va.outputs[0].default_value = 0.0
+        vb = VN("ShaderNodeBsdfPrincipled")
+        vb.inputs["Base Color"].default_value = (*[c * 0.3 for c in lin("fg")], 1.0)
+        vb.inputs["Roughness"].default_value = 0.78
+        vb.inputs["Emission Color"].default_value = (*lin("accent"), 1.0)
+        vb.inputs["Emission Strength"].default_value = 0.03
+        vt = VN("ShaderNodeBsdfTransparent")
+        vmul = VN("ShaderNodeMath")
+        vmul.operation, vmul.inputs[1].default_value = "MULTIPLY", VEIL
+        VL(va.outputs[0], vmul.inputs[0])
+        vmix = VN("ShaderNodeMixShader")
+        VL(vmul.outputs["Value"], vmix.inputs["Fac"])
+        VL(vt.outputs["BSDF"], vmix.inputs[1])
+        VL(vb.outputs["BSDF"], vmix.inputs[2])
+        vo = VN("ShaderNodeOutputMaterial")
+        VL(vmix.outputs["Shader"], vo.inputs["Surface"])
+        return vm, va.outputs[0]
+
+    def veil(x0d, x1d, y0d, y1d, f):
+        """A paper-white veil lying on the page over a source line's box (display px), following the curl, fading in
+        to VEIL as its typeset line arrives at the top of its lift (frame f)."""
+        xs = np.linspace(to_page(x0d - 14, 0)[0], to_page(x1d + 14, 0)[0], 24)
+        ys = (to_page(0, y0d)[1], to_page(0, y1d)[1])
+        vv = [(x, y, float(curl(x, y)) + 0.00025) for y in ys for x in xs]
+        n = len(xs)
+        ff = [(i, i + 1, n + i + 1, n + i) for i in range(n - 1)]
+        vme = bpy.data.meshes.new("veil")
+        vme.from_pydata(vv, [], ff)
+        vm, fade = veil_material()
+        vme.materials.append(vm)
+        ob = link(bpy.data.objects.new("veil", vme), root)
+        ob.visible_shadow = False
+        for fr, v in ((F0, 0.0), (f + LIFT_FRAMES - 10, 0.0), (f + LIFT_FRAMES + 14, 1.0), (F1, 1.0)):
+            fade.default_value = v
+            fade.keyframe_insert("default_value", frame=fr)
+
+    def keyed_lift(ob, yd, delay=0, scale=True):
         """Wait under the page, then rise to HOVER once the beam has passed the line."""
         f = start_frame(yd) + delay
         x0, y0 = ob.location.x, ob.location.y
@@ -231,17 +283,54 @@ def build(ctx):
             ob.location = (x0 + TOWARD[0] * SHIFT * k, y0 + TOWARD[1] * SHIFT * k, z)
             ob.scale = (sc, sc, 1.0)
             ob.keyframe_insert("location", frame=fr)
-            ob.keyframe_insert("scale", frame=fr)
+            if scale:
+                ob.keyframe_insert("scale", frame=fr)
 
     def text(body, x, y, size, align="LEFT"):
         cu = bpy.data.curves.new("t", "FONT")
         cu.body, cu.font, cu.size = body, font, size
         cu.align_x, cu.align_y = align, "CENTER"
-        cu.extrude, cu.bevel_depth, cu.bevel_resolution, cu.resolution_u = 0.00055, 0.00003, 1, 4
+        cu.extrude, cu.bevel_depth, cu.bevel_resolution, cu.resolution_u = 0.0005, 0.0, 0, 5
         cu.materials.append(tm)
         ob = link(bpy.data.objects.new("t", cu), root)
         ob.location = (x, y, UNDER)
         return ob
+
+    def constant(ob):
+        for fc in _fcurves(ob):
+            if fc.data_path == "scale":
+                for k in fc.keyframe_points:
+                    k.interpolation = "CONSTANT"
+
+    def correction(right, wrong_body, yd, delay):
+        """The beat on "corrected,": the misreading rides the lift in the right digit's place, then at CORRECT_FRAME
+        it flips to the right one, which flashes accent and settles to fg."""
+        wrong = text(wrong_body, right.location.x, right.location.y, right.data.size, "CENTER")
+        keyed_lift(wrong, yd, delay)
+        for fr, sc in ((CORRECT_FRAME - 1, 1.0), (CORRECT_FRAME, 0.0), (F1, 0.0)):
+            wrong.scale = (sc, sc, sc)
+            wrong.keyframe_insert("scale", frame=fr)
+        for fc in [fc for fc in _fcurves(right) if fc.data_path == "scale"]:
+            fc.keyframe_points.clear()
+        for fr, sc in ((F0, 0.0), (CORRECT_FRAME - 1, 0.0), (CORRECT_FRAME, 1.0), (F1, 1.0)):
+            right.scale = (sc, sc, sc)
+            right.keyframe_insert("scale", frame=fr)
+        constant(right)
+        fm = tm.copy()
+        fm.name = "typeset_flash"
+        em = next(n for n in fm.node_tree.nodes if n.bl_idname == "ShaderNodeBsdfPrincipled")
+        em.inputs["Emission Color"].default_value = (*lin("accentBright"), 1.0)
+        flash = fm.node_tree.nodes.new("ShaderNodeValue")
+        add = fm.node_tree.nodes.new("ShaderNodeMath")
+        add.operation = "ADD"
+        old = em.inputs["Emission Strength"].links[0].from_socket
+        fm.node_tree.links.new(old, add.inputs[0])
+        fm.node_tree.links.new(flash.outputs[0], add.inputs[1])
+        fm.node_tree.links.new(add.outputs[0], em.inputs["Emission Strength"])
+        for fr, v in ((F0, 0.0), (CORRECT_FRAME, 0.0), (CORRECT_FRAME + 2, 9.0), (CORRECT_FRAME + 18, 0.0), (F1, 0.0)):
+            flash.outputs[0].default_value = v
+            flash.outputs[0].keyframe_insert("default_value", frame=fr)
+        right.data.materials[0] = fm
 
     for body, x0, x1, yd in LINES:
         ax, ay = to_page(x0, yd)
@@ -252,13 +341,17 @@ def build(ctx):
         size = min(EM_MAX, max(EM_MIN, fit))
         probe.data.size = size
         keyed_lift(probe, yd)
+        if body != "=":
+            veil(x0, x1, yd - 30, yd + 30, start_frame(yd))
 
     for rows, cols, ys, (bx0, bx1) in MATRICES:
         for r, yd in zip(rows, ys):
             for c, xd in zip(r, cols):
                 ax, ay = to_page(xd, yd)
-                ob = text(c, ax, ay, 0.0058, "CENTER")
+                ob = text(c, ax, ay, 0.0052, "CENTER")
                 keyed_lift(ob, yd, delay=int(cols.index(xd)))
+                if (MATRICES.index((rows, cols, ys, (bx0, bx1))), rows.index(r), r.index(c)) == CORRECT[:3]:
+                    correction(ob, CORRECT[3], yd, int(cols.index(xd)))
         # the brackets: thin extruded strokes, one mesh per matrix
         top, bot = to_page(0, ys[0] - 36)[1], to_page(0, ys[-1] + 36)[1]
         t, k, w = 0.00035, 0.0042, 0.0007
@@ -279,7 +372,31 @@ def build(ctx):
         bme.from_pydata(bv, [], bf)
         bme.materials.append(tm)
         bob = link(bpy.data.objects.new("bracket", bme), root)
-        keyed_lift(bob, ys[0] - 40)
+        keyed_lift(bob, ys[0])
+        veil(bx0 - 40, bx1, ys[0] - 40, ys[-1] + 40, start_frame(ys[-1]))
+
+    # --- the tag: "Q2" in a hairline accent pill, settling beside the lifted block on "mapped to the right question"
+    tag = link(bpy.data.objects.new("tag", None), root)
+    tx, ty = to_page(150, 205)
+    tag.location = (tx + TOWARD[0] * SHIFT, ty + TOWARD[1] * SHIFT, HOVER + 0.002)
+    q = text("Q2", 0.0, 0.0, 0.0072, "CENTER")
+    q.parent, q.location = tag, (0.0, 0.0, 0.0)
+    pw, ph, th = 0.0105, 0.0072, 0.00028
+    pv, pf = [], []
+    for (xa, ya, xb, yb) in ((-pw, -ph, pw, -ph + th), (-pw, ph - th, pw, ph), (-pw, -ph, -pw + th, ph), (pw - th, -ph, pw, ph)):
+        i = len(pv)
+        pv += [(xa, ya, 0), (xb, ya, 0), (xb, yb, 0), (xa, yb, 0)]
+        pf.append((i, i + 1, i + 2, i + 3))
+    pme = bpy.data.meshes.new("pill")
+    pme.from_pydata(pv, [], pf)
+    pme.materials.append(materials.emission("accent", 5.0, name="tag_line"))
+    link(bpy.data.objects.new("pill", pme), tag)
+    base = tag.location.z
+    for fr, sc, dz in ((F0, 0.0, 0.006), (TAG_FRAME, 0.0, 0.006), (TAG_FRAME + 12, 1.0, 0.0), (F1, 1.0, 0.0)):
+        tag.scale = (sc, sc, sc)
+        tag.location.z = base + dz
+        tag.keyframe_insert("scale", frame=fr)
+        tag.keyframe_insert("location", index=2, frame=fr)
 
     # --- the scan beam: a hot thin bar (accentBright) with a soft accent trail behind it and a light that washes the page
     beam = link(bpy.data.objects.new("beam", None), root)
@@ -288,7 +405,8 @@ def build(ctx):
     bar = bpy.data.meshes.new("bar")
     bar.from_pydata([(-bw / 2, -0.00035, 0), (bw / 2, -0.00035, 0), (bw / 2, 0.00035, 0), (-bw / 2, 0.00035, 0)], [],
                     [(0, 1, 2, 3)])
-    bar.materials.append(materials.emission("accentBright", 9.0, name="beam_core"))
+    core = materials.emission("accentBright", 9.0, name="beam_core")
+    bar.materials.append(core)
     link(bpy.data.objects.new("bar", bar), beam).location.z = bz
     tl = 0.034  # the trail's length behind the bar (toward the top of the page)
     tr = bpy.data.meshes.new("trail")
@@ -326,6 +444,16 @@ def build(ctx):
     link(bpy.data.objects.new("trail", tr), beam).location.z = bz - 0.0003
     ld = bpy.data.lights.new("beam_light", "AREA")
     ld.shape, ld.size, ld.size_y, ld.energy = "RECTANGLE", PAGE_W * 1.0, 0.006, 0.05
+    # the beam powers up as it glides onto the page, so the opening frames are calm
+    core_em = next(n for n in core.node_tree.nodes if n.bl_idname == "ShaderNodeEmission").inputs["Strength"]
+    for sock_or_light, full in ((core_em, 9.0), (em.inputs["Strength"], 0.8), (ld, 0.05)):
+        for fr, k in ((F0, 0.0), (1058, 0.0), (1074, 1.0), (F1, 1.0)):
+            if sock_or_light is ld:
+                ld.energy = full * k
+                ld.keyframe_insert("energy", frame=fr)
+            else:
+                sock_or_light.default_value = full * k
+                sock_or_light.keyframe_insert("default_value", frame=fr)
     ld.color = lin("accent")
     bl = link(bpy.data.objects.new("beam_light", ld), beam)
     bl.location.z = bz + 0.002
@@ -355,17 +483,20 @@ def build(ctx):
         a, e = math.radians(az), math.radians(elev)
         return (tp[0] + dist * math.sin(a) * math.cos(e), tp[1] - dist * math.cos(a) * math.cos(e), tp[2] + dist * math.sin(e))
 
-    # (frame, target in page metres (x, yd, z), elevation, distance, azimuth, fov, fstop)
+    # (frame, target (x, yd in display px), elevation, distance, azimuth, fov, fstop, focus height): low and close on the
+    # handwriting; the focus racks up to the layer as the first line arrives; then up and back to a 3/4 view, held
+    # for the tag
     ks = [
-        (F0, (560, 215, 0.0), 22.0, 0.150, -9.0, 22.0, 2.0),
-        (1100, (570, 420, 0.006), 36.0, 0.24, -6.0, 24.0, 2.8),
-        (1140, (590, 650, 0.010), 52.0, 0.40, -4.0, 23.0, 3.2),
-        (1190, (640, 830, 0.013), 56.0, 0.66, -2.0, 21.0, 4.0),
-        (F1, (650, 840, 0.013), 58.0, 0.70, -1.0, 21.0, 4.5),
+        (F0, (560, 215), 20.0, 0.150, -10.0, 22.0, 2.0, 0.0),
+        (1088, (565, 300), 23.0, 0.180, -12.0, 23.0, 2.4, 0.003),
+        (1106, (572, 390), 27.0, 0.235, -14.5, 24.0, 2.8, 0.036),
+        (1160, (620, 600), 37.0, 0.40, -23.0, 25.0, 3.6, 0.040),
+        (1212, (640, 660), 45.0, 0.47, -28.0, 25.0, 4.5, 0.040),
+        (F1, (642, 668), 46.0, 0.49, -30.0, 25.0, 4.5, 0.040),
     ]
-    for fr, (tx, tyd, tz), elev, dist, az, fov, fs in ks:
+    for fr, (tx, tyd), elev, dist, az, fov, fs, fz in ks:
         px, py = to_page(tx, tyd)
-        tp = world_of(px, py, tz)
+        tp = world_of(px, py, fz)
         tgt.location = tp
         tgt.keyframe_insert("location", frame=fr)
         cam.location = Vector(orbit(tp, elev, dist, az))
@@ -382,10 +513,8 @@ def build(ctx):
     lights.world_color("bg", 0.25)
     centre = Vector(world_of(0.0, 0.0, 0.0))
     key = lights._light("key", "SPOT", 55.0, centre + Vector((-0.30, -0.34, 0.52)), centre + Vector((0.02, 0.05, 0)),
-                        spot_size=0.95, soft=0.12, temperature=4700)
+                        spot_size=0.62, soft=0.12, temperature=4700)
     key.data.spot_blend = 1.0
-    lights._light("kick", "SPOT", 1.2, centre + Vector((0.45, 0.42, 0.10)), centre + Vector((0, 0.05, 0.03)),
-                  spot_size=0.5, soft=0.02, temperature=7500)
     lights._light("fill", "AREA", 1.5, centre + Vector((0.5, -0.5, 0.2)), centre, size=0.8, temperature=7000)
 
 

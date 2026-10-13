@@ -22,6 +22,7 @@ export abstract class UiScene extends Scene2D {
   private media: MediaSource[] = [];
   private buf = new Layer2D();
   private sharp = new Layer2D();
+  private tmp = new Layer2D();
   private bokeh: { x: number; y: number; r: number; a: number; hue: number; sp: number }[] = [];
 
   constructor(ctx: ConstructorParameters<typeof Scene2D>[0]) {
@@ -47,7 +48,7 @@ export abstract class UiScene extends Scene2D {
     if (!m0) return;
     const aspect = m0.width / Math.max(1, m0.height);
     const view = this.view(cfg, aspect, t);
-    this.studio(c, cfg, t);
+    this.studio(c, cfg, t, camAt(cfg.cam, t, cfg.anchor));
 
     // the frame: slices of the screenshot in perspective, into the buffer
     const b = this.buf.ctx;
@@ -55,46 +56,73 @@ export abstract class UiScene extends Scene2D {
     const entry = rise(t, 0, 0.9);
     this.screenshot(b, cfg, view, t, entry);
 
-    // focus: the strongest spot at t
-    let spot = 0, spotRect = cfg.spots?.[0]?.rect, dim = 0.62, pad = 0.01;
+    // focus: every spot in play at t (crossing spots overlap, so the stage stays dark through a hand-over)
+    const live: { a: number; q: { x: number; y: number }[]; dim: number }[] = [];
     for (const s of cfg.spots ?? []) {
       const a = window(t, s.t0, s.t1, 0.7, 0.7);
-      if (a > spot) { spot = a; spotRect = s.rect; dim = s.dim ?? 0.62; pad = s.pad ?? 0.01; }
+      if (a > 0.002) live.push({ a, q: quad(view, s.rect, s.pad ?? 0.01), dim: s.dim ?? 0.86 });
     }
+    const spot = Math.min(1, live.reduce((m, l) => m + l.a, 0));
+    const dim = live.reduce((m, l) => Math.max(m, l.dim), 0);
     c.save();
-    if (spot > 0.002 && spotRect) {
-      const q = quad(view, spotRect, pad);
-      c.filter = `blur(${(spot * 5 * u).toFixed(2)}px)`;
+    // the screenshot is drawn opaque into the buffer and faded in here, so its slices never seam
+    c.globalAlpha = entry;
+    if (live.length) {
+      // the rest of the stage falls away: defocused, then down toward near-black
+      c.filter = `blur(${(spot * 9 * u).toFixed(2)}px)`;
       c.drawImage(this.buf.canvas, 0, 0, W, H);
       c.filter = 'none';
-      c.fillStyle = rgba('bg', dim * spot);
+      c.globalAlpha = 1;
+      c.fillStyle = `rgba(3,2,9,${(dim * spot).toFixed(3)})`;
       c.fillRect(0, 0, W, H);
-      // the sharp copy, cut by a feathered mask
+      // a soft vignette round the lit region, so it reads as a spotlight on a dark stage
+      const lead = live.reduce((m, l) => (l.a > m.a ? l : m));
+      const cx = lead.q.reduce((a, p) => a + p.x, 0) / lead.q.length, cy = lead.q.reduce((a, p) => a + p.y, 0) / lead.q.length;
+      const r0 = Math.max(...lead.q.map((p) => Math.hypot(p.x - cx, p.y - cy)));
+      const vg = c.createRadialGradient(cx, cy, r0 * 0.9, cx, cy, r0 + 0.75 * W);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, `rgba(0,0,0,${(0.6 * spot).toFixed(3)})`);
+      c.fillStyle = vg;
+      c.fillRect(0, 0, W, H);
+      // the sharp copy, cut by a tightly feathered mask (the union of the spots in play): crisp and at full
+      // contrast, nothing laid over it
+      const mk = this.tmp.ctx;
+      this.tmp.clear();
+      mk.save();
+      mk.filter = `blur(${(7 * u).toFixed(1)}px)`;
+      for (const l of live) {
+        mk.fillStyle = `rgba(0,0,0,${Math.min(1, 1.6 * l.a).toFixed(3)})`;
+        mk.beginPath();
+        l.q.forEach((p, i) => (i ? mk.lineTo(p.x, p.y) : mk.moveTo(p.x, p.y)));
+        mk.closePath();
+        mk.fill();
+      }
+      mk.restore();
       const s = this.sharp.ctx;
       this.sharp.clear();
       s.drawImage(this.buf.canvas, 0, 0, W, H);
       s.globalCompositeOperation = 'destination-in';
-      s.filter = `blur(${(14 * u).toFixed(1)}px)`;
-      s.fillStyle = '#000';
-      s.beginPath();
-      q.forEach((p, i) => (i ? s.lineTo(p.x, p.y) : s.moveTo(p.x, p.y)));
-      s.closePath();
-      s.fill();
+      s.drawImage(this.tmp.canvas, 0, 0, W, H);
+      s.globalCompositeOperation = 'source-over';
+      c.globalAlpha = entry;
       c.drawImage(this.sharp.canvas, 0, 0, W, H);
-      // a hairline round the spot
+      // a faint hairline round each spot
       const g = this.glow;
-      g.strokeStyle = glowInk('accentBright', 0.45 * spot);
-      g.lineWidth = 1.6 * u;
-      g.beginPath();
-      q.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
-      g.closePath();
-      g.stroke();
+      for (const l of live) {
+        g.strokeStyle = glowInk('accentBright', 0.25 * l.a);
+        g.lineWidth = 1.2 * u;
+        g.beginPath();
+        l.q.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
+        g.closePath();
+        g.stroke();
+      }
     } else {
       c.drawImage(this.buf.canvas, 0, 0, W, H);
     }
     c.restore();
+    this.vignette(c);
 
-    this.sheen(c, view, t);
+    this.sheen(c, view, t, 1 - spot);
     this.boxes(c, cfg, view, t);
     this.ticks(c, cfg, view, t);
     this.callouts(c, cfg, view, t);
@@ -120,7 +148,7 @@ export abstract class UiScene extends Scene2D {
   }
 
   /** Soft studio light behind the frame, and a few out-of-focus lights drifting. */
-  private studio(c: CanvasRenderingContext2D, cfg: Cfg, t: number) {
+  private studio(c: CanvasRenderingContext2D, cfg: Cfg, t: number, cam: { x: number; y: number; z: number }) {
     const mode = cfg.light ?? 'brand';
     const pools: [number, number, number, string, number][] = [
       [0.28 + Math.sin(t * 0.21) * 0.03, 0.42, 0.55, mode === 'warm' ? 'accent2' : 'accentDim', 0.9],
@@ -141,8 +169,11 @@ export abstract class UiScene extends Scene2D {
     kl.addColorStop(1, 'rgba(255,240,235,0)');
     c.fillStyle = kl;
     c.fillRect(0, 0, W, H);
+    // parallax: the far lights slide against the camera's pan and spread a little as it pushes in
+    const zs = Math.pow(cam.z, 0.3), px = -(cam.x - 0.5) * 0.3 * W, py = -(cam.y - 0.5) * 0.2 * H;
     for (const k of this.bokeh) {
-      const x = ((k.x + t * k.sp) % 1.2 - 0.1) * W, y = k.y * H + Math.sin(t * 0.3 + k.hue * 9) * 12;
+      const x0 = ((k.x + t * k.sp) % 1.2 - 0.1) * W, y0 = k.y * H + Math.sin(t * 0.3 + k.hue * 9) * 12;
+      const x = W / 2 + (x0 - W / 2) * zs + px, y = H / 2 + (y0 - H / 2) * zs + py;
       const g = c.createRadialGradient(x, y, 0, x, y, k.r * this.u);
       const key = k.hue < 0.5 ? 'accentBright' : 'accent2Bright';
       g.addColorStop(0, rgba(key, k.a));
@@ -160,7 +191,6 @@ export abstract class UiScene extends Scene2D {
     const lift = (1 - entry) * 26 * u;
     b.save();
     b.translate(0, lift);
-    b.globalAlpha = entry;
     // shadow plate
     b.save();
     b.shadowColor = 'rgba(0,0,0,0.7)';
@@ -180,17 +210,25 @@ export abstract class UiScene extends Scene2D {
       if (!m || !pic) return;
       const a = i === 0 ? 1 : rise(t, im.from ?? 0, im.fade ?? 0.6);
       if (a <= 0.001) return;
-      b.globalAlpha = entry * a;
+      // a crossfading image is sliced opaque into its own layer, then laid over at its alpha (no seams)
+      const x = a < 0.999 ? this.tmp.ctx : b;
+      if (a < 0.999) { this.tmp.clear(); x.imageSmoothingQuality = 'high'; }
       for (let k = 0; k < SLICES; k++) {
         const u0 = k / SLICES, u1 = (k + 1) / SLICES;
         const p0 = project(v, u0, 0), p1 = project(v, u1, 0);
         const x0 = p0.x, x1 = p1.x;
         if (x1 < -4 || x0 > W + 4) continue;
         const y0 = project(v, u0, 0).y, y1 = project(v, u0, 1).y;
-        b.drawImage(pic.el, u0 * pic.width, 0, Math.max(1, pic.width / SLICES), pic.height, x0 - 0.35, y0, x1 - x0 + 0.7, y1 - y0);
+        x.drawImage(pic.el, u0 * pic.width, 0, Math.max(1, pic.width / SLICES), pic.height, x0 - 0.35, y0, x1 - x0 + 0.7, y1 - y0);
+      }
+      if (a < 0.999) {
+        // (b carries the entry lift, so the layer picks it up here)
+        b.save();
+        b.globalAlpha = a;
+        b.drawImage(this.tmp.canvas, 0, 0, W, H);
+        b.restore();
       }
     });
-    b.globalAlpha = entry;
     // the rim: a hairline, lit from the upper left
     const lg = b.createLinearGradient(full[0]!.x, full[0]!.y, full[2]!.x, full[2]!.y);
     lg.addColorStop(0, rgba('fg', 0.55));
@@ -205,8 +243,18 @@ export abstract class UiScene extends Scene2D {
     b.restore();
   }
 
-  /** A slow light sweep across the glass. */
-  private sheen(c: CanvasRenderingContext2D, v: View, t: number) {
+  /** The studio's edges fall off to near-black, whatever the camera does. */
+  private vignette(c: CanvasRenderingContext2D) {
+    const g = c.createRadialGradient(W / 2, H / 2, 0.42 * W, W / 2, H / 2, 0.78 * W);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,0.45)');
+    c.fillStyle = g;
+    c.fillRect(0, 0, W, H);
+  }
+
+  /** A slow light sweep across the glass (k: how much of it shows; none over a focus pull). */
+  private sheen(c: CanvasRenderingContext2D, v: View, t: number, k: number) {
+    if (k < 0.01) return;
     const full = quad(v, [0, 0, 1, 1]);
     c.save();
     c.beginPath();
@@ -216,7 +264,7 @@ export abstract class UiScene extends Scene2D {
     const x = lerp(-0.3, 1.3, ((t * 0.07) % 1)) * W;
     const g = c.createLinearGradient(x - 220 * this.u, 0, x + 220 * this.u, 260 * this.u);
     g.addColorStop(0, 'rgba(255,255,255,0)');
-    g.addColorStop(0.5, 'rgba(255,255,255,0.055)');
+    g.addColorStop(0.5, `rgba(255,255,255,${(0.055 * k).toFixed(4)})`);
     g.addColorStop(1, 'rgba(255,255,255,0)');
     c.fillStyle = g;
     c.fillRect(0, 0, W, H);
@@ -312,7 +360,7 @@ export abstract class UiScene extends Scene2D {
       const tx = p.x + co.off[0] * u, ty = p.y + co.off[1] * u;
       // measure
       c.save();
-      c.font = font(F.ui(600), 27 * u);
+      c.font = font(F.display(87.5, 600), 28 * u);
       const tw = c.measureText(co.text).width;
       c.font = font(F.ui(400), 19 * u);
       const sw = co.sub ? c.measureText(co.sub).width : 0;
@@ -324,14 +372,18 @@ export abstract class UiScene extends Scene2D {
       const k = rise(t, co.t, 0.55);
       const lx = lerp(p.x, ex, k), ly = lerp(p.y, ey, k);
       c.globalAlpha = a;
-      c.strokeStyle = rgba('fg', 0.8);
-      c.lineWidth = 1.5 * u;
-      c.beginPath();
-      c.moveTo(p.x, p.y);
-      c.lineTo(lx, ly);
-      c.stroke();
+      // a dark under-stroke keeps the hairline readable on the white UI as well as the dark studio
+      c.lineCap = 'round';
+      for (const [ink, lw] of [['rgba(12,8,24,0.4)', 3.6], [rgba('fg', 0.9), 1.5]] as const) {
+        c.strokeStyle = ink;
+        c.lineWidth = lw * u;
+        c.beginPath();
+        c.moveTo(p.x, p.y);
+        c.lineTo(lx, ly);
+        c.stroke();
+      }
       // anchor: a dot and a ring
-      c.fillStyle = rgba('fg');
+      c.fillStyle = rgba('accentBright');
       c.beginPath();
       c.arc(p.x, p.y, 4.5 * u, 0, Math.PI * 2);
       c.fill();
@@ -359,12 +411,13 @@ export abstract class UiScene extends Scene2D {
       c.fill();
       c.fillStyle = rgba('fg');
       c.textBaseline = 'middle';
-      c.font = font(F.ui(600), 27 * u);
-      c.fillText(co.text, bx + 32 * u, by + (co.sub ? 29 : h / 2) * u + 1 * u);
+      c.font = font(F.display(87.5, 600), 28 * u);
+      // whole pixels: the type stays crisp at 1080p
+      c.fillText(co.text, Math.round(bx + 32 * u), Math.round(by + (co.sub ? 29 * u : h / 2) + 1 * u));
       if (co.sub) {
         c.fillStyle = rgba('fgDim');
         c.font = font(F.ui(400), 19 * u);
-        c.fillText(co.sub, bx + 32 * u, by + 56 * u);
+        c.fillText(co.sub, Math.round(bx + 32 * u), Math.round(by + 56 * u));
       }
       c.restore();
       g.save();
@@ -386,7 +439,7 @@ export abstract class UiScene extends Scene2D {
       const x = p.x + (ch.off?.[0] ?? 0) * u, y = p.y + (ch.off?.[1] ?? 0) * u;
       const key = ch.tone ?? 'accent2';
       c.save();
-      c.font = font(F.ui(650), 24 * u);
+      c.font = font(F.display(87.5, 600), 25 * u);
       const w = c.measureText(ch.text).width + 64 * u, h = 46 * u;
       const pop = 0.88 + 0.12 * rise(t, ch.t, 0.4);
       const pulse = ch.pulse ? 0.5 + 0.5 * Math.sin((t - ch.t) * 5) : 0;
@@ -428,7 +481,9 @@ export abstract class UiScene extends Scene2D {
     if (!cur) return;
     const u = this.u, g = this.glow;
     const p = project(v, cur.at[0], cur.at[1]);
-    const fadeIn = rise(t, (cfg.cursor![0]!.t) - 0.4, 0.4);
+    // in before its first key; it leaves a beat after its last
+    const fadeIn = rise(t, (cfg.cursor![0]!.t) - 0.4, 0.4) * (1 - rise(t, cfg.cursor![cfg.cursor!.length - 1]!.t + 0.5, 0.5));
+    if (fadeIn < 0.003) return;
     for (const age of cur.clicks) {
       if (age > 0.7) continue;
       const k = age / 0.7;
@@ -464,6 +519,7 @@ export abstract class UiScene extends Scene2D {
     this.media = [];
     disposeLayer(this.buf);
     disposeLayer(this.sharp);
+    disposeLayer(this.tmp);
     super.dispose();
   }
 }

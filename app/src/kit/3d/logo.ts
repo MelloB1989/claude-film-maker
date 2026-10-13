@@ -8,6 +8,8 @@
 //                      of its linear RGB, above 0.3: the bloom's gate) take the accent, the rest (whites, greys, near-whites
 //                      like a warm theme's fg) satin fg
 //   name               the wordmark when there is no SVG (or no logo param and the file is missing)
+//   colors 'accent'    'accent': every coloured path takes the accent; 'svg': each coloured path keeps its own fill (a
+//                      multi-colour mark), as a solid satin with a soft inner light (accentStyle is then 'solid')
 //   accentColor 'accent' | 'accent2'; accentStyle 'solid' (accent satin, a soft inner light) | 'seam' (fg with a glowing seam)
 //   depth 0.18, bevel 0.014   the extrusion and its bevel (fractions of the logo's height)
 //   logoSize 0.34      the logo's height (fraction of the frame's short side... of H in a landscape frame, of W in a tall one)
@@ -23,7 +25,6 @@ import { sweepAt, withSweep, type SweepBand, type SweepPass } from '../../engine
 import { onBeat, slam } from '../../engine/motion';
 import { filmUrl } from '../../engine/config';
 import { W, H } from '../../engine/gl';
-import { glow } from '../../engine/look';
 import { lin, rgba } from '../../engine/palette';
 import { F, font } from '../../engine/type';
 import { clamp, ease, prog } from '../../engine/util';
@@ -63,6 +64,7 @@ export class Logo3D extends Scene3D {
   private band!: SweepBand;
   private passes: SweepPass[] = [];
   private accents: THREE.MeshPhysicalMaterial[] = [];
+  private seams = new Set<THREE.Material>();
   private landAt = 0;
   private aspect = 1;
   private word: Type3D | null = null;
@@ -73,7 +75,9 @@ export class Logo3D extends Scene3D {
     this.band = withSweep(satin);
     const key = this.p<'accent' | 'accent2'>('accentColor', 'accent');
     const accent = (): THREE.MeshPhysicalMaterial => {
-      const m = this.own(this.p<string>('accentStyle', 'solid') === 'seam' ? Mat.accent(key, this.glowLevel) : solidAccent(key));
+      const seam = this.p<string>('accentStyle', 'solid') === 'seam';
+      const m = this.own(seam ? Mat.accent(key, this.glowLevel) : solidAccent(key));
+      if (seam) this.seams.add(m);
       withSweep(m).value = this.band.value;
       this.accents.push(m);
       return m;
@@ -91,11 +95,26 @@ export class Logo3D extends Scene3D {
       }
       const depth = this.p('depth', 0.18), bevel = this.p('bevel', 0.014);
       const accentMat = accent();
-      data.paths.forEach((pth) => {
+      const own = this.p<string>('colors', 'accent') === 'svg', fills = new Map<string, THREE.MeshPhysicalMaterial>();
+      const fillMat = (c: THREE.Color): THREE.MeshPhysicalMaterial => {
+        const k = c.getHexString();
+        let m = fills.get(k);
+        if (!m) {
+          m = this.own(solidColour([c.r, c.g, c.b], false));
+          withSweep(m).value = this.band.value;
+          this.accents.push(m);
+          fills.set(k, m);
+        }
+        return m;
+      };
+      data.paths.forEach((pth, i) => {
         const shapes = SVGLoader.createShapes(pth);
         if (!shapes.length) return;
         const geo = this.own(extrudeShapes(shapes, box, depth, bevel));
-        this.pivot.add(new THREE.Mesh(geo, isColoured(pth.color) ? accentMat : satin));
+        const mesh = new THREE.Mesh(geo, isColoured(pth.color) ? (own ? fillMat(pth.color) : accentMat) : satin);
+        // a multi-colour mark's overlapping paths: each a hair in front of the one painted before it (SVG order)
+        if (own) mesh.position.z = i * 0.002;
+        this.pivot.add(mesh);
       });
       this.aspect = (box.x1 - box.x0) / Math.max(1e-6, box.y1 - box.y0);
       w = this.aspect;
@@ -156,7 +175,7 @@ export class Logo3D extends Scene3D {
     else P.scale.setScalar(Math.max(0, k));
     const beat = onBeat(f, 0.3), pulse = this.p('pulse', 0.3);
     const flare = 1 + 0.6 * Math.exp(-Math.max(0, t - this.landAt) / 0.25) * (t >= this.landAt ? 1 : 0);
-    for (const m of this.accents) m.emissiveIntensity = (this.p<string>('accentStyle', 'solid') === 'seam' ? this.glowLevel : 0.32 * this.glowLevel) * flare * (1 + pulse * beat);
+    for (const m of this.accents) m.emissiveIntensity = (this.seams.has(m) ? this.glowLevel : 0.32 * this.glowLevel) * flare * (1 + pulse * beat);
     sweepAt(this.band, t, this.passes, { width: 0.22, strength: 2.4 });
     if (this.tagline) this.drawTagline(t);
     return new THREE.Vector3(0, 0, 0.05);
@@ -198,9 +217,17 @@ export function isColoured(c: { r: number; g: number; b: number }): boolean {
 
 /** The accent as a solid satin with a soft inner light (its emissive is set per frame). */
 function solidAccent(key: 'accent' | 'accent2'): THREE.MeshPhysicalMaterial {
-  const c = lin(key);
+  return solidColour(lin(key));
+}
+
+/**
+ * A linear colour as a solid satin with a soft inner light: its emissive the colour at a glow() level of 1, hue kept
+ * (`normalise`), or the colour itself, so a dark ink (a deep indigo) glows as little as it is bright.
+ */
+function solidColour(c: readonly number[], normalise = true): THREE.MeshPhysicalMaterial {
+  const hi = normalise ? Math.max(c[0]!, c[1]!, c[2]!, 1e-5) : 1;
   const m = new THREE.MeshPhysicalMaterial({ color: new THREE.Color().setRGB(c[0], c[1], c[2]), roughness: 0.32, metalness: 0, clearcoat: 0.7, clearcoatRoughness: 0.08, sheen: 0.2, sheenRoughness: 0.5 });
-  m.emissive.setRGB(...glow(key, 1));
+  m.emissive.setRGB(c[0]! / hi, c[1]! / hi, c[2]! / hi);
   return m;
 }
 

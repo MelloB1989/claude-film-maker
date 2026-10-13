@@ -12,7 +12,7 @@ import { Plate, plateUrl } from '@engine/plates';
 import { F, font } from '@engine/type';
 import { spring } from '@engine/motion';
 import { ease, lerp, prog } from '@engine/util';
-import { dropImg, loadImg } from './common';
+import { dropImg, loadImg, spoken, wordAt } from './common';
 
 const inExport = () => typeof location !== 'undefined' && new URLSearchParams(location.search).has('export');
 
@@ -109,10 +109,11 @@ export default class PlateScene extends Scene {
     c.fillRect(0, 0, W, H);
   }
 
-  /** "Suggested · 7 / 8": the engine's mark, landing about 4 s into the scene on a spring. */
+  /** "Suggested · 7 / 8": the engine's mark, springing in on "suggests" so it has settled by "a mark" (params.markAt, in scene seconds, overrides). */
   private markOverlay(c: CanvasRenderingContext2D, g: CanvasRenderingContext2D, f: Frame) {
     const u = Math.min(W, H) / 1080;
-    const at = (this.ctx.params.markAt as number | undefined) ?? 4;
+    const at = (this.ctx.params.markAt as number | undefined)
+      ?? wordAt(spoken(this.ctx), 'suggests', this.ctx.start + 5.1) + 0.15 - this.ctx.start;
     const lt = f.lt - at;
     if (lt < 0) return;
     const k = Math.min(1.15, spring(lt, 3, 0.7)), a = Math.min(1, lt * 5);

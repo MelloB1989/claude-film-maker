@@ -30,10 +30,13 @@ export function brandGradient(c: CanvasRenderingContext2D, x0: number, x1: numbe
   return g;
 }
 
-/** The spoken words of a shot, [] without a voiceover (or when it has no such scene): scenes fall back to fixed times. */
-export function spoken(vo: VO, id: string): { w: Word; at: number }[] {
+/**
+ * The spoken words of a scene's shot, [] without a voiceover (or when it has no such scene): scenes fall back to fixed
+ * times. As a Stack's layer a scene has its own id; the Stack passes the shot's as params.shot.
+ */
+export function spoken(ctx: { vo: VO; id: string; params: Record<string, unknown> }): { w: Word; at: number }[] {
   try {
-    return wordTimes(vo, id);
+    return wordTimes(ctx.vo, (ctx.params.shot as string | undefined) ?? ctx.id);
   } catch {
     return [];
   }

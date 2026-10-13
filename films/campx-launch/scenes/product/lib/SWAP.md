@@ -2,7 +2,8 @@
 
 `ingestui`, `readui`, `markui` and `control` are four one-line classes over `UiScene` (ui.ts). Everything a scene
 shows is in `params.ts`, in image coordinates (0..1 over the screenshot; `px(x, y)` and `rg(x, y, w, h)` convert PNG
-pixels and the INDEX.md regions).
+pixels and the INDEX.md regions of a 3200x1800 capture; `pxT`/`rgT` do the same for the 3200x2500 tall ones).
+Times are set on the VO words in `data/vo.json` (the comment above each scene lists them).
 
 To change a scene: edit its `Cfg`.
 

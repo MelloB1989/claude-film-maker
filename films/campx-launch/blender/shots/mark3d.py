@@ -17,18 +17,24 @@ import numpy as np
 SHOT = {"scene": "mark3d", "frames": [1470, 1650], "look": "1470,1530,1590,1648,1649"}
 
 SHEETS = "films/campx-launch/assets/sheets"
-FONT = "app/public/fonts/Geist-500.ttf"
+FONT = "app/public/fonts/Geist-500.ttf"  # the engine's text face (Inter is not in the repo)
 
 LABELS = ["Augmented matrix formed", "Row-reduced to echelon form", "Rank of the matrix = 3",
           "Solution: x = 1, y = 1, z = 1"]
-# the typeset answer lines (the transcription): (text, tile it threads to or None)
-LINES = [("3x + y − z = 3", 0), ("2x − 8y + z = −5", None), ("R2 → R2 − 2R1", 1),
-         ("R3 → 2R3 − 5R2", None), ("rank of the matrix = 3", 2), ("x = 1, y = 1, z = 1", 3)]
-# seconds into the shot: thread i leaves at THREAD_T[i], arrives THREAD_D later
-THREAD_T = [0.9, 1.9, 2.9, 3.9]
-THREAD_D = 0.9
-TILE_W, TILE_H, TILE_T = 1.55, 0.40, 0.035
-TILE_X, TILE_Z0, TILE_DZ = 1.35, 0.55, -0.56
+# the typeset answer lines, continuing read3d's transcription of hires_38189_p02: (text, tile it threads to or None)
+LINES = [("the Augmented matrix AB is", 0), ("By using Elementary row operations", None),
+         ("to reduce the matrix into Echelon form.", 1), ("R2 \u2192 R2 \u2212 2R1", None),
+         ("the rank of the matrix = 3", 2), ("x = 1, y = 1, z = 1", 3)]
+# seconds into the shot (film 49.0 s), on the VO: the tiles appear under "Each answer is checked against your answer
+# key," (49.5-51.75 s); the threads land one by one on "point by point." (51.9, 52.25, 52.6, 53.0 s); then a calm hold
+# under "Medha suggests a mark," while the engine lands its pill top right (54.6 s). The cut is at 55.0 s.
+TILE_IN = [0.5 + 0.5 * i for i in range(4)]  # tile i starts fading in (0.7 s)
+THREAD_ARRIVE = [2.9, 3.25, 3.6, 4.0]
+THREAD_D = 0.65  # each thread's flight
+TILE_W, TILE_H, TILE_T = 2.3, 0.48, 0.05
+TILE_X, TILE_Z0, TILE_DZ = 1.6, 0.42, -0.64
+LINE_X, LINE_Z0, LINE_DZ, LINE_EM = -3.25, 1.2, -0.52, 0.165
+LABEL_EM = 0.15
 
 
 # ---------------------------------------------------------------------------------------------- pure geometry
@@ -132,12 +138,12 @@ def build(ctx):
         return ctx.f0 + round(s * fps)
 
     cy = scene.cycles
-    cy.max_bounces, cy.diffuse_bounces, cy.glossy_bounces = 3, 1, 2
-    cy.transmission_bounces, cy.transparent_max_bounces, cy.volume_bounces = 3, 4, 0
-    cy.adaptive_threshold = 0.03
+    cy.max_bounces, cy.diffuse_bounces, cy.glossy_bounces = 6, 2, 3
+    cy.transmission_bounces, cy.transparent_max_bounces, cy.volume_bounces = 6, 8, 0
     cy.caustics_reflective = cy.caustics_refractive = False
 
-    lin = theme.linear
+    def lin(c):
+        return tuple(c) if isinstance(c, (tuple, list)) else theme.linear(c)
 
     def key(sock, frame, value):
         sock.default_value = value
@@ -327,209 +333,335 @@ def build(ctx):
         coll.objects.link(ob)
         return ob, mat
 
-    sheet("page_a", "hires_38189_p01.jpg", (-1.35, 1.5, 0.05), 3.3, (0.0, 0.0, math.radians(2.0)), 0.2, 0.30,
+    # the ghost of the handwritten page (read3d's page) and one more behind it
+    sheet("page_a", "hires_38189_p02.jpg", (-2.1, 2.0, -0.05), 4.5, (0.0, 0.0, math.radians(3.0)), 0.065, 0.28,
           0.10, 1)
-    sheet("page_b", "hires_38189_p02.jpg", (-3.9, 2.4, 0.3), 3.3, (0.0, 0.0, math.radians(-4)), 0.07, 0.25, 0.1, 2)
+    sheet("page_b", "hires_38189_p01.jpg", (-4.6, 3.2, 0.5), 4.3, (0.0, 0.0, math.radians(-5)), 0.05, 0.25, 0.1, 2)
 
-    # ------------------------------------------------------------------ the answer lines (typeset)
-    paper = materials.satin("fg", roughness=0.5, coat=0.15, sheen=0.1, name="type")
-    paper.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = tuple(c * 0.9 for c in lin("fg")) + (1,)
+    # ------------------------------------------------------------------ the answer lines (read3d's typeset style)
+    def typeset_mat(name, role, glow):
+        """read3d's typeset material: fg faces, a faint accent glow on the side walls."""
+        m = bpy.data.materials.new(name)
+        nt = m.node_tree
+        nt.nodes.clear()
+        N, L = nt.nodes.new, nt.links.new
+        b = N("ShaderNodeBsdfPrincipled")
+        b.inputs["Base Color"].default_value = (*lin(role), 1.0)
+        b.inputs["Roughness"].default_value = 0.3
+        b.inputs["Coat Weight"].default_value = 0.5
+        geo = N("ShaderNodeNewGeometry")
+        dot = N("ShaderNodeVectorMath")
+        dot.operation = "DOT_PRODUCT"
+        dot.inputs[1].default_value = (0.0, 0.0, 1.0)  # the text's own face normal (local z, before rotation)
+        tc = N("ShaderNodeVectorTransform")
+        tc.vector_type, tc.convert_from, tc.convert_to = "NORMAL", "WORLD", "OBJECT"
+        L(geo.outputs["Normal"], tc.inputs["Vector"])
+        L(tc.outputs["Vector"], dot.inputs[0])
+        ab = N("ShaderNodeMath")
+        ab.operation = "ABSOLUTE"
+        L(dot.outputs["Value"], ab.inputs[0])
+        inv = N("ShaderNodeMath")
+        inv.operation, inv.use_clamp = "SUBTRACT", True
+        inv.inputs[0].default_value = 1.0
+        L(ab.outputs["Value"], inv.inputs[1])
+        sq = N("ShaderNodeMath")
+        sq.operation = "POWER"
+        sq.inputs[1].default_value = 3.0
+        L(inv.outputs["Value"], sq.inputs[0])
+        b.inputs["Emission Color"].default_value = (*lin("accent"), 1.0)
+        mg = N("ShaderNodeMath")
+        mg.operation = "MULTIPLY"
+        mg.inputs[1].default_value = glow
+        L(sq.outputs["Value"], mg.inputs[0])
+        L(mg.outputs["Value"], b.inputs["Emission Strength"])
+        out = N("ShaderNodeOutputMaterial")
+        L(b.outputs["BSDF"], out.inputs["Surface"])
+        return m
+
+    type_hi = typeset_mat("type", "fg", 2.0)
+    type_lo = typeset_mat("type_dim", "fgDim", 0.6)
     line_obs = []
-    LX, LZ0, LDZ = -2.35, 0.95, -0.34
-    dim = materials.satin("fgDim", roughness=0.5, coat=0.1, sheen=0.1, name="type_dim")
     for i, (body, tile) in enumerate(LINES):
-        ob = text(f"line{i}", body, 0.17, paper if tile is not None else dim, (LX, 0.35, LZ0 + i * LDZ),
-                  extrude=0.006)
+        ob = text(f"line{i}", body, LINE_EM, type_hi if tile is not None else type_lo,
+                  (LINE_X, 0.35, LINE_Z0 + i * LINE_DZ), extrude=0.004)
         ob.rotation_euler = (math.radians(90), 0, 0)
         line_obs.append(ob)
     bpy.context.view_layer.update()
     line_w = [max(ob.dimensions.x, 0.5) for ob in line_obs]
-    # lines rise in, faintly, at the start (they are the continuing transcription)
 
     # ------------------------------------------------------------------ the key-point tiles
-    frame_path = rounded_rect(TILE_W + 0.04, TILE_H + 0.04, 0.07)
-    rv, rf, ru = tube(frame_path, 0.0045, seg=8, closed=True)
+    fg, a2 = np.array(lin("fg")), np.array(lin("accent2"))
+    warm = tuple((0.55 * a2 + 0.45 * fg * np.array([1.0, 0.62, 0.28])).tolist())  # amber from accent2 + warm fg
+    frame_path = rounded_rect(TILE_W, TILE_H, 0.09)
+    rv, rf, ru = tube(frame_path, 0.0017, seg=8, closed=True)
+
+    def plane(name, w, h, loc):
+        me = bpy.data.meshes.new(name)
+        me.from_pydata([(-w / 2, 0, -h / 2), (w / 2, 0, -h / 2), (w / 2, 0, h / 2), (-w / 2, 0, h / 2)], [],
+                       [(0, 1, 2, 3)])
+        ob = bpy.data.objects.new(name, me)
+        ob.location = loc
+        coll.objects.link(ob)
+        return ob
+
+    def glow_card_mat(name, dim_role, lit_col, gain, half):
+        """The tile's inner light: a soft horizontal gradient (brightest where the thread arrives, on the left), dim
+        accentDim at rest, `lit_col` x `gain` when 'lit' is 1; `half` lights only the left half (partial credit)."""
+        m = bpy.data.materials.new(name)
+        m.cycles.emission_sampling = "NONE"
+        nt = m.node_tree
+        nt.nodes.clear()
+        N, L = nt.nodes.new, nt.links.new
+        lit = value_node(nt, "lit", 0.0)
+        fade = value_node(nt, "fade", 0.0)
+        tcn = N("ShaderNodeTexCoord")
+        sep = N("ShaderNodeSeparateXYZ")
+        L(tcn.outputs["Generated"], sep.inputs[0])
+        gx = N("ShaderNodeMapRange")  # x 0..1 -> 1..0.15
+        gx.inputs["To Min"].default_value, gx.inputs["To Max"].default_value = 1.0, 0.15
+        L(sep.outputs["X"], gx.inputs["Value"])
+        gz = N("ShaderNodeMath")  # a soft vertical falloff: 1 - (2z - 1)^2
+        gz.operation = "MULTIPLY_ADD"
+        gz.inputs[1].default_value, gz.inputs[2].default_value = 2.0, -1.0
+        L(sep.outputs["Z"], gz.inputs[0])
+        gz2 = N("ShaderNodeMath")
+        gz2.operation = "MULTIPLY"
+        L(gz.outputs[0], gz2.inputs[0])
+        L(gz.outputs[0], gz2.inputs[1])
+        gz3 = N("ShaderNodeMath")
+        gz3.operation, gz3.use_clamp = "SUBTRACT", True
+        gz3.inputs[0].default_value = 1.0
+        L(gz2.outputs[0], gz3.inputs[1])
+        gp = N("ShaderNodeMath")
+        gp.operation = "POWER"
+        gp.inputs[1].default_value = 2.0
+        L(gx.outputs[0], gp.inputs[0])
+        g = N("ShaderNodeMath")
+        g.operation = "MULTIPLY"
+        L(gp.outputs[0], g.inputs[0])
+        L(gz3.outputs[0], g.inputs[1])
+        if half:
+            hm = N("ShaderNodeMapRange")  # 1 left of 0.42, 0 right of 0.58
+            hm.inputs["From Min"].default_value, hm.inputs["From Max"].default_value = 0.42, 0.58
+            hm.inputs["To Min"].default_value, hm.inputs["To Max"].default_value = 1.0, 0.0
+            hm.interpolation_type = "SMOOTHSTEP"
+            L(sep.outputs["X"], hm.inputs["Value"])
+            g2 = N("ShaderNodeMath")
+            g2.operation = "MULTIPLY"
+            L(g.outputs[0], g2.inputs[0])
+            L(hm.outputs[0], g2.inputs[1])
+            g = g2
+        mix = N("ShaderNodeMix")
+        mix.data_type = "RGBA"
+        L(lit.outputs[0], mix.inputs[0])
+        mix.inputs[6].default_value = (*lin(dim_role), 1)
+        mix.inputs[7].default_value = (*lit_col, 1)
+        st = N("ShaderNodeMath")  # 0.35 at rest -> gain when lit
+        st.operation = "MULTIPLY_ADD"
+        st.inputs[1].default_value, st.inputs[2].default_value = gain - 0.35, 0.35
+        L(lit.outputs[0], st.inputs[0])
+        s1 = N("ShaderNodeMath")
+        s1.operation = "MULTIPLY"
+        L(st.outputs[0], s1.inputs[0])
+        L(g.outputs[0], s1.inputs[1])
+        s2 = N("ShaderNodeMath")
+        s2.operation = "MULTIPLY"
+        L(s1.outputs[0], s2.inputs[0])
+        L(fade.outputs[0], s2.inputs[1])
+        em = N("ShaderNodeEmission")
+        L(mix.outputs[2], em.inputs["Color"])
+        L(s2.outputs[0], em.inputs["Strength"])
+        out = N("ShaderNodeOutputMaterial")
+        L(em.outputs[0], out.inputs["Surface"])
+        return m, lit, fade
+
+    def flat_mesh(name, verts, faces, loc, u=None):
+        me = bpy.data.meshes.new(name)
+        me.from_pydata([tuple(v) for v in verts], [], faces)
+        me.shade_smooth()
+        if u is not None:
+            me.attributes.new("u", "FLOAT", "POINT").data.foreach_set("value", u)
+        ob = bpy.data.objects.new(name, me)
+        ob.location = loc
+        coll.objects.link(ob)
+        return ob
+
     tiles = []
     for i, label in enumerate(LABELS):
         full = i < 3
         z = TILE_Z0 + i * TILE_DZ
-        y = 0.1 + 0.28 * ((i % 2) - 0.5)
-        accent = "accent" if full else "accent2"
-        # glass slab: a bevelled box
+        y = 0.1 + 0.22 * ((i % 2) - 0.5)
+        col = lin("accent") if full else warm
+        front = y - TILE_T / 2
+        # frosted dark glass: a bevelled slab
         me = bpy.data.meshes.new(f"glass{i}")
         me.from_pydata([(-.5, -.5, -.5), (.5, -.5, -.5), (.5, .5, -.5), (-.5, .5, -.5),
                         (-.5, -.5, .5), (.5, -.5, .5), (.5, .5, .5), (-.5, .5, .5)], [],
                        [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (2, 3, 7, 6), (1, 2, 6, 5), (3, 0, 4, 7)])
+        for poly in me.polygons:
+            poly.use_smooth = True
         gl = bpy.data.objects.new(f"glass{i}", me)
         gl.scale = (TILE_W, TILE_T, TILE_H)
         bev = gl.modifiers.new("bev", "BEVEL")
-        bev.width = 0.04
-        bev.segments = 3
-        bev.limit_method = "ANGLE"
+        bev.width, bev.segments, bev.limit_method = 0.022, 4, "ANGLE"
+        bev.harden_normals = False
         gl.location = (TILE_X, y, z)
         coll.objects.link(gl)
-        for poly in me.polygons:
-            poly.use_smooth = True
-        gmat_ = bpy.data.materials.new(f"glass{i}")
-        nt = gmat_.node_tree
-        b = next(n for n in nt.nodes if n.bl_idname == "ShaderNodeBsdfPrincipled")
-        b.inputs["Base Color"].default_value = (*lin("fg"), 1)
-        b.inputs["Roughness"].default_value = 0.32  # frosted
+        gm = bpy.data.materials.new(f"glass{i}")
+        b = next(n for n in gm.node_tree.nodes if n.bl_idname == "ShaderNodeBsdfPrincipled")
+        b.inputs["Base Color"].default_value = (*(c * 0.75 for c in lin("fgDim")), 1)
+        b.inputs["Roughness"].default_value = 0.3
         b.inputs["Transmission Weight"].default_value = 1.0
         b.inputs["IOR"].default_value = 1.45
-        b.inputs["Specular IOR Level"].default_value = 0.6
-        gfade = with_fade(gmat_, 0.0)
-        me.materials.append(gmat_)
-        # the lit core: a soft emissive card just behind the glass's centre
-        cm = bpy.data.meshes.new(f"core{i}")
-        cm.from_pydata([(-.5, 0, -.5), (.5, 0, -.5), (.5, 0, .5), (-.5, 0, .5)], [], [(0, 1, 2, 3)])
-        core = bpy.data.objects.new(f"core{i}", cm)
-        core.scale = (TILE_W * 0.9, 1, TILE_H * 0.8)
-        core.location = (TILE_X, y + 0.03, z)
-        coll.objects.link(core)
-        cmat = materials.emission(accent, 0.0, name=f"core{i}")
-        cmat.cycles.emission_sampling = "NONE"
-        cm.materials.append(cmat)
-        cnode = next(n for n in cmat.node_tree.nodes if n.bl_idname == "ShaderNodeEmission")
-        # rim: thin outline whose lit fraction grows from the thread's arrival point
-        rme = bpy.data.meshes.new(f"rim{i}")
-        rme.from_pydata((rv + np.array([TILE_X, y - TILE_T / 2 - 0.004, z])).tolist(), [], rf)
-        rme.shade_smooth()
-        rme.attributes.new("u", "FLOAT", "POINT").data.foreach_set("value", ru)
-        stops = ["accentBright", "accent", "accentBright"] if full else ["accent2Bright", "accent2", "accent2Bright"]
-        rmat, rp, rt = emit_mat(f"rim{i}", stops, 1.5 if full else 0.9, travel=full)
-        rme.materials.append(rmat)
-        rim = bpy.data.objects.new(f"rim{i}", rme)
-        coll.objects.link(rim)
-        # label
-        lab_mat = materials.satin("fg", roughness=0.45, coat=0.1, sheen=0.0, name=f"label{i}")
-        lab = text(f"label{i}", label, 0.085, lab_mat, (TILE_X - TILE_W / 2 + 0.09, y - TILE_T / 2 - 0.012,
-                                                        z - 0.03), extrude=0.003)
+        b.inputs["Coat Weight"].default_value = 0.6
+        b.inputs["Coat Roughness"].default_value = 0.04
+        gfade = with_fade(gm, 0.0)
+        me.materials.append(gm)
+        # the inner glow, just behind the glass
+        card = plane(f"card{i}", TILE_W - 0.08, TILE_H - 0.06, (TILE_X, y + TILE_T / 2 + 0.012, z))
+        cmat, clit, cfade = glow_card_mat(f"card{i}", "accentDim", col, 0.38 if full else 0.34, not full)
+        card.data.materials.append(cmat)
+        # the rim: a hairline on the front edge, lit from the thread's arrival point round the tile
+        rim = flat_mesh(f"rim{i}", rv + np.array([TILE_X, front - 0.002, z]), rf, (0, 0, 0), ru)
+        stops = ["accentBright", "accent", "accentBright"] if full else [warm, warm, warm]
+        rmat, rp, rt = emit_mat(f"rim{i}", stops, 1.6 if full else 1.0)
+        rim.data.materials.append(rmat)
+        # the label: Geist Medium in warm white, legible at 1080p
+        lab_mat = materials.satin("fg", roughness=0.4, coat=0.2, sheen=0.0, name=f"label{i}")
+        lab = text(f"label{i}", label, LABEL_EM, lab_mat,
+                   (TILE_X - TILE_W / 2 + 0.2, front - 0.006, z - LABEL_EM * 0.34), extrude=0.003)
         lab.rotation_euler = (math.radians(90), 0, 0)
         lfade = with_fade(lab_mat, 0.0)
-        # light the surroundings from the tile (energy keyed)
+        # the mark: a check in a ring (full), or a ring half filled (partial)
+        cx, cz = TILE_X + TILE_W / 2 - 0.26, z
+        th = np.linspace(math.pi / 2, math.pi / 2 + 2 * math.pi, 96, endpoint=False)
+        ring_c = np.column_stack([0.105 * np.cos(th), np.zeros_like(th), 0.105 * np.sin(th)])
+        rv2, rf2, _ = tube(ring_c, 0.0042, seg=8, closed=True)
+        ring = flat_mesh(f"ring{i}", rv2 + np.array([cx, front - 0.004, cz]), rf2, (0, 0, 0),
+                         np.repeat(np.arange(96) / 96, 8))
+        mark_stops = ["accentBright", "accentBright"] if full else [warm, warm]
+        ringm, ring_p, _ = emit_mat(f"ring{i}", mark_stops, 2.2 if full else 1.4)
+        ring.data.materials.append(ringm)
+        marks = [(ring_p, 1.02)]
+        if full:
+            chk = np.array([[-0.05, 0, 0.0], [-0.015, 0, -0.038], [0.055, 0, 0.042]])
+            chk = np.vstack([chk[0] + (chk[1] - chk[0]) * s for s in np.linspace(0, 1, 12)] +
+                            [chk[1] + (chk[2] - chk[1]) * s for s in np.linspace(0, 1, 20)[1:]])
+            cv, cf, cu = tube(chk, 0.0065, seg=8)
+            ck = flat_mesh(f"check{i}", cv + np.array([cx, front - 0.006, cz]), cf, (0, 0, 0), cu)
+            ckm, ck_p, _ = emit_mat(f"check{i}", mark_stops, 3.0)
+            ck.data.materials.append(ckm)
+            marks.append((ck_p, 1.05))
+        else:
+            hv = [(0.0, 0.0, 0.0)] + [(0.085 * math.cos(a), 0.0, 0.085 * math.sin(a))
+                                      for a in np.linspace(math.pi / 2, 3 * math.pi / 2, 33)]
+            hf = [(0, k, k + 1) for k in range(1, 33)]
+            half = flat_mesh(f"half{i}", hv, hf, (cx, front - 0.004, cz))
+            hm = materials.emission("accent2", 0.0, name=f"half{i}")
+            hm.cycles.emission_sampling = "NONE"
+            hn = next(n for n in hm.node_tree.nodes if n.bl_idname == "ShaderNodeEmission")
+            hn.inputs["Color"].default_value = (*warm, 1)
+            hn.inputs["Strength"].default_value = 1.3
+            hfade = with_fade(hm, 0.0)
+            half.data.materials.append(hm)
+            marks.append((hfade, 1.0))
+        # light the surroundings from behind the tile (energy keyed)
         ld = bpy.data.lights.new(f"tile_light{i}", "AREA")
-        ld.shape, ld.size = "RECTANGLE", TILE_W
-        ld.size_y = TILE_H
-        ld.color = lin(accent)
+        ld.shape, ld.size, ld.size_y = "RECTANGLE", TILE_W, TILE_H
+        ld.color = col
         ld.energy = 0.0
-        ld.use_shadow = False
         lo = bpy.data.objects.new(f"tile_light{i}", ld)
-        lo.location = (TILE_X, y + 0.30, z)
+        lo.location = (TILE_X, y + 0.7, z)
         lo.rotation_euler = (math.radians(-90), 0, 0)
         coll.objects.link(lo)
-        tiles.append(dict(full=full, y=y, z=z, gfade=gfade, lfade=lfade, cnode=cnode, rp=rp, rt=rt, light=ld,
-                          gl=gl, core=core, rim=rim, lab=lab))
+        tiles.append(dict(full=full, y=y, z=z, fades=(gfade, lfade, cfade), lit=clit, rp=rp, light=ld,
+                          marks=marks))
 
-    # ------------------------------------------------------------------ the threads
+    # ------------------------------------------------------------------ the threads, and the keys
     for i, (body, tile) in enumerate(LINES):
         if tile is None:
             continue
         T = tiles[tile]
-        ob = line_obs[i]
-        p0 = np.array([LX + line_w[i] + 0.08, 0.30, LZ0 + i * LDZ + 0.085])
-        p3 = np.array([TILE_X - TILE_W / 2 - 0.03, T["y"] - 0.02, T["z"]])
-        dz = p3[2] - p0[2]
-        c = bezier(p0, p0 + np.array([0.9, -0.55, 0.25 * np.sign(dz) + 0.1]),
-                   p3 - np.array([0.9, -0.5 - 0.1 * tile, 0.0]), p3, 140)
-        verts, faces, u = tube(c, 0.0065, seg=6)
-        me = bpy.data.meshes.new(f"thread{tile}")
-        me.from_pydata(verts.tolist(), [], faces)
-        me.shade_smooth()
-        me.attributes.new("u", "FLOAT", "POINT").data.foreach_set("value", u)
-        stops = ["accentDim", "accent", "accent2Bright"] if tile < 3 else ["accentDim", "accent2", "accent2Bright"]
-        mat, p, t = emit_mat(f"thread{tile}", stops, 3.2, travel=True)
-        me.materials.append(mat)
-        th = bpy.data.objects.new(f"thread{tile}", me)
-        coll.objects.link(th)
-        # a small bloom bead at the head is the 'head' term of the shader; keys:
-        t0, t1 = F(THREAD_T[tile]), F(THREAD_T[tile] + THREAD_D)
-        key(p.outputs[0], first, 0.0)
-        key(p.outputs[0], t0, 0.0)
-        key(p.outputs[0], t1, 1.02)
-        key(p.outputs[0], last, 1.02)
+        p0 = np.array([LINE_X + line_w[i] + 0.12, 0.33, LINE_Z0 + i * LINE_DZ + LINE_EM * 0.34])
+        p3 = np.array([TILE_X - TILE_W / 2 - 0.02, T["y"] - TILE_T / 2 - 0.004, T["z"]])
+        dx = p3[0] - p0[0]
+        c = bezier(p0, p0 + np.array([0.45 * dx, -0.6, 0.12]), p3 - np.array([0.4 * dx, -0.45 - 0.08 * tile, 0.0]),
+                   p3, 160)
+        verts, faces, u = tube(c, 0.0075, seg=8)
+        stops = ["accentDim", "accent", "accent2Bright"] if tile < 3 else ["accentDim", "accent2", warm]
+        mat, p, t = emit_mat(f"thread{tile}", stops, 3.0, travel=True)
+        thr = flat_mesh(f"thread{tile}", verts, faces, (0, 0, 0), u)
+        thr.data.materials.append(mat)
+        t0, t1 = F(THREAD_ARRIVE[tile] - THREAD_D), F(THREAD_ARRIVE[tile])
+        for f, v in ((first, 0.0), (t0, 0.0), (t1, 1.02), (last, 1.02)):
+            key(p.outputs[0], f, v)
         key(t.outputs[0], first, 0.0)
-        key(t.outputs[0], last, 3.0)
-        # the tile: fade in a beat before the thread leaves, light as it arrives
-        a0 = max(0.0, THREAD_T[tile] - 0.9)
-        for nd in (T["gfade"], T["lfade"]):
-            key(nd.outputs[0], first, 0.0)
-            key(nd.outputs[0], F(a0), 0.0)
-            key(nd.outputs[0], F(a0 + 0.7), 1.0)
-            key(nd.outputs[0], last, 1.0)
-        lit = 1.0 if T["full"] else 0.4
-        # the rim ignites at arrival: its own progress runs 0..(1 | 0.55 for the partial tile)
-        reach = 1.02 if T["full"] else 0.55
-        for nd, node in ((T["rp"], None),):
-            key(nd.outputs[0], first, 0.0)
-            key(nd.outputs[0], t1 - 3, 0.0)
-            key(nd.outputs[0], t1 + 12, reach)
-            key(nd.outputs[0], last, reach)
-        key(T["rt"].outputs[0], first, 0.0)
-        key(T["rt"].outputs[0], last, 2.0)
-        es = T["cnode"].inputs["Strength"]
-        key(es, first, 0.0)
-        key(es, t1 - 2, 0.0)
-        key(es, t1 + 14, 0.14 * lit if T["full"] else 0.06)
-        key(es, last, 0.14 * lit if T["full"] else 0.06)
+        key(t.outputs[0], last, 2.4)
+        # the tile fades in a beat before its thread leaves
+        a0 = TILE_IN[tile]
+        for nd in T["fades"]:
+            for f, v in ((first, 0.0), (F(a0), 0.0), (F(a0 + 0.7), 1.0), (last, 1.0)):
+                key(nd.outputs[0], f, v)
+        # ... and lights as it arrives: the inner glow, the rim from the arrival point, then the mark
+        for f, v in ((first, 0.0), (t1 - 2, 0.0), (t1 + 13, 1.0), (last, 1.0)):
+            key(T["lit"].outputs[0], f, v)
+        reach = 1.02 if T["full"] else 0.5
+        for f, v in ((first, 0.0), (t1 - 3, 0.0), (t1 + 12, reach), (last, reach)):
+            key(T["rp"].outputs[0], f, v)
+        for k, (sock, top) in enumerate(T["marks"]):
+            s0 = t1 + 5 + 7 * k
+            for f, v in ((first, 0.0), (s0, 0.0), (s0 + 10, top), (last, top)):
+                key(sock.outputs[0] if hasattr(sock, "outputs") else sock, f, v)
         ls = T["light"]
-        for f, v in ((first, 0.0), (t1 - 2, 0.0), (t1 + 14, 14.0 * lit), (last, 14.0 * lit)):
+        for f, v in ((first, 0.0), (t1 - 2, 0.0), (t1 + 13, 5.0 if T["full"] else 2.5),
+                     (last, 5.0 if T["full"] else 2.5)):
             ls.energy = v
             ls.keyframe_insert("energy", frame=f)
-        # tiles drift up a little as they arrive
-        g = T["gl"]
-        for ob in (g, T["core"], T["rim"], T["lab"]):
-            pass
 
-    # ------------------------------------------------------------------ the floor of space: none; lights
-    lights.studio(key=None, rim=None, fill=None, world="bg", world_strength=0.4)
-    key_l = lights._light("key", "AREA", 150.0, Vector((-3.4, -3.2, 2.6)), Vector((-1.2, 0.5, 0.0)), size=2.4,
-                          temperature=6000)
-    lights._light("fill", "AREA", 25.0, Vector((3.2, -3.0, -0.8)), Vector((0.8, 0.3, -0.2)), size=3.0,
-                  temperature=6500)
-    # a cool-warm rim from behind lifts the tiles' glass edges and the page edges
-    rim_l = lights._light("rim", "SPOT", 900.0, Vector((3.4, 2.6, 1.4)), Vector((1.0, 0.1, -0.2)), spot_size=0.7,
-                          soft=0.05, temperature=7000)
+    # ------------------------------------------------------------------ light: a soft key on the answers and the
+    # page, a hairline strip for crisp highlights on the glass, a rim from behind for the glass edges
+    lights.studio(key=None, rim=None, fill=None, world="bg", world_strength=0.5)
+    lights._light("key", "AREA", 300.0, Vector((-5.2, -3.6, 3.0)), Vector((-2.6, 0.6, 0.2)), size=2.0,
+                  temperature=5600)
+    fill = lights._light("fill", "AREA", 30.0, Vector((4.0, -4.0, -1.2)), Vector((1.0, 0.3, -0.4)),
+                         temperature=6800)
+    fill.data.shape, fill.data.size, fill.data.size_y = "RECTANGLE", 7.0, 2.0  # broad: no disc in the glass
+    strip = lights._light("strip", "AREA", 120.0, Vector((1.9, -3.2, 3.6)), Vector((1.9, 0.1, -0.4)),
+                          temperature=6500)
+    strip.data.shape, strip.data.size, strip.data.size_y = "RECTANGLE", 5.0, 0.12
+    rim = lights._light("rim", "AREA", 700.0, Vector((4.8, 3.6, 1.6)), Vector((1.6, 0.1, -0.5)),
+                        temperature=7200)
+    rim.data.shape, rim.data.size, rim.data.size_y = "RECTANGLE", 0.12, 3.0  # a strip: hairline edge highlights
 
-    import os
-    abl = os.environ.get("MARK3D_ABL", "")
-    if "pages" in abl:
-        for o in list(bpy.data.objects):
-            if o.name.startswith("page"):
-                bpy.data.objects.remove(o)
-    if "glass" in abl:
-        for o in list(bpy.data.objects):
-            if o.name.startswith("glass"):
-                bpy.data.objects.remove(o)
-    if "mb" in abl:
-        scene.render.use_motion_blur = False
     # ------------------------------------------------------------------ camera: a slow arc, answers -> key points
-    target = Vector((-0.05, 0.3, -0.05))
-    dist = 6.6
+    target = Vector((0.05, 0.3, -0.2))
+    dist = 8.6
     pivot = bpy.data.objects.new("orbit", None)
     pivot.location = tuple(target)
     coll.objects.link(pivot)
-    a0, a1 = -17.0, 13.0
-    for f, a in ((first, a0 + (a1 - a0) * (first - ctx.f0) / (last - ctx.f0)), (last, a1)):
-        pivot.rotation_euler = (0, 0, math.radians(a))
+    a0, a1 = -15.0, 11.0
+    span = ctx.f1 - ctx.f0
+    for f, x in ((first, -0.3), (last, 0.05)):  # the pivot drifts right with the arc: answers, then key points
+        pivot.location = (x, target.y, target.z)
+        pivot.rotation_euler = (0, 0, math.radians(a0 + (a1 - a0) * (f - ctx.f0) / span))
         pivot.keyframe_insert("rotation_euler", frame=f)
-    cam = rig.engine_camera("camera", fstop=2.0, size=ctx.size)
+        pivot.keyframe_insert("location", frame=f)
+    cam = rig.engine_camera("camera", fstop=1.6, size=ctx.size)
     cam.data.lens = rig.lens_mm(26.0)
     focus = bpy.data.objects.new("focus", None)
     coll.objects.link(focus)
-    # rack focus: the answer lines first, the key points at the end
-    for f, pos in ((first, (-1.5, 0.35, 0.3)), (F(2.2), (-0.2, 0.3, 0.0)), (last, (TILE_X, 0.1, -0.3))):
+    # rack focus: the answer lines first, the key points by the end
+    for f, pos in ((first, (-1.8, 0.35, 0.4)), (F(2.4), (-1.0, 0.33, 0.0)), (F(3.8), (TILE_X - 0.6, 0.1, -0.3)),
+                   (last, (TILE_X - 0.4, 0.1, -0.4))):
         focus.location = pos
         focus.keyframe_insert("location", frame=f)
     cam.data.dof.focus_object = focus
     cam.parent = pivot
-    elev = math.radians(5.0)
+    elev = math.radians(4.0)
     cam.location = Vector((0.0, -dist * math.cos(elev), dist * math.sin(elev)))
     cam.rotation_euler = (-cam.location).to_track_quat("-Z", "Y").to_euler()
     scene.camera = cam
     cam.data.clip_end = 60.0
-    if "dof" in abl:
-        cam.data.dof.use_dof = False
 
 
 def _repo_root():

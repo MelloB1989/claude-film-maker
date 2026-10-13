@@ -1,5 +1,6 @@
 // end: the CampX logo rising out of the dark with a light sweep over it, "Medha AI · Evaluate smarter. Decide faster.",
-// campx.in, and a slow fade to black.
+// campx.in, and a slow fade to black. In film.ts it is the top layer of a Stack whose Logo3D is the logo (params.logo
+// false: this draws only the lines and the fade); on its own it draws the flat logo too.
 import { Scene2D, type Frame } from '@kit/scene2d';
 import type { PostOverrides } from '@engine/scene';
 import { W, H } from '@engine/gl';
@@ -18,33 +19,37 @@ export default class End extends Scene2D {
 
   draw(c: CanvasRenderingContext2D, f: Frame): PostOverrides {
     const u = this.u, t = f.t, st = this.ctx.start;
-    const words = spoken(this.ctx.vo, this.ctx.id);
-    const tTag = wordAt(words, 'evaluate', st + 2.1);
+    const words = spoken(this.ctx);
+    const tLogo = wordAt(words, 'campx', st + 0.5) - 0.3;
+    const tTag = wordAt(words, 'evaluate', st + 1.45);
+    const tDecide = wordAt(words, 'decide', st + 2.75);
 
-    const bg = c.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, W * 0.6);
-    bg.addColorStop(0, rgba('surface2', 0.8));
-    bg.addColorStop(0.6, rgba('bg2', 0.6));
-    bg.addColorStop(1, rgba('bg', 0));
-    c.fillStyle = bg;
-    c.fillRect(0, 0, W, H);
+    if (this.p<string>('background', 'theme') !== 'none') {
+      const bg = c.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, W * 0.6);
+      bg.addColorStop(0, rgba('surface2', 0.8));
+      bg.addColorStop(0.6, rgba('bg2', 0.6));
+      bg.addColorStop(1, rgba('bg', 0));
+      c.fillStyle = bg;
+      c.fillRect(0, 0, W, H);
+    }
 
     // the logo
     const lw = W * 0.3, lh = lw * (this.logo!.naturalHeight / this.logo!.naturalWidth);
     const lx = (W - lw) / 2, ly = H * 0.4 - lh / 2;
-    const k = arrive(t, st + 0.35, 1.5);
+    const k = arrive(t, tLogo, 1.3);
     const push = 1 + 0.02 * f.p;
     c.save();
     c.translate(W / 2, H / 2);
     c.scale(push, push);
     c.translate(-W / 2, -H / 2);
-    if (k > 0) {
+    if (k > 0 && this.p('logo', true)) {
       c.save();
       c.globalAlpha = k;
       c.filter = `blur(${((1 - k) * 16 * u).toFixed(1)}px)`;
       c.drawImage(this.logo!, lx, ly + (1 - k) * 36 * u, lw, lh);
       c.restore();
       // a light sweep once it has settled: the gradient passing through the mark
-      const ks = prog(t, st + 1.2, st + 2.4);
+      const ks = prog(t, tLogo + 0.9, tLogo + 2.1);
       if (ks > 0 && ks < 1) {
         const m = this.mask!.getContext('2d')!;
         m.globalCompositeOperation = 'source-over';
@@ -65,20 +70,20 @@ export default class End extends Scene2D {
     }
     c.restore();
 
-    // Medha AI · Evaluate smarter. Decide faster.
-    const kt = arrive(t, tTag, 1.0);
+    // Medha AI · Evaluate smarter. Decide faster. (the last two words land on their own)
+    const kt = arrive(t, tTag - 0.1, 0.9), kd = arrive(t, tDecide - 0.1, 0.8);
     if (kt > 0) {
-      const sz = 44 * u, y = H * 0.62;
+      const sz = 48 * u, y = H * 0.655;
       c.save();
       c.globalAlpha = kt;
       c.filter = `blur(${((1 - kt) * 8 * u).toFixed(1)}px)`;
       c.textBaseline = 'alphabetic';
-      const med = 'Medha AI', sep = '  ·  ', rest = 'Evaluate smarter. Decide faster.';
+      const med = 'Medha AI', sep = '  ·  ', rest = 'Evaluate smarter. ', last = 'Decide faster.';
       c.font = font(F.display(87.5, 800), sz);
       const wm = c.measureText(med).width;
       c.font = font(F.display(87.5, 300), sz);
-      const ws = c.measureText(sep).width, wr = c.measureText(rest).width;
-      const x = (W - (wm + ws + wr)) / 2, dy = (1 - kt) * 14 * u;
+      const ws = c.measureText(sep).width, wr = c.measureText(rest).width, wd = c.measureText(last).width;
+      const x = (W - (wm + ws + wr + wd)) / 2, dy = (1 - kt) * 14 * u;
       c.font = font(F.display(87.5, 800), sz);
       c.fillStyle = brandGradient(c, x, x + wm);
       c.fillText(med, x, y + dy);
@@ -87,18 +92,23 @@ export default class End extends Scene2D {
       c.fillText(sep, x + wm, y + dy);
       c.fillStyle = rgba('fg');
       c.fillText(rest, x + wm + ws, y + dy);
+      if (kd > 0) {
+        c.globalAlpha = kd;
+        c.filter = `blur(${((1 - kd) * 8 * u).toFixed(1)}px)`;
+        c.fillText(last, x + wm + ws + wr, y + (1 - kd) * 14 * u);
+      }
       c.restore();
     }
     // campx.in
-    const ku = arrive(t, tTag + 0.9, 1.0);
+    const ku = arrive(t, tDecide + 0.7, 0.8);
     if (ku > 0) {
       c.save();
-      c.globalAlpha = ku * 0.9;
+      c.globalAlpha = ku * 0.85;
       c.textAlign = 'center';
-      c.font = font(F.display(87.5, 500), 30 * u);
+      c.font = font(F.display(87.5, 500), 38 * u);
       c.letterSpacing = `${(6 * u).toFixed(1)}px`;
-      c.fillStyle = rgba('fgDim');
-      c.fillText('campx.in', W / 2 + 3 * u, H * 0.74 + (1 - ku) * 10 * u);
+      c.fillStyle = rgba('fg');
+      c.fillText('campx.in', W / 2 + 3 * u, H * 0.765 + (1 - ku) * 10 * u);
       c.restore();
     }
     // to black
