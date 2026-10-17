@@ -201,6 +201,7 @@ def configure(scene, res_scale: float, plan, samples: int, engine: str = "cycles
     r.motion_blur_position = "CENTER"
     r.use_compositing = True
     r.use_sequencer = False
+    r.compositor_device = "CPU"      # no GPU context in a headless pod shell; the node tree is light
     r.dither_intensity = 0.0
     r.image_settings.file_format = "PNG"
     r.image_settings.color_mode = "RGB"
