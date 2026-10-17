@@ -207,7 +207,7 @@ def prerender_still(E, ctx_py):
     data = ctx_py.get("data") or os.environ.get("AMV2_DATA") or ""
     out_dir = os.path.join(data, "special")
     if not (data and os.path.isdir(data) and os.access(data, os.W_OK)):     # never invent the shared data tree
-        out_dir = os.path.join(ctx_py.get("root") or os.path.abspath(os.path.join(HERE, "..", "..", "..")), "out", "special")
+        out_dir = os.path.join(str(ctx_py.get("root")) if ctx_py.get("root") else os.path.abspath(os.path.join(HERE, "..", "..", "..")), "out", "special")
     os.makedirs(out_dir, exist_ok=True)
     jsx = open(os.path.join(HERE, "ec", "special.jsx")).read()
     title_dir = os.path.join(data, "blender", "timeless3d") if data else ""
@@ -218,7 +218,7 @@ def prerender_still(E, ctx_py):
     still = os.path.join(out_dir, "trip_%d_%s.png" % (f, key))
     if os.path.exists(still):
         return still
-    cfg = dict(root=ctx_py.get("root") or "", data=data, src=ctx_py.get("src") or "clips")
+    cfg = dict(root=str(ctx_py.get("root") or ""), data=str(data), src=ctx_py.get("src") or "clips")
     E2 = {"fps": 30, "w": W, "h": H, "dur": E.get("dur", 900), "x": {"special": {"triptych": X["triptych"]}}}
     script = ("var E = %s;\nvar CFG = %s;\n" % (json.dumps(E2), json.dumps(cfg)) + jsx + """
 var main = app.project.items.addComp("MAIN", 1920, 1080, 1, E.dur / 30, 30);

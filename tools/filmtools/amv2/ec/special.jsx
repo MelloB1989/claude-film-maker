@@ -231,11 +231,79 @@ var SPECIAL = (function () {
         ANC(l).setValue([cx, cy]);
     }
 
+    // halftone: a grid of dots (two nested repeaters), optionally clipped to a quad; position drifts so the page lives
+    function dotGrid(comp, name, col, sp, size, quad, drift) {
+        var l = comp.layers.addShape(); l.name = name;
+        var g = l.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");
+        var gc = g.property("ADBE Vectors Group");
+        var cols = Math.ceil(W / sp) + 4, rows = Math.ceil(H / sp) + 4;
+        var el = gc.addProperty("ADBE Vector Shape - Ellipse"); el.property("ADBE Vector Ellipse Size").setValue([size, size]);
+        var fl = gc.addProperty("ADBE Vector Graphic - Fill"); fl.property("ADBE Vector Fill Color").setValue(col);
+        var r1 = gc.addProperty("ADBE Vector Filter - Repeater"); r1.property("ADBE Vector Repeater Copies").setValue(cols);
+        r1.property("ADBE Vector Repeater Transform").property("ADBE Vector Position").setValue([sp, 0]);
+        var r2 = gc.addProperty("ADBE Vector Filter - Repeater"); r2.property("ADBE Vector Repeater Copies").setValue(rows);
+        r2.property("ADBE Vector Repeater Transform").property("ADBE Vector Position").setValue([0, sp]);
+        ANC(l).setValue([0, 0]);
+        POS(l).setValue([-sp * 2, -sp * 2]);
+        if (quad) {   // the mask lives in layer space: shift the quad by the layer's offset (no drift on masked grids)
+            var q2 = [], k; for (k = 0; k < 4; k++) q2.push([quad[k][0] + sp * 2, quad[k][1] + sp * 2]);
+            addMask(l, shape(q2, true), 0);
+        } else if (drift) keyList(POS(l), [[drift[0], [-sp * 2, -sp * 2]], [drift[1], [-sp * 2 + sp * 0.9, -sp * 2 + sp * 0.9]]]);
+        return l;
+    }
+    var ACT_COL = { tobey: [0.95, 0.2, 0.22], andrew: [0.15, 0.55, 1.0], tom: [0.62, 0.3, 0.95] };
+
+    // the designed page under the panels: dark halftone, the frozen M14 dimmed and blurred behind, and each
+    // not-yet-arrived slot already inked and tinted in its act colour (a ghost the real panel then slams onto)
+    function buildTripBackground(trip, T) {
+        var panels = T.panels, i, P, fa = T.f0 - 2, fb = T.shatter + 12;
+        var page = solid(trip, "page", [0.035, 0.02, 0.07]);
+        // the frozen M14 (SHOT_S32's held frame), dimmed and blurred
+        var comp = C.shotComp ? C.shotComp("S32") : null, S = C.shot ? C.shot("S32") : null;   // (the shatter-still pre-render has no shots)
+        if (comp && S) {
+            var bgL = trip.layers.add(comp); bgL.name = "M14 backdrop";
+            bgL.timeRemapEnabled = true;
+            var shotA = 0, j;
+            for (j = 0; j < E.shots.length; j++) if (E.shots[j].id == "S32") shotA = E.shots[j].a;
+            var held = f2t(770) - S.startTime, trk = bgL.property("ADBE Time Remapping");
+            bgL.startTime = 0; bgL.outPoint = f2t(fb); bgL.inPoint = f2t(fa);
+            trk.setValuesAtTimes([f2t(fa), f2t(fb)], [held, held]);
+            for (j = trk.numKeys; j >= 1; j--) if (Math.abs(trk.keyValue(j) - held) > 1e-6) trk.removeKey(j);
+            ANC(bgL).setValue([975, 470]);
+            keyList(POS(bgL), [[fa, [940, 520]], [fb, [980, 540]]]);
+            keyList(SCL(bgL), [[fa, sc(168)], [fb, sc(182)]]);
+            OPA(bgL).setValue(88);
+            TRY("backdrop blur", function () { var b = fxAdd(bgL, "ADBE Gaussian Blur 2", "blur"); setp(b, "Blurriness", 30); });
+            TRY("backdrop grade", function () { var g = fxAdd(bgL, "ADBE Tint", "tint"); setp(g, "Map White To", [0.75, 0.55, 1.0]); setp(g, "Amount to Tint", 55); });
+        }
+        // page halftone (two screens, offset, slowly drifting)
+        var d1 = dotGrid(trip, "page halftone", [0.55, 0.2, 0.75], 30, 12, null, [fa, fb]); OPA(d1).setValue(30);
+        var vg = solid(trip, "page vignette", [1, 1, 1]); vg.blendingMode = BlendingMode.MULTIPLY;
+        TRY("vignette", function () {
+            var rp = fxAdd(vg, "ADBE Ramp", "vig"); setp(rp, "Ramp Shape", 2);
+            setp(rp, "Start of Ramp", [W / 2, H / 2]); setp(rp, "Start Color", [1, 1, 1]); setp(rp, "End of Ramp", [W * 0.8, H * 0.95]); setp(rp, "End Color", [0.45, 0.4, 0.5]);
+        });
+        span(vg, fa, fb);
+        // each slot: tint + halftone in the act colour + ink outline, from the start until its panel covers it
+        for (i = 0; i < panels.length; i++) {
+            P = panels[i]; var col = ACT_COL[P.act] || ACT_COL.tom;
+            var tint = solid(trip, "slot tint " + (i + 1), col); OPA(tint).setValue(30);
+            addMask(tint, quadShape(P.quad, 0), 0);
+            var dg = dotGrid(trip, "slot dots " + (i + 1), col, 20, 11, P.quad, null); OPA(dg).setValue(48);
+            var ol = shapeLayer(trip, "slot border " + (i + 1));
+            addShapeGroup(ol, quadShape(P.quad, 0), null, [0.97, 0.96, 0.92], 12);
+            OPA(ol).setValue(80);
+            var slotL = [tint, dg, ol];
+            for (var q = 0; q < 3; q++) { slotL[q].motionBlur = false; span(slotL[q], fa, P.f + 8); }
+        }
+    }
+
     function buildTriptych(T) {
         var panels = T.panels, i, P;
         var fs = T.f0, fe = T.f1, shat = T.shatter;
         var trip = newComp("SP_TRIPTYCH", W, H);
         var bg = solid(trip, "black", [0, 0, 0]); bg.name = "black";
+        TRY("trip background", function () { buildTripBackground(trip, T); });
         var panelComps = [];
         for (i = 0; i < panels.length; i++) {
             P = panels[i]; P.slant_shift = 0;
@@ -297,7 +365,7 @@ var SPECIAL = (function () {
         var F = MAIN.layers.add(comp); F.name = "SPECIAL_S32_freeze"; F.motionBlur = true;
         F.timeRemapEnabled = true;
         F.startTime = 0; F.outPoint = f2t(f1 + 1); F.inPoint = f2t(f0);
-        var held = (f0 - shotA) / FPS, trk = F.property("ADBE Time Remapping");
+        var held = f2t(f0) - S.startTime, trk = F.property("ADBE Time Remapping");
         trk.setValuesAtTimes([f2t(f0), f2t(f1 + 1)], [held, held]);
         for (i = trk.numKeys; i >= 1; i--) if (Math.abs(trk.keyValue(i) - held) > 1e-6) trk.removeKey(i);
         applyGradeFx(F, "tom");
@@ -430,7 +498,8 @@ var SPECIAL = (function () {
         if (holdComp) {
             hold = MAIN.layers.add(holdComp); hold.name = "SPECIAL_S17_hold"; hold.motionBlur = true;
             hold.timeRemapEnabled = true;
-            var lastT = holdComp.duration - 1 / FPS;
+            var bA = drop; for (i = 0; i < E.shots.length; i++) if (E.shots[i].id == "S17") bA = E.shots[i].b;
+            var lastT = Math.min(f2t(bA - 1) - A.startTime, holdComp.duration - 1 / FPS);   // S17's last on-screen frame (the comp carries handle frames after it)
             hold.startTime = 0; hold.outPoint = f2t(drop + 14); hold.inPoint = f2t(drop);
             var trk = hold.property("ADBE Time Remapping");
             trk.setValuesAtTimes([f2t(drop), f2t(drop + 14)], [lastT, lastT]);
@@ -510,28 +579,31 @@ var SPECIAL = (function () {
     // the EffectCraft-native rift: fractal noise -> twirl -> polar (swirl rings) -> turbulent tear, tritone-coloured
     // magenta/cyan, halftone dots from CC Ball Action, a white-hot core. Used whenever no Blender element exists.
     function buildRiftComp(Rf) {
+        // a centred vortex tunnel: horizontal noise streaks -> Rect to Polar = concentric rings (x -> angle, y -> radius);
+        // a rotated noise makes them spiral arms; scrolling y runs the rings toward the viewer; ring strokes grow
+        // exponentially for depth; a white-hot core at the vanishing point
         var rc = newComp("SP_RIFT", W, H), f0 = Rf.f0 - 2, f1 = Rf.f1 + 2;
         solid(rc, "void", [0.02, 0.0, 0.07]);
-        // two counter-turning swirls (magenta heart, cyan arms), added together
-        function swirlLayer(name, seed, dir, tri, blend, opacity) {
+        function tunnelLayer(name, seed, dir, rot, tri, blend, opacity, speed) {
             var sw = solid(rc, name, [0.5, 0.5, 0.5]);
             TRY(name + " noise", function () {
                 var fn = fxAdd(sw, "ADBE Fractal Noise", "noise");
-                setp(fn, "Contrast", 190); setp(fn, "Brightness", -15); setp(fn, "Complexity", 6);
-                TRY("noise scale", function () { fn.property("Transform").property("Scale").setValue(60); });
-                TRY("noise offset", function () { fn.property("Transform").property("Offset Turbulence").setValue([960 + seed * 400, 540 - seed * 250]); });
-                TRY("noise evo", function () { keyFn(fn.property("Evolution"), f0, f1, function (f) { return seed * 90 + (f - f0) * 55; }); });
-            });
-            TRY(name + " twirl", function () {
-                var tw = fxAdd(sw, "ADBE Twirl", "twirl");
-                setp(tw, "Twirl Radius", 100);
-                keyFn(tw.property("Angle"), f0, f1, function (f) { return dir * (160 + (f - f0) * 22); });
+                setp(fn, "Contrast", 230); setp(fn, "Brightness", -10); setp(fn, "Complexity", 5);
+                TRY("uniform", function () { fn.property("Uniform Scaling").setValue(0); });
+                TRY("noise sw", function () { fn.property("Transform").property("Scale Width").setValue(520); });
+                TRY("noise sh", function () { fn.property("Transform").property("Scale Height").setValue(34); });
+                TRY("noise rot", function () { fn.property("Transform").property("Rotation").setValue(rot); });
+                TRY("noise offset", function () { keyFn(fn.property("Transform").property("Offset Turbulence"), f0, f1, function (f) { return [960 + dir * (f - f0) * 40 + seed * 300, 540 - (f - f0) * speed]; }); });
+                TRY("noise evo", function () { keyFn(fn.property("Evolution"), f0, f1, function (f) { return seed * 90 + (f - f0) * 40; }); });
             });
             TRY(name + " polar", function () { var pl = fxAdd(sw, "ADBE Polar Coordinates", "polar"); setp(pl, "Interpolation", 100); setp(pl, "Type of Conversion", 2); });
-            TRY(name + " tear", function () {
-                var tb = fxAdd(sw, "ADBE Turbulent Displace", "tear");
-                setp(tb, "Amount", 90); setp(tb, "Size", 100);
-                TRY("turb evo", function () { keyFn(tb.property("Evolution"), f0, f1, function (f) { return seed * 50 + (f - f0) * 70; }); });
+            TRY(name + " twist", function () {   // slight extra twist toward the middle: the funnel
+                var tw = fxAdd(sw, "ADBE Twirl", "twirl"); setp(tw, "Twirl Radius", 100);
+                keyFn(tw.property("Angle"), f0, f1, function (f) { return dir * (70 + (f - f0) * 9); });
+            });
+            TRY(name + " warp", function () {
+                var tb = fxAdd(sw, "ADBE Turbulent Displace", "warp"); setp(tb, "Amount", 28); setp(tb, "Size", 160);
+                TRY("turb evo", function () { keyFn(tb.property("Evolution"), f0, f1, function (f) { return seed * 50 + (f - f0) * 50; }); });
             });
             TRY(name + " tritone", function () {
                 var tt = fxAdd(sw, "ADBE Tritone", "colours");
@@ -541,19 +613,41 @@ var SPECIAL = (function () {
             OPA(sw).setValue(opacity);
             return sw;
         }
-        swirlLayer("swirl magenta", 0, 1, [[0.85, 1.0, 1.0], [0.95, 0.1, 0.6], [0.05, 0.0, 0.25]], null, 100);
-        swirlLayer("swirl cyan", 1, -1, [[0.8, 1.0, 1.0], [0.0, 0.75, 1.0], [0.0, 0.0, 0.0]], BlendingMode.ADD, 65);
+        tunnelLayer("tunnel magenta", 0, 1, 24, [[0.9, 1.0, 1.0], [0.95, 0.1, 0.6], [0.04, 0.0, 0.22]], null, 100, 70);
+        tunnelLayer("tunnel cyan", 1, -1, -24, [[0.8, 1.0, 1.0], [0.0, 0.75, 1.0], [0.0, 0.0, 0.0]], BlendingMode.ADD, 60, 95);
+        // depth: dark toward the vanishing point and out at the rim (a radial band of light between)
+        var dk = solid(rc, "depth shade", [1, 1, 1]); dk.blendingMode = BlendingMode.MULTIPLY;
+        TRY("shade", function () {
+            var rp = fxAdd(dk, "ADBE Ramp", "shade"); setp(rp, "Ramp Shape", 2);
+            setp(rp, "Start of Ramp", [W / 2, H / 2]); setp(rp, "Start Color", [0.55, 0.55, 0.6]);
+            setp(rp, "End of Ramp", [W / 2 + 1150, H / 2]); setp(rp, "End Color", [1, 1, 1]);
+        });
+        // ring strokes racing outward (exponential growth = perspective)
+        var rg = shapeLayer(rc, "depth rings"), RG = 7, j;
+        rg.blendingMode = BlendingMode.ADD;
+        for (j = 0; j < RG; j++) addShapeGroup(rg, ellipseRot(W / 2, H / 2, 100, 100, 0), null, j % 2 ? [0.1, 0.85, 1.0] : [1.0, 0.2, 0.7], 5);
+        for (j = 0; j < RG; j++) {
+            (function (j) {
+                var grp = rg.property("ADBE Root Vectors Group").property(j + 1);
+                var tr = grp.property("ADBE Vector Transform Group"), cyc = 9;
+                // scale about the comp centre: each ring is born tiny and grows to ~2200% over 'cyc' frames, staggered
+                TRY("ring anchor", function () { tr.property("ADBE Vector Anchor").setValue([W / 2, H / 2]); tr.property("ADBE Vector Position").setValue([W / 2, H / 2]); });
+                keyFn(tr.property("ADBE Vector Scale"), f0, f1, function (f) { var u = (((f - f0) / cyc + j / RG) % 1); return [2 + 2300 * Math.pow(u, 3.2), 2 + 2300 * Math.pow(u, 3.2)]; }, 1);
+                keyFn(tr.property("ADBE Vector Group Opacity"), f0, f1, function (f) { var u = (((f - f0) / cyc + j / RG) % 1); return 100 * Math.sin(Math.min(u * 1.15, 1) * Math.PI) * 0.9; }, 1);
+            })(j);
+        }
+        TRY("ring glow", function () { var g = fxAdd(rg, "ADBE Glo2", "ring glow"); setp(g, "Glow Threshold", 25); setp(g, "Glow Radius", 22); setp(g, "Glow Intensity", 1.0); });
         // halftone dots over the swirl (a fraction, so the dots read as texture)
-        var ht = adj(rc, "halftone dots"); OPA(ht).setValue(32);
+        var ht = adj(rc, "halftone dots"); OPA(ht).setValue(28);
         TRY("dots", function () { var ba = fxAdd(ht, "ec.sim.ccballaction", "dots"); setp(ba, "Grid Spacing", 14); });
-        // the white-hot core
+        // the white-hot core at the vanishing point
         var core = solid(rc, "core", [0, 0, 0]); core.blendingMode = BlendingMode.ADD;
         TRY("core", function () {
             var rp = fxAdd(core, "ADBE Ramp", "core"); setp(rp, "Ramp Shape", 2);
             setp(rp, "Start of Ramp", [W / 2, H / 2]); setp(rp, "Start Color", [1, 1, 1]);
-            setp(rp, "End of Ramp", [W / 2 + 230, H / 2]); setp(rp, "End Color", [0, 0, 0]);
+            setp(rp, "End of Ramp", [W / 2 + 180, H / 2]); setp(rp, "End Color", [0, 0, 0]);
         });
-        keyList(OPA(core), [[f0, 0], [Rf.f0 + 6, 45], [Rf.f0 + 10, 55], [Rf.f1, 12]]);
+        keyList(OPA(core), [[f0, 0], [Rf.f0 + 6, 38], [Rf.f0 + 10, 50], [Rf.f1, 12]]);
         return rc;
     }
 
