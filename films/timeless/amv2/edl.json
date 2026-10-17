@@ -462,8 +462,8 @@
    ],
    "speed": "land",
    "drift": [
-    100,
-    112
+    112,
+    130
    ],
    "focus": [
     1110,
@@ -471,7 +471,9 @@
    ],
    "xin": "drop_portal",
    "xout": "impact",
-   "fx": [],
+   "fx": [
+    "punch@508"
+   ],
    "note": "DROP: pull out of Tom's lens; I'M SPIDER-MAN; TOM HOLLAND / EARTH-199999"
   },
   {

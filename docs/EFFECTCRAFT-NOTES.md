@@ -147,6 +147,17 @@ Probed against effectcraft-cli 0.10.0 while checking how the Blender element seq
 - Ink frames: only hits >= 3.0 (656), 1 f on the hit frame, ink adjustment at 50 % with a half-strength dither; weaker explicit `ink_frame` tags become a soft white pop.
 - One flash per hit, none within 5 f of another flash or an ink frame; hits >= 2.0 with no shake/chroma/flash/ink get a 2 f zoom punch (104 -> 101.8 %).
 - Perf: the real MAIN (draft) renders at ~1.57 s/frame in one effectcraft-cli process on the build host (900 f = 23.5 min); 3 parallel processes gave no gain (CPU-saturated). `--gpu` has no adapter (no Vulkan/GL drivers) in the container.
+
+### fx review round 2 (f290-560)
+- Speed lines: Fractal Noise complexity 5 / lower contrast (mixed ray thickness, length, brightness), 25 % fewer rays, long fade towards the centre, tinted to the act's key colour (gold / cyan / orange); no auto rays on zoom/pull exits, and tagged shots start their rays after a zoom/pull entry (radial blur already there).
+- Chroma/glitch edge line: the RGB split shifts channels inward from the *shrunk* picture's edge, so a coloured 2-10 px line sat on the frame edge whatever the margin (95 vs 93 % made no difference). Post-scale now overscans by (max amp + 3 px)/540 (about 3-6 % net zoom on the hit frames).
+- Zoom punch also on weak hits (>= 1.5) with no other picture event, and on hits >= 2.0 at a whip cut (416, 536).
+### special, round 2 (real core)
+- **Effects can't sample outside the layer**: Ripple on an adjustment layer pulls transparent edge pixels in (scalloped frame rim). Pre-scaling does nothing; zoom the picture in *after* the ripple (`ADBE Geometry2`: props `Uniform Scale`, `Scale Height`; set Anchor/Position to the centre or it scales about the corner) to crop the rim.
+- **CC Radial Fast Blur `Zoom`**: 1 standard, 2 brightest (streaky/blocky on a 300 % upscaled source), 3 darkest. Use 1 on upscaled faces.
+- **Shot comps in the real core carry handle frames**: comp time of frame f = f/30 - SHOT layer `startTime` (do not assume time 0 = `a`).
+- **Gitignored paths (out/) are not synced to the render VM**: put probe scripts under a tracked dir (e.g. lab/).
+- PNG sequences with alpha import as straight alpha by default; `AlphaMode` is not defined in this runtime.
 - Memory (v2-core): one `effectcraft-cli render` process at 1920x1080 / 16 samples peaks at ~6.1 GB RSS after 96 frames
   (VmHWM polled from /proc: the VM has no /usr/bin/time) and keeps growing, so two long processes OOM on the 31 GB VM next
   to other jobs. Prefs `memory.layerCacheMb / mediaCacheMb / previewCacheMb`, `disk.diskCacheEnabled` exist (strings in the

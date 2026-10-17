@@ -161,7 +161,9 @@ var TITLES = (function () {
             blurDir = wh[0] ? 0 : 90; blurLen = 140;
         } else if (cut == "zoom_in") {
             K(S, [[a - 1, [100, 100]], [f1, [250, 250]]], "in"); K(O, [[e - 1, 100], [e, 0]], "lin"); blurDir = null;
-        } else if (cut == "zoom_out" || cut == "panel_slam") {
+        } else if (cut == "panel_slam") {                        // the picture collapses into the triptych from f771: the title is gone by f772
+            K(S, [[f1 - 9, [100, 100]], [f1 - 5, [72, 72]]], "in"); K(O, [[f1 - 9, 100], [f1 - 5, 0]], "lin");
+        } else if (cut == "zoom_out") {
             K(S, [[a - 1, [100, 100]], [f1, [58, 58]]], "in"); K(O, [[e - 2, 100], [e, 0]], "lin");
         } else if (cut == "spin_cw" || cut == "spin_ccw") {
             var sg = (cut == "spin_cw") ? 1 : -1;
@@ -227,7 +229,7 @@ var TITLES = (function () {
                 POS(l2).setValue([cx, cy]);
                 inout(l2, f, tEnd + 1);
                 K(SCL(l2), [[f, [113, 113]], [f + 3, [100, 100]]], "out");
-                K(OPA(l2), [[f, 55], [f + 1, 100], [out0, 100], [tEnd, 0]], "lin");
+                K(OPA(l2), [[f, 100], [out0, 100], [tEnd, 0]], "lin");          // snaps on at full white the frame it is revealed
                 var py = [[f, [cx, cy + 14]], [f + 3, [cx, cy]], [out0, [cx, cy]], [tEnd, [cx, cy - 10]]];
                 K(POS(l2), py, "out");
             }
@@ -252,7 +254,8 @@ var TITLES = (function () {
         var ink = pn.r.width;
         var subL = mkText(comp, T.sub, os); subL.name = "sub line";
         var ps = place(comp, subL, os, CARD.x, CARD.subCy);
-        OPA(subL).setValue(85);
+        K(OPA(subL), [[0, 85], [n - 4, 85], [n - 1, 0]], "lin");        // everything is fully gone on the last frame (no slice of the slide left under the mask)
+        K(OPA(nameL), [[0, 100], [n - 4, 100], [n - 1, 0]], "lin");
         var rise = Math.min(14, Math.round(n * 0.3)), outN = Math.min(10, Math.round(n * 0.3)), out0 = n - 1 - outN;   // entry and exit scale down for short cards
         // mask reveal: a static layer mask in comp space, the glyphs rise into it (text animator position)
         function reveal(l, p, o, f0) {
@@ -278,12 +281,13 @@ var TITLES = (function () {
         var rf = rc.addProperty("ADBE Vector Graphic - Fill"); rf.property("ADBE Vector Fill Color").setValue([1, 1, 1]);
         ANC(rule).setValue([0, 0]); POS(rule).setValue([CARD.x, CARD.ruleY]);
         K(SCL(rule), [[2, [0, 100]], [rise + 2, [100, 100]], [out0 + 2, [100, 100]], [n - 1, [0, 100]]], "out");
-        K(OPA(rule), [[0, 85]], "lin");
+        K(OPA(rule), [[0, 85], [n - 4, 85], [n - 1, 0]], "lin");
         var tick = comp.layers.addShape(); tick.name = "accent tick";
         var tg = tick.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");
         var tr = tg.property("ADBE Vectors Group").addProperty("ADBE Vector Shape - Rect"); tr.property("ADBE Vector Rect Size").setValue([64, 6]); tr.property("ADBE Vector Rect Position").setValue([32, 0]);
         var tf = tg.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill"); tf.property("ADBE Vector Fill Color").setValue(hex(ACT_ACCENT[act] || "#FFFFFF"));
         ANC(tick).setValue([0, 0]); POS(tick).setValue([CARD.x, CARD.ruleY]);
+        K(OPA(tick), [[0, 100], [n - 4, 100], [n - 1, 0]], "lin");
         K(SCL(tick), [[3, [0, 100]], [rise, [100, 100]], [out0, [100, 100]], [n - 1, [0, 100]]], "out");
         var L = putInMain(main, comp, "TITLE namecard: " + T.text, T.f, T.f1);
         dropShadow(L, 85, 0, 30, 135, "shadow wide");
@@ -380,7 +384,8 @@ var TITLES = (function () {
         crimson_white: { settle: 55, top: "#FFFFFF", bot: "#E0123F", stroke: "#FF2A55", glowA: "#FFFFFF", glowB: "#FF1744" }
     };
     // per-word vertical centre when the default (470) would cover a face: SPIDER-MAN on M08 sits in the lower third, clear of the eye and above the S25 letterbox bar (y 941)
-    var NOVAX_Y = { "SPIDER-MAN": 735 };
+    var NOVAX_Y = { "SPIDER-MAN": 735, "AMAZING": 350 };
+    var NOVAX_SOLID = { "AMAZING": 100 };           // stays a solid gradient fill with the dark edge (pale outline vanished on the white sky)
     var NOVAX_FONT = "ChineseRocksRg-Regular", TAG_FONT = "Montserrat-Light";
     var ACT_TAG = { tobey: "TOBEY MAGUIRE", andrew: "ANDREW GARFIELD", tom: "TOM HOLLAND" };
     function slantBar(cx, top, bot, w, lean) { var s = new Shape(); s.vertices = [[cx - w / 2, top], [cx + w / 2, top], [cx + w / 2 + lean, bot], [cx - w / 2 + lean, bot]]; s.closed = true; return s; }
@@ -405,7 +410,7 @@ var TITLES = (function () {
         // ---- bottom to top
         // tag on a rough black brush bar, just under the baseline (its own comp: it stays in FRONT of the subject)
         var tcomp = newComp("NOVAX TAG " + T.text, T.f, T.f1);
-        var tagText = T.tag || ACT_TAG[act] || "";
+        var tagText = (T.tag !== undefined) ? T.tag : (ACT_TAG[act] || "");
         var barH = Math.max(46, Math.round(capH * 0.17)), barW = Math.round(Math.max(heroW * 0.3, tagText.length * barH * 0.62 + 90)), subCap = Math.round(S * 0.3 * 0.7), subCy = bot + capH * 0.1 + subCap / 2 + 12, barCy = bot + capH * 0.08 + barH / 2 + 10 + (T.sub ? subCap + capH * 0.1 + 6 : 0), barL = cx - heroW / 2 + heroW * 0.03;
         var bar = tcomp.layers.addShape(); bar.name = "tag bar";
         var bg = bar.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");
@@ -442,7 +447,7 @@ var TITLES = (function () {
         });
         ramp.moveBefore(fillT);
         ramp.setTrackMatte(fillT, TrackMatteType.ALPHA); fillT.enabled = false;
-        K(OPA(ramp), [[0, 100], [5, 100], [20, pal.settle || 38]], "io");           // settles to a mostly-outline word; a thin fill stays so it reads over footage
+        K(OPA(ramp), [[0, 100], [5, 100], [20, NOVAX_SOLID[T.text] || pal.settle || 38]], "io");           // settles to a mostly-outline word; a thin fill stays so it reads over footage
         TRY("fill shadow", function () { dropShadow(ramp, 50, 5, 8, 135, "fill shadow"); });
         // light sweep: a white copy under a slanted moving mask, added on top, with its own bloom
         var sweepO = { font: NOVAX_FONT, size: S, fill: [1, 1, 1], italic: true };
@@ -504,6 +509,22 @@ var TITLES = (function () {
         var X = (E.x && E.x.titles) || { sub: {}, shot: {}, behind: {}, cut: {}, act: {} };
         FOLDER = app.project.items.addFolder("TITLES");
         var made = [];
+        // an act whose name has a hero title but no namecard in the EDL gets one (Andrew): same card as TOBEY / TOM, over the hero's window
+        var syn = [];
+        for (var a = 0; a < E.acts.length; a++) {
+            var A = E.acts[a], has = false, hero = null, j;
+            if (!A.name) continue;
+            for (j = 0; j < E.titles.length; j++) {
+                if (E.titles[j].style == "namecard" && E.titles[j].f >= A.f0 && E.titles[j].f < A.f1) has = true;
+                if (E.titles[j].style == "novax" && E.titles[j].f >= A.f0 && E.titles[j].f < A.f1 && !hero) hero = E.titles[j];
+            }
+            if (!has && hero) {
+                hero.tag = "";                                    // the card replaces the tag bar
+                X.act["syn" + a] = A.id;
+                syn.push({ T: { f: hero.f + 3, f1: hero.f1, style: "namecard", text: A.name, sub: "SPIDER-MAN  " + A.years, act: A.id }, k: "syn" + a });
+            }
+        }
+        for (var q = 0; q < syn.length; q++) { try { var SL = namecard(main, syn[q].T, X, syn[q].k); if (SL) made.push(SL); } catch (e2) { warn("synth namecard: " + e2); } }
         for (var i = 0; i < E.titles.length; i++) {
             var T = E.titles[i], L = null;
             try {

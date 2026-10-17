@@ -155,8 +155,11 @@ var FX = {
         for (i = 0; i < E.hits.length; i++) {
             var hf = E.hits[i][0], hs = E.hits[i][1], wj, inW = false;
             for (wj = 0; wj < SPECIAL_WIN.length; wj++) if (hf >= SPECIAL_WIN[wj][0] && hf <= SPECIAL_WIN[wj][1]) inW = true;
-            if (hs < 2.0 || inW || hf >= outro || hf >= tri) continue;
-            if (!has.shake[hf] && !has.chroma[hf] && !has.ink[hf] && !has.flash[hf]) P.punches.push({ f: hf });
+            if (hs < 1.5 || inW || hf >= outro || hf >= tri) continue;
+            var whipIn = false;   // a hit on a whip cut gets a punch in front of the whip even when it already shakes
+            for (wj = 0; wj < E.shots.length; wj++) if (E.shots[wj].a == hf && String(E.shots[wj].xin).indexOf("whip") == 0) whipIn = true;
+            var bare = !has.shake[hf] && !has.chroma[hf] && !has.ink[hf] && !has.flash[hf];
+            if ((hs >= 2.0 && bare) || (hs >= 1.5 && (bare || whipIn)) || (whipIn && hs >= 2.0)) P.punches.push({ f: hf });
         }
         // transitions
         for (i = 0; i < E.shots.length; i++) {
@@ -165,8 +168,9 @@ var FX = {
             if (S.xout == "light_sweep") P.sweeps.push({ f: S.b, kind: "cut", id: S.id });
             if (S.xin == "open_lightsweep") P.sweeps.push({ f: S.a, kind: "open", id: S.id });
             var sl = FX.tagsOf(S, "speed_lines");
-            if (sl.length) P.lines.push({ f0: S.a, f1: S.b, id: S.id, grow: true });
-            else if (S.xout == "zoom_in" && S.a >= E.acts[1].f0 && S.b < outro) P.lines.push({ f0: S.b - 6, f1: S.b, id: S.id, grow: false });
+            // the zoom/pull transitions already carry a radial blur: no rays on top of them
+            var radIn = /^(zoom|pull)/.test(String(S.xin));
+            if (sl.length) P.lines.push({ f0: S.a + (radIn ? 5 : 0), f1: S.b, id: S.id, grow: true });
             if (FX.tagsOf(S, "letterbox").length) P.boxes.push({ f0: S.a, f1: S.b, id: S.id });
             var rs = FX.tagsOf(S, "riser_shake");
             if (rs.length) P.risers = (P.risers || []).concat([{ f0: 468, f1: 480, id: S.id }]);
@@ -217,7 +221,10 @@ var FX = {
         e = FX.add(l, "ec.vr.chromaticaberrations", "rgb split");
         FX.set(e, "Falloff Distance", 0);
         FX.tkeys(e, "Aberration (Red)", rk); FX.tkeys(e, "Aberration (Blue)", bk);
-        e = FX.add(l, "ADBE Geometry2", "post"); FX.set(e, "Scale Height", 100 / 0.95);
+        e = FX.add(l, "ADBE Geometry2", "post"); // the split shifts channels inward from the shrunk picture's edge, leaving a coloured line; overscan so that edge falls outside
+        // the frame (net zoom 1 + (max amp + 3 px) / 540 on the hit frames: reads as a punch, no visible line)
+        var mx = 0, k; for (k = 0; k < amps.length; k++) mx = Math.max(mx, amps[k]);
+        FX.set(e, "Scale Height", 100 / 0.95 * (1 + (mx + 3) / 540));
     },
     chroma: function (main, f, s) {
         var a = 15 + 9 * (Math.abs(s) - 1.8), prof = [1, 0.62, 0.34, 0.15, 0.04], amps = [];
@@ -377,15 +384,19 @@ var FX = {
         var f0 = sl.f0, f1 = sl.f1, n = f1 - f0, W = main.width, H = main.height, i;
         var l = FX.solid(main, "FX speed lines " + sl.id, [0, 0, 0], 0, 0, f0, f1);
         var e = FX.add(l, "ADBE Fractal Noise", "rays");
-        FX.set(e, "Contrast", 380); FX.set(e, "Brightness", -95); FX.set(e, "Complexity", 3);
+        FX.set(e, "Contrast", 300); FX.set(e, "Brightness", -80); FX.set(e, "Complexity", 5);   // more octaves: rays of mixed thickness, length and brightness
         FX.tryit("rays scale", function () {
             var T = e.property("Transform");
             T.property("Uniform Scaling").setValue(0);
-            T.property("Scale Width").setValue(5); T.property("Scale Height").setValue(3200);
+            T.property("Scale Width").setValue(6.7);   // 25 % fewer rays
+             T.property("Scale Height").setValue(3200);
         });
         var ev = []; for (i = 0; i < n; i++) ev.push([f0 + i, i * 3.7]);
         FX.tkeys(e, "Evolution", ev);
         e = FX.add(l, "ADBE Polar Coordinates", "to rays"); FX.set(e, "Type of Conversion", 2); FX.set(e, "Interpolation", 100);
+        e = FX.add(l, "ADBE Tint", "key colour");
+        var act = FX.actOf(E, f0), kc = act == "tobey" ? [1, 0.86, 0.58] : (act == "andrew" ? [0.66, 0.88, 1] : [1, 0.8, 0.64]);
+        FX.set(e, "Map White To", [kc[0], kc[1], kc[2], 1]);
         FX.blend(l, BlendingMode.SCREEN);
         // keep the middle open: masks run BEFORE effects, so the hole is a luma track matte (radial ramp, black in the middle)
         var hm = FX.solid(main, "FX speed lines hole " + sl.id, [1, 1, 1], 2400, 2400, f0, f1);
@@ -395,7 +406,7 @@ var FX = {
         FX.set(rp, "Ramp Shape", 2); FX.set(rp, "Start of Ramp", [1200, 1200]); FX.set(rp, "End of Ramp", [2400, 1200]);
         FX.set(rp, "Start Color", [0, 0, 0, 1]); FX.set(rp, "End Color", [1, 1, 1, 1]);
         var lv = FX.add(hm, "ADBE Easy Levels2", "plateau");
-        FX.set(lv, "Input Black", 0.28); FX.set(lv, "Input White", 0.9);
+        FX.set(lv, "Input Black", 0.22); FX.set(lv, "Input White", 1.0);   // a long ramp: rays thin out and fade towards the centre
         l.setTrackMatte(hm, TrackMatteType.LUMA);
         var ok = [];
         for (i = 0; i < n; i++) { var u = (i + 1) / n; ok.push([f0 + i, 100 * (sl.grow ? Math.min(1, 0.45 + u) : Math.min(1, u * 1.5)) * 0.8]); }
