@@ -623,7 +623,9 @@ def spring_frame(spec, k):
     pl, width = line_layout(text, font, S, 25)
     base = P[1] + cap / 2
     top, bot = base - cap, base
-    ramp = Ramp(top, bot, tuple(ramp_stops(pal)))
+    # AE's face reads as a pale tint of the palette (near-white pink for red), not the saturated mid colour
+    ptop, pmid = hex_rgb(pal["top"]), hex_rgb(pal["mid"])
+    ramp = Ramp(top, bot, ((0.0, lerp_rgb(ptop, pmid, 0.30)), (1.0, lerp_rgb(ptop, pmid, 0.45))))
     letters = [(i, p) for i, p in enumerate(pl) if p.ch != " "]   # AE's textIndex counts spaces
     o = lin([[dur - 5, 1.0], [dur - 1, 0.0]], k)
 
@@ -638,13 +640,13 @@ def spring_frame(spec, k):
 
     shadow = build(Solid(hex_rgb("#570E0E")), dx=10.0, dy=12.0)
     face = build(ramp, depth=S * 0.03, bevel=S * 0.012)
-    edge = build(Solid(hex_rgb(pal["top"])), stroke=(hex_rgb(pal["top"]), 3.0), stroke_only=True, z=1)
+    edge = build(Solid(hex_rgb(pal["top"])), stroke=(hex_rgb(pal["top"]), 1.6), stroke_only=True, z=1)
     scale = lin([[0, 100.0], [dur - 1, 107.0]], k) / 100.0
     c = (P[0], P[1])
     groups = [Group("shadow", with_opacity(xform_elems(shadow, c, scale), o)),
               Group("face", with_opacity(xform_elems(face, c, scale), o)),
               Group("edge", with_opacity(xform_elems(edge, c, scale), o),
-                    glows=(Glow(hex_rgb(pal["glow"]), 18.0, 1.0),))]
+                    glows=(Glow(hex_rgb(pal["glow"]), 18.0, 0.4),))]
     if spec.get("sub"):
         sg = subline_group(spec["sub"], [P[0], P[1] + S * 0.6], 10, dur, k)
         if sg:
