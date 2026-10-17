@@ -77,7 +77,7 @@ var SPECIAL = (function () {
         return comp.layers.addSolid(col || [0, 0, 0], name, w || comp.width, h || comp.height, 1, comp.duration);
     }
     function adj(comp, name) { var l = solid(comp, name, [1, 1, 1]); l.adjustmentLayer = true; return l; }
-    function span(l, f0, f1) { l.inPoint = f2t(f0); l.outPoint = f2t(f1); }
+    function span(l, f0, f1) { l.outPoint = f2t(f1); l.inPoint = f2t(f0); if (l.inPoint * FPS < f0 - 0.5) { l.outPoint = f2t(f1); l.inPoint = f2t(f0); } }
     function newComp(name, w, h, durF) {
         var c = app.project.items.addComp(name, w || W, h || H, 1, (durF || MAIN.duration * FPS) / FPS, FPS);
         TRY("parent folder", function () { if (C.elements) c.parentFolder = C.elements; });
@@ -86,20 +86,28 @@ var SPECIAL = (function () {
         c.bgColor = [0, 0, 0];
         return c;
     }
+    // File.exists is always false in EffectCraft 0.10 (docs/EFFECTCRAFT-NOTES.md), so probe by importing
+    function importOk(path) {
+        if (CACHE[path]) return true;
+        var it = TRY("probe " + path, function () { return app.project.importFile(new ImportOptions(new File(path))); });
+        if (it) { CACHE[path] = it; TRY("folder", function () { it.parentFolder = C.elements; }); return true; }
+        return false;
+    }
     function footage(path) {
         if (!CACHE[path]) { CACHE[path] = app.project.importFile(new ImportOptions(new File(path))); TRY("folder", function () { CACHE[path].parentFolder = C.elements; }); }
         return CACHE[path];
     }
     function clipFile(id, file) {
-        if (C.src === "src240") { var p = C.data + "/src240/clip_" + id + ".mp4"; if (new File(p).exists) return p; }
+        if (C.src === "src240") { var p = C.data + "/src240/clip_" + id + ".mp4"; if (importOk(p)) return p; }
         return file;
     }
     // an RGBA image sequence by its first frame; returns the footage item or null when the folder is missing
     function sequence(dir, firstFrame) {
         var p = dir + "/" + ("0000" + firstFrame).slice(-4) + ".png";
-        if (!new File(p).exists) return null;
         var o = new ImportOptions(new File(p)); o.sequence = true;
-        var it = app.project.importFile(o);
+        var it = null;
+        try { it = app.project.importFile(o); } catch (e) { return null; }
+        if (!it) return null;
         TRY("conform", function () { it.mainSource.conformFrameRate = FPS; });
         TRY("folder", function () { it.parentFolder = C.elements; });
         return it;
@@ -276,7 +284,7 @@ var SPECIAL = (function () {
     function vAt(prop, f) { var v = prop.valueAtTime(f2t(f), false); return [v[0], v[1]]; }
     function buildFreezeSlam(T) {
         var L = C.shot("S32"); if (!L) { warn("no SHOT_S32"); return; }
-        var P = T.panels[0], f0 = 770, fc = 772, f1 = T.f0;       // freeze, start closing, last frame before panel 1 hits
+        var P = T.panels[0], f0 = 770, fc = 771, f1 = T.f0 - 1;       // freeze, start closing, last frame before panel 1 hits
         var a = vAt(ANC(L), f0), pos0 = vAt(POS(L), f0), s0 = vAt(SCL(L), f0)[0], r0 = ROT(L).valueAtTime(f2t(f0), false);
         var head = [975, 470], sEnd = 128, tgt = [P.cx, P.cy];
         // freeze
@@ -289,7 +297,7 @@ var SPECIAL = (function () {
         clearKeys(POS(L), f0 + 1, f1 + 1); clearKeys(SCL(L), f0 + 1, f1 + 1); clearKeys(ROT(L), f0 + 1, f1 + 1);
         var m = addMask(L, shape([[-2000, -2000], [4000, -2000], [4000, 3000], [-2000, 3000]], true), 0);
         function st(f) {
-            var u = clamp((f - fc) / (f1 - fc), 0, 1), e = eInCubic(u);
+            var u = clamp((f - fc) / (f1 - fc), 0, 1), e = eInQuad(u);
             var s = lerp(s0, sEnd, e);
             var endPos = [tgt[0] - (head[0] - a[0]) * sEnd / 100, tgt[1] - (head[1] - a[1]) * sEnd / 100];
             var p = lerp2(pos0, endPos, e);
@@ -326,7 +334,7 @@ var SPECIAL = (function () {
         var L = MAIN.layers.add(trip); L.name = "SPECIAL_TRIPTYCH"; span(L, T.f0, f);
         // the shards cut either a frozen still of the triptych at 819 (special_spec.prerender: cheap) or, when that
         // is missing, the live triptych comp (correct but ~36x slower: every shard re-renders the whole comp)
-        var still = X.shatter_still && new File(X.shatter_still).exists ? footage(X.shatter_still) : null;
+        var still = X.shatter_still && importOk(X.shatter_still) ? footage(X.shatter_still) : null;
         if (!still) warn("no pre-rendered triptych still: shards re-render the live comp (slow)");
         var crack = shapeLayer(MAIN, "SPECIAL_CRACKS");
         for (i = 0; i < shards.length; i++) {
@@ -392,7 +400,7 @@ var SPECIAL = (function () {
         keyFn(POS(l), f0, f1, centerFn);
         var r2 = rng((o.seed || 21) + 5);
         keyFn(ROT(l), f0, f1, function (f) { return r2() * 360; });
-        keyFn(SCL(l), f0, f1, function (f) { return sc(100 + 55 * r2() * (o.boil || 1)); });
+        keyFn(SCL(l), f0, f1, function (f) { return sc(100 + 30 * r2() * (o.boil || 1)); });
         keyList(OPA(l), o.opa);
         return l;
     }
@@ -421,15 +429,17 @@ var SPECIAL = (function () {
             hold = MAIN.layers.add(holdComp); hold.name = "SPECIAL_S17_hold"; hold.motionBlur = true;
             hold.timeRemapEnabled = true;
             var lastT = holdComp.duration - 1 / FPS;
-            hold.property("ADBE Time Remapping").setValuesAtTimes([0, 1], [lastT, lastT]);
-            var trk = hold.property("ADBE Time Remapping"); for (i = trk.numKeys; i > 2; i--) trk.removeKey(i);
-            hold.startTime = 0; span(hold, drop, drop + 14);
+            hold.startTime = 0; hold.outPoint = f2t(drop + 14); hold.inPoint = f2t(drop);
+            var trk = hold.property("ADBE Time Remapping");
+            trk.setValuesAtTimes([f2t(drop), f2t(drop + 14)], [lastT, lastT]);
+            for (i = trk.numKeys; i >= 1; i--) if (Math.abs(trk.keyValue(i) - lastT) > 1e-6) trk.removeKey(i);
             ANC(hold).setValue(aA);
             keyFn(SCL(hold), drop, drop + 14, function (f) { return sc(lerp(sEnd, sEnd * 2.2, (f - drop) / 14)); });
             keyFn(POS(hold), drop, drop + 14, function (f) { var s = lerp(sEnd, sEnd * 2.2, (f - drop) / 14); return [centre[0] - (lens[0] - aA[0]) * s / 100, centre[1] - (lens[1] - aA[1]) * s / 100]; });
             keyList(OPA(hold), [[drop, 100], [drop + 8, 85], [drop + 14, 0]]);
             radialBlur(hold, "hold blur", [[drop, 95], [drop + 14, 30]], lens);
             hold.moveAfter(B);
+            C.log("hold in=" + hold.inPoint * FPS + " out=" + hold.outPoint * FPS + " idx=" + hold.index + " B.idx=" + B.index + " remap0=" + trk.valueAtTime(f2t(481), false) + " nk=" + trk.numKeys + " dur=" + holdComp.duration);
         }
         // ---- 3. M01 pulls out of Tom's lens: seen first inside the lens shape, a matte that grows to the full frame
         var aB = vAt(ANC(B), drop), fB = drop + 16, core = {};
@@ -455,16 +465,16 @@ var SPECIAL = (function () {
         // ---- 4. speed lines on the riser (S17)
         var cl = function (f) { var a_ = slamA(clamp(f, fS, drop)); return [a_.p[0] + (lens[0] - aA[0]) * a_.s / 100, a_.p[1] + (lens[1] - aA[1]) * a_.s / 100]; };
         if (own.lines !== false)
-            speedLines("SPECIAL_SPEEDLINES", drop - 8, drop - 1, cl, { n: 60, r0: 300, len: 1100, w: 16, seed: 31,
+            speedLines("SPECIAL_SPEEDLINES", drop - 8, drop - 1, cl, { n: 60, r0: 300, len: 1100, w: 9, seed: 31,
                 opa: [[drop - 8, 0], [drop - 6, 55], [drop - 3, 85], [drop - 1, 100]] });
         // ---- 5. THE DROP at f480: white flash, shockwave (Ripple) + ring, chromatic split
         if (own.shock !== false) {
             var sw = adj(MAIN, "SPECIAL_SHOCKWAVE"); span(sw, drop, drop + 14);
             TRY("ripple", function () {
                 var rp = fxAdd(sw, "ADBE Ripple", "shockwave");
-                setp(rp, "Center of Ripple", centre); setp(rp, "Wave Width", 60); setp(rp, "Wave Speed", 0);
+                setp(rp, "Center of Ripple", centre); setp(rp, "Wave Width", 150); setp(rp, "Wave Speed", 0);
                 keyFn(rp.property("Radius"), drop, drop + 14, function (f) { return 40 + 1400 * eOutCubic((f - drop) / 13); });
-                keyFn(rp.property("Wave Height"), drop, drop + 14, function (f) { return 70 * Math.pow(1 - clamp((f - drop) / 13, 0, 1), 1.4); });
+                keyFn(rp.property("Wave Height"), drop, drop + 14, function (f) { return 20 * Math.pow(1 - clamp((f - drop) / 13, 0, 1), 1.4); });
             });
         }
         if (own.chroma !== false) {
@@ -499,39 +509,49 @@ var SPECIAL = (function () {
     // magenta/cyan, halftone dots from CC Ball Action, a white-hot core. Used whenever no Blender element exists.
     function buildRiftComp(Rf) {
         var rc = newComp("SP_RIFT", W, H), f0 = Rf.f0 - 2, f1 = Rf.f1 + 2;
-        solid(rc, "void", [0.03, 0.0, 0.08]);
-        var sw = solid(rc, "swirl", [0.5, 0.5, 0.5]);
-        TRY("noise", function () {
-            var fn = fxAdd(sw, "ADBE Fractal Noise", "noise");
-            setp(fn, "Contrast", 190); setp(fn, "Brightness", -15); setp(fn, "Complexity", 6);
-            TRY("noise evo", function () { keyFn(fn.property("Evolution"), f0, f1, function (f) { return (f - f0) * 55; }); });
-        });
-        TRY("twirl", function () {
-            var tw = fxAdd(sw, "ADBE Twirl", "twirl");
-            setp(tw, "Twirl Radius", 1400); setp(tw, "Twirl Center", [W / 2, H / 2]);
-            keyFn(tw.property("Angle"), f0, f1, function (f) { return 200 + (f - f0) * 38; });
-        });
-        TRY("polar", function () { var pl = fxAdd(sw, "ADBE Polar Coordinates", "polar"); setp(pl, "Interpolation", 100); setp(pl, "Type of Conversion", 1); });
-        TRY("turb", function () {
-            var tb = fxAdd(sw, "ADBE Turbulent Displace", "tear");
-            setp(tb, "Amount", 140); setp(tb, "Size", 120);
-            TRY("turb evo", function () { keyFn(tb.property("Evolution"), f0, f1, function (f) { return (f - f0) * 70; }); });
-        });
-        TRY("tritone", function () {
-            var tt = fxAdd(sw, "ADBE Tritone", "multiverse colours");
-            setp(tt, "Highlights", [0.75, 1.0, 1.0]); setp(tt, "Midtones", [0.95, 0.12, 0.62]); setp(tt, "Shadows", [0.06, 0.0, 0.22]);
-        });
-        // halftone dots over the swirl
-        var ht = adj(rc, "halftone dots");
+        solid(rc, "void", [0.02, 0.0, 0.07]);
+        // two counter-turning swirls (magenta heart, cyan arms), added together
+        function swirlLayer(name, seed, dir, tri, blend, opacity) {
+            var sw = solid(rc, name, [0.5, 0.5, 0.5]);
+            TRY(name + " noise", function () {
+                var fn = fxAdd(sw, "ADBE Fractal Noise", "noise");
+                setp(fn, "Contrast", 190); setp(fn, "Brightness", -15); setp(fn, "Complexity", 6);
+                TRY("noise scale", function () { fn.property("Transform").property("Scale").setValue(60); });
+                TRY("noise offset", function () { fn.property("Transform").property("Offset Turbulence").setValue([960 + seed * 400, 540 - seed * 250]); });
+                TRY("noise evo", function () { keyFn(fn.property("Evolution"), f0, f1, function (f) { return seed * 90 + (f - f0) * 55; }); });
+            });
+            TRY(name + " twirl", function () {
+                var tw = fxAdd(sw, "ADBE Twirl", "twirl");
+                setp(tw, "Twirl Radius", 100);
+                keyFn(tw.property("Angle"), f0, f1, function (f) { return dir * (160 + (f - f0) * 22); });
+            });
+            TRY(name + " polar", function () { var pl = fxAdd(sw, "ADBE Polar Coordinates", "polar"); setp(pl, "Interpolation", 100); setp(pl, "Type of Conversion", 2); });
+            TRY(name + " tear", function () {
+                var tb = fxAdd(sw, "ADBE Turbulent Displace", "tear");
+                setp(tb, "Amount", 90); setp(tb, "Size", 100);
+                TRY("turb evo", function () { keyFn(tb.property("Evolution"), f0, f1, function (f) { return seed * 50 + (f - f0) * 70; }); });
+            });
+            TRY(name + " tritone", function () {
+                var tt = fxAdd(sw, "ADBE Tritone", "colours");
+                setp(tt, "Highlights", tri[0]); setp(tt, "Midtones", tri[1]); setp(tt, "Shadows", tri[2]);
+            });
+            if (blend) sw.blendingMode = blend;
+            OPA(sw).setValue(opacity);
+            return sw;
+        }
+        swirlLayer("swirl magenta", 0, 1, [[0.85, 1.0, 1.0], [0.95, 0.1, 0.6], [0.05, 0.0, 0.25]], null, 100);
+        swirlLayer("swirl cyan", 1, -1, [[0.8, 1.0, 1.0], [0.0, 0.75, 1.0], [0.0, 0.0, 0.0]], BlendingMode.ADD, 65);
+        // halftone dots over the swirl (a fraction, so the dots read as texture)
+        var ht = adj(rc, "halftone dots"); OPA(ht).setValue(32);
         TRY("dots", function () { var ba = fxAdd(ht, "ec.sim.ccballaction", "dots"); setp(ba, "Grid Spacing", 14); });
         // the white-hot core
         var core = solid(rc, "core", [0, 0, 0]); core.blendingMode = BlendingMode.ADD;
         TRY("core", function () {
             var rp = fxAdd(core, "ADBE Ramp", "core"); setp(rp, "Ramp Shape", 2);
             setp(rp, "Start of Ramp", [W / 2, H / 2]); setp(rp, "Start Color", [1, 1, 1]);
-            setp(rp, "End of Ramp", [W / 2 + 520, H / 2]); setp(rp, "End Color", [0, 0, 0]);
+            setp(rp, "End of Ramp", [W / 2 + 230, H / 2]); setp(rp, "End Color", [0, 0, 0]);
         });
-        keyList(OPA(core), [[f0, 0], [Rf.f0 + 6, 80], [Rf.f0 + 10, 100], [Rf.f1, 25]]);
+        keyList(OPA(core), [[f0, 0], [Rf.f0 + 6, 45], [Rf.f0 + 10, 55], [Rf.f1, 12]]);
         return rc;
     }
 
@@ -569,19 +589,19 @@ var SPECIAL = (function () {
             span(rl, fa, fe);
         } else {
             var rc = buildRiftComp(Rf);
-            rl = MAIN.layers.add(rc); rl.name = "RIFT (native)"; rl.motionBlur = true; span(rl, 247, fe);
+            rl = MAIN.layers.add(rc); rl.name = "RIFT (native)"; rl.motionBlur = true; span(rl, 246, fe);
             // outer mask: the iris tears, jagged, until it swallows the frame at the cut
             var jf = []; var rj = rng(5); for (i = 0; i < 22; i++) jf.push(0.62 + rj() * 0.7);
             var mo = addMask(rl, jagged(iris[0], iris[1], 1, jf, 0.3), 6);
-            var rOut = { 247: 6, 248: 26, 249: 62, 250: 140, 251: 330, 252: 1900 }, mts = [], msh = [];
-            for (f = 247; f <= 253; f++) { var R = rOut[Math.min(f, 252)]; var c = f <= 251 ? ip(f) : centre; mts.push(f2t(f)); msh.push(jagged(c[0], c[1], R, jf, 0.3 + (f - 247) * 0.05)); }
+            var rOut = { 246: 8, 247: 26, 248: 62, 249: 120, 250: 230, 251: 480, 252: 1900 }, mts = [], msh = [];
+            for (f = 246; f <= 253; f++) { var R = rOut[Math.min(f, 252)]; var c = f <= 251 ? ip(f) : centre; mts.push(f2t(f)); msh.push(jagged(c[0], c[1], R, jf, 0.3 + (f - 246) * 0.05)); }
             mo.property("ADBE Mask Shape").setValuesAtTimes(mts, msh);
             // the hole A01 is seen through: smooth, grows from the rift's heart, a lens opening
             var mh = addMask(rl, ellipseRot(centre[0], centre[1], 1, 1, 0), 10); mh.maskMode = MaskMode.SUBTRACT;
             var hts = [], hsh = [];
             for (f = fcut; f <= fe + 1; f++) { var u2 = (f - fcut) / (fe - fcut); var Rh = f <= fcut ? 1 : 40 + 1560 * Math.pow(u2, 2.0); hts.push(f2t(f)); hsh.push(ellipseRot(centre[0], centre[1], Rh, Rh, 0)); }
             mh.property("ADBE Mask Shape").setValuesAtTimes(hts, hsh);
-            keyList(OPA(rl), [[247, 100], [fe - 3, 100], [fe, 0]]);
+            keyList(OPA(rl), [[246, 100], [fe - 3, 100], [fe, 0]]);
         }
         // ---- 3. A01 pulls out of the rift (seen through the hole): scale in from 320 % with a twist, lens to centre
         var aN = vAt(ANC(S9), fcut), lensN = [1036, 546], core9 = {};
@@ -620,7 +640,7 @@ var SPECIAL = (function () {
             addShapeGroup(ck, shape(v, false), null, [1, 1, 1], 3);
         }
         keyFn(POS(ck), 245, 251, function (f) { return ip(f); });
-        keyFn(SCL(ck), 245, 251, function (f) { return sc(60 + (f - 245) * 55); });
+        keyFn(SCL(ck), 245, 251, function (f) { return sc(35 + (f - 245) * 24); });
         keyList(OPA(ck), [[245, 0], [246, 90], [250, 100], [251, 0]]);
         ck.blendingMode = BlendingMode.ADD;
         TRY("crack glow", function () { var g = fxAdd(ck, "ADBE Glo2", "crack glow"); setp(g, "Glow Threshold", 20); setp(g, "Glow Radius", 18); setp(g, "Glow Intensity", 1.5); });
@@ -632,7 +652,7 @@ var SPECIAL = (function () {
             keyList(ca.property("Aberration (Blue)"), [[247, 0], [251, -6], [253, -7], [fe, 0]]);
         });
         var fl = solid(MAIN, "SPECIAL_RIFT_FLASH", [1, 1, 1]); span(fl, 250, 256); fl.blendingMode = BlendingMode.ADD;
-        keyList(OPA(fl), [[250, 0], [251, 55], [252, 70], [253, 40], [255, 0]]);
+        keyList(OPA(fl), [[250, 0], [251, 30], [252, 38], [253, 18], [255, 0]]);
         // ---- 5. the caption flip EARTH-96283 -> EARTH-120703 (digits tumble, then lock), comic caption box top left
         buildCaptionFlip(Rf);
     }

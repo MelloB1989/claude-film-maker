@@ -233,9 +233,14 @@ app.project.save(new File(OUT_PROJECT));
     try:
         r = subprocess.run([EC, "script", jsx_path, "--empty"], capture_output=True, text=True, timeout=300)
         if r.returncode:
+            print("special prerender: script failed", (r.stdout + r.stderr)[-400:])
             return None
         r = subprocess.run([EC, "render-frame", "--project", proj, "--comp", "SP_TRIPTYCH", "--frame", str(f), "--out", still],
                            capture_output=True, text=True, timeout=600)
-        return still if r.returncode == 0 and os.path.exists(still) else None
-    except (OSError, subprocess.SubprocessError):
+        if r.returncode or not os.path.exists(still):
+            print("special prerender: render failed", (r.stdout + r.stderr)[-400:])
+            return None
+        return still
+    except (OSError, subprocess.SubprocessError) as e:
+        print("special prerender:", e)
         return None
