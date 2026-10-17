@@ -40,10 +40,10 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     x, y, _ = fm.object_xyz(word_fill.root)
     t = fm.math("MULTIPLY_ADD", y, 1.0 / (cap / C.PX), 0.5, clamp=True)            # 0 baseline .. 1 cap line
     col = fm.ramp(t, [(0.0, pal["fill"]), (0.5, pal["fill"]), (0.82, "#FFFFFF"), (1.0, "#FFFFFF")])
-    lean = 0.4 * cap / C.PX
     sw_pos = fm.value("sweep_x", -5.0)
     sw_w = 0.26 * cap / C.PX
-    d = fm.math("ABSOLUTE", fm.math("SUBTRACT", fm.math("ADD", x, fm.math("MULTIPLY", y, -lean / (cap / C.PX) * 0 - 0.4)), sw_pos))
+    slant = fm.math("ADD", x, fm.math("MULTIPLY", y, -0.4))                            # the "/" lean of the bar
+    d = fm.math("ABSOLUTE", fm.math("SUBTRACT", slant, sw_pos))
     sweep = fm.math("SUBTRACT", 1.0, fm.math("DIVIDE", d, sw_w * 0.5), clamp=True)
     em_col = fm.mix(col, (1, 1, 1, 1), sweep)
     b = fm.bsdf

@@ -222,6 +222,7 @@ class TitleScene:
         r.image_settings.color_depth = "8"
         r.image_settings.compression = 15
         r.use_compositing = True
+        r.compositor_device = "CPU"                  # headless boxes have no GL context; also deterministic
         s.view_settings.view_transform = "Standard"   # an emission plane keeps its sRGB values (same as the main scene)
         s.view_settings.look = "None"
         s.display_settings.display_device = "sRGB"
@@ -567,11 +568,11 @@ class Mat:
     def set(self, name: str, v: float):
         self.values[name].outputs[0].default_value = v
 
-    def math(self, op: str, a=None, b=None, clamp: bool = False):
+    def math(self, op: str, a=None, b=None, c=None, clamp: bool = False):
         n = self.nt.nodes.new("ShaderNodeMath")
         n.operation = op
         n.use_clamp = clamp
-        for i, x in enumerate((a, b)):
+        for i, x in enumerate((a, b, c)):
             if x is None:
                 continue
             if isinstance(x, (int, float)):
@@ -789,3 +790,51 @@ def brush_bar(sc: TitleScene, w_px: float, h_px: float, *, name: str = "bar", bo
     m.emission_only(lin(color), 1.0, alpha=alpha)
     me.materials.append(m.mat)
     return ob, m
+
+
+# ---- shared look builders ----------------------------------------------------------------------------------------
+
+def flat_word(sc: TitleScene, text: str, role: str, size_px: float, tracking: float = 0.0, *, name: str = "flat",
+              color: str = "#FFFFFF", strength: float = 1.0, extrude_px: float = 0.0):
+    """A flat emissive word (tags, sub lines): returns (Word, Mat); `mat.set('alpha', v)` fades it."""
+    m = Mat(name)
+    m.nt.nodes.remove(m.bsdf)
+    a = m.value("alpha", 1.0)
+    m.emission_only(lin(color), strength, alpha=a)
+    w = Word(sc, text, role, size_px, tracking, name=name, extrude_px=extrude_px, material=m.mat)
+    return w, m
+
+
+def sweep_mask(m: Mat, x, y, pos_value, width: float, lean: float = 0.0):
+    """A slanted bar of `width` (word units, 1/100 px) centred where x + lean*y = pos_value, soft-edged, 0..1."""
+    slant = m.math("ADD", x, m.math("MULTIPLY", y, lean)) if lean else x
+    d = m.math("ABSOLUTE", m.math("SUBTRACT", slant, pos_value))
+    return m.math("SUBTRACT", 1.0, m.math("DIVIDE", d, width * 0.5), clamp=True)
+
+
+def metal_material(name: str, word_root, cap_px: float, ramp, *, metallic: float = 1.0, roughness: float = 0.18,
+                   emission: float = 0.0, sweep_w_px: float = 0.0, lean: float = 0.0, sweep_strength: float = 4.0,
+                   sweep_color: str = "#FFFFFF"):
+    """PBR metal tinted by a vertical colour ramp (baseline 0 -> cap line 1, stops = [(pos, hex)]), optional light sweep.
+
+    Controls (`m.set`): alpha, sweep_x (word units; far away = off), em (extra emission strength). The ramp tints the
+    metal's reflection, so the HDRI's softbox bands still read as chrome/gold while the palette's top-to-bottom
+    gradient of the AE title is kept."""
+    m = Mat(name)
+    x, y, _ = m.object_xyz(word_root)
+    t = m.math("MULTIPLY_ADD", y, PX / cap_px, 0.5, clamp=True)
+    col = m.ramp(t, ramp)
+    b = m.bsdf
+    m.link(col, b.inputs["Base Color"])
+    b.inputs["Metallic"].default_value = metallic
+    b.inputs["Roughness"].default_value = roughness
+    em_col = col
+    em_str = m.value("em", emission)
+    if sweep_w_px:
+        sw = sweep_mask(m, x, y, m.value("sweep_x", 99.0), sweep_w_px / PX, lean)
+        em_col = m.mix(col, lin(sweep_color), sw)
+        em_str = m.math("ADD", em_str, m.math("MULTIPLY", sw, sweep_strength))
+    m.link(em_col, b.inputs["Emission Color"])
+    m.link(em_str, b.inputs["Emission Strength"])
+    m.link(m.value("alpha", 1.0), b.inputs["Alpha"])
+    return m
