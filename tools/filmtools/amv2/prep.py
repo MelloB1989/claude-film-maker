@@ -34,6 +34,7 @@ HANDOVER = Path(os.environ.get("AMV_HANDOVER", "/home/nikhil/code/film-making/ha
 CLIPS = HANDOVER / "footage_clips"
 MATTE_CLIPS = ["A03_sunset_mask", "M08_shuriken", "T03_glove_city", "M14_head_raise", "M16_sunset_hero", "T01_mask_night"]
 FACTOR = 4
+LEVEL_LO, LEVEL_HI = 12.0, 235.0   # matte levels: below LO is black, above HI is white
 DUP_STEP = 0.3          # mean abs step (0..255 on a 1/8 frame) under which two frames are the same picture
 DUP_RATIO = 0.25        # share of repeated steps over which a clip counts as half-rate
 
@@ -228,9 +229,7 @@ class BiRefNet:
         self.torch, self.device, self.batch = torch, torch.device(device), batch
         m = AutoModelForImageSegmentation.from_pretrained(self.REPO, trust_remote_code=True)
         self.half = self.device.type == "cuda"
-        self.m = m.eval().to(self.device)
-        if self.half:
-            self.m = self.m.half()
+        self.m = m.eval().to(self.device, dtype=torch.float16 if self.half else torch.float32)
         self.mean = torch.tensor([0.485, 0.456, 0.406], device=self.device).view(1, 3, 1, 1)
         self.std = torch.tensor([0.229, 0.224, 0.225], device=self.device).view(1, 3, 1, 1)
 
@@ -311,7 +310,7 @@ def matte_clip(cid, out_root, net, src240, scale, limit, radius):
         old.unlink()
     for i, m in enumerate(p):
         up = cv2.resize(m, (w, h), interpolation=cv2.INTER_CUBIC)
-        up = np.clip((up.astype(np.float32) - 6.0) * (255.0 / 243.0), 0, 255).astype(np.uint8)    # clean the foot of the edge
+        up = np.clip((up.astype(np.float32) - LEVEL_LO) * (255.0 / (LEVEL_HI - LEVEL_LO)), 0, 255).astype(np.uint8)   # solid core, clean edge foot
         cv2.imwrite(str(out / f"{i:05d}.png"), up)
     (out / "matte.json").write_text(json.dumps({"clip": cid, "frames": len(p), "fps": 240, "width": w, "height": h,
                                                 "cuts": cuts, "model": net.REPO, "model_px": s, "smooth_radius": radius,
@@ -336,7 +335,7 @@ def main(argv=None):
         p.add_argument("--device", default="cuda", choices=["cuda", "cpu"])
         p.add_argument("--scale", type=float, default=1.0, help="resolution scale (smoke tests: 0.25)")
         p.add_argument("--limit", type=int, default=0, help="first N source frames (rife240) / output frames (mattes)")
-        p.add_argument("--batch", type=int, default=12 if name == "rife240" else 8)
+        p.add_argument("--batch", type=int, default=6 if name == "rife240" else 8)
         p.set_defaults(fn=fn)
         if name == "rife240":
             p.add_argument("--no-dedup", action="store_true")
