@@ -254,7 +254,8 @@ var TITLES = (function () {
         var ink = pn.r.width;
         var subL = mkText(comp, T.sub, os); subL.name = "sub line";
         var ps = place(comp, subL, os, CARD.x, CARD.subCy);
-        OPA(subL).setValue(85);
+        K(OPA(subL), [[0, 85], [n - 4, 85], [n - 1, 0]], "lin");        // everything is fully gone on the last frame (no slice of the slide left under the mask)
+        K(OPA(nameL), [[0, 100], [n - 4, 100], [n - 1, 0]], "lin");
         var rise = Math.min(14, Math.round(n * 0.3)), outN = Math.min(10, Math.round(n * 0.3)), out0 = n - 1 - outN;   // entry and exit scale down for short cards
         // mask reveal: a static layer mask in comp space, the glyphs rise into it (text animator position)
         function reveal(l, p, o, f0) {
@@ -280,12 +281,13 @@ var TITLES = (function () {
         var rf = rc.addProperty("ADBE Vector Graphic - Fill"); rf.property("ADBE Vector Fill Color").setValue([1, 1, 1]);
         ANC(rule).setValue([0, 0]); POS(rule).setValue([CARD.x, CARD.ruleY]);
         K(SCL(rule), [[2, [0, 100]], [rise + 2, [100, 100]], [out0 + 2, [100, 100]], [n - 1, [0, 100]]], "out");
-        K(OPA(rule), [[0, 85]], "lin");
+        K(OPA(rule), [[0, 85], [n - 4, 85], [n - 1, 0]], "lin");
         var tick = comp.layers.addShape(); tick.name = "accent tick";
         var tg = tick.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");
         var tr = tg.property("ADBE Vectors Group").addProperty("ADBE Vector Shape - Rect"); tr.property("ADBE Vector Rect Size").setValue([64, 6]); tr.property("ADBE Vector Rect Position").setValue([32, 0]);
         var tf = tg.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill"); tf.property("ADBE Vector Fill Color").setValue(hex(ACT_ACCENT[act] || "#FFFFFF"));
         ANC(tick).setValue([0, 0]); POS(tick).setValue([CARD.x, CARD.ruleY]);
+        K(OPA(tick), [[0, 100], [n - 4, 100], [n - 1, 0]], "lin");
         K(SCL(tick), [[3, [0, 100]], [rise, [100, 100]], [out0, [100, 100]], [n - 1, [0, 100]]], "out");
         var L = putInMain(main, comp, "TITLE namecard: " + T.text, T.f, T.f1);
         dropShadow(L, 85, 0, 30, 135, "shadow wide");
