@@ -379,12 +379,14 @@ var TITLES = (function () {
         red_gold:      { settle: 40, top: "#FFE08A", bot: "#FF2E1F", stroke: "#FF3A2A", glowA: "#FFE9A6", glowB: "#FF2A12" },
         crimson_white: { settle: 55, top: "#FFFFFF", bot: "#E0123F", stroke: "#FF2A55", glowA: "#FFFFFF", glowB: "#FF1744" }
     };
+    // per-word vertical centre when the default (470) would cover a face: SPIDER-MAN on M08 sits in the lower third, clear of the eye and above the S25 letterbox bar (y 941)
+    var NOVAX_Y = { "SPIDER-MAN": 735 };
     var NOVAX_FONT = "ChineseRocksRg-Regular", TAG_FONT = "Montserrat-Light";
     var ACT_TAG = { tobey: "TOBEY MAGUIRE", andrew: "ANDREW GARFIELD", tom: "TOM HOLLAND" };
     function slantBar(cx, top, bot, w, lean) { var s = new Shape(); s.vertices = [[cx - w / 2, top], [cx + w / 2, top], [cx + w / 2 + lean, bot], [cx - w / 2 + lean, bot]]; s.closed = true; return s; }
     function novax(main, T, X, idx, ctx) {
         var n = T.f1 - T.f, comp = newComp("NOVAX " + T.text, T.f, T.f1), pal = PAL[T.palette] || PAL.cyan, act = X.act[String(idx)];
-        var cx = W / 2, cy = T.y || 470;
+        var cx = W / 2, cy = T.y || NOVAX_Y[T.text] || 470;
         // hero size: the final (tracked-open) word spans <= 1380 px, so it is fully in frame and never clipped
         var probe = mkText(comp, T.text, { font: NOVAX_FONT, size: 300, fill: [1, 1, 1], italic: true });
         var w300 = rect(probe).width; probe.remove();
