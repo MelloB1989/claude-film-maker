@@ -315,7 +315,7 @@ def build_rings(n, f0):
             r = sch.ring(i, f, n)
             ob.scale = (r["scale"],) * 3
             ob.keyframe_insert("scale", frame=f0 + f)
-            em.default_value = 26.0 * r["opacity"] * (1.0 + 1.5 * r["pop"])
+            em.default_value = 26.0 * r["opacity"] * (1.0 + 3.0 * r["pop"])
             em.keyframe_insert("default_value", frame=f0 + f)
         linearize(ob)
         linearize(m.node_tree)
@@ -367,7 +367,7 @@ def _ring_flare(i, col, n, f0):
     ob.data.materials.append(m)
     ob.visible_shadow = False
     for f in range(0, n):
-        em.inputs["Strength"].default_value = 14.0 * sch.ring(i, f, n)["pop"]
+        em.inputs["Strength"].default_value = 40.0 * sch.ring(i, f, n)["pop"]
         em.inputs["Strength"].keyframe_insert("default_value", frame=f0 + f)
     linearize(nt)
 
@@ -537,7 +537,7 @@ def build_compositor(n, f0, w, h):
     nt.links.new(vf.outputs[0], vmix.inputs["Factor"])
     # flashes: hit (white add) and end (screen-ish add)
     fl = _node(nt, "ShaderNodeMix", 1320, 0, data_type="RGBA", blend_type="ADD")
-    fl.inputs["B"].default_value = (1.0, 0.96, 0.95, 1)
+    fl.inputs["B"].default_value = (1.0, 1.0, 1.0, 1)
     nt.links.new(vmix.outputs["Result"], fl.inputs["A"])
     # pixel dissolve
     img = block_noise_image(w, h)
@@ -556,7 +556,7 @@ def build_compositor(n, f0, w, h):
     nt.links.new(fi.outputs["Result"], go.inputs[0])
     for f in range(0, n):
         fx = sch.end_fx(f, n)
-        fl.inputs["Factor"].default_value = max(fx["hit"], fx["flash_end"])
+        fl.inputs["Factor"].default_value = max(fx["hit"], fx["flash_end"])   # white, added
         gl.inputs["Strength"].default_value = fx["bloom"] * 0.35
         cmp_.inputs[1].default_value = 1.01 if fx["black"] else fx["dissolve"] * 1.0005
         fi.inputs["Factor"].default_value = fx["fade_in"]

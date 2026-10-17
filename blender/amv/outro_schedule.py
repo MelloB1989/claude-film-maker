@@ -134,14 +134,22 @@ def sweep(f):
     return {"x": x, "level": lin([(56, 0.0), (60, 1.0), (72, 1.0), (77, 0.0)], f)}
 
 
+# Audio sync (agent-08's mix, outro starts at comp f812): big music hits at f820 and f829 -> local 8 and 17, and the
+# shutter_flash SFX at f882.06 -> local 70. Ring pops peak on the two hits (the middle ring lands on 17 as before), the
+# white pop lands on 70.
+RING_PEAKS = (8, 17, 22)
+HITS = (8, 17)
+SHUTTER_F = 70
 RINGS = ((-420.0, (0.75, 0.05, 0.08)), (0.0, (0.15, 0.35, 0.9)), (420.0, (0.9, 0.15, 0.12)))
 
 
 def ring(i, f, n):
-    """Ring i: opacity 0 -> 1 over 9 f from 3 + 5 i, scale 40 -> 100 % over 27 f, drifting to 108 % at the end."""
-    f0 = 3 + 5 * i
-    return {"opacity": lin([(f0, 0.0), (f0 + 9, 1.0)], f),
-            "pop": lin([(f0 + 5, 0.0), (f0 + 9, 1.0), (f0 + 15, 0.0)], f),     # the flare as the ring lights up
+    """Ring i: opacity 0 -> 1 over the 9 f before its peak (RING_PEAKS), scale 40 -> 100 % over 27 f, drifting to 108 %
+    at the end; `pop` is the flare, peaking on the peak frame."""
+    pk = RING_PEAKS[i]
+    f0 = pk - 9
+    return {"opacity": lin([(f0, 0.0), (pk, 1.0)], f),
+            "pop": lin([(pk - 4, 0.0), (pk, 1.0), (pk + 6, 0.0)], f),
             "scale": lin([(f0, 0.4), (f0 + 27, 1.0), (n, 1.08)], f)}
 
 
@@ -149,10 +157,14 @@ def end_fx(f, n):
     """Flash, bloom and dissolve at local frame f (outro.jsx final comp, flashes toned down as fix1 did)."""
     d0, d1 = n - DISSOLVE[0], n - DISSOLVE[1]
     return {
-        "hit": lin([(0, 0.08), (4, 0.0)], f),
-        "flash_end": 0.0,      # AE had a 28 % grey flash at D-10; it read as fog, so the end is the pixel dissolve alone
+        # only the opening tick is a global add; the music hits (HITS) punch through bloom and ring flares instead,
+        # because a linear-light add of even 0.03 lifts the blacks to grey fog
+        "hit": lin([(0, 0.02), (4, 0.0)], f),
+        # the camera-shutter SFX: a sharp white pop, decaying over 3 f (linear-light adds: 0.03 is already a visible grey) (replaces AE's soft grey end flash)
+        "flash_end": lin([(SHUTTER_F - 1, 0.0), (SHUTTER_F, 1.0), (SHUTTER_F + 1, 0.3), (SHUTTER_F + 3, 0.0)], f),
         "fade_in": lin([(0, 1.0), (5, 0.0)], f),
-        "bloom": lin([(0, 1.2), (8, 0.45), (n - 11, 0.45), (n - 8, 0.9), (n, 0.8)], f),
+        "bloom": lin([(0, 1.2), (8, 0.45), (n - 11, 0.45), (n - 8, 0.9), (n, 0.8)], f)
+        + 1.6 * max(lin([(h - 1, 0.0), (h, 1.0), (h + 4, 0.0)], f) for h in HITS),
         "dissolve": smooth_ease(lin([(d0, 0.0), (d1, 1.0)], f)),
         "black": 1.0 if f >= n - 2 else 0.0,
     }
