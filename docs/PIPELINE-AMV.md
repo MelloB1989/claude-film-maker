@@ -51,6 +51,17 @@ clip frame at that time (`mix`: linear blend of the two nearest 60p frames, AE F
 interpolation at the exact time, the open-source stand-in for Twixtor, which the user's AE toolset had), and average.
 `--mode nearest` (no blending, K = 1) exists for quick drafts.
 
+The default is `--mode auto`, which is what AE showed: only `slow` shots are frame-blended (`--slow-mode`, flow); every
+other shot shows ONE source frame per comp frame (nearest, at the centre of the shutter), because AE's comp motion blur
+blurs the layer's transform and does not integrate the footage over time. Mixing there made translucent double
+heads/arms on fast action (A06 f425-428).
+
+Scene cuts inside a clip (`detect_cuts`: a big luma step that dwarfs the steps between the distinct frames around it) are
+never crossed: no blend or interpolation spans one, and a comp frame whose shutter straddles a cut uses only the samples
+on the side of its centre time. Cuts in the 33 clips: M11 at clip frame 24 (comp 700/701) and M13 at 17 (730/731) are
+inside the used range; A01 (frame 1), A09 (76) and M15 (2) lie outside what the plan shows. `retime --list-cuts` lists
+them; `retime.json` stores `cuts` and marks affected frames `"cut": true`.
+
 ### bake: the layer, in After Effects order
 
 Inside the shot precomp, then on the main-comp layer, in this order (`build.jsx` is the spec):
