@@ -566,7 +566,9 @@ def sub_frame(spec, k):
     o = fade_out(k, dur)
     groups = []
     if not yellow:
-        reveal = sub_bar_reveal(text, words, k)
+        # AE's wipe keys start opening the bar one frame before the first word, but nothing of it shows on the AE
+        # render before the word (it is the same dark as the plate): keep the bar closed until the first word
+        reveal = sub_bar_reveal(text, words, k) if k >= words[0][0] else 0.0
         bar_w, bar_h = width + 90, size * 1.25
         poly = rough_bar(pos[0], pos[1] + 1, bar_w, bar_h, reveal, seed=7)
         if poly:
@@ -778,11 +780,18 @@ def tag_frame(spec, k):
 
 
 def watermark_frame(spec=None, k=0):
-    """build.jsx 214-225: SAU_EDITZ, Orbitron Bold 30 px, white, tracking 250, centred (960, 1050), drop shadow
-    (opacity 70, distance 2, softness 4). Full opacity: the scene stage keys the 62 % and the fades."""
+    """build.jsx 214-225: SAU_EDITZ, 30 px white, tracking, drop shadow (opacity 70, distance 2, softness 4), centred on
+    x = 960 with the BASELINE at y = 1050 (AE never re-anchored that text layer, so its position is the baseline).
+    Full opacity: the scene stage keys the 62 % and the fades.
+
+    AE had Bahnschrift SemiBold (a DIN-like, narrow, medium weight; measured on the AE render: cap height 21 px, ink
+    width 208 px, stems ~3 px). Not on Linux, and Orbitron Bold is much wider and heavier, so this uses Montserrat Light
+    emboldened by a 1.4 px outline, with the tracking set to land on the AE ink width."""
     spec = spec or {}
-    gl, _ = line_glyphs(spec.get("text", "SAU_EDITZ"), "Orbitron-Bold", spec.get("size", 30), Solid((1, 1, 1)),
-                        *spec.get("pos", (960.0, 1050.0)), tracking=250)
+    font, size = spec.get("font", "Montserrat-Light"), spec.get("size", 30)
+    x, y = spec.get("pos", (960.0, 1050.0))
+    gl, _ = line_glyphs(spec.get("text", "SAU_EDITZ"), font, size, Solid((1, 1, 1)), x, y - cap_height(font, size) / 2,
+                        tracking=spec.get("tracking", 180), stroke=((1, 1, 1), spec.get("embolden", 1.4)))
     return Frame([Group("text", gl, shadow=ae_shadow(70, 2, 4))])
 
 

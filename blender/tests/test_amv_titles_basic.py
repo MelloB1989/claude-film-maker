@@ -94,7 +94,9 @@ def test_sub_reveals_in_order_and_fades_out_in_the_last_frames():
 @needs_fonts
 def test_sub_white_has_a_bar_that_grows_and_yellow_has_none():
     names = lambda fr: [g.name for g in fr.groups]
-    assert "bar" not in names(basic.sub_frame(SUB0, 0))      # the wipe starts at frame 0 with nothing shown
+    for k in (0, 1, 2):                                       # nothing, not even the bar, before the first word (k = 3)
+        assert names(basic.sub_frame(SUB0, k)) == ["text"] and not basic.sub_frame(SUB0, k).groups[0].elems
+    assert names(basic.sub_frame(SUB0, 3)) == ["bar", "text"]
     assert names(basic.sub_frame(SUB0, 20)) == ["bar", "text"]
     assert names(basic.sub_frame(SUB1, 20)) == ["text"]
     widths = []
@@ -187,13 +189,13 @@ def test_font_metrics_are_sane():
 
 
 @needs_fonts
-def test_watermark_is_centred_at_960_1050():
+def test_watermark_is_centred_at_960_with_the_baseline_at_1050():
     fr = basic.watermark_frame()
     g = fr.groups[0].elems
     assert len(g) == 9                                         # SAU_EDITZ: no spaces, the underscore is a glyph
-    xs = [e.x for e in g]
-    pl, w = basic.line_layout("SAU_EDITZ", "Orbitron-Bold", 30, 250)
-    assert xs[0] == pytest.approx(960 - w / 2) and g[0].y == pytest.approx(1050 + basic.cap_height("Orbitron-Bold", 30) / 2)
+    pl, w = basic.line_layout("SAU_EDITZ", "Montserrat-Light", 30, 180)
+    assert g[0].x == pytest.approx(960 - w / 2)
+    assert all(e.y == pytest.approx(1050) for e in g)          # baseline (AE's un-anchored text layer)
     assert fr.groups[0].shadow.opacity == pytest.approx(0.7)
     assert all(e.opacity == 1.0 for e in g)
 
