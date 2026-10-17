@@ -24,7 +24,7 @@ Differences from the AE build, all because the open-source app has no equivalent
 Shots come in two flavours (`--source`): `clips` (the default, the editable one: the 60p clip in a per-shot precomp with
 time remap + frame blending, the exposure / saturation trim, the matte cutout, the eye-dive hole mask and the tile /
 radial blur / directional blur / lens effects as live effects) and `baked` (the Blender pipeline's layer PNG sequences,
-exactly what the Blender scene textures, with only the transform keys on top); `auto` picks clips where the clip file
+exactly what the Blender scene textures, with only the transform keys on top; shots without baked frames fall back to clips); `auto` picks clips where the clip file
 exists and the baked sequence otherwise.
 
 CLI: python -m filmtools.amv.effectcraft --film films/timeless [--layers out/timeless/amv/layers]
@@ -147,10 +147,10 @@ def shot_mode(plan: P.Plan, shot: P.Shot, opts: Options):
     is missing (a machine without the 4K sources can still open the edit)."""
     has_clip = plan.clip(shot).exists()
     baked = _seq_first(opts.layers_dir / shot.name) if opts.layers_dir else None
-    if opts.source == "baked":
-        if baked is None:
-            raise SystemExit(f"--source baked: no layer frames in {opts.layers_dir}/{shot.name}")
+    if opts.source == "baked" and baked is not None:
         return "baked"
+    if opts.source == "baked" and not has_clip:
+        raise SystemExit(f"--source baked: no layer frames in {opts.layers_dir}/{shot.name} and no clip to fall back on")
     if opts.source == "clips" or has_clip:
         return "clips"
     if baked is None:
