@@ -372,7 +372,7 @@ var TITLES = (function () {
     var PAL = {
         cyan:          { settle: 40, top: "#FFFFFF", bot: "#4CCBFF", stroke: "#4FD2FF", glowA: "#E4F8FF", glowB: "#0FA9FF" },
         red_gold:      { settle: 40, top: "#FFE08A", bot: "#FF2E1F", stroke: "#FF3A2A", glowA: "#FFE9A6", glowB: "#FF2A12" },
-        crimson_white: { settle: 48, top: "#FFFFFF", bot: "#E0123F", stroke: "#FFFFFF", glowA: "#FFFFFF", glowB: "#E0123F" }
+        crimson_white: { settle: 55, top: "#FFFFFF", bot: "#E0123F", stroke: "#FF2A55", glowA: "#FFFFFF", glowB: "#FF1744" }
     };
     var NOVAX_FONT = "ChineseRocksRg-Regular", TAG_FONT = "Montserrat-Light";
     var ACT_TAG = { tobey: "TOBEY MAGUIRE", andrew: "ANDREW GARFIELD", tom: "TOM HOLLAND" };
@@ -472,7 +472,7 @@ var TITLES = (function () {
         var L = putInMain(main, comp, "TITLE novax: " + T.text, T.f, T.f1);
         // behind the subject: inverted luma track matte from MATTE_<id>; in front when there is no matte
         var bid = X.behind[String(idx)], ml = null;
-        if (bid) ml = ctx.matte(bid);
+        if (bid && ctx.matte) ml = ctx.matte(bid);
         if (ml) {
             L.setTrackMatte(ml, TrackMatteType.LUMA_INVERTED);
             L.name += " (behind subject)";
