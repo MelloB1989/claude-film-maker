@@ -45,11 +45,11 @@ var ctx = {
 };
 
 // ---- one precomp per shot: the footage with time remap (time 0 = frame a - hin) ----
-function buildShotComp(S, K) {
+function buildShotComp(S, K, item, cname) {
     var n = S.b - S.a, tot = CORE.hin + n + CORE.hout;
-    var pc = proj.items.addComp("SHOT_" + S.id, W, H, 1, tot / FPS, FPS); pc.parentFolder = fShots;
+    var pc = proj.items.addComp(cname, W, H, 1, tot / FPS, FPS); pc.parentFolder = item ? (K.isMatte ? fMattes : fShots) : fShots;
     pc.bgColor = [0, 0, 0];
-    var fi = footage(K.file);
+    var fi = item || footage(K.file);
     var fl = pc.layers.add(fi); fl.name = "footage " + S.clip;
     fl.timeRemapEnabled = true;
     var tr = fl.property("ADBE Time Remapping");
@@ -62,13 +62,11 @@ function buildShotComp(S, K) {
     // the clip's native size is 1920x1080; scale a different source to fit
     var fw = fi.width, fh = fi.height;
     if (fw != W || fh != H) { var sc = Math.max(W / fw, H / fh) * 100; SCL(fl).setValue([sc, sc]); }
-    PC[S.id] = pc;
     return pc;
 }
 
-function buildShotLayer(S, K) {
-    var pc = PC[S.id];
-    var L = main.layers.add(pc); L.name = "SHOT_" + S.id;
+function buildShotLayer(S, K, pc, lname) {
+    var L = main.layers.add(pc); L.name = lname;
     L.startTime = f2t(S.a - CORE.hin); L.inPoint = f2t(S.a); L.outPoint = f2t(S.b);
     L.motionBlur = true;
     var F = S.focus || [W / 2, H / 2];
@@ -91,16 +89,47 @@ function buildShotLayer(S, K) {
             e.property("Output Width").setValuesAtTimes(ts, tw); e.property("Output Height").setValuesAtTimes(ts, th);
         });
     }
-    LAYS[S.id] = L;
     return L;
 }
 
 for (var si = 0; si < E.shots.length; si++) {
     var S = E.shots[si], K = CORE.shots[S.id];
-    buildShotComp(S, K);
-    buildShotLayer(S, K);
+    PC[S.id] = buildShotComp(S, K, null, "SHOT_" + S.id);
+    LAYS[S.id] = buildShotLayer(S, K, PC["SHOT_" + S.id] || PC[S.id], "SHOT_" + S.id);
+}
+// ---- MATTE_<id>: the subject matte (white on black) mirroring the shot's remap + transform, disabled ----
+for (var mi = 0; mi < E.shots.length; mi++) {
+    var MS = E.shots[mi], MK = CORE.shots[MS.id];
+    if (!MK.matte) continue;
+    TRY("matte " + MS.id, function () {
+        var o = new ImportOptions(new File(MK.matte.first)); o.sequence = true;
+        var it = proj.importFile(o); it.parentFolder = fMattes; it.name = "matte " + MS.clip;
+        it.mainSource.conformFrameRate = MK.matte.fps;
+        var mk = { remap: MK.remap, keys: MK.keys, isMatte: true };
+        var mpc = buildShotComp(MS, mk, it, "MATTE_" + MS.id);
+        var ml = buildShotLayer(MS, mk, mpc, "MATTE_" + MS.id);
+        ml.enabled = false; MATTES[MS.id] = ml;
+    });
 }
 log("shots " + E.shots.length);
+
+// ---- fallback triptych (only when the SPECIAL lib is missing): three vertical panels, one per hit ----
+function fallbackTriptych() {
+    var T = E.triptych, pw = W / 3;
+    for (var i = 0; i < T.panels.length; i++) {
+        var P = T.panels[i];
+        var fi = footage(CORE.src == "src240" ? CORE.data + "/src240/clip_" + P.clip + ".mp4" : P.file);
+        var l = main.layers.add(fi); l.name = "PANEL_" + (i + 1) + " " + P.clip;
+        l.startTime = f2t(P.f) - P.src[0]; l.inPoint = f2t(P.f); l.outPoint = f2t(T.shatter);
+        var sc = 112; SCL(l).setValue([sc, sc]);
+        var m = l.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
+        var x0 = i * pw, sh = new Shape();
+        sh.vertices = [[x0, 0], [x0 + pw, 0], [x0 + pw, H], [x0, H]]; sh.closed = true;
+        m.property("ADBE Mask Shape").setValue(sh);
+        l.motionBlur = true;
+    }
+    log("fallback triptych built (SPECIAL missing)");
+}
 
 // ---- libraries, bottom to top ----
 function callLib(o, name, fn) {
@@ -111,7 +140,8 @@ function callLib(o, name, fn) {
 callLib(typeof FX === "undefined" ? null : FX, "FX.buildUnder", "buildUnder");
 callLib(typeof GRADE === "undefined" ? null : GRADE, "GRADE.build", "build");
 callLib(typeof FX === "undefined" ? null : FX, "FX.buildOver", "buildOver");
-callLib(typeof SPECIAL === "undefined" ? null : SPECIAL, "SPECIAL.build", "build");
+if (typeof SPECIAL === "undefined" || !SPECIAL || typeof SPECIAL.build != "function") TRY("fallback triptych", fallbackTriptych);
+else callLib(SPECIAL, "SPECIAL.build", "build");
 callLib(typeof TITLES === "undefined" ? null : TITLES, "TITLES.build", "build");
 
 TRY("save", function () { proj.save(new File(OUT_PROJECT)); });

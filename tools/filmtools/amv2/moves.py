@@ -23,8 +23,9 @@ ZOOMS = ("zoom_in", "pull_out", "zoom_out")
 WHIPS = {"whip_l": (-1, 0), "whip_r": (1, 0), "whip_u": (0, -1), "whip_d": (0, 1),
          "whip_left": (-1, 0), "whip_right": (1, 0), "whip_up": (0, -1), "whip_down": (0, 1)}
 SPINS = {"spin_cw": 1, "spin_ccw": -1}
-EXIT_N = {"zoom_in": 5, "zoom_out": 5, "whip": 4, "spin": 5}
-ENTRY_N = {"pull_out": 9, "zoom_in": 9, "zoom_out": 8, "whip": 8, "spin": 9, "impact": 6, "open_lightsweep": 12}
+EXIT_N = {"zoom_in": 5, "zoom_out": 5, "whip": 3, "spin": 5}
+ENTRY_N = {"pull_out": 9, "zoom_in": 9, "zoom_out": 8, "whip": 6, "spin": 9, "impact": 6, "open_lightsweep": 12}
+WHIP_ZOOM = 1.22                # scale reached at the cut during a whip
 LAMBDA = 3.0                   # default exponential settle rate (per entry length)
 
 
@@ -109,8 +110,10 @@ def exit_move(xout, n_shot, focus_zoom=ZC):
     if k == "whip":
         dx, dy = WHIPS[xout]
         D = 1.3 * (W if dx else H)
-        return (Move(tx=(lambda u: dx * D * prog(u)) if dx else None, ty=(lambda u: dy * D * prog(u)) if dy else None,
-                     tile=True), dict(g=0, rot=0, t=D * dprog))
+        gw = math.log(WHIP_ZOOM)           # scale up while whipping: keeps the mirror seams off the readable frames
+        return (Move(g=lambda u: gw * prog(u), tx=(lambda u: dx * D * prog(u)) if dx else None,
+                     ty=(lambda u: dy * D * prog(u)) if dy else None, tile=True),
+                dict(g=gw * dprog, rot=0, t=D * dprog))
     if k == "spin":
         s = SPINS[xout]
         G = math.log(1.5)
@@ -142,8 +145,11 @@ def entry_move(xin, prev_xout, speeds):
         v0 = speeds["t"] or 0.65 * (W if dx else H)
         D = (W if dx else H)
         # enter from the opposite side of the exit: moving the same way as A, so B's offset starts on the +dir side
-        f = settle_curve(1.9 * D, N, v0)
-        return Move(tx=(lambda u: -dx * f(u)) if dx else None, ty=(lambda u: -dy * f(u)) if dy else None, tile=True)
+        G = 1.0 * D                                   # starts one frame-width off, readable by entry + 3
+        f = settle_curve(G, N, v0)
+        gw = math.log(WHIP_ZOOM)
+        return Move(g=lambda u: gw * f(u) / G, tx=(lambda u: -dx * f(u)) if dx else None,
+                    ty=(lambda u: -dy * f(u)) if dy else None, tile=True)
     if k == "spin":
         s = SPINS[xin]
         G = math.log(1.5)

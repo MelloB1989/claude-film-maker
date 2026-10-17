@@ -33,6 +33,7 @@ HIN, HOUT = 6, 6                                         # handle frames either 
 TILE_PCT = 300                                           # Motion Tile output size where the frame edge would show
 CUT_MIN = 0.12                                           # ffmpeg scene score that counts as a source cut
 SRC_FPS = 60.0
+BEHIND = set()                                           # clips whose shots get a MATTE_ mirror (titles `behind`)
 
 
 def data_dir():
@@ -88,6 +89,18 @@ def detect_cut(path, lo, hi):
     return best[0] if best else None
 
 
+def matte_for(sh, data, clip_len):
+    """The subject matte sequence for shots whose titles say `behind` (`$AMV2_DATA/mattes/<clip>/NNNNN.png`), else None.
+    Its frame rate is frames / clip length (the sequence covers the whole clip)."""
+    if sh["clip"] not in BEHIND or not clip_len:
+        return None
+    d = data / "mattes" / sh["clip"]
+    files = sorted(d.glob("*.png")) if d.is_dir() else []
+    if not files:
+        return None
+    return dict(first=str(files[0]), n=len(files), fps=round(len(files) / clip_len, 4))
+
+
 def src_path(sh, mode, data):
     if mode == "src240":
         p = data / "src240" / f"clip_{sh['clip']}.mp4"
@@ -99,6 +112,8 @@ def src_path(sh, mode, data):
 
 # ---------------------------------------------------------------- the spec
 def build_core(E, mode, samples, data):
+    global BEHIND
+    BEHIND = {t["behind"] for t in E.get("titles", []) if t.get("behind")}
     S = E["shots"]
     shots = {}
     for i, sh in enumerate(S):
@@ -120,7 +135,7 @@ def build_core(E, mode, samples, data):
             file=path,
             remap=remap_keys(rm, HIN, HOUT, E["fps"], clip_len, SRC_FPS),
             keys=moves.shot_keys(sh, S[i - 1] if i else None, S[i + 1] if i + 1 < len(S) else None, HIN, HOUT),
-            cut=cut)
+            cut=cut, matte=matte_for(sh, data, clip_len))
     return dict(root=str(ROOT), data=str(data), src=mode, hin=HIN, hout=HOUT, tile=TILE_PCT,
                 shutter=dict(angle=270, phase=-135, samples=samples), shots=shots)
 
