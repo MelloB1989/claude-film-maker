@@ -106,6 +106,8 @@ to the AE render's frames and tested to match the node group.
 
 ## EffectCraft export (`tools/filmtools/amv/effectcraft.py`)
 
+The FilmCraft (Premiere-style) side, the installer and the general exporters: `docs/ARTCRAFT.md`.
+
 An editable project of the same edit for the user's Linux machine: [EffectCraft](https://getartcraft.com/apps/effectcraft)
 (open-source, Rust, After Effects-like; `.ecproj` = versioned JSON, schema 2). Built the way `build.jsx` built the AE project.
 
@@ -116,7 +118,7 @@ PYTHONPATH=tools python -m filmtools.amv.effectcraft --film films/timeless \
 ```
 
 `--out` is a folder: `<id>.ecproj`, `build.jsx` (self-contained, runnable with `effectcraft-cli script build.jsx`), `spec.json`
-(every resolved number), `preview/`. The CLI is found via `--cli`, `$EFFECTCRAFT_CLI`, PATH, or `/tmp/ec-bin/*/bin/effectcraft-cli`.
+(every resolved number), `preview/`. The CLI is found via `--cli`, `$EFFECTCRAFT_CLI`, PATH, or the artcraft install dir (`python -m filmtools.artcraft install effectcraft`).
 
 - **Tool**: the v0.10.0 release `effectcraft-0.10.0-linux-x86_64.tar.gz` (github.com/storytold/effectcraft/releases) has a headless
   `effectcraft-cli`: `script`, `render-frame`, `render` (mp4/png/exr...), `props`, `mcp`. No cargo build needed.
