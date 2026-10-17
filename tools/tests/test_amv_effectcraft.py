@@ -62,11 +62,13 @@ def test_spec_for_timeless():
 @needs_film
 def test_baked_source_requires_frames():
     plan = P.load(FILM)
-    spec = ec.build_spec(plan, ec.Options(film_dir=FILM, layers_dir=Path("/nonexistent"), source="baked"))
+    opts = ec.Options(film_dir=FILM, layers_dir=Path("/nonexistent"), source="baked")
     if (FILM / "assets" / "clips").exists():      # falls back to the clips
+        spec = ec.build_spec(plan, opts)
         assert {s["mode"] for s in spec["shots"]} == {"clips"}
-    else:
-        pytest.skip("clips not available")
+    else:                                         # no frames and no clip to fall back on: an error naming the shot
+        with pytest.raises(SystemExit, match="no layer frames"):
+            ec.build_spec(plan, opts)
 
 
 @needs_film
