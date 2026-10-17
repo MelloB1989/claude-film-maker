@@ -103,8 +103,11 @@ def build_letters(font_path, mats, collection):
     cap1 = z1 - z0
     w1 = [unit[ch] if ch != "_" else BAR_W * cap1 for ch in sch.WORD]
     total1 = sum(w1) + GAP * (len(w1) - 1)
-    size = min(CAP / cap1, WORD_W / total1)
-    k = size * cap1 / CAP                       # how much smaller than the AE cap height the word came out
+    size = CAP / cap1
+    for _ in range(4):                          # the bevel fattens every glyph by 2 x its depth: solve for the width
+        k = size * cap1 / CAP                   # how much smaller than the AE cap height the word came out
+        size = min(CAP / cap1, (WORD_W - 2 * BEVEL_DEPTH * k * len(w1)) / total1)
+    k = size * cap1 / CAP
     extrude, bevel = EXTRUDE * k, BEVEL_DEPTH * k
     parts = []
     gap = size * GAP
