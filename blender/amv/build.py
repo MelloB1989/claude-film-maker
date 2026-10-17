@@ -72,7 +72,11 @@ def render_frames(built, frames, out: Path, log=print) -> float:
             scene.frame_set(f)
             S.hide_for_frame(built, f)
             bpy.ops.render.render(write_still=True)
-            return read_back(path)
+            px = read_back(path)
+            bad = S.magenta_fraction(px)
+            if bad > S.MAGENTA_LIMIT:   # Blender paints a missing image (1, 0, 1): stop rather than render a film of it
+                raise SystemExit(f"frame {f}: {bad:.0%} of it is missing-texture magenta; check the image paths")
+            return px
 
         t1 = time.time()
         blank.render_checked(once, shot="amv", film_frame=f, path=path, black_ok=f in black, tile=tile, log=log)
@@ -85,6 +89,8 @@ def render_frames(built, frames, out: Path, log=print) -> float:
 def main(argv=None):
     argv = sys.argv[sys.argv.index("--") + 1:] if argv is None and "--" in sys.argv else (argv or [])
     a = parse_args(argv)
+    # absolute while building, so nothing depends on the cwd; --save then writes them relative to the .blend ('//...')
+    a.film, a.layers, a.overlays = S.absolute(a.film), S.absolute(a.layers), S.absolute(a.overlays)
     t0 = time.time()
     built = S.build_scene(a.film, a.layers, res_scale=a.res_scale, samples=a.samples, engine=a.engine,
                           allow_cpu=not a.require_gpu)
@@ -93,7 +99,7 @@ def main(argv=None):
     if a.save:
         Path(a.save).parent.mkdir(parents=True, exist_ok=True)
         # saved with every plane shown: the keyed alpha is the truth, parking is a render-time optimisation
-        bpy.ops.wm.save_as_mainfile(filepath=str(Path(a.save).resolve()))
+        bpy.ops.wm.save_as_mainfile(filepath=str(Path(a.save).resolve()), relative_remap=True)
         print(f"saved {a.save}: {Path(a.save).stat().st_size / 1e6:.1f} MB", flush=True)
     if a.render:
         frames = S.parse_frames(a.frames) if a.frames else list(range(built.plan.dur))

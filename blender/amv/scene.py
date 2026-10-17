@@ -136,6 +136,21 @@ def wm_keys(plan) -> list[tuple[float, float]]:
     return out
 
 
+def absolute(path):
+    """`path` as an absolute, resolved string (None stays None). Images loaded by a cwd-relative path are re-pointed
+    relative to the .blend on save and then resolve to nothing: every plane renders Blender's missing-texture magenta."""
+    return None if path is None else str(Path(path).resolve())
+
+
+MAGENTA_LIMIT = 0.2
+
+
+def magenta_fraction(px) -> float:
+    """The share of an 8-bit RGB(A) frame (h, w, 3+) that is Blender's missing-texture magenta, (240+, <24, 240+)."""
+    m = (px[..., 0] > 240) & (px[..., 1] < 24) & (px[..., 2] > 240)
+    return float(m.mean())
+
+
 def parse_frames(spec: str) -> list[int]:
     out = set()
     for part in spec.split(","):
@@ -596,7 +611,7 @@ def build_scene(film_dir, layers_dir, *, res_scale: float = 1.0, samples: int = 
     """Reset the current scene and build the AMV main comp (planes, camera, settings). The compositor is added by
     compositor.build (build.py does both). A shot whose layer frames are missing is skipped with a warning."""
     from lib import setup
-    film_dir, layers_dir = Path(film_dir), Path(layers_dir)
+    film_dir, layers_dir = Path(absolute(film_dir)), Path(absolute(layers_dir))
     plan = amv_plan.load(film_dir)
     scene = bpy.context.scene
     setup.clear_scene()

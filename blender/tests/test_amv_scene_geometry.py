@@ -82,3 +82,14 @@ def test_star_polygon_has_tips_up_first():
 
 def test_parse_frames():
     assert S.parse_frames("3-5,9") == [3, 4, 5, 9]
+
+
+def test_magenta_fraction_and_absolute_paths(tmp_path, monkeypatch):
+    import numpy as np
+    px = np.zeros((10, 10, 4), np.uint8)
+    px[:3] = (255, 0, 255, 255)
+    assert S.magenta_fraction(px) == pytest.approx(0.3) and S.magenta_fraction(px) > S.MAGENTA_LIMIT
+    assert S.magenta_fraction(np.full((4, 4, 3), 128, np.uint8)) == 0.0
+    monkeypatch.chdir(tmp_path)
+    assert S.absolute("out/layers") == str((tmp_path / "out" / "layers").resolve())
+    assert S.absolute(None) is None

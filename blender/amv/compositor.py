@@ -162,7 +162,7 @@ def build(built, overlays_dir=None, res_scale=1.0, log=print):
     """Build the compositor of `built` (scene.Built) and make it the scene's. Returns the Tree."""
     scene, plan = built.scene, built.plan
     raw = plan.raw
-    ov = Path(overlays_dir) if overlays_dir else None
+    ov = Path(S.absolute(overlays_dir)) if overlays_dir else None
     cg = bpy.data.node_groups.new("AMV Compositor", "CompositorNodeTree")
     cg.interface.new_socket("Image", in_out="OUTPUT", socket_type="NodeSocketColor")
     scene.compositing_node_group = cg
