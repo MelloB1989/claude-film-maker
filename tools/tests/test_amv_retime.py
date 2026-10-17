@@ -116,3 +116,55 @@ def test_retime_shot_end_to_end(tmp_path):
     assert meta["mode"] == "mix" and meta["clip_frames"] == 12 and "3" in meta["frames"]
     assert held and held[-1] == 7
     assert len(list((tmp_path / "out" / "S").glob("*.png"))) == 8
+
+
+# ---------------------------------------------------------------- source scene cuts
+
+def scene_clip(n=12, cut=6, noise=0):
+    """Frames of two flat scenes (30 then 220 grey) with a cut at frame `cut`."""
+    fr = np.zeros((n, 16, 16, 3), np.uint8)
+    fr[:cut] = 30
+    fr[cut:] = 220
+    return fr
+
+
+def test_detect_cuts_finds_hard_cut_only():
+    fr = scene_clip()
+    assert R.detect_cuts(fr) == [6]
+    ramp = np.zeros((12, 16, 16, 3), np.uint8)
+    ramp[:] = (np.arange(12) * 15)[:, None, None, None]          # fast steady motion: big steps, no cut
+    assert R.detect_cuts(ramp) == []
+
+
+def test_detect_cuts_ignores_repeated_frames_with_big_real_steps():
+    fr = np.zeros((12, 16, 16, 3), np.uint8)
+    for j in range(12):
+        fr[j] = 40 * ((j // 2) % 2) + 20                         # a new image every 2nd frame, +-40 steps
+    assert R.detect_cuts(fr) == []
+
+
+def test_split_position_never_blends_across_a_cut():
+    assert R.split_position(5.6, 12, cuts=(6,)) == (5, 0.0)
+    assert R.split_position(6.0, 12, cuts=(6,)) == (6, 0.0)
+    assert R.split_position(6.4, 12, cuts=(6,)) == (6, pytest.approx(0.4))
+    w = R.mix_weights([5.5, 5.9, 6.1], 12, cuts=(6,))
+    assert w[5] == pytest.approx(2 / 3) and w[6] == pytest.approx(0.3) and w[7] == pytest.approx(0.1 / 3)
+
+
+def test_keep_scene_uses_the_side_of_the_centre():
+    ps = [5.0, 5.5, 6.5, 7.0]
+    assert R.keep_scene(ps, 5.6, 12, cuts=(6,)) == [5.0, 5.5]
+    assert R.keep_scene(ps, 6.2, 12, cuts=(6,)) == [6.5, 7.0]
+    assert R.keep_scene(ps, 5.6, 12) == ps
+
+
+@pytest.mark.parametrize("mode", ["nearest", "mix"])
+def test_render_frame_straddling_a_cut_is_one_scene(mode):
+    fr = scene_clip(n=40, cut=20)
+    shot = linear_shot(2.0, n=20, a=0, t0=14 / 60.0)             # sweeps clip frames 14 .. 52
+    cuts = R.detect_cuts(fr)
+    for f in range(20):
+        img, info = R.render_frame(fr, shot, f, mode, 8, cuts=cuts)
+        assert len(np.unique(img)) == 1                          # pure 30 or pure 220: no grey mix of the two scenes
+        want = 220 if R.scene_index(R.centre_position(shot, f), 40, cuts) else 30
+        assert int(img.flat[0]) == want
