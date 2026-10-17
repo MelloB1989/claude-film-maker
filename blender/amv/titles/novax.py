@@ -28,7 +28,7 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     ital = 0.2
 
     sc = TitleScene(opts)
-    sc.set_environment(hdri=C.hdri_path("studio_small_08"), strength=1.1)
+    sc.set_environment(hdri=C.hdri_path("studio_small_08"), strength=1.1, rotation=(90.0, 0.0, 180.0))
 
     # layer pivot at the title position: scale/opacity of the whole layer
     layer = sc.empty("layer")
@@ -68,13 +68,19 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     if tag:
         capA = 0.64 * S
         bar_dy = 0.32 * S + 0.19 * capA + 0.0
-        bar_w = 1.1 * word_fill.width_px(48) * 0.62
-        bar, bm = C.brush_bar(sc, bar_w, 0.17 * capA * 1.5, name="bar", seed=3.0)
+        tag_size = 59 * k_s
+        # novax_lib's tracking 32 gives a tag far narrower than the AE render shows (~80 % of the hero): solve the
+        # final tracking for that width, keep the 0 -> final spring
+        n_t = len(tag)
+        base_w = sum(sc.metrics("montserrat_light").advance(c) for c in tag.upper()) * tag_size
+        tag_tr = max(32.0, ((0.8 * word_fill.width_px(48) - base_w) / max(1, n_t - 1) / tag_size) * 1000.0)
+        bar_w = base_w + (n_t - 1) * tag_tr / 1000.0 * tag_size + 70 * k_s
+        bar, bm = C.brush_bar(sc, bar_w, 0.17 * capA * 1.9, name="bar", seed=3.0)
         tm = Mat("tag")
         tm.nt.nodes.remove(tm.bsdf)
         ta = tm.value("alpha", 1.0)
         tm.emission_only((1, 1, 1, 1), 1.0, alpha=ta)
-        tagw = Word(sc, tag.upper(), "montserrat_light", 59 * k_s, 0, name="tag", material=tm.mat)
+        tagw = Word(sc, tag.upper(), "montserrat_light", tag_size, 0, name="tag", material=tm.mat)
         tag_dy = bar_dy + 0.0
     subw = sm_sub = None
     if spec.get("sub"):
@@ -114,10 +120,10 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         ignite = lin_keys([[0, 0.0], [10, 1.0], [22, 0.0]], k)
         comp.set_glow(0, strength=0.30 * a_out)
         comp.set_glow(1, strength=0.45 * a_out)
-        comp.set_glow(2, strength=0.9 * ignite * a_out)
+        comp.set_glow(2, strength=2.6 * ignite * a_out)
         comp.set_shadow_opacity(0.5 * a_out)
         if tag:
-            trt = 0 + 32 * C.expo(k / 29.0)
+            trt = tag_tr * C.expo(k / 29.0)
             tagw.layout(trt)
             tagw.pose((C.W / 2, C.H / 2 + tag_dy), shear=0.0)
             bar.matrix_basis = _mu().Matrix.Translation((0, -bar_dy / C.PX + 0.0, -0.02))

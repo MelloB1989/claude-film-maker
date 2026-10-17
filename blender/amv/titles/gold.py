@@ -26,12 +26,12 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     TR = 30
 
     sc = TitleScene(opts)
-    sc.set_environment(hdri=C.hdri_path("studio_small_09"), strength=1.0, tint="#FFE9C0")
+    sc.set_environment(hdri=C.hdri_path("studio_small_09"), strength=1.0, tint="#FFE9C0", rotation=(90.0, 0.0, 180.0))
     layer = sc.empty("layer")
     refl = sc.empty("reflection")
     depth = 20.0
 
-    def build(tag):
+    def build(tag, height_fade=None):
         body_m = Mat("body" + tag)
         body_m.bsdf.inputs["Base Color"].default_value = lin(pal["ext"])
         body_m.bsdf.inputs["Metallic"].default_value = 0.9
@@ -42,12 +42,12 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         fm = C.metal_material("face" + tag, face.root, face.cap_px,
                               [(0.0, pal["bot"]), (0.5, pal["mid"]), (1.0, pal["top"])], metallic=1.0, roughness=0.2,
                               emission=0.15, sweep_w_px=0.34 * face.cap_px, lean=0.35, sweep_strength=5.0,
-                              sweep_color="#FFF3CF")
+                              sweep_color="#FFF3CF", height_fade=height_fade)
         face.set_material(fm.mat)
         return body, body_m, face, fm
 
     body, body_m, face, fm = build("")
-    rbody, rbody_m, rface, rfm = build("_r")
+    rbody, rbody_m, rface, rfm = build("_r", height_fade=(1.0, 0.0))
     for w in (body, face):
         w.attach(layer)
     for w in (rbody, rface):
@@ -55,7 +55,7 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     sub = C.SubLine(sc, spec["sub"], layer, (0, -S * 0.62), 8, dur) if spec.get("sub") else None
 
     comp = sc.build_compositor(glows=[Glow(0.6, 0.55, 0.5, pal["glow"]), Glow(0.8, 0.2, 0.3, "#FFFFFF")])
-    gap = face.cap_px * 1.0 + 12
+    gap = face.cap_px * 1.0 + 34
 
     def pose(k):
         rise = lin_keys([[0, 160.0], [8, 0.0]], k)

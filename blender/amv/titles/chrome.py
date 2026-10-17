@@ -31,7 +31,8 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     TR = 20
 
     sc = TitleScene(opts)
-    sc.set_environment(hdri=C.hdri_path("studio_small_08"), strength=1.0)
+    sc.set_environment(hdri=C.hdri_path("studio_small_08"), strength=float(opts.extra.get("env_str", 1.0)),
+                       rotation=(90.0, 0.0, 180.0))
     layer = sc.empty("layer")
 
     body_m = Mat("body")
@@ -57,13 +58,14 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         w.attach(layer)
     sub = C.SubLine(sc, spec["sub"], layer, (0, S * 0.62), 6, dur) if spec.get("sub") else None
 
-    comp = sc.build_compositor(glows=[Glow(0.6, 0.5, 0.45, pal["glow"]), Glow(0.8, 0.18, 0.3, "#FFFFFF")], hblur=True)
+    comp = sc.build_compositor(glows=[Glow(0.5, 0.55, 0.9, pal["glow"]), Glow(0.7, 0.2, 0.5, "#FFFFFF")], hblur=True)
     sweep_x = lambda k: (-700 + 1400 * min(max((k - 2) / 14.0, 0.0), 1.0)) / C.PX if 2 <= k <= 16 else 99.0
 
     def pose(k):
         s = lin_keys(slam, k) / 100.0
         C.set_layer(layer, P, s)
-        a = lin_keys([[0, 0.0], [1, 1.0]], k) * lin_keys([[dur - 4, 1.0], [dur - 1, 0.0]], k)
+        # AE keys the opacity on the null parent only, which does not reach the children: the slam is visible from k = 0
+        a = lin_keys([[dur - 4, 1.0], [dur - 1, 0.0]], k)
         flash = lin_keys([[dur - 4, 0.0], [dur - 1, 1.5]], k)
         c = (C.W / 2, C.H / 2)
         body.pose(c, oblique=(9.6, 13.2), z=-0.0)
@@ -75,8 +77,8 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         em.pose((C.W / 2, C.H / 2 + 0.78 * S))
         echo_m.set("alpha", echo * a)
         comp.set_hblur(lin_keys([[0, 70], [2, 30], [4, 0]], k))
-        comp.set_glow(0, strength=0.45 * a * (1 + flash))
-        comp.set_glow(1, strength=0.3 * a * (1 + flash))
+        comp.set_glow(0, strength=0.9 * a * (1 + flash))
+        comp.set_glow(1, strength=0.5 * a * (1 + flash))
         if sub:
             sub.update(k, a)
 

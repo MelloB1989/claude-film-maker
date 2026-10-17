@@ -91,3 +91,34 @@ def test_colour_and_easing():
     assert C.lin_keys([[0, [0, 0]], [2, [2, 4]]], 1) == [1, 2]
     assert C.ae_to_world(960, 540) == (0.0, 0.0)
     assert set(C.NOVAX_PALETTES) >= {"white_chrome", "blood_red"} and set(C.TPAL) >= {"chrome", "gold", "red"}
+
+
+def test_font_metrics_advances_and_tracking():
+    from amv.titles import fontmetrics as FM
+    fm = FM.read_metrics(C.find_font("anton", C.TitleOpts(film_dir=FILM)))
+    assert fm.units_per_em in (1000, 2048)
+    assert 0.3 < fm.advance("H") < 0.7 and fm.advance("I") < fm.advance("M")
+    plain = fm.text_advances("TIME")
+    tracked = fm.text_advances("TIME", 50)
+    assert all(abs(t - p - 0.05) < 1e-9 for t, p in zip(tracked, plain))
+    assert 0.5 < fm.cap < 1.0
+
+
+def test_font_metrics_all_hero_fonts_parse():
+    from amv.titles import fontmetrics as FM
+    o = C.TitleOpts(film_dir=FILM)
+    for role in ("chinese_rocks", "exo2_black_italic", "barlow_black_italic", "anton", "orbitron", "montserrat_light"):
+        fm = FM.read_metrics(C.find_font(role, o))
+        assert fm.advance("T") > 0 and fm.advance(" ") > 0, role
+
+
+def test_expo_and_keys_match_ae_timing():
+    assert C.expo(0) == 0 and C.expo(1) == pytest.approx(1.0)
+    assert 0.85 < C.expo(15 / 29) < 0.97          # "~90 % open by f15"
+    slam = [[0, 235], [1, 170], [2, 132], [3, 112], [4, 104], [5, 100], [30, 92]]
+    assert C.lin_keys(slam, 0) == 235 and C.lin_keys(slam, 5) == 100 and C.lin_keys(slam, 99) == 92
+
+
+def test_hdris_present():
+    assert C.hdri_path("studio_small_08") and C.hdri_path("studio_small_09")
+    assert C.hdri_path("nope") is None

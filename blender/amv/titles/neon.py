@@ -10,6 +10,8 @@ per-frame noise displacement of the tube.
 """
 from __future__ import annotations
 
+import math
+import random
 from pathlib import Path
 
 from . import common as C
@@ -36,8 +38,8 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     word.attach(layer)
     sub = C.SubLine(sc, spec["sub"], layer, (0, S * 0.58), 5, dur) if spec.get("sub") else None
 
-    comp = sc.build_compositor(glows=[Glow(0.5, 0.18, 1.2, "#FFFFFF"), Glow(0.2, 0.7, 1.4, pal["glow"]),
-                                      Glow(0.2, 0.9, 0.6, pal["mid"])])
+    comp = sc.build_compositor(glows=[Glow(0.5, 0.18, 1.2, "#FFFFFF"), Glow(0.15, 0.7, 2.4, pal["glow"]),
+                                      Glow(0.15, 0.9, 1.4, pal["mid"])])
 
     def pose(k):
         s = lin_keys([[0, 92], [5, 100], [dur - 1, 108]], k) / 100.0
@@ -45,11 +47,17 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
                           [dur - 1, 0]], k)
         C.set_layer(layer, P, s)
         word.pose((C.W / 2, C.H / 2), shear=0.2)
+        # AE turbulent displace (6 px, size 40, evolving): a per-letter wobble re-seeded every frame
+        rng = random.Random(opts.seed * 1000 + k)
+        for ob in word.letters:
+            if ob is not None:
+                ob.delta_location = (rng.uniform(-3, 3) / C.PX, rng.uniform(-3, 3) / C.PX, 0.0)
+                ob.delta_rotation_euler[2] = math.radians(rng.uniform(-0.6, 0.6))
         m.set("alpha", min(1.0, flick * 1.0))
         m.set("e", 6.0 * flick)
         comp.set_glow(0, strength=1.2 * flick)
-        comp.set_glow(1, strength=1.4 * flick)
-        comp.set_glow(2, strength=0.6 * flick)
+        comp.set_glow(1, strength=2.4 * flick)
+        comp.set_glow(2, strength=1.4 * flick)
         if sub:
             sub.update(k, flick if k > dur - 5 else 1.0)
 

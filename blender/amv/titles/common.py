@@ -271,7 +271,7 @@ class TitleScene:
         self.camera = ob
 
     def set_environment(self, hdri: str | Path | None = None, color: str = "#000000", strength: float = 1.0,
-                        rotation: float = 0.0, tint: str | None = None):
+                        rotation=(0.0, 0.0, 0.0), tint: str | None = None):
         """World lighting for reflections. `hdri` = path of an .hdr/.exr (Poly Haven CC0, see hdri/README.md) or None
         for a flat colour. The film is transparent, so the world never shows - it only lights and reflects."""
         bpy = self.bpy
@@ -285,7 +285,9 @@ class TitleScene:
         if hdri:
             tc = nt.nodes.new("ShaderNodeTexCoord")
             mp = nt.nodes.new("ShaderNodeMapping")
-            mp.inputs["Rotation"].default_value[2] = rotation
+            rot = self.env_rot(rotation)
+            for i in range(3):
+                mp.inputs["Rotation"].default_value[i] = rot[i]
             env = nt.nodes.new("ShaderNodeTexEnvironment")
             env.image = bpy.data.images.load(str(hdri))
             nt.links.new(tc.outputs["Generated"], mp.inputs["Vector"])
@@ -305,6 +307,14 @@ class TitleScene:
         nt.links.new(bg.outputs["Background"], out.inputs["Surface"])
         self.scene.world = w
         return w
+
+    def env_rot(self, default_deg=(0.0, 0.0, 0.0)):
+        """Environment rotation in radians: `default_deg` (a style's choice, degrees) unless `--set env_rot=rx,ry,rz`."""
+        if isinstance(default_deg, (int, float)):
+            default_deg = (0.0, 0.0, float(default_deg))
+        v = self.opts.extra.get("env_rot")
+        deg = [float(x) for x in v.split(",")] if v else list(default_deg)
+        return [math.radians(d) for d in deg]
 
     # -- fonts / text ---------------------------------------------------------------------------------------------
     def font(self, role: str):
@@ -822,7 +832,7 @@ def sweep_mask(m: Mat, x, y, pos_value, width: float, lean: float = 0.0):
 
 def metal_material(name: str, word_root, cap_px: float, ramp, *, metallic: float = 1.0, roughness: float = 0.18,
                    emission: float = 0.0, sweep_w_px: float = 0.0, lean: float = 0.0, sweep_strength: float = 4.0,
-                   sweep_color: str = "#FFFFFF"):
+                   sweep_color: str = "#FFFFFF", height_fade=None):
     """PBR metal tinted by a vertical colour ramp (baseline 0 -> cap line 1, stops = [(pos, hex)]), optional light sweep.
 
     Controls (`m.set`): alpha, sweep_x (word units; far away = off), em (extra emission strength). The ramp tints the
@@ -844,7 +854,11 @@ def metal_material(name: str, word_root, cap_px: float, ramp, *, metallic: float
         em_str = m.math("ADD", em_str, m.math("MULTIPLY", sw, sweep_strength))
     m.link(em_col, b.inputs["Emission Color"])
     m.link(em_str, b.inputs["Emission Strength"])
-    m.link(m.value("alpha", 1.0), b.inputs["Alpha"])
+    alpha = m.value("alpha", 1.0)
+    if height_fade:   # alpha scaled from height_fade[0] at the baseline to height_fade[1] at the cap line (floor reflection)
+        a0, a1 = height_fade
+        alpha = m.math("MULTIPLY", alpha, m.math("MULTIPLY_ADD", t, a1 - a0, a0))
+    m.link(alpha, b.inputs["Alpha"])
     return m
 
 
