@@ -15,7 +15,7 @@ from mathutils import Euler, Vector
 
 from . import outro_schedule as sch
 
-RED = (0.7, 0.02, 0.04)
+RED = (0.55, 0.01, 0.03)
 NAVY = (0.05, 0.12, 0.42)
 BEVEL_C = (1.0, 0.30, 0.30)
 
@@ -206,7 +206,7 @@ def build_lights(n, f0):
     """KEY warm, RIM blue, TOP cool (ref 06 §3 lights, AE px / 100), softbox strips for the glossy reflections, two
     back spots that carve the god rays, and the moving SWEEP."""
     lights = {}
-    lights["key"] = _area("KEY warm", (-9, -14, 8), (7, 4), 1800, (1.0, 0.95, 0.9))
+    lights["key"] = _area("KEY warm", (-9, -14, 8), (7, 4), 1300, (1.0, 0.95, 0.9))
     lights["rim"] = _area("RIM blue", (15, 5, -3), (5, 14), 4500, (0.35, 0.55, 1.0))
     lights["top"] = _area("TOP cool", (2, -3, 15), (14, 4), 2000, (0.7, 0.8, 1.0))
     lights["strip_l"] = _area("STRIP left", (-12, -9, 1), (1.2, 12), 1200, (1, 1, 1))
@@ -225,7 +225,7 @@ def build_lights(n, f0):
         aim(ob, (x * 0.2, -20.0, 0.0))
         lights[f"ray{i}"] = ob
         for f in range(0, n):          # the shafts fade up with the letters: the film cuts in from black
-            sd.energy = 2500 * sch.smooth(f / 45.0)
+            sd.energy = 6000 * sch.smooth(f / 45.0)
             sd.keyframe_insert("energy", frame=f0 + f)
         linearize(sd)
     sd = bpy.data.lights.new("SWEEP", "SPOT")
@@ -277,7 +277,7 @@ def build_volume():
     sc.inputs["Anisotropy"].default_value = 0.55
     sc.inputs["Color"].default_value = (0.8, 0.85, 1.0, 1)
     sc.inputs["Density"].default_value = 0.02
-    mul = nt.nodes.new("ShaderNodeMath"); mul.operation = "MULTIPLY"; mul.inputs[1].default_value = 0.0035
+    mul = nt.nodes.new("ShaderNodeMath"); mul.operation = "MULTIPLY"; mul.inputs[1].default_value = 0.006
     nt.links.new(mp.outputs[0], mul.inputs[0])
     nt.links.new(mul.outputs[0], sc.inputs["Density"])
     out = nt.nodes.new("ShaderNodeOutputMaterial")
@@ -294,7 +294,7 @@ def build_rings(n, f0):
                                          rotation=(math.pi / 2, 0, 0))
         ob = bpy.context.active_object
         ob.name = f"RING {i}"
-        ob.location = (xpx * sch.PX, 3.0, 3.0)
+        ob.location = (xpx * sch.PX, 3.0, 3.3)
         m = glow_material(f"sau_ring{i}", col, 1.0)
         ob.data.materials.append(m)
         ob.visible_shadow = False

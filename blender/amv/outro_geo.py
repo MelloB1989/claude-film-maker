@@ -20,6 +20,8 @@ CAP = 3.79                    # BU: the AE word is 379 px high at size 470
 EXTRUDE = 0.60                # BU half depth of the extrusion (AE: 70 px deep; a little more reads better)
 BEVEL_DEPTH = 0.10
 GAP = 0.13                    # of the font size, outro.jsx `gap = size * 0.13`
+WORD_W = 14.21                # BU: the AE word is 1421 px wide
+BAR_W = 0.42                  # underscore width in cap heights (outro.jsx clamps it to 0.42 x size)
 
 
 def _glyph_mesh(ch, font, size, extrude, bevel):
@@ -82,24 +84,37 @@ def _bar_mesh(w, h, depth, bevel):
 
 def build_letters(font_path, mats, collection):
     """Create the 9 letter objects. Returns (objects, layout) where layout has each slot's rest position (BU) and the
-    word's size; objects are named `L<slot> <ch>` and sit at their rest positions (the animation offsets from there)."""
+    word's size; objects are named `L<slot> <ch>` and sit at their rest positions (the animation offsets from there).
+    The word is sized to the AE layout: 14.21 BU wide (1421 px), at most CAP high."""
     font = bpy.data.fonts.load(str(font_path))
-    # measure the whole word's cap height at a trial size, then scale glyphs to CAP
+    # the cap box and every glyph's width at size 1; everything is linear in the font size
     trial = _glyph_mesh("SAUEDITZ", font, 1.0, 0.0, 0.0)
     _stand_up(trial)
     _, _, z0, z1 = _bounds(trial)
     bpy.data.meshes.remove(trial)
-    size = CAP / (z1 - z0)
-    parts, x = [], 0.0
+    unit = {}
+    for ch in sch.WORD:
+        if ch != "_" and ch not in unit:
+            m = _glyph_mesh(ch, font, 1.0, 0.0, 0.0)
+            _stand_up(m)
+            a, b, _, _ = _bounds(m)
+            unit[ch] = b - a
+            bpy.data.meshes.remove(m)
+    cap1 = z1 - z0
+    w1 = [unit[ch] if ch != "_" else BAR_W * cap1 for ch in sch.WORD]
+    total1 = sum(w1) + GAP * (len(w1) - 1)
+    size = min(CAP / cap1, WORD_W / total1)
+    k = size * cap1 / CAP                       # how much smaller than the AE cap height the word came out
+    extrude, bevel = EXTRUDE * k, BEVEL_DEPTH * k
+    parts = []
     gap = size * GAP
     for ch in sch.WORD:
         if ch == "_":
-            me = _bar_mesh(CAP * 0.46, CAP * 0.12, EXTRUDE, BEVEL_DEPTH)
-            # bar sits just under the baseline; bar mesh is centred at the origin already
-            cx, cz = 0.0, -CAP * 0.5 - CAP * 0.04
-            w = CAP * 0.46
+            me = _bar_mesh(BAR_W * cap1 * size, 0.12 * cap1 * size, extrude, bevel)
+            cx, cz = 0.0, -cap1 * size * 0.54    # just under the baseline
+            w = BAR_W * cap1 * size
         else:
-            me = _glyph_mesh(ch, font, size, EXTRUDE, BEVEL_DEPTH)
+            me = _glyph_mesh(ch, font, size, extrude, bevel)
             _stand_up(me)
             a, b, c, d = _bounds(me)
             cx, cz = (a + b) / 2, (c + d) / 2
@@ -107,8 +122,7 @@ def build_letters(font_path, mats, collection):
             me.transform(Matrix.Translation((-cx, 0, -cz)))
         parts.append([ch, me, w, cz])
     total = sum(p[2] for p in parts) + gap * (len(parts) - 1)
-    # glyphs were measured on a common baseline; centre the word's cap box on z = 0
-    cap_c = (z0 + z1) / 2 * size            # centre of the cap box (the trial was measured at size 1)
+    cap_c = (z0 + z1) / 2 * size                # centre of the cap box: the word is centred on z = 0
     objs, layout, x = [], [], -total / 2
     for slot, (ch, me, w, cz) in enumerate(parts):
         assign_materials(me, mats)
@@ -121,4 +135,4 @@ def build_letters(font_path, mats, collection):
         objs.append(ob)
         layout.append({"ch": ch, "x": px, "z": pz, "w": w})
         x += w + gap
-    return objs, {"slots": layout, "width": total, "height": CAP, "size": size}
+    return objs, {"slots": layout, "width": total, "height": cap1 * size, "size": size}
