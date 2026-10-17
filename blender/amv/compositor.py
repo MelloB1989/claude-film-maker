@@ -50,6 +50,7 @@ class Tree:
 
     def __init__(self, tree):
         self.tree = tree
+        self.res_scale = 1.0
         self.n = tree.nodes
         self.x = 0
 
@@ -167,6 +168,7 @@ def build(built, overlays_dir=None, res_scale=1.0, log=print):
     scene.compositing_node_group = cg
     scene.render.use_compositing = True
     t = Tree(cg)
+    t.res_scale = res_scale
     outro_f = raw["outro"]["f"]
     W, H = S.W, S.H
 
@@ -316,8 +318,18 @@ def amv_keys(keys, f):
     return amv_plan.keys_lin(keys, f)
 
 
+def fit(t: Tree, nd):
+    """The overlay's Image output, scaled from its 1920x1080 file to the render size (a no-op at full size)."""
+    if abs(t.res_scale - 1.0) < 1e-6:
+        return nd.outputs["Image"]
+    sc = t.node("CompositorNodeScale", f"{nd.name} to render size")
+    sc.inputs["X"].default_value = sc.inputs["Y"].default_value = t.res_scale
+    t.link(nd.outputs["Image"], sc.inputs[0])
+    return sc.outputs[0]
+
+
 def overlay_over(t: Tree, img, nd, name, factor_keys, factor=0.0):
-    o = t.over(img, nd.outputs["Image"], factor, name)
+    o = t.over(img, fit(t, nd), factor, name)
     S.key_socket(o, 2, factor_keys, "LINEAR" if factor_keys and len(factor_keys) > 4 else "CONSTANT")
     return o.outputs[0]
 
@@ -351,7 +363,7 @@ def watermark(t: Tree, img, ov, plan, log):
     nd.image = im
     outro_f = plan.raw["outro"]["f"]
     keys = [(fr, v / 100.0) for fr, v in S.wm_keys(plan) if fr < outro_f] + [(outro_f, 0.0)]
-    o = t.over(img, nd.outputs["Image"], 0.0, "watermark over")
+    o = t.over(img, fit(t, nd), 0.0, "watermark over")
     S.key_socket(o, 2, keys, "LINEAR")
     return o.outputs[0]
 
