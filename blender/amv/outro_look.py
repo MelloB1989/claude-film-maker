@@ -15,7 +15,7 @@ from mathutils import Euler, Vector
 
 from . import outro_schedule as sch
 
-RED = (0.5, 0.0, 0.02)
+RED = (0.85, 0.015, 0.04)
 NAVY = (0.02, 0.06, 0.30)
 BEVEL_C = (1.0, 0.12, 0.08)
 
@@ -83,7 +83,7 @@ def face_material():
     m.use_nodes = True
     nt = m.node_tree
     nt.nodes.clear()
-    p = _principled(nt, **{"Metallic": 0.85, "Roughness": 0.14, "Coat Weight": 1.0, "Coat Roughness": 0.02,
+    p = _principled(nt, **{"Metallic": 0.55, "Roughness": 0.18, "Coat Weight": 1.0, "Coat Roughness": 0.02,
                            "Specular IOR Level": 1.0})
     # web: spokes from the glyph's own centre (object coords) darkening the red
     tc = nt.nodes.new("ShaderNodeTexCoord")
@@ -206,12 +206,12 @@ def build_lights(n, f0):
     """KEY warm, a hard cool-white rim on one side and a blue rim on the other so every edge reads against the black
     (art direction after draft 1), TOP cool, softbox strips for the glossy reflections, and the moving SWEEP."""
     lights = {}
-    lights["key"] = _area("KEY warm", (-9, -14, 8), (7, 4), 1500, (1.0, 0.95, 0.9))
-    lights["rim_w"] = _area("RIM white", (-13, 7, 4), (2.5, 14), 9000, (0.88, 0.94, 1.0))
-    lights["rim_b"] = _area("RIM blue", (15, 5, -3), (3.0, 14), 9000, (0.22, 0.42, 1.0))
-    lights["top"] = _area("TOP cool", (2, -3, 15), (14, 4), 2200, (0.7, 0.8, 1.0))
-    lights["strip_l"] = _area("STRIP left", (-12, -9, 1), (1.2, 12), 1200, (1, 1, 1))
-    lights["strip_r"] = _area("STRIP right", (11, -11, 1), (1.2, 12), 900, (1, 0.9, 0.85))
+    lights["key"] = _area("KEY warm", (-9, -14, 8), (7, 4), 3500, (1.0, 0.95, 0.9))
+    lights["rim_w"] = _area("RIM white", (-13, 7, 4), (2.5, 14), 18000, (0.88, 0.94, 1.0))
+    lights["rim_b"] = _area("RIM blue", (15, 5, -3), (3.0, 14), 18000, (0.22, 0.42, 1.0))
+    lights["top"] = _area("TOP cool", (2, -3, 15), (14, 4), 4500, (0.7, 0.8, 1.0))
+    lights["strip_l"] = _area("STRIP left", (-12, -9, 1), (1.2, 12), 2400, (1, 1, 1))
+    lights["strip_r"] = _area("STRIP right", (11, -11, 1), (1.2, 12), 1800, (1, 0.9, 0.85))
     sd = bpy.data.lights.new("SWEEP", "SPOT")
     sd.spot_size = math.radians(40)
     sd.spot_blend = 0.5
@@ -265,7 +265,7 @@ def build_shafts(n, f0):
         nt.links.new(across.outputs[0], prod.inputs[0]); nt.links.new(along.outputs[0], prod.inputs[1])
         sq = nt.nodes.new("ShaderNodeMath"); sq.operation = "POWER"; sq.inputs[1].default_value = 2.0
         nt.links.new(prod.outputs[0], sq.inputs[0])
-        gain = nt.nodes.new("ShaderNodeMath"); gain.operation = "MULTIPLY"; gain.inputs[1].default_value = 0.55
+        gain = nt.nodes.new("ShaderNodeMath"); gain.operation = "MULTIPLY"; gain.inputs[1].default_value = 0.4
         nt.links.new(sq.outputs[0], gain.inputs[0])
         em = nt.nodes.new("ShaderNodeEmission")
         em.inputs["Color"].default_value = (1.0, 0.12, 0.08, 1) if red else (0.2, 0.4, 1.0, 1)
@@ -282,7 +282,7 @@ def build_shafts(n, f0):
         bpy.context.scene.collection.objects.link(ob)
         ob.parent = piv
         ob.rotation_euler = (math.pi / 2, 0, 0)             # the plane's length runs up the screen
-        ob.scale = (1.3 + 0.5 * (i % 3), 34.0, 1.0)
+        ob.scale = (0.7 + 0.3 * (i % 3), 34.0, 1.0)
         ob.data.materials.clear()
         ob.data.materials.append(m)
         ob.visible_shadow = False
@@ -290,7 +290,7 @@ def build_shafts(n, f0):
         for f in range(0, n):
             piv.rotation_euler = (0.0, base + math.radians(6) * (f / n) * (1 if red else -1), 0.0)
             piv.keyframe_insert("rotation_euler", frame=f0 + f)
-            em.inputs["Strength"].default_value = (2.2 if red else 1.8) * sch.smooth(f / 45.0)
+            em.inputs["Strength"].default_value = (0.5 if red else 0.6) * sch.smooth(f / 45.0)
             em.inputs["Strength"].keyframe_insert("default_value", frame=f0 + f)
         linearize(piv)
         linearize(nt)
@@ -451,11 +451,11 @@ def build_compositor(n, f0, w, h):
     nt.links.new(rl.outputs["Image"], gl.inputs["Image"])
     st = _node(nt, "CompositorNodeGlare", 460, 100)                  # anamorphic streaks as a ring pops
     st.inputs["Type"].default_value = "Streaks"
-    st.inputs["Threshold"].default_value = 4.0
+    st.inputs["Threshold"].default_value = 6.0
     st.inputs["Streaks"].default_value = 2
     st.inputs["Streaks Angle"].default_value = 0.0
     st.inputs["Fade"].default_value = 0.95
-    st.inputs["Size"].default_value = 0.8
+    st.inputs["Size"].default_value = 0.35
     nt.links.new(gl.outputs["Image"], st.inputs["Image"])
     # vignette: black at 70 % outside an ellipse, feathered (outro.jsx VIGNETTE)
     el = _node(nt, "CompositorNodeEllipseMask", 260, -300)
@@ -500,7 +500,7 @@ def build_compositor(n, f0, w, h):
         gl.inputs["Strength"].default_value = fx["bloom"] * 0.35
         cmp_.inputs[1].default_value = 1.01 if fx["black"] else fx["dissolve"] * 1.0005
         fi.inputs["Factor"].default_value = fx["fade_in"]
-        st.inputs["Strength"].default_value = max(sch.ring(i, f, n)["pop"] for i in range(3)) * 0.9
+        st.inputs["Strength"].default_value = max(sch.ring(i, f, n)["pop"] for i in range(3)) * 0.3
         for sock in (fl.inputs["Factor"], gl.inputs["Strength"], st.inputs["Strength"], cmp_.inputs[1], fi.inputs["Factor"]):
             sock.keyframe_insert("default_value", frame=f0 + f)
     linearize(nt)
