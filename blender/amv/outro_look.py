@@ -394,27 +394,31 @@ def animate_letters(objs, n, f0):
 
 
 # --- compositor -------------------------------------------------------------------------------------------------------------
+def write_gray_png(path, rows):
+    """8-bit grayscale PNG from a list of bytes rows (Blender's own Image.save wrote black for generated images)."""
+    import struct
+    import zlib
+
+    def chunk(tag, data):
+        c = struct.pack(">I", len(data)) + tag + data
+        return c + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    h, w = len(rows), len(rows[0])
+    raw = b"".join(b"\x00" + bytes(r) for r in rows)
+    with open(path, "wb") as fh:
+        fh.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 0, 0, 0, 0))
+                 + chunk(b"IDAT", zlib.compress(raw, 6)) + chunk(b"IEND", b""))
+
+
 def block_noise_image(w, h, block=14, seed=5):
-    """The pixel dissolve's threshold map: one random value per 14x14 block (AE Block Dissolve)."""
+    """The pixel dissolve's threshold map: one random value per 14x14 block (AE Block Dissolve), as a packed PNG."""
     import random
     rnd = random.Random(seed)
     bw, bh = (w + block - 1) // block, (h + block - 1) // block
-    vals = [[rnd.random() for _ in range(bw)] for _ in range(bh)]
-    tmp = bpy.data.images.new("dissolve_tmp", w, h, alpha=False)
-    px = []
-    for y in range(h):
-        row = vals[y // block]
-        for x in range(w):
-            v = row[x // block] * 0.995
-            px.extend((v, v, v, 1.0))
-    tmp.pixels.foreach_set(px)
-    tmp.colorspace_settings.name = "Non-Color"
-    # a generated float image comes back empty after save/reload (everything dissolved at once), so round-trip a file
+    vals = [[int(rnd.random() * 254) + 1 for _ in range(bw)] for _ in range(bh)]
+    rows = [[vals[y // block][x // block] for x in range(w)] for y in range(h)]
     path = os.path.join(tempfile.mkdtemp(prefix="outro_blocks_"), "blocks.png")
-    tmp.filepath_raw = path
-    tmp.file_format = "PNG"
-    tmp.save()
-    bpy.data.images.remove(tmp)
+    write_gray_png(path, rows)
     img = bpy.data.images.load(path)
     img.colorspace_settings.name = "Non-Color"
     img.pack()
