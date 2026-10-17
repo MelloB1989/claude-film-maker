@@ -83,7 +83,7 @@ shot("S17", "A09_lens_pushin", 468, 480, (0.00, 1.10), "launch", (100, 260), (11
      [], "riser: slam into the lens; the lens becomes the portal (SPECIAL owns shake, speed lines, flash, ring, chroma)")
 
 # ---------------- ACT III  TOM  (drop f480 -> f819): hard cuts on hits, impact frames, velocity ramps
-shot("S18", "M01_lens_portal", 480, 519, (0.02, 1.12), "land", (100, 100), (1110, 443), "drop_portal", "impact",
+shot("S18", "M01_lens_portal", 480, 519, (0.02, 1.15), "land", (100, 112), (1110, 443), "drop_portal", "impact",
      [], "DROP: pull out of Tom's lens; I'M SPIDER-MAN; TOM HOLLAND / EARTH-199999")
 shot("S19", "M02_swing_at_cam", 519, 536, (0.03, 0.75), "velocity", (110, 100), None, "impact", "whip_r",
      ["shake@519"], "swings at camera")
