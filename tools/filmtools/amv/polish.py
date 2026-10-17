@@ -2,7 +2,8 @@
 
 Two things the After Effects edit did not have, kept small enough to sit under the grade rather than on top of it:
 
-- Chromatic hits. On every flash beat of the plan (`flash_ev` keys that jump by >= 0.5 EV) the frame splits radially:
+- Chromatic hits. On every flash beat of the plan (`flash_ev` keys that jump by >= 0.5 EV), plus the extra music hits
+  listed in the plan's `polish.hits` ([frame, strength]), the frame splits radially:
   red scaled out and blue scaled in about the centre by `--ca` px at the edge, decaying by e every 1.6 frames. The
   drop and the outro's arrival get it too. Between hits a resting split of `--ca-rest` px keeps the lens feel.
 - Grain. Luma noise of `--grain` /255 at mid-grey, falling to 0 at black and white, re-seeded every frame and softened
@@ -44,6 +45,8 @@ def hits(plan) -> list[tuple[int, float]]:
         out.append((int(p["f0"]), 1.0))
     if plan.raw.get("outro"):
         out.append((int(plan.raw["outro"]["f"]), 0.8))
+    for f, st in (plan.raw.get("polish") or {}).get("hits", []):   # music hits with no picture event of their own
+        out.append((int(f), float(st)))
     best: dict[int, float] = {}
     for f, st in out:                       # one hit per frame (the drop is both a flash and the portal)
         best[f] = max(best.get(f, 0.0), st)

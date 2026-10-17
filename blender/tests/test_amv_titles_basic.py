@@ -92,13 +92,13 @@ def test_sub_reveals_in_order_and_fades_out_in_the_last_frames():
 
 
 @needs_fonts
-def test_sub_white_has_a_bar_that_grows_and_yellow_has_none():
+def test_sub_white_has_a_bar_that_grows_and_yellow_has_a_dark_edge_but_no_bar():
     names = lambda fr: [g.name for g in fr.groups]
     for k in (0, 1, 2):                                       # nothing, not even the bar, before the first word (k = 3)
         assert names(basic.sub_frame(SUB0, k)) == ["text"] and not basic.sub_frame(SUB0, k).groups[0].elems
     assert names(basic.sub_frame(SUB0, 3)) == ["bar", "text"]
     assert names(basic.sub_frame(SUB0, 20)) == ["bar", "text"]
-    assert names(basic.sub_frame(SUB1, 20)) == ["text"]
+    assert names(basic.sub_frame(SUB1, 20)) == ["edge", "text"]   # dark edge beneath the text, no bar/plate/glow
     widths = []
     for k in (4, 8, 12, 30, 40, 50):
         bar = basic.sub_frame(SUB0, k).groups[0].elems[0]

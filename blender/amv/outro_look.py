@@ -315,12 +315,61 @@ def build_rings(n, f0):
             r = sch.ring(i, f, n)
             ob.scale = (r["scale"],) * 3
             ob.keyframe_insert("scale", frame=f0 + f)
-            em.default_value = 26.0 * r["opacity"] * (1.0 + 1.5 * r["pop"])
+            em.default_value = 26.0 * r["opacity"] * (1.0 + 3.0 * r["pop"])
             em.keyframe_insert("default_value", frame=f0 + f)
         linearize(ob)
         linearize(m.node_tree)
         rings.append(ob)
+        _ring_flare(i, col, n, f0)
     return rings
+
+
+def _ring_flare(i, col, n, f0):
+    """The horizontal lens streak when a ring pops, as an emissive plane behind it (a compositor streak glare at full
+    resolution cost more than the whole Cycles frame)."""
+    import bmesh
+    me = bpy.data.meshes.new(f"flare{i}")
+    bm = bmesh.new()
+    bm.faces.new([bm.verts.new(c) for c in ((-0.5, -0.5, 0), (0.5, -0.5, 0), (0.5, 0.5, 0), (-0.5, 0.5, 0))])
+    bm.to_mesh(me)
+    bm.free()
+    m = bpy.data.materials.new(f"sau_flare{i}")
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["Object"], sep.inputs[0])
+    fall = []
+    for axis, power in (("X", 3.0), ("Y", 2.0)):
+        ab = nt.nodes.new("ShaderNodeMath"); ab.operation = "ABSOLUTE"
+        nt.links.new(sep.outputs[axis], ab.inputs[0])
+        mp = nt.nodes.new("ShaderNodeMapRange")
+        mp.inputs["From Min"].default_value = 0.5; mp.inputs["From Max"].default_value = 0.0
+        nt.links.new(ab.outputs[0], mp.inputs["Value"])
+        pw = nt.nodes.new("ShaderNodeMath"); pw.operation = "POWER"; pw.inputs[1].default_value = power
+        nt.links.new(mp.outputs[0], pw.inputs[0])
+        fall.append(pw)
+    prod = nt.nodes.new("ShaderNodeMath"); prod.operation = "MULTIPLY"
+    nt.links.new(fall[0].outputs[0], prod.inputs[0]); nt.links.new(fall[1].outputs[0], prod.inputs[1])
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*col, 1)
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(prod.outputs[0], mix.inputs[0]); nt.links.new(tr.outputs[0], mix.inputs[1]); nt.links.new(em.outputs[0], mix.inputs[2])
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    ob = bpy.data.objects.new(f"FLARE {i}", me)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.rotation_euler = (math.pi / 2, 0, 0)
+    ob.location = (sch.RINGS[i][0] * sch.PX, 3.4, 3.3)
+    ob.scale = (9.0, 0.6, 1.0)
+    ob.data.materials.append(m)
+    ob.visible_shadow = False
+    for f in range(0, n):
+        em.inputs["Strength"].default_value = 40.0 * sch.ring(i, f, n)["pop"]
+        em.inputs["Strength"].keyframe_insert("default_value", frame=f0 + f)
+    linearize(nt)
 
 
 def build_sparks(layout, n, f0):
@@ -437,6 +486,23 @@ def block_noise_image(w, h, block=14, seed=5):
     return img
 
 
+def vignette_image(w=160, h=90):
+    """Vignette weight 1 inside / 0 outside, a feathered ellipse 0.62 W x 0.66 H (outro.jsx), as a tiny packed PNG."""
+    rows = []
+    for y in range(h):
+        row = []
+        for x in range(w):
+            r = math.hypot(((x + 0.5) / w - 0.5) / 0.31, ((y + 0.5) / h - 0.5) / 0.33)
+            row.append(int(255 * (1.0 - sch.smooth((r - 0.6) / 0.9)) + 0.5))
+        rows.append(row)
+    path = os.path.join(tempfile.mkdtemp(prefix="outro_vig_"), "vignette.png")
+    write_gray_png(path, rows)
+    img = bpy.data.images.load(path)
+    img.colorspace_settings.name = "Non-Color"
+    img.pack()
+    return img
+
+
 def build_compositor(n, f0, w, h):
     sc = bpy.context.scene
     nt = bpy.data.node_groups.new("outro_comp", "CompositorNodeTree")
@@ -447,37 +513,31 @@ def build_compositor(n, f0, w, h):
     gl.inputs["Type"].default_value = "Bloom"
     gl.inputs["Threshold"].default_value = 0.9
     gl.inputs["Size"].default_value = 0.7
-    gl.inputs["Quality"].default_value = "High"
+    gl.inputs["Quality"].default_value = "Low"
     nt.links.new(rl.outputs["Image"], gl.inputs["Image"])
-    st = _node(nt, "CompositorNodeGlare", 460, 100)                  # anamorphic streaks as a ring pops
-    st.inputs["Type"].default_value = "Streaks"
-    st.inputs["Threshold"].default_value = 6.0
-    st.inputs["Streaks"].default_value = 2
-    st.inputs["Streaks Angle"].default_value = 0.0
-    st.inputs["Fade"].default_value = 0.95
-    st.inputs["Size"].default_value = 0.35
-    nt.links.new(gl.outputs["Image"], st.inputs["Image"])
-    # vignette: black at 70 % outside an ellipse, feathered (outro.jsx VIGNETTE)
-    el = _node(nt, "CompositorNodeEllipseMask", 260, -300)
-    el.inputs["Size"].default_value = (0.62, 0.66)
-    el.inputs["Position"].default_value = (0.5, 0.5)
-    bl = _node(nt, "CompositorNodeBlur", 480, -300)
-    bl.inputs["Size"].default_value = (0.2 * w / 2, 0.2 * w / 2)
-    nt.links.new(el.outputs["Mask"], bl.inputs["Image"])
+    # vignette (outro.jsx VIGNETTE: black at 70 % outside a feathered ellipse) from a tiny gradient image scaled up:
+    # a full-res ellipse mask + 190 px blur was the compositor's most expensive step
+    vg = _node(nt, "CompositorNodeImage", 260, -300)
+    vg.image = vignette_image()
+    sv = _node(nt, "CompositorNodeScale", 480, -300)
+    sv.inputs["Type"].default_value = "Render Size"
+    sv.inputs["Frame Type"].default_value = "Stretch"
+    sv.inputs["Interpolation"].default_value = "Bilinear"
+    nt.links.new(vg.outputs["Image"], sv.inputs["Image"])
     inv = _node(nt, "ShaderNodeMath", 700, -300, operation="SUBTRACT")
     inv.inputs[0].default_value = 1.0
-    nt.links.new(bl.outputs["Image"], inv.inputs[1])
+    nt.links.new(sv.outputs["Image"], inv.inputs[1])
     vf = _node(nt, "ShaderNodeMath", 900, -300, operation="MULTIPLY")
     vf.inputs[1].default_value = 0.7
     nt.links.new(inv.outputs[0], vf.inputs[0])
     black = (0, 0, 0, 1)
     vmix = _node(nt, "ShaderNodeMix", 1100, 0, data_type="RGBA")
     vmix.inputs["B"].default_value = black
-    nt.links.new(st.outputs["Image"], vmix.inputs["A"])
+    nt.links.new(gl.outputs["Image"], vmix.inputs["A"])
     nt.links.new(vf.outputs[0], vmix.inputs["Factor"])
     # flashes: hit (white add) and end (screen-ish add)
     fl = _node(nt, "ShaderNodeMix", 1320, 0, data_type="RGBA", blend_type="ADD")
-    fl.inputs["B"].default_value = (1.0, 0.96, 0.95, 1)
+    fl.inputs["B"].default_value = (1.0, 1.0, 1.0, 1)
     nt.links.new(vmix.outputs["Result"], fl.inputs["A"])
     # pixel dissolve
     img = block_noise_image(w, h)
@@ -496,12 +556,11 @@ def build_compositor(n, f0, w, h):
     nt.links.new(fi.outputs["Result"], go.inputs[0])
     for f in range(0, n):
         fx = sch.end_fx(f, n)
-        fl.inputs["Factor"].default_value = max(fx["hit"], fx["flash_end"])
+        fl.inputs["Factor"].default_value = max(fx["hit"], fx["flash_end"])   # white, added
         gl.inputs["Strength"].default_value = fx["bloom"] * 0.35
         cmp_.inputs[1].default_value = 1.01 if fx["black"] else fx["dissolve"] * 1.0005
         fi.inputs["Factor"].default_value = fx["fade_in"]
-        st.inputs["Strength"].default_value = max(sch.ring(i, f, n)["pop"] for i in range(3)) * 0.2
-        for sock in (fl.inputs["Factor"], gl.inputs["Strength"], st.inputs["Strength"], cmp_.inputs[1], fi.inputs["Factor"]):
+        for sock in (fl.inputs["Factor"], gl.inputs["Strength"], cmp_.inputs[1], fi.inputs["Factor"]):
             sock.keyframe_insert("default_value", frame=f0 + f)
     linearize(nt)
     return nt

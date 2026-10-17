@@ -1,18 +1,21 @@
 """The AMV compositor: what AE did to the whole comp after the shots (build.jsx 153-244), as one node tree.
 
     Render Layers (scene-linear Cycles result)
-      -> Exposure, keyed per frame from `flash_ev`            (AE's Exposure works in linear light)
       -> 1-frame black solids at `black[]`
       -> `invert[]` frames: invert, then tint black #010105 -> white #C7DAE8 (the duotone)
       -> `halftone[]` frames (2 each): a dot grid, each cell a dot of the cell's colour (CC Ball Action, grid 13)
+      -> Exposure, keyed per frame from `flash_ev` (AE's Exposure works in linear light; build.jsx puts the FLASH layer
+         above the strobe solids, so a flash exposes them too)
       -> linear -> sRGB: from here on every value is display-referred, as AE's 8-bit project blended
       -> the `AMV Grade` node group (blender/amv/grade.py, else a pass-through), ending at `outro.f`
       -> letterbox bars (`bars[f]` px top and bottom), `accents` lines, screen titles, the glint with its glow and
          bloom, the watermark, and from `outro.f` the outro frames on top
       -> sRGB -> linear, to the Group Output (the view transform Standard re-encodes it exactly).
 
-Overlays are read raw (colour space Non-Color, straight alpha premultiplied on load) so they composite in the sRGB
-domain like AE's. Image-sequence nodes are frame-exact: the node's start / offset make file number k appear on the
+Overlays are read raw (colour space Non-Color, straight alpha) so they composite in the sRGB domain like AE's. Blender
+does NOT premultiply Non-Color images on load, so every overlay Alpha Over has "Straight Alpha" on: without it a title
+whose transparent pixels carry colour (gold TIMELESS: RGB 255,168,61 at alpha 0) washed the whole frame and every
+glow edge came out too strong. Image-sequence nodes are frame-exact: the node's start / offset make file number k appear on the
 frame it belongs to, and a keyed Alpha Over factor is 0 outside the window. A missing overlay is skipped with a
 warning, so the build works before titles / outro exist.
 
@@ -162,7 +165,7 @@ def build(built, overlays_dir=None, res_scale=1.0, log=print):
     """Build the compositor of `built` (scene.Built) and make it the scene's. Returns the Tree."""
     scene, plan = built.scene, built.plan
     raw = plan.raw
-    ov = Path(overlays_dir) if overlays_dir else None
+    ov = Path(S.absolute(overlays_dir)) if overlays_dir else None
     cg = bpy.data.node_groups.new("AMV Compositor", "CompositorNodeTree")
     cg.interface.new_socket("Image", in_out="OUTPUT", socket_type="NodeSocketColor")
     scene.compositing_node_group = cg
@@ -175,11 +178,6 @@ def build(built, overlays_dir=None, res_scale=1.0, log=print):
     # ---- the shots, linear
     rl = t.node("CompositorNodeRLayers", "Render", scene=scene)
     img = rl.outputs["Image"]
-    if raw.get("flash_ev"):
-        ex = t.node("CompositorNodeExposure", "flash exposure")
-        t.link(img, ex.inputs[0])
-        S.key_socket(ex, 1, [(f, v) for f, v in raw["flash_ev"]], "LINEAR")
-        img = ex.outputs[0]
     if raw.get("black"):
         m = t.mix(img, (0.0, 0.0, 0.0), 0.0, "black strobes")
         S.key_socket(m, 0, [(f + d, 1.0 if d == 0 else 0.0) for f in raw["black"] for d in (-1, 0, 1)], "CONSTANT")
@@ -199,6 +197,12 @@ def build(built, overlays_dir=None, res_scale=1.0, log=print):
         img = m.outputs[2]
     if raw.get("halftone"):
         img = halftone(t, img, raw["halftone"], scene, res_scale)
+    # AE's stack: the strobe solids / adjustments sit below the FLASH exposure layer, which sits just below the grade
+    if raw.get("flash_ev"):
+        ex = t.node("CompositorNodeExposure", "flash exposure")
+        t.link(img, ex.inputs[0])
+        S.key_socket(ex, 1, [(f, v) for f, v in raw["flash_ev"]], "LINEAR")
+        img = ex.outputs[0]
 
     # ---- display-referred from here
     img = t.convert(img, LINEAR, SRGB, "to sRGB")
@@ -330,6 +334,7 @@ def fit(t: Tree, nd):
 
 def overlay_over(t: Tree, img, nd, name, factor_keys, factor=0.0):
     o = t.over(img, fit(t, nd), factor, name)
+    o.inputs["Straight Alpha"].default_value = True   # Non-Color images are NOT premultiplied on load (see below)
     S.key_socket(o, 2, factor_keys, "LINEAR" if factor_keys and len(factor_keys) > 4 else "CONSTANT")
     return o.outputs[0]
 
@@ -364,6 +369,7 @@ def watermark(t: Tree, img, ov, plan, log):
     outro_f = plan.raw["outro"]["f"]
     keys = [(fr, v / 100.0) for fr, v in S.wm_keys(plan) if fr < outro_f] + [(outro_f, 0.0)]
     o = t.over(img, fit(t, nd), 0.0, "watermark over")
+    o.inputs["Straight Alpha"].default_value = True
     S.key_socket(o, 2, keys, "LINEAR")
     return o.outputs[0]
 

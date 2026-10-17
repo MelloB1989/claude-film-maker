@@ -36,6 +36,7 @@ NOMINAL = {
     "sharpen_amount": 0.5, "sharpen_size": 4,
     "colorista": 1.0,
     "vig_amount": 0.345, "vig_size": 0.5,
+    "rolloff": 1.0, "rolloff_power": 1.0, "hi_desat": 0.0, "curve1": 0.0, "curve2": 0.0, "curve3": 0.0,
     "contrast": 25.0, "highlights": 10.0, "shadows": 45.0, "whites": 20.0, "blacks": -12.0, "saturation": 150.0,
     "bc_brightness": 15.0, "bc_contrast": 20.0,
     "cb": [-10, 7, 10, -2, 4, -3, 12, 5, -12],
@@ -46,7 +47,8 @@ COLORISTA_MIDS = (0.998, 0.996, 1.000)
 
 # fit bounds for the scalar parameters
 BOUNDS = {
-    "colorista": (0, 4), "vig_amount": (0, 0.9), "vig_size": (0.1, 0.9),
+    "colorista": (0, 4), "hi_desat": (0, 1),
+    "curve1": (-0.3, 0.3), "curve2": (-0.3, 0.3), "curve3": (-0.3, 0.3), "vig_amount": (0, 0.9), "vig_size": (0.1, 0.9),
     "contrast": (-50, 100), "highlights": (-100, 100), "shadows": (-100, 100), "whites": (-100, 100),
     "blacks": (-100, 100), "saturation": (60, 260), "bc_brightness": (-60, 100), "bc_contrast": (-60, 100),
     "glow_threshold": (0.5, 0.98), "glow_intensity": (0.0, 1.5),
@@ -127,6 +129,17 @@ def clip01(x):
     return np.clip(x, 0.0, 1.0)
 
 
+def rolloff_in(x, strength, power=1.0):
+    """Overexposed input (a flash: a channel above 1) rolls off to white instead of clipping to a tinted colour.
+    With m = the largest channel, m > 1 and s = 1/m: x -> x s^(power+1) + (1 - s^power), which keeps the hue's ratios,
+    whitens as m grows (faster for a larger power), and is the identity at m <= 1. `strength` mixes it with the plain clip (0 = AE's 8-bit clip)."""
+    m = np.maximum(x.max(-1, keepdims=True), 1.0)
+    inv = 1.0 / m
+    ip = inv ** power
+    roll = x * (inv * ip) + (1.0 - ip)
+    return clip01(clip01(x) + strength * (roll - clip01(x)))
+
+
 def sharpen(x, amount, size):
     return clip01(x + amount * (x - blur(x, size)))
 
@@ -163,6 +176,13 @@ def saturate(x, sat):
     return clip01(l + (x - l) * (sat / 100.0))
 
 
+def highlight_desaturate(x, amount):
+    """Pull near-white pixels toward grey (AE's clipped highlights read white, not tinted): 0 = off, 1 = full."""
+    l = luma(x)[..., None]
+    t = np.clip((l - 0.75) / 0.25, 0, 1)
+    return clip01(x + (l - x) * (amount * t * t * (3 - 2 * t)))
+
+
 def brightness_contrast(x, brightness, contrast):
     """Non-legacy B&C model: brightness bends the curve (ends fixed), contrast pivots at 0.5."""
     y = clip01(x + K_BRIGHT * brightness / 100 * 4 * x * (1 - x))
@@ -187,6 +207,13 @@ def color_balance(x, cb):
     return clip01(y * (l[..., None] / np.maximum(ly, 1e-4)))
 
 
+def residual_curve(x, c1, c2, c3):
+    """What the named sliders cannot say: a small per-channel curve fixed at 0 and 1 (basis u, u(1-2x), u(1-2x)^2, u = x(1-x))."""
+    u = x * (1 - x)
+    w = 1 - 2 * x
+    return clip01(x + u * (c1 + w * (c2 + w * c3)))
+
+
 def glow(x, threshold, size, intensity):
     bright = np.maximum(x - threshold, 0) / (1 - threshold)
     return clip01(x + K_GLOW * intensity * blur(bright, size))
@@ -196,15 +223,18 @@ def grade(img, p=None, res_scale=1.0):
     """The whole chain on display-referred float RGB (H, W, 3), 0..1. `res_scale` scales the blur sizes (1 = 1920 wide)."""
     p = params(p)
     sc = lambda n: max(0, int(round(n * res_scale)))
-    x = clip01(np.asarray(img, np.float32)[..., :3])
+    x = np.maximum(np.asarray(img, np.float32)[..., :3], 0.0)
     h, w = x.shape[:2]
+    x = rolloff_in(x, p["rolloff"], p["rolloff_power"]) if p["rolloff"] else clip01(x)
     x = sharpen(x, p["sharpen_amount"], sc(p["sharpen_size"]))
     x = colorista(x, p["colorista"])
     x = clip01(x * vignette_gain(h, w, p["vig_amount"], p["vig_size"]))
     x = lumetri_tone(x, p)
     x = saturate(x, p["saturation"])
+    x = highlight_desaturate(x, p["hi_desat"])
     x = brightness_contrast(x, p["bc_brightness"], p["bc_contrast"])
     x = color_balance(x, p["cb"])
+    x = residual_curve(x, p["curve1"], p["curve2"], p["curve3"])
     return glow(x, p["glow_threshold"], sc(p["glow_size"]), p["glow_intensity"])
 
 
@@ -267,21 +297,28 @@ def estimate_frame(plan, f, scale=0.25):
     shot = plan.visible(f)[-1]
     src = clip_frame(plan.clip(shot), shot.remap(f))
     w, h = int(round(W * scale)), int(round(H * scale))
-    half = cv2.resize(src, (W // 2, H // 2), interpolation=cv2.INTER_AREA).astype(np.float32) / 255
-    x = trim(half, shot.ev(f), shot.sat)
+    k = 1.0 if scale > 0.5 else 0.5     # warp at full size for full-size output, else at half size (faster)
+    ww, hh = int(W * k), int(H * k)
+    base = src if k == 1.0 else cv2.resize(src, (ww, hh), interpolation=cv2.INTER_AREA)
+    x = trim(base.astype(np.float32) / 255, shot.ev(f), shot.sat)
     m = np.array(shot.matrix(f), np.float64)
-    m[:, 2] *= 0.5   # half-res source -> half-res screen: x/2 -> (A x + t)/2
-    out = cv2.warpAffine(x, m, (W // 2, H // 2), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-    cov = cv2.warpAffine(np.ones(x.shape[:2], np.float32), m, (W // 2, H // 2), flags=cv2.INTER_LINEAR,
+    m[:, 2] *= k   # source scaled by k -> screen scaled by k: k x -> k (A x + t)
+    out = cv2.warpAffine(x, m, (ww, hh), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+    cov = cv2.warpAffine(np.ones(x.shape[:2], np.float32), m, (ww, hh), flags=cv2.INTER_LINEAR,
                          borderMode=cv2.BORDER_CONSTANT, borderValue=0)
-    out = cv2.resize(out, (w, h), interpolation=cv2.INTER_AREA)
-    cov = cv2.resize(cov, (w, h), interpolation=cv2.INTER_AREA)
+    if (ww, hh) != (w, h):
+        out = cv2.resize(out, (w, h), interpolation=cv2.INTER_AREA)
+        cov = cv2.resize(cov, (w, h), interpolation=cv2.INTER_AREA)
     return out, (cov > 0.999)
 
 
-def fit_mask(cov, margin=0.02):
+def fit_mask(cov, f=None):
+    """Pixels the fit may use: covered by the warped plate, away from the watermark, and (M01's portal frames) away from
+    the small drop-portal ellipse that shows shot A through the lens."""
     h, w = cov.shape
     m = cov.copy()
+    if f is not None and 486 <= f <= 507:
+        m[int(0.28 * h):int(0.72 * h), int(0.45 * w):int(0.72 * w)] = False
     x0, y0, x1, y1 = WM_BOX
     m[int(y0 * h):, int(x0 * w):int(x1 * w)] = False
     return m
@@ -339,7 +376,7 @@ def fit_frames(ests, refs, masks, start=None, res_scale=1 / 8, prior=0.02, iters
         return np.concatenate(out)
 
     res = least_squares(resid, np.clip(v0, lo, hi), bounds=(lo, hi), loss="soft_l1", f_scale=2.0, max_nfev=iters,
-                        diff_step=1e-2, verbose=2 if verbose else 0)
+                        diff_step=1e-2, x_scale="jac", verbose=2 if verbose else 0)
     return _unflat(base, names, res.x), res
 
 
@@ -384,12 +421,16 @@ def cmd_prepare(a):
     import tempfile
     from . import plan as P
     plan = P.load(a.film)
-    frames = select_frames(plan, per_shot=a.per_shot)
+    frames = [int(f) for f in a.frames.split(",")] if a.frames else select_frames(plan, per_shot=a.per_shot)
     ref_dir = Path(a.ref)
-    if ref_dir.is_file():   # an mp4: decode once to PNGs at 960x540
+    if ref_dir.is_file():   # an mp4: decode the chosen frames once to PNGs (960 wide, or full size above scale 0.5)
         tmp = Path(tempfile.mkdtemp(prefix="grade_ref_"))
-        subprocess.run([FFMPEG, "-v", "error", "-i", str(ref_dir), "-vf", "scale=960:540:flags=area", "-start_number", "0",
-                        str(tmp / "%04d.png")], check=True)
+        vf = "scale=960:540:flags=area" if a.scale <= 0.5 else "null"
+        sel = "+".join(f"eq(n\\,{f})" for f in frames)
+        subprocess.run([FFMPEG, "-v", "error", "-i", str(ref_dir), "-vf", f"select={sel},{vf}", "-fps_mode", "passthrough",
+                        "-start_number", "0", str(tmp / "k%04d.png")], check=True)
+        for i, f in enumerate(sorted(set(frames))):   # ffmpeg writes the selected frames in video order
+            (tmp / f"k{i:04d}.png").rename(tmp / f"{f:04d}.png")
         ref_dir = tmp
     size = (int(W * a.scale), int(H * a.scale))
     ests, refs, masks = [], [], []
@@ -397,8 +438,14 @@ def cmd_prepare(a):
         e, cov = estimate_frame(plan, f, a.scale)
         ests.append(e)
         refs.append(load_ref(ref_dir, f, size))
-        masks.append(fit_mask(cov))
+        masks.append(fit_mask(cov, f))
     u8 = lambda arr: np.round(np.array(arr) * 255).astype(np.uint8)   # 8-bit like the AE project: a quarter of the size
+    if a.append:   # add to an existing cache of the same scale
+        old = np.load(a.append)
+        keep = [i for i, f in enumerate(old["frames"]) if int(f) not in frames]
+        frames = [int(f) for f in old["frames"][keep]] + frames
+        ests, refs, masks = (list(old["est"][keep].astype(np.float32) / 255) + ests,
+                             list(old["ref"][keep].astype(np.float32) / 255) + refs, list(old["mask"][keep]) + masks)
     np.savez(a.out, frames=frames, est=u8(ests), ref=u8(refs), mask=np.array(masks), scale=a.scale)
     print(f"{len(frames)} frames -> {a.out}")
 
@@ -417,7 +464,9 @@ def cmd_fit(a):
     mask = np.array([cv2.resize(m.astype(np.uint8), size, interpolation=cv2.INTER_NEAREST) > 0 for m in d["mask"]])
     res_scale = s * fs
     before = frame_stats(est, ref, mask, None, res_scale)
-    p, res = fit_frames(est, ref, mask, start=None, res_scale=res_scale, iters=a.iters)
+    start = json.loads(Path(a.start).read_text()) if a.start else None
+    start = start.get("fitted", start) if start else None
+    p, res = fit_frames(est, ref, mask, start=start, res_scale=res_scale, iters=a.iters)
     after = frame_stats(est, ref, mask, p, res_scale)
     # the same stats at the cache's full resolution (what the contact sheets show)
     full_b = frame_stats(d["est"], d["ref"], d["mask"], None, s)
@@ -430,6 +479,107 @@ def cmd_fit(a):
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(doc, indent=1))
     print(json.dumps(doc["report"]["summary"], indent=1))
+
+
+def cmd_refine(a):
+    """Full-size refinement of what a 480-wide fit cannot see: the unsharp mask and the glow radius (coordinate search)."""
+    z = np.load(a.cache)
+    est = z["est"].astype(np.float32) / 255
+    ref = z["ref"].astype(np.float32) / 255
+    mask = z["mask"]
+    s = float(z["scale"])
+    doc = json.loads(Path(a.params).read_text())
+    p = doc.get("fitted", doc)
+    lab_ref = [rgb_to_lab(blur(r, 1)) for r in ref]
+
+    def score(q):
+        tot = []
+        for e, lr, m in zip(est, lab_ref, mask):
+            d = np.sqrt(((rgb_to_lab(blur(grade(e, q, s), 1)) - lr) ** 2).sum(-1))[m]
+            tot.append(d.mean())
+        return float(np.mean(tot))
+
+    grid = {"sharpen_amount": [0.0, 0.15, 0.3, 0.5, 0.75], "sharpen_size": [2, 3, 4, 6],
+            "glow_size": [45, 70, 90, 140, 200], "glow_intensity": [0.05, 0.1, 0.15, 0.25, 0.4]}
+    p = dict(p)
+    best = score(p)
+    print("start", round(best, 3))
+    for sweep in range(2):
+        for k, vals in grid.items():
+            for v in vals:
+                q = dict(p, **{k: v})
+                sc = score(q)
+                if sc < best - 1e-4:
+                    best, p = sc, q
+                    print("  ", k, "->", v, round(best, 3))
+    doc["fitted"] = p
+    doc.setdefault("report", {})["refine"] = {"frames": [int(f) for f in z["frames"]], "mean_dE_full_res": best}
+    Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(a.out).write_text(json.dumps(doc, indent=1))
+
+
+def hole_mask(shot, f, shape, scale):
+    """True where the eye-dive hole shows the shot below (screen px at `scale`), with a margin; all False without a hole."""
+    h = shot.hole(f)
+    out = np.zeros(shape, bool)
+    if not h:
+        return out
+    m = np.array(shot.matrix(f))
+    cx, cy = (m @ np.array([h[0], h[1], 1.0])) * scale
+    r = (max(h[2], h[3]) + h[5] + h[4]) * shot.transform(f)[2] / 100 * scale * 1.15
+    yy, xx = np.mgrid[0:shape[0], 0:shape[1]]
+    return (xx - cx) ** 2 + (yy - cy) ** 2 < r * r
+
+
+def parse_frames(spec):
+    out = []
+    for part in spec.split(","):
+        a, _, b = part.partition("-")
+        out += list(range(int(a), int(b or a) + 1))
+    return out
+
+
+def cmd_check(a):
+    """Mean luma (0..255) and clipped-pixel share of graded estimates (shot trim + flash exposure + grade) vs the AE render."""
+    import subprocess
+    import tempfile
+    from . import plan as P
+    plan = P.load(a.film)
+    if a.params == "preset":
+        p = None
+    else:
+        doc = json.loads(Path(a.params).read_text())
+        p = doc.get("fitted", doc)
+    frames = parse_frames(a.frames)
+    in_ae = sorted(f for f in set(frames) if f < 600)
+    tmp = Path(tempfile.mkdtemp(prefix="grade_chk_"))
+    sel = "+".join(f"eq(n\\,{f})" for f in in_ae)
+    subprocess.run([FFMPEG, "-v", "error", "-i", a.ref, "-vf", f"select={sel},scale=960:540:flags=area", "-fps_mode", "passthrough",
+                    "-start_number", "0", str(tmp / "k%04d.png")], check=True)
+    for i, f in enumerate(in_ae):
+        (tmp / f"k{i:04d}.png").rename(tmp / f"{f:04d}.png")
+    size = (int(W * a.scale), int(H * a.scale))
+    print("frame shot            ours   AE   gap | clipped% ours  AE")
+    for f in frames:
+        shot = plan.visible(f)[-1]
+        e, cov = estimate_frame(plan, f, a.scale)
+        ev = plan.flash_ev(f)
+        if abs(ev) > 1e-9:
+            e = linear_to_srgb(srgb_to_linear(e) * 2.0 ** ev)   # unclipped: the grade rolls overexposure off itself
+        g = grade(e, p, a.scale)
+        m = fit_mask(cov, None) & ~hole_mask(shot, f, cov.shape, a.scale)
+        ours = float(luma(g)[m].mean() * 255)
+        clip = lambda x: float((x.max(-1) >= 0.99)[m].mean() * 100)
+        if f < 600:
+            r = load_ref(tmp, f, size)
+            print(f"{f:4d} {shot.name:16s} {ours:5.0f} {luma(r)[m].mean() * 255:4.0f} {ours - luma(r)[m].mean() * 255:+5.0f} | {clip(g):6.1f} {clip(r):6.1f}")
+        else:
+            print(f"{f:4d} {shot.name:16s} {ours:5.0f}  n/a        | {clip(g):6.1f}   n/a  max channel p99 {np.percentile(g[m], 99):.3f}")
+        if a.dump:
+            import cv2
+            Path(a.dump).mkdir(parents=True, exist_ok=True)
+            tiles = [e, g] + ([load_ref(tmp, f, size)] if f < 600 else [])
+            cv2.imwrite(str(Path(a.dump) / f"{f:04d}.jpg"), (np.hstack(tiles)[..., ::-1] * 255).astype(np.uint8))
 
 
 def cmd_sheet(a):
@@ -478,13 +628,29 @@ def main(argv=None):
     pr.add_argument("--out", required=True)
     pr.add_argument("--per-shot", type=int, default=5)
     pr.add_argument("--scale", type=float, default=0.25)
+    pr.add_argument("--append", help="an existing cache (same scale) to add these frames to")
+    pr.add_argument("--frames", help="comma list of comp frames (default: clean frames, --per-shot per shot)")
     pr.set_defaults(fn=cmd_prepare)
     ft = sub.add_parser("fit", help="fit the parameters to the cache, write grade.json")
     ft.add_argument("--cache", required=True)
     ft.add_argument("--out", required=True)
     ft.add_argument("--fit-width", type=int, default=240)
+    ft.add_argument("--start", help="a grade.json whose fitted values start the search (default: the preset)")
     ft.add_argument("--iters", type=int, default=25)
     ft.set_defaults(fn=cmd_fit)
+    rf = sub.add_parser("refine", help="tune sharpen / glow radius on a full-size cache")
+    rf.add_argument("--cache", required=True)
+    rf.add_argument("--params", required=True)
+    rf.add_argument("--out", required=True)
+    rf.set_defaults(fn=cmd_refine)
+    ck = sub.add_parser("check", help="luma of graded estimates (with flash) vs the AE render on chosen frames")
+    ck.add_argument("--film", default="films/timeless")
+    ck.add_argument("--ref", required=True)
+    ck.add_argument("--params", required=True, help="grade.json, or 'preset' for the preset's own values")
+    ck.add_argument("--frames", required=True, help="e.g. 207-217,228-249,315")
+    ck.add_argument("--scale", type=float, default=0.25)
+    ck.add_argument("--dump", help="write estimate | graded | AE strips here")
+    ck.set_defaults(fn=cmd_check)
     sh = sub.add_parser("sheet", help="contact sheets estimate | grade_np | blender | AE")
     sh.add_argument("--cache", required=True)
     sh.add_argument("--params", required=True)

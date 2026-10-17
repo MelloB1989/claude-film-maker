@@ -24,7 +24,7 @@ BLENDER = os.environ.get("BLENDER") or shutil.which("blender") or "/home/nikhil/
 W, H = 480, 270
 
 
-def test_image():
+def make_test_image():
     """Display-sRGB test image: grey ramp, saturated and skin-tone patches, dark/bright patches, a few hard edges."""
     img = np.zeros((H, W, 3), np.float32)
     ramp = np.linspace(0, 1, W, dtype=np.float32)
@@ -40,7 +40,9 @@ def test_image():
     for x0 in range(0, W, 60):   # hard vertical edges of varying contrast in the bottom strip
         img[200:, x0:x0 + 30] = 0.1 + 0.8 * ((x0 // 60) % 2)
         img[200:, x0 + 30:x0 + 60] = (0.9, 0.35, 0.2) if (x0 // 60) % 3 == 0 else (0.2, 0.45, 0.8)
-    return np.clip(img, 0, 1)
+    img = np.clip(img, 0, 1)
+    img[H - 20:, :60] = (3.7, 1.9, 0.37)   # an overexposed (flash) patch: scene-linear values above 1 as display floats
+    return img
 
 
 def render_group(img_display, io="linear", params=None, res_scale=0.25):
@@ -54,7 +56,7 @@ def render_group(img_display, io="linear", params=None, res_scale=0.25):
     sc.view_settings.view_transform = "Standard"
     sc.render.compositor_device = "CPU"
     sc.render.image_settings.file_format, sc.render.image_settings.color_depth = "OPEN_EXR", "32"
-    data = img_display if io == "srgb" else G.srgb_to_linear(img_display)
+    data = img_display if io == "srgb" else G.srgb_to_linear(img_display)   # (values > 1 allowed)
     im = bpy.data.images.new("grade_in", w, h, alpha=True, float_buffer=True)
     im.colorspace_settings.name = "Linear Rec.709"
     rgba = np.ones((h, w, 4), np.float32)
@@ -89,7 +91,7 @@ def _driver():
         imgs = np.load(args[4]).astype(np.float32)
         np.save(out, np.array([render_group(i, io, params, res) for i in imgs]))
     else:
-        np.save(out, render_group(test_image(), io, params, res))
+        np.save(out, render_group(make_test_image(), io, params, res))
 
 
 def _run_blender(io, params=None, res=0.25):
@@ -112,7 +114,7 @@ def _need_blender():
 
 def _check(io, params=None):
     _need_blender()
-    img = test_image()
+    img = make_test_image()
     got = _run_blender(io, params)
     want = G.grade(img, params, 0.25)
     err = np.abs(got - want) * 255
@@ -125,14 +127,14 @@ def test_group_matches_numpy_srgb_io():
 
 def test_group_matches_numpy_linear_io():
     _need_blender()
-    img = test_image()
+    img = make_test_image()
     got = _run_blender("linear")
     want = G.linear_to_srgb(G.grade_linear(G.srgb_to_linear(img), None, 0.25))
     assert (np.abs(got - want) * 255).max() <= 3.0
 
 
 def test_group_with_fitted_style_params():
-    _check("srgb", {"saturation": 120.0, "contrast": 10.0, "glow_intensity": 0.5, "vig_amount": 0.5,
+    _check("srgb", {"saturation": 120.0, "contrast": 10.0, "glow_intensity": 0.5, "vig_amount": 0.5, "hi_desat": 0.6, "rolloff_power": 2.5, "curve1": -0.05, "curve2": 0.08, "curve3": -0.04,
                     "cb": [5, -4, 8, 0, 3, -2, -6, 4, 9]})
 
 

@@ -21,6 +21,8 @@ EXTRUDE = 0.60                # BU half depth of the extrusion (AE: 70 px deep; 
 BEVEL_DEPTH = 0.10
 GAP = 0.13                    # of the font size, outro.jsx `gap = size * 0.13`
 WORD_W = 14.21                # BU: the AE word is 1421 px wide
+KERN = {("D", "I"): 0.03, ("I", "T"): 0.12, ("T", "Z"): 0.03, ("U", "_"): 0.02, ("_", "E"): 0.02}   # extra gap, of the size:
+# the Spider-Man I has a spike that fused with the T ("EDJTZ") at the plain 0.13 gap
 BAR_W = 0.42                  # underscore width in cap heights (outro.jsx clamps it to 0.42 x size)
 
 
@@ -102,7 +104,8 @@ def build_letters(font_path, mats, collection):
             bpy.data.meshes.remove(m)
     cap1 = z1 - z0
     w1 = [unit[ch] if ch != "_" else BAR_W * cap1 for ch in sch.WORD]
-    total1 = sum(w1) + GAP * (len(w1) - 1)
+    gaps1 = [GAP + KERN.get(pair, 0.0) for pair in zip(sch.WORD, sch.WORD[1:])]
+    total1 = sum(w1) + sum(gaps1)
     size = CAP / cap1
     for _ in range(4):                          # the bevel fattens every glyph by 2 x its depth: solve for the width
         k = size * cap1 / CAP                   # how much smaller than the AE cap height the word came out
@@ -110,7 +113,7 @@ def build_letters(font_path, mats, collection):
     k = size * cap1 / CAP
     extrude, bevel = EXTRUDE * k, BEVEL_DEPTH * k
     parts = []
-    gap = size * GAP
+    gaps = [size * g for g in gaps1]
     for ch in sch.WORD:
         if ch == "_":
             me = _bar_mesh(BAR_W * cap1 * size, 0.12 * cap1 * size, extrude, bevel)
@@ -124,7 +127,7 @@ def build_letters(font_path, mats, collection):
             w = b - a
             me.transform(Matrix.Translation((-cx, 0, -cz)))
         parts.append([ch, me, w, cz])
-    total = sum(p[2] for p in parts) + gap * (len(parts) - 1)
+    total = sum(p[2] for p in parts) + sum(gaps)
     cap_c = (z0 + z1) / 2 * size                # centre of the cap box: the word is centred on z = 0
     objs, layout, x = [], [], -total / 2
     for slot, (ch, me, w, cz) in enumerate(parts):
@@ -137,5 +140,5 @@ def build_letters(font_path, mats, collection):
         ob["rest"] = (px, 0.0, pz)
         objs.append(ob)
         layout.append({"ch": ch, "x": px, "z": pz, "w": w})
-        x += w + gap
+        x += w + (gaps[slot] if slot < len(gaps) else 0.0)
     return objs, {"slots": layout, "width": total, "height": cap1 * size, "size": size}

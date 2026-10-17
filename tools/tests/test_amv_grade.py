@@ -89,3 +89,12 @@ def test_trim_exposure_is_in_linear_light():
     x = np.full((2, 2, 3), 0.5, np.float32)
     y = G.trim(x, 1.0, 0)
     assert abs(G.srgb_to_linear(y)[0, 0, 0] - 2 * G.srgb_to_linear(x)[0, 0, 0]) < 1e-3
+
+
+def test_rolloff_whitens_overexposure_and_keeps_in_range_pixels():
+    x = np.array([[[0.4, 0.3, 0.2], [3.7, 1.9, 0.37], [1.0, 0.5, 0.1]]], np.float32)
+    y = G.rolloff_in(x, 1.0)
+    assert np.allclose(y[0, 0], x[0, 0]) and np.allclose(y[0, 2], x[0, 2])      # m <= 1: untouched
+    assert y[0, 1].min() > 0.7 and y[0, 1].max() <= 1.0                          # blown: pale, not a saturated clip
+    assert (y[0, 1, 0] - y[0, 1, 2]) < (1.0 - 0.37)                              # less chroma than the plain clip
+    assert np.allclose(G.rolloff_in(x, 0.0), np.clip(x, 0, 1))                   # strength 0 = AE's clip
