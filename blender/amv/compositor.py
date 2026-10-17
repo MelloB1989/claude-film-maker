@@ -12,8 +12,10 @@
          bloom, the watermark, and from `outro.f` the outro frames on top
       -> sRGB -> linear, to the Group Output (the view transform Standard re-encodes it exactly).
 
-Overlays are read raw (colour space Non-Color, straight alpha premultiplied on load) so they composite in the sRGB
-domain like AE's. Image-sequence nodes are frame-exact: the node's start / offset make file number k appear on the
+Overlays are read raw (colour space Non-Color, straight alpha) so they composite in the sRGB domain like AE's. Blender
+does NOT premultiply Non-Color images on load, so every overlay Alpha Over has "Straight Alpha" on: without it a title
+whose transparent pixels carry colour (gold TIMELESS: RGB 255,168,61 at alpha 0) washed the whole frame and every
+glow edge came out too strong. Image-sequence nodes are frame-exact: the node's start / offset make file number k appear on the
 frame it belongs to, and a keyed Alpha Over factor is 0 outside the window. A missing overlay is skipped with a
 warning, so the build works before titles / outro exist.
 
@@ -332,6 +334,7 @@ def fit(t: Tree, nd):
 
 def overlay_over(t: Tree, img, nd, name, factor_keys, factor=0.0):
     o = t.over(img, fit(t, nd), factor, name)
+    o.inputs["Straight Alpha"].default_value = True   # Non-Color images are NOT premultiplied on load (see below)
     S.key_socket(o, 2, factor_keys, "LINEAR" if factor_keys and len(factor_keys) > 4 else "CONSTANT")
     return o.outputs[0]
 
@@ -366,6 +369,7 @@ def watermark(t: Tree, img, ov, plan, log):
     outro_f = plan.raw["outro"]["f"]
     keys = [(fr, v / 100.0) for fr, v in S.wm_keys(plan) if fr < outro_f] + [(outro_f, 0.0)]
     o = t.over(img, fit(t, nd), 0.0, "watermark over")
+    o.inputs["Straight Alpha"].default_value = True
     S.key_socket(o, 2, keys, "LINEAR")
     return o.outputs[0]
 
