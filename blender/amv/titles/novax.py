@@ -62,6 +62,12 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     sm.emission_only(sm.mix(lin(pal["stroke"]), (1, 1, 1, 1), 0.35), st_e, alpha=st_a)
     word_stroke = Word(sc, text, "chinese_rocks", S, -26, name="stroke", outline_px=max(3.0, 4.0 * k_s), material=sm.mat)
 
+    # The AE render opens the word far wider than novax_lib's -26 -> +48 (measured on the reference: ~0.8x the f140
+    # width at the start, ~1.5x by f150-166), so the spring here is -80 -> +400, expo-out.
+    TR0 = float(opts.extra.get("tr0", -80))
+    TR1 = float(opts.extra.get("tr1", 400))
+    RATE = float(opts.extra.get("rate", 6.5))
+
     # ---- tag on the rough bar ---------------------------------------------------------------------------------------
     tag = spec.get("tag")
     bar = tagw = tm = bm = None
@@ -69,11 +75,11 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         capA = 0.64 * S
         bar_dy = 0.32 * S + 0.19 * capA + 0.0
         tag_size = 59 * k_s
-        # novax_lib's tracking 32 gives a tag far narrower than the AE render shows (~80 % of the hero): solve the
+        # novax_lib's tracking 32 gives a tag far narrower than the AE render shows (~87 % of the hero): solve the
         # final tracking for that width, keep the 0 -> final spring
         n_t = len(tag)
         base_w = sum(sc.metrics("montserrat_light").advance(c) for c in tag.upper()) * tag_size
-        tag_tr = max(32.0, ((0.8 * word_fill.width_px(48) - base_w) / max(1, n_t - 1) / tag_size) * 1000.0)
+        tag_tr = max(32.0, ((0.87 * word_fill.width_px(TR1) - base_w) / max(1, n_t - 1) / tag_size) * 1000.0)
         bar_w = base_w + (n_t - 1) * tag_tr / 1000.0 * tag_size + 70 * k_s
         bar, bm = C.brush_bar(sc, bar_w, 0.17 * capA * 1.9, name="bar", seed=3.0)
         tm = Mat("tag")
@@ -98,10 +104,10 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     glows = [Glow(0.55, 0.62, 0.30, pal["glowB"]), Glow(0.7, 0.22, 0.45, pal["glowA"]), Glow(0.5, 0.85, 0.0, pal["glowA"])]
     comp = sc.build_compositor(glows=glows, shadow={"opacity": 0.5, "dist": 5 * k_s, "soft": 8 * k_s})
 
-    sweep_range = (-0.62 * word_fill.width_px(48) / C.PX - sw_w, 0.62 * word_fill.width_px(48) / C.PX + sw_w)
+    sweep_range = (-0.62 * word_fill.width_px(TR1) / C.PX - sw_w, 0.62 * word_fill.width_px(TR1) / C.PX + sw_w)
 
     def pose(k):
-        tr = -26 + 74 * C.expo(k / 29.0)
+        tr = TR0 + (TR1 - TR0) * C.expo(k / 29.0, RATE)
         for w in (word_fill, word_stroke):
             w.layout(tr)
         s = lin_keys([[0, 104], [dur - 6, 96], [dur - 1, 112]], k) / 100.0
@@ -126,7 +132,8 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
             trt = tag_tr * C.expo(k / 29.0)
             tagw.layout(trt)
             tagw.pose((C.W / 2, C.H / 2 + tag_dy), shear=0.0)
-            bar.matrix_basis = _mu().Matrix.Translation((0, -bar_dy / C.PX + 0.0, -0.02))
+            sx = (base_w + (n_t - 1) * trt / 1000.0 * tag_size + 70 * k_s) / bar_w     # the bar hugs the opening tag
+            bar.matrix_basis = _mu().Matrix.Translation((0, -bar_dy / C.PX + 0.0, -0.02)) @ _mu().Matrix.Diagonal((sx, 1.0, 1.0, 1.0))
             tm.set("alpha", a_out)
             bm.set("alpha", a_out)
         if subw is not None:
