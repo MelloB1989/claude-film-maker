@@ -121,7 +121,7 @@ def build_blend(a, film: Path, project: Path):
          "--samples", a.samples, "--save", project / f"{film.name}.blend"])
 
 
-def build_effectcraft(a, film: Path, project: Path, ec: Path) -> str:
+def build_effectcraft(a, film: Path, project: Path, ec: Path, mix: Path | None = None) -> str:
     """Emit the EffectCraft spec/script pointing at project/ and rewrite the paths to a placeholder so the folder is
     portable; build the .ecproj too when the CLI is available. Returns a note for the README."""
     from . import effectcraft as E
@@ -129,8 +129,9 @@ def build_effectcraft(a, film: Path, project: Path, ec: Path) -> str:
     opts = E.Options(film_dir=film, layers_dir=project / "layers", titles_dir=project / "titles",
                      outro_dir=project / "outro", source="baked")
     spec = E.build_spec(plan, opts)
-    if spec.get("audio") and Path(spec["audio"]).exists():       # the mix travels with the project too
+    if mix is None and spec.get("audio") and Path(spec["audio"]).exists():
         mix = Path(spec["audio"])
+    if mix is not None:                                          # the mix travels with the project too
         link_or_copy(mix, project / "audio" / mix.name)
         spec["audio"] = str((project / "audio" / mix.name).resolve())
     ec.mkdir(parents=True, exist_ok=True)
@@ -193,6 +194,38 @@ def verify(a, out: Path, frames) -> dict:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def pick_mix(film: Path, plan, explicit: Path | None) -> Path | None:
+    """The mix to ship: --mix, else films/<id>/audio/mix/mix_fixed.wav (mix_fix.py), else the plan's audio."""
+    for c in (explicit, film / "audio" / "mix" / "mix_fixed.wav", plan.path(plan.raw["audio"])):
+        if c and Path(c).exists():
+            return Path(c)
+    return None
+
+
+def mux_audio(video: Path, mix: Path, dst: Path, ffmpeg="ffmpeg"):
+    """dst = the video stream of `video` untouched, with `mix` as its audio (AAC 320k)."""
+    if dst.exists():
+        dst.unlink()
+    run([ffmpeg, "-y", "-loglevel", "error", "-i", video, "-i", mix, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
+         "-c:a", "aac", "-b:a", "320k", "-shortest", "-movflags", "+faststart", dst])
+
+
+def build_filmcraft(a, film: Path, video: Path, mix: Path | None, out: Path) -> str:
+    """The FilmCraft project of the final cut (python -m filmtools.artcraft.filmcraft), best effort."""
+    from .. import artcraft  # noqa: F401
+    from ..artcraft import filmcraft as FC
+    argv = ["--film", str(film), "--variant", "final", "--video", str(video), "--out", str(out)]
+    if mix:
+        argv += ["--mix", str(mix)]
+    if a.filmcraft_cli:
+        argv += ["--cli", a.filmcraft_cli]
+    try:
+        code = FC.main(argv)
+    except SystemExit as e:
+        code = e.code or 1
+    return ("built at pack time" if code == 0 else f"not built (exit {code}: filmcraft-cli missing?)")
+
+
 def blender_version(blender: str) -> str:
     try:
         return subprocess.run([blender, "--version"], capture_output=True, text=True).stdout.split("\n")[0].strip()
@@ -222,9 +255,10 @@ renders it, and an EffectCraft project of the same edit. Nothing in it points ou
 | `project/layers/<shot>/<f>.png` | the baked shot layers (retimed, keyed, layer effects baked in), one PNG per comp frame |
 | `project/titles/screen.<i>/<k>.png`, `project/titles/watermark/` | the title sequences and the watermark the comp overlays |
 | `project/outro/<f>.png` | the 3D outro frames, laid on top from the outro frame on |
-| `project/audio/` | the audio mix (used by the EffectCraft project) |
 | `project/plan.json`, `project/grade.json` | the edit plan (timing, transforms, titles) and the fitted grade |
 | `project/FIXES.md` | the deliberate changes made to the handover plan |
+| `project/audio/{mix}` | the audio mix (`mix_fix.py`'s corrected mix when present): the mp4 carries {muxed_txt} |
+| `filmcraft/` | the FilmCraft project of the final cut (mp4 + mix on a timeline): {fc_note}. Its media paths are absolute; rebuild after moving with `python -m filmtools.artcraft.filmcraft --film films/{id} --variant final --video <this folder>/{video} --mix project/audio/{mix} --out filmcraft` |
 | `effectcraft/` | the EffectCraft project: `spec.json`, `build.jsx.template`, `relink.py`, and `{id}.ecproj` when effectcraft-cli was available at pack time (else `relink.py` makes it); built on the baked layers in `project/layers` |
 
 ## Render the .blend (Blender 5.2)
@@ -283,6 +317,10 @@ def main(argv=None):
     ap.add_argument("--verify-tmp", type=Path, help="where the verification copy is made (default beside --out)")
     ap.add_argument("--skip-video", action="store_true", help="no mp4 (it is not on this machine)")
     ap.add_argument("--effectcraft-cli")
+    ap.add_argument("--filmcraft-cli")
+    ap.add_argument("--mix", type=Path, help="audio mix to ship (default films/<id>/audio/mix/mix_fixed.wav)")
+    ap.add_argument("--no-mux", action="store_true", help="copy the mp4 as rendered, do not replace its audio")
+    ap.add_argument("--no-filmcraft", action="store_true")
     a = ap.parse_args(argv)
 
     film = a.film.resolve()
@@ -325,16 +363,27 @@ def main(argv=None):
         raise SystemExit("VERIFY FAILED:\n  " + "\n  ".join(fails))
     print(f"verified: {len(report['frames'])} frames ok, {len(report['image_paths'])} image paths, all relative", flush=True)
 
-    ec_note = build_effectcraft(a, film, project, out / "effectcraft")
-    name = ""
+    mix = pick_mix(film, plan, a.mix)
+    if mix:
+        link_or_copy(mix, project / "audio" / mix.name)
+        mix = project / "audio" / mix.name
+    ec_note = build_effectcraft(a, film, project, out / "effectcraft", mix)
+    name, fc_note, muxed = "", "not built (no video in this run)", False
     if video:
         name = delivered_name(video, a.render_tag)
-        link_or_copy(video, out / name)
+        if mix and not a.no_mux and shutil.which("ffmpeg"):
+            mux_audio(video, mix, out / name)
+            muxed = True
+        else:
+            link_or_copy(video, out / name)
+        if not a.no_filmcraft:
+            fc_note = build_filmcraft(a, film, out / name, mix, out / "filmcraft")
     fm = json.loads((film / "film.json").read_text())
     (out / "README.md").write_text(README.format(
         title=fm.get("title", film_id), credits=CREDITS, video=name or "(video not included)", tag=a.render_tag,
         id=film_id, last=raw["dur"] - 1, ec_note=ec_note, blender=blender_version(a.blender), rev=git_rev(),
-        frames=", ".join(map(str, frames)), res_scale=a.res_scale, verified="passed"))
+        frames=", ".join(map(str, frames)), res_scale=a.res_scale, verified="passed",
+        mix=mix.name if mix else "(none)", muxed_txt="this mix (muxed in, replacing the render's own track)" if muxed else "the render's own track (the mix is shipped alongside)", fc_note=fc_note))
     return 0
 
 

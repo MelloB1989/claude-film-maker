@@ -56,3 +56,17 @@ def test_verdict():
            "frames": [{"frame": 1, "magenta": 0.5, "blank": True}]}
     assert len(K.verdict(bad)) == 4
     assert K.verdict({"image_paths": [], "frames": []}) == ["no frames rendered"]
+
+
+def test_pick_mix_prefers_explicit_then_fixed_then_plan(tmp_path):
+    film = tmp_path / "films" / "x"
+    (film / "audio" / "mix").mkdir(parents=True)
+    plan = type("P", (), {"raw": {"audio": "audio/mix/mix.wav"}, "path": lambda self, r: film / r})()
+    assert K.pick_mix(film, plan, None) is None
+    (film / "audio/mix/mix.wav").write_bytes(b"o")
+    assert K.pick_mix(film, plan, None).name == "mix.wav"
+    (film / "audio/mix/mix_fixed.wav").write_bytes(b"f")
+    assert K.pick_mix(film, plan, None).name == "mix_fixed.wav"
+    ex = tmp_path / "e.wav"
+    ex.write_bytes(b"e")
+    assert K.pick_mix(film, plan, ex) == ex
