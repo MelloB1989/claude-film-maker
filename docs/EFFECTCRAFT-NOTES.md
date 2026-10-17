@@ -132,3 +132,7 @@ Probed against effectcraft-cli 0.10.0 while checking how the Blender element seq
 - Single-frame `render-frame` of a 1920x1080 comp with one 1080p PNG layer takes about 1.6 s.
 - The element sequences are named by comp frame (`NNNN.png`, e.g. `0802.png`), so import them as a numbered sequence and
   start the layer at that comp frame (or set `startTime = frame / 30`), no remap is needed.
+
+### fx follow-up
+- Comic ink: no Halftone effect in 0.10, so the halftone is an ordered dither: a black solid with `ADBE Checkerboard` (Size From = 2, white squares), Gaussian blur 6, rotated 45, Linear Light at 17% sits under the Threshold adjustment layer; Tint maps ink/paper; a 5 px RGB split on top is the misregistration. (Checkerboard `Size From` 1 = corner point, and a black Color made the whole layer black.)
+- FX skips automatic shake/flash/chroma/ink inside the SPECIAL windows 244-262, 468-492, 777-830 (riser and explicit looks still run).
