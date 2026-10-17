@@ -183,37 +183,27 @@ def letter_material(name, kind):
     pulse = node(nt, "ShaderNodeValue", 100, -300, name="PULSE")
     pulse.outputs[0].default_value = 1.0
     if kind == "front":
+        # candy-red lacquer over a red metal flake base: clear specular, no printed pattern
         bs.inputs["Base Color"].default_value = rgba(RED)
-        bs.inputs["Roughness"].default_value = 0.16
-        bs.inputs["Specular IOR Level"].default_value = 0.7
+        bs.inputs["Metallic"].default_value = 0.55
+        bs.inputs["Roughness"].default_value = 0.14
+        bs.inputs["Specular IOR Level"].default_value = 0.9
         bs.inputs["Coat Weight"].default_value = 1.0
-        bs.inputs["Coat Roughness"].default_value = 0.03
-        bs.inputs["Emission Color"].default_value = rgba((0.03, 0.12, 1.0))
-        tc = node(nt, "ShaderNodeTexCoord", -1100, 0)
-        # dots grow towards the bottom of the letter and vanish at the top
-        sep = node(nt, "ShaderNodeSeparateXYZ", -1100, -250)
-        link(nt, tc.outputs["Object"], sep.inputs[0])
-        rad = node(nt, "ShaderNodeMath", -950, -250, operation="MULTIPLY_ADD", use_clamp=True)
-        link(nt, sep.outputs["Z"], rad.inputs[0])
-        rad.inputs[1].default_value = -0.21
-        rad.inputs[2].default_value = 0.30
-        mask = halftone(nt, tc.outputs["Object"], ("X", "Z"), 2.6, rad.outputs[0])
-        st = node(nt, "ShaderNodeMath", 300, -150, operation="MULTIPLY")
-        link(nt, mask, st.inputs[0])
-        link(nt, pulse.outputs[0], st.inputs[1])
-        link(nt, st.outputs[0], bs.inputs["Emission Strength"])
-        ink = node(nt, "ShaderNodeMix", 350, 200, data_type="RGBA")      # the dots are printed ink: deep blue over the red
-        link(nt, mask, ink.inputs["Factor"])
-        ink.inputs["A"].default_value = rgba(RED)
-        ink.inputs["B"].default_value = (0.01, 0.05, 0.55, 1.0)
-        link(nt, ink.outputs["Result"], bs.inputs["Base Color"])
-        # the dots also darken the red a little so they read as printed ink, not as light
-        pulse.outputs[0].default_value = 0.45
+        bs.inputs["Coat Roughness"].default_value = 0.02
+        bs.inputs["Emission Color"].default_value = rgba(HOT)
+        lw = node(nt, "ShaderNodeLayerWeight", 100, -100)
+        lw.inputs["Blend"].default_value = 0.6
+        mul = node(nt, "ShaderNodeMath", 300, -150, operation="MULTIPLY")
+        link(nt, lw.outputs["Facing"], mul.inputs[0])
+        link(nt, pulse.outputs[0], mul.inputs[1])
+        link(nt, mul.outputs[0], bs.inputs["Emission Strength"])
+        pulse.outputs[0].default_value = 0.10
     elif kind == "bevel":
-        bs.inputs["Base Color"].default_value = rgba(RED_BEVEL)
-        bs.inputs["Roughness"].default_value = 0.12
-        bs.inputs["Specular IOR Level"].default_value = 0.8
-        bs.inputs["Coat Weight"].default_value = 1.0
+        bs.inputs["Base Color"].default_value = rgba((0.04, 0.16, 0.85))
+        bs.inputs["Metallic"].default_value = 0.9
+        bs.inputs["Roughness"].default_value = 0.14
+        bs.inputs["Specular IOR Level"].default_value = 0.9
+        bs.inputs["Coat Weight"].default_value = 0.6
         bs.inputs["Coat Roughness"].default_value = 0.02
         bs.inputs["Emission Color"].default_value = rgba(BLUE)
         lw = node(nt, "ShaderNodeLayerWeight", 100, -100)
@@ -222,7 +212,7 @@ def letter_material(name, kind):
         link(nt, lw.outputs["Fresnel"], mul.inputs[0])
         link(nt, pulse.outputs[0], mul.inputs[1])
         link(nt, mul.outputs[0], bs.inputs["Emission Strength"])
-        pulse.outputs[0].default_value = 1.4
+        pulse.outputs[0].default_value = 1.1
     else:
         bs.inputs["Base Color"].default_value = rgba(NAVY)
         bs.inputs["Metallic"].default_value = 0.85
@@ -239,14 +229,39 @@ def letter_material(name, kind):
     return m
 
 
-def metal_material(name, tint, emit):
+def metal_material(name, tint, emit, opacity=1.0, fade=None):
+    """Metal; `opacity` caps how bright it reads and `fade=(r0, r1, floor)` fades it out with the distance from the origin in
+    the XZ plane (towards the screen edges), via a transparent mix."""
     m, nt = new_mat(name)
-    out = node(nt, "ShaderNodeOutputMaterial", 400, 0)
+    out = node(nt, "ShaderNodeOutputMaterial", 700, 0)
     bs = node(nt, "ShaderNodeBsdfPrincipled", 100, 0, name="BSDF")
-    link(nt, bs.outputs[0], out.inputs[0])
+    if opacity < 1.0 or fade:
+        tc = node(nt, "ShaderNodeTexCoord", -700, 300)
+        sep = node(nt, "ShaderNodeSeparateXYZ", -500, 300)
+        link(nt, tc.outputs["Object"], sep.inputs[0])
+        comb = node(nt, "ShaderNodeCombineXYZ", -350, 300)
+        link(nt, sep.outputs["X"], comb.inputs["X"])
+        link(nt, sep.outputs["Z"], comb.inputs["Y"])
+        ln = node(nt, "ShaderNodeVectorMath", -200, 300, operation="LENGTH")
+        link(nt, comb.outputs[0], ln.inputs[0])
+        r0, r1, floor = fade or (0.0, 1.0, 1.0)
+        mr = node(nt, "ShaderNodeMapRange", -50, 300, clamp=True)
+        link(nt, ln.outputs["Value"], mr.inputs["Value"])
+        mr.inputs["From Min"].default_value = r0
+        mr.inputs["From Max"].default_value = r1
+        mr.inputs["To Min"].default_value = opacity
+        mr.inputs["To Max"].default_value = opacity * floor
+        tr = node(nt, "ShaderNodeBsdfTransparent", 300, -150)
+        mx = node(nt, "ShaderNodeMixShader", 500, 0)
+        link(nt, mr.outputs["Result"], mx.inputs[0])
+        link(nt, tr.outputs[0], mx.inputs[1])
+        link(nt, bs.outputs[0], mx.inputs[2])
+        link(nt, mx.outputs[0], out.inputs[0])
+    else:
+        link(nt, bs.outputs[0], out.inputs[0])
     bs.inputs["Base Color"].default_value = rgba(tint)
     bs.inputs["Metallic"].default_value = 1.0
-    bs.inputs["Roughness"].default_value = 0.22
+    bs.inputs["Roughness"].default_value = 0.10
     bs.inputs["Emission Color"].default_value = rgba(tint)
     bs.inputs["Emission Strength"].default_value = emit
     return m
@@ -294,8 +309,8 @@ def backdrop_material():
     rad.inputs["From Min"].default_value = 3.0
     rad.inputs["From Max"].default_value = 14.0
     rad.inputs["To Min"].default_value = 0.0
-    rad.inputs["To Max"].default_value = 0.4
-    mask = halftone(nt, tc.outputs["Object"], ("X", "Y"), 1.2, rad.outputs["Result"], soft=0.09)
+    rad.inputs["To Max"].default_value = 0.3
+    mask = halftone(nt, tc.outputs["Object"], ("X", "Y"), 1.2, rad.outputs["Result"], soft=0.14)
     ramp = node(nt, "ShaderNodeMapRange", -600, 200, clamp=True)       # red -> blue by x
     link(nt, sep.outputs["X"], ramp.inputs["Value"])
     ramp.inputs["From Min"].default_value = -14.0
@@ -632,8 +647,40 @@ def build_world():
     link(nt, ramp.outputs["Result"], mix.inputs["Factor"])
     mix.inputs["A"].default_value = (0.004, 0.006, 0.03, 1)
     mix.inputs["B"].default_value = (0.045, 0.02, 0.09, 1)
+    # studio reflections: soft diagonal light bands that only glossy/diffuse rays see, so the faces get a clear specular
+    # sweep while the camera still sees the void
+    sx = node(nt, "ShaderNodeMath", -400, 300, operation="MULTIPLY_ADD")
+    link(nt, sep.outputs["X"], sx.inputs[0])
+    sx.inputs[1].default_value = 0.8
+    link(nt, sep.outputs["Z"], sx.inputs[2])
+    sn = node(nt, "ShaderNodeMath", -250, 300, operation="SINE")
+    sm = node(nt, "ShaderNodeMath", -400, 450, operation="MULTIPLY")
+    link(nt, sx.outputs[0], sm.inputs[0])
+    sm.inputs[1].default_value = 14.0
+    link(nt, sm.outputs[0], sn.inputs[0])
+    bd = node(nt, "ShaderNodeMapRange", -100, 300, clamp=True)
+    link(nt, sn.outputs[0], bd.inputs["Value"])
+    bd.inputs["From Min"].default_value = 0.35
+    bd.inputs["From Max"].default_value = 0.95
+    bd.inputs["To Max"].default_value = 1.0
+    bcol = node(nt, "ShaderNodeMix", 150, 300, data_type="RGBA")
+    bcol.inputs["Factor"].default_value = 0.5
+    bcol.inputs["A"].default_value = (3.4, 3.6, 4.0, 1)
+    bcol.inputs["B"].default_value = (4.0, 2.8, 3.0, 1)
+    lp = node(nt, "ShaderNodeLightPath", 150, 500)
+    bst = node(nt, "ShaderNodeMath", 350, 400, operation="MULTIPLY")
+    link(nt, bd.outputs["Result"], bst.inputs[0])
+    inv = node(nt, "ShaderNodeMath", 200, 600, operation="SUBTRACT")
+    inv.inputs[0].default_value = 1.0
+    link(nt, lp.outputs["Is Camera Ray"], inv.inputs[1])
+    link(nt, inv.outputs[0], bst.inputs[1])
     link(nt, mix.outputs["Result"], bg.inputs["Color"])
     bg.inputs["Strength"].default_value = 1.0
+    sc_ = node(nt, "ShaderNodeMix", 450, 0, data_type="RGBA")
+    link(nt, bst.outputs[0], sc_.inputs["Factor"])
+    link(nt, mix.outputs["Result"], sc_.inputs["A"])
+    link(nt, bcol.outputs["Result"], sc_.inputs["B"])
+    link(nt, sc_.outputs["Result"], bg.inputs["Color"])
     return bg
 
 
@@ -664,6 +711,8 @@ def build_lights():
     L["top"] = area("top_soft", (0, -12, 17), 14, 2200, (0.95, 0.97, 1.0), size_y=4)
     L["rimR"] = area("rim_blue_R", (13, 7, 5), 8, 9000, (0.18, 0.40, 1.0), target=(0, 0, 0), size_y=4)
     L["rimL"] = area("rim_cyan_L", (-13, 7, 6), 8, 5000, (0.10, 0.65, 1.0), target=(0, 0, 0), size_y=4)
+    L["stripT"] = area("strip_top", (0, -14, 13), 22, 1800, (1.0, 1.0, 1.0), size_y=1.6)
+    L["stripB"] = area("strip_blue", (15, -9, -4), 14, 1400, (0.35, 0.55, 1.0), size_y=1.2)
     L["fill"] = area("fill_mag", (4, -18, -8), 10, 900, (0.85, 0.2, 0.55))
     base = {k: v[1].energy for k, v in L.items()}
     for f in frames():
@@ -697,8 +746,9 @@ def build_backdrop(bgnode):
     ob.location = (0, 17, 0)
     em = mat.node_tree.nodes["EMIT"].inputs["Strength"]
     for f in frames():
-        base = 0.55 + 0.35 * smooth((f - 819) / 12.0)
-        key(em, "default_value", f, base * (1 + 0.25 * pulse_env(f, 1.0, 2.5)) * (1.0 if f < 897 else max(0.0, 1 - (f - 896) / 2)))
+        base = 0.40 + 0.15 * smooth((f - 819) / 12.0)
+        base *= 1.0 - 0.3 * smooth((f - 858) / 4.0) * (1.0 - smooth((f - 886) / 4.0))
+        key(em, "default_value", f, base * (1 + 0.12 * pulse_env(f, 1.0, 2.5)) * (1.0 if f < 897 else max(0.0, 1 - (f - 896) / 2)))
     linearize(mat.node_tree)
     # slow drift so the halftone parallaxes with the camera
     for f in frames():
@@ -728,7 +778,7 @@ def build_portal():
     for f in frames():
         t = f - F0
         key(phase, "default_value", f, -t * 0.045)
-        st = 1.2 + 1.5 * env(f, 819, 3.0) + 0.4 * pulse_env(f, 1.0, 3.0)
+        st = 0.8 + 1.5 * env(f, 819, 3.0) + 0.2 * pulse_env(f, 1.0, 3.0)
         st *= smooth((f - 818) / 2.0)
         if f >= 892:
             st *= 1.0 + 1.5 * smooth((f - 892) / 3.0)
@@ -737,8 +787,8 @@ def build_portal():
         key(strength, "default_value", f, st)
     linearize(nt)
     # coloured rings: gold (Tobey) / cyan (Andrew) / red (Tom) + a white inner line
-    specs = [("ring_white", 6.6, 0.05, WHITE, 14.0, (0, 0, 0.0)), ("ring_gold", 7.15, 0.075, GOLD, 9.0, (0.30, 0.18, 0.5)),
-             ("ring_cyan", 7.7, 0.075, CYAN, 9.0, (-0.25, 0.30, 2.0)), ("ring_red", 8.25, 0.075, HOT, 9.0, (0.12, -0.34, 4.0))]
+    specs = [("ring_white", 6.6, 0.04, WHITE, 3.5, (0, 0, 0.0)), ("ring_gold", 7.15, 0.05, GOLD, 2.2, (0.30, 0.18, 0.5)),
+             ("ring_cyan", 7.7, 0.05, CYAN, 2.2, (-0.25, 0.30, 2.0)), ("ring_red", 8.25, 0.05, HOT, 2.2, (0.12, -0.34, 4.0))]
     rings = []
     for name, R, r, col, st, (tx, ty, ph) in specs:
         bm = bmesh.new()
@@ -784,7 +834,8 @@ def build_portal():
             ob.rotation_euler = (math.pi / 2 + wob * ty * math.sin(t * 0.09 + ph), wob * tx * math.cos(t * 0.07 + ph),
                                  t * (0.02 + 0.008 * k) * (1 if k % 2 else -1))
             ob.keyframe_insert("rotation_euler", frame=f)
-            val = st * (0.25 + 0.75 * smooth((f - 818) / 2.0)) * (1 + 0.5 * env(f, 819, 3) + 0.25 * pulse_env(f, 1.0, 3.0))
+            val = st * (0.25 + 0.75 * smooth((f - 818) / 2.0)) * (1 + 0.8 * env(f, 819, 3) + 0.1 * pulse_env(f, 1.0, 3.0))
+            val *= 0.7 * (1.0 - 0.6 * smooth((f - 858) / 3.0) * (1.0 - smooth((f - 887) / 3.0)))     # dim behind the lockup
             if f >= 897:
                 val *= max(0.0, 1.0 - (f - 896) / 2.0)
             key(st_in, "default_value", f, val)
@@ -798,9 +849,9 @@ def web_geometry(mat_hi):
     """Metallic web net behind the word: spokes draw out from the centre (819-823), rings spiral on after (821-827)."""
     rnd = random.Random(7)
     R = 17.0
-    spokes_n, rings_n = 18, 11
-    ob_s, cu_s = make_curve("web_spokes", mat_hi, 0.032)
-    ob_r, cu_r = make_curve("web_rings", mat_hi, 0.024)
+    spokes_n, rings_n = 16, 14
+    ob_s, cu_s = make_curve("web_spokes", mat_hi, 0.016)
+    ob_r, cu_r = make_curve("web_rings", mat_hi, 0.012)
     ang = [2 * math.pi * i / spokes_n + rnd.uniform(-0.05, 0.05) for i in range(spokes_n)]
     for a in ang:
         poly(cu_s, [(0.4 * math.cos(a), 0, 0.4 * math.sin(a)), (R * math.cos(a), 0, R * math.sin(a))])
@@ -822,21 +873,21 @@ def web_geometry(mat_hi):
 
 
 def build_web():
-    mat = metal_material("web_metal", (0.55, 0.64, 0.9), 0.35)
+    mat = metal_material("web_metal", (0.62, 0.70, 0.95), 0.12, opacity=0.3, fade=(3.5, 13.0, 0.1))
     ob_s, cu_s, ob_r, cu_r = web_geometry(mat)
     for f in frames():
         t = f - F0
         key(cu_s, "bevel_factor_end", f, out_pow((f - 819) / 4.5, 2.2))
         key(cu_r, "bevel_factor_end", f, out_pow((f - 821.5) / 6.0, 2.0))
         # the net is a trampoline: it rings on every hit (a damped scale pulse about its centre)
-        wob = 1.0 + 0.03 * sum(s * ring_osc(f, h, 3.2, 1.35) for h, s in HITS) + 0.0
+        wob = 1.0 + 0.008 * sum(s * ring_osc(f, h, 3.2, 1.35) for h, s in HITS)
         sc = wob * (1.0 + 0.0012 * t)
         if f >= 892:
             sc *= 1.0 + 0.35 * smooth((f - 892) / 5.0)
         for ob in (ob_s, ob_r):
             ob.scale = (sc, sc, sc)
             ob.keyframe_insert("scale", frame=f)
-            ob.rotation_euler = (0, 0, 0.002 * t + 0.03 * sum(s * ring_osc(f, h, 4.0, 1.0) for h, s in HITS))
+            ob.rotation_euler = (0, 0, 0.002 * t + 0.005 * sum(s * ring_osc(f, h, 4.0, 1.0) for h, s in HITS))
             ob.keyframe_insert("rotation_euler", frame=f)
         if f >= 895:
             k = max(0.0, 1.0 - (f - 894) / 3.0)
@@ -851,11 +902,11 @@ def build_web():
 
 def build_strands(objs):
     """Web strands that shoot and snap on the hits; they stay attached to the landed letters until the exit snap."""
-    mat = metal_material("strand_metal", (0.9, 0.94, 1.0), 0.7)
+    mat = metal_material("strand_metal", (0.8, 0.85, 0.95), 0.05, opacity=0.22, fade=(4.0, 14.0, 0.2))
     rest = {i: Vector(ob["rest"]) for i, ob in enumerate(objs)}
     FRONT = -0.7
 
-    def strand(name, a, b, f0, life_end, sag=0.7, snap_amp=0.8, speed=2.0, thick=0.028):
+    def strand(name, a, b, f0, life_end, sag=0.7, snap_amp=0.8, speed=2.0, thick=0.010):
         """a = anchor (far end), b = the target; shot at f0 (draw over `speed` frames), wobbles, retracts at life_end."""
         ob, cu = make_curve(name, mat, thick)
         a, b = Vector(a), Vector(b)
@@ -891,12 +942,12 @@ def build_strands(objs):
     for i, (f, sgn) in cfg.items():
         an = top(rest[i].x, sgn)
         tgt = rest[i] + Vector((0, FRONT * 0.4, sgn * 1.55 if i != 3 else -0.2))     # attach to the letter's top / bottom edge
-        strand(f"s_letter{i}", an, tgt, f, 892, snap_amp=0.9 if f in HIT_FRAMES else 0.55)
+        strand(f"s_letter{i}", an, tgt, f, 892, snap_amp=0.4 if f in HIT_FRAMES else 0.2)
     # 888-892: the web wrap: six strands cross in front of the word and bite tight; they snap on the big hit
     wrap = [((-17, -2.6, -6.0), (17, -2.6, 4.0)), ((17, -2.6, -4.5), (-17, -2.6, 6.0)), ((-17, -2.8, 4.0), (17, -2.8, -5.5)),
             ((17, -2.6, 5.5), (-17, -2.6, -4.0))]
     for k, (a, b) in enumerate(wrap):
-        strand(f"wrap{k}", a, b, 889 + (k % 2), 892, snap_amp=0.1, speed=2.5, thick=0.032)
+        strand(f"wrap{k}", a, b, 889 + (k % 2), 892, snap_amp=0.05, speed=2.5, thick=0.010)
 
 
 def star_mesh(arm=1.0, waist=0.09):
@@ -977,9 +1028,7 @@ def build_fx(objs):
         big = s >= 1.0
         card("glint", star, WHITE, loc + Vector((rnd.uniform(-0.8, 0.8), -0.5, rnd.uniform(0.6, 1.6))), f, 8, 0.2, 1.3 * s + 0.4,
              10.0)
-        card("ring", ann, CYAN if i % 2 else HOT, loc + Vector((0, 0.6, 0)), f, 8 if not big else 11, 0.5, 3.0 * s + 1.2, 6.0,
-             decay_pow=1.8)
-        for k in range(14 if big else 7):                      # debris: shards fly out and fall, tumbling
+        for k in range(8 if big else 4):                      # debris: shards fly out and fall, tumbling
             ang = rnd.uniform(0, 2 * math.pi)
             sp = rnd.uniform(0.35, 0.9) * (1.4 if big else 1.0)
             vel = Vector((math.cos(ang) * sp, rnd.uniform(-0.6, -0.1), math.sin(ang) * sp + 0.15))
@@ -992,7 +1041,7 @@ def build_fx(objs):
             me.materials.append(m)
             life = rnd.randint(9, 14)
             spin = rnd.uniform(-0.8, 0.8)
-            base_sz = rnd.uniform(0.35, 0.9)
+            base_sz = rnd.uniform(0.25, 0.6)
             for fr in frames():
                 t = fr - f
                 if 0 <= t <= life:
@@ -1021,7 +1070,7 @@ def build_fx(objs):
 
 def build_shafts():
     """Fake volumetrics: soft emissive shaft cards through the portal centre (no volume fog)."""
-    specs = [(-0.55, CYAN, 1.0), (0.35, HOT, 1.0), (1.15, BLUE, 0.8), (2.2, GOLD, 0.6), (-1.6, HOT, 0.7)]
+    specs = [(-0.55, CYAN, 1.0), (0.35, HOT, 1.0), (1.15, BLUE, 0.8)]
     for i, (rot, col, w) in enumerate(specs):
         me = bpy.data.meshes.new(f"shaft{i}")
         bm = bmesh.new()
@@ -1044,7 +1093,8 @@ def build_shafts():
             t = f - F0
             ob.rotation_euler = (math.pi / 2, 0, rot + 0.01 * t * (1 if i % 2 else -1))
             ob.keyframe_insert("rotation_euler", frame=f)
-            v = (0.14 + 0.7 * env(f, 819, 4.0)) * smooth((f - 818) / 3.0) + 0.55 * pulse_env(f, 1.0, 2.5) * (0.5 + 0.5 * math.sin(i))
+            v = (0.14 + 0.7 * env(f, 819, 4.0)) * smooth((f - 818) / 3.0) + 0.3 * pulse_env(f, 1.0, 2.5) * (0.5 + 0.5 * math.sin(i))
+            v *= 1.0 - 0.7 * smooth((f - 858) / 3.0) * (1.0 - smooth((f - 887) / 3.0))     # calm lockup
             if f >= 892:
                 v *= 1.0 + 2.0 * smooth((f - 892) / 3.0)
             if f >= 897:
@@ -1153,7 +1203,7 @@ def animate_letters(objs, face_mats):
                 glow += 1.2 * env(f, 892, 3.0)
             ramp = smooth((f - FLIGHTS[i][0]) / 6.0)
             for sock, rest_v in pulses:
-                key(sock, "default_value", f, rest_v * (0.35 + 0.65 * ramp) * (1.0 + 3.2 * glow))
+                key(sock, "default_value", f, rest_v * (0.35 + 0.65 * ramp) * (1.0 + 1.8 * glow))
         linearize(ob)
         for m in face_mats[i]:
             linearize(m.node_tree)
@@ -1166,7 +1216,8 @@ def build_camera():
     cam_d.lens = 40.0
     cam_d.sensor_width = 36.0
     cam_d.clip_start, cam_d.clip_end = 0.05, 200.0
-    cam_d.dof.use_dof = False
+    cam_d.dof.use_dof = True
+    cam_d.dof.aperture_fstop = 0.07          # BU = metres: this f-stop softens what sits 6+ BU behind the letters (portal rings, backdrop)
     cam = bpy.data.objects.new("cam", cam_d)
     sc.collection.objects.link(cam)
     sc.camera = cam
@@ -1181,18 +1232,20 @@ def build_camera():
         t = (f - F0) / (F1 - F0)
         punch = sum(s * ring_osc(f, h, 2.6, 1.0) for h, s in HITS)       # dolly impulse (negative = towards the word)
         hit_env = sum(s * env(f, h, 3.0) for h, s in HITS)
-        d = 27.0 - 6.5 * out_pow((f - 819) / 22.0, 2.0) - 1.8 * smooth((f - 840) / 50.0)      # pulls back from close, then pushes in
-        d -= 1.9 * punch
+        d = 28.0 - 5.0 * out_pow((f - 819) / 22.0, 2.0) - 1.2 * smooth((f - 840) / 50.0)      # pulls back from close, then pushes in
+        d -= 0.7 * punch
         if f >= 892:
             d -= 7.0 * smooth((f - 892) / 5.0)                    # the yank: the camera drives into the exit
         az = math.radians(-11 + 17 * smooth(t * 1.05))              # a slow orbit that never stops
         el = math.radians(5.0 - 4.0 * smooth(t) + 1.2 * punch)
-        roll = math.radians(1.2 * math.sin(t * 5.0) + 2.2 * punch + (7.0 * smooth((f - 892) / 6.0) if f >= 892 else 0.0))
-        shake = hit_env * 0.12
+        roll = math.radians(1.2 * math.sin(t * 5.0) + 0.8 * punch + (7.0 * smooth((f - 892) / 6.0) if f >= 892 else 0.0))
+        shake = hit_env * 0.05
         j = jit[(f - F0) % 400]
         rig.rotation_euler = (el + 0.004 * j[0] * hit_env * 3, 0, az + 0.004 * j[1] * hit_env * 3)
         rig.location = (shake * j[2] * 0.6, 0, shake * j[0] * 0.5)
         cam.location = (0, -d, 0)
+        key(cam_d.dof, "focus_distance", f, max(1.0, d - 0.3))
+        key(cam_d.dof, "aperture_fstop", f, 0.07 if f < 896 else 128.0)      # pinhole for the black cards, which sit at the lens
         cam.rotation_quaternion = q90 @ Quaternion((0, 0, 1), roll)
         rig.keyframe_insert("rotation_euler", frame=f)
         rig.keyframe_insert("location", frame=f)
@@ -1200,6 +1253,7 @@ def build_camera():
         cam.keyframe_insert("rotation_quaternion", frame=f)
     linearize(rig)
     linearize(cam)
+    linearize(cam_d)
     # screen-space cards parented to the camera: colour flash + final black
     def screen_card(name, dist):
         me = bpy.data.meshes.new(name)
@@ -1290,9 +1344,7 @@ def build_compositor(res_scale):
     link(nt, last, go.inputs[0])
     if split:
         for f in frames():
-            amt = sum(s * env(f, h, 2.2) for h, s in HITS) * 9.0 * res_scale
-            if f >= 892:
-                amt += 10.0 * res_scale * smooth((f - 892) / 4.0)
+            amt = sum(s * (1.0 if f == h else 0.5 if f == h + 1 else 0.0) for h, s in HITS) * 8.0 * res_scale
             for t_, sign in ((split[0], 1), (split[1], -1)):
                 t_.inputs["X"].default_value = sign * amt
                 t_.inputs["X"].keyframe_insert("default_value", frame=f)
@@ -1327,7 +1379,7 @@ def setup_render(args):
     sc.render.motion_blur_position = "CENTER"
     sc.render.film_transparent = False
     im = sc.render.image_settings
-    im.file_format, im.color_mode, im.color_depth, im.compression = "PNG", "RGB", "8", 15
+    im.file_format, im.color_mode, im.color_depth, im.compression = "PNG", "RGBA", "8", 15      # opaque, but RGBA like the other pieces (pod_render.sh checks colour type 6)
     sc.render.dither_intensity = 0.0               # the last frame has to be exactly black
     sc.view_settings.view_transform = "AgX"
     sc.view_settings.look = "AgX - Punchy"

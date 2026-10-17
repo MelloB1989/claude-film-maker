@@ -242,7 +242,7 @@ var TITLES = (function () {
 
     // ---------------------------------------------------------------- namecard
     var ACT_ACCENT = { tobey: "#E9C46A", andrew: "#5BC8FF", tom: "#FF5A3C" };
-    var CARD = { x: 96, nameCy: 804, ruleY: 840, subCy: 874, nameSize: 52, subSize: 24 };
+    var CARD = { x: 96, nameCy: 780, ruleY: 815, subCy: 850, nameSize: 52, subSize: 27 };
     function namecard(main, T, X, idx) {
         var n = T.f1 - T.f, comp = newComp("NAMECARD " + T.text, T.f, T.f1), act = X.act[String(idx)];
         var on = { font: "Montserrat-Light", size: CARD.nameSize, fill: [1, 1, 1], track: 380, just: "l" };
@@ -252,7 +252,7 @@ var TITLES = (function () {
         var ink = pn.r.width;
         var subL = mkText(comp, T.sub, os); subL.name = "sub line";
         var ps = place(comp, subL, os, CARD.x, CARD.subCy);
-        OPA(subL).setValue(82);
+        OPA(subL).setValue(85);
         var rise = Math.min(14, Math.round(n * 0.3)), outN = Math.min(10, Math.round(n * 0.3)), out0 = n - 1 - outN;   // entry and exit scale down for short cards
         // mask reveal: a static layer mask in comp space, the glyphs rise into it (text animator position)
         function reveal(l, p, o, f0) {
@@ -266,6 +266,11 @@ var TITLES = (function () {
         trackAnim(nameL, [[0, 520], [rise + 3, 0]], "out");
         trackAnim(subL, [[4, 420], [rise + 5, 0]], "out");
         // rule + accent tick (shape layers, scale-X reveal from the left, slide out to the left with the text)
+        // soft dark gradient plate behind the block (feathered, ~40 % black) so thin type reads over busy footage
+        var plate = comp.layers.addSolid([0, 0, 0], "legibility plate", W, H, 1, n / FPS);
+        layerMask(plate, rectShape(-160, 690, CARD.x + ink + 260, 925), 150);
+        K(OPA(plate), [[0, 0], [rise, 40], [out0, 40], [n - 1, 0]], "io");
+        plate.moveToEnd();
         var rule = comp.layers.addShape(); rule.name = "rule";
         var g = rule.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");
         var rc = g.property("ADBE Vectors Group");
@@ -374,12 +379,14 @@ var TITLES = (function () {
         red_gold:      { settle: 40, top: "#FFE08A", bot: "#FF2E1F", stroke: "#FF3A2A", glowA: "#FFE9A6", glowB: "#FF2A12" },
         crimson_white: { settle: 55, top: "#FFFFFF", bot: "#E0123F", stroke: "#FF2A55", glowA: "#FFFFFF", glowB: "#FF1744" }
     };
+    // per-word vertical centre when the default (470) would cover a face: SPIDER-MAN on M08 sits in the lower third, clear of the eye and above the S25 letterbox bar (y 941)
+    var NOVAX_Y = { "SPIDER-MAN": 735 };
     var NOVAX_FONT = "ChineseRocksRg-Regular", TAG_FONT = "Montserrat-Light";
     var ACT_TAG = { tobey: "TOBEY MAGUIRE", andrew: "ANDREW GARFIELD", tom: "TOM HOLLAND" };
     function slantBar(cx, top, bot, w, lean) { var s = new Shape(); s.vertices = [[cx - w / 2, top], [cx + w / 2, top], [cx + w / 2 + lean, bot], [cx - w / 2 + lean, bot]]; s.closed = true; return s; }
     function novax(main, T, X, idx, ctx) {
         var n = T.f1 - T.f, comp = newComp("NOVAX " + T.text, T.f, T.f1), pal = PAL[T.palette] || PAL.cyan, act = X.act[String(idx)];
-        var cx = W / 2, cy = T.y || 470;
+        var cx = W / 2, cy = T.y || NOVAX_Y[T.text] || 470;
         // hero size: the final (tracked-open) word spans <= 1380 px, so it is fully in frame and never clipped
         var probe = mkText(comp, T.text, { font: NOVAX_FONT, size: 300, fill: [1, 1, 1], italic: true });
         var w300 = rect(probe).width; probe.remove();
@@ -399,7 +406,7 @@ var TITLES = (function () {
         // tag on a rough black brush bar, just under the baseline (its own comp: it stays in FRONT of the subject)
         var tcomp = newComp("NOVAX TAG " + T.text, T.f, T.f1);
         var tagText = T.tag || ACT_TAG[act] || "";
-        var barH = Math.max(46, Math.round(capH * 0.17)), barW = Math.round(Math.max(heroW * 0.3, tagText.length * barH * 0.62 + 90)), barCy = bot + capH * 0.08 + barH / 2 + 10, barL = cx - heroW / 2 + heroW * 0.03;
+        var barH = Math.max(46, Math.round(capH * 0.17)), barW = Math.round(Math.max(heroW * 0.3, tagText.length * barH * 0.62 + 90)), subCap = Math.round(S * 0.3 * 0.7), subCy = bot + capH * 0.1 + subCap / 2 + 12, barCy = bot + capH * 0.08 + barH / 2 + 10 + (T.sub ? subCap + capH * 0.1 + 6 : 0), barL = cx - heroW / 2 + heroW * 0.03;
         var bar = tcomp.layers.addShape(); bar.name = "tag bar";
         var bg = bar.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");
         var br = bg.property("ADBE Vectors Group").addProperty("ADBE Vector Shape - Rect"); br.property("ADBE Vector Rect Size").setValue([barW, barH]); br.property("ADBE Vector Rect Position").setValue([barW / 2, 0]);
@@ -419,6 +426,11 @@ var TITLES = (function () {
             trackAnim(tag, [[6, 0], [20, 260]], "out");
             K(OPA(tag), [[6, 0], [11, 100]], "lin");
         }
+        // dark outer stroke under everything so the word separates from a blown-out sky
+        var oD = { font: NOVAX_FONT, size: S, fill: null, stroke: hex("#050B14"), sw: Math.max(8, Math.round(S / 30)), italic: true };
+        var dk = hero("dark outer stroke", oD);
+        OPA(dk).setValue(88);
+        dropShadow(dk, 70, 0, 30, 135, "dark halo");
         // gradient fill: a ramp solid cut by the alpha of the (hidden) fill text. White at the top, the hue at the bottom.
         var fillT = hero("fill text (matte)", oh);
         TRY("fill roughen", function () { var rg = fxAdd(fillT, "ADBE Roughen Edges", "distress"); setp(rg, "Border", 1.2); setp(rg, "Scale", 35); });
@@ -460,10 +472,10 @@ var TITLES = (function () {
         glow(st, "outline glow tight", 40, 12, 1.0, hex(pal.glowA), hex(pal.glowB));
         glow(st, "outline glow", 40, 42, 0.55, hex(pal.glowB), hex(pal.glowB));
         dropShadow(st, 75, 6, 16, 135, "outline shadow");
-        // thin white sub, laid across the middle of the hero
+        // thin white sub, centred under the word
         if (T.sub) {
             var os = { font: TAG_FONT, size: Math.round(S * 0.3), fill: [1, 1, 1], track: 200 };
-            var sb = mkText(comp, T.sub, os); sb.name = "sub"; place(comp, sb, os, cx, cy);
+            var sb = mkText(comp, T.sub, os); sb.name = "sub"; place(comp, sb, os, cx, subCy);   // below the word, never across the letters
             trackAnim(sb, [[2, -67], [20, 28]], "out");
             K(OPA(sb), [[3, 0], [9, 100]], "lin");
             dropShadow(sb, 85, 0, 18, 135, "sub shadow wide");

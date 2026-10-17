@@ -50,3 +50,8 @@ The parsed `films/timeless/amv2/edl.json` (`E.shots[i] = {id, clip, a, b, src, s
 * Frame blending is off. Never interpolate across a source cut: `source_cut@F` is exact.
 * `SHOT_S01` fades in from black (`open_lightsweep`): opacity keys. MAIN's background is black.
 * Footage layer inside each precomp is named `footage <clip>` and has time remap keys (one per comp frame).
+
+## GRADE and the triptych (agent-05)
+SPECIAL runs after GRADE, so its triptych panels sit ABOVE the grade layers and are not graded by `GRADE.build`. For each panel
+layer call `GRADE.applyPanel(layer, i, E, ctx)` (i = index in `E.triptych.panels`): per-panel trim + the Tom look + bloom +
+sharpen + limiter, as effects on the layer itself. (`E.x.grade.panels["0".."2"]` holds the trims.)

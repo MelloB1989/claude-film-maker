@@ -132,3 +132,18 @@ Probed against effectcraft-cli 0.10.0 while checking how the Blender element seq
 - Single-frame `render-frame` of a 1920x1080 comp with one 1080p PNG layer takes about 1.6 s.
 - The element sequences are named by comp frame (`NNNN.png`, e.g. `0802.png`), so import them as a numbered sequence and
   start the layer at that comp frame (or set `startTime = frame / 30`), no remap is needed.
+
+### fx follow-up
+- Comic ink: no Halftone effect in 0.10, so the halftone is an ordered dither: a black solid with `ADBE Checkerboard` (Size From = 2, white squares), Gaussian blur 6, rotated 45, Linear Light at 17% sits under the Threshold adjustment layer; Tint maps ink/paper; a 5 px RGB split on top is the misregistration. (Checkerboard `Size From` 1 = corner point, and a black Color made the whole layer black.)
+- FX skips automatic shake/flash/chroma/ink inside the SPECIAL windows 244-262, 468-492, 777-830 (riser and explicit looks still run).
+## v2-prep (agent-08): 240 fps footage
+- **yuv444p h264 decodes wrong**: a 240 fps `-pix_fmt yuv444p` file imports (fps 240, right size) but `render-frame` gives a wrong picture (mean abs diff 165/255 against the 60 fps original). Use `yuv420p`.
+- 240 fps h264 imports as `frameRate 240`, duration correct; layer time remap at a 30 fps comp lands on the same picture as the 60 fps original (mean diff ~0.9/255, the re-encode).
+- Random access: `-g 8 -keyint_min 8 -bf 0` (crf 12) renders a remapped 1080p frame in ~0.6-1.5 s, the same or faster than the 60 fps original (~1.8-2.7 s; shared, noisy box). All-intra (`-g 1`) was not faster and 2.6x bigger (60 MB vs 23 MB for 1.35 s of footage).
+- (grade round 2) Glow with `Glow Colors` = 2 (A & B) and Color A = Color B gives a uniform tint; keyable per act. Lumetri Temperature is a strong, cheap way to separate acts. Lumetri Contrast pivots at 0.5 and pulls dark shots down hard, so grade_curves.py measures each act's real tone curve (grey ramp through GRADE.build) and grade_spec solves the per-shot trims against it.
+- Layers SPECIAL adds after GRADE sit above the grade (the triptych panels): use GRADE.applyPanel(layer, i, E, ctx).
+
+### fx review round (f540-830)
+- Ink frames: only hits >= 3.0 (656), 1 f on the hit frame, ink adjustment at 50 % with a half-strength dither; weaker explicit `ink_frame` tags become a soft white pop.
+- One flash per hit, none within 5 f of another flash or an ink frame; hits >= 2.0 with no shake/chroma/flash/ink get a 2 f zoom punch (104 -> 101.8 %).
+- Perf: the real MAIN (draft) renders at ~1.57 s/frame in one effectcraft-cli process on the build host (900 f = 23.5 min); 3 parallel processes gave no gain (CPU-saturated). `--gpu` has no adapter (no Vulkan/GL drivers) in the container.

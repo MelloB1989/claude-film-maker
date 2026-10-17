@@ -183,7 +183,7 @@ def build_script(out_project, mode="clips", samples=16, E=None):
     ctx_py = dict(fps=E["fps"], w=E["w"], h=E["h"], root=PStr(ROOT), data=PStr(data), src=mode, log=lambda m: print(f"[ecbuild] {m}"))
     extend_E(E, ctx_py)
     CORE = build_core(E, mode, samples, data)
-    parts = [f"var E = {json.dumps(E)};\nvar CORE = {json.dumps(CORE)};\nvar OUT_PROJECT = {json.dumps(str(out_project))};\n"]
+    parts = [f"var E = {json.dumps(E, default=str)};\nvar CORE = {json.dumps(CORE, default=str)};\nvar OUT_PROJECT = {json.dumps(str(out_project))};\n"]
     for lib in LIBS:
         p = EC_DIR / f"{lib}.jsx"
         if p.exists():

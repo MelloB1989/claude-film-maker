@@ -458,12 +458,12 @@
    "b": 519,
    "src": [
     0.02,
-    1.12
+    1.15
    ],
    "speed": "land",
    "drift": [
     100,
-    100
+    112
    ],
    "focus": [
     1110,
@@ -527,8 +527,8 @@
    "a": 554,
    "b": 570,
    "src": [
-    0.05,
-    0.8
+    0.22,
+    0.82
    ],
    "speed": "const",
    "drift": [
@@ -669,7 +669,7 @@
    "clip": "M10_tank_snap",
    "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M10_tank_snap.mp4",
    "a": 672,
-   "b": 690,
+   "b": 686,
    "src": [
     0.05,
     0.88
@@ -689,7 +689,7 @@
    "id": "S28",
    "clip": "M11_electric_mask",
    "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M11_electric_mask.mp4",
-   "a": 690,
+   "a": 686,
    "b": 708,
    "src": [
     0.02,
@@ -704,8 +704,7 @@
    "xin": "impact",
    "xout": "glitch_electric",
    "fx": [
-    "ink_frame@690",
-    "shake@690",
+    "shake@686",
     "source_cut@700"
    ],
    "note": "the clip's own cut at 0.55 s lands on the hit at f700"
@@ -933,7 +932,6 @@
    "style": "novax",
    "text": "SPIDER-MAN",
    "palette": "red_gold",
-   "behind": "M08_shuriken",
    "act": "tom"
   },
   {

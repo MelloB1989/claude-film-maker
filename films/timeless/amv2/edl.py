@@ -83,13 +83,13 @@ shot("S17", "A09_lens_pushin", 468, 480, (0.00, 1.10), "launch", (100, 260), (11
      [], "riser: slam into the lens; the lens becomes the portal (SPECIAL owns shake, speed lines, flash, ring, chroma)")
 
 # ---------------- ACT III  TOM  (drop f480 -> f819): hard cuts on hits, impact frames, velocity ramps
-shot("S18", "M01_lens_portal", 480, 519, (0.02, 1.12), "land", (100, 100), (1110, 443), "drop_portal", "impact",
+shot("S18", "M01_lens_portal", 480, 519, (0.02, 1.15), "land", (100, 112), (1110, 443), "drop_portal", "impact",
      [], "DROP: pull out of Tom's lens; I'M SPIDER-MAN; TOM HOLLAND / EARTH-199999")
 shot("S19", "M02_swing_at_cam", 519, 536, (0.03, 0.75), "velocity", (110, 100), None, "impact", "whip_r",
      ["shake@519"], "swings at camera")
 shot("S20", "M03_topdown_swing", 536, 554, (0.03, 0.75), "velocity", (100, 115), None, "whip_r", "spin_cw",
      ["shake@536"], "top-down swing")
-shot("S21", "M04_dome_crash", 554, 570, (0.05, 0.80), "const", (120, 100), None, "spin_cw", "impact",
+shot("S21", "M04_dome_crash", 554, 570, (0.22, 0.82), "const", (120, 100), None, "spin_cw", "impact",
      ["shake@554", "glass_glint"], "crash through the dome")
 shot("S22", "M07_roll_crouch", 570, 587, (0.05, 0.72), "land", (112, 100), None, "impact", "zoom_in",
      [], "roll into a crouch")
@@ -101,10 +101,10 @@ shot("S25", "M08_shuriken", 620, 656, (0.02, 0.76), "const", (108, 100), (700, 4
      ["letterbox", "chroma@620"], "slow motion: the shuriken passes his eye; hero title SPIDER-MAN")
 shot("S26", "M09_punches", 656, 672, (0.05, 0.72), "velocity", (110, 100), None, "impact", "spin_ccw",
      ["ink_frame@656", "shake@656", "flash@656"], "punches")
-shot("S27", "M10_tank_snap", 672, 690, (0.05, 0.88), "land", (100, 112), None, "spin_ccw", "impact",
+shot("S27", "M10_tank_snap", 672, 686, (0.05, 0.88), "land", (100, 112), None, "spin_ccw", "impact",
      [], "crouch on the tank")
-shot("S28", "M11_electric_mask", 690, 708, (0.02, 0.76), "const", (115, 100), None, "impact", "glitch_electric",
-     ["ink_frame@690", "shake@690", "source_cut@700"], "the clip's own cut at 0.55 s lands on the hit at f700")
+shot("S28", "M11_electric_mask", 686, 708, (0.02, 0.76), "const", (115, 100), None, "impact", "glitch_electric",
+     ["shake@686", "source_cut@700"], "the clip's own cut at 0.55 s lands on the hit at f700")
 shot("S29", "M12_fire_webs", 708, 726, (0.05, 0.76), "velocity", (110, 100), None, "glitch_electric", "zoom_in",
      ["fire_glow"], "webs in the fire")
 shot("S30", "M13_mesh_lenses", 726, 744, (0.10, 0.76), "const", (120, 100), None, "pull_out", "whip_u",
@@ -135,7 +135,7 @@ TITLES = [
     dict(f=488, f1=540, style="sub", text="I'M SPIDER-MAN.", voice="tom_im_spiderman"),
     dict(f=492, f1=518, style="namecard", text="TOM HOLLAND", sub="SPIDER-MAN  2016 - 2026", act="tom"),
     dict(f=484, f1=518, style="caption_box", text="EARTH-199999", act="tom"),
-    dict(f=624, f1=656, style="novax", text="SPIDER-MAN", palette="red_gold", behind="M08_shuriken", act="tom"),
+    dict(f=624, f1=656, style="novax", text="SPIDER-MAN", palette="red_gold", act="tom"),
     dict(f=746, f1=777, style="novax", text="BRAND NEW DAY", palette="crimson_white", sub="SPIDER-MAN  2026", act="tom"),
     dict(f=802, f1=819, style="blender_chrome3d", text="TIMELESS"),
 ]
