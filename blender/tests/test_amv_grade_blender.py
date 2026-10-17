@@ -132,7 +132,7 @@ def test_group_matches_numpy_linear_io():
 
 
 def test_group_with_fitted_style_params():
-    _check("srgb", {"saturation": 120.0, "contrast": 10.0, "glow_intensity": 0.5, "vig_amount": 0.5,
+    _check("srgb", {"saturation": 120.0, "contrast": 10.0, "glow_intensity": 0.5, "vig_amount": 0.5, "hi_desat": 0.6, "curve1": -0.05, "curve2": 0.08, "curve3": -0.04,
                     "cb": [5, -4, 8, 0, 3, -2, -6, 4, 9]})
 
 

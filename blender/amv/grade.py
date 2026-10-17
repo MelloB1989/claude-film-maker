@@ -157,6 +157,26 @@ def _saturate(b, x, sat):
     return b.clip01(b.add(l, b.mulc(b.sub(x, l), sat / 100.0)))
 
 
+def _hi_desat(b, x, amount):
+    if amount == 0:
+        return x
+    l = b.luma(x)
+    t = b.m("MULTIPLY_ADD", l, 4.0, -3.0, clamp=True)            # clip((l - 0.75) / 0.25)
+    t2 = b.m("MULTIPLY", t, t)
+    w = b.m("MULTIPLY", t2, b.m("MULTIPLY_ADD", t, -2.0, 3.0))   # t^2 (3 - 2t)
+    return b.clip01(b.add(x, b.vm("SCALE", b.sub(b.spread(l), x), scale=b.m("MULTIPLY", w, amount))))
+
+
+def _curve(b, x, c1, c2, c3):
+    if c1 == c2 == c3 == 0:
+        return x
+    u = b.mul(x, b.vm("SUBTRACT", (1, 1, 1), x))
+    w = b.vm("MULTIPLY_ADD", x, (-2, -2, -2), (1, 1, 1))
+    inner = b.add(b.mulc(w, c3), (c2, c2, c2))              # c2 + w c3
+    inner = b.add(b.mul(w, inner), (c1, c1, c1))            # c1 + w (c2 + w c3)
+    return b.clip01(b.add(x, b.mul(u, inner)))
+
+
 def _bc(b, x, brightness, contrast):
     omx = b.vm("SUBTRACT", (1, 1, 1), x)
     y = b.clip01(b.add(x, b.mulc(b.mul(x, omx), G.K_BRIGHT * brightness / 100 * 4)))
@@ -215,8 +235,10 @@ def build_group(params=None):
     x = _vignette(b, x, p["vig_amount"], p["vig_size"])
     x = _lumetri(b, x, p)
     x = _saturate(b, x, p["saturation"])
+    x = _hi_desat(b, x, p["hi_desat"])
     x = _bc(b, x, p["bc_brightness"], p["bc_contrast"])
     x = _color_balance(b, x, p["cb"])
+    x = _curve(b, x, p["curve1"], p["curve2"], p["curve3"])
     x = _glow(b, x, p["glow_threshold"], sc(p["glow_size"]), p["glow_intensity"])
 
     if io == "linear":
