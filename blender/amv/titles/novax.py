@@ -5,7 +5,7 @@ tracking springs open -26 -> +48 over 29 f (expo-out), a stroke-only copy in the
 is white at the top and the palette colour at the bottom (52 % until f9, then 15 % at f28), a slanted white light bar
 sweeping left -> right f0-19, a wide bloom that ignites f0 -> f10 -> f22, a rough black dry-brush bar under the baseline
 carrying the wide-tracked tag, an optional thin sub word across the middle; the layer breathes 104 -> 96 % and exits
-with a fast 112 % fade over the last 5 f (T_novax in text_lib.jsx).
+with a fast 112 % fade over the last 8 f (AE shows a faint ghost by f168 of 139-169) (T_novax in text_lib.jsx).
 
 Better than AE (same timing, same layout): the fill is bevelled extruded glass-metal lit by a studio HDRI so the edges
 catch real highlights, the stroke is a round emissive tube, and the bloom is the compositor's true Bloom glare.
@@ -111,7 +111,7 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         for w in (word_fill, word_stroke):
             w.layout(tr)
         s = lin_keys([[0, 104], [dur - 6, 96], [dur - 1, 112]], k) / 100.0
-        a_out = lin_keys([[dur - 5, 1.0], [dur - 1, 0.0]], k)
+        a_out = lin_keys([[dur - 8, 1.0], [dur - 2, 0.0]], k)
         wx, wy = C.ae_to_world(*P)
         layer.matrix_basis = _mu().Matrix.Translation((wx, wy, 0)) @ _mu().Matrix.Diagonal((s, s, 1.0, 1.0))
         word_fill.pose((C.W / 2, C.H / 2), shear=ital)
