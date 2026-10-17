@@ -103,3 +103,34 @@ to the AE render's frames and tested to match the node group.
 - Final renders run on a RunPod GPU pod (Cycles OptiX/CUDA). Code must run headless (`blender -b`), take paths and
   frame ranges as arguments, and never assume a display.
 - Heavy outputs (frames) go to `out/<id>/amv/` on the machine that renders; tests write to a temp dir.
+
+## EffectCraft export (`tools/filmtools/amv/effectcraft.py`)
+
+An editable project of the same edit for the user's Linux machine: [EffectCraft](https://getartcraft.com/apps/effectcraft)
+(open-source, Rust, After Effects-like; `.ecproj` = versioned JSON, schema 2). Built the way `build.jsx` built the AE project.
+
+```
+PYTHONPATH=tools python -m filmtools.amv.effectcraft --film films/timeless \
+    [--layers out/timeless/amv/layers] [--titles ...] [--outro ...] [--source clips|baked|auto] \
+    [--out out/timeless/amv/timeless.effectcraft-project] [--cli PATH] [--emit-only] [--preview 30,245,490 --scale 0.33]
+```
+
+`--out` is a folder: `<id>.ecproj`, `build.jsx` (self-contained, runnable with `effectcraft-cli script build.jsx`), `spec.json`
+(every resolved number), `preview/`. The CLI is found via `--cli`, `$EFFECTCRAFT_CLI`, PATH, or `/tmp/ec-bin/*/bin/effectcraft-cli`.
+
+- **Tool**: the v0.10.0 release `effectcraft-0.10.0-linux-x86_64.tar.gz` (github.com/storytold/effectcraft/releases) has a headless
+  `effectcraft-cli`: `script`, `render-frame`, `render` (mp4/png/exr...), `props`, `mcp`. No cargo build needed.
+- **How**: `effectcraft_build.jsx` is a spec interpreter on EffectCraft's embedded After Effects object model, so the project is
+  valid by construction. EffectCraft's match names differ from AE's (`ADBE Exposure2-0003` is the Red channel), so effect
+  parameters are set by display name.
+- **Clips mode** (default): per shot a precomp with the 60p clip, time remap keys, Frame Mix on `slow`, Exposure / Hue-Sat trim, the
+  matte cutout (luma matte + CC-style rim Glow), titles; on the main layer Motion Tile (mirror), eye-dive hole (Add + Subtract
+  mask, keyed shape / feather / expansion), CC Radial Fast Blur (Zoom Brightest), Directional Blur, Optics Compensation, per-frame
+  position / scale / rotation keys (straight runs collapsed within 1e-3), 301 deg / -150 / 64-sample motion blur on the comp.
+  Baked mode uses the bake stage's PNG sequences with only the transform keys.
+- **Main comp** (bottom to top as build.jsx): audio mix, shots (+ the drop portal: `A_in` + ellipse alpha track matte), strobes
+  (black, invert + tint, CC Ball Action halftone), flash exposure keys, grade adjustment layer (Unsharp, Color Balance, Lumetri,
+  Brightness/Contrast, Color Balance teal/orange, Glow), letterbox bars, accents, portal glint, titles, outro, watermark.
+- **Approximate**: grade values are fitted to the AE render (Lumetri / Glow differ from Adobe's); titles and the 3D outro are the
+  Blender PNG sequences when present, otherwise text placeholders; `dips`, `flash_tint`, `voice`/`sfx` tracks are not exported
+  (the film has no dips / tint; audio is the mix).
