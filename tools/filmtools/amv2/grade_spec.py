@@ -26,18 +26,19 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SAMPLES = os.path.join(HERE, "grade_samples.npz")
 TRIMS = os.path.join(HERE, "grade_trims.json")
+CURVES = os.path.join(HERE, "grade_curves.json")
 NPX = 3000
 
 # what the normalisation aims at (gamma-encoded 0..1, luma = Rec.709 weights)
 TARGETS = {
-    "p50_range": [0.22, 0.42],      # shots inside it keep their median; outside it is pulled 60 % (dark) / 40 % (bright) toward it
-    "p99": 0.86,                    # white point: dark shots are lifted toward it, blown ones are compressed toward it
-    "black": 0.012,                 # output black, just off zero
+    "p50_range": [0.26, 0.44],      # shots inside it keep their median; outside it is pulled 60 % (dark) / 40 % (bright) toward it
+    "p99": 0.86, "p99_act": {"tobey": 0.86, "andrew": 0.88, "tom": 0.91},                  # white point: dark shots are lifted toward it, blown ones are compressed toward it
+    "black": 0.006,                 # output black, just off zero
     "white_out": 0.94,              # per-shot output white; the finishing limiter adds 0.955
-    "sat_range": [0.34, 0.50], "sat_pull": 0.8,   # mean HSV saturation band before the look (the look adds ~10 %): a shot outside it is pulled 80 % of the way to the edge
+    "sat_range": {"tobey": [0.34, 0.50], "andrew": [0.32, 0.46], "tom": [0.30, 0.42]}, "sat_pull": 0.8,   # mean HSV saturation band before the look (the look adds ~10 %): a shot outside it is pulled 80 % of the way to the edge
     "skin_hue": 22.0, "skin_lo": 12.0, "skin_hi": 32.0, "skin_min": 0.03,
     "wb_strength": 0.35, "wb_floor": 0.88, "wb_min_cast": 0.08,
-    "gamma_range": [0.7, 1.9],
+    "gamma_range": [0.7, 2.2],
 }
 
 
@@ -127,10 +128,22 @@ def _skin(P):
 
 
 # ---------------------------------------------------------------- the trim for one shot
-def solve(P):
+def _curve(act):
+    """The act look + limiter tone curve (grade_curves.json) as a function of luma, or identity."""
+    np = _np()
+    try:
+        c = json.load(open(CURVES))[act]
+        return lambda x: np.interp(x, c["x"], c["y"])
+    except Exception:
+        return lambda x: x
+
+
+def solve(P, act="tom"):
     """Trim parameters (and before/after stats) for pixel samples P (N x 3, 0..1)."""
     np = _np()
     T = TARGETS
+    C = _curve(act)
+    T99 = T["p99_act"].get(act, T["p99"])
     before = _pstats(P)
     sk_frac, sk_hue = _skin(P)
     before["skin"] = round(sk_frac, 4)
@@ -150,8 +163,10 @@ def solve(P):
 
     # 2. targets for the median and the white point
     lo, hi = T["p50_range"]
-    t50 = p50 + 0.6 * (lo - p50) if p50 < lo else (p50 - 0.4 * (p50 - hi) if p50 > hi else p50)
-    t99 = p99 + 0.5 * (T["p99"] - p99) if p99 < T["p99"] else T["p99"] + 0.25 * (p99 - T["p99"])
+    t50 = p50 + 0.8 * (lo - p50) if p50 < lo else (p50 - 0.4 * (p50 - hi) if p50 > hi else p50)
+    if p50 < hi:
+        t50 = max(t50, p50 * 1.12)                           # never pull a dark shot below its source
+    t99 = p99 + 0.5 * (T99 - p99) if p99 < T99 else T99 + 0.25 * (p99 - T99)
     ib = round(float(min(0.5 * p5, 0.04)), 4)
     ob = T["black"]
 
@@ -163,9 +178,10 @@ def solve(P):
             for g in np.arange(g_lo, g_hi + 1e-9, 0.05):
                 def f(x):
                     return ob + (ow - ob) * np.clip((x - ib) / (iw - ib), 0, 1) ** (1.0 / g)
-                a50, a99 = f(p50), f(p99)
-                clip = np.mean(f(M1) >= 0.985) * 100
-                cost = 4 * (a50 - t50) ** 2 + 2 * (a99 - t99) ** 2 + 0.3 * (np.log(g)) ** 2 + 0.6 * (1 - iw) ** 2 \
+                a50, a99 = C(f(p50)), C(f(p99))
+                clip = np.mean(C(f(M1)) >= 0.96) * 100
+                floor_pen = 40 * max(0.0, p50 * 1.08 - a50) ** 2 if p50 < hi else 0.0
+                cost = floor_pen + 4 * (a50 - t50) ** 2 + 2 * (a99 - t99) ** 2 + 0.3 * (np.log(g)) ** 2 + 0.6 * (1 - iw) ** 2 \
                     + 0.5 * max(0.0, clip - 0.2) ** 2
                 if best is None or cost < best[0]:
                     best = (cost, float(iw), float(g), float(ow))
@@ -179,7 +195,7 @@ def solve(P):
     # 5. saturation: bisect the master-saturation value so the predicted mean HSV saturation lands on the target
     Pn = model(P, t)
     s0 = _mean_sat(Pn)
-    s_lo, s_hi = T["sat_range"]
+    s_lo, s_hi = T["sat_range"][act]
     s_t = s0 + T["sat_pull"] * (min(max(s0, s_lo), s_hi) - s0)
     lo_s, hi_s = -70.0, 60.0
     for _ in range(14):
@@ -245,7 +261,9 @@ def compute(E):
         px = None if smp is None else smp.get(_key(s))
         if px is None:
             continue
-        t = solve(px)
+        a_f = s.get("a", s.get("f", 800))
+        act = "tobey" if a_f < 252 else ("andrew" if a_f < 480 else "tom")
+        t = solve(px, act)
         t["clip"] = s["clip"]
         (out["panels"] if sid.startswith("P") else out["shots"])[sid[1:] if sid.startswith("P") else sid] = t
     return out

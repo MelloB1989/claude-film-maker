@@ -135,7 +135,7 @@ TITLES = [
     dict(f=488, f1=540, style="sub", text="I'M SPIDER-MAN.", voice="tom_im_spiderman"),
     dict(f=492, f1=518, style="namecard", text="TOM HOLLAND", sub="SPIDER-MAN  2016 - 2026", act="tom"),
     dict(f=484, f1=518, style="caption_box", text="EARTH-199999", act="tom"),
-    dict(f=624, f1=656, style="novax", text="SPIDER-MAN", palette="red_gold", behind="M08_shuriken", act="tom"),
+    dict(f=624, f1=656, style="novax", text="SPIDER-MAN", palette="red_gold", act="tom"),
     dict(f=746, f1=777, style="novax", text="BRAND NEW DAY", palette="crimson_white", sub="SPIDER-MAN  2026", act="tom"),
     dict(f=802, f1=819, style="blender_chrome3d", text="TIMELESS"),
 ]

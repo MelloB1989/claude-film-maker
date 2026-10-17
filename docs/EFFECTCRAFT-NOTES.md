@@ -116,3 +116,29 @@ Bugs and workarounds found while building `tools/filmtools/amv2/ec/special.jsx`:
 - Useful and working: `ec.vr.chromaticaberrations` (per-channel Aberration (Red/Green/Blue) = the red/blue split), `ADBE Ripple`
   (shockwave), `ec.sim.ccballaction` (halftone-like dots), `ec.blur.ccradialfast` (zoom streaks), Bevel Alpha (shard rim).
 - `effectcraft-cli` is not on PATH in the agent container (use the full path); it is on the VM's PATH.
+# EffectCraft notes (v2 agents append a section per task)
+
+## elements (Blender RGBA elements, agent-07)
+
+Probed against effectcraft-cli 0.10.0 while checking how the Blender element sequences composite.
+
+- **PNG alpha is imported as STRAIGHT alpha, always.** A 3-line probe (`importFile` a PNG, `layers.add`, `render-frame` over a
+  grey solid) was compared pixel by pixel with both formulas: straight `rgb*a + bg*(1-a)` matched with a mean error of
+  0.0013, premultiplied `rgb + bg*(1-a)` with 0.19. `FootageItem.mainSource.alphaMode`, `.premulColor` and `.hasAlpha` all read
+  `undefined` (hasAlpha is `false` even for a PNG with alpha), so there is no scripted interpret-footage switch.
+  Workaround: `blender/amv2/elements.py` writes straight-alpha PNGs by default (`--alpha straight`); `--alpha premul` exists
+  for a build that can interpret premultiplied footage. A premultiplied PNG imported as-is gets its soft edges and glows
+  dimmed (multiplied by alpha twice).
+- Single-frame `render-frame` of a 1920x1080 comp with one 1080p PNG layer takes about 1.6 s.
+- The element sequences are named by comp frame (`NNNN.png`, e.g. `0802.png`), so import them as a numbered sequence and
+  start the layer at that comp frame (or set `startTime = frame / 30`), no remap is needed.
+
+### fx follow-up
+- Comic ink: no Halftone effect in 0.10, so the halftone is an ordered dither: a black solid with `ADBE Checkerboard` (Size From = 2, white squares), Gaussian blur 6, rotated 45, Linear Light at 17% sits under the Threshold adjustment layer; Tint maps ink/paper; a 5 px RGB split on top is the misregistration. (Checkerboard `Size From` 1 = corner point, and a black Color made the whole layer black.)
+- FX skips automatic shake/flash/chroma/ink inside the SPECIAL windows 244-262, 468-492, 777-830 (riser and explicit looks still run).
+## v2-prep (agent-08): 240 fps footage
+- **yuv444p h264 decodes wrong**: a 240 fps `-pix_fmt yuv444p` file imports (fps 240, right size) but `render-frame` gives a wrong picture (mean abs diff 165/255 against the 60 fps original). Use `yuv420p`.
+- 240 fps h264 imports as `frameRate 240`, duration correct; layer time remap at a 30 fps comp lands on the same picture as the 60 fps original (mean diff ~0.9/255, the re-encode).
+- Random access: `-g 8 -keyint_min 8 -bf 0` (crf 12) renders a remapped 1080p frame in ~0.6-1.5 s, the same or faster than the 60 fps original (~1.8-2.7 s; shared, noisy box). All-intra (`-g 1`) was not faster and 2.6x bigger (60 MB vs 23 MB for 1.35 s of footage).
+- (grade round 2) Glow with `Glow Colors` = 2 (A & B) and Color A = Color B gives a uniform tint; keyable per act. Lumetri Temperature is a strong, cheap way to separate acts. Lumetri Contrast pivots at 0.5 and pulls dark shots down hard, so grade_curves.py measures each act's real tone curve (grey ramp through GRADE.build) and grade_spec solves the per-shot trims against it.
+- Layers SPECIAL adds after GRADE sit above the grade (the triptych panels): use GRADE.applyPanel(layer, i, E, ctx).
