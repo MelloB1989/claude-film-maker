@@ -99,13 +99,26 @@ def test_sweep_crosses_the_settled_word_and_is_gone_before_the_dissolve():
 
 def test_ring_pop_peaks_as_each_ring_lights_up():
     for i in range(3):
-        f0 = 3 + 5 * i
-        assert sch.ring(i, f0 + 9, N)["pop"] == 1.0 and sch.ring(i, f0, N)["pop"] == 0.0
+        pk = sch.RING_PEAKS[i]
+        assert sch.ring(i, pk, N)["pop"] == 1.0 and sch.ring(i, pk - 5, N)["pop"] == 0.0
 
 
 def test_rings_fade_in_staggered():
     ops = [sch.ring(i, 10, N)["opacity"] for i in range(3)]
     assert ops[0] > ops[1] > ops[2]
+
+
+def test_ring_pops_and_flashes_sit_on_the_audio_hits():
+    # comp f820 and f829 are big music hits, f882 the shutter flash SFX; the outro starts at comp f812
+    assert 820 - 812 == sch.HITS[0] == sch.RING_PEAKS[0] and 829 - 812 == sch.HITS[1] == sch.RING_PEAKS[1]
+    assert sch.ring(0, 8, N)["pop"] == 1.0 and sch.ring(1, 17, N)["pop"] == 1.0
+    assert sch.end_fx(8, N)["hit"] > sch.end_fx(6, N)["hit"] and sch.end_fx(17, N)["hit"] > sch.end_fx(15, N)["hit"]
+
+
+def test_shutter_flash_pops_white_on_f882_and_decays_in_three_frames():
+    assert 882 - 812 == sch.SHUTTER_F == 70
+    v = [sch.end_fx(f, N)["flash_end"] for f in range(68, 75)]
+    assert v[2] == max(v) >= 0.8 and v[0] == 0 and v[5] == 0 and v[3] < v[2] and v[4] < v[3]
 
 
 def test_sparks_are_born_at_landings_and_finite():
