@@ -100,6 +100,8 @@ var FX = {
         // explicit tags in the shot fx
         for (i = 0; i < E.shots.length; i++) {
             S = E.shots[i];
+            var pu = FX.tagsOf(S, "punch");
+            for (var q = 0; q < pu.length; q++) if (pu[q] !== null) (P.tagPunch = P.tagPunch || []).push(pu[q]);
             var kinds = [["shake", "shake"], ["chroma", "chroma"], ["flash", "flash"], ["ink_frame", "ink"]];
             for (j = 0; j < kinds.length; j++) {
                 var fs = FX.tagsOf(S, kinds[j][0]);
@@ -161,6 +163,9 @@ var FX = {
             var bare = !has.shake[hf] && !has.chroma[hf] && !has.ink[hf] && !has.flash[hf];
             if ((hs >= 2.0 && bare) || (hs >= 1.5 && (bare || whipIn)) || (whipIn && hs >= 2.0)) P.punches.push({ f: hf });
         }
+        // explicit punch@F tags (the hit rules above may already have one on the same frame)
+        var tp = P.tagPunch || [];
+        for (i = 0; i < tp.length; i++) if (!P.punches.some(function (n) { return n.f == tp[i]; })) P.punches.push({ f: tp[i] });
         // transitions
         for (i = 0; i < E.shots.length; i++) {
             S = E.shots[i];
@@ -170,7 +175,9 @@ var FX = {
             var sl = FX.tagsOf(S, "speed_lines");
             // the zoom/pull transitions already carry a radial blur: no rays on top of them
             var radIn = /^(zoom|pull)/.test(String(S.xin));
-            if (sl.length) P.lines.push({ f0: S.a + (radIn ? 5 : 0), f1: S.b, id: S.id, grow: true });
+            // any shot that carries a radial blur (zoom/pull in or out, a radial tag) gets no rays at all
+            var radAny = radIn || /^(zoom|pull)/.test(String(S.xout)) || S.fx.join(" ").indexOf("radial") >= 0;
+            if (sl.length && !radAny) P.lines.push({ f0: S.a, f1: S.b, id: S.id, grow: true });
             if (FX.tagsOf(S, "letterbox").length) P.boxes.push({ f0: S.a, f1: S.b, id: S.id });
             var rs = FX.tagsOf(S, "riser_shake");
             if (rs.length) P.risers = (P.risers || []).concat([{ f0: 468, f1: 480, id: S.id }]);
