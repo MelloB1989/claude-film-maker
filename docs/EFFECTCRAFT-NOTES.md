@@ -136,3 +136,7 @@ Probed against effectcraft-cli 0.10.0 while checking how the Blender element seq
 ### fx follow-up
 - Comic ink: no Halftone effect in 0.10, so the halftone is an ordered dither: a black solid with `ADBE Checkerboard` (Size From = 2, white squares), Gaussian blur 6, rotated 45, Linear Light at 17% sits under the Threshold adjustment layer; Tint maps ink/paper; a 5 px RGB split on top is the misregistration. (Checkerboard `Size From` 1 = corner point, and a black Color made the whole layer black.)
 - FX skips automatic shake/flash/chroma/ink inside the SPECIAL windows 244-262, 468-492, 777-830 (riser and explicit looks still run).
+## v2-prep (agent-08): 240 fps footage
+- **yuv444p h264 decodes wrong**: a 240 fps `-pix_fmt yuv444p` file imports (fps 240, right size) but `render-frame` gives a wrong picture (mean abs diff 165/255 against the 60 fps original). Use `yuv420p`.
+- 240 fps h264 imports as `frameRate 240`, duration correct; layer time remap at a 30 fps comp lands on the same picture as the 60 fps original (mean diff ~0.9/255, the re-encode).
+- Random access: `-g 8 -keyint_min 8 -bf 0` (crf 12) renders a remapped 1080p frame in ~0.6-1.5 s, the same or faster than the 60 fps original (~1.8-2.7 s; shared, noisy box). All-intra (`-g 1`) was not faster and 2.6x bigger (60 MB vs 23 MB for 1.35 s of footage).
