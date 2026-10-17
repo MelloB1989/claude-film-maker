@@ -240,7 +240,7 @@ function buildGrade(G) {
     TRY("grade lumetri", function () {
         var lu = fxAdd(gr, "ADBE Lumetri", "Lumetri");
         var bc = lu.property("ADBE Lumetri-0002"), t = bc.property("tone");
-        t.property("contrast").setValue(G.lumetri.contrast); t.property("highlights").setValue(G.lumetri.highlights);
+        t.property("exposure").setValue(G.lumetri.exposure); t.property("contrast").setValue(G.lumetri.contrast); t.property("highlights").setValue(G.lumetri.highlights);
         t.property("shadows").setValue(G.lumetri.shadows); t.property("whites").setValue(G.lumetri.whites);
         t.property("blacks").setValue(G.lumetri.blacks); bc.property("saturation").setValue(G.lumetri.saturation);
         var vg = lu.property("ADBE Lumetri-0007");

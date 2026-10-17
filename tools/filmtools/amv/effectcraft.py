@@ -51,11 +51,14 @@ KEY_TOL = 1e-3          # px / % / deg: runs of per-frame keys straighter than t
 
 # Grade (handover 13_color_grading.md §2-3), native stand-ins on one adjustment layer, in stack order.
 GRADE_LOOKS_CB = [-3, -2, 4, -1, 0, 1, 0, 0, 0]          # Magic Bullet's faint cool shadows / mids (§2.2 stand-in)
-GRADE_LUMETRI = {"contrast": 25, "highlights": 10, "shadows": 45, "whites": 20, "blacks": -12, "saturation": 150}
+# EffectCraft's Lumetri / Glow are not Adobe's: with the handover values (sat 150, glow 84/0.25) the grade rendered
+# ~35 % darker and more saturated than AE's full-quality render, so exposure, saturation and glow are fitted on 8 frames
+# of that render (mean luma 116 vs AE 119, p95 231 vs 228, HSV saturation 59 vs 56 %). The rest are the preset's values.
+GRADE_LUMETRI = {"exposure": 0.5, "contrast": 25, "highlights": 10, "shadows": 45, "whites": 20, "blacks": -12, "saturation": 115}
 GRADE_VIGNETTE = {"amount": -0.35, "midpoint": 50}       # Lumetri vignette stand-in for the Looks lens vignette
 GRADE_SHARPEN = {"amount": 50, "radius": 1.5}            # Unsharp Mask stand-in for Sapphire S_Sharpen
 GRADE_BC = {"brightness": 15, "contrast": 20}
-GRADE_GLOW = {"threshold": 84, "radius": 90, "intensity": 0.25}
+GRADE_GLOW = {"threshold": 70, "radius": 90, "intensity": 0.6}
 
 
 # ---------------------------------------------------------------------------------------------------------------- keys
@@ -267,7 +270,7 @@ def build_spec(plan: P.Plan, opts: Options):
     layers.append({"type": "flash", "ev": lin_keys(raw.get("flash_ev"))})
     gr = raw.get("grade") or {}
     cb = gr.get("cb", [-10, 7, 10, -2, 4, -3, 12, 5, -12])
-    lum = dict(GRADE_LUMETRI, blacks=gr.get("blacks", GRADE_LUMETRI["blacks"]), saturation=gr.get("sat", GRADE_LUMETRI["saturation"]))
+    lum = dict(GRADE_LUMETRI, blacks=gr.get("blacks", GRADE_LUMETRI["blacks"]))
     layers.append({"type": "grade", "out": raw["outro"]["f"], "sharpen": GRADE_SHARPEN, "looks_cb": GRADE_LOOKS_CB,
                    "lumetri": lum, "vignette": GRADE_VIGNETTE, "bc": GRADE_BC, "teal_orange": cb,
                    "glow": GRADE_GLOW})
@@ -359,7 +362,8 @@ def main(argv=None):
     ap.add_argument("--cli", help="path to effectcraft-cli (else $EFFECTCRAFT_CLI, PATH, /tmp/ec-bin)")
     ap.add_argument("--emit-only", action="store_true", help="write spec.json + build.jsx, do not run the CLI")
     ap.add_argument("--preview", help="comma list of comp frames to render low-res after building, e.g. 30,245,490")
-    ap.add_argument("--preview-side", type=int, default=640)
+    ap.add_argument("--preview-side", type=int, default=640, help="longest side in px of the preview frames")
+    ap.add_argument("--scale", type=float, help="preview scale 0..1 of 1920 (overrides --preview-side)")
     a = ap.parse_args(argv)
 
     plan = P.load(a.film)
@@ -388,7 +392,7 @@ def main(argv=None):
     print(f"project: {project} ({project.stat().st_size // 1024} KB)")
     if a.preview:
         frames = [int(x) for x in a.preview.split(",")]
-        for p in preview_frames(cli, project, frames, out / "preview", a.preview_side):
+        for p in preview_frames(cli, project, frames, out / "preview", int(1920 * a.scale) if a.scale else a.preview_side):
             print("preview:", p)
     return 0
 
