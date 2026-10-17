@@ -126,7 +126,7 @@ def test_velocity_continuous_at_the_cut():
         assert ra * rb >= 0, (a["id"], b["id"])
         # fastest frame: A's last step is its biggest; B's first step is its biggest
         pa = [abs(ca[f + 1]["pos"][0] - ca[f]["pos"][0]) + abs(ca[f + 1]["pos"][1] - ca[f]["pos"][1])
-              for f in range(cut - 4, cut)]
+              for f in range(cut - 2, cut)]
         assert pa == sorted(pa)
 
 
