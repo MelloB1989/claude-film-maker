@@ -1,0 +1,156 @@
+"""Novax: the house hero title (Nikovax's text tutorial), rebuilt as real 3D type in Blender.
+
+AE spec (novax_lib.jsx / reference 04 §0, scaled by S/385): an italic distressed grotesk (Chinese Rocks) whose
+tracking springs open -26 -> +48 over 29 f (expo-out), a stroke-only copy in the palette's stroke colour, a fill that
+is white at the top and the palette colour at the bottom (52 % until f9, then 15 % at f28), a slanted white light bar
+sweeping left -> right f0-19, a wide bloom that ignites f0 -> f10 -> f22, a rough black dry-brush bar under the baseline
+carrying the wide-tracked tag, an optional thin sub word across the middle; the layer breathes 104 -> 96 % and exits
+with a fast 112 % fade over the last 8 f (AE shows a faint ghost by f168 of 139-169) (T_novax in text_lib.jsx).
+
+Better than AE (same timing, same layout): the fill is bevelled extruded glass-metal lit by a studio HDRI so the edges
+catch real highlights, the stroke is a round emissive tube, and the bloom is the compositor's true Bloom glare.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+from . import common as C
+from .common import Glow, Mat, TitleOpts, TitleScene, Word, lin, lin_keys
+
+
+def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
+    pal = C.NOVAX_PALETTES[spec.get("palette") or "icy_blue"]
+    S = float(spec.get("size") or 290)
+    k_s = S / 385.0
+    P = tuple(spec.get("pos") or (C.W / 2, C.H / 2))
+    dur = int(spec["dur"])
+    text = spec["text"].upper()
+    ital = 0.2
+
+    sc = TitleScene(opts)
+    sc.set_environment(hdri=C.hdri_path("studio_small_08"), strength=1.1, rotation=(90.0, 0.0, 180.0))
+
+    # layer pivot at the title position: scale/opacity of the whole layer
+    layer = sc.empty("layer")
+
+    # ---- fill: bevelled extruded letters, white-to-colour vertical gradient, sweep, chrome sheen ---------------------
+    fm = Mat("fill")
+    word_fill = Word(sc, text, "chinese_rocks", S, -26, name="fill", extrude_px=9 * k_s, bevel_px=1.6 * k_s, material=fm.mat)
+    cap = word_fill.cap_px
+    x, y, _ = fm.object_xyz(word_fill.root)
+    t = fm.math("MULTIPLY_ADD", y, 1.0 / (cap / C.PX), 0.5, clamp=True)            # 0 baseline .. 1 cap line
+    col = fm.ramp(t, [(0.0, pal["fill"]), (0.5, pal["fill"]), (0.82, "#FFFFFF"), (1.0, "#FFFFFF")])
+    sw_pos = fm.value("sweep_x", -5.0)
+    sw_w = 0.26 * cap / C.PX
+    slant = fm.math("ADD", x, fm.math("MULTIPLY", y, -0.4))                            # the "/" lean of the bar
+    d = fm.math("ABSOLUTE", fm.math("SUBTRACT", slant, sw_pos))
+    sweep = fm.math("SUBTRACT", 1.0, fm.math("DIVIDE", d, sw_w * 0.5), clamp=True)
+    em_col = fm.mix(col, (1, 1, 1, 1), sweep)
+    b = fm.bsdf
+    fm.link(col, b.inputs["Base Color"])
+    b.inputs["Metallic"].default_value = 0.55
+    b.inputs["Roughness"].default_value = 0.22
+    fm.link(em_col, b.inputs["Emission Color"])
+    fm.link(fm.math("ADD", fm.value("em0", 0.25), fm.math("MULTIPLY", sweep, 2.5)), b.inputs["Emission Strength"])
+    # AE: the fill is see-through, a white top fading to the plate at the baseline, so the web shows through the letters
+    fm.link(fm.math("MULTIPLY", fm.value("alpha", 0.52), fm.math("MULTIPLY_ADD", t, 0.8, 0.2, clamp=True)), b.inputs["Alpha"])
+
+    # ---- stroke: round emissive tube along the glyph outlines -------------------------------------------------------
+    sm = Mat("stroke")
+    sm.nt.nodes.remove(sm.bsdf)
+    st_a = sm.value("alpha", 1.0)
+    st_e = sm.value("e", 2.5)
+    sm.emission_only(sm.mix(lin(pal["stroke"]), (1, 1, 1, 1), 0.35), st_e, alpha=st_a)
+    word_stroke = Word(sc, text, "chinese_rocks", S, -26, name="stroke", outline_px=max(3.0, 4.0 * k_s), material=sm.mat)
+
+    # Tracking curve fitted frame by frame on the AE reference (word ink width at f141..164 divided by the shot's
+    # scale s[f-136] and the layer's 104 -> 96 % breathing, solved for tracking at this size): a slow ease from about
+    # -90 to +222, NOT an expo-out spring (that opened the word 25-30 % too wide through f145-165).
+    TR_KEYS = [[0, -90], [2, -39], [4, 11], [6, 50], [8, 76], [11, 113], [14, 143], [16, 161], [18, 176], [21, 190],
+               [25, 206], [30, 222]]
+    TR1 = TR_KEYS[-1][1]
+    BAR_ALPHA = float(opts.extra.get("bar_a", 0.0))     # AE shows no plate under the tag at f140-165
+
+    # ---- tag on the rough bar ---------------------------------------------------------------------------------------
+    tag = spec.get("tag")
+    bar = tagw = tm = bm = None
+    if tag:
+        capA = 0.64 * S
+        bar_dy = 0.32 * S + 0.19 * capA + 0.0
+        tag_size = 59 * k_s
+        # novax_lib's tracking 32 gives a tag far narrower than the AE render shows (~87 % of the hero): solve the
+        # final tracking for that width, keep the 0 -> final spring
+        n_t = len(tag)
+        base_w = sum(sc.metrics("montserrat_light").advance(c) for c in tag.upper()) * tag_size
+        tag_tr = max(32.0, ((0.87 * word_fill.width_px(TR1) - base_w) / max(1, n_t - 1) / tag_size) * 1000.0)
+        bar_w = base_w + (n_t - 1) * tag_tr / 1000.0 * tag_size + 70 * k_s
+        bar, bm = C.brush_bar(sc, bar_w, 0.17 * capA * 1.9, name="bar", seed=3.0)
+        tm = Mat("tag")
+        tm.nt.nodes.remove(tm.bsdf)
+        ta = tm.value("alpha", 1.0)
+        tm.emission_only((1, 1, 1, 1), 1.0, alpha=ta)
+        tagw = Word(sc, tag.upper(), "montserrat_light", tag_size, 0, name="tag", material=tm.mat)
+        tag_dy = bar_dy + 0.0
+    subw = sm_sub = None
+    if spec.get("sub"):
+        sm_sub = Mat("sub")
+        sm_sub.nt.nodes.remove(sm_sub.bsdf)
+        sa = sm_sub.value("alpha", 1.0)
+        sm_sub.emission_only((1, 1, 1, 1), 1.0, alpha=sa)
+        subw = Word(sc, spec["sub"].upper(), "montserrat_light", S * 0.33, -67, name="sub", material=sm_sub.mat)
+    for w in (word_fill, word_stroke, tagw, subw):
+        if w is not None:
+            w.attach(layer)
+    if bar is not None:
+        bar.parent = layer
+
+    glows = [Glow(0.55, 0.62, 0.30, pal["glowB"]), Glow(0.7, 0.22, 0.45, pal["glowA"]), Glow(0.5, 0.85, 0.0, pal["glowA"])]
+    comp = sc.build_compositor(glows=glows, shadow={"opacity": 0.5, "dist": 5 * k_s, "soft": 8 * k_s})
+
+    sweep_range = (-0.62 * word_fill.width_px(TR1) / C.PX - sw_w, 0.62 * word_fill.width_px(TR1) / C.PX + sw_w)
+
+    def pose(k):
+        tr = lin_keys(TR_KEYS, k)
+        for w in (word_fill, word_stroke):
+            w.layout(tr)
+        s = lin_keys([[0, 104], [dur - 6, 96], [dur - 1, 112]], k) / 100.0
+        a_out = lin_keys([[dur - 8, 1.0], [dur - 2, 0.0]], k)
+        wx, wy = C.ae_to_world(*P)
+        layer.matrix_basis = _mu().Matrix.Translation((wx, wy, 0)) @ _mu().Matrix.Diagonal((s, s, 1.0, 1.0))
+        word_fill.pose((C.W / 2, C.H / 2 - 14), shear=ital)
+        word_stroke.pose((C.W / 2, C.H / 2 - 14), shear=ital, z=0.09 * k_s + 0.0)
+        fo = lin_keys([[0, 0.52], [9, 0.52], [28, 0.15]], k)
+        fm.set("alpha", fo * a_out)
+        fm.set("em0", 0.25 * a_out)
+        u = clamp01_(k / 19.0)
+        fm.set("sweep_x", sweep_range[0] + (sweep_range[1] - sweep_range[0]) * u if k <= 19 else 99.0)
+        sm.set("alpha", a_out)
+        sm.set("e", 2.5)
+        ignite = lin_keys([[0, 0.0], [10, 1.0], [22, 0.0]], k)
+        comp.set_glow(0, strength=0.12 * a_out)
+        comp.set_glow(1, strength=0.18 * a_out)
+        comp.set_glow(2, strength=1.0 * ignite * a_out)
+        comp.set_shadow_opacity(0.5 * a_out)
+        if tag:
+            trt = tag_tr * C.expo(k / 29.0)
+            tagw.layout(trt)
+            tagw.pose((C.W / 2, C.H / 2 + tag_dy), shear=0.0)
+            sx = (base_w + (n_t - 1) * trt / 1000.0 * tag_size + 70 * k_s) / bar_w     # the bar hugs the opening tag
+            bar.matrix_basis = _mu().Matrix.Translation((0, -bar_dy / C.PX + 0.0, -0.02)) @ _mu().Matrix.Diagonal((sx, 1.0, 1.0, 1.0))
+            tm.set("alpha", a_out)
+            bm.set("alpha", BAR_ALPHA * a_out)
+        if subw is not None:
+            subw.layout(-67 + 117 * C.expo(k / 29.0))
+            subw.pose((C.W / 2, C.H / 2 + 0.33 * 0.32 * S - 0.0))
+            sm_sub.set("alpha", a_out)
+
+    C.render_sequence(sc, spec, out_dir, opts, pose)
+
+
+def _mu():
+    import mathutils
+    return mathutils
+
+
+def clamp01_(u):
+    return 0.0 if u < 0 else 1.0 if u > 1 else u
