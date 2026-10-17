@@ -229,7 +229,7 @@ def master(stems: dict, target=-14.0, tp=-1.0, log=print):
     N = stems["N"]
     mix = stems["music"] + stems["sfx"] + stems["voice"]
     ceil = tp - 0.25                                            # margin for the 24-bit write and resampling
-    tail = int(0.040 * SR)
+    tail = int(0.080 * SR)
     fade = np.ones(N)
     fade[N - tail:] = 0.5 + 0.5 * np.cos(np.pi * np.arange(tail) / (tail - 1))
     g = lin(target - lufs(mix))
@@ -243,6 +243,19 @@ def master(stems: dict, target=-14.0, tp=-1.0, log=print):
     return y, g
 
 
+def word_onsets(stems: dict, v: dict) -> list[dict]:
+    """Spoken onset of each word of a voice line, measured on the isolated voice bus (the alignment of voice_lines.json
+    is up to ~0.1 s off). t in s, frame = the frame it is heard in; the subtitle reveal is frame + 1 (the 0-2 f window)."""
+    from filmtools.amv.audit_audio import word_onsets as measure
+    fps = stems["fps"]
+    refs = [v["start"] / SR + w["t0"] for w in v["words"]]
+    out = []
+    for ref, o in zip(refs, measure(stems["voice"].mean(axis=1), SR, refs)):
+        t = ref if o["t"] is None else o["t"]
+        out.append({"t": t, "frame": int(math.floor(t * fps + 1e-9)), "conf": o["conf"]})
+    return out
+
+
 def write_cues(path: Path, E: dict, stems: dict):
     fps = stems["fps"]
     rows = []
@@ -251,9 +264,9 @@ def write_cues(path: Path, E: dict, stems: dict):
     for v in stems["lines"]:
         rows.append(["voice", v["name"], v["f"], round(v["f"] / fps, 4), round(v["start"] / SR, 4), round(v.get("db", 0) + v["trim"], 1),
                      f"duck {v.get('duck', -6) + v['xduck']} dB"])
-        for w in v["words"]:
-            tw = v["start"] / SR + w["t0"]
-            rows.append(["word", w["w"], round(tw * fps, 2), round(tw, 4), round(tw, 4), "", f"{v['name']} reveal f{math.ceil(tw * fps - 1e-9)}"])
+        for w, o in zip(v["words"], word_onsets(stems, v)):
+            rows.append(["word", w["w"], round(o["t"] * fps, 2), round(o["t"], 4), round(w["t0"] + v["start"] / SR, 4), "",
+                         f"{v['name']} spoken f{o['frame']} reveal f{o['frame'] + 1} conf {o['conf']:.0f}"])
     rows.append(["music", "end_fade", E["dur"] - round(1.4 * fps), round((E["dur"] - round(1.4 * fps)) / fps, 4), "", "", "raised cosine to silence at the last sample"])
     rows.sort(key=lambda r: (float(r[2]), r[0]))
     with open(path, "w", newline="") as fh:
