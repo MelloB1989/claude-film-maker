@@ -290,12 +290,31 @@ var SPECIAL = (function () {
             P = panels[i]; var col = ACT_COL[P.act] || ACT_COL.tom;
             var tint = solid(trip, "slot tint " + (i + 1), col); OPA(tint).setValue(30);
             addMask(tint, quadShape(P.quad, 0), 0);
-            var dg = dotGrid(trip, "slot dots " + (i + 1), col, 20, 11, P.quad, null); OPA(dg).setValue(48);
+            // the upcoming face, frozen on its first frame: dim, act-tinted and halftoned (the slam then reveals it live)
+            var fz = TRY("slot freeze " + (i + 1), function () {
+                var it = footage(clipFile(P.clip, P.file)), fzL = trip.layers.add(it), kk;
+                fzL.name = "slot freeze " + (i + 1); fzL.timeRemapEnabled = true;
+                var s0f = clamp(P.src[0], 0, clipDuration(it) - 0.05), trf = fzL.property("ADBE Time Remapping");
+                trf.setValuesAtTimes([0, f2t(fb)], [s0f, s0f]);
+                for (kk = trf.numKeys; kk > 2; kk--) trf.removeKey(kk);
+                fzL.outPoint = f2t(P.f + 8); fzL.inPoint = f2t(fa);
+                ANC(fzL).setValue(P.focus); POS(fzL).setValue([P.cx, P.cy]); SCL(fzL).setValue(sc(P.scale));
+                var lq = [], k2;   // the slot quad in the layer's own space (anchor = focus, uniform scale, no rotation)
+                for (k2 = 0; k2 < 4; k2++) lq.push([P.focus[0] + (P.quad[k2][0] - P.cx) * 100 / P.scale, P.focus[1] + (P.quad[k2][1] - P.cy) * 100 / P.scale]);
+                addMask(fzL, shape(lq, true), 0);
+                OPA(fzL).setValue(78);
+                TRY("freeze tint", function () { var t = fxAdd(fzL, "ADBE Tint", "tint"); setp(t, "Map Black To", [0.03, 0.01, 0.08]); setp(t, "Map White To", [col[0] * 0.8 + 0.2, col[1] * 0.8 + 0.2, col[2] * 0.8 + 0.2]); setp(t, "Amount to Tint", 45); });
+                TRY("freeze dim", function () { var e = fxAdd(fzL, "ADBE Brightness & Contrast 2", "dim"); setp(e, "Brightness", -12); setp(e, "Contrast", 20); });
+                return fzL;
+            });
+            var hd = dotGrid(trip, "slot halftone " + (i + 1), [0.02, 0.01, 0.06], 13, 8, P.quad, null); OPA(hd).setValue(60); hd.motionBlur = false; span(hd, fa, P.f + 8);   // dark dot screen over the freeze: the halftone
+            var dg = dotGrid(trip, "slot dots " + (i + 1), col, 20, 11, P.quad, null); OPA(dg).setValue(22);
             var ol = shapeLayer(trip, "slot border " + (i + 1));
             addShapeGroup(ol, quadShape(P.quad, 0), null, [0.97, 0.96, 0.92], 12);
             OPA(ol).setValue(80);
             var slotL = [tint, dg, ol];
             for (var q = 0; q < 3; q++) { slotL[q].motionBlur = false; span(slotL[q], fa, P.f + 8); }
+            if (fz) fz.motionBlur = false;
         }
     }
 
@@ -678,6 +697,7 @@ var SPECIAL = (function () {
         var iris = Rf.iris, S8 = C.shot("S08"), S9 = C.shot("S09"), centre = [W / 2, H / 2], f, i;
         if (!S8 || !S9) { warn("rift: SHOT_S08/S09 missing"); return; }
         var fa = Rf.f0, fcut = 252, fe = Rf.f1;
+        function holeR(f) { var u = clamp((f - fcut) / (fe - fcut), 0, 1); return 210 + 1450 * Math.pow(u, 1.7); }
         // ---- 1. S08: the push into Tobey's left iris. The core's drift moves the layer, so read its transform each
         // frame to know where the iris is, then take over from f244 (continuous at 244) and bring the iris to centre.
         var a8 = vAt(ANC(S8), fa), c8 = {};
@@ -700,6 +720,12 @@ var SPECIAL = (function () {
         if (seq) {
             rl = MAIN.layers.add(seq); rl.name = "RIFT (blender)"; rl.startTime = f2t(fa);
             span(rl, fa, fe);
+            // the lens A01 is seen through: cut out of the element from the cut on (210 px at f252, then it opens out)
+            addMask(rl, shape([[-50, -50], [W + 50, -50], [W + 50, H + 50], [-50, H + 50]], true), 0);
+            var mhb = addMask(rl, ellipseRot(centre[0], centre[1], 1, 1, 0), 6); mhb.maskMode = MaskMode.SUBTRACT;
+            var bts = [f2t(fcut - 1)], bsh = [ellipseRot(centre[0], centre[1], 1, 1, 0)];
+            for (f = fcut; f <= fe + 1; f++) { var Rb = holeR(f); bts.push(f2t(f)); bsh.push(ellipseRot(centre[0], centre[1], Rb, Rb, 0)); }
+            mhb.property("ADBE Mask Shape").setValuesAtTimes(bts, bsh);
         } else {
             var rc = buildRiftComp(Rf);
             rl = MAIN.layers.add(rc); rl.name = "RIFT (native)"; rl.motionBlur = true; span(rl, 246, fe);
@@ -710,9 +736,10 @@ var SPECIAL = (function () {
             for (f = 246; f <= 253; f++) { var R = rOut[Math.min(f, 252)]; var c = f <= 251 ? ip(f) : centre; mts.push(f2t(f)); msh.push(jagged(c[0], c[1], R, jf, 0.3 + (f - 246) * 0.05)); }
             mo.property("ADBE Mask Shape").setValuesAtTimes(mts, msh);
             // the hole A01 is seen through: smooth, grows from the rift's heart, a lens opening
+            // (already a lens at the cut itself, f252: ~210 px, then it opens out to the frame)
             var mh = addMask(rl, ellipseRot(centre[0], centre[1], 1, 1, 0), 10); mh.maskMode = MaskMode.SUBTRACT;
             var hts = [], hsh = [];
-            for (f = fcut; f <= fe + 1; f++) { var u2 = (f - fcut) / (fe - fcut); var Rh = f <= fcut ? 1 : 40 + 1560 * Math.pow(u2, 2.0); hts.push(f2t(f)); hsh.push(ellipseRot(centre[0], centre[1], Rh, Rh, 0)); }
+            for (f = fcut; f <= fe + 1; f++) { var Rh = holeR(f); hts.push(f2t(f)); hsh.push(ellipseRot(centre[0], centre[1], Rh, Rh, 0)); }
             mh.property("ADBE Mask Shape").setValuesAtTimes(hts, hsh);
             keyList(OPA(rl), [[246, 100], [fe - 3, 100], [fe, 0]]);
         }
@@ -738,7 +765,7 @@ var SPECIAL = (function () {
         for (f = fcut; f <= fe + 1; f++) { var u3 = (f - fcut) / (fe - fcut); rts.push(f2t(f)); rvs.push(u3); }
         for (i = 0; i < 2; i++) {
             var path = gs[i].property("ADBE Vectors Group").property("ADBE Vector Shape - Group").property("ADBE Vector Shape"), pv = [];
-            for (f = fcut; f <= fe + 1; f++) { var u4 = (f - fcut) / (fe - fcut), Rh2 = 40 + 1560 * Math.pow(u4, 2.0) + (i ? 9 : -9); pv.push(ellipseRot(centre[0], centre[1], Math.max(Rh2, 1), Math.max(Rh2, 1), 0)); }
+            for (f = fcut; f <= fe + 1; f++) { var Rh2 = holeR(f) + (i ? 9 : -9); pv.push(ellipseRot(centre[0], centre[1], Math.max(Rh2, 1), Math.max(Rh2, 1), 0)); }
             path.setValuesAtTimes(rts, pv);
         }
         rim.blendingMode = BlendingMode.ADD;
@@ -765,7 +792,7 @@ var SPECIAL = (function () {
             keyList(ca.property("Aberration (Blue)"), [[247, 0], [251, -6], [253, -7], [fe, 0]]);
         });
         var fl = solid(MAIN, "SPECIAL_RIFT_FLASH", [1, 1, 1]); span(fl, 250, 256); fl.blendingMode = BlendingMode.ADD;
-        keyList(OPA(fl), [[250, 0], [251, 30], [252, 38], [253, 18], [255, 0]]);
+        keyList(OPA(fl), [[250, 0], [251, 9], [252, 14], [253, 7], [255, 0]]);   // a kick, not a veil: the tunnel keeps its contrast
         // ---- 5. the caption flip EARTH-96283 -> EARTH-120703 (digits tumble, then lock), comic caption box top left
         buildCaptionFlip(Rf);
     }
