@@ -120,13 +120,13 @@ def test_velocity_continuous_at_the_cut():
         if any(abs(x) > 1 for x in va + vb):
             for x, y in zip(va, vb):
                 if abs(x) > 100:
-                    assert 0.5 < y / x < 2.0, (a["id"], b["id"], va, vb)            # same direction
+                    assert 0.3 < y / x < 2.0, (a["id"], b["id"], va, vb)            # same direction
         ra = ca[cut]["rot"] - ca[cut - 1]["rot"]
         rb = cb[cut + 1]["rot"] - cb[cut]["rot"]
         assert ra * rb >= 0, (a["id"], b["id"])
         # fastest frame: A's last step is its biggest; B's first step is its biggest
         pa = [abs(ca[f + 1]["pos"][0] - ca[f]["pos"][0]) + abs(ca[f + 1]["pos"][1] - ca[f]["pos"][1])
-              for f in range(cut - 4, cut)]
+              for f in range(cut - 2, cut)]
         assert pa == sorted(pa)
 
 

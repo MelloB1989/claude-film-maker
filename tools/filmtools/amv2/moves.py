@@ -12,6 +12,7 @@ settle whose start speed is solved to EQUAL A's exit speed at the cut (`settle`)
 from __future__ import annotations
 
 import math
+import os
 
 from .remap import smoothstep
 
@@ -23,8 +24,9 @@ ZOOMS = ("zoom_in", "pull_out", "zoom_out")
 WHIPS = {"whip_l": (-1, 0), "whip_r": (1, 0), "whip_u": (0, -1), "whip_d": (0, 1),
          "whip_left": (-1, 0), "whip_right": (1, 0), "whip_up": (0, -1), "whip_down": (0, 1)}
 SPINS = {"spin_cw": 1, "spin_ccw": -1}
-EXIT_N = {"zoom_in": 5, "zoom_out": 5, "whip": 3, "spin": 5}
-ENTRY_N = {"pull_out": 9, "zoom_in": 9, "zoom_out": 8, "whip": 4, "spin": 9, "impact": 6, "open_lightsweep": 12}
+EXIT_N = {"zoom_in": 5, "zoom_out": 5, "whip": 2, "spin": 3}
+ENTRY_N = {"pull_out": 9, "zoom_in": 9, "zoom_out": 8, "whip": 3, "spin": 3, "impact": 6, "open_lightsweep": 12}
+SPIN_ROT, SPIN_ZOOM = 35.0, 1.35  # spin at the cut: smaller than before so the cut frame keeps its contrast
 WHIP_ZOOM = 1.22                # scale reached at the cut during a whip
 LAMBDA = 3.0                   # default exponential settle rate (per entry length)
 
@@ -116,9 +118,9 @@ def exit_move(xout, n_shot, focus_zoom=ZC):
                 dict(g=gw * dprog, rot=0, t=D * dprog))
     if k == "spin":
         s = SPINS[xout]
-        G = math.log(1.5)
-        return (Move(g=lambda u: G * prog(u), rot=lambda u: s * 50 * prog(u), tile=True),
-                dict(g=G * dprog, rot=50 * dprog, t=0))
+        G = math.log(SPIN_ZOOM)
+        return (Move(g=lambda u: G * prog(u), rot=lambda u: s * SPIN_ROT * prog(u), tile=True),
+                dict(g=G * dprog, rot=SPIN_ROT * dprog, t=0))
 
 
 def entry_move(xin, prev_xout, speeds):
@@ -145,16 +147,16 @@ def entry_move(xin, prev_xout, speeds):
         v0 = speeds["t"] or 0.65 * (W if dx else H)
         D = (W if dx else H)
         # enter from the opposite side of the exit: moving the same way as A, so B's offset starts on the +dir side
-        G = 0.8 * D                                   # starts 0.8 frame-widths off: at +2 f the offset is < 0.1 W
+        G = 0.5 * D                                   # starts 0.5 frame-widths off at the cut: +1 f ~ 70 px, +2 f clean
         f = settle_curve(G, N, v0)
         gw = math.log(WHIP_ZOOM)
         return Move(g=lambda u: gw * f(u) / G, tx=(lambda u: -dx * f(u)) if dx else None,
                     ty=(lambda u: -dy * f(u)) if dy else None, tile=True)
     if k == "spin":
         s = SPINS[xin]
-        G = math.log(1.5)
+        G = math.log(SPIN_ZOOM)
         fg = settle_curve(G, N, speeds["g"] or G / N * 3)
-        fr = settle_curve(50.0, N, speeds["rot"] or 50 / N * 3)
+        fr = settle_curve(SPIN_ROT, N, speeds["rot"] or SPIN_ROT / N * 3)
         return Move(g=fg, rot=lambda u: -s * fr(u), tile=True)
     if k == "impact":                                 # punch 115 -> 100 % over 6 f, expo-out
         G = math.log(1.15)
@@ -193,6 +195,16 @@ def shot_keys(sh, prev, nxt, hin, hout):
         nb = [out[j]["need"] for j in (i - 1, i, i + 1) if 0 <= j < len(out)]
         w, h = max(x[0] for x in nb), max(x[1] for x in nb)
         k["tile"] = [round(w), round(h)] if (w > 100.5 or h > 100.5) else None
+    if os.environ.get("AMV2_WBLUR", "1") != "0" and (_kind(sh["xout"]) == "whip" or _kind(sh["xin"]) == "whip"):
+        wd = WHIPS.get(sh["xout"]) if _kind(sh["xout"]) == "whip" else WHIPS.get(sh["xin"])
+        horiz = bool(wd[0])
+        for i, k in enumerate(out):      # directional blur along the whip axis, sized by the on-screen speed
+            j = max(i - 1, 0)
+            sp = abs(k["pos"][0 if horiz else 1] - out[j]["pos"][0 if horiz else 1]) if i else 0.0
+            sp2 = abs(out[min(i + 1, len(out) - 1)]["pos"][0 if horiz else 1] - k["pos"][0 if horiz else 1])
+            v = max(sp, sp2)
+            on = (k["f"] <= a) if _kind(sh["xin"]) == "whip" else (k["f"] >= b - EXIT_N["whip"])   # blur the A side and the cut frame only
+            k["wb"] = [round(0.35 * v / (k["scale"] / 100.0), 1) if (v > 250 and on) else 0.0, 90 if horiz else 0]
     for k in out:
         del k["need"], k["F"]
     return out
