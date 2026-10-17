@@ -597,8 +597,46 @@ def chrome_material(name="chrome"):
     return m, cen_node, amp_node
 
 
+def star_material():
+    """4-point anamorphic star flare on a plane spanning [-1, 1]: long thin horizontal / vertical streaks, short
+    diagonals and a hot core. Emission fades to transparent, so the alpha channel carries the flare."""
+    m = bpy.data.materials.new("star_flare")
+    m.use_nodes = True
+    nt = m.node_tree
+    NB.nt = nt
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    x, y, _ = sep_xyz(tc.outputs["Object"])
+    ax, ay = absv(x), absv(y)
+    r = sqrt(x * x + y * y)
+    fall_x = vmax(1.0 - ax, 0.0) ** 3.0
+    fall_y = vmax(1.0 - ay, 0.0) ** 3.0
+    horiz = fall_x * fn("EXPONENT", ay * -34.0)
+    vert = fall_y * fn("EXPONENT", ax * -34.0)
+    u = (x + y) * 0.7071
+    w = (x - y) * 0.7071
+    d1 = (vmax(1.0 - absv(u) * 1.9, 0.0) ** 3.0) * fn("EXPONENT", absv(w) * -42.0)
+    d2 = (vmax(1.0 - absv(w) * 1.9, 0.0) ** 3.0) * fn("EXPONENT", absv(u) * -42.0)
+    core = fn("EXPONENT", r * -22.0)
+    halo = fn("EXPONENT", r * -4.0) * 0.12
+    inten = (horiz * 0.95 + vert * 0.85 + (d1 + d2) * 0.38 + core * 0.9 + halo) * sstep(vmax(ax, ay), 1.0, 0.8)
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Strength"].default_value = 3.2
+    # white core, a cool blue-violet cast along the streaks
+    cast = clamp(horiz + vert) * 0.35
+    nt.links.new(comb_rgb(1.0 - cast * 0.55, 1.0 - cast * 0.35, 1.0), em.inputs["Color"])
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mixn = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(clamp(inten * 2.0).s, mixn.inputs[0])
+    nt.links.new(tr.outputs[0], mixn.inputs[1])
+    nt.links.new(em.outputs[0], mixn.inputs[2])
+    nt.links.new(mixn.outputs[0], out.inputs["Surface"])
+    return m
+
+
 def build_timeless(args):
-    s = setup_scene(args, "timeless3d", T_F0, T_F1, motion_blur=True, shutter=0.35)
+    s = setup_scene(args, "timeless3d", T_F0, T_F1, motion_blur=True, shutter=0.28)
     perspective_camera(s)
     set_world(s, HDRI_DIR / "studio_small_08_1k.hdr", strength=0.7, rot=(90, 0, 160), gradient=0.7)
     mat, cen_node, amp_node = chrome_material()
@@ -654,7 +692,8 @@ def build_timeless(args):
     area_light(s, "rimB", (9.0, -2.0, -4.0), (0, 0, 0), (0.1, 0.3, 1.0), 2800, size=3.0, size_y=10.0)
     area_light(s, "key", (0.0, 9.0, 14.0), (0, 0, 0), (1.0, 0.97, 0.93), 1100, size=10.0, size_y=3.0)
 
-    animate_timeless(s, title, pivots, cen_node, amp_node, base, ycen)
+    animate_timeless(s, title, pivots, cen_node, amp_node, base, ycen, star_xy=(
+        pivots[3][1].x + 0.05 * (cap1 - cap0), 0.5 * (cap1 - cap0) * 0.92), star_size=1.15 * (cap1 - cap0))
     s.frame_set(T_F0)
     glow_compositor(s, [dict(threshold=0.9, size=0.55, strength=0.35, tint="#BFD2FF"),
                         dict(threshold=1.3, size=0.25, strength=0.30, tint="#FFFFFF")])
@@ -670,7 +709,7 @@ def _single_box(scene, font, ch, ext, bev):
     return x0, x1
 
 
-def animate_timeless(s, title, pivots, cen_node, amp_node, base, ycen):
+def animate_timeless(s, title, pivots, cen_node, amp_node, base, ycen, star_xy=(0.0, 0.0), star_size=1.0):
     rnd = random.Random(7)
     frames = list(range(T_F0, T_F1 + 1))
     cx_screen = (T_CENTER[0] - W / 2) / PX
@@ -682,10 +721,10 @@ def animate_timeless(s, title, pivots, cen_node, amp_node, base, ycen):
         k = f - T_F0
         # the 802 hit: the word arrives from behind the camera (z above CAM_Z) and slams down to z = 0, overshoots
         # behind (receding), springs back. k=0 is already right at the lens: huge and blurred.
-        z_key = [[0, 9.5], [1, 4.0], [2, 1.2], [3, -1.0], [4, -0.6], [5, 0.15]]
+        z_key = [[0, 3.2], [1, 1.6], [2, 0.5], [3, -0.9], [4, -0.5], [5, 0.15]]
         z = keys(z_key, k) if k <= 5 else 0.28 * math.exp(-0.45 * (k - 5)) * math.cos(0.85 * (k - 5))
         sp = spring(k - 1.0, wn=0.82, zeta=0.30)
-        yaw = math.radians(78.0 * (1 - sp))
+        yaw = math.radians(64.0 * (1 - sp))
         pitch = math.radians(-24.0 * (1 - sp))
         roll = math.radians(9.0 * (1 - spring(k - 0.5, wn=0.9, zeta=0.35)))
         return z, yaw, pitch, roll
@@ -712,6 +751,21 @@ def animate_timeless(s, title, pivots, cen_node, amp_node, base, ycen):
         keyframe_value(cen_node, [f], lambda _f: c)
         a = 1.0 if 6 <= k <= 18 else 0.0
         keyframe_value(amp_node, [f], lambda _f: a)
+
+    # star flare at the peak of the sweep (k ~ 12 = comp 814): a four-point anamorphic glint on the top edge of the 'E'
+    quad = bpy.data.meshes.new("star")
+    quad.from_pydata([(-1, -1, 0), (1, -1, 0), (1, 1, 0), (-1, 1, 0)], [], [(0, 1, 2, 3)])
+    quad.materials.append(star_material())
+    st = link(s, bpy.data.objects.new("star_flare", quad))
+    st.parent = title
+    for f in frames:
+        k = f - T_F0
+        grow = smooth((k - 8.5) / 3.5)
+        life = grow * (1.0 - smooth((k - 12.0) / 5.0))
+        sz = star_size * (life ** 0.8) * (1.0 + 0.06 * math.sin(k * 2.1))
+        rot = math.radians(12.0 - 28.0 * (k - 8.5) / 9.0)
+        set_key(st, f, loc=(star_xy[0], star_xy[1], 0.17), rot=Euler((0, 0, rot)),
+                scale=(max(sz, 0.001),) * 3, hide=life < 0.01)
 
     # break: letter i leaves from the hold at 819 (k = 17), gone at 826 (k = 24)
     n = len(pivots)

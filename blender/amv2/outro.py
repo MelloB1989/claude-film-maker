@@ -229,11 +229,36 @@ def letter_material(name, kind):
     return m
 
 
-def metal_material(name, tint, emit):
+def metal_material(name, tint, emit, opacity=1.0, fade=None):
+    """Metal; `opacity` caps how bright it reads and `fade=(r0, r1, floor)` fades it out with the distance from the origin in
+    the XZ plane (towards the screen edges), via a transparent mix."""
     m, nt = new_mat(name)
-    out = node(nt, "ShaderNodeOutputMaterial", 400, 0)
+    out = node(nt, "ShaderNodeOutputMaterial", 700, 0)
     bs = node(nt, "ShaderNodeBsdfPrincipled", 100, 0, name="BSDF")
-    link(nt, bs.outputs[0], out.inputs[0])
+    if opacity < 1.0 or fade:
+        tc = node(nt, "ShaderNodeTexCoord", -700, 300)
+        sep = node(nt, "ShaderNodeSeparateXYZ", -500, 300)
+        link(nt, tc.outputs["Object"], sep.inputs[0])
+        comb = node(nt, "ShaderNodeCombineXYZ", -350, 300)
+        link(nt, sep.outputs["X"], comb.inputs["X"])
+        link(nt, sep.outputs["Z"], comb.inputs["Y"])
+        ln = node(nt, "ShaderNodeVectorMath", -200, 300, operation="LENGTH")
+        link(nt, comb.outputs[0], ln.inputs[0])
+        r0, r1, floor = fade or (0.0, 1.0, 1.0)
+        mr = node(nt, "ShaderNodeMapRange", -50, 300, clamp=True)
+        link(nt, ln.outputs["Value"], mr.inputs["Value"])
+        mr.inputs["From Min"].default_value = r0
+        mr.inputs["From Max"].default_value = r1
+        mr.inputs["To Min"].default_value = opacity
+        mr.inputs["To Max"].default_value = opacity * floor
+        tr = node(nt, "ShaderNodeBsdfTransparent", 300, -150)
+        mx = node(nt, "ShaderNodeMixShader", 500, 0)
+        link(nt, mr.outputs["Result"], mx.inputs[0])
+        link(nt, tr.outputs[0], mx.inputs[1])
+        link(nt, bs.outputs[0], mx.inputs[2])
+        link(nt, mx.outputs[0], out.inputs[0])
+    else:
+        link(nt, bs.outputs[0], out.inputs[0])
     bs.inputs["Base Color"].default_value = rgba(tint)
     bs.inputs["Metallic"].default_value = 1.0
     bs.inputs["Roughness"].default_value = 0.10
@@ -848,7 +873,7 @@ def web_geometry(mat_hi):
 
 
 def build_web():
-    mat = metal_material("web_metal", (0.62, 0.70, 0.95), 0.12)
+    mat = metal_material("web_metal", (0.62, 0.70, 0.95), 0.12, opacity=0.3, fade=(3.5, 13.0, 0.1))
     ob_s, cu_s, ob_r, cu_r = web_geometry(mat)
     for f in frames():
         t = f - F0
@@ -877,11 +902,11 @@ def build_web():
 
 def build_strands(objs):
     """Web strands that shoot and snap on the hits; they stay attached to the landed letters until the exit snap."""
-    mat = metal_material("strand_metal", (0.9, 0.94, 1.0), 0.15)
+    mat = metal_material("strand_metal", (0.8, 0.85, 0.95), 0.05, opacity=0.22, fade=(4.0, 14.0, 0.2))
     rest = {i: Vector(ob["rest"]) for i, ob in enumerate(objs)}
     FRONT = -0.7
 
-    def strand(name, a, b, f0, life_end, sag=0.7, snap_amp=0.8, speed=2.0, thick=0.016):
+    def strand(name, a, b, f0, life_end, sag=0.7, snap_amp=0.8, speed=2.0, thick=0.010):
         """a = anchor (far end), b = the target; shot at f0 (draw over `speed` frames), wobbles, retracts at life_end."""
         ob, cu = make_curve(name, mat, thick)
         a, b = Vector(a), Vector(b)
@@ -922,7 +947,7 @@ def build_strands(objs):
     wrap = [((-17, -2.6, -6.0), (17, -2.6, 4.0)), ((17, -2.6, -4.5), (-17, -2.6, 6.0)), ((-17, -2.8, 4.0), (17, -2.8, -5.5)),
             ((17, -2.6, 5.5), (-17, -2.6, -4.0))]
     for k, (a, b) in enumerate(wrap):
-        strand(f"wrap{k}", a, b, 889 + (k % 2), 892, snap_amp=0.05, speed=2.5, thick=0.016)
+        strand(f"wrap{k}", a, b, 889 + (k % 2), 892, snap_amp=0.05, speed=2.5, thick=0.010)
 
 
 def star_mesh(arm=1.0, waist=0.09):
@@ -1354,7 +1379,7 @@ def setup_render(args):
     sc.render.motion_blur_position = "CENTER"
     sc.render.film_transparent = False
     im = sc.render.image_settings
-    im.file_format, im.color_mode, im.color_depth, im.compression = "PNG", "RGB", "8", 15
+    im.file_format, im.color_mode, im.color_depth, im.compression = "PNG", "RGBA", "8", 15      # opaque, but RGBA like the other pieces (pod_render.sh checks colour type 6)
     sc.render.dither_intensity = 0.0               # the last frame has to be exactly black
     sc.view_settings.view_transform = "AgX"
     sc.view_settings.look = "AgX - Punchy"
