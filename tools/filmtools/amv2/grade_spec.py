@@ -42,6 +42,31 @@ TARGETS = {
 }
 
 
+# Per-shot hand overrides from the final reviews, applied on top of the solver.
+#   ib/iw: add to the input black/white; ob: add to the output black; g: multiply the levels gamma (shadow gain); sat: add to master saturation; ow: add to output white
+OVERRIDES = {
+    "S18": {"ob": 0.02, "g": 1.1, "sat": -4},      # M01 portal: crushed left half, lift the toe so the second eye and cheek read
+    "S07": {"ib": 0.03},                            # train: lifted blacks (p1 0.09) from the fx halation, bring down to ~0.02-0.03
+    "S08": {"ib": 0.03},                            # eye dive: same
+    "S09": {"ow": -0.06, "iw": -0.05},              # lens pullout: clips 2.3 % around the lens
+    "S14": {"sat": -24, "ow": -0.08},               # A06 water tower: neon sky, hard white clouds
+}
+
+
+def apply_override(t, sid):
+    o = OVERRIDES.get(sid)
+    if not o:
+        return t
+    lev = t["lev"]
+    lev["ob"] = round(lev["ob"] + o.get("ob", 0.0), 4)
+    lev["ib"] = round(lev["ib"] + o.get("ib", 0.0), 4)
+    lev["iw"] = round(lev["iw"] + o.get("iw", 0.0), 3)
+    lev["g"] = round(lev["g"] * o.get("g", 1.0), 3)
+    lev["ow"] = round(lev["ow"] + o.get("ow", 0.0), 3)
+    t["sat"] = round(t["sat"] + o.get("sat", 0.0), 1)
+    return t
+
+
 def _np():
     try:
         import numpy
@@ -263,7 +288,7 @@ def compute(E):
             continue
         a_f = s.get("a", s.get("f", 800))
         act = "tobey" if a_f < 252 else ("andrew" if a_f < 480 else "tom")
-        t = solve(px, act)
+        t = apply_override(solve(px, act), sid)
         t["clip"] = s["clip"]
         (out["panels"] if sid.startswith("P") else out["shots"])[sid[1:] if sid.startswith("P") else sid] = t
     return out
