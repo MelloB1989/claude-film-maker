@@ -427,6 +427,7 @@ def cmd_fit(a):
            "report": {"frames": [int(f) for f in d["frames"]], "before": full_b, "after": full_a,
                       "summary": {k: {"before": mean(full_b, k), "after": mean(full_a, k)} for k in ("de_mean", "de_median", "rgb_mae")},
                       "fit_cost": float(res.cost), "note": "dE = Lab distance of blurred, masked 480x270 frames; rgb_mae in /255"}}
+    Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(doc, indent=1))
     print(json.dumps(doc["report"]["summary"], indent=1))
 
