@@ -90,7 +90,7 @@ def vm_cmd(project_rel, frames_dir_rel, ch, threads, res, quality):
 
 
 def check_frames(fdir, a, b):
-    """Every frame present; black frames listed (YAVG < 2) so the caller can compare with the intended ones."""
+    """Every frame present; black frames listed (YAVG < 17: black is 16 in limited-range YUV) so the caller can compare with the intended ones."""
     miss = [f for f in range(a, b) if not (fdir / f"f_{f:05d}.png").exists()]
     black = []
     if not miss:
@@ -98,19 +98,18 @@ def check_frames(fdir, a, b):
                             str(b - a), "-vf", "signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-", "-f", "null", "-"],
                            capture_output=True, text=True)
         ys = [float(x) for x in re.findall(r"YAVG=([\d.]+)", r.stdout)]
-        black = [a + i for i, y in enumerate(ys) if y < 2.0]
+        black = [a + i for i, y in enumerate(ys) if y < 17.0]
     return miss, black
 
 
 def encode(fdir, a, b, mp4, mix=None, fps=FPS):
     mix = mix or (OUT / "mix.wav" if (OUT / "mix.wav").exists() else None)
-    cmd = [FFMPEG, "-y", "-v", "error", "-framerate", str(fps), "-start_number", str(a), "-i", str(fdir / "f_%05d.png"),
-           "-frames:v", str(b - a)]
+    cmd = [FFMPEG, "-y", "-v", "error", "-framerate", str(fps), "-start_number", str(a), "-i", str(fdir / "f_%05d.png")]
     if mix:
         cmd += ["-ss", f"{a / fps}", "-i", str(mix)]
     else:
         cmd += ["-ss", f"{a / fps}", "-t", f"{(b - a) / fps}", "-i", SONG]
-    cmd += ["-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-crf", "16", "-preset", "medium", "-pix_fmt", "yuv420p",
+    cmd += ["-map", "0:v", "-map", "1:a", "-frames:v", str(b - a), "-c:v", "libx264", "-crf", "16", "-preset", "medium", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "256k", "-t", f"{(b - a) / fps}", "-movflags", "+faststart", str(mp4)]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode:
