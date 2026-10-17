@@ -116,3 +116,7 @@ Bugs and workarounds found while building `tools/filmtools/amv2/ec/special.jsx`:
 - Useful and working: `ec.vr.chromaticaberrations` (per-channel Aberration (Red/Green/Blue) = the red/blue split), `ADBE Ripple`
   (shockwave), `ec.sim.ccballaction` (halftone-like dots), `ec.blur.ccradialfast` (zoom streaks), Bevel Alpha (shard rim).
 - `effectcraft-cli` is not on PATH in the agent container (use the full path); it is on the VM's PATH.
+
+### fx follow-up
+- Comic ink: no Halftone effect in 0.10, so the halftone is an ordered dither: a black solid with `ADBE Checkerboard` (Size From = 2, white squares), Gaussian blur 6, rotated 45, Linear Light at 17% sits under the Threshold adjustment layer; Tint maps ink/paper; a 5 px RGB split on top is the misregistration. (Checkerboard `Size From` 1 = corner point, and a black Color made the whole layer black.)
+- FX skips automatic shake/flash/chroma/ink inside the SPECIAL windows 244-262, 468-492, 777-830 (riser and explicit looks still run).
