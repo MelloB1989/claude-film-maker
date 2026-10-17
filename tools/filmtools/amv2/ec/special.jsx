@@ -102,14 +102,13 @@ var SPECIAL = (function () {
         return file;
     }
     // an RGBA image sequence by its first frame; returns the footage item or null when the folder is missing
-    function sequence(dir, firstFrame, alpha) {
+    function sequence(dir, firstFrame) {   // (PNG alpha is read as straight by default: the Blender RGBA comps correctly)
         var p = dir + "/" + ("0000" + firstFrame).slice(-4) + ".png";
         var o = new ImportOptions(new File(p)); o.sequence = true;
         var it = null;
         try { it = app.project.importFile(o); } catch (e) { return null; }
         if (!it) return null;
         TRY("conform", function () { it.mainSource.conformFrameRate = FPS; });
-        TRY("alpha", function () { if (alpha) it.mainSource.alphaMode = AlphaMode.STRAIGHT; });   // Blender RGBA is straight-alpha
         TRY("folder", function () { it.parentFolder = C.elements; });
         return it;
     }
@@ -454,10 +453,10 @@ var SPECIAL = (function () {
         sh.outTangents = [V(rx * k, 0), V(0, ry * k), V(-rx * k, 0), V(0, -ry * k)];
         sh.closed = true; return sh;
     }
-    function radialBlur(l, label, ks, center) {   // CC Radial Fast Blur in glowing-streak mode, keyed [[frame, amount]]
+    function radialBlur(l, label, ks, center, mode) {   // CC Radial Fast Blur in glowing-streak mode, keyed [[frame, amount]]
         TRY(label, function () {
             var rb = fxAdd(l, "ec.blur.ccradialfast", label);
-            setp(rb, "Center", center); TRY("zoom", function () { rb.property("Zoom").setValue(2); });
+            setp(rb, "Center", center); TRY("zoom", function () { rb.property("Zoom").setValue(mode || 2); });   // 1 standard, 2 brightest (streaky), 3 darkest
             keyList(rb.property("Amount"), ks);
         });
     }
@@ -536,7 +535,7 @@ var SPECIAL = (function () {
         }
         POS(B).setValuesAtTimes(tb, pb); SCL(B).setValuesAtTimes(tb, sb); ROT(B).setValuesAtTimes(tb, rb_);
         mB.property("ADBE Mask Shape").setValuesAtTimes(tb, mshape); mB.property("ADBE Mask Feather").setValuesAtTimes(tb, mfeath);
-        radialBlur(B, "pull-out zoom blur", [[drop, 80], [drop + 6, 40], [drop + 14, 0]], lens);
+        radialBlur(B, "pull-out zoom blur", [[drop, 60], [drop + 4, 28], [drop + 9, 8], [drop + 12, 0]], lens, 1);   // standard mode: Brightest on the 300 % upscaled face made blocky bars
         // ---- 4. speed lines on the riser (S17)
         var cl = function (f) { var a_ = slamA(clamp(f, fS, drop)); return [a_.p[0] + (lens[0] - aA[0]) * a_.s / 100, a_.p[1] + (lens[1] - aA[1]) * a_.s / 100]; };
         if (own.lines !== false)
@@ -545,15 +544,16 @@ var SPECIAL = (function () {
         // ---- 5. THE DROP at f480: white flash, shockwave (Ripple) + ring, chromatic split
         if (own.shock !== false) {
             var sw = adj(MAIN, "SPECIAL_SHOCKWAVE"); span(sw, drop, drop + 14);
-            TRY("edge extend", function () {   // mirror the frame edge outward first: the ripple must not pull transparent/blank edge in (scalloped top and bottom)
-                var tl = fxAdd(sw, "ADBE Tile", "edge mirror");
-                setp(tl, "Output Width", 116); setp(tl, "Output Height", 116); setp(tl, "Mirror Edges", 1);
-            });
             TRY("ripple", function () {
                 var rp = fxAdd(sw, "ADBE Ripple", "shockwave");
                 setp(rp, "Center of Ripple", centre); setp(rp, "Wave Width", 150); setp(rp, "Wave Speed", 0);
                 keyFn(rp.property("Radius"), drop, drop + 14, function (f) { return 40 + 1400 * eOutCubic((f - drop) / 13); });
                 keyFn(rp.property("Wave Height"), drop, drop + 14, function (f) { return 20 * Math.pow(1 - clamp((f - drop) / 13, 0, 1), 1.4); });
+            });
+            TRY("overscan", function () {   // the ripple samples outside the layer at the frame edge (scalloped rim): zoom the rippled picture in AFTER it, by
+                var gm = fxAdd(sw, "ADBE Geometry2", "overscan");          // the wave height (cropping the damaged rim), relaxing to 100 % as the wave dies
+                setp(gm, "Uniform Scale", 1); setp(gm, "Anchor Point", centre); setp(gm, "Position", centre);
+                keyFn(gm.property("Scale Height"), drop, drop + 14, function (f) { return 100 + 9 * Math.pow(1 - clamp((f - drop) / 13, 0, 1), 1.4); });
             });
         }
         if (own.chroma !== false) {
