@@ -161,7 +161,9 @@ var TITLES = (function () {
             blurDir = wh[0] ? 0 : 90; blurLen = 140;
         } else if (cut == "zoom_in") {
             K(S, [[a - 1, [100, 100]], [f1, [250, 250]]], "in"); K(O, [[e - 1, 100], [e, 0]], "lin"); blurDir = null;
-        } else if (cut == "zoom_out" || cut == "panel_slam") {
+        } else if (cut == "panel_slam") {                        // the picture collapses into the triptych from f771: the title is gone by f772
+            K(S, [[f1 - 9, [100, 100]], [f1 - 5, [72, 72]]], "in"); K(O, [[f1 - 9, 100], [f1 - 5, 0]], "lin");
+        } else if (cut == "zoom_out") {
             K(S, [[a - 1, [100, 100]], [f1, [58, 58]]], "in"); K(O, [[e - 2, 100], [e, 0]], "lin");
         } else if (cut == "spin_cw" || cut == "spin_ccw") {
             var sg = (cut == "spin_cw") ? 1 : -1;
