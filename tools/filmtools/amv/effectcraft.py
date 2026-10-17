@@ -36,15 +36,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
-import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from . import plan as P
+from ..artcraft.effectcraft import find_cli, preview_frames, run_script   # shared with the other exporters
 
 JSX = Path(__file__).with_name("effectcraft_build.jsx")
 KEY_TOL = 1e-3          # px / % / deg: runs of per-frame keys straighter than this are stored as one linear span
@@ -311,38 +309,6 @@ def render_jsx(spec, out_path: Path, project_path: Path):
     out_path.write_text(head + JSX.read_text())
 
 
-def find_cli(explicit=None):
-    cands = [explicit, os.environ.get("EFFECTCRAFT_CLI"), shutil.which("effectcraft-cli")]
-    for c in cands:
-        if c and Path(c).exists():
-            return str(c)
-    for g in sorted(Path("/tmp").glob("ec-bin/*/bin/effectcraft-cli")):
-        return str(g)
-    return None
-
-
-def run_script(cli, jsx: Path, timeout=1800):
-    r = subprocess.run([cli, "script", str(jsx)], capture_output=True, text=True, timeout=timeout)
-    return r.returncode, r.stdout, r.stderr
-
-
-def preview_frames(cli, project: Path, frames, out_dir: Path, max_side=640, comp=None):
-    """Render `frames` (comp frames) headless at `max_side` px with the CLI."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    made = []
-    for f in frames:
-        dst = out_dir / f"f{f:04d}.png"
-        cmd = [cli, "--project", str(project), "render-frame", "--frame", str(f), "--max-side", str(max_side),
-               "--out", str(dst)]
-        if comp:
-            cmd[3:3] = ["--comp", comp]
-        r = subprocess.run(cmd, capture_output=True, text=True)
-        if r.returncode != 0:
-            raise SystemExit(f"render-frame {f} failed: {r.stderr or r.stdout}")
-        made.append(dst)
-    return made
-
-
 def default_paths(film_dir: Path):
     film_id = film_dir.resolve().name
     # out/ sits next to films/ (the repo root's out/<id>/amv)
@@ -359,7 +325,7 @@ def main(argv=None):
     ap.add_argument("--outro", type=Path, help="outro PNG sequence (default out/<id>/amv/outro)")
     ap.add_argument("--out", type=Path, help="project folder (default out/<id>/amv/<id>.effectcraft-project)")
     ap.add_argument("--source", choices=["clips", "baked", "auto"], default="clips")
-    ap.add_argument("--cli", help="path to effectcraft-cli (else $EFFECTCRAFT_CLI, PATH, /tmp/ec-bin)")
+    ap.add_argument("--cli", help="path to effectcraft-cli (else $EFFECTCRAFT_CLI, PATH, the artcraft install dir)")
     ap.add_argument("--emit-only", action="store_true", help="write spec.json + build.jsx, do not run the CLI")
     ap.add_argument("--preview", help="comma list of comp frames to render low-res after building, e.g. 30,245,490")
     ap.add_argument("--preview-side", type=int, default=640, help="longest side in px of the preview frames")

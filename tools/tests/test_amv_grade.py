@@ -98,3 +98,17 @@ def test_rolloff_whitens_overexposure_and_keeps_in_range_pixels():
     assert y[0, 1].min() > 0.7 and y[0, 1].max() <= 1.0                          # blown: pale, not a saturated clip
     assert (y[0, 1, 0] - y[0, 1, 2]) < (1.0 - 0.37)                              # less chroma than the plain clip
     assert np.allclose(G.rolloff_in(x, 0.0), np.clip(x, 0, 1))                   # strength 0 = AE's clip
+
+
+def test_resolve_params_layers_the_fit_under_the_callers_keys(tmp_path):
+    import importlib.util
+    import sys
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root / "blender"))
+    from amv import grade
+    f = tmp_path / "grade.json"
+    f.write_text('{"fitted": {"saturation": 111.0, "hi_desat": 0.6}, "nominal": {"saturation": 150}}')
+    p = grade.resolve_params({"grade_json": str(f), "io": "srgb", "saturation": 120.0})
+    assert p["saturation"] == 120.0 and p["hi_desat"] == 0.6 and p["io"] == "srgb" and "grade_json" not in p
+    assert grade.resolve_params(None) == {}
