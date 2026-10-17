@@ -97,18 +97,23 @@ class Tree:
         return o
 
 
-def grade_group(log=print):
-    """The `AMV Grade` node group: grade.build_group if grade.py exists, else a pass-through with the same sockets."""
+def grade_group(log=print, params_path=None, res_scale=1.0):
+    """The `AMV Grade` node group: grade.build_group with the film's fitted `amv/grade.json` (the Premium Glow preset's
+    own values when there is none), else a pass-through with the same sockets."""
     old = bpy.data.node_groups.get(GRADE_NAME)
     if old is not None:
         bpy.data.node_groups.remove(old)
     tree = None
     try:
         grade = importlib.import_module("amv.grade")
-        try:
-            tree = grade.build_group({"io": "srgb"})
-        except TypeError:
-            tree = grade.build_group()
+        params = {}
+        if params_path is not None and Path(params_path).is_file():
+            params = dict(grade.load_params(params_path))
+            log(f"compositor: grade params fitted, from {params_path}")
+        else:
+            log(f"compositor: WARNING no {params_path}: the grade uses the Premium Glow preset's own values")
+        params.update(io="srgb", res_scale=res_scale)
+        tree = grade.build_group(params)
         tree.name = GRADE_NAME
         log("compositor: grade node group from amv/grade.py")
     except ModuleNotFoundError as e:
@@ -207,7 +212,7 @@ def build(built, overlays_dir=None, res_scale=1.0, log=print):
     # ---- display-referred from here
     img = t.convert(img, LINEAR, SRGB, "to sRGB")
     grp = t.node("CompositorNodeGroup", "grade")
-    grp.node_tree = grade_group(log)
+    grp.node_tree = grade_group(log, built.plan.path("amv/grade.json"), res_scale)
     t.link(img, grp.inputs[0])
     gm = t.mix(img, grp.outputs[0], 1.0, "grade until outro")
     S.key_socket(gm, 0, [(outro_f - 1, 1.0), (outro_f, 0.0)], "CONSTANT")
