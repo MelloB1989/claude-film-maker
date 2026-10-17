@@ -139,10 +139,10 @@ var TITLES = (function () {
             setp(e, "Shadow Color", [0, 0, 0]);
         });
     }
-    function glow(l, label, thr, rad, inten, colA, colB) {
+    function glow(l, label, thr, rad, inten, colA, colB, basedOn) {   // basedOn: 1 = colour channels (bright pixels), 2 = alpha (the shape's edge)
         return TRY("glow " + label, function () {
             var g = fxAdd(l, "ADBE Glo2", label);
-            setp(g, "Glow Threshold", thr); setp(g, "Glow Radius", rad); setp(g, "Glow Intensity", inten);
+            setp(g, "Glow Based On", basedOn || 2); setp(g, "Glow Threshold", thr); setp(g, "Glow Radius", rad); setp(g, "Glow Intensity", inten);
             if (colA) { setp(g, "Glow Colors", 3); setp(g, "Color A", colA); setp(g, "Color B", colB || colA); }
             return g;
         });
@@ -212,9 +212,9 @@ var TITLES = (function () {
             for (i = 0; i < page.length; i++) {
                 var l = mkText(comp, page[i].w, o); l.name = "word " + page[i].w;
                 var r = rect(l); words.push({ l: l, r: r, w: page[i], x: total });
-                total += r.width + (page[i].join ? 0 : space);
+                total += r.width + (page[i].join ? 0 : space + 8);
             }
-            total -= (page[page.length - 1].join ? 0 : space);
+            total -= (page[page.length - 1].join ? 0 : space + 8);
             var x0 = W / 2 - total / 2;
             var tEnd = (p + 1 < d.pages.length) ? d.pages[p + 1][0].f - T.f : n - 1;     // page leaves as the next one starts / at the exit
             var out0 = Math.max(tEnd - 3, 0);
@@ -226,8 +226,8 @@ var TITLES = (function () {
                 ANC(l2).setValue([wd.r.left + wd.r.width / 2, cb.top + cb.height / 2]);
                 POS(l2).setValue([cx, cy]);
                 inout(l2, f, tEnd + 1);
-                K(SCL(l2), [[f, [122, 122]], [f + 3, [100, 100]]], "out");
-                K(OPA(l2), [[f, 0], [f + 2, 100], [out0, 100], [tEnd, 0]], "lin");
+                K(SCL(l2), [[f, [113, 113]], [f + 3, [100, 100]]], "out");
+                K(OPA(l2), [[f, 55], [f + 1, 100], [out0, 100], [tEnd, 0]], "lin");
                 var py = [[f, [cx, cy + 14]], [f + 3, [cx, cy]], [out0, [cx, cy]], [tEnd, [cx, cy - 10]]];
                 K(POS(l2), py, "out");
             }
@@ -242,7 +242,7 @@ var TITLES = (function () {
 
     // ---------------------------------------------------------------- namecard
     var ACT_ACCENT = { tobey: "#E9C46A", andrew: "#5BC8FF", tom: "#FF5A3C" };
-    var CARD = { x: 96, nameCy: 804, ruleY: 838, subCy: 870, nameSize: 46, subSize: 22 };
+    var CARD = { x: 96, nameCy: 804, ruleY: 840, subCy: 874, nameSize: 52, subSize: 24 };
     function namecard(main, T, X, idx) {
         var n = T.f1 - T.f, comp = newComp("NAMECARD " + T.text, T.f, T.f1), act = X.act[String(idx)];
         var on = { font: "Montserrat-Light", size: CARD.nameSize, fill: [1, 1, 1], track: 380, just: "l" };
@@ -253,18 +253,18 @@ var TITLES = (function () {
         var subL = mkText(comp, T.sub, os); subL.name = "sub line";
         var ps = place(comp, subL, os, CARD.x, CARD.subCy);
         OPA(subL).setValue(82);
-        var out0 = n - 10;                                          // slide-out starts 10 frames before the end
+        var rise = Math.min(14, Math.round(n * 0.3)), outN = Math.min(10, Math.round(n * 0.3)), out0 = n - 1 - outN;   // entry and exit scale down for short cards
         // mask reveal: a static layer mask in comp space, the glyphs rise into it (text animator position)
         function reveal(l, p, o, f0) {
-            var m = layerMask(l, rectShape(p.r.left - 10, p.r.top - 8, p.r.left + p.r.width + 24, p.r.top + p.r.height + 10), 0);
+            var m = layerMask(l, rectShape(p.r.left - 10, p.r.top - 8, p.r.left + p.r.width + 900, p.r.top + p.r.height + 10), 0);
             var cap = capBox(comp, o.font, o.size);
-            posAnim(l, [[f0, [0, 48]], [f0 + 14, [0, 0]], [out0, [0, 0]], [n - 1, [-(p.r.width + 70), 0]]], "out");
+            posAnim(l, [[f0, [0, 52]], [f0 + rise, [0, 0]], [out0, [0, 0]], [n - 1, [-(p.r.width + 90), 0]]], "out");
             // the exit accelerates: re-key the last segment with ease-in
         }
         reveal(nameL, pn, on, 0);
-        reveal(subL, ps, os, 5);
-        trackAnim(nameL, [[0, 520], [18, 0]], "out");
-        trackAnim(subL, [[5, 420], [20, 0]], "out");
+        reveal(subL, ps, os, 4);
+        trackAnim(nameL, [[0, 520], [rise + 3, 0]], "out");
+        trackAnim(subL, [[4, 420], [rise + 5, 0]], "out");
         // rule + accent tick (shape layers, scale-X reveal from the left, slide out to the left with the text)
         var rule = comp.layers.addShape(); rule.name = "rule";
         var g = rule.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");
@@ -272,17 +272,18 @@ var TITLES = (function () {
         var rr = rc.addProperty("ADBE Vector Shape - Rect"); rr.property("ADBE Vector Rect Size").setValue([ink + 24, 2]); rr.property("ADBE Vector Rect Position").setValue([(ink + 24) / 2, 0]);
         var rf = rc.addProperty("ADBE Vector Graphic - Fill"); rf.property("ADBE Vector Fill Color").setValue([1, 1, 1]);
         ANC(rule).setValue([0, 0]); POS(rule).setValue([CARD.x, CARD.ruleY]);
-        K(SCL(rule), [[3, [0, 100]], [17, [100, 100]], [out0 + 2, [100, 100]], [n - 1, [0, 100]]], "out");
+        K(SCL(rule), [[2, [0, 100]], [rise + 2, [100, 100]], [out0 + 2, [100, 100]], [n - 1, [0, 100]]], "out");
         K(OPA(rule), [[0, 85]], "lin");
         var tick = comp.layers.addShape(); tick.name = "accent tick";
         var tg = tick.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");
         var tr = tg.property("ADBE Vectors Group").addProperty("ADBE Vector Shape - Rect"); tr.property("ADBE Vector Rect Size").setValue([64, 6]); tr.property("ADBE Vector Rect Position").setValue([32, 0]);
         var tf = tg.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill"); tf.property("ADBE Vector Fill Color").setValue(hex(ACT_ACCENT[act] || "#FFFFFF"));
         ANC(tick).setValue([0, 0]); POS(tick).setValue([CARD.x, CARD.ruleY]);
-        K(SCL(tick), [[5, [0, 100]], [14, [100, 100]], [out0, [100, 100]], [n - 1, [0, 100]]], "out");
+        K(SCL(tick), [[3, [0, 100]], [rise, [100, 100]], [out0, [100, 100]], [n - 1, [0, 100]]], "out");
         var L = putInMain(main, comp, "TITLE namecard: " + T.text, T.f, T.f1);
-        dropShadow(L, 70, 2, 14, 135, "shadow soft");
-        dropShadow(L, 55, 1, 3, 135, "shadow tight");
+        dropShadow(L, 85, 0, 30, 135, "shadow wide");
+        dropShadow(L, 75, 3, 9, 135, "shadow soft");
+        dropShadow(L, 60, 1, 2, 135, "shadow tight");
         return L;
     }
 
@@ -369,9 +370,9 @@ var TITLES = (function () {
 
     // ---------------------------------------------------------------- novax
     var PAL = {
-        cyan:          { top: "#FFFFFF", bot: "#4CCBFF", stroke: "#4FD2FF", glowA: "#E4F8FF", glowB: "#0FA9FF" },
-        red_gold:      { top: "#FFE08A", bot: "#FF2E1F", stroke: "#FF3A2A", glowA: "#FFE9A6", glowB: "#FF2A12" },
-        crimson_white: { top: "#FFFFFF", bot: "#E0123F", stroke: "#FFFFFF", glowA: "#FFFFFF", glowB: "#E0123F" }
+        cyan:          { settle: 40, top: "#FFFFFF", bot: "#4CCBFF", stroke: "#4FD2FF", glowA: "#E4F8FF", glowB: "#0FA9FF" },
+        red_gold:      { settle: 40, top: "#FFE08A", bot: "#FF2E1F", stroke: "#FF3A2A", glowA: "#FFE9A6", glowB: "#FF2A12" },
+        crimson_white: { settle: 48, top: "#FFFFFF", bot: "#E0123F", stroke: "#FFFFFF", glowA: "#FFFFFF", glowB: "#E0123F" }
     };
     var NOVAX_FONT = "ChineseRocksRg-Regular", TAG_FONT = "Montserrat-Light";
     var ACT_TAG = { tobey: "TOBEY MAGUIRE", andrew: "ANDREW GARFIELD", tom: "TOM HOLLAND" };
@@ -383,7 +384,8 @@ var TITLES = (function () {
         var probe = mkText(comp, T.text, { font: NOVAX_FONT, size: 300, fill: [1, 1, 1], italic: true });
         var w300 = rect(probe).width; probe.remove();
         var gaps = T.text.length - 1;
-        var S = Math.min(400, Math.floor(300 * 1380 / (w300 + gaps * 0.048 * 300)));
+        var maxW = (X.behind[String(idx)] ? 1520 : 1380);
+        var S = Math.min(420, Math.floor(300 * maxW / (w300 + gaps * 0.048 * 300)));
         var oh = { font: NOVAX_FONT, size: S, fill: [1, 1, 1], italic: true };
         var cb = capBox(comp, NOVAX_FONT, S), capH = cb.height, top = cy - capH / 2, bot = cy + capH / 2;
         var heroW = w300 * S / 300 + gaps * 0.048 * S;
@@ -397,12 +399,12 @@ var TITLES = (function () {
         // tag on a rough black brush bar, just under the baseline (its own comp: it stays in FRONT of the subject)
         var tcomp = newComp("NOVAX TAG " + T.text, T.f, T.f1);
         var tagText = T.tag || ACT_TAG[act] || "";
-        var barH = Math.max(46, Math.round(capH * 0.17)), barW = Math.round(heroW * 0.46), barCy = bot + capH * 0.08 + barH / 2 + 10;
+        var barH = Math.max(46, Math.round(capH * 0.17)), barW = Math.round(Math.max(heroW * 0.3, tagText.length * barH * 0.62 + 90)), barCy = bot + capH * 0.08 + barH / 2 + 10, barL = cx - heroW / 2 + heroW * 0.03;
         var bar = tcomp.layers.addShape(); bar.name = "tag bar";
         var bg = bar.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");
         var br = bg.property("ADBE Vectors Group").addProperty("ADBE Vector Shape - Rect"); br.property("ADBE Vector Rect Size").setValue([barW, barH]); br.property("ADBE Vector Rect Position").setValue([barW / 2, 0]);
         var bf = bg.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill"); bf.property("ADBE Vector Fill Color").setValue([0, 0, 0]);
-        ANC(bar).setValue([0, 0]); POS(bar).setValue([cx - barW / 2, barCy]);
+        ANC(bar).setValue([0, 0]); POS(bar).setValue([barL, barCy]);
         K(SCL(bar), [[4, [0, 100]], [15, [100, 100]]], "out");
         TRY("bar roughen", function () {
             var rg = fxAdd(bar, "ADBE Roughen Edges", "brush edge");
@@ -413,7 +415,7 @@ var TITLES = (function () {
         var ot = { font: TAG_FONT, size: Math.max(26, Math.round(barH * 0.52)), fill: [1, 1, 1], track: 120 };
         if (tagText) {
             var tag = mkText(tcomp, tagText, ot); tag.name = "tag";
-            place(tcomp, tag, ot, cx, barCy);
+            place(tcomp, tag, ot, barL + barW / 2, barCy);
             trackAnim(tag, [[6, 0], [20, 260]], "out");
             K(OPA(tag), [[6, 0], [11, 100]], "lin");
         }
@@ -428,25 +430,29 @@ var TITLES = (function () {
         });
         ramp.moveBefore(fillT);
         ramp.setTrackMatte(fillT, TrackMatteType.ALPHA); fillT.enabled = false;
-        K(OPA(ramp), [[0, 100], [5, 100], [20, 34]], "io");           // settles to a mostly-outline word; a thin fill stays so it reads over footage
+        K(OPA(ramp), [[0, 100], [5, 100], [20, pal.settle || 38]], "io");           // settles to a mostly-outline word; a thin fill stays so it reads over footage
         TRY("fill shadow", function () { dropShadow(ramp, 50, 5, 8, 135, "fill shadow"); });
         // light sweep: a white copy under a slanted moving mask, added on top, with its own bloom
         var sweepO = { font: NOVAX_FONT, size: S, fill: [1, 1, 1], italic: true };
         var sw = hero("light sweep", sweepO);
-        var barW2 = capH * 0.3, lean = -capH * 0.4, t0 = top - capH * 0.5, t1 = bot + capH * 0.5;
+        var barW2 = capH * 0.36, lean = -capH * 0.4, t0 = top - capH * 0.5, t1 = bot + capH * 0.5;
         var lx0 = cx - heroW / 2 - barW2 - 30, lx1 = cx + heroW / 2 + barW2 + 60 - lean;
-        var m = layerMask(sw, slantBar(lx0, t0, t1, barW2, lean), 9);
-        m.property("ADBE Mask Shape").setValuesAtTimes([f2t(0), f2t(13)], [slantBar(lx0, t0, t1, barW2, lean), slantBar(lx1, t0, t1, barW2, lean)]);
+        // masks live in layer space (origin = the text's baseline point), so the comp-space bar is shifted by the layer position
+        function sweepMask(l, w, feather, f0, f1) {
+            var pp = POS(l).value, ox = pp[0], oy = pp[1];
+            var m = layerMask(l, slantBar(lx0 - ox, t0 - oy, t1 - oy, w, lean), feather);
+            m.property("ADBE Mask Shape").setValuesAtTimes([f2t(f0), f2t(f1)], [slantBar(lx0 - ox, t0 - oy, t1 - oy, w, lean), slantBar(lx1 - ox, t0 - oy, t1 - oy, w, lean)]);
+        }
+        sweepMask(sw, barW2, 9, 0, 13);
         sw.blendingMode = BlendingMode.ADD;
-        glow(sw, "sweep glow", 20, 30, 1.2, hex(pal.glowA), hex(pal.glowB));
+        glow(sw, "sweep glow", 60, 26, 2.2, hex(pal.glowA), hex(pal.glowB), 1);
         K(OPA(sw), [[0, 100], [13, 100], [14, 0]], "lin");
         // bloom: the big flare that peaks mid-sweep and is gone a few frames later (a tight, intense bloom, never a haze)
         var bl = hero("bloom", sweepO);
-        var m2 = layerMask(bl, slantBar(lx0, t0, t1, barW2 * 1.4, lean), 60);
-        m2.property("ADBE Mask Shape").setValuesAtTimes([f2t(0), f2t(13)], [slantBar(lx0, t0, t1, barW2 * 1.4, lean), slantBar(lx1, t0, t1, barW2 * 1.4, lean)]);
+        sweepMask(bl, barW2 * 1.4, 60, 0, 13);
         bl.blendingMode = BlendingMode.ADD;
-        glow(bl, "bloom wide", 45, 90, 1.5, hex(pal.glowA), hex(pal.glowB));
-        glow(bl, "bloom tight", 30, 24, 1.4, hex(pal.glowA), hex(pal.glowB));
+        glow(bl, "bloom wide", 65, 110, 5.0, hex(pal.glowA), hex(pal.glowB), 1);
+        glow(bl, "bloom tight", 65, 28, 3.5, hex(pal.glowA), hex(pal.glowB), 1);
         K(OPA(bl), [[0, 0], [6, 100], [15, 0]], "lin");
         // outline (the held look): a stroke-only copy with a tight palette glow
         var oS = { font: NOVAX_FONT, size: S, fill: null, stroke: hex(pal.stroke), sw: Math.max(3, Math.round(S / 90)), italic: true };
@@ -458,9 +464,10 @@ var TITLES = (function () {
         if (T.sub) {
             var os = { font: TAG_FONT, size: Math.round(S * 0.3), fill: [1, 1, 1], track: 200 };
             var sb = mkText(comp, T.sub, os); sb.name = "sub"; place(comp, sb, os, cx, cy);
-            trackAnim(sb, [[2, -67], [20, 50]], "out");
+            trackAnim(sb, [[2, -67], [20, 28]], "out");
             K(OPA(sb), [[3, 0], [9, 100]], "lin");
-            dropShadow(sb, 55, 4, 7, 135, "sub shadow");
+            dropShadow(sb, 85, 0, 18, 135, "sub shadow wide");
+            dropShadow(sb, 80, 3, 5, 135, "sub shadow");
         }
         var L = putInMain(main, comp, "TITLE novax: " + T.text, T.f, T.f1);
         // behind the subject: inverted luma track matte from MATTE_<id>; in front when there is no matte
