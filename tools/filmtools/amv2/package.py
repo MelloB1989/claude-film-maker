@@ -325,11 +325,13 @@ Open it in EffectCraft 0.10.0, or drive it from the CLI:
 - **Re-render a frame / a range:**
   ```
   effectcraft-cli render-frame --project effectcraft/{ecname} --comp MAIN --frame 480 --out frame480.png
-  effectcraft-cli render --project effectcraft/{ecname} --comp MAIN --format png --start 0 --end 899 --out frames/
+  effectcraft-cli --project effectcraft/{ecname} render --comp MAIN --format png --start 0 --end 30 --out frames/f
   ffmpeg -framerate 30 -i frames/f_%05d.png -i audio/mix.wav -c:v libx264 -crf 16 -pix_fmt yuv420p -c:a aac -b:a 320k -shortest -movflags +faststart out.mp4
   ```
-  (frame file naming follows effectcraft-cli's output; check `effectcraft-cli render --help` for the numbering of your build.)
-  Full-resolution renders are heavy (several seconds per frame with motion blur on): split the range over processes.
+  `render --start/--end` are in SECONDS (end exclusive; frame N is at N/30 s, so frames 0-899 are `--start 0 --end 30`), and
+  `--out` is a file PREFIX: `frames/f` writes `frames/f_00000.png`, `f_00001.png`, ... (make `frames/` first). A render of the
+  whole film is slow (motion blur, 240 fps sources): split the seconds range over several processes. The delivered mp4 was
+  encoded exactly like the last command (CRF 16).
 - **The project was generated** by `tools/filmtools/amv2/ecbuild.py` from `films/timeless/amv2/edl.json` in the film-maker
   repo. Changing the cut order, timings, transitions or titles is cleanest there (edit `edl.py`, rebuild); small visual tweaks
   are fine directly in the project.
