@@ -72,7 +72,11 @@ def render_frames(built, frames, out: Path, log=print) -> float:
             scene.frame_set(f)
             S.hide_for_frame(built, f)
             bpy.ops.render.render(write_still=True)
-            return read_back(path)
+            px = read_back(path)
+            magenta = (px[..., 0] > 240) & (px[..., 1] < 24) & (px[..., 2] > 240)
+            if magenta.mean() > 0.2:   # Blender paints a missing image (1, 0, 1): stop rather than render a film of it
+                raise SystemExit(f"frame {f}: {magenta.mean():.0%} of it is missing-texture magenta; check the image paths")
+            return px
 
         t1 = time.time()
         blank.render_checked(once, shot="amv", film_frame=f, path=path, black_ok=f in black, tile=tile, log=log)
@@ -85,6 +89,10 @@ def render_frames(built, frames, out: Path, log=print) -> float:
 def main(argv=None):
     argv = sys.argv[sys.argv.index("--") + 1:] if argv is None and "--" in sys.argv else (argv or [])
     a = parse_args(argv)
+    # absolute paths: images loaded by a cwd-relative path are re-pointed relative to the .blend by --save, and every
+    # plane then renders Blender's missing-texture magenta
+    a.film, a.layers = str(Path(a.film).resolve()), str(Path(a.layers).resolve())
+    a.overlays = str(Path(a.overlays).resolve()) if a.overlays else None
     t0 = time.time()
     built = S.build_scene(a.film, a.layers, res_scale=a.res_scale, samples=a.samples, engine=a.engine,
                           allow_cpu=not a.require_gpu)
