@@ -125,13 +125,25 @@ xargs -a build/amv2/{name}_chunks.txt -P {workers} -L 1 bash -c 'run $0 $1 $2'
 
 
 def vm_cmd(project_rel, frames_dir_rel, runner_rel, build_args=None):
+    """(see below) Built projects are also kept in $AMV2_DATA/builds/ on the VM: the queue rsyncs the tree with --delete
+    before every job, so build/amv2/<name>.ecproj from an earlier job is gone; --no-build restores it from there."""
+    return _vm_cmd(project_rel, frames_dir_rel, runner_rel, build_args)
+
+
+def _vm_cmd(project_rel, frames_dir_rel, runner_rel, build_args=None):
     """The shell command of the queue job: (optionally) build the project on the VM, then run the chunk queue.
     `build_args` (list): $AMV2_DATA (the 240 fps sources and mattes) only exists there, and ecbuild probes it."""
+    keep = f"$AMV2_DATA/builds/{os.path.basename(project_rel)}"
+    wb = f"AMV2_WBLUR={os.environ.get('AMV2_WBLUR', '1')} "
     pre = ""
+    if build_args is None:
+        pre = (f"mkdir -p build/amv2 && [ -f {project_rel} ] && keep_ok=1 || [ -f {keep} ] || {{ echo 'no kept build {keep}: run once without --no-build'; exit 3; }}; "
+               f"[ -f {project_rel} ] || cp {keep} {project_rel}; ")
     if build_args is not None:
-        pre = (f"mkdir -p {frames_dir_rel} && (cd tools && {"AMV2_WBLUR=1 " if os.environ.get("AMV2_WBLUR") else ""}python -m filmtools.amv2.ecbuild --out ../{project_rel} "
+        pre = (f"mkdir -p {frames_dir_rel} && (cd tools && {wb}python -m filmtools.amv2.ecbuild --out ../{project_rel} "
                f"{' '.join(build_args)}) > {frames_dir_rel}/build.log 2>&1; brc=$?; echo BUILD rc=$brc; "
-               f"tail -n 6 {frames_dir_rel}/build.log; [ $brc -eq 0 ] || exit $brc; cp {project_rel} {frames_dir_rel}/; ")
+               f"tail -n 6 {frames_dir_rel}/build.log; [ $brc -eq 0 ] || exit $brc; cp {project_rel} {frames_dir_rel}/; "
+               f"mkdir -p $AMV2_DATA/builds && cp {project_rel} {keep}; ")
     return pre + f"bash {runner_rel}"
 
 
