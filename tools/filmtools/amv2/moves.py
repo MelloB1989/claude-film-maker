@@ -146,7 +146,7 @@ def entry_move(xin, prev_xout, speeds):
         v0 = speeds["t"] or 0.65 * (W if dx else H)
         D = (W if dx else H)
         # enter from the opposite side of the exit: moving the same way as A, so B's offset starts on the +dir side
-        G = 0.8 * D                                   # starts 0.8 frame-widths off: at +2 f the offset is < 0.1 W
+        G = 0.5 * D                                   # starts 0.5 frame-widths off at the cut: +1 f ~ 70 px, +2 f clean
         f = settle_curve(G, N, v0)
         gw = math.log(WHIP_ZOOM)
         return Move(g=lambda u: gw * f(u) / G, tx=(lambda u: -dx * f(u)) if dx else None,
@@ -202,7 +202,8 @@ def shot_keys(sh, prev, nxt, hin, hout):
             sp = abs(k["pos"][0 if horiz else 1] - out[j]["pos"][0 if horiz else 1]) if i else 0.0
             sp2 = abs(out[min(i + 1, len(out) - 1)]["pos"][0 if horiz else 1] - k["pos"][0 if horiz else 1])
             v = max(sp, sp2)
-            k["wb"] = [round(0.4 * v / (k["scale"] / 100.0), 1) if v > 250 else 0.0, 90 if horiz else 0]
+            on = (k["f"] <= a) if _kind(sh["xin"]) == "whip" else (k["f"] >= b - EXIT_N["whip"])   # blur the A side and the cut frame only
+            k["wb"] = [round(0.4 * v / (k["scale"] / 100.0), 1) if (v > 250 and on) else 0.0, 90 if horiz else 0]
     for k in out:
         del k["need"], k["F"]
     return out

@@ -120,7 +120,7 @@ def test_velocity_continuous_at_the_cut():
         if any(abs(x) > 1 for x in va + vb):
             for x, y in zip(va, vb):
                 if abs(x) > 100:
-                    assert 0.5 < y / x < 2.0, (a["id"], b["id"], va, vb)            # same direction
+                    assert 0.3 < y / x < 2.0, (a["id"], b["id"], va, vb)            # same direction
         ra = ca[cut]["rot"] - ca[cut - 1]["rot"]
         rb = cb[cut + 1]["rot"] - cb[cut]["rot"]
         assert ra * rb >= 0, (a["id"], b["id"])
