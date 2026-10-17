@@ -447,11 +447,8 @@
    ],
    "xin": "zoom_in",
    "xout": "drop_portal",
-   "fx": [
-    "riser_shake",
-    "speed_lines"
-   ],
-   "note": "riser: slam into the lens; the lens becomes the portal"
+   "fx": [],
+   "note": "riser: slam into the lens; the lens becomes the portal (SPECIAL owns shake, speed lines, flash, ring, chroma)"
   },
   {
    "id": "S18",
@@ -474,11 +471,7 @@
    ],
    "xin": "drop_portal",
    "xout": "impact",
-   "fx": [
-    "shockwave@480",
-    "flash@480",
-    "chroma@480"
-   ],
+   "fx": [],
    "note": "DROP: pull out of Tom's lens; I'M SPIDER-MAN; TOM HOLLAND / EARTH-199999"
   },
   {
