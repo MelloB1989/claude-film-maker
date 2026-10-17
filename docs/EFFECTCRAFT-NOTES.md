@@ -142,3 +142,10 @@ Probed against effectcraft-cli 0.10.0 while checking how the Blender element seq
 - Random access: `-g 8 -keyint_min 8 -bf 0` (crf 12) renders a remapped 1080p frame in ~0.6-1.5 s, the same or faster than the 60 fps original (~1.8-2.7 s; shared, noisy box). All-intra (`-g 1`) was not faster and 2.6x bigger (60 MB vs 23 MB for 1.35 s of footage).
 - (grade round 2) Glow with `Glow Colors` = 2 (A & B) and Color A = Color B gives a uniform tint; keyable per act. Lumetri Temperature is a strong, cheap way to separate acts. Lumetri Contrast pivots at 0.5 and pulls dark shots down hard, so grade_curves.py measures each act's real tone curve (grey ramp through GRADE.build) and grade_spec solves the per-shot trims against it.
 - Layers SPECIAL adds after GRADE sit above the grade (the triptych panels): use GRADE.applyPanel(layer, i, E, ctx).
+
+### special, round 2 (real core)
+- **Effects can't sample outside the layer**: Ripple on an adjustment layer pulls transparent edge pixels in (scalloped frame rim). Pre-scaling does nothing; zoom the picture in *after* the ripple (`ADBE Geometry2`: props `Uniform Scale`, `Scale Height`; set Anchor/Position to the centre or it scales about the corner) to crop the rim.
+- **CC Radial Fast Blur `Zoom`**: 1 standard, 2 brightest (streaky/blocky on a 300 % upscaled source), 3 darkest. Use 1 on upscaled faces.
+- **Shot comps in the real core carry handle frames**: comp time of frame f = f/30 - SHOT layer `startTime` (do not assume time 0 = `a`).
+- **Gitignored paths (out/) are not synced to the render VM**: put probe scripts under a tracked dir (e.g. lab/).
+- PNG sequences with alpha import as straight alpha by default; `AlphaMode` is not defined in this runtime.
