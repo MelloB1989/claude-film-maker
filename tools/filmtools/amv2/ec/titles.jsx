@@ -161,8 +161,8 @@ var TITLES = (function () {
             blurDir = wh[0] ? 0 : 90; blurLen = 140;
         } else if (cut == "zoom_in") {
             K(S, [[a - 1, [100, 100]], [f1, [250, 250]]], "in"); K(O, [[e - 1, 100], [e, 0]], "lin"); blurDir = null;
-        } else if (cut == "panel_slam") {                        // the picture collapses into the triptych from f771: the title is gone by f772
-            K(S, [[f1 - 9, [100, 100]], [f1 - 5, [72, 72]]], "in"); K(O, [[f1 - 9, 100], [f1 - 5, 0]], "lin");
+        } else if (cut == "panel_slam") {                        // the picture collapses into the triptych from f771: the title is gone by f771
+            K(S, [[f1 - 9, [100, 100]], [f1 - 6, [74, 74]]], "in"); K(O, [[f1 - 9, 100], [f1 - 6, 0]], "lin");
         } else if (cut == "zoom_out") {
             K(S, [[a - 1, [100, 100]], [f1, [58, 58]]], "in"); K(O, [[e - 2, 100], [e, 0]], "lin");
         } else if (cut == "spin_cw" || cut == "spin_ccw") {
@@ -214,9 +214,9 @@ var TITLES = (function () {
             for (i = 0; i < page.length; i++) {
                 var l = mkText(comp, page[i].w, o); l.name = "word " + page[i].w;
                 var r = rect(l); words.push({ l: l, r: r, w: page[i], x: total });
-                total += r.width + (page[i].join ? 0 : space + 8);
+                total += r.width + (page[i].join ? 6 : space + 8);
             }
-            total -= (page[page.length - 1].join ? 0 : space + 8);
+            total -= (page[page.length - 1].join ? 6 : space + 8);
             var x0 = W / 2 - total / 2;
             var tEnd = (p + 1 < d.pages.length) ? d.pages[p + 1][0].f - T.f : n - 1;     // page leaves as the next one starts / at the exit
             var out0 = Math.max(tEnd - 3, 0);
@@ -228,9 +228,9 @@ var TITLES = (function () {
                 ANC(l2).setValue([wd.r.left + wd.r.width / 2, cb.top + cb.height / 2]);
                 POS(l2).setValue([cx, cy]);
                 inout(l2, f, tEnd + 1);
-                K(SCL(l2), [[f, [113, 113]], [f + 3, [100, 100]]], "out");
+                SCL(l2).setValue([100, 100]);                          // words snap on at their final size and baseline (no overshoot to settle)
                 K(OPA(l2), [[f, 100], [out0, 100], [tEnd, 0]], "lin");          // snaps on at full white the frame it is revealed
-                var py = [[f, [cx, cy + 14]], [f + 3, [cx, cy]], [out0, [cx, cy]], [tEnd, [cx, cy - 10]]];
+                var py = [[f, [cx, cy]], [out0, [cx, cy]], [tEnd, [cx, cy - 10]]];
                 K(POS(l2), py, "out");
             }
         }
@@ -385,18 +385,19 @@ var TITLES = (function () {
     };
     // per-word vertical centre when the default (470) would cover a face: SPIDER-MAN on M08 sits in the lower third, clear of the eye and above the S25 letterbox bar (y 941)
     var NOVAX_Y = { "SPIDER-MAN": 735, "AMAZING": 350 };
+    var NOVAX_X = {}, NOVAX_W = {};
     var NOVAX_SOLID = { "AMAZING": 100 };           // stays a solid gradient fill with the dark edge (pale outline vanished on the white sky)
     var NOVAX_FONT = "ChineseRocksRg-Regular", TAG_FONT = "Montserrat-Light";
     var ACT_TAG = { tobey: "TOBEY MAGUIRE", andrew: "ANDREW GARFIELD", tom: "TOM HOLLAND" };
     function slantBar(cx, top, bot, w, lean) { var s = new Shape(); s.vertices = [[cx - w / 2, top], [cx + w / 2, top], [cx + w / 2 + lean, bot], [cx - w / 2 + lean, bot]]; s.closed = true; return s; }
     function novax(main, T, X, idx, ctx) {
         var n = T.f1 - T.f, comp = newComp("NOVAX " + T.text, T.f, T.f1), pal = PAL[T.palette] || PAL.cyan, act = X.act[String(idx)];
-        var cx = W / 2, cy = T.y || NOVAX_Y[T.text] || 470;
+        var cx = NOVAX_X[T.text] || W / 2, cy = T.y || NOVAX_Y[T.text] || 470;
         // hero size: the final (tracked-open) word spans <= 1380 px, so it is fully in frame and never clipped
         var probe = mkText(comp, T.text, { font: NOVAX_FONT, size: 300, fill: [1, 1, 1], italic: true });
         var w300 = rect(probe).width; probe.remove();
         var gaps = T.text.length - 1;
-        var maxW = (X.behind[String(idx)] ? 1520 : 1380);
+        var maxW = NOVAX_W[T.text] || (X.behind[String(idx)] ? 1520 : 1380);
         var S = Math.min(420, Math.floor(300 * maxW / (w300 + gaps * 0.048 * 300)));
         var oh = { font: NOVAX_FONT, size: S, fill: [1, 1, 1], italic: true };
         var cb = capBox(comp, NOVAX_FONT, S), capH = cb.height, top = cy - capH / 2, bot = cy + capH / 2;
@@ -417,7 +418,7 @@ var TITLES = (function () {
         var br = bg.property("ADBE Vectors Group").addProperty("ADBE Vector Shape - Rect"); br.property("ADBE Vector Rect Size").setValue([barW, barH]); br.property("ADBE Vector Rect Position").setValue([barW / 2, 0]);
         var bf = bg.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill"); bf.property("ADBE Vector Fill Color").setValue([0, 0, 0]);
         ANC(bar).setValue([0, 0]); POS(bar).setValue([barL, barCy]);
-        K(SCL(bar), [[4, [0, 100]], [15, [100, 100]]], "out");
+        K(SCL(bar), [[3, [8, 100]], [11, [100, 100]]], "out");
         TRY("bar roughen", function () {
             var rg = fxAdd(bar, "ADBE Roughen Edges", "brush edge");
             setp(rg, "Border", 7); setp(rg, "Edge Sharpness", 1); setp(rg, "Fractal Influence", 1); setp(rg, "Scale", 100);
@@ -428,8 +429,8 @@ var TITLES = (function () {
         if (tagText) {
             var tag = mkText(tcomp, tagText, ot); tag.name = "tag";
             place(tcomp, tag, ot, barL + barW / 2, barCy);
-            trackAnim(tag, [[6, 0], [20, 260]], "out");
-            K(OPA(tag), [[6, 0], [11, 100]], "lin");
+            trackAnim(tag, [[4, 0], [18, 260]], "out");   // bar and tag reveal together: the text only shows once the bar is wide enough to hold it
+            K(OPA(tag), [[4, 0], [8, 100]], "lin");
         }
         // dark outer stroke under everything so the word separates from a blown-out sky
         var oD = { font: NOVAX_FONT, size: S, fill: null, stroke: hex("#050B14"), sw: Math.max(8, Math.round(S / 30)), italic: true };
@@ -493,6 +494,12 @@ var TITLES = (function () {
         if (ml) {
             L.setTrackMatte(ml, TrackMatteType.LUMA_INVERTED);
             L.name += " (behind subject)";
+            // the head hides 'ZI': a faint un-matted copy over the subject keeps every letter readable while the word still sits behind him
+            var G = putInMain(main, comp, "TITLE novax ghost over subject: " + T.text, T.f, T.f1);
+            OPA(G).setValue(26);
+            exitMotion(G, T.f1, X.cut[String(idx)]);
+            K(OPA(G), [[T.f1 - 4, 26], [T.f1 - 1, 0]], "lin");
+            G.moveBefore(L);
         } else if (T.behind) warn("no matte for " + T.behind + ": '" + T.text + "' goes in front of the subject");
         exitMotion(L, T.f1, X.cut[String(idx)]);
         if (tagText) {
