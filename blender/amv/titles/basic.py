@@ -570,11 +570,23 @@ def sub_frame(spec, k):
         # render before the word (it is the same dark as the plate): keep the bar closed until the first word
         reveal = sub_bar_reveal(text, words, k) if k >= words[0][0] else 0.0
         bar_w, bar_h = width + 90, size * 1.25
+        # the pill only covers words already revealed (the wipe keys ramp towards the next word before it shows)
+        pl, _ = line_layout(text, font, size, 120, 1.0)
+        if nvis > 0:
+            last = pl[nvis - 1]
+            reveal = min(reveal, (pos[0] + last.x + last.adv - (pos[0] - bar_w / 2) + 45) / bar_w)
+        else:
+            reveal = 0.0
         poly = rough_bar(pos[0], pos[1] + 1, bar_w, bar_h, reveal, seed=7)
         if poly:
-            groups.append(Group("bar", [PolyEl(poly, Solid((0, 0, 0)), 0.72 * o)], shadow=ae_shadow(50, 12, 11)))
-    glows = (Glow(hex_rgb("#FF9A1A"), 8.0, 1.0),) if yellow else ()
-    groups.append(Group("text", with_opacity(shown, o), shadow=ae_shadow(85, 3, 6), glows=glows))
+            # AE's pill is gone before the text has finished fading and leaves only a faint trace
+            bo = lin([[dur - 10, 1.0], [dur - 6, 0.12]], k) * o
+            groups.append(Group("bar", [PolyEl(poly, Solid((0, 0, 0)), 0.72 * bo)], shadow=ae_shadow(50, 12, 11)))
+    if yellow:
+        # AE: clean yellow type with a thin dark edge (no plate/halo)
+        edge = [replace(g, fill=Solid(hex_rgb("#5A3200")), stroke=(hex_rgb("#5A3200"), 2.2), stroke_only=True) for g in shown]
+        groups.append(Group("edge", with_opacity(edge, o)))
+    groups.append(Group("text", with_opacity(shown, o), shadow=ae_shadow(85, 3, 6)))
     return Frame(groups)
 
 
@@ -677,7 +689,7 @@ def extended_frame(spec, k):
     # diagonal slash cut: a thin subtract mask through the word
     sx = P[0] + width * 0.12
     slash = ((sx - 10, P[1] - S), (sx + 4, P[1] - S), (sx - 46, P[1] + S), (sx - 60, P[1] + S))
-    o = lin([[0, 0.0], [2, 1.0], [dur - 4, 1.0], [dur - 1, 0.0]], k)
+    o = lin([[0, 0.45], [2, 1.0], [dur - 4, 1.0], [dur - 1, 0.0]], k)
     face = [replace(g, opacity=o) for g in xform_elems(face, (P[0], P[1]), 1.0, shift)]
     sm = lin([[0, 120.0], [3, 50.0], [6, 0.0]], k)
     groups = []
@@ -693,9 +705,14 @@ def extended_frame(spec, k):
                               tracking=600)
         so = lin([[5, 0.0], [8, 1.0], [dur - 4, 1.0], [dur - 1, 0.0]], k)
         bw, bh = sw + 140, S * 0.42
-        poly = rough_bar(P[0], P[1] + S * 0.62, bw, bh, wipe_progress(4, k), seed=11)
-        if poly:
-            groups.append(Group("bar", [PolyEl(poly, Solid((0, 0, 0)), fade_out(k, dur))], shadow=ae_shadow(50, 12, 11)))
+        # a soft translucent dark gradient plate (stacked, narrowing layers) instead of a hard black bar
+        plate = []
+        for sw_, sh_ in ((1.0, 1.9), (0.97, 1.65), (0.94, 1.4), (0.91, 1.2), (0.88, 1.0)):
+            poly = rough_bar(P[0], P[1] + S * 0.62, bw * sw_, bh * sh_, wipe_progress(4, k), seed=11, amp=1.0)
+            if poly:
+                plate.append(PolyEl(poly, Solid((0, 0, 0)), 0.11 * fade_out(k, dur)))
+        if plate:
+            groups.append(Group("bar", plate, shadow=ae_shadow(30, 0, 40)))
         groups.append(Group("sub", with_opacity(sub, so)))
     return Frame(groups)
 
