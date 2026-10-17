@@ -1,8 +1,9 @@
 """The AMV Grade node group against its numpy twin: a synthetic ramp + colour chart through `blender -b`.
 
 Run by pytest (spawns Blender; skipped when there is none) and, inside Blender, as the driver:
-    blender -b --factory-startup -P blender/tests/test_amv_grade_blender.py -- <out.npy> <io> <res_scale> [params.json]
+    blender -b --factory-startup -P blender/tests/test_amv_grade_blender.py -- <out.npy> <io> <res_scale> [params.json [images.npy]]
 The driver renders the image through build_group() with the compositor on the CPU and saves the display-sRGB result.
+With images.npy (N, H, W, 3 display-sRGB floats) it renders each of them instead (the contact sheets use this).
 Blender needs libSM/libGL/libEGL; where the system lacks them point LD_LIBRARY_PATH at a directory that has them.
 """
 import json
@@ -83,7 +84,12 @@ def _driver():
     args = sys.argv[sys.argv.index("--") + 1:]
     out, io, res = args[0], args[1], float(args[2])
     params = json.loads(Path(args[3]).read_text()) if len(args) > 3 else None
-    np.save(out, render_group(test_image(), io, G.params(params) if params else None, res))
+    params = params.get("fitted", params) if params else None
+    if len(args) > 4:
+        imgs = np.load(args[4]).astype(np.float32)
+        np.save(out, np.array([render_group(i, io, params, res) for i in imgs]))
+    else:
+        np.save(out, render_group(test_image(), io, params, res))
 
 
 def _run_blender(io, params=None, res=0.25):

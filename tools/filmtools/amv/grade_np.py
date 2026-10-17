@@ -432,6 +432,43 @@ def cmd_fit(a):
     print(json.dumps(doc["report"]["summary"], indent=1))
 
 
+def cmd_sheet(a):
+    """Contact sheets: estimate | grade_np | Blender group | AE, 6 frames per image (Blender column optional)."""
+    import cv2
+    z = np.load(a.cache)
+    frames = [int(f) for f in z["frames"]]
+    pick = [int(f) for f in a.frames.split(",")]
+    idx = [frames.index(f) for f in pick]
+    p = json.loads(Path(a.params).read_text())
+    p = p.get("fitted", p)
+    est = z["est"][idx].astype(np.float32) / 255
+    if a.save_estimates:
+        np.save(a.save_estimates, est)
+    blend = np.load(a.blender) if a.blender else None
+    s = float(z["scale"])
+    rows = []
+    for k, (f, i) in enumerate(zip(pick, idx)):
+        tiles = [est[k], grade(est[k], p, s)]
+        if blend is not None:
+            tiles.append(np.clip(blend[k], 0, 1))
+        tiles.append(z["ref"][i].astype(np.float32) / 255)
+        row = (np.hstack(tiles)[..., ::-1] * 255).astype(np.uint8).copy()
+        cv2.putText(row, f"f{f}", (8, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+        rows.append(row)
+    names = ["estimate", "grade_np"] + (["blender"] if blend is not None else []) + ["AE"]
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    for j in range(0, len(rows), 6):
+        sheet = np.vstack(rows[j:j + 6])
+        tw = sheet.shape[1] // len(names)
+        for c, n in enumerate(names):
+            cv2.putText(sheet, n, (c * tw + 8, sheet.shape[0] - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2, cv2.LINE_AA)
+        cv2.imwrite(str(out / f"contact_{j // 6 + 1}.jpg"), sheet, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    if blend is not None:
+        err = [float(np.abs(np.clip(blend[k], 0, 1) - grade(est[k], p, s)).max() * 255) for k in range(len(pick))]
+        print("max |blender - grade_np| per frame (/255):", [round(e, 2) for e in err])
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -448,6 +485,14 @@ def main(argv=None):
     ft.add_argument("--fit-width", type=int, default=240)
     ft.add_argument("--iters", type=int, default=25)
     ft.set_defaults(fn=cmd_fit)
+    sh = sub.add_parser("sheet", help="contact sheets estimate | grade_np | blender | AE")
+    sh.add_argument("--cache", required=True)
+    sh.add_argument("--params", required=True)
+    sh.add_argument("--frames", required=True, help="comma list of comp frames present in the cache")
+    sh.add_argument("--out", required=True)
+    sh.add_argument("--blender", help="npy of the Blender group's output for the same frames, in order")
+    sh.add_argument("--save-estimates", help="write the chosen estimates (for the Blender driver) to this npy")
+    sh.set_defaults(fn=cmd_sheet)
     a = ap.parse_args(argv)
     a.fn(a)
 
