@@ -76,9 +76,16 @@ def run_job(name, cmd, out_rel, threads, timeout=3 * 3600):
     return rc, log, time.time() - t0
 
 
-def vm_cmd(project_rel, frames_dir_rel, ch, threads, res, quality):
-    """One shell command that renders every chunk as a parallel process and prints per-chunk wall times."""
+def vm_cmd(project_rel, frames_dir_rel, ch, threads, res, quality, build_args=None):
+    """One shell command that renders every chunk as a parallel process and prints per-chunk wall times.
+    `build_args` (list): first build the project ON THE VM (`python -m filmtools.amv2.ecbuild`): $AMV2_DATA (the
+    240 fps sources and mattes) only exists there, and ecbuild probes it. Log and project land in the frames dir."""
     parts = []
+    pre = ""
+    if build_args is not None:
+        pre = (f"mkdir -p {frames_dir_rel} && (cd tools && python -m filmtools.amv2.ecbuild --out ../{project_rel} "
+               f"{' '.join(build_args)}) > {frames_dir_rel}/build.log 2>&1; brc=$?; echo BUILD rc=$brc; "
+               f"tail -n 6 {frames_dir_rel}/build.log; [ $brc -eq 0 ] || exit $brc; cp {project_rel} {frames_dir_rel}/; ")
     for i, (s, e) in enumerate(ch):
         # --start/--end are seconds; the end is exclusive. Frames are picked by ceil(t*fps), so a quarter-frame of slack keeps float rounding off the boundary.
         r = (f"( t0=$(date +%s.%N); RAYON_NUM_THREADS={threads} {VM_CLI} --project {project_rel} render --comp MAIN "
@@ -86,7 +93,7 @@ def vm_cmd(project_rel, frames_dir_rel, ch, threads, res, quality):
              f"--quality {quality} --out {frames_dir_rel}/f > /dev/null 2> {frames_dir_rel}/err{i}.txt; rc=$?; "
              f"echo CHUNK {s} {e} rc=$rc secs=$(echo \"$(date +%s.%N) - $t0\" | bc) ) &")
         parts.append(r)
-    return "mkdir -p " + frames_dir_rel + "; " + " ".join(parts) + " wait"
+    return "mkdir -p " + frames_dir_rel + "; " + pre + " ".join(parts) + " wait"
 
 
 def check_frames(fdir, a, b):
@@ -141,7 +148,8 @@ def main(argv=None):
     ap.add_argument("--procs", type=int, default=4, help="parallel effectcraft-cli processes on the VM")
     ap.add_argument("--threads", type=int, default=4, help="RAYON_NUM_THREADS per process")
     ap.add_argument("--chunks", type=int, default=None, help="chunks (default: procs; more chunks than procs is not supported)")
-    ap.add_argument("--src", choices=("clips", "src240"), default="clips")
+    ap.add_argument("--src", choices=("clips", "src240"), default="src240")
+    ap.add_argument("--local-build", action="store_true", help="build here (needs $AMV2_DATA locally, or --src clips)")
     ap.add_argument("--samples", type=int, default=None)
     ap.add_argument("--name", default=None)
     ap.add_argument("--no-build", action="store_true")
@@ -152,7 +160,9 @@ def main(argv=None):
     name = a.name or f"timeless_v2{tag}"
     proj = ROOT / "build/amv2" / f"{name}.ecproj"
     proj.parent.mkdir(parents=True, exist_ok=True)
-    if not a.no_build:
+    bargs = ["--src", a.src] + (["--draft"] if a.draft else []) + (["--samples", str(a.samples)] if a.samples else [])
+    vm_build = not a.no_build and not a.local_build and a.src == "src240"
+    if not a.no_build and not vm_build:
         rc = ecbuild.main(["--out", str(proj), "--src", a.src] + (["--draft"] if a.draft else [])
                           + (["--samples", str(a.samples)] if a.samples else []))
         if rc:
@@ -168,7 +178,7 @@ def main(argv=None):
             p, t = (int(x) for x in sp.split("x"))
             d = fdir_rel + f"/bench_{p}x{t}"
             ch = chunks(f0, f1, p)
-            rc, log, secs = run_job(f"{name}-bench-{p}x{t}", vm_cmd(proj_rel, d, ch, t, res, "best"), d, t)
+            rc, log, secs = run_job(f"{name}-bench-{p}x{t}", vm_cmd(proj_rel, d, ch, t, res, "best", bargs if vm_build else None), d, t)
             n = f1 - f0
             res_rows.append(dict(split=sp, frames=n, wall=round(secs, 1), per_frame=round(secs / n, 2), rc=rc))
             print(res_rows[-1], flush=True)
@@ -176,8 +186,12 @@ def main(argv=None):
         return 0
     ch = chunks(f0, f1, a.chunks or a.procs)
     t0 = time.time()
-    rc, log, secs = run_job(f"{name}-render", vm_cmd(proj_rel, fdir_rel, ch, a.threads, res, "best"), fdir_rel, a.threads)
+    rc, log, secs = run_job(f"{name}-render", vm_cmd(proj_rel, fdir_rel, ch, a.threads, res, "best", bargs if vm_build else None),
+                          fdir_rel, a.threads)
     print(log[-1500:])
+    if vm_build and (fdir / f"{name}.ecproj").exists():
+        import shutil
+        shutil.copy(fdir / f"{name}.ecproj", OUT / ("timeless_v2_draft.ecproj" if a.draft else "timeless_v2.ecproj"))
     chunk_t = [dict(zip(("a", "b", "rc", "secs"), (m[0], m[1], m[2], m[3])))
                for m in re.findall(r"CHUNK (\d+) (\d+) rc=(\d+) secs=([\d.]+)", log)]
     miss, black = check_frames(fdir, f0, f1)

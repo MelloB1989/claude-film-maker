@@ -194,7 +194,7 @@ def build_script(out_project, mode="clips", samples=16, E=None):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--src", choices=("clips", "src240"), default="clips")
+    ap.add_argument("--src", choices=("clips", "src240"), default="src240")
     ap.add_argument("--samples", type=int, default=None, help="motion blur samples (default 16, 4 with --draft)")
     ap.add_argument("--draft", action="store_true", help="4 motion-blur samples, project timeless_v2_draft.ecproj")
     ap.add_argument("--out", default=None)
