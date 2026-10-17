@@ -25,7 +25,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 W, H = 1920, 1080
-RFB_LEN = 0.12   # CC Radial Fast Blur: ray length as a fraction of the distance to the centre per amount/100 (global default)
+RFB_LEN = 0.07   # CC Radial Fast Blur: ray length as a fraction of the distance to the centre per amount/100 (global default)
+RFB_BETA = 12.0  # 'Brightest' softness: weight exp(beta * luma) per ray sample (larger = nearer the hard brightest pixel)
 RFB_MIX = 1.0    # 'Brightest': share of the per-channel max in the result, the rest the plain ray average (global default)
 ANCHOR = (960.0, 540.0)
 SHUTTER_ANGLE = 301.0
@@ -164,6 +165,11 @@ class Shot:
     def rfb_len(self):
         """Radial blur ray length (fraction of the distance to the centre per amount/100): the shot's `rfb_len` or `RFB_LEN`."""
         return float(self.raw.get("rfb_len", RFB_LEN))
+
+    @property
+    def rfb_beta(self):
+        """Softmax sharpness of the shot's Brightest radial blur: the shot's `rfb_beta` or `RFB_BETA`."""
+        return float(self.raw.get("rfb_beta", RFB_BETA))
 
     @property
     def rfb_mix(self):
