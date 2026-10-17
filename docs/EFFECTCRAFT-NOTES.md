@@ -147,3 +147,11 @@ Probed against effectcraft-cli 0.10.0 while checking how the Blender element seq
 - Ink frames: only hits >= 3.0 (656), 1 f on the hit frame, ink adjustment at 50 % with a half-strength dither; weaker explicit `ink_frame` tags become a soft white pop.
 - One flash per hit, none within 5 f of another flash or an ink frame; hits >= 2.0 with no shake/chroma/flash/ink get a 2 f zoom punch (104 -> 101.8 %).
 - Perf: the real MAIN (draft) renders at ~1.57 s/frame in one effectcraft-cli process on the build host (900 f = 23.5 min); 3 parallel processes gave no gain (CPU-saturated). `--gpu` has no adapter (no Vulkan/GL drivers) in the container.
+- Memory (v2-core): one `effectcraft-cli render` process at 1920x1080 / 16 samples peaks at ~6.1 GB RSS after 96 frames
+  (VmHWM polled from /proc: the VM has no /usr/bin/time) and keeps growing, so two long processes OOM on the 31 GB VM next
+  to other jobs. Prefs `memory.layerCacheMb / mediaCacheMb / previewCacheMb`, `disk.diskCacheEnabled` exist (strings in the
+  binary; read from `$EFFECTCRAFT_CONFIG_DIR/prefs.json`), but setting them changed nothing measurable (6215 vs 6059 MB).
+  Fix that works: many short chunks (render.py `--chunk 48`), each its own process, an xargs queue of `--procs` workers,
+  one retry per chunk.
+- `effectcraft-cli script` / `render` project paths inside the job: the VM resolves `$AMV2_DATA` (240 fps sources, mattes,
+  mix) only on the VM, so ecbuild runs there (render.py builds inside the queue job).

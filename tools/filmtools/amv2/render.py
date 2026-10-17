@@ -193,7 +193,7 @@ def main(argv=None):
     ap.add_argument("--procs", type=int, default=2, help="parallel effectcraft-cli workers on the VM")
     ap.add_argument("--threads", type=int, default=8, help="RAYON_NUM_THREADS per process")
     ap.add_argument("--chunk", type=int, default=48, help="frames per effectcraft-cli process (it exits after a chunk)")
-    ap.add_argument("--no-cache-prefs", action="store_true", help="leave the cache budgets at the app defaults")
+    ap.add_argument("--cache-prefs", action="store_true", help="write PREFS (cache budgets) into EFFECTCRAFT_CONFIG_DIR: measured no effect on RSS (6.2 vs 6.1 GB / 96 f)")
     ap.add_argument("--src", choices=("clips", "src240"), default="src240")
     ap.add_argument("--local-build", action="store_true", help="build here (needs $AMV2_DATA locally, or --src clips)")
     ap.add_argument("--samples", type=int, default=None)
@@ -224,7 +224,7 @@ def main(argv=None):
             p, t = (int(x) for x in sp.split("x"))
             d = fdir_rel + f"/bench_{p}x{t}"
             ch = split_chunks(f0, f1, a.chunk)
-            runner = write_runner(f"{name}-bench-{p}x{t}", proj_rel, d, ch, p, t, res, "best", not a.no_cache_prefs)
+            runner = write_runner(f"{name}-bench-{p}x{t}", proj_rel, d, ch, p, t, res, "best", a.cache_prefs)
             rc, log, secs = run_job(f"{name}-bench-{p}x{t}", vm_cmd(proj_rel, d, runner, bargs if vm_build else None), d, t)
             n = f1 - f0
             res_rows.append(dict(split=sp, frames=n, wall=round(secs, 1), per_frame=round(secs / n, 2), rc=rc))
@@ -232,7 +232,7 @@ def main(argv=None):
         (OUT / f"bench{tag}.json").write_text(json.dumps(res_rows, indent=1))
         return 0
     ch = split_chunks(f0, f1, a.chunk)
-    runner = write_runner(name, proj_rel, fdir_rel, ch, a.procs, a.threads, res, "best", not a.no_cache_prefs)
+    runner = write_runner(name, proj_rel, fdir_rel, ch, a.procs, a.threads, res, "best", a.cache_prefs)
     t0 = time.time()
     rc, log, secs = run_job(f"{name}-render", vm_cmd(proj_rel, fdir_rel, runner, bargs if vm_build else None),
                           fdir_rel, a.procs * a.threads)
