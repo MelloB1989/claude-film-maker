@@ -248,7 +248,9 @@ def test_extended_slides_in_from_the_left_and_has_the_slash_cut():
         g = [x for x in basic.extended_frame(spec, k).groups if x.name == "face"][0]
         return sum(e.x for e in g.elems) / len(g.elems)
 
-    assert cx(0) < cx(6) - 400                   # starts 520 px left
+    assert cx(0) < cx(6) - 80                    # starts left of its rest place, but inside the frame (lead shrunk)
+    xs0 = [e.x for e in [x for x in basic.extended_frame(spec, 0).groups if x.name == "face"][0].elems]
+    assert min(xs0) >= 0                         # no clipping at the left edge on the first frame
     assert cx(33) > cx(6)                        # drifts +40
     g = [x for x in basic.extended_frame(spec, 10).groups if x.name == "face"][0]
     assert g.cut and len(g.cut) == 4

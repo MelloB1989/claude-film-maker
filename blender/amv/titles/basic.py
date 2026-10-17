@@ -678,24 +678,30 @@ def extended_frame(spec, k):
     P = spec.get("pos") or [W / 2, H / 2]
     text = spec["text"]
     # the parent null: layer position keys (relative to the comp centre, AE compensates the parenting at creation)
-    off = ease_keys([[0, (W / 2 - 520, H / 2)], [6, (W / 2, H / 2)], [dur - 1, (W / 2 + 40, H / 2)]], k, {2: (85, 10)})
-    shift = (off[0] - W / 2, off[1] - H / 2)
     cap = cap_height(font, S)
     gl, width = line_glyphs(text, font, S, Solid((1, 1, 1)), P[0], P[1], tracking=30, hscale=1.25)
+    # start inside the frame (the smear leads the entrance): the left edge never begins left of x = 40
+    lead = min(520.0, max(0.0, P[0] - width / 2 - 40))
+    off = ease_keys([[0, (W / 2 - lead, H / 2)], [6, (W / 2, H / 2)], [dur - 1, (W / 2 + 40, H / 2)]], k, {2: (85, 10)})
+    shift = (off[0] - W / 2, off[1] - H / 2)
     base = P[1] + cap / 2
-    ramp = Ramp(base - cap, base, tuple(ramp_stops(pal)))
+    # lifted toward white: the steel blue sat too close to the blue city
+    ramp = Ramp(base - cap, base, tuple((t, lerp_rgb(c, (1, 1, 1), 0.28)) for t, c in ramp_stops(pal)))
     face = [replace(g, fill=ramp, stroke=(hex_rgb("#101418"), 2.0), depth=S * 0.035, bevel=S * 0.012,
                     sx=g.sx) for g in gl]
     # diagonal slash cut: a thin subtract mask through the word
     sx = P[0] + width * 0.12
     slash = ((sx - 10, P[1] - S), (sx + 4, P[1] - S), (sx - 46, P[1] + S), (sx - 60, P[1] + S))
-    o = lin([[0, 0.45], [2, 1.0], [dur - 4, 1.0], [dur - 1, 0.0]], k)
+    o = lin([[0, 0.45], [2, 1.0], [dur - 9, 1.0], [dur - 1, 0.0]], k)
     face = [replace(g, opacity=o) for g in xform_elems(face, (P[0], P[1]), 1.0, shift)]
     sm = lin([[0, 120.0], [3, 50.0], [6, 0.0]], k)
     groups = []
     ring = hud_ring(P, S, k, dur)
     if ring:
         groups.append(Group("hud", ring))
+    shade = [replace(g, fill=Solid((0.0, 0.0, 0.02)), stroke=None, depth=0.0, bevel=0.0, opacity=0.9 * g.opacity)
+             for g in face]
+    groups.append(Group("shade", shade, glows=(Glow((0.0, 0.0, 0.02), 60.0, 1.0),), shadow=ae_shadow(90, 8, 30)))
     groups.append(Group("face", face, glows=(Glow(hex_rgb(pal["glow"]), 25.0, 0.8),),
                         smear=(sm, 0.0) if sm > 0.5 else None,
                         cut=tuple((x + shift[0], y + shift[1]) for x, y in slash)))
@@ -703,17 +709,18 @@ def extended_frame(spec, k):
         sub_size = round(S * 0.33)
         sub, sw = line_glyphs(spec["sub"], "Montserrat-Light", sub_size, Solid((1, 1, 1)), P[0], P[1] + S * 0.62,
                               tracking=600)
-        so = lin([[5, 0.0], [8, 1.0], [dur - 4, 1.0], [dur - 1, 0.0]], k)
+        so = lin([[5, 0.0], [8, 1.0], [dur - 9, 1.0], [dur - 1, 0.0]], k)
         bw, bh = sw + 140, S * 0.42
         # a soft translucent dark gradient plate (stacked, narrowing layers) instead of a hard black bar
         plate = []
         for sw_, sh_ in ((1.0, 1.9), (0.97, 1.65), (0.94, 1.4), (0.91, 1.2), (0.88, 1.0)):
             poly = rough_bar(P[0], P[1] + S * 0.62, bw * sw_, bh * sh_, wipe_progress(4, k), seed=11, amp=1.0)
             if poly:
-                plate.append(PolyEl(poly, Solid((0, 0, 0)), 0.11 * fade_out(k, dur)))
+                plate.append(PolyEl(poly, Solid((0, 0, 0)), 0.2 * fade_out(k, dur)))
         if plate:
             groups.append(Group("bar", plate, shadow=ae_shadow(30, 0, 40)))
-        groups.append(Group("sub", with_opacity(sub, so)))
+        groups.append(Group("sub", with_opacity(sub, so), shadow=ae_shadow(90, 3, 14),
+                            glows=(Glow((0.0, 0.0, 0.02), 14.0, 0.7),)))
     return Frame(groups)
 
 
