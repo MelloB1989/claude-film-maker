@@ -166,3 +166,10 @@ Probed against effectcraft-cli 0.10.0 while checking how the Blender element seq
   one retry per chunk.
 - `effectcraft-cli script` / `render` project paths inside the job: the VM resolves `$AMV2_DATA` (240 fps sources, mattes,
   mix) only on the VM, so ecbuild runs there (render.py builds inside the queue job).
+
+## fx final fix round
+- Flash: >=3.0 hits get 1 f hard white (100%); every other flash is an exposure pop (+1.5 EV, 3 f decay). No semi-transparent white solids.
+- Light sweep: no full-width hairline (short glint that rides the band), band/core/wash gains cut ~45%.
+- Hits 2.0-3.0 (not ink/chroma) get a 106->100 punch plus a light chroma split, even when they already shake (631, 732).
+- sparks_glow and eye_glow catchlight thresholds raised (94/93), intensity ~0.4, eye ring/core opacity cut (S07/S08 blob, lifted blacks).
+- ecbuild default --src is src240 (missing locally): build with --src clips.

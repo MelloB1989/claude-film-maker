@@ -151,7 +151,7 @@ var FX = {
         ff.sort(function (a, b) { return a - b; });
         for (i = 0; i < ff.length; i++) {
             if (ff[i] - lastF < 5 || (has.ink[ff[i]] === undefined && P.inks.some(function (n) { return Math.abs(n.f - ff[i]) < 5; }))) continue;
-            P.flashes.push({ f: ff[i], s: has.flash[ff[i]], len: has.flash[ff[i]] < 0 ? 1 : 2 }); lastF = ff[i];
+            P.flashes.push({ f: ff[i], s: has.flash[ff[i]], len: 1 }); lastF = ff[i];
         }
         // every hit >= 2.0 gets one clean picture event: a chroma hit or a shake counts; otherwise a 2 f zoom punch
         for (i = 0; i < E.hits.length; i++) {
@@ -161,7 +161,7 @@ var FX = {
             var whipIn = false;   // a hit on a whip cut gets a punch in front of the whip even when it already shakes
             for (wj = 0; wj < E.shots.length; wj++) if (E.shots[wj].a == hf && String(E.shots[wj].xin).indexOf("whip") == 0) whipIn = true;
             var bare = !has.shake[hf] && !has.chroma[hf] && !has.ink[hf] && !has.flash[hf];
-            if ((hs >= 2.0 && bare) || (hs >= 1.5 && (bare || whipIn)) || (whipIn && hs >= 2.0)) P.punches.push({ f: hf });
+            if ((hs >= 2.0 && bare) || (hs >= 1.5 && (bare || whipIn)) || (whipIn && hs >= 2.0) || (hs >= 2.0 && hs < 3.0 && !has.ink[hf] && !has.chroma[hf])) P.punches.push({ f: hf, big: hs >= 2.0 });
         }
         // explicit punch@F tags (the hit rules above may already have one on the same frame)
         var tp = P.tagPunch || [];
@@ -212,9 +212,12 @@ var FX = {
     },
 
     // zoom punch: 104 % -> 100 % over 2 f on an adjustment layer (Transform effect, scale about the centre)
-    punch: function (main, f) {
+    punch: function (main, f, big) {
         var l = FX.adj(main, "FX punch " + f, f, f + 2), e = FX.add(l, "ADBE Geometry2", "punch");
-        FX.tkeys(e, "Scale Height", [[f, 104], [f + 1, 101.8]]);
+        if (big) {   // 106 -> 100 with a light chroma split on the same two frames
+            FX.tkeys(e, "Scale Height", [[f, 106], [f + 1, 102.5]]);
+            FX.chromaStack(l, [9, 4], f);
+        } else FX.tkeys(e, "Scale Height", [[f, 104], [f + 1, 101.8]]);
         return l;
     },
 
@@ -242,12 +245,16 @@ var FX = {
     },
 
     // ---------------------------------------------------------------- flash + ink frame (above the grade)
+    // never a semi-transparent white solid (a milky veil): the strongest hits get ONE frame of hard white (full opacity),
+    // every other hit an exposure pop (+1.5 EV on frame 1, decaying over 3 f) that keeps the contrast
     flash: function (main, f, s, len) {
-        var soft = s < 0, v = soft ? 0.5 : FX.clamp(0.8 + 0.2 * (Math.abs(s) - 2.5), 0.6, 1);
-        len = len || 2;
-        var l = FX.solid(main, "FX flash " + f, [1, 1, 1], 0, 0, f, f + len);
-        if (len > 1) FX.keys(FX.tr(l, "ADBE Opacity"), [[f, 100 * v], [f + 1, 100 * v * 0.38]]);
-        else FX.tr(l, "ADBE Opacity").setValue(100 * v);
+        if (s >= 3.0) {
+            var w = FX.solid(main, "FX flash " + f, [1, 1, 1], 0, 0, f, f + 1);
+            FX.tr(w, "ADBE Opacity").setValue(100);
+            return w;
+        }
+        var l = FX.adj(main, "FX exposure pop " + f, f, f + 3), e = FX.add(l, "ADBE Exposure2", "pop");
+        FX.tkeys(e.property("Master"), "Exposure", [[f, 1.5], [f + 1, 0.75], [f + 2, 0.25]]);
         return l;
     },
     // a comic frame: frame 1 a hard B&W threshold, frame 2 the same inverted
@@ -346,8 +353,8 @@ var FX = {
             return cx + (f - peakF) * v;
         }
         var defs = [
-            { nm: "band", w: o.bw || 700, feather: 260, gain: 0.6, col: tint },
-            { nm: "core", w: 130, feather: 80, gain: 0.45, col: [1, 1, 1] }
+            { nm: "band", w: o.bw || 700, feather: 260, gain: 0.34, col: tint },
+            { nm: "core", w: 130, feather: 80, gain: 0.16, col: [1, 1, 1] }
         ];
         for (var k = 0; k < defs.length; k++) {
             var d = defs[k], l = FX.solid(main, "FX sweep " + d.nm + " " + name, d.col, d.w + 2 * d.feather, 2600, f0, f1);
@@ -361,16 +368,16 @@ var FX = {
             FX.tr(l, "ADBE Rotate Z").setValue(ang);
         }
         // the streak: a thin bright line across the frame at the band's height, stretching to its peak
-        var sx = FX.solid(main, "FX sweep streak " + name, [tint[0] * 0.6 + 0.4, tint[1] * 0.6 + 0.4, 1], W * 1.6, 14, f0, f1);
-        FX.rectMask(sx, 0, 3, W * 1.6, 11, 4);
+        var sx = FX.solid(main, "FX sweep streak " + name, [tint[0] * 0.6 + 0.4, tint[1] * 0.6 + 0.4, 1], 360, 14, f0, f1);   // a short glint, not a hairline across the frame
+        FX.rectMask(sx, 0, 3, 360, 11, 4);
         FX.blend(sx, BlendingMode.ADD);
         var so = [], sp = [];
-        for (i = 0; i < n; i++) { so.push([f0 + i, 75 * env(f0 + i) * (o.gain || 1)]); sp.push([f0 + i, [W / 2, H * (o.streakY || 0.6)]]); }
+        for (i = 0; i < n; i++) { so.push([f0 + i, 40 * env(f0 + i) * (o.gain || 1)]); sp.push([f0 + i, [xAt(f0 + i), H * (o.streakY || 0.6)]]); }
         FX.keys(FX.tr(sx, "ADBE Opacity"), so); FX.keys(FX.tr(sx, "ADBE Position"), sp);
-        FX.tryit("streak blur", function () { var gb = FX.add(sx, "ADBE Gaussian Blur 2", "soft"); FX.set(gb, "Blurriness", 6); });
+        FX.tryit("streak blur", function () { var gb = FX.add(sx, "ADBE Gaussian Blur 2", "soft"); FX.set(gb, "Blurriness", 9); });
         // a faint wash so the cut sits in a soft bright frame, never a dip to black
         var w = FX.solid(main, "FX sweep wash " + name, tint, 0, 0, f0, f1), wk = [];
-        for (i = 0; i < n; i++) wk.push([f0 + i, 16 * env(f0 + i) * (o.gain || 1)]);
+        for (i = 0; i < n; i++) wk.push([f0 + i, 8 * env(f0 + i) * (o.gain || 1)]);
         FX.keys(FX.tr(w, "ADBE Opacity"), wk); FX.blend(w, BlendingMode.ADD);
     },
     sweep: function (main, sw, E) {
@@ -441,7 +448,7 @@ var FX = {
         var P = FX.plan(E), i;
         FX.tryit("looks", function () { FX.looks(main, E, P); });
         for (i = 0; i < P.chromas.length; i++) FX.tryit("chroma", function () { FX.chroma(main, P.chromas[i].f, P.chromas[i].s); });
-        for (i = 0; i < P.punches.length; i++) FX.tryit("punch", function () { FX.punch(main, P.punches[i].f); });
+        for (i = 0; i < P.punches.length; i++) FX.tryit("punch", function () { FX.punch(main, P.punches[i].f, P.punches[i].big); });
         for (i = 0; i < P.glitches.length; i++) FX.tryit("glitch", function () { FX.glitch(main, P.glitches[i], E); });
         for (i = 0; i < P.shakes.length; i++) FX.tryit("shake", function () {
             var s = P.shakes[i], light = s.s < 0, a = Math.abs(s.s), len = a >= 3 ? 8 : 6;
@@ -482,7 +489,7 @@ var FX = {
                 } else if (L.kind == "neon_glow") {    // purple neon
                     FX.glow(l, "neon", 62, 18, 1.0, [[0.8, 0.4, 1, 1], [0.4, 0.08, 0.9, 1]]);
                 } else if (L.kind == "sparks_glow") {  // tight, hot, small
-                    FX.glow(l, "sparks", 88, 9, 0.9, [[1, 0.8, 0.5, 1], [1, 0.4, 0.1, 1]]);
+                    FX.glow(l, "sparks", 94, 8, 0.45, [[1, 0.8, 0.5, 1], [1, 0.4, 0.1, 1]]);
                 } else if (L.kind == "electric_glow") { // cyan/blue glow that flickers per frame
                     e = FX.glow(l, "electric", 80, 15, 1, [[0.55, 0.82, 1, 1], [0.15, 0.35, 1, 1]]);
                     r = FX.rng(L.a * 3 + 1); k = [];
@@ -528,7 +535,7 @@ var FX = {
         // the dive into the iris: a growing cold-white ring/core at the eye, plus a tight glow on the catchlights
         var X = FX.X(E), S = FX.shotAt(E, L.a), n = L.b - L.a, f;
         var fp = (X.eye || {})[L.id] || (S && S.focus) || [901, 390];
-        FX.glow(l, "catchlight", 86, 14, 0.7, [[0.8, 0.92, 1, 1], [0.3, 0.55, 1, 1]]);
+        FX.glow(l, "catchlight", 93, 12, 0.4, [[0.8, 0.92, 1, 1], [0.3, 0.55, 1, 1]]);
         for (var ring = 0; ring < 2; ring++) {
             var g = FX.solid(main, "FX eye " + (ring ? "core" : "ring"), [0.7, 0.88, 1], 1400, 1400, L.a, L.b), pk = [], ok = [], sk = [];
             var m = g.property("ADBE Mask Parade").addProperty("ADBE Mask Atom"), sh = FX.ellipse(700, 700, ring ? 120 : 330, ring ? 120 : 330);
@@ -538,7 +545,7 @@ var FX = {
             for (f = 0; f < n; f++) {
                 var u = (f + 1) / n, p = FX.toComp(L.id, fp, L.a + f);
                 pk.push([L.a + f, p]); sk.push([L.a + f, [(ring ? 40 : 55) + 45 * u * u, (ring ? 40 : 55) + 45 * u * u]]);
-                ok.push([L.a + f, (ring ? 42 : 30) * Math.pow(u, 1.3)]);
+                ok.push([L.a + f, (ring ? 30 : 16) * Math.pow(u, 1.3)]);
             }
             FX.keys(FX.tr(g, "ADBE Position"), pk); FX.keys(FX.tr(g, "ADBE Scale"), sk); FX.keys(FX.tr(g, "ADBE Opacity"), ok);
         }
