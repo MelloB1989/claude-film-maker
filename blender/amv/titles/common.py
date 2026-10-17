@@ -869,8 +869,8 @@ class SubLine:
 
     def __init__(self, sc: TitleScene, text: str, parent, center, f0: int, dur: int, *, size: float = 40.0,
                  tracking: float = 380.0, span: float = 900.0, role: str = "orbitron", italic: float = 0.2,
-                 color: str = "#FFFFFF"):
-        self.word, self.mat = flat_word(sc, text, role, size, tracking, name="sub", color=color)
+                 color: str = "#FFFFFF", strength: float = 1.0):
+        self.word, self.mat = flat_word(sc, text, role, size, tracking, name="sub", color=color, strength=strength)
         self.word.attach(parent)
         self.center, self.f0, self.dur, self.base, self.span, self.italic = center, f0, dur, tracking, span, italic
 

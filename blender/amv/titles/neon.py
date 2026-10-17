@@ -32,14 +32,18 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     m = Mat("tube")
     m.nt.nodes.remove(m.bsdf)
     a = m.value("alpha", 1.0)
-    e = m.value("e", 6.0)
-    m.emission_only(m.mix(lin("#FFFFFF"), lin(pal["glow"]), 0.12), e, alpha=a)
-    word = Word(sc, text, "anton", S, TR, name="neon", outline_px=7.0, material=m.mat)
+    e = m.value("e", 3.5)
+    # thin white-hot core edge, tinted to the palette so it does not clip to white after the grade
+    m.emission_only(m.mix(lin("#FFFFFF"), lin(pal["glow"]), 0.35), e, alpha=a)
+    word = Word(sc, text, "anton", S, TR, name="neon", outline_px=5.0, material=m.mat)
     word.attach(layer)
-    sub = C.SubLine(sc, spec["sub"], layer, (0, S * 0.58), 5, dur) if spec.get("sub") else None
+    # AE: red fill inside the white edge
+    fill, fm = C.flat_word(sc, text, "anton", S, TR, name="neonfill", color=pal["glow"], strength=1.6)
+    fill.attach(layer)
+    sub = C.SubLine(sc, spec["sub"], layer, (0, S * 0.58), 5, dur, size=44, strength=2.2) if spec.get("sub") else None
 
-    comp = sc.build_compositor(glows=[Glow(0.5, 0.18, 1.2, "#FFFFFF"), Glow(0.15, 0.7, 2.4, pal["glow"]),
-                                      Glow(0.15, 0.9, 1.4, pal["mid"])])
+    comp = sc.build_compositor(glows=[Glow(0.5, 0.12, 0.5, "#FFFFFF"), Glow(0.1, 0.7, 2.4, pal["glow"]),
+                                      Glow(0.1, 0.9, 1.6, pal["mid"])])
 
     def pose(k):
         s = lin_keys([[0, 92], [5, 100], [dur - 1, 108]], k) / 100.0
@@ -47,17 +51,24 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
                           [dur - 1, 0]], k)
         C.set_layer(layer, P, s)
         word.pose((C.W / 2, C.H / 2), shear=0.2)
+        fill.pose((C.W / 2, C.H / 2), shear=0.2)
         # AE turbulent displace (6 px, size 40, evolving): a per-letter wobble re-seeded every frame
         rng = random.Random(opts.seed * 1000 + k)
         for ob in word.letters:
             if ob is not None:
-                ob.delta_location = (rng.uniform(-3, 3) / C.PX, rng.uniform(-3, 3) / C.PX, 0.0)
-                ob.delta_rotation_euler[2] = math.radians(rng.uniform(-0.6, 0.6))
+                dx, dy, dr = rng.uniform(-3, 3) / C.PX, rng.uniform(-3, 3) / C.PX, math.radians(rng.uniform(-0.6, 0.6))
+                ob.delta_location = (dx, dy, 0.0)
+                ob.delta_rotation_euler[2] = dr
+                f = fill.letters[word.letters.index(ob)]
+                if f is not None:
+                    f.delta_location = (dx, dy, 0.0)
+                    f.delta_rotation_euler[2] = dr
         m.set("alpha", min(1.0, flick * 1.0))
-        m.set("e", 6.0 * flick)
-        comp.set_glow(0, strength=1.2 * flick)
+        m.set("e", 3.5 * flick)
+        fm.set("alpha", min(1.0, flick))
+        comp.set_glow(0, strength=0.5 * flick)
         comp.set_glow(1, strength=2.4 * flick)
-        comp.set_glow(2, strength=1.4 * flick)
+        comp.set_glow(2, strength=1.6 * flick)
         if sub:
             sub.update(k, flick if k > dur - 5 else 1.0)
 
