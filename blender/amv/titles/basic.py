@@ -173,15 +173,15 @@ class Placed:
 
 def line_layout(text, font, size, tracking=0.0, hscale=1.0):
     """Glyph origins of `text` centred on x = 0, baseline y = 0. `tracking` is AE's 1/1000 em added after each character;
-    the trailing one is not part of the centring. Returns (list[Placed], width)."""
+    the trailing one counts in the centring, as in AE. Returns (list[Placed], width)."""
     fm = metrics(font)
     out, x = [], 0.0
     for ch in text:
         a = fm.advance(ch) * size * hscale
         out.append(Placed(ch, x, a))
         x += a + tracking / 1000.0 * size * hscale
-    width = x - (tracking / 1000.0 * size * hscale if text else 0.0)
-    return [Placed(p.ch, p.x - width / 2, p.adv) for p in out], width
+    # AE centres the box including the trailing tracking (measured: the AE sub sits 2.8 px left of the ink centre)
+    return [Placed(p.ch, p.x - x / 2, p.adv) for p in out], x
 
 
 def cap_height(font, size):

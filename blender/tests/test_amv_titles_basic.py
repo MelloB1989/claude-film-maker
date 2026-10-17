@@ -173,9 +173,9 @@ def test_line_layout_is_centred_and_tracking_widens_it():
     pl, w = basic.line_layout("SAU_EDITZ", "Orbitron-Bold", 30, 250)
     assert pl[0].x == pytest.approx(-w / 2)
     last = pl[-1]
-    assert last.x + last.adv == pytest.approx(w / 2)
+    assert last.x + last.adv + 0.25 * 30 == pytest.approx(w / 2)      # AE centres with the trailing tracking
     _, w0 = basic.line_layout("SAU_EDITZ", "Orbitron-Bold", 30, 0)
-    assert w - w0 == pytest.approx(8 * 0.25 * 30)             # 8 gaps of 250/1000 em at 30 px
+    assert w - w0 == pytest.approx(9 * 0.25 * 30)             # 9 tracking steps of 250/1000 em at 30 px
 
 
 @needs_fonts

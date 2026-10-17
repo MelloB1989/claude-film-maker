@@ -82,6 +82,27 @@ def blender_font(name):
     return _fonts[name]
 
 
+_em = {}
+
+
+def em_factor(name):
+    """Blender's text `size` is not the em: it scales each font by a factor of its own (Orbitron 0.797, Montserrat 0.772
+    ...). Measured from the advance of "HH" vs "H" (the metrics are ours, from the file), so size / factor = AE's px em."""
+    if name not in _em:
+        w = []
+        for body in ("H", "HH"):
+            cu = bpy.data.curves.new("cal", "FONT")
+            cu.body, cu.font, cu.size = body, blender_font(name), 1.0
+            ob = bpy.data.objects.new("cal", cu)
+            bpy.context.scene.collection.objects.link(ob)
+            bpy.context.view_layer.update()
+            w.append(ob.dimensions.x)
+            bpy.data.objects.remove(ob)
+            bpy.data.curves.remove(cu)
+        _em[name] = (w[1] - w[0]) / basic.metrics(name).advance("H")
+    return _em[name]
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 # materials
 
@@ -161,7 +182,7 @@ def add_glyph(coll, e: GlyphEl, mat, z):
     cu = bpy.data.curves.new("g", "FONT")
     cu.body = e.ch
     cu.font = blender_font(e.font)
-    cu.size = e.size * PX
+    cu.size = e.size * PX / em_factor(e.font)
     cu.align_x = "LEFT"
     cu.align_y = "BOTTOM_BASELINE"
     cu.shear = e.shear
