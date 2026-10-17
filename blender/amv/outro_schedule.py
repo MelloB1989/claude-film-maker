@@ -128,9 +128,10 @@ def camera(f, n):
 
 
 def sweep(f):
-    """The sweep light: AE x -1600 -> +1600 px over f48-70, intensity 0 -> 1 (f46-52) hold, -> 0 at f71."""
-    x = lin([(48, -1600.0), (70, 1600.0)], f) * PX
-    return {"x": x, "level": lin([(46, 0.0), (52, 1.0), (66, 1.0), (71, 0.0)], f)}
+    """The sweep light: a glint crossing the settled word, x -1600 -> +1600 px over f58-76 (comp ~f870-888), intensity
+    0 -> 1 (f56-60), hold, -> 0 at f77, so it is gone when the dissolve starts. (AE: f48-70; moved to the settled word.)"""
+    x = lin([(58, -1600.0), (76, 1600.0)], f) * PX
+    return {"x": x, "level": lin([(56, 0.0), (60, 1.0), (72, 1.0), (77, 0.0)], f)}
 
 
 RINGS = ((-420.0, (0.75, 0.05, 0.08)), (0.0, (0.15, 0.35, 0.9)), (420.0, (0.9, 0.15, 0.12)))
@@ -140,6 +141,7 @@ def ring(i, f, n):
     """Ring i: opacity 0 -> 1 over 9 f from 3 + 5 i, scale 40 -> 100 % over 27 f, drifting to 108 % at the end."""
     f0 = 3 + 5 * i
     return {"opacity": lin([(f0, 0.0), (f0 + 9, 1.0)], f),
+            "pop": lin([(f0 + 5, 0.0), (f0 + 9, 1.0), (f0 + 15, 0.0)], f),     # the flare as the ring lights up
             "scale": lin([(f0, 0.4), (f0 + 27, 1.0), (n, 1.08)], f)}
 
 

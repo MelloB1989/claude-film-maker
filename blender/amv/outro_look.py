@@ -15,9 +15,9 @@ from mathutils import Euler, Vector
 
 from . import outro_schedule as sch
 
-RED = (0.55, 0.01, 0.03)
-NAVY = (0.05, 0.12, 0.42)
-BEVEL_C = (1.0, 0.30, 0.30)
+RED = (0.5, 0.0, 0.02)
+NAVY = (0.02, 0.06, 0.30)
+BEVEL_C = (1.0, 0.12, 0.08)
 
 
 # --- helpers ----------------------------------------------------------------------------------------------------------
@@ -83,8 +83,8 @@ def face_material():
     m.use_nodes = True
     nt = m.node_tree
     nt.nodes.clear()
-    p = _principled(nt, **{"Metallic": 0.15, "Roughness": 0.22, "Coat Weight": 1.0, "Coat Roughness": 0.04,
-                           "Specular IOR Level": 0.7})
+    p = _principled(nt, **{"Metallic": 0.85, "Roughness": 0.14, "Coat Weight": 1.0, "Coat Roughness": 0.02,
+                           "Specular IOR Level": 1.0})
     # web: spokes from the glyph's own centre (object coords) darkening the red
     tc = nt.nodes.new("ShaderNodeTexCoord")
     sep = nt.nodes.new("ShaderNodeSeparateXYZ")
@@ -113,7 +113,7 @@ def face_material():
     nt.links.new(sp_m.outputs[0], web.inputs[0]); nt.links.new(rm.outputs[0], web.inputs[1])
     mixc = nt.nodes.new("ShaderNodeMix"); mixc.data_type = "RGBA"
     mixc.inputs["A"].default_value = (*RED, 1)
-    mixc.inputs["B"].default_value = (0.25, 0.005, 0.012, 1)
+    mixc.inputs["B"].default_value = (0.1, 0.0, 0.004, 1)
     f = nt.nodes.new("ShaderNodeMath"); f.operation = "MULTIPLY"; f.inputs[1].default_value = 0.55
     nt.links.new(web.outputs[0], f.inputs[0]); nt.links.new(f.outputs[0], mixc.inputs["Factor"])
     nt.links.new(mixc.outputs["Result"], p.inputs["Base Color"])
@@ -126,8 +126,8 @@ def bevel_material():
     m.use_nodes = True
     nt = m.node_tree
     nt.nodes.clear()
-    p = _principled(nt, **{"Base Color": (*BEVEL_C, 1), "Metallic": 0.6, "Roughness": 0.16, "Coat Weight": 0.6,
-                           "Specular IOR Level": 1.0, "Emission Color": (1.0, 0.2, 0.2, 1), "Emission Strength": 0.25})
+    p = _principled(nt, **{"Base Color": (*BEVEL_C, 1), "Metallic": 1.0, "Roughness": 0.1, "Coat Weight": 1.0,
+                           "Specular IOR Level": 1.0, "Emission Color": (1.0, 0.1, 0.08, 1), "Emission Strength": 0.15})
     _fade_wrap(nt, p.outputs[0])
     return m
 
@@ -137,8 +137,8 @@ def side_material():
     m.use_nodes = True
     nt = m.node_tree
     nt.nodes.clear()
-    p = _principled(nt, **{"Base Color": (*NAVY, 1), "Metallic": 0.9, "Roughness": 0.32, "Anisotropic": 0.4,
-                           "Specular IOR Level": 0.8})
+    p = _principled(nt, **{"Base Color": (*NAVY, 1), "Metallic": 1.0, "Roughness": 0.2, "Anisotropic": 0.3,
+                           "Specular IOR Level": 1.0})
     _fade_wrap(nt, p.outputs[0])
     return m
 
@@ -203,35 +203,19 @@ def aim(ob, target):
 
 
 def build_lights(n, f0):
-    """KEY warm, RIM blue, TOP cool (ref 06 §3 lights, AE px / 100), softbox strips for the glossy reflections, two
-    back spots that carve the god rays, and the moving SWEEP."""
+    """KEY warm, a hard cool-white rim on one side and a blue rim on the other so every edge reads against the black
+    (art direction after draft 1), TOP cool, softbox strips for the glossy reflections, and the moving SWEEP."""
     lights = {}
-    lights["key"] = _area("KEY warm", (-9, -14, 8), (7, 4), 1300, (1.0, 0.95, 0.9))
-    lights["rim"] = _area("RIM blue", (15, 5, -3), (5, 14), 4500, (0.35, 0.55, 1.0))
-    lights["top"] = _area("TOP cool", (2, -3, 15), (14, 4), 2000, (0.7, 0.8, 1.0))
+    lights["key"] = _area("KEY warm", (-9, -14, 8), (7, 4), 1500, (1.0, 0.95, 0.9))
+    lights["rim_w"] = _area("RIM white", (-13, 7, 4), (2.5, 14), 9000, (0.88, 0.94, 1.0))
+    lights["rim_b"] = _area("RIM blue", (15, 5, -3), (3.0, 14), 9000, (0.22, 0.42, 1.0))
+    lights["top"] = _area("TOP cool", (2, -3, 15), (14, 4), 2200, (0.7, 0.8, 1.0))
     lights["strip_l"] = _area("STRIP left", (-12, -9, 1), (1.2, 12), 1200, (1, 1, 1))
     lights["strip_r"] = _area("STRIP right", (11, -11, 1), (1.2, 12), 900, (1, 0.9, 0.85))
-    # back spots: shine at the camera from behind the word through the volume, the word blocks them = god rays
-    for i, (x, z) in enumerate(((-3.2, 2.0), (3.6, 1.2))):
-        sd = bpy.data.lights.new(f"RAY {i}", "SPOT")
-        sd.energy = 2500
-        sd.spot_size = math.radians(48)
-        sd.spot_blend = 0.9
-        sd.shadow_soft_size = 0.15
-        sd.color = (1.0, 0.45, 0.4) if i == 0 else (0.45, 0.6, 1.0)
-        ob = bpy.data.objects.new(sd.name, sd)
-        bpy.context.scene.collection.objects.link(ob)
-        ob.location = (x, 9.0, z)
-        aim(ob, (x * 0.2, -20.0, 0.0))
-        lights[f"ray{i}"] = ob
-        for f in range(0, n):          # the shafts fade up with the letters: the film cuts in from black
-            sd.energy = 6000 * sch.smooth(f / 45.0)
-            sd.keyframe_insert("energy", frame=f0 + f)
-        linearize(sd)
     sd = bpy.data.lights.new("SWEEP", "SPOT")
-    sd.spot_size = math.radians(55)
-    sd.spot_blend = 0.6
-    sd.shadow_soft_size = 0.6
+    sd.spot_size = math.radians(40)
+    sd.spot_blend = 0.5
+    sd.shadow_soft_size = 0.4
     sd.energy = 0
     sw = bpy.data.objects.new("SWEEP", sd)
     bpy.context.scene.collection.objects.link(sw)
@@ -249,48 +233,76 @@ def build_lights(n, f0):
     return lights
 
 
-def build_volume():
-    """A cube of thin, noisy scattering fog around the word: the back spots turn into shafts in it."""
-    bpy.ops.mesh.primitive_cube_add(size=1)
-    ob = bpy.context.active_object
-    ob.name = "FOG"
-    ob.scale = (46, 36, 24)
-    ob.location = (0, 0, 0)
-    ob.visible_shadow = False
-    m = bpy.data.materials.new("sau_fog")
-    m.use_nodes = True
-    nt = m.node_tree
-    nt.nodes.clear()
-    tc = nt.nodes.new("ShaderNodeTexCoord")
-    noise = nt.nodes.new("ShaderNodeTexNoise")
-    noise.inputs["Scale"].default_value = 0.35
-    noise.inputs["Detail"].default_value = 4.0
-    noise.inputs["Roughness"].default_value = 0.6
-    nt.links.new(tc.outputs["Object"], noise.inputs["Vector"])
-    mp = nt.nodes.new("ShaderNodeMapRange")
-    mp.inputs["From Min"].default_value = 0.3
-    mp.inputs["From Max"].default_value = 0.8
-    mp.inputs["To Min"].default_value = 0.35
-    mp.inputs["To Max"].default_value = 1.6
-    nt.links.new(noise.outputs["Fac"], mp.inputs["Value"])
-    sc = nt.nodes.new("ShaderNodeVolumeScatter")
-    sc.inputs["Anisotropy"].default_value = 0.55
-    sc.inputs["Color"].default_value = (0.8, 0.85, 1.0, 1)
-    sc.inputs["Density"].default_value = 0.02
-    mul = nt.nodes.new("ShaderNodeMath"); mul.operation = "MULTIPLY"; mul.inputs[1].default_value = 0.006
-    nt.links.new(mp.outputs[0], mul.inputs[0])
-    nt.links.new(mul.outputs[0], sc.inputs["Density"])
-    out = nt.nodes.new("ShaderNodeOutputMaterial")
-    nt.links.new(sc.outputs[0], out.inputs["Volume"])
-    ob.data.materials.append(m)
-    return ob
+def build_shafts(n, f0):
+    """Cheap god rays: long soft light planes fanning out from behind the word (no volume rendering: that cost 13 s a
+    frame on a 4090). Additive-looking emission with a transparent falloff along and across each plane."""
+    import bmesh
+    me = bpy.data.meshes.new("shaft")
+    bm = bmesh.new()
+    vs = [bm.verts.new(c) for c in ((-0.5, 0, 0), (0.5, 0, 0), (0.5, 1, 0), (-0.5, 1, 0))]
+    bm.faces.new(vs)
+    bm.to_mesh(me)
+    bm.free()
+    shafts = []
+    for i in range(9):
+        red = i % 2 == 0
+        m = bpy.data.materials.new(f"sau_shaft{i}")
+        m.use_nodes = True
+        nt = m.node_tree
+        nt.nodes.clear()
+        tc = nt.nodes.new("ShaderNodeTexCoord")
+        sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+        nt.links.new(tc.outputs["Object"], sep.inputs[0])
+        al = nt.nodes.new("ShaderNodeMath"); al.operation = "ABSOLUTE"
+        nt.links.new(sep.outputs["X"], al.inputs[0])
+        across = nt.nodes.new("ShaderNodeMapRange")
+        across.inputs["From Min"].default_value = 0.5; across.inputs["From Max"].default_value = 0.0
+        nt.links.new(al.outputs[0], across.inputs["Value"])
+        along = nt.nodes.new("ShaderNodeMapRange")
+        along.inputs["From Min"].default_value = 1.0; along.inputs["From Max"].default_value = 0.0
+        nt.links.new(sep.outputs["Y"], along.inputs["Value"])
+        prod = nt.nodes.new("ShaderNodeMath"); prod.operation = "MULTIPLY"
+        nt.links.new(across.outputs[0], prod.inputs[0]); nt.links.new(along.outputs[0], prod.inputs[1])
+        sq = nt.nodes.new("ShaderNodeMath"); sq.operation = "POWER"; sq.inputs[1].default_value = 2.0
+        nt.links.new(prod.outputs[0], sq.inputs[0])
+        gain = nt.nodes.new("ShaderNodeMath"); gain.operation = "MULTIPLY"; gain.inputs[1].default_value = 0.55
+        nt.links.new(sq.outputs[0], gain.inputs[0])
+        em = nt.nodes.new("ShaderNodeEmission")
+        em.inputs["Color"].default_value = (1.0, 0.12, 0.08, 1) if red else (0.2, 0.4, 1.0, 1)
+        tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+        mix = nt.nodes.new("ShaderNodeMixShader")
+        nt.links.new(gain.outputs[0], mix.inputs[0])
+        nt.links.new(tr.outputs[0], mix.inputs[1]); nt.links.new(em.outputs[0], mix.inputs[2])
+        out = nt.nodes.new("ShaderNodeOutputMaterial")
+        nt.links.new(mix.outputs[0], out.inputs["Surface"])
+        piv = bpy.data.objects.new(f"SHAFT pivot {i}", None)
+        bpy.context.scene.collection.objects.link(piv)
+        piv.location = (0.0, 8.0, 0.8)
+        ob = bpy.data.objects.new(f"SHAFT {i}", me)
+        bpy.context.scene.collection.objects.link(ob)
+        ob.parent = piv
+        ob.rotation_euler = (math.pi / 2, 0, 0)             # the plane's length runs up the screen
+        ob.scale = (1.3 + 0.5 * (i % 3), 34.0, 1.0)
+        ob.data.materials.clear()
+        ob.data.materials.append(m)
+        ob.visible_shadow = False
+        base = math.radians(-80 + i * 20)
+        for f in range(0, n):
+            piv.rotation_euler = (0.0, base + math.radians(6) * (f / n) * (1 if red else -1), 0.0)
+            piv.keyframe_insert("rotation_euler", frame=f0 + f)
+            em.inputs["Strength"].default_value = (2.2 if red else 1.8) * sch.smooth(f / 45.0)
+            em.inputs["Strength"].keyframe_insert("default_value", frame=f0 + f)
+        linearize(piv)
+        linearize(nt)
+        shafts.append(ob)
+    return shafts
 
 
 # --- rings and sparks ---------------------------------------------------------------------------------------------------
 def build_rings(n, f0):
     rings = []
     for i, (xpx, col) in enumerate(sch.RINGS):
-        bpy.ops.mesh.primitive_torus_add(major_radius=1.3, minor_radius=0.035, major_segments=96, minor_segments=10,
+        bpy.ops.mesh.primitive_torus_add(major_radius=1.3, minor_radius=0.045, major_segments=96, minor_segments=10,
                                          rotation=(math.pi / 2, 0, 0))
         ob = bpy.context.active_object
         ob.name = f"RING {i}"
@@ -303,7 +315,7 @@ def build_rings(n, f0):
             r = sch.ring(i, f, n)
             ob.scale = (r["scale"],) * 3
             ob.keyframe_insert("scale", frame=f0 + f)
-            em.default_value = 14.0 * r["opacity"]
+            em.default_value = 26.0 * r["opacity"] * (1.0 + 1.5 * r["pop"])
             em.keyframe_insert("default_value", frame=f0 + f)
         linearize(ob)
         linearize(m.node_tree)
@@ -437,6 +449,14 @@ def build_compositor(n, f0, w, h):
     gl.inputs["Size"].default_value = 0.7
     gl.inputs["Quality"].default_value = "High"
     nt.links.new(rl.outputs["Image"], gl.inputs["Image"])
+    st = _node(nt, "CompositorNodeGlare", 460, 100)                  # anamorphic streaks as a ring pops
+    st.inputs["Type"].default_value = "Streaks"
+    st.inputs["Threshold"].default_value = 4.0
+    st.inputs["Streaks"].default_value = 2
+    st.inputs["Streaks Angle"].default_value = 0.0
+    st.inputs["Fade"].default_value = 0.95
+    st.inputs["Size"].default_value = 0.8
+    nt.links.new(gl.outputs["Image"], st.inputs["Image"])
     # vignette: black at 70 % outside an ellipse, feathered (outro.jsx VIGNETTE)
     el = _node(nt, "CompositorNodeEllipseMask", 260, -300)
     el.inputs["Size"].default_value = (0.62, 0.66)
@@ -453,7 +473,7 @@ def build_compositor(n, f0, w, h):
     black = (0, 0, 0, 1)
     vmix = _node(nt, "ShaderNodeMix", 1100, 0, data_type="RGBA")
     vmix.inputs["B"].default_value = black
-    nt.links.new(gl.outputs["Image"], vmix.inputs["A"])
+    nt.links.new(st.outputs["Image"], vmix.inputs["A"])
     nt.links.new(vf.outputs[0], vmix.inputs["Factor"])
     # flashes: hit (white add) and end (screen-ish add)
     fl = _node(nt, "ShaderNodeMix", 1320, 0, data_type="RGBA", blend_type="ADD")
@@ -480,7 +500,8 @@ def build_compositor(n, f0, w, h):
         gl.inputs["Strength"].default_value = fx["bloom"] * 0.35
         cmp_.inputs[1].default_value = 1.01 if fx["black"] else fx["dissolve"] * 1.0005
         fi.inputs["Factor"].default_value = fx["fade_in"]
-        for sock in (fl.inputs["Factor"], gl.inputs["Strength"], cmp_.inputs[1], fi.inputs["Factor"]):
+        st.inputs["Strength"].default_value = max(sch.ring(i, f, n)["pop"] for i in range(3)) * 0.9
+        for sock in (fl.inputs["Factor"], gl.inputs["Strength"], st.inputs["Strength"], cmp_.inputs[1], fi.inputs["Factor"]):
             sock.keyframe_insert("default_value", frame=f0 + f)
     linearize(nt)
     return nt

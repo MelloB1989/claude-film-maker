@@ -27,7 +27,7 @@ def parse(argv):
     ap = argparse.ArgumentParser(prog="outro.py")
     ap.add_argument("--film", required=True, help="film folder (films/<id>)")
     ap.add_argument("--res-scale", type=float, default=1.0)
-    ap.add_argument("--samples", type=int, default=64)
+    ap.add_argument("--samples", type=int, default=32)
     ap.add_argument("--frames", help="comp frames: a-b ranges and single frames, comma separated; default the whole outro")
     ap.add_argument("--every", type=int, default=1, help="render every Nth frame of the range")
     ap.add_argument("--out", help="output folder (default out/<id>/amv/outro next to the film's out/)")
@@ -58,10 +58,12 @@ def setup_render(args, plan):
     cy.use_adaptive_sampling = True
     cy.adaptive_threshold = 0.02
     cy.use_denoising = True
-    cy.max_bounces = 6
-    cy.volume_bounces = 1
-    cy.volume_step_rate = 1.5
-    cy.volume_max_steps = 256
+    cy.max_bounces = 4
+    cy.diffuse_bounces = 2
+    cy.glossy_bounces = 3
+    cy.transmission_bounces = 2
+    cy.transparent_max_bounces = 6
+    cy.denoiser = "OPENIMAGEDENOISE"
     cy.sample_clamp_indirect = 8.0
     cy.sample_clamp_direct = 40.0
     cy.caustics_reflective = False
@@ -120,7 +122,7 @@ def main(argv):
     objs, layout = outro_geo.build_letters(film / FONT, mats, sc.collection)
     outro_look.build_world()
     outro_look.build_lights(n, f0)
-    outro_look.build_volume()
+    outro_look.build_shafts(n, f0)
     outro_look.build_rings(n, f0)
     outro_look.build_sparks(layout, n, f0)
     outro_look.build_camera(n, f0)

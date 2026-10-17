@@ -92,9 +92,15 @@ def test_camera_never_stops_but_eases_in_and_drifts_after_landing():
     assert c87["orbit"] != c62["orbit"]
 
 
-def test_sweep_crosses_the_word_between_f48_and_f70():
-    assert sch.sweep(48)["x"] < -15 and sch.sweep(70)["x"] > 15
-    assert sch.sweep(40)["level"] == 0 and sch.sweep(60)["level"] == 1 and sch.sweep(75)["level"] == 0
+def test_sweep_crosses_the_settled_word_and_is_gone_before_the_dissolve():
+    assert sch.sweep(58)["x"] < -15 and sch.sweep(76)["x"] > 15
+    assert sch.sweep(50)["level"] == 0 and sch.sweep(66)["level"] == 1 and sch.sweep(N - 10)["level"] == 0
+
+
+def test_ring_pop_peaks_as_each_ring_lights_up():
+    for i in range(3):
+        f0 = 3 + 5 * i
+        assert sch.ring(i, f0 + 9, N)["pop"] == 1.0 and sch.ring(i, f0, N)["pop"] == 0.0
 
 
 def test_rings_fade_in_staggered():
