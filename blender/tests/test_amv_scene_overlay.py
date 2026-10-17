@@ -82,6 +82,6 @@ else:
             raise RuntimeError("blender failed:\n" + r.stdout[-1500:] + r.stderr[-1500:])
         got = np.load(tmp / "o.npy")
         left, right = got[:, :4, :3], got[:, 4:, :3]
-        assert np.abs(left - left[0, 0]).max() < 1e-3
+        assert np.abs(left - left[0, 0]).max() < 1.5 / 255   # 8-bit output dither; the bug moved it ~50/255
         assert abs(left[0, 0] - left[0, 0, 0]).max() < 1e-3, f"background tinted: {left[0, 0]}"   # still grey
         assert right[0, 0] == pytest.approx((1.0, 0.0, 0.0), abs=0.02)
