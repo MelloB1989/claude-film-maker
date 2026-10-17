@@ -44,7 +44,7 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     depth = 22.0
     body = Word(sc, text, role, S, TR, name="body", extrude_px=depth, bevel_px=2.0, material=body_m.mat)
     face = Word(sc, text, role, S, TR, name="face", extrude_px=5.0, bevel_px=3.4, bevel_res=4)
-    fm = C.metal_material("face", face.root, face.cap_px, [(0.0, pal["bot"]), (0.45, pal["mid"]), (1.0, pal["top"])],
+    fm = C.metal_material("face", face.root, face.cap_px, [(0.0, "#C4C9CF"), (0.4, "#F0F1F1"), (1.0, "#FFFFFF")],
                           metallic=1.0, roughness=0.12, sweep_w_px=0.34 * face.cap_px, lean=0.35, sweep_strength=5.0)
     face.set_material(fm.mat)
     em, echo_m = C.flat_word(sc, text, role, S, TR, name="echo", color=pal["top"], strength=1.5)
@@ -77,8 +77,8 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         em.pose((C.W / 2, C.H / 2 + 0.78 * S))
         echo_m.set("alpha", echo * a)
         comp.set_hblur(lin_keys([[0, 70], [2, 30], [4, 0]], k))
-        comp.set_glow(0, strength=0.9 * a * (1 + flash))
-        comp.set_glow(1, strength=0.5 * a * (1 + flash))
+        comp.set_glow(0, strength=0.4 * a * (1 + flash))
+        comp.set_glow(1, strength=0.2 * a * (1 + flash))
         if sub:
             sub.update(k, a)
 

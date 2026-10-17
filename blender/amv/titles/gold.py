@@ -47,7 +47,7 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         return body, body_m, face, fm
 
     body, body_m, face, fm = build("")
-    rbody, rbody_m, rface, rfm = build("_r", height_fade=(1.0, 0.0))
+    rbody, rbody_m, rface, rfm = build("_r", height_fade=(1.0, -1.5))   # dies out ~60 % down the mirrored word, clear of the letterbox
     for w in (body, face):
         w.attach(layer)
     for w in (rbody, rface):
@@ -62,7 +62,7 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         rise = 160.0 * (1 - C.ease_out_expo(k / 8.0)) if k < 8 else 0.0
         sy = lin_keys([[0, 40.0], [8, 100.0], [dur - 1, 104.0]], k) / 100.0
         sx = lin_keys([[0, 100.0], [8, 100.0], [dur - 1, 104.0]], k) / 100.0
-        a = lin_keys([[0, 0.0], [3, 1.0], [dur - 5, 1.0], [dur - 1, 0.0]], k)
+        a = lin_keys([[0, 0.4], [3, 1.0], [dur - 5, 1.0], [dur - 1, 0.0]], k)     # visible from k = 0 (AE pops on f_in)
         C.set_layer(layer, (P[0], P[1] + rise), scale_xy=(sx, sy))
         c = (C.W / 2, C.H / 2)
         body.pose(c, oblique=(10.8, 16.2))
@@ -74,7 +74,7 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         C.set_layer(refl, (P[0], P[1] + gap + rise), scale_xy=(sx, -sy))
         rbody.pose(c, oblique=(10.8, 16.2))
         rface.pose(c, z=(depth / 2 + 2.5) / C.PX)
-        ra = 0.35 * lin_keys([[0, 0.0], [8, 1.0], [dur - 5, 1.0], [dur - 1, 0.0]], k)
+        ra = 0.35 * lin_keys([[0, 0.4], [8, 1.0], [dur - 5, 1.0], [dur - 1, 0.0]], k)
         for m in (rbody_m, rfm):
             m.set("alpha", ra)
         rfm.set("sweep_x", fm.values["sweep_x"].outputs[0].default_value)

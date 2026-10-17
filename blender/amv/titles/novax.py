@@ -51,8 +51,9 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     b.inputs["Metallic"].default_value = 0.55
     b.inputs["Roughness"].default_value = 0.22
     fm.link(em_col, b.inputs["Emission Color"])
-    fm.link(fm.math("ADD", fm.value("em0", 0.5), fm.math("MULTIPLY", sweep, 4.0)), b.inputs["Emission Strength"])
-    fm.link(fm.value("alpha", 0.52), b.inputs["Alpha"])
+    fm.link(fm.math("ADD", fm.value("em0", 0.25), fm.math("MULTIPLY", sweep, 2.5)), b.inputs["Emission Strength"])
+    # AE: the fill is see-through, a white top fading to the plate at the baseline, so the web shows through the letters
+    fm.link(fm.math("MULTIPLY", fm.value("alpha", 0.52), fm.math("MULTIPLY_ADD", t, 0.8, 0.2, clamp=True)), b.inputs["Alpha"])
 
     # ---- stroke: round emissive tube along the glyph outlines -------------------------------------------------------
     sm = Mat("stroke")
@@ -62,11 +63,13 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     sm.emission_only(sm.mix(lin(pal["stroke"]), (1, 1, 1, 1), 0.35), st_e, alpha=st_a)
     word_stroke = Word(sc, text, "chinese_rocks", S, -26, name="stroke", outline_px=max(3.0, 4.0 * k_s), material=sm.mat)
 
-    # The AE render opens the word far wider than novax_lib's -26 -> +48 (measured on the reference: ~0.8x the f140
-    # width at the start, ~1.5x by f150-166), so the spring here is -80 -> +400, expo-out.
-    TR0 = float(opts.extra.get("tr0", -80))
-    TR1 = float(opts.extra.get("tr1", 400))
-    RATE = float(opts.extra.get("rate", 6.5))
+    # Tracking curve fitted frame by frame on the AE reference (word ink width at f141..164 divided by the shot's
+    # scale s[f-136] and the layer's 104 -> 96 % breathing, solved for tracking at this size): a slow ease from about
+    # -90 to +222, NOT an expo-out spring (that opened the word 25-30 % too wide through f145-165).
+    TR_KEYS = [[0, -90], [2, -39], [4, 11], [6, 50], [8, 76], [11, 113], [14, 143], [16, 161], [18, 176], [21, 190],
+               [25, 206], [30, 222]]
+    TR1 = TR_KEYS[-1][1]
+    BAR_ALPHA = float(opts.extra.get("bar_a", 0.0))     # AE shows no plate under the tag at f140-165
 
     # ---- tag on the rough bar ---------------------------------------------------------------------------------------
     tag = spec.get("tag")
@@ -107,26 +110,26 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     sweep_range = (-0.62 * word_fill.width_px(TR1) / C.PX - sw_w, 0.62 * word_fill.width_px(TR1) / C.PX + sw_w)
 
     def pose(k):
-        tr = TR0 + (TR1 - TR0) * C.expo(k / 29.0, RATE)
+        tr = lin_keys(TR_KEYS, k)
         for w in (word_fill, word_stroke):
             w.layout(tr)
         s = lin_keys([[0, 104], [dur - 6, 96], [dur - 1, 112]], k) / 100.0
         a_out = lin_keys([[dur - 8, 1.0], [dur - 2, 0.0]], k)
         wx, wy = C.ae_to_world(*P)
         layer.matrix_basis = _mu().Matrix.Translation((wx, wy, 0)) @ _mu().Matrix.Diagonal((s, s, 1.0, 1.0))
-        word_fill.pose((C.W / 2, C.H / 2), shear=ital)
-        word_stroke.pose((C.W / 2, C.H / 2), shear=ital, z=0.09 * k_s + 0.0)
+        word_fill.pose((C.W / 2, C.H / 2 - 14), shear=ital)
+        word_stroke.pose((C.W / 2, C.H / 2 - 14), shear=ital, z=0.09 * k_s + 0.0)
         fo = lin_keys([[0, 0.52], [9, 0.52], [28, 0.15]], k)
         fm.set("alpha", fo * a_out)
-        fm.set("em0", 0.5 * a_out)
+        fm.set("em0", 0.25 * a_out)
         u = clamp01_(k / 19.0)
         fm.set("sweep_x", sweep_range[0] + (sweep_range[1] - sweep_range[0]) * u if k <= 19 else 99.0)
         sm.set("alpha", a_out)
         sm.set("e", 2.5)
         ignite = lin_keys([[0, 0.0], [10, 1.0], [22, 0.0]], k)
-        comp.set_glow(0, strength=0.30 * a_out)
-        comp.set_glow(1, strength=0.45 * a_out)
-        comp.set_glow(2, strength=2.6 * ignite * a_out)
+        comp.set_glow(0, strength=0.12 * a_out)
+        comp.set_glow(1, strength=0.18 * a_out)
+        comp.set_glow(2, strength=1.0 * ignite * a_out)
         comp.set_shadow_opacity(0.5 * a_out)
         if tag:
             trt = tag_tr * C.expo(k / 29.0)
@@ -135,7 +138,7 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
             sx = (base_w + (n_t - 1) * trt / 1000.0 * tag_size + 70 * k_s) / bar_w     # the bar hugs the opening tag
             bar.matrix_basis = _mu().Matrix.Translation((0, -bar_dy / C.PX + 0.0, -0.02)) @ _mu().Matrix.Diagonal((sx, 1.0, 1.0, 1.0))
             tm.set("alpha", a_out)
-            bm.set("alpha", a_out)
+            bm.set("alpha", BAR_ALPHA * a_out)
         if subw is not None:
             subw.layout(-67 + 117 * C.expo(k / 29.0))
             subw.pose((C.W / 2, C.H / 2 + 0.33 * 0.32 * S - 0.0))
