@@ -38,12 +38,12 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
     word = Word(sc, text, "anton", S, TR, name="neon", outline_px=5.0, material=m.mat)
     word.attach(layer)
     # AE: red fill inside the white edge
-    fill, fm = C.flat_word(sc, text, "anton", S, TR, name="neonfill", color=pal["glow"], strength=1.6)
+    fill, fm = C.flat_word(sc, text, "anton", S, TR, name="neonfill", color=pal["glow"], strength=0.8)
     fill.attach(layer)
     sub = C.SubLine(sc, spec["sub"], layer, (0, S * 0.58), 5, dur, size=44, strength=2.2) if spec.get("sub") else None
 
-    comp = sc.build_compositor(glows=[Glow(0.5, 0.12, 0.5, "#FFFFFF"), Glow(0.1, 0.7, 2.4, pal["glow"]),
-                                      Glow(0.1, 0.9, 1.6, pal["mid"])])
+    comp = sc.build_compositor(glows=[Glow(0.5, 0.12, 0.5, "#FFFFFF"), Glow(0.1, 0.35, 1.2, pal["glow"]),
+                                      Glow(0.1, 0.45, 0.8, pal["mid"])])
 
     def pose(k):
         s = lin_keys([[0, 92], [5, 100], [dur - 1, 108]], k) / 100.0
@@ -67,8 +67,8 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         m.set("e", 3.5 * flick)
         fm.set("alpha", min(1.0, flick))
         comp.set_glow(0, strength=0.5 * flick)
-        comp.set_glow(1, strength=2.4 * flick)
-        comp.set_glow(2, strength=1.6 * flick)
+        comp.set_glow(1, strength=1.2 * flick)
+        comp.set_glow(2, strength=0.8 * flick)
         if sub:
             sub.update(k, flick if k > dur - 5 else 1.0)
 

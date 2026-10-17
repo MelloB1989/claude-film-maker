@@ -857,7 +857,7 @@ def metal_material(name: str, word_root, cap_px: float, ramp, *, metallic: float
     alpha = m.value("alpha", 1.0)
     if height_fade:   # alpha scaled from height_fade[0] at the baseline to height_fade[1] at the cap line (floor reflection)
         a0, a1 = height_fade
-        alpha = m.math("MULTIPLY", alpha, m.math("MULTIPLY_ADD", t, a1 - a0, a0))
+        alpha = m.math("MULTIPLY", alpha, m.math("MULTIPLY_ADD", t, a1 - a0, a0, clamp=True))
     m.link(alpha, b.inputs["Alpha"])
     return m
 
