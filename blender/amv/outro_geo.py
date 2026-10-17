@@ -21,8 +21,11 @@ EXTRUDE = 0.60                # BU half depth of the extrusion (AE: 70 px deep; 
 BEVEL_DEPTH = 0.10
 GAP = 0.13                    # of the font size, outro.jsx `gap = size * 0.13`
 WORD_W = 14.21                # BU: the AE word is 1421 px wide
-KERN = {("D", "I"): 0.03, ("I", "T"): 0.12, ("T", "Z"): 0.03, ("U", "_"): 0.02, ("_", "E"): 0.02}   # extra gap, of the size:
-# the Spider-Man I has a spike that fused with the T ("EDJTZ") at the plain 0.13 gap
+KERN = {("S", "A"): -0.005, ("A", "U"): 0.05, ("U", "_"): 0.02, ("_", "E"): 0.02, ("E", "D"): 0.015,
+        ("D", "I"): 0.03, ("I", "T"): 0.07, ("T", "Z"): 0.03}   # optical kerning, extra gap of the size: the A's feet
+# touched the U, and the Spider-Man I (a spike) fused with the T ("EDJTZ") at the plain 0.13 gap
+# the font's I is a slanted spike that read as a glitch ("EDJTZ"): it is built as a bevelled bar like the underscore,
+# cap height tall and as wide as the T's stem
 BAR_W = 0.42                  # underscore width in cap heights (outro.jsx clamps it to 0.42 x size)
 
 
@@ -50,6 +53,14 @@ def _glyph_mesh(ch, font, size, extrude, bevel):
 def _stand_up(me):
     """Text plane XY -> XZ (up = +Z), extrusion +Z -> -Y so the front looks at the camera."""
     me.transform(Matrix.Rotation(math.pi / 2, 4, "X"))
+
+
+def _stem_width(me):
+    """Stroke width of a standing glyph (flat, size 1): the x-extent of its lowest vertices (the T's stem)."""
+    zs = [v.co.z for v in me.vertices]
+    lo, hi = min(zs), max(zs)
+    xs = [v.co.x for v in me.vertices if v.co.z < lo + 0.15 * (hi - lo)]
+    return max(xs) - min(xs)
 
 
 def _bounds(me):
@@ -99,11 +110,13 @@ def build_letters(font_path, mats, collection):
         if ch != "_" and ch not in unit:
             m = _glyph_mesh(ch, font, 1.0, 0.0, 0.0)
             _stand_up(m)
-            a, b, _, _ = _bounds(m)
+            a, b, c, d = _bounds(m)
             unit[ch] = b - a
+            if ch == "T":
+                stem1, tz0, tz1 = _stem_width(m), c, d
             bpy.data.meshes.remove(m)
     cap1 = z1 - z0
-    w1 = [unit[ch] if ch != "_" else BAR_W * cap1 for ch in sch.WORD]
+    w1 = [BAR_W * cap1 if ch == "_" else stem1 if ch == "I" else unit[ch] for ch in sch.WORD]
     gaps1 = [GAP + KERN.get(pair, 0.0) for pair in zip(sch.WORD, sch.WORD[1:])]
     total1 = sum(w1) + sum(gaps1)
     size = CAP / cap1
@@ -119,6 +132,10 @@ def build_letters(font_path, mats, collection):
             me = _bar_mesh(BAR_W * cap1 * size, 0.12 * cap1 * size, extrude, bevel)
             cx, cz = 0.0, -cap1 * size * 0.54    # just under the baseline
             w = BAR_W * cap1 * size
+        elif ch == "I":
+            w = stem1 * size + 2 * bevel           # the glyphs' bevel grows their outline by `bevel` per side
+            me = _bar_mesh(w, (tz1 - tz0) * size + 2 * bevel, extrude, bevel)
+            cx, cz = 0.0, (tz0 + tz1) / 2 * size  # same height as the T
         else:
             me = _glyph_mesh(ch, font, size, extrude, bevel)
             _stand_up(me)
