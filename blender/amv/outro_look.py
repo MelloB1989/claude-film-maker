@@ -13,7 +13,7 @@ from mathutils import Euler, Vector
 
 from . import outro_schedule as sch
 
-RED = (0.86, 0.06, 0.09)
+RED = (0.7, 0.02, 0.04)
 NAVY = (0.05, 0.12, 0.42)
 BEVEL_C = (1.0, 0.30, 0.30)
 
@@ -81,7 +81,7 @@ def face_material():
     m.use_nodes = True
     nt = m.node_tree
     nt.nodes.clear()
-    p = _principled(nt, **{"Metallic": 0.35, "Roughness": 0.26, "Coat Weight": 1.0, "Coat Roughness": 0.04,
+    p = _principled(nt, **{"Metallic": 0.15, "Roughness": 0.22, "Coat Weight": 1.0, "Coat Roughness": 0.04,
                            "Specular IOR Level": 0.7})
     # web: spokes from the glyph's own centre (object coords) darkening the red
     tc = nt.nodes.new("ShaderNodeTexCoord")
@@ -204,9 +204,9 @@ def build_lights(n, f0):
     """KEY warm, RIM blue, TOP cool (ref 06 §3 lights, AE px / 100), softbox strips for the glossy reflections, two
     back spots that carve the god rays, and the moving SWEEP."""
     lights = {}
-    lights["key"] = _area("KEY warm", (-9, -14, 8), (7, 4), 3000, (1.0, 0.95, 0.9))
+    lights["key"] = _area("KEY warm", (-9, -14, 8), (7, 4), 1800, (1.0, 0.95, 0.9))
     lights["rim"] = _area("RIM blue", (15, 5, -3), (5, 14), 4500, (0.35, 0.55, 1.0))
-    lights["top"] = _area("TOP cool", (2, -3, 15), (14, 4), 4000, (0.7, 0.8, 1.0))
+    lights["top"] = _area("TOP cool", (2, -3, 15), (14, 4), 2000, (0.7, 0.8, 1.0))
     lights["strip_l"] = _area("STRIP left", (-12, -9, 1), (1.2, 12), 1200, (1, 1, 1))
     lights["strip_r"] = _area("STRIP right", (11, -11, 1), (1.2, 12), 900, (1, 0.9, 0.85))
     # back spots: shine at the camera from behind the word through the volume, the word blocks them = god rays
@@ -275,7 +275,7 @@ def build_volume():
     sc.inputs["Anisotropy"].default_value = 0.55
     sc.inputs["Color"].default_value = (0.8, 0.85, 1.0, 1)
     sc.inputs["Density"].default_value = 0.02
-    mul = nt.nodes.new("ShaderNodeMath"); mul.operation = "MULTIPLY"; mul.inputs[1].default_value = 0.014
+    mul = nt.nodes.new("ShaderNodeMath"); mul.operation = "MULTIPLY"; mul.inputs[1].default_value = 0.005
     nt.links.new(mp.outputs[0], mul.inputs[0])
     nt.links.new(mul.outputs[0], sc.inputs["Density"])
     out = nt.nodes.new("ShaderNodeOutputMaterial")
