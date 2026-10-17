@@ -37,42 +37,49 @@ def dense_flow(g0, g1, method="dis"):
     return dis.calc(g0, g1, None)
 
 
-def splat(flow, t, fill_min=6):
-    """Forward-splat `flow` (HxWx2) to time t: (flow t -> source = -t * splatted flow, valid mask)."""
-    h, w = flow.shape[:2]
-    ys, xs = np.mgrid[0:h, 0:w]
-    tx = np.rint(xs + t * flow[..., 0]).astype(np.int64)
-    ty = np.rint(ys + t * flow[..., 1]).astype(np.int64)
-    ok = (tx >= 0) & (tx < w) & (ty >= 0) & (ty < h)
-    mag = (flow ** 2).sum(-1)
-    order = np.argsort(mag[ok], kind="stable")          # slow first, so the fast (front) pixels overwrite last
-    idx = (ty * w + tx)[ok][order]
-    out = np.zeros((h * w, 2), np.float32)
-    hit = np.zeros(h * w, np.float32)
-    out[idx] = flow[ok][order]
-    hit[idx] = 1.0
-    out = out.reshape(h, w, 2)
-    hit = hit.reshape(h, w)
-    # fill cracks from the valid neighbours
-    cnt = cv2.boxFilter(hit, -1, (5, 5), normalize=False)
-    num = cv2.boxFilter(out * hit[..., None], -1, (5, 5), normalize=False)
-    crack = (hit == 0) & (cnt >= fill_min)
-    out[crack] = num[crack] / cnt[crack][:, None]
-    hit[crack] = 1.0
-    return -t * out, hit
+class Splatter:
+    """Forward-splats one flow field (HxWx2) to any time t. The slow-to-fast pixel order is the same for every t, so
+    it is sorted once per flow and reused."""
+
+    def __init__(self, flow, fill_min=6):
+        h, w = flow.shape[:2]
+        self.h, self.w, self.fill_min = h, w, fill_min
+        order = np.argsort((flow ** 2).sum(-1).ravel(), kind="stable")    # slow first: fast (front) pixels land last
+        ys, xs = np.divmod(order, w)
+        self.x0, self.y0 = xs.astype(np.float32), ys.astype(np.float32)
+        self.vec = flow.reshape(-1, 2)[order]
+
+    def at(self, t):
+        """(flow t -> source = -t * splatted flow, valid mask) at time t."""
+        h, w = self.h, self.w
+        tx = np.rint(self.x0 + t * self.vec[:, 0]).astype(np.int32)
+        ty = np.rint(self.y0 + t * self.vec[:, 1]).astype(np.int32)
+        ok = (tx >= 0) & (tx < w) & (ty >= 0) & (ty < h)
+        slot = np.full(h * w, -1, np.int32)                                # scatter the sorted index once, then gather
+        slot[(ty * w + tx)[ok]] = np.nonzero(ok)[0].astype(np.int32)
+        hit = (slot >= 0).astype(np.float32)
+        out = np.where(hit[:, None] > 0, self.vec[np.maximum(slot, 0)], 0.0).astype(np.float32)
+        out = out.reshape(h, w, 2)
+        hit = hit.reshape(h, w)
+        cnt = cv2.boxFilter(hit, -1, (5, 5), normalize=False)               # fill cracks from valid neighbours
+        num = cv2.boxFilter(out * hit[..., None], -1, (5, 5), normalize=False)
+        crack = (hit == 0) & (cnt >= self.fill_min)
+        out[crack] = num[crack] / cnt[crack][:, None]
+        hit[crack] = 1.0
+        return -t * out, hit
 
 
 class FlowInterpolator(Interpolator):
     name = "flow"
 
-    def __init__(self, method="dis", work_width=960):
+    def __init__(self, method="dis", work_width=640):
         self.method = method
         self.work_width = work_width
-        self._pair = None            # (img0, img1, F01, F10) for the last pair
+        self._pair = None            # (img0, img1, splatter 0->1, splatter 1->0) for the last pair
 
     def _flows(self, img0, img1):
         if self._pair is not None and self._pair[0] is img0 and self._pair[1] is img1:
-            return self._pair[2], self._pair[3]
+            return self._pair[2], self._pair[3], self._pair[4]
         h, w = img0.shape[:2]
         k = min(1.0, self.work_width / w)
         g0, g1 = _gray(img0), _gray(img1)
@@ -80,13 +87,12 @@ class FlowInterpolator(Interpolator):
             size = (int(round(w * k)), int(round(h * k)))
             g0, g1 = cv2.resize(g0, size, interpolation=cv2.INTER_AREA), cv2.resize(g1, size, interpolation=cv2.INTER_AREA)
         f01, f10 = dense_flow(g0, g1, self.method), dense_flow(g1, g0, self.method)
-        self._pair = (img0, img1, f01, f10)
-        return f01, f10
+        self._pair = (img0, img1, Splatter(f01), Splatter(f10), f01.shape)
+        return self._pair[2], self._pair[3], f01.shape
 
     def between(self, img0, img1, ts):
-        f01, f10 = self._flows(img0, img1)
+        sa, sb, (fh, fw, _) = self._flows(img0, img1)
         h, w = img0.shape[:2]
-        fh, fw = f01.shape[:2]
         up = w / fw
         gx, gy = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
 
@@ -100,8 +106,8 @@ class FlowInterpolator(Interpolator):
         out = []
         for t in ts:
             t = float(t)
-            fa, va = splat(f01, t)
-            fb, vb = splat(f10, 1.0 - t)
+            fa, va = sa.at(t)
+            fb, vb = sb.at(1.0 - t)
             wa, va = warp(img0, fa, va)
             wb, vb = warp(img1, fb, vb)
             err = np.abs(wa - wb).mean(-1)

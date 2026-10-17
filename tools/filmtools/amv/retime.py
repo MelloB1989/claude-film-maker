@@ -103,6 +103,19 @@ def srgb_f(u8):
     return u8.astype(np.float32) * (1.0 / 255.0)
 
 
+_fcache: dict = {}
+
+
+def float_frame(frames, i):
+    """Frame i as float32 sRGB-encoded 0..1, the same array object on repeat calls (interpolators cache by identity)."""
+    k = (id(frames), i)
+    if k not in _fcache:
+        if len(_fcache) >= 8:
+            _fcache.pop(next(iter(_fcache)))
+        _fcache[k] = srgb_f(frames[i])
+    return _fcache[k]
+
+
 def linear_f(img):
     """Linear light of a float32 sRGB-encoded 0..1 image (interpolator output)."""
     img = np.clip(img, 0.0, 1.0)
@@ -170,9 +183,9 @@ def render_frame(frames, shot, f, mode, k, interp=None, fps=60.0):
         for i, frs in groups.items():
             exact = [fr for fr in frs if fr == 0.0]
             mids = [fr for fr in frs if fr > 0.0]
-            parts = [linear_f(srgb_f(frames[i]))] * len(exact)
+            parts = [linear_f(float_frame(frames, i))] * len(exact)
             if mids:
-                a, b = srgb_f(frames[i]), srgb_f(frames[i + 1])
+                a, b = float_frame(frames, i), float_frame(frames, i + 1)
                 parts += [linear_f(x) for x in interp.between(a, b, mids)]
             for lin in parts:
                 lin = lin / np.float32(len(ps))
