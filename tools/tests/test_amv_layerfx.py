@@ -8,6 +8,12 @@ from filmtools.amv import plan as planmod
 rng = np.random.default_rng(1)
 
 
+@pytest.fixture(autouse=True)
+def full_length_rfb(monkeypatch):
+    """The RFB tests are written for ray length = amount % of the distance, whatever the calibrated constant is."""
+    monkeypatch.setattr(fx, "RFB_LENGTH", 1.0)
+
+
 def noise(h=64, w=96, c=3):
     return rng.random((h, w, c), dtype=np.float32)
 
@@ -116,8 +122,8 @@ def test_directional_blur():
     np.testing.assert_allclose(out[4, 14:26].sum(axis=0), 1.0, atol=1e-5)    # energy conserved
     assert out[3].max() == 0                                                  # horizontal only
     np.testing.assert_allclose(out[4, 20 - 3], out[4, 20 + 3], atol=1e-6)     # symmetric
-    v = fx.directional_blur(img, 0, 10)
-    assert v[:, 20].sum() == pytest.approx(1.0, abs=1e-5) and v[4, 21].max() == 0     # vertical only
+    v = fx.directional_blur(np.pad(img, ((10, 10), (0, 0), (0, 0))), 0, 10)
+    assert v[:, 20, 0].sum() == pytest.approx(1.0, abs=1e-5) and v[14, 21].max() == 0     # vertical only
     d = fx.directional_blur(np.pad(img, ((10, 10), (0, 0), (0, 0))), 45, 9)
     assert d.sum() == pytest.approx(1.0 * 3, rel=0.05)
 
