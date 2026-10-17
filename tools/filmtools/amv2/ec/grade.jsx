@@ -1,7 +1,8 @@
 // grade.jsx - GRADE, the EffectCraft colour library for Timeless v2. Defines exactly one global: GRADE.
 //
 //   GRADE.build(main, E, ctx)   adds the adjustment layers (called by the core after the shots and FX.buildUnder)
-//   GRADE.applyTrim(layer, t)   puts one per-shot trim (E.x.grade.shots[id]) on any layer (SPECIAL uses it for the triptych panels)
+//   GRADE.applyTrim(layer, t)   puts one per-shot trim (E.x.grade.shots[id]) on any layer
+//   GRADE.applyPanel(layer, i, E, ctx)   full grade for a triptych panel layer (SPECIAL builds above the grade layers: call it per panel)
 //
 // Stack, bottom to top (every layer is a plain EffectCraft adjustment layer, all effects are native and editable):
 //   GRADE_TRIM_<id>   one per shot, timed [a, b): Levels (Individual Controls) + Hue/Saturation, numbers from grade_spec.py
@@ -25,32 +26,32 @@ var GRADE = (function () {
     // ---------------------------------------------------------------- the three act looks
     // Colour wheels are Lumetri's: 0.5 is neutral, a channel above 0.5 adds that colour. All other numbers are Lumetri units.
     G.LOOKS = {
-        // Tobey: nostalgia. Warm gold highlights, teal shadows, soft bloom.
+        // Tobey: nostalgia. Warm gold highlights and a warm overall temperature, teal shadows, soft golden bloom.
         tobey: {
-            contrast: 12, highlights: -10, shadows: 6, whites: -3, blacks: 0, exposure: 0, saturation: 104, vibrance: 8,
-            cShadows: 4, cMids: 4, cHighlights: -4,
-            wShadows: [0.47, 0.515, 0.55], wMids: [0.51, 0.50, 0.49], wHighlights: [0.58, 0.525, 0.42],
-            cbShadows: [-2, 1, 3], cbMids: [1, 0, -1], cbHighlights: [4, 2, -5],
-            hsSat: 0, hsRed: 4, hsYellow: 6, hsCyan: 4, hsBlue: 0,
-            glow: { threshold: 82, radius: 70, intensity: 0.30 }
+            temp: 10, tint: 2, contrast: 14, highlights: -8, shadows: 8, whites: 2, blacks: -2, exposure: 0, saturation: 106, vibrance: 10,
+            cShadows: 2, cMids: 8, cHighlights: 2,
+            wShadows: [0.46, 0.515, 0.56], wMids: [0.52, 0.505, 0.47], wHighlights: [0.61, 0.54, 0.37],
+            cbShadows: [-3, 1, 4], cbMids: [3, 1, -3], cbHighlights: [7, 3, -8],
+            hsSat: 0, hsRed: 2, hsYellow: 8, hsCyan: 0, hsBlue: -4,
+            glow: { threshold: 70, radius: 60, intensity: 0.85, color: [1.0, 0.80, 0.50, 1] }
         },
-        // Andrew: electric. Cool cyan/blue, amber in the warm highlights (the sunset accents), crisp.
+        // Andrew: electric. Cool cyan/blue everywhere, amber kept for warm highlights and yellows (the sunset accents), crisp.
         andrew: {
-            contrast: 16, highlights: -12, shadows: 5, whites: -3, blacks: 0, exposure: 0, saturation: 106, vibrance: 8,
-            cShadows: 3, cMids: 3, cHighlights: -6,
-            wShadows: [0.43, 0.51, 0.60], wMids: [0.48, 0.50, 0.54], wHighlights: [0.55, 0.51, 0.43],
-            cbShadows: [-4, 1, 6], cbMids: [-1, 1, 3], cbHighlights: [4, 1, -4],
-            hsSat: 0, hsRed: 4, hsYellow: 8, hsCyan: 10, hsBlue: 6,
-            glow: { threshold: 84, radius: 44, intensity: 0.24 }
+            temp: -26, tint: -3, contrast: 20, highlights: -6, shadows: 4, whites: 4, blacks: -4, exposure: 0, saturation: 110, vibrance: 12,
+            cShadows: -2, cMids: 8, cHighlights: 4,
+            wShadows: [0.38, 0.50, 0.66], wMids: [0.44, 0.50, 0.58], wHighlights: [0.53, 0.52, 0.45],
+            cbShadows: [-8, 1, 10], cbMids: [-4, 1, 6], cbHighlights: [3, 1, -2],
+            hsSat: 0, hsRed: 0, hsYellow: 14, hsCyan: 26, hsBlue: 14,
+            glow: { threshold: 72, radius: 50, intensity: 0.90, color: [0.50, 0.85, 1.0, 1] }
         },
-        // Tom: impact. Rich red/orange against steel blue, punchy.
+        // Tom: impact. Rich red/orange against steel-blue shadows, the most contrast: deep blacks with detail, bright highlights.
         tom: {
-            contrast: 20, highlights: -14, shadows: 4, whites: -4, blacks: 0, exposure: 0, saturation: 106, vibrance: 6,
-            cShadows: 2, cMids: 0, cHighlights: -8,
-            wShadows: [0.45, 0.50, 0.57], wMids: [0.53, 0.50, 0.47], wHighlights: [0.56, 0.515, 0.45],
-            cbShadows: [-3, 0, 5], cbMids: [3, 0, -2], cbHighlights: [4, 1, -4],
-            hsSat: 0, hsRed: 10, hsYellow: 2, hsCyan: -4, hsBlue: -6,
-            glow: { threshold: 86, radius: 36, intensity: 0.18 }
+            temp: 6, tint: 3, contrast: 24, highlights: 0, shadows: 10, whites: 8, blacks: -5, exposure: 0, saturation: 112, vibrance: 8,
+            cShadows: -3, cMids: 10, cHighlights: 8,
+            wShadows: [0.41, 0.49, 0.60], wMids: [0.545, 0.495, 0.455], wHighlights: [0.58, 0.52, 0.43],
+            cbShadows: [-7, 0, 9], cbMids: [5, -1, -4], cbHighlights: [6, 1, -5],
+            hsSat: 0, hsRed: 24, hsYellow: 0, hsCyan: -6, hsBlue: -8,
+            glow: { threshold: 74, radius: 42, intensity: 0.85, color: [1.0, 0.62, 0.42, 1] }
         }
     };
 
@@ -58,7 +59,7 @@ var GRADE = (function () {
         sharpen: { amount: 42, radius: 0.9, threshold: 2 },
         grain: { intensity: 0.22, size: 0.7 },
         vignette: { amount: -0.38, midpoint: 52, roundness: 0, feather: 75 },
-        limit: { outBlack: 0.022, outWhite: 0.97 }
+        limit: { outBlack: 0.012, outWhite: 0.975 }
     };
 
     // ---------------------------------------------------------------- helpers (all inside GRADE)
@@ -82,6 +83,7 @@ var GRADE = (function () {
     // keyed property: values = [tobey, andrew, tom]; times in seconds. A property that does not change is just set.
     function same(a, b) { return String(a) === String(b); }
     function setAct(prop, vals, T) {
+        if (!T) { prop.setValue(vals[2]); return; }          // T == null: static Tom look (triptych panels)
         if (same(vals[0], vals[1]) && same(vals[1], vals[2])) { prop.setValue(vals[0]); return; }
         prop.setValuesAtTimes(T.t, [vals[0], vals[0], vals[1], vals[1], vals[2], vals[2]].slice(0, T.t.length));
     }
@@ -114,10 +116,18 @@ var GRADE = (function () {
         var L = G.LOOKS, ov = (E.x && E.x.grade && E.x.grade.looks) || null;
         if (ov) { for (var k in ov) { if (L[k]) for (var p in ov[k]) L[k][p] = ov[k][p]; } }
         var l = adj(main, "GRADE_LOOK", t0, t1);
+        lookFx(l, ctx, L, T);
+        return l;
+    }
 
+    // the look's effects on any layer; T = the act key times, or null for the static Tom look
+    function lookFx(l, ctx, L, T) {
         TRY(ctx, "look lumetri", function () {
             var e = fxAdd(l, "ADBE Lumetri", "Lumetri act look");
             var tone = e.property("ADBE Lumetri-0002").property("tone");
+            var wb = e.property("ADBE Lumetri-0002").property("whiteBalance");
+            setAct(wb.property("temperature"), acts(L, "temp"), T);
+            setAct(wb.property("tint"), acts(L, "tint"), T);
             setAct(tone.property("exposure"), acts(L, "exposure"), T);
             setAct(tone.property("contrast"), acts(L, "contrast"), T);
             setAct(tone.property("highlights"), acts(L, "highlights"), T);
@@ -151,7 +161,6 @@ var GRADE = (function () {
             setAct(e.property("Cyan Saturation"), acts(L, "hsCyan"), T);
             setAct(e.property("Blue Saturation"), acts(L, "hsBlue"), T);
         });
-        return l;
     }
 
     function buildGlow(main, E, ctx, t0, t1, T) {
@@ -161,13 +170,19 @@ var GRADE = (function () {
             setAct(e.property("Glow Threshold"), [L.tobey.glow.threshold, L.andrew.glow.threshold, L.tom.glow.threshold], T);
             setAct(e.property("Glow Radius"), [L.tobey.glow.radius, L.andrew.glow.radius, L.tom.glow.radius], T);
             setAct(e.property("Glow Intensity"), [L.tobey.glow.intensity, L.andrew.glow.intensity, L.tom.glow.intensity], T);
+            // a subtle tint per act: Glow Colors = A & B Colors with A = B
+            e.property("Glow Colors").setValue(2);
+            setAct(e.property("Color A"), [L.tobey.glow.color, L.andrew.glow.color, L.tom.glow.color], T);
+            setAct(e.property("Color B"), [L.tobey.glow.color, L.andrew.glow.color, L.tom.glow.color], T);
         });
         return l;
     }
 
-    function buildFinish(main, E, ctx, t0, t1) {
+    function buildFinish(main, E, ctx, t0, t1, SKIP) {
         var F = G.FINISH;
+        function skip(n) { for (var q = 0; q < SKIP.length; q++) if (SKIP[q] == n) return true; return false; }
         var s = adj(main, "GRADE_SHARPEN", t0, t1);
+        if (skip("sharpen")) s.enabled = false;
         TRY(ctx, "sharpen", function () {
             var e = fxAdd(s, "ADBE Unsharp Mask2", "Unsharp Mask");
             e.property("Amount").setValue(F.sharpen.amount);
@@ -175,6 +190,7 @@ var GRADE = (function () {
             e.property("Threshold").setValue(F.sharpen.threshold);
         });
         var g = adj(main, "GRADE_GRAIN", t0, t1);
+        if (skip("grain")) g.enabled = false;
         TRY(ctx, "grain", function () {
             var e = fxAdd(g, "VISINF Grain Implant", "Fine luma grain");
             e.property("Viewing Mode").setValue(3);
@@ -183,6 +199,7 @@ var GRADE = (function () {
             e.property("Color").property("Monochromatic").setValue(1);
         });
         var v = adj(main, "GRADE_VIGNETTE", t0, t1);
+        if (skip("vignette")) v.enabled = false;
         TRY(ctx, "vignette", function () {
             var e = fxAdd(v, "ADBE Lumetri", "Lumetri vignette");
             var vg = e.property("ADBE Lumetri-0007");
@@ -200,11 +217,36 @@ var GRADE = (function () {
         TRY(ctx, "curves (tweak)", function () { fxAdd(m, "ADBE CurvesCustom", "Curves (identity, tweak by hand)"); });
     }
 
+    // The triptych panels are built by SPECIAL ABOVE the grade layers, so they get no grade from build(). SPECIAL calls this on
+    // each panel layer (index 0..2 = E.triptych.panels): the panel's trim, then the static Tom look, bloom, sharpen and the limiter.
+    G.applyPanel = function (layer, index, E, ctx) {
+        ctx = ctx || { log: function () { } };
+        var X = (E.x && E.x.grade) || {}, t = X.panels && X.panels[String(index)];
+        if (t) TRY(ctx, "panel trim", function () { G.applyTrim(layer, t, " panel" + index); });
+        lookFx(layer, ctx, G.LOOKS, null);
+        TRY(ctx, "panel glow", function () {
+            var g = G.LOOKS.tom.glow, e = fxAdd(layer, "ADBE Glo2", "Glow bloom");
+            e.property("Glow Threshold").setValue(g.threshold); e.property("Glow Radius").setValue(g.radius);
+            e.property("Glow Intensity").setValue(g.intensity); e.property("Glow Colors").setValue(2);
+            e.property("Color A").setValue(g.color); e.property("Color B").setValue(g.color);
+        });
+        TRY(ctx, "panel sharpen", function () {
+            var F = G.FINISH.sharpen, e = fxAdd(layer, "ADBE Unsharp Mask2", "Unsharp Mask");
+            e.property("Amount").setValue(F.amount); e.property("Radius").setValue(F.radius); e.property("Threshold").setValue(F.threshold);
+        });
+        TRY(ctx, "panel limit", function () {
+            var e = fxAdd(layer, "ADBE Pro Levels2", "Levels limit");
+            e.property("Output Black").setValue(G.FINISH.limit.outBlack); e.property("Output White").setValue(G.FINISH.limit.outWhite);
+        });
+    };
+
     // ---------------------------------------------------------------- build
     G.build = function (main, E, ctx) {
         var fps = ctx.fps, end = (E.outro && E.outro.f0) || E.dur;
         var t0 = 0, t1 = end / fps;
         var X = (E.x && E.x.grade) || { shots: {} };
+        var SKIP = X.skip || [];             // test hook: tone-curve probing leaves out glow/grain/sharpen/vignette
+        function skip(n) { for (var q = 0; q < SKIP.length; q++) if (SKIP[q] == n) return true; return false; }
 
         // 1. per-shot normalisation, timed to each shot's [a, b)
         for (var i = 0; i < E.shots.length; i++) {
@@ -219,10 +261,10 @@ var GRADE = (function () {
         var c1 = A[1].f0, c2 = A[2].f0;
         var T = { t: [t0, (c1 - h) / fps, (c1 + h) / fps, (c2 - h) / fps, (c2 + h) / fps, t1] };
         buildLook(main, E, ctx, t0, t1, T);
-        buildGlow(main, E, ctx, t0, t1, T);
+        if (!skip("glow")) buildGlow(main, E, ctx, t0, t1, T);
 
         // 3. finishing
-        buildFinish(main, E, ctx, t0, t1);
+        buildFinish(main, E, ctx, t0, t1, SKIP);
         if (WARN.length) log(ctx, WARN.length + " warnings");
         return WARN;
     };

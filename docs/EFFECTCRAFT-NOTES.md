@@ -93,3 +93,5 @@ Probed with 3-line scripts and by looking at the rendered frame (EffectCraft 0.1
   (`all_fcurves` helper). Poly-spline point keys disable motion blur for that object ("Topology differs"): strands are unblurred.
 - Additive flash cards lift blacks visibly under AgX: keep flash amplitude <= 0.2 linear.
 - Euler order matters for cards stood up with rotation X 90 degrees: use rotation_mode ZYX to spin about the card's own normal.
+- (grade round 2) Glow with `Glow Colors` = 2 (A & B) and Color A = Color B gives a uniform tint; keyable per act. Lumetri Temperature is a strong, cheap way to separate acts. Lumetri Contrast pivots at 0.5 and pulls dark shots down hard, so grade_curves.py measures each act's real tone curve (grey ramp through GRADE.build) and grade_spec solves the per-shot trims against it.
+- Layers SPECIAL adds after GRADE sit above the grade (the triptych panels): use GRADE.applyPanel(layer, i, E, ctx).
