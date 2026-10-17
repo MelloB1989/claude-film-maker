@@ -104,7 +104,10 @@ def setup_render(args, plan):
             except Exception as e:
                 print(f"outro: {kind} unavailable: {e}")
                 continue
+    if dev == "gpu" and not gpu:
+        raise SystemExit("outro: --device gpu but no CUDA/OptiX/HIP/oneAPI device was found")
     cy.device = "GPU" if gpu else "CPU"
+    cy.denoising_use_gpu = gpu
     print("outro: devices", [(d.name, d.type, d.use) for d in prefs.devices])
     print("outro: cycles device", cy.device)
 
