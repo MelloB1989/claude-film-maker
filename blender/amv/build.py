@@ -59,6 +59,8 @@ def render_frames(built, frames, out: Path, log=print) -> float:
     import numpy as np
     scene = built.scene
     black = set(built.plan.raw.get("black") or [])
+    # the outro stage's plates fade in from black: legitimately black, still checked for non-finite values
+    black |= set(range(built.plan.raw["outro"]["f"], built.plan.dur))
     out.mkdir(parents=True, exist_ok=True)
     tile = 2048 if scene.render.engine == "CYCLES" else None
     t0 = time.time()
