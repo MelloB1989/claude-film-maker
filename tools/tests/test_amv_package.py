@@ -70,3 +70,10 @@ def test_pick_mix_prefers_explicit_then_fixed_then_plan(tmp_path):
     ex = tmp_path / "e.wav"
     ex.write_bytes(b"e")
     assert K.pick_mix(film, plan, ex) == ex
+
+
+def test_link_onto_itself_keeps_the_file(tmp_path):
+    f = tmp_path / "m.wav"
+    f.write_bytes(b"x")
+    K.link_or_copy(f, f)
+    assert f.read_bytes() == b"x"

@@ -63,6 +63,8 @@ def audit_image_paths(paths) -> list[str]:
 def link_or_copy(src: Path, dst: Path) -> str:
     """Hardlink src to dst when both are on one filesystem, else copy. Returns 'link' or 'copy'."""
     dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.exists() and src.resolve() == dst.resolve():
+        return "link"
     if dst.exists():
         dst.unlink()
     try:
