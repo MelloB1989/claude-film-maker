@@ -150,7 +150,7 @@ def end_fx(f, n):
     d0, d1 = n - DISSOLVE[0], n - DISSOLVE[1]
     return {
         "hit": lin([(0, 0.08), (4, 0.0)], f),
-        "flash_end": lin([(n - 11, 0.0), (n - 10, 0.28), (n - 8, 0.0)], f),
+        "flash_end": 0.0,      # AE had a 28 % grey flash at D-10; it read as fog, so the end is the pixel dissolve alone
         "fade_in": lin([(0, 1.0), (5, 0.0)], f),
         "bloom": lin([(0, 1.2), (8, 0.45), (n - 11, 0.45), (n - 8, 0.9), (n, 0.8)], f),
         "dissolve": smooth_ease(lin([(d0, 0.0), (d1, 1.0)], f)),

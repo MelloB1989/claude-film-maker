@@ -92,6 +92,8 @@ def setup_render(args, plan):
         for kind in ("OPTIX", "CUDA", "HIP", "METAL", "ONEAPI"):
             try:
                 prefs.compute_device_type = kind
+                if hasattr(prefs, "refresh_devices"):
+                    prefs.refresh_devices()
                 prefs.get_devices()
                 devs = [d for d in prefs.devices if d.type == kind]
                 if devs:
@@ -99,9 +101,11 @@ def setup_render(args, plan):
                         d.use = d.type == kind
                     gpu = True
                     break
-            except Exception:
+            except Exception as e:
+                print(f"outro: {kind} unavailable: {e}")
                 continue
     cy.device = "GPU" if gpu else "CPU"
+    print("outro: devices", [(d.name, d.type, d.use) for d in prefs.devices])
     print("outro: cycles device", cy.device)
 
 
