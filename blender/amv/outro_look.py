@@ -500,7 +500,7 @@ def build_compositor(n, f0, w, h):
         gl.inputs["Strength"].default_value = fx["bloom"] * 0.35
         cmp_.inputs[1].default_value = 1.01 if fx["black"] else fx["dissolve"] * 1.0005
         fi.inputs["Factor"].default_value = fx["fade_in"]
-        st.inputs["Strength"].default_value = max(sch.ring(i, f, n)["pop"] for i in range(3)) * 0.3
+        st.inputs["Strength"].default_value = max(sch.ring(i, f, n)["pop"] for i in range(3)) * 0.2
         for sock in (fl.inputs["Factor"], gl.inputs["Strength"], st.inputs["Strength"], cmp_.inputs[1], fi.inputs["Factor"]):
             sock.keyframe_insert("default_value", frame=f0 + f)
     linearize(nt)
