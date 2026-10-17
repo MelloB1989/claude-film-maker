@@ -248,7 +248,8 @@ def ff(cmd, **kw):
 
 def psnr(ffmpeg: str, a: Path, b: Path) -> float:
     """PSNR (dB, inf when identical) of two same-size images, from ffmpeg's own filter."""
-    r = ff([ffmpeg, "-v", "info", "-i", str(a), "-i", str(b), "-lavfi", "psnr", "-f", "null", "-"])
+    r = ff([ffmpeg, "-v", "info", "-i", str(a), "-i", str(b), "-lavfi", "[1:v][0:v]scale2ref=flags=bicubic[b][a];[a][b]psnr",
+            "-f", "null", "-"])                                       # b is scaled to a's size (a draft mp4 is half size)
     m = re.search(r"average:(\S+)", r.stderr)
     psnr = float("inf") if not m or m.group(1) == "inf" else float(m.group(1))
     return psnr
