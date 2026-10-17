@@ -226,7 +226,8 @@ def bake_frame(plan, shot, f, scale=1.0, src_dir=None, titles_dir=None, matte=No
     rfb = shot.rfb(f)
     if rfb:
         amount, cx, cy = rfb
-        canvas = fx.radial_fast_blur(canvas, amount, (cx * scale + ox, cy * scale + oy), "brightest")
+        canvas = fx.radial_fast_blur(canvas, amount, (cx * scale + ox, cy * scale + oy), "brightest",
+                                     length=shot.raw.get("rfb_len"), mix=shot.raw.get("rfb_mix"), beta=shot.raw.get("rfb_beta"))
     db = shot.dblur(f)
     if db:
         canvas = fx.directional_blur(canvas, db[0], db[1] * scale)

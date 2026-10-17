@@ -26,8 +26,15 @@ import numpy as np
 LUMA = np.array([0.2126, 0.7152, 0.0722], np.float32)
 
 # --- calibrated constants (see the module docstring); each is a single place to retune ----------------------------
-RFB_LENGTH = 0.12        # CC Radial Fast Blur: ray length as a fraction of the distance to the centre, per amount/100
+RFB_LENGTH = 0.07        # CC Radial Fast Blur: ray length as a fraction of the distance to the centre, per amount/100
+RFB_BRIGHT_MIX = 1.0     # 'brightest': share of the per-channel max in the result, the rest is the plain ray average
+DBLUR_SCALE = 1.0        # Directional Blur: multiplies the plan's length (1 = the plan's px as a full box width)
+RFB_SELECT = "soft"      # 'brightest': 'soft' = softmax over the ray samples by luma (carries each sample's colour, smooth),
+                         # 'luma' = hard per-pixel argmax by luma (cellular streaks), 'channel' = per-channel max (magenta fringes)
+RFB_BETA = 12.0          # soft select: weight exp(RFB_BETA * luma) per sample; 0 = plain average, large = hard brightest
 RFB_PASSES = 9           # 2**9 = 512 geometric samples along the ray: spacing under ~2 px at the far corner
+GLOW_PER_CHANNEL = 0     # AE Glow "based on colour channels": 1: the threshold applies to each of R, G, B; 0 (default, unchanged): on luma. Measured: no luma difference on A03
+GLOW_GAIN = 1.0          # scales `intensity`; 1 = the plan's value as AE reads it
 OPTICS_MODEL = "fisheye"  # see optics_compensation
 
 
@@ -142,12 +149,16 @@ def glow(img, threshold_pct, radius, intensity):
     The rim of the matte cutout (threshold 55, radius 18, intensity 0.6) is its only user here."""
     rgb, a = _with_alpha_split(img)
     t = threshold_pct / 100.0
-    w = np.clip((luma(rgb) - t) / max(1.0 - t, 1e-3), 0.0, 1.0)[..., None]
+    if GLOW_PER_CHANNEL:
+        # per channel: a red face above the threshold in R alone still glows red (what the AE render shows)
+        w = np.clip((rgb - t) / max(1.0 - t, 1e-3), 0.0, 1.0)
+    else:
+        w = np.clip((luma(rgb) - t) / max(1.0 - t, 1e-3), 0.0, 1.0)[..., None]
     bright = rgb * w
     acc = np.zeros_like(rgb)
     for sigma, wt in ((radius * 0.5, 0.5), (radius * 1.0, 0.3), (radius * 2.0, 0.2)):
         acc += wt * cv2.GaussianBlur(bright, (0, 0), max(sigma, 0.3), borderType=cv2.BORDER_REFLECT)
-    return _join(np.clip(rgb + intensity * acc, 0.0, 1.0).astype(np.float32), a)
+    return _join(np.clip(rgb + GLOW_GAIN * intensity * acc, 0.0, 1.0).astype(np.float32), a)
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -200,26 +211,64 @@ def _zoom_about(img, scale, cx, cy):
                           borderMode=cv2.BORDER_CONSTANT, borderValue=0)
 
 
-def radial_fast_blur(img, amount, center, mode="brightest"):
+def _soft_brightest(pm, L, center, n, beta=None):
+    """Exact softmax-by-luma over the ray's 2**n geometric samples, built with the same doubling passes: carry
+    num = sum(w x) and den = sum(w) (w = exp(beta luma) of the premultiplied sample) and merge each pass with its zoomed
+    copy, so the result is num / den. Every sample keeps its own colour (no per-channel mixing) and the weights vary
+    smoothly with luma, so streaks have no cells or bands; beta sets how hard the brightest sample wins."""
+    beta = min(RFB_BETA if beta is None else beta, 60.0)   # exp(-60) still fits float32: no empty weights in the darks
+    w = np.exp(beta * (pm[..., :3] @ LUMA - 1.0)).astype(np.float32)[..., None]   # <= 1: no overflow
+    num, den = pm * w, w
+    for i in range(n):
+        z = (1.0 - L) ** ((2 ** i) / float(2 ** n))
+        num = num + _zoom_about(num, z, center[0], center[1])
+        den = den + _zoom_about(den, z, center[0], center[1]).reshape(den.shape)
+    return num / np.maximum(den, 1e-30)
+
+
+def radial_fast_blur(img, amount, center, mode="brightest", length=None, mix=None, beta=None):
     """AE CC Radial Fast Blur, Type Zoom. Every pixel gathers samples along the ray towards `center`
     (c + (p - c) * s, s from 1 down to 1 - L, L = RFB_LENGTH * amount / 100), so the blur grows with the distance
     from the centre and streaks run radially. `mode`: 'standard' averages the samples, 'brightest' keeps the per-channel
-    maximum (hot highlights streak without dimming the plate), 'darkest' the minimum.
+    maximum (hot highlights streak without dimming the plate; by default the whole brightest pixel, see RFB_SELECT), 'darkest' the minimum.
 
     The samples are not looped one by one (a 60 blur is hundreds of px long) but built the way the effect itself is
     fast: `RFB_PASSES` doublings, pass i merging the image with a copy zoomed by (1-L)^(2^i / 2^n); the composed zooms
     cover s = (1-L)^(k / 2^n), k = 0 .. 2^n - 1, geometrically spaced, so no stepped ghosts, and the cost is n warps.
-    `center` is (cx, cy) in the array's pixel space. Premultiplied internally."""
+    `center` is (cx, cy) in the array's pixel space. `length` / `mix` / `beta` override RFB_LENGTH / RFB_BRIGHT_MIX / RFB_BETA (a
+    shot's `rfb_len` / `rfb_mix` / `rfb_beta`). Premultiplied internally."""
     if amount <= 1e-6:
         return img
-    L = min(RFB_LENGTH * amount / 100.0, 0.98)
+    length = RFB_LENGTH if length is None else length
+    mix = RFB_BRIGHT_MIX if mix is None else mix
+    L = min(length * amount / 100.0, 0.98)
     pm = premultiply(img)
-    op = {"standard": lambda a, b: (a + b) * 0.5, "brightest": np.maximum, "darkest": np.minimum}[mode.lower()]
+    def pick(a, b, brighter=True):
+        """The sample of `a`, `b` with the larger (smaller) luma, whole pixel: a red tap next to a blue tap stays red
+        or blue instead of a per-channel max making magenta."""
+        la, lb = a[..., :3] @ LUMA, b[..., :3] @ LUMA
+        return np.where(((la >= lb) if brighter else (la <= lb))[..., None], a, b)
+
+    chan = RFB_SELECT == "channel"
+    ops = {"standard": lambda a, b: (a + b) * 0.5,
+           "brightest": np.maximum if chan else pick,
+           "darkest": np.minimum if chan else (lambda a, b: pick(a, b, False))}
+    mode = mode.lower()
     n = RFB_PASSES
-    cur = pm
-    for i in range(n):
-        z = (1.0 - L) ** ((2 ** i) / float(2 ** n))
-        cur = op(cur, _zoom_about(cur, z, center[0], center[1]))
+
+    def run(op):
+        cur = pm
+        for i in range(n):
+            z = (1.0 - L) ** ((2 ** i) / float(2 ** n))
+            cur = op(cur, _zoom_about(cur, z, center[0], center[1]))
+        return cur
+
+    if mode == "brightest" and RFB_SELECT == "soft":
+        cur = _soft_brightest(pm, L, center, n, beta)
+    else:
+        cur = run(ops[mode])
+    if mode == "brightest" and mix < 1.0:
+        cur = mix * cur + (1.0 - mix) * run(ops["standard"])
     return unpremultiply(cur)
 
 
@@ -248,6 +297,7 @@ def directional_blur(img, direction_deg, length):
     """AE Directional Blur (the `ADBE Motion Blur` effect): a box average over `length` px along `direction_deg`, centred
     on the pixel (AE's dial: 0 = vertical, 90 = horizontal, clockwise). Samples outside the layer count as transparent,
     as in AE. Horizontal and vertical take the separable path."""
+    length = length * DBLUR_SCALE
     if length <= 1e-6:
         return img
     pm = premultiply(img)

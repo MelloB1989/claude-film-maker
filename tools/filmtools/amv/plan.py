@@ -25,6 +25,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 W, H = 1920, 1080
+RFB_LEN = 0.07   # CC Radial Fast Blur: ray length as a fraction of the distance to the centre per amount/100 (global default)
+RFB_BETA = 12.0  # 'Brightest' softness: weight exp(beta * luma) per ray sample (larger = nearer the hard brightest pixel)
+RFB_MIX = 1.0    # 'Brightest': share of the per-channel max in the result, the rest the plain ray average (global default)
 ANCHOR = (960.0, 540.0)
 SHUTTER_ANGLE = 301.0
 SHUTTER_PHASE = -150.0
@@ -157,6 +160,21 @@ class Shot:
         """CC Radial Fast Blur (Zoom: Brightest) at `f`: (amount, cx, cy) in layer px, or None when off."""
         v = keys_multi(self.raw.get("rfb"), f)
         return None if v is None or v[0] <= 1e-6 else tuple(v)
+
+    @property
+    def rfb_len(self):
+        """Radial blur ray length (fraction of the distance to the centre per amount/100): the shot's `rfb_len` or `RFB_LEN`."""
+        return float(self.raw.get("rfb_len", RFB_LEN))
+
+    @property
+    def rfb_beta(self):
+        """Softmax sharpness of the shot's Brightest radial blur: the shot's `rfb_beta` or `RFB_BETA`."""
+        return float(self.raw.get("rfb_beta", RFB_BETA))
+
+    @property
+    def rfb_mix(self):
+        """Share of the max (vs the average) along the ray in the shot's Brightest radial blur: `rfb_mix` or `RFB_MIX`."""
+        return float(self.raw.get("rfb_mix", RFB_MIX))
 
     def dblur(self, f):
         """Directional Blur at `f`: (direction deg, length px) or None. Direction defaults to 90 (AE: horizontal)."""
