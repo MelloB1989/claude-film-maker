@@ -80,11 +80,11 @@ shot("S15", "A07_electro", 436, 453, (0.05, 0.75), "const", (115, 100), None, "g
 shot("S16", "A08_blue_lenses", 453, 468, (0.05, 0.75), "launch", (100, 120), (990, 565), "zoom_out", "zoom_in",
      [], "blue lenses")
 shot("S17", "A09_lens_pushin", 468, 480, (0.00, 1.10), "launch", (100, 260), (1110, 443), "zoom_in", "drop_portal",
-     ["riser_shake", "speed_lines"], "riser: slam into the lens; the lens becomes the portal")
+     [], "riser: slam into the lens; the lens becomes the portal (SPECIAL owns shake, speed lines, flash, ring, chroma)")
 
 # ---------------- ACT III  TOM  (drop f480 -> f819): hard cuts on hits, impact frames, velocity ramps
 shot("S18", "M01_lens_portal", 480, 519, (0.02, 1.12), "land", (100, 100), (1110, 443), "drop_portal", "impact",
-     ["shockwave@480", "flash@480", "chroma@480"], "DROP: pull out of Tom's lens; I'M SPIDER-MAN; TOM HOLLAND / EARTH-199999")
+     [], "DROP: pull out of Tom's lens; I'M SPIDER-MAN; TOM HOLLAND / EARTH-199999")
 shot("S19", "M02_swing_at_cam", 519, 536, (0.03, 0.75), "velocity", (110, 100), None, "impact", "whip_r",
      ["shake@519"], "swings at camera")
 shot("S20", "M03_topdown_swing", 536, 554, (0.03, 0.75), "velocity", (100, 115), None, "whip_r", "spin_cw",
@@ -135,7 +135,7 @@ TITLES = [
     dict(f=488, f1=540, style="sub", text="I'M SPIDER-MAN.", voice="tom_im_spiderman"),
     dict(f=492, f1=518, style="namecard", text="TOM HOLLAND", sub="SPIDER-MAN  2016 - 2026", act="tom"),
     dict(f=484, f1=518, style="caption_box", text="EARTH-199999", act="tom"),
-    dict(f=624, f1=656, style="novax", text="SPIDER-MAN", palette="red_gold", behind="M08_shuriken", act="tom"),
+    dict(f=624, f1=656, style="novax", text="SPIDER-MAN", palette="red_gold", act="tom"),
     dict(f=746, f1=777, style="novax", text="BRAND NEW DAY", palette="crimson_white", sub="SPIDER-MAN  2026", act="tom"),
     dict(f=802, f1=819, style="blender_chrome3d", text="TIMELESS"),
 ]

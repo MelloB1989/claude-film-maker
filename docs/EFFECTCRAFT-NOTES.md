@@ -93,3 +93,46 @@ Probed with 3-line scripts and by looking at the rendered frame (EffectCraft 0.1
   (`all_fcurves` helper). Poly-spline point keys disable motion blur for that object ("Topology differs"): strands are unblurred.
 - Additive flash cards lift blacks visibly under AgX: keep flash amplitude <= 0.2 linear.
 - Euler order matters for cards stood up with rotation X 90 degrees: use rotation_mode ZYX to spin about the card's own normal.
+## special (rift, drop portal, triptych/shatter) — agent-04, EffectCraft 0.10.0
+
+Bugs and workarounds found while building `tools/filmtools/amv2/ec/special.jsx`:
+
+- **`File.exists` is always `false`**, even for existing files. Probe a file by `importFile` inside try/catch instead (a missing file
+  throws `I/O error ... No such file or directory`). `importOk()` in special.jsx does this.
+- **Posterize Time freezes more than the picture**: with it on a layer, the layer's *masks* are evaluated at the frozen time too
+  (a mask animated over the freeze never moved). Freeze with a **time-remap hold** on a second layer of the shot precomp instead.
+- **Time remap**: `setValuesAtTimes` on a fresh remap leaves the default keys (2 values gave 3 keys), so remove keys by value
+  afterwards. A layer's in/out cannot pass the source duration until its time remap is enabled and you set `outPoint` **before**
+  `inPoint` (setting `inPoint` first clamps it to the old out point).
+- **Shape layers**: path vertices are relative to the layer position, so `position = [0,0]` makes them comp pixels. The **first**
+  added vector group is drawn on top (the reverse of After Effects). `moveBefore(x)` puts the layer **above** x, `moveAfter` below.
+- **Text layers**: `position` is the baseline centre. For Anton the caps centre sits `0.44 * fontSize` above the position.
+- **Twirl** `Twirl Radius` clamps to 100. **Polar Coordinates** `Type of Conversion = 2` is the one that turns noise into a vortex.
+  Fractal Noise `Scale`/`Offset Turbulence` live under its `Transform` group. Tritone + Turbulent Displace give a good liquid look.
+- **Shatter** (`ec.sim.shatter`) rendered flat grey/black with its default View/Render settings; not used. Own shards instead:
+  a polygon mask per shard of a still. **Cutting 35 shards out of the live triptych comp costs ~80 s per frame** (each shard
+  re-renders the whole nested comp: precomps are not cached between layers), so special_spec.py pre-renders one still of the
+  triptych at the shatter frame and the shards cut that (about 5 s per frame).
+- Useful and working: `ec.vr.chromaticaberrations` (per-channel Aberration (Red/Green/Blue) = the red/blue split), `ADBE Ripple`
+  (shockwave), `ec.sim.ccballaction` (halftone-like dots), `ec.blur.ccradialfast` (zoom streaks), Bevel Alpha (shard rim).
+- `effectcraft-cli` is not on PATH in the agent container (use the full path); it is on the VM's PATH.
+# EffectCraft notes (v2 agents append a section per task)
+
+## elements (Blender RGBA elements, agent-07)
+
+Probed against effectcraft-cli 0.10.0 while checking how the Blender element sequences composite.
+
+- **PNG alpha is imported as STRAIGHT alpha, always.** A 3-line probe (`importFile` a PNG, `layers.add`, `render-frame` over a
+  grey solid) was compared pixel by pixel with both formulas: straight `rgb*a + bg*(1-a)` matched with a mean error of
+  0.0013, premultiplied `rgb + bg*(1-a)` with 0.19. `FootageItem.mainSource.alphaMode`, `.premulColor` and `.hasAlpha` all read
+  `undefined` (hasAlpha is `false` even for a PNG with alpha), so there is no scripted interpret-footage switch.
+  Workaround: `blender/amv2/elements.py` writes straight-alpha PNGs by default (`--alpha straight`); `--alpha premul` exists
+  for a build that can interpret premultiplied footage. A premultiplied PNG imported as-is gets its soft edges and glows
+  dimmed (multiplied by alpha twice).
+- Single-frame `render-frame` of a 1920x1080 comp with one 1080p PNG layer takes about 1.6 s.
+- The element sequences are named by comp frame (`NNNN.png`, e.g. `0802.png`), so import them as a numbered sequence and
+  start the layer at that comp frame (or set `startTime = frame / 30`), no remap is needed.
+
+### fx follow-up
+- Comic ink: no Halftone effect in 0.10, so the halftone is an ordered dither: a black solid with `ADBE Checkerboard` (Size From = 2, white squares), Gaussian blur 6, rotated 45, Linear Light at 17% sits under the Threshold adjustment layer; Tint maps ink/paper; a 5 px RGB split on top is the misregistration. (Checkerboard `Size From` 1 = corner point, and a black Color made the whole layer black.)
+- FX skips automatic shake/flash/chroma/ink inside the SPECIAL windows 244-262, 468-492, 777-830 (riser and explicit looks still run).
