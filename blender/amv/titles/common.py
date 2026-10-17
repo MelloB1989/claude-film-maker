@@ -665,7 +665,9 @@ class Word:
         self.sc, self.text, self.role, self.size_px = sc, text, role, float(size_px)
         self.fm = sc.metrics(role)
         self.k = sc.font_k(role)
+        self.base = sc.empty(name + "_base")    # carries the parent link; the root's matrix lives in its parent inverse
         self.root = sc.empty(name)
+        self.root.parent = self.base
         self.letters = []
         self.extrude_px = extrude_px
         font = sc.font(role)
@@ -724,7 +726,13 @@ class Word:
         sh[1][2] = (oblique[1] / PX) / d if self.extrude_px else 0.0
         m = (mu.Matrix.Translation((wx, wy, z)) @ mu.Matrix.Rotation(-math.radians(rot_deg), 4, "Z")
              @ mu.Matrix.Diagonal((scale[0], scale[1], 1.0, 1.0)) @ sh)
-        self.root.matrix_basis = m
+        # matrix_basis would be decomposed into loc/rot/scale and lose the shear: keep the full affine matrix in the
+        # parent inverse, which Blender uses verbatim.
+        self.root.matrix_parent_inverse = m
+
+    def attach(self, parent):
+        """Parent the word (its base empty) to `parent`, e.g. the title's layer empty."""
+        self.base.parent = parent
 
     def set_material(self, mat):
         for ob in self.letters:
@@ -838,3 +846,31 @@ def metal_material(name: str, word_root, cap_px: float, ramp, *, metallic: float
     m.link(em_str, b.inputs["Emission Strength"])
     m.link(m.value("alpha", 1.0), b.inputs["Alpha"])
     return m
+
+
+class SubLine:
+    """T_subline of text_lib.jsx: a small white italic Orbitron line whose tracking springs from +900 to 0 (on top of
+    380) over 7 f from `f0`, fading in over 3 f and out over the last 4 f. `center` is the offset in px from the title
+    layer's origin (the title position)."""
+
+    def __init__(self, sc: TitleScene, text: str, parent, center, f0: int, dur: int, *, size: float = 40.0,
+                 tracking: float = 380.0, span: float = 900.0, role: str = "orbitron", italic: float = 0.2,
+                 color: str = "#FFFFFF"):
+        self.word, self.mat = flat_word(sc, text, role, size, tracking, name="sub", color=color)
+        self.word.attach(parent)
+        self.center, self.f0, self.dur, self.base, self.span, self.italic = center, f0, dur, tracking, span, italic
+
+    def update(self, k: int, master: float = 1.0):
+        u = (k - self.f0) / 7.0
+        self.word.layout(self.base + self.span * (1.0 - expo(u, 5.0)))
+        self.word.pose((W / 2 + self.center[0], H / 2 + self.center[1]), shear=self.italic)
+        a = lin_keys([[self.f0, 0.0], [self.f0 + 3, 1.0], [self.dur - 4, 1.0], [self.dur - 1, 0.0]], k)
+        self.mat.set("alpha", a * master)
+
+
+def set_layer(layer, pos_px, scale: float = 1.0, scale_xy=None):
+    """Place a title's layer empty at AE `pos_px` with uniform `scale` (or (sx, sy)): children use pose((W/2+dx, H/2+dy))."""
+    mu = _mathutils()
+    sx, sy = scale_xy if scale_xy else (scale, scale)
+    wx, wy = ae_to_world(*pos_px)
+    layer.matrix_basis = mu.Matrix.Translation((wx, wy, 0.0)) @ mu.Matrix.Diagonal((sx, sy, 1.0, 1.0))

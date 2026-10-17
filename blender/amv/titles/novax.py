@@ -85,7 +85,7 @@ def render(spec: dict, out_dir: Path, opts: TitleOpts) -> None:
         subw = Word(sc, spec["sub"].upper(), "montserrat_light", S * 0.33, -67, name="sub", material=sm_sub.mat)
     for w in (word_fill, word_stroke, tagw, subw):
         if w is not None:
-            w.root.parent = layer
+            w.attach(layer)
     if bar is not None:
         bar.parent = layer
 
