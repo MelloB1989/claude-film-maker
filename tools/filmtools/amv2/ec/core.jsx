@@ -89,6 +89,15 @@ function buildShotLayer(S, K, pc, lname) {
             e.property("Output Width").setValuesAtTimes(ts, tw); e.property("Output Height").setValuesAtTimes(ts, th);
         });
     }
+    if (K.keys[0].wb) {
+        TRY("whip blur " + S.id, function () {
+            var wl = [], wdn = [];
+            for (var j = 0; j < K.keys.length; j++) { wl.push(K.keys[j].wb[0]); wdn.push(K.keys[j].wb[1]); }
+            var b = FXP(L).addProperty("ADBE Motion Blur"); b.name = "whip blur";
+            b = FXP(L).property("whip blur");
+            b.property("Direction").setValuesAtTimes(ts, wdn); b.property("Blur Length").setValuesAtTimes(ts, wl);
+        });
+    }
     return L;
 }
 

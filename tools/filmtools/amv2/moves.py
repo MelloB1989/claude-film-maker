@@ -12,6 +12,7 @@ settle whose start speed is solved to EQUAL A's exit speed at the cut (`settle`)
 from __future__ import annotations
 
 import math
+import os
 
 from .remap import smoothstep
 
@@ -193,6 +194,14 @@ def shot_keys(sh, prev, nxt, hin, hout):
         nb = [out[j]["need"] for j in (i - 1, i, i + 1) if 0 <= j < len(out)]
         w, h = max(x[0] for x in nb), max(x[1] for x in nb)
         k["tile"] = [round(w), round(h)] if (w > 100.5 or h > 100.5) else None
+    if os.environ.get("AMV2_WBLUR") and (_kind(sh["xout"]) == "whip" or _kind(sh["xin"]) == "whip"):
+        wd = WHIPS.get(sh["xout"]) if _kind(sh["xout"]) == "whip" else WHIPS.get(sh["xin"])
+        horiz = bool(wd[0])
+        for i, k in enumerate(out):      # directional blur along the whip axis, sized by the on-screen speed
+            j = max(i - 1, 0)
+            sp = abs(k["pos"][0 if horiz else 1] - out[j]["pos"][0 if horiz else 1]) if i else 0.0
+            sp2 = abs(out[min(i + 1, len(out) - 1)]["pos"][0 if horiz else 1] - k["pos"][0 if horiz else 1])
+            k["wb"] = [round(0.6 * max(sp, sp2) / (k["scale"] / 100.0), 1), 90 if horiz else 0]
     for k in out:
         del k["need"], k["F"]
     return out

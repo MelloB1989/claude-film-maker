@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -128,7 +129,7 @@ def vm_cmd(project_rel, frames_dir_rel, runner_rel, build_args=None):
     `build_args` (list): $AMV2_DATA (the 240 fps sources and mattes) only exists there, and ecbuild probes it."""
     pre = ""
     if build_args is not None:
-        pre = (f"mkdir -p {frames_dir_rel} && (cd tools && python -m filmtools.amv2.ecbuild --out ../{project_rel} "
+        pre = (f"mkdir -p {frames_dir_rel} && (cd tools && {"AMV2_WBLUR=1 " if os.environ.get("AMV2_WBLUR") else ""}python -m filmtools.amv2.ecbuild --out ../{project_rel} "
                f"{' '.join(build_args)}) > {frames_dir_rel}/build.log 2>&1; brc=$?; echo BUILD rc=$brc; "
                f"tail -n 6 {frames_dir_rel}/build.log; [ $brc -eq 0 ] || exit $brc; cp {project_rel} {frames_dir_rel}/; ")
     return pre + f"bash {runner_rel}"
