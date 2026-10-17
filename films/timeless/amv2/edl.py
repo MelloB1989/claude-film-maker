@@ -89,7 +89,7 @@ shot("S19", "M02_swing_at_cam", 519, 536, (0.03, 0.75), "velocity", (110, 100), 
      ["shake@519"], "swings at camera")
 shot("S20", "M03_topdown_swing", 536, 554, (0.03, 0.75), "velocity", (100, 115), None, "whip_r", "spin_cw",
      ["shake@536"], "top-down swing")
-shot("S21", "M04_dome_crash", 554, 570, (0.05, 0.80), "const", (120, 100), None, "spin_cw", "impact",
+shot("S21", "M04_dome_crash", 554, 570, (0.22, 0.82), "const", (120, 100), None, "spin_cw", "impact",
      ["shake@554", "glass_glint"], "crash through the dome")
 shot("S22", "M07_roll_crouch", 570, 587, (0.05, 0.72), "land", (112, 100), None, "impact", "zoom_in",
      [], "roll into a crouch")
