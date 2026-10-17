@@ -15,11 +15,23 @@ MATTE_CLIPS=A03_sunset_mask,M08_shuriken,T03_glove_city,M14_head_raise,M16_sunse
 test -d "$AMV_HANDOVER/footage_clips" || { echo "missing $AMV_HANDOVER/footage_clips"; exit 1; }
 nvidia-smi -L
 
-# system: ffmpeg with libx264 (the pod image is Ubuntu; skip if present)
-if ! (command -v ffmpeg >/dev/null && ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libx264); then
-  apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+# system: ffmpeg >= 5.1 (needs -fps_mode) with libx264. The pod image ships 4.4, so fetch a static build when the test fails.
+ffmpeg_ok() {
+  command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null &&
+  ffmpeg -v error -f lavfi -i color=c=black:s=64x64:d=0.1 -fps_mode passthrough -c:v libx264 -f null - 2>/dev/null
+}
+if ! ffmpeg_ok; then
+  echo "ffmpeg missing or too old ($(ffmpeg -version 2>/dev/null | head -1)); fetching a static build"
+  TMP="$(mktemp -d)"
+  (command -v curl >/dev/null || { apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl xz-utils; })
+  curl -fL --retry 3 -o "$TMP/ff.tar.xz" https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+  tar -xf "$TMP/ff.tar.xz" -C "$TMP"
+  install -m 0755 "$TMP"/ffmpeg-*-static/ffmpeg "$TMP"/ffmpeg-*-static/ffprobe /usr/local/bin/
+  hash -r
+  rm -rf "$TMP"
 fi
-command -v ffmpeg >/dev/null || { echo "ffmpeg not installed"; exit 1; }
+ffmpeg_ok || { echo "no usable ffmpeg (>= 5.1 with libx264)"; exit 1; }
+ffmpeg -version | head -1
 
 # python: an isolated venv so the pod image's torch cannot clash
 python3 -m venv /workspace/prepvenv 2>/dev/null || python3 -m venv "$HOME/prepvenv"
