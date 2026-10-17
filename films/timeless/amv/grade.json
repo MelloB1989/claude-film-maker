@@ -5,7 +5,7 @@
   "colorista": 0.14580676800284928,
   "vig_amount": 0.372874855997319,
   "vig_size": 0.10408517574456806,
-  "hi_desat": 9.999999999584704e-11,
+  "hi_desat": 0.6,
   "curve1": 1.0430436494483925e-16,
   "curve2": 2.2859570361473552e-17,
   "curve3": 9.082000558196193e-17,
@@ -30,7 +30,9 @@
   ],
   "glow_threshold": 0.5000000000036082,
   "glow_size": 90,
-  "glow_intensity": 0.13054548477363825
+  "glow_intensity": 0.13054548477363825,
+  "rolloff": 1.0,
+  "rolloff_power": 3.0
  },
  "nominal": {
   "sharpen_amount": 0.5,
@@ -63,7 +65,9 @@
   ],
   "glow_threshold": 0.84,
   "glow_size": 90,
-  "glow_intensity": 0.25
+  "glow_intensity": 0.25,
+  "rolloff": 1.0,
+  "rolloff_power": 1.0
  },
  "report": {
   "frames": [
@@ -791,6 +795,7 @@
    }
   },
   "fit_cost": 736610.2548758195,
-  "note": "dE = Lab distance of blurred, masked 480x270 frames; rgb_mae in /255"
+  "note": "dE = Lab distance of blurred, masked 480x270 frames; rgb_mae in /255",
+  "v3_note": "rolloff_power 3 and hi_desat 0.6 set by hand (not fitted): they only touch pixels with a channel > 1 or luma > 0.75, change the 64-frame fit error by < 0.001 dE, and whiten overexposed flashes (M12 f709) instead of leaving a saturated clip"
  }
 }

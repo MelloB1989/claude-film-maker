@@ -110,6 +110,19 @@ class _B:
 
 # ---- the chain, one function per op of grade_np ----
 
+def _rolloff(b, x, strength, power, sep):
+    """grade_np.rolloff_in: m = max channel; x/m^2 + (1 - 1/m) for m > 1, mixed with the plain clip by `strength`."""
+    clipped = b.clip01(x)
+    if strength == 0:
+        return clipped
+    m = b.m("MAXIMUM", b.m("MAXIMUM", sep.outputs["Red"], sep.outputs["Green"]), b.m("MAXIMUM", sep.outputs["Blue"], 1.0))
+    m = b.m("MAXIMUM", m, 1.0)
+    inv = b.m("DIVIDE", 1.0, m)
+    ip = b.m("POWER", inv, power)
+    roll = b.add(b.vm("SCALE", x, scale=b.m("MULTIPLY", inv, ip)), b.spread(b.m("SUBTRACT", 1.0, ip)))
+    return b.clip01(b.add(clipped, b.mulc(b.sub(roll, clipped), strength)))
+
+
 def _sharpen(b, x, amount, size):
     if size < 1 or amount == 0:
         return x
@@ -228,7 +241,10 @@ def build_group(params=None):
     alpha = sep.outputs["Alpha"]
     if io == "linear":
         col = b.convert(b.vm("MAXIMUM", col, (0, 0, 0)), "Linear Rec.709", "sRGB")
-    x = b.clip01(col)
+    col = b.vm("MAXIMUM", col, (0, 0, 0))
+    sep2 = tree.nodes.new("CompositorNodeSeparateColor")
+    tree.links.new(col, sep2.inputs[0])
+    x = _rolloff(b, col, p["rolloff"], p["rolloff_power"], sep2)
 
     x = _sharpen(b, x, p["sharpen_amount"], sc(p["sharpen_size"]))
     x = _colorista(b, x, p["colorista"])

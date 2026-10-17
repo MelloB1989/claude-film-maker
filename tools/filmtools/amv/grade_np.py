@@ -36,7 +36,7 @@ NOMINAL = {
     "sharpen_amount": 0.5, "sharpen_size": 4,
     "colorista": 1.0,
     "vig_amount": 0.345, "vig_size": 0.5,
-    "hi_desat": 0.0, "curve1": 0.0, "curve2": 0.0, "curve3": 0.0,
+    "rolloff": 1.0, "rolloff_power": 1.0, "hi_desat": 0.0, "curve1": 0.0, "curve2": 0.0, "curve3": 0.0,
     "contrast": 25.0, "highlights": 10.0, "shadows": 45.0, "whites": 20.0, "blacks": -12.0, "saturation": 150.0,
     "bc_brightness": 15.0, "bc_contrast": 20.0,
     "cb": [-10, 7, 10, -2, 4, -3, 12, 5, -12],
@@ -129,6 +129,17 @@ def clip01(x):
     return np.clip(x, 0.0, 1.0)
 
 
+def rolloff_in(x, strength, power=1.0):
+    """Overexposed input (a flash: a channel above 1) rolls off to white instead of clipping to a tinted colour.
+    With m = the largest channel, m > 1 and s = 1/m: x -> x s^(power+1) + (1 - s^power), which keeps the hue's ratios,
+    whitens as m grows (faster for a larger power), and is the identity at m <= 1. `strength` mixes it with the plain clip (0 = AE's 8-bit clip)."""
+    m = np.maximum(x.max(-1, keepdims=True), 1.0)
+    inv = 1.0 / m
+    ip = inv ** power
+    roll = x * (inv * ip) + (1.0 - ip)
+    return clip01(clip01(x) + strength * (roll - clip01(x)))
+
+
 def sharpen(x, amount, size):
     return clip01(x + amount * (x - blur(x, size)))
 
@@ -212,8 +223,9 @@ def grade(img, p=None, res_scale=1.0):
     """The whole chain on display-referred float RGB (H, W, 3), 0..1. `res_scale` scales the blur sizes (1 = 1920 wide)."""
     p = params(p)
     sc = lambda n: max(0, int(round(n * res_scale)))
-    x = clip01(np.asarray(img, np.float32)[..., :3])
+    x = np.maximum(np.asarray(img, np.float32)[..., :3], 0.0)
     h, w = x.shape[:2]
+    x = rolloff_in(x, p["rolloff"], p["rolloff_power"]) if p["rolloff"] else clip01(x)
     x = sharpen(x, p["sharpen_amount"], sc(p["sharpen_size"]))
     x = colorista(x, p["colorista"])
     x = clip01(x * vignette_gain(h, w, p["vig_amount"], p["vig_size"]))
@@ -506,6 +518,70 @@ def cmd_refine(a):
     Path(a.out).write_text(json.dumps(doc, indent=1))
 
 
+def hole_mask(shot, f, shape, scale):
+    """True where the eye-dive hole shows the shot below (screen px at `scale`), with a margin; all False without a hole."""
+    h = shot.hole(f)
+    out = np.zeros(shape, bool)
+    if not h:
+        return out
+    m = np.array(shot.matrix(f))
+    cx, cy = (m @ np.array([h[0], h[1], 1.0])) * scale
+    r = (max(h[2], h[3]) + h[5] + h[4]) * shot.transform(f)[2] / 100 * scale * 1.15
+    yy, xx = np.mgrid[0:shape[0], 0:shape[1]]
+    return (xx - cx) ** 2 + (yy - cy) ** 2 < r * r
+
+
+def parse_frames(spec):
+    out = []
+    for part in spec.split(","):
+        a, _, b = part.partition("-")
+        out += list(range(int(a), int(b or a) + 1))
+    return out
+
+
+def cmd_check(a):
+    """Mean luma (0..255) and clipped-pixel share of graded estimates (shot trim + flash exposure + grade) vs the AE render."""
+    import subprocess
+    import tempfile
+    from . import plan as P
+    plan = P.load(a.film)
+    if a.params == "preset":
+        p = None
+    else:
+        doc = json.loads(Path(a.params).read_text())
+        p = doc.get("fitted", doc)
+    frames = parse_frames(a.frames)
+    in_ae = sorted(f for f in set(frames) if f < 600)
+    tmp = Path(tempfile.mkdtemp(prefix="grade_chk_"))
+    sel = "+".join(f"eq(n\\,{f})" for f in in_ae)
+    subprocess.run([FFMPEG, "-v", "error", "-i", a.ref, "-vf", f"select={sel},scale=960:540:flags=area", "-fps_mode", "passthrough",
+                    "-start_number", "0", str(tmp / "k%04d.png")], check=True)
+    for i, f in enumerate(in_ae):
+        (tmp / f"k{i:04d}.png").rename(tmp / f"{f:04d}.png")
+    size = (int(W * a.scale), int(H * a.scale))
+    print("frame shot            ours   AE   gap | clipped% ours  AE")
+    for f in frames:
+        shot = plan.visible(f)[-1]
+        e, cov = estimate_frame(plan, f, a.scale)
+        ev = plan.flash_ev(f)
+        if abs(ev) > 1e-9:
+            e = linear_to_srgb(srgb_to_linear(e) * 2.0 ** ev)   # unclipped: the grade rolls overexposure off itself
+        g = grade(e, p, a.scale)
+        m = fit_mask(cov, None) & ~hole_mask(shot, f, cov.shape, a.scale)
+        ours = float(luma(g)[m].mean() * 255)
+        clip = lambda x: float((x.max(-1) >= 0.99)[m].mean() * 100)
+        if f < 600:
+            r = load_ref(tmp, f, size)
+            print(f"{f:4d} {shot.name:16s} {ours:5.0f} {luma(r)[m].mean() * 255:4.0f} {ours - luma(r)[m].mean() * 255:+5.0f} | {clip(g):6.1f} {clip(r):6.1f}")
+        else:
+            print(f"{f:4d} {shot.name:16s} {ours:5.0f}  n/a        | {clip(g):6.1f}   n/a  max channel p99 {np.percentile(g[m], 99):.3f}")
+        if a.dump:
+            import cv2
+            Path(a.dump).mkdir(parents=True, exist_ok=True)
+            tiles = [e, g] + ([load_ref(tmp, f, size)] if f < 600 else [])
+            cv2.imwrite(str(Path(a.dump) / f"{f:04d}.jpg"), (np.hstack(tiles)[..., ::-1] * 255).astype(np.uint8))
+
+
 def cmd_sheet(a):
     """Contact sheets: estimate | grade_np | Blender group | AE, 6 frames per image (Blender column optional)."""
     import cv2
@@ -567,6 +643,14 @@ def main(argv=None):
     rf.add_argument("--params", required=True)
     rf.add_argument("--out", required=True)
     rf.set_defaults(fn=cmd_refine)
+    ck = sub.add_parser("check", help="luma of graded estimates (with flash) vs the AE render on chosen frames")
+    ck.add_argument("--film", default="films/timeless")
+    ck.add_argument("--ref", required=True)
+    ck.add_argument("--params", required=True, help="grade.json, or 'preset' for the preset's own values")
+    ck.add_argument("--frames", required=True, help="e.g. 207-217,228-249,315")
+    ck.add_argument("--scale", type=float, default=0.25)
+    ck.add_argument("--dump", help="write estimate | graded | AE strips here")
+    ck.set_defaults(fn=cmd_check)
     sh = sub.add_parser("sheet", help="contact sheets estimate | grade_np | blender | AE")
     sh.add_argument("--cache", required=True)
     sh.add_argument("--params", required=True)
