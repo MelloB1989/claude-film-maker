@@ -9,7 +9,7 @@
 2. splits the frames into chunks, drops ONE render-queue job whose command runs `procs` `effectcraft-cli render
    --format png` processes in parallel on the VM (each with RAYON_NUM_THREADS=threads: the CLI's thread knob), and waits;
 3. checks every PNG (all frames present, no black frames except where intended: signalstats YAVG);
-4. encodes h264 (CRF 16, yuv420p, +faststart) with out/timeless/amv2/mix.wav, else the song's 0-30 s;
+4. encodes h264 (CRF 16, yuv420p, +faststart) with $AMV2_DATA/mix.wav, else out/timeless/amv2/mix.wav, else the song's 0-30 s;
 5. writes a 6x5 contact sheet and `timings.json` (seconds per frame, per chunk).
 Output: out/timeless/amv2/{frames[_draft]/f_NNNNN.png, Timeless_v2[_draft].mp4, contact[_draft].png}.
 """
@@ -110,7 +110,8 @@ def check_frames(fdir, a, b):
 
 
 def encode(fdir, a, b, mp4, mix=None, fps=FPS):
-    mix = mix or (OUT / "mix.wav" if (OUT / "mix.wav").exists() else None)
+    if not mix:      # the final mix: $AMV2_DATA/mix.wav, then out/timeless/amv2/mix.wav, then the song's 0-30 s
+        mix = next((m for m in (ecbuild.data_dir() / "mix.wav", OUT / "mix.wav") if m.exists()), None)
     cmd = [FFMPEG, "-y", "-v", "error", "-framerate", str(fps), "-start_number", str(a), "-i", str(fdir / "f_%05d.png")]
     if mix:
         cmd += ["-ss", f"{a / fps}", "-i", str(mix)]
