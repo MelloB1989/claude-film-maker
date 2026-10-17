@@ -93,7 +93,7 @@ var FX = {
         return out;
     },
     plan: function (E) {
-        var P = { shakes: [], chromas: [], flashes: [], inks: [], glitches: [], sweeps: [], lines: [], looks: [], boxes: [], glints: [] };
+        var P = { shakes: [], chromas: [], flashes: [], punches: [], inks: [], glitches: [], sweeps: [], lines: [], looks: [], boxes: [], glints: [] };
         var strength = {}, i, j, S;
         for (i = 0; i < E.hits.length; i++) strength[E.hits[i][0]] = E.hits[i][1];
         var has = { shake: {}, chroma: {}, flash: {}, ink: {} };
@@ -128,6 +128,8 @@ var FX = {
                 }
             }
         }
+        // ink frames are rare: only on the strongest hits (>= 3.0); a weaker explicit ink tag becomes a clean white pop
+        for (m in has.ink) if ((strength[m] || 0) < 3.0) { delete has.ink[m]; if (!has.flash[m]) has.flash[m] = -(strength[m] || 2.4); }
         var m, wi, SPECIAL_WIN = [[244, 262], [468, 492], [777, 830]];   // SPECIAL owns these frames: no automatic hit treatment
         for (var hk in has) for (m in has[hk]) for (wi = 0; wi < SPECIAL_WIN.length; wi++)
             if (+m >= SPECIAL_WIN[wi][0] && +m <= SPECIAL_WIN[wi][1]) delete has[hk][m];
@@ -140,8 +142,22 @@ var FX = {
         }
         for (m in has.shake) P.shakes.push({ f: +m, s: has.shake[m] });
         for (m in has.chroma) P.chromas.push({ f: +m, s: has.chroma[m] });
-        for (m in has.flash) P.flashes.push({ f: +m, s: has.flash[m], len: has.ink[m] ? 1 : 2 });   // flash + ink at one frame: 1 f white, then the ink frame
-        for (m in has.ink) P.inks.push({ f: +m + (has.flash[m] ? 1 : 0), s: has.ink[m] });
+        // the ink frame is the hit's one event (1 f, on the hit frame); one heavy flash per hit, never two within 5 f
+        for (m in has.ink) { P.inks.push({ f: +m, s: has.ink[m] }); delete has.flash[m]; }
+        var ff = [], lastF = -99;
+        for (m in has.flash) ff.push(+m);
+        ff.sort(function (a, b) { return a - b; });
+        for (i = 0; i < ff.length; i++) {
+            if (ff[i] - lastF < 5 || (has.ink[ff[i]] === undefined && P.inks.some(function (n) { return Math.abs(n.f - ff[i]) < 5; }))) continue;
+            P.flashes.push({ f: ff[i], s: has.flash[ff[i]], len: has.flash[ff[i]] < 0 ? 1 : 2 }); lastF = ff[i];
+        }
+        // every hit >= 2.0 gets one clean picture event: a chroma hit or a shake counts; otherwise a 2 f zoom punch
+        for (i = 0; i < E.hits.length; i++) {
+            var hf = E.hits[i][0], hs = E.hits[i][1], wj, inW = false;
+            for (wj = 0; wj < SPECIAL_WIN.length; wj++) if (hf >= SPECIAL_WIN[wj][0] && hf <= SPECIAL_WIN[wj][1]) inW = true;
+            if (hs < 2.0 || inW || hf >= outro || hf >= tri) continue;
+            if (!has.shake[hf] && !has.chroma[hf] && !has.ink[hf] && !has.flash[hf]) P.punches.push({ f: hf });
+        }
         // transitions
         for (i = 0; i < E.shots.length; i++) {
             S = E.shots[i];
@@ -184,6 +200,13 @@ var FX = {
         return l;
     },
 
+    // zoom punch: 104 % -> 100 % over 2 f on an adjustment layer (Transform effect, scale about the centre)
+    punch: function (main, f) {
+        var l = FX.adj(main, "FX punch " + f, f, f + 2), e = FX.add(l, "ADBE Geometry2", "punch");
+        FX.tkeys(e, "Scale Height", [[f, 104], [f + 1, 101.8]]);
+        return l;
+    },
+
     // ---------------------------------------------------------------- chromatic hit: radial RGB split that decays over 5 f
     // VR Chromatic Aberrations is spherical: it warps the frame's top/bottom rows. Shrink to 95 % first (empty border takes
     // the warp), split, and scale back up: clean edges, no visible softening.
@@ -218,20 +241,21 @@ var FX = {
     // break into dots while shadows/highlights stay solid; ink/paper tint; a CMY-style misregistration (small RGB split) on top.
     ink: function (main, f, E) {
         var lv = (FX.X(E).ink_level || {})[f] || (FX.X(E).ink_level || {})[f - 1] || 128, out;
-        for (var k = 0; k < 2; k++) {
+        for (var k = 0; k < 1; k++) {   // one frame, half strength over the picture
             var ff = f + k, e;
             var p = FX.solid(main, "FX ink dots " + ff, [0, 0, 0], 0, 0, ff, ff + 1);
             e = FX.add(p, "ADBE Checkerboard", "dots");
             FX.set(e, "Size From", 2); FX.set(e, "Width", 17); FX.set(e, "Height", 17);
             e = FX.add(p, "ADBE Gaussian Blur 2", "round"); FX.set(e, "Blurriness", 6);
             p.transform.rotation.setValue(45); p.transform.scale.setValue([110, 110]);
-            FX.blend(p, BlendingMode.LINEAR_LIGHT); p.transform.opacity.setValue(17);
+            FX.blend(p, BlendingMode.LINEAR_LIGHT); p.transform.opacity.setValue(8.5);
             var a = FX.adj(main, "FX ink " + ff, ff, ff + 1);
             e = FX.add(a, "ADBE Gaussian Blur 2", "denoise"); FX.set(e, "Blurriness", 1.6);
             e = FX.add(a, "ADBE Threshold2", "ink"); FX.set(e, "Level", lv);
             if (k) FX.add(a, "ADBE Invert", "invert");
             e = FX.add(a, "ADBE Tint", "ink and paper");
             FX.set(e, "Map Black To", [0.03, 0.02, 0.1, 1]); FX.set(e, "Map White To", [1, 0.96, 0.84, 1]);
+            a.transform.opacity.setValue(50);
             var c = FX.adj(main, "FX ink misreg " + ff, ff, ff + 1);
             FX.chromaStack(c, [5], ff);
             out = a;
@@ -399,6 +423,7 @@ var FX = {
         var P = FX.plan(E), i;
         FX.tryit("looks", function () { FX.looks(main, E, P); });
         for (i = 0; i < P.chromas.length; i++) FX.tryit("chroma", function () { FX.chroma(main, P.chromas[i].f, P.chromas[i].s); });
+        for (i = 0; i < P.punches.length; i++) FX.tryit("punch", function () { FX.punch(main, P.punches[i].f); });
         for (i = 0; i < P.glitches.length; i++) FX.tryit("glitch", function () { FX.glitch(main, P.glitches[i], E); });
         for (i = 0; i < P.shakes.length; i++) FX.tryit("shake", function () {
             var s = P.shakes[i], light = s.s < 0, a = Math.abs(s.s), len = a >= 3 ? 8 : 6;

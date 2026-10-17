@@ -142,3 +142,8 @@ Probed against effectcraft-cli 0.10.0 while checking how the Blender element seq
 - Random access: `-g 8 -keyint_min 8 -bf 0` (crf 12) renders a remapped 1080p frame in ~0.6-1.5 s, the same or faster than the 60 fps original (~1.8-2.7 s; shared, noisy box). All-intra (`-g 1`) was not faster and 2.6x bigger (60 MB vs 23 MB for 1.35 s of footage).
 - (grade round 2) Glow with `Glow Colors` = 2 (A & B) and Color A = Color B gives a uniform tint; keyable per act. Lumetri Temperature is a strong, cheap way to separate acts. Lumetri Contrast pivots at 0.5 and pulls dark shots down hard, so grade_curves.py measures each act's real tone curve (grey ramp through GRADE.build) and grade_spec solves the per-shot trims against it.
 - Layers SPECIAL adds after GRADE sit above the grade (the triptych panels): use GRADE.applyPanel(layer, i, E, ctx).
+
+### fx review round (f540-830)
+- Ink frames: only hits >= 3.0 (656), 1 f on the hit frame, ink adjustment at 50 % with a half-strength dither; weaker explicit `ink_frame` tags become a soft white pop.
+- One flash per hit, none within 5 f of another flash or an ink frame; hits >= 2.0 with no shake/chroma/flash/ink get a 2 f zoom punch (104 -> 101.8 %).
+- Perf: the real MAIN (draft) renders at ~1.57 s/frame in one effectcraft-cli process on the build host (900 f = 23.5 min); 3 parallel processes gave no gain (CPU-saturated). `--gpu` has no adapter (no Vulkan/GL drivers) in the container.
