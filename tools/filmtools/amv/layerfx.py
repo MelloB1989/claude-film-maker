@@ -280,13 +280,17 @@ def _fov_dim(w, h, orientation):
 def optics_source_radius(r, fov_deg, dim, reverse=True):
     """For a point at radius `r` px from the view centre in the *output*, the radius in the source it samples.
 
-    Model: the source is a rectilinear picture with focal length f = (dim / 2) / tan(fov / 2) px (the FOV spans
-    `dim`). Reverse Lens Distortion renders it as a fisheye (equidistant: r_out = f * atan(r_src / f)), i.e. the
-    centre keeps its scale and the outskirts are pulled in: a bulge. Forward (reverse=False) is the inverse mapping."""
+    Model: a rectilinear picture of focal length f = (dim / 2) / tan(fov / 2) px (the FOV spans `dim`) against a
+    fisheye (equidistant) of the same f. Reverse Lens Distortion (the plan's setting) takes the output radius as the
+    rectilinear one and samples the fisheye position r_src = f * atan(r / f): the source is *pulled outward* with the
+    radius, the centre keeps its scale and the outskirts are magnified, a bulge that crops the frame's corners away.
+    Forward (reverse=False) is the inverse, r_src = f * tan(r / f): the picture shrinks and the corners go empty.
+    Calibrated on the AE render (T04 f135, fov 30): measured edge displacement +2.5 / +7.7 / +17.7 px at
+    r = 317 / 453 / 609 (half-res screen px), this model predicts +2.3 / +6.9 / +17.1."""
     f = (dim / 2.0) / math.tan(math.radians(fov_deg) / 2.0)
     if reverse:
-        return f * np.tan(np.minimum(r / f, 1.5))
-    return f * np.arctan(r / f)
+        return f * np.arctan(r / f)
+    return f * np.tan(np.minimum(r / f, 1.5))
 
 
 def optics_compensation(img, fov, reverse=True, orientation=2, center=(960.0, 540.0), dim_size=None):

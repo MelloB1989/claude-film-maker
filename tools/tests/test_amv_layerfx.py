@@ -145,20 +145,25 @@ def test_optics_identity_symmetry_and_bulge():
     out = fx.optics_compensation(grid, 45, center=(80.5, 40.5))
     # symmetric about the centre
     np.testing.assert_allclose(out[:, :, 0], out[::-1, ::-1, 0], atol=0.2)
-    # centre is a fixed point
+    # centre is a fixed point and everything stays covered (reverse magnifies the outskirts: nothing is pulled in)
     assert out[40, 80, 0] == pytest.approx(grid[40, 80, 0], abs=0.3)
-    # reverse lens distortion pulls the outskirts in: the image shrinks, so the corner pixel is now transparent
-    assert out[0, 0, 3] == 0 and out[40, 80, 3] == 1
+    assert out[..., 3].min() == 1
+    # forward lens distortion shrinks the picture instead: the corners go transparent
+    fwd = fx.optics_compensation(grid, 45, reverse=False, center=(80.5, 40.5))
+    assert fwd[0, 0, 3] == 0 and fwd[40, 80, 3] == 1
 
 
 def test_optics_radius_is_monotone_and_small_fov_is_small():
     r = np.linspace(0, 500, 50)
     big = fx.optics_source_radius(r, 30, 1080, True)
     small = fx.optics_source_radius(r, 3, 1080, True)
-    assert np.all(np.diff(big) > 0) and np.all(big >= r - 1e-6)
+    assert np.all(np.diff(big) > 0) and np.all(big <= r + 1e-6)
     assert np.abs(small - r).max() < np.abs(big - r).max() / 10
     fwd = fx.optics_source_radius(big, 30, 1080, False)
     np.testing.assert_allclose(fwd, r, rtol=1e-3, atol=1e-2)                 # forward undoes reverse
+    # known value: fov 30 over 1080 px -> f = 540 / tan 15 deg; r = 600 samples f atan(600 / f)
+    f = 540 / np.tan(np.radians(15))
+    assert fx.optics_source_radius(600.0, 30, 1080, True) == pytest.approx(f * np.arctan(600 / f))
 
 
 def test_glow():
