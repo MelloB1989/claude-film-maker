@@ -225,7 +225,7 @@ renders it, and an EffectCraft project of the same edit. Nothing in it points ou
 | `project/audio/` | the audio mix (used by the EffectCraft project) |
 | `project/plan.json`, `project/grade.json` | the edit plan (timing, transforms, titles) and the fitted grade |
 | `project/FIXES.md` | the deliberate changes made to the handover plan |
-| `effectcraft/` | the EffectCraft project (`{id}.ecproj`), built on the baked layers in `project/layers` |
+| `effectcraft/` | the EffectCraft project: `spec.json`, `build.jsx.template`, `relink.py`, and `{id}.ecproj` when effectcraft-cli was available at pack time (else `relink.py` makes it); built on the baked layers in `project/layers` |
 
 ## Render the .blend (Blender 5.2)
 
@@ -295,7 +295,7 @@ def main(argv=None):
 
     video = None if a.skip_video else find_video(src, a.render_tag)
     names = [s.name for s in plan.stack()]
-    portal_srcs = [p["A"] for p in raw.get("portals") or []]
+    portal_srcs = [plan.shots[p["A"]].name for p in raw.get("portals") or []]   # "A" indexes the shots
     out.mkdir(parents=True, exist_ok=True)
 
     stats = {"link": 0, "copy": 0}
