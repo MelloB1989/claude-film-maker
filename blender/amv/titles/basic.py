@@ -746,7 +746,7 @@ def hud_ring(P, S, k, dur):
 # 4. TAG (tracked name tag + brackets)
 
 
-def brackets(cx, cy, w, h, k, dur, L=26.0):
+def brackets(cx, cy, w, h, k, dur, L=40.0):
     """T_brackets: four 2.5 px white corner brackets, flicker-on, scaling 112 -> 100 about the box centre."""
     o = lin([[2, 0.0], [4, 0.9], [5, 0.3], [6, 0.9], [dur - 4, 0.9], [dur - 1, 0.0]], k)
     if o <= 0:
@@ -765,21 +765,21 @@ def brackets(cx, cy, w, h, k, dur, L=26.0):
 def tag_frame(spec, k):
     dur = spec["dur"]
     font = "Montserrat-Light"
-    S = spec.get("size") or 64
+    S = min(spec.get("size") or 56, 56)   # AE cap height ~40 px at f90 (r2 review), a size 56 Montserrat Light
     P = spec.get("pos") or [W / 2, H * 0.82]
     text = spec["text"]
 
     def tr(kk):
-        return 350 + ease_keys([[0, 1150.0], [7, 0.0], [dur - 1, 60.0]], kk, {2: (80, 10)})
+        return 1000 + ease_keys([[0, 1150.0], [7, 0.0], [dur - 1, 60.0]], kk, {2: (80, 10)})
 
     o = lin([[0, 0.0], [3, 1.0], [dur - 4, 1.0], [dur - 1, 0.0]], k)
     gl, width = line_glyphs(text, font, S, Solid((1, 1, 1)), P[0], P[1], tracking=tr(k))
     _, w8 = line_layout(text, font, S, tr(8))
     groups = []
-    bar_w = w8 * 1.25 + 120
-    poly = rough_bar(P[0], P[1] + 2, bar_w, S * 1.05, wipe_progress(0, k), seed=3)
+    bar_w = w8 * 1.2
+    poly = rough_bar(P[0], P[1] + 2, bar_w, S * 1.3, wipe_progress(0, k), seed=3, amp=0.0)   # clean thin bar
     if poly:
-        groups.append(Group("bar", [PolyEl(poly, Solid((0, 0, 0)), fade_out(k, dur))], shadow=ae_shadow(50, 12, 11)))
+        groups.append(Group("bar", [PolyEl(poly, Solid((0, 0, 0)), 0.82 * fade_out(k, dur))], shadow=ae_shadow(50, 12, 11)))
     groups.append(Group("text", with_opacity(gl, o)))
     if spec.get("sub"):
         s2 = round(S * 0.45)
@@ -788,7 +788,7 @@ def tag_frame(spec, k):
                             shear=ITALIC)
         groups.append(Group("sub", with_opacity(sg, so), shadow=ae_shadow(95, 2, 10),
                             glows=(Glow((0, 0, 0), 4.0, 0.2),)))
-    br = brackets(P[0], P[1], w8 * 1.25 + 180, S * 2.4, k, dur)
+    br = brackets(P[0], P[1], bar_w - 50, S * 3.0, k, dur)
     if br:
         groups.append(Group("brackets", br))
     return Frame(groups)
