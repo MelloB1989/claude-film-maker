@@ -34,6 +34,7 @@ def parse(argv):
     ap.add_argument("--save", help="save the .blend here")
     ap.add_argument("--device", default="auto", help="auto | cpu | gpu")
     ap.add_argument("--hide", default="", help="debug: comma separated object-name prefixes to leave out of the render")
+    ap.add_argument("--no-comp", action="store_true", help="debug: skip the compositor (raw Cycles frame)")
     ap.add_argument("--no-render", action="store_true")
     return ap.parse_args(argv)
 
@@ -127,6 +128,7 @@ def main(argv):
     for ob in bpy.data.objects:
         if any(h and ob.name.startswith(h) for h in args.hide.split(",")):
             ob.hide_render = True
+    sc.render.use_compositing = not args.no_comp
     print(f"outro: layout width {layout['width']:.2f} BU height {layout['height']:.2f} BU")
     if args.save:
         Path(args.save).parent.mkdir(parents=True, exist_ok=True)

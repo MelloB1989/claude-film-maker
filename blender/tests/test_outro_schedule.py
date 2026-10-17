@@ -112,3 +112,8 @@ def test_sparks_are_born_at_landings_and_finite():
         assert sch.spark_state(s, s["born"] - 1)[3] == 0.0
         assert sch.spark_state(s, s["born"] + s["life"] + 1)[3] == 0.0
         assert s["born"] + s["life"] <= N - 10
+
+
+def test_opens_on_black_and_fades_in_by_frame_five():
+    assert sch.end_fx(0, N)["fade_in"] == 1.0
+    assert sch.end_fx(5, N)["fade_in"] == 0.0

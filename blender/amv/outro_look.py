@@ -7,6 +7,8 @@ Units: 1 BU = 100 AE px; the camera is at y = -20 looking along +y, letters face
 from __future__ import annotations
 
 import math
+import os
+import tempfile
 
 import bpy
 from mathutils import Euler, Vector
@@ -166,9 +168,9 @@ def build_world():
     nt.links.new(tc.outputs["Generated"], sep.inputs[0])
     ramp = nt.nodes.new("ShaderNodeValToRGB")
     ramp.color_ramp.elements[0].position = 0.35
-    ramp.color_ramp.elements[0].color = (0.018, 0.003, 0.008, 1)
+    ramp.color_ramp.elements[0].color = (0.006, 0.001, 0.003, 1)
     ramp.color_ramp.elements[1].position = 0.75
-    ramp.color_ramp.elements[1].color = (0.0015, 0.0025, 0.009, 1)
+    ramp.color_ramp.elements[1].color = (0.0004, 0.0008, 0.003, 1)
     nt.links.new(sep.outputs["Z"], ramp.inputs[0])
     bg = nt.nodes.new("ShaderNodeBackground")
     bg.inputs["Strength"].default_value = 1.0
@@ -275,7 +277,7 @@ def build_volume():
     sc.inputs["Anisotropy"].default_value = 0.55
     sc.inputs["Color"].default_value = (0.8, 0.85, 1.0, 1)
     sc.inputs["Density"].default_value = 0.02
-    mul = nt.nodes.new("ShaderNodeMath"); mul.operation = "MULTIPLY"; mul.inputs[1].default_value = 0.005
+    mul = nt.nodes.new("ShaderNodeMath"); mul.operation = "MULTIPLY"; mul.inputs[1].default_value = 0.0035
     nt.links.new(mp.outputs[0], mul.inputs[0])
     nt.links.new(mul.outputs[0], sc.inputs["Density"])
     out = nt.nodes.new("ShaderNodeOutputMaterial")
@@ -398,14 +400,22 @@ def block_noise_image(w, h, block=14, seed=5):
     rnd = random.Random(seed)
     bw, bh = (w + block - 1) // block, (h + block - 1) // block
     vals = [[rnd.random() for _ in range(bw)] for _ in range(bh)]
-    img = bpy.data.images.new("dissolve_blocks", w, h, alpha=False, float_buffer=True)
+    tmp = bpy.data.images.new("dissolve_tmp", w, h, alpha=False)
     px = []
     for y in range(h):
         row = vals[y // block]
         for x in range(w):
-            v = row[x // block]
+            v = row[x // block] * 0.995
             px.extend((v, v, v, 1.0))
-    img.pixels.foreach_set(px)
+    tmp.pixels.foreach_set(px)
+    tmp.colorspace_settings.name = "Non-Color"
+    # a generated float image comes back empty after save/reload (everything dissolved at once), so round-trip a file
+    path = os.path.join(tempfile.mkdtemp(prefix="outro_blocks_"), "blocks.png")
+    tmp.filepath_raw = path
+    tmp.file_format = "PNG"
+    tmp.save()
+    bpy.data.images.remove(tmp)
+    img = bpy.data.images.load(path)
     img.colorspace_settings.name = "Non-Color"
     img.pack()
     return img
@@ -455,14 +465,18 @@ def build_compositor(n, f0, w, h):
     dm.inputs["B"].default_value = black
     nt.links.new(fl.outputs["Result"], dm.inputs["A"])
     nt.links.new(cmp_.outputs[0], dm.inputs["Factor"])
-    go = _node(nt, "NodeGroupOutput", 1800, 0)
-    nt.links.new(dm.outputs["Result"], go.inputs[0])
+    fi = _node(nt, "ShaderNodeMix", 1780, 0, data_type="RGBA")      # the cut in from black: the implode ends on black
+    fi.inputs["B"].default_value = black
+    nt.links.new(dm.outputs["Result"], fi.inputs["A"])
+    go = _node(nt, "NodeGroupOutput", 2000, 0)
+    nt.links.new(fi.outputs["Result"], go.inputs[0])
     for f in range(0, n):
         fx = sch.end_fx(f, n)
         fl.inputs["Factor"].default_value = max(fx["hit"], fx["flash_end"])
         gl.inputs["Strength"].default_value = fx["bloom"] * 0.35
         cmp_.inputs[1].default_value = 1.01 if fx["black"] else fx["dissolve"] * 1.0005
-        for sock in (fl.inputs["Factor"], gl.inputs["Strength"], cmp_.inputs[1]):
+        fi.inputs["Factor"].default_value = fx["fade_in"]
+        for sock in (fl.inputs["Factor"], gl.inputs["Strength"], cmp_.inputs[1], fi.inputs["Factor"]):
             sock.keyframe_insert("default_value", frame=f0 + f)
     linearize(nt)
     return nt

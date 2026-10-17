@@ -147,8 +147,9 @@ def end_fx(f, n):
     """Flash, bloom and dissolve at local frame f (outro.jsx final comp, flashes toned down as fix1 did)."""
     d0, d1 = n - DISSOLVE[0], n - DISSOLVE[1]
     return {
-        "hit": lin([(0, 0.12), (4, 0.0)], f),
+        "hit": lin([(0, 0.08), (4, 0.0)], f),
         "flash_end": lin([(n - 11, 0.0), (n - 10, 0.28), (n - 8, 0.0)], f),
+        "fade_in": lin([(0, 1.0), (5, 0.0)], f),
         "bloom": lin([(0, 1.2), (8, 0.45), (n - 11, 0.45), (n - 8, 0.9), (n, 0.8)], f),
         "dissolve": smooth_ease(lin([(d0, 0.0), (d1, 1.0)], f)),
         "black": 1.0 if f >= n - 2 else 0.0,
