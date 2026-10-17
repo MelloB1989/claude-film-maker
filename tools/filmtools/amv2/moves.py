@@ -24,7 +24,7 @@ WHIPS = {"whip_l": (-1, 0), "whip_r": (1, 0), "whip_u": (0, -1), "whip_d": (0, 1
          "whip_left": (-1, 0), "whip_right": (1, 0), "whip_up": (0, -1), "whip_down": (0, 1)}
 SPINS = {"spin_cw": 1, "spin_ccw": -1}
 EXIT_N = {"zoom_in": 5, "zoom_out": 5, "whip": 3, "spin": 5}
-ENTRY_N = {"pull_out": 9, "zoom_in": 9, "zoom_out": 8, "whip": 6, "spin": 9, "impact": 6, "open_lightsweep": 12}
+ENTRY_N = {"pull_out": 9, "zoom_in": 9, "zoom_out": 8, "whip": 4, "spin": 9, "impact": 6, "open_lightsweep": 12}
 WHIP_ZOOM = 1.22                # scale reached at the cut during a whip
 LAMBDA = 3.0                   # default exponential settle rate (per entry length)
 
@@ -145,7 +145,7 @@ def entry_move(xin, prev_xout, speeds):
         v0 = speeds["t"] or 0.65 * (W if dx else H)
         D = (W if dx else H)
         # enter from the opposite side of the exit: moving the same way as A, so B's offset starts on the +dir side
-        G = 1.0 * D                                   # starts one frame-width off, readable by entry + 3
+        G = 0.8 * D                                   # starts 0.8 frame-widths off: at +2 f the offset is < 0.1 W
         f = settle_curve(G, N, v0)
         gw = math.log(WHIP_ZOOM)
         return Move(g=lambda u: gw * f(u) / G, tx=(lambda u: -dx * f(u)) if dx else None,
