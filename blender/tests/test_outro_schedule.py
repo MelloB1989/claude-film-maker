@@ -112,7 +112,8 @@ def test_ring_pops_and_flashes_sit_on_the_audio_hits():
     # comp f820 and f829 are big music hits, f882 the shutter flash SFX; the outro starts at comp f812
     assert 820 - 812 == sch.HITS[0] == sch.RING_PEAKS[0] and 829 - 812 == sch.HITS[1] == sch.RING_PEAKS[1]
     assert sch.ring(0, 8, N)["pop"] == 1.0 and sch.ring(1, 17, N)["pop"] == 1.0
-    assert sch.end_fx(8, N)["hit"] > sch.end_fx(6, N)["hit"] and sch.end_fx(17, N)["hit"] > sch.end_fx(15, N)["hit"]
+    for h in sch.HITS:
+        assert sch.end_fx(h, N)["bloom"] > sch.end_fx(h - 3, N)["bloom"] + 1.0
 
 
 def test_shutter_flash_pops_white_on_f882_and_decays_in_three_frames():

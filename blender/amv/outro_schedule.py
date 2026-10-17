@@ -157,13 +157,14 @@ def end_fx(f, n):
     """Flash, bloom and dissolve at local frame f (outro.jsx final comp, flashes toned down as fix1 did)."""
     d0, d1 = n - DISSOLVE[0], n - DISSOLVE[1]
     return {
-        "hit": max(lin([(0, 0.02), (4, 0.0)], f), lin([(HITS[0] - 1, 0.0), (HITS[0], 0.03), (HITS[0] + 3, 0.0)], f),
-                   lin([(HITS[1] - 1, 0.0), (HITS[1], 0.025), (HITS[1] + 3, 0.0)], f)),
+        # only the opening tick is a global add; the music hits (HITS) punch through bloom and ring flares instead,
+        # because a linear-light add of even 0.03 lifts the blacks to grey fog
+        "hit": lin([(0, 0.02), (4, 0.0)], f),
         # the camera-shutter SFX: a sharp white pop, decaying over 3 f (linear-light adds: 0.03 is already a visible grey) (replaces AE's soft grey end flash)
         "flash_end": lin([(SHUTTER_F - 1, 0.0), (SHUTTER_F, 1.0), (SHUTTER_F + 1, 0.3), (SHUTTER_F + 3, 0.0)], f),
         "fade_in": lin([(0, 1.0), (5, 0.0)], f),
         "bloom": lin([(0, 1.2), (8, 0.45), (n - 11, 0.45), (n - 8, 0.9), (n, 0.8)], f)
-        + 0.9 * max(lin([(h - 1, 0.0), (h, 1.0), (h + 4, 0.0)], f) for h in HITS),
+        + 1.6 * max(lin([(h - 1, 0.0), (h, 1.0), (h + 4, 0.0)], f) for h in HITS),
         "dissolve": smooth_ease(lin([(d0, 0.0), (d1, 1.0)], f)),
         "black": 1.0 if f >= n - 2 else 0.0,
     }

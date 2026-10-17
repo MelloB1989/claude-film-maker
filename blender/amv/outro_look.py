@@ -315,7 +315,7 @@ def build_rings(n, f0):
             r = sch.ring(i, f, n)
             ob.scale = (r["scale"],) * 3
             ob.keyframe_insert("scale", frame=f0 + f)
-            em.default_value = 26.0 * r["opacity"] * (1.0 + 1.5 * r["pop"])
+            em.default_value = 26.0 * r["opacity"] * (1.0 + 3.0 * r["pop"])
             em.keyframe_insert("default_value", frame=f0 + f)
         linearize(ob)
         linearize(m.node_tree)
@@ -367,7 +367,7 @@ def _ring_flare(i, col, n, f0):
     ob.data.materials.append(m)
     ob.visible_shadow = False
     for f in range(0, n):
-        em.inputs["Strength"].default_value = 14.0 * sch.ring(i, f, n)["pop"]
+        em.inputs["Strength"].default_value = 40.0 * sch.ring(i, f, n)["pop"]
         em.inputs["Strength"].keyframe_insert("default_value", frame=f0 + f)
     linearize(nt)
 
