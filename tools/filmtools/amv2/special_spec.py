@@ -190,6 +190,7 @@ def extend(E, ctx_py):
                          title=tri.get("title", {}), shatter=tri.get("shatter", 819), shards=make_shards(quads),
                          trip=TRIP)
     X["outro"] = dict(E.get("outro", {}))
+    X["opts"] = dict(freeze=os.environ.get("SP_FREEZE", "1") != "0")
     X["shatter_still"] = prerender_still(E, ctx_py) if ctx_py.get("prerender", True) else None
 
 

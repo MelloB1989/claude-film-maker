@@ -155,12 +155,16 @@ var SPECIAL = (function () {
     var CB_NAMES = ["Shadow Red Balance", "Shadow Green Balance", "Shadow Blue Balance", "Midtone Red Balance",
         "Midtone Green Balance", "Midtone Blue Balance", "Highlight Red Balance", "Highlight Green Balance", "Highlight Blue Balance"];
     function gradeLayer(comp, act, name) {
-        var g = adj(comp, name || "GRADE " + act), L = LOOKS[act] || LOOKS.tom;
+        var g = adj(comp, name || "GRADE " + act);
+        applyGradeFx(g, act);
+        return g;
+    }
+    function applyGradeFx(g, act) {
+        var L = LOOKS[act] || LOOKS.tom;
         TRY("grade sharpen", function () { var e = fxAdd(g, "ADBE Unsharp Mask2", "sharpen"); setp(e, "Amount", 55); setp(e, "Radius", 1.2); });
         TRY("grade cb", function () { var cb = fxAdd(g, "ADBE Color Balance 2", "act balance"); for (var i = 0; i < 9; i++) setp(cb, CB_NAMES[i], L.cb[i]); setp(cb, "Preserve Luminosity", 1); });
         TRY("grade bc", function () { var e = fxAdd(g, "ADBE Brightness & Contrast 2", "contrast"); setp(e, "Contrast", L.contrast); });
         TRY("grade glow", function () { var e = fxAdd(g, "ADBE Glo2", "bloom"); setp(e, "Glow Threshold", L.glow[0]); setp(e, "Glow Radius", L.glow[1]); setp(e, "Glow Intensity", L.glow[2]); });
-        return g;
     }
 
     // ================================================================== TRIPTYCH
@@ -283,38 +287,36 @@ var SPECIAL = (function () {
     // boxed by an animated mask that closes from the frame to panel 1's quad while its picture lands head-on-centre.
     function vAt(prop, f) { var v = prop.valueAtTime(f2t(f), false); return [v[0], v[1]]; }
     function buildFreezeSlam(T) {
-        var L = C.shot("S32"); if (!L) { warn("no SHOT_S32"); return; }
-        var P = T.panels[0], f0 = 770, fc = 771, f1 = T.f0 - 1;       // freeze, start closing, last frame before panel 1 hits
-        var a = vAt(ANC(L), f0), pos0 = vAt(POS(L), f0), s0 = vAt(SCL(L), f0)[0], r0 = ROT(L).valueAtTime(f2t(f0), false);
+        var S = C.shot("S32"), comp = C.shotComp("S32"); if (!S || !comp) { warn("no SHOT_S32"); return; }
+        var P = T.panels[0], f0 = 770, fc = 771, f1 = T.f0 - 1, i, f;     // freeze, start closing, last frame before panel 1 hits
+        var shotA = 760;
+        for (i = 0; i < E.shots.length; i++) if (E.shots[i].id == "S32") shotA = E.shots[i].a;
+        var a = vAt(ANC(S), f0), pos0 = vAt(POS(S), f0), s0 = vAt(SCL(S), f0)[0], r0 = ROT(S).valueAtTime(f2t(f0), false);
         var head = [975, 470], sEnd = 128, tgt = [P.cx, P.cy];
-        // freeze
-        TRY("freeze", function () {
-            var pt = fxAdd(L, "ADBE Posterize Time", "freeze");
-            var fr = pt.property("Frame Rate");
-            fr.setValuesAtTimes([f2t(f0 - 1), f2t(f0)], [30, 3]);
-            fr.setInterpolationTypeAtKey && TRY("hold", function () { fr.setInterpolationTypeAtKey(2, KeyframeInterpolationType.HOLD); });
-        });
-        clearKeys(POS(L), f0 + 1, f1 + 1); clearKeys(SCL(L), f0 + 1, f1 + 1); clearKeys(ROT(L), f0 + 1, f1 + 1);
-        var m = addMask(L, shape([[-2000, -2000], [4000, -2000], [4000, 3000], [-2000, 3000]], true), 0);
-        function st(f) {
-            var u = clamp((f - fc) / (f1 - fc), 0, 1), e = eInQuad(u);
-            var s = lerp(s0, sEnd, e);
-            var endPos = [tgt[0] - (head[0] - a[0]) * sEnd / 100, tgt[1] - (head[1] - a[1]) * sEnd / 100];
-            var p = lerp2(pos0, endPos, e);
-            var sh = shakeAt(f - fc, 0, 1, 1);
-            return { s: s, p: [p[0] + sh[0], p[1] + sh[1]], e: e };
-        }
+        // a held copy of the shot (Posterize Time freezes the layer's masks too, a time-remap hold does not), graded like panel 3
+        var F = MAIN.layers.add(comp); F.name = "SPECIAL_S32_freeze"; F.motionBlur = true;
+        F.timeRemapEnabled = true;
+        F.startTime = 0; F.outPoint = f2t(f1 + 1); F.inPoint = f2t(f0);
+        var held = (f0 - shotA) / FPS, trk = F.property("ADBE Time Remapping");
+        trk.setValuesAtTimes([f2t(f0), f2t(f1 + 1)], [held, held]);
+        for (i = trk.numKeys; i >= 1; i--) if (Math.abs(trk.keyValue(i) - held) > 1e-6) trk.removeKey(i);
+        applyGradeFx(F, "tom");
+        ANC(F).setValue(a);
+        var blk = solid(MAIN, "SPECIAL_S32_black", [0, 0, 0]); span(blk, fc, f1 + 1);
+        blk.moveAfter(F);
+        keyList(OPA(F), [[f0, 0], [fc, 100]]);
+        var m = addMask(F, shape([[-2000, -2000], [4000, -2000], [4000, 3000], [-2000, 3000]], true), 0);
+        var endPos = [tgt[0] - (head[0] - a[0]) * sEnd / 100, tgt[1] - (head[1] - a[1]) * sEnd / 100];
         var ts = [], ps = [], ss = [], rs = [], shp = [], quad = P.quad, full = [[0, 0], [W, 0], [W, H], [0, H]];
-        for (var f = f0; f <= f1; f++) {
-            var q = st(f), verts = [];
-            for (var i = 0; i < 4; i++) {
-                // quad order BL BR TR TL -> mask TL TR BR BL; full-frame corners shrink towards it
-                var qi = [3, 2, 1, 0][i], c = lerp2(full[i], quad[qi], q.e);
-                verts.push([a[0] + (c[0] - q.p[0]) * 100 / q.s, a[1] + (c[1] - q.p[1]) * 100 / q.s]);
+        for (f = f0; f <= f1; f++) {
+            var u = clamp((f - fc) / (f1 - fc), 0, 1), e = eInQuad(u), sN = lerp(s0, sEnd, e), p = lerp2(pos0, endPos, e), verts = [];
+            for (i = 0; i < 4; i++) {
+                var qi = [3, 2, 1, 0][i], c = lerp2(full[i], quad[qi], e);   // full-frame corners TL TR BR BL -> the quad (BL BR TR TL)
+                verts.push([a[0] + (c[0] - p[0]) * 100 / sN, a[1] + (c[1] - p[1]) * 100 / sN]);
             }
-            ts.push(f2t(f)); ps.push(q.p); ss.push(sc(q.s)); rs.push(r0 * (1 - q.e)); shp.push(shape(verts, true));
+            ts.push(f2t(f)); ps.push(p); ss.push(sc(sN)); rs.push(r0 * (1 - e)); shp.push(shape(verts, true));
         }
-        POS(L).setValuesAtTimes(ts, ps); SCL(L).setValuesAtTimes(ts, ss); ROT(L).setValuesAtTimes(ts, rs);
+        POS(F).setValuesAtTimes(ts, ps); SCL(F).setValuesAtTimes(ts, ss); ROT(F).setValuesAtTimes(ts, rs);
         m.property("ADBE Mask Shape").setValuesAtTimes(ts, shp);
     }
 
