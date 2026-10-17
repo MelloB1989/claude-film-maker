@@ -118,7 +118,7 @@ def test_ring_pops_and_flashes_sit_on_the_audio_hits():
 def test_shutter_flash_pops_white_on_f882_and_decays_in_three_frames():
     assert 882 - 812 == sch.SHUTTER_F == 70
     v = [sch.end_fx(f, N)["flash_end"] for f in range(68, 75)]
-    assert v[2] == max(v) >= 0.8 and v[0] == 0 and v[5] == 0 and v[3] < v[2] and v[4] < v[3]
+    assert v[2] == max(v) >= 0.9 and v[0] == 0 and v[5] == 0 and v[3] < v[2] and v[4] < v[3]
 
 
 def test_sparks_are_born_at_landings_and_finite():
