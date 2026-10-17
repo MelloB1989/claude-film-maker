@@ -12,9 +12,11 @@ Elements (comp frames, 30 fps; the file name is the comp frame, `<out>/<element>
                        from the centre outward by 260 (260-262 are empty).
   shockwave   480-489  the drop's ring blast from the lens centre (1110, 443), past the frame edges by 489.
 
-Pixel format: the PNGs hold PREMULTIPLIED colour (rgb already multiplied by alpha, display-referred sRGB) with an alpha
-channel, 8-bit by default. `--alpha straight` writes ordinary straight-alpha PNGs instead. Additive elements
-(shockwave, sparks and glows) therefore also work in Add / Screen modes without a matte.
+Pixel format: RGBA PNG, display-referred sRGB, 8-bit by default (`--depth 16` for 16-bit), transparent film.
+`--alpha straight` (the default) writes ordinary straight-alpha PNGs: MEASURED, EffectCraft 0.10.0 imports every PNG as
+straight alpha (a premultiplied file composites with edges darkened by alpha twice; mean error 0.19 vs 0.001 for a straight
+one), so straight is what composites correctly with no interpret-footage switch. `--alpha premul` writes the premultiplied
+variant (rgb * alpha) for a compositor that can be told so. The shockwave works in Normal and in Add / Screen either way.
 
 Everything is keyed in the .blend (scene frame = comp frame), so the saved file plays and renders by itself too.
 The script renders through Cycles to a temporary float EXR and writes its own PNG (premultiply, sRGB, dither).
@@ -537,8 +539,8 @@ def chrome_material(name="chrome"):
     chrome.inputs["Roughness"].default_value = 0.02
     dark = nt.nodes.new("ShaderNodeBsdfPrincipled")
     dark.inputs["Base Color"].default_value = (0.004, 0.005, 0.01, 1)
-    dark.inputs["Metallic"].default_value = 0.9
-    dark.inputs["Roughness"].default_value = 0.2
+    dark.inputs["Metallic"].default_value = 0.45
+    dark.inputs["Roughness"].default_value = 0.32
 
     tc = nt.nodes.new("ShaderNodeTexCoord")
     _, _, nz = sep_xyz(tc.outputs["Normal"])           # object-space normal: +z = the face, ~0 = the sides
@@ -648,8 +650,8 @@ def build_timeless(args):
         pivots.append((piv, home, cx))
 
     # lights: the red / blue Spider-Verse rim comes from two coloured strips behind and beside the word
-    area_light(s, "rimR", (-9.0, 3.5, -4.0), (0, 0, 0), (1.0, 0.1, 0.18), 5200, size=3.0, size_y=10.0)
-    area_light(s, "rimB", (9.0, -2.0, -4.0), (0, 0, 0), (0.1, 0.3, 1.0), 5200, size=3.0, size_y=10.0)
+    area_light(s, "rimR", (-9.0, 3.5, -4.0), (0, 0, 0), (1.0, 0.1, 0.18), 2800, size=3.0, size_y=10.0)
+    area_light(s, "rimB", (9.0, -2.0, -4.0), (0, 0, 0), (0.1, 0.3, 1.0), 2800, size=3.0, size_y=10.0)
     area_light(s, "key", (0.0, 9.0, 14.0), (0, 0, 0), (1.0, 0.97, 0.93), 1100, size=10.0, size_y=3.0)
 
     animate_timeless(s, title, pivots, cen_node, amp_node, base, ycen)
@@ -775,7 +777,7 @@ R_RADIUS = [[244, 4], [245, 12], [246, 38], [247, 100], [248, 215], [249, 400], 
             [253, 1500], [262, 1500]]
 R_HOLE = [[252, 0], [253, 60], [254, 190], [255, 420], [256, 720], [257, 1040], [258, 1350], [259, 1600], [260, 1900],
           [262, 1900]]
-R_DISS = [[252, -0.05], [254, 0.05], [256, 0.28], [258, 0.62], [259, 0.85], [260, 1.15], [262, 1.2]]
+R_DISS = [[252, -0.05], [254, 0.05], [256, 0.28], [258, 0.62], [259, 1.0], [260, 1.2], [262, 1.2]]
 
 
 def build_rift(args):
@@ -904,7 +906,7 @@ def rift_material(frames):
     slice_on = sstep(wv, 0.82, 0.86)
     twist = depth * 0.012 + phase * 0.012
     u = turn + twist + slice_on * (wv - 0.8) * 3.0
-    N_ARMS = 7.0
+    N_ARMS = 8.0
     split = 0.055 + slice_on * 0.09
 
     def arm(s_):
@@ -1022,7 +1024,7 @@ def build_rift_particles(s, frames):
     for me in (sliver, quad, disc):
         me.materials.append(mat)
 
-    def anim_particle(ob, tb, a0, rho0, v, spin_w, size, z, tumble, fadeout=(257.0, 260.5)):
+    def anim_particle(ob, tb, a0, rho0, v, spin_w, size, z, tumble, fadeout=(256.5, 259.5)):
         for f in frames:
             t = f - tb
             alive = t >= 0 and f < R_F1 - 0.5
@@ -1161,10 +1163,10 @@ def shockwave_material(frames):
     nt.links.new(comb_xyz(dx * inv * 2.0, dy * inv * 2.0, tm * 0.7), nz.inputs["Vector"])
     nz2 = nt.nodes.new("ShaderNodeTexNoise")
     nz2.noise_dimensions = "3D"
-    nz2.inputs["Scale"].default_value = 11.0
+    nz2.inputs["Scale"].default_value = 5.0
     nz2.inputs["Detail"].default_value = 2.0
     nt.links.new(comb_xyz(dx * inv * 5.0, dy * inv * 5.0, tm * 1.3 + 9.0), nz2.inputs["Vector"])
-    wob = (X(nz.outputs["Fac"]) - 0.5) * (0.07 * rad + 4.0) + (X(nz2.outputs["Fac"]) - 0.5) * (0.018 * rad + 2.0)
+    wob = (X(nz.outputs["Fac"]) - 0.5) * (0.05 * rad + 4.0) + (X(nz2.outputs["Fac"]) - 0.5) * (0.005 * rad + 0.8)
     d = dist + wob
     # chromatic split of the blast front: R rides the front, B lags (dispersion)
     sp = wid * 0.075
@@ -1188,7 +1190,7 @@ def shockwave_material(frames):
     pb = profile(ring(sp))
     # concentric caustic ripples inside the band (the "refracted" streaks)
     rip = absv(sin(d * 0.26 - tm * 2.0)) * sstep(ring(0.0), -0.95, -0.1) * (1.0 - sstep(ring(0.0), -0.1, 0.02))
-    rip = rip * (X(nz2.outputs["Fac"]) * 1.0) * 0.30
+    rip = rip * (X(nz2.outputs["Fac"]) * 1.0) * 0.10
     # the opening flash and core
     core = fn("EXPONENT", -(dist * dist) / (rad * 0.9 + 30.0) ** 2.0 * 6.0) * sstep(tm, 4.0, 0.0)
     cr = (pr + rip * 0.8 + core * 1.3) * bri
@@ -1263,7 +1265,8 @@ def parse(argv):
     ap.add_argument("--device", default="CPU", help="CPU | OPTIX | CUDA")
     ap.add_argument("--out", help="frames folder (default $AMV2_DATA/blender, else out/amv2/blender_frames)")
     ap.add_argument("--blend-dir", default="out/timeless/amv2/blender")
-    ap.add_argument("--alpha", default="premul", choices=["premul", "straight"])
+    ap.add_argument("--alpha", default="straight", choices=["premul", "straight"],
+                    help="straight (default; what EffectCraft 0.10 composites correctly) | premul (rgb already * alpha)")
     ap.add_argument("--depth", type=int, default=8, choices=[8, 16])
     ap.add_argument("--no-render", action="store_true")
     ap.add_argument("--no-blend", action="store_true")

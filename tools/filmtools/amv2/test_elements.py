@@ -1,9 +1,9 @@
 """Composite the Blender elements (blender/amv2/elements.py) over real footage frames and write check images.
 
     python tools/filmtools/amv2/test_elements.py --element rift --frames 244,248,252,256 --src out/q1/frames --out out/q1/comp
-        [--mode normal|add] [--alpha premul|straight] [--bg checker]
+        [--mode normal|add] [--alpha straight|premul] [--bg checker]
 
-Needs ffmpeg, numpy and cv2 (the render VM's python has them). Elements are premultiplied PNGs by default.
+Needs ffmpeg, numpy and cv2 (the render VM's python has them). Elements are straight-alpha PNGs by default (--alpha premul for the other variant).
 Backdrops (the real clips, mapped like edl.py's shots): rift = S08 T08_eye_dive push into the left iris (f < 252) then S09
 A01_lens_pullout; shockwave = S18 M01_lens_portal; timeless3d = the three triptych panels side by side.
 """
@@ -84,8 +84,9 @@ def main():
     ap.add_argument("--src", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--mode", default="normal")
-    ap.add_argument("--alpha", default="premul")
+    ap.add_argument("--alpha", default="straight")
     ap.add_argument("--bg", default="footage")
+    ap.add_argument("--crop", help="x,y,w,h,zoom: also write a nearest-neighbour zoomed crop of the composite, the colour and the alpha")
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -98,7 +99,13 @@ def main():
             fg = np.dstack([fg, np.full(fg.shape[:2], 255, fg.dtype)])
         bg = checker() if a.bg == "checker" else backdrop(a.element, f, cache)
         mode = a.mode
-        cv2.imwrite(str(out / f"{a.element}_{f:04d}_comp.png"), composite(fg, bg, mode, a.alpha))
+        comp = composite(fg, bg, mode, a.alpha)
+        cv2.imwrite(str(out / f"{a.element}_{f:04d}_comp.png"), comp)
+        if a.crop:
+            x, y, w, h, z = [int(v) for v in a.crop.split(",")]
+            for tag, im in (("comp", comp), ("rgb", fg[..., :3]), ("alpha", fg[..., 3])):
+                cv2.imwrite(str(out / f"{a.element}_{f:04d}_crop_{tag}.png"),
+                            cv2.resize(im[y:y + h, x:x + w], None, fx=z, fy=z, interpolation=cv2.INTER_NEAREST))
         print("wrote", out / f"{a.element}_{f:04d}_comp.png")
 
 
