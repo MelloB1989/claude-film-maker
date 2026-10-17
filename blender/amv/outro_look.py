@@ -204,15 +204,15 @@ def build_lights(n, f0):
     """KEY warm, RIM blue, TOP cool (ref 06 §3 lights, AE px / 100), softbox strips for the glossy reflections, two
     back spots that carve the god rays, and the moving SWEEP."""
     lights = {}
-    lights["key"] = _area("KEY warm", (-9, -14, 8), (7, 4), 5200, (1.0, 0.95, 0.9))
+    lights["key"] = _area("KEY warm", (-9, -14, 8), (7, 4), 3000, (1.0, 0.95, 0.9))
     lights["rim"] = _area("RIM blue", (15, 5, -3), (5, 14), 4500, (0.35, 0.55, 1.0))
-    lights["top"] = _area("TOP cool", (2, -3, 15), (14, 4), 9000, (0.7, 0.8, 1.0))
-    lights["strip_l"] = _area("STRIP left", (-12, -9, 1), (1.2, 12), 2600, (1, 1, 1))
-    lights["strip_r"] = _area("STRIP right", (11, -11, 1), (1.2, 12), 1800, (1, 0.9, 0.85))
+    lights["top"] = _area("TOP cool", (2, -3, 15), (14, 4), 4000, (0.7, 0.8, 1.0))
+    lights["strip_l"] = _area("STRIP left", (-12, -9, 1), (1.2, 12), 1200, (1, 1, 1))
+    lights["strip_r"] = _area("STRIP right", (11, -11, 1), (1.2, 12), 900, (1, 0.9, 0.85))
     # back spots: shine at the camera from behind the word through the volume, the word blocks them = god rays
     for i, (x, z) in enumerate(((-3.2, 2.0), (3.6, 1.2))):
         sd = bpy.data.lights.new(f"RAY {i}", "SPOT")
-        sd.energy = 5000
+        sd.energy = 2500
         sd.spot_size = math.radians(48)
         sd.spot_blend = 0.9
         sd.shadow_soft_size = 0.15
@@ -222,6 +222,10 @@ def build_lights(n, f0):
         ob.location = (x, 9.0, z)
         aim(ob, (x * 0.2, -20.0, 0.0))
         lights[f"ray{i}"] = ob
+        for f in range(0, n):          # the shafts fade up with the letters: the film cuts in from black
+            sd.energy = 2500 * sch.smooth(f / 45.0)
+            sd.keyframe_insert("energy", frame=f0 + f)
+        linearize(sd)
     sd = bpy.data.lights.new("SWEEP", "SPOT")
     sd.spot_size = math.radians(55)
     sd.spot_blend = 0.6
@@ -271,7 +275,7 @@ def build_volume():
     sc.inputs["Anisotropy"].default_value = 0.55
     sc.inputs["Color"].default_value = (0.8, 0.85, 1.0, 1)
     sc.inputs["Density"].default_value = 0.02
-    mul = nt.nodes.new("ShaderNodeMath"); mul.operation = "MULTIPLY"; mul.inputs[1].default_value = 0.028
+    mul = nt.nodes.new("ShaderNodeMath"); mul.operation = "MULTIPLY"; mul.inputs[1].default_value = 0.014
     nt.links.new(mp.outputs[0], mul.inputs[0])
     nt.links.new(mul.outputs[0], sc.inputs["Density"])
     out = nt.nodes.new("ShaderNodeOutputMaterial")
@@ -456,7 +460,7 @@ def build_compositor(n, f0, w, h):
     for f in range(0, n):
         fx = sch.end_fx(f, n)
         fl.inputs["Factor"].default_value = max(fx["hit"], fx["flash_end"])
-        gl.inputs["Strength"].default_value = fx["bloom"] * 0.55
+        gl.inputs["Strength"].default_value = fx["bloom"] * 0.35
         cmp_.inputs[1].default_value = 1.01 if fx["black"] else fx["dissolve"] * 1.0005
         for sock in (fl.inputs["Factor"], gl.inputs["Strength"], cmp_.inputs[1]):
             sock.keyframe_insert("default_value", frame=f0 + f)
