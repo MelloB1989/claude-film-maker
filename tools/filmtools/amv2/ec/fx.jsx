@@ -128,7 +128,9 @@ var FX = {
                 }
             }
         }
-        var m;
+        var m, wi, SPECIAL_WIN = [[244, 262], [468, 492], [777, 830]];   // SPECIAL owns these frames: no automatic hit treatment
+        for (var hk in has) for (m in has[hk]) for (wi = 0; wi < SPECIAL_WIN.length; wi++)
+            if (+m >= SPECIAL_WIN[wi][0] && +m <= SPECIAL_WIN[wi][1]) delete has[hk][m];
         // a light sweep is its own hit treatment: no chroma split or shake under it
         for (i = 0; i < E.shots.length; i++) {
             S = E.shots[i];
@@ -212,16 +214,29 @@ var FX = {
         return l;
     },
     // a comic frame: frame 1 a hard B&W threshold, frame 2 the same inverted
+    // Spider-Verse comic ink: ordered-dither halftone (a blurred, rotated checker under the threshold, Linear Light) so the mids
+    // break into dots while shadows/highlights stay solid; ink/paper tint; a CMY-style misregistration (small RGB split) on top.
     ink: function (main, f, E) {
-        var lv = (FX.X(E).ink_level || {})[f] || (FX.X(E).ink_level || {})[f - 1] || 128;
-        var a = FX.adj(main, "FX ink A " + f, f, f + 1), e;
-        e = FX.add(a, "ADBE Gaussian Blur 2", "denoise"); FX.set(e, "Blurriness", 1.6);
-        e = FX.add(a, "ADBE Threshold2", "ink"); FX.set(e, "Level", lv);
-        var b = FX.adj(main, "FX ink B " + f, f + 1, f + 2);
-        e = FX.add(b, "ADBE Gaussian Blur 2", "denoise"); FX.set(e, "Blurriness", 1.6);
-        e = FX.add(b, "ADBE Threshold2", "ink"); FX.set(e, "Level", lv);
-        FX.add(b, "ADBE Invert", "invert");
-        return b;
+        var lv = (FX.X(E).ink_level || {})[f] || (FX.X(E).ink_level || {})[f - 1] || 128, out;
+        for (var k = 0; k < 2; k++) {
+            var ff = f + k, e;
+            var p = FX.solid(main, "FX ink dots " + ff, [0, 0, 0], 0, 0, ff, ff + 1);
+            e = FX.add(p, "ADBE Checkerboard", "dots");
+            FX.set(e, "Size From", 2); FX.set(e, "Width", 17); FX.set(e, "Height", 17);
+            e = FX.add(p, "ADBE Gaussian Blur 2", "round"); FX.set(e, "Blurriness", 6);
+            p.transform.rotation.setValue(45); p.transform.scale.setValue([110, 110]);
+            FX.blend(p, BlendingMode.LINEAR_LIGHT); p.transform.opacity.setValue(17);
+            var a = FX.adj(main, "FX ink " + ff, ff, ff + 1);
+            e = FX.add(a, "ADBE Gaussian Blur 2", "denoise"); FX.set(e, "Blurriness", 1.6);
+            e = FX.add(a, "ADBE Threshold2", "ink"); FX.set(e, "Level", lv);
+            if (k) FX.add(a, "ADBE Invert", "invert");
+            e = FX.add(a, "ADBE Tint", "ink and paper");
+            FX.set(e, "Map Black To", [0.03, 0.02, 0.1, 1]); FX.set(e, "Map White To", [1, 0.96, 0.84, 1]);
+            var c = FX.adj(main, "FX ink misreg " + ff, ff, ff + 1);
+            FX.chromaStack(c, [5], ff);
+            out = a;
+        }
+        return out;
     },
 
     // ---------------------------------------------------------------- transitions
@@ -248,7 +263,7 @@ var FX = {
             var sl = FX.adj(main, "FX glitch slice " + bnd + " " + b, f0, f0 + n), shapes = [], ts = [], ok = [];
             e = FX.add(sl, "ADBE Offset", "slice");
             for (i = 0; i < n; i++) {
-                var y0 = r() * 900, hh = 24 + r() * 80, dir = r() < 0.5 ? -1 : 1, dx = dir * (40 + r() * 140) * prof[i];
+                var y0 = r() * 900, hh = 24 + r() * 80, dir = r() < 0.5 ? -1 : 1, dx = dir * (40 + r() * 140) * prof[i] * (i == 1 || i == 2 ? 0.6 : 1);
                 var sh = new Shape(); sh.vertices = [[-50, y0], [1970, y0], [1970, y0 + hh], [-50, y0 + hh]]; sh.closed = true;
                 shapes.push(sh); ts.push(FX.t(f0 + i)); ok.push([f0 + i, [960 + dx, 540]]);
             }
