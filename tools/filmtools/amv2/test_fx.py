@@ -12,9 +12,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "../../.."))
 EDL = os.path.join(ROOT, "films/timeless/amv2/edl.json")
 EC = os.environ.get("EFFECTCRAFT", "/home/nikhil/code/film-making/bin/artcraft/effectcraft-0.10.0-linux-x86_64/bin/effectcraft-cli")
-PAIRS = [("hit_656", 657), ("hit_519", 520), ("glitch_dark_175", 175), ("glitch_electric_453", 453), ("sweep_83", 83),
-         ("sweep_open_5", 4), ("letterbox_640", 640), ("fire_715", 715), ("ink_587", 587), ("ink_690", 690),
-         ("flash_480", 480), ("speed_411", 411), ("riser_474", 474), ("glow_eye_245", 245)]
+PAIRS = [("hit_686_shake_flash", 687), ("hit_284_chroma", 285), ("glitch_dark_174", 174), ("glitch_electric_435", 435),
+         ("sweep_cut_118", 118), ("sweep_open_5", 5), ("letterbox_S25_640", 640), ("fire_M12_715", 715),
+         ("ink_587", 587), ("ink_inverted_588", 588), ("ink_656_f1", 657), ("speed_lines_413", 413), ("riser_478", 478),
+         ("glint_16", 16), ("flare_258", 258), ("glass_563", 563), ("eye_glow_251", 251), ("sun_318", 318)]
 
 
 def load_extend(E):

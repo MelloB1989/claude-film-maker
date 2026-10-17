@@ -129,6 +129,13 @@ var FX = {
             }
         }
         var m;
+        // a light sweep is its own hit treatment: no chroma split or shake under it
+        for (i = 0; i < E.shots.length; i++) {
+            S = E.shots[i];
+            var sf = S.xout == "light_sweep" ? S.b : (S.xin == "open_lightsweep" ? S.a + 6 : -999);
+            for (m in has.chroma) if (Math.abs(m - sf) <= 3) delete has.chroma[m];
+            for (m in has.shake) if (Math.abs(m - sf) <= 3) delete has.shake[m];
+        }
         for (m in has.shake) P.shakes.push({ f: +m, s: has.shake[m] });
         for (m in has.chroma) P.chromas.push({ f: +m, s: has.chroma[m] });
         for (m in has.flash) P.flashes.push({ f: +m, s: has.flash[m], len: has.ink[m] ? 1 : 2 });   // flash + ink at one frame: 1 f white, then the ink frame
@@ -286,8 +293,8 @@ var FX = {
             return cx + (f - peakF) * v;
         }
         var defs = [
-            { nm: "band", w: o.bw || 760, feather: 300, gain: 0.8, col: tint },
-            { nm: "core", w: 150, feather: 90, gain: 0.6, col: [1, 1, 1] }
+            { nm: "band", w: o.bw || 700, feather: 260, gain: 0.6, col: tint },
+            { nm: "core", w: 130, feather: 80, gain: 0.45, col: [1, 1, 1] }
         ];
         for (var k = 0; k < defs.length; k++) {
             var d = defs[k], l = FX.solid(main, "FX sweep " + d.nm + " " + name, d.col, d.w + 2 * d.feather, 2600, f0, f1);
@@ -310,7 +317,7 @@ var FX = {
         FX.tryit("streak blur", function () { var gb = FX.add(sx, "ADBE Gaussian Blur 2", "soft"); FX.set(gb, "Blurriness", 6); });
         // a faint wash so the cut sits in a soft bright frame, never a dip to black
         var w = FX.solid(main, "FX sweep wash " + name, tint, 0, 0, f0, f1), wk = [];
-        for (i = 0; i < n; i++) wk.push([f0 + i, 22 * env(f0 + i) * (o.gain || 1)]);
+        for (i = 0; i < n; i++) wk.push([f0 + i, 16 * env(f0 + i) * (o.gain || 1)]);
         FX.keys(FX.tr(w, "ADBE Opacity"), wk); FX.blend(w, BlendingMode.ADD);
     },
     sweep: function (main, sw, E) {
