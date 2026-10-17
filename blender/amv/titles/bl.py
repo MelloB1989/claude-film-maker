@@ -20,6 +20,7 @@ from . import basic
 from .basic import GlyphEl, PolyEl, Ramp, Solid, W, H
 
 PX = 0.01          # Blender units per px
+_fonts = {}
 
 
 def wx(x):
@@ -40,6 +41,7 @@ def lin3(rgb):
 
 def setup_scene(scale=1.0, samples=16):
     bpy.ops.wm.read_factory_settings(use_empty=True)
+    _fonts.clear()      # the reset frees every datablock: render.py runs several titles in one Blender session
     sc = bpy.context.scene
     sc.render.engine = "CYCLES"
     sc.cycles.device = "CPU"
@@ -71,9 +73,6 @@ def setup_scene(scale=1.0, samples=16):
     sc.camera = co
     sc.view_layers[0].use = False     # only the per-group view layers render
     return sc
-
-
-_fonts = {}
 
 
 def blender_font(name):
