@@ -14,7 +14,7 @@ from filmtools.amv import plan as P  # noqa: E402
 
 FILM = REPO / "films" / "timeless"
 HERO = {"T05_black_lens.0": ("novax", 139, 31), "T06_bully_smirk.0": ("chrome", 172, 31),
-        "A03_sunset_mask.0": ("neon", 338, 31), "M08_shuriken.0": ("gold", 624, 34)}
+        "A03_sunset_mask.0": ("neon", 338, 31), "screen.4": ("gold", 624, 34)}
 
 
 @pytest.fixture(scope="module")
@@ -35,7 +35,7 @@ def test_hero_titles(jobs):
         j = by[tid]
         assert (j.style, j.f_in, j.dur) == (style, f_in, dur)
         assert j.frames() == list(range(dur))
-        assert j.shot == tid.split(".")[0]
+        assert j.shot == (None if tid.startswith("screen.") else tid.split(".")[0])
         assert j.comp_frame(0) == f_in and j.comp_frame(dur - 1) == f_in + dur - 1
     assert by["T05_black_lens.0"].spec["tag"] == "THREE GENERATIONS"
     assert by["A03_sunset_mask.0"].spec["sub"] == "ANDREW GARFIELD"
@@ -54,7 +54,7 @@ def test_frames_subset_and_names():
 
 
 def test_select_rejects_unknown_ids(jobs):
-    assert [j.id for j in J.select(jobs, ["M08_shuriken.0"])] == ["M08_shuriken.0"]
+    assert [j.id for j in J.select(jobs, ["screen.4"])] == ["screen.4"]
     assert {j.style for j in J.select(jobs, styles=["sub"])} == {"sub"}
     with pytest.raises(KeyError):
         J.select(jobs, ["nope.0"])
