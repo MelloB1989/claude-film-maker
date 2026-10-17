@@ -205,14 +205,14 @@ def build_lights(n, f0):
     back spots that carve the god rays, and the moving SWEEP."""
     lights = {}
     lights["key"] = _area("KEY warm", (-9, -14, 8), (7, 4), 5200, (1.0, 0.95, 0.9))
-    lights["rim"] = _area("RIM blue", (15, 5, -3), (5, 14), 36000, (0.35, 0.55, 1.0))
+    lights["rim"] = _area("RIM blue", (15, 5, -3), (5, 14), 4500, (0.35, 0.55, 1.0))
     lights["top"] = _area("TOP cool", (2, -3, 15), (14, 4), 9000, (0.7, 0.8, 1.0))
     lights["strip_l"] = _area("STRIP left", (-12, -9, 1), (1.2, 12), 2600, (1, 1, 1))
     lights["strip_r"] = _area("STRIP right", (11, -11, 1), (1.2, 12), 1800, (1, 0.9, 0.85))
     # back spots: shine at the camera from behind the word through the volume, the word blocks them = god rays
     for i, (x, z) in enumerate(((-3.2, 2.0), (3.6, 1.2))):
         sd = bpy.data.lights.new(f"RAY {i}", "SPOT")
-        sd.energy = 90000
+        sd.energy = 5000
         sd.spot_size = math.radians(48)
         sd.spot_blend = 0.9
         sd.shadow_soft_size = 0.15
