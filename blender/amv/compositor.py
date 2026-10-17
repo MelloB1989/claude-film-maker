@@ -1,10 +1,11 @@
 """The AMV compositor: what AE did to the whole comp after the shots (build.jsx 153-244), as one node tree.
 
     Render Layers (scene-linear Cycles result)
-      -> Exposure, keyed per frame from `flash_ev`            (AE's Exposure works in linear light)
       -> 1-frame black solids at `black[]`
       -> `invert[]` frames: invert, then tint black #010105 -> white #C7DAE8 (the duotone)
       -> `halftone[]` frames (2 each): a dot grid, each cell a dot of the cell's colour (CC Ball Action, grid 13)
+      -> Exposure, keyed per frame from `flash_ev` (AE's Exposure works in linear light; build.jsx puts the FLASH layer
+         above the strobe solids, so a flash exposes them too)
       -> linear -> sRGB: from here on every value is display-referred, as AE's 8-bit project blended
       -> the `AMV Grade` node group (blender/amv/grade.py, else a pass-through), ending at `outro.f`
       -> letterbox bars (`bars[f]` px top and bottom), `accents` lines, screen titles, the glint with its glow and
@@ -175,11 +176,6 @@ def build(built, overlays_dir=None, res_scale=1.0, log=print):
     # ---- the shots, linear
     rl = t.node("CompositorNodeRLayers", "Render", scene=scene)
     img = rl.outputs["Image"]
-    if raw.get("flash_ev"):
-        ex = t.node("CompositorNodeExposure", "flash exposure")
-        t.link(img, ex.inputs[0])
-        S.key_socket(ex, 1, [(f, v) for f, v in raw["flash_ev"]], "LINEAR")
-        img = ex.outputs[0]
     if raw.get("black"):
         m = t.mix(img, (0.0, 0.0, 0.0), 0.0, "black strobes")
         S.key_socket(m, 0, [(f + d, 1.0 if d == 0 else 0.0) for f in raw["black"] for d in (-1, 0, 1)], "CONSTANT")
@@ -199,6 +195,12 @@ def build(built, overlays_dir=None, res_scale=1.0, log=print):
         img = m.outputs[2]
     if raw.get("halftone"):
         img = halftone(t, img, raw["halftone"], scene, res_scale)
+    # AE's stack: the strobe solids / adjustments sit below the FLASH exposure layer, which sits just below the grade
+    if raw.get("flash_ev"):
+        ex = t.node("CompositorNodeExposure", "flash exposure")
+        t.link(img, ex.inputs[0])
+        S.key_socket(ex, 1, [(f, v) for f, v in raw["flash_ev"]], "LINEAR")
+        img = ex.outputs[0]
 
     # ---- display-referred from here
     img = t.convert(img, LINEAR, SRGB, "to sRGB")
