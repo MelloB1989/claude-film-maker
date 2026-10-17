@@ -257,7 +257,7 @@ var SPECIAL = (function () {
     // the designed page under the panels: dark halftone, the frozen M14 dimmed and blurred behind, and each
     // not-yet-arrived slot already inked and tinted in its act colour (a ghost the real panel then slams onto)
     function buildTripBackground(trip, T) {
-        var panels = T.panels, i, P, fa = T.f0 - 2, fb = T.shatter + 12;
+        var panels = T.panels, i, P, fa = T.f0 - 6, fb = T.shatter + 12;   // the page is there from the freeze-slam closing (771) on
         var page = solid(trip, "page", [0.035, 0.02, 0.07]);
         // the frozen M14 (SHOT_S32's held frame), dimmed and blurred
         var comp = C.shotComp ? C.shotComp("S32") : null, S = C.shot ? C.shot("S32") : null;   // (the shatter-still pre-render has no shots)
@@ -373,8 +373,7 @@ var SPECIAL = (function () {
         for (i = trk.numKeys; i >= 1; i--) if (Math.abs(trk.keyValue(i) - held) > 1e-6) trk.removeKey(i);
         if (HAVE_GRADE()) TRY("applyPanel freeze", function () { GRADE.applyPanel(F, 2, E, C); }); else applyGradeFx(F, "tom");   // M14 is the Tom act: panel 3's grade
         ANC(F).setValue(a);
-        var blk = solid(MAIN, "SPECIAL_S32_black", [0, 0, 0]); span(blk, fc, f1 + 1);
-        blk.moveAfter(F);
+        // (no black plate: the triptych page, SPECIAL_TRIPTYCH, is already under the collapsing M14 from f770)
         keyList(OPA(F), [[f0, 0], [fc, 100]]);
         var m = addMask(F, shape([[-2000, -2000], [4000, -2000], [4000, 3000], [-2000, 3000]], true), 0);
         var endPos = [tgt[0] - (head[0] - a[0]) * sEnd / 100, tgt[1] - (head[1] - a[1]) * sEnd / 100];
@@ -404,7 +403,7 @@ var SPECIAL = (function () {
             else { ol = solid(MAIN, "OUTRO black (placeholder)", [0, 0, 0]); }
             span(ol, f, 900);
         }
-        var L = MAIN.layers.add(trip); L.name = "SPECIAL_TRIPTYCH"; span(L, T.f0, f);
+        var L = MAIN.layers.add(trip); L.name = "SPECIAL_TRIPTYCH"; span(L, T.f0 - 6, f);   // the page shows from the M14 freeze-slam; the panels only appear at their own frames
         // the shards cut either a frozen still of the triptych at 819 (special_spec.prerender: cheap) or, when that
         // is missing, the live triptych comp (correct but ~36x slower: every shard re-renders the whole comp)
         var still = X.shatter_still && importOk(X.shatter_still) ? footage(X.shatter_still) : null;
