@@ -219,7 +219,7 @@ var FX = {
 
     // ---------------------------------------------------------------- transitions
     // glitch_dark / glitch_electric: 7 frames around the cut b (3 f exit, 4 f entry), 3 slice bands, RGB split, stutter
-    glitch: function (main, g) {
+    glitch: function (main, g, E_) {
         var b = g.f, f0 = b - 3, n = 7, prof = [0.55, 0.85, 1.0, 0.9, 0.6, 0.32, 0.12], r = FX.rng(b * 31 + 5), i, e;
         var l = FX.adj(main, "FX glitch " + g.kind + " " + b, f0, f0 + n);
         var amps = [];
@@ -249,11 +249,29 @@ var FX = {
             var m = sl.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
             m.property("ADBE Mask Shape").setValuesAtTimes(ts, shapes);
         }
-        // 1-frame stutter: the picture holds the previous frame on the frame before the cut
-        FX.tryit("stutter", function () {
-            var st = FX.adj(main, "FX glitch stutter " + b, b - 1, b);
-            FX.set(FX.add(st, "ADBE Posterize Time", "hold"), "Frame Rate", 15);
-        });
+        FX.stutter(E_, b);
+    },
+    // 1-frame stutter: Posterize Time on an adjustment layer does not retime the layers under it in EffectCraft 0.10, so the hold is a
+    // Posterize Time effect on the SHOT layer itself (one effect, keyed for one frame; the layer is not moved or re-keyed).
+    // Posterize Time quantizes the layer's own time to a grid of p frames (rate 30/p), anchored at layer time 0: frame h shows frame h-1
+    // when its position m in the layer is 1 mod p. Take the last frame of the outgoing shot (b-1) and the smallest p that works.
+    stutter: function (E, b) {
+        var cand = [b - 1, b - 2, b - 3], i, p;
+        for (i = 0; i < cand.length; i++) {
+            var h = cand[i], S = FX.shotAt(E, h), L = S && FX._c.shot(S.id);
+            if (!L) continue;
+            var m = (h / FX._c.fps - L.startTime) * FX._c.fps;
+            for (p = 2; p <= 9; p++) {
+                if (Math.abs(m - Math.floor(m / p + 0.001) * p - 1) > 0.06) continue;
+                FX.tryit("stutter", function () {
+                    var e = FX.add(L, "ADBE Posterize Time", "glitch stutter hold");
+                    FX.tkeys(e, "Frame Rate", [[h - 1, 120], [h, FX._c.fps / p], [h + 1, 120]]);
+                });
+                return h;
+            }
+        }
+        FX.log("stutter: no hold frame near " + b);
+        return -1;
     },
 
     // soft anamorphic light sweep: a feathered slanted band + a hot core + a horizontal streak, all additive.
@@ -359,7 +377,7 @@ var FX = {
         var P = FX.plan(E), i;
         FX.tryit("looks", function () { FX.looks(main, E, P); });
         for (i = 0; i < P.chromas.length; i++) FX.tryit("chroma", function () { FX.chroma(main, P.chromas[i].f, P.chromas[i].s); });
-        for (i = 0; i < P.glitches.length; i++) FX.tryit("glitch", function () { FX.glitch(main, P.glitches[i]); });
+        for (i = 0; i < P.glitches.length; i++) FX.tryit("glitch", function () { FX.glitch(main, P.glitches[i], E); });
         for (i = 0; i < P.shakes.length; i++) FX.tryit("shake", function () {
             var s = P.shakes[i], light = s.s < 0, a = Math.abs(s.s), len = a >= 3 ? 8 : 6;
             FX.shake(main, s.f, len, (light ? 0.5 : 1) * (7 + 14 * (a - 1.8)));
@@ -378,6 +396,158 @@ var FX = {
         for (i = 0; i < P.inks.length; i++) FX.tryit("ink", function () { FX.ink(main, P.inks[i].f, E); });
         for (i = 0; i < P.flashes.length; i++) FX.tryit("flash", function () { FX.flash(main, P.flashes[i].f, P.flashes[i].s, P.flashes[i].len); });
     },
-    looks: function (main, E, P) { },
-    glints: function (main, E, P) { }
+    // ---------------------------------------------------------------- local looks (one adjustment layer per tagged shot, under the grade)
+    // glow(l, label, threshold, radius, intensity, [A, B]): Glow with a high threshold and a tight radius; A/B recolour the halo
+    glow: function (l, label, thr, rad, inten, cols) {
+        var e = FX.add(l, "ADBE Glo2", label);
+        FX.set(e, "Glow Threshold", thr); FX.set(e, "Glow Radius", rad); FX.set(e, "Glow Intensity", inten);
+        if (cols) { FX.set(e, "Glow Colors", 2); FX.set(e, "Color A", cols[0]); FX.set(e, "Color B", cols[1]); }
+        return e;
+    },
+    looks: function (main, E, P) {
+        var X = FX.X(E), i, L, l, e, k, r;
+        for (i = 0; i < P.looks.length; i++) {
+            L = P.looks[i];
+            l = FX.adj(main, "FX " + L.kind + " " + L.id, L.a, L.b);
+            FX.tryit("look " + L.kind, function () {
+                if (L.kind == "halation") {            // gentle red-orange halo on the real highlights only
+                    FX.glow(l, "halation", 80, 20, 0.45, [[1, 0.45, 0.2, 1], [0.85, 0.15, 0.06, 1]]);
+                } else if (L.kind == "bokeh_bloom") {  // a wide soft bloom on the bokeh discs
+                    FX.glow(l, "bloom", 74, 34, 0.55);
+                } else if (L.kind == "neon_glow") {    // purple neon
+                    FX.glow(l, "neon", 62, 18, 1.0, [[0.8, 0.4, 1, 1], [0.4, 0.08, 0.9, 1]]);
+                } else if (L.kind == "sparks_glow") {  // tight, hot, small
+                    FX.glow(l, "sparks", 88, 9, 0.9, [[1, 0.8, 0.5, 1], [1, 0.4, 0.1, 1]]);
+                } else if (L.kind == "electric_glow") { // cyan/blue glow that flickers per frame
+                    e = FX.glow(l, "electric", 80, 15, 1, [[0.55, 0.82, 1, 1], [0.15, 0.35, 1, 1]]);
+                    r = FX.rng(L.a * 3 + 1); k = [];
+                    for (var f = L.a; f < L.b; f++) k.push([f, 0.5 + 0.8 * r()]);
+                    FX.tkeys(e, "Glow Intensity", k);
+                } else if (L.kind == "fire_glow") {    // tame M12: pull the clipped highlights back first, then a tight warm glow
+                    e = FX.add(l, "ADBE Shadow/Highlight", "recover highlights");
+                    FX.set(e, "Auto Amounts", 0); FX.set(e, "Shadow Amount", 0); FX.set(e, "Highlight Amount", 35);
+                    FX.glow(l, "ember", 90, 12, 0.4, [[1, 0.78, 0.5, 1], [1, 0.35, 0.08, 1]]);
+                } else if (L.kind == "symbiote_flicker") { // the black suit's flicker: exposure dips + 1-frame RGB splits
+                    FX.symbiote(main, L, l);
+                } else if (L.kind == "eye_glow") {
+                    FX.eyeGlow(main, E, L, l);
+                } else if (L.kind == "sun_flare") {
+                    l.remove(); var pp = (X.sun || {})[L.id] || [1310, 530];
+                    FX.flare(main, "sun " + L.id, L.a, L.b, pp, { gain: 0.95, hold: true, tint: [1, 0.78, 0.45], streak: [1, 0.82, 0.55], size: 1.3, id: L.id });
+                } else if (L.kind == "glass_glint") {
+                    l.remove(); var gp = (X.glass || {})[L.id] || [[470, 330], [1210, 270], [780, 700]];
+                    for (k = 0; k < gp.length; k++) {
+                        var gf = L.a + 3 + k * 4;
+                        FX.glintStar(main, "glass " + k, gf, 6, gp[k], { size: 0.5, tint: [0.85, 0.95, 1] });
+                    }
+                }
+            });
+        }
+    },
+    // the black suit: 2-3 dips of exposure with a hard RGB split on the dip frames
+    symbiote: function (main, L, l) {
+        var r = FX.rng(L.a * 17 + 3), n = L.b - L.a, k = [], f, dips = [];
+        for (f = 0; f < n; f++) {
+            var dip = (f > 2 && f % 6 == (L.a % 4) + 1 && r() < 0.8) ? 1 : 0;
+            if (dip) dips.push(L.a + f);
+            k.push([L.a + f, dip ? -0.55 : 0]);
+        }
+        var e = FX.add(l, "ADBE Exposure2", "flicker");
+        FX.tkeys(e.property("Master"), "Exposure", k);
+        for (var i = 0; i < dips.length; i++) {
+            var c = FX.adj(main, "FX symbiote split " + dips[i], dips[i], dips[i] + 1);
+            FX.chromaStack(c, [12], dips[i]);
+        }
+    },
+    eyeGlow: function (main, E, L, l) {
+        // the dive into the iris: a growing cold-white ring/core at the eye, plus a tight glow on the catchlights
+        var X = FX.X(E), S = FX.shotAt(E, L.a), n = L.b - L.a, f;
+        var fp = (X.eye || {})[L.id] || (S && S.focus) || [901, 390];
+        FX.glow(l, "catchlight", 86, 14, 0.7, [[0.8, 0.92, 1, 1], [0.3, 0.55, 1, 1]]);
+        for (var ring = 0; ring < 2; ring++) {
+            var g = FX.solid(main, "FX eye " + (ring ? "core" : "ring"), [0.7, 0.88, 1], 1400, 1400, L.a, L.b), pk = [], ok = [], sk = [];
+            var m = g.property("ADBE Mask Parade").addProperty("ADBE Mask Atom"), sh = FX.ellipse(700, 700, ring ? 120 : 330, ring ? 120 : 330);
+            m.property("ADBE Mask Shape").setValue(sh); m.property("ADBE Mask Feather").setValue(ring ? [160, 160] : [90, 90]);
+            if (!ring) { var m2 = g.property("ADBE Mask Parade").addProperty("ADBE Mask Atom"); m2.maskMode = MaskMode.SUBTRACT; m2.property("ADBE Mask Shape").setValue(FX.ellipse(700, 700, 250, 250)); m2.property("ADBE Mask Feather").setValue([90, 90]); }
+            FX.blend(g, BlendingMode.ADD);
+            for (f = 0; f < n; f++) {
+                var u = (f + 1) / n, p = FX.toComp(L.id, fp, L.a + f);
+                pk.push([L.a + f, p]); sk.push([L.a + f, [(ring ? 40 : 55) + 45 * u * u, (ring ? 40 : 55) + 45 * u * u]]);
+                ok.push([L.a + f, (ring ? 42 : 30) * Math.pow(u, 1.3)]);
+            }
+            FX.keys(FX.tr(g, "ADBE Position"), pk); FX.keys(FX.tr(g, "ADBE Scale"), sk); FX.keys(FX.tr(g, "ADBE Opacity"), ok);
+        }
+    },
+    ellipse: function (cx, cy, rx, ry) {
+        var k = 0.5523, s = new Shape();
+        s.vertices = [[cx, cy - ry], [cx + rx, cy], [cx, cy + ry], [cx - rx, cy]];
+        s.inTangents = [[-rx * k, 0], [0, -ry * k], [rx * k, 0], [0, ry * k]];
+        s.outTangents = [[rx * k, 0], [0, ry * k], [-rx * k, 0], [0, -ry * k]]; s.closed = true;
+        return s;
+    },
+    // a soft additive element: a solid carrying one feathered ellipse mask (cx = cy = size/2), screen-ish via ADD
+    softEllipse: function (main, name, f0, f1, size, rx, ry, feather, col) {
+        var g = FX.solid(main, name, col, size, size, f0, f1);
+        var m = g.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
+        m.property("ADBE Mask Shape").setValue(FX.ellipse(size / 2, size / 2, rx, ry));
+        m.property("ADBE Mask Feather").setValue([feather, feather]);
+        FX.blend(g, BlendingMode.ADD);
+        return g;
+    },
+    // keyed pop: opacity env(u) over [f0, f0+len), position fixed
+    popKeys: function (g, f0, len, pos, peak, scale0, scale1, rot) {
+        var pk = [], ok = [], sk = [], rk = [];
+        for (var i = 0; i < len; i++) {
+            var u = i / Math.max(1, len - 1), e = Math.sin(Math.PI * Math.pow(u, 0.7));
+            ok.push([f0 + i, peak * e]); sk.push([f0 + i, [scale0 + (scale1 - scale0) * u, scale0 + (scale1 - scale0) * u]]);
+            rk.push([f0 + i, (rot || 0) * u]);
+        }
+        FX.tr(g, "ADBE Position").setValue(pos);
+        FX.keys(FX.tr(g, "ADBE Opacity"), ok); FX.keys(FX.tr(g, "ADBE Scale"), sk);
+        if (rot) FX.keys(FX.tr(g, "ADBE Rotate Z"), rk);
+    },
+    // a 4-point glint: hot core, soft glow, a long thin horizontal and a short vertical streak
+    glintStar: function (main, name, f0, len, pos, o) {
+        o = o || {}; var sz = o.size || 1, t = o.tint || [1, 1, 1], parts = [
+            { nm: "core", rx: 16, ry: 16, fe: 20, col: [1, 1, 1], pk: 100 },
+            { nm: "glow", rx: 60, ry: 60, fe: 90, col: t, pk: 45 },
+            { nm: "h", rx: 420, ry: 4, fe: 10, col: t, pk: 90 },
+            { nm: "v", rx: 4, ry: 150, fe: 10, col: t, pk: 55 }];
+        for (var i = 0; i < parts.length; i++) {
+            var q = parts[i], g = FX.softEllipse(main, "FX glint " + name + " " + q.nm, f0, f0 + len, 1000, q.rx, q.ry, q.fe, q.col);
+            FX.popKeys(g, f0, len, pos, q.pk * (o.gain || 1), 100 * sz * 0.5, 100 * sz * 1.1, o.rot || 0);
+        }
+    },
+    // a lens flare: the glint star plus an anamorphic blue streak and two ghosts along the line through the frame centre.
+    // hold: stays for the whole span, fading in/out softly (sun_flare); otherwise a short pop of ~10 f.
+    flare: function (main, name, f0, f1, pos, o) {
+        o = o || {}; var t = o.tint || [0.6, 0.8, 1], sz = o.size || 1, n = f1 - f0, i, cx = main.width / 2, cy = main.height / 2;
+        var parts = [
+            { nm: "core", rx: 26, ry: 26, fe: 40, col: [1, 1, 1], pk: 90, dx: 0 },
+            { nm: "glow", rx: 120, ry: 120, fe: 160, col: t, pk: 50, dx: 0 },
+            { nm: "streak", rx: 700, ry: 5, fe: 14, col: o.streak || [0.55, 0.75, 1], pk: 70, dx: 0 },
+            { nm: "ghost1", rx: 46, ry: 46, fe: 30, col: [1, 0.7, 0.4], pk: 26, dx: 0.85 },
+            { nm: "ghost2", rx: 24, ry: 24, fe: 16, col: [0.5, 1, 0.8], pk: 22, dx: 1.2 }];
+        for (i = 0; i < parts.length; i++) {
+            var q = parts[i], g = FX.softEllipse(main, "FX flare " + name + " " + q.nm, f0, f1, 1600, q.rx, q.ry, q.fe, q.col);
+            var gp = [pos[0] + (cx - pos[0]) * q.dx * 2, pos[1] + (cy - pos[1]) * q.dx * 2], ok = [], pk = [];
+            for (var f = 0; f < n; f++) {
+                var u = f / Math.max(1, n - 1), e = o.hold ? Math.min(1, u * 6, (1 - u) * 6) : Math.sin(Math.PI * Math.pow(u, 0.7));
+                ok.push([f0 + f, q.pk * (o.gain || 1) * Math.max(0, e)]);
+                var p = o.id ? FX.toComp(o.id, o.hold ? pos : pos, f0 + f) : pos;
+                pk.push([f0 + f, [p[0] + (cx - p[0]) * q.dx * 2, p[1] + (cy - p[1]) * q.dx * 2]]);
+            }
+            FX.keys(FX.tr(g, "ADBE Opacity"), ok); FX.keys(FX.tr(g, "ADBE Position"), pk);
+            FX.tr(g, "ADBE Scale").setValue([100 * sz, 100 * sz]);
+        }
+    },
+    glints: function (main, E, P) {
+        var X = FX.X(E), pos = X.glint || {}, i;
+        for (i = 0; i < P.glints.length; i++) {
+            var g = P.glints[i], def = g.kind == "lens_glint" ? [980, 470] : [1180, 486], p = pos[String(g.f)] || def;
+            p = FX.toComp(g.id, p, g.f);
+            if (g.kind == "lens_glint") FX.glintStar(main, "" + g.f, g.f - 2, 9, p, { size: 1, tint: [1, 0.95, 0.85], rot: 8 });
+            else FX.flare(main, "" + g.f, g.f - 3, g.f + 9, p, { size: 1, tint: [0.6, 0.8, 1] });
+        }
+    }
 };
