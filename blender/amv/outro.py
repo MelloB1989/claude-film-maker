@@ -77,6 +77,7 @@ def setup_render(args, plan):
     ims = sc.render.image_settings
     ims.file_format, ims.color_mode, ims.color_depth = "PNG", "RGB", "8"
     ims.compression = 15
+    sc.render.dither_intensity = 0.0              # the last frame must be exactly black
     sc.view_settings.view_transform = "Standard"
     sc.view_settings.look = "None"
     sc.render.use_compositing = True
