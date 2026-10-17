@@ -51,6 +51,8 @@ Z_STEP = 0.1                      # between stacked planes
 Z_CAMERA = 20.0
 SHUTTER = amv_plan.SHUTTER_ANGLE / 360.0
 RADIAL_TAPS = 16
+RADIAL_REACH = 0.1               # CC Radial Fast Blur: fraction of the distance to the centre that `amount` 100 % blurs
+MASK_FEATHER_SCALE = 2.0         # AE mask feather 140 reads as a ramp ~2x as wide as the number in the reference
 CUBIC_FROM_SCALE = 150.0          # shots that zoom beyond this % sample the layer with Cubic, not Linear
 
 
@@ -270,9 +272,16 @@ def make_camera(scene):
 
 # ---------------------------------------------------------------- planes and materials
 
+def first_frame_file(folder: Path):
+    """The lowest-numbered `<f:04d>.png` in `folder`, or None."""
+    files = sorted(Path(folder).glob("[0-9][0-9][0-9][0-9].png"))
+    return files[0] if files else None
+
+
 def load_sequence(folder: Path, first: int, count: int):
-    """The image datablock of `folder/<first:04d>.png ...` as a sequence (straight alpha, sRGB)."""
-    img = bpy.data.images.load(str(Path(folder) / f"{first:04d}.png"), check_existing=True)
+    """The image datablock of the frames in `folder` as a sequence (straight alpha, sRGB). The datablock points at any
+    one frame of it (the image user's offset picks the file), so a folder missing some frames still loads."""
+    img = bpy.data.images.load(str(first_frame_file(folder) or Path(folder) / f"{first:04d}.png"), check_existing=True)
     img.source = "SEQUENCE"
     img.alpha_mode = "STRAIGHT"
     img.colorspace_settings.name = "sRGB"
@@ -400,7 +409,7 @@ def portal_material(name: str, image, shot, canvas, P, interp: str):
     amount.name = "radial amount"
     amount.location = (-1800, -300)
     key(nt, f'nodes["{amount.name}"].outputs[0].default_value', 0,
-        [(f0, 0.60), (f0 + 2, 0.25), (f0 + 4, 0.0)])
+        [(f0, 0.60 * RADIAL_REACH), (f0 + 2, 0.25 * RADIAL_REACH), (f0 + 4, 0.0)])
     sum_c = sum_a = None
     for k in range(RADIAL_TAPS):
         t = k / (RADIAL_TAPS - 1)
@@ -450,7 +459,7 @@ def portal_material(name: str, image, shot, canvas, P, interp: str):
     L.new(sum_a, mean_a.inputs[0])
 
     # rounded-rect layer mask
-    mimg = rounded_rect_mask(canvas, f"{name} mask")
+    mimg = rounded_rect_mask(canvas, f"{name} mask", feather=140.0 * MASK_FEATHER_SCALE)
     mt = n.new("ShaderNodeTexImage")
     mt.name = "layer mask"
     mt.image = mimg
@@ -605,7 +614,7 @@ def build_scene(film_dir, layers_dir, *, res_scale: float = 1.0, samples: int = 
     zs = {s.name: Z_STEP * (i + 1) for i, s in enumerate(stack)}
     for shot in stack:
         folder = layers_dir / shot.name
-        if not (folder / f"{shot.a:04d}.png").exists():
+        if first_frame_file(folder) is None:
             log(f"WARNING: no layer frames for {shot.name} ({folder}): its plane is skipped")
             built.skipped.append(shot.name)
             continue

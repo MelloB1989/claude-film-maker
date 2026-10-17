@@ -272,7 +272,7 @@ def bars(t: Tree, img, raw, plan):
     for nd, sign in ((top, +1), (bot, -1)):
         nd.inputs[1].default_value = 0.0          # Mask in
         nd.inputs[2].default_value = 1.0          # Value inside
-        nd.inputs[4].default_value = (1.0, 0.0)
+        nd.inputs[4].default_value = (1.2, 0.0)      # wider than the frame: the first pixel column is inside
     t.link(top.outputs[0], bot.inputs[1])
     # normalised: y up from the bottom; a bar of b px at the top spans y in [1 - b/H, 1], centre 1 - b/2H
     S.key_socket(top, 3, [(f, 1.0 - vals[f] / 2.0 / H) for f in frames], "LINEAR", index=1)
