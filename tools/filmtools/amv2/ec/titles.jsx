@@ -227,7 +227,7 @@ var TITLES = (function () {
                 POS(l2).setValue([cx, cy]);
                 inout(l2, f, tEnd + 1);
                 K(SCL(l2), [[f, [113, 113]], [f + 3, [100, 100]]], "out");
-                K(OPA(l2), [[f, 55], [f + 1, 100], [out0, 100], [tEnd, 0]], "lin");
+                K(OPA(l2), [[f, 100], [out0, 100], [tEnd, 0]], "lin");          // snaps on at full white the frame it is revealed
                 var py = [[f, [cx, cy + 14]], [f + 3, [cx, cy]], [out0, [cx, cy]], [tEnd, [cx, cy - 10]]];
                 K(POS(l2), py, "out");
             }
@@ -380,7 +380,8 @@ var TITLES = (function () {
         crimson_white: { settle: 55, top: "#FFFFFF", bot: "#E0123F", stroke: "#FF2A55", glowA: "#FFFFFF", glowB: "#FF1744" }
     };
     // per-word vertical centre when the default (470) would cover a face: SPIDER-MAN on M08 sits in the lower third, clear of the eye and above the S25 letterbox bar (y 941)
-    var NOVAX_Y = { "SPIDER-MAN": 735 };
+    var NOVAX_Y = { "SPIDER-MAN": 735, "AMAZING": 350 };
+    var NOVAX_SOLID = { "AMAZING": 100 };           // stays a solid gradient fill with the dark edge (pale outline vanished on the white sky)
     var NOVAX_FONT = "ChineseRocksRg-Regular", TAG_FONT = "Montserrat-Light";
     var ACT_TAG = { tobey: "TOBEY MAGUIRE", andrew: "ANDREW GARFIELD", tom: "TOM HOLLAND" };
     function slantBar(cx, top, bot, w, lean) { var s = new Shape(); s.vertices = [[cx - w / 2, top], [cx + w / 2, top], [cx + w / 2 + lean, bot], [cx - w / 2 + lean, bot]]; s.closed = true; return s; }
@@ -405,7 +406,7 @@ var TITLES = (function () {
         // ---- bottom to top
         // tag on a rough black brush bar, just under the baseline (its own comp: it stays in FRONT of the subject)
         var tcomp = newComp("NOVAX TAG " + T.text, T.f, T.f1);
-        var tagText = T.tag || ACT_TAG[act] || "";
+        var tagText = (T.tag !== undefined) ? T.tag : (ACT_TAG[act] || "");
         var barH = Math.max(46, Math.round(capH * 0.17)), barW = Math.round(Math.max(heroW * 0.3, tagText.length * barH * 0.62 + 90)), subCap = Math.round(S * 0.3 * 0.7), subCy = bot + capH * 0.1 + subCap / 2 + 12, barCy = bot + capH * 0.08 + barH / 2 + 10 + (T.sub ? subCap + capH * 0.1 + 6 : 0), barL = cx - heroW / 2 + heroW * 0.03;
         var bar = tcomp.layers.addShape(); bar.name = "tag bar";
         var bg = bar.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");
@@ -442,7 +443,7 @@ var TITLES = (function () {
         });
         ramp.moveBefore(fillT);
         ramp.setTrackMatte(fillT, TrackMatteType.ALPHA); fillT.enabled = false;
-        K(OPA(ramp), [[0, 100], [5, 100], [20, pal.settle || 38]], "io");           // settles to a mostly-outline word; a thin fill stays so it reads over footage
+        K(OPA(ramp), [[0, 100], [5, 100], [20, NOVAX_SOLID[T.text] || pal.settle || 38]], "io");           // settles to a mostly-outline word; a thin fill stays so it reads over footage
         TRY("fill shadow", function () { dropShadow(ramp, 50, 5, 8, 135, "fill shadow"); });
         // light sweep: a white copy under a slanted moving mask, added on top, with its own bloom
         var sweepO = { font: NOVAX_FONT, size: S, fill: [1, 1, 1], italic: true };
@@ -504,6 +505,22 @@ var TITLES = (function () {
         var X = (E.x && E.x.titles) || { sub: {}, shot: {}, behind: {}, cut: {}, act: {} };
         FOLDER = app.project.items.addFolder("TITLES");
         var made = [];
+        // an act whose name has a hero title but no namecard in the EDL gets one (Andrew): same card as TOBEY / TOM, over the hero's window
+        var syn = [];
+        for (var a = 0; a < E.acts.length; a++) {
+            var A = E.acts[a], has = false, hero = null, j;
+            if (!A.name) continue;
+            for (j = 0; j < E.titles.length; j++) {
+                if (E.titles[j].style == "namecard" && E.titles[j].f >= A.f0 && E.titles[j].f < A.f1) has = true;
+                if (E.titles[j].style == "novax" && E.titles[j].f >= A.f0 && E.titles[j].f < A.f1 && !hero) hero = E.titles[j];
+            }
+            if (!has && hero) {
+                hero.tag = "";                                    // the card replaces the tag bar
+                X.act["syn" + a] = A.id;
+                syn.push({ T: { f: hero.f + 3, f1: hero.f1, style: "namecard", text: A.name, sub: "SPIDER-MAN  " + A.years, act: A.id }, k: "syn" + a });
+            }
+        }
+        for (var q = 0; q < syn.length; q++) { try { var SL = namecard(main, syn[q].T, X, syn[q].k); if (SL) made.push(SL); } catch (e2) { warn("synth namecard: " + e2); } }
         for (var i = 0; i < E.titles.length; i++) {
             var T = E.titles[i], L = null;
             try {
