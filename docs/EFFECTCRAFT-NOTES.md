@@ -158,3 +158,11 @@ Probed against effectcraft-cli 0.10.0 while checking how the Blender element seq
 - **Shot comps in the real core carry handle frames**: comp time of frame f = f/30 - SHOT layer `startTime` (do not assume time 0 = `a`).
 - **Gitignored paths (out/) are not synced to the render VM**: put probe scripts under a tracked dir (e.g. lab/).
 - PNG sequences with alpha import as straight alpha by default; `AlphaMode` is not defined in this runtime.
+- Memory (v2-core): one `effectcraft-cli render` process at 1920x1080 / 16 samples peaks at ~6.1 GB RSS after 96 frames
+  (VmHWM polled from /proc: the VM has no /usr/bin/time) and keeps growing, so two long processes OOM on the 31 GB VM next
+  to other jobs. Prefs `memory.layerCacheMb / mediaCacheMb / previewCacheMb`, `disk.diskCacheEnabled` exist (strings in the
+  binary; read from `$EFFECTCRAFT_CONFIG_DIR/prefs.json`), but setting them changed nothing measurable (6215 vs 6059 MB).
+  Fix that works: many short chunks (render.py `--chunk 48`), each its own process, an xargs queue of `--procs` workers,
+  one retry per chunk.
+- `effectcraft-cli script` / `render` project paths inside the job: the VM resolves `$AMV2_DATA` (240 fps sources, mattes,
+  mix) only on the VM, so ecbuild runs there (render.py builds inside the queue job).

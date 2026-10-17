@@ -36,6 +36,30 @@ SRC_FPS = 60.0
 BEHIND = set()                                           # clips whose shots get a MATTE_ mirror (titles `behind`)
 
 
+class PStr(str):
+    """A path that is a str (JSON-serialisable: libs put ctx into the scripts they build) and still takes `/`."""
+
+    def __truediv__(self, o):
+        return PStr(os.path.join(self, str(o)))
+
+    def exists(self):
+        return os.path.exists(self)
+
+    def is_dir(self):
+        return os.path.isdir(self)
+
+    def read_text(self, *a, **k):
+        return Path(self).read_text(*a, **k)
+
+    @property
+    def parent(self):
+        return PStr(os.path.dirname(self))
+
+    @property
+    def name(self):
+        return os.path.basename(self)
+
+
 def data_dir():
     d = os.environ.get("AMV2_DATA")
     if d:
@@ -156,7 +180,7 @@ def extend_E(E, ctx_py):
 def build_script(out_project, mode="clips", samples=16, E=None):
     E = E or json.loads(EDL.read_text())
     data = data_dir()
-    ctx_py = dict(fps=E["fps"], w=E["w"], h=E["h"], root=ROOT, data=data, src=mode, log=lambda m: print(f"[ecbuild] {m}"))
+    ctx_py = dict(fps=E["fps"], w=E["w"], h=E["h"], root=PStr(ROOT), data=PStr(data), src=mode, log=lambda m: print(f"[ecbuild] {m}"))
     extend_E(E, ctx_py)
     CORE = build_core(E, mode, samples, data)
     parts = [f"var E = {json.dumps(E, default=str)};\nvar CORE = {json.dumps(CORE, default=str)};\nvar OUT_PROJECT = {json.dumps(str(out_project))};\n"]
@@ -170,7 +194,7 @@ def build_script(out_project, mode="clips", samples=16, E=None):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--src", choices=("clips", "src240"), default="clips")
+    ap.add_argument("--src", choices=("clips", "src240"), default="src240")
     ap.add_argument("--samples", type=int, default=None, help="motion blur samples (default 16, 4 with --draft)")
     ap.add_argument("--draft", action="store_true", help="4 motion-blur samples, project timeless_v2_draft.ecproj")
     ap.add_argument("--out", default=None)
