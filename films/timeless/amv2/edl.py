@@ -101,10 +101,10 @@ shot("S25", "M08_shuriken", 620, 656, (0.02, 0.76), "const", (108, 100), (700, 4
      ["letterbox", "chroma@620"], "slow motion: the shuriken passes his eye; hero title SPIDER-MAN")
 shot("S26", "M09_punches", 656, 672, (0.05, 0.72), "velocity", (110, 100), None, "impact", "spin_ccw",
      ["ink_frame@656", "shake@656", "flash@656"], "punches")
-shot("S27", "M10_tank_snap", 672, 690, (0.05, 0.88), "land", (100, 112), None, "spin_ccw", "impact",
+shot("S27", "M10_tank_snap", 672, 686, (0.05, 0.88), "land", (100, 112), None, "spin_ccw", "impact",
      [], "crouch on the tank")
-shot("S28", "M11_electric_mask", 690, 708, (0.02, 0.76), "const", (115, 100), None, "impact", "glitch_electric",
-     ["ink_frame@690", "shake@690", "source_cut@700"], "the clip's own cut at 0.55 s lands on the hit at f700")
+shot("S28", "M11_electric_mask", 686, 708, (0.02, 0.76), "const", (115, 100), None, "impact", "glitch_electric",
+     ["shake@686", "source_cut@700"], "the clip's own cut at 0.55 s lands on the hit at f700")
 shot("S29", "M12_fire_webs", 708, 726, (0.05, 0.76), "velocity", (110, 100), None, "glitch_electric", "zoom_in",
      ["fire_glow"], "webs in the fire")
 shot("S30", "M13_mesh_lenses", 726, 744, (0.10, 0.76), "const", (120, 100), None, "pull_out", "whip_u",
