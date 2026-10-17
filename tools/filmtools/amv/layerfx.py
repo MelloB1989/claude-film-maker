@@ -208,7 +208,7 @@ def _zoom_about(img, scale, cx, cy):
                           borderMode=cv2.BORDER_CONSTANT, borderValue=0)
 
 
-def radial_fast_blur(img, amount, center, mode="brightest"):
+def radial_fast_blur(img, amount, center, mode="brightest", length=None, mix=None):
     """AE CC Radial Fast Blur, Type Zoom. Every pixel gathers samples along the ray towards `center`
     (c + (p - c) * s, s from 1 down to 1 - L, L = RFB_LENGTH * amount / 100), so the blur grows with the distance
     from the centre and streaks run radially. `mode`: 'standard' averages the samples, 'brightest' keeps the per-channel
@@ -217,10 +217,13 @@ def radial_fast_blur(img, amount, center, mode="brightest"):
     The samples are not looped one by one (a 60 blur is hundreds of px long) but built the way the effect itself is
     fast: `RFB_PASSES` doublings, pass i merging the image with a copy zoomed by (1-L)^(2^i / 2^n); the composed zooms
     cover s = (1-L)^(k / 2^n), k = 0 .. 2^n - 1, geometrically spaced, so no stepped ghosts, and the cost is n warps.
-    `center` is (cx, cy) in the array's pixel space. Premultiplied internally."""
+    `center` is (cx, cy) in the array's pixel space. `length` / `mix` override RFB_LENGTH / RFB_BRIGHT_MIX (a shot's
+    `rfb_len` / `rfb_mix`). Premultiplied internally."""
     if amount <= 1e-6:
         return img
-    L = min(RFB_LENGTH * amount / 100.0, 0.98)
+    length = RFB_LENGTH if length is None else length
+    mix = RFB_BRIGHT_MIX if mix is None else mix
+    L = min(length * amount / 100.0, 0.98)
     pm = premultiply(img)
     ops = {"standard": lambda a, b: (a + b) * 0.5, "brightest": np.maximum, "darkest": np.minimum}
     mode = mode.lower()
@@ -234,8 +237,8 @@ def radial_fast_blur(img, amount, center, mode="brightest"):
         return cur
 
     cur = run(ops[mode])
-    if mode == "brightest" and RFB_BRIGHT_MIX < 1.0:
-        cur = RFB_BRIGHT_MIX * cur + (1.0 - RFB_BRIGHT_MIX) * run(ops["standard"])
+    if mode == "brightest" and mix < 1.0:
+        cur = mix * cur + (1.0 - mix) * run(ops["standard"])
     return unpremultiply(cur)
 
 

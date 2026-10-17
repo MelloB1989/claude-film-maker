@@ -50,3 +50,29 @@ def test_override_parser(monkeypatch):
 
 def test_parse_frames():
     assert bake_luma.parse_frames("3-5,9") == [3, 4, 5, 9]
+
+
+def test_shot_rfb_accessors_default_to_the_globals():
+    from filmtools.amv import plan as planmod
+    s = planmod.Shot(0, {"name": "x", "a": 0, "b": 5, "end": 5, "src": "c"})
+    assert s.rfb_len == planmod.RFB_LEN == 0.12 and s.rfb_mix == planmod.RFB_MIX == 1.0
+    s = planmod.Shot(0, {"name": "x", "a": 0, "b": 5, "end": 5, "src": "c", "rfb_len": 0.7, "rfb_mix": 0.5})
+    assert s.rfb_len == 0.7 and s.rfb_mix == 0.5
+
+
+def test_radial_blur_args_override_the_globals():
+    img = plate()
+    assert np.allclose(fx.radial_fast_blur(img, 40, (48, 27)), fx.radial_fast_blur(img, 40, (48, 27), length=0.12, mix=1.0))
+    assert not np.allclose(fx.radial_fast_blur(img, 40, (48, 27)), fx.radial_fast_blur(img, 40, (48, 27), length=0.5))
+
+
+def test_the_plan_fields_are_read_by_bake(monkeypatch):
+    from filmtools.amv import bake, plan as planmod
+    seen = {}
+    monkeypatch.setattr(bake.fx, "radial_fast_blur", lambda img, a, c, mode, length=None, mix=None: seen.update(l=length, m=mix) or img)
+    monkeypatch.setattr(bake, "load_plate", lambda *a, **k: np.zeros((54, 96, 3), np.float32))
+    raw = {"name": "x", "a": 0, "b": 5, "end": 5, "src": "c", "remap": [0.0] * 5, "px": [960] * 5, "py": [540] * 5, "s": [100] * 5,
+           "rz": [0] * 5, "rfb": [[0, 40, 960, 540]], "rfb_len": 0.7}
+    shot = planmod.Shot(0, raw)
+    bake.bake_frame(planmod.Plan(raw={"titles": []}, root=None), shot, 0, 0.05)
+    assert seen == {"l": 0.7, "m": None}
