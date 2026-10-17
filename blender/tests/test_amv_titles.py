@@ -25,8 +25,10 @@ def jobs():
 def test_ids_are_unique_and_shaped(jobs):
     ids = [j.id for j in jobs]
     assert len(ids) == len(set(ids))
-    assert all(j.id.startswith("screen.") == j.screen for j in jobs)
-    assert [j.id for j in jobs if j.screen] == [f"screen.{i}" for i in range(sum(j.screen for j in jobs))]
+    titles = [j for j in jobs if j.id != J.WATERMARK_ID]      # the watermark still is the last job
+    assert jobs[-1].id == J.WATERMARK_ID and jobs[-1].style == "watermark" and jobs[-1].dur == 1
+    assert all(j.id.startswith("screen.") == j.screen for j in titles)
+    assert [j.id for j in titles if j.screen] == [f"screen.{i}" for i in range(sum(j.screen for j in titles))]
 
 
 def test_hero_titles(jobs):

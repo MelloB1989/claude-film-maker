@@ -59,7 +59,7 @@ def _dur(spec: dict, what: str) -> int:
 
 def jobs_from_plan(plan) -> list[TitleJob]:
     """Every title of `plan` (a `filmtools.amv.plan.Plan`, or anything with `.raw`/`.shots`), shot titles first in
-    shot order, then the screen titles in plan order. A watermark/outro is not a title of this list."""
+    shot order, then the screen titles in plan order, then the watermark still (`watermark`, dur 1). The outro is not a title."""
     jobs: list[TitleJob] = []
     for shot in plan.shots:
         for i, t in enumerate(shot.titles):
@@ -68,6 +68,8 @@ def jobs_from_plan(plan) -> list[TitleJob]:
     for i, t in enumerate(plan.raw.get("titles") or []):
         tid = f"screen.{i}"
         jobs.append(TitleJob(tid, t["style"], t["spec"], int(t["f_in"]), _dur(t["spec"], tid), None))
+    # the watermark is one still (watermark.py): the compositor reads titles/watermark/0000.png
+    jobs.append(TitleJob(WATERMARK_ID, "watermark", {}, 0, 1, None))
     ids = [j.id for j in jobs]
     if len(set(ids)) != len(ids):
         raise ValueError("duplicate title ids in the plan")
