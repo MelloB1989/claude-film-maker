@@ -24,8 +24,9 @@ ZOOMS = ("zoom_in", "pull_out", "zoom_out")
 WHIPS = {"whip_l": (-1, 0), "whip_r": (1, 0), "whip_u": (0, -1), "whip_d": (0, 1),
          "whip_left": (-1, 0), "whip_right": (1, 0), "whip_up": (0, -1), "whip_down": (0, 1)}
 SPINS = {"spin_cw": 1, "spin_ccw": -1}
-EXIT_N = {"zoom_in": 5, "zoom_out": 5, "whip": 2, "spin": 5}
-ENTRY_N = {"pull_out": 9, "zoom_in": 9, "zoom_out": 8, "whip": 3, "spin": 9, "impact": 6, "open_lightsweep": 12}
+EXIT_N = {"zoom_in": 5, "zoom_out": 5, "whip": 2, "spin": 3}
+ENTRY_N = {"pull_out": 9, "zoom_in": 9, "zoom_out": 8, "whip": 3, "spin": 3, "impact": 6, "open_lightsweep": 12}
+SPIN_ROT, SPIN_ZOOM = 35.0, 1.35  # spin at the cut: smaller than before so the cut frame keeps its contrast
 WHIP_ZOOM = 1.22                # scale reached at the cut during a whip
 LAMBDA = 3.0                   # default exponential settle rate (per entry length)
 
@@ -117,9 +118,9 @@ def exit_move(xout, n_shot, focus_zoom=ZC):
                 dict(g=gw * dprog, rot=0, t=D * dprog))
     if k == "spin":
         s = SPINS[xout]
-        G = math.log(1.5)
-        return (Move(g=lambda u: G * prog(u), rot=lambda u: s * 50 * prog(u), tile=True),
-                dict(g=G * dprog, rot=50 * dprog, t=0))
+        G = math.log(SPIN_ZOOM)
+        return (Move(g=lambda u: G * prog(u), rot=lambda u: s * SPIN_ROT * prog(u), tile=True),
+                dict(g=G * dprog, rot=SPIN_ROT * dprog, t=0))
 
 
 def entry_move(xin, prev_xout, speeds):
@@ -153,9 +154,9 @@ def entry_move(xin, prev_xout, speeds):
                     ty=(lambda u: -dy * f(u)) if dy else None, tile=True)
     if k == "spin":
         s = SPINS[xin]
-        G = math.log(1.5)
+        G = math.log(SPIN_ZOOM)
         fg = settle_curve(G, N, speeds["g"] or G / N * 3)
-        fr = settle_curve(50.0, N, speeds["rot"] or 50 / N * 3)
+        fr = settle_curve(SPIN_ROT, N, speeds["rot"] or SPIN_ROT / N * 3)
         return Move(g=fg, rot=lambda u: -s * fr(u), tile=True)
     if k == "impact":                                 # punch 115 -> 100 % over 6 f, expo-out
         G = math.log(1.15)
@@ -203,7 +204,7 @@ def shot_keys(sh, prev, nxt, hin, hout):
             sp2 = abs(out[min(i + 1, len(out) - 1)]["pos"][0 if horiz else 1] - k["pos"][0 if horiz else 1])
             v = max(sp, sp2)
             on = (k["f"] <= a) if _kind(sh["xin"]) == "whip" else (k["f"] >= b - EXIT_N["whip"])   # blur the A side and the cut frame only
-            k["wb"] = [round(0.4 * v / (k["scale"] / 100.0), 1) if (v > 250 and on) else 0.0, 90 if horiz else 0]
+            k["wb"] = [round(0.35 * v / (k["scale"] / 100.0), 1) if (v > 250 and on) else 0.0, 90 if horiz else 0]
     for k in out:
         del k["need"], k["F"]
     return out
