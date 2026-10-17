@@ -194,7 +194,7 @@ def test_watermark_is_centred_at_960_with_the_baseline_at_1050():
     g = fr.groups[0].elems
     assert len(g) == 9                                         # SAU_EDITZ: no spaces, the underscore is a glyph
     pl, w = basic.line_layout("SAU_EDITZ", "Montserrat-Light", 30, 180)
-    assert g[0].x == pytest.approx(960 - w / 2)
+    assert g[0].x == pytest.approx(964 - w / 2)         # +4: matches the AE ink position
     assert all(e.y == pytest.approx(1050) for e in g)          # baseline (AE's un-anchored text layer)
     assert fr.groups[0].shadow.opacity == pytest.approx(0.7)
     assert all(e.opacity == 1.0 for e in g)

@@ -789,7 +789,7 @@ def watermark_frame(spec=None, k=0):
     emboldened by a 1.4 px outline, with the tracking set to land on the AE ink width."""
     spec = spec or {}
     font, size = spec.get("font", "Montserrat-Light"), spec.get("size", 30)
-    x, y = spec.get("pos", (960.0, 1050.0))
+    x, y = spec.get("pos", (964.0, 1050.0))   # +4 px: measured, AE centres the ink at x = 961
     gl, _ = line_glyphs(spec.get("text", "SAU_EDITZ"), font, size, Solid((1, 1, 1)), x, y - cap_height(font, size) / 2,
                         tracking=spec.get("tracking", 180), stroke=((1, 1, 1), spec.get("embolden", 1.4)))
     return Frame([Group("text", gl, shadow=ae_shadow(70, 2, 4))])
