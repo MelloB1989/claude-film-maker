@@ -21,8 +21,10 @@ EXTRUDE = 0.60                # BU half depth of the extrusion (AE: 70 px deep; 
 BEVEL_DEPTH = 0.10
 GAP = 0.13                    # of the font size, outro.jsx `gap = size * 0.13`
 WORD_W = 14.21                # BU: the AE word is 1421 px wide
-KERN = {("D", "I"): 0.03, ("I", "T"): 0.12, ("T", "Z"): 0.03, ("U", "_"): 0.02, ("_", "E"): 0.02}   # extra gap, of the size:
-# the Spider-Man I has a spike that fused with the T ("EDJTZ") at the plain 0.13 gap
+KERN = {("S", "A"): -0.005, ("A", "U"): 0.05, ("U", "_"): 0.02, ("_", "E"): 0.02, ("E", "D"): 0.015,
+        ("D", "I"): 0.03, ("I", "T"): 0.07, ("T", "Z"): 0.03}   # optical kerning, extra gap of the size: the A's feet
+# touched the U, and the Spider-Man I (a spike) fused with the T ("EDJTZ") at the plain 0.13 gap
+I_STEM = 1.9                  # x-stretch of the I: the font's I is a thin blade, the other stems are about twice as wide
 BAR_W = 0.42                  # underscore width in cap heights (outro.jsx clamps it to 0.42 x size)
 
 
@@ -50,6 +52,12 @@ def _glyph_mesh(ch, font, size, extrude, bevel):
 def _stand_up(me):
     """Text plane XY -> XZ (up = +Z), extrusion +Z -> -Y so the front looks at the camera."""
     me.transform(Matrix.Rotation(math.pi / 2, 4, "X"))
+
+
+def _shape(me, ch):
+    """Glyph tweaks after standing up: widen the thin Spider-Man I to a normal stem."""
+    if ch == "I":
+        me.transform(Matrix.Diagonal((I_STEM, 1.0, 1.0, 1.0)))
 
 
 def _bounds(me):
@@ -99,6 +107,7 @@ def build_letters(font_path, mats, collection):
         if ch != "_" and ch not in unit:
             m = _glyph_mesh(ch, font, 1.0, 0.0, 0.0)
             _stand_up(m)
+            _shape(m, ch)
             a, b, _, _ = _bounds(m)
             unit[ch] = b - a
             bpy.data.meshes.remove(m)
@@ -122,6 +131,7 @@ def build_letters(font_path, mats, collection):
         else:
             me = _glyph_mesh(ch, font, size, extrude, bevel)
             _stand_up(me)
+            _shape(me, ch)
             a, b, c, d = _bounds(me)
             cx, cz = (a + b) / 2, (c + d) / 2
             w = b - a

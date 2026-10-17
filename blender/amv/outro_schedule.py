@@ -148,8 +148,9 @@ def ring(i, f, n):
     at the end; `pop` is the flare, peaking on the peak frame."""
     pk = RING_PEAKS[i]
     f0 = pk - 9
-    return {"opacity": lin([(f0, 0.0), (pk, 1.0)], f),
-            "pop": lin([(pk - 4, 0.0), (pk, 1.0), (pk + 6, 0.0)], f),
+    # all three also burst on local 0: the hard cut from the hero shot is itself a beat, so the first frame is lit
+    return {"opacity": max(lin([(f0, 0.0), (pk, 1.0)], f), lin([(0, 0.9), (6, 0.0)], f)),
+            "pop": max(lin([(pk - 4, 0.0), (pk, 1.0), (pk + 6, 0.0)], f), lin([(0, 1.0), (7, 0.0)], f)),
             "scale": lin([(f0, 0.4), (f0 + 27, 1.0), (n, 1.08)], f)}
 
 
@@ -159,10 +160,10 @@ def end_fx(f, n):
     return {
         # only the opening tick is a global add; the music hits (HITS) punch through bloom and ring flares instead,
         # because a linear-light add of even 0.03 lifts the blacks to grey fog
-        "hit": lin([(0, 0.02), (4, 0.0)], f),
-        # the camera-shutter SFX: a sharp white pop, decaying over 3 f (linear-light adds: 0.03 is already a visible grey) (replaces AE's soft grey end flash)
-        "flash_end": lin([(SHUTTER_F - 1, 0.0), (SHUTTER_F, 1.0), (SHUTTER_F + 1, 0.3), (SHUTTER_F + 3, 0.0)], f),
-        "fade_in": lin([(0, 1.0), (5, 0.0)], f),
+        "hit": 0.0,
+        # the camera-shutter SFX: a sharp white pop, smooth 4-5 f falloff (linear-light adds: 0.03 is already a visible grey) (replaces AE's soft grey end flash)
+        "flash_end": lin([(SHUTTER_F - 1, 0.0), (SHUTTER_F, 1.0), (SHUTTER_F + 1, 0.55), (SHUTTER_F + 2, 0.28), (SHUTTER_F + 3, 0.12), (SHUTTER_F + 4, 0.04), (SHUTTER_F + 5, 0.0)], f),
+        "fade_in": 0.0,   # the cut opens on the ring burst, no fade from black
         "bloom": lin([(0, 1.2), (8, 0.45), (n - 11, 0.45), (n - 8, 0.9), (n, 0.8)], f)
         + 1.6 * max(lin([(h - 1, 0.0), (h, 1.0), (h + 4, 0.0)], f) for h in HITS),
         "dissolve": smooth_ease(lin([(d0, 0.0), (d1, 1.0)], f)),

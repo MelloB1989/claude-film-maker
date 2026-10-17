@@ -100,7 +100,7 @@ def test_sweep_crosses_the_settled_word_and_is_gone_before_the_dissolve():
 def test_ring_pop_peaks_as_each_ring_lights_up():
     for i in range(3):
         pk = sch.RING_PEAKS[i]
-        assert sch.ring(i, pk, N)["pop"] == 1.0 and sch.ring(i, pk - 5, N)["pop"] == 0.0
+        assert sch.ring(i, pk, N)["pop"] == 1.0 and sch.ring(i, pk - 5, N)["pop"] < 1.0
 
 
 def test_rings_fade_in_staggered():
@@ -116,10 +116,12 @@ def test_ring_pops_and_flashes_sit_on_the_audio_hits():
         assert sch.end_fx(h, N)["bloom"] > sch.end_fx(h - 3, N)["bloom"] + 1.0
 
 
-def test_shutter_flash_pops_white_on_f882_and_decays_in_three_frames():
+def test_shutter_flash_pops_white_on_f882_and_falls_off_smoothly():
     assert 882 - 812 == sch.SHUTTER_F == 70
-    v = [sch.end_fx(f, N)["flash_end"] for f in range(68, 75)]
-    assert v[2] == max(v) >= 0.9 and v[0] == 0 and v[5] == 0 and v[3] < v[2] and v[4] < v[3]
+    v = [sch.end_fx(f, N)["flash_end"] for f in range(68, 77)]
+    assert v[2] == max(v) >= 0.9 and v[0] == 0 and v[-1] == 0 and v[1] == 0
+    steps = [v[i] - v[i + 1] for i in range(2, 7)]
+    assert all(s > 0 for s in steps) and max(steps[1:]) <= 0.3     # no abrupt last step after the first drop
 
 
 def test_sparks_are_born_at_landings_and_finite():
@@ -134,6 +136,6 @@ def test_sparks_are_born_at_landings_and_finite():
         assert s["born"] + s["life"] <= N - 10
 
 
-def test_opens_on_black_and_fades_in_by_frame_five():
-    assert sch.end_fx(0, N)["fade_in"] == 1.0
-    assert sch.end_fx(5, N)["fade_in"] == 0.0
+def test_opens_on_the_cut_with_a_ring_burst_not_black():
+    assert sch.end_fx(0, N)["fade_in"] == 0.0
+    assert all(sch.ring(i, 0, N)["pop"] == 1.0 and sch.ring(i, 0, N)["opacity"] >= 0.8 for i in range(3))
