@@ -102,13 +102,14 @@ var SPECIAL = (function () {
         return file;
     }
     // an RGBA image sequence by its first frame; returns the footage item or null when the folder is missing
-    function sequence(dir, firstFrame) {
+    function sequence(dir, firstFrame, alpha) {
         var p = dir + "/" + ("0000" + firstFrame).slice(-4) + ".png";
         var o = new ImportOptions(new File(p)); o.sequence = true;
         var it = null;
         try { it = app.project.importFile(o); } catch (e) { return null; }
         if (!it) return null;
         TRY("conform", function () { it.mainSource.conformFrameRate = FPS; });
+        TRY("alpha", function () { if (alpha) it.mainSource.alphaMode = AlphaMode.STRAIGHT; });   // Blender RGBA is straight-alpha
         TRY("folder", function () { it.parentFolder = C.elements; });
         return it;
     }
@@ -180,6 +181,7 @@ var SPECIAL = (function () {
     }
 
     // one comic panel as its own comp (screen space 1920x1080: the quad is cut out by a mask in TRIP)
+    function HAVE_GRADE() { return typeof GRADE !== "undefined" && GRADE && typeof GRADE.applyPanel == "function"; }
     function buildPanelComp(P, idx, T) {
         var pc = newComp("SP_PANEL_" + (idx + 1) + "_" + P.act, W, H);
         var item = footage(clipFile(P.clip, P.file));
@@ -196,16 +198,16 @@ var SPECIAL = (function () {
         ANC(fl).setValue(P.focus);
         POS(fl).setValue([P.cx + P.slant_shift, P.cy]);
         keyList(SCL(fl), [[P.f, sc(sFit)], [P.f + n, sc(sFit * 1.07)]]);
-        gradeLayer(pc, P.act);
+        if (!HAVE_GRADE()) gradeLayer(pc, P.act);   // with the GRADE lib the panel layer is graded by GRADE.applyPanel (buildTriptych)
         // ink border on the quad's edge (the TRIP mask cuts the outer half away)
         var bl = shapeLayer(pc, "border");
         addShapeGroup(bl, quadShape(P.quad, 0), null, [0.97, 0.96, 0.92], 12);
         // the small earth label: comic caption box, bottom left of the panel
-        var lx = P.quad[0][0] + 26, ly = P.quad[0][1] - 76, bw = 250, bh = 46;
+        var lx = P.quad[0][0] + 30, ly = P.quad[0][1] - 118, bw = 400, bh = 74;   // (x1.6: legible at half res)
         var lb = shapeLayer(pc, "label box");
-        addShapeGroup(lb, shape([[lx, ly], [lx + bw, ly], [lx + bw, ly + bh], [lx, ly + bh]], true), [1, 0.83, 0.05], [0, 0, 0], 4);
-        addShapeGroup(lb, shape([[lx + 5, ly + 5], [lx + bw + 5, ly + 5], [lx + bw + 5, ly + bh + 5], [lx + 5, ly + bh + 5]], true), [0, 0, 0], null);   // print shadow (first group is on top)
-        var lt = addText(pc, P.earth, 30, [lx + bw / 2, ly + bh / 2 + 13], [0.04, 0.04, 0.04], "Anton-Regular", 40);
+        addShapeGroup(lb, shape([[lx, ly], [lx + bw, ly], [lx + bw, ly + bh], [lx, ly + bh]], true), [1, 0.83, 0.05], [0, 0, 0], 6);
+        addShapeGroup(lb, shape([[lx + 8, ly + 8], [lx + bw + 8, ly + 8], [lx + bw + 8, ly + bh + 8], [lx + 8, ly + bh + 8]], true), [0, 0, 0], null);   // print shadow (first group is on top)
+        var lt = addText(pc, P.earth, 48, [lx + bw / 2, ly + bh / 2 + 21], [0.04, 0.04, 0.04], "Anton-Regular", 40);
         lt.name = "label " + P.earth;
         return pc;
     }
@@ -311,18 +313,20 @@ var SPECIAL = (function () {
             var L = trip.layers.add(panelComps[i]); L.name = "PANEL_" + (i + 1);
             L.motionBlur = true;
             addMask(L, quadShape(P.quad, 0), 0);
+            if (HAVE_GRADE()) TRY("applyPanel " + i, function () { GRADE.applyPanel(L, i, E, C); });
             slamKeys(L, P.cx, P.cy, P.f, shat + 12, { dir: i % 2 ? -1 : 1, seed: 3 + i * 5, idle: 2.5, rest: (i - 1) * 0.45 });
             span(L, P.f - 1, shat + 12);
-            // white impact flash on the quad (same transform)
-            var fq = solid(trip, "hit flash " + (i + 1), [1, 1, 1]);
+            // impact flash on the panel EDGE only (the panel itself enters opaque): a thick white rim that fades in 3 f
+            var fq = shapeLayer(trip, "hit flash " + (i + 1));
+            addShapeGroup(fq, quadShape(P.quad, 0), null, [1, 1, 1], 30);
             fq.motionBlur = true; fq.blendingMode = BlendingMode.ADD;
-            addMask(fq, quadShape(P.quad, 0), 0);
             slamKeys(fq, P.cx, P.cy, P.f, P.f + 6, { dir: i % 2 ? -1 : 1, seed: 3 + i * 5, rest: (i - 1) * 0.45 });
-            keyList(OPA(fq), [[P.f - 1, 0], [P.f, 85], [P.f + 1, 55], [P.f + 3, 0]]);
+            keyList(OPA(fq), [[P.f - 1, 0], [P.f, 100], [P.f + 1, 65], [P.f + 3, 0]]);
+            TRY("flash glow", function () { var g = fxAdd(fq, "ADBE Glo2", "edge glow"); setp(g, "Glow Threshold", 30); setp(g, "Glow Radius", 26); setp(g, "Glow Intensity", 1.2); });
             span(fq, P.f - 1, P.f + 4);
         }
         // TIMELESS: the Blender chrome render when it exists (frames 802-826), else an EffectCraft stand-in
-        var tf = T.title.f || 802, tseq = sequence(C.data + "/blender/timeless3d", tf), title;
+        var tf = T.title.f || 802, tseq = sequence(C.data + "/blender/timeless3d", tf, true), title;
         if (tseq) {
             title = trip.layers.add(tseq); title.name = "TIMELESS 3D (blender)";
             title.startTime = f2t(tf); title.inPoint = f2t(tf); title.outPoint = f2t(tf + (tseq.duration * FPS) | 0);
@@ -368,7 +372,7 @@ var SPECIAL = (function () {
         var held = f2t(f0) - S.startTime, trk = F.property("ADBE Time Remapping");
         trk.setValuesAtTimes([f2t(f0), f2t(f1 + 1)], [held, held]);
         for (i = trk.numKeys; i >= 1; i--) if (Math.abs(trk.keyValue(i) - held) > 1e-6) trk.removeKey(i);
-        applyGradeFx(F, "tom");
+        if (HAVE_GRADE()) TRY("applyPanel freeze", function () { GRADE.applyPanel(F, 2, E, C); }); else applyGradeFx(F, "tom");   // M14 is the Tom act: panel 3's grade
         ANC(F).setValue(a);
         var blk = solid(MAIN, "SPECIAL_S32_black", [0, 0, 0]); span(blk, fc, f1 + 1);
         blk.moveAfter(F);
@@ -410,7 +414,7 @@ var SPECIAL = (function () {
         for (i = 0; i < shards.length; i++) {
             S = shards[i];
             var sl = MAIN.layers.add(still || trip); sl.name = "SHARD_" + (i < 10 ? "0" : "") + i;
-            sl.motionBlur = true;
+            sl.motionBlur = false;   // crisp shards
             addMask(sl, shape(S.poly, true), 0);
             var cx = S.c[0], cy = S.c[1], rr = rng(100 + i);
             ANC(sl).setValue([cx, cy]);
@@ -423,8 +427,8 @@ var SPECIAL = (function () {
             });
             keyFn(ROT(sl), fa, fb, function (k) { var u = Math.max(k - f - S.delay, 0); return S.spin * u * (1 + 0.08 * u); });
             keyFn(SCL(sl), fa, fb, function (k) { var u = Math.max(k - f - S.delay, 0); return sc(100 * (1 + S.grow * u * (1 + 0.1 * u))); });
-            keyFn(OPA(sl), fa, fb, function (k) { var u = Math.max(k - f - S.delay, 0); return 100 * (1 - eInQuad((u - 3.5) / 5)); });
-            span(sl, f, f + 10);
+            keyFn(OPA(sl), fa, fb, function (k) { var u = Math.max(k - f - S.delay, 0); return 100 * (1 - eInQuad((u - 2.5) / 4.5)); });
+            span(sl, f, f + 9);
             TRY("shard bevel", function () {
                 var bv = fxAdd(sl, "ADBE Bevel Alpha", "rim");
                 setp(bv, "Edge Thickness", 3); setp(bv, "Light Angle", Math.round(rr() * 360)); setp(bv, "Light Intensity", 0.7);
@@ -435,8 +439,8 @@ var SPECIAL = (function () {
         span(crack, f, f + 4);
         keyList(OPA(crack), [[f, 100], [f + 1, 90], [f + 3, 0]]);
         // white flash on the 819 hit
-        var fl = solid(MAIN, "SPECIAL_SHATTER_FLASH", [1, 1, 1]); span(fl, f, f + 4);
-        keyList(OPA(fl), [[f, 80], [f + 1, 35], [f + 3, 0]]);
+        var fl = solid(MAIN, "SPECIAL_SHATTER_FLASH", [1, 1, 1]); span(fl, f, f + 4); fl.blendingMode = BlendingMode.NORMAL;
+        keyList(OPA(fl), [[f, 100], [f + 1, 100], [f + 2, 40], [f + 3, 0]]);   // 2 f of hard white, then the shards
         fl.blendingMode = BlendingMode.ADD;
     }
 
@@ -541,6 +545,10 @@ var SPECIAL = (function () {
         // ---- 5. THE DROP at f480: white flash, shockwave (Ripple) + ring, chromatic split
         if (own.shock !== false) {
             var sw = adj(MAIN, "SPECIAL_SHOCKWAVE"); span(sw, drop, drop + 14);
+            TRY("edge extend", function () {   // mirror the frame edge outward first: the ripple must not pull transparent/blank edge in (scalloped top and bottom)
+                var tl = fxAdd(sw, "ADBE Tile", "edge mirror");
+                setp(tl, "Output Width", 116); setp(tl, "Output Height", 116); setp(tl, "Mirror Edges", 1);
+            });
             TRY("ripple", function () {
                 var rp = fxAdd(sw, "ADBE Ripple", "shockwave");
                 setp(rp, "Center of Ripple", centre); setp(rp, "Wave Width", 150); setp(rp, "Wave Speed", 0);
@@ -556,7 +564,13 @@ var SPECIAL = (function () {
                 keyFn(ca.property("Aberration (Blue)"), drop, drop + 8, function (f) { return -5 * Math.pow(1 - (f - drop) / 8, 1.5); });
             });
         }
-        if (own.ring !== false) {
+        // the Blender shockwave (RGBA, f480-489) when rendered: it replaces the shape ring
+        var shockSeq = sequence(C.data + "/blender/shockwave", drop, true);
+        if (shockSeq) {
+            var sl2 = MAIN.layers.add(shockSeq); sl2.name = "SPECIAL_SHOCKWAVE (blender)"; sl2.startTime = f2t(drop); sl2.blendingMode = BlendingMode.ADD;
+            span(sl2, drop, drop + Math.round(shockSeq.duration * FPS));
+        }
+        if (own.ring !== false && !shockSeq) {
             var rl = shapeLayer(MAIN, "SPECIAL_PORTAL_RING");
             var rg = addShapeGroup(rl, ellipseRot(0, 0, 100, 70, -18), null, [0.82, 0.94, 1], 18);
             var rpath = rg.property("ADBE Vectors Group").property("ADBE Vector Shape - Group").property("ADBE Vector Shape");
@@ -571,7 +585,11 @@ var SPECIAL = (function () {
         if (own.flash !== false) {
             var fl = solid(MAIN, "SPECIAL_DROP_FLASH", [1, 1, 1]); span(fl, drop - 1, drop + 8);
             fl.blendingMode = BlendingMode.ADD;
-            keyList(OPA(fl), [[drop - 1, 22], [drop, 100], [drop + 1, 100], [drop + 2, 72], [drop + 3, 44], [drop + 5, 16], [drop + 7, 0]]);
+            keyList(OPA(fl), [[drop - 1, 22], [drop, 100], [drop + 1, 78], [drop + 2, 46], [drop + 3, 22], [drop + 4, 8], [drop + 5, 0]]);   // out by 485, detail back under it
+            TRY("flash falloff", function () {   // brightest at the lens, thinning to the edges: never a flat plate
+                var rp = fxAdd(fl, "ADBE Ramp", "falloff"); setp(rp, "Ramp Shape", 2);
+                setp(rp, "Start of Ramp", lens); setp(rp, "Start Color", [1, 1, 1]); setp(rp, "End of Ramp", [lens[0] + 900, lens[1]]); setp(rp, "End Color", [0.35, 0.4, 0.45]);
+            });
         }
     }
 
@@ -679,7 +697,7 @@ var SPECIAL = (function () {
         radialBlur(S8, "dive zoom blur", [[fa + 2, 0], [fcut - 1, 70]], iris);
         var ip = function (f) { return irisTrack[clamp(f, fa, fcut - 1)]; };
         // ---- 2. the rift layer: Blender RGBA element when rendered, else the native comp
-        var seq = sequence(C.data + "/blender/rift", fa), rl;
+        var seq = sequence(C.data + "/blender/rift", fa, true), rl;
         if (seq) {
             rl = MAIN.layers.add(seq); rl.name = "RIFT (blender)"; rl.startTime = f2t(fa);
             span(rl, fa, fe);

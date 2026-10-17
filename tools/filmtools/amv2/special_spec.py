@@ -210,16 +210,19 @@ def prerender_still(E, ctx_py):
         out_dir = os.path.join(str(ctx_py.get("root")) if ctx_py.get("root") else os.path.abspath(os.path.join(HERE, "..", "..", "..")), "out", "special")
     os.makedirs(out_dir, exist_ok=True)
     jsx = open(os.path.join(HERE, "ec", "special.jsx")).read()
+    gpath = os.path.join(HERE, "ec", "grade.jsx")
+    gjsx = open(gpath).read() if os.path.exists(gpath) else ""      # the panels are graded by GRADE.applyPanel: the still must match
+    xg = json.loads(json.dumps(E["x"].get("grade") or {}, default=str))
     title_dir = os.path.join(data, "blender", "timeless3d") if data else ""
     title_stamp = ""
     if title_dir and os.path.isdir(title_dir):
         title_stamp = ",".join("%s:%d" % (n, os.path.getsize(os.path.join(title_dir, n))) for n in sorted(os.listdir(title_dir))[:30])
-    key = hashlib.sha1((jsx + json.dumps(X["triptych"]["panels"], sort_keys=True, default=str) + title_stamp + str(f)).encode()).hexdigest()[:10]
+    key = hashlib.sha1((jsx + gjsx + json.dumps(xg, sort_keys=True) + json.dumps(X["triptych"]["panels"], sort_keys=True, default=str) + title_stamp + str(f)).encode()).hexdigest()[:10]
     still = os.path.join(out_dir, "trip_%d_%s.png" % (f, key))
     if os.path.exists(still):
         return still
     cfg = dict(root=str(ctx_py.get("root") or ""), data=str(data), src=ctx_py.get("src") or "clips")
-    E2 = {"fps": 30, "w": W, "h": H, "dur": E.get("dur", 900), "x": {"special": {"triptych": X["triptych"]}}}
+    E2 = {"fps": 30, "w": W, "h": H, "dur": E.get("dur", 900), "x": {"special": {"triptych": X["triptych"]}, "grade": xg}}
     script = ("var E = %s;\nvar CFG = %s;\n" % (json.dumps(E2, default=str), json.dumps(cfg, default=str)) + jsx + """
 var main = app.project.items.addComp("MAIN", 1920, 1080, 1, E.dur / 30, 30);
 var ctx = { fps: 30, w: 1920, h: 1080, root: CFG.root, data: CFG.data, src: CFG.src, elements: app.project.items.addFolder("elements"),
