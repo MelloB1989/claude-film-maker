@@ -340,10 +340,11 @@ def set_world(scene, hdri=None, strength=1.0, color=(0, 0, 0, 1), rot=(0, 0, 0),
             sep = nt.nodes.new("ShaderNodeSeparateXYZ")
             nt.links.new(tc.outputs["Generated"], sep.inputs[0])
             ramp = nt.nodes.new("ShaderNodeValToRGB")
-            nt.links.new(sep.outputs["Z"], ramp.inputs["Fac"])
+            nt.links.new(sep.outputs["Y"], ramp.inputs["Fac"])     # Generated is the 0..1 direction: Y = screen up
             el = ramp.color_ramp.elements
-            el[0].position, el[0].color = 0.35, (0.012, 0.018, 0.03, 1)
-            el[1].position, el[1].color = 0.75, (0.55, 0.62, 0.78, 1)
+            el[0].position, el[0].color = 0.52, (0.002, 0.006, 0.012, 1)
+            el[1].position, el[1].color = 0.60, (0.55, 0.62, 0.8, 1)
+            el.new(0.9).color = (0.18, 0.28, 0.6, 1)
             mx = nt.nodes.new("ShaderNodeMix")
             mx.data_type = "RGBA"
             mx.blend_type = "ADD"
@@ -533,15 +534,23 @@ def chrome_material(name="chrome"):
     chrome = nt.nodes.new("ShaderNodeBsdfPrincipled")
     chrome.inputs["Base Color"].default_value = (0.93, 0.95, 1.0, 1)
     chrome.inputs["Metallic"].default_value = 1.0
-    chrome.inputs["Roughness"].default_value = 0.035
+    chrome.inputs["Roughness"].default_value = 0.02
     dark = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    dark.inputs["Base Color"].default_value = (0.012, 0.014, 0.022, 1)
-    dark.inputs["Metallic"].default_value = 0.75
-    dark.inputs["Roughness"].default_value = 0.28
+    dark.inputs["Base Color"].default_value = (0.004, 0.005, 0.01, 1)
+    dark.inputs["Metallic"].default_value = 0.9
+    dark.inputs["Roughness"].default_value = 0.2
 
     tc = nt.nodes.new("ShaderNodeTexCoord")
     _, _, nz = sep_xyz(tc.outputs["Normal"])           # object-space normal: +z = the face, ~0 = the sides
-    face = sstep(absv(nz), 0.70, 0.93)                 # 1 on the flat face, 0 on the bevel and sides
+    face = sstep(absv(nz), 0.82, 0.97)                 # 1 on the flat face, 0 on the bevel and sides
+    # fake a slightly domed face so the flat chrome catches a horizon band instead of one flat reflection
+    gx, gy, _ = sep_xyz(tc.outputs["Generated"])
+    dome = 0.0 - ((gx - 0.5) * (gx - 0.5) * 0.5 + (gy - 0.5) * (gy - 0.5) * 1.5)
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 1.0
+    bump.inputs["Distance"].default_value = 1.7
+    nt.links.new(dome.s, bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], chrome.inputs["Normal"])
     mixs = nt.nodes.new("ShaderNodeMixShader")
     NB.nt.links.new(face.s, mixs.inputs[0])
     nt.links.new(dark.outputs["BSDF"], mixs.inputs[1])
@@ -554,7 +563,7 @@ def chrome_material(name="chrome"):
     lw = nt.nodes.new("ShaderNodeLayerWeight")
     lw.inputs["Blend"].default_value = 0.5
     graze = lw.outputs["Facing"]
-    rim = (X(graze) ** 3.0) * 0.9 + (1.0 - face) * 0.55
+    rim = (X(graze) ** 3.0) * 0.7 + (1.0 - face) * 0.12
     red = (1.0, 0.07, 0.14)
     blue = (0.06, 0.28, 1.0)
     r = mix(red[0], blue[0], side)
@@ -562,7 +571,7 @@ def chrome_material(name="chrome"):
     b = mix(red[2], blue[2], side)
     rim_col = comb_rgb(r * rim, g * rim, b * rim)
     em = nt.nodes.new("ShaderNodeEmission")
-    em.inputs["Strength"].default_value = 2.2
+    em.inputs["Strength"].default_value = 1.2
     nt.links.new(rim_col, em.inputs["Color"])
 
     # light-sweep glint: a diagonal band in world space, position keyed per frame
@@ -587,9 +596,9 @@ def chrome_material(name="chrome"):
 
 
 def build_timeless(args):
-    s = setup_scene(args, "timeless3d", T_F0, T_F1, motion_blur=True, shutter=0.55)
+    s = setup_scene(args, "timeless3d", T_F0, T_F1, motion_blur=True, shutter=0.35)
     perspective_camera(s)
-    set_world(s, HDRI_DIR / "studio_small_08_1k.hdr", strength=1.6, rot=(90, 0, 160), gradient=0.8)
+    set_world(s, HDRI_DIR / "studio_small_08_1k.hdr", strength=0.7, rot=(90, 0, 160), gradient=0.7)
     mat, cen_node, amp_node = chrome_material()
     font = bpy.data.fonts.load(str(find_font()))
 
@@ -641,7 +650,7 @@ def build_timeless(args):
     # lights: the red / blue Spider-Verse rim comes from two coloured strips behind and beside the word
     area_light(s, "rimR", (-9.0, 3.5, -4.0), (0, 0, 0), (1.0, 0.1, 0.18), 5200, size=3.0, size_y=10.0)
     area_light(s, "rimB", (9.0, -2.0, -4.0), (0, 0, 0), (0.1, 0.3, 1.0), 5200, size=3.0, size_y=10.0)
-    area_light(s, "key", (0.0, 9.0, 14.0), (0, 0, 0), (1.0, 0.97, 0.93), 2400, size=10.0, size_y=3.0)
+    area_light(s, "key", (0.0, 9.0, 14.0), (0, 0, 0), (1.0, 0.97, 0.93), 1100, size=10.0, size_y=3.0)
 
     animate_timeless(s, title, pivots, cen_node, amp_node, base, ycen)
     s.frame_set(T_F0)
@@ -671,7 +680,7 @@ def animate_timeless(s, title, pivots, cen_node, amp_node, base, ycen):
         k = f - T_F0
         # the 802 hit: the word arrives from behind the camera (z above CAM_Z) and slams down to z = 0, overshoots
         # behind (receding), springs back. k=0 is already right at the lens: huge and blurred.
-        z_key = [[0, 24.5], [1, 9.0], [2, 2.6], [3, -1.0], [4, -0.6], [5, 0.15]]
+        z_key = [[0, 9.5], [1, 4.0], [2, 1.2], [3, -1.0], [4, -0.6], [5, 0.15]]
         z = keys(z_key, k) if k <= 5 else 0.28 * math.exp(-0.45 * (k - 5)) * math.cos(0.85 * (k - 5))
         sp = spring(k - 1.0, wn=0.82, zeta=0.30)
         yaw = math.radians(78.0 * (1 - sp))
@@ -715,11 +724,12 @@ def animate_timeless(s, title, pivots, cen_node, amp_node, base, ycen):
             if t <= 0:
                 set_key(piv, f, loc=home, rot=Euler((0, 0, 0)), scale=(1, 1, 1), hide=False)
                 continue
-            e = t * t
-            loc = Vector((home.x + dirx * 1.5 * e, home.y + diry * 0.9 * e, home.z + 0.9 * e))
-            ang = 0.045 * e
-            rot = Euler((spin[0] * ang * 2.2, spin[1] * ang * 2.6, spin[2] * ang * 3.4), "XYZ")
-            sc = max(0.0001, 1.0 - smooth((f - (T_F1 - 2.5)) / 2.5)) if f >= T_F1 - 2 else 1.0
+            u = t / float(T_F1 - T_HOLD_END - 1)        # 0 at the hold's last frame .. 1 at 825
+            e = u * u
+            loc = Vector((home.x + dirx * 9.0 * e, home.y + diry * 4.5 * e, home.z + 6.0 * e))
+            ang = 2.6 * e
+            rot = Euler((spin[0] * ang, spin[1] * ang * 1.2, spin[2] * ang * 1.6), "XYZ")
+            sc = max(0.0001, 1.0 - smooth((f - (T_F1 - 2.0)) / 2.0)) if f >= T_F1 - 2 else 1.0
             gone = f >= T_F1
             set_key(piv, f, loc=loc, rot=rot, scale=(sc, sc, sc), hide=gone)
 
@@ -746,10 +756,10 @@ def animate_timeless(s, title, pivots, cen_node, amp_node, base, ycen):
             if t <= 0:
                 set_key(ob, f, loc=home, rot=Euler((0, 0, 0)), scale=(0.001,) * 3, hide=True)
                 continue
-            dist = 1.6 * t ** 1.55
+            dist = 1.05 * t ** 1.5
             sc = sz * min(1.0, t / 1.2) * (1.0 - smooth((f - (T_F1 - 2.5)) / 2.5))
             set_key(ob, f, loc=home + d * dist,
-                    rot=Euler((spin.x * 0.35 * t * 2, spin.y * 0.35 * t * 2, spin.z * 0.35 * t * 2)),
+                    rot=Euler((spin.x * 0.5 * t, spin.y * 0.5 * t, spin.z * 0.5 * t)),
                     scale=(max(sc, 0.001),) * 3, hide=(f >= T_F1) or sc < 0.01)
 
 
@@ -786,6 +796,9 @@ def build_rift(args):
     for i in range(segs):
         j = (i + 1) % segs
         faces.append((2 * i, 2 * j, 2 * j + 1, 2 * i + 1))
+    verts.append((0.0, 0.0, -L))                 # closed far end: a white-hot cap at the vanishing point
+    for i in range(segs):
+        faces.append((2 * i + 1, 2 * ((i + 1) % segs) + 1, 2 * segs))
     me = bpy.data.meshes.new("tunnel")
     me.from_pydata(verts, [], faces)
     tun = link(s, bpy.data.objects.new("tunnel", me))
@@ -795,8 +808,8 @@ def build_rift(args):
     build_rift_particles(s, frames)
 
     s.frame_set(R_F0)
-    glow_compositor(s, [dict(threshold=0.55, size=0.30, strength=0.55, tint="#FFFFFF"),
-                        dict(threshold=0.9, size=0.62, strength=0.30, tint="#7FA6FF")])
+    glow_compositor(s, [dict(threshold=0.85, size=0.28, strength=0.30, tint="#FFFFFF"),
+                        dict(threshold=1.0, size=0.6, strength=0.16, tint="#7FA6FF")])
     return s
 
 
@@ -825,7 +838,7 @@ def rift_material(frames):
         ph[f] = acc
     keyframe_value(phase_n, frames, lambda f: ph[f])
     # exposure: a white-hot flash as it tears open (f244-247), settles, then fades with the dissolve
-    keyframe_value(gain_n, frames, lambda f: keys([[244, 1.9], [246, 2.2], [248, 1.5], [252, 1.15], [258, 1.0], [262, 1.0]], f))
+    keyframe_value(gain_n, frames, lambda f: keys([[244, 1.6], [246, 1.8], [248, 1.2], [252, 0.95], [258, 0.9], [262, 0.9]], f))
 
     tc = nt.nodes.new("ShaderNodeTexCoord")
     ox, oy, oz = sep_xyz(tc.outputs["Object"])
@@ -857,7 +870,7 @@ def rift_material(frames):
     # the dissolve hole grows from the centre out
     hsoft = 40.0 + hole * 0.05
     hjit = (n1 * 0.9 + n2 * 0.4) * (hsoft * 1.6)
-    outside_hole = sstep(dist + hjit, hole - hsoft, hole + hsoft)
+    outside_hole = vmax(sstep(dist + hjit, hole - hsoft, hole + hsoft), 1.0 - sstep(hole, 0.0, 8.0))
     # plus a noise-threshold dissolve (torn comic chunks) driven by blocky noise
     nn3 = nt.nodes.new("ShaderNodeTexNoise")
     nn3.noise_dimensions = "3D"
@@ -903,9 +916,9 @@ def rift_material(frames):
     pg = arm(s0)
     pb = arm(s0 - split)
     parity = fn("FLOORED_MODULO", floor(s0), 2.0)           # 0 -> red arms, 1 -> blue arms
-    tr = mix(1.0, 0.22, parity)
-    tg = mix(0.28, 0.5, parity)
-    tb = mix(0.40, 1.0, parity)
+    tr = mix(1.0, 0.06, parity)
+    tg = mix(0.10, 0.32, parity)
+    tb = mix(0.16, 1.0, parity)
     fall = 1.0 - sstep(depth, 40.0, 230.0)                  # pattern fades into the far glow
 
     # halftone dots in (angle, depth) space; dot radius shrinks along the arm tail
@@ -931,16 +944,16 @@ def rift_material(frames):
     far = sstep(depth, 110.0, 270.0)
     core = far * far * 2.6
 
-    base_r = (pr * tr * 1.25 + dots * 0.55 * tr) * fall
-    base_g = (pg * tg * 1.25 + dots * 0.45 * tg) * fall
-    base_b = (pb * tb * 1.25 + dots * 0.65 * tb) * fall
+    base_r = (pr * tr * 1.15 + dots * 0.7 * tr) * fall
+    base_g = (pg * tg * 0.95 + dots * 0.3 * tg) * fall
+    base_b = (pb * tb * 1.15 + dots * 0.8 * tb) * fall
     # white-hot centres of the arms
-    hot = (pg ** 3.0) * 0.6 * fall
+    hot = (pg ** 4.0) * 0.25 * fall
     # a faint ink-dark base so the tunnel is not transparent between the arms
-    shade = 0.045
-    cr = (base_r + hot + web * 0.55 + core + shade * 0.9) * gain
-    cg = (base_g + hot + web * 0.95 + core + shade * 0.5) * gain
-    cb = (base_b + hot + web * 1.0 + core * 1.0 + shade * 1.4) * gain
+    shade = 0.06
+    cr = (base_r + hot + web * 0.22 + core + shade * 0.7) * gain
+    cg = (base_g + hot + web * 0.55 + core + shade * 0.15) * gain
+    cb = (base_b + hot + web * 0.7 + core * 1.0 + shade * 1.6) * gain
     # edge lines (premultiplied additive on top of the opening)
     rim_red = (o_red + h_red) * live
     rim_blue = (o_blue + h_blue) * live
@@ -963,12 +976,41 @@ def rift_material(frames):
     return m
 
 
+def shard_material():
+    """Emissive shard: the object colour at the base, going white-hot at the leading tip."""
+    m = bpy.data.materials.new("shard")
+    m.use_nodes = True
+    nt = m.node_tree
+    NB.nt = nt
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    oi = nt.nodes.new("ShaderNodeObjectInfo")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    _, gy, _ = sep_xyz(tc.outputs["Generated"])
+    tip = sstep(gy, 0.45, 1.0) ** 1.5
+    r = X(_sock(nt, oi, "Color", 0)) * (1.0 - tip) * 0.85 + tip * 1.0
+    g = X(_sock(nt, oi, "Color", 1)) * (1.0 - tip) * 0.85 + tip * 1.0
+    b = X(_sock(nt, oi, "Color", 2)) * (1.0 - tip) * 0.85 + tip * 1.0
+    em = nt.nodes.new("ShaderNodeEmission")
+    nt.links.new(comb_rgb(r, g, b), em.inputs["Color"])
+    nt.links.new(em.outputs["Emission"], out.inputs["Surface"])
+    return m
+
+
+def _sock(nt, node, name, ch):
+    """Float channel `ch` of a colour output."""
+    sp = nt.nodes.new("ShaderNodeSeparateColor")
+    sp.mode = "RGB"
+    nt.links.new(node.outputs[name], sp.inputs[0])
+    return sp.outputs[ch]
+
+
 def build_rift_particles(s, frames):
     rnd = random.Random(244)
-    cols = {"red": (1.0, 0.10, 0.18, 1), "blue": (0.12, 0.38, 1.0, 1), "white": (1.0, 1.0, 1.0, 1),
-            "cyan": (0.55, 0.92, 1.0, 1), "mag": (1.0, 0.2, 0.75, 1)}
-    names = ["red", "blue", "white", "cyan", "red", "blue", "white", "mag"]
-    mat = emission_material("shard", strength=1.4, use_object_color=True)
+    cols = {"red": (0.95, 0.015, 0.06, 1), "blue": (0.03, 0.16, 1.0, 1), "white": (1.0, 1.0, 1.0, 1),
+            "cyan": (0.1, 0.75, 1.0, 1), "mag": (0.9, 0.03, 0.5, 1)}
+    names = ["red", "blue", "red", "blue", "cyan", "mag", "white", "red", "blue"]
+    mat = shard_material()
     # shard shapes: slivers and jagged quads
     sliver = bpy.data.meshes.new("sliver")
     sliver.from_pydata([(0, 0.5, 0), (-0.14, -0.5, 0), (0.14, -0.35, 0)], [], [(0, 1, 2)])
@@ -992,7 +1034,7 @@ def build_rift_particles(s, frames):
             x, y = rho * math.cos(a) / PX, rho * math.sin(a) / PX
             fade = 1.0 - smooth((f - fadeout[0]) / (fadeout[1] - fadeout[0]))
             pop = smooth(t / 1.5)
-            sc = max(0.001, size * pop * fade)
+            sc = max(0.001, size * pop * fade * clamp01(keys(R_RADIUS, f) / 300.0 + 0.10))
             rot = Euler((tumble[0] * t, tumble[1] * t, a + math.pi / 2 + tumble[2] * t), "XYZ")
             set_key(ob, f, loc=(x, y, z), rot=rot, scale=(sc * rnd_aspect(ob), sc, sc), hide=sc < 0.01)
 
@@ -1002,17 +1044,17 @@ def build_rift_particles(s, frames):
         return aspects.get(ob.name, 1.0)
 
     # glitch shards: the main burst
-    for j in range(150):
+    for j in range(170):
         ob = link(s, bpy.data.objects.new(f"shard{j}", sliver if j % 3 else quad))
         ob.color = cols[rnd.choice(names)]
         aspects[ob.name] = rnd.uniform(0.7, 1.5)
         tb = R_F0 + rnd.choice([0, 0, 1, 1, 2, 3, 4, 5, 6, 7]) + rnd.random() * 0.5
         a0 = rnd.uniform(0, 2 * math.pi)
         anim_particle(ob, tb, a0, rnd.uniform(0, 30), rnd.uniform(26, 110), rnd.uniform(-0.045, 0.085),
-                      rnd.uniform(0.35, 2.4) * (1.4 if j % 11 == 0 else 1.0), rnd.uniform(-4, 9),
+                      rnd.uniform(0.3, 1.5) * (1.5 if j % 13 == 0 else 1.0), rnd.uniform(-5, 3),
                       (rnd.uniform(-0.25, 0.25), rnd.uniform(-0.25, 0.25), rnd.uniform(-0.06, 0.06)))
     # halftone comic dots drifting outward (CMY-ish)
-    dcols = ["cyan", "mag", "white", "red", "blue"]
+    dcols = ["cyan", "mag", "red", "blue", "cyan"]
     for j in range(110):
         ob = link(s, bpy.data.objects.new(f"dot{j}", disc))
         ob.color = cols[rnd.choice(dcols)]
@@ -1021,11 +1063,11 @@ def build_rift_particles(s, frames):
                       rnd.uniform(-0.03, 0.05), rnd.uniform(0.07, 0.32), rnd.uniform(-3, 4), (0, 0, 0))
 
     # web filaments: spiral arcs that grow out of the centre and keep swirling
-    fil_mat = emission_material("filament", strength=2.2, use_object_color=True)
-    for j in range(34):
+    fil_mat = emission_material("filament", strength=1.6, use_object_color=True)
+    for j in range(24):
         cu = bpy.data.curves.new(f"fil{j}", "CURVE")
         cu.dimensions = "3D"
-        cu.bevel_depth = rnd.choice([0.010, 0.014, 0.020])
+        cu.bevel_depth = rnd.choice([0.008, 0.011, 0.015])
         cu.bevel_resolution = 1
         sp = cu.splines.new("POLY")
         npts = 40
@@ -1041,20 +1083,21 @@ def build_rift_particles(s, frames):
             sp.points[i].co = (r * math.cos(a) * (1 + wob * 0.2), r * math.sin(a) * (1 + wob * 0.2), -2.0 + wob * 2.0, 1.0)
         cu.materials.append(fil_mat)
         ob = link(s, bpy.data.objects.new(f"fil{j}", cu))
-        ob.color = cols[rnd.choice(["white", "cyan", "cyan", "red", "blue", "white"])]
+        ob.color = cols[rnd.choice(["cyan", "cyan", "red", "blue", "white", "mag"])]
         tb = R_F0 + rnd.uniform(0, 6)
         tw = rnd.uniform(0.04, 0.12) * rnd.choice([-1, 1])
         for f in frames:
             t = f - tb
             g = clamp01(t / 4.0)
-            fade = 1.0 - smooth((f - 256.5) / 3.5)
+            fade = 1.0 - smooth((f - 255.0) / 3.0)
             cu.bevel_factor_start = 0.0
             cu.bevel_factor_end = max(0.0001, g)
             cu.keyframe_insert("bevel_factor_end", frame=f)
             cu.bevel_factor_start = clamp01(1.0 - fade) * max(g, 0.0) * 0.98
             cu.keyframe_insert("bevel_factor_start", frame=f)
-            set_key(ob, f, loc=(0, 0, rnd.uniform(-1, 1) * 0.0), rot=Euler((0, 0, tw * max(t, 0) * 1.0), "XYZ"),
-                    scale=(1.0 + 0.9 * clamp01(t / 8.0), 1.0 + 0.9 * clamp01(t / 8.0), 1.0), hide=(t < 0 or fade <= 0.0))
+            grow = min(1.05, keys(R_RADIUS, f) / (rmax * PX) + 0.02)
+            set_key(ob, f, loc=(0, 0, 0.0), rot=Euler((0, 0, tw * max(t, 0) * 1.0), "XYZ"),
+                    scale=(grow, grow, 1.0), hide=(t < 0 or fade <= 0.0))
 
 
 # =====================================================================================================================
@@ -1063,11 +1106,11 @@ def build_rift_particles(s, frames):
 
 S_F0, S_F1 = 480, 489
 S_CENTER = (1110.0, 443.0)
-S_RADIUS = [[480, 45], [481, 210], [482, 430], [483, 655], [484, 880], [485, 1085], [486, 1260], [487, 1400], [488, 1500],
-            [489, 1620]]
+S_RADIUS = [[480, 45], [481, 200], [482, 400], [483, 585], [484, 760], [485, 930], [486, 1090], [487, 1250], [488, 1430],
+            [489, 1660]]
 S_WIDTH = [[480, 55], [481, 70], [482, 85], [483, 100], [484, 112], [485, 122], [486, 130], [487, 138], [488, 145],
            [489, 150]]
-S_BRIGHT = [[480, 2.4], [481, 2.0], [482, 1.6], [483, 1.35], [484, 1.1], [485, 0.9], [486, 0.7], [487, 0.5], [488, 0.28],
+S_BRIGHT = [[480, 2.4], [481, 2.0], [482, 1.7], [483, 1.45], [484, 1.25], [485, 1.1], [486, 0.95], [487, 0.8], [488, 0.5],
             [489, 0.0]]
 
 
