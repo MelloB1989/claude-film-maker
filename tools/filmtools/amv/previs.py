@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import subprocess
 import sys
 import time
@@ -28,6 +29,9 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from . import plan as P
+
+if os.environ.get("OMP_NUM_THREADS"):
+    cv2.setNumThreads(int(os.environ["OMP_NUM_THREADS"]))
 
 FFMPEG = "ffmpeg"
 
@@ -812,11 +816,13 @@ def parallel(a, argv):
         base.append(x)
     chunks = [frames[i * len(frames) // n:(i + 1) * len(frames) // n] for i in range(n)]
     procs, segs = [], []
+    th = str(max(1, (os.cpu_count() or n) // n))   # one worker per core group: numpy/cv2 threads would oversubscribe
+    env = {**os.environ, "OMP_NUM_THREADS": th, "OPENBLAS_NUM_THREADS": th, "OPENCV_FOR_THREADS_NUM": th}
     for i, ch in enumerate(c for c in chunks if c):
         seg = seg_dir / f"seg{i:02d}.mp4"
         segs.append(seg)
         procs.append(subprocess.Popen([sys.executable, "-m", "filmtools.amv.previs", *base, "--no-audio",
-                                       "--frames", f"{ch[0]}-{ch[-1]}", "--out", str(seg)]))
+                                       "--frames", f"{ch[0]}-{ch[-1]}", "--out", str(seg)], env=env))
     if any(p.wait() for p in procs):
         raise SystemExit("a segment failed")
     lst = seg_dir / "list.txt"
