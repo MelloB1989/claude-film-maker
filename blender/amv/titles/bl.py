@@ -422,5 +422,9 @@ def render_frames(frame_fn, spec, ks, out_dir, scale=1.0, samples=16, log=print)
 
 
 def run_params(opts):
-    """scale / samples from the dispatcher's options (`TitleOpts`), with defaults for a full-res CPU render."""
-    return dict(scale=float(getattr(opts, "scale", 1.0) or 1.0), samples=int(getattr(opts, "samples", 24) or 24))
+    """res_scale / samples from the dispatcher's `TitleOpts` (a plain `scale` is accepted too, for the standalone CLI);
+    its fonts folders are searched first."""
+    if hasattr(opts, "font_dirs"):
+        basic.EXTRA_FONT_DIRS[:] = [str(d) for d in opts.font_dirs()]
+    sc = getattr(opts, "res_scale", None) or getattr(opts, "scale", None) or 1.0
+    return dict(scale=float(sc), samples=int(getattr(opts, "samples", 24) or 24))

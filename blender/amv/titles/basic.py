@@ -54,8 +54,11 @@ FONT_FILES = {
 }
 
 
+EXTRA_FONT_DIRS = []   # searched first (TitleOpts.font_dirs(), set by bl.run_params)
+
+
 def font_path(name, extra_dirs=()):
-    for d in [*map(Path, extra_dirs), *font_dirs()]:
+    for d in [*map(Path, extra_dirs), *map(Path, EXTRA_FONT_DIRS), *font_dirs()]:
         for fn in FONT_FILES.get(name, [name]):
             if (d / fn).is_file():
                 return d / fn
