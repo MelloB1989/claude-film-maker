@@ -784,3 +784,65 @@ def watermark_frame(spec=None, k=0):
 
 
 STYLES = {"sub": sub_frame, "spring": spring_frame, "extended": extended_frame, "tag": tag_frame}
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# entry helpers shared by the style modules (render(spec, out_dir, opts) is what render.py dispatches to)
+
+
+def unwrap(spec):
+    """The title's spec dict, whether the caller passes the plan entry (`{style, f_in, spec}`) or the spec itself."""
+    return spec["spec"] if isinstance(spec.get("spec"), dict) else spec
+
+
+def frame_list(spec, opts=None, step=1):
+    """The k values to render: `opts.frames` (an iterable of k, or "a:b[:s]") when given, else every `step`-th of 0..dur-1."""
+    fr = getattr(opts, "frames", None)
+    dur = spec.get("dur", 1)
+    if isinstance(fr, str):      # "a:b:s,c,d:e" : ranges (b exclusive) and single frames, comma separated
+        out = []
+        for part in fr.split(","):
+            p = [int(x) if x else None for x in part.split(":")]
+            if len(p) == 1:
+                out.append(p[0])
+            else:
+                a, b, st = (p + [None, None])[:3]
+                out += range(a or 0, min(b if b is not None else dur, dur), st or 1)
+        return [k for k in out if 0 <= k < dur]
+    if fr is not None:
+        return [k for k in fr if 0 <= k < dur]
+    return list(range(0, dur, step))
+
+
+def find_title(plan, title_id):
+    """(style, spec dict) of a plan title id: `screen.<i>`, `<shot>.<i>`, or `watermark`."""
+    if title_id == "watermark":
+        return "watermark", {}
+    name, _, i = title_id.rpartition(".")
+    if name == "screen":
+        t = plan["titles"][int(i)]
+    else:
+        shot = next(s for s in plan["shots"] if s["name"] == name)
+        t = shot["titles"][int(i)]
+    return t["style"], t["spec"]
+
+
+def cli(argv=None):
+    """`blender -b --factory-startup -P <style>.py -- --plan plan.json --title screen.0 --out DIR [--scale S] [--samples N]
+    [--frames a:b:s]`: render one title standalone (what render.py does for the whole plan)."""
+    import argparse
+    import importlib
+    import json
+    import sys
+    argv = list(sys.argv[sys.argv.index("--") + 1:]) if argv is None and "--" in sys.argv else (argv or [])
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--plan", required=True)
+    ap.add_argument("--title", required=True)
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--scale", type=float, default=1.0)
+    ap.add_argument("--samples", type=int, default=24)
+    ap.add_argument("--frames", default=None)
+    a = ap.parse_args(argv)
+    style, spec = find_title(json.loads(Path(a.plan).read_text()), a.title)
+    opts = type("Opts", (), dict(scale=a.scale, samples=a.samples, frames=a.frames))()
+    importlib.import_module(f"amv.titles.{style}").render(spec, Path(a.out), opts)

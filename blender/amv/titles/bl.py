@@ -398,3 +398,8 @@ def render_frames(frame_fn, spec, ks, out_dir, scale=1.0, samples=16, log=print)
         bpy.ops.render.render(write_still=True)
         log(f"  frame {k}: {st.sc.render.filepath}")
     return st
+
+
+def run_params(opts):
+    """scale / samples from the dispatcher's options (`TitleOpts`), with defaults for a full-res CPU render."""
+    return dict(scale=float(getattr(opts, "scale", 1.0) or 1.0), samples=int(getattr(opts, "samples", 24) or 24))
