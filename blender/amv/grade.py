@@ -7,6 +7,8 @@ what it is): the same arithmetic, node for node, so the two agree to ~2/255. The
 Sockets: one Image in, one Image out (RGBA; alpha is passed through, colour is treated as opaque). `params["io"]`:
 `"linear"` (default) takes and returns scene-linear Blender data and converts to display sRGB inside, because the After
 Effects project graded 8-bit display values; `"srgb"` takes and returns display-encoded values (the caller converts).
+`params["grade_json"]` is the path of the film's `grade.json`: without it the group uses the Premium Glow preset's
+nominal values, which are much yellower in the highlights than the AE render (the fitted ones are not).
 `params["res_scale"]` scales the blur sizes for a render below 1920 wide (1 = full size).
 
 Everything is Vector Math / Math / Blur / Convert Colorspace nodes working on RGB as a 3-vector, built by the small
@@ -31,6 +33,18 @@ def load_params(path):
     """The `fitted` parameters of a grade.json (or the file's top level when it has no `fitted` key)."""
     d = json.loads(Path(path).read_text())
     return d.get("fitted", d)
+
+
+def resolve_params(params):
+    """`params` with the fitted values of `params["grade_json"]` (a path) underneath, when given: the caller's keys
+    (io, res_scale, any slider) win. Without it, `build_group` uses the preset's values, NOT the film's fit."""
+    p = dict(params or {})
+    path = p.pop("grade_json", None)
+    if path:
+        base = load_params(path)
+        base.update(p)
+        p = base
+    return p
 
 
 class _B:
@@ -219,8 +233,8 @@ def _glow(b, x, threshold, size, intensity):
 def build_group(params=None):
     """The node group "AMV Grade" (a new tree, or the existing one rebuilt): Image in -> Image out."""
     import bpy
-    p = G.params(params)
-    opts = params or {}
+    opts = resolve_params(params)
+    p = G.params(opts)
     io = opts.get("io", "linear")
     res = float(opts.get("res_scale", 1.0))
     sc = lambda n: max(0, int(round(n * res)))
