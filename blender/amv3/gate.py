@@ -268,6 +268,8 @@ def analyse(dump, out_csv=None, only=False):
     # direction across window edges
     byf = {r["f"]: r for r in rows}
     for w in wins:
+        if w.get("fallback"):
+            continue
         for e in (w["w0"], w["w1"]):
             r0, r1 = byf.get(e - 1), byf.get(e)
             if not r0 or not r1 or not r0["m"] or not r1["m"] or r0["teleport"] or r1["teleport"]:

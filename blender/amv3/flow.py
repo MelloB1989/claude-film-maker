@@ -16,6 +16,7 @@ import camlib as cl
 import cards
 
 TYPES = ("open", "zt", "whip", "cube", "flip", "slam")
+ROLL_CARRY = 0.15  # deg / frame: the least roll speed a rolling zoom-through enters and leaves with (sign kept)
 ENTRY = 0.02  # |d ln s| / frame a zoom-through is entered with (at least), in the window's zoom direction
 EXIT = 0.02  # |d ln s| / frame a zoom-through landing leaves with (at least), still in the window's direction
 
@@ -93,35 +94,20 @@ def act_for(T, ctx):
 
 # ---- turn profile (whip / cube): accelerate into the cut, decelerate out, optional overshoot ------------------------------
 class Turn:
-    """theta(t) from 0 at w0 to total at w1, peak rate at the cut f, zero rate at both ends, `over` = overshoot fraction."""
+    """theta(t) from 0 at w0 to total at w1: an exponential ease into the cut (x`gA` per frame) and a mirrored one out
+    of it (speed / `gB` per frame, a long tail), equal angular speed on both sides of the cut f, zero speed at both
+    window ends; `over` adds a soft overshoot bump (fraction of total) that settles by w1."""
 
-    def __init__(self, total, w0, f, w1, kA=4.0, kB=4.0, over=0.0):
+    def __init__(self, total, w0, f, w1, gA=1.6, gB=1.25, over=0.0):
         self.total, self.w0, self.f, self.w1 = total, w0, f, w1
         self.pre, self.post = float(f - w0), float(w1 - f)
-        self.kA, self.kB = kA, kB
-        a = cl.expo_in_d(1.0, kA)
-        o = 0.0
-        tc = total / 2
-        for _ in range(4):
-            b = 2 + kB + o
-            tc = total * (b / self.post) / (a / self.pre + b / self.post)
-            want = over * abs(total) / max(1e-6, abs(total - tc))
-            o = self._o_for(want) if over > 0 else 0.0
-        self.o, self.tc, self.a, self.b = o, tc, a, 2 + kB + o
-
-    def _G(self, u, o):
-        return (1 - u) ** 2 * (math.exp(-self.kB * u) - o * u)
-
-    def _o_for(self, want):
-        lo, hi = 0.0, 5.0
-        for _ in range(40):
-            mid = (lo + hi) / 2
-            mn = min(self._G(i / 100, mid) for i in range(101))
-            if -mn < want:
-                lo = mid
-            else:
-                hi = mid
-        return (lo + hi) / 2
+        self.kA = max(0.5, math.log(gA) * self.pre)
+        self.kB = max(0.5, math.log(gB) * self.post)
+        a = cl.expo_in_d(1.0, self.kA) / self.pre
+        b = cl.expo_in_d(1.0, self.kB) / self.post
+        self.tc = total * b / (a + b)
+        self.over = over
+        self.o = over
 
     def __call__(self, t):
         if t <= self.w0:
@@ -130,7 +116,9 @@ class Turn:
             return self.total
         if t <= self.f:
             return self.tc * cl.expo_in((t - self.w0) / self.pre, self.kA)
-        return self.total + (self.tc - self.total) * self._G((t - self.f) / self.post, self.o)
+        u = (t - self.f) / self.post
+        th = self.total - (self.total - self.tc) * cl.expo_in(1 - u, self.kB)
+        return th + self.over * self.total * 2 * u * math.sin(math.pi * u) ** 2
 
 
 def window_blend(A, B, w0, w1, t):
@@ -160,12 +148,15 @@ def bounds(T, ctx):
         if typ in ("zt", "slam") and not adjacent and prev_hold(T, ctx) >= REVERSAL_MIN:
             # enter the zoom already moving the window's way (a hold of >= 6 f turns round if it has to)
             A = A.with_(ds=max(A.ds, ENTRY) if sg > 0 else min(A.ds, -ENTRY))
+        R = float(p.get("roll", 0.0) or 0.0)
+        if typ == "zt" and R and not adjacent and prev_hold(T, ctx) >= REVERSAL_MIN:
+            A = A.with_(dr=math.copysign(max(abs(A.dr), ROLL_CARRY), R))  # roll keeps its sign into the window
         A = ctx.settle_entry(T, A)
-        if typ == "zt" and not adjacent:
+        if typ in ("zt", "slam") and not adjacent:
             # a true exponential attack (speed x G_MAX per frame at most) needs a minimum entry speed: the hold
             # accelerates into it (REFS: the acceleration starts 3-5 f before the cut, whatever the window says)
             TA = T["f"] - 0.5 - T["w0"]
-            peak = float(p.get("peak", 3.0 if sg > 0 else 0.45))
+            peak = float(p.get("peak", (2.6 if typ == "slam" else 3.0) if sg > 0 else 0.45))
             for _ in range(3):
                 need = attack_r0(abs(math.log(peak) - math.log(A.s)), TA, G_MAX)
                 if abs(A.ds) >= need or A.ds * sg < 0:
@@ -182,8 +173,17 @@ def bounds(T, ctx):
             B = B.with_(s=max(settle, cl.min_scale(B.cx, B.cy, B.r, 0.01)))
             if next_hold(T, ctx) >= REVERSAL_MIN:
                 B = B.with_(ds=max(B.ds, EXIT) if sg > 0 else min(B.ds, -EXIT))
-        elif typ == "slam" and next_hold(T, ctx) >= REVERSAL_MIN:
-            B = B.with_(ds=min(B.ds, -EXIT))
+                R = float(p.get("roll", 0.0) or 0.0)
+                if R:
+                    B = B.with_(dr=math.copysign(max(abs(B.dr), ROLL_CARRY), R))  # ... and out of it
+            if sg > 0:
+                # a push lands on its focus and keeps pushing towards it
+                fb = focus_of(T, "b", ctx)
+                cx, cy = cl.clamp_center(B.s, B.cx + 0.7 * (fb[0] - B.cx), B.cy + 0.7 * (fb[1] - B.cy), B.r, 0.01)
+                B = B.with_(cx=cx, cy=cy)
+        elif typ == "slam":
+            # B slams in from below 1x (the mirror tiles smear past) and stops at `kick` x, still creeping in
+            B = B.with_(s=max(float(p.get("kick", 1.35)), cl.min_scale(B.cx, B.cy, B.r, 0.01)), ds=max(B.ds, 0.012))
         out["B"] = B
     return out
 
@@ -212,9 +212,10 @@ def prev_hold(T, ctx):
 
 # ---- zt: zoom-through ---------------------------------------------------------------------------------------------------
 ATTACK = 1.5  # A's zoom speed grows x1.5 per frame into the cut (REFS gate: x1.35-1.7 over the last 4 f)
-DECAY_RANGE = (1.12, 1.6)  # B's speed falls x1/1.12 .. x1/1.6 per frame (REFS gate: x1.15-1.27 with a >= 8 f tail)
-DECAY = 1.2  # B's default speed decay per frame (REFS k 0.80-0.88 -> x1.14-1.25)
-DROP_MAX = 2.0  # max ratio of A's speed one frame before the teleport to B's one frame after (REFS: median <= 2.3)
+DECAY_RANGE = (1.12, 1.4)  # B's speed falls x1/1.12 .. x1/1.6 per frame (REFS gate: x1.15-1.27 with a >= 8 f tail)
+DECAY = 1.22  # B's default speed decay per frame (REFS k 0.80-0.88 -> x1.14-1.25)
+DROP_T = 1.8  # A's speed one frame before the cut / B's one frame after, the target (A's peak gives way first)
+DROP_MAX = 2.3  # max ratio of A's speed one frame before the teleport to B's one frame after (REFS: median <= 2.3)
 RACK_PX = 26.0  # B's rack defocus at the cut (blur circle, px at 1920): legible by +2, sharp by +4/+5
 RACK_F = 5.0
 
@@ -240,7 +241,7 @@ def attack_g(delta, TA, r0):
     return (lo + hi) / 2
 
 
-def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK):
+def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK, decay=None):
     """The zoom-through state functions: (stateA(t) for t < t_h, stateB(t) for t > t_h, info).
 
     The zoom keeps its sign through the cut. A accelerates (expo-in, x`attack` per frame) from its hold drift to `peak` x
@@ -252,6 +253,7 @@ def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK):
     th = f - 0.5
     TA, TB = th - w0, w1 - th
     fa, fb = focus_of(T, "a", ctx), focus_of(T, "b", ctx)
+    decay = decay or DECAY
     LA0, Lp = math.log(A.s), math.log(peak)
     if (Lp - LA0) * sign < 0.2:
         Lp = LA0 + 0.2 * sign
@@ -263,11 +265,11 @@ def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK):
     expo = r0 >= 0.003  # entering already moving the window's way: a pure exponential attack
     if expo:
         g = max(1.05, attack_g(abs(Lp - LA0), TA, r0))
-        # speed carries through the cut: A's speed one frame before the teleport is at most DROP_MAX x what B can
-        # reach one frame after it (the EDL peak is lowered if needed; a push lands slowly by nature)
-        V = DROP_MAX * vB1(math.log(DECAY_RANGE[1]) * TB)
-        if TA > 1.0 and r0 * g ** (TA - 1) > V > r0 * G_MIN ** (TA - 1):
-            g = (V / r0) ** (1.0 / (TA - 1))
+        # speed carries through the cut: A's speed one frame before the teleport is at most DROP_T x B's speed one
+        # frame after it with B's natural decay (the EDL peak is pulled in if needed; a push lands slowly by nature)
+        V = DROP_T * vB1(math.log(decay) * TB)
+        if TA > 1.0 and r0 * g ** (TA - 1) > V:
+            g = max(G_MIN, (V / r0) ** (1.0 / (TA - 1)))
             Lp = LA0 + sign * r0 * (g ** TA - 1) / math.log(g)
         kA = max(0.3, math.log(g) * TA)
         vA1 = r0 * g ** max(0.0, TA - 1.0)
@@ -282,7 +284,7 @@ def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK):
         return ramp_in(LA0, A.ds, Lp, TA, kA, tau)
     # B decays at x DECAY per frame (REFS k 0.80-0.88), steepened (up to x DECAY_RANGE[1]) only as far as needed to keep
     # the speed drop across the cut under DROP_MAX
-    lo, hi = math.log(DECAY) * TB, math.log(DECAY_RANGE[1]) * TB
+    lo, hi = math.log(decay) * TB, math.log(DECAY_RANGE[1]) * TB
     want = vA1 / DROP_MAX
     if vB1(hi) <= want:
         kB = hi
@@ -296,7 +298,7 @@ def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK):
             else:
                 hi = mid
         kB = (lo + hi) / 2
-    kAr, kBr = kA * 1.6, min(60.0, kB * 1.6)  # the roll eases harder than the zoom: big rolls only at big scales
+    kAr, kBr = max(kA * 1.6, 5.0), min(60.0, max(kB * 1.6, 4.0))  # the roll eases harder than the zoom
     XA, XB = roll_split(A.dr, B.dr, R, TA, TB, kAr, kBr)
     rA_end = A.r + A.dr * TA + XA
     rB_start = B.r - B.dr * TB - XB
@@ -318,7 +320,9 @@ def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK):
         cy, dcy = ramp_out(fb[1], B.cy, B.dcy, TB, kB, tp)
         r, dr = ramp_out(rB_start, B.r, B.dr, TB, kBr, tp)
         # the landing's first frames may show the mirror tiles behind the smear; the edge guard fades in over 6 f
-        return cl.cover(cl.State(math.exp(L), cx, cy, r, dL, dcx, dcy, dr), strength=cl.smootherstep((t - th) / 6.0))
+        roff = abs(r - (B.r - B.dr * tp))  # roll still to unwind: big rolls show the mirror tiles inside the smear
+        k = min(cl.smootherstep((t - th) / 6.0), 1 - cl.smoothstep((roff - 1.0) / 6.0))
+        return cl.cover(cl.State(math.exp(L), cx, cy, r, dL, dcx, dcy, dr), strength=k)
     RA = lnsA(TA)[1]
     RB = ramp_out(Ll, LB1, B.ds, TB, kB, TB)[1]
     return stA, stB, dict(kA=kA, kB=kB, RA=RA, RB=RB, vA1=vA1, vB1=vB1(kB), peak=math.exp(Lp),
@@ -421,7 +425,7 @@ def build_turn(T, ctx):
         ang = math.radians(float(p.get("angle", 70))) * sgn
         mid = window_blend(A, B, w0, w1, f)
         P = FA @ Vector(cl.local_pose(mid)[0])
-        turn = Turn(ang, w0, f, w1, max(1.0, math.log(1.6) * (f - w0)), 3.0, over=0.025)
+        turn = Turn(ang, w0, f, w1, 1.6, 1.25, over=0.02)
     else:
         # cube: dir = the way the cube turns; the camera orbits the other way round the box centre
         cube_sgn = {"L": 1, "R": -1, "U": 1, "D": -1}[d]
@@ -429,7 +433,7 @@ def build_turn(T, ctx):
         ang = math.radians(90.0) * cube_sgn
         hd = (cl.CARD_W if d in "LR" else cl.CARD_H) / 2
         P = o + Vector((0, 0, -hd))
-        turn = Turn(ang, w0, f, w1, 3.5, 3.5, over=0.0)
+        turn = Turn(ang, w0, f, w1, 1.6, 1.3, over=0.0)
     FB = rot_about(P, axis, ang) @ FA
     ca = ctx.make_card(T["a"]["id"], f"{typ}_{T['id']}_A", FA, frames=vis)
     cb = ctx.make_card(T["b"]["id"], f"{typ}_{T['id']}_B", FB, frames=vis)
@@ -459,7 +463,7 @@ def build_turn(T, ctx):
         M = rot_about(P, axis, turn(t)) @ FA @ local_matrix(st)
         return mat_pose(M)
     ctx.key_path(fn, w0, w1, 0.25)
-    ctx.log(f"  {typ} {T['id']} dir {d}: turn {math.degrees(ang):+.0f} deg, peak at f{f}, overshoot o={turn.o:.2f}")
+    ctx.log(f"  {typ} {T['id']} dir {d}: turn {math.degrees(ang):+.0f} deg, peak at f{f}, overshoot {turn.over:.2f}")
 
 
 def box_and_glints(T, ctx, o, C, axis, d, hd, pal, vis, turn):
@@ -559,45 +563,24 @@ def build_flip(T, ctx):
 
 # ---- slam: superhero landing ---------------------------------------------------------------------------------------------
 def build_slam(T, ctx):
+    """Superhero landing: A pushes in (exponential attack); B slams in from below 1x (the mirror tiles smear past) at the
+    same speed and stops hard at `kick` x (B decays x1.4 per frame), the depth-displaced card gives the 3D-photo
+    parallax, the shot's shake@F hits, a dust shockwave ring expands."""
     p = T["p"]
     A, B = ctx.bounds[T["id"]]["A"], ctx.bounds[T["id"]]["B"]
-    w0, w1, f = T["w0"], T["w1"], T["f"]
-    th = f - 0.5
-    TA = th - w0
-    kA = 5.0
-    peak = float(p.get("peak", 2.6))
-    kick = float(p.get("kick", 1.35))
-    sc0 = float(p.get("start", 1.03))
-    LA0, Lp = math.log(A.s), math.log(peak)
-    RA = ramp_in_end_rate(LA0, A.ds, Lp, TA, kA)
-    fa = focus_of(T, "a", ctx)
-    Tk = float(p.get("stop", 3.0))
-    te = th + Tk
-    re = -0.006  # already easing back out at the stop: the camera never freezes
-    kB = k_for_start_rate(math.log(sc0), math.log(kick), re, Tk, RA)
-    Bst = B.at(te - w1)
-    K = cl.State(kick, Bst.cx, Bst.cy, Bst.r, re, Bst.dcx, Bst.dcy, Bst.dr)
+    stA, stB, info = zt_curves(T, ctx, A, B, float(p.get("peak", 2.6)), float(p.get("start", 0.72)), 0.0, 1,
+                               decay=float(p.get("decay", 1.4)))
+    th = T["f"] - 0.5
     ctx.teleport(th)
     ca, cb = ctx.card(T["a"]["id"]), ctx.card(T["b"]["id"])
 
     def fn(t):
-        if t < th:
-            tau = t - w0
-            L, dL = ramp_in(LA0, A.ds, Lp, TA, kA, tau)
-            cx, dcx = ramp_in(A.cx, A.dcx, fa[0], TA, kA, tau)
-            cy, dcy = ramp_in(A.cy, A.dcy, fa[1], TA, kA, tau)
-            st = cl.State(math.exp(L), cx, cy, A.r + A.dr * tau, dL, dcx, dcy, A.dr)
-            return ctx.pose(ca, fin(st))
-        if t < te:
-            L, dL = ramp_out(math.log(sc0), math.log(kick), re, Tk, kB, te - t)
-            b = B.at(t - w1)
-            st = cl.State(math.exp(L), b.cx, b.cy, b.r, dL, b.dcx, b.dcy, b.dr)
-        else:
-            st = cl.hermite_state(K, B, te, w1, t)
-        return ctx.pose(cb, fin(st))
-    ctx.key_path(fn, w0, w1, 0.25)
-    shockwave(T, ctx, cb, f)
-    ctx.log(f"  slam {T['id']}: peak rate {RA:+.3f}, stop k {kB:.1f} at {kick}x")
+        return ctx.pose(ca, stA(t)) if t < th else ctx.pose(cb, stB(t))
+    ctx.key_path(fn, T["w0"], T["w1"], 0.25)
+    rack(ctx, th, stB, T["w1"], 18.0, 4.0)
+    shockwave(T, ctx, cb, T["f"])
+    ctx.log(f"  slam {T['id']}: A {A.s:.2f}->{info['peak']:.2f}x  B {p.get('start', 0.72)}->{B.s:.2f}x  "
+            f"1f either side {info['vA1']:.3f}|{info['vB1']:.3f}  B decay x{info['decay']:.2f}/f")
 
 
 def shockwave(T, ctx, card, f):
