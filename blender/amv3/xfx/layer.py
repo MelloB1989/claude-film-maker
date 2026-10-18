@@ -19,11 +19,12 @@ mode "sweep" (ref c 492-503, c 101-122): B's matted subject sweeps in over A fro
 
 Parameters (all optional): keep: dir L|R|U|D (default: the side the subject is nearer to), depth 1.0, b_travel 0.5,
 shift 0.8, carry 0.45, feather 380, exit 2, approach 0.86, tilt 18, dof 4.0, glow 0 (wipe-edge light; it haloes
-through the subject's soft edge, so off by default), ease 3.5 (camera blend ease), choke 3 (px: matte feather inward),
+through the subject's soft edge, so off by default), ease 3.5 / ease_out 1.6 (camera blend attack / decay), choke 3 (px: matte feather inward), hole 0 (1 = cut
+the matte out of A's background as the subject leaves; shows B-coloured blobs where the moved subject uncovers it),
 settle 1.35 (B's exit scale: B is scaled up to cover the frame, so a lower exit scale makes the camera back away from
 B = a zoom-sign reversal behind the subject).
 sweep: from L|R|U|D (default: the side away from B's subject), depth 0.3, enter 3, land 5, approach 0.78, tilt 22,
-shift 0.25, feather 320, dof 4.0, ease 2.2, settle 1.35, b_travel 0.35, choke 3, zoom push|pull (default:
+shift 0.25, feather 320, dof 4.0, ease 1.8, ease_out 1.6, settle 1.35, b_travel 0.35, choke 3, zoom push|pull (default:
 push, or A's own zoom sign when the hold before is too short to turn round; a pull lands B receding).
 Mattes: $AMV3_DATA/mattes/<shot>/f_NNNNN.png (white subject). Without mattes the module still runs (opaque subject
 cards; the log says so) so camera tests work before the prep lands.
@@ -40,12 +41,13 @@ import flow
 
 DEFAULTS = {
     "keep": dict(dir=None, depth=1.0, b_travel=0.5, shift=0.8, carry=0.45, feather=380.0, exit=2, approach=0.86,
-                 tilt=18.0, dof=4.0, glow=0.0, settle=1.35, ease=3.5, choke=3.0),
+                 tilt=18.0, dof=4.0, glow=0.0, settle=1.35, ease=3.5, ease_out=1.6, choke=3.0, hole=0),
     "sweep": dict(dir=None, depth=0.3, enter=3, land=5, approach=0.78, tilt=22.0, shift=0.25, feather=320.0, dof=4.0,
-                  settle=1.35, b_travel=0.35, ease=2.2, choke=3.0, zoom=None),
+                  settle=1.35, b_travel=0.35, ease=1.8, ease_out=1.6, choke=3.0, zoom=None),
 }
 SIDES = {"L": (-1, 0), "R": (1, 0), "U": (0, 1), "D": (0, -1)}  # screen direction (x right, y up)
 STEP = 0.25
+ENTRY = 0.02  # d ln s / f a layer window is entered with (the hold before turns to it: REFS holds 1.5-3.5 %/f)
 ZSEP = 0.004  # m a subject card sits in front of the plate it came from: coplanar cards z-fight in Cycles (a ray that
 #               passes the transparent part of one card skips the other at random -> ~50 % see-through)
 
@@ -83,7 +85,7 @@ def bounds(T, ctx):
     A = ctx.entry_state(T)
     sg = zoom_sign(T, ctx, p, A)
     if flow.prev_hold(T, ctx) >= flow.REVERSAL_MIN:
-        A = A.with_(ds=max(A.ds, flow.ENTRY) if sg > 0 else min(A.ds, -flow.ENTRY))
+        A = A.with_(ds=max(A.ds, ENTRY) if sg > 0 else min(A.ds, -ENTRY))
     A = ctx.settle_entry(T, A)
     B = ctx.exit_state(T)
     if sg > 0 and p.get("settle"):
@@ -402,7 +404,7 @@ def build_keep(T, ctx, p):
     pre = f - w0
     t_exit = f + int(p["exit"])
     t_wipe1 = f - max(1, int(round(0.3 * pre)))
-    ek = float(p["ease"])
+    ek, eko = float(p["ease"]), float(p["ease_out"])
 
     def b_off(t):
         u = cl.clamp01((t - w0) / float(w1 - w0))
@@ -414,24 +416,24 @@ def build_keep(T, ctx, p):
 
     kb = 1.0
     for _ in range(30):
-        cam = Blend(ctx, MA, A, MB_at(kb), B, w0, f, w1, ek, ek)
+        cam = Blend(ctx, MA, A, MB_at(kb), B, w0, f, w1, ek, eko)
         if all(covers(*cam(t), MB_at(kb, t)) for t in frange(w0 + 1, w1, 0.5)):
             break
         kb *= 1.05
     else:
         ctx.log(f"  WARN layer {T['id']}: B card does not cover the frame at kb {kb:.2f}")
     MB = MB_at(kb)
-    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, ek, ek)
+    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, ek, eko)
 
     # A's background (tiled like the home card so the teleport at w0 is exact), wipe + carry + matte hole
     dA = shot_depth(ctx, sa)
     bgA = ctx.make_card(sa, f"layer_{T['id']}_Abg", MA, depth=dA, frames=(w0 - 1, t_wipe1 + 1), tile=3)
     mat = own_material(bgA, f"m_layer_{T['id']}_Abg")
     fe = float(p["feather"])
-    mimg = ctx._sequence("mattes", sa, "png")
-    if mimg is None:
+    mimg = ctx._sequence("mattes", sa, "png") if p["hole"] else None
+    if p["hole"] and mimg is None:
         ctx.log(f"  WARN layer {T['id']}: no mattes for {sa}: no subject hole, opaque subject card")
-    nt = patch_alpha(mat, ctx, mat.name, coord, sgn, fe, matte_img=mimg)
+    nt = patch_alpha(mat, ctx, mat.name, coord, sgn, fe, hole=bool(p["hole"]), matte_img=mimg)
     # visible card px range along the wipe axis at the cut (from the camera at f)
     lo_v, hi_v = visible_range(cam, MA, f, coord, sgn)
     carry = float(p["carry"])
@@ -566,17 +568,18 @@ def build_sweep(T, ctx, p):
 
     def MB_at(kb, t=None):
         # offset toward `from`: the camera travels with the subject (tracks it), the background pans the other way
-        z = -D - (b_off(t) if t is not None else 0.0)
+        # a pull starts B at D behind A and recedes to D + |btr| (never in front of A's plane)
+        z = -D - max(0.0, -btr) - (b_off(t) if t is not None else 0.0)
         return Matrix.Translation(o + Vector((-ex * shift, -ey * shift, z))) @ Matrix.Scale(kb, 4)
 
     kb = 1.0
     for _ in range(30):
-        cam = Blend(ctx, MA, A, MB_at(kb), B, w0, f, w1, float(p["ease"]), float(p["ease"]))
+        cam = Blend(ctx, MA, A, MB_at(kb), B, w0, f, w1, float(p["ease"]), float(p["ease_out"]))
         if all(covers(*cam(t), MB_at(kb, t)) for t in frange(w0 + 1, w1, 0.5)):
             break
         kb *= 1.05
     MB = MB_at(kb)
-    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, float(p["ease"]), float(p["ease"]))
+    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, float(p["ease"]), float(p["ease_out"]))
 
     dA, dB = shot_depth(ctx, sa), shot_depth(ctx, sb)
     cardA = ctx.make_card(sa, f"layer_{T['id']}_A", MA, depth=dA, frames=(w0 - 1, t_land + 1), tile=3)
