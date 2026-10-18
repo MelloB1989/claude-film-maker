@@ -59,7 +59,7 @@ STYLE = {
     # S25 is an extreme close-up: the subject matte covers ~the whole frame, so "behind" would hide the word. It sits
     # in front of the face (lower third, clear of the eye), behind the card plane only for parallax.
     "SPIDER-MAN": dict(behind=False, font="anton", center=(1000, 742), width_px=1540, hero=645, depth=0.30, yaw=14,
-                       pitch=-8, roll=3, ext=0.12, bev=0.05, shear=0.18, track=0.03, hold=(632, 648)),
+                       pitch=-8, roll=3, ext=0.12, bev=0.032, shear=0.18, track=0.03, hold=(632, 648)),
     "BRAND NEW DAY": dict(font="anton", center=(960, 250), width_px=1560, hero=758, depth=0.36, yaw=-12, pitch=12,
                           roll=-2, ext=0.12, bev=0.028, shear=0.18, track=0.05, shots=["S31", "S32"],
                           per_shot=dict(S31=dict(hero=755, center=(960, 250)), S32=dict(hero=772, center=(960, 290))),
@@ -341,7 +341,7 @@ def title_material(name, pal, chrome=False):
         rim_bsdf = principled((1.0, 1.0, 1.0), 1.0, 0.08)
         lr = nsstep(wx, 0.2, 0.8)
         crim = nrgb(nmix(1.0, 0.10, lr), nmix(0.08, 0.32, lr), nmix(0.16, 1.0, lr))   # red left .. blue right
-        face_emit = ncol((0.92, 0.95, 1.0), mc * face * face_e * (1.0 - dirt * 0.3))
+        face_emit = ncol((0.92, 0.95, 1.0), mc * face * face_e * (1.0 - dirt * 0.3) * 0.6)
         side_emit = ncol((0.35, 0.40, 0.55), mc * side * 0.35)
         rim_mul = nmix(1.0, mc, 0.6) * rim * rim_e
         rim_emit = caddc(ncol((1, 1, 1), mc * rim * 0.8), caddc(crim, nrgb(rim_mul, rim_mul, rim_mul), "MULTIPLY"))
@@ -764,7 +764,7 @@ class Title:
 
     # ---------------------------------------------------------------------------- animation
     def frames(self):
-        a = math.floor(self.f0) - 1.0
+        a = math.floor(self.f0) - 6.0      # entrances may start up to ~5 f before f0; keys before them are hidden
         b = math.ceil(self.end_frame()) + 1.0
         return frange(a, b, 0.5)
 
@@ -1039,7 +1039,7 @@ class Title:
         u = (f - at) / 6.0
         e = ease_out_expo(u)
         M = Matrix.Translation(L["rest"] + Vector((-(1 - e) * 0.4 * self.W(), 0, 0))) @ \
-            Matrix.Diag((max(e, 1e-3), 1, 1, 1))
+            Matrix.Diagonal((max(e, 1e-3), 1.0, 1.0, 1.0))
         pop = 1.2 * math.exp(-max(0.0, f - at - 2) / 3.0) if f >= at else 0.0
         return M, f >= at, pop
 
@@ -1086,12 +1086,12 @@ class Title:
         # launch order: outer letters first, the near (centre) letter last
         # the near letter covers the lens at the cut; its two neighbours pass just after it (in B's set, through the
         # teleport copy), the rest before it, outer letters first
-        late = [j for j in (near - 1, near + 1) if 0 <= j < n] if n >= 5 else []
+        late = [near + 1] if n >= 5 and near + 1 < n else []
         early = sorted([j for j in range(n) if j != near and j not in late], key=lambda j: -abs(j - near))
         if i == near:
             t_pass = fe - 0.7
         elif i in late:
-            t_pass = fe + 0.7 + late.index(i) * 0.9
+            t_pass = fe + 0.6
         else:
             t_pass = fe - 1.3 - (len(early) - 1 - early.index(i)) * 0.5
         t_l = max(w0 + 0.5, t_pass - 5.5)
@@ -1117,7 +1117,7 @@ class Title:
         if i == near:
             radius = 0.045
         elif i in late:
-            radius = r.uniform(0.07, 0.12)
+            radius = 0.16
         else:
             radius = r.uniform(0.16, 0.5) * self.W() * 0.6
         Pp = cpos + cx * (d2.x * radius) + cy * (d2.y * radius) + fwd * 0.02
@@ -1135,7 +1135,7 @@ class Title:
         R = M_l.to_3x3().to_4x4()
         Mn = Matrix.Translation(Pw) @ Quaternion(ax, spin).to_matrix().to_4x4() @ R
         pop = 1.5 * clamp01((f - t_l) / 3.0)
-        return Mn, f < t_pass + 3.0, pop
+        return Mn, f < t_pass + (1.0 if i in late else 3.0), pop
 
     def exit_shatter(self, L, c, f, M):
         fe = self.exit[1]
