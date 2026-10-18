@@ -65,8 +65,8 @@
    ],
    "speed": "const",
    "focus": [
-    960,
-    470
+    975,
+    445
    ],
    "move": {
     "drift": "out",
@@ -116,7 +116,7 @@
    ],
    "speed": "const",
    "focus": [
-    950,
+    920,
     560
    ],
    "move": {
@@ -167,8 +167,8 @@
    ],
    "speed": "const",
    "focus": [
-    980,
-    520
+    1029,
+    510
    ],
    "move": {
     "drift": "out",
@@ -298,8 +298,8 @@
    ],
    "speed": "const",
    "focus": [
-    915,
-    600
+    860,
+    440
    ],
    "move": {
     "drift": "in",
@@ -445,8 +445,8 @@
    ],
    "speed": "launch",
    "focus": [
-    990,
-    565
+    1010,
+    290
    ],
    "move": {
     "drift": "in",
@@ -674,8 +674,8 @@
    ],
    "speed": "const",
    "focus": [
-    700,
-    470
+    507,
+    375
    ],
    "move": {
     "drift": "in",
@@ -1601,7 +1601,7 @@
    892,
    897
   ],
-  "frames": "$AMV2_DATA/blender/outro_v2"
+  "frames": "$AMV2_DATA/blender/outro"
  },
  "titles": [
   {

@@ -34,7 +34,8 @@ ACTS = [
 
 # ---------------------------------------------------------------------------------------------------------------------
 # SHOTS. speed: const | velocity (fast-slow-fast) | land (fast -> slow) | launch (slow -> fast) | reverse (src0 > src1).
-# focus: [x, y] clip pixels that zooms centre on (eye, lens); None = frame centre.
+# focus: [x, y] clip pixels that zooms centre on (eye, lens) at the shot's first frame; None = frame centre. The
+#   moving point per frame is $AMV3_DATA/tracks/<id>.json (tracks.py); use the track, not this seed, when it exists.
 # move: the HOLD intent between transitions. The stage solves each hold as a C1 curve that starts with the incoming
 #   transition's exit velocity and ends with the outgoing transition's entry velocity, so the camera never stops.
 #   drift: "in" (slow push) | "out" (slow pull) | "auto" (whatever joins the two transitions without a reversal)
@@ -53,13 +54,13 @@ def shot(id, clip, a, b, src, speed="const", focus=None, move=None, fx=(), note=
 
 
 # ---------------- ACT I  TOBEY  (guitar intro, f0-252)
-shot("S01", "T01_mask_night", 0, 50, (0.05, 0.75), "const", (960, 470),
+shot("S01", "T01_mask_night", 0, 50, (0.05, 0.75), "const", (975, 445),
      dict(drift="out", roll=-2.0, depth=0.35), [], "opens out of black: the camera pulls back through the dark with depth parallax")
 shot("S02", "T02_mask_off", 50, 83, (0.08, 0.66), "land", None, dict(drift="out", roll=1.5), [], "the unmasking")
-shot("S03", "T03_glove_city", 83, 118, (0.15, 0.85), "const", (950, 560), dict(drift="in", pan=[-40, 0], depth=0.3), [],
+shot("S03", "T03_glove_city", 83, 118, (0.15, 0.85), "const", (920, 560), dict(drift="in", pan=[-40, 0], depth=0.3), [],
      "TOBEY MAGUIRE name card + EARTH-96283 caption")
 shot("S04", "T04_flowers", 118, 151, (0.10, 0.90), "const", None, dict(drift="in", roll=-1.5), [], "gold bokeh")
-shot("S05", "T05_black_lens", 151, 175, (0.15, 0.95), "const", (980, 520), dict(drift="out", roll=2.0), [],
+shot("S05", "T05_black_lens", 151, 175, (0.15, 0.95), "const", (1029, 510), dict(drift="out", roll=2.0), [],
      "black suit: emerges from the symbiote goo")
 shot("S06", "T06_bully_smirk", 175, 201, (0.10, 0.95), "land", None, dict(drift="in"), [], "Bully Maguire smirk")
 shot("S07", "T07_train", 201, 235, (0.30, 0.85), "velocity", None, dict(drift="out", depth=0.25), ["shake@201"],
@@ -70,7 +71,7 @@ shot("S08", "T08_eye_dive", 235, 252, (0.05, 0.75), "const", (901, 390), dict(dr
 # ---------------- ACT II  ANDREW  (build, f252-480)
 shot("S09", "A01_lens_pullout", 252, 300, (4.45, 0.40), "land", (1036, 546), dict(drift="out", roll=3.0), [],
      "out of the tunnel through Andrew's lens, pulling out over the night city; WHO ARE YOU?")
-shot("S10", "A03_sunset_mask", 300, 336, (0.02, 0.70), "const", (915, 600), dict(drift="in", depth=0.3), [],
+shot("S10", "A03_sunset_mask", 300, 336, (0.02, 0.70), "const", (860, 440), dict(drift="in", depth=0.3), [],
      "3D AMAZING assembles behind his head; ANDREW GARFIELD / EARTH-120703")
 shot("S11", "A02_freefall", 336, 369, (0.05, 1.30), "velocity", None, dict(drift="in", roll=-4.0), [],
      "freefall past the Empire State (we dive into it through the AMAZING letters)")
@@ -79,7 +80,7 @@ shot("S12", "A04_bridge_flip", 369, 400, (0.05, 1.25), "velocity", None, dict(dr
 shot("S13", "A05_topdown_fall", 400, 416, (0.05, 0.75), "launch", None, dict(drift="in"), [], "top-down dive")
 shot("S14", "A06_water_tower", 416, 436, (0.10, 0.80), "velocity", None, dict(drift="out"), [], "leap off the water tower")
 shot("S15", "A07_electro", 436, 453, (0.05, 0.75), "const", None, dict(drift="in", roll=-2.0), [], "Electro's lightning")
-shot("S16", "A08_blue_lenses", 453, 468, (0.05, 0.75), "launch", (990, 565), dict(drift="in"), [], "blue lenses")
+shot("S16", "A08_blue_lenses", 453, 468, (0.05, 0.75), "launch", (1010, 290), dict(drift="in"), [], "blue lenses")
 shot("S17", "A09_lens_pushin", 468, 480, (0.00, 1.10), "launch", (1110, 443), dict(drift="in"), [],
      "riser: slam into the lens; the lens glass shatters on the drop")
 
@@ -95,7 +96,7 @@ shot("S22", "M07_roll_crouch", 570, 587, (0.05, 0.72), "land", None, dict(drift=
 shot("S23", "M15_landing_crouch", 587, 604, (0.10, 0.75), "land", None, dict(drift="out", depth=0.45), ["shake@587"],
      "superhero landing: 3D-photo dolly, dust shockwave")
 shot("S24", "M06_flying_kick", 604, 620, (0.05, 0.75), "velocity", None, dict(drift="in"), [], "flying kick")
-shot("S25", "M08_shuriken", 620, 656, (0.02, 0.76), "const", (700, 470), dict(drift="in", depth=0.25),
+shot("S25", "M08_shuriken", 620, 656, (0.02, 0.76), "const", (507, 375), dict(drift="in", depth=0.25),
      ["letterbox", "punch@631"], "slow motion through the sling-ring portal; the shuriken passes his eye; 3D SPIDER-MAN")
 shot("S26", "M09_punches", 656, 672, (0.05, 0.72), "velocity", None, dict(drift="out"), ["shake@656"], "punches")
 shot("S27", "M10_tank_snap", 672, 686, (0.05, 0.88), "land", None, dict(drift="in"), [], "crouch on the tank")
@@ -179,7 +180,7 @@ TRIPTYCH = dict(f0=777, f1=819, panels=[
 ], title=dict(f=802, text="TIMELESS"), shatter=819)
 
 OUTRO = dict(f0=819, f1=900, text="SAU_EDITZ", hits=[828, 837, 844, 854, 860, 880, 892, 897],
-             frames="$AMV2_DATA/blender/outro_v2")
+             frames="$AMV2_DATA/blender/outro")  # NNNN.png, 0819-0899, opaque RGBA
 
 # Titles. style "text3d" = a 3D title in the Blender stage (text3d module): chunky extruded condensed italic, Novax
 # palette (white-to-hue gradient face, light sweep, settles to a glowing outline), lit in the scene, behind the subject
