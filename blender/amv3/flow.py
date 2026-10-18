@@ -608,9 +608,9 @@ def build_flip(T, ctx):
     sh_amt = shadow.data.materials[0].node_tree.nodes["Amt"].outputs[0]
     for fr2 in range(2 * (w0 - 1), 2 * (w1 + 1) + 1):
         t = fr2 / 2.0
-        # the page holds while the camera pushes into A, then swings open through the cut (f-1.5 .. f+5), well before
-        # the camera reaches its plane
-        k = cl.smootherstep((t - (f - 1.5)) / 6.5)
+        # the page turns away from w0+1 and is open by f+3: B is revealed underneath around the cut, while the camera
+        # (slow at first) is still well in front of the page plane
+        k = cl.smootherstep((t - (w0 + 1)) / max(3.0, f + 3 - (w0 + 1)))
         piv.rotation_euler = (0, sg * phimax * k, 0)
         piv.keyframe_insert("rotation_euler", frame=t)
         sw.default_value = (1.2 - 1.4 * k) if hinge == "L" else (-0.2 + 1.4 * k)

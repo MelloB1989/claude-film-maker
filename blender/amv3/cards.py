@@ -399,7 +399,7 @@ def build_env_collection(act_id, pal, lib_coll):
     sheet = card_mesh(f"env_{act_id}_haze", 1, 1, 1.0, 1.0)
     hmat = emission_material(f"env_{act_id}_haze", leak, 0.45, 0.18, noise=0.95)
     sheet.materials.append(hmat)
-    for i in range(6):
+    for i in range(0):  # haze sheets read as flat coloured boards behind cards: off (fog, bokeh and strands remain)
         ob = bpy.data.objects.new(f"env_{act_id}_haze{i}", sheet)
         z = -rnd.uniform(4.0, 12.0)
         ob.location = (rnd.uniform(-6, 6), rnd.uniform(-3, 3), z)
