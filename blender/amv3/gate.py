@@ -291,6 +291,8 @@ def analyse(dump, out_csv=None, only=False):
         # ... and the eye / lens nests: A's face fills the frame until the camera passes the opening, B after it (the
         # speed ratio there compares two planes metres apart; the nest itself keeps the dolly speed continuous)
         small = {w["id"] for w in wins if w.get("region") in ("eye", "lens")}
+        # ... and the layer KEEP cuts (agent-06): A's plane passes the lens, B is behind it (same two-plane ratio)
+        small |= {w["id"] for w in wins if w.get("type") == "layer" and w.get("mode") == "keep"}
         flat = [c for c in cutstats if c["type"] not in ("flip", "cube") and c["id"] not in small] or cutstats
         drops = sorted(c["drop"] for c in flat)
         stats.update(cut_acc_median=med("acc"), cut_dec_median=med("dec"), cut_peak_median=med("peak"),
