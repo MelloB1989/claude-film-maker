@@ -554,9 +554,9 @@ def box_and_glints(T, ctx, o, C, axis, d, hd, pal, vis, turn):
     em = gm.node_tree.nodes["Emission"].inputs["Strength"]
     for fr in range(T["w0"] - 1, T["w1"] + 2):
         x = (fr - T["f"]) / 4.0
-        em.default_value = 2.5 * math.exp(-x * x)
+        em.default_value = 1.2 * math.exp(-x * x)
         em.keyframe_insert("default_value", frame=fr)
-    th = 0.004
+    th = 0.012  # a soft sheen along the edges (thin bright bars only sparkle under motion blur)
     bars = []
     W, H = cl.CARD_W, cl.CARD_H
     for (cx, cy, lx, ly) in ((0, H / 2, W, th), (0, -H / 2, W, th), (W / 2, 0, th, H), (-W / 2, 0, th, H)):
