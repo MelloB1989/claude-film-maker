@@ -227,11 +227,24 @@ def _sparks(P, ctx, coll):
     ramp.color_ramp.elements[0].color = (*ORANGE, 1)
     ramp.color_ramp.elements[1].color = (1.0, 0.92, 0.7, 1)
     nt.links.new(attr.outputs["Fac"], ramp.inputs[0])
-    em = X.node(nt, "ShaderNodeEmission", Strength=22.0)
+    em = X.node(nt, "ShaderNodeEmission")
     nt.links.new(ramp.outputs[0], em.inputs["Color"])
+    nt.links.new(X.math_node(nt, "MULTIPLY", _near_fade(nt, 0.15, 1.2), 22.0), em.inputs["Strength"])
     nt.links.new(em.outputs[0], out.inputs["Surface"])
     ob.data.materials.append(m)
     return ob
+
+
+def _near_fade(nt, a=0.06, b=0.45):
+    """0 at the lens .. 1 beyond b m: ring light passing within a few cm of the lens would smear (defocused, focus on
+    S25) into a flat orange frame."""
+    cd = nt.nodes.new("ShaderNodeCameraData")
+    mr = nt.nodes.new("ShaderNodeMapRange")
+    mr.interpolation_type = "SMOOTHSTEP"
+    nt.links.new(cd.outputs["View Distance"], mr.inputs["Value"])
+    mr.inputs["From Min"].default_value = a
+    mr.inputs["From Max"].default_value = b
+    return mr.outputs["Result"]
 
 
 def _sigil_mat(name, seed, strength, col):
@@ -256,7 +269,8 @@ def _sigil_mat(name, seed, strength, col):
     mask = X.math_node(nt, "MINIMUM", X.math_node(nt, "ADD", glyph, edge), 1.0)
     fade = X.key_value(nt, "fade", [], 1.0)
     em = X.node(nt, "ShaderNodeEmission", Color=(*col, 1))
-    nt.links.new(X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", mask, fade), strength), em.inputs["Strength"])
+    nt.links.new(X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", mask, fade),
+                                                        _near_fade(nt)), strength), em.inputs["Strength"])
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
     add = nt.nodes.new("ShaderNodeAddShader")
     nt.links.new(em.outputs[0], add.inputs[0])
@@ -324,7 +338,7 @@ def build(T, ctx):
         d = P["z"](t) - P["zB"]
         if t > t_out:
             d /= P["kB"]
-        n = X.lerp(64.0, 2.8, X._sstep(w0 + 2.0, w0 + 6.0, t))
+        n = X.lerp(64.0, 5.6, X._sstep(w0 + 2.0, w0 + 6.0, t))
         return d, X.lerp(n, 64.0, X._sstep(cut + 1.0, w1, t))
 
     X.key_path(ctx, w0, w1, fn, teleports=(t_in, t_out), dof_fn=dof)
@@ -346,34 +360,39 @@ def _norm(m):
 
 
 def _wash(P, coll):
-    """REFS a07: the whole frame floods orange for ~4 f as the ring passes the lens. A veil riding 6 cm in front of the
-    camera (private set only), hot at the edges, opacity peaking as the camera crosses the ring plane."""
+    """REFS a07: the frame floods with the ring's orange light for ~3 f as the ring passes the lens. A hot light bloom
+    riding 6 cm in front of the camera (private set only): additive, hottest at the ring centre (the camera axis) and
+    falling off outward, peaking ~30-60 % brighter at the centre as the camera crosses the ring plane, so S25 stays readable through it."""
     cut = P["cut"]
     ve = X.plane_obj("XA_sling_wash", 0.16, 0.09, coll)
     m, nt, out = X._nodes("XA_sling_wash_m")
     tc = nt.nodes.new("ShaderNodeTexCoord")
-    gr = nt.nodes.new("ShaderNodeTexGradient")
-    gr.gradient_type = "SPHERICAL"
-    mp = nt.nodes.new("ShaderNodeMapping")
-    mp.inputs["Location"].default_value = (0.5, 0.5, 0)
-    mp.inputs["Scale"].default_value = (1.4, 2.4, 1)
-    nt.links.new(tc.outputs["UV"], mp.inputs["Vector"])
-    mp2 = nt.nodes.new("ShaderNodeMapping")
-    mp2.inputs["Location"].default_value = (-0.5, -0.5, 0)
-    nt.links.new(mp.outputs[0], mp2.inputs["Vector"])
-    nt.links.new(mp2.outputs[0], gr.inputs["Vector"])
-    edge = X.math_node(nt, "SUBTRACT", 1.0, X.math_node(nt, "POWER", gr.outputs["Fac"], 0.6))
-    op = X.key_value(nt, "opacity", [(cut - 3.0, 0.0), (cut - 1.5, 0.2), (cut - 0.3, 0.36), (cut + 0.7, 0.26),
-                                     (cut + 1.7, 0.1), (cut + 2.5, 0.0)])
-    a = X.math_node(nt, "MINIMUM", X.math_node(nt, "MULTIPLY", op, X.math_node(nt, "ADD", 0.45, edge)), 1.0)
-    em = X.node(nt, "ShaderNodeEmission", Color=(1.0, 0.34, 0.04, 1), Strength=1.3)
-    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
-    mx = nt.nodes.new("ShaderNodeMixShader")
-    nt.links.new(a, mx.inputs[0])
-    nt.links.new(tr.outputs[0], mx.inputs[1])
-    nt.links.new(em.outputs[0], mx.inputs[2])
-    nt.links.new(mx.outputs[0], out.inputs["Surface"])
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["UV"], sep.inputs[0])
+    dx = X.math_node(nt, "MULTIPLY", X.math_node(nt, "SUBTRACT", sep.outputs[0], 0.5), 1.78)
+    dy = X.math_node(nt, "SUBTRACT", sep.outputs[1], 0.5)
+    r2 = X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", dx, dx), X.math_node(nt, "MULTIPLY", dy, dy))
+    # centre-hot gradient: 1 at the ring centre, ~0.3 at the frame edges, ~0.15 in the corners
+    grad = X.math_node(nt, "ADD", 0.1, X.math_node(nt, "MULTIPLY", 0.9, X.math_node(
+        nt, "EXPONENT", X.math_node(nt, "MULTIPLY", r2, -3.2))))
+    # linear radiance added: 0.13 at the centre reads ~45 % brighter after the view transform (0.42 was a flat fill)
+    k = X.key_value(nt, "bloom", [(cut - 3.0, 0.0), (cut - 1.5, 0.06), (cut - 0.3, 0.13), (cut + 0.7, 0.09),
+                                  (cut + 1.7, 0.035), (cut + 2.5, 0.0)])
+    X.set_linear(nt)
+    col = nt.nodes.new("ShaderNodeMix")
+    col.data_type = "RGBA"
+    nt.links.new(grad, col.inputs[0])
+    col.inputs[6].default_value = (1.0, 0.34, 0.04, 1)
+    col.inputs[7].default_value = (1.0, 0.72, 0.36, 1)
+    em = nt.nodes.new("ShaderNodeEmission")
+    nt.links.new(col.outputs[2], em.inputs["Color"])
+    nt.links.new(X.math_node(nt, "MULTIPLY", grad, k), em.inputs["Strength"])
+    add = nt.nodes.new("ShaderNodeAddShader")
+    nt.links.new(em.outputs[0], add.inputs[0])
+    nt.links.new(nt.nodes.new("ShaderNodeBsdfTransparent").outputs[0], add.inputs[1])
+    nt.links.new(add.outputs[0], out.inputs["Surface"])
     ve.data.materials.append(m)
+    ve.visible_shadow = False
     ve.rotation_mode = "QUATERNION"
     for i in range(int(2 * (P["handoff"] - P["w0"])) + 1):
         t = P["w0"] + 0.5 + 0.5 * i
@@ -393,7 +412,8 @@ def _glow_mat():
     prof = X.math_node(nt, "POWER", X.math_node(nt, "SINE", X.math_node(nt, "MULTIPLY", v, math.pi)), 3.0)
     no = X.node(nt, "ShaderNodeTexNoise", Scale=14.0, Detail=5.0)
     nt.links.new(tc.outputs["Object"], no.inputs["Vector"])
-    st = X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", prof, X.math_node(nt, "ADD", no.outputs["Fac"], 0.2)), 2.0)
+    st = X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", prof, X.math_node(nt, "ADD", no.outputs["Fac"], 0.2)),
+                     X.math_node(nt, "MULTIPLY", _near_fade(nt), 2.0))
     em = X.node(nt, "ShaderNodeEmission", Color=(*ORANGE, 1))
     nt.links.new(st, em.inputs["Strength"])
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")

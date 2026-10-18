@@ -290,7 +290,7 @@ def _sweep_sheen(nt, tc, surf, cut):
     u = X.math_node(nt, "DIVIDE", X.math_node(nt, "DIVIDE", sep.outputs[0], depth), 0.514)
     v = X.math_node(nt, "DIVIDE", X.math_node(nt, "DIVIDE", sep.outputs[1], depth), 0.514)
     q = X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", u, ca), X.math_node(nt, "MULTIPLY", v, -sa))
-    keys = [(cut - 3.2 + 0.5 * i, X.lerp(-0.95, 0.95, X._sstep(cut - 2.5, cut + 1.5, cut - 3.2 + 0.5 * i))) for i in range(12)]
+    keys = [(cut - 3.2 + 0.5 * i, X.lerp(-0.7, 0.8, X._sstep(cut - 2.2, cut + 1.2, cut - 3.2 + 0.5 * i))) for i in range(12)]
     c = X.key_value(nt, "SweepC", keys)
     env = X.key_value(nt, "SweepK", [(t, X.bump(t, cut - 3.2, cut + 2.4)) for t, _ in keys])
     X.set_linear(nt)
@@ -310,7 +310,7 @@ def _sweep_sheen(nt, tc, surf, cut):
                                                                                 0.06)), env)
     em = nt.nodes.new("ShaderNodeEmission")
     em.inputs["Color"].default_value = (0.85, 0.8, 1.0, 1)
-    nt.links.new(X.math_node(nt, "MULTIPLY", k, 0.45), em.inputs["Strength"])
+    nt.links.new(X.math_node(nt, "MULTIPLY", k, 0.65), em.inputs["Strength"])
     add = nt.nodes.new("ShaderNodeAddShader")
     nt.links.new(surf, add.inputs[0])
     nt.links.new(em.outputs[0], add.inputs[1])
