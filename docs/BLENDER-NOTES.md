@@ -29,6 +29,24 @@
 - The VM's python venv has no matplotlib. `motion_metrics.py` writes `summary.json` and `metrics.csv` and then fails on
   the plot.
 
+## Task v3-xfxB (agent-07): glass shatters, lightning, panels (Blender 5.2, Cycles CPU on the VM)
+- **Camera motion blur smears "instantaneous" emitters.** A lightning bolt that lives one frame still gets the
+  camera's motion blur (static objects blur when the camera moves), so a fast push turns thin filaments into wide
+  ribbons. `ob.cycles.use_motion_blur = False` does NOT help (it only drops the object's own motion). Fix: key the
+  bolt to ride with the camera through its frame (`_fx3d.ride_camera`: M(t) = cam(t) @ cam(t_ref)^-1 @ M_world),
+  and give each frame its own bolt object visible on [k-0.5, k+0.5) so no shape changes mid-shutter.
+- **Additive emitters have alpha 0 in a transparent film.** Emission + Transparent BSDF (light that never occludes)
+  renders with alpha 0 and full RGB. Use the light pass as RGB add (finishing: footage alpha "Ignore"), never
+  alpha-over. Plain Emission (opaque) keeps alpha 1.
+- **A tinted Transparent BSDF in front of an emission card did not visibly darken it** (meant as a multiply filter).
+  A Mix Shader of Transparent and a dim Emission (keyed factor) works as a darkening veil.
+- **Bevelled Voronoi shards show their seams** while they are still coplanar (the bevel rounds every edge). Keep an
+  intact card until the break frame and show the shards only from the break.
+- `bpy -P script.py` exits 0 on a Python exception unless you pass `--python-exit-code 1`.
+- Render queue: a job file name that already has a `.done` returns at once with the OLD log; use a fresh name per run.
+- Thin emissive crack lines over a fast push: they get the card's radial blur too; keep them thin (0.2-0.6 mm in card
+  space) and moderately bright or they read as white bands.
+
 ## Task v3-outro (agent-08, 2026-10-18): blender/amv3/outro3.py
 
 - **No Blender here.** On 2026-10-18 neither this container nor the kbuild host had `blender` or `ffmpeg` on PATH, and
@@ -119,3 +137,19 @@
   d_end / (d_end + travel)`; if the camera keeps travelling after a portal, the copy must be large and deep (sling_ring:
   x5.6 at 7 m) or B lands zoomed in.
 - `ShaderNodeMix` (RGBA): inputs 0 = factor, 6/7 = A/B colour, output 2 = colour.
+## Task v3-layer (agent-06): subject-layer cards
+- **Coplanar cards z-fight as see-through, not as flicker.** A matted subject card exactly on top of its own opaque plate
+  card (same plane) renders the plate ~50 % transparent everywhere: a ray that hits the transparent part of the matte card
+  continues and skips the coincident plate at random. Keep a layered card >= 4 mm in front (`layer.ZSEP`); the parallax
+  is sub-pixel.
+- **Tiled cards mirror the matte too.** `make_card(tile=3)` uses MIRROR for every texture, so a matte card or a matte
+  hole on a tiled mesh shows mirrored subject copies around the card. Set the matte image node to CLIP (transparent
+  outside 0..1). Use tile=3 copies for layered cards anyway: a copy must use the same mesh and depth displacement as the
+  home card, or the teleport onto it shows.
+- **make_card caches materials** per (shot, alpha, ...), so the home card and every copy share one. Copy the material
+  (`ob.data.materials[0] = m.copy()`) before you patch nodes or key node values.
+- An opaque card's material (`alpha="none"`) has no matte image node. To cut a hole, add one
+  (`ctx._sequence("mattes", sid, "png")` + `cards.setup_user`).
+- **motion_metrics on layered transitions:** with B sharp behind a smeared foreground subject (ref c10 style), the
+  sharpness drop is local. The tool counts the window as one or two hard cuts (0 smear frames) and reads a large
+  1-frame drop when the subject leaves the frame.
