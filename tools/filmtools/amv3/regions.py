@@ -21,12 +21,14 @@ Method (`sam`): per shot, the plate frames of SPECS[id]["frames"] (deduplicated 
 square crop of +-crop px that follows the track, upscaled to 1024 px (small eyes: the eyelid edge lands on SAM's grid
 at 4-10x the plate resolution). Prompts on a few frames: positive clicks at the track point and offsets from it
 (sclera / lens glass), negative clicks on the brow / lids / mask fabric, optionally a box. Propagated forward from the
-first prompt frame and backward from the last; where both passes cover a frame their logits are averaged.
+first prompt frame and backward from the last; where both passes cover a frame their logits are averaged. A shot may
+have a second SAM pass (SPECS "pass2", raw in _raw2/) that post cross-fades into from a given frame (S09).
 `post`: optional inversion (SPECS "invert": SAM segmented the outside) and a gaussian on the probability (SPECS
 "smooth", px), threshold 0.5, an optional small opening (SPECS "open", px: cuts thin bridges onto lashes), keep the
 component under the track point (else the nearest), fill holes, then a motion-compensated temporal blend with the
-neighbouring unique frames (aligned on the region centroid) that is skipped whenever the neighbour's aligned shape differs (IoU < 0.9 or area off by > 8 %): no lag on zooms or blinks. Antialias: a
-0.7 px gaussian on the hard mask.
+neighbouring unique frames (aligned on the region centroid) that is skipped whenever the neighbour's aligned shape
+differs (IoU < 0.9 or area off by > 8 %): no lag on zooms or blinks. Antialias: a 0.7 px gaussian on the hard mask.
+region.json "reliable" = the frame range the region was judged exact on the check sheets (default: all).
 """
 from __future__ import annotations
 
@@ -80,27 +82,35 @@ SPECS = {
     "S18": dict(kind="lens", frames=(464, 535), crop=150, prompt=[464, 500, 534],
                 pos=[[0, 0], [40, -35], [-70, 25]], neg=[[0, 90], [-60, -60], [100, 20]],
                 note="Tom M01: the cream lens glass (not its black frame)"),
-    # S09: the glass is unrecognisable as one object (mesh, then the city through it, out of focus), so SAM segments
-    # what is OUTSIDE the lens (two objects: the lower-left black inner rim + white/blue rim + mask fabric, the top-right
-    # blue rim + fabric, which leaves the frame at ~f278) and post inverts it: the region = the glass inside the rim.
-    "S09": dict(kind="lens", frames=(236, 316), crop=None, invert=True, smooth=3.0,
-                objs=[dict(prompt=[244, 262, 274, 282, 292, 304, 315],
-                           abs={244: dict(pos=[[280, 750], [430, 720], [500, 850], [330, 600], [30, 400], [50, 950]],
-                                          neg=[[1000, 600], [500, 250], [600, 500]]),
-                                262: dict(pos=[[300, 800], [200, 700], [400, 750], [330, 620], [120, 850]],
-                                          neg=[[1000, 600], [600, 300], [500, 600]]),
-                                274: dict(pos=[[200, 800], [500, 1000], [20, 750]], neg=[[1000, 500], [500, 300]]),
-                                282: dict(pos=[[150, 850], [450, 1050], [20, 710]], neg=[[1000, 500], [500, 300]]),
-                                292: dict(pos=[[200, 860], [500, 980]], neg=[[1000, 500], [400, 500]]),
-                                304: dict(pos=[[100, 800], [350, 930]], neg=[[1000, 500], [400, 500]]),
-                                315: dict(pos=[[80, 780], [250, 900]], neg=[[1000, 500], [300, 500]])}),
-                      dict(prompt=[244, 262, 270, 274, 282],
-                           abs={244: dict(pos=[[1500, 450], [1650, 300], [1700, 180], [1800, 500]], neg=[[1000, 600], [1300, 600]]),
-                                262: dict(pos=[[1500, 180], [1700, 250], [1850, 100]], neg=[[1000, 600], [1500, 500]]),
-                                270: dict(pos=[[1750, 60]], neg=[[1000, 500], [1600, 300]]),
-                                274: dict(pos=[[1860, 40]], neg=[[1000, 500], [1600, 300]]),
-                                282: dict(pos=[], neg=[[1850, 50], [1000, 500]])})],
-                note="Andrew A01: everything inside the lens rim = NOT (rim + mask fabric), SAM on the outside, inverted"),
+    # S09: SAM follows the glass itself (mesh) while it is recognisable, f236-270: tight inside the black / blue rim,
+    # which covers C08 (236-264). After ~f272 the mesh dissolves into the out-of-focus city and SAM loses it, so a
+    # second pass segments what is OUTSIDE the lens (two objects: the lower-left black inner rim + white/blue rim + mask
+    # fabric, the top-right blue rim + fabric, which leaves the frame at ~f278) and inverts it. post cross-fades the two
+    # probabilities over `blend` frames from `start` (the inverted pass sits on the white band's inner edge, a few px
+    # wider than the glass on the lower left).
+    "S09": dict(kind="lens", frames=(236, 316), crop=None, prompt=[244, 262, 282],
+                abs={244: dict(pos=[[1000, 600], [500, 250], [1300, 650]], neg=[[300, 800], [1700, 250], [1850, 100], [100, 900]]),
+                     262: dict(pos=[[1000, 600], [700, 300], [1500, 700]], neg=[[300, 900], [1800, 160], [80, 1000]]),
+                     282: dict(pos=[[1000, 500], [1600, 400], [800, 800]], neg=[[150, 950], [200, 1000]])},
+                pass2=dict(invert=True, smooth=3.0, start=271, blend=6,
+                           objs=[dict(prompt=[244, 262, 274, 282, 292, 304, 315],
+                                      abs={244: dict(pos=[[280, 750], [430, 720], [500, 850], [330, 600], [30, 400], [50, 950]],
+                                                     neg=[[1000, 600], [500, 250], [600, 500]]),
+                                           262: dict(pos=[[300, 800], [200, 700], [400, 750], [330, 620], [120, 850]],
+                                                     neg=[[1000, 600], [600, 300], [500, 600]]),
+                                           274: dict(pos=[[200, 800], [500, 1000], [20, 750]], neg=[[1000, 500], [500, 300]]),
+                                           282: dict(pos=[[150, 850], [450, 1050], [20, 710]], neg=[[1000, 500], [500, 300]]),
+                                           292: dict(pos=[[200, 860], [500, 980]], neg=[[1000, 500], [400, 500]]),
+                                           304: dict(pos=[[100, 800], [350, 930]], neg=[[1000, 500], [400, 500]]),
+                                           315: dict(pos=[[80, 780], [250, 900]], neg=[[1000, 500], [300, 500]])}),
+                                 dict(prompt=[244, 262, 270, 274, 282],
+                                      abs={244: dict(pos=[[1500, 450], [1650, 300], [1700, 180], [1800, 500]], neg=[[1000, 600], [1300, 600]]),
+                                           262: dict(pos=[[1500, 180], [1700, 250], [1850, 100]], neg=[[1000, 600], [1500, 500]]),
+                                           270: dict(pos=[[1750, 60]], neg=[[1000, 500], [1600, 300]]),
+                                           274: dict(pos=[[1860, 40]], neg=[[1000, 500], [1600, 300]]),
+                                           282: dict(pos=[], neg=[[1850, 50], [1000, 500]])})]),
+                reliable=(236, 270),
+                note="Andrew A01: the lens glass inside the rim (SAM on the glass to f270, then NOT rim+fabric)"),
 }
 # shots without a tracks.py track: anchors (frame -> eye centre), linear in between, held outside
 ANCHORS = {"S31": {728: [988, 283], 744: [988, 283], 760: [979, 284], 775: [977, 285]}}
@@ -176,6 +186,59 @@ def outdir(a, data):
 
 
 # ------------------------------------------------------------------------------------------------------------- sam
+def run_pass(pred, a, dev, ps, sid, tmp, uf, idx, rep, boxes, tr, fs, d, t0):
+    """One SAM 2 video run over the prepared frames with the prompts of `ps`; writes d/f_NNNNN.png + d/sam.json."""
+    import torch
+
+    def to_in(f, xy):
+        x0, y0, side = boxes[f]
+        if side is None:
+            return xy
+        k = SAM_PX / side
+        xy = np.array(xy, np.float32).reshape(-1, 2).copy()
+        xy[:, 0] = (xy[:, 0] - x0) * k
+        xy[:, 1] = (xy[:, 1] - y0) * k
+        return xy
+
+    ac = torch.autocast("cuda", dtype=torch.bfloat16) if dev.startswith("cuda") else torch.autocast("cpu", enabled=False)
+    with torch.inference_mode(), ac:
+        st = pred.init_state(video_path=str(tmp))
+        pfs = set()
+        for oid, obj in enumerate(ps.get("objs") or [ps], start=1):
+            todo = {rep[p]: p for p in obj.get("prompt", ps.get("prompt", [])) if p in rep}  # unique -> prompt frame
+            if not todo and oid == 1:                 # --frames test window without a prompt frame: its middle
+                mid = uf[len(uf) // 2]
+                todo = {mid: min(obj["abs"], key=lambda k: abs(k - mid)) if "abs" in obj else mid}
+            for p in sorted(todo):
+                pts, lab, box = prompts_at(obj, todo[p], tr[p])
+                kw = dict(inference_state=st, frame_idx=idx[p], obj_id=oid, points=to_in(p, pts), labels=lab)
+                if box is not None:
+                    kw["box"] = to_in(p, box.reshape(2, 2)).reshape(4)
+                pred.add_new_points_or_box(**kw)
+                pfs.add(p)
+        pfs = sorted(pfs)
+        logits = {}
+        for rev in (False, True):
+            for fi, _ids, m in pred.propagate_in_video(st, reverse=rev):
+                lg = m[:, 0].float().amax(0).cpu().numpy()      # union of the objects
+                logits.setdefault(fi, []).append(lg)
+        pred.reset_state(st)
+    d.mkdir(parents=True, exist_ok=True)
+    for f in uf:
+        lg = np.mean(logits[idx[f]], axis=0)
+        x0, y0, side = boxes[f]
+        full = np.full((H, W), -30.0, np.float32)
+        if side is None:
+            full = cv2.resize(lg, (W, H), interpolation=cv2.INTER_LINEAR) if lg.shape != (H, W) else lg
+        else:
+            full[y0:y0 + side, x0:x0 + side] = cv2.resize(lg, (side, side), interpolation=cv2.INTER_AREA)
+        prob = 1.0 / (1.0 + np.exp(-np.clip(full, -30, 30)))
+        cv2.imwrite(str(d / f"f_{f:05d}.png"), np.round(prob * 255).astype(np.uint8))
+    (d / "sam.json").write_text(json.dumps(dict(model=MODELS[a.model], frames=uf, rep={str(k): v for k, v in rep.items()},
+                                                prompt_frames=pfs, crop=ps["crop"], seconds=round(time.time() - t0, 1)), indent=1))
+    log(f"{sid} {d.name}: prompts on {pfs}")
+
+
 def cmd_sam(a, data):
     import torch
     from sam2.sam2_video_predictor import SAM2VideoPredictor
@@ -211,58 +274,24 @@ def cmd_sam(a, data):
                 boxes[f] = (0, 0, None)
             cv2.imwrite(str(tmp / f"{idx[f]:05d}.jpg"), c, [cv2.IMWRITE_JPEG_QUALITY, 97])
 
-        def to_in(f, xy):
-            x0, y0, side = boxes[f]
-            if side is None:
-                return xy
-            k = SAM_PX / side
-            xy = np.array(xy, np.float32).reshape(-1, 2).copy()
-            xy[:, 0] = (xy[:, 0] - x0) * k
-            xy[:, 1] = (xy[:, 1] - y0) * k
-            return xy
-
-        ac = torch.autocast("cuda", dtype=torch.bfloat16) if dev.startswith("cuda") else torch.autocast("cpu", enabled=False)
-        with torch.inference_mode(), ac:
-            st = pred.init_state(video_path=str(tmp))
-            pfs = set()
-            for oid, obj in enumerate(spec.get("objs") or [spec], start=1):
-                todo = {rep[p]: p for p in obj.get("prompt", spec.get("prompt", [])) if p in rep}  # unique -> prompt frame
-                if not todo and oid == 1:                 # --frames test window without a prompt frame: its middle
-                    mid = uf[len(uf) // 2]
-                    todo = {mid: min(obj["abs"], key=lambda k: abs(k - mid)) if "abs" in obj else mid}
-                for p in sorted(todo):
-                    pts, lab, box = prompts_at(obj, todo[p], tr[p])
-                    kw = dict(inference_state=st, frame_idx=idx[p], obj_id=oid, points=to_in(p, pts), labels=lab)
-                    if box is not None:
-                        kw["box"] = to_in(p, box.reshape(2, 2)).reshape(4)
-                    pred.add_new_points_or_box(**kw)
-                    pfs.add(p)
-            pfs = sorted(pfs)
-            logits = {}
-            for rev in (False, True):
-                for fi, _ids, m in pred.propagate_in_video(st, reverse=rev):
-                    lg = m[:, 0].float().amax(0).cpu().numpy()      # union of the objects
-                    logits.setdefault(fi, []).append(lg)
-            pred.reset_state(st)
-        d = out / sid / spec["kind"] / "_raw"
-        d.mkdir(parents=True, exist_ok=True)
-        for f in uf:
-            lg = np.mean(logits[idx[f]], axis=0)
-            x0, y0, side = boxes[f]
-            full = np.full((H, W), -30.0, np.float32)
-            if side is None:
-                full = cv2.resize(lg, (W, H), interpolation=cv2.INTER_LINEAR) if lg.shape != (H, W) else lg
-            else:
-                full[y0:y0 + side, x0:x0 + side] = cv2.resize(lg, (side, side), interpolation=cv2.INTER_AREA)
-            prob = 1.0 / (1.0 + np.exp(-np.clip(full, -30, 30)))
-            cv2.imwrite(str(d / f"f_{f:05d}.png"), np.round(prob * 255).astype(np.uint8))
-        (d / "sam.json").write_text(json.dumps(dict(model=MODELS[a.model], frames=uf, rep={str(k): v for k, v in rep.items()},
-                                                    prompt_frames=pfs, crop=spec["crop"], seconds=round(time.time() - t0, 1)), indent=1))
+        passes = [("_raw", spec)] + ([("_raw2", dict(spec, **spec["pass2"]))] if "pass2" in spec else [])
+        for rawname, ps in passes:
+            run_pass(pred, a, dev, ps, sid, tmp, uf, idx, rep, boxes, tr, fs, out / sid / spec["kind"] / rawname, t0)
         shutil.rmtree(tmp, ignore_errors=True)
-        log(f"{sid} {spec['kind']}: {len(uf)} unique of {len(fs)} frames, prompts {pfs}, {time.time() - t0:.1f} s")
+        log(f"{sid} {spec['kind']}: {len(uf)} unique of {len(fs)} frames, {len(passes)} pass(es), {time.time() - t0:.1f} s")
 
 
 # ------------------------------------------------------------------------------------------------------------ post
+def prob(raw, f, ps):
+    """SAM probability of unique frame f (float 0..1), inverted / smoothed as the pass asks."""
+    p = cv2.imread(str(raw / f"f_{f:05d}.png"), cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.0
+    if ps.get("invert"):
+        p = 1.0 - p
+    if ps.get("smooth"):                          # gaussian on the probability: rounds off SAM's jaggies
+        p = cv2.GaussianBlur(p, (0, 0), ps["smooth"])
+    return p
+
+
 def fill_holes(m):
     inv = (m == 0).astype(np.uint8)
     n, lab = cv2.connectedComponents(inv, connectivity=4)
@@ -324,12 +353,13 @@ def cmd_post(a, data):
         rep = {int(k): v for k, v in sj["rep"].items()}
         tr = track(data, sid, sorted(rep))
         masks, probs, misses = {}, {}, []
+        p2 = spec.get("pass2")
         for f in uf:
-            p = cv2.imread(str(raw / f"f_{f:05d}.png"), cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.0
-            if spec.get("invert"):
-                p = 1.0 - p
-            if spec.get("smooth"):                    # gaussian on the probability: rounds off SAM's jaggies
-                p = cv2.GaussianBlur(p, (0, 0), spec["smooth"])
+            p = prob(raw, f, spec)
+            if p2:                                    # cross-fade into the second pass from p2["start"]
+                w = min(max((f - p2["start"] + 1) / p2["blend"], 0.0), 1.0)
+                if w > 0:
+                    p = (1 - w) * p + w * prob(d / "_raw2", f, p2)
             hard = (p >= 0.5).astype(np.uint8)
             r = spec.get("open", 0)                   # morphological opening: cuts thin bridges onto lashes / lids
             if r:
@@ -371,6 +401,7 @@ def cmd_post(a, data):
         (d / "region.json").write_text(json.dumps(dict(
             shot=sid, kind=spec["kind"], note=spec.get("note", ""), plate_px=[W, H], model=sj["model"],
             crop=sj["crop"], prompt_frames=sj["prompt_frames"], track_misses=misses, empty=empty,
+            reliable=spec.get("reliable", list(spec["frames"])),
             frames=frames), indent=1))
         log(f"{sid} {spec['kind']}: {len(frames)} frames, blended {blended} neighbour pairs, "
             f"track point outside the region on {len(misses)} unique frames {misses[:8]}, empty {empty[:8]}")
