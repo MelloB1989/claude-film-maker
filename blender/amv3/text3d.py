@@ -54,7 +54,7 @@ PAL = {
 # depth: metres behind the card plane (behind=True); yaw/pitch/roll: degrees, the word's turn in its card frame
 # (+yaw = right end recedes, +pitch = top recedes); ext/bev: extrusion half-depth and bevel in em.
 STYLE = {
-    "AMAZING": dict(font="barlow", center=(915, 200), width_px=1560, hero=328, depth=0.42, yaw=-16, pitch=10,
+    "AMAZING": dict(font="barlow", center=(915, 225), width_px=1500, hero=328, depth=0.42, yaw=-16, pitch=10,
                     roll=-4, ext=0.13, bev=0.05, shear=0.0, track=0.04, hold=(321, 330), shadow=0.6),
     # S25 is an extreme close-up: the subject matte covers ~the whole frame, so "behind" would hide the word. It sits
     # in front of the face (lower third, clear of the eye), behind the card plane only for parallax.
