@@ -5,7 +5,9 @@
 //   1. OUTRO        v2 outro frames (819-899), under the plate (the plate is transparent after the triptych shatter)
 //   2. PLATE        the stage `plate` pass
 //   3. GRADE3       per-shot trims (blended in windows), act looks, bloom, sharpen          (0 .. outro)
+//   2b. ACCENTS     Shatter burst on the slam C22, Glass Wipe refractive edge on the symbiote C04 (accents.jsx)
 //   4. LENS         chromatic split, zoom smear, bulge, light leaks, bloom swell, flashes in every CUTS window
+//   4b. ACCENTS     CC Light Rays from B's highlights on every nest-zoom landing
 //   5. TEXT         the stage `text` pass (3D titles): a subtle act tint and a soft glow on the outlines
 //   6. LIGHT        the stage `light` pass three times, ADD, each a Glow only (tight core, mid halo, wide bloom)
 //   7. TITLES       v2 2D titles (subs, name cards, caption boxes, watermark), letterbox on `letterbox` shots
@@ -40,20 +42,24 @@ function seqLayer(it, P, name) {
     return l;
 }
 
-var ctx = { fps: FPS, w: W, h: H, log: log, plateItem: null, plateStart: 0, plateScale: 100 };
+var ctx = { fps: FPS, w: W, h: H, log: log, plateItem: null, plateLayer: null, plateStart: 0, plateScale: 100 };
 
 // 1. outro
 if (X.passes.outro) TRY("outro", function () { seqLayer(seqItem(X.passes.outro, "outro v2"), X.passes.outro, "OUTRO (v2 Blender)"); });
 // 2. plate
 if (X.passes.plate) TRY("plate", function () {
     var P = X.passes.plate, it = seqItem(P, "plate pass");
-    seqLayer(it, P, "PLATE (stage)");
+    ctx.plateLayer = seqLayer(it, P, "PLATE (stage)");
     ctx.plateItem = it; ctx.plateStart = P.start; ctx.plateScale = 100 * W / P.w;
 });
+// 2b. accents under the grade: Shatter burst on the slam, Glass Wipe edge on the symbiote peel
+if (typeof ACCENTS !== "undefined") TRY("ACCENTS.under", function () { ACCENTS.under(main, E, ctx); });
 // 3. grade
 TRY("GRADE3.build", function () { GRADE3.build(main, E, ctx); });
 // 4. lens FX
 TRY("LENS.build", function () { LENS.build(main, E, ctx); });
+// 4b. Light Rays on the nest-zoom landings
+if (typeof ACCENTS !== "undefined") TRY("ACCENTS.rays", function () { ACCENTS.rays(main, E, ctx); });
 // 5. text pass: not graded by the act look; a light act tint and a soft glow on its outlines
 if (X.passes.text) TRY("text", function () {
     var P = X.passes.text, l = seqLayer(seqItem(P, "text pass"), P, "TEXT (stage 3D titles)");
@@ -102,6 +108,8 @@ TRY("GRADE3.buildTop", function () { GRADE3.buildTop(main, E, ctx); });
 var gw = GRADE3.warnings(), lw = LENS.warnings();
 for (var q = 0; q < gw.length; q++) warn("GRADE3 " + gw[q]);
 for (q = 0; q < lw.length; q++) warn("LENS " + lw[q]);
+var aw = typeof ACCENTS !== "undefined" ? ACCENTS.warnings() : [];
+for (q = 0; q < aw.length; q++) warn("ACCENTS " + aw[q]);
 
 TRY("save", function () { proj.save(new File(OUT_PROJECT)); });
 writeLn("FINISH_DONE layers " + main.numLayers + " items " + proj.numItems + " warnings " + WARN.length);

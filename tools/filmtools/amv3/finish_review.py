@@ -29,7 +29,14 @@ def frames_arg(s):
     if "-" in s and "," not in s:
         a, b = (int(x) for x in s.split("-"))
         return list(range(a, b + 1))
-    return [int(x) for x in s.split(",") if x]
+    out = []
+    for x in s.split(","):
+        if "-" in x:
+            a, b = map(int, x.split("-"))
+            out += range(a, b + 1)
+        elif x:
+            out.append(int(x))
+    return out
 
 
 def strip(out, frames, rows, w=400):

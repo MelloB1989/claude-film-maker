@@ -392,6 +392,122 @@ LIGHT_GLOWS = [dict(name="core", threshold=8, radius=10, intensity=1.3, opacity=
 TEXT_GLOW = dict(threshold=55, radius=18, intensity=0.5)
 
 
+# ---------------------------------------------------------------- accents (EffectCraft transitions, lab/TRANSITIONS.md)
+# Light Rays on every nest-zoom landing: a copy of the plate cut down to its highlights (Levels knee, dimmed), CC Light
+# Rays from B's own brightest non-skin area, ADD, opacity decaying over 4 f (scaled by the frame's headroom; target
+# <= ~15 % of pixels above 240 on the landing). Skipped where the next transition starts within 3 frames of the cut.
+RAYS = dict(types=("zt",), shape=[1.0, 0.75, 0.45, 0.22, 0.08], opacity=80, head_min=0.4, intensity=150, radius=300,
+            warpSoftness=30, knee=0.72, gain=0.25, min_frames=3)
+# Shatter as an overlay burst on the slam hit: the landing frame frozen, extruded glass pieces blown outward over 8 f
+# (fading 4 f), placed under the grade so the shards are graded and hit by the window's lens FX.
+SHATTER = dict(cut="C22", reps=12, extrusion=0.2, strength=14, depth=0.3, rotation=0.35, lightIntensity=0.6,
+               ambient=0.5, lightPos=[1300, 250], specular=0.3,     # front face ~1.0 x the picture (0.6 x 0.75 + 0.5)
+               radius=[0.1, 0.5, 1.0, 1.6, 2.2, 2.6, 2.6, 2.6, 2.6], opacity=[100, 100, 100, 95, 85, 65, 40, 15, 0])
+# Glass Wipe as a refractive accent where the symbiote peels away: the plate over itself, so only the moving edge band
+# (luma contour = completion) is refracted. Subtle: low displacement, opacity <= 70.
+GLASS = dict(cut="C04", f0=154, completion=[22, 34, 46, 58, 70], opacity=[35, 70, 70, 50, 20], displacement=32, softness=30)
+
+
+def _rgb_frames(seq, frames, w=240):
+    """{frame: HxWx3 float array} (numpy) of a PNG sequence, or None without numpy."""
+    try:
+        import numpy as np
+    except ImportError:
+        return None
+    import subprocess
+    ff = "/home/nikhil/code/film-making/bin/ffmpeg"
+    ff = ff if os.path.exists(ff) else "ffmpeg"
+    out = {}
+    for f in frames:
+        src = Path(seq["dir"]) / ("f_%05d.png" % f)
+        if not src.exists():
+            continue
+        raw = subprocess.run([ff, "-v", "error", "-i", str(src), "-vf", f"scale={w}:-2", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+                             capture_output=True).stdout
+        h = len(raw) // (w * 3)
+        out[f] = np.frombuffer(raw, np.uint8)[:h * w * 3].reshape(h, w, 3) / 255.0
+    return out
+
+
+def ray_center(a, W=1920, H=1080):
+    """The brightest non-skin area of a frame (box-blurred highlight mask above its 90th percentile, biased to the
+    frame centre so rays never start in a corner) -> [x, y] in comp pixels."""
+    import numpy as np
+    y = a @ [0.2126, 0.7152, 0.0722]
+    h, w = y.shape
+    mx, mn = a.max(2), a.min(2)
+    sat = (mx - mn) / np.maximum(mx, 1e-4)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    hue = (np.degrees(np.arctan2(np.sqrt(3) * (g - b), 2 * r - g - b)) + 360) % 360
+    skin = (hue > 5) & (hue < 48) & (sat > 0.15) & (sat < 0.65) & (mx > 0.3)
+    sk = skin.astype(float)
+    for ax in (0, 1):                      # grow the skin mask (r=10): face highlights are near-white, not skin-hued
+        c = np.cumsum(np.pad(sk, [(11, 10) if k == ax else (0, 0) for k in (0, 1)], mode="edge"), ax)
+        sk = (np.take(c, range(21, c.shape[ax]), ax) - np.take(c, range(0, c.shape[ax] - 21), ax)) / 21.0
+    m = np.clip(y - np.quantile(y, 0.9), 0, None) * (sk < 0.04)
+    for ax in (0, 1):                      # box blur r=12 along both axes
+        c = np.cumsum(np.pad(m, [(13, 12) if k == ax else (0, 0) for k in (0, 1)], mode="edge"), ax)
+        m = (np.take(c, range(25, c.shape[ax]), ax) - np.take(c, range(0, c.shape[ax] - 25), ax)) / 25.0
+    yy, xx = np.indices(m.shape)
+    m = m * np.exp(-(((xx - w / 2) / (0.3 * w)) ** 2 + ((yy - h / 2) / (0.3 * h)) ** 2))
+    iy, ix = np.unravel_index(m.argmax(), m.shape)
+    return [int(round(ix / w * W)), int(round(iy / h * H))]
+
+
+def ray_centers(seq, frames, cache_dir=None):
+    """{frame: [x, y]} for the given plate frames (cached like plate_luma); {} without numpy (rays then centre on the frame)."""
+    if not seq or not frames:
+        return {}
+    key = f"rc2|{seq['dir']}|{seq['start']}|{seq['n']}|{os.path.getmtime(seq['first']):.0f}"
+    cache = Path(cache_dir) / "ray_centers.json" if cache_dir else None
+    C = json.loads(cache.read_text()) if cache and cache.exists() else {}
+    have = C.get(key, {})
+    need = [f for f in frames if str(f) not in have]
+    if need:
+        A = _rgb_frames(seq, need)
+        if A is None:
+            return {int(k): v for k, v in have.items()}
+        for f, a in A.items():
+            have[str(f)] = ray_center(a)
+        if cache:
+            C[key] = have
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(json.dumps(C))
+    return {f: have[str(f)] for f in frames if str(f) in have}
+
+
+def accents(E, P, luma, cache_dir=None):
+    plate = P.get("plate")
+    cuts = sorted(E["cuts"], key=lambda c: c["f"])
+    rays = []
+    for i, C in enumerate(cuts):
+        if C["type"] not in RAYS["types"]:
+            continue
+        f = C["f"]
+        nxt = cuts[i + 1]["w0"] if i + 1 < len(cuts) else E["outro"]["f0"]
+        n = min(len(RAYS["shape"]), nxt - f)
+        if n < RAYS["min_frames"]:
+            continue
+        op = []
+        for k in range(n):
+            m = luma.get(f + k)
+            h = max(RAYS["head_min"], headroom(m[0] if m else None))
+            op.append([f + k, round(RAYS["opacity"] * RAYS["shape"][k] * h, 1)])
+        op.append([f + n, 0.0])
+        rays.append(dict(id=C["id"], f0=f, f1=f + n, opacity=op))
+    cen = ray_centers(plate, [r["f0"] + 1 for r in rays], cache_dir)
+    for r in rays:
+        r["center"] = cen.get(r["f0"] + 1, [960, 540])
+    A = dict(rays=rays, raysFx={k: RAYS[k] for k in ("intensity", "radius", "warpSoftness", "knee", "gain")})
+    S = next((c for c in cuts if c["id"] == SHATTER["cut"]), None)
+    if S and plate and plate["start"] <= S["f"] < plate["start"] + plate["n"]:
+        A["shatter"] = dict(SHATTER, f0=S["f"], still=str(Path(plate["dir"]) / ("f_%05d.png" % S["f"])))
+    G = next((c for c in cuts if c["id"] == GLASS["cut"]), None)
+    if G:
+        A["glass"] = dict(GLASS)
+    return A
+
+
 def extend(E, stage_dir=None, outro_dir=None, cache_dir=None):
     """E (edl.json dict) -> E with E.x.finish and E.x.titles (and E.titles reduced to v2's 2D styles)."""
     end = E["outro"]["f0"]
@@ -403,6 +519,8 @@ def extend(E, stage_dir=None, outro_dir=None, cache_dir=None):
     X = dict(passes=P, gradeEnd=end, looks=L, actKeys=act_idx, trim=trim_keys(E, end),
              finish=FINISH, skin=SKIN, lens=lens_plan(E, load_zvec(stage_dir), luma), letterbox=letterbox(E), textTint=text_tint(L),
              textGlow=TEXT_GLOW, lightGlows=LIGHT_GLOWS)
+    X["accents"] = accents(E, P, plate_luma(P.get("plate"), [x for C in E["cuts"] for x in range(C["f"], C["f"] + 6)], cache_dir)
+                           if P.get("plate") else {}, cache_dir)
     T = titles_E(E)
     E = dict(E, titles=T["titles"])
     E.setdefault("x", {})

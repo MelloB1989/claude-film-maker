@@ -8,7 +8,7 @@
 `$AMV3_DATA/finish/standin` (filmtools.amv3.standin). A pass with no frames is skipped. --outro defaults to
 `$AMV2_DATA/blender/outro` (v2 outro frames NNNN.png 0819-0899).
 
-build: E = edl.json + finish_spec.extend (E.x.finish, E.x.titles) -> one script = data + ec/grade3.jsx + ec/lens.jsx +
+build: E = edl.json + finish_spec.extend (E.x.finish, E.x.titles) -> one script = data + ec/grade3.jsx + ec/lens.jsx + ec/accents.jsx +
 v2's ec/titles.jsx (unchanged) + ec/finish.jsx -> `effectcraft-cli script` -> the .ecproj (exit 1 on any WARN).
 render: ONE render-queue job that builds on the VM (the passes and $AMV2_DATA live there), keeps the project in
 `$AMV3_DATA/builds/<name>.ecproj` (the queue's rsync --delete wipes build/), renders 48-frame chunks with `procs` workers,
@@ -43,7 +43,7 @@ def build_script(stage, outro, out_project):
     E = json.loads(EDL.read_text())
     E = finish_spec.extend(E, stage, outro, Path(out_project).parent / ".cache")
     parts = [f"var E = {json.dumps(E)};\nvar OUT_PROJECT = {json.dumps(str(out_project))};\n"]
-    for p in (EC / "grade3.jsx", EC / "lens.jsx", V2_TITLES, EC / "finish.jsx"):
+    for p in (EC / "grade3.jsx", EC / "lens.jsx", EC / "accents.jsx", V2_TITLES, EC / "finish.jsx"):
         parts.append(f"// ===== {p.name} =====\n" + p.read_text())
     return "\n".join(parts), E
 
