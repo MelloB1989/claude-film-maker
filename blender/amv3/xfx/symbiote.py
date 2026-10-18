@@ -114,6 +114,11 @@ class _Noise:
         return out
 
 
+def _np_sstep(a, b, x):
+    u = np.clip((x - a) / (b - a), 0.0, 1.0)
+    return u * u * (3 - 2 * u)
+
+
 def _field(P, X0, Y0, t, N1, N2, N3):
     """Goo surface at frame t: returns (x, y, z) arrays in A-copy local metres."""
     w0, cut = P["w0"], P["cut"]
@@ -142,7 +147,7 @@ def _field(P, X0, Y0, t, N1, N2, N3):
     reach = 0.20 * (1.0 - X._sstep(cut - 2.0, cut, t)) + 0.16 * peel * (1 - X._sstep(P["w1"] - 3, P["w1"] - 1, t))
     rad = np.sqrt(qx ** 2 + qy ** 2) / 760.0
     rho = 0.55 * rho + 0.45 * np.minimum(rad / 1.25, 1.2)  # rounder front, still born at the frame edges
-    cov = rho - (1.0 - F) + 0.10 * n1 + reach * fingers * X._sstep(0.18, 0.55, rho)
+    cov = rho - (1.0 - F) + 0.10 * n1 + reach * fingers * _np_sstep(0.18, 0.55, rho)
     # thickness: thin wet film at first, a thick rolled lip, then a bulge that rises at the camera on the cut
     thick = 0.024 + 0.03 * X._sstep(w0 + 2, cut - 2, t) - 0.012 * peel
     dist = FILL / s
@@ -270,8 +275,8 @@ def _cam_light(P, coll):
     """A small key light riding just above and behind the camera: the goo facing the lens always carries a live wet
     highlight, sliding as the surface ripples and the camera rolls."""
     ld = bpy.data.lights.new("XA_sym_camkey", "AREA")
-    ld.energy = 6.0
-    ld.size = 0.12
+    ld.energy = 45.0
+    ld.size = 0.10
     ld.color = (0.95, 0.9, 1.0)
     lo = bpy.data.objects.new("XA_sym_camkey", ld)
     coll.objects.link(lo)
@@ -282,6 +287,22 @@ def _cam_light(P, coll):
         lo.keyframe_insert("location", frame=t)
         lo.keyframe_insert("rotation_quaternion" if lo.rotation_mode == "QUATERNION" else "rotation_euler", frame=t)
     X.set_linear(lo)
+    # a sweep light crossing the frame while the goo covers it: one wet highlight travelling over the surface
+    sd = bpy.data.lights.new("XA_sym_sweep", "AREA")
+    sd.energy = 80.0
+    sd.size = 0.05
+    sd.color = (0.85, 0.8, 1.0)
+    so = bpy.data.objects.new("XA_sym_sweep", sd)
+    coll.objects.link(so)
+    cut = P["cut"]
+    for i in range(2 * (P["w1"] - P["w0"] + 2) + 1):
+        t = P["w0"] - 1 + 0.5 * i
+        u = (t - (cut - 4.0)) / 8.0
+        m = P["m_set"](t) @ Matrix.Translation(Vector((-0.9 + 1.8 * u, 0.45 - 0.5 * u, 0.25)))
+        so.matrix_world = m
+        so.keyframe_insert("location", frame=t)
+        so.keyframe_insert("rotation_euler", frame=t)
+    X.set_linear(so)
 
 
 def _lights(P, ctx, pal, coll):

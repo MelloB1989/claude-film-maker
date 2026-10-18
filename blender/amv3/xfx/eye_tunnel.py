@@ -63,7 +63,7 @@ def _plan(T, ctx):
     zB = z(w1) - FILL * kB / s_end
     P["zB"], P["kB"] = zB, kB
     # roll: one clockwise spiral, rate a smooth bell peaking at the cut
-    rs = X.Speed([(w0, 0.0), (w0 + 4, 1.0), (w0 + 7, 3.0), (w0 + 9, 6.0), (w0 + 11, 4.0), (cut - 2, 5.0),
+    rs = X.Speed([(w0, 0.0), (w0 + 4, 1.0), (w0 + 7, 2.6), (w0 + 9, 4.5), (w0 + 11, 2.8), (cut - 2, 3.2),
                   (cut - 0.5, 12.0), (cut + 0.5, 15.0), (cut + 2, 8.0), (cut + 4, 3.0), (cut + 7, 0.8), (w1, 0.12)],
                  m0=0.0)
     P["roll"] = lambda t: rs.x(t)  # noqa: E731
@@ -162,7 +162,7 @@ def build(T, ctx):
 
     def era_mix(zz):
         """0 = Tobey gold ... 1 = Andrew cyan, by depth (the camera passes the middle on the cut)."""
-        return X._sstep(z_cut + 2.2, z_cut - 2.2, zz)
+        return X._sstep(z_cut + 0.5, z_cut - 3.0, zz)
 
     # --- A copy with the iris hole (comp time, same plate as the home card)
     # hole radius from the camera path: its on-screen size grows ~x1.86 per frame from 4 % of the frame half-diagonal
@@ -296,6 +296,9 @@ def build(T, ctx):
                      [0.4 - (0.4 - (zB - 2.0)) * i / 30 for i in range(31)], plate_c, n=48)
     neb.location = O + Vector((ax.x, ax.y, 0.0))
     neb.data.materials.append(_nebula_mat("XA_eye_neb_m", gold, cyan, pal_a["fog"], pal_b["fog"]))
+    cap = X.annulus_obj("XA_eye_nebula_cap", 0.0, 3.5, plate_c, n=48, nr=4)  # closes the tunnel behind the S09 copy
+    cap.location = O + Vector((ax.x, ax.y, zB - 2.0))
+    cap.data.materials.append(neb.data.materials[0])
     # Andrew's lens at the end of the tunnel (comp time, already moving), with a thin cyan frame
     cardB = ctx.make_card(b, "XA_eye_S09", matrix=P["MB"])
     frame = _frame_obj("XA_eye_S09_frame", light_c)

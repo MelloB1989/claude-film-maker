@@ -87,8 +87,8 @@ def _card_matrix(P, t):
     """The S27 copy: a shiver under tension, then yanked to screen right, swinging open and turning."""
     cut, side = P["cut"], P["side"]
     sh = 0.010 * X.bump(t, cut - 2.6, cut - 0.4) * math.sin(9.0 * t)
-    u = max(0.0, (t - (cut - 0.6)) / 3.4)
-    x = side * (sh + 3.6 * u ** 2.1)
+    u = max(0.0, (t - (cut - 0.6)) / 4.6)
+    x = side * (sh + 3.2 * u ** 2.2)
     zt = 0.25 * u ** 1.6
     ry = side * math.radians(62.0) * min(1.0, u ** 1.3)
     rz = -side * math.radians(10.0) * min(1.0, u)
@@ -96,7 +96,7 @@ def _card_matrix(P, t):
 
 
 def _bend(P, t):
-    u = max(0.0, (t - (P["cut"] - 0.3)) / 3.0)
+    u = max(0.0, (t - (P["cut"] - 0.6)) / 3.2)
     return -P["side"] * math.radians(110.0) * min(1.0, u ** 1.4)
 
 
@@ -129,15 +129,15 @@ def build(T, ctx):
     # strands: from behind the camera (mostly the yank side) to anchors spread over the card
     anchors_px = [(560, 420), (1010, 300), (1420, 520), (760, 760), (1240, 820), (1560, 260)]
     launches = [w0 + 0.0, w0 + 0.6, w0 + 1.2, w0 + 1.8, w0 + 2.4, w0 + 3.0]
-    web_m = X.mat_emit("XA_web_strand_m", (0.90, 0.95, 1.0), 2.2)
+    web_m = X.mat_emit("XA_web_strand_m", (0.88, 0.93, 1.0), 1.25, alpha=0.8)
     splat_m = X.mat_emit("XA_web_splat_m", (0.92, 0.96, 1.0), 1.8)
     NP = 9
     for k, (apx, tl) in enumerate(zip(anchors_px, launches)):
         anc_l = X.px2local(*apx) + Vector((0, 0, 0.004))
         org = Vector((side * R.uniform(0.25, 0.85), R.uniform(-0.45, 0.45), P["z"](w0) + R.uniform(0.35, 0.7)))
         sag = Vector((R.uniform(-1, 1), R.uniform(-1, 1), 0.0)).normalized() * R.uniform(0.02, 0.06)
-        cv = X.curve_obj(f"XA_web_strand{k}", [org + O] * NP, light_c, bevel=0.0035, res=6,
-                         taper=[(0.0, 1.0), (0.7, 0.55), (1.0, 0.35)])
+        cv = X.curve_obj(f"XA_web_strand{k}", [org + O] * NP, light_c, bevel=0.0016, res=6,
+                         taper=[(0.0, 0.5), (0.3, 1.0), (0.8, 0.7), (1.0, 0.45)])
         cv.data.materials.append(web_m)
         sp = cv.data.splines[0]
         for t in ts:

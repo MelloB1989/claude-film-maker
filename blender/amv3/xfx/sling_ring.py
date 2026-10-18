@@ -47,11 +47,11 @@ def _plan(T, ctx):
     z0 = FILL / s0
     # S25 lands zoomed in (+13 %/f decaying, REFS) and still pushing; the S25 copy is big and deep so its edges never
     # show once the camera is through the ring: s(cut) / s_end = d_end / (d_end + travel after the ring)
-    s_end, ds_end = 1.6, 0.012
-    kB = 3.4
+    s_end, ds_end = 1.35, 0.012
+    kB = 5.6
     v_end = (FILL * kB / s_end) * ds_end
     spd = X.Speed([(w0, z0 * ds0), (w0 + 3, 0.05), (w0 + 5, 0.12), (w0 + 6.5, 0.25), (cut - 1.5, 0.45),
-                   (cut - 0.5, 0.75), (cut + 0.5, 0.75), (cut + 1.5, 0.45), (cut + 3, 0.18), (cut + 4.5, 0.07),
+                   (cut - 0.5, 0.75), (cut + 0.5, 0.70), (cut + 1.5, 0.40), (cut + 2.5, 0.20), (cut + 4, 0.08),
                    (w1, v_end)], m0=0.004)
     z = lambda t: z0 - spd.x(t)  # noqa: E731
     P["z"], P["spd"] = z, spd
@@ -358,10 +358,10 @@ def _wash(P, coll):
     nt.links.new(mp.outputs[0], mp2.inputs["Vector"])
     nt.links.new(mp2.outputs[0], gr.inputs["Vector"])
     edge = X.math_node(nt, "SUBTRACT", 1.0, X.math_node(nt, "POWER", gr.outputs["Fac"], 0.6))
-    op = X.key_value(nt, "opacity", [(cut - 3.0, 0.0), (cut - 1.5, 0.45), (cut - 0.3, 0.85), (cut + 0.7, 0.6),
-                                     (cut + 1.7, 0.25), (cut + 2.5, 0.0)])
+    op = X.key_value(nt, "opacity", [(cut - 3.0, 0.0), (cut - 1.5, 0.22), (cut - 0.3, 0.42), (cut + 0.7, 0.32),
+                                     (cut + 1.7, 0.14), (cut + 2.5, 0.0)])
     a = X.math_node(nt, "MINIMUM", X.math_node(nt, "MULTIPLY", op, X.math_node(nt, "ADD", 0.45, edge)), 1.0)
-    em = X.node(nt, "ShaderNodeEmission", Color=(1.0, 0.45, 0.08, 1), Strength=2.2)
+    em = X.node(nt, "ShaderNodeEmission", Color=(1.0, 0.34, 0.04, 1), Strength=1.3)
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
     mx = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(a, mx.inputs[0])
