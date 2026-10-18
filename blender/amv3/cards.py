@@ -365,7 +365,7 @@ def build_env_collection(act_id, pal, lib_coll):
 
     # haze sheets: big translucent leak-coloured sheets at depth (the light the whips smear)
     sheet = card_mesh(f"env_{act_id}_haze", 1, 1, 1.0, 1.0)
-    hmat = emission_material(f"env_{act_id}_haze", leak, 1.0, 0.35, noise=0.9)
+    hmat = emission_material(f"env_{act_id}_haze", leak, 0.45, 0.18, noise=0.95)
     sheet.materials.append(hmat)
     for i in range(6):
         ob = bpy.data.objects.new(f"env_{act_id}_haze{i}", sheet)

@@ -42,9 +42,9 @@ PALETTES = {  # linear RGB: key light, rim, light leak, fog (the void's tint; ne
     "tom": dict(key=(1.0, 0.25, 0.10), rim=(0.35, 0.55, 0.85), leak=(1.0, 0.32, 0.08), fog=(0.036, 0.014, 0.012)),
     "outro": dict(key=(1.0, 1.0, 1.0), rim=(0.5, 0.5, 0.6), leak=(1.0, 0.4, 0.1), fog=(0.02, 0.02, 0.02)),
 }
-DRIFT_RATE = {"tobey": 0.016, "andrew": 0.022, "tom": 0.028}  # hold push/pull in d ln s per frame (REFS: 1.5-3.5 %/f)
-DRIFT_MIN = 0.010  # never slower than ~1 %/f
-DRIFT_MAX_ZOOM = math.log(1.9)  # a long hold's drift is capped at x1.9 overall (plate resolution)
+DRIFT_RATE = {"tobey": 0.022, "andrew": 0.028, "tom": 0.033}  # hold push/pull in d ln s per frame (REFS: 1.5-3.5 %/f)
+DRIFT_MIN = 0.015  # never slower than ~1.5 %/f
+DRIFT_MAX_ZOOM = math.log(2.3)  # a long hold's drift is capped at x1.9 overall (plate resolution)
 
 
 def parse_args(argv):
@@ -99,6 +99,7 @@ class StageContext:
         self.teleports = []
         self.bounds = {}  # cut id -> {"A": State, "B": State}
         self.windows = []  # (w0, w1, cut) of every built window
+        self.fallbacks = set()  # cut ids built as a zt fallback (module missing / failed)
         self._seq = {}
         self._mats = {}
         self.log_lines = []
@@ -277,8 +278,21 @@ class StageContext:
         return ob
 
     def show(self, ob, f0, f1):
-        """Render visibility: visible on [f0, f1), hidden outside (keyed, constant)."""
+        """Render visibility: visible on [f0, f1), hidden outside (keyed, constant). Calling it again for the same
+        object widens the span (union hull)."""
         f0, f1 = int(math.floor(f0)), int(math.ceil(f1))
+        if not hasattr(self, "_vis"):
+            self._vis = {}
+        if ob.name in self._vis:
+            g0, g1 = self._vis[ob.name]
+            f0, f1 = min(f0, g0), max(f1, g1)
+            ad = ob.animation_data
+            if ad and ad.action:
+                for fc in _fcurves(ad.action):
+                    if fc.data_path == "hide_render":
+                        while len(fc.keyframe_points):
+                            fc.keyframe_points.remove(fc.keyframe_points[0])
+        self._vis[ob.name] = (f0, f1)
         ob.hide_render = f0 > 0
         ob.keyframe_insert("hide_render", frame=0)
         if f0 > 0:
@@ -305,7 +319,7 @@ class StageContext:
         inst.location = origin
         self.colls["env"].objects.link(inst)
         f0, f1 = frames if frames else (0, 819)
-        self.show(inst, f0, min(f1, 819))
+        self.show(inst, f0, f1)
         self._envs[k] = inst
         return inst
 
@@ -364,12 +378,18 @@ class StageContext:
             self.key_cam(t, r[0], r[1], r[2] if len(r) > 2 else None)
 
     def entry_state(self, T):
-        """The State a window should start from at w0: the previous window's exit when the two windows touch (no hold
-        between them), else shot A's hold intent at w0."""
-        for c in self.E["cuts"]:
-            if c["w1"] == T["w0"] and c["id"] != T["id"] and c["id"] in self.bounds and "B" in self.bounds[c["id"]]:
-                return self.bounds[c["id"]]["B"]
+        """The State a window should start from at w0: shot A's hold intent at w0. When two windows touch (w1 of one ==
+        w0 of the next, no hold between them) the LATER window owns the junction: whatever it returns as "A" becomes the
+        earlier window's "B" (the core resolves touching windows right-to-left after all bounds())."""
         return self.intent(T["a"]["id"], T["w0"])
+
+    def transparent_from(self, f=None):
+        """Film alpha goes to 0 from this frame on (the outro shows through): the act voids are hidden from it.
+        Call with a frame to set it (default 819; scene["amv3_transparent_from"] is honoured too)."""
+        if f is not None:
+            self._transparent_from = int(f)
+        sc = bpy.context.scene
+        return int(getattr(self, "_transparent_from", sc.get("amv3_transparent_from", 819)))
 
     def settle_entry(self, T, A):
         """Re-place an entry State's scale so the hold before the window is the gentlest curve between the previous
@@ -380,8 +400,14 @@ class StageContext:
                 P, L = self.bounds[c["id"]]["B"], T["w0"] - c["w1"]
                 if L <= 0:
                     return A
+                # every component covers (rate0 + rate1) / 2 per frame: the hold never doubles back
                 s = P.s * math.exp((P.ds + A.ds) / 2.0 * L)
-                return A.with_(s=max(s, cl.min_scale(A.cx, A.cy, A.r, 0.01) * 1.005))
+                cx = P.cx + (P.dcx + A.dcx) / 2.0 * L
+                cy = P.cy + (P.dcy + A.dcy) / 2.0 * L
+                r = P.r + (P.dr + A.dr) / 2.0 * L
+                s = max(s, cl.min_scale(960, 540, r, 0.01) * 1.005)
+                cx, cy = cl.clamp_center(s, cx, cy, r, 0.01)
+                return A.with_(s=s, cx=cx, cy=cy, r=r)
         return A
 
     def exit_state(self, T):
@@ -607,12 +633,13 @@ def make_intent(ctx, sid):
     L = max(1.0, float(b - a))
     roll = float(mv.get("roll", 0.0) or 0.0)
     pan = mv.get("pan", [0, 0]) or [0, 0]
-    if not roll and not any(pan):
-        # never a dead axis: a faint roll and pan drift (alternating per shot) keeps the corners moving while the zoom
-        # turns round between a landing and the next entry
-        k = ctx._order.index(sid)
-        roll = min(3.0, 0.15 * L) * (1 if k % 2 else -1)  # REFS holds: roll 0.1-0.3 deg/f, pan 2-10 px/f
-        pan = [min(120.0, 3.0 * L) * (1 if (k // 2) % 2 else -1), 0.0]
+    # never a dead axis: a roll and a pan drift (alternating per shot) keep the picture moving while the zoom turns
+    # round between a landing and the next entry (REFS holds: roll 0.1-0.3 deg/f, pan 2-10 px/f)
+    k = ctx._order.index(sid)
+    if not roll:
+        roll = min(3.0, 0.15 * L) * (1 if k % 2 else -1)
+    if not any(pan):
+        pan = [min(160.0, 4.5 * L) * (1 if (k // 2) % 2 else -1), min(60.0, 1.5 * L) * (1 if k % 3 else -1)]
     rate = max(DRIFT_MIN, min(DRIFT_RATE.get(act, 0.02), DRIFT_MAX_ZOOM / L))
     drift = mv.get("drift", "auto")
     ds = rate if drift in ("in", "auto") else -rate
@@ -675,6 +702,7 @@ def resolve_cut(ctx, c):
             T["fallback_from"] = typ
             T["type"] = typ = "zt"
             mod = flow_mod
+            ctx.fallbacks.add(c["id"])
         else:
             ctx.log(f"{c['id']} {typ}: no module; the neighbouring hold runs through the window")
             return None, T, typ
@@ -712,11 +740,19 @@ def build(ctx, args):
                 continue
             T["p"] = dict(FALLBACK_P)
             T["fallback_from"] = typ
+            ctx.fallbacks.add(c["id"])
             T["type"] = typ = "zt"
             mod = flow_mod
             b = mod.bounds(T, ctx)
         ctx.bounds[c["id"]] = b
         resolved[c["id"]] = (mod, T, typ)
+    # touching windows: the later window's entry is the earlier window's exit (right to left)
+    for c in reversed(sel):
+        d = next((d for d in sel if d["w0"] == c["w1"] and d["id"] != c["id"]), None)
+        if d and c["id"] in ctx.bounds and d["id"] in ctx.bounds and "A" in ctx.bounds[d["id"]] and "B" in ctx.bounds[c["id"]]:
+            ctx.bounds[c["id"]]["B"] = ctx.bounds[d["id"]]["A"]
+            ctx.log(f"{c['id']} ends where {d['id']} begins (f{c['w1']}): s {ctx.bounds[d['id']]['A'].s:.2f} "
+                    f"ds {ctx.bounds[d['id']]['A'].ds:+.3f}")
 
     # 2. window builds (camera keys into the key store)
     for c in sel:
@@ -775,6 +811,7 @@ def build(ctx, args):
             B = ctx.intent(sid, h1)
         ctx._holds[sid] = (h0, h1, A, B)
         card = ctx.card(sid)
+        ctx.show(card, h0 - 1, h1 + 1)  # a hold past the plate range (a missing end module) keeps its card
 
         def fn(t, A=A, B=B, h0=h0, h1=h1, card=card):
             st = cl.cover(cl.hermite_state(A, B, h0, h1, t))
@@ -926,7 +963,8 @@ def camera_dump(ctx, f0, f1):
                             tile=int(ob.get("amv3_tile", 1))))
         frames.append(dict(f=f, cam=[list(r) for r in ce.matrix_world], lens=ce.data.lens, cards=vis,
                            shutter=sc.render.motion_blur_shutter))
-    windows = [dict(id=c["id"], type=c["type"], f=c["f"], w0=w0, w1=w1) for w0, w1, c in ctx.windows]
+    windows = [dict(id=c["id"], type=c["type"], f=c["f"], w0=w0, w1=w1, fallback=c["id"] in ctx.fallbacks)
+               for w0, w1, c in ctx.windows]
     holds = {sid: [h[0], h[1]] for sid, h in ctx._holds.items()}
     return dict(frames=frames, teleports=ctx.teleports, windows=windows, holds=holds, res=[1920, 1080])
 
@@ -982,6 +1020,18 @@ def main():
         render_identity(ctx, args)
         return
     resolved = build(ctx, args)
+    tf = ctx.transparent_from()
+    for inst in ctx._envs.values():
+        g0, g1 = ctx._vis.get(inst.name, (0, 819))
+        if g1 > tf:
+            ctx._vis.pop(inst.name, None)
+            ad = inst.animation_data
+            if ad and ad.action:
+                for fc in _fcurves(ad.action):
+                    if fc.data_path == "hide_render":
+                        while len(fc.keyframe_points):
+                            fc.keyframe_points.remove(fc.keyframe_points[0])
+            ctx.show(inst, g0, tf)
     apply_hits(ctx)
     write_camera(ctx)
     key_shutter(ctx)
