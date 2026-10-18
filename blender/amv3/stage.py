@@ -319,7 +319,7 @@ class StageContext:
         inst.location = origin
         self.colls["env"].objects.link(inst)
         f0, f1 = frames if frames else (0, 819)
-        self.show(inst, f0, min(f1, 819))
+        self.show(inst, f0, f1)
         self._envs[k] = inst
         return inst
 
@@ -378,12 +378,18 @@ class StageContext:
             self.key_cam(t, r[0], r[1], r[2] if len(r) > 2 else None)
 
     def entry_state(self, T):
-        """The State a window should start from at w0: the previous window's exit when the two windows touch (no hold
-        between them), else shot A's hold intent at w0."""
-        for c in self.E["cuts"]:
-            if c["w1"] == T["w0"] and c["id"] != T["id"] and c["id"] in self.bounds and "B" in self.bounds[c["id"]]:
-                return self.bounds[c["id"]]["B"]
+        """The State a window should start from at w0: shot A's hold intent at w0. When two windows touch (w1 of one ==
+        w0 of the next, no hold between them) the LATER window owns the junction: whatever it returns as "A" becomes the
+        earlier window's "B" (the core resolves touching windows right-to-left after all bounds())."""
         return self.intent(T["a"]["id"], T["w0"])
+
+    def transparent_from(self, f=None):
+        """Film alpha goes to 0 from this frame on (the outro shows through): the act voids are hidden from it.
+        Call with a frame to set it (default 819; scene["amv3_transparent_from"] is honoured too)."""
+        if f is not None:
+            self._transparent_from = int(f)
+        sc = bpy.context.scene
+        return int(getattr(self, "_transparent_from", sc.get("amv3_transparent_from", 819)))
 
     def settle_entry(self, T, A):
         """Re-place an entry State's scale so the hold before the window is the gentlest curve between the previous
@@ -740,6 +746,13 @@ def build(ctx, args):
             b = mod.bounds(T, ctx)
         ctx.bounds[c["id"]] = b
         resolved[c["id"]] = (mod, T, typ)
+    # touching windows: the later window's entry is the earlier window's exit (right to left)
+    for c in reversed(sel):
+        d = next((d for d in sel if d["w0"] == c["w1"] and d["id"] != c["id"]), None)
+        if d and c["id"] in ctx.bounds and d["id"] in ctx.bounds and "A" in ctx.bounds[d["id"]] and "B" in ctx.bounds[c["id"]]:
+            ctx.bounds[c["id"]]["B"] = ctx.bounds[d["id"]]["A"]
+            ctx.log(f"{c['id']} ends where {d['id']} begins (f{c['w1']}): s {ctx.bounds[d['id']]['A'].s:.2f} "
+                    f"ds {ctx.bounds[d['id']]['A'].ds:+.3f}")
 
     # 2. window builds (camera keys into the key store)
     for c in sel:
@@ -1007,6 +1020,18 @@ def main():
         render_identity(ctx, args)
         return
     resolved = build(ctx, args)
+    tf = ctx.transparent_from()
+    for inst in ctx._envs.values():
+        g0, g1 = ctx._vis.get(inst.name, (0, 819))
+        if g1 > tf:
+            ctx._vis.pop(inst.name, None)
+            ad = inst.animation_data
+            if ad and ad.action:
+                for fc in _fcurves(ad.action):
+                    if fc.data_path == "hide_render":
+                        while len(fc.keyframe_points):
+                            fc.keyframe_points.remove(fc.keyframe_points[0])
+            ctx.show(inst, g0, tf)
     apply_hits(ctx)
     write_camera(ctx)
     key_shutter(ctx)
