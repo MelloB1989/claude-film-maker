@@ -30,6 +30,7 @@ from mathutils import Matrix, Quaternion, Vector  # noqa: E402
 import camlib as cl  # noqa: E402
 import cards  # noqa: E402
 
+FALLBACK_P = dict(mode="push", peak=2.6, land=1.05, settle=1.35, roll=0.0)  # a missing module's window: a plain push zt
 EPS = 0.02  # teleport keys sit at t_h -/+ EPS; the widest shutter next to a teleport is 2 * (0.5 - 0.025) = 0.95
 SET_SPACING = 100.0
 SHUTTER_HOLD = 0.75
@@ -41,9 +42,9 @@ PALETTES = {  # linear RGB: key light, rim, light leak, fog (the void's tint; ne
     "tom": dict(key=(1.0, 0.25, 0.10), rim=(0.35, 0.55, 0.85), leak=(1.0, 0.32, 0.08), fog=(0.036, 0.014, 0.012)),
     "outro": dict(key=(1.0, 1.0, 1.0), rim=(0.5, 0.5, 0.6), leak=(1.0, 0.4, 0.1), fog=(0.02, 0.02, 0.02)),
 }
-DRIFT_RATE = {"tobey": 0.016, "andrew": 0.022, "tom": 0.028}  # hold push/pull in d ln s per frame (REFS: 1.5-3.5 %/f)
-DRIFT_MIN = 0.010  # never slower than ~1 %/f
-DRIFT_MAX_ZOOM = math.log(1.9)  # a long hold's drift is capped at x1.9 overall (plate resolution)
+DRIFT_RATE = {"tobey": 0.022, "andrew": 0.028, "tom": 0.033}  # hold push/pull in d ln s per frame (REFS: 1.5-3.5 %/f)
+DRIFT_MIN = 0.015  # never slower than ~1.5 %/f
+DRIFT_MAX_ZOOM = math.log(2.3)  # a long hold's drift is capped at x1.9 overall (plate resolution)
 
 
 def parse_args(argv):
@@ -98,6 +99,7 @@ class StageContext:
         self.teleports = []
         self.bounds = {}  # cut id -> {"A": State, "B": State}
         self.windows = []  # (w0, w1, cut) of every built window
+        self.fallbacks = set()  # cut ids built as a zt fallback (module missing / failed)
         self._seq = {}
         self._mats = {}
         self.log_lines = []
@@ -169,7 +171,7 @@ class StageContext:
             s = self._shots[sid]
             depth = float(s.get("move", {}).get("depth", 0.0) or 0.0)
             self._cards[sid] = self.make_card(sid, f"card_{sid}", Matrix.Translation(self._homes[sid]), depth=depth,
-                                              home=True)
+                                              home=True, tile=3)
         return self._cards[sid]
 
     def new_set(self, name):
@@ -197,7 +199,7 @@ class StageContext:
         return max(0, s["a"] - h), min(self.E["dur"], s["b"] + h)
 
     def make_card(self, sid, name, matrix=None, alpha="none", depth=0.0, hole=None, collection="plate",
-                  frames=None, backface=None, sweep=False, home=False):
+                  frames=None, backface=None, sweep=False, home=False, tile=1):
         """A new card playing shot sid's plate in comp time. matrix: world matrix (default: the shot's home origin).
         alpha 'matte' = subject matte as alpha; depth > 0 = displaced from the depth map (2.5D); hole = dict(center=[x, y],
         radius=[(frame, px), ...], feather=px). frames = (f0, f1) render visibility (default: the plate range)."""
@@ -210,11 +212,13 @@ class StageContext:
         dimg = self._sequence("depth", sid, "png") if depth > 0 else None
         if depth > 0 and dimg is None:
             self.log(f"WARN {name}: no depth for {sid}, card stays flat")
-        nx, ny = (128, 72) if dimg is not None else (1, 1)
-        me = cards.card_mesh(name, nx, ny)
-        key = (sid, alpha, bool(hole), tuple(backface) if backface else None, sweep)
+        nx, ny = ((128 if tile == 1 else 192), (72 if tile == 1 else 108)) if dimg is not None else (1, 1)
+        me = cards.card_mesh(name, nx, ny, tile=tile)
+        ext = "MIRROR" if tile > 1 else "EXTEND"
+        key = (sid, alpha, bool(hole), tuple(backface) if backface else None, sweep, ext)
         if hole or sweep or key not in self._mats:
-            mat = cards.card_material(f"m_{name}", plate, matte, alpha, hole, backface, sweep)
+            mat = cards.card_material(f"m_{name}", plate, matte, alpha, hole, backface, sweep, ext,
+                                      tile_tint=self.palette(self.act_of(sid))["leak"] if tile > 1 else None)
             if not (hole or sweep):
                 self._mats[key] = mat
         else:
@@ -251,6 +255,7 @@ class StageContext:
         self.show(ob, f0, f1)
         ob["amv3_shot"] = sid
         ob["amv3_card"] = True
+        ob["amv3_tile"] = tile
         self.all_cards.append(ob)
         return ob
 
@@ -274,8 +279,21 @@ class StageContext:
         return ob
 
     def show(self, ob, f0, f1):
-        """Render visibility: visible on [f0, f1), hidden outside (keyed, constant)."""
+        """Render visibility: visible on [f0, f1), hidden outside (keyed, constant). Calling it again for the same
+        object widens the span (union hull)."""
         f0, f1 = int(math.floor(f0)), int(math.ceil(f1))
+        if not hasattr(self, "_vis"):
+            self._vis = {}
+        if ob.name in self._vis:
+            g0, g1 = self._vis[ob.name]
+            f0, f1 = min(f0, g0), max(f1, g1)
+            ad = ob.animation_data
+            if ad and ad.action:
+                for fc in _fcurves(ad.action):
+                    if fc.data_path == "hide_render":
+                        while len(fc.keyframe_points):
+                            fc.keyframe_points.remove(fc.keyframe_points[0])
+        self._vis[ob.name] = (f0, f1)
         ob.hide_render = f0 > 0
         ob.keyframe_insert("hide_render", frame=0)
         if f0 > 0:
@@ -302,7 +320,7 @@ class StageContext:
         inst.location = origin
         self.colls["env"].objects.link(inst)
         f0, f1 = frames if frames else (0, 819)
-        self.show(inst, f0, min(f1, 819))
+        self.show(inst, f0, f1)
         self._envs[k] = inst
         return inst
 
@@ -361,14 +379,20 @@ class StageContext:
             self.key_cam(t, r[0], r[1], r[2] if len(r) > 2 else None)
 
     def entry_state(self, T):
-        """The State a window should start from at w0: the previous window's exit when the two windows touch (no hold
-        between them), else shot A's hold intent at w0."""
-        for c in self.E["cuts"]:
-            if c["w1"] == T["w0"] and c["id"] != T["id"] and c["id"] in self.bounds and "B" in self.bounds[c["id"]]:
-                return self.bounds[c["id"]]["B"]
+        """The State a window should start from at w0: shot A's hold intent at w0. When two windows touch (w1 of one ==
+        w0 of the next, no hold between them) the LATER window owns the junction: whatever it returns as "A" becomes the
+        earlier window's "B" (the core resolves touching windows right-to-left after all bounds())."""
         return self.intent(T["a"]["id"], T["w0"])
 
-    def settle_entry(self, T, A):
+    def transparent_from(self, f=None):
+        """Film alpha goes to 0 from this frame on (the outro shows through): the act voids are hidden from it.
+        Call with a frame to set it (default 819; scene["amv3_transparent_from"] is honoured too)."""
+        if f is not None:
+            self._transparent_from = int(f)
+        sc = bpy.context.scene
+        return int(getattr(self, "_transparent_from", sc.get("amv3_transparent_from", 819)))
+
+    def settle_entry(self, T, A, fixed_rate=False):
         """Re-place an entry State's scale so the hold before the window is the gentlest curve between the previous
         window's exit rate and this entry's rate (constant acceleration in ln s: the hold covers (ds0 + ds1) / 2 per
         frame). Call it after you have chosen A's rates. Keeps the frame on the card."""
@@ -377,8 +401,21 @@ class StageContext:
                 P, L = self.bounds[c["id"]]["B"], T["w0"] - c["w1"]
                 if L <= 0:
                     return A
+                # every component covers (rate0 + rate1) / 2 per frame: the hold never doubles back
                 s = P.s * math.exp((P.ds + A.ds) / 2.0 * L)
-                return A.with_(s=max(s, cl.min_scale(A.cx, A.cy, A.r, 0.01) * 1.005))
+                cx = P.cx + (P.dcx + A.dcx) / 2.0 * L
+                cy = P.cy + (P.dcy + A.dcy) / 2.0 * L
+                r = P.r + (P.dr + A.dr) / 2.0 * L
+                smin = cl.min_scale(960, 540, r, 0.01) * 1.005
+                ds = A.ds
+                if s < smin:
+                    # no room left to pull out that far: the hold pulls out less and turns round instead (unless the
+                    # window insists on its entry speed); the quadratic still holds
+                    s = smin * 1.02
+                    if not fixed_rate:
+                        ds = 2.0 * (math.log(s) - math.log(P.s)) / L - P.ds
+                cx, cy = cl.clamp_center(s, cx, cy, r, 0.01)
+                return A.with_(s=s, cx=cx, cy=cy, r=r, ds=ds)
         return A
 
     def exit_state(self, T):
@@ -604,12 +641,13 @@ def make_intent(ctx, sid):
     L = max(1.0, float(b - a))
     roll = float(mv.get("roll", 0.0) or 0.0)
     pan = mv.get("pan", [0, 0]) or [0, 0]
-    if not roll and not any(pan):
-        # never a dead axis: a faint roll and pan drift (alternating per shot) keeps the corners moving while the zoom
-        # turns round between a landing and the next entry
-        k = ctx._order.index(sid)
-        roll = 1.2 * (1 if k % 2 else -1)
-        pan = [28.0 * (1 if (k // 2) % 2 else -1), 0.0]
+    # never a dead axis: a roll and a pan drift (alternating per shot) keep the picture moving while the zoom turns
+    # round between a landing and the next entry (REFS holds: roll 0.1-0.3 deg/f, pan 2-10 px/f)
+    k = ctx._order.index(sid)
+    if not roll:
+        roll = min(3.0, 0.15 * L) * (1 if k % 2 else -1)
+    if not any(pan):
+        pan = [min(160.0, 4.5 * L) * (1 if (k // 2) % 2 else -1), min(60.0, 1.5 * L) * (1 if k % 3 else -1)]
     rate = max(DRIFT_MIN, min(DRIFT_RATE.get(act, 0.02), DRIFT_MAX_ZOOM / L))
     drift = mv.get("drift", "auto")
     ds = rate if drift in ("in", "auto") else -rate
@@ -668,10 +706,11 @@ def resolve_cut(ctx, c):
     if mod is None or not hasattr(mod, "bounds") or not hasattr(mod, "build"):
         if T["a"] is not None and T["b"] is not None:
             ctx.log(f"{c['id']} {typ}: no module, falling back to zt")
-            T["p"] = dict(peak=3.0, land=2.4, roll=0.0)
+            T["p"] = dict(FALLBACK_P)
             T["fallback_from"] = typ
             T["type"] = typ = "zt"
             mod = flow_mod
+            ctx.fallbacks.add(c["id"])
         else:
             ctx.log(f"{c['id']} {typ}: no module; the neighbouring hold runs through the window")
             return None, T, typ
@@ -707,13 +746,21 @@ def build(ctx, args):
             ctx.log(f"WARN {c['id']} {typ}.bounds failed, zt fallback:\n{traceback.format_exc()}")
             if T["a"] is None or T["b"] is None:
                 continue
-            T["p"] = dict(peak=3.0, land=2.4, roll=0.0)
+            T["p"] = dict(FALLBACK_P)
             T["fallback_from"] = typ
+            ctx.fallbacks.add(c["id"])
             T["type"] = typ = "zt"
             mod = flow_mod
             b = mod.bounds(T, ctx)
         ctx.bounds[c["id"]] = b
         resolved[c["id"]] = (mod, T, typ)
+    # touching windows: the later window's entry is the earlier window's exit (right to left)
+    for c in reversed(sel):
+        d = next((d for d in sel if d["w0"] == c["w1"] and d["id"] != c["id"]), None)
+        if d and c["id"] in ctx.bounds and d["id"] in ctx.bounds and "A" in ctx.bounds[d["id"]] and "B" in ctx.bounds[c["id"]]:
+            ctx.bounds[c["id"]]["B"] = ctx.bounds[d["id"]]["A"]
+            ctx.log(f"{c['id']} ends where {d['id']} begins (f{c['w1']}): s {ctx.bounds[d['id']]['A'].s:.2f} "
+                    f"ds {ctx.bounds[d['id']]['A'].ds:+.3f}")
 
     # 2. window builds (camera keys into the key store)
     for c in sel:
@@ -728,7 +775,7 @@ def build(ctx, args):
             if typ != "zt" and T["a"] is not None and T["b"] is not None:
                 for k in [k for k in ctx.keys if c["w0"] - 0.5 <= k < c["w1"]]:
                     del ctx.keys[k]
-                T["p"] = dict(peak=3.0, land=2.4, roll=0.0)
+                T["p"] = dict(FALLBACK_P)
                 T["type"] = "zt"
                 ctx.bounds[c["id"]] = flow_mod.bounds(T, ctx)
                 flow_mod.build(T, ctx)
@@ -772,6 +819,7 @@ def build(ctx, args):
             B = ctx.intent(sid, h1)
         ctx._holds[sid] = (h0, h1, A, B)
         card = ctx.card(sid)
+        ctx.show(card, h0 - 1, h1 + 1)  # a hold past the plate range (a missing end module) keeps its card
 
         def fn(t, A=A, B=B, h0=h0, h1=h1, card=card):
             st = cl.cover(cl.hermite_state(A, B, h0, h1, t))
@@ -919,10 +967,12 @@ def camera_dump(ctx, f0, f1):
             if oe.hide_render:
                 continue
             M = oe.matrix_world
-            vis.append(dict(name=ob.name, M=[list(r) for r in M], Mi=[list(r) for r in M.inverted_safe()]))
+            vis.append(dict(name=ob.name, M=[list(r) for r in M], Mi=[list(r) for r in M.inverted_safe()],
+                            tile=int(ob.get("amv3_tile", 1))))
         frames.append(dict(f=f, cam=[list(r) for r in ce.matrix_world], lens=ce.data.lens, cards=vis,
                            shutter=sc.render.motion_blur_shutter))
-    windows = [dict(id=c["id"], type=c["type"], f=c["f"], w0=w0, w1=w1) for w0, w1, c in ctx.windows]
+    windows = [dict(id=c["id"], type=c["type"], f=c["f"], w0=w0, w1=w1, fallback=c["id"] in ctx.fallbacks)
+               for w0, w1, c in ctx.windows]
     holds = {sid: [h[0], h[1]] for sid, h in ctx._holds.items()}
     return dict(frames=frames, teleports=ctx.teleports, windows=windows, holds=holds, res=[1920, 1080])
 
@@ -978,6 +1028,18 @@ def main():
         render_identity(ctx, args)
         return
     resolved = build(ctx, args)
+    tf = ctx.transparent_from()
+    for inst in ctx._envs.values():
+        g0, g1 = ctx._vis.get(inst.name, (0, 819))
+        if g1 > tf:
+            ctx._vis.pop(inst.name, None)
+            ad = inst.animation_data
+            if ad and ad.action:
+                for fc in _fcurves(ad.action):
+                    if fc.data_path == "hide_render":
+                        while len(fc.keyframe_points):
+                            fc.keyframe_points.remove(fc.keyframe_points[0])
+            ctx.show(inst, g0, tf)
     apply_hits(ctx)
     write_camera(ctx)
     key_shutter(ctx)

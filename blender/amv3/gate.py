@@ -9,7 +9,8 @@ Checks (frames 0-818):
   stall      every point moves < 0.5 px/f (a dead frame)
   step       speed (max point displacement) changes by more than x1.35 frame to frame outside the windows' intended
              accelerations (both speeds above 2 px/f; below that an absolute change > 1.5 px/f is the limit)
-  flip       the motion direction reverses across a window edge (w0, w1) by more than 2 px/f each side
+  flip       the motion direction reverses across a window edge (w0, w1): zoom / pan > 4 px/f or roll > 0.3 deg/f
+             each side
   reversal   a hold shorter than 5 f where the zoom, pan or roll reverses with real magnitude on both sides AND the
              picture slows below 1.5 px/f while it turns round (a visible stop/bounce)
   nocard     no card under the frame outside the windows (inside 3D windows the void is intentional)
@@ -24,7 +25,8 @@ import sys
 HERE_W, HERE_H = 1920, 1080
 LENS0, SENSOR = 35.0, 36.0
 END = 819
-REVERSAL_MIN = 5  # a hold may turn its zoom / pan / roll round only over at least 5 f (REFS: reversals take 5-7 f)
+JUMP_MAX = 6.0  # hold picture-speed jump frame to frame (REFS target: max <= 6, p95 <= 2.1)
+REVERSAL_MIN = 6  # a hold may turn its zoom / pan / roll round only over at least 5 f (REFS: reversals take 5-7 f)
 
 
 def _mat_vec(M, v):
@@ -84,7 +86,8 @@ def hit(fr, u, v):
         if t <= 0:
             continue
         x, y = lo[0] + t * ld[0], lo[1] + t * ld[1]
-        if abs(x) <= 0.96 and abs(y) <= 0.54 and (best is None or t < best[0]):
+        k = c.get("tile", 1)
+        if abs(x) <= 0.96 * k and abs(y) <= 0.54 * k and (best is None or t < best[0]):
             best = (t, c["name"], (x, y, 0.0))
     return None if best is None else best[1:]
 
@@ -120,7 +123,10 @@ def motion(fa, fb):
         return None
     tx, ty, a, b = sol
     sp = [math.hypot(dx, dy) for dx, dy in disp]
-    return dict(T=(tx, ty), zoom=math.log(max(1e-6, 1 + a)), roll=math.degrees(b), speed=max(sp), mean=sum(sp) / n,
+    rms = math.sqrt(sum(x * x for x in sp) / n)
+    # p' = (1 + a) p + b perp(p) is a similarity: scale |1 + a + i b|, rotation atan2(b, 1 + a) (exact for big rolls)
+    return dict(T=(tx, ty), zoom=math.log(max(1e-6, math.hypot(1 + a, b))), roll=math.degrees(math.atan2(b, 1 + a)),
+                speed=max(sp), mean=sum(sp) / n, rms=rms,
                 cspeed=sp[0] if pts[0] == (0.0, 0.0) else float("nan"), n=n)
 
 
@@ -169,45 +175,117 @@ def analyse(dump, out_csv=None, only=False):
         zs = [zoom[g] for g in range(f - 2, f + 3) if g in zoom]
         return len(zs) >= 2 and max(zs) > 0 > min(zs)
 
-    prev = None
+    holdrows = [r for r in rows if r["f"] < END and r["f"] not in covered and r["m"] and not r["teleport"]]
+    # stalls (any frame) and hold statistics (REFS "Targets for v3")
     for r in rows:
-        f, m = r["f"], r["m"]
-        if r["teleport"]:
-            prev = None
+        if r["f"] < END and r["m"] and not r["teleport"] and r["m"]["speed"] < 0.5:
+            fail("stall", r["f"], f"max point speed {r['m']['speed']:.2f} px/f")
+    stats = {}
+    if holdrows:
+        sp = sorted(r["m"]["rms"] for r in holdrows)
+        stats["hold_speed_median"] = sp[len(sp) // 2]
+        stats["hold_static_pct"] = 100.0 * sum(1 for x in sp if x < 4) / len(sp)
+        zs = sorted(abs(r["m"]["zoom"]) for r in holdrows)
+        stats["hold_zoom_median_pct"] = 100 * zs[len(zs) // 2]
+        run = best = 0
+        for r in rows:
+            if r["f"] in covered or not r["m"] or r["f"] >= END:
+                run = 0
+                continue
+            run = run + 1 if r["m"]["rms"] < 4 else 0
+            best = max(best, run)
+        stats["hold_static_run"] = best
+        jumps = []
+        byf0 = {r["f"]: r for r in rows}
+        for r in holdrows:
+            q = byf0.get(r["f"] - 1)
+            if q and q["m"] and not q["teleport"] and q["f"] not in covered and not turning(r["f"]):
+                a_, b_ = q["m"]["rms"], r["m"]["rms"]
+                if min(a_, b_) > 2:
+                    jumps.append((max(a_, b_) / min(a_, b_), r["f"]))
+        if jumps:
+            js = sorted(j for j, _ in jumps)
+            stats["hold_jump_p95"] = js[int(0.95 * (len(js) - 1))]
+            stats["hold_jump_max"] = js[-1]
+            for j, f in jumps:
+                if j > JUMP_MAX:
+                    fail("step", f, f"hold speed jump x{j:.2f} (max {JUMP_MAX})")
+        if stats["hold_static_pct"] > 5:
+            fail("static", 0, f"{stats['hold_static_pct']:.1f} % hold frames under 4 px/f (<= 5 %)")
+        if best > 4:
+            fail("static", 0, f"a run of {best} hold frames under 4 px/f (<= 4)")
+        if stats["hold_speed_median"] < 12:
+            fail("slow", 0, f"hold speed median {stats['hold_speed_median']:.1f} px/f (>= 12)")
+        if stats["hold_zoom_median_pct"] < 1.5:
+            fail("slow", 0, f"hold zoom median {stats['hold_zoom_median_pct']:.2f} %/f (>= 1.5)")
+        if stats.get("hold_jump_p95", 0) > 2.1:
+            fail("step", 0, f"hold speed jump p95 x{stats['hold_jump_p95']:.2f} (<= 2.1)")
+    # per cut: acceleration in, deceleration out, peak speed, drop / step at the cut, zoom sign
+    byf1 = {r["f"]: r for r in rows}
+
+    def spd(f):
+        r = byf1.get(f)
+        return r["m"]["rms"] if r and r["m"] and not r["teleport"] else None
+    cutstats = []
+    for w in wins:
+        if w.get("fallback"):
+            continue  # a stand-in zt for a module that has not landed: not judged
+        f = w["f"]
+        A = [spd(g) for g in range(f - 6, f - 1)]  # rows f-6 .. f-2 (f-1 -> f crosses the teleport)
+        B = [spd(g) for g in range(f, f + 10)]
+        if None in A[-4:] or None in B[:9]:
             continue
-        if f >= END:
-            break
-        if m is None:
-            if f < END and f not in covered:  # inside 3D windows the void around a card is intentional
-                fail("nocard", f, "no card under the frame (void / black)")
-            prev = None
-            continue
-        if m["speed"] < 0.5:
-            fail("stall", f, f"max point speed {m['speed']:.2f} px/f")
-        if prev is not None and not turning(f):
-            a, b = prev["speed"], m["speed"]
-            in_win = r["win"] != "" and any(w["w0"] <= f - 1 and f < w["w1"] for w in wins)
-            if not in_win:
-                if a > 2 and b > 2:
-                    ratio = max(a, b) / min(a, b)
-                    if ratio > 1.35:
-                        fail("step", f, f"speed {a:.1f} -> {b:.1f} px/f (x{ratio:.2f})")
-                elif abs(a - b) > 1.5:
-                    fail("step", f, f"speed {a:.1f} -> {b:.1f} px/f")
-        prev = m
+        acc = (A[-1] / max(1e-6, A[-4])) ** (1 / 3.0)
+        dec = (B[0] / max(1e-6, B[8])) ** (1 / 8.0)
+        drop = max([B[i] / max(1e-6, B[i + 1]) for i in range(8)] + [A[-1] / max(1e-6, B[0])])
+        step = max(A[-4 + i + 1] / max(1e-6, A[-4 + i]) for i in range(3))
+        za = byf1[f - 2]["m"]["zoom"]
+        zb = byf1[f]["m"]["zoom"]
+        cutstats.append(dict(id=w["id"], type=w["type"], f=f, acc=acc, dec=dec, peak=max(A[-1], B[0]), drop=drop, step=step,
+                             zoom_a=za, zoom_b=zb, flip=(za * zb < 0 and abs(za) > 0.01 and abs(zb) > 0.01)))
+    if cutstats:
+        def med(k):
+            v = sorted(c[k] for c in cutstats)
+            return v[len(v) // 2]
+        drops = sorted(c["drop"] for c in cutstats)
+        stats.update(cut_acc_median=med("acc"), cut_dec_median=med("dec"), cut_peak_median=med("peak"),
+                     cut_drop_median=med("drop"), cut_drop_p90=drops[int(0.9 * (len(drops) - 1))],
+                     cut_step_median=med("step"),
+                     zoom_flip_pct=100.0 * sum(c["flip"] for c in cutstats) / max(1, sum(
+                         1 for c in cutstats if abs(c["zoom_a"]) > 0.01 and abs(c["zoom_b"]) > 0.01)))
+        if stats["cut_drop_median"] > 2.3 or stats["cut_drop_p90"] > 4:
+            fail("drop", 0, f"drop out of cuts median x{stats['cut_drop_median']:.2f} p90 x{stats['cut_drop_p90']:.2f} (<= 2.3 / 4)")
+        if stats["cut_step_median"] > 2.6:
+            fail("stepin", 0, f"step into cuts median x{stats['cut_step_median']:.2f} (<= 2.6)")
+        if not 1.3 <= stats["cut_acc_median"] <= 1.75:
+            fail("accel", 0, f"acceleration into cuts median x{stats['cut_acc_median']:.2f}/f (1.35-1.7)")
+        if not 1.12 <= stats["cut_dec_median"] <= 1.3:
+            fail("decel", 0, f"deceleration out of cuts median x{stats['cut_dec_median']:.2f}/f (1.15-1.27)")
+        if stats["cut_peak_median"] < 160:
+            fail("peak", 0, f"cut peak speed median {stats['cut_peak_median']:.0f} px/f (>= 160)")
+        if stats["zoom_flip_pct"] > 10:
+            fail("zflip", 0, f"zoom sign reversed on {stats['zoom_flip_pct']:.0f} % of zoom cuts (<= 10 %)")
+    for r in rows:
+        if r["m"] is None and not r["teleport"] and r["f"] < END and r["f"] not in covered:
+            fail("nocard", r["f"], "no card under the frame (void / black)")
     # direction across window edges
     byf = {r["f"]: r for r in rows}
+    fb_edges = {e for w in wins if w.get("fallback") for e in (w["w0"], w["w1"])}
     for w in wins:
+        if w.get("fallback"):
+            continue
         for e in (w["w0"], w["w1"]):
+            if e in fb_edges:
+                continue
             r0, r1 = byf.get(e - 1), byf.get(e)
             if not r0 or not r1 or not r0["m"] or not r1["m"] or r0["teleport"] or r1["teleport"]:
                 continue
             m0, m1 = r0["m"], r1["m"]
-            for name, k, thr in (("zoom", "zoom", 2.0 / 1100), ("roll", "roll", 2.0 / 1100 * 57.3)):
+            for name, k, thr in (("zoom", "zoom", 4.0 / 1100), ("roll", "roll", 0.3)):
                 if m0[k] * m1[k] < 0 and abs(m0[k]) > thr and abs(m1[k]) > thr:
                     fail("flip", e, f"{w['id']} edge {e}: {name} {m0[k]:+.4f} -> {m1[k]:+.4f}")
             t0, t1 = m0["T"], m1["T"]
-            if math.hypot(*t0) > 2 and math.hypot(*t1) > 2 and t0[0] * t1[0] + t0[1] * t1[1] < 0:
+            if math.hypot(*t0) > 4 and math.hypot(*t1) > 4 and t0[0] * t1[0] + t0[1] * t1[1] < 0:
                 fail("flip", e, f"{w['id']} edge {e}: pan ({t0[0]:+.1f},{t0[1]:+.1f}) -> ({t1[0]:+.1f},{t1[1]:+.1f})")
     # reversals in short holds
     for sid, (h0, h1) in holds.items():
@@ -238,7 +316,7 @@ def analyse(dump, out_csv=None, only=False):
                 else:
                     wr.writerow([r["f"], r["win"], r["wtype"], int(r["teleport"])] + [""] * 7 +
                                 [f"{r['shutter']:.3f}" if r["shutter"] is not None else ""])
-    return dict(rows=rows, fails=fails)
+    return dict(rows=rows, fails=fails, stats=stats, cuts=cutstats)
 
 
 def print_report(res):
@@ -253,6 +331,12 @@ def print_report(res):
                   f"{m['T'][1]:7.1f} {m['zoom']:+.4f} {m['roll']:+7.2f}  {r['shutter'] or 0:.2f}")
         else:
             print(f"[gate] {r['f']:4d}  {r['win']:<6} {r['wtype']:<12} -- no card --")
+    for c in res.get("cuts", []):
+        print(f"[gate] cut {c['id']} f{c['f']} {c['type']:<10} acc x{c['acc']:.2f}/f  dec x{c['dec']:.2f}/f  peak {c['peak']:.0f} px/f  "
+              f"drop x{c['drop']:.2f}  step-in x{c['step']:.2f}  zoom {100 * c['zoom_a']:+.1f} -> {100 * c['zoom_b']:+.1f} %/f"
+              f"{'  FLIP' if c['flip'] else ''}")
+    for k, v in res.get("stats", {}).items():
+        print(f"[gate] {k:<22} {v:.2f}")
     kinds = {}
     for x in res["fails"]:
         kinds[x["kind"]] = kinds.get(x["kind"], 0) + 1

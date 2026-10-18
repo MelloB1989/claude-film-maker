@@ -116,15 +116,22 @@ def clamp_center(s, cx, cy, r, margin=0.0):
     return cx, cy
 
 
-def cover(st, w=0.012):
+def cover(st, w=0.012, strength=1.0):
     """Keep the frame on the card: a soft floor on the scale for the current roll and centre (softplus, so the curve
-    stays smooth), then pull the centre in just enough. Returns st (modified)."""
+    stays smooth), then pull the centre in just enough. strength 0..1 fades the guard (0 = off: mirror tiles may show).
+    Returns st (modified)."""
+    if strength <= 0:
+        return st
     smin = max(min_scale(960.0, 540.0, st.r, 0.006), 1.0)
-    L, Lm = math.log(st.s), math.log(smin)
+    L, Lm = math.log(st.s), math.log(smin) - (1.0 - min(1.0, strength)) * 3.0  # a weak guard sits far below
     x = (Lm - L) / w
     L += w * (x + math.log1p(math.exp(-x))) if x > 0 else w * math.log1p(math.exp(x))
     st.s = math.exp(L)
-    st.cx, st.cy = clamp_center(st.s, st.cx, st.cy, st.r, 0.004)
+    if strength >= 1:
+        st.cx, st.cy = clamp_center(st.s, st.cx, st.cy, st.r, 0.004)
+    else:
+        cx, cy = clamp_center(st.s, st.cx, st.cy, st.r, 0.004)
+        st.cx, st.cy = st.cx + (cx - st.cx) * strength, st.cy + (cy - st.cy) * strength
     return st
 
 
