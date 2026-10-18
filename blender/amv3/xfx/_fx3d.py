@@ -351,6 +351,25 @@ def no_blur(ob):
     return ob
 
 
+def camera_light(name, cam_fn, t0, t1, off, color, watts, size=0.3, coll=None):
+    """An area light riding with the camera at camera-space offset `off` (keep off.z > 0: behind the lens, so the light
+    itself can never be in frame - area lights showed up in renders despite visible_camera = False), aimed along the
+    view. Keyed every half frame on [t0, t1]."""
+    ld = bpy.data.lights.new(name, "AREA")
+    ld.color = color[:3]
+    ld.energy = watts
+    ld.size = size
+    ob = bpy.data.objects.new(name, ld)
+    ob.visible_camera = False
+    (coll or bpy.context.scene.collection).objects.link(ob)
+    rot = look_at(off, Vector((0.0, 0.0, -2.0)))
+    prev = {}
+    for t in frames_half(t0, t1):
+        key_matrix(ob, t, unit_matrix(cam_fn(t)) @ Matrix.LocRotScale(off, rot, None), prev)
+    key_visible(ob, t0, t1)
+    return ob
+
+
 def ride_camera(ob, cam_fn, M_world, t_ref, t0, t1, prev=None):
     """Key ob to follow the camera over [t0, t1] (half frames) so it sits at M_world as seen from the camera at t_ref.
     Camera motion blur then does not smear it: for instantaneous light (bolts, arcs) that must stay crisp filaments."""
@@ -458,15 +477,38 @@ def principled(nt, **kw):
     return p
 
 
-def glass_mat(name, tint=(1, 1, 1), emit=(0.5, 0.8, 1.0), emit_strength=0.0, rough=0.02, ior=1.5):
-    """Clear refractive glass with an optional emissive tint (rim light); 'glass' node Emission Strength is keyable."""
+def glass_mat(name, tint=(1, 1, 1), emit=(0.5, 0.8, 1.0), emit_strength=0.0, rough=0.02, ior=1.5, refract=False):
+    """Glass. Default THIN glass (clean at 64 spp: no refraction paths): Transparent (tinted) mixed with a glossy coat
+    by a Fresnel weight, plus an emissive tint; the 'glass' node's Emission Strength is keyable (key_glass_glow).
+    refract=True: real refractive glass (Principled transmission) for big smooth pieces that must bend the picture."""
     m = bpy.data.materials.new(name)
     nt = _nt(m)
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
-    p = principled(nt, base=tint, rough=rough, ior=ior, trans=1.0, emc=emit, ems=emit_strength)
+    if refract:
+        p = principled(nt, base=tint, rough=rough, ior=ior, trans=1.0, emc=emit, ems=emit_strength)
+        p.name = "glass"
+        nt.links.new(p.outputs[0], out.inputs["Surface"])
+        return m
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    tr.inputs["Color"].default_value = (*[0.82 + 0.18 * c for c in tint[:3]], 1.0)
+    p = principled(nt, base=(0, 0, 0), rough=max(rough, 0.04), ior=ior, emc=emit, ems=emit_strength, spec=0.8)
     p.name = "glass"
-    nt.links.new(p.outputs[0], out.inputs["Surface"])
+    lw = nt.nodes.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.35
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(lw.outputs["Fresnel"], mix.inputs[0])
+    nt.links.new(tr.outputs[0], mix.inputs[1])
+    nt.links.new(p.outputs[0], mix.inputs[2])
+    # the glossy+emission half is weighted by Fresnel: add the emission back flat so rims glow at every angle
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*emit[:3], 1.0)
+    add = nt.nodes.new("ShaderNodeAddShader")
+    nt.links.new(mix.outputs[0], add.inputs[0])
+    nt.links.new(em.outputs[0], add.inputs[1])
+    nt.links.new(add.outputs[0], out.inputs["Surface"])
+    em.name = "glass_flat"
+    em.inputs["Strength"].default_value = emit_strength * 0.6
     return m
 
 
@@ -474,6 +516,10 @@ def key_glass_glow(mat, f, strength):
     s = mat.node_tree.nodes["glass"].inputs["Emission Strength"]
     s.default_value = strength
     s.keyframe_insert("default_value", frame=f)
+    fl = mat.node_tree.nodes.get("glass_flat")
+    if fl is not None:
+        fl.inputs["Strength"].default_value = strength * 0.6
+        fl.inputs["Strength"].keyframe_insert("default_value", frame=f)
 
 
 def picture_glass_mat(src, name, gloss_rough=0.07, gloss=1.0, dim=1.0):
@@ -498,6 +544,41 @@ def picture_glass_mat(src, name, gloss_rough=0.07, gloss=1.0, dim=1.0):
         s = mix.outputs[0]
     nt.links.new(s, add.inputs[0])
     nt.links.new(p.outputs[0], add.inputs[1])
+    nt.links.new(add.outputs[0], out.inputs["Surface"])
+    return m
+
+
+def lens_glass_mat(src, name, pic=0.12, tint=(0.94, 0.98, 1.0), rough=0.01, ior=1.45):
+    """Thin clear glass (you see what is behind it; transparent + Fresnel glossy, clean at 64 spp) with a faint additive trace of a plate picture on it (the
+    lens print / reflection), from the plate material src's image (same image user = comp time)."""
+    img = next(n for n in src.node_tree.nodes if n.type == "TEX_IMAGE")
+    m = bpy.data.materials.new(name)
+    nt = _nt(m)
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = img.image
+    tex.extension = "EXTEND"
+    for k in ("frame_start", "frame_duration", "frame_offset", "use_cyclic", "use_auto_refresh"):
+        setattr(tex.image_user, k, getattr(img.image_user, k))
+    nt.links.new(tc.outputs["UV"], tex.inputs["Vector"])
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.name = "pic"
+    em.inputs["Strength"].default_value = pic
+    nt.links.new(tex.outputs["Color"], em.inputs["Color"])
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    tr.inputs["Color"].default_value = (*tint[:3], 1.0)
+    g = principled(nt, base=(0, 0, 0), rough=max(rough, 0.04), ior=ior, spec=0.8)
+    lw = nt.nodes.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.3
+    mx = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(lw.outputs["Fresnel"], mx.inputs[0])
+    nt.links.new(tr.outputs[0], mx.inputs[1])
+    nt.links.new(g.outputs[0], mx.inputs[2])
+    add = nt.nodes.new("ShaderNodeAddShader")
+    nt.links.new(mx.outputs[0], add.inputs[0])
+    nt.links.new(em.outputs[0], add.inputs[1])
     nt.links.new(add.outputs[0], out.inputs["Surface"])
     return m
 
