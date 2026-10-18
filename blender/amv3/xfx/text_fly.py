@@ -130,13 +130,18 @@ NEST = {  # region kind on A (S10 has no mask: bg), dive pitch (deg, peak at the
 }
 
 
+def nest_p(T):
+    N = NEST.get(T["p"].get("exit", "through"), NEST["through"])
+    return dict(region=N["region"], mode="push")
+
+
 def nested(ctx):
     return hasattr(ctx, "nest") and hasattr(ctx, "nest_bounds")
 
 
 def bounds(T, ctx):
     if nested(ctx):
-        return ctx.nest_bounds(T)
+        return ctx.nest_bounds(T, **nest_p(T))
     P = _preset(T)
     pl = plan(T, ctx)
     ax, ay = pl["A"]
@@ -158,7 +163,7 @@ def state_at(pl, t):
 
 def build_nest(T, ctx):
     N = NEST.get(T["p"].get("exit", "through"), NEST["through"])
-    nest = ctx.nest(T, region=N["region"], mode="push")
+    nest = ctx.nest(T, **nest_p(T))
     ctx.log(f"text_fly {T['id']}: nest push, region {N['region']}, crosses A at {nest.t_x}, reveal from {nest.t_r}, "
             f"B {nest.D:.2f} m behind A")
     if N["pitch_peak"] and hasattr(ctx, "key_offset"):
