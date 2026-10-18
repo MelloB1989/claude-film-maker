@@ -294,7 +294,7 @@ def build(T, ctx):
     # ---- anchors for text3d: the title in front of the page, the burst centre
     ttl = bpy.data.objects.new("TRIPTYCH_TITLE", None)
     ttl.matrix_world = MO @ Matrix.Translation((0.0, -0.02, 0.45))
-    ttl["width"] = 1.7
+    ttl["width"] = 1.35   # fits the frame until the slam-in into the burst (~815)
     ttl["gap"] = 0.45
     bpy.context.scene.collection.objects.link(ttl)
     Cb = cam_world(BURST)
