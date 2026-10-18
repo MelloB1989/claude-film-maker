@@ -355,7 +355,7 @@ def build_env_collection(act_id, pal, lib_coll):
     gl = _n(nt, "ShaderNodeMath", -250, 300, operation="POWER")
     nt.links.new(grad.outputs["Result"], gl.inputs[0]); gl.inputs[1].default_value = 3.0
     sc = _n(nt, "ShaderNodeVectorMath", -100, 300, operation="SCALE")
-    sc.inputs[0].default_value = tuple(x * 0.6 for x in leak)
+    sc.inputs[0].default_value = tuple(x * 0.22 for x in leak)
     nt.links.new(gl.outputs[0], sc.inputs["Scale"])
     nt.links.new(sc.outputs[0], lk.inputs[7])
     em = _n(nt, "ShaderNodeEmission", 200, 0)

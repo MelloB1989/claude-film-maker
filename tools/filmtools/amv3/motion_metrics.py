@@ -69,10 +69,15 @@ def _probe(path: Path) -> tuple[int, int, float]:
 
 
 def frames(src: Path, width: int, start: int = 0, end: int | None = None):
-    """Yield (index, BGR uint8 frame at `width` px wide). Video via an ffmpeg pipe, or a folder of images (sorted)."""
+    """Yield (frame, BGR uint8 frame at `width` px wide). Video via an ffmpeg pipe, or a folder of images (sorted;
+    the frame number is the last number in the file name, e.g. f_00480.png -> 480)."""
     if src.is_dir():
+        import re
         files = sorted(p for p in src.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg"))
-        for i, p in enumerate(files):
+        nums = [re.findall(r"\d+", p.stem) for p in files]
+        # frame number from the file name (stage passes are f_NNNNN.png = comp frame), else the index
+        idx = [int(n[-1]) for n in nums] if all(nums) else list(range(len(files)))
+        for i, p in zip(idx, files):
             if i < start:
                 continue
             if end is not None and i >= end:
@@ -266,6 +271,20 @@ def detect_events(rows: list[dict]) -> None:
             i += 1
 
 
+def _longest(rows, pred):
+    """Longest run of consecutive frames satisfying pred."""
+    run = best = 0
+    prev = None
+    for r in rows:
+        if pred(r):
+            run = run + 1 if prev is not None and r["frame"] == prev + 1 and run else 1
+            best = max(best, run)
+        else:
+            run = 0
+        prev = r["frame"]
+    return best
+
+
 def _med(v):
     v = [x for x in v if x is not None]
     return round(float(np.median(v)), 2) if v else None
@@ -418,6 +437,11 @@ def summarize(rows: list[dict], name: str) -> dict:
                                    / max(1, sum(1 for p in percut if p["speed_across"])), 1),
         zoom_dir_counts={d: sum(1 for p in percut if p["zoom_dir"] == d)
                          for d in ("push->push", "pull->pull", "push->pull", "pull->push", None)},
+        hold_zoom_median=round(100 * float(np.median([abs(r["zoom"]) for r in hold])), 2) if hold else None,
+        hold_roll_median=round(float(np.median([abs(r["rot"]) for r in hold])), 3) if hold else None,
+        zoom_reversed_pct=round(100 * sum(1 for p in percut if p["zoom_dir"] in ("push->pull", "pull->push"))
+                                / max(1, sum(1 for p in percut if p["zoom_dir"])), 1),
+        longest_slow_run=_longest([r for r in moving if r["frame"] not in near], lambda r: r.get("flow_mean", 0) < SLOW_PX),
         slow_pct=round(100 * sum(1 for r in moving if r["frame"] not in near and r.get("flow_mean", 0) < SLOW_PX)
                        / max(1, sum(1 for r in moving if r["frame"] not in near)), 1),
         gfail_pct=round(100 * sum(r["gfail"] for r in rows[1:]) / max(1, len(rows) - 1), 1),
@@ -497,6 +521,8 @@ TABLE = [("frames", "frames"), ("n_cuts", "transitions (hard + smear)"), ("shot_
          ("hold_gspeed_median", "hold camera speed median (px/f)"), ("hold_gspeed_p10", "hold camera speed p10 (px/f)"),
          ("hold_flow_median", "hold mean flow median (px/f)"),
          ("slow_pct", "% near-static hold frames (mean flow < 4 px/f)"),
+         ("longest_slow_run", "longest near-static run (f)"),
+         ("hold_zoom_median", "hold zoom rate median (%/f)"), ("hold_roll_median", "hold roll median (deg/f)"),
          ("jump_ratio_p95", "camera speed jump ratio p95 (outside cuts)"),
          ("jump_pct_over", "% frames camera speed jumps > x1.35"),
          ("flow_jump_p95", "picture speed (mean flow) jump ratio p95"), ("flow_jump_max", "picture speed jump max"),
@@ -512,7 +538,8 @@ TABLE = [("frames", "frames"), ("n_cuts", "transitions (hard + smear)"), ("shot_
          ("step_out_p90", "worst 1-frame speed drop out of a cut (p90)"),
          ("speed_across_median", "speed after / before cut (median)"),
          ("speed_across_bad_pct", "% cuts with speed step outside x0.5-x2"),
-         ("zoom_dir_counts", "zoom direction across cut"), ("gfail_pct", "% frames fit failed")]
+         ("zoom_dir_counts", "zoom direction across cut"),
+         ("zoom_reversed_pct", "% zoom cuts that reverse the zoom sign"), ("gfail_pct", "% frames fit failed")]
 
 
 def compare(dirs: list[Path]) -> str:
@@ -521,6 +548,41 @@ def compare(dirs: list[Path]) -> str:
     for key, label in TABLE:
         lines.append(f"| {label} | " + " | ".join(str(s.get(key)) for s in sums) + " |")
     return "\n".join(lines) + "\n"
+
+
+# The v3 gate (films/timeless/amv3/REFS.md "Targets for v3"): (key, op, limit, label). Each limit sits inside the range
+# of the three references (each passes all but ref a's upload dups) and v2 fails 12 of 16.
+GATES = [("slow_pct", "<=", 5.0, "near-static hold frames %"),
+         ("longest_slow_run", "<=", 4, "longest near-static run (f)"),
+         ("hold_flow_median", ">=", 12.0, "hold picture speed median (px/f)"),
+         ("hold_zoom_median", ">=", 1.5, "hold zoom rate median (%/f)"),
+         ("flow_jump_max", "<=", 7.5, "picture-speed jump outside cuts, max"),
+         ("flow_jump_p95", "<=", 2.1, "picture-speed jump outside cuts, p95"),
+         ("step_out_median", "<=", 2.3, "worst 1-frame drop out of a cut, median"),
+         ("step_out_p90", "<=", 4.0, "worst 1-frame drop out of a cut, p90"),
+         ("step_in_median", "<=", 2.6, "worst 1-frame step into a cut, median"),
+         ("accel_per_f_median", "range", (1.35, 1.7), "acceleration into the cut (x/f)"),
+         ("decel_per_f_median", "range", (1.15, 1.27), "deceleration out of the cut (x/f)"),
+         ("cut_peak_flow_median", ">=", 150.0, "cut peak picture speed median (px/f)"),
+         ("zoom_reversed_pct", "<=", 20.0, "zoom cuts reversing the zoom sign %"),
+         ("hard_cuts_pct", "<=", 20.0, "hard cuts (0 smear frames) %"),
+         ("smear_frames_median", ">=", 3, "smear frames per cut, median"),
+         ("dup_pct", "<=", 0.0, "duplicated frames % (ref a: upload artefact)")]
+
+
+def gate(summary: dict) -> tuple[bool, str]:
+    ok_all, lines = True, []
+    for key, op, lim, label in GATES:
+        v = summary.get(key)
+        if v is None:
+            ok, want = False, "n/a"
+        elif op == "range":
+            ok, want = lim[0] <= v <= lim[1], f"{lim[0]}-{lim[1]}"
+        else:
+            ok, want = (v <= lim) if op == "<=" else (v >= lim), f"{op} {lim}"
+        ok_all &= ok
+        lines.append(f"{'PASS' if ok else 'FAIL'}  {label:<45} {v!s:>8}   (target {want})")
+    return ok_all, "\n".join(lines)
 
 
 def main(argv=None):
@@ -534,6 +596,7 @@ def main(argv=None):
     ap.add_argument("--reuse", action="store_true",
                     help="re-derive summary/plot from metrics.csv in --out (cut to --start/--end; writes metrics_<a>_<b>.csv)")
     ap.add_argument("--compare", nargs="+", help="output dirs of earlier runs -> markdown table at --out")
+    ap.add_argument("--gate", action="store_true", help="check the summary against the v3 targets; exit 1 on a FAIL")
     a = ap.parse_args(argv)
     if a.compare:
         Path(a.out).write_text(compare([Path(d) for d in a.compare]))
@@ -556,6 +619,11 @@ def main(argv=None):
     (out / "summary.json").write_text(json.dumps(s, indent=1))
     plot(rows, s, out / "plot.png")
     print(json.dumps({k: v for k, v in s.items() if k != "per_cut"}, indent=1))
+    if a.gate:
+        ok, text = gate(s)
+        (out / "gate.txt").write_text(text + "\n")
+        print(text)
+        raise SystemExit(0 if ok else 1)
 
 
 if __name__ == "__main__":
