@@ -240,6 +240,10 @@ class Layout:
         self.regfrac = max(0.02, (bx1 - bx0) / 1920.0, (by1 - by0) / 1080.0)
         self.eq_diam = 2.0 * math.sqrt(max(1e-6, info_r["area"]) * 1920 * 1080 / math.pi)
         self.fK = flow.focus_of(T, "b" if self.push else "a", ctx)
+        if self.push and self.w1 - self.tx < 4:
+            # a landing of < 4 f (the next window takes over): B is crossed into where it lands, no lateral rush
+            TBs = self.w1 - self.tx
+            self.fK = [B.cx - B.dcx * TBs, B.cy - B.dcy * TBs]
         self.fill = float(p.get("fill", DEF["fill"]))
         self.touching = any(c["w0"] == self.w1 and c["id"] != T["id"] for c in ctx.E["cuts"])
         land = float(p.get("land", DEF["land"]))
