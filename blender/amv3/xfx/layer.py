@@ -2,27 +2,23 @@
 
   cut(f, "layer", pre, post, dict(mode="keep" | "sweep", ...))
 
-mode "keep" (ref c 278-305, c 210-232): A's matted subject stays in front and keeps moving while A's background is
-  carried away behind it and B arrives in 3D behind the subject; then the subject flies past the lens and B continues.
-  Private set: A's background copy (card plane z = 0, the matte cut out of it as the subject separates) and A's subject
-  copy (alpha = matte) start exactly where A's home card is, so the teleport at w0 - 0.5 is invisible. B's card sits
-  `depth` m behind, scaled so it covers the frame for the whole window, and dollies in (`b_travel` m, expo-out) as it is
-  revealed. A's background slides away (`carry` m, expo-in) with a soft wipe edge (light-leak glow on the light pass)
-  running the `dir` way; the subject card flies toward the lens along its own sight line (it grows over the hole it left,
-  so no double image), turns (`tilt`) and leaves the frame on the `dir` side `exit` frames after the cut, motion-blurred
-  and defocused (real DOF focused on B). The camera blends from A's pose to B's pose with one ease that is zero-rate at
-  w0 and w1 (exact C1 with the holds) and peaks on the cut; B's card is offset `shift` m against `dir`, so the camera
-  travels sideways and the subject / B parallax reads as depth.
+mode "keep" (EDIT.md "v3.1: nested null-camera zooms", background variant; ref c 280-300): nothing moves but the camera.
+  Private set: one copy of A's card, identical to its home card (same tiled mesh and depth), so the teleport at w0 - 0.5
+  is invisible. Its alpha is 1 - Fade * (1 - m'), m' = the subject matte feathered and choked in the shader, so A's
+  subject stays while A's background opacity fades away over `fade` frames (ending one frame before the cut). Behind it,
+  B's card is static and already playing, `depth` m back, scaled so it fills the frame for the whole window. The camera
+  then flies forward past A's static subject: it crosses A's plane `margin` m beside the subject (the subject passes the
+  lens on the `dir` side, defocusing: DOF focused on B) and lands on B's hold framing. The camera is one blend from A's
+  pose to B's pose, with zero rate at w0 and w1 (exact C1 with the holds), fastest on the cut. bounds() raises B's exit
+  scale until the camera's distance to B shrinks the whole way and the camera ends `past` m beyond A's plane.
 mode "sweep" (ref c 492-503, c 101-122): B's matted subject sweeps in over A from the `from` frame edge, big and close to
   the lens (defocused, motion-blurred), and decelerates onto its exact place on B's card; A wipes away behind the
   subject's trailing edge, so B's background resolves behind it. The camera tracks the sweep sideways (`shift`).
 
-Parameters (all optional): keep: dir L|R|U|D (default: the side the subject is nearer to), depth 1.0, b_travel 0.5,
-shift 0.8, carry 0.45, feather 380, exit 2, approach 0.86, tilt 18, dof 4.0, glow 0 (wipe-edge light; it haloes
-through the subject's soft edge, so off by default), ease 3.5 / ease_out 1.6 (camera blend attack / decay), choke 3 (px: matte feather inward), hole 0 (1 = cut
-the matte out of A's background as the subject leaves; shows B-coloured blobs where the moved subject uncovers it),
-settle 1.35 (B's exit scale: B is scaled up to cover the frame, so a lower exit scale makes the camera back away from
-B = a zoom-sign reversal behind the subject).
+Parameters (all optional): keep: dir L|R|U|D (the side the subject leaves by; default: the camera passes on the
+roomier side), depth 8.0, fade 10, margin 0.18 (m beside the subject's matte box), past 0.12, dof 2.8, ease 2.0 /
+ease_out 1.8 (camera blend attack / decay), choke 3 (px: the matte is feathered inward by this much, so the plate's own
+background never shows around the subject), settle 1.35 (B's minimum exit scale).
 sweep: from L|R|U|D (default: the side away from B's subject), depth 0.3, enter 3, land 5, approach 0.78, tilt 22,
 shift 0.25, feather 320, dof 4.0, ease 1.8, ease_out 1.6, settle 1.35, b_travel 0.35, choke 3, zoom push|pull (default:
 push, or A's own zoom sign when the hold before is too short to turn round; a pull lands B receding).
@@ -40,7 +36,7 @@ import cards
 import flow
 
 DEFAULTS = {
-    "keep": dict(dir=None, depth=5.0, fade=10, margin=0.18, dof=2.8, settle=1.35, ease=3.0, ease_out=1.8, choke=3.0,
+    "keep": dict(dir=None, depth=8.0, fade=10, margin=0.18, dof=2.8, settle=1.35, ease=2.0, ease_out=1.8, choke=3.0,
                  past=0.12),
     "sweep": dict(dir=None, depth=0.3, enter=3, land=5, approach=0.78, tilt=22.0, shift=0.25, feather=320.0, dof=4.0,
                   settle=1.35, b_travel=0.35, ease=1.8, ease_out=1.6, choke=3.0, zoom=None),
@@ -502,8 +498,10 @@ def build_keep(T, ctx, p):
     # B: static, already playing
     dB = shot_depth(ctx, sb)
     ctx.make_card(sb, f"layer_{T['id']}_B", MB, depth=dB, frames=vis, tile=3)
-
-    ctx.env(o, act, frames=vis)
+    # no act void here: B covers the frame for the whole window (layout checks it), and the void's web strands would
+    # hang between the camera and B, D m deep
+    if not Lg["covered"]:
+        ctx.env(o, act, frames=vis)
     ctx.teleport(w0 - 0.5)
     ctx.teleport(w1 - 0.5)
     ctx.key_path(cam, w0, w1, STEP)
