@@ -93,6 +93,7 @@ def layout(T, ctx, p, A, B, adjust=False):
         c0 = px_local(*sc_px)
         # where the camera crosses A's plane: beside the subject, on the side opposite to where it leaves the frame
         Xc = c0 + Vector((-sx, -sy, 0.0)) * (ext + float(p["margin"]))
+        A0 = Vector(cl.local_pose(A)[0])  # the camera at w0 (A's card space = set-local space)
         ox = oy = 0.0
         sg = 1
     else:
@@ -114,10 +115,15 @@ def layout(T, ctx, p, A, B, adjust=False):
 
     def MBl(kb, t=None, Bx=None):
         if keep:
-            # static B, D behind A, offset so that B's exit pose lies on the line through the crossing point Xc
+            # static B, D behind A, placed so the camera's line from A's pose (at w0) to B's exit pose crosses A's
+            # plane at Xc, beside the subject (the camera travels much further in depth than sideways, so B's exit
+            # pose carries the sideways offset scaled by how far past A's plane it ends)
             Bx = Bx or B
             (bxl, byl, bzl), _ = cl.local_pose(Bx)
-            return Matrix.Translation((Xc.x - kb * bxl, Xc.y - kb * byl, -D)) @ Matrix.Scale(kb, 4)
+            zB = -D + kb * bzl
+            k = (A0.z - zB) / A0.z
+            Px, Py = A0.x + (Xc.x - A0.x) * k, A0.y + (Xc.y - A0.y) * k
+            return Matrix.Translation((Px - kb * bxl, Py - kb * byl, -D)) @ Matrix.Scale(kb, 4)
         # a pull starts B at D behind A and recedes to D + |btr| (never in front of A's plane)
         z = -D - max(0.0, -btr) - (b_off(t) if t is not None else 0.0)
         return Matrix.Translation((ox * shift, oy * shift, z)) @ Matrix.Scale(kb, 4)
