@@ -47,3 +47,12 @@
   red (0.32, 0, 0.005).
 - **Keying at half frames** (`frame=f + 0.5`) is accepted by `keyframe_insert`, and with LINEAR interpolation the centred
   0.75 shutter then samples the exact path of fast letters and the camera.
+- **The render queue does not sync `out/` to the VM**, so a job cannot read frames that an earlier job copied back. Make
+  strips inside the same job, or locally (here: a venv with Pillow, `python -m venv /work/venv && pip install pillow`).
+- **Timings (outro3, Blender 5.2.2 Cycles CPU, VM, 12 threads):** 1080p at 48-64 spp is 52-84 s/frame (897-899 drop to
+  1-26 s); 960x540 at 16 spp is 8-13 s; 480x270 at 16 spp is 2-4 s. Scene build is ~0.6 s.
+- **AgX turns strong emission white.** Energy rings at strength 7-8 lost their act colours. At 1.2-2.8 (with hits
+  flaring them to ~2x) they keep gold / cyan / red and still bloom.
+- **Additive emission over transparency** (Add Shader of Transparent + Emission) is the clean way to fake god-rays and
+  glow rings: there is no dark fringe. Mix-shader shaft cards with weak emission occlude what is behind them and read as
+  dark bands (v2's shafts did this once dimmed).
