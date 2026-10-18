@@ -101,7 +101,7 @@ CA_TAIL = (8.0, 0.6, 8)   # after the cut: edge split (8 + 0.6 ca) px fading to 
 EXPO_PEAK = 0.5           # EV at the profile peak, before headroom (0.75 blew faces on stage draft1 landings, C05 175)
 FLASH_EV = {1: [1.9, 1.3, 0.6], 2: [2.6, 1.8, 0.9]}   # the 3 white frames of a flash cut, by edl `flash` (2 = the drop)
 FLASH_GAIN = {1: 1.0, 2: 0.55}  # stage draft1: the drop plate is already white at its centre; 1.0 clipped 41-48 % over 3 f (target 17-30)
-WASH4_TINT = {-2: 0.3, -1: 0.5, 0: 0.5, 1: 0.35, 2: 0.15, 3: 0.05}  # sling ring orange Multiply, by frame from the cut (the stage plate has its own wash)
+WASH4_TINT = {-2: 0.15, -1: 0.25, 0: 0.15, 1: 0.1}  # sling ring orange Multiply, by frame from the cut: only a lead-in, the stage plate carries the 4-f orange wash itself (stage draft1 618-622)
 WASH4_COLOR = [1.0, 0.52, 0.18]
 LUMA_CAP = 0.58           # mean luma (0..1) the light aims under: at or above it the leak/bloom/exposure fade to HEAD_MIN
 HEAD_MIN = 0.06
@@ -190,7 +190,7 @@ def lens_plan(E, zvec=None, luma=None):
             K["bloom"].append([x, round(1.0 * lg * pl * h * h, 3)])          # a wide glow on a bright frame is a veil: h^2
             K["bloomThr"].append([x, round(76 - 14 * pl * h, 1)])
             K["leak"].append([x, round(min(100.0, 115.0 * lg * pl ** 1.3 * h), 1)])
-            K["wash"].append([x, round(min(100.0, (20.0 if R.get("wash4") else 70.0) * lg * pl ** 1.1 * h), 1)])
+            K["wash"].append([x, round(min(100.0, (10.0 if R.get("wash4") else 70.0) * lg * pl ** 1.1 * h), 1)])
             e = EXPO_PEAK * (p if R.get("wash4") else pl) ** 2 * h
             if fl and f <= x < f + 3:
                 # white flash: ~30 % of the pixels clipped on the first frame. Exposure that takes the frame's 70th
