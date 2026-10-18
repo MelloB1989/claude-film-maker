@@ -16,8 +16,8 @@ import camlib as cl
 import cards
 
 TYPES = ("open", "zt", "whip", "cube", "flip", "slam")
-ENTRY = 0.012  # |d ln s| / frame a zoom-through is entered with (at least), in the window's zoom direction
-EXIT = 0.010  # |d ln s| / frame a zoom-through landing leaves with (at least), still in the window's direction
+ENTRY = 0.02  # |d ln s| / frame a zoom-through is entered with (at least), in the window's zoom direction
+EXIT = 0.02  # |d ln s| / frame a zoom-through landing leaves with (at least), still in the window's direction
 
 
 # ---- shared curve helpers ----------------------------------------------------------------------------------------------
@@ -160,7 +160,18 @@ def bounds(T, ctx):
         if typ in ("zt", "slam") and not adjacent and prev_hold(T, ctx) >= REVERSAL_MIN:
             # enter the zoom already moving the window's way (a hold of >= 6 f turns round if it has to)
             A = A.with_(ds=max(A.ds, ENTRY) if sg > 0 else min(A.ds, -ENTRY))
-        out["A"] = ctx.settle_entry(T, A)
+        A = ctx.settle_entry(T, A)
+        if typ == "zt" and not adjacent:
+            # a true exponential attack (speed x G_MAX per frame at most) needs a minimum entry speed: the hold
+            # accelerates into it (REFS: the acceleration starts 3-5 f before the cut, whatever the window says)
+            TA = T["f"] - 0.5 - T["w0"]
+            peak = float(p.get("peak", 3.0 if sg > 0 else 0.45))
+            for _ in range(3):
+                need = attack_r0(abs(math.log(peak) - math.log(A.s)), TA, G_MAX)
+                if abs(A.ds) >= need or A.ds * sg < 0:
+                    break
+                A = ctx.settle_entry(T, A.with_(ds=sg * need))
+        out["A"] = A
     if T.get("b"):
         B = ctx.exit_state(T)
         if typ == "zt":
@@ -208,6 +219,27 @@ RACK_PX = 26.0  # B's rack defocus at the cut (blur circle, px at 1920): legible
 RACK_F = 5.0
 
 
+G_MAX = 1.75  # fastest attack growth per frame (REFS gate: x1.35-1.7 median over the last 4 f)
+G_MIN = 1.2
+
+
+def attack_r0(delta, TA, g):
+    """Entry speed r0 of a pure exponential attack r(tau) = r0 g^tau that covers `delta` (ln s) in TA frames."""
+    return delta * math.log(g) / max(1e-9, g ** TA - 1)
+
+
+def attack_g(delta, TA, r0):
+    """Growth g of the exponential attack from entry speed r0 that covers delta in TA frames."""
+    lo, hi = 1.0001, 8.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if r0 * (mid ** TA - 1) / math.log(mid) < delta:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2
+
+
 def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK):
     """The zoom-through state functions: (stateA(t) for t < t_h, stateB(t) for t > t_h, info).
 
@@ -224,11 +256,30 @@ def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK):
     if (Lp - LA0) * sign < 0.2:
         Lp = LA0 + 0.2 * sign
     LB1, Ll = math.log(B.s), math.log(land)
-    kA = max(0.3, math.log(attack) * TA)
-    vA1 = abs(ramp_in(LA0, A.ds, Lp, TA, kA, max(0.0, TA - 1.0))[1])
 
     def vB1(k):
         return abs(ramp_out(Ll, LB1, B.ds, TB, k, max(0.0, TB - 1.0))[1])
+    r0 = A.ds * sign
+    expo = r0 >= 0.003  # entering already moving the window's way: a pure exponential attack
+    if expo:
+        g = max(1.05, attack_g(abs(Lp - LA0), TA, r0))
+        # speed carries through the cut: A's speed one frame before the teleport is at most DROP_MAX x what B can
+        # reach one frame after it (the EDL peak is lowered if needed; a push lands slowly by nature)
+        V = DROP_MAX * vB1(math.log(DECAY_RANGE[1]) * TB)
+        if TA > 1.0 and r0 * g ** (TA - 1) > V > r0 * G_MIN ** (TA - 1):
+            g = (V / r0) ** (1.0 / (TA - 1))
+            Lp = LA0 + sign * r0 * (g ** TA - 1) / math.log(g)
+        kA = max(0.3, math.log(g) * TA)
+        vA1 = r0 * g ** max(0.0, TA - 1.0)
+    else:
+        g = attack
+        kA = max(0.3, math.log(attack) * TA)
+        vA1 = abs(ramp_in(LA0, A.ds, Lp, TA, kA, max(0.0, TA - 1.0))[1])
+
+    def lnsA(tau):
+        if expo:
+            return LA0 + sign * r0 * (g ** tau - 1) / math.log(g), sign * r0 * g ** tau
+        return ramp_in(LA0, A.ds, Lp, TA, kA, tau)
     # B decays at x DECAY per frame (REFS k 0.80-0.88), steepened (up to x DECAY_RANGE[1]) only as far as needed to keep
     # the speed drop across the cut under DROP_MAX
     lo, hi = math.log(DECAY) * TB, math.log(DECAY_RANGE[1]) * TB
@@ -253,12 +304,12 @@ def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK):
 
     def stA(t):
         tau = t - w0
-        L, dL = ramp_in(LA0, A.ds, Lp, TA, kA, tau)
+        L, dL = lnsA(tau)
         cx, dcx = ramp_in(A.cx, A.dcx, fa[0], TA, kA, tau)
         cy, dcy = ramp_in(A.cy, A.dcy, fa[1], TA, kA, tau)
         r, dr = ramp_in(A.r, A.dr, rA_end, TA, kAr, tau)
         st = cl.State(math.exp(L), cx, cy, r, dL, dcx, dcy, dr)
-        return st if tiled and st.s < 1.15 else fin(st)
+        return cl.cover(st, strength=cl.smoothstep((st.s - 0.95) / 0.5)) if tiled else fin(st)
 
     def stB(t):
         tp = w1 - t
@@ -266,11 +317,12 @@ def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK):
         cx, dcx = ramp_out(fb[0], B.cx, B.dcx, TB, kB, tp)
         cy, dcy = ramp_out(fb[1], B.cy, B.dcy, TB, kB, tp)
         r, dr = ramp_out(rB_start, B.r, B.dr, TB, kBr, tp)
-        return fin(cl.State(math.exp(L), cx, cy, r, dL, dcx, dcy, dr))
-    RA = ramp_in(LA0, A.ds, Lp, TA, kA, TA)[1]
+        # the landing's first frames may show the mirror tiles behind the smear; the edge guard fades in over 6 f
+        return cl.cover(cl.State(math.exp(L), cx, cy, r, dL, dcx, dcy, dr), strength=cl.smootherstep((t - th) / 6.0))
+    RA = lnsA(TA)[1]
     RB = ramp_out(Ll, LB1, B.ds, TB, kB, TB)[1]
     return stA, stB, dict(kA=kA, kB=kB, RA=RA, RB=RB, vA1=vA1, vB1=vB1(kB), peak=math.exp(Lp),
-                          decay=math.exp(kB / TB))
+                          decay=math.exp(kB / TB), g=g if expo else None)
 
 
 def rack(ctx, th, stB, t1, px=RACK_PX, frames=RACK_F):
@@ -306,7 +358,7 @@ def build_zt(T, ctx):
         rack(ctx, th, stB, T["w1"], float(p.get("rack_px", RACK_PX)))
     ctx.log(f"  zt {T['id']} {'push' if sign > 0 else 'pull'}: A {A.s:.2f}->{info['peak']:.2f}x  B {p.get('land')}->{B.s:.2f}x  "
             f"rate at cut {info['RA']:+.3f}|{info['RB']:+.3f}  1f either side {info['vA1']:.3f}|{info['vB1']:.3f} d ln s/f  "
-            f"B decay x{info['decay']:.2f}/f")
+            f"A growth x{(info['g'] or 0):.2f}/f  B decay x{info['decay']:.2f}/f")
 
 
 # ---- open: out of black onto S01 ------------------------------------------------------------------------------------------
@@ -369,7 +421,7 @@ def build_turn(T, ctx):
         ang = math.radians(float(p.get("angle", 70))) * sgn
         mid = window_blend(A, B, w0, w1, f)
         P = FA @ Vector(cl.local_pose(mid)[0])
-        turn = Turn(ang, w0, f, w1, 4.0, 4.0, over=0.025)
+        turn = Turn(ang, w0, f, w1, max(1.0, math.log(1.6) * (f - w0)), 3.0, over=0.025)
     else:
         # cube: dir = the way the cube turns; the camera orbits the other way round the box centre
         cube_sgn = {"L": 1, "R": -1, "U": 1, "D": -1}[d]

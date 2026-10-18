@@ -42,9 +42,9 @@ PALETTES = {  # linear RGB: key light, rim, light leak, fog (the void's tint; ne
     "tom": dict(key=(1.0, 0.25, 0.10), rim=(0.35, 0.55, 0.85), leak=(1.0, 0.32, 0.08), fog=(0.036, 0.014, 0.012)),
     "outro": dict(key=(1.0, 1.0, 1.0), rim=(0.5, 0.5, 0.6), leak=(1.0, 0.4, 0.1), fog=(0.02, 0.02, 0.02)),
 }
-DRIFT_RATE = {"tobey": 0.016, "andrew": 0.022, "tom": 0.028}  # hold push/pull in d ln s per frame (REFS: 1.5-3.5 %/f)
-DRIFT_MIN = 0.010  # never slower than ~1 %/f
-DRIFT_MAX_ZOOM = math.log(1.9)  # a long hold's drift is capped at x1.9 overall (plate resolution)
+DRIFT_RATE = {"tobey": 0.022, "andrew": 0.028, "tom": 0.033}  # hold push/pull in d ln s per frame (REFS: 1.5-3.5 %/f)
+DRIFT_MIN = 0.015  # never slower than ~1.5 %/f
+DRIFT_MAX_ZOOM = math.log(2.3)  # a long hold's drift is capped at x1.9 overall (plate resolution)
 
 
 def parse_args(argv):
@@ -99,6 +99,7 @@ class StageContext:
         self.teleports = []
         self.bounds = {}  # cut id -> {"A": State, "B": State}
         self.windows = []  # (w0, w1, cut) of every built window
+        self.fallbacks = set()  # cut ids built as a zt fallback (module missing / failed)
         self._seq = {}
         self._mats = {}
         self.log_lines = []
@@ -277,8 +278,21 @@ class StageContext:
         return ob
 
     def show(self, ob, f0, f1):
-        """Render visibility: visible on [f0, f1), hidden outside (keyed, constant)."""
+        """Render visibility: visible on [f0, f1), hidden outside (keyed, constant). Calling it again for the same
+        object widens the span (union hull)."""
         f0, f1 = int(math.floor(f0)), int(math.ceil(f1))
+        if not hasattr(self, "_vis"):
+            self._vis = {}
+        if ob.name in self._vis:
+            g0, g1 = self._vis[ob.name]
+            f0, f1 = min(f0, g0), max(f1, g1)
+            ad = ob.animation_data
+            if ad and ad.action:
+                for fc in _fcurves(ad.action):
+                    if fc.data_path == "hide_render":
+                        while len(fc.keyframe_points):
+                            fc.keyframe_points.remove(fc.keyframe_points[0])
+        self._vis[ob.name] = (f0, f1)
         ob.hide_render = f0 > 0
         ob.keyframe_insert("hide_render", frame=0)
         if f0 > 0:
@@ -607,12 +621,13 @@ def make_intent(ctx, sid):
     L = max(1.0, float(b - a))
     roll = float(mv.get("roll", 0.0) or 0.0)
     pan = mv.get("pan", [0, 0]) or [0, 0]
-    if not roll and not any(pan):
-        # never a dead axis: a faint roll and pan drift (alternating per shot) keeps the corners moving while the zoom
-        # turns round between a landing and the next entry
-        k = ctx._order.index(sid)
-        roll = min(3.0, 0.15 * L) * (1 if k % 2 else -1)  # REFS holds: roll 0.1-0.3 deg/f, pan 2-10 px/f
-        pan = [min(120.0, 3.0 * L) * (1 if (k // 2) % 2 else -1), 0.0]
+    # never a dead axis: a roll and a pan drift (alternating per shot) keep the picture moving while the zoom turns
+    # round between a landing and the next entry (REFS holds: roll 0.1-0.3 deg/f, pan 2-10 px/f)
+    k = ctx._order.index(sid)
+    if not roll:
+        roll = min(3.0, 0.15 * L) * (1 if k % 2 else -1)
+    if not any(pan):
+        pan = [min(160.0, 4.5 * L) * (1 if (k // 2) % 2 else -1), min(60.0, 1.5 * L) * (1 if k % 3 else -1)]
     rate = max(DRIFT_MIN, min(DRIFT_RATE.get(act, 0.02), DRIFT_MAX_ZOOM / L))
     drift = mv.get("drift", "auto")
     ds = rate if drift in ("in", "auto") else -rate
@@ -675,6 +690,7 @@ def resolve_cut(ctx, c):
             T["fallback_from"] = typ
             T["type"] = typ = "zt"
             mod = flow_mod
+            ctx.fallbacks.add(c["id"])
         else:
             ctx.log(f"{c['id']} {typ}: no module; the neighbouring hold runs through the window")
             return None, T, typ
@@ -712,6 +728,7 @@ def build(ctx, args):
                 continue
             T["p"] = dict(FALLBACK_P)
             T["fallback_from"] = typ
+            ctx.fallbacks.add(c["id"])
             T["type"] = typ = "zt"
             mod = flow_mod
             b = mod.bounds(T, ctx)
@@ -775,6 +792,7 @@ def build(ctx, args):
             B = ctx.intent(sid, h1)
         ctx._holds[sid] = (h0, h1, A, B)
         card = ctx.card(sid)
+        ctx.show(card, h0 - 1, h1 + 1)  # a hold past the plate range (a missing end module) keeps its card
 
         def fn(t, A=A, B=B, h0=h0, h1=h1, card=card):
             st = cl.cover(cl.hermite_state(A, B, h0, h1, t))
@@ -926,7 +944,8 @@ def camera_dump(ctx, f0, f1):
                             tile=int(ob.get("amv3_tile", 1))))
         frames.append(dict(f=f, cam=[list(r) for r in ce.matrix_world], lens=ce.data.lens, cards=vis,
                            shutter=sc.render.motion_blur_shutter))
-    windows = [dict(id=c["id"], type=c["type"], f=c["f"], w0=w0, w1=w1) for w0, w1, c in ctx.windows]
+    windows = [dict(id=c["id"], type=c["type"], f=c["f"], w0=w0, w1=w1, fallback=c["id"] in ctx.fallbacks)
+               for w0, w1, c in ctx.windows]
     holds = {sid: [h[0], h[1]] for sid, h in ctx._holds.items()}
     return dict(frames=frames, teleports=ctx.teleports, windows=windows, holds=holds, res=[1920, 1080])
 

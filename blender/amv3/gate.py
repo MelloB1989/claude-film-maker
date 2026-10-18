@@ -225,6 +225,8 @@ def analyse(dump, out_csv=None, only=False):
         return r["m"]["rms"] if r and r["m"] and not r["teleport"] else None
     cutstats = []
     for w in wins:
+        if w.get("fallback"):
+            continue  # a stand-in zt for a module that has not landed: not judged
         f = w["f"]
         A = [spd(g) for g in range(f - 6, f - 1)]  # rows f-6 .. f-2 (f-1 -> f crosses the teleport)
         B = [spd(g) for g in range(f, f + 10)]
