@@ -43,9 +43,9 @@ FONTS = {  # key -> (file names to look for, fc-match pattern)
 # Novax palettes in 3D. top/hue: face gradient (top -> bottom); edge: bevel metal; side: extrusion metal;
 # glow: outline/pop emission; core: inside of chunks.
 PAL = {
-    "cyan_white": dict(top="#C8F1FF", hue="#0A6FE8", edge="#A8F2FF", side="#04234F", glow="#2FC8FF", core="#9FEFFF"),
+    "cyan_white": dict(top="#A8EAFF", hue="#0058DA", edge="#A8F2FF", side="#04234F", glow="#2FC8FF", core="#9FEFFF"),
     # REFS: eitaX SPIDER-MAN = red face, gold/cream bevelled extrusion (~15-20 % of cap height)
-    "red_gold": dict(top="#FF6A4A", hue="#C00812", edge="#FFE2A0", side="#C88A2E", glow="#FF3A1C", core="#FFD27A"),
+    "red_gold": dict(top="#FF4636", hue="#9E000C", edge="#FFE2A0", side="#C88A2E", glow="#FF3A1C", core="#FFD27A"),
     "crimson_white": dict(top="#FFFFFF", hue="#E8143E", edge="#FF6A86", side="#5E0016", glow="#FF1F4C", core="#FFC2CF"),
     "chrome": dict(top="#F4F7FF", hue="#9FB4D8", edge="#FFFFFF", side="#20283A", glow="#BFD4FF", core="#FFFFFF"),
 }
@@ -58,8 +58,8 @@ STYLE = {
                     roll=-4, ext=0.13, bev=0.03, shear=0.0, track=0.04, hold=(321, 330)),
     # S25 is an extreme close-up: the subject matte covers ~the whole frame, so "behind" would hide the word. It sits
     # in front of the face (lower third, clear of the eye), behind the card plane only for parallax.
-    "SPIDER-MAN": dict(behind=False, font="spiderman", center=(1000, 742), width_px=1560, hero=645, depth=0.30, yaw=14,
-                       pitch=-8, roll=3, ext=0.10, bev=0.05, shear=0.0, track=0.02, hold=(632, 648)),
+    "SPIDER-MAN": dict(behind=False, font="anton", center=(1000, 742), width_px=1540, hero=645, depth=0.30, yaw=14,
+                       pitch=-8, roll=3, ext=0.12, bev=0.05, shear=0.18, track=0.03, hold=(632, 648)),
     "BRAND NEW DAY": dict(font="anton", center=(960, 250), width_px=1560, hero=758, depth=0.36, yaw=-12, pitch=12,
                           roll=-2, ext=0.12, bev=0.028, shear=0.18, track=0.05, shots=["S31", "S32"],
                           per_shot=dict(S31=dict(hero=755, center=(960, 250)), S32=dict(hero=772, center=(960, 290))),
@@ -786,8 +786,9 @@ class Title:
         t_prev = -1e9
         for th in self.teleports():
             segs.append((t_prev, th, X.copy(), self.Mw))
-            Xa = self.cam(th - 0.001)
-            Xb = self.cam(th + 0.001)
+            eps = getattr(self.ctx, "EPS", 0.02)   # the core keys a teleport at th -/+ EPS
+            Xa = self.cam(th - eps)
+            Xb = self.cam(th + eps)
             X = Xb @ Xa.inverted() @ X
             t_prev = th
         segs.append((t_prev, 1e9, X, self.Mw))
@@ -1046,12 +1047,12 @@ class Title:
         """TIMELESS: the whole word slams in from behind the camera on f0, letters 0.4 f apart, a settle bounce."""
         D = max(self.cam_dist(), 1.0)
         n = L["n"]
-        tb = self.f0 + (abs(L["i"] - (n - 1) / 2.0)) * 0.45
-        lead = 4.0
+        tb = self.f0 + (abs(L["i"] - (n - 1) / 2.0)) * 0.3
+        lead = 2.5
         r = random.Random(L["i"] * 7 + 11)
         if f < tb:
             e = ease_in_cubic((f - (tb - lead)) / lead)
-            z = D * 1.25 * (1.0 - e)
+            z = D * 0.95 * (1.0 - e)
             ang = math.radians(r.uniform(-35, 35)) * (1.0 - e)
             s = 1.0
         else:
