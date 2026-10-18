@@ -18,9 +18,9 @@ mode "sweep" (ref c 492-503, c 101-122): B's matted subject sweeps in over A fro
   subject's trailing edge, so B's background resolves behind it. The camera tracks the sweep sideways (`shift`).
 
 Parameters (all optional): keep: dir L|R|U|D (default: the side the subject is nearer to), depth 1.0, b_travel 0.5,
-shift 0.3, carry 0.45, feather 380, exit 3, approach 0.86, tilt 18, dof 4.0, glow 1.0, settle (B's exit scale).
+shift 0.3, carry 0.45, feather 380, exit 2, approach 0.86, tilt 18, dof 4.0, glow 1.0, ease 1.5 (camera blend ease), settle (B exit scale).
 sweep: from L|R|U|D (default: the side away from B's subject), depth 0.3, enter 3, land 5, approach 0.78, tilt 22,
-shift 0.25, feather 320, dof 4.0, glow 0.8, settle.
+shift 0.25, feather 320, dof 4.0, ease 3.0, settle.
 Mattes: $AMV3_DATA/mattes/<shot>/f_NNNNN.png (white subject). Without mattes the module still runs (opaque subject
 cards; the log says so) so camera tests work before the prep lands.
 """
@@ -35,13 +35,15 @@ import cards
 import flow
 
 DEFAULTS = {
-    "keep": dict(dir=None, depth=1.0, b_travel=0.5, shift=0.3, carry=0.45, feather=380.0, exit=3, approach=0.86,
-                 tilt=18.0, dof=4.0, glow=1.0, settle=None),
+    "keep": dict(dir=None, depth=1.0, b_travel=0.5, shift=0.3, carry=0.45, feather=380.0, exit=2, approach=0.86,
+                 tilt=18.0, dof=4.0, glow=1.0, settle=None, ease=1.5),
     "sweep": dict(dir=None, depth=0.3, enter=3, land=5, approach=0.78, tilt=22.0, shift=0.25, feather=320.0, dof=4.0,
-                  glow=0.8, settle=None, b_travel=0.0),
+                  settle=None, b_travel=0.0, ease=3.0),
 }
 SIDES = {"L": (-1, 0), "R": (1, 0), "U": (0, 1), "D": (0, -1)}  # screen direction (x right, y up)
 STEP = 0.25
+ZSEP = 0.004  # m a subject card sits in front of the plate it came from: coplanar cards z-fight in Cycles (a ray that
+#               passes the transparent part of one card skips the other at random -> ~50 % see-through)
 
 
 def params(T):
@@ -163,7 +165,7 @@ def covers(loc, rot, M, margin=0.015):
     return True
 
 
-def patch_alpha(mat, ctx, name, coord, sign, feather, hole=True, fade=False):
+def patch_alpha(mat, ctx, name, coord, sign, feather, hole=True, fade=False, matte_img=None):
     """Turn a card material into A's background layer: opacity = wipe * (1 - matte * HoleH) [* (1 - Fade)].
     wipe = 1 - smoothstep(WipeE - feather, WipeE, sign * coord_px): the layer is kept on the low side of the moving edge
     WipeE (px, keyed by the caller). Value nodes 'WipeE', 'HoleH', 'Fade' are keyed by the caller. The matte texture is
@@ -173,6 +175,11 @@ def patch_alpha(mat, ctx, name, coord, sign, feather, hole=True, fade=False):
     tc = next(n for n in N if n.bl_idname == "ShaderNodeTexCoord")
     texs = [n for n in N if n.bl_idname == "ShaderNodeTexImage"]
     matte = texs[1] if len(texs) > 1 else None
+    if matte is None and hole and matte_img is not None:
+        matte = N.new("ShaderNodeTexImage")
+        matte.image, matte.interpolation = matte_img, "Linear"
+        cards.setup_user(matte.image_user)
+        nt.links.new(tc.outputs["UV"], matte.inputs["Vector"])
     out = next(n for n in N if n.bl_idname == "ShaderNodeOutputMaterial")
     mix = next((n for n in N if n.bl_idname == "ShaderNodeMixShader" and n.location.x >= 590), None)
     if matte is not None:
@@ -334,8 +341,12 @@ def build_keep(T, ctx, p):
 
     # B card: depth m behind, offset against dir (the camera travels that way: parallax), scaled to cover the frame
     D, btr, shift = float(p["depth"]), float(p["b_travel"]), float(p["shift"])
+    # phases: A's background goes over [w0 + 1, t_wipe1] while the subject is nearly still (the layered moment: the
+    # subject over B), the subject then flies past the lens over [f - 1, t_exit]
+    pre = f - w0
     t_exit = f + int(p["exit"])
-    t_wipe1 = f + 1
+    t_wipe1 = f - max(1, int(round(0.3 * pre)))
+    ek = float(p["ease"])
 
     def b_off(t):
         u = cl.clamp01((t - w0) / float(w1 - w0))
@@ -347,21 +358,24 @@ def build_keep(T, ctx, p):
 
     kb = 1.0
     for _ in range(30):
-        cam = Blend(ctx, MA, A, MB_at(kb), B, w0, f, w1)
+        cam = Blend(ctx, MA, A, MB_at(kb), B, w0, f, w1, ek, ek)
         if all(covers(*cam(t), MB_at(kb, t)) for t in frange(w0 + 1, w1, 0.5)):
             break
         kb *= 1.05
     else:
         ctx.log(f"  WARN layer {T['id']}: B card does not cover the frame at kb {kb:.2f}")
     MB = MB_at(kb)
-    cam = Blend(ctx, MA, A, MB, B, w0, f, w1)
+    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, ek, ek)
 
     # A's background (tiled like the home card so the teleport at w0 is exact), wipe + carry + matte hole
     dA = shot_depth(ctx, sa)
     bgA = ctx.make_card(sa, f"layer_{T['id']}_Abg", MA, depth=dA, frames=(w0 - 1, t_wipe1 + 1), tile=3)
     mat = own_material(bgA, f"m_layer_{T['id']}_Abg")
     fe = float(p["feather"])
-    nt = patch_alpha(mat, ctx, mat.name, coord, sgn, fe)
+    mimg = ctx._sequence("mattes", sa, "png")
+    if mimg is None:
+        ctx.log(f"  WARN layer {T['id']}: no mattes for {sa}: no subject hole, opaque subject card")
+    nt = patch_alpha(mat, ctx, mat.name, coord, sgn, fe, matte_img=mimg)
     # visible card px range along the wipe axis at the cut (from the camera at f)
     lo_v, hi_v = visible_range(cam, MA, f, coord, sgn)
     carry = float(p["carry"])
@@ -389,7 +403,7 @@ def build_keep(T, ctx, p):
             g.location = (x, 0.0, 0.004) if coord == "x" else (0.0, y, 0.004)
             g.keyframe_insert("location", frame=t)
             sp = abs(edge(t + 0.25) - edge(t - 0.25)) * 2  # px/f of the edge
-            gm.default_value = float(p["glow"]) * 6.0 * min(1.0, sp / 260.0)
+            gm.default_value = float(p["glow"]) * 2.4 * min(1.0, sp / 300.0)
             gm.keyframe_insert("default_value", frame=t)
 
     # B (full plate, tiled like its home card so the teleport at w1 is exact), dollying in behind
@@ -410,23 +424,24 @@ def build_keep(T, ctx, p):
     ext = max(half[0], half[1]) / 1000.0  # subject half-size (m)
     ap = float(p["approach"])
     tilt = math.radians(float(p["tilt"])) * (-sx if sx else sy)
-    t_lat0 = f - 2
+    t_lat0 = f - 1
 
     def subj_M(t):
         loc, rot = cam(t)
-        a = ap * cl.expo_in(cl.clamp01((t - w0) / float(t_exit - w0)), 2.2)
+        a = ap * cl.expo_in(cl.clamp01((t - w0) / float(t_exit - w0)), 3.5)
         P = c0 + (loc - c0) * a
         dist = (loc - P).length
-        lat_need = ext + dist * 0.55 + 0.05
+        lat_need = 1.3 * ext + dist * 0.75 + 0.08  # out of frame with its blur and defocus
         ul = cl.clamp01((t - t_lat0) / float(t_exit - t_lat0))
         L = lat_need * cl.expo_in(ul, 2.0) * 1.05
         right, up = rot @ Vector((1, 0, 0)), rot @ Vector((0, 1, 0))
         P = P + (right * sx + up * sy) * L
         ang = tilt * cl.smootherstep(ul)
         axis = "Y" if sx else "X"
-        return Matrix.Translation(P) @ Matrix.Rotation(ang, 4, axis) @ Matrix.Translation(-c0) @ MA
+        return Matrix.Translation(P) @ Matrix.Rotation(ang, 4, axis) @ Matrix.Translation(-c0) @ MA0
+    MA0 = MA @ Matrix.Translation((0, 0, ZSEP))
     for t in frange(w0 - 1, t_exit + 1, 0.5):
-        key_matrix(subj, subj_M(max(t, w0)) if t >= w0 else MA, t)
+        key_matrix(subj, subj_M(max(t, w0)), t)
 
     ctx.env(o, act, frames=vis)
     ctx.teleport(w0 - 0.5)
@@ -436,7 +451,7 @@ def build_keep(T, ctx, p):
     fst = float(p["dof"])
     for t in frange(w0, w1 - 0.5, STEP):
         loc, rot = cam(t)
-        u = cl.smoothstep((t - (f - 2)) / 3.0) * (1 - cl.smoothstep((t - (w1 - 3)) / 2.5))
+        u = cl.smoothstep((t - (t_wipe1 - 1)) / 3.0) * (1 - cl.smoothstep((t - (w1 - 3)) / 2.5))
         if u <= 0:
             continue
         N = cl.FSTOP_SHARP * (fst / cl.FSTOP_SHARP) ** u
@@ -492,12 +507,12 @@ def build_sweep(T, ctx, p):
 
     kb = 1.0
     for _ in range(30):
-        cam = Blend(ctx, MA, A, MB_at(kb), B, w0, f, w1)
+        cam = Blend(ctx, MA, A, MB_at(kb), B, w0, f, w1, float(p["ease"]), float(p["ease"]))
         if all(covers(*cam(t), MB_at(kb)) for t in frange(w0 + 1, w1, 0.5)):
             break
         kb *= 1.05
     MB = MB_at(kb)
-    cam = Blend(ctx, MA, A, MB, B, w0, f, w1)
+    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, float(p["ease"]), float(p["ease"]))
 
     dA, dB = shot_depth(ctx, sa), shot_depth(ctx, sb)
     cardA = ctx.make_card(sa, f"layer_{T['id']}_A", MA, depth=dA, frames=(w0 - 1, t_land + 1), tile=3)
@@ -505,7 +520,7 @@ def build_sweep(T, ctx, p):
     fe = float(p["feather"])
     nt = patch_alpha(mat, ctx, mat.name, coord, sgn, fe, hole=False)
     bgB = ctx.make_card(sb, f"layer_{T['id']}_B", MB, depth=dB, frames=vis, tile=3)
-    subj = ctx.make_card(sb, f"layer_{T['id']}_Bsub", MB @ Matrix.Translation((0, 0, 0.002 / kb)), alpha="matte",
+    subj = ctx.make_card(sb, f"layer_{T['id']}_Bsub", MB @ Matrix.Translation((0, 0, ZSEP / kb)), alpha="matte",
                          depth=dB, frames=(t_in - 1, t_land + 2), tile=3)
     own_material(subj, f"m_layer_{T['id']}_Bsub")
     clip_matte(subj)
@@ -515,7 +530,7 @@ def build_sweep(T, ctx, p):
     ext = max(half[0], half[1]) / 1000.0 * kb
     ap = float(p["approach"])
     tilt = math.radians(float(p["tilt"]))
-    Mfin = MB @ Matrix.Translation((0, 0, 0.002 / kb))
+    Mfin = MB @ Matrix.Translation((0, 0, ZSEP / kb))
 
     def subj_M(t):
         loc, rot = cam(t)
@@ -550,11 +565,12 @@ def build_sweep(T, ctx, p):
         return sgn * (px if coord == "x" else py)
 
     keys = []
+    t_gone = max(t_in + 2, t_land - 2)
     for t in frange(w0 - 1, t_land + 1, 0.5):
-        u = cl.clamp01((t - t_in) / float(t_land - t_in))
+        u = cl.clamp01((t - t_in) / float(t_gone - t_in))
         lin = hi_v + fe + 40 - (hi_v + fe + 40 - (lo_v - 40)) * cl.smootherstep(u)
         pr = proj(t) if t >= t_in else None
-        e = lin if pr is None else min(lin, pr + ext * 1000 * 0.3 + fe)
+        e = lin if pr is None else min(lin, pr + fe * 0.5)
         keys.append((t, e if t >= t_in else hi_v + fe + 400))
     key_value(nt, "WipeE", keys)
 

@@ -1,6 +1,6 @@
 """Write a test EDL with some cuts switched to the `layer` module (edl.json itself is the operator's to change).
 
-  python blender/amv3/tests/layer_edl.py out.json C02:keep C06:keep C31:keep C09:sweep C30:sweep:from=R,depth=0.4
+  python blender/amv3/tests/layer_edl.py out.json C02:keep C06:keep C31:keep C09:sweep C30:sweep:from=R,depth=0.4,pre=8 (pre/post move the window)
 """
 import json
 import os
@@ -21,6 +21,10 @@ for spec in sys.argv[2:]:
             pass
         p[k] = v
     c = next(c for c in E["cuts"] if c["id"] == cid)
+    if "pre" in p:
+        c["w0"] = c["f"] - int(p.pop("pre"))
+    if "post" in p:
+        c["w1"] = c["f"] + int(p.pop("post"))
     c["type"], c["p"] = "layer", p
 json.dump(E, open(out, "w"), indent=1)
 print(out)
