@@ -36,38 +36,51 @@ def _params(T):
     f = T["f"]
     return dict(
         s_in=p.get("s_in", 1.10), ds_in=p.get("ds_in", 0.02),        # the S14 hold drift (push) at w0
-        ds_peak=p.get("ds_peak", 0.26), grow=1.6, decay=p.get("decay", 0.83), floor_in=0.015,
+        ds_peak=p.get("ds_peak", 0.24), grow=1.6, decay=p.get("decay", 0.83), floor_in=0.015, drop=1.55,
         dr_peak=p.get("dr_peak", -1.8), dr_floor=-0.3,               # counter-clockwise, kept through the cut
-        k_B=p.get("k_B", 2.9), s_exit=p.get("s_exit", 1.35), ds_floor=0.02,
+        s_exit=p.get("s_exit", 1.6), ds_floor=0.025,
         impact=p.get("impact", [1105, 400]),                          # A pixels: Spider-Man's chest at the strike
         fh=f - 0.5, tp0=T["w0"] + 0.5, tp1=T["w1"] - 0.5,
     )
 
 
 class Path:
-    """The camera through the window, in the private set's frame: distance z from the A plane along +Z, roll r."""
+    """The camera through the window, in the private set's frame: distance z from the A plane along +Z, roll r.
+
+    A: expo-in attack on A's zoom. B is placed (depth D behind A, scale k) so that the SAME camera motion lands B at
+    A's zoom rate / DROP and decays it at k = decay per frame (REFS): B's screen rate is the design input, the camera's
+    depth path and B's placement follow from it (d_B(u) = d0 exp(-integral of ds_B)). B is a mirror-tiled card, so the
+    first landing frames (B under 1x, behind the flying shards) never show a card edge."""
 
     def __init__(self, T, P):
         self.T, self.P = T, P
         w0, fh, w1 = T["w0"], P["fh"], T["w1"]
-        TA = fh - w0
+        TA, TB = fh - w0, w1 - fh
         self.lsA, self.dlsA = fx.attack(math.log(P["s_in"]), P["ds_in"], P["ds_peak"], TA, P["floor_in"], P["grow"],
                                         P["decay"])
         self.rA, self.drA = fx.attack(0.0, 0.0, P["dr_peak"], TA, 0.0, P["grow"], P["decay"])
         self.z_cut = FILL_DIST / math.exp(self.lsA(TA))
         self.v_cut = self.z_cut * self.dlsA(TA)                     # m/f toward the picture at the cut
         self.lam = -math.log(P["decay"])
-        dist_end = P["k_B"] * FILL_DIST / P["s_exit"]
-        self.v_floor = P["ds_floor"] * dist_end
-        self.D = dist_end - self._zB(w1 - fh)
+        self.b0 = P["ds_peak"] / P["drop"]                           # B's zoom rate on landing
+        self.d0 = self.v_cut / self.b0                               # B's distance at the cut
+        self.D = self.d0 - self.z_cut
+        self.k = P["s_exit"] * self._d(TB) / FILL_DIST
         self.r_cut = self.rA(TA)
 
-    def _zB(self, u):
-        a = self.v_cut - self.v_floor
-        return self.z_cut - (self.v_floor * u + a * (1 - math.exp(-self.lam * u)) / self.lam)
+    def _dsB(self, u):
+        f = self.P["ds_floor"]
+        return f + (self.b0 - f) * math.exp(-self.lam * u)
 
-    def _vB(self, u):
-        return self.v_floor + (self.v_cut - self.v_floor) * math.exp(-self.lam * u)
+    def _LB(self, u):
+        f = self.P["ds_floor"]
+        return f * u + (self.b0 - f) * (1 - math.exp(-self.lam * u)) / self.lam
+
+    def _d(self, u):
+        return self.d0 * math.exp(-self._LB(u))
+
+    def _zB(self, u):
+        return self._d(u) - self.D
 
     def _rB(self, u):
         P = self.P
@@ -93,8 +106,7 @@ class Path:
     def stateB(self, t):
         """The view of B (the k-scaled copy at -D) as a state on an unscaled card: what B's home card must show."""
         u = t - self.P["fh"]
-        d = self._zB(u) + self.D
-        return State(self.P["k_B"] * FILL_DIST / d, 960.0, 540.0, self._rB(u), self._vB(u) / d, 0.0, 0.0, self._drB(u))
+        return State(self.k * FILL_DIST / self._d(u), 960.0, 540.0, self._rB(u), self._dsB(u), 0.0, 0.0, self._drB(u))
 
 
 def bounds(T, ctx):
@@ -241,10 +253,14 @@ def build(T, ctx):
         ld.keyframe_insert("energy", frame=t)
 
     # ---- B behind: a k x copy of S15's card at -D
-    MB = MO @ Matrix.Translation((0, 0, -pa.D)) @ Matrix.Scale(P["k_B"], 4)
-    ctx.make_card(sb, "lt_B_" + sb, matrix=MB, frames=(w0, w1 + 1))
-    ctx.log("lightning: %d shards, z_cut %.3f m (s %.2f), D %.3f m, B at cut s %.2f, v_cut %.3f m/f"
-            % (len(shards), pa.z_cut, FILL_DIST / pa.z_cut, pa.D, pa.stateB(fh).s, pa.v_cut))
+    MB = MO @ Matrix.Translation((0, 0, -pa.D)) @ Matrix.Scale(pa.k, 4)
+    try:
+        ctx.make_card(sb, "lt_B_" + sb, matrix=MB, frames=(w0, w1 + 1), tile=3)
+    except TypeError:
+        ctx.make_card(sb, "lt_B_" + sb, matrix=MB)
+    ctx.log("lightning: %d shards, z_cut %.3f m (s %.2f), D %.3f m, B k %.2f, B at cut s %.2f ds %.3f, end z %.3f"
+            % (len(shards), pa.z_cut, FILL_DIST / pa.z_cut, pa.D, pa.k, pa.stateB(fh).s, pa.stateB(fh).ds,
+               pa.z(w1)))
 
 
 def _arcs(rng, MO, shards, fh, f, hot, electric, light, cam_fn):

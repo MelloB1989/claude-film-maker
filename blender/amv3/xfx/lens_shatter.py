@@ -45,9 +45,9 @@ def _params(T, ctx):
     f = T["f"]
     P = dict(
         s_in=p.get("s_in", 1.12), ds_in=p.get("ds_in", 0.10),        # the C16 push landing, still decaying
-        ds_peak=p.get("ds_peak", 0.30),                                # REFS: +20..30 %/f on the last A frame
+        ds_peak=p.get("ds_peak", 0.34),                                # REFS: +20..30 %/f on the last A frame
         dr_peak=p.get("dr_peak", 2.2),                                 # clockwise into the hit (deg/f)
-        ds_land=-p.get("ds_peak", 0.30) * 0.75, dr_land=2.0,           # B lands at A's speed (pull-out), same roll sense
+        ds_land=-p.get("ds_peak", 0.34) * 0.72, dr_land=2.0,           # B lands at A's speed (pull-out), same roll sense
         s_out=p.get("s_out", 1.30), ds_out=-0.018, dr_out=0.0,         # hold drift >= 1.5 %/f
         decay=p.get("decay", 0.83), grow=p.get("grow", 1.6), floor_in=0.03,
         crack0=f - 3.5, fh=f - 0.5,
