@@ -174,7 +174,7 @@ cut(708, "zt", 3, 7, dict(mode="pull", peak=0.5, land=2.4, settle=1.12, roll=30)
 cut(726, "whip", 3, 7, dict(dir="U", angle=80))
 cut(744, "layer", 6, 8, dict(mode="sweep"))  # Tom sweeps in over the lens; BRAND NEW DAY follows
 cut(760, "zt", 3, 7, dict(mode="push", peak=2.8, land=1.05, settle=1.4, roll=-25))
-cut(777, "triptych", 0, 42, dict(), lens=dict(ca=10, zblur=0.4))
+cut(777, "triptych", 3, 42, dict(), lens=dict(ca=10, zblur=0.4))
 
 # The triptych (stage module xfx-B "triptych"): three Spider-Men as 3D comic panels that slam in on the hits
 # 776.8 / 785.2 / 793.8 with camera parallax, the 3D TIMELESS lands at 802 (text3d), and on the 819.5 hit everything
