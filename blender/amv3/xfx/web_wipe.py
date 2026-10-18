@@ -39,8 +39,10 @@ def _plan(T, ctx):
     s0, ds0 = float(p.get("s0", 1.25)), float(p.get("ds0", 0.02))
     z0 = FILL / s0
     s_end = 1.4
-    spd = X.Speed([(w0, z0 * ds0), (w0 + 4, 0.045), (cut - 0.5, 0.07), (cut + 0.5, 0.07), (cut + 2, 0.045),
-                   (w1, 0.018)], m0=0.002)
+    ds_end = X.exit_rate(ctx, T, 0.03)
+    v_end = ds_end * FILL * 1.0 / s_end * 0.96  # ~ distance to the S28 copy at the exit x its rate
+    spd = X.Speed([(w0, z0 * ds0), (w0 + 4, 0.045), (cut - 0.5, 0.07), (cut + 0.5, 0.07), (cut + 2, 0.05),
+                   (w1, max(0.018, v_end))], m0=0.002)
     z = lambda t: z0 - spd.x(t)  # noqa: E731
     P["z"], P["spd"] = z, spd
     # jolt on the hit: slide against the yank (picture flows with the card), roll kick, both decaying ~0.8 / f
@@ -107,8 +109,8 @@ def build(T, ctx):
     a, b = P["a"], P["b"]
     plate_c, light_c = ctx.coll("plate"), ctx.coll("light")
     R = X.rng(686)
-    cardA = ctx.make_card(a, "XA_web_S27", matrix=P["MA"])
-    cardB = ctx.make_card(b, "XA_web_S28", matrix=P["MB"])
+    cardA = X.copy_card(ctx, a, "XA_web_S27", P["MA"], frames=(w0 - 1, w1 - 1))
+    X.copy_card(ctx, b, "XA_web_S28", P["MB"], frames=(w0 - 1, w1 + 1))
     sub = cardA.modifiers.new("sub", "SUBSURF")
     sub.subdivision_type = "SIMPLE"
     sub.levels = sub.render_levels = 5
@@ -124,7 +126,6 @@ def build(T, ctx):
         bend.angle = _bend(P, t)
         bend.keyframe_insert("angle", frame=t)
     X.set_linear(cardA)
-    X.key_hide(cardA, [(w0 - 4, w1 - 1)])
 
     # strands: from behind the camera (mostly the yank side) to anchors spread over the card
     anchors_px = [(560, 420), (1010, 300), (1420, 520), (760, 760), (1240, 820), (1560, 260)]

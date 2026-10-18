@@ -61,6 +61,16 @@ def mix_state_back(fn, t, h=0.02):
                         dcx=(b[1] - a[1]) / h, dcy=(b[2] - a[2]) / h, dr=(b[3] - a[3]) / h)
 
 
+def exit_rate(ctx, T, default=0.025):
+    """Zoom rate (d ln s / f, > 0 = pushing in) to leave a window with: the magnitude of shot B's hold drift from the
+    core (ctx.exit_state), kept pushing in so the zoom sign carries into the hold (REFS: keep the sign; holds 1.5-3.5 %/f)."""
+    try:
+        ex = ctx.exit_state(T)
+        return max(0.015, min(0.035, abs(float(ex.ds)))) if ex is not None else default
+    except Exception:  # noqa: BLE001 - harness / older ctx
+        return default
+
+
 def extrap(st, dt):
     """A State carried dt frames along its own rates (what a hold looks like right at the window edge)."""
     return camlib.State(st.s * math.exp(st.ds * dt), st.cx + st.dcx * dt, st.cy + st.dcy * dt, st.r + st.dr * dt,
@@ -159,7 +169,7 @@ def bump(t, a, b):
 
 
 def sstep(a, b, x):
-    return camlib.smoothstep(a, b, x) if hasattr(camlib, "smoothstep") else _sstep(a, b, x)
+    return _sstep(a, b, x)
 
 
 def _sstep(a, b, x):
@@ -242,6 +252,22 @@ def plate_node(nt, ctx, sid, f_at=None, frame0=None, loop=None):
         iu.frame_start = lo
         iu.use_cyclic = False
     return n
+
+
+def copy_card(ctx, sid, name, matrix, frames=None, hole=None):
+    """A private-set copy of a shot's card: same plate in comp time and the same depth displacement as the home card
+    (so a teleport between them is invisible), rendered only on `frames` = (f0, f1)."""
+    depth = float((ctx.shot(sid).get("move") or {}).get("depth", 0.0) or 0.0)
+    kw = dict(matrix=matrix)
+    if hole:
+        kw["hole"] = hole
+    try:  # tile=3: mirror-tiled beyond the card edges, exactly like the core's home cards
+        ob = ctx.make_card(sid, name, depth=depth, frames=frames, tile=3, **kw)
+    except TypeError:  # an older ctx without frames= / tile=
+        ob = ctx.make_card(sid, name, depth=depth, **kw)
+        if frames:
+            key_hide(ob, [frames])
+    return ob
 
 
 # ------------------------------------------------------------------------------------------------- objects

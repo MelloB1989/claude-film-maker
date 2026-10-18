@@ -48,15 +48,17 @@ def _plan(T, ctx):
     P["z0"] = z0
     # handoff and exit framing on S09 (B)
     kB = 1.0  # the S09 copy floats at the tunnel end as a framed picture, small until the last frames
-    s_end, ds_end = 1.15, -0.018  # REFS: holds never drift under ~1 %/f
-    v_end = -(FILL * kB / s_end) * (-ds_end) * 1.0  # moving away from the card = pulling out
+    # S09 lands still pushing in at its hold drift (the zoom sign carries into the hold and the next push zt; the
+    # plate itself pulls out of the lens, which is what reads)
+    s_end, ds_end = 1.15, X.exit_rate(ctx, T, 0.028)
+    v_end = (FILL * kB / s_end) * ds_end
     u = lambda t: t - w0  # noqa: E731
     # dive through the iris (expo attack), a readable cruise through the multiverse, a 2-frame whoosh on the cut (REFS:
     # smear 1-3 f), then Andrew's lens: B lands at the cut speed and decays ~0.8 / f into S09's pull-out
     spd = X.Speed([
         (w0, z0 * ds0), (w0 + 4, 0.13), (w0 + 7, 0.32), (w0 + 8.5, 0.50), (w0 + 10.5, 0.36), (cut - 2.5, 0.34),
-        (cut - 1, 0.62), (cut, 0.85), (cut + 1, 0.72), (cut + 2.5, 0.40), (cut + 4, 0.20), (cut + 5.5, 0.07),
-        (cut + 7, 0.0), (w1, v_end)], m0=z0 * ds0 * 0.16)
+        (cut - 1, 0.62), (cut, 0.85), (cut + 1, 0.72), (cut + 2.5, 0.40), (cut + 4, 0.20), (cut + 5.5, 0.10),
+        (cut + 7.5, 0.065), (w1, v_end)], m0=z0 * ds0 * 0.16)
     P["spd"] = spd
     z = lambda t: z0 - spd.x(t)  # noqa: E731  camera distance in front of the S08 copy along the axis
     P["z"] = z
@@ -107,7 +109,7 @@ def _plan(T, ctx):
 
     def a_center(t):
         zt = z(t)
-        if zt <= 0.05:
+        if zt <= 0.05 or p.get("tiled", True):  # home cards and copies are mirror-tiled: no need to keep off the edges
             return iris
         sA = FILL / zt
         Lx = max(0.0, 960 - 960 / sA - 12)
@@ -175,7 +177,8 @@ def build(T, ctx):
         r = frac * 1101.0 * zt / FILL if zt > 0.04 else 4000.0
         rp = max(rp, r)
         r_keys.append((t, rp))
-    cardA = ctx.make_card(a, "XA_eye_S08", matrix=P["MA"], hole=dict(center=list(P["iris"]), radius=r_keys, feather=3.0))
+    cardA = X.copy_card(ctx, a, "XA_eye_S08", P["MA"], frames=(w0, cut + 1),
+                        hole=dict(center=list(P["iris"]), radius=r_keys, feather=3.0))
     # hole rim (burning gold) and the iris funnel, both scaled with the hole radius
     rim = X.annulus_obj("XA_eye_rim", 0.97, 1.09, light_c, n=160, nr=2)
     rim.location = O + Vector((ax.x, ax.y, 0.002))
@@ -300,12 +303,12 @@ def build(T, ctx):
     cap.location = O + Vector((ax.x, ax.y, zB - 2.0))
     cap.data.materials.append(neb.data.materials[0])
     # Andrew's lens at the end of the tunnel (comp time, already moving), with a thin cyan frame
-    cardB = ctx.make_card(b, "XA_eye_S09", matrix=P["MB"])
+    cardB = X.copy_card(ctx, b, "XA_eye_S09", P["MB"], frames=(w0, w1 + 1))
     frame = _frame_obj("XA_eye_S09_frame", light_c)
     frame.matrix_world = P["MB"] @ Matrix.Translation(Vector((0, 0, 0.004)))
     frame.data.materials.append(X.mat_emit("XA_eye_frame_m", cyan, 3.0))
     ctx.env(O, ctx.act_at(cut))
-    for ob in (cardA, rim, funnel):
+    for ob in (rim, funnel):
         X.key_hide(ob, [(w0, cut + 1)])
 
     # --- camera: home S08 -> private set (w0 + 0.5) -> home S09 (handoff)

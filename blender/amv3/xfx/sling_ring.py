@@ -47,7 +47,7 @@ def _plan(T, ctx):
     z0 = FILL / s0
     # S25 lands zoomed in (+13 %/f decaying, REFS) and still pushing; the S25 copy is big and deep so its edges never
     # show once the camera is through the ring: s(cut) / s_end = d_end / (d_end + travel after the ring)
-    s_end, ds_end = 1.35, 0.012
+    s_end, ds_end = 1.35, X.exit_rate(ctx, T, 0.03)
     kB = 5.6
     v_end = (FILL * kB / s_end) * ds_end
     spd = X.Speed([(w0, z0 * ds0), (w0 + 3, 0.05), (w0 + 5, 0.12), (w0 + 6.5, 0.25), (cut - 1.5, 0.45),
@@ -66,7 +66,7 @@ def _plan(T, ctx):
     P["MA"] = Matrix.Translation(O)
     ax = X.px2local(*ring_px)
     P["axis"] = ax
-    PB = tuple(p.get("b_axis", (905.0, 470.0)))  # S25 point on the ring axis (near his eye, card edges allowed)
+    PB = tuple(p.get("b_axis", (800.0, 450.0)))  # S25 point on the ring axis, between his eye and the shuriken
     P["PB"] = PB
     theta = roll(w1) - 0.0
     MB_local = (Matrix.Translation(Vector((ax.x, ax.y, zB))) @ Quaternion((0, 0, 1), math.radians(theta)).to_matrix().to_4x4()
@@ -75,7 +75,7 @@ def _plan(T, ctx):
     P["theta"] = theta
     P["handoff"] = cut + 3.5
     P["lat0"] = cut + 0.5
-    foc = X.track(ctx, b, w1, (507, 375))
+    foc = PB  # no re-centring after the ring: S25 lands on the ring axis and the hold takes it from there
 
     def a_center(t):
         zt = z(t)
@@ -92,6 +92,8 @@ def _plan(T, ctx):
         Lx, Ly = max(0.0, 960 - 960 / s - 12), max(0.0, 540 - 540 / s - 6)
         u = X._sstep(P["lat0"] - 1.0, w1 - 0.5, t)
         tx, ty = PB[0] + (foc[0] - PB[0]) * u, PB[1] + (foc[1] - PB[1]) * u
+        if p.get("tiled", True):  # copies are mirror-tiled like the home cards: no clamp, no pan left at the exit
+            return (s, tx, ty, roll(t) - theta)
         return (s, 960 + _softclamp(tx - 960, Lx), 540 + _softclamp(ty - 540, Ly), roll(t) - theta)
 
     def m_set(t):
@@ -270,9 +272,9 @@ def build(T, ctx):
     plate_c, light_c = ctx.coll("plate"), ctx.coll("light")
     R0 = P["R0"]
     hole_keys = [(f, 1000.0 * _ring_radius(P, f) * 0.94) for f in [w0 + 0.5 * i for i in range(2 * (w1 - w0) + 1)]]
-    cardA = ctx.make_card(a, "XA_sling_S24", matrix=P["MA"],
-                          hole=dict(center=list(P["ring_px"]), radius=hole_keys, feather=6.0))
-    cardB = ctx.make_card(b, "XA_sling_S25", matrix=P["MB"])
+    X.copy_card(ctx, a, "XA_sling_S24", P["MA"], frames=(w0 - 1, cut + 2),
+                hole=dict(center=list(P["ring_px"]), radius=hole_keys, feather=6.0))
+    X.copy_card(ctx, b, "XA_sling_S25", P["MB"], frames=(w0 - 1, w1 + 1))
     _sparks(P, ctx, light_c)
     # sigil circles and the glow, scaled with the ring
     parts = []
@@ -298,7 +300,6 @@ def build(T, ctx):
             ob.keyframe_insert("rotation_euler", frame=t)
         X.set_linear(ob)
     ctx.env(O, ctx.act_at(cut))
-    X.key_hide(cardA, [(w0 - 4, cut + 2)])
 
     homeA = ctx.card(a).matrix_world.copy()
     homeB = ctx.card(b).matrix_world.copy()

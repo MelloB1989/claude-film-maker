@@ -27,7 +27,7 @@ import camlib  # noqa: E402
 
 FILL = X.FILL
 _PLAN = {}
-GX, GY = 320, 180  # goo grid (vertices), ~6 px per cell on the card, subdivided once at render
+GX, GY = 448, 252  # goo grid (vertices), ~4.3 px per cell on the card, subdivided once at render
 
 
 def _plan(T, ctx):
@@ -42,11 +42,14 @@ def _plan(T, ctx):
     r0, dr0 = float(p.get("r0", -0.6)), float(p.get("dr0", -0.08))
     # zoom rate (d ln s / f) on the S04 copy: expo push into the goo, the turn hidden under full cover, then B's pull-out
     # landing that decays ~0.8 / f (REFS) into S05's out-drift
-    dsp = X.Speed([(w0, ds0), (w0 + 4, 0.032), (w0 + 7, 0.06), (w0 + 9, 0.11), (cut - 1.5, 0.20), (cut - 0.5, 0.24),
-                   (cut + 0.5, 0.0), (cut + 1.5, -0.13), (cut + 3, -0.09), (cut + 5, -0.055), (cut + 7, -0.032),
-                   (w1, -0.018)], m0=0.002)
+    # zoom rate (d ln s / f) on the S04 copy: expo push into the goo, peak on the cut under full cover, then S05 keeps
+    # pushing in, decaying ~0.8 / f (REFS: keep the zoom sign) into its hold drift
+    ds_end = X.exit_rate(ctx, T, 0.022)
+    dsp = X.Speed([(w0, ds0), (w0 + 4, 0.032), (w0 + 7, 0.06), (w0 + 9, 0.115), (cut - 1.5, 0.21), (cut - 0.5, 0.27),
+                   (cut + 0.5, 0.23), (cut + 1.5, 0.19), (cut + 3, 0.14), (cut + 5, 0.095), (cut + 7, 0.06),
+                   (w1, ds_end)], m0=0.002)
     rsp = X.Speed([(w0, dr0), (w0 + 5, -0.6), (w0 + 9, -3.0), (cut - 0.5, -7.0), (cut + 1, -6.0), (cut + 4, -2.0),
-                   (cut + 7, -0.6), (w1, -0.15)], m0=0.0)
+                   (cut + 7, -0.6), (w1, -0.2)], m0=0.0)
     lnS = lambda t: math.log(s0) + dsp.x(t)  # noqa: E731
     roll = lambda t: r0 + rsp.x(t)  # noqa: E731
     P["sA"] = lambda t: math.exp(lnS(t))  # noqa: E731
@@ -201,10 +204,8 @@ def build(T, ctx):
     a, b = P["a"], P["b"]
     plate_c, light_c = ctx.coll("plate"), ctx.coll("light")
     pal = ctx.palette(ctx.act_at(cut))
-    cardA = ctx.make_card(a, "XA_sym_S04", matrix=P["MA"])
-    cardB = ctx.make_card(b, "XA_sym_S05", matrix=P["MB"])
-    X.key_hide(cardA, [(w0 - 4, cut)])
-    X.key_hide(cardB, [(cut, w1 + 4)])
+    X.copy_card(ctx, a, "XA_sym_S04", P["MA"], frames=(w0 - 1, cut))
+    X.copy_card(ctx, b, "XA_sym_S05", P["MB"], frames=(cut, w1 + 1))
     goo = _goo_mesh(P, ctx, plate_c)
     goo.data.materials.append(_goo_mat(pal))
     _lights(P, ctx, pal, plate_c)
