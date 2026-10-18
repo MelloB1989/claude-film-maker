@@ -66,6 +66,14 @@ TYPE_GAIN = {   # (blur, bulge) multipliers by transition type: zooms smear radi
     "zt": (1.0, 1.0), "open": (0.6, 0.4), "whip": (0.55, 0.3), "cube": (0.5, 0.3), "flip": (0.5, 0.3), "slam": (0.9, 1.0),
 }
 DECAY = 5          # frames after the cut over which the profile falls to ~0 (landing sharp by cut + 3)
+# Reference numbers (REFS.md, operator 2026-10-18): smear frames 10-60 px CA at the edges and +50-120 % luma (leak/bloom
+# from the picture); the 2-4 frames after the cut keep 5-15 px CA fading over 6-10 f; white flash only on the biggest hits,
+# 3 f with ~30 % of the pixels clipped.
+CA_EDGE_PER_UNIT = 1.65   # measured: VR Chromatic Aberrations amount N -> R/B split of 1.65 N px at the frame edge (linear to 0 at centre)
+CA_GAIN = 2.5             # edl `lens.ca` (4..18) -> peak edge split 10..45 px
+CA_TAIL = (6.0, 0.5, 8)   # after the cut: edge split (6 + 0.5 ca) px fading to 0 over 8 f
+EXPO_PEAK = 0.75          # EV at the profile peak (with leak + bloom the smear frames land at +60..110 % luma)
+FLASH_EV = {1: [1.9, 1.3, 0.6], 2: [2.6, 1.8, 0.9]}   # the 3 white frames of a flash cut, by edl `flash` (2 = the drop)
 TRIPTYCH_PEAKS = [(777, 0.8), (785, 0.85), (794, 0.85), (802, 0.6)]
 
 
@@ -120,17 +128,19 @@ def lens_plan(E, zvec=None):
             p = prof[j]
             u = (x - w0) / float(max(1, w1 - w0 - 1))
             K["blur"].append([x, round(70.0 * L["zblur"] * gb * p * p, 2)])
-            K["ca"].append([x, round(L["ca"] * p, 2)])
+            edge = CA_GAIN * L["ca"] * p
+            if x > f and typ != "open":
+                d = x - f
+                edge = max(edge, (CA_TAIL[0] + CA_TAIL[1] * L["ca"]) * max(0.0, 1 - d / float(CA_TAIL[2])) ** 1.3)
+            K["ca"].append([x, round(edge / CA_EDGE_PER_UNIT, 2)])
             K["bulge"].append([x, round(0.4 * L["zblur"] * gu * p, 3)])
             K["bloom"].append([x, round(1.4 * lg * p, 3)])
             K["bloomThr"].append([x, round(72 - 22 * p, 1)])
             K["leak"].append([x, round(min(100.0, 115.0 * lg * p ** 1.3), 1)])
             K["wash"].append([x, round(min(100.0, 70.0 * lg * p ** 1.1), 1)])
-            e = 0.45 * p * p
-            if fl and f <= x < f + fl:
-                e = 2.6 if x == f else 1.8
-            elif fl and f + fl <= x < f + fl + 3:
-                e = max(e, [1.1, 0.5, 0.15][x - f - fl])
+            e = EXPO_PEAK * p * p
+            if fl and f <= x < f + 3:
+                e = max(e, FLASH_EV[min(fl, 2)][x - f])
             K["expo"].append([x, round(e, 3)])
             K["evo"].append([x, round(360.0 * 2.2 * u + 37 * i, 1)])
             ang = (i * 137.5) % 360
