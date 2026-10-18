@@ -28,3 +28,21 @@
 - `World.use_nodes` prints a deprecation warning in 5.2 (to be removed in 6.0). It's harmless.
 - The VM's python venv has no matplotlib. `motion_metrics.py` writes `summary.json` and `metrics.csv` and then fails on
   the plot.
+
+## Task v3-xfxB (agent-07): glass shatters, lightning, panels (Blender 5.2, Cycles CPU on the VM)
+- **Camera motion blur smears "instantaneous" emitters.** A lightning bolt that lives one frame still gets the
+  camera's motion blur (static objects blur when the camera moves), so a fast push turns thin filaments into wide
+  ribbons. `ob.cycles.use_motion_blur = False` does NOT help (it only drops the object's own motion). Fix: key the
+  bolt to ride with the camera through its frame (`_fx3d.ride_camera`: M(t) = cam(t) @ cam(t_ref)^-1 @ M_world),
+  and give each frame its own bolt object visible on [k-0.5, k+0.5) so no shape changes mid-shutter.
+- **Additive emitters have alpha 0 in a transparent film.** Emission + Transparent BSDF (light that never occludes)
+  renders with alpha 0 and full RGB. Use the light pass as RGB add (finishing: footage alpha "Ignore"), never
+  alpha-over. Plain Emission (opaque) keeps alpha 1.
+- **A tinted Transparent BSDF in front of an emission card did not visibly darken it** (meant as a multiply filter).
+  A Mix Shader of Transparent and a dim Emission (keyed factor) works as a darkening veil.
+- **Bevelled Voronoi shards show their seams** while they are still coplanar (the bevel rounds every edge). Keep an
+  intact card until the break frame and show the shards only from the break.
+- `bpy -P script.py` exits 0 on a Python exception unless you pass `--python-exit-code 1`.
+- Render queue: a job file name that already has a `.done` returns at once with the OLD log; use a fresh name per run.
+- Thin emissive crack lines over a fast push: they get the card's radial blur too; keep them thin (0.2-0.6 mm in card
+  space) and moderately bright or they read as white bands.
