@@ -55,7 +55,7 @@ PAL = {
 # (+yaw = right end recedes, +pitch = top recedes); ext/bev: extrusion half-depth and bevel in em.
 STYLE = {
     "AMAZING": dict(font="barlow", center=(915, 225), width_px=1500, hero=328, depth=0.42, yaw=-16, pitch=10,
-                    roll=-4, ext=0.13, bev=0.05, shear=0.0, track=0.04, hold=(321, 330), shadow=0.6),
+                    roll=-4, ext=0.13, bev=0.05, shear=0.0, track=0.04, hold=(321, 330), shadow=0.45),
     # S25 is an extreme close-up: the subject matte covers ~the whole frame, so "behind" would hide the word. It sits
     # in front of the face (lower third, clear of the eye), behind the card plane only for parallax.
     "SPIDER-MAN": dict(behind=False, font="anton", center=(900, 770), width_px=1480, hero=645, depth=0.30, yaw=14,
@@ -64,7 +64,7 @@ STYLE = {
                           roll=-2, ext=0.12, bev=0.024, inset=0.0, shear=0.18, track=0.05, shots=["S31", "S32"], shadow=0.4,
                           # S31: behind Tom (he crouches low); S32: the head rises UNDER the word, so it sits in front, high and wide
                           per_shot=dict(S31=dict(hero=755, center=(960, 235), width_px=1780),
-                                        S32=dict(hero=772, center=(960, 175), width_px=1800, behind=False)),
+                                        S32=dict(hero=776, center=(950, 205), width_px=1600, behind=False)),
                           sub=dict(font="barlow", dy_em=-0.95, scale=0.26, at=768),
                           hold=(768, 777), beats=[751.0, 752.0, 753.0, 754.0, 755.0, 756.0, 757.0, 758.0, 761.0, 763.0, 764.4]),
     "TIMELESS": dict(font="anton", center=(960, 548), width_px=1500, hero=806, depth=0.0, yaw=0, pitch=0, roll=0,
