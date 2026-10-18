@@ -106,7 +106,7 @@ def _n(nt, kind, x=0, y=0, **props):
 
 
 def card_material(name, plate_img, matte_img=None, alpha="none", hole=None, backface=None, sweep=False,
-                  extension="EXTEND"):
+                  extension="EXTEND", tile_tint=None):
     """Emission card material. alpha: 'none' | 'matte' (alpha = subject matte). hole: dict(center=[px, py], feather=px)
     -> a 'HoleR' Value node (radius px, the caller keys it). backface: RGB for the card's back (None = the plate).
     sweep: adds a 'Sweep' Value node (diagonal light band position 0..1, the caller keys it) and 'SweepAmt'.
@@ -123,6 +123,38 @@ def card_material(name, plate_img, matte_img=None, alpha="none", hole=None, back
     em = _n(nt, "ShaderNodeEmission", 0, 100, name="Emission", label="Emission")
     em.inputs[1].default_value = 1.0
     col = tex.outputs["Color"]
+    if extension == "MIRROR" and tile_tint is not None:
+        # outside the real card the mirror tiles fade into the act's haze (dim, tinted, a trace of the picture left so
+        # the smear still has texture): a pull-out never shows a readable mirrored duplicate
+        sep0 = _n(nt, "ShaderNodeSeparateXYZ", -650, 400)
+        nt.links.new(tc.outputs["UV"], sep0.inputs[0])
+        outs = []
+        for i in (0, 1):
+            lo = _n(nt, "ShaderNodeMath", -450, 500 - 120 * i, operation="MULTIPLY")
+            nt.links.new(sep0.outputs[i], lo.inputs[0]); lo.inputs[1].default_value = -1.0  # -u
+            hi = _n(nt, "ShaderNodeMath", -450, 440 - 120 * i, operation="SUBTRACT")
+            nt.links.new(sep0.outputs[i], hi.inputs[0]); hi.inputs[1].default_value = 1.0  # u - 1
+            mx = _n(nt, "ShaderNodeMath", -300, 470 - 120 * i, operation="MAXIMUM")
+            nt.links.new(lo.outputs[0], mx.inputs[0]); nt.links.new(hi.outputs[0], mx.inputs[1])
+            outs.append(mx.outputs[0])
+        mxa = _n(nt, "ShaderNodeMath", -150, 420, operation="MAXIMUM")
+        nt.links.new(outs[0], mxa.inputs[0]); nt.links.new(outs[1], mxa.inputs[1])
+        fade = _n(nt, "ShaderNodeMapRange", 0, 420, interpolation_type="SMOOTHSTEP")
+        nt.links.new(mxa.outputs[0], fade.inputs["Value"])
+        fade.inputs["From Min"].default_value = 0.0
+        fade.inputs["From Max"].default_value = 0.22
+        fade.inputs["To Max"].default_value = 0.88
+        haze = _n(nt, "ShaderNodeMix", 150, 300, data_type="RGBA", blend_type="MULTIPLY")
+        haze.inputs["Factor"].default_value = 0.75
+        nt.links.new(col, haze.inputs[6])
+        haze.inputs[7].default_value = (*[min(1.0, 0.35 + 0.65 * x) for x in tile_tint], 1)
+        dim = _n(nt, "ShaderNodeMix", 300, 300, data_type="RGBA", blend_type="MIX")
+        nt.links.new(fade.outputs["Result"], dim.inputs["Factor"])
+        nt.links.new(col, dim.inputs[6])
+        sc = _n(nt, "ShaderNodeVectorMath", 150, 150, operation="SCALE")
+        nt.links.new(haze.outputs[2], sc.inputs[0]); sc.inputs["Scale"].default_value = 0.22
+        nt.links.new(sc.outputs[0], dim.inputs[7])
+        col = dim.outputs[2]
     if sweep:
         # band = exp(-((u + 0.45 v) / 1.45 - pos)^2 / w^2), colour * (1 + amt * band)
         sep = _n(nt, "ShaderNodeSeparateXYZ", -650, -250)
