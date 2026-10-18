@@ -123,6 +123,16 @@ var LENS = (function () {
         return l;
     }
 
+    // a whole-frame colour wash (sling ring: 4 frames of orange), Overlay: it colours and deepens, never a grey veil
+    function tint(main, C, ctx) {
+        if (!C.colors || mx(k0(C, "tint")) <= 0) return null;
+        var fps = ctx.fps, c = C.colors[1] || C.colors[0];
+        var l = solid(main, "LENS " + C.id + " tint (colour wash)", [c[0], c[1], c[2]], C.w0, C.w1, fps, false);
+        l.blendingMode = BlendingMode.OVERLAY;
+        K(TG(l).property("ADBE Opacity"), C.keys.tint, fps);
+        return l;
+    }
+
     function exposure(main, C, ctx) {
         if (mx(k0(C, "expo")) <= 0) return null;
         var fps = ctx.fps, l = solid(main, "LENS " + C.id + " exposure" + (C.flash ? " (flash " + C.flash + " f)" : ""), [1, 1, 1], C.w0, C.w1, fps, true);
@@ -137,7 +147,7 @@ var LENS = (function () {
         var L = E.x.finish.lens;
         for (var i = 0; i < L.length; i++) {
             var C = L[i];
-            optics(main, C, ctx); bloom(main, C, ctx); leak(main, C, ctx); wash(main, C, ctx); exposure(main, C, ctx);
+            optics(main, C, ctx); bloom(main, C, ctx); leak(main, C, ctx); wash(main, C, ctx); tint(main, C, ctx); exposure(main, C, ctx);
         }
         log(ctx, L.length + " windows, " + WARN.length + " warnings");
         return WARN;

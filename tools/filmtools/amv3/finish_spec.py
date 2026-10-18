@@ -46,7 +46,7 @@ LOOK_PUSH = {
     "tobey": dict(contrast=20, saturation=112, vibrance=16, blacks=-6, cShadows=-2, hsRed=5, hsYellow=10, hsMagenta=-20,
                   wShadows=[0.44, 0.52, 0.59], cbShadows=[-5, 1, 6],
                   bloomThreshold=78, bloomRadius=70, bloomIntensity=0.9, bloomColor=[1.0, 0.80, 0.52]),
-    "andrew": dict(contrast=26, saturation=128, vibrance=24, blacks=-8, cShadows=-5, hsRed=8, hsYellow=18, hsCyan=34, hsMagenta=-10,
+    "andrew": dict(contrast=26, saturation=134, vibrance=30, blacks=-8, cShadows=-5, hsRed=8, hsYellow=18, hsCyan=34, hsMagenta=-10,
                    hsBlue=18, bloomThreshold=78, bloomRadius=60, bloomIntensity=0.95, bloomColor=[0.55, 0.86, 1.0]),
     "tom": dict(contrast=30, saturation=122, vibrance=14, blacks=-9, cShadows=-6, hsRed=34, hsYellow=6, hsMagenta=-8,
                 cbShadows=[-9, 0, 11], bloomThreshold=80, bloomRadius=55, bloomIntensity=0.9, bloomColor=[1.0, 0.64, 0.44]),
@@ -84,6 +84,9 @@ RECIPE = {
     "sling_ring":   dict(blur=0.1, bulge=0.4, ca=0.5, smear=False, attack="linear", wash4=True),
     "triptych":     dict(blur=0.4, bulge=0.4, ca=2.0, smear=True, attack="expo"),
     "open":         dict(blur=0.6, bulge=0.4, ca=1.0, smear=False, attack="open"),
+    # subject-motion layer wipe (keep/sweep, operator 2026-10-18): like a portal, moderate CA, no smear, soft leak as the
+    # subject passes the lens
+    "layer":        dict(blur=0.15, bulge=0.2, ca=1.6, smear=False, attack="linear", light=0.55),
 }
 DECAY = 5          # frames after the cut over which the profile falls to ~0 (landing sharp by cut + 3)
 # Reference numbers (REFS.md): smear frames 30-80 px CA at the edges (zt/whip) and +50-100 % luma from an act-coloured
@@ -154,9 +157,9 @@ def lens_plan(E, zvec=None, luma=None):
                 prof = [(1 - (x - w0) / float(w1 - w0)) ** 2 for x in range(w0, w1)]
             else:
                 prof = [ease_profile(x, f, w0, w1, peaks, R["attack"]) for x in range(w0, w1)]
-        lg = ACT_LEAK_GAIN[act]
+        lg = ACT_LEAK_GAIN[act] * R.get("light", 1.0)
         fl = int(L.get("flash") or 0)
-        K = {k: [] for k in ("blur", "ca", "bulge", "bloom", "bloomThr", "leak", "wash", "expo", "evo", "drift")}
+        K = {k: [] for k in ("blur", "ca", "bulge", "bloom", "bloomThr", "leak", "wash", "expo", "evo", "drift", "tint")}
         heads = []
         for j, x in enumerate(range(w0, w1)):
             p = prof[j]
@@ -176,6 +179,7 @@ def lens_plan(E, zvec=None, luma=None):
                 pl = max(p, w4)
                 if w4:
                     h = max(h, 0.8 * w4)    # the wash is the transition itself: it overrides the bright-frame headroom
+            K["tint"].append([x, round(100.0 * {f - 2: 0.75, f - 1: 1.0, f: 1.0, f + 1: 0.6}.get(x, 0.0), 1) if R.get("wash4") else 0.0])
             K["bloom"].append([x, round(1.0 * lg * pl * h * h, 3)])          # a wide glow on a bright frame is a veil: h^2
             K["bloomThr"].append([x, round(76 - 14 * pl * h, 1)])
             K["leak"].append([x, round(min(100.0, 115.0 * lg * pl ** 1.3 * h), 1)])
@@ -185,7 +189,7 @@ def lens_plan(E, zvec=None, luma=None):
                 # white flash: ~30 % of the pixels clipped on the first frame. Exposure that takes the frame's 70th
                 # percentile (~0.82 x its 90th, YHIGH) to white, x FLASH_EV shape (frames 2 and 3 fade).
                 hi = m[1] if m else 0.6
-                ev1 = max(0.5, min(2.6, math.log(0.95 / max(0.62 * hi, 0.05), 2)))
+                ev1 = max(0.5, min(2.6, math.log(0.95 / max(0.52 * hi, 0.05), 2)))
                 sh = FLASH_EV[min(fl, 2)]
                 e = max(e, ev1 * sh[x - f] / sh[0])
             K["expo"].append([x, round(e, 3)])
