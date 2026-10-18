@@ -16,7 +16,7 @@ mode "sweep" (ref c 492-503, c 101-122): B's matted subject sweeps in over A fro
   subject's trailing edge, so B's background resolves behind it. The camera tracks the sweep sideways (`shift`).
 
 Parameters (all optional): keep: dir L|R|U|D (the side the subject leaves by; default: the camera passes on the
-roomier side), depth 16.0, fade 10, margin 0.18 (m beside the subject's matte box), past 0.12, dof 2.8, ease 1.5 /
+roomier side), depth 16.0, fade 10, margin 0.35 (m beside the subject's matte box), past 0.12, dof 2.8, ease 1.5 /
 ease_out 1.8 (camera blend attack / decay), choke 3 (px: the matte is feathered inward by this much, so the plate's own
 background never shows around the subject), settle 1.35 (B's minimum exit scale).
 sweep: from L|R|U|D (default: the side away from B's subject), depth 0.3, enter 4, land 5, approach 0.78, tilt 22,
@@ -36,7 +36,7 @@ import cards
 import flow
 
 DEFAULTS = {
-    "keep": dict(dir=None, depth=16.0, fade=10, margin=0.18, dof=2.8, settle=1.35, ease=1.5, ease_out=1.8, choke=3.0,
+    "keep": dict(dir=None, depth=16.0, fade=10, margin=0.35, dof=2.8, settle=1.35, ease=1.5, ease_out=1.8, choke=3.0,
                  past=0.12),
     "sweep": dict(dir=None, depth=0.3, enter=4, land=5, approach=0.78, tilt=22.0, shift=0.25, feather=320.0, dof=4.0,
                   settle=1.35, b_travel=0.35, ease=1.8, ease_out=1.6, choke=3.0, zoom=None),
