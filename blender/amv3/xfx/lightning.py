@@ -136,14 +136,47 @@ def build(T, ctx):
     def cam_private(t):
         return MO @ Matrix.LocRotScale(Vector((0, 0, pa.z(t))), Quaternion((0, 0, 1), math.radians(pa.r(t))), None)
 
-    ctx.key_cam(w0, *ctx.pose(cardA, pa.stateA(w0)))
-    ctx.key_cam(P["tp0"] - 0.01, *ctx.pose(cardA, pa.stateA(P["tp0"] - 0.01)))
+    # after the break the private path blends onto the DECLARED B state (ctx.bounds; the core may have replaced it with
+    # C15's entry) so the copy -> home teleport at tp1 lands on its pose and rates exactly (no roll / pan spike)
+    MB = MO @ Matrix.Translation((0, 0, -pa.D)) @ Matrix.Scale(pa.k, 4)
+    Bd = (getattr(ctx, "bounds", {}).get(T["id"]) or {}).get("B") or pa.stateB(w1)
+    tb0, tb1 = fh + 1.0, P["tp1"]
+
+    def stateX(t):
+        a, b = pa.stateB(t), Bd.at(t - w1)
+        w = fx.smooth(min(1.0, max(0.0, (t - tb0) / (tb1 - tb0))))
+        if w <= 0.0:
+            return a
+        va, vb, ra, rb = a.vec(), b.vec(), a.rates(), b.rates()
+        return State.from_vec([x + (y - x) * w for x, y in zip(va, vb)], [x + (y - x) * w for x, y in zip(ra, rb)])
+
+    def cam_fn(t):
+        if t < P["tp0"]:
+            return ctx.pose(cardA, pa.stateA(t))
+        if t < P["tp1"]:
+            if t <= tb0:
+                loc, rot, _ = cam_private(t).decompose()
+                return loc, rot
+            return ctx.pose(MB, stateX(t))
+        return ctx.pose(cardB, Bd.at(t - w1))
+
+    def cam_M(t):
+        loc, rot = cam_fn(t)
+        return Matrix.LocRotScale(loc, rot, None)
+
+    _l0, _ = cam_private(tb0 + 0.01).decompose()[:2]
+    ctx.log("lightning: private path vs B-copy pose at f%.2f: %.2e m" % (tb0 + 0.01, (cam_fn(tb0 + 0.01)[0] - _l0).length))
     ctx.teleport(P["tp0"])
-    for t in [P["tp0"] + 0.01] + fx.frames_half(w0 + 1, P["tp1"] - 0.5) + [P["tp1"] - 0.01]:
-        loc, rot, _ = cam_private(t).decompose()
-        ctx.key_cam(t, loc, rot)
     ctx.teleport(P["tp1"])
-    ctx.key_cam(P["tp1"] + 0.01, *ctx.pose(cardB, pa.stateB(P["tp1"] + 0.01)))
+    if hasattr(ctx, "seamless"):
+        ctx.seamless.add(P["tp1"])   # copy -> home card at an identical relative pose: the gate measures through it
+    ctx.key_path(cam_fn, w0, w1, 0.25)
+    eps = getattr(ctx, "EPS", 0.02)
+    ctx.key_cam(P["tp1"] + eps, *cam_fn(P["tp1"] + eps), ahead=(*cam_fn(P["tp1"] + eps + 0.05), None, 0.05))
+    dB = Bd.vec()[0] - pa.stateB(w1).vec()[0]
+    ctx.log("lightning: lands on the declared B (s %.3f ds %+.4f r %+.2f dr %+.3f; own path s %.3f ds %+.4f r %+.2f "
+            "dr %+.3f, blend %.1f-%.1f)" % (Bd.s, Bd.ds, Bd.r, Bd.dr, pa.stateB(w1).s, pa.stateB(w1).ds,
+                                             pa.stateB(w1).r, pa.stateB(w1).dr, tb0, tb1))
     fx.dof(ctx, fh, pa.z(fh), 128.0)
     for t, fr, fs in ((f, 0.55, 2.4), (f + 1, 0.7, 3.2), (f + 2, 0.85, 5.0), (f + 4, 1.0, 12.0), (w1 - 1, 1.0, 128.0)):
         fx.dof(ctx, t, (pa.z(t) + pa.D) * fr, fs)
@@ -229,10 +262,10 @@ def build(T, ctx):
                                  fx.emission_mat("lt_halo_%d" % kf, (0.25, 0.6, 1.0), 0.9 * fl, additive=True))
             for ob in (core, halo):
                 # rides with the camera through its frame, so camera motion blur leaves it a crisp filament
-                fx.ride_camera(ob, cam_private, MO, kf, kf - 0.5, kf + 0.5)
+                fx.ride_camera(ob, cam_M, MO, kf, kf - 0.5, kf + 0.5)
                 fx.link(ob, light)
                 fx.key_visible(ob, kf - 0.5, kf + 0.5)
-    _arcs(rng, MO, shards, fh, f, hot, electric, light, cam_private)
+    _arcs(rng, MO, shards, fh, f, hot, electric, light, cam_M)
     _storm(MO, w0, fh, flick, P, plate)
 
     # ---- light from the strike (glints on the glass, rims)

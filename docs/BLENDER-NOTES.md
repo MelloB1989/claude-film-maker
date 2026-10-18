@@ -248,3 +248,16 @@
 - **Measuring on the shared VM:** wall s/frame swings 30-50 % with other jobs. Use the per-phase split instead
   (`bpy.app.handlers.render_stats` strings with timestamps; AMV3_RO=...,stats writes ro_stats.txt), and diff
   premultiplied RGB. Straight RGB under near-zero alpha is noise and shows 255-level 'differences' in text/light passes.
+- **Near-lens FX under motion blur (C17 hit, Blender 5.2 Cycles).** Two things happen when the rig rushes in at shutter 1.0:
+  - Thin emissive curves and tori at 0.05-1.6 m from the lens smear into wide grainy bands. Crack curves turned into
+    fans, and 0.003 r edge tori on an expanding ring turned into two solid ~25 px bands. Set
+    `ob.cycles.use_motion_blur = False` on them, or leave them out.
+  - Object blur on near-lens glass also costs ~2 s/f on the CPU at half res.
+- **Radial mask on a camera-riding quad.** A bloom quad from `fx.quad_mesh` whose mask was built from TexCoord UV, or
+  from Generated, rendered as a flat haze over the whole frame. TexCoord Object (scaled by the quad's half width) works.
+- **Glass torus as a refractive ring.** The steep inner and outer silhouettes bend rays off the set, so the ring reads
+  as an opaque grey band. Use a closed plano-convex annulus whose front profile is h sin^2 and goes to zero thickness
+  at both rims: it bends the picture behind it smoothly.
+- **f/2 and near-lens detail.** Anything within ~0.3 m of the lens at f/2 with focus 5 m is a 100+ px bokeh blob.
+  To keep cracks and shards crisp, key the f-stop back to the pinhole (`ctx.key_dof` over the nest's keys) a few
+  frames before the crossing.
