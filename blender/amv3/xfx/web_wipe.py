@@ -86,12 +86,12 @@ def bounds(T, ctx):
 
 # ------------------------------------------------------------------------------------------------- card motion
 def _yank_x(P, t):
-    """Card travel (m) along the yank: an exponential ramp, speed x1.6 per frame from f cut-4 (REFS: acceleration into
+    """Card travel (m) along the yank: an exponential ramp, speed x1.5 per frame from f cut-4 (REFS: acceleration into
     a hit x1.35-1.7 / f over the last 4 f, no single-frame step), off screen by the teleport."""
-    g, t0 = 1.6, P["cut"] - 4.0
+    g, t0 = 1.5, P["cut"] - 4.0
     if t <= t0:
         return 0.0
-    return 0.255 * (g ** (t - P["cut"]) - g ** (t0 - P["cut"]))
+    return 0.29 * (g ** (t - P["cut"]) - g ** (t0 - P["cut"]))
 
 
 def _card_matrix(P, t):
