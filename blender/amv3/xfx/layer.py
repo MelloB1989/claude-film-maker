@@ -18,11 +18,13 @@ mode "sweep" (ref c 492-503, c 101-122): B's matted subject sweeps in over A fro
   subject's trailing edge, so B's background resolves behind it. The camera tracks the sweep sideways (`shift`).
 
 Parameters (all optional): keep: dir L|R|U|D (default: the side the subject is nearer to), depth 1.0, b_travel 0.5,
-shift 0.45, carry 0.45, feather 380, exit 2, approach 0.86, tilt 18, dof 4.0, glow 1.0, ease 2.2 (camera blend ease),
+shift 0.8, carry 0.45, feather 380, exit 2, approach 0.86, tilt 18, dof 4.0, glow 0 (wipe-edge light; it haloes
+through the subject's soft edge, so off by default), ease 3.5 (camera blend ease), choke 3 (px: matte feather inward),
 settle 1.35 (B's exit scale: B is scaled up to cover the frame, so a lower exit scale makes the camera back away from
 B = a zoom-sign reversal behind the subject).
 sweep: from L|R|U|D (default: the side away from B's subject), depth 0.3, enter 3, land 5, approach 0.78, tilt 22,
-shift 0.25, feather 320, dof 4.0, ease 2.2, settle 1.35.
+shift 0.25, feather 320, dof 4.0, ease 2.2, settle 1.35, b_travel 0.35, choke 3, zoom push|pull (default:
+push, or A's own zoom sign when the hold before is too short to turn round; a pull lands B receding).
 Mattes: $AMV3_DATA/mattes/<shot>/f_NNNNN.png (white subject). Without mattes the module still runs (opaque subject
 cards; the log says so) so camera tests work before the prep lands.
 """
@@ -37,10 +39,10 @@ import cards
 import flow
 
 DEFAULTS = {
-    "keep": dict(dir=None, depth=1.0, b_travel=0.5, shift=0.45, carry=0.45, feather=380.0, exit=2, approach=0.86,
-                 tilt=18.0, dof=4.0, glow=1.0, settle=1.35, ease=2.2),
+    "keep": dict(dir=None, depth=1.0, b_travel=0.5, shift=0.8, carry=0.45, feather=380.0, exit=2, approach=0.86,
+                 tilt=18.0, dof=4.0, glow=0.0, settle=1.35, ease=3.5, choke=3.0),
     "sweep": dict(dir=None, depth=0.3, enter=3, land=5, approach=0.78, tilt=22.0, shift=0.25, feather=320.0, dof=4.0,
-                  settle=1.35, b_travel=0.0, ease=2.2),
+                  settle=1.35, b_travel=0.35, ease=2.2, choke=3.0, zoom=None),
 }
 SIDES = {"L": (-1, 0), "R": (1, 0), "U": (0, 1), "D": (0, -1)}  # screen direction (x right, y up)
 STEP = 0.25
@@ -62,19 +64,32 @@ def params(T):
 
 
 # ======================================================================================================================
+def zoom_sign(T, ctx, p, A):
+    """+1 push / -1 pull through the window. keep always pushes (the subject flies at the lens); sweep pushes unless
+    p.zoom says otherwise or the hold before is too short to turn A's pull round (then it keeps A's sign)."""
+    if p["mode"] == "keep":
+        return 1
+    if p.get("zoom") in ("push", "pull"):
+        return 1 if p["zoom"] == "push" else -1
+    if A.ds < 0 and flow.prev_hold(T, ctx) < flow.REVERSAL_MIN:
+        return -1
+    return 1
+
+
 def bounds(T, ctx):
-    """Entry: A's hold, entered already pushing in (the layer move is a push). Exit: B's hold at w1, still pushing in
-    (B's card dollies toward the camera and decelerates), at `settle` x when given."""
+    """Entry: A's hold, entered moving the window's zoom way. Exit: B's hold at w1, still moving that way (push: at
+    >= `settle` x, B's card dollies toward the camera; pull: B's card recedes)."""
     p = params(T)
     A = ctx.entry_state(T)
+    sg = zoom_sign(T, ctx, p, A)
     if flow.prev_hold(T, ctx) >= flow.REVERSAL_MIN:
-        A = A.with_(ds=max(A.ds, flow.ENTRY))
+        A = A.with_(ds=max(A.ds, flow.ENTRY) if sg > 0 else min(A.ds, -flow.ENTRY))
     A = ctx.settle_entry(T, A)
     B = ctx.exit_state(T)
-    if p.get("settle"):
+    if sg > 0 and p.get("settle"):
         B = B.with_(s=max(B.s, float(p["settle"]), cl.min_scale(B.cx, B.cy, B.r, 0.01)))
     if flow.next_hold(T, ctx) >= flow.REVERSAL_MIN:
-        B = B.with_(ds=max(B.ds, flow.EXIT))
+        B = B.with_(ds=max(B.ds, flow.EXIT) if sg > 0 else min(B.ds, -flow.EXIT))
     return {"A": A, "B": B}
 
 
@@ -271,6 +286,45 @@ def clip_matte(ob):
             n.extension = "CLIP"
 
 
+def choke_matte(ob, r_px):
+    """Feather + choke the subject matte in the card shader: alpha = smoothstep(0.5, 1, blur_r(matte)) (9 taps, a ring
+    of radius r px + centre). Alpha is 0 on the matte's own edge and reaches 1 r px inside, so the plate's background
+    never shows around the subject and the cut edge is soft."""
+    if r_px <= 0:
+        return
+    nt = ob.data.materials[0].node_tree
+    N, L = nt.nodes, nt.links
+    mt = next((n for n in N if n.bl_idname == "ShaderNodeTexImage" and n.image is not None
+               and "mattes" in (n.image.filepath or "")), None)
+    if mt is None:
+        return
+    outs = [(l.to_socket) for l in mt.outputs["Color"].links]
+    uv = mt.inputs["Vector"].links[0].from_socket
+    acc = mt.outputs["Color"]
+    taps = [(1, 0), (-1, 0), (0, 1), (0, -1), (0.707, 0.707), (-0.707, 0.707), (0.707, -0.707), (-0.707, -0.707)]
+    for dx, dy in taps:
+        off = N.new("ShaderNodeVectorMath")
+        off.operation = "ADD"
+        off.inputs[1].default_value = (dx * r_px / 1920.0, dy * r_px / 1080.0, 0.0)
+        L.new(uv, off.inputs[0])
+        t = N.new("ShaderNodeTexImage")
+        t.image, t.interpolation, t.extension = mt.image, "Linear", mt.extension
+        cards.setup_user(t.image_user)
+        L.new(off.outputs[0], t.inputs["Vector"])
+        add = N.new("ShaderNodeMath")
+        add.operation = "ADD"
+        L.new(acc, add.inputs[0])
+        L.new(t.outputs["Color"], add.inputs[1])
+        acc = add.outputs[0]
+    mr = N.new("ShaderNodeMapRange")
+    mr.interpolation_type = "SMOOTHSTEP"
+    L.new(acc, mr.inputs["Value"])
+    mr.inputs["From Min"].default_value = 0.5 * 9
+    mr.inputs["From Max"].default_value = 1.0 * 9
+    for sock in outs:
+        L.new(mr.outputs["Result"], sock)
+
+
 def glow_bar(ctx, name, parent, rgb, vis, vertical=True):
     """A soft emissive bar riding the wipe edge (light collection -> glow pass). Parented to the layer it lights."""
     me = cards.card_mesh(name, 1, 1, 0.07 if vertical else 2.4, 1.6 if vertical else 0.07)
@@ -395,7 +449,7 @@ def build_keep(T, ctx, p):
         key_value(nt, "HoleH", [(w0 - 1, 0.0), (w0, 0.0), (w0 + 2, 1.0)])
     for t in frange(w0 - 1, t_wipe1 + 1, 0.5):
         key_matrix(bgA, MA @ Matrix.Translation((sx * carry_at(t), sy * carry_at(t), 0.0)), t)
-    if p["glow"]:
+    if float(p["glow"]) > 0:
         g = glow_bar(ctx, f"layer_{T['id']}_glow", bgA, tuple(min(1.0, 0.35 + c) for c in pal["leak"]),
                      (w0, t_wipe1 + 1), vertical=coord == "x")
         gm = g.data.materials[0].node_tree.nodes["Emission"].inputs["Strength"]
@@ -421,6 +475,7 @@ def build_keep(T, ctx, p):
                          tile=3)
     own_material(subj, f"m_layer_{T['id']}_Asub")
     clip_matte(subj)
+    choke_matte(subj, float(p["choke"]))
     c0 = MA @ px_local(*sc_px)
     half = (mc["half"] if mc else [420.0, 420.0])
     ext = max(half[0], half[1]) / 1000.0  # subject half-size (m)
@@ -502,15 +557,22 @@ def build_sweep(T, ctx, p):
             f"{' (matte area %.0f %%)' % (100 * mc['area']) if mc else ' (no matte: seed)'}, from {d}")
 
     D, shift = float(p["depth"]), float(p["shift"])
+    sg = zoom_sign(T, ctx, p, A)
+    btr = float(p["b_travel"]) * sg  # push: B's card arrives from further back; pull: from closer, receding
 
-    def MB_at(kb):
+    def b_off(t):
+        u = cl.clamp01((t - w0) / float(w1 - w0))
+        return btr * (1 - u) ** 3
+
+    def MB_at(kb, t=None):
         # offset toward `from`: the camera travels with the subject (tracks it), the background pans the other way
-        return Matrix.Translation(o + Vector((-ex * shift, -ey * shift, -D))) @ Matrix.Scale(kb, 4)
+        z = -D - (b_off(t) if t is not None else 0.0)
+        return Matrix.Translation(o + Vector((-ex * shift, -ey * shift, z))) @ Matrix.Scale(kb, 4)
 
     kb = 1.0
     for _ in range(30):
         cam = Blend(ctx, MA, A, MB_at(kb), B, w0, f, w1, float(p["ease"]), float(p["ease"]))
-        if all(covers(*cam(t), MB_at(kb)) for t in frange(w0 + 1, w1, 0.5)):
+        if all(covers(*cam(t), MB_at(kb, t)) for t in frange(w0 + 1, w1, 0.5)):
             break
         kb *= 1.05
     MB = MB_at(kb)
@@ -522,20 +584,30 @@ def build_sweep(T, ctx, p):
     fe = float(p["feather"])
     nt = patch_alpha(mat, ctx, mat.name, coord, sgn, fe, hole=False)
     bgB = ctx.make_card(sb, f"layer_{T['id']}_B", MB, depth=dB, frames=vis, tile=3)
+    if btr:
+        for t in frange(w0 - 1, w1, 0.5):
+            key_matrix(bgB, MB_at(kb, t), t)
+        key_matrix(bgB, MB, w1)
+        key_matrix(bgB, MB, w1 + 1)
     subj = ctx.make_card(sb, f"layer_{T['id']}_Bsub", MB @ Matrix.Translation((0, 0, ZSEP / kb)), alpha="matte",
                          depth=dB, frames=(t_in - 1, t_land + 2), tile=3)
     own_material(subj, f"m_layer_{T['id']}_Bsub")
     clip_matte(subj)
+    choke_matte(subj, float(p["choke"]))
 
-    cf = MB @ px_local(*sc_px)  # the subject's final centroid (world)
+    cl_loc = px_local(*sc_px)  # the subject centroid on B's card (card-local)
     half = (mc["half"] if mc else [420.0, 420.0])
     ext = max(half[0], half[1]) / 1000.0 * kb
     ap = float(p["approach"])
     tilt = math.radians(float(p["tilt"]))
-    Mfin = MB @ Matrix.Translation((0, 0, ZSEP / kb))
+
+    def Mfin_at(t):  # where the subject card lands: on B's (moving) card, ZSEP in front
+        return MB_at(kb, t) @ Matrix.Translation((0, 0, ZSEP / kb))
 
     def subj_M(t):
         loc, rot = cam(t)
+        Mfin = Mfin_at(t)
+        cf = Mfin @ cl_loc
         b = 1.0 - (1.0 - cl.clamp01((t - t_in) / float(t_land - t_in))) ** 3  # decelerating arrival, zero rate at land
         a = ap * (1 - b)
         P = cf + (loc - cf) * a
@@ -547,7 +619,7 @@ def build_sweep(T, ctx, p):
         axis = "Y" if ex else "X"
         return Matrix.Translation(P) @ Matrix.Rotation(ang, 4, axis) @ Matrix.Translation(-cf) @ Mfin
     for t in frange(t_in - 1, t_land + 2, 0.5):
-        key_matrix(subj, subj_M(max(t, t_in)) if t < t_land else Mfin, t)
+        key_matrix(subj, subj_M(max(t, t_in)) if t < t_land else Mfin_at(t), t)
 
     # A wipes away behind the subject's trailing edge: the edge follows the subject's projection on A's plane and is
     # off A's visible range by the landing
@@ -556,7 +628,7 @@ def build_sweep(T, ctx, p):
     def proj(t):
         loc, rot = cam(t)
         M = subj_M(max(t, t_in))
-        cw = M @ (Mfin.inverted_safe() @ cf)
+        cw = M @ cl_loc
         dvec = (cw - loc)
         Mi = MA.inverted_safe()
         p0, dl = Mi @ loc, Mi.to_3x3() @ dvec
