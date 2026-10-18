@@ -212,7 +212,7 @@ def build(T, ctx):
         ((f - 3,), [(Vector((-1.0, 0.70, 0.08)), 12), (Vector((1.1, -0.2, 0.12)), 8)], 0.0012),
         ((f - 2, f - 1), [(Vector((-1.15, 0.85, 0.14)), 14), (Vector((1.05, 0.80, 0.06)), 14),
                           (Vector((0.10, 1.05, 0.18)), 10), (Vector((-1.1, -0.6, 0.10)), 10),
-                          (Vector((1.2, -0.7, 0.15)), 10)], 0.0016),
+                          (Vector((1.2, -0.7, 0.15)), 10)], 0.0024),
     ]
     flick = {}
     for frames, trunks, rad in strikes:
@@ -226,7 +226,7 @@ def build(T, ctx):
             core = fx.poly_curve("lt_bolt_%d" % kf, spl, rad, fx.emission_mat("lt_bolt_%d" % kf, hot, 9.0 * fl,
                                                                               additive=True))
             halo = fx.poly_curve("lt_halo_%d" % kf, spl, rad * 3.0,
-                                 fx.emission_mat("lt_halo_%d" % kf, (0.25, 0.55, 1.0), 0.3 * fl, additive=True))
+                                 fx.emission_mat("lt_halo_%d" % kf, (0.25, 0.6, 1.0), 0.9 * fl, additive=True))
             for ob in (core, halo):
                 # rides with the camera through its frame, so camera motion blur leaves it a crisp filament
                 fx.ride_camera(ob, cam_private, MO, kf, kf - 0.5, kf + 0.5)
@@ -295,7 +295,7 @@ def _storm(MO, w0, fh, flick, P, coll):
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
     em = nt.nodes.new("ShaderNodeEmission")
-    em.inputs["Color"].default_value = (0.02, 0.06, 0.12, 1.0)
+    em.inputs["Color"].default_value = (0.015, 0.07, 0.11, 1.0)
     em.inputs["Strength"].default_value = 1.0
     mix = nt.nodes.new("ShaderNodeMixShader")
     mix.name = "veil"
@@ -314,7 +314,7 @@ def _storm(MO, w0, fh, flick, P, coll):
         fac.keyframe_insert("default_value", frame=t)
     key(P["tp0"], 0.0)
     for t in range(int(P["tp0"] + 0.5), int(fh + 0.5)):    # darker frame by frame; a strong strike lifts it a little
-        v = min(0.6, 0.18 * (t - P["tp0"] + 0.5)) - (0.12 if flick.get(t, 0) > 1.2 else 0.0)
+        v = min(0.78, 0.22 * (t - P["tp0"] + 0.5)) - (0.12 if flick.get(t, 0) > 1.2 else 0.0)
         key(t - 0.45, v)
         key(t + 0.45, v)
     key(fh, 0.0)
