@@ -325,6 +325,27 @@ def _cam_light(P, coll):
         so.keyframe_insert("location", frame=t)
         so.keyframe_insert("rotation_euler", frame=t)
     X.set_linear(so)
+    # one slow wet highlight sweeping across the full-cover frames (149-152): a long softbox strip riding behind the
+    # camera, sized and moved with the camera's distance to the goo so its reflection crosses the whole frame
+    bx = X.plane_obj("XA_sym_sweepbox", 1.0, 1.0, coll)
+    bx.data.materials.append(X.mat_emit("XA_sym_sweepbox_m", (0.92, 0.88, 1.0), 12.0))
+    bx.visible_camera = False
+    bx.visible_shadow = False
+    bx.rotation_mode = "QUATERNION"
+    tilt = Quaternion((0, 0, 1), math.radians(-35.0))
+    for i in range(2 * 9 + 1):
+        t = cut - 3.5 + 0.5 * i
+        d = FILL / P["sA"](t)
+        u = X._sstep(cut - 2.8, cut + 1.8, t)
+        loc, rot, _ = (P["m_set"](t) @ Matrix.Translation(Vector(((-1.0 + 2.0 * u) * 0.75 * d, (0.3 - 0.6 * u) * d,
+                                                                   0.25 * d)))).decompose()
+        bx.location = loc
+        bx.rotation_quaternion = rot @ tilt
+        bx.scale = (0.25 * d, 3.0 * d, 1.0)  # wide: it still reads through the cut's rack defocus
+        for path in ("location", "rotation_quaternion", "scale"):
+            bx.keyframe_insert(path, frame=t)
+    X.set_linear(bx)
+    X.key_hide(bx, [(cut - 3, cut + 2)])
 
 
 def _lights(P, ctx, pal, coll):

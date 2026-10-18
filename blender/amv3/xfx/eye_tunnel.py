@@ -1,10 +1,12 @@
 """eye_tunnel (C09, Tobey -> Andrew, window 236-264, cut 252): through Tobey's iris into the multiverse tunnel.
 
 The camera is already pushing into Tobey's left iris (S08). The iris opens as a hole in the card with a burning gold rim,
-the iris texture stretching back into a funnel; the camera flies through it into a tunnel whose walls are floating cards
-playing moving frames from all three eras, wrapped in web strands, light rings and dust, spiralling (roll accumulates),
-the light shifting from Tobey gold to Andrew cyan as it passes the cut. Andrew's lens (S09) waits at the end of the tunnel
-behind a last cyan ring; the camera decelerates onto it and hands over to S09's pull-out.
+the iris texture stretching back into a funnel; the camera flies through it into a tunnel whose walls are shingled
+with cards playing moving frames from all three eras (faces of Tobey / Andrew / Tom passing close to the lens), web
+helices and energy streams spiralling with the roll, spiral passes of light running over the cards, soft energy bands
+on the walls, the light shifting from Tobey gold to Andrew cyan as it passes the cut. Andrew's lens (S09) waits at the
+end of the tunnel as a soft round opening (no frame) that grows over the whole picture before the handoff; the camera
+decelerates onto it and hands over to S09.
 
 One private set, one continuous camera path z(t) along the tunnel axis (a monotone-cubic speed profile, so the camera
 never stops and never jerks). Teleports: home S08 -> private set at w0 + 0.5 (identical copy of the card, invisible),
@@ -195,106 +197,139 @@ def build(T, ctx):
             ob.keyframe_insert("scale", frame=f)
         X.set_linear(ob)
 
-    # --- the tunnel
+    # --- the tunnel: a cylinder whose walls are shingled with moving cards, flaring like a bell at Andrew's end (so
+    # the walls leave the frame before the handoff)
     z_end_tun = zB + 1.2
-    rings = []
-    zz = -0.9
-    k = 0
-    while zz > z_end_tun:
-        rings.append(zz)
-        k += 1
-        zz -= 0.95 + 0.1 * k
-    nring = len(rings)
 
     def radius_at(zz):
         u = (0.0 - zz) / (0.0 - zB)
         return 0.95 + 0.55 * X._sstep(0.0, 0.25, u) + 1.1 * X._sstep(0.78, 1.0, u)
 
-    # floating cards: moving frames from all three eras
     seq = []
     for era in ("tobey", "andrew", "tom"):
         seq += [(era, s) for s in ERAS[era] if os.path.isdir(X.plate_dir(ctx, s))]
+    look = dict(O=O, ax=ax, gold=_sat(gold, 1.3), cyan=_sat(cyan, 1.3), fog_a=pal_a["fog"], fog_b=pal_b["fog"],
+                z_cut=z_cut, w0=w0, w1=w1)
     mats = {}
-    for ri, zr in enumerate(rings):
-        n = 7 if ri < nring - 2 else 9
-        rad = radius_at(zr)
-        a0 = R.uniform(0, 2 * math.pi)
+
+    def wall_mat(sid, shift):
+        mk = (sid, shift)
+        if mk not in mats:
+            mats[mk] = _wall_card_mat(ctx, sid, look, f"XA_eye_wall_{sid}_{shift}", shift=shift)
+        return mats[mk]
+
+    # wall cards: rows of cards around the wall, staggered, each tilted a little toward the camera like scales, the
+    # picture's top edge pointing into the distance on the lower half and toward the camera on the upper half (so
+    # both read upright on screen); sizes grow in the bell
+    ncard, zz, row = 0, -0.32, 0
+    while zz > z_end_tun:
+        uu = (0.0 - zz) / (0.0 - zB)
+        rad = radius_at(zz) + 0.03
+        scl = 0.27 * (1.0 + 0.7 * X._sstep(0.72, 1.0, uu))
+        cw = camlib.CARD_W * scl
+        n = max(9, int(2 * math.pi * rad / (cw * 1.1)))
+        a0 = R.uniform(0, 2 * math.pi) + (math.pi / n if row % 2 else 0.0)
+        em = era_mix(zz)
         for ci in range(n):
-            ang = a0 + 2 * math.pi * ci / n + R.uniform(-0.12, 0.12)
-            em = era_mix(zr)
-            pool = [s for s in seq if s[0] == ("tobey" if R.random() > em else R.choice(["andrew", "tom"]))] or seq
-            era, sid = R.choice(pool)
-            scl = R.uniform(0.33, 0.42) * (1.0 + 0.5 * X._sstep(0.7, 1.0, (0 - zr) / (0 - zB)))
-            c = X.plane_obj(f"XA_eye_card_{ri}_{ci}", camlib.CARD_W * scl, camlib.CARD_H * scl, plate_c)
-            rr = rad + R.uniform(-0.05, 0.15)
-            pos = Vector((ax.x + rr * math.cos(ang), ax.y + rr * math.sin(ang), zr + R.uniform(-0.3, 0.3)))
+            ang = a0 + 2 * math.pi * ci / n + R.uniform(-0.04, 0.04)
+            era_pick = "tobey" if R.random() > em else R.choice(["andrew", "tom"])
+            pool = [s for s in seq if s[0] == era_pick] or seq
+            _era, sid = R.choice(pool)
+            k = scl * R.uniform(0.92, 1.06)
+            c = X.plane_obj(f"XA_eye_wall_{row}_{ci}", camlib.CARD_W * k, camlib.CARD_H * k, plate_c)
+            pos = Vector((ax.x + rad * math.cos(ang), ax.y + rad * math.sin(ang), zz + R.uniform(-0.03, 0.03)))
             inward = Vector((-math.cos(ang), -math.sin(ang), 0.0))
-            tilt = math.radians(R.uniform(38, 58))
+            tilt = math.radians(R.uniform(12, 24))
             nrm = (inward * math.cos(tilt) + Vector((0, 0, 1)) * math.sin(tilt)).normalized()
-            up = Vector((math.cos(ang), math.sin(ang), 0.0)).cross(nrm).normalized()  # picture up along the wall
-            q = _quat_with_up(nrm, up)
+            zdir = Vector((0, 0, 1 if math.sin(ang) > 0 else -1))
+            up = (zdir - nrm * zdir.dot(nrm)).normalized()
+            q = Quaternion(nrm, math.radians(R.uniform(-4, 4))) @ _quat_with_up(nrm, up)
             c.matrix_world = Matrix.Translation(O + pos) @ q.to_matrix().to_4x4()
-            mk = (sid, round(em, 1))
-            if mk not in mats:
-                mats[mk] = _tunnel_card_mat(ctx, sid, X.lerp3(gold, cyan, em), w0, R.randint(0, 40), len(mats),
-                                            fog=X.lerp3(pal_a["fog"], pal_b["fog"], em))
-            c.data.materials.append(mats[mk])
-    # swirl arcs (REFS a 110-124, c 436-444): partial glowing arcs at several radii between the card rings, each
-    # spinning at its own rate, gold -> cyan with depth; a last full cyan ring frames Andrew's lens
-    zs_arc = [zr - 0.45 for zr in rings] + [rings[0] + 0.5]
-    for ri, zl in enumerate(zs_arc):
-        em = era_mix(zl)
-        col = _sat(X.lerp3(gold, cyan, em), 1.5)
-        fogc = X.lerp3(pal_a["fog"], pal_b["fog"], em)
-        for j in range(3):
-            rad = radius_at(zl) * R.uniform(0.55, 0.95)
-            span = math.radians(R.uniform(110, 250))
-            npt = 24
-            pts = [Vector((rad * math.cos(span * i / (npt - 1)), rad * math.sin(span * i / (npt - 1)), 0.0))
-                   for i in range(npt)]
-            arc = X.curve_obj(f"XA_eye_arc_{ri}_{j}", pts, light_c, bevel=R.uniform(0.005, 0.011), res=4,
-                              taper=[(0.0, 0.05), (0.25, 1.0), (0.75, 1.0), (1.0, 0.05)])
-            arc.location = O + Vector((ax.x, ax.y, zl + R.uniform(-0.25, 0.25)))
-            arc.data.materials.append(X.mat_emit_fog(f"XA_eye_arc_m{ri}_{j}", col, R.uniform(9.0, 16.0), fogc,
-                                                     k=6.0, near=1.0))
-            arc.rotation_mode = "XYZ"
-            spin = math.radians(R.uniform(6.0, 16.0)) * R.choice([-1, 1, 1])
-            a0 = R.uniform(0, 2 * math.pi)
-            for f in (w0 - 2, w1 + 2):
-                arc.rotation_euler = (R.uniform(-0.06, 0.06) * 0, 0.0, a0 + spin * (f - w0))
-                arc.keyframe_insert("rotation_euler", frame=f)
-            X.set_linear(arc)
-    lr = X.curve_obj("XA_eye_lring_end", [Vector((1.45 * math.cos(t), 1.45 * math.sin(t), 0.0))
-                                          for t in [2 * math.pi * i / 32 for i in range(32)]],
-                     light_c, bevel=0.006, res=6, closed=True)
-    lr.location = O + Vector((ax.x, ax.y, zB + 0.8))
-    lr.data.materials.append(X.mat_emit_fog("XA_eye_lring_end_m", _sat(cyan), 10.0, pal_b["fog"], k=6.0, near=1.0))
-    # web strands: helices along the wall + polygonal web rings joining them
-    nh = 6
-    web_m = X.mat_emit_fog("XA_eye_web_m", (0.85, 0.92, 1.0), 1.6, (0.02, 0.03, 0.05), k=4.0, near=0.5)
+            c.data.materials.append(wall_mat(sid, R.choice((0, 9, 17))))
+            ncard += 1
+        zz -= camlib.CARD_H * scl * 1.12
+        row += 1
+    # faces passing close (Tobey -> Andrew -> Tom): bigger cards near the camera path, nearly facing the lens and
+    # upright, readable for ~3-5 f as the camera cruises at them (1.5 m ahead of the camera at t_pass)
+    heroes = [("S03", 245.6), ("S06", 246.5), ("S02", 247.4), ("S16", 248.3), ("S10", 249.2), ("S26", 250.1),
+              ("S25", 251.0)]
+    heroes = [(s, t + (w0 - 236)) for s, t in heroes if os.path.isdir(X.plate_dir(ctx, s))]
+    for hi, (sid, tp) in enumerate(heroes):
+        ang = 0.7 + 2.45 * hi
+        rad = 0.84
+        k = 0.5
+        c = X.plane_obj(f"XA_eye_face_{sid}", camlib.CARD_W * k, camlib.CARD_H * k, plate_c)
+        pos = Vector((ax.x + rad * math.cos(ang), ax.y + rad * math.sin(ang), z(tp) - 1.5))
+        inward = Vector((-math.cos(ang), -math.sin(ang), 0.0))
+        nrm = (Vector((0, 0, 1)) * math.cos(math.radians(22)) + inward * math.sin(math.radians(22))).normalized()
+        upw = Vector((0, 1, 0))
+        up = (upw - nrm * upw.dot(nrm)).normalized()
+        c.matrix_world = Matrix.Translation(O + pos) @ _quat_with_up(nrm, up).to_matrix().to_4x4()
+        mv = X.plate_moving_frames(ctx, sid)
+        f_face = mv[len(mv) // 2]
+        c.data.materials.append(_wall_card_mat(ctx, sid, look, f"XA_eye_face_{sid}_m", hero=True,
+                                               f_at=f_face, frame0=int(round(tp - 2))))
+        X.key_hide(c, [(w0, cut + 3)])
+    # soft energy bands on the wall (no hard rings): short glowing sleeves with a gaussian falloff across, broken into
+    # two slow-spinning lobes, gold -> cyan with depth
+    zb, bi = -1.1, 0
+    while zb > z_end_tun + 0.4:
+        em = era_mix(zb)
+        rb = radius_at(zb) - 0.06
+        band = X.tube_obj(f"XA_eye_band_{bi}", lambda q, a, rb=rb: (rb * math.cos(a), rb * math.sin(a)),
+                          [0.22 - 0.44 * i / 6 for i in range(7)], light_c, n=96)
+        band.location = O + Vector((ax.x, ax.y, zb))
+        band.data.materials.append(_band_mat(f"XA_eye_band_m{bi}", _sat(X.lerp3(gold, cyan, em), 1.4),
+                                             X.lerp(2.6, 3.4, em)))
+        band.rotation_mode = "XYZ"
+        spin = math.radians(R.uniform(5.0, 11.0))
+        a0 = R.uniform(0, 2 * math.pi)
+        for f in (w0 - 2, w1 + 2):
+            band.rotation_euler = (0.0, 0.0, a0 + spin * (f - w0))
+            band.keyframe_insert("rotation_euler", frame=f)
+        X.set_linear(band)
+        zb -= 1.35 + 0.15 * bi
+        bi += 1
+    # web: helices along the wall turning the same way as the camera roll, web rings joining them; energy streams:
+    # thicker helices nearer the axis carrying travelling pulses of act light
+    nh = 10
+    twist = -0.5  # rad / m, sign of the camera roll as the camera dives (-z)
+    web_m = X.mat_emit_fog("XA_eye_web_m", (0.85, 0.92, 1.0), 1.8, (0.02, 0.03, 0.05), k=4.0, near=0.5)
     for h in range(nh):
         pts = []
-        for i in range(48):
-            zz = -0.3 + (z_end_tun + 0.3) * i / 47
-            ang = 2 * math.pi * h / nh + zz * 0.55
-            rad = radius_at(zz) - 0.2 + 0.06 * math.sin(i * 1.7 + h)
+        for i in range(64):
+            zz = -0.3 + (z_end_tun + 0.3) * i / 63
+            ang = 2 * math.pi * h / nh + zz * twist
+            rad = radius_at(zz) - 0.12 + 0.05 * math.sin(i * 1.7 + h)
             pts.append(Vector((ax.x + rad * math.cos(ang), ax.y + rad * math.sin(ang), zz)))
-        cv = X.curve_obj(f"XA_eye_web_{h}", [p + O for p in pts], light_c, bevel=0.0018, res=4)
+        cv = X.curve_obj(f"XA_eye_web_{h}", [p + O for p in pts], light_c, bevel=0.0016, res=4)
         cv.data.materials.append(web_m)
-    for wi, zr in enumerate(rings[1::2]):
-        zw = zr - 0.2
+    zw, wi = -0.8, 0
+    while zw > z_end_tun:
         pts = []
         for h in range(nh):
-            ang = 2 * math.pi * h / nh + zw * 0.55
-            rad = radius_at(zw) - 0.2
+            ang = 2 * math.pi * h / nh + zw * twist
+            rad = radius_at(zw) - 0.12
             pts.append(Vector((ax.x + rad * math.cos(ang), ax.y + rad * math.sin(ang), zw)) + O)
         pts.append(pts[0])
-        cv = X.curve_obj(f"XA_eye_webring_{wi}", pts, light_c, bevel=0.0015, res=1)
+        cv = X.curve_obj(f"XA_eye_webring_{wi}", pts, light_c, bevel=0.0013, res=1)
         cv.data.splines[0].order_u = 2
         cv.data.materials.append(web_m)
+        zw -= 0.9
+        wi += 1
+    stream_m = _stream_mat("XA_eye_stream_m", look)
+    for h in range(4):
+        pts = []
+        for i in range(96):
+            zz = -0.2 + (z_end_tun + 0.2) * i / 95
+            ang = 2 * math.pi * h / 4 + 0.4 + zz * twist * 1.6
+            rad = radius_at(zz) * 0.8
+            pts.append(Vector((ax.x + rad * math.cos(ang), ax.y + rad * math.sin(ang), zz)) + O)
+        cv = X.curve_obj(f"XA_eye_stream_{h}", pts, light_c, bevel=0.006, res=4)
+        cv.data.materials.append(stream_m)
     # dust / sparkles (one mesh of tiny octahedra), coloured by depth
-    _dust(f"XA_eye_dust", O, ax, 0.0, z_end_tun, radius_at, R, light_c, gold, cyan, era_mix)
-    # nebula tube behind the cards so the void is never black
+    _dust("XA_eye_dust", O, ax, 0.0, z_end_tun, radius_at, R, light_c, gold, cyan, era_mix)
+    # nebula tube behind the cards so the gaps are never black
     neb = X.tube_obj("XA_eye_nebula", lambda zz, ang: (3.4 * math.cos(ang), 3.4 * math.sin(ang)),
                      [0.4 - (0.4 - (zB - 2.0)) * i / 30 for i in range(31)], plate_c, n=48)
     neb.location = O + Vector((ax.x, ax.y, 0.0))
@@ -302,11 +337,35 @@ def build(T, ctx):
     cap = X.annulus_obj("XA_eye_nebula_cap", 0.0, 3.5, plate_c, n=48, nr=4)  # closes the tunnel behind the S09 copy
     cap.location = O + Vector((ax.x, ax.y, zB - 2.0))
     cap.data.materials.append(neb.data.materials[0])
-    # Andrew's lens at the end of the tunnel (comp time, already moving), with a thin cyan frame
-    cardB = X.copy_card(ctx, b, "XA_eye_S09", P["MB"], frames=(w0, w1 + 1), tile=1)  # a framed picture
-    frame = _frame_obj("XA_eye_S09_frame", light_c)
-    frame.matrix_world = P["MB"] @ Matrix.Translation(Vector((0, 0, 0.004)))
-    frame.data.materials.append(X.mat_emit("XA_eye_frame_m", cyan, 3.0))
+    # Andrew's lens at the end of the tunnel (comp time, already moving): an opening, not a picture. The S09 copy is
+    # mirror-tiled like its home card and only a soft round aperture around the lens is opaque; the aperture grows so
+    # it covers the whole frame (feather included) a frame before the handoff, so the exit is seamless.
+    cardB = X.copy_card(ctx, b, "XA_eye_S09", P["MB"], frames=(w0, w1 + 1), tile=3)
+    ap_keys, fe_keys, rmax = [], [], 0.0
+    for i in range(2 * (w1 + 1 - w0) + 1):
+        t = w0 + 0.5 * i
+        sB, cx, cy, _r = P["b_state"](t)
+        off = math.hypot(cx - P["PB"][0], cy - P["PB"][1])
+        cover = (1101.0 / sB + off) * 1.04
+        q = X._sstep(cut - 1.0, cut + 5.0, t)
+        rin = max(470.0, q * cover)
+        rmax = max(rmax, rin)
+        fe = 300.0 + 0.2 * rmax
+        ap_keys.append((t, rmax))
+        fe_keys.append((t, fe * (1.0 - X._sstep(cut + 4.0, cut + 5.5, t))))  # hard-full by the handoff
+    _aperture(cardB, P["PB"], ap_keys, fe_keys)
+    glow = X.annulus_obj("XA_eye_S09_glow", 0.55, 1.6, light_c, n=128, nr=6)
+    glow.matrix_world = P["MB"] @ Matrix.Translation(Vector((*X.px2local(*P["PB"]).xy, 0.006)))
+    glow.data.materials.append(_glow_mat("XA_eye_S09_glow_m", _sat(cyan, 1.3),
+                                         [(t, 0.1 * (1.0 - X._sstep(cut - 1.0, cut + 2.5, t))) for t, _ in ap_keys]))
+    for (t, rin), (_t, fe) in zip(ap_keys, fe_keys):
+        sc = (rin + 0.6 * max(fe, 300.0)) / 1000.0
+        glow.scale = (sc, sc, 1.0)
+        glow.keyframe_insert("scale", frame=t)
+    X.set_linear(glow)
+    X.key_hide(glow, [(w0, cut + 4)])
+    ctx.log(f"eye_tunnel: {ncard} wall cards, {len(heroes)} face cards, {bi} energy bands, S09 aperture "
+            f"{ap_keys[0][1]:.0f} -> {ap_keys[-1][1]:.0f} px")
     # no act void inside: the tunnel is closed (nebula tube + cap); the void's haze and strands would sit in the tunnel
     for ob in (rim, funnel):
         X.key_hide(ob, [(w0, cut + 1)])
@@ -342,7 +401,7 @@ def build(T, ctx):
     ctx.log("eye_tunnel rates (f: zoom %/f on S08 | on S09, roll deg/f): " + "  ".join(
         f"{f}: {100 * P['spd'].vel(f) / z(f) if z(f) > 0.15 else float('nan'):.1f}|"
         f"{100 * P['spd'].vel(f) / (z(f) - zB):.1f},{P['roll'](f + 0.5) - P['roll'](f - 0.5):.1f}" for f in range(w0, w1 + 1)))
-    ctx.log(f"eye_tunnel: tunnel {-zB:.1f} m, {nring} card rings, roll {P['roll'](w1):.0f} deg, "
+    ctx.log(f"eye_tunnel: tunnel {-zB:.1f} m, roll {P['roll'](w1):.0f} deg, "
             f"v peak {P['spd'].vel(cut):.2f} m/f, through the card at f{_cross(P):.1f}")
 
 
@@ -369,13 +428,6 @@ def _quat_with_up(nrm, up):
     xc = up.cross(zc).normalized()
     yc = zc.cross(xc)
     return Matrix((xc, yc, zc)).transposed().to_quaternion()
-
-
-def _frame_obj(name, coll, w=1.92, h=1.08, t=0.012):
-    vs = [(-w / 2 - t, -h / 2 - t, 0), (w / 2 + t, -h / 2 - t, 0), (w / 2 + t, h / 2 + t, 0), (-w / 2 - t, h / 2 + t, 0),
-          (-w / 2, -h / 2, 0), (w / 2, -h / 2, 0), (w / 2, h / 2, 0), (-w / 2, h / 2, 0)]
-    fs = [(0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
-    return X.mesh_obj(name, vs, fs, coll)
 
 
 def _dust(name, O, ax, z_from, z_to, radius_at, R, coll, c0, c1, era_mix, n=520):
@@ -471,37 +523,217 @@ def _funnel_mat(ctx, sid, iris, r_keys, gold):
     return m
 
 
-def _tunnel_card_mat(ctx, sid, tint, w0, shift, idx, fog=(0.02, 0.03, 0.05)):
-    """A decor card: the shot's moving frames (looped over its non-held frames), tinted, with a glowing edge."""
-    m, nt, out = X._nodes(f"XA_eye_tcard_{sid}_{idx}")
+def _mix_rgb(nt, fac, a, b, blend="MIX"):
+    mx = nt.nodes.new("ShaderNodeMix")
+    mx.data_type = "RGBA"
+    mx.blend_type = blend
+    for i, v in ((0, fac), (6, a), (7, b)):
+        if isinstance(v, (int, float)):
+            mx.inputs[i].default_value = v
+        elif isinstance(v, tuple):
+            mx.inputs[i].default_value = (*v[:3], 1)
+        else:
+            nt.links.new(v, mx.inputs[i])
+    return mx.outputs[2]
+
+
+def _vec(nt, op, a, b):
+    n = nt.nodes.new("ShaderNodeVectorMath")
+    n.operation = op
+    for i, v in enumerate((a, b)):
+        if isinstance(v, (int, float)):
+            n.inputs[i].default_value = (v, v, v)
+        elif isinstance(v, (tuple, Vector)):
+            n.inputs[i].default_value = tuple(v)
+        else:
+            nt.links.new(v, n.inputs[i])
+    return n.outputs[0]
+
+
+def _maprange(nt, val, a, b, smooth=True):
+    n = nt.nodes.new("ShaderNodeMapRange")
+    if smooth:
+        n.interpolation_type = "SMOOTHSTEP"
+    for name, v in (("Value", val), ("From Min", a), ("From Max", b)):
+        if isinstance(v, (int, float)):
+            n.inputs[name].default_value = v
+        else:
+            nt.links.new(v, n.inputs[name])
+    return n.outputs["Result"]
+
+
+def _tunnel_coords(nt, look):
+    """(lx, ly, lz, era 0..1, time) sockets: shading point relative to the tunnel axis (lz = depth along the tunnel,
+    0 at the S08 copy, negative inward), gold -> cyan era by depth, and the scene frame."""
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    c0 = look["O"] + Vector((look["ax"].x, look["ax"].y, 0.0))
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(_vec(nt, "SUBTRACT", geo.outputs["Position"], c0), sep.inputs[0])
+    lz = sep.outputs[2]
+    em = _maprange(nt, X.math_node(nt, "MULTIPLY", lz, -1.0), -(look["z_cut"] + 0.5), -(look["z_cut"] - 3.0))
+    t = X.key_value(nt, "t", [(look["w0"] - 3, look["w0"] - 3.0), (look["w1"] + 3, look["w1"] + 3.0)])
+    X.set_linear(nt)
+    return sep.outputs[0], sep.outputs[1], lz, em, t
+
+
+def _wave(nt, phase, power):
+    """(0.5 + 0.5 sin(2 pi phase)) ** power: a sharp travelling pulse."""
+    s = X.math_node(nt, "SINE", X.math_node(nt, "MULTIPLY", phase, 2 * math.pi))
+    return X.math_node(nt, "POWER", X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", s, 0.5), 0.5), power)
+
+
+def _fog_keep(nt, k, near):
+    cd = nt.nodes.new("ShaderNodeCameraData")
+    d = X.math_node(nt, "MAXIMUM", X.math_node(nt, "SUBTRACT", cd.outputs["View Distance"], near), 0.0)
+    return X.math_node(nt, "EXPONENT", X.math_node(nt, "DIVIDE", d, -k))
+
+
+def _wall_card_mat(ctx, sid, look, name, shift=0, hero=False, f_at=None, frame0=None):
+    """A tunnel card: the shot's moving frames (looped over its non-held frames), lightly tinted gold -> cyan by depth,
+    with a feathered edge (no frame), spiral streams of act light passing over it, fading into the act fog with
+    distance. hero: a face card passing close to the lens (barely tinted, starts on image f_at at frame0)."""
+    m, nt, out = X._nodes(name)
     mv = X.plate_moving_frames(ctx, sid)
     lo, hi = mv[0], mv[-1] + 1
-    img = X.plate_node(nt, ctx, sid, f_at=lo + shift % max(1, hi - lo), frame0=w0, loop=(lo, hi))
+    if hero:
+        img = X.plate_node(nt, ctx, sid, f_at=f_at, frame0=frame0, loop=(lo, hi))
+    else:
+        img = X.plate_node(nt, ctx, sid, f_at=lo + shift % max(1, hi - lo), frame0=look["w0"], loop=(lo, hi))
+    lx, ly, lz, em, t = _tunnel_coords(nt, look)
+    tint = _mix_rgb(nt, em, look["gold"], look["cyan"])
+    fogc = _mix_rgb(nt, em, look["fog_a"], look["fog_b"])
+    pic = _mix_rgb(nt, 0.1 if hero else 0.4, img.outputs["Color"], tint, "MULTIPLY")
+    # light passing over the walls: two spiral arms travelling down the tunnel + a broad band coming at the camera
+    ang = X.math_node(nt, "DIVIDE", X.math_node(nt, "ARCTAN2", ly, lx), math.pi)  # -1..1, x2 arms
+    arm = _wave(nt, X.math_node(nt, "SUBTRACT", X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", lz, 0.55), ang),
+                                X.math_node(nt, "MULTIPLY", t, 0.2)), 14.0)
+    band = _wave(nt, X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", lz, 0.3), X.math_node(nt, "MULTIPLY", t, 0.11)),
+                 6.0)
+    light = X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", arm, 2.2), X.math_node(nt, "MULTIPLY", band, 0.6))
+    if hero:
+        light = X.math_node(nt, "MULTIPLY", light, 0.35)
+    # feathered edge + a faint glow just inside it
+    uv = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(nt.nodes.new("ShaderNodeTexCoord").outputs["UV"], uv.inputs[0])
+    du = X.math_node(nt, "MINIMUM", uv.outputs[0], X.math_node(nt, "SUBTRACT", 1.0, uv.outputs[0]))
+    dv = X.math_node(nt, "MINIMUM", uv.outputs[1], X.math_node(nt, "SUBTRACT", 1.0, uv.outputs[1]))
+    e = X.math_node(nt, "MINIMUM", X.math_node(nt, "MULTIPLY", du, 1.78), dv)
+    alpha = _maprange(nt, e, 0.0, 0.05 if hero else 0.03)
+    eglow = X.math_node(nt, "MULTIPLY", X.math_node(nt, "SUBTRACT", 1.0, _maprange(nt, e, 0.0, 0.08)),
+                        0.0 if hero else 0.25)
+    col = _vec(nt, "MULTIPLY", pic, X.math_node(nt, "ADD", 1.0, X.math_node(nt, "MULTIPLY", light, 0.6)))
+    col = _vec(nt, "ADD", col, _vec(nt, "MULTIPLY", tint, X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", light, 0.45),
+                                                                      eglow)))
+    keep = _fog_keep(nt, 12.0 if hero else 9.0, 1.5)
+    col = _mix_rgb(nt, keep, fogc, col)
+    emn = nt.nodes.new("ShaderNodeEmission")
+    nt.links.new(col, emn.inputs["Color"])
+    emn.inputs["Strength"].default_value = 1.35 if hero else 1.15
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(alpha, mix.inputs[0])
+    nt.links.new(tr.outputs[0], mix.inputs[1])
+    nt.links.new(emn.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    return m
+
+
+def _additive(nt, out, col, strength):
+    emn = nt.nodes.new("ShaderNodeEmission")
+    if isinstance(col, tuple):
+        emn.inputs["Color"].default_value = (*col[:3], 1)
+    else:
+        nt.links.new(col, emn.inputs["Color"])
+    nt.links.new(strength, emn.inputs["Strength"])
+    add = nt.nodes.new("ShaderNodeAddShader")
+    nt.links.new(emn.outputs[0], add.inputs[0])
+    nt.links.new(nt.nodes.new("ShaderNodeBsdfTransparent").outputs[0], add.inputs[1])
+    nt.links.new(add.outputs[0], out.inputs["Surface"])
+
+
+def _gauss(nt, x, mu, sig):
+    d = X.math_node(nt, "DIVIDE", X.math_node(nt, "SUBTRACT", x, mu), sig)
+    return X.math_node(nt, "EXPONENT", X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", d, d), -1.0))
+
+
+def _band_mat(name, col, strength):
+    """Soft energy band on the tunnel wall (tube UV: u around, v across): gaussian falloff across the band, two
+    broad lobes around it, a noisy breakup, fading into the fog; additive."""
+    m, nt, out = X._nodes(name)
     tc = nt.nodes.new("ShaderNodeTexCoord")
     sep = nt.nodes.new("ShaderNodeSeparateXYZ")
     nt.links.new(tc.outputs["UV"], sep.inputs[0])
-    du = X.math_node(nt, "MINIMUM", sep.outputs[0], X.math_node(nt, "SUBTRACT", 1.0, sep.outputs[0]))
-    dv = X.math_node(nt, "MINIMUM", sep.outputs[1], X.math_node(nt, "SUBTRACT", 1.0, sep.outputs[1]))
-    edge = X.math_node(nt, "MINIMUM", X.math_node(nt, "MULTIPLY", du, 1.78), dv)
-    border = X.math_node(nt, "LESS_THAN", edge, 0.018)
-    mix = nt.nodes.new("ShaderNodeMix")
-    mix.data_type = "RGBA"
-    mix.blend_type = "MULTIPLY"
-    mix.inputs[0].default_value = 0.35
-    nt.links.new(img.outputs["Color"], mix.inputs[6])
-    mix.inputs[7].default_value = (*tint, 1)
-    mix2 = nt.nodes.new("ShaderNodeMix")
-    mix2.data_type = "RGBA"
-    nt.links.new(border, mix2.inputs[0])
-    nt.links.new(mix.outputs[2], mix2.inputs[6])
-    mix2.inputs[7].default_value = (*tint, 1)
-    col, keep = X.depth_fog(nt, mix2.outputs[2], fog, k=5.0, near=1.0)
-    em = nt.nodes.new("ShaderNodeEmission")
-    nt.links.new(col, em.inputs["Color"])
-    nt.links.new(X.math_node(nt, "ADD", 1.1, X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", border, keep), 4.0)),
-                 em.inputs["Strength"])
-    nt.links.new(em.outputs[0], out.inputs["Surface"])
+    across = _gauss(nt, sep.outputs[1], 0.5, 0.2)
+    lob = X.math_node(nt, "POWER", X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", X.math_node(
+        nt, "COSINE", X.math_node(nt, "MULTIPLY", sep.outputs[0], 4 * math.pi)), 0.5), 0.5), 2.0)
+    lob = X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", lob, 0.8), 0.2)
+    no = X.node(nt, "ShaderNodeTexNoise", Scale=6.0, Detail=4.0, Roughness=0.6)
+    nt.links.new(tc.outputs["Object"], no.inputs["Vector"])
+    brk = X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", no.outputs["Fac"], 1.2), 0.1)
+    k = X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", across, lob), brk)
+    k = X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", k, _fog_keep(nt, 5.0, 1.0)), strength)
+    _additive(nt, out, col, k)
     return m
+
+
+def _stream_mat(name, look):
+    """Energy stream along a helix: pulses of act light travelling toward the camera, gold -> cyan by depth."""
+    m, nt, out = X._nodes(name)
+    lx, ly, lz, em, t = _tunnel_coords(nt, look)
+    tint = _mix_rgb(nt, em, look["gold"], look["cyan"])
+    pulse = _wave(nt, X.math_node(nt, "SUBTRACT", X.math_node(nt, "MULTIPLY", lz, 0.9), X.math_node(nt, "MULTIPLY", t, 0.3)),
+                  10.0)
+    k = X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", pulse, 9.0), 0.5)
+    _additive(nt, out, tint, X.math_node(nt, "MULTIPLY", k, _fog_keep(nt, 5.0, 0.8)))
+    return m
+
+
+def _glow_mat(name, col, strength_keys):
+    """Soft halo around the S09 aperture (annulus UV v radial, 0.55 .. 1.6 x the aperture edge)."""
+    m, nt, out = X._nodes(name)
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["UV"], sep.inputs[0])
+    prof = _gauss(nt, sep.outputs[1], 0.35, 0.32)
+    no = X.node(nt, "ShaderNodeTexNoise", Scale=3.0, Detail=3.0, Roughness=0.5)
+    nt.links.new(tc.outputs["Object"], no.inputs["Vector"])
+    k = X.math_node(nt, "MULTIPLY", prof, X.math_node(nt, "ADD", no.outputs["Fac"], 0.3))
+    st = X.key_value(nt, "glow", strength_keys)
+    X.set_linear(nt)
+    _additive(nt, out, col, X.math_node(nt, "MULTIPLY", k, st))
+    return m
+
+
+def _aperture(ob, center, r_keys, fe_keys):
+    """Make a card an opening: opaque inside a soft disc around `center` (card px), radius and feather keyed (px)."""
+    mat = ob.data.materials[0].copy()  # make_card shares materials between cards of a shot
+    mat.name = "m_" + ob.name + "_aperture"
+    ob.data.materials[0] = mat
+    nt = mat.node_tree
+    out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL" and n.is_active_output)
+    sh = out.inputs["Surface"].links[0].from_socket
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(nt.nodes.new("ShaderNodeTexCoord").outputs["UV"], sep.inputs[0])
+    px = X.math_node(nt, "SUBTRACT", X.math_node(nt, "MULTIPLY", sep.outputs[0], 1920.0), float(center[0]))
+    py = X.math_node(nt, "SUBTRACT", X.math_node(nt, "MULTIPLY", X.math_node(nt, "SUBTRACT", 1.0, sep.outputs[1]),
+                                                 1080.0), float(center[1]))
+    cmb = nt.nodes.new("ShaderNodeCombineXYZ")
+    nt.links.new(px, cmb.inputs[0])
+    nt.links.new(py, cmb.inputs[1])
+    ln = nt.nodes.new("ShaderNodeVectorMath")
+    ln.operation = "LENGTH"
+    nt.links.new(cmb.outputs[0], ln.inputs[0])
+    r = X.key_value(nt, "ApR", r_keys)
+    fe = X.key_value(nt, "ApFE", [(f, max(1.0, v)) for f, v in fe_keys])
+    X.set_linear(nt)
+    k = X.math_node(nt, "SUBTRACT", 1.0, _maprange(nt, ln.outputs["Value"], r, X.math_node(nt, "ADD", r, fe)))
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(k, mix.inputs[0])
+    nt.links.new(tr.outputs[0], mix.inputs[1])
+    nt.links.new(sh, mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    return mat
 
 
 def _nebula_mat(name, c0, c1, f0, f1):
