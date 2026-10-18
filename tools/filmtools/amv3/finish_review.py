@@ -93,7 +93,7 @@ def frame_stats(p, base=None):
     y = (a[..., 0] * 0.2126 + a[..., 1] * 0.7152 + a[..., 2] * 0.0722) / 255.0
     q = np.percentile(y, [1, 50, 99])
     s = dict(mean=round(float(y.mean()), 4), p1=round(float(q[0]), 4), p50=round(float(q[1]), 4), p99=round(float(q[2]), 4),
-             clip=round(float((a.max(-1) >= 250).mean() * 100), 2))
+             clip=round(float((a.max(-1) >= 242).mean() * 100), 2))   # >= 0.95: the limiter caps white at 0.975
     mx, mn = a.max(-1), a.min(-1)
     ok = mx > 25
     s["sat"] = round(float(((mx - mn) / np.maximum(mx, 1))[ok].mean()) if ok.any() else 0.0, 4)

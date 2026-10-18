@@ -83,6 +83,21 @@ var GRADE3 = (function () {
             KA(e.property("Master Saturation"), A, L, "hsSat", fps); KA(e.property("Red Saturation"), A, L, "hsRed", fps);
             KA(e.property("Yellow Saturation"), A, L, "hsYellow", fps); KA(e.property("Cyan Saturation"), A, L, "hsCyan", fps);
             KA(e.property("Blue Saturation"), A, L, "hsBlue", fps);
+            KA(e.property("Magenta Saturation"), A, L, "hsMagenta", fps);
+        });
+        return l;
+    }
+
+    // skin qualifier: faces stay faces in every act (HSL Secondary key on skin, saturation pulled back inside it)
+    function buildSkin(main, X, ctx, end) {
+        var S = X.skin, l = adj(main, "GRADE_SKIN (skin qualifier)", 0, end, ctx.fps);
+        TRY(ctx, "skin", function () {
+            var e = fxAdd(l, "ADBE Lumetri", "Lumetri skin key"), g = e.property("ADBE Lumetri-0006"), k = g.property("key");
+            k.property("hueCenter").setValue(S.hueCenter); k.property("hueRange").setValue(S.hueRange); k.property("hueSoftness").setValue(S.hueSoftness);
+            k.property("saturationLow").setValue(S.satLow); k.property("saturationHigh").setValue(S.satHigh); k.property("saturationSoftness").setValue(S.satSoft);
+            k.property("lightnessLow").setValue(S.lumLow); k.property("lightnessHigh").setValue(S.lumHigh); k.property("lightnessSoftness").setValue(S.lumSoft);
+            g.property("refine").property("blur").setValue(S.blur);
+            g.property("correction").property("saturation").setValue(S.saturation);
         });
         return l;
     }
@@ -104,6 +119,7 @@ var GRADE3 = (function () {
         var X = E.x.finish, end = X.gradeEnd;
         buildTrim(main, X, ctx, end);
         buildLook(main, X, ctx, end);
+        buildSkin(main, X, ctx, end);
         buildBloom(main, X, ctx, end);
         var F = X.finish, s = adj(main, "GRADE_SHARPEN", 0, end, ctx.fps);
         TRY(ctx, "sharpen", function () {

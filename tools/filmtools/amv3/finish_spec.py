@@ -28,36 +28,40 @@ V2_LOOKS = {
                   vibrance=10, cShadows=2, cMids=8, cHighlights=2,
                   wShadows=[0.46, 0.515, 0.56], wMids=[0.52, 0.505, 0.47], wHighlights=[0.61, 0.54, 0.37],
                   cbShadows=[-3, 1, 4], cbMids=[3, 1, -3], cbHighlights=[7, 3, -8],
-                  hsSat=0, hsRed=2, hsYellow=8, hsCyan=0, hsBlue=-4),
+                  hsSat=0, hsRed=2, hsYellow=8, hsCyan=0, hsBlue=-4, hsMagenta=0),
     "andrew": dict(temp=-26, tint=-3, contrast=20, highlights=-6, shadows=4, whites=4, blacks=-4, exposure=0, saturation=110,
                    vibrance=12, cShadows=-2, cMids=8, cHighlights=4,
                    wShadows=[0.38, 0.50, 0.66], wMids=[0.44, 0.50, 0.58], wHighlights=[0.53, 0.52, 0.45],
                    cbShadows=[-8, 1, 10], cbMids=[-4, 1, 6], cbHighlights=[3, 1, -2],
-                   hsSat=0, hsRed=0, hsYellow=14, hsCyan=26, hsBlue=14),
+                   hsSat=0, hsRed=0, hsYellow=14, hsCyan=26, hsBlue=14, hsMagenta=0),
     "tom": dict(temp=6, tint=3, contrast=24, highlights=0, shadows=10, whites=8, blacks=-5, exposure=0, saturation=112,
                 vibrance=8, cShadows=-3, cMids=10, cHighlights=8,
                 wShadows=[0.41, 0.49, 0.60], wMids=[0.545, 0.495, 0.455], wHighlights=[0.58, 0.52, 0.43],
                 cbShadows=[-7, 0, 9], cbMids=[5, -1, -4], cbHighlights=[6, 1, -5],
-                hsSat=0, hsRed=24, hsYellow=0, hsCyan=-6, hsBlue=-8),
+                hsSat=0, hsRed=24, hsYellow=0, hsCyan=-6, hsBlue=-8, hsMagenta=0),
 }
 # The references' richness: saturated reds and teal, deeper contrast (blacks pulled down, toe kept by the limiter's
 # output black), strong bloom above a high threshold. Skin: only red saturation is pushed, the hue wheels stay v2's.
 LOOK_PUSH = {
-    "tobey": dict(contrast=20, saturation=114, vibrance=16, blacks=-6, cShadows=-2, hsRed=10, hsYellow=12,
+    "tobey": dict(contrast=20, saturation=112, vibrance=16, blacks=-6, cShadows=-2, hsRed=5, hsYellow=10, hsMagenta=-20,
                   wShadows=[0.44, 0.52, 0.59], cbShadows=[-5, 1, 6],
                   bloomThreshold=78, bloomRadius=70, bloomIntensity=0.9, bloomColor=[1.0, 0.80, 0.52]),
-    "andrew": dict(contrast=26, saturation=118, vibrance=18, blacks=-8, cShadows=-5, hsRed=8, hsYellow=18, hsCyan=34,
+    "andrew": dict(contrast=26, saturation=118, vibrance=18, blacks=-8, cShadows=-5, hsRed=8, hsYellow=18, hsCyan=34, hsMagenta=-10,
                    hsBlue=18, bloomThreshold=78, bloomRadius=60, bloomIntensity=0.95, bloomColor=[0.55, 0.86, 1.0]),
-    "tom": dict(contrast=30, saturation=122, vibrance=14, blacks=-9, cShadows=-6, hsRed=34, hsYellow=6,
+    "tom": dict(contrast=30, saturation=122, vibrance=14, blacks=-9, cShadows=-6, hsRed=34, hsYellow=6, hsMagenta=-8,
                 cbShadows=[-9, 0, 11], bloomThreshold=80, bloomRadius=55, bloomIntensity=0.9, bloomColor=[1.0, 0.64, 0.44]),
 }
+# Skin qualifier (operator, s_grade1 f200: skin went hot orange-red): Lumetri HSL Secondary keyed on skin hue/sat/lightness,
+# saturation pulled back inside the key, on its own layer after the look (before the lens light, so leaks keep their colour).
+SKIN = dict(hueCenter=24, hueRange=14, hueSoftness=10, satLow=12, satHigh=80, satSoft=10, lumLow=12, lumHigh=92, lumSoft=10,
+            blur=4, saturation=80)
 FINISH = dict(sharpen=dict(amount=42, radius=0.9, threshold=2), grain=dict(intensity=0.22, size=0.7),
               vignette=dict(amount=-0.38, midpoint=52, roundness=0, feather=75),
               limit=dict(whites=-4, highlights=-6, outBlack=0.012, outWhite=0.975))
 
 # ---------------------------------------------------------------- lens
 LEAKS = {   # [picture-highlight leak colour, organic wash colour]
-    "warm_gold": [[1.0, 0.70, 0.30], [1.0, 0.52, 0.16]],
+    "warm_gold": [[1.0, 0.78, 0.48], [1.0, 0.56, 0.22]],     # softer than the orange washes: Tobey's leaks sit on faces
     "cyan_amber": [[0.30, 0.82, 1.0], [1.0, 0.60, 0.20]],
     "red_orange": [[1.0, 0.30, 0.10], [1.0, 0.56, 0.16]],
 }
@@ -90,8 +94,8 @@ CA_EDGE_PER_UNIT = 1.65   # measured: VR Chromatic Aberrations amount N -> R/B s
 CA_TAIL = (8.0, 0.6, 8)   # after the cut: edge split (8 + 0.6 ca) px fading to 0 over 8 f (10-20 px over the first 4 f)
 EXPO_PEAK = 0.75          # EV at the profile peak, before headroom
 FLASH_EV = {1: [1.9, 1.3, 0.6], 2: [2.6, 1.8, 0.9]}   # the 3 white frames of a flash cut, by edl `flash` (2 = the drop)
-LUMA_CAP = 0.68           # mean luma (0..1) the light aims under: at or above it the leak/bloom/exposure fade to HEAD_MIN
-HEAD_MIN = 0.12
+LUMA_CAP = 0.58           # mean luma (0..1) the light aims under: at or above it the leak/bloom/exposure fade to HEAD_MIN
+HEAD_MIN = 0.06
 TRIPTYCH_PEAKS = [(777, 0.8), (785, 0.85), (794, 0.85), (802, 0.6)]
 
 
@@ -126,7 +130,7 @@ def headroom(m):
     """Light gain for a frame of mean luma m: 1 for a dark frame (m <= 0.25), HEAD_MIN at LUMA_CAP and above."""
     if m is None:
         return 1.0
-    t = (LUMA_CAP - m) / (LUMA_CAP - 0.25)
+    t = (LUMA_CAP - m) / (LUMA_CAP - 0.22)
     return round(max(HEAD_MIN, min(1.0, t)), 3)
 
 
@@ -156,7 +160,8 @@ def lens_plan(E, zvec=None, luma=None):
         heads = []
         for j, x in enumerate(range(w0, w1)):
             p = prof[j]
-            h = headroom(luma.get(x))
+            m = luma.get(x)
+            h = headroom(m[0] if m else None)
             heads.append(h)
             u = (x - w0) / float(max(1, w1 - w0 - 1))
             K["blur"].append([x, round(70.0 * L["zblur"] * R["blur"] * p * p, 2)])
@@ -168,27 +173,32 @@ def lens_plan(E, zvec=None, luma=None):
             pl = p
             if R.get("wash4"):          # sling ring: the frame goes orange for 4 frames around the cut (luma +230 % peak)
                 pl = max(p, {f - 2: 0.7, f - 1: 1.0, f: 1.0, f + 1: 0.55}.get(x, 0.0))
-            K["bloom"].append([x, round(1.4 * lg * pl * h, 3)])
-            K["bloomThr"].append([x, round(72 - 22 * pl * h, 1)])
+            K["bloom"].append([x, round(1.0 * lg * pl * h * h, 3)])          # a wide glow on a bright frame is a veil: h^2
+            K["bloomThr"].append([x, round(76 - 14 * pl * h, 1)])
             K["leak"].append([x, round(min(100.0, 115.0 * lg * pl ** 1.3 * h), 1)])
             K["wash"].append([x, round(min(100.0, (100.0 if R.get("wash4") else 70.0) * lg * pl ** 1.1 * h), 1)])
             e = EXPO_PEAK * pl * pl * h
             if fl and f <= x < f + 3:
-                e = max(e, FLASH_EV[min(fl, 2)][x - f] * max(0.45, h))
+                # white flash: ~30 % of the pixels clipped on the first frame. Exposure that takes the frame's 70th
+                # percentile (~0.82 x its 90th, YHIGH) to white, x FLASH_EV shape (frames 2 and 3 fade).
+                hi = m[1] if m else 0.6
+                ev1 = max(0.3, min(2.6, math.log(0.95 / max(0.92 * hi, 0.05), 2)))
+                sh = FLASH_EV[min(fl, 2)]
+                e = max(e, ev1 * sh[x - f] / sh[0] * (1.0 if fl >= 2 else 0.85))
             K["expo"].append([x, round(e, 3)])
             K["evo"].append([x, round(360.0 * 2.2 * u + 37 * i, 1)])
             ang = (i * 137.5) % 360
             K["drift"].append([x, [round(960 + 700 * math.cos(math.radians(ang)) * (u - 0.5), 1),
                                    round(540 + 400 * math.sin(math.radians(ang)) * (u - 0.5), 1)]])
         out.append(dict(id=C["id"], type=typ, f=f, w0=w0, w1=w1, act=act, center=[960, 540], colors=colors, flash=fl,
-                        seed=11 + 7 * i, leakKnee=0.55, leakRadius=70, bloomRadius=90, washContrast=170,
+                        seed=11 + 7 * i, leakKnee=round(0.55 + 0.3 * (1 - min(heads)), 3), leakRadius=70, bloomRadius=90, washContrast=170,
                         washBrightness=-48, washScale=[1100, 620], washAngle=round((i * 61.8) % 180, 1),
                         headroom=heads, keys=K))
     return out
 
 
 def plate_luma(seq, frames, cache_dir=None):
-    """{frame: mean luma 0..1} of a plate sequence over `frames` (ffmpeg signalstats on a 240 px copy; full-range PNG ->
+    """{frame: [mean luma, 90th percentile luma] 0..1} of a plate sequence over `frames` (ffmpeg signalstats on a 240 px copy; full-range PNG ->
     YAVG is 0..255). Cached by path and file mtimes."""
     import subprocess
     if not seq:
@@ -197,7 +207,7 @@ def plate_luma(seq, frames, cache_dir=None):
     want = sorted(f for f in set(frames) if seq["start"] <= f < seq["start"] + seq["n"])
     if not want:
         return {}
-    key = f"{d}|{seq['start']}|{seq['n']}|{os.path.getmtime(seq['first']):.0f}"
+    key = f"v2|{d}|{seq['start']}|{seq['n']}|{os.path.getmtime(seq['first']):.0f}"
     cache = Path(cache_dir) / "plate_luma.json" if cache_dir else None
     C = json.loads(cache.read_text()) if cache and cache.exists() else {}
     if key in C and all(str(f) in C[key] for f in want):
@@ -205,10 +215,11 @@ def plate_luma(seq, frames, cache_dir=None):
     ff = "/home/nikhil/code/film-making/bin/ffmpeg"
     ff = ff if os.path.exists(ff) else "ffmpeg"
     r = subprocess.run([ff, "-v", "error", "-start_number", str(seq["start"]), "-i", str(d / "f_%05d.png"), "-vf",
-                        "scale=240:-2,format=yuvj420p,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-",
+                        "scale=240:-2,format=yuvj420p,signalstats,metadata=print:file=-",
                         "-f", "null", "-"], capture_output=True, text=True)
     ys = [float(v) / 255.0 for v in re.findall(r"YAVG=([\d.]+)", r.stdout)]
-    allf = {seq["start"] + k: round(y, 4) for k, y in enumerate(ys)}
+    hs = [float(v) / 255.0 for v in re.findall(r"YHIGH=([\d.]+)", r.stdout)]
+    allf = {seq["start"] + k: [round(y, 4), round(hs[k] if k < len(hs) else y, 4)] for k, y in enumerate(ys)}
     if cache:
         cache.parent.mkdir(parents=True, exist_ok=True)
         C[key] = {str(k): v for k, v in allf.items()}
@@ -383,7 +394,7 @@ def extend(E, stage_dir=None, outro_dir=None, cache_dir=None):
     win = [x for C in E["cuts"] for x in range(C["w0"], C["w1"])]
     luma = plate_luma(P.get("plate"), win, cache_dir) if P.get("plate") else {}
     X = dict(passes=P, gradeEnd=end, looks=L, actKeys=act_idx, trim=trim_keys(E, end),
-             finish=FINISH, lens=lens_plan(E, load_zvec(stage_dir), luma), letterbox=letterbox(E), textTint=text_tint(L),
+             finish=FINISH, skin=SKIN, lens=lens_plan(E, load_zvec(stage_dir), luma), letterbox=letterbox(E), textTint=text_tint(L),
              textGlow=TEXT_GLOW, lightGlows=LIGHT_GLOWS)
     T = titles_E(E)
     E = dict(E, titles=T["titles"])
