@@ -24,6 +24,9 @@ def load(path):
                 d[k] = float(v)
             except ValueError:
                 d[k] = float("nan")
+        # duplicated frames (frame-rate conversion: ref a repeats one frame every 30) carry no motion: drop them
+        if d.get("sim_s") == 1.0 and abs(d.get("sim_tx", 1)) < 0.05 and abs(d.get("sim_rot", 1)) < 0.005:
+            d["sim_inl"] = float("nan")
         rows[int(d["f"])] = d
     return rows
 
