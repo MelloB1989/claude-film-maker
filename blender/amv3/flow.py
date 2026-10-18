@@ -217,7 +217,7 @@ def prev_hold(T, ctx):
 ATTACK = 1.5  # A's zoom speed grows x1.5 per frame into the cut (REFS gate: x1.35-1.7 over the last 4 f)
 DECAY_RANGE = (1.12, 1.4)  # B's speed falls x1/1.12 .. x1/1.6 per frame (REFS gate: x1.15-1.27 with a >= 8 f tail)
 DECAY = 1.22  # B's default speed decay per frame (REFS k 0.80-0.88 -> x1.14-1.25)
-DROP_T = 1.8  # A's speed one frame before the cut / B's one frame after, the target (A's peak gives way first)
+DROP_T = 2.2  # A's speed one frame before the cut / B's one frame after, the target (A's peak gives way first)
 DROP_MAX = 2.3  # max ratio of A's speed one frame before the teleport to B's one frame after (REFS: median <= 2.3)
 RACK_PX = 26.0  # B's rack defocus at the cut (blur circle, px at 1920): legible by +2, sharp by +4/+5
 RACK_F = 5.0
@@ -460,8 +460,11 @@ def build_turn(T, ctx):
     def fn(t):
         st = window_blend(A, B, w0, w1, t)
         if pb:
-            u = (t - w0) / float(w1 - w0)
-            st = st.with_(s=st.s * math.exp(-pb * math.sin(math.pi * u) ** 2))
+            # pull back to see the box, peaking 2 f after the cut, so the zoom keeps its sign through the cut (out on
+            # both sides); the push back onto B's face happens in the slow tail of the landing
+            tp = min(f + 2.0, w1 - 3.0)
+            bump = cl.smootherstep((t - w0) / (tp - w0)) if t < tp else 1 - cl.smootherstep((t - tp) / (w1 - tp))
+            st = st.with_(s=st.s * math.exp(-pb * bump))
         else:
             st = fin(st)
         M = rot_about(P, axis, turn(t)) @ FA @ local_matrix(st)
@@ -525,9 +528,9 @@ def box_and_glints(T, ctx, o, C, axis, d, hd, pal, vis, turn):
     em = gm.node_tree.nodes["Emission"].inputs["Strength"]
     for fr in range(T["w0"] - 1, T["w1"] + 2):
         x = (fr - T["f"]) / 4.0
-        em.default_value = 9.0 * math.exp(-x * x)
+        em.default_value = 2.5 * math.exp(-x * x)
         em.keyframe_insert("default_value", frame=fr)
-    th = 0.007
+    th = 0.004
     bars = []
     W, H = cl.CARD_W, cl.CARD_H
     for (cx, cy, lx, ly) in ((0, H / 2, W, th), (0, -H / 2, W, th), (W / 2, 0, th, H), (-W / 2, 0, th, H)):
@@ -575,7 +578,9 @@ def build_flip(T, ctx):
     for fr2 in range(2 * (w0 - 1), 2 * (w1 + 1) + 1):
         t = fr2 / 2.0
         u = (t - w0) / float(w1 - w0)
-        piv.rotation_euler = (0, sg * phimax * cl.smootherstep(u / 0.7), 0)
+        # the page holds while the camera pushes into A, then swings open through the cut (f-1.5 .. f+5), well before
+        # the camera reaches its plane
+        piv.rotation_euler = (0, sg * phimax * cl.smootherstep((t - (f - 1.5)) / 6.5), 0)
         piv.keyframe_insert("rotation_euler", frame=t)
     # A's state re-expressed against the (scaled) B card: one C1 Hermite push from A's framing to B's
     xA, yA, zA = cl.local_pose(A)[0]
