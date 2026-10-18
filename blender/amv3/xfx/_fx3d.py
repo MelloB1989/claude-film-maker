@@ -524,10 +524,11 @@ def plate_mat(ctx, sid):
     m = None
     try:
         far = Matrix.Translation((0, 0, -5000.0 - 10 * len(_PLATE_MATS)))
-        card = ctx.make_card(sid, "xfxB_src_" + sid, matrix=far, collection="plate")
-        m = card.active_material
-        card.hide_render = True
-        card.hide_viewport = True
+        try:
+            card = ctx.make_card(sid, "xfxB_src_" + sid, matrix=far, collection="plate", frames=(0, 1))
+        except TypeError:
+            card = ctx.make_card(sid, "xfxB_src_" + sid, matrix=far, collection="plate")
+        m = card.active_material  # the card itself sits 5 km below everything, out of every view
     except Exception as e:  # panels may not be cards in the core: read the plate folder
         ctx.log("xfxB: make_card(%s) failed (%s), using the plate folder" % (sid, e))
     if m is None:
@@ -561,6 +562,19 @@ def key_matrix(ob, f, M, prev=None):
     ob.keyframe_insert("location", frame=f)
     ob.keyframe_insert("rotation_quaternion", frame=f)
     ob.keyframe_insert("scale", frame=f)
+
+
+def act_id(ctx, f):
+    a = ctx.act_at(f)
+    return a["id"] if isinstance(a, dict) else a
+
+
+def dof(ctx, f, focus, fstop):
+    """Rack focus key through the stage (ctx.key_dof); the bare camera when the ctx has none."""
+    if hasattr(ctx, "key_dof"):
+        ctx.key_dof(f, max(focus, 0.01), fstop)
+    else:
+        key_defocus(bpy.context.scene.camera, f, focus, fstop)
 
 
 def key_defocus(cam, f, focus, fstop):

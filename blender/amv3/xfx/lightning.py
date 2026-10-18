@@ -27,11 +27,8 @@ from mathutils import Matrix, Quaternion, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _fx3d as fx  # noqa: E402
 
-try:
-    from camlib import State, FILL_DIST
-except ImportError:  # harness without the core
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_harness"))
-    from camlib import State, FILL_DIST
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from camlib import State, FILL_DIST  # noqa: E402
 
 
 def _params(T):
@@ -117,9 +114,9 @@ def build(T, ctx):
     MO = Matrix.Translation(O)
     rng = random.Random(4360 + f)
     light, plate = ctx.coll("light"), ctx.coll("plate")
-    act = ctx.act_at(f)["id"]
+    act = fx.act_id(ctx, f)
     pal = ctx.palette(act)
-    ctx.env(O, act)
+    ctx.env(O, act, frames=(w0, w1 + 1))
     electric = (0.62, 0.86, 1.0)
     hot = (0.9, 0.97, 1.0)
 
@@ -135,11 +132,9 @@ def build(T, ctx):
         ctx.key_cam(t, loc, rot)
     ctx.teleport(P["tp1"])
     ctx.key_cam(P["tp1"] + 0.01, *ctx.pose(cardB, pa.stateB(P["tp1"] + 0.01)))
-    cam = bpy.context.scene.camera
-    fx.key_defocus(cam, w0, 5.0, 64.0)
-    fx.key_defocus(cam, fh, pa.z(fh), 64.0)
-    for t, fr, fs in ((f, 0.55, 2.4), (f + 1, 0.7, 3.2), (f + 2, 0.85, 5.0), (f + 4, 1.0, 12.0), (w1 - 1, 1.0, 64.0)):
-        fx.key_defocus(cam, t, (pa.z(t) + pa.D) * fr, fs)
+    fx.dof(ctx, fh, pa.z(fh), 128.0)
+    for t, fr, fs in ((f, 0.55, 2.4), (f + 1, 0.7, 3.2), (f + 2, 0.85, 5.0), (f + 4, 1.0, 12.0), (w1 - 1, 1.0, 128.0)):
+        fx.dof(ctx, t, (pa.z(t) + pa.D) * fr, fs)
 
     # ---- the fractured picture (A), seamless until the break
     imp_px = P["impact"]
@@ -176,7 +171,7 @@ def build(T, ctx):
             fx.key_matrix(sh.ob, t, M, prev)
             sh.track[t] = pos.copy()
         fx.key_visible(sh.ob, fh, P["tp1"])
-    intact = ctx.make_card(sa, "lt_A_" + sa, matrix=MO)  # seamless picture until the break (shard bevels show seams)
+    intact = ctx.make_card(sa, "lt_A_" + sa, matrix=MO, frames=(w0, f))  # seamless picture until the break (shard bevels show seams)
     fx.key_visible(intact, P["tp0"], fh)
     for t, g in ((fh - 0.5, 0.0), (fh, 4.0), (f, 3.5), (f + 1, 2.5), (f + 3, 1.2), (f + 6, 0.5)):
         fx.key_glass_glow(rim, t, g)
@@ -247,7 +242,7 @@ def build(T, ctx):
 
     # ---- B behind: a k x copy of S15's card at -D
     MB = MO @ Matrix.Translation((0, 0, -pa.D)) @ Matrix.Scale(P["k_B"], 4)
-    ctx.make_card(sb, "lt_B_" + sb, matrix=MB)
+    ctx.make_card(sb, "lt_B_" + sb, matrix=MB, frames=(w0, w1 + 1))
     ctx.log("lightning: %d shards, z_cut %.3f m (s %.2f), D %.3f m, B at cut s %.2f, v_cut %.3f m/f"
             % (len(shards), pa.z_cut, FILL_DIST / pa.z_cut, pa.D, pa.stateB(fh).s, pa.v_cut))
 

@@ -25,11 +25,8 @@ from mathutils import Matrix, Quaternion, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _fx3d as fx  # noqa: E402
 
-try:
-    from camlib import State, FILL_DIST
-except ImportError:  # harness without the core
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "_harness"))
-    from camlib import State, FILL_DIST
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from camlib import State, FILL_DIST  # noqa: E402
 
 
 def _track(ctx, sid, f, default):
@@ -110,7 +107,7 @@ def build(T, ctx):
     MA, MB = fx.unit_matrix(cardA.matrix_world), fx.unit_matrix(cardB.matrix_world)
     rng = random.Random(4800 + f)
     light, plate = ctx.coll("light"), ctx.coll("plate")
-    palA, palB = ctx.palette(ctx.act_at(f - 1)["id"]), ctx.palette(ctx.act_at(f)["id"])
+    palA, palB = ctx.palette(fx.act_id(ctx, f - 1)), ctx.palette(fx.act_id(ctx, f))
 
     # ---- camera
     for t in fx.frames_half(w0, fh - 0.5):
@@ -122,12 +119,10 @@ def build(T, ctx):
         ctx.key_cam(t, *ctx.pose(cardB, stB(t)))
     # rack defocus on the landing (REFS: the first 2-4 B frames are lens-blurred, clearing over 6-10 f): the focus sits
     # on the near shards at the hit and pulls back onto Tom's lens
-    cam = bpy.context.scene.camera
-    fx.key_defocus(cam, w0, 5.0, 64.0)
-    fx.key_defocus(cam, fh - 0.01, 5.0, 64.0)
+    fx.dof(ctx, fh - 0.01, 5.0, 128.0)
     for t, fr, fs in ((fh + 0.01, 0.5, 2.2), (f + 1, 0.55, 2.4), (f + 2, 0.7, 3.0), (f + 4, 0.88, 5.0), (f + 7, 1.0, 11.0),
-                      (f + 10, 1.0, 32.0), (w1 - 0.5, 1.0, 64.0)):
-        fx.key_defocus(cam, t, FILL_DIST / stB(t).s * fr, fs)
+                      (f + 10, 1.0, 40.0), (w1 - 0.5, 1.0, 128.0)):
+        fx.dof(ctx, t, FILL_DIST / stB(t).s * fr, fs)
 
     # ---- the fracture, in A-card pixels around the lens at the hit
     sp = stA(fh)
