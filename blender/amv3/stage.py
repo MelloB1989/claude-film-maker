@@ -394,8 +394,14 @@ class StageContext:
                 P, L = self.bounds[c["id"]]["B"], T["w0"] - c["w1"]
                 if L <= 0:
                     return A
+                # every component covers (rate0 + rate1) / 2 per frame: the hold never doubles back
                 s = P.s * math.exp((P.ds + A.ds) / 2.0 * L)
-                return A.with_(s=max(s, cl.min_scale(A.cx, A.cy, A.r, 0.01) * 1.005))
+                cx = P.cx + (P.dcx + A.dcx) / 2.0 * L
+                cy = P.cy + (P.dcy + A.dcy) / 2.0 * L
+                r = P.r + (P.dr + A.dr) / 2.0 * L
+                s = max(s, cl.min_scale(960, 540, r, 0.01) * 1.005)
+                cx, cy = cl.clamp_center(s, cx, cy, r, 0.01)
+                return A.with_(s=s, cx=cx, cy=cy, r=r)
         return A
 
     def exit_state(self, T):

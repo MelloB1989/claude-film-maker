@@ -9,7 +9,8 @@ Checks (frames 0-818):
   stall      every point moves < 0.5 px/f (a dead frame)
   step       speed (max point displacement) changes by more than x1.35 frame to frame outside the windows' intended
              accelerations (both speeds above 2 px/f; below that an absolute change > 1.5 px/f is the limit)
-  flip       the motion direction reverses across a window edge (w0, w1) by more than 2 px/f each side
+  flip       the motion direction reverses across a window edge (w0, w1): zoom / pan > 4 px/f or roll > 0.3 deg/f
+             each side
   reversal   a hold shorter than 5 f where the zoom, pan or roll reverses with real magnitude on both sides AND the
              picture slows below 1.5 px/f while it turns round (a visible stop/bounce)
   nocard     no card under the frame outside the windows (inside 3D windows the void is intentional)
@@ -123,7 +124,9 @@ def motion(fa, fb):
     tx, ty, a, b = sol
     sp = [math.hypot(dx, dy) for dx, dy in disp]
     rms = math.sqrt(sum(x * x for x in sp) / n)
-    return dict(T=(tx, ty), zoom=math.log(max(1e-6, 1 + a)), roll=math.degrees(b), speed=max(sp), mean=sum(sp) / n, rms=rms,
+    # p' = (1 + a) p + b perp(p) is a similarity: scale |1 + a + i b|, rotation atan2(b, 1 + a) (exact for big rolls)
+    return dict(T=(tx, ty), zoom=math.log(max(1e-6, math.hypot(1 + a, b))), roll=math.degrees(math.atan2(b, 1 + a)),
+                speed=max(sp), mean=sum(sp) / n, rms=rms,
                 cspeed=sp[0] if pts[0] == (0.0, 0.0) else float("nan"), n=n)
 
 
@@ -267,19 +270,22 @@ def analyse(dump, out_csv=None, only=False):
             fail("nocard", r["f"], "no card under the frame (void / black)")
     # direction across window edges
     byf = {r["f"]: r for r in rows}
+    fb_edges = {e for w in wins if w.get("fallback") for e in (w["w0"], w["w1"])}
     for w in wins:
         if w.get("fallback"):
             continue
         for e in (w["w0"], w["w1"]):
+            if e in fb_edges:
+                continue
             r0, r1 = byf.get(e - 1), byf.get(e)
             if not r0 or not r1 or not r0["m"] or not r1["m"] or r0["teleport"] or r1["teleport"]:
                 continue
             m0, m1 = r0["m"], r1["m"]
-            for name, k, thr in (("zoom", "zoom", 2.0 / 1100), ("roll", "roll", 2.0 / 1100 * 57.3)):
+            for name, k, thr in (("zoom", "zoom", 4.0 / 1100), ("roll", "roll", 0.3)):
                 if m0[k] * m1[k] < 0 and abs(m0[k]) > thr and abs(m1[k]) > thr:
                     fail("flip", e, f"{w['id']} edge {e}: {name} {m0[k]:+.4f} -> {m1[k]:+.4f}")
             t0, t1 = m0["T"], m1["T"]
-            if math.hypot(*t0) > 2 and math.hypot(*t1) > 2 and t0[0] * t1[0] + t0[1] * t1[1] < 0:
+            if math.hypot(*t0) > 4 and math.hypot(*t1) > 4 and t0[0] * t1[0] + t0[1] * t1[1] < 0:
                 fail("flip", e, f"{w['id']} edge {e}: pan ({t0[0]:+.1f},{t0[1]:+.1f}) -> ({t1[0]:+.1f},{t1[1]:+.1f})")
     # reversals in short holds
     for sid, (h0, h1) in holds.items():

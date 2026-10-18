@@ -122,8 +122,8 @@ def cover(st, w=0.012, strength=1.0):
     Returns st (modified)."""
     if strength <= 0:
         return st
-    smin = max(min_scale(960.0, 540.0, st.r, 0.006), 1.0) ** strength
-    L, Lm = math.log(st.s), math.log(smin)
+    smin = max(min_scale(960.0, 540.0, st.r, 0.006), 1.0)
+    L, Lm = math.log(st.s), math.log(smin) - (1.0 - min(1.0, strength)) * 3.0  # a weak guard sits far below
     x = (Lm - L) / w
     L += w * (x + math.log1p(math.exp(-x))) if x > 0 else w * math.log1p(math.exp(x))
     st.s = math.exp(L)

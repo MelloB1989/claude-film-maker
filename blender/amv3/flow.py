@@ -269,8 +269,10 @@ def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK, decay=None):
         # frame after it with B's natural decay (the EDL peak is pulled in if needed; a push lands slowly by nature)
         V = DROP_T * vB1(math.log(decay) * TB)
         if TA > 1.0 and r0 * g ** (TA - 1) > V:
-            g = max(G_MIN, (V / r0) ** (1.0 / (TA - 1)))
-            Lp = LA0 + sign * r0 * (g ** TA - 1) / math.log(g)
+            g2 = min(g, max(G_MIN, (V / r0) ** (1.0 / (TA - 1))))  # only ever pulls the peak in
+            if g2 < g:
+                g = g2
+                Lp = LA0 + sign * r0 * (g ** TA - 1) / math.log(g)
         kA = max(0.3, math.log(g) * TA)
         vA1 = r0 * g ** max(0.0, TA - 1.0)
     else:
@@ -298,7 +300,7 @@ def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK, decay=None):
             else:
                 hi = mid
         kB = (lo + hi) / 2
-    kAr, kBr = max(kA * 1.6, 5.0), min(60.0, max(kB * 1.6, 4.0))  # the roll eases harder than the zoom
+    kAr, kBr = kA * 1.2, min(60.0, kB * 1.2)  # the roll eases a little harder than the zoom
     XA, XB = roll_split(A.dr, B.dr, R, TA, TB, kAr, kBr)
     rA_end = A.r + A.dr * TA + XA
     rB_start = B.r - B.dr * TB - XB
