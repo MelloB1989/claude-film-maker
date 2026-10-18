@@ -325,23 +325,25 @@ def _cam_light(P, coll):
         so.keyframe_insert("location", frame=t)
         so.keyframe_insert("rotation_euler", frame=t)
     X.set_linear(so)
-    # one slow wet highlight sweeping across the full-cover frames (149-152): a long softbox strip riding behind the
-    # camera, sized and moved with the camera's distance to the goo so its reflection crosses the whole frame
+    # one slow wet highlight sweeping across the full-cover frames (149-152): a long softbox strip 3 m behind the
+    # camera (inside the dome), swung across the view so its reflection direction sweeps the frame left to right,
+    # whatever the distance to the goo (a strip near the camera only lit the lip around the opening)
     bx = X.plane_obj("XA_sym_sweepbox", 1.0, 1.0, coll)
-    bx.data.materials.append(X.mat_emit("XA_sym_sweepbox_m", (0.92, 0.88, 1.0), 12.0))
+    bx.data.materials.append(X.mat_emit("XA_sym_sweepbox_m", (0.92, 0.88, 1.0), 9.0))
     bx.visible_camera = False
     bx.visible_shadow = False
     bx.rotation_mode = "QUATERNION"
     tilt = Quaternion((0, 0, 1), math.radians(-35.0))
+    h = 3.0
     for i in range(2 * 9 + 1):
         t = cut - 3.5 + 0.5 * i
-        d = FILL / P["sA"](t)
         u = X._sstep(cut - 2.8, cut + 1.8, t)
-        loc, rot, _ = (P["m_set"](t) @ Matrix.Translation(Vector(((-1.0 + 2.0 * u) * 0.75 * d, (0.3 - 0.6 * u) * d,
-                                                                   0.25 * d)))).decompose()
+        phi = (-1.0 + 2.0 * u) * 0.95  # reflection angle off the axis: shows at ~phi / 2 on a goo facing the lens
+        loc, rot, _ = (P["m_set"](t) @ Matrix.Translation(Vector((h * math.tan(phi), h * 0.25 * math.tan(-phi),
+                                                                   h)))).decompose()
         bx.location = loc
         bx.rotation_quaternion = rot @ tilt
-        bx.scale = (0.25 * d, 3.0 * d, 1.0)  # wide: it still reads through the cut's rack defocus
+        bx.scale = (0.45, 5.0, 1.0)
         for path in ("location", "rotation_quaternion", "scale"):
             bx.keyframe_insert(path, frame=t)
     X.set_linear(bx)

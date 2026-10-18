@@ -3,7 +3,8 @@
 A spark head whips round and draws an orange ring on S24 beside the kick; it spins open (sparks streaking in arcs with
 real deformation motion blur, embers flung off tangentially, two counter-rotating sigil circles), and S25 is already playing inside it (a private set: the S25 copy waits deep behind a hole cut in
 the S24 copy). The camera pans onto the ring and pushes through it; the ring blows past the frame edges, embers stream
-past the lens, and S25 lands still pushing in (its own in-drift) with a rack focus.
+past the lens, and S25 lands still pushing in (its own in-drift). Ring and S25 are still in the world; only the camera
+moves, focused on S25 throughout (EDIT.md v3.1).
 
 Teleports: home S24 -> private set at w0 + 0.5 (identical copy), private set -> home S25 at HANDOFF (S25 copy fills
 the frame, sparks behind the camera).
@@ -116,11 +117,12 @@ def bounds(T, ctx):
 
 # ------------------------------------------------------------------------------------------------- sparks
 def _ring_radius(P, t):
-    """Ring radius in metres: drawn open fast, breathing slightly, flaring as the camera passes."""
+    """Ring radius in metres: drawn open fast, then breathing slightly; it stays where it is in the world (v3.1: the
+    camera goes through it, the ring never comes at the camera)."""
     w0 = P["w0"]
     R = P["R0"] / 1000.0
     u = X._sstep(w0 + 0.2, w0 + 3.2, t)
-    return R * (0.15 + 0.85 * u ** 0.6) * (1 + 0.025 * math.sin(t * 1.9)) * (1 + 0.25 * X._sstep(P["cut"] - 1, P["w1"], t))
+    return R * (0.15 + 0.85 * u ** 0.6) * (1 + 0.025 * math.sin(t * 1.9))
 
 
 def _sparks(P, ctx, coll):
@@ -317,12 +319,13 @@ def build(T, ctx):
         return m
 
     def dof(t):
+        """v3.1: focused on S25 the whole way, so S24 and the ring defocus as the camera nears them; the aperture opens
+        during the approach and closes as S25 settles."""
         d = P["z"](t) - P["zB"]
         if t > t_out:
             d /= P["kB"]
-        u = X._sstep(cut + 0.5, cut + 6.0, t)
-        k = X._sstep(cut - 0.5, cut + 0.5, t)
-        return d * X.lerp(0.4, 1.0, u), X.lerp(64.0, X.lerp(1.4, 64.0, u), k)
+        n = X.lerp(64.0, 2.8, X._sstep(w0 + 2.0, w0 + 6.0, t))
+        return d, X.lerp(n, 64.0, X._sstep(cut + 1.0, w1, t))
 
     X.key_path(ctx, w0, w1, fn, teleports=(t_in, t_out), dof_fn=dof)
     _wash(P, light_c)
