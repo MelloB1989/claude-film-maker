@@ -229,15 +229,15 @@ def _sparks(P, ctx, coll):
     nt.links.new(attr.outputs["Fac"], ramp.inputs[0])
     em = X.node(nt, "ShaderNodeEmission")
     nt.links.new(ramp.outputs[0], em.inputs["Color"])
-    nt.links.new(X.math_node(nt, "MULTIPLY", _near_fade(nt, 0.15, 1.2), 22.0), em.inputs["Strength"])
+    nt.links.new(X.math_node(nt, "MULTIPLY", _near_fade(nt, 0.45, 1.9), 22.0), em.inputs["Strength"])
     nt.links.new(em.outputs[0], out.inputs["Surface"])
     ob.data.materials.append(m)
     return ob
 
 
-def _near_fade(nt, a=0.06, b=0.45):
-    """0 at the lens .. 1 beyond b m: ring light passing within a few cm of the lens would smear (defocused, focus on
-    S25) into a flat orange frame."""
+def _near_fade(nt, a=0.25, b=1.3):
+    """0 within a m of the lens .. 1 beyond b m: the ring passes ~0.6 m from the lens at 619 moving ~0.6 m/f, and its
+    light, defocused (focus on S25) and blurred, smeared into a full-frame orange flash; faded, 619 is a warm bloom."""
     cd = nt.nodes.new("ShaderNodeCameraData")
     mr = nt.nodes.new("ShaderNodeMapRange")
     mr.interpolation_type = "SMOOTHSTEP"
@@ -270,7 +270,7 @@ def _sigil_mat(name, seed, strength, col):
     fade = X.key_value(nt, "fade", [], 1.0)
     em = X.node(nt, "ShaderNodeEmission", Color=(*col, 1))
     nt.links.new(X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", mask, fade),
-                                                        _near_fade(nt)), strength), em.inputs["Strength"])
+                                                        _near_fade(nt, 0.4, 1.7)), strength), em.inputs["Strength"])
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
     add = nt.nodes.new("ShaderNodeAddShader")
     nt.links.new(em.outputs[0], add.inputs[0])
@@ -376,7 +376,7 @@ def _wash(P, coll):
     grad = X.math_node(nt, "ADD", 0.1, X.math_node(nt, "MULTIPLY", 0.9, X.math_node(
         nt, "EXPONENT", X.math_node(nt, "MULTIPLY", r2, -3.2))))
     # linear radiance added: 0.13 at the centre reads ~45 % brighter after the view transform (0.42 was a flat fill)
-    k = X.key_value(nt, "bloom", [(cut - 3.0, 0.0), (cut - 1.5, 0.06), (cut - 0.3, 0.13), (cut + 0.7, 0.09),
+    k = X.key_value(nt, "bloom", [(cut - 3.0, 0.0), (cut - 1.8, 0.07), (cut - 1.0, 0.12), (cut - 0.3, 0.13), (cut + 0.7, 0.09),
                                   (cut + 1.7, 0.035), (cut + 2.5, 0.0)])
     X.set_linear(nt)
     col = nt.nodes.new("ShaderNodeMix")
