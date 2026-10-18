@@ -43,7 +43,7 @@ FONTS = {  # key -> (file names to look for, fc-match pattern)
 # Novax palettes in 3D. top/hue: face gradient (top -> bottom); edge: bevel metal; side: extrusion metal;
 # glow: outline/pop emission; core: inside of chunks.
 PAL = {
-    "cyan_white": dict(top="#F2FCFF", hue="#0E9CFF", edge="#A8F2FF", side="#04234F", glow="#2FC8FF", core="#9FEFFF"),
+    "cyan_white": dict(top="#C8F1FF", hue="#0A6FE8", edge="#A8F2FF", side="#04234F", glow="#2FC8FF", core="#9FEFFF"),
     "red_gold": dict(top="#FFE59A", hue="#FF2A17", edge="#FFC23A", side="#7A0C05", glow="#FF4A1C", core="#FFD27A"),
     "crimson_white": dict(top="#FFFFFF", hue="#E8143E", edge="#FF6A86", side="#5E0016", glow="#FF1F4C", core="#FFC2CF"),
     "chrome": dict(top="#F4F7FF", hue="#9FB4D8", edge="#FFFFFF", side="#20283A", glow="#BFD4FF", core="#FFFFFF"),
@@ -715,7 +715,7 @@ class Title:
         act = self.act_palette()
         key = act.get("key", (1.0, 0.95, 0.9))
         specs = [  # name, word-space position (in word widths), colour, power W per (m of word width)^2, size
-            ("key", (-0.55, 0.65, 1.1), tuple(0.6 + 0.4 * c for c in key), 160.0, 0.8),
+            ("key", (-0.55, 0.65, 1.1), tuple(0.6 + 0.4 * c for c in key), 90.0, 0.8),
             ("rim", (0.75, 0.45, -0.55), hexlin(self.pal["glow"]), 260.0, 0.6),
             ("under", (0.1, -0.8, 0.45), hexlin(self.pal["hue"]), 90.0, 0.9),
         ]
@@ -829,7 +829,7 @@ class Title:
             u_sw = (f - t_sweep) / 9.0
             pos = -0.3 + 1.7 * ease_out_expo(u_sw * 0.9) if f >= t_sweep else -0.6
             amp = (math.sin(math.pi * clamp01(u_sw)) ** 0.7) * 5.0 if 0 <= u_sw <= 1 else 0.0
-            face = 0.75 - 0.45 * ease_out_expo((f - t_settle) / 8.0) if f >= t_settle else 0.75
+            face = 0.45 - 0.25 * ease_out_expo((f - t_settle) / 8.0) if f >= t_settle else 0.45
             if st.get("chrome"):
                 face = 1.0
             rim = 0.8 + 4.0 * ease_out_expo((f - t_settle) / 8.0) if f >= t_settle else 0.8
@@ -898,10 +898,11 @@ class Title:
         r = random.Random(L["i"] * 31 + 7)
         order = [3, 1, 5, 0, 6, 2, 4]
         o = order[L["i"] % len(order)] if L["n"] == 7 else L["i"]
-        ts = self.f0 + o * 1.7
-        dur = 12.0
+        ts = self.f0 + o * 1.4
+        dur = 10.0
         u = (f - ts) / dur
-        d0 = Vector((r.uniform(-0.6, 0.6) * Wm, r.uniform(-0.15, 0.45) * Wm, -r.uniform(2.6, 4.0) * Wm))
+        side = 1.0 if L["rest"].x >= 0 else -1.0
+        d0 = Vector((side * r.uniform(0.5, 1.1) * Wm, r.uniform(0.25, 0.7) * Wm, -r.uniform(1.4, 2.6) * Wm))
         e = ease_out_expo(u)
         pos = L["rest"] + d0 * (1.0 - e)
         ax = Vector((r.uniform(-1, 1), r.uniform(-1, 1), r.uniform(-0.4, 0.4))).normalized()
