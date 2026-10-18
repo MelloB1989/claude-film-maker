@@ -29,9 +29,11 @@ DEF = dict(land=1.1, reveal=(10, 8), fill=1.15, fstop=2.0)
 LAND_LO = 1.0  # the back card's least scale at the crossing (it must cover the frame when the front plane passes)
 GROW_MIN = 1.2  # the back card grows at least this much between the reveal and the crossing (eye / lens)
 GROW_OPEN = 3.0  # an eye / lens opening: B grows at least this much from the reveal to the crossing
-GROW_BG = 1.3  # ... and a background reveal (B shows most of the frame behind the subject; its faded tiles at the rim)
-ROOM_GROW = 1.15  # the landing room the speed cap plans with (B's settle x this over LAND_LO)
-SETTLE_GROW = 1.35  # how much deeper than the EDL settle a push may land (to keep the landing's natural decay)
+GROW_BG = 1.8  # ... and a background reveal (B shows most of the frame behind the subject; its faded tiles at the rim)
+ROOM_GROW = 1.3  # the landing room the speed cap plans with (B's settle x this over LAND_LO)
+SETTLE_GROW = 1.35
+PULL_SHRINK = 0.25  # a pull's A shrinks at least x e^0.25 from w0 to the crossing
+PULL_LAND_LO = 0.55  # ... down to this at most  # how much deeper than the EDL settle a push may land (to keep the landing's natural decay)
 
 
 def sign_of(T):
@@ -65,6 +67,20 @@ def bounds(T, ctx):
         fb = flow.focus_of(T, "b", ctx)
         cx, cy = cl.clamp_center(B.s, B.cx + 0.7 * (fb[0] - B.cx), B.cy + 0.7 * (fb[1] - B.cy), B.r, 0.01)
         B = B.with_(cx=cx, cy=cy)
+    # the pan keeps its direction through the window edges: A already drifts towards the crossing point and B's exit
+    # drift continues the landing's direction (a Hermite from slope 1.2 x mean to 0 never turns round)
+    L = Layout(T, ctx, A, B)
+    TA, TB = L.tx - L.w0, L.w1 - L.tx
+    cpre = L.P if L.push else L.fK
+    cpost = L.fK if L.push else L.P
+    if not adj and flow.prev_hold(T, ctx) >= flow.REVERSAL_MIN:
+        for _ in range(2):
+            A = ctx.settle_entry(T, A.with_(dcx=1.2 * (cpre[0] - A.cx) / TA, dcy=1.2 * (cpre[1] - A.cy) / TA),
+                                 fixed_rate=True)
+    if flow.next_hold(T, ctx) >= flow.REVERSAL_MIN:
+        B = B.with_(dcx=1.2 * (B.cx - cpost[0]) / TB, dcy=1.2 * (B.cy - cpost[1]) / TB)
+    if L.push and L.B_s > B.s * 1.001:
+        B = B.with_(s=L.B_s)  # the landing goes deeper than the EDL settle: the hold after starts there
     # the attack needs a minimum entry speed (x G_MAX per frame at most): the hold accelerates into it
     if not adj:
         for _ in range(3):
@@ -183,6 +199,7 @@ class Layout:
         self.eq_diam = 2.0 * math.sqrt(max(1e-6, info_r["area"]) * 1920 * 1080 / math.pi)
         self.fK = flow.focus_of(T, "b" if self.push else "a", ctx)
         self.fill = float(p.get("fill", DEF["fill"]))
+        self.touching = any(c["w0"] == self.w1 and c["id"] != T["id"] for c in ctx.E["cuts"])
         land = float(p.get("land", DEF["land"]))
         if self.push:
             land = max(0.95, min(land, B.s / 1.08))
@@ -199,7 +216,7 @@ class Layout:
             self.z1 = F / B.s
             z_r = self.z1 * 0.7
         D = 0.5 * z_r
-        land = self.land_min
+        land = self.land_min if self.push else min(self.land_min, A.s * math.exp(-PULL_SHRINK))
         self.B_s = B.s  # a push may need a deeper landing than the EDL settle (see _push_land)
         for _ in range(16):
             land = self._push_land(D) if self.push else self._balance(D, land)
@@ -253,7 +270,7 @@ class Layout:
         kn = math.log(flow.DECAY) * TB
         e = cl.expo_in_d(1.0, kn)
         r1 = self.B.ds
-        room = math.log(self.B.s * ROOM_GROW / LAND_LO)
+        room = math.log(self.B.s * (1.0 if self.touching else ROOM_GROW) / LAND_LO)
         vcap = r1 - (r1 * TB - room) * e / TB
 
         def va(D):
@@ -286,8 +303,12 @@ class Layout:
         Lx = L1 - room
         lo, hi = math.log(min(LAND_LO, self.land_min)), math.log(self.B_s / 1.03)
         if Lx < lo:
-            Lx = lo
-            self.B_s = min(self.B.s * SETTLE_GROW, math.exp(Lx + room))
+            if self.touching:
+                # the next window starts at w1 from this landing: keep B, let the crossing scale give (>= 0.85)
+                Lx = max(Lx, math.log(0.85))
+            else:
+                Lx = lo
+                self.B_s = min(self.B.s * SETTLE_GROW, math.exp(Lx + room))
         return math.exp(min(hi, Lx))
 
     def _balance(self, D, land0):
@@ -298,7 +319,10 @@ class Layout:
         if self.push:
             lo, hi = math.log(self.land_min), max(math.log(self.land_min), L1 - 0.06)
         else:
-            lo, hi = math.log(self.land_min), max(math.log(self.land_min), L0 - 0.06)
+            # a pull: A (the back card) shrinks from its entry scale into the crossing; it may show its faded mirror
+            # tiles there (the frame is A seen through B's region), like the old zt pull
+            hi = min(math.log(self.land_min), L0 - PULL_SHRINK)
+            lo = min(hi, math.log(PULL_LAND_LO))
         if hi - lo < 1e-4:
             return math.exp(lo)
 
@@ -454,7 +478,7 @@ def build_nest(T, ctx):
         mat = front.active_material
     n.front, n.back = front, back
     front["amv3_region_area"] = float(L.info_r["area"])
-    zs = [n.z(w0 + 0.25 * i) for i in range(int((w1 - w0) * 4))]
+    zs = [n.z(w0 + 0.25 * i) for i in range(int((min(w1, tx + 3) - w0) * 4))]  # the end may turn into the next hold
     if any(b2 > a2 + 1e-6 for a2, b2 in zip(zs, zs[1:])) if L.push else any(b2 < a2 - 1e-6 for a2, b2 in zip(zs, zs[1:])):
         ctx.log(f"  WARN nest {T['id']}: the dolly doubles back inside the window")
     # the reveal: opacity of the front card inside the region, feather scaled with the region's size on screen
@@ -481,6 +505,7 @@ def build_nest(T, ctx):
     # camera: one path on [w0, w1), then the copy -> B's home card teleport (identical relative pose)
     th = w1 - 0.5
     ctx.teleport(th)
+    ctx.seamless.add(th)  # copy -> home card, identical relative pose: the gate measures straight through it
     ctx.key_path(n.pose, w0, w1, 0.25)
     cardB = ctx.card(bsid)
     eps = ctx.EPS

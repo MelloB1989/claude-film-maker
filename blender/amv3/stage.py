@@ -103,6 +103,7 @@ class StageContext:
         self._written = None  # rig fcurves once write_camera has run (cam_matrix then reads them)
         self._window = None  # (w0, w1) of the window being built (key_rig ownership)
         self.nests = {}  # cut id -> nest.Nest
+        self.seamless = set()  # teleports between identical relative poses (a card copy -> its home card)
         self.denoise_spans = []  # (f0, f1) frames rendered with OIDN (glass / volume windows, ctx.denoise)
         self.dof = {}  # t -> (focus distance m, f-stop): rack pulls; elsewhere the camera is a pinhole (FSTOP_SHARP)
         self.teleports = []
@@ -634,15 +635,19 @@ def setup_scene(ctx, args):
     except AttributeError:
         pass
     set_filter(ctx, args.filter)
+    # cards are emission: light paths only matter for the FX (glass shards, glossy letters); keep them short and clamp
+    # fireflies (operator review of the f482 drop window)
     cy.max_bounces = 4
-    cy.diffuse_bounces = 2
+    cy.diffuse_bounces = 1
     cy.glossy_bounces = 2
     cy.transmission_bounces = 4
-    cy.transparent_max_bounces = 16
+    cy.volume_bounces = 0
+    cy.transparent_max_bounces = 12
     cy.caustics_reflective = False
     cy.caustics_refractive = False
     cy.blur_glossy = 1.0
-    cy.sample_clamp_indirect = 10.0
+    cy.sample_clamp_direct = 3.0
+    cy.sample_clamp_indirect = 1.5
     sc.render.use_motion_blur = True
     sc.render.motion_blur_shutter = SHUTTER_HOLD
     for owner in (cy, sc.render):
@@ -1299,13 +1304,14 @@ def camera_dump(ctx, f0, f1):
             if not see:
                 continue
             vis.append(dict(name=ob.name, M=[list(r) for r in M], Mi=[list(r) for r in M.inverted_safe()],
-                            tile=int(ob.get("amv3_tile", 1))))
+                            tile=int(ob.get("amv3_tile", 1)), shot=ob.get("amv3_shot", "")))
         frames.append(dict(f=f, cam=[list(r) for r in ce.matrix_world], lens=ce.data.lens, cards=vis,
                            shutter=sc.render.motion_blur_shutter))
     windows = [dict(id=c["id"], type=c["type"], f=c["f"], w0=w0, w1=w1, fallback=c["id"] in ctx.fallbacks,
                     region=(ctx.nests[c["id"]].kind if c["id"] in ctx.nests else None)) for w0, w1, c in ctx.windows]
     holds = {sid: [h[0], h[1]] for sid, h in ctx._holds.items()}
-    return dict(frames=frames, teleports=ctx.teleports, windows=windows, holds=holds, res=[1920, 1080])
+    return dict(frames=frames, teleports=ctx.teleports, seamless=sorted(ctx.seamless), windows=windows, holds=holds,
+                res=[1920, 1080])
 
 
 def render_identity(ctx, args):
@@ -1327,9 +1333,151 @@ def render_identity(ctx, args):
     ctx.log(f"identity frame -> {sc.render.filepath}")
 
 
+def cull_by_set(ctx):
+    """Hide every object outside the set the camera is in (sets are SET_SPACING apart; the camera never sees a neighbour
+    set): Cycles then loads and decodes only the 2-4 plate / depth / matte sequences the frame can show, and displaced
+    cards in other sets are not re-evaluated. Objects whose visibility a module keys itself, and anything parented to
+    the rig, are left alone. The camera's set is sampled at f and f +- 0.5 (the shutter)."""
+    sc = bpy.context.scene
+    dur = ctx.E["dur"]
+    rig = set(ctx.rig.values())
+
+    def cell(v):
+        return (round(v[0] / SET_SPACING), round(v[1] / SET_SPACING), round(v[2] / SET_SPACING))
+    active = []
+    for f in range(dur):
+        cs = set()
+        for t in (f - 0.5, f, f + 0.5):
+            cs.add(cell(ctx.cam_matrix(max(0.0, t)).translation))
+        active.append(cs)
+    vis = getattr(ctx, "_vis", {})
+    n_obj = n_hidden = 0
+    for ob in list(sc.objects):
+        if ob in rig or ob.type == "CAMERA":
+            continue
+        p, up = ob.parent, False
+        while p is not None:
+            if p in rig:
+                up = True
+            p = p.parent
+        if up:
+            continue
+        ad = ob.animation_data
+        keyed = bool(ad and ad.action and any(fc.data_path == "hide_render" for fc in _fcurves(ad.action)))
+        if keyed and ob.name not in vis:
+            continue  # a module keys this object's visibility itself
+        if ob.parent is not None and ob.name not in vis:
+            continue  # children follow their parent's visibility in their own module's logic
+        if ob.hide_render and not keyed:
+            continue
+        c = cell(ob.matrix_world.translation)
+        f0, f1 = vis.get(ob.name, (0, dur))
+        on = [f0 <= f < f1 and c in active[f] for f in range(dur)]
+        if all(on[f] for f in range(f0, min(f1, dur))) and keyed:
+            continue
+        if ad and ad.action:
+            for fc in _fcurves(ad.action):
+                if fc.data_path == "hide_render":
+                    while len(fc.keyframe_points):
+                        fc.keyframe_points.remove(fc.keyframe_points[0])
+        prev = None
+        for f in range(dur):
+            if on[f] != prev:
+                ob.hide_render = not on[f]
+                ob.keyframe_insert("hide_render", frame=f)
+                prev = on[f]
+        _constant(ob)
+        n_obj += 1
+        n_hidden += on.count(False)
+    ctx.log(f"cull: {n_obj} objects keyed to the camera's set ({n_hidden / max(1, n_obj):.0f} hidden frames each on average)")
+
+
+NOISY_NODES = {"BSDF_GLASS", "BSDF_REFRACTION", "PRINCIPLED_VOLUME", "VOLUME_SCATTER", "VOLUME_ABSORPTION",
+               "BSDF_TRANSLUCENT"}
+
+
+def _noisy_material(mat, seen=None):
+    """Glass / refraction / volume / transmissive Principled anywhere in the material (or its node groups)."""
+    if mat is None or not getattr(mat, "node_tree", None):
+        return False
+    stack = [mat.node_tree]
+    seen = seen if seen is not None else set()
+    while stack:
+        nt = stack.pop()
+        if nt.name in seen:
+            continue
+        seen.add(nt.name)
+        for n in nt.nodes:
+            if n.type in NOISY_NODES:
+                return True
+            if n.type == "BSDF_PRINCIPLED":
+                tw = n.inputs.get("Transmission Weight") or n.inputs.get("Transmission")
+                if tw is not None and (tw.is_linked or tw.default_value > 0.01):
+                    return True
+            if n.type == "GROUP" and n.node_tree:
+                stack.append(n.node_tree)
+    return False
+
+
+def render_segments(ctx, f0, f1):
+    """[(a, b, denoise)]: frames with a glass / volume object visible (or a ctx.denoise span) render with OIDN; plain
+    card holds stay undenoised and crisp. Visibility comes from the hide_render keys."""
+    noisy = [ob for ob in bpy.context.scene.objects if ob.type in ("MESH", "CURVE", "FONT")
+             and any(_noisy_material(s.material) for s in ob.material_slots)]
+    flags = [False] * (f1 - f0 + 1)
+    for a, b in ctx.denoise_spans:
+        for f in range(max(f0, a), min(f1, b - 1) + 1):
+            flags[f - f0] = True
+    if noisy:
+        sc = bpy.context.scene
+        keep = sc.frame_current
+        for f in range(f0, f1 + 1):
+            if flags[f - f0]:
+                continue
+            sc.frame_set(f)
+            if any(_visible(ob) for ob in noisy):
+                flags[f - f0] = True
+        sc.frame_set(keep)
+    segs = []
+    for i, fl in enumerate(flags):
+        f = f0 + i
+        if segs and segs[-1][2] == fl and segs[-1][1] == f - 1:
+            segs[-1][1] = f
+        else:
+            segs.append([f, f, fl])
+    return [tuple(x) for x in segs]
+
+
+def _visible(ob):
+    while ob is not None:
+        if ob.hide_render:
+            return False
+        ob = ob.parent
+    return True
+
+
+def set_denoise(sc, on):
+    cy = sc.cycles
+    cy.use_denoising = bool(on)
+    if on:
+        for attr, val in (("denoiser", "OPENIMAGEDENOISE"), ("denoising_input_passes", "RGB_ALBEDO_NORMAL"),
+                          ("denoising_prefilter", "ACCURATE")):
+            try:
+                setattr(cy, attr, val)
+            except (AttributeError, TypeError):
+                pass
+    for vl in sc.view_layers:
+        try:
+            vl.cycles.use_denoising = bool(on)
+        except AttributeError:
+            pass
+
+
 def render_passes(ctx, args):
     sc = bpy.context.scene
     sc.frame_start, sc.frame_end = args.f0, args.f1
+    segs = render_segments(ctx, args.f0, args.f1)
+    ctx.log("render segments: " + ", ".join(f"{a}-{b}{' OIDN' if dn else ''}" for a, b, dn in segs))
     for p in [p for p in args.passes.split(",") if p]:
         for n, vl in ctx.layers.items():
             vl.use = n == p
@@ -1338,7 +1486,12 @@ def render_passes(ctx, args):
         os.makedirs(d, exist_ok=True)
         sc.render.filepath = os.path.join(d, "f_#####")
         t = time.time()
-        bpy.ops.render.render(animation=True)
+        for a, b, dn in segs:
+            set_denoise(sc, dn)
+            sc.frame_start, sc.frame_end = a, b
+            bpy.ops.render.render(animation=True)
+        set_denoise(sc, False)
+        sc.frame_start, sc.frame_end = args.f0, args.f1
         dt = time.time() - t
         n = args.f1 - args.f0 + 1
         ctx.log(f"pass {p}: {n} frames in {dt:.1f}s ({dt / n:.2f} s/frame)")
@@ -1394,6 +1547,7 @@ def main():
             ctx.log("text3d built")
         except Exception:  # noqa: BLE001
             ctx.log(f"ERROR text3d:\n{traceback.format_exc()}")
+    cull_by_set(ctx)
     ctx.log(f"scene built in {time.time() - t0:.1f}s: {len(bpy.data.objects)} objects")
     with open(os.path.join(ctx.out, "keys.json"), "w") as f:
         json.dump(dict(teleports=ctx.teleports, keys=[[t, list(v[0]), list(v[1]), v[2]] for t, v in sorted(ctx.keys.items())],
