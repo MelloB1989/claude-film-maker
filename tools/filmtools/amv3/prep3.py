@@ -59,10 +59,14 @@ def plate(data, sid, limit=None):
 def segments(meta, fs):
     """Lists of consecutive frames that belong to one scene."""
     cut = meta.get("source_cut")
+    steps = sorted(abs(meta["frames"][str(b)]["src240"] - meta["frames"][str(a)]["src240"]) for a, b in zip(fs, fs[1:]))
+    # a fast shot (S09 plays 4 s of source in 48 f, ~20 src240 frames per comp frame) is not a scene change:
+    # only a step far above the shot's own playback speed is
+    thresh = max(48, 3 * (steps[len(steps) // 2] if steps else 0))
     segs, cur = [], []
     for f in fs:
         if cur:
-            jump = abs(meta["frames"][str(f)]["src240"] - meta["frames"][str(cur[-1])]["src240"]) > 16
+            jump = abs(meta["frames"][str(f)]["src240"] - meta["frames"][str(cur[-1])]["src240"]) > thresh
             if (cut and f == cut["f"]) or jump:
                 segs.append(cur)
                 cur = []
