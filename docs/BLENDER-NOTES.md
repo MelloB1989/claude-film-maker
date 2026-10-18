@@ -153,3 +153,11 @@
 - **motion_metrics on layered transitions:** with B sharp behind a smeared foreground subject (ref c10 style), the
   sharpness drop is local. The tool counts the window as one or two hard cuts (0 smear frames) and reads a large
   1-frame drop when the subject leaves the frame.
+- **v3.1 keep (camera flies past a static subject into a static B):** for the camera to end past A's plane while B fills
+  the frame from the start, B must sit deep (16 m, scaled x10-14). Two things follow:
+  - The void environment's web strands then hang between the camera and B. Leave the void out when B covers the frame.
+  - Start a cover-scale search at the analytic fill scale. A search from x1 in x1.04 steps ran out at x10.5 and
+    silently inflated B's exit scale.
+- Aim the camera's straight line through the crossing point in A's plane, not its end pose. The camera travels ~10x
+  further in depth than sideways, so an end-pose offset is reached only after A's plane, and the camera flies through
+  the subject's face.
