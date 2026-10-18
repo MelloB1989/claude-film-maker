@@ -596,6 +596,8 @@ class Title:
         return LENS_MM
 
     def teleports(self):
+        if self.nest is not None:
+            return []   # the nest's only teleport (B's copy -> B's home, w1 - 0.5) comes after the word is behind the camera
         tps = list(getattr(self.ctx, "teleports", []) or [])
         a, b = self.f0 - 1.0, self.end_frame() + 1.0
         return [t for t in tps if a < t < b]
