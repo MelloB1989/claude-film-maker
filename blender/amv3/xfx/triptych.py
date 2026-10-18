@@ -39,6 +39,12 @@ D812 = 2.80     # camera distance when the attack into the burst starts
 END = 835
 
 
+def _teleport(T):
+    """The jump into the triptych set: just before the cut when the window has room (pre > 0, then P1 slams on the
+    hit), else just after it (pre = 0: frame w0 must still show A for the entry contract)."""
+    return T["f"] - 0.5 if T["w0"] < T["f"] else T["w0"] + 0.5
+
+
 def _hermite_track(knots):
     """C1 piecewise-cubic through (t, value[, slope]) knots; missing slopes from Catmull-Rom. Holds the ends."""
     ts = [k[0] for k in knots]
@@ -71,7 +77,7 @@ class Cam:
     """The triptych camera in set-local coordinates: look-at target, distance, orbit yaw, elevation, roll."""
 
     def __init__(self, T, A, lands):
-        f0 = T["w0"] + 0.5
+        f0 = _teleport(T)
         l1, l2, l3 = lands
         self.A = A
         # distance: push in on P1 (decaying the S32 push), pull back on each slam, slow push under the title, then the
@@ -130,8 +136,8 @@ def build(T, ctx):
     MO = Matrix.Translation(O)
     rng = random.Random(7770)
     plate, light = ctx.coll("plate"), ctx.coll("light")
-    tp = w0 + 0.5
-    lands = [w0 + 1.5, 785.0, 794.0]
+    tp = _teleport(T)
+    lands = [tp + 1.0, 785.0, 794.0]
     cam = Cam(T, A, lands)
     pals = [ctx.palette(ctx.act_of(p[0]) if hasattr(ctx, "act_of") else a)
             for p, a in zip(SLOTS, ("tobey", "andrew", "tom"))]
