@@ -123,8 +123,9 @@ def layout(T, ctx, p, A, B, adjust=False):
         return Matrix.Translation((ox * shift, oy * shift, z)) @ Matrix.Scale(kb, 4)
 
     def solve(Bx):
-        kb = 1.0
-        for _ in range(60):
+        # start at the scale that just fills the frame from A's framing (camera FILL / A.s in front of A's plane)
+        kb = max(1.0, 0.95 * (cl.FILL_DIST / A.s + D + max(0.0, btr)) / cl.FILL_DIST)
+        for _ in range(120):
             cam = Blend(ctx, Matrix(), A, MBl(kb, None, Bx), Bx, w0, f, w1, ek, eko)
             if all(covers(*cam(t), MBl(kb, t, Bx)) for t in frange(w0 + 1, w1, 0.5)):
                 return kb, cam, True
