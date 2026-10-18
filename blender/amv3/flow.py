@@ -441,8 +441,11 @@ def build_turn(T, ctx):
         P = o + Vector((0, 0, -hd))
         turn = Turn(ang, w0, f, w1, 1.6, 1.3, over=0.0)
     FB = rot_about(P, axis, ang) @ FA
-    ca = ctx.make_card(T["a"]["id"], f"{typ}_{T['id']}_A", FA, frames=vis)
-    cb = ctx.make_card(T["b"]["id"], f"{typ}_{T['id']}_B", FB, frames=vis)
+    # whip: the two cards carry their mirror tiles (faded into the act haze), so the gap between them smears from the
+    # pictures themselves; cube: plain faces on the box
+    tile = 3 if typ == "whip" else 1
+    ca = ctx.make_card(T["a"]["id"], f"{typ}_{T['id']}_A", FA, frames=vis, tile=tile)
+    cb = ctx.make_card(T["b"]["id"], f"{typ}_{T['id']}_B", FB, frames=vis, tile=tile)
     ctx.env(o, act, frames=vis)
     pb = math.log(float(p.get("pullback", 1.75))) if typ == "cube" else 0.0
 
