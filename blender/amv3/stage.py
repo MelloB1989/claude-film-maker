@@ -229,22 +229,7 @@ class StageContext:
         self.colls[collection].objects.link(ob)
         cards.no_shadow(ob)
         if dimg is not None:
-            cards.interior_group(ob, nx, ny)
-            tex = bpy.data.textures.new(f"d_{name}", type="IMAGE")
-            tex.image = dimg
-            cards.setup_user(tex.image_user)
-            tex.extension = "EXTEND"
-            mod = ob.modifiers.new("depth", "DISPLACE")
-            mod.texture = tex
-            mod.texture_coords = "UV"
-            mod.direction = "NORMAL"
-            mod.mid_level = 0.5
-            mod.strength = depth * 0.6
-            mod.vertex_group = "interior"
-            sm = ob.modifiers.new("smooth", "SMOOTH")
-            sm.factor = 0.6
-            sm.iterations = 4
-            sm.vertex_group = "interior"
+            add_depth(ob, dimg, depth, nx, ny)
         if hole:
             nt = mat.node_tree
             v = nt.nodes["HoleR"].outputs[0]
@@ -259,12 +244,18 @@ class StageContext:
         self.all_cards.append(ob)
         return ob
 
-    def matte_card(self, sid, matrix=None, frames=None):
-        """Holdout card for the text and light passes: holdout where the subject matte is white. Sits exactly in the card
-        plane (never displaced)."""
+    def matte_card(self, sid, matrix=None, frames=None, depth=None):
+        """Holdout card for the text and light passes: holdout where the subject matte is white. Sits in the card plane;
+        when the shot's card is depth-displaced (move.depth > 0) the matte card gets the SAME displacement (default
+        depth = the shot's), so the holdout registers with the subject the plate shows (near parts only ever come
+        forward: z >= 0)."""
         matte = self._sequence("mattes", sid, "png")
         name = f"matte_{sid}_{len(self.colls['holdout'].objects)}"
-        me = cards.card_mesh(name)
+        if depth is None:
+            depth = float(self._shots[sid].get("move", {}).get("depth", 0.0) or 0.0)
+        dimg = self._sequence("depth", sid, "png") if depth > 0 else None
+        nx, ny = (128, 72) if dimg is not None else (1, 1)
+        me = cards.card_mesh(name, nx, ny)
         if matte is None:
             self.log(f"WARN matte_card {sid}: no mattes yet, holdout card is empty")
             me.materials.append(cards.emission_material(name, (0, 0, 0), 0.0, 0.0))
@@ -274,6 +265,8 @@ class StageContext:
         ob.matrix_world = matrix if matrix is not None else Matrix.Translation(self._homes[sid])
         self.colls["holdout"].objects.link(ob)
         cards.no_shadow(ob)
+        if dimg is not None:
+            add_depth(ob, dimg, depth, nx, ny)
         f0, f1 = frames if frames else self.plate_range(sid)
         self.show(ob, f0, f1)
         return ob
@@ -455,6 +448,31 @@ class StageContext:
         q = Quaternion([a[1][j] * (1 - u) + qb[j] * u for j in range(4)]).normalized()
         la, lb = a[2] or cl.LENS_MM, b[2] or cl.LENS_MM
         return a[0].lerp(b[0], u), q, la + (lb - la) * u
+
+
+DEPTH_M = 0.35  # metres of forward relief at depth 1.0 (near = white comes towards the camera; far stays in the plane)
+
+
+def add_depth(ob, dimg, depth, nx, ny):
+    """2.5D: displace a card along its normal from the shot's depth sequence (mid level 0: the background stays in the
+    card plane so the frame never shrinks off the card; near parts come forward), smoothed, outer border kept flat.
+    The UV mapping is shared with the plate, so a tiled card reads the real card's depth only inside it."""
+    cards.interior_group(ob, nx, ny)
+    tex = bpy.data.textures.new(f"d_{ob.name}", type="IMAGE")
+    tex.image = dimg
+    cards.setup_user(tex.image_user)
+    tex.extension = "EXTEND"
+    mod = ob.modifiers.new("depth", "DISPLACE")
+    mod.texture = tex
+    mod.texture_coords = "UV"
+    mod.direction = "NORMAL"
+    mod.mid_level = 0.0
+    mod.strength = depth * DEPTH_M
+    mod.vertex_group = "interior"
+    sm = ob.modifiers.new("smooth", "SMOOTH")
+    sm.factor = 0.6
+    sm.iterations = 4
+    sm.vertex_group = "interior"
 
 
 def pose_from(M, x, y, z, roll):
