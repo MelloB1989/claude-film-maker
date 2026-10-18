@@ -275,10 +275,11 @@ def _cam_light(P, coll):
     """A small key light riding just above and behind the camera: the goo facing the lens always carries a live wet
     highlight, sliding as the surface ripples and the camera rolls."""
     ld = bpy.data.lights.new("XA_sym_camkey", "AREA")
-    ld.energy = 45.0
-    ld.size = 0.10
+    ld.energy = 22.0
+    ld.size = 0.025
     ld.color = (0.95, 0.9, 1.0)
     lo = bpy.data.objects.new("XA_sym_camkey", ld)
+    lo.visible_camera = False
     coll.objects.link(lo)
     for i in range(2 * (P["w1"] - P["w0"] + 2) + 1):
         t = P["w0"] - 1 + 0.5 * i
@@ -289,10 +290,11 @@ def _cam_light(P, coll):
     X.set_linear(lo)
     # a sweep light crossing the frame while the goo covers it: one wet highlight travelling over the surface
     sd = bpy.data.lights.new("XA_sym_sweep", "AREA")
-    sd.energy = 80.0
-    sd.size = 0.05
+    sd.energy = 40.0
+    sd.size = 0.02
     sd.color = (0.85, 0.8, 1.0)
     so = bpy.data.objects.new("XA_sym_sweep", sd)
+    so.visible_camera = False
     coll.objects.link(so)
     cut = P["cut"]
     for i in range(2 * (P["w1"] - P["w0"] + 2) + 1):
@@ -330,5 +332,6 @@ def _lights(P, ctx, pal, coll):
         ld.color = col
         ld.shadow_soft_size = 0.02
         lo = bpy.data.objects.new(f"XA_sym_pt{i}", ld)
+        lo.visible_camera = False
         lo.location = O + Vector(pos)
         coll.objects.link(lo)

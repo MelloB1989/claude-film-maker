@@ -358,8 +358,8 @@ def _wash(P, coll):
     nt.links.new(mp.outputs[0], mp2.inputs["Vector"])
     nt.links.new(mp2.outputs[0], gr.inputs["Vector"])
     edge = X.math_node(nt, "SUBTRACT", 1.0, X.math_node(nt, "POWER", gr.outputs["Fac"], 0.6))
-    op = X.key_value(nt, "opacity", [(cut - 3.0, 0.0), (cut - 1.5, 0.22), (cut - 0.3, 0.42), (cut + 0.7, 0.32),
-                                     (cut + 1.7, 0.14), (cut + 2.5, 0.0)])
+    op = X.key_value(nt, "opacity", [(cut - 3.0, 0.0), (cut - 1.5, 0.2), (cut - 0.3, 0.36), (cut + 0.7, 0.26),
+                                     (cut + 1.7, 0.1), (cut + 2.5, 0.0)])
     a = X.math_node(nt, "MINIMUM", X.math_node(nt, "MULTIPLY", op, X.math_node(nt, "ADD", 0.45, edge)), 1.0)
     em = X.node(nt, "ShaderNodeEmission", Color=(1.0, 0.34, 0.04, 1), Strength=1.3)
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
