@@ -467,6 +467,8 @@ def ray_center(a, W=1920, H=1080):
         m = (np.take(c, range(25, c.shape[ax]), ax) - np.take(c, range(0, c.shape[ax] - 25), ax)) / 25.0
     yy, xx = np.indices(m.shape)
     m = m * np.exp(-(((xx - w / 2) / (0.3 * w)) ** 2 + ((yy - h / 2) / (0.3 * h)) ** 2))
+    if not m.max() > 0:                    # no highlights outside skin (a dark or blank frame): centre
+        return [W // 2, H // 2]
     iy, ix = np.unravel_index(m.argmax(), m.shape)
     return [int(round(ix / w * W)), int(round(iy / h * H))]
 

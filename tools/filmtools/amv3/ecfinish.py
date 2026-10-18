@@ -96,8 +96,9 @@ def render(stage, outro, name, res, frames, procs, threads, encode=True, audio=N
     b += 1
     proj_rel = f"build/amv3/{name}.ecproj"
     fdir_rel = f"out/timeless/amv3/frames_{name}"
-    runner = R.write_runner(name, proj_rel, "FINISH", fdir_rel, R.chunks(a, b, 48), procs, threads, res)
     keep = f"$AMV3_DATA/builds/{name}.ecproj"
+    # render from the kept copy: any other queue job syncing this tree meanwhile (rsync --delete) wipes build/ on the VM
+    runner = R.write_runner(name, keep, "FINISH", fdir_rel, R.chunks(a, b, 48), procs, threads, res)
     cmd = (f"mkdir -p {fdir_rel} build/amv3 && (cd tools && python -m filmtools.amv3.ecfinish build --stage '{stage}' "
            f"--outro '{outro}' --out ../{proj_rel}) > {fdir_rel}/build.log 2>&1; brc=$?; echo BUILD rc=$brc; "
            f"tail -n 12 {fdir_rel}/build.log; [ $brc -eq 0 ] || exit $brc; mkdir -p $AMV3_DATA/builds && cp {proj_rel} {keep}; "
