@@ -65,8 +65,13 @@ transition and the hero titles.**
 
 ### The motion rules (the smoothness contract; the stage's gate checks them)
 - **The camera never stops.** Every frame of 0-819 has picture motion. Holds are C1 curves (Hermite) from the incoming
-  transition's exit velocity to the outgoing transition's entry velocity. A hold may reverse direction only when it is
-  at least 16 f long, and then smoothly.
+  transition's exit velocity to the outgoing transition's entry velocity. Measured on the references (REFS.md): hold drift
+  is 1.5-3.5 %/f of zoom (45-100 %/s), never under ~1 %/f; a reversal takes 5-7 f and is smooth.
+- **Measured transition shape** (REFS.md, ref c): A's attack is expo-in, the speed about doubling each frame over the last
+  3-4 A frames (zoom +1, +4, +9, +20..30 %/f); 1-3 smeared frames (median 2); B leaves the smear at the SAME speed and
+  decays expo-out (x0.75-0.85 per frame, 10 % of peak after 7-12 f); B's first 2-4 frames are also lens-defocused (real
+  DOF rack focus) and carry 5-15 px of chromatic split fading over 6-10 f. Zoom sign may flip behind the smear; speed
+  magnitude and the screen direction of pan/roll carry through.
 - **Velocity is continuous at every window edge**: the camera speed changes by at most x1.35 per frame outside the
   intended accelerations; no step changes. Inside a transition the speed follows one ease (accelerate into the cut, decelerate
   out of it), peaking at the cut.
@@ -106,7 +111,7 @@ Flow types (stage core):
 | type | 3D move |
 |---|---|
 | `open` | from black: the camera pulls back out of darkness onto S01 (scale 1.9 -> hold), depth parallax, light sweep |
-| `zt` | zoom-through. A accelerates into its focus (expo-in to `peak` x), roll accumulates; teleport at the half frame; B starts at `land` x on its focus and decelerates (expo-out) into its hold drift. `mode: push`: B keeps pushing in. 2-3 smeared frames. |
+| `zt` | zoom-through that KEEPS the zoom sign (refs: 22-23 of ~24 cuts; v2 reversed it on 11 cuts, the main reason it felt jerky). `push`: A accelerates into its focus (expo-in to `peak` ~3x), teleport at the half frame, B starts at ~1.05x on its focus and keeps pushing in, decelerating to `settle`. `pull`: A pulls out to ~0.45x (mirror-tiled picture beyond the card edges, smeared), B starts at ~2.4x and keeps pulling out, decelerating to `settle`. Roll accumulates and carries into B. 1-3 smeared frames; B racks focus in over 6-10 f. |
 | `whip` | 3D whip pan: A and B are neighbours on a ring of cards around the camera (or above/below for U/D); the camera yaws/pitches `angle` degrees with an ease-in-out that overshoots 2-3 % and settles. The gap between cards is filled by smeared light (act-tinted haze cards), never black. |
 | `cube` | A and B on two faces of a cube; the camera pulls back slightly and the cube turns 90 deg (dir), real perspective, motion blur, edge glints. |
 | `flip` | A swings open on a hinge like a door/comic page toward the camera revealing B behind; the camera pushes through the opening. |
