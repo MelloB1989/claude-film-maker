@@ -47,6 +47,24 @@ def build_script(stage, outro, out_project):
     return "\n".join(parts), E
 
 
+IGNORE_ALPHA = ("light pass",)     # footage items whose PNG alpha must be ignored (stage light/: additive emitters, alpha 0)
+
+
+def patch_alpha(proj, names=IGNORE_ALPHA):
+    """EffectCraft imports PNG alpha as straight and a script cannot change it (`AlphaMode` is undefined in 0.10.0).
+    The stage's light/ pass holds additive emitters (bolts, sparks, rings) with alpha 0 and full RGB: imported straight
+    they vanish. Set the items' interpretation to "Ignore" in the saved project JSON (probe: alpha-0 red over grey,
+    ADD -> 26,26,26 straight vs 255,89,42 ignored)."""
+    J = json.loads(Path(proj).read_text())
+    n = 0
+    for it in J["items"].values():
+        if it.get("name") in names and it["kind"].get("type") == "Footage":
+            it["kind"]["alpha"] = "Ignore"
+            n += 1
+    Path(proj).write_text(json.dumps(J))
+    return n
+
+
 def build(stage, outro=DEF_OUTRO, out=None, emit_only=False):
     out = Path(out or ROOT / "build/amv3/finish.ecproj").resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -64,6 +82,8 @@ def build(stage, outro=DEF_OUTRO, out=None, emit_only=False):
         sys.stderr.write(r.stderr[-4000:])
         return r.returncode
     warns = [l for l in r.stdout.splitlines() if l.startswith("WARN")]
+    if P.get("light"):
+        print(f"alpha ignored on {patch_alpha(out)} light item(s)")
     print(f"{out}: {len(warns)} warnings")
     return 1 if warns else 0
 
