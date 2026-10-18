@@ -43,8 +43,8 @@ it is a recipe:
    29-35 (B is pure bokeh discs, focus racks in over ~10 f), 81-90, 290-295, 327-330. A sharp B appears through the defocus
    while the camera is still moving.
 6. **Direction is kept**: 22 of the 24 cuts with a measurable zoom keep the *sign* of the zoom rate (push->push 9,
-   pull->pull 13). Only 81 and 575 go push->pull; 81 hides the reversal in 2-3 frames of radial smear + a dark, defocused
-   B. Roll also keeps its sign through the cut (e.g. 421 / 438 / 705 / 723 land rolling +0.7-1 deg/f).
+   pull->pull 13). Only 81 and 575 go push->pull; both hide the reversal behind 2-3 frames of radial smear (575 adds a blow-out
+   frame) and a dark, defocused B. Roll also keeps its sign through the cut (e.g. 421 / 438 / 705 / 723 land rolling +0.7-1 deg/f).
 7. **Hard cuts are on hits only** (7 of 44 have no smear: 265 TOOK slam, 324, 421, 520/525 eye punch-ins, 609, 705, 744),
    and even those cut *between two moving shots at matching speed*.
 
@@ -58,7 +58,7 @@ it is a recipe:
 | 29 | push into Venom's chest (25-28 radial zoom 4->31 %/f, streaks + CA), cut to Kraven's crew **in full bokeh** still pushing in (+17 %/f -> 1 %/f by 46), focus racks in 29-42 | 174 | 1.59 | 12 | push->push |
 | 59 | pull-out of Kraven (54-58: the picture shrinks into a dark centre with radial streaks), Peter lands blurred, zoomed in, pulling out + rolling -1.2 deg/f, NEED already in place | 352 | 1.79 | 5 | pull->pull |
 | 81 | push into Peter (78-80 zoom blur, NEED smears), B (Venom's tendrils, teal) arrives defocused and pulls out | 147 | 1.91 | 14 | push->pull |
-| 117-153 | push into darkness (115-117), 118-128 near-black corridor, a long dolly toward a lit door (128-148), **through the door** into the night city (148-153): a 3D move through space, no cut visible | 174 | 2.13 | 14 | push |
+| 117-153 | push into darkness (115-117), 118-128 near-black corridor, a long dolly toward a lit doorway (128-148) with the night city inside it; the doorway grows until **the city shot inside it becomes the frame** (148-152, frame-in-frame push), the city lands in bokeh (152-156) and racks into focus (158-162) | 174 | 2.13 | 14 | push |
 | 177 | the lyric WE'RE GOING TO HEAL flies past the camera (164-176), pull to Kraven's close-up | 187 | 1.3 | 13 | pull->pull |
 | 236 | zoom-out through dark (232-235), Miles extreme close-up arrives soft red, pulling out | 207 | 1.46 | 16 | pull->pull |
 | 265 | (not a cut) TOOK slams in behind Miles on the beat, slight camera shake | 29 | | 0 | |
@@ -73,9 +73,9 @@ it is a recipe:
 | 456-459 | VENOM letters + subject blur into a red radial swirl (subject-motion wipe), Miles swinging | | | | |
 | 480 | push into fire/tendrils, sand-gold blur, symbiote shot | 385 | 1.97 | 9 | pull->pull |
 | 497 | 496-499 pale blow-out, Tobey-suit close-up | 285 | 1.87 | 4 | |
-| 510-525 | Miles' mask: eyes open (510-519), **push into the lens** (520 hard punch-in, 522-526 through the lens into the city with RGB split) | 219-255 | ~1 | 0-1 | push->push |
+| 510-527 | Miles' mask: eyes light up (510-519); 520 hard punch-in (x1.4) on the beat; 521 roll + push into the left lens, **the next shot (Miles swinging) is already visible as the lens reflection** (521-524); 522-526 push through the lens with radial blur and a warm burst (525-526); B emerges 527-529 still pushing and rolling (the lens portal) | 219-255 | ~1 | 0-1 | push->push |
 | 551 | YEAH (540-548) pulls away (549-550 red swirl), 552 white-blue blow-out, rubble battle with WE 3D letters | 362 | 1.61 | 6 | pull->pull |
-| 575 | battle -> push into a warm streak (574-576), Miles' room again | 248 | 1.93 | 3 | push->pull |
+| 575 | radial zoom on WE/rubble (571-573), 574 white-blue blow-out of A, B (Miles in his room, = 290) lands dark, defocused and pulling out, focus racks in 576-581: the reversal is hidden by the blow-out + the dark defocused B | 248 | 1.93 | 3 | push->pull |
 | 592 | blue/red blur 592-594, FORCED letters slam with Miles | 222 | 1.4 | 6 | |
 | 609 | FORCED zooms past (606-608), radial red/blue streak into a pink blow-out 610-612, Venom/Kraven cell | 247 | 1.51 | 0 | |
 | 626 | 626 full white flash (the drop), 628 red blur, YEAH 2 | 263 | 1.06 | 2 | |
@@ -213,24 +213,36 @@ Per-frame CSVs (not committed): `/home/nikhil/code/.worktrees/agent-06/mm/{a,b,c
    was nearly still, or the other way round.
 
 ### Targets for v3 (the gate)
-Run `motion_metrics` on the v3 render (or on the stage's `plate/` PNG folder) and compare with `--compare`. Each target
-sits inside the refs' range and well clear of v2:
+Run the tool on the v3 render (or straight on the stage's `plate/` PNG folder: the frame number is read from
+`f_NNNNN.png`) with `--gate`; it writes `gate.txt` and exits 1 on any FAIL:
 
-| gate | target | refs | v2 |
+    cd tools && python -m filmtools.amv3.motion_metrics ../out/timeless/amv3/Timeless_v3.mp4 --end 820 --out ../out/mm/v3 --gate
+    python -m filmtools.amv3.motion_metrics --compare <mm>/a <mm>/b <mm>/c <mm>/v2 ../out/mm/v3 --out ../out/mm/compare.md
+
+Each target sits inside the refs' range (refs b and c pass all 16, ref a fails only on its upload's duplicated frames)
+and v2 fails 12 of 16. The targets live in `GATES` in the tool.
+
+| gate | target | refs a / b / c | v2 |
 |---|---|---|---|
-| near-static hold frames (< 4 px/f) | **<= 5 %**, no run > 4 f | 1.2-2.5 % | 44.6 % |
-| hold picture speed, median | **>= 12 px/f** | 15-23 | 4.5 |
-| hold zoom rate, median | **>= 1.5 %/f** (`|ds|` >= 0.015) | 2.1-2.5 | 0.39 |
-| picture-speed jump outside cuts, max | **<= 6** (p95 <= 2.1) | 4.1-7.1 | 13.4 |
-| worst 1-frame drop out of a cut | **median <= 2.3, p90 <= 4** | 1.8-2.2 / 3.0-3.8 | 3.3 / 10.1 |
-| worst 1-frame step into a cut | **median <= 2.6** | 2.3-2.5 | 3.3 |
-| acceleration into the cut | **x1.35-1.7 per frame** over the last 4 f | 1.36-1.62 | 1.62 |
-| deceleration out of the cut | **x1.15-1.27 per frame** (a long tail: >= 8 f) | 1.17-1.25 | 1.31 |
-| cut peak picture speed, median | **>= 160 px/f** | 154-224 | 151 |
-| zoom sign reversed across a cut | **<= 10 % of zoom cuts** | 8-18 % | 52 % |
-| hard cuts (0 smear frames) | **<= 15 %**, only on hits | 0-18 % | 32 % |
-| smear frames per cut, median | **>= 3** | 3-10 | 4 |
-| duplicated frames | **0** | | |
+| near-static hold frames (< 4 px/f) | **<= 5 %** | 2.5 / 1.2 / 2.0 % | 44.6 % FAIL |
+| longest near-static run | **<= 4 f** | 2 / 4 / 2 | 28 FAIL |
+| hold picture speed, median | **>= 12 px/f** | 20.5 / 22.6 / 15.0 | 4.5 FAIL |
+| hold zoom rate, median | **>= 1.5 %/f** (`abs(ds)` >= 0.015) | 2.5 / 2.1 / 2.1 | 0.39 FAIL |
+| picture-speed jump outside cuts, max | **<= 7.5** | 7.1 / 5.0 / 4.1 | 13.4 FAIL |
+| picture-speed jump outside cuts, p95 | **<= 2.1** | 2.0 / 1.8 / 1.9 | 2.3 FAIL |
+| worst 1-frame drop out of a cut, median | **<= 2.3** | 2.2 / 1.8 / 2.0 | 3.3 FAIL |
+| worst 1-frame drop out of a cut, p90 | **<= 4.0** | 3.8 / 3.0 / 3.1 | 10.1 FAIL |
+| worst 1-frame step into a cut, median | **<= 2.6** | 2.5 / 2.3 / 2.3 | 3.3 FAIL |
+| acceleration into the cut (last 4 f) | **x1.35-1.7 per frame** | 1.62 / 1.42 / 1.36 | 1.62 |
+| deceleration out of the cut (8 f) | **x1.15-1.27 per frame** | 1.24 / 1.17 / 1.25 | 1.31 FAIL |
+| cut peak picture speed, median | **>= 150 px/f** | 190 / 224 / 154 | 151 |
+| zoom cuts reversing the zoom sign | **<= 20 %** | 8 / 8 / 18 % | 55 % FAIL |
+| hard cuts (0 smear frames) | **<= 20 %**, only on hits | 12 / 18 / 0 % | 32 % FAIL |
+| smear frames per cut, median | **>= 3** | 9 / 3 / 10 | 4 |
+| duplicated frames | **0** | 3.2 / 0 / 0 % | 0 |
+
+Note the 4 v2 "passes": v2's transitions themselves are fast and smeared enough; what fails is everything around them
+(dead holds, square-wave exits, reversed zooms, hard cuts).
 
 ### What this says about EDIT.md (please read)
 1. **The zoom-through default contradicts the refs.** EDIT.md (`zt`) and all 13 `zt` cuts in edl.json (no `mode`) do
