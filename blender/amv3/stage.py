@@ -647,7 +647,7 @@ def make_intent(ctx, sid):
     if not roll:
         roll = min(3.0, 0.15 * L) * (1 if k % 2 else -1)
     if not any(pan):
-        pan = [min(160.0, 4.5 * L) * (1 if (k // 2) % 2 else -1), min(60.0, 1.5 * L) * (1 if k % 3 else -1)]
+        pan = [min(320.0, 6.5 * L) * (1 if (k // 2) % 2 else -1), min(90.0, 2.0 * L) * (1 if k % 3 else -1)]
     rate = max(DRIFT_MIN, min(DRIFT_RATE.get(act, 0.02), DRIFT_MAX_ZOOM / L))
     drift = mv.get("drift", "auto")
     ds = rate if drift in ("in", "auto") else -rate
@@ -812,9 +812,11 @@ def build(ctx, args):
         elif h1 > s["b"]:
             # the hold runs past the shot (a missing end module): keep the shot's drift, slowing to the minimum
             e = ctx.intent(sid, s["b"])
-            ds = math.copysign(DRIFT_MIN, e.ds)
-            B = e.at(0).with_(s=e.s * math.exp((e.ds + ds) / 2 * (h1 - s["b"])), ds=ds,
-                              r=e.r + e.dr * (h1 - s["b"]))
+            ds = math.copysign(DRIFT_MIN, A.ds if A.ds else e.ds)
+            Lh = h1 - h0
+            sB = min(A.s * math.exp((A.ds + ds) / 2 * Lh), A.s * 2.3) if ds > 0 else max(
+                A.s * math.exp((A.ds + ds) / 2 * Lh), cl.min_scale(e.cx, e.cy, A.r, 0.01) * 1.02)
+            B = e.with_(s=sB, ds=ds, r=A.r + 0.1 * Lh * (1 if A.dr >= 0 else -1), dr=0.1 if A.dr >= 0 else -0.1)
         else:
             B = ctx.intent(sid, h1)
         ctx._holds[sid] = (h0, h1, A, B)
