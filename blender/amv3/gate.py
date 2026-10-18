@@ -10,7 +10,7 @@ Checks (frames 0-818):
   step       speed (max point displacement) changes by more than x1.35 frame to frame outside the windows' intended
              accelerations (both speeds above 2 px/f; below that an absolute change > 1.5 px/f is the limit)
   flip       the motion direction reverses across a window edge (w0, w1) by more than 2 px/f each side
-  reversal   a hold shorter than 16 f where the zoom, pan or roll reverses with real magnitude on both sides AND the
+  reversal   a hold shorter than 5 f where the zoom, pan or roll reverses with real magnitude on both sides AND the
              picture slows below 1.5 px/f while it turns round (a visible stop/bounce)
   nocard     no card under the frame outside the windows (inside 3D windows the void is intentional)
 
@@ -24,6 +24,7 @@ import sys
 HERE_W, HERE_H = 1920, 1080
 LENS0, SENSOR = 35.0, 36.0
 END = 819
+REVERSAL_MIN = 5  # a hold may turn its zoom / pan / roll round only over at least 5 f (REFS: reversals take 5-7 f)
 
 
 def _mat_vec(M, v):
@@ -160,6 +161,14 @@ def analyse(dump, out_csv=None, only=False):
     covered = set()
     for w in wins:
         covered |= set(range(w["w0"], w["w1"]))
+    zoom = {r["f"]: r["m"]["zoom"] for r in rows if r["m"] and not r["teleport"]}
+
+    def turning(f):
+        """f is inside a zoom turn-round (the zoom changes sign within 2 f): the speed dips on purpose; a turn is fine
+        when its hold is >= REVERSAL_MIN frames (checked below)."""
+        zs = [zoom[g] for g in range(f - 2, f + 3) if g in zoom]
+        return len(zs) >= 2 and max(zs) > 0 > min(zs)
+
     prev = None
     for r in rows:
         f, m = r["f"], r["m"]
@@ -175,7 +184,7 @@ def analyse(dump, out_csv=None, only=False):
             continue
         if m["speed"] < 0.5:
             fail("stall", f, f"max point speed {m['speed']:.2f} px/f")
-        if prev is not None:
+        if prev is not None and not turning(f):
             a, b = prev["speed"], m["speed"]
             in_win = r["win"] != "" and any(w["w0"] <= f - 1 and f < w["w1"] for w in wins)
             if not in_win:
@@ -202,7 +211,7 @@ def analyse(dump, out_csv=None, only=False):
                 fail("flip", e, f"{w['id']} edge {e}: pan ({t0[0]:+.1f},{t0[1]:+.1f}) -> ({t1[0]:+.1f},{t1[1]:+.1f})")
     # reversals in short holds
     for sid, (h0, h1) in holds.items():
-        if h1 - h0 >= 16:
+        if h1 - h0 >= REVERSAL_MIN:
             continue
         ms = [byf[f]["m"] for f in range(h0, h1) if f in byf and byf[f]["m"] and not byf[f]["teleport"]]
         if len(ms) < 2:

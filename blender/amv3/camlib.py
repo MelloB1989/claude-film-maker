@@ -116,6 +116,18 @@ def clamp_center(s, cx, cy, r, margin=0.0):
     return cx, cy
 
 
+def cover(st, w=0.012):
+    """Keep the frame on the card: a soft floor on the scale for the current roll and centre (softplus, so the curve
+    stays smooth), then pull the centre in just enough. Returns st (modified)."""
+    smin = max(min_scale(960.0, 540.0, st.r, 0.006), 1.0)
+    L, Lm = math.log(st.s), math.log(smin)
+    x = (Lm - L) / w
+    L += w * (x + math.log1p(math.exp(-x))) if x > 0 else w * math.log1p(math.exp(x))
+    st.s = math.exp(L)
+    st.cx, st.cy = clamp_center(st.s, st.cx, st.cy, st.r, 0.004)
+    return st
+
+
 # ---- eases ---------------------------------------------------------------------------------------------------------------
 def clamp01(u):
     return 0.0 if u < 0 else 1.0 if u > 1 else u
@@ -235,6 +247,20 @@ def shake_offsets(dt, seed=1, frames=8.0, amp_deg=1.1, amp_m=0.012):
     rot = (amp_deg * env * osc(1, 2.3), amp_deg * env * osc(2, 2.9), 0.6 * amp_deg * env * osc(3, 1.7))
     loc = (amp_m * env * osc(4, 2.1), amp_m * env * osc(5, 2.6), 0.5 * amp_m * env * osc(6, 1.9))
     return rot, loc
+
+
+# ---- depth of field (rack defocus) ---------------------------------------------------------------------------------------
+FSTOP_SHARP = 128.0  # the camera's f-stop outside rack pulls: a pinhole, no visible defocus anywhere
+
+
+def focus_for_blur(d, blur_px, fstop=1.4, lens=LENS_MM, w_px=W_PX):
+    """Focus distance (m) in front of a card at distance d (m) that blurs the card by a circle of blur_px (at w_px wide).
+    Thin lens: c = (f / N) * f * (d - fd) / (d * (fd - f))  ->  fd = d (f^2/N + c f) / (c d + f^2/N)  (mm)."""
+    c = blur_px * SENSOR_MM / w_px
+    f = lens
+    dm = d * 1000.0
+    k = f * f / fstop
+    return dm * (k + c * f) / (c * dm + k) / 1000.0
 
 
 # ---- screen projection (gate) -----------------------------------------------------------------------------------------------

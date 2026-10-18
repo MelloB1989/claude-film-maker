@@ -41,7 +41,9 @@ PALETTES = {  # linear RGB: key light, rim, light leak, fog (the void's tint; ne
     "tom": dict(key=(1.0, 0.25, 0.10), rim=(0.35, 0.55, 0.85), leak=(1.0, 0.32, 0.08), fog=(0.036, 0.014, 0.012)),
     "outro": dict(key=(1.0, 1.0, 1.0), rim=(0.5, 0.5, 0.6), leak=(1.0, 0.4, 0.1), fog=(0.02, 0.02, 0.02)),
 }
-DRIFT_RATE = {"tobey": 0.0045, "andrew": 0.0060, "tom": 0.0075}  # hold push/pull in d ln s per frame
+DRIFT_RATE = {"tobey": 0.016, "andrew": 0.022, "tom": 0.028}  # hold push/pull in d ln s per frame (REFS: 1.5-3.5 %/f)
+DRIFT_MIN = 0.010  # never slower than ~1 %/f
+DRIFT_MAX_ZOOM = math.log(1.9)  # a long hold's drift is capped at x1.9 overall (plate resolution)
 
 
 def parse_args(argv):
@@ -62,7 +64,7 @@ def parse_args(argv):
     ap.add_argument("--strict", action="store_true", help="exit non-zero when the gate fails")
     ap.add_argument("--identity", default=None, help="SHOT@F: render that plate frame at s=1, centred, no roll (colour test)")
     ap.add_argument("--no-gate", action="store_true")
-    ap.add_argument("--filter", default="BLACKMAN_HARRIS:1.0", help="pixel filter TYPE:width")
+    ap.add_argument("--filter", default="GAUSSIAN:0.3", help="plate-pass pixel filter TYPE:width")
     a = ap.parse_args(argv)
     f0, _, f1 = a.frames.partition("-")
     a.f0, a.f1 = int(f0), int(f1 or f0)
@@ -92,6 +94,7 @@ class StageContext:
         self._nsets = 0
         self._envs = {}
         self.keys = {}  # t -> (loc Vector, rot Quaternion, lens or None)
+        self.dof = {}  # t -> (focus distance m, f-stop): rack pulls; elsewhere the camera is a pinhole (FSTOP_SHARP)
         self.teleports = []
         self.bounds = {}  # cut id -> {"A": State, "B": State}
         self.windows = []  # (w0, w1, cut) of every built window
@@ -330,6 +333,10 @@ class StageContext:
         self.keys[round(float(f), 4)] = (Vector(loc), rot.normalized(), lens)
         self._cam_cache = None
 
+    def key_dof(self, f, focus_m, fstop):
+        """Key the camera's depth of field (rack defocus). Outside keyed spans the f-stop is FSTOP_SHARP (no defocus)."""
+        self.dof[round(float(f), 4)] = (float(focus_m), float(fstop))
+
     def key_path(self, fn, t0, t1, step=0.25):
         """Key fn(t) -> (loc, rot[, lens]) on [t0, t1) every `step` frames, plus the sides of every teleport the span owns:
         a teleport at t_h inside the span gets keys at t_h - EPS (pre side) and t_h + EPS (post side); a teleport at
@@ -360,6 +367,19 @@ class StageContext:
             if c["w1"] == T["w0"] and c["id"] != T["id"] and c["id"] in self.bounds and "B" in self.bounds[c["id"]]:
                 return self.bounds[c["id"]]["B"]
         return self.intent(T["a"]["id"], T["w0"])
+
+    def settle_entry(self, T, A):
+        """Re-place an entry State's scale so the hold before the window is the gentlest curve between the previous
+        window's exit rate and this entry's rate (constant acceleration in ln s: the hold covers (ds0 + ds1) / 2 per
+        frame). Call it after you have chosen A's rates. Keeps the frame on the card."""
+        for c in self.E["cuts"]:
+            if c.get("b") == T["a"]["id"] and c["id"] in self.bounds and "B" in self.bounds[c["id"]]:
+                P, L = self.bounds[c["id"]]["B"], T["w0"] - c["w1"]
+                if L <= 0:
+                    return A
+                s = P.s * math.exp((P.ds + A.ds) / 2.0 * L)
+                return A.with_(s=max(s, cl.min_scale(A.cx, A.cy, A.r, 0.01) * 1.005))
+        return A
 
     def exit_state(self, T):
         """The State a window should end in at w1: shot B's hold intent at w1."""
@@ -432,6 +452,22 @@ def _fcurves(action):
 
 # ======================================================================================================================
 # scene setup
+def set_filter(ctx, spec):
+    """Pixel filter TYPE:width. The plate pass uses a narrow Gaussian (a hold frame reproduces the plate: 99.4 % of
+    pixels within +-2 levels at GAUSSIAN:0.3, vs 95.5 % for Blackman-Harris 1.5); text / light use TEXT_FILTER (smooth
+    antialiased edges on 3D letters and FX)."""
+    cy = bpy.context.scene.cycles
+    ftype, _, fw = spec.partition(":")
+    for attr, val in (("pixel_filter_type", ftype), ("filter_width", float(fw or 1.0))):
+        try:
+            setattr(cy, attr, val)
+        except (AttributeError, TypeError) as e:
+            ctx.log(f"WARN cycles.{attr}: {e}")
+
+
+TEXT_FILTER = "BLACKMAN_HARRIS:1.5"
+
+
 def setup_scene(ctx, args):
     sc = bpy.context.scene
     for ob in list(bpy.data.objects):
@@ -463,12 +499,7 @@ def setup_scene(ctx, args):
         cy.use_preview_denoising = False
     except AttributeError:
         pass
-    ftype, _, fw = args.filter.partition(":")
-    for attr, val in (("pixel_filter_type", ftype), ("filter_width", float(fw or 1.0))):
-        try:
-            setattr(cy, attr, val)
-        except (AttributeError, TypeError) as e:
-            ctx.log(f"WARN cycles.{attr}: {e}")
+    set_filter(ctx, args.filter)
     cy.max_bounces = 4
     cy.diffuse_bounces = 2
     cy.glossy_bounces = 2
@@ -526,6 +557,9 @@ def setup_scene(ctx, args):
     cam_data.clip_end = 90.0  # sets are 100 m apart: a neighbour set is never visible
     cam = bpy.data.objects.new("CAM", cam_data)
     cam.rotation_mode = "QUATERNION"
+    cam_data.dof.use_dof = True
+    cam_data.dof.aperture_fstop = cl.FSTOP_SHARP
+    cam_data.dof.focus_distance = 2.0
     root.objects.link(cam)
     sc.camera = cam
     ctx.cam = cam
@@ -576,11 +610,9 @@ def make_intent(ctx, sid):
         k = ctx._order.index(sid)
         roll = 1.2 * (1 if k % 2 else -1)
         pan = [28.0 * (1 if (k // 2) % 2 else -1), 0.0]
-    rate = DRIFT_RATE.get(act, 0.006)
+    rate = max(DRIFT_MIN, min(DRIFT_RATE.get(act, 0.02), DRIFT_MAX_ZOOM / L))
     drift = mv.get("drift", "auto")
     ds = rate if drift in ("in", "auto") else -rate
-    if drift == "auto":
-        ds *= 0.5
     fx, fy = (s.get("focus") or [960, 540])
     c0x = 960 + 0.25 * (fx - 960)
     c0y = 540 + 0.25 * (fy - 540)
@@ -728,18 +760,27 @@ def build(ctx, args):
         if h1 <= h0:
             continue
         A = ctx.bounds[cin["id"]]["B"] if cin and cin["id"] in built else ctx.intent(sid, h0)
-        B = ctx.bounds[cout["id"]]["A"] if cout and cout["id"] in built else ctx.intent(sid, h1)
+        if cout and cout["id"] in built:
+            B = ctx.bounds[cout["id"]]["A"]
+        elif h1 > s["b"]:
+            # the hold runs past the shot (a missing end module): keep the shot's drift, slowing to the minimum
+            e = ctx.intent(sid, s["b"])
+            ds = math.copysign(DRIFT_MIN, e.ds)
+            B = e.at(0).with_(s=e.s * math.exp((e.ds + ds) / 2 * (h1 - s["b"])), ds=ds,
+                              r=e.r + e.dr * (h1 - s["b"]))
+        else:
+            B = ctx.intent(sid, h1)
         ctx._holds[sid] = (h0, h1, A, B)
         card = ctx.card(sid)
 
         def fn(t, A=A, B=B, h0=h0, h1=h1, card=card):
-            st = cl.hermite_state(A, B, h0, h1, t)
+            st = cl.cover(cl.hermite_state(A, B, h0, h1, t))
             return ctx.pose(card, st)
         ctx.key_path(fn, h0, h1, 0.5)
         ctx.log(f"hold {sid} [{h0}, {h1}) s {A.s:.3f}->{B.s:.3f} ds {A.ds:+.4f}->{B.ds:+.4f} r {A.r:+.1f}->{B.r:+.1f}")
         rev = hold_reversal(A, B, h0, h1)
-        if rev and h1 - h0 < 16:
-            ctx.log(f"  note: hold {sid} reverses {rev} in {h1 - h0} f (< 16)")
+        if rev and h1 - h0 < 5:
+            ctx.log(f"  note: hold {sid} reverses {rev} in {h1 - h0} f (< 5)")
     return resolved
 
 
@@ -813,6 +854,17 @@ def write_camera(ctx):
         cam.data.animation_data.action = lact
         fcl = lact.fcurve_ensure_for_datablock(cam.data, "lens")
         _fill(fcl, [(r[0], r[3]) for r in rows])
+        dts = sorted(set(ts) | set(ctx.dof))
+        cur = (2.0, cl.FSTOP_SHARP)
+        dk = []
+        for t in dts:
+            if t in ctx.dof:
+                cur = ctx.dof[t]
+            elif cur[1] != cl.FSTOP_SHARP:
+                cur = (cur[0], cl.FSTOP_SHARP)
+            dk.append((t, cur))
+        _fill(lact.fcurve_ensure_for_datablock(cam.data, "dof.focus_distance"), [(t, v[0]) for t, v in dk])
+        _fill(lact.fcurve_ensure_for_datablock(cam.data, "dof.aperture_fstop"), [(t, v[1]) for t, v in dk])
     else:
         for t, loc, q, lens in rows:
             cam.location = loc
@@ -900,6 +952,7 @@ def render_passes(ctx, args):
     for p in [p for p in args.passes.split(",") if p]:
         for n, vl in ctx.layers.items():
             vl.use = n == p
+        set_filter(ctx, args.filter if p == "plate" else TEXT_FILTER)
         d = os.path.join(ctx.out, p)
         os.makedirs(d, exist_ok=True)
         sc.render.filepath = os.path.join(d, "f_#####")
