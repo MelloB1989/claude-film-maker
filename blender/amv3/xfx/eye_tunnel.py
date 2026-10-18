@@ -51,18 +51,21 @@ def _plan(T, ctx):
     s_end, ds_end = 1.15, -0.018  # REFS: holds never drift under ~1 %/f
     v_end = -(FILL * kB / s_end) * (-ds_end) * 1.0  # moving away from the card = pulling out
     u = lambda t: t - w0  # noqa: E731
+    # dive through the iris (expo attack), a readable cruise through the multiverse, a 2-frame whoosh on the cut (REFS:
+    # smear 1-3 f), then Andrew's lens: B lands at the cut speed and decays ~0.8 / f into S09's pull-out
     spd = X.Speed([
-        (w0, z0 * ds0), (w0 + 4, 0.12), (w0 + 7, 0.26), (w0 + 10, 0.47), (w0 + 13, 0.78), (cut, 1.05),
-        (cut + 2, 0.84), (cut + 4, 0.42), (cut + 6, 0.16), (cut + 8, 0.03), (cut + 9.5, 0.0), (w1, v_end)],
-        m0=z0 * ds0 * 0.16)
+        (w0, z0 * ds0), (w0 + 4, 0.13), (w0 + 7, 0.32), (w0 + 8.5, 0.50), (w0 + 10.5, 0.36), (cut - 2.5, 0.34),
+        (cut - 1, 0.75), (cut, 1.25), (cut + 1, 1.0), (cut + 2.5, 0.45), (cut + 4, 0.20), (cut + 5.5, 0.07),
+        (cut + 7, 0.0), (w1, v_end)], m0=z0 * ds0 * 0.16)
     P["spd"] = spd
     z = lambda t: z0 - spd.x(t)  # noqa: E731  camera distance in front of the S08 copy along the axis
     P["z"] = z
     zB = z(w1) - FILL * kB / s_end
     P["zB"], P["kB"] = zB, kB
     # roll: one clockwise spiral, rate a smooth bell peaking at the cut
-    rs = X.Speed([(w0, 0.0), (w0 + 4, 1.2), (w0 + 8, 5.0), (w0 + 12, 14.0), (cut, 24.0), (cut + 3, 16.0),
-                  (cut + 6, 5.0), (cut + 9, 1.2), (w1, 0.12)], m0=0.0)
+    rs = X.Speed([(w0, 0.0), (w0 + 4, 1.0), (w0 + 7, 3.0), (w0 + 9, 6.0), (w0 + 11, 4.0), (cut - 2, 5.0),
+                  (cut - 0.5, 22.0), (cut + 0.5, 28.0), (cut + 2, 10.0), (cut + 4, 3.0), (cut + 7, 0.8), (w1, 0.12)],
+                 m0=0.0)
     P["roll"] = lambda t: rs.x(t)  # noqa: E731
     r_end = 0.6
     theta = P["roll"](w1) - r_end
@@ -79,11 +82,11 @@ def _plan(T, ctx):
                 @ Matrix.Scale(kB, 4) @ Matrix.Translation(-lb))
     P["MA"] = Matrix.Translation(O)
     P["MB"] = Matrix.Translation(O) @ MB_local
-    P["handoff"] = cut + 7.5
+    P["handoff"] = cut + 6.5
     P["lat0"] = cut + 2.0  # lateral re-centre on the moving lens starts here
 
     def wob(t):
-        amp = 0.20 * X.bump(t, w0 + 9.5, cut + 1.5)
+        amp = 0.16 * X.bump(t, w0 + 9.5, cut + 1.5)
         ph = 0.45 * (t - w0) + 0.8
         return Vector((amp * math.cos(ph), amp * math.sin(ph), 0.0))
 
@@ -102,14 +105,27 @@ def _plan(T, ctx):
 
     P["b_state"] = b_state
 
+    def a_center(t):
+        zt = z(t)
+        if zt <= 0.05:
+            return iris
+        sA = FILL / zt
+        Lx = max(0.0, 960 - 960 / sA - 12)
+        Ly = max(0.0, 540 - 540 / sA - 6)
+        return (960 + softclamp(iris[0] - 960, Lx), 540 + softclamp(iris[1] - 540, Ly))
+
+    P["a_center"] = a_center
+
     def m_set(t):
         """World camera matrix in the private set."""
         if t >= P["lat0"]:
             sB, cx, cy, r = b_state(t)
             return X.cam_world(P["MB"], camlib.State(sB, cx, cy, r))
         o = wob(t)
+        ca = a_center(t)
+        o = o + Vector(((ca[0] - iris[0]) / 1000.0, (iris[1] - ca[1]) / 1000.0, 0.0))
         h = 0.05
-        dw = (wob(t + h) - wob(t - h)) / (2 * h)
+        dw = (wob(t + h) - wob(t - h)) / (2 * h)  # look-ahead tilt follows the corkscrew, not the re-centring
         fwd = Vector((0.35 * dw.x, 0.35 * dw.y, (z(t + h) - z(t - h)) / (2 * h)))
         if fwd.length < 1e-6:
             fwd = Vector((0, 0, -1))
@@ -118,7 +134,7 @@ def _plan(T, ctx):
         return Matrix.Translation(loc) @ q.to_matrix().to_4x4()
 
     P["m_set"] = m_set
-    P["a_state"] = lambda t: (FILL / z(t), iris[0], iris[1], P["roll"](t))  # noqa: E731
+    P["a_state"] = lambda t: (FILL / z(t), *a_center(t), P["roll"](t))  # noqa: E731
     _PLAN[key] = P
     return P
 
@@ -153,7 +169,7 @@ def build(T, ctx):
               (w0 + 8.5, 310.0), (w0 + 9.5, 900.0), (w0 + 11, 2400.0)]
     cardA = ctx.make_card(a, "XA_eye_S08", matrix=P["MA"], hole=dict(center=list(P["iris"]), radius=r_keys, feather=3.0))
     # hole rim (burning gold) and the iris funnel, both scaled with the hole radius
-    rim = X.annulus_obj("XA_eye_rim", 0.93, 1.16, light_c, n=160, nr=2)
+    rim = X.annulus_obj("XA_eye_rim", 0.97, 1.09, light_c, n=160, nr=2)
     rim.location = O + Vector((ax.x, ax.y, 0.002))
     rim.data.materials.append(_rim_mat("XA_eye_rim_m", gold, cyan))
     fun_zs = [-0.02 * (1.25 ** k) for k in range(14)]
@@ -213,18 +229,20 @@ def build(T, ctx):
             c.data.materials.append(mats[mk])
     # light rings between the card rings, gold -> cyan
     for ri, zr in enumerate(rings + [zB + 0.8]):
+        if ri % 2 and ri < nring:
+            continue
         zl = zr - 0.45 if ri < nring else zr
         rad = radius_at(zl) - 0.12 if ri < nring else 1.45
         em = era_mix(zl)
         col = X.lerp3(gold, cyan, em)
         ring = X.curve_obj(f"XA_eye_lring_{ri}", [Vector((rad * math.cos(t), rad * math.sin(t), 0.0))
                                                   for t in [2 * math.pi * i / 24 for i in range(24)]],
-                           light_c, bevel=0.010 if ri < nring else 0.016, res=6, closed=True)
+                           light_c, bevel=0.0045 if ri < nring else 0.006, res=6, closed=True)
         ring.location = O + Vector((ax.x, ax.y, zl))
-        ring.data.materials.append(X.mat_emit(f"XA_eye_lring_m{ri}", col, 9.0 if ri < nring else 14.0))
+        ring.data.materials.append(X.mat_emit(f"XA_eye_lring_m{ri}", col, 5.0 if ri < nring else 7.0))
     # web strands: helices along the wall + polygonal web rings joining them
     nh = 6
-    web_m = X.mat_emit("XA_eye_web_m", (0.92, 0.96, 1.0), 2.2)
+    web_m = X.mat_emit("XA_eye_web_m", (0.92, 0.96, 1.0), 1.4)
     for h in range(nh):
         pts = []
         for i in range(48):
@@ -256,7 +274,7 @@ def build(T, ctx):
     cardB = ctx.make_card(b, "XA_eye_S09", matrix=P["MB"])
     frame = _frame_obj("XA_eye_S09_frame", light_c)
     frame.matrix_world = P["MB"] @ Matrix.Translation(Vector((0, 0, 0.004)))
-    frame.data.materials.append(X.mat_emit("XA_eye_frame_m", cyan, 6.0))
+    frame.data.materials.append(X.mat_emit("XA_eye_frame_m", cyan, 3.0))
     ctx.env(O, ctx.act_at(cut))
     for ob in (cardA, rim, funnel):
         X.key_hide(ob, [(w0, cut + 1)])
@@ -343,7 +361,7 @@ def _dust(name, O, ax, z_from, z_to, radius_at, R, coll, c0, c1, era_mix, n=520)
     mix.inputs[6].default_value = (*c0, 1)
     mix.inputs[7].default_value = (*c1, 1)
     nt.links.new(attr.outputs["Fac"], mix.inputs[0])
-    em = X.node(nt, "ShaderNodeEmission", Strength=12.0)
+    em = X.node(nt, "ShaderNodeEmission", Strength=6.0)
     nt.links.new(mix.outputs[2], em.inputs["Color"])
     nt.links.new(em.outputs[0], out.inputs["Surface"])
     ob.data.materials.append(m)
@@ -362,11 +380,11 @@ def _rim_mat(name, gold, cyan):
     no = X.node(nt, "ShaderNodeTexNoise", Scale=9.0, Detail=6.0, Roughness=0.65)
     nt.links.new(tc.outputs["Object"], no.inputs["Vector"])
     fl = X.math_node(nt, "MULTIPLY", X.math_node(nt, "ADD", no.outputs["Fac"], 0.15), 1.6)
-    stren = X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", prof, fl), 14.0)
+    stren = X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", prof, fl), 4.5)
     col = nt.nodes.new("ShaderNodeMix")
     col.data_type = "RGBA"
-    col.inputs[6].default_value = (1.0, 0.95, 0.8, 1)
-    col.inputs[7].default_value = (*gold, 1)
+    col.inputs[6].default_value = (1.0, 0.78, 0.38, 1)
+    col.inputs[7].default_value = (gold[0], gold[1] * 0.6, gold[2] * 0.3, 1)
     nt.links.new(v, col.inputs[0])
     em = nt.nodes.new("ShaderNodeEmission")
     nt.links.new(col.outputs[2], em.inputs["Color"])
@@ -457,6 +475,6 @@ def _nebula_mat(name, c0, c1, f0, f1):
     k = X.math_node(nt, "POWER", no.outputs["Fac"], 3.0)
     em = nt.nodes.new("ShaderNodeEmission")
     nt.links.new(col.outputs[2], em.inputs["Color"])
-    nt.links.new(X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", k, 1.4), 0.05), em.inputs["Strength"])
+    nt.links.new(X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", k, 0.5), 0.015), em.inputs["Strength"])
     nt.links.new(em.outputs[0], out.inputs["Surface"])
     return m
