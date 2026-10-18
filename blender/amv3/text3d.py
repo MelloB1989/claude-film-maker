@@ -62,6 +62,7 @@ STYLE = {
                        pitch=-8, roll=3, ext=0.10, bev=0.05, shear=0.0, track=0.02, hold=(632, 648)),
     "BRAND NEW DAY": dict(font="anton", center=(960, 250), width_px=1560, hero=758, depth=0.36, yaw=-12, pitch=12,
                           roll=-2, ext=0.12, bev=0.028, shear=0.18, track=0.05, shots=["S31", "S32"],
+                          per_shot=dict(S31=dict(hero=755, center=(960, 250)), S32=dict(hero=772, center=(960, 290))),
                           sub=dict(font="barlow", dy_em=-0.95, scale=0.26, at=768),
                           hold=(768, 777), beats=[750.0, 751.0, 752.0, 753.0, 754.0, 755.5, 756.8, 758.0, 761.0, 763.0, 764.4]),
     "TIMELESS": dict(font="anton", center=(960, 548), width_px=1500, hero=806, depth=0.0, yaw=0, pitch=0, roll=0,
@@ -594,23 +595,25 @@ class Title:
         return self.f1
 
     # ---------------------------------------------------------------------------- placement
-    def word_frame(self, width_em, height_em):
+    def word_frame(self, width_em, height_em, shot=None, hero=None, center=None):
         """-> (world matrix of the word centre, metres per em). x = reading direction, y = up, +z toward camera."""
         st = self.st
+        shot = shot or (self.shots[0] if self.shots else None)
+        hero = self.hero if hero is None else hero
         anchor = bpy.data.objects.get("TRIPTYCH_TITLE") if self.id == "TIMELESS" else None
         if anchor is not None:
             Mw = anchor.matrix_world.normalized()
             width_m = float(anchor.get("width", 1.5))
             self.ctx.log(f"text3d {self.id}: on TRIPTYCH_TITLE, {width_m:.2f} m")
             return Mw, width_m / width_em
-        C = self.cam(self.hero)
-        lens = self.lens(self.hero)
-        px, py = st["center"]
+        C = self.cam(hero)
+        lens = self.lens(hero)
+        px, py = center or st["center"]
         d_cam = Vector(((px - W_PX / 2) / W_PX * SENSOR_MM / lens, (H_PX / 2 - py) / W_PX * SENSOR_MM / lens, -1.0))
         o = C.translation
         ray = (C.to_3x3() @ d_cam)
-        if self.shots:
-            card = self.ctx.card(self.shots[0])
+        if shot:
+            card = self.ctx.card(shot)
             Mc = card.matrix_world.normalized()
             nrm = (Mc.to_3x3() @ Vector((0, 0, 1))).normalized()
             p_plane = Mc.translation - nrm * st["depth"]
@@ -644,6 +647,15 @@ class Title:
         origin_em = (lo + hi) * 0.5
         self.Mw, k = self.word_frame(hi.x - lo.x, hi.y - lo.y)
         self.k, self.width_m, self.height_m = k, (hi.x - lo.x) * k, (hi.y - lo.y) * k
+        # per_shot: the word lives in each shot's own set (placed at that shot's hero frame) and switches at the cut
+        self.shot_frames = None
+        if st.get("per_shot"):
+            self.shot_frames = []
+            for sid in self.shots:
+                ps = st["per_shot"][sid]
+                M_i, k_i = self.word_frame(hi.x - lo.x, hi.y - lo.y, shot=sid, hero=ps["hero"], center=ps["center"])
+                self.shot_frames.append((sid, M_i @ Matrix.Scale(k_i / k, 4)))
+            self.Mw = self.shot_frames[0][1]
         ctx.log(f"text3d {self.id}: {len(glyphs)} glyphs, word {self.width_m:.2f} x {self.height_m:.2f} m")
 
         self.coll = bpy.data.collections.new(f"T3D_{self.id}")
@@ -756,26 +768,46 @@ class Title:
         b = math.ceil(self.end_frame()) + 1.0
         return frange(a, b, 0.5)
 
-    def animate(self):
-        tps = self.teleports()
-        segs = []  # (t_start, t_end, X)
+    def segments(self):
+        """-> [(t_start, t_end, X, Mw)]: the word's world frame is X @ Mw on [t_start, t_end)."""
+        segs = []
+        if self.shot_frames:
+            t_prev = -1e9
+            for j, (sid, M_i) in enumerate(self.shot_frames):
+                t_end = 1e9
+                if j + 1 < len(self.shot_frames):
+                    nxt = self.shot_frames[j + 1][0]
+                    c = next((c for c in self.E["cuts"] if c.get("a") == sid and c.get("b") == nxt), None)
+                    t_end = (c["f"] - 0.5) if c else float(self.ctx.shot(nxt)["a"]) - 0.5
+                segs.append((t_prev, t_end, Matrix.Identity(4), M_i))
+                t_prev = t_end
+            return segs
         X = Matrix.Identity(4)
         t_prev = -1e9
-        for th in tps:
-            segs.append((t_prev, th, X.copy()))
+        for th in self.teleports():
+            segs.append((t_prev, th, X.copy(), self.Mw))
             Xa = self.cam(th - 0.001)
             Xb = self.cam(th + 0.001)
             X = Xb @ Xa.inverted() @ X
             t_prev = th
-        segs.append((t_prev, 1e9, X))
-        self.segs = segs
+        segs.append((t_prev, 1e9, X, self.Mw))
+        return segs
+
+    def seg_at(self, f):
+        for ta, tb, X, M in self.segs:
+            if ta <= f < tb:
+                return X, M
+        return self.segs[-1][2], self.segs[-1][3]
+
+    def animate(self):
+        self.segs = segs = self.segments()
         frames = self.frames()
         targets = []
         for L in self.letters:
             targets.append((L, None))
             for c in L.get("chunks", []):
                 targets.append((L, c))
-        for si, (ta, tb, Xs) in enumerate(segs):
+        for si, (ta, tb, Xs, Mseg) in enumerate(segs):
             fr = [f for f in frames if ta - 0.5 <= f <= tb + 0.5]
             if not fr:
                 continue
@@ -796,7 +828,7 @@ class Title:
                 for f in fr:
                     M, vis, pop = self.pose(L, c, f)
                     vis = vis and ta <= f < tb
-                    Mw = Xs @ self.Mw @ M
+                    Mw = Xs @ Mseg @ M
                     loc, rot, sca = Mw.decompose()
                     for o in (ob, tw):
                         o.location, o.rotation_quaternion, o.scale = loc, rot, sca
@@ -812,7 +844,7 @@ class Title:
                     cp = lo.copy()
                     cp.data = lo.data
                     self.coll.objects.link(cp)
-                    cp.matrix_world = Xs @ lo.matrix_world
+                    cp.matrix_world = Xs @ Mseg @ self.Mw.inverted() @ lo.matrix_world
         self.key_material()
 
     # ---- the plate defocuses slightly while the title holds (REFS: rack focus to the text)
@@ -823,9 +855,14 @@ class Title:
             return
         busy = [(w0, w1) for w0, w1, _ in (getattr(self.ctx, "windows", []) or [])]
         f_mm = LENS_MM
-        card = self.ctx.card(self.shots[0])
-        nrm = (card.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized()
         a, b = span
+        sid = self.shots[0]
+        if self.shot_frames:
+            for (ta, tb, _, _), (sd, _) in zip(self.segs, self.shot_frames):
+                if ta <= a < tb:
+                    sid = sd
+        card = self.ctx.card(sid)
+        nrm = (card.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized()
         keyed = []
         for f in range(int(a), int(b) + 1):
             if any(w0 - 1 <= f < w1 + 1 for w0, w1 in busy):
@@ -833,7 +870,8 @@ class Title:
             C = self.cam(f)
             fwd = (C.to_3x3() @ Vector((0, 0, -1))).normalized()
             dc = (card.matrix_world.translation - C.translation).dot(nrm) / fwd.dot(nrm)
-            dt = (self.Mw.translation - C.translation).dot(fwd)
+            Xs, Ms = self.seg_at(f)
+            dt = ((Xs @ Ms).translation - C.translation).dot(fwd)
             if dc <= 0 or dt <= f_mm / 1000.0:
                 continue
             u = min(1.0, (f - a + 1) / float(ramp), (b - f + 1) / float(ramp))

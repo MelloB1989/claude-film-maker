@@ -7,7 +7,7 @@ OUT=$1; shift
 python blender/amv3/dev/t3d_testdata.py out/t3d_data S10 S25 S31 S32 >/dev/null
 for spec in "$@"; do
   set -- $spec
-  title=$1 only=$2 frames=$3 name=$4; shift 4
+  title=${1//\?/ } only=$2 frames=$3 name=$4; shift 4
   oa=(--only "$only"); [ "$only" = all ] && oa=()
   T3D_ONLY=$title blender -b -t 14 --factory-startup -P blender/amv3/stage.py -- --edl films/timeless/amv3/edl.json \
     --data out/t3d_data --frames "$frames" --res "${RES:-0.5}" --samples "${SAMPLES:-16}" "${oa[@]}" --no-gate \
