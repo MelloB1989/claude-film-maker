@@ -219,23 +219,25 @@ def swish(dur: float = 0.24, peak: float = 0.13, direction: str = "R", seed=0):
     return norm(fade(y)), int(peak * SR)
 
 
-def whoosh_by(pre: float, post: float, seed=0, pan_dir: int = 1, low: float = 1.0):
+def whoosh_by(pre: float, post: float, seed=0, pan_dir: float = 1, low: float = 1.0, near: float = 0.06,
+              body_hz: float = 900.0):
     """Heavy pass-by: a big body whoosh whose band drops through the pass point (doppler), amplitude bell around it,
-    panned across the stereo field (pan_dir +1 = left to right), with a sub rumble under it."""
+    panned across the stereo field (pan_dir +1 = left to right, 0 = centre), with a sub rumble under it. `near` (s)
+    is the closest approach: smaller = closer to the lens, a sharper bell and a faster pan; `body_hz` the band centre."""
     rng = _rng(seed)
     n0, n1 = int(pre * SR), int(post * SR)
     n = n0 + n1
     t = np.arange(n) / SR - pre
-    d = 0.06
+    d = near
     vr = t / np.sqrt(t ** 2 + d ** 2)                                     # radial velocity, -1 -> +1 through the pass
     ratio = 1 / (1 + 0.28 * vr)                                         # approaching sharp, receding flat
-    c = 900 * ratio ** 2.2
+    c = body_hz * ratio ** 2.2
     y = band_noise(n, c, 2.4, rng) + 0.8 * band_noise(n, c * 4.5, 1.6, rng)
     amp = 1 / np.sqrt(t ** 2 + d ** 2) * d
     amp = amp ** 0.8 * np.where(t < 0, 1, np.exp(-t / (post * 0.5)))
     rumble = lp(rng.standard_normal(n), 90, 4) * 2.5 * low
     m = y.mean(axis=1) * amp + rumble * amp
-    p = pan_dir * np.tanh(t / 0.07) * 0.9
+    p = pan_dir * np.tanh(t / (d + 0.01)) * 0.9
     out = norm(fade(stereo(m, p) + 0.25 * y * amp[:, None], 0.01, 0.03))
     e = np.convolve(np.abs(out).max(axis=1) ** 2, np.ones(480) / 480, "same")
     return out, int(np.argmax(e))                                      # the hit is the loudest moment of the pass
