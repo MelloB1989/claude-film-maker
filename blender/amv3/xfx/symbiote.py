@@ -130,19 +130,24 @@ def _field(P, X0, Y0, t, N1, N2, N3):
     th = np.arctan2(qy / 540.0, qx / 960.0)
     # front progress from the border inward: crawl in (accelerating), full cover through the cut, peel back out
     u_in = X._sstep(w0 + 0.5, cut - 1.0, t)
-    F = -0.25 + 1.6 * (u_in ** 1.35)
+    F = -0.25 + 1.45 * (u_in ** 1.5)
     F -= 1.75 * X._sstep(cut + 0.8, P["w1"] - 1.6, t) ** 0.9
     n1 = N1(X0 * 3.0, Y0 * 3.0, t)
     n2 = N2(np.cos(th) * 2.0, np.sin(th) * 2.0, t)
     peel = X._sstep(cut + 0.5, cut + 2.5, t)
-    fingers = np.maximum(0.0, np.sin(11.0 * th + 2.5 * n2 + 0.6 * t * (1 - 2 * peel))) ** 7
-    reach = 0.30 * (1.0 - X._sstep(cut - 2.0, cut, t)) + 0.22 * peel * (1 - X._sstep(P["w1"] - 3, P["w1"] - 1, t))
-    cov = rho - (1.0 - F) + 0.10 * n1 + reach * fingers
+    # irregular tendrils: two incommensurate finger sets, each finger's reach and width wandering with noise
+    f1 = np.maximum(0.0, np.sin(7.0 * th + 3.0 * n2 + 0.5 * t * (1 - 2 * peel))) ** 9
+    f2 = np.maximum(0.0, np.sin(4.3 * th - 2.2 * n2 + 1.7 - 0.35 * t)) ** 14
+    fingers = (f1 * (0.6 + 0.4 * np.sin(3.1 * th + 1.3)) + 0.8 * f2) * (0.75 + 0.5 * n2)
+    reach = 0.20 * (1.0 - X._sstep(cut - 2.0, cut, t)) + 0.16 * peel * (1 - X._sstep(P["w1"] - 3, P["w1"] - 1, t))
+    rad = np.sqrt(qx ** 2 + qy ** 2) / 760.0
+    rho = 0.55 * rho + 0.45 * np.minimum(rad / 1.25, 1.2)  # rounder front, still born at the frame edges
+    cov = rho - (1.0 - F) + 0.10 * n1 + reach * fingers * X._sstep(0.18, 0.55, rho)
     # thickness: thin wet film at first, a thick rolled lip, then a bulge that rises at the camera on the cut
-    thick = 0.012 + 0.03 * X._sstep(w0 + 2, cut - 2, t) - 0.02 * peel
+    thick = 0.024 + 0.03 * X._sstep(w0 + 2, cut - 2, t) - 0.012 * peel
     dist = FILL / s
-    bulge = 0.55 * dist * X.bump(t, cut - 4.0, cut + 3.5) * np.exp(-(rho ** 2) / 0.35)
-    lip = np.sqrt(np.clip(cov / 0.07, 0.0, 1.0))
+    bulge = (1.0 + 0.35 * n1) * 0.55 * dist * X.bump(t, cut - 4.0, cut + 3.5) * np.exp(-(rad ** 2) / 0.45)
+    lip = np.sin(0.5 * np.pi * np.clip(cov / 0.12, 0.0, 1.0)) ** 0.7  # a rounded bead, not a cliff
     rip = 1.0 + 0.35 * N3(X0 * 8.0, Y0 * 8.0, t)
     z = np.where(cov > 0, thick * lip * rip + bulge * np.clip(cov / 0.25, 0, 1), -0.004)
     # slight flow of the surface toward the centre while crawling, outward while peeling
@@ -198,6 +203,7 @@ def build(T, ctx):
     goo = _goo_mesh(P, ctx, plate_c)
     goo.data.materials.append(_goo_mat(pal))
     _lights(P, ctx, pal, plate_c)
+    _cam_light(P, plate_c)
     ctx.env(O, ctx.act_at(cut))
 
     homeA = ctx.card(a).matrix_world.copy()
@@ -237,7 +243,7 @@ def _goo_mat(pal):
     bs = nt.nodes.new("ShaderNodeBsdfPrincipled")
     bs.inputs["Base Color"].default_value = (0.003, 0.003, 0.005, 1)
     bs.inputs["Roughness"].default_value = 0.10
-    bs.inputs["Specular IOR Level"].default_value = 0.9
+    bs.inputs["Specular IOR Level"].default_value = 0.5
     bs.inputs["Coat Weight"].default_value = 1.0
     bs.inputs["Coat Roughness"].default_value = 0.02
     bs.inputs["Coat IOR"].default_value = 1.6
@@ -249,10 +255,10 @@ def _goo_mat(pal):
     nt.links.new(no.outputs["Fac"], bump.inputs["Height"])
     nt.links.new(bump.outputs[0], bs.inputs["Coat Normal"])
     # subtle purple-white rim at grazing angles
-    lw = X.node(nt, "ShaderNodeLayerWeight", Blend=0.35)
+    lw = X.node(nt, "ShaderNodeLayerWeight", Blend=0.12)
     rim = X.math_node(nt, "POWER", lw.outputs["Facing"], 3.0)
     em = X.node(nt, "ShaderNodeEmission", Color=(0.62, 0.48, 1.0, 1))
-    nt.links.new(X.math_node(nt, "MULTIPLY", rim, 0.9), em.inputs["Strength"])
+    nt.links.new(X.math_node(nt, "MULTIPLY", rim, 0.35), em.inputs["Strength"])
     add = nt.nodes.new("ShaderNodeAddShader")
     nt.links.new(bs.outputs[0], add.inputs[0])
     nt.links.new(em.outputs[0], add.inputs[1])
@@ -260,15 +266,33 @@ def _goo_mat(pal):
     return m
 
 
+def _cam_light(P, coll):
+    """A small key light riding just above and behind the camera: the goo facing the lens always carries a live wet
+    highlight, sliding as the surface ripples and the camera rolls."""
+    ld = bpy.data.lights.new("XA_sym_camkey", "AREA")
+    ld.energy = 6.0
+    ld.size = 0.12
+    ld.color = (0.95, 0.9, 1.0)
+    lo = bpy.data.objects.new("XA_sym_camkey", ld)
+    coll.objects.link(lo)
+    for i in range(2 * (P["w1"] - P["w0"] + 2) + 1):
+        t = P["w0"] - 1 + 0.5 * i
+        m = P["m_set"](t) @ Matrix.Translation(Vector((0.18, 0.22, 0.12)))
+        lo.matrix_world = m
+        lo.keyframe_insert("location", frame=t)
+        lo.keyframe_insert("rotation_quaternion" if lo.rotation_mode == "QUATERNION" else "rotation_euler", frame=t)
+    X.set_linear(lo)
+
+
 def _lights(P, ctx, pal, coll):
     """Reflection sources for the wet goo: softbox strips and small hot lights, invisible to the camera, placed
     around the camera path so the highlights slide over the goo as the camera pushes and rolls."""
     O = P["O"]
     gold = ctx.palette(ctx.act_at(P["w0"]))["key"]
-    boxes = [((-0.9, 0.75, 1.3), (1.0, 0.86, 0.62), 2.6, (1.6, 0.18)),
-             ((1.1, -0.55, 1.1), (0.70, 0.62, 1.0), 2.2, (1.2, 0.14)),
-             ((0.2, 1.0, 0.7), gold, 1.6, (0.9, 0.10)),
-             ((-0.6, -0.9, 0.9), (0.9, 0.95, 1.0), 1.4, (1.0, 0.08))]
+    boxes = [((-0.9, 0.75, 1.3), (1.0, 0.86, 0.62), 1.2, (1.6, 0.05)),
+             ((1.1, -0.55, 1.1), (0.70, 0.62, 1.0), 1.0, (1.2, 0.04)),
+             ((0.2, 1.0, 0.7), gold, 0.9, (0.9, 0.035)),
+             ((-0.6, -0.9, 0.9), (0.9, 0.95, 1.0), 0.7, (1.0, 0.03))]
     for i, (pos, col, st, (w, h)) in enumerate(boxes):
         bx = X.plane_obj(f"XA_sym_box{i}", w, h, coll)
         loc = O + Vector(pos)

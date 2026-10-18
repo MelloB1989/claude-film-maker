@@ -1,8 +1,7 @@
 """sling_ring (C24, S24 flying kick -> S25 shuriken, window 611-626, cut 620): a Doctor Strange sling ring.
 
 A spark head whips round and draws an orange ring on S24 beside the kick; it spins open (sparks streaking in arcs with
-real deformation motion blur, embers flung off tangentially, two counter-rotating sigil circles and a turning
-eight-point star), and S25 is already playing inside it (a private set: the S25 copy waits deep behind a hole cut in
+real deformation motion blur, embers flung off tangentially, two counter-rotating sigil circles), and S25 is already playing inside it (a private set: the S25 copy waits deep behind a hole cut in
 the S24 copy). The camera pans onto the ring and pushes through it; the ring blows past the frame edges, embers stream
 past the lens, and S25 lands still pushing in (its own in-drift) with a rack focus.
 
@@ -41,13 +40,15 @@ def _plan(T, ctx):
     a, b = T["a"]["id"], T["b"]["id"]
     p = T.get("p", {})
     P = dict(w0=w0, w1=w1, cut=cut, a=a, b=b)
-    ring_px = tuple(p.get("ring", (1240.0, 500.0)))  # beside the kick, like a: 166-180
-    R0 = float(p.get("radius", 235.0))
+    ring_px = tuple(p.get("ring", (1150.0, 505.0)))  # beside the kick, like a: 166-180
+    R0 = float(p.get("radius", 225.0))
     P["ring_px"], P["R0"] = ring_px, R0
     s0, ds0 = float(p.get("s0", 1.08)), float(p.get("ds0", 0.015))
     z0 = FILL / s0
-    s_end, ds_end = 1.12, 0.016  # S25 keeps pushing in (its hold drifts in)
-    kB = 1.8
+    # S25 lands zoomed in (+13 %/f decaying, REFS) and still pushing; the S25 copy is big and deep so its edges never
+    # show once the camera is through the ring: s(cut) / s_end = d_end / (d_end + travel after the ring)
+    s_end, ds_end = 1.6, 0.012
+    kB = 3.4
     v_end = (FILL * kB / s_end) * ds_end
     spd = X.Speed([(w0, z0 * ds0), (w0 + 3, 0.05), (w0 + 5, 0.12), (w0 + 6.5, 0.25), (cut - 1.5, 0.45),
                    (cut - 0.5, 0.75), (cut + 0.5, 0.75), (cut + 1.5, 0.45), (cut + 3, 0.18), (cut + 4.5, 0.07),
@@ -82,14 +83,14 @@ def _plan(T, ctx):
             return ring_px
         s = FILL / zt
         Lx, Ly = max(0.0, 960 - 960 / s - 12), max(0.0, 540 - 540 / s - 6)
-        u = X._sstep(w0 + 1.0, cut - 1.0, t)  # pan onto the ring as it opens
+        u = X._sstep(w0 - 1.0, cut - 0.5, t)  # pan onto the ring as it opens
         tx, ty = 960 + (ring_px[0] - 960) * u, 540 + (ring_px[1] - 540) * u
         return (960 + _softclamp(tx - 960, Lx), 540 + _softclamp(ty - 540, Ly))
 
     def b_state(t):
         s = FILL * kB / (z(t) - zB)
         Lx, Ly = max(0.0, 960 - 960 / s - 12), max(0.0, 540 - 540 / s - 6)
-        u = X._sstep(P["lat0"], w1 + 2.0, t)
+        u = X._sstep(P["lat0"] - 1.0, w1 - 0.5, t)
         tx, ty = PB[0] + (foc[0] - PB[0]) * u, PB[1] + (foc[1] - PB[1]) * u
         return (s, 960 + _softclamp(tx - 960, Lx), 540 + _softclamp(ty - 540, Ly), roll(t) - theta)
 
@@ -127,7 +128,7 @@ def _sparks(P, ctx, coll):
     NR, NE = 900, 700
     th0 = rg.uniform(0, 2 * np.pi, NR)
     om = np.radians(rg.uniform(16, 32, NR))  # clockwise on screen = negative angle in local XY
-    rj = rg.normal(0, 0.035, NR)
+    rj = rg.normal(0, 0.016, NR)
     zj = rg.normal(0, 0.006, NR)
     sz = rg.uniform(0.0025, 0.006, NR)
     heat_r = rg.uniform(0.3, 1.0, NR)
@@ -273,21 +274,13 @@ def build(T, ctx):
                           hole=dict(center=list(P["ring_px"]), radius=hole_keys, feather=6.0))
     cardB = ctx.make_card(b, "XA_sling_S25", matrix=P["MB"])
     _sparks(P, ctx, light_c)
-    # sigil circles and the eight-point star, scaled with the ring
+    # sigil circles and the glow, scaled with the ring
     parts = []
     for i, (r0, r1, spin, st, seed) in enumerate([(0.80, 0.93, 4.5, 7.0, 3.0), (1.07, 1.22, -3.0, 5.0, 11.0)]):
         an = X.annulus_obj(f"XA_sling_sigil{i}", r0, r1, light_c, n=192, nr=1)
         an.data.materials.append(_sigil_mat(f"XA_sling_sigil{i}_m", seed, st, ORANGE))
         parts.append((an, spin))
-    star_pts = []
-    for k in range(9):
-        ang = math.radians(45.0 * (k % 8) * 3)  # {8/3} star
-        star_pts.append(Vector((0.97 * math.cos(ang), 0.97 * math.sin(ang), 0.0)))
-    star = X.curve_obj("XA_sling_star", star_pts, light_c, bevel=0.012, res=1)
-    star.data.splines[0].order_u = 2
-    star.data.materials.append(X.mat_emit("XA_sling_star_m", ORANGE, 4.0))
-    parts.append((star, 2.0))
-    glow = X.annulus_obj("XA_sling_glow", 0.9, 1.12, light_c, n=160, nr=2)
+    glow = X.annulus_obj("XA_sling_glow", 0.95, 1.06, light_c, n=160, nr=2)
     glow.data.materials.append(_glow_mat())
     parts.append((glow, 0.0))
     for ob, spin in parts:
@@ -299,7 +292,7 @@ def build(T, ctx):
             sc = max(R * (0.6 + 0.4 * op), 1e-4)
             ob.location = O + Vector((ax.x, ax.y, 0.003 + 0.001 * parts.index((ob, spin))))
             ob.scale = (sc, sc, sc)
-            ob.rotation_euler = (0, 0, -math.radians(spin * (t - w0)) + (0.3 if ob is star else 0.0))
+            ob.rotation_euler = (0, 0, -math.radians(spin * (t - w0)))
             ob.keyframe_insert("location", frame=t)
             ob.keyframe_insert("scale", frame=t)
             ob.keyframe_insert("rotation_euler", frame=t)
@@ -330,6 +323,7 @@ def build(T, ctx):
         return d * X.lerp(0.4, 1.0, u), X.lerp(64.0, X.lerp(1.4, 64.0, u), k)
 
     X.key_path(ctx, w0, w1, fn, teleports=(t_in, t_out), dof_fn=dof)
+    _wash(P, light_c)
     ctx.log(f"sling_ring: ring at {P['ring_px']} r{R0:.0f}px, through the ring plane at f{_cross(P):.1f}, "
             f"S25 copy {-P['zB']:.1f} m deep x{P['kB']}")
 
@@ -346,6 +340,45 @@ def _norm(m):
     return Matrix.Translation(loc) @ rot.to_matrix().to_4x4()
 
 
+def _wash(P, coll):
+    """REFS a07: the whole frame floods orange for ~4 f as the ring passes the lens. A veil riding 6 cm in front of the
+    camera (private set only), hot at the edges, opacity peaking as the camera crosses the ring plane."""
+    cut = P["cut"]
+    ve = X.plane_obj("XA_sling_wash", 0.16, 0.09, coll)
+    m, nt, out = X._nodes("XA_sling_wash_m")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    gr = nt.nodes.new("ShaderNodeTexGradient")
+    gr.gradient_type = "SPHERICAL"
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.inputs["Location"].default_value = (0.5, 0.5, 0)
+    mp.inputs["Scale"].default_value = (1.4, 2.4, 1)
+    nt.links.new(tc.outputs["UV"], mp.inputs["Vector"])
+    mp2 = nt.nodes.new("ShaderNodeMapping")
+    mp2.inputs["Location"].default_value = (-0.5, -0.5, 0)
+    nt.links.new(mp.outputs[0], mp2.inputs["Vector"])
+    nt.links.new(mp2.outputs[0], gr.inputs["Vector"])
+    edge = X.math_node(nt, "SUBTRACT", 1.0, X.math_node(nt, "POWER", gr.outputs["Fac"], 0.6))
+    op = X.key_value(nt, "opacity", [(cut - 3.0, 0.0), (cut - 1.5, 0.45), (cut - 0.3, 0.85), (cut + 0.7, 0.6),
+                                     (cut + 1.7, 0.25), (cut + 2.5, 0.0)])
+    a = X.math_node(nt, "MINIMUM", X.math_node(nt, "MULTIPLY", op, X.math_node(nt, "ADD", 0.45, edge)), 1.0)
+    em = X.node(nt, "ShaderNodeEmission", Color=(1.0, 0.45, 0.08, 1), Strength=2.2)
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mx = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(a, mx.inputs[0])
+    nt.links.new(tr.outputs[0], mx.inputs[1])
+    nt.links.new(em.outputs[0], mx.inputs[2])
+    nt.links.new(mx.outputs[0], out.inputs["Surface"])
+    ve.data.materials.append(m)
+    ve.rotation_mode = "QUATERNION"
+    for i in range(int(2 * (P["handoff"] - P["w0"])) + 1):
+        t = P["w0"] + 0.5 + 0.5 * i
+        ve.matrix_world = P["m_set"](t) @ Matrix.Translation(Vector((0, 0, -0.06)))
+        ve.keyframe_insert("location", frame=t)
+        ve.keyframe_insert("rotation_quaternion", frame=t)
+    X.set_linear(ve)
+    X.key_hide(ve, [(cut - 3, int(P["handoff"]))])
+
+
 def _glow_mat():
     m, nt, out = X._nodes("XA_sling_glow_m")
     tc = nt.nodes.new("ShaderNodeTexCoord")
@@ -355,7 +388,7 @@ def _glow_mat():
     prof = X.math_node(nt, "POWER", X.math_node(nt, "SINE", X.math_node(nt, "MULTIPLY", v, math.pi)), 3.0)
     no = X.node(nt, "ShaderNodeTexNoise", Scale=14.0, Detail=5.0)
     nt.links.new(tc.outputs["Object"], no.inputs["Vector"])
-    st = X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", prof, X.math_node(nt, "ADD", no.outputs["Fac"], 0.2)), 3.5)
+    st = X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", prof, X.math_node(nt, "ADD", no.outputs["Fac"], 0.2)), 2.0)
     em = X.node(nt, "ShaderNodeEmission", Color=(*ORANGE, 1))
     nt.links.new(st, em.inputs["Strength"])
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")

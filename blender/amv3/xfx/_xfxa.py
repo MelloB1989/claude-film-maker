@@ -48,14 +48,14 @@ def state_from_cam(card_matrix, cam_m, r_hint=0.0):
     return FILL / loc_l.z, loc_l.x * 1000 + W / 2, H / 2 - loc_l.y * 1000, r, sc
 
 
-def mix_state(fn, t, h=1e-3):
+def mix_state(fn, t, h=0.02):
     """State at t with rates by forward difference (rates per frame, ds in d ln s). fn(t) -> (s, cx, cy, r)."""
     a, b = fn(t), fn(t + h)
     return camlib.State(a[0], a[1], a[2], a[3], ds=(math.log(b[0]) - math.log(a[0])) / h,
                         dcx=(b[1] - a[1]) / h, dcy=(b[2] - a[2]) / h, dr=(b[3] - a[3]) / h)
 
 
-def mix_state_back(fn, t, h=1e-3):
+def mix_state_back(fn, t, h=0.02):
     a, b = fn(t - h), fn(t)
     return camlib.State(b[0], b[1], b[2], b[3], ds=(math.log(b[0]) - math.log(a[0])) / h,
                         dcx=(b[1] - a[1]) / h, dcy=(b[2] - a[2]) / h, dr=(b[3] - a[3]) / h)
@@ -484,3 +484,30 @@ def track(ctx, sid, f, default=None):
     (k0, a), (k1, b) = tr[i], tr[i + 1]
     u = (f - k0) / (k1 - k0)
     return (a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u)
+
+
+def depth_fog(nt, color, fog_rgb, k=3.0, near=0.0):
+    """Mix a colour socket toward fog_rgb with camera distance (1 - exp(-(d - near) / k)): atmospheric depth.
+    Returns (color socket, keep factor socket) - keep = 1 near the camera, -> 0 far."""
+    cd = nt.nodes.new("ShaderNodeCameraData")
+    d = math_node(nt, "MAXIMUM", math_node(nt, "SUBTRACT", cd.outputs["View Distance"], near), 0.0)
+    keep = math_node(nt, "EXPONENT", math_node(nt, "DIVIDE", d, -k))
+    mx = nt.nodes.new("ShaderNodeMix")
+    mx.data_type = "RGBA"
+    nt.links.new(keep, mx.inputs[0])
+    mx.inputs[6].default_value = (*fog_rgb, 1)
+    nt.links.new(color, mx.inputs[7])
+    return mx.outputs[2], keep
+
+
+def mat_emit_fog(name, rgb, strength, fog_rgb, k=3.0, near=0.0):
+    """Emission that fades into the fog with distance (light rings, strands, glints)."""
+    m, nt, out = _nodes(name)
+    rgbn = nt.nodes.new("ShaderNodeRGB")
+    rgbn.outputs[0].default_value = (*rgb, 1)
+    col, keep = depth_fog(nt, rgbn.outputs[0], fog_rgb, k, near)
+    e = nt.nodes.new("ShaderNodeEmission")
+    nt.links.new(col, e.inputs["Color"])
+    nt.links.new(math_node(nt, "MULTIPLY", keep, strength), e.inputs["Strength"])
+    nt.links.new(e.outputs[0], out.inputs["Surface"])
+    return m
