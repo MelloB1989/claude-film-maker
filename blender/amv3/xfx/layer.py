@@ -78,6 +78,75 @@ def zoom_sign(T, ctx, p, A):
     return 1
 
 
+def layout(T, ctx, p, A, B, adjust=False):
+    """The window's geometry in set-local space (A's card at the origin, facing +Z): which side things move to, B's
+    card depth / offset / dolly, its cover scale kb, and (adjust=True, from bounds) B's exit scale raised until the
+    camera's distance to B's card changes monotonically the window's zoom way. Without that, the cover scale puts B's
+    exit pose farther from B than the camera already is and B lands pulling out of a push (a hidden zoom reversal)."""
+    w0, w1, f = T["w0"], T["w1"], T["f"]
+    keep = p["mode"] == "keep"
+    L = dict(keep=keep)
+    if keep:
+        mc = matte_centroid(ctx, T["a"]["id"], f - 1)
+        sc_px = mc["c"] if mc else list(T["a"].get("focus") or [A.cx, A.cy])
+        d = p["dir"] or ("L" if sc_px[0] < A.cx else "R")
+        sx, sy = SIDES[d]
+        ox, oy = -sx, -sy  # B's card sits against dir: the camera travels that way (parallax)
+        sg = 1
+    else:
+        t_land = min(w1 - 1, f + int(p["land"]))
+        mc = matte_centroid(ctx, T["b"]["id"], t_land)
+        sc_px = mc["c"] if mc else list(T["b"].get("focus") or [B.cx, B.cy])
+        d = p["dir"] or ("R" if sc_px[0] < B.cx else "L")  # enter from the far side: it crosses more of A
+        sx, sy = SIDES[d]
+        ox, oy = -sx, -sy  # toward `from`: the camera tracks the subject
+        sg = zoom_sign(T, ctx, p, A)
+    D, shift = float(p["depth"]), float(p["shift"])
+    btr = float(p["b_travel"]) * sg  # push: B's card arrives from further back; pull: from closer, receding
+    ek, eko = float(p["ease"]), float(p["ease_out"])
+
+    def b_off(t):
+        u = cl.clamp01((t - w0) / float(w1 - w0))
+        return btr * (1 - u) ** 3  # zero rate at w1
+
+    def MBl(kb, t=None):
+        # a pull starts B at D behind A and recedes to D + |btr| (never in front of A's plane)
+        z = -D - max(0.0, -btr) - (b_off(t) if t is not None else 0.0)
+        return Matrix.Translation((ox * shift, oy * shift, z)) @ Matrix.Scale(kb, 4)
+
+    def solve(Bx):
+        kb = 1.0
+        for _ in range(40):
+            cam = Blend(ctx, Matrix(), A, MBl(kb), Bx, w0, f, w1, ek, eko)
+            if all(covers(*cam(t), MBl(kb, t)) for t in frange(w0 + 1, w1, 0.5)):
+                return kb, cam, True
+            kb *= 1.05
+        return kb, cam, False
+
+    def monotone(cam, kb):
+        ds = []
+        prev = None
+        for t in frange(w0, w1, 0.5):
+            d_ = cam(t)[0].z - MBl(kb, t).translation.z
+            if prev is not None:
+                ds.append(sg * (prev - d_))
+            prev = d_
+        return min(ds) >= -1e-4, ds
+
+    kb, cam, ok = solve(B)
+    if adjust and sg > 0:
+        for _ in range(16):
+            mono, _ds = monotone(cam, kb)
+            if mono or B.s > 2.4:
+                break
+            B = B.with_(s=B.s * 1.06)
+            kb, cam, ok = solve(B)
+    mono, _ds = monotone(cam, kb)
+    L.update(mc=mc, sc_px=sc_px, dir=d, sx=sx, sy=sy, sg=sg, D=D, shift=shift, btr=btr, ek=ek, eko=eko, b_off=b_off,
+             MBl=MBl, kb=kb, B=B, covered=ok, monotone=mono)
+    return L
+
+
 def bounds(T, ctx):
     """Entry: A's hold, entered moving the window's zoom way. Exit: B's hold at w1, still moving that way (push: at
     >= `settle` x, B's card dollies toward the camera; pull: B's card recedes)."""
@@ -92,6 +161,7 @@ def bounds(T, ctx):
         B = B.with_(s=max(B.s, float(p["settle"]), cl.min_scale(B.cx, B.cy, B.r, 0.01)))
     if flow.next_hold(T, ctx) >= flow.REVERSAL_MIN:
         B = B.with_(ds=max(B.ds, flow.EXIT) if sg > 0 else min(B.ds, -flow.EXIT))
+    B = layout(T, ctx, p, A, B, adjust=True)["B"]
     return {"A": A, "B": B}
 
 
@@ -387,43 +457,24 @@ def build_keep(T, ctx, p):
     vis = (w0 - 1, w1 + 1)
     MA = Matrix.Translation(o)
 
-    # subject: centroid at the cut from the matte (else the shot focus / frame centre)
-    mc = matte_centroid(ctx, sa, f - 1)
-    sc_px = mc["c"] if mc else list(T["a"].get("focus") or [A.cx, A.cy])
-    d = p["dir"] or (("L" if sc_px[0] < A.cx else "R"))
-    sx, sy = SIDES[d]
+    Lg = layout(T, ctx, p, A, B)
+    mc, sc_px, d, sx, sy = Lg["mc"], Lg["sc_px"], Lg["dir"], Lg["sx"], Lg["sy"]
     coord = "x" if sx else "y"
     sgn = -sx if sx else sy  # wipe coordinate q = sgn * px (or sgn * py, y down); A's bg is kept where q < edge
     ctx.log(f"  layer keep {T['id']}: subject {sa} at {[round(v) for v in sc_px]}"
             f"{' (matte area %.0f %%)' % (100 * mc['area']) if mc else ' (no matte: seed)'}, carried {d}")
-
-    # B card: depth m behind, offset against dir (the camera travels that way: parallax), scaled to cover the frame
-    D, btr, shift = float(p["depth"]), float(p["b_travel"]), float(p["shift"])
+    D, btr, shift, kb = Lg["D"], Lg["btr"], Lg["shift"], Lg["kb"]
     # phases: A's background goes over [w0 + 1, t_wipe1] while the subject is nearly still (the layered moment: the
     # subject over B), the subject then flies past the lens over [f - 1, t_exit]
     pre = f - w0
     t_exit = f + int(p["exit"])
     t_wipe1 = f - max(1, int(round(0.3 * pre)))
-    ek, eko = float(p["ease"]), float(p["ease_out"])
-
-    def b_off(t):
-        u = cl.clamp01((t - w0) / float(w1 - w0))
-        return btr * (1 - u) ** 3  # extra distance behind, expo-out-like arrival, zero rate at w1
 
     def MB_at(kb, t=None):
-        z = -D - (b_off(t) if t is not None else 0.0)
-        return Matrix.Translation(o + Vector((-sx * shift, -sy * shift, z))) @ Matrix.Scale(kb, 4)
-
-    kb = 1.0
-    for _ in range(30):
-        cam = Blend(ctx, MA, A, MB_at(kb), B, w0, f, w1, ek, eko)
-        if all(covers(*cam(t), MB_at(kb, t)) for t in frange(w0 + 1, w1, 0.5)):
-            break
-        kb *= 1.05
-    else:
-        ctx.log(f"  WARN layer {T['id']}: B card does not cover the frame at kb {kb:.2f}")
+        return Matrix.Translation(o) @ Lg["MBl"](kb, t)
     MB = MB_at(kb)
-    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, ek, eko)
+    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, Lg["ek"], Lg["eko"])
+    layout_log(ctx, T, Lg)
 
     # A's background (tiled like the home card so the teleport at w0 is exact), wipe + carry + matte hole
     dA = shot_depth(ctx, sa)
@@ -519,6 +570,13 @@ def build_keep(T, ctx, p):
             f"{carry} m, wipe px {hi_v:.0f}->{lo_v:.0f} by f{t_wipe1}; subject exits f{t_exit}")
 
 
+def layout_log(ctx, T, Lg):
+    ctx.log(f"  layer {T['id']}: B card x{Lg['kb']:.2f} at {Lg['D']:.2f} m (+{Lg['btr']:+.2f} dolly), exit s "
+            f"{Lg['B'].s:.2f}, zoom {'push' if Lg['sg'] > 0 else 'pull'}"
+            f"{'' if Lg['covered'] else '  WARN: B does not cover the frame'}"
+            f"{'' if Lg['monotone'] else '  WARN: the distance to B is not monotone (zoom reversal behind the subject)'}")
+
+
 def visible_range(cam, M, t, coord, sgn):
     """Range (lo, hi) of the signed wipe coordinate q = sgn * px (or sgn * py) visible on card M from the camera at t."""
     loc, rot = cam(t)
@@ -547,39 +605,20 @@ def build_sweep(T, ctx, p):
 
     t_land = min(w1 - 1, f + int(p["land"]))
     t_in = max(w0, f - int(p["enter"]))
-    mc = matte_centroid(ctx, sb, t_land)
-    sc_px = mc["c"] if mc else list(T["b"].get("focus") or [B.cx, B.cy])
-    # enter from the far side by default: the subject crosses (and covers) more of A
-    d = p["dir"] or ("R" if sc_px[0] < B.cx else "L")
-    ex, ey = SIDES[d]  # the side it comes from
+    Lg = layout(T, ctx, p, A, B)
+    mc, sc_px, d, ex, ey = Lg["mc"], Lg["sc_px"], Lg["dir"], Lg["sx"], Lg["sy"]
     coord = "x" if ex else "y"
     # A is kept on the side the subject has not reached yet (q = sgn * px or sgn * py < edge)
     sgn = ex if ex else -ey
     ctx.log(f"  layer sweep {T['id']}: B subject {sb} at {[round(v) for v in sc_px]}"
             f"{' (matte area %.0f %%)' % (100 * mc['area']) if mc else ' (no matte: seed)'}, from {d}")
-
-    D, shift = float(p["depth"]), float(p["shift"])
-    sg = zoom_sign(T, ctx, p, A)
-    btr = float(p["b_travel"]) * sg  # push: B's card arrives from further back; pull: from closer, receding
-
-    def b_off(t):
-        u = cl.clamp01((t - w0) / float(w1 - w0))
-        return btr * (1 - u) ** 3
+    D, shift, btr, kb = Lg["D"], Lg["shift"], Lg["btr"], Lg["kb"]
 
     def MB_at(kb, t=None):
-        # offset toward `from`: the camera travels with the subject (tracks it), the background pans the other way
-        # a pull starts B at D behind A and recedes to D + |btr| (never in front of A's plane)
-        z = -D - max(0.0, -btr) - (b_off(t) if t is not None else 0.0)
-        return Matrix.Translation(o + Vector((-ex * shift, -ey * shift, z))) @ Matrix.Scale(kb, 4)
-
-    kb = 1.0
-    for _ in range(30):
-        cam = Blend(ctx, MA, A, MB_at(kb), B, w0, f, w1, float(p["ease"]), float(p["ease_out"]))
-        if all(covers(*cam(t), MB_at(kb, t)) for t in frange(w0 + 1, w1, 0.5)):
-            break
-        kb *= 1.05
+        return Matrix.Translation(o) @ Lg["MBl"](kb, t)
     MB = MB_at(kb)
-    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, float(p["ease"]), float(p["ease_out"]))
+    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, Lg["ek"], Lg["eko"])
+    layout_log(ctx, T, Lg)
 
     dA, dB = shot_depth(ctx, sa), shot_depth(ctx, sb)
     cardA = ctx.make_card(sa, f"layer_{T['id']}_A", MA, depth=dA, frames=(w0 - 1, t_land + 1), tile=3)
