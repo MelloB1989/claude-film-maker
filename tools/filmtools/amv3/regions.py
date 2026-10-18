@@ -23,7 +23,8 @@ at 4-10x the plate resolution). Prompts on a few frames: positive clicks at the 
 (sclera / lens glass), negative clicks on the brow / lids / mask fabric, optionally a box. Propagated forward from the
 first prompt frame and backward from the last; where both passes cover a frame their logits are averaged.
 `post`: threshold 0.5, an optional small opening (SPECS "open", px: cuts thin bridges onto lashes), keep the component
-under the track point (else the nearest), fill holes, then a motion-compensated temporal blend with the neighbouring unique frames (aligned on the region centroid) that is skipped whenever
+under the track point (else the nearest), fill holes, then a motion-compensated temporal blend with the neighbouring
+unique frames (aligned on the region centroid) that is skipped whenever
 the neighbour's aligned shape differs (IoU < 0.9 or area off by > 8 %): no lag on zooms or blinks. Antialias: a
 0.7 px gaussian on the hard mask.
 """
