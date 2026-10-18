@@ -171,7 +171,7 @@ cut(587, "slam", 4, 10, dict(depth=0.45, kick=1.35), lens=dict(ca=12, zblur=0.5,
 cut(604, "whip", 3, 7, dict(dir="L", angle=80))
 cut(620, "sling_ring", 9, 6, dict(), lens=dict(ca=10, zblur=0.5, leak="red_orange"))
 cut(656, "text_fly", 8, 6, dict(title="SPIDER-MAN", exit="through"), lens=dict(ca=16, zblur=0.8, flash=1))
-cut(672, "nest", 6, 8, dict(mode="pull", region="bg", shot="S27", settle=1.12, roll=-180))
+cut(672, "nest", 6, 8, dict(mode="push", region="bg", shot="S26", settle=1.3, roll=-180))  # push keeps the C25 push going (S26 holds only 4 f)
 cut(686, "web_wipe", 6, 6, dict(dir="R"), lens=dict(ca=12, zblur=0.5))
 cut(708, "nest", 6, 8, dict(mode="pull", region="bg", shot="S29", settle=1.12, roll=30))
 cut(726, "whip", 3, 7, dict(dir="U", angle=80))

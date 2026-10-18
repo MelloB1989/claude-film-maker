@@ -14,6 +14,11 @@ Teleports: when the camera jumps to another set inside a title's range (zt / tex
 copy in the new set with the same camera-space pose at the jump (M_B = Cam_B @ Cam_A^-1 @ M_A), so the words keep
 moving with the camera through the cut and then live in the new set (parallax with the new shot).
 
+Nested fly-through (v3.1, a core with ctx.nest_layout): the fly-through cut is a nest push, the camera flies and the
+letters do not. The word is placed IN FRONT of A's card, between the camera and the front plane (Title.nest_depth), so
+the camera pushes through it into A's region (eitaX FORGET); its letters stay still from the window on (no exit flight,
+no teleport copy: the nest has no teleport).
+
 Passes: letters are in ctx.coll("text") (a sub-collection per title, which is also the lights' light-linking receiver
 set); an emission-only twin of every letter (sweep + outline + pops) is in ctx.coll("light") for the glow pass.
 Runs after the camera is keyed (stage core: text3d is built last), reads it with ctx.cam_matrix(f).
@@ -55,7 +60,7 @@ PAL = {
 # (+yaw = right end recedes, +pitch = top recedes); ext/bev: extrusion half-depth and bevel in em.
 STYLE = {
     "AMAZING": dict(font="barlow", center=(915, 225), width_px=1500, hero=328, depth=0.42, yaw=-16, pitch=10,
-                    roll=-4, ext=0.13, bev=0.05, shear=0.0, track=0.04, hold=(321, 330), shadow=0.45),
+                    roll=-4, ext=0.13, bev=0.05, shear=0.0, track=0.04, hold=(321, 330), shadow=0.32),
     # S25 is an extreme close-up: the subject matte covers ~the whole frame, so "behind" would hide the word. It sits
     # in front of the face (lower third, clear of the eye), behind the card plane only for parallax.
     "SPIDER-MAN": dict(behind=False, font="anton", center=(900, 770), width_px=1480, hero=645, depth=0.30, yaw=14,
@@ -573,6 +578,9 @@ class Title:
             kind, at = T["exit"].split("@")
             self.exit = (kind, float(at))
         self.behind = bool(self.st.get("behind", T.get("behind")))
+        self.nest = self.nest_layout()
+        if self.nest is not None:
+            self.behind = False   # the camera flies through the word into A's region: it sits in front of the card
         self.shots = self.st.get("shots") or ([T["shot"]] if T.get("shot") else [])
         self.hero = float(self.st.get("hero", self.f0 + 10))
 
@@ -588,9 +596,27 @@ class Title:
         return LENS_MM
 
     def teleports(self):
+        if self.nest is not None:
+            return []   # the nest's only teleport (B's copy -> B's home, w1 - 0.5) comes after the word is behind the camera
         tps = list(getattr(self.ctx, "teleports", []) or [])
         a, b = self.f0 - 1.0, self.end_frame() + 1.0
         return [t for t in tps if a < t < b]
+
+    def nest_layout(self):
+        """the core's Nest for this title's fly-through cut, or None (no exit fly-through / a core without nests)"""
+        if not (self.exit and self.exit[0] == "fly_through") or not hasattr(self.ctx, "nest_layout"):
+            return None
+        try:
+            return self.ctx.nest_layout(self.fly_cut()["id"])
+        except Exception as e:  # noqa: BLE001
+            self.ctx.log(f"text3d {self.id}: no nest layout ({e})")
+            return None
+
+    def nest_depth(self):
+        """metres BEHIND the front card plane (negative: in front) for a nested fly-through: halfway between the front
+        plane and the camera 4 f before it crosses, so the letters pass the lens ~3 f before the crossing"""
+        n = self.nest
+        return -0.5 * float(n.z(float(n.t_x) - 4.0))
 
     def end_frame(self):
         if self.exit and self.exit[0] == "shatter":
@@ -619,7 +645,8 @@ class Title:
             card = self.ctx.card(shot)
             Mc = card.matrix_world.normalized()
             nrm = (Mc.to_3x3() @ Vector((0, 0, 1))).normalized()
-            p_plane = Mc.translation - nrm * st["depth"]
+            depth = self.nest_depth() if self.nest is not None else st["depth"]
+            p_plane = Mc.translation - nrm * depth
             t = (p_plane - o).dot(nrm) / ray.dot(nrm)
             centre = o + ray * t
             base = Mc.to_3x3().to_4x4()
@@ -867,14 +894,14 @@ class Title:
         u, v, _ = nsep(tc.outputs["UV"])
         ax = nfn("ABSOLUTE", u * 2.0 - 1.0)
         ay = nfn("ABSOLUTE", v * 2.0 - 1.0)
-        soft = (1.0 - nsstep(ax, 0.55, 1.0)) * (1.0 - nsstep(ay, 0.30, 1.0))
+        soft = (1.0 - nsstep(ax, 0.25, 1.0)) * (1.0 - nsstep(ay, 0.05, 1.0))   # wide gaussian-like falloff, no flat core
         amt, node = nvalue("amount", 0.0)
         tr = nt.nodes.new("ShaderNodeBsdfTransparent")
         em = nt.nodes.new("ShaderNodeEmission")
         em.inputs["Color"].default_value = (0.0, 0.0, 0.0, 1.0)
         nt.links.new(mixsh(tr.outputs[0], em.outputs[0], soft * amt), out.inputs["Surface"])
         z = -(self.st["ext"] + self.st["bev"]) * self.k - 0.03
-        w, h = self.width_m * 1.22, self.height_m * 2.1
+        w, h = self.width_m * 1.12, self.height_m * 1.7
         me = bpy.data.meshes.new(f"t3d_{self.id}_shadow")
         me.from_pydata([(-w / 2, -h / 2, z), (w / 2, -h / 2, z), (w / 2, h / 2, z), (-w / 2, h / 2, z)], [], [(0, 1, 2, 3)])
         uv = me.uv_layers.new(name="UVMap")
@@ -912,6 +939,10 @@ class Title:
         busy = [(w0, w1) for w0, w1, _ in (getattr(self.ctx, "windows", []) or [])]
         f_mm = LENS_MM
         a, b = span
+        if self.nest is not None:
+            b = min(b, float(self.nest.t_r) - 6.0)   # the nest pulls focus to B from ~t_r - 5: hand over before it
+            if b < a:
+                return
         sid = self.shots[0]
         if self.shot_frames:
             for (ta, tb, _, _), (sd, _) in zip(self.segs, self.shot_frames):
@@ -991,13 +1022,19 @@ class Title:
             M, vis, pop = self.anim_slam_letters(L, f)
         else:
             M, vis, pop = self.anim_slam(L, f)
+        if self.nest is not None:
+            # static in the world from the window on (the idle sway fades out over the 4 f before it)
+            w0 = float(self.fly_cut()["w0"])
+            return M @ self.idle(L, min(f, w0), clamp01((w0 - f) / 4.0)), vis, pop
         return M @ self.idle(L, f), vis, pop
 
     def pose(self, L, chunk, f):
         M, vis, pop = self.base_pose(L, f)
         if self.exit:
             kind, fe = self.exit
-            if kind == "fly_through":
+            if kind == "fly_through" and self.nest is not None:
+                pass                                      # nested: the camera flies through the still word
+            elif kind == "fly_through":
                 M, vis2, pop2 = self.exit_fly_through(L, f, M)
                 vis = vis and vis2
                 pop = max(pop, pop2)
@@ -1021,12 +1058,12 @@ class Title:
         C = self.cam(self.hero)
         return (C.translation - self.Mw.translation).length
 
-    def idle(self, L, f):
+    def idle(self, L, f, amt=1.0):
         r = L["rnd"]
         ph = r.random() * 6.28
-        a = 0.004 * self.W()
+        a = 0.004 * self.W() * amt
         return Matrix.Translation((0, a * math.sin(f * 0.21 + ph), a * 0.6 * math.sin(f * 0.17 + ph * 1.3))) @ \
-            Matrix.Rotation(math.radians(0.8 * math.sin(f * 0.13 + ph)), 4, "Y")
+            Matrix.Rotation(math.radians(0.8 * amt * math.sin(f * 0.13 + ph)), 4, "Y")
 
     def anim_assemble(self, L, f):
         Wm = self.W()

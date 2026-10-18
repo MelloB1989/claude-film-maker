@@ -168,6 +168,24 @@
 - **motion_metrics on layered transitions:** with B sharp behind a smeared foreground subject (ref c10 style), the
   sharpness drop is local. The tool counts the window as one or two hard cuts (0 smear frames) and reads a large
   1-frame drop when the subject leaves the frame.
+
+### v3.1 (rig of nulls, nested zooms)
+- **Object motion blur costs a subframe sync per object.** With camera motion blur on, every object that has
+  `cycles.use_motion_blur` set gets re-synced at the shutter's subframes, even if it never moves. Static cards
+  (displaced by an animated depth sequence) dominated: full-res 1 spp plate overhead fell from 1.66 to 0.88 s/frame
+  (VM CPU, 12 threads) once the cards without transform animation had object motion blur off. The camera's own blur is
+  unaffected.
+- **Bezier handles from the path.** Keys written with `fcurve_ensure_for_datablock` + `foreach_set("co")`, then each
+  key's `handle_left/right_type = "FREE"` and the handle positions set at 1/3 of the neighbour gap along the slope
+  (the slope sampled from the path at t + h). Set the types to FREE before the positions or `fc.update()` recomputes
+  them.
+- **Swing-twist for the rig.** A camera world rotation splits into RIG_ORBIT (swing) and RIG_ROLL (twist about the
+  local -Z view axis): twist angle = 2 atan2(q.z, q.w), swing = q @ Rz(angle)^-1. Unwrap the angle against the
+  previous key; flip the swing quaternion's sign to keep it on the same hemisphere (Bezier per component).
+- **Animatable feather.** A region mask blurred once (3 box passes) and thresholded in the shader with
+  MapRange(SMOOTHSTEP, 0.5 - w, 0.5 + w) gives a feather whose width is a keyable Value node. The 0.5 contour of
+  the blurred mask stays on the hard edge for shapes much wider than the blur. A 36 x 20 px eye needs a 1 px box,
+  so the blur radius follows the region's size.
 - **v3.1 keep (camera flies past a static subject into a static B):** for the camera to end past A's plane while B fills
   the frame from the start, B must sit deep (16 m, scaled x10-14). Two things follow:
   - The void environment's web strands then hang between the camera and B. Leave the void out when B covers the frame.

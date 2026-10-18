@@ -1425,10 +1425,10 @@
    "a": "S26",
    "b": "S27",
    "p": {
-    "mode": "pull",
+    "mode": "push",
     "region": "bg",
-    "shot": "S27",
-    "settle": 1.12,
+    "shot": "S26",
+    "settle": 1.3,
     "roll": -180
    },
    "over": [],

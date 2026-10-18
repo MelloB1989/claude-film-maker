@@ -56,11 +56,24 @@ def bounds(T, ctx):
         A = A.with_(ds=max(A.ds, flow.ENTRY) if sg > 0 else min(A.ds, -flow.ENTRY))
         if R:
             A = A.with_(dr=math.copysign(max(abs(A.dr), flow.ROLL_CARRY), R))
+    elif not adj:
+        # a short hold cannot turn the zoom round: the entry keeps the previous landing's rate when it already goes the
+        # window's way (a push after a push landing keeps pushing)
+        prev = next((c for c in ctx.E["cuts"] if T.get("a") and c.get("b") == T["a"]["id"] and c["id"] in ctx.bounds
+                     and "B" in ctx.bounds[c["id"]]), None)
+        if prev is not None and ctx.bounds[prev["id"]]["B"].ds * sg > 0:
+            pB = ctx.bounds[prev["id"]]["B"]
+            A = A.with_(ds=sg * max(abs(pB.ds), flow.ENTRY))
     A = ctx.settle_entry(T, A, fixed_rate=True)
     B = ctx.exit_state(T)
     settle = float(p.get("settle", B.s))
     B = B.with_(s=max(settle, cl.min_scale(B.cx, B.cy, B.r, 0.01)))
-    if flow.next_hold(T, ctx) >= flow.REVERSAL_MIN:
+    nxt = next((c for c in ctx.E["cuts"] if T.get("b") and c.get("a") == T["b"]["id"]), None)
+    nsg = None
+    if nxt is not None and nxt.get("type") in ("nest", "zt", "slam"):
+        nsg = -1 if (nxt.get("p") or {}).get("mode") == "pull" else 1
+    if flow.next_hold(T, ctx) >= flow.REVERSAL_MIN or nsg == sg:
+        # leave still going the window's way (a short hold before a same-sign zoom keeps it: no turn at all)
         B = B.with_(ds=max(B.ds, flow.EXIT) if sg > 0 else min(B.ds, -flow.EXIT))
         if R:
             B = B.with_(dr=math.copysign(max(abs(B.dr), flow.ROLL_CARRY), R))
@@ -83,6 +96,11 @@ def bounds(T, ctx):
             dcx = 0.7 * dcx + 0.3 * 1.2 * (cpre[0] - A.cx) / TCn
             dcy = 0.7 * dcy + 0.3 * 1.2 * (cpre[1] - A.cy) / TCn
         A = ctx.settle_entry(T, A.with_(dcx=dcx, dcy=dcy), fixed_rate=True)
+    elif adj:
+        # touching the previous window: A's place is fixed (it is that window's landing), but its drift already heads
+        # for the crossing point, so the landing before flows into this approach without a turn
+        TCn = max(2.0, CENTRE_BY * TA) if L.kind != "bg" else TA
+        A = A.with_(dcx=0.8 * (cpre[0] - A.cx) / TCn, dcy=0.8 * (cpre[1] - A.cy) / TCn)
     ctx.log(f"  nest {T['id']} bounds: prev hold {flow.prev_hold(T, ctx)} adj {adj} cpre {[round(v) for v in cpre]} "
             f"A c ({A.cx:.0f},{A.cy:.0f}) dc ({A.dcx:+.1f},{A.dcy:+.1f})")
     if flow.next_hold(T, ctx) >= flow.REVERSAL_MIN:
