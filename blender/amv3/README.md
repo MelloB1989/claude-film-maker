@@ -70,6 +70,10 @@ A missing or failing module becomes a push zt (logged, skipped by the gate).
   the plate: 99.4 % of pixels within +-2 levels).
 - `text` = text + holdout. `light` = light + holdout. Blackman-Harris 1.5. Film transparent everywhere; the act voids
   stop at `transparent_from`.
+- **Comp the light pass as RGB-add, ignoring alpha.** Additive emitters (Emission + Transparent: bolts, sparks, rings,
+  the cube glints, whip streaks) come out with alpha 0 but full RGB. Alpha-over makes them vanish. The same applies
+  to additive bits in the plate pass after `transparent_from` (comp the plate over the outro with alpha, then add its RGB
+  where alpha == 0, or keep those emitters opaque).
 
 ## Motion model (REFS numbers)
 Holds drift 2.2 / 2.8 / 3.3 %/f zoom (Tobey / Andrew / Tom) plus pan <= 6.5 px/f and roll ~0.15 deg/f. Every component

@@ -501,6 +501,30 @@ def whip_streaks(T, ctx, P, axis, ang, d, pal, vis, n=26):
         ctx.show(ob, *vis)
 
 
+def haze_material(name, pal):
+    """Act haze for solid 3D bodies (cube caps, page backs): dim tinted emission with a soft noise, never flat grey."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    nz = nt.nodes.new("ShaderNodeTexNoise")
+    nz.inputs["Scale"].default_value = 3.5
+    nz.inputs["Detail"].default_value = 6.0
+    nt.links.new(tc.outputs["Object"], nz.inputs["Vector"])
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.3
+    ramp.color_ramp.elements[0].color = (*[x * 2.5 for x in pal["fog"]], 1)
+    ramp.color_ramp.elements[1].position = 0.8
+    ramp.color_ramp.elements[1].color = (*[x * 0.35 for x in pal["leak"]], 1)
+    nt.links.new(nz.outputs["Fac"], ramp.inputs["Fac"])
+    em = nt.nodes.new("ShaderNodeEmission")
+    nt.links.new(ramp.outputs["Color"], em.inputs["Color"])
+    nt.links.new(em.outputs[0], out.inputs["Surface"])
+    return m
+
+
 def box_and_glints(T, ctx, o, C, axis, d, hd, pal, vis, turn):
     """The cube's body (dark glossy, inset 3 mm under the two picture faces) and emissive glints on the face edges."""
     sx, sy, sz = cl.CARD_W / 2 - 0.003, cl.CARD_H / 2 - 0.003, hd - 0.003
@@ -508,21 +532,23 @@ def box_and_glints(T, ctx, o, C, axis, d, hd, pal, vis, turn):
     v = [(x, y, z) for x in (-sx, sx) for y in (-sy, sy) for z in (-sz, sz)]
     fcs = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
     me.from_pydata(v, [], fcs)
-    m = bpy.data.materials.new(f"cube_{T['id']}_body")
-    m.use_nodes = True
-    bsdf = m.node_tree.nodes.get("Principled BSDF")
-    bsdf.inputs["Base Color"].default_value = (*[x * 0.08 for x in pal["fog"]], 1)
-    bsdf.inputs["Roughness"].default_value = 0.25
-    em_in = bsdf.inputs.get("Emission Color")
-    if em_in is not None:
-        em_in.default_value = (*[x * 4 for x in pal["fog"]], 1)
-        bsdf.inputs["Emission Strength"].default_value = 1.0
-    me.materials.append(m)
+    me.materials.append(haze_material(f"cube_{T['id']}_body", pal))
     body = bpy.data.objects.new(f"cube_{T['id']}_body", me)
     body.location = C
     ctx.coll("plate").objects.link(body)
     cards.no_shadow(body)
     ctx.show(body, *vis)
+    # the other two faces round the turn axis carry pictures too (the neighbouring shots), never a flat side
+    order = [x["id"] for x in ctx.E["shots"]]
+    ia, ib = order.index(T["a"]["id"]), order.index(T["b"]["id"])
+    FA = Matrix.Translation(o)
+    for k, (ang_k, sid) in enumerate(((2 * turn.total, order[min(len(order) - 1, ib + 1)]),
+                                      (-turn.total, order[max(0, ia - 1)]))):
+        M = rot_about(C, axis, ang_k) @ FA
+        try:
+            ctx.make_card(sid, f"cube_{T['id']}_face{k}", M, frames=vis)
+        except RuntimeError:
+            pass
     # glints: thin emissive bars on the 4 edges of the front face and the 4 edges of the B face, brightest at the cut
     gm = cards.emission_material(f"cube_{T['id']}_glint", tuple(min(1.0, x * 0.6 + 0.4) for x in pal["key"]), 0.0)
     em = gm.node_tree.nodes["Emission"].inputs["Strength"]
@@ -569,19 +595,30 @@ def build_flip(T, ctx):
     piv.rotation_mode = "XYZ"
     ctx.coll("plate").objects.link(piv)
     ca = ctx.make_card(T["a"]["id"], f"flip_{T['id']}_A", Matrix.Translation(o + Vector((0, 0, g))), frames=vis,
-                       backface=tuple(x * 0.15 for x in pal["key"]))
+                       backface=tuple(x * 0.15 for x in pal["key"]), sweep=True)
     ca.parent = piv
     ca.matrix_parent_inverse = Matrix.Translation(piv.location).inverted()
     ctx.env(o, act, frames=vis)
     sg = 1 if hinge == "L" else -1
     phimax = math.radians(float(p.get("angle", 105)))
+    # the page catches the light as it turns (a sheen sweeps across it) and throws a shadow on B under it
+    nt = ca.data.materials[0].node_tree
+    sw, amt = nt.nodes["Sweep"].outputs[0], nt.nodes["SweepAmt"].outputs[0]
+    shadow = page_shadow(T, ctx, MB, hinge, vis)
+    sh_amt = shadow.data.materials[0].node_tree.nodes["Amt"].outputs[0]
     for fr2 in range(2 * (w0 - 1), 2 * (w1 + 1) + 1):
         t = fr2 / 2.0
-        u = (t - w0) / float(w1 - w0)
         # the page holds while the camera pushes into A, then swings open through the cut (f-1.5 .. f+5), well before
         # the camera reaches its plane
-        piv.rotation_euler = (0, sg * phimax * cl.smootherstep((t - (f - 1.5)) / 6.5), 0)
+        k = cl.smootherstep((t - (f - 1.5)) / 6.5)
+        piv.rotation_euler = (0, sg * phimax * k, 0)
         piv.keyframe_insert("rotation_euler", frame=t)
+        sw.default_value = (1.2 - 1.4 * k) if hinge == "L" else (-0.2 + 1.4 * k)
+        sw.keyframe_insert("default_value", frame=t)
+        amt.default_value = 0.9 * math.sin(math.pi * k)
+        amt.keyframe_insert("default_value", frame=t)
+        sh_amt.default_value = 0.6 * math.sin(math.pi * min(1.0, k * 1.15)) ** 0.7 if k > 0 else 0.0
+        sh_amt.keyframe_insert("default_value", frame=t)
     # A's state re-expressed against the (scaled) B card: one C1 Hermite push from A's framing to B's
     xA, yA, zA = cl.local_pose(A)[0]
     zw = g + zA
@@ -596,6 +633,46 @@ def build_flip(T, ctx):
         return ctx.pose(cb, cl.hermite_state(Ap, B, w0, w1, t))
     ctx.key_path(fn, w0, w1, 0.25)
     ctx.log(f"  flip {T['id']} hinge {hinge}: B at {g} m behind, scale {kb}, push s_eff {sAp:.2f} -> {B.s:.2f}")
+
+
+def page_shadow(T, ctx, MB, hinge, vis):
+    """A soft shadow lying on B under the turning page: black, opacity falling off away from the hinge side,
+    amount keyed by the caller ('Amt' value node)."""
+    m = bpy.data.materials.new(f"flip_{T['id']}_shadow")
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["UV"], sep.inputs[0])
+    mr = nt.nodes.new("ShaderNodeMapRange")
+    mr.interpolation_type = "SMOOTHSTEP"
+    nt.links.new(sep.outputs[0], mr.inputs["Value"])
+    mr.inputs["From Min"].default_value = 0.0 if hinge == "L" else 1.0
+    mr.inputs["From Max"].default_value = 0.75 if hinge == "L" else 0.25
+    mr.inputs["To Min"].default_value = 1.0
+    mr.inputs["To Max"].default_value = 0.0
+    amt = nt.nodes.new("ShaderNodeValue")
+    amt.name = "Amt"
+    amt.outputs[0].default_value = 0.0
+    mul = nt.nodes.new("ShaderNodeMath")
+    mul.operation = "MULTIPLY"
+    nt.links.new(mr.outputs["Result"], mul.inputs[0]); nt.links.new(amt.outputs[0], mul.inputs[1])
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (0, 0, 0, 1)
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(mul.outputs[0], mix.inputs[0]); nt.links.new(tr.outputs[0], mix.inputs[1]); nt.links.new(em.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    me = cards.card_mesh(f"flip_{T['id']}_shadow")
+    me.materials.append(m)
+    ob = bpy.data.objects.new(f"flip_{T['id']}_shadow", me)
+    ob.matrix_world = MB @ Matrix.Translation((0, 0, 0.004))
+    ctx.coll("plate").objects.link(ob)
+    cards.no_shadow(ob)
+    ctx.show(ob, *vis)
+    return ob
 
 
 # ---- slam: superhero landing ---------------------------------------------------------------------------------------------

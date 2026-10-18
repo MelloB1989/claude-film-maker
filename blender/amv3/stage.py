@@ -646,6 +646,8 @@ def make_intent(ctx, sid):
     k = ctx._order.index(sid)
     if not roll:
         roll = min(3.0, 0.15 * L) * (1 if k % 2 else -1)
+    elif abs(roll) < 0.12 * L:
+        roll = math.copysign(min(5.0, 0.12 * L), roll)  # a long hold keeps a lively roll (>= 0.12 deg/f, <= 5 deg)
     if not any(pan):
         pan = [min(320.0, 6.5 * L) * (1 if (k // 2) % 2 else -1), min(90.0, 2.0 * L) * (1 if k % 3 else -1)]
     rate = max(DRIFT_MIN, min(DRIFT_RATE.get(act, 0.02), DRIFT_MAX_ZOOM / L))
