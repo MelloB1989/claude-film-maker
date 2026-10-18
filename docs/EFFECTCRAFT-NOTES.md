@@ -190,3 +190,14 @@ Probed against effectcraft-cli 0.10.0 while checking how the Blender element seq
 - A leak/bloom/exposure recipe that lifts a dark frame +80 % turns an already bright frame (mean luma >= 0.45) milky white;
   the lens FX gains are scaled per frame by the plate's own mean luma (ffmpeg signalstats at build time).
 - Build cost: the full FINISH build (titles included) is ~3-5 min of `effectcraft-cli script` in a 4-core container.
+- **PNG alpha cannot be set from a script** (`mainSource.alphaMode` / `AlphaMode` are undefined in 0.10): an RGB-only
+  additive pass with alpha 0 (the stage light pass) imports as straight alpha and is invisible. `ecfinish.patch_alpha`
+  rewrites `"alpha": "Ignore"` on that footage in the saved .ecproj JSON.
+- **Layer-reference params store the layer uid**: `setValue(layer.index)` on Glass Wipe "Layer to Reveal" / Card Wipe
+  "Back Layer" is saved as `{"t": "Layer", "v": <uid>}`, so adding layers later does not break the reference.
+- **CC Light Rays works on an adjustment layer** (rays from the composite below), but with "Color from Source" it turns
+  whatever sits at Center into the light source, faces included. FINISH uses a plate copy cut to its highlights (Levels
+  Input Black 0.72, Output White 0.25), Light Rays, ADD, and puts Center on the brightest non-skin area.
+- **Shatter lighting multiplies the picture**: the default Light Intensity 1 + Ambient 0.25 is fine, but 1.4 + 0.55 lit
+  the unbroken front face to ~1.6x and a flash frame went fully white. Front face ~1.0x: intensity 0.6, ambient 0.5
+  (diffuse 0.75). Extruded glass (Pattern 2, extrusion 0.2) renders in 0.2-0.6 s/frame at half res.
