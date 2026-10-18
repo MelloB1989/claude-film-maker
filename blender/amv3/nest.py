@@ -83,6 +83,11 @@ def bounds(T, ctx):
             dcx = 0.7 * dcx + 0.3 * 1.2 * (cpre[0] - A.cx) / TCn
             dcy = 0.7 * dcy + 0.3 * 1.2 * (cpre[1] - A.cy) / TCn
         A = ctx.settle_entry(T, A.with_(dcx=dcx, dcy=dcy), fixed_rate=True)
+    elif adj:
+        # touching the previous window: A's place is fixed (it is that window's landing), but its drift already heads
+        # for the crossing point, so the landing before flows into this approach without a turn
+        TCn = max(2.0, CENTRE_BY * TA) if L.kind != "bg" else TA
+        A = A.with_(dcx=0.8 * (cpre[0] - A.cx) / TCn, dcy=0.8 * (cpre[1] - A.cy) / TCn)
     ctx.log(f"  nest {T['id']} bounds: prev hold {flow.prev_hold(T, ctx)} adj {adj} cpre {[round(v) for v in cpre]} "
             f"A c ({A.cx:.0f},{A.cy:.0f}) dc ({A.dcx:+.1f},{A.dcy:+.1f})")
     if flow.next_hold(T, ctx) >= flow.REVERSAL_MIN:

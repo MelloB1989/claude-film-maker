@@ -280,8 +280,10 @@ def analyse(dump, out_csv=None, only=False):
         stats.update(cut_acc_median=med("acc"), cut_dec_median=med("dec"), cut_peak_median=med("peak"),
                      cut_drop_median=drops[len(drops) // 2], cut_drop_p90=drops[int(0.9 * (len(drops) - 1))],
                      cut_step_median=med("step"),
-                     zoom_flip_pct=100.0 * sum(c["flip"] for c in cutstats) / max(1, sum(
-                         1 for c in cutstats if abs(c["zoom_a"]) > 0.01 and abs(c["zoom_b"]) > 0.01)))
+                     # (the page / cube face turning away reads as a zoom-out: 3D-object windows are not counted)
+                     zoom_flip_pct=100.0 * sum(c["flip"] for c in cutstats if c["type"] not in ("flip", "cube")) / max(1, sum(
+                         1 for c in cutstats if abs(c["zoom_a"]) > 0.01 and abs(c["zoom_b"]) > 0.01
+                         and c["type"] not in ("flip", "cube"))))
         if stats["cut_drop_median"] > 2.3 or stats["cut_drop_p90"] > 4:
             fail("drop", 0, f"drop out of cuts median x{stats['cut_drop_median']:.2f} p90 x{stats['cut_drop_p90']:.2f} (<= 2.3 / 4)")
         if stats["cut_step_median"] > 2.6:
