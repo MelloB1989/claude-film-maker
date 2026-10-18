@@ -29,3 +29,23 @@ scenes) is the engine's.
 
 Every tool, the `pipeline` schema with an example, and the recommended chain are in
 [tools/README.md](../tools/README.md).
+
+## Timeless v3 mix (task v3-mix, agent-03, 2026-10-18)
+
+    PYTHONPATH=tools python -m filmtools.amv3.mix3 --stems           # -> $AMV3_DATA/mix.wav, cues3.csv, mix3_report.json
+    PYTHONPATH=tools python -m filmtools.amv3.audit_mix3 --json $AMV3_DATA/mix3_audit.json --png $AMV3_DATA/mix3_audit.png
+    PYTHONPATH=tools python -m filmtools.amv3.listen3 --full          # v2 picture + v3 mix, frame numbers burnt in
+
+- Needs numpy, scipy, soundfile, matplotlib, Pillow, imageio-ffmpeg (Python 3.10+). The render VM has no soundfile:
+  build locally (about 4 min on the container) and copy the wav to the VM.
+- v2's song, voice, ducking and master chain are reused from `filmtools.amv2.mix`, unchanged. Each CUTS entry gets a
+  layered design synthesized by `filmtools.amv3.sfx3`, with no third-party samples (see `films/timeless/amv3/SFX-CREDITS.md`).
+- Levels are calibrated per transition (`mix3.calibrate`). Each transition's own layers lift the 3-12 kHz band at the
+  cut by `LIFT[type]` dB over the song; the references measure +4-8 dB (`filmtools.amv3.analysis.ref_audio`). Three caps:
+  the layers stay `UNDER` (2 dB) below the music across the window, add at most `PUMP` (1 dB) of master-limiter gain
+  reduction, and the trim stays in [-12, +18] dB. Impact layers (thump, impact, slap, thunder, metal slam, debris)
+  keep fixed gains, set to sit with the song's kick.
+- Pitfalls: Python's `hash()` of a string is randomized per process, so seed with `zlib.crc32` or the SFX change
+  on every run. The imageio-ffmpeg static build has no `drawtext`: burn labels with PIL. When piping a range out of an
+  ffmpeg decoder, do not `wait()` on it after reading N frames; close its stdout and terminate it (it can block on a
+  full pipe forever).
