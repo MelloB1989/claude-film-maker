@@ -46,7 +46,7 @@ PAL = {
     "cyan_white": dict(top="#A8EAFF", hue="#0058DA", edge="#A8F2FF", side="#04234F", glow="#2FC8FF", core="#9FEFFF"),
     # REFS: eitaX SPIDER-MAN = red face, gold/cream bevelled extrusion (~15-20 % of cap height)
     "red_gold": dict(top="#FF4636", hue="#9E000C", edge="#FFE2A0", side="#C88A2E", glow="#FF3A1C", core="#FFD27A"),
-    "crimson_white": dict(top="#FFFFFF", hue="#E8143E", edge="#FF6A86", side="#5E0016", glow="#FF1F4C", core="#FFC2CF"),
+    "crimson_white": dict(top="#FFF4F4", hue="#C30A2C", edge="#FF6A86", side="#5E0016", glow="#FF1F4C", core="#FFC2CF"),
     "chrome": dict(top="#F4F7FF", hue="#9FB4D8", edge="#FFFFFF", side="#20283A", glow="#BFD4FF", core="#FFFFFF"),
 }
 
@@ -62,7 +62,9 @@ STYLE = {
                        pitch=-8, roll=3, ext=0.12, bev=0.032, shear=0.18, track=0.03, hold=(632, 648)),
     "BRAND NEW DAY": dict(font="anton", center=(960, 250), width_px=1560, hero=758, depth=0.36, yaw=-12, pitch=12,
                           roll=-2, ext=0.12, bev=0.028, shear=0.18, track=0.05, shots=["S31", "S32"],
-                          per_shot=dict(S31=dict(hero=755, center=(960, 250)), S32=dict(hero=772, center=(960, 290))),
+                          # S31: behind Tom (he crouches low); S32: the head rises UNDER the word, so it sits in front, high and wide
+                          per_shot=dict(S31=dict(hero=755, center=(960, 235), width_px=1780),
+                                        S32=dict(hero=772, center=(960, 175), width_px=1800, behind=False)),
                           sub=dict(font="barlow", dy_em=-0.95, scale=0.26, at=768),
                           hold=(768, 777), beats=[750.0, 751.0, 752.0, 753.0, 754.0, 755.5, 756.8, 758.0, 761.0, 763.0, 764.4]),
     "TIMELESS": dict(font="anton", center=(960, 548), width_px=1500, hero=806, depth=0.0, yaw=0, pitch=0, roll=0,
@@ -595,7 +597,7 @@ class Title:
         return self.f1
 
     # ---------------------------------------------------------------------------- placement
-    def word_frame(self, width_em, height_em, shot=None, hero=None, center=None):
+    def word_frame(self, width_em, height_em, shot=None, hero=None, center=None, width_px=None):
         """-> (world matrix of the word centre, metres per em). x = reading direction, y = up, +z toward camera."""
         st = self.st
         shot = shot or (self.shots[0] if self.shots else None)
@@ -626,7 +628,7 @@ class Title:
             t = dist / ray.length
             base = C.to_3x3().to_4x4()
         dist_axis = t  # ray has unit z in camera space, so t = depth along the view axis
-        width_m = st["width_px"] / W_PX * SENSOR_MM / lens * dist_axis
+        width_m = (width_px or st["width_px"]) / W_PX * SENSOR_MM / lens * dist_axis
         rot = (Matrix.Rotation(math.radians(st.get("roll", 0)), 4, "Z") @
                Matrix.Rotation(math.radians(st.get("yaw", 0)), 4, "Y") @      # +yaw: +x goes to -z (recedes)
                Matrix.Rotation(math.radians(-st.get("pitch", 0)), 4, "X"))    # +pitch: top recedes
@@ -653,7 +655,8 @@ class Title:
             self.shot_frames = []
             for sid in self.shots:
                 ps = st["per_shot"][sid]
-                M_i, k_i = self.word_frame(hi.x - lo.x, hi.y - lo.y, shot=sid, hero=ps["hero"], center=ps["center"])
+                M_i, k_i = self.word_frame(hi.x - lo.x, hi.y - lo.y, shot=sid, hero=ps["hero"], center=ps["center"],
+                                           width_px=ps.get("width_px"))
                 self.shot_frames.append((sid, M_i @ Matrix.Scale(k_i / k, 4)))
             self.Mw = self.shot_frames[0][1]
         ctx.log(f"text3d {self.id}: {len(glyphs)} glyphs, word {self.width_m:.2f} x {self.height_m:.2f} m")
@@ -689,7 +692,8 @@ class Title:
         self.key_hold_focus()
         if self.behind:
             for sid in self.shots:
-                ctx.matte_card(sid)
+                if (st.get("per_shot") or {}).get(sid, {}).get("behind", True):
+                    ctx.matte_card(sid)
         ctx.log(f"text3d {self.id}: done, {len(self.coll.all_objects)} objects")
 
     def meshes(self):
