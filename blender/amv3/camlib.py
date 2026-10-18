@@ -239,22 +239,22 @@ def punch_curve(dt, amount=0.07, attack=3.0, settle=6.0):
     return a * (1 - smoothstep((dt - attack) / settle))
 
 
-def shake_offsets(dt, seed=1, frames=8.0, amp_deg=1.1, amp_m=0.012):
+def shake_offsets(dt, seed=1, frames=8.0, amp_deg=0.8, amp_m=0.008):
     """Decaying 3D shake dt frames after its frame -> (pitch, yaw, roll) degrees and (x, y, z) metres in camera space.
-    A few smooth bumps (0.10-0.18 cycles / frame, the first the largest) under a fast-rise exponential decay: motion
-    blur shows real smears, never a frame-to-frame direction flip (0.4 cycles / frame read as jitter)."""
+    One strong smooth kick (~1.5-2 f in) that settles with a small, slow counter-swing (0.08-0.11 cycles / frame, heavy
+    damping: the second lobe is ~15 % of the first), so the picture never flips direction frame to frame; motion blur
+    shows real smears."""
     if dt <= 0 or dt >= frames + 4:
         return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)
-    env = math.exp(-2.4 * dt / frames) * smoothstep(dt / 0.6)
+    env = math.exp(-4.0 * dt / frames) * smoothstep(dt / 0.6)
     if dt > frames:
         env *= 1 - smoothstep((dt - frames) / 4.0)
 
     def osc(i, f):
-        # rises from ~0 (phase 0.4 rad, per-channel jitter +-0.3 rad): the first bump, ~1.5 f in, is the big one
-        ph = 0.4 + 0.6 * (((seed * 12.9898 + i * 78.233) % 1.0) - 0.5)
+        ph = 0.5 + 0.4 * (((seed * 12.9898 + i * 78.233) % 1.0) - 0.5)
         return math.sin(2 * math.pi * f * dt + ph)
-    rot = (amp_deg * env * osc(1, 0.13), amp_deg * env * osc(2, 0.16), 0.6 * amp_deg * env * osc(3, 0.11))
-    loc = (amp_m * env * osc(4, 0.12), amp_m * env * osc(5, 0.17), 0.5 * amp_m * env * osc(6, 0.10))
+    rot = (amp_deg * env * osc(1, 0.09), amp_deg * env * osc(2, 0.11), 0.6 * amp_deg * env * osc(3, 0.08))
+    loc = (amp_m * env * osc(4, 0.09), amp_m * env * osc(5, 0.10), 0.5 * amp_m * env * osc(6, 0.08))
     return rot, loc
 
 
