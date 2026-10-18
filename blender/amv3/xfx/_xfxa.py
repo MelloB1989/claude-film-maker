@@ -247,6 +247,25 @@ def plate_node(nt, ctx, sid, f_at=None, frame0=None, loop=None):
         iu.frame_start = frame0 - (f_at - lo)
         iu.use_cyclic = False
     else:
+        # comp time: the core's held sequence (links f_00000..f_00899 to the nearest real frame), so frames before or
+        # after the plate hold (an ImageUser clamps the relative frame to [0, dur]: frame lo - 1 would be read)
+        seq = None
+        for get in (lambda: ctx.plate_image(sid), lambda: ctx._sequence("plates", sid, "jpg")):
+            try:
+                seq = get()
+            except Exception:  # noqa: BLE001 - harness / older ctx
+                seq = None
+            if seq is not None:
+                break
+        if seq is not None:
+            n.image = seq
+            try:
+                import cards
+                cards.setup_user(n.image_user)
+            except ImportError:
+                iu.frame_start, iu.frame_offset, iu.frame_duration = 0, -1, 900
+            iu.use_auto_refresh = True
+            return n
         iu.frame_duration = hi - lo
         iu.frame_offset = lo - 1
         iu.frame_start = lo
