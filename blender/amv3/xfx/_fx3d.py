@@ -329,6 +329,23 @@ def poly_curve(name, splines, depth, mat, caps=True):
     return bpy.data.objects.new(name, cu)
 
 
+def no_blur(ob):
+    """Instantaneous light (a bolt lives for half a frame): no motion blur, so it stays a crisp filament."""
+    try:
+        ob.cycles.use_motion_blur = False
+    except Exception:
+        pass
+    return ob
+
+
+def ride_camera(ob, cam_fn, M_world, t_ref, t0, t1, prev=None):
+    """Key ob to follow the camera over [t0, t1] (half frames) so it sits at M_world as seen from the camera at t_ref.
+    Camera motion blur then does not smear it: for instantaneous light (bolts, arcs) that must stay crisp filaments."""
+    C = cam_fn(t_ref).inverted() @ M_world
+    for t in frames_half(t0, t1):
+        key_matrix(ob, t, cam_fn(t) @ C, prev if prev is not None else {})
+
+
 def link(ob, coll):
     coll.objects.link(ob)
     return ob

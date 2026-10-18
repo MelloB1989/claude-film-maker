@@ -272,7 +272,7 @@ def render(sc, args, frames):
             t0 = time.time()
             vl_plate.use = p == "plate"
             vl_light.use = p == "light"
-            sc.render.film_transparent = p == "light" or f >= tf
+            sc.render.film_transparent = p == "plate" and f >= tf  # light: opaque on black (additive emitters have alpha 0)
             bg.default_value = 0.0 if p == "light" else 1.0
             bpy.ops.render.render(write_still=False)
             path = os.path.join(args.out, p, "f_%05d.png" % f)

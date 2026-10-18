@@ -50,9 +50,9 @@ def _params(T, ctx):
         s_in=p.get("s_in", 1.12), ds_in=p.get("ds_in", 0.10),        # the C16 push landing, still decaying
         ds_peak=p.get("ds_peak", 0.30),                                # REFS: +20..30 %/f on the last A frame
         dr_peak=p.get("dr_peak", 2.2),                                 # clockwise into the hit (deg/f)
-        ds_land=-p.get("ds_peak", 0.30) * 0.85, dr_land=2.0,           # B lands at A's speed (pull-out), same roll sense
+        ds_land=-p.get("ds_peak", 0.30) * 0.75, dr_land=2.0,           # B lands at A's speed (pull-out), same roll sense
         s_out=p.get("s_out", 1.30), ds_out=-0.018, dr_out=0.0,         # hold drift >= 1.5 %/f
-        decay=p.get("decay", 0.8), floor_in=0.03,
+        decay=p.get("decay", 0.83), grow=p.get("grow", 1.6), floor_in=0.03,
         crack0=f - 3.5, fh=f - 0.5,
     )
     la = p.get("lens_a", T["a"]["focus"] or [960, 540])
@@ -65,8 +65,8 @@ def _params(T, ctx):
 def _curves(T, P):
     w0, w1, fh = T["w0"], T["w1"], P["fh"]
     TA, TB = fh - w0, w1 - fh
-    lsA, dlsA = fx.attack(math.log(P["s_in"]), P["ds_in"], P["ds_peak"], TA, P["floor_in"], 2.0, P["decay"])
-    rA, drA = fx.attack(0.0, 0.0, P["dr_peak"], TA, 0.0, 2.0, P["decay"])
+    lsA, dlsA = fx.attack(math.log(P["s_in"]), P["ds_in"], P["ds_peak"], TA, P["floor_in"], P["grow"], P["decay"])
+    rA, drA = fx.attack(0.0, 0.0, P["dr_peak"], TA, 0.0, P["grow"], P["decay"])
     lsB, dlsB = fx.landing(math.log(P["s_out"]), P["ds_land"], P["ds_out"], TB, P["decay"])
     rB, drB = fx.landing(0.0, P["dr_land"], P["dr_out"], TB, P["decay"])
     P["s_peak"], P["s_land"], P["r_peak"], P["r_land"] = math.exp(lsA(TA)), math.exp(lsB(0)), rA(TA), rB(0)
