@@ -47,8 +47,8 @@ def render(video: str, mix: str, out: Path, f0: int, f1: int, fps: int, label, c
     """Frames [f0, f1) of `video` at 960x540 with the overlay, muxed with mix.wav over the same time range."""
     ff = ffmpeg()
     n = f1 - f0
-    dec = subprocess.Popen([ff, "-v", "error", "-ss", f"{(f0 - 0.25) / fps:.6f}", "-i", video,   # first frame = f0 "-frames:v", str(n),
-                            "-vf", f"scale={W}:{H}", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+    dec = subprocess.Popen([ff, "-v", "fatal", "-ss", f"{(f0 - 0.25) / fps:.6f}", "-i", video,   # first frame = f0 "-frames:v", str(n),
+                            "-vf", f"scale={W}:{H}", "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
                            stdout=subprocess.PIPE)
     enc = subprocess.Popen([ff, "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
                             "-r", str(fps), "-i", "-", "-ss", f"{f0 / fps:.6f}", "-t", f"{n / fps:.6f}", "-i", mix,
@@ -76,6 +76,8 @@ def render(video: str, mix: str, out: Path, f0: int, f1: int, fps: int, label, c
         enc.stdin.write(im.tobytes())
     enc.stdin.close()
     enc.wait()
+    dec.stdout.close()                 # the decoder may still hold frames past the range: stop it, do not wait on it
+    dec.terminate()
     dec.wait()
 
 
