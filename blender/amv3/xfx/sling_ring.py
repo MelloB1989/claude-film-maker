@@ -299,7 +299,8 @@ def build(T, ctx):
             ob.keyframe_insert("scale", frame=t)
             ob.keyframe_insert("rotation_euler", frame=t)
         X.set_linear(ob)
-    ctx.env(O, ctx.act_at(cut))
+    # no act void: the S24 copy (mirror-tiled) and the huge S25 copy cover the frame all through; the void's web
+    # strands would cross the ring
 
     homeA = ctx.card(a).matrix_world.copy()
     homeB = ctx.card(b).matrix_world.copy()

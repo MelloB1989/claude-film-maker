@@ -109,7 +109,7 @@ def build(T, ctx):
     a, b = P["a"], P["b"]
     plate_c, light_c = ctx.coll("plate"), ctx.coll("light")
     R = X.rng(686)
-    cardA = X.copy_card(ctx, a, "XA_web_S27", P["MA"], frames=(w0 - 1, w1 - 1))
+    cardA = X.copy_card(ctx, a, "XA_web_S27", P["MA"], frames=(w0 - 1, w1 - 1), tile=1)  # one card, real edges
     X.copy_card(ctx, b, "XA_web_S28", P["MB"], frames=(w0 - 1, w1 + 1))
     sub = cardA.modifiers.new("sub", "SUBSURF")
     sub.subdivision_type = "SIMPLE"

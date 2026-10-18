@@ -307,7 +307,7 @@ def build(T, ctx):
     frame = _frame_obj("XA_eye_S09_frame", light_c)
     frame.matrix_world = P["MB"] @ Matrix.Translation(Vector((0, 0, 0.004)))
     frame.data.materials.append(X.mat_emit("XA_eye_frame_m", cyan, 3.0))
-    ctx.env(O, ctx.act_at(cut))
+    # no act void inside: the tunnel is closed (nebula tube + cap); the void's haze and strands would sit in the tunnel
     for ob in (rim, funnel):
         X.key_hide(ob, [(w0, cut + 1)])
 
