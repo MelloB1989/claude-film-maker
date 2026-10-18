@@ -214,7 +214,7 @@ class StageContext:
         return max(0, s["a"] - h), min(self.E["dur"], s["b"] + h)
 
     def make_card(self, sid, name, matrix=None, alpha="none", depth=0.0, hole=None, collection="plate",
-                  frames=None, backface=None, sweep=False, home=False, tile=1, region=None):
+                  frames=None, backface=None, sweep=False, home=False, tile=1, region=None, tile_fade=0.22):
         """A new card playing shot sid's plate in comp time. matrix: world matrix (default: the shot's home origin).
         alpha 'matte' = subject matte as alpha; depth > 0 = displaced from the depth map (2.5D); hole = dict(center=[x, y],
         radius=[(frame, px), ...], feather=px). frames = (f0, f1) render visibility (default: the plate range).
@@ -231,11 +231,11 @@ class StageContext:
         nx, ny = ((128 if tile == 1 else 192), (72 if tile == 1 else 108)) if dimg is not None else (1, 1)
         me = cards.card_mesh(name, nx, ny, tile=tile)
         ext = "MIRROR" if tile > 1 else "EXTEND"
-        key = (sid, alpha, bool(hole), tuple(backface) if backface else None, sweep, ext)
+        key = (sid, alpha, bool(hole), tuple(backface) if backface else None, sweep, ext, tile_fade)
         if hole or sweep or region is not None or key not in self._mats:
             mat = cards.card_material(f"m_{name}", plate, matte, alpha, hole, backface, sweep, ext,
                                       tile_tint=self.palette(self.act_of(sid))["leak"] if tile > 1 else None,
-                                      region_img=region)
+                                      region_img=region, tile_fade=tile_fade)
             if not (hole or sweep or region is not None):
                 self._mats[key] = mat
         else:
@@ -534,6 +534,8 @@ DEPTH_M = 0.35  # metres of forward relief at depth 1.0 (near = white comes towa
 
 
 def add_depth(ob, dimg, depth, nx, ny):
+    if "nodepth" in os.environ.get("AMV3_PROFILE", ""):
+        return
     """2.5D: displace a card along its normal from the shot's depth sequence (mid level 0: the background stays in the
     card plane so the frame never shrinks off the card; near parts come forward), smoothed, outer border kept flat.
     The UV mapping is shared with the plate, so a tiled card reads the real card's depth only inside it."""
@@ -1389,6 +1391,31 @@ def cull_by_set(ctx):
         _constant(ob)
         n_obj += 1
         n_hidden += on.count(False)
+    # object motion blur only where something moves: a card that never moves (its depth relief aside) needs none,
+    # the camera's own blur stays; Cycles then skips its subframe sync
+    prof = os.environ.get("AMV3_PROFILE", "")
+    n_static = 0
+    for ob in sc.objects:
+        if ob in rig or ob.type == "CAMERA" or not hasattr(ob, "cycles"):
+            continue
+        moving = False
+        p = ob
+        while p is not None and not moving:
+            ad = p.animation_data
+            if ad and ad.action and any(fc.data_path not in ("hide_render", "hide_viewport") for fc in _fcurves(ad.action)):
+                moving = True
+            if ad and ad.drivers and len(ad.drivers):
+                moving = True
+            p = p.parent
+        if not moving or "noobjmb" in prof:
+            try:
+                ob.cycles.use_motion_blur = False
+                n_static += 1
+            except AttributeError:
+                pass
+    if "nomb" in prof:
+        sc.render.use_motion_blur = False
+    ctx.log(f"motion blur: off on {n_static} static objects")
     ctx.log(f"cull: {n_obj} objects keyed to the camera's set ({n_hidden / max(1, n_obj):.0f} hidden frames each on average)")
 
 

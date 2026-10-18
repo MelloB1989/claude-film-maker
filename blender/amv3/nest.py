@@ -26,6 +26,7 @@ import regions
 
 F = cl.FILL_DIST
 DEF = dict(land=1.1, reveal=(10, 8), fill=1.15, fstop=2.0)
+CENTRE_BY = 0.6  # an eye / lens opening reaches frame centre after this share of the approach
 LAND_LO = 1.0  # the back card's least scale at the crossing (it must cover the frame when the front plane passes)
 GROW_MIN = 1.2  # the back card grows at least this much between the reveal and the crossing (eye / lens)
 GROW_OPEN = 3.0  # an eye / lens opening: B grows at least this much from the reveal to the crossing
@@ -74,9 +75,16 @@ def bounds(T, ctx):
     cpre = L.P if L.push else L.fK
     cpost = L.fK if L.push else L.P
     if not adj and flow.prev_hold(T, ctx) >= flow.REVERSAL_MIN:
-        for _ in range(2):
-            A = ctx.settle_entry(T, A.with_(dcx=1.2 * (cpre[0] - A.cx) / TA, dcy=1.2 * (cpre[1] - A.cy) / TA),
-                                 fixed_rate=True)
+        TCn = max(2.0, CENTRE_BY * TA) if L.kind != "bg" else TA
+        # settle_entry moves A by half the hold x the rate, the rate depends on A: a damped fixed point (gain > 1)
+        dcx, dcy = A.dcx, A.dcy
+        for _ in range(24):
+            A = ctx.settle_entry(T, A.with_(dcx=dcx, dcy=dcy), fixed_rate=True)
+            dcx = 0.7 * dcx + 0.3 * 1.2 * (cpre[0] - A.cx) / TCn
+            dcy = 0.7 * dcy + 0.3 * 1.2 * (cpre[1] - A.cy) / TCn
+        A = ctx.settle_entry(T, A.with_(dcx=dcx, dcy=dcy), fixed_rate=True)
+    ctx.log(f"  nest {T['id']} bounds: prev hold {flow.prev_hold(T, ctx)} adj {adj} cpre {[round(v) for v in cpre]} "
+            f"A c ({A.cx:.0f},{A.cy:.0f}) dc ({A.dcx:+.1f},{A.dcy:+.1f})")
     if flow.next_hold(T, ctx) >= flow.REVERSAL_MIN:
         B = B.with_(dcx=1.2 * (B.cx - cpost[0]) / TB, dcy=1.2 * (B.cy - cpost[1]) / TB)
     if L.push and L.B_s > B.s * 1.001:
@@ -161,8 +169,9 @@ def _hermite_px(p0, m0, p1, m1, T, tau):
 class Layout:
     """Solve D, k, land and the curves for window T with bounds A (at w0, on A's card) and B (at w1, on B's card)."""
 
-    def __init__(self, T, ctx, A, B):
+    def __init__(self, T, ctx, A, B, fixed_B=False):
         self.T, self.ctx, self.A, self.B = T, ctx, A, B
+        self.fixed_B = fixed_B  # build time: B is what the hold after starts from, never moved again
         p = T["p"]
         self.p = p
         self.sg = sign_of(T)
@@ -174,8 +183,11 @@ class Layout:
         self.ksid = T["b"]["id"] if self.push else T["a"]["id"]
         lead, dur = p.get("reveal", DEF["reveal"])
         lead, dur = float(lead), float(dur)
+        self.kind = p.get("region", "bg")
         if not self.push:
             lead = max(3.0, min(lead, self.w1 - 1.5 - self.tx))
+        elif self.kind != "bg":
+            lead = max(3.0, min(lead, self.tx - self.w0 - 1.0))  # B shows in the opening once the camera heads for it
         dur = max(2.0, min(dur, lead - 1.0))
         self.lead, self.dur = lead, dur
         self.t_r = self.tx - lead if self.push else self.tx + lead
@@ -303,7 +315,7 @@ class Layout:
         Lx = L1 - room
         lo, hi = math.log(min(LAND_LO, self.land_min)), math.log(self.B_s / 1.03)
         if Lx < lo:
-            if self.touching:
+            if self.touching or self.fixed_B:
                 # the next window starts at w1 from this landing: keep B, let the crossing scale give (>= 0.85)
                 Lx = max(Lx, math.log(0.85))
             else:
@@ -406,8 +418,11 @@ class Nest:
         if t <= L.tx:
             tau = t - L.w0
             cpre = L.P if L.push else L.fK
-            cx, _ = _hermite_px(A.cx, A.dcx, cpre[0], 0.0, TA, tau)
-            cy, _ = _hermite_px(A.cy, A.dcy, cpre[1], 0.0, TA, tau)
+            # an opening is centred well before the crossing (the eye reads in the middle of the frame while B shows
+            # in it); a background crossing point is reached at the crossing
+            TC = max(2.0, CENTRE_BY * TA) if L.kind != "bg" else TA
+            cx, _ = _hermite_px(A.cx, A.dcx, cpre[0], 0.0, TC, tau)
+            cy, _ = _hermite_px(A.cy, A.dcy, cpre[1], 0.0, TC, tau)
             r, _ = flow.ramp_in(A.r, A.dr, self.rA_end, TA, self.kAr, max(0.0, tau))
             if tau < 0:
                 r = A.r + A.dr * tau
@@ -421,6 +436,12 @@ class Nest:
         cx, _ = _hermite_px(B.cx, -B.dcx, cpost[0], 0.0, TB, tp)
         cy, _ = _hermite_px(B.cy, -B.dcy, cpost[1], 0.0, TB, tp)
         r, _ = flow.ramp_out(self.rB_start, B.r, B.dr, TB, self.kBr, max(0.0, tp))
+        # the landing keeps the frame on B's real picture (no mirrored tile at an edge), faded in after the crossing
+        sB = math.exp(self.curve(t)[0]) if L.push else (F / z if z > 1e-3 else 50.0)
+        w = cl.smootherstep((t - L.tx) / 4.0)
+        if w > 0 and sB >= 1.0:
+            qx, qy = cl.clamp_center(sB, cx, cy, r, 0.01)
+            cx, cy = cx + (qx - cx) * w, cy + (qy - cy) * w
         if L.push:
             v = self.Kloc @ Vector((*cl.px_to_local(cx, cy), 0.0))
             return v.x, v.y, z, r + self.phi
@@ -455,7 +476,7 @@ def build_nest(T, ctx):
     p = T["p"]
     b = ctx.bounds.get(T["id"]) or bounds(T, ctx)
     A, B = b["A"], b["B"]
-    L = Layout(T, ctx, A, B)
+    L = Layout(T, ctx, A, B, fixed_B=True)
     n = Nest(L, ctx)
     w0, w1, tx = T["w0"], T["w1"], L.tx
     asid, bsid = T["a"]["id"], T["b"]["id"]
@@ -470,12 +491,19 @@ def build_nest(T, ctx):
         front.data.materials.clear()
         front.data.materials.append(mat)
         back = ctx.make_card(bsid, f"nestK_{T['id']}", matrix=n.MK, depth=depthB, tile=3,
-                             frames=(int(math.floor(L.t_r)) - 2, w1 + 1))
+                             frames=(int(math.floor(L.t_r)) - 2, w1 + 1), tile_fade=0.05)  # B framed small: no mirror reads
     else:
         front = ctx.make_card(bsid, f"nestF_{T['id']}", matrix=n.MF, depth=depthB, tile=3,
                               frames=(int(math.floor(tx)) - 1, w1 + 1), region=L.region_img)
         back = ctx.card(asid)
         mat = front.active_material
+        # A (the back) shrinks below the frame: its mirror tiles fade into the haze fast while the window runs
+        tfn = back.active_material.node_tree.nodes.get("TileFade") if back.active_material else None
+        if tfn is not None:
+            v = tfn.outputs[0]
+            for f, val in ((w0 - 1, 0.22), (w0 + 1, 0.05), (w1, 0.05), (w1 + 1, 0.22)):
+                v.default_value = val
+                v.keyframe_insert("default_value", frame=f)
     n.front, n.back = front, back
     front["amv3_region_area"] = float(L.info_r["area"])
     zs = [n.z(w0 + 0.25 * i) for i in range(int((min(w1, tx + 3) - w0) * 4))]  # the end may turn into the next hold

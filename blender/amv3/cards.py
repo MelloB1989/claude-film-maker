@@ -106,7 +106,7 @@ def _n(nt, kind, x=0, y=0, **props):
 
 
 def card_material(name, plate_img, matte_img=None, alpha="none", hole=None, backface=None, sweep=False,
-                  extension="EXTEND", tile_tint=None, region_img=None):
+                  extension="EXTEND", tile_tint=None, region_img=None, tile_fade=0.22):
     """Emission card material. alpha: 'none' | 'matte' (alpha = subject matte). hole: dict(center=[px, py], feather=px)
     -> a 'HoleR' Value node (radius px, the caller keys it). backface: RGB for the card's back (None = the plate).
     sweep: adds a 'Sweep' Value node (diagonal light band position 0..1, the caller keys it) and 'SweepAmt'.
@@ -144,7 +144,9 @@ def card_material(name, plate_img, matte_img=None, alpha="none", hole=None, back
         fade = _n(nt, "ShaderNodeMapRange", 0, 420, interpolation_type="SMOOTHSTEP")
         nt.links.new(mxa.outputs[0], fade.inputs["Value"])
         fade.inputs["From Min"].default_value = 0.0
-        fade.inputs["From Max"].default_value = 0.22
+        tf = _n(nt, "ShaderNodeValue", -150, 560, name="TileFade", label="TileFade")
+        tf.outputs[0].default_value = tile_fade  # UV distance over which the mirror tiles fade into the haze (keyable)
+        nt.links.new(tf.outputs[0], fade.inputs["From Max"])
         fade.inputs["To Max"].default_value = 0.88
         haze = _n(nt, "ShaderNodeMix", 150, 300, data_type="RGBA", blend_type="MULTIPLY")
         haze.inputs["Factor"].default_value = 0.75
