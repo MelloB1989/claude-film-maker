@@ -13,7 +13,7 @@ v2's ec/titles.jsx (unchanged) + ec/finish.jsx -> `effectcraft-cli script` -> th
 render: ONE render-queue job that builds on the VM (the passes and $AMV2_DATA live there), keeps the project in
 `$AMV3_DATA/builds/<name>.ecproj` (the queue's rsync --delete wipes build/), renders 48-frame chunks with `procs` workers,
 and copies `out/timeless/amv3/frames_<name>/` back; then here: check, encode h264 CRF 16 yuv420p with the mix
-(`$AMV2_DATA/mix.wav` until the v3 mix exists) -> `out/timeless/amv3/Timeless_v3[_<name>].mp4`, timings json.
+(`$AMV3_DATA/mix.wav`, else `$AMV2_DATA/mix.wav`) -> `out/timeless/amv3/Timeless_v3[_<name>].mp4`, timings json.
 """
 from __future__ import annotations
 
@@ -35,7 +35,8 @@ V2_TITLES = ROOT / "tools/filmtools/amv2/ec/titles.jsx"
 OUT = ROOT / "out/timeless/amv3"
 AMV2 = os.environ.get("AMV2_DATA", "/home/nikhil/code/film-making/work/timeless_v2")
 DEF_OUTRO = f"{AMV2}/blender/outro"
-MIX = Path("/home/nikhil/code/film-making/work/timeless_v2/mix.wav")
+MIXES = (Path("/home/nikhil/code/film-making/work/timeless_v3/mix.wav"),      # the v3 mix (mix agent), else v2's
+         Path("/home/nikhil/code/film-making/work/timeless_v2/mix.wav"))
 
 
 def build_script(stage, outro, out_project):
@@ -116,7 +117,7 @@ def render(stage, outro, name, res, frames, procs, threads, encode=True, audio=N
         raise SystemExit(f"render failed: rc {rc}, {len(miss)} missing (first {miss[:8]}); see {fdir}/err_*.txt, build.log")
     if encode:
         mp4 = OUT / ("Timeless_v3.mp4" if name == "final" else f"Timeless_v3_{name}.mp4")
-        aud = audio or (MIX if MIX.exists() else None)
+        aud = audio or next((m for m in MIXES if m.exists()), None)
         R.encode(fdir, a, b, mp4, aud)
         print("encoded", mp4, "audio", aud)
     return 0
