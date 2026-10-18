@@ -48,6 +48,7 @@ DEFAULTS = {
 SIDES = {"L": (-1, 0), "R": (1, 0), "U": (0, 1), "D": (0, -1)}  # screen direction (x right, y up)
 STEP = 0.25
 ENTRY = 0.02  # d ln s / f a layer window is entered with (the hold before turns to it: REFS holds 1.5-3.5 %/f)
+KB_MAX = 3.0  # sweep: largest B card scale (B sits 0.3 m behind A: the cover scale is ~1.0-1.5)
 ZSEP = 0.004  # m a subject card sits in front of the plate it came from: coplanar cards z-fight in Cycles (a ray that
 #               passes the transparent part of one card skips the other at random -> ~50 % see-through)
 
@@ -106,14 +107,19 @@ def layout(T, ctx, p, A, B):
         z = -D - max(0.0, -btr) - (b_off(t) if t is not None else 0.0)
         return Matrix.Translation((ox * shift, oy * shift, z)) @ Matrix.Scale(kb, 4)
 
+    # B's hold extrapolated back from w1 can leave its card inside the window (a fast pan / tilt): a bigger B card never
+    # fixes that (B's pose scales with it; C30 grew it to x110 and rendered black), so B's look back is eased
+    Be = eased_back(B, w1 - w0)
     # start at the scale that just fills the frame from A's framing (camera FILL / A.s in front of A's plane)
     kb = max(1.0, 0.95 * (cl.FILL_DIST / A.s + D + max(0.0, btr)) / cl.FILL_DIST)
     ok = False
-    for _ in range(120):
-        cam = Blend(ctx, Matrix(), A, MBl(kb), B, w0, f, w1, ek, eko)
+    for _ in range(60):
+        cam = Blend(ctx, Matrix(), A, MBl(kb), Be, w0, f, w1, ek, eko)
         if all(covers(*cam(t), MBl(kb, t)) for t in frange(w0 + 1, w1, 0.5)):
             ok = True
             break
+        if kb * 1.04 > KB_MAX:
+            break  # never a degenerate card: the act void shows where B falls short
         kb *= 1.04
     ds = []
     prev = None
@@ -128,7 +134,7 @@ def layout(T, ctx, p, A, B):
         ctx.log(f"  DEBUG layer {T['id']}: A {A} B {B} kb {kb:.2f} uncovered at {bad[:10]} "
                 f"cam z {[round(cam(t)[0].z, 3) for t in (w0, f, w1 - 0.01)]}")
     L.update(mc=mc, sc_px=sc_px, dir=d, sx=sx, sy=sy, sg=sg, D=D, shift=shift, btr=btr, ek=ek, eko=eko, b_off=b_off,
-             MBl=MBl, kb=kb, B=B, covered=ok, monotone=mono)
+             MBl=MBl, kb=kb, B=B, Bcam=Be, covered=ok, monotone=mono)
     return L
 
 
@@ -162,13 +168,8 @@ def layout_keep(T, ctx, p, A, B):
     kb = (D - past) / bl.z
     # B's hold motion extrapolated back from w1 shrinks B below fill scale within the window: its look back is eased
     # (same pose and rate at w1, never further back than tau frames)
-    tau = float(w1 - w0)
-    while tau > 0.5:
-        st = B.at(-tau)
-        if st.s >= cl.min_scale(st.cx, st.cy, st.r, 0.03):
-            break
-        tau *= 0.9
-    B = EasedBack(B, tau)
+    B = eased_back(B, w1 - w0)
+    tau = B.tau
 
     def crossing(cam):
         prev = None
@@ -222,6 +223,18 @@ class KeepCam:
         loc, _ = self(t)
         bl = Vector(cl.local_pose(self.B.at(t - self.w1))[0])
         return Matrix.Translation(loc - bl * self.kb) @ Matrix.Scale(self.kb, 4)
+
+
+def eased_back(B, span, margin=0.03):
+    """EasedBack(B, tau) with the longest look-back tau <= span frames at which B's extrapolated state still covers the
+    frame (a fast hold, e.g. S31's -45 px/f tilt, runs off its card a few frames before w1)."""
+    tau = float(span)
+    while tau > 0.5:
+        st = B.at(-tau)
+        if st.s >= cl.min_scale(st.cx, st.cy, st.r, margin):
+            break
+        tau *= 0.9
+    return EasedBack(B, tau)
 
 
 class EasedBack:
@@ -710,7 +723,7 @@ def build_sweep(T, ctx, p):
     def MB_at(kb, t=None):
         return Matrix.Translation(o) @ Lg["MBl"](kb, t)
     MB = MB_at(kb)
-    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, Lg["ek"], Lg["eko"])
+    cam = Blend(ctx, MA, A, MB, Lg["Bcam"], w0, f, w1, Lg["ek"], Lg["eko"])
     layout_log(ctx, T, Lg)
 
     dA, dB = shot_depth(ctx, sa), shot_depth(ctx, sb)

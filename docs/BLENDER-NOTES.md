@@ -194,3 +194,20 @@
 - Aim the camera's straight line through the crossing point in A's plane, not its end pose. The camera travels ~10x
   further in depth than sideways, so an end-pose offset is reached only after A's plane, and the camera flies through
   the subject's face.
+
+### v3-layer refinements (land <= 1.3x, C30 black frames)
+- **A hold extrapolated back from w1 can leave its card inside the window.** `B.at(t - w1)` runs B's exit rates
+  backwards linearly. S31 in the full film exits tilting at -45 px/f, so 6 f before w1 B's framing is off the card. A
+  bigger card never fixes that, because the camera pose on it scales too. The sweep cover search ran to x110 and the
+  camera ended 140 m out: 8 black frames in the nest1 render. Fix: `eased_back(B, span)` keeps pose and rate at w1 and
+  clamps the look-back softly at the longest tau that still covers. The cover search is also capped (`KB_MAX` 3).
+  `--only` runs did not show it: the stub neighbours give S31 a gentle exit rate. Always check a full-EDL build.
+- **The core's `cull_by_set` judges a card's set by its centre** (`matrix_world.translation`, one sample). A card
+  scaled up to cover a far view (centre 50-200 m back) is hidden as "another set", and the world shows through
+  (magenta). Keep cards within ~45 m of the set origin, or key `hide_render` yourself.
+- **Landing scale vs cover is a hard budget.** B covers the frame only at s >= ~1.05-1.15 (centre, roll, margin). With
+  a landing <= 1.3x, B has ~0.15-0.2 in ln s for the whole window. A static far B approached by the camera spends far
+  more (the old keep landed at 1.78-1.99x). keep now rides B's card with the camera, showing B in its own (eased) hold
+  motion, so B lands sharp and C1. The cost: B moves at hold speed after the cut, not with a decelerating zoom, so the
+  stage gate's per-cut drop/step stats for a keep cut compare A's plane at the lens with B and read x100+ (as for the
+  eye/lens nests, which the gate exempts).
