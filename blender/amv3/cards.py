@@ -106,11 +106,13 @@ def _n(nt, kind, x=0, y=0, **props):
 
 
 def card_material(name, plate_img, matte_img=None, alpha="none", hole=None, backface=None, sweep=False,
-                  extension="EXTEND", tile_tint=None):
+                  extension="EXTEND", tile_tint=None, region_img=None):
     """Emission card material. alpha: 'none' | 'matte' (alpha = subject matte). hole: dict(center=[px, py], feather=px)
     -> a 'HoleR' Value node (radius px, the caller keys it). backface: RGB for the card's back (None = the plate).
     sweep: adds a 'Sweep' Value node (diagonal light band position 0..1, the caller keys it) and 'SweepAmt'.
-    The Emission strength (node 'Emission', input 1) is the fade (0 = black)."""
+    The Emission strength (node 'Emission', input 1) is the fade (0 = black).
+    region_img: a blurred region-mask sequence (regions.py) -> Value nodes 'RegOp' (the card's opacity inside the region,
+    1 = opaque) and 'RegW' (smoothstep half width around the mask's 0.5 contour = the feather); the caller keys both."""
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     nt = m.node_tree
@@ -225,6 +227,34 @@ def card_material(name, plate_img, matte_img=None, alpha="none", hole=None, back
             fac = mm.outputs[0]
         else:
             fac = mr.outputs["Result"]
+    if region_img is not None:
+        # opacity = 1 - smoothstep(0.5 - w, 0.5 + w, mask) * (1 - RegOp)
+        rt = _n(nt, "ShaderNodeTexImage", -650, -1450, image=region_img, interpolation="Linear", extension="EXTEND")
+        setup_user(rt.image_user)
+        nt.links.new(tc.outputs["UV"], rt.inputs["Vector"])
+        rw = _n(nt, "ShaderNodeValue", -650, -1650, name="RegW", label="RegW")
+        rw.outputs[0].default_value = 0.05
+        ro = _n(nt, "ShaderNodeValue", -650, -1750, name="RegOp", label="RegOp")
+        ro.outputs[0].default_value = 1.0
+        lo = _n(nt, "ShaderNodeMath", -450, -1600, operation="SUBTRACT")
+        lo.inputs[0].default_value = 0.5; nt.links.new(rw.outputs[0], lo.inputs[1])
+        hi = _n(nt, "ShaderNodeMath", -450, -1700, operation="ADD")
+        hi.inputs[0].default_value = 0.5; nt.links.new(rw.outputs[0], hi.inputs[1])
+        mr = _n(nt, "ShaderNodeMapRange", -250, -1500, interpolation_type="SMOOTHSTEP")
+        nt.links.new(rt.outputs["Color"], mr.inputs["Value"])
+        nt.links.new(lo.outputs[0], mr.inputs["From Min"]); nt.links.new(hi.outputs[0], mr.inputs["From Max"])
+        inv = _n(nt, "ShaderNodeMath", -250, -1750, operation="SUBTRACT")
+        inv.inputs[0].default_value = 1.0; nt.links.new(ro.outputs[0], inv.inputs[1])
+        cut = _n(nt, "ShaderNodeMath", -50, -1600, operation="MULTIPLY")
+        nt.links.new(mr.outputs["Result"], cut.inputs[0]); nt.links.new(inv.outputs[0], cut.inputs[1])
+        op = _n(nt, "ShaderNodeMath", 100, -1600, operation="SUBTRACT")
+        op.inputs[0].default_value = 1.0; nt.links.new(cut.outputs[0], op.inputs[1])
+        if fac is not None:
+            mm = _n(nt, "ShaderNodeMath", 200, -1300, operation="MULTIPLY")
+            nt.links.new(fac, mm.inputs[0]); nt.links.new(op.outputs[0], mm.inputs[1])
+            fac = mm.outputs[0]
+        else:
+            fac = op.outputs[0]
     if fac is not None:
         tr = _n(nt, "ShaderNodeBsdfTransparent", 300, -150)
         mix = _n(nt, "ShaderNodeMixShader", 600, 0)

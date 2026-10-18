@@ -241,18 +241,20 @@ def punch_curve(dt, amount=0.07, attack=3.0, settle=6.0):
 
 def shake_offsets(dt, seed=1, frames=8.0, amp_deg=1.1, amp_m=0.012):
     """Decaying 3D shake dt frames after its frame -> (pitch, yaw, roll) degrees and (x, y, z) metres in camera space.
-    Smooth (sum of sines with incommensurate rates) so motion blur shows real smears, not jitter noise."""
+    A few smooth bumps (0.10-0.18 cycles / frame, the first the largest) under a fast-rise exponential decay: motion
+    blur shows real smears, never a frame-to-frame direction flip (0.4 cycles / frame read as jitter)."""
     if dt <= 0 or dt >= frames + 4:
         return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)
-    env = math.exp(-3.2 * dt / frames) * smoothstep(dt / 0.75)  # fast rise (0.75 f) then exponential decay
+    env = math.exp(-2.4 * dt / frames) * smoothstep(dt / 0.6)
     if dt > frames:
         env *= 1 - smoothstep((dt - frames) / 4.0)
 
     def osc(i, f):
-        ph = (seed * 12.9898 + i * 78.233) % (2 * math.pi)
-        return math.sin(2 * math.pi * f * dt / 30.0 * 4.0 + ph)
-    rot = (amp_deg * env * osc(1, 2.3), amp_deg * env * osc(2, 2.9), 0.6 * amp_deg * env * osc(3, 1.7))
-    loc = (amp_m * env * osc(4, 2.1), amp_m * env * osc(5, 2.6), 0.5 * amp_m * env * osc(6, 1.9))
+        # rises from ~0 (phase 0.4 rad, per-channel jitter +-0.3 rad): the first bump, ~1.5 f in, is the big one
+        ph = 0.4 + 0.6 * (((seed * 12.9898 + i * 78.233) % 1.0) - 0.5)
+        return math.sin(2 * math.pi * f * dt + ph)
+    rot = (amp_deg * env * osc(1, 0.13), amp_deg * env * osc(2, 0.16), 0.6 * amp_deg * env * osc(3, 0.11))
+    loc = (amp_m * env * osc(4, 0.12), amp_m * env * osc(5, 0.17), 0.5 * amp_m * env * osc(6, 0.10))
     return rot, loc
 
 

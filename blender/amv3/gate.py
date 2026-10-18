@@ -257,7 +257,10 @@ def analyse(dump, out_csv=None, only=False):
             return v[len(v) // 2]
         # drop / step statistics skip the 3D-object windows (flip, cube): the card under the frame changes depth
         # (the door, then B behind it), so the screen speed ratio says little about the camera there
-        flat = [c for c in cutstats if c["type"] not in ("flip", "cube")] or cutstats
+        # ... and the eye / lens nests: A's face fills the frame until the camera passes the opening, B after it (the
+        # speed ratio there compares two planes metres apart; the nest itself keeps the dolly speed continuous)
+        small = {w["id"] for w in wins if w.get("region") in ("eye", "lens")}
+        flat = [c for c in cutstats if c["type"] not in ("flip", "cube") and c["id"] not in small] or cutstats
         drops = sorted(c["drop"] for c in flat)
         stats.update(cut_acc_median=med("acc"), cut_dec_median=med("dec"), cut_peak_median=med("peak"),
                      cut_drop_median=drops[len(drops) // 2], cut_drop_p90=drops[int(0.9 * (len(drops) - 1))],
