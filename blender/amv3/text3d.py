@@ -45,7 +45,7 @@ FONTS = {  # key -> (file names to look for, fc-match pattern)
 PAL = {
     "cyan_white": dict(top="#FFFFFF", hue="#1FB8FF", edge="#7FE6FF", side="#031A44", glow="#2FC8FF", core="#9FEFFF"),
     # REFS: eitaX SPIDER-MAN = red face, gold/cream bevelled extrusion (~15-20 % of cap height)
-    "red_gold": dict(top="#FF2A3C", hue="#9A000E", edge="#FFE2A0", side="#4A0008", glow="#FF3A1C", core="#FFD27A"),
+    "red_gold": dict(top="#E8122A", hue="#70000A", edge="#FFE2A0", side="#4A0008", glow="#FF3A1C", core="#FFD27A"),
     "crimson_white": dict(top="#FFF4F4", hue="#C30A2C", edge="#FF6A86", side="#5E0016", glow="#FF1F4C", core="#FFC2CF"),
     "chrome": dict(top="#F4F7FF", hue="#9FB4D8", edge="#FFFFFF", side="#20283A", glow="#BFD4FF", core="#FFFFFF"),
 }
@@ -59,16 +59,16 @@ STYLE = {
     # S25 is an extreme close-up: the subject matte covers ~the whole frame, so "behind" would hide the word. It sits
     # in front of the face (lower third, clear of the eye), behind the card plane only for parallax.
     "SPIDER-MAN": dict(behind=False, font="anton", center=(900, 770), width_px=1480, hero=645, depth=0.30, yaw=14,
-                       pitch=-8, roll=3, ext=0.12, bev=0.045, shear=0.18, track=0.03, hold=(632, 648), shadow=0.5),
+                       pitch=-8, roll=3, ext=0.12, bev=0.024, inset=0.0, shear=0.18, track=0.03, hold=(632, 648), shadow=0.5),
     "BRAND NEW DAY": dict(font="anton", center=(960, 250), width_px=1560, hero=758, depth=0.36, yaw=-12, pitch=12,
-                          roll=-2, ext=0.12, bev=0.04, shear=0.18, track=0.05, shots=["S31", "S32"], shadow=0.4,
+                          roll=-2, ext=0.12, bev=0.024, inset=0.0, shear=0.18, track=0.05, shots=["S31", "S32"], shadow=0.4,
                           # S31: behind Tom (he crouches low); S32: the head rises UNDER the word, so it sits in front, high and wide
                           per_shot=dict(S31=dict(hero=755, center=(960, 235), width_px=1780),
                                         S32=dict(hero=772, center=(960, 175), width_px=1800, behind=False)),
                           sub=dict(font="barlow", dy_em=-0.95, scale=0.26, at=768),
                           hold=(768, 777), beats=[750.0, 751.0, 752.0, 753.0, 754.0, 755.5, 756.8, 758.0, 761.0, 763.0, 764.4]),
     "TIMELESS": dict(font="anton", center=(960, 548), width_px=1500, hero=806, depth=0.0, yaw=0, pitch=0, roll=0,
-                     ext=0.11, bev=0.02, shear=0.0, track=0.06, chrome=True),
+                     ext=0.11, bev=0.02, inset=0.0, shear=0.0, track=0.06, chrome=True),
 }
 GAMMA = 2.2
 
@@ -399,7 +399,7 @@ def title_material(name, pal, chrome=False):
 
 # --------------------------------------------------------------------------------------------------------------------
 # geometry
-def _curve(body, font, ext, bev, shear, name, chamfer=True):
+def _curve(body, font, ext, bev, shear, name, chamfer=True, inset=0.6):
     cu = bpy.data.curves.new(name, "FONT")
     cu.body = body
     cu.font = font
@@ -409,7 +409,7 @@ def _curve(body, font, ext, bev, shear, name, chamfer=True):
     cu.extrude = ext
     cu.bevel_depth = bev
     cu.bevel_resolution = 0 if chamfer else 3
-    cu.offset = -bev * 0.6 if chamfer else 0.0
+    cu.offset = -bev * inset if chamfer else 0.0   # inset keeps counters open; 0 for fonts with acute corners
     cu.resolution_u = 10
     cu.shear = shear
     ob = bpy.data.objects.new(name, cu)
@@ -426,7 +426,7 @@ def _to_bmesh(ob):
     return bm
 
 
-def word_glyphs(text, font_key, ext, bev, shear, track):
+def word_glyphs(text, font_key, ext, bev, shear, track, inset=0.6):
     """-> list of (char, bmesh in em units, x offset of the glyph's own origin) for the non-space chars. Positions come
     from the right edge of each prefix, so the font's kerning/advances are kept."""
     font = bpy.data.fonts.load(find_font(font_key), check_existing=True)
@@ -434,8 +434,8 @@ def word_glyphs(text, font_key, ext, bev, shear, track):
     for i, ch in enumerate(text):
         if ch == " ":
             continue
-        pre = _curve(text[:i + 1], font, ext, bev, shear, "t3d_probe")
-        one = _curve(ch, font, ext, bev, shear, "t3d_glyph")
+        pre = _curve(text[:i + 1], font, ext, bev, shear, "t3d_probe", inset=inset)
+        one = _curve(ch, font, ext, bev, shear, "t3d_glyph", inset=inset)
         bpy.context.view_layer.update()
         bp, bo = _to_bmesh(pre), _to_bmesh(one)
         right_pre = max(v.co.x for v in bp.verts)
@@ -640,7 +640,8 @@ class Title:
     def build(self):
         ctx, st = self.ctx, self.st
         text = self.T["text"]
-        glyphs = word_glyphs(text, st["font"], st["ext"], st["bev"], st["shear"], st.get("track", 0.0))
+        glyphs = word_glyphs(text, st["font"], st["ext"], st["bev"], st["shear"], st.get("track", 0.0),
+                             st.get("inset", 0.6))
         lo = Vector((1e9, 1e9, 1e9))
         hi = -lo
         for _, b in glyphs:
