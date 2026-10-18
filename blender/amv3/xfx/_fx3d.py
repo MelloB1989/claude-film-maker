@@ -351,6 +351,25 @@ def no_blur(ob):
     return ob
 
 
+def camera_light(name, cam_fn, t0, t1, off, color, watts, size=0.3, coll=None):
+    """An area light riding with the camera at camera-space offset `off` (keep off.z > 0: behind the lens, so the light
+    itself can never be in frame - area lights showed up in renders despite visible_camera = False), aimed along the
+    view. Keyed every half frame on [t0, t1]."""
+    ld = bpy.data.lights.new(name, "AREA")
+    ld.color = color[:3]
+    ld.energy = watts
+    ld.size = size
+    ob = bpy.data.objects.new(name, ld)
+    ob.visible_camera = False
+    (coll or bpy.context.scene.collection).objects.link(ob)
+    rot = look_at(off, Vector((0.0, 0.0, -2.0)))
+    prev = {}
+    for t in frames_half(t0, t1):
+        key_matrix(ob, t, unit_matrix(cam_fn(t)) @ Matrix.LocRotScale(off, rot, None), prev)
+    key_visible(ob, t0, t1)
+    return ob
+
+
 def ride_camera(ob, cam_fn, M_world, t_ref, t0, t1, prev=None):
     """Key ob to follow the camera over [t0, t1] (half frames) so it sits at M_world as seen from the camera at t_ref.
     Camera motion blur then does not smear it: for instantaneous light (bolts, arcs) that must stay crisp filaments."""
@@ -498,6 +517,33 @@ def picture_glass_mat(src, name, gloss_rough=0.07, gloss=1.0, dim=1.0):
         s = mix.outputs[0]
     nt.links.new(s, add.inputs[0])
     nt.links.new(p.outputs[0], add.inputs[1])
+    nt.links.new(add.outputs[0], out.inputs["Surface"])
+    return m
+
+
+def lens_glass_mat(src, name, pic=0.12, tint=(0.94, 0.98, 1.0), rough=0.01, ior=1.45):
+    """Clear refractive glass (you see what is behind it) with a faint additive trace of a plate picture on it (the
+    lens print / reflection), from the plate material src's image (same image user = comp time)."""
+    img = next(n for n in src.node_tree.nodes if n.type == "TEX_IMAGE")
+    m = bpy.data.materials.new(name)
+    nt = _nt(m)
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = img.image
+    tex.extension = "EXTEND"
+    for k in ("frame_start", "frame_duration", "frame_offset", "use_cyclic", "use_auto_refresh"):
+        setattr(tex.image_user, k, getattr(img.image_user, k))
+    nt.links.new(tc.outputs["UV"], tex.inputs["Vector"])
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.name = "pic"
+    em.inputs["Strength"].default_value = pic
+    nt.links.new(tex.outputs["Color"], em.inputs["Color"])
+    g = principled(nt, base=tint, rough=rough, ior=ior, trans=1.0)
+    add = nt.nodes.new("ShaderNodeAddShader")
+    nt.links.new(g.outputs[0], add.inputs[0])
+    nt.links.new(em.outputs[0], add.inputs[1])
     nt.links.new(add.outputs[0], out.inputs["Surface"])
     return m
 

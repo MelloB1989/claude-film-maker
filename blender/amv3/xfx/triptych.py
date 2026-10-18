@@ -286,9 +286,9 @@ def build(T, ctx):
             fx.key_visible(sh.ob, BURST, END + 1)
 
     # ---- light: key from the upper left, act-coloured rims from the sides (glints on the slabs as the camera orbits)
-    for name, p_l, col, watts in (("tp_key", Vector((-1.6, 1.4, 2.6)), (1.0, 0.92, 0.85), 260.0),
-                                  ("tp_rim_l", Vector((-2.4, -0.4, 0.6)), pals[0]["key"], 160.0),
-                                  ("tp_rim_r", Vector((2.4, 0.3, 0.8)), pals[2]["key"], 160.0)):
+    for name, p_l, col, watts in (("tp_key", Vector((-1.6, 1.4, 4.6)), (1.0, 0.92, 0.85), 260.0),
+                                  ("tp_rim_l", Vector((-2.6, -0.4, 4.2)), pals[0]["key"], 160.0),
+                                  ("tp_rim_r", Vector((2.6, 0.3, 4.2)), pals[2]["key"], 160.0)):
         ld = bpy.data.lights.new(name, "AREA")
         ld.color = col[:3]
         ld.energy = watts

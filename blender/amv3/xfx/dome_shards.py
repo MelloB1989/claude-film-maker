@@ -113,19 +113,8 @@ def build_over(T, ctx):
     for t, g in ((w0, 0.0), (f, 5.0), (peak_t + 1, 6.0), (w1, 1.5)):
         fx.key_glow(edge, t, g)
 
-    # two area lights riding with the camera: the glass flashes as it turns through them
-    for name, off, col, watts in (("ds_key", Vector((-0.6, 0.45, -0.2)), pal["key"], 60.0),
-                                  ("ds_rim", Vector((0.7, -0.3, -0.5)), pal["rim"], 45.0)):
-        ld = bpy.data.lights.new(name, "AREA")
-        ld.color = col[:3]
-        ld.energy = watts
-        ld.size = 0.5
-        lo = bpy.data.objects.new(name, ld)
-        lo.visible_camera = False
-        bpy.context.scene.collection.objects.link(lo)
-        rot = (Vector((0, 0, -0.8)) - off).to_track_quat("-Z", "Y")
-        prev = {}
-        for t in times(w0, w1):
-            fx.key_matrix(lo, t, _cam(ctx, t) @ Matrix.LocRotScale(off, rot, None), prev)
-        fx.key_visible(lo, w0, w1)
+    # two area lights riding with the camera (behind the lens): the glass flashes as it turns through them
+    cam_fn = lambda t: _cam(ctx, t)  # noqa: E731
+    fx.camera_light("ds_key", cam_fn, w0, w1, Vector((-0.6, 0.45, 0.3)), pal["key"], 60.0, 0.5)
+    fx.camera_light("ds_rim", cam_fn, w0, w1, Vector((0.7, -0.3, 0.25)), pal["rim"], 45.0, 0.5)
     ctx.log("dome_shards: %d glass shards + %d chips, births around f%.1f" % (n_big, n_chip, peak_t - 1.8))
