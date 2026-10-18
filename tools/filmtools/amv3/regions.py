@@ -22,10 +22,10 @@ square crop of +-crop px that follows the track, upscaled to 1024 px (small eyes
 at 4-10x the plate resolution). Prompts on a few frames: positive clicks at the track point and offsets from it
 (sclera / lens glass), negative clicks on the brow / lids / mask fabric, optionally a box. Propagated forward from the
 first prompt frame and backward from the last; where both passes cover a frame their logits are averaged.
-`post`: threshold 0.5, an optional small opening (SPECS "open", px: cuts thin bridges onto lashes), keep the component
-under the track point (else the nearest), fill holes, then a motion-compensated temporal blend with the neighbouring
-unique frames (aligned on the region centroid) that is skipped whenever
-the neighbour's aligned shape differs (IoU < 0.9 or area off by > 8 %): no lag on zooms or blinks. Antialias: a
+`post`: optional inversion (SPECS "invert": SAM segmented the outside) and a gaussian on the probability (SPECS
+"smooth", px), threshold 0.5, an optional small opening (SPECS "open", px: cuts thin bridges onto lashes), keep the
+component under the track point (else the nearest), fill holes, then a motion-compensated temporal blend with the
+neighbouring unique frames (aligned on the region centroid) that is skipped whenever the neighbour's aligned shape differs (IoU < 0.9 or area off by > 8 %): no lag on zooms or blinks. Antialias: a
 0.7 px gaussian on the hard mask.
 """
 from __future__ import annotations
@@ -48,8 +48,9 @@ MODELS = {"large": "facebook/sam2.1-hiera-large", "base_plus": "facebook/sam2.1-
           "small": "facebook/sam2.1-hiera-small", "tiny": "facebook/sam2.1-hiera-tiny"}
 
 # Per shot: kind, plate frame range (inclusive), crop half size (None = full plate), prompt frames, and prompts as
-# offsets from the track point at that frame (plate px): pos / neg clicks, box [x0, y0, x1, y1]. Picked on gridded
-# zooms of the plates (probe sheets), see the notes.
+# offsets from the track point at that frame (plate px), or absolute per frame ("abs"); "objs" = several SAM objects
+# (their union is the mask). pos / neg clicks, box [x0, y0, x1, y1]. Picked on gridded zooms of the plates (probe
+# sheets), see the notes.
 SPECS = {
     "S08": dict(kind="eye", frames=(219, 267), crop=96, prompt=[219, 241, 262],
                 pos=[[0, 0], [-31, 5], [37, 2]], neg=[[0, -33], [0, -40], [0, 40], [-62, 10], [66, 0]],
@@ -64,7 +65,7 @@ SPECS = {
                 box=[-19, -11, 23, 10], open=1,
                 note="Tom on the train: his LEFT eye = screen right (the screen-left one is under his hair); "
                      "opening ~970-1008 x 275-291, 40 px wide"),
-    "S01": dict(kind="lens", frames=(0, 66), crop=340, prompt=[0, 33, 65],
+    "S01": dict(kind="lens", frames=(0, 66), crop=340, prompt=[0, 33, 65], smooth=2.0,
                 pos=[[0, 0], [-60, -60], [120, 15]], neg=[[150, -150], [-160, 100], [20, 190], [260, 30]],
                 note="Tobey's mask, screen-left lens: the grey glass inside the black frame"),
     "S05": dict(kind="lens", frames=(135, 191), crop=None, prompt=[135, 165, 190],
@@ -73,17 +74,33 @@ SPECS = {
     "S16": dict(kind="lens", frames=(437, 484), crop=260, prompt=[437, 460, 483],
                 pos=[[0, 0], [0, 100], [50, -100]], neg=[[-150, 0], [200, 0], [0, 200]],
                 note="Andrew's blue lenses: the screen-right teardrop lens"),
-    "S17": dict(kind="lens", frames=(452, 496), crop=None, prompt=[452, 479],
-                pos=[[0, 0], [-250, 150], [250, 100]], neg=[[-200, -300], [0, -230]],
+    "S17": dict(kind="lens", frames=(452, 496), crop=None, prompt=[452, 470, 477, 483, 495],
+                pos=[[0, 0], [-250, 150], [250, 100], [300, 0]], neg=[[-200, -300], [0, -230]],
                 note="Andrew A09: the whole blue lens (hex mesh + curved reflections) inside the black rim"),
     "S18": dict(kind="lens", frames=(464, 535), crop=150, prompt=[464, 500, 534],
                 pos=[[0, 0], [40, -35], [-70, 25]], neg=[[0, 90], [-60, -60], [100, 20]],
                 note="Tom M01: the cream lens glass (not its black frame)"),
-    "S09": dict(kind="lens", frames=(236, 316), crop=None, prompt=[244, 262, 282],
-                abs={244: dict(pos=[[1000, 600], [500, 250], [1300, 650]], neg=[[300, 800], [1700, 250], [1850, 100], [100, 900]]),
-                     262: dict(pos=[[1000, 600], [700, 300], [1500, 700]], neg=[[300, 900], [1800, 160], [80, 1000]]),
-                     282: dict(pos=[[1000, 500], [1600, 400], [800, 800]], neg=[[150, 950], [200, 1000]])},
-                note="Andrew A01: everything inside the lens rim (mesh, then the city through it)"),
+    # S09: the glass is unrecognisable as one object (mesh, then the city through it, out of focus), so SAM segments
+    # what is OUTSIDE the lens (two objects: the lower-left black inner rim + white/blue rim + mask fabric, the top-right
+    # blue rim + fabric, which leaves the frame at ~f278) and post inverts it: the region = the glass inside the rim.
+    "S09": dict(kind="lens", frames=(236, 316), crop=None, invert=True, smooth=3.0,
+                objs=[dict(prompt=[244, 262, 274, 282, 292, 304, 315],
+                           abs={244: dict(pos=[[280, 750], [430, 720], [500, 850], [330, 600], [30, 400], [50, 950]],
+                                          neg=[[1000, 600], [500, 250], [600, 500]]),
+                                262: dict(pos=[[300, 800], [200, 700], [400, 750], [330, 620], [120, 850]],
+                                          neg=[[1000, 600], [600, 300], [500, 600]]),
+                                274: dict(pos=[[200, 800], [500, 1000], [20, 750]], neg=[[1000, 500], [500, 300]]),
+                                282: dict(pos=[[150, 850], [450, 1050], [20, 710]], neg=[[1000, 500], [500, 300]]),
+                                292: dict(pos=[[200, 860], [500, 980]], neg=[[1000, 500], [400, 500]]),
+                                304: dict(pos=[[100, 800], [350, 930]], neg=[[1000, 500], [400, 500]]),
+                                315: dict(pos=[[80, 780], [250, 900]], neg=[[1000, 500], [300, 500]])}),
+                      dict(prompt=[244, 262, 270, 274, 282],
+                           abs={244: dict(pos=[[1500, 450], [1650, 300], [1700, 180], [1800, 500]], neg=[[1000, 600], [1300, 600]]),
+                                262: dict(pos=[[1500, 180], [1700, 250], [1850, 100]], neg=[[1000, 600], [1500, 500]]),
+                                270: dict(pos=[[1750, 60]], neg=[[1000, 500], [1600, 300]]),
+                                274: dict(pos=[[1860, 40]], neg=[[1000, 500], [1600, 300]]),
+                                282: dict(pos=[], neg=[[1850, 50], [1000, 500]])})],
+                note="Andrew A01: everything inside the lens rim = NOT (rim + mask fabric), SAM on the outside, inverted"),
 }
 # shots without a tracks.py track: anchors (frame -> eye centre), linear in between, held outside
 ANCHORS = {"S31": {728: [988, 283], 744: [988, 283], 760: [979, 284], 775: [977, 285]}}
@@ -207,21 +224,24 @@ def cmd_sam(a, data):
         ac = torch.autocast("cuda", dtype=torch.bfloat16) if dev.startswith("cuda") else torch.autocast("cpu", enabled=False)
         with torch.inference_mode(), ac:
             st = pred.init_state(video_path=str(tmp))
-            todo = {rep[p]: p for p in spec["prompt"] if p in rep}      # unique frame -> prompt frame (abs key)
-            if not todo:                                  # --frames test window without a prompt frame: its middle
-                mid = uf[len(uf) // 2]
-                todo = {mid: min(spec["abs"], key=lambda k: abs(k - mid)) if "abs" in spec else mid}
-            pfs = sorted(todo)
-            for p in pfs:
-                pts, lab, box = prompts_at(spec, todo[p], tr[p])
-                kw = dict(inference_state=st, frame_idx=idx[p], obj_id=1, points=to_in(p, pts), labels=lab)
-                if box is not None:
-                    kw["box"] = to_in(p, box.reshape(2, 2)).reshape(4)
-                pred.add_new_points_or_box(**kw)
+            pfs = set()
+            for oid, obj in enumerate(spec.get("objs") or [spec], start=1):
+                todo = {rep[p]: p for p in obj.get("prompt", spec.get("prompt", [])) if p in rep}  # unique -> prompt frame
+                if not todo and oid == 1:                 # --frames test window without a prompt frame: its middle
+                    mid = uf[len(uf) // 2]
+                    todo = {mid: min(obj["abs"], key=lambda k: abs(k - mid)) if "abs" in obj else mid}
+                for p in sorted(todo):
+                    pts, lab, box = prompts_at(obj, todo[p], tr[p])
+                    kw = dict(inference_state=st, frame_idx=idx[p], obj_id=oid, points=to_in(p, pts), labels=lab)
+                    if box is not None:
+                        kw["box"] = to_in(p, box.reshape(2, 2)).reshape(4)
+                    pred.add_new_points_or_box(**kw)
+                    pfs.add(p)
+            pfs = sorted(pfs)
             logits = {}
             for rev in (False, True):
                 for fi, _ids, m in pred.propagate_in_video(st, reverse=rev):
-                    lg = m[0, 0].float().cpu().numpy()
+                    lg = m[:, 0].float().amax(0).cpu().numpy()      # union of the objects
                     logits.setdefault(fi, []).append(lg)
             pred.reset_state(st)
         d = out / sid / spec["kind"] / "_raw"
@@ -306,6 +326,10 @@ def cmd_post(a, data):
         masks, probs, misses = {}, {}, []
         for f in uf:
             p = cv2.imread(str(raw / f"f_{f:05d}.png"), cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.0
+            if spec.get("invert"):
+                p = 1.0 - p
+            if spec.get("smooth"):                    # gaussian on the probability: rounds off SAM's jaggies
+                p = cv2.GaussianBlur(p, (0, 0), spec["smooth"])
             hard = (p >= 0.5).astype(np.uint8)
             r = spec.get("open", 0)                   # morphological opening: cuts thin bridges onto lashes / lids
             if r:
