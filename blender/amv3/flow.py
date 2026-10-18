@@ -588,7 +588,7 @@ def build_flip(T, ctx):
     g, kb = float(p.get("gap", 2.2)), float(p.get("b_scale", 0.8))
     vis = (w0 - 1, w1 + 1)
     MB = Matrix.Translation(o) @ Matrix.Scale(kb, 4)
-    cb = ctx.make_card(T["b"]["id"], f"flip_{T['id']}_B", MB, frames=vis)
+    cb = ctx.make_card(T["b"]["id"], f"flip_{T['id']}_B", MB, frames=vis, tile=3)  # B reads as the page underneath
     hx = -cl.CARD_W / 2 if hinge == "L" else cl.CARD_W / 2
     piv = bpy.data.objects.new(f"flip_{T['id']}_hinge", None)
     piv.location = o + Vector((hx, 0, g))
