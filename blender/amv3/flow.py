@@ -16,6 +16,8 @@ import camlib as cl
 import cards
 
 TYPES = ("open", "zt", "whip", "cube", "flip", "slam")
+ENTRY_PUSH = 0.012  # d ln s / frame a zoom-through is entered with (at least)
+EXIT_PULL = 0.010  # d ln s / frame a zoom-through landing leaves with (at least, pulling out)
 
 
 # ---- shared curve helpers ----------------------------------------------------------------------------------------------
@@ -57,13 +59,16 @@ def roll_split(A_dr, B_dr, R, TA, TB, kA, kB):
 
 
 def fin(st):
-    st.cx, st.cy = cl.clamp_center(st.s, st.cx, st.cy, st.r, 0.004)
-    return st
+    return cl.cover(st)
 
 
-def focus_of(T, which):
+def focus_of(T, which, ctx=None):
+    """Zoom focus at the cut: explicit p.focus_a/b, else the shot's track at the cut, else the EDL focus, else centre."""
     p = T.get("p", {})
-    f = p.get(f"focus_{which}") or (T[which] or {}).get("focus") or [960, 540]
+    f = p.get(f"focus_{which}")
+    if not f and ctx is not None and T[which]:
+        f = ctx.track(T[which]["id"], T["f"] - (1 if which == "a" else 0))
+    f = f or (T[which] or {}).get("focus") or [960, 540]
     return [float(f[0]), float(f[1])]
 
 
@@ -142,15 +147,22 @@ def bounds(T, ctx):
     typ = T["type"]
     out = {}
     if T.get("a"):
-        out["A"] = ctx.entry_state(T)
+        A = ctx.entry_state(T)
+        adjacent = any(c["w1"] == T["w0"] and c["id"] != T["id"] for c in ctx.E["cuts"])
+        if typ in ("zt", "slam") and not adjacent and prev_hold(T, ctx) >= REVERSAL_MIN:
+            # windows never reverse, holds absorb reversals: enter a zoom-through already pushing in
+            A = A.with_(ds=max(A.ds, ENTRY_PUSH))
+        out["A"] = ctx.settle_entry(T, A)
     if T.get("b"):
         B = ctx.exit_state(T)
         if typ == "zt" and T["p"].get("mode") == "push":
             land = float(T["p"].get("land", 1.12))
             # B keeps pushing: it must end above the landing scale, still pushing in
             B = B.with_(s=max(B.s, land * 1.07), ds=max(B.ds, 0.012))
-        if typ == "open":
-            B = B
+        elif typ in ("zt", "slam") and next_hold(T, ctx) >= REVERSAL_MIN:
+            # ... and leave it still pulling out (the hold turns round; with a hold under 5 f the landing's tail keeps
+            # the shot's own drift so the turn happens inside the slow end of the landing instead)
+            B = B.with_(ds=min(B.ds, -EXIT_PULL))
         out["B"] = B
     return out
 
@@ -160,19 +172,57 @@ def build(T, ctx):
      "slam": build_slam}[T["type"]](T, ctx)
 
 
+REVERSAL_MIN = 5  # frames a hold needs to turn its zoom round (REFS: 5-7 f)
+
+
+def next_hold(T, ctx):
+    for c in ctx.E["cuts"]:
+        if T.get("b") and c.get("a") == T["b"]["id"]:
+            return c["w0"] - T["w1"]
+    return 99
+
+
+def prev_hold(T, ctx):
+    for c in ctx.E["cuts"]:
+        if T.get("a") and c.get("b") == T["a"]["id"]:
+            return T["w0"] - c["w1"]
+    return 99
+
+
 # ---- zt: zoom-through ---------------------------------------------------------------------------------------------------
-def zt_curves(T, ctx, A, B, peak, land, R, push=False, kA=5.0, match=1.0):
-    """The zoom-through state functions: (stateA(t) for t < t_h, stateB(t) for t > t_h, info)."""
+ATTACK = 2.2  # A's zoom speed grows x2.2 per frame over its last frames (REFS: ~+1, +4, +9, +20..30 %/f)
+DECAY = 0.8  # B's zoom speed falls x0.8 per frame after the cut (REFS: 0.75-0.85, 10 % of peak after 7-12 f)
+RACK_PX = 26.0  # B's rack defocus at the cut (blur circle, px at 1920), fading over RACK_F frames
+RACK_F = 8.0
+
+
+def zt_curves(T, ctx, A, B, land, R, push=False, attack=ATTACK, decay=DECAY):
+    """The zoom-through state functions: (stateA(t) for t < t_h, stateB(t) for t > t_h, info).
+
+    B first: it starts at `land` x on its focus and its zoom speed decays x`decay` per frame into the hold drift (the
+    ease constant kB = -ln(decay) * TB). A then accelerates x`attack` per frame (kA = ln(attack) * TA) so that its speed
+    one frame before the teleport equals B's speed one frame after it (the frame-to-frame zoom carries through the cut;
+    REFS: push into A -> B pulls out). A's scale at the cut follows from that (the EDL `peak` is not used)."""
     w0, w1, f = T["w0"], T["w1"], T["f"]
     th = f - 0.5
     TA, TB = th - w0, w1 - th
-    fa, fb = focus_of(T, "a"), focus_of(T, "b")
-    LA0, Lp = math.log(A.s), math.log(peak)
-    RA = ramp_in_end_rate(LA0, A.ds, Lp, TA, kA)
+    fa, fb = focus_of(T, "a", ctx), focus_of(T, "b", ctx)
     LB1, Ll = math.log(B.s), math.log(land)
-    target = (RA if push else -RA) * match
-    kB = k_for_start_rate(Ll, LB1, B.ds, TB, target)
-    XA, XB = roll_split(A.dr, B.dr, R, TA, TB, kA, kB)
+    kB = max(0.3, -math.log(decay) * TB)
+    D = Ll - LB1 + B.ds * TB
+
+    def rateB(tp):
+        return B.ds - D * cl.expo_in_d(tp / TB, kB) / TB
+    vB = abs(rateB(max(0.0, TB - 1.0)))  # B's speed one frame after the teleport
+    kA = max(0.3, math.log(attack) * TA)
+    LA0 = math.log(A.s)
+    uA = max(0.0, (TA - 1.0) / TA)
+    X = (vB - A.ds) * TA / max(1e-6, cl.expo_in_d(uA, kA))
+    X = max(X, 0.05)
+    Lp = LA0 + A.ds * TA + X
+    RA = A.ds + X * cl.expo_in_d(1.0, kA) / TA
+    kAr, kBr = kA * 1.6, min(60.0, kB * 1.6)  # the roll eases harder than the zoom: big rolls only at big scales
+    XA, XB = roll_split(A.dr, B.dr, R, TA, TB, kAr, kBr)
     rA_end = A.r + A.dr * TA + XA
     rB_start = B.r - B.dr * TB - XB
 
@@ -181,7 +231,7 @@ def zt_curves(T, ctx, A, B, peak, land, R, push=False, kA=5.0, match=1.0):
         L, dL = ramp_in(LA0, A.ds, Lp, TA, kA, tau)
         cx, dcx = ramp_in(A.cx, A.dcx, fa[0], TA, kA, tau)
         cy, dcy = ramp_in(A.cy, A.dcy, fa[1], TA, kA, tau)
-        r, dr = ramp_in(A.r, A.dr, rA_end, TA, kA, tau)
+        r, dr = ramp_in(A.r, A.dr, rA_end, TA, kAr, tau)
         return fin(cl.State(math.exp(L), cx, cy, r, dL, dcx, dcy, dr))
 
     def stB(t):
@@ -189,17 +239,32 @@ def zt_curves(T, ctx, A, B, peak, land, R, push=False, kA=5.0, match=1.0):
         L, dL = ramp_out(Ll, LB1, B.ds, TB, kB, tp)
         cx, dcx = ramp_out(fb[0], B.cx, B.dcx, TB, kB, tp)
         cy, dcy = ramp_out(fb[1], B.cy, B.dcy, TB, kB, tp)
-        r, dr = ramp_out(rB_start, B.r, B.dr, TB, kB, tp)
+        r, dr = ramp_out(rB_start, B.r, B.dr, TB, kBr, tp)
         return fin(cl.State(math.exp(L), cx, cy, r, dL, dcx, dcy, dr))
-    return stA, stB, dict(kA=kA, kB=kB, RA=RA, RB=ramp_out(Ll, LB1, B.ds, TB, kB, TB)[1])
+    return stA, stB, dict(kA=kA, kB=kB, RA=RA, RB=rateB(TB), vB1=vB, peak=math.exp(Lp))
+
+
+def rack(ctx, th, stB, t1, px=RACK_PX, frames=RACK_F):
+    """Rack defocus on B's first frames: real camera DOF, focus pulled in front of the card, fading over `frames`."""
+    t = th + ctx.EPS
+    last = None
+    while t < min(t1, th + frames + 1.0):
+        st = stB(t)
+        d = cl.FILL_DIST / st.s  # camera-to-card distance (the card faces the camera)
+        b = px * (1 - cl.smoothstep((t - th) / frames))
+        ctx.key_dof(t, cl.focus_for_blur(d, b), 1.4)
+        last = (t, d)
+        t = round(t + 0.25, 4) if t > th + 0.1 else th + 0.25
+    if last:
+        ctx.key_dof(last[0] + 0.25, last[1], cl.FSTOP_SHARP)
 
 
 def build_zt(T, ctx):
     p = T["p"]
     A, B = ctx.bounds[T["id"]]["A"], ctx.bounds[T["id"]]["B"]
     push = p.get("mode") == "push"
-    stA, stB, info = zt_curves(T, ctx, A, B, float(p.get("peak", 3.0)), float(p.get("land", 2.4)),
-                               float(p.get("roll", 0.0)), push, float(p.get("kA", 5.0)))
+    stA, stB, info = zt_curves(T, ctx, A, B, float(p.get("land", 2.4)), float(p.get("roll", 0.0)), push,
+                               float(p.get("attack", ATTACK)), float(p.get("decay", DECAY)))
     th = T["f"] - 0.5
     ctx.teleport(th)
     ca, cb = ctx.card(T["a"]["id"]), ctx.card(T["b"]["id"])
@@ -207,8 +272,10 @@ def build_zt(T, ctx):
     def fn(t):
         return ctx.pose(ca, stA(t)) if t < th else ctx.pose(cb, stB(t))
     ctx.key_path(fn, T["w0"], T["w1"], 0.25)
-    ctx.log(f"  zt {T['id']}: kA {info['kA']:.1f} kB {info['kB']:.1f} peak rate {info['RA']:+.3f} | {info['RB']:+.3f} "
-            f"d ln s/f{' push' if push else ''}")
+    if p.get("rack", True):
+        rack(ctx, th, stB, T["w1"], float(p.get("rack_px", RACK_PX)))
+    ctx.log(f"  zt {T['id']}: kA {info['kA']:.1f} kB {info['kB']:.1f} rate at cut {info['RA']:+.3f} | {info['RB']:+.3f}, "
+            f"B 1 f after {info['vB1']:.3f} d ln s/f, A peak {info['peak']:.2f}x{' push' if push else ''}")
 
 
 # ---- open: out of black onto S01 ------------------------------------------------------------------------------------------
@@ -219,7 +286,7 @@ def build_open(T, ctx):
     w0, w1 = T["w0"], T["w1"]
     TB = float(w1 - w0)
     s0 = float(p.get("from_scale", 1.9))
-    fb = focus_of(T, "b")
+    fb = focus_of(T, "b", ctx)
     k = 3.0
     card = ctx.card(sid)
     r0 = B.r - B.dr * TB + 4.0
@@ -420,7 +487,7 @@ def build_slam(T, ctx):
     sc0 = float(p.get("start", 1.03))
     LA0, Lp = math.log(A.s), math.log(peak)
     RA = ramp_in_end_rate(LA0, A.ds, Lp, TA, kA)
-    fa = focus_of(T, "a")
+    fa = focus_of(T, "a", ctx)
     Tk = float(p.get("stop", 3.0))
     te = th + Tk
     re = -0.006  # already easing back out at the stop: the camera never freezes
