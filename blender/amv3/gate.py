@@ -94,6 +94,20 @@ def hit(fr, u, v, allowed=None):
     return None if best is None else best[1:]
 
 
+def best_match(fa, fb, name, shot):
+    ca = next(c for c in fa["cards"] if c["name"] == name)
+    oa = _mat_vec(ca["Mi"], [r[3] for r in fa["cam"]])
+    best = None
+    for c in fb["cards"]:
+        if c.get("shot") != shot:
+            continue
+        ob = _mat_vec(c["Mi"], [r[3] for r in fb["cam"]])
+        d = sum((oa[i] - ob[i]) ** 2 for i in range(3))
+        if best is None or d < best[0]:
+            best = (d, c)
+    return best[1] if best else None
+
+
 def motion(fa, fb, seamless=False):
     """Screen motion from frame fa to fb -> dict(T=(tx, ty), zoom, roll_deg, speed, cspeed, n) or None (no card)."""
     cards_b = {c["name"]: c for c in fb["cards"]}
@@ -109,8 +123,10 @@ def motion(fa, fb, seamless=False):
         if h is None:
             continue
         cb = cards_b.get(h[0])
-        if cb is None and seamless:
-            cb = by_shot.get(shot_a.get(h[0]))  # a seamless teleport: the copy's point is the home card's same point
+        if seamless and shot_a.get(h[0]):
+            # a seamless teleport (copy -> home card, same relative pose): the same-shot card in fb that the camera sits
+            # in front of exactly as it sat in front of this one
+            cb = best_match(fa, fb, h[0], shot_a[h[0]]) or cb
         if cb is None:
             continue
         pw = _mat_vec(cb["M"], h[1])
