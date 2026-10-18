@@ -44,7 +44,8 @@ FONTS = {  # key -> (file names to look for, fc-match pattern)
 # glow: outline/pop emission; core: inside of chunks.
 PAL = {
     "cyan_white": dict(top="#C8F1FF", hue="#0A6FE8", edge="#A8F2FF", side="#04234F", glow="#2FC8FF", core="#9FEFFF"),
-    "red_gold": dict(top="#FFE59A", hue="#FF2A17", edge="#FFC23A", side="#7A0C05", glow="#FF4A1C", core="#FFD27A"),
+    # REFS: eitaX SPIDER-MAN = red face, gold/cream bevelled extrusion (~15-20 % of cap height)
+    "red_gold": dict(top="#FF6A4A", hue="#C00812", edge="#FFE2A0", side="#C88A2E", glow="#FF3A1C", core="#FFD27A"),
     "crimson_white": dict(top="#FFFFFF", hue="#E8143E", edge="#FF6A86", side="#5E0016", glow="#FF1F4C", core="#FFC2CF"),
     "chrome": dict(top="#F4F7FF", hue="#9FB4D8", edge="#FFFFFF", side="#20283A", glow="#BFD4FF", core="#FFFFFF"),
 }
@@ -54,15 +55,15 @@ PAL = {
 # (+yaw = right end recedes, +pitch = top recedes); ext/bev: extrusion half-depth and bevel in em.
 STYLE = {
     "AMAZING": dict(font="barlow", center=(930, 330), width_px=1500, hero=328, depth=0.42, yaw=-16, pitch=10,
-                    roll=-4, ext=0.13, bev=0.03, shear=0.0, track=0.04),
+                    roll=-4, ext=0.13, bev=0.03, shear=0.0, track=0.04, hold=(321, 330)),
     # S25 is an extreme close-up: the subject matte covers ~the whole frame, so "behind" would hide the word. It sits
     # in front of the face (lower third, clear of the eye), behind the card plane only for parallax.
-    "SPIDER-MAN": dict(behind=False, font="anton", center=(1010, 742), width_px=1480, hero=645, depth=0.30, yaw=14, pitch=-8,
-                       roll=3, ext=0.12, bev=0.028, shear=0.18, track=0.03),
+    "SPIDER-MAN": dict(behind=False, font="spiderman", center=(1000, 742), width_px=1560, hero=645, depth=0.30, yaw=14,
+                       pitch=-8, roll=3, ext=0.10, bev=0.05, shear=0.0, track=0.02, hold=(632, 648)),
     "BRAND NEW DAY": dict(font="anton", center=(960, 250), width_px=1560, hero=758, depth=0.36, yaw=-12, pitch=12,
                           roll=-2, ext=0.12, bev=0.028, shear=0.18, track=0.05, shots=["S31", "S32"],
                           sub=dict(font="barlow", dy_em=-0.95, scale=0.26, at=768),
-                          beats=[750.0, 751.0, 752.0, 753.0, 754.0, 755.5, 756.8, 758.0, 761.0, 763.0, 764.4]),
+                          hold=(768, 777), beats=[750.0, 751.0, 752.0, 753.0, 754.0, 755.5, 756.8, 758.0, 761.0, 763.0, 764.4]),
     "TIMELESS": dict(font="anton", center=(960, 548), width_px=1500, hero=806, depth=0.0, yaw=0, pitch=0, roll=0,
                      ext=0.11, bev=0.02, shear=0.0, track=0.06, chrome=True),
 }
@@ -673,6 +674,7 @@ class Title:
             me.materials.append(self.mat_core)
         self.lights()
         self.animate()
+        self.key_hold_focus()
         if self.behind:
             for sid in self.shots:
                 ctx.matte_card(sid)
@@ -812,6 +814,43 @@ class Title:
                     self.coll.objects.link(cp)
                     cp.matrix_world = Xs @ lo.matrix_world
         self.key_material()
+
+    # ---- the plate defocuses slightly while the title holds (REFS: rack focus to the text)
+    def key_hold_focus(self, blur_px=5.0, ramp=3):
+        span = self.st.get("hold")
+        cam = bpy.context.scene.camera
+        if not span or cam is None or not self.shots:
+            return
+        busy = [(w0, w1) for w0, w1, _ in (getattr(self.ctx, "windows", []) or [])]
+        f_mm = LENS_MM
+        card = self.ctx.card(self.shots[0])
+        nrm = (card.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized()
+        a, b = span
+        keyed = []
+        for f in range(int(a), int(b) + 1):
+            if any(w0 - 1 <= f < w1 + 1 for w0, w1 in busy):
+                continue
+            C = self.cam(f)
+            fwd = (C.to_3x3() @ Vector((0, 0, -1))).normalized()
+            dc = (card.matrix_world.translation - C.translation).dot(nrm) / fwd.dot(nrm)
+            dt = (self.Mw.translation - C.translation).dot(fwd)
+            if dc <= 0 or dt <= f_mm / 1000.0:
+                continue
+            u = min(1.0, (f - a + 1) / float(ramp), (b - f + 1) / float(ramp))
+            c_mm = max(0.05, blur_px * u) * SENSOR_MM / W_PX
+            N = (f_mm ** 2) * abs(dc - dt) * 1000.0 / (c_mm * dc * 1000.0 * (dt * 1000.0 - f_mm))
+            N = min(max(N, 1.2), 128.0)
+            cam.data.dof.focus_distance = dt
+            cam.data.dof.aperture_fstop = N
+            cam.data.keyframe_insert("dof.focus_distance", frame=f)
+            cam.data.keyframe_insert("dof.aperture_fstop", frame=f)
+            keyed.append(f)
+        if keyed:
+            cam.data.dof.aperture_fstop = 128.0
+            for f in (keyed[0] - 1, keyed[-1] + 1):
+                if not any(w0 <= f < w1 for w0, w1 in busy):
+                    cam.data.keyframe_insert("dof.aperture_fstop", frame=f)
+            self.ctx.log(f"text3d {self.id}: plate defocus {blur_px:.0f} px while holding {keyed[0]}-{keyed[-1]}")
 
     # ---- material timeline: face emission, outline glow, sweep
     def key_material(self):

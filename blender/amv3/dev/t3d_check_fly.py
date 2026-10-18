@@ -11,7 +11,7 @@ VF = math.radians(16.15)
 for c in [c for c in E["cuts"] if c["type"] == "text_fly"]:
     T = dict(c, a=S[c["a"]], b=S[c["b"]])
     pl = tf.plan(T, None)
-    print(c["id"], "peak x%.2f land x%.2f" % (pl["s_peak"], pl["s_land"]))
+    print(c["id"], "peak x%.2f land x%.2f exit x%.2f" % (pl["s_peak"], pl["s_land"], pl["sB"]))
     for f in range(c["w0"], c["w1"] + 1):
         side, st, ph = tf.state_at(pl, f - 1e-4 if f == c["w1"] else f)
         sx, sy = tf.safe_c(st.s, st.cx, st.cy, st.r, 1.0)
