@@ -9,8 +9,9 @@ Tobey's face, easing into the eye, so Tobey's eye opening blows up past the fram
 gently. It crosses Tobey's plane on the cut and lands on S09's hold framing. Depth of field stays focused on S09, so
 Tobey's face goes out of focus as the camera nears it (refs c 164-179, a 56-71).
 
-Rig: dolly (the speed profile along the axis) -> orbit (small eased pan/tilt keys) -> roll (eased keys, offset from the
-dolly and orbit keys so the motion overlaps and never stops); composed and keyed every half frame.
+Rig (ctx.key_rig): dolly (the speed profile along the axis, keyed every half frame through the core's path) -> orbit
+(small eased pan/tilt keys) -> roll (one eased drift) as sparse explicit Bezier keys on RIG_ORBIT / RIG_ROLL, offset
+from each other and from the dolly so the motion overlaps and never stops (both sides keyed at the teleports).
 
 The geometry follows from the motion: the B zoom rate rho(t) = speed / distance-to-B is keyed; its integral up to the
 crossing fixes S09's depth behind the eye (D), the framing at the crossing (s_cross) fixes S09's card scale, and the
@@ -93,6 +94,8 @@ def _plan(T, ctx):
     pit_k = [(w0, 0.0), (w0 + 3, -0.25), (w0 + 8, 0.35), (t_c - 2.5, 0.0)]
     P["yaw"] = lambda t: _eased(yaw_k, t)  # noqa: E731
     P["pitch"] = lambda t: _eased(pit_k, t)  # noqa: E731
+    P["orbit_t"] = sorted({k[0] for k in yaw_k + pit_k})
+    P["roll_t"] = [w0 + 3, t_c + 3]
     O = ctx.new_set("eye_tunnel")
     P["O"] = O
     P["MA"] = Matrix.Translation(O)
@@ -203,11 +206,61 @@ def build(T, ctx):
         return d, X.lerp(n, 64.0, X._sstep(t_c + 1.0, w1, t))
 
     X.key_path(ctx, w0, w1, fn, teleports=(t_in, t_out), dof_fn=dof)
+    n_rig = _key_rig(ctx, P, fn, (t_in, t_out))
     ctx.log("eye_tunnel nested zoom (f: A %/f | B %/f, sB): " + "  ".join(
         f"{f}: {100 * _rate(z, f) if z(f) > 0.01 else float('nan'):.0f}|{100 * _rate(dB, f):.1f},{FILL * kB / dB(f):.2f}"
         for f in range(w0, w1 + 1)))
     ctx.log(f"eye_tunnel: S09 {P['D']:.2f} m behind the eye at k {kB:.3f}, crossing f{t_c:.1f} at sB "
-            f"{FILL * kB / P['D']:.2f}, lands sB {P['s_end']:.2f}, region {'masks' if mask else 'ellipse stand-in'}")
+            f"{FILL * kB / P['D']:.2f}, lands sB {P['s_end']:.2f}, region {'masks' if mask else 'ellipse stand-in'}, "
+            f"rig keys {n_rig or 'none (no ctx.key_rig: composed path)'}")
+
+
+def _decompose(rot, prev=None):
+    """World rotation -> (RIG_ORBIT swing, RIG_ROLL angle deg), rot = swing @ Rz(angle): the core's split."""
+    q = rot.normalized()
+    ang = 2.0 * math.atan2(q.z, q.w) if math.hypot(q.w, q.z) > 1e-9 else 0.0
+    if prev is not None:
+        ang += 2 * math.pi * round((math.radians(prev) - ang) / (2 * math.pi))
+    return (q @ Quaternion((0, 0, 1), ang).inverted()).normalized(), math.degrees(ang)
+
+
+def _key_rig(ctx, P, fn, teleports, h=0.05, eps=0.02):
+    """Orbit and roll as explicit eased keys: at their own key times (slope 0 there), at the other channel's keys, on
+    both sides of each teleport and before w1. Values and slopes come from the composed camera fn (one-sided at a
+    teleport), so the Bezier reproduces the eased curves. -> number of keys (0 without ctx.key_rig)."""
+    if not hasattr(ctx, "key_rig"):
+        return 0
+    w0, w1 = P["w0"], P["w1"]
+    sides = [th + d for th in teleports for d in (-eps, eps)]
+    base = [w0] + sides + [w1 - 0.5]
+
+    def split(t, prev):
+        return _decompose(_norm(fn(t)).to_quaternion(), prev)
+
+    def slope_h(t):
+        lo = max([w0] + [th for th in teleports if th <= t])
+        hi = min([w1] + [th for th in teleports if th > t])
+        return h if t + h < hi else -h if t - h >= lo else None
+
+    n, prev, qprev = 0, 0.0, None
+    times = sorted({round(t, 4) for t in base + P["orbit_t"] + P["roll_t"] if w0 <= t < w1})
+    for t in times:
+        q, r = split(t, prev)
+        if qprev is not None and qprev.dot(q) < 0:
+            q = -q
+        dt = slope_h(t)
+        if dt is None:
+            dq, dr = (0.0,) * 4, 0.0
+        else:
+            q2, r2 = split(t + dt, r)
+            if q2.dot(q) < 0:
+                q2 = -q2
+            dq, dr = tuple((q2[i] - q[i]) / dt for i in range(4)), (r2 - r) / dt
+        ctx.key_rig(t, "orbit", q, dq)
+        ctx.key_rig(t, "roll", r, dr)
+        prev, qprev = r, q
+        n += 2
+    return n
 
 
 def _rate(fz, f, h=0.25):
@@ -317,3 +370,4 @@ def _eye_region(ob, centre, reveal, feather, mask=None):
     nt.links.new(sh, mix.inputs[2])
     nt.links.new(mix.outputs[0], out.inputs["Surface"])
     return mat
+
