@@ -22,8 +22,8 @@ square crop of +-crop px that follows the track, upscaled to 1024 px (small eyes
 at 4-10x the plate resolution). Prompts on a few frames: positive clicks at the track point and offsets from it
 (sclera / lens glass), negative clicks on the brow / lids / mask fabric, optionally a box. Propagated forward from the
 first prompt frame and backward from the last; where both passes cover a frame their logits are averaged.
-`post`: threshold 0.5, keep the component under the track point (else the nearest), fill holes, then a motion-
-compensated temporal blend with the neighbouring unique frames (aligned on the region centroid) that is skipped whenever
+`post`: threshold 0.5, an optional small opening (SPECS "open", px: cuts thin bridges onto lashes), keep the component
+under the track point (else the nearest), fill holes, then a motion-compensated temporal blend with the neighbouring unique frames (aligned on the region centroid) that is skipped whenever
 the neighbour's aligned shape differs (IoU < 0.9 or area off by > 8 %): no lag on zooms or blinks. Antialias: a
 0.7 px gaussian on the hard mask.
 """
@@ -51,16 +51,16 @@ MODELS = {"large": "facebook/sam2.1-hiera-large", "base_plus": "facebook/sam2.1-
 # zooms of the plates (probe sheets), see the notes.
 SPECS = {
     "S08": dict(kind="eye", frames=(219, 267), crop=96, prompt=[219, 241, 262],
-                pos=[[0, 0], [-31, 5], [37, 2]], neg=[[0, -40], [0, 40], [-62, 10], [66, 0]],
-                box=[-47, -38, 57, 32],
+                pos=[[0, 0], [-31, 5], [37, 2]], neg=[[0, -33], [0, -40], [0, 40], [-62, 10], [66, 0]],
+                box=[-47, -38, 57, 32], open=2,
                 note="Tobey's screen-left eye; opening ~860-958 x 352-418, upper lid at y~367 above the iris"),
     "S25": dict(kind="eye", frames=(604, 672), crop=200, prompt=[604, 630, 656],
                 pos=[[0, 0], [-80, -5], [42, 10]], neg=[[0, 70], [0, -85], [110, 25]],
-                box=[-185, -62, 65, 48],
+                box=[-185, -62, 65, 48], open=3,
                 note="Tom's screen-left eye (the shuriken passes it); upper lid in deep shadow"),
     "S31": dict(kind="eye", frames=(728, 775), crop=48, prompt=[744, 760, 775],
                 pos=[[0, 0], [-10, 1], [13, 1]], neg=[[0, 13], [0, -15], [-26, 2], [30, 2]],
-                box=[-19, -11, 23, 10],
+                box=[-19, -11, 23, 10], open=1,
                 note="Tom on the train: his LEFT eye = screen right (the screen-left one is under his hair); "
                      "opening ~970-1008 x 275-291, 40 px wide"),
     "S01": dict(kind="lens", frames=(0, 66), crop=340, prompt=[0, 33, 65],
@@ -305,7 +305,11 @@ def cmd_post(a, data):
         masks, probs, misses = {}, {}, []
         for f in uf:
             p = cv2.imread(str(raw / f"f_{f:05d}.png"), cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255.0
-            m, hit = keep_component(p >= 0.5, tr[f])
+            hard = (p >= 0.5).astype(np.uint8)
+            r = spec.get("open", 0)                   # morphological opening: cuts thin bridges onto lashes / lids
+            if r:
+                hard = cv2.morphologyEx(hard, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * r + 1, 2 * r + 1)))
+            m, hit = keep_component(hard, tr[f])
             if not hit:
                 misses.append(f)
             m = fill_holes(m)
