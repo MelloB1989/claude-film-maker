@@ -126,6 +126,35 @@ class StageContext:
     def palette(self, act_id):
         return dict(PALETTES.get(act_id, PALETTES["tom"]))
 
+    def track(self, sid, f):
+        """Tracked focus [x, y] (plate pixels) of shot sid at frame f from $AMV3_DATA/tracks/<sid>.json (nearest tracked
+        frame, linear between tracked frames), or None when the shot has no track."""
+        if not hasattr(self, "_tracks"):
+            self._tracks = {}
+        if sid not in self._tracks:
+            path = os.path.join(self.data, "tracks", f"{sid}.json")
+            tr = None
+            if os.path.exists(path):
+                try:
+                    with open(path) as fh:
+                        fr = json.load(fh).get("frames", {})
+                    tr = sorted((int(k), v) for k, v in fr.items() if v)
+                except Exception as e:  # noqa: BLE001
+                    self.log(f"WARN track {sid}: {e}")
+            self._tracks[sid] = tr
+        tr = self._tracks[sid]
+        if not tr:
+            return None
+        if f <= tr[0][0]:
+            return list(tr[0][1])
+        if f >= tr[-1][0]:
+            return list(tr[-1][1])
+        import bisect
+        i = bisect.bisect_right([k for k, _ in tr], f)
+        (fa, va), (fb, vb) = tr[i - 1], tr[i]
+        u = (f - fa) / float(fb - fa)
+        return [va[0] + (vb[0] - va[0]) * u, va[1] + (vb[1] - va[1]) * u]
+
     def coll(self, name):
         return self.colls[name]
 
@@ -541,6 +570,12 @@ def make_intent(ctx, sid):
     L = max(1.0, float(b - a))
     roll = float(mv.get("roll", 0.0) or 0.0)
     pan = mv.get("pan", [0, 0]) or [0, 0]
+    if not roll and not any(pan):
+        # never a dead axis: a faint roll and pan drift (alternating per shot) keeps the corners moving while the zoom
+        # turns round between a landing and the next entry
+        k = ctx._order.index(sid)
+        roll = 1.2 * (1 if k % 2 else -1)
+        pan = [28.0 * (1 if (k // 2) % 2 else -1), 0.0]
     rate = DRIFT_RATE.get(act, 0.006)
     drift = mv.get("drift", "auto")
     ds = rate if drift in ("in", "auto") else -rate

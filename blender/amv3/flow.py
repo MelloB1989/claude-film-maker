@@ -16,6 +16,8 @@ import camlib as cl
 import cards
 
 TYPES = ("open", "zt", "whip", "cube", "flip", "slam")
+ENTRY_PUSH = 0.006  # d ln s / frame a zoom-through is entered with (at least)
+EXIT_PULL = 0.003  # d ln s / frame a zoom-through landing leaves with (at least, pulling out)
 
 
 # ---- shared curve helpers ----------------------------------------------------------------------------------------------
@@ -56,14 +58,25 @@ def roll_split(A_dr, B_dr, R, TA, TB, kA, kB):
     return XA, Rp - XA
 
 
-def fin(st):
+def fin(st, w=0.012):
+    """Keep the frame on the card: a soft floor on the scale for the current roll (softplus, so the curve stays smooth),
+    then pull the centre in just enough."""
+    smin = cl.min_scale(960.0, 540.0, st.r, 0.006)
+    L, Lm = math.log(st.s), math.log(smin)
+    x = (Lm - L) / w
+    L += w * (x + math.log1p(math.exp(-x))) if x > 0 else w * math.log1p(math.exp(x))
+    st.s = math.exp(L)
     st.cx, st.cy = cl.clamp_center(st.s, st.cx, st.cy, st.r, 0.004)
     return st
 
 
-def focus_of(T, which):
+def focus_of(T, which, ctx=None):
+    """Zoom focus at the cut: explicit p.focus_a/b, else the shot's track at the cut, else the EDL focus, else centre."""
     p = T.get("p", {})
-    f = p.get(f"focus_{which}") or (T[which] or {}).get("focus") or [960, 540]
+    f = p.get(f"focus_{which}")
+    if not f and ctx is not None and T[which]:
+        f = ctx.track(T[which]["id"], T["f"] - (1 if which == "a" else 0))
+    f = f or (T[which] or {}).get("focus") or [960, 540]
     return [float(f[0]), float(f[1])]
 
 
@@ -142,15 +155,19 @@ def bounds(T, ctx):
     typ = T["type"]
     out = {}
     if T.get("a"):
-        out["A"] = ctx.entry_state(T)
+        A = ctx.entry_state(T)
+        if typ in ("zt", "slam"):
+            # windows never reverse, holds absorb reversals: enter a zoom-through already pushing in
+            A = A.with_(ds=max(A.ds, ENTRY_PUSH))
+        out["A"] = A
     if T.get("b"):
         B = ctx.exit_state(T)
         if typ == "zt" and T["p"].get("mode") == "push":
             land = float(T["p"].get("land", 1.12))
             # B keeps pushing: it must end above the landing scale, still pushing in
             B = B.with_(s=max(B.s, land * 1.07), ds=max(B.ds, 0.012))
-        if typ == "open":
-            B = B
+        elif typ in ("zt", "slam"):
+            B = B.with_(ds=min(B.ds, -EXIT_PULL))  # ... and leave it still pulling out
         out["B"] = B
     return out
 
@@ -166,13 +183,14 @@ def zt_curves(T, ctx, A, B, peak, land, R, push=False, kA=5.0, match=1.0):
     w0, w1, f = T["w0"], T["w1"], T["f"]
     th = f - 0.5
     TA, TB = th - w0, w1 - th
-    fa, fb = focus_of(T, "a"), focus_of(T, "b")
+    fa, fb = focus_of(T, "a", ctx), focus_of(T, "b", ctx)
     LA0, Lp = math.log(A.s), math.log(peak)
     RA = ramp_in_end_rate(LA0, A.ds, Lp, TA, kA)
     LB1, Ll = math.log(B.s), math.log(land)
     target = (RA if push else -RA) * match
     kB = k_for_start_rate(Ll, LB1, B.ds, TB, target)
-    XA, XB = roll_split(A.dr, B.dr, R, TA, TB, kA, kB)
+    kAr, kBr = kA * 1.6, min(60.0, kB * 1.6)  # the roll eases harder than the zoom: big rolls only at big scales
+    XA, XB = roll_split(A.dr, B.dr, R, TA, TB, kAr, kBr)
     rA_end = A.r + A.dr * TA + XA
     rB_start = B.r - B.dr * TB - XB
 
@@ -181,7 +199,7 @@ def zt_curves(T, ctx, A, B, peak, land, R, push=False, kA=5.0, match=1.0):
         L, dL = ramp_in(LA0, A.ds, Lp, TA, kA, tau)
         cx, dcx = ramp_in(A.cx, A.dcx, fa[0], TA, kA, tau)
         cy, dcy = ramp_in(A.cy, A.dcy, fa[1], TA, kA, tau)
-        r, dr = ramp_in(A.r, A.dr, rA_end, TA, kA, tau)
+        r, dr = ramp_in(A.r, A.dr, rA_end, TA, kAr, tau)
         return fin(cl.State(math.exp(L), cx, cy, r, dL, dcx, dcy, dr))
 
     def stB(t):
@@ -189,7 +207,7 @@ def zt_curves(T, ctx, A, B, peak, land, R, push=False, kA=5.0, match=1.0):
         L, dL = ramp_out(Ll, LB1, B.ds, TB, kB, tp)
         cx, dcx = ramp_out(fb[0], B.cx, B.dcx, TB, kB, tp)
         cy, dcy = ramp_out(fb[1], B.cy, B.dcy, TB, kB, tp)
-        r, dr = ramp_out(rB_start, B.r, B.dr, TB, kB, tp)
+        r, dr = ramp_out(rB_start, B.r, B.dr, TB, kBr, tp)
         return fin(cl.State(math.exp(L), cx, cy, r, dL, dcx, dcy, dr))
     return stA, stB, dict(kA=kA, kB=kB, RA=RA, RB=ramp_out(Ll, LB1, B.ds, TB, kB, TB)[1])
 
@@ -219,7 +237,7 @@ def build_open(T, ctx):
     w0, w1 = T["w0"], T["w1"]
     TB = float(w1 - w0)
     s0 = float(p.get("from_scale", 1.9))
-    fb = focus_of(T, "b")
+    fb = focus_of(T, "b", ctx)
     k = 3.0
     card = ctx.card(sid)
     r0 = B.r - B.dr * TB + 4.0
@@ -420,7 +438,7 @@ def build_slam(T, ctx):
     sc0 = float(p.get("start", 1.03))
     LA0, Lp = math.log(A.s), math.log(peak)
     RA = ramp_in_end_rate(LA0, A.ds, Lp, TA, kA)
-    fa = focus_of(T, "a")
+    fa = focus_of(T, "a", ctx)
     Tk = float(p.get("stop", 3.0))
     te = th + Tk
     re = -0.006  # already easing back out at the stop: the camera never freezes
