@@ -79,6 +79,39 @@ def refstrip(out, refs, h=240):
     return out
 
 
+# Acceptance pairs: a v3 CUTS window next to the reference transition it is built after (REFS.md frames).
+PAIRS = [
+    ("C01 zt 50", [46, 47, 48, 49, 50, 51, 52, 53], "c", [376, 377, 378, 379, 380, 381, 382, 383]),
+    ("C06 whip 201", [197, 198, 199, 200, 201, 202, 203, 204], "c", [416, 417, 418, 419, 420, 421, 422, 423]),
+    ("C09 zt 300", [296, 297, 298, 299, 300, 301, 302, 303], "a", [297, 298, 299, 300, 301, 302, 303, 304]),
+    ("C17 drop 480", [476, 477, 478, 479, 480, 481, 482, 483], "b", [622, 623, 624, 625, 626, 627, 628, 629]),
+    ("C20 sling 620", [612, 614, 616, 618, 619, 620, 621, 622], "a", [168, 170, 172, 174, 175, 176, 177, 178]),
+    ("C25 text_fly 656", [652, 653, 654, 655, 656, 657, 658, 659], "c", [316, 317, 318, 319, 320, 321, 322, 323]),
+]
+
+
+def pairs(out_dir, v3dir, w=300):
+    """One PNG per pair: v3 frames on top, the reference frames below (both rows the same width)."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    made = []
+    for label, fr, ref, rfr in PAIRS:
+        tag = label.split()[0]
+        top = strip(out_dir / f"_{tag}_v3.png", fr, [(f"v3 {tag}", v3dir)], w)
+        sel = "+".join(f"eq(n\\,{f})" for f in rfr)
+        rw = w * len(fr) // len(rfr)
+        bot = out_dir / f"_{tag}_ref.png"
+        subprocess.run([R.FFMPEG, "-y", "-v", "error", "-i", REFS[ref], "-vf",
+                        f"select='{sel}',scale={rw}:{w * 9 // 16}:force_original_aspect_ratio=decrease,"
+                        f"pad={rw}:{w * 9 // 16}:(ow-iw)/2:(oh-ih)/2,drawtext=text='ref {ref} {rfr[0]}-{rfr[-1]}':x=6:y=6:fontsize=16:"
+                        f"fontcolor=yellow:box=1:boxcolor=black@0.6,tile={len(rfr)}x1", "-frames:v", "1", str(bot)], check=True)
+        out = out_dir / f"pair_{tag}.png"
+        subprocess.run([R.FFMPEG, "-y", "-v", "error", "-i", str(top), "-i", str(bot), "-filter_complex",
+                        "[1:v]scale=w=iw:h=-2[b];[0:v][b]vstack=2", str(out)], check=True)
+        made.append(str(out))
+    return made
+
+
 def _read(p, w=480):
     import numpy as np
     r = subprocess.run([R.FFMPEG, "-v", "error", "-i", str(p), "-vf", f"scale={w}:-2:flags=area", "-f", "rawvideo",
@@ -132,7 +165,7 @@ def render_local(project, frames, out, scale=0.5, comp="FINISH"):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("cmd", choices=("strip", "refstrip", "stats", "render"))
+    ap.add_argument("cmd", choices=("strip", "refstrip", "stats", "render", "pairs"))
     ap.add_argument("--out")
     ap.add_argument("--frames", default="")
     ap.add_argument("--row", action="append", default=[])
@@ -150,6 +183,8 @@ def main(argv=None):
         strip(a.out, fr, [tuple(r.split("=", 1)) for r in a.row], a.w)
     elif a.cmd == "refstrip":
         refstrip(a.out, a.ref, a.h)
+    elif a.cmd == "pairs":
+        print("\n".join(pairs(a.out, a.dir, a.w)))
     elif a.cmd == "render":
         render_local(a.project, fr, a.out, a.scale)
     else:
