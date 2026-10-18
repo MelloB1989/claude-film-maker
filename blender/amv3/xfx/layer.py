@@ -6,19 +6,23 @@ mode "keep" (EDIT.md "v3.1: nested null-camera zooms", background variant; ref c
   Private set: one copy of A's card, identical to its home card (same tiled mesh and depth), so the teleport at w0 - 0.5
   is invisible. Its alpha is 1 - Fade * (1 - m'), m' = the subject matte feathered and choked in the shader, so A's
   subject stays while A's background opacity fades away over `fade` frames (ending one frame before the cut). Behind it,
-  B's card is static and already playing, `depth` m back, scaled so it fills the frame for the whole window. The camera
-  then flies forward past A's static subject: it crosses A's plane `margin` m beside the subject (the subject passes the
-  lens on the `dir` side, defocusing: DOF focused on B) and lands on B's hold framing. The camera is one blend from A's
-  pose to B's pose, with zero rate at w0 and w1 (exact C1 with the holds), fastest on the cut. bounds() raises B's exit
-  scale until the camera's distance to B shrinks the whole way and the camera ends `past` m beyond A's plane.
+  B's card is already playing, `depth` m back. The camera then flies forward past A's static subject in a near-straight
+  line: it crosses A's plane `margin` m beside the subject (the subject passes the lens on the `dir` side, defocusing:
+  DOF focused on B; its matte hardens near the lens so it leaves the frame opaque) and ends `past` m beyond A's plane in
+  B's exit pose (<= `land_s` x: a sharp landing). B's card scales about that landing point during the window (seen from
+  there it never changes), from just covering the frame at w0 to its landing size: B lands sharp whatever it had to
+  cover at the start. The camera is one blend from A's pose to B's pose, zero rate at w0 and w1 (exact C1 with the
+  holds), fastest on the cut.
 mode "sweep" (ref c 492-503, c 101-122): B's matted subject sweeps in over A from the `from` frame edge, big and close to
   the lens (defocused, motion-blurred), and decelerates onto its exact place on B's card; A wipes away behind the
   subject's trailing edge, so B's background resolves behind it. The camera tracks the sweep sideways (`shift`).
 
 Parameters (all optional): keep: dir L|R|U|D (the side the subject leaves by; default: the camera passes on the
-roomier side), depth 16.0, fade 10, margin 0.35 (m beside the subject's matte box), past 0.12, dof 2.8, ease 1.5 /
+roomier side), depth 16.0, fade 10, margin 0.35 (m beside the subject's matte box), past (m beyond A's plane
+the camera lands; default: what puts the crossing on the cut), dof 4.0, ease 1.5 /
 ease_out 1.8 (camera blend attack / decay), choke 3 (px: the matte is feathered inward by this much, so the plate's own
-background never shows around the subject), settle 1.35 (B's minimum exit scale).
+background never shows around the subject), land_s 1.3 (B's maximum exit scale: a sharp landing), harden 0.9 (m: the
+matte hardens from this camera distance to A's plane in, so the defocused subject stays opaque until it exits).
 sweep: from L|R|U|D (default: the side away from B's subject), depth 0.3, enter 4, land 5, approach 0.78, tilt 22,
 shift 0.25, feather 320, dof 4.0, ease 1.8, ease_out 1.6, settle 1.35, b_travel 0.35, choke 3, zoom push|pull (default:
 push, or A's own zoom sign when the hold before is too short to turn round; a pull lands B receding).
@@ -36,8 +40,8 @@ import cards
 import flow
 
 DEFAULTS = {
-    "keep": dict(dir=None, depth=16.0, fade=10, margin=0.35, dof=2.8, settle=1.35, ease=1.5, ease_out=1.8, choke=3.0,
-                 past=0.12),
+    "keep": dict(dir=None, depth=16.0, fade=10, margin=0.35, dof=4.0, land_s=1.3, ease=1.5, ease_out=1.8, choke=3.0,
+                 past=None, harden=0.9),
     "sweep": dict(dir=None, depth=0.3, enter=4, land=5, approach=0.78, tilt=22.0, shift=0.25, feather=320.0, dof=4.0,
                   settle=1.35, b_travel=0.35, ease=1.8, ease_out=1.6, choke=3.0, zoom=None),
 }
@@ -74,103 +78,179 @@ def zoom_sign(T, ctx, p, A):
     return 1
 
 
-def layout(T, ctx, p, A, B, adjust=False):
+def layout(T, ctx, p, A, B):
     """The window's geometry in set-local space (A's card at the origin, facing +Z): which side things move to, B's
-    card depth / offset / dolly, its cover scale kb, and (adjust=True, from bounds) B's exit scale raised until the
-    camera's distance to B's card changes monotonically the window's zoom way. Without that, the cover scale puts B's
-    exit pose farther from B than the camera already is and B lands pulling out of a push (a hidden zoom reversal)."""
+    card depth / offset / dolly and its cover scale kb (sweep), or layout_keep's (keep)."""
+    if p["mode"] == "keep":
+        return layout_keep(T, ctx, p, A, B)
     w0, w1, f = T["w0"], T["w1"], T["f"]
-    keep = p["mode"] == "keep"
-    L = dict(keep=keep)
-    if keep:
-        mc = matte_centroid(ctx, T["a"]["id"], f - 1)
-        sc_px = mc["c"] if mc else list(T["a"].get("focus") or [A.cx, A.cy])
-        # dir = the screen side A's subject leaves by; default: the camera passes on the roomier side of the subject
-        d = p["dir"] or ("L" if sc_px[0] < 960 else "R")
-        sx, sy = SIDES[d]
-        half = (mc["half"] if mc else [420.0, 420.0])
-        ext = (half[0] if sx else half[1]) / 1000.0
-        c0 = px_local(*sc_px)
-        # where the camera crosses A's plane: beside the subject, on the side opposite to where it leaves the frame
-        Xc = c0 + Vector((-sx, -sy, 0.0)) * (ext + float(p["margin"]))
-        A0 = Vector(cl.local_pose(A)[0])  # the camera at w0 (A's card space = set-local space)
-        ox = oy = 0.0
-        sg = 1
-    else:
-        t_land = min(w1 - 1, f + int(p["land"]))
-        mc = matte_centroid(ctx, T["b"]["id"], t_land)
-        sc_px = mc["c"] if mc else list(T["b"].get("focus") or [B.cx, B.cy])
-        d = p["dir"] or ("R" if sc_px[0] < B.cx else "L")  # enter from the far side: it crosses more of A
-        sx, sy = SIDES[d]
-        ox, oy = -sx, -sy  # toward `from`: the camera tracks the subject
-        sg = zoom_sign(T, ctx, p, A)
+    L = dict(keep=False)
+    t_land = min(w1 - 1, f + int(p["land"]))
+    mc = matte_centroid(ctx, T["b"]["id"], t_land)
+    sc_px = mc["c"] if mc else list(T["b"].get("focus") or [B.cx, B.cy])
+    d = p["dir"] or ("R" if sc_px[0] < B.cx else "L")  # enter from the far side: it crosses more of A
+    sx, sy = SIDES[d]
+    ox, oy = -sx, -sy  # toward `from`: the camera tracks the subject
+    sg = zoom_sign(T, ctx, p, A)
     D = float(p["depth"])
-    shift = 0.0 if keep else float(p["shift"])
-    btr = 0.0 if keep else float(p["b_travel"]) * sg  # sweep push: B arrives from further back; pull: recedes
+    shift = float(p["shift"])
+    btr = float(p["b_travel"]) * sg  # push: B arrives from further back; pull: recedes
     ek, eko = float(p["ease"]), float(p["ease_out"])
 
     def b_off(t):
         u = cl.clamp01((t - w0) / float(w1 - w0))
         return btr * (1 - u) ** 3  # zero rate at w1
 
-    def MBl(kb, t=None, Bx=None):
-        if keep:
-            # static B, D behind A, placed so the camera's line from A's pose (at w0) to B's exit pose crosses A's
-            # plane at Xc, beside the subject (the camera travels much further in depth than sideways, so B's exit
-            # pose carries the sideways offset scaled by how far past A's plane it ends)
-            Bx = Bx or B
-            (bxl, byl, bzl), _ = cl.local_pose(Bx)
-            zB = -D + kb * bzl
-            k = (A0.z - zB) / A0.z
-            Px, Py = A0.x + (Xc.x - A0.x) * k, A0.y + (Xc.y - A0.y) * k
-            return Matrix.Translation((Px - kb * bxl, Py - kb * byl, -D)) @ Matrix.Scale(kb, 4)
+    def MBl(kb, t=None):
         # a pull starts B at D behind A and recedes to D + |btr| (never in front of A's plane)
         z = -D - max(0.0, -btr) - (b_off(t) if t is not None else 0.0)
         return Matrix.Translation((ox * shift, oy * shift, z)) @ Matrix.Scale(kb, 4)
 
-    def solve(Bx):
-        # start at the scale that just fills the frame from A's framing (camera FILL / A.s in front of A's plane)
-        kb = max(1.0, 0.95 * (cl.FILL_DIST / A.s + D + max(0.0, btr)) / cl.FILL_DIST)
-        for _ in range(120):
-            cam = Blend(ctx, Matrix(), A, MBl(kb, None, Bx), Bx, w0, f, w1, ek, eko)
-            if all(covers(*cam(t), MBl(kb, t, Bx)) for t in frange(w0 + 1, w1, 0.5)):
-                return kb, cam, True
-            kb *= 1.04
-        return kb, cam, False
-
-    def past_ok(cam):
-        """keep: the camera ends `past` m beyond A's plane (A is behind it at w1)."""
-        return not keep or cam(w1 - 0.01)[0].z <= -float(p["past"])
-
-    def monotone(cam, kb, Bx):
-        ds = []
-        prev = None
-        for t in frange(w0, w1, 0.5):
-            d_ = cam(t)[0].z - MBl(kb, t, Bx).translation.z
-            if prev is not None:
-                ds.append(sg * (prev - d_))
-            prev = d_
-        return min(ds) >= -1e-4, ds
-
-    kb, cam, ok = solve(B)
-    if adjust and keep:
-        for _ in range(24):
-            mono, _ds = monotone(cam, kb, B)
-            if (mono and past_ok(cam)) or B.s > 2.2:
-                break
-            B = B.with_(s=B.s * 1.04)
-            kb, cam, ok = solve(B)
-    mono, _ds = monotone(cam, kb, B)
-    if keep and not past_ok(cam):
-        ctx.log(f"  WARN layer {T['id']}: the camera does not get past A's plane (raise depth)")
+    # start at the scale that just fills the frame from A's framing (camera FILL / A.s in front of A's plane)
+    kb = max(1.0, 0.95 * (cl.FILL_DIST / A.s + D + max(0.0, btr)) / cl.FILL_DIST)
+    ok = False
+    for _ in range(120):
+        cam = Blend(ctx, Matrix(), A, MBl(kb), B, w0, f, w1, ek, eko)
+        if all(covers(*cam(t), MBl(kb, t)) for t in frange(w0 + 1, w1, 0.5)):
+            ok = True
+            break
+        kb *= 1.04
+    ds = []
+    prev = None
+    for t in frange(w0, w1, 0.5):
+        d_ = cam(t)[0].z - MBl(kb, t).translation.z
+        if prev is not None:
+            ds.append(sg * (prev - d_))
+        prev = d_
+    mono = min(ds) >= -1e-4
+    if not ok or os.environ.get("LAYER_DEBUG"):
+        bad = [t for t in frange(w0 + 1, w1, 0.5) if not covers(*cam(t), MBl(kb, t))]
+        ctx.log(f"  DEBUG layer {T['id']}: A {A} B {B} kb {kb:.2f} uncovered at {bad[:10]} "
+                f"cam z {[round(cam(t)[0].z, 3) for t in (w0, f, w1 - 0.01)]}")
     L.update(mc=mc, sc_px=sc_px, dir=d, sx=sx, sy=sy, sg=sg, D=D, shift=shift, btr=btr, ek=ek, eko=eko, b_off=b_off,
-             MBl=lambda kb_, t=None: MBl(kb_, t, B), kb=kb, B=B, covered=ok, monotone=mono)
+             MBl=MBl, kb=kb, B=B, covered=ok, monotone=mono)
     return L
 
 
+def layout_keep(T, ctx, p, A, B):
+    """keep: the camera flies in a near-straight line from A's pose at w0 through Xc (on A's plane, `margin` m beside the
+    subject's matte box, on the side away from where the subject leaves the frame) to Xe, `past` m beyond A's plane,
+    where it lands in B's exit pose (<= `land_s` x). B's card travels with the camera (`depth` - `past` m ahead of it,
+    unrotated), so B is seen exactly in its own hold motion all the way (eased looking back from w1, so it covers the
+    frame from w0 on): B is revealed behind A already playing and lands sharp, C1 with B's hold. A stays static in the
+    world, so only the camera passes it. (A far card scaled to cover A's view at w0 forced a soft landing; scaled about
+    the landing point it had to be 50-200 m back, and the core's set culling hides a card whose centre leaves the set.)"""
+    w0, w1, f = T["w0"], T["w1"], T["f"]
+    mc = matte_centroid(ctx, T["a"]["id"], f - 1)
+    sc_px = mc["c"] if mc else list(T["a"].get("focus") or [A.cx, A.cy])
+    # dir = the screen side A's subject leaves by; default: the camera passes on the roomier side of the subject
+    d = p["dir"] or ("L" if sc_px[0] < 960 else "R")
+    sx, sy = SIDES[d]
+    half = (mc["half"] if mc else [420.0, 420.0])
+    ext = (half[0] if sx else half[1]) / 1000.0
+    Xc = px_local(*sc_px) + Vector((-sx, -sy, 0.0)) * (ext + float(p["margin"]))
+    A0 = Vector(cl.local_pose(A)[0])  # the camera at w0 (A's card space = set-local space)
+    D = float(p["depth"])
+    ek, eko = float(p["ease"]), float(p["ease_out"])
+    turn = flow.Turn(1.0, w0, f, w1, ek, eko, 0.0)
+    # the camera crosses A's plane on the cut (f - 0.5): A is gone when B's shot begins. Along a straight line that
+    # fixes how far past A's plane it lands (p.past overrides)
+    wc = min(0.9, max(0.2, turn(f - 0.5)))
+    zc = cl.local_pose(A.at(f - 0.5 - w0))[0][2]  # A's own pose (it drifts in) at the cut
+    past = float(p["past"]) if p.get("past") is not None else max(0.6, zc * (1 - wc) / wc)
+    bl = Vector(cl.local_pose(B)[0])
+    kb = (D - past) / bl.z
+    # B's hold motion extrapolated back from w1 shrinks B below fill scale within the window: its look back is eased
+    # (same pose and rate at w1, never further back than tau frames)
+    tau = float(w1 - w0)
+    while tau > 0.5:
+        st = B.at(-tau)
+        if st.s >= cl.min_scale(st.cx, st.cy, st.r, 0.03):
+            break
+        tau *= 0.9
+    B = EasedBack(B, tau)
+
+    def crossing(cam):
+        prev = None
+        for t in frange(w0, w1, STEP / 2):
+            c = cam(t)[0]
+            if prev is not None and prev.z > 0 >= c.z:
+                return prev.lerp(c, prev.z / (prev.z - c.z))
+            prev = c
+        return None
+
+    k = (A0.z + past) / A0.z
+    Xe = A0 + (Xc - A0) * k
+    Xe.z = -past
+    for _ in range(4):  # A's drift and the blend's timing bend the line a little: aim it so it crosses at Xc
+        cam = KeepCam(ctx, Matrix(), A, B, Xe, kb, turn, w0, w1)
+        xc = crossing(cam)
+        if xc is None:
+            break
+        err = Vector((Xc.x - xc.x, Xc.y - xc.y, 0.0))
+        if err.length < 0.005:
+            break
+        Xe = Xe + err * k
+    ok = all(covers(*cam(t), cam.MB(t)) for t in frange(w0, w1, 0.5))
+    if not ok:
+        bad = [t for t in frange(w0, w1, 0.5) if not covers(*cam(t), cam.MB(t))]
+        ctx.log(f"  WARN layer {T['id']}: B uncovered at t {bad[:12]}")
+    if cam(w1 - 0.01)[0].z > -0.05:
+        ctx.log(f"  WARN layer {T['id']}: the camera does not get past A's plane")
+    s0 = B.at(w0 - w1).s
+    return dict(keep=True, mc=mc, sc_px=sc_px, dir=d, sx=sx, sy=sy, sg=1, D=D, Xc=Xc, Xe=Xe, ek=ek, eko=eko, btr=0.0,
+                kb=kb, s0=s0, B=B.st, Bcam=B, tau=tau, turn=turn, covered=ok, monotone=True)
+
+
+class KeepCam:
+    """keep's camera: loc = lerp(A's pose (extrapolated on A's card), Xe, w(t)), rot = slerp(A's, B's roll), w = the
+    Turn weight (zero rate at w0 and w1). MB(t) = B's card, travelling with the camera so the camera sits in B's
+    (eased) state on it."""
+
+    def __init__(self, ctx, M, A, B, Xe, kb, turn, w0, w1):
+        self.ctx, self.M, self.A, self.B, self.Xe, self.kb, self.turn, self.w0, self.w1 = ctx, M, A, B, Xe, kb, turn, w0, w1
+
+    def __call__(self, t):
+        la, ra = self.ctx.pose(self.M, self.A.at(t - self.w0))
+        _, rb = self.ctx.pose(self.M, self.B.at(t - self.w1))
+        w = self.turn(t)
+        if ra.dot(rb) < 0:
+            rb = -rb
+        return la.lerp(self.M @ self.Xe, w), ra.slerp(rb, w)
+
+    def MB(self, t):
+        loc, _ = self(t)
+        bl = Vector(cl.local_pose(self.B.at(t - self.w1))[0])
+        return Matrix.Translation(loc - bl * self.kb) @ Matrix.Scale(self.kb, 4)
+
+
+class EasedBack:
+    """A State whose extrapolation before dt = 0 is clamped softly: at(dt) = st.at(-g(-dt)), g(x) = x up to tau - b, then
+    a C1 quadratic into tau (reached at tau + b): B moves at its own hold rate back from w1 to about the cut, and never
+    looks back further than tau frames (where it still covers the frame)."""
+
+    def __init__(self, st, tau):
+        self.st, self.tau = st, tau
+        self.b = min(tau / 2.0, 4.0)
+
+    def g(self, x):
+        t, b = self.tau, self.b
+        if x <= t - b:
+            return x
+        if x >= t + b:
+            return t
+        return x - (x - (t - b)) ** 2 / (4.0 * b)
+
+    def at(self, dt):
+        return self.st.at(dt if dt >= 0 else -self.g(-dt))
+
+    def __getattr__(self, k):
+        return getattr(self.st, k)
+
+
 def bounds(T, ctx):
-    """Entry: A's hold, entered moving the window's zoom way. Exit: B's hold at w1, still moving that way (push: at
-    >= `settle` x, B's card dollies toward the camera; pull: B's card recedes)."""
+    """Entry: A's hold, entered moving the window's zoom way. Exit: B's hold at w1, still moving that way (sweep push:
+    at >= `settle` x; keep: at <= `land_s` x, a sharp landing on the 1080p plate; pull: B's card recedes)."""
     p = params(T)
     A = ctx.entry_state(T)
     sg = zoom_sign(T, ctx, p, A)
@@ -178,11 +258,14 @@ def bounds(T, ctx):
         A = A.with_(ds=max(A.ds, ENTRY) if sg > 0 else min(A.ds, -ENTRY))
     A = ctx.settle_entry(T, A)
     B = ctx.exit_state(T)
-    if sg > 0 and p.get("settle"):
+    if p["mode"] == "keep":
+        s = min(B.s, float(p["land_s"]))
+        cx, cy = cl.clamp_center(s, B.cx, B.cy, B.r, 0.02)  # recentre rather than zoom in to stay on the card
+        B = B.with_(s=max(s, cl.min_scale(cx, cy, B.r, 0.02)), cx=cx, cy=cy)
+    elif sg > 0 and p.get("settle"):
         B = B.with_(s=max(B.s, float(p["settle"]), cl.min_scale(B.cx, B.cy, B.r, 0.01)))
     if flow.next_hold(T, ctx) >= flow.REVERSAL_MIN:
         B = B.with_(ds=max(B.ds, flow.EXIT) if sg > 0 else min(B.ds, -flow.EXIT))
-    B = layout(T, ctx, p, A, B, adjust=True)["B"]
     return {"A": A, "B": B}
 
 
@@ -412,8 +495,18 @@ def choke_matte(ob, r_px):
     mr = N.new("ShaderNodeMapRange")
     mr.interpolation_type = "SMOOTHSTEP"
     L.new(acc, mr.inputs["Value"])
-    mr.inputs["From Min"].default_value = 0.5 * 9
-    mr.inputs["From Max"].default_value = 1.0 * 9
+    # 'Hard' (0..1, keyed by the caller) slides the ramp from (0.5, 1) to (0.25, 0.6) of the blurred matte: the soft
+    # parts (hair, motion edges) turn opaque and the edge sits on the matte's own 0.5 line (for a defocused subject)
+    hd = N.new("ShaderNodeValue")
+    hd.name = hd.label = "Hard"
+    hd.outputs[0].default_value = 0.0
+    for sock, v0, dv in ((mr.inputs["From Min"], 0.5 * 9, -0.25 * 9), (mr.inputs["From Max"], 1.0 * 9, -0.4 * 9)):
+        ma = N.new("ShaderNodeMath")
+        ma.operation = "MULTIPLY_ADD"
+        L.new(hd.outputs[0], ma.inputs[0])
+        ma.inputs[1].default_value = dv
+        ma.inputs[2].default_value = v0
+        L.new(ma.outputs[0], sock)
     for sock in outs:
         L.new(mr.outputs["Result"], sock)
 
@@ -442,7 +535,8 @@ class Blend:
 
     def __call__(self, t):
         la, ra = self.ctx.pose(self.MA, self.A.at(t - self.w0))
-        lb, rb = self.ctx.pose(self.MB, self.B.at(t - self.w1))
+        MB = self.MB(t) if callable(self.MB) else self.MB  # keep: B's card scales about the landing point
+        lb, rb = self.ctx.pose(MB, self.B.at(t - self.w1))
         w = self.turn(t)
         loc = la.lerp(lb, w)
         if ra.dot(rb) < 0:
@@ -482,11 +576,11 @@ def build_keep(T, ctx, p):
     vis = (w0 - 1, w1 + 1)
     MA = Matrix.Translation(o)
     Lg = layout(T, ctx, p, A, B)
-    mc, sc_px, d, kb = Lg["mc"], Lg["sc_px"], Lg["dir"], Lg["kb"]
+    mc, sc_px, d = Lg["mc"], Lg["sc_px"], Lg["dir"]
     ctx.log(f"  layer keep {T['id']}: subject {sa} at {[round(v) for v in sc_px]}"
             f"{' (matte area %.0f %%)' % (100 * mc['area']) if mc else ' (no matte: seed)'}, leaves the frame {d}")
-    MB = Matrix.Translation(o) @ Lg["MBl"](kb)
-    cam = Blend(ctx, MA, A, MB, B, w0, f, w1, Lg["ek"], Lg["eko"])
+    cam = KeepCam(ctx, MA, A, Lg["Bcam"], Lg["Xe"], Lg["kb"], Lg["turn"], w0, w1)
+    MB = cam.MB
     layout_log(ctx, T, Lg)
 
     # A: one static card, the subject matte (feathered + choked) keeps it, its background fades: alpha = 1 - F (1 - m')
@@ -496,15 +590,24 @@ def build_keep(T, ctx, p):
     clip_matte(cardA)
     choke_matte(cardA, float(p["choke"]))
     nt = fade_background(mat)
+    # near the lens the defocused subject must stay opaque: its matte hardens (soft hair / motion edges -> 1) as the
+    # camera closes in, so it leaves the frame whole, not as a see-through ghost of its edge
+    if nt is not None and "Hard" in nt.nodes:
+        h0, h1 = float(p["harden"]), float(p["harden"]) * 0.45
+        key_value(nt, "Hard", [(t, cl.smoothstep((h0 - (cam(t)[0].z - o.z)) / (h0 - h1)))
+                                for t in frange(w0 - 1, w1 + 1, 0.5)])
     fl = max(4, int(p["fade"]))
     t_f0 = max(w0, f - fl - 1)
     if nt is not None:
         key_value(nt, "Fade", [(t, cl.smoothstep((t - t_f0) / float(fl))) for t in frange(w0 - 1, t_f0 + fl + 1, 0.5)])
     else:
         ctx.log(f"  WARN layer {T['id']}: no mattes for {sa}: A stays opaque")
-    # B: static, already playing
+    # B: already playing; its card travels with the camera (layout_keep)
     dB = shot_depth(ctx, sb)
-    ctx.make_card(sb, f"layer_{T['id']}_B", MB, depth=dB, frames=vis, tile=3)
+    cardB = ctx.make_card(sb, f"layer_{T['id']}_B", MB(w0), depth=dB, frames=vis, tile=3)
+    # (keyed every STEP: it rides along with the camera)
+    for t in frange(w0 - 1, w1 + 1, STEP):
+        key_matrix(cardB, MB(t), t)
     # no act void here: B covers the frame for the whole window (layout checks it), and the void's web strands would
     # hang between the camera and B, D m deep
     if not Lg["covered"]:
@@ -520,7 +623,7 @@ def build_keep(T, ctx, p):
         if u <= 0:
             continue
         N = cl.FSTOP_SHARP * (fst / cl.FSTOP_SHARP) ** u
-        ctx.key_dof(t, focus_dist(loc, rot, MB), N)
+        ctx.key_dof(t, focus_dist(loc, rot, MB(t)), N)
     zc = [round(cam(t)[0].z - o.z, 2) for t in (w0, f, w1 - 0.01)]
     ctx.log(f"  layer keep {T['id']}: A bg fades f{t_f0}-f{t_f0 + fl}; camera z over A's plane {zc[0]} -> {zc[1]} "
             f"-> {zc[2]} m (w0, cut, w1)")
@@ -555,6 +658,12 @@ def fade_background(mat):
 
 
 def layout_log(ctx, T, Lg):
+    if Lg["keep"]:
+        ctx.log(f"  layer {T['id']}: B card x{Lg['kb']:.2f} riding {Lg['kb'] * cl.FILL_DIST / Lg['B'].s:.1f} m ahead of "
+                f"the camera, B seen at s {Lg['s0']:.2f} -> {Lg['B'].s:.2f} (look back eased over {Lg['tau']:.1f} f), "
+                f"crosses A's plane at ({Lg['Xc'].x:+.2f}, {Lg['Xc'].y:+.2f}) m, ends at z {Lg['Xe'].z:+.2f} m"
+                f"{'' if Lg['covered'] else '  WARN: B does not cover the frame'}")
+        return
     ctx.log(f"  layer {T['id']}: B card x{Lg['kb']:.2f} at {Lg['D']:.2f} m (+{Lg['btr']:+.2f} dolly), exit s "
             f"{Lg['B'].s:.2f}, zoom {'push' if Lg['sg'] > 0 else 'pull'}"
             f"{'' if Lg['covered'] else '  WARN: B does not cover the frame'}"
