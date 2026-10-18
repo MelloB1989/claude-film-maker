@@ -72,11 +72,13 @@ def project(fr, p):
     return ((x / -z * lens / sx + 0.5) * HERE_W, (0.5 - y / -z * lens / sy) * HERE_H)
 
 
-def hit(fr, u, v):
-    """Nearest card under screen pixel (u, v) -> (card name, card-local point) or None."""
+def hit(fr, u, v, allowed=None):
+    """Nearest card under screen pixel (u, v) -> (card name, card-local point) or None (allowed: card names to try)."""
     o, d = ray(fr, u, v)
     best = None
     for c in fr["cards"]:
+        if allowed is not None and c["name"] not in allowed:
+            continue
         Mi = c["Mi"]
         lo = _mat_vec(Mi, o)
         ld = _mat_dir(Mi, d)
@@ -92,15 +94,26 @@ def hit(fr, u, v):
     return None if best is None else best[1:]
 
 
-def motion(fa, fb):
+def motion(fa, fb, seamless=False):
     """Screen motion from frame fa to fb -> dict(T=(tx, ty), zoom, roll_deg, speed, cspeed, n) or None (no card)."""
     cards_b = {c["name"]: c for c in fb["cards"]}
+    shot_a = {c["name"]: c.get("shot") for c in fa["cards"]}
+    by_shot = {}
+    for c in fb["cards"]:
+        if c.get("shot"):
+            by_shot.setdefault(c["shot"], c)
+    allowed = {c["name"] for c in fa["cards"] if c["name"] in cards_b or (seamless and c.get("shot") in by_shot)}
     pts, disp = [], []
     for (u, v) in screen_points():
-        h = hit(fa, u, v)
-        if h is None or h[0] not in cards_b:
+        h = hit(fa, u, v, allowed)
+        if h is None:
             continue
-        pw = _mat_vec(cards_b[h[0]]["M"], h[1])
+        cb = cards_b.get(h[0])
+        if cb is None and seamless:
+            cb = by_shot.get(shot_a.get(h[0]))  # a seamless teleport: the copy's point is the home card's same point
+        if cb is None:
+            continue
+        pw = _mat_vec(cb["M"], h[1])
         q = project(fb, pw)
         if q is None:
             continue
@@ -149,13 +162,15 @@ def _solve(A, b):
 def analyse(dump, out_csv=None, only=False):
     frames = dump["frames"]
     tele = dump.get("teleports", [])
+    seam = set(dump.get("seamless", []))
     wins = dump.get("windows", [])
     holds = dump.get("holds", {})
     rows = []
     for fa, fb in zip(frames, frames[1:]):
         f = fa["f"]
-        jump = any(f < t < fb["f"] for t in tele)
-        m = None if jump else motion(fa, fb)
+        jump = any(f < t < fb["f"] for t in tele if t not in seam)
+        smooth = any(f < t < fb["f"] for t in seam)
+        m = None if jump else motion(fa, fb, seamless=smooth)
         win = next((w for w in wins if w["w0"] <= f < w["w1"]), None)
         rows.append(dict(f=f, teleport=jump, m=m, win=win["id"] if win else "", wtype=win["type"] if win else "",
                          shutter=fa.get("shutter")))
@@ -234,9 +249,10 @@ def analyse(dump, out_csv=None, only=False):
         r = byf1.get(f)
         return r["m"]["rms"] if r and r["m"] and not r["teleport"] else None
     cutstats = []
+    fb_w0 = {w["w0"] for w in wins if w.get("fallback")}
     for w in wins:
-        if w.get("fallback"):
-            continue  # a stand-in zt for a module that has not landed: not judged
+        if w.get("fallback") or w["w1"] in fb_w0:
+            continue  # a stand-in zt for a module that has not landed (or a window ending in one): not judged
         f = w["f"]
         A = [spd(g) for g in range(f - 6, f - 1)]  # rows f-6 .. f-2 (f-1 -> f crosses the teleport)
         B = [spd(g) for g in range(f, f + 10)]
@@ -254,9 +270,15 @@ def analyse(dump, out_csv=None, only=False):
         def med(k):
             v = sorted(c[k] for c in cutstats)
             return v[len(v) // 2]
-        drops = sorted(c["drop"] for c in cutstats)
+        # drop / step statistics skip the 3D-object windows (flip, cube): the card under the frame changes depth
+        # (the door, then B behind it), so the screen speed ratio says little about the camera there
+        # ... and the eye / lens nests: A's face fills the frame until the camera passes the opening, B after it (the
+        # speed ratio there compares two planes metres apart; the nest itself keeps the dolly speed continuous)
+        small = {w["id"] for w in wins if w.get("region") in ("eye", "lens")}
+        flat = [c for c in cutstats if c["type"] not in ("flip", "cube") and c["id"] not in small] or cutstats
+        drops = sorted(c["drop"] for c in flat)
         stats.update(cut_acc_median=med("acc"), cut_dec_median=med("dec"), cut_peak_median=med("peak"),
-                     cut_drop_median=med("drop"), cut_drop_p90=drops[int(0.9 * (len(drops) - 1))],
+                     cut_drop_median=drops[len(drops) // 2], cut_drop_p90=drops[int(0.9 * (len(drops) - 1))],
                      cut_step_median=med("step"),
                      zoom_flip_pct=100.0 * sum(c["flip"] for c in cutstats) / max(1, sum(
                          1 for c in cutstats if abs(c["zoom_a"]) > 0.01 and abs(c["zoom_b"]) > 0.01)))
