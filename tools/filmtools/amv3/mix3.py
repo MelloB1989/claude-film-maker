@@ -85,7 +85,7 @@ def transition_cues(T: dict, E: dict) -> list[dict]:
         syn("swell_open", at, -21, "swell", "open: pull back out of darkness", pre=0.45, post=0.5, f_from=2600, f_to=380,
             rise_db=30, curve=1.2)
         syn("air_tail", at, -27, "air_tail", "open: landing air", dur=0.8, f=5000)
-    elif typ == "zt":
+    elif typ in ("zt", "nest"):          # nest (v3.1) replaced zt: same push/pull sound, swell from its own w0
         push = p.get("mode") == "push"
         roll = float(p.get("roll", 0))
         swirl = max(-1.0, min(1.0, roll / 120.0))
@@ -96,6 +96,10 @@ def transition_cues(T: dict, E: dict) -> list[dict]:
         if on_hit:
             syn("thump", f, -17, "thump", f"zt on hit {hits[f]}: sub thump", f0=92 if push else 80, f1=38)
         syn("air_tail", f, -25, "air_tail", "zt landing air", dur=post + 0.25, f=6500 if push else 5000)
+        if typ == "nest" and p.get("region") in ("eye", "lens"):
+            lead = (p.get("reveal") or [10, 8])[0]           # the region starts opening `lead` f before the crossing
+            syn("shimmer", f, -20, "shimmer", f"nest {p['region']}: glassy shimmer as the region opens (f-{lead} -> cut)",
+                pre=lead / fps, post=0.45)
         for o in T.get("over", []):
             if o == "dome_shards":
                 syn("glass_dome", f, -15, "glass", "dome_shards: glass burst at the camera", dur=1.1, count=170, tau=0.09)
@@ -286,7 +290,8 @@ def edl_cues(E: dict) -> list[dict]:
 # lift it ~+4-8 dB on ordinary cuts and up to +12-17 on their biggest moments (filmtools.amv3.analysis.ref_audio).
 LIFT = {"open": 4.0, "zt": 5.0, "whip": 5.0, "cube": 4.5, "flip": 4.5, "slam": 4.0, "symbiote": 5.0,
         "eye_tunnel": 6.0, "text_fly": 8.0, "lightning": 8.0, "lens_shatter": 10.0, "sling_ring": 6.5,
-        "web_wipe": 6.0, "triptych": 6.0, "layer": 5.0}
+        "web_wipe": 6.0, "triptych": 6.0, "layer": 5.0,
+        "nest": 5.0}
 UNDER = -2.0            # a transition's SFX stay at least this far under the music across its window (broadband)
 PUMP = 1.0              # ... and add at most this much master-limiter gain reduction over its window (no pumping)
 TRIM = (-12.0, 18.0)    # dB range of the per-transition trim
