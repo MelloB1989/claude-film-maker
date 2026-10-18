@@ -106,6 +106,40 @@ transition and the hero titles.**
 - `light/` RGB on black: only the emissive FX (sparks, lightning, rings, glints, shard rims) for EffectCraft's glow (add).
 - Optional `zvec` per-frame camera speed (json) for finishing's lens FX intensity.
 
+
+## v3.1: nested null-camera zooms (the user's method, 2026-10-18)
+The user on the v3 first look: "way too basic, transitions were way more basic." Their direction, verbatim in substance:
+"do the movement animations using 3d null objects nulled to a camera ... before transitioning to another clip, the
+another clip should be in like a feathered shape (if transitioned from one eye to a clip, then the shape should perfectly
+fit the eye pupils of the person ... if transitioned from the background of the character ... that background opacity
+should disappear as the clip appears slowly and transition happens) ... we r just moving the camera from one clip to
+another (not the clip coming to us, coz it looks sloppy) ... only for the continuous zoom ins and zoom outs."
+
+What the references do (look: `refs_v3/nest/c_eye_164.jpg` = sanchezae c 164-179, `refs_v3/nest/a_eye_56.jpg` = eitaX a 56-71):
+- From ~8 frames before the cut, B is ALREADY PLAYING inside A's eye opening: the exact visible-eye shape between the
+  eyelids (a: the iris/eye opening; c: the whole eye opening), feathered by a few px, B framed small (its subject ~25-40 %
+  of the opening) and moving. The camera keeps pushing toward the eye; A's face grows, smears and goes OUT OF FOCUS
+  (depth of field focused on B, deep inside) while B stays sharp; the opening widens until B fills the frame, B's own
+  motion continuing. No cut is visible. In a, the hero word FORGET sits in front and the camera passes through it.
+- Background variant (c 280-300): the character stays, the background fades away (opacity) revealing B behind, then the
+  camera flies on past the character into B.
+
+The method (replaces the teleport zoom-through for every zoom-in/zoom-out cut: `zt`, `eye_tunnel`, `lens_shatter`
+entry, `text_fly`, `sling_ring` push, `layer keep`):
+1. **Camera rig of 3D nulls**, as in After Effects: `RIG_DOLLY` (world path) -> `RIG_ORBIT` (pan/tilt) -> `RIG_ROLL` ->
+   `RIG_SHAKE` -> `CAM`. Animate the NULLS with eased Bezier keyframes (overlapping timing between position, rotation and
+   roll keys, so the motion never stops: the user's "overlapping null keyframes" rule from tutorial EIw9nz3_kbA). Clips are
+   STATIC cards in world space during a zoom; only the rig moves.
+2. **Nested layout**: B's card sits physically behind A's region (eye opening / lens / background), placed and sized so
+   that, seen from the camera at the reveal start, B's chosen framing fills the region; the camera's path goes through the
+   region's centre (the per-frame track) and ends on B's hold framing. Zoom-out is the mirror: A sits behind B's region and
+   the camera pulls back through B's plane; then B's region fades back to opaque.
+3. **Feathered region reveal**: region mask per plate frame (eye opening / lens: SAM2 from the track point; background:
+   1 - subject matte), feathered 3-12 px (scaled with how big it is on screen), opacity of A inside the region animated
+   1 -> 0 over 6-12 f starting ~8-12 f before the camera reaches it. B is moving the whole time.
+4. **DOF**: focus on B's plane during the approach so A's near surface defocuses (c 170-176); rack to B's hold distance.
+5. Real Cycles motion blur from the moving rig; finishing adds CA/leaks proportional to rig speed.
+
 ## Transitions (one per cut, see CUTS in edl.py)
 Flow types (stage core):
 | type | 3D move |

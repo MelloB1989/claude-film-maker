@@ -137,3 +137,19 @@
   d_end / (d_end + travel)`; if the camera keeps travelling after a portal, the copy must be large and deep (sling_ring:
   x5.6 at 7 m) or B lands zoomed in.
 - `ShaderNodeMix` (RGBA): inputs 0 = factor, 6/7 = A/B colour, output 2 = colour.
+## Task v3-layer (agent-06): subject-layer cards
+- **Coplanar cards z-fight as see-through, not as flicker.** A matted subject card exactly on top of its own opaque plate
+  card (same plane) renders the plate ~50 % transparent everywhere: a ray that hits the transparent part of the matte card
+  continues and skips the coincident plate at random. Keep a layered card >= 4 mm in front (`layer.ZSEP`); the parallax
+  is sub-pixel.
+- **Tiled cards mirror the matte too.** `make_card(tile=3)` uses MIRROR for every texture, so a matte card or a matte
+  hole on a tiled mesh shows mirrored subject copies around the card. Set the matte image node to CLIP (transparent
+  outside 0..1). Use tile=3 copies for layered cards anyway: a copy must use the same mesh and depth displacement as the
+  home card, or the teleport onto it shows.
+- **make_card caches materials** per (shot, alpha, ...), so the home card and every copy share one. Copy the material
+  (`ob.data.materials[0] = m.copy()`) before you patch nodes or key node values.
+- An opaque card's material (`alpha="none"`) has no matte image node. To cut a hole, add one
+  (`ctx._sequence("mattes", sid, "png")` + `cards.setup_user`).
+- **motion_metrics on layered transitions:** with B sharp behind a smeared foreground subject (ref c10 style), the
+  sharpness drop is local. The tool counts the window as one or two hard cuts (0 smear frames) and reads a large
+  1-frame drop when the subject leaves the frame.
