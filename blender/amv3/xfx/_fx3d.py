@@ -378,6 +378,39 @@ def emission_mat(name, color, strength=1.0, additive=False):
     return m
 
 
+def crack_material(name, color, imp):
+    """Emission masked to object-space distance < R (node 'R', keyed): the cracks race out from the impact."""
+    m = emission_mat(name, color, 0.0)
+    nt = m.node_tree
+    out = _out(nt)
+    em = nt.nodes["glow"]
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    dist = nt.nodes.new("ShaderNodeVectorMath")
+    dist.operation = "DISTANCE"
+    dist.inputs[1].default_value = (imp.x, imp.y, 0.0)
+    nt.links.new(tc.outputs["Object"], dist.inputs[0])
+    r = nt.nodes.new("ShaderNodeValue")
+    r.name = "R"
+    lt = nt.nodes.new("ShaderNodeMath")
+    lt.operation = "LESS_THAN"
+    nt.links.new(dist.outputs["Value"], lt.inputs[0])
+    nt.links.new(r.outputs[0], lt.inputs[1])
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(lt.outputs[0], mix.inputs[0])
+    nt.links.new(tr.outputs[0], mix.inputs[1])
+    nt.links.new(em.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    return m
+
+
+def key_crack(mat, f, radius, strength):
+    r = mat.node_tree.nodes["R"].outputs[0]
+    r.default_value = radius
+    r.keyframe_insert("default_value", frame=f)
+    key_glow(mat, f, strength)
+
+
 def key_glow(mat, f, strength, node="glow"):
     s = mat.node_tree.nodes[node].inputs["Strength"]
     s.default_value = strength

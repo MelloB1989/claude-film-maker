@@ -140,7 +140,7 @@ def build(T, ctx):
     imp = fx.px2local(*lc)
 
     # ---- A side: crack network racing out from the lens centre, glass disc with a glint
-    crack_mat = _crack_material("ls_crack", palA["key"], imp, ctx)
+    crack_mat = fx.crack_material("ls_crack", _mix(palA["key"], (1, 1, 1), 0.5), imp)
     splines = []
     for (p, q) in fx.cell_edges(cells):
         a, b = Vector((p[0], p[1], 0.0006)), Vector((q[0], q[1], 0.0006))
@@ -217,7 +217,9 @@ def build(T, ctx):
             fx.key_matrix(sh.ob, t, M, prev)
         fx.key_visible(sh.ob, fh, t_end + 0.5)
         if sh.size > 0.012 and rng.random() < 0.55:
-            _edge_outline(sh, edge_mat, light)
+            eo = _edge_outline(sh, edge_mat, light)
+            if eo:
+                fx.key_visible(eo, fh, t_end + 0.5)
     for t, gw in ((fh, 3.0), (f, 2.5), (f + 1, 1.6), (f + 3, 0.8), (f + 6, 0.4)):
         fx.key_glass_glow(rim, t, gw)
         fx.key_glow(edge_mat, t, gw * 1.4)
@@ -226,6 +228,7 @@ def build(T, ctx):
     _shockwave(K, impK, depth0, fh, f, palA, palB, light, plate, rng)
     _flash(K, impK, camB0, fh, f, palB, light)
     _chips(K, impK, depth0, fh, f, palA, palB, light, plate, rng, face)
+    _close_shards(K, impK, depth0, fh, f, palA, plate, rng)
     _light(K, Vector((-0.35, 0.3, 0.1)), palB["key"], 12.0, "ls_keyB", fh, t_end + 1, size=0.25, target=impK)
     _light(K, Vector((0.4, -0.25, -0.05)), palA["key"], 10.0, "ls_rimB", fh, t_end + 1, size=0.2, target=impK)
     ctx.log("lens_shatter: %d shards, R=%.0f px, ghost depth %.3f m, B dist %.3f m" % (len(shards), R, depth0, camB0))
@@ -234,32 +237,6 @@ def build(T, ctx):
 # ------------------------------------------------------------------------------------------------ pieces
 def _mix(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
-
-
-def _crack_material(name, color, imp, ctx):
-    """Emission masked to object-space distance < R (node 'R', keyed): the cracks race out from the impact."""
-    m = fx.emission_mat(name, _mix(color, (1, 1, 1), 0.5), 0.0)
-    nt = m.node_tree
-    out = fx._out(nt)
-    em = nt.nodes["glow"]
-    tc = nt.nodes.new("ShaderNodeTexCoord")
-    dist = nt.nodes.new("ShaderNodeVectorMath")
-    dist.operation = "DISTANCE"
-    dist.inputs[1].default_value = (imp.x, imp.y, 0.0)
-    nt.links.new(tc.outputs["Object"], dist.inputs[0])
-    r = nt.nodes.new("ShaderNodeValue")
-    r.name = "R"
-    lt = nt.nodes.new("ShaderNodeMath")
-    lt.operation = "LESS_THAN"
-    nt.links.new(dist.outputs["Value"], lt.inputs[0])
-    nt.links.new(r.outputs[0], lt.inputs[1])
-    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
-    mix = nt.nodes.new("ShaderNodeMixShader")
-    nt.links.new(lt.outputs[0], mix.inputs[0])
-    nt.links.new(tr.outputs[0], mix.inputs[1])
-    nt.links.new(em.outputs[0], mix.inputs[2])
-    nt.links.new(mix.outputs[0], out.inputs["Surface"])
-    return m
 
 
 def _edge_outline(sh, mat, coll):
@@ -273,6 +250,7 @@ def _edge_outline(sh, mat, coll):
     ob = fx.poly_curve(sh.ob.name + "_edge", [pts], 0.00035, mat, caps=False)
     ob.parent = sh.ob
     fx.link(ob, coll)
+    return ob
 
 
 def _light(M, p_local, color, watts, name, f_on, f_off, size=0.3, target=None):
@@ -292,38 +270,65 @@ def _light(M, p_local, color, watts, name, f_on, f_off, size=0.3, target=None):
 
 
 def _shockwave(K, impK, depth0, fh, f, palA, palB, light, plate, rng):
-    specs = [("ls_ring_hot", _mix(palA["key"], (1, 1, 1), 0.65), 0.004, 0.09, 22.0, 0.0, 24.0),
-             ("ls_ring_warm", _mix(palB["key"], (1, 0.75, 0.2), 0.4), 0.006, 0.065, 10.0, 0.5, -18.0)]
-    for name, col, minor, speed, g0, lag, tilt in specs:
-        tq = Quaternion(Vector((1.0, 0.35, 0.0)).normalized(), math.radians(tilt))  # tilted: an ellipse sweeping by
-        me = fx.torus_mesh(name, 1.0, minor, 160, 8)
-        mat = fx.emission_mat(name, col, g0, additive=True)
-        me.materials.append(mat)
-        ob = bpy.data.objects.new(name, me)
-        fx.link(ob, light)
-        prev = {}
-        for t in fx.frames_half(fh, f + 7):
-            u = max(0.0, t - fh - lag)
-            rad = 0.004 + speed * u * (1.0 - 0.06 * u)
-            z = impK.z + depth0 * 0.25 * u
-            M = K @ Matrix.LocRotScale(Vector((impK.x, impK.y, z)), tq, Vector((rad, rad, rad)))
+    """A refractive shock ring (a flattened glass torus that bends B behind it, falling off inward) with a thin bright
+    leading edge split cyan-outside / warm-inside (a chromatic fringe), expanding fast and tilted so it sweeps by."""
+    tq = Quaternion(Vector((1.0, 0.35, 0.0)).normalized(), math.radians(22.0))
+    speed = 0.085
+
+    def place(ob, scale_r, dz, zsq, prev):
+        for t in fx.frames_half(fh, f + 6):
+            u = max(0.0, t - fh)
+            rad = 0.004 + speed * u * (1.0 - 0.05 * u)
+            z = impK.z + depth0 * 0.22 * u + dz
+            M = K @ Matrix.LocRotScale(Vector((impK.x, impK.y, z)), tq, Vector((rad * scale_r, rad * scale_r,
+                                                                                  rad * zsq)))
             fx.key_matrix(ob, t, M, prev)
-        for t, g in ((fh, 0.0), (fh + lag + 0.5, g0), (f + 1.5, g0 * 0.4), (f + 3, g0 * 0.1), (f + 4, 0.0)):
-            fx.key_glow(mat, t, g)
-        fx.key_visible(ob, fh, f + 7)
-    return
-    me = fx.torus_mesh("ls_ring_glass", 1.0, 0.07, 160, 12)
-    me.materials.append(fx.glass_mat("ls_ring_glass", tint=(1, 1, 1), emit=(1, 1, 1), rough=0.0, ior=1.33))
+        fx.key_visible(ob, fh, f + 5)
+
+    me = fx.torus_mesh("ls_ring_glass", 1.0, 0.11, 192, 16)
+    me.materials.append(fx.glass_mat("ls_ring_glass", tint=(1, 1, 1), emit=(1, 1, 1), rough=0.0, ior=1.22))
     ob = bpy.data.objects.new("ls_ring_glass", me)
     fx.link(ob, plate)
+    place(ob, 0.9, -0.004, 0.22, {})
+    for name, col, sr, g0 in (("ls_edge_cyan", _mix(palA["key"], (1, 1, 1), 0.3), 1.012, 9.0),
+                              ("ls_edge_warm", _mix(palB["key"], (1, 0.8, 0.3), 0.3), 0.992, 6.0)):
+        me = fx.torus_mesh(name, 1.0, 0.0022, 192, 6)
+        mat = fx.emission_mat(name, col, g0, additive=True)
+        me.materials.append(mat)
+        o = bpy.data.objects.new(name, me)
+        fx.link(o, light)
+        place(o, sr, 0.0, 1.0, {})
+        for t, g in ((fh, 0.0), (f, g0), (f + 1.5, g0 * 0.5), (f + 3, g0 * 0.15), (f + 4.5, 0.0)):
+            fx.key_glow(mat, t, g)
+
+
+def _close_shards(K, impK, depth0, fh, f, palA, plate, rng):
+    """A few big clear glass shards that tumble right past the lens (481-484): they refract and reflect B, bevel glints."""
+    mat = fx.glass_mat("ls_big", tint=(0.96, 0.99, 1.0), emit=palA["key"], emit_strength=0.15, rough=0.0, ior=1.5)
     prev = {}
-    for t in fx.frames_half(fh, f + 7):
-        u = max(0.0, t - fh - 0.25)
-        rad = 0.004 + 0.075 * u * (1.0 - 0.05 * u)
-        M = K @ Matrix.LocRotScale(Vector((impK.x, impK.y, impK.z - 0.04 + depth0 * 0.10 * u)), Quaternion(),
-                                   Vector((rad, rad, rad * 0.6)))
-        fx.key_matrix(ob, t, M, prev)
-    fx.key_visible(ob, fh, f + 7)
+    for i in range(6):
+        n = rng.choice((4, 5, 6))
+        L = rng.uniform(0.025, 0.05)
+        poly = [(L * math.cos(2 * math.pi * k / n + rng.uniform(-0.3, 0.3)) * rng.uniform(0.5, 1.4),
+                 L * math.sin(2 * math.pi * k / n + rng.uniform(-0.3, 0.3)) * rng.uniform(0.5, 1.4)) for k in range(n)]
+        hull = sorted(poly, key=lambda q: math.atan2(q[1], q[0]))
+        me, _ = fx.shard_mesh("ls_big_%d" % i, hull, 0.003, None)
+        me.materials.append(mat)
+        me.materials.append(mat)
+        ob = bpy.data.objects.new(me.name, me)
+        fx.bevel(ob, 0.0009)
+        fx.link(ob, plate)
+        a = 2 * math.pi * (i + rng.uniform(-0.3, 0.3)) / 6
+        start = Vector((math.cos(a) * 0.012, math.sin(a) * 0.008, impK.z * 0.55))
+        end = Vector((math.cos(a) * 0.09, math.sin(a) * 0.06, -0.02))
+        ax = fx.rand_axis(rng)
+        t0 = f + 0.5 + 0.4 * i / 6
+        for t in fx.frames_half(fh, f + 6):
+            u = fx.clamp01((t - t0) / 3.0)
+            pos = start.lerp(end, u ** 1.6)
+            q = Quaternion(ax, math.radians(rng.uniform(55, 80) * 0 + 70 * u)) @ Quaternion((1, 0, 0), math.radians(25))
+            fx.key_matrix(ob, t, K @ Matrix.LocRotScale(pos, q, None), prev)
+        fx.key_visible(ob, round(t0 * 2) / 2, f + 4.5)
 
 
 def _flash(K, impK, camB0, fh, f, pal, light):
@@ -355,32 +360,39 @@ def _flash(K, impK, camB0, fh, f, pal, light):
 
 
 def _chips(K, impK, depth0, fh, f, palA, palB, light, plate, rng, face):
-    """Glass chips and sparks thrown from the impact toward and past the camera."""
-    glass = fx.glass_mat("ls_chip", tint=(0.95, 0.98, 1.0), emit=palA["key"], emit_strength=2.0, rough=0.02)
-    sparks = [fx.emission_mat("ls_spark_a", _mix(palA["key"], (1, 1, 1), 0.5), 12.0, additive=True),
-              fx.emission_mat("ls_spark_b", _mix(palB["key"], (1, 1, 0.8), 0.3), 12.0, additive=True)]
+    """Glass chips (glints when they turn to the lights) and a few sparks of varied size, life and heat."""
+    glass = fx.glass_mat("ls_chip", tint=(0.95, 0.98, 1.0), emit=palA["key"], emit_strength=0.4, rough=0.02)
+    sparks = []
+    for k in range(4):
+        m = fx.emission_mat("ls_spark_%d" % k, _mix(palA["key"] if k % 2 else palB["key"], (1, 1, 1), 0.35 + 0.1 * k),
+                            0.0, additive=True)
+        g0 = (16.0, 9.0, 5.0, 2.5)[k]
+        life = (2.5, 3.5, 4.5, 5.5)[k]
+        for t, g in ((fh, g0), (f + life * 0.5, g0 * 0.6), (f + life, 0.0)):
+            fx.key_glow(m, t, g)
+        sparks.append(m)
     prev = {}
-    for i in range(110):
-        is_spark = i % 4 == 0
-        sz = rng.uniform(0.0008, 0.003) if not is_spark else rng.uniform(0.0003, 0.0007)
+    for i in range(70):
+        is_spark = i % 3 == 0
+        sz = rng.uniform(0.0006, 0.0035) if not is_spark else rng.uniform(0.0002, 0.0007)
         n = rng.choice((3, 4, 5))
         poly = [(sz * math.cos(2 * math.pi * k / n + rng.uniform(-0.4, 0.4)) * rng.uniform(0.6, 1.3),
                  sz * math.sin(2 * math.pi * k / n + rng.uniform(-0.4, 0.4)) * rng.uniform(0.6, 1.3)) for k in range(n)]
         me, _ = fx.shard_mesh("ls_chip_%03d" % i, poly, sz * 0.4 if not is_spark else sz, None)
-        m = sparks[i % 2] if is_spark else glass
+        m = sparks[rng.randrange(4)] if is_spark else glass
         me.materials.append(m)
         me.materials.append(m)
         ob = bpy.data.objects.new(me.name, me)
         fx.link(ob, light if is_spark else plate)
         a = rng.uniform(0, 2 * math.pi)
         el = rng.uniform(0.15, 1.0)
-        v = Vector((math.cos(a) * el, math.sin(a) * el, rng.uniform(0.4, 1.4))) * rng.uniform(0.015, 0.05)
+        v = Vector((math.cos(a) * el, math.sin(a) * el, rng.uniform(0.4, 1.4))) * rng.uniform(0.008, 0.05)
         ax = fx.rand_axis(rng)
         spin = rng.uniform(20, 70)
-        t0 = fh + rng.uniform(0.0, 1.2)
+        t0 = fh + rng.uniform(0.0, 1.5)
         for t in fx.frames_half(fh, f + 7):
             u = max(0.0, t - t0)
             pos = Vector((impK.x, impK.y, impK.z - 0.01)) + v * u * (1.0 + 0.15 * u)
             M = K @ Matrix.LocRotScale(pos, Quaternion(ax, math.radians(spin * u)), None)
             fx.key_matrix(ob, t, M, prev)
-        fx.key_visible(ob, round(t0 * 2) / 2, f + 7)
+        fx.key_visible(ob, round(t0 * 2) / 2, f + 6.5)
