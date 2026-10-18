@@ -173,3 +173,20 @@ Probed against effectcraft-cli 0.10.0 while checking how the Blender element seq
 - Hits 2.0-3.0 (not ink/chroma) get a 106->100 punch plus a light chroma split, even when they already shake (631, 732).
 - sparks_glow and eye_glow catchlight thresholds raised (94/93), intensity ~0.4, eye ring/core opacity cut (S07/S08 blob, lifted blacks).
 - ecbuild default --src is src240 (missing locally): build with --src clips.
+
+## v3-finish (agent-05): the finishing comp FINISH (`tools/filmtools/amv3/ecfinish.py`, `ec/{grade3,lens,finish}.jsx`)
+- **A relative media path is silently resolved against the saved project's folder, not the script's cwd.** Importing
+  `../out/standin/plate/f_00000.png` from a script run in `tools/` and saving to `build/amv3/x.ecproj` wrote the path as-is;
+  the reopened project then looked for it under `build/` and rendered the layer **black with no warning** (`missing: false`
+  in the JSON). Always pass absolute paths to `ImportOptions` (finish_spec resolves every pass folder).
+- PNG sequences named `f_NNNNN.png` import fine with `o.sequence = true` (item name `f_[00000-00818].png`); renaming the
+  item, moving it to a folder and `conformFrameRate = 30` are all harmless.
+- **VR Chromatic Aberrations (95 % / effect / overscan stack) amount N gives an R/B split of ~1.65 N px at the left/right
+  frame edge**, falling linearly to 0 at the centre (measured on a line grid at 1920x1080, falloff 0). Size CA in edge px / 1.65.
+- `ec.distort.bulge` `Bulge Center` and `ec.blur.ccradialfast` `Center` take comp pixels in scripts (the effect list
+  shows normalised 0.5/0.5 defaults). `BlendingMode.ADD` = 5221 works on footage and solid layers.
+- Fractal Noise sub-properties: `Transform > Offset Turbulence / Scale Width / Scale Height / Uniform Scaling / Rotation`,
+  `Evolution`, `Evolution Options > Random Seed` (display names work).
+- A leak/bloom/exposure recipe that lifts a dark frame +80 % turns an already bright frame (mean luma >= 0.45) milky white;
+  the lens FX gains are scaled per frame by the plate's own mean luma (ffmpeg signalstats at build time).
+- Build cost: the full FINISH build (titles included) is ~3-5 min of `effectcraft-cli script` in a 4-core container.

@@ -62,29 +62,48 @@ LEAKS = {   # [picture-highlight leak colour, organic wash colour]
     "red_orange": [[1.0, 0.30, 0.10], [1.0, 0.56, 0.16]],
 }
 ACT_LEAK_GAIN = {"tobey": 1.0, "andrew": 0.9, "tom": 0.85}
-TYPE_GAIN = {   # (blur, bulge) multipliers by transition type: zooms smear radially, whips/cubes mostly carry their own blur
-    "zt": (1.0, 1.0), "open": (0.6, 0.4), "whip": (0.55, 0.3), "cube": (0.5, 0.3), "flip": (0.5, 0.3), "slam": (0.9, 1.0),
+# Per CUTS type, from REFS.md "Recipes for v3": blur/bulge gains, CA = peak R/B split at the frame edge per unit of edl
+# `lens.ca` (zt/whip smears 30-80 px), whether the window smears at all (portals: no unreadable frame, the hole/ring
+# replaces it, CA 1-9 px), and the attack: "expo" (cubic into the cut) or "linear" (portals ramp ~linearly over 14-15 f).
+RECIPE = {
+    "zt":           dict(blur=1.0, bulge=1.0, ca=4.0, smear=True, attack="expo"),
+    "whip":         dict(blur=0.55, bulge=0.3, ca=4.0, smear=True, attack="expo"),
+    "cube":         dict(blur=0.5, bulge=0.3, ca=3.0, smear=True, attack="expo"),
+    "flip":         dict(blur=0.5, bulge=0.3, ca=3.0, smear=True, attack="expo"),
+    "slam":         dict(blur=0.9, bulge=1.0, ca=2.5, smear=True, attack="expo"),
+    "text_fly":     dict(blur=0.9, bulge=0.8, ca=2.5, smear=True, attack="expo"),
+    "lightning":    dict(blur=0.7, bulge=0.5, ca=3.0, smear=True, attack="expo"),
+    "lens_shatter": dict(blur=0.9, bulge=1.0, ca=3.0, smear=True, attack="expo"),
+    "symbiote":     dict(blur=0.6, bulge=0.5, ca=2.0, smear=True, attack="expo"),
+    "web_wipe":     dict(blur=0.6, bulge=0.4, ca=3.0, smear=True, attack="expo"),
+    "eye_tunnel":   dict(blur=0.15, bulge=0.6, ca=0.6, smear=False, attack="linear"),
+    "sling_ring":   dict(blur=0.1, bulge=0.4, ca=0.5, smear=False, attack="linear", wash4=True),
+    "triptych":     dict(blur=0.4, bulge=0.4, ca=2.0, smear=True, attack="expo"),
+    "open":         dict(blur=0.6, bulge=0.4, ca=1.0, smear=False, attack="open"),
 }
 DECAY = 5          # frames after the cut over which the profile falls to ~0 (landing sharp by cut + 3)
-# Reference numbers (REFS.md, operator 2026-10-18): smear frames 10-60 px CA at the edges and +50-120 % luma (leak/bloom
-# from the picture); the 2-4 frames after the cut keep 5-15 px CA fading over 6-10 f; white flash only on the biggest hits,
-# 3 f with ~30 % of the pixels clipped.
+# Reference numbers (REFS.md): smear frames 30-80 px CA at the edges (zt/whip) and +50-100 % luma from an act-coloured
+# leak; the first 4 frames after the cut keep 10-20 px CA; a white flash only on the biggest hits, 2-3 f with 17-30 %
+# of the pixels clipped. The light is scaled per frame by the plate's own headroom (`headroom`): the same leak that
+# lifts a dark Tobey frame +80 % turns an already bright frame milky white (v2's lesson; first v3 drop test, f478-482).
 CA_EDGE_PER_UNIT = 1.65   # measured: VR Chromatic Aberrations amount N -> R/B split of 1.65 N px at the frame edge (linear to 0 at centre)
-CA_GAIN = 2.5             # edl `lens.ca` (4..18) -> peak edge split 10..45 px
-CA_TAIL = (6.0, 0.5, 8)   # after the cut: edge split (6 + 0.5 ca) px fading to 0 over 8 f
-EXPO_PEAK = 0.75          # EV at the profile peak (with leak + bloom the smear frames land at +60..110 % luma)
+CA_TAIL = (8.0, 0.6, 8)   # after the cut: edge split (8 + 0.6 ca) px fading to 0 over 8 f (10-20 px over the first 4 f)
+EXPO_PEAK = 0.75          # EV at the profile peak, before headroom
 FLASH_EV = {1: [1.9, 1.3, 0.6], 2: [2.6, 1.8, 0.9]}   # the 3 white frames of a flash cut, by edl `flash` (2 = the drop)
+LUMA_CAP = 0.68           # mean luma (0..1) the light aims under: at or above it the leak/bloom/exposure fade to HEAD_MIN
+HEAD_MIN = 0.12
 TRIPTYCH_PEAKS = [(777, 0.8), (785, 0.85), (794, 0.85), (802, 0.6)]
 
 
-def ease_profile(x, f, w0, w1, peaks=None):
-    """0..1 at frame x: cubic rise over [w0, f) (expo-in feel), peak 1 on f-1 and f, cubic fall over DECAY frames."""
+def ease_profile(x, f, w0, w1, peaks=None, attack="expo"):
+    """0..1 at frame x: rise over [w0, f) (cubic = expo-in feel, or linear for portals), peak 1 on f-1 and f, cubic
+    fall over DECAY frames."""
     if peaks:       # several hits in one window (triptych): 2-frame rise into each, 4-frame fall
         return max(s * (_decay(x - p, 4) if x >= p else max(0.0, 1 - (p - x) / 2.0) ** 2) for p, s in peaks)
     if x < f:
         pre = max(1, f - w0)
-        u = (x - w0 + 1) / pre
-        return max(0.0, min(1.0, u)) ** 3
+        u = max(0.0, min(1.0, (x - w0 + 1) / pre))
+        return u if attack == "linear" else u ** 3
     return _decay(x - f, min(DECAY, max(1, w1 - f)))
 
 
@@ -103,13 +122,24 @@ def zvec_profile(Z, w0, w1):
     return [(s / m) ** 1.5 for s in v]
 
 
-def lens_plan(E, zvec=None):
+def headroom(m):
+    """Light gain for a frame of mean luma m: 1 for a dark frame (m <= 0.25), HEAD_MIN at LUMA_CAP and above."""
+    if m is None:
+        return 1.0
+    t = (LUMA_CAP - m) / (LUMA_CAP - 0.25)
+    return round(max(HEAD_MIN, min(1.0, t)), 3)
+
+
+def lens_plan(E, zvec=None, luma=None):
+    """luma: {frame: mean luma 0..1 of the plate} (plate_luma) or None."""
     out = []
     acts = E["acts"]
+    luma = luma or {}
     for i, C in enumerate(E["cuts"]):
         f, w0, w1, L, typ = C["f"], C["w0"], C["w1"], C["lens"], C["type"]
         if w1 <= w0:
             continue
+        R = RECIPE.get(typ, RECIPE["zt"])
         act = next((a["id"] for a in acts if a["f0"] <= max(f, 0) < a["f1"] and a["id"] in ACT_ORDER), "tom")
         leak = L.get("leak") or next(a.get("leak") for a in acts if a["id"] == act)
         colors = None if leak == "none" else LEAKS.get(leak)
@@ -119,28 +149,32 @@ def lens_plan(E, zvec=None):
             if typ == "open":
                 prof = [(1 - (x - w0) / float(w1 - w0)) ** 2 for x in range(w0, w1)]
             else:
-                prof = [ease_profile(x, f, w0, w1, peaks) for x in range(w0, w1)]
-        gb, gu = TYPE_GAIN.get(typ, (0.85, 0.7))
+                prof = [ease_profile(x, f, w0, w1, peaks, R["attack"]) for x in range(w0, w1)]
         lg = ACT_LEAK_GAIN[act]
         fl = int(L.get("flash") or 0)
         K = {k: [] for k in ("blur", "ca", "bulge", "bloom", "bloomThr", "leak", "wash", "expo", "evo", "drift")}
+        heads = []
         for j, x in enumerate(range(w0, w1)):
             p = prof[j]
+            h = headroom(luma.get(x))
+            heads.append(h)
             u = (x - w0) / float(max(1, w1 - w0 - 1))
-            K["blur"].append([x, round(70.0 * L["zblur"] * gb * p * p, 2)])
-            edge = CA_GAIN * L["ca"] * p
-            if x > f and typ != "open":
-                d = x - f
-                edge = max(edge, (CA_TAIL[0] + CA_TAIL[1] * L["ca"]) * max(0.0, 1 - d / float(CA_TAIL[2])) ** 1.3)
+            K["blur"].append([x, round(70.0 * L["zblur"] * R["blur"] * p * p, 2)])
+            edge = R["ca"] * L["ca"] * p
+            if x > f and R["smear"] and typ != "open":
+                edge = max(edge, (CA_TAIL[0] + CA_TAIL[1] * L["ca"]) * max(0.0, 1 - (x - f) / float(CA_TAIL[2])) ** 1.3)
             K["ca"].append([x, round(edge / CA_EDGE_PER_UNIT, 2)])
-            K["bulge"].append([x, round(0.4 * L["zblur"] * gu * p, 3)])
-            K["bloom"].append([x, round(1.4 * lg * p, 3)])
-            K["bloomThr"].append([x, round(72 - 22 * p, 1)])
-            K["leak"].append([x, round(min(100.0, 115.0 * lg * p ** 1.3), 1)])
-            K["wash"].append([x, round(min(100.0, 70.0 * lg * p ** 1.1), 1)])
-            e = EXPO_PEAK * p * p
+            K["bulge"].append([x, round(0.4 * L["zblur"] * R["bulge"] * p, 3)])
+            pl = p
+            if R.get("wash4"):          # sling ring: the frame goes orange for 4 frames around the cut (luma +230 % peak)
+                pl = max(p, {f - 2: 0.7, f - 1: 1.0, f: 1.0, f + 1: 0.55}.get(x, 0.0))
+            K["bloom"].append([x, round(1.4 * lg * pl * h, 3)])
+            K["bloomThr"].append([x, round(72 - 22 * pl * h, 1)])
+            K["leak"].append([x, round(min(100.0, 115.0 * lg * pl ** 1.3 * h), 1)])
+            K["wash"].append([x, round(min(100.0, (100.0 if R.get("wash4") else 70.0) * lg * pl ** 1.1 * h), 1)])
+            e = EXPO_PEAK * pl * pl * h
             if fl and f <= x < f + 3:
-                e = max(e, FLASH_EV[min(fl, 2)][x - f])
+                e = max(e, FLASH_EV[min(fl, 2)][x - f] * max(0.45, h))
             K["expo"].append([x, round(e, 3)])
             K["evo"].append([x, round(360.0 * 2.2 * u + 37 * i, 1)])
             ang = (i * 137.5) % 360
@@ -148,8 +182,38 @@ def lens_plan(E, zvec=None):
                                    round(540 + 400 * math.sin(math.radians(ang)) * (u - 0.5), 1)]])
         out.append(dict(id=C["id"], type=typ, f=f, w0=w0, w1=w1, act=act, center=[960, 540], colors=colors, flash=fl,
                         seed=11 + 7 * i, leakKnee=0.55, leakRadius=70, bloomRadius=90, washContrast=170,
-                        washBrightness=-48, washScale=[1100, 620], washAngle=round((i * 61.8) % 180, 1), keys=K))
+                        washBrightness=-48, washScale=[1100, 620], washAngle=round((i * 61.8) % 180, 1),
+                        headroom=heads, keys=K))
     return out
+
+
+def plate_luma(seq, frames, cache_dir=None):
+    """{frame: mean luma 0..1} of a plate sequence over `frames` (ffmpeg signalstats on a 240 px copy; full-range PNG ->
+    YAVG is 0..255). Cached by path and file mtimes."""
+    import subprocess
+    if not seq:
+        return {}
+    d = Path(seq["dir"])
+    want = sorted(f for f in set(frames) if seq["start"] <= f < seq["start"] + seq["n"])
+    if not want:
+        return {}
+    key = f"{d}|{seq['start']}|{seq['n']}|{os.path.getmtime(seq['first']):.0f}"
+    cache = Path(cache_dir) / "plate_luma.json" if cache_dir else None
+    C = json.loads(cache.read_text()) if cache and cache.exists() else {}
+    if key in C and all(str(f) in C[key] for f in want):
+        return {f: C[key][str(f)] for f in want}
+    ff = "/home/nikhil/code/film-making/bin/ffmpeg"
+    ff = ff if os.path.exists(ff) else "ffmpeg"
+    r = subprocess.run([ff, "-v", "error", "-start_number", str(seq["start"]), "-i", str(d / "f_%05d.png"), "-vf",
+                        "scale=240:-2,format=yuvj420p,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-",
+                        "-f", "null", "-"], capture_output=True, text=True)
+    ys = [float(v) / 255.0 for v in re.findall(r"YAVG=([\d.]+)", r.stdout)]
+    allf = {seq["start"] + k: round(y, 4) for k, y in enumerate(ys)}
+    if cache:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        C[key] = {str(k): v for k, v in allf.items()}
+        cache.write_text(json.dumps(C))
+    return {f: allf[f] for f in want if f in allf}
 
 
 # ---------------------------------------------------------------- grade
@@ -310,13 +374,16 @@ LIGHT_GLOWS = [dict(name="core", threshold=8, radius=10, intensity=1.3, opacity=
 TEXT_GLOW = dict(threshold=55, radius=18, intensity=0.5)
 
 
-def extend(E, stage_dir=None, outro_dir=None):
+def extend(E, stage_dir=None, outro_dir=None, cache_dir=None):
     """E (edl.json dict) -> E with E.x.finish and E.x.titles (and E.titles reduced to v2's 2D styles)."""
     end = E["outro"]["f0"]
     L = looks()
     act_idx = act_keys(E, end)
-    X = dict(passes=passes(stage_dir, outro_dir), gradeEnd=end, looks=L, actKeys=act_idx, trim=trim_keys(E, end),
-             finish=FINISH, lens=lens_plan(E, load_zvec(stage_dir)), letterbox=letterbox(E), textTint=text_tint(L),
+    P = passes(stage_dir, outro_dir)
+    win = [x for C in E["cuts"] for x in range(C["w0"], C["w1"])]
+    luma = plate_luma(P.get("plate"), win, cache_dir) if P.get("plate") else {}
+    X = dict(passes=P, gradeEnd=end, looks=L, actKeys=act_idx, trim=trim_keys(E, end),
+             finish=FINISH, lens=lens_plan(E, load_zvec(stage_dir), luma), letterbox=letterbox(E), textTint=text_tint(L),
              textGlow=TEXT_GLOW, lightGlows=LIGHT_GLOWS)
     T = titles_E(E)
     E = dict(E, titles=T["titles"])

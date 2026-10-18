@@ -40,7 +40,7 @@ MIX = Path("/home/nikhil/code/film-making/work/timeless_v2/mix.wav")
 
 def build_script(stage, outro, out_project):
     E = json.loads(EDL.read_text())
-    E = finish_spec.extend(E, stage, outro)
+    E = finish_spec.extend(E, stage, outro, Path(out_project).parent / ".cache")
     parts = [f"var E = {json.dumps(E)};\nvar OUT_PROJECT = {json.dumps(str(out_project))};\n"]
     for p in (EC / "grade3.jsx", EC / "lens.jsx", V2_TITLES, EC / "finish.jsx"):
         parts.append(f"// ===== {p.name} =====\n" + p.read_text())
