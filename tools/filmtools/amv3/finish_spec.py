@@ -405,7 +405,8 @@ LIGHT_GLOWS = [dict(name="core", threshold=45, radius=10, intensity=0.6, opacity
 TEXT_GLOW = dict(threshold=70, radius=18, intensity=0.25)
 # light-pass glow ducked where the stage's own light already fills the frame (nest1: the TIMELESS fly-through into the
 # triptych shatter, 817-822, went 47-72 % clipped): [[frame, opacity factor], ...]
-LIGHT_DUCK = [[0, 1.0], [812, 1.0], [817, 0.35], [823, 0.35], [828, 1.0]]
+# and the drop: the light pass is full-frame shards at 478-479 (glowed: 35-44 % clipped, before the flash frames)
+LIGHT_DUCK = [[0, 1.0], [476, 1.0], [478, 0.3], [480, 0.3], [482, 1.0], [812, 1.0], [817, 0.35], [823, 0.35], [828, 1.0]]
 
 
 # ---------------------------------------------------------------- accents (EffectCraft transitions, lab/TRANSITIONS.md)
