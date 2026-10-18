@@ -202,7 +202,7 @@ def build(T, ctx):
 
 
 REVERSAL_MIN = 6  # frames a hold needs to turn its zoom round (REFS: 6-10 f)
-WHIP_SLIDE = 30.0  # screen px / f a whip still slides when a short hold follows it (carried through the hold)
+WHIP_SLIDE = 45.0  # screen px / f a whip still slides when a short hold follows it (carried through the hold)
 
 
 def next_hold(T, ctx):
