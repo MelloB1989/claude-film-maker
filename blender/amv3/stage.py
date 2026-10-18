@@ -169,7 +169,7 @@ class StageContext:
             s = self._shots[sid]
             depth = float(s.get("move", {}).get("depth", 0.0) or 0.0)
             self._cards[sid] = self.make_card(sid, f"card_{sid}", Matrix.Translation(self._homes[sid]), depth=depth,
-                                              home=True)
+                                              home=True, tile=3)
         return self._cards[sid]
 
     def new_set(self, name):
@@ -197,7 +197,7 @@ class StageContext:
         return max(0, s["a"] - h), min(self.E["dur"], s["b"] + h)
 
     def make_card(self, sid, name, matrix=None, alpha="none", depth=0.0, hole=None, collection="plate",
-                  frames=None, backface=None, sweep=False, home=False):
+                  frames=None, backface=None, sweep=False, home=False, tile=1):
         """A new card playing shot sid's plate in comp time. matrix: world matrix (default: the shot's home origin).
         alpha 'matte' = subject matte as alpha; depth > 0 = displaced from the depth map (2.5D); hole = dict(center=[x, y],
         radius=[(frame, px), ...], feather=px). frames = (f0, f1) render visibility (default: the plate range)."""
@@ -210,11 +210,12 @@ class StageContext:
         dimg = self._sequence("depth", sid, "png") if depth > 0 else None
         if depth > 0 and dimg is None:
             self.log(f"WARN {name}: no depth for {sid}, card stays flat")
-        nx, ny = (128, 72) if dimg is not None else (1, 1)
-        me = cards.card_mesh(name, nx, ny)
-        key = (sid, alpha, bool(hole), tuple(backface) if backface else None, sweep)
+        nx, ny = ((128 if tile == 1 else 192), (72 if tile == 1 else 108)) if dimg is not None else (1, 1)
+        me = cards.card_mesh(name, nx, ny, tile=tile)
+        ext = "MIRROR" if tile > 1 else "EXTEND"
+        key = (sid, alpha, bool(hole), tuple(backface) if backface else None, sweep, ext)
         if hole or sweep or key not in self._mats:
-            mat = cards.card_material(f"m_{name}", plate, matte, alpha, hole, backface, sweep)
+            mat = cards.card_material(f"m_{name}", plate, matte, alpha, hole, backface, sweep, ext)
             if not (hole or sweep):
                 self._mats[key] = mat
         else:
@@ -251,6 +252,7 @@ class StageContext:
         self.show(ob, f0, f1)
         ob["amv3_shot"] = sid
         ob["amv3_card"] = True
+        ob["amv3_tile"] = tile
         self.all_cards.append(ob)
         return ob
 
@@ -608,8 +610,8 @@ def make_intent(ctx, sid):
         # never a dead axis: a faint roll and pan drift (alternating per shot) keeps the corners moving while the zoom
         # turns round between a landing and the next entry
         k = ctx._order.index(sid)
-        roll = 1.2 * (1 if k % 2 else -1)
-        pan = [28.0 * (1 if (k // 2) % 2 else -1), 0.0]
+        roll = min(3.0, 0.15 * L) * (1 if k % 2 else -1)  # REFS holds: roll 0.1-0.3 deg/f, pan 2-10 px/f
+        pan = [min(120.0, 3.0 * L) * (1 if (k // 2) % 2 else -1), 0.0]
     rate = max(DRIFT_MIN, min(DRIFT_RATE.get(act, 0.02), DRIFT_MAX_ZOOM / L))
     drift = mv.get("drift", "auto")
     ds = rate if drift in ("in", "auto") else -rate
@@ -919,7 +921,8 @@ def camera_dump(ctx, f0, f1):
             if oe.hide_render:
                 continue
             M = oe.matrix_world
-            vis.append(dict(name=ob.name, M=[list(r) for r in M], Mi=[list(r) for r in M.inverted_safe()]))
+            vis.append(dict(name=ob.name, M=[list(r) for r in M], Mi=[list(r) for r in M.inverted_safe()],
+                            tile=int(ob.get("amv3_tile", 1))))
         frames.append(dict(f=f, cam=[list(r) for r in ce.matrix_world], lens=ce.data.lens, cards=vis,
                            shutter=sc.render.motion_blur_shutter))
     windows = [dict(id=c["id"], type=c["type"], f=c["f"], w0=w0, w1=w1) for w0, w1, c in ctx.windows]

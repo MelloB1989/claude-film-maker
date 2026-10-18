@@ -61,15 +61,16 @@ def setup_user(iu):
 
 
 # ---- meshes ------------------------------------------------------------------------------------------------------------------
-def card_mesh(name, nx=1, ny=1, w=CARD_W, h=CARD_H):
-    """Plane w x h centred at the origin in XY, normal +Z, nx x ny quads, UV 0..1. Vertex group 'interior' = 1 inside,
-    0 on the border (so depth displacement keeps the card edges in the plane)."""
+def card_mesh(name, nx=1, ny=1, w=CARD_W, h=CARD_H, tile=1):
+    """Plane (w x h) * tile centred at the origin in XY, normal +Z, nx x ny quads; UV 0..1 over the central w x h (so a
+    tile = 3 card spans UV -1..2 and a MIRROR texture shows the picture mirror-tiled around the card). Vertex group
+    'interior' (see interior_group) keeps the outer border flat under depth displacement."""
     me = bpy.data.meshes.new(name)
     verts, faces, uvs = [], [], []
     for j in range(ny + 1):
         for i in range(nx + 1):
             u, v = i / nx, j / ny
-            verts.append(((u - 0.5) * w, (v - 0.5) * h, 0.0))
+            verts.append(((u - 0.5) * w * tile, (v - 0.5) * h * tile, 0.0))
     for j in range(ny):
         for i in range(nx):
             a = j * (nx + 1) + i
@@ -104,7 +105,8 @@ def _n(nt, kind, x=0, y=0, **props):
     return n
 
 
-def card_material(name, plate_img, matte_img=None, alpha="none", hole=None, backface=None, sweep=False):
+def card_material(name, plate_img, matte_img=None, alpha="none", hole=None, backface=None, sweep=False,
+                  extension="EXTEND"):
     """Emission card material. alpha: 'none' | 'matte' (alpha = subject matte). hole: dict(center=[px, py], feather=px)
     -> a 'HoleR' Value node (radius px, the caller keys it). backface: RGB for the card's back (None = the plate).
     sweep: adds a 'Sweep' Value node (diagonal light band position 0..1, the caller keys it) and 'SweepAmt'.
@@ -115,7 +117,7 @@ def card_material(name, plate_img, matte_img=None, alpha="none", hole=None, back
     nt.nodes.clear()
     out = _n(nt, "ShaderNodeOutputMaterial", 900, 0)
     tc = _n(nt, "ShaderNodeTexCoord", -900, 0)
-    tex = _n(nt, "ShaderNodeTexImage", -650, 100, image=plate_img, interpolation="Linear", extension="EXTEND")
+    tex = _n(nt, "ShaderNodeTexImage", -650, 100, image=plate_img, interpolation="Linear", extension=extension)
     setup_user(tex.image_user)
     nt.links.new(tc.outputs["UV"], tex.inputs["Vector"])
     em = _n(nt, "ShaderNodeEmission", 0, 100, name="Emission", label="Emission")
@@ -160,7 +162,7 @@ def card_material(name, plate_img, matte_img=None, alpha="none", hole=None, back
         shader = mixb.outputs[0]
     fac = None  # opacity 0..1
     if alpha == "matte" and matte_img is not None:
-        mt = _n(nt, "ShaderNodeTexImage", -650, -700, image=matte_img, interpolation="Linear", extension="EXTEND")
+        mt = _n(nt, "ShaderNodeTexImage", -650, -700, image=matte_img, interpolation="Linear", extension=extension)
         setup_user(mt.image_user)
         nt.links.new(tc.outputs["UV"], mt.inputs["Vector"])
         fac = mt.outputs["Color"]
