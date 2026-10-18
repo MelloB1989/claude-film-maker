@@ -217,7 +217,8 @@ class StageContext:
         ext = "MIRROR" if tile > 1 else "EXTEND"
         key = (sid, alpha, bool(hole), tuple(backface) if backface else None, sweep, ext)
         if hole or sweep or key not in self._mats:
-            mat = cards.card_material(f"m_{name}", plate, matte, alpha, hole, backface, sweep, ext)
+            mat = cards.card_material(f"m_{name}", plate, matte, alpha, hole, backface, sweep, ext,
+                                      tile_tint=self.palette(self.act_of(sid))["leak"] if tile > 1 else None)
             if not (hole or sweep):
                 self._mats[key] = mat
         else:
@@ -391,7 +392,7 @@ class StageContext:
         sc = bpy.context.scene
         return int(getattr(self, "_transparent_from", sc.get("amv3_transparent_from", 819)))
 
-    def settle_entry(self, T, A):
+    def settle_entry(self, T, A, fixed_rate=False):
         """Re-place an entry State's scale so the hold before the window is the gentlest curve between the previous
         window's exit rate and this entry's rate (constant acceleration in ln s: the hold covers (ds0 + ds1) / 2 per
         frame). Call it after you have chosen A's rates. Keeps the frame on the card."""
@@ -405,9 +406,16 @@ class StageContext:
                 cx = P.cx + (P.dcx + A.dcx) / 2.0 * L
                 cy = P.cy + (P.dcy + A.dcy) / 2.0 * L
                 r = P.r + (P.dr + A.dr) / 2.0 * L
-                s = max(s, cl.min_scale(960, 540, r, 0.01) * 1.005)
+                smin = cl.min_scale(960, 540, r, 0.01) * 1.005
+                ds = A.ds
+                if s < smin:
+                    # no room left to pull out that far: the hold pulls out less and turns round instead (unless the
+                    # window insists on its entry speed); the quadratic still holds
+                    s = smin * 1.02
+                    if not fixed_rate:
+                        ds = 2.0 * (math.log(s) - math.log(P.s)) / L - P.ds
                 cx, cy = cl.clamp_center(s, cx, cy, r, 0.01)
-                return A.with_(s=s, cx=cx, cy=cy, r=r)
+                return A.with_(s=s, cx=cx, cy=cy, r=r, ds=ds)
         return A
 
     def exit_state(self, T):
@@ -639,7 +647,7 @@ def make_intent(ctx, sid):
     if not roll:
         roll = min(3.0, 0.15 * L) * (1 if k % 2 else -1)
     if not any(pan):
-        pan = [min(160.0, 4.5 * L) * (1 if (k // 2) % 2 else -1), min(60.0, 1.5 * L) * (1 if k % 3 else -1)]
+        pan = [min(320.0, 6.5 * L) * (1 if (k // 2) % 2 else -1), min(90.0, 2.0 * L) * (1 if k % 3 else -1)]
     rate = max(DRIFT_MIN, min(DRIFT_RATE.get(act, 0.02), DRIFT_MAX_ZOOM / L))
     drift = mv.get("drift", "auto")
     ds = rate if drift in ("in", "auto") else -rate
@@ -804,9 +812,11 @@ def build(ctx, args):
         elif h1 > s["b"]:
             # the hold runs past the shot (a missing end module): keep the shot's drift, slowing to the minimum
             e = ctx.intent(sid, s["b"])
-            ds = math.copysign(DRIFT_MIN, e.ds)
-            B = e.at(0).with_(s=e.s * math.exp((e.ds + ds) / 2 * (h1 - s["b"])), ds=ds,
-                              r=e.r + e.dr * (h1 - s["b"]))
+            ds = math.copysign(DRIFT_MIN, A.ds if A.ds else e.ds)
+            Lh = h1 - h0
+            sB = min(A.s * math.exp((A.ds + ds) / 2 * Lh), A.s * 2.3) if ds > 0 else max(
+                A.s * math.exp((A.ds + ds) / 2 * Lh), cl.min_scale(e.cx, e.cy, A.r, 0.01) * 1.02)
+            B = e.with_(s=sB, ds=ds, r=A.r + 0.1 * Lh * (1 if A.dr >= 0 else -1), dr=0.1 if A.dr >= 0 else -0.1)
         else:
             B = ctx.intent(sid, h1)
         ctx._holds[sid] = (h0, h1, A, B)

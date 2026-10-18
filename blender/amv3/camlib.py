@@ -229,7 +229,7 @@ def blend_state(A, B, w, dw=0.0):
 
 
 # ---- hits (added on top of the camera path) ---------------------------------------------------------------------------------
-def punch_curve(dt, amount=0.07, attack=2.0, settle=6.0):
+def punch_curve(dt, amount=0.07, attack=3.0, settle=6.0):
     """Extra ln-scale of a punch dt frames after its frame: +amount in `attack` frames, back to 0 over `settle` (C1)."""
     if dt <= 0 or dt >= attack + settle:
         return 0.0

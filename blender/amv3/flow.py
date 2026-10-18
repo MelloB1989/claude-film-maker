@@ -151,7 +151,7 @@ def bounds(T, ctx):
         R = float(p.get("roll", 0.0) or 0.0)
         if typ == "zt" and R and not adjacent and prev_hold(T, ctx) >= REVERSAL_MIN:
             A = A.with_(dr=math.copysign(max(abs(A.dr), ROLL_CARRY), R))  # roll keeps its sign into the window
-        A = ctx.settle_entry(T, A)
+        A = ctx.settle_entry(T, A, fixed_rate=typ in ("zt", "slam"))
         if typ in ("zt", "slam") and not adjacent:
             # a true exponential attack (speed x G_MAX per frame at most) needs a minimum entry speed: the hold
             # accelerates into it (REFS: the acceleration starts 3-5 f before the cut, whatever the window says)
@@ -161,7 +161,7 @@ def bounds(T, ctx):
                 need = attack_r0(abs(math.log(peak) - math.log(A.s)), TA, G_MAX)
                 if abs(A.ds) >= need or A.ds * sg < 0:
                     break
-                A = ctx.settle_entry(T, A.with_(ds=sg * need))
+                A = ctx.settle_entry(T, A.with_(ds=sg * need), fixed_rate=True)
         out["A"] = A
     if T.get("b"):
         B = ctx.exit_state(T)
@@ -181,6 +181,9 @@ def bounds(T, ctx):
                 fb = focus_of(T, "b", ctx)
                 cx, cy = cl.clamp_center(B.s, B.cx + 0.7 * (fb[0] - B.cx), B.cy + 0.7 * (fb[1] - B.cy), B.r, 0.01)
                 B = B.with_(cx=cx, cy=cy)
+        elif typ in ("whip", "cube") and "A" in out and next_hold(T, ctx) >= REVERSAL_MIN:
+            # a turn carries the zoom direction it entered with into B's landing (the hold after turns round if needed)
+            B = B.with_(ds=math.copysign(max(abs(B.ds), 0.012), out["A"].ds))
         elif typ == "slam":
             # B slams in from below 1x (the mirror tiles smear past) and stops at `kick` x, still creeping in
             B = B.with_(s=max(float(p.get("kick", 1.35)), cl.min_scale(B.cx, B.cy, B.r, 0.01)), ds=max(B.ds, 0.012))
@@ -214,7 +217,7 @@ def prev_hold(T, ctx):
 ATTACK = 1.5  # A's zoom speed grows x1.5 per frame into the cut (REFS gate: x1.35-1.7 over the last 4 f)
 DECAY_RANGE = (1.12, 1.4)  # B's speed falls x1/1.12 .. x1/1.6 per frame (REFS gate: x1.15-1.27 with a >= 8 f tail)
 DECAY = 1.22  # B's default speed decay per frame (REFS k 0.80-0.88 -> x1.14-1.25)
-DROP_T = 1.8  # A's speed one frame before the cut / B's one frame after, the target (A's peak gives way first)
+DROP_T = 2.2  # A's speed one frame before the cut / B's one frame after, the target (A's peak gives way first)
 DROP_MAX = 2.3  # max ratio of A's speed one frame before the teleport to B's one frame after (REFS: median <= 2.3)
 RACK_PX = 26.0  # B's rack defocus at the cut (blur circle, px at 1920): legible by +2, sharp by +4/+5
 RACK_F = 5.0
@@ -390,7 +393,8 @@ def build_open(T, ctx):
     ctx.key_path(lambda t: ctx.pose(card, st(t)), w0, w1, 0.5)
     # fade up from black + a light sweep across the picture
     plate = ctx._sequence("plates", sid, "jpg")
-    mat = cards.card_material(f"m_open_{sid}", plate, sweep=True, extension="MIRROR")
+    mat = cards.card_material(f"m_open_{sid}", plate, sweep=True, extension="MIRROR",
+                              tile_tint=ctx.palette(ctx.act_of(sid))["leak"])
     card.data.materials.clear()
     card.data.materials.append(mat)
     nt = mat.node_tree
@@ -427,7 +431,7 @@ def build_turn(T, ctx):
         ang = math.radians(float(p.get("angle", 70))) * sgn
         mid = window_blend(A, B, w0, w1, f)
         P = FA @ Vector(cl.local_pose(mid)[0])
-        turn = Turn(ang, w0, f, w1, 1.6, 1.25, over=0.02)
+        turn = Turn(ang, w0, f, w1, float(p.get("attack", 2.3)), float(p.get("decay", 2.0)), over=0.02)
     else:
         # cube: dir = the way the cube turns; the camera orbits the other way round the box centre
         cube_sgn = {"L": 1, "R": -1, "U": 1, "D": -1}[d]
@@ -437,18 +441,16 @@ def build_turn(T, ctx):
         P = o + Vector((0, 0, -hd))
         turn = Turn(ang, w0, f, w1, 1.6, 1.3, over=0.0)
     FB = rot_about(P, axis, ang) @ FA
-    ca = ctx.make_card(T["a"]["id"], f"{typ}_{T['id']}_A", FA, frames=vis)
-    cb = ctx.make_card(T["b"]["id"], f"{typ}_{T['id']}_B", FB, frames=vis)
+    # whip: the two cards carry their mirror tiles (faded into the act haze), so the gap between them smears from the
+    # pictures themselves; cube: plain faces on the box
+    tile = 3 if typ == "whip" else 1
+    ca = ctx.make_card(T["a"]["id"], f"{typ}_{T['id']}_A", FA, frames=vis, tile=tile)
+    cb = ctx.make_card(T["b"]["id"], f"{typ}_{T['id']}_B", FB, frames=vis, tile=tile)
     ctx.env(o, act, frames=vis)
     pb = math.log(float(p.get("pullback", 1.75))) if typ == "cube" else 0.0
 
     if typ == "whip":
-        # light between the cards: haze sheets on the arc, so the smear is light, never black
-        for i, (fr, dist, sc) in enumerate(((0.5, 2.6, 1.0), (0.3, 3.4, 1.3), (0.72, 3.2, 1.2))):
-            M = rot_about(P, axis, ang * fr) @ Matrix.Translation(P + Vector((0, 0, -dist)))
-            h = cards.haze_card(f"whip_{T['id']}_haze{i}", pal["leak"] if i != 1 else pal["rim"], 1.8, 0.55,
-                                ctx.coll("plate"), M, (3.6 * sc, 2.4 * sc))
-            ctx.show(h, *vis)
+        whip_streaks(T, ctx, P, axis, ang, d, pal, vis)
     else:
         box_and_glints(T, ctx, o, P, axis, d, hd, pal, vis, turn)
 
@@ -458,14 +460,45 @@ def build_turn(T, ctx):
     def fn(t):
         st = window_blend(A, B, w0, w1, t)
         if pb:
-            u = (t - w0) / float(w1 - w0)
-            st = st.with_(s=st.s * math.exp(-pb * math.sin(math.pi * u) ** 2))
+            # pull back to see the box, peaking 2 f after the cut, so the zoom keeps its sign through the cut (out on
+            # both sides); the push back onto B's face happens in the slow tail of the landing
+            tp = min(f + 2.0, w1 - 3.0)
+            bump = cl.smootherstep((t - w0) / (tp - w0)) if t < tp else 1 - cl.smootherstep((t - tp) / (w1 - tp))
+            st = st.with_(s=st.s * math.exp(-pb * bump))
         else:
             st = fin(st)
         M = rot_about(P, axis, turn(t)) @ FA @ local_matrix(st)
         return mat_pose(M)
     ctx.key_path(fn, w0, w1, 0.25)
     ctx.log(f"  {typ} {T['id']} dir {d}: turn {math.degrees(ang):+.0f} deg, peak at f{f}, overshoot {turn.over:.2f}")
+
+
+def whip_streaks(T, ctx, P, axis, ang, d, pal, vis, n=26):
+    """Thin act-coloured light streaks in the gap between A and B (beyond the cards), lying along the whip direction:
+    under motion blur they become the light lines of the smear; the pictures themselves carry the rest."""
+    import random
+    rnd = random.Random(T["f"])
+    m1 = cards.emission_material(f"whip_{T['id']}_streakA", pal["leak"], 6.0)
+    m2 = cards.emission_material(f"whip_{T['id']}_streakB", pal["rim"], 5.0)
+    me1 = cards.card_mesh(f"whip_{T['id']}_streak1", 1, 1, 1.0, 1.0)
+    me1.materials.append(m1)
+    me2 = cards.card_mesh(f"whip_{T['id']}_streak2", 1, 1, 1.0, 1.0)
+    me2.materials.append(m2)
+    horiz = d in "LR"
+    for i in range(n):
+        fr = rnd.uniform(0.2, 0.8)
+        dist = rnd.uniform(2.4, 7.0)
+        off = rnd.uniform(-0.45, 0.45) * dist
+        ln = rnd.uniform(0.15, 0.9) * dist * 0.3
+        th = 0.0035 * dist * rnd.uniform(0.6, 1.6)
+        local = Vector((0.0, off, -dist)) if horiz else Vector((off, 0.0, -dist))
+        ob = bpy.data.objects.new(f"whip_{T['id']}_streak{i}", me1 if i % 3 else me2)
+        R = rot_about(P, axis, ang * fr)
+        ob.matrix_world = R @ Matrix.Translation(P + local) @ Matrix.Diagonal((ln, th, 1.0, 1.0) if horiz else
+                                                                               (th, ln, 1.0, 1.0))
+        ctx.coll("light").objects.link(ob)
+        cards.no_shadow(ob)
+        ctx.show(ob, *vis)
 
 
 def box_and_glints(T, ctx, o, C, axis, d, hd, pal, vis, turn):
@@ -495,9 +528,9 @@ def box_and_glints(T, ctx, o, C, axis, d, hd, pal, vis, turn):
     em = gm.node_tree.nodes["Emission"].inputs["Strength"]
     for fr in range(T["w0"] - 1, T["w1"] + 2):
         x = (fr - T["f"]) / 4.0
-        em.default_value = 9.0 * math.exp(-x * x)
+        em.default_value = 2.5 * math.exp(-x * x)
         em.keyframe_insert("default_value", frame=fr)
-    th = 0.007
+    th = 0.004
     bars = []
     W, H = cl.CARD_W, cl.CARD_H
     for (cx, cy, lx, ly) in ((0, H / 2, W, th), (0, -H / 2, W, th), (W / 2, 0, th, H), (-W / 2, 0, th, H)):
@@ -545,7 +578,9 @@ def build_flip(T, ctx):
     for fr2 in range(2 * (w0 - 1), 2 * (w1 + 1) + 1):
         t = fr2 / 2.0
         u = (t - w0) / float(w1 - w0)
-        piv.rotation_euler = (0, sg * phimax * cl.smootherstep(u / 0.7), 0)
+        # the page holds while the camera pushes into A, then swings open through the cut (f-1.5 .. f+5), well before
+        # the camera reaches its plane
+        piv.rotation_euler = (0, sg * phimax * cl.smootherstep((t - (f - 1.5)) / 6.5), 0)
         piv.keyframe_insert("rotation_euler", frame=t)
     # A's state re-expressed against the (scaled) B card: one C1 Hermite push from A's framing to B's
     xA, yA, zA = cl.local_pose(A)[0]
