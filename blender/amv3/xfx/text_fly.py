@@ -24,11 +24,11 @@ from mathutils import Quaternion
 from camlib import State
 
 PRESET = {
-    "dive": dict(sA=1.22, dsA=0.02, attack=1.5, peak_ds=0.45, land=1.06, land_ds=0.10, dsB=0.015, decay=0.83,
+    "dive": dict(sA=1.22, dsA=0.025, attack=1.5, peak_ds=0.32, land=1.06, land_ds=0.115, dsB=0.02, decay=0.80,
                  aim=(905, 430), roll_peak=2.4, drB=0.3, roll_decay=0.75, pitch_peak=-4.0, pitch_lead=4.5,
                  rack_px=24, rack_f=7),
-    "through": dict(sA=1.30, dsA=0.02, attack=1.5, peak_ds=0.45, land=1.06, land_ds=0.10, dsB=0.015, decay=0.83,
-                    aim=(760, 620), roll_peak=3.0, drB=0.3, roll_decay=0.75, pitch_peak=0.0, pitch_lead=0.0,
+    "through": dict(sA=1.30, dsA=0.025, attack=1.5, peak_ds=0.32, land=1.06, land_ds=0.115, dsB=0.02, decay=0.80,
+                    aim=(820, 540), roll_peak=3.0, drB=0.3, roll_decay=0.75, pitch_peak=0.0, pitch_lead=0.0,
                     rack_px=26, rack_f=8),
 }
 
