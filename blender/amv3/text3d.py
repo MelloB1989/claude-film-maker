@@ -55,7 +55,9 @@ PAL = {
 STYLE = {
     "AMAZING": dict(font="barlow", center=(930, 330), width_px=1500, hero=328, depth=0.42, yaw=-16, pitch=10,
                     roll=-4, ext=0.13, bev=0.03, shear=0.0, track=0.04),
-    "SPIDER-MAN": dict(font="anton", center=(1010, 742), width_px=1480, hero=645, depth=0.30, yaw=14, pitch=-8,
+    # S25 is an extreme close-up: the subject matte covers ~the whole frame, so "behind" would hide the word. It sits
+    # in front of the face (lower third, clear of the eye), behind the card plane only for parallax.
+    "SPIDER-MAN": dict(behind=False, font="anton", center=(1010, 742), width_px=1480, hero=645, depth=0.30, yaw=14, pitch=-8,
                        roll=3, ext=0.12, bev=0.028, shear=0.18, track=0.03),
     "BRAND NEW DAY": dict(font="anton", center=(960, 250), width_px=1560, hero=758, depth=0.36, yaw=-12, pitch=12,
                           roll=-2, ext=0.12, bev=0.028, shear=0.18, track=0.05, shots=["S31", "S32"],
@@ -565,7 +567,7 @@ class Title:
         if T.get("exit"):
             kind, at = T["exit"].split("@")
             self.exit = (kind, float(at))
-        self.behind = bool(T.get("behind"))
+        self.behind = bool(self.st.get("behind", T.get("behind")))
         self.shots = self.st.get("shots") or ([T["shot"]] if T.get("shot") else [])
         self.hero = float(self.st.get("hero", self.f0 + 10))
 
@@ -1034,7 +1036,12 @@ class Title:
         if d2.length < 1e-4:
             d2 = Vector((1, 0))
         d2.normalize()
-        radius = 0.045 if i == near else r.uniform(0.16, 0.5) * self.W() * 0.6
+        if i == near:
+            radius = 0.045
+        elif i in late:
+            radius = r.uniform(0.07, 0.12)
+        else:
+            radius = r.uniform(0.16, 0.5) * self.W() * 0.6
         Pp = cpos + cx * (d2.x * radius) + cy * (d2.y * radius) + fwd * 0.02
         T = t_pass - t_l
         v_avg = (Pp - P0) / T

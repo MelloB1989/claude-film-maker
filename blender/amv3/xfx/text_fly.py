@@ -44,9 +44,17 @@ def _focus(shot):
     return (float(f[0]), float(f[1])) if f else (960.0, 540.0)
 
 
+def safe_c(s, cx, cy, roll_deg=0.0, margin=1.04):
+    """clamp the card point at frame centre so the frame (rotated by roll) stays inside the card at scale s"""
+    r = math.radians(abs(roll_deg))
+    hw = (960.0 * math.cos(r) + 540.0 * math.sin(r)) / s * margin
+    hh = (540.0 * math.cos(r) + 960.0 * math.sin(r)) / s * margin
+    return min(max(cx, hw), 1920.0 - hw), min(max(cy, hh), 1080.0 - hh)
+
+
 def bounds(T, ctx):
     P = _preset(T)
-    ax, ay = _focus(T["a"])
+    ax, ay = safe_c(P["sA"], *_focus(T["a"]))
     A = State(P["sA"], ax, ay, 0.0, ds=P["dsA"], dcx=0.0, dcy=0.0, dr=0.0)
     B = State(P["sB"], 960.0, 540.0, 0.0, ds=P["dsB"], dcx=0.0, dcy=0.0, dr=P["drB"])
     return {"A": A, "B": B}
