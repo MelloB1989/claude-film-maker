@@ -231,8 +231,9 @@ def finish(rows: list[dict]) -> None:
     # move. They are judder, and they would fake a x50 speed jump, so they are counted and skipped by the jump stats.
     for i in range(1, len(rows) - 1):
         r = rows[i]
-        r["dup"] = int(r.get("resid", 9) < 0.3 and r.get("flow_mean", 9) < 0.3
-                       and max(rows[i - 1].get("flow_mean", 0), rows[i + 1].get("flow_mean", 0)) > 2.0)
+        fm, nb = r.get("flow_mean", 9), min(rows[i - 1].get("flow_mean", 0), rows[i + 1].get("flow_mean", 0))
+        r["dup"] = int((r.get("resid", 9) < 0.3 and fm < 0.3 and nb > 2.0)
+                       or (nb > 4.0 and fm < 0.12 * nb and r.get("gspeed", 9) < 0.5))   # repeat + grain/flicker
     rows[0]["dup"] = rows[-1]["dup"] = 0
 
 
@@ -335,6 +336,7 @@ def summarize(rows: list[dict], name: str) -> dict:
             if rel.get(f, 0) >= SHARP_REL and rel.get(f + 1, 0) >= SHARP_REL:
                 sharp_at = f - c
                 break
+        legible_at = next((f - c for f in range(c, c + 15) if rel.get(f, 0) >= SMEAR_REL), None)
         flow = {f: val(f, "flow_mean") for f in range(c - 10, c + 16)}
         pre = [flow[f] for f in range(c - 8, c)]
         post = [flow[f] for f in range(c + 1, c + 13)]
@@ -372,7 +374,7 @@ def summarize(rows: list[dict], name: str) -> dict:
         percut.append(dict(cut=c, kind="hard" if c in hard else "smear", pre_flow=[r2(v) for v in pre],
                            post_flow=[r2(v) for v in post],
                            sharp_rel=[round(rel.get(f, float("nan")), 2) for f in range(c - 4, c + 11)],
-                           smear_frames=len(smear), resharpen=sharp_at, accel_per_f=acc, decel_per_f=dec,
+                           smear_frames=len(smear), legible=legible_at, resharpen=sharp_at, accel_per_f=acc, decel_per_f=dec,
                            speed_across=across, step_in=step_in, step_out=step_out, zoom_dir=zdir, peak_flow=r2(peak),
                            zoom_pre=[round(v * 100, 1) for v in zp], zoom_post=[round(v * 100, 1) for v in zq],
                            rot_pre=[r2(val(f, "rot")) for f in range(c - 3, c)],
@@ -403,6 +405,7 @@ def summarize(rows: list[dict], name: str) -> dict:
         smear_frames_median=float(np.median(sm)) if sm else None,
         cuts_with_smear_pct=round(100 * sum(1 for s in sm if s >= 2) / max(1, len(sm)), 1),
         hard_cuts_pct=round(100 * sum(1 for s in sm if s == 0) / max(1, len(sm)), 1),
+        legible_median=_med([p["legible"] for p in percut]),
         resharpen_median=float(np.median(rs)) if rs else None, resharpen_max=max(rs) if rs else None,
         cut_peak_flow_median=round(float(np.median(pk)), 1) if pk else None,
         accel_per_f_median=_med([p["accel_per_f"] for p in percut]),
@@ -499,7 +502,8 @@ TABLE = [("frames", "frames"), ("n_cuts", "transitions (hard + smear)"), ("shot_
          ("flow_jump_p95", "picture speed (mean flow) jump ratio p95"), ("flow_jump_max", "picture speed jump max"),
          ("flow_jump_pct_over", "% frames picture speed jumps > x1.35"), ("dup_pct", "% duplicated frames"), ("smear_frames_median", "smear frames per cut (median)"),
          ("cuts_with_smear_pct", "% cuts with >= 2 smear frames"), ("hard_cuts_pct", "% hard cuts (0 smear)"),
-         ("resharpen_median", "frames to re-sharpen after cut (median)"), ("resharpen_max", "re-sharpen max"),
+         ("legible_median", "frames after cut until B is legible, sharp_rel >= 0.5 (median)"),
+         ("resharpen_median", "frames after cut until B is sharp, sharp_rel >= 0.8 (median)"), ("resharpen_max", "re-sharpen max"),
          ("cut_peak_flow_median", "cut peak flow (px/f, median)"),
          ("accel_per_f_median", "acceleration into cut (x per frame, median)"),
          ("decel_per_f_median", "deceleration after cut (x per frame, median)"),
