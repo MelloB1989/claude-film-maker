@@ -94,9 +94,9 @@ if [ $DATA_SYNC = 1 ]; then
   echo "pod_stage: sync data (plates, mattes, depth, tracks) ..."
   T0=$(date +%s)
   if command -v rsync >/dev/null; then
-    (cd "$DATA" && rsync -a --info=stats1 -e "ssh ${SSHO[*]}" --exclude '_*' plates mattes depth tracks "root@$IP:/root/data/")
+    (cd "$DATA" && rsync -a --info=stats1 -e "ssh ${SSHO[*]}" --exclude '_*' plates mattes depth tracks regions "root@$IP:/root/data/")
   else
-    (cd "$DATA" && tar c --exclude='_*' plates mattes depth tracks) | pod 'tar x -C /root/data'
+    (cd "$DATA" && tar c --exclude='_*' plates mattes depth tracks regions) | pod 'tar x -C /root/data'
   fi
   echo "pod_stage: data synced in $(( $(date +%s) - T0 ))s"
 fi
