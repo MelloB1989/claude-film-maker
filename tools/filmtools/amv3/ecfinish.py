@@ -75,6 +75,8 @@ def build(stage, outro=DEF_OUTRO, out=None, emit_only=False):
     P = E["x"]["finish"]["passes"]
     print(f"wrote {jsx} ({len(script) // 1024} KiB); passes: " +
           ", ".join(f"{k}={'%d f from %d (%dx%d)' % (v['n'], v['start'], v['w'], v['h']) if v else 'none'}" for k, v in P.items()))
+    rays = E["x"]["finish"].get("accents", {}).get("rays", [])
+    print("ray centres: " + " ".join(f"{r['id']}@{r['center'][0]},{r['center'][1]}" for r in rays))
     if emit_only:
         return 0
     r = subprocess.run([R.local_cli(), "script", str(jsx), "--empty"], capture_output=True, text=True)
