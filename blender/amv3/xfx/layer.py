@@ -18,9 +18,11 @@ mode "sweep" (ref c 492-503, c 101-122): B's matted subject sweeps in over A fro
   subject's trailing edge, so B's background resolves behind it. The camera tracks the sweep sideways (`shift`).
 
 Parameters (all optional): keep: dir L|R|U|D (default: the side the subject is nearer to), depth 1.0, b_travel 0.5,
-shift 0.3, carry 0.45, feather 380, exit 2, approach 0.86, tilt 18, dof 4.0, glow 1.0, ease 1.5 (camera blend ease), settle (B exit scale).
+shift 0.45, carry 0.45, feather 380, exit 2, approach 0.86, tilt 18, dof 4.0, glow 1.0, ease 2.2 (camera blend ease),
+settle 1.35 (B's exit scale: B is scaled up to cover the frame, so a lower exit scale makes the camera back away from
+B = a zoom-sign reversal behind the subject).
 sweep: from L|R|U|D (default: the side away from B's subject), depth 0.3, enter 3, land 5, approach 0.78, tilt 22,
-shift 0.25, feather 320, dof 4.0, ease 3.0, settle.
+shift 0.25, feather 320, dof 4.0, ease 2.2, settle 1.35.
 Mattes: $AMV3_DATA/mattes/<shot>/f_NNNNN.png (white subject). Without mattes the module still runs (opaque subject
 cards; the log says so) so camera tests work before the prep lands.
 """
@@ -35,10 +37,10 @@ import cards
 import flow
 
 DEFAULTS = {
-    "keep": dict(dir=None, depth=1.0, b_travel=0.5, shift=0.3, carry=0.45, feather=380.0, exit=2, approach=0.86,
-                 tilt=18.0, dof=4.0, glow=1.0, settle=None, ease=1.5),
+    "keep": dict(dir=None, depth=1.0, b_travel=0.5, shift=0.45, carry=0.45, feather=380.0, exit=2, approach=0.86,
+                 tilt=18.0, dof=4.0, glow=1.0, settle=1.35, ease=2.2),
     "sweep": dict(dir=None, depth=0.3, enter=3, land=5, approach=0.78, tilt=22.0, shift=0.25, feather=320.0, dof=4.0,
-                  settle=None, b_travel=0.0, ease=3.0),
+                  settle=1.35, b_travel=0.0, ease=2.2),
 }
 SIDES = {"L": (-1, 0), "R": (1, 0), "U": (0, 1), "D": (0, -1)}  # screen direction (x right, y up)
 STEP = 0.25
@@ -70,7 +72,7 @@ def bounds(T, ctx):
     A = ctx.settle_entry(T, A)
     B = ctx.exit_state(T)
     if p.get("settle"):
-        B = B.with_(s=max(float(p["settle"]), cl.min_scale(B.cx, B.cy, B.r, 0.01)))
+        B = B.with_(s=max(B.s, float(p["settle"]), cl.min_scale(B.cx, B.cy, B.r, 0.01)))
     if flow.next_hold(T, ctx) >= flow.REVERSAL_MIN:
         B = B.with_(ds=max(B.ds, flow.EXIT))
     return {"A": A, "B": B}
@@ -565,7 +567,7 @@ def build_sweep(T, ctx, p):
         return sgn * (px if coord == "x" else py)
 
     keys = []
-    t_gone = max(t_in + 2, t_land - 2)
+    t_gone = max(t_in + 2, min(t_land - 2, f + 1))
     for t in frange(w0 - 1, t_land + 1, 0.5):
         u = cl.clamp01((t - t_in) / float(t_gone - t_in))
         lin = hi_v + fe + 40 - (hi_v + fe + 40 - (lo_v - 40)) * cl.smootherstep(u)
