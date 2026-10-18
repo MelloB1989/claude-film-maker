@@ -81,7 +81,7 @@ def cue_sync(E: dict, stems: dict) -> list[dict]:
             on = int(np.argmax(m > 0.1 * m.max()))
             at = (base + on) / SR * fps
             kind = "onset"
-        elif c["name"] in ("goo", "tunnel", "crackle_in", "crackle_out", "sparks_swirl"):
+        elif c["name"] in ("goo", "tunnel", "crackle_in", "crackle_out", "sparks_swirl", "shimmer"):
             # long beds: the designed event sample (snap / pass / peak) is checked through `h` only
             at = (base + h) / SR * fps
             kind = "event"
