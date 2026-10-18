@@ -224,8 +224,9 @@ def build(T, ctx):
     _flash(K, impK, camB0, fh, f, palB, light)
     _chips(K, impK, depth0, fh, f, palA, palB, light, plate, rng, face)
     _close_shards(K, impK, depth0, fh, f, palA, plate, rng)
-    _light(K, Vector((-0.35, 0.3, 0.1)), palB["key"], 12.0, "ls_keyB", fh, t_end + 1, size=0.25, target=impK)
-    _light(K, Vector((0.4, -0.25, -0.05)), palA["key"], 10.0, "ls_rimB", fh, t_end + 1, size=0.2, target=impK)
+    _debris(K, camB0, fh, f, w1, palA, plate, rng)
+    _light(K, Vector((-0.35, 0.3, 0.1)), palB["key"], 12.0, "ls_keyB", fh, w1, size=0.25, target=impK)
+    _light(K, Vector((0.4, -0.25, -0.05)), palA["key"], 10.0, "ls_rimB", fh, w1, size=0.2, target=impK)
     ctx.log("lens_shatter: %d shards, R=%.0f px, ghost depth %.3f m, B dist %.3f m" % (len(shards), R, depth0, camB0))
 
 
@@ -391,3 +392,34 @@ def _chips(K, impK, depth0, fh, f, palA, palB, light, plate, rng, face):
             M = K @ Matrix.LocRotScale(pos, Quaternion(ax, math.radians(spin * u)), None)
             fx.key_matrix(ob, t, M, prev)
         fx.key_visible(ob, round(t0 * 2) / 2, f + 6.5)
+
+
+def _debris(K, camB0, fh, f, w1, palA, plate, rng):
+    """After the burst a few glass flakes keep drifting and tumbling in front of Tom's lens to the end of the window
+    (the reference's debris lingers for 6-10 f), twinkling as they turn through the lights."""
+    mat = fx.glass_mat("ls_flake", tint=(0.96, 0.98, 1.0), emit=palA["key"], emit_strength=0.25, rough=0.01, ior=1.5)
+    prev = {}
+    for i in range(36):
+        sz = rng.uniform(0.0012, 0.0045)
+        n = rng.choice((3, 4, 5))
+        poly = sorted([(sz * math.cos(2 * math.pi * k / n + rng.uniform(-0.4, 0.4)) * rng.uniform(0.5, 1.4),
+                        sz * math.sin(2 * math.pi * k / n + rng.uniform(-0.4, 0.4)) * rng.uniform(0.5, 1.2))
+                       for k in range(n)], key=lambda q: math.atan2(q[1], q[0]))
+        me, _ = fx.shard_mesh("ls_flake_%02d" % i, poly, sz * 0.25, None)
+        me.materials.append(mat)
+        me.materials.append(mat)
+        ob = bpy.data.objects.new(me.name, me)
+        fx.link(ob, plate)
+        z = -camB0 * rng.uniform(0.25, 0.9)
+        half = abs(z) * 0.55
+        p0 = Vector((rng.uniform(-1.6, 1.6) * half, rng.uniform(-0.9, 0.9) * half, z))
+        v0 = Vector((rng.gauss(0, 1), rng.gauss(0, 1), rng.uniform(0.5, 2.0))) * 0.006 * abs(z)
+        ax = fx.rand_axis(rng)
+        spin = rng.uniform(8, 25)
+        t0 = f + rng.uniform(0.5, 3.0)
+        for t in fx.frames_half(round(t0 * 2) / 2, w1):
+            u = t - t0
+            pos = p0 + v0 * (u * 4.0 / (u + 4.0)) * 3.0   # thrown out, slowing (drag)
+            M = K @ Matrix.LocRotScale(pos, Quaternion(ax, math.radians(spin * u)), None)
+            fx.key_matrix(ob, t, M, prev)
+        fx.key_visible(ob, round(t0 * 2) / 2, w1)
