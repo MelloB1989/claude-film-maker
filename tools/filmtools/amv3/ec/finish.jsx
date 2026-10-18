@@ -85,7 +85,9 @@ if (X.passes.light) TRY("light", function () {
         var e = fxAdd(l, "ADBE Glo2", "glow " + g.name);
         e.property("Glow Threshold").setValue(g.threshold); e.property("Glow Radius").setValue(g.radius);
         e.property("Glow Intensity").setValue(g.intensity); e.property("Composite Original").setValue(3);
-        TG(l).property("ADBE Opacity").setValue(g.opacity);
+        var D = X.lightDuck, ts = [], vs = [];
+        for (var d = 0; D && d < D.length; d++) { ts.push(D[d][0] / FPS); vs.push(g.opacity * D[d][1]); }
+        if (ts.length > 1) TG(l).property("ADBE Opacity").setValuesAtTimes(ts, vs); else TG(l).property("ADBE Opacity").setValue(g.opacity);
     }
 });
 // 7. 2D titles (v2 TITLES lib) and the letterbox

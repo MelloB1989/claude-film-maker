@@ -100,6 +100,7 @@ CA_EDGE_PER_UNIT = 1.65   # measured: VR Chromatic Aberrations amount N -> R/B s
 CA_TAIL = (8.0, 0.6, 8)   # after the cut: edge split (8 + 0.6 ca) px fading to 0 over 8 f (10-20 px over the first 4 f)
 EXPO_PEAK = 0.5           # EV at the profile peak, before headroom (0.75 blew faces on stage draft1 landings, C05 175)
 FLASH_EV = {1: [1.9, 1.3, 0.6], 2: [2.6, 1.8, 0.9]}   # the 3 white frames of a flash cut, by edl `flash` (2 = the drop)
+PRE_FLASH = 0.4   # nest1: the drop's lens peak at f-2/f-1 already whited out (36-44 %), making 5 white frames
 FLASH_GAIN = {1: 1.0, 2: 0.55}  # stage draft1: the drop plate is already white at its centre; 1.0 clipped 41-48 % over 3 f (target 17-30)
 WASH4_TINT = {-2: 0.15, -1: 0.25, 0: 0.15, 1: 0.1}  # sling ring orange Multiply, by frame from the cut: only a lead-in, the stage plate carries the 4-f orange wash itself (stage draft1 618-622)
 WASH4_COLOR = [1.0, 0.52, 0.18]
@@ -171,6 +172,8 @@ def lens_plan(E, zvec=None, luma=None):
             p = prof[j]
             m = luma.get(x)
             h = headroom(m[0] if m else None)
+            if fl and x < f:
+                h *= PRE_FLASH        # the build into a flash stays below white: only the flash frames clip
             heads.append(h)
             u = (x - w0) / float(max(1, w1 - w0 - 1))
             K["blur"].append([x, round(70.0 * L["zblur"] * R["blur"] * p * p, 2)])
@@ -400,6 +403,9 @@ LIGHT_GLOWS = [dict(name="core", threshold=45, radius=10, intensity=0.6, opacity
                dict(name="halo", threshold=45, radius=45, intensity=0.45, opacity=50),
                dict(name="bloom", threshold=55, radius=170, intensity=0.35, opacity=40)]
 TEXT_GLOW = dict(threshold=70, radius=18, intensity=0.25)
+# light-pass glow ducked where the stage's own light already fills the frame (nest1: the TIMELESS fly-through into the
+# triptych shatter, 817-822, went 47-72 % clipped): [[frame, opacity factor], ...]
+LIGHT_DUCK = [[0, 1.0], [812, 1.0], [817, 0.35], [823, 0.35], [828, 1.0]]
 
 
 # ---------------------------------------------------------------- accents (EffectCraft transitions, lab/TRANSITIONS.md)
@@ -528,7 +534,7 @@ def extend(E, stage_dir=None, outro_dir=None, cache_dir=None):
     luma = plate_luma(P.get("plate"), win, cache_dir) if P.get("plate") else {}
     X = dict(passes=P, gradeEnd=end, looks=L, actKeys=act_idx, trim=trim_keys(E, end),
              finish=FINISH, skin=SKIN, lens=lens_plan(E, load_zvec(stage_dir), luma), letterbox=letterbox(E), textTint=text_tint(L),
-             textGlow=TEXT_GLOW, lightGlows=LIGHT_GLOWS)
+             textGlow=TEXT_GLOW, lightGlows=LIGHT_GLOWS, lightDuck=LIGHT_DUCK)
     X["accents"] = accents(E, P, plate_luma(P.get("plate"), [x for C in E["cuts"] for x in range(C["f"], C["f"] + 6)], cache_dir)
                            if P.get("plate") else {}, cache_dir)
     T = titles_E(E)
