@@ -9,6 +9,9 @@
 | hold camera speed p10 (px/f) | 4.9 | 5.41 | 3.87 | 1.58 |
 | hold mean flow median (px/f) | 20.51 | 22.61 | 14.97 | 4.48 |
 | % near-static hold frames (mean flow < 4 px/f) | 2.5 | 1.2 | 2.0 | 44.6 |
+| longest near-static run (f) | 2 | 4 | 2 | 28 |
+| hold zoom rate median (%/f) | 2.47 | 2.05 | 2.1 | 0.39 |
+| hold roll median (deg/f) | 0.09 | 0.12 | 0.054 | 0.021 |
 | camera speed jump ratio p95 (outside cuts) | 2.196 | 3.022 | 2.089 | 2.354 |
 | % frames camera speed jumps > x1.35 | 18.6 | 27.2 | 17.8 | 14.2 |
 | picture speed (mean flow) jump ratio p95 | 2.017 | 1.837 | 1.854 | 2.289 |
@@ -30,4 +33,5 @@
 | speed after / before cut (median) | 1.06 | 1.3 | 1.26 | 1.37 |
 | % cuts with speed step outside x0.5-x2 | 17.2 | 40.9 | 33.3 | 37.2 |
 | zoom direction across cut | {'push->push': 11, 'pull->pull': 12, 'push->pull': 2, 'pull->push': 0, 'null': 9} | {'push->push': 9, 'pull->pull': 13, 'push->pull': 2, 'pull->push': 0, 'null': 21} | {'push->push': 3, 'pull->pull': 6, 'push->pull': 2, 'pull->push': 0, 'null': 8} | {'push->push': 4, 'pull->pull': 6, 'push->pull': 11, 'pull->push': 1, 'null': 22} |
+| % zoom cuts that reverse the zoom sign | 8.0 | 8.3 | 18.2 | 54.5 |
 | % frames fit failed | 19.1 | 24.4 | 14.6 | 8.7 |

@@ -112,6 +112,8 @@ shot("S32", "M14_head_raise", 760, 777, (0.05, 0.84), "const", None, dict(drift=
 # ---------------------------------------------------------------------------------------------------------------------
 # CUTS: one designed 3D transition per cut. Window [f - pre, f + post). type -> owner (EDIT.md "Transitions"):
 #   core flow types (blender/amv3/stage): open, zt, whip, cube, flip, slam
+#   layer (xfx/layer.py, agent-06): keep = A's matted subject stays in front while B arrives behind; sweep = B's
+#     matted subject sweeps in over A near the lens (REFS: c10, c19)
 #   xfx/<type>.py modules: eye_tunnel, symbiote, sling_ring, web_wipe (xfx-A); lens_shatter, lightning, triptych (xfx-B);
 #   text_fly (text3d)
 # over: overlay modules that only ADD objects in the window (no camera), e.g. dome_shards.
@@ -140,15 +142,15 @@ def cut(f, type, pre, post, p=None, over=(), lens=None):
 # Act I: floating, 12-16 f windows, warm light leaks, nothing snaps
 cut(0, "open", 0, 24, dict(from_scale=1.9), lens=dict(ca=4, zblur=0.2))
 cut(50, "zt", 7, 11, dict(mode="pull", peak=0.45, land=2.4, settle=1.12, roll=25))
-cut(83, "whip", 5, 10, dict(dir="R", angle=70))
+cut(83, "layer", 10, 10, dict(mode="keep"))  # Tobey stays in front while the glove city arrives behind him
 cut(118, "flip", 6, 10, dict(hinge="L"), lens=dict(ca=6, zblur=0.3))
 cut(151, "symbiote", 12, 10, dict(), lens=dict(ca=8, zblur=0.4, leak="none"))
 cut(175, "zt", 6, 10, dict(mode="pull", peak=0.45, land=2.4, settle=1.12, roll=-180))
-cut(201, "whip", 5, 9, dict(dir="L", angle=70))
+cut(201, "layer", 10, 9, dict(mode="keep"))  # the smirk stays in front, the train arrives behind
 cut(235, "zt", 6, 1, dict(mode="push", peak=3.0, land=1.05, settle=1.1, roll=0))  # S08 keeps pushing into the iris
 cut(252, "eye_tunnel", 16, 12, dict(iris=[901, 390], exit_lens=[1036, 546]), lens=dict(ca=14, zblur=0.8))
 # Act II: rising energy
-cut(300, "zt", 5, 10, dict(mode="pull", peak=0.45, land=2.4, settle=1.12, roll=40))
+cut(300, "layer", 6, 10, dict(mode="sweep"))  # Andrew sweeps in over the lens and lands
 cut(336, "text_fly", 9, 9, dict(title="AMAZING", exit="dive"), lens=dict(ca=12, zblur=0.7))
 cut(369, "cube", 6, 9, dict(dir="U"))
 cut(400, "zt", 5, 9, dict(mode="push", peak=3.0, land=1.05, settle=1.45, roll=-30))
@@ -170,7 +172,7 @@ cut(672, "zt", 3, 6, dict(mode="pull", peak=0.5, land=2.2, settle=1.12, roll=-18
 cut(686, "web_wipe", 6, 6, dict(dir="R"), lens=dict(ca=12, zblur=0.5))
 cut(708, "zt", 3, 7, dict(mode="pull", peak=0.5, land=2.4, settle=1.12, roll=30))
 cut(726, "whip", 3, 7, dict(dir="U", angle=80))
-cut(744, "cube", 4, 7, dict(dir="L"))
+cut(744, "layer", 6, 8, dict(mode="sweep"))  # Tom sweeps in over the lens; BRAND NEW DAY follows
 cut(760, "zt", 3, 7, dict(mode="push", peak=2.8, land=1.05, settle=1.4, roll=-25))
 cut(777, "triptych", 0, 42, dict(), lens=dict(ca=10, zblur=0.4))
 

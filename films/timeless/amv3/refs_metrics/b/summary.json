@@ -183,6 +183,10 @@
   "pull->push": 0,
   "null": 21
  },
+ "hold_zoom_median": 2.05,
+ "hold_roll_median": 0.12,
+ "zoom_reversed_pct": 8.3,
+ "longest_slow_run": 4,
  "slow_pct": 1.2,
  "gfail_pct": 24.4,
  "per_cut": [
