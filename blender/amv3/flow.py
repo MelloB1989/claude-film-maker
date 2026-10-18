@@ -202,7 +202,8 @@ def prev_hold(T, ctx):
 # ---- zt: zoom-through ---------------------------------------------------------------------------------------------------
 ATTACK = 1.5  # A's zoom speed grows x1.5 per frame into the cut (REFS gate: x1.35-1.7 over the last 4 f)
 DECAY_RANGE = (1.12, 1.6)  # B's speed falls x1/1.12 .. x1/1.6 per frame (REFS gate: x1.15-1.27 with a >= 8 f tail)
-DROP = 1.3  # target ratio of A's speed one frame before the teleport to B's one frame after (REFS: median <= 2.3)
+DECAY = 1.2  # B's default speed decay per frame (REFS k 0.80-0.88 -> x1.14-1.25)
+DROP_MAX = 2.0  # max ratio of A's speed one frame before the teleport to B's one frame after (REFS: median <= 2.3)
 RACK_PX = 26.0  # B's rack defocus at the cut (blur circle, px at 1920): legible by +2, sharp by +4/+5
 RACK_F = 5.0
 
@@ -228,8 +229,10 @@ def zt_curves(T, ctx, A, B, peak, land, R, sign=1, attack=ATTACK):
 
     def vB1(k):
         return abs(ramp_out(Ll, LB1, B.ds, TB, k, max(0.0, TB - 1.0))[1])
-    lo, hi = math.log(DECAY_RANGE[0]) * TB, math.log(DECAY_RANGE[1]) * TB
-    want = vA1 / DROP
+    # B decays at x DECAY per frame (REFS k 0.80-0.88), steepened (up to x DECAY_RANGE[1]) only as far as needed to keep
+    # the speed drop across the cut under DROP_MAX
+    lo, hi = math.log(DECAY) * TB, math.log(DECAY_RANGE[1]) * TB
+    want = vA1 / DROP_MAX
     if vB1(hi) <= want:
         kB = hi
     elif vB1(lo) >= want:

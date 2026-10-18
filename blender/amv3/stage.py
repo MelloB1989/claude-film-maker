@@ -30,6 +30,7 @@ from mathutils import Matrix, Quaternion, Vector  # noqa: E402
 import camlib as cl  # noqa: E402
 import cards  # noqa: E402
 
+FALLBACK_P = dict(mode="push", peak=2.6, land=1.05, settle=1.35, roll=0.0)  # a missing module's window: a plain push zt
 EPS = 0.02  # teleport keys sit at t_h -/+ EPS; the widest shutter next to a teleport is 2 * (0.5 - 0.025) = 0.95
 SET_SPACING = 100.0
 SHUTTER_HOLD = 0.75
@@ -670,7 +671,7 @@ def resolve_cut(ctx, c):
     if mod is None or not hasattr(mod, "bounds") or not hasattr(mod, "build"):
         if T["a"] is not None and T["b"] is not None:
             ctx.log(f"{c['id']} {typ}: no module, falling back to zt")
-            T["p"] = dict(peak=3.0, land=2.4, roll=0.0)
+            T["p"] = dict(FALLBACK_P)
             T["fallback_from"] = typ
             T["type"] = typ = "zt"
             mod = flow_mod
@@ -709,7 +710,7 @@ def build(ctx, args):
             ctx.log(f"WARN {c['id']} {typ}.bounds failed, zt fallback:\n{traceback.format_exc()}")
             if T["a"] is None or T["b"] is None:
                 continue
-            T["p"] = dict(peak=3.0, land=2.4, roll=0.0)
+            T["p"] = dict(FALLBACK_P)
             T["fallback_from"] = typ
             T["type"] = typ = "zt"
             mod = flow_mod
@@ -730,7 +731,7 @@ def build(ctx, args):
             if typ != "zt" and T["a"] is not None and T["b"] is not None:
                 for k in [k for k in ctx.keys if c["w0"] - 0.5 <= k < c["w1"]]:
                     del ctx.keys[k]
-                T["p"] = dict(peak=3.0, land=2.4, roll=0.0)
+                T["p"] = dict(FALLBACK_P)
                 T["type"] = "zt"
                 ctx.bounds[c["id"]] = flow_mod.bounds(T, ctx)
                 flow_mod.build(T, ctx)

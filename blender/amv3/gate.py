@@ -233,7 +233,7 @@ def analyse(dump, out_csv=None, only=False):
         acc = (A[-1] / max(1e-6, A[-4])) ** (1 / 3.0)
         dec = (B[0] / max(1e-6, B[8])) ** (1 / 8.0)
         drop = max([B[i] / max(1e-6, B[i + 1]) for i in range(8)] + [A[-1] / max(1e-6, B[0])])
-        step = max(A[i + 1] / max(1e-6, A[i]) for i in range(len(A) - 1))
+        step = max(A[-4 + i + 1] / max(1e-6, A[-4 + i]) for i in range(3))
         za = byf1[f - 2]["m"]["zoom"]
         zb = byf1[f]["m"]["zoom"]
         cutstats.append(dict(id=w["id"], type=w["type"], f=f, acc=acc, dec=dec, peak=max(A[-1], B[0]), drop=drop, step=step,
