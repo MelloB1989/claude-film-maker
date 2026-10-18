@@ -892,15 +892,15 @@
   {
    "id": "C01",
    "f": 50,
-   "type": "zt",
+   "type": "nest",
    "w0": 43,
    "w1": 61,
    "a": "S01",
    "b": "S02",
    "p": {
     "mode": "pull",
-    "peak": 0.45,
-    "land": 2.4,
+    "region": "bg",
+    "shot": "S02",
     "settle": 1.12,
     "roll": 25
    },
@@ -970,15 +970,15 @@
   {
    "id": "C05",
    "f": 175,
-   "type": "zt",
+   "type": "nest",
    "w0": 169,
    "w1": 185,
    "a": "S05",
    "b": "S06",
    "p": {
     "mode": "pull",
-    "peak": 0.45,
-    "land": 2.4,
+    "region": "bg",
+    "shot": "S06",
     "settle": 1.12,
     "roll": -180
    },
@@ -1012,15 +1012,15 @@
   {
    "id": "C07",
    "f": 235,
-   "type": "zt",
+   "type": "nest",
    "w0": 229,
    "w1": 236,
    "a": "S07",
    "b": "S08",
    "p": {
     "mode": "push",
-    "peak": 3.0,
-    "land": 1.05,
+    "region": "bg",
+    "shot": "S07",
     "settle": 1.1,
     "roll": 0
    },
@@ -1119,15 +1119,15 @@
   {
    "id": "C12",
    "f": 400,
-   "type": "zt",
-   "w0": 395,
+   "type": "nest",
+   "w0": 392,
    "w1": 409,
    "a": "S12",
    "b": "S13",
    "p": {
     "mode": "push",
-    "peak": 3.0,
-    "land": 1.05,
+    "region": "bg",
+    "shot": "S12",
     "settle": 1.45,
     "roll": -30
    },
@@ -1179,15 +1179,15 @@
   {
    "id": "C15",
    "f": 453,
-   "type": "zt",
-   "w0": 449,
-   "w1": 461,
+   "type": "nest",
+   "w0": 445,
+   "w1": 460,
    "a": "S15",
    "b": "S16",
    "p": {
     "mode": "push",
-    "peak": 3.0,
-    "land": 1.05,
+    "region": "bg",
+    "shot": "S15",
     "settle": 1.4,
     "roll": 180
    },
@@ -1202,15 +1202,15 @@
   {
    "id": "C16",
    "f": 468,
-   "type": "zt",
-   "w0": 464,
+   "type": "nest",
+   "w0": 460,
    "w1": 469,
    "a": "S16",
    "b": "S17",
    "p": {
     "mode": "push",
-    "peak": 3.0,
-    "land": 1.05,
+    "region": "lens",
+    "shot": "S16",
     "settle": 1.1,
     "roll": 0
    },
@@ -1251,15 +1251,15 @@
   {
    "id": "C18",
    "f": 519,
-   "type": "zt",
-   "w0": 515,
-   "w1": 526,
+   "type": "nest",
+   "w0": 513,
+   "w1": 527,
    "a": "S18",
    "b": "S19",
    "p": {
     "mode": "pull",
-    "peak": 0.45,
-    "land": 2.4,
+    "region": "bg",
+    "shot": "S19",
     "settle": 1.15,
     "roll": -35
    },
@@ -1294,15 +1294,15 @@
   {
    "id": "C20",
    "f": 554,
-   "type": "zt",
-   "w0": 550,
+   "type": "nest",
+   "w0": 548,
    "w1": 562,
    "a": "S20",
    "b": "S21",
    "p": {
     "mode": "pull",
-    "peak": 0.45,
-    "land": 2.6,
+    "region": "bg",
+    "shot": "S21",
     "settle": 1.15,
     "roll": 200
    },
@@ -1319,15 +1319,15 @@
   {
    "id": "C21",
    "f": 570,
-   "type": "zt",
-   "w0": 567,
-   "w1": 577,
+   "type": "nest",
+   "w0": 564,
+   "w1": 578,
    "a": "S21",
    "b": "S22",
    "p": {
     "mode": "pull",
-    "peak": 0.5,
-    "land": 2.2,
+    "region": "bg",
+    "shot": "S22",
     "settle": 1.12,
     "roll": -30
    },
@@ -1419,15 +1419,15 @@
   {
    "id": "C26",
    "f": 672,
-   "type": "zt",
-   "w0": 669,
-   "w1": 678,
+   "type": "nest",
+   "w0": 666,
+   "w1": 680,
    "a": "S26",
    "b": "S27",
    "p": {
     "mode": "pull",
-    "peak": 0.5,
-    "land": 2.2,
+    "region": "bg",
+    "shot": "S27",
     "settle": 1.12,
     "roll": -180
    },
@@ -1461,15 +1461,15 @@
   {
    "id": "C28",
    "f": 708,
-   "type": "zt",
-   "w0": 705,
-   "w1": 715,
+   "type": "nest",
+   "w0": 702,
+   "w1": 716,
    "a": "S28",
    "b": "S29",
    "p": {
     "mode": "pull",
-    "peak": 0.5,
-    "land": 2.4,
+    "region": "bg",
+    "shot": "S29",
     "settle": 1.12,
     "roll": 30
    },
@@ -1523,15 +1523,15 @@
   {
    "id": "C31",
    "f": 760,
-   "type": "zt",
-   "w0": 757,
+   "type": "nest",
+   "w0": 752,
    "w1": 767,
    "a": "S31",
    "b": "S32",
    "p": {
     "mode": "push",
-    "peak": 2.8,
-    "land": 1.05,
+    "region": "eye",
+    "shot": "S31",
     "settle": 1.4,
     "roll": -25
    },

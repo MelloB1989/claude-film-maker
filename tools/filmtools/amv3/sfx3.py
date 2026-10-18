@@ -219,23 +219,25 @@ def swish(dur: float = 0.24, peak: float = 0.13, direction: str = "R", seed=0):
     return norm(fade(y)), int(peak * SR)
 
 
-def whoosh_by(pre: float, post: float, seed=0, pan_dir: int = 1, low: float = 1.0):
+def whoosh_by(pre: float, post: float, seed=0, pan_dir: float = 1, low: float = 1.0, near: float = 0.06,
+              body_hz: float = 900.0):
     """Heavy pass-by: a big body whoosh whose band drops through the pass point (doppler), amplitude bell around it,
-    panned across the stereo field (pan_dir +1 = left to right), with a sub rumble under it."""
+    panned across the stereo field (pan_dir +1 = left to right, 0 = centre), with a sub rumble under it. `near` (s)
+    is the closest approach: smaller = closer to the lens, a sharper bell and a faster pan; `body_hz` the band centre."""
     rng = _rng(seed)
     n0, n1 = int(pre * SR), int(post * SR)
     n = n0 + n1
     t = np.arange(n) / SR - pre
-    d = 0.06
+    d = near
     vr = t / np.sqrt(t ** 2 + d ** 2)                                     # radial velocity, -1 -> +1 through the pass
     ratio = 1 / (1 + 0.28 * vr)                                         # approaching sharp, receding flat
-    c = 900 * ratio ** 2.2
+    c = body_hz * ratio ** 2.2
     y = band_noise(n, c, 2.4, rng) + 0.8 * band_noise(n, c * 4.5, 1.6, rng)
     amp = 1 / np.sqrt(t ** 2 + d ** 2) * d
     amp = amp ** 0.8 * np.where(t < 0, 1, np.exp(-t / (post * 0.5)))
     rumble = lp(rng.standard_normal(n), 90, 4) * 2.5 * low
     m = y.mean(axis=1) * amp + rumble * amp
-    p = pan_dir * np.tanh(t / 0.07) * 0.9
+    p = pan_dir * np.tanh(t / (d + 0.01)) * 0.9
     out = norm(fade(stereo(m, p) + 0.25 * y * amp[:, None], 0.01, 0.03))
     e = np.convolve(np.abs(out).max(axis=1) ** 2, np.ones(480) / 480, "same")
     return out, int(np.argmax(e))                                      # the hit is the loudest moment of the pass
@@ -570,3 +572,23 @@ def rip(dur: float = 0.42, peak: float = 0.12, seed=0, direction: str = "R"):
     s = 1 if direction == "R" else -1
     out = stereo(y * e, np.interp(t, [0, peak, dur], [-0.3 * s, 0.2 * s, 0.9 * s])) + 0.5 * stereo(tug)
     return norm(fade(out, 0.002, 0.03)), int(peak * SR)
+
+
+def shimmer(pre: float, post: float = 0.45, seed=0, f_lo: float = 2400, f_hi: float = 9000, count: int = 28):
+    """Soft glassy/airy shimmer as a region opens (an eye or a lens the camera flies into): a cluster of high
+    inharmonic partials, each twinkling (fast random amplitude), over an airy band, swelling gently over `pre` s to the
+    hit and ringing out over `post` through a short room."""
+    rng = _rng(seed)
+    n0, n1 = int(pre * SR), int(post * SR)
+    n = n0 + n1
+    t = np.arange(n) / SR
+    tone = np.zeros((n, 2))
+    for i in range(count):
+        f = np.exp(rng.uniform(np.log(f_lo), np.log(f_hi)))
+        tw = smooth_rand(n, rng.uniform(8, 20), rng, 0.0, 1.0) ** 3                  # twinkle
+        ph = rng.uniform(0, 2 * np.pi)
+        tone += stereo(np.sin(2 * np.pi * f * (1 + 0.004 * (t / (pre + post))) * t + ph) * tw, rng.uniform(-0.8, 0.8))
+    air = band_noise(n, interp_curve(t, [(0, 4000), (pre, 8000), (pre + post, 6500)]), 1.2, rng)
+    e = env_swell(n0, n1, 18.0, tail_tau=post / 3.0, curve=1.0)
+    y = (0.75 * norm(tone) + 0.35 * norm(air)) * e[:, None]
+    return norm(room(fade(y, 0.02, 0.05), rng, 0.8, 0.3)[:n]), n0
