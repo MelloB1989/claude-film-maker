@@ -66,3 +66,36 @@ Reference frames: sanchezae c 164-179, eitaX a 56-71 (`films/timeless/amv3/refs_
 - Fleet: `fleetctl run` has no model flag; set `/model claude-opus-5-5` with `fleetctl prompt` before each brief (and
   after `done`). A shared contract file + one module per agent + an integration tester before GPU time works.
 - RunPod: syncing 4.7 GB (16-bit depth PNGs) VM -> pod takes ~30+ min; keep the pod for several renders (`--no-data`).
+
+## 5. Lessons from the v3.1 build (2026-10-18, same day)
+- **Nest in practice** (`blender/amv3/nest.py`, `regions.py`): B's copy sits physically behind A's region; A's alpha inside
+  the region ramps 1 -> 0 from ~10 f before the crossing; DOF on B (A defocuses as it nears); a seamless copy -> home
+  teleport after w1 (same relative pose). An eye that is only ~40 px wide on screen (S31) only reads late: prefer bg or
+  a closer source frame. bg nests grow B <= 1.8x before the crossing so it reads as picture, not mirror tiles.
+- **Region masks** (`tools/filmtools/amv3/regions.py`, SAM 2.1 large on a 4090: ~80 s for 9 shots): click on the track
+  point, crop-and-upscale small eyes (x3-x10), and for a lens that becomes a defocused world (a pull-out) segment the rim +
+  fabric and invert. Ship `regions/` to the pod with the other data (forgetting it silently gives ellipse stand-ins:
+  grep the stage log for "stand-in").
+- **Rig**: camera on RIG_DOLLY > ORBIT > ROLL > SHAKE, Bezier keys from the path's derivative, channels staggered by 1 f.
+  Camera shake must be smooth (0.10-0.2 cycles/frame, one kick + a damped counter-swing): a 0.4 cycles/f yaw reads as a
+  frame-to-frame direction flip. A short hold (< 6 f) between two zooms must keep the zoom sign (push -> push) or the
+  camera nearly stops; whips before a short hold land gently (decay x1.4) and keep sliding.
+- **Module-in-full-film bugs**: test every module in the FULL build, not only `--only` (stub neighbours give gentle
+  states). A layer sweep's cover search went to a x110 card and rendered 8 black frames only in the full film.
+- **Render speed** (Cycles 5.2 on a 4090, `blender/amv3/renderopt.py`): the GPU sat at ~36 % because per-frame CPU work
+  dominated. What fixed it: per-frame visibility baked into static segments (hidden objects leave the depsgraph; animated
+  hide_render is still evaluated at every motion subframe), object motion blur off on static cards, camera motion_steps
+  4 -> 2 (17 -> 5 scene evaluations), emission sampling NONE on card materials (no light-tree rebuild), OIDN on the GPU
+  (`denoising_use_gpu` defaults to False: OIDN ran on the CPU, ~4 s/frame), OIDN only on glass/FX frames, thin glass
+  (transparent + Fresnel glossy, no refraction) for small shards, near-lens glass stopped down (no f/2 bokeh fireflies).
+  Result: half res 6.1 -> 1.7 s/frame plate per process; full res 64 spp 1.13 s/frame plate, the whole film (835 f x 3
+  passes, 3 processes on one GPU) in 12.5 min (~$0.19).
+- **Finishing on real passes**: glows tuned on stand-ins blew out on the real light pass (full-frame shards on the drop):
+  duck the light-pass glow on dense FX frames; flashes only on the listed hits; bright skies that are 30-60 % clipped in
+  the source cannot be recovered, only rolled off.
+- **EffectCraft transitions** (probe on real plates): premium = Shatter (extruded pieces, as an overlay burst on a hit),
+  Gradient Wipe driven by a matte/depth, CC Light Rays from the incoming shot's highlights (keep < 15 % clipped), CC Glass
+  Wipe as a refractive edge accent; cheap = Card Wipe without a lit void, CC Twister, CC Light Wipe, CC Scatterize. The
+  motion is the transition; these only accent it.
+- **Spend discipline**: one pod for prep + all renders; never idle it (terminate when waiting on review); v3 total GPU
+  ~$3.6 (prep 0.22, stage + outro + regions + bench + 3 film renders).
