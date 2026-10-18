@@ -137,6 +137,21 @@
   d_end / (d_end + travel)`; if the camera keeps travelling after a portal, the copy must be large and deep (sling_ring:
   x5.6 at 7 m) or B lands zoomed in.
 - `ShaderNodeMix` (RGBA): inputs 0 = factor, 6/7 = A/B colour, output 2 = colour.
+- **Nested eye zoom geometry (v3.1):** with B physically behind A's eye opening, the opening grows as 1/z and B as
+  1/(z + D), so their ratio is fixed by D alone. A small D lets B show small inside the eye but makes B land very zoomed
+  in after the crossing. A large D lands B near 1x but shows only a crop of B inside the eye. eye_tunnel keys B's zoom
+  rate and derives D from it (0.6 m with the eye at 1.6 m, B ~0.4x inside the eye, ~1.05x at the crossing, 1.44x at
+  the hold).
+- **`make_card` shares materials between cards of a shot.** Copy the material (`ob.data.materials[0] = mat.copy()`)
+  before adding a per-card alpha (region holes, apertures), or every card of that shot gets the hole.
+- **A glossy surface seen edge-on reflects what is in front of the camera.** Inside the symbiote goo funnel, a softbox
+  strip behind the camera only lit the lip of the opening. The 149-152 sweep is a screen-space band emitted in the goo
+  shader instead, broken up by the camera-space normal.
+- **Texture Coordinate "Camera" Z:** use |z| for the depth (the screen u = x / |z| / 0.514). Assuming -z put every
+  point at depth 1e-4, so the band never showed.
+- **Region masks** (`regions/<shot>/<kind>/f_NNNNN.png`, hard edge at plate res) load through
+  `ctx._sequence("regions/<shot>", kind, "png")`, a held comp-time sequence, so frames outside the masks don't read a
+  missing file. Feather them in the shader with a 9-tap disc of the feather radius.
 ## Task v3-layer (agent-06): subject-layer cards
 - **Coplanar cards z-fight as see-through, not as flicker.** A matted subject card exactly on top of its own opaque plate
   card (same plane) renders the plate ~50 % transparent everywhere: a ray that hits the transparent part of the matte card
@@ -171,3 +186,11 @@
   MapRange(SMOOTHSTEP, 0.5 - w, 0.5 + w) gives a feather whose width is a keyable Value node. The 0.5 contour of
   the blurred mask stays on the hard edge for shapes much wider than the blur. A 36 x 20 px eye needs a 1 px box,
   so the blur radius follows the region's size.
+- **v3.1 keep (camera flies past a static subject into a static B):** for the camera to end past A's plane while B fills
+  the frame from the start, B must sit deep (16 m, scaled x10-14). Two things follow:
+  - The void environment's web strands then hang between the camera and B. Leave the void out when B covers the frame.
+  - Start a cover-scale search at the analytic fill scale. A search from x1 in x1.04 steps ran out at x10.5 and
+    silently inflated B's exit scale.
+- Aim the camera's straight line through the crossing point in A's plane, not its end pose. The camera travels ~10x
+  further in depth than sideways, so an end-pose offset is reached only after A's plane, and the camera flies through
+  the subject's face.
