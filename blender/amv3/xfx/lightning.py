@@ -156,7 +156,7 @@ def build(T, ctx):
         if (Vector((s[0], s[1], 0)) - imp).length > 0.42:
             seeds.append(s)
     cells = fx.voronoi(seeds, fx.rect(-0.96, -0.54, 0.96, 0.54))
-    face = fx.picture_glass_mat(fx.plate_mat(ctx, sa), "lt_face", gloss_rough=0.06, gloss=0.7)
+    face = fx.picture_glass_mat(fx.plate_mat(ctx, sa), "lt_face", gloss_rough=0.12, gloss=0.25)
     rim = fx.glass_mat("lt_rim", tint=(0.88, 0.96, 1.0), emit=electric, emit_strength=0.0, rough=0.02, ior=1.5)
     shards = fx.build_shards(cells, MO, 0.008, [face, rim], plate, "lt_shard", rng, uv_fn=fx.local2uv,
                              bevel_w=0.0025)
@@ -185,7 +185,7 @@ def build(T, ctx):
         fx.key_visible(sh.ob, fh, P["tp1"])
     intact = ctx.make_card(sa, "lt_A_" + sa, matrix=MO, frames=(w0, f))  # seamless picture until the break (shard bevels show seams)
     fx.key_visible(intact, P["tp0"], fh)
-    for t, g in ((fh - 0.5, 0.0), (fh, 4.0), (f, 3.5), (f + 1, 2.5), (f + 3, 1.2), (f + 6, 0.5)):
+    for t, g in ((fh - 0.5, 0.0), (fh, 1.6), (f, 1.3), (f + 1, 0.9), (f + 3, 0.5), (f + 6, 0.3)):
         fx.key_glass_glow(rim, t, g)
 
     # ---- cracks racing out from the strike point (light pass), then the rims take over
@@ -248,7 +248,7 @@ def build(T, ctx):
     for t in sorted(flick):
         ld.energy = 60.0 * flick[t]
         ld.keyframe_insert("energy", frame=t)
-    for t, e in ((f + 1, 30.0), (f + 3, 8.0), (f + 5, 0.0)):
+    for t, e in ((fh, 12.0), (f + 1, 6.0), (f + 3, 2.0), (f + 5, 0.0)):
         ld.energy = e
         ld.keyframe_insert("energy", frame=t)
 
@@ -281,7 +281,7 @@ def _arcs(rng, MO, shards, fh, f, hot, electric, light, cam_fn):
             fx.ride_camera(ob, cam_fn, MO, t, t - 0.5, t + 1.0)
             fx.link(ob, light)
             fx.key_visible(ob, t, t + 0.5)
-    for t, g in ((fh, 22.0), (f + 1, 12.0), (f + 2.5, 4.0)):
+    for t, g in ((fh, 10.0), (f + 1, 6.0), (f + 2.5, 2.0)):
         fx.key_glow(mat, t, g)
 
 

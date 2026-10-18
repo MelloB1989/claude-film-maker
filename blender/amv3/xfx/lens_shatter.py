@@ -505,7 +505,7 @@ def _shockwave(K, impK, depth0, fh, f, palA, palB, light, plate, rng):
         fx.key_visible(ob, fh, f + 5)
 
     me = fx.torus_mesh("ls_ring_glass", 1.0, 0.11, 192, 16)
-    me.materials.append(fx.glass_mat("ls_ring_glass", tint=(1, 1, 1), emit=(1, 1, 1), rough=0.0, ior=1.22))
+    me.materials.append(fx.glass_mat("ls_ring_glass", tint=(1, 1, 1), emit=(1, 1, 1), rough=0.0, ior=1.22, refract=True))
     ob = bpy.data.objects.new("ls_ring_glass", me)
     fx.link(ob, plate)
     place(ob, 0.9, -0.004, 0.22, {})

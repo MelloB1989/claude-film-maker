@@ -477,15 +477,38 @@ def principled(nt, **kw):
     return p
 
 
-def glass_mat(name, tint=(1, 1, 1), emit=(0.5, 0.8, 1.0), emit_strength=0.0, rough=0.02, ior=1.5):
-    """Clear refractive glass with an optional emissive tint (rim light); 'glass' node Emission Strength is keyable."""
+def glass_mat(name, tint=(1, 1, 1), emit=(0.5, 0.8, 1.0), emit_strength=0.0, rough=0.02, ior=1.5, refract=False):
+    """Glass. Default THIN glass (clean at 64 spp: no refraction paths): Transparent (tinted) mixed with a glossy coat
+    by a Fresnel weight, plus an emissive tint; the 'glass' node's Emission Strength is keyable (key_glass_glow).
+    refract=True: real refractive glass (Principled transmission) for big smooth pieces that must bend the picture."""
     m = bpy.data.materials.new(name)
     nt = _nt(m)
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
-    p = principled(nt, base=tint, rough=rough, ior=ior, trans=1.0, emc=emit, ems=emit_strength)
+    if refract:
+        p = principled(nt, base=tint, rough=rough, ior=ior, trans=1.0, emc=emit, ems=emit_strength)
+        p.name = "glass"
+        nt.links.new(p.outputs[0], out.inputs["Surface"])
+        return m
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    tr.inputs["Color"].default_value = (*[0.82 + 0.18 * c for c in tint[:3]], 1.0)
+    p = principled(nt, base=(0, 0, 0), rough=max(rough, 0.04), ior=ior, emc=emit, ems=emit_strength, spec=0.8)
     p.name = "glass"
-    nt.links.new(p.outputs[0], out.inputs["Surface"])
+    lw = nt.nodes.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.35
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(lw.outputs["Fresnel"], mix.inputs[0])
+    nt.links.new(tr.outputs[0], mix.inputs[1])
+    nt.links.new(p.outputs[0], mix.inputs[2])
+    # the glossy+emission half is weighted by Fresnel: add the emission back flat so rims glow at every angle
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*emit[:3], 1.0)
+    add = nt.nodes.new("ShaderNodeAddShader")
+    nt.links.new(mix.outputs[0], add.inputs[0])
+    nt.links.new(em.outputs[0], add.inputs[1])
+    nt.links.new(add.outputs[0], out.inputs["Surface"])
+    em.name = "glass_flat"
+    em.inputs["Strength"].default_value = emit_strength * 0.6
     return m
 
 
@@ -493,6 +516,10 @@ def key_glass_glow(mat, f, strength):
     s = mat.node_tree.nodes["glass"].inputs["Emission Strength"]
     s.default_value = strength
     s.keyframe_insert("default_value", frame=f)
+    fl = mat.node_tree.nodes.get("glass_flat")
+    if fl is not None:
+        fl.inputs["Strength"].default_value = strength * 0.6
+        fl.inputs["Strength"].keyframe_insert("default_value", frame=f)
 
 
 def picture_glass_mat(src, name, gloss_rough=0.07, gloss=1.0, dim=1.0):
@@ -522,7 +549,7 @@ def picture_glass_mat(src, name, gloss_rough=0.07, gloss=1.0, dim=1.0):
 
 
 def lens_glass_mat(src, name, pic=0.12, tint=(0.94, 0.98, 1.0), rough=0.01, ior=1.45):
-    """Clear refractive glass (you see what is behind it) with a faint additive trace of a plate picture on it (the
+    """Thin clear glass (you see what is behind it; transparent + Fresnel glossy, clean at 64 spp) with a faint additive trace of a plate picture on it (the
     lens print / reflection), from the plate material src's image (same image user = comp time)."""
     img = next(n for n in src.node_tree.nodes if n.type == "TEX_IMAGE")
     m = bpy.data.materials.new(name)
@@ -540,9 +567,17 @@ def lens_glass_mat(src, name, pic=0.12, tint=(0.94, 0.98, 1.0), rough=0.01, ior=
     em.name = "pic"
     em.inputs["Strength"].default_value = pic
     nt.links.new(tex.outputs["Color"], em.inputs["Color"])
-    g = principled(nt, base=tint, rough=rough, ior=ior, trans=1.0)
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    tr.inputs["Color"].default_value = (*tint[:3], 1.0)
+    g = principled(nt, base=(0, 0, 0), rough=max(rough, 0.04), ior=ior, spec=0.8)
+    lw = nt.nodes.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.3
+    mx = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(lw.outputs["Fresnel"], mx.inputs[0])
+    nt.links.new(tr.outputs[0], mx.inputs[1])
+    nt.links.new(g.outputs[0], mx.inputs[2])
     add = nt.nodes.new("ShaderNodeAddShader")
-    nt.links.new(g.outputs[0], add.inputs[0])
+    nt.links.new(mx.outputs[0], add.inputs[0])
     nt.links.new(em.outputs[0], add.inputs[1])
     nt.links.new(add.outputs[0], out.inputs["Surface"])
     return m
