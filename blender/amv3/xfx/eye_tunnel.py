@@ -526,10 +526,10 @@ def _nebula_mat(name, c0, c1, f0, f1):
     fog.inputs[7].default_value = (*f1, 1)
     e1 = nt.nodes.new("ShaderNodeEmission")
     nt.links.new(col.outputs[2], e1.inputs["Color"])
-    nt.links.new(X.math_node(nt, "MULTIPLY", fil, 0.55), e1.inputs["Strength"])
+    nt.links.new(X.math_node(nt, "MULTIPLY", fil, 0.3), e1.inputs["Strength"])
     e2 = nt.nodes.new("ShaderNodeEmission")
     nt.links.new(fog.outputs[2], e2.inputs["Color"])
-    e2.inputs["Strength"].default_value = 0.45
+    e2.inputs["Strength"].default_value = 0.2
     add = nt.nodes.new("ShaderNodeAddShader")
     nt.links.new(e1.outputs[0], add.inputs[0])
     nt.links.new(e2.outputs[0], add.inputs[1])
