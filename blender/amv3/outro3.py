@@ -4,7 +4,7 @@
         [--every 1] [--samples 64] [--device CPU|OPTIX|CUDA] [--out DIR] [--save out/outro3.blend] [--no-render]
 
 Frames land as `<out>/NNNN.png` (NNNN = comp frame, opaque RGBA); the default out is `$AMV3_DATA/blender/outro3`.
-Built on v2's outro (blender/amv2/outro.py, imported read-only for its materials, portal, web, shafts and lights).
+Built on v2's outro (blender/amv2/outro.py, imported read-only for its glyph/material helpers, world, lights, render setup).
 
 What v3 changes (EDIT.md motion rules, REFS.md): the camera never stops.
 - 819: the triptych shatters (stage, xfx-B) with the camera pushing +10 %/f, rolling +1 deg/f clockwise. The outro opens on
@@ -68,7 +68,7 @@ FLIGHTS = {
     3: (833, 862, (-6.0, -4.0, 18.0), (0, 115, 75), 1.0),        # _  swings down like a pendulum onto the baseline
 }
 FLIP_F = 892                      # the big hit: a flip wave runs through the word
-SINK_F = 894                      # the word sinks back into the portal
+SINK_F = 893.5                     # the word sinks back into the portal
 
 
 clamp, smooth, out_pow, env, ring_osc, lerp = v2.clamp, v2.smooth, v2.out_pow, v2.env, v2.ring_osc, v2.lerp
@@ -137,7 +137,7 @@ def build_camera():
     cam_d.sensor_width = 36.0
     cam_d.clip_start, cam_d.clip_end = 0.05, 400.0
     cam_d.dof.use_dof = True
-    cam_d.dof.aperture_fstop = 0.9
+    cam_d.dof.aperture_fstop = 0.18
     cam = bpy.data.objects.new("cam", cam_d)
     sc.collection.objects.link(cam)
     sc.camera = cam
@@ -169,7 +169,8 @@ def build_camera():
         cam.keyframe_insert("rotation_quaternion", frame=t)
         # focus on the word (rack in from the burst over 819-826), aperture opens on the resolve
         key(cam_d.dof, "focus_distance", t, max(1.0, d - 0.4))
-        key(cam_d.dof, "aperture_fstop", t, 2.8 if t < 886 else lerp(2.8, 1.2, smooth((t - 886) / 10)))
+        # shallow (lens diameter ~0.2 m): the word stays crisp, the rings 6-8 m behind it soften to ~6 px, the far web ~10 px
+        key(cam_d.dof, "aperture_fstop", t, 0.18)
     linearize(rig)
     linearize(cam)
     linearize(cam_d)
@@ -210,10 +211,13 @@ def letter_material(name, kind):
         link(nt, lw.outputs["Fresnel"], mul.inputs[0])
         pulse.outputs[0].default_value = 0.35
     else:
-        bs.inputs["Base Color"].default_value = rgba((0.12, 0.0, 0.008))
-        bs.inputs["Metallic"].default_value = 0.5
-        bs.inputs["Roughness"].default_value = 0.32
-        bs.inputs["Emission Color"].default_value = rgba(TOM)
+        # deep glossy crimson walls (dielectric under a clear coat: red-on-red, a white specular streak, no brown)
+        bs.inputs["Base Color"].default_value = rgba((0.16, 0.0, 0.01))
+        bs.inputs["Metallic"].default_value = 0.0
+        bs.inputs["Roughness"].default_value = 0.2
+        bs.inputs["Coat Weight"].default_value = 1.0
+        bs.inputs["Coat Roughness"].default_value = 0.04
+        bs.inputs["Emission Color"].default_value = rgba(HOT)
         lw.inputs["Blend"].default_value = 0.5
         link(nt, lw.outputs["Fresnel"], mul.inputs[0])
         pulse.outputs[0].default_value = 0.25
@@ -322,7 +326,7 @@ def letter_pose(i, f, rest, order):
     u = clamp((f - FLIP_F - order * 0.4) / 6.0)
     rot_v[2] += 2 * math.pi * (u * u * (3 - 2 * u))
     # 893-899: the word sinks into the portal and shrinks to its centre
-    k = clamp((f - SINK_F - abs(order - 4) * 0.15) / 4.5)
+    k = clamp((f - SINK_F - abs(order - 4) * 0.12) / 4.0)
     if k > 0:
         e = k * k
         pos = pos.lerp(Vector((0.0, 4.5, 0.3)), e)
@@ -364,7 +368,7 @@ def make_curve(name, mat, bevel):
 def build_funnel_web():
     """A funnel web the camera flies into: spokes from a hub deep behind the portal out to a wide mouth behind the
     camera's start, crossed by sagging spiral threads. Parallax on every frame; it breathes on the hits."""
-    mat = v2.metal_material("funnel_metal", (0.35, 0.42, 0.70), 0.08)
+    mat = v2.metal_material("funnel_metal", (0.35, 0.42, 0.70), 0.08, opacity=0.05, fade=(3.0, 14.0, 20.0))   # fades out deep behind the word
     rnd = random.Random(21)
     hub_y, mouth_y, R_hub, R_mouth = 70.0, -70.0, 2.0, 30.0
     n_sp, n_ring = 18, 26
@@ -441,37 +445,174 @@ def torus_mesh(name, R, r, n_major=128, n_minor=8):
     return me
 
 
-def build_ring_tunnel():
-    """Multiverse rings receding behind the portal (Tobey gold, Andrew cyan, Tom red, white), each precessing on its own;
-    they light up in sequence on the hits (a pulse travelling down the tunnel)."""
-    specs = [(20.0, 11.0, TOBEY), (34.0, 13.0, ANDREW), (50.0, 15.0, TOM), (68.0, 17.0, WHITE)]
+def energy_ring_material(name, colour, comets, strength):
+    """A ring of light, not a line: a white-hot core that falls off softly to the tube's edge (additive over transparency,
+    the compositor bloom adds the halo), comet streaks travelling along the ring (PHASE) and a keyed STRENGTH (flicker,
+    hits). The torus lies in its local XY plane."""
+    m, nt = new_mat(name)
+    out = node(nt, "ShaderNodeOutputMaterial", 1400, 0)
+    tc = node(nt, "ShaderNodeTexCoord", -1000, 0)
+    sep = node(nt, "ShaderNodeSeparateXYZ", -850, 0)
+    link(nt, tc.outputs["Object"], sep.inputs[0])
+
+    def m_(op, a, b=None, c=None, x=0, y=0, clampit=False):
+        n = node(nt, "ShaderNodeMath", x, y, operation=op, use_clamp=clampit)
+        for k, v in enumerate((a, b, c)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                n.inputs[k].default_value = float(v)
+            else:
+                link(nt, v, n.inputs[k])
+        return n.outputs[0]
+
+    ang = m_("ARCTAN2", sep.outputs["Y"], sep.outputs["X"], x=-700)
+    phase = node(nt, "ShaderNodeValue", -700, -200, name="PHASE").outputs[0]
+    wave = m_("SINE", m_("SUBTRACT", m_("MULTIPLY", ang, float(comets), x=-550), phase, x=-400), x=-250)
+    band = m_("POWER", m_("MULTIPLY_ADD", wave, 0.5, 0.5, x=-100), 6.0, x=50)
+    energy = m_("MULTIPLY_ADD", band, 2.2, 0.35, x=200)
+    lw = node(nt, "ShaderNodeLayerWeight", -250, 300)
+    lw.inputs["Blend"].default_value = 0.5
+    core = m_("POWER", m_("SUBTRACT", 1.0, lw.outputs["Facing"], x=-50, y=300, clampit=True), 2.5, x=100, y=300)
+    hot = node(nt, "ShaderNodeMix", 600, 250, data_type="RGBA")
+    link(nt, m_("POWER", core, 6.0, x=350, y=350), hot.inputs["Factor"])
+    hot.inputs["A"].default_value = rgba(colour)
+    hot.inputs["B"].default_value = rgba(tuple(0.2 + 0.8 * c for c in colour))
+    stv = node(nt, "ShaderNodeValue", 350, -200, name="STRENGTH")
+    stv.outputs[0].default_value = strength
+    st = m_("MULTIPLY", m_("MULTIPLY", energy, core, x=450), stv.outputs[0], x=650)
+    em = node(nt, "ShaderNodeEmission", 900, 100)
+    link(nt, hot.outputs["Result"], em.inputs["Color"])
+    link(nt, st, em.inputs["Strength"])
+    tr = node(nt, "ShaderNodeBsdfTransparent", 900, -100)
+    add = node(nt, "ShaderNodeAddShader", 1150, 0)
+    link(nt, tr.outputs[0], add.inputs[0])
+    link(nt, em.outputs[0], add.inputs[1])
+    link(nt, add.outputs[0], out.inputs[0])
+    return m, phase, stv.outputs[0]
+
+
+def build_rings():
+    """The multiverse portal: three bold rings of light around the word (Tobey gold, Andrew cyan, Tom red) with
+    travelling comets, each precessing like a gyroscope, plus two faint ones far down the tunnel. They ignite out of the
+    819 burst, flare on the hits (a pulse running down the tunnel), flicker a little, and collapse into the core on the
+    resolve (894-897)."""
+    specs = [  # y, R, tube r, colour, comets, comet speed, strength
+        (6.0, 7.2, 0.16, TOBEY, 3, 0.16, 2.2),
+        (7.0, 8.1, 0.09, ANDREW, 5, -0.22, 2.6),
+        (8.0, 9.0, 0.12, TOM, 2, 0.12, 2.8),
+        (30.0, 14.0, 0.10, ANDREW, 4, 0.10, 1.4),
+        (52.0, 17.0, 0.12, TOBEY, 3, -0.08, 1.2),
+    ]
+    rnd = random.Random(31)
     rings = []
-    for k, (y, R, col) in enumerate(specs):
-        me = torus_mesh(f"tun{k}", R, 0.05 + 0.012 * k)
-        mt, st, _ = v2.emit_material(f"tun{k}", col, 2.0)
+    for k, (y, R, r, col, n, spd, st0) in enumerate(specs):
+        me = torus_mesh(f"ring{k}", R, r, n_minor=12)
+        mt, phase, st = energy_ring_material(f"ring{k}", col, n, st0)
         me.materials.append(mt)
-        ob = bpy.data.objects.new(f"tun{k}", me)
+        ob = bpy.data.objects.new(f"ring{k}", me)
         bpy.context.scene.collection.objects.link(ob)
-        ob.location = (0, y, 0)
+        ob.location = (0, y, 0.3)
         ob.rotation_mode = "ZYX"
-        rings.append((ob, st, k, mt))
+        for a in ("visible_diffuse", "visible_shadow"):
+            setattr(ob, a, False)
+        rings.append((ob, phase, st, k, mt, spd, st0))
     for f in frames():
         t = f - F0
-        for ob, st, k, mt in rings:
-            ob.rotation_euler = (math.pi / 2 + 0.25 * math.sin(t * 0.05 + k), 0.2 * math.cos(t * 0.04 + 2 * k),
-                                 t * 0.015 * (1 if k % 2 else -1))
+        for ob, phase, st, k, mt, spd, st0 in rings:
+            wob = 0.0 if k == 0 else 0.22
+            ob.rotation_euler = (math.pi / 2 + wob * math.sin(t * 0.06 + 1.7 * k), wob * math.cos(t * 0.045 + 2.3 * k),
+                                 t * 0.012 * (1 if k % 2 else -1))
             ob.keyframe_insert("rotation_euler", frame=f)
-            born = out_pow((f - 819 - 1.0 * k) / 6.0, 3)
-            s = 0.15 + 0.85 * born
-            if f >= 894:
-                s *= max(0.02, 1.0 - smooth((f - 894 - 0.4 * (3 - k)) / 4.0))     # the tunnel closes from the far end
+            born = out_pow((f - 819.5 - 0.8 * k) / 7.0, 3)
+            s = (0.08 + 0.92 * born) * (1 + 0.04 * sum(sc * ring_osc(f, h, 3.0, 1.2) for h, sc in HITS))
+            if f >= 893:
+                s *= max(0.01, 1.0 - smooth((f - 893 - 0.3 * (4 - k)) / 4.0))     # the portal closes into the core
             ob.scale = (s, s, s)
             ob.keyframe_insert("scale", frame=f)
-            travel = sum(sc * env(f, h + 0.8 * k, 2.5) for h, sc in HITS)
-            key(st, "default_value", f, (0.5 + 2.5 * travel) * born * (1.0 if f < 896 else max(0.0, 1 - (f - 896) / 3)))
-    for ob, st, k, mt in rings:
+            key(phase, "default_value", f, -spd * t * (1 + 0.5 * env(f, 892, 4.0)) * (2 * math.pi) / 6)
+            travel = sum(sc * env(f, h + 0.7 * k, 2.5) for h, sc in HITS)
+            flick = 1.0 + 0.12 * rnd.uniform(-1, 1)
+            v = st0 * (0.55 + 1.6 * travel) * flick * (0.3 + 0.7 * born) * (1 + 2.5 * env(f, 819.5, 3.0))
+            key(st, "default_value", f, v * (1.0 if f < 896 else max(0.0, 1 - (f - 896) / 2.5)))
+    for ob, phase, st, k, mt, spd, st0 in rings:
         linearize(ob)
         linearize(mt.node_tree)
+
+
+def build_godrays():
+    """Fake volumetrics behind the word: a disc of radial light rays (noise sampled by angle only, so it streaks out of
+    the portal centre) with a soft haze falloff, added over transparency. It slowly turns and evolves (4D noise W)."""
+    me = bpy.data.meshes.new("rays")
+    bm = bmesh.new()
+    bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=1.0)
+    bm.to_mesh(me)
+    bm.free()
+    m, nt = new_mat("rays")
+    out = node(nt, "ShaderNodeOutputMaterial", 1400, 0)
+    tc = node(nt, "ShaderNodeTexCoord", -1000, 0)
+    sep = node(nt, "ShaderNodeSeparateXYZ", -850, 0)
+    link(nt, tc.outputs["Object"], sep.inputs[0])
+
+    def m_(op, a, b=None, x=0, y=0, clampit=False):
+        n = node(nt, "ShaderNodeMath", x, y, operation=op, use_clamp=clampit)
+        for k, v in enumerate((a, b)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                n.inputs[k].default_value = float(v)
+            else:
+                link(nt, v, n.inputs[k])
+        return n.outputs[0]
+
+    ang = m_("ARCTAN2", sep.outputs["Y"], sep.outputs["X"], x=-700)
+    comb = node(nt, "ShaderNodeCombineXYZ", -550, 0)
+    link(nt, m_("COSINE", ang, x=-650, y=100), comb.inputs["X"])
+    link(nt, m_("SINE", ang, x=-650, y=-100), comb.inputs["Y"])
+    nz = node(nt, "ShaderNodeTexNoise", -350, 0)
+    nz.noise_dimensions = "4D"
+    nz.inputs["Scale"].default_value = 3.5
+    nz.inputs["Detail"].default_value = 3.0
+    link(nt, comb.outputs[0], nz.inputs["Vector"])
+    wv = node(nt, "ShaderNodeValue", -550, -250, name="W").outputs[0]
+    link(nt, wv, nz.inputs["W"])
+    rays = node(nt, "ShaderNodeMapRange", -150, 0, clamp=True)
+    link(nt, nz.outputs["Fac"], rays.inputs["Value"])
+    rays.inputs["From Min"].default_value = 0.48
+    rays.inputs["From Max"].default_value = 0.78
+    rays2 = m_("POWER", rays.outputs["Result"], 2.0, x=0)
+    rl = node(nt, "ShaderNodeVectorMath", -650, 300, operation="LENGTH")
+    link(nt, tc.outputs["Object"], rl.inputs[0])
+    fall = m_("POWER", m_("SUBTRACT", 1.0, rl.outputs["Value"], x=-500, y=300, clampit=True), 2.2, x=-350, y=300)
+    shape = m_("MULTIPLY", m_("ADD", rays2, 0.06, x=150), fall, x=300)
+    stv = node(nt, "ShaderNodeValue", 300, -200, name="STRENGTH").outputs[0]
+    em = node(nt, "ShaderNodeEmission", 700, 100)
+    em.inputs["Color"].default_value = rgba((1.0, 0.66, 0.36))
+    link(nt, m_("MULTIPLY", shape, stv, x=500), em.inputs["Strength"])
+    tr = node(nt, "ShaderNodeBsdfTransparent", 700, -100)
+    add = node(nt, "ShaderNodeAddShader", 1000, 0)
+    link(nt, tr.outputs[0], add.inputs[0])
+    link(nt, em.outputs[0], add.inputs[1])
+    link(nt, add.outputs[0], out.inputs[0])
+    me.materials.append(m)
+    ob = bpy.data.objects.new("rays", me)
+    bpy.context.scene.collection.objects.link(ob)
+    for a in ("visible_diffuse", "visible_glossy", "visible_shadow"):
+        setattr(ob, a, False)
+    ob.location = (0, 4.0, 0.3)
+    ob.rotation_mode = "ZYX"
+    for f in frames():
+        t = f - F0
+        ob.rotation_euler = (math.pi / 2, 0, 0.006 * t)
+        sc = 20.0 * (0.3 + 0.7 * out_pow((f - 819.5) / 8.0, 2)) * (1.0 if f < 893 else max(0.05, 1 - smooth((f - 893) / 4.5)))
+        ob.scale = (sc, sc, 1)
+        ob.keyframe_insert("rotation_euler", frame=f)
+        ob.keyframe_insert("scale", frame=f)
+        key(nt.nodes["W"].outputs[0], "default_value", f, 0.025 * t)
+        v = (0.35 + 0.6 * pulse_env(f, 1.0, 3.5) + 2.0 * env(f, 819.5, 3.0)) * (1.0 if f < 896 else max(0.0, 1 - (f - 896) / 2.5))
+        key(nt.nodes["STRENGTH"].outputs[0], "default_value", f, v)
+    linearize(ob)
+    linearize(nt)
 
 
 def mote_mesh(name, n, box, size, rnd, avoid_r=0.0):
@@ -715,10 +856,9 @@ def build_scene(args):
     print(f"outro3: word {layout['width']:.2f} x {layout['height']:.2f} m")
     soften_world_bands(v2.build_world(), 0.55)
     v2.build_lights()
-    v2.build_portal()
-    v2.build_shafts()
     build_funnel_web()
-    build_ring_tunnel()
+    build_rings()
+    build_godrays()
     build_motes()
     build_sweep_light()
     build_finale_glint()
