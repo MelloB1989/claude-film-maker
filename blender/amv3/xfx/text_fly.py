@@ -16,6 +16,12 @@ Channels (each a velocity profile, so velocity is continuous at w0 and w1 and th
   at B's landing scale there is none, so B carries the dive as upward picture motion through the pan).
 The letters' own flight (they leave their places behind the card plane, rush at the lens, one passes ~4 cm from it,
 two more in B's set through the teleport copy) is text3d.Title.exit_fly_through; it runs after the camera is keyed.
+
+v3.1 (nested null-camera zooms, EDIT.md): when the core has ctx.nest, the cut is a nest push instead. The clips and the
+letters stay still in the world; the rig flies: B's copy sits behind A's card, the camera pushes through the word (placed
+by text3d between the camera and A's card, see Title.nest_depth) and through A's region into B, DOF on B. The nest
+owns the path (monotonic, no teleport); this module only adds the dive (a pitch on RIG_SHAKE) for "dive" exits. The
+teleport plan above stays as the fallback for a core without nest.
 """
 import math
 
@@ -117,7 +123,25 @@ def plan(T, ctx=None):
                 sB=math.exp(lB), A=(ax, ay), rB=rB)
 
 
+NEST = {  # region kind on A (S10 has no mask: bg), dive pitch (deg, peak at the cut, on RIG_SHAKE), frames it builds over
+    "dive": dict(region="bg", pitch_peak=-3.0, pitch_lead=5.0),
+    # C25: the shuriken passes his eye; S25 has a real eye mask (regions/S25/eye): push through the word into the eye
+    "through": dict(region="eye", pitch_peak=0.0, pitch_lead=0.0),
+}
+
+
+def nest_p(T):
+    N = NEST.get(T["p"].get("exit", "through"), NEST["through"])
+    return dict(region=N["region"], mode="push")
+
+
+def nested(ctx):
+    return hasattr(ctx, "nest") and hasattr(ctx, "nest_bounds")
+
+
 def bounds(T, ctx):
+    if nested(ctx):
+        return ctx.nest_bounds(T, **nest_p(T))
     P = _preset(T)
     pl = plan(T, ctx)
     ax, ay = pl["A"]
@@ -137,7 +161,27 @@ def state_at(pl, t):
     return side, st, ph
 
 
+def build_nest(T, ctx):
+    N = NEST.get(T["p"].get("exit", "through"), NEST["through"])
+    nest = ctx.nest(T, **nest_p(T))
+    ctx.log(f"text_fly {T['id']}: nest push, region {N['region']}, crosses A at {nest.t_x}, reveal from {nest.t_r}, "
+            f"B {nest.D:.2f} m behind A")
+    if N["pitch_peak"] and hasattr(ctx, "key_offset"):
+        # the dive: the view tips down into the letters as it nears A's plane and levels out in B. One smooth bump
+        # (rise over pitch_lead, ease back over B's frames): no sign change, nothing to fight the nest's own path.
+        w1, tx = float(T["w1"]), float(nest.t_x)
+        t0 = tx - N["pitch_lead"]
+        for i in range(int((w1 - t0) * 2) + 1):
+            t = t0 + i * 0.5
+            u = (t - t0) / (tx - t0) if t <= tx else 1.0 - (t - tx) / (w1 - tx)
+            u = min(1.0, max(0.0, u))
+            ctx.key_offset(t, rot=(N["pitch_peak"] * u * u * (3 - 2 * u), 0.0, 0.0))
+    return nest
+
+
 def build(T, ctx):
+    if nested(ctx):
+        return build_nest(T, ctx)
     P = _preset(T)
     pl = plan(T, ctx)
     ca, cb = ctx.card(T["a"]["id"]), ctx.card(T["b"]["id"])
