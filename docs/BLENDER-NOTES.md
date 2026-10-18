@@ -211,3 +211,40 @@
   motion, so B lands sharp and C1. The cost: B moves at hold speed after the cut, not with a decelerating zoom, so the
   stage gate's per-cut drop/step stats for a keep cut compare A's plane at the lens with B and read x100+ (as for the
   eye/lens nests, which the gate exempts).
+## Task v3-renderopt (agent-08, 2026-10-18): stage render speed (blender/amv3/renderopt.py)
+- **Animated visibility keeps an object in the render depsgraph.** An object whose `hide_render` is keyed is pulled
+  into the depsgraph on every frame, even on frames where it is hidden. Its animation, image users and modifiers are
+  evaluated at every motion-blur subframe, and Cycles syncs its materials and their images. A *static*
+  `hide_render = True` drops the object from the depsgraph. The fix: bake the keys into a per-frame table, remove the
+  fcurves, and render in segments with a constant visible set, setting `hide_render` statically per segment
+  (`bpy.ops.render.render(animation=True)` per segment; persistent data keeps the session). 'Updating Images' went
+  0.07 -> 0.01 s/frame, and the result is bit-identical to the keyed render.
+- **Visibility edges and object motion blur.** With keyed visibility, a subframe where the object is hidden gets the
+  centre transform (Cycles fills missing motion steps with the centre). So an FX object has no blur from the side
+  where it does not exist yet. Making it statically visible blurs in its pre-appearance motion: the sling ring on
+  its first frame (612) smeared across the frame. Objects with `cycles.use_motion_blur` whose visibility changes
+  inside f +- 0.5 keep their original keys on those frames only.
+- **Camera motion_steps n = (2 << (n - 1)) + 1 scene evaluations per frame** (4 -> 17, 2 -> 5). With the camera keyed
+  every half frame, 2 steps gives the same blur: low-pass (16x16) diffs <= 3.6 levels on the whip 414-419; the rest is
+  sampling noise.
+- **Emissive cards are lights.** Every emission material is in the light tree by default (`emission_sampling`). With
+  ~100-200 emissive cards / bokeh / strands visible, 'Updating Lights' cost ~0.04 s/frame, and next-event estimation
+  spent shadow rays on cards (behind glass they are blocked anyway). `material.emission_sampling = 'NONE'` on
+  cards / voids makes this free; BSDF rays still see them (unbiased). The property is `material.cycles.emission_sampling`
+  in 5.2 (`hasattr(material, "emission_sampling")` is False: a probe on the material silently does nothing).
+- **OIDN runs on the CPU even when rendering on the GPU.** `scene.cycles.denoising_use_gpu` defaults to False in 5.2.
+  On the 4090 pod each OIDN frame (ACCURATE prefilter, albedo + normal) cost ~3.5-4 s inside the 'Sample' phase
+  (480-484: 4.6 s vs 0.3 s at 485 with the same flakes and no OIDN), once per pass. Set it True on GPU renders.
+- **Lens shatter crossing frame (479) bisected** (VM CPU, 4 spp, no OIDN; 5.1 s): hiding the ~100 shards -> 1.75 s,
+  the two camera-attached area lights -> 3.05 s (transparent shadow rays shaded through every shard), the void env
+  -> 3.3 s, the nest cards -> 3.4 s. DOF, motion blur, cracks, ring, chips: within the VM's +-10 % noise.
+  transparent_max_bounces 12 -> 4 and max_bounces 4 -> 1: no gain.
+- **Things that did nothing:** PNG compression 0 (the 0.17 s 'Finished' phase is not zlib; files 2x larger);
+  compositing / sequencer off; adaptive sampling (bit-identical output at 64 spp with threshold 0.01 / 0.005: it
+  never stopped a pixel early in these scenes).
+- **Depth cards:** before static cards lost object motion blur, Displace + Smooth on the 193 x 109 tile-3 grid cost
+  ~0.12 s/frame per visible depth card (re-evaluated per motion time). After it, a 5x leaner grid (same vertices over
+  the card) rendered pixel-identically with no measurable gain, so it was dropped.
+- **Measuring on the shared VM:** wall s/frame swings 30-50 % with other jobs. Use the per-phase split instead
+  (`bpy.app.handlers.render_stats` strings with timestamps; AMV3_RO=...,stats writes ro_stats.txt), and diff
+  premultiplied RGB. Straight RGB under near-zero alpha is noise and shows 255-level 'differences' in text/light passes.

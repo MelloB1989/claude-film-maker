@@ -1576,6 +1576,7 @@ def main():
         except Exception:  # noqa: BLE001
             ctx.log(f"ERROR text3d:\n{traceback.format_exc()}")
     cull_by_set(ctx)
+    importlib.import_module("renderopt").apply(bpy.context.scene, ctx)  # render-time speedups (renderopt.py)
     ctx.log(f"scene built in {time.time() - t0:.1f}s: {len(bpy.data.objects)} objects")
     with open(os.path.join(ctx.out, "keys.json"), "w") as f:
         json.dump(dict(teleports=ctx.teleports, keys=[[t, list(v[0]), list(v[1]), v[2]] for t, v in sorted(ctx.keys.items())],
@@ -1596,7 +1597,7 @@ def main():
         bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(args.save))
         ctx.log(f"saved {args.save}")
     if not args.gate_only:
-        render_passes(ctx, args)
+        (getattr(ctx, "render_fn", None) or render_passes)(ctx, args)  # renderopt may render in static segments
     with open(os.path.join(ctx.out, "stage.log"), "w") as f:
         f.write("\n".join(ctx.log_lines) + "\n")
     ctx.log(f"done in {time.time() - t0:.1f}s")
