@@ -43,9 +43,9 @@ FONTS = {  # key -> (file names to look for, fc-match pattern)
 # Novax palettes in 3D. top/hue: face gradient (top -> bottom); edge: bevel metal; side: extrusion metal;
 # glow: outline/pop emission; core: inside of chunks.
 PAL = {
-    "cyan_white": dict(top="#A8EAFF", hue="#0058DA", edge="#A8F2FF", side="#04234F", glow="#2FC8FF", core="#9FEFFF"),
+    "cyan_white": dict(top="#FFFFFF", hue="#1FB8FF", edge="#7FE6FF", side="#031A44", glow="#2FC8FF", core="#9FEFFF"),
     # REFS: eitaX SPIDER-MAN = red face, gold/cream bevelled extrusion (~15-20 % of cap height)
-    "red_gold": dict(top="#FF4636", hue="#9E000C", edge="#FFE2A0", side="#C88A2E", glow="#FF3A1C", core="#FFD27A"),
+    "red_gold": dict(top="#FF2A3C", hue="#9A000E", edge="#FFE2A0", side="#4A0008", glow="#FF3A1C", core="#FFD27A"),
     "crimson_white": dict(top="#FFF4F4", hue="#C30A2C", edge="#FF6A86", side="#5E0016", glow="#FF1F4C", core="#FFC2CF"),
     "chrome": dict(top="#F4F7FF", hue="#9FB4D8", edge="#FFFFFF", side="#20283A", glow="#BFD4FF", core="#FFFFFF"),
 }
@@ -55,13 +55,13 @@ PAL = {
 # (+yaw = right end recedes, +pitch = top recedes); ext/bev: extrusion half-depth and bevel in em.
 STYLE = {
     "AMAZING": dict(font="barlow", center=(915, 200), width_px=1560, hero=328, depth=0.42, yaw=-16, pitch=10,
-                    roll=-4, ext=0.13, bev=0.03, shear=0.0, track=0.04, hold=(321, 330)),
+                    roll=-4, ext=0.13, bev=0.05, shear=0.0, track=0.04, hold=(321, 330), shadow=0.6),
     # S25 is an extreme close-up: the subject matte covers ~the whole frame, so "behind" would hide the word. It sits
     # in front of the face (lower third, clear of the eye), behind the card plane only for parallax.
-    "SPIDER-MAN": dict(behind=False, font="anton", center=(1000, 742), width_px=1540, hero=645, depth=0.30, yaw=14,
-                       pitch=-8, roll=3, ext=0.12, bev=0.032, shear=0.18, track=0.03, hold=(632, 648)),
+    "SPIDER-MAN": dict(behind=False, font="anton", center=(900, 770), width_px=1480, hero=645, depth=0.30, yaw=14,
+                       pitch=-8, roll=3, ext=0.12, bev=0.045, shear=0.18, track=0.03, hold=(632, 648), shadow=0.5),
     "BRAND NEW DAY": dict(font="anton", center=(960, 250), width_px=1560, hero=758, depth=0.36, yaw=-12, pitch=12,
-                          roll=-2, ext=0.12, bev=0.028, shear=0.18, track=0.05, shots=["S31", "S32"],
+                          roll=-2, ext=0.12, bev=0.04, shear=0.18, track=0.05, shots=["S31", "S32"], shadow=0.4,
                           # S31: behind Tom (he crouches low); S32: the head rises UNDER the word, so it sits in front, high and wide
                           per_shot=dict(S31=dict(hero=755, center=(960, 235), width_px=1780),
                                         S32=dict(hero=772, center=(960, 175), width_px=1800, behind=False)),
@@ -356,8 +356,8 @@ def title_material(name, pal, chrome=False):
         rim_emit = caddc(ncol(glow, rim * rim_e), ncol(edge, mc * rim * 0.9))
     # light sweep: a slanted band travelling left -> right
     u = wx + wy * 0.32 - sweep_p
-    band = nfn("EXPONENT", u * u * -420.0) + nfn("EXPONENT", u * u * -30.0) * 0.25
-    sweep = band * sweep_a * (face + rim * 0.7 + side * 0.25)
+    band = nfn("EXPONENT", u * u * -2600.0) + nfn("EXPONENT", u * u * -260.0) * 0.12   # crisp specular band
+    sweep = band * sweep_a * (face * 0.8 + rim * 1.6 + side * 0.3)
     sweep_emit = ncol((1.0, 0.98, 0.94), sweep)
     pop_emit = ncol(glow, pop * (rim * 3.0 + face * 0.8 + side * 0.4))
     bsdf = mixsh(mixsh(side_bsdf, rim_bsdf, rim), face_bsdf, face)
@@ -381,8 +381,8 @@ def title_material(name, pal, chrome=False):
     sweep_a2, LP["sweep"] = nvalue("sweep", 0.0)
     sweep_p2, LP["pos"] = nvalue("pos", -1.0)
     u2 = wx2 + wy2 * 0.32 - sweep_p2
-    band2 = nfn("EXPONENT", u2 * u2 * -420.0) + nfn("EXPONENT", u2 * u2 * -30.0) * 0.25
-    g = caddc(ncol((1.0, 0.98, 0.94), band2 * sweep_a2 * (face2 + rim2 * 0.7)),
+    band2 = nfn("EXPONENT", u2 * u2 * -2600.0)
+    g = caddc(ncol((1.0, 0.98, 0.94), band2 * sweep_a2 * (face2 * 0.5 + rim2 * 1.2)),
               ncol(glow, rim2 * rim_e2 * 0.7 + pop2 * (rim2 * 3.0 + face2 * 0.8)))
     N.nt.links.new(emission(g), out2.inputs["Surface"])
 
@@ -399,7 +399,7 @@ def title_material(name, pal, chrome=False):
 
 # --------------------------------------------------------------------------------------------------------------------
 # geometry
-def _curve(body, font, ext, bev, shear, name):
+def _curve(body, font, ext, bev, shear, name, chamfer=True):
     cu = bpy.data.curves.new(name, "FONT")
     cu.body = body
     cu.font = font
@@ -408,7 +408,8 @@ def _curve(body, font, ext, bev, shear, name):
     cu.align_y = "BOTTOM_BASELINE"
     cu.extrude = ext
     cu.bevel_depth = bev
-    cu.bevel_resolution = 3
+    cu.bevel_resolution = 0 if chamfer else 3
+    cu.offset = -bev * 0.6 if chamfer else 0.0
     cu.resolution_u = 10
     cu.shear = shear
     ob = bpy.data.objects.new(name, cu)
@@ -689,6 +690,8 @@ class Title:
             me.materials.append(self.mat_core)
         self.lights()
         self.animate()
+        if st.get("shadow"):
+            self.build_shadow(float(st["shadow"]))
         self.key_hold_focus()
         if self.behind:
             for sid in self.shots:
@@ -852,6 +855,53 @@ class Title:
                     cp.matrix_world = Xs @ Mseg @ self.Mw.inverted() @ lo.matrix_world
         self.key_material()
 
+    # ---- a soft dark occlusion glow behind the word: a local exposure dip so it pops off bright skies / blades
+    def build_shadow(self, amount):
+        m = bpy.data.materials.new(f"t3d_{self.id}_shadow")
+        m.use_nodes = True
+        N.nt = nt = m.node_tree
+        nt.nodes.clear()
+        out = nt.nodes.new("ShaderNodeOutputMaterial")
+        tc = nt.nodes.new("ShaderNodeTexCoord")
+        u, v, _ = nsep(tc.outputs["UV"])
+        ax = nfn("ABSOLUTE", u * 2.0 - 1.0)
+        ay = nfn("ABSOLUTE", v * 2.0 - 1.0)
+        soft = (1.0 - nsstep(ax, 0.55, 1.0)) * (1.0 - nsstep(ay, 0.30, 1.0))
+        amt, node = nvalue("amount", 0.0)
+        tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+        em = nt.nodes.new("ShaderNodeEmission")
+        em.inputs["Color"].default_value = (0.0, 0.0, 0.0, 1.0)
+        nt.links.new(mixsh(tr.outputs[0], em.outputs[0], soft * amt), out.inputs["Surface"])
+        z = -(self.st["ext"] + self.st["bev"]) * self.k - 0.03
+        w, h = self.width_m * 1.22, self.height_m * 2.1
+        me = bpy.data.meshes.new(f"t3d_{self.id}_shadow")
+        me.from_pydata([(-w / 2, -h / 2, z), (w / 2, -h / 2, z), (w / 2, h / 2, z), (-w / 2, h / 2, z)], [], [(0, 1, 2, 3)])
+        uv = me.uv_layers.new(name="UVMap")
+        for li, co in enumerate([(0, 0), (1, 0), (1, 1), (0, 1)]):
+            uv.data[li].uv = co
+        me.materials.append(m)
+        for si, (ta, tb, Xs, Mseg) in enumerate(self.segs):
+            if ta > self.f1 or tb < self.f0 or (si > 0 and not self.shot_frames):
+                continue                     # teleport copies (fly-through B side) get no shadow
+            ob = bpy.data.objects.new(f"{me.name}.s{si}", me)
+            self.coll.objects.link(ob)
+            ob.visible_shadow = False
+            ob.matrix_world = Xs @ Mseg
+            for f in self.frames():
+                ob.hide_render = not (ta <= f < tb and self.f0 - 1 <= f <= self.f1)
+                ob.keyframe_insert("hide_render", frame=f)
+        ex = self.fly_cut()["w0"] + 1 if (self.exit and self.exit[0] == "fly_through") else None
+        if self.exit and self.exit[0] == "shatter":
+            ex = self.exit[1]
+        land = {"assemble": self.f0 + 14, "fly_in": self.f0 + 8, "slam_letters": self.f0 + 8}.get(
+            self.T.get("anim"), self.f0 + 3)
+        for f in self.frames():
+            a = amount * clamp01((f - self.f0 - 2) / max(1.0, land - self.f0 - 2))
+            if ex is not None:
+                a *= 1.0 - clamp01((f - ex) / 3.0)
+            node.outputs[0].default_value = a
+            node.outputs[0].keyframe_insert("default_value", frame=f)
+
     # ---- the plate defocuses slightly while the title holds (REFS: rack focus to the text)
     def key_hold_focus(self, blur_px=5.0, ramp=3):
         span = self.st.get("hold")
@@ -910,9 +960,9 @@ class Title:
             t_sweep, t_settle = 806.0, 810.0
         frames = self.frames()
         for f in frames:
-            u_sw = (f - t_sweep) / 9.0
-            pos = -0.3 + 1.7 * ease_out_expo(u_sw * 0.9) if f >= t_sweep else -0.6
-            amp = (math.sin(math.pi * clamp01(u_sw)) ** 0.7) * 5.0 if 0 <= u_sw <= 1 else 0.0
+            u_sw = (f - t_sweep) / 6.0                      # the band crosses the word in ~6 f
+            pos = -0.35 + 1.75 * clamp01(u_sw) if f >= t_sweep else -0.6
+            amp = 2.6 if 0 <= u_sw <= 1 else 0.0
             face = 0.45 - 0.25 * ease_out_expo((f - t_settle) / 8.0) if f >= t_settle else 0.45
             if st.get("chrome"):
                 face = 1.0
@@ -1001,8 +1051,8 @@ class Title:
         r = random.Random(L["i"] * 17 + 3)
         n = L["n"]
         o = abs(L["i"] - (n - 1) / 2.0)          # centre letters first, outer ones follow
-        ts = self.f0 + o * 0.9
-        dur = 7.5
+        ts = self.f0 + o * 0.6
+        dur = 7.0
         u = (f - ts) / dur
         side = 1.0 if L["rest"].x >= 0 else -1.0
         d0 = Vector((side * r.uniform(0.25, 0.6) * Wm + L["rest"].x * 0.8, r.uniform(-0.25, 0.25) * Wm,
