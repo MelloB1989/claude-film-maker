@@ -179,7 +179,7 @@ TRIPTYCH = dict(f0=777, f1=819, panels=[
 ], title=dict(f=802, text="TIMELESS"), shatter=819)
 
 OUTRO = dict(f0=819, f1=900, text="SAU_EDITZ", hits=[828, 837, 844, 854, 860, 880, 892, 897],
-             frames="$AMV2_DATA/blender/outro_v2")
+             frames="$AMV2_DATA/blender/outro")  # NNNN.png, 0819-0899, opaque RGBA
 
 # Titles. style "text3d" = a 3D title in the Blender stage (text3d module): chunky extruded condensed italic, Novax
 # palette (white-to-hue gradient face, light sweep, settles to a glowing outline), lit in the scene, behind the subject
