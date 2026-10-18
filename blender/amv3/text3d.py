@@ -66,7 +66,7 @@ STYLE = {
                           per_shot=dict(S31=dict(hero=755, center=(960, 235), width_px=1780),
                                         S32=dict(hero=772, center=(960, 175), width_px=1800, behind=False)),
                           sub=dict(font="barlow", dy_em=-0.95, scale=0.26, at=768),
-                          hold=(768, 777), beats=[750.0, 751.0, 752.0, 753.0, 754.0, 755.5, 756.8, 758.0, 761.0, 763.0, 764.4]),
+                          hold=(768, 777), beats=[751.0, 752.0, 753.0, 754.0, 755.0, 756.0, 757.0, 758.0, 761.0, 763.0, 764.4]),
     "TIMELESS": dict(font="anton", center=(960, 548), width_px=1500, hero=806, depth=0.0, yaw=0, pitch=0, roll=0,
                      ext=0.11, bev=0.02, inset=0.0, shear=0.0, track=0.06, chrome=True),
 }
@@ -1072,7 +1072,7 @@ class Title:
         beats = self.st.get("beats") or [self.f0 + 2 + 1.5 * i for i in range(L["n"])]
         tb = beats[min(L["i"], len(beats) - 1)]
         r = random.Random(L["i"] * 13 + 1)
-        lead = 4.0
+        lead = 3.0          # C30's layer sweep lands ~750: the first letter appears at 748, slams at 751
         u = (f - (tb - lead)) / lead
         if f < tb:
             e = ease_in_cubic(u)
