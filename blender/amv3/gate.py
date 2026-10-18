@@ -234,9 +234,10 @@ def analyse(dump, out_csv=None, only=False):
         r = byf1.get(f)
         return r["m"]["rms"] if r and r["m"] and not r["teleport"] else None
     cutstats = []
+    fb_w0 = {w["w0"] for w in wins if w.get("fallback")}
     for w in wins:
-        if w.get("fallback"):
-            continue  # a stand-in zt for a module that has not landed: not judged
+        if w.get("fallback") or w["w1"] in fb_w0:
+            continue  # a stand-in zt for a module that has not landed (or a window ending in one): not judged
         f = w["f"]
         A = [spd(g) for g in range(f - 6, f - 1)]  # rows f-6 .. f-2 (f-1 -> f crosses the teleport)
         B = [spd(g) for g in range(f, f + 10)]
@@ -254,9 +255,12 @@ def analyse(dump, out_csv=None, only=False):
         def med(k):
             v = sorted(c[k] for c in cutstats)
             return v[len(v) // 2]
-        drops = sorted(c["drop"] for c in cutstats)
+        # drop / step statistics skip the 3D-object windows (flip, cube): the card under the frame changes depth
+        # (the door, then B behind it), so the screen speed ratio says little about the camera there
+        flat = [c for c in cutstats if c["type"] not in ("flip", "cube")] or cutstats
+        drops = sorted(c["drop"] for c in flat)
         stats.update(cut_acc_median=med("acc"), cut_dec_median=med("dec"), cut_peak_median=med("peak"),
-                     cut_drop_median=med("drop"), cut_drop_p90=drops[int(0.9 * (len(drops) - 1))],
+                     cut_drop_median=drops[len(drops) // 2], cut_drop_p90=drops[int(0.9 * (len(drops) - 1))],
                      cut_step_median=med("step"),
                      zoom_flip_pct=100.0 * sum(c["flip"] for c in cutstats) / max(1, sum(
                          1 for c in cutstats if abs(c["zoom_a"]) > 0.01 and abs(c["zoom_b"]) > 0.01)))
