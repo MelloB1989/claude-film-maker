@@ -55,7 +55,7 @@ PAL = {
 # (+yaw = right end recedes, +pitch = top recedes); ext/bev: extrusion half-depth and bevel in em.
 STYLE = {
     "AMAZING": dict(font="barlow", center=(915, 225), width_px=1500, hero=328, depth=0.42, yaw=-16, pitch=10,
-                    roll=-4, ext=0.13, bev=0.05, shear=0.0, track=0.04, hold=(321, 330), shadow=0.45),
+                    roll=-4, ext=0.13, bev=0.05, shear=0.0, track=0.04, hold=(321, 330), shadow=0.32),
     # S25 is an extreme close-up: the subject matte covers ~the whole frame, so "behind" would hide the word. It sits
     # in front of the face (lower third, clear of the eye), behind the card plane only for parallax.
     "SPIDER-MAN": dict(behind=False, font="anton", center=(900, 770), width_px=1480, hero=645, depth=0.30, yaw=14,
@@ -867,14 +867,14 @@ class Title:
         u, v, _ = nsep(tc.outputs["UV"])
         ax = nfn("ABSOLUTE", u * 2.0 - 1.0)
         ay = nfn("ABSOLUTE", v * 2.0 - 1.0)
-        soft = (1.0 - nsstep(ax, 0.55, 1.0)) * (1.0 - nsstep(ay, 0.30, 1.0))
+        soft = (1.0 - nsstep(ax, 0.25, 1.0)) * (1.0 - nsstep(ay, 0.05, 1.0))   # wide gaussian-like falloff, no flat core
         amt, node = nvalue("amount", 0.0)
         tr = nt.nodes.new("ShaderNodeBsdfTransparent")
         em = nt.nodes.new("ShaderNodeEmission")
         em.inputs["Color"].default_value = (0.0, 0.0, 0.0, 1.0)
         nt.links.new(mixsh(tr.outputs[0], em.outputs[0], soft * amt), out.inputs["Surface"])
         z = -(self.st["ext"] + self.st["bev"]) * self.k - 0.03
-        w, h = self.width_m * 1.22, self.height_m * 2.1
+        w, h = self.width_m * 1.12, self.height_m * 1.7
         me = bpy.data.meshes.new(f"t3d_{self.id}_shadow")
         me.from_pydata([(-w / 2, -h / 2, z), (w / 2, -h / 2, z), (w / 2, h / 2, z), (-w / 2, h / 2, z)], [], [(0, 1, 2, 3)])
         uv = me.uv_layers.new(name="UVMap")
