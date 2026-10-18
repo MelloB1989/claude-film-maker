@@ -97,7 +97,7 @@ def zoom_rate(f):
     k = f - 819.5
     push = 0.10 * 0.85 ** max(0.0, k) if k >= 0 else 0.10 * 1.25 ** k     # the triptych's push, decaying x0.85/f
     hold = 0.012 * smooth((f - 822) / 10.0)                                 # settles into a 1.2 %/f push
-    hold = lerp(hold, -0.008, smooth((f - 856) / 10.0))                     # smooth reversal (10 f) into a slow pull
+    hold = lerp(hold, -0.011, smooth((f - 856) / 10.0))                     # smooth reversal (10 f) into a slow pull
     pull = -0.008 * (1.3 ** (f - 888) - 1.0) if f > 888 else 0.0           # the resolve: accelerating pull-out
     pull = max(pull, -0.07)
     return push + hold + pull
