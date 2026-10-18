@@ -297,14 +297,15 @@ class Layout:
         absorb with the natural decay inside `room` (B's settle x ROOM_GROW over LAND_LO). A small opening (an eye)
         would otherwise put B just behind it: B's growth explodes at the crossing and stops dead."""
         TB = self.w1 - self.tx
-        kn = math.log(flow.DECAY) * TB
+        # a landing the next window takes over has no room to grow: it may land smaller and decay harder instead
+        kn = math.log(flow.DECAY_RANGE[1] if self.touching else flow.DECAY) * TB
         e = cl.expo_in_d(1.0, kn)
         r1 = self.B.ds
-        room = math.log(self.B.s * (1.0 if self.touching else ROOM_GROW) / LAND_LO)
+        room = math.log(self.B.s / 0.85) if self.touching else math.log(self.B.s * ROOM_GROW / LAND_LO)
         vcap = r1 - (r1 * TB - room) * e / TB
 
         def va(D):
-            return self._curve(D, LAND_LO, kB=kn).Va
+            return self._curve(D, 0.85 if self.touching else LAND_LO, kB=kn).Va
         if va(D_lo) <= vcap:
             return D_lo
         lo, hi = D_lo, max(D_lo * 2, z_r * 40.0)
