@@ -26,6 +26,7 @@ import regions
 
 F = cl.FILL_DIST
 DEF = dict(land=1.1, reveal=(10, 8), fill=1.15, fstop=2.0)
+PAN_MIN = 6.0  # px / f: the least pan a nest is entered with after a hold
 CENTRE_BY = 0.6  # an eye / lens opening reaches frame centre after this share of the approach
 LAND_LO = 1.0  # the back card's least scale at the crossing (it must cover the frame when the front plane passes)
 GROW_MIN = 1.2  # the back card grows at least this much between the reveal and the crossing (eye / lens)
@@ -52,17 +53,21 @@ def bounds(T, ctx):
     A = ctx.entry_state(T)
     adj = _adjacent_prev(T, ctx)
     R = float(p.get("roll", 0.0) or 0.0)
+    prevc = next((c for c in ctx.E["cuts"] if T.get("a") and c.get("b") == T["a"]["id"] and c["id"] in ctx.bounds
+                  and "B" in ctx.bounds[c["id"]]), None)
+    pB = ctx.bounds[prevc["id"]]["B"] if prevc is not None else None
     if not adj and flow.prev_hold(T, ctx) >= flow.REVERSAL_MIN:
         A = A.with_(ds=max(A.ds, flow.ENTRY) if sg > 0 else min(A.ds, -flow.ENTRY))
-        if R:
+        if pB is not None and abs(pB.dr) > 0.05:
+            # the roll keeps the previous landing's direction through the hold (a slow roll turning round in a hold
+            # stops the picture together with the zoom turn); the window's own roll turns it, fast
+            A = A.with_(dr=math.copysign(max(abs(A.dr), flow.ROLL_CARRY), pB.dr))
+        elif R:
             A = A.with_(dr=math.copysign(max(abs(A.dr), flow.ROLL_CARRY), R))
     elif not adj:
         # a short hold cannot turn the zoom round: the entry keeps the previous landing's rate when it already goes the
         # window's way (a push after a push landing keeps pushing)
-        prev = next((c for c in ctx.E["cuts"] if T.get("a") and c.get("b") == T["a"]["id"] and c["id"] in ctx.bounds
-                     and "B" in ctx.bounds[c["id"]]), None)
-        if prev is not None and ctx.bounds[prev["id"]]["B"].ds * sg > 0:
-            pB = ctx.bounds[prev["id"]]["B"]
+        if pB is not None and pB.ds * sg > 0:
             A = A.with_(ds=sg * max(abs(pB.ds), flow.ENTRY))
     A = ctx.settle_entry(T, A, fixed_rate=True)
     B = ctx.exit_state(T)
@@ -96,7 +101,14 @@ def bounds(T, ctx):
             dcx = 0.7 * dcx + 0.3 * 1.2 * (cpre[0] - A.cx) / TCn
             dcy = 0.7 * dcy + 0.3 * 1.2 * (cpre[1] - A.cy) / TCn
         A = ctx.settle_entry(T, A.with_(dcx=dcx, dcy=dcy), fixed_rate=True)
-    elif adj:
+        sp = math.hypot(A.dcx, A.dcy)
+        if sp < PAN_MIN:
+            # never a dead pan into the window (the crossing point may sit where the frame already is): the hold
+            # intent's drift direction tops it up
+            ix, iy = A.dcx or ctx.intent(T["a"]["id"], T["w0"]).dcx, A.dcy or ctx.intent(T["a"]["id"], T["w0"]).dcy
+            n = math.hypot(ix, iy) or 1.0
+            A = ctx.settle_entry(T, A.with_(dcx=ix / n * PAN_MIN, dcy=iy / n * PAN_MIN), fixed_rate=True)
+    elif adj and prevc is not None and prevc.get("type") == "nest":
         # touching the previous window: A's place is fixed (it is that window's landing), but its drift already heads
         # for the crossing point, so the landing before flows into this approach without a turn
         TCn = max(2.0, CENTRE_BY * TA) if L.kind != "bg" else TA
