@@ -152,6 +152,24 @@ def transition_cues(T: dict, E: dict) -> list[dict]:
             pre=X_hit, post=0.4, root=220.0)
         if on_hit:
             syn("thump", f, -17, "thump", f"sling_ring on hit {hits[f]}", f0=85, f1=40)
+    elif typ == "layer":
+        side, conf, src = layer_side(T, E)
+        mode = p.get("mode", "keep")
+        if mode == "keep":
+            # A's subject flies at the lens and leaves on `side` ~2 f after the cut: a close, fast stereo pass
+            sgn = {"R": 1, "L": -1}.get(side, 0)
+            syn("whoosh_by_close", f + 1, -12, "whoosh_by", f"layer keep: subject passes the lens, exits {side} "
+                f"({src})", pre=pre + 1 / fps, post=post + 0.15, pan_dir=sgn * conf, near=0.035, body_hz=1300,
+                low=0.6)
+            syn("air_swell", f, -19, "swell", "layer keep: soft air swell as B arrives behind", pre=pre, post=0.35,
+                f_from=2500, f_to=7500, rise_db=18, curve=1.0, air=0.8)
+        else:
+            # B's subject sweeps in big and close from `side` and crosses: a big pass-by from that side
+            sgn = {"L": 1, "R": -1}.get(side, 0)               # from the left = pans left -> right
+            syn("whoosh_by_sweep", f, -11, "whoosh_by", f"layer sweep: B's subject sweeps in from {side} ({src})",
+                pre=pre + 0.1, post=post + 0.25, pan_dir=sgn * conf, near=0.09, body_hz=750, low=1.2)
+            syn("air_swell", f + 2, -21, "swell", "layer sweep: B resolves behind (air)", pre=0.25, post=0.35,
+                f_from=3000, f_to=7000, rise_db=16, curve=1.0, air=0.8)
     elif typ == "text_fly":
         syn("whoosh_by", f, -11, "whoosh_by", f"text_fly {p.get('title')}: letters rush past (stereo pass)",
             pre=pre, post=post + 0.2, pan_dir=1 if p.get("exit") != "dive" else -1)
@@ -187,6 +205,55 @@ def transition_cues(T: dict, E: dict) -> list[dict]:
     return out
 
 
+# Subject centroid x (plate px) the stage's `layer` module (blender/amv3/xfx/layer.py) uses to pick its side, measured on
+# the VM mattes ($AMV3_DATA/mattes, 2026-10-18; queue job agent03-layer-probe): keep = A's subject at f - 1, sweep = B's
+# subject at the landing frame. Used when the mattes are not on this machine.
+MATTE_X = {("S02", 82): 1148, ("S06", 200): 975, ("S10", 305): 930, ("S31", 749): 1022}
+
+
+def _matte_x(sid: str, f: int):
+    d = OUT / "mattes" / sid
+    if d.is_dir():
+        have = sorted(int(n.name[2:7]) for n in d.glob("f_*.png") if n.name[2:7].isdigit())
+        if have:
+            from PIL import Image
+            fr = min(have, key=lambda k: abs(k - f))
+            a = np.asarray(Image.open(d / f"f_{fr:05d}.png").convert("L"), float)[::4, ::4]
+            if a.sum() > 50 * 255:
+                return float((a * np.arange(a.shape[1])[None, :]).sum() / a.sum() * 1920 / a.shape[1]), "matte"
+    if (sid, f) in MATTE_X:
+        return float(MATTE_X[(sid, f)]), "matte (VM)"
+    return None, ""
+
+
+def layer_side(T: dict, E: dict):
+    """(side L|R|U|D, pan confidence 0.25-1, source) of a `layer` transition, following layer.py: keep exits on the side
+    A's subject is nearer to; sweep enters from the side away from B's subject. An explicit p.dir / p.from wins. The
+    reference x is the shot focus (else the frame centre), an approximation of the stage's hold-state centre, so a
+    subject within ~40 px of it gets a narrow pan (the picture's side is uncertain there)."""
+    p = T.get("p", {})
+    mode = p.get("mode", "keep")
+    given = p.get("dir") if mode == "keep" else (p.get("from") or p.get("dir"))
+    if given:
+        return given, 1.0, "edl"
+    shots = {s["id"]: s for s in E["shots"]}
+    if mode == "keep":
+        sid, at = T["a"] if isinstance(T["a"], str) else T["a"]["id"], T["f"] - 1
+    else:
+        sid, at = T["b"] if isinstance(T["b"], str) else T["b"]["id"], min(T["w1"] - 1, T["f"] + 5)
+    x, src = _matte_x(sid, at)
+    foc = shots[sid].get("focus")
+    if x is None:
+        x, src = (foc[0], "focus") if foc else (960.0, "centre")
+    ref = foc[0] if foc else 960.0
+    dx = x - ref
+    if mode == "keep":
+        side = "L" if dx < 0 else "R"
+    else:
+        side = "R" if dx < 0 else "L"
+    return side, float(np.clip(abs(dx) / 150.0, 0.25, 1.0)), f"{src} x {x:.0f} vs {ref:.0f}"
+
+
 def edl_cues(E: dict) -> list[dict]:
     """Every SFX cue of the film: the transition layers + v2's hit cues that are not taken over by a transition."""
     hits = _hits(E)
@@ -219,7 +286,7 @@ def edl_cues(E: dict) -> list[dict]:
 # lift it ~+4-8 dB on ordinary cuts and up to +12-17 on their biggest moments (filmtools.amv3.analysis.ref_audio).
 LIFT = {"open": 4.0, "zt": 5.0, "whip": 5.0, "cube": 4.5, "flip": 4.5, "slam": 4.0, "symbiote": 5.0,
         "eye_tunnel": 6.0, "text_fly": 8.0, "lightning": 8.0, "lens_shatter": 10.0, "sling_ring": 6.5,
-        "web_wipe": 6.0, "triptych": 6.0}
+        "web_wipe": 6.0, "triptych": 6.0, "layer": 5.0}
 UNDER = -2.0            # a transition's SFX stay at least this far under the music across its window (broadband)
 PUMP = 1.0              # ... and add at most this much master-limiter gain reduction over its window (no pumping)
 TRIM = (-12.0, 18.0)    # dB range of the per-transition trim
