@@ -1310,7 +1310,8 @@ def camera_dump(ctx, f0, f1):
         frames.append(dict(f=f, cam=[list(r) for r in ce.matrix_world], lens=ce.data.lens, cards=vis,
                            shutter=sc.render.motion_blur_shutter))
     windows = [dict(id=c["id"], type=c["type"], f=c["f"], w0=w0, w1=w1, fallback=c["id"] in ctx.fallbacks,
-                    region=(ctx.nests[c["id"]].kind if c["id"] in ctx.nests else None)) for w0, w1, c in ctx.windows]
+                    region=(ctx.nests[c["id"]].kind if c["id"] in ctx.nests else None),
+                    mode=(c.get("p") or {}).get("mode")) for w0, w1, c in ctx.windows]
     holds = {sid: [h[0], h[1]] for sid, h in ctx._holds.items()}
     return dict(frames=frames, teleports=ctx.teleports, seamless=sorted(ctx.seamless), windows=windows, holds=holds,
                 res=[1920, 1080])
