@@ -303,7 +303,7 @@ def build(T, ctx):
     cap.location = O + Vector((ax.x, ax.y, zB - 2.0))
     cap.data.materials.append(neb.data.materials[0])
     # Andrew's lens at the end of the tunnel (comp time, already moving), with a thin cyan frame
-    cardB = X.copy_card(ctx, b, "XA_eye_S09", P["MB"], frames=(w0, w1 + 1))
+    cardB = X.copy_card(ctx, b, "XA_eye_S09", P["MB"], frames=(w0, w1 + 1), tile=1)  # a framed picture
     frame = _frame_obj("XA_eye_S09_frame", light_c)
     frame.matrix_world = P["MB"] @ Matrix.Translation(Vector((0, 0, 0.004)))
     frame.data.materials.append(X.mat_emit("XA_eye_frame_m", cyan, 3.0))

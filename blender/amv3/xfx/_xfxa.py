@@ -254,7 +254,7 @@ def plate_node(nt, ctx, sid, f_at=None, frame0=None, loop=None):
     return n
 
 
-def copy_card(ctx, sid, name, matrix, frames=None, hole=None):
+def copy_card(ctx, sid, name, matrix, frames=None, hole=None, tile=3):
     """A private-set copy of a shot's card: same plate in comp time and the same depth displacement as the home card
     (so a teleport between them is invisible), rendered only on `frames` = (f0, f1)."""
     depth = float((ctx.shot(sid).get("move") or {}).get("depth", 0.0) or 0.0)
@@ -262,7 +262,7 @@ def copy_card(ctx, sid, name, matrix, frames=None, hole=None):
     if hole:
         kw["hole"] = hole
     try:  # tile=3: mirror-tiled beyond the card edges, exactly like the core's home cards
-        ob = ctx.make_card(sid, name, depth=depth, frames=frames, tile=3, **kw)
+        ob = ctx.make_card(sid, name, depth=depth, frames=frames, tile=tile, **kw)
     except TypeError:  # an older ctx without frames= / tile=
         ob = ctx.make_card(sid, name, depth=depth, **kw)
         if frames:

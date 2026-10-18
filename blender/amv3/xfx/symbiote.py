@@ -210,7 +210,9 @@ def build(T, ctx):
     goo.data.materials.append(_goo_mat(pal))
     _lights(P, ctx, pal, plate_c)
     _cam_light(P, plate_c)
-    ctx.env(O, ctx.act_at(cut))
+    # no act void here: the frame is always covered (card or goo), and the void's warm haze reflected in the wet coat
+    # turned the goo brown. A near-black violet dome instead, so the goo reflects darkness + the highlight strips.
+    _dome(O, plate_c)
 
     homeA = ctx.card(a).matrix_world.copy()
     homeB = ctx.card(b).matrix_world.copy()
@@ -270,6 +272,23 @@ def _goo_mat(pal):
     nt.links.new(em.outputs[0], add.inputs[1])
     nt.links.new(add.outputs[0], out.inputs["Surface"])
     return m
+
+
+def _dome(O, coll, R=6.0, n=32):
+    vs, fs = [], []
+    for j in range(n // 2 + 1):
+        th = math.pi * j / (n // 2)
+        for i in range(n + 1):
+            ph = 2 * math.pi * i / n
+            vs.append(O + Vector((R * math.sin(th) * math.cos(ph), R * math.sin(th) * math.sin(ph), R * math.cos(th))))
+    for j in range(n // 2):
+        for i in range(n):
+            a = j * (n + 1) + i
+            fs.append((a, a + n + 1, a + n + 2, a + 1))
+    ob = X.mesh_obj("XA_sym_dome", vs, fs, coll)
+    ob.data.materials.append(X.mat_emit("XA_sym_dome_m", (0.012, 0.008, 0.02), 1.0))
+    ob.visible_shadow = False
+    return ob
 
 
 def _cam_light(P, coll):
