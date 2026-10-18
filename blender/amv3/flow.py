@@ -184,6 +184,11 @@ def bounds(T, ctx):
         elif typ in ("whip", "cube") and "A" in out and next_hold(T, ctx) >= REVERSAL_MIN:
             # a turn carries the zoom direction it entered with into B's landing (the hold after turns round if needed)
             B = B.with_(ds=math.copysign(max(abs(B.ds), 0.012), out["A"].ds))
+        if typ == "whip" and next_hold(T, ctx) < REVERSAL_MIN:
+            # a short hold into the next cut: the whip lands still sliding its way (the picture keeps the whip's
+            # direction through the hold instead of stopping dead), see WHIP_SLIDE
+            ax = {"R": (1, 0), "L": (-1, 0), "U": (0, -1), "D": (0, 1)}.get(p.get("dir", "R"), (1, 0))
+            B = B.with_(dcx=ax[0] * WHIP_SLIDE / B.s, dcy=ax[1] * WHIP_SLIDE / B.s)
         elif typ == "slam":
             # B slams in from below 1x (the mirror tiles smear past) and stops at `kick` x, still creeping in
             B = B.with_(s=max(float(p.get("kick", 1.35)), cl.min_scale(B.cx, B.cy, B.r, 0.01)), ds=max(B.ds, 0.012))
@@ -197,6 +202,7 @@ def build(T, ctx):
 
 
 REVERSAL_MIN = 6  # frames a hold needs to turn its zoom round (REFS: 6-10 f)
+WHIP_SLIDE = 30.0  # screen px / f a whip still slides when a short hold follows it (carried through the hold)
 
 
 def next_hold(T, ctx):
@@ -431,7 +437,9 @@ def build_turn(T, ctx):
         ang = math.radians(float(p.get("angle", 70))) * sgn
         mid = window_blend(A, B, w0, w1, f)
         P = FA @ Vector(cl.local_pose(mid)[0])
-        turn = Turn(ang, w0, f, w1, float(p.get("attack", 2.3)), float(p.get("decay", 2.0)), over=0.02)
+        short = next_hold(T, ctx) < REVERSAL_MIN  # a short hold after: a long, gentle landing (no 495 -> 14 px/f collapse)
+        turn = Turn(ang, w0, f, w1, float(p.get("attack", 2.3)), float(p.get("decay", 1.4 if short else 2.0)),
+                    over=0.0 if short else 0.02)
     else:
         # cube: dir = the way the cube turns; the camera orbits the other way round the box centre
         cube_sgn = {"L": 1, "R": -1, "U": 1, "D": -1}[d]
