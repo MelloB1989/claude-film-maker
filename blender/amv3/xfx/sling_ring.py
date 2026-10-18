@@ -51,7 +51,7 @@ def _plan(T, ctx):
     kB = 5.6
     v_end = (FILL * kB / s_end) * ds_end
     spd = X.Speed([(w0, z0 * ds0), (w0 + 3, 0.05), (w0 + 5, 0.12), (w0 + 6.5, 0.25), (cut - 1.5, 0.45),
-                   (cut - 0.5, 0.75), (cut + 0.5, 0.70), (cut + 1.5, 0.40), (cut + 2.5, 0.20), (cut + 4, 0.08),
+                   (cut - 0.5, 0.75), (cut + 0.5, 0.70), (cut + 1.5, 0.44), (cut + 2.5, 0.25), (cut + 4, 0.11),
                    (w1, v_end)], m0=0.004)
     z = lambda t: z0 - spd.x(t)  # noqa: E731
     P["z"], P["spd"] = z, spd

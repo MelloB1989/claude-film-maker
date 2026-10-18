@@ -46,9 +46,9 @@ def _plan(T, ctx):
     z = lambda t: z0 - spd.x(t)  # noqa: E731
     P["z"], P["spd"] = z, spd
     # jolt on the hit: slide against the yank (picture flows with the card), roll kick, both decaying ~0.8 / f
-    lat = X.Speed([(w0, 0.0), (cut - 1.0, 0.0), (cut + 0.4, -0.032 * side), (cut + 2, -0.016 * side),
+    lat = X.Speed([(w0, 0.0), (cut - 2.5, 0.0), (cut - 1.0, -0.010 * side), (cut + 0.4, -0.026 * side), (cut + 2, -0.015 * side),
                    (cut + 4, -0.006 * side), (w1, -0.003 * side)], m0=0.0)
-    rol = X.Speed([(w0, 0.0), (cut - 0.8, 0.0), (cut + 0.3, 2.6 * side), (cut + 2, 1.1 * side), (cut + 4, 0.45 * side),
+    rol = X.Speed([(w0, 0.0), (cut - 2.5, 0.0), (cut - 1.0, 0.6 * side), (cut + 0.3, 1.6 * side), (cut + 2, 0.9 * side), (cut + 4, 0.4 * side),
                    (w1, 0.2 * side)], m0=0.0)
     P["lat"] = lambda t: lat.x(t)  # noqa: E731
     P["roll"] = lambda t: rol.x(t)  # noqa: E731
@@ -85,21 +85,29 @@ def bounds(T, ctx):
 
 
 # ------------------------------------------------------------------------------------------------- card motion
+def _yank_x(P, t):
+    """Card travel (m) along the yank: an exponential ramp, speed x1.6 per frame from f cut-4 (REFS: acceleration into
+    a hit x1.35-1.7 / f over the last 4 f, no single-frame step), off screen by the teleport."""
+    g, t0 = 1.6, P["cut"] - 4.0
+    if t <= t0:
+        return 0.0
+    return 0.255 * (g ** (t - P["cut"]) - g ** (t0 - P["cut"]))
+
+
 def _card_matrix(P, t):
-    """The S27 copy: a shiver under tension, then yanked to screen right, swinging open and turning."""
+    """The S27 copy: a shiver under tension, then yanked to screen right, swinging open and turning with its travel."""
     cut, side = P["cut"], P["side"]
-    sh = 0.010 * X.bump(t, cut - 2.6, cut - 0.4) * math.sin(9.0 * t)
-    u = max(0.0, (t - (cut - 0.6)) / 4.6)
-    x = side * (sh + 3.2 * u ** 2.2)
-    zt = 0.25 * u ** 1.6
-    ry = side * math.radians(62.0) * min(1.0, u ** 1.3)
-    rz = -side * math.radians(10.0) * min(1.0, u)
-    return Matrix.Translation(P["O"] + Vector((x, 0.0, zt))) @ Euler((0.0, ry, rz)).to_matrix().to_4x4()
+    sh = 0.010 * X.bump(t, cut - 3.0, cut - 0.6) * math.sin(9.0 * t)
+    x = _yank_x(P, t)
+    u = min(1.0, x / 1.6)
+    zt = 0.25 * u ** 1.3
+    ry = side * math.radians(62.0) * u ** 0.9
+    rz = -side * math.radians(10.0) * u
+    return Matrix.Translation(P["O"] + Vector((side * (sh + x), 0.0, zt))) @ Euler((0.0, ry, rz)).to_matrix().to_4x4()
 
 
 def _bend(P, t):
-    u = max(0.0, (t - (P["cut"] - 0.6)) / 3.2)
-    return -P["side"] * math.radians(110.0) * min(1.0, u ** 1.4)
+    return -P["side"] * math.radians(110.0) * min(1.0, _yank_x(P, t) / 1.3) ** 1.2
 
 
 # ------------------------------------------------------------------------------------------------- build
@@ -145,8 +153,8 @@ def build(T, ctx):
             tip = X._sstep(tl, tl + 1.5, t)  # tip travels origin -> anchor in 1.5 f
             M = _card_matrix(P, t)
             anc = M @ anc_l
-            yank = max(0.0, t - (cut - 0.6))
-            o = O + org + Vector((side * 0.9 * yank ** 1.8, 0.05 * yank, -0.04 * yank))
+            yank = _yank_x(P, t)
+            o = O + org + Vector((side * 1.1 * yank, 0.06 * yank, -0.05 * yank))
             tension = X._sstep(tl + 1.5, cut - 0.6, t)
             for i, pt in enumerate(sp.points):
                 u = tip * i / (NP - 1)
@@ -192,7 +200,7 @@ def build(T, ctx):
         return d * X.lerp(0.55, 1.0, u), X.lerp(64.0, X.lerp(1.6, 64.0, u), k)
 
     X.key_path(ctx, w0, w1, fn, teleports=(t_in, t_out), dof_fn=dof)
-    ctx.log(f"web_wipe: yank {'right' if side > 0 else 'left'} at f{cut - 0.6}, S28 copy x{P['kB']:.2f} "
+    ctx.log(f"web_wipe: yank {'right' if side > 0 else 'left'} from f{cut - 4}, S28 copy x{P['kB']:.2f} "
             f"{DEPTH_B} m behind, s at the reveal {P['b_state'](cut)[0]:.2f}")
 
 

@@ -513,10 +513,11 @@ def _nebula_mat(name, c0, c1, f0, f1):
     mp = nt.nodes.new("ShaderNodeMapping")
     mp.inputs["Scale"].default_value = (1.0, 1.0, 0.35)
     nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
-    no = X.node(nt, "ShaderNodeTexNoise", Scale=1.6, Detail=10.0, Roughness=0.62, Distortion=1.4)
+    no = X.node(nt, "ShaderNodeTexNoise", Scale=0.6, Detail=3.0, Roughness=0.5)
     nt.links.new(mp.outputs[0], no.inputs["Vector"])
-    fil = X.math_node(nt, "POWER", X.math_node(nt, "SUBTRACT", 1.0, X.math_node(
-        nt, "ABSOLUTE", X.math_node(nt, "SUBTRACT", X.math_node(nt, "MULTIPLY", no.outputs["Fac"], 2.0), 1.0))), 16.0)
+    # sparse soft clouds of act light over a near-black void (the cards and arcs carry the picture)
+    fil = X.math_node(nt, "POWER", X.math_node(nt, "DIVIDE", X.math_node(
+        nt, "MAXIMUM", X.math_node(nt, "SUBTRACT", no.outputs["Fac"], 0.56), 0.0), 0.2), 2.0)
     col = nt.nodes.new("ShaderNodeMix")
     col.data_type = "RGBA"
     nt.links.new(sep.outputs[1], col.inputs[0])
@@ -529,7 +530,7 @@ def _nebula_mat(name, c0, c1, f0, f1):
     fog.inputs[7].default_value = (*f1, 1)
     e1 = nt.nodes.new("ShaderNodeEmission")
     nt.links.new(col.outputs[2], e1.inputs["Color"])
-    nt.links.new(X.math_node(nt, "MULTIPLY", fil, 0.3), e1.inputs["Strength"])
+    nt.links.new(X.math_node(nt, "MULTIPLY", fil, 0.35), e1.inputs["Strength"])
     e2 = nt.nodes.new("ShaderNodeEmission")
     nt.links.new(fog.outputs[2], e2.inputs["Color"])
     e2.inputs["Strength"].default_value = 0.2
