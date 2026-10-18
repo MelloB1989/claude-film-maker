@@ -915,14 +915,13 @@
   {
    "id": "C02",
    "f": 83,
-   "type": "whip",
-   "w0": 78,
+   "type": "layer",
+   "w0": 73,
    "w1": 93,
    "a": "S02",
    "b": "S03",
    "p": {
-    "dir": "R",
-    "angle": 70
+    "mode": "keep"
    },
    "over": [],
    "lens": {
@@ -994,14 +993,13 @@
   {
    "id": "C06",
    "f": 201,
-   "type": "whip",
-   "w0": 196,
+   "type": "layer",
+   "w0": 191,
    "w1": 210,
    "a": "S06",
    "b": "S07",
    "p": {
-    "dir": "L",
-    "angle": 70
+    "mode": "keep"
    },
    "over": [],
    "lens": {
@@ -1063,17 +1061,13 @@
   {
    "id": "C09",
    "f": 300,
-   "type": "zt",
-   "w0": 295,
+   "type": "layer",
+   "w0": 294,
    "w1": 310,
    "a": "S09",
    "b": "S10",
    "p": {
-    "mode": "pull",
-    "peak": 0.45,
-    "land": 2.4,
-    "settle": 1.12,
-    "roll": 40
+    "mode": "sweep"
    },
    "over": [],
    "lens": {
@@ -1510,13 +1504,13 @@
   {
    "id": "C30",
    "f": 744,
-   "type": "cube",
-   "w0": 740,
-   "w1": 751,
+   "type": "layer",
+   "w0": 738,
+   "w1": 752,
    "a": "S30",
    "b": "S31",
    "p": {
-    "dir": "L"
+    "mode": "sweep"
    },
    "over": [],
    "lens": {
