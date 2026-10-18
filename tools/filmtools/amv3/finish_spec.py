@@ -46,8 +46,11 @@ LOOK_PUSH = {
     "tobey": dict(contrast=20, saturation=112, vibrance=16, blacks=-6, cShadows=-2, hsRed=5, hsYellow=10, hsMagenta=-20,
                   wShadows=[0.44, 0.52, 0.59], cbShadows=[-5, 1, 6],
                   bloomThreshold=78, bloomRadius=70, bloomIntensity=0.9, bloomColor=[1.0, 0.80, 0.52]),
-    "andrew": dict(contrast=26, saturation=134, vibrance=30, blacks=-8, cShadows=-5, hsRed=8, hsYellow=18, hsCyan=34, hsMagenta=-10,
-                   hsBlue=18, bloomThreshold=78, bloomRadius=60, bloomIntensity=0.95, bloomColor=[0.55, 0.86, 1.0]),
+    # stage draft1: Andrew's skies are 25 % clipped in the plate: roll the highlights/whites down so the sky keeps detail
+    # and colour, and keep the bloom to the very top (a wide bloom on a bright sky is the milky haze)
+    "andrew": dict(contrast=26, saturation=134, vibrance=30, highlights=-34, whites=-16, blacks=-8, cShadows=-5, cHighlights=-6,
+                   hsRed=8, hsYellow=18, hsCyan=40, hsMagenta=-10, hsBlue=26, bloomThreshold=90, bloomRadius=45, bloomIntensity=0.45,
+                   bloomColor=[0.55, 0.86, 1.0]),
     "tom": dict(contrast=30, saturation=122, vibrance=14, blacks=-9, cShadows=-6, hsRed=34, hsYellow=6, hsMagenta=-8,
                 cbShadows=[-9, 0, 11], bloomThreshold=80, bloomRadius=55, bloomIntensity=0.9, bloomColor=[1.0, 0.64, 0.44]),
 }
@@ -95,8 +98,11 @@ DECAY = 5          # frames after the cut over which the profile falls to ~0 (la
 # lifts a dark Tobey frame +80 % turns an already bright frame milky white (v2's lesson; first v3 drop test, f478-482).
 CA_EDGE_PER_UNIT = 1.65   # measured: VR Chromatic Aberrations amount N -> R/B split of 1.65 N px at the frame edge (linear to 0 at centre)
 CA_TAIL = (8.0, 0.6, 8)   # after the cut: edge split (8 + 0.6 ca) px fading to 0 over 8 f (10-20 px over the first 4 f)
-EXPO_PEAK = 0.75          # EV at the profile peak, before headroom
+EXPO_PEAK = 0.5           # EV at the profile peak, before headroom (0.75 blew faces on stage draft1 landings, C05 175)
 FLASH_EV = {1: [1.9, 1.3, 0.6], 2: [2.6, 1.8, 0.9]}   # the 3 white frames of a flash cut, by edl `flash` (2 = the drop)
+FLASH_GAIN = {1: 1.0, 2: 0.55}  # stage draft1: the drop plate is already white at its centre; 1.0 clipped 41-48 % over 3 f (target 17-30)
+WASH4_TINT = {-2: 0.3, -1: 0.5, 0: 0.5, 1: 0.35, 2: 0.15, 3: 0.05}  # sling ring orange Multiply, by frame from the cut (the stage plate has its own wash)
+WASH4_COLOR = [1.0, 0.52, 0.18]
 LUMA_CAP = 0.58           # mean luma (0..1) the light aims under: at or above it the leak/bloom/exposure fade to HEAD_MIN
 HEAD_MIN = 0.06
 TRIPTYCH_PEAKS = [(777, 0.8), (785, 0.85), (794, 0.85), (802, 0.6)]
@@ -178,27 +184,28 @@ def lens_plan(E, zvec=None, luma=None):
                 w4 = {f - 2: 0.7, f - 1: 1.0, f: 1.0, f + 1: 0.55}.get(x, 0.0)
                 pl = max(p, w4)
                 if w4:
-                    h = max(h, 0.8 * w4)    # the wash is the transition itself: it overrides the bright-frame headroom
-            K["tint"].append([x, round(100.0 * {f - 2: 0.75, f - 1: 1.0, f: 1.0, f + 1: 0.6, f + 2: 0.35, f + 3: 0.15}.get(x, 0.0), 1) if R.get("wash4") else 0.0])
+                    h = max(h, 0.5 * w4)    # the wash is the transition itself: it overrides the bright-frame headroom (partly)
+            # the orange is a Multiply (orange x the picture: a white portal turns orange, detail kept; never a flat ADD fill)
+            K["tint"].append([x, round(100.0 * WASH4_TINT.get(x - f, 0.0), 1) if R.get("wash4") else 0.0])
             K["bloom"].append([x, round(1.0 * lg * pl * h * h, 3)])          # a wide glow on a bright frame is a veil: h^2
             K["bloomThr"].append([x, round(76 - 14 * pl * h, 1)])
             K["leak"].append([x, round(min(100.0, 115.0 * lg * pl ** 1.3 * h), 1)])
-            K["wash"].append([x, round(min(100.0, (100.0 if R.get("wash4") else 70.0) * lg * pl ** 1.1 * h), 1)])
-            e = EXPO_PEAK * pl * pl * h
+            K["wash"].append([x, round(min(100.0, (20.0 if R.get("wash4") else 70.0) * lg * pl ** 1.1 * h), 1)])
+            e = EXPO_PEAK * (p if R.get("wash4") else pl) ** 2 * h
             if fl and f <= x < f + 3:
                 # white flash: ~30 % of the pixels clipped on the first frame. Exposure that takes the frame's 70th
                 # percentile (~0.82 x its 90th, YHIGH) to white, x FLASH_EV shape (frames 2 and 3 fade).
                 hi = m[1] if m else 0.6
                 ev1 = max(0.5, min(2.6, math.log(0.95 / max(0.52 * hi, 0.05), 2)))
                 sh = FLASH_EV[min(fl, 2)]
-                e = max(e, ev1 * sh[x - f] / sh[0])
+                e = max(e, FLASH_GAIN[min(fl, 2)] * ev1 * sh[x - f] / sh[0])
             K["expo"].append([x, round(e, 3)])
             K["evo"].append([x, round(360.0 * 2.2 * u + 37 * i, 1)])
             ang = (i * 137.5) % 360
             K["drift"].append([x, [round(960 + 700 * math.cos(math.radians(ang)) * (u - 0.5), 1),
                                    round(540 + 400 * math.sin(math.radians(ang)) * (u - 0.5), 1)]])
         out.append(dict(id=C["id"], type=typ, f=f, w0=w0, w1=w1, act=act, center=[960, 540], colors=colors, flash=fl,
-                        seed=11 + 7 * i, leakKnee=round(0.55 + 0.3 * (1 - min(heads)), 3), leakRadius=70, bloomRadius=90, washContrast=115 if R.get("wash4") else 170,
+                        tintColor=WASH4_COLOR if R.get("wash4") else None, seed=11 + 7 * i, leakKnee=round(0.55 + 0.3 * (1 - min(heads)), 3), leakRadius=70, bloomRadius=90, washContrast=115 if R.get("wash4") else 170,
                         washBrightness=-12 if R.get("wash4") else -48, washScale=[1100, 620], washAngle=round((i * 61.8) % 180, 1),
                         headroom=heads, keys=K))
     return out
@@ -386,17 +393,20 @@ def text_tint(L):
     return {a: [[round(0.35 * v, 2) for v in L[a][k]] for k in ("cbShadows", "cbMids", "cbHighlights")] for a in ACT_ORDER}
 
 
-LIGHT_GLOWS = [dict(name="core", threshold=8, radius=10, intensity=1.3, opacity=100),
-               dict(name="halo", threshold=8, radius=45, intensity=1.0, opacity=90),
-               dict(name="bloom", threshold=8, radius=170, intensity=0.7, opacity=70)]
-TEXT_GLOW = dict(threshold=55, radius=18, intensity=0.5)
+# stage draft1: the light pass carries whole surfaces (rings, the TIMELESS letters, glass shards), not only small emitters,
+# and the plate already contains them: glow only their brightest parts, gently (the first values, 8/1.3/1.0/0.7, blew the
+# eye tunnel and the triptych title out to 26-36 % clipped)
+LIGHT_GLOWS = [dict(name="core", threshold=45, radius=10, intensity=0.6, opacity=60),
+               dict(name="halo", threshold=45, radius=45, intensity=0.45, opacity=50),
+               dict(name="bloom", threshold=55, radius=170, intensity=0.35, opacity=40)]
+TEXT_GLOW = dict(threshold=70, radius=18, intensity=0.25)
 
 
 # ---------------------------------------------------------------- accents (EffectCraft transitions, lab/TRANSITIONS.md)
 # Light Rays on every nest-zoom landing: a copy of the plate cut down to its highlights (Levels knee, dimmed), CC Light
 # Rays from B's own brightest non-skin area, ADD, opacity decaying over 4 f (scaled by the frame's headroom; target
 # <= ~15 % of pixels above 240 on the landing). Skipped where the next transition starts within 3 frames of the cut.
-RAYS = dict(types=("zt",), shape=[1.0, 0.75, 0.45, 0.22, 0.08], opacity=80, head_min=0.4, intensity=150, radius=300,
+RAYS = dict(types=("zt",), shape=[1.0, 0.75, 0.45, 0.22, 0.08], opacity=50, head_min=0.25, intensity=150, radius=300,
             warpSoftness=30, knee=0.72, gain=0.25, min_frames=3)
 # Shatter as an overlay burst on the slam hit: the landing frame frozen, extruded glass pieces blown outward over 8 f
 # (fading 4 f), placed under the grade so the shards are graded and hit by the window's lens FX.

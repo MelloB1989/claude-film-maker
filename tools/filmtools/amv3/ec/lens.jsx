@@ -123,12 +123,12 @@ var LENS = (function () {
         return l;
     }
 
-    // a whole-frame colour wash (sling ring: 4 frames of orange), Overlay: it colours and deepens, never a grey veil
+    // a whole-frame colour wash (sling ring: 4 frames of orange), Multiply: a white portal turns orange with its detail, never a flat fill
     function tint(main, C, ctx) {
         if (!C.colors || mx(k0(C, "tint")) <= 0) return null;
-        var fps = ctx.fps, c = C.colors[1] || C.colors[0];
-        var l = solid(main, "LENS " + C.id + " tint (colour wash)", [c[0], c[1], c[2]], C.w0, C.w1, fps, false);
-        l.blendingMode = BlendingMode.OVERLAY;
+        var fps = ctx.fps, c = C.tintColor || C.colors[1] || C.colors[0];
+        var l = solid(main, "LENS " + C.id + " tint (colour wash, multiply)", [c[0], c[1], c[2]], C.w0, C.w1, fps, false);
+        l.blendingMode = BlendingMode.MULTIPLY;
         K(TG(l).property("ADBE Opacity"), C.keys.tint, fps);
         return l;
     }
