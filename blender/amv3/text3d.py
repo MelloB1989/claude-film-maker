@@ -939,6 +939,10 @@ class Title:
         busy = [(w0, w1) for w0, w1, _ in (getattr(self.ctx, "windows", []) or [])]
         f_mm = LENS_MM
         a, b = span
+        if self.nest is not None:
+            b = min(b, float(self.nest.t_r) - 6.0)   # the nest pulls focus to B from ~t_r - 5: hand over before it
+            if b < a:
+                return
         sid = self.shots[0]
         if self.shot_frames:
             for (ta, tb, _, _), (sd, _) in zip(self.segs, self.shot_frames):
