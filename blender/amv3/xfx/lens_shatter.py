@@ -6,7 +6,7 @@ The nest owns the layout and the rig: Andrew's A09 (S17) home card stays still w
 framed on Tom's own lens from regions/S18/lens) already plays inside Andrew's lens; the camera flies into the lens (one
 exponential attack), crosses A's plane at 479.5 and decays onto Tom's lens; DOF sits on B through the approach; after
 w1 the copy -> home teleport is seamless. This module adds the LENS GLASS over the opening (thin glass with a faint trace
-of Andrew's lens, cut from the region's real outline): cracks race across it from ~476.5 and, as the camera passes
+of Andrew's lens, cut from the region's real outline): cracks race across it on 476-477 and, as the camera passes
 through the plane, it shatters around the camera's path - the shards stay almost still in the world and part and
 tumble while the camera flies past, with a refractive shock ring, a capped flash, chips/sparks and flakes lingering
 between the planes. Emissive bits (cracks, edges, sparks, flash) go to the light collection.
@@ -44,7 +44,7 @@ def _focus_b(T, ctx):
 
 def _nest_p(T, ctx):
     p = T["p"]
-    return dict(mode="push", region="lens", shot=T["a"]["id"], settle=float(p.get("settle", 1.3)),
+    return dict(mode="push", region="lens", shot=T["a"]["id"], settle=float(p.get("settle", 2.0)),
                 roll=float(p.get("roll", 12.0)), reveal=list(p.get("reveal", REVEAL)), fstop=float(p.get("fstop", 2.0)),
                 focus_b=p.get("focus_b") or _focus_b(T, ctx))
 
@@ -131,7 +131,6 @@ def build(T, ctx):
     glass_i.matrix_world = M_glass @ Matrix.Translation(c_i)
     fx.link(glass_i, plate)
     fx.key_visible(glass_i, w0 - 0.5, fc - 1.0)
-    edge_mat = fx.emission_mat("ls_edge", _mix(palA["key"], (1, 1, 1), 0.4), 2.0)
     MFi = MF.inverted()
     prev = {}
     for sh in shards:
@@ -150,17 +149,11 @@ def build(T, ctx):
                                         Quaternion(sh.axis, math.radians(spin * u * u / (u + 2.0))) @ q0, None)
             fx.key_matrix(sh.ob, t, M, prev)
         fx.key_visible(sh.ob, fc - 1.0, th)
-        if sh.size > 0.12 * R and rng.random() < 0.5:
-            eo = _edge_outline(sh, edge_mat, light)
-            if eo:
-                fx.key_visible(eo, fc - 1.0, th)
-    for t, gw in ((w0, 0.2), (f - 3, 0.4), (fc - 0.5, 1.0), (fc, 0.8), (f + 2, 0.5), (f + 6, 0.2)):
+    for t, gw in ((w0, 0.2), (f - 3, 0.3), (fc - 0.5, 0.3), (fc, 0.25), (f + 2, 0.2), (f + 6, 0.1)):
         fx.key_glass_glow(rim, t, gw)
-    for t, gw in ((fc - 1.0, 0.0), (fc, 1.5), (f + 3, 0.6), (f + 8, 0.2)):
-        fx.key_glow(edge_mat, t, gw)
 
     # ---- cracks racing across the glass before the camera reaches it
-    crack0 = f - 3.5
+    crack0 = f - 4.5
     crack_mat = fx.crack_material("ls_crack", _mix(palA["key"], (1, 1, 1), 0.5), imp)
     splines = []
     for (p, q) in fx.cell_edges(cells):
@@ -174,9 +167,9 @@ def build(T, ctx):
     cr = fx.poly_curve("ls_cracks", splines, 0.00045, crack_mat)
     cr.matrix_world = MF
     fx.link(cr, light)
-    fx.key_visible(cr, crack0, fc + 0.5)
-    for t, rr, g in ((crack0, 0.0, 0.0), (f - 3, 0.06, 3.0), (f - 2, 0.35, 3.0), (f - 1.5, 0.6, 2.2),
-                     (fc - 0.5, 1.3, 1.2), (fc + 0.5, 1.6, 0.3)):
+    # dim: this close to the lens at f/2 every crack is a wide bokeh streak
+    fx.key_visible(cr, crack0, f - 2.5)
+    for t, rr, g in ((crack0, 0.0, 0.0), (f - 4, 0.1, 0.4), (f - 3, 0.5, 0.25), (f - 2.6, 0.7, 0.0)):
         fx.key_crack(crack_mat, t, rr * R, g)
 
     # ---- the hit: shock ring in the glass plane, flash between the planes, sparks and chips, lingering flakes
@@ -184,7 +177,7 @@ def build(T, ctx):
     impK = Vector((0, 0, 0))
     fh = fc - 0.5
     _shockwave(K, impK, 0.32 * R, 0.34 * R, fh, f, palA, palB, light, plate, rng)
-    _flash(K, impK, n.D * 0.5, fh, f, palB, light, 0.35, 0.07 * R)
+    _flash(K, impK, n.D * 0.5, fh, f, palB, light, 0.35)
     _chips(K, impK, 0.32 * R, fh, f, palA, palB, light, plate, rng, face, 4.0 * R)
     _debris(K, n.D, fh, f, th, palA, plate, rng, face)
 
@@ -192,8 +185,8 @@ def build(T, ctx):
         loc, rot = n.pose(t)
         return Matrix.LocRotScale(loc, rot, None)
     # glints only once the glass is broken (a flat intact slab mirrors an area light as a hard square)
-    fx.camera_light("ls_keyB", cam_fn, fc - 1.0, th, Vector((-0.45, 0.35, 0.25)), palB["key"], 25.0, 0.4)
-    fx.camera_light("ls_rimB", cam_fn, fc - 1.0, th, Vector((0.5, -0.3, 0.2)), palA["key"], 20.0, 0.35)
+    fx.camera_light("ls_keyB", cam_fn, fc - 1.0, th, Vector((-0.45, 0.35, 0.25)), palB["key"], 10.0, 0.4)
+    fx.camera_light("ls_rimB", cam_fn, fc - 1.0, th, Vector((0.5, -0.3, 0.2)), palA["key"], 8.0, 0.35)
     ctx.log("lens_shatter (nest): %d shards over the %s lens, R %.3f m, crossing at (%.0f, %.0f) f%.1f, D %.3f k %.3f, "
             "reveal f%.1f, B lens at %s" % (len(shards), sa, R, n.P[0], n.P[1], fc, n.D, n.k, n.t_r,
                                              [round(v) for v in n.fK]))
@@ -201,20 +194,6 @@ def build(T, ctx):
 
 def _mix(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
-
-
-def _edge_outline(sh, mat, coll):
-    me = sh.ob.data
-    zs = max(v.co.z for v in me.vertices)
-    top = [v.co.copy() for v in me.vertices if abs(v.co.z - zs) < 1e-6]
-    if len(top) < 3:
-        return
-    ang = sorted(top, key=lambda v: math.atan2(v.y, v.x))
-    pts = [(Vector((v.x, v.y, v.z + 0.0002)), 1.0) for v in ang] + [(Vector((ang[0].x, ang[0].y, ang[0].z + 0.0002)), 1.0)]
-    ob = fx.poly_curve(sh.ob.name + "_edge", [pts], 0.00035, mat, caps=False)
-    ob.parent = sh.ob
-    fx.link(ob, coll)
-    return ob
 
 
 def _shockwave(K, impK, depth0, speed, fh, f, palA, palB, light, plate, rng):
@@ -237,8 +216,8 @@ def _shockwave(K, impK, depth0, speed, fh, f, palA, palB, light, plate, rng):
     ob = bpy.data.objects.new("ls_ring_glass", me)
     fx.link(ob, plate)
     place(ob, 0.9, -0.004, 0.22, {})
-    for name, col, sr, g0 in (("ls_edge_cyan", _mix(palA["key"], (1, 1, 1), 0.3), 1.012, 9.0),
-                              ("ls_edge_warm", _mix(palB["key"], (1, 0.8, 0.3), 0.3), 0.992, 6.0)):
+    for name, col, sr, g0 in (("ls_edge_cyan", _mix(palA["key"], (1, 1, 1), 0.3), 1.012, 2.5),
+                              ("ls_edge_warm", _mix(palB["key"], (1, 0.8, 0.3), 0.3), 0.992, 1.8)):
         me = fx.torus_mesh(name, 1.0, 0.0022, 192, 6)
         mat = fx.emission_mat(name, col, g0, additive=True)
         me.materials.append(mat)
@@ -249,22 +228,9 @@ def _shockwave(K, impK, depth0, speed, fh, f, palA, palB, light, plate, rng):
             fx.key_glow(mat, t, g)
 
 
-def _flash(K, impK, camB0, fh, f, pal, light, gain=1.0, size=0.018):
-    import bmesh
-    me = bpy.data.meshes.new("ls_flash")
-    bm = bmesh.new()
-    bmesh.ops.create_icosphere(bm, subdivisions=2, radius=1.0)
-    bm.to_mesh(me)
-    bm.free()
-    mat = fx.emission_mat("ls_flash", _mix(pal["key"], (1, 1, 1), 0.75), 0.0, additive=True)
-    me.materials.append(mat)
-    ob = bpy.data.objects.new("ls_flash", me)
+def _flash(K, impK, camB0, fh, f, pal, light, gain=1.0):
+    """A point light between the planes on the break (glints on the shards and flakes; no visible flash body)."""
     p = Vector((impK.x, impK.y, impK.z - 0.6 * (camB0 - (-impK.z))))
-    ob.matrix_world = K @ Matrix.LocRotScale(p, Quaternion(), Vector((size, size, size)))
-    fx.link(ob, light)
-    for t, g in ((fh, 0.0), (f, 30.0 * gain), (f + 1, 9.0 * gain)):
-        fx.key_glow(mat, t, g)
-    fx.key_visible(ob, fh, f + 1.5)
     ld = bpy.data.lights.new("ls_flash_pt", "POINT")
     ld.color = _mix(pal["key"], (1, 1, 1), 0.6)
     ld.shadow_soft_size = 0.02
@@ -284,7 +250,7 @@ def _chips(K, impK, depth0, fh, f, palA, palB, light, plate, rng, face, sc=1.0):
     for k in range(4):
         m = fx.emission_mat("ls_spark_%d" % k, _mix(palA["key"] if k % 2 else palB["key"], (1, 1, 1), 0.35 + 0.1 * k),
                             0.0, additive=True)
-        g0 = (16.0, 9.0, 5.0, 2.5)[k]
+        g0 = (6.0, 4.0, 2.5, 1.5)[k]
         life = (2.5, 3.5, 4.5, 5.5)[k]
         for t, g in ((fh, g0), (f + life * 0.5, g0 * 0.6), (f + life, 0.0)):
             fx.key_glow(m, t, g)
@@ -304,10 +270,10 @@ def _chips(K, impK, depth0, fh, f, palA, palB, light, plate, rng, face, sc=1.0):
         fx.link(ob, light if is_spark else plate)
         a = rng.uniform(0, 2 * math.pi)
         el = rng.uniform(0.15, 1.0)
-        v = Vector((math.cos(a) * el, math.sin(a) * el, rng.uniform(0.4, 1.4))) * rng.uniform(0.008, 0.05) * sc
+        v = Vector((math.cos(a) * el, math.sin(a) * el, -rng.uniform(0.4, 1.4))) * rng.uniform(0.008, 0.05) * sc
         ax = fx.rand_axis(rng)
         spin = rng.uniform(20, 70)
-        t0 = fh + rng.uniform(0.0, 1.5)
+        t0 = fh + 0.5 + rng.uniform(0.0, 1.5)
         for t in fx.frames_half(fh, f + 7):
             u = max(0.0, t - t0)
             pos = Vector((impK.x, impK.y, impK.z - 0.01)) + v * u * (1.0 + 0.15 * u)
