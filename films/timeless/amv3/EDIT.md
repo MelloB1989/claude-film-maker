@@ -65,8 +65,13 @@ transition and the hero titles.**
 
 ### The motion rules (the smoothness contract; the stage's gate checks them)
 - **The camera never stops.** Every frame of 0-819 has picture motion. Holds are C1 curves (Hermite) from the incoming
-  transition's exit velocity to the outgoing transition's entry velocity. A hold may reverse direction only when it is
-  at least 16 f long, and then smoothly.
+  transition's exit velocity to the outgoing transition's entry velocity. Measured on the references (REFS.md): hold drift
+  is 1.5-3.5 %/f of zoom (45-100 %/s), never under ~1 %/f; a reversal takes 5-7 f and is smooth.
+- **Measured transition shape** (REFS.md, ref c): A's attack is expo-in, the speed about doubling each frame over the last
+  3-4 A frames (zoom +1, +4, +9, +20..30 %/f); 1-3 smeared frames (median 2); B leaves the smear at the SAME speed and
+  decays expo-out (x0.75-0.85 per frame, 10 % of peak after 7-12 f); B's first 2-4 frames are also lens-defocused (real
+  DOF rack focus) and carry 5-15 px of chromatic split fading over 6-10 f. Zoom sign may flip behind the smear; speed
+  magnitude and the screen direction of pan/roll carry through.
 - **Velocity is continuous at every window edge**: the camera speed changes by at most x1.35 per frame outside the
   intended accelerations; no step changes. Inside a transition the speed follows one ease (accelerate into the cut, decelerate
   out of it), peaking at the cut.
