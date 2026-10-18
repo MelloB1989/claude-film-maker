@@ -123,9 +123,10 @@ def plan(T, ctx=None):
                 sB=math.exp(lB), A=(ax, ay), rB=rB)
 
 
-NEST = {  # region kind on A, dive pitch (deg, peak at the cut, on RIG_SHAKE), frames it builds over
+NEST = {  # region kind on A (S10 has no mask: bg), dive pitch (deg, peak at the cut, on RIG_SHAKE), frames it builds over
     "dive": dict(region="bg", pitch_peak=-3.0, pitch_lead=5.0),
-    "through": dict(region="bg", pitch_peak=0.0, pitch_lead=0.0),
+    # C25: the shuriken passes his eye; S25 has a real eye mask (regions/S25/eye): push through the word into the eye
+    "through": dict(region="eye", pitch_peak=0.0, pitch_lead=0.0),
 }
 
 
