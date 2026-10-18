@@ -65,8 +65,8 @@
    ],
    "speed": "const",
    "focus": [
-    960,
-    470
+    975,
+    445
    ],
    "move": {
     "drift": "out",
@@ -116,7 +116,7 @@
    ],
    "speed": "const",
    "focus": [
-    950,
+    920,
     560
    ],
    "move": {
@@ -167,8 +167,8 @@
    ],
    "speed": "const",
    "focus": [
-    980,
-    520
+    1029,
+    510
    ],
    "move": {
     "drift": "out",
@@ -298,8 +298,8 @@
    ],
    "speed": "const",
    "focus": [
-    915,
-    600
+    860,
+    440
    ],
    "move": {
     "drift": "in",
@@ -445,8 +445,8 @@
    ],
    "speed": "launch",
    "focus": [
-    990,
-    565
+    1010,
+    290
    ],
    "move": {
     "drift": "in",
@@ -674,8 +674,8 @@
    ],
    "speed": "const",
    "focus": [
-    700,
-    470
+    507,
+    375
    ],
    "move": {
     "drift": "in",
@@ -898,8 +898,10 @@
    "a": "S01",
    "b": "S02",
    "p": {
-    "peak": 3.2,
-    "land": 2.6,
+    "mode": "pull",
+    "peak": 0.45,
+    "land": 2.4,
+    "settle": 1.12,
     "roll": 25
    },
    "over": [],
@@ -975,8 +977,10 @@
    "a": "S05",
    "b": "S06",
    "p": {
-    "peak": 3.0,
+    "mode": "pull",
+    "peak": 0.45,
     "land": 2.4,
+    "settle": 1.12,
     "roll": -180
    },
    "over": [],
@@ -1016,10 +1020,11 @@
    "a": "S07",
    "b": "S08",
    "p": {
+    "mode": "push",
     "peak": 3.0,
-    "land": 1.12,
-    "roll": 0,
-    "mode": "push"
+    "land": 1.05,
+    "settle": 1.1,
+    "roll": 0
    },
    "over": [],
    "lens": {
@@ -1064,8 +1069,10 @@
    "a": "S09",
    "b": "S10",
    "p": {
-    "peak": 3.0,
+    "mode": "pull",
+    "peak": 0.45,
     "land": 2.4,
+    "settle": 1.12,
     "roll": 40
    },
    "over": [],
@@ -1124,8 +1131,10 @@
    "a": "S12",
    "b": "S13",
    "p": {
-    "peak": 3.2,
-    "land": 2.4,
+    "mode": "push",
+    "peak": 3.0,
+    "land": 1.05,
+    "settle": 1.45,
     "roll": -30
    },
    "over": [],
@@ -1182,8 +1191,10 @@
    "a": "S15",
    "b": "S16",
    "p": {
-    "peak": 2.8,
-    "land": 2.2,
+    "mode": "push",
+    "peak": 3.0,
+    "land": 1.05,
+    "settle": 1.4,
     "roll": 180
    },
    "over": [],
@@ -1203,10 +1214,11 @@
    "a": "S16",
    "b": "S17",
    "p": {
+    "mode": "push",
     "peak": 3.0,
-    "land": 1.12,
-    "roll": 0,
-    "mode": "push"
+    "land": 1.05,
+    "settle": 1.1,
+    "roll": 0
    },
    "over": [],
    "lens": {
@@ -1251,8 +1263,10 @@
    "a": "S18",
    "b": "S19",
    "p": {
-    "peak": 3.0,
+    "mode": "pull",
+    "peak": 0.45,
     "land": 2.4,
+    "settle": 1.15,
     "roll": -35
    },
    "over": [],
@@ -1292,8 +1306,10 @@
    "a": "S20",
    "b": "S21",
    "p": {
-    "peak": 3.0,
+    "mode": "pull",
+    "peak": 0.45,
     "land": 2.6,
+    "settle": 1.15,
     "roll": 200
    },
    "over": [
@@ -1315,8 +1331,10 @@
    "a": "S21",
    "b": "S22",
    "p": {
-    "peak": 2.8,
+    "mode": "pull",
+    "peak": 0.5,
     "land": 2.2,
+    "settle": 1.12,
     "roll": -30
    },
    "over": [],
@@ -1413,8 +1431,10 @@
    "a": "S26",
    "b": "S27",
    "p": {
-    "peak": 2.8,
+    "mode": "pull",
+    "peak": 0.5,
     "land": 2.2,
+    "settle": 1.12,
     "roll": -180
    },
    "over": [],
@@ -1453,8 +1473,10 @@
    "a": "S28",
    "b": "S29",
    "p": {
-    "peak": 3.0,
+    "mode": "pull",
+    "peak": 0.5,
     "land": 2.4,
+    "settle": 1.12,
     "roll": 30
    },
    "over": [],
@@ -1513,8 +1535,10 @@
    "a": "S31",
    "b": "S32",
    "p": {
+    "mode": "push",
     "peak": 2.8,
-    "land": 2.3,
+    "land": 1.05,
+    "settle": 1.4,
     "roll": -25
    },
    "over": [],

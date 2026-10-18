@@ -34,7 +34,8 @@ ACTS = [
 
 # ---------------------------------------------------------------------------------------------------------------------
 # SHOTS. speed: const | velocity (fast-slow-fast) | land (fast -> slow) | launch (slow -> fast) | reverse (src0 > src1).
-# focus: [x, y] clip pixels that zooms centre on (eye, lens); None = frame centre.
+# focus: [x, y] clip pixels that zooms centre on (eye, lens) at the shot's first frame; None = frame centre. The
+#   moving point per frame is $AMV3_DATA/tracks/<id>.json (tracks.py); use the track, not this seed, when it exists.
 # move: the HOLD intent between transitions. The stage solves each hold as a C1 curve that starts with the incoming
 #   transition's exit velocity and ends with the outgoing transition's entry velocity, so the camera never stops.
 #   drift: "in" (slow push) | "out" (slow pull) | "auto" (whatever joins the two transitions without a reversal)
@@ -53,13 +54,13 @@ def shot(id, clip, a, b, src, speed="const", focus=None, move=None, fx=(), note=
 
 
 # ---------------- ACT I  TOBEY  (guitar intro, f0-252)
-shot("S01", "T01_mask_night", 0, 50, (0.05, 0.75), "const", (960, 470),
+shot("S01", "T01_mask_night", 0, 50, (0.05, 0.75), "const", (975, 445),
      dict(drift="out", roll=-2.0, depth=0.35), [], "opens out of black: the camera pulls back through the dark with depth parallax")
 shot("S02", "T02_mask_off", 50, 83, (0.08, 0.66), "land", None, dict(drift="out", roll=1.5), [], "the unmasking")
-shot("S03", "T03_glove_city", 83, 118, (0.15, 0.85), "const", (950, 560), dict(drift="in", pan=[-40, 0], depth=0.3), [],
+shot("S03", "T03_glove_city", 83, 118, (0.15, 0.85), "const", (920, 560), dict(drift="in", pan=[-40, 0], depth=0.3), [],
      "TOBEY MAGUIRE name card + EARTH-96283 caption")
 shot("S04", "T04_flowers", 118, 151, (0.10, 0.90), "const", None, dict(drift="in", roll=-1.5), [], "gold bokeh")
-shot("S05", "T05_black_lens", 151, 175, (0.15, 0.95), "const", (980, 520), dict(drift="out", roll=2.0), [],
+shot("S05", "T05_black_lens", 151, 175, (0.15, 0.95), "const", (1029, 510), dict(drift="out", roll=2.0), [],
      "black suit: emerges from the symbiote goo")
 shot("S06", "T06_bully_smirk", 175, 201, (0.10, 0.95), "land", None, dict(drift="in"), [], "Bully Maguire smirk")
 shot("S07", "T07_train", 201, 235, (0.30, 0.85), "velocity", None, dict(drift="out", depth=0.25), ["shake@201"],
@@ -70,7 +71,7 @@ shot("S08", "T08_eye_dive", 235, 252, (0.05, 0.75), "const", (901, 390), dict(dr
 # ---------------- ACT II  ANDREW  (build, f252-480)
 shot("S09", "A01_lens_pullout", 252, 300, (4.45, 0.40), "land", (1036, 546), dict(drift="out", roll=3.0), [],
      "out of the tunnel through Andrew's lens, pulling out over the night city; WHO ARE YOU?")
-shot("S10", "A03_sunset_mask", 300, 336, (0.02, 0.70), "const", (915, 600), dict(drift="in", depth=0.3), [],
+shot("S10", "A03_sunset_mask", 300, 336, (0.02, 0.70), "const", (860, 440), dict(drift="in", depth=0.3), [],
      "3D AMAZING assembles behind his head; ANDREW GARFIELD / EARTH-120703")
 shot("S11", "A02_freefall", 336, 369, (0.05, 1.30), "velocity", None, dict(drift="in", roll=-4.0), [],
      "freefall past the Empire State (we dive into it through the AMAZING letters)")
@@ -79,7 +80,7 @@ shot("S12", "A04_bridge_flip", 369, 400, (0.05, 1.25), "velocity", None, dict(dr
 shot("S13", "A05_topdown_fall", 400, 416, (0.05, 0.75), "launch", None, dict(drift="in"), [], "top-down dive")
 shot("S14", "A06_water_tower", 416, 436, (0.10, 0.80), "velocity", None, dict(drift="out"), [], "leap off the water tower")
 shot("S15", "A07_electro", 436, 453, (0.05, 0.75), "const", None, dict(drift="in", roll=-2.0), [], "Electro's lightning")
-shot("S16", "A08_blue_lenses", 453, 468, (0.05, 0.75), "launch", (990, 565), dict(drift="in"), [], "blue lenses")
+shot("S16", "A08_blue_lenses", 453, 468, (0.05, 0.75), "launch", (1010, 290), dict(drift="in"), [], "blue lenses")
 shot("S17", "A09_lens_pushin", 468, 480, (0.00, 1.10), "launch", (1110, 443), dict(drift="in"), [],
      "riser: slam into the lens; the lens glass shatters on the drop")
 
@@ -95,7 +96,7 @@ shot("S22", "M07_roll_crouch", 570, 587, (0.05, 0.72), "land", None, dict(drift=
 shot("S23", "M15_landing_crouch", 587, 604, (0.10, 0.75), "land", None, dict(drift="out", depth=0.45), ["shake@587"],
      "superhero landing: 3D-photo dolly, dust shockwave")
 shot("S24", "M06_flying_kick", 604, 620, (0.05, 0.75), "velocity", None, dict(drift="in"), [], "flying kick")
-shot("S25", "M08_shuriken", 620, 656, (0.02, 0.76), "const", (700, 470), dict(drift="in", depth=0.25),
+shot("S25", "M08_shuriken", 620, 656, (0.02, 0.76), "const", (507, 375), dict(drift="in", depth=0.25),
      ["letterbox", "punch@631"], "slow motion through the sling-ring portal; the shuriken passes his eye; 3D SPIDER-MAN")
 shot("S26", "M09_punches", 656, 672, (0.05, 0.72), "velocity", None, dict(drift="out"), ["shake@656"], "punches")
 shot("S27", "M10_tank_snap", 672, 686, (0.05, 0.88), "land", None, dict(drift="in"), [], "crouch on the tank")
@@ -114,9 +115,13 @@ shot("S32", "M14_head_raise", 760, 777, (0.05, 0.84), "const", None, dict(drift=
 #   xfx/<type>.py modules: eye_tunnel, symbiote, sling_ring, web_wipe (xfx-A); lens_shatter, lightning, triptych (xfx-B);
 #   text_fly (text3d)
 # over: overlay modules that only ADD objects in the window (no camera), e.g. dome_shards.
-# p: parameters. zt: peak = A's scale at the cut (x fill), land = B's scale at the cut, roll = degrees turned through the
-#   window (+ = clockwise on screen), focus_a/focus_b default to the shots' focus; mode "push" = B keeps pushing in
-#   after the cut (no pull-out landing). whip: dir L|R|U|D, angle = degrees the
+# p: parameters. zt keeps the zoom SIGN through the cut (the references do on 22-23 of ~24 cuts; v2 reversed it on 11):
+#   mode "push": A pushes in to `peak` x on its focus (expo-in); B starts at `land` (~1.05) on its focus and keeps
+#     pushing in, decelerating (x0.75-0.85 per frame) to `settle` at w1.
+#   mode "pull": A pulls out to `peak` (< 1: the card shows mirror-tiled picture beyond its edges, smeared); B starts at
+#     `land` (~2.4) and keeps pulling out, decelerating to `settle` at w1.
+#   roll = degrees turned through the window (+ = clockwise on screen), carried into B's landing.
+#   focus_a / focus_b default to the shots' tracks. Deliberate sign reversals: only lens_shatter (480) and the tunnel. whip: dir L|R|U|D, angle = degrees the
 #   camera turns. cube: dir L|R|U|D. flip: hinge L|R. slam: depth = parallax amount, kick = landing scale.
 # lens: the finishing recipe for the window (EffectCraft): ca = peak chromatic split px, zblur = radial blur boost 0..1,
 #   leak = light leak (act default if None), flash = frames of white bloom at the cut (only on the biggest hits).
@@ -134,39 +139,39 @@ def cut(f, type, pre, post, p=None, over=(), lens=None):
 
 # Act I: floating, 12-16 f windows, warm light leaks, nothing snaps
 cut(0, "open", 0, 24, dict(from_scale=1.9), lens=dict(ca=4, zblur=0.2))
-cut(50, "zt", 7, 11, dict(peak=3.2, land=2.6, roll=25))
+cut(50, "zt", 7, 11, dict(mode="pull", peak=0.45, land=2.4, settle=1.12, roll=25))
 cut(83, "whip", 5, 10, dict(dir="R", angle=70))
 cut(118, "flip", 6, 10, dict(hinge="L"), lens=dict(ca=6, zblur=0.3))
 cut(151, "symbiote", 12, 10, dict(), lens=dict(ca=8, zblur=0.4, leak="none"))
-cut(175, "zt", 6, 10, dict(peak=3.0, land=2.4, roll=-180))
+cut(175, "zt", 6, 10, dict(mode="pull", peak=0.45, land=2.4, settle=1.12, roll=-180))
 cut(201, "whip", 5, 9, dict(dir="L", angle=70))
-cut(235, "zt", 6, 1, dict(peak=3.0, land=1.12, roll=0, mode="push"))  # S08 keeps pushing into the iris
+cut(235, "zt", 6, 1, dict(mode="push", peak=3.0, land=1.05, settle=1.1, roll=0))  # S08 keeps pushing into the iris
 cut(252, "eye_tunnel", 16, 12, dict(iris=[901, 390], exit_lens=[1036, 546]), lens=dict(ca=14, zblur=0.8))
 # Act II: rising energy
-cut(300, "zt", 5, 10, dict(peak=3.0, land=2.4, roll=40))
+cut(300, "zt", 5, 10, dict(mode="pull", peak=0.45, land=2.4, settle=1.12, roll=40))
 cut(336, "text_fly", 9, 9, dict(title="AMAZING", exit="dive"), lens=dict(ca=12, zblur=0.7))
 cut(369, "cube", 6, 9, dict(dir="U"))
-cut(400, "zt", 5, 9, dict(peak=3.2, land=2.4, roll=-30))
+cut(400, "zt", 5, 9, dict(mode="push", peak=3.0, land=1.05, settle=1.45, roll=-30))
 cut(416, "whip", 4, 8, dict(dir="D", angle=75))
 cut(436, "lightning", 6, 9, dict(), lens=dict(ca=14, zblur=0.6, flash=1))
-cut(453, "zt", 4, 8, dict(peak=2.8, land=2.2, roll=180))
-cut(468, "zt", 4, 1, dict(peak=3.0, land=1.12, roll=0, mode="push"))  # S17 keeps slamming into the lens
+cut(453, "zt", 4, 8, dict(mode="push", peak=3.0, land=1.05, settle=1.4, roll=180))
+cut(468, "zt", 4, 1, dict(mode="push", peak=3.0, land=1.05, settle=1.1, roll=0))  # S17 keeps slamming into the lens
 cut(480, "lens_shatter", 11, 14, dict(lens_a=[1110, 443], lens_b=[1110, 443]), lens=dict(ca=18, zblur=0.9, flash=2))
 # Act III: hard and fast, 8-11 f windows
-cut(519, "zt", 4, 7, dict(peak=3.0, land=2.4, roll=-35))
+cut(519, "zt", 4, 7, dict(mode="pull", peak=0.45, land=2.4, settle=1.15, roll=-35))
 cut(536, "whip", 3, 7, dict(dir="D", angle=80))
-cut(554, "zt", 4, 8, dict(peak=3.0, land=2.6, roll=200), over=["dome_shards"])
-cut(570, "zt", 3, 7, dict(peak=2.8, land=2.2, roll=-30))
+cut(554, "zt", 4, 8, dict(mode="pull", peak=0.45, land=2.6, settle=1.15, roll=200), over=["dome_shards"])
+cut(570, "zt", 3, 7, dict(mode="pull", peak=0.5, land=2.2, settle=1.12, roll=-30))
 cut(587, "slam", 4, 10, dict(depth=0.45, kick=1.35), lens=dict(ca=12, zblur=0.5, flash=1))
 cut(604, "whip", 3, 7, dict(dir="L", angle=80))
 cut(620, "sling_ring", 9, 6, dict(), lens=dict(ca=10, zblur=0.5, leak="red_orange"))
 cut(656, "text_fly", 8, 6, dict(title="SPIDER-MAN", exit="through"), lens=dict(ca=16, zblur=0.8, flash=1))
-cut(672, "zt", 3, 6, dict(peak=2.8, land=2.2, roll=-180))
+cut(672, "zt", 3, 6, dict(mode="pull", peak=0.5, land=2.2, settle=1.12, roll=-180))
 cut(686, "web_wipe", 6, 6, dict(dir="R"), lens=dict(ca=12, zblur=0.5))
-cut(708, "zt", 3, 7, dict(peak=3.0, land=2.4, roll=30))
+cut(708, "zt", 3, 7, dict(mode="pull", peak=0.5, land=2.4, settle=1.12, roll=30))
 cut(726, "whip", 3, 7, dict(dir="U", angle=80))
 cut(744, "cube", 4, 7, dict(dir="L"))
-cut(760, "zt", 3, 7, dict(peak=2.8, land=2.3, roll=-25))
+cut(760, "zt", 3, 7, dict(mode="push", peak=2.8, land=1.05, settle=1.4, roll=-25))
 cut(777, "triptych", 0, 42, dict(), lens=dict(ca=10, zblur=0.4))
 
 # The triptych (stage module xfx-B "triptych"): three Spider-Men as 3D comic panels that slam in on the hits
