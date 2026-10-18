@@ -43,7 +43,7 @@ FONTS = {  # key -> (file names to look for, fc-match pattern)
 # Novax palettes in 3D. top/hue: face gradient (top -> bottom); edge: bevel metal; side: extrusion metal;
 # glow: outline/pop emission; core: inside of chunks.
 PAL = {
-    "cyan_white": dict(top="#FFFFFF", hue="#38C4FF", edge="#7FE3FF", side="#0B4C8C", glow="#2FC8FF", core="#9FEFFF"),
+    "cyan_white": dict(top="#F2FCFF", hue="#0E9CFF", edge="#A8F2FF", side="#04234F", glow="#2FC8FF", core="#9FEFFF"),
     "red_gold": dict(top="#FFE59A", hue="#FF2A17", edge="#FFC23A", side="#7A0C05", glow="#FF4A1C", core="#FFD27A"),
     "crimson_white": dict(top="#FFFFFF", hue="#E8143E", edge="#FF6A86", side="#5E0016", glow="#FF1F4C", core="#FFC2CF"),
     "chrome": dict(top="#F4F7FF", hue="#9FB4D8", edge="#FFFFFF", side="#20283A", glow="#BFD4FF", core="#FFFFFF"),
@@ -54,11 +54,11 @@ PAL = {
 # (+yaw = right end recedes, +pitch = top recedes); ext/bev: extrusion half-depth and bevel in em.
 STYLE = {
     "AMAZING": dict(font="barlow", center=(930, 330), width_px=1500, hero=328, depth=0.42, yaw=-16, pitch=10,
-                    roll=-4, ext=0.13, bev=0.02, shear=0.0, track=0.04),
+                    roll=-4, ext=0.13, bev=0.03, shear=0.0, track=0.04),
     "SPIDER-MAN": dict(font="anton", center=(1010, 742), width_px=1480, hero=645, depth=0.30, yaw=14, pitch=-8,
-                       roll=3, ext=0.12, bev=0.018, shear=0.18, track=0.03),
+                       roll=3, ext=0.12, bev=0.028, shear=0.18, track=0.03),
     "BRAND NEW DAY": dict(font="anton", center=(960, 250), width_px=1560, hero=758, depth=0.36, yaw=-12, pitch=12,
-                          roll=-2, ext=0.12, bev=0.018, shear=0.18, track=0.05, shots=["S31", "S32"],
+                          roll=-2, ext=0.12, bev=0.028, shear=0.18, track=0.05, shots=["S31", "S32"],
                           sub=dict(font="barlow", dy_em=-0.95, scale=0.26, at=768),
                           beats=[750.0, 751.0, 752.0, 753.0, 754.0, 755.5, 756.8, 758.0, 761.0, 763.0, 764.4]),
     "TIMELESS": dict(font="anton", center=(960, 548), width_px=1500, hero=806, depth=0.0, yaw=0, pitch=0, roll=0,
@@ -323,8 +323,8 @@ def title_material(name, pal, chrome=False):
     scr.inputs["Scale"].default_value = 22.0
     nt.links.new(nrgb(wx * 7.0, wy * 2.2, 0.0), scr.inputs["Vector"])
     cracks = nsstep(N(scr.outputs["Distance"]), 0.035, 0.0)
-    dirt = nclamp(grunge * 0.45 + cracks * 0.55)
-    shade = 1.0 - dirt * 0.55
+    dirt = nclamp(grunge * 0.6 + cracks * 0.7)
+    shade = 1.0 - dirt * 0.7
     fr = (hue[0] + (top[0] - hue[0]) * grad) * shade
     fg = (hue[1] + (top[1] - hue[1]) * grad) * shade
     fb = (hue[2] + (top[2] - hue[2]) * grad) * shade
@@ -346,7 +346,7 @@ def title_material(name, pal, chrome=False):
         side_bsdf = principled(sidec, 0.85, 0.22)
         rim_bsdf = principled(edge, 1.0, 0.12)
         face_emit = caddc(nrgb(fr * face * face_e, fg * face * face_e, fb * face * face_e), ncol(edge, mc * face * 0.10))
-        side_emit = ncol(tuple(min(1.0, c * 2.2 + 0.02) for c in sidec), mc * side * 0.9 + side * 0.12)
+        side_emit = ncol(tuple(min(1.0, c * 2.5 + 0.02) for c in sidec), mc * side * 0.6 + side * 0.04)
         rim_emit = caddc(ncol(glow, rim * rim_e), ncol(edge, mc * rim * 0.9))
     # light sweep: a slanted band travelling left -> right
     u = wx + wy * 0.32 - sweep_p
@@ -507,17 +507,48 @@ def finish_mesh(bm, name, k, origin_em, word_lo, word_hi):
         wys.append((v.co.y - word_lo.y) / max(span.y, 1e-6))
     for v in bm.verts:
         v.co = (v.co - c) * k
-    for e in bm.edges:
-        if len(e.link_faces) == 2:
-            e.smooth = e.link_faces[0].normal.angle(e.link_faces[1].normal, 0.0) < math.radians(38)
+    bm.normal_update()
+    flat = lambda f: abs(f.normal.z) > 0.995 or f.material_index != 0   # front/back caps and chunk cuts stay flat
     for f in bm.faces:
-        f.smooth = True
+        f.smooth = not flat(f)
+    for e in bm.edges:
+        lf = e.link_faces
+        if len(lf) == 2:
+            e.smooth = (flat(lf[0]) == flat(lf[1])) and lf[0].normal.angle(lf[1].normal, 0.0) < math.radians(38)
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     for nm, vals in (("wx", wxs), ("wy", wys)):
         a = me.attributes.new(nm, "FLOAT", "POINT")
         a.data.foreach_set("value", vals)
     return me, (c - origin_em) * k
+
+
+def glow_collection(ctx):
+    """T3D_glow under the light collection, excluded from every view layer except the light pass (the plate pass also
+    renders the light collection, where the letters' glow twins must not appear)."""
+    c = bpy.data.collections.get("T3D_glow")
+    if c is not None:
+        return c
+    c = bpy.data.collections.new("T3D_glow")
+    ctx.coll("light").children.link(c)
+    layers = getattr(ctx, "layers", None) or {vl.name: vl for vl in bpy.context.scene.view_layers}
+    for name, vl in layers.items():
+        if name == "light":
+            continue
+        lc = _find_lc(vl.layer_collection, c.name)
+        if lc is not None:
+            lc.exclude = True
+    return c
+
+
+def _find_lc(lc, name):
+    if lc.collection.name == name:
+        return lc
+    for ch in lc.children:
+        r = _find_lc(ch, name)
+        if r is not None:
+            return r
+    return None
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -614,6 +645,7 @@ class Title:
 
         self.coll = bpy.data.collections.new(f"T3D_{self.id}")
         ctx.coll("text").children.link(self.coll)
+        self.glow_coll = glow_collection(ctx)
         self.mat, self.mat_l, self.mat_core, self.P, self.LP = title_material(f"t3d_{self.id}", self.pal,
                                                                               chrome=bool(st.get("chrome")))
         self.letters = []
@@ -748,7 +780,7 @@ class Title:
                 ob = bpy.data.objects.new(f"{me.name}.s{si}", me)
                 self.coll.objects.link(ob)
                 tw = bpy.data.objects.new(f"{me.name}.s{si}.glow", me)
-                self.ctx.coll("light").objects.link(tw)
+                self.glow_coll.objects.link(tw)
                 tw.material_slots[0].link = "OBJECT"
                 tw.material_slots[0].material = self.mat_l
                 tw.material_slots[1].link = "OBJECT"
@@ -797,10 +829,10 @@ class Title:
             u_sw = (f - t_sweep) / 9.0
             pos = -0.3 + 1.7 * ease_out_expo(u_sw * 0.9) if f >= t_sweep else -0.6
             amp = (math.sin(math.pi * clamp01(u_sw)) ** 0.7) * 5.0 if 0 <= u_sw <= 1 else 0.0
-            face = 1.35 - 0.95 * ease_out_expo((f - t_settle) / 8.0) if f >= t_settle else 1.35
+            face = 0.75 - 0.45 * ease_out_expo((f - t_settle) / 8.0) if f >= t_settle else 0.75
             if st.get("chrome"):
                 face = 1.0
-            rim = 0.6 + 2.6 * ease_out_expo((f - t_settle) / 8.0) if f >= t_settle else 0.6
+            rim = 0.8 + 4.0 * ease_out_expo((f - t_settle) / 8.0) if f >= t_settle else 0.8
             if self.exit and f >= self.exit[1] - 3:
                 rim += 2.0 * clamp01((f - (self.exit[1] - 3)) / 3)
             vals = dict(face=face, rim=rim, sweep=amp, pos=pos)
@@ -971,9 +1003,16 @@ class Title:
         near = (n - 1) // 2
         r = random.Random(i * 29 + 5)
         # launch order: outer letters first, the near (centre) letter last
-        rank = sorted(range(n), key=lambda j: -abs(j - near) + (0.3 if j > near else 0))
-        k = rank.index(i)
-        t_pass = fe - 0.7 - (n - 1 - k) * 0.45
+        # the near letter covers the lens at the cut; its two neighbours pass just after it (in B's set, through the
+        # teleport copy), the rest before it, outer letters first
+        late = [j for j in (near - 1, near + 1) if 0 <= j < n] if n >= 5 else []
+        early = sorted([j for j in range(n) if j != near and j not in late], key=lambda j: -abs(j - near))
+        if i == near:
+            t_pass = fe - 0.7
+        elif i in late:
+            t_pass = fe + 0.7 + late.index(i) * 0.9
+        else:
+            t_pass = fe - 1.3 - (len(early) - 1 - early.index(i)) * 0.5
         t_l = max(w0 + 0.5, t_pass - 5.5)
         if f < t_l:
             return M, True, 0.0
@@ -981,8 +1020,11 @@ class Title:
             self._inv_mw = self.Mw.inverted()
         M_l = self.base_pose(L, t_l)[0]
         P0 = (self.Mw @ M_l).translation
-        C = self.cam(min(t_pass, fe - 0.55))
+        tc = min(t_pass, fe - 0.55)
+        C = self.cam(tc)
         cpos = C.translation
+        if t_pass > tc:  # after the teleport: extrapolate the A-side camera (the copy maps it into B's set)
+            cpos = cpos + (cpos - self.cam(tc - 0.5).translation) * ((t_pass - tc) / 0.5)
         cx = C.to_3x3() @ Vector((1, 0, 0))
         cy = C.to_3x3() @ Vector((0, 1, 0))
         fwd = C.to_3x3() @ Vector((0, 0, -1))
