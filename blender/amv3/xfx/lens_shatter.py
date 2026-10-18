@@ -131,6 +131,7 @@ def build(T, ctx):
     glass_i.matrix_world = M_glass @ Matrix.Translation(c_i)
     fx.link(glass_i, plate)
     fx.key_visible(glass_i, w0 - 0.5, fc - 1.0)
+    fx.no_blur(_cheap(glass_i))
     MFi = MF.inverted()
     prev = {}
     for sh in shards:
@@ -149,44 +150,65 @@ def build(T, ctx):
                                         Quaternion(sh.axis, math.radians(spin * u * u / (u + 2.0))) @ q0, None)
             fx.key_matrix(sh.ob, t, M, prev)
         fx.key_visible(sh.ob, fc - 1.0, th)
-    for t, gw in ((w0, 0.2), (f - 3, 0.3), (fc - 0.5, 0.3), (fc, 0.25), (f + 2, 0.2), (f + 6, 0.1)):
+        fx.no_blur(_cheap(sh.ob))   # they barely move in the world; object blur of near-lens glass cost ~2 s/f
+    for t, gw in ((w0, 0.2), (f - 3, 0.2), (fc - 1.0, 0.08), (f + 6, 0.05)):
         fx.key_glass_glow(rim, t, gw)
 
-    # ---- cracks racing across the glass before the camera reaches it
-    crack0 = f - 4.5
-    crack_mat = fx.crack_material("ls_crack", _mix(palA["key"], (1, 1, 1), 0.5), imp)
+    # ---- in focus for the hit: stop the nest's f/2 down to a pinhole over 475.5-477 (Tom inside the lens keeps the soft
+    # look until then), so the cracks, the shards and the ring read as crisp glass, not bokeh
+    t = f - 5.0
+    while t < th - 0.25:
+        if t in ctx.dof:
+            foc, N0 = ctx.dof[t]
+            s = cl.smoothstep((t - (f - 4.5)) / 1.5)
+            ctx.key_dof(t, foc, 1.0 / (1.0 / N0 + (1.0 / cl.FSTOP_SHARP - 1.0 / N0) * s))
+        t = round(t + 0.25, 4)
+
+    # ---- cracks: thin crisp bright lines racing out from the camera's path across the glass on 477-479
+    crack0 = f - 3.5
+    crack_mat = fx.crack_material("ls_crack", _mix(palA["key"], (1, 1, 1), 0.7), imp)
     splines = []
     for (p, q) in fx.cell_edges(cells):
         a, b = Vector((p[0], p[1], gz + 0.0018)), Vector((q[0], q[1], gz + 0.0018))
         mid, e = (a + b) / 2 - imp, b - a
         radial = mid.length < 1e-6 or abs(e.normalized().dot(mid.normalized())) > 0.55
-        if not radial and rng.random() < 0.6:
+        if not radial and rng.random() < 0.45:
             continue
-        pts = fx.bolt_path(rng, a, b, 3, 0.07, normal=Vector((0, 0, 1)), zjag=0.0)
+        pts = fx.bolt_path(rng, a, b, 2, 0.02, normal=Vector((0, 0, 1)), zjag=0.0)
         splines.append([(v, 1.0) for v in pts])
-    cr = fx.poly_curve("ls_cracks", splines, 0.00045, crack_mat)
+    cr = fx.poly_curve("ls_cracks", splines, 0.0004, crack_mat, caps=False)
     cr.matrix_world = MF
     fx.link(cr, light)
-    # dim: this close to the lens at f/2 every crack is a wide bokeh streak
-    fx.key_visible(cr, crack0, f - 2.5)
-    for t, rr, g in ((crack0, 0.0, 0.0), (f - 4, 0.1, 0.4), (f - 3, 0.5, 0.25), (f - 2.6, 0.7, 0.0)):
+    fx.no_blur(cr)   # the rig rolls and rushes in at shutter 1.0: blurred, each line smeared into a grainy fan
+    fx.key_visible(cr, crack0, fc + 0.25)
+    # ~1.6 px wide on screen whatever the camera's distance to the glass (1 px = 1 mm at the home distance)
+    home = cl.LENS_MM / cl.SENSOR_MM * 1.92
+    t = crack0
+    while t <= fc + 0.25:
+        cr.data.bevel_depth = max(0.00004, 0.8e-3 * max(abs(n.z(t)), 0.02) / home)
+        cr.data.keyframe_insert("bevel_depth", frame=t)
+        t += 0.25
+    for t, rr, g in ((crack0, 0.0, 0.0), (crack0 + 0.25, 0.06, 7.0), (crack0 + 1.0, 0.4, 7.0), (f - 1.5, 0.85, 6.0),
+                     (fc - 0.5, 1.05, 5.0), (fc, 1.05, 3.0), (fc + 0.25, 1.05, 0.0)):
         fx.key_crack(crack_mat, t, rr * R, g)
 
-    # ---- the hit: shock ring in the glass plane, flash between the planes, sparks and chips, lingering flakes
+    # ---- the hit (480): the glass bursts toward and past the camera, a refractive shock ring sweeps over B, a short
+    # bloom; flakes linger between the planes. Burst / ring / bloom ride the camera (their motion is what reads on
+    # screen: the camera itself is still flying in at ~0.3 m/f).
     K = MF @ Matrix.Translation((imp.x, imp.y, gz))
-    impK = Vector((0, 0, 0))
     fh = fc - 0.5
-    _shockwave(K, impK, 0.32 * R, 0.34 * R, fh, f, palA, palB, light, plate, rng)
-    _flash(K, impK, n.D * 0.5, fh, f, palB, light, 0.35)
-    _chips(K, impK, 0.32 * R, fh, f, palA, palB, light, plate, rng, face, 4.0 * R)
-    _debris(K, n.D, fh, f, th, palA, plate, rng, face)
 
     def cam_fn(t):
         loc, rot = n.pose(t)
         return Matrix.LocRotScale(loc, rot, None)
+    _burst(ctx, cam_fn, fc, f, sa, palA, plate, light, rng)
+    _ring(cam_fn, f, plate)
+    _bloom(cam_fn, fc, f, palB, light)
+    _debris(K, n.D, fh, f, th, palA, plate, rng, face)
+    ctx.denoise(f - 4, f + 8)   # glass at the hit (the parting slab, the burst, the ring)
     # glints only once the glass is broken (a flat intact slab mirrors an area light as a hard square)
-    fx.camera_light("ls_keyB", cam_fn, fc - 1.0, th, Vector((-0.45, 0.35, 0.25)), palB["key"], 10.0, 0.4)
-    fx.camera_light("ls_rimB", cam_fn, fc - 1.0, th, Vector((0.5, -0.3, 0.2)), palA["key"], 8.0, 0.35)
+    fx.camera_light("ls_keyB", cam_fn, fc - 1.0, th, Vector((-0.45, 0.35, 0.25)), palB["key"], 20.0, 0.4)
+    fx.camera_light("ls_rimB", cam_fn, fc - 1.0, th, Vector((0.5, -0.3, 0.2)), palA["key"], 15.0, 0.35)
     ctx.log("lens_shatter (nest): %d shards over the %s lens, R %.3f m, crossing at (%.0f, %.0f) f%.1f, D %.3f k %.3f, "
             "reveal f%.1f, B lens at %s" % (len(shards), sa, R, n.P[0], n.P[1], fc, n.D, n.k, n.t_r,
                                              [round(v) for v in n.fK]))
@@ -196,90 +218,218 @@ def _mix(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 
 
-def _shockwave(K, impK, depth0, speed, fh, f, palA, palB, light, plate, rng):
-    """A refractive shock ring (a flattened glass torus that bends B behind it, falling off inward) with a thin bright
-    leading edge split cyan-outside / warm-inside (a chromatic fringe), expanding fast and tilted so it sweeps by."""
-    tq = Quaternion(Vector((1.0, 0.35, 0.0)).normalized(), math.radians(22.0))
-
-    def place(ob, scale_r, dz, zsq, prev):
-        for t in fx.frames_half(fh, f + 6):
-            u = max(0.0, t - fh)
-            rad = 0.004 + speed * u * (1.0 - 0.05 * u)
-            z = impK.z + depth0 * 0.22 * u + dz
-            M = K @ Matrix.LocRotScale(Vector((impK.x, impK.y, z)), tq, Vector((rad * scale_r, rad * scale_r,
-                                                                                  rad * zsq)))
-            fx.key_matrix(ob, t, M, prev)
-        fx.key_visible(ob, fh, f + 5)
-
-    me = fx.torus_mesh("ls_ring_glass", 1.0, 0.11, 192, 16)
-    me.materials.append(fx.glass_mat("ls_ring_glass", tint=(1, 1, 1), emit=(1, 1, 1), rough=0.0, ior=1.22, refract=True))
-    ob = bpy.data.objects.new("ls_ring_glass", me)
-    fx.link(ob, plate)
-    place(ob, 0.9, -0.004, 0.22, {})
-    for name, col, sr, g0 in (("ls_edge_cyan", _mix(palA["key"], (1, 1, 1), 0.3), 1.012, 2.5),
-                              ("ls_edge_warm", _mix(palB["key"], (1, 0.8, 0.3), 0.3), 0.992, 1.8)):
-        me = fx.torus_mesh(name, 1.0, 0.0022, 192, 6)
-        mat = fx.emission_mat(name, col, g0, additive=True)
-        me.materials.append(mat)
-        o = bpy.data.objects.new(name, me)
-        fx.link(o, light)
-        place(o, sr, 0.0, 1.0, {})
-        for t, g in ((fh, 0.0), (f, g0), (f + 1.5, g0 * 0.5), (f + 3, g0 * 0.15), (f + 4.5, 0.0)):
-            fx.key_glow(mat, t, g)
+def _cheap(ob):
+    """Glass that only has to be seen and glint: no shadows, not in diffuse rays (f479-484 were 6-10 s/f on the GPU)."""
+    ob.visible_shadow = False
+    ob.visible_diffuse = False
+    return ob
 
 
-def _flash(K, impK, camB0, fh, f, pal, light, gain=1.0):
-    """A point light between the planes on the break (glints on the shards and flakes; no visible flash body)."""
-    p = Vector((impK.x, impK.y, impK.z - 0.6 * (camB0 - (-impK.z))))
-    ld = bpy.data.lights.new("ls_flash_pt", "POINT")
-    ld.color = _mix(pal["key"], (1, 1, 1), 0.6)
-    ld.shadow_soft_size = 0.02
-    lo = bpy.data.objects.new("ls_flash_pt", ld)
-    lo.visible_camera = False
-    lo.matrix_world = K @ Matrix.Translation(p)
-    bpy.context.scene.collection.objects.link(lo)
-    for t, e in ((fh, 0.0), (f, 60.0 * gain), (f + 1, 20.0 * gain), (f + 2, 5.0 * gain), (f + 4, 0.0)):
-        ld.energy = e
-        ld.keyframe_insert("energy", frame=t)
+HW = 0.5 * cl.SENSOR_MM / cl.LENS_MM   # frame half-width per metre of depth (half-height = HW * 9 / 16)
 
 
-def _chips(K, impK, depth0, fh, f, palA, palB, light, plate, rng, face, sc=1.0):
-    """Glass chips (glints when they turn to the lights) and a few sparks of varied size, life and heat."""
-    glass = fx.glass_mat("ls_chip", tint=(0.95, 0.98, 1.0), emit=palA["key"], emit_strength=0.4, rough=0.02)
+def _burst(ctx, cam_fn, fc, f, sa, palA, plate, light, rng):
+    """The glass bursting toward and past the camera on the hit: big thin shards (a third carry Andrew's picture, all
+    glossy so they glint as they tumble through the camera lights) born ahead of the lens around the middle of the
+    frame, flying outward to the frame edges and at the camera over 3-6 f, plus small chips and a few hot sparks.
+    Paths are in camera space (they ride the camera), so on screen they spread out over B however fast the rig moves."""
+    glass = fx.glass_mat("ls_bglass", tint=(0.93, 0.97, 1.0), emit=palA["key"], emit_strength=0.03, rough=0.01, ior=1.5)
+    frost = fx.glass_mat("ls_bfrost", tint=(0.9, 0.94, 0.98), emit=(1, 1, 1), emit_strength=0.0, rough=0.1, ior=1.5)
+    pic = fx.picture_glass_mat(fx.plate_mat(ctx, sa), "ls_bpic", gloss_rough=0.02, gloss=1.0, dim=0.7)
+    edge = fx.emission_mat("ls_bedge", _mix(palA["key"], (1, 1, 1), 0.6), 0.0, additive=True)
+    for t, g in ((fc - 0.5, 0.0), (fc, 2.5), (f + 1.5, 1.5), (f + 4, 0.5), (f + 7, 0.0)):
+        fx.key_glow(edge, t, g)
     sparks = []
-    for k in range(4):
-        m = fx.emission_mat("ls_spark_%d" % k, _mix(palA["key"] if k % 2 else palB["key"], (1, 1, 1), 0.35 + 0.1 * k),
-                            0.0, additive=True)
-        g0 = (6.0, 4.0, 2.5, 1.5)[k]
-        life = (2.5, 3.5, 4.5, 5.5)[k]
-        for t, g in ((fh, g0), (f + life * 0.5, g0 * 0.6), (f + life, 0.0)):
+    for k in range(3):
+        m = fx.emission_mat("ls_spark_%d" % k, _mix(palA["key"], (1, 0.9, 0.7), 0.4 + 0.2 * k), 0.0, additive=True)
+        for t, g in ((fc - 0.5, 0.0), (fc, (4.0, 3.0, 2.0)[k]), (f + 2 + k, 2.0), (f + 4 + k, 0.0)):
             fx.key_glow(m, t, g)
         sparks.append(m)
-    prev = {}
-    for i in range(70):
-        is_spark = i % 3 == 0
-        sz = (rng.uniform(0.0006, 0.0035) if not is_spark else rng.uniform(0.0002, 0.0007)) * sc
-        n = rng.choice((3, 4, 5))
-        poly = [(sz * math.cos(2 * math.pi * k / n + rng.uniform(-0.4, 0.4)) * rng.uniform(0.6, 1.3),
-                 sz * math.sin(2 * math.pi * k / n + rng.uniform(-0.4, 0.4)) * rng.uniform(0.6, 1.3)) for k in range(n)]
-        me, _ = fx.shard_mesh("ls_chip_%03d" % i, poly, sz * 0.4 if not is_spark else sz, None)
-        m = sparks[rng.randrange(4)] if is_spark else glass
-        me.materials.append(m)
-        me.materials.append(m)
+    n_big, n_chip, n_spark = 30, 46, 0   # sparks blurred into squiggles (the rig turns between keys)
+    for i in range(n_big + n_chip + n_spark):
+        kind = 0 if i < n_big else (1 if i < n_big + n_chip else 2)
+        # born on the hit (most on 479.5-480.5, a tail to 482), ahead of the lens, away from Tom's lens in the middle
+        t_b = round(max(fc - 0.25, fc + abs(rng.gauss(0.0, (0.7, 1.0, 0.5)[kind]))) * 4) / 4
+        life = rng.uniform(3.5, 6.5) if kind == 0 else rng.uniform(2.5, 5.0)
+        z0 = -rng.uniform(0.35, 1.1) if kind == 0 else -rng.uniform(0.25, 0.9)
+        ang = rng.uniform(0, 2 * math.pi)
+        rho0 = rng.uniform(0.12, 0.5)
+        if kind == 0:
+            px = rng.uniform(110, 330) * (0.6 if rho0 < 0.25 else 1.0)   # screen size at birth
+            Ls = px / 960.0 * HW * abs(z0)
+            nv = rng.choice((3, 4, 4, 5, 5, 6))
+            poly = []
+            for k in range(nv):
+                a = 2 * math.pi * (k + rng.uniform(-0.3, 0.3)) / nv
+                poly.append((Ls * math.cos(a) * rng.uniform(0.5, 1.4), Ls * math.sin(a) * rng.uniform(0.3, 0.9)))
+            poly = sorted(poly, key=lambda q: math.atan2(q[1], q[0]))
+            thick = Ls * 0.04
+        else:
+            Ls = rng.uniform(10, 40 if kind == 1 else 6) / 960.0 * HW * abs(z0)
+            poly = [(Ls * math.cos(2 * math.pi * k / 3 + rng.uniform(-0.5, 0.5)),
+                     Ls * math.sin(2 * math.pi * k / 3 + rng.uniform(-0.5, 0.5))) for k in range(3)]
+            thick = Ls * (0.3 if kind == 1 else 1.0)
+        u0, v0 = rng.uniform(0.3, 0.7), rng.uniform(0.3, 0.7)
+        sc_uv = 0.5 / max(Ls, 1e-4) * rng.uniform(0.04, 0.12)
+        me, _ = fx.shard_mesh("ls_burst_%03d" % i, poly, thick, lambda x, y, u0=u0, v0=v0, s=sc_uv: (u0 + x * s, v0 + y * s))
+        if kind == 2:
+            m0 = m1 = sparks[i % 3]
+        else:
+            r = rng.random()
+            m0 = pic if (kind == 0 and r < 0.35) else (frost if r > 0.85 else glass)
+            m1 = glass
+        me.materials.append(m0)
+        me.materials.append(m1)
         ob = bpy.data.objects.new(me.name, me)
-        fx.link(ob, light if is_spark else plate)
-        a = rng.uniform(0, 2 * math.pi)
-        el = rng.uniform(0.15, 1.0)
-        v = Vector((math.cos(a) * el, math.sin(a) * el, -rng.uniform(0.4, 1.4))) * rng.uniform(0.008, 0.05) * sc
+        if kind == 0:
+            fx.bevel(ob, min(0.0015, thick * 0.4))
+        fx.link(ob, light if kind == 2 else plate)
+        _cheap(ob)
         ax = fx.rand_axis(rng)
-        spin = rng.uniform(20, 70)
-        t0 = fh + 0.5 + rng.uniform(0.0, 1.5)
-        for t in fx.frames_half(fh, f + 7):
+        spin = rng.uniform(12, 35) * (1.0, 2.0, 0.0)[kind]   # a spinning spark blurs into a squiggle
+        q0 = Quaternion(fx.rand_axis(rng), rng.uniform(0, math.pi))
+        prev = {}
+        for t in fx.frames_half(t_b - 0.5, t_b + life + 0.5):
+            u = max(0.0, t - t_b) / life
+            z = z0 * (1.0 - 0.72 * u)                                    # flying at the lens ...
+            rho = rho0 + (1.3 - rho0) * u ** 1.5                         # ... and out past the frame edges
+            r = rho * HW * abs(z)
+            pos = Vector((math.cos(ang) * r, math.sin(ang) * r * 0.75, z))
+            Lm = Matrix.LocRotScale(pos, Quaternion(ax, math.radians(spin * u * life)) @ q0, None)
+            fx.key_matrix(ob, t, fx.unit_matrix(cam_fn(t)) @ Lm, prev)
+        fx.key_visible(ob, t_b, t_b + life)
+        if kind == 0 and rng.random() < 0.5:   # a lit edge on half the big ones (catches the flash)
+            pts = [(Vector((x, y, thick / 2 + 0.0002)), 1.0) for x, y in poly] + \
+                  [(Vector((poly[0][0], poly[0][1], thick / 2 + 0.0002)), 1.0)]
+            eo = fx.poly_curve(ob.name + "_edge", [pts], max(0.0002, Ls * 0.006), edge, caps=False)
+            eo.parent = ob
+            fx.link(eo, light)
+            fx.key_visible(eo, t_b, t_b + life)
+    ctx.log("lens_shatter: burst %d shards + %d chips + %d sparks from f%.2f" % (n_big, n_chip, n_spark, fc - 0.25))
+
+
+def _ring(cam_fn, f, plate, dr=1.6):
+    """The refractive shock ring over B (480-484): a plano-convex glass ring lens dr m ahead of the lens, centred on the
+    frame (Tom's lens), expanding past the frame edges; it bends B as it sweeps and flattens out (fades) by 484.5. Its
+    profile goes to zero thickness at both rims (a torus's steep silhouettes bent rays off the set: an opaque grey
+    band). No emissive edge: thin edge tori read as two solid 25 px bands."""
+    tq = Quaternion(Vector((1.0, 0.3, 0.0)).normalized(), math.radians(14.0))
+    t0, t1 = f - 0.25, f + 4.75
+
+    def place(ob, sr, zsq_fn, prev):
+        for t in fx.frames_half(t0 - 0.5, t1):
             u = max(0.0, t - t0)
-            pos = Vector((impK.x, impK.y, impK.z - 0.01)) + v * u * (1.0 + 0.15 * u)
-            M = K @ Matrix.LocRotScale(pos, Quaternion(ax, math.radians(spin * u)), None)
-            fx.key_matrix(ob, t, M, prev)
-        fx.key_visible(ob, round(t0 * 2) / 2, f + 6.5)
+            rho = 0.04 + 1.4 * (1.0 - math.exp(-u / 2.0))
+            rad = rho * HW * dr
+            Lm = Matrix.LocRotScale(Vector((0, 0, -dr)), tq, Vector((rad * sr, rad * sr, rad * zsq_fn(u))))
+            fx.key_matrix(ob, t, fx.unit_matrix(cam_fn(t)) @ Lm, prev)
+        fx.key_visible(ob, t0, t1)
+        fx.no_blur(ob)   # it grows ~0.4 frame-widths a frame: blurred, it smeared into wide grey bands
+
+    me = _ring_lens_mesh("ls_ring_glass", 0.8, 1.0, 0.03)
+    me.materials.append(fx.glass_mat("ls_ring_glass", tint=(1, 1, 1), emit=(1, 1, 1), rough=0.0, ior=1.33, refract=True))
+    ob = bpy.data.objects.new("ls_ring_glass", me)
+    fx.link(ob, plate)
+    _cheap(ob)
+    place(ob, 1.0, lambda u: 1.0 - 0.97 * cl.smoothstep((u - 2.0) / 2.6), {})
+
+
+def _ring_lens_mesh(name, r0, r1, h, nu=256, nr=10):
+    """A closed annular plano-convex lens: flat back (z = 0), front z = h sin^2 across [r0, r1] (zero at both rims)."""
+    import bmesh
+    bm = bmesh.new()
+    top, bot = [], []
+    for i in range(nu):
+        a = 2 * math.pi * i / nu
+        ca, sa = math.cos(a), math.sin(a)
+        tt, bb = [], []
+        for j in range(nr + 1):
+            rr = r0 + (r1 - r0) * j / nr
+            v = bm.verts.new((rr * ca, rr * sa, h * math.sin(math.pi * j / nr) ** 2))
+            tt.append(v)
+            bb.append(v if j in (0, nr) else bm.verts.new((rr * ca, rr * sa, 0.0)))
+        top.append(tt)
+        bot.append(bb)
+    for i in range(nu):
+        k = (i + 1) % nu
+        for j in range(nr):
+            bm.faces.new((top[i][j], top[i][j + 1], top[k][j + 1], top[k][j]))
+            bm.faces.new((bot[i][j], bot[k][j], bot[k][j + 1], bot[i][j + 1]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    for p in me.polygons:
+        p.use_smooth = True
+    return me
+
+
+def _bloom(cam_fn, fc, f, pal, light, d=0.12):
+    """A short bloom on the hit: a soft additive radial glow over the frame from the centre (the flash itself is added
+    in finishing). Rides the camera, no motion blur."""
+    hw = HW * d * 1.15
+    me = fx.quad_mesh("ls_bloom", 2 * hw, 2 * hw * 9 / 16)
+    m = bpy.data.materials.new("ls_bloom")
+    nt = fx._nt(m)
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["Object"], sep.inputs[0])   # (UV / Generated gave a flat haze over the frame)
+    comb = nt.nodes.new("ShaderNodeCombineXYZ")
+    for k, axis in ((0, "X"), (1, "Y")):   # r = 1 at the frame's left / right edge
+        mul = nt.nodes.new("ShaderNodeMath")
+        mul.operation = "MULTIPLY"
+        nt.links.new(sep.outputs[axis], mul.inputs[0])
+        mul.inputs[1].default_value = 1.15 / hw
+        nt.links.new(mul.outputs[0], comb.inputs[k])
+    ln = nt.nodes.new("ShaderNodeVectorMath")
+    ln.operation = "LENGTH"
+    nt.links.new(comb.outputs[0], ln.inputs[0])
+    # falloff: exp(-(r / 0.35)^2)
+    g1 = nt.nodes.new("ShaderNodeMath")
+    g1.operation = "DIVIDE"
+    nt.links.new(ln.outputs["Value"], g1.inputs[0])
+    g1.inputs[1].default_value = 0.35
+    g2 = nt.nodes.new("ShaderNodeMath")
+    g2.operation = "POWER"
+    nt.links.new(g1.outputs[0], g2.inputs[0])
+    g2.inputs[1].default_value = 2.0
+    g3 = nt.nodes.new("ShaderNodeMath")
+    g3.operation = "MULTIPLY"
+    nt.links.new(g2.outputs[0], g3.inputs[0])
+    g3.inputs[1].default_value = -1.0
+    g4 = nt.nodes.new("ShaderNodeMath")
+    g4.operation = "EXPONENT"
+    nt.links.new(g3.outputs[0], g4.inputs[0])
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.name = "glow"
+    em.inputs["Color"].default_value = (*_mix(pal["key"], (1, 1, 1), 0.65)[:3], 1.0)
+    mulg = nt.nodes.new("ShaderNodeMath")
+    mulg.operation = "MULTIPLY"
+    nt.links.new(g4.outputs[0], mulg.inputs[0])
+    val = nt.nodes.new("ShaderNodeValue")
+    val.name = "gain"
+    nt.links.new(val.outputs[0], mulg.inputs[1])
+    nt.links.new(mulg.outputs[0], em.inputs["Strength"])
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    add = nt.nodes.new("ShaderNodeAddShader")
+    nt.links.new(em.outputs[0], add.inputs[0])
+    nt.links.new(tr.outputs[0], add.inputs[1])
+    nt.links.new(add.outputs[0], out.inputs["Surface"])
+    me.materials.append(m)
+    ob = bpy.data.objects.new("ls_bloom", me)
+    fx.link(ob, light)
+    fx.no_blur(ob)
+    t0, t1 = fc - 0.25, f + 2.5
+    prev = {}
+    for t in fx.frames_half(t0 - 0.5, t1):
+        fx.key_matrix(ob, t, fx.unit_matrix(cam_fn(t)) @ Matrix.Translation((0, 0, -d)), prev)
+    fx.key_visible(ob, t0, t1)
+    gain = val.outputs[0]
+    for t, g in ((t0, 0.0), (f, 0.3), (f + 0.5, 0.12), (f + 1.25, 0.04), (f + 2.25, 0.0)):
+        gain.default_value = g
+        gain.keyframe_insert("default_value", frame=t)
 
 
 def _debris(K, camB0, fh, f, w1, palA, plate, rng, face):
