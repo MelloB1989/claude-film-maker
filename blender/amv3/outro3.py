@@ -45,7 +45,7 @@ HIT_FRAMES = [h for h, _ in HITS]
 LENS = 35.0                       # the stage camera's lens (camlib.LENS_MM), so the 819 handoff speed matches
 
 # palette: Spider-Man red face, gold-cream bevel, the act colours (EDIT.md / triptych shard rims)
-RED = (0.55, 0.004, 0.012)
+RED = (0.32, 0.0, 0.005)
 HOT = (1.0, 0.07, 0.10)
 GOLD = (1.0, 0.62, 0.22)
 CREAM = (1.0, 0.86, 0.62)
@@ -68,7 +68,7 @@ FLIGHTS = {
     3: (833, 862, (-6.0, -4.0, 18.0), (0, 115, 75), 1.0),        # _  swings down like a pendulum onto the baseline
 }
 FLIP_F = 892                      # the big hit: a flip wave runs through the word
-SINK_F = 893                      # the word sinks back into the portal
+SINK_F = 894                      # the word sinks back into the portal
 
 
 clamp, smooth, out_pow, env, ring_osc, lerp = v2.clamp, v2.smooth, v2.out_pow, v2.env, v2.ring_osc, v2.lerp
@@ -98,8 +98,8 @@ def zoom_rate(f):
     push = 0.10 * 0.85 ** max(0.0, k) if k >= 0 else 0.10 * 1.25 ** k     # the triptych's push, decaying x0.85/f
     hold = 0.012 * smooth((f - 822) / 10.0)                                 # settles into a 1.2 %/f push
     hold = lerp(hold, -0.008, smooth((f - 856) / 10.0))                     # smooth reversal (10 f) into a slow pull
-    pull = -0.008 * (1.33 ** (f - 888) - 1.0) if f > 888 else 0.0           # the resolve: accelerating pull-out
-    pull = max(pull, -0.13)
+    pull = -0.008 * (1.3 ** (f - 888) - 1.0) if f > 888 else 0.0           # the resolve: accelerating pull-out
+    pull = max(pull, -0.07)
     return push + hold + pull
 
 
@@ -124,7 +124,7 @@ def roll_deg(f):
         r += 0.18 * math.sin((tm - 819) * 0.07)                             # slow roll drift through the hold
         r += sum(s * 1.6 * (1 if i % 2 else -1) * env(tm, h, 2.5) for i, (h, s) in enumerate(HITS[:-2]))
         if tm > 886:
-            r += 0.5 * (1.36 ** (tm - 886) - 1.0) if tm < 899 else 0.5 * (1.36 ** 13 - 1.0)   # the resolve spin
+            r += min(4.5, 0.35 * (1.28 ** (tm - 886) - 1.0))                  # the resolve spin, up to 4.5 deg/f
         total += r * dt
         t += dt
     return total
@@ -191,8 +191,8 @@ def letter_material(name, kind):
     link(nt, mul.outputs[0], bs.inputs["Emission Strength"])
     if kind == "front":
         bs.inputs["Base Color"].default_value = rgba(RED)
-        bs.inputs["Metallic"].default_value = 0.45
-        bs.inputs["Roughness"].default_value = 0.16
+        bs.inputs["Metallic"].default_value = 0.3
+        bs.inputs["Roughness"].default_value = 0.2
         bs.inputs["Coat Weight"].default_value = 1.0
         bs.inputs["Coat Roughness"].default_value = 0.03
         bs.inputs["Emission Color"].default_value = rgba(HOT)
@@ -210,9 +210,9 @@ def letter_material(name, kind):
         link(nt, lw.outputs["Fresnel"], mul.inputs[0])
         pulse.outputs[0].default_value = 0.35
     else:
-        bs.inputs["Base Color"].default_value = rgba((0.10, 0.006, 0.01))
-        bs.inputs["Metallic"].default_value = 0.85
-        bs.inputs["Roughness"].default_value = 0.25
+        bs.inputs["Base Color"].default_value = rgba((0.12, 0.0, 0.008))
+        bs.inputs["Metallic"].default_value = 0.5
+        bs.inputs["Roughness"].default_value = 0.32
         bs.inputs["Emission Color"].default_value = rgba(TOM)
         lw.inputs["Blend"].default_value = 0.5
         link(nt, lw.outputs["Fresnel"], mul.inputs[0])
@@ -319,14 +319,14 @@ def letter_pose(i, f, rest, order):
     sw = env(f, 880 + order * 0.55, 2.2)      # the 880 sweep lifts each letter as the blade passes
     pos += Vector((0, -0.25 * sw, 0))
     # 892: the flip wave, one letter after another left to right, a full turn about the vertical axis
-    u = clamp((f - FLIP_F - order * 0.45) / 5.0)
+    u = clamp((f - FLIP_F - order * 0.4) / 6.0)
     rot_v[2] += 2 * math.pi * (u * u * (3 - 2 * u))
     # 893-899: the word sinks into the portal and shrinks to its centre
-    k = clamp((f - SINK_F - abs(order - 4) * 0.25) / 6.0)
+    k = clamp((f - SINK_F - abs(order - 4) * 0.15) / 4.5)
     if k > 0:
         e = k * k
-        pos = pos.lerp(Vector((0.0, 9.0, 0.3)), e)
-        sc *= 1.0 - 0.9 * e
+        pos = pos.lerp(Vector((0.0, 4.5, 0.3)), e)
+        sc *= max(0.0005, 1.0 - e)
     return pos, rot_v, sc
 
 
@@ -584,10 +584,10 @@ def build_finale_glint():
     me.materials.append(mat)
     ob = bpy.data.objects.new("core", me)
     bpy.context.scene.collection.objects.link(ob)
-    ob.location = (0, 9.0, 0.3)
+    ob.location = (0, 4.5, 0.3)
     for t in subframes():
         a = env(t, 896.5, 1.2) if t >= 896.5 else smooth((t - 893) / 3.5) * 0.25
-        r = 0.08 + 0.5 * a
+        r = 0.08 + 1.1 * a
         ob.scale = (r, r, r)
         ob.keyframe_insert("scale", frame=t)
         key(st, "default_value", t, 300.0 * a)
@@ -615,6 +615,15 @@ def build_black():
     for f in frames():
         key(fac, "default_value", f, {898: 0.55, 899: 1.0}.get(f, 0.0))
     linearize(mat.node_tree)
+
+
+def soften_world_bands(bg, k):
+    """v2's world lights the glossy rays with bright studio bands (RGB ~3.4-4.0); scale them so the red coat stays red."""
+    for n in bg.id_data.nodes:
+        if n.bl_idname == "ShaderNodeMix" and n.data_type == "RGBA" and n.inputs["A"].default_value[0] > 2.0:
+            for sock in ("A", "B"):
+                c = n.inputs[sock].default_value
+                n.inputs[sock].default_value = (c[0] * k, c[1] * k, c[2] * k, 1.0)
 
 
 # --- compositor ----------------------------------------------------------------------------------------------------------
@@ -667,7 +676,7 @@ def build_compositor(res_scale):
     if split:
         for f in frames():
             # 819-822: the burst carries the stage's lens split; then hits only, decaying over 2-3 f
-            amt = 10.0 * math.exp(-max(0.0, f - 819) / 2.0) + sum(s * 7.0 * env(f, h, 1.3) for h, s in HITS[:-1])
+            amt = 10.0 * math.exp(-max(0.0, f - 819) / 2.0) + sum(s * 2.5 * env(f, h, 1.0) for h, s in HITS[:-1])
             amt *= res_scale
             for t_, sign in ((split[0], 1), (split[1], -1)):
                 t_.inputs["X"].default_value = sign * amt
@@ -704,7 +713,7 @@ def build_scene(args):
 
     objs, layout = build_letters(mats_for)
     print(f"outro3: word {layout['width']:.2f} x {layout['height']:.2f} m")
-    v2.build_world()
+    soften_world_bands(v2.build_world(), 0.55)
     v2.build_lights()
     v2.build_portal()
     v2.build_shafts()
