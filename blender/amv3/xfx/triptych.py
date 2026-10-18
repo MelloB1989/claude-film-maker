@@ -35,6 +35,7 @@ SLOTS = [  # id, x, y, crop centre px, yaw deg (inward), roll deg, z
     ("P3", 0.735, -0.008, 920, -7.0, -0.8, 0.05),
 ]
 BURST = 819.5
+D812 = 2.80     # camera distance when the attack into the burst starts
 END = 835
 
 
@@ -75,17 +76,17 @@ class Cam:
         self.A = A
         # distance: push in on P1 (decaying the S32 push), pull back on each slam, slow push under the title, then the
         # attack into the burst (ln D rates: -0.10 at 819.5) and the decaying push through the shards to 835
-        self.dist = _hermite_track([(f0, 2.30, -0.07), (l1 + 1.5, 2.05, -0.02), (l2 - 1.0, 2.12, 0.03),
-                                    (l2 + 2.0, 2.42, 0.06), (l3 - 1.0, 2.75, 0.04), (l3 + 2.0, 3.12, 0.07),
-                                    (l3 + 7.0, 3.36, 0.0), (812.0, 3.12, -0.045)])
-        # zoom (-d ln D) into the burst: from the slow push at 812 (0.045 m/f at 3.12 m) to +10 %/f, then decaying k 0.85
-        self.zA = fx.attack(0.0, 0.045 / 3.12, 0.10, BURST - 812.0, 0.012, 1.4, 0.85)[0]
+        self.dist = _hermite_track([(f0, 2.30, -0.07), (l1 + 1.5, 2.05, -0.02), (l2 - 1.0, 2.08, 0.03),
+                                    (l2 + 2.0, 2.32, 0.05), (l3 - 1.0, 2.55, 0.03), (l3 + 2.0, 2.86, 0.05),
+                                    (l3 + 7.0, 3.02, 0.0), (812.0, D812, -0.04)])
+        # zoom (-d ln D) into the burst: from the slow push at 812 (0.04 m/f at D812) to +10 %/f, then decaying k 0.85
+        self.zA = fx.attack(0.0, 0.04 / D812, 0.10, BURST - 812.0, 0.012, 1.4, 0.85)[0]
         self.zB = fx.landing(0.0, 0.10, 0.02, END - BURST, 0.85)[0]
-        self.lnDb = math.log(3.12) - self.zA(BURST - 812.0)
+        self.lnDb = math.log(D812) - self.zA(BURST - 812.0)
         self.tx = _hermite_track([(f0, -0.735), (l1 + 2.0, -0.70), (l2 - 1.0, -0.52), (l2 + 3.0, -0.33),
                                   (l3 - 1.0, -0.16), (l3 + 4.0, 0.02), (812.0, 0.0, 0.0)])
         self.ty = _hermite_track([(f0, 0.0), (l3 + 4.0, 0.03), (812.0, 0.02, 0.0)])
-        self.yaw = _hermite_track([(f0, -7.0), (l2, -3.5), (l3, 0.5), (812.0, 4.0, 0.25)])
+        self.yaw = _hermite_track([(f0, -12.0), (l2, -6.0), (l3, 0.0), (812.0, 6.0, 0.3)])
         self.el = _hermite_track([(f0, 0.03), (l3, -0.02), (812.0, 0.04, 0.0)])
         self.roll = _hermite_track([(f0, A.r, A.dr), (l1 + 4.0, 0.6), (l3, -0.4), (812.0, 0.0, 0.05),
                                     (BURST, 1.0, 1.0)])
@@ -94,7 +95,7 @@ class Cam:
         if t <= 812.0:
             return self.dist(t)
         if t <= BURST:
-            return math.exp(math.log(3.12) - self.zA(t - 812.0))
+            return math.exp(math.log(D812) - self.zA(t - 812.0))
         return math.exp(self.lnDb - (self.zB(t - BURST) - self.zB(0.0)))
 
     def r(self, t):
@@ -108,7 +109,7 @@ class Cam:
         d = self.D(t)
         off = Vector((math.sin(yaw) * d, self.el(t) * d, math.cos(yaw) * d))
         loc = tgt + off
-        rot = (tgt - loc).to_track_quat("-Z", "Y") @ Quaternion((0, 0, 1), math.radians(self.r(t)))
+        rot = fx.look_at(loc, tgt) @ Quaternion((0, 0, 1), math.radians(self.r(t)))
         return Matrix.LocRotScale(loc, rot, None)
 
 
@@ -175,10 +176,14 @@ def build(T, ctx):
     g = d_ghost / (FILL_DIST / A.at(tp - w0).s)
     Mg = Mt @ Matrix.Scale(g, 4) @ Mh.inverted() @ fx.unit_matrix(cardA.matrix_world)
     try:
-        ghost = ctx.make_card(sa, "tp_backdrop_" + sa, matrix=Mg, frames=(w0, int(BURST) + 1), tile=3)
+        ghost = ctx.make_card(sa, "tp_backdrop_" + sa, matrix=Mg, frames=(w0, int(lands[1])), tile=3)
     except TypeError:
         ghost = ctx.make_card(sa, "tp_backdrop_" + sa, matrix=Mg)
-    _veil(Mg, plate, [(tp, 0.0), (tp + 2.0, 0.35), (lands[1], 0.6), (lands[2], 0.72), (BURST - 0.5, 0.78)], BURST)
+    # M14 sinks into the act's void as the panels take over (gone by the second slam)
+    vo = _veil(Mg, plate, [(tp, 0.0), (tp + 2.0, 0.45), (lands[1] - 2.0, 0.85), (lands[1] - 0.5, 1.0)], lands[1])
+    ctx.log("triptych debug: ghost at %s, veil at %s, cam(800) at %s, ghost scale %s" % (
+        tuple(round(x, 2) for x in Mg.translation), tuple(round(x, 2) for x in vo.matrix_world.translation),
+        tuple(round(x, 2) for x in cam_world(800).translation), tuple(round(x, 2) for x in Mg.to_scale())))
     if hasattr(ctx, "env"):
         try:
             ctx.env(O, "tom", frames=(w0, int(BURST) + 1))
@@ -220,8 +225,8 @@ def build(T, ctx):
             M = slot @ Matrix.Translation(off) @ Quaternion(ax, math.radians(tilt)).to_matrix().to_4x4()
             fx.key_matrix(ob, t, M, prev)
         fx.key_visible(ob, t0, BURST)
-        for t, gl in ((lt - 0.5, 0.0), (lt, 9.0), (lt + 1, 4.0), (lt + 4, 0.6), (BURST - 1.0, 0.6), (BURST - 0.5, 14.0),
-                      (BURST, 18.0)):
+        for t, gl in ((lt - 0.5, 0.0), (lt, 9.0), (lt + 1, 4.0), (lt + 4, 0.6), (BURST - 1.0, 0.6), (BURST - 0.5, 3.5),
+                      (BURST, 4.0), (BURST + 3, 1.5), (BURST + 8, 0.8)):
             fx.key_glass_glow(side, t, gl)
         panels.append((pid, ob, slot, face, side, pal))
 
@@ -236,7 +241,7 @@ def build(T, ctx):
     s_hit = (O.z - p_cam.z) / fwd.z if abs(fwd.z) > 1e-6 else 3.0
     burst = p_cam + fwd * s_hit
     bob = bpy.data.objects.new("TRIPTYCH_BURST", None)
-    bob.matrix_world = Matrix.LocRotScale(burst, (-fwd).to_track_quat("Z", "Y"), None)
+    bob.matrix_world = Matrix.LocRotScale(burst, fx.look_at(burst, burst + fwd), None)  # +Z toward the camera
     bob["f"] = BURST
     bpy.context.scene.collection.objects.link(bob)
 
@@ -314,6 +319,7 @@ def _veil(Mcard, coll, keys, off):
         mix.inputs[0].default_value = a
         mix.inputs[0].keyframe_insert("default_value", frame=t)
     fx.key_visible(ob, keys[0][0], off)
+    return ob
 
 
 def _panel_materials(ctx, pid, cxp, pal, i):

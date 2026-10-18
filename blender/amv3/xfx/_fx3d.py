@@ -45,6 +45,19 @@ def pose_matrix(ctx, card, st):
     return Matrix.LocRotScale(Vector(loc), Quaternion(rot), None)
 
 
+def look_at(loc, tgt, up=Vector((0.0, 1.0, 0.0))):
+    """Camera rotation looking from loc at tgt with screen-up as close to `up` as possible (Vector.to_track_quat
+    aligns 'up' with world Z, which is degenerate when the camera looks along Z)."""
+    f = (tgt - loc).normalized()
+    r = f.cross(up)
+    if r.length < 1e-6:
+        r = f.cross(Vector((1.0, 0.0, 0.0)))
+    r.normalize()
+    u = r.cross(f)
+    M = Matrix((r, u, -f)).transposed()
+    return M.to_quaternion()
+
+
 def lerp(a, b, t):
     return a + (b - a) * t
 
