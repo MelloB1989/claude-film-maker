@@ -18,6 +18,8 @@ integral after the crossing gives S09's landing framing.
 Teleports: home S08 -> private set at w0 + 0.5 (identical copy, the eye still opaque), private set -> home S09 at
 t_cross + 2.5 (the S09 copy fills the frame, identical to the home card).
 """
+import bisect
+import json
 import math
 import os
 import sys
@@ -52,7 +54,12 @@ def _plan(T, ctx):
     r_e = X.exit_rate(ctx, T, 0.022)
     eye_off = p.get("eye_off", EYE["off"])
 
+    reg = _region_json(ctx, a, "eye")
+
     def eye(t):
+        """Centre of the eye opening (plate px): the region masks' centroid when they exist, else iris track + offset."""
+        if reg:
+            return _interp_frames(reg, t)
         ix, iy = X.track(ctx, a, t, (901, 390))
         return ix + eye_off[0], iy + eye_off[1]
 
@@ -211,6 +218,29 @@ def _rate(fz, f, h=0.25):
 def _norm(m):
     loc, rot, _ = m.decompose()
     return Matrix.Translation(loc) @ rot.to_matrix().to_4x4()
+
+
+def _region_json(ctx, sid, kind):
+    """{frame: (cx, cy)} from regions/<shot>/<kind>/region.json, or None."""
+    pj = os.path.join(ctx.data, "regions", sid, kind, "region.json")
+    if not os.path.exists(pj):
+        return None
+    fr = json.load(open(pj)).get("frames", {})
+    out = {int(k): (float(v["cx"]), float(v["cy"])) for k, v in fr.items() if v and v.get("area", 1) > 0}
+    return out or None
+
+
+def _interp_frames(tab, t):
+    ks = sorted(tab)
+    if t <= ks[0]:
+        return tab[ks[0]]
+    if t >= ks[-1]:
+        return tab[ks[-1]]
+    i = bisect.bisect_right(ks, t) - 1
+    k0, k1 = ks[i], ks[i + 1]
+    u = (t - k0) / (k1 - k0)
+    (x0, y0), (x1, y1) = tab[k0], tab[k1]
+    return x0 + (x1 - x0) * u, y0 + (y1 - y0) * u
 
 
 def _region_seq(ctx, sid, kind):

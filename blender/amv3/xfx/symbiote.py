@@ -207,7 +207,7 @@ def build(T, ctx):
     X.copy_card(ctx, a, "XA_sym_S04", P["MA"], frames=(w0 - 1, cut))
     X.copy_card(ctx, b, "XA_sym_S05", P["MB"], frames=(cut, w1 + 1))
     goo = _goo_mesh(P, ctx, plate_c)
-    goo.data.materials.append(_goo_mat(pal))
+    goo.data.materials.append(_goo_mat(pal, cut))
     _lights(P, ctx, pal, plate_c)
     _cam_light(P, plate_c)
     # no act void here: the frame is always covered (card or goo), and the void's warm haze reflected in the wet coat
@@ -246,7 +246,7 @@ def _norm(m):
     return Matrix.Translation(loc) @ rot.to_matrix().to_4x4()
 
 
-def _goo_mat(pal):
+def _goo_mat(pal, cut=None):
     m, nt, out = X._nodes("XA_sym_goo_m")
     bs = nt.nodes.new("ShaderNodeBsdfPrincipled")
     bs.inputs["Base Color"].default_value = (0.003, 0.003, 0.005, 1)
@@ -270,8 +270,51 @@ def _goo_mat(pal):
     add = nt.nodes.new("ShaderNodeAddShader")
     nt.links.new(bs.outputs[0], add.inputs[0])
     nt.links.new(em.outputs[0], add.inputs[1])
-    nt.links.new(add.outputs[0], out.inputs["Surface"])
+    surf = add.outputs[0]
+    if cut is not None:
+        surf = _sweep_sheen(nt, tc, surf, cut)
+    nt.links.new(surf, out.inputs["Surface"])
     return m
+
+
+def _sweep_sheen(nt, tc, surf, cut):
+    """One slow wet highlight crossing the full-cover frames (cut-2 .. cut+1): a diagonal band in screen space moving
+    left to right, broken up by the ripples (strongest where the surface tilts toward the sweep direction), added as
+    emission. (A softbox strip behind the camera cannot do it: inside the goo funnel the camera sees the walls at
+    grazing angles, and they reflect what is ahead of the camera.)"""
+    ang = math.radians(-35.0)
+    ca, sa = math.cos(ang), math.sin(ang)
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["Camera"], sep.inputs[0])
+    depth = X.math_node(nt, "MAXIMUM", X.math_node(nt, "ABSOLUTE", sep.outputs[2]), 1e-4)  # |z| (sign differs by engine)
+    u = X.math_node(nt, "DIVIDE", X.math_node(nt, "DIVIDE", sep.outputs[0], depth), 0.514)
+    v = X.math_node(nt, "DIVIDE", X.math_node(nt, "DIVIDE", sep.outputs[1], depth), 0.514)
+    q = X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", u, ca), X.math_node(nt, "MULTIPLY", v, -sa))
+    keys = [(cut - 3.2 + 0.5 * i, X.lerp(-0.95, 0.95, X._sstep(cut - 2.5, cut + 1.5, cut - 3.2 + 0.5 * i))) for i in range(12)]
+    c = X.key_value(nt, "SweepC", keys)
+    env = X.key_value(nt, "SweepK", [(t, X.bump(t, cut - 3.2, cut + 2.4)) for t, _ in keys])
+    X.set_linear(nt)
+    d = X.math_node(nt, "DIVIDE", X.math_node(nt, "SUBTRACT", q, c), 0.16)
+    band = X.math_node(nt, "EXPONENT", X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", d, d), -1.0))
+    # ripple breakup: the shading normal in camera space against the sweep direction
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    vt = nt.nodes.new("ShaderNodeVectorTransform")
+    vt.vector_type = "NORMAL"
+    vt.convert_from, vt.convert_to = "WORLD", "CAMERA"
+    nt.links.new(geo.outputs["Normal"], vt.inputs[0])
+    ns = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(vt.outputs[0], ns.inputs[0])
+    tiltd = X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", ns.outputs[0], ca), X.math_node(nt, "MULTIPLY", ns.outputs[1], -sa))
+    rip = X.math_node(nt, "POWER", X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", tiltd, 0.5), 0.5, clamp=True), 6.0)
+    k = X.math_node(nt, "MULTIPLY", X.math_node(nt, "MULTIPLY", band, X.math_node(nt, "ADD", X.math_node(nt, "MULTIPLY", rip, 2.0),
+                                                                                0.06)), env)
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (0.85, 0.8, 1.0, 1)
+    nt.links.new(X.math_node(nt, "MULTIPLY", k, 0.45), em.inputs["Strength"])
+    add = nt.nodes.new("ShaderNodeAddShader")
+    nt.links.new(surf, add.inputs[0])
+    nt.links.new(em.outputs[0], add.inputs[1])
+    return add.outputs[0]
 
 
 def _dome(O, coll, R=6.0, n=32):
@@ -325,29 +368,6 @@ def _cam_light(P, coll):
         so.keyframe_insert("location", frame=t)
         so.keyframe_insert("rotation_euler", frame=t)
     X.set_linear(so)
-    # one slow wet highlight sweeping across the full-cover frames (149-152): a long softbox strip 3 m behind the
-    # camera (inside the dome), swung across the view so its reflection direction sweeps the frame left to right,
-    # whatever the distance to the goo (a strip near the camera only lit the lip around the opening)
-    bx = X.plane_obj("XA_sym_sweepbox", 1.0, 1.0, coll)
-    bx.data.materials.append(X.mat_emit("XA_sym_sweepbox_m", (0.92, 0.88, 1.0), 9.0))
-    bx.visible_camera = False
-    bx.visible_shadow = False
-    bx.rotation_mode = "QUATERNION"
-    tilt = Quaternion((0, 0, 1), math.radians(-35.0))
-    h = 3.0
-    for i in range(2 * 9 + 1):
-        t = cut - 3.5 + 0.5 * i
-        u = X._sstep(cut - 2.8, cut + 1.8, t)
-        phi = (-1.0 + 2.0 * u) * 0.95  # reflection angle off the axis: shows at ~phi / 2 on a goo facing the lens
-        loc, rot, _ = (P["m_set"](t) @ Matrix.Translation(Vector((h * math.tan(phi), h * 0.25 * math.tan(-phi),
-                                                                   h)))).decompose()
-        bx.location = loc
-        bx.rotation_quaternion = rot @ tilt
-        bx.scale = (0.45, 5.0, 1.0)
-        for path in ("location", "rotation_quaternion", "scale"):
-            bx.keyframe_insert(path, frame=t)
-    X.set_linear(bx)
-    X.key_hide(bx, [(cut - 3, cut + 2)])
 
 
 def _lights(P, ctx, pal, coll):
