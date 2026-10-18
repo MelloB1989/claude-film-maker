@@ -179,7 +179,7 @@ def lens_plan(E, zvec=None, luma=None):
                 pl = max(p, w4)
                 if w4:
                     h = max(h, 0.8 * w4)    # the wash is the transition itself: it overrides the bright-frame headroom
-            K["tint"].append([x, round(100.0 * {f - 2: 0.75, f - 1: 1.0, f: 1.0, f + 1: 0.6}.get(x, 0.0), 1) if R.get("wash4") else 0.0])
+            K["tint"].append([x, round(100.0 * {f - 2: 0.75, f - 1: 1.0, f: 1.0, f + 1: 0.6, f + 2: 0.35, f + 3: 0.15}.get(x, 0.0), 1) if R.get("wash4") else 0.0])
             K["bloom"].append([x, round(1.0 * lg * pl * h * h, 3)])          # a wide glow on a bright frame is a veil: h^2
             K["bloomThr"].append([x, round(76 - 14 * pl * h, 1)])
             K["leak"].append([x, round(min(100.0, 115.0 * lg * pl ** 1.3 * h), 1)])
