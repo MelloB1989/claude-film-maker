@@ -1,0 +1,1898 @@
+{
+ "version": 3,
+ "fps": 30,
+ "w": 1920,
+ "h": 1080,
+ "dur": 900,
+ "handle": 16,
+ "song": {
+  "file": "/home/nikhil/code/film-making/handover/amv_handover/audio/timeless_full.wav",
+  "t0": 0.0
+ },
+ "voice_dir": "/home/nikhil/code/film-making/handover/amv_handover/audio/voice",
+ "sfx_dir": "/home/nikhil/code/film-making/handover/amv_handover/project/sfx",
+ "acts": [
+  {
+   "id": "tobey",
+   "f0": 0,
+   "f1": 252,
+   "earth": "EARTH-96283",
+   "name": "TOBEY MAGUIRE",
+   "years": "2002 - 2007",
+   "look": "nostalgia: warm gold highlights, deep teal shadows, soft bloom",
+   "leak": "warm_gold",
+   "motion": "floating: long eased drifts, transitions 12-16 f, light leaks, nothing snaps"
+  },
+  {
+   "id": "andrew",
+   "f0": 252,
+   "f1": 480,
+   "earth": "EARTH-120703",
+   "name": "ANDREW GARFIELD",
+   "years": "2012 - 2014",
+   "look": "electric: cool cyan/blue, sunset amber accents, crisp contrast, cyan bloom",
+   "leak": "cyan_amber",
+   "motion": "rising: rolls, dives and a cube; transitions tighten 14 -> 10 f into the drop"
+  },
+  {
+   "id": "tom",
+   "f0": 480,
+   "f1": 819,
+   "earth": "EARTH-199999",
+   "name": "TOM HOLLAND",
+   "years": "2016 - 2026",
+   "look": "impact: rich red/orange vs steel blue, punchy contrast, hard highlights",
+   "leak": "red_orange",
+   "motion": "hard: zoom-throughs and whips on every hit, 8-11 f, punches and shakes inside shots"
+  },
+  {
+   "id": "outro",
+   "f0": 819,
+   "f1": 900,
+   "look": "3D SAU_EDITZ outro (Blender)"
+  }
+ ],
+ "shots": [
+  {
+   "id": "S01",
+   "clip": "T01_mask_night",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_T01_mask_night.mp4",
+   "a": 0,
+   "b": 50,
+   "src": [
+    0.05,
+    0.75
+   ],
+   "speed": "const",
+   "focus": [
+    960,
+    470
+   ],
+   "move": {
+    "drift": "out",
+    "roll": -2.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.35
+   },
+   "fx": [],
+   "note": "opens out of black: the camera pulls back through the dark with depth parallax"
+  },
+  {
+   "id": "S02",
+   "clip": "T02_mask_off",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_T02_mask_off.mp4",
+   "a": 50,
+   "b": 83,
+   "src": [
+    0.08,
+    0.66
+   ],
+   "speed": "land",
+   "focus": null,
+   "move": {
+    "drift": "out",
+    "roll": 1.5,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "the unmasking"
+  },
+  {
+   "id": "S03",
+   "clip": "T03_glove_city",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_T03_glove_city.mp4",
+   "a": 83,
+   "b": 118,
+   "src": [
+    0.15,
+    0.85
+   ],
+   "speed": "const",
+   "focus": [
+    950,
+    560
+   ],
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     -40,
+     0
+    ],
+    "depth": 0.3
+   },
+   "fx": [],
+   "note": "TOBEY MAGUIRE name card + EARTH-96283 caption"
+  },
+  {
+   "id": "S04",
+   "clip": "T04_flowers",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_T04_flowers.mp4",
+   "a": 118,
+   "b": 151,
+   "src": [
+    0.1,
+    0.9
+   ],
+   "speed": "const",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": -1.5,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "gold bokeh"
+  },
+  {
+   "id": "S05",
+   "clip": "T05_black_lens",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_T05_black_lens.mp4",
+   "a": 151,
+   "b": 175,
+   "src": [
+    0.15,
+    0.95
+   ],
+   "speed": "const",
+   "focus": [
+    980,
+    520
+   ],
+   "move": {
+    "drift": "out",
+    "roll": 2.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "black suit: emerges from the symbiote goo"
+  },
+  {
+   "id": "S06",
+   "clip": "T06_bully_smirk",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_T06_bully_smirk.mp4",
+   "a": 175,
+   "b": 201,
+   "src": [
+    0.1,
+    0.95
+   ],
+   "speed": "land",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "Bully Maguire smirk"
+  },
+  {
+   "id": "S07",
+   "clip": "T07_train",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_T07_train.mp4",
+   "a": 201,
+   "b": 235,
+   "src": [
+    0.3,
+    0.85
+   ],
+   "speed": "velocity",
+   "focus": null,
+   "move": {
+    "drift": "out",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.25
+   },
+   "fx": [
+    "shake@201"
+   ],
+   "note": "arms out against the train"
+  },
+  {
+   "id": "S08",
+   "clip": "T08_eye_dive",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_T08_eye_dive.mp4",
+   "a": 235,
+   "b": 252,
+   "src": [
+    0.05,
+    0.75
+   ],
+   "speed": "const",
+   "focus": [
+    901,
+    390
+   ],
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "push into the left iris: the iris becomes the multiverse tunnel"
+  },
+  {
+   "id": "S09",
+   "clip": "A01_lens_pullout",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_A01_lens_pullout.mp4",
+   "a": 252,
+   "b": 300,
+   "src": [
+    4.45,
+    0.4
+   ],
+   "speed": "land",
+   "focus": [
+    1036,
+    546
+   ],
+   "move": {
+    "drift": "out",
+    "roll": 3.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "out of the tunnel through Andrew's lens, pulling out over the night city; WHO ARE YOU?"
+  },
+  {
+   "id": "S10",
+   "clip": "A03_sunset_mask",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_A03_sunset_mask.mp4",
+   "a": 300,
+   "b": 336,
+   "src": [
+    0.02,
+    0.7
+   ],
+   "speed": "const",
+   "focus": [
+    915,
+    600
+   ],
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.3
+   },
+   "fx": [],
+   "note": "3D AMAZING assembles behind his head; ANDREW GARFIELD / EARTH-120703"
+  },
+  {
+   "id": "S11",
+   "clip": "A02_freefall",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_A02_freefall.mp4",
+   "a": 336,
+   "b": 369,
+   "src": [
+    0.05,
+    1.3
+   ],
+   "speed": "velocity",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": -4.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "freefall past the Empire State (we dive into it through the AMAZING letters)"
+  },
+  {
+   "id": "S12",
+   "clip": "A04_bridge_flip",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_A04_bridge_flip.mp4",
+   "a": 369,
+   "b": 400,
+   "src": [
+    0.05,
+    1.25
+   ],
+   "speed": "velocity",
+   "focus": null,
+   "move": {
+    "drift": "out",
+    "roll": 3.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "flip under the bridge (the cube turns with the flip)"
+  },
+  {
+   "id": "S13",
+   "clip": "A05_topdown_fall",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_A05_topdown_fall.mp4",
+   "a": 400,
+   "b": 416,
+   "src": [
+    0.05,
+    0.75
+   ],
+   "speed": "launch",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "top-down dive"
+  },
+  {
+   "id": "S14",
+   "clip": "A06_water_tower",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_A06_water_tower.mp4",
+   "a": 416,
+   "b": 436,
+   "src": [
+    0.1,
+    0.8
+   ],
+   "speed": "velocity",
+   "focus": null,
+   "move": {
+    "drift": "out",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "leap off the water tower"
+  },
+  {
+   "id": "S15",
+   "clip": "A07_electro",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_A07_electro.mp4",
+   "a": 436,
+   "b": 453,
+   "src": [
+    0.05,
+    0.75
+   ],
+   "speed": "const",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": -2.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "Electro's lightning"
+  },
+  {
+   "id": "S16",
+   "clip": "A08_blue_lenses",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_A08_blue_lenses.mp4",
+   "a": 453,
+   "b": 468,
+   "src": [
+    0.05,
+    0.75
+   ],
+   "speed": "launch",
+   "focus": [
+    990,
+    565
+   ],
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "blue lenses"
+  },
+  {
+   "id": "S17",
+   "clip": "A09_lens_pushin",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_A09_lens_pushin.mp4",
+   "a": 468,
+   "b": 480,
+   "src": [
+    0.0,
+    1.1
+   ],
+   "speed": "launch",
+   "focus": [
+    1110,
+    443
+   ],
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "riser: slam into the lens; the lens glass shatters on the drop"
+  },
+  {
+   "id": "S18",
+   "clip": "M01_lens_portal",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M01_lens_portal.mp4",
+   "a": 480,
+   "b": 519,
+   "src": [
+    0.02,
+    1.15
+   ],
+   "speed": "land",
+   "focus": [
+    1110,
+    443
+   ],
+   "move": {
+    "drift": "out",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.2
+   },
+   "fx": [
+    "punch@508"
+   ],
+   "note": "DROP: pull out of Tom's lens through the glass shards; I'M SPIDER-MAN; TOM HOLLAND / EARTH-199999"
+  },
+  {
+   "id": "S19",
+   "clip": "M02_swing_at_cam",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M02_swing_at_cam.mp4",
+   "a": 519,
+   "b": 536,
+   "src": [
+    0.03,
+    0.75
+   ],
+   "speed": "velocity",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "swings at camera"
+  },
+  {
+   "id": "S20",
+   "clip": "M03_topdown_swing",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M03_topdown_swing.mp4",
+   "a": 536,
+   "b": 554,
+   "src": [
+    0.03,
+    0.75
+   ],
+   "speed": "velocity",
+   "focus": null,
+   "move": {
+    "drift": "out",
+    "roll": -3.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "top-down swing"
+  },
+  {
+   "id": "S21",
+   "clip": "M04_dome_crash",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M04_dome_crash.mp4",
+   "a": 554,
+   "b": 570,
+   "src": [
+    0.22,
+    0.82
+   ],
+   "speed": "const",
+   "focus": null,
+   "move": {
+    "drift": "out",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "crash through the dome: real glass shards burst at the camera"
+  },
+  {
+   "id": "S22",
+   "clip": "M07_roll_crouch",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M07_roll_crouch.mp4",
+   "a": 570,
+   "b": 587,
+   "src": [
+    0.05,
+    0.72
+   ],
+   "speed": "land",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "roll into a crouch"
+  },
+  {
+   "id": "S23",
+   "clip": "M15_landing_crouch",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M15_landing_crouch.mp4",
+   "a": 587,
+   "b": 604,
+   "src": [
+    0.1,
+    0.75
+   ],
+   "speed": "land",
+   "focus": null,
+   "move": {
+    "drift": "out",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.45
+   },
+   "fx": [
+    "shake@587"
+   ],
+   "note": "superhero landing: 3D-photo dolly, dust shockwave"
+  },
+  {
+   "id": "S24",
+   "clip": "M06_flying_kick",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M06_flying_kick.mp4",
+   "a": 604,
+   "b": 620,
+   "src": [
+    0.05,
+    0.75
+   ],
+   "speed": "velocity",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "flying kick"
+  },
+  {
+   "id": "S25",
+   "clip": "M08_shuriken",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M08_shuriken.mp4",
+   "a": 620,
+   "b": 656,
+   "src": [
+    0.02,
+    0.76
+   ],
+   "speed": "const",
+   "focus": [
+    700,
+    470
+   ],
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.25
+   },
+   "fx": [
+    "letterbox",
+    "punch@631"
+   ],
+   "note": "slow motion through the sling-ring portal; the shuriken passes his eye; 3D SPIDER-MAN"
+  },
+  {
+   "id": "S26",
+   "clip": "M09_punches",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M09_punches.mp4",
+   "a": 656,
+   "b": 672,
+   "src": [
+    0.05,
+    0.72
+   ],
+   "speed": "velocity",
+   "focus": null,
+   "move": {
+    "drift": "out",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [
+    "shake@656"
+   ],
+   "note": "punches"
+  },
+  {
+   "id": "S27",
+   "clip": "M10_tank_snap",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M10_tank_snap.mp4",
+   "a": 672,
+   "b": 686,
+   "src": [
+    0.05,
+    0.88
+   ],
+   "speed": "land",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "crouch on the tank"
+  },
+  {
+   "id": "S28",
+   "clip": "M11_electric_mask",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M11_electric_mask.mp4",
+   "a": 686,
+   "b": 708,
+   "src": [
+    0.02,
+    0.76
+   ],
+   "speed": "const",
+   "focus": null,
+   "move": {
+    "drift": "out",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [
+    "punch@700",
+    "source_cut@700"
+   ],
+   "note": "the clip's own cut at 0.55 s lands on the hit at f700"
+  },
+  {
+   "id": "S29",
+   "clip": "M12_fire_webs",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M12_fire_webs.mp4",
+   "a": 708,
+   "b": 726,
+   "src": [
+    0.05,
+    0.76
+   ],
+   "speed": "velocity",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": 2.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "webs in the fire"
+  },
+  {
+   "id": "S30",
+   "clip": "M13_mesh_lenses",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M13_mesh_lenses.mp4",
+   "a": 726,
+   "b": 744,
+   "src": [
+    0.1,
+    0.76
+   ],
+   "speed": "const",
+   "focus": null,
+   "move": {
+    "drift": "out",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [
+    "punch@732",
+    "source_cut@732"
+   ],
+   "note": "the clip's own cut at ~0.33 s lands on the kick at f732"
+  },
+  {
+   "id": "S31",
+   "clip": "M05_landing",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M05_landing.mp4",
+   "a": 744,
+   "b": 760,
+   "src": [
+    0.05,
+    0.72
+   ],
+   "speed": "land",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.3
+   },
+   "fx": [],
+   "note": "Tom unmasked on the train; 3D BRAND NEW DAY starts"
+  },
+  {
+   "id": "S32",
+   "clip": "M14_head_raise",
+   "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M14_head_raise.mp4",
+   "a": 760,
+   "b": 777,
+   "src": [
+    0.05,
+    0.84
+   ],
+   "speed": "const",
+   "focus": null,
+   "move": {
+    "drift": "in",
+    "roll": 0.0,
+    "pan": [
+     0,
+     0
+    ],
+    "depth": 0.0
+   },
+   "fx": [],
+   "note": "head raise under BRAND NEW DAY"
+  }
+ ],
+ "cuts": [
+  {
+   "id": "C00",
+   "f": 0,
+   "type": "open",
+   "w0": 0,
+   "w1": 24,
+   "a": null,
+   "b": "S01",
+   "p": {
+    "from_scale": 1.9
+   },
+   "over": [],
+   "lens": {
+    "ca": 4,
+    "zblur": 0.2,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C01",
+   "f": 50,
+   "type": "zt",
+   "w0": 43,
+   "w1": 61,
+   "a": "S01",
+   "b": "S02",
+   "p": {
+    "peak": 3.2,
+    "land": 2.6,
+    "roll": 25
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C02",
+   "f": 83,
+   "type": "whip",
+   "w0": 78,
+   "w1": 93,
+   "a": "S02",
+   "b": "S03",
+   "p": {
+    "dir": "R",
+    "angle": 70
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C03",
+   "f": 118,
+   "type": "flip",
+   "w0": 112,
+   "w1": 128,
+   "a": "S03",
+   "b": "S04",
+   "p": {
+    "hinge": "L"
+   },
+   "over": [],
+   "lens": {
+    "ca": 6,
+    "zblur": 0.3,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C04",
+   "f": 151,
+   "type": "symbiote",
+   "w0": 139,
+   "w1": 161,
+   "a": "S04",
+   "b": "S05",
+   "p": {},
+   "over": [],
+   "lens": {
+    "ca": 8,
+    "zblur": 0.4,
+    "leak": "none",
+    "flash": 0
+   }
+  },
+  {
+   "id": "C05",
+   "f": 175,
+   "type": "zt",
+   "w0": 169,
+   "w1": 185,
+   "a": "S05",
+   "b": "S06",
+   "p": {
+    "peak": 3.0,
+    "land": 2.4,
+    "roll": -180
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C06",
+   "f": 201,
+   "type": "whip",
+   "w0": 196,
+   "w1": 210,
+   "a": "S06",
+   "b": "S07",
+   "p": {
+    "dir": "L",
+    "angle": 70
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C07",
+   "f": 235,
+   "type": "zt",
+   "w0": 229,
+   "w1": 236,
+   "a": "S07",
+   "b": "S08",
+   "p": {
+    "peak": 3.0,
+    "land": 1.12,
+    "roll": 0,
+    "mode": "push"
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C08",
+   "f": 252,
+   "type": "eye_tunnel",
+   "w0": 236,
+   "w1": 264,
+   "a": "S08",
+   "b": "S09",
+   "p": {
+    "iris": [
+     901,
+     390
+    ],
+    "exit_lens": [
+     1036,
+     546
+    ]
+   },
+   "over": [],
+   "lens": {
+    "ca": 14,
+    "zblur": 0.8,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C09",
+   "f": 300,
+   "type": "zt",
+   "w0": 295,
+   "w1": 310,
+   "a": "S09",
+   "b": "S10",
+   "p": {
+    "peak": 3.0,
+    "land": 2.4,
+    "roll": 40
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C10",
+   "f": 336,
+   "type": "text_fly",
+   "w0": 327,
+   "w1": 345,
+   "a": "S10",
+   "b": "S11",
+   "p": {
+    "title": "AMAZING",
+    "exit": "dive"
+   },
+   "over": [],
+   "lens": {
+    "ca": 12,
+    "zblur": 0.7,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C11",
+   "f": 369,
+   "type": "cube",
+   "w0": 363,
+   "w1": 378,
+   "a": "S11",
+   "b": "S12",
+   "p": {
+    "dir": "U"
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C12",
+   "f": 400,
+   "type": "zt",
+   "w0": 395,
+   "w1": 409,
+   "a": "S12",
+   "b": "S13",
+   "p": {
+    "peak": 3.2,
+    "land": 2.4,
+    "roll": -30
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C13",
+   "f": 416,
+   "type": "whip",
+   "w0": 412,
+   "w1": 424,
+   "a": "S13",
+   "b": "S14",
+   "p": {
+    "dir": "D",
+    "angle": 75
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C14",
+   "f": 436,
+   "type": "lightning",
+   "w0": 430,
+   "w1": 445,
+   "a": "S14",
+   "b": "S15",
+   "p": {},
+   "over": [],
+   "lens": {
+    "ca": 14,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 1
+   }
+  },
+  {
+   "id": "C15",
+   "f": 453,
+   "type": "zt",
+   "w0": 449,
+   "w1": 461,
+   "a": "S15",
+   "b": "S16",
+   "p": {
+    "peak": 2.8,
+    "land": 2.2,
+    "roll": 180
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C16",
+   "f": 468,
+   "type": "zt",
+   "w0": 464,
+   "w1": 469,
+   "a": "S16",
+   "b": "S17",
+   "p": {
+    "peak": 3.0,
+    "land": 1.12,
+    "roll": 0,
+    "mode": "push"
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C17",
+   "f": 480,
+   "type": "lens_shatter",
+   "w0": 469,
+   "w1": 494,
+   "a": "S17",
+   "b": "S18",
+   "p": {
+    "lens_a": [
+     1110,
+     443
+    ],
+    "lens_b": [
+     1110,
+     443
+    ]
+   },
+   "over": [],
+   "lens": {
+    "ca": 18,
+    "zblur": 0.9,
+    "leak": null,
+    "flash": 2
+   }
+  },
+  {
+   "id": "C18",
+   "f": 519,
+   "type": "zt",
+   "w0": 515,
+   "w1": 526,
+   "a": "S18",
+   "b": "S19",
+   "p": {
+    "peak": 3.0,
+    "land": 2.4,
+    "roll": -35
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C19",
+   "f": 536,
+   "type": "whip",
+   "w0": 533,
+   "w1": 543,
+   "a": "S19",
+   "b": "S20",
+   "p": {
+    "dir": "D",
+    "angle": 80
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C20",
+   "f": 554,
+   "type": "zt",
+   "w0": 550,
+   "w1": 562,
+   "a": "S20",
+   "b": "S21",
+   "p": {
+    "peak": 3.0,
+    "land": 2.6,
+    "roll": 200
+   },
+   "over": [
+    "dome_shards"
+   ],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C21",
+   "f": 570,
+   "type": "zt",
+   "w0": 567,
+   "w1": 577,
+   "a": "S21",
+   "b": "S22",
+   "p": {
+    "peak": 2.8,
+    "land": 2.2,
+    "roll": -30
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C22",
+   "f": 587,
+   "type": "slam",
+   "w0": 583,
+   "w1": 597,
+   "a": "S22",
+   "b": "S23",
+   "p": {
+    "depth": 0.45,
+    "kick": 1.35
+   },
+   "over": [],
+   "lens": {
+    "ca": 12,
+    "zblur": 0.5,
+    "leak": null,
+    "flash": 1
+   }
+  },
+  {
+   "id": "C23",
+   "f": 604,
+   "type": "whip",
+   "w0": 601,
+   "w1": 611,
+   "a": "S23",
+   "b": "S24",
+   "p": {
+    "dir": "L",
+    "angle": 80
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C24",
+   "f": 620,
+   "type": "sling_ring",
+   "w0": 611,
+   "w1": 626,
+   "a": "S24",
+   "b": "S25",
+   "p": {},
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.5,
+    "leak": "red_orange",
+    "flash": 0
+   }
+  },
+  {
+   "id": "C25",
+   "f": 656,
+   "type": "text_fly",
+   "w0": 648,
+   "w1": 662,
+   "a": "S25",
+   "b": "S26",
+   "p": {
+    "title": "SPIDER-MAN",
+    "exit": "through"
+   },
+   "over": [],
+   "lens": {
+    "ca": 16,
+    "zblur": 0.8,
+    "leak": null,
+    "flash": 1
+   }
+  },
+  {
+   "id": "C26",
+   "f": 672,
+   "type": "zt",
+   "w0": 669,
+   "w1": 678,
+   "a": "S26",
+   "b": "S27",
+   "p": {
+    "peak": 2.8,
+    "land": 2.2,
+    "roll": -180
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C27",
+   "f": 686,
+   "type": "web_wipe",
+   "w0": 680,
+   "w1": 692,
+   "a": "S27",
+   "b": "S28",
+   "p": {
+    "dir": "R"
+   },
+   "over": [],
+   "lens": {
+    "ca": 12,
+    "zblur": 0.5,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C28",
+   "f": 708,
+   "type": "zt",
+   "w0": 705,
+   "w1": 715,
+   "a": "S28",
+   "b": "S29",
+   "p": {
+    "peak": 3.0,
+    "land": 2.4,
+    "roll": 30
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C29",
+   "f": 726,
+   "type": "whip",
+   "w0": 723,
+   "w1": 733,
+   "a": "S29",
+   "b": "S30",
+   "p": {
+    "dir": "U",
+    "angle": 80
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C30",
+   "f": 744,
+   "type": "cube",
+   "w0": 740,
+   "w1": 751,
+   "a": "S30",
+   "b": "S31",
+   "p": {
+    "dir": "L"
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C31",
+   "f": 760,
+   "type": "zt",
+   "w0": 757,
+   "w1": 767,
+   "a": "S31",
+   "b": "S32",
+   "p": {
+    "peak": 2.8,
+    "land": 2.3,
+    "roll": -25
+   },
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.6,
+    "leak": null,
+    "flash": 0
+   }
+  },
+  {
+   "id": "C32",
+   "f": 777,
+   "type": "triptych",
+   "w0": 777,
+   "w1": 819,
+   "a": "S32",
+   "b": null,
+   "p": {},
+   "over": [],
+   "lens": {
+    "ca": 10,
+    "zblur": 0.4,
+    "leak": null,
+    "flash": 0
+   }
+  }
+ ],
+ "triptych": {
+  "f0": 777,
+  "f1": 819,
+  "panels": [
+   {
+    "id": "P1",
+    "f": 777,
+    "clip": "T01_mask_night",
+    "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_T01_mask_night.mp4",
+    "src": [
+     0.3,
+     1.05
+    ],
+    "act": "tobey"
+   },
+   {
+    "id": "P2",
+    "f": 785,
+    "clip": "A03_sunset_mask",
+    "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_A03_sunset_mask.mp4",
+    "src": [
+     0.1,
+     0.7
+    ],
+    "act": "andrew"
+   },
+   {
+    "id": "P3",
+    "f": 794,
+    "clip": "M16_sunset_hero",
+    "file": "/home/nikhil/code/film-making/handover/amv_handover/footage_clips/clip_M16_sunset_hero.mp4",
+    "src": [
+     0.05,
+     1.0
+    ],
+    "act": "tom"
+   }
+  ],
+  "title": {
+   "f": 802,
+   "text": "TIMELESS"
+  },
+  "shatter": 819
+ },
+ "outro": {
+  "f0": 819,
+  "f1": 900,
+  "text": "SAU_EDITZ",
+  "hits": [
+   828,
+   837,
+   844,
+   854,
+   860,
+   880,
+   892,
+   897
+  ],
+  "frames": "$AMV2_DATA/blender/outro_v2"
+ },
+ "titles": [
+  {
+   "id": "sub_tobey",
+   "f": 8,
+   "f1": 82,
+   "style": "sub",
+   "text": "WHO AM I? I'M SPIDER-MAN.",
+   "voice": "tobey_who_am_i"
+  },
+  {
+   "id": "name_tobey",
+   "f": 88,
+   "f1": 148,
+   "style": "namecard",
+   "text": "TOBEY MAGUIRE",
+   "sub": "SPIDER-MAN  2002 - 2007",
+   "act": "tobey"
+  },
+  {
+   "id": "cap_tobey",
+   "f": 86,
+   "f1": 150,
+   "style": "caption_box",
+   "text": "EARTH-96283",
+   "act": "tobey"
+  },
+  {
+   "id": "sub_andrew",
+   "f": 262,
+   "f1": 322,
+   "style": "sub",
+   "text": "WHO ARE YOU? SPIDER-MAN.",
+   "voice": "andrew_who_are_you_spiderman"
+  },
+  {
+   "id": "AMAZING",
+   "f": 303,
+   "f1": 345,
+   "style": "text3d",
+   "text": "AMAZING",
+   "palette": "cyan_white",
+   "behind": true,
+   "shot": "S10",
+   "anim": "assemble",
+   "exit": "fly_through@336"
+  },
+  {
+   "id": "cap_andrew",
+   "f": 304,
+   "f1": 334,
+   "style": "caption_box",
+   "text": "EARTH-120703",
+   "act": "andrew"
+  },
+  {
+   "id": "sub_tom",
+   "f": 488,
+   "f1": 540,
+   "style": "sub",
+   "text": "I'M SPIDER-MAN.",
+   "voice": "tom_im_spiderman"
+  },
+  {
+   "id": "name_tom",
+   "f": 492,
+   "f1": 518,
+   "style": "namecard",
+   "text": "TOM HOLLAND",
+   "sub": "SPIDER-MAN  2016 - 2026",
+   "act": "tom"
+  },
+  {
+   "id": "cap_tom",
+   "f": 484,
+   "f1": 518,
+   "style": "caption_box",
+   "text": "EARTH-199999",
+   "act": "tom"
+  },
+  {
+   "id": "SPIDER-MAN",
+   "f": 624,
+   "f1": 662,
+   "style": "text3d",
+   "text": "SPIDER-MAN",
+   "palette": "red_gold",
+   "behind": true,
+   "shot": "S25",
+   "anim": "fly_in",
+   "exit": "fly_through@656"
+  },
+  {
+   "id": "BRAND NEW DAY",
+   "f": 746,
+   "f1": 777,
+   "style": "text3d",
+   "text": "BRAND NEW DAY",
+   "palette": "crimson_white",
+   "behind": true,
+   "shot": "S31",
+   "anim": "slam_letters",
+   "sub": "SPIDER-MAN  2026"
+  },
+  {
+   "id": "TIMELESS",
+   "f": 802,
+   "f1": 822,
+   "style": "text3d",
+   "text": "TIMELESS",
+   "palette": "chrome",
+   "behind": false,
+   "shot": null,
+   "anim": "slam",
+   "exit": "shatter@819"
+  }
+ ],
+ "watermark": {
+  "text": "SAU_EDITZ",
+  "f0": 0,
+  "f1": 819,
+  "pos": [
+   960,
+   1040
+  ]
+ },
+ "voice": [
+  {
+   "name": "tobey_who_am_i",
+   "f": 8,
+   "db": 0,
+   "duck": -6
+  },
+  {
+   "name": "andrew_who_are_you_spiderman",
+   "f": 262,
+   "db": 0,
+   "duck": -6
+  },
+  {
+   "name": "tom_im_spiderman",
+   "f": 488,
+   "db": 0,
+   "duck": -5
+  }
+ ],
+ "hits": [
+  [
+   50,
+   2.5
+  ],
+  [
+   83,
+   1.9
+  ],
+  [
+   118,
+   1.8
+  ],
+  [
+   151,
+   2.2
+  ],
+  [
+   201,
+   1.6
+  ],
+  [
+   235,
+   2.1
+  ],
+  [
+   251,
+   1.8
+  ],
+  [
+   284,
+   2.4
+  ],
+  [
+   300,
+   2.3
+  ],
+  [
+   416,
+   1.6
+  ],
+  [
+   480,
+   3.0
+  ],
+  [
+   519,
+   2.3
+  ],
+  [
+   536,
+   2.3
+  ],
+  [
+   554,
+   2.3
+  ],
+  [
+   587,
+   2.1
+  ],
+  [
+   604,
+   2.2
+  ],
+  [
+   620,
+   2.3
+  ],
+  [
+   631,
+   2.1
+  ],
+  [
+   656,
+   3.2
+  ],
+  [
+   686,
+   2.7
+  ],
+  [
+   700,
+   1.8
+  ],
+  [
+   732,
+   2.0
+  ],
+  [
+   777,
+   2.4
+  ],
+  [
+   785,
+   3.2
+  ],
+  [
+   794,
+   3.2
+  ],
+  [
+   802,
+   2.0
+  ],
+  [
+   807,
+   2.2
+  ],
+  [
+   819,
+   3.7
+  ],
+  [
+   828,
+   3.1
+  ],
+  [
+   837,
+   2.3
+  ],
+  [
+   844,
+   3.4
+  ],
+  [
+   854,
+   2.3
+  ],
+  [
+   860,
+   2.8
+  ],
+  [
+   880,
+   2.5
+  ],
+  [
+   892,
+   3.0
+  ],
+  [
+   897,
+   3.2
+  ]
+ ],
+ "drop": 480
+}
