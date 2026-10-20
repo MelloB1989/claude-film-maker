@@ -1,11 +1,11 @@
-"""Find and install ArtCraft's release binaries without sudo.
+"""Find and install ArtCraft's release binaries without sudo: FilmCraft, EffectCraft, LightCraft, PhotoCraft.
 
 Each app's Linux tarball (github.com/storytold/<app>/releases) holds `bin/<app>` (the GUI) and `bin/<app>-cli` (the
 headless engine this repo drives). They are unpacked into `<tools dir>/<app>-<version>-linux-<arch>/`; the tools dir is
 $ARTCRAFT_HOME, else the shared `film-making/bin/artcraft` when that folder exists (every machine on the shared code
 path sees it), else `~/.local/share/artcraft`. The download is checked against the release's SHA256SUMS.txt.
 
-    python -m filmtools.artcraft install [filmcraft|effectcraft|all] [--version v0.8.0]
+    python -m filmtools.artcraft install [filmcraft|effectcraft|lightcraft|photocraft|all] [--version v0.8.0]
     python -m filmtools.artcraft status
 """
 from __future__ import annotations
@@ -24,9 +24,10 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-APPS = {"filmcraft": "storytold/filmcraft", "effectcraft": "storytold/effectcraft"}
+APPS = {"filmcraft": "storytold/filmcraft", "effectcraft": "storytold/effectcraft", "lightcraft": "storytold/lightcraft",
+        "photocraft": "storytold/photocraft"}
 SHARED_BIN = Path("/home/nikhil/code/film-making/bin")
-ENV = {"filmcraft": "FILMCRAFT_CLI", "effectcraft": "EFFECTCRAFT_CLI"}
+ENV = {app: f"{app.upper()}_CLI" for app in APPS}
 
 
 def tools_dir() -> Path:
@@ -48,7 +49,7 @@ def _version_key(name: str):
 
 
 def find_cli(app: str, explicit: str | None = None, home: Path | None = None) -> str | None:
-    """The `<app>-cli` binary: `explicit`, $FILMCRAFT_CLI / $EFFECTCRAFT_CLI, PATH, then the newest install under the
+    """The `<app>-cli` binary: `explicit`, $<APP>_CLI (e.g. $FILMCRAFT_CLI), PATH, then the newest install under the
     tools dir (and the older /tmp/ec-bin location EffectCraft was first unpacked to)."""
     for c in (explicit, os.environ.get(ENV[app]), shutil.which(f"{app}-cli")):
         if c and Path(c).exists():
