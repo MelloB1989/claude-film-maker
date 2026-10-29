@@ -4,7 +4,7 @@ two paces behind her right shoulder, his nodachi sheathed across his back and hi
 stays on the river side of the line between them (-y of it: rf/sets.py's world), so he is always at the left of the
 frame and she at the right, as in the standoff that follows.
 
-`stage(ctx, ...)` builds what the four share: the crossing (rf/sets.py), the light and rain of the shot's place in
+`stage(ctx, ...)` builds what the four share: the world (rf/set_world.py), the light and rain of the shot's place in
 the look schedule (ctx.look_at), the 3D cast (rf/vroid_cast.py's variants: Shinza standing with his sword and kasa on
 his back, Tsuru seated with her pipe in hand and her pole laid in the boat), placed (`place_cast`) and painted as the
 standoff paints them (shots/standoff.py TONES3D), and the compositing. A shot then keys its performance frame by frame
@@ -32,7 +32,7 @@ import numpy as np
 TSURU_AT, TSURU_FACING = (7.0, -0.6), -70.0
 SHINZA_AT = (5.45, -0.82)
 SHINZA_FACING = math.degrees(math.atan2(TSURU_AT[1] - SHINZA_AT[1], TSURU_AT[0] - SHINZA_AT[0]))
-POST = "pier-post5-1"       # rf/sets.py's pier: the last post on the -y side, the one she knocks her pipe on
+POST_RADIUS = 0.14          # rf/set_jetty.py's end posts: the one on the -y side is the one she knocks her pipe on
 CRATE = (0.42, 0.34)        # her seat's width and depth (its height is rf/vroid_tsuru.py's SEAT); its middle behind her
 CRATE_BACK = 0.14           # ... feet (m)
 BOAT_POLE = ((4.05, 2.32, -0.13), (1.0, 0.03, 0.04))   # her pole laid in the boat: its foot, its way (world)
@@ -205,13 +205,14 @@ def fist_wrist(ch, side: str, point, turn, depth: float = 0.028) -> np.ndarray:
     return np.asarray(point, float) - turn @ (r0 * 0.85 + p0 * depth)
 
 
-def post_top(name: str = POST) -> np.ndarray:
-    """(x, y, top z) of a post of the pier, from its mesh."""
-    import bpy
-
-    ob = bpy.data.objects[name]
-    co = np.array([ob.matrix_world @ v.co for v in ob.data.vertices])
-    return np.array([co[:, 0].mean(), co[:, 1].mean(), co[:, 2].max()])
+def post_top(st) -> np.ndarray:
+    """Where her pipe knocks: the end post's crown (rf/set_jetty.py's staved post on the -y side), its edge toward
+    her (world)."""
+    post = st.crossing["jetty"]["posts"]["end"]
+    top = np.array(post["anchors"]["top"].matrix_world.translation)
+    toward = np.array((*TSURU_AT, top[2])) - top
+    toward[2] = 0.0
+    return top + toward / np.linalg.norm(toward) * POST_RADIUS * 0.55
 
 
 class Stage:
@@ -341,31 +342,20 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain_box=((2.0, -4.5, -0.6), (10.0, 4
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import rig, toon, toon3d, vrm
-    from rf import sets, vroid_cast
+    from rf import set_world, sets, vroid_cast
 
     scene = ctx.scene
     s = ctx.look_at(ctx.f0)
     scene.render.use_motion_blur = False
-    scene.eevee.use_shadows = True
-    scene.eevee.use_raytracing = True
-    scene.view_settings.view_transform = "Standard"
-    bg = scene.world.node_tree.nodes.get("Background")
-    bg.inputs[0].default_value = (*s.light.ambient, 1)
-
-    look = toon.Look(fog=tuple(s.light.fog), fog_near=18.0, fog_far=480.0, fog_max=0.9, fog_power=0.65)
-    crossing = sets.crossing(look)
+    # the world (rf/set_world.py): lit for the shot's place in the look schedule, its key sun in "world-light"
+    crossing = set_world.build(ctx)
+    look = crossing["look"]
     if ink:
         toon.ink("ink-near", crossing["near"], radius=ink, crease=150)
     if lantern_near is not None:
         crossing["materials"]["lantern"].node_tree.nodes["Emission"].inputs["Strength"].default_value = lantern_near
-
-    sun = bpy.data.lights.new("key", "SUN")
-    sun.angle = math.radians(3)
-    sun.energy = 4.2 * s.light.key_strength
-    sun.color = tuple(s.light.key)
-    key = bpy.data.objects.new("key", sun)
-    scene.collection.objects.link(key)
-    key.rotation_euler = Vector((0.55, 0.45, -0.7)).to_track_quat("-Z", "Y").to_euler()
+    key = crossing["key"]
+    sun = key.data
 
     # the rain: the schedule's drops per the standoff's box, in this shot's box
     r = s.rain
@@ -379,7 +369,6 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain_box=((2.0, -4.5, -0.6), (10.0, 4
                   count=round(300 * r.density / 0.8), size=0.11, alpha=0.45, seed=9)
 
     cast_coll = toon.collection("cast")
-    toon.move_to(key, toon.collection("world-light"))
     cast_look = toon.Look(fog=look.fog, fog_near=look.fog_near, fog_far=look.fog_far, fog_max=look.fog_max,
                           fog_power=look.fog_power)
     so = _standoff()

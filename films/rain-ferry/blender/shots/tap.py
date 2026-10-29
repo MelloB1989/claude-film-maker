@@ -39,7 +39,7 @@ def build(ctx):
     st = jt.stage(ctx, who=("tsuru",), rain_box=((5.4, -3.0, -0.6), (10.5, 7.0, 3.8)), clear=0.8, near=2.5)
     jt.compose_faces(st)
     lines = st.line("L07")
-    post = jt.post_top()
+    post = jt.post_top(st)
     perform(st, lines, post)
     ash(st, post)
     shot = jt.Shot(CAM, LENS, FSTOP, breath=0.003)
