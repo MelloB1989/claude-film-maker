@@ -27,7 +27,7 @@ LENS = (27.0, 30.0)
 JOLT = (2, 2.5, 5.5)        # the jolt: on frame, degrees, decay a second
 THRESHOLD = 0.11
 # the clash (his frame: front -y): a lunge, the blade out level at shoulder height, driving down a little at hers
-SH_AT = CLASH - 0.95
+SH_AT = 5.45                # where the charge brings him (shots/charge.py END_X)
 SH_POSE = {"hips": (0.0, 0.0, -12.0), "spine": (16.0, 0.0, -4.0), "chest": (8.0, 0.0, -4.0), "upperChest": (4.0, 0.0, 0.0),
            "neck": (-14.0, 0.0, 0.0), "head": (-12.0, 0.0, 0.0),
            "leftShoulder": (0.0, 8.0, -8.0), "rightShoulder": (0.0, -8.0, 8.0)}
@@ -35,7 +35,7 @@ SH_HIPS = (0.0, -0.12, -0.2)
 SH_FEET = {"right": ((-0.13, -0.66, 0.095), (-0.15, -1.4, 0.5), (0.0, 0.0, -6.0)),
            "left": ((0.15, 0.62, 0.15), (0.35, -0.6, 0.5), (34.0, 0.0, 26.0))}
 SH_SWORD = dict(pommel=(0.0, -0.34, 1.14), hilt=(0.0, -0.94, -0.34))   # driving down onto her blade
-TS_AT = CLASH + 0.62
+TS_AT = 6.7                 # her mark: she has not moved (rf/clash.py STANDOFF)
 
 
 def build(ctx, only: str | None = None):

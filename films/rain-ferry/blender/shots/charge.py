@@ -1,4 +1,4 @@
-"""The charge: Shinza breaks from the standoff and runs at her down the jetty, his sword swept up over his head,
+"""The charge: Shinza, released from the freeze mid-stride, runs on at her down the jetty, his sword up over his head,
 roaring (line 11, the whole shot), long splashing strides about every half second (the step_puddle cues at 73.35,
 73.85, 74.35 s), the water flying from his feet, then the sword thrown back to its height (the whoosh at 74.95 s) and
 coming over: cut on its fall.
@@ -14,9 +14,10 @@ import math
 
 SHOT = {"scene": "charge"}
 
-START, END_X = 2.2, 5.15        # his x: from (rf/clash.py STANDOFF), to about where the cut falls (CLASH less his reach)
-LAUNCH = 0.06                   # s before he moves
-GAIT = dict(stride=1.0, speed=2.0, first=0.55)    # the core's "charge", a stride every half second (the cues)
+START, END_X = 2.75, 5.45       # his x: from (where shots/freeze.py holds him, a stride on from his mark), to
+                                # about where the cut falls (CLASH less his reach)
+GAIT = dict(stride=0.8, speed=1.6, first=0.7)     # the core's "charge", a stride every half second (the cues),
+                                                   # the gap (2.7 m) run in the shot
 SWING = (1.5, 1.8, 2.0)         # s: the sword thrown back from, at its height, coming over
 CAM = [(0.0, (START + 2.0, -2.45, 0.55)), (1.0, (START + 2.6, -1.8, 0.62)), (2.0, (END_X + 0.85, -0.95, 0.78))]
 LENS, FSTOP = 24.0, 2.8
@@ -24,11 +25,12 @@ SHUTTER = 0.5
 JOLT, STEP = 1.2, 0.5          # the camera's jolt on a stride (degrees), the strides' beat (s)
 FIRST_STEP = 0.25               # s: the first stride lands (data/mix.json step_puddle at 73.35)
 # his frame: front -y, left +x, up z (rf/vroid_shinza.py; lib/vrm.py's turns): where the hilt is
-SWORDS = [(0.0, (0.01, -0.16, 0.96), (0.0, -0.91, -0.45)),        # the guard
-          (0.3, (0.04, -0.12, 1.58), (0.05, 0.35, 0.94)),         # swept up over his head (jodan)
+SWORDS = [(0.0, (-0.13, -0.08, 1.4), (0.12, 0.42, 0.9)),         # raised over his right shoulder, as the freeze holds it
+          (0.3, (0.04, -0.12, 1.58), (0.05, 0.35, 0.94)),         # up over his head (jodan)
           (SWING[0], (0.04, -0.12, 1.58), (0.05, 0.35, 0.94)),
           (SWING[1], (0.04, -0.02, 1.62), (0.05, 0.8, 0.6)),      # thrown back
           (SWING[2], (0.03, -0.32, 1.45), (0.0, -0.45, 0.89))]    # coming over
+TS_LEFT = ((-0.23, -0.22, 1.13), (0.55, -0.2, 0.9))     # her left hand on the pole (shots/freeze.py TS_LEFT)
 POLES = {"left": (0.6, 0.3, 1.2), "right": (-0.6, 0.2, 1.2)}
 REAR = {"spine": (2.0, 0.0, 0.0), "chest": (-6.0, 0.0, 0.0)}      # the trunk rearing back as the sword goes up
 DRIVE = {"spine": (22.0, 0.0, 0.0), "chest": (12.0, 0.0, 0.0)}    # ... and driving over
@@ -44,7 +46,7 @@ def build(ctx):
     from mathutils import Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import cinema, fx_impact as fx, toon, vrm_anim as va
+    from lib import cinema, fx_impact as fx, toon, vrm, vrm_anim as va
     from rf import clash
 
     scene = ctx.scene
@@ -54,9 +56,11 @@ def build(ctx):
     actors = clash.cast(ctx, w, {"shinza": {"sword": "hand"}, "tsuru": {"pole": "hand"}})
     sh, ts = actors["shinza"], actors["tsuru"]
     ch = sh["vrm"]
-    # she waits at her mark, beyond him
+    # she waits at her mark beyond him, turned a little to the lens, her left hand come to the pole above her right
+    # (as shots/freeze.py holds her)
     ts["root"].location = (clash.STANDOFF["tsuru"][0], clash.STANDOFF["tsuru"][1], 0.0)
-    ts["root"].rotation_euler = (0.0, 0.0, math.pi)
+    ts["root"].rotation_euler = (0.0, 0.0, math.pi + 0.3)
+    vrm.grasp(ts["vrm"], "left", TS_LEFT[0], (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), pole=TS_LEFT[1], amount=0.9)
     sh["root"].location = (START, 0.0, 0.0)
 
     def fr(t):
@@ -64,7 +68,7 @@ def build(ctx):
 
     p = va.Performance(ch, fps=fps, seed=11)
     p.root(fr(0.0), (START, 0.0, 0.0), yaw=0.0)
-    p.walk([(START, 0.0), (END_X + 4.0, 0.0)], fr(LAUNCH), gait=va.GAITS["charge"].but(**GAIT), lead="left",
+    p.walk([(START, 0.0), (END_X + 4.0, 0.0)], fr(0.0), gait=va.GAITS["charge"].but(**GAIT), lead="left",
            swing=(0.0, 0.0))
     for t, pommel, hilt in SWORDS:
         hands, _ = clash.shinza_sword(ch, pommel, hilt, poles=POLES)
