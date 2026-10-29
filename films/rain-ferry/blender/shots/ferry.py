@@ -1,83 +1,88 @@
-"""Shot 6, the ferry: the crossing in the rain, wide. From up the muddy bank, the whole place of the duel: the
-thatched hut at the left with its red lantern, the jetty running out from under it across the frame into the river,
-the covered boat moored alongside, and at the jetty's end, small, a caped figure sitting on a crate and smoking, her
-smoke a pale thread the rain keeps knocking down; ridge after ridge of mountains fading into the mist beyond. Shinza
-comes into the bottom left, his back to us under his kasa, and walks on down the bank toward the jetty. The camera
-eases in and down a little, as if it walked a step after him.
+"""Shot 6, ferry (21.5-27.0 s): the crossing in the rain, wide. From up the muddy bank, the whole place of the duel:
+the thatched hut at the left with its red lantern, the 「渡し」 signpost, the jetty running out into the river, the
+covered boat moored alongside, and at the jetty's end, small, a caped figure sitting on a crate and smoking, her smoke
+a pale thread the rain keeps knocking down; ridge after ridge of mountains fading into the mist beyond. Shinza comes
+into the bottom of the frame, his back to us under his kasa, and walks on down the path to the jetty's foot. The
+camera eases in and down a little, as if it took a step after him.
 
-The set, the cast and the compositing are rf/jetty_end.py's (the staging shared by the shots at the jetty's end).
+The scene is rf/jetty_talk.py's (Tsuru on her mark at the jetty's end), the set rf/set_world.py's (its "ferry"
+view); his walk is rf/jetty_arrive.py's.
+
+    blender -b -P blender/render.py -- --film rain-ferry --shot ferry --mode look --engine eevee \\
+        --frames 516,560,600,640 --res 960x540
 """
 from __future__ import annotations
 
-import math
 import sys
 from pathlib import Path
 
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from rf import jetty_arrive as ja  # noqa: E402
+from rf import jetty_talk as jt  # noqa: E402
+
 SHOT = {"scene": "ferry"}
 
-# the camera: from up the bank, easing in (s: the push takes the whole shot)
-CAM = ((-10.5, -8.0, 2.6), (-9.7, -7.15, 2.38))
-AIM = ((0.5, 2.6, 0.4), (1.1, 2.5, 0.42))
-LENS = (24.0, 25.0)
-FSTOP = 8.0
-# Shinza down the bank toward the jetty's root: from, to (x, y), the time he walks (s into the shot)
-WALK = ((-10.2, -4.9), (-7.3, -1.0), -0.6, 6.2)
-# her smoke, made larger than life so a thread reads from this far (she is ~17 m off)
-WISP = dict(width=(0.012, 0.2), life=3.6, rise=0.3, curl=0.12, rate=24.0)
-EXHALE = (2.6, 3.3)          # s into the shot: she lets out a breath of smoke
-LOOK = dict(para=(0.52, 0.55, 0.7), para_from=(0.5, 0.7), para_to=(0.5, 0.05), para_amount=0.25,
-            rims=[((-0.2, 1.0), (0.6, 0.68, 0.85), 0.2, 0.0015, 0.8)], wrap=0.08, wrap_width=0.003, haze_amount=0.06)
+# the camera: rf/set_world.py's "ferry" view, easing in and down a step over the shot
+CAM = [(0.0, (-15.5, -11.5, 3.6), (2.0, 4.0, 0.0)),
+       (5.5, (-14.6, -10.7, 3.3), (2.4, 3.7, 0.15))]
+LENS = [(0.0, 26.0), (5.5, 27.0)]
+FSTOP = [(0.0, 8.0)]
+# Shinza down the last of the path to the jetty's foot: how far back along the path he starts (m), when he walks (s)
+WALK_BACK, WALK = 8.0, (-0.4, 6.6)
+# her smoke, made larger than life so a thread reads from this far (she is ~25 m off)
+WISP = dict(width=(0.01, 0.16), life=3.4, rise=0.3, curl=0.12, rate=24.0, opacity=0.45)
+EXHALE = (2.6, 3.4)          # s into the shot: she lets out a breath of smoke
 
 
 def build(ctx):
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import smoke, toon
+    from lib import smoke
+    from rf import set_approach, set_valley
 
-    from rf import jetty_end as je
-    from rf import sets
+    st = jt.stage(ctx, rain_box=((-20.0, -14.0, -0.6), (9.0, 6.0, 7.0)), clear=2.0, near=6.0, ink=0.006,
+                  variant={"shinza": {"kasa": "on"}}, place={"shinza": None})
+    jt.compose_faces(st)
+    P = set_approach.path_xy()
+    d = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))]
+    start = P[np.searchsorted(d, d[-1] - WALK_BACK)]
+    walk = ja.Walk(st, start, P[-1], *WALK, end_heading=float(np.degrees(np.arctan2(*(P[-1] - start)[::-1]))),
+                   ground=lambda x, y: float(set_valley.ground(x, y)))
+    ch = st.cast["shinza"]["vrm"]
+    hang_r, hang_l = np.array(jt.HANG["right"]), np.array(jt.HANG["left"])
+    turn_r = jt.hand_turn(ch, "right", (0.0, 1.0, 0.0), (1.0, 0.0, 0.0))
+    turn_l = jt.hand_turn(ch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0))
+    for f in st.frames():
+        t = st.t(f)
+        walk.key(f, t)
+        go, sw = walk.going(t), walk.swing(t)
+        body = jt.shinza_stand(t)
+        body["head"] = (body["head"][0] - 6.0 + 4.0 * go, body["head"][1], body["head"][2])   # looking ahead, hat low
+        body["spine"] = (body["spine"][0] + ja.LEAN * go, body["spine"][1], body["spine"][2])
+        st.pose("shinza", f, {**body, **jt.fingers("right", 0.3), **jt.fingers("left", 0.3)},
+                hips=tuple(np.array(jt.shinza_hips(t)) * (1.0 - go)))
+        st.hand("shinza", "right", f, hang_r + (0.0, -0.13 * sw, 0.02 * abs(sw)), turn_r, (-0.3, 0.5, 1.2))
+        st.hand("shinza", "left", f, hang_l + (0.0, 0.13 * sw, 0.02 * abs(sw)), turn_l, (0.3, 0.5, 1.2))
+        out = jt.ramp(t, EXHALE[0] - 0.25, EXHALE[0]) - jt.ramp(t, EXHALE[1], EXHALE[1] + 0.4)
+        jt.tsuru_rest(st, f, t, smoking=True, down=-4.0 * out)
 
-    w = je.world(ctx, rain_box=((-14.0, -9.0, -0.6), (9.0, 6.0, 6.0)), clear=1.5, near=4.0,
-                 deck_splashes=((sets.SPAN[0], -sets.HALF + 0.05, 0.004), (sets.SPAN[1], sets.HALF - 0.05, 0.004)),
-                 river_splashes=((-5.0, -4.0, sets.WATER_Z + 0.002), (12.0, 8.0, sets.WATER_Z + 0.002)))
-    tsuru = je.cast_member(w, "tsuru", at=je.SEAT["at"], heading=je.SEAT["heading"], key_from=(-0.6, -1.0, 0.8),
-                           pipe="mouth", pole="boat", seated=True)
-    shinza = je.cast_member(w, "shinza", at=WALK[0], heading=0.0, key_from=(0.4, -1.0, 0.8), kasa="on", sword="back")
-    je.rain_in_cast(w)
-    je.pole_in_boat(tsuru)
+    shot = jt.Shot(CAM, LENS, FSTOP, breath=0.01)
+    st.camera(shot, lambda f: np.array((0.0, 0.0, 0.8)))
+    jt.outline(st, shot)
+    jt.key_light(st, "tsuru", (-0.4, -1.0, 0.8))
+    jt.key_light(st, "shinza", (0.5, -1.0, 0.8))
+    st.composite(lambda f: dict(rims=[((-0.2, 1.0), (0.6, 0.68, 0.85), 0.2, 0.0015, 0.8)], para=(0.52, 0.55, 0.7),
+                                para_from=(0.5, 0.7), para_to=(0.5, 0.05), para_amount=0.25, wrap=0.08,
+                                wrap_width=0.003, haze_amount=0.06))
 
-    cam, target = je.camera(ctx, LENS[0], FSTOP)
-
-    def at(t):
-        k = je.ease(t / ((ctx.f1 - ctx.f0) / ctx.fps))
-        return je.lerp(*CAM, k), je.lerp(*AIM, k), LENS[0] + (LENS[1] - LENS[0]) * k, FSTOP
-
-    where = je.key_camera(ctx, cam, target, at, focus=lambda t: (4.5, 0.4, 0.8))
-    je.outlines(ctx, {"tsuru": tsuru, "shinza": shinza}, where)
-
-    je.walk(ctx, shinza, WALK[0], WALK[1], WALK[2], WALK[3])
-    je.breathe(ctx, tsuru["vrm"], extra=lambda t: {"head": (-2.0 * je.ease((t - EXHALE[0] + 0.5) / 0.6)
-                                                           * (1 - je.ease((t - EXHALE[1]) / 0.8)), 0.0, 0.0)})
-
-    # the hut's lantern swings in the wind
-    lantern = w["crossing"]["lantern"]
-    for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        t = (f - ctx.f0) / ctx.fps
-        lantern.rotation_euler = (math.radians(4) * math.sin(2 * math.pi * 0.6 * t),
-                                  math.radians(2) * math.sin(2 * math.pi * 0.45 * t + 1), 0)
-        lantern.keyframe_insert("rotation_euler", frame=f)
-
-    je.composite(ctx, w, lambda t: LOOK)
-
-    rain = w["state"].rain.density
-    t0 = ctx.f0 / ctx.fps
-    bowl, top = je.bowl(tsuru)
-    wisp = smoke.Wisp(rain=rain, wind=(0.12, 0.05, 0.0), seed=3, **WISP)
-    rb = smoke.ribbon("pipe-smoke", wisp, source=bowl, offset=top, coll=toon.collection("smoke"),
-                      also=(w["cast"],), color=je.SMOKE)
-    breath = smoke.Wisp(rain=rain, wind=(0.12, 0.05, 0.0), push=(0.25, 0.25, 0.05), width=(0.03, 0.3), life=2.2,
-                        rise=0.2, curl=0.1, rate=24.0, opacity=0.8, emit=((t0 + EXHALE[0], t0 + EXHALE[1]),), seed=4)
-    rb2 = smoke.ribbon("breath", breath, source=je.mouth(tsuru), coll=toon.collection("smoke"), also=(w["cast"],),
-                       color=je.SMOKE)
-    rb.bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
-    rb2.bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
-
+    s = ctx.look_at(ctx.f0)
+    bowl = st.cast["tsuru"]["parts"]["pipe"][-1]
+    co = np.array([v.co for v in bowl.data.vertices])
+    top = co[co[:, 2] >= co[:, 2].max() - 0.002].mean(axis=0)
+    wisp = smoke.Wisp(rain=min(1.0, s.rain.density), wind=(0.12, 0.05, 0.0), seed=3, **WISP)
+    smoke.ribbon("pipe-smoke", wisp, source=bowl, offset=tuple(top), coll=st.crossing["near"], also=(st.cast_coll,),
+                 color=tuple(np.array(s.light.fog) * ja.SMOKE)).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
+    pose = {**jt.tsuru_sit(0.0), **jt.fingers("left", 0.85)}
+    ja.breath(st, [EXHALE], ja.lips_source(st, pose, jt.tsuru_hips(st, 0.0)), push=0.35, width=(0.02, 0.22),
+              opacity=0.4).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
