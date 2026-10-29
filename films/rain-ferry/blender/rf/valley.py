@@ -28,7 +28,8 @@ GRID = (230, 250)                               # its vertices across and along
 # the valley's camera: where it stands (x, y, height over the land), what it looks at
 CAMERA = (-75.0, -390.0, 45.0)        # (x, y, metres over the land), up the near slope behind the crossing
 AIM = (60.0, 1900.0, -110.0)
-SUN = (0.42, 1.0, 0.19)          # toward the sun (behind the valley's right side, low): the gold light's direction
+SUN = (0.42, 1.0, 0.19)
+KEY = (-0.35, -0.3, 0.88)         # the soft light of the overcast on the land: from high behind the camera's left          # toward the sun (behind the valley's right side, low): the gold light's direction
 SKY_FAR = 9000.0                  # the sky dome's radius
 # the scene properties the materials read (linear colours, or 0..1)
 PROPS = ("rf_zenith", "rf_horizon", "rf_fog", "rf_lit", "rf_shade", "rf_accent", "rf_gold", "rf_sun", "rf_rain",
@@ -173,7 +174,7 @@ def palette(state, *, sun: float | None = None, flash: float = 0.0) -> dict:
     w = state.warm
     sun = w if sun is None else sun
     k = L.key_strength
-    lit = tuple(min(4.0, c * k * (0.035 + 0.3 * w)) for c in L.key)
+    lit = tuple(min(4.0, c * k * (0.035 + 0.1 * w)) for c in L.key)
     zen = tuple(c * (0.62 + 0.1 * w) for c in L.sky)
     shade = tuple(i * (1 - w) + c * w for i, c in zip(INK, (0.03, 0.022, 0.016)))
     return {"rf_zenith": zen, "rf_horizon": tuple(L.sky), "rf_fog": tuple(L.fog), "rf_lit": lit, "rf_shade": shade,
@@ -309,13 +310,10 @@ def wash(name: str, *, cam, ink=INK, lit_k: float = 1.0, texture: float = 0.5, s
     into a soft band, rim-lit gold toward the sun as it opens (`rf_sun`), brushed with texture (`texture` 0..1),
     then `fogged`."""
     mat, n = _material(name)
-    diff = n.new("ShaderNodeBsdfDiffuse")
-    s2r = n.new("ShaderNodeShaderToRGB")
-    n.L.new(diff.outputs[0], s2r.inputs[0])
-    lum = n.new("ShaderNodeRGBToBW")
-    n.L.new(s2r.outputs["Color"], lum.inputs[0])
-    band = n.ramp(lum.outputs[0], 0.18, 0.5)
     geo = n.N.new("ShaderNodeNewGeometry")
+    # lit by the vista's own key, read from the surface's facing (not the scene's lights: the set stages its own key
+    # for the crossing, and the vista's ink must not change with it), so no cast shadows either
+    band = n.ramp(n.vmath("DOT_PRODUCT", geo.outputs["Normal"], _unit(KEY)), 0.15, 0.55)
     tc = n.N.new("ShaderNodeTexCoord")
     # brushwork: long strokes across the slope and a dry-brush grain
     stroke = n.new("ShaderNodeMapping")
@@ -636,6 +634,7 @@ def build(ctx, *, cam=None, aim=None, weather=None, coll=None, foreground: bool 
     verts = np.column_stack([X.ravel(), Y.ravel(), Z.ravel()])
     faces = [(j * nx + i, j * nx + i + 1, (j + 1) * nx + i + 1, (j + 1) * nx + i) for j in range(ny - 1) for i in range(nx - 1)]
     land = shapes.mesh_object("land", verts, faces, None, coll, smooth=True)
+    land.visible_shadow = False
     gy, gx = np.gradient(Z, ys, xs)
     slope = np.hypot(gx, gy)
     dist = np.hypot(X - cam[0], Y - cam[1])
@@ -654,6 +653,7 @@ def build(ctx, *, cam=None, aim=None, weather=None, coll=None, foreground: bool 
     coll.objects.link(pine)
     pine.data.materials.append(m["trees"])
     pine.hide_render = pine.hide_viewport = True
+    pine.visible_shadow = False
     _forest("valley-forest", land, pine, coll, seed=seed)
     # the river: a plane under the land
     river = card("river", coll, (0.0, (EXTENT[2] + EXTENT[3]) / 2, WATER_Z), (EXTENT[1] - EXTENT[0], EXTENT[3] - EXTENT[2]),
