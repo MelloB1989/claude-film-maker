@@ -105,14 +105,17 @@ REF_LENS = 26.0
 
 
 def for_lens(layer: Layer, lens: float, ref: float = REF_LENS) -> Layer:
-    """`layer` as a `lens` (mm) longer than `ref` should see it: every distance out from the lens times lens / ref, so
-    its drops are as big and as many on screen as in the wide (a close-up does not see the far curtain's streaks as
-    sticks behind a face: it sees them further out, smaller and in the depth of field's blur). `clear` is kept: room in
-    front of a face is metres, whatever the lens."""
+    """`layer` as a `lens` (mm) longer than `ref` should see it: its distances out from the lens times lens / ref (k),
+    so its drops are as big and as many on screen as in the wide (a close-up does not see the far curtain's streaks as
+    sticks behind a face: it sees them further out, smaller and in the depth of field's blur). The near layer (one
+    that shrinks by the lens) keeps its inner edge, so drops still fall between a close-up's lens and the face, and
+    shrinks over sqrt(k) times its distance: fine streaks across the face, not bars. `clear` is kept: metres."""
     k = max(1.0, float(lens) / ref)
     if k == 1.0:
         return layer
-    return replace(layer, near=layer.near * k, far=layer.far * k, shrink=layer.shrink * k)
+    if layer.shrink:
+        return replace(layer, far=layer.far * k, shrink=layer.shrink * math.sqrt(k))
+    return replace(layer, near=layer.near * k, far=layer.far * k)
 
 
 def frustum_box(poses, near: float, far: float, *, aspect: float = 16 / 9, margin: float = 0.1, floor=None,

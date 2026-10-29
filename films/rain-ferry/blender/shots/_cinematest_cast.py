@@ -40,12 +40,13 @@ def build(ctx):
     sh, ts = st.head_at("shinza", ctx.f0), st.head_at("tsuru", ctx.f0)
     mid = (sh + ts) / 2
 
-    wide_cam = (mid[0] - 2.4, mid[1] - 6.2, 1.55)
-    close_cam, close_aim = cinema.frame_on(tuple(sh), 0.24, share=0.42, lens=85, bearing=58, rise=0.02, third=-1)
+    wide_cam = (mid[0] - 1.6, mid[1] - 4.6, 1.2)
+    close_cam, close_aim = cinema.frame_on(tuple(sh), 0.24, share=0.42, lens=85, bearing=58, rise=0.02, third=-1,
+                                           headroom=0.1)
     ch = st.cast["shinza"]["vrm"]
     rig = cinema.film(ctx, [
         cinema.Setup("wide", 0.0, cinema.drift(cinema.push(wide_cam, tuple(mid - (0, 0, 0.35)), 1.2), 0.02),
-                     lens=32, fstop=4.0, focus=tuple(mid), shake=cinema.Shake(breath=0.08)),
+                     lens=35, fstop=4.0, focus=tuple(mid), shake=cinema.Shake(breath=0.08)),
         cinema.Setup("mcu", CUT, cinema.push(close_cam, close_aim, 0.12), lens=85, fstop=2.2, focus=(ch, "head"),
                      shake=cinema.Shake(breath=0.05, hits=((STRIKE, 0.9),), seed=9)),
     ], clip=(0.02, 4000.0))

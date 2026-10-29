@@ -92,8 +92,11 @@ def test_a_long_lens_sees_the_layers_further_out_and_as_big_on_screen():
     # a drop at a layer's middle is as tall on screen through either lens
     on_screen = lambda L, lens: L.length * lens / ((L.near + L.far) / 2)  # noqa: E731
     assert on_screen(f85, 85.0) == pytest.approx(on_screen(far, 26.0))
-    n85 = weather.for_lens(weather.LAYERS["near"], 85.0)
-    assert n85.clear == weather.LAYERS["near"].clear and n85.shrink > weather.LAYERS["near"].shrink
+    near = weather.LAYERS["near"]
+    n85 = weather.for_lens(near, 85.0)
+    # the near layer keeps falling between a close-up's lens and the face
+    assert n85.near == near.near and n85.clear == near.clear and n85.far == pytest.approx(near.far * k)
+    assert n85.shrink == pytest.approx(near.shrink * math.sqrt(k))
 
 
 def test_a_long_lens_sees_the_mist_banks_further_out_and_thinner():
