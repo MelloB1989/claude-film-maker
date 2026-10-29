@@ -104,6 +104,12 @@ def build(ctx):
 
     # ---- the pole: out of the boat, leaning on the tap post
     shaft = ts["parts"]["pole"][0]
+    # its handle (the cord, the hidden blade) rides on the shaft from here, so the pole moves and is carried whole
+    bpy.context.view_layer.update()
+    for handle in ts["parts"]["handle"][:1]:
+        keep = handle.matrix_world.copy()
+        handle.parent = shaft
+        handle.matrix_world = keep
     foot0 = np.array(POLE_FOOT0)
     way0 = np.array(POLE_REST) - foot0
     way0 /= np.linalg.norm(way0)
