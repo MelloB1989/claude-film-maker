@@ -75,7 +75,7 @@ def views() -> dict:
     out["step"] = ((sx - 1.1, sy - 0.9, sz + 0.14), (sx, sy, sz + 0.05), 24.0)
     i = int(len(P) * 0.55)
     x, y = P[i]
-    x2, y2 = P[i - 14]
+    x2, y2 = P[i - 50]
     z = float(set_valley.ground(x, y))
     out["walk"] = ((float(x), float(y), z + 1.35), (float(x2), float(y2), float(set_valley.ground(x2, y2)) + 1.1), 40.0)
     return out
