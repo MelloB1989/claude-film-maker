@@ -53,7 +53,7 @@ def build(ctx):
     start = base + right * OFFSET[0] + flat * OFFSET[1] + Vector((0, 0, OFFSET[2]))
     # the aim a little toward the sun's side: the opening sits high at the right of the frame
     aim0 = aim0 + right * 240.0 + Vector((0, 0, 120.0))
-    world = valley.build(scene, cam=tuple(start), aim=tuple(aim0))
+    world = valley.build(ctx, cam=tuple(start), aim=tuple(aim0))
 
     end = start + fwd * PUSH[0] + Vector((0, 0, PUSH[1]))
     rig = cinema.film(ctx, [cinema.Setup("vista", 0.0, cinema.drift(cinema.line(start, end, aim0, aim0 + Vector((0, 0, 60.0))),

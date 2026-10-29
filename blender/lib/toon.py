@@ -572,17 +572,31 @@ def water(name: str, base: RGB, light: RGB, *, look: Look | None = None, scene=N
     return mat
 
 
+def plane(name: str, location=(0.0, 0.0, 0.0), rotation=(0.0, 0.0, 0.0), scale=(1.0, 1.0, 1.0), coll=None):
+    """A unit plane (1 m square in its x-y, facing +z, its UVs 0..1) as bpy.ops.mesh.primitive_plane_add(size=1) makes
+    it, built from bpy.data: milliseconds, where the operator re-evaluates the whole scene on every call."""
+    import bpy
+
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (-0.5, 0.5, 0.0), (0.5, 0.5, 0.0)], [], [(0, 1, 3, 2)])
+    uv = me.uv_layers.new(name="UVMap")
+    for loop, co in zip(uv.data, ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0))):
+        loop.uv = co
+    me.update()
+    ob = bpy.data.objects.new(name, me)
+    (coll or bpy.context.collection).objects.link(ob)
+    ob.location, ob.rotation_euler, ob.scale = location, rotation, scale
+    return ob
+
+
 def mist_card(name: str, location, size: tuple[float, float], color: RGB, *, density: float = 0.55, scene=None,
               drift: float = 0.6, seed: float = 0.0, rotation=(math.pi / 2, 0, 0)):
-    """A card of drifting fog: a noise bank, densest along its middle and fading to nothing at its top and bottom,
-    drifting sideways at `drift` metres a second."""
+    """A card of drifting fog: a noise bank, densest along its middle and fading to nothing at its top and bottom and
+    feathered off at its ends, drifting sideways at `drift` metres a second."""
     import bpy
 
     scene = scene or bpy.context.scene
-    bpy.ops.mesh.primitive_plane_add(size=1, location=location, rotation=rotation)
-    ob = bpy.context.active_object
-    ob.name = name
-    ob.scale = (size[0], size[1], 1)
+    ob = plane(name, location, rotation, (size[0], size[1], 1))
     mat = bpy.data.materials.new(name)
     nt = nodes(mat)
     tc = nt.nodes.new("ShaderNodeTexCoord")
@@ -621,10 +635,28 @@ def mist_card(name: str, location, size: tuple[float, float], color: RGB, *, den
     a.operation = "MULTIPLY"
     nt.links.new(nm.outputs["Result"], a.inputs[0])
     nt.links.new(prof.outputs["Result"], a.inputs[1])
+    # ... and feathered off to nothing at its left and right ends too, so it never reads as a card
+    ex = nt.nodes.new("ShaderNodeMath")
+    ex.operation = "MINIMUM"
+    nt.links.new(sep.outputs["X"], ex.inputs[0])
+    inv = nt.nodes.new("ShaderNodeMath")
+    inv.operation = "SUBTRACT"
+    inv.inputs[0].default_value = 1.0
+    nt.links.new(sep.outputs["X"], inv.inputs[1])
+    nt.links.new(inv.outputs[0], ex.inputs[1])
+    feather = nt.nodes.new("ShaderNodeMapRange")
+    feather.interpolation_type = "SMOOTHSTEP"
+    feather.inputs["From Min"].default_value = 0.0
+    feather.inputs["From Max"].default_value = 0.2
+    nt.links.new(ex.outputs[0], feather.inputs["Value"])
+    af = nt.nodes.new("ShaderNodeMath")
+    af.operation = "MULTIPLY"
+    nt.links.new(a.outputs[0], af.inputs[0])
+    nt.links.new(feather.outputs["Result"], af.inputs[1])
     a2 = nt.nodes.new("ShaderNodeMath")
     a2.operation = "MULTIPLY"
     a2.inputs[1].default_value = density
-    nt.links.new(a.outputs[0], a2.inputs[0])
+    nt.links.new(af.outputs[0], a2.inputs[0])
     em = nt.nodes.new("ShaderNodeEmission")
     em.inputs["Color"].default_value = _rgba(color)
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")

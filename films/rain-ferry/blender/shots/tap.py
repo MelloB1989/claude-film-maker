@@ -98,7 +98,7 @@ def perform(st, lines, post):
         body = jt.tsuru_sit(t, turn=-14.0 * (1 - up) + 4.0 * up, down=10.0 * (1 - up) - 6.0 * up + 1.5 * knock,
                             eyes=(18.0 * (1 - up) - 2.0 * up, -6.0 * (1 - up)), lean=6.0 * (1 - low))
         st.pose("tsuru", f, {**body, **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)}, hips=jt.tsuru_hips(st, t))
-        jt.hold_pipe(st, f, fist, along)
+        jt.hold_pipe(st, f, fist, along, arm="knock" if low < 0.5 else "lap")
         jt.knee_hand(st, f)
         smile = jt.ramp(t, *SMILE)
         st.face("tsuru", f, {"s4-calm": 1.0, "s4-smile": 0.8 * smile})

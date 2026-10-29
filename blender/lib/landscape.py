@@ -105,14 +105,9 @@ def bank(name: str, *, ground, grass, coll, edge: float, water_z: float, x0: flo
 
 def river(name: str, material, coll, *, z: float, size=(1600.0, 700.0), center_y: float = 300.0):
     """The water: one big plane at height z."""
-    import bpy
-
     from . import toon
 
-    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, center_y, z))
-    ob = bpy.context.active_object
-    ob.name = name
-    ob.scale = (size[0], size[1], 1)
+    ob = toon.plane(name, (0, center_y, z), scale=(size[0], size[1], 1))
     ob.data.materials.append(material)
     ob.visible_shadow = False
     return toon.move_to(ob, coll)
@@ -129,10 +124,7 @@ def sky(name: str, coll, *, horizon, zenith, distance: float = 1200.0, size=(500
 
     from . import toon
 
-    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, distance, z), rotation=(math.pi / 2, 0, 0))
-    ob = bpy.context.active_object
-    ob.name = name
-    ob.scale = (size[0], size[1], 1)
+    ob = toon.plane(name, (0, distance, z), (math.pi / 2, 0, 0), (size[0], size[1], 1))
     mat = bpy.data.materials.new(name)
     nt = toon.nodes(mat)
     tc = nt.nodes.new("ShaderNodeTexCoord")
