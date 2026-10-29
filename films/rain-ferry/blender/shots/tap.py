@@ -17,6 +17,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from lib import cinema  # noqa: E402
 from rf import jetty_talk as jt  # noqa: E402
 
 SHOT = {"scene": "tap"}
@@ -25,8 +26,7 @@ SHOT = {"scene": "tap"}
 # frame's left third and the post's crown in its right; it drifts slowly in along that line's normal
 CAM_SIDE = -140.0            # degrees: where the camera stands from the middle of her face and the post
 CAM_DIST, CAM_Z = (1.75, 1.5), (0.93, 0.95)
-LENS = [(0.0, 40.0), (6.0, 42.0)]
-FSTOP = [(0.0, 3.2)]
+LENS, FSTOP = (40.0, 42.0), 3.2
 TAPS = (0.25, 0.62)          # s into the shot: the bowl strikes the post (pipe_tap's two knocks, from 42.05 s)
 STRIKE = (0.07, 0.12)        # each knock: down this long, back up this long (s)
 LIFT = 0.07                  # the bowl's height over the post between knocks (m)
@@ -38,7 +38,7 @@ ASH = 7                      # flecks of ash knocked out at each knock
 
 
 def build(ctx):
-    st = jt.stage(ctx, who=("tsuru",), rain_box=((5.4, -3.0, -0.6), (10.5, 7.0, 3.8)), clear=1.2, near=3.0)
+    st = jt.stage(ctx, who=("tsuru",))
     jt.compose_faces(st)
     lines = st.line("L07")
     post = jt.post_top(st)
@@ -47,26 +47,21 @@ def build(ctx):
     st.blinks("tsuru", BLINKS)
     st.bake()
     ash(st, post)
-    head = st.tracked_focus("tsuru")
-    mid = (head(ctx.f0) + post) / 2
+    ch = st.cast["tsuru"]["vrm"]
+    mid = (st.head_at("tsuru", ctx.f0) + post) / 2
     side = np.radians(CAM_SIDE)
     out = np.array((np.cos(side), np.sin(side), 0.0))
-    path = [(0.0, (*(mid[:2] + out[:2] * CAM_DIST[0]), CAM_Z[0]), tuple(mid + (0, 0, 0.02))),
-            (6.0, (*(mid[:2] + out[:2] * CAM_DIST[1]), CAM_Z[1]), tuple(mid + (0, 0, 0.04)))]
-    shot = jt.Shot(path, LENS, FSTOP, breath=0.003)
-    # the focus on the bowl through the knocks, racking to her face as the pipe goes down
-    st.camera(shot, lambda f: _rack(st, f, post, head))
-    jt.outline(st, shot)
+    cams = [(*(mid[:2] + out[:2] * d), z) for d, z in zip(CAM_DIST, CAM_Z)]
+    # the focus on the bowl through the knocks, racked to her face as the pipe goes down
+    st.film([cinema.Setup("side", 0.0, cinema.line(cams[0], cams[1], tuple(mid + (0, 0, 0.02)), tuple(mid + (0, 0, 0.04))),
+                          lens=LENS, fstop=FSTOP, focus=tuple(post), racks=(cinema.Rack(LOWER[0], (ch, "head"), 0.6),),
+                          shake=cinema.Shake(breath=0.05))])
+    jt.outline(st)
     # the wisp off the bowl until the first knock puts it out
     jt.pipe_smoke(st, emit=((0.0, st.start + TAPS[0]),)).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
     jt.key_light(st, "tsuru", (-0.4, -1.0, 0.7))
     st.composite(lambda f: dict(rims=[((0.8, 0.6), (0.6, 0.68, 0.85), 0.35, 0.0035, 0.9)],
                                 para_from=(0.4, 0.95), para_to=(0.7, 0.05)))
-
-
-def _rack(st, f, post, head):
-    k = jt.ramp(st.t(f), LOWER[0], LOWER[0] + 0.6)
-    return post * (1 - k) + head(f) * k
 
 
 def bowl_path(t: float, post) -> np.ndarray:

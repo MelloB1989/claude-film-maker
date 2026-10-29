@@ -4,12 +4,12 @@ two paces behind her right shoulder, his nodachi sheathed across his back and hi
 stays on the river side of the line between them (-y of it: rf/sets.py's world), so he is always at the left of the
 frame and she at the right, as in the standoff that follows.
 
-`stage(ctx, ...)` builds what the four share: the world (rf/set_world.py), the light and rain of the shot's place in
-the look schedule (ctx.look_at), the 3D cast (rf/vroid_cast.py's variants: Shinza standing with his sword and kasa on
+`stage(ctx, ...)` builds what the four share: the world (rf/set_world.py) lit at the shot's place in the look schedule
+(ctx.look_at), the 3D cast (rf/vroid_cast.py's variants: Shinza standing with his sword and kasa on
 his back, Tsuru seated with her pipe in hand and her pole laid in the boat), placed (`place_cast`) and painted as the
 standoff paints them (shots/standoff.py TONES3D), and the compositing. A shot then keys its performance frame by frame
-through the `Stage` (`pose`, `grip`, `hand`, `face`), its camera (`Stage.camera`, from `Shot` keys) and its looks
-(`Stage.composite`).
+through the `Stage` (`pose`, `grip`, `hand`, `face`, `say`: blender/lib/vrm_anim.py Performances, `bake`d), films it
+(`Stage.film`: blender/lib/cinema.py setups and weather.storm's rain round them) and composites it (`Stage.composite`).
 
 The performance is timed to the dialogue (data/dialogue_timing.json, `Stage.line`) and to the sound cues (data/mix.json:
 the pipe's taps at 42.05 s, the draw's steel at 51.95 s). The pure halves (easing, keys, the camera's breath) need no Blender.
@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -70,27 +69,6 @@ def keys_at(keys, t: float):
     return keys[-1][1]
 
 
-def breath(t: float, amount: float, *, seed: int = 3) -> np.ndarray:
-    """A camera's breath: a slow wander (metres) of a few incommensurate sines, a handheld operator's at rest."""
-    rng = np.random.default_rng(seed)
-    out = np.zeros(3)
-    for axis in range(3):
-        for f, w in ((0.13, 1.0), (0.31, 0.45), (0.71, 0.18)):
-            out[axis] += w * math.sin(2 * math.pi * f * t * rng.uniform(0.8, 1.25) + rng.uniform(0, 2 * math.pi))
-    return out * amount / 1.63
-
-
-def kick(t: float, at: float, amount: float, *, decay: float = 0.22, freq: float = 11.0, seed: int = 5) -> np.ndarray:
-    """A jolt at `at` s (metres): a damped shake, sharp then settling over `decay` s."""
-    u = t - at
-    if u < 0:
-        return np.zeros(3)
-    rng = np.random.default_rng(seed)
-    d = rng.normal(0, 1, 3)
-    d /= np.linalg.norm(d)
-    return d * amount * math.exp(-u / decay) * math.sin(2 * math.pi * freq * u + 0.6)
-
-
 def bearing(a, b) -> float:
     """Degrees from +x toward +y of the way from a to b (x, y)."""
     return math.degrees(math.atan2(b[1] - a[1], b[0] - a[0]))
@@ -105,23 +83,6 @@ def line_spans(shot_start: float, ids, path: Path = LINES) -> dict:
     """{line id: (start, end)} s from the shot's start, from the film's dialogue timing."""
     rows = {r["id"]: r for r in json.loads(Path(path).read_text())}
     return {i: (rows[i]["start"] - shot_start, rows[i]["end"] - shot_start) for i in ids}
-
-
-@dataclass
-class Shot:
-    """A camera's keys over a shot: [(t, (x, y, z) at, (x, y, z) aim)], the lens (mm) and f-stop as keys too, its
-    breath (m) and its jolts [(t, metres)]."""
-    path: list
-    lens: list
-    fstop: list
-    breath: float = 0.004
-    kicks: list = field(default_factory=list)
-
-    def at(self, t: float):
-        cam = np.array(keys_at([(k, c) for k, c, _ in self.path], t))
-        aim = np.array(keys_at([(k, a) for k, _, a in self.path], t))
-        wob = breath(t, self.breath) + sum((kick(t, at, amt) for at, amt in self.kicks), np.zeros(3))
-        return cam + wob, aim + wob * 0.6, keys_at(self.lens, t), keys_at(self.fstop, t)
 
 
 # ---------------------------------------------------------------------------------------------------- Blender
@@ -246,33 +207,29 @@ class Stage:
             p.bake(self.ctx.f0 - 1, self.ctx.f1 + 1)
         self.ctx.scene.frame_set(self.ctx.f0)
 
-    # ---- the camera
-    def camera(self, shot: Shot, focus) -> None:
-        """Key the camera through `shot` every frame, its focus on `focus(f)` (world point)."""
-        cam, aim, foc = self.cam, self.aim, self.focus
-        for f in self.frames():
-            c, a, lens, fstop = shot.at(self.t(f))
-            cam.location, aim.location = tuple(c), tuple(a)
-            cam.data.lens = lens
-            cam.data.dof.aperture_fstop = fstop
-            foc.location = tuple(focus(f))
-            cam.keyframe_insert("location", frame=f)
-            aim.keyframe_insert("location", frame=f)
-            foc.keyframe_insert("location", frame=f)
-            cam.data.keyframe_insert("lens", frame=f)
-            cam.data.dof.keyframe_insert("aperture_fstop", frame=f)
+    # ---- the camera and the weather (blender/lib/cinema.py, weather.py)
+    def film(self, setups, **storm):
+        """The shot's camera through `setups` (cinema.Setup) and its weather round them (weather.storm: the look
+        schedule's rain and mist, splashing on the deck, ringing the river); the drops in the cast's layer too, so those
+        in front of a face stay in front of it. Call it once the performance is baked. Returns the cinema.Rig."""
+        from lib import cinema, weather
+
+        from . import sets
+
+        self.rig = cinema.film(self.ctx, setups)
+        deck = ((sets.SPAN[0], -sets.HALF + 0.05, 0.004), (sets.SPAN[1], sets.HALF - 0.05, 0.004))
+        storm = {"splashes": [deck], "waters": self.crossing["waters"], "floor": sets.WATER_Z,
+                 "lights": [self.crossing["key"]], **storm}
+        self.sky = weather.storm(self.ctx, self.rig, **storm)
+        if self.sky.rain is not None:
+            for d in self.sky.rain.drops.values():
+                self.cast_coll.objects.link(d.ob)
+        return self.rig
 
     def head_at(self, who: str, f: int) -> np.ndarray:
         """Between the character's eyes at film frame f, as keyed."""
         self.ctx.scene.frame_set(f)
         return np.array(self.cast[who]["vrm"].face())
-
-    def tracked_focus(self, who: str, every: int = 6):
-        """focus(f): the character's eyes, sampled every few frames as the performance keyed them, eased between."""
-        fs = list(range(self.ctx.f0 - 1, self.ctx.f1 + 1, every)) + [self.ctx.f1]
-        pts = [(f, tuple(self.head_at(who, f))) for f in fs]
-        self.ctx.scene.frame_set(self.ctx.f0)
-        return lambda f: np.array(keys_at(pts, f))
 
     # ---- the compositing
     def composite(self, setup) -> None:
@@ -294,13 +251,11 @@ class Stage:
         comp.hold()
 
 
-def stage(ctx, *, who=("shinza", "tsuru"), rain_box=((2.0, -4.5, -0.6), (10.0, 4.0, 4.0)), clear: float = 0.9,
-          near: float = 3.0, ink: float = 0.0035, lantern_near: float | None = None, variant: dict | None = None,
+def stage(ctx, *, who=("shinza", "tsuru"), ink: float = 0.0035, lantern_near: float | None = None, variant: dict | None = None,
           place: dict | None = None) -> Stage:
-    """The scene for one of the four shots: the crossing, its light and weather at the shot's place in the look
-    schedule, the cast in `who` staged and painted, and a camera (keyed by the shot: Stage.camera). `rain_box` (world
-    min, max) is where the rain falls (its count from the schedule's density over the standoff's volume), none within
-    `clear` of the lens; `ink` is the near set's line art (m; 0 none); `lantern_near` dims the hut's lantern (an
+    """The scene for one of the four shots: the world lit at the shot's place in the look schedule, the cast in `who`
+    staged and painted (the camera and the weather come after the performance: Stage.film); `ink` is the near set's
+    line art (m; 0 none); `lantern_near` dims the hut's lantern (an
     emission strength) for a shot it sits by a head in. `variant` ({name: {kwarg: value}}) changes a character's
     rf/vroid_cast.py variant over VARIANT's (ask: his kasa on, her pipe in her mouth); `place` ({name: (at, facing)
     or None}) stands a character elsewhere than this scene's mark, or (None) leaves it where it was built, for the
@@ -327,17 +282,6 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain_box=((2.0, -4.5, -0.6), (10.0, 4
     key = crossing["key"]
     sun = key.data
 
-    # the rain: the schedule's drops per the standoff's box, in this shot's box
-    r = s.rain
-    lo, hi = np.array(rain_box[0], float), np.array(rain_box[1], float)
-    count = round(r.drops * np.prod(hi - lo) / (13.0 * 15.6 * 6.1))
-    rain = toon.rain("rain", tuple(lo), tuple(hi), count=max(count, 1), speed=r.speed, wind=r.wind, length=r.length,
-                     width=r.width, color=tuple(r.color), alpha=r.alpha, seed=4, near=near, clear=clear)
-    toon.splashes("splash-deck", (sets.SPAN[0], -sets.HALF + 0.05, 0.004), (sets.SPAN[1], sets.HALF - 0.05, 0.004),
-                  count=round(240 * r.density / 0.8), size=0.08, seed=5)
-    toon.splashes("splash-river", (lo[0], lo[1], sets.WATER_Z + 0.002), (hi[0], hi[1], sets.WATER_Z + 0.002),
-                  count=round(300 * r.density / 0.8), size=0.11, alpha=0.45, seed=9)
-
     cast_coll = toon.collection("cast")
     cast_look = toon.Look(fog=look.fog, fog_near=look.fog_near, fog_far=look.fog_far, fog_max=look.fog_max,
                           fog_power=look.fog_power)
@@ -351,24 +295,7 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain_box=((2.0, -4.5, -0.6), (10.0, 4
         tones = {p: toon3d.Tone(**{**kw, **so.TONES3D_OF.get(name, {}).get(p, {})}) for p, kw in so.TONES3D.items()}
         vrm.anime(built["vrm"], tones, built["key"])
         vrm.smooth(built["vrm"])
-    if cast:
-        rain_cast = rain.copy()
-        rain_cast.name = "rain-cast"
-        cast_coll.objects.link(rain_cast)
-
-    cam = rig.engine_camera("camera", fstop=4.0, size=ctx.size)
-    cam.data.clip_end = 3000.0
-    scene.camera = cam
-    aim = bpy.data.objects.new("aim", None)
-    scene.collection.objects.link(aim)
-    c = cam.constraints.new("TRACK_TO")
-    c.target, c.track_axis, c.up_axis = aim, "TRACK_NEGATIVE_Z", "UP_Y"
-    focus = bpy.data.objects.new("focus", None)
-    scene.collection.objects.link(focus)
-    cam.data.dof.focus_object = focus
-
-    st = Stage(ctx, crossing=crossing, cast=cast, cast_coll=cast_coll, sun=sun, rain=rain, cam=cam, aim=aim,
-               focus=focus, look=look, standoff=so)
+    st = Stage(ctx, crossing=crossing, cast=cast, cast_coll=cast_coll, sun=sun, look=look, standoff=so)
     place_cast(st, place)
     from lib import vrm_anim
 
@@ -391,16 +318,16 @@ def key_light(st: Stage, who: str, toward, f: int | None = None) -> None:
     toon3d.aim(st.cast[who]["key"], toward, frame=f)
 
 
-def outline(st: Stage, shot: Shot, frac: float = 0.0018) -> None:
-    """Every character's outline a width on screen (frame heights) as `shot` moves, keyed per frame."""
+def outline(st: Stage, frac: float = 0.0018) -> None:
+    """Every character's outline a width on screen (frame heights) as the camera (st.rig) moves, keyed per frame."""
     from lib import vrm
 
     faces = {name: st.head_at(name, st.ctx.f0) for name in st.cast}
     for f in st.frames():
-        c, _, lens, _ = shot.at(st.t(f))
+        pose = st.rig.pose(min(max(f, st.ctx.f0), st.ctx.f1 - 1))
         for name, built in st.cast.items():
-            d = float(np.linalg.norm(np.asarray(c) - faces[name]))
-            vrm.key_outline(built["vrm"], vrm.outline_width(frac, d, lens), f)
+            d = float(np.linalg.norm(np.asarray(pose.position) - faces[name]))
+            vrm.key_outline(built["vrm"], vrm.outline_width(frac, d, pose.lens), f)
 
 
 def slerp_turn(a: np.ndarray, b: np.ndarray, k: float) -> np.ndarray:
