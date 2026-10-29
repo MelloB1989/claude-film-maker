@@ -14,10 +14,11 @@ import math
 SHOT = {"scene": "crow", "look": "150,175,196,214,226,236"}
 
 LENS = 45.0
-DIST = 1.95          # m from the crow's head back to the lens, along the set's crow view (set_world.VIEWS["crow"])
-TURN = 0.0           # degrees the camera's view is turned from the set's (positive: to the left)
-DROP = -0.1          # m: the lens below the crow's head (it looks a little up at it)
-THIRD = 0.34         # m: the lens right of the crow, so it sits on the left third with room to look into
+DIST = 2.9           # m from the crow's head back to the lens, along the set's crow view (set_world.VIEWS["crow"])
+TURN = -11.0         # degrees the camera's view is turned from the set's (negative: to the right, the hut out of it)
+DROP = -0.38         # m: the lens below the crow's head (it looks up at it, the post's face running down the frame)
+THIRD = 0.4          # m: the lens right of the crow, so it sits on the left third with room to look into
+HIGH = 0.22          # the crow's head this far over the frame's middle (frame heights)
 FSTOP = 2.8
 # the crow's heading: across the frame toward the river at the right, turned this far toward the camera (degrees)
 HEADING = -24.0
@@ -67,7 +68,8 @@ def build(ctx):
     right = view.cross(Vector((0.0, 0.0, 1.0))).normalized()
     head0 = top + Vector((0.0, 0.0, 0.4))
     cam_at = head0 - view * DIST + right * THIRD + Vector((0.0, 0.0, DROP))
-    aim0 = cam_at + view * 10.0 + Vector((0.0, 0.0, -0.25))
+    frame_h = DIST * cinema.GATE_H / LENS
+    aim0 = cam_at + ((head0 + right * THIRD - Vector((0, 0, HIGH * frame_h))) - cam_at).normalized() * 10.0
     far_focus = set_world.anchor(world, "jetty_end") if "jetty_end" in world["anchors"] else head0 + view * 12.0
 
     # ---- the crow ----
