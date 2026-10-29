@@ -149,3 +149,9 @@ def test_shake_turns_the_view_without_losing_its_aim_much():
         assert p.rotation.T @ p.rotation == pytest.approx(np.eye(3))
         ang = math.degrees(math.acos(min(1.0, float(p.forward @ (0, 1, 0)))))
         assert ang < 0.6
+
+
+def test_a_focus_point_may_be_numpy():
+    assert cinema._target(np.array([1.0, 2.0, 3.0], np.float32)) is None
+    assert cinema._target(tuple(np.array([1.0, 2.0, 3.0], np.float32))) is None
+    assert cinema._target(np.float32(4.0)) is None and cinema._target("aim") is None
