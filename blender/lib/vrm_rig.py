@@ -145,12 +145,12 @@ def stretch(points, top: float, bottom: float, *, flare: float = 0.0, center=(0.
 def cinch_points(points, a, b, radius: float, *, keep: float = 0.25, ease: float = 0.3) -> np.ndarray:
     """`points` (n, 3) round the segment a..b (a limb at rest) pulled in toward it where they stand further than
     `radius` off it: keeping `keep` of the excess, eased in from nothing at `a` over the first `ease` of the way (a
-    sleeve tied back from the shoulder out). Points beyond either end of the segment stay."""
+    sleeve tied back from the shoulder out). Points before `a` or more than a tenth of the way past `b` stay."""
     p = np.array(points, dtype=float, copy=True)
     a, b = np.asarray(a, float), np.asarray(b, float)
     ab = b - a
     t = (p - a) @ ab / float(ab @ ab)
-    on = (t > 0.0) & (t < 1.0)
+    on = (t > 0.0) & (t < 1.1)     # to a little past the wrist: the cuff
     axis = a + np.outer(t, ab)
     off = p - axis
     d = np.linalg.norm(off, axis=1)
@@ -486,6 +486,14 @@ def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float
     _from_frame(ch, ob, pts, m)
 
 
+def _bone_name(ch: vrm.Character, name: str) -> str:
+    """The armature's bone a humanoid name is, or the name itself (already the armature's)."""
+    try:
+        return ch.bones.get(vrm.canonical(name), name)
+    except KeyError:
+        return name
+
+
 def shift_weights(ch: vrm.Character, ob, faces, below: float, band: float, moves: dict) -> int:
     """Hand the weight of some vertices from one bone to another ({from: to}, humanoid names or the armature's own,
     e.g. a thigh's to its shin): those of `faces` lower than `below` (metres, the character's frame at rest) fully, eased to none over
@@ -497,7 +505,7 @@ def shift_weights(ch: vrm.Character, ob, faces, below: float, band: float, moves
     k = k * k * (3 - 2 * k)
     groups = {}
     for a, b in moves.items():
-        ga, gb = (ch.bones.get(vrm.canonical(n), n) for n in (a, b))     # humanoid names, or the armature's
+        ga, gb = _bone_name(ch, a), _bone_name(ch, b)
         if ga in ob.vertex_groups:
             groups[ob.vertex_groups[ga].index] = ob.vertex_groups.get(gb) or ob.vertex_groups.new(name=gb)
     n = 0
