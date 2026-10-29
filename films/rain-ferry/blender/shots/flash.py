@@ -44,6 +44,7 @@ def build(ctx):
     from bpy_extras.object_utils import world_to_camera_view
     from mathutils import Vector
 
+    import os
     import sys
     from pathlib import Path
 
@@ -77,6 +78,7 @@ def build(ctx):
     scene[toon.FLASH] = 1.0
 
     cam, aim = duel.camera(ctx, fstop=4.0)
+    cam.data.dof.use_dof = False          # a drawn panel: everything sharp, the lines and splinters over it too
     fo = duel.focus(ctx, cam)
     fo.location = (CLASH, 0.0, 1.1)
     shake = fx.shake(fx.jolt(n + 2, JOLT[0] + 1, JOLT[1], decay=JOLT[2]), freq=11.0, seed=7)
@@ -136,5 +138,6 @@ def build(ctx):
         fx.show(ob, [ctx.f0 + i], ctx.f0 - 1, ctx.f1)
 
     panel = fx.ink_panel(scene, threshold=THRESHOLD, soft=0.025, edges=1.0)
+    only = os.environ.get("RF_FLASH_BEAT")      # a preview of the picture under the panel: RF_FLASH_BEAT=color
     for i, f in enumerate(range(ctx.f0, ctx.f1)):
-        panel.key(f, beats[i])
+        panel.key(f, only or beats[i])
