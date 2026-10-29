@@ -14,10 +14,12 @@ SHOT = {"scene": "eyes"}
 
 # he stands where the walk leaves him (shots/walk.py), facing the way he walked
 LENS, FSTOP = 100.0, 2.0
-DIST = (0.78, 0.6)             # m from his eyes: the slow push
+# framed from the brim down: the brim's front edge just under the frame's top (BRIM_V), the point of his nose near its
+# foot (NOSE_V), as the push ends; it starts PUSH times as far out
+BRIM_V, NOSE_V, NOSE = 0.9, 0.12, 0.05     # (frame heights from the bottom; his nose this far under his eyes, m)
+PUSH = 1.25
 BEARING = 14.0                 # degrees round from straight in front of him toward his left (our right)
 DZ = -0.06                     # the lens this far below his eyes: looking up under the brim
-LIFT = 0.006                   # the aim this far over his eyes (they sit a little above the frame's middle)
 THIRD = 0.012                  # ... and this far to his right (our left): room on the side he looks past
 HEAD = ((0.12, 0.8), (13.0, -2.0))   # his head comes up: (from s, over s), (degrees down at the cut, at the end)
 EYES = ((0.25, 0.5), (14.0, -1.0))   # his eyes lift (from, over), (degrees down, at the end: up a hair, on us)
@@ -90,15 +92,21 @@ def build(ctx):
     right = Vector((-toward.y, toward.x, 0.0))                  # the camera's right
     # the eye nearer the lens is the one in focus; the push eased over the shot, jolted a hair by the drum on the cut
     near = min(("leftEye", "rightEye"), key=lambda e: (Vector(ch.point(e)) - eye - toward).length)
-    off = Vector((0.0, 0.0, DZ)) - right * THIRD
-    cam0 = eye + toward * DIST[0] + off
-    aim = eye + Vector((0.0, 0.0, LIFT)) - right * THIRD
-    rig = cinema.film(ctx, [cinema.Setup("eyes", 0.0, cinema.push(tuple(cam0), tuple(aim), DIST[0] - DIST[1]),
+    hat = st.shinza["kasa"][0]
+    mw = hat.matrix_world
+    front = max((mw @ v for v in approach.brim(hat)), key=lambda p: (p - eye).dot(toward))
+    top, foot = front.z, eye.z - NOSE
+    h = (top - foot) / (BRIM_V - NOSE_V)                       # the frame's height at his face (m)
+    d = h * LENS / cinema.GATE_H
+    aim = Vector((eye.x, eye.y, foot + (0.5 - NOSE_V) * h)) - right * THIRD
+    cam1 = aim + toward * d + Vector((0.0, 0.0, DZ))
+    cam0 = aim + (cam1 - aim) * PUSH
+    rig = cinema.film(ctx, [cinema.Setup("eyes", 0.0, cinema.line(tuple(cam0), tuple(cam1), tuple(aim)),
                                          lens=LENS, fstop=FSTOP, focus=(ch, near),
                                          shake=cinema.Shake(breath=0.03, hits=((0.0, 0.2),)))])
     approach.storm(ctx, rig, st, ground=z)
     # water dripping off the brim's front edge, carried with his head as it comes up
-    approach.brim_drips("brim", st.shinza["kasa"][0], front=cam0, n=BRIM_DRIPS, period=0.9, hang=0.6, fall=0.9,
+    approach.brim_drips("brim", hat, front=cam0, n=BRIM_DRIPS, period=0.9, hang=0.6, fall=0.9,
                         size=0.004, coll=st.cast)
 
     comp = satsuei.setup(ctx.scene, st.cast)
@@ -108,4 +116,5 @@ def build(ctx):
                            wrap_width=0.03))
     comp.hold()
     ctx.scene.frame_set(ctx.f0)
-    print(f"eyes: his eyes at {tuple(round(v, 3) for v in eye)}, the lens from {tuple(round(v, 3) for v in cam0)}")
+    print(f"eyes: his eyes at {tuple(round(v, 3) for v in eye)}, the brim's front {front.z - eye.z:+.3f} m over them; "
+          f"the frame {h:.3f} m high, the lens {d * PUSH:.2f} -> {d:.2f} m out")
