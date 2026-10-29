@@ -85,13 +85,26 @@ def sway(t: float, k: float, seed: int = 0, *, freq: float = 0.9, lag: float = 0
 def heartbeat(t: float, beats, *, dub: float = 0.28, decay: float = 10.0) -> float:
     """A heartbeat's thump at time t, 0..1: each beat at a time in `beats` a strong pulse (lub) and a smaller one
     `dub` s later, each a sharp rise and an exponential fall."""
+    rise = 60.0
+    peak = math.log((rise + decay) / decay) / rise              # where a pulse is highest: scaled to its size there
+    norm = (1.0 - math.exp(-rise * peak)) * math.exp(-decay * peak)
     v = 0.0
     for b in beats:
         for at, size in ((b, 1.0), (b + dub, 0.55)):
             x = t - at
             if x >= 0:
-                v += size * (1.0 - math.exp(-x * 60.0)) * math.exp(-x * decay)
+                v += size * (1.0 - math.exp(-x * rise)) * math.exp(-x * decay) / norm
     return min(1.0, v)
+
+
+def clock(speeds, fps: float, speed0: float) -> list:
+    """A clock for something that moves by time (toon.rain's drops) slowed frame by frame: for its speed on each
+    frame, the seconds of motion at `speed0` it has had by then, so it decelerates to a stop rather than jumping."""
+    out, c = [], 0.0
+    for v in speeds:
+        out.append(c)
+        c += max(0.0, float(v)) / speed0 / fps
+    return out
 
 
 # the vowels a line's syllables open the mouth to, as VRM's mouth presets

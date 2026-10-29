@@ -45,16 +45,6 @@ KEYS = {"shinza": (1.0, -0.6, 0.8), "tsuru": (-1.0, -0.6, 0.8)}
 SPEED0 = 9.5
 
 
-def clock(speeds, fps: float = 24.0, speed0: float = SPEED0) -> list:
-    """The rain's clock frame by frame for the rain's speed on each frame: seconds of fall at full speed, summed at
-    the speed of the moment, so the drops slow to a stop and hang."""
-    out, c = [], 0.0
-    for v in speeds:
-        out.append(c)
-        c += max(0.0, v) / speed0 / fps
-    return out
-
-
 def build(ctx):
     import bpy
     from mathutils import Vector
@@ -141,7 +131,7 @@ def build(ctx):
     pts = [np.asarray(p, float) for p in PATH]
     frames = range(ctx.f0 - 1, ctx.f1 + 1)
     speeds = {f: ctx.look_at(f).rain.speed for f in frames}
-    clocks = dict(zip(frames, clock([speeds[f] for f in frames], ctx.fps)))
+    clocks = dict(zip(frames, dm.clock([speeds[f] for f in frames], ctx.fps, SPEED0)))
     comp = satsuei.setup(ctx.scene, st.cast)
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = (f - ctx.f0) / ctx.fps
