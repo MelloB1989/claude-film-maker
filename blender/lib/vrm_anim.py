@@ -1121,13 +1121,18 @@ class Performance:
         self.reach(frame, f"{side}Hand", _Offset(spec, -t @ hole), pole=pole, turn=t, ease=ease)
         self.pose(frame, vrm.grip_pose(side, amount, thumb), ease=ease, full=False)
 
-    def plant(self, frame: float, foot: str, at=None, *, yaw: float = 0.0, ease: str = "inout", pole=None) -> None:
+    def plant(self, frame: float, foot: str, at=None, *, yaw: float = 0.0, ease: str = "inout", pole=None,
+              ground=None) -> None:
         """Plant a foot from `frame`: its ankle at `at` (world; default where it stands now, `feet_now`), turned `yaw`
-        degrees from the character's heading (as it stands at `frame`), flat."""
+        degrees from the character's heading (as it stands at `frame`), flat. With `ground` (`walk`'s) the ankle is
+        set on the ground under it, as high above it as it stands."""
         h = vrm.canonical(foot)
+        root, ry = self.root_at(frame)
         if at is None:
-            root, ry = self.root_at(frame)
             at = to_world(self.feet_now[h], root, ry)
+        if ground is not None:
+            at = np.array(at, float)
+            at[2] = ground_of(ground)(at[0], at[1]) + self.feet_now.get(h, np.array([0, 0, 0.08]))[2]
         self.reach(frame, h, at, turn=vrm.euler((0.0, 0.0, yaw)), ease=ease, pole=pole)
 
     def plant_feet(self, frame: float | None = None) -> None:
@@ -1152,12 +1157,14 @@ class Performance:
 
     def walk(self, path, start: float, *, gait="walk", lead: str = "right", pose: dict | None = None,
              end_pose: dict | None = None, end_yaw: float | None = None, speed: float | None = None,
-             swing=(1.0, 1.0), ground: float | None = None) -> int:
+             swing=(1.0, 1.0), ground=None) -> int:
         """Walk (or run: `gait`) along `path` (world x, y points; it starts where the character stands, the first
         point moved there) from frame `start`, at the gait's speed (or `speed` m/s), the `lead` foot first, into
         `end_pose` (a pose, default `pose`, default STAND) facing `end_yaw` (default the path's last heading). `pose`
         is the body's carriage while it walks (keyed as it sets off); `swing` scales each arm's swing (left, right):
-        0 for an arm that holds something. Returns the frame it stands still on."""
+        0 for an arm that holds something. `ground` is the ground's height: a number, a function of world (x, y), or
+        an object to cast down onto (`ground_of`), default the height it stands at: each footfall lands on the ground
+        under it, the body rides over it (eased over a stride). Returns the frame it stands still on."""
         g = gait_of(gait).scaled(self.height)
         if speed is not None:
             g = g.but(speed=float(speed))
@@ -1168,7 +1175,11 @@ class Performance:
         else:
             pts[0] = root0[:2]
         pth = Path(pts)
-        z = root0[2] if ground is None else float(ground)
+        gz = ground_of(root0[2] if ground is None else ground)
+
+        def body_z(s_):
+            # the ground under the body, eased over a stride (it does not ride every bump)
+            return float(np.mean([gz(*pth.at(s_ + d)) for d in np.linspace(-0.5, 0.5, 5) * g.stride]))
         steps, kt, kd = plan_steps(pth.length, g, lead=lead)
         fps = self.fps
         t_end = float(kt[-1])
@@ -1208,7 +1219,7 @@ class Performance:
             if final:
                 left = np.array([-math.sin(math.radians(y)), math.cos(math.radians(y))])
             p = c + left * sgn * g.width / 2
-            return np.array([p[0], p[1], z + ankle[side]]), y + sgn * g.toe_out
+            return np.array([p[0], p[1], gz(p[0], p[1]) + ankle[side]]), y + sgn * g.toe_out
 
         # the foot's geometry for its roll: ball and heel from the ankle, along the foot and up
         k = self.height / 1.7
@@ -1234,7 +1245,7 @@ class Performance:
                     u = (t - st.t0) / (st.t1 - st.t0)
                     if u > 0:
                         self._air.setdefault(f"{side}Foot", set()).add(round(start + t * fps, 3))
-                    return self._swing(pos, yaw, b_pos, b_yaw, u, g, ball, heel, ah, final)
+                    return self._swing(pos, yaw, b_pos, b_yaw, u, g, ball, heel, ah, final, gz)
                 pos, yaw, last_land = b_pos, b_yaw, st.t1
             pitch = 0.0
             # heel off before it lifts (about the ball), heel strike settling after it lands (about the heel)
@@ -1256,7 +1267,7 @@ class Performance:
             s = body_s(t)
             c = pth.at(s)
             y = yaw_at(t)
-            self.root_pos.key(f, [c[0], c[1], z], "linear")
+            self.root_pos.key(f, [c[0], c[1], body_z(s)], "linear")
             self.root_yaw.key(f, [y], "linear")
             for side in ("left", "right"):
                 p, fy, pitch, toe = foot_at(side, t)
@@ -1336,7 +1347,7 @@ class Performance:
             return lm.keys[-1][3][1]
         return root_yaw + self._foot_yaw(foot) if foot in self.feet_now else root_yaw
 
-    def _swing(self, a, ya, b, yb, u, g: Gait, ball, heel, ah, final):
+    def _swing(self, a, ya, b, yb, u, g: Gait, ball, heel, ah, final, gz=None):
         """A foot in the air u (0..1) of the way from ankle a (heading ya) to b (yb): off its toes, forward low and
         clear of the ground, landing heel first (a closing step sets down flatter)."""
         roll = g.roll * (0.4 if final else 1.0)
@@ -1345,6 +1356,8 @@ class Performance:
         k = ease(u, "inout")
         p = p0 + (p1 - p0) * k
         lift = g.lift * (0.6 if final else 1.0)
+        if gz is not None:          # clear of a rise in the ground between the footfalls
+            p[2] = max(p[2], gz(p[0], p[1]) + ah * min(1.0, 4 * u, 4 * (1 - u)))
         p = p + np.array([0.0, 0.0, lift * math.sin(math.pi * u) ** 1.2 * (1.0 - 0.3 * u)])
         y = ya + (unwrap(ya, yb) - ya) * k
         pitch = roll + (-0.5 * roll - roll) * smoothstep(0.0, 0.85, u)
@@ -1451,9 +1464,43 @@ class Performance:
         on top of how it hangs) and blown by `wind` (m/s^2, world, gusting: `gust`). `settings` {fnmatch pattern of a
         chain's root bone: {stiffness, drag, gravity, wind_scale}} tunes some chains (a heavy straw cape stiff, a
         headband's tails loose)."""
+        dangles = self.sec["dangles"] if self.sec else []
         self.sec = dict(pattern=pattern, wind=np.asarray(wind, float), gravity=float(gravity), stiffness=stiffness,
                         drag=drag, chains=chains, settings=settings or {},
-                        seed=self.seed + 5 if seed is None else seed, substeps=int(substeps))
+                        seed=self.seed + 5 if seed is None else seed, substeps=int(substeps), dangles=dangles)
+
+    def dangle(self, obs, pivot, *, toward=None, length: float = 0.25, stiffness: float = 7.0, drag: float = 0.08,
+               wind_scale: float = 1.0) -> None:
+        """Let props hang loose from `pivot` (a world point as they are now: a headband's knot, the straw cape's
+        collar): they swing about it as one, lagging the bone that carries them and blown by `secondary`'s wind,
+        pulled back to how they hang by `stiffness`. `toward` is the way they hang from the pivot (default down),
+        `length` how far out their weight is. They are put under a pivot empty (keeping where they are) that the bake
+        keys; call `secondary` too (its wind and gravity)."""
+        import bpy
+
+        obs = obs if isinstance(obs, (list, tuple)) else [obs]
+        if self.sec is None:
+            self.secondary(chains=[[]])
+        bpy.context.view_layer.update()
+        first = obs[0]
+        e = bpy.data.objects.new(f"{first.name}-dangle", None)
+        self.ch.coll.objects.link(e)
+        e.empty_display_size = 0.03
+        e.parent, e.parent_type, e.parent_bone = first.parent, first.parent_type, first.parent_bone
+        from mathutils import Matrix
+
+        bpy.context.view_layer.update()
+        e.matrix_world = Matrix.Translation(tuple(float(c) for c in pivot))
+        e.rotation_mode = "QUATERNION"
+        bpy.context.view_layer.update()
+        for o in obs:
+            mw = o.matrix_world.copy()
+            o.parent, o.parent_type = e, "OBJECT"
+            o.matrix_world = mw
+        hang = np.asarray(toward if toward is not None else (0.0, 0.0, -1.0), float)
+        local = np.array(e.matrix_world.to_3x3().inverted()) @ hang
+        self.sec["dangles"].append(dict(empty=e, local=local / np.linalg.norm(local), length=float(length),
+                                        stiffness=stiffness, drag=drag, wind=wind_scale))
 
 
     # ---- baking
@@ -1849,7 +1896,8 @@ class Performance:
         else:
             chains_ = [c for c in vrm_rig.chains(ch, cfg["pattern"]) if not set(c) & humanoid]
         chains_ = [c for c in chains_ if c and arm.data.bones[c[0]].parent is not None]
-        if not chains_:
+        dangles = cfg["dangles"]
+        if not chains_ and not dangles:
             return
         bones = arm.data.bones
         mw0 = np.array(arm.matrix_world)
@@ -1874,6 +1922,9 @@ class Performance:
         parents = sorted({i["parent"] for i in info})
         mats = {p: [] for p in parents}
         mws = []
+        for d in dangles:
+            d["empty"].rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+            d["mats"] = []
         try:
             for f in frames:
                 scene.frame_set(f)
@@ -1881,6 +1932,8 @@ class Performance:
                 mws.append(mw)
                 for p in parents:
                     mats[p].append(mw @ np.array(arm.pose.bones[p].matrix))
+                for d in dangles:
+                    d["mats"].append(np.array(d["empty"].matrix_world))
         finally:
             for md in muted:
                 md.show_viewport = True
@@ -1951,11 +2004,71 @@ class Performance:
                     r3 = local[:3, :3] / np.linalg.norm(local[:3, :3], axis=0)
                     out[b].append(quat(r3))
                     m_parent, prest = m, r
+        # the props hung from a pivot: one link each, swung from how they are carried to where it has swung
         w = _Writer(frames)
+        for k, d in enumerate(dangles):
+            ms = d["mats"]
+            grav = np.array([0.0, 0.0, -cfg["gravity"]])
+
+            def tip(m, d=d):
+                return m[:3, 3] + m[:3, :3] @ d["local"] * d["length"] / max(1e-9, np.linalg.norm(m[:3, :3] @ d["local"]))
+
+            g0 = np.array([ms[0][:3, 3], tip(ms[0])])
+            pts, prev = g0.copy(), g0.copy()
+            seed = cfg["seed"] + 100 + k
+            for _ in range(int(0.6 / h)):
+                new = chain_step(pts, prev, g0, [d["length"]], dt=h, stiffness=d["stiffness"], drag=d["drag"],
+                                 gravity=grav, wind=cfg["wind"] * d["wind"] * gust(frames[0] * dt, seed))
+                prev, pts = pts, new
+            qs = []
+            for fi in range(len(frames)):
+                ga = np.array([ms[max(0, fi - 1)][:3, 3], tip(ms[max(0, fi - 1)])])
+                gb = np.array([ms[fi][:3, 3], tip(ms[fi])])
+                for sub in range(n_sub):
+                    u = (sub + 1) / n_sub if fi > 0 else 1.0
+                    new = chain_step(pts, prev, ga + (gb - ga) * u, [d["length"]], dt=h, stiffness=d["stiffness"],
+                                     drag=d["drag"], gravity=grav,
+                                     wind=cfg["wind"] * d["wind"] * gust((frames[fi] - 1 + u) * dt, seed))
+                    prev, pts = pts, new
+                m3 = ms[fi][:3, :3] / np.linalg.norm(ms[fi][:3, :3], axis=0)
+                sw = swing_to(m3.T @ (gb[1] - gb[0]), m3.T @ (pts[1] - pts[0]))
+                qs.append(quat(sw))
+            w.add(d["empty"], "rotation_quaternion", qs)
         for b, qs in out.items():
             arm.pose.bones[b].rotation_mode = "QUATERNION"
             w.add(arm, f'pose.bones["{b}"].rotation_quaternion', qs)
         w.write()
+
+def ground_of(ground):
+    """The ground's height as a function of world (x, y): from a number (level), a function, or a Blender object
+    (cast straight down onto it from above; where it misses, the nearest height found so far, else its lowest)."""
+    if callable(ground):
+        return ground
+    if hasattr(ground, "ray_cast"):
+        import bpy
+        from mathutils import Vector
+
+        ob = ground
+        bpy.context.view_layer.update()
+        dg = bpy.context.evaluated_depsgraph_get()
+        ev = ob.evaluated_get(dg)
+        mw = ob.matrix_world.copy()
+        inv = mw.inverted()
+        top = max((mw @ Vector(c)).z for c in ob.bound_box) + 1.0
+        low = min((mw @ Vector(c)).z for c in ob.bound_box)
+        last = [low]
+
+        def z(x, y):
+            o = inv @ Vector((float(x), float(y), top))
+            d = (inv.to_3x3() @ Vector((0.0, 0.0, -1.0))).normalized()
+            hit, loc, _, _ = ev.ray_cast(o, d)
+            if hit:
+                last[0] = (mw @ loc).z
+            return last[0]
+        return z
+    h = float(ground)
+    return lambda x, y: h
+
 
 def _pivot(ankle, yaw: float, pitch: float, lever: float, ah: float) -> np.ndarray:
     """The ankle of a foot (flat at `ankle`, heading `yaw` world degrees, the ankle `ah` above the ground) rolled
