@@ -119,7 +119,7 @@ class Stage:
         self.__dict__.update(kw)
 
 
-def stage(ctx, *, ink: float | None = INK) -> Stage:
+def stage(ctx, *, ink: float | None = None) -> Stage:
     """The world (rf/set_world.py) for the shot, its weather keyed from the look schedule (rf/set_weather.py: the
     rain on the water, the sheen, the key), inked; the cast's collection ready."""
     from lib import toon
@@ -410,6 +410,7 @@ def trim(ctx, st: Stage) -> int:
                         ("shadow_step_count", 4)):
         if hasattr(ev, attr):
             setattr(ev, attr, value)
+    ev.use_raytracing = False   # PROBE
     rt = getattr(ev, "ray_tracing_options", None)
     if rt is not None:
         rt.resolution_scale = "2"
