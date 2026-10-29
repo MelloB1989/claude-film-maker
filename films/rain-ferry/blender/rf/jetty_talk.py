@@ -30,7 +30,6 @@ import numpy as np
 TSURU_AT, TSURU_FACING = (7.08, -0.7), -100.0     # the post at her front left, clear of her knees, in her pipe's reach
 SHINZA_AT = (5.45, -0.82)
 SHINZA_FACING = math.degrees(math.atan2(TSURU_AT[1] - SHINZA_AT[1], TSURU_AT[0] - SHINZA_AT[0]))
-POST_RADIUS = 0.14          # rf/set_jetty.py's end posts: the one on the -y side is the one she knocks her pipe on
 CRATE = (0.42, 0.34)        # her seat's width and depth (its height is rf/vroid_tsuru.py's SEAT); its middle behind her
 CRATE_BACK = 0.14           # ... feet (m)
 BOAT_POLE = ((4.05, 2.32, -0.13), (1.0, 0.03, 0.04))   # her pole laid in the boat: its foot, its way (world)
@@ -137,13 +136,11 @@ def fist_wrist(ch, side: str, point, turn, depth: float = 0.028) -> np.ndarray:
 
 
 def post_top(st) -> np.ndarray:
-    """Where her pipe knocks: the end post's crown (rf/set_jetty.py's staved post on the -y side), its edge toward
-    her (world)."""
-    post = st.crossing["jetty"]["posts"]["end"]
-    top = np.array(post["anchors"]["top"].matrix_world.translation)
-    toward = np.array((*TSURU_AT, top[2])) - top
-    toward[2] = 0.0
-    return top + toward / np.linalg.norm(toward) * POST_RADIUS * 0.55
+    """Where her pipe knocks: the tap post's crown at its rim on her side (rf/set_jetty.py's "tap_post" anchor: the
+    staved post at the -y end of the jetty), world."""
+    from . import set_world
+
+    return np.array(set_world.anchor(st.crossing, "tap_post"))
 
 
 class Stage:
