@@ -4,7 +4,7 @@ us. His inner voice (line 2, "Stronger than anyone.", 18.5-20.11 s); as it ends 
 close-up on a long lens, pushing in slowly, the brim's edge dark across the top of the frame with the rain dripping
 off it, the mist and the path behind him gone soft.
 
-The stage is rf/approach.py's (stand-ins until the sets and cast agents' are merged).
+The stage is rf/approach.py's; he acts through blender/lib/vrm_anim.py (a Performance, baked).
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ def build(ctx):
     from mathutils import Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import rig, satsuei, vrm
+    from lib import rig, satsuei, vrm_anim as va
     from rf import approach
 
     import importlib.util
@@ -60,28 +60,37 @@ def build(ctx):
     st = approach.stage(ctx, rain_box=((lo[0], lo[1], z - 0.3), (hi[0], hi[1], z + 3.5)), rain_near=1.4,
                         rain_clear=0.3, key_toward=KEY)
     ch = st.shinza["vrm"]
-    root = ch.root
-    root.location = (x, y, z)
-    root.rotation_euler = (0.0, 0.0, math.atan2(fwd[1], fwd[0]))    # facing up the path, at us
     t0 = ctx.time(ctx.f0)
     frames = list(range(ctx.f0 - 1, ctx.f1 + 1))
-    face_of = st.shinza["face"]
-    for f in frames:
-        u = ctx.time(f) - t0
-        head = HEAD[1][0] + (HEAD[1][1] - HEAD[1][0]) * ease((u - HEAD[0][0]) / HEAD[0][1])
-        eyes = EYES[1][0] + (EYES[1][1] - EYES[1][0]) * ease((u - EYES[0][0]) / EYES[0][1])
-        breath = math.sin(2 * math.pi * 0.28 * u)
-        pose = {**st.shinza["stand"], "spine": (4.0, 0.0, 0.0), "chest": (2.0 + 0.8 * breath, 0.0, 0.0),
-                "neck": (head * 0.35, 0.0, 0.0), "head": (head * 0.65, 0.0, 1.5),
-                "leftEye": (eyes, 0.0, 0.0), "rightEye": (eyes, 0.0, 0.0)}
-        vrm.pose(ch, pose, hips=(0.0, 0.0, -0.01), frame=f)
-        glare = GLARE[2] * ease((u - GLARE[0]) / GLARE[1])
-        w = dict(face_of(1.0))
-        w["narrow"] = glare
-        blink = max(0.0, 1.0 - abs(u - BLINK) / 0.09)
-        if blink > 0:
-            w["blink"] = blink
-        vrm.express(ch, w, frame=f)
+    fps = ctx.fps
+
+    def at_s(u):
+        return ctx.f0 + u * fps
+
+    def carriage(head, eyes):
+        return {"neck": (head * 0.35, 0.0, 0.0), "head": (head * 0.65, 0.0, 1.5), "leftEye": (eyes, 0.0, 0.0),
+                "rightEye": (eyes, 0.0, 0.0)}
+
+    # standing where the walk left him, his head down under the brim at the cut; on the drum it comes up and his eyes
+    # lift out from under it onto us; the glare hardens as the line ends; one slow blink after
+    p = va.Performance(ch, fps=fps, seed=5)
+    p.root(frames[0], (x, y, z), yaw=math.degrees(math.atan2(fwd[1], fwd[0])))
+    p.plant_feet(frames[0])
+    p.pose(frames[0], {**st.shinza["stand"], "spine": (4.0, 0.0, 0.0), "chest": (2.0, 0.0, 0.0),
+                       **carriage(HEAD[1][0], EYES[1][0])}, hips=(0.0, 0.0, -0.01))
+    p.hold(at_s(min(HEAD[0][0], EYES[0][0])))
+    p.pose(at_s(HEAD[0][0] + HEAD[0][1]), {k: v for k, v in carriage(HEAD[1][1], 0.0).items() if "Eye" not in k},
+           ease="out", full=False)
+    p.pose(at_s(EYES[0][0] + EYES[0][1]), {k: v for k, v in carriage(0.0, EYES[1][1]).items() if "Eye" in k},
+           ease="out", full=False)
+    p.breathe(rate=0.28, depth=1.0)
+    face = st.shinza["face"]
+    p.express(frames[0], {**face(1.0), "narrow": 0.0})
+    p.express(at_s(GLARE[0]), {**face(1.0), "narrow": 0.0})
+    p.express(at_s(GLARE[0] + GLARE[1]), {**face(1.0), "narrow": GLARE[2]})
+    p.blink_at(at_s(BLINK))
+    p.secondary(wind=(0.4, 0.0, 0.0))
+    p.bake(frames[0], frames[-1] + 1)
 
     # framed on his eyes as they end up (head up), the push eased over the shot
     ctx.scene.frame_set(ctx.f1 - 1)
