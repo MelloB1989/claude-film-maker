@@ -184,8 +184,6 @@ def build(ctx):
     p.express(F(SMILE[1]), {"s4-smile": 0.8})
     p.blinks(seed=5, mean=3.2)
     p.breathe(rate=0.22, depth=0.8)
-    p.secondary(wind=(0.6, 0.15, 0.0))
-    st.perf["shinza"].secondary(wind=(0.6, 0.15, 0.0))
     st.bake()
     sword_in_fist(st, b)
 
