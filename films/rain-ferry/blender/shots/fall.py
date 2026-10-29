@@ -137,10 +137,14 @@ def build(ctx):
     bear = yaw - math.radians(CAM_BEARING)
     toward = Vector((math.cos(bear), math.sin(bear), 0.0))
     fs = list(range(ctx.f0 - 1, ctx.f1 + 1))
-    faces = []
-    for f in fs:
+    # where his face is, read every sixth frame (each frame_set re-evaluates the whole posed cast) and in between
+    sample = sorted({*fs[::6], fs[-1], ctx.f0 + round((KNEES - DROP) * fps), ctx.f0 + round(KNEES * fps)})
+    seen = []
+    for f in sample:
         ctx.scene.frame_set(f)
-        faces.append(Vector(ch.face()))
+        seen.append(tuple(ch.face()))
+    seen = np.array(seen)
+    faces = [Vector([float(np.interp(f, sample, seen[:, i])) for i in range(3)]) for f in fs]
     lag = [faces[0].z]
     for v in faces[1:]:
         lag.append(lag[-1] + (v.z - lag[-1]) * 0.45)

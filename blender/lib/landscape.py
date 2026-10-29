@@ -197,6 +197,132 @@ def sky(name: str, coll, *, horizon, zenith, distance: float = 1200.0, size=(500
     return toon.move_to(ob, coll)
 
 
+def sky_dome(name: str, coll, *, horizon, zenith, radius: float = 2600.0, center=(0.0, 0.0, 0.0), cloud=None,
+             clouds: float = 0.7, heavy: float = 0.6, flash=(0.9, 0.93, 1.0), flash_amount: float = 0.9, light=None,
+             light_dir=(0.25, 1.0, 0.12), seed: float = 3.0):
+    """A whole sphere of sky round `center` in its own colour (no fog), so a camera looking any way, up or low, sees
+    sky and never an edge: `horizon` at the horizon (and below it) darkening to `zenith` overhead, and over it masses
+    of storm cloud (`clouds` 0..1) in `cloud` (default darker than the zenith) with paler breaks between, heavier
+    overhead (`heavy`); `light` a glow breaking through toward `light_dir`. The cloud is noise on the view's direction,
+    so it has no seam. Keep `radius` inside the cameras' clip_end."""
+    import bpy
+
+    from . import toon
+
+    nu, nv = 64, 32
+    us = np.linspace(0.0, 2 * math.pi, nu, endpoint=False)
+    vs = np.linspace(-math.pi / 2, math.pi / 2, nv + 1)[1:-1]
+    cx, cy, cz = center
+    verts = [(cx + radius * math.cos(v) * math.cos(u), cy + radius * math.cos(v) * math.sin(u), cz + radius * math.sin(v))
+             for v in vs for u in us]
+    verts += [(cx, cy, cz - radius), (cx, cy, cz + radius)]
+    bot, top = len(verts) - 2, len(verts) - 1
+    faces = [(j * nu + i, j * nu + (i + 1) % nu, (j + 1) * nu + (i + 1) % nu, (j + 1) * nu + i)
+             for j in range(nv - 2) for i in range(nu)]
+    faces += [(bot, (i + 1) % nu, i) for i in range(nu)]
+    faces += [(top, (nv - 2) * nu + i, (nv - 2) * nu + (i + 1) % nu) for i in range(nu)]
+    ob = shapes.mesh_object(name, verts, faces, coll=coll, smooth=True)
+    ob.location = (0.0, 0.0, 0.0)
+
+    mat = bpy.data.materials.new(name)
+    nt = toon.nodes(mat)
+
+    def math_(op, a, b=None):
+        m = nt.nodes.new("ShaderNodeMath")
+        m.operation = op
+        for i, v in enumerate((a, b)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                m.inputs[i].default_value = float(v)
+            else:
+                nt.links.new(v, m.inputs[i])
+        return m.outputs[0]
+
+    def ramp(v, a, b):
+        r = nt.nodes.new("ShaderNodeMapRange")
+        r.interpolation_type = "SMOOTHSTEP"
+        r.inputs["From Min"].default_value = a
+        r.inputs["From Max"].default_value = b
+        nt.links.new(v, r.inputs["Value"])
+        return r.outputs["Result"]
+
+    def mix(k, a, b):
+        mx = nt.nodes.new("ShaderNodeMix")
+        mx.data_type = "RGBA"
+        for sock, val in (("Factor", k), ("A", a), ("B", b)):
+            if isinstance(val, tuple):
+                mx.inputs[sock].default_value = (*val, 1) if len(val) == 3 else val
+            else:
+                nt.links.new(val, mx.inputs[sock])
+        return mx.outputs["Result"]
+
+    def noise(vec, scale, detail, w):
+        n = nt.nodes.new("ShaderNodeTexNoise")
+        n.noise_dimensions = "4D"
+        n.inputs["Scale"].default_value = scale
+        n.inputs["Detail"].default_value = detail
+        n.inputs["Roughness"].default_value = 0.6
+        n.inputs["W"].default_value = w
+        nt.links.new(vec, n.inputs["Vector"])
+        return n.outputs["Fac"]
+
+    # the view's direction from the dome's middle (its own coordinates), and how high it looks (-1..1)
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sub = nt.nodes.new("ShaderNodeVectorMath")
+    sub.operation = "SUBTRACT"
+    nt.links.new(tc.outputs["Object"], sub.inputs[0])
+    sub.inputs[1].default_value = center
+    nrm = nt.nodes.new("ShaderNodeVectorMath")
+    nrm.operation = "NORMALIZE"
+    nt.links.new(sub.outputs[0], nrm.inputs[0])
+    d = nrm.outputs[0]
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(d, sep.inputs[0])
+    up = sep.outputs["Z"]
+    # pale at the horizon, the zenith's grey from about 35 degrees up
+    col = mix(ramp(up, 0.0, 0.6), horizon, zenith)
+    if clouds > 0:
+        cloud = cloud or tuple(c * 0.62 for c in zenith)
+        # masses wider than they are tall (but not stripes), broken at their edges by a finer noise
+        flat = nt.nodes.new("ShaderNodeVectorMath")
+        flat.operation = "MULTIPLY"
+        nt.links.new(d, flat.inputs[0])
+        flat.inputs[1].default_value = (1.0, 1.0, 2.2)
+        big = noise(flat.outputs[0], 2.2, 3.0, seed)
+        fine = noise(flat.outputs[0], 9.0, 6.0, seed + 5.0)
+        f = math_("ADD", math_("MULTIPLY", big, 0.75), math_("MULTIPLY", fine, 0.25))
+        # more of it overhead: the threshold drops as the view rises
+        lo = math_("SUBTRACT", 0.5, math_("MULTIPLY", ramp(up, 0.0, 0.7), 0.16 * heavy))
+        mass = math_("MULTIPLY", ramp(math_("SUBTRACT", f, lo), -0.04, 0.1), clouds)
+        # the masses' undersides darkest overhead, thinning to mist toward the horizon
+        dark = math_("MULTIPLY", mass, ramp(up, -0.02, 0.25))
+        col = mix(dark, col, cloud)
+        # the breaks between them a little paler than the sky round them
+        brk = math_("MULTIPLY", math_("SUBTRACT", 1.0, ramp(math_("SUBTRACT", f, lo), -0.12, 0.0)), 0.35 * clouds)
+        col = mix(math_("MULTIPLY", brk, ramp(up, 0.05, 0.4)), col, tuple(min(1.0, (a + b) / 2 * 1.08) for a, b in zip(horizon, zenith)))
+        if light is not None:
+            lv = np.array(light_dir, float)
+            lv /= np.linalg.norm(lv)
+            dot = nt.nodes.new("ShaderNodeVectorMath")
+            dot.operation = "DOT_PRODUCT"
+            nt.links.new(d, dot.inputs[0])
+            dot.inputs[1].default_value = tuple(lv)
+            glow = math_("MULTIPLY", ramp(dot.outputs["Value"], 0.93, 1.0), math_("SUBTRACT", 1.0, mass))
+            col = mix(glow, col, light)
+    # below the horizon the horizon's colour (behind the far ridges, under the mist)
+    col = mix(ramp(up, 0.0, -0.03), col, horizon)
+    col = col if flash is None else toon.flashed(nt, col, flash, flash_amount)
+    em = nt.nodes.new("ShaderNodeEmission")
+    nt.links.new(col, em.inputs["Color"])
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    nt.links.new(em.outputs[0], out.inputs["Surface"])
+    ob.data.materials.append(mat)
+    ob.visible_shadow = False
+    ob.lineart.usage = "EXCLUDE"
+    return toon.move_to(ob, coll)
+
+
 def soften_card(card, *, near=(4.0, 25.0), edge: float = 0.15, oblique: float = 2.0):
     """A mist card (toon.mist_card) that holds up from any camera: it fades out where the camera sees it edge on (by
     the facing to the power `oblique`), within `near` (m: gone at the first, whole from the second) of the lens, and

@@ -84,5 +84,5 @@ def build(ctx):
     # last, once everything is keyed: her pipe's thread and the breath she lets out
     pose = {**jt.tsuru_sit(0.0), **jt.fingers("left", 0.85)}
     smoke.bake([ja.bowl_smoke(st, seed=7), ja.breath(st, [EXHALE], ja.lips_source(st, pose, jt.tsuru_hips(st, 0.0)))],
-               ctx.scene, ctx.f0, ctx.f1, ctx.fps)
+               ctx.scene, ctx.f0, ctx.f1, ctx.fps, step=12)
     ja.clock("ask", "smoke baked")

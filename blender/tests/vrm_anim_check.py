@@ -13,6 +13,7 @@ Prints each check and exits non-zero when one fails.
 import argparse
 import math
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parents[1]
@@ -114,7 +115,21 @@ def main(argv):
         ch = fresh(a.vrm)
         p = va.Performance(ch)
         end = p.walk([(0.0, 0.0), (4.0, 0.0)], 0, gait=gait, ground=ground)
+        p.secondary(wind=(0.0, 1.0, 0.0))
+        t0 = time.time()
         p.bake(0, end + 5)
+        print(f"     {gait}: baked {end + 5} frames with secondary chains in {time.time() - t0:.1f}s", flush=True)
+        # the secondary pass's FK of the baked body is the body Blender evaluates (no IK in the spine and head)
+        off = 0.0
+        arm = ch.armature
+        for fi in (0, end // 2, end):
+            sc.frame_set(fi)
+            fk_ = p._world_mats(fi)
+            for h in ("hips", "upperChest", "head"):
+                bn = ch.bones[h]
+                real = np.array(arm.matrix_world) @ np.array(arm.pose.bones[bn].matrix)
+                off = max(off, float(np.abs(fk_[bn] - real).max()))
+        check(f"{gait}: the FK read-back matches Blender", off < 2e-3, f"worst matrix entry {off:.2e} off")
         worst, slide, prev = 0.0, 0.0, {}
         for f in range(0, end + 5):
             sc.frame_set(f)
