@@ -158,19 +158,19 @@ def build(ctx):
     scene.collection.objects.link(sun)
     cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
     scene.collection.objects.link(cam)
-    cam.data.lens = 38.0
-    cam.location = (0.9, -4.6, 1.4)
+    cam.data.lens = 34.0
+    cam.location = (0.6, -5.0, 1.4)
     aim = bpy.data.objects.new("aim", None)
     scene.collection.objects.link(aim)
-    aim.location = (-1.0, 0.5, 0.95)
+    aim.location = (-0.6, 0.6, 0.95)
     c = cam.constraints.new("TRACK_TO")
     c.target = aim
     c.track_axis, c.up_axis = "TRACK_NEGATIVE_Z", "UP_Y"
     scene.camera = cam
     # a cut to his face for the look and the line (from near where she stands), then back out for the draw
     face = (SH_TO[0], SH_TO[1], 1.62)
-    for fr, at, to, lens in ((f, cam.location[:], aim.location[:], 38.0), (CLOSE[0], (0.75, 0.95, 1.55), face, 55.0),
-                             (CLOSE[1], cam.location[:], aim.location[:], 38.0)):
+    for fr, at, to, lens in ((f, cam.location[:], aim.location[:], 34.0), (CLOSE[0], (0.75, 0.95, 1.55), face, 55.0),
+                             (CLOSE[1], cam.location[:], aim.location[:], 34.0)):
         cam.location, aim.location, cam.data.lens = at, to, lens
         cam.keyframe_insert("location", frame=fr)
         aim.keyframe_insert("location", frame=fr)
