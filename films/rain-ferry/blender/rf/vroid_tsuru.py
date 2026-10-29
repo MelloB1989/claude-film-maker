@@ -62,8 +62,8 @@ POLE_TOP = 2.1
 GRIP_Z = {False: 0.98, True: 0.82}
 SPLIT, CORD, BLADE = 1.66, 0.2, 0.62
 # on her shoulder: resting on the top of her right shoulder (a point over it, her frame at rest), the long end back
-# and down, the top forward and up (its way), her right hand on it `hand` ahead of the shoulder
-SHOULDER = dict(over=(-0.13, 0.02, 0.06), way=(0.0, -0.93, 0.36), behind=1.25, hand=0.24)
+# and up over it, the top (its way) forward and down to her right hand `hand` ahead of the shoulder, at her chest
+SHOULDER = dict(over=(-0.13, 0.02, 0.06), way=(0.0, -0.8, -0.6), behind=1.3, hand=0.38)
 # laid down at her right (the foot behind her)
 LAID = dict(foot=(-0.35, 0.85, 0.024), way=(0.0, -1.0, 0.0))
 # drawn: her right hand on the handle (its wrist; the blade from the fist forward and down: its way), the shaft upright
@@ -81,6 +81,12 @@ HAIR_WHITE = ((0.78, 0.78, 0.8), (0.42, 0.44, 0.5))
 BUN = dict(at=(0.0, 0.085, 0.035), radii=(0.05, 0.036, 0.04), pin=(0.16, 0.0035, 24.0))
 # ---- her robe recoloured a faded indigo (linear lit, shade)
 INDIGO = ((0.055, 0.075, 0.15), (0.018, 0.026, 0.06))
+# its wide sleeves taken in (tied back for work: vrm_rig.cinch) to SLEEVE metres round her arms, keeping `keep` of
+# the rest, so a hand raised to her face never buries it
+SLEEVE = (0.045, 0.1)
+# seated, the robe's skirt (VRoid's coat-skirt bones) laid forward over her thighs and down over her knees: each
+# chain's first bone swung forward with them, its second back down (degrees, vrm.pose's x), the sides half as far
+SKIRT_SEATED = {"Front": (-80.0, 78.0), "Side1": (-45.0, 40.0), "Side2": (-45.0, 40.0), "Back": (-10.0, 8.0)}
 TS_COLORS = {"hair": HAIR_WHITE}
 
 # ---- her face. The marks are drawn on a front view of it (lib/vrm_skin.py: projected along +y onto the face's skin),
@@ -95,7 +101,7 @@ SPOTS = [((0.074, 1.362), 3.2), ((0.058, 1.303), 2.2), ((-0.034, 1.392), 2.6), (
 # outer corners; brow-low: the brows down and flat; press: the lips pressed thin; sneer: one corner drawn up): calm
 # and half-lidded, and the glare, narrowed under low brows, the mouth a tight thin line
 FACES = {
-    "tsuru-calm": {"tsuru-hood": 0.75, "tsuru-brow-low": 0.6, "Fcl_EYE_Close": 0.05, "Fcl_BRW_Angry": 0.1,
+    "tsuru-calm": {"tsuru-hood": 0.5, "tsuru-brow-low": 0.6, "Fcl_EYE_Close": 0.0, "Fcl_BRW_Angry": 0.1,
                    "Fcl_MTH_Close": 1.0, "tsuru-press": 0.5},
     "tsuru-glare": {"tsuru-hood": 0.45, "Fcl_EYE_Angry": 0.5, "tsuru-brow-low": 1.0, "Fcl_BRW_Angry": 0.3,
                     "Fcl_MTH_Close": 1.0, "tsuru-press": 1.0, "tsuru-sneer": 0.8},
@@ -289,10 +295,34 @@ def tabi(ch) -> float:
 
 
 def indigo(ch) -> None:
-    """Her robe (VRoid's top and bottoms) one faded indigo, its folds kept."""
+    """Her robe (VRoid's top and bottoms) one faded indigo, its folds kept, its sleeves taken in."""
     for mat in ch.materials("cloth"):
         if "Tops" in mat.name or "Bottoms" in mat.name:
             vrm_rig.recolor(mat, *INDIGO, opaque=True)
+    for ob in ch.meshes:
+        tops = vrm_rig.faces_of(ob, "Tops")
+        if tops.size and ob.data.shape_keys is None:
+            for side in ("left", "right"):
+                vrm_rig.cinch(ch, ob, tops, side, SLEEVE[0], keep=SLEEVE[1], ease=0.15)
+
+
+def drape_skirt(ch) -> None:
+    """Seated: the robe's skirt laid over her thighs and down past her knees (SKIRT_SEATED): below the knees it hangs
+    from her shins (vrm_rig.shift_weights), not on out from her thighs. Before posing."""
+    knee = ch.rest("leftLowerLeg")[2]
+    for ob in ch.meshes:
+        tops = vrm_rig.faces_of(ob, "Tops")
+        if tops.size:
+            vrm_rig.shift_weights(ch, ob, tops, knee - 0.02, 0.08,
+                                  {"leftUpperLeg": "leftLowerLeg", "rightUpperLeg": "rightLowerLeg"})
+    turns = {}
+    for chain in vrm_rig.chains(ch, "J_Sec_*_CoatSkirt*"):
+        part = next((k for k in SKIRT_SEATED if f"CoatSkirt{k}" in chain[0]), None)
+        if part is None:
+            continue
+        for bone, deg in zip(chain, SKIRT_SEATED[part]):
+            turns[bone] = (deg, 0.0, 0.0)
+    vrm_rig.turn_bones(ch, turns)
 
 
 def hair(ch, m: dict, coll, name: str) -> list:
@@ -395,6 +425,8 @@ def tsuru(coll, look, name: str = "tsuru", *, pipe: str | None = None, pole: str
         vrm.reach(ch, "leftHand", LEFT_HAND[0] if not seated else (0.13, -0.24, SEAT + 0.14), pole=LEFT_HAND[1],
                   bend=ELBOWS["left"])
     vrm.pose(ch, {**base, **fingers}, hips=hips)
+    if seated:
+        drape_skirt(ch)
     lift = SOLE - sole if is_tsuru else 0.0      # bare soles down onto the sandals
     feet = SEATED_FEET if seated else FEET
     plant(ch, {side: ((x, y, ch.rest(f"{side}Foot")[2] + lift), pl, turn) for side, ((x, y), pl, turn) in feet.items()})

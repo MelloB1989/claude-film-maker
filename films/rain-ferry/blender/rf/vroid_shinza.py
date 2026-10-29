@@ -81,16 +81,17 @@ TASUKI = [(-0.11, -0.08, 1.41), (-0.12, 0.0, 1.46), (-0.08, 0.1, 1.38), (0.0, 0.
 # into his hair; on his back hung between the shoulders, its brim against his back, on a cord round his throat
 KASA = dict(radius=0.31, height=0.115)
 KASA_ON = dict(tip=11.0, sink=0.025)     # degrees forward, metres down into the hair
-KASA_BACK = (0.0, 1.17, 9.0)             # its middle's (x, z) and its top tipped in onto him (degrees)
+KASA_BACK = (0.0, 1.36, 10.0)            # its brim's top (x, z), the bottom swung out off him (degrees)
 # ---- the scar: a thin pale line through his left eyebrow, slanting a little from above the brow down onto the lid's
 # fold (points: x out from the brow's middle along it, z up from the brow; metres on the face's front view)
 SCAR = [(-1.5 * MM, 11 * MM), (0.0, 3 * MM), (1.2 * MM, -5 * MM), (2.0 * MM, -10 * MM)]
 SCAR_COLOR = (0.98, 0.86, 0.8)
 # ---- his face, of the VRoid face's parts (vrm_rig.compose): VRoid's angry preset bares the teeth in a grin, so the
-# glare is the angry brows (down and drawn in) and eyes (the lids flattened) over a set, closed mouth turned down; his
+# glare is the angry brows (down and drawn in) over wide-open eyes, their lids only a little flattened (a hard stare
+# that reads in a close-up), a set, closed mouth turned down; his
 # eyes narrow further (`face(eyes)`) toward NARROWED, the lids coming down
-GLARE = {"Fcl_BRW_Angry": 1.0, "Fcl_EYE_Angry": 0.8, "Fcl_MTH_Sorrow": 0.5}
-NARROW = {"Fcl_EYE_Angry": 0.2, "Fcl_EYE_Close": 0.25}
+GLARE = {"Fcl_BRW_Angry": 1.0, "Fcl_EYE_Angry": 0.3, "Fcl_MTH_Sorrow": 0.5}
+NARROW = {"Fcl_EYE_Angry": 0.35, "Fcl_EYE_Close": 0.15}
 NARROWED = 0.75
 # ---- his bangs parted off his eyes and brows: the front strands (VRoid's chains 06..09, which hang across his face)
 # swept to their own sides (degrees) and a little down, heavy with the rain, framing his face; the middle one (05), a
@@ -98,9 +99,9 @@ NARROWED = 0.75
 BANGS = ("J_Sec_Hair1_06", "J_Sec_Hair1_07", "J_Sec_Hair1_08", "J_Sec_Hair1_09")
 PART = (100.0, 0.2)
 MIDDLE = ("J_Sec_Hair1_05", (0.0, -1.0, 0.4), 25.0, (0.35, 0.75))
-# his hair cut short and ragged: every strand below the ears (the back and sides) shortened and thinned at its root,
-# each a little differently, so its ends fall unevenly (a strand's root height (m) under which it is cut; length range)
-TRIM = (1.6, (0.55, 0.8), 0.85)
+# his hair cut short and ragged: every strand hanging past his ears (the back and sides: its tip under TRIM's height,
+# metres) shortened and thinned at its root, each a little differently, so its ends fall unevenly (length range, width)
+TRIM = (1.5, (0.55, 0.8), 0.85)
 # ---- his clothes (heights at rest, metres as he stands). The kimono and hakama one colour each (linear lit, shade),
 # their prints gone and their folds kept (vrm_rig.recolor): a faded charcoal kimono, the hakama darker
 KIMONO = ((0.055, 0.056, 0.064), (0.018, 0.019, 0.026))
@@ -113,6 +114,9 @@ PATCHES = [("Tops", (0.09, 0.12, 1.3), (0.06, 0.06, 0.05), 1.55), ("Tops", (-0.3
 # the hakama let down from just under the knee to the ankles, flaring; its hem torn (faces below `TATTER` cut away in
 # a ragged line: how high a tear may run, metres)
 HEM = (0.55, 0.075, 0.3)
+# the sleeves tied back by the tasuki: their hanging volume taken in to SLEEVE metres round each arm (vrm_rig.cinch,
+# keeping `keep` of the rest)
+SLEEVE = (0.05, 0.1)
 TATTER = 0.07
 # the kimono's V: the shirt's collar cut away above NECK in front of NAPE (behind it, it stands under the kimono's
 # collar) and the shirt in front down to CROSS, V_HALF either side at NECK; the skin under it painted (VRoid paints the
@@ -371,23 +375,24 @@ def _kasa_back(ch, m, coll, name, body) -> list:
 
     hat = props.kasa(f"{name}-kasa", m, coll, **KASA)
     x, z, tip = KASA_BACK
-    y = max(back_y(ch, body, x, z), back_y(ch, body, x, z + 0.15)) + BACK_OFF + 0.03
     a = math.radians(tip)
-    out = np.array((0.0, math.cos(a), -math.sin(a)))       # its apex out from his back, its top tipped in
-    at = np.array((x, y, z))
+    out = np.array((0.0, math.cos(a), math.sin(a)))        # its apex out from his back and up a little
+    up = np.array((0.0, -math.sin(a), math.cos(a)))        # across it, to the top of its brim
+    # its brim's top edge against his back below the shoulders (over the scabbard), its bottom swung out off him
+    brim = np.array((x, back_y(ch, body, x, z) + BACK_OFF + 0.02, z))
+    at = brim - up * KASA["radius"]
     _place(hat[0], ch, at, (1.0, 0.0, 0.0), out)
     if body is not None:
         # the cord: from the brim's top over each shoulder by the neck to the throat, knotted there
-        brim = at + np.array((0.0, 0.0, KASA["radius"] * 0.95))
         path = [(0.07, 0.07, 1.47), (0.075, -0.02, 1.455), (0.0, -0.075, 1.415), (-0.075, -0.02, 1.455),
                 (-0.07, 0.07, 1.47)]
         hat.append(vrm_rig.collar(ch, f"{name}-kasa-tie", path, 0.006, on=[(body, vrm_rig.faces_of(body, "Tops")),
                                                                           (body, vrm_rig.faces_of(body, "SKIN"))],
                                   material=m["cord"], push=0.004, thickness=0.004))
         for k, s in enumerate((1.0, -1.0)):
-            ends = [brim + np.array((s * 0.12, -0.01, -0.03)), np.array((s * 0.08, brim[1] - 0.06, 1.48)),
+            ends = [brim + np.array((s * 0.1, -0.02, -0.02)), (brim + np.array((s * 0.085, 0.1, 1.47))) / 2,
                     np.array((s * 0.07, 0.07, 1.47))]
-            cord = shapes.loft(f"{name}-kasa-cord{k}", [tuple(ch.world(p)) for p in ends], 0.0025, material=m["cord"],
+            cord = shapes.loft(f"{name}-kasa-cord{k}", [tuple(ch.world(p)) for p in ends], 0.0035, material=m["cord"],
                                coll=coll, n=6, subsurf=0)
             cord["outline"] = False
             hat.append(cord)
@@ -432,7 +437,7 @@ def hair(ch, wet: float) -> None:
         if chain[0] == MIDDLE[0]:
             vrm_rig.sweep(ch, chain, MIDDLE[1], MIDDLE[2])
             vrm_rig.thin(ch, chain, *MIDDLE[3])
-        elif chain[0] not in BANGS and vrm_rig.rest_point(ch, chain[0])[2] < TRIM[0]:
+        elif chain[0] not in BANGS and vrm_rig.rest_point(ch, chain[-1], tail=True)[2] < TRIM[0]:
             vrm_rig.thin(ch, chain, TRIM[2], rng.uniform(*TRIM[1]))
 
 
@@ -454,6 +459,8 @@ def dress(ch, m, name: str):
     bottoms, tops = vrm_rig.faces_of(body, "Bottoms"), vrm_rig.faces_of(body, "Tops")
     skin_f, shoes = vrm_rig.faces_of(body, "Body_00_SKIN"), vrm_rig.faces_of(body, "Shoes")
     vrm_rig.lengthen(ch, body, bottoms, HEM[0], HEM[1], flare=HEM[2])
+    for side in ("left", "right"):
+        vrm_rig.cinch(ch, body, tops, side, SLEEVE[0], keep=SLEEVE[1], ease=0.15)
 
     c = vrm_rig.face_centers(ch, body)
     # patches: the cloth under a few boxes a lighter, faded grey

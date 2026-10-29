@@ -47,3 +47,16 @@ def test_turn_of_undoes_local_rotation():
         turn = rng.uniform(-80, 80, 3)
         local = vrm.local_rotation(rest, frame, turn)
         assert vrm_rig.turn_of(rest, frame, local) == pytest.approx(vrm.euler(turn), abs=1e-9)
+
+
+def test_cinch_points_takes_a_sleeve_in_toward_the_arm():
+    a, b = np.array((0.2, 0, 1.4)), np.array((0.7, 0, 1.4))
+    pts = np.array([(0.6, 0, 1.2), (0.6, 0, 1.37), (0.21, 0, 1.2), (0.8, 0, 1.0), (0.45, 0.1, 1.4)])
+    got = vrm_rig.cinch_points(pts, a, b, 0.06, keep=0.25, ease=0.3)
+    # well out along the arm: 20 cm below it comes to 6 cm + a quarter of the rest
+    assert got[0] == pytest.approx((0.6, 0, 1.4 - (0.06 + 0.14 * 0.25)))
+    # inside the radius, past the hand: untouched
+    assert got[1] == pytest.approx(pts[1]) and got[3] == pytest.approx(pts[3])
+    # at the shoulder hardly moved (eased in), and never pushed out
+    assert 1.2 <= got[2][2] < 1.21
+    assert np.linalg.norm(got[4] - (0.45, 0, 1.4)) == pytest.approx(0.06 + 0.04 * 0.25)
