@@ -51,7 +51,7 @@ def build(ctx):
     path = P[d >= d[-1] - WALK_BACK]
     way = path[-1] - path[-2]
     sh, _ = ja.arrives(st, path, WALK_END, end_yaw=float(np.degrees(np.arctan2(way[1], way[0]))),
-                       ground=float(set_valley.ground(*path[-1])))
+                       ground=lambda x, y: float(set_valley.ground(x, y)))
     sh.look(ctx.f0, None)
     sh.express(ctx.f0, {"glare": 0.6})
     sh.blinks(mean=3.4)

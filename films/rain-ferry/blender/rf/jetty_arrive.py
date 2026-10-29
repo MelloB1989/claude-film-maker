@@ -56,10 +56,11 @@ WALK_POSE = {"spine": (5.0, 0.0, 0.0), "chest": (2.0, 0.0, 0.0), "neck": (4.0, 0
 STOP_POSE = {"spine": (0.0, 0.0, 0.0), "chest": (-2.0, 0.0, 0.0), "neck": (2.0, 0.0, 0.0), "head": (2.0, 0.0, 0.0)}
 
 
-def arrives(st, path, stop: float, *, gait: str = "heavy", end_yaw: float | None = None, ground: float = 0.0,
+def arrives(st, path, stop: float, *, gait: str = "heavy", end_yaw: float | None = None, ground=0.0,
             seed: int = 1):
     """Shinza's Performance (lib/vrm_anim.py) walking `path` (world x, y; from its first point) with `gait`, timed
-    to stand still at `stop` (s into the shot), turning to `end_yaw` (degrees; default facing her mark from his).
+    to stand still at `stop` (s into the shot), turning to `end_yaw` (degrees; default facing her mark from his), on
+    `ground` (a height, or a function (x, y) -> z: every footfall lands on it).
     His builder's IK is let go first (the walk plants his feet), and the Performance made from there takes the stage's
     place (st.perf["shinza"], baked by st.bake). Returns (Performance, the film frame he stops on); the shot adds his
     look, face and line."""
@@ -75,7 +76,8 @@ def arrives(st, path, stop: float, *, gait: str = "heavy", end_yaw: float | None
     stop_f = st.ctx.f0 + round(stop * fps)
     start_f = stop_f - round((dist / speed + 0.7) * fps)        # (its first step and its closing step take longer)
     way = pts[1] - pts[0]
-    p.root(start_f, (pts[0][0], pts[0][1], ground), yaw=math.degrees(math.atan2(way[1], way[0])), ease="hold")
+    z0 = float(ground(*pts[0])) if callable(ground) else float(ground)
+    p.root(start_f, (pts[0][0], pts[0][1], z0), yaw=math.degrees(math.atan2(way[1], way[0])), ease="hold")
     yaw = jt.SHINZA_FACING if end_yaw is None else end_yaw
     end = p.walk([tuple(q) for q in pts], start_f, gait=gait, pose={**va.STAND, **WALK_POSE},
                  end_pose={**va.STAND, **STOP_POSE}, end_yaw=yaw, ground=ground)
