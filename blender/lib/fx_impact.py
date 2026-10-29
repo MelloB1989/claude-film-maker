@@ -420,9 +420,12 @@ class InkPanel:
         _constant(self.tree)
 
 
-def ink_panel(scene, *, threshold: float = 0.3, soft: float = 0.03, edges: float = 1.0, paper=PAPER, ink=INK) -> InkPanel:
+def ink_panel(scene, *, threshold: float = 0.3, soft: float = 0.03, edges: float = 1.0, edge: float = 0.08,
+              contour: float = 0.02, paper=PAPER, ink=INK) -> InkPanel:
     """Turn the render into a stark ink panel in the compositor: its light thresholded at `threshold` (linear, `soft`
-    either side) into paper and ink, its edges (`edges`, 0..1: a Sobel of the light) inked over, and, per frame
+    either side) into paper and ink, its edges inked over (`edges`, 0..1: where the light's Sobel passes `edge`, and
+    the silhouettes, where the Sobel of the depth's inverse passes `contour`: a brush's outline round every figure
+    against what is behind it, whatever their tones; needs the render layers, so not after a graph), and, per frame
     (`InkPanel.key`), the picture itself, the panel, its negative, all ink or a white-out. Takes over what the
     compositor outputs (a graph already there, satsuei's, feeds it), so call it after the rest. Returns the
     InkPanel."""
@@ -431,10 +434,13 @@ def ink_panel(scene, *, threshold: float = 0.3, soft: float = 0.03, edges: float
     r = scene.render
     r.use_compositing = True
     nt = scene.compositing_node_group
+    rl = None
     if nt is None:
         nt = bpy.data.node_groups.new("ink", "CompositorNodeTree")
         nt.interface.new_socket("Image", in_out="OUTPUT", socket_type="NodeSocketColor")
         scene.compositing_node_group = nt
+        for vl in scene.view_layers:
+            vl.use_pass_z = True
         rl = nt.nodes.new("CompositorNodeRLayers")
         src = rl.outputs["Image"]
         out = nt.nodes.new("NodeGroupOutput")
@@ -490,8 +496,16 @@ def ink_panel(scene, *, threshold: float = 0.3, soft: float = 0.03, edges: float
         L.new(src, fl.inputs["Image"])
         fbw = N.new("CompositorNodeRGBToBW")
         L.new(fl.outputs[0], fbw.inputs[0])
-        e = math_("MULTIPLY", math_("GREATER_THAN", fbw.outputs[0], threshold * 0.9), edges)
-        v = math_("MULTIPLY", v, math_("SUBTRACT", 1.0, e), clamp=True)
+        e = math_("GREATER_THAN", fbw.outputs[0], edge)
+        if rl is not None and contour > 0:
+            near = math_("DIVIDE", 1.0, math_("MAXIMUM", rl.outputs["Depth"], 0.05))
+            fz = N.new("CompositorNodeFilter")
+            fz.inputs["Type"].default_value = "Sobel"
+            L.new(near, fz.inputs["Image"])
+            zbw = N.new("CompositorNodeRGBToBW")
+            L.new(fz.outputs[0], zbw.inputs[0])
+            e = math_("MAXIMUM", e, math_("GREATER_THAN", zbw.outputs[0], contour))
+        v = math_("MULTIPLY", v, math_("SUBTRACT", 1.0, math_("MULTIPLY", e, edges)), clamp=True)
     # the negative, then all ink
     v = math_("ADD", math_("MULTIPLY", v, math_("SUBTRACT", 1.0, math_("MULTIPLY", invert, 2.0))), invert)
     v = math_("MULTIPLY", v, math_("SUBTRACT", 1.0, black), clamp=True)

@@ -21,20 +21,20 @@ CLASH = 4.9                 # x where the blades meet (rf/clash.py CLASH)
 # glint draws across, and the burn to white
 BEATS = [("white", 2), ("neg", 3), ("pos", 2), ("neg", 2), ("pos", 3), ("neg", 10), ("white", 2)]
 GLINT = (12, 3, 19, 2)      # frames: starts drawing, frames to cross, flares from, frames of the flare
-CAM = ((CLASH - 0.08, -2.75, 0.98), (CLASH - 0.04, -2.35, 0.98))      # from, to (a push in over the second)
-AIM = ((CLASH, 0.0, 1.12), (CLASH, 0.0, 1.12))
-LENS = (32.0, 36.0)
+CAM = ((CLASH - 0.12, -3.55, 1.0), (CLASH - 0.08, -3.25, 1.0))      # from, to (a push in over the second)
+AIM = ((CLASH, 0.0, 1.02), (CLASH, 0.0, 1.04))
+LENS = (30.0, 33.0)
 JOLT = (2, 0.035, 5.5)      # the jolt: on frame, amplitude (frame heights), decay a second
-THRESHOLD = 0.24
+THRESHOLD = 0.11
 # the clash (his frame: front -y): a lunge, the blade out level at shoulder height, driving down a little at hers
 SH_AT = CLASH - 0.95
-SH_POSE = {"hips": (0.0, 0.0, 14.0), "spine": (16.0, 0.0, -6.0), "chest": (8.0, 0.0, -4.0), "upperChest": (4.0, 0.0, 0.0),
+SH_POSE = {"hips": (0.0, 0.0, -12.0), "spine": (16.0, 0.0, -4.0), "chest": (8.0, 0.0, -4.0), "upperChest": (4.0, 0.0, 0.0),
            "neck": (-14.0, 0.0, 0.0), "head": (-12.0, 0.0, 0.0),
            "leftShoulder": (0.0, 8.0, -8.0), "rightShoulder": (0.0, -8.0, 8.0)}
 SH_HIPS = (0.0, -0.12, -0.2)
 SH_FEET = {"right": ((-0.13, -0.66, 0.095), (-0.15, -1.4, 0.5), (0.0, 0.0, -6.0)),
            "left": ((0.15, 0.62, 0.15), (0.35, -0.6, 0.5), (34.0, 0.0, 26.0))}
-SH_SWORD = dict(pommel=(0.02, -0.34, 1.12), hilt=(0.0, -0.97, 0.08))
+SH_SWORD = dict(pommel=(0.0, -0.34, 1.14), hilt=(0.0, -0.94, -0.34))   # driving down onto her blade
 TS_AT = CLASH + 0.62
 
 
@@ -137,6 +137,6 @@ def build(ctx, only: str | None = None):
         ob = fx.overlay(f"glint{i}", cam, tris, glint_mat, depth=depth * 0.98, coll=coll)
         fx.show(ob, [ctx.f0 + i], ctx.f0 - 1, ctx.f1)
 
-    panel = fx.ink_panel(scene, threshold=THRESHOLD, soft=0.025, edges=1.0)
+    panel = fx.ink_panel(scene, threshold=THRESHOLD, soft=0.02, edges=1.0, edge=0.05, contour=0.015)
     for i, f in enumerate(range(ctx.f0, ctx.f1)):
         panel.key(f, only or beats[i])
