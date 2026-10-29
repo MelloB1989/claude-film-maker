@@ -146,7 +146,7 @@ def palette(state, *, sun: float | None = None, flash: float = 0.0) -> dict:
     w = state.warm
     sun = w if sun is None else sun
     k = L.key_strength
-    lit = tuple(min(4.0, c * k * (0.09 + 0.25 * w)) for c in L.key)
+    lit = tuple(min(4.0, c * k * (0.035 + 0.3 * w)) for c in L.key)
     zen = tuple(c * (0.62 + 0.1 * w) for c in L.sky)
     shade = tuple(i * (1 - w) + c * w for i, c in zip(INK, (0.03, 0.022, 0.016)))
     return {"rf_zenith": zen, "rf_horizon": tuple(L.sky), "rf_fog": tuple(L.fog), "rf_lit": lit, "rf_shade": shade,
@@ -325,15 +325,14 @@ def sky_material(name: str, *, scene, sun=SUN):
     up = n.math("MAXIMUM", sep.outputs["Z"], 0.0)
     grad = n.ramp(up, 0.0, 0.45, to=(0.0, 1.0))
     col = n.mix(grad, n.prop("rf_horizon", True), n.prop("rf_zenith", True))
-    # the cloud deck: the direction projected onto a ceiling, drifting
-    hz = n.math("MAXIMUM", sep.outputs["Z"], 0.14)
+    # the cloud deck: noise over the direction, flattened toward the horizon (clouds bank up low), drifting
     uv = n.new("ShaderNodeCombineXYZ")
-    t = n.clock(scene, 0.012)
-    n.set(uv.inputs["X"], n.math("ADD", n.math("DIVIDE", sep.outputs["X"], hz), t))
-    n.set(uv.inputs["Y"], n.math("DIVIDE", sep.outputs["Y"], hz))
-    n.set(uv.inputs["Z"], n.math("MULTIPLY", t, 0.5))
-    big = n.noise(uv.outputs[0], 0.32, 5.0, 0.66)
-    fine = n.noise(uv.outputs[0], 1.3, 5.0, 0.62)
+    t = n.clock(scene, 0.006)
+    n.set(uv.inputs["X"], n.math("ADD", sep.outputs["X"], t))
+    n.set(uv.inputs["Y"], sep.outputs["Y"])
+    n.set(uv.inputs["Z"], n.math("MULTIPLY", sep.outputs["Z"], 3.2))
+    big = n.noise(uv.outputs[0], 1.6, 5.0, 0.66)
+    fine = n.noise(uv.outputs[0], 6.0, 5.0, 0.62)
     cloud = n.math("MULTIPLY_ADD", fine, 0.35, n.math("MULTIPLY", big, 0.8))
     # the opening: round the sun, wider as rf_sun rises
     toward = n.math("MAXIMUM", n.vmath("DOT_PRODUCT", d, _unit(sun)), 0.0)
@@ -420,6 +419,15 @@ def river_material(name: str, *, cam, scene, sun=SUN):
     n.L.new(em.outputs[0], add.inputs[0])
     n.L.new(gl.outputs[0], add.inputs[1])
     n.out(add.outputs[0])
+    return mat
+
+
+def near_ink(name: str):
+    """The nearest things' ink: almost black, a breath of the air's colour in it (it warms with the light)."""
+    mat, n = _material(name)
+    em = n.new("ShaderNodeEmission")
+    n.set(em.inputs["Color"], n.mix(1.0, n.prop("rf_fog", True), (0.035, 0.036, 0.04), "MULTIPLY"))
+    n.out(em.outputs[0])
     return mat
 
 
@@ -581,7 +589,8 @@ def build(scene, *, cam=None, aim=None, coll=None, hamlet: bool = True, foregrou
          "river": river_material("valley-river", cam=cam, scene=scene),
          "sky": sky_material("valley-sky", scene=scene),
          "lantern": glow_material("valley-lantern", "rf_accent", 6.0),
-         "door": glow_material("valley-door", "rf_accent", 0.8)}
+         "door": glow_material("valley-door", "rf_accent", 0.8),
+         "near": near_ink("valley-near")}
     me.materials.append(m["land"])
     pine = _pine_mesh("valley-pine")
     coll.objects.link(pine)
@@ -669,15 +678,60 @@ def _hamlet(coll, m) -> dict:
     return {"hamlet": root, "lantern": lantern}
 
 
-FOREGROUND = [(-0.42, 34.0, 23.0, 1), (-0.33, 46.0, 27.0, 2), (-0.52, 52.0, 30.0, 3), (-0.18, 62.0, 22.0, 4)]
+FOREGROUND = [(-0.62, 30.0, 30.0, 1), (-0.48, 40.0, 26.0, 2), (-0.75, 48.0, 36.0, 3), (-0.3, 58.0, 20.0, 4)]
 LEDGE = (0.0, 34.0)        # m below the lens the ledge's top lies
+
+
+def ink_pine(name: str, base, height: float, material, coll, *, seed: int = 1, lean=(0.0, 0.0, 0.0)) -> list:
+    """A pine as an ink painter draws one near: a trunk leaning and kinking as it climbs, a few long branches reaching
+    out level, and on each a flat pad of needles, its edge serrated (spikes fanned out round a flattened core), the
+    top pad crowning it. `lean` (a direction) tips it. Returns its objects."""
+    from lib import shapes
+
+    rng = np.random.default_rng(seed)
+    b = np.asarray(base, float)
+    ln = np.asarray(lean, float)
+    pts = [b - np.array([0, 0, 2.0])]
+    for i in range(1, 7):
+        u = i / 6
+        kink = np.array([rng.normal(0, 0.06), rng.normal(0, 0.06), 0.0]) * height
+        pts.append(b + np.array([0, 0, height * u]) + ln * height * u * u + kink * u)
+    trunk = shapes.loft(f"{name}-trunk", np.array(pts), np.linspace(0.022, 0.006, 7) * height, material=material,
+                        coll=coll, n=8, subsurf=1)
+    obs = [trunk]
+    roots, tips, widths = [], [], []
+    pads = []
+    for j in range(rng.integers(5, 8)):
+        u = 0.42 + 0.5 * j / 6 + rng.uniform(-0.03, 0.03)
+        at = pts[0] + (np.array(pts[-1]) - pts[0]) * u
+        ang = rng.uniform(0, 2 * math.pi)
+        reach = height * (0.32 - 0.22 * u) * rng.uniform(0.8, 1.3)
+        tip = at + np.array([math.cos(ang) * reach, math.sin(ang) * reach, reach * rng.uniform(-0.05, 0.15)])
+        obs.append(shapes.cylinder(f"{name}-branch{j}", tuple(at), tuple(tip), 0.006 * height, material=material, coll=coll,
+                                   n=6, r2=0.002 * height))
+        pads.append((tip, height * (0.17 - 0.08 * u) * rng.uniform(0.8, 1.25)))
+    pads.append((np.array(pts[-1]) + np.array([0, 0, height * 0.02]), height * 0.11))
+    for k, (c, r) in enumerate(pads):
+        obs.append(shapes.ellipsoid(f"{name}-pad{k}", tuple(c), (r, r * 0.8, r * 0.24), material=material, coll=coll, n=12))
+        for _ in range(46):
+            a = rng.uniform(0, 2 * math.pi)
+            rr = r * rng.uniform(0.6, 1.0)
+            root = c + np.array([math.cos(a) * rr * 0.55, math.sin(a) * rr * 0.45, rng.uniform(-0.05, 0.08) * r])
+            tip = c + np.array([math.cos(a) * rr * 1.25, math.sin(a) * rr * 1.0, rng.uniform(-0.35, 0.1) * r])
+            roots.append(root)
+            tips.append(tip)
+            widths.append(r * 0.09)
+    obs.append(shapes.spikes(f"{name}-needles", roots, tips, widths, material=material, coll=coll, sides=3))
+    for ob in obs:
+        ob.visible_shadow = False
+    return obs
 
 
 def _foreground(coll, m, cam, aim, *, seed: int = 5) -> list:
     """The near layer: a dark rock ledge falling away below the lens at the lower left, pines standing on it whose
     crowns reach up into the frame's corner (`FOREGROUND`: (bearing left of the view as a share of the half-width,
     metres out, height, seed))."""
-    from lib import landscape, shapes
+    from lib import shapes
 
     c = np.asarray(cam, float)
     f = np.asarray(aim, float) - c
@@ -688,10 +742,10 @@ def _foreground(coll, m, cam, aim, *, seed: int = 5) -> list:
     rng = np.random.default_rng(seed)
     for k, (side, d, h, sd) in enumerate(FOREGROUND):
         base = c + f * d + r * side * d * 1.2 - np.array([0.0, 0.0, LEDGE[1] + rng.uniform(-3, 3)])
-        obs += landscape.pine(f"near-pine{k}", tuple(base), h, trunk=m["trees"], needles=m["trees"], coll=coll, seed=seed + sd)
+        obs += ink_pine(f"near-pine{k}", tuple(base), h, m["near"], coll, seed=seed + sd, lean=(-r * 0.35 + f * 0.1))
     # the ledge: a lumpy slab under them, its edge breaking off toward the valley
     mid = c + f * 45.0 + r * -0.4 * 54.0 - np.array([0.0, 0.0, LEDGE[1] + 6.0])
-    obs.append(shapes.ellipsoid("near-ledge", tuple(mid), (34.0, 26.0, 9.0), material=m["land"], coll=coll, n=24,
+    obs.append(shapes.ellipsoid("near-ledge", tuple(mid), (34.0, 26.0, 9.0), material=m["near"], coll=coll, n=24,
                                 squash=lambda v: v * (1 + 0.18 * np.sin(v[:, :1] * 5.0) * np.cos(v[:, 1:2] * 4.0))))
     return obs
 
