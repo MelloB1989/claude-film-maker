@@ -2,14 +2,16 @@
 labels (the shot's number and id, its film time and frame, the plate that made it), the look schedule's grade laid on
 as the engine would lay it (approximately: `grade`), and a slate where a shot has no plate yet or its render failed.
 
-    uv run film-anime-review --film <id> [--only a,b] [--n 1|2|3] [--res 480x270] [--samples 8] [--jobs 1]
+    uv run film-anime-review --film <id> [--only a,b] [--n 1|2|3] [--cuts] [--res 480x270] [--samples 8] [--jobs 1]
                              [--from-plates] [--no-grade] [--cols 6] [--out out/<id>/review/review.png]
 
 Each shot renders in look mode (blender/render.py --mode look, EEVEE) at --res, its frames the middle of its window
-(--n 2: a third and two thirds in; --n 3: the first, middle and last frames), under $FILM_OUT=out/<id>/review/work so
+(--n 2: a third and two thirds in; --n 3: the first, middle and last frames; --cuts: for continuity, every cut as
+a pair, the last frame out beside the first frame in, to out/<id>/review/cuts.png), under $FILM_OUT=out/<id>/review/work so
 the film's own plates are never touched. --from-plates renders nothing and tiles the proxies of the plates already
 rendered (out/<id>/plates/<plate>/proxy/): instant, after film-anime-render. Shots render one at a time (--jobs N for
 more: the fleet hosts are shared). A shot that fails is a slate in the sheet, its log's last lines in the report.
+Each shot's cost is reported too: its build (s) and its time a frame (s, at --res), from its log.
 """
 from __future__ import annotations
 
@@ -164,30 +166,62 @@ def label(i: int, sc: P.Scene, f: int, fps: float) -> str:
 
 # ---------------------------------------------------------------------------------------------------- rendering
 
-def render_look(film: paths.FilmPaths, sc: P.Scene, frames: list[int], res: str, samples: int, work: Path) -> tuple[int, str]:
-    """Render a scene's review frames in look mode under `work` ($FILM_OUT). (exit code, the log's tail)."""
+def render_look(film: paths.FilmPaths, sc: P.Scene, frames: list[int], res: str, samples: int, work: Path) -> tuple:
+    """Render a scene's review frames in look mode under `work` ($FILM_OUT). (exit code, the log's tail, its cost:
+    {"build": s, "frame": s a frame, "frames": n})."""
+    import re
+    import time
+
+    t0 = time.time()
     settings = {"mode": "look", "engine": "eevee", "samples": samples, "res": res}
     cmd = P.render_cmd(film.id, sc.plate, settings, ",".join(map(str, frames)))
     env = {**os.environ, "FILM_OUT": str(work)}
     r = subprocess.run(cmd, capture_output=True, text=True, env=env)
     log = (r.stdout + r.stderr)[-1500:] + f"\n[exit {r.returncode}]"
+    m = re.search(r"built in ([0-9.]+)s", r.stdout)
+    build = float(m.group(1)) if m else None
+    wall = time.time() - t0
+    # Blender's start, the shot's build, then the frames: what is left after the build, shared out
+    cost = {"build": build, "frames": len(frames),
+            "frame": round((wall - (build or 0)) / len(frames), 1) if build is not None and r.returncode == 0 else None}
     (work / "logs").mkdir(parents=True, exist_ok=True)
     (work / "logs" / f"{sc.plate}.log").write_text(r.stdout + r.stderr + f"\n[exit {r.returncode}]"
                                                    + (" (killed: out of memory?)" if r.returncode < 0 else "") + "\n")
-    return r.returncode, log
+    return r.returncode, log, cost
+
+
+def cut_order(scs: list[P.Scene], only: list[str] | None = None) -> list[tuple[int, P.Scene, int, str]]:
+    """Every cut as a pair of tiles: the last frame of the shot before it, the first of the shot after it
+    ((number, scene, film frame, label prefix), two per cut). With `only`, the cuts either side of those scenes."""
+    out = []
+    for k, (a, b) in enumerate(zip(scs, scs[1:]), 1):
+        if only and a.id not in only and b.id not in only:
+            continue
+        out += [(k, a, a.f1 - 1, f"cut {k:02d} out: "), (k + 1, b, b.f0, f"cut {k:02d} in:  ")]
+    return out
 
 
 def review(film: paths.FilmPaths, only: list[str] | None = None, n: int = 1, res: str = "480x270", samples: int = 8,
-           jobs: int = 1, from_plates: bool = False, graded: bool = True, cols: int = 6, out: Path | None = None) -> dict:
+           jobs: int = 1, from_plates: bool = False, graded: bool = True, cols: int = 6, out: Path | None = None,
+           cuts: bool = False) -> dict:
     scs = P.scenes(film)
     fps = P.fps_of(film)
     work = film.out / "review" / "work"
-    todo = [s for s in scs if (not only or s.id in only) and s.exists]
-    results: dict[str, tuple[int, str]] = {}
+    if cuts:
+        order = cut_order(scs, only)
+    else:
+        order = [(i, sc, f, "") for i, sc in enumerate(scs, 1) if not only or sc.id in only for f in frames_of(sc, n)]
+    wanted: dict[str, list[int]] = {}
+    for _, sc, f, _ in order:
+        wanted.setdefault(sc.id, [])
+        if f not in wanted[sc.id]:
+            wanted[sc.id].append(f)
+    todo = [s for s in scs if s.id in wanted and s.exists]
+    results: dict[str, tuple] = {}
     if not from_plates and todo:
         def run(sc):
-            print(f"[review] {sc.id}: rendering {frames_of(sc, n)} at {res}", flush=True)
-            return sc.id, render_look(film, sc, frames_of(sc, n), res, samples, work)
+            print(f"[review] {sc.id}: rendering {sorted(wanted[sc.id])} at {res}", flush=True)
+            return sc.id, render_look(film, sc, sorted(wanted[sc.id]), res, samples, work)
 
         with ThreadPoolExecutor(max(1, jobs)) as ex:
             for sid, rc in ex.map(run, todo):
@@ -195,35 +229,37 @@ def review(film: paths.FilmPaths, only: list[str] | None = None, n: int = 1, res
                 print(f"[review] {sid}: {'ok' if rc[0] == 0 else f'FAILED (exit {rc[0]})'}", flush=True)
     size = tuple(int(v) for v in res.split("x"))
     items, report = [], {"sheet": None, "shots": {}}
-    for i, sc in enumerate(scs, 1):
-        if only and sc.id not in only:
-            continue
-        for f in frames_of(sc, n):
-            it = {"label": label(i, sc, f, fps)}
-            status = "ok"
-            if not sc.exists:
-                status, it["slate"] = "no shot", [sc.id, "no shot file", f"blender/shots/{sc.plate}.py"]
-            elif not from_plates and results.get(sc.id, (1,))[0] != 0:
-                status, it["slate"] = "failed", [sc.id, "render failed", f"see {work.relative_to(paths.ROOT) if work.is_relative_to(paths.ROOT) else work}/logs/{sc.plate}.log"]
+    for i, sc, f, pre in order:
+        it = {"label": pre + label(i, sc, f, fps)}
+        status = "ok"
+        if not sc.exists:
+            status, it["slate"] = "no shot", [sc.id, "no shot file", f"blender/shots/{sc.plate}.py"]
+        elif not from_plates and results.get(sc.id, (1,))[0] != 0:
+            status, it["slate"] = "failed", [sc.id, "render failed", f"see {work.relative_to(paths.ROOT) if work.is_relative_to(paths.ROOT) else work}/logs/{sc.plate}.log"]
+        else:
+            src = (P.plates_dir(film, sc.plate) / "proxy" / f"{f - sc.f0:04d}.png") if from_plates else \
+                (work / film.id / "look" / sc.plate / f"{f:04d}.png")
+            if not src.exists():
+                status, it["slate"] = "not rendered", [sc.id, "not rendered", src.name]
             else:
-                src = (P.plates_dir(film, sc.plate) / "proxy" / f"{f - sc.f0:04d}.png") if from_plates else \
-                    (work / film.id / "look" / sc.plate / f"{f:04d}.png")
-                if not src.exists():
-                    status, it["slate"] = "not rendered", [sc.id, "not rendered", src.name]
-                else:
-                    from PIL import Image
+                from PIL import Image
 
-                    im = Image.open(src).convert("RGB")
-                    if graded:
-                        a = np.asarray(im, dtype=np.float64) / 255.0
-                        im = Image.fromarray((grade(a, grade_at(film, sc.id, f / fps - sc.start)) * 255 + 0.5).astype(np.uint8))
-                    it["image"] = im
-            items.append(it)
-            report["shots"].setdefault(sc.id, {"status": status, "frames": []})["frames"].append(f)
-            if status == "failed":
-                report["shots"][sc.id]["log"] = results[sc.id][1]
-    out = out or film.out / "review" / ("review-plates.png" if from_plates else "review.png")
-    title = f"{film.id}  ·  {'plates' if from_plates else f'look {res}'}  ·  {'graded (approx.)' if graded else 'ungraded'}"
+                im = Image.open(src).convert("RGB")
+                if graded:
+                    a = np.asarray(im, dtype=np.float64) / 255.0
+                    im = Image.fromarray((grade(a, grade_at(film, sc.id, f / fps - sc.start)) * 255 + 0.5).astype(np.uint8))
+                it["image"] = im
+        items.append(it)
+        rep = report["shots"].setdefault(sc.id, {"status": status, "frames": []})
+        if f not in rep["frames"]:
+            rep["frames"].append(f)
+        if sc.id in results:
+            rep["cost"] = results[sc.id][2]
+        if status == "failed":
+            report["shots"][sc.id]["log"] = results[sc.id][1]
+    out = out or film.out / "review" / (("cuts" if cuts else "review") + ("-plates" if from_plates else "") + ".png")
+    title = (f"{film.id}  ·  {'cuts: out | in' if cuts else 'shots'}  ·  {'plates' if from_plates else f'look {res}'}  ·  "
+             f"{'graded (approx.)' if graded else 'ungraded'}")
     report["sheet"] = str(tile(items, out, cols, size, title))
     return report
 
@@ -237,14 +273,17 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--jobs", type=int, default=1)
     ap.add_argument("--from-plates", action="store_true", help="tile the rendered plates' proxies, render nothing")
     ap.add_argument("--no-grade", action="store_true")
+    ap.add_argument("--cuts", action="store_true", help="continuity: each cut's last frame out and first frame in, "
+                                                        "side by side")
     ap.add_argument("--cols", type=int, default=6)
     ap.add_argument("--out", type=Path)
     a = cli.parse(ap, argv)
     film = paths.current()
     rep = review(film, a.only.split(",") if a.only else None, a.n, a.res, a.samples, a.jobs, a.from_plates,
-                 not a.no_grade, a.cols, a.out)
+                 not a.no_grade, a.cols, a.out, a.cuts)
     bad = {k: v["status"] for k, v in rep["shots"].items() if v["status"] != "ok"}
-    print(json.dumps({"sheet": rep["sheet"], "not ok": bad}, indent=1))
+    cost = {k: v["cost"] for k, v in rep["shots"].items() if v.get("cost")}
+    print(json.dumps({"sheet": rep["sheet"], "not ok": bad, "cost (s, at --res)": cost}, indent=1))
     for k, v in rep["shots"].items():
         if v.get("log"):
             print(f"--- {k} ---\n{v['log']}", file=sys.stderr)
