@@ -395,6 +395,48 @@ def headband(name: str, material, coll, at, turn: float, *, z: float = 0.004, le
 
 # ---------------------------------------------------------------------------------------------------- compositing
 
+INK_REACH = 30.0    # m: set pieces farther than this from the camera all shot are left uninked (their lines sub-pixel)
+
+
+def trim(ctx, st: Stage) -> int:
+    """The render's cost cut without touching the look: the line art skips the set pieces the camera never comes
+    within INK_REACH of and the faces turned away from it; EEVEE traces its rays and shadows at half resolution (the
+    reflections are soft on rain-struck water anyway). Returns how many pieces it left uninked."""
+    import bpy
+    from mathutils import Vector
+
+    ev = ctx.scene.eevee
+    for attr, value in (("ray_tracing_method", "SCREEN"), ("shadow_resolution_scale", 0.5), ("shadow_ray_count", 1),
+                        ("shadow_step_count", 4)):
+        if hasattr(ev, attr):
+            setattr(ev, attr, value)
+    rt = getattr(ev, "ray_tracing_options", None)
+    if rt is not None:
+        rt.resolution_scale = "2"
+    if st.ink is not None:
+        for md in st.ink.modifiers:
+            if md.type == "LINEART" and hasattr(md, "use_back_face_culling"):
+                md.use_back_face_culling = True
+    eyes = []
+    for f in range(ctx.f0, ctx.f1 + 1, 12):
+        ctx.scene.frame_set(f)
+        eyes.append(Vector(ctx.scene.camera.matrix_world.translation))
+    cut = 0
+    for ob in st.world["near"].all_objects:
+        if ob.type != "MESH" or ob.lineart.usage == "EXCLUDE":
+            continue
+        corners = [ob.matrix_world @ Vector(c) for c in ob.bound_box]
+        lo = Vector([min(c[i] for c in corners) for i in range(3)])
+        hi = Vector([max(c[i] for c in corners) for i in range(3)])
+        near = min((Vector([min(max(e[i], lo[i]), hi[i]) for i in range(3)]) - e).length for e in eyes)
+        if near > INK_REACH:
+            ob.lineart.usage = "EXCLUDE"
+            cut += 1
+    bpy.context.view_layer.update()
+    print(f"trim: {cut} far set pieces uninked")
+    return cut
+
+
 OUTLINE_STEP = 8    # frames between the outline widths' keys (each key evaluates the scene: the build's cost)
 
 
@@ -406,6 +448,7 @@ def finish(ctx, st: Stage, setup=None, actors=None, lens_of=None):
 
     from lib import satsuei, toon, vrm
 
+    trim(ctx, st)
     if actors and lens_of:
         frames = list(range(ctx.f0 - 1, ctx.f1 + 1, OUTLINE_STEP))
         if frames[-1] != ctx.f1:
