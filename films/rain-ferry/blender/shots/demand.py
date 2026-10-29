@@ -47,7 +47,6 @@ def build(ctx):
     st.say("shinza", "L06", "soitsu wo kitte, ore ga tenkaichi ni naru", energy=1.1)
     st.blinks("shinza", BLINKS)
     st.blinks("tsuru", (0.8, 3.2))
-    st.perf["shinza"].secondary(wind=(0.0, 0.8, 0.0))
     st.bake()
     ch = st.cast["shinza"]["vrm"]
     face = st.head_at("shinza", ctx.f0)
@@ -55,7 +54,6 @@ def build(ctx):
     st.film([cinema.Setup("low", 0.0, cinema.line(c0, c1, a0, a1), lens=LENS, fstop=FSTOP, focus=(ch, "head"),
                           shake=cinema.Shake(breath=0.08))])
     jt.outline(st)
-    jt.pipe_smoke(st).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)     # her pipe at the frame's edge, still lit
     jt.key_light(st, "shinza", (0.7, -0.9, 0.75))
     jt.key_light(st, "tsuru", (0.3, -1.0, 0.8))
     # the lantern behind his left shoulder warms that edge; the sky's cold light rims his head
