@@ -1,12 +1,11 @@
 """After the flash: they stand back to back on the jetty, past each other, Shinza held in his follow-through facing
-out over the end of the jetty, Tsuru a few paces nearer the bank facing it, her blade still a hand's breadth out of
-its pole. The rain, hung in the air since the freeze, begins to fall again. Half his blade comes spinning down out
+out over the end of the jetty, Tsuru a few paces nearer the bank facing it. The rain, hung in the air since the freeze, begins to fall again. Half his blade comes spinning down out
 of the sky and sticks in the planks between them with a thunk (77.3 s: THUNK into the shot); the focus pulls to it as
-it quivers. Then she slides her blade home, and her pole is whole.
+it quivers. Her blade is already home: her pole stands whole beside her, and she does not move.
 
 The camera is low on the river side of the jetty, side on, as the reference stages it (Tsuru left, Shinza right),
 creeping in. rf/clash.py has the world, the cast and the posing; the cast's variants are his sword "broken" (the half a
-prop, parts["half"]) and her pole in hand (its handle parts at the cord: parts["handle"]).
+prop, parts["half"]) and her pole in hand, whole.
 """
 from __future__ import annotations
 
@@ -14,17 +13,16 @@ import math
 
 SHOT = {"scene": "after"}
 
-MID = 6.1             # x between them (rf/clash.py END)
+MID = 5.8             # x between them (rf/clash.py END)
 CAM = [(0.0, (MID - 0.13, -4.05, 0.42), (MID, 0.0, 0.95)), (4.5, (MID - 0.05, -3.6, 0.38), (MID + 0.01, 0.0, 0.9))]
 LENS, FSTOP = 35.0, 2.2
 THUNK = 1.2           # s into the shot: the half blade lands (data/mix.json blade_thunk at 77.3)
 DROP = 0.9            # s it falls before
 SPIN = 2.6            # its turns a second as it falls
-LAND = (6.03, -0.55)  # where its point goes in (x, y): rf/clash.py FALL["half"]
+LAND = (5.73, -0.55)  # where its point goes in (x, y): rf/clash.py FALL["half"]
 LEAN = 18.0           # degrees it leans from upright, toward the camera's right
 QUIVER = (3.5, 13.0, 3.2)   # degrees, a second, how fast it dies away
 RACK = (THUNK + 0.05, 0.45)  # the focus pulls to it: from, over (s)
-SHEATH = (0.3, 2.3, 3.3)    # her blade out this far (m), slid home from, to (s)
 # Shinza's follow-through (his frame: front -y): the stub out in front at chest height, a little up
 FOLLOW = dict(pommel=(0.03, -0.3, 1.1), hilt=(0.04, -0.95, 0.28))
 SH_FOLLOW = {"hips": (0.0, 0.0, 6.0), "spine": (6.0, 0.0, -3.0), "chest": (4.0, 0.0, -2.0), "neck": (-4.0, 0.0, 0.0),
@@ -45,7 +43,7 @@ def build(ctx):
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import cinema
-    from rf import clash, vroid_tsuru
+    from rf import clash
 
     fps = ctx.fps
     w = clash.world(ctx)
@@ -59,31 +57,6 @@ def build(ctx):
     ts["root"].location = (*clash.END["tsuru"][0], 0.0)
     ts["root"].rotation_euler = (0.0, 0.0, clash.END["tsuru"][1])
     bpy.context.view_layer.update()
-
-    # ---- her blade slid home: the handle (its blade with it) down the pole, her left hand on it
-    handle = ts["parts"]["handle"][0]
-    rest = handle.location.copy()
-    up = Vector((0.0, 0.0, 1.0))
-    if handle.parent is not None:
-        up = (handle.parent.matrix_world.to_3x3().inverted() @ up).normalized()
-    for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        t = (f - ctx.f0) / fps
-        out = SHEATH[0] * (1.0 - clash.ease((t - SHEATH[1]) / (SHEATH[2] - SHEATH[1])) ** 0.7)
-        handle.location = rest + up * out
-        handle.keyframe_insert("location", frame=f)
-    # (the last stretch is a click: no ease into it)
-    tch = ts["vrm"]
-    if "leftHand-target" in tch.handles:
-        tgt = tch.handles["leftHand-target"]
-        px, py = vroid_tsuru.POLE
-        base = tgt.location.copy()
-        for f in range(ctx.f0 - 1, ctx.f1 + 1):
-            t = (f - ctx.f0) / fps
-            out = SHEATH[0] * (1.0 - clash.ease((t - SHEATH[1]) / (SHEATH[2] - SHEATH[1])) ** 0.7)
-            on = clash.ease((t - (SHEATH[1] - 0.8)) / 0.6) * (1.0 - clash.ease((t - SHEATH[2] - 0.2) / 0.6))
-            grip = tch.to_armature((px + 0.03, py - 0.02, vroid_tsuru.SPLIT + 0.06 + out))
-            tgt.location = base.lerp(grip, on)
-            tgt.keyframe_insert("location", frame=f)
 
     # ---- the half blade: out of the sky, spinning, into the planks; it quivers
     half = sh["parts"]["half"][0]

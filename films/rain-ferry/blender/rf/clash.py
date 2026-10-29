@@ -25,10 +25,10 @@ import numpy as np
 STANDOFF = {"shinza": (2.2, 0.0), "tsuru": (6.7, 0.05)}
 CLASH = 6.1                       # x where the blades meet: he has run the gap, she has not left her mark
 # where the duel leaves them (the lesson starts here): passed through each other, back to back, ((x, y), facing)
-END = {"shinza": ((7.2, 0.08), 0.0), "tsuru": ((5.0, -0.06), math.pi)}
+END = {"shinza": ((7.2, 0.08), 0.0), "tsuru": ((4.4, -0.06), math.pi)}
 # the fall's marks: where he kneels (facing +x), where the half blade sticks in the planks (its point), where his
 # headband lies
-FALL = {"kneel": (7.2, 0.08), "half": (6.03, -0.55), "headband": (7.42, -0.2)}
+FALL = {"kneel": (7.2, 0.08), "half": (5.73, -0.55), "headband": (7.42, -0.2)}
 KEYS = {"shinza": (1.0, -0.3, 0.8), "tsuru": (-1.0, -0.3, 0.8)}   # each one's key, from the side they face (world)
 OUTLINE = 0.0018                  # the 3D cast's outline, in frame heights (as the standoff's)
 
