@@ -55,7 +55,7 @@ def staved_post(name: str, m: dict, coll, base, *, height: float = 0.9, radius: 
     pipe is knocked out)."""
     root = _root(f"{name}-root", coll, base, facing)
     wood = m.get("stave", m["post"])
-    obs = [shapes.cylinder(f"{name}-core", (0, 0, -sink), (0, 0, height - 0.03), radius * 0.86, material=m["post"],
+    obs = [shapes.cylinder(f"{name}-core", (0, 0, -sink), (0, 0, height - 0.012), radius * 0.9, material=m["post"],
                            coll=coll, n=12)]
     for k, (a, w, top) in enumerate(stave_layout(radius, staves, height, seed=seed)):
         c = (math.cos(a) * radius * 0.93, math.sin(a) * radius * 0.93)
