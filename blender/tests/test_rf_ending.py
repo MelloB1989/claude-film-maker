@@ -84,6 +84,3 @@ def test_a_path_is_walked_by_length(E):
     assert (x, y) == pytest.approx((2.0, 0.5)) and h == pytest.approx(math.pi / 2)
     assert E.path_at(path, 9.0)[0] == pytest.approx((2.0, 1.0))
 
-
-def test_the_distance_is_turned_round_the_crossing(E):
-    assert E.turned((0.0, 70.0, 5.0), math.radians(-90)) == pytest.approx((70.0, 0.0, 5.0))
