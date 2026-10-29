@@ -296,6 +296,41 @@ def rest_point(ch: vrm.Character, bone: str, *, tail: bool = False) -> np.ndarra
     return ch.frame.T @ np.array(b.tail_local if tail else b.head_local) * ch.scale
 
 
+def turn_of(rest, frame, local) -> np.ndarray:
+    """The turn (3x3, about the character's axes: vrm.pose's convention) that a pose bone's local rotation `local`
+    (3x3, the bone's own space) is, for a bone at rest orientation `rest` in a character of axes `frame`: what
+    vrm.local_rotation undoes."""
+    rest, frame = np.asarray(rest, float), np.asarray(frame, float)
+    return frame.T @ rest @ np.asarray(local, float) @ rest.T @ frame
+
+
+def release(ch: vrm.Character) -> dict:
+    """Drop the IK and the holds a builder left on the character's limbs (vrm.reach, vrm.hold, vrm.grasp), each bone
+    kept where they had it, and return that pose ({humanoid bone: 3x3 turn}, vrm.pose's convention) to key on top of:
+    vrm.pose(ch, {**release(ch), **changes}, hips=...) (vrm.pose puts the hips back unless given them)."""
+    import bpy
+
+    bpy.context.view_layer.update()
+    names = {b: h for h, b in ch.bones.items()}
+    seen = [pb for pb in ch.armature.pose.bones if pb.name in names]
+    held = {pb.name: pb.matrix.copy() for pb in seen}
+    for pb in seen:
+        for c in [c for c in pb.constraints if c.type in ("IK", "COPY_ROTATION")]:
+            pb.constraints.remove(c)
+    for pb in seen:                       # parents first, as the armature lists them
+        pb.matrix = held[pb.name]
+        bpy.context.view_layer.update()
+    for e in ch.handles.values():
+        bpy.data.objects.remove(e, do_unlink=True)
+    ch.handles.clear()
+    ch.bends.clear()
+    out = {}
+    for pb in seen:
+        rest = np.array(ch.armature.data.bones[pb.name].matrix_local.to_3x3())
+        out[names[pb.name]] = turn_of(rest, ch.frame, np.array(pb.matrix_basis.to_3x3()))
+    return out
+
+
 def turn_bones(ch: vrm.Character, turns: dict) -> None:
     """Pose bones by the armature's own names ({name: (x, y, z) degrees or a 3x3}, about the character's axes from
     rest, relative to the parent: vrm.pose's convention); the bones not named are left as they are."""
