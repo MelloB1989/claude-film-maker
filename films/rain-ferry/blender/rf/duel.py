@@ -30,7 +30,7 @@ from . import duel_motion as dm
 # (x, y) world; MID between them, which the duel's cameras are placed from
 MARKS = {"shinza": (2.2, 0.0), "tsuru": (6.7, 0.05)}
 MID = ((MARKS["shinza"][0] + MARKS["tsuru"][0]) / 2, 0.0)
-TURNS = {"shinza": 0.0, "tsuru": math.pi + 0.3}    # Tsuru turned 0.3 rad from him toward the -y side
+TURNS = {"shinza": 0.0, "tsuru": math.pi}          # facing each other down the jetty (rf/clash.py: charge)
 OUTLINE = 0.0018      # the cast's outline, in frame heights
 INK_REACH = 13.0      # m: the near set's line art drawn this far round the duel (`near_duel`)
 KEY_ANGLE = 5.0       # degrees: an overcast key's soft-edged shadows

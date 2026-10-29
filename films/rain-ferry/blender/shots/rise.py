@@ -3,8 +3,8 @@ jetty's end, her pipe over her left knee, her head turned up to him; Shinza over
 its point down toward her). A held breath; then she stands, unhurried, her back straightening, and turns from him as
 if he were not there: "So young." (line 10, +1.2 to +3.2 s), said over her shoulder as she takes two short steps to
 the jetty's edge by the boat. Her pole lies out of the boat against the tap post; she takes it, lifts it up out of the
-boat, upright, and sets its foot down on the deck beside her (+3.45 s). Only then does she turn her head back to him,
-the corner of her mouth going up.
+boat, upright, and sets its foot down on the deck at her right side (+3.1 s). Only then does she come round to him,
+a half step with the pole in her fist, her head turning back to him, the corner of her mouth going up.
 
 The camera is on the river side (-y): the two of them whole at first, he at the left with his blade's point down
 toward her; it creeps in and turns with her to the edge, leaving him at the frame's left, and she is in back
@@ -38,18 +38,19 @@ WALK = 1.1              # two short steps to the edge by the boat, turning to it
 EDGE = (7.12, 0.42)     # where she stops (world), facing the pole (degrees)
 EDGE_YAW = 72.0
 GRAB = (2.15, 2.5)      # bending to the pole and taking it
-LIFT = (2.5, 3.45)      # up out of the boat, upright; its foot down on the deck
-TURN_BACK = 3.3         # her head back to him
+LIFT = (2.5, 3.1)       # up out of the boat, upright; its foot down on the deck at her right side
+TURN = (3.1, 0.12, 140.0)   # then, the pole held, a half step round toward him (when, how far, facing: degrees)
+TURN_BACK = 3.05        # her head back to him
 SMILE = (3.45, 3.95)
 LINE = "L10"
 # the pole leaning out of the boat against the tap post (world): its foot in the boat, where it lies on the post;
 # where she takes it (along it from the foot, m), and where its foot comes down by her (world)
 POLE_FOOT0 = (6.78, 2.02, -0.24)
 POLE_REST = (7.36, 1.17, 0.72)
-GRIP_ALONG = 1.15
-POLE_FOOT1 = (6.98, 0.66, 0.0)
+GRIP_ALONG = 1.0
+POLE_FOOT1 = (7.42, 0.45, 0.0)
 # half way up (world): the foot clear of the boat's side and the deck's edge, the pole tipping toward upright
-GRIP_MID, WAY_MID = (7.15, 0.95, 1.12), (0.1, -0.35, 0.93)
+GRIP_MID, WAY_MID = (7.32, 0.85, 1.05), (0.1, -0.35, 0.93)
 # her body getting up (her frame's turns, added to the stoop she stands in): leaning over her feet
 LEAN = {"spine": (22.0, 0.0, 0.0), "chest": (12.0, 0.0, 0.0), "neck": (-6.0, 0.0, 0.0)}
 BEND = {"spine": (20.0, 0.0, 0.0), "chest": (20.0, 0.0, -6.0), "upperChest": (18.0, 0.0, -4.0), "neck": (14.0, 0.0, 0.0),
@@ -161,6 +162,10 @@ def build(ctx):
     t_mid = (LIFT[0] + LIFT[1]) / 2
     p.grasp(F(t_mid), "right", char(GRIP_MID, t_mid), char_dir(way_mid, t_mid), palm, pole=elbow, ease="in")
     p.grasp(F(LIFT[1]), "right", char(grip1, LIFT[1]), (0.0, 0.0, 1.0), palm, pole=(-0.5, 0.4, 0.6), ease="settle")
+    # then round toward him on the spot, the pole going with her hand
+    back = (EDGE[0] - TURN[1], EDGE[1])
+    p.walk([tuple(EDGE), back], F(TURN[0]), gait=va.GAITS["old"].but(stride=0.25), pose=stand, end_pose=stand,
+           end_yaw=TURN[2], swing=(0.0, 0.0))
     # and her head back to him
     p.look(F(TURN_BACK), st.perf["shinza"].face_at, lag=1.4)
     # her face: calm; the line said over her shoulder; the smile after it

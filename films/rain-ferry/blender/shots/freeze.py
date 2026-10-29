@@ -22,15 +22,16 @@ import numpy as np
 
 SHOT = {"scene": "freeze"}
 
-# Shinza mid-launch: a stride on from his mark toward her, his trunk thrown forward, the hilt raised high over his
-# right shoulder (his frame), the right foot swinging forward off the deck, the left pushing off on its ball
-SH_AT = (0.55, 0.02)               # from his mark (rf/duel.py MARKS): a stride on
-POMMEL = (-0.13, -0.08, 1.4)
-HILT_UP = (0.12, 0.42, 0.9)        # the hilt's way up, the blade carrying on up and back over his shoulder
-ELBOWS = {"left": (0.5, -0.15, 1.0), "right": (-0.6, 0.1, 1.05)}
+# Shinza mid-launch, as shots/charge.py has him a fifth of a second in (it carries on from here): just off his mark
+# toward her, his trunk thrown forward, the sword swept up two-handed over his head (charge's SWORDS at +0.3 s: his
+# frame), the left foot swinging forward off the deck, the right pushing off on its ball
+SH_AT = (0.25, 0.0)                # from his mark (rf/duel.py MARKS = rf/clash.py STANDOFF)
+POMMEL = (0.04, -0.12, 1.58)
+HILT_UP = (0.05, 0.35, 0.94)       # the hilt's way up, the blade carrying on up and back over his head
+ELBOWS = {"left": (0.6, 0.3, 1.2), "right": (-0.6, 0.2, 1.2)}     # charge's POLES
 SH_TURNS = {"spine": (12.0, 0.0, 6.0), "chest": (6.0, 0.0, 4.0), "neck": (-6.0, 0.0, 0.0), "head": (-8.0, 0.0, -4.0)}
 SH_HIPS = (0.0, -0.12, -0.06)
-SH_FEET = {"rightFoot-target": (0.02, -0.3, 0.16), "leftFoot-target": (0.0, 0.18, 0.04)}
+SH_FEET = {"leftFoot-target": (-0.02, -0.3, 0.16), "rightFoot-target": (0.0, 0.18, 0.04)}
 # Tsuru: her left hand come to the pole above her right (her frame)
 TS_LEFT = ((-0.23, -0.22, 1.13), (0.55, -0.2, 0.9))
 # the camera's glide (world): in front of him, past his blade, along the line, turning to her; what it looks at runs
@@ -51,7 +52,7 @@ def build(ctx):
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import cinema, satsuei, vrm
-    from rf import duel, vroid_shinza
+    from rf import clash, duel
     from rf import eye_closeup
 
     st = duel.stage(ctx)
@@ -59,13 +60,12 @@ def build(ctx):
     shc, tsc = st.ch("shinza"), st.ch("tsuru")
     sx, sy = duel.MARKS["shinza"]
     st.actors["shinza"]["root"].location = (sx + SH_AT[0], sy + SH_AT[1], 0.0)
-    # Shinza mid-launch: both hands re-closed on the hilt raised high (the sword rides his right hand), the stride
-    hilt0 = vroid_shinza.HILT_DIR / np.linalg.norm(vroid_shinza.HILT_DIR)
+    # Shinza mid-launch: both hands on the hilt swept up over his head as charge grips it (the sword rides his right
+    # hand), the stride
     up = np.asarray(HILT_UP, float) / np.linalg.norm(HILT_UP)
-    R = np.array(Vector(tuple(hilt0)).rotation_difference(Vector(tuple(up))).to_matrix())
-    for side, along in vroid_shinza.GRIPS.items():
-        palm = np.array((1.0 if side == "right" else -1.0, 0.0, -0.6))
-        vrm.grasp(shc, side, np.asarray(POMMEL) + up * along, up, R @ palm, pole=ELBOWS[side])
+    hands, _ = clash.shinza_sword(shc, POMMEL, HILT_UP, poles=ELBOWS)
+    for side, (_, point, along, palm, pole) in hands.items():
+        vrm.grasp(shc, side, point, along, palm, pole=pole)
     vrm.grasp(tsc, "left", TS_LEFT[0], (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), pole=TS_LEFT[1], amount=0.9)
     keep_sh = ("leftHand-target", "leftHand-hold", "rightHand-target", "rightHand-hold", "leftHand-pole", "rightHand-pole")
     keep_ts = ("leftHand-target", "leftHand-hold", "leftHand-pole")
@@ -80,7 +80,7 @@ def build(ctx):
     # the water he threw up, hanging: a crown round the foot he pushed off from, drops off his hair and his blade
     rng = np.random.default_rng(12)
     beads = []
-    foot = np.array(shc.point("leftToes"))
+    foot = np.array(shc.point("rightToes"))
     for k in range(46):
         a = rng.uniform(0, 2 * math.pi)
         r = rng.uniform(0.08, 0.26)
@@ -90,7 +90,7 @@ def build(ctx):
     for k in range(26):
         beads.append((head + np.array([rng.uniform(-0.45, -0.05), rng.uniform(-0.25, 0.25), rng.uniform(-0.15, 0.2)]),
                       rng.uniform(0.003, 0.007)))
-    tip = np.array(shc.world(np.asarray(POMMEL) + up * 1.0))
+    tip = np.array(shc.world(np.asarray(POMMEL) + up * 1.35))     # the hilt and the blade on
     for k in range(22):
         s = rng.uniform(0.0, 1.0)
         beads.append((tip + np.array([-0.5 * s - 0.05, rng.uniform(-0.1, 0.1), -0.25 * s + rng.uniform(-0.05, 0.05)]),
