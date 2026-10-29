@@ -26,16 +26,16 @@ import math
 
 # ---------------------------------------------------------------------------------------------------- the stage
 
-# Where things are after the duel (world metres, rf/sets.py's axes; until S6's fall publishes its end marks, these are
-# the defaults). The duel is near the jetty's end; Shinza's charge carried him past her toward the end: he went down on
-# his knees there, facing on along it (radians from +x toward +y), half his blade standing in the planks ahead of him
-# where it fell (rf/vroid_shinza.py's), the cut headband on the deck by his knee. Tsuru, back to back with him on the
-# land side, walks away from him along the boat's side to the ferry's stern (rf/set_jetty.py). Looking back along
+# Where things are after the duel (world metres, rf/sets.py's axes; rf/clash.py's END and FALL). The duel is near the
+# jetty's end; Shinza's charge carried him through her toward the end: he went down on his knees there, facing on
+# along it (radians from +x toward +y), half his blade standing in the planks behind him where it fell, the cut
+# headband on the deck by his knee. Tsuru, back to back with him on the land side, walks away from him along the
+# boat's side to the ferry's stern (rf/set_jetty.py). Looking back along
 # the jetty from its end (every camera of 22-24), he is on the left, she on the right, the hut's lantern beyond.
-SHINZA_AT = (5.9, -0.5)
-SHINZA_FACING = math.radians(4.0)
-HEADBAND_AT = (6.3, -0.08, 35.0)                  # (x, y, turn (deg)): where the cut band lies on the deck
-TSURU_WALK = [(4.6, 0.5), (3.9, 0.66), (3.05, 0.82)]   # her way to the boat (x, y)
+SHINZA_AT = (7.2, 0.08)                            # rf/clash.py FALL["kneel"]
+SHINZA_FACING = 0.0
+HEADBAND_AT = (7.42, -0.2, 35.0)                   # rf/clash.py FALL["headband"], and its turn (deg)
+TSURU_WALK = [(5.0, -0.06), (4.3, 0.42), (3.3, 0.8)]   # her way from her END mark to the ferry's stern (x, y)
 
 
 def smooth(u: float) -> float:
@@ -223,17 +223,22 @@ def _rain(ctx, st: Stage) -> None:
 
 # ---------------------------------------------------------------------------------------------------- the cast
 
-def _standoff():
-    """shots/standoff.py, for the 3D cast's paint (TONES3D, TONES3D_OF, OUTLINE): one look for the cast in every
-    shot."""
+def shot_module(name: str):
+    """shots/<name>.py as a module (another shot's constants: the standoff's paint, the fall's last pose)."""
     import importlib.util
     from pathlib import Path
 
-    spec = importlib.util.spec_from_file_location("shots.standoff", Path(__file__).resolve().parents[1] / "shots" /
-                                                  "standoff.py")
+    spec = importlib.util.spec_from_file_location(f"shots.{name}", Path(__file__).resolve().parents[1] / "shots" /
+                                                  f"{name}.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def _standoff():
+    """shots/standoff.py, for the 3D cast's paint (TONES3D, TONES3D_OF, OUTLINE): one look for the cast in every
+    shot."""
+    return shot_module("standoff")
 
 
 KEY_ANGLE = 5.0   # degrees: an overcast key's soft-edged shadows
@@ -316,6 +321,53 @@ def kneel(built, *, sag=SAG, hips_dz: float = 0.0, frame: int | None = None, leg
             vrm.reach(ch, f"{side}Foot", (x * 0.8, p["ankle_y"], p["ankle_z"]), pole=(x * 1.4, -1.5, p["knee_z"]))
             vrm.hold(ch, f"{side}Foot", _foot_turn(ch, side, (1.0, -0.12)))
     return {"knee": (0.0, p["ankle_y"] - knee_y, p["knee_z"]), "hip": (0.0, p["ankle_y"] - hip_y, p["hip_z"])}
+
+
+def fallen(built, *, turns: dict | None = None, stub=None):
+    """Shinza as shot 21 (shots/fall.py) leaves him, at rf/clash.py's FALL: on both knees, slumped, the stub of his
+    sword in his right hand, its broken end on the planks, his left hand loose on his thigh. `turns` on top of the
+    fall's kneel (a breath, the head sinking); `stub` (pommel, hilt direction) moves the sword in both hands instead.
+    Returns (rf/clash.py's Pose, the fingers): `clash.apply` it, `clash.key` it."""
+    from lib import vrm
+    from rf import clash
+
+    fall = shot_module("fall")
+    ch = built["vrm"]
+    pommel, hilt = stub or (fall.KNEEL_STUB["pommel"], fall.KNEEL_STUB["hilt"])
+    hands, fingers = clash.shinza_sword(ch, pommel, hilt)
+    if stub is None:
+        left = fall.KNEEL_LEFT
+        hands["left"] = ("reach", left[0], left[1], left[2])
+        fingers = {k: v for k, v in fingers.items() if not k.startswith("left")}
+        fingers.update(vrm.grip_pose("left", 0.35, 0.3))
+    (x, y), yaw = clash.FALL["kneel"], clash.END["shinza"][1]
+    return clash.Pose(at=(x, y), yaw=yaw, hips=fall.KNEEL_HIPS, turns={**fall.KNEEL, **(turns or {})}, hands=hands,
+                      feet=fall.KNEEL_FEET), fingers
+
+
+HALF_LEAN = 18.0    # degrees the stuck half leans from upright toward +x (shots/after.py's LEAN)
+
+
+def stick_half(built) -> None:
+    """His blade's broken half where shot 20 (shots/after.py) stuck it: point 4 cm into the planks at rf/clash.py's
+    FALL["half"], leaning HALF_LEAN toward +x (and a little toward -y). Left there, out of his hands."""
+    import bpy
+    import numpy as np
+    from mathutils import Matrix, Vector
+
+    from rf import clash
+
+    half = built["parts"]["half"][0]
+    bpy.context.view_layer.update()
+    co = np.array([half.matrix_world @ v.co for v in half.data.vertices])
+    rings = co.reshape(-1, 4, 3).mean(axis=1)
+    tip, root_ = rings[np.argmin(rings[:, 2])], rings[np.argmax(rings[:, 2])]
+    half.parent = None
+    lean = math.radians(HALF_LEAN)
+    up = Vector((math.sin(lean), -0.25 * math.sin(lean), math.cos(lean))).normalized()
+    rot = Vector(root_ - tip).normalized().rotation_difference(up).to_matrix().to_4x4()
+    goal = Vector((*clash.FALL["half"], -0.04))
+    half.matrix_world = Matrix.Translation(goal) @ rot @ Matrix.Translation(-Vector(tip)) @ half.matrix_world
 
 
 def key_handles(built, frame: int, keys=None) -> None:
