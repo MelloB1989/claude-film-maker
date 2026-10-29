@@ -107,3 +107,12 @@ def test_a_long_lens_sees_the_mist_banks_further_out_and_thinner():
         assert 0 < a2 < a
         # as tall on screen as in the wide
         assert h2 * 85.0 / d2 == pytest.approx(h * 26.0 / d)
+
+
+def test_a_close_up_rains_round_its_focus():
+    L = weather.focus_layer(2.4)
+    assert L.near == pytest.approx(2.4 * 0.7) and L.far == pytest.approx(2.4 * 1.6)
+    assert (L.length, L.width, L.count) == (weather.FOCUS.length, weather.FOCUS.width, weather.FOCUS.count)
+    # never nearer the lens than its clear, even focused close
+    near = weather.focus_layer(0.8)
+    assert near.near == weather.FOCUS.clear and near.far > near.near

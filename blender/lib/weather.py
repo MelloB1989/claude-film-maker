@@ -118,6 +118,19 @@ def for_lens(layer: Layer, lens: float, ref: float = REF_LENS) -> Layer:
     return replace(layer, near=layer.near * k, far=layer.far * k)
 
 
+# a close-up's own rain (lens CLOSE_LENS or longer): a band of fine drops round the focus distance, a little in front of
+# the subject and more behind, as sharp as the subject is (the other layers stand off in the blur at a long lens)
+FOCUS = Layer(0.0, 0.0, 320, 0.22, 0.0032, 0.24, clear=0.9)
+CLOSE_LENS = 40.0
+
+
+def focus_layer(distance: float, template: Layer = FOCUS, *, before: float = 0.3, after: float = 0.6) -> Layer:
+    """`template` as a band from `before` of `distance` (the setup's focus, m) in front of it to `after` of it behind:
+    unscaled for the lens (it is where the lens is sharp), never nearer than its `clear`."""
+    d = max(float(distance), 1e-3)
+    return replace(template, near=max(template.clear, d * (1.0 - before)), far=max(d * (1.0 + after), template.clear + 0.5))
+
+
 def frustum_box(poses, near: float, far: float, *, aspect: float = 16 / 9, margin: float = 0.1, floor=None,
                 ceiling=None) -> tuple[np.ndarray, np.ndarray]:
     """The world box (lo, hi) round what the cameras `poses` (cinema.Pose) see from `near` to `far` metres in front of
@@ -388,6 +401,24 @@ def _setup_poses(rig, i: int, step: int = 4) -> list:
     return [rig.shot.pose(t) for t in ts]
 
 
+def _focus_distance(rig, i: int) -> float:
+    """How far in front of the lens setup i of `rig` is focused, the median over its window (the focus empty as the
+    scene evaluates it: it follows its object or bone)."""
+    import bpy
+
+    scene = rig.ctx.scene
+    keep = scene.frame_current
+    a, b = rig.shot.window(i)
+    out = []
+    for u in (0.1, 0.5, 0.9):
+        f = rig.f0 + round((a + (b - a) * u) * rig.ctx.fps)
+        scene.frame_set(min(f, rig.f1 - 1))
+        bpy.context.view_layer.update()
+        out.append(rig.pose(f).depth(tuple(rig.focus.matrix_world.translation)))
+    scene.frame_set(keep)
+    return max(float(np.median(out)), 0.3)
+
+
 def _schedule(ctx, field: str):
     """The look schedule's rain `field` over the shot, as a function of film frame (None when the shot has none)."""
     if getattr(ctx, "look", None) is None:
@@ -409,12 +440,14 @@ class Rain:
 
 
 def rain(ctx, rig, *, density=None, speed=None, wind=None, layers=None, color=None, floor=None, ceiling=None,
-         adapt: bool = True, seed: int = 4, coll=None) -> Rain:
+         adapt: bool = True, focus: Layer | None = FOCUS, seed: int = 4, coll=None) -> Rain:
     """Rain round every setup of `rig` (cinema.Rig) over ctx's frames, in `layers` (LAYERS: names to use, or
     {name: Layer}), its `density` (0..1), `speed` (m/s) and `wind` (m/s along +x) values over the shot (a number or
     keys; None: the look schedule's, else full rain). `floor`/`ceiling`: no drops below/above these heights (the water,
     a roof over a doorway's camera). Each setup's layers show only while it is cut in, pushed out for its lens when
-    `adapt` (`for_lens`: a close-up gets finer, further, defocused rain for free)."""
+    `adapt` (`for_lens`: a close-up gets finer, further, defocused rain for free); a setup through a lens of
+    CLOSE_LENS or longer also gets a "focus" layer of `focus` (None: none) round where it is focused (`focus_layer`),
+    so the rain is sharp where the subject is."""
     import bpy
 
     from . import toon
@@ -447,9 +480,10 @@ def rain(ctx, rig, *, density=None, speed=None, wind=None, layers=None, color=No
     for i, s in enumerate(rig.shot.setups):
         poses = _setup_poses(rig, i)
         lens = float(np.median([p.lens for p in poses]))
-        for j, (ln, layer) in enumerate(layers.items()):
-            if adapt:
-                layer = for_lens(layer, lens)
+        mine = {ln: (for_lens(layer, lens) if adapt else layer) for ln, layer in layers.items()}
+        if focus is not None and lens >= CLOSE_LENS:
+            mine["focus"] = focus_layer(_focus_distance(rig, i), focus)
+        for j, (ln, layer) in enumerate(mine.items()):
             lo, hi = frustum_box(poses, layer.near, layer.far, aspect=ctx.size[0] / ctx.size[1], floor=floor,
                                  ceiling=ceiling)
             d = Drops(f"rain-{s.name}-{ln}", lo, hi, layer, color=color, seed=seed + 13 * i + j, coll=coll)
@@ -465,7 +499,7 @@ def rain(ctx, rig, *, density=None, speed=None, wind=None, layers=None, color=No
     return Rain(drops, frames, D, S, W)
 
 
-def into_cast(rain_: Rain, cast, layers=("near", "mid")) -> list:
+def into_cast(rain_: Rain, cast, layers=("near", "focus", "mid")) -> list:
     """Put the rain's `layers` into the satsuei cast collection `cast` as well (the same objects, linked into both): the
     compositor lays the cast's layer over the world's where the cast is nearer, and a blended drop writes no depth, so
     only the drops in front of a character come through over them (as standoff_vroid's rain-cast). The far curtain
@@ -816,7 +850,7 @@ class Sky:
 
 def storm(ctx, rig, *, rain=None, speed=None, wind=None, layers=None, mist=None, splashes=(), waters=(),
           haze=None, strikes=None, bolt=None, lights=(), floor=None, ground: float = 0.0, cast=None,
-          cast_layers=("near", "mid"), seed: int = 4) -> Sky:
+          cast_layers=("near", "focus", "mid"), seed: int = 4) -> Sky:
     """A shot's weather in one call, round `rig`'s setups (cinema.Rig): its rain (`rain`: the density over the shot,
     `speed`, `wind`; None: the look schedule's) in `layers` near, mid and far, splashing on `splashes` areas
     [(lo, hi), ...] and ringing the `waters` (lib/water.py materials), all thinning with it; banks of `mist` (its
