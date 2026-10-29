@@ -14,8 +14,10 @@ import math
 SHOT = {"scene": "step"}
 
 STRIKE = 0.2                   # s into the shot: the right foot lands in the puddle (the splash's sound at 10.2 s)
-CAM = ((-0.62, -1.02, 0.075), (-0.57, -0.94, 0.072))   # the lens, a hand off the water to his right, easing in
-LOOK = (0.05, 0.25, 0.16)      # the aim, from where the foot lands: a little beyond it and up the path
+# the lens, in his frame from where the foot lands (ahead of him, to his right, up off the ground), easing in; the aim,
+# a little behind the foot and up (back down the path into the mist)
+CAM = ((1.02, -0.62, 0.075), (0.94, -0.57, 0.072))   # (ahead, left, up) m
+LOOK = (-0.25, 0.05, 0.16)
 LENS, FSTOP = 32.0, 2.0
 SHAKE = (0.0035, 0.18)         # the lens shaken by the footfall: metres at its peak, dying over seconds
 KEY = (-0.5, -0.7, 0.9)        # his key: overcast from above our shoulder
@@ -36,47 +38,62 @@ def build(ctx):
     from mathutils import Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import rig, satsuei, toon
-    from rf import approach
+    from lib import rig, satsuei, toon, vrm
+    from rf import approach, set_approach, set_valley, set_world
 
-    px, py, _, _, _ = approach.PUDDLES[0]
-    st = approach.stage(ctx, rain_box=((px - 3.0, py - 1.6, -0.1), (px + 3.0, py + 12.0, 3.0)), rain_near=1.5,
-                        rain_clear=0.25, key_toward=KEY, fog=(5.0, 160.0, 0.92, 0.55))
+    # the puddle he steps in (the set's); his right foot's footfall on it, the path's way there
+    puddle = np.array(set_world.views()["step"][1]) - np.array([0.0, 0.0, 0.05])
+    P = set_approach.path_xy(240)
+    probe = approach.Gait(line=P, ground=set_valley.ground)
+    s_hit = probe.nearest(puddle[:2])
+    _, fwd = probe.at(s_hit)
+    left = approach.Gait.left_of(fwd)
+
+    def place(v):
+        """A point of the shot's frame ((ahead, left, up) from the puddle) in the world."""
+        xy = puddle[:2] + fwd * v[0] + left * v[1]
+        return (float(xy[0]), float(xy[1]), float(set_valley.ground(*xy)) + v[2])
+
+    lo = np.minimum(puddle[:2] - 3.0, puddle[:2] - fwd * 12)
+    hi = np.maximum(puddle[:2] + 3.0, puddle[:2] - fwd * 12)
+    st = approach.stage(ctx, rain_box=((lo[0], lo[1], puddle[2] - 0.2), (hi[0], hi[1], puddle[2] + 3.0)),
+                        rain_near=1.5, rain_clear=0.25, key_toward=KEY)
     ch = st.shinza["vrm"]
     t0 = ctx.time(ctx.f0)
     t_strike = t0 + STRIKE
-    # his right foot's line runs through the puddle's middle: the footfall lands a little behind it (the ball, not the
-    # heel, over the deepest water)
-    gait = approach.Gait(origin=(px + 0.1, py + 0.06), dir=(0.0, -1.0), t0=t_strike, step=0.62, stride=0.7)
+    # his right foot comes down in the puddle: his line runs its foot's width left of it, the ankle a little behind
+    # the middle (the ball, not the heel, over the deepest water)
+    gait = approach.Gait(line=P, ground=set_valley.ground, s0=s_hit + 0.06, t0=t_strike)
+    _, _, land, _ = gait.footfall(0)
+    off = puddle[:2] - land
+    gait = approach.Gait(line=P + off - fwd * (off @ fwd), ground=set_valley.ground, s0=s_hit + 0.06, t0=t_strike)
     frames = list(range(ctx.f0 - 1, ctx.f1 + 1))
     approach.key_walk(ch, gait, frames, ctx.fps)
-    vrm_face = st.shinza["face"](1.0)
-    from lib import vrm
-    vrm.express(ch, vrm_face)
+    vrm.express(ch, st.shinza["face"](1.0))
 
     # the water: the splash and its rings as the foot lands, smaller rings and drips from the sole as it lifts out
-    _, _, land = gait.footfall(0)
+    _, _, land, _ = gait.footfall(0)
     ankle = float(ch.rest("rightFoot")[2])
     ball = abs(float((ch.rest("rightToes") - ch.rest("rightFoot"))[1])) if ch.has("rightToes") else 0.12
-    hit = (land[0], land[1] - 0.05, 0.004)
+    hit = (*(land + fwd * 0.05), float(puddle[2]))
     approach.splash("splash", hit, t_strike, ctx.fps, coll=st.cast, frames=frames, count=90, seed=3)
-    approach.ripples("rings", hit, t_strike, ctx.fps, coll=st.set["near"], frames=frames, rings=4, squash=0.95)
+    approach.ripples("rings", hit, t_strike, ctx.fps, coll=st.world["near"], frames=frames, rings=4, squash=0.95)
     lift = t_strike + gait.stance * 2 * gait.step
-    toe = (land[0], land[1] - ball, 0.004)
-    approach.ripples("rings-lift", toe, lift - 0.05, ctx.fps, coll=st.set["near"], frames=frames, rings=2, speed=0.22,
+    toe = (*(land + fwd * ball), float(puddle[2]))
+    approach.ripples("rings-lift", toe, lift - 0.05, ctx.fps, coll=st.world["near"], frames=frames, rings=2, speed=0.22,
                      alpha=0.4)
 
     def sole(t):
         a, _ = gait.foot("right", t, ankle, ball)
-        return [(a[0] + dx, a[1] + dy, a[2] - ankle + 0.004) for dx, dy in ((-0.03, -0.1), (0.03, -0.05), (0.0, 0.05),
-                                                                           (-0.025, 0.0))]
+        return [tuple(np.array([*(a[:2] + fwd * ah + left * al), a[2] - ankle + 0.004]))
+                for ah, al in ((0.1, 0.02), (0.05, -0.03), (-0.05, 0.0), (0.0, 0.025))]
 
     approach.drips("sole-drips", None, lift - 0.1, lift + 0.6, ctx.fps, coll=st.cast, frames=frames,
                    every=(0.12, 0.3), fall=0.4, size=0.0035, carry=sole, seed=11)
-    toon.splashes("splash-path", (px - 2.0, py - 1.2, 0.006), (px + 2.0, py + 8.0, 0.006), count=320, size=0.05,
-                  seed=5)
-    toon.splashes("splash-puddle", (px - 0.35, py - 0.25, 0.005), (px + 0.35, py + 0.25, 0.005), count=14, size=0.035,
-                  alpha=0.45, seed=6)
+    toon.splashes("splash-path", tuple(np.r_[lo, puddle[2] - 0.03]), tuple(np.r_[hi, puddle[2] - 0.03]), count=420,
+                  size=0.05, seed=5)
+    toon.splashes("splash-puddle", tuple(puddle - [0.3, 0.3, 0.0]), tuple(puddle + [0.3, 0.3, 0.0]), count=14,
+                  size=0.035, alpha=0.45, seed=6)
 
     cam = rig.engine_camera("camera", fstop=FSTOP, size=ctx.size)
     cam.data.lens = LENS
@@ -89,16 +106,16 @@ def build(ctx):
     c.target, c.track_axis, c.up_axis = aim, "TRACK_NEGATIVE_Z", "UP_Y"
     focus = bpy.data.objects.new("focus", None)
     ctx.scene.collection.objects.link(focus)
-    focus.location = (hit[0], hit[1], 0.05)
+    focus.location = (hit[0], hit[1], hit[2] + 0.05)
     cam.data.dof.focus_object = focus
     rng = np.random.default_rng(2)
     jitter = rng.normal(0, 1, (len(frames), 3))
-    target = Vector((hit[0] + LOOK[0], hit[1] + LOOK[1], LOOK[2]))
+    target = Vector(place(LOOK))
     comp = satsuei.setup(ctx.scene, st.cast)
     for i, f in enumerate(frames):
         u = ctx.time(f) - t0
         k = ease(u / (ctx.f1 - ctx.f0) * ctx.fps)
-        at = Vector(tuple(a + (b - a) * k for a, b in zip(*CAM)))
+        at = Vector(place(tuple(a + (b - a) * k for a, b in zip(*CAM))))
         dt = ctx.time(f) - t_strike
         shake = SHAKE[0] * math.exp(-dt / SHAKE[1]) if dt >= 0 else 0.0
         cam.location = at + Vector(tuple(jitter[i] * shake * np.array([0.4, 0.4, 1.0])))

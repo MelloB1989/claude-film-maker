@@ -12,7 +12,7 @@ import math
 
 SHOT = {"scene": "eyes"}
 
-AT = (0.0, 2.0)                # where he stands on the path
+# he stands where the walk leaves him (shots/walk.py), facing the way he walked
 LENS, FSTOP = 100.0, 2.0
 DIST = (0.78, 0.6)             # m from his eyes: the slow push
 BEARING = 14.0                 # degrees round from straight in front of him toward his left (our right)
@@ -44,13 +44,25 @@ def build(ctx):
     from lib import rig, satsuei, vrm
     from rf import approach
 
-    x, y = AT
-    st = approach.stage(ctx, rain_box=((x - 2.0, y - 1.2, -0.2), (x + 2.0, y + 9.0, 3.5)), rain_near=1.4,
-                        rain_clear=0.3, key_toward=KEY, fog=(6.0, 200.0, 0.92, 0.55))
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("shots.walk", Path(__file__).with_name("walk.py"))
+    walk = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(walk)
+    gait, _, _ = walk.staging(ctx.fps, ctx.time(ctx.f0) - 5.5, ctx.time(ctx.f0))
+    at, fwd = gait.root(ctx.time(ctx.f0))
+    x, y = at
+    z = gait.z(at)
+    import numpy as np
+
+    ends = np.array([at + fwd * 1.5, at - fwd * 10.0])
+    lo, hi = ends.min(axis=0) - 2.5, ends.max(axis=0) + 2.5
+    st = approach.stage(ctx, rain_box=((lo[0], lo[1], z - 0.3), (hi[0], hi[1], z + 3.5)), rain_near=1.4,
+                        rain_clear=0.3, key_toward=KEY)
     ch = st.shinza["vrm"]
     root = ch.root
-    root.location = (x, y, 0.0)
-    root.rotation_euler = (0.0, 0.0, -math.pi / 2)    # facing down the path, at us
+    root.location = (x, y, z)
+    root.rotation_euler = (0.0, 0.0, math.atan2(fwd[1], fwd[0]))    # facing up the path, at us
     t0 = ctx.time(ctx.f0)
     frames = list(range(ctx.f0 - 1, ctx.f1 + 1))
     face_of = st.shinza["face"]
@@ -75,7 +87,8 @@ def build(ctx):
     ctx.scene.frame_set(ctx.f1 - 1)
     eye = Vector(ch.face())
     b = math.radians(BEARING)
-    toward = Vector((math.sin(b), -math.cos(b), 0.0))          # from his face toward the lens
+    lft = approach.Gait.left_of(fwd)
+    toward = Vector((*(fwd * math.cos(b) + lft * math.sin(b)), 0.0))   # from his face toward the lens
     right = Vector((-toward.y, toward.x, 0.0))                  # the camera's right
     cam = rig.engine_camera("camera", fstop=FSTOP, size=ctx.size)
     cam.data.lens = LENS

@@ -1,140 +1,23 @@
-"""Shinza's approach to the crossing, shared by shots 3 to 5 (step, walk, eyes): the mountain path he walks down out
-of the mist, his walk, his kasa and the nodachi on his back, the puddle he steps in and the way the three shots paint
-and light him.
+"""Shinza's approach to the crossing, shared by shots 3 to 5 (step, walk, eyes): his walk up the path along the near
+bank out of the mist, the puddle he steps in, and the way the three shots paint and light him.
 
-World axes (the path's own place, not the crossing's): the path runs along y, the ground's top at z 0; he walks down
-it toward -y, toward a camera at -y looking up it into the mist. The path's centre line is x = 0; pines stand along
-both sides, ridges fade into the mist behind.
+The world is the sets' (rf/set_world.py, in rf/sets.py's axes): the path comes up the river along the near bank from
+down the valley's other way (-y) to the jetty's foot, over the valley's ground (not level: `ground`), its line
+rf/set_approach.path_xy(). Shinza is the cast's (`walker`: rf/vroid_cast.py with the kasa on, the sword on his back).
 
 Stand-ins, each replaced when its owner's API is merged (the shots go through the functions here, so only this file
-changes). Shinza is the cast's (`walker`: rf/vroid_cast.py with the kasa on, the sword on his back).
-- `path_set(look)`: the path, its puddles, pines, mist and sky (the sets agent's path, rf/set_path.py, when there).
-- `Gait` / `key_walk`: a heavy walk, its feet planted by IK on footfalls laid down the path (no foot slides on the
-  ground), the hips falling and rising between them, the trunk and arms swinging against the legs (the anim agent's
-  walk generator, lib/vrm_anim.py, when there).
+changes):
+- `Gait` / `key_walk`: a heavy walk along a line on the ground, its feet planted by IK on footfalls laid down the line
+  (no foot slides), the hips falling and rising between them, the trunk and arms swinging against the legs (the anim
+  agent's walk generator, lib/vrm_anim.py, when there).
 - `splash`, `ripples`, `drips`: the water a footfall throws up and the rings it leaves (the cinema agent's fx).
 """
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
-
-# ---- the path: a muddy track down a wooded slope, flat across its middle, banks rising either side
-PATH_HALF = 1.1           # half the trodden track's width (m)
-BANK = (2.6, 0.9)         # the banks: how far out they rise (m), how high
-PATH_Y = (-14.0, 70.0)    # how far the ground runs along y
-# the path's colours (linear lit, shade), cold and wet
-COLORS = {
-    "mud": ((0.055, 0.052, 0.05), (0.016, 0.016, 0.019)),
-    "bank": ((0.06, 0.066, 0.058), (0.016, 0.018, 0.019)),
-    "grass": ((0.075, 0.088, 0.072), (0.02, 0.024, 0.024)),
-    "rock": ((0.07, 0.072, 0.075), (0.017, 0.018, 0.021)),
-    "trunk": ((0.035, 0.033, 0.033), (0.009, 0.009, 0.011)),
-    "needles": ((0.04, 0.05, 0.048), (0.012, 0.015, 0.016)),
-    "ridge": ((0.035, 0.04, 0.048), (0.035, 0.04, 0.048)),
-}
-SKY = (0.42, 0.45, 0.5)       # the fog at the horizon (linear): colder and darker than the crossing's open sky
-ZENITH = (0.26, 0.28, 0.32)
-PUDDLE = ((0.012, 0.014, 0.018), (0.2, 0.215, 0.24))   # (water, the light of its rings)
-# puddles on the track: (x, y, radius x, radius y, seed); the first is the one he steps in
-PUDDLES = [(-0.12, 0.0, 0.42, 0.3, 1), (0.35, 3.2, 0.5, 0.28, 2), (-0.3, 6.8, 0.6, 0.32, 3), (0.2, 10.5, 0.45, 0.25, 4),
-           (-0.15, 15.0, 0.7, 0.35, 5), (0.4, 21.0, 0.55, 0.3, 6), (-0.4, -2.6, 0.5, 0.3, 7)]
-# pines: (x, y, height); near ones frame the path, far ones go grey in the mist
-PINES = [(-3.4, 4.0, 13.0), (3.9, 7.5, 15.0), (-4.6, 13.0, 16.0), (4.4, 17.0, 14.0), (-3.6, 22.0, 15.0),
-         (5.4, 26.0, 17.0), (-5.8, 30.0, 16.0), (3.6, 36.0, 15.0), (-4.2, 42.0, 18.0), (6.5, 48.0, 16.0),
-         (-7.5, 55.0, 17.0), (2.8, 60.0, 15.0), (-6.0, 1.0, 14.0), (6.8, 1.5, 16.0), (-8.5, 18.0, 18.0),
-         (8.5, 33.0, 18.0)]
-ROCKS = [(-1.8, 1.2, 0.45), (1.7, 4.6, 0.38), (-2.0, 9.5, 0.55), (1.9, 12.4, 0.4), (-1.6, -1.5, 0.35),
-         (2.2, -0.6, 0.5)]
-RIDGES = [(110, 30, 1.4), (190, 60, 0.0), (300, 95, 0.0)]          # (distance, height, tree fringe)
-MIST = [(14, 3.2, 40), (28, 5.0, 70), (48, 8.0, 110), (80, 16, 220)]   # (distance, height, width): mist down the path
-
-
-def _bank_z(x: float, y: float) -> float:
-    """The ground's height at (x, y): flat across the track, rising over the banks, rolling a little."""
-    out = max(0.0, abs(x) - PATH_HALF) / BANK[0]
-    rise = BANK[1] * (1 - math.cos(math.pi * min(out, 1.0))) / 2 + 0.35 * max(0.0, out - 1.0)
-    return rise * (1 + 0.25 * math.sin(y * 0.45 + x)) - 0.025 * math.sin(x * 3.1) * math.sin(y * 2.3)
-
-
-def path_set(look, *, seed: int = 3) -> dict:
-    """The path (rf/set_path.py's when there): returns {"near": the collection drawn in line art, "far": the
-    distance, "puddles": [puddle objects], "materials": {...}}."""
-    try:
-        from rf import set_path  # the sets agent's
-        return set_path.path(look, seed=seed)
-    except ImportError:
-        pass
-    from lib import landscape, shapes, toon
-
-    near = toon.collection("set-near")
-    far = toon.collection("set-far")
-    m = {k: toon.cel(f"path-{k}", lit, shade, look=look, cut=0.38, flash=0.0 if k in ("ridge", "needles") else None)
-         for k, (lit, shade) in COLORS.items()}
-
-    # the ground: one sheet across the track and up both banks
-    xs = np.concatenate([np.linspace(-14, -PATH_HALF, 22), np.linspace(-PATH_HALF, PATH_HALF, 12)[1:-1],
-                         np.linspace(PATH_HALF, 14, 22)])
-    ys = np.linspace(*PATH_Y, 90)
-    verts = [(x, y, _bank_z(x, y)) for y in ys for x in xs]
-    n = len(xs)
-    faces = [(j * n + i, j * n + i + 1, (j + 1) * n + i + 1, (j + 1) * n + i) for j in range(len(ys) - 1)
-             for i in range(n - 1)]
-    ground = shapes.mesh_object("path-ground", verts, faces, m["mud"], near, smooth=True)
-    ground.data.materials.append(m["bank"])
-    for poly in ground.data.polygons:
-        poly.material_index = int(abs(poly.center.x) > PATH_HALF + 0.3)
-    # grass along the track's edges, rocks on its banks
-    rng = np.random.default_rng(seed)
-    roots, tips, widths = [], [], []
-    for _ in range(900):
-        y = rng.uniform(-8, 40)
-        side = rng.choice((-1.0, 1.0))
-        x = side * (PATH_HALF + abs(rng.normal(0.25, 0.6)))
-        r0 = np.array([x, y, _bank_z(x, y) - 0.02])
-        roots.append(r0)
-        tips.append(r0 + np.array([rng.normal(0, 0.08), rng.normal(0, 0.08), rng.uniform(0.18, 0.5)]))
-        widths.append(rng.uniform(0.012, 0.03))
-    shapes.spikes("path-grass", roots, tips, widths, material=m["grass"], coll=near, sides=3)
-    for k, (x, y, r) in enumerate(ROCKS):
-        shapes.ellipsoid(f"path-rock{k}", (x, y, _bank_z(x, y) + r * 0.2), (r * 1.3, r, r * 0.6), material=m["rock"],
-                         coll=near, n=12, squash=lambda v, s=k: v * (1 + 0.18 * np.sin(v[:, :1] * 9 + s)))
-    puddles = [puddle(f"puddle{k}", (x, y), (rx, ry), look, coll=near, seed=s)
-               for k, (x, y, rx, ry, s) in enumerate(PUDDLES)]
-    for k, (x, y, h) in enumerate(PINES):
-        landscape.pine(f"pine{k}", (x, y, _bank_z(x, y)), h, trunk=m["trunk"], needles=m["needles"],
-                       coll=near if y < 20 else far, seed=seed + k)
-    for k, (d, h, trees) in enumerate(RIDGES):
-        landscape.ridge(f"ridge{k}", m["ridge"], far, d, h, seed=seed * 10 + k, trees=trees, base_z=-2)
-    landscape.mist_layers(far, SKY, MIST, base_z=0.0, density=0.8)
-    landscape.sky("sky", far, horizon=SKY, zenith=ZENITH, distance=600.0)
-    return {"near": near, "far": far, "puddles": puddles, "materials": m}
-
-
-def puddle_outline(radii, seed: int, n: int = 40) -> np.ndarray:
-    """A puddle's wandering edge: n points round an ellipse of `radii`, pushed in and out (unit-free)."""
-    rng = np.random.default_rng(seed)
-    a = np.linspace(0, 2 * math.pi, n, endpoint=False)
-    wob = 1 + 0.16 * np.sin(2 * a + rng.uniform(0, 6)) + 0.09 * np.sin(5 * a + rng.uniform(0, 6))
-    return np.c_[np.cos(a) * radii[0] * wob, np.sin(a) * radii[1] * wob]
-
-
-def puddle(name: str, at, radii, look, *, coll, seed: int = 1, z: float = 0.004):
-    """A puddle lying on the track at `at` (x, y): dark water with rain rings, the sky and whatever stands over it
-    reflected (toon.water)."""
-    from lib import shapes, toon
-
-    ring = puddle_outline(radii, seed)
-    x, y = at
-    verts = [(x, y, z)] + [(x + px, y + py, z) for px, py in ring]
-    faces = [(0, i, i % len(ring) + 1) for i in range(1, len(ring) + 1)]
-    mat = toon.water(f"{name}-water", PUDDLE[0], PUDDLE[1], look=look, rings=1.0, reflect=0.55, scale=0.25)
-    ob = shapes.mesh_object(name, verts, faces, mat, coll, smooth=False)
-    ob.visible_shadow = False
-    return ob
-
 
 # ---- Shinza for the walk
 
@@ -160,14 +43,24 @@ def brim(hat) -> list:
 
 # ---- the walk
 
+def arc(line) -> np.ndarray:
+    """The arc length at each point of a polyline (n, 2)."""
+    P = np.asarray(line, float)
+    return np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
+
+
 @dataclass
 class Gait:
-    """A walk laid down as footfalls. Foot k (0, 1, 2, ...; even ones the right) lands at time t0 + k * step on the
-    point origin + dir * k * stride (+ either side by `width`), flat after `heel` of its cycle, its heel rising from
+    """A walk laid down as footfalls along `line` ((n, 2) points on the ground, in the order walked; or a straight
+    line from `origin` along `dir`). Foot k (0, 1, 2, ...; foot 0 is `first`) lands at time t0 + k * step, `s0 + k *
+    stride` metres along the line (either side of it by `width`), flat after `heel` of its cycle, its heel rising from
     `rise` and its toes leaving the ground at `stance` (of the two-step cycle); then it swings, `lift` high, to its
-    next footfall. Times in seconds, lengths in metres. Pure: positions of feet and hips at any time."""
+    next footfall. `ground(x, y)` is the ground's height (default 0). Times in seconds, lengths in metres. Pure:
+    where the feet and the body are at any time."""
+    line: object = None
     origin: tuple = (0.0, 0.0)
     dir: tuple = (0.0, -1.0)
+    s0: float = 0.0
     t0: float = 0.0
     step: float = 0.62            # seconds a step
     stride: float = 0.7           # metres a step
@@ -178,22 +71,58 @@ class Gait:
     stance: float = 0.6
     strike: float = -14.0         # the foot's pitch at heel strike (degrees, + toes down)
     push: float = 38.0            # ... and at toe off
-    first: str = "right"          # which foot is foot 0
+    first: str = "right"
+    ground: object = None
+    _s: object = field(default=None, repr=False)
 
-    def _d(self):
-        d = np.asarray(self.dir, float)
-        return d / np.linalg.norm(d)
+    def __post_init__(self):
+        if self.line is not None:
+            self.line = np.asarray(self.line, float)
+            self._s = arc(self.line)
 
-    def left_axis(self) -> np.ndarray:
-        d = self._d()
+    def at(self, s: float) -> tuple[np.ndarray, np.ndarray]:
+        """(point (x, y), unit way forward) `s` metres along the line (straight on past its ends)."""
+        if self.line is None:
+            d = np.asarray(self.dir, float)
+            d = d / np.linalg.norm(d)
+            return np.asarray(self.origin, float) + d * s, d
+        P, S = self.line, self._s
+        i = int(np.clip(np.searchsorted(S, s) - 1, 0, len(P) - 2))
+        d = P[i + 1] - P[i]
+        n = np.linalg.norm(d)
+        d = d / n
+        # the way forward eased between segments, so the body turns smoothly at the line's corners
+        u = (s - S[i]) / n
+        if 0 < i and u < 0.5:
+            p = P[i] - P[i - 1]
+            d = d + (p / np.linalg.norm(p) - d) * (0.5 - u)
+        elif i < len(P) - 2 and u > 0.5:
+            q = P[i + 2] - P[i + 1]
+            d = d + (q / np.linalg.norm(q) - d) * (u - 0.5)
+        return P[i] + (P[i + 1] - P[i]) * (s - S[i]) / n, d / np.linalg.norm(d)
+
+    def nearest(self, p) -> float:
+        """The arc length of the line's point nearest `p` (x, y)."""
+        if self.line is None:
+            d = np.asarray(self.dir, float)
+            return float((np.asarray(p, float) - self.origin) @ (d / np.linalg.norm(d)))
+        ss = np.linspace(self._s[0], self._s[-1], int(self._s[-1] / 0.02) + 2)
+        pts = np.array([self.at(s)[0] for s in ss])
+        return float(ss[np.argmin(np.linalg.norm(pts - np.asarray(p, float)[:2], axis=1))])
+
+    def z(self, p) -> float:
+        return float(self.ground(p[0], p[1])) if self.ground is not None else 0.0
+
+    @staticmethod
+    def left_of(d) -> np.ndarray:
         return np.array([-d[1], d[0]])
 
-    def footfall(self, k: int) -> tuple[str, float, np.ndarray]:
-        """(side, time, ground point (x, y)) of foot k."""
+    def footfall(self, k: int) -> tuple[str, float, np.ndarray, np.ndarray]:
+        """(side, time, ground point (x, y), way forward) of foot k."""
         side = self.first if k % 2 == 0 else ("left" if self.first == "right" else "right")
         s = 1.0 if side == "left" else -1.0
-        p = np.asarray(self.origin, float) + self._d() * k * self.stride + self.left_axis() * s * self.width
-        return side, self.t0 + k * self.step, p
+        p, d = self.at(self.s0 + k * self.stride)
+        return side, self.t0 + k * self.step, p + self.left_of(d) * s * self.width, d
 
     def foot(self, side: str, t: float, ankle: float, ball: float) -> tuple[np.ndarray, float]:
         """Where the `side` foot's ankle is at time t ((x, y, z), its ankle `ankle` over the ground when flat and the
@@ -201,44 +130,41 @@ class Gait:
         k0 = 0 if side == self.first else 1
         n = math.floor((t - self.t0 - k0 * self.step) / (2 * self.step))
         k = k0 + 2 * n
-        _, tk, p = self.footfall(k)
-        _, _, q = self.footfall(k + 2)
+        _, tk, p, d = self.footfall(k)
+        _, _, q, _ = self.footfall(k + 2)
         u = (t - tk) / (2 * self.step)
-        d = self._d()
 
         def on_toe(base, pitch):
             # the foot turned about the ball of the foot by `pitch`: the ankle rises and comes forward over it
             a = math.radians(pitch)
             f = -ball * math.cos(a) + ankle * math.sin(a)
             z = ball * math.sin(a) + ankle * math.cos(a)
-            return np.array([*(base + d * (ball + f)), z])
+            return np.array([*(base + d * (ball + f)), z + self.z(base)])
 
         if u < self.heel:
-            pitch = self.strike * (1 - smooth(u / self.heel))
-            return np.array([*p, ankle]), pitch
+            return np.array([*p, ankle + self.z(p)]), self.strike * (1 - smooth(u / self.heel))
         if u < self.rise:
-            return np.array([*p, ankle]), 0.0
+            return np.array([*p, ankle + self.z(p)]), 0.0
         if u < self.stance:
             pitch = self.push * smooth((u - self.rise) / (self.stance - self.rise))
             return on_toe(p, pitch), pitch
         s = (u - self.stance) / (1 - self.stance)
         a0 = on_toe(p, self.push)
-        a1 = np.array([*q, ankle])
-        e = smooth(s)
-        at = a0 + (a1 - a0) * e
+        a1 = np.array([*q, ankle + self.z(q)])
+        at = a0 + (a1 - a0) * smooth(s)
         at[2] += self.lift * math.sin(math.pi * s) ** 0.8
-        pitch = self.push + (self.strike - self.push) * smooth(min(1.0, s * 1.4))
-        return at, pitch
+        return at, self.push + (self.strike - self.push) * smooth(min(1.0, s * 1.4))
 
-    def root(self, t: float) -> np.ndarray:
-        """The body's point on the ground (x, y) at time t: midway between the feet at each strike, on at an even
-        pace."""
+    def root(self, t: float) -> tuple[np.ndarray, np.ndarray]:
+        """The body's point on the ground (x, y) and the way it faces at time t: midway between the feet at each
+        strike, on at an even pace."""
         u = (t - self.t0) / self.step
-        return np.asarray(self.origin, float) + self._d() * self.stride * (u - 0.5)
+        return self.at(self.s0 + self.stride * (u - 0.5))
 
     def phase(self, t: float) -> float:
-        """Where in the two-step cycle the walk is (0 at the first foot's strike, 0.5 at the other's)."""
-        return ((t - self.t0) / (2 * self.step)) % 1.0
+        """Where in the two-step cycle the walk is (0 at the right foot's strike, 0.5 at the left's)."""
+        ph = ((t - self.t0) / (2 * self.step)) % 1.0
+        return ph if self.first == "right" else (ph + 0.5) % 1.0
 
 
 def smooth(u: float) -> float:
@@ -288,72 +214,75 @@ def upper_body(phase: float, *, lean: dict = LEAN, swing: dict = SWING) -> dict:
                 out[f"{side}{f}{j}"] = (0.0, (deg if side == "left" else -deg), 0.0)
     return out
 
-
 def key_walk(ch, gait: Gait, frames, fps: float, *, lean: dict = LEAN, swing: dict = SWING, extra=None) -> dict:
-    """Key the character walking `gait` over film `frames` (film frame f is time f / fps): its root carried down the
-    path facing the way it goes, its feet on their footfalls by IK (no slide), its hips down as far as the legs need
-    and swaying over the foot it stands on, its upper body swinging (`upper_body`). `extra(t)` -> {bone: turn} adds
-    to the pose (a head turned, a hand raised). Returns {frame: (root (x, y), phase)}."""
+    """Key the character walking `gait` over film `frames` (film frame f is time f / fps): its root carried along
+    the line on the ground, turned the way it goes, its feet on their footfalls by IK (no slide), its hips down as
+    far as the legs need and swaying over the foot it stands on, its upper body swinging (`upper_body`). `extra(t)` ->
+    {bone: turn} adds to the pose (a head turned, a hand closing). Returns {frame: (root (x, y, z), way forward,
+    phase)}."""
     import bpy
 
     from lib import vrm
 
-    yaw = math.atan2(gait._d()[1], gait._d()[0])
     root = ch.root
-    root.rotation_euler = (0.0, 0.0, yaw)
+    root.rotation_mode = "XYZ"
     ankle = float(ch.rest("rightFoot")[2])
     ball = abs(float((ch.rest("rightToes") - ch.rest("rightFoot"))[1])) if ch.has("rightToes") else 0.12
     hip_l, hip_r = ch.rest("leftUpperLeg"), ch.rest("rightUpperLeg")
-    leg = 0.985 * (np.linalg.norm(hip_l - ch.rest("leftLowerLeg")) + np.linalg.norm(ch.rest("leftLowerLeg") - ch.rest("leftFoot")))
-    left = gait.left_axis()
-    fwd = gait._d()
+    knee = ch.rest("leftLowerLeg")
+    leg = 0.985 * (np.linalg.norm(hip_l - knee) + np.linalg.norm(knee - ch.rest("leftFoot")))
 
-    def to_char(w, r):
-        """A world point as the character's frame (x its left, y its back) with its root at r (x, y)."""
-        v = np.asarray(w, float) - np.array([*r, 0.0])
-        return np.array([v[:2] @ left, -(v[:2] @ fwd), v[2]])
+    def to_char(w, r, d):
+        """A world point in the character's frame (x its left, y its back) with its root at r facing d."""
+        v = np.asarray(w, float) - r
+        return np.array([v[:2] @ Gait.left_of(d), -(v[:2] @ d), v[2]])
+
+    def pole(a, d):
+        return a + np.array([*d * 0.8, 0.5])
 
     out = {}
-    # the IK set up once (at the first frame's places), then its handles keyed frame by frame
-    t = frames[0] / fps
-    r = gait.root(t)
+    # the IK set up once, then its handles keyed frame by frame
     for side in ("left", "right"):
-        a, _ = gait.foot(side, t, ankle, ball)
-        vrm.reach(ch, f"{side}Foot", to_char(a, r), pole=to_char(a + np.array([*fwd * 0.8, 0.5]), r))
+        vrm.reach(ch, f"{side}Foot", (0.1 if side == "left" else -0.1, 0.0, ankle), pole=(0.0, -0.8, 0.5))
         vrm.hold(ch, f"{side}Foot", (0.0, 0.0, 0.0))
+    yaw_prev = None
     for f in frames:
         t = f / fps
-        r = gait.root(t)
+        rxy, d = gait.root(t)
+        r = np.array([*rxy, gait.z(rxy)])
         ph = gait.phase(t)
-        if gait.first == "left":
-            ph = (ph + 0.5) % 1.0
-        root.location = (r[0], r[1], 0.0)
+        yaw = math.atan2(d[1], d[0])
+        if yaw_prev is not None:                  # no flip at +-pi
+            yaw = yaw_prev + (yaw - yaw_prev + math.pi) % (2 * math.pi) - math.pi
+        yaw_prev = yaw
+        root.location = tuple(r)
+        root.rotation_euler = (0.0, 0.0, yaw)
         root.keyframe_insert("location", frame=f)
+        root.keyframe_insert("rotation_euler", frame=f)
         ankles, pitches = {}, {}
         for side in ("left", "right"):
             ankles[side], pitches[side] = gait.foot(side, t, ankle, ball)
         sway = -swing["sway"] * math.sin(2 * math.pi * ph)
-        hips_xy = np.array([sway, 0.0])
-        joints = [np.array([*(r + left * (hip_l[0] + sway)), hip_l[2]]), np.array([*(r + left * (hip_r[0] + sway)), hip_r[2]])]
+        lft = Gait.left_of(d)
+        joints = [np.array([*(rxy + lft * (h[0] + sway)), r[2] + h[2]]) for h in (hip_l, hip_r)]
         drop = hips_drop(np.array(joints), [ankles["left"], ankles["right"]], leg) + swing["sink"]
         pose = upper_body(ph, lean=lean, swing=swing)
         for side in ("left", "right"):
             pose[f"{side}Toes"] = (-max(0.0, pitches[side]) * 0.9, 0.0, 0.0)
         if extra is not None:
             pose.update(extra(t))
-        vrm.pose(ch, pose, hips=(hips_xy[0], 0.0, -drop), frame=f)
+        vrm.pose(ch, pose, hips=(sway, 0.0, -drop), frame=f)
         for side in ("left", "right"):
             a = ankles[side]
             tgt = ch.handles[f"{side}Foot-target"]
-            tgt.location = ch.to_armature(to_char(a, r))
+            tgt.location = ch.to_armature(to_char(a, r, d))
             tgt.keyframe_insert("location", frame=f)
-            pole = ch.handles[f"{side}Foot-pole"]
-            pole.location = ch.to_armature(to_char(a + np.array([*fwd * 0.8, 0.5]), r))
-            pole.keyframe_insert("location", frame=f)
-            hold = ch.handles[f"{side}Foot-hold"]
+            pl = ch.handles[f"{side}Foot-pole"]
+            pl.location = ch.to_armature(to_char(pole(a, d), r, d))
+            pl.keyframe_insert("location", frame=f)
             vrm.hold(ch, f"{side}Foot", (pitches[side], 0.0, 0.0))
-            hold.keyframe_insert("rotation_quaternion", frame=f)
-        out[f] = (tuple(r), ph)
+            ch.handles[f"{side}Foot-hold"].keyframe_insert("rotation_quaternion", frame=f)
+        out[f] = (tuple(r), tuple(d), ph)
     bpy.context.view_layer.update()
     return out
 
@@ -552,46 +481,44 @@ def paint(actors: dict, toward: dict, *, coll, tones: dict | None = None, tones_
 
 @dataclass
 class Stage:
-    """What `stage` built: the path, the light, the rain and Shinza, ready for a shot's camera."""
-    look: object          # toon.Look
-    set: dict
-    sun: object
+    """What `stage` built: the world, the rain and Shinza, ready for a shot's camera."""
+    world: dict           # rf/set_world.build's
     rain: object
     cast: object          # the cast's collection (satsuei)
     shinza: dict
     key: object           # his own key light (toon3d)
 
+    @property
+    def look(self):
+        return self.world["look"]
 
-def stage(ctx, *, rain_box, rain_near: float, rain_clear: float, key_toward, fog=(12.0, 220.0, 0.9, 0.6)) -> Stage:
-    """The path in the rain with Shinza on it, lit and painted from the look schedule (ctx.look_at): the world's
-    sun from the upper left behind the camera, the rain filling `rain_box` (min, max) at the schedule's density (its
-    drops shrinking within `rain_near` of the lens, none within `rain_clear`), and a copy of it in the cast's layer;
-    his own key from `key_toward` (world). `fog`: the Look's (near, far, max, power)."""
-    import bpy
-    from mathutils import Vector
+    def ground(self, x, y) -> float:
+        from rf import set_valley
 
+        return float(set_valley.ground(x, y))
+
+    def path(self) -> np.ndarray:
+        """The path's line, in the order he walks it (from down the bank up to the jetty)."""
+        from rf import set_approach
+
+        return set_approach.path_xy(240)
+
+
+def stage(ctx, *, rain_box, rain_near: float, rain_clear: float, key_toward, ink: float | None = None) -> Stage:
+    """The world (rf/set_world.py, its weather from the look schedule) with Shinza in it: the rain filling
+    `rain_box` (min, max) at the schedule's density (its drops shrinking within `rain_near` of the lens, none within
+    `rain_clear`) and a copy of it in the cast's layer; Shinza painted with his own key from `key_toward` (world);
+    the near set inked `ink` metres (None: none, a close shot's set is out of focus)."""
     from lib import toon
+    from rf import set_world
 
     scene = ctx.scene
     scene.render.use_motion_blur = False
-    scene.eevee.use_shadows = True
-    scene.eevee.use_raytracing = True
     scene.view_settings.view_transform = "Standard"
+    world = set_world.build(ctx)
+    if ink:
+        toon.ink("ink-near", world["near"], radius=ink, crease=150)
     s = ctx.look_at(ctx.f0)
-    bg = scene.world.node_tree.nodes.get("Background")
-    bg.inputs[0].default_value = (*s.light.ambient, 1)
-
-    look = toon.Look(fog=tuple(s.light.fog), fog_near=fog[0], fog_far=fog[1], fog_max=fog[2], fog_power=fog[3])
-    world = path_set(look)
-
-    sun = bpy.data.lights.new("key", "SUN")
-    sun.angle = math.radians(3)
-    sun.energy = 4.2 * s.light.key_strength
-    sun.color = tuple(s.light.key)
-    key = bpy.data.objects.new("key", sun)
-    toon.collection("world-light").objects.link(key)
-    key.rotation_euler = Vector((-0.45, -0.6, 0.75)).to_track_quat("-Z", "Y").to_euler()
-
     lo, hi = np.asarray(rain_box[0], float), np.asarray(rain_box[1], float)
     # the schedule's count is for the standoff's box: as many to the cubic metre here
     count = round(s.rain.drops / (13.0 * 15.6 * 6.1) * float(np.prod(hi - lo))) if s.rain.falling else 0
@@ -599,10 +526,11 @@ def stage(ctx, *, rain_box, rain_near: float, rain_clear: float, key_toward, fog
                      length=s.rain.length, width=s.rain.width, color=tuple(s.rain.color), alpha=s.rain.alpha,
                      seed=4, near=rain_near, clear=rain_clear)
     cast = toon.collection("cast")
+    look = world["look"]
     shinza = walker(cast, toon.Look(fog=look.fog, fog_near=look.fog_near, fog_far=look.fog_far, fog_max=look.fog_max,
                                     fog_power=look.fog_power))
     keys = paint({"shinza": shinza}, {"shinza": key_toward}, coll=cast)
     rain_cast = rain.copy()
     rain_cast.name = "rain-cast"
     cast.objects.link(rain_cast)
-    return Stage(look, world, sun, rain, cast, shinza, keys["shinza"])
+    return Stage(world, rain, cast, shinza, keys["shinza"])
