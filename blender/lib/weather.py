@@ -613,7 +613,10 @@ def haze(ctx, rig, *, density=0.02, color=(0.6, 0.63, 0.68), anisotropy: float =
     for f in rig.frames:
         vol.inputs["Density"].default_value = value_at(density, (f - ctx.f0) / ctx.fps)
         vol.inputs["Density"].keyframe_insert("default_value", frame=f)
-    ctx.scene.eevee.volumetric_end = reach
+    ev = ctx.scene.eevee
+    ev.volumetric_end = reach
+    if hasattr(ev, "use_volumetric_shadows"):
+        ev.use_volumetric_shadows = True     # the sun's shadows in the haze: shafts behind what blocks it
     return ob
 
 
