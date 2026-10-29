@@ -53,7 +53,8 @@ def build(ctx):
     scene.render.use_motion_blur = False
     world = set_world.build(ctx)
     look = world["look"]
-    toon.ink("ink-near", world["near"], radius=0.0028, crease=150)
+    # no line art on the set: behind the crow it is all in the depth of field's blur, and Line Art over the whole near
+    # set was most of a frame's time; the crow is inked (below)
     fps = ctx.fps
 
     def T(f):
