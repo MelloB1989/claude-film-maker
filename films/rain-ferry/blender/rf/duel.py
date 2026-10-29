@@ -1,5 +1,5 @@
 """The duel's stage, shared by its shots (shots/rise.py, standoff_vroid.py, eye_s.py, eye_t.py, freeze.py): the
-crossing in the downpour (rf/sets.py), the 3D cast at their marks on the jetty (rf/vroid_cast.py) painted as anime
+crossing in the downpour (rf/set_world.py, the world every shot shares), the 3D cast at their marks on the jetty (rf/vroid_cast.py) painted as anime
 (blender/lib/toon3d.py) with a key of their own each, the rain falling in front of them, and the compositing that lays
 them over the world (blender/lib/satsuei.py). A shot builds the stage, then keys its camera, its cast's acting and its
 light frame by frame with the helpers here; the motion itself is rf/duel_motion.py's (pure, tested).
@@ -69,24 +69,24 @@ class Stage:
     ink: object | None = None
     flash: dict = field(default_factory=dict)   # film frame -> the lightning's flash, 0..1
     bodies: dict = field(default_factory=dict)  # name -> Body
+    sun_base: float = 4.2                        # the world's key as the weather set it
 
     def ch(self, name: str):
         return self.actors[name]["vrm"]
 
 
 def stage(ctx, *, who=("shinza", "tsuru"), rain: dict | None = None, frozen: bool = False, ink: float | None = 0.0042,
-          lightning=None, splashes: bool = True, sun_energy: float = 4.2) -> Stage:
+          lightning=None, splashes: bool = True) -> Stage:
     """The crossing with `who` at their marks, painted, under the rain (`rain`: RAIN's fields overridden; `frozen`:
     the drops hang where they are), the near set inked (`ink`: Line Art radius, m; None for none), lightning striking
     at `lightning` (s into the shot; default the look schedule's). The rain, the world's light and the keys' colour are
 the look schedule's (data/look.json, ctx.look_at) at the shot's first frame. The camera, the acting and the
 compositing are the shot's."""
     import bpy
-    from mathutils import Vector
 
     from lib import toon, toon3d, vrm
 
-    from . import sets, vroid_cast
+    from . import set_world, sets, vroid_cast
 
     scene = ctx.scene
     sched = ctx.look_at(ctx.f0)
@@ -94,26 +94,14 @@ compositing are the shot's."""
     if lightning is None:
         lightning = ctx.look.lightning
     scene.render.use_motion_blur = False   # drawn animation has no shutter (and the rain's drops wrap)
-    scene.eevee.use_shadows = True
-    scene.eevee.use_raytracing = True
-    scene.view_settings.view_transform = "Standard"
-    bg = scene.world.node_tree.nodes.get("Background")
-    bg.inputs[0].default_value = (*light.ambient, 1)   # a dim ambient: the cel bands come from the keys
-
-    look = toon.Look(fog=sets.SKY, fog_near=18.0, fog_far=480.0, fog_max=0.9, fog_power=0.65)
-    crossing = sets.crossing(look)
+    # the world every shot shares (rf/set_world.py): staged and lit for the schedule's weather, its key sun lighting
+    # the set alone (the cast have keys of their own)
+    crossing = set_world.build(ctx)
+    look = crossing["look"]
     ink_ob = toon.ink("ink-near", crossing["near"], radius=ink, crease=150) if ink else None
+    sun = crossing["key"].data
+    sun_base = sun.energy
 
-    # the world's key: overcast light from the upper left, behind the wide's shoulder
-    sun = bpy.data.lights.new("key", "SUN")
-    sun.angle = math.radians(3)
-    sun.energy = sun_energy * light.key_strength
-    sun.color = light.key
-    key = bpy.data.objects.new("key", sun)
-    scene.collection.objects.link(key)
-    key.rotation_euler = Vector((0.55, 0.45, -0.7)).to_track_quat("-Z", "Y").to_euler()
-
-    sr = sched.rain
     r = {**RAIN, **dict(count=sr.drops, speed=sr.speed, wind=sr.wind, length=sr.length, width=sr.width,
                         color=sr.color, alpha=sr.alpha), **(rain or {})}
     rain_ob = toon.rain("rain", r["box_min"], r["box_max"], count=r["count"], speed=r["speed"], wind=r["wind"],
@@ -123,7 +111,6 @@ compositing are the shot's."""
     cast = toon.collection("cast")
     cast_look = toon.Look(fog=look.fog, fog_near=look.fog_near, fog_far=look.fog_far, fog_max=look.fog_max,
                           fog_power=look.fog_power)
-    toon.move_to(key, toon.collection("world-light"))   # the sun lights the set alone; each of the cast has a key
     actors, keys = {}, {}
     for name in who:
         actors[name] = built = getattr(vroid_cast, name)(cast, cast_look)
@@ -151,7 +138,7 @@ compositing are the shot's."""
     frames = range(ctx.f0 - 1, ctx.f1 + 1)
     flash = (toon.lightning(scene, list(lightning), frames, ctx.fps, ctx.f0) if lightning
              else {f: 0.0 for f in frames})
-    st = Stage(ctx, scene, crossing, look, cast, actors, keys, sun, rain_ob, rain_cast, ink_ob, flash)
+    st = Stage(ctx, scene, crossing, look, cast, actors, keys, sun, rain_ob, rain_cast, ink_ob, flash, sun_base=sun_base)
     for name in actors:
         st.bodies[name] = Body(st.ch(name))
     return st
@@ -237,7 +224,7 @@ def key_light(st: Stage, f: int, toward: dict) -> None:
 
     for name, d in toward.items():
         toon3d.aim(st.keys[name], d, frame=f)
-    st.sun.energy = (4.2 + 8.0 * st.flash.get(f, 0.0)) * st.ctx.look_at(f).light.key_strength
+    st.sun.energy = st.sun_base * (1.0 + 1.9 * st.flash.get(f, 0.0))
     st.sun.keyframe_insert("energy", frame=f)
 
 

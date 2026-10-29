@@ -32,7 +32,7 @@ SMILE = (3.15, 3.7, 0.45)
 # the pole (her frame), the feet a little forward
 SEAT = dict(hips=(0.0, 0.1, -0.31), crate=0.4, left=(-0.08, -0.12, -0.18), feet=(0.0, -0.06, 0.0), lean=7.0)
 GRIP0 = (-0.21, -0.3, 0.5)
-POLE_FOOT0 = (3.4, 1.72, -0.22)   # world: in the boat's bow, under the gunwale
+POLE_FOOT0 = (0.35, -0.25, 0.05)   # from the boat's stern (rf/set_jetty.py's anchor): lying in the boat
 LOOK = dict(rims=[((-1.0, 0.4), (0.95, 0.58, 0.26), 0.18, 0.0025, 0.9), ((0.6, 1.0), (0.6, 0.68, 0.85), 0.3, 0.003, 0.9)],
             para_from=(0.3, 0.9), para_to=(0.85, 0.1), para_amount=0.35)
 KEYS = {"shinza": (1.0, -0.6, 0.7), "tsuru": (-1.0, -0.5, 0.7)}
@@ -44,7 +44,7 @@ def build(ctx):
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import satsuei, shapes, vrm, vrm_rig
-    from rf import duel
+    from rf import duel, set_world
     from rf.vroid_common import to_frame
     from rf import duel_motion as dm
 
@@ -80,7 +80,9 @@ def build(ctx):
     shaft.matrix_world = w
     grip1 = np.array(ch.world((-0.24, -0.2, 0.98)))              # her hand on it as built (rf/vroid_tsuru.py)
     grip0 = np.array(ch.world(GRIP0))
-    foot0 = np.array(POLE_FOOT0)
+    stern = np.array(set_world.anchor(st.crossing, "boat_stern"))
+    foot0 = stern + np.array(POLE_FOOT0)
+    print(f"rise: the boat's stern at {np.round(stern, 2)}, the pole's foot from {np.round(foot0, 2)} to {np.round(foot1, 2)}")
     up = np.array([0.0, 0.0, 1.0])
     dir0 = (grip0 - foot0) / np.linalg.norm(grip0 - foot0)
     along0, along1 = float(np.linalg.norm(grip0 - foot0)), float(grip1[2] - foot1[2])
