@@ -32,6 +32,7 @@ MARKS = {"shinza": (2.2, 0.0), "tsuru": (6.7, 0.05)}
 MID = ((MARKS["shinza"][0] + MARKS["tsuru"][0]) / 2, 0.0)
 TURNS = {"shinza": 0.0, "tsuru": math.pi + 0.3}    # Tsuru turned 0.3 rad from him toward the -y side
 OUTLINE = 0.0018      # the cast's outline, in frame heights
+INK_REACH = 13.0      # m: the near set's line art drawn this far round the duel (`near_duel`)
 KEY_ANGLE = 5.0       # degrees: an overcast key's soft-edged shadows
 # how each part is painted (toon3d.Tone's fields), as the standoff's cels are: rain-cooled shades (skin to a mauve,
 # cloth and hair to a slate blue), a deep 2nd shade in the creases, the face kept a little more lit, wet cloth and
@@ -93,11 +94,7 @@ def stage(ctx, *, who=("shinza", "tsuru"), ink: float | None = 0.0042) -> Stage:
     # the set alone (the cast have keys of their own)
     crossing = set_world.build(ctx)
     look = crossing["look"]
-    import os
-
-    if os.environ.get("RF_PROFILE_NOINK"):      # profiling only: what the near set's line art costs a frame
-        ink = None
-    ink_ob = toon.ink("ink-near", crossing["near"], radius=ink, crease=150) if ink else None
+    ink_ob = toon.ink("ink-near", near_duel(crossing["near"]), radius=ink, crease=150) if ink else None
 
     cast = toon.collection("cast")
     cast_look = toon.Look(fog=look.fog, fog_near=look.fog_near, fog_far=look.fog_far, fog_max=look.fog_max,
@@ -119,6 +116,25 @@ def stage(ctx, *, who=("shinza", "tsuru"), ink: float | None = 0.0042) -> Stage:
     for name in actors:
         st.bodies[name] = Body(st.ch(name))
     return st
+
+
+def near_duel(near, reach: float = INK_REACH):
+    """The near set's objects within `reach` metres of the duel (their bounds' middles): what its line art draws. The
+    whole near set (the path, the bank, the far end of the jetty) costs the Line Art minutes to build and seconds a
+    frame for lines too far off to read. A collection of its own (the objects linked there too, not moved)."""
+    from mathutils import Vector
+
+    from lib import toon
+
+    coll = toon.collection("ink-duel")
+    mid = Vector((MID[0], MID[1], 0.0))
+    for ob in near.all_objects:
+        if ob.type not in ("MESH", "CURVE"):
+            continue
+        c = sum((ob.matrix_world @ Vector(b) for b in ob.bound_box), Vector()) / 8
+        if (c - mid).length <= reach:
+            coll.objects.link(ob)
+    return coll
 
 
 def weather(st: Stage, rig, *, splashes: bool = True, **kw):

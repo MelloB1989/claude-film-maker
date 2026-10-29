@@ -26,7 +26,7 @@ def build(ctx):
         return {"tsuru-calm": 1.0 - k, "tsuru-glare": k}
 
     xcu.build(ctx, xcu.Closeup(
-        who="tsuru", bearing=28.0, height=0.03, lens=100.0, fstop=5.0, lift=0.004, side=0.006,
+        who="tsuru", bearing=28.0, height=0.05, lens=100.0, fstop=6.3, lift=0.006, side=0.01,
         dz=-0.003, beats=(0.15,), pulse=0.035, face=face, breath=(0.2, 0.7),
         drops=[xcu.Drop([(0.3, 0.98), (0.31, 0.78), (0.28, 0.6), (0.27, 0.38), (0.3, 0.15), (0.31, 0.0)],
                         start=0.2, length=1.7, size=0.0015)],

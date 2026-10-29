@@ -90,7 +90,10 @@ def build(ctx, c: Closeup) -> None:
     out = basis(front, c.bearing)
     # the eye toward the lens, its surface before its pivot
     mid = (eyes_at["leftEye"] + eyes_at["rightEye"]) / 2
-    eye0 = max(eyes_at.values(), key=lambda p: float((p - mid) @ out)) + front * 0.012
+    near_eye = max(eyes_at.values(), key=lambda p: float((p - mid) @ out))
+    # the visible iris (the bone's pivot is the eyeball's middle, deep in the head: at 20 cm through a long lens a
+    # few millimetres off it is all blur): the middle of the iris's faces on that side, as posed
+    eye0 = iris(ch, near_eye, mid)
     d0 = c.height / BAND * c.lens / GATE_H                  # the lens's distance for the band's height at the eye
     up = np.array([0.0, 0.0, 1.0])
     right = np.cross(-out, up)
@@ -165,6 +168,34 @@ def build(ctx, c: Closeup) -> None:
         duel.key_light(st, f, {c.who: c.key})
         comp.key(f, duel.look(st, f, c.look))
     comp.hold()
+
+
+def iris(ch, eye, mid) -> np.ndarray:
+    """The middle of the iris of the eye whose pivot is `eye` (world, as posed): the faces of the face's iris material
+    (VRoid's ..._EyeIris) on that side of `mid`; the pivot pushed out to the surface if the model has none."""
+    import bpy
+
+    bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get()
+    side = np.asarray(eye, float) - np.asarray(mid, float)
+    pts = []
+    for ob in ch.meshes:
+        slots = [i for i, s in enumerate(ob.material_slots) if s.material is not None and "EyeIris" in s.material.name]
+        if not slots:
+            continue
+        ev = ob.evaluated_get(dg)
+        me = ev.to_mesh()
+        m = np.array(ob.matrix_world)
+        for poly in me.polygons:
+            if poly.material_index in slots:
+                c = m[:3, :3] @ np.array(poly.center) + m[:3, 3]
+                if (c - mid) @ side > 0:
+                    pts.append(c)
+        ev.to_mesh_clear()
+    if not pts:
+        print("eye_closeup: no iris faces found; framing the eye's pivot")
+        return np.asarray(eye, float)
+    return np.mean(pts, axis=0)
 
 
 def _run(t: float, drop: Drop) -> float:
