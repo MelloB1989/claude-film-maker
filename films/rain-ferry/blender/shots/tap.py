@@ -21,10 +21,12 @@ from rf import jetty_talk as jt  # noqa: E402
 
 SHOT = {"scene": "tap"}
 
-CAM = [(0.0, (6.62, -2.22, 0.98), (7.12, -0.72, 0.86)),
-       (6.0, (6.78, -2.02, 1.0), (7.08, -0.68, 0.9))]
-LENS = [(0.0, 50.0), (6.0, 52.0)]
-FSTOP = [(0.0, 2.8)]
+# the camera: side-on to the line from her face to the post (the river and the far bank behind), her head in the
+# frame's left third and the post's crown in its right; it drifts slowly in along that line's normal
+CAM_SIDE = -140.0            # degrees: where the camera stands from the middle of her face and the post
+CAM_DIST, CAM_Z = (1.75, 1.5), (0.93, 0.95)
+LENS = [(0.0, 40.0), (6.0, 42.0)]
+FSTOP = [(0.0, 3.2)]
 TAPS = (0.25, 0.62)          # s into the shot: the bowl strikes the post (pipe_tap's two knocks, from 42.05 s)
 STRIKE = (0.07, 0.12)        # each knock: down this long, back up this long (s)
 LIFT = 0.07                  # the bowl's height over the post between knocks (m)
@@ -36,14 +38,19 @@ ASH = 7                      # flecks of ash knocked out at each knock
 
 
 def build(ctx):
-    st = jt.stage(ctx, who=("tsuru",), rain_box=((5.4, -3.0, -0.6), (10.5, 7.0, 3.8)), clear=0.8, near=2.5)
+    st = jt.stage(ctx, who=("tsuru",), rain_box=((5.4, -3.0, -0.6), (10.5, 7.0, 3.8)), clear=1.2, near=3.0)
     jt.compose_faces(st)
     lines = st.line("L07")
     post = jt.post_top(st)
     perform(st, lines, post)
     ash(st, post)
-    shot = jt.Shot(CAM, LENS, FSTOP, breath=0.003)
     head = st.tracked_focus("tsuru")
+    mid = (head(ctx.f0) + post) / 2
+    side = np.radians(CAM_SIDE)
+    out = np.array((np.cos(side), np.sin(side), 0.0))
+    path = [(0.0, (*(mid[:2] + out[:2] * CAM_DIST[0]), CAM_Z[0]), tuple(mid + (0, 0, 0.02))),
+            (6.0, (*(mid[:2] + out[:2] * CAM_DIST[1]), CAM_Z[1]), tuple(mid + (0, 0, 0.04)))]
+    shot = jt.Shot(path, LENS, FSTOP, breath=0.003)
     # the focus on the bowl through the knocks, racking to her face as the pipe goes down
     st.camera(shot, lambda f: _rack(st, f, post, head))
     jt.outline(st, shot)

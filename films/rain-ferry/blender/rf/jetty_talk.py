@@ -602,7 +602,7 @@ def hold_pipe(st: Stage, f: int, point, along) -> None:
     """Key Tsuru's left fist round her pipe through `point` along `along` (bowl-ward), her frame: the palm in toward
     her and up a little, as rf/vroid_tsuru.py's builder closed it."""
     d = np.asarray(along, float) / np.linalg.norm(along)
-    st.grip("tsuru", "left", f, point, -d, flat_palm(d, (-0.5, 0.0, 0.8)), (0.5, 0.4, 0.7))
+    st.grip("tsuru", "left", f, point, -d, flat_palm(d, (-0.5, 0.0, 0.8)), (0.3, 0.6, 0.45))   # the elbow back, by her side
 
 
 def knee_hand(st: Stage, f: int) -> None:
