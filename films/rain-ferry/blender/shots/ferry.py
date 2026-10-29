@@ -26,8 +26,9 @@ from rf import jetty_talk as jt  # noqa: E402
 
 SHOT = {"scene": "ferry"}
 
-# the camera: rf/set_world.py's "ferry" view, easing in and down a step over the shot
-CAM = ((-15.5, -11.5, 3.6), (-14.6, -10.7, 3.3), (2.0, 4.0, 0.0), (2.4, 3.7, 0.15))   # camera from, to; aim from, to
+# the camera: from rf/set_world.py's "ferry" view a little to the right (a near tree's crown off the frame's corner),
+# easing in and down over the shot
+CAM = ((-14.0, -12.0, 3.4), (-12.7, -10.8, 3.1), (2.8, 3.4, 0.1), (3.2, 3.1, 0.25))   # camera from, to; aim from, to
 LENS = (26.0, 27.0)
 FSTOP = 8.0
 FOCUS = 22.0                # m: deep focus on the whole crossing
