@@ -329,12 +329,16 @@ class Stage:
 
 
 def stage(ctx, *, who=("shinza", "tsuru"), rain_box=((2.0, -4.5, -0.6), (10.0, 4.0, 4.0)), clear: float = 0.9,
-          near: float = 3.0, ink: float = 0.0035, lantern_near: float | None = None) -> Stage:
+          near: float = 3.0, ink: float = 0.0035, lantern_near: float | None = None, variant: dict | None = None,
+          place: dict | None = None) -> Stage:
     """The scene for one of the four shots: the crossing, its light and weather at the shot's place in the look
     schedule, the cast in `who` staged and painted, and a camera (keyed by the shot: Stage.camera). `rain_box` (world
     min, max) is where the rain falls (its count from the schedule's density over the standoff's volume), none within
     `clear` of the lens; `ink` is the near set's line art (m; 0 none); `lantern_near` dims the hut's lantern (an
-    emission strength) for a shot it sits by a head in."""
+    emission strength) for a shot it sits by a head in. `variant` ({name: {kwarg: value}}) changes a character's
+    rf/vroid_cast.py variant over VARIANT's (ask: his kasa on, her pipe in her mouth); `place` ({name: (at, facing)
+    or None}) stands a character elsewhere than this scene's mark, or (None) leaves it where it was built, for the
+    shot to key (ask: he walks up)."""
     import sys
 
     import bpy
@@ -374,7 +378,7 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain_box=((2.0, -4.5, -0.6), (10.0, 4
     so = _standoff()
     cast = {}
     for name in who:
-        built = getattr(vroid_cast, name)(cast_coll, cast_look, **VARIANT[name])
+        built = getattr(vroid_cast, name)(cast_coll, cast_look, **{**VARIANT[name], **(variant or {}).get(name, {})})
         cast[name] = built
         built["key"] = toon3d.key(f"{name}-key", [built["root"], *built["root"].children_recursive], (1.0, -0.3, 0.8),
                                   coll=cast_coll, angle=so.KEY3D_ANGLE, color=tuple(s.light.key))
@@ -399,7 +403,7 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain_box=((2.0, -4.5, -0.6), (10.0, 4
 
     st = Stage(ctx, crossing=crossing, cast=cast, cast_coll=cast_coll, sun=sun, rain=rain, cam=cam, aim=aim,
                focus=focus, look=look, standoff=so)
-    place_cast(st)
+    place_cast(st, place)
     # the lantern swings in the wind all through
     lantern = crossing["lantern"]
     for f in st.frames():
@@ -456,9 +460,9 @@ def flat_palm(along, toward=(1.0, 0.0, 0.0)) -> np.ndarray:
 
 # ---------------------------------------------------------------------------------------------------- the cast
 
-def place_cast(st: Stage) -> None:
+def place_cast(st: Stage, place: dict | None = None) -> None:
     """The cast where this scene has them: her on her crate turned out past the post, her pole in the boat; him
-    behind her right shoulder, facing her."""
+    behind her right shoulder, facing her. `place` overrides a mark ({name: (at, facing)}) or skips it (None)."""
     import bpy
 
     from lib import shapes
@@ -466,17 +470,20 @@ def place_cast(st: Stage) -> None:
     from .vroid_common import move
     from .vroid_tsuru import SEAT
 
-    for name, at, facing in (("tsuru", TSURU_AT, TSURU_FACING), ("shinza", SHINZA_AT, SHINZA_FACING)):
-        if name in st.cast:
+    marks = {"tsuru": (TSURU_AT, TSURU_FACING), "shinza": (SHINZA_AT, SHINZA_FACING), **(place or {})}
+    for name, mark in marks.items():
+        if name in st.cast and mark is not None:
+            at, facing = mark
             root = st.cast[name]["root"]
             root.location = (at[0], at[1], 0.0)
             root.rotation_euler = (0.0, 0.0, math.radians(facing))
     bpy.context.view_layer.update()
     if "tsuru" in st.cast:
-        back = _turn_z(TSURU_FACING) @ np.array([-1.0, 0.0, 0.0])
-        cx, cy = np.array(TSURU_AT) + back[:2] * CRATE_BACK
+        t_at, t_facing = marks["tsuru"] or (TSURU_AT, TSURU_FACING)
+        back = _turn_z(t_facing) @ np.array([-1.0, 0.0, 0.0])
+        cx, cy = np.array(t_at) + back[:2] * CRATE_BACK
         shapes.box("crate", (cx, cy, SEAT / 2 - 0.012), (*CRATE, SEAT), material=st.crossing["materials"]["plank"],
-                   coll=st.crossing["near"], rot_z=math.radians(TSURU_FACING) + 0.08)
+                   coll=st.crossing["near"], rot_z=math.radians(t_facing) + 0.08)
         pole = st.cast["tsuru"]["parts"]["pole"]
         if pole:
             ob = pole[0]
@@ -605,11 +612,33 @@ def knee_hand(st: Stage, f: int) -> None:
             (-0.5, 0.6, 0.9))
 
 
-def tsuru_rest(st: Stage, f: int, t: float, **sit) -> None:
-    """Tsuru still on her crate: her pipe resting over her left knee, her right hand on her right knee."""
-    st.pose("tsuru", f, {**tsuru_sit(t, **sit), **fingers("left", 0.85), **fingers("right", 0.35)},
-            hips=tsuru_hips(st, t))
-    hold_pipe(st, f, *TS_PIPE_LAP)
+def pipe_at_lips(st: Stage, pose: dict, hips) -> tuple:
+    """(fist, along) for her pipe's mouthpiece at her lips, her head as `pose` holds it (her frame): from the left
+    corner of her mouth forward, down and out (rf/vroid_tsuru.py's PIPE_MOUTH), her fist on the stem."""
+    from lib import vrm
+
+    from .vroid_tsuru import PIPE_MOUTH
+
+    ch = st.cast["tsuru"]["vrm"]
+    vrm.pose(ch, pose, hips=hips)
+    eyes = local(ch, ch.face())
+    head = np.array(ch.point("head", tail=True)) - np.array(ch.point("head"))
+    up = local_dir(ch, head / np.linalg.norm(head))
+    fwd = np.cross(up, (1.0, 0.0, 0.0))                  # her face's forward (-y at rest), tipped with her head
+    lips = eyes - up * 0.07 + fwd / np.linalg.norm(fwd) * 0.035 + np.array((0.012, 0.0, 0.0))
+    way = np.asarray(PIPE_MOUTH["way"], float)
+    way /= np.linalg.norm(way)
+    return lips + way * 0.09, way
+
+
+def tsuru_rest(st: Stage, f: int, t: float, *, smoking: bool = False, **sit) -> None:
+    """Tsuru still on her crate: her pipe resting over her left knee (or at her lips, `smoking`), her right hand on
+    her right knee."""
+    pose = {**tsuru_sit(t, **sit), **fingers("left", 0.85), **fingers("right", 0.35)}
+    hips = tsuru_hips(st, t)
+    hold = pipe_at_lips(st, pose, hips) if smoking else TS_PIPE_LAP
+    st.pose("tsuru", f, pose, hips=hips)
+    hold_pipe(st, f, *hold)
     knee_hand(st, f)
     st.face("tsuru", f, {"s4-calm": 1.0})
 

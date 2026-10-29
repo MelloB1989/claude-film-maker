@@ -86,4 +86,4 @@ def perform(st, lines):
         st.face("shinza", f, {"glare": 1.0, "narrow": narrow, "blink": jt.blink(t, BLINKS),
                               **jt.mouth_weights(t, speak, seed=5)})
         if "tsuru" in st.cast:
-            jt.tsuru_rest(st, f, t)
+            jt.tsuru_rest(st, f, t, smoking=True)     # still smoking, as refuse leaves her
