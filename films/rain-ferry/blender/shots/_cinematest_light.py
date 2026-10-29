@@ -1,5 +1,5 @@
 """A test of the weather kit after the rain (blender/lib/weather.py), not a shot of the film: 25 light's 5 s on the
-jetty, the camera low by the bank looking down the river into the low sun, shafts of it breaking through the lifting
+jetty, the camera low by the bank looking out across the river with the low sun off to its left, shafts of it breaking through the lifting
 mist (weather.sun_beams) and a warm volumetric haze in the air (weather.haze) that the light scatters in, the beams
 brightening in as the cloud opens.
 
@@ -27,13 +27,13 @@ def build(ctx):
     world = set_world.build(ctx, weather="after")
     toon.ink("ink-near", world["near"], radius=0.0042, crease=150)
     rig = cinema.film(ctx, [
-        cinema.Setup("down-river", 0.0, cinema.drift(cinema.push((-3.2, -5.4, 1.5), (5.0, 26.0, 4.2), 1.4), 0.03),
+        cinema.Setup("down-river", 0.0, cinema.drift(cinema.push((-6.0, -4.5, 1.6), (30.0, 19.5, 5.0), 1.4), 0.03),
                      lens=28, fstop=5.6, focus=(1.5, 2.0, 0.6), shake=cinema.Shake(breath=0.05)),
     ], clip=(0.02, 4000.0))
     weather.storm(ctx, rig, rain=0.0, mist=0.7, ground=sets.WATER_Z)
     weather.haze(ctx, rig, density=0.012, color=(0.95, 0.85, 0.7), anisotropy=0.55)
-    weather.sun_beams("beams", BEAMS_FROM, SUN, spread=(34.0, 12.0), length=95.0, count=8, width=(3.0, 12.0),
-                      color=WARM, strength=0.4)
+    weather.sun_beams("beams", BEAMS_FROM, SUN, spread=(34.0, 12.0), length=95.0, count=9, width=(2.0, 7.0),
+                      color=WARM, strength=0.55)
     for f, v in ((ctx.f0, 0.25), (ctx.f0 + round(2.5 * ctx.fps), 1.0)):    # the cloud opening
         scene["beams"] = v
         scene.keyframe_insert('["beams"]', frame=f)
