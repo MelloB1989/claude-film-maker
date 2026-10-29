@@ -82,12 +82,19 @@ def build(ctx, c: Closeup) -> None:
 
     root = st.actors[c.who]["root"]
     turn = root.rotation_euler[2]
-    front = np.array([math.cos(turn), math.sin(turn), 0.0])
+    body_front = np.array([math.cos(turn), math.sin(turn), 0.0])
+    # the face's own front (the head turns from the body): square to the line between the eyes, level
+    eyes_at = {e: np.array(ch.point(e)) for e in ("leftEye", "rightEye")}
+    across = eyes_at["leftEye"] - eyes_at["rightEye"]
+    front = np.cross(across, (0.0, 0.0, 1.0))
+    front[2] = 0.0
+    front /= np.linalg.norm(front)
+    if front @ body_front < 0:
+        front = -front
     out = basis(front, c.bearing)
-    # the eye toward the lens (the VRM's left and right are the model's, whichever way it was built), its surface
-    # before its pivot
-    eyes_at = [np.array(ch.point(e)) for e in ("leftEye", "rightEye")]
-    eye0 = max(eyes_at, key=lambda p: float(p @ out)) + front * 0.012
+    # the eye toward the lens, its surface before its pivot
+    mid = (eyes_at["leftEye"] + eyes_at["rightEye"]) / 2
+    eye0 = max(eyes_at.values(), key=lambda p: float((p - mid) @ out)) + front * 0.012
     d0 = c.height / BAND * c.lens / GATE_H                  # the lens's distance for the band's height at the eye
     up = np.array([0.0, 0.0, 1.0])
     right = np.cross(-out, up)

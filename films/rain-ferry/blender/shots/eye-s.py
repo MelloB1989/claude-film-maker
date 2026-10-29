@@ -25,7 +25,7 @@ def build(ctx):
         return {"glare": 1.0, "narrow": min(1.0, max(0.0, (1.0 - eyes) / 0.25))}
 
     xcu.build(ctx, xcu.Closeup(
-        who="shinza", bearing=32.0, height=0.042, lens=100.0, fstop=5.0, lift=0.005, side=-0.008,
+        who="shinza", bearing=32.0, height=0.03, lens=100.0, fstop=5.0, lift=0.005, side=-0.006,
         dz=-0.004, beats=(0.15,), face=face, saccades=[(0.55, (0.0, 2.5)), (0.62, (0.0, 1.2))], breath=(0.45, 1.6),
         drops=[xcu.Drop([(0.66, 0.97), (0.65, 0.8), (0.63, 0.62), (0.66, 0.4), (0.68, 0.18), (0.69, 0.0)],
                         start=0.0, length=1.8, size=0.0017),
