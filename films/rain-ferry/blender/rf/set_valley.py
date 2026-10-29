@@ -95,7 +95,7 @@ def materials(look, weather, pal: dict) -> dict:
         m[f"ridge{k}"] = paint.wash(f"valley-ridge{k}", *pal.get("ridge", INK), look=look, flash=0.0, brush=0.5,
                                     brush_scale=h / 25, brush_stretch=6.0, mist=fog,
                                     mist_z=(sets.WATER_Z + 0.1 * h, sets.WATER_Z + 0.85 * h), mist_noise=0.12 * h,
-                                    fog=0.72 - 0.04 * k)
+                                    fog=0.4 + 0.08 * k)   # the nearest darkest, each beyond paler
     return m
 
 
@@ -130,7 +130,7 @@ def build(m: dict, near, far, weather, *, seed: int = 7) -> dict:
     for k, (d, h, trees) in enumerate(RIDGES):
         landscape.ridge(f"ridge{k}", m[f"ridge{k}"], far, d, h, seed=seed * 10 + k, trees=trees, base_z=wz - 2, width=1.3,
                         sharp=0.55)
-    mist = landscape.mist_layers(far, weather.sky, MIST, base_z=wz, density=0.75 * weather.mist, soften=True)
+    mist = landscape.mist_layers(far, weather.sky, MIST, base_z=wz, density=0.45 * weather.mist, soften=True)
     # low mist lying on the river, and banks of it drifting along the slopes (seen across the river too)
     for k, (y, w) in enumerate(((30, 900), (75, 1100))):
         mist.append(toon.move_to(toon.mist_card(f"river-mist{k}", (FAR_EDGE * 0.5, y, wz + 2.5), (w, 7.0), weather.sky,
