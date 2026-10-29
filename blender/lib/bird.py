@@ -42,7 +42,7 @@ CROW = {   # linear colours: blue-black feathers with a cold sheen, a dark grey 
     "feet": ((0.04, 0.038, 0.04), (0.01, 0.01, 0.011)),
     "eye": (0.006, 0.005, 0.005),
     "glint": (0.85, 0.88, 0.95),
-    "bead": (0.62, 0.68, 0.78),
+    "bead": (0.3, 0.33, 0.4),
 }
 
 
@@ -77,13 +77,13 @@ def lerp(a: Pose, b: Pose, k: float) -> Pose:
     return Pose(**{f.name: getattr(a, f.name) + (getattr(b, f.name) - getattr(a, f.name)) * k for f in fields(Pose)})
 
 
-PERCH = Pose(body_pitch=math.radians(32), neck_pitch=math.radians(-18), head_pitch=math.radians(-12),
-             tail_pitch=math.radians(-24), tail_spread=0.75)
-CROUCH = replace(PERCH, body_pitch=math.radians(14), lift=-0.035, neck_pitch=math.radians(-6), head_pitch=math.radians(0),
-                 tail_pitch=math.radians(-6), tail_spread=0.9, ruffle=0.3)
+PERCH = Pose(body_pitch=math.radians(44), neck_pitch=math.radians(-24), head_pitch=math.radians(-18),
+             tail_pitch=math.radians(6), tail_spread=0.75)
+CROUCH = replace(PERCH, body_pitch=math.radians(18), lift=-0.035, neck_pitch=math.radians(-8), head_pitch=math.radians(-6),
+                 tail_pitch=math.radians(-14), tail_spread=0.9, ruffle=0.3)
 # a caw: head thrust forward and down, beak wide, the body bowing, the tail flicking up, the throat shaggy
-CAW = replace(PERCH, body_pitch=math.radians(18), neck_pitch=math.radians(-34), head_pitch=math.radians(4),
-              jaw=math.radians(30), tail_pitch=math.radians(-4), tail_spread=1.1, ruffle=1.0)
+CAW = replace(PERCH, body_pitch=math.radians(26), neck_pitch=math.radians(-30), head_pitch=math.radians(-4),
+              jaw=math.radians(30), tail_pitch=math.radians(-16), tail_spread=1.1, ruffle=1.0)
 FLIGHT = Pose(body_pitch=math.radians(6), neck_pitch=math.radians(-4), head_pitch=math.radians(-4), tail_pitch=math.radians(-6),
               tail_spread=1.15, open=1.0, tuck=1.0)
 GLIDE = replace(FLIGHT, lift_arm=math.radians(10), lift_hand=math.radians(4), sweep_hand=math.radians(6), tail_spread=1.3)
@@ -308,11 +308,11 @@ def folded_geometry(*, side: int = 1):
     roots, dirs, lens, wid = [], [], [], []
     for i in range(m):
         f = i / (m - 1)
-        roots.append((0.046 - 0.006 * f, 0.07 - 0.075 * f, 0.03 - 0.02 * f))
-        dirs.append((-0.12 - 0.05 * f, -1.0, -0.16 + 0.06 * f))
-        lens.append(0.13 + 0.17 * f ** 0.9)
+        roots.append((0.05 - 0.006 * f, 0.07 - 0.07 * f, 0.034 - 0.012 * f))
+        dirs.append((-0.1 - 0.04 * f, -1.0, -0.02 + 0.04 * f))
+        lens.append(0.12 + 0.14 * f ** 0.9)
         wid.append(0.05 - 0.012 * f)
-    v, f = _feather_mesh(roots, dirs, lens, wid, normal=(1.0, 0.0, 0.35), droop=-0.03)
+    v, f = _feather_mesh(roots, dirs, lens, wid, normal=(1.0, 0.0, 0.6), droop=0.04)
     cv, cf = _feather_mesh([(0.05, 0.075 - 0.02 * i, 0.04 - 0.004 * i) for i in range(5)], [(-0.1, -1.0, -0.25)] * 5,
                            [0.09, 0.1, 0.1, 0.095, 0.09], [0.05] * 5, normal=(1.0, 0.0, 0.5), droop=-0.04)
     out = _merge([(v, f), (cv, cf)])
@@ -428,7 +428,7 @@ def materials(look=None, colors=CROW) -> dict:
     return m
 
 
-def build(name: str = "crow", coll=None, *, look=None, scale: float = 1.0, colors=CROW, beads: int = 60, seed: int = 1) -> Crow:
+def build(name: str = "crow", coll=None, *, look=None, scale: float = 1.0, colors=CROW, beads: int = 40, seed: int = 1) -> Crow:
     """The crow in its own collection (a child of `coll`, default the scene's): its rig of empties, rigid meshes on
     them, rain beaded on its back, head and folded wings (`beads`), perched in `PERCH` at the origin. Returns the
     Crow to pose; line art and the shot's look are the shot's."""
@@ -560,7 +560,7 @@ def build(name: str = "crow", coll=None, *, look=None, scale: float = 1.0, color
             continue
         for i in rng.choice(len(vs), size=min(want, len(vs)), replace=False):
             co, nr = vs[int(i)]
-            r = rng.uniform(0.0016, 0.0032)
+            r = rng.uniform(0.0012, 0.0024)
             p = tuple(co + nr * r * 0.6 + ob.location)
             b = shapes.ellipsoid(f"{name}-bead{placed}", p, (r, r, r * 0.7), material=m["bead"], coll=c, n=6)
             b.parent = parent
