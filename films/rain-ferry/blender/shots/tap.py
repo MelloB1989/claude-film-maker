@@ -38,7 +38,7 @@ ASH = 7                      # flecks of ash knocked out at each knock
 
 
 def build(ctx):
-    st = jt.stage(ctx, who=("tsuru",))
+    st = jt.stage(ctx, who=("tsuru",), ink=0.0)     # the set out of focus behind her: no lines over it
     jt.compose_faces(st)
     lines = st.line("L07")
     post = jt.post_top(st)
@@ -55,7 +55,7 @@ def build(ctx):
     # the focus on the bowl through the knocks, racked to her face as the pipe goes down
     st.film([cinema.Setup("side", 0.0, cinema.line(cams[0], cams[1], tuple(mid + (0, 0, 0.02)), tuple(mid + (0, 0, 0.04))),
                           lens=LENS, fstop=FSTOP, focus=tuple(post), racks=(cinema.Rack(LOWER[0], (ch, "head"), 0.6),),
-                          shake=cinema.Shake(breath=0.05))])
+                          shake=cinema.Shake(breath=0.05))], layers=jt.close_rain())
     jt.outline(st)
     # the wisp off the bowl until the first knock puts it out
     jt.pipe_smoke(st, emit=((0.0, st.start + TAPS[0]),)).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)

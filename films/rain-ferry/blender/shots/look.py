@@ -36,7 +36,7 @@ LEAD, DROP = 0.045, 0.03
 
 
 def build(ctx):
-    st = jt.stage(ctx, who=("tsuru",))
+    st = jt.stage(ctx, who=("tsuru",), ink=0.0)     # the set out of focus behind her: no lines over it
     jt.compose_faces(st)
     perform(st)
     st.say("tsuru", "L08", "yonjuunen mae ni ne", energy=0.6)
@@ -49,7 +49,7 @@ def build(ctx):
     move = cinema.line(face + out * DIST[0] - (0, 0, DROP), face + out * DIST[1] - (0, 0, DROP),
                        face + left * LEAD * 0.4, face + left * LEAD + (0, 0, 0.01))
     st.film([cinema.Setup("close", 0.0, move, lens=LENS, fstop=(2.2, 2.0), focus=(st.cast["tsuru"]["vrm"], "rightEye"),
-                          shake=cinema.Shake(breath=0.03))])
+                          shake=cinema.Shake(breath=0.03))], layers=jt.close_rain())
     jt.outline(st)
     jt.key_light(st, "tsuru", (-0.9, -0.6, 0.65))
     st.composite(lambda f: dict(rims=[((1.0, 0.5), (0.6, 0.68, 0.85), 0.4, 0.0035, 0.9),

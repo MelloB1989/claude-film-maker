@@ -27,13 +27,23 @@ import numpy as np
 # where each stands (world x, y: the jetty along x, its end at +x, the river beyond toward +y) and which way they face
 # (degrees from +x toward +y). She is turned out past the end post, which stands before her left knee (her pipe's
 # post); he faces her
-TSURU_AT, TSURU_FACING = (7.0, -0.6), -70.0
+TSURU_AT, TSURU_FACING = (7.1, -0.8), -70.0      # the post within her pipe's reach
 SHINZA_AT = (5.45, -0.82)
 SHINZA_FACING = math.degrees(math.atan2(TSURU_AT[1] - SHINZA_AT[1], TSURU_AT[0] - SHINZA_AT[0]))
 POST_RADIUS = 0.14          # rf/set_jetty.py's end posts: the one on the -y side is the one she knocks her pipe on
 CRATE = (0.42, 0.34)        # her seat's width and depth (its height is rf/vroid_tsuru.py's SEAT); its middle behind her
 CRATE_BACK = 0.14           # ... feet (m)
 BOAT_POLE = ((4.05, 2.32, -0.13), (1.0, 0.03, 0.04))   # her pole laid in the boat: its foot, its way (world)
+
+# rain for a close shot (weather.Layer: near, far, count, length, width, alpha, shrink, clear): few drops near the
+# lens and none within a face's distance, the far curtain a fine grey veil rather than bright sticks behind a head
+def close_rain():
+    from lib import weather
+
+    return {"near": weather.Layer(0.9, 2.5, 140, 0.3, 0.004, 0.24, shrink=2.5, clear=0.9),
+            "mid": weather.Layer(2.5, 14.0, 2600, 0.3, 0.0042, 0.22),
+            "far": weather.Layer(14.0, 70.0, 5000, 0.6, 0.012, 0.06)}
+
 
 # the cast's variants in this scene (rf/vroid_cast.py)
 VARIANT = {"shinza": dict(kasa="back", sword="back", pose="stand"),
