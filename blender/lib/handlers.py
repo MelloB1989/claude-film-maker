@@ -51,6 +51,19 @@ def _frame_of(args) -> float | None:
         return None
 
 
+def _positional(fn) -> int | None:
+    """How many positional arguments `fn` takes (None: any number, or it cannot be told)."""
+    import inspect
+
+    try:
+        params = inspect.signature(fn).parameters.values()
+    except (TypeError, ValueError):
+        return None
+    if any(p.kind == p.VAR_POSITIONAL for p in params):
+        return None
+    return sum(p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD) for p in params)
+
+
 class HandlerGuard:
     """Records the exceptions of the handlers it wraps, for `check` to raise."""
 
@@ -62,11 +75,14 @@ class HandlerGuard:
         if getattr(fn, _MARK, False):
             return fn
         name = f"{kind} {getattr(fn, '__qualname__', None) or repr(fn)}"
+        # Blender passes a handler as many of (scene, depsgraph) as it takes; the wrapper takes any, so it is passed
+        # both and hands `fn` only what it takes (an add-on's handler of one argument, the VRM add-on's)
+        n = _positional(fn)
 
         @functools.wraps(fn)
         def guarded(*args, **kwargs):
             try:
-                return fn(*args, **kwargs)
+                return fn(*(args if n is None else args[:n]), **kwargs)
             except Exception as e:
                 self._failures.append(Failure(name, _frame_of(args), f"{type(e).__name__}: {e}", traceback.format_exc()))
                 raise

@@ -45,6 +45,13 @@ anywhere. Credits spent are logged to `audio/credits.log`. Only `film-vo`, `film
 | `film-facts [--scenes DIR]` | `films/<id>/scenes/**/*.strings.json`, `data/facts.json`, vo, script, timeline | a report; exit 1 on a string not on the sheet |
 | `film-fonts [--src F --axis wght=600 --out F]` | `pipeline.fonts` | `films/<id>/fonts/` (static instances for opentype.js) |
 | `film-deliver segments \| render \| assemble \| check [--segments N] [--scale S] [--mix F]` | scene windows, `pipeline.deliver`, the mix | `out/<id>/deliver/` (segments, `video.mp4`, stems), `out/<id>/<id>-<output>.mp4` |
+| `film-anime-fetch --name N --url U [--job --model --prompt --refs --credits --force] \| --list` | a generation's result URL | `assets/gen/<name>.<ext>`, its provenance in `data/gen.json` |
+| `film-anime-clips --src F \| --all [--name --from --to --crop --sharpen]` | `assets/gen/clip-*.mp4` | `assets/clips/<name>.mp4` (the film's size and fps) |
+| `film-anime-cutout --src F [--out D] [--parts boxes] [--boxes --keep-largest --grow --feather --fill]` | a keyframe | `<out>/fg.png`, `plate.png`, `matte.png` (and `part<N>.png` per `--parts` box) |
+| `film-anime-depth --src F [--out F] [--smooth px]` | a plate | its depth map, 16-bit, near = white |
+| `film-anime-dialogue takes [--lines --n --force] \| check \| place [--hold] \| list` | `data/dialogue.json`, `data/timeline.json` | `audio/dialogue/takes/`, `audio/dialogue/dialogue.wav`, `data/subs.json`, `data/dialogue_timing.json` |
+| `film-anime-score gen [--cues --seed --force] \| list` | `data/score.json` | `audio/score/<cue>.{wav,json}` |
+| `film-anime-mix [--png F]` | `data/mix.json`, the dialogue, the score's cues, the sound library, `data/timeline.json` | `audio/mix/mix.wav`, its stems and `mix.json` |
 
 `data/script.json` is `{"lines": [{"id", "scene", "text", "takes"?, "optional"?}], "acts"?: [{"id", "name",
 "scenes"}]}`; without acts the scenes form one act in the order the lines name them. `audio/vo/selects.json` is

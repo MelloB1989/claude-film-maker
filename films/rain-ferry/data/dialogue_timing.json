@@ -1,0 +1,107 @@
+[
+ {
+  "id": "L01",
+  "who": "shinza",
+  "shot": "walk",
+  "start": 14.1,
+  "end": 16.91
+ },
+ {
+  "id": "L02",
+  "who": "shinza",
+  "shot": "eyes",
+  "start": 18.5,
+  "end": 20.11
+ },
+ {
+  "id": "L03",
+  "who": "shinza",
+  "shot": "ask",
+  "start": 29.4,
+  "end": 31.56
+ },
+ {
+  "id": "L04",
+  "who": "tsuru",
+  "shot": "refuse",
+  "start": 32.9,
+  "end": 34.89
+ },
+ {
+  "id": "L05",
+  "who": "shinza",
+  "shot": "demand",
+  "start": 36.4,
+  "end": 39.5
+ },
+ {
+  "id": "L06",
+  "who": "shinza",
+  "shot": "demand",
+  "start": 39.75,
+  "end": 43.9
+ },
+ {
+  "id": "L07",
+  "who": "tsuru",
+  "shot": "tap",
+  "start": 44.3,
+  "end": 47.36
+ },
+ {
+  "id": "L08",
+  "who": "tsuru",
+  "shot": "look",
+  "start": 48.8,
+  "end": 50.57
+ },
+ {
+  "id": "L09",
+  "who": "shinza",
+  "shot": "draw",
+  "start": 52.4,
+  "end": 54.18
+ },
+ {
+  "id": "L10",
+  "who": "tsuru",
+  "shot": "rise",
+  "start": 56.8,
+  "end": 58.81
+ },
+ {
+  "id": "L11",
+  "who": "shinza",
+  "shot": "charge",
+  "start": 73.1,
+  "end": 74.86
+ },
+ {
+  "id": "L12",
+  "who": "tsuru",
+  "shot": "lesson",
+  "start": 85.9,
+  "end": 90.1
+ },
+ {
+  "id": "L13",
+  "who": "shinza",
+  "shot": "kneel",
+  "start": 92.0,
+  "end": 93.73
+ },
+ {
+  "id": "L14",
+  "who": "tsuru",
+  "shot": "board",
+  "start": 95.2,
+  "end": 95.85
+ },
+ {
+  "id": "L15",
+  "who": "tsuru",
+  "shot": "board",
+  "start": 97.2,
+  "end": 98.83
+ }
+]

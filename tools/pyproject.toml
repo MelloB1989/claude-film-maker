@@ -12,6 +12,16 @@ dependencies = [
   "matplotlib>=3.8",
 ]
 
+[project.optional-dependencies]
+# the anime pipeline's local image work (filmtools.anime): character cutouts (ONNX) and depth maps (CPU or Apple MPS)
+anime = [
+  "pillow>=10",
+  "opencv-python-headless>=4.9",
+  "onnxruntime>=1.18",
+  "torch>=2.4",
+  "transformers>=4.44",
+]
+
 [project.scripts]
 film-vo = "filmtools.vo:main"
 film-realign = "filmtools.realign:main"
@@ -32,6 +42,13 @@ film-sfx = "filmtools.sfx:main"
 film-deliver = "filmtools.deliver:main"
 film-temptrack = "filmtools.temptrack:main"
 film-init = "filmtools.init:main"
+film-anime-fetch = "filmtools.anime.assets:main"
+film-anime-cutout = "filmtools.anime.cutout:main"
+film-anime-depth = "filmtools.anime.depth:main"
+film-anime-dialogue = "filmtools.anime.dialogue:main"
+film-anime-clips = "filmtools.anime.clips:main"
+film-anime-score = "filmtools.anime.score:main"
+film-anime-mix = "filmtools.anime.mix:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]

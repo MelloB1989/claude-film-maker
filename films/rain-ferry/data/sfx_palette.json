@@ -1,0 +1,171 @@
+{
+  "seed_base": 7100,
+  "model_id": "eleven_text_to_sound_v2",
+  "variants": 1,
+  "output_formats": [
+    "pcm_48000"
+  ],
+  "send_seed": true,
+  "sounds": {
+    "rain_bed": {
+      "family": "bed",
+      "prompt": "Heavy steady rain falling on a wide river and on old wooden planks, close and immersive, no thunder, no music, no voices",
+      "duration": 8,
+      "influence": 0.5,
+      "loop": true,
+      "gain": 0
+    },
+    "water_lap": {
+      "family": "bed",
+      "prompt": "Calm river water gently lapping against the wooden hull of a small boat, soft drips, a bamboo pole slowly pushing through water, peaceful, no music",
+      "duration": 5,
+      "influence": 0.5,
+      "loop": true,
+      "gain": 0
+    },
+    "crow_caw": {
+      "family": "animal",
+      "prompt": "A single large crow cawing twice, harsh and close, outdoors in light rain",
+      "duration": 2.5,
+      "influence": 0.6,
+      "align": "onset",
+      "gain": 0
+    },
+    "wings": {
+      "family": "animal",
+      "prompt": "A large crow suddenly taking off, three heavy wing flaps, close",
+      "duration": 1.5,
+      "influence": 0.6,
+      "align": "onset",
+      "gain": 0
+    },
+    "step_puddle": {
+      "family": "foley",
+      "prompt": "One straw sandal stepping into a shallow muddy puddle, a single wet splash, close",
+      "duration": 1.5,
+      "influence": 0.6,
+      "align": "onset",
+      "gain": 0
+    },
+    "steps_mud": {
+      "family": "foley",
+      "prompt": "Slow heavy footsteps of one man in straw sandals walking on a wet muddy path in the rain, one step every 0.7 seconds",
+      "duration": 3,
+      "influence": 0.5,
+      "align": "onset",
+      "gain": 0
+    },
+    "steps_wood": {
+      "family": "foley",
+      "prompt": "Slow footsteps of one person walking on wet wooden dock planks, soft creaking boards, rain",
+      "duration": 3,
+      "influence": 0.5,
+      "align": "onset",
+      "gain": 0
+    },
+    "pipe_tap": {
+      "family": "foley",
+      "prompt": "Two sharp taps of a small metal tobacco pipe bowl knocked against a wooden post",
+      "duration": 1.5,
+      "influence": 0.7,
+      "align": "onset",
+      "gain": 0
+    },
+    "sword_draw": {
+      "family": "steel",
+      "prompt": "A long katana drawn slowly from its wooden scabbard, a clean ringing metallic shing",
+      "duration": 2,
+      "influence": 0.7,
+      "align": "onset",
+      "gain": 0
+    },
+    "pole_plant": {
+      "family": "foley",
+      "prompt": "A long bamboo pole planted firmly on a wooden dock, one solid hollow wooden thud",
+      "duration": 1,
+      "influence": 0.7,
+      "align": "onset",
+      "gain": 0
+    },
+    "clash": {
+      "family": "steel",
+      "prompt": "A single sword strike: a steel blade shattering against a thin blade, a bright metallic crack and ringing shards falling",
+      "duration": 2,
+      "influence": 0.7,
+      "align": "onset",
+      "gain": 0
+    },
+    "blade_thunk": {
+      "family": "steel",
+      "prompt": "A broken sword blade falling and stabbing point-first into a wooden plank, a sharp thunk and a short metallic quiver",
+      "duration": 1.5,
+      "influence": 0.7,
+      "align": "onset",
+      "gain": 0
+    },
+    "kneel": {
+      "family": "foley",
+      "prompt": "A man dropping heavily to his knees on wet wooden planks, cloth rustling",
+      "duration": 1.5,
+      "influence": 0.6,
+      "align": "onset",
+      "gain": 0
+    },
+    "whoosh": {
+      "family": "whoosh",
+      "prompt": "One fast heavy sword swing whoosh through rain",
+      "duration": 1,
+      "influence": 0.6,
+      "align": "peak",
+      "gain": 0
+    },
+    "thunder": {
+      "family": "weather",
+      "prompt": "A long distant thunder rumble rolling slowly across mountains in heavy rain",
+      "duration": 4,
+      "influence": 0.5,
+      "align": "onset",
+      "gain": 0
+    },
+    "morning": {
+      "family": "bed",
+      "prompt": "A calm wide river just after rain at sunrise, slow drips from leaves, a few distant birds, a soft breeze, peaceful, no music",
+      "duration": 6,
+      "influence": 0.5,
+      "loop": true,
+      "gain": 0
+    },
+    "wind_gust": {
+      "family": "weather",
+      "prompt": "A single cold gust of wind sweeping through rain, rising and falling",
+      "duration": 3,
+      "influence": 0.5,
+      "align": "peak",
+      "gain": 0
+    },
+    "boat_creak": {
+      "family": "foley",
+      "prompt": "A small wooden boat creaking as a person steps into it, water knocking against the hull",
+      "duration": 2,
+      "influence": 0.6,
+      "align": "onset",
+      "gain": 0
+    },
+    "bell": {
+      "family": "tonal",
+      "prompt": "A single small Japanese temple singing bowl struck once, a pure high ringing tone that rings out for a long time",
+      "duration": 4,
+      "influence": 0.7,
+      "align": "onset",
+      "gain": 0
+    },
+    "heartbeat": {
+      "family": "body",
+      "prompt": "Two slow deep human heartbeats, close and muffled",
+      "duration": 2,
+      "influence": 0.7,
+      "align": "onset",
+      "gain": 0
+    }
+  }
+}

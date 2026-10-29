@@ -1,0 +1,7 @@
+# the film's generated and paid media stays local (about 1 GB): key art, clips, layers, voice takes, the score and the
+# mix. data/gen.json records how every picture and clip was made (model, prompt, references, cost), data/dialogue.json,
+# data/score.json, data/sfx_palette.json and data/mix.json how the sound was.
+assets/gen/
+assets/clips/
+assets/layers/
+audio/

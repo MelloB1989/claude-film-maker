@@ -112,3 +112,20 @@ def test_installing_twice_wraps_each_handler_once_and_it_still_runs_once_a_frame
     bl.frame_set(3)
     assert posed == [3]
     assert bl.frame_change_pre[0] is not pose and bl.frame_change_pre[0].__name__ == "pose"
+
+
+def test_a_handler_taking_only_the_scene_is_passed_only_the_scene():
+    guard = handlers.HandlerGuard()
+    seen = []
+
+    def one(scene):
+        seen.append(scene)
+
+    def two(scene, depsgraph):
+        seen.append((scene, depsgraph))
+
+    fns = [one, two]
+    guard.install(frame_change_pre=fns)
+    for fn in fns:
+        fn("scene", "depsgraph")
+    assert seen == ["scene", ("scene", "depsgraph")]

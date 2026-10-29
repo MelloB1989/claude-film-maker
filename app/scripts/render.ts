@@ -15,6 +15,8 @@
 //            is renamed to --out, `<out>.progress` reads "FAILED: <reason>", and `<out>.partial` plays up to the failure.
 //   --proxies (all modes): a plate frame whose EXR is missing composites its 960x540 proxy (a draft, warned once);
 //            without it the missing EXR fails the export.
+//   --plates SHOT:PLATE[,...] (all modes): a PlateShot composites out/<film>/plates/PLATE/ instead of its own SHOT's,
+//            the film unchanged (a variant's plates: --plates standoff:standoff_vroid). Name the output with --out.
 //   --only ID (sheet, perf, video) with ONE scene id and neither --from nor --to: exactly the frames that scene owns,
 //            frame f being the scene's when f/fps falls in its window [start, end). The sheet's first and last stills
 //            are then its first and last frames, saved to out/<film>/sheets/sheet_<id>.png by default. With several ids, or --from/--to given, the window is as given.
@@ -104,7 +106,9 @@ async function openPage(url: string) {
     const only = opt('only'), module = opt('module');
     if (module && !/^[\w-]+$/.test(module)) throw new Error(`--module takes a scene file name (films/<film>/scenes/<name>.ts), got '${module}'`);
     const sel = (module ? `&module=${module}` : only ? `&only=${only}` : '') + (TRANSITION && !module ? `&transition=${TRANSITION}` : '');
-    await page.goto(`${url}/?export=1&film=${FILM}${sel}${SCALE !== 1 ? `&scale=${SCALE}` : ''}${flag('proxies') ? '&proxies=1' : ''}`);
+    const plates = opt('plates');
+    if (plates !== undefined && !/^[\w-]+:[\w-]+(,[\w-]+:[\w-]+)*$/.test(plates)) throw new Error(`--plates takes <shot>:<plate>[,...], got '${plates}'`);
+    await page.goto(`${url}/?export=1&film=${FILM}${sel}${SCALE !== 1 ? `&scale=${SCALE}` : ''}${flag('proxies') ? '&proxies=1' : ''}${plates ? `&plates=${plates}` : ''}`);
     await page.waitForFunction(() => (window as any).__film?.ready || (window as any).__film?.error, null, { timeout: 120000 });
     const err = await page.evaluate(() => (window as any).__film.error);
     if (err) throw new Error(`app failed to boot:\n${err}\n${logs.join('\n')}`);

@@ -30,6 +30,24 @@ export function plateIndex(t: number, f0: number): number {
   return frameIdx(t) - f0;
 }
 
+/**
+ * The plate a shot composites: its own (`shot`), or the one the page's ?plates=<shot>:<plate>[,...] (render.ts
+ * --plates) swaps in for it, a variant rendered beside it (a 3D cast's plates for a drawn one's) with the film
+ * unchanged. `query` is the page's search string.
+ */
+export function plateFor(shot: string, query: string): string {
+  const spec = new URLSearchParams(query).get('plates');
+  if (!spec) return shot;
+  for (const pair of spec.split(',')) {
+    const [from, to, ...rest] = pair.split(':');
+    if (rest.length || !from || !to || !/^[\w-]+$/.test(from) || !/^[\w-]+$/.test(to)) {
+      throw new Error(`?plates takes <shot>:<plate>[,<shot>:<plate>...], got '${spec}'`);
+    }
+    if (from === shot) return to;
+  }
+  return shot;
+}
+
 /** Where frame i of a shot's plate is served (relative to the page, like data/ and audio/). */
 export function plateUrl(shot: string, i: number, kind: PlateKind): string {
   const n = String(i).padStart(4, '0');

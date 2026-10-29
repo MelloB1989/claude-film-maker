@@ -24,3 +24,11 @@ films/*/data/track/_*.json
 # agent worktrees
 .claude/worktrees/
 build/
+
+# The Rain Ferry's v1 AI material (generated keyframes, clips, layers), its VRoid Studio projects and its generated
+# audio stay local; the Blender film's shot references are assets/ref/, its cast assets/vroid/*.vrm
+films/rain-ferry/assets/gen/
+films/rain-ferry/assets/clips/
+films/rain-ferry/assets/layers/
+films/rain-ferry/assets/vroid/*.vroid
+films/rain-ferry/audio/**/*.wav

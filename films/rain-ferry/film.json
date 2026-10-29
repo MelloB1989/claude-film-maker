@@ -1,0 +1,22 @@
+{
+  "id": "rain-ferry",
+  "title": "The Rain Ferry",
+  "format": "landscape",
+  "fps": 24,
+  "theme": {
+    "extends": "noir",
+    "bg": "#0a0a0c",
+    "bg2": "#151518",
+    "fg": "#ece6da",
+    "fgDim": "#a8a296",
+    "fgFaint": "#6d6960",
+    "accent": "#c8402e",
+    "accentBright": "#e0563f",
+    "accentDim": "#7a2318",
+    "accent2": "#d9a44a",
+    "accent2Bright": "#f0c06a",
+    "accent2Dim": "#7d5a22"
+  },
+  "look": "film",
+  "audio": { "mix": "audio/mix/mix.wav", "bpm": 72 }
+}
