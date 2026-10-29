@@ -7,15 +7,16 @@ import { gradeKeys, Paper, PlateShot, PostKeys, SpeedLines, Subtitles, Words, ty
 import config from './film.json';
 
 import schedule from './data/look.json';
+import plates from './data/plates.json';
 
 const look = schedule as unknown as LookSchedule;  // (JSON key lists type as number[][])
 
-/** A Blender plate (blender/shots/<plate>.py, default the shot's id) as a shot, the look schedule's grade over it
+/** A Blender plate (blender/shots/<id>.py, or the one data/plates.json names) as a shot, the look schedule's grade over it
  * (data/look.json: the engine grades, the plate never bakes it in), then `layers` (the engine's marks the plate does not
  * make). A plate not rendered yet plays as a slate (PlateShot `missing`). */
-const plate = (id: string, length: number, layers: Record<string, unknown>[] = [], more: Partial<ShotSpec> & { plate?: string } = {}): ShotSpec => {
-  const { plate: name, ...spec } = more;
-  return { id, scene: Stack, length, params: { layers: [{ scene: PlateShot, params: name ? { plate: name } : {} }, ...layers] }, ...spec };
+const plate = (id: string, length: number, layers: Record<string, unknown>[] = [], more: Partial<ShotSpec> = {}): ShotSpec => {
+  const name = (plates.plates as Record<string, string>)[id];  // data/plates.json: a scene made by another shot file
+  return { id, scene: Stack, length, params: { layers: [{ scene: PlateShot, params: name ? { plate: name } : {} }, ...layers] }, ...more };
 };
 const post = (p: Record<string, unknown>) => ({ scene: PostKeys, params: p });
 
@@ -36,8 +37,8 @@ const scenes: ShotSpec[] = [
   plate('draw', 3.8),
   plate('rise', 4),
   // ---- the duel ----
-  // the 3D cast's standoff (shots/standoff_vroid.py); the drawn one (shots/standoff.py) stays: --plates standoff:standoff
-  plate('standoff', 4.5, [], { plate: 'standoff_vroid' }),
+  // the 3D cast's standoff (data/plates.json: shots/standoff_vroid.py); the drawn one stays: --plates standoff:standoff
+  plate('standoff', 4.5),
   plate('eye-s', 2),
   plate('eye-t', 2),
   plate('freeze', 5),
