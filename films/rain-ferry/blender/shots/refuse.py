@@ -80,15 +80,4 @@ def perform(st):
         t = st.t(f)
         chin = jt.ramp(t, CHIN[0], CHIN[1]) - 0.6 * jt.ramp(t, CHIN[2], CHIN[3])
         exhale = jt.ramp(t, EXHALE[0], EXHALE[0] + 0.25) - jt.ramp(t, EXHALE[1] - 0.2, EXHALE[1] + 0.2)
-        pose = {**jt.tsuru_sit(t, down=-4.0 * chin - 3.0 * exhale), **jt.fingers("left", 0.85),
-                **jt.fingers("right", 0.35)}
-        hips = jt.tsuru_hips(st, t)
-        at_lips = jt.pipe_at_lips(st, pose, hips)
-        k = 1.0 - jt.ramp(t, *LOWER) + jt.ramp(t, *LIFT)
-        point = np.array(jt.TS_PIPE_LAP[0]) + (np.array(at_lips[0]) - jt.TS_PIPE_LAP[0]) * k
-        point = point + np.array((0.03, -0.07, 0.0)) * math.sin(math.pi * k)    # out in front of her, not through her chin
-        along = np.array(jt.TS_PIPE_LAP[1]) + (np.array(at_lips[1]) - jt.TS_PIPE_LAP[1]) * k
-        st.pose("tsuru", f, pose, hips=hips)
-        jt.hold_pipe(st, f, point, along)
-        jt.knee_hand(st, f)
-        st.face("tsuru", f, {"s4-calm": 1.0})
+        ja.smoking(st, f, t, at_lips=1.0 - jt.ramp(t, *LOWER) + jt.ramp(t, *LIFT), down=-4.0 * chin - 3.0 * exhale)

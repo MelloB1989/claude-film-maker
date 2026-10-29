@@ -84,3 +84,27 @@ def arrives(st, path, stop: float, *, gait: str = "heavy", end_yaw: float | None
     print(f"jetty_arrive: Shinza sets off on {start_f}, stops on {end} (asked {stop_f})")
     return p, end
 
+
+
+# her left arm smoking: the elbow down by her side and a little forward (her frame: x her left, y her back, z up), the
+# forearm up to her lips; the palm turned in toward her face
+SMOKING_POLE = (0.32, -0.18, 0.35)
+SMOKING_PALM = (-0.7, 0.1, 0.35)
+
+
+def smoking(st, f: int, t: float, *, at_lips: float = 1.0, **sit) -> None:
+    """Key Tsuru on her crate with the pipe at her lips (`at_lips` 1) or over her left knee (0), and between, the
+    hand travelling out in front of her chin rather than through it: jetty_talk.tsuru_rest's pose, with the smoking
+    arm's elbow kept down by her side."""
+    pose = {**jt.tsuru_sit(t, **sit), **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)}
+    hips = jt.tsuru_hips(st, t)
+    lips, lips_way = jt.pipe_at_lips(st, pose, hips)
+    lap, lap_way = (np.asarray(v, float) for v in jt.TS_PIPE_LAP)
+    k = min(1.0, max(0.0, at_lips))
+    point = lap + (np.asarray(lips) - lap) * k + np.array((0.03, -0.07, 0.0)) * math.sin(math.pi * k)
+    along = lap_way + (np.asarray(lips_way) - lap_way) * k
+    d = along / np.linalg.norm(along)
+    st.pose("tsuru", f, pose, hips=hips)
+    st.grip("tsuru", "left", f, point, -d, jt.flat_palm(d, SMOKING_PALM), SMOKING_POLE)
+    jt.knee_hand(st, f)
+    st.face("tsuru", f, {"s4-calm": 1.0})

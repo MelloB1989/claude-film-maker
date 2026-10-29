@@ -61,7 +61,7 @@ def build(ctx):
     for f in st.frames():
         t = st.t(f)
         out = jt.ramp(t, EXHALE[0] - 0.25, EXHALE[0]) - jt.ramp(t, EXHALE[1], EXHALE[1] + 0.4)
-        jt.tsuru_rest(st, f, t, smoking=True, down=-4.0 * out)
+        ja.smoking(st, f, t, down=-4.0 * out)
     st.bake()
 
     st.film([cinema.Setup("ferry", 0.0, cinema.drift(cinema.line(*CAM), 0.03), lens=LENS, fstop=FSTOP, focus=FOCUS,
