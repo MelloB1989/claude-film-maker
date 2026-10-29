@@ -55,7 +55,11 @@ def build(ctx):
 
 
 def perform(st, lines):
+    from lib import vrm
+
     ch = st.cast["shinza"]["vrm"]
+    # the hilt where it is once his chest has turned into the reach (it rides on his back)
+    vrm.pose(ch, jt.shinza_stand(RISE[3], reach=1.0), hips=jt.shinza_hips(RISE[3]))
     speak = [lines["L05"], lines["L06"]]
     hang_r, hang_l = jt.HANG["right"], jt.HANG["left"]
     grip_wrist, grip_turn = jt.hilt_grip(st)

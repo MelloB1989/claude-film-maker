@@ -106,13 +106,15 @@ def perform(st, speak):
 def slide_scabbard(st):
     """The scabbard drawn down its own line by SLIDE as the blade comes up out of it (carried by his upper chest: its
     offset keyed in that bone's space), and back up after."""
+    from mathutils import Vector
+
     sheath = st.cast["shinza"]["parts"]["sheath"][0]
     st.ctx.scene.frame_set(st.ctx.f0)
     m = sheath.matrix_world @ sheath.matrix_basis.inverted()
     ch = st.cast["shinza"]["vrm"]
     guard, u = jt.hilt_axis(st)
     down_world = np.array(ch.world(guard - u)) - np.array(ch.world(guard))
-    down_local = np.array(m.to_3x3().inverted() @ __import__("mathutils").Vector(tuple(down_world)))
+    down_local = np.array(m.to_3x3().inverted() @ Vector(tuple(down_world)))
     base = np.array(sheath.location)
     for f in st.frames():
         t = st.t(f)
