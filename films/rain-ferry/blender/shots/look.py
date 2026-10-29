@@ -16,6 +16,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from lib import cinema  # noqa: E402
 from rf import jetty_talk as jt  # noqa: E402
 
 SHOT = {"scene": "look"}
@@ -30,31 +31,33 @@ TURN_BODY, TURN_EYES = -80.0, -16.0
 UP_HEAD, UP_EYES = -22.0, -10.0
 # the camera, from her face: its bearing (degrees from +x) and distance, start and end; the lens; how far the aim sits
 # left of her face (m, room on the side she looks to) and how far below it the lens is
-BEARING, DIST, LENS = 226.0, (1.3, 0.98), [(0.0, 68.0), (4.0, 80.0)]
+BEARING, DIST, LENS = 226.0, (1.3, 0.98), (68.0, 80.0)
 LEAD, DROP = 0.045, 0.03
 
 
 def build(ctx):
-    st = jt.stage(ctx, who=("tsuru",), rain_box=((4.0, -4.0, -0.6), (10.0, 6.0, 3.6)), clear=0.6, near=2.2)
+    st = jt.stage(ctx, who=("tsuru",))
     jt.compose_faces(st)
-    perform(st, st.line("L08"))
+    perform(st)
+    st.say("tsuru", "L08", "yonjuunen mae ni ne", energy=0.6)
+    st.blinks("tsuru", BLINKS)
+    st.bake()
     face = st.head_at("tsuru", ctx.f0)
     b = np.radians(BEARING)
     out = np.array((np.cos(b), np.sin(b), 0.0))
     left = np.array((-out[1], out[0], 0.0)) * -1.0      # screen left, seen from out there
-    path = [(0.0, tuple(face + out * DIST[0] - (0, 0, DROP)), tuple(face + left * LEAD * 0.4)),
-            (4.0, tuple(face + out * DIST[1] - (0, 0, DROP)), tuple(face + left * LEAD + (0, 0, 0.01)))]
-    shot = jt.Shot(path, LENS, [(0.0, 2.2), (4.0, 2.0)], breath=0.0022)
-    st.camera(shot, st.tracked_focus("tsuru", every=4))
-    jt.outline(st, shot)
+    move = cinema.line(face + out * DIST[0] - (0, 0, DROP), face + out * DIST[1] - (0, 0, DROP),
+                       face + left * LEAD * 0.4, face + left * LEAD + (0, 0, 0.01))
+    st.film([cinema.Setup("close", 0.0, move, lens=LENS, fstop=(2.2, 2.0), focus=(st.cast["tsuru"]["vrm"], "rightEye"),
+                          shake=cinema.Shake(breath=0.03))])
+    jt.outline(st)
     jt.key_light(st, "tsuru", (-0.9, -0.6, 0.65))
     st.composite(lambda f: dict(rims=[((1.0, 0.5), (0.6, 0.68, 0.85), 0.4, 0.0035, 0.9),
                                       ((-0.6, 1.0), (0.6, 0.68, 0.85), 0.15, 0.003, 0.9)],
                                 para_from=(0.7, 0.95), para_to=(0.2, 0.05)))
 
 
-def perform(st, lines):
-    speak = [lines["L08"]]
+def perform(st):
     lap, lap_along = jt.TS_PIPE_LAP
     for f in st.frames():
         t = st.t(f)
@@ -64,5 +67,4 @@ def perform(st, lines):
         st.pose("tsuru", f, {**body, **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)}, hips=jt.tsuru_hips(st, t))
         jt.hold_pipe(st, f, lap, lap_along)
         jt.knee_hand(st, f)
-        st.face("tsuru", f, {"s4-calm": 1.0 - 0.45 * lids, "s4-smile": 0.35 + 0.45 * jt.ramp(t, *SMILE),
-                             "blink": jt.blink(t, BLINKS), **jt.mouth_weights(t, speak, seed=11, scale=0.4)})
+        st.face("tsuru", f, {"s4-calm": 1.0 - 0.45 * lids, "s4-smile": 0.35 + 0.45 * jt.ramp(t, *SMILE)})
