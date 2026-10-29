@@ -121,7 +121,10 @@ plates and cut-out characters at depths under a moving camera), Rain, Mist, Smok
 shakes, letterbox and grade keyed over a shot), InkReveal, Subtitles and PlateShot (a Blender plate); an `ink`
 transition; character cutouts and depth maps, clips conformed to the film, a cast of voices placed with their
 subtitles (and checked by transcribing every take), a score in cues and a mix. `films/rain-ferry` (*The Rain Ferry*,
-two minutes) is the first film made with it: [docs/PIPELINE-ANIME.md](docs/PIPELINE-ANIME.md).
+two minutes) is the first film made with it, and is now made entirely in Blender: every shot a plate
+(`films/rain-ferry/blender/shots/<id>.py`), graded along the film's colour arc by one look schedule
+(`data/look.json`), the whole film rendered with one command (`uv run film-anime-render --film rain-ferry`) and
+reviewed at a glance (`film-anime-review`): [docs/PIPELINE-ANIME.md](docs/PIPELINE-ANIME.md).
 
 ## Rendering
 
