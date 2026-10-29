@@ -43,7 +43,7 @@ def build(ctx):
     actors = None
 
     if os.environ.get("RF_S7_CAST", "vroid") != "none":
-        from lib import vrm
+        from lib import vrm, vrm_rig
         from rf import vroid_tsuru as T
 
         actors = E.cast(st, {"tsuru": dict(pole="hand")})
@@ -54,8 +54,8 @@ def build(ctx):
         ts["root"].location = (0.0, 0.0, 0.0)
         ts["root"].rotation_euler = (0.0, 0.0, math.radians(FACING))
         ch = ts["vrm"]
-        fingers = vrm.grip_pose("right", 0.95)
-        for f in range(ctx.f0 - 1, ctx.f1 + 1):
+        fingers = vrm_rig.wrap(ch, "right", 0.022)      # closed round the pole (props.ferry_pole's radius)
+        for f in range(ctx.f0 - 1, ctx.f1 + 2, 2):    # keyed every other frame, eased between (the build's cost)
             t = ctx.time(f)
             settle = SETTLE[2] * (1.0 - E.ease((t - SETTLE[0]) / (SETTLE[1] - SETTLE[0])))
             up = LOOK_UP[2] * E.ease((t - LOOK_UP[0]) / (LOOK_UP[1] - LOOK_UP[0]))
