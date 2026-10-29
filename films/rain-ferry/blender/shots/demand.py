@@ -28,7 +28,7 @@ SHOT = {"scene": "demand"}
 # the camera: low by her right shoulder, looking up at him (cinema.frame_on: his face, head to belt filling the frame's
 # height by `share`, from `bearing` degrees, `rise` metres off his eyes, in the left third: room on the side he looks
 # to), creeping in over the shot
-FRAME = dict(height=1.05, bearing=66.0, rise=-0.92, third=-1.0, headroom=0.12)
+FRAME = dict(height=1.05, bearing=66.0, rise=-0.72, third=-1.0, headroom=0.08)   # low, not so low the sky fills it
 SHARE, LENS, FSTOP = (0.86, 0.98), 28.0, 2.8
 GUST = 1.5             # s into the shot: the gust's peak (data/mix.json wind_gust at 37.5 s)
 # his right hand to the hilt: when it starts up, passes his chest, clears his shoulder and closes on the hilt (s)
