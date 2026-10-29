@@ -625,6 +625,20 @@ def tsuru_rest(st: Stage, f: int, t: float, **sit) -> None:
     st.face("tsuru", f, {"s4-calm": 1.0})
 
 
+def pipe_smoke(st: Stage, *, emit=None, seed: int = 4):
+    """The wisp off her pipe's bowl (lib/smoke.py), beaten down by the shot's rain, in front of her face where it
+    passes it (linked into the cast's layer too). Bake it last (`Ribbon.bake`), once everything is keyed."""
+    from lib import smoke
+
+    bowl = st.cast["tsuru"]["parts"]["pipe"][-1]
+    co = np.array([v.co for v in bowl.data.vertices])
+    top = co[co[:, 2] >= co[:, 2].max() - 0.002].mean(axis=0)     # the bowl's mouth, in its own axes
+    s = st.ctx.look_at(st.ctx.f0)
+    wisp = smoke.Wisp(rain=min(1.0, s.rain.density), wind=(0.05, 0.03, 0.0), emit=emit, seed=seed)
+    return smoke.ribbon("pipe-smoke", wisp, source=bowl, offset=tuple(top), coll=st.crossing["near"],
+                        also=(st.cast_coll,), color=tuple(np.array(s.light.fog) * 1.15))
+
+
 def draw_sword(st: Stage) -> None:
     """His sword out of its scabbard into his right fist, as it is on the shot's first frame (the draw)."""
     import bpy

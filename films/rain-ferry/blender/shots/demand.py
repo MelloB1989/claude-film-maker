@@ -45,6 +45,7 @@ def build(ctx):
     shot = jt.Shot(CAM, LENS, FSTOP, breath=0.006, kicks=[])
     st.camera(shot, st.tracked_focus("shinza"))
     jt.outline(st, shot)
+    jt.pipe_smoke(st).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)     # her pipe at the frame's edge, still lit
     jt.key_light(st, "shinza", (0.7, -0.9, 0.75))
     jt.key_light(st, "tsuru", (0.3, -1.0, 0.8))
     # the lantern behind his left shoulder warms that edge; the sky's cold light rims his head

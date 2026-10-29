@@ -47,6 +47,8 @@ def build(ctx):
     # the focus on the bowl through the knocks, racking to her face as the pipe goes down
     st.camera(shot, lambda f: _rack(st, f, post, head))
     jt.outline(st, shot)
+    # the wisp off the bowl until the first knock puts it out
+    jt.pipe_smoke(st, emit=((0.0, st.start + TAPS[0]),)).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
     jt.key_light(st, "tsuru", (-0.4, -1.0, 0.7))
     st.composite(lambda f: dict(rims=[((0.8, 0.6), (0.6, 0.68, 0.85), 0.35, 0.0035, 0.9)],
                                 para_from=(0.4, 0.95), para_to=(0.7, 0.05)))
