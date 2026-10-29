@@ -21,13 +21,14 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from lib import cinema  # noqa: E402
 from rf import jetty_talk as jt  # noqa: E402
 
 SHOT = {"scene": "draw"}
 
 # the camera: low at her side, three-quarters on him (world: its bearing from him, degrees, and distance; height)
 BEARING, DIST, HEIGHT = -38.0, (2.35, 1.95), (1.08, 1.12)
-LENS = [(0.0, 32.0), (3.8, 35.0)]
+LENS = (32.0, 35.0)
 GRIN = (0.0, 0.5)
 PULL = (0.15, 1.24)          # the slow draw up out of the scabbard (from the steel's onset)
 PULL_LEN, SLIDE = 0.5, 0.24  # how far his fist travels up the scabbard's line, and the scabbard down its own
@@ -44,27 +45,30 @@ BLINKS = (0.55, 3.1)
 
 
 def build(ctx):
-    st = jt.stage(ctx, who=("shinza",), rain_box=((3.0, -4.0, -0.6), (9.5, 5.0, 4.2)), clear=0.7, near=2.5)
+    st = jt.stage(ctx, who=("shinza",))
     jt.compose_faces(st)
-    line = st.line("L09")["L09"]
-    perform(st, [(line[0], line[0] + 0.42), (line[1] - 0.78, line[1])])
+    perform(st)
+    st.say("shinza", "L09", "nara... anta de ii", energy=0.9)
+    st.blinks("shinza", BLINKS)
+    st.perf["shinza"].secondary(wind=(0.0, 0.8, 0.0))
     jt.draw_sword(st)
+    st.bake()
     slide_scabbard(st)
     face = st.head_at("shinza", ctx.f0)
     b = math.radians(jt.SHINZA_FACING + BEARING)
     out = np.array((math.cos(b), math.sin(b), 0.0))
-    path = [(0.0, (*(face[:2] + out[:2] * DIST[0]), HEIGHT[0]), tuple(face - (0, 0, 0.12))),
-            (3.8, (*(face[:2] + out[:2] * DIST[1]), HEIGHT[1]), tuple(face - (0, 0, 0.1)))]
-    shot = jt.Shot(path, LENS, [(0.0, 2.8)], breath=0.005, kicks=[(CLEAR, 0.012)])
-    st.camera(shot, st.tracked_focus("shinza"))
-    jt.outline(st, shot)
+    move = cinema.line((*(face[:2] + out[:2] * DIST[0]), HEIGHT[0]), (*(face[:2] + out[:2] * DIST[1]), HEIGHT[1]),
+                       face - (0, 0, 0.12), face - (0, 0, 0.1))
+    st.film([cinema.Setup("draw", 0.0, move, lens=LENS, fstop=2.8, focus=(st.cast["shinza"]["vrm"], "head"),
+                          shake=cinema.Shake(breath=0.08, hits=((CLEAR, 0.9),)))])
+    jt.outline(st)
     jt.key_light(st, "shinza", (0.6, -1.0, 0.75))
     st.composite(lambda f: dict(rims=[((-1.0, 0.3), (1.0, 0.5, 0.18), 0.35, 0.004, 0.9),
                                       ((0.4, 1.0), (0.6, 0.68, 0.85), 0.3, 0.003, 0.9)],
                                 para_from=(0.5, 0.95), para_to=(0.5, 0.05)))
 
 
-def perform(st, speak):
+def perform(st):
     from lib import vrm
 
     ch = st.cast["shinza"]["vrm"]
@@ -99,8 +103,7 @@ def perform(st, speak):
                 hips=jt.shinza_hips(t))
         st.hand("shinza", "left", f, jt.HANG["left"], jt.hand_turn(ch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)),
                 (0.3, 0.5, 1.2))
-        st.face("shinza", f, {"glare": 0.4, "s4-grin": jt.ramp(t, *GRIN), "narrow": 0.7 * jt.ramp(t, *NARROW),
-                              "blink": jt.blink(t, BLINKS), **jt.mouth_weights(t, speak, seed=9, scale=0.5)})
+        st.face("shinza", f, {"glare": 0.4, "s4-grin": jt.ramp(t, *GRIN), "narrow": 0.7 * jt.ramp(t, *NARROW)})
 
 
 def slide_scabbard(st):
