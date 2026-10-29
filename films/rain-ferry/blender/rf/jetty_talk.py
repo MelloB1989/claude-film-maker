@@ -147,10 +147,21 @@ class Stage:
     """What `stage` built: the scene's pieces, the cast, the camera; keying the performance and the camera."""
 
     def __init__(self, ctx, **kw):
+        import time
+
         self.ctx = ctx
+        self._t0 = self._t = time.time()
         self.__dict__.update(kw)
         self.start, _ = ctx.timing.scene(ctx.shot if ctx.look is None else ctx.look.scene)
         self.held = []
+
+    def tick(self, what: str) -> None:
+        """Log how long the build's last step took (the build is budgeted: about a minute a shot)."""
+        import time
+
+        now = time.time()
+        print(f"[{self.ctx.shot}] {what}: {now - self._t:.1f}s (build {now - self._t0:.1f}s)", flush=True)
+        self._t = now
 
     # ---- time
     def t(self, f: int) -> float:
@@ -200,9 +211,11 @@ class Stage:
 
     def bake(self) -> None:
         """Write every performance as keys over the shot (and a frame either side)."""
+        self.tick("performance keyed")
         for p in self.perf.values():
             p.bake(self.ctx.f0 - 1, self.ctx.f1 + 1)
         self.ctx.scene.frame_set(self.ctx.f0)
+        self.tick("performances baked")
 
     # ---- the camera and the weather (blender/lib/cinema.py, weather.py)
     def film(self, setups, **storm):
@@ -217,7 +230,9 @@ class Stage:
         deck = ((sets.SPAN[0], -sets.HALF + 0.05, 0.004), (sets.SPAN[1], sets.HALF - 0.05, 0.004))
         storm = {"splashes": [deck], "waters": self.crossing["waters"], "floor": sets.WATER_Z,
                  "lights": [self.crossing["key"]], **storm}
+        self.tick("camera")
         self.sky = weather.storm(self.ctx, self.rig, **storm)
+        self.tick("weather")
         if self.sky.rain is not None:
             for d in self.sky.rain.drops.values():
                 self.cast_coll.objects.link(d.ob)
@@ -239,6 +254,7 @@ class Stage:
                 for fc in toon._fcurves(ad.action):
                     for kp in fc.keyframe_points:
                         kp.interpolation = "CONSTANT"
+        self.tick("before compositing")
         comp = satsuei.setup(self.ctx.scene, self.cast_coll)
         for f in self.frames():
             s = self.ctx.look_at(f)
@@ -246,6 +262,7 @@ class Stage:
             own["rims"] = tuple(satsuei.Rim(*r) for r in own.get("rims", ()))
             comp.key(f, s.look(**own))
         comp.hold()
+        self.tick("composited")
 
 
 def stage(ctx, *, who=("shinza", "tsuru"), ink: float = 0.0035, lantern_near: float | None = None, variant: dict | None = None,
@@ -294,6 +311,7 @@ def stage(ctx, *, who=("shinza", "tsuru"), ink: float = 0.0035, lantern_near: fl
         vrm.smooth(built["vrm"])
     st = Stage(ctx, crossing=crossing, cast=cast, cast_coll=cast_coll, sun=sun, look=look, standoff=so)
     place_cast(st, place)
+    st.tick("world and cast built")
     from lib import vrm_anim
 
     st.perf = {name: vrm_anim.Performance(built["vrm"], fps=ctx.fps, seed=11 + k) for k, (name, built) in
@@ -564,11 +582,23 @@ def tsuru_rest(st: Stage, f: int, t: float, *, smoking: bool = False, **sit) -> 
     her right knee."""
     pose = {**tsuru_sit(t, **sit), **fingers("left", 0.85), **fingers("right", 0.35)}
     hips = tsuru_hips(st, t)
-    hold = pipe_at_lips(st, pose, hips) if smoking else TS_PIPE_LAP
+    hold = TS_PIPE_LAP
+    if smoking:     # worked out once (her head barely moves while she sits smoking): re-posing a VRM is slow
+        if "lips" not in st.cast["tsuru"]:
+            st.cast["tsuru"]["lips"] = pipe_at_lips(st, pose, hips)
+        hold = st.cast["tsuru"]["lips"]
     st.pose("tsuru", f, pose, hips=hips)
     hold_pipe(st, f, *hold, arm="lips" if smoking else "lap")
     knee_hand(st, f)
     st.face("tsuru", f, {"s4-calm": 1.0})
+
+
+def bake_smoke(st: Stage, ribbon, until: float | None = None) -> None:
+    """Bake a ribbon (it steps the scene through every frame it covers: slow with the cast in) only up to `until`
+    seconds into the shot when its smoke is gone by then."""
+    f1 = st.ctx.f1 if until is None else min(st.ctx.f1, st.ctx.f0 + round(until * st.ctx.fps))
+    ribbon.bake(st.ctx.scene, st.ctx.f0, f1, st.ctx.fps)
+    st.tick("smoke")
 
 
 def pipe_smoke(st: Stage, *, emit=None, seed: int = 4):

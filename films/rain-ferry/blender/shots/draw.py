@@ -50,7 +50,6 @@ def build(ctx):
     perform(st)
     st.say("shinza", "L09", "nara... anta de ii", energy=0.9)
     st.blinks("shinza", BLINKS)
-    st.perf["shinza"].secondary(wind=(0.0, 0.8, 0.0))
     jt.draw_sword(st)
     st.bake()
     slide_scabbard(st)
