@@ -2002,7 +2002,7 @@ class Performance:
                 fk_now = self._world_mats(fi)
                 for b in by_fk:
                     a = anchor(b)
-                    mats[b].append(fk_now[names[a]] @ np.linalg.inv(now[a]) @ now[b])
+                    mats[b].append(fk_now[a] @ np.linalg.inv(now[a]) @ now[b])
         slow = (wanted - by_fk) | ({None} if any(d["empty"].parent_type != "BONE" or d["empty"].parent is not arm
                                                  for d in dangles) else set())
         if slow:
