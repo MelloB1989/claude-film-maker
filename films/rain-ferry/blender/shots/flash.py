@@ -21,10 +21,10 @@ CLASH = 6.1                 # x where the blades meet (rf/clash.py CLASH)
 # glint draws across, and the burn to white
 BEATS = [("white", 2), ("neg", 3), ("pos", 2), ("neg", 2), ("pos", 3), ("neg", 10), ("white", 2)]
 GLINT = (12, 3, 19, 2)      # frames: starts drawing, frames to cross, flares from, frames of the flare
-CAM = ((CLASH - 0.12, -3.55, 1.0), (CLASH - 0.08, -3.25, 1.0))      # from, to (a push in over the second)
-AIM = ((CLASH, 0.0, 1.02), (CLASH, 0.0, 1.04))
-LENS = (30.0, 33.0)
-JOLT = (2, 0.035, 5.5)      # the jolt: on frame, amplitude (frame heights), decay a second
+CAM = ((CLASH - 0.1, -2.95, 0.55), (CLASH - 0.06, -2.7, 0.58))      # from, to (a push in over the second)
+AIM = ((CLASH, 0.0, 1.3), (CLASH, 0.0, 1.3))   # low, looking up: the two against the sky
+LENS = (27.0, 30.0)
+JOLT = (2, 2.5, 5.5)        # the jolt: on frame, degrees, decay a second
 THRESHOLD = 0.11
 # the clash (his frame: front -y): a lunge, the blade out level at shoulder height, driving down a little at hers
 SH_AT = CLASH - 0.95
@@ -40,36 +40,28 @@ TS_AT = CLASH + 0.62
 
 def build(ctx, only: str | None = None):
     """The shot; `only` keys one beat on every frame (shots/flash_color.py: the picture under the panel)."""
-    import bpy
-    import numpy as np
-    from bpy_extras.object_utils import world_to_camera_view
-    from mathutils import Vector
-
     import sys
     from pathlib import Path
 
+    import bpy
+    import numpy as np
+
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import fx_impact as fx, toon
+    from lib import cinema, fx_impact as fx, toon, vrm
     from rf import clash
 
     scene = ctx.scene
     fps = ctx.fps
     n = ctx.f1 - ctx.f0
-    w = clash.world(ctx, splashes=False)
+    w = clash.world(ctx)
     actors = clash.cast(ctx, w, {"shinza": {"sword": "hand"}, "tsuru": {"pole": "drawn"}})
     sh, ts = actors["shinza"], actors["tsuru"]
     hands, fingers = clash.shinza_sword(sh["vrm"], SH_SWORD["pommel"], SH_SWORD["hilt"])
     clash.apply(sh, clash.Pose(at=(SH_AT, 0.0), hips=SH_HIPS, turns=SH_POSE, hands=hands, feet=SH_FEET), fingers=fingers)
-    for name, faces in (("shinza", ({"angry": 1.0, "aa": 0.8}, {"glare": 1.0})),):
-        ch = actors[name]["vrm"]
-        for f_ in faces:
-            try:
-                from lib import vrm
-
-                vrm.express(ch, f_)
-                break
-            except KeyError:
-                continue
+    try:
+        vrm.express(sh["vrm"], {"angry": 1.0, "aa": 0.8})     # the cry's last of it, teeth bared
+    except KeyError:
+        vrm.express(sh["vrm"], sh["face"](1.0))
     ts["root"].location = (TS_AT, 0.05, 0.0)
     ts["root"].rotation_euler = (0.0, 0.0, math.pi)
     bpy.context.view_layer.update()
@@ -77,36 +69,31 @@ def build(ctx, only: str | None = None):
     # lit as a strike lights it, every frame: the threshold's light
     scene[toon.FLASH] = 1.0
 
-    cam, aim = clash.camera(ctx, fstop=4.0)
-    cam.data.dof.use_dof = False          # a drawn panel: everything sharp, the lines and splinters over it too
-    fo = clash.focus(ctx, cam)
-    fo.location = (CLASH, 0.0, 1.1)
-    shake = fx.shake(fx.jolt(n + 2, JOLT[0] + 1, JOLT[1], decay=JOLT[2]), freq=11.0, seed=7)
-    for i, f in enumerate(range(ctx.f0 - 1, ctx.f1 + 1)):
-        k = clash.ease(i / (n + 1)) ** 0.6
-        cam.location = clash.lerp(*CAM, k)
-        aim.location = clash.lerp(*AIM, k)
-        cam.data.lens = LENS[0] + (LENS[1] - LENS[0]) * k
-        for ob, path in ((cam, "location"), (aim, "location"), (cam.data, "lens")):
-            ob.keyframe_insert(path, frame=f)
-    fx.shake_camera(cam, shake, ctx.f0 - 1)
-    clash.outlines(ctx, actors, lambda f: cam.location, lambda f: LENS[1])
+    # the camera: side on, pushing in over the second, jolted by the blow (cinema's hit); no depth of field: a drawn
+    # panel is sharp all over, the lines and splinters with it
+    rig = cinema.film(ctx, [cinema.Setup("panel", 0.0, cinema.line(CAM[0], CAM[1], AIM[0], AIM[1]), ease="out",
+                                         lens=LENS, fstop=8.0,
+                                         shake=cinema.Shake(hits=((JOLT[0] / fps, JOLT[1]),), decay=JOLT[2],
+                                                            hit_freq=11.0, seed=7))])
+    cam = rig.camera
+    cam.data.dof.use_dof = False
+    clash.outlines(ctx, actors, lambda f: rig.pose(f).position, lambda f: rig.pose(f).lens)
 
     # where the blades meet, on screen (frame heights from the centre)
-    scene.frame_set(ctx.f0)
-    bpy.context.view_layer.update()
-    hit = Vector((CLASH, 0.0, 1.12))
-    uv = world_to_camera_view(scene, cam, hit)
+    hit = (CLASH, 0.0, 1.12)
+    u, v = rig.pose(ctx.f0).screen(hit)
     aspect = ctx.size[0] / ctx.size[1]
-    centre = ((uv.x - 0.5) * aspect, uv.y - 0.5)
+    centre = ((u - 0.5) * aspect, v - 0.5)
 
     ink = (0.0, 0.0, 0.0)
     coll = toon.collection("fx")
-    depth = 0.6
+    # the focus lines behind the two (over the sky and the far bank), the splinters in front of them, the glint over
+    # everything
+    behind, front, over = 9.0, 2.0, 0.6
     # focus lines on the blades, three drawings on twos
     lines = [fx.overlay(f"focus{i}", cam, fx.focus_lines(110, center=centre, inner=0.2, ellipse=(1.6, 1.0),
                                                          jitter=0.9, width=(0.004, 0.02), seed=20 + i),
-                        fx.unlit(f"focus{i}", ink), depth=depth, coll=coll) for i in range(3)]
+                        fx.unlit(f"focus{i}", ink), depth=behind, coll=coll) for i in range(3)]
     beats = fx.beats(BEATS, n)
     lined = [ctx.f0 + i for i, b in enumerate(beats) if b in ("pos", "neg")]
     fx.alternate(lines, lined)
@@ -119,7 +106,7 @@ def build(ctx, only: str | None = None):
         tris = np.concatenate([fx.shards(26, t, center=centre, speed=(0.6, 2.2), size=(0.008, 0.03), seed=3),
                                fx.shards(40, t, center=centre, speed=(0.3, 1.3), size=(0.004, 0.012), elongate=(1.0, 2.0),
                                          gravity=0.6, seed=4)])
-        ob = fx.overlay(f"shards{i}", cam, tris, shard_mat, depth=depth * 0.99, coll=coll)
+        ob = fx.overlay(f"shards{i}", cam, tris, shard_mat, depth=front, coll=coll)
         fx.show(ob, [f], ctx.f0 - 1, ctx.f1)
     # the glint: the cut's line from the blades out across the frame, drawn, held, flared
     g0, g_n, g_flare, g_fn = GLINT
@@ -134,9 +121,9 @@ def build(ctx, only: str | None = None):
         tris = fx.glint(a, b, width, draw=draw)
         if draw >= 1.0:
             tris = np.concatenate([tris, fx.star(centre, 0.05 + 4 * width, rays=4, thin=0.05, turn=0.3)])
-        ob = fx.overlay(f"glint{i}", cam, tris, glint_mat, depth=depth * 0.98, coll=coll)
+        ob = fx.overlay(f"glint{i}", cam, tris, glint_mat, depth=over, coll=coll)
         fx.show(ob, [ctx.f0 + i], ctx.f0 - 1, ctx.f1)
 
-    panel = fx.ink_panel(scene, threshold=THRESHOLD, soft=0.02, edges=1.0, edge=0.05, contour=0.015)
+    panel = fx.ink_panel(scene, threshold=THRESHOLD, soft=0.02, edges=1.0, edge=0.18, contour=0.015, crease=0.7)
     for i, f in enumerate(range(ctx.f0, ctx.f1)):
         panel.key(f, only or beats[i])

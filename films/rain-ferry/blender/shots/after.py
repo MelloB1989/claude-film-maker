@@ -36,24 +36,20 @@ SKY_RIM = (0.6, 0.68, 0.85)
 
 
 def build(ctx):
+    import sys
+    from pathlib import Path
+
     import bpy
     import numpy as np
     from mathutils import Matrix, Vector
 
-    import sys
-    from pathlib import Path
-
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from lib import cinema
     from rf import clash, vroid_tsuru
 
     fps = ctx.fps
     w = clash.world(ctx)
-    # the rain falls again: its clock from the schedule's speed (hung at first, up to full by 1.4 s)
-    full = 9.5
-    clash.rain_clock(ctx, [w["rain"], *w["splashes"]], lambda t: ctx.look.at(t).rain.speed / full)
     actors = clash.cast(ctx, w, {"shinza": {"sword": "broken"}, "tsuru": {"pole": "hand"}})
-    if actors.get("rain") is not None:
-        pass   # the copy shares the rain's node group, and so its clock
     sh, ts = actors["shinza"], actors["tsuru"]
 
     # ---- where they stand: back to back
@@ -140,24 +136,15 @@ def build(ctx):
             ob.keyframe_insert(path, frame=f)
     clash.hold_constant(half)
 
-    # ---- the camera: low, side on, creeping in; the focus on them, then pulled to the blade
-    cam, aim = clash.camera(ctx, fstop=FSTOP)
-    cam.data.lens = LENS
-    fo = clash.focus(ctx, cam)
-    figures = Vector((MID, 0.0, 1.2))
-    cams = {}
-    for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        t = (f - ctx.f0) / fps
-        c = clash.keys_at([(k, v) for k, v, _ in CAM], t)
-        a = clash.keys_at([(k, v) for k, _, v in CAM], t)
-        cam.location, aim.location = c, a
-        cam.keyframe_insert("location", frame=f)
-        aim.keyframe_insert("location", frame=f)
-        k = clash.ease((t - RACK[0]) / RACK[1])
-        fo.location = figures.lerp(goal + axis_up * 0.25, k)
-        fo.keyframe_insert("location", frame=f)
-        cams[f] = c
-    clash.outlines(ctx, {"shinza": sh, "tsuru": ts}, lambda f: cams[f], lambda f: LENS)
+    # ---- the camera: low, side on, creeping in; the focus on them, then pulled to the blade as it lands
+    figures = (MID, 0.0, 1.2)
+    rig = cinema.film(ctx, [cinema.Setup("side", 0.0, cinema.line(CAM[0][1], CAM[1][1], CAM[0][2], CAM[1][2]),
+                                         lens=LENS, fstop=FSTOP, focus=figures,
+                                         racks=(cinema.Rack(RACK[0], tuple(goal + axis_up * 0.25), RACK[1]),),
+                                         shake=cinema.Shake(breath=0.05, hits=((THUNK, 0.35),)))])
+    clash.outlines(ctx, {"shinza": sh, "tsuru": ts}, lambda f: rig.pose(f).position, lambda f: LENS)
+    # the rain falls again (the look schedule's speed: hanging, then falling by 1.4 s)
+    clash.weather(ctx, rig, w, actors)
 
     # the sky's rim on them from above, the bank's side in shade
     clash.composite(ctx, actors, lambda f: dict(rims=[((0.2, 1.0), SKY_RIM, 0.22, 0.002, 0.8)],

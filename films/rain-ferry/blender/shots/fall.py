@@ -22,7 +22,7 @@ LENS, FSTOP = 50.0, 2.0
 CAM_BEARING = 38.0            # degrees round from his front toward his right (the camera's side)
 CAM_DIST = (1.25, 1.35)       # m from his face: start, end
 CAM_DZ = (-0.04, 0.1)         # m the lens sits off his eyes' height: start, end (above him, looking down, once down)
-JOLT = (0.012, 6.0)
+JOLT = (1.4, 6.0)             # the knees' jolt: degrees, decay a second
 # his follow-through (shots/after.py), then the kneel (his frame: front -y, left +x)
 FOLLOW = dict(pommel=(0.03, -0.3, 1.1), hilt=(0.04, -0.95, 0.28))
 SH_FOLLOW = {"hips": (0.0, 0.0, 6.0), "spine": (6.0, 0.0, -3.0), "chest": (4.0, 0.0, -2.0), "neck": (-4.0, 0.0, 0.0),
@@ -55,12 +55,12 @@ def build(ctx):
     from mathutils import Euler, Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import fx_impact as fx, vrm
+    from lib import cinema, vrm
     from rf import clash
 
     fps = ctx.fps
     n = ctx.f1 - ctx.f0
-    w = clash.world(ctx, clear=0.8, near=3.0)
+    w = clash.world(ctx)
     actors = clash.cast(ctx, w, {"shinza": {"sword": "broken"}})
     sh = actors["shinza"]
     ch = sh["vrm"]
@@ -153,41 +153,34 @@ def build(ctx):
         bend.angle = math.radians(70.0) * clash.ease((t - CUT) / 0.6) * (1.0 - clash.ease((t - BAND_DOWN + 0.1) / 0.3))
         bend.keyframe_insert("angle", frame=f)
 
-    # ---- the camera: on his face, sinking with it, jolted when his knees hit
-    cam, aim = clash.camera(ctx, fstop=FSTOP)
-    cam.data.lens = LENS
-    fo = clash.focus(ctx, cam)
+    # ---- the camera: on his face, sinking with it (a little behind it: an operator, not a lock), jolted when his
+    # knees hit
     bear = yaw - math.radians(CAM_BEARING)
     toward = Vector((math.cos(bear), math.sin(bear), 0.0))
-    faces = {}
-    for f in range(ctx.f0 - 1, ctx.f1 + 1):
+    fs = list(range(ctx.f0 - 1, ctx.f1 + 1))
+    faces = []
+    for f in fs:
         ctx.scene.frame_set(f)
-        faces[f] = Vector(ch.face())
-    # the camera follows the face a little behind it, smoothed (a camera operator, not a lock)
-    fs = sorted(faces)
-    zs = np.array([faces[f].z for f in fs])
-    lag = np.copy(zs)
-    for i in range(1, len(zs)):
-        lag[i] = lag[i - 1] + (zs[i] - lag[i - 1]) * 0.45
-    env = fx.jolt(len(fs), round(KNEES * fps) + 1, JOLT[0], decay=JOLT[1])
-    shake = fx.shake(env, freq=10.0, seed=13)
-    cams = {}
-    for i, f in enumerate(fs):
+        faces.append(Vector(ch.face()))
+    lag = [faces[0].z]
+    for v in faces[1:]:
+        lag.append(lag[-1] + (v.z - lag[-1]) * 0.45)
+    cams, aims = [], []
+    for f, face, z in zip(fs, faces, lag):
         t = (f - ctx.f0) / fps
         k = clash.ease((t - (KNEES - DROP)) / (DROP + 0.6))
-        face = faces[f]
-        eye = Vector((face.x, face.y, lag[i]))
-        dist = CAM_DIST[0] + (CAM_DIST[1] - CAM_DIST[0]) * k
-        c = eye + toward * dist + Vector((0.0, 0.0, CAM_DZ[0] + (CAM_DZ[1] - CAM_DZ[0]) * k))
+        eye = Vector((face.x, face.y, z))
+        c = eye + toward * (CAM_DIST[0] + (CAM_DIST[1] - CAM_DIST[0]) * k) + \
+            Vector((0.0, 0.0, CAM_DZ[0] + (CAM_DZ[1] - CAM_DZ[0]) * k))
         # the face in the left third, room on the side he looks to; a little head room
-        right = (Vector(eye) - c).cross(Vector((0.0, 0.0, 1.0))).normalized()
-        a = eye + right * 0.09 + Vector((0.0, 0.0, -0.06))
-        cam.location, aim.location, fo.location = c, a, eye
-        for ob in (cam, aim, fo):
-            ob.keyframe_insert("location", frame=f)
-        cams[f] = tuple(c)
-    fx.shake_camera(cam, shake, fs[0])
-    clash.outlines(ctx, {"shinza": sh}, lambda f: cams[f], lambda f: LENS)
+        right = (eye - c).cross(Vector((0.0, 0.0, 1.0))).normalized()
+        cams.append(tuple(c))
+        aims.append(tuple(eye + right * 0.09 + Vector((0.0, 0.0, -0.06))))
+    rig = cinema.film(ctx, [cinema.Setup("mcu", -1.0 / fps, cinema.path(cams, aims), ease="linear", lens=LENS,
+                                         fstop=FSTOP, focus=(ch, "head"),
+                                         shake=cinema.Shake(breath=0.08, hits=((KNEES, JOLT[0]),), decay=JOLT[1]))])
+    clash.outlines(ctx, {"shinza": sh}, lambda f: rig.pose(f).position, lambda f: LENS)
+    clash.weather(ctx, rig, w, actors)
 
     # the storm's light on him: the sky's rim from above and beyond, the lantern's far behind at the left
     clash.composite(ctx, actors, lambda f: dict(rims=[((-1.0, 0.3), LANTERN_RIM, 0.3, 0.003, 0.9),
