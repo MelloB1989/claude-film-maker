@@ -121,11 +121,14 @@ def build(ctx):
     up /= np.linalg.norm(up)
     elbow = (-0.45, 0.2, 1.75)
     s.reach(DRAW[0], "rightHand", ("char", grip), ease="inout", weight=0.0, pole=elbow)
-    s.reach(DRAW[1], "rightHand", ("char", grip), ease="inout", pole=elbow)
-    s.pose(DRAW[1], vrm.grip_pose("right"), ease="inout", full=False)
+    # the fist round the hilt, its palm toward his neck; pulled straight up along the blade (the hand keeps its turn),
+    # then brought round in front of him, the blade raised forward
+    palm = (1.0, -0.4, 0.0)
+    s.grasp(DRAW[1], "right", grip, -up, palm, pole=elbow)
     s.carry(sword[0], DRAW[1], "rightHand")
-    s.reach(DRAW[2], "rightHand", ("char", grip + up * 0.55), ease="in", pole=elbow)
-    s.reach(DRAW[3], "rightHand", ("char", (-0.18, -0.42, 1.12)), ease="settle", pole=(-0.6, 0.1, 0.9))
+    s.grasp(DRAW[2], "right", grip + up * 0.55, -up, palm, pole=elbow, ease="in")
+    s.grasp(DRAW[3], "right", (-0.16, -0.42, 1.12), (0.05, -0.85, 0.5), (1.0, 0.0, 0.2), pole=(-0.6, 0.1, 0.9),
+            ease="settle")
     s.settle(DRAW[3], 0.5)
     t.look(f, s.face_at, lag=1.4)
     t.bake(ctx.f0, ctx.f1)
@@ -147,8 +150,8 @@ def build(ctx):
     scene.collection.objects.link(sun)
     cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam"))
     scene.collection.objects.link(cam)
-    cam.data.lens = 30.0
-    cam.location = (1.4, -5.2, 1.35)
+    cam.data.lens = 38.0
+    cam.location = (0.9, -4.6, 1.4)
     aim = bpy.data.objects.new("aim", None)
     scene.collection.objects.link(aim)
     aim.location = (-1.0, 0.5, 0.95)
