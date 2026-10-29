@@ -52,8 +52,11 @@ def build(ctx):
     scene = ctx.scene
     fps = ctx.fps
     n = ctx.f1 - ctx.f0
+    clash.tick("start")
     w = clash.world(ctx)
+    clash.tick("world")
     actors = clash.cast(ctx, w, {"shinza": {"sword": "hand"}, "tsuru": {"pole": "hand"}})
+    clash.tick("cast")
     sh, ts = actors["shinza"], actors["tsuru"]
     ch = sh["vrm"]
     # she waits at her mark beyond him, turned a little to the lens, her left hand come to the pole above her right
@@ -80,7 +83,9 @@ def build(ctx):
     p.express(fr(0.0), {k: 0.0 for k in CRY})
     p.express(fr(0.12), CRY, ease="out")
     p.express(fr(1.76), {k: v * 0.7 for k, v in CRY.items()})
+    clash.tick("performance keyed")
     p.bake(ctx.f0 - 1, ctx.f1 + 1)
+    clash.tick("bake")
 
     def x_at(f):
         root, _ = p.root_at(f)
@@ -104,6 +109,7 @@ def build(ctx):
             ob = fx.droplets(f"splash{i}-{f}", pts, vel, water, size=0.01, stretch=0.01, coll=coll)
             fx.show(ob, [f], ctx.f0 - 1, ctx.f1)
 
+    clash.tick("splashes")
     # ---- the camera: running ahead of him, low, its aim on his chest, rumbling and jolted by his strides
     fs = list(range(ctx.f0 - 1, ctx.f1 + 1))
     chest = {f: Vector((x_at(f), 0.0, 1.25)) for f in fs}
@@ -114,8 +120,11 @@ def build(ctx):
                                          shake=cinema.Shake(breath=0.35, freq=1.6, hits=tuple((tc, JOLT) for tc in beats),
                                                             decay=9.0, seed=5))])
     cam = rig.camera
+    clash.tick("camera")
     clash.outlines(ctx, actors, lambda f: rig.pose(f).position, lambda f: LENS)
+    clash.tick("outlines")
     clash.weather(ctx, rig, w, actors)
+    clash.tick("weather")
 
     # ---- focus lines on him, on twos, pale as the rain, thickening as he closes; just in front of the focus
     aspect = ctx.size[0] / ctx.size[1]
@@ -131,7 +140,9 @@ def build(ctx):
         ob = fx.overlay(f"focus{i}", cam, tris, strong if late else pale, depth=depth, coll=coll)
         fx.show(ob, [f, f + 1], ctx.f0 - 1, ctx.f1)
 
+    clash.tick("speed lines")
     # the storm's light: the sky's rim from above and the river, the lantern far behind him at the left
     clash.composite(ctx, actors, lambda f: dict(rims=[((-1.0, 0.3), LANTERN_RIM, 0.35, 0.003, 0.9),
                                                       ((0.4, 1.0), SKY_RIM, 0.28, 0.003, 0.9)],
                                                 para_from=(0.6, 0.85), para_to=(0.4, 0.1)))
+    clash.tick("composite")
