@@ -33,7 +33,6 @@ import math
 # the jetty from its end (every camera of 22-24), he is on the left, she on the right, the hut's lantern beyond.
 SHINZA_AT = (7.2, 0.08)                            # rf/clash.py FALL["kneel"]
 SHINZA_FACING = 0.0
-HEADBAND_AT = (7.42, -0.2, 35.0)                   # rf/clash.py FALL["headband"], and its turn (deg)
 TSURU_WALK = [(5.0, -0.06), (4.3, 0.42), (3.3, 0.8)]   # her way from her END mark to the ferry's stern (x, y)
 
 

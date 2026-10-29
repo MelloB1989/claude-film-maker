@@ -43,7 +43,7 @@ def build(ctx):
     if os.environ.get("RF_S7_CAST", "vroid") != "none":
         from rf import clash
 
-        actors = E.cast(st, {"shinza": dict(kasa=None, sword="broken", headband=True)})
+        actors = E.cast(st, {"shinza": dict(kasa="back", sword="broken", headband=True)})
         sh = actors["shinza"]
         ch = sh["vrm"]
         E.stick_half(sh)

@@ -44,7 +44,7 @@ def build(ctx):
         from lib import vrm, vrm_anim as va
         from rf import clash, vroid_tsuru as T
 
-        actors = E.cast(st, {"shinza": dict(kasa=None, sword="broken", headband=True), "tsuru": dict(pole="shoulder")})
+        actors = E.cast(st, {"shinza": dict(kasa="back", sword="broken", headband=True), "tsuru": dict(pole="shoulder")})
         sh, ts = actors["shinza"], actors["tsuru"]
         # Shinza: as the fall left him; breathing hard, his head sinking as the line lands
         E.stick_half(sh)

@@ -2,8 +2,8 @@
 Tsuru standing at its stern poling it on, Shinza sitting in it, small under the far ridges; and close in front of us
 the cut red headband turning slowly on the water, drifting away downstream. The theme resolves.
 
-Low over the water from below the jetty's foot, looking down the river after the boat (rf/set_world.py's cross view,
-brought down near the water): the hut and the jetty at the left, the river opening right into the light. The focus
+Low over the water off the near shore, looking down the valley into the light (where 25 light broke the clouds): the
+jetty coming in from the left, the ferry crossing the middle of the frame toward the far bank. The focus
 starts on the headband and goes out to the boat as the camera rises slowly, as if lifting its eyes after it.
 
 The world is the after-rain one (the look schedule's "cross": warm 1, no rain); the ferry is poled out along
@@ -16,13 +16,12 @@ import os
 
 SHOT = {"scene": "cross"}
 
-PUSH = (-6.0, 16.0)          # s (into the shot): the ferry's push along CROSS_PATH, already well under way
-CAM = ((-8.4, -6.6, 0.75), (-8.0, -6.3, 1.45))     # from, to (eased): low over the water, rising
-AIM = ((26.0, 12.0, 0.6), (26.0, 12.0, 1.4))
-LENS, FSTOP = 30.0, 2.8
+PUSH = (-2.0, 22.0)          # s (into the shot): the ferry's push along CROSS_PATH, just under way
+CAM = ((-1.6, -11.6, 0.7), (-1.3, -11.2, 1.25))     # from, to (eased): low over the water, rising
+AIM = ((12.5, 9.5, 0.9), (13.5, 10.0, 1.6))
+LENS, FSTOP = 32.0, 2.8
 RACK = (1.6, 3.6)            # s: the focus from the headband out to the boat
-BAND = ((-3.6, -3.7), (-2.6, -1.9))   # the headband's drift on the water (x, y), from and to over the shot
-BEAMS = ((60.0, 150.0, 55.0), (-0.3, -0.85, -0.42))   # where the sun breaks through (m), the light's travel
+BAND = ((-0.55, -8.15), (0.15, -7.0))   # the headband's drift on the water (x, y), from and to over the shot
 POLE = dict(period=3.4, push=0.62, tilt=(-8.0, 32.0), grip=((-0.2, -0.18, 1.12), (-0.2, 0.2, 0.82)))
 
 
@@ -33,7 +32,7 @@ def build(ctx):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import bpy
 
-    from lib import cinema, toon3d, weather
+    from lib import cinema, toon3d
     from rf import ending as E
     from rf import set_world, sets
 
@@ -62,7 +61,7 @@ def build(ctx):
         from rf import vroid_tsuru as T
 
         actors = E.cast(st, {"tsuru": dict(pole="hand", wet=0.3),
-                             "shinza": dict(kasa=None, sword="back", headband=True, wet=0.3)})
+                             "shinza": dict(kasa="back", sword="back", headband=True, wet=0.3)})
         ts, sh = actors["tsuru"], actors["shinza"]
         band = [E.cut_headband(sh, afloat=True)]
         anchors = st.world["anchors"]
@@ -119,8 +118,6 @@ def build(ctx):
         focus=drift, racks=(cinema.Rack(RACK[0], boat, RACK[1] - RACK[0]),), shake=cinema.Shake(breath=0.05, seed=26))],
         clip=(0.02, 4000.0))
     E.weather(ctx, st, rig, deck=False, river=False)
-    # the evening sun breaking through down the valley: shafts of it through the lifting mist
-    weather.sun_beams("beams", BEAMS[0], BEAMS[1], spread=(34.0, 16.0), count=7, strength=0.3)
 
     def look(f, s):
         L = s.light
