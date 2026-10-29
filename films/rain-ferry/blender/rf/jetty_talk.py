@@ -458,7 +458,9 @@ def shinza_stand(t: float, *, look_out: float = 0.0, reach: float = 0.0, gust: f
     }
 
 
-def hilt_grip(st: Stage, along: float = 0.06) -> tuple:
+HILT_GRIP = 0.17     # where his right fist closes on the hilt, up from the guard (m): mid-hilt, where his arm reaches
+
+def hilt_grip(st: Stage, along: float = HILT_GRIP) -> tuple:
     """(wrist, turn) of his right fist on the hilt standing over his right shoulder, `along` up it from the guard: its
     knuckles up the hilt and its palm to the blade's flat (against his back), his frame."""
     ch = st.cast["shinza"]["vrm"]
