@@ -1,8 +1,8 @@
 """27 title: the end of the episode over the warm valley. The sun is out over the river (rf/valley.py, gold, the
-clouds open); the camera drifts slowly along the slope. A wash of pale mist blooms over the right of the frame like
-paper, and on it 「雨渡し」 is brushed in, stroke by stroke, top to bottom (blender/lib/brushtext.py); on the last drum
-(3.25 s in) a vermilion seal is stamped under it and THE RAIN FERRY comes up beside it, then 第一話「一閃」 and its
-English; つづく is brushed in at the bottom right, and the picture goes to black as the flute dies away.
+clouds open); the camera drifts slowly along the slope. A wash of pale mist blooms across the frame like paper, and on
+it 「雨渡し」 is brushed in down the right third, stroke by stroke (blender/lib/brushtext.py); on the last drum (3.25 s
+in) a vermilion seal is stamped under it. The left third stays calm and pale: the engine sets the type there (film.ts:
+THE RAIN FERRY, 第一話「一閃」, つづく) and fades the picture out.
 
 The lettering hangs before the lens (parented to the camera), so it stays put while the valley drifts behind it.
 """
@@ -11,11 +11,10 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-SHOT = {"scene": "title", "look": "2700,2740,2760,2790,2830,2862", "black_ok": lambda f: f >= 2869}
+SHOT = {"scene": "title", "look": "2700,2740,2760,2790,2830,2862"}
 
 FONTS = Path(__file__).resolve().parents[2] / "fonts"
 JP = FONTS / "ShipporiMincho-SemiBold.ttf"
-EN = FONTS / "CormorantGaramond.ttf"
 LENS = 30.0
 DEPTH = 3.0                  # m before the lens the lettering hangs (the frame is 2.025 m tall there)
 OFFSET = (60.0, 140.0, -10.0)  # the camera's place from the opening's (m): further down the slope, nearer the river
@@ -24,14 +23,8 @@ DRIFT = (16.0, 10.0)         # how far it drifts to the right and along its view
 PAPER = (0.05, 1.1)          # the pale wash blooms
 BRUSH = (0.55, 3.0)          # 「雨渡し」
 SEAL = 3.25                  # stamped on the drum
-NAME = (3.3, 1.0)            # THE RAIN FERRY: in at, over
-EPISODE = (4.0, 0.9)         # 第一話「一閃」
-ENGLISH = (4.45, 0.9)        # Episode 1 · One Flash
-TSUZUKU = (5.6, 6.5)         # つづく, brushed
-BLACK = (6.9, 7.95)          # to black
 INK = (0.011, 0.010, 0.012)
 PAPER_COLOR = (0.86, 0.80, 0.69)   # #efe8da, linear
-EN_INK = (0.022, 0.018, 0.016)
 
 
 def ease(u: float) -> float:
@@ -173,8 +166,8 @@ def build(ctx):
     paper = bpy.context.active_object
     paper.name = "paper"
     paper.parent = cam
-    paper.location = (0.2, 0.0, -DEPTH - 0.05)
-    paper.scale = (3.4, 2.3, 1.0)
+    paper.location = (-0.15, 0.02, -DEPTH - 0.05)
+    paper.scale = (4.6, 2.5, 1.0)
     paper.data.materials.append(pmat)
     paper.visible_shadow = False
 
@@ -183,12 +176,6 @@ def build(ctx):
                             start=t0 + BRUSH[0], end=t0 + BRUSH[1], gap=0.3, char_gap=0.9, color=INK, dry=0.65, scene=scene)
     title.parent = cam
     title.location = (0.62, 0.64, -DEPTH)
-    tsuzuku = brushtext.build("tsuzuku", "つづく", str(JP), size=0.085, vertical=False, spacing=1.05,
-                              start=t0 + TSUZUKU[0], end=t0 + TSUZUKU[1], gap=0.2, char_gap=0.3, color=INK, dry=0.4,
-                              scene=scene)
-    tsuzuku.parent = cam
-    tsuzuku.location = (1.27, -0.86, -DEPTH)
-
     # the seal: a vermilion square with 一閃 cut into it, stamped on the drum
     accent = tuple(ctx.look_at(ctx.f0).light.accent)
     seal_root = bpy.data.objects.new("seal", None)
@@ -205,23 +192,6 @@ def build(ctx):
     cut.data.body = "一\n閃"
     cut.data.space_line = 0.95
 
-    name, nfade = _words("title-name", "THE RAIN FERRY", EN, 0.135, EN_INK, cam, (-0.25, 0.02), spacing=1.32,
-                         align="RIGHT")
-    episode, efade = _words("title-episode", "第一話「一閃」", JP, 0.078, accent, cam, (-0.25, -0.15), spacing=1.15,
-                            align="RIGHT")
-    english, gfade = _words("title-english", "Episode 1 · One Flash", EN, 0.06, (0.05, 0.042, 0.036), cam, (-0.25, -0.26),
-                            spacing=1.18, align="RIGHT")
-
-    # the black at the end
-    bmat, bfade = _fading("fade", (0.0, 0.0, 0.0))
-    bpy.ops.mesh.primitive_plane_add(size=1.0)
-    black = bpy.context.active_object
-    black.name = "black"
-    black.parent = cam
-    black.location = (0.0, 0.0, -0.5)
-    black.scale = (2.0, 2.0, 1.0)
-    black.data.materials.append(bmat)
-    black.visible_shadow = False
 
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = ctx.time(f) - t0
@@ -237,11 +207,3 @@ def build(ctx):
         for sock in (sfade, cfade):
             sock.default_value = on * 0.95
             sock.keyframe_insert("default_value", frame=f)
-        for sock, (a, d) in ((nfade, NAME), (efade, EPISODE), (gfade, ENGLISH)):
-            sock.default_value = ease((t - a) / d)
-            sock.keyframe_insert("default_value", frame=f)
-        # THE RAIN FERRY settles as it comes in: its tracking closing a little
-        name.data.space_character = 1.32 + 0.12 * (1 - ease((t - NAME[0]) / (NAME[1] * 1.6)))
-        name.data.keyframe_insert("space_character", frame=f)
-        bfade.default_value = ease((t - BLACK[0]) / (BLACK[1] - BLACK[0]))
-        bfade.keyframe_insert("default_value", frame=f)
