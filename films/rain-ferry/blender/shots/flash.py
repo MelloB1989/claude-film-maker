@@ -66,6 +66,11 @@ def build(ctx, only: str | None = None):
     ts["root"].rotation_euler = (0.0, 0.0, math.pi)
     bpy.context.view_layer.update()
 
+    # the panel is the two of them and the cut: the moored boat's roof would hang across its top from this low
+    hidden = [w["boat"]["root"], *w["boat"]["root"].children_recursive] if isinstance(w.get("boat"), dict) else []
+    for ob in hidden:
+        ob.hide_render = True
+
     # lit as a strike lights it, every frame: the threshold's light
     scene[toon.FLASH] = 1.0
 
@@ -124,6 +129,6 @@ def build(ctx, only: str | None = None):
         ob = fx.overlay(f"glint{i}", cam, tris, glint_mat, depth=over, coll=coll)
         fx.show(ob, [ctx.f0 + i], ctx.f0 - 1, ctx.f1)
 
-    panel = fx.ink_panel(scene, threshold=THRESHOLD, soft=0.02, edges=1.0, edge=0.18, contour=0.015, crease=0.7)
+    panel = fx.ink_panel(scene, threshold=THRESHOLD, soft=0.02, edges=1.0, edge=0.18, contour=0.015, crease=0.35)
     for i, f in enumerate(range(ctx.f0, ctx.f1)):
         panel.key(f, only or beats[i])
