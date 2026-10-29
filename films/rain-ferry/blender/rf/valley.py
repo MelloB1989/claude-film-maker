@@ -29,7 +29,7 @@ AIM = (40.0, 1800.0, 60.0)
 # the ferry on the near bank: the hut's floor (x, y), and how much larger than life it is drawn (from this far up a
 # real hut is a speck)
 HAMLET = (-14.0, 380.0)
-HAMLET_SCALE = 5.0
+HAMLET_SCALE = 7.0
 SUN = (0.42, 1.0, 0.32)          # toward the sun (behind the valley's right side, low): the gold light's direction
 SKY_FAR = 9000.0                  # the sky dome's radius
 # the scene properties the materials read (linear colours, or 0..1)
@@ -455,6 +455,7 @@ def mist_material(name: str, *, scene, density: float = 0.6, drift: float = 6.0,
     v.inputs["Z"].default_value = seed
     nz = n.ramp(n.noise(v.outputs[0], 3.0, 5.0, 0.6), 0.36, 0.72)
     prof = n.math("MULTIPLY", n.ramp(sep.outputs["Y"], 0.0, 0.35), n.ramp(sep.outputs["Y"], 1.0, 0.45))
+    prof = n.math("MULTIPLY", prof, n.math("MULTIPLY", n.ramp(sep.outputs["X"], 0.0, 0.3), n.ramp(sep.outputs["X"], 1.0, 0.7)))
     a = n.math("MULTIPLY", n.math("MULTIPLY", nz, prof), n.math("MULTIPLY", n.prop("rf_mist"), density), clamp=True)
     em = n.new("ShaderNodeEmission")
     n.set(em.inputs["Color"], n.mix(n.math("MULTIPLY", n.prop("rf_sun"), 0.25), n.prop("rf_fog", True),
@@ -680,11 +681,14 @@ def _hamlet(coll, m) -> dict:
     return {"hamlet": root, "lantern": lantern}
 
 
-FOREGROUND = [(-0.42, 110.0, 44.0, 1), (-0.36, 128.0, 36.0, 2), (-0.5, 146.0, 52.0, 3), (-0.24, 168.0, 30.0, 4)]
-LEDGE = (0.0, 40.0)        # m below the lens the ledge's top lies
+# (bearing left of the view as a share of the distance, metres out, height, seed, foot below the lens in metres): two
+# old pines rooted below the frame's left edge, leaning in so their crowns overhang the top left against the pale
+# distance, as an ink painting frames its valley
+FOREGROUND = [(-0.66, 150.0, 120.0, 1, 40.0), (-0.52, 190.0, 90.0, 3, 30.0)]
 
 
-def ink_pine(name: str, base, height: float, material, coll, *, seed: int = 1, lean=(0.0, 0.0, 0.0)) -> list:
+def ink_pine(name: str, base, height: float, material, coll, *, seed: int = 1, lean=(0.0, 0.0, 0.0),
+             reach: float = 1.0) -> list:
     """A pine as an ink painter draws one near: a trunk leaning and kinking as it climbs, a few long branches reaching
     out level, and on each a flat pad of needles, its edge serrated (spikes fanned out round a flattened core), the
     top pad crowning it. `lean` (a direction) tips it. Returns its objects."""
@@ -707,8 +711,8 @@ def ink_pine(name: str, base, height: float, material, coll, *, seed: int = 1, l
         u = 0.42 + 0.5 * j / 6 + rng.uniform(-0.03, 0.03)
         at = pts[0] + (np.array(pts[-1]) - pts[0]) * u
         ang = rng.uniform(0, 2 * math.pi)
-        reach = height * (0.32 - 0.22 * u) * rng.uniform(0.8, 1.3)
-        tip = at + np.array([math.cos(ang) * reach, math.sin(ang) * reach, reach * rng.uniform(-0.05, 0.15)])
+        far = height * (0.32 - 0.22 * u) * rng.uniform(0.8, 1.3) * reach
+        tip = at + np.array([math.cos(ang) * far, math.sin(ang) * far, far * rng.uniform(-0.05, 0.15)])
         obs.append(shapes.cylinder(f"{name}-branch{j}", tuple(at), tuple(tip), 0.006 * height, material=material, coll=coll,
                                    n=6, r2=0.002 * height))
         pads.append((tip, height * (0.17 - 0.08 * u) * rng.uniform(0.8, 1.25)))
@@ -747,13 +751,10 @@ def _foreground(coll, m, cam, aim, *, seed: int = 5) -> list:
     r = np.array([f[1], -f[0], 0.0])
     obs = []
     rng = np.random.default_rng(seed)
-    for k, (side, d, h, sd) in enumerate(FOREGROUND):
-        base = c + f * d + r * side * d * 1.2 - np.array([0.0, 0.0, LEDGE[1] + rng.uniform(-3, 3)])
-        obs += ink_pine(f"near-pine{k}", tuple(base), h, m["near"], coll, seed=seed + sd, lean=(-r * 0.35 + f * 0.1))
-    # the ledge: a lumpy slab under them, its edge breaking off toward the valley
-    mid = c + f * 140.0 + r * -0.42 * 168.0 - np.array([0.0, 0.0, LEDGE[1] + 10.0])
-    obs.append(shapes.ellipsoid("near-ledge", tuple(mid), (60.0, 48.0, 14.0), material=m["near"], coll=coll, n=24,
-                                squash=lambda v: v * (1 + 0.18 * np.sin(v[:, :1] * 5.0) * np.cos(v[:, 1:2] * 4.0))))
+    for k, (side, d, h, sd, below) in enumerate(FOREGROUND):
+        base = c + f * d + r * side * d - np.array([0.0, 0.0, below + rng.uniform(-3, 3)])
+        obs += ink_pine(f"near-pine{k}", tuple(base), h, m["near"], coll, seed=seed + sd, lean=(r * 0.42 - f * 0.05),
+                        reach=1.6)
     return obs
 
 
