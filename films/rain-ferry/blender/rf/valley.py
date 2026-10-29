@@ -272,6 +272,7 @@ def fogged(n: _Nodes, col, *, cam, haze: float = 1.0, mist: float = 0.75, mist_l
     torn = n.ramp(n.noise(drift.outputs[0], 0.004, 4.0, 0.6), 0.35, 0.7)
     fm = n.math("MULTIPLY", n.math("MULTIPLY", n.math("POWER", low, 1.6), n.math("MULTIPLY_ADD", torn, 0.7, 0.3)),
                 n.math("MULTIPLY", n.prop("rf_mist"), mist), clamp=True)
+    fm = n.math("MULTIPLY", fm, n.ramp(dist, 350.0, 1400.0))      # the mist lies off in the valley, not on our slope
     f = n.math("MAXIMUM", fd, fm, clamp=True)
     return n.mix(f, col, n.prop("rf_fog", True))
 
@@ -684,7 +685,7 @@ def _hamlet(coll, m) -> dict:
 # (bearing left of the view as a share of the distance, metres out, height, seed, foot below the lens in metres): two
 # old pines rooted below the frame's left edge, leaning in so their crowns overhang the top left against the pale
 # distance, as an ink painting frames its valley
-FOREGROUND = [(-0.66, 150.0, 120.0, 1, 40.0), (-0.52, 190.0, 90.0, 3, 30.0)]
+FOREGROUND = [(-0.6, 270.0, 210.0, 1, 75.0), (-0.47, 330.0, 150.0, 3, 55.0)]
 
 
 def ink_pine(name: str, base, height: float, material, coll, *, seed: int = 1, lean=(0.0, 0.0, 0.0),
@@ -724,14 +725,14 @@ def ink_pine(name: str, base, height: float, material, coll, *, seed: int = 1, l
             rq = r * rng.uniform(0.5, 0.75)
             obs.append(shapes.ellipsoid(f"{name}-pad{k}{q}", tuple(cq), (rq * 0.7, rq * 0.6, rq * 0.22), material=material,
                                         coll=coll, n=10))
-            for _ in range(40):
+            for _ in range(70):
                 a = rng.uniform(0, 2 * math.pi)
-                root = cq + np.array([math.cos(a) * rq * 0.3, math.sin(a) * rq * 0.25, rng.uniform(-0.04, 0.1) * rq])
-                rr = rq * rng.uniform(0.9, 1.45)
+                root = cq + np.array([math.cos(a) * rq * 0.45, math.sin(a) * rq * 0.38, rng.uniform(-0.04, 0.1) * rq])
+                rr = rq * rng.uniform(0.75, 1.1)
                 tip = cq + np.array([math.cos(a) * rr, math.sin(a) * rr * 0.85, rng.uniform(-0.45, 0.05) * rq])
                 roots.append(root)
                 tips.append(tip)
-                widths.append(rq * 0.1)
+                widths.append(rq * 0.07)
     obs.append(shapes.spikes(f"{name}-needles", roots, tips, widths, material=material, coll=coll, sides=3))
     for ob in obs:
         ob.visible_shadow = False
@@ -742,8 +743,6 @@ def _foreground(coll, m, cam, aim, *, seed: int = 5) -> list:
     """The near layer: a dark rock ledge falling away below the lens at the lower left, pines standing on it whose
     crowns reach up into the frame's corner (`FOREGROUND`: (bearing left of the view as a share of the half-width,
     metres out, height, seed))."""
-    from lib import shapes
-
     c = np.asarray(cam, float)
     f = np.asarray(aim, float) - c
     f[2] = 0.0
