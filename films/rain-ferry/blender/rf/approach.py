@@ -140,7 +140,7 @@ def puddle(name: str, at, radii, look, *, coll, seed: int = 1, z: float = 0.004)
 
 # ---- Shinza for the walk
 
-KASA = dict(radius=0.29, height=0.15, drop=0.115, tilt=9.0)   # the hat: its brim's radius, its cone's height, how far
+KASA = dict(radius=0.29, height=0.15, drop=0.1, tilt=6.0)   # the hat: its brim's radius, its cone's height, how far
 # below the crown its brim's front comes (low over the eyes) and how far it tips forward (degrees)
 NODACHI = dict(hilt=0.3, saya=1.02, across=(0.55, 0.0, -1.0))   # his sword on his back: hilt over the right shoulder,
 # the scabbard running down across his back toward the left hip
@@ -166,6 +166,7 @@ def walker(coll, look, name: str = "shinza") -> dict:
     vrm.pose(ch, vrm.RELAXED)
     built["kasa"] = kasa(ch, coll, look, name)
     built["props"] = nodachi(ch, coll, look, name)
+    built["sandals"] = sandals(ch, coll, look, name)
     return built
 
 
@@ -252,6 +253,50 @@ def nodachi(ch, coll, look, name: str) -> list:
     for ob in obs:
         vrm.attach(ob, ch, "upperChest" if ch.has("upperChest") else "chest")
     return obs
+
+
+def sandals(ch, coll, look, name: str) -> list:
+    """Straw sandals (waraji) on his bare feet: a woven sole a little longer than the foot, a thong from between the
+    toes, cords crossing over the instep to a tie round the ankle; each carried by its foot."""
+    from lib import anime, shapes, vrm
+
+    m = anime.palette(STRAW, look, prefix=f"{name}-waraji")
+    obs = []
+    for side in ("left", "right"):
+        a = np.asarray(ch.rest(f"{side}Foot"), float)
+        toe = np.asarray(ch.rest(f"{side}Toes"), float) if ch.has(f"{side}Toes") else a + np.array([0, -0.12, -0.05])
+        x = (a[0] + toe[0]) / 2
+        heel, tip = a[1] + 0.07, toe[1] - 0.075        # his frame: -y is forward
+        sole = shapes.loft(f"{name}-waraji-{side}", [(x, heel, 0.009), (x, (heel + tip) / 2, 0.009), (x, tip, 0.009)],
+                           [0.034, 0.05, 0.04], 0.009, material=m["straw"], coll=coll, n=12, subsurf=1)
+        # the cords: from the toe thong back over the instep to either side of the heel, and round the ankle
+        top = a[2] * 0.55
+        cords = []
+        for sgn in (-1.0, 1.0):
+            cords.append(shapes.loft(f"{name}-waraji-{side}-cord{int(sgn > 0)}",
+                                     [(x, tip + 0.035, 0.02), (x + sgn * 0.02, toe[1] + 0.035, top * 0.8),
+                                      (x + sgn * 0.045, a[1] - 0.01, top), (x + sgn * 0.04, heel - 0.02, 0.025)],
+                                     0.0045, material=m["cord"], coll=coll, n=6, subsurf=0))
+        ring = [(x + 0.048 * math.cos(u), a[1] + 0.012 + 0.052 * math.sin(u), a[2] * 0.9) for u in
+                np.linspace(0, 2 * math.pi, 17)]
+        cords.append(shapes.loft(f"{name}-waraji-{side}-tie", ring, 0.005, material=m["cord"], coll=coll, n=6,
+                                 subsurf=0))
+        # built in his frame at rest: placed in the world, then carried by the foot
+        for ob in (sole, *cords):
+            ob.matrix_world = _char_matrix(ch)
+            vrm.attach(ob, ch, f"{side}Foot")
+            obs.append(ob)
+    return obs
+
+
+def _char_matrix(ch):
+    """The matrix taking the character's frame (metres as it stands) to the world."""
+    from mathutils import Matrix
+
+    o = ch.world((0.0, 0.0, 0.0))
+    cols = [ch.world(e) - o for e in np.eye(3)]
+    return Matrix(((cols[0].x, cols[1].x, cols[2].x, o.x), (cols[0].y, cols[1].y, cols[2].y, o.y),
+                   (cols[0].z, cols[1].z, cols[2].z, o.z), (0.0, 0.0, 0.0, 1.0)))
 
 
 # ---- the walk
@@ -642,3 +687,63 @@ def paint(actors: dict, toward: dict, *, coll, tones: dict | None = None, tones_
         vrm.anime(built["vrm"], t, keys[name])
         vrm.smooth(built["vrm"])
     return keys
+
+
+# ---- the stage the three shots share
+
+@dataclass
+class Stage:
+    """What `stage` built: the path, the light, the rain and Shinza, ready for a shot's camera."""
+    look: object          # toon.Look
+    set: dict
+    sun: object
+    rain: object
+    cast: object          # the cast's collection (satsuei)
+    shinza: dict
+    key: object           # his own key light (toon3d)
+
+
+def stage(ctx, *, rain_box, rain_near: float, rain_clear: float, key_toward, fog=(12.0, 220.0, 0.9, 0.6)) -> Stage:
+    """The path in the rain with Shinza on it, lit and painted from the look schedule (ctx.look_at): the world's
+    sun from the upper left behind the camera, the rain filling `rain_box` (min, max) at the schedule's density (its
+    drops shrinking within `rain_near` of the lens, none within `rain_clear`), and a copy of it in the cast's layer;
+    his own key from `key_toward` (world). `fog`: the Look's (near, far, max, power)."""
+    import bpy
+    from mathutils import Vector
+
+    from lib import toon
+
+    scene = ctx.scene
+    scene.render.use_motion_blur = False
+    scene.eevee.use_shadows = True
+    scene.eevee.use_raytracing = True
+    scene.view_settings.view_transform = "Standard"
+    s = ctx.look_at(ctx.f0)
+    bg = scene.world.node_tree.nodes.get("Background")
+    bg.inputs[0].default_value = (*s.light.ambient, 1)
+
+    look = toon.Look(fog=tuple(s.light.fog), fog_near=fog[0], fog_far=fog[1], fog_max=fog[2], fog_power=fog[3])
+    world = path_set(look)
+
+    sun = bpy.data.lights.new("key", "SUN")
+    sun.angle = math.radians(3)
+    sun.energy = 4.2 * s.light.key_strength
+    sun.color = tuple(s.light.key)
+    key = bpy.data.objects.new("key", sun)
+    toon.collection("world-light").objects.link(key)
+    key.rotation_euler = Vector((-0.45, -0.6, 0.75)).to_track_quat("-Z", "Y").to_euler()
+
+    lo, hi = np.asarray(rain_box[0], float), np.asarray(rain_box[1], float)
+    # the schedule's count is for the standoff's box: as many to the cubic metre here
+    count = round(s.rain.drops / (13.0 * 15.6 * 6.1) * float(np.prod(hi - lo))) if s.rain.falling else 0
+    rain = toon.rain("rain", tuple(lo), tuple(hi), count=max(count, 1), speed=s.rain.speed, wind=s.rain.wind,
+                     length=s.rain.length, width=s.rain.width, color=tuple(s.rain.color), alpha=s.rain.alpha,
+                     seed=4, near=rain_near, clear=rain_clear)
+    cast = toon.collection("cast")
+    shinza = walker(cast, toon.Look(fog=look.fog, fog_near=look.fog_near, fog_far=look.fog_far, fog_max=look.fog_max,
+                                    fog_power=look.fog_power))
+    keys = paint({"shinza": shinza}, {"shinza": key_toward}, coll=cast)
+    rain_cast = rain.copy()
+    rain_cast.name = "rain-cast"
+    cast.objects.link(rain_cast)
+    return Stage(look, world, sun, rain, cast, shinza, keys["shinza"])
