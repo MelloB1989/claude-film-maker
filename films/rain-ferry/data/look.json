@@ -1,0 +1,63 @@
+{
+  "//": "The look schedule (blender/lib/look_schedule.py; the engine's grade in film.ts reads it too). Every shot's place on the colour arc (warm 0 = the rain's cold near-monochrome slate and ink with one vermilion accent; 1 = the gold after it stops), its rain and its overrides. Keys are [[s into the shot, value], ...]. Colours: \"#rrggbb\" sRGB or [r, g, b] linear. key_strength multiplies a shot's own key energy.",
+  "arc": {
+    "cold": {
+      "grade": { "saturation": 0.82, "contrast": 1.1, "warmth": -0.14, "lift": 0.01, "bloom": 0.3, "halation": 0.12 },
+      "light": { "key": [0.78, 0.82, 0.9], "key_strength": 1.0, "sky": [0.5, 0.53, 0.58], "fog": [0.5, 0.53, 0.58],
+                 "ambient": [0.03, 0.032, 0.038], "rim": [0.6, 0.68, 0.85] },
+      "satsuei": { "gain": [0.88, 0.89, 0.93], "saturation": 0.9, "haze_amount": 0.03, "para": [0.52, 0.55, 0.7],
+                   "para_amount": 0.4, "wrap": 0.25, "wrap_width": 0.015 },
+      "mist": { "density": 0.6 }
+    },
+    "warm": {
+      "grade": { "saturation": 1.06, "contrast": 1.04, "warmth": 0.3, "lift": 0.0, "bloom": 0.55, "halation": 0.16 },
+      "light": { "key": [1.0, 0.78, 0.5], "key_strength": 1.6, "sky": [0.78, 0.66, 0.5], "fog": [0.82, 0.7, 0.55],
+                 "ambient": [0.06, 0.05, 0.04], "rim": [1.0, 0.74, 0.42] },
+      "satsuei": { "gain": [1.04, 0.98, 0.9], "saturation": 1.05, "haze_amount": 0.04, "para": [0.62, 0.55, 0.5],
+                   "para_amount": 0.25, "wrap": 0.35, "wrap_width": 0.02 },
+      "mist": { "density": 0.35 }
+    }
+  },
+  "base": {
+    "light": { "accent": "#c8402e", "warm": "#d9a44a" },
+    "rain": { "count": 5200, "speed": 9.5, "wind": 1.8, "length": 0.34, "width": 0.0055, "alpha": 0.3,
+              "color": [0.78, 0.81, 0.86] },
+    "grade": { "vignette": 0.42, "grain": 0.06 }
+  },
+  "shots": {
+    "open":     { "rain": 0.9, "mist": { "density": 0.85 }, "lightning": [3.3] },
+    "crow":     { "rain": 0.6 },
+    "step":     { "rain": 0.65 },
+    "walk":     { "rain": 0.75, "mist": { "density": 0.75 } },
+    "eyes":     { "rain": 0.5, "grade": { "contrast": 1.14 } },
+    "ferry":    { "rain": 0.9, "mist": { "density": 0.7 } },
+    "ask":      { "rain": 0.7 },
+    "refuse":   { "rain": 0.55 },
+    "demand":   { "rain": { "density": 0.8, "wind": 2.6 } },
+    "tap":      { "rain": 0.55 },
+    "look":     { "rain": 0.45 },
+    "draw":     { "rain": 0.65, "grade": { "contrast": 1.14 } },
+    "rise":     { "rain": 0.7 },
+    "standoff": { "rain": 1.0, "lightning": [2.1], "grade": { "saturation": 0.76 } },
+    "eye-s":    { "rain": 0.4, "grade": { "saturation": 0.72, "contrast": 1.16 } },
+    "eye-t":    { "rain": 0.4, "grade": { "saturation": 0.72, "contrast": 1.16 } },
+    "freeze":   { "//": "time stops: the rain slows to a stop in the air, the colour drains",
+                  "rain": { "density": 1.0, "speed": [[0.1, 9.5], [0.9, 0.0]] },
+                  "grade": { "saturation": [[0, 0.76], [1.2, 0.38]], "contrast": [[0, 1.1], [1.2, 1.22]],
+                             "exposure": [[0, 1.0], [1.2, 0.93]] } },
+    "charge":   { "rain": { "density": 1.0, "wind": 4.0, "length": 0.6 }, "grade": { "saturation": 0.6, "contrast": 1.2 } },
+    "flash":    { "rain": 0.0, "grade": { "saturation": 0.3, "contrast": 1.3 } },
+    "after":    { "//": "the rain falls again",
+                  "rain": { "density": 1.0, "speed": [[0, 0.2], [1.4, 9.5]] },
+                  "grade": { "saturation": [[0, 0.3], [1.6, 0.82]], "contrast": [[0, 1.25], [1.6, 1.1]] } },
+    "fall":     { "rain": 0.85 },
+    "lesson":   { "rain": 0.7 },
+    "kneel":    { "rain": 1.0, "mist": { "density": 0.7 } },
+    "board":    { "//": "the rain thins to nothing and the warmth begins",
+                  "warm": [[0, 0.0], [5.5, 0.4]],
+                  "rain": { "density": [[0, 0.6], [2.6, 0.3], [4.4, 0.0]] } },
+    "light":    { "warm": [[0, 0.4], [2.0, 1.0]], "rain": 0.0, "mist": { "density": 0.55 } },
+    "cross":    { "warm": 1.0, "rain": 0.0 },
+    "title":    { "warm": 1.0, "rain": 0.0, "grade": { "warmth": 0.04, "saturation": 1.0, "bloom": 0.2 } }
+  }
+}
