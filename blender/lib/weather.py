@@ -81,7 +81,8 @@ def drip(s: float, period: float, hang: float, height: float) -> tuple[float, fl
 class Layer:
     """One depth of rain round a setup: drops `near`..`far` metres from the lens, `count` of them at full density,
     streaks `length` long and `width` wide at full speed, `alpha` opaque. `shrink`: drops nearer the lens than this
-    shrink with their distance (a fine streak, not a bar across a face); `clear`: none at all within this of it."""
+    shrink with the square of their distance (a fine streak, not a bar across a face); `clear`: none at all within
+    this of it."""
     near: float
     far: float
     count: int
@@ -96,7 +97,7 @@ class Layer:
 # streaks close to the lens, the body of it in the middle, and a fine faint far curtain that greys the distance. As a
 # wide (REF_LENS) sees them: a longer lens sees each further out (`for_lens`)
 LAYERS = {
-    "near": Layer(0.7, 3.0, 220, 0.32, 0.0048, 0.17, shrink=3.0, clear=0.8),
+    "near": Layer(0.7, 3.0, 220, 0.32, 0.0048, 0.17, shrink=3.0, clear=1.2),
     "mid": Layer(3.0, 15.0, 3600, 0.3, 0.0045, 0.22),
     "far": Layer(15.0, 70.0, 5000, 0.55, 0.011, 0.06),
 }
@@ -324,7 +325,8 @@ class Drops:
             L.new(ci.outputs["Location"], dist.inputs[1])
             d = dist.outputs["Value"]
             if layer.shrink:
-                k = b.math("MULTIPLY", k, b.math("MINIMUM", b.math("DIVIDE", d, layer.shrink), 1.0))
+                near_k = b.math("MINIMUM", b.math("DIVIDE", d, layer.shrink), 1.0)
+                k = b.math("MULTIPLY", k, b.math("MULTIPLY", near_k, near_k))     # squared: a drop by the lens is a speck
             if layer.clear:
                 k = b.math("MULTIPLY", k, b.math("GREATER_THAN", d, layer.clear))
         sc = N.new("ShaderNodeCombineXYZ")
