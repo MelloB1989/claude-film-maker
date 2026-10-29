@@ -15,7 +15,7 @@ from . import jetty_talk as jt
 
 # where Shinza walks from in ask (world x, y: up the jetty from its middle) to his mark (jetty_talk's)
 ASK_FROM = (1.2, -0.62)
-SMOKE = 1.15        # the smoke's colour: the fog's (the look schedule's light) lifted this much
+SMOKE = 1.4         # the smoke's colour: the fog's (the look schedule's light) lifted this much
 
 
 def lips_source(st, pose: dict, hips):
@@ -34,8 +34,8 @@ def lips_source(st, pose: dict, hips):
     return at
 
 
-def breath(st, emit, source, *, push: float = 0.3, seed: int = 8, width=(0.006, 0.07),
-           opacity: float = 0.35):
+def breath(st, emit, source, *, push: float = 0.3, seed: int = 8, width=(0.008, 0.08),
+           opacity: float = 0.55):
     """Smoke let out of her lips (`source`: lips_source) in the windows `emit` (s into the shot), pushed out ahead of
     her, the rain beating it down (lib/smoke.py); bake it last."""
     from lib import smoke
@@ -86,16 +86,19 @@ def arrives(st, path, stop: float, *, gait: str = "heavy", end_yaw: float | None
 
 
 
-# her left arm smoking: the elbow down by her side and a little forward (her frame: x her left, y her back, z up), the
-# forearm up to her lips; the palm turned in toward her face
-SMOKING_POLE = (0.32, -0.18, 0.35)
-SMOKING_PALM = (-0.7, 0.1, 0.35)
+# her left arm with the pipe, at her lips and over her left knee: where the elbow points (her frame: x her left, y her
+# back, z up) and which way the palm faces. At her lips the elbow stays down by her side, a little forward; on her knee
+# it is back by her side (jetty_talk's hold)
+PIPE_ARM = {"lips": ((0.32, -0.18, 0.35), (-0.7, 0.1, 0.35)), "lap": ((0.3, 0.6, 0.45), (-0.5, 0.0, 0.8))}
+# the smoke off her pipe's bowl: thin, but light enough against the grey air to read as smoke (the fog lifted this much)
+BOWL = dict(opacity=0.65, width=(0.003, 0.045))
+BOWL_LIGHT = 1.45
 
 
 def smoking(st, f: int, t: float, *, at_lips: float = 1.0, **sit) -> None:
     """Key Tsuru on her crate with the pipe at her lips (`at_lips` 1) or over her left knee (0), and between, the
-    hand travelling out in front of her chin rather than through it: jetty_talk.tsuru_rest's pose, with the smoking
-    arm's elbow kept down by her side."""
+    hand travelling out in front of her chin rather than through it, the elbow and palm turning from one hold to the
+    other (PIPE_ARM); her right hand on her knee, her face calm."""
     pose = {**jt.tsuru_sit(t, **sit), **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)}
     hips = jt.tsuru_hips(st, t)
     lips, lips_way = jt.pipe_at_lips(st, pose, hips)
@@ -104,7 +107,23 @@ def smoking(st, f: int, t: float, *, at_lips: float = 1.0, **sit) -> None:
     point = lap + (np.asarray(lips) - lap) * k + np.array((0.03, -0.07, 0.0)) * math.sin(math.pi * k)
     along = lap_way + (np.asarray(lips_way) - lap_way) * k
     d = along / np.linalg.norm(along)
+    pole0, palm0 = (np.asarray(v, float) for v in PIPE_ARM["lap"])
+    pole1, palm1 = (np.asarray(v, float) for v in PIPE_ARM["lips"])
     st.pose("tsuru", f, pose, hips=hips)
-    st.grip("tsuru", "left", f, point, -d, jt.flat_palm(d, SMOKING_PALM), SMOKING_POLE)
+    st.grip("tsuru", "left", f, point, -d, jt.flat_palm(d, palm0 + (palm1 - palm0) * k), pole0 + (pole1 - pole0) * k)
     jt.knee_hand(st, f)
     st.face("tsuru", f, {"s4-calm": 1.0})
+
+
+def bowl_smoke(st, *, seed: int = 4, **wisp):
+    """The thread off her pipe's bowl (lib/smoke.py), beaten down by the shot's rain, linked into the cast's layer
+    too so it passes in front of her; `wisp` overrides BOWL and smoke.Wisp's own. Bake it last."""
+    from lib import smoke
+
+    bowl = st.cast["tsuru"]["parts"]["pipe"][-1]
+    co = np.array([v.co for v in bowl.data.vertices])
+    top = co[co[:, 2] >= co[:, 2].max() - 0.002].mean(axis=0)     # the bowl's mouth, in its own axes
+    s = st.ctx.look_at(st.ctx.f0)
+    w = smoke.Wisp(rain=min(1.0, s.rain.density), wind=(0.05, 0.03, 0.0), seed=seed, **{**BOWL, **wisp})
+    return smoke.ribbon("pipe-smoke", w, source=bowl, offset=tuple(top), coll=st.crossing["near"],
+                        also=(st.cast_coll,), color=tuple(np.minimum(np.array(s.light.fog) * BOWL_LIGHT, 1.0)))
