@@ -15,7 +15,7 @@ import math
 
 SHOT = {"scene": "flash"}
 
-CLASH = 4.9                 # x where the blades meet (rf/clash.py CLASH)
+CLASH = 5.55                # x where the blades meet (rf/clash.py CLASH)
 
 # the beats, frame by frame (24 frames): white-out, negative, positive, negative, positive, the long negative the
 # glint draws across, and the burn to white

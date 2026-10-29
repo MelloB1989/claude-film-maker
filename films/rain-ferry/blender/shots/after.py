@@ -14,7 +14,7 @@ import math
 
 SHOT = {"scene": "after"}
 
-MID = 5.4             # x between them (rf/clash.py END)
+MID = 6.1             # x between them (rf/clash.py END)
 CAM = [(0.0, (MID - 0.13, -4.05, 0.42), (MID, 0.0, 0.95)), (4.5, (MID - 0.05, -3.6, 0.38), (MID + 0.01, 0.0, 0.9))]
 LENS, FSTOP = 35.0, 2.2
 THUNK = 1.2           # s into the shot: the half blade lands (data/mix.json blade_thunk at 77.3)

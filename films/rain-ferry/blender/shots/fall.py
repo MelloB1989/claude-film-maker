@@ -13,7 +13,7 @@ import math
 
 SHOT = {"scene": "fall"}
 
-AT = (6.6, 0.08)              # where he stands (rf/clash.py END)
+AT = (7.0, 0.08)              # where he stands (rf/clash.py END)
 CUT, BAND_OFF, BAND_DOWN = 0.45, 1.7, 2.25    # s: the knot gives; the band is off his head; it lands on the planks
 ARMS = (1.9, 2.7)             # s: his arms come down
 KNEES = 3.2                   # s: his knees hit the planks (data/mix.json kneel at 83.8)

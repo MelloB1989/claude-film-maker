@@ -27,8 +27,8 @@ import numpy as np
 # to the open river, him 4.5 m from her toward the bank. S5's rf/duel.py publishes the standoff's marks; these follow
 # them until it is merged
 STANDOFF = {"shinza": (1.6, 0.0), "tsuru": (6.1, 0.05)}
-CLASH = 4.9                       # x where the blades meet: he has run three strides, she has stepped in one
-END = {"shinza": (6.6, 0.08), "tsuru": (4.2, -0.06)}   # passed through each other: back to back
+CLASH = 5.55                      # x where the blades meet: he has run the gap, she has not moved from her mark
+END = {"shinza": (7.0, 0.08), "tsuru": (5.2, -0.06)}   # passed through each other: back to back
 OUTLINE = 0.0018                  # the 3D cast's outline, in frame heights (as the standoff's)
 
 
