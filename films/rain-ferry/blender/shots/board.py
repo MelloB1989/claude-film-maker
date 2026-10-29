@@ -3,8 +3,8 @@ upright in her hand, and says "Get in." (L14) without looking round at him. Then
 giving out. The drops thin to nothing, the rings go off the water, and as the last of it falls she says "The rain has
 stopped." (L15); the light begins to warm on her lifted face, and a faint smile.
 
-From the ferry's bow looking back along it at her, facing us at its stern: the jetty at the left running back to the
-bank, the hut and its lantern beyond her. The camera breathes in toward her; as she lifts her face it sinks a little
+From the jetty off her front left, looking across the stern at her as she faces up the boat: the river and the far
+bank's mist beyond her, the hut and its lantern at the frame's edge, open sky over her. The camera breathes in toward her; as she lifts her face it sinks a little
 so the sky opens over her.
 
 The rain's density, the water's rings, the sheen and the key's warmth are the look schedule's (data/look.json
@@ -21,9 +21,9 @@ LINES = {"get_in": (95.2, 95.85), "stopped": (97.2, 98.83)}   # L14, L15 (film s
 SETTLE = (94.6, 95.15, 0.07)      # film s: her weight coming down into the boat from this much higher
 LOOK_UP = (96.15, 96.95, 30.0)    # film s: her face lifting to the sky, this many degrees
 SMILE = (98.9, 99.7)              # film s: the faint smile after it
-# the camera, from the bow (in the boat's frame from its stern anchor: x toward the bow): from, to; lower once she
-# looks up
-CAM = ((4.5, -0.28, 1.12), (3.75, -0.22, 1.02))
+# the camera, on the jetty off her front left, clear of the awning (in the boat's frame from its stern anchor: x toward
+# the bow, -y toward the jetty): from, to; lower once she looks up
+CAM = ((2.55, -1.8, 1.08), (2.05, -1.55, 0.98))
 SINK = 0.18
 LENS, FSTOP = (36.0, 42.0), 2.8
 
