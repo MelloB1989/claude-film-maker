@@ -55,7 +55,7 @@ def build(ctx):
     # the focus on the bowl through the knocks, racked to her face as the pipe goes down
     st.film([cinema.Setup("side", 0.0, cinema.line(cams[0], cams[1], tuple(mid + (0, 0, 0.02)), tuple(mid + (0, 0, 0.04))),
                           lens=LENS, fstop=FSTOP, focus=tuple(post), racks=(cinema.Rack(LOWER[0], (ch, "head"), 0.6),),
-                          shake=cinema.Shake(breath=0.05))], layers=jt.close_rain())
+                          shake=cinema.Shake(breath=0.05))])
     jt.outline(st)
     # the wisp off the bowl until the first knock puts it out
     jt.pipe_smoke(st, emit=((0.0, st.start + TAPS[0]),)).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)

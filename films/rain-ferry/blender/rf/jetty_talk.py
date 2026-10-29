@@ -35,16 +35,6 @@ CRATE = (0.42, 0.34)        # her seat's width and depth (its height is rf/vroid
 CRATE_BACK = 0.14           # ... feet (m)
 BOAT_POLE = ((4.05, 2.32, -0.13), (1.0, 0.03, 0.04))   # her pole laid in the boat: its foot, its way (world)
 
-# rain for a close shot (weather.Layer: near, far, count, length, width, alpha, shrink, clear): few drops near the
-# lens and none within a face's distance, the far curtain a fine grey veil rather than bright sticks behind a head
-def close_rain():
-    from lib import weather
-
-    return {"near": weather.Layer(0.9, 2.5, 140, 0.3, 0.004, 0.24, shrink=2.5, clear=0.9),
-            "mid": weather.Layer(2.5, 14.0, 2600, 0.3, 0.0042, 0.22),
-            "far": weather.Layer(14.0, 70.0, 5000, 0.6, 0.012, 0.06)}
-
-
 # the cast's variants in this scene (rf/vroid_cast.py)
 VARIANT = {"shinza": dict(kasa="back", sword="back", pose="stand"),
            "tsuru": dict(pipe="hand", pole="boat", seated=True)}
