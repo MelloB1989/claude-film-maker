@@ -48,9 +48,9 @@ FEET = {"left": ((0.09, 0.03), (0.1, -1.0, 0.45), (0.0, 0.0, 8.0)),
 # ---- seated on something SEAT high: the hips down onto it, the thighs forward and level, the shins down to her feet
 # on the ground a little in front, upright as she stands
 SEAT = 0.42
-# seated, the skirt taken in round her thighs and shins, and the cloth between her knees round the line between them
-# (radius, keep, ease: vrm_rig.cinch), so it lies on her lap and falls past her shins as heavy cloth, no bell
-LAP = {"thigh": (0.1, 0.15, 0.25), "shin": (0.1, 0.2, 0.0)}
+# seated, the skirt taken in round each leg from hip to ankle, and the cloth between her knees round the line between
+# them (radius, keep, ease: vrm_rig.cinch), so it lies on her lap and falls past her shins as heavy cloth, no bell
+LAP = {"leg": (0.1, 0.2, 0.3)}
 SEATED_HANDS = -0.24          # how much lower her held pipe is (m)
 SEATED_POSE = {"spine": (1.0, 0.0, 0.0), "chest": (1.0, 0.0, 0.0), "upperChest": (0.0, 0.0, 0.0),
                "neck": (2.0, 0.0, 0.0), "head": (5.0, 0.0, 2.0),
@@ -325,7 +325,7 @@ def drape_skirt(ch) -> None:
                                   {"leftUpperLeg": "leftLowerLeg", "rightUpperLeg": "rightLowerLeg"})
             for limb, (radius, keep, ease) in LAP.items():
                 for side in ("left", "right", "both"):
-                    vrm_rig.cinch(ch, ob, tops, side, radius * (0.7 if side == "both" else 1.0), keep=keep, ease=ease,
+                    vrm_rig.cinch(ch, ob, tops, side, radius, keep=keep, ease=ease,
                                   limb=limb)
 
 

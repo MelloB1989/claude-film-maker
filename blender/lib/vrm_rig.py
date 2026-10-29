@@ -471,14 +471,15 @@ def lengthen(ch: vrm.Character, ob, faces, top: float, bottom: float, *, flare: 
 # a limb cinch can take cloth in round: (the bones its segment runs between at rest, the bones that carry it)
 LIMBS = {"arm": (("UpperArm", "Hand"), ("UpperArm", "LowerArm", "Hand")),
          "thigh": (("UpperLeg", "LowerLeg"), ("UpperLeg",)),
-         "shin": (("LowerLeg", "Foot"), ("LowerLeg", "Foot"))}
+         "shin": (("LowerLeg", "Foot"), ("LowerLeg", "Foot")),
+         "leg": (("UpperLeg", "Foot"), ("UpperLeg", "LowerLeg", "Foot"))}
 
 
 def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float = 0.25, ease: float = 0.3,
           limb: str = "arm") -> None:
     """A sleeve's volume taken in (cinch_points): the vertices of `faces` the `side` arm ("left", "right") carries,
     from the upper arm to the wrist at rest, pulled in to `radius` (metres) of it, keeping `keep` of the rest. `limb`
-    "thigh" or "shin" does the same round a leg's (a long skirt handed to the legs: shift_weights); `side` "both" takes
+    "thigh", "shin" or "leg" (hip to ankle) does the same round a leg's (a long skirt handed to the legs: shift_weights); `side` "both" takes
     in what the two sides carry together (the cloth between the knees, held half by each) round the line midway
     between them. Before posing: the vertices keep their weights, so the cloth follows the limb, no longer a bell
     hanging off it."""
@@ -495,7 +496,7 @@ def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float
         groups = {g.index for g in ob.vertex_groups if g.name in names}
         held.append(np.array([sum(g.weight for g in ob.data.vertices[int(v)].groups if g.group in groups) for v in vs]))
     if side == "both":
-        keep_v = (held[0] > 0.2) & (held[1] > 0.2)
+        keep_v = (held[0] > 0.2) & (held[1] > 0.2) & (np.maximum(held[0], held[1]) <= 0.5)
     else:
         s = 1.0 if side == "left" else -1.0
         # on its side, mostly its own: not a long robe's skirt off an arm, nor the cloth the two legs share
