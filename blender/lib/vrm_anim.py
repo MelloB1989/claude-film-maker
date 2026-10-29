@@ -17,6 +17,8 @@ render is deterministic: nothing is simulated while rendering, no handler poses 
     sh.root(100, (0.0, 0.0, 0.0), yaw=0)            # root motion: the character's feet in the world, its heading
     sh.root(160, (2.0, 0.5, 0.0), yaw=20, ease="inout")
     end = sh.walk([(0, 0), (3, 0.4)], start=100, gait="heavy", end_pose=va.STAND)   # returns the frame it stops on
+    end = sh.walk(path, start=100, gait="old", ground=world_ground_object)           # over uneven ground
+    sh.kneel(200, 230, side="right", bow=20); sh.hold(260); sh.stand(270, 300)
     sh.look(end, tsuru.face_at, lag=0.25)           # head, eyes and spine turn to a point, an object or a callable
     sh.look(end + 60, None)                         # ... and let go
     sh.blinks(seed=3)                               # natural seeded blinks over the shot (and on big head turns)
@@ -27,6 +29,7 @@ render is deterministic: nothing is simulated while rendering, no handler poses 
     sh.reach(150, "rightHand", hilt, pole=(-0.5, 0.2, 0.6), ease="inout")         # a hand to a moving target
     sh.carry(sword, 150, "rightHand")               # a prop handed to a bone at a frame, its world transform kept
     sh.secondary(wind=(0.3, 0.0, 0.0))              # hair and loose cloth chains react to motion and wind
+    sh.dangle(tails, knot, length=0.15)             # rigid props swung from a pivot (headband tails, a straw cape)
     sh.bake(ctx.f0, ctx.f1)
 
 Easing (`EASES`, `ease`): a key says how the channel arrives at it from the key before: "inout" (slow out, slow in),
@@ -49,9 +52,15 @@ to Fcl_MTH_A, I, U, E, O) spread over the line's time with pauses at its punctua
 mouth closed between lines. `say(..., quiet=["Fcl_MTH_Close", "*press"])` eases out the parts of a set face that keep
 a mouth shut while it speaks.
 
+IK limbs whose elbow or knee no key turns start each frame folded for their target's distance (`fold_for`, the law
+of cosines), so a target close to the shoulder (a hilt over it) lands with the elbow out, not on the target.
+
+A film's lines: films/rain-ferry/blender/rf/speech.py keeps each line's romaji reading and timing
+(`speech.say(perf, "L03")`).
+
 Props (`carry`): a prop is held by Child Of constraints, one per holder (a humanoid bone, any object, or None: left
 where it is in the world), their influences keyed on and off (constant) at the handoffs and each one's inverse set at
-its handoff so the prop does not jump.
+its handoff so the prop does not jump; its place on its first holder is read as the scene stands when `bake` starts.
 
 Secondary motion (`secondary`): chains of non-humanoid bones (VRoid's J_Sec_* hair, sleeves, skirts; the default
 picks every such chain) simulated after the body is baked, a point per joint pulled toward where the chain would be

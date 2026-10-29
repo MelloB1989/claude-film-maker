@@ -468,20 +468,24 @@ def lengthen(ch: vrm.Character, ob, faces, top: float, bottom: float, *, flare: 
     _from_frame(ch, ob, pts, m)
 
 
-def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float = 0.25, ease: float = 0.3) -> None:
-    """A sleeve's volume taken in (cinch_points): the vertices of `faces` round the `side` arm ("left", "right"), from
-    the upper arm to the wrist at rest, pulled in to `radius` (metres) of it, keeping `keep` of the rest. Before
-    posing: the vertices keep their weights, so the sleeve follows the arm, no longer a bell hanging off it."""
+def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float = 0.25, ease: float = 0.3,
+          limb: str = "arm") -> None:
+    """A sleeve's volume taken in (cinch_points): the vertices of `faces` the `side` arm ("left", "right") carries,
+    from the upper arm to the wrist at rest, pulled in to `radius` (metres) of it, keeping `keep` of the rest. `limb`
+    "shin" does the same round a shin, from the knee to the ankle (a long skirt handed to the legs: shift_weights).
+    Before posing: the vertices keep their weights, so the cloth follows the limb, no longer a bell hanging off it."""
     pts, m = _to_frame(ch, ob)
     vs = np.unique(np.concatenate([list(ob.data.polygons[int(i)].vertices) for i in faces]))
-    a, b = ch.rest(f"{side}UpperArm"), ch.rest(f"{side}Hand")
+    bones = ("UpperArm", "LowerArm", "Hand") if limb == "arm" else ("LowerLeg", "Foot")
+    a, b = ch.rest(f"{side}{bones[0]}"), ch.rest(f"{side}{bones[-1]}")
     s = 1.0 if side == "left" else -1.0
-    # only what the arm carries (most of its weight on the arm's bones), out along it: not a long robe's skirt
-    arm = {ch.bones[vrm.canonical(f"{side}{b}")] for b in ("UpperArm", "LowerArm", "Hand")}
-    groups = {g.index for g in ob.vertex_groups if g.name in arm}
+    # only what the limb carries (most of its weight on its bones), on its side: not a long robe's skirt off an arm
+    carrier = {ch.bones[vrm.canonical(f"{side}{b_}")] for b_ in bones}
+    groups = {g.index for g in ob.vertex_groups if g.name in carrier}
     carried = np.array([sum(g.weight for g in ob.data.vertices[int(v)].groups if g.group in groups) > 0.5 for v in vs],
                        bool)
-    vs = vs[carried & (pts[vs, 0] * s > abs(a[0]))]
+    out = pts[vs, 0] * s > (abs(a[0]) if limb == "arm" else 0.0)
+    vs = vs[carried & out]
     pts[vs] = cinch_points(pts[vs], a, b, radius, keep=keep, ease=ease)
     _from_frame(ch, ob, pts, m)
 

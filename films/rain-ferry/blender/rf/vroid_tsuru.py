@@ -48,6 +48,8 @@ FEET = {"left": ((0.09, 0.03), (0.1, -1.0, 0.45), (0.0, 0.0, 8.0)),
 # ---- seated on something SEAT high: the hips down onto it, the thighs forward and level, the shins down to her feet
 # on the ground a little in front, the back still rounded (less), the head up
 SEAT = 0.42
+# the skirt below her knees taken in round her shins (radius, keep: vrm_rig.cinch), so it falls straight past them
+SHIN = (0.11, 0.3)
 SEATED_HANDS = -0.24          # how much lower her held pipe is (m)
 SEATED_POSE = {"spine": (4.0, 0.0, 0.0), "chest": (8.0, 0.0, 0.0), "upperChest": (10.0, 0.0, 0.0),
                "neck": (10.0, 0.0, 0.0), "head": (-36.0, 0.0, 4.0),
@@ -308,7 +310,7 @@ def indigo(ch) -> None:
 def drape_skirt(ch) -> None:
     """Seated: the robe's skirt laid over her thighs and down past her knees: VRoid hangs it from bones of its own
     (J_Sec_*_CoatSkirt*), which stay where a standing skirt hangs, so it is handed to her legs (vrm_rig.shift_weights),
-    her thighs above the knee and her shins below, the cloth between her knees spanning them."""
+    her thighs above the knee and her shins below (taken in round them), the cloth between her knees spanning them."""
     knee = ch.rest("leftLowerLeg")[2]
     skirt = {}
     for chain in vrm_rig.chains(ch, "J_Sec_*_CoatSkirt*"):
@@ -320,6 +322,8 @@ def drape_skirt(ch) -> None:
             vrm_rig.shift_weights(ch, ob, tops, 10.0, 0.01, skirt)
             vrm_rig.shift_weights(ch, ob, tops, knee - 0.02, 0.08,
                                   {"leftUpperLeg": "leftLowerLeg", "rightUpperLeg": "rightLowerLeg"})
+            for side in ("left", "right"):
+                vrm_rig.cinch(ch, ob, tops, side, SHIN[0], keep=SHIN[1], ease=0.0, limb="shin")
 
 
 def hair(ch, m: dict, coll, name: str) -> list:

@@ -74,7 +74,6 @@ def build(ctx):
     s0 = ctx.look_at(ctx.f1 - 1)
     crow = bird.build("crow", look=toon.Look(fog=tuple(s0.light.fog), fog_near=30.0, fog_far=3000.0, fog_max=0.85),
                       scale=CROW_SCALE, beads=0, seed=9)
-    toon.ink("ink-crow", crow.coll, radius=0.012, crease=130)
     fps = ctx.fps
     times = [k for k, _ in CROW]
     pts = [start + right * p[0] + flat * p[1] + Vector((0, 0, p[2])) for _, p in CROW]

@@ -94,20 +94,22 @@ def build(ctx):
     toe = (*(land + fwd * ball), float(puddle[2]))
     approach.ripples("rings-lift", toe, lift - 0.05, ctx.fps, coll=st.world["near"], frames=frames, rings=2, speed=0.22,
                      alpha=0.45, color=(0.62, 0.66, 0.72))
-    # where the sole is, frame by frame, as baked
-    soles = {}
-    for f in frames:
+    # where the sole is as baked, sampled every few frames while it drips (each frame_set evaluates the whole cast)
+    drip0, drip1 = lift - 0.1, lift + 0.6
+    fs = list(range(max(frames[0], math.floor(drip0 * ctx.fps)), min(frames[-1], math.ceil(drip1 * ctx.fps)) + 3, 3))
+    pts = []
+    for f in fs:
         ctx.scene.frame_set(f)
-        a = np.array(ch.point("rightFoot"))
-        soles[f] = a - np.array([0.0, 0.0, ankle - 0.004])
+        pts.append(np.array(ch.point("rightFoot")) - np.array([0.0, 0.0, ankle - 0.004]))
     ctx.scene.frame_set(ctx.f0)
+    pts = np.array(pts)
 
     def sole(t):
-        a = soles[min(max(round(t * ctx.fps), frames[0]), frames[-1])]
+        a = np.array([np.interp(t * ctx.fps, fs, pts[:, k]) for k in range(3)])
         return [tuple(a + np.array([*(fwd * ah + left * al), 0.0]))
                 for ah, al in ((0.1, 0.02), (0.05, -0.03), (-0.05, 0.0), (0.0, 0.025))]
 
-    approach.drips("sole-drips", None, lift - 0.1, lift + 0.6, ctx.fps, coll=st.cast, frames=frames,
+    approach.drips("sole-drips", None, drip0, drip1, ctx.fps, coll=st.cast, frames=frames,
                    every=(0.12, 0.3), fall=0.4, size=0.0035, carry=sole, seed=11)
     # the lens a hand off the water ahead of him, easing in; shaken by the footfall
     rig = cinema.film(ctx, [cinema.Setup("step", 0.0, cinema.line(place(CAM[0]), place(CAM[1]), place(LOOK)), lens=LENS,
