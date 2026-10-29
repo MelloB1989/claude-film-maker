@@ -15,10 +15,10 @@ SHOT = {"scene": "crow", "look": "150,175,196,214,226,236"}
 
 LENS = 45.0
 DIST = 2.9           # m from the crow's head back to the lens, along the set's crow view (set_world.VIEWS["crow"])
-TURN = -11.0         # degrees the camera's view is turned from the set's (negative: to the right, the hut out of it)
-DROP = -0.38         # m: the lens below the crow's head (it looks up at it, the post's face running down the frame)
+TURN = -17.0         # degrees the camera's view is turned from the set's (negative: to the right, the hut out of it)
+DROP = -0.62         # m: the lens below the crow's head (it looks up at it, the post's face running down the frame)
 THIRD = 0.4          # m: the lens right of the crow, so it sits on the left third with room to look into
-HIGH = 0.22          # the crow's head this far over the frame's middle (frame heights)
+HIGH = 0.3           # the crow's head this far over the frame's middle (frame heights)
 FSTOP = 2.8
 # the crow's heading: across the frame toward the river at the right, turned this far toward the camera (degrees)
 HEADING = -24.0
