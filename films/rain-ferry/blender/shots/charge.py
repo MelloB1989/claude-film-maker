@@ -49,9 +49,7 @@ def build(ctx):
     from lib import cinema, fx_impact as fx, toon, vrm, vrm_anim as va
     from rf import clash
 
-    scene = ctx.scene
     fps = ctx.fps
-    n = ctx.f1 - ctx.f0
     clash.tick("start")
     w = clash.world(ctx)
     clash.tick("world")
