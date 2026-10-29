@@ -59,6 +59,12 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
     lantern, _ = props.paper_lantern("lantern", m["lantern"], near, (ex, ey, ez - 0.45), cord=m["post"], cord_top=ez + 0.1)
     sub = lantern.modifiers.new("round", "SUBSURF")
     sub.levels = sub.render_levels = 2
+    # its origin at its middle (the lathe builds it round the world's): a focus target, a swing's pivot
+    from mathutils import Matrix, Vector
+
+    mid = sum((v.co for v in lantern.data.vertices), Vector()) / len(lantern.data.vertices)
+    lantern.data.transform(Matrix.Translation(-mid))
+    lantern.location = mid
     # the ferry, moored along the jetty on its +y side
     bx, by = BOAT["location"]
     ferry = boat.river_boat({"hull": m["hull"], "wood": m["wood"], "rope": m["rope"], "bamboo": m["bamboo"]}, near,
