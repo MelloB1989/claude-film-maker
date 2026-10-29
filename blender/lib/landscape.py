@@ -119,9 +119,12 @@ def river(name: str, material, coll, *, z: float, size=(1600.0, 700.0), center_y
 
 
 def sky(name: str, coll, *, horizon, zenith, distance: float = 1200.0, size=(5000.0, 900.0), z: float = 250.0,
-        flash=(0.9, 0.93, 1.0), flash_amount: float = 0.9):
+        flash=(0.9, 0.93, 1.0), flash_amount: float = 0.9, clouds: float = 0.0, cloud=None, light=None,
+        light_at=(0.5, 0.3)):
     """A far card of sky in its own colour (no fog): `horizon` at its foot to `zenith` at its top, whitening toward
-    `flash` with the scene's lightning (toon.FLASH; None: it never flashes)."""
+    `flash` with the scene's lightning (toon.FLASH; None: it never flashes). `clouds` (0..1) paints banks of cloud
+    across it as a sumi wash would, long ragged masses of `cloud` (default the zenith, darker) with paler breaks between,
+    and `light` a glow breaking through them at `light_at` (where on the card, 0..1 across and up)."""
     import bpy
 
     from . import toon
@@ -140,7 +143,59 @@ def sky(name: str, coll, *, horizon, zenith, distance: float = 1200.0, size=(500
     mix.inputs["A"].default_value = (*horizon, 1)
     mix.inputs["B"].default_value = (*zenith, 1)
     nt.links.new(sep.outputs["Y"], mix.inputs["Factor"])
-    col = mix.outputs["Result"] if flash is None else toon.flashed(nt, mix.outputs["Result"], flash, flash_amount)
+    col = mix.outputs["Result"]
+    if clouds > 0:
+        cloud = cloud or tuple(c * 0.7 for c in zenith)
+        comb = nt.nodes.new("ShaderNodeCombineXYZ")
+        for axis, k in (("X", 6.0), ("Y", 22.0)):          # long and low: banks drawn across
+            mm = nt.nodes.new("ShaderNodeMath")
+            mm.operation = "MULTIPLY"
+            mm.inputs[1].default_value = k
+            nt.links.new(sep.outputs[axis], mm.inputs[0])
+            nt.links.new(mm.outputs[0], comb.inputs[axis])
+        noise = nt.nodes.new("ShaderNodeTexNoise")
+        noise.inputs["Scale"].default_value = 1.0
+        noise.inputs["Detail"].default_value = 8.0
+        noise.inputs["Roughness"].default_value = 0.62
+        nt.links.new(comb.outputs[0], noise.inputs["Vector"])
+        band = nt.nodes.new("ShaderNodeMapRange")
+        band.interpolation_type = "SMOOTHSTEP"
+        band.inputs["From Min"].default_value = 0.42
+        band.inputs["From Max"].default_value = 0.66
+        band.inputs["To Max"].default_value = clouds
+        nt.links.new(noise.outputs["Fac"], band.inputs["Value"])
+        cm = nt.nodes.new("ShaderNodeMix")
+        cm.data_type = "RGBA"
+        nt.links.new(band.outputs["Result"], cm.inputs["Factor"])
+        nt.links.new(col, cm.inputs["A"])
+        cm.inputs["B"].default_value = (*cloud, 1)
+        col = cm.outputs["Result"]
+        if light is not None:
+            # a soft glow where the light breaks through, strongest in the breaks between the banks
+            d = nt.nodes.new("ShaderNodeVectorMath")
+            d.operation = "DISTANCE"
+            nt.links.new(tc.outputs["Generated"], d.inputs[0])
+            d.inputs[1].default_value = (light_at[0], light_at[1], 0.0)
+            g = nt.nodes.new("ShaderNodeMapRange")
+            g.interpolation_type = "SMOOTHSTEP"
+            g.inputs["From Min"].default_value = 0.25
+            g.inputs["From Max"].default_value = 0.0
+            nt.links.new(d.outputs["Value"], g.inputs["Value"])
+            gap = nt.nodes.new("ShaderNodeMath")
+            gap.operation = "MULTIPLY"
+            nt.links.new(g.outputs["Result"], gap.inputs[0])
+            inv = nt.nodes.new("ShaderNodeMath")
+            inv.operation = "SUBTRACT"
+            inv.inputs[0].default_value = 1.0
+            nt.links.new(band.outputs["Result"], inv.inputs[1])
+            nt.links.new(inv.outputs[0], gap.inputs[1])
+            lm = nt.nodes.new("ShaderNodeMix")
+            lm.data_type = "RGBA"
+            nt.links.new(gap.outputs[0], lm.inputs["Factor"])
+            nt.links.new(col, lm.inputs["A"])
+            lm.inputs["B"].default_value = (*light, 1)
+            col = lm.outputs["Result"]
+    col = col if flash is None else toon.flashed(nt, col, flash, flash_amount)
     em = nt.nodes.new("ShaderNodeEmission")
     nt.links.new(col, em.inputs["Color"])
     out = nt.nodes.new("ShaderNodeOutputMaterial")

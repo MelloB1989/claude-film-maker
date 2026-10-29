@@ -142,5 +142,6 @@ def build(m: dict, near, far, weather, *, seed: int = 7) -> dict:
     for ob in mist:
         ob.lineart.usage = "EXCLUDE"
     sky = landscape.sky("sky", far, horizon=weather.sky, zenith=weather.zenith, distance=1400.0, size=(6000.0, 1100.0),
-                        z=300.0)
+                        z=300.0, clouds=0.75 - 0.35 * weather.warm,
+                        light=tuple(min(1.0, c * 1.25) for c in weather.sky), light_at=(0.56, 0.42))
     return {"ground": fine, "valley_ground": coarse, "river": river, "mist": mist, "sky": sky}
