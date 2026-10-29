@@ -394,9 +394,11 @@ def cedar_mesh(base, height: float, *, seed: int = 1, clumps: int = 12, sides: i
     return np.array(verts, float), faces
 
 
-def forest(name: str, bases, heights, *, material, coll, seed: int = 1, kind: str = "cedar", **tree):
+def forest(name: str, bases, heights, *, material, coll, seed: int = 1, kind: str = "cedar", smooth: bool = False,
+           **tree):
     """Trees at `bases` [(x, y, z), ...] of `heights`, merged into one object: cedars (`cedar_mesh`) or, `kind`
-    "fir", tiered conifers (`conifer_mesh`); `tree` goes to each (clumps, sides, spread, ...)."""
+    "fir", tiered conifers (`conifer_mesh`); `tree` goes to each (clumps, sides, spread, ...). `smooth`: shaded
+    smooth, for trees seen close (no facets, and Line Art draws no creases across them)."""
     make = cedar_mesh if kind == "cedar" else conifer_mesh
     verts, faces, off = [], [], 0
     for k, (b, h) in enumerate(zip(bases, heights)):
@@ -406,7 +408,7 @@ def forest(name: str, bases, heights, *, material, coll, seed: int = 1, kind: st
         off += len(v)
     if not verts:
         return None
-    return shapes.mesh_object(name, np.concatenate(verts), faces, material, coll, smooth=False)
+    return shapes.mesh_object(name, np.concatenate(verts), faces, material, coll, smooth=smooth)
 
 
 def scatter(n: int, x_range, y_range, *, seed: int = 1, min_gap: float = 0.0, keep=None, tries: int = 30) -> np.ndarray:

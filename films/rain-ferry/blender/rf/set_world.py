@@ -26,6 +26,7 @@ from . import set_approach, set_jetty, set_valley, set_weather, sets
 COLORS = {
     **sets.COLORS,
     "wood": ((0.1, 0.092, 0.084), (0.022, 0.021, 0.021)),     # the boat's seats and boards, worn paler than its hull
+    "post": ((0.07, 0.06, 0.05), (0.016, 0.015, 0.014)),      # the deck's posts: old wood, browner than the standoff's
     "stave": ((0.065, 0.06, 0.056), (0.014, 0.014, 0.015)),
     "bamboo": ((0.13, 0.125, 0.1), (0.03, 0.03, 0.027)),
     "sign": ((0.16, 0.155, 0.15), (0.04, 0.04, 0.042)),      # the signpost: grey, bleached by years of weather
@@ -34,11 +35,12 @@ COLORS = {
     "slope": ((0.045, 0.05, 0.052), (0.02, 0.022, 0.025)),    # the valley's far ground (the fog pales it)
 }
 # what the rain leaves shining, and how much (of the weather's sheen) and how sharply (roughness)
-WET = {"plank": (1.0, 0.14), "post": (0.1, 0.5), "stave": (0.1, 0.5), "hull": (0.6, 0.22), "wood": (0.6, 0.22),
+WET = {"plank": (1.0, 0.14), "hull": (0.6, 0.22), "wood": (0.6, 0.22),
        "sign": (0.4, 0.3), "rock": (0.6, 0.25), "mud": (0.5, 0.32)}
 # the painted ones: (mottle, its patch size m, dry brush, its direction)
 PAINTED = {"mud": (0.6, 0.35, 0.45, "y"), "grass": (0.35, 1.5, 0.25, "z"), "rock": (0.3, 0.4, 0.35, "z"),
-           "sign": (0.25, 0.15, 0.5, "z"), "plank": (0.2, 0.5, 0.35, "x")}
+           "sign": (0.25, 0.15, 0.5, "z"), "plank": (0.2, 0.5, 0.35, "x"),
+           "post": (0.3, 0.3, 0.5, "z"), "stave": (0.3, 0.3, 0.5, "z")}
 
 # a starting framing for each location: (camera, aim, lens mm); the approach keeps its trees off these cameras
 # (set_approach.CLEAR). Shots move from these as they need
