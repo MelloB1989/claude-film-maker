@@ -5,12 +5,10 @@ The world is the sets' (rf/set_world.py, in rf/sets.py's axes): the path comes u
 down the valley's other way (-y) to the jetty's foot, over the valley's ground (not level: `ground`), its line
 rf/set_approach.path_xy(). Shinza is the cast's (`walker`: rf/vroid_cast.py with the kasa on, the sword on his back).
 
-Stand-ins, each replaced when its owner's API is merged (the shots go through the functions here, so only this file
-changes):
-- `Gait` / `key_walk`: a heavy walk along a line on the ground, its feet planted by IK on footfalls laid down the line
-  (no foot slides), the hips falling and rising between them, the trunk and arms swinging against the legs (the anim
-  agent's walk generator, lib/vrm_anim.py, when there).
-- `splash`, `ripples`, `drips`: the water a footfall throws up and the rings it leaves (the cinema agent's fx).
+He walks by lib/vrm_anim.py (`walk_through`: a walk laid so a given foot lands on a given spot at a given time, over
+the set's ground); `Gait` is the line along the path and where a steady walk puts him on it (pure). The shots are
+filmed with lib/cinema.py and rained on by lib/weather.py (`storm`, `brim_drips`); what a footfall does to the water
+is here (`splash`, `ripples`, `drips` off a lifted sole).
 """
 from __future__ import annotations
 
@@ -172,121 +170,42 @@ def smooth(u: float) -> float:
     return u * u * (3 - 2 * u)
 
 
-def hips_drop(hips: np.ndarray, ankles: list, leg: float) -> float:
-    """How far the hips must come down (m, >= 0) for legs `leg` long (hip joint to ankle) to reach every ankle from
-    hip joints at `hips` (one (x, y, z) per ankle)."""
-    need = 0.0
-    for h, a in zip(hips, ankles):
-        d = np.asarray(h, float) - np.asarray(a, float)
-        flat = math.hypot(d[0], d[1])
-        z = math.sqrt(max(leg * leg - flat * flat, 0.0))
-        need = max(need, d[2] - z)
-    return need
-
-
-# the walk's upper body (degrees, the module's doc in lib/vrm.py): a heavy, purposeful walk, the trunk leaning into it,
-# the head down under the kasa, the arms swinging a little against the legs, the shoulders working
+# the walk's carriage (degrees, lib/vrm.py's convention): a heavy, purposeful walk, the trunk leaning into it, the head
+# down under the kasa
 LEAN = {"spine": (7.0, 0.0, 0.0), "chest": (3.0, 0.0, 0.0), "neck": (4.0, 0.0, 0.0), "head": (6.0, 0.0, 0.0)}
-SWING = dict(arm=14.0, elbow=(14.0, 8.0), pelvis=6.0, chest=7.0, sway=0.025, sink=0.03, roll=3.0)
 
 
-def upper_body(phase: float, *, lean: dict = LEAN, swing: dict = SWING) -> dict:
-    """The upper body's pose at a phase of the walk (0: the right foot strikes): the pelvis turned with the leading
-    leg, the chest against it, the arms swinging opposite the legs (the right back while the right leg leads)."""
-    from lib import vrm
+def walk_through(p, line, *, side: str, at, t: float, gait="heavy", ground=None, before: float = 3.0,
+                 after: float = 3.0, pose=None, speed=None) -> dict:
+    """Key Performance `p` (lib/vrm_anim.py) walking along `line` ((n, 2) points, in the order walked) so that its
+    `side` foot lands on `at` (x, y) at film time `t`: the walk set off `before` seconds of walking earlier and going on
+    `after` seconds past it (a shot cut into the middle of a walk), each footfall on `ground` (a height, or (x, y) -> z).
+    Returns {"start", "stop" (film frames), "path" (the walked points), "plan" (vrm_anim.plan_steps'), "index" (the
+    footfall on `at`, in the plan)}."""
+    from lib import vrm_anim as va
 
-    c = math.cos(2 * math.pi * phase)
-    s2 = math.sin(4 * math.pi * phase)
-    out = {k: tuple(v) for k, v in lean.items()}
-    out["hips"] = (0.0, swing["roll"] * math.sin(2 * math.pi * phase), swing["pelvis"] * c)
-    sp = out.get("spine", (0.0, 0.0, 0.0))
-    out["spine"] = (sp[0], -0.5 * swing["roll"] * math.sin(2 * math.pi * phase), -0.5 * swing["pelvis"] * c)
-    ch = out.get("chest", (0.0, 0.0, 0.0))
-    out["chest"] = (ch[0] + 1.0 * s2, 0.0, -swing["chest"] * c)
-    for side, sign in (("right", 1.0), ("left", -1.0)):
-        down = vrm.RELAXED[f"{side}UpperArm"]
-        sw = sign * swing["arm"] * c                       # + back
-        out[f"{side}UpperArm"] = vrm.euler((sw + 4.0, 0.0, 0.0)) @ vrm.euler(down)
-        bend = swing["elbow"][0] + swing["elbow"][1] * max(0.0, -sign * c)   # bent more as it swings forward
-        out[f"{side}LowerArm"] = (0.0, 0.0, bend if side == "right" else -bend)
-        for f in ("Index", "Middle", "Ring", "Little"):
-            for j, deg in (("Proximal", 35.0), ("Intermediate", 45.0), ("Distal", 25.0)):
-                out[f"{side}{f}{j}"] = (0.0, (deg if side == "left" else -deg), 0.0)
-    return out
-
-def key_walk(ch, gait: Gait, frames, fps: float, *, lean: dict = LEAN, swing: dict = SWING, extra=None,
-             sink: float = 0.0) -> dict:
-    """Key the character walking `gait` over film `frames` (film frame f is time f / fps): its root carried along
-    the line on the ground, turned the way it goes, its feet on their footfalls by IK (no slide), its hips down as
-    far as the legs need and swaying over the foot it stands on, its upper body swinging (`upper_body`). `extra(t)` ->
-    {bone: turn} adds to the pose (a head turned, a hand closing). `sink`: how far the feet go down into the ground
-    (soft mud, a puddle's water). Returns {frame: (root (x, y, z), way forward,
-    phase)}."""
-    import bpy
-
-    from lib import vrm
-
-    root = ch.root
-    root.rotation_mode = "XYZ"
-    ankle = float(ch.rest("rightFoot")[2])
-    ball = abs(float((ch.rest("rightToes") - ch.rest("rightFoot"))[1])) if ch.has("rightToes") else 0.12
-    hip_l, hip_r = ch.rest("leftUpperLeg"), ch.rest("rightUpperLeg")
-    knee = ch.rest("leftLowerLeg")
-    leg = 0.985 * (np.linalg.norm(hip_l - knee) + np.linalg.norm(knee - ch.rest("leftFoot")))
-
-    def to_char(w, r, d):
-        """A world point in the character's frame (x its left, y its back) with its root at r facing d."""
-        v = np.asarray(w, float) - r
-        return np.array([v[:2] @ Gait.left_of(d), -(v[:2] @ d), v[2]])
-
-    def pole(a, d):
-        return a + np.array([*d * 0.8, 0.5])
-
-    out = {}
-    # the IK set up once, then its handles keyed frame by frame
-    for side in ("left", "right"):
-        vrm.reach(ch, f"{side}Foot", (0.1 if side == "left" else -0.1, 0.0, ankle), pole=(0.0, -0.8, 0.5))
-        vrm.hold(ch, f"{side}Foot", (0.0, 0.0, 0.0))
-    yaw_prev = None
-    for f in frames:
-        t = f / fps
-        rxy, d = gait.root(t)
-        r = np.array([*rxy, gait.z(rxy)])
-        ph = gait.phase(t)
-        yaw = math.atan2(d[1], d[0])
-        if yaw_prev is not None:                  # no flip at +-pi
-            yaw = yaw_prev + (yaw - yaw_prev + math.pi) % (2 * math.pi) - math.pi
-        yaw_prev = yaw
-        root.location = tuple(r)
-        root.rotation_euler = (0.0, 0.0, yaw)
-        root.keyframe_insert("location", frame=f)
-        root.keyframe_insert("rotation_euler", frame=f)
-        ankles, pitches = {}, {}
-        for side in ("left", "right"):
-            ankles[side], pitches[side] = gait.foot(side, t, ankle - sink, ball)
-        sway = -swing["sway"] * math.sin(2 * math.pi * ph)
-        lft = Gait.left_of(d)
-        joints = [np.array([*(rxy + lft * (h[0] + sway)), r[2] + h[2]]) for h in (hip_l, hip_r)]
-        drop = hips_drop(np.array(joints), [ankles["left"], ankles["right"]], leg) + swing["sink"]
-        pose = upper_body(ph, lean=lean, swing=swing)
-        for side in ("left", "right"):
-            pose[f"{side}Toes"] = (-max(0.0, pitches[side]) * 0.9, 0.0, 0.0)
-        if extra is not None:
-            pose.update(extra(t))
-        vrm.pose(ch, pose, hips=(sway, 0.0, -drop), frame=f)
-        for side in ("left", "right"):
-            a = ankles[side]
-            tgt = ch.handles[f"{side}Foot-target"]
-            tgt.location = ch.to_armature(to_char(a, r, d))
-            tgt.keyframe_insert("location", frame=f)
-            pl = ch.handles[f"{side}Foot-pole"]
-            pl.location = ch.to_armature(to_char(pole(a, d), r, d))
-            pl.keyframe_insert("location", frame=f)
-            vrm.hold(ch, f"{side}Foot", (pitches[side], 0.0, 0.0))
-            ch.handles[f"{side}Foot-hold"].keyframe_insert("rotation_quaternion", frame=f)
-        out[f] = (tuple(r), tuple(d), ph)
-    bpy.context.view_layer.update()
-    return out
+    g = va.gait_of(gait).scaled(p.height)
+    if speed is not None:
+        g = g.but(speed=float(speed))
+    probe = Gait(line=line)
+    s_at = probe.nearest(at)
+    length = (before + after) * g.speed
+    steps, _, _ = va.plan_steps(length, g)
+    # the footfall of `side` nearest `before` seconds in, laid on `at`: the walk starts that far back along the line
+    cands = [(i, st) for i, st in enumerate(steps) if st.side == side]
+    i, st = min(cands, key=lambda c: abs(c[1].b - before * g.speed))
+    s0 = s_at - st.b
+    _, fwd = probe.at(s_at)
+    # the line moved over so that foot (half the gait's width to its side) comes down on the point itself
+    shift = np.asarray(at, float) - probe.at(s_at)[0] + Gait.left_of(fwd) * (g.width / 2) * (1.0 if side == "right" else -1.0)
+    ss = np.linspace(s0, s0 + length, int(length / 0.25) + 2)
+    path = np.array([probe.at(x)[0] + shift for x in ss])
+    start = t * p.fps - st.t1 * p.fps
+    z0 = ground(*path[0]) if callable(ground) else (ground or 0.0)
+    d0 = path[1] - path[0]
+    p.root(start, (*path[0], z0), yaw=math.degrees(math.atan2(d0[1], d0[0])))
+    stop = p.walk(path, start, gait=g, ground=ground, pose=pose)
+    return {"start": start, "stop": stop, "path": path, "plan": steps, "index": i}
 
 
 # ---- water thrown up and rings left

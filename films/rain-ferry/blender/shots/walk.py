@@ -47,11 +47,6 @@ def staging(fps: float, t_shot: float, t_end: float):
     return gait, cam, (-d[0], -d[1])
 
 
-def ease(u: float) -> float:
-    u = min(1.0, max(0.0, u))
-    return 0.5 - 0.5 * math.cos(math.pi * u)
-
-
 def build(ctx):
     import sys
     from pathlib import Path
@@ -61,7 +56,7 @@ def build(ctx):
     from mathutils import Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import cinema, satsuei, vrm
+    from lib import cinema, satsuei, vrm, vrm_anim as va
     from rf import approach
 
     t_shot = ctx.time(ctx.f0)
@@ -70,23 +65,35 @@ def build(ctx):
     st = approach.stage(ctx, key_toward=KEY, ink=0.004)
     ch = st.shinza["vrm"]
 
-    def extra(t):
-        u = t - t_shot
-        fist = ease((u - FIST[0]) / FIST[1])
-        head = HEAD_UP[2] * ease((u - HEAD_UP[0]) / HEAD_UP[1])
-        out = {"head": (approach.LEAN["head"][0] + head, 0.0, 0.0), "neck": (approach.LEAN["neck"][0] + head * 0.4, 0.0, 0.0)}
-        if fist > 0:
-            out.update(vrm.blend({}, vrm.grip_pose("right", 1.0, 0.8), fist))
-        return out
+    # mid-stride down the path at the cut (lib/vrm_anim.py's heavy walk), his head low under the kasa; his right
+    # hand closing into a fist on the line, his head coming up at its end
+    from rf import set_approach, set_valley
 
-    frames = list(range(ctx.f0 - 1, ctx.f1 + 1))
-    walked = approach.key_walk(ch, gait, frames, ctx.fps, extra=extra)
-    vrm.express(ch, st.shinza["face"](1.0))
+    p = va.Performance(ch, fps=ctx.fps, seed=1)
+    t1 = ctx.time(ctx.f1)
+    carriage = {**va.STAND, **approach.LEAN}
+    approach.walk_through(p, set_approach.path_xy(240), side="right", at=p1, t=t1, before=7.0, after=2.0,
+                          ground=set_valley.ground, pose=carriage)
+
+    def at_s(u):
+        return ctx.f0 + u * ctx.fps
+
+    relaxed = {k: v for k, v in va.STAND.items() if any(f in k for f in ("Index", "Middle", "Ring", "Little", "Thumb"))
+               and k.startswith("right")}
+    p.pose(at_s(FIST[0]), relaxed, full=False)
+    p.pose(at_s(FIST[0] + FIST[1]), vrm.grip_pose("right", 1.0, 0.8), full=False, ease="out")
+    lean = {k: approach.LEAN[k] for k in ("neck", "head")}
+    p.pose(at_s(HEAD_UP[0]), lean, full=False)
+    p.pose(at_s(HEAD_UP[0] + HEAD_UP[1]), {"neck": (lean["neck"][0] + HEAD_UP[2] * 0.4, 0.0, 0.0),
+                                          "head": (lean["head"][0] + HEAD_UP[2], 0.0, 0.0)}, full=False, ease="out")
+    p.express(ctx.f0 - 1, st.shinza["face"](1.0))
+    p.blinks(mean=4.0)
+    p.secondary(wind=(0.6, 0.0, 0.0))
+    p.bake(ctx.f0 - 1, ctx.f1 + 1)
 
     # a long lens low on the path, dollying in toward him as he comes, its aim trailing him (an operator's follow)
-    t1 = ctx.time(ctx.f1)
     ts = np.linspace(t_shot, t1, 12)
-    aims = [(*gait.root(t - FOLLOW)[0], gait.z(gait.root(t - FOLLOW)[0]) + AIM_Z) for t in ts]
+    aims = [tuple(p.root_at((t - FOLLOW) * ctx.fps)[0] + np.array([0.0, 0.0, AIM_Z])) for t in ts]
     cam1 = np.array(cam0) + np.array([*back, 0.0]) * DOLLY
     cams = [tuple(np.array(cam0) + (cam1 - np.array(cam0)) * k) for k in np.linspace(0, 1, 12)]
     rig = cinema.film(ctx, [cinema.Setup("walk", 0.0, cinema.path(cams, aims), ease="linear", lens=LENS, fstop=FSTOP,
@@ -98,7 +105,7 @@ def build(ctx):
     comp = satsuei.setup(ctx.scene, st.cast)
     for f in rig.frames:
         at = Vector(tuple(rig.pose(f).position))
-        r = walked[f][0]
+        r = p.root_at(f)[0]
         # the mist thinning off him as he comes
         d = (Vector((r[0], r[1], r[2] + 1.2)) - at).length
         (d0, h0), (d1, h1) = HAZE

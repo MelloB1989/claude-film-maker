@@ -32,13 +32,13 @@ def build(ctx):
     import numpy as np
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import cinema, satsuei, vrm
+    from lib import cinema, satsuei, vrm_anim as va
     from rf import approach, set_approach, set_valley, set_world
 
     # the puddle he steps in (the set's); his right foot's footfall on it, the path's way there
     puddle = np.array(set_world.views()["step"][1]) - np.array([0.0, 0.0, 0.05])
     P = set_approach.path_xy(240)
-    probe = approach.Gait(line=P, ground=set_valley.ground)
+    probe = approach.Gait(line=P)
     s_hit = probe.nearest(puddle[:2])
     _, fwd = probe.at(s_hit)
     left = approach.Gait.left_of(fwd)
@@ -52,33 +52,43 @@ def build(ctx):
     ch = st.shinza["vrm"]
     t0 = ctx.time(ctx.f0)
     t_strike = t0 + STRIKE
-    # his right foot comes down in the puddle: his line runs its foot's width left of it, the ankle a little behind
-    # the middle (the ball, not the heel, over the deepest water)
-    gait = approach.Gait(line=P, ground=set_valley.ground, s0=s_hit + 0.06, t0=t_strike)
-    _, _, land, _ = gait.footfall(0)
-    off = puddle[:2] - land
-    gait = approach.Gait(line=P + off - fwd * (off @ fwd), ground=set_valley.ground, s0=s_hit + 0.06, t0=t_strike)
+    # his right foot comes down in the puddle, mid-stride (lib/vrm_anim.py's heavy walk, laid so), his feet going
+    # down into the mud and water
+    p = va.Performance(ch, fps=ctx.fps, seed=3)
+    w = approach.walk_through(p, P, side="right", at=puddle[:2], t=t_strike, before=2.5, after=2.5,
+                              ground=lambda x, y: float(set_valley.ground(x, y)) - SINK)
+    p.express(ctx.f0 - 1, st.shinza["face"](1.0))
+    p.blinks(mean=3.5)
+    p.secondary(wind=(0.4, 0.0, 0.0))
+    p.bake(ctx.f0 - 1, ctx.f1 + 1)
     frames = list(range(ctx.f0 - 1, ctx.f1 + 1))
-    approach.key_walk(ch, gait, frames, ctx.fps, sink=SINK)
-    vrm.express(ch, st.shinza["face"](1.0))
+    plan, i = w["plan"], w["index"]
+    nxt = next((k for k in range(i + 1, len(plan)) if plan[k].side == "right"), None)
+    lift = (w["start"] + plan[nxt].t0 * ctx.fps) / ctx.fps if nxt is not None else t_strike + 0.75
 
     # the water: the splash and its rings as the foot lands, smaller rings and drips from the sole as it lifts out
-    _, _, land, _ = gait.footfall(0)
     ankle = float(ch.rest("rightFoot")[2])
     ball = abs(float((ch.rest("rightToes") - ch.rest("rightFoot"))[1])) if ch.has("rightToes") else 0.12
+    land = puddle[:2]
     hit = (*(land + fwd * 0.05), float(puddle[2]))
     approach.splash("splash", hit, t_strike, ctx.fps, coll=st.cast, frames=frames, count=110, speed=(0.5, 1.4),
                     size=0.0024, alpha=0.4, spread=0.12, seed=3)
     approach.ripples("rings", hit, t_strike, ctx.fps, coll=st.world["near"], frames=frames, rings=4, squash=0.95,
                      alpha=0.32, color=(0.42, 0.46, 0.52))
-    lift = t_strike + gait.stance * 2 * gait.step
     toe = (*(land + fwd * ball), float(puddle[2]))
     approach.ripples("rings-lift", toe, lift - 0.05, ctx.fps, coll=st.world["near"], frames=frames, rings=2, speed=0.22,
                      alpha=0.25, color=(0.42, 0.46, 0.52))
+    # where the sole is, frame by frame, as baked
+    soles = {}
+    for f in frames:
+        ctx.scene.frame_set(f)
+        a = np.array(ch.point("rightFoot"))
+        soles[f] = a - np.array([0.0, 0.0, ankle - 0.004])
+    ctx.scene.frame_set(ctx.f0)
 
     def sole(t):
-        a, _ = gait.foot("right", t, ankle, ball)
-        return [tuple(np.array([*(a[:2] + fwd * ah + left * al), a[2] - ankle + 0.004]))
+        a = soles[min(max(round(t * ctx.fps), frames[0]), frames[-1])]
+        return [tuple(a + np.array([*(fwd * ah + left * al), 0.0]))
                 for ah, al in ((0.1, 0.02), (0.05, -0.03), (-0.05, 0.0), (0.0, 0.025))]
 
     approach.drips("sole-drips", None, lift - 0.1, lift + 0.6, ctx.fps, coll=st.cast, frames=frames,
