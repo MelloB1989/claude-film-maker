@@ -112,6 +112,10 @@ def build(ctx, c: Closeup) -> None:
     head = ch.bone("head")
     head_m = ch.armature.matrix_world @ head.matrix
     drops = []
+    rain = [ob for ob in (st.rain, st.rain_cast) if ob is not None]
+    for ob in rain:                       # the rays are for the skin, not the drops falling past it
+        ob.hide_viewport = True
+    bpy.context.view_layer.update()
     dg = bpy.context.evaluated_depsgraph_get()
     for k, drop in enumerate(c.drops):
         pts = []
@@ -125,6 +129,8 @@ def build(ctx, c: Closeup) -> None:
             print(f"eye_closeup: drop {k} missed the face; left out")
             continue
         drops.append((drop, _drop(f"drop{k}", drop, pts, head_m, ch, st.cast)))
+    for ob in rain:
+        ob.hide_viewport = False
 
     comp = satsuei.setup(ctx.scene, st.cast)
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
