@@ -214,11 +214,13 @@ def upper_body(phase: float, *, lean: dict = LEAN, swing: dict = SWING) -> dict:
                 out[f"{side}{f}{j}"] = (0.0, (deg if side == "left" else -deg), 0.0)
     return out
 
-def key_walk(ch, gait: Gait, frames, fps: float, *, lean: dict = LEAN, swing: dict = SWING, extra=None) -> dict:
+def key_walk(ch, gait: Gait, frames, fps: float, *, lean: dict = LEAN, swing: dict = SWING, extra=None,
+             sink: float = 0.0) -> dict:
     """Key the character walking `gait` over film `frames` (film frame f is time f / fps): its root carried along
     the line on the ground, turned the way it goes, its feet on their footfalls by IK (no slide), its hips down as
     far as the legs need and swaying over the foot it stands on, its upper body swinging (`upper_body`). `extra(t)` ->
-    {bone: turn} adds to the pose (a head turned, a hand closing). Returns {frame: (root (x, y, z), way forward,
+    {bone: turn} adds to the pose (a head turned, a hand closing). `sink`: how far the feet go down into the ground
+    (soft mud, a puddle's water). Returns {frame: (root (x, y, z), way forward,
     phase)}."""
     import bpy
 
@@ -261,7 +263,7 @@ def key_walk(ch, gait: Gait, frames, fps: float, *, lean: dict = LEAN, swing: di
         root.keyframe_insert("rotation_euler", frame=f)
         ankles, pitches = {}, {}
         for side in ("left", "right"):
-            ankles[side], pitches[side] = gait.foot(side, t, ankle, ball)
+            ankles[side], pitches[side] = gait.foot(side, t, ankle - sink, ball)
         sway = -swing["sway"] * math.sin(2 * math.pi * ph)
         lft = Gait.left_of(d)
         joints = [np.array([*(rxy + lft * (h[0] + sway)), r[2] + h[2]]) for h in (hip_l, hip_r)]
@@ -326,10 +328,10 @@ def splash(name: str, at, t: float, fps: float, *, coll, count: int = 70, speed=
     x0, y0, z0 = at
     for i in range(count):
         a = rng.uniform(0, 2 * math.pi)
-        r0 = spread * rng.uniform(0.6, 1.1)
+        r0 = spread * rng.uniform(0.5, 0.9)
         p0 = np.array([x0 + math.cos(a) * r0, y0 + math.sin(a) * r0 * 0.8, z0 + 0.01])
         up = rng.uniform(*speed)
-        out_v = up * rng.uniform(0.35, 0.9)
+        out_v = up * rng.uniform(0.15, 0.45)       # thrown up more than out: a crown, not a fan
         v0 = np.array([math.cos(a) * out_v, math.sin(a) * out_v * 0.8, up])
         delay = rng.uniform(0.0, 0.05)
         s = size * rng.uniform(0.5, 1.4)
@@ -481,9 +483,8 @@ def paint(actors: dict, toward: dict, *, coll, tones: dict | None = None, tones_
 
 @dataclass
 class Stage:
-    """What `stage` built: the world, the rain and Shinza, ready for a shot's camera."""
+    """What `stage` built: the world and Shinza in it, painted and lit, ready for a shot's camera and weather."""
     world: dict           # rf/set_world.build's
-    rain: object
     cast: object          # the cast's collection (satsuei)
     shinza: dict
     key: object           # his own key light (toon3d)
@@ -492,45 +493,57 @@ class Stage:
     def look(self):
         return self.world["look"]
 
-    def ground(self, x, y) -> float:
-        from rf import set_valley
 
-        return float(set_valley.ground(x, y))
-
-    def path(self) -> np.ndarray:
-        """The path's line, in the order he walks it (from down the bank up to the jetty)."""
-        from rf import set_approach
-
-        return set_approach.path_xy(240)
-
-
-def stage(ctx, *, rain_box, rain_near: float, rain_clear: float, key_toward, ink: float | None = None) -> Stage:
-    """The world (rf/set_world.py, its weather from the look schedule) with Shinza in it: the rain filling
-    `rain_box` (min, max) at the schedule's density (its drops shrinking within `rain_near` of the lens, none within
-    `rain_clear`) and a copy of it in the cast's layer; Shinza painted with his own key from `key_toward` (world);
-    the near set inked `ink` metres (None: none, a close shot's set is out of focus)."""
+def stage(ctx, *, key_toward, ink: float | None = None) -> Stage:
+    """The world (rf/set_world.py, its weather from the look schedule) with Shinza in it, painted with his own key
+    from `key_toward` (world); the near set inked `ink` metres (None: none, a close shot's set is out of focus)."""
     from lib import toon
     from rf import set_world
 
     scene = ctx.scene
-    scene.render.use_motion_blur = False
     scene.view_settings.view_transform = "Standard"
     world = set_world.build(ctx)
     if ink:
         toon.ink("ink-near", world["near"], radius=ink, crease=150)
-    s = ctx.look_at(ctx.f0)
-    lo, hi = np.asarray(rain_box[0], float), np.asarray(rain_box[1], float)
-    # the schedule's count is for the standoff's box: as many to the cubic metre here
-    count = round(s.rain.drops / (13.0 * 15.6 * 6.1) * float(np.prod(hi - lo))) if s.rain.falling else 0
-    rain = toon.rain("rain", tuple(lo), tuple(hi), count=max(count, 1), speed=s.rain.speed, wind=s.rain.wind,
-                     length=s.rain.length, width=s.rain.width, color=tuple(s.rain.color), alpha=s.rain.alpha,
-                     seed=4, near=rain_near, clear=rain_clear)
     cast = toon.collection("cast")
     look = world["look"]
     shinza = walker(cast, toon.Look(fog=look.fog, fog_near=look.fog_near, fog_far=look.fog_far, fog_max=look.fog_max,
                                     fog_power=look.fog_power))
     keys = paint({"shinza": shinza}, {"shinza": key_toward}, coll=cast)
-    rain_cast = rain.copy()
-    rain_cast.name = "rain-cast"
-    cast.objects.link(rain_cast)
-    return Stage(world, rain, cast, shinza, keys["shinza"])
+    return Stage(world, cast, shinza, keys["shinza"])
+
+
+def storm(ctx, rig, st: Stage, *, splashes=(), floor=None, ground: float = 0.0, layers=None, in_cast=("near", "mid")):
+    """The shot's weather (lib/weather.py storm: the look schedule's rain and mist round the rig's setups in `layers`,
+    splashing on `splashes`, ringing the set's waters) with the rain's `in_cast` layers falling again in the cast's
+    layer too, so the drops between the lens and him stay in front of him once the compositor lays him over the
+    world."""
+    from lib import weather
+
+    sky = weather.storm(ctx, rig, splashes=list(splashes), waters=st.world["waters"], floor=floor, ground=ground,
+                        layers=layers)
+    if sky.rain is not None:
+        for (_, ln), d in sky.rain.drops.items():
+            if ln in in_cast:
+                twin = d.ob.copy()
+                twin.name = f"{d.ob.name}-cast"
+                st.cast.objects.link(twin)
+    return sky
+
+
+def brim_drips(name: str, hat, *, front=None, n: int = 12, **kw):
+    """Water dripping off the kasa's brim (lib/weather.py drips, carried by the hat): `n` points round it, or the `n`
+    nearest `front` (a world point: the lens) when given."""
+    import bpy
+
+    from lib import weather
+
+    lip = brim(hat)
+    if front is not None:
+        bpy.context.view_layer.update()
+        mw = hat.matrix_world
+        lip = sorted(lip, key=lambda v: ((mw @ v) - front).length)[:n * 3]
+        lip = sorted(lip, key=lambda v: math.atan2(v.y, v.x))
+    step = max(1, len(lip) // n)
+    pts = [tuple(v) for v in lip[::step][:n]]
+    return weather.drips(name, pts, parent=hat, **kw)

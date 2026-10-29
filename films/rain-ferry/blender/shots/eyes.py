@@ -28,20 +28,14 @@ RIMS = [((0.8, 0.9), (0.6, 0.68, 0.85), 0.3, 0.003, 0.9), ((-1.0, -0.3), (0.42, 
 BRIM_DRIPS = 6                 # how many places along the brim's front water drips from
 
 
-def ease(u: float) -> float:
-    u = min(1.0, max(0.0, u))
-    return 0.5 - 0.5 * math.cos(math.pi * u)
-
-
 def build(ctx):
     import sys
     from pathlib import Path
 
-    import bpy
     from mathutils import Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import rig, satsuei, vrm_anim as va
+    from lib import cinema, satsuei, vrm_anim as va
     from rf import approach
 
     import importlib.util
@@ -53,12 +47,7 @@ def build(ctx):
     at, fwd = gait.root(ctx.time(ctx.f0))
     x, y = at
     z = gait.z(at)
-    import numpy as np
-
-    ends = np.array([at + fwd * 1.5, at - fwd * 10.0])
-    lo, hi = ends.min(axis=0) - 2.5, ends.max(axis=0) + 2.5
-    st = approach.stage(ctx, rain_box=((lo[0], lo[1], z - 0.3), (hi[0], hi[1], z + 3.5)), rain_near=1.4,
-                        rain_clear=0.3, key_toward=KEY)
+    st = approach.stage(ctx, key_toward=KEY)
     ch = st.shinza["vrm"]
     t0 = ctx.time(ctx.f0)
     frames = list(range(ctx.f0 - 1, ctx.f1 + 1))
@@ -99,52 +88,24 @@ def build(ctx):
     lft = approach.Gait.left_of(fwd)
     toward = Vector((*(fwd * math.cos(b) + lft * math.sin(b)), 0.0))   # from his face toward the lens
     right = Vector((-toward.y, toward.x, 0.0))                  # the camera's right
-    cam = rig.engine_camera("camera", fstop=FSTOP, size=ctx.size)
-    cam.data.lens = LENS
-    cam.data.clip_end = 3000.0
-    ctx.scene.camera = cam
-    aim = bpy.data.objects.new("aim", None)
-    ctx.scene.collection.objects.link(aim)
-    c = cam.constraints.new("TRACK_TO")
-    c.target, c.track_axis, c.up_axis = aim, "TRACK_NEGATIVE_Z", "UP_Y"
-    focus = bpy.data.objects.new("focus", None)
-    ctx.scene.collection.objects.link(focus)
-    cam.data.dof.focus_object = focus
-    # the eye nearer the lens is the one in focus
-    near_eye = min((Vector(ch.point(e)) for e in ("leftEye", "rightEye")), key=lambda p: (p - eye - toward).length)
-    for f in frames:
-        k = ease((f - ctx.f0) / (ctx.f1 - ctx.f0))
-        d = DIST[0] + (DIST[1] - DIST[0]) * k
-        cam.location = eye + toward * d + Vector((0.0, 0.0, DZ)) - right * THIRD
-        aim.location = eye + Vector((0.0, 0.0, LIFT)) - right * THIRD
-        cam.keyframe_insert("location", frame=f)
-        aim.keyframe_insert("location", frame=f)
-    focus.location = near_eye + toward * 0.01
-
+    # the eye nearer the lens is the one in focus; the push eased over the shot, jolted a hair by the drum on the cut
+    near = min(("leftEye", "rightEye"), key=lambda e: (Vector(ch.point(e)) - eye - toward).length)
+    off = Vector((0.0, 0.0, DZ)) - right * THIRD
+    cam0 = eye + toward * DIST[0] + off
+    aim = eye + Vector((0.0, 0.0, LIFT)) - right * THIRD
+    rig = cinema.film(ctx, [cinema.Setup("eyes", 0.0, cinema.push(tuple(cam0), tuple(aim), DIST[0] - DIST[1]),
+                                         lens=LENS, fstop=FSTOP, focus=(ch, near),
+                                         shake=cinema.Shake(breath=0.03, hits=((0.0, 0.2),)))])
+    approach.storm(ctx, rig, st, ground=z)
     # water dripping off the brim's front edge, carried with his head as it comes up
-    hat = st.shinza["kasa"][0]
-    lip = approach.brim(hat)
-    brim = {}
-    for f in frames:
-        ctx.scene.frame_set(f)
-        mw = hat.matrix_world
-        pts = [mw @ v for v in lip]
-        brim[f] = pts
-    cam_at = Vector(cam.location)
-    front = sorted(range(len(lip)), key=lambda i: (brim[ctx.f1 - 1][i] - cam_at).length)[:BRIM_DRIPS * 4:4]
-
-    def carry(t):
-        f = min(max(round(t * ctx.fps), frames[0]), frames[-1])
-        return [tuple(brim[f][i]) for i in front]
-
-    approach.drips("brim-drips", None, t0 - 0.3, ctx.time(ctx.f1), ctx.fps, coll=st.cast, frames=frames,
-                   every=(0.45, 1.1), fall=0.9, size=0.0028, carry=carry, seed=7)
+    approach.brim_drips("brim", st.shinza["kasa"][0], front=cam0, n=BRIM_DRIPS, period=0.9, hang=0.6, fall=0.9,
+                        size=0.004, coll=st.cast)
 
     comp = satsuei.setup(ctx.scene, st.cast)
-    for f in frames:
+    for f in rig.frames:
         s = ctx.look_at(f)
         comp.key(f, s.look(rims=[satsuei.Rim(*r) for r in RIMS], para_from=(0.5, 1.0), para_to=(0.5, 0.55),
                            wrap_width=0.03))
     comp.hold()
     ctx.scene.frame_set(ctx.f0)
-    print(f"eyes: his eyes at {tuple(round(v, 3) for v in eye)}, brim drips from {len(front)} points")
+    print(f"eyes: his eyes at {tuple(round(v, 3) for v in eye)}, the lens from {tuple(round(v, 3) for v in cam0)}")

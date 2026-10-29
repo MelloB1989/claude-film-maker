@@ -61,17 +61,13 @@ def build(ctx):
     from mathutils import Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import rig, satsuei, vrm
+    from lib import cinema, satsuei, vrm
     from rf import approach
 
     t_shot = ctx.time(ctx.f0)
     gait, cam0, back = staging(ctx.fps, t_shot, ctx.time(ctx.f1))
     p0, p1 = gait.root(t_shot)[0], gait.root(ctx.time(ctx.f1))[0]
-    lo = np.minimum.reduce([p0, p1, cam0[:2]]) - 4.0
-    hi = np.maximum.reduce([p0, p1, cam0[:2]]) + 4.0
-    z0 = cam0[2] - CAM_Z
-    st = approach.stage(ctx, rain_box=((lo[0], lo[1], z0 - 1.0), (hi[0], hi[1], z0 + 7.0)), rain_near=6.0,
-                        rain_clear=1.0, key_toward=KEY, ink=0.004)
+    st = approach.stage(ctx, key_toward=KEY, ink=0.004)
     ch = st.shinza["vrm"]
 
     def extra(t):
@@ -87,31 +83,22 @@ def build(ctx):
     walked = approach.key_walk(ch, gait, frames, ctx.fps, extra=extra)
     vrm.express(ch, st.shinza["face"](1.0))
 
-    cam = rig.engine_camera("camera", fstop=FSTOP, size=ctx.size)
-    cam.data.clip_end = 3000.0
-    ctx.scene.camera = cam
-    aim = bpy.data.objects.new("aim", None)
-    ctx.scene.collection.objects.link(aim)
-    c = cam.constraints.new("TRACK_TO")
-    c.target, c.track_axis, c.up_axis = aim, "TRACK_NEGATIVE_Z", "UP_Y"
-    focus = bpy.data.objects.new("focus", None)
-    ctx.scene.collection.objects.link(focus)
-    cam.data.dof.focus_object = focus
+    # a long lens low on the path, dollying in toward him as he comes, its aim trailing him (an operator's follow)
+    t1 = ctx.time(ctx.f1)
+    ts = np.linspace(t_shot, t1, 12)
+    aims = [(*gait.root(t - FOLLOW)[0], gait.z(gait.root(t - FOLLOW)[0]) + AIM_Z) for t in ts]
+    cam1 = np.array(cam0) + np.array([*back, 0.0]) * DOLLY
+    cams = [tuple(np.array(cam0) + (cam1 - np.array(cam0)) * k) for k in np.linspace(0, 1, 12)]
+    rig = cinema.film(ctx, [cinema.Setup("walk", 0.0, cinema.path(cams, aims), ease="linear", lens=LENS, fstop=FSTOP,
+                                         focus=(ch, "chest"), shake=cinema.Shake(breath=0.02))])
+    sky = approach.storm(ctx, rig, st, ground=float(gait.z(p0)))
+    hat = st.shinza["kasa"][0]
+    approach.brim_drips("brim", hat, n=14, period=0.45, hang=0.25, fall=1.6, size=0.01, coll=st.cast)
 
     comp = satsuei.setup(ctx.scene, st.cast)
-    n = ctx.f1 - ctx.f0
-    for f in frames:
-        k = ease((f - ctx.f0) / n)
-        at = Vector(cam0) + Vector((back[0], back[1], 0.0)) * DOLLY * k
-        cam.location = at
-        cam.data.lens = LENS[0] + (LENS[1] - LENS[0]) * k
-        lag, _ = gait.root(f / ctx.fps - FOLLOW)
-        aim.location = (lag[0], lag[1], gait.z(lag) + AIM_Z)
+    for f in rig.frames:
+        at = Vector(tuple(rig.pose(f).position))
         r = walked[f][0]
-        focus.location = (r[0], r[1], r[2] + 1.5)
-        for ob, path in ((cam, "location"), (aim, "location"), (focus, "location")):
-            ob.keyframe_insert(path, frame=f)
-        cam.data.keyframe_insert("lens", frame=f)
         # the mist thinning off him as he comes
         d = (Vector((r[0], r[1], r[2] + 1.2)) - at).length
         (d0, h0), (d1, h1) = HAZE
@@ -120,4 +107,5 @@ def build(ctx):
         comp.key(f, s.look(rims=[satsuei.Rim(*r_) for r_ in RIMS], haze_amount=haze, para_from=(0.5, 0.9),
                            para_to=(0.5, 0.05)))
     comp.hold()
-    print(f"walk: he walks {tuple(p0.round(2))} -> {tuple(p1.round(2))}, the camera at {tuple(round(v, 2) for v in cam0)}")
+    print(f"walk: he walks {tuple(p0.round(2))} -> {tuple(p1.round(2))}, the camera at {tuple(round(v, 2) for v in cam0)}"
+          f", rain {'on' if sky.rain else 'off'}")
