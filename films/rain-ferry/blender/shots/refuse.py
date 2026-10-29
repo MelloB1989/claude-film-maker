@@ -71,7 +71,7 @@ def build(ctx):
     jt.pipe_smoke(st, seed=11).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
     pose = {**jt.tsuru_sit(0.0), **jt.fingers("left", 0.85)}
     ja.breath(st, [(EXHALE[0] - 0.3, EXHALE[1]), WORDS], ja.lips_source(st, pose, jt.tsuru_hips(st, 0.0)),
-              push=0.35, seed=12, width=(0.012, 0.14)).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
+              push=0.35, seed=12).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
 
 
 def perform(st, line):

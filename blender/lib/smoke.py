@@ -63,10 +63,10 @@ class Wisp:
     curl: float = 0.05            # m: how far it sways at 1 s old (growing with age)
     curl_rate: float = 1.4        # rad/s of age: how fast it turns as it rises
     calm: float = 0.25            # s of the laminar thread over the bowl before it starts to curl
-    width: tuple = (0.003, 0.06)  # m: at the source, at the end of its life
+    width: tuple = (0.002, 0.035)  # m: at the source, at the end of its life
     push: tuple = (0.0, 0.0, 0.0)  # m/s it leaves the source with (a breath let out)
     drag: float = 0.35            # s: how soon the air slows that push
-    opacity: float = 1.0          # the wisp's alpha at its densest
+    opacity: float = 0.4          # the wisp's alpha at its densest: smoke is thin, the world shows through
     rain: float = 0.0             # 0..1: the rain beating it down
     emit: tuple | None = None     # ((start, end), ...) s
     seed: int = 1
@@ -231,7 +231,7 @@ class Ribbon:
 
 
 def ribbon(name: str, wisp: Wisp, *, source, coll, offset=(0.0, 0.0, 0.0), color=(0.62, 0.65, 0.7),
-           also=(), breakup: float = 0.55, scene=None) -> Ribbon:
+           also=(), breakup: float = 0.75, scene=None) -> Ribbon:
     """A wisp as a ribbon in `coll` (and linked into the collections `also`). `source` is an object (its world
     location, plus `offset` in its own axes: the bowl on a pipe) or a function of the film frame giving a point.
     `color` linear; `breakup` (0..1): how much drifting noise thins it into strands."""
@@ -257,6 +257,7 @@ def ribbon(name: str, wisp: Wisp, *, source, coll, offset=(0.0, 0.0, 0.0), color
     for c in also:
         c.objects.link(ob)
     ob.visible_shadow = False
+    ob.lineart.usage = "EXCLUDE"        # a wisp has no ink line round it (toon.ink's Line Art leaves it out)
 
     mat = bpy.data.materials.new(name)
     nt = toon.nodes(mat)
@@ -278,14 +279,15 @@ def ribbon(name: str, wisp: Wisp, *, source, coll, offset=(0.0, 0.0, 0.0), color
                 L.new(x, m.inputs[i])
         return m.outputs[0]
 
-    # soft across: 1 along the middle, 0 at the edges
+    # soft across: dense along the middle, fading to nothing well before the edges (no hard side to the strip)
     across = math_("SUBTRACT", 1.0, math_("ABSOLUTE", math_("SUBTRACT", math_("MULTIPLY", sep.outputs["Y"], 2.0), 1.0)))
-    soft = math_("POWER", across, 1.4)
-    # broken into strands by noise drifting up the ribbon (along u, stretched across v)
+    soft = math_("POWER", math_("MULTIPLY", across, across), 1.3)
+    # broken into strands by noise drifting up the ribbon: long along it (u), fine across it (v), so it reads as
+    # threads of smoke rather than bands
     t = toon.frame_value(nt, scene, 0.35)
     vec = N.new("ShaderNodeCombineXYZ")
-    L.new(math_("SUBTRACT", math_("MULTIPLY", sep.outputs["X"], 6.0), t), vec.inputs["X"])
-    L.new(math_("MULTIPLY", sep.outputs["Y"], 1.2), vec.inputs["Y"])
+    L.new(math_("SUBTRACT", math_("MULTIPLY", sep.outputs["X"], 1.8), t), vec.inputs["X"])
+    L.new(math_("MULTIPLY", sep.outputs["Y"], 7.0), vec.inputs["Y"])
     vec.inputs["Z"].default_value = float(wisp.seed)
     noise = N.new("ShaderNodeTexNoise")
     noise.inputs["Scale"].default_value = 2.2
@@ -293,8 +295,8 @@ def ribbon(name: str, wisp: Wisp, *, source, coll, offset=(0.0, 0.0, 0.0), color
     noise.inputs["Roughness"].default_value = 0.6
     L.new(vec.outputs[0], noise.inputs["Vector"])
     rng = N.new("ShaderNodeMapRange")
-    rng.inputs["From Min"].default_value = 0.3
-    rng.inputs["From Max"].default_value = 0.65
+    rng.inputs["From Min"].default_value = 0.35
+    rng.inputs["From Max"].default_value = 0.7
     L.new(noise.outputs["Fac"], rng.inputs["Value"])
     strands = math_("ADD", math_("MULTIPLY", rng.outputs["Result"], breakup), 1.0 - breakup)
     attr = N.new("ShaderNodeAttribute")

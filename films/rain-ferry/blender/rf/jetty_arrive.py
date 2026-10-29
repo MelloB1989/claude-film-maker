@@ -163,7 +163,7 @@ def lips_source(st, pose: dict, hips):
     return at
 
 
-def breath(st, emit, source, *, push: float = 0.3, seed: int = 8, width=(0.012, 0.13), opacity: float = 0.8):
+def breath(st, emit, source, *, push: float = 0.3, seed: int = 8, width=(0.006, 0.07), opacity: float = 0.35):
     """Smoke let out of her lips (`source`: lips_source) in the windows `emit` (s into the shot), pushed out ahead of
     her, the rain beating it down (lib/smoke.py); bake it last."""
     from lib import smoke
