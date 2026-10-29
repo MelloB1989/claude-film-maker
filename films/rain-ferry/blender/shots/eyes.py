@@ -28,7 +28,8 @@ GLARE = (2.0, 0.35, 0.9)       # the glare hardens as the line ends: from s, ove
 BLINK = 2.75                   # s: one slow blink, after the line
 KEY = (0.2, -1.0, 1.25)        # his key: the grey sky ahead of him and above, so the brim shades his brow
 RIMS = [((0.8, 0.9), (0.6, 0.68, 0.85), 0.3, 0.003, 0.9), ((-1.0, -0.3), (0.42, 0.45, 0.52), 0.15, 0.003, 0.9)]
-BRIM_DRIPS = 6                 # how many places along the brim's front water drips from
+BRIM_DRIPS = 6
+PARA = 0.7                     # how deep the brim's shade over his brow goes (the compositor's para)                 # how many places along the brim's front water drips from
 
 
 def build(ctx):
@@ -133,8 +134,9 @@ def build(ctx):
     comp = satsuei.setup(ctx.scene, st.cast)
     for f in rig.frames:
         s = ctx.look_at(f)
-        comp.key(f, s.look(rims=[satsuei.Rim(*r) for r in RIMS], para_from=(0.5, 1.0), para_to=(0.5, 0.55),
-                           wrap_width=0.03))
+        # the brim's shade over his brow and down to his eyes (the eyes, unshaded, stay lit in it)
+        comp.key(f, s.look(rims=[satsuei.Rim(*r) for r in RIMS], para_from=(0.5, 0.42), para_to=(0.5, 0.8),
+                           para_amount=PARA, wrap_width=0.03))
     comp.hold()
     ctx.scene.frame_set(ctx.f0)
     print(f"eyes: his eyes at {tuple(round(v, 3) for v in eye)}, the brim's front {front.z - eye.z:+.3f} m over them; "
