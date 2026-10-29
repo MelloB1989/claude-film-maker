@@ -26,7 +26,7 @@ SHOT = {"scene": "tap"}
 # crown, the two filling the frame's height by SHARE; its bearing degrees from -y toward +x): the knock in the
 # foreground, her face over it looking down at it, and behind her, soft, him standing with his fist on his hilt and
 # the hut's red lantern. It creeps in
-FRAME = dict(height=0.62, bearing=50.0, rise=0.3, third=0.25)
+FRAME = dict(height=0.62, bearing=50.0, rise=-0.06, third=0.25)
 SHARE, LENS, FSTOP = (0.8, 0.88), 40.0, 3.2
 TAPS = (0.25, 0.62)          # s into the shot: the bowl strikes the post (pipe_tap's two knocks, from 42.05 s)
 STRIKE = (0.07, 0.12)        # each knock: down this long, back up this long (s)
