@@ -2,8 +2,9 @@
 Tsuru standing at its stern poling it on, Shinza sitting in it, small under the far ridges; and close in front of us
 the cut red headband turning slowly on the water, drifting away downstream. The theme resolves.
 
-Low over the water off the near shore, looking down the valley into the light (where 25 light broke the clouds): the
-jetty coming in from the left, the ferry crossing the middle of the frame toward the far bank. The focus
+Low over the water off the jetty's end, looking down the valley into the light (where 25 light broke the clouds), the
+low sun over the ferry and its glitter on the water coming toward us: the jetty coming in from the left, the ferry
+pulling away from it across the middle of the frame. The focus
 starts on the headband and goes out to the boat as the camera rises slowly, as if lifting its eyes after it.
 
 The world is the after-rain one (the look schedule's "cross": warm 1, no rain); the ferry is poled out along
@@ -17,11 +18,11 @@ import os
 SHOT = {"scene": "cross"}
 
 PUSH = (-2.0, 22.0)          # s (into the shot): the ferry's push along CROSS_PATH, just under way
-CAM = ((-1.6, -11.6, 0.7), (-1.3, -11.2, 1.25))     # from, to (eased): low over the water, rising
-AIM = ((12.5, 9.5, 0.9), (13.5, 10.0, 1.6))
-LENS, FSTOP = 32.0, 2.8
+CAM = ((8.0, -12.0, 0.72), (8.2, -11.6, 1.28))     # from, to (eased): low over the water, rising
+AIM = ((14.3, 27.5, 2.2), (14.5, 28.0, 3.6))
+LENS, FSTOP = 28.0, 2.8
 RACK = (1.6, 3.6)            # s: the focus from the headband out to the boat
-BAND = ((-0.55, -8.15), (0.15, -7.0))   # the headband's drift on the water (x, y), from and to over the shot
+BAND = ((7.45, -7.35), (8.1, -6.05))   # the headband's drift on the water (x, y), from and to over the shot
 POLE = dict(period=3.4, push=0.62, tilt=(-8.0, 32.0), grip=((-0.2, -0.18, 1.12), (-0.2, 0.2, 0.82)))
 
 
