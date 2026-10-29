@@ -20,6 +20,9 @@ def build(ctx):
     import sys
     from pathlib import Path
 
+    import bpy
+    from mathutils import Vector
+
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import cinema, toon, weather
     from rf import set_world, sets
@@ -27,9 +30,12 @@ def build(ctx):
     scene = ctx.scene
     world = set_world.build(ctx)
     toon.ink("ink-near", world["near"], radius=0.0042, crease=150)
-    lantern = world["lantern"]
+    # the lantern's mesh is built where it hangs (its origin at the world's): focus on the middle of it
+    lz = sum((world["lantern"].matrix_world @ Vector(c) for c in world["lantern"].bound_box), Vector()) / 8
+    lantern = bpy.data.objects.new("lantern-focus", None)
+    scene.collection.objects.link(lantern)
+    lantern.location = lz
     post = set_world.anchor(world, "tap_post_top")
-    lz = lantern.matrix_world.translation
 
     wide_cam, wide_aim = (6.6, -3.0, 1.35), (-5.6, 2.2, 1.25)
     close_cam, close_aim = cinema.frame_on(tuple(post), 0.5, share=0.42, lens=85, bearing=74, rise=0.12, third=1)
