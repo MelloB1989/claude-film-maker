@@ -462,6 +462,19 @@ def rain(ctx, rig, *, density=None, speed=None, wind=None, layers=None, color=No
     return Rain(drops, frames, D, S, W)
 
 
+def into_cast(rain_: Rain, cast, layers=("near", "mid")) -> list:
+    """Put the rain's `layers` into the satsuei cast collection `cast` as well (the same objects, linked into both): the
+    compositor lays the cast's layer over the world's where the cast is nearer, and a blended drop writes no depth, so
+    only the drops in front of a character come through over them (as standoff_vroid's rain-cast). The far curtain
+    stays out: it is never in front of anyone. Returns the objects linked."""
+    out = []
+    for (_, ln), d in rain_.drops.items():
+        if ln in layers and d.ob.name not in cast.objects:
+            cast.objects.link(d.ob)
+            out.append(d.ob)
+    return out
+
+
 # ---------------------------------------------------------------------------------------------------- what the rain hits
 
 def thin(ob, frames_values, *, seed: int = 9):
@@ -517,10 +530,21 @@ def ripples(rain_: Rain, materials) -> None:
 BANKS = ((6.0, 0.4, 2.2, 0.18), (14.0, 0.8, 4.5, 0.32), (30.0, 1.5, 9.0, 0.45), (60.0, 3.0, 16.0, 0.55))
 
 
-def mist(ctx, rig, *, density=None, color=None, banks=BANKS, ground: float = 0.0, coll=None, seed: int = 3) -> list:
+def banks_for_lens(banks, lens: float, ref: float = REF_LENS, thin: float = 0.35) -> tuple:
+    """`banks` as a `lens` (mm) longer than `ref` should see them: each one out by lens / ref (k), as `for_lens` does
+    the rain, so a bank is as tall on screen as in the wide and a close-up's subject stands in front of the mist
+    rather than inside a grey card; its opacity times k ** -`thin` (a long lens looks through less air to the
+    subject, and stacks the far banks together). Heights stay: the mist lies on the ground whatever the lens."""
+    k = max(1.0, float(lens) / ref)
+    return tuple((d * k, z, h, a * k ** -thin) for d, z, h, a in banks)
+
+
+def mist(ctx, rig, *, density=None, color=None, banks=BANKS, ground: float = 0.0, adapt: bool = True, coll=None,
+         seed: int = 3) -> list:
     """Banks of drifting mist (toon.mist_card) across each setup's view at `banks`' distances, facing its lens, as wide
     as it sees there, their opacity times `density` over the shot (a value; None: the look schedule's, relative to its
-    cold 0.6). Each setup's banks show only while it is cut in. Returns [(object, its density socket)]."""
+    cold 0.6). Each setup's banks show only while it is cut in, pushed out for its lens when `adapt`
+    (`banks_for_lens`). Returns [(object, its density socket)]."""
     from . import toon
 
     coll = coll or toon.collection("mist")
@@ -542,7 +566,8 @@ def mist(ctx, rig, *, density=None, color=None, banks=BANKS, ground: float = 0.0
         flat = np.array([f[0], f[1], 0.0])
         flat /= max(np.linalg.norm(flat), 1e-9)
         yaw = math.atan2(flat[0], -flat[1])          # a card faces -y; turned to face back along the view
-        for k, (d, z, h, a) in enumerate(banks):
+        lens = float(np.median([p.lens for p in poses]))
+        for k, (d, z, h, a) in enumerate(banks_for_lens(banks, lens) if adapt else banks):
             c = np.mean([p.position for p in poses], axis=0) + flat * d
             hw = d * SENSOR_H_MM / min(p.lens for p in poses) / 2 * aspect
             spread = max(np.linalg.norm(p.position - poses[0].position) for p in poses)
@@ -782,21 +807,24 @@ class Sky:
 
 
 def storm(ctx, rig, *, rain=None, speed=None, wind=None, layers=None, mist=None, splashes=(), waters=(),
-          haze=None, strikes=None, bolt=None, lights=(), floor=None, ground: float = 0.0, seed: int = 4) -> Sky:
+          haze=None, strikes=None, bolt=None, lights=(), floor=None, ground: float = 0.0, cast=None,
+          cast_layers=("near", "mid"), seed: int = 4) -> Sky:
     """A shot's weather in one call, round `rig`'s setups (cinema.Rig): its rain (`rain`: the density over the shot,
     `speed`, `wind`; None: the look schedule's) in `layers` near, mid and far, splashing on `splashes` areas
     [(lo, hi), ...] and ringing the `waters` (lib/water.py materials), all thinning with it; banks of `mist` (its
     density times the banks' own; None the schedule's, 0 none) standing on `ground`; a volumetric `haze` (a density,
     None none); and lightning at `strikes` (None: the schedule's) with its `bolt` and flaring `lights`. No rain at all
-    when its density stays 0 over the shot."""
+    when its density stays 0 over the shot. `cast`: the satsuei cast collection (lib/satsuei.py), whose layer gets the
+    `cast_layers` of rain too (`into_cast`), so the drops in front of a character stay in front of them."""
     sched = getattr(ctx, "look", None) is not None
     frames = list(rig.frames)
     if rain is None and sched:
         wet = max(ctx.look_at(f).rain.density for f in frames) > 0.001
     else:
         wet = rain is None or max(value_at(rain, (f - ctx.f0) / ctx.fps) for f in frames) > 0.001
-    r = _rain(ctx, rig, density=rain, speed=speed, wind=wind, layers=layers, floor=floor,
-                          seed=seed) if wet else None
+    r = _rain(ctx, rig, density=rain, speed=speed, wind=wind, layers=layers, floor=floor, seed=seed) if wet else None
+    if r and cast is not None:
+        into_cast(r, cast, cast_layers)
     sp = _splashes(r, splashes) if splashes and r else []
     if r and waters:
         ripples(r, waters)

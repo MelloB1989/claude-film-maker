@@ -94,3 +94,13 @@ def test_a_long_lens_sees_the_layers_further_out_and_as_big_on_screen():
     assert on_screen(f85, 85.0) == pytest.approx(on_screen(far, 26.0))
     n85 = weather.for_lens(weather.LAYERS["near"], 85.0)
     assert n85.clear == weather.LAYERS["near"].clear and n85.shrink > weather.LAYERS["near"].shrink
+
+
+def test_a_long_lens_sees_the_mist_banks_further_out_and_thinner():
+    assert weather.banks_for_lens(weather.BANKS, 26.0) == tuple(weather.BANKS)
+    k = 85.0 / weather.REF_LENS
+    for (d, z, h, a), (d2, z2, h2, a2) in zip(weather.BANKS, weather.banks_for_lens(weather.BANKS, 85.0)):
+        assert d2 == pytest.approx(d * k) and (z2, h2) == (z, h)
+        assert 0 < a2 < a
+        # as tall on screen as in the wide
+        assert h2 * 85.0 / d2 == pytest.approx(h * 26.0 / d)
