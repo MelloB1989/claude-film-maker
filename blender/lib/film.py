@@ -18,6 +18,7 @@ Where things live, for film <id> and shot <shot> (paths in film.json are relativ
   out/<id>/plates/<shot>/proxy/####.png     its 8-bit sRGB proxy at half the logical size
   out/<id>/look/<shot>/<film frame>.png     look stills (look mode)
   out/<id>/blender/<shot>.blend             --save-blend
+out/ is $FILM_OUT when it is set (a review renders its stills there, leaving the film's plates be).
 
 bpy-free (tested without Blender).
 """
@@ -33,6 +34,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_FILM = "showcase"
 FILM_ENV = "FILM"
+OUT_ENV = "FILM_OUT"
 FORMATS = {
     "landscape": (1920, 1080),
     "vertical": (1080, 1920),
@@ -178,7 +180,9 @@ class Film:
     # what is rendered
     @property
     def out(self) -> Path:
-        return self.repo / "out" / self.id
+        """out/<id>/ in the repo, or under $FILM_OUT."""
+        root = os.environ.get(OUT_ENV)
+        return (Path(root) if root else self.repo / "out") / self.id
 
     def plates_dir(self, shot: str) -> Path:
         return self.out / "plates" / shot
