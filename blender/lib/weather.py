@@ -120,7 +120,7 @@ def for_lens(layer: Layer, lens: float, ref: float = REF_LENS) -> Layer:
 
 # a close-up's own rain (lens CLOSE_LENS or longer): a band of fine drops round the focus distance, a little in front of
 # the subject and more behind, as sharp as the subject is (the other layers stand off in the blur at a long lens)
-FOCUS = Layer(0.0, 0.0, 320, 0.22, 0.0032, 0.24, clear=0.9)
+FOCUS = Layer(0.0, 0.0, 300, 0.09, 0.0024, 0.2, clear=0.9)
 CLOSE_LENS = 40.0
 
 
@@ -402,20 +402,26 @@ def _setup_poses(rig, i: int, step: int = 4) -> list:
 
 
 def _focus_distance(rig, i: int) -> float:
-    """How far in front of the lens setup i of `rig` is focused, the median over its window (the focus empty as the
-    scene evaluates it: it follows its object or bone)."""
-    import bpy
+    """How far in front of the lens setup i of `rig` is focused (the median over its window): its focus target where
+    it stands now (an object or a bone as the scene is evaluated: a shot builds its weather once its cast is placed),
+    never re-evaluating the scene per frame (that costs seconds a setup)."""
+    from .cinema import _is_point, _target
 
-    scene = rig.ctx.scene
-    keep = scene.frame_current
+    s = rig.shot.setups[i]
     a, b = rig.shot.window(i)
-    out = []
-    for u in (0.1, 0.5, 0.9):
-        f = rig.f0 + round((a + (b - a) * u) * rig.ctx.fps)
-        scene.frame_set(min(f, rig.f1 - 1))
-        bpy.context.view_layer.update()
-        out.append(rig.pose(f).depth(tuple(rig.focus.matrix_world.translation)))
-    scene.frame_set(keep)
+    poses = [rig.shot.pose(a + (b - a) * u) for u in (0.1, 0.5, 0.9)]
+    spec = s.focus
+    if isinstance(spec, str) and spec == "aim":
+        out = [p.depth(p.aim) for p in poses]
+    elif isinstance(spec, (int, float, np.number)):
+        out = [float(spec)]
+    elif _is_point(spec):
+        out = [p.depth(spec) for p in poses]
+    else:
+        ob, bone = _target(spec)
+        m = ob.matrix_world
+        at = m @ ob.pose.bones[bone].head if bone else m.translation
+        out = [p.depth(tuple(at)) for p in poses]
     return max(float(np.median(out)), 0.3)
 
 
