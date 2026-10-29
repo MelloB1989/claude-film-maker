@@ -58,6 +58,8 @@ SH_ELBOWS = {"left": (0.55, 0.15, 0.6), "right": (-0.55, -0.05, 0.6)}
 STAND_POSE = {**vrm.RELAXED, "hips": (0.0, 0.0, 4.0), "spine": (2.0, 2.0, -2.0), "neck": (-3.0, 0.0, 0.0),
               "head": (-3.0, -2.0, -3.0), "leftUpperLeg": (0.0, 2.0, 0.0), "rightUpperLeg": (-4.0, -3.0, 0.0),
               "rightLowerLeg": (6.0, 0.0, 0.0)}
+# standing with the sword in his right hand: the fist at his side, the blade down and a little forward
+HANG = dict(hole=(-0.22, -0.06, 0.78), way=(0.05, -0.4, -0.92))
 # ---- his nodachi: longer than a katana in hilt and blade, a shallow curve; its scabbard a little longer than the blade
 NODACHI = dict(hilt=0.33, blade=0.9, sori=0.014)
 BROKEN = 0.48          # where it snaps (of the blade from the guard)
@@ -197,7 +199,11 @@ def shinza(coll, look, name: str = "shinza", *, kasa: str | None = "back", sword
         vrm.pose(ch, {**SH_POSE, **fingers}, hips=SH_HIPS)
         plant(ch, SH_FEET)
     else:
-        vrm.pose(ch, STAND_POSE)
+        fingers = {}
+        if sword in ("hand", "broken"):
+            fingers = vrm.grasp(ch, "right", HANG["hole"], HANG["way"], (1.0, 0.0, 0.0), pole=(-0.5, 0.5, 0.9))
+            fingers.update(vrm_rig.wrap(ch, "right", TSUKA))
+        vrm.pose(ch, {**STAND_POSE, **fingers})
         plant(ch, {"left": ((0.1, 0.0, ch.rest("leftFoot")[2]), (0.1, -1.0, 0.45), (0.0, 0.0, 10.0)),
                    "right": ((-0.11, -0.04, ch.rest("rightFoot")[2]), (-0.1, -1.0, 0.45), (0.0, 0.0, -12.0))})
     if is_shinza:
@@ -208,10 +214,8 @@ def shinza(coll, look, name: str = "shinza", *, kasa: str | None = "back", sword
         if pose == "guard":
             p0, hd = ch.world(POMMEL), _w(ch, HILT_DIR)
         else:
-            wrist = np.array(ch.point("rightHand"))
-            p0 = ch.point("rightHand") + ch.root.matrix_world.to_3x3() @ _v((0.0, -0.02, -0.06))
-            hd = np.array(ch.point("rightMiddleProximal")) - wrist
-            hd = _unit(hd + np.array((0.0, 0.0, -0.4)))
+            way = _unit(HANG["way"])
+            p0, hd = ch.world(np.asarray(HANG["hole"]) - way * GRIPS["right"]), _w(ch, way)
         blade = props.katana(f"{name}-nodachi", m, tuple(p0), tuple(hd), side=_side(ch), coll=coll,
                              broken=BROKEN if sword == "broken" else None, **NODACHI)
         for ob in blade:
