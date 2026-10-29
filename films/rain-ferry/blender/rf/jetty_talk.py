@@ -469,6 +469,24 @@ def hilt_grip(st: Stage, along: float = HILT_GRIP) -> tuple:
     return fist_wrist(ch, "right", guard + u * along, turn), turn
 
 
+def shinza_hold(st: Stage, f: int, t: float, *, narrow: float = 0.6) -> None:
+    """Shinza as demand leaves him: standing over her, his right fist on the hilt over his shoulder, glaring (for a
+    shot he is in the back of)."""
+    ch = st.cast["shinza"]["vrm"]
+    wrist, turn = st.cast["shinza"].setdefault("hilt_grip", None) or (None, None)
+    if wrist is None:
+        from lib import vrm
+
+        vrm.pose(ch, shinza_stand(0.0, reach=1.0), hips=shinza_hips(0.0))
+        wrist, turn = st.cast["shinza"]["hilt_grip"] = hilt_grip(st)
+    st.pose("shinza", f, {**shinza_stand(t, reach=1.0), **fingers("right", 1.0), **fingers("left", 0.3)},
+            hips=shinza_hips(t))
+    st.hand("shinza", "right", f, wrist, turn, (-0.6, -0.25, 1.75))
+    st.hand("shinza", "left", f, HANG["left"], hand_turn(ch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)),
+            (0.3, 0.5, 1.2))
+    st.face("shinza", f, {"glare": 1.0, "narrow": narrow})
+
+
 def tsuru_sit(t: float, *, turn: float = 0.0, down: float = 0.0, eyes=(0.0, 0.0), lean: float = 0.0) -> dict:
     """Her body seated (her frame's turns, on rf/vroid_tsuru.py's SEATED_POSE): `turn` (degrees, + to her left) her
     head round, shared down her neck and back; `down` her head bowed (degrees); `eyes` (down, left) degrees; `lean`
