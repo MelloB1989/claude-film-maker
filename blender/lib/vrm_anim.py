@@ -422,10 +422,10 @@ GAITS = {
     "old": Gait(stride=0.34, speed=0.42, duty=0.72, lift=0.035, width=0.16, toe_out=10.0, bob=0.006, drop=0.03,
                 sway=0.02, hip_turn=3.0, chest_turn=0.8, arm=5.0, elbow=15.0, lean=4.0, head=0.4, roll=8.0,
                 first=0.7, plod=0.004, height=1.48),
-    "run": Gait(stride=1.5, speed=4.2, duty=0.36, lift=0.2, width=0.12, toe_out=4.0, bob=-0.03, drop=0.06,
+    "run": Gait(stride=1.25, speed=4.0, duty=0.36, lift=0.2, width=0.12, toe_out=4.0, bob=-0.03, drop=0.06,
                 sway=0.015, hip_turn=9.0, chest_turn=1.4, arm=38.0, elbow=75.0, lean=12.0, head=0.7, roll=28.0,
                 first=0.45),
-    "charge": Gait(stride=1.75, speed=5.2, duty=0.34, lift=0.17, width=0.14, toe_out=3.0, bob=-0.035, drop=0.1,
+    "charge": Gait(stride=1.45, speed=4.8, duty=0.34, lift=0.17, width=0.14, toe_out=3.0, bob=-0.035, drop=0.1,
                    sway=0.02, hip_turn=10.0, chest_turn=1.6, arm=24.0, elbow=65.0, lean=22.0, head=0.85, roll=30.0,
                    first=0.4, plod=0.01),
 }
@@ -480,21 +480,18 @@ def plan_steps(length: float, gait: Gait, *, lead: str = "right") -> tuple[list[
     trail = other if sides[-1] == lead else lead
     close = swing * 0.85
     steps.append(Step(trail, pos[trail], plants[-1], t, t + close))
-    # the body's distance: from rest, over each standing foot at the middle of the other's swing, to rest over the end
+    # the body's distance: from rest, over the foot that bears weight while the other swings by it (the one that landed
+    # a step before), easing off from rest and settling to rest over the end
     times, dists = [0.0], [0.0]
-    for st in steps[1:-1]:
-        stand = pos_at(steps, "left" if st.side == "right" else "right", st.t0)
-        tm = (st.t0 + st.t1) / 2
+    for i in range(1, len(steps) - 1):
+        tm = (steps[i].t0 + steps[i].t1) / 2
+        stand = plants[i - 1]
         if stand > dists[-1] + 1e-6 and tm > times[-1] + 1e-6:
             times.append(tm)
             dists.append(stand)
     end = steps[-1].t1 + 0.35 * t_step
-    if length > dists[-1]:
-        times.append(end)
-        dists.append(length)
-    else:
-        times.append(end)
-        dists.append(dists[-1])
+    times.append(max(end, times[-1] + 0.1))
+    dists.append(max(length, dists[-1]))
     return steps, np.array(times), np.array(dists)
 
 
@@ -838,6 +835,7 @@ class Performance:
         self.props: list = []            # [ob, [(frame, holder)]]
         self.sec = None
         self.walks: list = []
+        self._air: dict = {}             # foot -> frames it is in the air (no weight on it)
         self.shifts = Track("vec")       # (side shift, tilt) of the weight
         self.settles: list = []
         self.breath = None
@@ -1234,6 +1232,8 @@ class Performance:
                     break
                 if t < st.t1:
                     u = (t - st.t0) / (st.t1 - st.t0)
+                    if u > 0:
+                        self._air.setdefault(f"{side}Foot", set()).add(round(start + t * fps, 3))
                     return self._swing(pos, yaw, b_pos, b_yaw, u, g, ball, heel, ah, final)
                 pos, yaw, last_land = b_pos, b_yaw, st.t1
             pitch = 0.0
@@ -1602,7 +1602,7 @@ class Performance:
             dz = 0.0
             for side, (thigh, shin) in self.legs.items():
                 lm = limbs.get(f"{side}Foot")
-                if lm is None or lm[3] < 0.5:
+                if lm is None or lm[3] < 0.5 or round(float(f), 3) in self._air.get(f"{side}Foot", ()):
                     continue
                 hip = self.rest_heads[f"{side}UpperLeg"] + hips
                 d = lm[0] - hip

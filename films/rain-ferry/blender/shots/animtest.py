@@ -3,7 +3,7 @@ turns his head to Tsuru standing off to his left, blinks and says his first line
 her weight from foot to foot, breathes, and watches him come. A plain floor and a fixed three-quarter camera, the cast
 painted as the standoff paints them, so the motion is all there is to look at.
 
-    blender -b -P blender/render.py -- --film rain-ferry --shot _animtest --mode look --engine eevee \\
+    blender -b -P blender/render.py -- --film rain-ferry --shot animtest --mode look --engine eevee \\
         --frames 0,4,8,...,148 --res 960x540
 """
 from __future__ import annotations
