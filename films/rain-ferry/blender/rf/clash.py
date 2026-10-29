@@ -342,3 +342,16 @@ def composite(ctx, actors: dict, setup_of) -> object:
         comp.key(f, ctx.look_at(f).look(**own))
     comp.hold()
     return comp
+
+
+_T = [None]
+
+
+def tick(label: str) -> None:
+    """Log how long the build's step just done took (a shot's build budget is about a minute)."""
+    import time
+
+    now = time.time()
+    if _T[0] is not None:
+        print(f"clash: {label} {now - _T[0]:.1f}s", flush=True)
+    _T[0] = now
