@@ -1,21 +1,82 @@
-"""The standoff (shots/standoff.py) with its cast in 3D: Shinza and Tsuru from their VRoid Studio models
-(rf/vroid_cast.py) instead of the drawn cels. A shot of its own so its plates are its own
-(out/rain-ferry/plates/standoff_vroid/), leaving the cel plates be.
+"""The standoff with the 3D cast (the film's standoff; shots/standoff.py keeps the drawn cast's version): the wide
+two-shot of Shinza and Tsuru ten paces apart on the jetty in the downpour, the river and its ridges fading into the
+mist behind them, the hut's red lantern swinging at the left, the covered boat at the right. The music has gone out;
+the letterbox slides in over the first 1.4 s (the engine's: compose for the 2.39 band). The camera creeps in low
+over the water past two old mooring stakes, out of focus in the foreground. He breathes hard behind his low guard,
+settling his weight; she is still, breathing slow. A gust (the mix's at +1.6 s) throws the rain, his hair and
+headband tails, her cape's straw and both hems; lightning whitens everything at +1.95 s (the thunder follows at
++2.2 s); after it she turns her head to him a little.
 
     blender -b -P blender/render.py -- --film rain-ferry --shot standoff_vroid --mode look --engine eevee \\
-        --frames 1450,1483,1497,1535 --res 1280x720
+        --frames 1431,1478,1500,1538 --res 960x540
 """
 from __future__ import annotations
 
-import importlib.util
+import math
+import sys
 from pathlib import Path
 
-_spec = importlib.util.spec_from_file_location("shots.standoff", Path(__file__).with_name("standoff.py"))
-standoff = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(standoff)
+SHOT = {"scene": "standoff"}
 
-SHOT = dict(standoff.SHOT)
+CAM_FROM, CAM_TO = (0.3, -7.6, 0.72), (0.12, -6.15, 0.86)
+AIM_FROM, AIM_TO = (0.05, 0.0, 1.12), (0.02, 0.0, 1.02)
+LENS = (30.0, 31.5)
+FSTOP = 5.6
+GUST = (1.6, 1.5, 1.4)          # s into the shot, length, strength: the mix's wind_gust
+LIGHTNING = 1.95                # s: the thunder is at +2.2 s
+HER_LOOK = (2.5, 3.4, 4.0)      # s: her head turns to him from, to (degrees)
+# two old mooring stakes standing in the water near the lens, framing the shot (x, y, top, radius)
+STAKES = [(-1.95, -5.2, 0.62, 0.075), (2.25, -5.45, 0.34, 0.065)]
+BAND = (0.128, 0.872)           # the 2.39 letterbox's band (frame heights)
+LOOK = dict(gain=(0.86, 0.87, 0.91), saturation=0.9, haze_amount=0.05, para_amount=0.3, para=(0.55, 0.58, 0.7),
+            para_from=(0.5, 0.62), para_to=(0.5, 0.25), rims=[((0.2, 1.0), (0.6, 0.68, 0.85), 0.2, 0.002, 0.8),
+                                                             ((-1.0, 0.2), (1.0, 0.5, 0.18), 0.12, 0.0018, 0.8)],
+            wrap=0.15, wrap_width=0.004)
+KEYS = {"shinza": (1.0, -0.3, 0.8), "tsuru": (-1.0, -0.3, 0.8)}
 
 
 def build(ctx):
-    standoff.build(ctx, cast_kind="vroid")
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from lib import satsuei, shapes
+    from rf import duel, sets
+    from rf import duel_motion as dm
+
+    st = duel.stage(ctx, lightning=[LIGHTNING])
+    cam, aim = duel.camera(ctx, lens=LENS[0], fstop=FSTOP)
+    post = st.crossing["materials"]["post"]
+    for k, (x, y, top, r) in enumerate(STAKES):
+        shapes.cylinder(f"stake{k}", (x, y, sets.WATER_Z - 1.0), (x, y, top), r, material=post, coll=st.crossing["near"],
+                        n=10)
+        shapes.cylinder(f"stake{k}-rope", (x, y, top - 0.14), (x, y, top - 0.08), r + 0.012,
+                        material=st.crossing["materials"]["rope"], coll=st.crossing["near"], n=10)
+
+    clear, near = duel.rain_input(st.rain, "clear"), duel.rain_input(st.rain, "near")
+    clear.default_value, near.default_value = 1.2, 3.5
+    gust = [GUST]
+    sh, ts = st.bodies["shinza"], st.bodies["tsuru"]
+    comp = satsuei.setup(ctx.scene, st.cast)
+    n = ctx.f1 - ctx.f0
+    for f in range(ctx.f0 - 1, ctx.f1 + 1):
+        t = (f - ctx.f0) / ctx.fps
+        u = dm.ease(t / (n / ctx.fps))
+        cam_at = dm.lerp(CAM_FROM, CAM_TO, u)
+        lens = LENS[0] + (LENS[1] - LENS[0]) * u
+        drift = duel.shake(t, 0.006)
+        duel.key_camera(cam, aim, f, tuple(a + d for a, d in zip(cam_at, drift)), dm.lerp(AIM_FROM, AIM_TO, u), lens=lens)
+        g = dm.gusts(t, gust)
+
+        # Shinza: hard breaths behind his guard, his weight settling forward and down through the shot, the head
+        # dropping to a glare; the gust throws his hair and his hakama
+        settle = dm.ease(t / 4.0)
+        sh.key(f, duel.add(duel.breathing(t, 0.45, 1.8), {"spine": (1.5 * settle, 0.0, 0.0), "head": (2.5 * settle, 0.0, 0.0)}),
+               hips=(0.0, -0.02 * settle, -0.015 * settle),
+               chains=sh.sway(t, amount=9.0, cloth=4.0, toward=(0.0, -1.0, 0.0), seed=1, at=gust))
+        # Tsuru: still; a slow breath; after the strike her head turns to him a little
+        look_k = dm.span(t, HER_LOOK[0], HER_LOOK[1])
+        ts.key(f, duel.add(duel.breathing(t, 0.2, 0.7, 0.3), {"head": (0.0, 0.0, -HER_LOOK[2] * look_k)}),
+               chains=ts.sway(t, amount=5.0, cloth=3.0, toward=(0.0, 1.0, 0.0), seed=7, at=gust))
+        duel.key_lines(st, f, cam_at, lens)
+        duel.key_light(st, f, KEYS)
+        duel.swing_lantern(st, f, t, g)
+        comp.key(f, duel.look(st, f, LOOK))
+    comp.hold()
