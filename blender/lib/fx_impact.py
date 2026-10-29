@@ -451,3 +451,38 @@ def ink_panel(scene, *, threshold: float = 0.3, soft: float = 0.03, edges: float
     pic = mix(pic, (1.0, 1.0, 1.0, 1.0), white)
     L.new(pic, out.inputs[0])
     return InkPanel(nt)
+
+
+def clock(ob, seconds: dict, *, fps: float = 24.0) -> None:
+    """Run a Geometry Nodes object that moves with the scene's time (toon.rain, toon.splashes) on a clock of its own:
+    its Scene Time replaced by a value keyed on every film frame of `seconds` (frame -> seconds, linear between), so
+    the time can slow, stop and start again (rain hanging in the air at an impact, falling again after). Objects that
+    share the node group (a copy of the rain) share the clock."""
+    for mod in ob.modifiers:
+        ng = getattr(mod, "node_group", None)
+        if mod.type != "NODES" or ng is None or ng.get("fx_clock"):
+            continue
+        times = [n for n in ng.nodes if n.bl_idname == "GeometryNodeInputSceneTime"]
+        if not times:
+            continue
+        v = ng.nodes.new("ShaderNodeValue")
+        v.name = v.label = "fx_clock"
+        fr = ng.nodes.new("ShaderNodeMath")
+        fr.operation = "MULTIPLY"
+        fr.inputs[1].default_value = fps
+        ng.links.new(v.outputs[0], fr.inputs[0])
+        for t in times:
+            for link in list(t.outputs["Seconds"].links):
+                ng.links.new(v.outputs[0], link.to_socket)
+            for link in list(t.outputs["Frame"].links):
+                ng.links.new(fr.outputs[0], link.to_socket)
+        sock = v.outputs[0]
+        for f, s in sorted(seconds.items()):
+            sock.default_value = float(s)
+            sock.keyframe_insert("default_value", frame=int(f))
+        from . import toon
+
+        for fc in toon._fcurves(ng.animation_data.action):
+            for kp in fc.keyframe_points:
+                kp.interpolation = "LINEAR"
+        ng["fx_clock"] = True
