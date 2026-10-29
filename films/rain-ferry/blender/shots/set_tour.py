@@ -6,7 +6,8 @@ sets themselves (not a shot of the film). The view and the weather come from the
 
 RF_VIEW is a set_world.views() name, or several by commas (the shot's first frame shows the first, the next frame the
 second, ...: render those frames to see them all from one build), optionally after a weather and a colon
-("after:cross,valley") (open, valley, crow, step, walk, ferry, jetty_low, jetty_top, tap, cross);
+("after:cross,valley") (open, valley, crow, step, walk, ferry, jetty_low, jetty_top, tap, cross; crossing, crossing_side and
+crossing_jetty push the boat off to mid-river first);
 RF_WEATHER rain, thinning or after (default: the look schedule's at the frame). The rain falls as the schedule's (none
 after the rain), the near set is inked as the standoff inks it.
 """
@@ -36,6 +37,8 @@ def build(ctx):
     scene.render.use_motion_blur = False
     world = set_world.build(ctx, weather=weather)
     views = set_world.views()
+    if any(n.startswith("crossing") for n in names):     # the boat out on the river, at the crossing's far end
+        set_world.push_off(world, ctx, t0=-60.0, t1=-30.0)
     w = world["weather"]
     toon.ink("ink-near", world["near"], radius=0.0042, crease=150)
     cam = rig.engine_camera("camera", fstop=5.6, size=ctx.size)

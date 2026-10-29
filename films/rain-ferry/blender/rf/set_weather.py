@@ -77,7 +77,7 @@ STATES = {
                      key=(-0.25, -0.9, -0.35), key_color=(1.0, 0.82, 0.58), key_gain=1.25, key_angle=1.5,
                      ambient=(0.06, 0.05, 0.04), rain=0.0, wet=0.32, mirror=0.55, puddle_mirror=0.85, shine=1.0,
                      mist=0.55, lantern=1.6, warm=1.0,
-                     river=((0.11, 0.085, 0.065), (0.55, 0.42, 0.26))),
+                     river=((0.11, 0.085, 0.065), (0.32, 0.25, 0.16))),
 }
 
 

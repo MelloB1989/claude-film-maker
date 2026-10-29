@@ -121,7 +121,9 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     streak.inputs["From Min"].default_value = 0.56
     streak.inputs["From Max"].default_value = 0.66
     nt.links.new(noise.outputs["Fac"], streak.inputs["Value"])
-    streak_k = _math(nt, "MULTIPLY", streak.outputs["Result"], streaks)
+    # (the wind and the rain draw them: calm water keeps only a third of them)
+    streak_k = _math(nt, "MULTIPLY", streak.outputs["Result"],
+                     _math(nt, "MULTIPLY", _math(nt, "ADD", _math(nt, "MULTIPLY", k_rain, 0.65), 0.35), streaks))
     # two sizes of rain rings, in world metres
     big = _rings(nt, geo.outputs["Position"], t, 2.2 / scale * 0.5, 1.3, 0.03)
     fine = _rings(nt, geo.outputs["Position"], _math(nt, "MULTIPLY", t, 1.7), 5.5 / scale * 0.5, 1.9, 0.025)
@@ -148,7 +150,9 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     nt.links.new(swell.outputs["Fac"], glint.inputs["Value"])
     gmix = nt.nodes.new("ShaderNodeMix")
     gmix.data_type = "RGBA"
-    nt.links.new(_math(nt, "MULTIPLY", glint.outputs["Result"], k_shine, clamp=True), gmix.inputs["Factor"])
+    # glints, not patches: only where a crest crosses a streak, thin flecks along the flow
+    spark = _math(nt, "MULTIPLY", glint.outputs["Result"], streak.outputs["Result"])
+    nt.links.new(_math(nt, "MULTIPLY", spark, k_shine, clamp=True), gmix.inputs["Factor"])
     nt.links.new(col, gmix.inputs["A"])
     gmix.inputs["B"].default_value = toon._rgba(shine_color)
     col = toon._fog_mix(nt, gmix.outputs["Result"], look)

@@ -64,6 +64,11 @@ VIEWS = {
     "tap": ((6.25, -2.35, 0.95), (7.5, -0.95, 0.6), 50.0),
     # 26 cross: from the jetty's foot out across the river (the boat's path)
     "cross": ((-8.0, -6.0, 2.2), (40.0, 14.0, 0.0), 30.0),
+    # 26 out on the river (the boat pushed off to CROSS_PATH's end): over her shoulder toward the far bank, from
+    # the water beside her looking down the valley, and from the jetty's end watching her go
+    "crossing": ((33.0, 16.5, 2.6), (60.0, 30.0, 1.0), 30.0),
+    "crossing_side": ((44.0, 9.0, 0.5), (39.0, 23.0, 0.9), 35.0),
+    "crossing_jetty": ((7.8, 0.3, 1.6), (40.0, 21.0, 0.2), 45.0),
 }
 
 
