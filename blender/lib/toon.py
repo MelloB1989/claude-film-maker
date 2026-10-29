@@ -648,7 +648,8 @@ def rain(name: str, box_min, box_max, *, count: int = 9000, speed: float = 9.0, 
     the box and wraps back to its top), so any frame renders on its own, in any order. `frozen`: the drops hang where
     they are, short beads instead of streaks (a held breath). `near` (metres): drops closer than that to the active
     camera shrink with their distance, so a close camera sees fine streaks rather than smears across a face; `clear`:
-    none at all within that distance of it. Returns the drops' object."""
+    none at all within that distance of it. From straight above a drop reads as a short dot. Returns the drops'
+    object."""
     import bpy
     import numpy as np
 
@@ -668,7 +669,11 @@ def rain(name: str, box_min, box_max, *, count: int = 9000, speed: float = 9.0, 
     dx, dz = math.sin(tilt) * L / 2, math.cos(tilt) * L / 2
     w = width / 2
     dme = bpy.data.meshes.new(f"{name}-drop")
-    dme.from_pydata([(-dx - w, 0, -dz), (-dx + w, 0, -dz), (dx + w, 0, dz), (dx - w, 0, dz)], [], [(0, 1, 2, 3)])
+    # ... and a small level diamond across its middle, edge-on to a camera at eye level: from straight above, looking
+    # down the fall, a drop reads as a short dot rather than vanishing edge-on
+    r = 1.5 * w
+    dme.from_pydata([(-dx - w, 0, -dz), (-dx + w, 0, -dz), (dx + w, 0, dz), (dx - w, 0, dz),
+                     (-r - dx * 0.4, 0, 0), (0, -r, 0), (r + dx * 0.4, 0, 0), (0, r, 0)], [], [(0, 1, 2, 3), (4, 5, 6, 7)])
     drop = bpy.data.objects.new(f"{name}-drop", dme)
     coll.objects.link(drop)
     drop.hide_render = True

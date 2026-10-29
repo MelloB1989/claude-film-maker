@@ -49,6 +49,8 @@ film-anime-dialogue = "filmtools.anime.dialogue:main"
 film-anime-clips = "filmtools.anime.clips:main"
 film-anime-score = "filmtools.anime.score:main"
 film-anime-mix = "filmtools.anime.mix:main"
+film-anime-render = "filmtools.anime.render:main"
+film-anime-review = "filmtools.anime.review:main"
 
 [dependency-groups]
 dev = ["pytest>=8"]
