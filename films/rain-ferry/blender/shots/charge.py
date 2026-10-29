@@ -198,7 +198,9 @@ def build(ctx):
         late = (f - ctx.f0) / fps > 1.3
         tris = fx.focus_lines(90 if late else 60, center=centre, inner=0.42 if late else 0.5, ellipse=(1.0, 1.25),
                               jitter=0.7, width=(0.003, 0.014) if late else (0.002, 0.008), seed=100 + i)
-        ob = fx.overlay(f"focus{i}", cam, tris, strong if late else pale, depth=0.5, coll=coll)
+        # just in front of where the lens is focused: drawn over him, and sharp
+        depth = 0.8 * (Vector(cams[f]) - chest[f]).length
+        ob = fx.overlay(f"focus{i}", cam, tris, strong if late else pale, depth=depth, coll=coll)
         fx.show(ob, [f, f + 1], ctx.f0 - 1, ctx.f1)
 
     # the storm's light: the sky's rim from above and the river, the lantern far behind him at the left

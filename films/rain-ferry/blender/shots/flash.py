@@ -38,13 +38,13 @@ SH_SWORD = dict(pommel=(0.02, -0.34, 1.12), hilt=(0.0, -0.97, 0.08))
 TS_AT = CLASH + 0.62
 
 
-def build(ctx):
+def build(ctx, only: str | None = None):
+    """The shot; `only` keys one beat on every frame (shots/flash_color.py: the picture under the panel)."""
     import bpy
     import numpy as np
     from bpy_extras.object_utils import world_to_camera_view
     from mathutils import Vector
 
-    import os
     import sys
     from pathlib import Path
 
@@ -138,6 +138,5 @@ def build(ctx):
         fx.show(ob, [ctx.f0 + i], ctx.f0 - 1, ctx.f1)
 
     panel = fx.ink_panel(scene, threshold=THRESHOLD, soft=0.025, edges=1.0)
-    only = os.environ.get("RF_FLASH_BEAT")      # a preview of the picture under the panel: RF_FLASH_BEAT=color
     for i, f in enumerate(range(ctx.f0, ctx.f1)):
         panel.key(f, only or beats[i])
