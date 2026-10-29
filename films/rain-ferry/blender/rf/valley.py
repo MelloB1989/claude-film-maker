@@ -28,7 +28,7 @@ CAMERA = (-90.0, -220.0, 150.0)
 AIM = (40.0, 1800.0, 60.0)
 # the ferry on the near bank: the hut's floor (x, y), and how much larger than life it is drawn (from this far up a
 # real hut is a speck)
-HAMLET = (-109.0, 700.0)
+HAMLET = (-14.0, 380.0)
 HAMLET_SCALE = 5.0
 SUN = (0.42, 1.0, 0.32)          # toward the sun (behind the valley's right side, low): the gold light's direction
 SKY_FAR = 9000.0                  # the sky dome's radius
@@ -62,7 +62,7 @@ def ridged(x, y, octaves: int = 5, seed: int = 0) -> np.ndarray:
     """Ridged fractal noise in about 0..1: sharp crests and soft valleys, as mountains are."""
     out, amp, f, total = 0.0, 1.0, 1.0, 0.0
     for o in range(octaves):
-        n = 1.0 - np.abs(2.0 * noise(x * f, y * f, seed + o) - 1.0)
+        n = 1.0 - np.abs(2.0 * noise(x * f, y * f, seed + o) - 1.0) ** 1.6     # crests rounded a little, not glass
         out = out + amp * n * n
         total += amp
         amp *= 0.5
@@ -251,16 +251,16 @@ def _material(name):
     return mat, _Nodes(toon.nodes(mat))
 
 
-def fogged(n: _Nodes, col, *, cam, haze: float = 1.0, mist_low: float = 55.0, scene=None):
+def fogged(n: _Nodes, col, *, cam, haze: float = 1.0, mist: float = 0.75, mist_low: float = 40.0, scene=None):
     """`col` faded toward the fog: by its distance from the camera (an ink-wash distance pales but never vanishes)
-    and, low in the valley, by the mist lying there (drifting, thicker as `rf_mist` is)."""
+    and, low in the valley, by the mist lying there (drifting, thicker as `rf_mist` is, times `mist`)."""
     geo = n.N.new("ShaderNodeNewGeometry")
     dist = n.vmath("DISTANCE", geo.outputs["Position"], tuple(cam))
-    fd = n.math("MULTIPLY", n.math("SUBTRACT", 1.0, n.math("EXPONENT", n.math("MULTIPLY", dist, -1.0 / 2600.0))), 0.94 * haze)
+    fd = n.math("MULTIPLY", n.math("SUBTRACT", 1.0, n.math("EXPONENT", n.math("MULTIPLY", dist, -1.0 / 3200.0))), 0.92 * haze)
     sep = n.new("ShaderNodeSeparateXYZ")
     n.set(sep.inputs[0], geo.outputs["Position"])
     # the mist: densest at the water, gone by `mist_low` m up (higher far up the valley), torn by drifting noise
-    lift = n.math("MULTIPLY_ADD", sep.outputs["Y"], 0.03, mist_low)
+    lift = n.math("MULTIPLY_ADD", sep.outputs["Y"], 0.025, mist_low)
     low = n.math("SUBTRACT", 1.0, n.math("DIVIDE", sep.outputs["Z"], lift), clamp=True)
     t = n.clock(scene, 4.0) if scene is not None else 0.0
     drift = n.new("ShaderNodeCombineXYZ")
@@ -269,7 +269,7 @@ def fogged(n: _Nodes, col, *, cam, haze: float = 1.0, mist_low: float = 55.0, sc
     n.set(drift.inputs["Z"], n.math("MULTIPLY", sep.outputs["Z"], 3.0))
     torn = n.ramp(n.noise(drift.outputs[0], 0.004, 4.0, 0.6), 0.35, 0.7)
     fm = n.math("MULTIPLY", n.math("MULTIPLY", n.math("POWER", low, 1.6), n.math("MULTIPLY_ADD", torn, 0.7, 0.3)),
-                n.math("MULTIPLY", n.prop("rf_mist"), 1.25), clamp=True)
+                n.math("MULTIPLY", n.prop("rf_mist"), mist), clamp=True)
     f = n.math("MAXIMUM", fd, fm, clamp=True)
     return n.mix(f, col, n.prop("rf_fog", True))
 
@@ -326,14 +326,14 @@ def sky_material(name: str, *, scene, sun=SUN):
     grad = n.ramp(up, 0.0, 0.45, to=(0.0, 1.0))
     col = n.mix(grad, n.prop("rf_horizon", True), n.prop("rf_zenith", True))
     # the cloud deck: the direction projected onto a ceiling, drifting
-    hz = n.math("MAXIMUM", sep.outputs["Z"], 0.04)
+    hz = n.math("MAXIMUM", sep.outputs["Z"], 0.14)
     uv = n.new("ShaderNodeCombineXYZ")
     t = n.clock(scene, 0.012)
     n.set(uv.inputs["X"], n.math("ADD", n.math("DIVIDE", sep.outputs["X"], hz), t))
     n.set(uv.inputs["Y"], n.math("DIVIDE", sep.outputs["Y"], hz))
     n.set(uv.inputs["Z"], n.math("MULTIPLY", t, 0.5))
-    big = n.noise(uv.outputs[0], 0.55, 6.0, 0.62)
-    fine = n.noise(uv.outputs[0], 2.4, 4.0, 0.6)
+    big = n.noise(uv.outputs[0], 0.32, 5.0, 0.66)
+    fine = n.noise(uv.outputs[0], 1.3, 5.0, 0.62)
     cloud = n.math("MULTIPLY_ADD", fine, 0.35, n.math("MULTIPLY", big, 0.8))
     # the opening: round the sun, wider as rf_sun rises
     toward = n.math("MAXIMUM", n.vmath("DOT_PRODUCT", d, _unit(sun)), 0.0)
@@ -370,8 +370,8 @@ def river_material(name: str, *, cam, scene, sun=SUN):
     n.set(sep.inputs[0], geo.outputs["Position"])
     dist = n.vmath("DISTANCE", geo.outputs["Position"], tuple(cam))
     far = n.ramp(dist, 150.0, 3000.0)
-    base = n.mix(far, n.mix(1.0, n.prop("rf_fog", True), (0.22, 0.23, 0.26), "MULTIPLY"),
-                 n.mix(1.0, n.prop("rf_horizon", True), (0.62, 0.63, 0.66), "MULTIPLY"))
+    base = n.mix(far, n.mix(1.0, n.prop("rf_fog", True), (0.12, 0.125, 0.14), "MULTIPLY"),
+                 n.mix(1.0, n.prop("rf_horizon", True), (0.45, 0.46, 0.49), "MULTIPLY"))
     t = n.clock(scene, 1.0)
     cur = n.new("ShaderNodeCombineXYZ")
     n.set(cur.inputs["X"], n.math("MULTIPLY", sep.outputs["X"], 0.25))
@@ -410,7 +410,7 @@ def river_material(name: str, *, cam, scene, sun=SUN):
     glint = n.math("MULTIPLY", n.math("MULTIPLY", glint, path), n.prop("rf_sun"))
     col = n.mix(1.0, col, n.mix(n.math("MULTIPLY", glint, 1.0), (0.0, 0.0, 0.0), n.mix(1.0, n.prop("rf_gold", True),
                                                                                        (3.2, 2.8, 2.2), "MULTIPLY")), "ADD")
-    col = fogged(n, col, cam=cam, haze=0.8, scene=scene)
+    col = fogged(n, col, cam=cam, haze=0.85, mist=0.3, scene=scene)
     em = n.new("ShaderNodeEmission")
     n.set(em.inputs["Color"], col)
     gl = n.new("ShaderNodeBsdfGlossy")
@@ -549,10 +549,11 @@ def _forest(name: str, land, pine, coll, *, seed: int = 2):
     return mod
 
 
-def build(scene, *, cam=None, coll=None, hamlet: bool = True, seed: int = 5) -> dict:
+def build(scene, *, cam=None, aim=None, coll=None, hamlet: bool = True, foreground: bool = True, seed: int = 5) -> dict:
     """The valley: the land with its forests, the river, the mist banks, the sky dome round `cam` (its location;
-    default CAMERA over the land), the hut and jetty on the near bank with the lantern lit, and a sun lamp. Its colours
-    are the scene's properties (`key` them). Returns its pieces."""
+    default CAMERA over the land), the hut and jetty on the near bank with the lantern lit, a sun lamp, and (with
+    `foreground`) a ledge with pines below the lens at the lower left of the view toward `aim`. Its colours are the
+    scene's properties (`key` them). Returns its pieces."""
     import bpy
 
     from lib import props, shapes, toon
@@ -604,7 +605,7 @@ def build(scene, *, cam=None, coll=None, hamlet: bool = True, seed: int = 5) -> 
     toon.move_to(sky, coll)
     # mist banks across the valley at distances up it, low over the water
     mists = []
-    for k, (y, h, w) in enumerate([(260, 40, 900), (520, 70, 1400), (900, 110, 2200), (1500, 170, 3200), (2400, 260, 4800),
+    for k, (y, h, w) in enumerate([(560, 50, 1100), (760, 80, 1500), (900, 110, 2200), (1500, 170, 3200), (2400, 260, 4800),
                                    (3600, 380, 6400)]):
         bpy.ops.mesh.primitive_plane_add(size=1, location=(river_x(y) + 40.0, y, WATER_Z + h * 0.32), rotation=(math.pi / 2, 0, 0))
         card = bpy.context.active_object
@@ -625,6 +626,8 @@ def build(scene, *, cam=None, coll=None, hamlet: bool = True, seed: int = 5) -> 
 
     sun_ob.rotation_euler = Vector(SUN).normalized().to_track_quat("Z", "Y").to_euler()
     out = {"coll": coll, "land": land, "river": river, "sky": sky, "mists": mists, "sun": sun_ob, "materials": m}
+    if foreground:
+        out["foreground"] = _foreground(coll, m, cam, aim or AIM, seed=seed)
     if hamlet:
         out.update(_hamlet(coll, m))
     return out
@@ -664,6 +667,33 @@ def _hamlet(coll, m) -> dict:
         if ob.parent is None:
             ob.parent = root
     return {"hamlet": root, "lantern": lantern}
+
+
+FOREGROUND = [(-0.42, 34.0, 23.0, 1), (-0.33, 46.0, 27.0, 2), (-0.52, 52.0, 30.0, 3), (-0.18, 62.0, 22.0, 4)]
+LEDGE = (0.0, 34.0)        # m below the lens the ledge's top lies
+
+
+def _foreground(coll, m, cam, aim, *, seed: int = 5) -> list:
+    """The near layer: a dark rock ledge falling away below the lens at the lower left, pines standing on it whose
+    crowns reach up into the frame's corner (`FOREGROUND`: (bearing left of the view as a share of the half-width,
+    metres out, height, seed))."""
+    from lib import landscape, shapes
+
+    c = np.asarray(cam, float)
+    f = np.asarray(aim, float) - c
+    f[2] = 0.0
+    f /= np.linalg.norm(f)
+    r = np.array([f[1], -f[0], 0.0])
+    obs = []
+    rng = np.random.default_rng(seed)
+    for k, (side, d, h, sd) in enumerate(FOREGROUND):
+        base = c + f * d + r * side * d * 1.2 - np.array([0.0, 0.0, LEDGE[1] + rng.uniform(-3, 3)])
+        obs += landscape.pine(f"near-pine{k}", tuple(base), h, trunk=m["trees"], needles=m["trees"], coll=coll, seed=seed + sd)
+    # the ledge: a lumpy slab under them, its edge breaking off toward the valley
+    mid = c + f * 45.0 + r * -0.4 * 54.0 - np.array([0.0, 0.0, LEDGE[1] + 6.0])
+    obs.append(shapes.ellipsoid("near-ledge", tuple(mid), (34.0, 26.0, 9.0), material=m["land"], coll=coll, n=24,
+                                squash=lambda v: v * (1 + 0.18 * np.sin(v[:, :1] * 5.0) * np.cos(v[:, 1:2] * 4.0))))
+    return obs
 
 
 def camera_location(cam=CAMERA) -> tuple:

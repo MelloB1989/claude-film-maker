@@ -47,7 +47,7 @@ def build(ctx):
     fwd = (aim0 - start).normalized()
     flat = Vector((fwd.x, fwd.y, 0.0)).normalized()
     right = flat.cross(Vector((0, 0, 1)))
-    world = valley.build(scene, cam=tuple(start))
+    world = valley.build(scene, cam=tuple(start), aim=tuple(aim0))
 
     end = start + fwd * PUSH[0] + Vector((0, 0, PUSH[1])) + right * DRIFT
     aim1 = aim0 + right * DRIFT + Vector((0, 0, math.tan(math.radians(TILT)) * (aim0 - start).length))

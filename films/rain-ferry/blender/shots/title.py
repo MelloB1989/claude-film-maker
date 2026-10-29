@@ -157,7 +157,7 @@ def build(ctx):
     right = flat.cross(Vector((0, 0, 1)))
     start = base + right * OFFSET[0] + flat * OFFSET[1] + Vector((0, 0, OFFSET[2]))
     aim0 = aim0 + right * 160.0 + Vector((0, 0, 90.0))
-    valley.build(scene, cam=tuple(start))
+    valley.build(scene, cam=tuple(start), aim=tuple(aim0))
 
     end = start + right * DRIFT[0] + flat * DRIFT[1]
     rig = cinema.film(ctx, [cinema.Setup("vista", 0.0, cinema.drift(cinema.line(start, end, aim0, aim0 + right * DRIFT[0]),
