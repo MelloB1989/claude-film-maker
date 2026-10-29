@@ -19,39 +19,6 @@ def E():
     return mod
 
 
-def test_a_planted_foot_stays_put_while_the_body_comes_on(E):
-    stride, stance = 0.34, 0.64
-    # through the first part of its stance the left foot's place in the world (body + how far ahead) holds still
-    s0 = 0.0
-    a0, lift0 = E.step(s0, stride, stance, 0.0)
-    for s in (0.05, 0.15, 0.3):
-        a, lift = E.step(s, stride, stance, 0.0)
-        assert lift == 0.0
-        assert s + a == pytest.approx(s0 + a0)
-
-
-def test_a_foot_lands_two_strides_on_from_where_it_lifted(E):
-    stride, stance = 0.34, 0.64
-    cycle = 2 * stride
-    lift_off = stance * cycle                    # the body's distance when the foot leaves the deck
-    behind, _ = E.step(lift_off - 1e-9, stride, stance, 0.0)
-    ahead, _ = E.step(cycle - 1e-9, stride, stance, 0.0)
-    assert (cycle + ahead) - (lift_off + behind) == pytest.approx(cycle, abs=1e-6)
-
-
-def test_the_swinging_foot_lifts_and_the_feet_take_turns(E):
-    stride, stance = 0.3, 0.6
-    mid_swing = (stance + (1 - stance) / 2) * 2 * stride
-    assert E.step(mid_swing, stride, stance, 0.0)[1] == pytest.approx(1.0)
-    # half a cycle on, the other foot is where this one was
-    for s in (0.0, 0.1, 0.25, 0.43):
-        assert E.step(s, stride, stance, 0.5) == pytest.approx(E.step(s + stride, stride, stance, 0.0))
-    # at no point are both feet off the deck
-    for k in range(200):
-        s = k * 0.01
-        assert min(E.step(s, stride, stance, 0.0)[1], E.step(s, stride, stance, 0.5)[1]) == 0.0
-
-
 def test_a_kneel_puts_the_knee_ahead_on_the_floor_and_the_hips_over_the_heels(E):
     shin, thigh = 0.42, 0.44
     knee, hip = E.kneel_legs(shin, thigh, 0.075, 0.065, 0.3)

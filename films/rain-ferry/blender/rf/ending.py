@@ -4,19 +4,18 @@ the crossing. What those shots share lives here; each shot is its own file under
 The world is rf/set_world.py's, its weather and light the film's look schedule's (data/look.json, `ctx.look_at(f)`,
 keyed on the set by rf/set_weather.py). The grade is the engine's, over the plate: nothing here bakes one in.
 
-- The stage after the duel (`SHINZA_AT` ...): where Shinza went down on his knees, where the cut headband lies,
-  Tsuru's way to the boat.
-- Pure helpers for the cast's stand-in animation: `step(s, ...)` (where a walking foot is), `kneel_legs(...)` (where
-  the knee and hips come for a kneel), `mouth(t, lines)` (a line's mouth flaps), `ease`, `smooth`, `keys_at`,
-  `path_at`, `drift` (a held camera's breathing).
-- In Blender: `stage(ctx)` builds the world, inks it and lets the rain fall in it at the schedule's density (thinned,
-  not faded: fewer drops; the splashes with it); `cast(st, {name: variant})` builds the 3D cast (rf/vroid_cast.py)
-  painted as the standoff paints them; `kneel`, `hands_rest`, `hold_blade` and `walk` pose and animate them;
-  `headband` is the cut band (on the deck, or afloat); `camera(...)` keys a camera frame by frame and `finish(...)`
-  composites the cast over the world (lib/satsuei.py) from the schedule's looks, a shot's rims on top.
+- The stage after the duel (`SHINZA_AT` ...): where Shinza went down on his knees and where the cut headband lies
+  (rf/clash.py's END and FALL), Tsuru's way to the boat.
+- Pure helpers: `kneel_legs(...)` (where the knee and hips come for a kneel), `mouth(t, lines)` (a line's mouth
+  flaps), `ease`, `smooth`, `keys_at`, `path_at`.
+- In Blender: `stage(ctx)` builds the world and inks it; `weather(ctx, st, rig)` lets the schedule's rain fall round
+  the shot's camera (lib/weather.py), in the cast's layer too; `cast(st, {name: variant})` builds the 3D cast
+  (rf/vroid_cast.py) painted as the standoff paints them; `fallen` gives Shinza's pose as shot 21 leaves him and
+  `stick_half` his blade's half where shot 20 stuck it; `kneel` and `hands_rest` kneel him anywhere (in the boat);
+  `headband` is the cut band (on the deck, or afloat); `finish(...)` composites the cast over the world
+  (lib/satsuei.py) from the schedule's looks, a shot's rims on top, the cast's outlines a width on screen.
 
-Until the core's animation (blender/lib/vrm_anim.py) and camera kit (blender/lib/cinema.py) land, the stand-ins here
-do their work: a procedural walk, a kneel by IK, a camera keyed frame by frame, the rain thinned by a mask on its drops.
+The cameras are lib/cinema.py's, the walking and lip-sync lib/vrm_anim.py's.
 
 World axes are rf/sets.py's: the jetty along x (the bank at -x), its deck's top at z 0, the river toward +y.
 """
@@ -63,20 +62,6 @@ def keys_at(keys, t: float):
             k = ease((t - t0) / (t1 - t0)) if t1 > t0 else 1.0
             return a + (b - a) * k if isinstance(a, (int, float)) else lerp(a, b, k)
     return keys[-1][1]
-
-
-def step(s: float, stride: float, stance: float = 0.62, phase: float = 0.0) -> tuple[float, float]:
-    """A walking foot when the body has come `s` metres: (how far ahead of the body it is, m; how high it is lifted,
-    0..1). Each foot lands 2 x `stride` on from where it last did, so the body comes `stride` a step; it is planted for
-    `stance` of each cycle (an old woman keeps both feet down a long while), swung forward the rest. `phase` (0..1 of a
-    cycle) is the foot's place in it: one foot 0, the other 0.5."""
-    cycle = 2.0 * stride
-    p = (s / cycle + phase) % 1.0
-    reach = stance * cycle / 2.0            # how far ahead it lands (and behind it lifts off)
-    if p < stance:
-        return reach - (p / stance) * 2.0 * reach, 0.0
-    u = (p - stance) / (1.0 - stance)
-    return -reach + 2.0 * reach * ease(u), math.sin(math.pi * u)
 
 
 def kneel_legs(shin: float, thigh: float, ankle_z: float, knee_z: float, hip_z: float) -> tuple[float, float]:
@@ -241,11 +226,6 @@ def place(built, at, facing: float, z: float = 0.0, frame: int | None = None) ->
         root.keyframe_insert("rotation_euler", frame=frame)
 
 
-def hide(obs) -> None:
-    for ob in obs:
-        ob.hide_render = ob.hide_viewport = True
-
-
 def _foot_turn(ch, side: str, toward) -> tuple:
     """The turn about the character's x (degrees) that points a foot (ankle to toes) along `toward` (y, z in its
     frame)."""
@@ -354,69 +334,6 @@ def hands_rest(built, legs: dict, frame: int | None = None) -> None:
         vrm.reach(ch, f"{side}Hand", at, pole=(s * 0.6, 0.5, 0.6))
         vrm.hold(ch, f"{side}Hand", (0.0, s * -12.0, -s * 80.0))
     built["fingers"] = {**vrm.grip_pose("left", 0.3, 0.3), **vrm.grip_pose("right", 0.3, 0.3)}
-
-
-def hold_blade(built, *, at=(-0.1, -0.36, 0.5), d=(1.0, 0.0, 0.06), cradle=0.3, up=(0.0, 0.25, 1.0)) -> None:
-    """His broken sword (rf/vroid_shinza.py's sword="broken", carried by his right hand) held across his lap: the
-    right fist round the hilt at `at` (char frame), the blade on toward his left along `d`, his left hand open under
-    it `cradle` metres on, both palms up `up`."""
-    import numpy as np
-
-    from lib import vrm
-
-    ch = built["vrm"]
-    d = np.asarray(d, float) / np.linalg.norm(d)
-    at = np.asarray(at, float)
-    fr = vrm.grasp(ch, "right", at, d, up, pole=(-0.55, 0.2, 0.55), amount=0.95)
-    fl = vrm.grasp(ch, "left", at + d * cradle, d, up, pole=(0.55, 0.2, 0.55), amount=0.3, thumb=0.2)
-    built["fingers"] = {**fr, **fl}
-    vrm.pose(ch, {**SAG, **built["fingers"]}, reset=False)
-
-
-# Tsuru's walk: short steps, both feet down a long while, the hips bobbing a little; her left arm swinging a little
-# from where it hangs
-WALK = dict(stride=0.34, stance=0.64, lift=0.065, bob=0.012, sway=2.5, swing=0.07)
-
-
-def walk(ctx, built, path, distance, *, pose: dict, hips, frames=None, head=None) -> None:
-    """Key Tsuru walking along `path` [(x, y)] on the deck: `distance(t)` (metres along it at t seconds into the
-    shot) moves her root, her feet step under her (IK on the planted handles), her hips bob and her left hand swings
-    opposite her left foot. `pose` and `hips` are her standing pose; `head(t)` an extra turn of the head (x, y, z)."""
-    import numpy as np
-
-    from lib import vrm
-
-    ch = built["vrm"]
-    w = WALK
-    targets = {side: ch.handles[f"{side}Foot-target"] for side in ("left", "right")}
-    base = {side: ch.frame.T @ np.array(h.location) * ch.scale for side, h in targets.items()}
-    hand = ch.handles.get("leftHand-target")
-    hand0 = ch.frame.T @ np.array(hand.location) * ch.scale if hand else None
-    for f in frames or range(ctx.f0 - 1, ctx.f1 + 1):
-        t = (f - ctx.f0) / ctx.fps
-        s = distance(t)
-        (x, y), heading = path_at(path, s)
-        place(built, (x, y), heading, frame=f)
-        lifts = {}
-        for side, phase in (("left", 0.0), ("right", 0.5)):
-            ahead, up = step(s, w["stride"], w["stance"], phase)
-            b = base[side]
-            lifts[side] = ahead
-            targets[side].location = ch.to_armature((b[0], b[1] - ahead, b[2] + up * w["lift"]))
-            targets[side].keyframe_insert("location", frame=f)
-        cyc = 2 * math.pi * s / (2 * w["stride"])
-        bob = w["bob"] * math.cos(2 * cyc)
-        turns = dict(pose)
-        hx, hy, hz = turns.get("hips", (0.0, 0.0, 0.0))
-        turns["hips"] = (hx, hy, hz + w["sway"] * math.sin(cyc))
-        if head is not None:
-            ax, ay, az = turns.get("head", (0.0, 0.0, 0.0))
-            dx, dy, dz = head(t)
-            turns["head"] = (ax + dx, ay + dy, az + dz)
-        vrm.pose(ch, turns, hips=(hips[0], hips[1], hips[2] + bob), frame=f)
-        if hand is not None:
-            hand.location = ch.to_armature((hand0[0], hand0[1] - w["swing"] * math.sin(cyc + math.pi) * 0.5, hand0[2]))
-            hand.keyframe_insert("location", frame=f)
 
 
 # ---------------------------------------------------------------------------------------------------- the leavings
