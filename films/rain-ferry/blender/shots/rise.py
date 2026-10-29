@@ -65,7 +65,7 @@ CAMERA = [((5.9, -3.6, 1.25), (6.55, -0.9, 1.12)),
           ((5.95, -3.48, 1.27), (6.72, -0.55, 1.2)),
           ((6.05, -3.3, 1.3), (6.88, 0.2, 1.32))]
 LENS = (30.0, 34.0)
-GRIP = 0.06             # his fist on the hilt from its guard (shots/draw.py: jetty_talk.hilt_grip)
+GRIP = jt.HILT_GRIP     # his fist on the hilt from its guard, as draw closes it
 # draw's last frame (shots/draw.py SWING[-1]): his blade's way, his fist, his palm (his frame)
 DRAWN = ((0.2, -0.78, -0.58), (-0.3, -0.38, 1.33), (1.0, 0.0, -0.3))
 
