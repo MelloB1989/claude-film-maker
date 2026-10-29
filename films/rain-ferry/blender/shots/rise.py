@@ -6,8 +6,9 @@ the jetty's edge by the boat. Her pole lies out of the boat against the tap post
 boat, upright, and sets its foot down on the deck beside her (+3.45 s). Only then does she turn her head back to him,
 the corner of her mouth going up.
 
-The camera is low on the river side (-y), three-quarters on her, his blade's point in the left of the frame; it rises
-a little with her and creeps in as the pole comes up.
+The camera is on the river side (-y): the two of them whole at first, he at the left with his blade's point down
+toward her; it creeps in and turns with her to the edge, leaving him at the frame's left, and she is in back
+three-quarters as she goes, her face coming round to us over her shoulder at the end.
 
 Her performance is lib/vrm_anim.py's (stand, walk, grasp, carry, look, say); his is draw's last pose held, breathing
 (rf/jetty_talk.py's helpers, as shots/draw.py keys it).
@@ -53,11 +54,15 @@ GRIP_MID, WAY_MID = (7.15, 0.95, 1.12), (0.1, -0.35, 0.93)
 LEAN = {"spine": (22.0, 0.0, 0.0), "chest": (12.0, 0.0, 0.0), "neck": (-6.0, 0.0, 0.0)}
 BEND = {"spine": (20.0, 0.0, 0.0), "chest": (20.0, 0.0, -6.0), "upperChest": (18.0, 0.0, -4.0), "neck": (14.0, 0.0, 0.0),
         "head": (-40.0, 0.0, 0.0)}
-# the camera: low on the -y side, three-quarters on her; (t, at, aim) world
-CAMERA = [(0.0, (5.55, -3.05, 0.92), (6.75, -0.3, 0.86)),
-          (1.4, (5.62, -3.0, 1.02), (6.85, -0.15, 1.02)),
-          (4.0, (5.85, -2.62, 1.12), (6.98, 0.2, 1.12))]
+# her pipe hand once she is up: the fist at her hip, the bowl forward and down (her frame: fist, along)
+PIPE_UP = ((0.15, -0.17, 0.9), (-0.25, -1.0, -0.35))
+# the camera on the -y side: first the two of them whole, his blade's point down toward her; it creeps in and turns
+# with her to the edge, leaving him at the frame's left (world: at, aim)
+CAMERA = [((5.9, -3.6, 1.25), (6.55, -0.9, 1.12)),
+          ((5.95, -3.48, 1.27), (6.72, -0.55, 1.2)),
+          ((6.05, -3.3, 1.3), (6.88, 0.2, 1.32))]
 LENS = (30.0, 34.0)
+GRIP = 0.06             # his fist on the hilt from its guard (shots/draw.py: jetty_talk.hilt_grip)
 # draw's last frame (shots/draw.py SWING[-1]): his blade's way, his fist, his palm (his frame)
 DRAWN = ((0.2, -0.78, -0.58), (-0.3, -0.38, 1.33), (1.0, 0.0, -0.3))
 
@@ -80,7 +85,6 @@ def build(ctx):
         return ctx.f0 + s * fps
 
     # ---- him: draw's last frame held, breathing; his eyes follow her up
-    jt.draw_sword(st)
     b = np.asarray(DRAWN[0]) / np.linalg.norm(DRAWN[0])
     turn = jt.hand_turn(sch, "right", -b, jt.flat_palm(b, DRAWN[2]))
     for f in st.frames():
@@ -103,19 +107,23 @@ def build(ctx):
     co = np.array([shaft.matrix_world @ v.co for v in shaft.data.vertices])
     lo, hi = co[co[:, 2].argmin()], co[co[:, 2].argmax()]
     move(shaft, lo, hi - lo, foot0, way0)
+    p = st.perf["tsuru"]
+    p.carry(shaft, F(0) - 1, None)          # left where it lies as she walks (not carried by her root)
     grip0 = foot0 + way0 * GRIP_ALONG
     grip1 = np.array(POLE_FOOT1) + np.array((0.0, 0.0, GRIP_ALONG))
     way_mid = np.asarray(WAY_MID) / np.linalg.norm(WAY_MID)
 
     # ---- her performance (lib/vrm_anim.py, the stage's), from the builder's seated pose
-    p = st.perf["tsuru"]
     root0 = np.array(ts["root"].location)
     yaw0 = math.degrees(ts["root"].rotation_euler[2])
     ahead = np.array((math.cos(math.radians(yaw0)), math.sin(math.radians(yaw0)), 0.0))
     p.root(F(0), root0, yaw=yaw0)
     p.plant_feet(F(0))
     p.look(F(0), st.perf["shinza"].face_at)
-    p.hold(F(HOLD))
+    # seated as draw left her (jetty_talk.tsuru_rest: her pipe over her left knee, her right hand on her knee)
+    for f in st.frames():
+        if st.t(f) <= HOLD:
+            jt.tsuru_rest(st, f, st.t(f))
     p.root(F(HOLD), root0, yaw=yaw0)
     # standing: up over her feet into the stoop she stands in, leaning into it on the way
     stand = {k: v for k, v in vroid_tsuru.TS_POSE.items() if not any(n in k for n in ("Index", "Middle", "Ring", "Little"))}
@@ -123,6 +131,11 @@ def build(ctx):
     p.pose(F((UP[0] + UP[1]) / 2), lean, hips=(0.0, -0.06, -0.12), ease="in", full=False)
     p.pose(F(UP[1]), stand, hips=vroid_tsuru.TS_HIPS, ease="out", full=False)
     p.root(F(UP[1]), root0 + ahead * FORWARD, yaw=yaw0)
+    # her hands as she comes up: the pipe to her hip, the right hand off her knee to hang
+    for f in (F(UP[1]), ctx.f1 + 1):
+        jt.hold_pipe(st, f, *PIPE_UP)
+    st.hand("tsuru", "right", F(UP[1]), jt.HANG["right"],
+            jt.hand_turn(tch, "right", (0.0, 1.0, 0.0), (1.0, 0.0, 0.0)), (-0.3, 0.5, 1.2))
     # she looks away from him as she turns to go: dismissed
     p.look(F(WALK), None)
     end = p.walk([tuple(EDGE)], F(WALK), gait=va.GAITS["old"].but(stride=0.42), pose=stand, end_pose=stand,
@@ -161,9 +174,10 @@ def build(ctx):
     p.secondary(wind=(0.6, 0.15, 0.0))
     st.perf["shinza"].secondary(wind=(0.6, 0.15, 0.0))
     st.bake()
+    sword_in_fist(st, b)
 
     # ---- the camera (lib/cinema.py) and the weather, the lines, the light
-    st.film([cinema.Setup("rise", 0.0, cinema.path([c for _, c, _ in CAMERA], [a for _, _, a in CAMERA]), lens=LENS,
+    st.film([cinema.Setup("rise", 0.0, cinema.path([c for c, _ in CAMERA], [a for _, a in CAMERA]), lens=LENS,
                           fstop=3.2, focus=(tch, "head"),
                           shake=cinema.Shake(breath=0.06, hits=((LIFT[1] - 0.05, 0.25),)))])
     jt.outline(st)
@@ -173,3 +187,26 @@ def build(ctx):
                                       ((0.6, 1.0), (0.6, 0.68, 0.85), 0.3, 0.003, 0.9)],
                                 para_from=(0.3, 0.95), para_to=(0.85, 0.05)))
     bpy.context.view_layer.update()
+
+
+def sword_in_fist(st, blade) -> None:
+    """His nodachi out of its scabbard and in his right fist as draw ends (its hilt GRIP into the fist, the blade along
+    `blade`, his frame), carried by the hand from the shot's first frame (as baked)."""
+    import bpy
+    from mathutils import Matrix, Vector
+
+    from lib import vrm
+
+    st.ctx.scene.frame_set(st.ctx.f0)
+    bpy.context.view_layer.update()
+    ch = st.cast["shinza"]["vrm"]
+    sword = st.cast["shinza"]["parts"]["sword"][0]
+    guard, u = jt.hilt_axis(st)                       # as sheathed (his frame)
+    want_u = -np.asarray(blade, float)
+    want = np.asarray(DRAWN[1], float) - want_u * GRIP
+    g0, g1 = np.array(ch.world(guard)), np.array(ch.world(want))
+    u0, u1 = np.array(ch.world(guard + u)) - g0, np.array(ch.world(want + want_u)) - g1
+    turn = Vector(tuple(u0)).rotation_difference(Vector(tuple(u1))).to_matrix().to_4x4()
+    sword.matrix_world = (Matrix.Translation(Vector(tuple(g1))) @ turn @ Matrix.Translation(Vector(tuple(-g0)))
+                          @ sword.matrix_world)
+    vrm.attach(sword, ch, "rightHand")
