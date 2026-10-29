@@ -172,8 +172,13 @@ def point_focus(name: str, at):
 
 # ---------------------------------------------------------------------------------------------------- the cast
 
+_SHOTS: dict = {}
+
+
 def shot_module(name: str):
-    """shots/<name>.py as a module (another shot's constants: the standoff's paint, the fall's last pose)."""
+    """shots/<name>.py as a module (another shot's constants: the standoff's paint, the fall's last pose), loaded once."""
+    if name in _SHOTS:
+        return _SHOTS[name]
     import importlib.util
     from pathlib import Path
 
@@ -181,6 +186,7 @@ def shot_module(name: str):
                                                   f"{name}.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
+    _SHOTS[name] = mod
     return mod
 
 
@@ -389,21 +395,35 @@ def headband(name: str, material, coll, at, turn: float, *, z: float = 0.004, le
 
 # ---------------------------------------------------------------------------------------------------- compositing
 
+OUTLINE_STEP = 8    # frames between the outline widths' keys (each key evaluates the scene: the build's cost)
+
+
 def finish(ctx, st: Stage, setup=None, actors=None, lens_of=None):
     """Composite the cast over the world (lib/satsuei.py) with the schedule's look every frame, a setup's own on top
     (`setup(f, state)` -> satsuei.Look fields: rims, para_from, para_to, ...); the cast's outlines a width on screen
-    (`lens_of(f)`: the lens at frame f)."""
+    (`lens_of(f)`: the lens at frame f), keyed every OUTLINE_STEP frames and eased between."""
     from mathutils import Vector
 
     from lib import satsuei, toon, vrm
 
     if actors and lens_of:
-        for f in range(ctx.f0 - 1, ctx.f1 + 1):
+        frames = list(range(ctx.f0 - 1, ctx.f1 + 1, OUTLINE_STEP))
+        if frames[-1] != ctx.f1:
+            frames.append(ctx.f1)
+        for f in frames:
             ctx.scene.frame_set(f)
             cam_at = Vector(ctx.scene.camera.matrix_world.translation)
             for built in actors.values():
                 d = (cam_at - built["vrm"].face()).length
                 vrm.key_outline(built["vrm"], vrm.outline_width(st.outline, d, lens_of(f)), f)
+        # one setup, no cuts: the widths eased between their sparse keys, not held
+        for built in actors.values():
+            for md, _ in vrm.outline_modifiers(built["vrm"]):
+                ad = md.id_data.animation_data
+                for fc in (toon._fcurves(ad.action) if ad is not None and ad.action is not None else []):
+                    if md.name in fc.data_path:
+                        for kp in fc.keyframe_points:
+                            kp.interpolation = "LINEAR"
     for owner in st.held:
         ad = getattr(owner, "animation_data", None)
         if ad is not None and ad.action is not None:
