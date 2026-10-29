@@ -256,7 +256,9 @@ def fogged(n: _Nodes, col, *, cam, haze: float = 1.0, mist: float = 0.75, mist_l
     and, low in the valley, by the mist lying there (drifting, thicker as `rf_mist` is, times `mist`)."""
     geo = n.N.new("ShaderNodeNewGeometry")
     dist = n.vmath("DISTANCE", geo.outputs["Position"], tuple(cam))
-    fd = n.math("MULTIPLY", n.math("SUBTRACT", 1.0, n.math("EXPONENT", n.math("MULTIPLY", dist, -1.0 / 3200.0))), 0.92 * haze)
+    # dark ink near, paling with the distance's square-ish (an ink painting's near ridge is black, its far one a breath)
+    reach = n.math("POWER", n.math("DIVIDE", dist, 4300.0), 1.7)
+    fd = n.math("MULTIPLY", n.math("SUBTRACT", 1.0, n.math("EXPONENT", n.math("MULTIPLY", reach, -1.0))), 0.95 * haze)
     sep = n.new("ShaderNodeSeparateXYZ")
     n.set(sep.inputs[0], geo.outputs["Position"])
     # the mist: densest at the water, gone by `mist_low` m up (higher far up the valley), torn by drifting noise
@@ -678,8 +680,8 @@ def _hamlet(coll, m) -> dict:
     return {"hamlet": root, "lantern": lantern}
 
 
-FOREGROUND = [(-0.62, 30.0, 30.0, 1), (-0.48, 40.0, 26.0, 2), (-0.75, 48.0, 36.0, 3), (-0.3, 58.0, 20.0, 4)]
-LEDGE = (0.0, 34.0)        # m below the lens the ledge's top lies
+FOREGROUND = [(-0.42, 110.0, 44.0, 1), (-0.36, 128.0, 36.0, 2), (-0.5, 146.0, 52.0, 3), (-0.24, 168.0, 30.0, 4)]
+LEDGE = (0.0, 40.0)        # m below the lens the ledge's top lies
 
 
 def ink_pine(name: str, base, height: float, material, coll, *, seed: int = 1, lean=(0.0, 0.0, 0.0)) -> list:
@@ -712,15 +714,20 @@ def ink_pine(name: str, base, height: float, material, coll, *, seed: int = 1, l
         pads.append((tip, height * (0.17 - 0.08 * u) * rng.uniform(0.8, 1.25)))
     pads.append((np.array(pts[-1]) + np.array([0, 0, height * 0.02]), height * 0.11))
     for k, (c, r) in enumerate(pads):
-        obs.append(shapes.ellipsoid(f"{name}-pad{k}", tuple(c), (r, r * 0.8, r * 0.24), material=material, coll=coll, n=12))
-        for _ in range(46):
-            a = rng.uniform(0, 2 * math.pi)
-            rr = r * rng.uniform(0.6, 1.0)
-            root = c + np.array([math.cos(a) * rr * 0.55, math.sin(a) * rr * 0.45, rng.uniform(-0.05, 0.08) * r])
-            tip = c + np.array([math.cos(a) * rr * 1.25, math.sin(a) * rr * 1.0, rng.uniform(-0.35, 0.1) * r])
-            roots.append(root)
-            tips.append(tip)
-            widths.append(r * 0.09)
+        # a pad is a few overlapping tufts, each a low core bristling with needles that droop at its rim
+        for q in range(3):
+            cq = c + np.array([rng.normal(0, 0.35), rng.normal(0, 0.3), rng.normal(0, 0.06)]) * r
+            rq = r * rng.uniform(0.5, 0.75)
+            obs.append(shapes.ellipsoid(f"{name}-pad{k}{q}", tuple(cq), (rq * 0.7, rq * 0.6, rq * 0.22), material=material,
+                                        coll=coll, n=10))
+            for _ in range(40):
+                a = rng.uniform(0, 2 * math.pi)
+                root = cq + np.array([math.cos(a) * rq * 0.3, math.sin(a) * rq * 0.25, rng.uniform(-0.04, 0.1) * rq])
+                rr = rq * rng.uniform(0.9, 1.45)
+                tip = cq + np.array([math.cos(a) * rr, math.sin(a) * rr * 0.85, rng.uniform(-0.45, 0.05) * rq])
+                roots.append(root)
+                tips.append(tip)
+                widths.append(rq * 0.1)
     obs.append(shapes.spikes(f"{name}-needles", roots, tips, widths, material=material, coll=coll, sides=3))
     for ob in obs:
         ob.visible_shadow = False
@@ -744,8 +751,8 @@ def _foreground(coll, m, cam, aim, *, seed: int = 5) -> list:
         base = c + f * d + r * side * d * 1.2 - np.array([0.0, 0.0, LEDGE[1] + rng.uniform(-3, 3)])
         obs += ink_pine(f"near-pine{k}", tuple(base), h, m["near"], coll, seed=seed + sd, lean=(-r * 0.35 + f * 0.1))
     # the ledge: a lumpy slab under them, its edge breaking off toward the valley
-    mid = c + f * 45.0 + r * -0.4 * 54.0 - np.array([0.0, 0.0, LEDGE[1] + 6.0])
-    obs.append(shapes.ellipsoid("near-ledge", tuple(mid), (34.0, 26.0, 9.0), material=m["near"], coll=coll, n=24,
+    mid = c + f * 140.0 + r * -0.42 * 168.0 - np.array([0.0, 0.0, LEDGE[1] + 10.0])
+    obs.append(shapes.ellipsoid("near-ledge", tuple(mid), (60.0, 48.0, 14.0), material=m["near"], coll=coll, n=24,
                                 squash=lambda v: v * (1 + 0.18 * np.sin(v[:, :1] * 5.0) * np.cos(v[:, 1:2] * 4.0))))
     return obs
 
