@@ -24,7 +24,7 @@ SHOT = {"scene": "freeze"}
 
 # Shinza mid-launch: a stride on from his mark toward her, his trunk thrown forward, the hilt raised high over his
 # right shoulder (his frame), the right foot swinging forward off the deck, the left pushing off on its ball
-SH_AT = (-1.75, 0.02)
+SH_AT = (0.55, 0.02)               # from his mark (rf/duel.py MARKS): a stride on
 POMMEL = (-0.13, -0.08, 1.4)
 HILT_UP = (0.12, 0.42, 0.9)        # the hilt's way up, the blade carrying on up and back over his shoulder
 ELBOWS = {"left": (0.5, -0.15, 1.0), "right": (-0.6, 0.1, 1.05)}
@@ -36,6 +36,7 @@ TS_LEFT = ((-0.23, -0.22, 1.13), (0.55, -0.2, 0.9))
 # the camera's glide (world): in front of him, past his blade, along the line, turning to her; what it looks at runs
 # from his face to hers; the focus with it
 PATH = [(-0.55, -1.45, 1.42), (-0.85, -1.05, 1.52), (-0.25, -0.62, 1.42), (0.7, -0.52, 1.3), (1.05, -0.48, 1.26)]
+# (the path from the duel's middle, rf/duel.py MID)
 GLIDE = (0.35, 4.7)
 LENS = (24.0, 32.0)
 FSTOP = 2.0
@@ -47,7 +48,7 @@ SPEED0 = 9.5
 
 def build(ctx):
     import bpy
-    from mathutils import Vector
+    from mathutils import Matrix, Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import rig, satsuei, vrm
@@ -58,7 +59,8 @@ def build(ctx):
     st = duel.stage(ctx, splashes=False)
     sh, ts = st.bodies["shinza"], st.bodies["tsuru"]
     shc, tsc = st.ch("shinza"), st.ch("tsuru")
-    st.actors["shinza"]["root"].location = (*SH_AT, 0.0)
+    sx, sy = duel.MARKS["shinza"]
+    st.actors["shinza"]["root"].location = (sx + SH_AT[0], sy + SH_AT[1], 0.0)
     cam, aim = duel.camera(ctx, lens=LENS[0], fstop=FSTOP)
     duel.rain_input(st.rain, "clear").default_value = 0.25
     duel.rain_input(st.rain, "near").default_value = 2.5
@@ -121,14 +123,14 @@ def build(ctx):
     bm = bmesh.new()
     for p, r in beads:
         bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=6, radius=r,
-                                  matrix=__import__("mathutils").Matrix.Translation(Vector(tuple(p))))
+                                  matrix=Matrix.Translation(Vector(tuple(p))))
     bm.to_mesh(me)
     bm.free()
     for poly in me.polygons:
         poly.use_smooth = True
     me.materials.append(eye_closeup._water("hung", 0.8, 1.3))
 
-    pts = [np.asarray(p, float) for p in PATH]
+    pts = [np.asarray(p, float) + np.array((duel.MID[0], duel.MID[1], 0.0)) for p in PATH]
     frames = range(ctx.f0 - 1, ctx.f1 + 1)
     speeds = {f: ctx.look_at(f).rain.speed for f in frames}
     clocks = dict(zip(frames, dm.clock([speeds[f] for f in frames], ctx.fps, SPEED0)))

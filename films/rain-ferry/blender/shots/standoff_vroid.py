@@ -12,20 +12,23 @@ headband tails, her cape's straw and both hems; lightning whitens everything at 
 """
 from __future__ import annotations
 
-import math
 import sys
 from pathlib import Path
 
+import numpy as np
+
 SHOT = {"scene": "standoff"}
 
-CAM_FROM, CAM_TO = (0.3, -7.6, 0.72), (0.12, -6.15, 0.86)
-AIM_FROM, AIM_TO = (0.05, 0.0, 1.12), (0.02, 0.0, 1.02)
-LENS = (30.0, 31.5)
+# the camera, from the duel's middle (rf/duel.py MID): low over the water on the -y side, turned a little toward the
+# land so the hut's lantern hangs behind him at the left of the frame, creeping in
+CAM_FROM, CAM_TO = (1.3, -7.8, 0.75), (1.12, -6.4, 0.88)
+AIM_FROM, AIM_TO = (-1.0, 1.5, 1.2), (-0.95, 1.5, 1.1)
+LENS = (24.0, 25.5)
 FSTOP = 5.6
 GUST = (1.6, 1.5, 1.4)          # s into the shot, length, strength: the mix's wind_gust
 HER_LOOK = (2.5, 3.4, 4.0)      # s: her head turns to him from, to (degrees)
 # two old mooring stakes standing in the water near the lens, framing the shot (x, y, top, radius)
-STAKES = [(-1.95, -5.2, 0.62, 0.075), (2.25, -5.45, 0.34, 0.065)]
+STAKES = [(-1.6, -5.4, 0.62, 0.075), (3.3, -5.7, 0.34, 0.065)]        # from MID
 BAND = (0.128, 0.872)           # the 2.39 letterbox's band (frame heights)
 # the compositing's setup on the look schedule's base (data/look.json): more of the rain's air between the lens and
 # small figures, the para darkening the deck, the sky's rim from above and the lantern's on his back
@@ -43,7 +46,9 @@ def build(ctx):
     st = duel.stage(ctx)   # its lightning the look schedule's (+2.1 s; the thunder is at +2.2 s)
     cam, aim = duel.camera(ctx, lens=LENS[0], fstop=FSTOP)
     post = st.crossing["materials"]["post"]
+    mid = np.array((duel.MID[0], duel.MID[1], 0.0))
     for k, (x, y, top, r) in enumerate(STAKES):
+        x, y = x + mid[0], y + mid[1]
         shapes.cylinder(f"stake{k}", (x, y, sets.WATER_Z - 1.0), (x, y, top), r, material=post, coll=st.crossing["near"],
                         n=10)
         shapes.cylinder(f"stake{k}-rope", (x, y, top - 0.14), (x, y, top - 0.08), r + 0.012,
@@ -58,10 +63,11 @@ def build(ctx):
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = (f - ctx.f0) / ctx.fps
         u = dm.ease(t / (n / ctx.fps))
-        cam_at = dm.lerp(CAM_FROM, CAM_TO, u)
+        cam_at = tuple(np.array(dm.lerp(CAM_FROM, CAM_TO, u)) + mid)
         lens = LENS[0] + (LENS[1] - LENS[0]) * u
         drift = duel.shake(t, 0.006)
-        duel.key_camera(cam, aim, f, tuple(a + d for a, d in zip(cam_at, drift)), dm.lerp(AIM_FROM, AIM_TO, u), lens=lens)
+        duel.key_camera(cam, aim, f, tuple(a + d for a, d in zip(cam_at, drift)), tuple(np.array(dm.lerp(AIM_FROM, AIM_TO, u)) + mid),
+                        lens=lens)
         g = dm.gusts(t, gust)
 
         # Shinza: hard breaths behind his guard, his weight settling forward and down through the shot, the head

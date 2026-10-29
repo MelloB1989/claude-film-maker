@@ -206,15 +206,19 @@ def _drop(name: str, drop: Drop, pts, head_m, ch, coll):
     _parent(trail, ch, head_m)
     trail.data.materials.append(_water(f"{name}-wet", 0.28, 0.5))
 
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=10, radius=drop.size)
-    bead = bpy.context.active_object
-    bead.name = name
-    for c_ in bead.users_collection:
-        c_.objects.unlink(bead)
+    import bmesh
+
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=10, radius=drop.size)
+    bm.to_mesh(me)
+    bm.free()
+    for poly in me.polygons:
+        poly.use_smooth = True
+    bead = bpy.data.objects.new(name, me)
     coll.objects.link(bead)
     bead.scale = (0.8, 0.8, 1.35)                 # pulled long by its fall
     bead.data.materials.append(_water(f"{name}-bead", 0.85, 1.4))
-    bpy.ops.object.shade_smooth()
     path_ob = bpy.data.objects.new(f"{name}-follow", curve)   # the bead follows the trail's own curve
     coll.objects.link(path_ob)
     path_ob.hide_render = True

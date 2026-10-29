@@ -22,7 +22,12 @@ import numpy as np
 
 from . import duel_motion as dm
 
-MARKS = {"shinza": (-2.3, 0.0), "tsuru": (2.35, 0.05)}
+# THE DUEL'S MARKS (the film's geography: rf/jetty_talk.py has the talk at the jetty's end): on the outer half of the
+# jetty, her back to the open river beyond its end, him 4.5 m from her toward the land, the hut's lantern behind him
+# in the wide; the cameras on the -y side of the line between them, so he is screen-left and she screen-right.
+# (x, y) world; MID between them, which the duel's cameras are placed from
+MARKS = {"shinza": (2.2, 0.0), "tsuru": (6.7, 0.05)}
+MID = ((MARKS["shinza"][0] + MARKS["tsuru"][0]) / 2, 0.0)
 TURNS = {"shinza": 0.0, "tsuru": math.pi + 0.3}    # Tsuru turned 0.3 rad from him toward the -y side
 OUTLINE = 0.0018      # the cast's outline, in frame heights
 KEY_ANGLE = 5.0       # degrees: an overcast key's soft-edged shadows
@@ -45,7 +50,7 @@ TONES = {
 # ... and what is a character's own: his black hair lifted to a dark slate blue, so its shades and lines show
 TONES_OF = {"shinza": {"hair": dict(lit=(1.9, 2.0, 2.5))}}
 # the rain: a box of streaks over the jetty and the water in front of it (rf/sets.py's world), and the splashes
-RAIN = dict(box_min=(-6.5, -3.6, -0.6), box_max=(6.5, 12.0, 5.5), count=5200, speed=9.5, wind=1.8, length=0.34,
+RAIN = dict(box_min=(MID[0] - 6.5, -3.6, -0.6), box_max=(MID[0] + 6.5, 12.0, 5.5), count=5200, speed=9.5, wind=1.8, length=0.34,
             width=0.0055, color=(0.78, 0.81, 0.86), alpha=0.3, seed=4, near=3.5)
 # the compositing's lights (linear): the cold sky, the hut's lantern (behind Shinza), the boat's (behind Tsuru)
 SKY_RIM, LANTERN_RIM, BOAT_RIM = (0.6, 0.68, 0.85), (1.0, 0.5, 0.18), (0.95, 0.58, 0.26)
@@ -102,6 +107,7 @@ compositing are the shot's."""
     sun = crossing["key"].data
     sun_base = sun.energy
 
+    sr = sched.rain
     r = {**RAIN, **dict(count=sr.drops, speed=sr.speed, wind=sr.wind, length=sr.length, width=sr.width,
                         color=sr.color, alpha=sr.alpha), **(rain or {})}
     rain_ob = toon.rain("rain", r["box_min"], r["box_max"], count=r["count"], speed=r["speed"], wind=r["wind"],
