@@ -44,6 +44,7 @@ def build(ctx):
     from lib import smoke
     from rf import set_approach, set_valley
 
+    ja.clock("ferry", "build")
     st = jt.stage(ctx, ink=0.006, variant={"shinza": {"kasa": "on"}}, place={"shinza": None})
     jt.compose_faces(st)
     # Shinza down the last of the path, still walking at the cut
@@ -57,17 +58,19 @@ def build(ctx):
     sh.express(ctx.f0, {"glare": 0.6})
     sh.blinks(mean=3.4)
     sh.breathe(rate=0.3, depth=1.3)
-    sh.secondary(wind=(0.4, 1.2, 0.0))
     # Tsuru smoking at the jetty's end; her head back a little as she lets a breath of smoke out
     for f in st.frames():
         t = st.t(f)
         out = jt.ramp(t, EXHALE[0] - 0.25, EXHALE[0]) - jt.ramp(t, EXHALE[1], EXHALE[1] + 0.4)
         ja.smoking(st, f, t, down=-4.0 * out)
+    ja.clock("ferry", "performed")
     st.bake()
+    ja.clock("ferry", "baked")
 
     st.film([cinema.Setup("ferry", 0.0, cinema.drift(cinema.line(*CAM), 0.03), lens=LENS, fstop=FSTOP, focus=FOCUS,
                           shake=cinema.Shake(breath=0.04))])
     jt.outline(st)
+    ja.clock("ferry", "filmed")
     jt.key_light(st, "tsuru", (-0.4, -1.0, 0.8))
     jt.key_light(st, "shinza", (0.5, -1.0, 0.8))
     st.composite(lambda f: dict(rims=[((-0.2, 1.0), (0.6, 0.68, 0.85), 0.2, 0.0015, 0.8)], para=(0.52, 0.55, 0.7),
@@ -79,8 +82,9 @@ def build(ctx):
     co = np.array([v.co for v in bowl.data.vertices])
     top = co[co[:, 2] >= co[:, 2].max() - 0.002].mean(axis=0)
     wisp = smoke.Wisp(rain=min(1.0, s.rain.density), wind=(0.12, 0.05, 0.0), seed=3, **WISP)
-    smoke.ribbon("pipe-smoke", wisp, source=bowl, offset=tuple(top), coll=st.crossing["near"], also=(st.cast_coll,),
-                 color=tuple(np.array(s.light.fog) * ja.SMOKE)).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
+    rb = smoke.ribbon("pipe-smoke", wisp, source=bowl, offset=tuple(top), coll=st.crossing["near"],
+                      also=(st.cast_coll,), color=tuple(np.array(s.light.fog) * ja.SMOKE))
     pose = {**jt.tsuru_sit(0.0), **jt.fingers("left", 0.85)}
-    ja.breath(st, [EXHALE], ja.lips_source(st, pose, jt.tsuru_hips(st, 0.0)), push=0.35, width=(0.02, 0.22),
-              opacity=0.4).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
+    smoke.bake([rb, ja.breath(st, [EXHALE], ja.lips_source(st, pose, jt.tsuru_hips(st, 0.0)), push=0.35,
+                              width=(0.02, 0.22), opacity=0.4)], ctx.scene, ctx.f0, ctx.f1, ctx.fps, step=8)
+    ja.clock("ferry", "smoke baked")

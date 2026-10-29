@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from lib import cinema  # noqa: E402
+from lib import cinema, smoke  # noqa: E402
 from rf import jetty_arrive as ja  # noqa: E402
 from rf import jetty_talk as jt  # noqa: E402
 
@@ -41,7 +41,9 @@ SKY_RIM, LANTERN_RIM = (0.6, 0.68, 0.85), (1.0, 0.5, 0.18)
 
 
 def build(ctx):
+    ja.clock("ask", "build")
     st = jt.stage(ctx, variant={"shinza": {"kasa": "on"}}, place={"shinza": None})
+    ja.clock("ask", "staged")
     jt.compose_faces(st)
     ts, sh_ch = st.cast["tsuru"]["vrm"], st.cast["shinza"]["vrm"]
 
@@ -57,7 +59,6 @@ def build(ctx):
     sh.blink_at(stop + round(0.15 * ctx.fps))
     sh.breathe(rate=0.3, depth=1.3)
     st.say("shinza", "L03", TEXT, energy=0.9)
-    sh.secondary(wind=(0.4, 1.2, 0.0))
     # Tsuru: a draw on her pipe, then it comes down to her knee (from here her arm at her lips would hide her face);
     # her head goes back a little as she lets the smoke out
     for f in st.frames():
@@ -65,12 +66,15 @@ def build(ctx):
         out = jt.ramp(t, EXHALE[0] - 0.25, EXHALE[0]) - jt.ramp(t, EXHALE[1], EXHALE[1] + 0.4)
         ja.smoking(st, f, t, at_lips=1.0 - jt.ramp(t, *DRAW), down=-4.0 * out)
     st.blinks("tsuru", (1.6, 3.9))
+    ja.clock("ask", "performed")
     st.bake()
+    ja.clock("ask", "baked")
 
     st.film([cinema.Setup("ask", 0.0, cinema.drift(cinema.push(*CAM, PUSH), 0.01), lens=LENS, fstop=FSTOP,
                           focus=(ts, "head"), racks=(cinema.Rack(RACK[0], (sh_ch, "head"), RACK[1]),),
                           shake=cinema.Shake(breath=0.05))])
     jt.outline(st)
+    ja.clock("ask", "filmed")
     # her key from up the river beyond her (her back edge lit, her face in the 1st shade); his from the river side
     jt.key_light(st, "tsuru", (0.6, 0.7, 0.8))
     jt.key_light(st, "shinza", (0.8, -0.9, 0.8))
@@ -78,6 +82,7 @@ def build(ctx):
                                       ((-1.0, 0.2), LANTERN_RIM, 0.2, 0.0025, 0.9)],
                                 para=(0.5, 0.53, 0.7), para_from=(0.8, 0.95), para_to=(0.3, 0.05), para_amount=0.35))
     # last, once everything is keyed: her pipe's thread and the breath she lets out
-    ja.bowl_smoke(st, seed=7).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
     pose = {**jt.tsuru_sit(0.0), **jt.fingers("left", 0.85)}
-    ja.breath(st, [EXHALE], ja.lips_source(st, pose, jt.tsuru_hips(st, 0.0))).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
+    smoke.bake([ja.bowl_smoke(st, seed=7), ja.breath(st, [EXHALE], ja.lips_source(st, pose, jt.tsuru_hips(st, 0.0)))],
+               ctx.scene, ctx.f0, ctx.f1, ctx.fps)
+    ja.clock("ask", "smoke baked")

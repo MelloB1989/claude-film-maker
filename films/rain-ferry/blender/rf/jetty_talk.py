@@ -30,7 +30,6 @@ import numpy as np
 TSURU_AT, TSURU_FACING = (7.08, -0.7), -100.0     # the post at her front left, clear of her knees, in her pipe's reach
 SHINZA_AT = (5.45, -0.82)
 SHINZA_FACING = math.degrees(math.atan2(TSURU_AT[1] - SHINZA_AT[1], TSURU_AT[0] - SHINZA_AT[0]))
-POST_RADIUS = 0.14          # rf/set_jetty.py's end posts: the one on the -y side is the one she knocks her pipe on
 CRATE = (0.42, 0.34)        # her seat's width and depth (its height is rf/vroid_tsuru.py's SEAT); its middle behind her
 CRATE_BACK = 0.14           # ... feet (m)
 BOAT_POLE = ((4.05, 2.32, -0.13), (1.0, 0.03, 0.04))   # her pole laid in the boat: its foot, its way (world)
@@ -137,23 +136,32 @@ def fist_wrist(ch, side: str, point, turn, depth: float = 0.028) -> np.ndarray:
 
 
 def post_top(st) -> np.ndarray:
-    """Where her pipe knocks: the end post's crown (rf/set_jetty.py's staved post on the -y side), its edge toward
-    her (world)."""
-    post = st.crossing["jetty"]["posts"]["end"]
-    top = np.array(post["anchors"]["top"].matrix_world.translation)
-    toward = np.array((*TSURU_AT, top[2])) - top
-    toward[2] = 0.0
-    return top + toward / np.linalg.norm(toward) * POST_RADIUS * 0.55
+    """Where her pipe knocks: the tap post's crown at its rim on her side (rf/set_jetty.py's "tap_post" anchor: the
+    staved post at the -y end of the jetty), world."""
+    from . import set_world
+
+    return np.array(set_world.anchor(st.crossing, "tap_post"))
 
 
 class Stage:
     """What `stage` built: the scene's pieces, the cast, the camera; keying the performance and the camera."""
 
     def __init__(self, ctx, **kw):
+        import time
+
         self.ctx = ctx
+        self._t0 = self._t = time.time()
         self.__dict__.update(kw)
         self.start, _ = ctx.timing.scene(ctx.shot if ctx.look is None else ctx.look.scene)
         self.held = []
+
+    def tick(self, what: str) -> None:
+        """Log how long the build's last step took (the build is budgeted: about a minute a shot)."""
+        import time
+
+        now = time.time()
+        print(f"[{self.ctx.shot}] {what}: {now - self._t:.1f}s (build {now - self._t0:.1f}s)", flush=True)
+        self._t = now
 
     # ---- time
     def t(self, f: int) -> float:
@@ -203,9 +211,11 @@ class Stage:
 
     def bake(self) -> None:
         """Write every performance as keys over the shot (and a frame either side)."""
+        self.tick("performance keyed")
         for p in self.perf.values():
             p.bake(self.ctx.f0 - 1, self.ctx.f1 + 1)
         self.ctx.scene.frame_set(self.ctx.f0)
+        self.tick("performances baked")
 
     # ---- the camera and the weather (blender/lib/cinema.py, weather.py)
     def film(self, setups, **storm):
@@ -220,7 +230,9 @@ class Stage:
         deck = ((sets.SPAN[0], -sets.HALF + 0.05, 0.004), (sets.SPAN[1], sets.HALF - 0.05, 0.004))
         storm = {"splashes": [deck], "waters": self.crossing["waters"], "floor": sets.WATER_Z,
                  "lights": [self.crossing["key"]], **storm}
+        self.tick("camera")
         self.sky = weather.storm(self.ctx, self.rig, **storm)
+        self.tick("weather")
         if self.sky.rain is not None:
             for d in self.sky.rain.drops.values():
                 self.cast_coll.objects.link(d.ob)
@@ -242,6 +254,7 @@ class Stage:
                 for fc in toon._fcurves(ad.action):
                     for kp in fc.keyframe_points:
                         kp.interpolation = "CONSTANT"
+        self.tick("before compositing")
         comp = satsuei.setup(self.ctx.scene, self.cast_coll)
         for f in self.frames():
             s = self.ctx.look_at(f)
@@ -249,6 +262,7 @@ class Stage:
             own["rims"] = tuple(satsuei.Rim(*r) for r in own.get("rims", ()))
             comp.key(f, s.look(**own))
         comp.hold()
+        self.tick("composited")
 
 
 def stage(ctx, *, who=("shinza", "tsuru"), ink: float = 0.0035, lantern_near: float | None = None, variant: dict | None = None,
@@ -297,6 +311,7 @@ def stage(ctx, *, who=("shinza", "tsuru"), ink: float = 0.0035, lantern_near: fl
         vrm.smooth(built["vrm"])
     st = Stage(ctx, crossing=crossing, cast=cast, cast_coll=cast_coll, sun=sun, look=look, standoff=so)
     place_cast(st, place)
+    st.tick("world and cast built")
     from lib import vrm_anim
 
     st.perf = {name: vrm_anim.Performance(built["vrm"], fps=ctx.fps, seed=11 + k) for k, (name, built) in
@@ -567,11 +582,23 @@ def tsuru_rest(st: Stage, f: int, t: float, *, smoking: bool = False, **sit) -> 
     her right knee."""
     pose = {**tsuru_sit(t, **sit), **fingers("left", 0.85), **fingers("right", 0.35)}
     hips = tsuru_hips(st, t)
-    hold = pipe_at_lips(st, pose, hips) if smoking else TS_PIPE_LAP
+    hold = TS_PIPE_LAP
+    if smoking:     # worked out once (her head barely moves while she sits smoking): re-posing a VRM is slow
+        if "lips" not in st.cast["tsuru"]:
+            st.cast["tsuru"]["lips"] = pipe_at_lips(st, pose, hips)
+        hold = st.cast["tsuru"]["lips"]
     st.pose("tsuru", f, pose, hips=hips)
     hold_pipe(st, f, *hold, arm="lips" if smoking else "lap")
     knee_hand(st, f)
     st.face("tsuru", f, {"s4-calm": 1.0})
+
+
+def bake_smoke(st: Stage, ribbon, until: float | None = None) -> None:
+    """Bake a ribbon (it steps the scene through every frame it covers: slow with the cast in) only up to `until`
+    seconds into the shot when its smoke is gone by then."""
+    f1 = st.ctx.f1 if until is None else min(st.ctx.f1, st.ctx.f0 + round(until * st.ctx.fps))
+    ribbon.bake(st.ctx.scene, st.ctx.f0, f1, st.ctx.fps)
+    st.tick("smoke")
 
 
 def pipe_smoke(st: Stage, *, emit=None, seed: int = 4):
@@ -589,16 +616,9 @@ def pipe_smoke(st: Stage, *, emit=None, seed: int = 4):
 
 
 def draw_sword(st: Stage) -> None:
-    """His sword out of its scabbard into his right fist from the shot's first frame, where the baked performance has
-    the fist closed on the hilt: call it after `bake`. Parented to the hand there, keeping where it is (vrm_anim's
-    carry moved the sword at the handoff when this was written)."""
-    import bpy
-
-    from lib import vrm
-
-    st.ctx.scene.frame_set(st.ctx.f0)
-    bpy.context.view_layer.update()
-    vrm.attach(st.cast["shinza"]["parts"]["sword"][0], st.cast["shinza"]["vrm"], "rightHand")
+    """His sword out of its scabbard into his right fist from the shot's first frame (vrm_anim's carry: declare it
+    before the bake), handed on from the scabbard that carries it."""
+    st.perf["shinza"].carry(st.cast["shinza"]["parts"]["sword"][0], st.ctx.f0, "rightHand")
 
 
 # ---------------------------------------------------------------------------------------------------- faces

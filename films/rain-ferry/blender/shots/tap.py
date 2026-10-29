@@ -59,7 +59,7 @@ def build(ctx):
                           shake=cinema.Shake(breath=0.05))])
     jt.outline(st)
     # the wisp off the bowl until the first knock puts it out
-    jt.pipe_smoke(st, emit=((0.0, st.start + TAPS[0]),)).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
+    jt.bake_smoke(st, jt.pipe_smoke(st, emit=((0.0, st.start + TAPS[0]),)), until=TAPS[0] + 2.9)
     jt.key_light(st, "tsuru", (0.7, -0.8, 0.7))
     jt.key_light(st, "shinza", (0.7, -0.8, 0.7))
     st.composite(lambda f: dict(rims=[((-0.8, 0.6), (0.6, 0.68, 0.85), 0.35, 0.0035, 0.9),

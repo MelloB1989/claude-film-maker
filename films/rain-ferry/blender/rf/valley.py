@@ -149,7 +149,7 @@ def tree_density(x, y, z, slope, cam=CAMERA) -> np.ndarray:
     dist = np.hypot(x - cam[0], y - cam[1])
     above = np.clip((z - 4.0) / 10.0, 0.0, 1.0)
     steep = np.clip(1.4 - slope, 0.0, 1.0)
-    return above * steep * (0.4 / tree_size(dist) ** 2) * (dist < 5500.0)
+    return above * steep * (1.4 / tree_size(dist) ** 2) * (dist < 5500.0)
 
 
 def tree_size(dist) -> np.ndarray:
@@ -630,6 +630,7 @@ def build(ctx, *, cam=None, aim=None, weather=None, coll=None, foreground: bool 
     for ob in hide:
         ob.hide_render = ob.hide_viewport = True
     coll = coll or toon.collection("valley")
+    kept = [ob for ob in world["near"].all_objects if ob.type == "MESH" and not ob.hide_render]
     cam = tuple(cam) if cam is not None else camera_location()
     # the land
     xs, ys = grid()
@@ -674,7 +675,19 @@ def build(ctx, *, cam=None, aim=None, weather=None, coll=None, foreground: bool 
         mists.append(card(f"mist{k}", coll, (float(river_x(y)) + 40.0, y, WATER_Z + h * 0.32), (w, h),
                           mist_material(f"valley-mist{k}", scene=scene, density=0.75, drift=4.0 + 2.5 * k, seed=k * 2.7,
                                         size=(w, h)), rotation=(math.pi / 2, 0, 0)))
-    # the land's lit side is lit by the set's key (set_weather.stage)
+    # the set's built pieces, seen from this far, in the vista's ink and air (the set's own fog is for the crossing's
+    # distances): the needles hidden, the lantern and doorway glowing in the accent
+    glow = {"set-lantern": glow_material("valley-lantern", "rf_accent", 8.0),
+            "set-door-glow": glow_material("valley-door", "rf_accent", 1.0)}
+    for ob in kept:
+        names = [sl.material.name if sl.material else "" for sl in ob.material_slots]
+        if any(nm.startswith("set-needles") for nm in names):
+            ob.hide_render = ob.hide_viewport = True
+            continue
+        for sl in ob.material_slots:
+            nm = sl.material.name if sl.material else ""
+            sl.link = "OBJECT"
+            sl.material = next((g for k_, g in glow.items() if nm.startswith(k_)), m["trees"])
     out = {"coll": coll, "land": land, "river": river, "sky": sky, "mists": mists, "materials": m, "world": world,
            "lantern": world["lantern"]}
     if foreground:
