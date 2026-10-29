@@ -16,9 +16,9 @@ SHOT = {"scene": "step"}
 STRIKE = 0.2                   # s into the shot: the right foot lands in the puddle (the splash's sound at 10.2 s)
 # the lens, in his frame from where the foot lands (ahead of him, to his right, up off the ground), easing in; the aim,
 # a little behind the foot and up (back down the path into the mist)
-CAM = ((1.02, -0.62, 0.075), (0.94, -0.57, 0.072))   # (ahead, left, up) m
-LOOK = (-0.25, 0.05, 0.16)
-LENS, FSTOP = 32.0, 2.0
+CAM = ((0.82, -0.3, 0.14), (0.74, -0.27, 0.13))   # (ahead, left, up) m: high enough to see into the water
+LOOK = (-0.12, 0.02, 0.085)
+LENS, FSTOP = 40.0, 2.8
 SHAKE = (0.0035, 0.18)         # the lens shaken by the footfall: metres at its peak, dying over seconds
 KEY = (-0.5, -0.7, 0.9)        # his key: overcast from above our shoulder
 RIMS = [((0.4, 1.0), (0.6, 0.68, 0.85), 0.35, 0.0035, 0.9), ((1.0, 0.1), (0.5, 0.55, 0.65), 0.15, 0.003, 0.9)]
@@ -57,7 +57,7 @@ def build(ctx):
     lo = np.minimum(puddle[:2] - 3.0, puddle[:2] - fwd * 12)
     hi = np.maximum(puddle[:2] + 3.0, puddle[:2] - fwd * 12)
     st = approach.stage(ctx, rain_box=((lo[0], lo[1], puddle[2] - 0.2), (hi[0], hi[1], puddle[2] + 3.0)),
-                        rain_near=1.5, rain_clear=0.25, key_toward=KEY)
+                        rain_near=3.0, rain_clear=0.6, key_toward=KEY)
     ch = st.shinza["vrm"]
     t0 = ctx.time(ctx.f0)
     t_strike = t0 + STRIKE
@@ -76,7 +76,8 @@ def build(ctx):
     ankle = float(ch.rest("rightFoot")[2])
     ball = abs(float((ch.rest("rightToes") - ch.rest("rightFoot"))[1])) if ch.has("rightToes") else 0.12
     hit = (*(land + fwd * 0.05), float(puddle[2]))
-    approach.splash("splash", hit, t_strike, ctx.fps, coll=st.cast, frames=frames, count=90, seed=3)
+    approach.splash("splash", hit, t_strike, ctx.fps, coll=st.cast, frames=frames, count=140, speed=(0.45, 1.3),
+                    size=0.0032, alpha=0.5, seed=3)
     approach.ripples("rings", hit, t_strike, ctx.fps, coll=st.world["near"], frames=frames, rings=4, squash=0.95)
     lift = t_strike + gait.stance * 2 * gait.step
     toe = (*(land + fwd * ball), float(puddle[2]))
@@ -90,10 +91,12 @@ def build(ctx):
 
     approach.drips("sole-drips", None, lift - 0.1, lift + 0.6, ctx.fps, coll=st.cast, frames=frames,
                    every=(0.12, 0.3), fall=0.4, size=0.0035, carry=sole, seed=11)
-    toon.splashes("splash-path", tuple(np.r_[lo, puddle[2] - 0.03]), tuple(np.r_[hi, puddle[2] - 0.03]), count=420,
-                  size=0.05, seed=5)
-    toon.splashes("splash-puddle", tuple(puddle - [0.3, 0.3, 0.0]), tuple(puddle + [0.3, 0.3, 0.0]), count=14,
-                  size=0.035, alpha=0.45, seed=6)
+    # drops landing on the path behind the foot (none between it and the lens: a crown that near is a smear)
+    for i, (near_, far_, n_, size_) in enumerate(((0.35, 3.0, 160, 0.03), (3.0, 12.0, 260, 0.05))):
+        ends = np.array([puddle[:2] - fwd * near_, puddle[:2] - fwd * far_])
+        lo_, hi_ = ends.min(axis=0) - 1.2, ends.max(axis=0) + 1.2
+        toon.splashes(f"splash-path{i}", (lo_[0], lo_[1], puddle[2] - 0.02), (hi_[0], hi_[1], puddle[2] - 0.02),
+                      count=n_, size=size_, alpha=0.4, seed=5 + i)
 
     cam = rig.engine_camera("camera", fstop=FSTOP, size=ctx.size)
     cam.data.lens = LENS
