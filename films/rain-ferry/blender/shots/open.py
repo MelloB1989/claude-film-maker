@@ -20,12 +20,6 @@ FADE = (0.0, 1.8)          # s: the black lifts over these
 TILT = -1.2                # degrees the aim sinks over the shot (toward the hut, as the push ends)
 
 
-def ease_in(u: float) -> float:
-    """A move that starts from rest and keeps going (the push carries on into the cut)."""
-    u = min(1.0, max(0.0, u))
-    return u * u * (3 - 2 * u) * 0.35 + u * 0.65
-
-
 def ease(u: float) -> float:
     u = min(1.0, max(0.0, u))
     return 0.5 - 0.5 * math.cos(math.pi * u)
@@ -39,7 +33,7 @@ def build(ctx):
     from mathutils import Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import rig, toon
+    from lib import cinema, toon, weather
     from rf import valley
 
     scene = ctx.scene
@@ -55,15 +49,12 @@ def build(ctx):
     right = flat.cross(Vector((0, 0, 1)))
     world = valley.build(scene, cam=tuple(start))
 
-    cam = rig.engine_camera("camera", fstop=8.0, size=ctx.size)
-    cam.data.lens = LENS
-    cam.data.clip_start, cam.data.clip_end = 0.5, 20000.0
-    cam.data.dof.use_dof = False    # all of the valley sharp: an establishing view
-    scene.camera = cam
-    target = bpy.data.objects.new("aim", None)
-    scene.collection.objects.link(target)
-    tc = cam.constraints.new("TRACK_TO")
-    tc.target, tc.track_axis, tc.up_axis = target, "TRACK_NEGATIVE_Z", "UP_Y"
+    end = start + fwd * PUSH[0] + Vector((0, 0, PUSH[1])) + right * DRIFT
+    aim1 = aim0 + right * DRIFT + Vector((0, 0, math.tan(math.radians(TILT)) * (aim0 - start).length))
+    rig = cinema.film(ctx, [cinema.Setup("vista", 0.0, cinema.drift(cinema.line(start, end, aim0, aim1), 0.35, cycles=0.4),
+                                         lens=LENS, fstop=11.0, focus=1500.0, ease="linear",
+                                         shake=cinema.Shake(breath=0.025))], clip=(0.5, 20000.0))
+    cam = rig.camera
 
     # the black: a card filling the lens, lifting
     bpy.ops.mesh.primitive_plane_add(size=1.0)
@@ -87,32 +78,14 @@ def build(ctx):
     black.visible_shadow = False
     fade = mx.inputs["Fac"]
 
-    # the rain in the air before the lens: a box carried along with the camera (its drops fall in the world's down)
-    s0 = ctx.look_at(ctx.f0)
-    r = s0.rain
-    carrier = bpy.data.objects.new("rain-carrier", None)
-    scene.collection.objects.link(carrier)
-    rain = toon.rain("rain", (-14.0, 2.0, -12.0), (14.0, 40.0, 10.0), count=max(1, int(r.drops * 1.6)), speed=r.speed,
-                     wind=r.wind, length=r.length * 1.6, width=r.width * 1.3, color=r.color, alpha=r.alpha, seed=3,
-                     near=6.0, clear=1.5)
-    rain.parent = carrier
-    carrier.rotation_euler = (0.0, 0.0, math.atan2(-flat.x, flat.y))
+    # the rain before the lens: the film's (lib/weather.py), as heavy as the schedule says; the far lightning is
+    # this shot's own (below: it lights the clouds, barely the land)
+    weather.storm(ctx, rig, mist=0, strikes=[])
 
     strikes = ctx.look.lightning or (3.3,)
     flash = toon.lightning(scene, list(strikes), range(ctx.f0 - 1, ctx.f1 + 1), ctx.fps, ctx.f0)
-    n = ctx.f1 - ctx.f0
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = ctx.time(f) - ctx.time(ctx.f0)
-        u = (f - ctx.f0) / max(1, n - 1)
-        k = ease_in(u)
-        at = start + fwd * PUSH[0] * k + Vector((0, 0, PUSH[1] * k)) + right * DRIFT * ease(u)
-        cam.location = at
-        cam.keyframe_insert("location", frame=f)
-        aim = aim0 + right * DRIFT * ease(u) + Vector((0, 0, math.tan(math.radians(TILT)) * (aim0 - start).length * ease(u)))
-        target.location = aim
-        target.keyframe_insert("location", frame=f)
-        carrier.location = at
-        carrier.keyframe_insert("location", frame=f)
         fade.default_value = 1.0 - ease((t - FADE[0]) / (FADE[1] - FADE[0]))
         fade.keyframe_insert("default_value", frame=f)
         # far off: the lightning only lights the clouds, and the drops near the lens a little

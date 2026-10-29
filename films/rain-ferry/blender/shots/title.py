@@ -141,7 +141,7 @@ def build(ctx):
     from mathutils import Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import brushtext, rig, shapes
+    from lib import brushtext, cinema, shapes
     from rf import valley
 
     scene = ctx.scene
@@ -159,15 +159,12 @@ def build(ctx):
     aim0 = aim0 + right * 160.0 + Vector((0, 0, 90.0))
     valley.build(scene, cam=tuple(start))
 
-    cam = rig.engine_camera("camera", fstop=8.0, size=ctx.size)
-    cam.data.lens = LENS
-    cam.data.clip_start, cam.data.clip_end = 0.3, 20000.0
-    cam.data.dof.use_dof = False
-    scene.camera = cam
-    target = bpy.data.objects.new("aim", None)
-    scene.collection.objects.link(target)
-    tc = cam.constraints.new("TRACK_TO")
-    tc.target, tc.track_axis, tc.up_axis = target, "TRACK_NEGATIVE_Z", "UP_Y"
+    end = start + right * DRIFT[0] + flat * DRIFT[1]
+    rig = cinema.film(ctx, [cinema.Setup("vista", 0.0, cinema.drift(cinema.line(start, end, aim0, aim0 + right * DRIFT[0]),
+                                                                    0.25, cycles=0.3),
+                                         lens=LENS, fstop=11.0, focus=1500.0, ease="sine",
+                                         shake=cinema.Shake(breath=0.015))], clip=(0.3, 20000.0))
+    cam = rig.camera
 
     t0 = ctx.time(ctx.f0)
     # the paper wash behind the calligraphy (right of the middle) and the words
@@ -226,15 +223,8 @@ def build(ctx):
     black.data.materials.append(bmat)
     black.visible_shadow = False
 
-    n = ctx.f1 - ctx.f0
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = ctx.time(f) - t0
-        u = (f - ctx.f0) / max(1, n - 1)
-        at = start + right * DRIFT[0] * ease(u) + flat * DRIFT[1] * u
-        cam.location = at
-        cam.keyframe_insert("location", frame=f)
-        target.location = aim0 + right * DRIFT[0] * ease(u)
-        target.keyframe_insert("location", frame=f)
         valley.key(scene, f, ctx.look_at(f), sun=1.0)
         pfade.default_value = 0.78 * ease((t - PAPER[0]) / (PAPER[1] - PAPER[0]))
         pfade.keyframe_insert("default_value", frame=f)

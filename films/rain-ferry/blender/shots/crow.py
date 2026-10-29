@@ -45,8 +45,8 @@ def build(ctx):
     from mathutils import Matrix, Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import bird, rig, shapes, toon
-    from rf import set_world
+    from lib import bird, cinema, shapes, toon, weather
+    from rf import set_world, sets
 
     scene = ctx.scene
     scene.render.use_motion_blur = False
@@ -70,21 +70,9 @@ def build(ctx):
     aim0 = cam_at + view * 10.0 + Vector((0.0, 0.0, -0.25))
     far_focus = set_world.anchor(world, "jetty_end") if "jetty_end" in world["anchors"] else head0 + view * 12.0
 
-    cam = rig.engine_camera("camera", fstop=FSTOP, size=ctx.size)
-    cam.data.lens = LENS
-    cam.data.clip_end = 4000.0
-    scene.camera = cam
-    target = bpy.data.objects.new("aim", None)
-    scene.collection.objects.link(target)
-    tc = cam.constraints.new("TRACK_TO")
-    tc.target, tc.track_axis, tc.up_axis = target, "TRACK_NEGATIVE_Z", "UP_Y"
-    focus = bpy.data.objects.new("focus", None)
-    scene.collection.objects.link(focus)
-    cam.data.dof.focus_object = focus
-
     # ---- the crow ----
     crow = bird.build("crow", look=look, scale=1.0, beads=46, seed=4)
-    ink_crow = toon.ink("ink-crow", crow.coll, radius=0.0011, crease=130)
+    toon.ink("ink-crow", crow.coll, radius=0.0011, crease=130)
     heading = math.atan2(-right.x, right.y) + math.radians(HEADING)
     fwd = Vector((-math.sin(heading), math.cos(heading), 0.0))
 
@@ -131,6 +119,15 @@ def build(ctx):
             crow.place(f, tuple(top), heading)
         crow.key(f, pose)
     crow.hold()
+
+    # ---- the camera (lib/cinema.py): held on the crow, breathing, a slow creep in; it lifts after the crow as it
+    # springs, and the focus goes out to the crossing
+    lift = cinema.line(cam_at, cam_at + view * 0.05 + Vector((0, 0, 0.06)), aim0, aim0 + right * 0.6 + Vector((0, 0, 0.45)))
+    rig = cinema.film(ctx, [cinema.Setup("crow", 0.0, cinema.drift(lift, 0.008, cycles=0.5), span=(LAUNCH + 0.05, LAUNCH + 0.95),
+                                         lens=LENS, fstop=FSTOP, focus=crow.joints["head"],
+                                         racks=(cinema.Rack(FOCUS_PULL[0], tuple(far_focus), FOCUS_PULL[1] - FOCUS_PULL[0]),),
+                                         shake=cinema.Shake(breath=0.07, hits=((LAUNCH + 0.02, 0.12),)))],
+                      clip=(0.02, 4000.0))
 
     # ---- water: the drop on its beak, the spray off its wings ----
     bead_mat = toon.flat("crow-drip", (0.55, 0.6, 0.7), look=look, strength=1.1)
@@ -187,23 +184,6 @@ def build(ctx):
         post_root.rotation_euler = (base_rot.x + wob, base_rot.y, base_rot.z)
         post_root.keyframe_insert("rotation_euler", frame=f)
 
-    # ---- the rain, and the camera ----
-    s = ctx.look_at(ctx.f0)
-    r = s.rain
-    box_c = cam_at + view * 9.0
-    toon.rain("rain", (box_c.x - 9, box_c.y - 9, top.z - 4), (box_c.x + 9, box_c.y + 9, top.z + 4), count=max(1, r.drops),
-              speed=r.speed, wind=r.wind, length=r.length, width=r.width, color=r.color, alpha=r.alpha * 0.75, seed=6,
-              near=3.2, clear=1.0)
-    lift_to = Vector(flight[-1].location)
-    for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        t = T(f)
-        # a held breath of a frame, alive: a slow drift in, then it lifts after the crow
-        drift = Vector((0.0, 0.0, 0.006 * math.sin(2 * math.pi * 0.23 * t))) + view * 0.06 * ease(t / 3.0)
-        follow = ease((t - LAUNCH - 0.05) / 0.9)
-        cam.location = cam_at + drift + Vector((0, 0, 0.06 * follow))
-        aim = aim0.lerp(aim0 + right * 0.6 + Vector((0, 0, 0.45)), follow)
-        target.location = aim
-        k = ease((t - FOCUS_PULL[0]) / (FOCUS_PULL[1] - FOCUS_PULL[0]))
-        focus.location = head0.lerp(far_focus, k)
-        for ob, path in ((cam, "location"), (target, "location"), (focus, "location")):
-            ob.keyframe_insert(path, frame=f)
+    # ---- the rain (lib/weather.py): the schedule's, splashing on the deck and ringing the water
+    deck = ((sets.SPAN[0], -sets.HALF + 0.05, 0.004), (sets.SPAN[1], sets.HALF - 0.05, 0.004))
+    weather.storm(ctx, rig, splashes=[deck], waters=world["waters"], floor=sets.WATER_Z, ground=sets.WATER_Z)
