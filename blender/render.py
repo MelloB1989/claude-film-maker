@@ -20,7 +20,8 @@ first at or after its end); explicit frames need no scene. Blender's frame numbe
 so keyframes set with ctx.frame(t) land on the engine's frames.
 build(ctx) makes the camera (as scene.camera), the lights and the animation; ctx (Ctx below) has scene, film, shot,
 mode, f0, f1, res, size (the logical frame), fps, theme, timing, spec (films/<id>/data/look/<shot>.json, or None),
-frame(t) and time(f). The film's theme is in use before build() runs (lib/theme.py), so materials take palette roles:
+look (the shot's scene in the film's look schedule, films/<id>/data/look.json: lib/look_schedule.py), look_at(f) (its
+State at film frame f: the arc, light, satsuei, rain and mist the shot builds with), frame(t) and time(f). The film's theme is in use before build() runs (lib/theme.py), so materials take palette roles:
 materials.satin("fg"), lights.studio(world="bg").
 
 "black_ok" (optional) names the film frames that are legitimately black, say a fade from black with nothing lit; the
@@ -84,7 +85,7 @@ sys.path.insert(0, str(HERE))
 
 import bpy  # noqa: E402
 
-from lib import blank, cli, export, handlers, scan, setup, theme, timing  # noqa: E402
+from lib import blank, cli, export, handlers, look_schedule, scan, setup, theme, timing  # noqa: E402
 from lib import film as films  # noqa: E402
 
 
@@ -100,6 +101,7 @@ class Ctx:
     res: tuple  # the render size, px
     timing: timing.Timing
     spec: dict | None = None  # films/<id>/data/look/<shot>.json: the world the shot shares with its engine scene
+    look: look_schedule.ShotLook | None = None  # its scene's entry in the film's look schedule (data/look.json)
 
     @property
     def size(self) -> tuple[int, int]:
@@ -121,6 +123,13 @@ class Ctx:
     def time(self, f: float) -> float:
         """The film time of film frame f."""
         return self.timing.time(f)
+
+    def look_at(self, f: float) -> look_schedule.State:
+        """The look schedule's state at film frame f: its keys are in s from the scene's start, as the engine's are (from
+        the shot's first frame when the timeline has no window for it)."""
+        if self.look.start is not None:
+            return self.look.at_film(self.time(f))
+        return self.look.at(self.time(f) - self.time(self.f0))
 
 
 def load_shot(path: Path, name: str):
@@ -181,7 +190,8 @@ def main(argv: list[str]) -> int:
     scene.frame_start, scene.frame_end = f0, f1 - 1
     scene["shot"] = name
     scene["film"] = film.id
-    ctx = Ctx(scene, film, name, a.mode, f0, f1, res, film.timing(), film.spec(name))
+    look = look_schedule.load(film).shot(shot.get("scene") or name)
+    ctx = Ctx(scene, film, name, a.mode, f0, f1, res, film.timing(), film.spec(name), look)
     t0 = time.time()
     mod.build(ctx)
     if scene.camera is None:
