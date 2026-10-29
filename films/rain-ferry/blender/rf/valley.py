@@ -20,17 +20,16 @@ import math
 
 import numpy as np
 
-WATER_Z = 0.0
-EXTENT = (-3200.0, 3200.0, -300.0, 7000.0)     # the land's x and y range (m)
+from . import sets
+
+WATER_Z = sets.WATER_Z
+EXTENT = (-3200.0, 3200.0, -900.0, 7000.0)     # the land's x and y range (m)
 GRID = (230, 250)                               # its vertices across and along
 # the valley's camera: where it stands (x, y, height over the land), what it looks at
-CAMERA = (-90.0, -220.0, 150.0)
-AIM = (40.0, 1800.0, 60.0)
-# the ferry on the near bank: the hut's floor (x, y), and how much larger than life it is drawn (from this far up a
-# real hut is a speck)
-HAMLET = (-14.0, 380.0)
-HAMLET_SCALE = 7.0
-SUN = (0.42, 1.0, 0.19)          # toward the sun (behind the valley's right side, low): the gold light's direction
+CAMERA = (70.0, -430.0, 120.0)        # high over the river below the crossing, the slopes on either side
+AIM = (330.0, 1700.0, 0.0)            # up the valley: the crossing on the lower left third, the river leading in
+SUN = (0.42, 1.0, 0.19)
+KEY = (-0.35, -0.3, 0.88)         # the soft light of the overcast on the land: from high behind the camera's left          # toward the sun (behind the valley's right side, low): the gold light's direction
 SKY_FAR = 9000.0                  # the sky dome's radius
 # the scene properties the materials read (linear colours, or 0..1)
 PROPS = ("rf_zenith", "rf_horizon", "rf_fog", "rf_lit", "rf_shade", "rf_accent", "rf_gold", "rf_sun", "rf_rain",
@@ -70,36 +69,65 @@ def ridged(x, y, octaves: int = 5, seed: int = 0) -> np.ndarray:
     return out / total
 
 
-def river_x(y) -> np.ndarray:
-    """The river's middle across x at y: winding, bending left as it goes up the valley."""
+def _away(y) -> np.ndarray:
+    """0 by the crossing, rising to 1 well up the valley: where the vista's own river and mountains take over from
+    the film's set (rf/set_valley.py)."""
+    return np.clip((np.asarray(y, float) - 350.0) / 700.0, 0.0, 1.0) ** 2
+
+
+def banks(y) -> tuple[np.ndarray, np.ndarray]:
+    """The river's near (west) and far (east) waterlines at y: the set's by the crossing (set_valley.near_edge and
+    far_edge: the jetty's bank, the far bank about 75 m off), then winding away and widening up the valley."""
+    from . import set_valley
+
     y = np.asarray(y, float)
-    return 70.0 * np.sin(y / 330.0 + 0.6) + 210.0 * np.sin(y / 1500.0 + 2.4) - 120.0
+    k = _away(y)
+    wind = 150.0 * k * np.sin((y - 350.0) / 950.0) + 90.0 * k * np.sin((y - 350.0) / 380.0 + 0.4)
+    widen = 0.025 * np.maximum(y - 350.0, 0.0)
+    return set_valley.near_edge(y) - wind - widen * 0.4, set_valley.far_edge(y) - wind + widen * 0.6
+
+
+def river_x(y) -> np.ndarray:
+    """The river's middle across x at y."""
+    a, b = banks(y)
+    return (a + b) / 2
 
 
 def river_half(y) -> np.ndarray:
     """The river's half width at y (m)."""
-    return 46.0 + 0.026 * np.maximum(np.asarray(y, float), 0.0)
+    a, b = banks(y)
+    return (b - a) / 2
 
 
 def height(x, y) -> np.ndarray:
-    """The land's height (m over the water) at (x, y): the river's bed, banks rising steeply into mountains whose
-    spurs reach in from each side in turn (so the river weaves between them), taller the further up the valley."""
+    """The land's height (m) at (x, y): the river's bed, banks rising steeply into mountains whose spurs reach in from
+    each side in turn up the valley (so the river weaves between them), taller the further up it; by the crossing,
+    the set's own ground (set_valley.ground) along the banks, so the jetty, the hut and the path stand where every
+    other shot has them."""
+    from . import set_valley
+
     x, y = np.asarray(x, float), np.asarray(y, float)
     yy = np.maximum(y, 0.0)
-    side = np.sign(x - river_x(y))
-    # spurs: each side's ridges reach in toward the river, the two sides out of step
+    mid, half = river_x(y), river_half(y)
+    side = np.sign(x - mid)
+    k = _away(y)
+    # spurs: each side's ridges reach in toward the river up the valley, the two sides out of step
     spur = 0.5 + 0.5 * np.sin(yy / (380.0 + 0.12 * yy) + side * 1.9 + 0.8)
-    d = np.abs(x - river_x(y)) - river_half(y) - 30.0 * (1 - spur)
+    inland = np.abs(x - mid) - half
+    d = inland - 30.0 * (1 - spur) * k
     reach = 90.0 + 0.09 * yy
-    bank = np.clip(d / reach, 0.0, None)
-    rise = 1.0 - np.exp(-1.4 * bank)                          # steep at the bank, levelling to the crests
-    tall = 150.0 + 0.2 * yy                                    # the mountains' height grows up the valley
+    rise = 1.0 - np.exp(-1.4 * np.clip(d / reach, 0.0, None))     # steep at the bank, levelling to the crests
+    tall = 170.0 + 0.2 * yy                                         # the mountains' height grows up the valley
     s = 1.0 / (260.0 + 0.06 * yy)
     m = 0.55 + 0.75 * ridged(x * s, y * s, seed=3) * (0.6 + 0.6 * spur)
     h = tall * rise * m
     # rock and gullies on the slopes
     h = h + 22.0 * rise * (noise(x / 60.0, y / 60.0, 11) - 0.5) + 8.0 * (noise(x / 17.0, y / 17.0, 12) - 0.5) * rise
-    return np.where(d < 0, WATER_Z - 3.0 + d * 0.02, h + WATER_Z - 1.5)
+    mine = np.where(d < 0, WATER_Z - 3.0 + d * 0.02, h + WATER_Z - 1.5)
+    # by the crossing: the set's ground
+    w = np.clip((140.0 - inland) / 70.0, 0.0, 1.0) * np.clip((430.0 - np.abs(y)) / 130.0, 0.0, 1.0)
+    theirs = set_valley.ground(x, y)
+    return w * theirs + (1 - w) * mine
 
 
 def grid(extent=EXTENT, size=GRID):
@@ -146,7 +174,7 @@ def palette(state, *, sun: float | None = None, flash: float = 0.0) -> dict:
     w = state.warm
     sun = w if sun is None else sun
     k = L.key_strength
-    lit = tuple(min(4.0, c * k * (0.035 + 0.3 * w)) for c in L.key)
+    lit = tuple(min(4.0, c * k * (0.035 + 0.1 * w)) for c in L.key)
     zen = tuple(c * (0.62 + 0.1 * w) for c in L.sky)
     shade = tuple(i * (1 - w) + c * w for i, c in zip(INK, (0.03, 0.022, 0.016)))
     return {"rf_zenith": zen, "rf_horizon": tuple(L.sky), "rf_fog": tuple(L.fog), "rf_lit": lit, "rf_shade": shade,
@@ -282,13 +310,10 @@ def wash(name: str, *, cam, ink=INK, lit_k: float = 1.0, texture: float = 0.5, s
     into a soft band, rim-lit gold toward the sun as it opens (`rf_sun`), brushed with texture (`texture` 0..1),
     then `fogged`."""
     mat, n = _material(name)
-    diff = n.new("ShaderNodeBsdfDiffuse")
-    s2r = n.new("ShaderNodeShaderToRGB")
-    n.L.new(diff.outputs[0], s2r.inputs[0])
-    lum = n.new("ShaderNodeRGBToBW")
-    n.L.new(s2r.outputs["Color"], lum.inputs[0])
-    band = n.ramp(lum.outputs[0], 0.18, 0.5)
     geo = n.N.new("ShaderNodeNewGeometry")
+    # lit by the vista's own key, read from the surface's facing (not the scene's lights: the set stages its own key
+    # for the crossing, and the vista's ink must not change with it), so no cast shadows either
+    band = n.ramp(n.vmath("DOT_PRODUCT", geo.outputs["Normal"], _unit(KEY)), 0.15, 0.55)
     tc = n.N.new("ShaderNodeTexCoord")
     # brushwork: long strokes across the slope and a dry-brush grain
     stroke = n.new("ShaderNodeMapping")
@@ -474,6 +499,22 @@ def mist_material(name: str, *, scene, density: float = 0.6, drift: float = 6.0,
 
 # ---------------------------------------------------------------------------------------------------- Blender
 
+def card(name: str, coll, location, size, material, *, rotation=(0.0, 0.0, 0.0)):
+    """A flat card `size` (x, y) in its own x-y plane at `location`, turned by `rotation` (made from data: an
+    operator re-evaluates the whole scene, seconds a call in a big one)."""
+    import bpy
+
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.5, 0.5, 0.0), (-0.5, 0.5, 0.0)], [], [(0, 1, 2, 3)])
+    me.uv_layers.new(name="UVMap")
+    me.materials.append(material)
+    ob = bpy.data.objects.new(name, me)
+    coll.objects.link(ob)
+    ob.location, ob.rotation_euler, ob.scale = location, rotation, (size[0], size[1], 1.0)
+    ob.visible_shadow = False
+    return ob
+
+
 def _pine_mesh(name: str):
     """One pine as a silhouette for instancing: a thin trunk under four drooping tiers, 1 m tall."""
     import bpy
@@ -562,15 +603,32 @@ def _forest(name: str, land, pine, coll, *, seed: int = 2):
     return mod
 
 
-def build(scene, *, cam=None, aim=None, coll=None, hamlet: bool = True, foreground: bool = True, seed: int = 5) -> dict:
-    """The valley: the land with its forests, the river, the mist banks, the sky dome round `cam` (its location;
-    default CAMERA over the land), the hut and jetty on the near bank with the lantern lit, a sun lamp, and (with
-    `foreground`) a ledge with pines below the lens at the lower left of the view toward `aim`. Its colours are the
-    scene's properties (`key` them). Returns its pieces."""
+def build(ctx, *, cam=None, aim=None, weather=None, coll=None, foreground: bool = True, seed: int = 5) -> dict:
+    """The valley for a shot (`ctx`, render.py's): the film's world by the crossing (rf/set_world.py, lit for
+    `weather`: its jetty, hut and lantern, moored ferry, path and signpost, the ground they stand on), and round it
+    the vista's own land with its forests, the river, the mist banks, the sky dome round `cam` (its location; default
+    CAMERA), and (with `foreground`) old pines overhanging the lower left of the view toward `aim`. The vista's
+    colours are the scene's properties (`key` them). Returns its pieces, and the set's world as "world"."""
     import bpy
 
-    from lib import props, shapes, toon
+    from lib import shapes, toon
 
+    from . import set_world
+
+    scene = ctx.scene
+    world = set_world.build(ctx, weather=weather)
+    # the set's distance gives way to the vista's: its coarse ground, river, ridges, forests, mist and sky card
+    v = world["valley"]
+    hide = [v["valley_ground"], v["river"], v["sky"], *v["mist"]]
+    hide += [ob for ob in world["far"].all_objects if ob.name.startswith(("ridge", "valley-forest", "river-mist",
+                                                                           "slope-mist"))]
+    # ... and from this far up, so do the ground, the path, the grass and stones by the ferry: the vista's land
+    # carries the set's ground there (`height`), in the vista's ink; the built things stay (pier, posts, hut, lantern,
+    # ferry, mooring, signpost)
+    hide += [ob for ob in world["near"].all_objects if ob.name.startswith(("bank", "approach", "path", "pebble", "rock",
+                                                                            "step", "deck-puddle"))]
+    for ob in hide:
+        ob.hide_render = ob.hide_viewport = True
     coll = coll or toon.collection("valley")
     cam = tuple(cam) if cam is not None else camera_location()
     # the land
@@ -581,6 +639,7 @@ def build(scene, *, cam=None, aim=None, coll=None, hamlet: bool = True, foregrou
     verts = np.column_stack([X.ravel(), Y.ravel(), Z.ravel()])
     faces = [(j * nx + i, j * nx + i + 1, (j + 1) * nx + i + 1, (j + 1) * nx + i) for j in range(ny - 1) for i in range(nx - 1)]
     land = shapes.mesh_object("land", verts, faces, None, coll, smooth=True)
+    land.visible_shadow = False
     gy, gx = np.gradient(Z, ys, xs)
     slope = np.hypot(gx, gy)
     dist = np.hypot(X - cam[0], Y - cam[1])
@@ -593,99 +652,36 @@ def build(scene, *, cam=None, aim=None, coll=None, hamlet: bool = True, foregrou
          "trees": wash("valley-trees", cam=cam, scene=scene, ink=TREE_INK, lit_k=0.6, texture=0.25),
          "river": river_material("valley-river", cam=cam, scene=scene),
          "sky": sky_material("valley-sky", scene=scene),
-         "lantern": glow_material("valley-lantern", "rf_accent", 6.0),
-         "door": glow_material("valley-door", "rf_accent", 0.8),
          "near": near_ink("valley-near")}
     me.materials.append(m["land"])
     pine = _pine_mesh("valley-pine")
     coll.objects.link(pine)
     pine.data.materials.append(m["trees"])
     pine.hide_render = pine.hide_viewport = True
+    pine.visible_shadow = False
     _forest("valley-forest", land, pine, coll, seed=seed)
     # the river: a plane under the land
-    bpy.ops.mesh.primitive_plane_add(size=1, location=(0.0, (EXTENT[2] + EXTENT[3]) / 2, WATER_Z))
-    river = bpy.context.active_object
-    river.name = "river"
-    river.scale = (EXTENT[1] - EXTENT[0], EXTENT[3] - EXTENT[2], 1)
-    river.data.materials.append(m["river"])
-    river.visible_shadow = False
-    toon.move_to(river, coll)
+    river = card("river", coll, (0.0, (EXTENT[2] + EXTENT[3]) / 2, WATER_Z), (EXTENT[1] - EXTENT[0], EXTENT[3] - EXTENT[2]),
+                 m["river"])
     # the sky: a dome round the camera
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=24, radius=SKY_FAR, location=cam)
-    sky = bpy.context.active_object
-    sky.name = "sky"
-    sky.data.materials.append(m["sky"])
+    sky = shapes.ellipsoid("sky", (0.0, 0.0, 0.0), (SKY_FAR,) * 3, material=m["sky"], coll=coll, n=48)
+    sky.location = cam            # its object coordinates are the view's directions
     sky.visible_shadow = False
-    toon.move_to(sky, coll)
     # mist banks across the valley at distances up it, low over the water
     mists = []
     for k, (y, h, w) in enumerate([(560, 50, 1100), (760, 80, 1500), (900, 110, 2200), (1500, 170, 3200), (2400, 260, 4800),
                                    (3600, 380, 6400)]):
-        bpy.ops.mesh.primitive_plane_add(size=1, location=(river_x(y) + 40.0, y, WATER_Z + h * 0.32), rotation=(math.pi / 2, 0, 0))
-        card = bpy.context.active_object
-        card.name = f"mist{k}"
-        card.scale = (w, h, 1)
-        card.data.materials.append(mist_material(f"valley-mist{k}", scene=scene, density=0.75, drift=4.0 + 2.5 * k,
-                                                 seed=k * 2.7, size=(w, h)))
-        card.visible_shadow = False
-        toon.move_to(card, coll)
-        mists.append(card)
-    # the sun: what the land's lit side is lit by
-    sun = bpy.data.lights.new("valley-sun", "SUN")
-    sun.energy = 3.0
-    sun.angle = math.radians(4)
-    sun_ob = bpy.data.objects.new("valley-sun", sun)
-    coll.objects.link(sun_ob)
-    from mathutils import Vector
-
-    sun_ob.rotation_euler = Vector(SUN).normalized().to_track_quat("Z", "Y").to_euler()
-    out = {"coll": coll, "land": land, "river": river, "sky": sky, "mists": mists, "sun": sun_ob, "materials": m}
+        mists.append(card(f"mist{k}", coll, (float(river_x(y)) + 40.0, y, WATER_Z + h * 0.32), (w, h),
+                          mist_material(f"valley-mist{k}", scene=scene, density=0.75, drift=4.0 + 2.5 * k, seed=k * 2.7,
+                                        size=(w, h)), rotation=(math.pi / 2, 0, 0)))
+    # the land's lit side is lit by the set's key (set_weather.stage)
+    out = {"coll": coll, "land": land, "river": river, "sky": sky, "mists": mists, "materials": m, "world": world,
+           "lantern": world["lantern"]}
     if foreground:
         out["foreground"] = _foreground(coll, m, cam, aim or AIM, seed=seed)
-    if hamlet:
-        out.update(_hamlet(coll, m))
     return out
 
 
-def _hamlet(coll, m) -> dict:
-    """The ferry's hut, its jetty and the moored boat on the near bank, small in the view, the lantern alight."""
-    import bpy
-
-    from lib import props, shapes
-
-    hx, hy = HAMLET
-    z = max(float(height(hx, hy)), WATER_Z + 0.6)
-    # a little larger than life: from this far up a real hut is a speck (the jetty and boat with it)
-    root = bpy.data.objects.new("hamlet", None)
-    coll.objects.link(root)
-    root.location = (hx, hy, z)
-    root.scale = (HAMLET_SCALE,) * 3
-    root.rotation_euler = (0, 0, math.radians(-8))
-    ink = m["trees"]
-    obs = []
-    hut = props.thatched_hut({"wall": ink, "thatch": m["land"], "door": m["door"]}, coll, (0.0, 0.0, 0.0))
-    obs += hut["objects"]
-    ex, ey, ez = hut["eave"]
-    lantern, lobs = props.paper_lantern("hamlet-lantern", m["lantern"], coll, (ex, ey, ez - 0.45), cord=ink, cord_top=ez + 0.1)
-    obs += lobs
-    # the jetty out from the bank toward the water (+x), the boat along it
-    bank = river_x(hy) - river_half(hy)
-    k = HAMLET_SCALE
-    reach = (bank - hx) / k + 6.0
-    obs += props.pier({"plank": ink, "post": ink, "rope": ink}, coll, span=(3.0, reach), half=0.9,
-                      deck_z=(WATER_Z - z) / k + 0.5, water_z=(WATER_Z - z) / k, post_xs=tuple(np.arange(4.0, reach, 2.5)))
-    boat = props.covered_boat({"hull": ink, "post": ink, "thatch": m["land"]}, coll, x0=reach - 5.5, y=-1.9,
-                              water_z=(WATER_Z - z) / k)
-    obs += boat["objects"]
-    for ob in obs:
-        if ob.parent is None:
-            ob.parent = root
-    return {"hamlet": root, "lantern": lantern}
-
-
-# (bearing left of the view as a share of the distance, metres out, height, seed, foot below the lens in metres): two
-# old pines rooted below the frame's left edge, leaning in so their crowns overhang the top left against the pale
-# distance, as an ink painting frames its valley
 FOREGROUND = [(-0.6, 270.0, 210.0, 1, 75.0), (-0.47, 330.0, 150.0, 3, 55.0)]
 
 
@@ -760,6 +756,6 @@ def _foreground(coll, m, cam, aim, *, seed: int = 5) -> list:
 
 
 def camera_location(cam=CAMERA) -> tuple:
-    """CAMERA's (x, y, height over the land) as a point in the world."""
-    x, y, over = cam
-    return (x, y, float(height(x, y)) + over)
+    """CAMERA as a point in the world, kept at least 20 m over the land."""
+    x, y, z = cam
+    return (x, y, max(float(z), float(height(x, y)) + 20.0))

@@ -47,7 +47,7 @@ def build(ctx):
     fwd = (aim0 - start).normalized()
     flat = Vector((fwd.x, fwd.y, 0.0)).normalized()
     right = flat.cross(Vector((0, 0, 1)))
-    world = valley.build(scene, cam=tuple(start), aim=tuple(aim0))
+    world = valley.build(ctx, cam=tuple(start), aim=tuple(aim0))
 
     end = start + fwd * PUSH[0] + Vector((0, 0, PUSH[1])) + right * DRIFT
     aim1 = aim0 + right * DRIFT + Vector((0, 0, math.tan(math.radians(TILT)) * (aim0 - start).length))
@@ -57,12 +57,6 @@ def build(ctx):
     cam = rig.camera
 
     # the black: a card filling the lens, lifting
-    bpy.ops.mesh.primitive_plane_add(size=1.0)
-    black = bpy.context.active_object
-    black.name = "fade"
-    black.parent = cam
-    black.location = (0.0, 0.0, -0.6)
-    black.scale = (3.0, 3.0, 1.0)
     mat = bpy.data.materials.new("fade")
     nt = toon.nodes(mat)
     em = nt.nodes.new("ShaderNodeEmission")
@@ -74,8 +68,8 @@ def build(ctx):
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     nt.links.new(mx.outputs[0], out.inputs["Surface"])
     mat.surface_render_method = "BLENDED"
-    black.data.materials.append(mat)
-    black.visible_shadow = False
+    black = valley.card("fade", scene.collection, (0.0, 0.0, -0.6), (3.0, 3.0), mat)
+    black.parent = cam
     fade = mx.inputs["Fac"]
 
     # the rain before the lens: the film's (lib/weather.py), as heavy as the schedule says; the far lightning is

@@ -150,7 +150,7 @@ def build(ctx):
     right = flat.cross(Vector((0, 0, 1)))
     start = base + right * OFFSET[0] + flat * OFFSET[1] + Vector((0, 0, OFFSET[2]))
     aim0 = aim0 + right * 160.0 + Vector((0, 0, 90.0))
-    valley.build(scene, cam=tuple(start), aim=tuple(aim0))
+    valley.build(ctx, cam=tuple(start), aim=tuple(aim0), weather="after")
 
     end = start + right * DRIFT[0] + flat * DRIFT[1]
     rig = cinema.film(ctx, [cinema.Setup("vista", 0.0, cinema.drift(cinema.line(start, end, aim0, aim0 + right * DRIFT[0]),
@@ -162,14 +162,8 @@ def build(ctx):
     t0 = ctx.time(ctx.f0)
     # the paper wash behind the calligraphy (right of the middle) and the words
     pmat, pfade = paper_material(scene)
-    bpy.ops.mesh.primitive_plane_add(size=1.0)
-    paper = bpy.context.active_object
-    paper.name = "paper"
+    paper = valley.card("paper", scene.collection, (-0.15, 0.02, -DEPTH - 0.05), (4.6, 2.5), pmat)
     paper.parent = cam
-    paper.location = (-0.15, 0.02, -DEPTH - 0.05)
-    paper.scale = (4.6, 2.5, 1.0)
-    paper.data.materials.append(pmat)
-    paper.visible_shadow = False
 
     # 「雨渡し」 brushed down the right third; scene time is film time, so its window is the shot's start plus
     title = brushtext.build("title-calligraphy", "雨渡し", str(JP), size=0.39, vertical=True, spacing=1.0,
