@@ -6,8 +6,8 @@ has not moved, except that her left hand has come to the pole above her right. T
 drops: from in front of him, past his raised blade, along the line between them, turning to her; the near drops
 slide by as soft discs of light while the focus travels from him to her. Silence, then a high ring.
 
-The cast is the duel's (rf/duel.py); the rain's clock is remapped here: the scene time its drops fall by is replaced
-by a keyed clock, the integral of the schedule's speed, so they decelerate to a stop rather than jump.
+The cast is the duel's (rf/duel.py), the camera lib/cinema.py's, the rain lib/weather.py's (keyed to the schedule's
+speed, so the drops decelerate to a stop and hang rather than jump).
 
     blender -b -P blender/render.py -- --film rain-ferry --shot freeze --mode look --engine eevee \\
         --frames 1635,1665,1700,1754 --res 960x540
@@ -43,7 +43,6 @@ FSTOP = 2.0
 LOOK = dict(rims=[((0.6, 1.0), (0.6, 0.68, 0.85), 0.3, 0.003, 0.9), ((-1.0, 0.3), (1.0, 0.5, 0.18), 0.2, 0.0025, 0.9)],
             para_from=(0.5, 0.9), para_to=(0.5, 0.05), para_amount=0.3)
 KEYS = {"shinza": (1.0, -0.6, 0.8), "tsuru": (-1.0, -0.6, 0.8)}
-SPEED0 = 9.5
 
 
 def build(ctx):
@@ -51,34 +50,15 @@ def build(ctx):
     from mathutils import Matrix, Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import rig, satsuei, vrm
+    from lib import cinema, satsuei, vrm
     from rf import duel, vroid_shinza
-    from rf import duel_motion as dm
     from rf import eye_closeup
 
-    st = duel.stage(ctx, splashes=False)
+    st = duel.stage(ctx)
     sh, ts = st.bodies["shinza"], st.bodies["tsuru"]
     shc, tsc = st.ch("shinza"), st.ch("tsuru")
     sx, sy = duel.MARKS["shinza"]
     st.actors["shinza"]["root"].location = (sx + SH_AT[0], sy + SH_AT[1], 0.0)
-    cam, aim = duel.camera(ctx, lens=LENS[0], fstop=FSTOP)
-    duel.rain_input(st.rain, "clear").default_value = 0.25
-    duel.rain_input(st.rain, "near").default_value = 2.5
-
-    # the rain's clock: the scene's time swapped for a keyed value; its drops shortened to beads as they stop
-    tv = {}
-    for ob in (st.rain, st.rain_cast):
-        ng = ob.modifiers[0].node_group
-        tn = next(n for n in ng.nodes if n.bl_idname == "GeometryNodeInputSceneTime")
-        if ng.name not in tv:
-            v = ng.nodes.new("ShaderNodeValue")
-            for link in list(tn.outputs["Seconds"].links):
-                ng.links.new(v.outputs[0], link.to_socket)
-            info = next(n for n in ng.nodes if n.bl_idname == "GeometryNodeObjectInfo" and n.inputs["Object"].default_value
-                        and n.inputs["Object"].default_value.name.endswith("-drop"))
-            info.transform_space = "RELATIVE"     # the drop's keyed scale carried into each instance
-            tv[ng.name] = (v, info.inputs["Object"].default_value)
-
     # Shinza mid-launch: both hands re-closed on the hilt raised high (the sword rides his right hand), the stride
     hilt0 = vroid_shinza.HILT_DIR / np.linalg.norm(vroid_shinza.HILT_DIR)
     up = np.asarray(HILT_UP, float) / np.linalg.norm(HILT_UP)
@@ -130,39 +110,24 @@ def build(ctx):
         poly.use_smooth = True
     me.materials.append(eye_closeup._water("hung", 0.8, 1.3))
 
-    pts = [np.asarray(p, float) + np.array((duel.MID[0], duel.MID[1], 0.0)) for p in PATH]
-    frames = range(ctx.f0 - 1, ctx.f1 + 1)
-    speeds = {f: ctx.look_at(f).rain.speed for f in frames}
-    clocks = dict(zip(frames, dm.clock([speeds[f] for f in frames], ctx.fps, SPEED0)))
+    # the camera (lib/cinema.py): the glide along PATH (from MID), its aim travelling from his face to hers, the focus
+    # racked from him to her as it goes
+    bpy.context.view_layer.update()
+    mid = np.array((duel.MID[0], duel.MID[1], 0.0))
+    cams = [np.asarray(p, float) + mid for p in PATH]
+    sh_face, ts_face = np.array(shc.face()), np.array(tsc.face())
+    aims = [sh_face, sh_face, sh_face + (ts_face - sh_face) * 0.45, ts_face, ts_face]
+    rig = cinema.film(ctx, [cinema.Setup(
+        "glide", 0.0, cinema.path(cams, aims), span=GLIDE, ease="sine", lens=LENS, fstop=FSTOP, focus=(shc, "head"),
+        racks=(cinema.Rack(1.2, (tsc, "head"), 3.2),), shake=cinema.Shake(breath=0.02, seed=9))])
+    # the weather (lib/weather.py): the look schedule slows the rain to a stop by +0.9 s, its drops hanging as beads;
+    # nothing splashes once it has stopped
+    duel.weather(st, rig)
     comp = satsuei.setup(ctx.scene, st.cast)
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        t = (f - ctx.f0) / ctx.fps
-        speed = max(0.0, speeds[f])
-        for v, drop in tv.values():
-            v.outputs[0].default_value = clocks[f]
-            v.outputs[0].keyframe_insert("default_value", frame=f)
-            k = speed / SPEED0                     # streak at full speed, bead at rest
-            drop.scale = (1.0 + 0.6 * (1 - k), 1.0, 0.12 + 0.88 * k)
-            drop.keyframe_insert("scale", frame=f)
-        u = dm.ease(dm.span(t, *GLIDE, curve=lambda x: x))
-        cam_at = _along(pts, u, rig) + duel.shake(t, 0.004)
-        sh_face, ts_face = np.array(shc.face()), np.array(tsc.face())
-        w = dm.span(t, 1.2, 4.4)
-        target = sh_face + (ts_face - sh_face) * w
-        lens = LENS[0] + (LENS[1] - LENS[0]) * u
-        duel.key_camera(cam, aim, f, cam_at, target, lens=lens, fstop=FSTOP)
-        duel.key_lines(st, f, cam_at, lens)
+        duel.key_lines(st, f, *duel.lens_at(rig, f))
         duel.key_light(st, f, KEYS)
         comp.key(f, duel.look(st, f, LOOK))
     comp.hold()
     duel.hold(st.ch("shinza").armature, st.ch("tsuru").armature)
     print(f"freeze: Shinza at {SH_AT}, the glide {GLIDE} s, {len(beads)} hanging drops")
-
-
-def _along(pts, u: float, rig) -> np.ndarray:
-    """The point u (0..1) of the way along a Catmull-Rom path through `pts`."""
-    n = len(pts) - 1
-    x = min(u * n, n - 1e-9)
-    i = int(x)
-    p = [pts[max(i - 1, 0)], pts[i], pts[i + 1], pts[min(i + 2, n)]]
-    return np.asarray(rig.catmull_rom(*p, x - i), float)

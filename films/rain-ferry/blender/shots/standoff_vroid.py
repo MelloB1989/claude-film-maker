@@ -35,18 +35,26 @@ BAND = (0.128, 0.872)           # the 2.39 letterbox's band (frame heights)
 LOOK = dict(haze_amount=0.05, para_amount=0.3, wrap_width=0.004, para_from=(0.5, 0.62), para_to=(0.5, 0.25), rims=[((0.2, 1.0), (0.6, 0.68, 0.85), 0.2, 0.002, 0.8),
                                                              ((-1.0, 0.2), (1.0, 0.5, 0.18), 0.12, 0.0018, 0.8)])
 KEYS = {"shinza": (1.0, -0.3, 0.8), "tsuru": (-1.0, -0.3, 0.8)}
+STRIKE = 2.1                    # s: the look schedule's lightning (the thunder at +2.2 s)
+BOLT = ((16.0, 70.0, 34.0), (21.0, 78.0, -1.0))     # the fork: from the sky to the far water, from MID (world m)
 
 
 def build(ctx):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import satsuei, shapes
+    from lib import cinema, satsuei, shapes
     from rf import duel, sets
     from rf import duel_motion as dm
 
-    st = duel.stage(ctx)   # its lightning the look schedule's (+2.1 s; the thunder is at +2.2 s)
-    cam, aim = duel.camera(ctx, lens=LENS[0], fstop=FSTOP)
-    post = st.crossing["materials"]["post"]
+    st = duel.stage(ctx)
     mid = np.array((duel.MID[0], duel.MID[1], 0.0))
+    # the camera (lib/cinema.py): one setup, creeping in and down a little, breathing; jolted by the thunderclap
+    rig = cinema.film(ctx, [cinema.Setup(
+        "wide", 0.0, cinema.line(np.add(CAM_FROM, mid), np.add(CAM_TO, mid), np.add(AIM_FROM, mid), np.add(AIM_TO, mid)),
+        lens=LENS, fstop=FSTOP, focus=tuple(mid + (0.0, 0.0, 1.0)), ease="sine",
+        shake=cinema.Shake(breath=0.06, hits=((STRIKE + 0.12, 0.25),)))])
+    # the weather (lib/weather.py): the schedule's downpour and its lightning (+2.1 s), the fork far out over the river
+    duel.weather(st, rig, bolt=(tuple(mid + BOLT[0]), tuple(mid + BOLT[1])))
+    post = st.crossing["materials"]["post"]
     for k, (x, y, top, r) in enumerate(STAKES):
         x, y = x + mid[0], y + mid[1]
         shapes.cylinder(f"stake{k}", (x, y, sets.WATER_Z - 1.0), (x, y, top), r, material=post, coll=st.crossing["near"],
@@ -54,20 +62,11 @@ def build(ctx):
         shapes.cylinder(f"stake{k}-rope", (x, y, top - 0.14), (x, y, top - 0.08), r + 0.012,
                         material=st.crossing["materials"]["rope"], coll=st.crossing["near"], n=10)
 
-    clear, near = duel.rain_input(st.rain, "clear"), duel.rain_input(st.rain, "near")
-    clear.default_value, near.default_value = 1.2, 3.5
     gust = [GUST]
     sh, ts = st.bodies["shinza"], st.bodies["tsuru"]
     comp = satsuei.setup(ctx.scene, st.cast)
-    n = ctx.f1 - ctx.f0
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = (f - ctx.f0) / ctx.fps
-        u = dm.ease(t / (n / ctx.fps))
-        cam_at = tuple(np.array(dm.lerp(CAM_FROM, CAM_TO, u)) + mid)
-        lens = LENS[0] + (LENS[1] - LENS[0]) * u
-        drift = duel.shake(t, 0.006)
-        duel.key_camera(cam, aim, f, tuple(a + d for a, d in zip(cam_at, drift)), tuple(np.array(dm.lerp(AIM_FROM, AIM_TO, u)) + mid),
-                        lens=lens)
         g = dm.gusts(t, gust)
 
         # Shinza: hard breaths behind his guard, his weight settling forward and down through the shot, the head
@@ -80,7 +79,7 @@ def build(ctx):
         look_k = dm.span(t, HER_LOOK[0], HER_LOOK[1])
         ts.key(f, duel.add(duel.breathing(t, 0.2, 0.7, 0.3), {"head": (0.0, 0.0, -HER_LOOK[2] * look_k)}),
                chains=ts.sway(t, amount=5.0, cloth=3.0, toward=(0.0, 1.0, 0.0), seed=7, at=gust))
-        duel.key_lines(st, f, cam_at, lens)
+        duel.key_lines(st, f, *duel.lens_at(rig, f))
         duel.key_light(st, f, KEYS)
         duel.swing_lantern(st, f, t, g)
         comp.key(f, duel.look(st, f, LOOK))
