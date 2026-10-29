@@ -45,7 +45,7 @@ def walk_path(t: float, start, stop, t0: float, t1: float, settle: float = 0.25)
 
 def footfalls(distance: float, stride: float, width: float) -> dict:
     """Where each foot lands along a straight walk `distance` long, (along, across): from feet together the right
-    foot leads, each step `stride` long (shortened so the last lands even), the left foot `width` to the left and the
+    foot leads, steps of even length as near `stride` as the distance allows, the left foot `width` to the left and the
     right to the right, and the other foot brought alongside at the end. Pure."""
     n = max(1, round(distance / stride))
     step = distance / n
