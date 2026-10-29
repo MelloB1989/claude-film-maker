@@ -41,13 +41,10 @@ def build(ctx):
     set_world.push_off(st.world, ctx, t0=PUSH[0], t1=PUSH[1])
     n = (ctx.f1 - ctx.f0) / ctx.fps
 
-    # the headband on the water: floating on an empty that drifts, turns and rides the swell
-    band = E.headband("shinza-headband", E.band_material(st.look, wet=1.0), st.world["near"], (0.0, 0.0), 0.0,
-                      z=0.0, curl=0.2, seed=5)
+    # the headband on the water: floating on an empty that drifts, turns and rides the swell (his own, cut loose, once
+    # the cast is built; a drawn strip without it)
     drift = bpy.data.objects.new("headband-drift", None)
     st.world["near"].objects.link(drift)
-    for ob in band:
-        ob.parent = drift
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = (f - ctx.f0) / ctx.fps
         k = t / n
@@ -59,13 +56,15 @@ def build(ctx):
         drift.keyframe_insert("rotation_euler", frame=f)
 
     actors = None
+    band = None
     if os.environ.get("RF_S7_CAST", "vroid") != "none":
         from lib import vrm
         from rf import vroid_tsuru as T
 
         actors = E.cast(st, {"tsuru": dict(pole="hand", wet=0.3),
-                             "shinza": dict(kasa=None, sword="back", headband=False, wet=0.3)})
+                             "shinza": dict(kasa=None, sword="back", headband=True, wet=0.3)})
         ts, sh = actors["tsuru"], actors["shinza"]
+        band = [E.cut_headband(sh, afloat=True)]
         anchors = st.world["anchors"]
         for built, at in ((ts, "boat_stern"), (sh, "boat_middle")):
             built["root"].parent = anchors[at]
@@ -101,6 +100,17 @@ def build(ctx):
         # the evening sun low down the valley behind them: their keys from there, their faces in the 1st shade
         toon3d.aim(ts["key"], (0.5, 1.0, 0.35))
         toon3d.aim(sh["key"], (0.5, 1.0, 0.35))
+
+    if band is None:
+        band = E.headband("shinza-headband", E.band_material(st.look, wet=1.0), st.world["near"], (0.0, 0.0), 0.0,
+                          z=0.0, curl=0.2, seed=5)
+    bpy.context.view_layer.update()
+    for ob in band:
+        rot = ob.matrix_world.to_3x3()
+        ob.parent = drift
+        ob.matrix_parent_inverse.identity()
+        ob.matrix_basis = rot.to_4x4()
+        ob.location = (0.0, 0.0, 0.0)
 
     # the camera: low over the water, rising slowly after the boat; sharp on the headband, then out to the boat
     boat = st.world["anchors"]["boat_middle"]

@@ -338,6 +338,25 @@ def hands_rest(built, legs: dict, frame: int | None = None) -> None:
 
 # ---------------------------------------------------------------------------------------------------- the leavings
 
+BAND_LANDED = (1.45, -1.45, 1.1)    # shots/fall.py: the turn its headband has taken by the time it lies on the planks
+
+
+def cut_headband(built, *, afloat: bool = False):
+    """His own headband (rf/vroid_shinza.py's, built with headband=True) cut loose as shot 21 (shots/fall.py) leaves
+    it: off his head (rf/clash.py's loose_headband, before he is posed), lying flat on the planks at FALL["headband"],
+    turned as it landed. `afloat`: leave it free for a shot to float it (the cross). Returns the band."""
+    from mathutils import Euler
+
+    from rf import clash
+
+    band = clash.loose_headband(built)
+    r0 = band.matrix_world.to_euler()
+    band.rotation_euler = Euler((r0.x + BAND_LANDED[0], r0.y + BAND_LANDED[1], r0.z + BAND_LANDED[2]))
+    if not afloat:
+        band.location = (*clash.FALL["headband"], 0.012)
+    return band
+
+
 def band_material(look, wet: float = 1.0, name: str = "ending-band"):
     """The headband's cloth (rf/vroid_common.py's band red, as wet as `wet`)."""
     from lib import toon

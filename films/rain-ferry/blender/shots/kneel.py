@@ -37,17 +37,17 @@ def build(ctx):
     from rf import ending as E
 
     st = E.stage(ctx)
-    E.headband("shinza-headband", E.band_material(st.look), st.world["near"], E.HEADBAND_AT[:2], E.HEADBAND_AT[2])
     actors = None
     eyes = np.array([E.SHINZA_AT[0], E.SHINZA_AT[1], 0.95])
 
     if os.environ.get("RF_S7_CAST", "vroid") != "none":
         from rf import clash
 
-        actors = E.cast(st, {"shinza": dict(kasa=None, sword="broken", headband=False)})
+        actors = E.cast(st, {"shinza": dict(kasa=None, sword="broken", headband=True)})
         sh = actors["shinza"]
         ch = sh["vrm"]
         E.stick_half(sh)
+        E.cut_headband(sh)
         fall = E.shot_module("fall")
         for f in range(ctx.f0 - 1, ctx.f1 + 2, 2):
             t = ctx.time(f)
