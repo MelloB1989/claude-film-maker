@@ -1,7 +1,7 @@
 """Shot 22, the lesson: Tsuru walks away to the boat, her pole on her shoulder, not looking back, while Shinza stays on
 his knees in the rain where he went down. "Strength..." / "...isn't how many you've cut down." (L12)
 
-Low from past the jetty's end, looking back along it toward the bank: Shinza on his knees in the left foreground as
+From past the jetty's end, a little above him, looking back along it toward the bank: Shinza on his knees in the left foreground as
 shot 21 left him (rf/clash.py's FALL: slumped, the stub in his right hand, its broken end on the planks), his head
 hung; behind him the wet planks run away to the hut and its red lantern, and Tsuru walks away along the moored boat
 toward its stern, small and upright, her pole on her shoulder. The camera eases in a little and up; it holds her in
@@ -19,8 +19,8 @@ SHOT = {"scene": "lesson"}
 
 LINE = (85.9, 90.1)       # L12 (film s)
 # the camera (world m): from, to (eased over the shot), its aim, lens, f-stop
-CAM = ((9.75, 1.2, 0.62), (9.4, 1.12, 0.74))
-AIM = ((0.0, -0.5, 0.95), (0.0, -0.5, 1.1))
+CAM = ((9.7, 1.05, 1.42), (9.35, 1.0, 1.52))
+AIM = ((0.0, -0.5, 0.45), (0.0, -0.5, 0.62))
 LENS, FSTOP = 35.0, 2.4
 RACK = (88.7, 89.7)       # film s: the focus from her back to him
 SETS_OFF = 0.35           # s into the shot: she turns away and walks
