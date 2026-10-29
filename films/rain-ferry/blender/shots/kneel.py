@@ -1,6 +1,6 @@
 """Shot 23, the kneel: Shinza on his knees in the rain, staring at his broken sword. "...Then what is it?" (L13)
 
-From in front of him and above, so the rain falls past the lens onto him and he is small under it, the jetty running
+From in front of him and a little above, the rain falling past the lens onto him, the jetty running
 away behind him to the hut and its red lantern, soft. He starts as the lesson leaves him (shot 21's kneel, rf/clash.py's
 FALL: the stub's broken end on the planks); then he lifts it in both hands and stares at where it broke. His grip
 tightens before he speaks; he asks it of the blade, low; after it his eyes lift a little, toward where she went. The
@@ -17,11 +17,11 @@ SHOT = {"scene": "kneel"}
 
 LINE = (92.0, 93.73)        # L13 (film s)
 BEARING = -24.0             # degrees from his front toward his right: where the camera looks at him from
-DIST = (2.3, 1.55)          # m from his face, from and to
-HEIGHT = (0.62, 0.4)        # m over his eyes
+DIST = (2.45, 1.85)         # m from his face, from and to
+HEIGHT = (0.32, 0.2)        # m over his eyes
 LENS, FSTOP = 50.0, 2.0
 LIFT = (90.95, 91.85)       # film s: the stub lifted from the planks into both hands
-STUB = ((-0.04, -0.22, 0.5), (0.12, -0.72, 0.68))   # (pommel, hilt direction) held up before him (his frame)
+STUB = ((-0.06, -0.24, 0.7), (0.38, -0.5, 0.78))   # (pommel, hilt direction) held up before him (his frame)
 GRIP = (91.55, 91.95)       # film s: his grip tightening
 EYES_UP = (93.95, 94.55, 7.0)   # after the line: his head lifts this many degrees (and his eyes with it)
 
@@ -62,8 +62,8 @@ def build(ctx):
             cx, cy, cz = turns["chest"]
             turns["chest"] = (cx - 2.0 * grip, cy, cz)                   # his shoulders set as he grips
             hx, hy, hz = turns["head"]
-            turns["head"] = (hx + 6.0 * lift - up, hy, hz * (1 - lift))
-            turns["leftEye"] = turns["rightEye"] = (8.0 * lift - 1.2 * up, 0.0, 0.0)
+            turns["head"] = (hx - 12.0 * lift - up, hy, hz * (1 - lift) + 6.0 * lift)
+            turns["leftEye"] = turns["rightEye"] = (12.0 * lift - 1.5 * up, 0.0, 6.0 * lift)
             if LIFT[0] < t < LIFT[1]:
                 continue                     # the lift: tweened between the fall's pose and the held stub
             pommel, hilt = STUB
@@ -84,7 +84,7 @@ def build(ctx):
     def at(k):
         d = DIST[0] + (DIST[1] - DIST[0]) * k
         return (eyes + toward * d + np.array([0.0, 0.0, HEIGHT[0] + (HEIGHT[1] - HEIGHT[0]) * k]),
-                eyes + np.array([0.0, 0.0, -0.3 + 0.14 * k]))
+                eyes + np.array([0.0, 0.0, -0.22 + 0.1 * k]))
 
     (c0, a0), (c1, a1) = at(0.0), at(1.0)
     focus = E.head_of(actors["shinza"]) if actors else tuple(eyes)
