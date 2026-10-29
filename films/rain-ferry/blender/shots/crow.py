@@ -133,30 +133,32 @@ def build(ctx):
 
     # ---- water: the drop on its beak, the spray off its wings ----
     bead_mat = toon.flat("crow-drip", (0.55, 0.6, 0.7), look=look, strength=1.1)
-    drop = shapes.ellipsoid("drip", (0.0, 0.0, 0.0), (0.0035, 0.0035, 0.005), material=bead_mat, coll=crow.coll, n=8)
-    drop.visible_shadow = False
-    drop.lineart.usage = "EXCLUDE"
     head = crow.joints["head"]
     tip_local = Vector((0.0, 0.097, -0.02))
-    bpy.context.view_layer.update()
     g0, g1 = DRIP
-    fall_from = None
+    f_drop = ctx.frame(ctx.time(ctx.f0) + g1)
+    # a drop gathering on the beak's tip (riding the head), then let go: a second drop falls from where it hung
+    hang = shapes.ellipsoid("drip", (0.0, 0.0, 0.0), (0.0035, 0.0035, 0.005), material=bead_mat, coll=crow.coll, n=8)
+    hang.parent = head
+    hang.location = tip_local
+    fall = shapes.ellipsoid("drip-fall", (0.0, 0.0, 0.0), (0.0028, 0.0028, 0.009), material=bead_mat, coll=crow.coll, n=8)
+    scene.frame_set(f_drop)
+    p0 = head.matrix_world @ tip_local
+    for ob in (hang, fall):
+        ob.visible_shadow = False
+        ob.lineart.usage = "EXCLUDE"
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = T(f)
-        scene.frame_set(f)
-        tip = head.matrix_world @ tip_local
-        if t < g1:
-            s = 0.3 + 0.7 * ease((t - g0) / (g1 - g0)) if t >= g0 else 0.3
-            drop.location = tip + Vector((0, 0, -0.004 * s))
-            drop.scale = (s, s, s * (1 + 0.4 * s))
-            fall_from = (tip.copy(), t)
-        else:
-            p0, t0 = fall_from
-            dt = t - t0
-            drop.location = p0 + Vector((0.0, 0.0, -4.9 * dt * dt - 0.004))
-            drop.scale = (0.8, 0.8, 1.8)
-        drop.keyframe_insert("location", frame=f)
-        drop.keyframe_insert("scale", frame=f)
+        s = 0.3 + 0.7 * ease((t - g0) / (g1 - g0)) if t >= g0 else 0.3
+        hang.scale = (s, s, s * (1 + 0.4 * s))
+        hang.keyframe_insert("scale", frame=f)
+        dt = max(0.0, t - (f_drop - ctx.f0) / fps)
+        fall.location = p0 + Vector((0.0, 0.0, -0.004 - 4.9 * dt * dt))
+        fall.keyframe_insert("location", frame=f)
+        for ob, on in ((hang, f < f_drop), (fall, f >= f_drop)):
+            ob.hide_render = ob.hide_viewport = not on
+            ob.keyframe_insert("hide_render", frame=f)
+            ob.keyframe_insert("hide_viewport", frame=f)
     # the spray: drops flung off the wings and back as they open, falling away
     rng = np.random.default_rng(12)
     spray = []
