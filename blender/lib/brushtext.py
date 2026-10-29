@@ -181,10 +181,12 @@ def ink(name: str, *, color=(0.012, 0.011, 0.013), opacity: float = 1.0, dry: fl
         a.attribute_name = n
         return a.outputs["Fac"]
 
-    def m(op, a, b=0.0, clamp=False):
+    def m(op, a, b=0.0, c=None, clamp=False):
         x = N.new("ShaderNodeMath")
         x.operation, x.use_clamp = op, clamp
-        for s, v in ((x.inputs[0], a), (x.inputs[1], b)):
+        for s, v in ((x.inputs[0], a), (x.inputs[1], b), (x.inputs[2], c)):
+            if v is None:
+                continue
             if isinstance(v, (int, float)):
                 s.default_value = v
             else:

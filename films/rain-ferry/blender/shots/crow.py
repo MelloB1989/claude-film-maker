@@ -13,16 +13,16 @@ import math
 
 SHOT = {"scene": "crow", "look": "150,175,196,214,226,236"}
 
-LENS = 42.0
-DIST = 2.35          # m from the crow's head to the lens
-BEARING = 38.0       # degrees: where the camera stands round the post, from the face's normal toward the left
-DROP = -0.12         # m: the lens below the crow's head (it looks a little up at it)
-THIRD = 0.36         # m: the aim right of the crow, so it sits on the left third with room to look into
+LENS = 45.0
+DIST = 1.95          # m from the crow's head back to the lens, along the set's crow view (set_world.VIEWS["crow"])
+TURN = 0.0           # degrees the camera's view is turned from the set's (positive: to the left)
+DROP = -0.1          # m: the lens below the crow's head (it looks a little up at it)
+THIRD = 0.34         # m: the lens right of the crow, so it sits on the left third with room to look into
 FSTOP = 2.8
-# the crow's heading: across the frame, toward the river at the right (degrees from the camera's right toward away)
-HEADING = 18.0
+# the crow's heading: across the frame toward the river at the right, turned this far toward the camera (degrees)
+HEADING = -24.0
 # its acting, in s into the shot (the mix: the caw at 8.15 s, its wings at 9.1 s; the shot starts at 6.0)
-HEAD = [(0.0, (-0.5, -0.05, 0.0)), (1.0, (1.05, 0.05, 0.0)), (1.45, (0.95, 0.0, 0.32)), (1.8, (0.25, 0.08, 0.0))]
+HEAD = [(0.0, (0.35, -0.05, 0.0)), (1.0, (-1.0, 0.05, 0.0)), (1.45, (-0.9, 0.0, -0.32)), (1.8, (-0.2, 0.08, 0.0))]
 CAW = (1.98, 2.15, 2.5)          # it draws up, the beak opens wide (the caw), it closes
 CROUCH = (2.62, 3.04)            # it sinks to spring
 LAUNCH = 3.1                     # the wings open and it leaps
@@ -60,18 +60,14 @@ def build(ctx):
 
     # ---- the perch and the framing ----
     top = set_world.anchor(world, "sign_top")
-    face = set_world.anchor(world, "sign_face")
-    root = world["sign"]["root"]
-    normal = root.matrix_world.to_3x3() @ Vector((1.0, 0.0, 0.0))
-    normal.z = 0.0
-    normal.normalize()
-    b = math.radians(BEARING)
-    toward_cam = Matrix.Rotation(b, 3, "Z") @ normal
-    head0 = top + Vector((0.0, 0.0, 0.42))
-    cam_at = head0 + toward_cam * DIST + Vector((0.0, 0.0, DROP))
-    view = (head0 - cam_at).normalized()
+    v_cam, v_aim, _ = set_world.VIEWS["crow"]
+    view = Vector(v_aim) - Vector(v_cam)
+    view.z = 0.0
+    view = Matrix.Rotation(math.radians(TURN), 3, "Z") @ view.normalized()
     right = view.cross(Vector((0.0, 0.0, 1.0))).normalized()
-    aim0 = head0 + right * THIRD + Vector((0.0, 0.0, -0.06))
+    head0 = top + Vector((0.0, 0.0, 0.4))
+    cam_at = head0 - view * DIST + right * THIRD + Vector((0.0, 0.0, DROP))
+    aim0 = cam_at + view * 10.0 + Vector((0.0, 0.0, -0.25))
     far_focus = set_world.anchor(world, "jetty_end") if "jetty_end" in world["anchors"] else head0 + view * 12.0
 
     cam = rig.engine_camera("camera", fstop=FSTOP, size=ctx.size)
@@ -97,8 +93,8 @@ def build(ctx):
     away = (far_focus - top)
     away.z = 0.0
     away.normalize()
-    pts = [top, top + fwd * 0.35 + Vector((0, 0, 0.38)), top + fwd * 1.1 + away * 0.6 + Vector((0, 0, 0.9)),
-           top + fwd * 1.6 + away * 3.2 + Vector((0, 0, 1.5)), top + fwd * 1.4 + away * 8.0 + Vector((0, 0, 2.3))]
+    pts = [top, top + right * 0.3 + Vector((0, 0, 0.32)), top + right * 0.9 + view * 0.8 + Vector((0, 0, 0.7)),
+           top + right * 1.6 + view * 3.5 + Vector((0, 0, 1.2)), top + right * 2.4 + view * 9.0 + Vector((0, 0, 1.9))]
     speeds = np.clip(np.linspace(0.25, 1.6, n_fly), 0, None)
     flight = bird.path([tuple(p) for p in pts], n_fly, speeds=speeds, bank=0.8)
 
@@ -196,16 +192,16 @@ def build(ctx):
     r = s.rain
     box_c = cam_at + view * 9.0
     toon.rain("rain", (box_c.x - 9, box_c.y - 9, top.z - 4), (box_c.x + 9, box_c.y + 9, top.z + 4), count=max(1, r.drops),
-              speed=r.speed, wind=r.wind, length=r.length, width=r.width, color=r.color, alpha=r.alpha, seed=6,
-              near=1.8, clear=0.6)
+              speed=r.speed, wind=r.wind, length=r.length, width=r.width, color=r.color, alpha=r.alpha * 0.75, seed=6,
+              near=3.2, clear=1.0)
     lift_to = Vector(flight[-1].location)
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = T(f)
         # a held breath of a frame, alive: a slow drift in, then it lifts after the crow
         drift = Vector((0.0, 0.0, 0.006 * math.sin(2 * math.pi * 0.23 * t))) + view * 0.06 * ease(t / 3.0)
         follow = ease((t - LAUNCH - 0.05) / 0.9)
-        cam.location = cam_at + drift + Vector((0, 0, 0.12 * follow))
-        aim = aim0.lerp(aim0 + (lift_to - aim0) * 0.18 + Vector((0, 0, 0.35)), follow)
+        cam.location = cam_at + drift + Vector((0, 0, 0.06 * follow))
+        aim = aim0.lerp(aim0 + right * 0.6 + Vector((0, 0, 0.45)), follow)
         target.location = aim
         k = ease((t - FOCUS_PULL[0]) / (FOCUS_PULL[1] - FOCUS_PULL[0]))
         focus.location = head0.lerp(far_focus, k)
