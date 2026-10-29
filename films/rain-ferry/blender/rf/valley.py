@@ -184,11 +184,13 @@ class _Nodes:
         a.attribute_name = name
         return a.outputs["Color" if color else "Fac"]
 
-    def math(self, op, a, b=0.0, clamp=False):
+    def math(self, op, a, b=0.0, c=None, clamp=False):
         n = self.N.new("ShaderNodeMath")
         n.operation, n.use_clamp = op, clamp
         self.set(n.inputs[0], a)
         self.set(n.inputs[1], b)
+        if c is not None:
+            self.set(n.inputs[2], c)
         return n.outputs[0]
 
     def mix(self, fac, a, b, blend="MIX"):
@@ -488,6 +490,8 @@ def _forest(name: str, land, pine, coll, *, seed: int = 2):
     Nodes: distributed once, instanced)."""
     import bpy
 
+    from lib import toon
+
     ng = bpy.data.node_groups.new(name, "GeometryNodeTree")
     ng.interface.new_socket(name="Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
     ng.interface.new_socket(name="Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
@@ -509,12 +513,12 @@ def _forest(name: str, land, pine, coll, *, seed: int = 2):
     info.inputs["Object"].default_value = pine
     rnd = N.new("FunctionNodeRandomValue")
     rnd.data_type = "FLOAT"
-    rnd.inputs[2].default_value = 0.6
-    rnd.inputs[3].default_value = 1.35
+    toon._socket(rnd.inputs, "Min", "VALUE").default_value = 0.6
+    toon._socket(rnd.inputs, "Max", "VALUE").default_value = 1.35
     rot = N.new("FunctionNodeRandomValue")
     rot.data_type = "FLOAT_VECTOR"
-    rot.inputs["Min"].default_value = (-0.08, -0.08, 0.0)
-    rot.inputs["Max"].default_value = (0.08, 0.08, 6.28)
+    toon._socket(rot.inputs, "Min", "VECTOR").default_value = (-0.08, -0.08, 0.0)
+    toon._socket(rot.inputs, "Max", "VECTOR").default_value = (0.08, 0.08, 6.28)
     inst = N.new("GeometryNodeInstanceOnPoints")
     L.new(dist.outputs["Points"], inst.inputs["Points"])
     L.new(info.outputs["Geometry"], inst.inputs["Instance"])
