@@ -88,10 +88,10 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
         z = float(set_valley.ground(x, y)) + 0.04
         puddles.append(water.puddle(f"bank-puddle{k}", m["puddle"], near, (x, y), r, z, seed=seed + 20 + k, stretch=1.4,
                                     angle=rng.uniform(0, math.pi)))
-    # the old pines behind the hut (rf/sets.py's)
-    for k, (x, y, h) in enumerate(sets.PINES):
-        landscape.pine(f"pine{k}", (x, y, float(set_valley.ground(x, y))), h, trunk=m["post"], needles=m["needles"],
-                       coll=near, seed=seed + k)
+    # the old trees behind the hut, where rf/sets.py's pines stand: cedars, as on the slopes
+    landscape.forest("hut-cedars", [(x, y, float(set_valley.ground(x, y))) for x, y, _ in sets.PINES],
+                     [h * 1.6 for *_, h in sets.PINES], material=m["needles"], coll=near, seed=seed, clumps=14, sides=8,
+                     spread=0.18, bare=0.38)
     anchors = {
         "jetty_foot": (sets.SPAN[0] + 0.3, 0.0, 0.0),
         "jetty_end": (sets.SPAN[1] - 0.4, 0.0, 0.0),

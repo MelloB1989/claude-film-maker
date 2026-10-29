@@ -23,6 +23,7 @@ SLOPE = 0.38                        # the slope's steepness (it climbs SLOPE * d
 TREELINE = 150.0                    # no trees above this
 PEAK = 230.0                        # the slopes level off toward about this high (m), more on the spurs, less between
 MIST_Z = (5.0, 60.0)                # the mist lying in the valley: the slopes and forests fade into it below this
+MIST_NEAR = (90.0, 320.0)           # ... seen from this far off (m): the far bank across the river stays clear
 RIDGES = [(260, 150, 3.0), (340, 190, 2.5), (440, 230, 0.0), (580, 270, 0.0), (760, 300, 0.0)]  # (y, height, tree fringe)
 MIST = [(60, 14, 300), (130, 30, 420), (210, 50, 620), (290, 70, 900), (380, 95, 1200), (500, 120, 1600)]   # (y, height, width)
 INK = ((0.035, 0.04, 0.048), (0.022, 0.026, 0.033))   # the mountains' ink, (lit, shade)
@@ -86,9 +87,10 @@ def materials(look, weather, pal: dict) -> dict:
 
     fog = weather.fog or weather.sky
     m = {"slope": paint.wash("valley-slope", *pal["slope"], look=look, flash=0.0, mottle=0.35, mottle_scale=40.0,
-                             brush=0.45, brush_scale=6.0, mist=fog, mist_z=MIST_Z, mist_noise=20.0),
+                             brush=0.45, brush_scale=6.0, mist=fog, mist_z=MIST_Z, mist_noise=20.0, mist_near=MIST_NEAR,
+                             fog=0.8),
          "forest": paint.wash("valley-forest", *pal["needles"], look=look, flash=0.0, mottle=0.3, mottle_scale=30.0,
-                              mist=fog, mist_z=MIST_Z, mist_noise=20.0)}
+                              mist=fog, mist_z=MIST_Z, mist_noise=20.0, mist_near=MIST_NEAR, fog=0.8)}
     for k, (d, h, _) in enumerate(RIDGES):
         m[f"ridge{k}"] = paint.wash(f"valley-ridge{k}", *pal.get("ridge", INK), look=look, flash=0.0, brush=0.5,
                                     brush_scale=h / 25, brush_stretch=6.0, mist=fog,
@@ -128,7 +130,7 @@ def build(m: dict, near, far, weather, *, seed: int = 7) -> dict:
     for k, (d, h, trees) in enumerate(RIDGES):
         landscape.ridge(f"ridge{k}", m[f"ridge{k}"], far, d, h, seed=seed * 10 + k, trees=trees, base_z=wz - 2, width=1.3,
                         sharp=0.55)
-    mist = landscape.mist_layers(far, weather.sky, MIST, base_z=wz, density=0.75 * weather.mist)
+    mist = landscape.mist_layers(far, weather.sky, MIST, base_z=wz, density=0.75 * weather.mist, soften=True)
     # low mist lying on the river, and banks of it drifting along the slopes (seen across the river too)
     for k, (y, w) in enumerate(((30, 900), (75, 1100))):
         mist.append(toon.move_to(toon.mist_card(f"river-mist{k}", (FAR_EDGE * 0.5, y, wz + 2.5), (w, 7.0), weather.sky,
@@ -141,6 +143,8 @@ def build(m: dict, near, far, weather, *, seed: int = 7) -> dict:
         mist.append(toon.move_to(card, far))
     for ob in mist:
         ob.lineart.usage = "EXCLUDE"
+        if ob.name.startswith(("river-mist", "slope-mist")):
+            landscape.soften_card(ob, near=(20.0, 60.0))
     sky = landscape.sky("sky", far, horizon=weather.sky, zenith=weather.zenith, distance=1400.0, size=(6000.0, 1100.0),
                         z=300.0, clouds=0.75 - 0.35 * weather.warm,
                         light=tuple(min(1.0, c * 1.25) for c in weather.sky), light_at=(0.56, 0.42))

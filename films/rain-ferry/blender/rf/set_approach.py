@@ -75,8 +75,8 @@ def build(m: dict, near, weather, *, seed: int = 11) -> dict:
         i = rng.integers(0, len(P))
         x, y = P[i] + side[i] * rng.uniform(-0.5, 0.5) * WIDTH
         r = rng.uniform(0.02, 0.07)
-        stones.append(shapes.ellipsoid(f"pebble{k}", (x, y, float(ground(x, y)) + 0.03), (r * 1.3, r, r * 0.5),
-                                       material=m["rock"], coll=near, n=6))
+        stones.append(shapes.ellipsoid(f"pebble{k}", (x, y, float(ground(x, y)) + 0.03), (r * 1.3, r, r * 0.6),
+                                       material=m["rock"], coll=near, n=8))
     for st in stones:
         st.lineart.usage = "EXCLUDE"
     # grass both sides of the path and along the bank, thick by the water; none on the path
@@ -122,7 +122,7 @@ def build(m: dict, near, weather, *, seed: int = 11) -> dict:
         card = toon.mist_card(f"path-mist{k}", (x, y, float(ground(x, y)) + 2.6 + 0.3 * k), (46.0, 9.0 + k), weather.sky,
                               density=min(0.95, (0.35 + 0.1 * k) * weather.mist), drift=0.4 + 0.1 * k, seed=11.3 + k)
         card.lineart.usage = "EXCLUDE"
-        mist.append(toon.move_to(card, near))
+        mist.append(toon.move_to(landscape.soften_card(card, near=(3.0, 12.0)), near))
     # the signpost, its face to the path coming up from down the valley
     sz = float(ground(*SIGN))
     sign = wayside.signpost("signpost", {"post": m["sign"], "paint": m["paint"]}, near, (SIGN[0], SIGN[1], sz), SIGN_TEXT,

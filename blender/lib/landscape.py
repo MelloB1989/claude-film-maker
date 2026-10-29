@@ -205,14 +205,55 @@ def sky(name: str, coll, *, horizon, zenith, distance: float = 1200.0, size=(500
     return toon.move_to(ob, coll)
 
 
-def mist_layers(coll, color, layers, *, base_z: float = 0.0, density: float = 0.75) -> list:
-    """Banks of mist between ridges: `layers` is [(distance, height, width), ...]; each drifts at its own speed."""
+def soften_card(card, *, near=(4.0, 25.0), edge: float = 0.15, oblique: float = 2.0):
+    """A mist card (toon.mist_card) that holds up from any camera: it fades out where the camera sees it edge on (by
+    the facing to the power `oblique`), within `near` (m: gone at the first, whole from the second) of the lens, and
+    toward its left and right ends over `edge` of its width, so no cut edge of a card shows in any view."""
+    nt = card.active_material.node_tree
+    mx = next(n for n in nt.nodes if n.bl_idname == "ShaderNodeMixShader")
+    src = mx.inputs["Fac"].links[0].from_socket
+
+    def math_(op, a, b=None):
+        m = nt.nodes.new("ShaderNodeMath")
+        m.operation = op
+        for i, v in enumerate((a, b)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                m.inputs[i].default_value = float(v)
+            else:
+                nt.links.new(v, m.inputs[i])
+        return m.outputs[0]
+
+    def ramp(v, a, b):
+        r = nt.nodes.new("ShaderNodeMapRange")
+        r.interpolation_type = "SMOOTHSTEP"
+        r.inputs["From Min"].default_value = a
+        r.inputs["From Max"].default_value = b
+        nt.links.new(v, r.inputs["Value"])
+        return r.outputs["Result"]
+
+    lw = nt.nodes.new("ShaderNodeLayerWeight")
+    face = math_("POWER", math_("SUBTRACT", 1.0, lw.outputs["Facing"]), oblique)
+    cam = nt.nodes.new("ShaderNodeCameraData")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["Generated"], sep.inputs[0])
+    ends = math_("MULTIPLY", ramp(sep.outputs["X"], 0.0, edge), ramp(sep.outputs["X"], 1.0, 1.0 - edge))
+    k = math_("MULTIPLY", math_("MULTIPLY", src, face), math_("MULTIPLY", ends, ramp(cam.outputs["View Distance"], *near)))
+    nt.links.new(k, mx.inputs["Fac"])
+    return card
+
+
+def mist_layers(coll, color, layers, *, base_z: float = 0.0, density: float = 0.75, soften: bool = False) -> list:
+    """Banks of mist between ridges: `layers` is [(distance, height, width), ...]; each drifts at its own speed.
+    `soften`: each made to hold up from any camera (`soften_card`)."""
     from . import toon
 
     obs = []
     for k, (d, h, w) in enumerate(layers):
         card = toon.mist_card(f"mist{k}", (0, d, base_z + h * 0.35), (w, h), color, density=density, drift=0.8 + 0.3 * k, seed=k * 3.1)
-        obs.append(toon.move_to(card, coll))
+        obs.append(toon.move_to(soften_card(card) if soften else card, coll))
     return obs
 
 

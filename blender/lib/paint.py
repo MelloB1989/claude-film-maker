@@ -7,7 +7,8 @@ it gets) that a background painter would have brushed rather than filled flat.
 - `brush`: dry-brush streaks, noise drawn out along `brush_dir` (down a mountain's face, along planks), darkening
   (`brush` > 0) or lifting (< 0) the tone where the brush caught;
 - `mist`: sumi's gradient: the surface fading into `mist` toward the foot of `mist_z` (world z from, to: all mist at
-  the first, none at the second), its edge broken by noise `mist_noise` m high, so a ridge's crest stands dark and its
+  the first, none at the second), its edge broken by noise `mist_noise` m high, coming in only from `mist_near` (m
+  from the lens: none at the first, all at the second; None: at every distance), so a ridge's crest stands dark and its
   foot dissolves into the mist below (each ridge the same ink: the layers come from the mist between them).
 
 All of it then fades to the look's fog with distance like every toon material, and whitens with the scene's lightning
@@ -59,7 +60,7 @@ def _noise(nt, vec, scale: float, detail: float = 3.0, roughness: float = 0.55):
 def wash(name: str, lit, shade, *, look=None, cut: float = 0.38, soft: float = 0.03, flash: float | None = None,
          mottle: float = 0.0, mottle_scale: float = 2.0, brush: float = 0.0, brush_scale: float = 1.0,
          brush_dir: str = "z", brush_stretch: float = 12.0, mist=None, mist_z=(0.0, 50.0), mist_noise: float = 0.0,
-         fog: float = 1.0):
+         mist_near=None, fog: float = 1.0):
     """A painted toon material (see the module): the lit and shade colours banded by the light at `cut`, mottled,
     dry-brushed and washed into mist as asked, faded to the fog (`fog` times as far as the look fades the rest: a far
     ridge kept readable through it)."""
@@ -125,7 +126,16 @@ def wash(name: str, lit, shade, *, look=None, cut: float = 0.38, soft: float = 0
         mk.inputs["To Min"].default_value = 1.0
         mk.inputs["To Max"].default_value = 0.0
         nt.links.new(z, mk.inputs["Value"])
-        col = _mix(nt, mk.outputs["Result"], col, toon.flashed(nt, mist, look.flash_lit, look.flash_fog))
+        mist_k = mk.outputs["Result"]
+        if mist_near is not None:
+            cam = nt.nodes.new("ShaderNodeCameraData")
+            dk = nt.nodes.new("ShaderNodeMapRange")
+            dk.interpolation_type = "SMOOTHSTEP"
+            dk.inputs["From Min"].default_value = mist_near[0]
+            dk.inputs["From Max"].default_value = mist_near[1]
+            nt.links.new(cam.outputs["View Distance"], dk.inputs["Value"])
+            mist_k = _math(nt, "MULTIPLY", mist_k, dk.outputs["Result"])
+        col = _mix(nt, mist_k, col, toon.flashed(nt, mist, look.flash_lit, look.flash_fog))
     col = toon._fog_mix(nt, col, look if fog == 1.0 else replace(look, fog_max=look.fog_max * fog))
     em = nt.nodes.new("ShaderNodeEmission")
     nt.links.new(col, em.inputs["Color"])
