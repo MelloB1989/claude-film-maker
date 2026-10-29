@@ -34,8 +34,9 @@ RACK = (1.45, 0.75)         # s: the focus pulls from her to him as he stops (wh
 STOP = 2.1                  # s: he is already walking when the shot opens and stands still on his mark here
 GLARE = 2.05                # s: his glare hardens as he stops to speak
 TEXT = "baasan. mukougishi e, watashite kure."   # line 3 as it is spoken (data/dialogue.json L03)
-DRAW = (0.3, 0.85)          # s: she takes the pipe from her lips (a draw) down to her knee as he comes ...
-EXHALE = (0.6, 1.45)        # ... and lets the smoke out
+DRAW = (0.08, 0.55)         # s: the end of a draw: the pipe from her lips down to her knee as he comes ...
+EXHALE = (0.35, 1.2)        # ... and she lets the smoke out
+SHIFT = 0.55                # s after he stops: his weight settles onto his back (left) foot
 SKY_RIM, LANTERN_RIM = (0.6, 0.68, 0.85), (1.0, 0.5, 0.18)
 
 
@@ -49,6 +50,7 @@ def build(ctx):
     sh.look(ctx.f0, None)
     sh.look(stop + round(0.1 * ctx.fps), lambda f: st.perf["tsuru"].face_at(f), lag=1.3)
     sh.settle(stop, 0.5)
+    sh.shift(stop + round(SHIFT * ctx.fps), "left", amount=0.7)
     sh.express(ctx.f0, {"glare": 0.7})
     sh.express(ctx.f0 + round(GLARE * ctx.fps), {"glare": 1.0})
     sh.blinks(mean=3.4)
