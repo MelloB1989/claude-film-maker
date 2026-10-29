@@ -22,7 +22,7 @@ CAM = ((8.0, -12.0, 0.72), (8.2, -11.6, 1.28))     # from, to (eased): low over 
 AIM = ((14.3, 27.5, 2.2), (14.5, 28.0, 3.6))
 LENS, FSTOP = 28.0, 2.8
 RACK = (1.6, 3.6)            # s: the focus from the headband out to the boat
-BAND = ((7.45, -7.35), (8.1, -6.05))   # the headband's drift on the water (x, y), from and to over the shot
+BAND = ((7.55, -6.95), (8.3, -5.45))   # the headband's drift on the water (x, y), from and to over the shot
 POLE = dict(period=3.4, push=0.62, tilt=(-8.0, 32.0), grip=((-0.2, -0.18, 1.12), (-0.2, 0.2, 0.82)))
 
 
