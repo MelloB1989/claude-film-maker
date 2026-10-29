@@ -4,7 +4,8 @@ roaring (line 11, the whole shot), long splashing strides about every half secon
 coming over: cut on its fall.
 
 The camera runs ahead of him low on the river side, a wide lens close in, so he comes on fast and big through the
-rain; it rumbles with his strides and is jolted by each, motion-blurred; pale focus lines converge on him on twos,
+rain; it rumbles with his strides and is jolted by each (no shutter blur: drawn animation has none, and it
+re-evaluates the whole cast per step); pale focus lines converge on him on twos,
 thickening as he closes. His run is the animation core's charge gait (blender/lib/vrm_anim.py), his hands on the hilt
 keyed through it.
 """
@@ -21,7 +22,6 @@ GAIT = dict(stride=0.8, speed=1.6, first=0.7)     # the core's "charge", a strid
 SWING = (1.5, 1.8, 2.0)         # s: the sword thrown back from, at its height, coming over
 CAM = [(0.0, (START + 2.0, -2.45, 0.55)), (1.0, (START + 2.6, -1.8, 0.62)), (2.0, (END_X + 0.85, -0.95, 0.78))]
 LENS, FSTOP = 24.0, 2.8
-SHUTTER = 0.5
 JOLT, STEP = 1.2, 0.5          # the camera's jolt on a stride (degrees), the strides' beat (s)
 FIRST_STEP = 0.25               # s: the first stride lands (data/mix.json step_puddle at 73.35)
 # his frame: front -y, left +x, up z (rf/vroid_shinza.py; lib/vrm.py's turns): where the hilt is
@@ -97,9 +97,9 @@ def build(ctx):
     beats = np.arange(FIRST_STEP, 2.0, STEP)
     for i, tc in enumerate(beats):
         fc = round(fr(tc))
-        scene.frame_set(fc)
-        feet = [ch.point(f"{s}Foot") for s in ("left", "right")]
-        at = min(feet, key=lambda v: v.z).copy()     # the foot that is down
+        # the foot that is down, from the performance (no stepping the scene: each step re-evaluates the cast)
+        feet = [Vector(p.point_at(fc, f"{side}Foot")) for side in ("left", "right")]
+        at = min(feet, key=lambda v: v.z).copy()
         at.z = 0.01
         for f in range(fc, min(ctx.f1, fc + round(0.5 * fps))):
             dt = (f - fc) / fps
@@ -116,7 +116,7 @@ def build(ctx):
     cams = [clash.keys_at(CAM, (f - ctx.f0) / fps, interp=lambda u: u) for f in fs]
     aims = [tuple(chest[f] + Vector((0.37, 0.0, 0.01))) for f in fs]
     rig = cinema.film(ctx, [cinema.Setup("run", -1.0 / fps, cinema.path(cams, aims), ease="linear", lens=LENS,
-                                         fstop=FSTOP, focus=(ch, "chest"), blur=SHUTTER,
+                                         fstop=FSTOP, focus=(ch, "chest"),
                                          shake=cinema.Shake(breath=0.35, freq=1.6, hits=tuple((tc, JOLT) for tc in beats),
                                                             decay=9.0, seed=5))])
     cam = rig.camera
