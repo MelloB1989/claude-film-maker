@@ -263,3 +263,9 @@ def test_pivot_raises_the_ankle_off_its_heel_or_ball():
     # the pivot itself stays on the ground where it was
     ball = ankle + np.array([0.13, 0, -0.08])
     assert np.linalg.norm(up - ball) == pytest.approx(np.linalg.norm(ankle - ball))
+
+
+def test_ground_from_a_height_or_a_function():
+    assert va.ground_of(0.25)(3.0, -1.0) == 0.25
+    hill = va.ground_of(lambda x, y: 0.1 * x)
+    assert hill(2.0, 0.0) == pytest.approx(0.2)
