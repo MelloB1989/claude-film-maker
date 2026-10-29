@@ -51,6 +51,8 @@ anywhere. Credits spent are logged to `audio/credits.log`. Only `film-vo`, `film
 | `film-anime-depth --src F [--out F] [--smooth px]` | a plate | its depth map, 16-bit, near = white |
 | `film-anime-dialogue takes [--lines --n --force] \| check \| place [--hold] \| list` | `data/dialogue.json`, `data/timeline.json` | `audio/dialogue/takes/`, `audio/dialogue/dialogue.wav`, `data/subs.json`, `data/dialogue_timing.json` |
 | `film-anime-score gen [--cues --seed --force] \| list` | `data/score.json` | `audio/score/<cue>.{wav,json}` |
+| `film-anime-render [--preview] [--only ...] [--force] [--plates-only] [--no-video] [--no-sheet] [--dry-run]` | `data/timeline.json`, `data/plates.json`, the Blender shots, `data/look.json`, the mix | `out/<id>/plates/<plate>/` (stamped), `out/<id>/<id>.mp4` (or `-preview.mp4`), `out/<id>/review/contact.png`, `out/<id>/logs/` |
+| `film-anime-review [--n 1\|2\|3] [--res WxH] [--only ...] [--jobs N] [--from-plates] [--no-grade]` | the same, rendering small in Blender's look mode | `out/<id>/review/review.png` (labelled, graded as the engine would, slates for what is missing) |
 | `film-anime-mix [--png F]` | `data/mix.json`, the dialogue, the score's cues, the sound library, `data/timeline.json` | `audio/mix/mix.wav`, its stems and `mix.json` |
 
 `data/script.json` is `{"lines": [{"id", "scene", "text", "takes"?, "optional"?}], "acts"?: [{"id", "name",

@@ -1,6 +1,6 @@
 # The anime pipeline
 
-A 2D anime short made from generated key art and clips: characters and locations designed once and kept consistent
+A 2D anime short, made from generated key art and clips or (section 8) entirely in Blender: characters and locations designed once and kept consistent
 by reference, keyframes for every shot, the shots that need real motion animated image-to-video, the rest laid out as
 2.5D multiplane shots in the engine, a cast of voices with subtitles, a composed score in cues, a sound library and a
 mix, and Blender for the shot that needs true depth. The first film made with it is `films/rain-ferry/` (*The Rain
@@ -234,7 +234,61 @@ hidden (line art keyed off in a close-up); the cast would then vanish behind eve
 Pencil object to the world that is never hidden. The pure half (`values`, `shift`, `axis`) is tested in
 `blender/tests/test_satsuei.py`.
 
-## 8. Render
+## 8. A film made entirely in Blender
+
+*The Rain Ferry* began as generated key art and clips (sections 1 to 4) and was rebuilt with every shot a Blender
+plate. Its `film.ts` is then short: each scene a `Stack` of a `PlateShot`, the look schedule's grade, and only the
+engine's marks a plate does not make (the impact frame's flash, strobe and shake; speed lines; the title's type);
+over the film the paper, the letterbox for the duel and the subtitles; the transitions; the mix.
+
+- **Which shot makes a scene**: `films/<id>/blender/shots/<scene>.py`, unless `data/plates.json` names another
+  (`{"plates": {"standoff": "standoff_vroid"}}`: the 3D cast's standoff; the drawn one stays, `--plates
+  standoff:standoff` swaps it back in a render). film.ts and the tools read the same file.
+- **A plate not rendered yet** plays as a slate (PlateShot `missing: 'slate'`, the default): its name, NOT RENDERED,
+  its window and the command that renders it. A plate with some frames but not all still fails an export.
+- **The look schedule** (`data/look.json`, read by `blender/lib/look_schedule.py` and the engine's
+  `@kit/anime` `gradeKeys`): the colour arc's two ends (`arc.cold`, `arc.warm`), a `base`, and per scene its `warm`
+  (0..1, keyable), `rain` (density, speed, wind...), `mist`, `lightning` times, and overrides of `grade`, `light` and
+  `satsuei`. Keys are `[[s into the scene, value], ...]`, eased in-out-sine as PostKeys eases them, so Blender and the
+  engine move together. The **grade** (saturation, contrast, warmth, lift, exposure, bloom, halation, vignette, grain)
+  is the engine's, over the plate: a shot never bakes it in. **light**, **satsuei**, **rain** and **mist** are the
+  shot builder's: `s = ctx.look_at(f)` in `build(ctx)` gives the state at film frame f (`s.light.key`,
+  `s.look(rims=...)` a `satsuei.Look`, `s.rain.drops`, `s.mist_color`; colours linear), `ctx.look.keyed("rain")`
+  whether to key it per frame. One file grades 27 shots by seven hands as one film.
+
+## 9. Render
+
+The whole film, in one command (`tools/`, Python and uv; Blender is `$BLENDER`, else Blender.app on macOS, else
+`blender` on the PATH; the app needs bun and Chrome):
+
+```sh
+cd tools
+uv run film-anime-render --film <id>              # the final, on the Mac: plates 2560x1440 EEVEE 32 samples, the video
+uv run film-anime-render --film <id> --preview    # a fleet host (source .tools/env.sh): plates 960x540, a draft video
+uv run film-anime-render --film <id> --only freeze,charge --plates-only     # some plates, scanned, nothing else
+uv run film-anime-render --film <id> --dry-run    # what is stale
+```
+
+1. **Plates**: each scene's shot through `blender/render.py`, skipped when the stamp beside its plates
+   (`out/<id>/plates/<plate>/.stamp.json`) matches its fingerprint: a hash of the shot, every module it imports
+   (followed through `blender/lib/` and the film's `blender/`, `render.py` with them), the files it loads by name, the
+   film's `assets/` (not `assets/ref/`), its window, its look-schedule entry, film.json and the settings. A plate is
+   cleared before it renders; one that fails its render or its scan is moved to `plates/<plate>.failed/`, so the film
+   slates it, and the run goes on. Logs: `out/<id>/logs/`.
+2. **Scan**: every plate (`render.py --scan --expect-res`).
+3. **Video**: `bun scripts/render.ts video --samples auto` with the mix (`--noaudio`, said aloud, where the machine
+   has no mix): `out/<id>/<id>.mp4` (`<id>-preview.mp4`, `--samples 1 --allow-software`, for a preview).
+4. **Contact sheet**: the middle frame of every shot from the app (graded, barred, subtitled), tiled with labels:
+   `out/<id>/review/contact.png`.
+
+**Review at a glance**, without the app: `uv run film-anime-review --film <id> [--n 1|2|3] [--res 480x270] [--only
+...] [--jobs N]` renders a few frames of every shot small in Blender's look mode (into `out/<id>/review/work/`, through
+`$FILM_OUT`: the film's plates are never touched), lays the look schedule's grade on them as the engine would
+(approximately: no bloom, grain or tone shoulder; `--no-grade`), and tiles them labelled with the shot's number, id,
+time, frame and plate, a slate where a shot has no file, failed (its log's tail is printed) or has no frame:
+`out/<id>/review/review.png`. `--from-plates` renders nothing and tiles the rendered plates' proxies.
+
+The app's own commands, for one shot or one still:
 
 ```sh
 cd app && bun scripts/timeline.ts --film <id>
