@@ -96,7 +96,7 @@ class Layer:
 # streaks close to the lens, the body of it in the middle, and a fine faint far curtain that greys the distance. As a
 # wide (REF_LENS) sees them: a longer lens sees each further out (`for_lens`)
 LAYERS = {
-    "near": Layer(0.7, 3.0, 220, 0.36, 0.0055, 0.24, shrink=2.5, clear=0.8),
+    "near": Layer(0.7, 3.0, 220, 0.32, 0.0048, 0.17, shrink=3.0, clear=0.8),
     "mid": Layer(3.0, 15.0, 3600, 0.3, 0.0045, 0.22),
     "far": Layer(15.0, 70.0, 5000, 0.55, 0.011, 0.06),
 }

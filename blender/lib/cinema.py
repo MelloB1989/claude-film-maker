@@ -11,6 +11,7 @@ from one to another), a handheld shake (a breath, hard on an impact), a dutch ro
                      lens=85, fstop=2.8, focus=shinza.armature_head, racks=[cinema.Rack(2.4, lantern, 0.5)]),
     ])
     rig.camera, rig.setup_at(f), rig.pose(f), rig.cuts      # what else a shot keys per setup: rig.per_setup(...)
+    cinema.marker(world["lantern"])                          # a focus on an object whose origin is not where it is
 
 Times are seconds from the shot's first frame (ctx.f0); a setup runs from its `at` to the next one's (the last to the
 shot's end). Inside its window a move runs over `span` (seconds into the setup, default all of it), held before and after
@@ -434,6 +435,23 @@ def _target(spec):
             return ob.armature, ob.bones[canonical(bone)]
         return ob, bone
     return spec, ""
+
+
+def marker(ob, name: str | None = None):
+    """An empty at the middle of `ob`'s bounding box, parented to it (it moves as `ob` swings or bobs): a focus or an
+    aim on an object whose mesh was built where it stands, with its origin elsewhere (props.paper_lantern's is the
+    world's)."""
+    import bpy
+    from mathutils import Vector
+
+    bpy.context.view_layer.update()
+    c = sum((Vector(v) for v in ob.bound_box), Vector()) / 8
+    m = bpy.data.objects.new(name or f"{ob.name}-mark", None)
+    m.empty_display_size = 0.05
+    (ob.users_collection[0] if ob.users_collection else bpy.context.scene.collection).objects.link(m)
+    m.parent = ob
+    m.location = c        # in ob's space: the parent inverse stays identity
+    return m
 
 
 class Rig:
