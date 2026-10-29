@@ -71,11 +71,12 @@ def plate_map(film: paths.FilmPaths) -> dict[str, str]:
     return dict(json.loads(p.read_text()).get("plates", {})) if p.exists() else {}
 
 
-def scenes(film: paths.FilmPaths) -> list[Scene]:
-    """The film's scenes in order, each with the shot file that makes its plate and its window in film frames."""
+def scenes(film: paths.FilmPaths, swap: dict | None = None) -> list[Scene]:
+    """The film's scenes in order, each with the shot file that makes its plate (data/plates.json, then `swap`) and
+    its window in film frames."""
     tl = json.loads((film.data / "timeline.json").read_text())
     fps = tl.get("fps") or json.loads(film.config.read_text()).get("fps", 30)
-    pm = plate_map(film)
+    pm = {**plate_map(film), **(swap or {})}
     out = []
     for s in tl["scenes"]:
         name = pm.get(s["id"], s["id"])

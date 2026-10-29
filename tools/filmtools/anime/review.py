@@ -170,9 +170,10 @@ def render_look(film: paths.FilmPaths, sc: P.Scene, frames: list[int], res: str,
     cmd = P.render_cmd(film.id, sc.plate, settings, ",".join(map(str, frames)))
     env = {**os.environ, "FILM_OUT": str(work)}
     r = subprocess.run(cmd, capture_output=True, text=True, env=env)
-    log = (r.stdout + r.stderr)[-1500:]
+    log = (r.stdout + r.stderr)[-1500:] + f"\n[exit {r.returncode}]"
     (work / "logs").mkdir(parents=True, exist_ok=True)
-    (work / "logs" / f"{sc.plate}.log").write_text(r.stdout + r.stderr)
+    (work / "logs" / f"{sc.plate}.log").write_text(r.stdout + r.stderr + f"\n[exit {r.returncode}]"
+                                                   + (" (killed: out of memory?)" if r.returncode < 0 else "") + "\n")
     return r.returncode, log
 
 

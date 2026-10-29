@@ -238,7 +238,7 @@ Pencil object to the world that is never hidden. The pure half (`values`, `shift
 
 *The Rain Ferry* began as generated key art and clips (sections 1 to 4) and was rebuilt with every shot a Blender
 plate. Its `film.ts` is then short: each scene a `Stack` of a `PlateShot`, the look schedule's grade, and only the
-engine's marks a plate does not make (the impact frame's flash, strobe and shake; speed lines; the title's type);
+engine's marks a plate does not make (the charge's speed lines and shake; the title's type);
 over the film the paper, the letterbox for the duel and the subtitles; the transitions; the mix.
 
 - **Which shot makes a scene**: `films/<id>/blender/shots/<scene>.py`, unless `data/plates.json` names another

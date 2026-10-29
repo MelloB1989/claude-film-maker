@@ -46,8 +46,8 @@ const scenes: ShotSpec[] = [
     { scene: SpeedLines, params: { center: [0.55, 0.55], inner: 0.32, count: 120, intensity: 0.75 }, opacity: 0.9 },
     post({ shake: [[0, 4], [2, 12]] }),
   ]),
-  // the impact frame: a white flash, an inverted strobe and a hard shake over the plate
-  plate('flash', 1, [post({ flash: [[0, 1.6], [0.07, 0]], invert: { keys: [[0, 1], [0.2, 0], [0.29, 1], [0.42, 0]], step: true }, shake: [[0, 34], [0.7, 0]] })]),
+  // the impact frame: its white, ink, inverted and glint beats are the plate's own (shots/flash.py)
+  plate('flash', 1),
   plate('after', 4.5),
   plate('fall', 4.5),
   plate('lesson', 5.5),

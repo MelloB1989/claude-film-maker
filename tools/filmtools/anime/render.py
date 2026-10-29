@@ -4,7 +4,7 @@ date skipped), every plate scanned, the film's video rendered by the app with th
     uv run film-anime-render --film <id>                    # the final: plates 2560x1440 EEVEE, 32 samples (on the Mac)
     uv run film-anime-render --film <id> --preview          # a fleet host: plates 960x540, 16 samples, a draft video
         [--only a,b] [--force] [--samples N] [--res WxH] [--plates-only] [--no-video] [--no-sheet] [--dry-run]
-        [--video-samples auto|N] [--allow-software]
+        [--video-samples auto|N] [--allow-software] [--plates scene:plate,...] [--from s --to s]
 
 1. Plates. Each scene's shot (plates.py: data/plates.json, else blender/shots/<scene>.py) renders through
    blender/render.py unless its stamp says it is up to date (plates.py fingerprint: its code and every module it
@@ -62,11 +62,12 @@ def set_aside(film: paths.FilmPaths, plate: str) -> None:
         d.rename(bad)
 
 
-def plan(film: paths.FilmPaths, settings: dict, only: list[str] | None, force: bool) -> list[dict]:
+def plan(film: paths.FilmPaths, settings: dict, only: list[str] | None, force: bool,
+         swap: dict | None = None) -> list[dict]:
     """What each scene needs: {"scene", "plate", "action": render | up to date | no shot, "fingerprint"}. Two scenes made
-    by one shot file are one plate."""
+    by one shot file are one plate. `swap` ({scene: plate}, --plates) overrides data/plates.json."""
     out, seen = [], set()
-    for sc in P.scenes(film):
+    for sc in P.scenes(film, swap):
         if only and sc.id not in only:
             continue
         if not sc.exists:
@@ -132,9 +133,20 @@ def has_mix(film: paths.FilmPaths) -> bool:
     return bool(mix) and (film.dir / mix).exists()
 
 
-def render_video(film: paths.FilmPaths, preview: bool, samples: str, allow_software: bool) -> dict:
-    out = film.out / (f"{film.id}-preview.mp4" if preview else f"{film.id}.mp4")
-    cmd = [bun(), "scripts/render.ts", "video", "--film", film.id, "--samples", samples, "--out", str(out)]
+def _swap_arg(swap: dict | None) -> list[str]:
+    return ["--plates", ",".join(f"{k}:{v}" for k, v in swap.items())] if swap else []
+
+
+def render_video(film: paths.FilmPaths, preview: bool, samples: str, allow_software: bool, swap: dict | None = None,
+                 span: tuple | None = None) -> dict:
+    name = f"{film.id}-preview" if preview else film.id
+    if span:
+        name += f"_{span[0]:g}-{span[1]:g}"
+    out = film.out / f"{name}.mp4"
+    cmd = [bun(), "scripts/render.ts", "video", "--film", film.id, "--fresh", "--samples", samples, "--out", str(out),
+           *_swap_arg(swap)]
+    if span:
+        cmd += ["--from", f"{span[0]:g}", "--to", f"{span[1]:g}"]
     if not has_mix(film):
         log("the film has no mix on this machine: the video is silent (--noaudio)")
         cmd.append("--noaudio")
@@ -145,17 +157,17 @@ def render_video(film: paths.FilmPaths, preview: bool, samples: str, allow_softw
     return {"video": str(out) if code == 0 else None, "exit": code, "audio": has_mix(film)}
 
 
-def contact_sheet(film: paths.FilmPaths, preview: bool, allow_software: bool) -> dict:
+def contact_sheet(film: paths.FilmPaths, preview: bool, allow_software: bool, swap: dict | None = None) -> dict:
     """One still of every shot from the app (its middle frame), tiled with labels."""
-    scs = P.scenes(film)
+    scs = P.scenes(film, swap)
     fps = P.fps_of(film)
     frames = [(s.f0 + s.f1 - 1) // 2 for s in scs]
     times = [f / fps for f in frames]
     d = film.out / "review" / ("contact-stills-preview" if preview else "contact-stills")
     if d.exists():
         shutil.rmtree(d)
-    cmd = [bun(), "scripts/render.ts", "stills", "--film", film.id, "--t", ",".join(f"{t:.6f}" for t in times),
-           "--out", str(d)]
+    cmd = [bun(), "scripts/render.ts", "stills", "--film", film.id, "--fresh", "--t", ",".join(f"{t:.6f}" for t in times),
+           "--out", str(d), *_swap_arg(swap)]
     if preview or allow_software:
         cmd.append("--allow-software")
     code = _run(cmd, film.out / "logs" / "contact.log", cwd=paths.APP)
@@ -183,6 +195,10 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--no-sheet", action="store_true")
     ap.add_argument("--video-samples", default=None, help="render.ts --samples (default auto; 1 for a preview)")
     ap.add_argument("--allow-software", action="store_true", help="let the app render on a software GL")
+    ap.add_argument("--plates", help="scene:plate[,...]: render and play another shot's plates for a scene "
+                                     "(standoff:standoff, the drawn cast), over data/plates.json")
+    ap.add_argument("--from", dest="t_from", type=float, help="the video from this film time (s)")
+    ap.add_argument("--to", dest="t_to", type=float, help="... to this one")
     ap.add_argument("--dry-run", action="store_true", help="say what would render, render nothing")
     a = cli.parse(ap, argv)
     film = paths.current()
@@ -192,7 +208,8 @@ def main(argv: list[str] | None = None) -> None:
     if a.res:
         settings["res"] = a.res
     only = a.only.split(",") if a.only else None
-    steps = plan(film, settings, only, a.force)
+    swap = dict(p.split(":", 1) for p in a.plates.split(",")) if a.plates else None
+    steps = plan(film, settings, only, a.force, swap)
     for s in steps:
         log(f"{s['scene']:>9} <- {s['plate']}: {s['action']}")
     if a.dry_run:
@@ -204,11 +221,12 @@ def main(argv: list[str] | None = None) -> None:
     ok = not failed
     if not a.plates_only:
         if not a.no_video:
+            span = (a.t_from or 0.0, a.t_to) if a.t_to is not None else None
             report["video"] = render_video(film, a.preview, a.video_samples or ("1" if a.preview else "auto"),
-                                           a.allow_software)
+                                           a.allow_software, swap, span)
             ok = ok and report["video"]["exit"] == 0
         if not a.no_sheet:
-            report["contact"] = contact_sheet(film, a.preview, a.allow_software)
+            report["contact"] = contact_sheet(film, a.preview, a.allow_software, swap)
     print(json.dumps(report, indent=1))
     if not ok:
         sys.exit(1)
