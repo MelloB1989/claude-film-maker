@@ -82,7 +82,7 @@ def build(ctx):
                                       ((-1.0, 0.2), LANTERN_RIM, 0.15, 0.003, 0.9)],
                                 para=(0.5, 0.53, 0.7), para_from=(0.85, 0.9), para_to=(0.15, 0.1), para_amount=0.4,
                                 wrap=0.3, wrap_width=0.02))
-    ja.bowl_smoke(st, seed=11, **SMOKE).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
+    ja.bowl_smoke(st, seed=11, **SMOKE).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps, step=12)
     ja.clock("refuse", "smoke baked")
 
 
