@@ -16,8 +16,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import numpy as np
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from rf import jetty_arrive as ja  # noqa: E402
@@ -31,10 +29,10 @@ CAM = [(0.0, (9.14, -2.4, 1.0), (4.0, 0.5, 1.1)),
 LENS = [(0.0, 40.0), (5.0, 42.0)]
 FSTOP = [(0.0, 2.8)]
 RACK = (1.45, 2.2)          # s: the focus pulls from her to him as he stops
-WALK = (-0.9, 2.1)          # s: he is already walking when the shot opens; he stops on his mark
-CHIN = (2.05, 2.4)          # his chin up out of the hat's shadow to speak
+STOP = 2.1                  # s: he is already walking when the shot opens and stands still on his mark here
+GLARE = 2.05                # s: his glare hardens as he stops to speak
+TEXT = "baasan. mukougishi e, watashite kure."   # line 3 as it is spoken (data/dialogue.json L03)
 EXHALE = (0.55, 1.35)       # s: she lets the smoke out round the pipe's stem as he comes
-BLINKS_SH = (2.25, 4.75)
 SKY_RIM, LANTERN_RIM = (0.6, 0.68, 0.85), (1.0, 0.5, 0.18)
 
 
@@ -43,8 +41,20 @@ def build(ctx):
                   variant={"shinza": {"kasa": "on"}}, place={"shinza": None})
     jt.compose_faces(st)
     line = st.line("L03")["L03"]
-    walk = ja.Walk(st, ja.ASK_FROM, jt.SHINZA_AT, *WALK)
-    perform(st, walk, line)
+    sh, stop = ja.arrives(st, [ja.ASK_FROM, jt.SHINZA_AT], STOP)
+    her_face = jt.TSURU_AT + (1.0,)
+    sh.look(ctx.f0, None)
+    sh.look(stop + round(0.1 * ctx.fps), (her_face[0], her_face[1], 0.95), lag=1.3)
+    sh.settle(stop, 0.5)
+    sh.express(ctx.f0, {"glare": 0.7})
+    sh.express(ctx.f0 + round(GLARE * ctx.fps), {"glare": 1.0})
+    sh.blinks(mean=3.4)
+    sh.blink_at(stop + round(0.15 * ctx.fps))
+    sh.breathe(rate=0.3, depth=1.3)
+    sh.say(st.start + line[0], st.start + line[1], TEXT, energy=0.9)
+    sh.secondary(wind=(0.4, 1.2, 0.0))
+    sh.bake(ctx.f0, ctx.f1)
+    perform(st)
     shot = jt.Shot(CAM, LENS, FSTOP, breath=0.004)
     her, him = st.tracked_focus("tsuru"), st.tracked_focus("shinza", every=3)
     st.camera(shot, lambda f: her(f) + (him(f) - her(f)) * jt.ramp(st.t(f), *RACK))
@@ -61,26 +71,9 @@ def build(ctx):
     ja.breath(st, [EXHALE], ja.lips_source(st, pose, jt.tsuru_hips(st, 0.0))).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
 
 
-def perform(st, walk, line):
-    ch = st.cast["shinza"]["vrm"]
-    hang_r, hang_l = np.array(jt.HANG["right"]), np.array(jt.HANG["left"])
-    turn_r = jt.hand_turn(ch, "right", (0.0, 1.0, 0.0), (1.0, 0.0, 0.0))
-    turn_l = jt.hand_turn(ch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0))
+def perform(st):
     for f in st.frames():
         t = st.t(f)
-        walk.key(f, t)
-        go, sw = walk.going(t), walk.swing(t)
-        chin = jt.ramp(t, *CHIN)
-        # walking: his head down under the hat, leaning into it; stopped: he lifts his chin to her
-        body = jt.shinza_stand(t, chin=chin)
-        body["head"] = (body["head"][0] + 6.0 * go, body["head"][1], body["head"][2])
-        body["spine"] = (body["spine"][0] + ja.LEAN * go, body["spine"][1], body["spine"][2])
-        st.pose("shinza", f, {**body, **jt.fingers("right", 0.3), **jt.fingers("left", 0.3)},
-                hips=tuple(np.array(jt.shinza_hips(t)) * (1.0 - go)))
-        # the arms swing against the legs (his front is -y)
-        st.hand("shinza", "right", f, hang_r + (0.0, -0.13 * sw, 0.02 * abs(sw)), turn_r, (-0.3, 0.5, 1.2))
-        st.hand("shinza", "left", f, hang_l + (0.0, 0.13 * sw, 0.02 * abs(sw)), turn_l, (0.3, 0.5, 1.2))
-        st.face("shinza", f, {"glare": 1.0, "blink": jt.blink(t, BLINKS_SH), **jt.mouth_weights(t, [line], seed=3)})
         # she smokes, the pipe at her lips; her head goes back a little as she lets the smoke out
         out = jt.ramp(t, EXHALE[0] - 0.25, EXHALE[0]) - jt.ramp(t, EXHALE[1], EXHALE[1] + 0.4)
         jt.tsuru_rest(st, f, t, smoking=True, down=-4.0 * out)

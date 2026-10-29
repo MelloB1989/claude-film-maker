@@ -30,8 +30,9 @@ CAM = [(0.0, (-15.5, -11.5, 3.6), (2.0, 4.0, 0.0)),
        (5.5, (-14.6, -10.7, 3.3), (2.4, 3.7, 0.15))]
 LENS = [(0.0, 26.0), (5.5, 27.0)]
 FSTOP = [(0.0, 8.0)]
-# Shinza down the last of the path to the jetty's foot: how far back along the path he starts (m), when he walks (s)
-WALK_BACK, WALK = 8.0, (-0.4, 6.6)
+# Shinza down the last of the path to the jetty's foot: how far back along the path he starts (m), and when he
+# would stand still at its end (s into the shot: after the cut, so he is walking all through it)
+WALK_BACK, WALK_END = 8.0, 6.6
 # her smoke, made larger than life so a thread reads from this far (she is ~25 m off)
 WISP = dict(width=(0.01, 0.16), life=3.4, rise=0.3, curl=0.12, rate=24.0, opacity=0.45)
 EXHALE = (2.6, 3.4)          # s into the shot: she lets out a breath of smoke
@@ -46,24 +47,18 @@ def build(ctx):
     jt.compose_faces(st)
     P = set_approach.path_xy()
     d = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))]
-    start = P[np.searchsorted(d, d[-1] - WALK_BACK)]
-    walk = ja.Walk(st, start, P[-1], *WALK, end_heading=float(np.degrees(np.arctan2(*(P[-1] - start)[::-1]))),
-                   ground=lambda x, y: float(set_valley.ground(x, y)))
-    ch = st.cast["shinza"]["vrm"]
-    hang_r, hang_l = np.array(jt.HANG["right"]), np.array(jt.HANG["left"])
-    turn_r = jt.hand_turn(ch, "right", (0.0, 1.0, 0.0), (1.0, 0.0, 0.0))
-    turn_l = jt.hand_turn(ch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0))
+    path = P[d >= d[-1] - WALK_BACK]
+    way = path[-1] - path[-2]
+    sh, _ = ja.arrives(st, path, WALK_END, end_yaw=float(np.degrees(np.arctan2(way[1], way[0]))),
+                       ground=float(set_valley.ground(*path[-1])))
+    sh.look(ctx.f0, None)
+    sh.express(ctx.f0, {"glare": 0.6})
+    sh.blinks(mean=3.4)
+    sh.breathe(rate=0.3, depth=1.3)
+    sh.secondary(wind=(0.4, 1.2, 0.0))
+    sh.bake(ctx.f0, ctx.f1)
     for f in st.frames():
         t = st.t(f)
-        walk.key(f, t)
-        go, sw = walk.going(t), walk.swing(t)
-        body = jt.shinza_stand(t)
-        body["head"] = (body["head"][0] - 6.0 + 4.0 * go, body["head"][1], body["head"][2])   # looking ahead, hat low
-        body["spine"] = (body["spine"][0] + ja.LEAN * go, body["spine"][1], body["spine"][2])
-        st.pose("shinza", f, {**body, **jt.fingers("right", 0.3), **jt.fingers("left", 0.3)},
-                hips=tuple(np.array(jt.shinza_hips(t)) * (1.0 - go)))
-        st.hand("shinza", "right", f, hang_r + (0.0, -0.13 * sw, 0.02 * abs(sw)), turn_r, (-0.3, 0.5, 1.2))
-        st.hand("shinza", "left", f, hang_l + (0.0, 0.13 * sw, 0.02 * abs(sw)), turn_l, (0.3, 0.5, 1.2))
         out = jt.ramp(t, EXHALE[0] - 0.25, EXHALE[0]) - jt.ramp(t, EXHALE[1], EXHALE[1] + 0.4)
         jt.tsuru_rest(st, f, t, smoking=True, down=-4.0 * out)
 

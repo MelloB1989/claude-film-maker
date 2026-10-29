@@ -38,6 +38,7 @@ WORDS = (0.95, 1.35)        # ... and the last of it on her first words
 LIFT = (3.0, 3.8)           # s: the pipe back up to her lips
 CHIN = (0.8, 1.1, 2.9, 3.4)   # her chin lifts a touch on the line and settles
 BLINKS = (2.95,)
+TEXT = "ame no hi wa, watasanai yo."    # line 4 as it is spoken (data/dialogue.json L04)
 SKY_RIM, LANTERN_RIM = (0.6, 0.68, 0.85), (1.0, 0.5, 0.18)
 
 
@@ -75,6 +76,7 @@ def build(ctx):
 
 
 def perform(st, line):
+    say = ja.speech(TEXT, line[0], line[1], energy=0.75, seed=4)
     for f in st.frames():
         t = st.t(f)
         chin = jt.ramp(t, CHIN[0], CHIN[1]) - 0.6 * jt.ramp(t, CHIN[2], CHIN[3])
@@ -90,4 +92,4 @@ def perform(st, line):
         st.pose("tsuru", f, pose, hips=hips)
         jt.hold_pipe(st, f, point, along)
         jt.knee_hand(st, f)
-        st.face("tsuru", f, {"s4-calm": 1.0, "blink": jt.blink(t, BLINKS), **jt.mouth_weights(t, [line], seed=9)})
+        st.face("tsuru", f, {"s4-calm": 1.0, "blink": jt.blink(t, BLINKS), **say(t)})
