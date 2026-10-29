@@ -1,17 +1,35 @@
-"""Tsuru from her VRoid Studio model (films/rain-ferry/assets/vroid/tsuru.vrm) for the standoff: an old woman stooped
-and very still, soaked, aged where VRoid paints young (blender/lib/vrm_skin.py: her face's lines, folds and spots, a
-soft grey hairline, grey brows, heavy lids), the sneakers VRoid gave her swapped for dark tabi and straw sandals, and
-what VRoid does not make (blender/lib/props.py): her ferry pole and her straw rain cape. rf/vroid_cast.py describes
-what the builder returns."""
+"""Tsuru from her VRoid Studio model (films/rain-ferry/assets/vroid/tsuru.vrm), as STORY.md has her: an old woman,
+small and wiry, very still; aged where VRoid paints young (blender/lib/vrm_skin.py: her face's lines, folds and spots,
+a soft grey hairline, grey brows, heavy lids), her hair white and gathered in a low bun held with a plain wooden pin
+(VRoid's ponytail hidden), a faded indigo kimono, the sneakers VRoid gave her swapped for dark tabi and straw sandals,
+and what VRoid does not make (blender/lib/props.py): her straw rain cape (mino), her long thin kiseru and her bamboo
+ferry pole, wrapped with worn cord near the top, which hides a thin straight blade.
+
+    tsuru(coll, look, pipe=None, pole="hand", seated=False, wet=1.0)
+
+  pipe    "hand" (in her left hand, the bowl forward), "mouth" (its mouthpiece at her lips, her left hand on the stem)
+          or None
+  pole    "hand" (upright in her right hand: the standoff), "shoulder" (on her right shoulder, held in front of it),
+          "boat" (not with her: laid on the ground at her right, carried by her root alone, for a shot to put in its
+          boat) or "drawn" (parted at the cord: the handle and its blade in her right hand, the blade forward and low,
+          the shaft upright in her left; with "drawn" the pipe goes)
+  seated  sitting on something knee high (a post, a boat's edge: 0.42 m under her), her feet on the ground in front
+  wet     1 soaked (the standoff) to 0 dry (after the rain)
+
+Returns rf/vroid_cast.py's dict and "parts": {"pole" (the pole, or its shaft), "handle" (its handle, with the blade:
+empty unless it can part), "blade", "pipe", "bun", "mino", "sandals"}, each a list of objects whose first is the one to
+move. What carries what is rf/vroid_common.py's: the pole (or the handle, with the blade) by rightHand, the shaft drawn
+by leftHand, the pipe by leftHand, the bun and pin by head, the mino by upperChest; the pole laid down ("boat") by her
+root. The pole always parts at the cord: move parts["handle"][0] off it to draw the blade."""
 from __future__ import annotations
 
 import math
 
 import numpy as np
 
-from lib import anime, props, shapes, vrm, vrm_rig, vrm_skin as skin
+from lib import anime, props, vrm, vrm_rig, vrm_skin as skin
 
-from .vroid_common import COLORS, HEIGHT, plant, vrm_file
+from .vroid_common import HEIGHT, SOLE, colors, move, plant, posed, sandals, soak, to_frame, vrm_file
 
 MM = 1e-3
 
@@ -25,10 +43,45 @@ TS_POSE = {"spine": (6.0, 0.0, 0.0), "chest": (13.0, 0.0, 0.0), "upperChest": (1
            **{f"left{f}{j}": (0.0, 28.0, 0.0) for f in ("Index", "Middle", "Ring", "Little") for j in ("Proximal", "Intermediate")}}
 LEFT_HAND = ((0.2, -0.1, 0.66), (0.5, 0.6, 0.9))   # where the hanging left hand's wrist is, and its elbow's pole
 ELBOWS = {"left": 25.0, "right": 70.0}   # how far each elbow starts folded for its IK (vrm.reach): the right well in
-POLE = (-0.24, -0.2)          # its foot, in her frame
+FEET = {"left": ((0.09, 0.03), (0.1, -1.0, 0.45), (0.0, 0.0, 8.0)),
+        "right": ((-0.09, -0.01), (-0.1, -1.0, 0.45), (0.0, 0.0, -8.0))}
+# ---- seated on something SEAT high: the hips down onto it, the thighs forward and level, the shins down to her feet
+# on the ground a little in front, the back still rounded (less), the head up
+SEAT = 0.42
+SEATED_POSE = {"spine": (4.0, 0.0, 0.0), "chest": (8.0, 0.0, 0.0), "upperChest": (10.0, 0.0, 0.0),
+               "neck": (10.0, 0.0, 0.0), "head": (-36.0, 0.0, 4.0),
+               "leftUpperLeg": (-84.0, 0.0, -5.0), "rightUpperLeg": (-84.0, 0.0, 5.0),
+               "leftLowerLeg": (82.0, 0.0, 0.0), "rightLowerLeg": (82.0, 0.0, 0.0),
+               "leftShoulder": (0.0, 6.0, -10.0), "rightShoulder": (0.0, -6.0, 10.0)}
+SEATED_FEET = {"left": ((0.11, -0.4), (0.15, -1.5, 0.6), (0.0, 0.0, 10.0)),
+               "right": ((-0.11, -0.38), (-0.15, -1.5, 0.6), (0.0, 0.0, -10.0))}
+# ---- her pole: its foot before her right shoulder (her frame), its top; where her right hand holds it upright
+# (standing, seated); it parts at SPLIT, the cord wound from there up GRIP long, its blade BLADE long inside the shaft
+POLE = (-0.24, -0.2)
 POLE_TOP = 2.1
-GRIP_Z = 0.98                 # where her right hand holds it
-SOLE = 0.016                  # the sandals' thickness
+GRIP_Z = {False: 0.98, True: 0.82}
+SPLIT, CORD, BLADE = 1.66, 0.2, 0.62
+# on her shoulder: resting on the top of her right shoulder (a point over it, her frame at rest), the long end back
+# and down, the top forward and up (its way), her right hand on it `hand` ahead of the shoulder
+SHOULDER = dict(over=(-0.13, 0.02, 0.06), way=(0.0, -0.93, 0.36), behind=1.25, hand=0.24)
+# laid down at her right (the foot behind her)
+LAID = dict(foot=(-0.35, 0.85, 0.024), way=(0.0, -1.0, 0.0))
+# drawn: her right hand on the handle (its wrist; the blade from the fist forward and down: its way), the shaft upright
+# in her left hand, held low at her side
+DRAWN = dict(grip=(-0.17, -0.3, 0.95), way=(0.15, -0.88, -0.45), shaft=(0.24, -0.08, 0.72))
+# ---- her kiseru: in her left hand before her at the waist, the bowl forward and a little out; in her mouth, from the
+# left corner of her lips forward, down and out, her hand on its stem
+KISERU = 0.3
+PIPE_HAND = dict(hole=(0.13, -0.24, 0.86), way=(-0.15, -0.95, 0.15))
+PIPE_MOUTH = dict(way=(0.3, -0.8, -0.5), hold=0.13)
+# ---- her hair: white, the ponytail's strands (VRoid's chains behind her head, rooted below its crown) hidden, the
+# rest gathered into a low bun at the back of her head (its middle off the head bone: behind, up; its half sizes),
+# a wooden pin through it, aslant
+HAIR_WHITE = ((0.78, 0.78, 0.8), (0.42, 0.44, 0.5))
+BUN = dict(at=(0.0, 0.085, 0.035), radii=(0.05, 0.036, 0.04), pin=(0.16, 0.0035, 24.0))
+# ---- her robe recoloured a faded indigo (linear lit, shade)
+INDIGO = ((0.055, 0.075, 0.15), (0.018, 0.026, 0.06))
+TS_COLORS = {"hair": HAIR_WHITE}
 
 # ---- her face. The marks are drawn on a front view of it (lib/vrm_skin.py: projected along +y onto the face's skin),
 # placed from its landmarks, in metres; colours as the texture holds them (sRGB)
@@ -233,81 +286,180 @@ def tabi(ch) -> float:
     return float(surf.tris[:, :, 2].min()) * ch.scale
 
 
-def sandals(ch, m: dict, coll, name: str) -> list:
-    """A zori under each posed foot (on the deck, along the foot): a straw sole and its dark thong from between the
-    first toes over the forefoot to either side; carried by the foot."""
-    obs = []
-    s = ch.scale
-    for side in ("left", "right"):
-        a = np.array(ch.point(f"{side}Foot"))
-        t = np.array(ch.point(f"{side}Toes"))
-        f = t - a
-        f[2] = 0.0
-        f /= np.linalg.norm(f)
-        inward = np.cross((0.0, 0.0, 1.0), f) * (-1.0 if side == "left" else 1.0)   # toward her other foot
-        heel, toe = a - f * 0.052 * s, a + f * 0.155 * s
-        heel[2] = toe[2] = SOLE / 2
-        along = lambda k, across=0.0, up=0.0: heel + (toe - heel) * k + inward * across * s + np.array([0, 0, up])  # noqa: E731
-        path = [along(k) for k in (0.0, 0.05, 0.3, 0.6, 0.85, 0.97, 1.0)]
-        half = np.array([0.018, 0.028, 0.031, 0.036, 0.034, 0.026, 0.012]) * s
-        obs.append(shapes.loft(f"{name}-zori-{side}", path, half, SOLE / 2, material=m["straw"], coll=coll, n=12,
-                               power=3.0, subsurf=0, up=(0.0, 0.0, 1.0)))
-        # the thong: from the post between the big toe and the next, up over the forefoot, down to the sole's edges
-        post = along(0.83, 0.012, SOLE / 2)
-        for k, sgn in enumerate((1.0, -1.0)):
-            path = [post, along(0.74, 0.012 + sgn * 0.012, SOLE / 2 + 0.03 * s), along(0.62, sgn * 0.026, SOLE / 2 + 0.03 * s),
-                    along(0.55, sgn * 0.034, SOLE / 2)]
-            obs.append(shapes.loft(f"{name}-hanao-{side}{k}", path, 0.004 * s, material=m["cord"], coll=coll, n=6,
-                                   subsurf=0))
-    for ob in obs:
-        vrm.attach(ob, ch, ("left" if "-left" in ob.name else "right") + "Foot")
-        ob["outline"] = False
-    return obs
 
 
-def tsuru(coll, look, name: str = "tsuru") -> dict:
-    m = anime.palette(COLORS, look, prefix=name)
+def indigo(ch) -> None:
+    """Her robe (VRoid's top and bottoms) one faded indigo, its folds kept."""
+    for mat in ch.materials("cloth"):
+        if "Tops" in mat.name or "Bottoms" in mat.name:
+            vrm_rig.recolor(mat, *INDIGO, opaque=True)
+
+
+def hair(ch, m: dict, coll, name: str) -> list:
+    """Her hair white, VRoid's ponytail hidden (its strands shrunk into their roots at the back of her head) and a low
+    bun there with a wooden pin through it. At rest; returns [bun, pin], carried by her head."""
+    from lib import shapes
+
+    for mat in ch.materials("hair"):
+        vrm_rig.recolor(mat, *HAIR_WHITE, keep=0.45)
+    head = ch.rest("head")
+    for chain in vrm_rig.chains(ch):
+        root, tip = vrm_rig.rest_point(ch, chain[0]), vrm_rig.rest_point(ch, chain[-1], tail=True)
+        if root[1] > head[1] + 0.02 and tip[2] < head[2] + 0.02:
+            vrm_rig.thin(ch, chain, 0.05, 0.05)
+    at = head + np.asarray(BUN["at"])
+    bun = shapes.ellipsoid(f"{name}-bun", tuple(ch.world(at)), BUN["radii"], material=m["hair"], coll=coll, n=16,
+                           rot=_rot(ch))
+    length, r, tilt = BUN["pin"]
+    a = math.radians(tilt)
+    d = np.array((math.cos(a), 0.0, math.sin(a)))
+    pin = shapes.cylinder(f"{name}-pin", tuple(ch.world(at - d * length / 2 + (0, 0.02, 0))),
+                          tuple(ch.world(at + d * length / 2 + (0, 0.02, 0))), r, material=m["wood"], coll=coll, n=8)
+    for ob in (bun, pin):
+        vrm.attach(ob, ch, "head")
+    return [bun, pin]
+
+
+def _rot(ch) -> np.ndarray:
+    """Her frame's axes in the world (columns)."""
+    o = np.array(ch.world((0.0, 0.0, 0.0)))
+    return np.column_stack([np.array(ch.world(e)) - o for e in np.eye(3)])
+
+
+def _w(ch, d) -> tuple:
+    """A direction of her frame in the world."""
+    return tuple(_rot(ch) @ np.asarray(d, float))
+
+
+def _mouth(ch, lm) -> np.ndarray:
+    """The left corner of her lips as posed, in her frame (lm: the face's landmarks, mesh space)."""
+    face = _face_mesh(ch)
+    mm = np.array(ch.armature.matrix_world.inverted() @ face.matrix_world)
+    arm = mm[:3, :3] @ np.asarray(lm["mouth_left"], float) + mm[:3, 3]
+    return posed(ch, "head", ch.frame.T @ arm * ch.scale)
+
+
+def tsuru(coll, look, name: str = "tsuru", *, pipe: str | None = None, pole: str = "hand", seated: bool = False,
+          wet: float = 1.0) -> dict:
+    if pipe not in ("hand", "mouth", None) or pole not in ("hand", "boat", "shoulder", "drawn"):
+        raise ValueError(f"tsuru: pipe={pipe!r} (hand, mouth, None), pole={pole!r} (hand, boat, shoulder, drawn)")
+    if pole == "drawn":
+        pipe = None
+    m = anime.palette(colors(wet, TS_COLORS), look, prefix=name)
     ch = vrm.load(vrm_file(name), coll, name=name)
     vrm.scale_to(ch, HEIGHT["tsuru"])
     is_tsuru = vrm_file(name).stem == name     # the stand-in is not aged
-    sole = 0.0
+    parts = {k: [] for k in ("pole", "handle", "blade", "pipe", "bun", "mino", "sandals")}
+    sole, lm = 0.0, None
     if is_tsuru:
-        age(ch)
         robe(ch)
+        indigo(ch)
+        parts["bun"] = hair(ch, m, coll, name)
+        lm = age(ch)
         sole = tabi(ch)
-    vrm.wet(ch, cloth=(0.66, 0.7, 0.78), hair=(0.8, 0.82, 0.88))   # grey hair stays light when wet
+    soak(ch, wet, cloth=(0.66, 0.7, 0.78), hair=(0.8, 0.82, 0.88))   # white hair stays light when wet
 
+    # her body, then her hands on what they hold (a pipe at her lips needs her head where the pose puts it)
+    base = SEATED_POSE if seated else TS_POSE
+    hips = (0.0, 0.0, SEAT + 0.07 - ch.rest("leftUpperLeg")[2]) if seated else TS_HIPS
+    vrm.pose(ch, base, hips=hips)
+    fingers = {}
     px, py = POLE
-    fingers = vrm.grasp(ch, "right", (px, py, GRIP_Z), (0.0, 0.0, 1.0), (1.0, 0.0, 0.0), pole=(-0.5, 0.4, 0.6),
-                        amount=0.95, bend=ELBOWS["right"])
-    vrm.pose(ch, {**TS_POSE, **fingers}, hips=TS_HIPS)
-    vrm.reach(ch, "leftHand", LEFT_HAND[0], pole=LEFT_HAND[1], bend=ELBOWS["left"])
+    up = np.array((0.0, 0.0, 1.0))
+    if pole == "hand":
+        fingers.update(vrm.grasp(ch, "right", (px, py, GRIP_Z[seated]), up, (1.0, 0.0, 0.0), pole=(-0.5, 0.4, 0.6),
+                                 amount=0.95, bend=ELBOWS["right"]))
+    elif pole == "shoulder":
+        over = posed(ch, "rightShoulder", ch.rest("rightUpperArm") + np.asarray(SHOULDER["over"]))
+        way = np.asarray(SHOULDER["way"]) / np.linalg.norm(SHOULDER["way"])
+        fingers.update(vrm.grasp(ch, "right", over + way * SHOULDER["hand"], way, (0.3, 0.0, -1.0),
+                                 pole=(-0.45, -0.1, 0.75), amount=0.95, bend=ELBOWS["right"]))
+    elif pole == "drawn":
+        fingers.update(vrm.grasp(ch, "right", DRAWN["grip"], DRAWN["way"], (1.0, 0.0, 0.2), pole=(-0.5, 0.2, 0.7),
+                                 bend=ELBOWS["right"]))
+        fingers.update(vrm.grasp(ch, "left", DRAWN["shaft"], up, (-1.0, 0.0, 0.0), pole=(0.5, 0.4, 0.7),
+                                 bend=ELBOWS["left"]))
+    else:
+        vrm.reach(ch, "rightHand", (-LEFT_HAND[0][0], *LEFT_HAND[0][1:]) if not seated else (-0.13, -0.24, SEAT + 0.14),
+                  pole=(-0.5, 0.6, 0.9), bend=ELBOWS["left"])
+    mouth = None
+    if pipe == "hand":
+        fingers.update(vrm.grasp(ch, "left", PIPE_HAND["hole"], PIPE_HAND["way"], (-0.5, 0.0, 0.8),
+                                 pole=(0.5, 0.4, 0.7), amount=0.85, bend=ELBOWS["left"]))
+    elif pipe == "mouth":
+        mouth = _mouth(ch, lm) if lm is not None else np.array((0.02, -0.12, 1.28))
+        pway = np.asarray(PIPE_MOUTH["way"]) / np.linalg.norm(PIPE_MOUTH["way"])
+        fingers.update(vrm.grasp(ch, "left", mouth + pway * PIPE_MOUTH["hold"], pway, (-0.6, 0.0, 0.6),
+                                 pole=(0.45, -0.1, 0.9), amount=0.8, bend=60.0))
+    elif pole != "drawn":
+        vrm.reach(ch, "leftHand", LEFT_HAND[0] if not seated else (0.13, -0.24, SEAT + 0.14), pole=LEFT_HAND[1],
+                  bend=ELBOWS["left"])
+    vrm.pose(ch, {**base, **fingers}, hips=hips)
     lift = SOLE - sole if is_tsuru else 0.0      # bare soles down onto the sandals
-    plant(ch, {"left": ((0.09, 0.03, ch.rest("leftFoot")[2] + lift), (0.1, -1.0, 0.45), (0.0, 0.0, 8.0)),
-               "right": ((-0.09, -0.01, ch.rest("rightFoot")[2] + lift), (-0.1, -1.0, 0.45), (0.0, 0.0, -8.0))})
-    extra = sandals(ch, m, coll, name) if is_tsuru else []
+    feet = SEATED_FEET if seated else FEET
+    plant(ch, {side: ((x, y, ch.rest(f"{side}Foot")[2] + lift), pl, turn) for side, ((x, y), pl, turn) in feet.items()})
+    if is_tsuru:
+        parts["sandals"] = sandals(ch, m, coll, name)
 
     # the straw cape (props.straw_cape: built facing +x), heavy and soaked: a collar and three tiers of straw in wet
-    # clumps tied on round the base of her neck, lying on her shoulders and falling straight from the round of her back (the drape
-    # of her posed body, her forearms and hands left out), open in front, longer behind; carried by her upper chest
+    # clumps tied on round the base of her neck, lying on her shoulders and falling straight from the round of her
+    # back (the drape of her posed body, her forearms and hands left out), open in front, longer behind; carried by her
+    # upper chest
     nk = ch.point("neck")
     top = nk.z - 0.01
-    hem = ch.point("leftLowerLeg").z + 0.03
+    hem = ch.point("leftLowerLeg").z + 0.03 if not seated else SEAT + 0.02
     zs = np.linspace(hem, top, 48)
     drape = skin.Drape(zs, skin.girth(ch, (nk.x, nk.y), zs, n=72, limit=0.32, slab=0.008,
-                                      skip=("leftLowerArm", "rightLowerArm")))
+                                      skip=("leftLowerArm", "rightLowerArm", "leftHand", "rightHand",
+                                            "leftUpperLeg", "rightUpperLeg") if seated else
+                                      ("leftLowerArm", "rightLowerArm")))
     cape = props.straw_cape(f"{name}-mino", m["straw"], coll, center=(nk.x, nk.y), radii=(0.05, 0.06), top_z=top,
                             hem_z=hem, front_gap=36.0, flare=0.05, droop=0.02, segs=8, taper=0.7, front_hem=0.3,
-                            clump=3, shag=0.008, ragged=(0.72, 1.15), hug=drape, gap=0.01, layer=0.006,
+                            clump=3 if wet > 0.5 else 1, shag=0.008 + 0.006 * (1.0 - wet), ragged=(0.72, 1.15),
+                            hug=drape, gap=0.01, layer=0.006,
                             tiers=[(-0.02, 0.26, 230, (0.008, 0.016), 0.2), (0.1, 0.36, 280, (0.009, 0.018), 0.1),
                                    (0.32, 0.4, 320, (0.009, 0.018), 0.06), (0.56, 0.5, 360, (0.009, 0.018), 0.04)],
                             tip_material=m["straw_tip"], alt_material=m["straw_dark"], ink=False)
     vrm.attach(cape, ch, "upperChest" if ch.has("upperChest") else "chest")
-    foot = ch.world((px, py, 0.0))
-    pole = props.ferry_pole(f"{name}-pole", {"bamboo": m["bamboo"], "cord": m["cord"]}, coll, (foot.x, foot.y, 0.0),
-                            POLE_TOP)
-    for ob in pole:
-        anime.attach([ob], ch.root)
+    parts["mino"] = [cape]
+
+    # the pole, built upright at the origin and parted at the cord, then each part put where she has it
+    built = props.ferry_pole(f"{name}-pole", {"bamboo": m["bamboo"], "cord": m["cord"], "steel": m["steel"]}, coll,
+                             (0.0, 0.0, 0.0), POLE_TOP, grip=(SPLIT, SPLIT + CORD), turns=8, split=SPLIT, blade=BLADE)
+    shaft, handle = built[:2]
+    parts["pole"] = [shaft] + [ob for ob in built[2:] if ob.parent is shaft]
+    parts["handle"] = [handle] + [ob for ob in built[2:] if ob.parent is handle and not ob.name.endswith("-blade")]
+    parts["blade"] = [ob for ob in built if ob.name.endswith("-blade")]
+    o, z = (0.0, 0.0, 0.0), (0.0, 0.0, 1.0)
+    if pole == "drawn":
+        way = np.asarray(DRAWN["way"]) / np.linalg.norm(DRAWN["way"])
+        move(handle, (0.0, 0.0, SPLIT + 0.06), z, ch.world(DRAWN["grip"]), _w(ch, -way))
+        move(shaft, (0.0, 0.0, SPLIT - 0.12), z, ch.world(DRAWN["shaft"]), _w(ch, z))
+        vrm.attach(handle, ch, "rightHand")
+        vrm.attach(shaft, ch, "leftHand")
+    else:
+        if pole == "hand":
+            at, d = (px, py, 0.0), z
+        elif pole == "shoulder":
+            at, d = over - way * SHOULDER["behind"], way
+        else:
+            at, d = LAID["foot"], LAID["way"]
+        for ob in (shaft, handle):
+            move(ob, o, z, ch.world(at), _w(ch, d))
+        anime.attach([handle], shaft)
+        if pole == "boat":
+            anime.attach([shaft], ch.root)
+        else:
+            vrm.attach(shaft, ch, "rightHand")
+    if pipe is not None:
+        if pipe == "hand":
+            pway = np.asarray(PIPE_HAND["way"]) / np.linalg.norm(PIPE_HAND["way"])
+            start = np.asarray(PIPE_HAND["hole"]) - pway * 0.09
+        else:
+            start = mouth + pway * 0.004
+        parts["pipe"] = props.kiseru(f"{name}-kiseru", {"brass": m["brass"], "stem": m["stem"]}, coll,
+                                     tuple(ch.world(start)), _w(ch, pway), length=KISERU, up=_w(ch, z))
+        vrm.attach(parts["pipe"][0], ch, "leftHand")
 
     # her own expressions (FACES: lib/vrm_rig.py composes them of the face's shape keys); the stand-in keeps the presets
     composed = is_tsuru
@@ -323,4 +475,5 @@ def tsuru(coll, look, name: str = "tsuru") -> dict:
         return {"angry": 0.2 + 0.5 * k, "blink": 0.45 * (1.0 - k)}
 
     vrm.express(ch, face())
-    return {"root": ch.root, "vrm": ch, "head": tuple(ch.face()), "face": face, "props": [cape, *pole, *extra]}
+    flat_props = [ob for k in parts for ob in parts[k]]
+    return {"root": ch.root, "vrm": ch, "head": tuple(ch.face()), "face": face, "props": flat_props, "parts": parts}
