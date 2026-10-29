@@ -108,7 +108,9 @@ def path_length(points) -> float:
 
 # ---------------------------------------------------------------------------------------------------- the world
 
-INK = 0.0042        # the near set's line art radius (m), as the standoff's wide
+INK = 0.0042        # the near set's line art radius (m), as the standoff's wide, when a shot asks for it
+# The set is painted with its own edges; Line Art over the merged world cost board 10 s a frame and 3 minutes of build
+# for lines that hardly showed (measured on the Mac, renders #2793 / #2813), so by default the set goes uninked.
 
 
 class Stage:
@@ -119,7 +121,7 @@ class Stage:
         self.__dict__.update(kw)
 
 
-def stage(ctx, *, ink: float | None = INK) -> Stage:
+def stage(ctx, *, ink: float | None = None) -> Stage:
     """The world (rf/set_world.py) for the shot, its weather keyed from the look schedule (rf/set_weather.py: the
     rain on the water, the sheen, the key), inked; the cast's collection ready."""
     from lib import toon
