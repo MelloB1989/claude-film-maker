@@ -16,8 +16,8 @@ SHOT = {"scene": "step"}
 STRIKE = 0.2                   # s into the shot: the right foot lands in the puddle (the splash's sound at 10.2 s)
 # the lens, in his frame from where the foot lands (ahead of him, to his right, up off the ground), easing in; the aim,
 # a little behind the foot and up (back down the path into the mist)
-CAM = ((0.62, -0.5, 0.11), (0.57, -0.46, 0.105))   # (ahead, left, up) m: high enough to see into the water
-LOOK = (-0.1, 0.02, 0.045)
+CAM = ((0.66, -0.34, 0.11), (0.6, -0.31, 0.105))   # (ahead, left, up) m: high enough to see into the water
+LOOK = (0.0, 0.0, 0.07)
 LENS, FSTOP = 45.0, 2.8
 SINK = 0.045                   # m his feet go down into the mud: the sole under the puddle's water, not on it
 SHAKE = 0.35                   # degrees the footfall jolts the lens (cinema.Shake's hit)
