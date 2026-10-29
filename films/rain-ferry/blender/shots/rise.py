@@ -57,7 +57,7 @@ BEND = {"spine": (20.0, 0.0, 0.0), "chest": (20.0, 0.0, -6.0), "upperChest": (18
 CAMERA = [(0.0, (5.55, -3.05, 0.92), (6.75, -0.3, 0.86)),
           (1.4, (5.62, -3.0, 1.02), (6.85, -0.15, 1.02)),
           (4.0, (5.85, -2.62, 1.12), (6.98, 0.2, 1.12))]
-LENS = [(0.0, 30.0), (4.0, 34.0)]
+LENS = (30.0, 34.0)
 # draw's last frame (shots/draw.py SWING[-1]): his blade's way, his fist, his palm (his frame)
 DRAWN = ((0.2, -0.78, -0.58), (-0.3, -0.38, 1.33), (1.0, 0.0, -0.3))
 
@@ -65,11 +65,11 @@ DRAWN = ((0.2, -0.78, -0.58), (-0.3, -0.38, 1.33), (1.0, 0.0, -0.3))
 def build(ctx):
     import bpy
 
-    from lib import vrm_anim as va
+    from lib import cinema, vrm_anim as va
     from rf import vroid_tsuru
     from rf.vroid_common import move
 
-    st = jt.stage(ctx, rain_box=((3.0, -4.5, -0.6), (10.5, 4.5, 4.2)), clear=0.8, near=2.5)
+    st = jt.stage(ctx)
     jt.compose_faces(st)
     ts, sh = st.cast["tsuru"], st.cast["shinza"]
     tch, sch = ts["vrm"], sh["vrm"]
@@ -107,14 +107,14 @@ def build(ctx):
     grip1 = np.array(POLE_FOOT1) + np.array((0.0, 0.0, GRIP_ALONG))
     way_mid = np.asarray(WAY_MID) / np.linalg.norm(WAY_MID)
 
-    # ---- her performance (lib/vrm_anim.py), from the builder's seated pose
-    p = va.Performance(tch, fps=fps, seed=13)
+    # ---- her performance (lib/vrm_anim.py, the stage's), from the builder's seated pose
+    p = st.perf["tsuru"]
     root0 = np.array(ts["root"].location)
     yaw0 = math.degrees(ts["root"].rotation_euler[2])
     ahead = np.array((math.cos(math.radians(yaw0)), math.sin(math.radians(yaw0)), 0.0))
     p.root(F(0), root0, yaw=yaw0)
     p.plant_feet(F(0))
-    p.look(F(0), tuple(np.array(sch.face())))
+    p.look(F(0), st.perf["shinza"].face_at)
     p.hold(F(HOLD))
     p.root(F(HOLD), root0, yaw=yaw0)
     # standing: up over her feet into the stoop she stands in, leaning into it on the way
@@ -149,7 +149,7 @@ def build(ctx):
     p.grasp(F(t_mid), "right", char(GRIP_MID, t_mid), char_dir(way_mid, t_mid), palm, pole=elbow, ease="in")
     p.grasp(F(LIFT[1]), "right", char(grip1, LIFT[1]), (0.0, 0.0, 1.0), palm, pole=(-0.5, 0.4, 0.6), ease="settle")
     # and her head back to him
-    p.look(F(TURN_BACK), lambda f: np.array(sch.face()), lag=1.4)
+    p.look(F(TURN_BACK), st.perf["shinza"].face_at, lag=1.4)
     # her face: calm; the line said over her shoulder; the smile after it
     line = st.line(LINE)[LINE]
     p.express(F(0), {"s4-calm": 1.0, "s4-smile": 0.0})
@@ -159,12 +159,14 @@ def build(ctx):
     p.blinks(seed=5, mean=3.2)
     p.breathe(rate=0.22, depth=0.8)
     p.secondary(wind=(0.6, 0.15, 0.0))
-    p.bake(ctx.f0 - 1, ctx.f1 + 1)
+    st.perf["shinza"].secondary(wind=(0.6, 0.15, 0.0))
+    st.bake()
 
-    # ---- the camera, the lines, the light
-    shot = jt.Shot(CAMERA, LENS, [(0.0, 3.2)], breath=0.004, kicks=[(LIFT[1] - 0.05, 0.004)])
-    st.camera(shot, lambda f: np.asarray(p.face_at(f)))
-    jt.outline(st, shot)
+    # ---- the camera (lib/cinema.py) and the weather, the lines, the light
+    st.film([cinema.Setup("rise", 0.0, cinema.path([c for _, c, _ in CAMERA], [a for _, _, a in CAMERA]), lens=LENS,
+                          fstop=3.2, focus=(tch, "head"),
+                          shake=cinema.Shake(breath=0.06, hits=((LIFT[1] - 0.05, 0.25),)))])
+    jt.outline(st)
     jt.key_light(st, "tsuru", (-0.9, -0.7, 0.7))
     jt.key_light(st, "shinza", (0.6, -1.0, 0.75))
     st.composite(lambda f: dict(rims=[((-1.0, 0.4), (0.95, 0.58, 0.26), 0.2, 0.0025, 0.9),

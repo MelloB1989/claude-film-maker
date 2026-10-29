@@ -93,6 +93,10 @@ def stage(ctx, *, who=("shinza", "tsuru"), ink: float | None = 0.0042) -> Stage:
     # the set alone (the cast have keys of their own)
     crossing = set_world.build(ctx)
     look = crossing["look"]
+    import os
+
+    if os.environ.get("RF_PROFILE_NOINK"):      # profiling only: what the near set's line art costs a frame
+        ink = None
     ink_ob = toon.ink("ink-near", crossing["near"], radius=ink, crease=150) if ink else None
 
     cast = toon.collection("cast")
@@ -192,7 +196,7 @@ def look(st: Stage, f: int, setup: dict, flash_toward=(0.8, 0.6)):
     rims = lk.rims + ((satsuei.Rim(flash_toward, FLASH_COLOR, 1.3 * fl, 0.007, 1.0),)
                       if len(lk.rims) < satsuei.RIMS else ())
     return replace(lk, rims=rims, gain=tuple(g + (1 - g) * fl for g in lk.gain), para_amount=lk.para_amount * (1 - fl),
-                   flash=0.35 * fl, flash_color=FLASH_COLOR)
+                   flash=0.15 * fl, flash_color=FLASH_COLOR)
 
 
 def hold(*owners) -> None:

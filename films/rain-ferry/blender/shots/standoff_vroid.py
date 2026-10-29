@@ -21,9 +21,9 @@ SHOT = {"scene": "standoff"}
 
 # the camera, from the duel's middle (rf/duel.py MID): low over the water on the -y side, turned a little toward the
 # land so the hut's lantern hangs behind him at the left of the frame, creeping in
-CAM_FROM, CAM_TO = (1.3, -7.8, 0.75), (1.12, -6.4, 0.88)
-AIM_FROM, AIM_TO = (-1.0, 1.5, 1.2), (-0.95, 1.5, 1.1)
-LENS = (24.0, 25.5)
+CAM_FROM, CAM_TO = (1.6, -7.0, 0.95), (1.45, -5.9, 1.0)
+AIM_FROM, AIM_TO = (-1.2, 1.5, 1.15), (-1.15, 1.5, 1.08)
+LENS = (26.0, 28.0)
 FSTOP = 5.6
 GUST = (1.6, 1.5, 1.4)          # s into the shot, length, strength: the mix's wind_gust
 HER_LOOK = (2.5, 3.4, 4.0)      # s: her head turns to him from, to (degrees)
@@ -36,7 +36,7 @@ LOOK = dict(haze_amount=0.05, para_amount=0.3, wrap_width=0.004, para_from=(0.5,
                                                              ((-1.0, 0.2), (1.0, 0.5, 0.18), 0.12, 0.0018, 0.8)])
 KEYS = {"shinza": (1.0, -0.3, 0.8), "tsuru": (-1.0, -0.3, 0.8)}
 STRIKE = 2.1                    # s: the look schedule's lightning (the thunder at +2.2 s)
-BOLT = ((16.0, 70.0, 34.0), (21.0, 78.0, -1.0))     # the fork: from the sky to the far water, from MID (world m)
+BOLT = ((-9.0, 64.0, 34.0), (-12.5, 70.0, -1.0))    # the fork, far out in the gap between them: sky to water, from MID
 
 
 def build(ctx):
