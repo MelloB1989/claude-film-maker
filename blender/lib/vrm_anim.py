@@ -407,8 +407,8 @@ class Gait:
 
 
 GAITS = {
-    "walk": Gait(),
-    "heavy": Gait(stride=0.8, speed=1.05, duty=0.64, lift=0.08, width=0.2, toe_out=8.0, bob=0.012, drop=0.05,
+    "walk": Gait(stride=0.64),
+    "heavy": Gait(stride=0.7, speed=1.05, duty=0.64, lift=0.08, width=0.2, toe_out=8.0, bob=0.012, drop=0.05,
                   sway=0.03, hip_turn=7.0, chest_turn=1.1, arm=9.0, elbow=10.0, lean=6.0, head=0.8, roll=20.0,
                   plod=0.022),
     "old": Gait(stride=0.34, speed=0.42, duty=0.72, lift=0.035, width=0.16, toe_out=10.0, bob=0.006, drop=0.03,
@@ -452,7 +452,7 @@ def plan_steps(length: float, gait: Gait, *, lead: str = "right") -> tuple[list[
         return [], np.array([0.0]), np.array([0.0])
     first = min(length, gait.stride * gait.first)
     rest = length - first
-    n = int(round(rest / gait.stride)) if rest > 0 else 0
+    n = int(math.ceil(rest / gait.stride - 0.15)) if rest > 0 else 0      # steps no longer than a stride (a little over)
     if rest > 1e-6 and n == 0:
         n = 1
     plants = [first] + [first + rest * (i + 1) / n for i in range(n)]       # the landing places, in order
@@ -680,16 +680,15 @@ def visemes(text: str, start: float, end: float, *, seed: int = 0, energy: float
             if m.vowel is None:
                 continue
             d = b - a
-            # rises over the first 40% of the mora (after the lips part), holds, falls over the next's first part
-            rise0 = a + (0.25 * d if m.lips else 0.0)
-            rise1 = a + max(0.4 * d, min(0.07, d))
-            fall0 = b - 0.15 * d
-            fall1 = b + min(0.08, 0.5 * d) if m.pause == 0 else b + 0.06
-            if tq <= rise0 or tq >= fall1:
+            # a flap: the jaw opens through the mora and is half shut again where the next begins (the lips shut
+            # where they meet first); a pause after it lets it close slower
+            o0 = 0.0 if m.lips else 0.1 * d
+            o1 = 0.1 * d if m.pause == 0 else min(0.12, 0.6 * d)
+            x = (tq - (a - o0)) / (d + o0 + o1)
+            if x <= 0 or x >= 1:
                 continue
-            k = smoothstep(rise0, rise1, tq) * (1.0 - smoothstep(fall0, fall1, tq))
-            if k > 0:
-                w[m.vowel] = max(w.get(m.vowel, 0.0), k * OPEN[m.vowel] * g * energy)
+            k = math.sin(math.pi * x) ** 0.8
+            w[m.vowel] = max(w.get(m.vowel, 0.0), k * OPEN[m.vowel] * g * energy)
         out.append((float(tt), w))
     return out
 
@@ -1595,7 +1594,7 @@ class Performance:
                     continue
                 hip = self.rest_heads[f"{side}UpperLeg"] + hips
                 d = lm[0] - hip
-                reach_ = (thigh + shin) * 0.975
+                reach_ = (thigh + shin) * 0.985
                 hz = math.hypot(d[0], d[1])
                 top = lm[0][2] + math.sqrt(max(0.0, reach_ ** 2 - min(hz, reach_ * 0.995) ** 2))
                 dz = min(dz, top - hip[2])
