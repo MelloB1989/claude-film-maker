@@ -1,0 +1,130 @@
+"""Shot 26, the cross: the wide the film has been waiting for. The ferry out on the shining river in the evening's gold,
+Tsuru standing at its stern poling it on, Shinza sitting in it, small under the far ridges; and close in front of us
+the cut red headband turning slowly on the water, drifting away downstream. The theme resolves.
+
+Low over the water from below the jetty's foot, looking down the river after the boat (rf/set_world.py's cross view,
+brought down near the water): the hut and the jetty at the left, the river opening right into the light. The focus
+starts on the headband and goes out to the boat as the camera rises slowly, as if lifting its eyes after it.
+
+The world is the after-rain one (the look schedule's "cross": warm 1, no rain); the ferry is poled out along
+set_world.CROSS_PATH (`push_off`). RF_S7_CAST=none builds the shot without its cast.
+"""
+from __future__ import annotations
+
+import math
+import os
+
+SHOT = {"scene": "cross"}
+
+PUSH = (-6.0, 16.0)          # s (into the shot): the ferry's push along CROSS_PATH, already well under way
+CAM = ((-8.4, -6.6, 0.75), (-8.0, -6.3, 1.45))     # from, to (eased): low over the water, rising
+AIM = ((26.0, 12.0, 0.6), (26.0, 12.0, 1.4))
+LENS, FSTOP = 30.0, 2.8
+RACK = (1.6, 3.6)            # s: the focus from the headband out to the boat
+BAND = ((-3.6, -3.7), (-2.6, -1.9))   # the headband's drift on the water (x, y), from and to over the shot
+POLE = dict(period=3.4, push=0.62, tilt=(-8.0, 32.0), grip=((-0.2, -0.18, 1.12), (-0.2, 0.2, 0.82)))
+
+
+def build(ctx):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    import bpy
+    from mathutils import Vector
+
+    from lib import toon3d
+    from rf import ending as E
+    from rf import set_world, sets
+
+    st = E.stage(ctx, splash_deck=False, splash_river=False)
+    set_world.push_off(st.world, ctx, t0=PUSH[0], t1=PUSH[1])
+    n = (ctx.f1 - ctx.f0) / ctx.fps
+
+    # the headband on the water: floating on an empty that drifts, turns and rides the swell
+    band = E.headband("shinza-headband", E.band_material(st.look, wet=1.0), st.world["near"], (0.0, 0.0), 0.0,
+                      z=0.0, curl=0.2, seed=5)
+    drift = bpy.data.objects.new("headband-drift", None)
+    st.world["near"].objects.link(drift)
+    for ob in band:
+        ob.parent = drift
+    for f in range(ctx.f0 - 1, ctx.f1 + 1):
+        t = (f - ctx.f0) / ctx.fps
+        k = t / n
+        x, y = E.lerp(*BAND, k)
+        drift.location = (x, y, sets.WATER_Z + 0.006 + 0.008 * math.sin(2 * math.pi * 0.4 * t))
+        drift.rotation_euler = (0.03 * math.sin(2 * math.pi * 0.4 * t + 1.0), 0.03 * math.sin(2 * math.pi * 0.31 * t),
+                                math.radians(-20.0 + 14.0 * k))
+        drift.keyframe_insert("location", frame=f)
+        drift.keyframe_insert("rotation_euler", frame=f)
+
+    actors = None
+    if os.environ.get("RF_S7_CAST", "vroid") != "none":
+        from lib import vrm
+        from rf import vroid_tsuru as T
+
+        actors = E.cast(st, {"tsuru": dict(pole="hand", wet=0.3),
+                             "shinza": dict(kasa=None, sword="back", headband=False, wet=0.3)})
+        ts, sh = actors["tsuru"], actors["shinza"]
+        anchors = st.world["anchors"]
+        for built, at in ((ts, "boat_stern"), (sh, "boat_middle")):
+            built["root"].parent = anchors[at]
+            built["root"].matrix_parent_inverse.identity()
+            built["root"].location = (0.0, 0.0, 0.0)
+            built["root"].rotation_euler = (0.0, 0.0, 0.0)
+        # Shinza on his knees in the boat's middle, his hands on his thighs, his head up now, looking ahead
+        legs = E.kneel(sh, sag=dict(E.SAG, spine=(4.0, 0.0, 0.0), neck=(4.0, 0.0, 0.0), head=(0.0, 0.0, 0.0)))
+        E.hands_rest(sh, legs)
+        E.kneel(sh, sag=dict(E.SAG, spine=(4.0, 0.0, 0.0), neck=(4.0, 0.0, 0.0), head=(0.0, 0.0, 0.0)), legs=False)
+        # Tsuru poling: each stroke the pole goes in ahead of her and she walks her hands back down it, leaning on
+        # it, then lifts it and swings it forward again
+        ch = ts["vrm"]
+        P = POLE
+        fingers = vrm.grip_pose("right", 0.95)
+        for f in range(ctx.f0 - 1, ctx.f1 + 1):
+            t = (f - ctx.f0) / ctx.fps
+            u = (t / P["period"]) % 1.0
+            if u < P["push"]:
+                k = E.ease(u / P["push"])
+            else:
+                k = 1.0 - E.ease((u - P["push"]) / (1.0 - P["push"]))
+            a = math.radians(P["tilt"][0] + (P["tilt"][1] - P["tilt"][0]) * k)
+            grip = E.lerp(*P["grip"], k)
+            vrm.grasp(ch, "right", grip, (0.0, -math.sin(a), math.cos(a)), (1.0, 0.0, 0.0), pole=(-0.5, 0.4, 0.6),
+                      amount=0.95, bend=70.0)
+            E.key_handles(ts, f, keys=("rightHand-target", "rightHand-pole", "rightHand-hold"))
+            pose = dict(T.TS_POSE, **fingers)
+            sx, sy, sz = pose["spine"]
+            pose["spine"] = (sx + 10.0 * k, sy, sz)
+            vrm.pose(ch, pose, hips=(T.TS_HIPS[0], T.TS_HIPS[1] + 0.03 * k, T.TS_HIPS[2] - 0.02 * k), frame=f)
+            vrm.express(ch, ts["face"](), frame=f)
+        # the evening sun low down the valley behind them: their keys from there, their faces in the 1st shade
+        toon3d.aim(ts["key"], (0.5, 1.0, 0.35))
+        toon3d.aim(sh["key"], (0.5, 1.0, 0.35))
+
+    band_at = lambda t: Vector((*E.lerp(*BAND, t / n), sets.WATER_Z))   # noqa: E731
+
+    def setup(t):
+        k = E.ease(t / n)
+        at = E.lerp(CAM[0], CAM[1], k)
+        dx, dy, dz = E.drift(t, 0.006, seed=9)
+        at = (at[0] + dx, at[1] + dy, at[2] + dz)
+        boat = set_world.anchor(st.world, "boat_middle")
+        rack = E.ease((t - RACK[0]) / (RACK[1] - RACK[0]))
+        focus = band_at(t).lerp(boat, rack)
+        return at, E.lerp(AIM[0], AIM[1], k), LENS, FSTOP, tuple(focus)
+
+    # the boat's place is keyed: read it on each frame for the focus
+    scene = ctx.scene
+
+    def setup_at(t):
+        scene.frame_set(ctx.f0 + round(t * ctx.fps))
+        return setup(t)
+
+    E.camera(ctx, setup_at)
+
+    def look(f, s):
+        L = s.light
+        return dict(rims=[((0.6, 0.6), L.warm, 0.5, 0.003, 0.9)], para_from=(0.6, 0.8), para_to=(0.3, 0.1))
+
+    E.finish(ctx, st, look, actors, lambda f: LENS)

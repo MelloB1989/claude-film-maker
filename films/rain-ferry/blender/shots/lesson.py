@@ -44,21 +44,19 @@ def build(ctx):
     def distance(t):
         return length * E.smooth((t - WALK_FROM) / (WALK_TO - WALK_FROM)) * 0.98
 
-    m = E._mats(st.look, "ending")
-    E.blade_tip("shinza-blade", m, st.crossing["near"])
-    E.headband("shinza-headband", m["band"], st.crossing["near"], E.HEADBAND_AT[:2], E.HEADBAND_AT[2])
+    E.headband("shinza-headband", E.band_material(st.look), st.world["near"], E.HEADBAND_AT[:2], E.HEADBAND_AT[2])
 
     if os.environ.get("RF_S7_CAST", "vroid") != "none":
         from lib import vrm
         from rf import vroid_tsuru as T
 
-        actors = E.cast(st, ("shinza", "tsuru"))
+        actors = E.cast(st, {"shinza": dict(kasa=None, sword="broken", headband=False), "tsuru": dict(pole="shoulder")})
         sh, ts = actors["shinza"], actors["tsuru"]
-        # Shinza: on his knees, his hands on his thighs, his sword's broken hilt half on the deck by his right knee
+        # Shinza: on his knees, what is left of his sword slack across his lap, its other half standing in the planks
+        # ahead of him
         E.place(sh, E.SHINZA_AT, E.SHINZA_FACING)
-        E.hide([ob for ob in sh["props"]] + [ob for ob in sh["root"].children_recursive if "-band" in ob.name])
-        legs = E.kneel(sh)
-        E.hands_rest(sh, legs)
+        E.kneel(sh)
+        E.hold_blade(sh, at=(-0.12, -0.3, 0.4), d=(1.0, -0.25, -0.08), cradle=0.26, up=(0.0, 0.1, 1.0))
         for f in range(ctx.f0 - 1, ctx.f1 + 1):
             t = ctx.time(f)
             breath = math.sin(2 * math.pi * 0.42 * (t - t0))
@@ -67,11 +65,10 @@ def build(ctx):
             sag["spine"] = (E.SAG["spine"][0] + 1.5 * breath, 0.0, 0.0)
             sag["head"] = (E.SAG["head"][0] + sink, 0.0, -3.0)
             E.kneel(sh, sag=sag, hips_dz=0.004 * breath, frame=f, legs=False)
-            vrm.express(sh["vrm"], {**sh["face"](0.9)}, frame=f)
+            vrm.express(sh["vrm"], {"sad": 0.3}, frame=f)
         # Tsuru: the pole on her shoulder, walking to the boat; her head level and a little down, never turning back
         E.place(ts, E.TSURU_WALK[0], 0.0)
-        E.shoulder_pole(ts)
-        pose = {**T.TS_POSE, **ts["fingers"], "head": (-46.0, 0.0, 0.0)}
+        pose = {**T.TS_POSE, **vrm.grip_pose("right", 0.95), "head": (-46.0, 0.0, 0.0)}
         E.walk(ctx, ts, E.TSURU_WALK, distance, pose=pose, hips=T.TS_HIPS)
         for f in range(ctx.f0 - 1, ctx.f1 + 1):
             vrm.express(ts["vrm"], ts["face"](), frame=f)

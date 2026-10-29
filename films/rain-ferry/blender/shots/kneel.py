@@ -35,22 +35,19 @@ def build(ctx):
     from rf import ending as E
 
     st = E.stage(ctx, near=4.0, clear=1.0)
-    m = E._mats(st.look, "ending")
-    E.blade_tip("shinza-blade", m, st.crossing["near"])
-    E.headband("shinza-headband", m["band"], st.crossing["near"], E.HEADBAND_AT[:2], E.HEADBAND_AT[2])
+    E.headband("shinza-headband", E.band_material(st.look), st.world["near"], E.HEADBAND_AT[:2], E.HEADBAND_AT[2])
     actors = None
     eyes = np.array([E.SHINZA_AT[0], E.SHINZA_AT[1], 0.98])
 
     if os.environ.get("RF_S7_CAST", "vroid") != "none":
         from lib import vrm
 
-        actors = E.cast(st, ("shinza",))
+        actors = E.cast(st, {"shinza": dict(kasa=None, sword="broken", headband=False)})
         sh = actors["shinza"]
         ch = sh["vrm"]
         E.place(sh, E.SHINZA_AT, E.SHINZA_FACING)
-        E.hide([ob for ob in sh["props"]] + [ob for ob in sh["root"].children_recursive if "-band" in ob.name])
         E.kneel(sh)
-        E.hold_blade(sh, m, st.cast)
+        E.hold_blade(sh)
         eyes = np.array(ch.face())
         hand = {side: ch.handles[f"{side}Hand-target"] for side in ("left", "right")}
         rest = {side: np.array(h.location) for side, h in hand.items()}
