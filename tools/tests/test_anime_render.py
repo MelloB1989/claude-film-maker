@@ -106,7 +106,7 @@ def test_a_failed_plate_is_set_aside_so_the_film_slates_it(repo):
 
 def test_the_plate_size_is_the_modes(repo):
     _, f = repo
-    assert P.mode_res(f, P.FINAL) == "2560x1440" and P.mode_res(f, P.PREVIEW) == "960x540"
+    assert P.mode_res(f, P.FINAL) == "1920x1080" and P.mode_res(f, P.PREVIEW) == "960x540"
     assert P.mode_res(f, {**P.PREVIEW, "res": "480x270"}) == "480x270"
 
 

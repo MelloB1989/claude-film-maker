@@ -31,8 +31,9 @@ from .. import paths
 MAC_BLENDER = "/Applications/Blender.app/Contents/MacOS/Blender"
 STAMP = ".stamp.json"
 # the render settings a mode stands for (blender/lib/cli.py MODES, with the cel plates' sample count for the final)
-FINAL = {"mode": "final", "engine": "eevee", "samples": 32, "res": None}       # 4/3 the logical frame: 2560x1440
-PREVIEW = {"mode": "preview", "engine": "eevee", "samples": 16, "res": None}   # half: 960x540
+# a final renders at the film's logical frame (1920x1080: the delivered video's size), so a plate lands pixel for pixel
+FINAL = {"mode": "final", "engine": "eevee", "samples": 32, "res": None, "scale": 1.0}
+PREVIEW = {"mode": "preview", "engine": "eevee", "samples": 16, "res": None, "scale": 0.5}   # half: 960x540
 
 
 @dataclass(frozen=True)
@@ -262,9 +263,9 @@ def scan_cmd(film_id: str, plate: str, expect_res: str | None = None, root: Path
 
 
 def mode_res(film: paths.FilmPaths, settings: dict) -> str:
-    """The plate size a setting renders (blender/lib/cli.py mode_res: half the logical frame, or 4/3 for a final)."""
+    """The plate size a setting renders: its `res`, else its `scale` of the film's logical frame."""
     if settings.get("res"):
         return settings["res"]
     fmt = json.loads((film.data / "timeline.json").read_text()).get("format") or [1920, 1080]
-    k = 4 / 3 if settings["mode"] == "final" else 0.5
+    k = settings.get("scale", 1.0)
     return f"{round(fmt[0] * k)}x{round(fmt[1] * k)}"
