@@ -20,7 +20,7 @@ LENS, FSTOP = 35.0, 2.2
 THUNK = 1.2           # s into the shot: the half blade lands (data/mix.json blade_thunk at 77.3)
 DROP = 0.9            # s it falls before
 SPIN = 2.6            # its turns a second as it falls
-LAND = (MID - 0.07, -0.55)  # where its point goes in (x, y)
+LAND = (6.03, -0.55)  # where its point goes in (x, y): rf/clash.py FALL["half"]
 LEAN = 18.0           # degrees it leans from upright, toward the camera's right
 QUIVER = (3.5, 13.0, 3.2)   # degrees, a second, how fast it dies away
 RACK = (THUNK + 0.05, 0.45)  # the focus pulls to it: from, over (s)
@@ -58,10 +58,10 @@ def build(ctx):
 
     # ---- where they stand: back to back
     hands, fingers = clash.shinza_sword(sh["vrm"], FOLLOW["pommel"], FOLLOW["hilt"])
-    follow = clash.Pose(at=clash.END["shinza"], yaw=0.0, hips=SH_HIPS, turns=SH_FOLLOW, hands=hands, feet=SH_FEET)
+    follow = clash.Pose(at=clash.END["shinza"][0], yaw=clash.END["shinza"][1], hips=SH_HIPS, turns=SH_FOLLOW, hands=hands, feet=SH_FEET)
     clash.apply(sh, follow, fingers=fingers)
-    ts["root"].location = (*clash.END["tsuru"], 0.0)
-    ts["root"].rotation_euler = (0.0, 0.0, math.pi)
+    ts["root"].location = (*clash.END["tsuru"][0], 0.0)
+    ts["root"].rotation_euler = (0.0, 0.0, clash.END["tsuru"][1])
     bpy.context.view_layer.update()
 
     # ---- her blade slid home: the handle (its blade with it) down the pole, her left hand on it

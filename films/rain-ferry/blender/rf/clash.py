@@ -23,12 +23,14 @@ from pathlib import Path
 
 import numpy as np
 
-# the duel's marks, on the outer half of the jetty near its end (rf/set_jetty.py: the end posts at x 7.42), her back
-# to the open river, him 4.5 m from her toward the bank. S5's rf/duel.py publishes the standoff's marks; these follow
-# them until it is merged
-STANDOFF = {"shinza": (1.6, 0.0), "tsuru": (6.1, 0.05)}
-CLASH = 5.55                      # x where the blades meet: he has run the gap, she has not moved from her mark
-END = {"shinza": (7.0, 0.08), "tsuru": (5.2, -0.06)}   # passed through each other: back to back
+# the duel's marks: S5's (rf/duel.py MARKS: him toward the bank facing +x, her near the jetty's end facing -x)
+STANDOFF = {"shinza": (2.2, 0.0), "tsuru": (6.7, 0.05)}
+CLASH = 6.1                       # x where the blades meet: he has run the gap, she has not left her mark
+# where the duel leaves them (the lesson starts here): passed through each other, back to back, ((x, y), facing)
+END = {"shinza": ((7.2, 0.08), 0.0), "tsuru": ((5.0, -0.06), math.pi)}
+# the fall's marks: where he kneels (facing +x), where the half blade sticks in the planks (its point), where his
+# headband lies
+FALL = {"kneel": (7.2, 0.08), "half": (6.03, -0.55), "headband": (7.42, -0.2)}
 OUTLINE = 0.0018                  # the 3D cast's outline, in frame heights (as the standoff's)
 
 

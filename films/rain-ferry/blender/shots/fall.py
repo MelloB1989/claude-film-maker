@@ -13,7 +13,7 @@ import math
 
 SHOT = {"scene": "fall"}
 
-AT = (7.0, 0.08)              # where he stands (rf/clash.py END)
+AT = (7.2, 0.08)              # where he stands (rf/clash.py END)
 CUT, BAND_OFF, BAND_DOWN = 0.45, 1.7, 2.25    # s: the knot gives; the band is off his head; it lands on the planks
 ARMS = (1.9, 2.7)             # s: his arms come down
 KNEES = 3.2                   # s: his knees hit the planks (data/mix.json kneel at 83.8)
@@ -124,7 +124,7 @@ def build(ctx):
     yaw = sh["root"].rotation_euler.z
     fwd = Vector((math.cos(yaw), math.sin(yaw), 0.0))
     side = Vector((-math.sin(yaw), math.cos(yaw), 0.0))     # his left
-    land = Vector((AT[0], AT[1], 0.0)) + fwd * 0.35 - side * 0.28 + Vector((0.0, 0.0, 0.012))
+    land = Vector((*clash.FALL["headband"], 0.012))
     path = [(0.0, p0, (0.0, 0.0, 0.0)),
             (CUT, p0, (0.0, 0.0, 0.0)),
             (CUT + 0.45, p0 - fwd * 0.03 - side * 0.04 + Vector((0, 0, -0.06)), (0.0, -0.35, 0.1)),

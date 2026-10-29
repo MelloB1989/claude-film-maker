@@ -14,7 +14,7 @@ import math
 
 SHOT = {"scene": "charge"}
 
-START, END_X = 1.6, 4.6         # his x: from (rf/clash.py STANDOFF), to about where the cut falls (CLASH less his reach)
+START, END_X = 2.2, 5.15        # his x: from (rf/clash.py STANDOFF), to about where the cut falls (CLASH less his reach)
 LAUNCH = 0.06                   # s before he moves
 GAIT = dict(stride=1.0, speed=2.0, first=0.55)    # the core's "charge", a stride every half second (the cues)
 SWING = (1.5, 1.8, 2.0)         # s: the sword thrown back from, at its height, coming over
