@@ -1,14 +1,15 @@
 """film-anime-render: the whole film from its Blender shots, in one command: every scene's plate rendered (those up to
 date skipped), every plate scanned, the film's video rendered by the app with the mix, and a contact sheet of it.
 
-    uv run film-anime-render --film <id>                    # the final: plates 2560x1440 EEVEE, 32 samples (on the Mac)
+    uv run film-anime-render --film <id>                    # the final: plates 1920x1080 EEVEE, 32 samples (on the Mac)
     uv run film-anime-render --film <id> --preview          # a fleet host: plates 960x540, 16 samples, a draft video
-        [--only a,b] [--force] [--samples N] [--res WxH] [--plates-only] [--no-video] [--no-sheet] [--dry-run]
+        [--only a,b] [--force] [--samples N] [--res WxH] [--jobs N] [--plates-only] [--no-video] [--no-sheet] [--dry-run]
         [--video-samples auto|N] [--allow-software] [--plates scene:plate,...] [--from s --to s]
 
 1. Plates. Each scene's shot (plates.py: data/plates.json, else blender/shots/<scene>.py) renders through
-   blender/render.py unless its stamp says it is up to date (plates.py fingerprint: its code and every module it
-   imports, the film's models, its window, its look-schedule entry, the settings); --force renders them all. A plate
+   blender/render.py, --jobs at once (two for a final on macOS, else one), unless its stamp says it is up to date
+   (plates.py fingerprint: its code and every module it imports, the film's models, its window, its look-schedule
+   entry, the settings and the size); --force renders them all. A plate
    is cleared before it renders. One that fails (or fails its scan) is moved aside to plates/<plate>.failed/ so the
    film plays its slate, and the run goes on to the next. A scene with no shot file yet is a slate in the film.
 2. Scan. Every plate the film uses is checked (render.py --scan --expect-res): every frame there, none blank or bad,
@@ -29,6 +30,7 @@ import shutil
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .. import cli, paths
@@ -40,8 +42,9 @@ def log(msg: str) -> None:
     print(f"[film-anime-render] {msg}", flush=True)
 
 
-def _run(cmd: list[str], logfile: Path, cwd: Path | None = None, env: dict | None = None) -> int:
-    """Run `cmd`, its output streamed to the console and to `logfile`. Its exit code."""
+def _run(cmd: list[str], logfile: Path, cwd: Path | None = None, env: dict | None = None, prefix: str = "") -> int:
+    """Run `cmd`, its output to `logfile` and its milestones to the console (prefixed, when plates render at once).
+    Its exit code."""
     logfile.parent.mkdir(parents=True, exist_ok=True)
     with open(logfile, "w") as lf:
         lf.write(" ".join(cmd) + "\n")
@@ -49,7 +52,7 @@ def _run(cmd: list[str], logfile: Path, cwd: Path | None = None, env: dict | Non
         for line in p.stdout:
             lf.write(line)
             if any(k in line for k in ("built in", "Error", "error", "FAIL", "Traceback", "frame ", "wrote")):
-                sys.stdout.write("    " + line)
+                sys.stdout.write(f"    {prefix + ': ' if prefix else ''}{line}")
         return p.wait()
 
 
@@ -82,32 +85,38 @@ def plan(film: paths.FilmPaths, settings: dict, only: list[str] | None, force: b
     return out
 
 
-def render_plates(film: paths.FilmPaths, settings: dict, steps: list[dict]) -> None:
+def render_plate(film: paths.FilmPaths, settings: dict, s: dict, tag: str) -> None:
+    """Render one plate, scan it, stamp it (or set it aside)."""
     logs = film.out / "logs"
-    expect = P.mode_res(film, settings)
+    expect = settings["res"]
+    log(f"{tag} {s['plate']} ({s['scene']}, frames {s['sc'].f0}-{s['sc'].f1 - 1}) {settings['mode']} {expect}")
+    t0 = time.time()
+    P.clear_plates(film, s["plate"])
+    code = _run(P.render_cmd(film.id, s["plate"], settings), logs / f"{s['plate']}.log", prefix=s["plate"])
+    if code == 0:
+        code = _run(P.scan_cmd(film.id, s["plate"], expect), logs / f"{s['plate']}.scan.log", prefix=s["plate"])
+        s["scan"] = code
+    s["seconds"] = round(time.time() - t0, 1)
+    if code == 0:
+        P.write_stamp(film, s["plate"], s["fingerprint"], settings)
+        s["result"] = "rendered"
+    else:
+        set_aside(film, s["plate"])
+        s["result"] = f"FAILED (exit {code}, {logs / (s['plate'] + '.log')}): set aside, a slate in the film"
+    log(f"  {s['plate']}: {s['result']} in {s['seconds']} s")
+
+
+def render_plates(film: paths.FilmPaths, settings: dict, steps: list[dict], jobs: int = 1) -> None:
+    """The plates that need it, `jobs` at once (each its own Blender)."""
     todo = [s for s in steps if s["action"] == "render"]
-    for k, s in enumerate(todo, 1):
-        log(f"plate {k}/{len(todo)}: {s['plate']} ({s['scene']}, frames {s['sc'].f0}-{s['sc'].f1 - 1}) "
-            f"{settings['mode']} {expect}")
-        t0 = time.time()
-        P.clear_plates(film, s["plate"])
-        code = _run(P.render_cmd(film.id, s["plate"], settings), logs / f"{s['plate']}.log")
-        if code == 0:
-            code = _run(P.scan_cmd(film.id, s["plate"], expect), logs / f"{s['plate']}.scan.log")
-            s["scan"] = code
-        s["seconds"] = round(time.time() - t0, 1)
-        if code == 0:
-            P.write_stamp(film, s["plate"], s["fingerprint"], settings)
-            s["result"] = "rendered"
-        else:
-            set_aside(film, s["plate"])
-            s["result"] = f"FAILED (exit {code}, {(logs / s['plate']).with_suffix('.log')}): set aside, a slate in the film"
-        log(f"  {s['plate']}: {s['result']} in {s['seconds']} s")
+    with ThreadPoolExecutor(max(1, jobs)) as ex:
+        list(ex.map(lambda ks: render_plate(film, settings, ks[1], f"plate {ks[0]}/{len(todo)}:"),
+                    enumerate(todo, 1)))
 
 
 def scan_all(film: paths.FilmPaths, settings: dict, steps: list[dict]) -> None:
     """Scan the plates not rendered this run (those that were are scanned already)."""
-    expect = P.mode_res(film, settings)
+    expect = settings["res"]
     for s in steps:
         if s["action"] != "up to date":
             continue
@@ -189,6 +198,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--only", help="scene ids, comma separated (plates only; the video is always the whole film)")
     ap.add_argument("--force", action="store_true", help="render every plate, up to date or not")
     ap.add_argument("--samples", type=int)
+    ap.add_argument("--jobs", type=int, help="plates rendered at once, each its own Blender (default 2 for a final on "
+                                             "macOS, else 1: a fleet host is small and shared)")
     ap.add_argument("--res", help="WxH: the plates' size (default: the mode's)")
     ap.add_argument("--plates-only", action="store_true", help="plates and scan, no video, no sheet")
     ap.add_argument("--no-video", action="store_true")
@@ -207,6 +218,8 @@ def main(argv: list[str] | None = None) -> None:
         settings["samples"] = a.samples
     if a.res:
         settings["res"] = a.res
+    settings["res"] = P.mode_res(film, settings)  # always explicit: the size is in every plate's hash
+    jobs = a.jobs or (2 if sys.platform == "darwin" and not a.preview else 1)
     only = a.only.split(",") if a.only else None
     swap = dict(p.split(":", 1) for p in a.plates.split(",")) if a.plates else None
     steps = plan(film, settings, only, a.force, swap)
@@ -214,7 +227,7 @@ def main(argv: list[str] | None = None) -> None:
         log(f"{s['scene']:>9} <- {s['plate']}: {s['action']}")
     if a.dry_run:
         return
-    render_plates(film, settings, steps)
+    render_plates(film, settings, steps, jobs)
     scan_all(film, settings, steps)
     report = {"settings": settings, "plates": {s["plate"]: s.get("result", s["action"]) for s in steps}}
     failed = [s["plate"] for s in steps if str(s.get("result", "")).startswith("FAILED")]
