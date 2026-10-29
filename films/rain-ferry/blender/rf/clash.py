@@ -118,16 +118,18 @@ def cast(ctx, w: dict, variants: dict) -> dict:
     return out
 
 
-def outlines(ctx, actors: dict, cam_at, lens_at) -> None:
-    """Key each character's outline to OUTLINE of the frame's height on every frame (cam_at(f), lens_at(f))."""
+def outlines(ctx, actors: dict, cam_at, lens_at, *, every: int = 4) -> None:
+    """Key each character's outline to OUTLINE of the frame's height (cam_at(f), lens_at(f)), every `every` frames
+    (it changes slowly), from where each face is now: asking a posed face its place on every frame re-evaluates the
+    whole cast each time."""
     from lib import vrm
 
-    for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        for name in ("shinza", "tsuru"):
-            if name in actors:
-                ch = actors[name]["vrm"]
-                d = (np.asarray(cam_at(f)) - np.asarray(ch.face())).dot(np.asarray(cam_at(f)) - np.asarray(ch.face()))
-                vrm.key_outline(ch, vrm.outline_width(OUTLINE, math.sqrt(d), lens_at(f)), f)
+    faces = {name: np.asarray(actors[name]["vrm"].face(), float) for name in ("shinza", "tsuru") if name in actors}
+    frames = list(range(ctx.f0 - 1, ctx.f1 + 1, every)) + [ctx.f1]
+    for f in frames:
+        c = np.asarray(cam_at(f), float)
+        for name, face in faces.items():
+            vrm.key_outline(actors[name]["vrm"], vrm.outline_width(OUTLINE, float(np.linalg.norm(c - face)), lens_at(f)), f)
 
 
 # ---------------------------------------------------------------------------------------------------- the props
@@ -342,3 +344,16 @@ def composite(ctx, actors: dict, setup_of) -> object:
         comp.key(f, ctx.look_at(f).look(**own))
     comp.hold()
     return comp
+
+
+_T = [None]
+
+
+def tick(label: str) -> None:
+    """Log how long the build's step just done took (a shot's build budget is about a minute)."""
+    import time
+
+    now = time.time()
+    if _T[0] is not None:
+        print(f"clash: {label} {now - _T[0]:.1f}s", flush=True)
+    _T[0] = now

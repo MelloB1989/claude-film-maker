@@ -19,6 +19,7 @@ STRIKE = 0.2                   # s into the shot: the right foot lands in the pu
 CAM = ((0.66, -0.34, 0.11), (0.6, -0.31, 0.105))   # (ahead, left, up) m: high enough to see into the water
 LOOK = (0.0, 0.0, 0.07)
 LENS, FSTOP = 45.0, 2.8
+INTO = 0.12                    # m the footfall lies back from the puddle's middle, into the water
 SINK = 0.045                   # m his feet go down into the mud: the sole under the puddle's water, not on it
 SHAKE = 0.35                   # degrees the footfall jolts the lens (cinema.Shake's hit)
 KEY = (-0.5, -0.7, 0.9)        # his key: overcast from above our shoulder
@@ -60,6 +61,8 @@ def build(ctx):
           f"({'the path' if found is not None else 'the set step puddle'})")
     _, fwd = probe.at(s_hit)
     left = approach.Gait.left_of(fwd)
+    # the foot comes down well into the water, not on its near edge (the lens is ahead of him)
+    puddle = puddle - np.array([*fwd * INTO, 0.0])
 
     def place(v):
         """A point of the shot's frame ((ahead, left, up) from the puddle) in the world."""

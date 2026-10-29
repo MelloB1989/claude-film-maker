@@ -26,6 +26,7 @@ MIST_Z = (5.0, 60.0)                # the mist lying in the valley: the slopes a
 MIST_NEAR = (90.0, 320.0)           # ... seen from this far off (m): the far bank across the river stays clear
 RIDGES = [(260, 150, 3.0), (340, 190, 2.5), (440, 230, 0.0), (580, 270, 0.0), (760, 300, 0.0)]  # (y, height, tree fringe)
 MIST = [(60, 14, 300), (130, 30, 420), (210, 50, 620), (290, 70, 900), (380, 95, 1200), (500, 120, 1600)]   # (y, height, width)
+SKY_RADIUS = 2600.0                # the sky dome round the ferry
 INK = ((0.035, 0.04, 0.048), (0.022, 0.026, 0.033))   # the mountains' ink, (lit, shade)
 
 
@@ -145,7 +146,9 @@ def build(m: dict, near, far, weather, *, seed: int = 7) -> dict:
         ob.lineart.usage = "EXCLUDE"
         if ob.name.startswith(("river-mist", "slope-mist")):
             landscape.soften_card(ob, near=(20.0, 60.0))
-    sky = landscape.sky("sky", far, horizon=weather.sky, zenith=weather.zenith, distance=1400.0, size=(6000.0, 1100.0),
-                        z=300.0, clouds=0.75 - 0.35 * weather.warm,
-                        light=tuple(min(1.0, c * 1.25) for c in weather.sky), light_at=(0.56, 0.42))
+    # a whole dome of sky round the ferry, so a low camera looking up or any way sees storm cloud, never an edge
+    # (inside every shot's clip_end, 3000 m)
+    sky = landscape.sky_dome("sky", far, horizon=weather.sky, zenith=weather.zenith, radius=SKY_RADIUS,
+                             clouds=0.8 - 0.4 * weather.warm, heavy=1.0 - 0.6 * weather.warm,
+                             light=tuple(min(1.0, c * 1.25) for c in weather.sky), light_dir=(360.0, 1400.0, 160.0))
     return {"ground": fine, "valley_ground": coarse, "river": river, "mist": mist, "sky": sky}

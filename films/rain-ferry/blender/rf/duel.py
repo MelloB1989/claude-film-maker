@@ -32,7 +32,7 @@ MARKS = {"shinza": (2.2, 0.0), "tsuru": (6.7, 0.05)}
 MID = ((MARKS["shinza"][0] + MARKS["tsuru"][0]) / 2, 0.0)
 TURNS = {"shinza": 0.0, "tsuru": math.pi + 0.3}    # Tsuru turned 0.3 rad from him toward the lens (as charge)
 OUTLINE = 0.0018      # the cast's outline, in frame heights
-INK_REACH = 13.0      # m: the near set's line art drawn this far round the duel (`near_duel`)
+INK_REACH = 8.0       # m: the near set's line art drawn this far round the duel (`near_duel`)
 KEY_ANGLE = 5.0       # degrees: an overcast key's soft-edged shadows
 # how each part is painted (toon3d.Tone's fields), as the standoff's cels are: rain-cooled shades (skin to a mauve,
 # cloth and hair to a slate blue), a deep 2nd shade in the creases, the face kept a little more lit, wet cloth and
