@@ -26,8 +26,9 @@ from rf import jetty_talk as jt  # noqa: E402
 
 SHOT = {"scene": "ferry"}
 
-# the camera: rf/set_world.py's "ferry" view, easing in and down a step over the shot
-CAM = ((-15.5, -11.5, 3.6), (-14.6, -10.7, 3.3), (2.0, 4.0, 0.0), (2.4, 3.7, 0.15))   # camera from, to; aim from, to
+# the camera: from rf/set_world.py's "ferry" view a little to the right (a near tree's crown off the frame's corner),
+# easing in and down over the shot
+CAM = ((-14.0, -12.0, 3.4), (-12.7, -10.8, 3.1), (2.8, 3.4, 0.1), (3.2, 3.1, 0.25))   # camera from, to; aim from, to
 LENS = (26.0, 27.0)
 FSTOP = 8.0
 FOCUS = 22.0                # m: deep focus on the whole crossing
@@ -51,7 +52,7 @@ def build(ctx):
     path = P[d >= d[-1] - WALK_BACK]
     way = path[-1] - path[-2]
     sh, _ = ja.arrives(st, path, WALK_END, end_yaw=float(np.degrees(np.arctan2(way[1], way[0]))),
-                       ground=float(set_valley.ground(*path[-1])))
+                       ground=lambda x, y: float(set_valley.ground(x, y)))
     sh.look(ctx.f0, None)
     sh.express(ctx.f0, {"glare": 0.6})
     sh.blinks(mean=3.4)
@@ -61,7 +62,7 @@ def build(ctx):
     for f in st.frames():
         t = st.t(f)
         out = jt.ramp(t, EXHALE[0] - 0.25, EXHALE[0]) - jt.ramp(t, EXHALE[1], EXHALE[1] + 0.4)
-        jt.tsuru_rest(st, f, t, smoking=True, down=-4.0 * out)
+        ja.smoking(st, f, t, down=-4.0 * out)
     st.bake()
 
     st.film([cinema.Setup("ferry", 0.0, cinema.drift(cinema.line(*CAM), 0.03), lens=LENS, fstop=FSTOP, focus=FOCUS,

@@ -48,6 +48,7 @@ FEET = {"left": ((0.09, 0.03), (0.1, -1.0, 0.45), (0.0, 0.0, 8.0)),
 # ---- seated on something SEAT high: the hips down onto it, the thighs forward and level, the shins down to her feet
 # on the ground a little in front, the back still rounded (less), the head up
 SEAT = 0.42
+SEATED_HANDS = -0.24          # how much lower her held pipe is (m)
 SEATED_POSE = {"spine": (4.0, 0.0, 0.0), "chest": (8.0, 0.0, 0.0), "upperChest": (10.0, 0.0, 0.0),
                "neck": (10.0, 0.0, 0.0), "head": (-36.0, 0.0, 4.0),
                "leftUpperLeg": (-84.0, 0.0, -5.0), "rightUpperLeg": (-84.0, 0.0, 5.0),
@@ -59,21 +60,22 @@ SEATED_FEET = {"left": ((0.11, -0.4), (0.15, -1.5, 0.6), (0.0, 0.0, 10.0)),
 # (standing, seated); it parts at SPLIT, the cord wound from there up GRIP long, its blade BLADE long inside the shaft
 POLE = (-0.24, -0.2)
 POLE_TOP = 2.1
-GRIP_Z = {False: 0.98, True: 0.82}
+GRIP_Z = {False: 0.98, True: 0.66}
 SPLIT, CORD, BLADE = 1.66, 0.2, 0.62
 # on her shoulder: resting on the top of her right shoulder (a point over it, her frame at rest), the long end back
-# and down, the top forward and up (its way), her right hand on it `hand` ahead of the shoulder
-SHOULDER = dict(over=(-0.13, 0.02, 0.06), way=(0.0, -0.93, 0.36), behind=1.25, hand=0.24)
+# and up over it, the top (its way) forward and down to her right hand `hand` ahead of the shoulder, at her chest
+SHOULDER = dict(over=(-0.13, 0.02, 0.06), way=(0.0, -0.8, -0.6), behind=1.3, hand=0.38)
 # laid down at her right (the foot behind her)
 LAID = dict(foot=(-0.35, 0.85, 0.024), way=(0.0, -1.0, 0.0))
 # drawn: her right hand on the handle (its wrist; the blade from the fist forward and down: its way), the shaft upright
 # in her left hand, held low at her side
 DRAWN = dict(grip=(-0.17, -0.3, 0.95), way=(0.15, -0.88, -0.45), shaft=(0.24, -0.08, 0.72))
 # ---- her kiseru: in her left hand before her at the waist, the bowl forward and a little out; in her mouth, from the
-# left corner of her lips forward, down and out, her hand on its stem
+# left corner of her lips forward, down and out, her hand low on its stem and her elbow out at her side (her face
+# clear of her forearm)
 KISERU = 0.3
 PIPE_HAND = dict(hole=(0.13, -0.24, 0.86), way=(-0.15, -0.95, 0.15))
-PIPE_MOUTH = dict(way=(0.3, -0.8, -0.5), hold=0.13)
+PIPE_MOUTH = dict(way=(0.45, -0.65, -0.62), hold=0.22, elbow=(0.5, 0.0, 0.85))
 # ---- her hair: white, the ponytail's strands (VRoid's chains behind her head, rooted below its crown) hidden, the
 # rest gathered into a low bun at the back of her head (its middle off the head bone: behind, up; its half sizes),
 # a wooden pin through it, aslant
@@ -81,6 +83,9 @@ HAIR_WHITE = ((0.78, 0.78, 0.8), (0.42, 0.44, 0.5))
 BUN = dict(at=(0.0, 0.085, 0.035), radii=(0.05, 0.036, 0.04), pin=(0.16, 0.0035, 24.0))
 # ---- her robe recoloured a faded indigo (linear lit, shade)
 INDIGO = ((0.055, 0.075, 0.15), (0.018, 0.026, 0.06))
+# its wide sleeves taken in (tied back for work: vrm_rig.cinch) to SLEEVE metres round her arms, keeping `keep` of
+# the rest, so a hand raised to her face never buries it
+SLEEVE = (0.045, 0.1)
 TS_COLORS = {"hair": HAIR_WHITE}
 
 # ---- her face. The marks are drawn on a front view of it (lib/vrm_skin.py: projected along +y onto the face's skin),
@@ -93,10 +98,10 @@ SPOTS = [((0.074, 1.362), 3.2), ((0.058, 1.303), 2.2), ((-0.034, 1.392), 2.6), (
          ((0.069, 1.27), 2.0), ((-0.081, 1.346), 2.4), ((0.012, 1.398), 1.6)]
 # her expressions, composed from VRoid's per-part shape keys and her own (hood: the upper lids heavy, more at their
 # outer corners; brow-low: the brows down and flat; press: the lips pressed thin; sneer: one corner drawn up): calm
-# and half-lidded, and the glare, narrowed under low brows, the mouth a tight thin line
+# and half-lidded with the faint smile, and the glare, narrowed under low brows, the mouth a tight thin line
 FACES = {
-    "tsuru-calm": {"tsuru-hood": 0.75, "tsuru-brow-low": 0.6, "Fcl_EYE_Close": 0.05, "Fcl_BRW_Angry": 0.1,
-                   "Fcl_MTH_Close": 1.0, "tsuru-press": 0.5},
+    "tsuru-calm": {"tsuru-hood": 0.5, "tsuru-brow-low": 0.6, "Fcl_EYE_Close": 0.0, "Fcl_BRW_Angry": 0.1,
+                   "Fcl_MTH_Close": 1.0, "tsuru-press": 0.3, "Fcl_MTH_Fun": 0.2},
     "tsuru-glare": {"tsuru-hood": 0.45, "Fcl_EYE_Angry": 0.5, "tsuru-brow-low": 1.0, "Fcl_BRW_Angry": 0.3,
                     "Fcl_MTH_Close": 1.0, "tsuru-press": 1.0, "tsuru-sneer": 0.8},
 }
@@ -289,10 +294,32 @@ def tabi(ch) -> float:
 
 
 def indigo(ch) -> None:
-    """Her robe (VRoid's top and bottoms) one faded indigo, its folds kept."""
+    """Her robe (VRoid's top and bottoms) one faded indigo, its folds kept, its sleeves taken in."""
     for mat in ch.materials("cloth"):
         if "Tops" in mat.name or "Bottoms" in mat.name:
             vrm_rig.recolor(mat, *INDIGO, opaque=True)
+    for ob in ch.meshes:
+        tops = vrm_rig.faces_of(ob, "Tops")
+        if tops.size and ob.data.shape_keys is None:
+            for side in ("left", "right"):
+                vrm_rig.cinch(ch, ob, tops, side, SLEEVE[0], keep=SLEEVE[1], ease=0.15)
+
+
+def drape_skirt(ch) -> None:
+    """Seated: the robe's skirt laid over her thighs and down past her knees: VRoid hangs it from bones of its own
+    (J_Sec_*_CoatSkirt*), which stay where a standing skirt hangs, so it is handed to her legs (vrm_rig.shift_weights),
+    her thighs above the knee and her shins below, the cloth between her knees spanning them."""
+    knee = ch.rest("leftLowerLeg")[2]
+    skirt = {}
+    for chain in vrm_rig.chains(ch, "J_Sec_*_CoatSkirt*"):
+        for bone in chain:
+            skirt[bone] = "leftUpperLeg" if "_L_" in bone else "rightUpperLeg"
+    for ob in ch.meshes:
+        tops = vrm_rig.faces_of(ob, "Tops")
+        if tops.size:
+            vrm_rig.shift_weights(ch, ob, tops, 10.0, 0.01, skirt)
+            vrm_rig.shift_weights(ch, ob, tops, knee - 0.02, 0.08,
+                                  {"leftUpperLeg": "leftLowerLeg", "rightUpperLeg": "rightLowerLeg"})
 
 
 def hair(ch, m: dict, coll, name: str) -> list:
@@ -383,18 +410,22 @@ def tsuru(coll, look, name: str = "tsuru", *, pipe: str | None = None, pole: str
         vrm.reach(ch, "rightHand", (-LEFT_HAND[0][0], *LEFT_HAND[0][1:]) if not seated else (-0.13, -0.24, SEAT + 0.14),
                   pole=(-0.5, 0.6, 0.9), bend=ELBOWS["left"])
     mouth = None
+    # seated, her hands in her lap come down with her hips
+    pipe_hole = np.asarray(PIPE_HAND["hole"]) + np.array((0.0, -0.08, SEATED_HANDS)) * float(seated)
     if pipe == "hand":
-        fingers.update(vrm.grasp(ch, "left", PIPE_HAND["hole"], PIPE_HAND["way"], (-0.5, 0.0, 0.8),
+        fingers.update(vrm.grasp(ch, "left", pipe_hole, PIPE_HAND["way"], (-0.5, 0.0, 0.8),
                                  pole=(0.5, 0.4, 0.7), amount=0.85, bend=ELBOWS["left"]))
     elif pipe == "mouth":
         mouth = _mouth(ch, lm) if lm is not None else np.array((0.02, -0.12, 1.28))
         pway = np.asarray(PIPE_MOUTH["way"]) / np.linalg.norm(PIPE_MOUTH["way"])
         fingers.update(vrm.grasp(ch, "left", mouth + pway * PIPE_MOUTH["hold"], pway, (-0.6, 0.0, 0.6),
-                                 pole=(0.45, -0.1, 0.9), amount=0.8, bend=60.0))
+                                 pole=PIPE_MOUTH["elbow"], amount=0.8, bend=60.0))
     elif pole != "drawn":
         vrm.reach(ch, "leftHand", LEFT_HAND[0] if not seated else (0.13, -0.24, SEAT + 0.14), pole=LEFT_HAND[1],
                   bend=ELBOWS["left"])
     vrm.pose(ch, {**base, **fingers}, hips=hips)
+    if seated:
+        drape_skirt(ch)
     lift = SOLE - sole if is_tsuru else 0.0      # bare soles down onto the sandals
     feet = SEATED_FEET if seated else FEET
     plant(ch, {side: ((x, y, ch.rest(f"{side}Foot")[2] + lift), pl, turn) for side, ((x, y), pl, turn) in feet.items()})
@@ -454,7 +485,7 @@ def tsuru(coll, look, name: str = "tsuru", *, pipe: str | None = None, pole: str
     if pipe is not None:
         if pipe == "hand":
             pway = np.asarray(PIPE_HAND["way"]) / np.linalg.norm(PIPE_HAND["way"])
-            start = np.asarray(PIPE_HAND["hole"]) - pway * 0.09
+            start = pipe_hole - pway * 0.09
         else:
             start = mouth + pway * 0.004
         parts["pipe"] = props.kiseru(f"{name}-kiseru", {"brass": m["brass"], "stem": m["stem"]}, coll,

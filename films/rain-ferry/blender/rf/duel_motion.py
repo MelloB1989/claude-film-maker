@@ -97,16 +97,6 @@ def heartbeat(t: float, beats, *, dub: float = 0.28, decay: float = 10.0) -> flo
     return min(1.0, v)
 
 
-def clock(speeds, fps: float, speed0: float) -> list:
-    """A clock for something that moves by time (toon.rain's drops) slowed frame by frame: for its speed on each
-    frame, the seconds of motion at `speed0` it has had by then, so it decelerates to a stop rather than jumping."""
-    out, c = [], 0.0
-    for v in speeds:
-        out.append(c)
-        c += max(0.0, float(v)) / speed0 / fps
-    return out
-
-
 # the vowels a line's syllables open the mouth to, as VRM's mouth presets
 VOWELS = ("aa", "ih", "ou", "ee", "oh")
 

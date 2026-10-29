@@ -1,8 +1,10 @@
 """The duel's stage, shared by its shots (shots/rise.py, standoff_vroid.py, eye_s.py, eye_t.py, freeze.py): the
 crossing in the downpour (rf/set_world.py, the world every shot shares), the 3D cast at their marks on the jetty (rf/vroid_cast.py) painted as anime
-(blender/lib/toon3d.py) with a key of their own each, the rain falling in front of them, and the compositing that lays
-them over the world (blender/lib/satsuei.py). A shot builds the stage, then keys its camera, its cast's acting and its
-light frame by frame with the helpers here; the motion itself is rf/duel_motion.py's (pure, tested).
+(blender/lib/toon3d.py) with a key of their own each, and the compositing that lays them over the world
+(blender/lib/satsuei.py). A shot builds the stage, films it (lib/cinema.py), puts the weather round its camera
+(`weather`: lib/weather.py, the rain linked into the cast's layer too, so drops fall in front of a face), then keys its
+cast's acting and its light frame by frame with the helpers here; the motion itself is rf/duel_motion.py's (pure,
+tested).
 
 The world as rf/sets.py lays it out: the jetty along x (the bank and the hut at -x, its end and the moored boat at +x),
 its deck's top at z 0, the river behind it toward +y. Shinza stands at the hut's end facing +x, Tsuru at the boat's end
@@ -28,8 +30,9 @@ from . import duel_motion as dm
 # (x, y) world; MID between them, which the duel's cameras are placed from
 MARKS = {"shinza": (2.2, 0.0), "tsuru": (6.7, 0.05)}
 MID = ((MARKS["shinza"][0] + MARKS["tsuru"][0]) / 2, 0.0)
-TURNS = {"shinza": 0.0, "tsuru": math.pi + 0.3}    # Tsuru turned 0.3 rad from him toward the -y side
+TURNS = {"shinza": 0.0, "tsuru": math.pi}          # facing each other down the jetty (rf/clash.py: charge)
 OUTLINE = 0.0018      # the cast's outline, in frame heights
+INK_REACH = 13.0      # m: the near set's line art drawn this far round the duel (`near_duel`)
 KEY_ANGLE = 5.0       # degrees: an overcast key's soft-edged shadows
 # how each part is painted (toon3d.Tone's fields), as the standoff's cels are: rain-cooled shades (skin to a mauve,
 # cloth and hair to a slate blue), a deep 2nd shade in the creases, the face kept a little more lit, wet cloth and
@@ -49,9 +52,6 @@ TONES = {
 }
 # ... and what is a character's own: his black hair lifted to a dark slate blue, so its shades and lines show
 TONES_OF = {"shinza": {"hair": dict(lit=(1.9, 2.0, 2.5))}}
-# the rain: a box of streaks over the jetty and the water in front of it (rf/sets.py's world), and the splashes
-RAIN = dict(box_min=(MID[0] - 6.5, -3.6, -0.6), box_max=(MID[0] + 6.5, 12.0, 5.5), count=5200, speed=9.5, wind=1.8, length=0.34,
-            width=0.0055, color=(0.78, 0.81, 0.86), alpha=0.3, seed=4, near=3.5)
 # the compositing's lights (linear): the cold sky, the hut's lantern (behind Shinza), the boat's (behind Tsuru)
 SKY_RIM, LANTERN_RIM, BOAT_RIM = (0.6, 0.68, 0.85), (1.0, 0.5, 0.18), (0.95, 0.58, 0.26)
 FLASH_COLOR = (0.85, 0.9, 1.0)
@@ -69,50 +69,33 @@ class Stage:
     actors: dict                     # name -> what the builder returned (rf/vroid_cast.py)
     keys: dict                       # name -> the character's own key light
     sun: object                      # the world's key
-    rain: object | None = None
-    rain_cast: object | None = None
     ink: object | None = None
     flash: dict = field(default_factory=dict)   # film frame -> the lightning's flash, 0..1
     bodies: dict = field(default_factory=dict)  # name -> Body
-    sun_base: float = 4.2                        # the world's key as the weather set it
+    faces: dict = field(default_factory=dict)   # name -> its face from its root (key_lines)
 
     def ch(self, name: str):
         return self.actors[name]["vrm"]
 
 
-def stage(ctx, *, who=("shinza", "tsuru"), rain: dict | None = None, frozen: bool = False, ink: float | None = 0.0042,
-          lightning=None, splashes: bool = True) -> Stage:
-    """The crossing with `who` at their marks, painted, under the rain (`rain`: RAIN's fields overridden; `frozen`:
-    the drops hang where they are), the near set inked (`ink`: Line Art radius, m; None for none), lightning striking
-    at `lightning` (s into the shot; default the look schedule's). The rain, the world's light and the keys' colour are
-the look schedule's (data/look.json, ctx.look_at) at the shot's first frame. The camera, the acting and the
-compositing are the shot's."""
+def stage(ctx, *, who=("shinza", "tsuru"), ink: float | None = 0.0042) -> Stage:
+    """The crossing with `who` at their marks, painted, the near set inked (`ink`: Line Art radius, m; None for none).
+    The world's light and the keys' colour are the look schedule's (data/look.json, ctx.look_at) at the shot's first
+    frame. The camera (lib/cinema.py), then the weather (`weather`, round the camera's setups), the acting and the
+    compositing are the shot's."""
     import bpy
 
     from lib import toon, toon3d, vrm
 
-    from . import set_world, sets, vroid_cast
+    from . import set_world, vroid_cast
 
     scene = ctx.scene
-    sched = ctx.look_at(ctx.f0)
-    light = sched.light
-    if lightning is None:
-        lightning = ctx.look.lightning
-    scene.render.use_motion_blur = False   # drawn animation has no shutter (and the rain's drops wrap)
+    light = ctx.look_at(ctx.f0).light
     # the world every shot shares (rf/set_world.py): staged and lit for the schedule's weather, its key sun lighting
     # the set alone (the cast have keys of their own)
     crossing = set_world.build(ctx)
     look = crossing["look"]
-    ink_ob = toon.ink("ink-near", crossing["near"], radius=ink, crease=150) if ink else None
-    sun = crossing["key"].data
-    sun_base = sun.energy
-
-    sr = sched.rain
-    r = {**RAIN, **dict(count=sr.drops, speed=sr.speed, wind=sr.wind, length=sr.length, width=sr.width,
-                        color=sr.color, alpha=sr.alpha), **(rain or {})}
-    rain_ob = toon.rain("rain", r["box_min"], r["box_max"], count=r["count"], speed=r["speed"], wind=r["wind"],
-                        length=r["length"], width=r["width"], color=r["color"], alpha=r["alpha"], seed=r["seed"],
-                        near=r["near"], clear=r.get("clear", 1.2), frozen=frozen)
+    ink_ob = toon.ink("ink-near", near_duel(crossing["near"]), radius=ink, crease=150) if ink else None
 
     cast = toon.collection("cast")
     cast_look = toon.Look(fog=look.fog, fog_near=look.fog_near, fog_far=look.fog_far, fog_max=look.fog_max,
@@ -125,113 +108,87 @@ compositing are the shot's."""
         bpy.context.view_layer.update()
         keys[name] = toon3d.key(f"{name}-key", [built["root"], *built["root"].children_recursive],
                                 (1.0, -0.3, 0.8) if name == "shinza" else (-1.0, -0.3, 0.8), coll=cast,
-                                angle=KEY_ANGLE, color=light.key,
-                                energy=toon3d.ENERGY * light.key_strength)
+                                angle=KEY_ANGLE, color=light.key, energy=toon3d.ENERGY * light.key_strength)
         tones = {p: toon3d.Tone(**{**kw, **TONES_OF.get(name, {}).get(p, {})}) for p, kw in TONES.items()}
         vrm.anime(built["vrm"], tones, keys[name])
         vrm.smooth(built["vrm"])
-    # the drops in front of them: the rain again in the cast's layer (only those over a figure pass the depth test)
-    rain_cast = None
-    if actors:
-        rain_cast = rain_ob.copy()
-        rain_cast.name = "rain-cast"
-        cast.objects.link(rain_cast)
-    if splashes and not frozen:
-        toon.splashes("splash-deck", (sets.SPAN[0], -sets.HALF + 0.05, 0.004), (sets.SPAN[1], sets.HALF - 0.05, 0.004),
-                      count=240, size=0.08, seed=5)
-        toon.splashes("splash-river", (-7.5, -3.6, sets.WATER_Z + 0.002), (7.5, -1.15, sets.WATER_Z + 0.002),
-                      count=340, size=0.11, alpha=0.45, seed=9)
-    frames = range(ctx.f0 - 1, ctx.f1 + 1)
-    flash = (toon.lightning(scene, list(lightning), frames, ctx.fps, ctx.f0) if lightning
-             else {f: 0.0 for f in frames})
-    st = Stage(ctx, scene, crossing, look, cast, actors, keys, sun, rain_ob, rain_cast, ink_ob, flash, sun_base=sun_base)
+    st = Stage(ctx, scene, crossing, look, cast, actors, keys, crossing["key"].data, ink=ink_ob,
+               flash={f: 0.0 for f in range(ctx.f0 - 1, ctx.f1 + 1)})
     for name in actors:
         st.bodies[name] = Body(st.ch(name))
     return st
 
 
-def rain_input(rain_ob, which: str):
-    """A socket of toon.rain's node group to key: "clear" (no drops nearer the lens than this, m) or "near" (drops
-    nearer than this shrink with their distance)."""
-    nodes = rain_ob.modifiers[0].node_group.nodes
-    if which == "clear":
-        return next(n.inputs[1] for n in nodes if n.bl_idname == "ShaderNodeMath" and n.operation == "GREATER_THAN")
-    return next(n.inputs["From Max"] for n in nodes if n.bl_idname == "ShaderNodeMapRange")
+def near_duel(near, reach: float = INK_REACH):
+    """The near set's objects within `reach` metres of the duel (their bounds' middles): what its line art draws. The
+    whole near set (the path, the bank, the far end of the jetty) costs the Line Art minutes to build and seconds a
+    frame for lines too far off to read. A collection of its own (the objects linked there too, not moved)."""
+    from mathutils import Vector
+
+    from lib import toon
+
+    coll = toon.collection("ink-duel")
+    mid = Vector((MID[0], MID[1], 0.0))
+    for ob in near.all_objects:
+        if ob.type not in ("MESH", "CURVE"):
+            continue
+        c = sum((ob.matrix_world @ Vector(b) for b in ob.bound_box), Vector()) / 8
+        if (c - mid).length <= reach:
+            coll.objects.link(ob)
+    return coll
 
 
-# ---------------------------------------------------------------------------------------------------- the camera
+def weather(st: Stage, rig, *, splashes: bool = True, **kw):
+    """The shot's weather round its camera's setups (lib/weather.py storm: the look schedule's rain, keyed, and its
+    lightning flaring the world's key), splashing on the deck and the river in front of it and ringing the waters; the
+    rain linked into the cast's layer as well, so the drops in front of a face stay in front of it. Returns the Sky;
+    st.flash is its lightning per frame."""
+    from lib import weather as wx
 
-def camera(ctx, *, lens: float = 35.0, fstop: float = 4.0, clip_start: float = 0.01):
-    """The shot's camera on the engine's gate, aimed (TRACK_TO) at an empty its focus follows: (camera, aim)."""
-    import bpy
+    from . import sets
 
-    from lib import rig
-
-    cam = rig.engine_camera("camera", fstop=fstop, size=ctx.size)
-    cam.data.lens = lens
-    cam.data.clip_start = clip_start
-    cam.data.clip_end = 3000.0
-    ctx.scene.camera = cam
-    aim = bpy.data.objects.new("aim", None)
-    ctx.scene.collection.objects.link(aim)
-    c = cam.constraints.new("TRACK_TO")
-    c.target = aim
-    c.track_axis = "TRACK_NEGATIVE_Z"
-    c.up_axis = "UP_Y"
-    cam.data.dof.focus_object = aim
-    return cam, aim
+    deck = ((sets.SPAN[0], -sets.HALF + 0.05, 0.004), (sets.SPAN[1], sets.HALF - 0.05, 0.004))
+    river = ((MID[0] - 9.0, -9.0, sets.WATER_Z + 0.002), (MID[0] + 9.0, -1.15, sets.WATER_Z + 0.002))
+    sky = wx.storm(st.ctx, rig, splashes=[deck, river] if splashes else (), waters=st.crossing["waters"],
+                   floor=sets.WATER_Z, ground=sets.WATER_Z, lights=[st.crossing["key"]], **kw)
+    if sky.rain is not None and st.actors:
+        for d in sky.rain.drops.values():
+            st.cast.objects.link(d.ob)
+    if sky.flash:
+        st.flash = dict(sky.flash)
+    return sky
 
 
-def key_camera(cam, aim, f: int, at, to, *, lens: float | None = None, fstop: float | None = None,
-               focus: float | None = None) -> None:
-    """Key the camera at film frame f: where it is, what it looks at (its focus there, unless `focus` gives a
-    distance), its lens (mm) and f-stop."""
-    cam.location = tuple(at)
-    aim.location = tuple(to)
-    cam.keyframe_insert("location", frame=f)
-    aim.keyframe_insert("location", frame=f)
-    if lens is not None:
-        cam.data.lens = lens
-        cam.data.keyframe_insert("lens", frame=f)
-    if fstop is not None:
-        cam.data.dof.aperture_fstop = fstop
-        cam.data.dof.keyframe_insert("aperture_fstop", frame=f)
-    if focus is not None:
-        cam.data.dof.focus_object = None
-        cam.data.dof.focus_distance = focus
-        cam.data.dof.keyframe_insert("focus_distance", frame=f)
-
-
-def shake(t: float, amount: float, seed: int = 3) -> np.ndarray:
-    """A hand-held camera's drift at time t (m, x y z), `amount` its size: slow incommensurate wanders."""
-    rng = np.random.default_rng(seed)
-    ph = rng.uniform(0, 2 * math.pi, (3, 2))
-    return amount * np.array([0.6 * math.sin(2 * math.pi * 0.37 * t + ph[i, 0]) + 0.4 * math.sin(2 * math.pi * 1.13 * t + ph[i, 1])
-                              for i in range(3)])
+def lens_at(rig, f: int) -> tuple:
+    """(camera position, lens mm) at film frame f, as the rig keys it."""
+    p = rig.pose(f)
+    return tuple(p.position), float(p.lens)
 
 
 # ---------------------------------------------------------------------------------------------------- per frame
 
 def key_lines(st: Stage, f: int, cam_at, lens: float, frac: float = OUTLINE) -> None:
-    """Every cast member's outline keyed to `frac` of the frame's height from the camera at `cam_at` with `lens`."""
-    from mathutils import Vector
-
+    """Every cast member's outline keyed to `frac` of the frame's height from the camera at `cam_at` with `lens`. The
+    face is taken where it is the first time (from the character's root, which a duel shot does not move): asking
+    the posed face each frame re-evaluates the whole scene after the frame's keys (minutes over a shot)."""
     from lib import vrm
 
-    for built in st.actors.values():
-        d = (Vector(cam_at) - built["vrm"].face()).length
+    if not st.faces:
+        st.faces = {name: np.array(b["vrm"].face()) - np.array(b["root"].matrix_world.translation)
+                    for name, b in st.actors.items()}
+    for name, built in st.actors.items():
+        face = np.array(built["root"].matrix_world.translation) + st.faces[name]
+        d = float(np.linalg.norm(np.asarray(cam_at, float) - face))
         vrm.key_outline(built["vrm"], vrm.outline_width(frac, d, lens), f)
 
 
 def key_light(st: Stage, f: int, toward: dict) -> None:
-    """Each character's key from `toward` ({name: world direction}) at film frame f; the world's sun flares with the
-    lightning."""
+    """Each character's key from `toward` ({name: world direction}) at film frame f (the world's sun is the
+    weather's: it flares with the lightning)."""
     from lib import toon3d
 
     for name, d in toward.items():
         toon3d.aim(st.keys[name], d, frame=f)
-    st.sun.energy = st.sun_base * (1.0 + 1.9 * st.flash.get(f, 0.0))
-    st.sun.keyframe_insert("energy", frame=f)
 
 
 def swing_lantern(st: Stage, f: int, t: float, gust: float = 0.0) -> None:
@@ -257,10 +214,12 @@ def look(st: Stage, f: int, setup: dict, flash_toward=(0.8, 0.6)):
     fl = st.flash.get(f, 0.0)
     if fl <= 0:
         return lk
-    rims = lk.rims + ((satsuei.Rim(flash_toward, FLASH_COLOR, 1.3 * fl, 0.007, 1.0),)
+    # a hard cold edge on the bolt's side and the grade half let go: the figures keep their colour (a full lift and a
+    # broad rim bleached them to white ghosts)
+    rims = lk.rims + ((satsuei.Rim(flash_toward, FLASH_COLOR, 0.7 * fl, 0.004, 1.0),)
                       if len(lk.rims) < satsuei.RIMS else ())
-    return replace(lk, rims=rims, gain=tuple(g + (1 - g) * fl for g in lk.gain), para_amount=lk.para_amount * (1 - fl),
-                   flash=0.35 * fl, flash_color=FLASH_COLOR)
+    return replace(lk, rims=rims, gain=tuple(g + (1 - g) * 0.5 * fl for g in lk.gain), para_amount=lk.para_amount * (1 - fl),
+                   flash=0.15 * fl, flash_color=FLASH_COLOR)
 
 
 def hold(*owners) -> None:
@@ -296,6 +255,13 @@ class Body:
 
         self.hair = vrm_rig.chains(ch, HAIR)
         self.cloth = vrm_rig.chains(ch, CLOTH)
+
+    def settle(self, bones) -> None:
+        """Take these bones' pose now (humanoid or armature names: fingers a shot closed with vrm.pose) as built."""
+        pbs = self.ch.armature.pose.bones
+        for b in bones:
+            name = self.bone_name(b)
+            self.rot[name] = pbs[name].rotation_quaternion.copy()
 
     def bone_name(self, bone: str) -> str:
         """The armature's name of a humanoid bone (or an armature bone's own name)."""

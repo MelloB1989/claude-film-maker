@@ -35,11 +35,28 @@ def build(ctx):
     from lib import cinema, satsuei, vrm_anim as va
     from rf import approach, set_approach, set_valley, set_world
 
-    # the puddle he steps in (the set's); his right foot's footfall on it, the path's way there
-    puddle = np.array(set_world.views()["step"][1]) - np.array([0.0, 0.0, 0.05])
+    # the puddle he steps in: the set's on the path a few steps behind where the walk (shots/walk.py) picks him up,
+    # so the step is the start of that walk; else the set's step puddle
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("shots.walk", Path(__file__).with_name("walk.py"))
+    walk = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(walk)
+    t_walk = ctx.time(ctx.f1)
+    wgait, _, _ = walk.staging(ctx.fps, t_walk, t_walk + 5.5)
     P = set_approach.path_xy(240)
     probe = approach.Gait(line=P)
-    s_hit = probe.nearest(puddle[:2])
+    st = approach.stage(ctx, key_toward=KEY)
+    ch = st.shinza["vrm"]
+    s_walk = probe.nearest(wgait.root(t_walk)[0])
+    found = approach.puddle_on(st.world, P, s_walk - (t_walk - ctx.time(ctx.f0) - STRIKE) * 1.05)
+    if found is not None:
+        puddle, s_hit = found
+    else:
+        puddle = np.array(set_world.views()["step"][1]) - np.array([0.0, 0.0, 0.05])
+        s_hit = probe.nearest(puddle[:2])
+    print(f"step: his walk picks up {s_walk:.1f} m along the path; the puddle {s_hit:.1f} m along "
+          f"({'the path' if found is not None else 'the set step puddle'})")
     _, fwd = probe.at(s_hit)
     left = approach.Gait.left_of(fwd)
 
@@ -48,8 +65,6 @@ def build(ctx):
         xy = puddle[:2] + fwd * v[0] + left * v[1]
         return (float(xy[0]), float(xy[1]), float(set_valley.ground(*xy)) + v[2])
 
-    st = approach.stage(ctx, key_toward=KEY)
-    ch = st.shinza["vrm"]
     t0 = ctx.time(ctx.f0)
     t_strike = t0 + STRIKE
     # his right foot comes down in the puddle, mid-stride (lib/vrm_anim.py's heavy walk, laid so), his feet going

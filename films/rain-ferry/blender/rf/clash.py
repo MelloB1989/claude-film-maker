@@ -1,5 +1,5 @@
 """What the duel's last four shots share (shots/charge.py, flash.py, after.py, fall.py): the crossing in the rain, the
-3D VRoid cast painted as the standoff paints it (shots/standoff.py's tones and keys), what the clash does to their
+3D VRoid cast painted as S5's duel paints it (rf/duel.py's tones), what the clash does to their
 props, their keyed poses, the light and the compositing, all read from the film's look schedule (ctx.look_at).
 
 The blocking (rf/sets.py's axes: the jetty along x out from the bank at -x, the deck's top at z 0, the cameras on
@@ -16,10 +16,8 @@ the core's character animation (blender/lib/vrm_anim.py) when it lands; this is 
 """
 from __future__ import annotations
 
-import importlib.util
 import math
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import numpy as np
 
@@ -27,20 +25,12 @@ import numpy as np
 STANDOFF = {"shinza": (2.2, 0.0), "tsuru": (6.7, 0.05)}
 CLASH = 6.1                       # x where the blades meet: he has run the gap, she has not left her mark
 # where the duel leaves them (the lesson starts here): passed through each other, back to back, ((x, y), facing)
-END = {"shinza": ((7.2, 0.08), 0.0), "tsuru": ((5.0, -0.06), math.pi)}
+END = {"shinza": ((7.2, 0.08), 0.0), "tsuru": ((4.4, -0.06), math.pi)}
 # the fall's marks: where he kneels (facing +x), where the half blade sticks in the planks (its point), where his
 # headband lies
-FALL = {"kneel": (7.2, 0.08), "half": (6.03, -0.55), "headband": (7.42, -0.2)}
+FALL = {"kneel": (7.2, 0.08), "half": (5.73, -0.55), "headband": (7.48, -0.14)}
+KEYS = {"shinza": (1.0, -0.3, 0.8), "tsuru": (-1.0, -0.3, 0.8)}   # each one's key, from the side they face (world)
 OUTLINE = 0.0018                  # the 3D cast's outline, in frame heights (as the standoff's)
-
-
-def standoff():
-    """shots/standoff.py, for its painting of the 3D cast (TONES3D, TONES3D_OF, KEY3D_ANGLE, LOOKS...)."""
-    path = Path(__file__).resolve().parents[1] / "shots" / "standoff.py"
-    spec = importlib.util.spec_from_file_location("shots.standoff", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
 
 
 def ease(u: float) -> float:
@@ -68,63 +58,49 @@ def keys_at(keys, t: float, interp=ease):
 
 # ---------------------------------------------------------------------------------------------------- the world
 
-def world(ctx, *, rain_box=((-8.0, -6.0, -0.6), (8.0, 10.0, 5.5)), clear: float = 1.0, near: float = 3.5,
-          splashes: bool = True, motion_blur: float = 0.0) -> dict:
-    """The crossing in the shot's rain and light: the sets agent's world (rf/set_world.py, its weather from the look
-    schedule at the shot's start), the near set's ink, the rain (if it falls: ctx.look_at(ctx.f0).rain) and its
-    splashes. `motion_blur`: a shutter (0 off). Returns set_world's dict with "ink", "rain", "splashes", "state"."""
+def world(ctx) -> dict:
+    """The crossing as every shot has it (rf/set_world.py: lit for the look schedule's weather at the shot's start),
+    its near set inked. Returns set_world's dict with "ink" and "state" (the schedule at the first frame)."""
     from lib import toon
-    from rf import set_world, sets
+    from rf import set_world
 
-    scene = ctx.scene
-    s = ctx.look_at(ctx.f0)
-    scene.render.use_motion_blur = motion_blur > 0
-    if motion_blur > 0:
-        scene.render.motion_blur_shutter = motion_blur
     w = set_world.build(ctx)
     w["ink"] = toon.ink("ink-near", w["near"], radius=0.0042, crease=150)
-    r = s.rain
-    rain = None
-    drops = r.drops or 5200      # a shot whose rain starts stopped still has its drops, hanging
-    if r.alpha > 0 and r.density > 0:
-        rain = toon.rain("rain", rain_box[0], rain_box[1], count=drops, speed=r.speed or 9.5, wind=r.wind,
-                         length=r.length, width=r.width, color=r.color, alpha=r.alpha, seed=4, near=near, clear=clear)
-    spl = []
-    if splashes and rain is not None:
-        spl.append(toon.splashes("splash-deck", (-6.5, -sets.HALF + 0.05, 0.004), (7.6, sets.HALF - 0.05, 0.004),
-                                 count=240, size=0.08, seed=5))
-        spl.append(toon.splashes("splash-river", (-7.5, -3.6, sets.WATER_Z + 0.002), (7.5, -1.15, sets.WATER_Z + 0.002),
-                                 count=340, size=0.11, alpha=0.45, seed=9))
-    w.update(rain=rain, splashes=spl, state=s)
+    w["state"] = ctx.look_at(ctx.f0)
     return w
 
 
-def rain_clock(ctx, obs, speed_at) -> None:
-    """Run the rain (and its splashes) on a clock of its own: `speed_at(t)` (0..1 of its speed, t seconds into the
-    shot) integrated frame by frame, so the drops slow to a stop or start falling again where they hang (keying the
-    rain's speed itself would jump them)."""
-    from lib import fx_impact
+def weather(ctx, rig, w: dict, actors: dict | None = None, **kw):
+    """The shot's rain, splashes, rings and mist (lib/weather.py storm, round `rig`'s setups; the look schedule's
+    unless `kw` says otherwise), the drops also linked into the cast's layer (`actors["coll"]`) so those in front of
+    a face stay in front of it. Returns the Sky."""
+    import bpy
 
-    clock, t = {}, 0.0
-    for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        clock[f] = (ctx.f0 - 1) / ctx.fps + t
-        t += speed_at((f - ctx.f0) / ctx.fps) / ctx.fps
-    for ob in obs:
-        if ob is not None:
-            fx_impact.clock(ob, clock)
+    from lib import weather as wx
+    from rf import sets
+
+    deck = ((-6.5, -sets.HALF + 0.05, 0.004), (7.6, sets.HALF - 0.05, 0.004))
+    river = ((-2.0, -9.0, sets.WATER_Z + 0.002), (14.0, -1.15, sets.WATER_Z + 0.002))
+    kw.setdefault("splashes", [deck, river])
+    kw.setdefault("strikes", [])
+    sky = wx.storm(ctx, rig, waters=w["waters"], floor=sets.WATER_Z, ground=sets.WATER_Z, **kw)
+    coll = bpy.data.collections.get("rain")
+    if actors is not None and sky.rain is not None and coll is not None:
+        for ob in coll.all_objects:
+            if ob.name not in actors["coll"].objects:
+                actors["coll"].objects.link(ob)
+    return sky
 
 
 # ---------------------------------------------------------------------------------------------------- the cast
 
 def cast(ctx, w: dict, variants: dict) -> dict:
-    """The 3D cast in the shot, painted as the standoff paints them: each built (rf/vroid_cast.py, with its variant's
+    """The 3D cast in the shot, painted as rf/duel.py paints them: each built (rf/vroid_cast.py, with its variant's
     arguments: {"shinza": {"sword": "broken"}, ...}), lit by a key of
-    its own, toned, smoothed. Returns {name: {built..., "key": light}} and "coll" (the cast's collection) and
-    "rain" (a copy of the rain in the cast's layer, so the drops in front of a face stay in front of it)."""
+    its own, toned, smoothed. Returns {name: {built..., "key": light}} and "coll" (the cast's collection)."""
     from lib import toon, toon3d, vrm
-    from rf import vroid_cast
+    from rf import duel, vroid_cast
 
-    so = standoff()
     coll = toon.collection("cast")
     look = w["look"]
     cast_look = toon.Look(fog=look.fog, fog_near=look.fog_near, fog_far=look.fog_far, fog_max=look.fog_max,
@@ -132,18 +108,13 @@ def cast(ctx, w: dict, variants: dict) -> dict:
     out = {"coll": coll}
     for name, kw in variants.items():
         built = getattr(vroid_cast, name)(coll, cast_look, **kw)
-        k = toon3d.key(f"{name}-key", [built["root"], *built["root"].children_recursive], so.KEY3D["wide"][name],
-                       coll=coll, angle=so.KEY3D_ANGLE)
-        tones = {p: toon3d.Tone(**{**kw, **so.TONES3D_OF.get(name, {}).get(p, {})}) for p, kw in so.TONES3D.items()}
+        k = toon3d.key(f"{name}-key", [built["root"], *built["root"].children_recursive], KEYS[name], coll=coll,
+                       angle=duel.KEY_ANGLE)
+        tones = {p: toon3d.Tone(**{**t, **duel.TONES_OF.get(name, {}).get(p, {})}) for p, t in duel.TONES.items()}
         vrm.anime(built["vrm"], tones, k)
         vrm.smooth(built["vrm"])
         built["key"] = k
         out[name] = built
-    if w.get("rain") is not None:
-        rc = w["rain"].copy()
-        rc.name = "rain-cast"
-        coll.objects.link(rc)
-        out["rain"] = rc
     return out
 
 
@@ -323,6 +294,38 @@ def shinza_sword(ch, pommel, hilt_dir, *, flat=(1.0, 0.0, 0.0), poles=None) -> t
     return hands, fingers
 
 
+# his stance after the pass (his frame: front -y, left +x): standing, the stub held out in his follow-through, or
+# his arms come down, the stub hanging from his right hand, the left loose at his side
+SH_STAND = {"hips": (0.0, 0.0, 6.0), "spine": (6.0, 0.0, -3.0), "chest": (4.0, 0.0, -2.0), "neck": (-4.0, 0.0, 0.0),
+            "head": (-4.0, 0.0, 0.0), "leftShoulder": (0.0, 6.0, -4.0), "rightShoulder": (0.0, -6.0, 4.0)}
+SH_STAND_FEET = {"right": ((-0.13, -0.42, 0.095), (-0.15, -1.2, 0.5), (0.0, 0.0, -8.0)),
+                 "left": ((0.14, 0.38, 0.13), (0.3, -0.8, 0.5), (20.0, 0.0, 20.0))}
+SH_STAND_HIPS = (0.0, -0.03, -0.1)
+FOLLOW = dict(pommel=(0.03, -0.3, 1.1), hilt=(0.04, -0.95, 0.28))
+LOW = dict(pommel=(-0.2, -0.16, 0.86), hilt=(0.06, -0.55, -0.83))
+LEFT_LOOSE = ((0.22, -0.06, 0.78), (0.6, 0.4, 0.9), (0.0, 10.0, 0.0))
+
+
+def arms(ch, hilt: dict, left=None) -> tuple[dict, dict]:
+    """Shinza's hands (Pose.hands, fingers): both on the hilt at `hilt` (pommel, hilt), or the right alone and the
+    left reaching `left` ((wrist, pole, turn), his frame) loose."""
+    from lib import vrm
+
+    hands, fingers = shinza_sword(ch, hilt["pommel"], hilt["hilt"])
+    if left is not None:
+        hands["left"] = ("reach", *left)
+        fingers = {k: v for k, v in fingers.items() if not k.startswith("left")}
+        fingers.update(vrm.grip_pose("left", 0.35, 0.3))
+    return hands, fingers
+
+
+def standing(actor, *, low: bool) -> tuple[Pose, dict]:
+    """Shinza where the pass leaves him (END), in his follow-through or (`low`) his arms come down: (Pose, fingers)."""
+    hands, fingers = arms(actor["vrm"], LOW if low else FOLLOW, LEFT_LOOSE if low else None)
+    (x, y), yaw = END["shinza"]
+    return Pose(at=(x, y), yaw=yaw, hips=SH_STAND_HIPS, turns=SH_STAND, hands=hands, feet=SH_STAND_FEET), fingers
+
+
 # ---------------------------------------------------------------------------------------------------- compositing
 
 def composite(ctx, actors: dict, setup_of) -> object:
@@ -339,31 +342,3 @@ def composite(ctx, actors: dict, setup_of) -> object:
         comp.key(f, ctx.look_at(f).look(**own))
     comp.hold()
     return comp
-
-
-def camera(ctx, name: str = "camera", *, fstop: float = 2.8):
-    """The shot's camera on the engine's gate, tracking an aim empty (its focus): (camera, aim)."""
-    import bpy
-
-    from lib import rig
-
-    cam = rig.engine_camera(name, fstop=fstop, size=ctx.size)
-    cam.data.clip_end = 3000.0
-    ctx.scene.camera = cam
-    aim = bpy.data.objects.new(f"{name}-aim", None)
-    ctx.scene.collection.objects.link(aim)
-    c = cam.constraints.new("TRACK_TO")
-    c.target = aim
-    c.track_axis = "TRACK_NEGATIVE_Z"
-    c.up_axis = "UP_Y"
-    return cam, aim
-
-
-def focus(ctx, cam, name: str = "focus"):
-    """An empty the camera focuses on (key its location)."""
-    import bpy
-
-    e = bpy.data.objects.new(name, None)
-    ctx.scene.collection.objects.link(e)
-    cam.data.dof.focus_object = e
-    return e
