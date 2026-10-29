@@ -589,16 +589,9 @@ def pipe_smoke(st: Stage, *, emit=None, seed: int = 4):
 
 
 def draw_sword(st: Stage) -> None:
-    """His sword out of its scabbard into his right fist from the shot's first frame, where the baked performance has
-    the fist closed on the hilt: call it after `bake`. Parented to the hand there, keeping where it is (vrm_anim's
-    carry moved the sword at the handoff when this was written)."""
-    import bpy
-
-    from lib import vrm
-
-    st.ctx.scene.frame_set(st.ctx.f0)
-    bpy.context.view_layer.update()
-    vrm.attach(st.cast["shinza"]["parts"]["sword"][0], st.cast["shinza"]["vrm"], "rightHand")
+    """His sword out of its scabbard into his right fist from the shot's first frame (vrm_anim's carry: declare it
+    before the bake), handed on from the scabbard that carries it."""
+    st.perf["shinza"].carry(st.cast["shinza"]["parts"]["sword"][0], st.ctx.f0, "rightHand")
 
 
 # ---------------------------------------------------------------------------------------------------- faces
