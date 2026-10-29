@@ -21,11 +21,12 @@ LENS, FSTOP = 50.0, 2.0
 CAM_BEARING = 38.0            # degrees round from his front toward his right (the camera's side)
 CAM_DIST = (1.25, 2.1)        # m from his face: the close-up, easing back to a medium as he lands (the band in frame)
 CAM_DZ = (-0.04, 0.02)        # m the lens sits off his eyes' height: start, end
+DOWN = 0.34                   # m the aim sinks from his eyes once he is down
 JOLT = (1.4, 6.0)             # the knees' jolt: degrees, decay a second
 # kneeling: the hips down on his heels' height, the shins flat behind the knees, slumped, the head bowed
 KNEEL_HIPS = (0.0, 0.12, -0.42)
 KNEEL = {"hips": (8.0, 0.0, 0.0), "spine": (14.0, 0.0, 0.0), "chest": (10.0, 0.0, 0.0), "upperChest": (6.0, 0.0, 0.0),
-         "neck": (6.0, 0.0, 0.0), "head": (2.0, 0.0, 4.0),
+         "neck": (4.0, 0.0, 0.0), "head": (-4.0, 0.0, 6.0),   # staring ahead at nothing
          "leftShoulder": (0.0, 2.0, -4.0), "rightShoulder": (0.0, -2.0, 4.0)}
 KNEEL_FEET = {"right": ((-0.13, 0.34, 0.07), (-0.15, -1.0, 0.1), (-75.0, 0.0, 0.0)),
               "left": ((0.13, 0.36, 0.07), (0.15, -1.0, 0.1), (-75.0, 0.0, 0.0))}
@@ -153,7 +154,8 @@ def build(ctx):
         # the face in the left third, room on the side he looks to; a little head room
         right = (eye - c).cross(Vector((0.0, 0.0, 1.0))).normalized()
         cams.append(tuple(c))
-        aims.append(tuple(eye + right * 0.09 + Vector((0.0, 0.0, -0.06))))
+        # once down the frame comes off his face to take him in, his knees on the planks and the band by them
+        aims.append(tuple(eye + right * 0.09 + Vector((0.0, 0.0, -0.06 - DOWN * k))))
     rig = cinema.film(ctx, [cinema.Setup("mcu", -1.0 / fps, cinema.path(cams, aims), ease="linear", lens=LENS,
                                          fstop=FSTOP, focus=(ch, "head"),
                                          shake=cinema.Shake(breath=0.08, hits=((KNEES, JOLT[0]),), decay=JOLT[1]))])
