@@ -28,7 +28,7 @@ CLASH = 6.1                       # x where the blades meet: he has run the gap,
 END = {"shinza": ((7.2, 0.08), 0.0), "tsuru": ((4.4, -0.06), math.pi)}
 # the fall's marks: where he kneels (facing +x), where the half blade sticks in the planks (its point), where his
 # headband lies
-FALL = {"kneel": (7.2, 0.08), "half": (5.73, -0.55), "headband": (7.42, -0.2)}
+FALL = {"kneel": (7.2, 0.08), "half": (5.73, -0.55), "headband": (7.48, -0.14)}
 KEYS = {"shinza": (1.0, -0.3, 0.8), "tsuru": (-1.0, -0.3, 0.8)}   # each one's key, from the side they face (world)
 OUTLINE = 0.0018                  # the 3D cast's outline, in frame heights (as the standoff's)
 
@@ -292,6 +292,38 @@ def shinza_sword(ch, pommel, hilt_dir, *, flat=(1.0, 0.0, 0.0), poles=None) -> t
     for side in vs.GRIPS:
         fingers.update(vrm_rig.wrap(ch, side, vs.TSUKA))
     return hands, fingers
+
+
+# his stance after the pass (his frame: front -y, left +x): standing, the stub held out in his follow-through, or
+# his arms come down, the stub hanging from his right hand, the left loose at his side
+SH_STAND = {"hips": (0.0, 0.0, 6.0), "spine": (6.0, 0.0, -3.0), "chest": (4.0, 0.0, -2.0), "neck": (-4.0, 0.0, 0.0),
+            "head": (-4.0, 0.0, 0.0), "leftShoulder": (0.0, 6.0, -4.0), "rightShoulder": (0.0, -6.0, 4.0)}
+SH_STAND_FEET = {"right": ((-0.13, -0.42, 0.095), (-0.15, -1.2, 0.5), (0.0, 0.0, -8.0)),
+                 "left": ((0.14, 0.38, 0.13), (0.3, -0.8, 0.5), (20.0, 0.0, 20.0))}
+SH_STAND_HIPS = (0.0, -0.03, -0.1)
+FOLLOW = dict(pommel=(0.03, -0.3, 1.1), hilt=(0.04, -0.95, 0.28))
+LOW = dict(pommel=(-0.2, -0.16, 0.86), hilt=(0.06, -0.55, -0.83))
+LEFT_LOOSE = ((0.22, -0.06, 0.78), (0.6, 0.4, 0.9), (0.0, 10.0, 0.0))
+
+
+def arms(ch, hilt: dict, left=None) -> tuple[dict, dict]:
+    """Shinza's hands (Pose.hands, fingers): both on the hilt at `hilt` (pommel, hilt), or the right alone and the
+    left reaching `left` ((wrist, pole, turn), his frame) loose."""
+    from lib import vrm
+
+    hands, fingers = shinza_sword(ch, hilt["pommel"], hilt["hilt"])
+    if left is not None:
+        hands["left"] = ("reach", *left)
+        fingers = {k: v for k, v in fingers.items() if not k.startswith("left")}
+        fingers.update(vrm.grip_pose("left", 0.35, 0.3))
+    return hands, fingers
+
+
+def standing(actor, *, low: bool) -> tuple[Pose, dict]:
+    """Shinza where the pass leaves him (END), in his follow-through or (`low`) his arms come down: (Pose, fingers)."""
+    hands, fingers = arms(actor["vrm"], LOW if low else FOLLOW, LEFT_LOOSE if low else None)
+    (x, y), yaw = END["shinza"]
+    return Pose(at=(x, y), yaw=yaw, hips=SH_STAND_HIPS, turns=SH_STAND, hands=hands, feet=SH_STAND_FEET), fingers
 
 
 # ---------------------------------------------------------------------------------------------------- compositing

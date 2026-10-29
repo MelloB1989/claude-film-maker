@@ -23,13 +23,7 @@ LAND = (5.73, -0.55)  # where its point goes in (x, y): rf/clash.py FALL["half"]
 LEAN = 18.0           # degrees it leans from upright, toward the camera's right
 QUIVER = (3.5, 13.0, 3.2)   # degrees, a second, how fast it dies away
 RACK = (THUNK + 0.05, 0.45)  # the focus pulls to it: from, over (s)
-# Shinza's follow-through (his frame: front -y): the stub out in front at chest height, a little up
-FOLLOW = dict(pommel=(0.03, -0.3, 1.1), hilt=(0.04, -0.95, 0.28))
-SH_FOLLOW = {"hips": (0.0, 0.0, 6.0), "spine": (6.0, 0.0, -3.0), "chest": (4.0, 0.0, -2.0), "neck": (-4.0, 0.0, 0.0),
-             "head": (-4.0, 0.0, 0.0), "leftShoulder": (0.0, 6.0, -4.0), "rightShoulder": (0.0, -6.0, 4.0)}
-SH_FEET = {"right": ((-0.13, -0.42, 0.095), (-0.15, -1.2, 0.5), (0.0, 0.0, -8.0)),
-           "left": ((0.14, 0.38, 0.13), (0.3, -0.8, 0.5), (20.0, 0.0, 20.0))}
-SH_HIPS = (0.0, -0.03, -0.1)
+LOWER = (3.3, 4.3)    # s: his arms come down (the stub hanging), as it sinks in what has happened
 SKY_RIM = (0.6, 0.68, 0.85)
 
 
@@ -50,10 +44,11 @@ def build(ctx):
     actors = clash.cast(ctx, w, {"shinza": {"sword": "broken"}, "tsuru": {"pole": "hand"}})
     sh, ts = actors["shinza"], actors["tsuru"]
 
-    # ---- where they stand: back to back
-    hands, fingers = clash.shinza_sword(sh["vrm"], FOLLOW["pommel"], FOLLOW["hilt"])
-    follow = clash.Pose(at=clash.END["shinza"][0], yaw=clash.END["shinza"][1], hips=SH_HIPS, turns=SH_FOLLOW, hands=hands, feet=SH_FEET)
-    clash.apply(sh, follow, fingers=fingers)
+    # ---- where they stand: back to back; held in his follow-through, then his arms come down
+    for t, low in ((-0.05, False), (LOWER[0], False), (LOWER[1], True), ((ctx.f1 - ctx.f0) / fps + 0.05, True)):
+        pose, fingers = clash.standing(sh, low=low)
+        clash.apply(sh, pose, fingers=fingers)
+        clash.key(sh, ctx.f0 + round(t * fps))
     ts["root"].location = (*clash.END["tsuru"][0], 0.0)
     ts["root"].rotation_euler = (0.0, 0.0, clash.END["tsuru"][1])
     bpy.context.view_layer.update()

@@ -13,30 +13,19 @@ import math
 
 SHOT = {"scene": "fall"}
 
-AT = (7.2, 0.08)              # where he stands (rf/clash.py END)
+AT = (7.2, 0.08)              # where he stands and kneels (rf/clash.py END, FALL)
 CUT, BAND_OFF, BAND_DOWN = 0.45, 1.7, 2.25    # s: the knot gives; the band is off his head; it lands on the planks
-ARMS = (1.9, 2.7)             # s: his arms come down
 KNEES = 3.2                   # s: his knees hit the planks (data/mix.json kneel at 83.8)
 DROP = 0.55                   # s the drop takes
 LENS, FSTOP = 50.0, 2.0
 CAM_BEARING = 38.0            # degrees round from his front toward his right (the camera's side)
-CAM_DIST = (1.25, 1.35)       # m from his face: start, end
-CAM_DZ = (-0.04, 0.1)         # m the lens sits off his eyes' height: start, end (above him, looking down, once down)
+CAM_DIST = (1.25, 2.1)        # m from his face: the close-up, easing back to a medium as he lands (the band in frame)
+CAM_DZ = (-0.04, 0.02)        # m the lens sits off his eyes' height: start, end
 JOLT = (1.4, 6.0)             # the knees' jolt: degrees, decay a second
-# his follow-through (shots/after.py), then the kneel (his frame: front -y, left +x)
-FOLLOW = dict(pommel=(0.03, -0.3, 1.1), hilt=(0.04, -0.95, 0.28))
-SH_FOLLOW = {"hips": (0.0, 0.0, 6.0), "spine": (6.0, 0.0, -3.0), "chest": (4.0, 0.0, -2.0), "neck": (-4.0, 0.0, 0.0),
-             "head": (-4.0, 0.0, 0.0), "leftShoulder": (0.0, 6.0, -4.0), "rightShoulder": (0.0, -6.0, 4.0)}
-SH_FEET = {"right": ((-0.13, -0.42, 0.095), (-0.15, -1.2, 0.5), (0.0, 0.0, -8.0)),
-           "left": ((0.14, 0.38, 0.13), (0.3, -0.8, 0.5), (20.0, 0.0, 20.0))}
-SH_HIPS = (0.0, -0.03, -0.1)
-# arms down: the stub hanging from the right hand, the left loose at his side
-LOW = dict(pommel=(-0.2, -0.16, 0.86), hilt=(0.06, -0.55, -0.83))
-LEFT_LOOSE = ((0.22, -0.06, 0.78), (0.6, 0.4, 0.9), (0.0, 10.0, 0.0))
 # kneeling: the hips down on his heels' height, the shins flat behind the knees, slumped, the head bowed
 KNEEL_HIPS = (0.0, 0.12, -0.42)
 KNEEL = {"hips": (8.0, 0.0, 0.0), "spine": (14.0, 0.0, 0.0), "chest": (10.0, 0.0, 0.0), "upperChest": (6.0, 0.0, 0.0),
-         "neck": (10.0, 0.0, 0.0), "head": (12.0, 0.0, -4.0),
+         "neck": (6.0, 0.0, 0.0), "head": (2.0, 0.0, 4.0),
          "leftShoulder": (0.0, 2.0, -4.0), "rightShoulder": (0.0, -2.0, 4.0)}
 KNEEL_FEET = {"right": ((-0.13, 0.34, 0.07), (-0.15, -1.0, 0.1), (-75.0, 0.0, 0.0)),
               "left": ((0.13, 0.36, 0.07), (0.15, -1.0, 0.1), (-75.0, 0.0, 0.0))}
@@ -66,33 +55,22 @@ def build(ctx):
     ch = sh["vrm"]
     sh["parts"]["half"][0].hide_render = True     # it is in the planks behind him, out of this shot
 
-    def pose_at(arms: str, kneel: bool):
-        if arms == "follow":
-            hands, fingers = clash.shinza_sword(ch, FOLLOW["pommel"], FOLLOW["hilt"])
+    def place(t: float, kneel: bool):
+        if kneel:
+            hands, fingers = clash.arms(ch, KNEEL_STUB, KNEEL_LEFT)
+            p = clash.Pose(at=AT, hips=KNEEL_HIPS, turns=KNEEL, hands=hands, feet=KNEEL_FEET)
         else:
-            stub = KNEEL_STUB if kneel else LOW
-            hands, fingers = clash.shinza_sword(ch, stub["pommel"], stub["hilt"])
-            left = KNEEL_LEFT if kneel else LEFT_LOOSE
-            hands["left"] = ("reach", left[0], left[1], left[2])
-            fingers = {k: v for k, v in fingers.items() if not k.startswith("left")}
-            fingers.update(vrm.grip_pose("left", 0.35, 0.3))
-        return clash.Pose(at=AT, hips=KNEEL_HIPS if kneel else SH_HIPS, turns=KNEEL if kneel else SH_FOLLOW, hands=hands,
-                         feet=KNEEL_FEET if kneel else SH_FEET), fingers
-
-    def place(t: float, arms: str, kneel: bool):
-        p, fingers = pose_at(arms, kneel)
+            p, fingers = clash.standing(sh, low=True)
         clash.apply(sh, p, fingers=fingers)
         clash.key(sh, ctx.f0 + round(t * fps))
 
-    # the follow-through held, the arms coming down, the knees giving (the hips' fall eased in: he drops)
-    place(-0.05, "follow", False)
-    place(ARMS[0], "follow", False)
+    # standing as the after left him, his arms down, then the knees giving (the hips' fall eased in: he drops)
+    place(-0.05, False)
     face0 = sh["face"](1.0)
     band = clash.loose_headband(sh)
-    place(ARMS[1], "low", False)
-    place(KNEES - DROP, "low", False)
-    place(KNEES, "low", True)
-    place(n / fps + 0.05, "low", True)
+    place(KNEES - DROP, False)
+    place(KNEES, True)
+    place(n / fps + 0.05, True)
     # the drop accelerates into the knees: no ease out of the fall
     from lib import toon
 
