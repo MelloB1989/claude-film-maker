@@ -7,10 +7,8 @@ it toward -y, toward a camera at -y looking up it into the mist. The path's cent
 both sides, ridges fade into the mist behind.
 
 Stand-ins, each replaced when its owner's API is merged (the shots go through the functions here, so only this file
-changes):
+changes). Shinza is the cast's (`walker`: rf/vroid_cast.py with the kasa on, the sword on his back).
 - `path_set(look)`: the path, its puddles, pines, mist and sky (the sets agent's path, rf/set_path.py, when there).
-- `walker(coll, look)`: Shinza for the walk, his guard undone, a kasa on and the nodachi on his back (the cast
-  agent's variant, rf/vroid_shinza.shinza(kasa="on"), when there).
 - `Gait` / `key_walk`: a heavy walk, its feet planted by IK on footfalls laid down the path (no foot slides on the
   ground), the hips falling and rising between them, the trunk and arms swinging against the legs (the anim agent's
   walk generator, lib/vrm_anim.py, when there).
@@ -140,163 +138,24 @@ def puddle(name: str, at, radii, look, *, coll, seed: int = 1, z: float = 0.004)
 
 # ---- Shinza for the walk
 
-KASA = dict(radius=0.29, height=0.15, drop=0.1, tilt=6.0)   # the hat: its brim's radius, its cone's height, how far
-# below the crown its brim's front comes (low over the eyes) and how far it tips forward (degrees)
-NODACHI = dict(hilt=0.3, saya=1.02, across=(0.55, 0.0, -1.0))   # his sword on his back: hilt over the right shoulder,
-# the scabbard running down across his back toward the left hip
-STRAW = {"straw": ((0.26, 0.205, 0.11), (0.05, 0.04, 0.022)), "straw_dark": ((0.15, 0.115, 0.06), (0.035, 0.026, 0.016)),
-         "cord": ((0.2, 0.13, 0.08), (0.06, 0.04, 0.025))}
-
-
 def walker(coll, look, name: str = "shinza") -> dict:
-    """Shinza for the walk (rf/vroid_shinza.py's variant with kasa="on" when there): his low guard undone, the
-    katana gone from his hands, his arms hanging, a kasa on his head and the nodachi across his back. Returns the
-    builder's dict (rf/vroid_cast.py) with "kasa" (its objects; "brim": the brim's front edge points, his frame) added."""
-    import inspect
+    """Shinza for the walk: rf/vroid_cast.py's, the kasa on his head, the nodachi on his back, standing; his limbs
+    let go of their IK (key_walk plants the feet again). Returns its dict with "stand" (the standing pose,
+    vrm_rig.release's: a base to key on top of) and "kasa" (its objects, the hat first)."""
+    from lib import vrm_rig
+    from rf import vroid_cast
 
-    from rf import vroid_shinza
-
-    if "kasa" in inspect.signature(vroid_shinza.shinza).parameters:
-        return vroid_shinza.shinza(coll, look, name=name, kasa="on")
-    built = vroid_shinza.shinza(coll, look, name=name)
-    ch = built["vrm"]
-    unpose(ch, built.pop("props", []))
-    from lib import vrm
-
-    vrm.pose(ch, vrm.RELAXED)
-    built["kasa"] = kasa(ch, coll, look, name)
-    built["props"] = nodachi(ch, coll, look, name)
-    built["sandals"] = sandals(ch, coll, look, name)
+    built = vroid_cast.shinza(coll, look, name=name, kasa="on", sword="back")
+    built["stand"] = vrm_rig.release(built["vrm"])
+    built["kasa"] = built["parts"]["kasa"]
     return built
 
 
-def unpose(ch, props) -> None:
-    """A built pose undone: every IK and held bone let go, its handles gone, the props in its hands removed."""
-    import bpy
-
-    for pb in ch.armature.pose.bones:
-        for c in list(pb.constraints):
-            pb.constraints.remove(c)
-    for e in ch.handles.values():
-        bpy.data.objects.remove(e, do_unlink=True)
-    ch.handles.clear()
-    ch.bends.clear()
-    for ob in props:
-        bpy.data.objects.remove(ob, do_unlink=True)
-
-
-def kasa_profile(radius: float, height: float, n: int = 12) -> list:
-    """The kasa's cone as (r, z) from its brim to its point, its slope easing a little near the top, a lip at the
-    brim's edge (z up from the brim)."""
-    out = [(radius, -0.008), (radius * 0.985, 0.0)]
-    for k in range(1, n):
-        u = k / n
-        out.append((radius * (1 - u), height * (u ** 0.85)))
-    out.append((0.0, height))
-    return out
-
-
-def kasa(ch, coll, look, name: str) -> list:
-    """A woven straw kasa on his head, its brim low over his eyes, tipped forward; carried by his head."""
-    from mathutils import Vector
-
-    from lib import anime, shapes, vrm
-
-    m = anime.palette(STRAW, look, prefix=f"{name}-kasa")
-    chin, crown = ch.head_span()
-    face = ch.face()
-    head = ch.point("head")
-    centre = Vector((head.x, head.y, crown - KASA["drop"] + 0.02))
-    prof = kasa_profile(KASA["radius"], KASA["height"])
-    hat = shapes.lathe(f"{name}-kasa", prof, material=m["straw"], coll=coll, n=48, center=tuple(centre))
-    # the weave's rings: darker bands round the cone
-    rings = []
-    for k, u in enumerate((0.22, 0.45, 0.68)):
-        r = KASA["radius"] * (1 - u)
-        z = KASA["height"] * u ** 0.85
-        rings.append(shapes.lathe(f"{name}-kasa-ring{k}", [(r + 0.004, z - 0.006), (r + 0.004, z + 0.006)],
-                                  material=m["straw_dark"], coll=coll, n=48, center=tuple(centre)))
-    obs = [hat, *rings]
-    # tipped forward over his face (toward where he looks), pivoting at the crown
-    front = Vector(face) - Vector((head.x, head.y, face.z))
-    front.z = 0.0
-    front = front.normalized() if front.length > 1e-6 else Vector((1.0, 0.0, 0.0))
-    axis = front.cross(Vector((0.0, 0.0, 1.0)))
-    tip = math.radians(KASA["tilt"])
-    for ob in obs:
-        ob.rotation_mode = "AXIS_ANGLE"
-        ob.rotation_axis_angle = (-tip, *axis)
-        vrm.attach(ob, ch, "head")
-    return obs
-
-
-def nodachi(ch, coll, look, name: str) -> list:
-    """His long sword sheathed across his back: the hilt up over his right shoulder, the black scabbard down to his
-    left hip; carried by his chest."""
-    from lib import anime, props, shapes, vrm
-
-    from .vroid_common import COLORS
-
-    m = anime.palette(COLORS, look, prefix=f"{name}-nodachi")
-    neck = np.asarray(ch.rest("neck"))
-    d = np.asarray(NODACHI["across"], float)
-    d /= np.linalg.norm(d)
-    # his frame: x his left, y his back. The hilt's guard sits behind his right shoulder blade
-    guard = neck + np.array([-0.1, 0.13, -0.08])
-    pommel = guard - d * NODACHI["hilt"]
-    pw, gw = ch.world(pommel), ch.world(guard)
-    sword = props.katana(f"{name}-nodachi", m, tuple(pw), tuple(gw - pw), hilt=NODACHI["hilt"], blade=0.04, coll=coll)
-    end = ch.world(guard + d * NODACHI["saya"])
-    saya = shapes.loft(f"{name}-saya", [tuple(gw), tuple(end)], [0.02, 0.016], [0.013, 0.011], material=m["lacquer"],
-                       coll=coll, n=10, subsurf=0)
-    obs = [*sword, saya]
-    for ob in obs:
-        vrm.attach(ob, ch, "upperChest" if ch.has("upperChest") else "chest")
-    return obs
-
-
-def sandals(ch, coll, look, name: str) -> list:
-    """Straw sandals (waraji) on his bare feet: a woven sole a little longer than the foot, a thong from between the
-    toes, cords crossing over the instep to a tie round the ankle; each carried by its foot."""
-    from lib import anime, shapes, vrm
-
-    m = anime.palette(STRAW, look, prefix=f"{name}-waraji")
-    obs = []
-    for side in ("left", "right"):
-        a = np.asarray(ch.rest(f"{side}Foot"), float)
-        toe = np.asarray(ch.rest(f"{side}Toes"), float) if ch.has(f"{side}Toes") else a + np.array([0, -0.12, -0.05])
-        x = (a[0] + toe[0]) / 2
-        heel, tip = a[1] + 0.07, toe[1] - 0.075        # his frame: -y is forward
-        sole = shapes.loft(f"{name}-waraji-{side}", [(x, heel, 0.009), (x, (heel + tip) / 2, 0.009), (x, tip, 0.009)],
-                           [0.034, 0.05, 0.04], 0.009, material=m["straw"], coll=coll, n=12, subsurf=1)
-        # the cords: from the toe thong back over the instep to either side of the heel, and round the ankle
-        top = a[2] * 0.55
-        cords = []
-        for sgn in (-1.0, 1.0):
-            cords.append(shapes.loft(f"{name}-waraji-{side}-cord{int(sgn > 0)}",
-                                     [(x, tip + 0.035, 0.02), (x + sgn * 0.02, toe[1] + 0.035, top * 0.8),
-                                      (x + sgn * 0.045, a[1] - 0.01, top), (x + sgn * 0.04, heel - 0.02, 0.025)],
-                                     0.0045, material=m["cord"], coll=coll, n=6, subsurf=0))
-        ring = [(x + 0.048 * math.cos(u), a[1] + 0.012 + 0.052 * math.sin(u), a[2] * 0.9) for u in
-                np.linspace(0, 2 * math.pi, 17)]
-        cords.append(shapes.loft(f"{name}-waraji-{side}-tie", ring, 0.005, material=m["cord"], coll=coll, n=6,
-                                 subsurf=0))
-        # built in his frame at rest: placed in the world, then carried by the foot
-        for ob in (sole, *cords):
-            ob.matrix_world = _char_matrix(ch)
-            vrm.attach(ob, ch, f"{side}Foot")
-            obs.append(ob)
-    return obs
-
-
-def _char_matrix(ch):
-    """The matrix taking the character's frame (metres as it stands) to the world."""
-    from mathutils import Matrix
-
-    o = ch.world((0.0, 0.0, 0.0))
-    cols = [ch.world(e) - o for e in np.eye(3)]
-    return Matrix(((cols[0].x, cols[1].x, cols[2].x, o.x), (cols[0].y, cols[1].y, cols[2].y, o.y),
-                   (cols[0].z, cols[1].z, cols[2].z, o.z), (0.0, 0.0, 0.0, 1.0)))
+def brim(hat) -> list:
+    """The kasa's brim edge: its vertices farthest out from its axis (the hat's own frame)."""
+    r = [math.hypot(v.co.x, v.co.y) for v in hat.data.vertices]
+    top = max(r)
+    return [v.co.copy() for v, d in zip(hat.data.vertices, r) if d > top - 1e-4]
 
 
 # ---- the walk

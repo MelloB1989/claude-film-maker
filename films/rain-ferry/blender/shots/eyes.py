@@ -59,7 +59,7 @@ def build(ctx):
         head = HEAD[1][0] + (HEAD[1][1] - HEAD[1][0]) * ease((u - HEAD[0][0]) / HEAD[0][1])
         eyes = EYES[1][0] + (EYES[1][1] - EYES[1][0]) * ease((u - EYES[0][0]) / EYES[0][1])
         breath = math.sin(2 * math.pi * 0.28 * u)
-        pose = {**vrm.RELAXED, "spine": (4.0, 0.0, 0.0), "chest": (2.0 + 0.8 * breath, 0.0, 0.0),
+        pose = {**st.shinza["stand"], "spine": (4.0, 0.0, 0.0), "chest": (2.0 + 0.8 * breath, 0.0, 0.0),
                 "neck": (head * 0.35, 0.0, 0.0), "head": (head * 0.65, 0.0, 1.5),
                 "leftEye": (eyes, 0.0, 0.0), "rightEye": (eyes, 0.0, 0.0)}
         vrm.pose(ch, pose, hips=(0.0, 0.0, -0.01), frame=f)
@@ -101,7 +101,7 @@ def build(ctx):
 
     # water dripping off the brim's front edge, carried with his head as it comes up
     hat = st.shinza["kasa"][0]
-    lip = [v.co.copy() for v in hat.data.vertices[:48]]
+    lip = approach.brim(hat)
     brim = {}
     for f in frames:
         ctx.scene.frame_set(f)
@@ -109,7 +109,7 @@ def build(ctx):
         pts = [mw @ v for v in lip]
         brim[f] = pts
     cam_at = Vector(cam.location)
-    front = sorted(range(48), key=lambda i: (brim[ctx.f1 - 1][i] - cam_at).length)[:BRIM_DRIPS * 3:3]
+    front = sorted(range(len(lip)), key=lambda i: (brim[ctx.f1 - 1][i] - cam_at).length)[:BRIM_DRIPS * 4:4]
 
     def carry(t):
         f = min(max(round(t * ctx.fps), frames[0]), frames[-1])
