@@ -22,6 +22,7 @@ AIM = ((26.0, 12.0, 0.6), (26.0, 12.0, 1.4))
 LENS, FSTOP = 30.0, 2.8
 RACK = (1.6, 3.6)            # s: the focus from the headband out to the boat
 BAND = ((-3.6, -3.7), (-2.6, -1.9))   # the headband's drift on the water (x, y), from and to over the shot
+BEAMS = ((60.0, 150.0, 55.0), (-0.3, -0.85, -0.42))   # where the sun breaks through (m), the light's travel
 POLE = dict(period=3.4, push=0.62, tilt=(-8.0, 32.0), grip=((-0.2, -0.18, 1.12), (-0.2, 0.2, 0.82)))
 
 
@@ -31,13 +32,12 @@ def build(ctx):
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import bpy
-    from mathutils import Vector
 
-    from lib import toon3d
+    from lib import cinema, toon3d, weather
     from rf import ending as E
     from rf import set_world, sets
 
-    st = E.stage(ctx, splash_deck=False, splash_river=False)
+    st = E.stage(ctx)
     set_world.push_off(st.world, ctx, t0=PUSH[0], t1=PUSH[1])
     n = (ctx.f1 - ctx.f0) / ctx.fps
 
@@ -102,26 +102,15 @@ def build(ctx):
         toon3d.aim(ts["key"], (0.5, 1.0, 0.35))
         toon3d.aim(sh["key"], (0.5, 1.0, 0.35))
 
-    band_at = lambda t: Vector((*E.lerp(*BAND, t / n), sets.WATER_Z))   # noqa: E731
-
-    def setup(t):
-        k = E.ease(t / n)
-        at = E.lerp(CAM[0], CAM[1], k)
-        dx, dy, dz = E.drift(t, 0.006, seed=9)
-        at = (at[0] + dx, at[1] + dy, at[2] + dz)
-        boat = set_world.anchor(st.world, "boat_middle")
-        rack = E.ease((t - RACK[0]) / (RACK[1] - RACK[0]))
-        focus = band_at(t).lerp(boat, rack)
-        return at, E.lerp(AIM[0], AIM[1], k), LENS, FSTOP, tuple(focus)
-
-    # the boat's place is keyed: read it on each frame for the focus
-    scene = ctx.scene
-
-    def setup_at(t):
-        scene.frame_set(ctx.f0 + round(t * ctx.fps))
-        return setup(t)
-
-    E.camera(ctx, setup_at)
+    # the camera: low over the water, rising slowly after the boat; sharp on the headband, then out to the boat
+    boat = st.world["anchors"]["boat_middle"]
+    rig = cinema.film(ctx, [cinema.Setup(
+        "cross", 0.0, cinema.drift(cinema.line(CAM[0], CAM[1], AIM[0], AIM[1]), 0.03), lens=LENS, fstop=FSTOP,
+        focus=drift, racks=(cinema.Rack(RACK[0], boat, RACK[1] - RACK[0]),), shake=cinema.Shake(breath=0.05, seed=26))],
+        clip=(0.02, 4000.0))
+    E.weather(ctx, st, rig, deck=False, river=False)
+    # the evening sun breaking through down the valley: shafts of it through the lifting mist
+    weather.sun_beams("beams", BEAMS[0], BEAMS[1], spread=(34.0, 16.0), count=7, strength=0.3)
 
     def look(f, s):
         L = s.light

@@ -124,101 +124,66 @@ def path_length(points) -> float:
 
 # ---------------------------------------------------------------------------------------------------- the world
 
-RAIN_BOX = ((-7.0, -6.0, -0.6), (9.0, 10.0, 5.5))
 INK = 0.0042        # the near set's line art radius (m), as the standoff's wide
 
 
 class Stage:
-    """What `stage` built: scene, world (rf/set_world.py's), look (toon.Look), rain (or None), rain_cast, cast (the
-    cast's collection), splashes, ink, held (what is keyed and must cut, not tween)."""
+    """What `stage` built: scene, world (rf/set_world.py's), look (toon.Look), cast (the cast's collection), ink,
+    sky (lib/weather.py's, once `weather` has made it), held (what is keyed and must cut, not tween)."""
 
     def __init__(self, **kw):
         self.__dict__.update(kw)
 
 
-def thin(ob, seed: int = 0):
-    """A mask over a Geometry Nodes drop field (toon.rain, toon.splashes): only a share of its points kept, the
-    returned input's value (key it 0..1), each point at a fixed random rank so the drops thin, not jump."""
-    from lib import toon
-
-    ng = ob.modifiers[0].node_group
-    gin = next(n for n in ng.nodes if n.bl_idname == "NodeGroupInput")
-    link = next(lk for lk in ng.links if lk.from_node == gin)
-    to = link.to_socket
-    ng.links.remove(link)
-    rnd = ng.nodes.new("FunctionNodeRandomValue")
-    rnd.data_type = "FLOAT"
-    rnd.inputs["Seed"].default_value = 77 + seed
-    keep = ng.nodes.new("ShaderNodeValue")
-    keep.name = keep.label = "keep"
-    gt = ng.nodes.new("ShaderNodeMath")
-    gt.operation = "GREATER_THAN"
-    ng.links.new(toon._socket(rnd.outputs, "Value", "VALUE"), gt.inputs[0])
-    ng.links.new(keep.outputs[0], gt.inputs[1])
-    dele = ng.nodes.new("GeometryNodeDeleteGeometry")
-    dele.domain = "POINT"
-    ng.links.new(gin.outputs[0], dele.inputs["Geometry"])
-    ng.links.new(gt.outputs[0], dele.inputs["Selection"])
-    ng.links.new(dele.outputs[0], to)
-    return keep.outputs[0]
-
-
-def stage(ctx, *, rain_box=RAIN_BOX, clear: float = 1.2, near: float = 3.5, splash_deck=True, splash_river=True,
-          ink: float | None = INK) -> Stage:
+def stage(ctx, *, ink: float | None = INK) -> Stage:
     """The world (rf/set_world.py) for the shot, its weather keyed from the look schedule (rf/set_weather.py: the
-    rain on the water, the sheen, the key), inked, and the rain falling in it at the schedule's density: thinned, not
-    faded (fewer drops), the splashes on the deck and the river with it, its fall slowing as the schedule says."""
+    rain on the water, the sheen, the key), inked; the cast's collection ready."""
     from lib import toon
-    from rf import set_weather, set_world, sets
+    from rf import set_weather, set_world
 
     scene = ctx.scene
-    scene.render.use_motion_blur = False   # drawn animation has no shutter (and the rain's drops wrap)
+    scene.render.use_motion_blur = False   # drawn animation has no shutter
     world = set_world.build(ctx)
     set_weather.key(world, ctx)
     lines = toon.ink("ink-near", world["near"], radius=ink, crease=150) if ink else None
-
-    r0 = ctx.look_at(ctx.f0).rain
-    rain = rain_cast = None
-    splashes = []
-    if any(ctx.look_at(f).rain.drops for f in range(ctx.f0, ctx.f1)):
-        rain = toon.rain("rain", rain_box[0], rain_box[1], count=r0.count, speed=r0.speed, wind=r0.wind,
-                         length=r0.length, width=r0.width, color=r0.color, alpha=r0.alpha, seed=4, near=near,
-                         clear=clear)
-        if splash_deck:
-            splashes.append(toon.splashes("splash-deck", (sets.SPAN[0], -sets.HALF + 0.05, 0.004),
-                                          (sets.SPAN[1], sets.HALF - 0.05, 0.004), count=240, size=0.08, seed=5))
-        if splash_river:
-            splashes.append(toon.splashes("splash-river", (-7.5, -6.0, sets.WATER_Z + 0.002),
-                                          (9.5, 8.0, sets.WATER_Z + 0.002), count=520, size=0.11, alpha=0.45, seed=9))
-    cast = toon.collection("cast")
-    if rain is not None:
-        rain_cast = rain.copy()       # the drops in front of the cast, in the cast's layer (lib/satsuei.py)
-        rain_cast.name = "rain-cast"
-        cast.objects.link(rain_cast)
-    st = Stage(scene=scene, world=world, look=world["look"], rain=rain, rain_cast=rain_cast, cast=cast,
-               splashes=splashes, ink=lines, held=[])
-    _rain(ctx, st)
-    return st
+    return Stage(scene=scene, world=world, look=world["look"], cast=toon.collection("cast"), ink=lines, sky=None,
+                 held=[])
 
 
-def _rain(ctx, st: Stage) -> None:
-    """Key the rain's density (its drops thinned) and its fall's speed from the schedule, every frame."""
-    if st.rain is None:
-        return
-    keeps = [thin(ob, k) for k, ob in enumerate([st.rain] + st.splashes)]
-    ng = st.rain.modifiers[0].node_group
-    # the fall's rate: toon.rain's wrap of z multiplies the scene's seconds by -speed
-    speed = next((n.inputs[1] for n in ng.nodes if n.bl_idname == "ShaderNodeMath" and n.operation == "MULTIPLY"
-                  and n.inputs[0].links and n.inputs[0].links[0].from_node.bl_idname == "GeometryNodeInputSceneTime"
-                  and n.inputs[1].default_value < 0), None)
-    for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        r = ctx.look_at(f).rain
-        for sock in keeps:
-            sock.default_value = max(0.0, min(1.0, r.density))
-            sock.keyframe_insert("default_value", frame=f)
-        if speed is not None:
-            speed.default_value = -r.speed
-            speed.keyframe_insert("default_value", frame=f)
+def weather(ctx, st: Stage, rig, *, deck=True, river=True, **kw):
+    """The schedule's rain and mist round the shot's camera (lib/weather.py's storm: thinning with its density,
+    splashing on the deck and the river, ringing the waters), its drops falling in the cast's layer too, so those
+    in front of a face stay in front of it (lib/satsuei.py)."""
+    from lib import weather as wx
+    from rf import sets
+
+    areas = []
+    if deck:
+        areas.append(((sets.SPAN[0], -sets.HALF + 0.05, 0.004), (sets.SPAN[1], sets.HALF - 0.05, 0.004)))
+    if river:
+        areas.append(((-8.0, -8.0, sets.WATER_Z + 0.002), (14.0, 10.0, sets.WATER_Z + 0.002)))
+    st.sky = wx.storm(ctx, rig, splashes=areas, waters=st.world["waters"], floor=sets.WATER_Z, ground=sets.WATER_Z,
+                      strikes=[], **kw)
+    if st.sky.rain is not None:
+        for d in st.sky.rain.drops.values():
+            if d.ob.name not in st.cast.objects:
+                st.cast.objects.link(d.ob)
+    return st.sky
+
+
+def head_of(built):
+    """A focus on a character's head (lib/cinema.py's (Character, bone))."""
+    return (built["vrm"], "head")
+
+
+def point_focus(name: str, at):
+    """An empty at a world point, to focus on."""
+    import bpy
+
+    e = bpy.data.objects.new(name, None)
+    bpy.context.scene.collection.objects.link(e)
+    e.location = at
+    return e
 
 
 # ---------------------------------------------------------------------------------------------------- the cast
@@ -489,52 +454,6 @@ def headband(name: str, material, coll, at, turn: float, *, z: float = 0.004, le
     knot = shapes.ellipsoid(f"{name}-knot", (kx, ky, kz + 0.008), (0.028, 0.02, 0.014), material=material, coll=coll,
                             n=10)
     return [band, knot]
-
-
-# ---------------------------------------------------------------------------------------------------- the camera
-
-def drift(t: float, amount: float, seed: int = 1) -> tuple:
-    """A held camera's breathing: a slow wander of about `amount` metres, (x, y, z)."""
-    out = []
-    for k in range(3):
-        a = 0.0
-        for j, (f, w) in enumerate(((0.13, 1.0), (0.31, 0.5), (0.71, 0.22))):
-            a += w * math.sin(2 * math.pi * f * t + seed * 1.7 + k * 2.3 + j * 0.9)
-        out.append(amount * a / 1.72)
-    return tuple(out)
-
-
-def camera(ctx, setup, *, name: str = "camera"):
-    """A camera keyed every frame from `setup(t)` (t: seconds into the shot) -> (location, aim, lens mm, f-stop,
-    focus point): its focus distance along its view to the focus point."""
-    import bpy
-    from mathutils import Vector
-
-    from lib import rig
-
-    cam = rig.engine_camera(name, size=ctx.size)
-    cam.data.clip_end = 3000.0
-    ctx.scene.camera = cam
-    target = bpy.data.objects.new(f"{name}-aim", None)
-    ctx.scene.collection.objects.link(target)
-    c = cam.constraints.new("TRACK_TO")
-    c.target = target
-    c.track_axis = "TRACK_NEGATIVE_Z"
-    c.up_axis = "UP_Y"
-    for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        t = (f - ctx.f0) / ctx.fps
-        at, aim, lens, fstop, focus = setup(t)
-        cam.location, target.location = at, aim
-        cam.data.lens = lens
-        cam.data.dof.aperture_fstop = fstop
-        fwd = (Vector(aim) - Vector(at)).normalized()
-        cam.data.dof.focus_distance = max(0.05, (Vector(focus) - Vector(at)).dot(fwd))
-        cam.keyframe_insert("location", frame=f)
-        target.keyframe_insert("location", frame=f)
-        cam.data.keyframe_insert("lens", frame=f)
-        cam.data.dof.keyframe_insert("aperture_fstop", frame=f)
-        cam.data.dof.keyframe_insert("focus_distance", frame=f)
-    return cam
 
 
 # ---------------------------------------------------------------------------------------------------- compositing

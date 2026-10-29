@@ -31,10 +31,8 @@ def build(ctx):
     import sys
     from pathlib import Path
 
-    import numpy as np
-
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import toon3d
+    from lib import cinema, toon3d
     from rf import ending as E
 
     st = E.stage(ctx)
@@ -42,7 +40,6 @@ def build(ctx):
     E.headband("shinza-headband", E.band_material(st.look), st.world["near"], E.HEADBAND_AT[:2], E.HEADBAND_AT[2])
     actors = None
     shinza_eyes = (*E.SHINZA_AT, 0.95)
-    tsuru_head = None
 
     if os.environ.get("RF_S7_CAST", "vroid") != "none":
         from lib import vrm, vrm_anim as va
@@ -63,7 +60,6 @@ def build(ctx):
             p.hips = (p.hips[0], p.hips[1], p.hips[2] + 0.004 * breath)
             clash.apply(sh, p, fingers=fingers)
             clash.key(sh, f, face={"sad": 0.3})
-        shinza_eyes = tuple(sh["vrm"].face())
         # Tsuru: from her END mark, the pole on her shoulder, walking away to the ferry's stern; never turning back
         (x, y), yaw = clash.END["tsuru"]
         E.place(ts, (x, y), yaw)
@@ -75,30 +71,18 @@ def build(ctx):
         perf.breathe(rate=0.22, depth=0.6)
         perf.blinks(seed=22)
         perf.bake(ctx.f0 - 1, ctx.f1 + 1)
-        tsuru_head = perf.face_at
         # their keys from beyond the boat (the open sky over the river): his face and front in the 1st shade toward
         # the lens, her back edged
         toon3d.aim(sh["key"], (-0.3, 1.0, 0.8))
         toon3d.aim(ts["key"], (0.2, 1.0, 0.8))
 
-    path = E.TSURU_WALK
-
-    def her(t):
-        f = ctx.f0 + t * ctx.fps
-        if tsuru_head is not None:
-            return tuple(np.asarray(tsuru_head(f)))
-        (x, y), _ = E.path_at(path, E.path_length(path) * E.smooth((t - SETS_OFF) / 4.0))
-        return (x, y, 1.3)
-
-    def setup(t):
-        k = E.ease(t * ctx.fps / (ctx.f1 - ctx.f0))
-        dx, dy, dz = E.drift(t, 0.012)
-        at = E.lerp(CAM[0], CAM[1], k)
-        at = (at[0] + dx, at[1] + dy, at[2] + dz)
-        rack = E.ease((t0 + t - RACK[0]) / (RACK[1] - RACK[0]))
-        return at, E.lerp(AIM[0], AIM[1], k), LENS, FSTOP, E.lerp(her(t), shinza_eyes, rack)
-
-    E.camera(ctx, setup)
+    her = E.head_of(actors["tsuru"]) if actors else E.point_focus("tsuru-at", (*E.TSURU_WALK[-1], 1.3))
+    him = E.head_of(actors["shinza"]) if actors else E.point_focus("shinza-at", shinza_eyes)
+    rig = cinema.film(ctx, [cinema.Setup(
+        "lesson", 0.0, cinema.drift(cinema.line(CAM[0], CAM[1], AIM[0], AIM[1]), 0.02), ease="sine", lens=LENS,
+        fstop=FSTOP, focus=her, racks=(cinema.Rack(RACK[0] - t0, him, RACK[1] - RACK[0]),),
+        shake=cinema.Shake(breath=0.08))])
+    E.weather(ctx, st, rig)
 
     def look(f, s):
         L = s.light

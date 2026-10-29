@@ -33,10 +33,10 @@ def build(ctx):
     import numpy as np
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import toon3d
+    from lib import cinema, toon3d
     from rf import ending as E
 
-    st = E.stage(ctx, near=4.0, clear=1.0)
+    st = E.stage(ctx)
     E.headband("shinza-headband", E.band_material(st.look), st.world["near"], E.HEADBAND_AT[:2], E.HEADBAND_AT[2])
     actors = None
     eyes = np.array([E.SHINZA_AT[0], E.SHINZA_AT[1], 0.95])
@@ -80,17 +80,17 @@ def build(ctx):
 
     b = math.radians(math.degrees(E.SHINZA_FACING) + BEARING)
     toward = np.array([math.cos(b), math.sin(b), 0.0])
-    n = (ctx.f1 - ctx.f0) / ctx.fps
 
-    def setup(t):
-        k = E.ease(t / n)
+    def at(k):
         d = DIST[0] + (DIST[1] - DIST[0]) * k
-        at = eyes + toward * d + np.array([0.0, 0.0, HEIGHT[0] + (HEIGHT[1] - HEIGHT[0]) * k])
-        at = at + np.array(E.drift(t, 0.008, seed=3))
-        aim = eyes + np.array([0.0, 0.0, -0.3 + 0.14 * k])
-        return tuple(at), tuple(aim), LENS, FSTOP, tuple(eyes)
+        return (eyes + toward * d + np.array([0.0, 0.0, HEIGHT[0] + (HEIGHT[1] - HEIGHT[0]) * k]),
+                eyes + np.array([0.0, 0.0, -0.3 + 0.14 * k]))
 
-    E.camera(ctx, setup)
+    (c0, a0), (c1, a1) = at(0.0), at(1.0)
+    focus = E.head_of(actors["shinza"]) if actors else tuple(eyes)
+    rig = cinema.film(ctx, [cinema.Setup("kneel", 0.0, cinema.drift(cinema.line(c0, c1, a0, a1), 0.015), lens=LENS,
+                                         fstop=FSTOP, focus=focus, shake=cinema.Shake(breath=0.06, seed=23))])
+    E.weather(ctx, st, rig)
 
     def look(f, s):
         L = s.light

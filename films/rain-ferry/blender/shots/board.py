@@ -1,12 +1,11 @@
-"""Shot 24, the board: the turn of the film. Tsuru has stepped down into the ferry; she settles, her pole upright in her
-hand, and says "Get in." (L14) without looking round at him. Then she stops, and looks up: the rain is giving out.
-The drops thin to nothing, the rings go off the water, and as the last of it falls she says "The rain has stopped."
-(L15); the light begins to warm on her lifted face.
+"""Shot 24, the board: the turn of the film. Tsuru has stepped down into the ferry; she settles at its stern, her pole
+upright in her hand, and says "Get in." (L14) without looking round at him. Then she stops, and looks up: the rain is
+giving out. The drops thin to nothing, the rings go off the water, and as the last of it falls she says "The rain has
+stopped." (L15); the light begins to warm on her lifted face, and a faint smile.
 
-From the jetty's far end looking back along it: the boat moored at the right with her standing at its stern, facing
-us; the jetty running away to the left to the hut and its lantern on the bank; Shinza small on his knees halfway along
-it, where he went down. The camera breathes in toward her, and as she lifts her face it sinks a little so the sky
-opens over her.
+From the ferry's bow looking back along it at her, facing us at its stern: the jetty at the left running back to the
+bank, the hut and its lantern beyond her. The camera breathes in toward her; as she lifts her face it sinks a little
+so the sky opens over her.
 
 The rain's density, the water's rings, the sheen and the key's warmth are the look schedule's (data/look.json
 "board"). RF_S7_CAST=none builds the shot without its cast.
@@ -18,48 +17,38 @@ import os
 
 SHOT = {"scene": "board"}
 
-LINES = {"get_in": (95.2, 95.85), "stopped": (97.2, 98.83)}    # L14, L15 (film s)
+LINES = {"get_in": (95.2, 95.85), "stopped": (97.2, 98.83)}   # L14, L15 (film s)
 SETTLE = (94.6, 95.15, 0.07)      # film s: her weight coming down into the boat from this much higher
 LOOK_UP = (96.15, 96.95, 30.0)    # film s: her face lifting to the sky, this many degrees
 SMILE = (98.9, 99.7)              # film s: the faint smile after it
-# the camera: from the jetty's end looking back along it (world m), easing in; lower as she looks up
-CAM = ((9.3, -0.35, 1.32), (8.25, -0.05, 1.18))
-SINK = 0.16                       # how much lower it ends after she looks up (m)
-LENS, FSTOP = (34.0, 38.0), 2.8
+# the camera, from the bow (in the boat's frame from its stern anchor: x toward the bow): from, to; lower once she
+# looks up
+CAM = ((4.5, -0.28, 1.12), (3.75, -0.22, 1.02))
+SINK = 0.18
+LENS, FSTOP = (36.0, 42.0), 2.8
 
 
 def build(ctx):
     import sys
     from pathlib import Path
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from mathutils import Vector
+    import numpy as np
 
-    from lib import toon3d
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from lib import cinema, toon3d
     from rf import ending as E
-    from rf import set_world
 
     st = E.stage(ctx)
     E.headband("shinza-headband", E.band_material(st.look), st.world["near"], E.HEADBAND_AT[:2], E.HEADBAND_AT[2])
     stern = st.world["anchors"]["boat_stern"]
     actors = None
-    n = (ctx.f1 - ctx.f0) / ctx.fps
 
     if os.environ.get("RF_S7_CAST", "vroid") != "none":
         from lib import vrm
         from rf import vroid_tsuru as T
 
-        actors = E.cast(st, {"tsuru": dict(pole="hand"),
-                             "shinza": dict(kasa=None, sword="broken", headband=False)})
-        ts, sh = actors["tsuru"], actors["shinza"]
-        # Shinza where he knelt, the blade across his lap
-        E.place(sh, E.SHINZA_AT, E.SHINZA_FACING)
-        E.kneel(sh)
-        E.hold_blade(sh)
-        for f in range(ctx.f0 - 1, ctx.f1 + 1, 4):
-            breath = math.sin(2 * math.pi * 0.42 * ctx.time(f))
-            sag = dict(E.SAG, spine=(E.SAG["spine"][0] + 1.5 * breath, 0.0, 0.0))
-            E.kneel(sh, sag=sag, frame=f, legs=False)
+        actors = E.cast(st, {"tsuru": dict(pole="hand")})
+        ts = actors["tsuru"]
         # Tsuru at the stern, riding the boat, facing its bow (toward us)
         ts["root"].parent = stern
         ts["root"].matrix_parent_inverse.identity()
@@ -82,32 +71,35 @@ def build(ctx):
             vrm.pose(ch, pose, hips=(hips[0], hips[1], hips[2] + settle * 0.6), frame=f)
             smile = E.ease((t - SMILE[0]) / (SMILE[1] - SMILE[0]))
             speak = E.mouth(t, list(LINES.values()), rate=6.0)
-            face = ts["face"]()
-            face = {k: v * (1.0 - 0.6 * smile) for k, v in face.items()}
+            face = {k: v * (1.0 - 0.6 * smile) for k, v in ts["face"]().items()}
             vrm.express(ch, {**face, "aa": 0.6 * speak, "happy": 0.25 * smile}, frame=f)
-        # her key from above the river behind her, warming with the schedule's light; his from beyond him
-        toon3d.aim(ts["key"], (0.6, 0.9, 1.0))
-        toon3d.aim(sh["key"], (0.4, 1.0, 0.7))
+        # her key from the sky over the river behind the camera, high: her lifted face lit
+        toon3d.aim(ts["key"], (0.8, 0.5, 1.0))
 
-    def tsuru_face():
-        return set_world.anchor(st.world, "boat_stern") + Vector((0.0, 0.0, 1.3))
+    # the camera in the boat's frame at the start (the boat bobs a little under it: a camera on the water)
+    import bpy
 
-    def setup(t):
-        k = E.ease(t / n)
-        tt = ctx.time(ctx.f0) + t
-        sink = SINK * E.ease((tt - LOOK_UP[0]) / (LOOK_UP[1] - LOOK_UP[0] + 1.2))
-        at = E.lerp(CAM[0], CAM[1], k)
-        dx, dy, dz = E.drift(t, 0.01, seed=5)
-        at = (at[0] + dx, at[1] + dy, at[2] + dz - sink)
-        face = tsuru_face()
-        aim = (face.x - 0.2, face.y - 0.15, face.z - 0.25 + 0.12 * E.ease((tt - LOOK_UP[0]) / 2.0))
-        lens = LENS[0] + (LENS[1] - LENS[0]) * k
-        return at, aim, lens, FSTOP, tuple(face)
+    bpy.context.view_layer.update()
+    M = np.array(stern.matrix_world)
 
-    E.camera(ctx, setup)
+    def world(p):
+        return tuple((M @ np.append(np.asarray(p, float), 1.0))[:3])
+
+    face = world((0.0, 0.0, 1.32))
+    c0, c1 = world(CAM[0]), world(CAM[1])
+    a0 = (face[0], face[1], face[2] - 0.18)
+    a1 = (face[0], face[1], face[2] - 0.05)
+    focus = E.head_of(actors["tsuru"]) if actors else face
+    rig = cinema.film(ctx, [
+        cinema.Setup("board", 0.0, cinema.drift(cinema.path([c0, c1, (c1[0], c1[1], c1[2] - SINK)], [a0, a1, a1]),
+                                                0.02),
+                     lens=LENS, fstop=FSTOP, focus=focus, shake=cinema.Shake(breath=0.07, seed=24)),
+    ])
+    E.weather(ctx, st, rig)
 
     def look(f, s):
         L = s.light
-        return dict(rims=[((0.4, 1.0), L.rim, 0.3 + 0.2 * s.warm, 0.003, 0.9)], para_from=(0.5, 0.9), para_to=(0.5, 0.1))
+        return dict(rims=[((0.4, 1.0), L.rim, 0.3 + 0.25 * s.warm, 0.003, 0.9)], para_from=(0.5, 0.9),
+                    para_to=(0.5, 0.1))
 
-    E.finish(ctx, st, look, actors, lambda f: LENS[0])
+    E.finish(ctx, st, look, actors, lambda f: LENS[0] + (LENS[1] - LENS[0]) * (f - ctx.f0) / (ctx.f1 - ctx.f0))
