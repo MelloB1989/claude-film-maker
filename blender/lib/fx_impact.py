@@ -421,11 +421,13 @@ class InkPanel:
 
 
 def ink_panel(scene, *, threshold: float = 0.3, soft: float = 0.03, edges: float = 1.0, edge: float = 0.08,
-              contour: float = 0.02, paper=PAPER, ink=INK) -> InkPanel:
+              contour: float = 0.02, crease: float = 0.6, paper=PAPER, ink=INK) -> InkPanel:
     """Turn the render into a stark ink panel in the compositor: its light thresholded at `threshold` (linear, `soft`
     either side) into paper and ink, its edges inked over (`edges`, 0..1: where the light's Sobel passes `edge`, and
     the silhouettes, where the Sobel of the depth's inverse passes `contour`: a brush's outline round every figure
-    against what is behind it, whatever their tones; needs the render layers, so not after a graph), and, per frame
+    against what is behind it, whatever their tones; and the creases, where the Sobel of the normals passes `crease`:
+    a sleeve over a body, a fold, a jaw, drawn inside a dark mass; these two need the render layers, so not after a
+    graph), and, per frame
     (`InkPanel.key`), the picture itself, the panel, its negative, all ink or a white-out. Takes over what the
     compositor outputs (a graph already there, satsuei's, feeds it), so call it after the rest. Returns the
     InkPanel."""
@@ -441,6 +443,7 @@ def ink_panel(scene, *, threshold: float = 0.3, soft: float = 0.03, edges: float
         scene.compositing_node_group = nt
         for vl in scene.view_layers:
             vl.use_pass_z = True
+            vl.use_pass_normal = True
         rl = nt.nodes.new("CompositorNodeRLayers")
         src = rl.outputs["Image"]
         out = nt.nodes.new("NodeGroupOutput")
@@ -505,6 +508,15 @@ def ink_panel(scene, *, threshold: float = 0.3, soft: float = 0.03, edges: float
             zbw = N.new("CompositorNodeRGBToBW")
             L.new(fz.outputs[0], zbw.inputs[0])
             e = math_("MAXIMUM", e, math_("GREATER_THAN", zbw.outputs[0], contour))
+        if rl is not None and crease > 0:
+            fn = N.new("CompositorNodeFilter")
+            fn.inputs["Type"].default_value = "Sobel"
+            L.new(rl.outputs["Normal"], fn.inputs["Image"])
+            nbw = N.new("CompositorNodeRGBToBW")
+            L.new(fn.outputs[0], nbw.inputs[0])
+            # only where something is near (the sky's normals are nothing)
+            near_ = math_("LESS_THAN", rl.outputs["Depth"], 60.0)
+            e = math_("MAXIMUM", e, math_("MULTIPLY", math_("GREATER_THAN", nbw.outputs[0], crease), near_))
         v = math_("MULTIPLY", v, math_("SUBTRACT", 1.0, math_("MULTIPLY", e, edges)), clamp=True)
     # the negative, then all ink
     v = math_("ADD", math_("MULTIPLY", v, math_("SUBTRACT", 1.0, math_("MULTIPLY", invert, 2.0))), invert)
