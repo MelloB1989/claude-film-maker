@@ -74,10 +74,10 @@ def build(ctx):
     approach.splash("splash", hit, t_strike, ctx.fps, coll=st.cast, frames=frames, count=110, speed=(0.5, 1.4),
                     size=0.0024, alpha=0.4, spread=0.12, seed=3)
     approach.ripples("rings", hit, t_strike, ctx.fps, coll=st.world["near"], frames=frames, rings=4, squash=0.95,
-                     alpha=0.32, color=(0.42, 0.46, 0.52))
+                     alpha=0.55, color=(0.62, 0.66, 0.72))
     toe = (*(land + fwd * ball), float(puddle[2]))
     approach.ripples("rings-lift", toe, lift - 0.05, ctx.fps, coll=st.world["near"], frames=frames, rings=2, speed=0.22,
-                     alpha=0.25, color=(0.42, 0.46, 0.52))
+                     alpha=0.45, color=(0.62, 0.66, 0.72))
     # where the sole is, frame by frame, as baked
     soles = {}
     for f in frames:
