@@ -178,6 +178,27 @@ def shards(count: int, t: float, *, center=(0.0, 0.0), speed=(0.5, 1.6), size=(0
     return np.asarray(tris)
 
 
+def burst(count: int, t: float, *, origin=(0.0, 0.0, 0.0), up=(1.2, 3.2), out=(0.6, 2.4), toward=None,
+          spread: float = math.pi, gravity: float = 9.8, seed: int = 1) -> tuple[np.ndarray, np.ndarray]:
+    """Water thrown up by a footfall or a blow, in the world (metres, z up), `t` seconds after it: `count` drops
+    leaving `origin` up at `up` m/s and out at `out` m/s, their headings round `toward` (x, y; None: all round)
+    within `spread` radians either side, falling under `gravity`. Returns (positions, velocities), each (k, 3), of
+    the drops still above the origin's height; none before it."""
+    if t < 0:
+        return np.zeros((0, 3)), np.zeros((0, 3))
+    rng = _rng(seed)
+    base = 0.0 if toward is None else math.atan2(toward[1], toward[0])
+    a = base + (rng.uniform(-spread, spread, count) if toward is not None else rng.uniform(0, 2 * math.pi, count))
+    vz = rng.uniform(*up, count)
+    vh = rng.uniform(*out, count)
+    t_i = t * rng.uniform(0.8, 1.0, count)            # not every drop leaves at once
+    o = np.asarray(origin, float)
+    pos = o + np.c_[np.cos(a) * vh * t_i, np.sin(a) * vh * t_i, vz * t_i - 0.5 * gravity * t_i ** 2]
+    vel = np.c_[np.cos(a) * vh, np.sin(a) * vh, vz - gravity * t_i]
+    keep = pos[:, 2] > o[2]
+    return pos[keep], vel[keep]
+
+
 # ---------------------------------------------------------------------------------------------------- the beats
 
 def beats(pattern, frames: int | None = None) -> list[str]:
@@ -304,6 +325,35 @@ def overlay(name: str, cam, tris, material, *, depth: float = 0.5, coll=None):
                 v.targets[0].id = cam.data
                 v.targets[0].data_path = path
         drv.expression = expr
+    return ob
+
+
+def droplets(name: str, points, velocities, material, *, size: float = 0.012, stretch: float = 0.012, coll=None):
+    """Drops as beads in the world, each stretched along its velocity (`stretch` seconds of its flight): one mesh
+    object. Returns it."""
+    import bpy
+
+    verts, faces = [], []
+    for p, v in zip(np.asarray(points, float), np.asarray(velocities, float)):
+        sp = float(np.linalg.norm(v))
+        d = v / sp if sp > 1e-6 else np.array([0.0, 0.0, 1.0])
+        L = max(size, sp * stretch) / 2
+        a = np.cross(d, (0.0, 0.0, 1.0) if abs(d[2]) < 0.9 else (1.0, 0.0, 0.0))
+        a /= np.linalg.norm(a)
+        b = np.cross(d, a)
+        r = size / 2
+        k = len(verts)
+        verts += [tuple(p + d * L), tuple(p + a * r), tuple(p + b * r), tuple(p - a * r), tuple(p - b * r),
+                  tuple(p - d * L * 0.6)]
+        faces += [(k, k + 1, k + 2), (k, k + 2, k + 3), (k, k + 3, k + 4), (k, k + 4, k + 1),
+                  (k + 5, k + 2, k + 1), (k + 5, k + 3, k + 2), (k + 5, k + 4, k + 3), (k + 5, k + 1, k + 4)]
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    me.update()
+    ob = bpy.data.objects.new(name, me)
+    (coll or bpy.context.scene.collection).objects.link(ob)
+    me.materials.append(material)
+    ob.visible_shadow = False
     return ob
 
 

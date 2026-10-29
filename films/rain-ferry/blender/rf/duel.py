@@ -7,13 +7,8 @@ The blocking (rf/sets.py's axes: the jetty along x, the deck's top at z 0, the r
 they meet at CLASH, pass through each other and stand back to back (END): him further out toward the jetty's end
 facing +x, her nearer the bank facing -x.
 
-The props the clash changes:
-- his katana breaks BREAK of the way along the blade: `broken_sword` swaps its blade for the stub (in his hand) and
-  the half blade, a prop of its own that the shots fly.
-- his headband is cut: `loose_headband` lets it go from his head (the band, its knot and tails as one object) for a
-  shot to slide off.
-- Tsuru's ferry pole hides a straight blade (a shikomizue): `shikomizue` splits it into the sheath (the pole below
-  SPLIT) and the hilt above it with the blade under it, drawn (`draw`, metres out of the sheath) or sheathed.
+The props the clash changes are the cast's variants (rf/vroid_cast.py): his sword "broken" (the half blade a prop of
+its own, parts["half"]), Tsuru's pole "drawn" or whole; `loose_headband` lets his cut headband go from his head.
 
 The poses are keyed whole (`Pose`, `apply`, `key`): where the character stands and turns, the hips, the bones' turns,
 the hands (on a hilt, through `sword_hands`, or reaching) and the feet, and the face. Generic keyed posing belongs to
@@ -29,11 +24,8 @@ from pathlib import Path
 import numpy as np
 
 STANDOFF = {"shinza": (-2.3, 0.0), "tsuru": (2.35, 0.05)}
-CLASH = 0.7                       # x where the blades meet
-END = {"shinza": (1.95, 0.08), "tsuru": (-0.3, -0.06)}
-BREAK = 0.4                       # where along his blade (from the guard) it breaks
-SPLIT = 1.5                       # where Tsuru's pole parts, hilt above, sheath below (m up the pole)
-TS_BLADE = 0.62                   # her blade's length under the hilt
+CLASH = 1.4                       # x where the blades meet: he has run three strides, she has barely moved
+END = {"shinza": (3.0, 0.08), "tsuru": (1.2, -0.06)}
 OUTLINE = 0.0018                  # the 3D cast's outline, in frame heights (as the standoff's)
 
 
@@ -138,8 +130,9 @@ def rain_clock(ctx, obs, speed_at) -> None:
 
 # ---------------------------------------------------------------------------------------------------- the cast
 
-def cast(ctx, w: dict, names=("shinza", "tsuru")) -> dict:
-    """The 3D cast in the shot, painted as the standoff paints them: each built (rf/vroid_cast.py), lit by a key of
+def cast(ctx, w: dict, variants: dict) -> dict:
+    """The 3D cast in the shot, painted as the standoff paints them: each built (rf/vroid_cast.py, with its variant's
+    arguments: {"shinza": {"sword": "broken"}, ...}), lit by a key of
     its own, toned, smoothed. Returns {name: {built..., "key": light}} and "coll" (the cast's collection) and
     "rain" (a copy of the rain in the cast's layer, so the drops in front of a face stay in front of it)."""
     from lib import toon, toon3d, vrm
@@ -152,8 +145,8 @@ def cast(ctx, w: dict, names=("shinza", "tsuru")) -> dict:
                           fog_power=look.fog_power)
     toon.move_to(w["key"], toon.collection("world-light"))
     out = {"coll": coll}
-    for name in names:
-        built = getattr(vroid_cast, name)(coll, cast_look)
+    for name, kw in variants.items():
+        built = getattr(vroid_cast, name)(coll, cast_look, **kw)
         k = toon3d.key(f"{name}-key", [built["root"], *built["root"].children_recursive], so.KEY3D["wide"][name],
                        coll=coll, angle=so.KEY3D_ANGLE)
         tones = {p: toon3d.Tone(**{**kw, **so.TONES3D_OF.get(name, {}).get(p, {})}) for p, kw in so.TONES3D.items()}
@@ -183,74 +176,14 @@ def outlines(ctx, actors: dict, cam_at, lens_at) -> None:
 
 # ---------------------------------------------------------------------------------------------------- the props
 
-def _sword_parts(actor):
-    """His katana's objects by part (blade, habaki, tsuba, tsuka, kashira)."""
-    return {ob.name.rsplit("-", 1)[-1]: ob for ob in actor["props"]}
-
-
-def broken_sword(actor, m=None) -> dict:
-    """His blade broken BREAK of the way from the guard: the whole blade hidden, the stub in its place (carried by
-    his hand) and the half blade a free prop at the break, as it is in the current pose. Returns {"stub", "half",
-    "whole", "tip" (the half's far end, world), "break" (world)}."""
-    import bpy
-
-    from lib import shapes
-
-    parts = _sword_parts(actor)
-    whole = parts["blade"]
-    bpy.context.view_layer.update()
-    me = whole.data
-    co = np.array([whole.matrix_world @ v.co for v in me.vertices])
-    # the blade's centre line from the loft's rings (n=4 a ring, 16 rings from the guard)
-    rings = co.reshape(16, -1, 3).mean(axis=1)
-    mat = whole.data.materials[0]
-    seg = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(rings, axis=0), axis=1))]
-    cut = BREAK * seg[-1]
-    at = np.array([np.interp(cut, seg, rings[:, i]) for i in range(3)])
-    j = int(np.searchsorted(seg, cut))
-    side = co.reshape(16, -1, 3)[0][0] - rings[0]
-    side = side / np.linalg.norm(side)
-    up = tuple(np.cross(rings[1] - rings[0], side))
-    fs = np.linspace(0, 1, 16)
-    width = np.where(fs < 0.97, 0.016 - 0.004 * fs, 0.002)
-    thick = np.where(fs < 0.97, 0.0036 - 0.0012 * fs, 0.0008)
-    w_at = float(np.interp(cut, seg, width))
-    t_at = float(np.interp(cut, seg, thick))
-    # a jagged break: the stub's end and the half's start cut on a slant
-    lean = (rings[-1] - rings[0]) / seg[-1] * 0.012
-    stub_path = [*rings[:j], at + lean]
-    stub = shapes.loft(f"{whole.name}-stub", stub_path, [*width[:j], w_at], [*thick[:j], t_at], material=mat,
-                       coll=whole.users_collection[0], n=4, power=1.0, subsurf=0, up=up)
-    half_path = [at - lean, *rings[j:]]
-    half = shapes.loft(f"{whole.name}-half", half_path, [w_at, *width[j:]], [t_at, *thick[j:]], material=mat,
-                       coll=whole.users_collection[0], n=4, power=1.0, subsurf=0, up=up)
-    stub.parent, stub.parent_type, stub.parent_bone = whole.parent, whole.parent_type, whole.parent_bone
-    stub.matrix_parent_inverse = whole.matrix_parent_inverse.copy()
-    stub.matrix_world = whole.matrix_world.copy()
-    # the half pivots on its own middle, for a shot to fly it
-    mid = (at + rings[-1]) / 2
-    _origin_to(half, mid)
-    return {"stub": stub, "half": half, "whole": whole, "tip": rings[-1], "break": at}
-
-
-def _origin_to(ob, point) -> None:
-    """Move an object's origin to a world point, its mesh staying where it is."""
-    from mathutils import Matrix, Vector
-
-    p = ob.matrix_world.inverted() @ Vector(point)
-    ob.data.transform(Matrix.Translation(-p))
-    ob.matrix_world = ob.matrix_world @ Matrix.Translation(p)
-
-
 def loose_headband(actor):
-    """His headband (band, knot and tails) as one object let go of his head, where it is in the current pose, its
-    origin at the band's centre: a shot slides it off. Returns the object."""
+    """His headband (band, knot and tails: parts["headband"]) as one object let go of his head where it is in the
+    current pose, its origin at its centre: a shot slides it off. Returns the object."""
     import bpy
 
-    ch = actor["vrm"]
-    parts = [ob for ob in ch.coll.objects if ob.name.startswith(f"{ch.name}-band")]
+    parts = list(actor["parts"]["headband"])
     if not parts:
-        raise RuntimeError(f"duel: {ch.name} has no headband")
+        raise RuntimeError("duel: no headband to cut")
     bpy.context.view_layer.update()
     for ob in parts:
         world = ob.matrix_world.copy()
@@ -262,64 +195,17 @@ def loose_headband(actor):
     bpy.context.view_layer.update()
     co = np.array([band.matrix_world @ v.co for v in band.data.vertices])
     _origin_to(band, co.mean(axis=0))
-    band.name = f"{ch.name}-band-loose"
+    band.name = f"{actor['vrm'].name}-band-loose"
     return band
 
 
-def shikomizue(actor, m) -> dict:
-    """Her pole parted at SPLIT: the builder's pole hidden, the sheath (below) standing where it stood, the hilt (above,
-    with the cord wound round it) and the straight blade under it as one object whose origin is the parting, so
-    lifting it `d` metres up the pole draws that much of the blade. Returns {"sheath", "hilt", "axis" (unit, up the
-    pole), "foot", "top"}."""
-    import bpy
-    from mathutils import Vector
+def _origin_to(ob, point) -> None:
+    """Move an object's origin to a world point, its mesh staying where it is."""
+    from mathutils import Matrix, Vector
 
-    from lib import shapes
-
-    poles = [ob for ob in actor["props"] if "-pole" in ob.name]
-    pole = next(ob for ob in poles if ob.name.endswith("-pole"))
-    bpy.context.view_layer.update()
-    co = np.array([pole.matrix_world @ v.co for v in pole.data.vertices])
-    axis = np.array([0.0, 0.0, 1.0])
-    foot = co[co[:, 2].argmin()].copy()
-    foot[:2] = co[:, :2].mean(axis=0)
-    top = co[:, 2].max()
-    coll = pole.users_collection[0]
-    name = actor["vrm"].name
-    sheath = [ob for ob in poles if (ob.matrix_world.translation.z if ob is not pole else 0) < SPLIT]
-    hilt_parts = [ob for ob in poles if ob is not pole and ob not in sheath]
-    pole.hide_render = pole.hide_viewport = True
-    r = 0.022
-    base = foot + axis * (SPLIT - foot[2])
-    low = shapes.cylinder(f"{name}-sheath", tuple(foot), tuple(base - axis * 0.002), r, material=pole.data.materials[0],
-                          coll=coll, n=12)
-    hi = shapes.cylinder(f"{name}-hilt", tuple(base + axis * 0.002), (foot[0], foot[1], top), r,
-                         material=pole.data.materials[0], coll=coll, n=12)
-    steel = m["steel"]
-    fs = np.linspace(0, 1, 8)
-    path = [base - axis * TS_BLADE * f for f in fs]
-    blade = shapes.loft(f"{name}-blade", path, np.where(fs < 0.9, 0.011, 0.002), np.where(fs < 0.9, 0.0025, 0.0006),
-                        material=steel, coll=coll, n=4, power=1.0, subsurf=0, up=(1.0, 0.0, 0.0))
-    for ob in (hi, blade, *hilt_parts):
-        w = ob.matrix_world.copy()
-        ob.parent = None
-        ob.matrix_world = w
-    with bpy.context.temp_override(selected_editable_objects=[hi, blade, *hilt_parts], active_object=hi):
-        bpy.ops.object.join()
-    _origin_to(hi, base)
-    for ob in (low, *sheath):
-        if ob is pole:
-            continue
-        if ob is not low:
-            continue
-    # the sheath's nodes stay as the builder made them (carried by her root); the new sheath and hilt follow it too
-    root = actor["root"]
-    for ob in (low, hi):
-        w = ob.matrix_world.copy()
-        ob.parent = root
-        ob.matrix_world = w
-    hi["rest"] = tuple(hi.location)
-    return {"sheath": low, "hilt": hi, "axis": axis, "foot": foot, "top": top, "base": Vector(base)}
+    p = ob.matrix_world.inverted() @ Vector(point)
+    ob.data.transform(Matrix.Translation(-p))
+    ob.matrix_world = ob.matrix_world @ Matrix.Translation(p)
 
 
 # ---------------------------------------------------------------------------------------------------- poses
@@ -435,3 +321,64 @@ def hold_constant(*owners) -> None:
         for fc in toon._fcurves(ad.action):
             for kp in fc.keyframe_points:
                 kp.interpolation = "CONSTANT"
+
+
+def shinza_sword(ch, pommel, hilt_dir, *, flat=(1.0, 0.0, 0.0), poles=None) -> tuple[dict, dict]:
+    """Shinza's two hands on his hilt from `pommel` along `hilt_dir` (his frame), as rf/vroid_shinza.py grips it in
+    the guard, turned with it: (Pose.hands, the fingers' pose)."""
+    from lib import vrm_rig
+    from rf import vroid_shinza as vs
+
+    hilt = vs.HILT_DIR / np.linalg.norm(vs.HILT_DIR)
+    palms = {side: np.array((1.0 if side == "right" else -1.0, 0.0, -0.6)) for side in vs.GRIPS}
+    hands = sword_hands(pommel, hilt_dir, flat, vs.GRIPS, poles or vs.SH_ELBOWS, hilt, (1.0, 0.0, 0.0), palms)
+    fingers = {}
+    for side in vs.GRIPS:
+        fingers.update(vrm_rig.wrap(ch, side, vs.TSUKA))
+    return hands, fingers
+
+
+# ---------------------------------------------------------------------------------------------------- compositing
+
+def composite(ctx, actors: dict, setup_of) -> object:
+    """The cast laid over the world through satsuei (lib/satsuei.py), its look the schedule's (ctx.look_at(f).look)
+    with each frame's setup on top (`setup_of(f)` -> rims, para_from, para_to, flash ...), keyed and held. Returns
+    the Comp."""
+    from lib import satsuei
+
+    comp = satsuei.setup(ctx.scene, actors["coll"])
+    for f in range(ctx.f0 - 1, ctx.f1 + 1):
+        own = dict(setup_of(f))
+        if "rims" in own:
+            own["rims"] = tuple(r if isinstance(r, satsuei.Rim) else satsuei.Rim(*r) for r in own["rims"])
+        comp.key(f, ctx.look_at(f).look(**own))
+    comp.hold()
+    return comp
+
+
+def camera(ctx, name: str = "camera", *, fstop: float = 2.8):
+    """The shot's camera on the engine's gate, tracking an aim empty (its focus): (camera, aim)."""
+    import bpy
+
+    from lib import rig
+
+    cam = rig.engine_camera(name, fstop=fstop, size=ctx.size)
+    cam.data.clip_end = 3000.0
+    ctx.scene.camera = cam
+    aim = bpy.data.objects.new(f"{name}-aim", None)
+    ctx.scene.collection.objects.link(aim)
+    c = cam.constraints.new("TRACK_TO")
+    c.target = aim
+    c.track_axis = "TRACK_NEGATIVE_Z"
+    c.up_axis = "UP_Y"
+    return cam, aim
+
+
+def focus(ctx, cam, name: str = "focus"):
+    """An empty the camera focuses on (key its location)."""
+    import bpy
+
+    e = bpy.data.objects.new(name, None)
+    ctx.scene.collection.objects.link(e)
+    cam.data.dof.focus_object = e
+    return e

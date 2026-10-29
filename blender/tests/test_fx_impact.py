@@ -101,3 +101,13 @@ def test_shake_follows_its_envelope():
     assert (s[:10] == 0).all()
     assert np.abs(s[10:, :2]).max() <= 0.01 + 1e-12 and np.abs(s[10:, :2]).max() > 0.004
     assert np.array_equal(s, fx.shake(env, roll=2.0, seed=3))
+
+
+def test_burst_throws_drops_up_and_out_and_drops_the_fallen():
+    p, v = fx.burst(50, -0.1)
+    assert p.shape == (0, 3)
+    p, v = fx.burst(200, 0.15, origin=(1.0, 2.0, 0.0), toward=(1.0, 0.0), spread=0.3, seed=2)
+    assert len(p) > 150 and (p[:, 2] > 0).all()
+    assert (p[:, 0] > 1.0).all() and np.abs(p[:, 1] - 2.0).max() < 0.3 * 2.4 * 0.15 + 1e-9
+    late, _ = fx.burst(200, 1.0, seed=2)
+    assert len(late) < len(p)                                     # most have come down by then
