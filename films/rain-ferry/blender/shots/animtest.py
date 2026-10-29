@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 import bpy
+import numpy as np
 
 from lib import toon, toon3d, vrm, vrm_anim as va, vrm_rig
 
@@ -21,11 +22,35 @@ _spec = importlib.util.spec_from_file_location("shots.standoff", Path(__file__).
 standoff = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(standoff)
 
-SHOT = {"frames": [0, 150], "look": "0,40,72,100,124"}
+SHOT = {"frames": [0, 210], "look": "0,40,72,100,124,160,180,200"}
 
 SH_FROM, SH_TO = (-3.6, 0.0), (-0.35, 0.0)
 TS_AT, TS_YAW = (0.9, 1.35), 205.0          # off his left, turned to the line he walks
 LINE = (3.9, 5.5, "tsuyoku naritai")         # L01 (seconds into this shot), as data/dialogue.json reads it
+
+
+DRAW = (136, 150, 166, 182)                  # the hand leaves its side, takes the hilt, draws, comes round
+
+
+def _centre(ob):
+    bpy.context.view_layer.update()
+    m = np.array(ob.matrix_world)
+    co = np.array([v.co for v in ob.data.vertices])
+    return co.mean(axis=0) @ m[:3, :3].T + m[:3, 3]
+
+
+def _top(ob):
+    """The middle of an object's top (its world vertices' highest few centimetres)."""
+    bpy.context.view_layer.update()
+    m = np.array(ob.matrix_world)
+    co = np.array([v.co for v in ob.data.vertices]) @ m[:3, :3].T + m[:3, 3]
+    return co[co[:, 2] > co[:, 2].max() - 0.04].mean(axis=0)
+
+
+def _frame(ch, p):
+    """A world point in the character's frame as it stands now."""
+    m = np.array(ch.armature.matrix_world)
+    return ch.frame.T @ (np.linalg.inv(m) @ np.append(p, 1.0))[:3] * ch.scale
 
 
 def build(ctx):
@@ -61,6 +86,11 @@ def build(ctx):
     t.shift(f + 96, "left", amount=0.9, over=1.1)
     t.blinks(mean=4.5)
     t.secondary(wind=(0.0, 1.5, 0.0))
+    # her straw cape swings heavy from its collar
+    mino = ts["parts"]["mino"]
+    if mino:
+        top = _top(mino[0])
+        t.dangle(mino, top, length=0.35, stiffness=14.0, drag=0.12)
 
     # ---- Shinza: in with a heavy stride, stops, a held breath, turns his head to her, blinks, speaks
     vrm.pose(sh["vrm"], vrm_rig.release(sh["vrm"]))       # his builder's IK let go: the walk plants his feet
@@ -76,6 +106,27 @@ def build(ctx):
     s.express(stop + 18, {"glare": 1.0})
     s.say(LINE[0] + f / fps, LINE[1] + f / fps, LINE[2], energy=0.8)
     s.secondary(wind=(0.0, 1.5, 0.0))
+    # the headband's tails flutter from its knot
+    band = sh["parts"]["headband"]
+    if len(band) > 2:
+        s.dangle(band[2:], _centre(band[1]), toward=_centre(band[2]) - _centre(band[1]), length=0.15, stiffness=5.0,
+                 drag=0.06, wind_scale=1.5)
+    # ... then his right hand goes over his shoulder for the hilt, takes it, and draws the nodachi up out of its
+    # scabbard and round in front of him: the sword handed from the scabbard to his hand at the grasp
+    sword = sh["parts"]["sword"]
+    cap, guard = _centre(sword[4]), _centre(sword[2])
+    along = (guard - cap) / np.linalg.norm(guard - cap)
+    grip = _frame(sh["vrm"], cap + along * 0.1)
+    up = _frame(sh["vrm"], cap) - _frame(sh["vrm"], guard)
+    up /= np.linalg.norm(up)
+    elbow = (-0.45, 0.2, 1.75)
+    s.reach(DRAW[0], "rightHand", ("char", grip), ease="inout", weight=0.0, pole=elbow)
+    s.reach(DRAW[1], "rightHand", ("char", grip), ease="inout", pole=elbow)
+    s.pose(DRAW[1], vrm.grip_pose("right"), ease="inout", full=False)
+    s.carry(sword[0], DRAW[1], "rightHand")
+    s.reach(DRAW[2], "rightHand", ("char", grip + up * 0.55), ease="in", pole=elbow)
+    s.reach(DRAW[3], "rightHand", ("char", (-0.18, -0.42, 1.12)), ease="settle", pole=(-0.6, 0.1, 0.9))
+    s.settle(DRAW[3], 0.5)
     t.look(f, s.face_at, lag=1.4)
     t.bake(ctx.f0, ctx.f1)
     s.bake(ctx.f0, ctx.f1)
