@@ -1,12 +1,11 @@
 """After the flash: they stand back to back on the jetty, past each other, Shinza held in his follow-through facing
-out over the end of the jetty, Tsuru a few paces nearer the bank facing it, her blade still a hand's breadth out of
-its pole. The rain, hung in the air since the freeze, begins to fall again. Half his blade comes spinning down out
+out over the end of the jetty, Tsuru a few paces nearer the bank facing it. The rain, hung in the air since the freeze, begins to fall again. Half his blade comes spinning down out
 of the sky and sticks in the planks between them with a thunk (77.3 s: THUNK into the shot); the focus pulls to it as
-it quivers. Then she slides her blade home, and her pole is whole.
+it quivers. Her blade is already home: her pole stands whole beside her, and she does not move.
 
 The camera is low on the river side of the jetty, side on, as the reference stages it (Tsuru left, Shinza right),
 creeping in. rf/clash.py has the world, the cast and the posing; the cast's variants are his sword "broken" (the half a
-prop, parts["half"]) and her pole in hand (its handle parts at the cord: parts["handle"]).
+prop, parts["half"]) and her pole in hand, whole.
 """
 from __future__ import annotations
 
@@ -14,80 +13,45 @@ import math
 
 SHOT = {"scene": "after"}
 
-MID = 6.1             # x between them (rf/clash.py END)
+MID = 5.8             # x between them (rf/clash.py END)
 CAM = [(0.0, (MID - 0.13, -4.05, 0.42), (MID, 0.0, 0.95)), (4.5, (MID - 0.05, -3.6, 0.38), (MID + 0.01, 0.0, 0.9))]
 LENS, FSTOP = 35.0, 2.2
 THUNK = 1.2           # s into the shot: the half blade lands (data/mix.json blade_thunk at 77.3)
 DROP = 0.9            # s it falls before
 SPIN = 2.6            # its turns a second as it falls
-LAND = (6.03, -0.55)  # where its point goes in (x, y): rf/clash.py FALL["half"]
+LAND = (5.73, -0.55)  # where its point goes in (x, y): rf/clash.py FALL["half"]
 LEAN = 18.0           # degrees it leans from upright, toward the camera's right
 QUIVER = (3.5, 13.0, 3.2)   # degrees, a second, how fast it dies away
 RACK = (THUNK + 0.05, 0.45)  # the focus pulls to it: from, over (s)
-SHEATH = (0.3, 2.3, 3.3)    # her blade out this far (m), slid home from, to (s)
-# Shinza's follow-through (his frame: front -y): the stub out in front at chest height, a little up
-FOLLOW = dict(pommel=(0.03, -0.3, 1.1), hilt=(0.04, -0.95, 0.28))
-SH_FOLLOW = {"hips": (0.0, 0.0, 6.0), "spine": (6.0, 0.0, -3.0), "chest": (4.0, 0.0, -2.0), "neck": (-4.0, 0.0, 0.0),
-             "head": (-4.0, 0.0, 0.0), "leftShoulder": (0.0, 6.0, -4.0), "rightShoulder": (0.0, -6.0, 4.0)}
-SH_FEET = {"right": ((-0.13, -0.42, 0.095), (-0.15, -1.2, 0.5), (0.0, 0.0, -8.0)),
-           "left": ((0.14, 0.38, 0.13), (0.3, -0.8, 0.5), (20.0, 0.0, 20.0))}
-SH_HIPS = (0.0, -0.03, -0.1)
+LOWER = (3.3, 4.3)    # s: his arms come down (the stub hanging), as it sinks in what has happened
 SKY_RIM = (0.6, 0.68, 0.85)
 
 
 def build(ctx):
+    import sys
+    from pathlib import Path
+
     import bpy
     import numpy as np
     from mathutils import Matrix, Vector
 
-    import sys
-    from pathlib import Path
-
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from rf import clash, vroid_tsuru
+    from lib import cinema
+    from rf import clash
 
     fps = ctx.fps
     w = clash.world(ctx)
-    # the rain falls again: its clock from the schedule's speed (hung at first, up to full by 1.4 s)
-    full = 9.5
-    clash.rain_clock(ctx, [w["rain"], *w["splashes"]], lambda t: ctx.look.at(t).rain.speed / full)
     actors = clash.cast(ctx, w, {"shinza": {"sword": "broken"}, "tsuru": {"pole": "hand"}})
-    if actors.get("rain") is not None:
-        pass   # the copy shares the rain's node group, and so its clock
     sh, ts = actors["shinza"], actors["tsuru"]
 
-    # ---- where they stand: back to back
-    hands, fingers = clash.shinza_sword(sh["vrm"], FOLLOW["pommel"], FOLLOW["hilt"])
-    follow = clash.Pose(at=clash.END["shinza"][0], yaw=clash.END["shinza"][1], hips=SH_HIPS, turns=SH_FOLLOW, hands=hands, feet=SH_FEET)
-    clash.apply(sh, follow, fingers=fingers)
+    # ---- where they stand: back to back; held in his follow-through, then his arms come down
+    for t, low in ((-0.05, False), (LOWER[0], False), (LOWER[1], True), ((ctx.f1 - ctx.f0) / fps + 0.05, True)):
+        pose, fingers = clash.standing(sh, low=low)
+        clash.apply(sh, pose, fingers=fingers)
+        clash.key(sh, ctx.f0 + round(t * fps))
     ts["root"].location = (*clash.END["tsuru"][0], 0.0)
     ts["root"].rotation_euler = (0.0, 0.0, clash.END["tsuru"][1])
     bpy.context.view_layer.update()
-
-    # ---- her blade slid home: the handle (its blade with it) down the pole, her left hand on it
-    handle = ts["parts"]["handle"][0]
-    rest = handle.location.copy()
-    up = Vector((0.0, 0.0, 1.0))
-    if handle.parent is not None:
-        up = (handle.parent.matrix_world.to_3x3().inverted() @ up).normalized()
-    for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        t = (f - ctx.f0) / fps
-        out = SHEATH[0] * (1.0 - clash.ease((t - SHEATH[1]) / (SHEATH[2] - SHEATH[1])) ** 0.7)
-        handle.location = rest + up * out
-        handle.keyframe_insert("location", frame=f)
-    # (the last stretch is a click: no ease into it)
-    tch = ts["vrm"]
-    if "leftHand-target" in tch.handles:
-        tgt = tch.handles["leftHand-target"]
-        px, py = vroid_tsuru.POLE
-        base = tgt.location.copy()
-        for f in range(ctx.f0 - 1, ctx.f1 + 1):
-            t = (f - ctx.f0) / fps
-            out = SHEATH[0] * (1.0 - clash.ease((t - SHEATH[1]) / (SHEATH[2] - SHEATH[1])) ** 0.7)
-            on = clash.ease((t - (SHEATH[1] - 0.8)) / 0.6) * (1.0 - clash.ease((t - SHEATH[2] - 0.2) / 0.6))
-            grip = tch.to_armature((px + 0.03, py - 0.02, vroid_tsuru.SPLIT + 0.06 + out))
-            tgt.location = base.lerp(grip, on)
-            tgt.keyframe_insert("location", frame=f)
 
     # ---- the half blade: out of the sky, spinning, into the planks; it quivers
     half = sh["parts"]["half"][0]
@@ -140,24 +104,15 @@ def build(ctx):
             ob.keyframe_insert(path, frame=f)
     clash.hold_constant(half)
 
-    # ---- the camera: low, side on, creeping in; the focus on them, then pulled to the blade
-    cam, aim = clash.camera(ctx, fstop=FSTOP)
-    cam.data.lens = LENS
-    fo = clash.focus(ctx, cam)
-    figures = Vector((MID, 0.0, 1.2))
-    cams = {}
-    for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        t = (f - ctx.f0) / fps
-        c = clash.keys_at([(k, v) for k, v, _ in CAM], t)
-        a = clash.keys_at([(k, v) for k, _, v in CAM], t)
-        cam.location, aim.location = c, a
-        cam.keyframe_insert("location", frame=f)
-        aim.keyframe_insert("location", frame=f)
-        k = clash.ease((t - RACK[0]) / RACK[1])
-        fo.location = figures.lerp(goal + axis_up * 0.25, k)
-        fo.keyframe_insert("location", frame=f)
-        cams[f] = c
-    clash.outlines(ctx, {"shinza": sh, "tsuru": ts}, lambda f: cams[f], lambda f: LENS)
+    # ---- the camera: low, side on, creeping in; the focus on them, then pulled to the blade as it lands
+    figures = (MID, 0.0, 1.2)
+    rig = cinema.film(ctx, [cinema.Setup("side", 0.0, cinema.line(CAM[0][1], CAM[1][1], CAM[0][2], CAM[1][2]),
+                                         lens=LENS, fstop=FSTOP, focus=figures,
+                                         racks=(cinema.Rack(RACK[0], tuple(goal + axis_up * 0.25), RACK[1]),),
+                                         shake=cinema.Shake(breath=0.05, hits=((THUNK, 0.35),)))])
+    clash.outlines(ctx, {"shinza": sh, "tsuru": ts}, lambda f: rig.pose(f).position, lambda f: LENS)
+    # the rain falls again (the look schedule's speed: hanging, then falling by 1.4 s)
+    clash.weather(ctx, rig, w, actors)
 
     # the sky's rim on them from above, the bank's side in shade
     clash.composite(ctx, actors, lambda f: dict(rims=[((0.2, 1.0), SKY_RIM, 0.22, 0.002, 0.8)],

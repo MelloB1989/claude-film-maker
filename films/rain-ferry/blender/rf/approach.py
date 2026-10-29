@@ -175,6 +175,23 @@ def smooth(u: float) -> float:
 LEAN = {"spine": (7.0, 0.0, 0.0), "chest": (3.0, 0.0, 0.0), "neck": (4.0, 0.0, 0.0), "head": (6.0, 0.0, 0.0)}
 
 
+def puddle_on(world: dict, line, s: float, *, within: float = 0.7, reach: float = 6.0):
+    """The set's puddle on the path nearest `s` metres along `line` (its middle within `within` of the line, and
+    within `reach` of s): (its middle (x, y, water z), how far along the line it lies), or None."""
+    from mathutils import Vector
+
+    probe = Gait(line=line)
+    best = None
+    for ob in world["approach"]["puddles"]:
+        c = sum((ob.matrix_world @ Vector(v) for v in ob.bound_box), Vector()) / 8
+        sc = probe.nearest((c.x, c.y))
+        if np.linalg.norm(probe.at(sc)[0] - (c.x, c.y)) > within or abs(sc - s) > reach:
+            continue
+        if best is None or abs(sc - s) < abs(best[1] - s):
+            best = (np.array([c.x, c.y, ob.matrix_world.translation.z + max(v[2] for v in ob.bound_box)]), sc)
+    return best
+
+
 def walk_through(p, line, *, side: str, at, t: float, gait="heavy", ground=None, before: float = 3.0,
                  after: float = 3.0, pose=None, speed=None) -> dict:
     """Key Performance `p` (lib/vrm_anim.py) walking along `line` ((n, 2) points, in the order walked) so that its

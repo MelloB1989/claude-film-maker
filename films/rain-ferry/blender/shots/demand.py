@@ -25,10 +25,11 @@ from rf import jetty_talk as jt  # noqa: E402
 
 SHOT = {"scene": "demand"}
 
-# the camera: low by her right shoulder, looking up at him, creeping in and rising a little (world)
-CAM = [(0.0, (7.12, -1.62, 0.5), (5.5, -0.82, 1.42)),
-       (5.8, (6.88, -1.48, 0.6), (5.48, -0.8, 1.47))]
-LENS, FSTOP = (30.0, 32.0), 2.8
+# the camera: low by her right shoulder, looking up at him (cinema.frame_on: his face, head to belt filling the frame's
+# height by `share`, from `bearing` degrees, `rise` metres off his eyes, in the left third: room on the side he looks
+# to), creeping in over the shot
+FRAME = dict(height=1.05, bearing=66.0, rise=-0.92, third=-1.0, headroom=0.12)
+SHARE, LENS, FSTOP = (0.86, 0.98), 28.0, 2.8
 GUST = 1.5             # s into the shot: the gust's peak (data/mix.json wind_gust at 37.5 s)
 # his right hand to the hilt: when it starts up, passes his chest, clears his shoulder and closes on the hilt (s)
 RISE = (3.95, 4.35, 4.72, 4.92, 5.08)
@@ -49,8 +50,10 @@ def build(ctx):
     st.perf["shinza"].secondary(wind=(0.0, 0.8, 0.0))
     st.bake()
     ch = st.cast["shinza"]["vrm"]
-    st.film([cinema.Setup("low", 0.0, cinema.line(CAM[0][1], CAM[1][1], CAM[0][2], CAM[1][2]), lens=LENS, fstop=FSTOP,
-                          focus=(ch, "head"), shake=cinema.Shake(breath=0.08))])
+    face = st.head_at("shinza", ctx.f0)
+    (c0, a0), (c1, a1) = (cinema.frame_on(face, share=k, lens=LENS, **FRAME) for k in SHARE)
+    st.film([cinema.Setup("low", 0.0, cinema.line(c0, c1, a0, a1), lens=LENS, fstop=FSTOP, focus=(ch, "head"),
+                          shake=cinema.Shake(breath=0.08))])
     jt.outline(st)
     jt.pipe_smoke(st).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)     # her pipe at the frame's edge, still lit
     jt.key_light(st, "shinza", (0.7, -0.9, 0.75))

@@ -15,7 +15,7 @@ LENS = 28.0
 OFFSET = (25.0, 20.0, -6.0)       # the camera's place from the opening's (m): a little lower and to the right
 PUSH = (60.0, 9.0)                 # how far it moves along its view over the shot, and up (m)
 SUN_OPEN = (0.1, 0.25, 3.2)        # the clouds' opening: from this much, starting at, wide open by (s)
-BEAMS = 9                          # shafts of light
+BEAMS = 14                         # shafts of light
 BEAM_IN = (0.6, 2.8)               # they brighten over these (s)
 # the crow: where it flies, in metres from the camera (right, ahead, up), by time (s)
 CROW = [(0.3, (-14.0, 10.0, -3.0)), (1.4, (-6.0, 22.0, 0.5)), (2.4, (3.0, 38.0, 4.0)), (3.6, (10.0, 62.0, 8.0)),
@@ -66,9 +66,9 @@ def build(ctx):
     sun = Vector(valley.SUN).normalized()
     source = start + sun * 2600.0
     floor = Vector((float(valley.river_x(1900.0)), 1900.0, 0.0))
-    weather.sun_beams("beams", tuple(source), tuple((floor - source).normalized()), spread=(700.0, 160.0),
-                      length=(floor - source).length * 1.05, count=BEAMS, width=(90.0, 420.0),
-                      color=tuple(ctx.look_at(ctx.f1 - 1).light.warm), strength=0.42, seed=5, coll=world["coll"])
+    weather.sun_beams("beams", tuple(source), tuple((floor - source).normalized()), spread=(900.0, 220.0),
+                      length=(floor - source).length * 1.05, count=BEAMS, width=(25.0, 160.0),
+                      color=tuple(ctx.look_at(ctx.f1 - 1).light.warm), strength=0.07, seed=5, coll=world["coll"])
 
     # the crow: out from over the camera's shoulder, away toward the sun
     s0 = ctx.look_at(ctx.f1 - 1)

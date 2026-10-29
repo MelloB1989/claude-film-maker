@@ -1,6 +1,6 @@
 """A river boat from code for anime shots, and the way it floats: a low flat-bottomed wooden ferry (a square stern,
 the bow narrowing and rising to a raked stem, planked sides flaring out), thwarts across it, a seat at the stern, a
-mooring ring at the bow and, if asked, a light awning of bamboo slats on four poles. Built round an empty at its
+mooring ring at the bow and, if asked, a light awning (a mat under bamboo slats) on four poles. Built round an empty at its
 waterline (`root`) that everything hangs from, so a shot moves the whole boat by moving the root: `float_pose` bobs
 and rocks it in place, `drift_pose` carries it along a path (pushed off from a jetty, out across the river), and
 `animate` keys both.
@@ -188,7 +188,15 @@ def river_boat(m: dict, coll, *, length: float = 5.4, beam: float = 1.3, depth: 
         for s in (-1, 1):
             own(shapes.cylinder(f"{prefix}-beam{s}", (ax0 - 0.12, s * w * 0.97, top), (ax1 + 0.12, s * w * 0.97, top), 0.02,
                                 material=bamboo, coll=coll, n=6))
-        # slats across, a gentle arch, a few missing and some askew: a worn awning that lets the rain through
+        # a woven mat over the beams, arched (from the side a solid band, not a row of slat ends), its edges ragged
+        xs, ys = np.linspace(ax0 - 0.16, ax1 + 0.16, 14), np.linspace(-w - 0.12, w + 0.12, 7)
+        verts = [(x, y, top + 0.032 + 0.1 * (1 - (y / (w + 0.12)) ** 2) + (rng.uniform(-0.012, 0.0) if abs(y) > w else 0.0))
+                 for x in xs for y in ys]
+        ny = len(ys)
+        faces = [(i * ny + j, i * ny + j + 1, (i + 1) * ny + j + 1, (i + 1) * ny + j)
+                 for i in range(len(xs) - 1) for j in range(ny - 1)]
+        own(shapes.mesh_object(f"{prefix}-mat", verts, faces, material=bamboo, coll=coll), smooth=True)
+        # slats across it, a gentle arch, a few missing and some askew: a worn awning
         slats = int((ax1 - ax0 + 0.3) / 0.11)
         for k in range(slats):
             if rng.uniform() < 0.12:

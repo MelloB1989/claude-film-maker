@@ -142,6 +142,27 @@ def stretch(points, top: float, bottom: float, *, flare: float = 0.0, center=(0.
     return p
 
 
+def cinch_points(points, a, b, radius: float, *, keep: float = 0.25, ease: float = 0.3) -> np.ndarray:
+    """`points` (n, 3) round the segment a..b (a limb at rest) pulled in toward it where they stand further than
+    `radius` off it: keeping `keep` of the excess, eased in from nothing at `a` over the first `ease` of the way (a
+    sleeve tied back from the shoulder out). Points before `a` or more than a tenth of the way past `b` stay."""
+    p = np.array(points, dtype=float, copy=True)
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    ab = b - a
+    t = (p - a) @ ab / float(ab @ ab)
+    on = (t > 0.0) & (t < 1.1)     # to a little past the wrist: the cuff
+    axis = a + np.outer(t, ab)
+    off = p - axis
+    d = np.linalg.norm(off, axis=1)
+    far = on & (d > radius)
+    w = np.clip(t / max(ease, 1e-6), 0.0, 1.0)
+    w = w * w * (3 - 2 * w)
+    goal = radius + (d - radius) * keep
+    scale = np.where(far, (d + (goal - d) * w) / np.maximum(d, 1e-9), 1.0)
+    p[far] = axis[far] + off[far] * scale[far, None]
+    return p
+
+
 def box_blur(img, radius: int) -> np.ndarray:
     """A 2D array blurred by a box `radius` pixels either way (edges clamped)."""
     out = np.asarray(img, float)
@@ -445,6 +466,60 @@ def lengthen(ch: vrm.Character, ob, faces, top: float, bottom: float, *, flare: 
         center = near[:, :2].mean(0) if len(near) else sel[:, :2].mean(0)
     pts[vs] = stretch(sel, top, bottom, flare=flare, center=center)
     _from_frame(ch, ob, pts, m)
+
+
+def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float = 0.25, ease: float = 0.3) -> None:
+    """A sleeve's volume taken in (cinch_points): the vertices of `faces` round the `side` arm ("left", "right"), from
+    the upper arm to the wrist at rest, pulled in to `radius` (metres) of it, keeping `keep` of the rest. Before
+    posing: the vertices keep their weights, so the sleeve follows the arm, no longer a bell hanging off it."""
+    pts, m = _to_frame(ch, ob)
+    vs = np.unique(np.concatenate([list(ob.data.polygons[int(i)].vertices) for i in faces]))
+    a, b = ch.rest(f"{side}UpperArm"), ch.rest(f"{side}Hand")
+    s = 1.0 if side == "left" else -1.0
+    # only what the arm carries (most of its weight on the arm's bones), out along it: not a long robe's skirt
+    arm = {ch.bones[vrm.canonical(f"{side}{b}")] for b in ("UpperArm", "LowerArm", "Hand")}
+    groups = {g.index for g in ob.vertex_groups if g.name in arm}
+    carried = np.array([sum(g.weight for g in ob.data.vertices[int(v)].groups if g.group in groups) > 0.5 for v in vs],
+                       bool)
+    vs = vs[carried & (pts[vs, 0] * s > abs(a[0]))]
+    pts[vs] = cinch_points(pts[vs], a, b, radius, keep=keep, ease=ease)
+    _from_frame(ch, ob, pts, m)
+
+
+def _bone_name(ch: vrm.Character, name: str) -> str:
+    """The armature's bone a humanoid name is, or the name itself (already the armature's)."""
+    try:
+        return ch.bones.get(vrm.canonical(name), name)
+    except KeyError:
+        return name
+
+
+def shift_weights(ch: vrm.Character, ob, faces, below: float, band: float, moves: dict) -> int:
+    """Hand the weight of some vertices from one bone to another ({from: to}, humanoid names or the armature's own,
+    e.g. a thigh's to its shin): those of `faces` lower than `below` (metres, the character's frame at rest) fully, eased to none over
+    `band` above it. A long robe's skirt seated: below the knees it then hangs from the shins, not jutting on from the
+    thighs. Returns how many vertices changed."""
+    pts, _ = _to_frame(ch, ob)
+    vs = np.unique(np.concatenate([list(ob.data.polygons[int(i)].vertices) for i in faces]))
+    k = np.clip((below + band - pts[vs, 2]) / max(band, 1e-6), 0.0, 1.0)
+    k = k * k * (3 - 2 * k)
+    groups = {}
+    for a, b in moves.items():
+        ga, gb = _bone_name(ch, a), _bone_name(ch, b)
+        if ga in ob.vertex_groups:
+            groups[ob.vertex_groups[ga].index] = ob.vertex_groups.get(gb) or ob.vertex_groups.new(name=gb)
+    n = 0
+    for v, kv in zip(vs, k):
+        if kv <= 0.0:
+            continue
+        for g in list(ob.data.vertices[int(v)].groups):
+            to = groups.get(g.group)
+            if to is not None and g.weight > 0.0:
+                w = g.weight * float(kv)
+                ob.vertex_groups[g.group].add([int(v)], g.weight - w, "REPLACE")
+                to.add([int(v)], w, "ADD")
+                n += 1
+    return n
 
 
 def cut(ob, faces) -> int:

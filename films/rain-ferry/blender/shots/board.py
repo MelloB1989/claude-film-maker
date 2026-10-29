@@ -39,7 +39,6 @@ def build(ctx):
     from rf import ending as E
 
     st = E.stage(ctx)
-    E.headband("shinza-headband", E.band_material(st.look), st.world["near"], E.HEADBAND_AT[:2], E.HEADBAND_AT[2])
     stern = st.world["anchors"]["boat_stern"]
     actors = None
 

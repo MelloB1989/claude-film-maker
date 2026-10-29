@@ -51,8 +51,8 @@ def build(ctx):
     st.say("shinza", "L09", "nara... anta de ii", energy=0.9)
     st.blinks("shinza", BLINKS)
     st.perf["shinza"].secondary(wind=(0.0, 0.8, 0.0))
-    jt.draw_sword(st)
     st.bake()
+    jt.draw_sword(st)
     slide_scabbard(st)
     face = st.head_at("shinza", ctx.f0)
     b = math.radians(jt.SHINZA_FACING + BEARING)
@@ -75,7 +75,7 @@ def perform(st):
     # the hilt as his body holds it at the end of demand (the chest turned to the reach): measured there
     vrm.pose(ch, jt.shinza_stand(0.0, reach=1.0), hips=jt.shinza_hips(0.0))
     guard, u = jt.hilt_axis(st)
-    grip = guard + u * 0.06
+    grip = guard + u * jt.HILT_GRIP
     d = -u                                            # the blade's way, sheathed
     start_palm = (0.25, 1.0, 0.0)
     keys_b = [(PULL[1], tuple(d))] + [(t, b) for t, b, _, _ in SWING]

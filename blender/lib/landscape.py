@@ -16,25 +16,29 @@ import numpy as np
 from . import shapes
 
 
-def ridge_profile(xs: np.ndarray, distance: float, height: float, seed: int, *, trees: float = 0.0) -> np.ndarray:
+def ridge_profile(xs: np.ndarray, distance: float, height: float, seed: int, *, trees: float = 0.0,
+                  sharp: float = 0.0) -> np.ndarray:
     """The crest's height (m) at each x of a ridge `distance` away: rolling summits about `height`, one higher peak,
-    and with `trees` (m) a fringe of tree tips along it. Deterministic in `seed`."""
+    with `sharp` pointed peaks rising up to that share of `height` over them (an ink painting's crags), and with
+    `trees` (m) a fringe of tree tips along it. Deterministic in `seed`."""
     rng = np.random.default_rng(seed)
     ph = rng.uniform(0, 100)
     k = 2 * math.pi / (distance * 0.9)
     h = 0.55 * np.sin(xs * k * 0.7 + ph) + 0.3 * np.sin(xs * k * 1.9 + 2 * ph) + 0.15 * np.sin(xs * k * 4.3 + 3 * ph)
     h = height * (0.55 + 0.45 * h) + height * 0.25 * np.exp(-((xs - rng.uniform(-0.5, 0.5) * distance) / (0.25 * distance)) ** 2)
+    if sharp:
+        h = h + sharp * height * (1 - np.abs(np.sin(xs * k * 1.35 + 4 * ph))) ** 3 * (0.6 + 0.4 * np.sin(xs * k * 0.5 + ph))
     if trees:
         h = h + trees * np.abs(np.sin(xs * 7.3 / max(trees, 1e-3))) * rng.uniform(0.6, 1.0, len(xs))
     return h
 
 
 def ridge(name: str, material, coll, distance: float, height: float, *, seed: int = 1, width: float = 1.6, trees: float = 0.0,
-          base_z: float = -2.0, n: int = 240):
+          base_z: float = -2.0, n: int = 240, sharp: float = 0.0):
     """A ridge's silhouette across the view at y = `distance`, `width` times as wide as it is far, as a curtain down to
     `base_z`."""
     xs = np.linspace(-width * distance, width * distance, n)
-    h = ridge_profile(xs, distance, height, seed, trees=trees)
+    h = ridge_profile(xs, distance, height, seed, trees=trees, sharp=sharp)
     verts = [(x, distance + 0.02 * distance * math.sin(x * 0.01), z) for x, z in zip(xs, h)]
     verts += [(x, distance, base_z) for x in xs]
     faces = [(i, i + 1, n + i + 1, n + i) for i in range(n - 1)]
@@ -115,9 +119,12 @@ def river(name: str, material, coll, *, z: float, size=(1600.0, 700.0), center_y
 
 
 def sky(name: str, coll, *, horizon, zenith, distance: float = 1200.0, size=(5000.0, 900.0), z: float = 250.0,
-        flash=(0.9, 0.93, 1.0), flash_amount: float = 0.9):
+        flash=(0.9, 0.93, 1.0), flash_amount: float = 0.9, clouds: float = 0.0, cloud=None, light=None,
+        light_at=(0.5, 0.3)):
     """A far card of sky in its own colour (no fog): `horizon` at its foot to `zenith` at its top, whitening toward
-    `flash` with the scene's lightning (toon.FLASH; None: it never flashes)."""
+    `flash` with the scene's lightning (toon.FLASH; None: it never flashes). `clouds` (0..1) paints banks of cloud
+    across it as a sumi wash would, long ragged masses of `cloud` (default the zenith, darker) with paler breaks between,
+    and `light` a glow breaking through them at `light_at` (where on the card, 0..1 across and up)."""
     import bpy
 
     from . import toon
@@ -136,7 +143,59 @@ def sky(name: str, coll, *, horizon, zenith, distance: float = 1200.0, size=(500
     mix.inputs["A"].default_value = (*horizon, 1)
     mix.inputs["B"].default_value = (*zenith, 1)
     nt.links.new(sep.outputs["Y"], mix.inputs["Factor"])
-    col = mix.outputs["Result"] if flash is None else toon.flashed(nt, mix.outputs["Result"], flash, flash_amount)
+    col = mix.outputs["Result"]
+    if clouds > 0:
+        cloud = cloud or tuple(c * 0.7 for c in zenith)
+        comb = nt.nodes.new("ShaderNodeCombineXYZ")
+        for axis, k in (("X", 6.0), ("Y", 22.0)):          # long and low: banks drawn across
+            mm = nt.nodes.new("ShaderNodeMath")
+            mm.operation = "MULTIPLY"
+            mm.inputs[1].default_value = k
+            nt.links.new(sep.outputs[axis], mm.inputs[0])
+            nt.links.new(mm.outputs[0], comb.inputs[axis])
+        noise = nt.nodes.new("ShaderNodeTexNoise")
+        noise.inputs["Scale"].default_value = 1.0
+        noise.inputs["Detail"].default_value = 8.0
+        noise.inputs["Roughness"].default_value = 0.62
+        nt.links.new(comb.outputs[0], noise.inputs["Vector"])
+        band = nt.nodes.new("ShaderNodeMapRange")
+        band.interpolation_type = "SMOOTHSTEP"
+        band.inputs["From Min"].default_value = 0.42
+        band.inputs["From Max"].default_value = 0.66
+        band.inputs["To Max"].default_value = clouds
+        nt.links.new(noise.outputs["Fac"], band.inputs["Value"])
+        cm = nt.nodes.new("ShaderNodeMix")
+        cm.data_type = "RGBA"
+        nt.links.new(band.outputs["Result"], cm.inputs["Factor"])
+        nt.links.new(col, cm.inputs["A"])
+        cm.inputs["B"].default_value = (*cloud, 1)
+        col = cm.outputs["Result"]
+        if light is not None:
+            # a soft glow where the light breaks through, strongest in the breaks between the banks
+            d = nt.nodes.new("ShaderNodeVectorMath")
+            d.operation = "DISTANCE"
+            nt.links.new(tc.outputs["Generated"], d.inputs[0])
+            d.inputs[1].default_value = (light_at[0], light_at[1], 0.0)
+            g = nt.nodes.new("ShaderNodeMapRange")
+            g.interpolation_type = "SMOOTHSTEP"
+            g.inputs["From Min"].default_value = 0.25
+            g.inputs["From Max"].default_value = 0.0
+            nt.links.new(d.outputs["Value"], g.inputs["Value"])
+            gap = nt.nodes.new("ShaderNodeMath")
+            gap.operation = "MULTIPLY"
+            nt.links.new(g.outputs["Result"], gap.inputs[0])
+            inv = nt.nodes.new("ShaderNodeMath")
+            inv.operation = "SUBTRACT"
+            inv.inputs[0].default_value = 1.0
+            nt.links.new(band.outputs["Result"], inv.inputs[1])
+            nt.links.new(inv.outputs[0], gap.inputs[1])
+            lm = nt.nodes.new("ShaderNodeMix")
+            lm.data_type = "RGBA"
+            nt.links.new(gap.outputs[0], lm.inputs["Factor"])
+            nt.links.new(col, lm.inputs["A"])
+            lm.inputs["B"].default_value = (*light, 1)
+            col = lm.outputs["Result"]
+    col = col if flash is None else toon.flashed(nt, col, flash, flash_amount)
     em = nt.nodes.new("ShaderNodeEmission")
     nt.links.new(col, em.inputs["Color"])
     out = nt.nodes.new("ShaderNodeOutputMaterial")
@@ -146,14 +205,55 @@ def sky(name: str, coll, *, horizon, zenith, distance: float = 1200.0, size=(500
     return toon.move_to(ob, coll)
 
 
-def mist_layers(coll, color, layers, *, base_z: float = 0.0, density: float = 0.75) -> list:
-    """Banks of mist between ridges: `layers` is [(distance, height, width), ...]; each drifts at its own speed."""
+def soften_card(card, *, near=(4.0, 25.0), edge: float = 0.15, oblique: float = 2.0):
+    """A mist card (toon.mist_card) that holds up from any camera: it fades out where the camera sees it edge on (by
+    the facing to the power `oblique`), within `near` (m: gone at the first, whole from the second) of the lens, and
+    toward its left and right ends over `edge` of its width, so no cut edge of a card shows in any view."""
+    nt = card.active_material.node_tree
+    mx = next(n for n in nt.nodes if n.bl_idname == "ShaderNodeMixShader")
+    src = mx.inputs["Fac"].links[0].from_socket
+
+    def math_(op, a, b=None):
+        m = nt.nodes.new("ShaderNodeMath")
+        m.operation = op
+        for i, v in enumerate((a, b)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                m.inputs[i].default_value = float(v)
+            else:
+                nt.links.new(v, m.inputs[i])
+        return m.outputs[0]
+
+    def ramp(v, a, b):
+        r = nt.nodes.new("ShaderNodeMapRange")
+        r.interpolation_type = "SMOOTHSTEP"
+        r.inputs["From Min"].default_value = a
+        r.inputs["From Max"].default_value = b
+        nt.links.new(v, r.inputs["Value"])
+        return r.outputs["Result"]
+
+    lw = nt.nodes.new("ShaderNodeLayerWeight")
+    face = math_("POWER", math_("SUBTRACT", 1.0, lw.outputs["Facing"]), oblique)
+    cam = nt.nodes.new("ShaderNodeCameraData")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["Generated"], sep.inputs[0])
+    ends = math_("MULTIPLY", ramp(sep.outputs["X"], 0.0, edge), ramp(sep.outputs["X"], 1.0, 1.0 - edge))
+    k = math_("MULTIPLY", math_("MULTIPLY", src, face), math_("MULTIPLY", ends, ramp(cam.outputs["View Distance"], *near)))
+    nt.links.new(k, mx.inputs["Fac"])
+    return card
+
+
+def mist_layers(coll, color, layers, *, base_z: float = 0.0, density: float = 0.75, soften: bool = False) -> list:
+    """Banks of mist between ridges: `layers` is [(distance, height, width), ...]; each drifts at its own speed.
+    `soften`: each made to hold up from any camera (`soften_card`)."""
     from . import toon
 
     obs = []
     for k, (d, h, w) in enumerate(layers):
         card = toon.mist_card(f"mist{k}", (0, d, base_z + h * 0.35), (w, h), color, density=density, drift=0.8 + 0.3 * k, seed=k * 3.1)
-        obs.append(toon.move_to(card, coll))
+        obs.append(toon.move_to(soften_card(card) if soften else card, coll))
     return obs
 
 
@@ -235,17 +335,80 @@ def conifer_mesh(base, height: float, *, seed: int = 1, tiers: int = 5, sides: i
     return np.array(verts, float), faces
 
 
-def forest(name: str, bases, heights, *, material, coll, seed: int = 1, tiers: int = 5, sides: int = 7, spread: float = 0.28):
-    """Conifers (`conifer_mesh`) at `bases` [(x, y, z), ...] of `heights`, merged into one object."""
+def cedar_mesh(base, height: float, *, seed: int = 1, clumps: int = 12, sides: int = 8, spread: float = 0.2,
+               bare: float = 0.32, lean: float = 0.03) -> tuple[np.ndarray, list]:
+    """(verts, faces) of a Japanese cedar (sugi) as an ink painting draws one: a tall straight trunk bare for its
+    lowest `bare` of the height, then a narrow crown of `clumps` flat, ragged clouds of needles stacked up it (each
+    off the trunk to one side or the other, their edges drooping), smaller as they climb to a thin spire. Low in
+    faces: a forest is thousands of them in one mesh."""
+    rng = np.random.default_rng(seed)
+    bx, by, bz = base
+    lx, ly = rng.normal(0, lean, 2)
+    verts, faces = [], []
+
+    def axis(z):
+        f = (z - bz) / height
+        return bx + lx * height * f, by + ly * height * f
+
+    r = 0.011 * height
+    for z, rr in ((bz - 0.3, r), (bz + height * 0.97, r * 0.3)):
+        ax, ay = axis(z)
+        verts += [(ax + rr * math.cos(a), ay + rr * math.sin(a), z) for a in (0.0, math.pi / 2, math.pi, 1.5 * math.pi)]
+    faces += [(i, (i + 1) % 4, 4 + (i + 1) % 4, 4 + i) for i in range(4)]
+    for c in range(clumps):
+        f = c / max(1, clumps - 1)
+        zc = bz + height * (bare + (0.95 - bare) * f ** 0.85) + rng.normal(0, 0.012 * height)
+        w = spread * height * (1.0 - 0.8 * f) * rng.uniform(0.7, 1.25)
+        th = w * rng.uniform(0.5, 0.75)                   # thick enough that the sprays overlap: one ragged mass
+        ax, ay = axis(zc)
+        ang = rng.uniform(0, 2 * math.pi)
+        off = w * 0.25 * (1 - f)
+        cx, cy = ax + off * math.cos(ang), ay + off * math.sin(ang)
+        top = len(verts)
+        verts.append((cx, cy, zc + th * 0.7))
+        ph = rng.uniform(0, 2 * math.pi)
+        for ring, (rk, dz) in enumerate(((0.6, th * 0.25), (1.0, -th * 0.3))):
+            for s in range(sides):
+                a = ph + 2 * math.pi * (s + 0.5 * ring) / sides
+                # the outer ring's points alternate long and short (the sprays' tips), drooping as they reach out
+                rr = w * rk * (rng.uniform(0.85, 1.3) if (s + ring) % 2 == 0 else rng.uniform(0.5, 0.8))
+                verts.append((cx + rr * math.cos(a), cy + rr * math.sin(a), zc + dz - (rr / w) ** 2 * th * 0.6 * ring))
+        bot = len(verts)
+        verts.append((cx, cy, zc - th * 0.5))
+        r0, r1 = top + 1, top + 1 + sides
+        for s in range(sides):
+            t = (s + 1) % sides
+            faces.append((top, r0 + s, r0 + t))
+            faces.append((r0 + s, r1 + s, r0 + t))
+            faces.append((r0 + t, r1 + s, r1 + t))
+            faces.append((bot, r1 + t, r1 + s))
+    ax, ay = axis(bz + height)
+    tip = len(verts)
+    verts.append((ax, ay, bz + height))
+    zt = bz + height * 0.9
+    tx, ty = axis(zt)
+    for k in range(3):
+        a = 2 * math.pi * k / 3
+        verts.append((tx + 0.02 * height * math.cos(a), ty + 0.02 * height * math.sin(a), zt))
+    faces += [(tip, tip + 1 + k, tip + 1 + (k + 1) % 3) for k in range(3)]
+    return np.array(verts, float), faces
+
+
+def forest(name: str, bases, heights, *, material, coll, seed: int = 1, kind: str = "cedar", smooth: bool = False,
+           **tree):
+    """Trees at `bases` [(x, y, z), ...] of `heights`, merged into one object: cedars (`cedar_mesh`) or, `kind`
+    "fir", tiered conifers (`conifer_mesh`); `tree` goes to each (clumps, sides, spread, ...). `smooth`: shaded
+    smooth, for trees seen close (no facets, and Line Art draws no creases across them)."""
+    make = cedar_mesh if kind == "cedar" else conifer_mesh
     verts, faces, off = [], [], 0
     for k, (b, h) in enumerate(zip(bases, heights)):
-        v, f = conifer_mesh(b, float(h), seed=seed * 7919 + k, tiers=tiers, sides=sides, spread=spread)
+        v, f = make(b, float(h), seed=seed * 7919 + k, **tree)
         verts.append(v)
         faces += [tuple(i + off for i in face) for face in f]
         off += len(v)
     if not verts:
         return None
-    return shapes.mesh_object(name, np.concatenate(verts), faces, material, coll, smooth=False)
+    return shapes.mesh_object(name, np.concatenate(verts), faces, material, coll, smooth=smooth)
 
 
 def scatter(n: int, x_range, y_range, *, seed: int = 1, min_gap: float = 0.0, keep=None, tries: int = 30) -> np.ndarray:

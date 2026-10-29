@@ -2,8 +2,9 @@
 Tsuru standing at its stern poling it on, Shinza sitting in it, small under the far ridges; and close in front of us
 the cut red headband turning slowly on the water, drifting away downstream. The theme resolves.
 
-Low over the water from below the jetty's foot, looking down the river after the boat (rf/set_world.py's cross view,
-brought down near the water): the hut and the jetty at the left, the river opening right into the light. The focus
+Low over the water off the jetty's end, looking down the valley into the light (where 25 light broke the clouds), the
+low sun over the ferry and its glitter on the water coming toward us: the jetty coming in from the left, the ferry
+pulling away from it across the middle of the frame. The focus
 starts on the headband and goes out to the boat as the camera rises slowly, as if lifting its eyes after it.
 
 The world is the after-rain one (the look schedule's "cross": warm 1, no rain); the ferry is poled out along
@@ -16,13 +17,12 @@ import os
 
 SHOT = {"scene": "cross"}
 
-PUSH = (-6.0, 16.0)          # s (into the shot): the ferry's push along CROSS_PATH, already well under way
-CAM = ((-8.4, -6.6, 0.75), (-8.0, -6.3, 1.45))     # from, to (eased): low over the water, rising
-AIM = ((26.0, 12.0, 0.6), (26.0, 12.0, 1.4))
-LENS, FSTOP = 30.0, 2.8
+PUSH = (-2.0, 22.0)          # s (into the shot): the ferry's push along CROSS_PATH, just under way
+CAM = ((8.0, -12.0, 0.72), (8.2, -11.6, 1.28))     # from, to (eased): low over the water, rising
+AIM = ((14.3, 27.5, 2.2), (14.5, 28.0, 3.6))
+LENS, FSTOP = 28.0, 2.8
 RACK = (1.6, 3.6)            # s: the focus from the headband out to the boat
-BAND = ((-3.6, -3.7), (-2.6, -1.9))   # the headband's drift on the water (x, y), from and to over the shot
-BEAMS = ((60.0, 150.0, 55.0), (-0.3, -0.85, -0.42))   # where the sun breaks through (m), the light's travel
+BAND = ((7.55, -6.95), (8.3, -5.45))   # the headband's drift on the water (x, y), from and to over the shot
 POLE = dict(period=3.4, push=0.62, tilt=(-8.0, 32.0), grip=((-0.2, -0.18, 1.12), (-0.2, 0.2, 0.82)))
 
 
@@ -33,7 +33,7 @@ def build(ctx):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import bpy
 
-    from lib import cinema, toon3d, weather
+    from lib import cinema, toon3d
     from rf import ending as E
     from rf import set_world, sets
 
@@ -41,13 +41,10 @@ def build(ctx):
     set_world.push_off(st.world, ctx, t0=PUSH[0], t1=PUSH[1])
     n = (ctx.f1 - ctx.f0) / ctx.fps
 
-    # the headband on the water: floating on an empty that drifts, turns and rides the swell
-    band = E.headband("shinza-headband", E.band_material(st.look, wet=1.0), st.world["near"], (0.0, 0.0), 0.0,
-                      z=0.0, curl=0.2, seed=5)
+    # the headband on the water: floating on an empty that drifts, turns and rides the swell (his own, cut loose, once
+    # the cast is built; a drawn strip without it)
     drift = bpy.data.objects.new("headband-drift", None)
     st.world["near"].objects.link(drift)
-    for ob in band:
-        ob.parent = drift
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = (f - ctx.f0) / ctx.fps
         k = t / n
@@ -59,13 +56,15 @@ def build(ctx):
         drift.keyframe_insert("rotation_euler", frame=f)
 
     actors = None
+    band = None
     if os.environ.get("RF_S7_CAST", "vroid") != "none":
         from lib import vrm
         from rf import vroid_tsuru as T
 
         actors = E.cast(st, {"tsuru": dict(pole="hand", wet=0.3),
-                             "shinza": dict(kasa=None, sword="back", headband=False, wet=0.3)})
+                             "shinza": dict(kasa="back", sword="back", headband=True, wet=0.3)})
         ts, sh = actors["tsuru"], actors["shinza"]
+        band = [E.cut_headband(sh, afloat=True)]
         anchors = st.world["anchors"]
         for built, at in ((ts, "boat_stern"), (sh, "boat_middle")):
             built["root"].parent = anchors[at]
@@ -102,6 +101,17 @@ def build(ctx):
         toon3d.aim(ts["key"], (0.5, 1.0, 0.35))
         toon3d.aim(sh["key"], (0.5, 1.0, 0.35))
 
+    if band is None:
+        band = E.headband("shinza-headband", E.band_material(st.look, wet=1.0), st.world["near"], (0.0, 0.0), 0.0,
+                          z=0.0, curl=0.2, seed=5)
+    bpy.context.view_layer.update()
+    for ob in band:
+        rot = ob.matrix_world.to_3x3()
+        ob.parent = drift
+        ob.matrix_parent_inverse.identity()
+        ob.matrix_basis = rot.to_4x4()
+        ob.location = (0.0, 0.0, 0.0)
+
     # the camera: low over the water, rising slowly after the boat; sharp on the headband, then out to the boat
     boat = st.world["anchors"]["boat_middle"]
     rig = cinema.film(ctx, [cinema.Setup(
@@ -109,8 +119,6 @@ def build(ctx):
         focus=drift, racks=(cinema.Rack(RACK[0], boat, RACK[1] - RACK[0]),), shake=cinema.Shake(breath=0.05, seed=26))],
         clip=(0.02, 4000.0))
     E.weather(ctx, st, rig, deck=False, river=False)
-    # the evening sun breaking through down the valley: shafts of it through the lifting mist
-    weather.sun_beams("beams", BEAMS[0], BEAMS[1], spread=(34.0, 16.0), count=7, strength=0.3)
 
     def look(f, s):
         L = s.light

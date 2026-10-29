@@ -423,10 +423,15 @@ class Shot:
 
 # ---------------------------------------------------------------------------------------------------- Blender
 
+def _is_point(spec) -> bool:
+    """A world point: three numbers (Python's or numpy's, a list, a tuple or an array)."""
+    return (isinstance(spec, (tuple, list, np.ndarray)) and len(spec) == 3
+            and all(isinstance(x, (int, float, np.number)) for x in spec))
+
+
 def _target(spec):
     """(object, bone name or "") a focus spec names; None for "aim" or a number or a point (the rig makes those)."""
-    if spec == "aim" or isinstance(spec, (int, float)) or (isinstance(spec, (tuple, list)) and len(spec) == 3
-                                                           and all(isinstance(x, (int, float)) for x in spec)):
+    if _is_point(spec) or isinstance(spec, str) and spec == "aim" or isinstance(spec, (int, float, np.number)):
         return None
     if isinstance(spec, (tuple, list)) and len(spec) == 2:
         ob, bone = spec
@@ -546,9 +551,9 @@ def film(ctx, setups, *, name: str = "camera", clip=(0.02, 3000.0), jitter: bool
     for j, (si, spec) in enumerate(chain):
         t = _target(spec)
         if t is None:
-            if spec == "aim":
+            if isinstance(spec, str) and spec == "aim":
                 ob, bone = aim, ""
-            elif isinstance(spec, (int, float)):
+            elif isinstance(spec, (int, float, np.number)):
                 ob = bpy.data.objects.new(f"{name}-focus{j}", None)       # a distance: an empty riding the camera
                 scene.collection.objects.link(ob)
                 ob.parent = cam
