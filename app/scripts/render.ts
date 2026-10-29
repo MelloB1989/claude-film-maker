@@ -43,7 +43,8 @@
 //            sent (frames as --from/--to count them: at --fps from 0). The export must fail: exit 1, "FAILED: the WebGL
 //            context was lost…" in <out>.progress, <out>.partial left, nothing at --out.
 //   --headed (all modes): show the browser.
-// Uses the Vite dev server at --url (default http://localhost:5173); starts a private one if unreachable.
+// Uses the Vite dev server at --url (default http://localhost:5173); starts a private one if unreachable, or always with
+// --fresh (a server already at that port may be another checkout's: two sessions on one host).
 import type { Page } from 'playwright-core';
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -84,12 +85,17 @@ async function reachable(url: string) {
 
 async function ensureServer(): Promise<{ url: string; stop: () => void }> {
   const url = opt('url', 'http://localhost:5173')!;
-  if (await reachable(url)) return { url, stop: () => {} };
+  if (!flag('fresh') && await reachable(url)) return { url, stop: () => {} };
   const port = 5300 + Math.floor(Math.random() * 500);
   // no live reload: a file saved mid-render must not reload the page
-  const proc = Bun.spawn(['bunx', 'vite', '--port', String(port), '--strictPort'], { cwd: APP, stdout: 'ignore', stderr: 'ignore', env: { ...process.env, FILM_NO_HMR: '1' } });
-  const u = `http://localhost:${port}`;
-  for (let i = 0; i < 100 && !(await reachable(u)); i++) await Bun.sleep(100);
+  // Vite under node where there is one (an old bun cannot run Vite 8), else bunx; on 127.0.0.1, where `localhost` may
+  // resolve to ::1 for the server and to 127.0.0.1 for fetch
+  const vite = Bun.which('node') ? ['node', path.join(APP, 'node_modules/vite/bin/vite.js')] : ['bunx', 'vite'];
+  const proc = Bun.spawn([...vite, '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: APP, stdout: 'ignore', stderr: 'ignore', env: { ...process.env, FILM_NO_HMR: '1' } });
+  const u = `http://127.0.0.1:${port}`;
+  // a cold start on a small host takes a while (16 s on a fleet container)
+  for (let i = 0; i < 600 && !(await reachable(u)); i++) await Bun.sleep(100);
+  if (!(await reachable(u))) throw new Error(`the dev server did not come up at ${u} (${vite.join(' ')})`);
   return { url: u, stop: () => proc.kill() };
 }
 
