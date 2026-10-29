@@ -42,7 +42,6 @@ def build(ctx):
     jt.compose_faces(st)
     lines = st.line("L05", "L06")
     perform(st, lines)
-    jt.settle(st)
     shot = jt.Shot(CAM, LENS, FSTOP, breath=0.006, kicks=[])
     st.camera(shot, st.tracked_focus("shinza"))
     jt.outline(st, shot)
@@ -58,7 +57,7 @@ def perform(st, lines):
     ch = st.cast["shinza"]["vrm"]
     speak = [lines["L05"], lines["L06"]]
     hang_r, hang_l = jt.HANG["right"], jt.HANG["left"]
-    grip_wrist, grip_turn = jt.hilt_grip(ch)
+    grip_wrist, grip_turn = jt.hilt_grip(st)
     hang_turn_r = jt.hand_turn(ch, "right", (0.0, 1.0, 0.0), (1.0, 0.0, 0.0))
     up_turn = jt.hand_turn(ch, "right", (0.0, 0.2, 1.0), (0.9, -0.3, 0.0))
     wrists = [(RISE[0], hang_r), (RISE[1], (-0.25, -0.24, 1.18)), (RISE[2], (-0.29, -0.12, 1.5)),

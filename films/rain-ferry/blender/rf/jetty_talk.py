@@ -1,21 +1,19 @@
 """The talk on the jetty: shots 9-12 (demand, tap, look, draw), one scene cut four ways. Tsuru sits on a low crate
-near the jetty's end, turned out past its last post toward the open river, her pipe in her hand; Shinza stands two
-paces behind her right shoulder, his nodachi sheathed across his back and his kasa hanging off it. Every camera stays
-on the river side of the line between them (-y of it: rf/sets.py's world), so he is always at the left of the frame
-and she at the right, as in the standoff that follows.
+near the jetty's end, turned out past its last post toward the open river, her kiseru in her left hand; Shinza stands
+two paces behind her right shoulder, his nodachi sheathed across his back and his kasa hanging on it. Every camera
+stays on the river side of the line between them (-y of it: rf/sets.py's world), so he is always at the left of the
+frame and she at the right, as in the standoff that follows.
 
 `stage(ctx, ...)` builds what the four share: the crossing (rf/sets.py), the light and rain of the shot's place in
-the look schedule (ctx.look_at), the 3D cast (rf/vroid_cast.py) taken out of the standoff's poses and put into this
-scene's (`seat_tsuru`, `stand_shinza`), painted as the standoff paints them (shots/standoff.py TONES3D), and the
-compositing. A shot then keys its performance frame by frame through the `Stage` (`pose`, `grip`, `hang`, `face`),
-its camera (`Stage.camera`, from `Shot` keys) and its looks (`Stage.composite`).
+the look schedule (ctx.look_at), the 3D cast (rf/vroid_cast.py's variants: Shinza standing with his sword and kasa on
+his back, Tsuru seated with her pipe in hand and her pole laid in the boat), placed (`place_cast`) and painted as the
+standoff paints them (shots/standoff.py TONES3D), and the compositing. A shot then keys its performance frame by frame
+through the `Stage` (`pose`, `grip`, `hand`, `face`), its camera (`Stage.camera`, from `Shot` keys) and its looks
+(`Stage.composite`).
 
 The performance is timed to the dialogue (data/dialogue_timing.json, `Stage.line`) and to the sound cues (data/mix.json:
 the pipe's taps at 42.05 s, the draw's steel at 51.95 s). The pure halves (easing, keys, the mouth, blinks, the
 camera's breath) need no Blender.
-
-Stand-ins until the cast and core land theirs: the kiseru, the scabbard and the kasa are built here (`kiseru`,
-`back_gear`); the cast's own sword-on-the-back variant and the anim agent's keyed performances replace them.
 """
 from __future__ import annotations
 
@@ -29,29 +27,19 @@ import numpy as np
 # ---------------------------------------------------------------------------------------------------- the staging
 
 # where each stands (world x, y: the jetty along x, its end at +x, the river beyond toward +y) and which way they face
-# (degrees from +x toward +y). She is turned out past the end post (her pipe's post); he faces her
-TSURU_AT, TSURU_FACING = (7.0, -0.45), -70.0
-SHINZA_AT = (5.45, -0.8)
+# (degrees from +x toward +y). She is turned out past the end post, which stands before her left knee (her pipe's
+# post); he faces her
+TSURU_AT, TSURU_FACING = (7.0, -0.6), -70.0
+SHINZA_AT = (5.45, -0.82)
 SHINZA_FACING = math.degrees(math.atan2(TSURU_AT[1] - SHINZA_AT[1], TSURU_AT[0] - SHINZA_AT[0]))
 POST = "pier-post5-1"       # rf/sets.py's pier: the last post on the -y side, the one she knocks her pipe on
-# her seat: a low crate under her hips (its top, metres), and how she sits on it (her frame: x her left, y her back):
-# the hips down onto it and back over it, her feet planted forward and a little apart
-SEAT = 0.40
-TS_HIPS = (0.0, 0.1, -0.29)
-TS_FEET = {"left": (0.11, -0.28), "right": (-0.12, -0.24)}
-# his stance: weight on his back (left) foot, the right a little forward and out
-SH_FEET = {"left": (0.12, 0.05, 6.0), "right": (-0.13, -0.08, -14.0)}
+CRATE = (0.42, 0.34)        # her seat's width and depth (its height is rf/vroid_tsuru.py's SEAT); its middle behind her
+CRATE_BACK = 0.14           # ... feet (m)
+BOAT_POLE = ((4.05, 2.32, -0.13), (1.0, 0.03, 0.04))   # her pole laid in the boat: its foot, its way (world)
 
-# ---- his gear on his back (his frame, metres as he stands): the scabbard across it from over the right shoulder to
-# the left hip, the hilt standing up past his right ear; the kasa hanging off his back at the left, under it
-SAYA_MOUTH = np.array((-0.12, 0.15, 1.43))
-SAYA_FOOT = np.array((0.19, 0.19, 0.55))
-HILT, BLADE = 0.30, 0.86            # a nodachi: a long hilt and a long blade
-KASA = dict(center=(0.13, 0.25, 0.98), radius=0.27, rise=0.12, tilt=(70.0, 0.0, 18.0))
-
-# ---- the kiseru (a long thin pipe): brass mouthpiece and bowl on a dark bamboo stem (m)
-PIPE = dict(mouth=0.05, stem=0.2, bowl=0.055, cup=0.011)
-GRIP_ALONG = 0.085                 # where her fist holds it, from the mouthpiece's end
+# the cast's variants in this scene (rf/vroid_cast.py)
+VARIANT = {"shinza": dict(kasa="back", sword="back", pose="stand"),
+           "tsuru": dict(pipe="hand", pole="boat", seated=True)}
 
 LINES = Path(__file__).resolve().parents[2] / "data" / "dialogue_timing.json"
 
@@ -397,12 +385,8 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain_box=((2.0, -4.5, -0.6), (10.0, 4
     so = _standoff()
     cast = {}
     for name in who:
-        built = getattr(vroid_cast, name)(cast_coll, cast_look)
+        built = getattr(vroid_cast, name)(cast_coll, cast_look, **VARIANT[name])
         cast[name] = built
-        if name == "tsuru":
-            seat_tsuru(built, cast_coll, crossing)
-        else:
-            stand_shinza(built, cast_coll, cast_look)
         built["key"] = toon3d.key(f"{name}-key", [built["root"], *built["root"].children_recursive], (1.0, -0.3, 0.8),
                                   coll=cast_coll, angle=so.KEY3D_ANGLE, color=tuple(s.light.key))
         tones = {p: toon3d.Tone(**{**kw, **so.TONES3D_OF.get(name, {}).get(p, {})}) for p, kw in so.TONES3D.items()}
@@ -426,6 +410,7 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain_box=((2.0, -4.5, -0.6), (10.0, 4
 
     st = Stage(ctx, crossing=crossing, cast=cast, cast_coll=cast_coll, sun=sun, rain=rain, cam=cam, aim=aim,
                focus=focus, look=look, standoff=so)
+    place_cast(st)
     # the lantern swings in the wind all through
     lantern = crossing["lantern"]
     for f in st.frames():
@@ -482,215 +467,68 @@ def flat_palm(along, toward=(1.0, 0.0, 0.0)) -> np.ndarray:
 
 # ---------------------------------------------------------------------------------------------------- the cast
 
-def _remove(obs) -> None:
+def place_cast(st: Stage) -> None:
+    """The cast where this scene has them: her on her crate turned out past the post, her pole in the boat; him
+    behind her right shoulder, facing her."""
     import bpy
 
-    for ob in obs:
-        bpy.data.objects.remove(ob, do_unlink=True)
+    from lib import shapes
 
+    from .vroid_common import move
+    from .vroid_tsuru import SEAT
 
-def _place(built, at, facing: float) -> None:
-    import bpy
-
-    built["root"].location = (at[0], at[1], 0.0)
-    built["root"].rotation_euler = (0.0, 0.0, math.radians(facing))
+    for name, at, facing in (("tsuru", TSURU_AT, TSURU_FACING), ("shinza", SHINZA_AT, SHINZA_FACING)):
+        if name in st.cast:
+            root = st.cast[name]["root"]
+            root.location = (at[0], at[1], 0.0)
+            root.rotation_euler = (0.0, 0.0, math.radians(facing))
+    bpy.context.view_layer.update()
+    if "tsuru" in st.cast:
+        back = _turn_z(TSURU_FACING) @ np.array([-1.0, 0.0, 0.0])
+        cx, cy = np.array(TSURU_AT) + back[:2] * CRATE_BACK
+        shapes.box("crate", (cx, cy, SEAT / 2 - 0.012), (*CRATE, SEAT), material=st.crossing["materials"]["plank"],
+                   coll=st.crossing["near"], rot_z=math.radians(TSURU_FACING) + 0.08)
+        pole = st.cast["tsuru"]["parts"]["pole"]
+        if pole:
+            ob = pole[0]
+            co = np.array([ob.matrix_world @ v.co for v in ob.data.vertices])
+            lo, hi = co[co[:, 2].argmin()], co[co[:, 2].argmax()]
+            move(ob, lo, hi - lo, BOAT_POLE[0], BOAT_POLE[1])
     bpy.context.view_layer.update()
 
 
-def seat_tsuru(built, coll, crossing) -> None:
-    """Tsuru out of the standoff's stance and onto her crate by the end post: her pole laid in the boat, her pipe in
-    her right hand, her feet planted forward. Her hands and head are keyed by the shot."""
-    from lib import shapes, vrm
-
-    from .vroid_common import plant
-
-    ch = built["vrm"]
-    _place(built, TSURU_AT, TSURU_FACING)
-    # the pole: out of her hand, lying along the boat's thwarts
-    pole = [ob for ob in built["props"] if "-pole" in ob.name or "-node" in ob.name or "-cord" in ob.name]
-    for ob in pole:
-        ob.parent = None
-    _lay_pole(pole)
-    # her crate, under her hips
-    back = _turn_z(TSURU_FACING) @ np.array([-1.0, 0.0, 0.0])
-    cx, cy = np.array(TSURU_AT) + back[:2] * 0.1
-    m = crossing["materials"]
-    shapes.box("crate", (cx, cy, SEAT / 2 - 0.01), (0.42, 0.36, SEAT), material=m["plank"], coll=crossing["near"],
-               rot_z=math.radians(TSURU_FACING) + 0.08)
-    # seated: the hips down on the crate, the knees bent forward over her planted feet
-    vrm.pose(ch, {"spine": (8.0, 0.0, 0.0), "chest": (10.0, 0.0, 0.0), "upperChest": (8.0, 0.0, 0.0),
-                  "neck": (10.0, 0.0, 0.0), "head": (-20.0, 0.0, 0.0)}, hips=TS_HIPS)
-    sole = ch.rest("leftFoot")[2]
-    plant(ch, {side: ((x, y, sole), (x * 1.5, -1.0, 0.45), (0.0, 0.0, 8.0 if side == "left" else -8.0))
-               for side, (x, y) in TS_FEET.items()})
-    built["pipe"] = kiseru("tsuru-kiseru", coll)
-
-
-def _lay_pole(obs) -> None:
-    """The ferry pole's pieces (built standing) laid down in the boat, along it."""
+def part_center(ob) -> np.ndarray:
+    """The middle of a prop's mesh (world)."""
     import bpy
-    from mathutils import Matrix
 
-    from . import sets
-
-    foot = np.array(obs[0].data.vertices[0].co) if obs else np.zeros(3)
-    m = (Matrix.Translation((4.1, 2.35, sets.WATER_Z + 0.32)) @ Matrix.Rotation(math.radians(91.0), 4, "Y")
-         @ Matrix.Rotation(math.radians(4.0), 4, "Z") @ Matrix.Translation(tuple(-foot)))
-    for ob in obs:
-        ob.matrix_world = m @ ob.matrix_world
     bpy.context.view_layer.update()
+    co = np.array([ob.matrix_world @ v.co for v in ob.data.vertices])
+    return co.mean(axis=0)
 
 
-def kiseru(name: str, coll) -> list:
-    """A long thin pipe along +x from its mouthpiece's end at the origin: the brass mouthpiece, the dark bamboo stem and
-    the brass bowl turned up at its end. Returns [mouthpiece, stem, bowl, cup]."""
-    from lib import shapes, toon
-
-    from .vroid_common import COLORS
-
-    brass = toon.cel(f"{name}-brass", *COLORS["brass"], cut=0.5)
-    stem = toon.cel(f"{name}-stem", (0.06, 0.035, 0.022), (0.014, 0.009, 0.006), cut=0.45)
-    p = PIPE
-    a, b = p["mouth"], p["mouth"] + p["stem"]
-    end = b + p["bowl"]
-    obs = [shapes.loft(f"{name}-mouth", [(0, 0, 0), (a * 0.6, 0, 0), (a, 0, 0)], [0.0035, 0.0042, 0.0048], material=brass,
-                       coll=coll, n=10, subsurf=0),
-           shapes.cylinder(f"{name}-stem", (a - 0.003, 0, 0), (b + 0.003, 0, 0), 0.0045, material=stem, coll=coll, n=10),
-           shapes.loft(f"{name}-bowl", [(b, 0, 0), (end - 0.012, 0, 0.0), (end - 0.004, 0, 0.004), (end, 0, 0.012)],
-                       [0.0048, 0.0045, 0.0055, 0.0065], material=brass, coll=coll, n=10, subsurf=0),
-           shapes.lathe(f"{name}-cup", [(0.0, -0.002), (p["cup"] * 0.6, 0.0), (p["cup"], 0.008), (p["cup"] * 0.8, 0.0085)],
-                        material=brass, coll=coll, n=14, center=(end, 0, 0.012))]
-    return obs
-
-
-def hold_pipe(st: Stage, f: int, point, along, up=(0.0, 0.0, 1.0)) -> None:
-    """Key Tsuru's right fist round her pipe through `point` along `along` (bowl-ward; world), its palm toward her
-    and down."""
-    ch = st.cast["tsuru"]["vrm"]
-    p, d = local(ch, point), local_dir(ch, along)
-    d = d / np.linalg.norm(d)
-    palm = np.cross(d, local_dir(ch, up))
-    if palm[0] < 0:     # toward her middle, from the right hand
-        palm = -palm
-    palm = palm * 0.6 + np.array((0.0, 0.0, -0.4))
-    st.grip("tsuru", "right", f, p, -d, palm, (-0.45, 0.25, 0.75))
-
-
-def fit_pipe(st: Stage, point, along) -> None:
-    """Build the pipe into her right fist as posed (at the current frame) through `point` along `along` (world), and
-    carry it with her hand from then on."""
-    from lib import vrm
-
-    d = np.asarray(along, float) / np.linalg.norm(along)
-    origin = np.asarray(point, float) - d * GRIP_ALONG
-    up = np.array((0.0, 0.0, 1.0))
-    side = np.cross(up, d)
-    side /= np.linalg.norm(side)
-    up = np.cross(d, side)
-    from mathutils import Matrix
-
-    m = Matrix(((d[0], side[0], up[0], origin[0]), (d[1], side[1], up[1], origin[1]), (d[2], side[2], up[2], origin[2]),
-                (0, 0, 0, 1)))
-    for ob in st.cast["tsuru"]["pipe"]:
-        ob.matrix_world = m
-        vrm.attach(ob, st.cast["tsuru"]["vrm"], "rightHand")
+def hilt_axis(st: Stage) -> tuple:
+    """(guard, up the hilt to its pommel) of his sheathed nodachi, his frame (props.katana's pieces: blade, collar,
+    guard, hilt, cap)."""
+    ch = st.cast["shinza"]["vrm"]
+    sword = st.cast["shinza"]["parts"]["sword"]
+    guard = local(ch, part_center(next(o for o in sword if o.name.endswith("tsuba"))))
+    cap = local(ch, part_center(next(o for o in sword if o.name.endswith("kashira"))))
+    u = cap - guard
+    return guard, u / np.linalg.norm(u)
 
 
 def pipe_bowl(st: Stage) -> np.ndarray:
-    """The pipe's bowl (world), as posed now."""
-    import bpy
+    """Her pipe's bowl (world), as posed now (props.kiseru: [stem, mouthpiece, neck, bowl])."""
+    return part_center(st.cast["tsuru"]["parts"]["pipe"][-1])
 
-    bpy.context.view_layer.update()
-    cup = next(ob for ob in st.cast["tsuru"]["pipe"] if ob.name.endswith("-cup"))
-    return np.array(cup.matrix_world.translation)
-
-
-def stand_shinza(built, coll, look) -> None:
-    """Shinza out of the standoff's guard: standing two paces behind her, his sword sheathed across his back (the
-    standoff's drawn katana gone), his kasa hanging off it. His hands and head are keyed by the shot."""
-    from lib import vrm
-
-    from .vroid_common import plant
-
-    ch = built["vrm"]
-    _remove(built["props"])
-    _place(built, SHINZA_AT, SHINZA_FACING)
-    vrm.pose(ch, {}, hips=(0.0, 0.0, -0.01))
-    sole = ch.rest("leftFoot")[2]
-    plant(ch, {side: ((x, y, sole), (x * 1.6, -1.0, 0.5), (0.0, 0.0, turn)) for side, (x, y, turn) in SH_FEET.items()})
-    built.update(back_gear(ch, coll, look))
-
-
-def saya_axis() -> np.ndarray:
-    """Up along the scabbard toward its mouth (his frame)."""
-    u = SAYA_MOUTH - SAYA_FOOT
-    return u / np.linalg.norm(u)
-
-
-def back_gear(ch, coll, look) -> dict:
-    """His nodachi in its scabbard across his back and his kasa hanging off it, carried by his upper chest:
-    {"saya": [..], "sword": [blade, collar, guard, hilt, cap], "kasa": [..]}. Built at rest in his frame."""
-    from lib import anime, props, shapes, vrm
-
-    from .vroid_common import COLORS
-
-    m = anime.palette(COLORS, look, prefix="shinza-gear", cuts={"steel": 0.55})
-    u = saya_axis()
-    W = lambda p: tuple(ch.world(p))  # noqa: E731
-    pommel = SAYA_MOUTH + u * HILT
-    sword = props.katana("shinza-nodachi", m, W(pommel), tuple(np.array(W(SAYA_MOUTH)) - np.array(W(pommel))),
-                         hilt=HILT, blade=BLADE, coll=coll, side=tuple(np.array(W((1, 0, 0))) - np.array(W((0, 0, 0)))))
-    # the scabbard: black lacquer, its mouth a ring of horn, its foot capped
-    path = [SAYA_MOUTH - u * k for k in np.linspace(0.0, BLADE + 0.04, 6)]
-    saya = [shapes.loft("shinza-saya", [W(p) for p in path], [0.021, 0.02, 0.019, 0.018, 0.017, 0.015],
-                        [0.014, 0.0135, 0.013, 0.0125, 0.012, 0.011], material=m["lacquer"], coll=coll, n=12, subsurf=0,
-                        up=tuple(np.array(W((0, 1, 0))) - np.array(W((0, 0, 0))))),
-            shapes.cylinder("shinza-koiguchi", W(SAYA_MOUTH - u * 0.03), W(SAYA_MOUTH + u * 0.002), 0.0225,
-                            material=m["wrap"], coll=coll, n=12)]
-    # its cord over his left shoulder and across his chest to the right hip (his frame), a rope as the cels draw it
-    cord = [(0.03, 0.17, 1.2), (0.12, 0.1, 1.46), (0.14, -0.06, 1.42), (0.06, -0.135, 1.27), (-0.07, -0.13, 1.08),
-            (-0.15, -0.09, 0.96), (-0.17, 0.0, 0.92)]
-    saya.append(shapes.loft("shinza-sageo", [W(p) for p in cord], 0.006, material=m["rope"], coll=coll, n=6,
-                            subsurf=1))
-    k = KASA
-    R = _euler(k["tilt"])
-    r, h = k["radius"], k["rise"]
-    prof = [(r, 0.0), (r * 0.95, h * 0.12), (r * 0.6, h * 0.55), (r * 0.25, h * 0.88), (0.0, h)]
-    kasa = [shapes.lathe("shinza-kasa", [(rr, z) for rr, z in prof], material=m["straw"], coll=coll, n=28,
-                         center=(0, 0, 0), rot=None)]
-    kasa.append(shapes.lathe("shinza-kasa-under", [(r * 0.97, 0.002), (r * 0.6, h * 0.5), (0.0, h * 0.95)],
-                             material=m["straw_dark"], coll=coll, n=28))
-    from mathutils import Matrix
-
-    world_R = np.array(ch.armature.matrix_world.to_3x3().normalized()) @ ch.frame @ R
-    c = W(k["center"])
-    mw = Matrix([[*world_R[0], c[0]], [*world_R[1], c[1]], [*world_R[2], c[2]], [0, 0, 0, 1]])
-    for ob in kasa:
-        ob.matrix_world = mw
-    kasa.append(shapes.loft("shinza-kasa-cord", [W(p) for p in ((0.1, 0.2, 1.15), (0.06, 0.12, 1.35),
-                                                                (0.07, 0.04, 1.47))], 0.003, material=m["rope"],
-                            coll=coll, n=5, subsurf=0))
-    for ob in (*saya, *kasa):
-        vrm.attach(ob, ch, "upperChest" if ch.has("upperChest") else "chest")
-    for ob in sword:
-        vrm.attach(ob, ch, "upperChest" if ch.has("upperChest") else "chest")
-    return {"saya": saya, "sword": sword, "kasa": kasa, "gear_m": m}
-
-
-def _euler(deg) -> np.ndarray:
-    x, y, z = (math.radians(v) for v in deg)
-    Rx = np.array([[1, 0, 0], [0, math.cos(x), -math.sin(x)], [0, math.sin(x), math.cos(x)]])
-    Ry = np.array([[math.cos(y), 0, math.sin(y)], [0, 1, 0], [-math.sin(y), 0, math.cos(y)]])
-    Rz = np.array([[math.cos(z), -math.sin(z), 0], [math.sin(z), math.cos(z), 0], [0, 0, 1]])
-    return Rz @ Ry @ Rx
 
 
 # ---------------------------------------------------------------------------------------------------- performance
 
 # where the hands hang at rest (each character's frame: x their left, y their back, z up; wrists)
 HANG = {"right": (-0.21, -0.01, 0.97), "left": (0.21, -0.01, 0.97)}
-TS_KNEE_HAND = (0.13, -0.22, 0.5)        # her left hand resting on her knee
-TS_PIPE_LAP = ((-0.11, -0.27, 0.55), (-0.25, -1.0, -0.2))   # her pipe resting by her right knee: (fist, along)
+TS_KNEE_HAND = (-0.13, -0.24, 0.56)      # her right hand resting on her knee
+TS_PIPE_LAP = ((0.12, -0.25, 0.62), (-0.2, -1.0, 0.05))   # her pipe resting over her left knee: (fist, along)
 
 
 def fingers(side: str, curl: float) -> dict:
@@ -702,15 +540,20 @@ def fingers(side: str, curl: float) -> dict:
 
 def shinza_hips(t: float) -> tuple:
     """His hips: his weight settled on his back (left) foot, breathing."""
-    return (0.018, 0.0, -0.014 + 0.002 * math.sin(2 * math.pi * t / 3.4))
+    return (0.018, 0.0, -0.012 + 0.002 * math.sin(2 * math.pi * t / 3.4))
 
 
 def shinza_stand(t: float, *, look_out: float = 0.0, reach: float = 0.0, gust: float = 0.0, chin: float = 0.0) -> dict:
-    """His body standing over her (his frame's turns, vrm.pose): chest out, his head down to her (she sits below
-    him); `look_out` turns his head and eyes out to the far shore (his left), `reach` turns his chest and lifts his
-    right shoulder as the hand goes to the hilt, `gust` leans his head from the wind, `chin` lifts it (defiance)."""
+    """His body standing over her (his frame's turns, vrm.pose; legs as rf/vroid_shinza.py's STAND_POSE): chest out,
+    his head down to her (she sits below him); `look_out` turns his head and eyes out to the far shore (his left),
+    `reach` turns his chest and lifts his right shoulder as the hand goes to the hilt, `gust` leans his head from the
+    wind, `chin` lifts it (defiance)."""
+    from .vroid_shinza import STAND_POSE
+
     br = math.sin(2 * math.pi * t / 3.4)
+    legs = {k: v for k, v in STAND_POSE.items() if "Leg" in k or k == "hips"}
     return {
+        **legs,
         "spine": (-2.0 + 0.6 * br, 0.0, 3.0),
         "chest": (-3.0 + 0.8 * br, 0.0, -7.0 * reach),
         "upperChest": (-2.0, 0.0, -4.0 * reach),
@@ -722,77 +565,75 @@ def shinza_stand(t: float, *, look_out: float = 0.0, reach: float = 0.0, gust: f
     }
 
 
-def hilt_grip(ch) -> tuple:
-    """(wrist, turn) of his right fist on the hilt standing over his right shoulder, its knuckles up the hilt and its
-    palm to the blade's flat (his frame)."""
-    u = saya_axis()
-    turn = hand_turn(ch, "right", u, flat_palm(u))
-    return fist_wrist(ch, "right", SAYA_MOUTH + u * 0.07, turn), turn
+def hilt_grip(st: Stage, along: float = 0.06) -> tuple:
+    """(wrist, turn) of his right fist on the hilt standing over his right shoulder, `along` up it from the guard: its
+    knuckles up the hilt and its palm to the blade's flat (against his back), his frame."""
+    ch = st.cast["shinza"]["vrm"]
+    guard, u = hilt_axis(st)
+    turn = hand_turn(ch, "right", u, flat_palm(u, (0.25, 1.0, 0.0)))
+    return fist_wrist(ch, "right", guard + u * along, turn), turn
 
 
 def tsuru_sit(t: float, *, turn: float = 0.0, down: float = 0.0, eyes=(0.0, 0.0), lean: float = 0.0) -> dict:
-    """Her body seated (her frame's turns): the back rounded, the head forward on the neck; `turn` (degrees, + to her
-    left) her head round, shared down her neck and back; `down` her head bowed (degrees); `eyes` (down, left) degrees;
-    `lean` forward over her knees (degrees)."""
+    """Her body seated (her frame's turns, on rf/vroid_tsuru.py's SEATED_POSE): `turn` (degrees, + to her left) her
+    head round, shared down her neck and back; `down` her head bowed (degrees); `eyes` (down, left) degrees; `lean`
+    forward over her knees (degrees)."""
+    from .vroid_tsuru import SEATED_POSE
+
     br = math.sin(2 * math.pi * t / 4.1)
+    sp, ch, uc, nk, hd = (SEATED_POSE[k] for k in ("spine", "chest", "upperChest", "neck", "head"))
     return {
-        "spine": (8.0 + lean * 0.5 + 0.4 * br, 0.0, turn * 0.12),
-        "chest": (10.0 + lean * 0.5, 0.0, turn * 0.12),
-        "upperChest": (8.0 + 0.5 * br, 0.0, turn * 0.1),
-        "neck": (10.0 + down * 0.4, 0.0, turn * 0.26),
-        "head": (-22.0 + down * 0.6, 0.0, turn * 0.4),
+        **SEATED_POSE,
+        "spine": (sp[0] + lean * 0.5 + 0.4 * br, 0.0, turn * 0.12),
+        "chest": (ch[0] + lean * 0.5, 0.0, turn * 0.12),
+        "upperChest": (uc[0] + 0.5 * br, 0.0, turn * 0.1),
+        "neck": (nk[0] + down * 0.4, 0.0, turn * 0.26),
+        "head": (hd[0] + down * 0.6, 0.0, hd[2] + turn * 0.4),
         "leftEye": (eyes[0], 0.0, eyes[1]),
         "rightEye": (eyes[0], 0.0, eyes[1]),
-        "leftShoulder": (0.0, 5.0, -8.0),
-        "rightShoulder": (0.0, -5.0, 8.0),
     }
 
 
-def tsuru_hips(t: float) -> tuple:
-    return (TS_HIPS[0], TS_HIPS[1], TS_HIPS[2] + 0.0015 * math.sin(2 * math.pi * t / 4.1))
+def tsuru_hips(st: Stage, t: float) -> tuple:
+    """Her hips on the crate (rf/vroid_tsuru.py's seated hips), breathing."""
+    from .vroid_tsuru import SEAT
+
+    ch = st.cast["tsuru"]["vrm"]
+    return (0.0, 0.0, SEAT + 0.07 - ch.rest("leftUpperLeg")[2] + 0.0015 * math.sin(2 * math.pi * t / 4.1))
 
 
-def hold_pipe_local(st: Stage, f: int, point, along) -> None:
-    """Key Tsuru's right fist round her pipe through `point` along `along` (bowl-ward), her frame: the palm in toward
-    her and down. Remembers the hold, for `settle` to build the pipe into the fist."""
+def hold_pipe(st: Stage, f: int, point, along) -> None:
+    """Key Tsuru's left fist round her pipe through `point` along `along` (bowl-ward), her frame: the palm in toward
+    her and up a little, as rf/vroid_tsuru.py's builder closed it."""
     d = np.asarray(along, float) / np.linalg.norm(along)
-    palm = flat_palm(d, (0.7, 0.0, -0.7))
-    st.grip("tsuru", "right", f, point, -d, palm, (-0.45, 0.3, 0.7))
-    st.cast["tsuru"].setdefault("pipe_at", {})[f] = (np.asarray(point, float), d)
+    st.grip("tsuru", "left", f, point, -d, flat_palm(d, (-0.5, 0.0, 0.8)), (0.5, 0.4, 0.7))
+
+
+def knee_hand(st: Stage, f: int) -> None:
+    """Her right hand resting on her right knee."""
+    ch = st.cast["tsuru"]["vrm"]
+    st.hand("tsuru", "right", f, TS_KNEE_HAND, hand_turn(ch, "right", (-1.0, 0.0, 0.0), (0.0, 0.0, -1.0)),
+            (-0.5, 0.6, 0.9))
 
 
 def tsuru_rest(st: Stage, f: int, t: float, **sit) -> None:
-    """Tsuru still on her crate: her pipe resting by her right knee, her left hand on her knee."""
-    ch = st.cast["tsuru"]["vrm"]
-    st.pose("tsuru", f, {**tsuru_sit(t, **sit), **fingers("right", 0.75), **fingers("left", 0.35)}, hips=tsuru_hips(t))
-    hold_pipe_local(st, f, *TS_PIPE_LAP)
+    """Tsuru still on her crate: her pipe resting over her left knee, her right hand on her right knee."""
+    st.pose("tsuru", f, {**tsuru_sit(t, **sit), **fingers("left", 0.85), **fingers("right", 0.35)},
+            hips=tsuru_hips(st, t))
+    hold_pipe(st, f, *TS_PIPE_LAP)
     knee_hand(st, f)
     st.face("tsuru", f, {"s4-calm": 1.0})
 
 
-def knee_hand(st: Stage, f: int) -> None:
-    ch = st.cast["tsuru"]["vrm"]
-    st.hand("tsuru", "left", f, TS_KNEE_HAND, hand_turn(ch, "left", (1.0, 0.0, 0.0), (0.0, 0.0, -1.0)),
-            (0.45, 0.25, 0.8))
-
-
-def settle(st: Stage, *, sword_in_hand: bool = False) -> None:
-    """Once the performance is keyed: her pipe built into her fist as it is on the shot's first frame, and (the draw)
-    his sword taken off his back into his right fist there."""
+def draw_sword(st: Stage) -> None:
+    """His sword out of its scabbard into his right fist, as it is on the shot's first frame (the draw)."""
     import bpy
 
     from lib import vrm
 
-    f0 = st.ctx.f0
-    st.ctx.scene.frame_set(f0)
+    st.ctx.scene.frame_set(st.ctx.f0)
     bpy.context.view_layer.update()
-    if "tsuru" in st.cast and st.cast["tsuru"].get("pipe_at"):
-        point, d = st.cast["tsuru"]["pipe_at"][f0]
-        ch = st.cast["tsuru"]["vrm"]
-        fit_pipe(st, ch.world(point), np.array(ch.world(point + d)) - np.array(ch.world(point)))
-    if sword_in_hand:
-        for ob in st.cast["shinza"]["sword"]:
-            vrm.attach(ob, st.cast["shinza"]["vrm"], "rightHand")
+    vrm.attach(st.cast["shinza"]["parts"]["sword"][0], st.cast["shinza"]["vrm"], "rightHand")
 
 
 # ---------------------------------------------------------------------------------------------------- faces

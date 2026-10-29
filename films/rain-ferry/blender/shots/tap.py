@@ -41,7 +41,6 @@ def build(ctx):
     lines = st.line("L07")
     post = jt.post_top()
     perform(st, lines, post)
-    jt.settle(st)
     ash(st, post)
     shot = jt.Shot(CAM, LENS, FSTOP, breath=0.003)
     head = st.tracked_focus("tsuru")
@@ -81,16 +80,16 @@ def perform(st, lines, post):
         up = jt.ramp(t, *EYES_UP)
         # the pipe: from her fist toward the post, its bowl knocked on it; then down to rest by her knee
         bowl = jt.local(ch, bowl_path(t, post))
-        fist_knock = bowl + np.array((0.02, 0.17, 0.09))
+        fist_knock = bowl + np.array((-0.03, 0.19, 0.08))   # the fist 21 cm back up the stem
         along_knock = bowl - fist_knock
         lap, lap_along = jt.TS_PIPE_LAP
         fist = fist_knock * (1 - low) + np.asarray(lap) * low
         along = along_knock / np.linalg.norm(along_knock) * (1 - low) + np.asarray(lap_along) / np.linalg.norm(lap_along) * low
-        knock = sum(math.exp(-((t - a) / 0.05) ** 2) for a in jt.TAPS_OF(TAPS))
+        knock = sum(math.exp(-((t - a) / 0.05) ** 2) for a in TAPS)
         body = jt.tsuru_sit(t, turn=-14.0 * (1 - up) + 4.0 * up, down=10.0 * (1 - up) - 6.0 * up + 1.5 * knock,
                             eyes=(18.0 * (1 - up) - 2.0 * up, -6.0 * (1 - up)), lean=6.0 * (1 - low))
-        st.pose("tsuru", f, {**body, **jt.fingers("right", 0.75), **jt.fingers("left", 0.35)}, hips=jt.tsuru_hips(t))
-        jt.hold_pipe_local(st, f, fist, along)
+        st.pose("tsuru", f, {**body, **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)}, hips=jt.tsuru_hips(st, t))
+        jt.hold_pipe(st, f, fist, along)
         jt.knee_hand(st, f)
         smile = jt.ramp(t, *SMILE)
         st.face("tsuru", f, {"s4-calm": 1.0, "s4-smile": 0.8 * smile, "blink": jt.blink(t, BLINKS),
