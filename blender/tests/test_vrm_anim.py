@@ -269,3 +269,15 @@ def test_ground_from_a_height_or_a_function():
     assert va.ground_of(0.25)(3.0, -1.0) == 0.25
     hill = va.ground_of(lambda x, y: 0.1 * x)
     assert hill(2.0, 0.0) == pytest.approx(0.2)
+
+
+def test_fold_for_spans_the_reach():
+    assert va.fold_for(0.3, 0.25, 0.55) == pytest.approx(0.0, abs=1e-6)       # straight
+    assert va.fold_for(0.3, 0.3, 0.3) == pytest.approx(120.0)                 # an equilateral fold
+    assert va.fold_for(0.3, 0.25, 0.21) > 120.0                               # a hilt over the shoulder: well folded
+    assert va.fold_for(0.3, 0.25, 0.0) == pytest.approx(180.0)                # no closer than fully folded
+    assert va.fold_for(0.3, 0.25, 9.0) == pytest.approx(0.0, abs=1e-6)
+    # the folded limb's ends are that far apart
+    a, b, r = 0.28, 0.24, 0.33
+    t = math.radians(180.0 - va.fold_for(a, b, r))
+    assert math.sqrt(a * a + b * b - 2 * a * b * math.cos(t)) == pytest.approx(r)
