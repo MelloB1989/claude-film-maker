@@ -13,10 +13,11 @@ import math
 SHOT = {"scene": "eyes"}
 
 # he stands where the walk leaves him (shots/walk.py), facing the way he walked
-LENS, FSTOP = 100.0, 2.0
-# framed from the brim down: the brim's front edge just under the frame's top (BRIM_V), the point of his nose near its
-# foot (NOSE_V), as the push ends; it starts PUSH times as far out
-BRIM_V, NOSE_V, NOSE = 0.9, 0.12, 0.05     # (frame heights from the bottom; his nose this far under his eyes, m)
+LENS, FSTOP = 100.0, 4.0
+# framed from the brim down, as the push ends: the brim's front edge (much nearer the lens than his eyes: it is
+# projected, not measured flat) just under the frame's top (BRIM_V), the point of his nose near its foot (NOSE_V); the
+# push starts PUSH times as far out
+BRIM_V, NOSE_V, NOSE = 0.92, 0.1, 0.05     # (frame heights from the bottom; his nose this far under his eyes, m)
 PUSH = 1.25
 BEARING = 14.0                 # degrees round from straight in front of him toward his left (our right)
 DZ = -0.06                     # the lens this far below his eyes: looking up under the brim
@@ -27,17 +28,19 @@ GLARE = (2.0, 0.35, 0.9)       # the glare hardens as the line ends: from s, ove
 BLINK = 2.75                   # s: one slow blink, after the line
 KEY = (0.2, -1.0, 1.25)        # his key: the grey sky ahead of him and above, so the brim shades his brow
 RIMS = [((0.8, 0.9), (0.6, 0.68, 0.85), 0.3, 0.003, 0.9), ((-1.0, -0.3), (0.42, 0.45, 0.52), 0.15, 0.003, 0.9)]
-BRIM_DRIPS = 6                 # how many places along the brim's front water drips from
+BRIM_DRIPS = 6
+PARA = 0.7                     # how deep the brim's shade over his brow goes (the compositor's para)                 # how many places along the brim's front water drips from
 
 
 def build(ctx):
     import sys
     from pathlib import Path
 
+    import bpy
     from mathutils import Vector
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from lib import cinema, satsuei, vrm_anim as va
+    from lib import cinema, satsuei, vrm, vrm_anim as va
     from rf import approach
 
     import importlib.util
@@ -95,15 +98,34 @@ def build(ctx):
     hat = st.shinza["kasa"][0]
     mw = hat.matrix_world
     front = max((mw @ v for v in approach.brim(hat)), key=lambda p: (p - eye).dot(toward))
-    top, foot = front.z, eye.z - NOSE
-    h = (top - foot) / (BRIM_V - NOSE_V)                       # the frame's height at his face (m)
-    d = h * LENS / cinema.GATE_H
-    aim = Vector((eye.x, eye.y, foot + (0.5 - NOSE_V) * h)) - right * THIRD
-    cam1 = aim + toward * d + Vector((0.0, 0.0, DZ))
-    cam0 = aim + (cam1 - aim) * PUSH
-    rig = cinema.film(ctx, [cinema.Setup("eyes", 0.0, cinema.line(tuple(cam0), tuple(cam1), tuple(aim)),
-                                         lens=LENS, fstop=FSTOP, focus=(ch, near),
+    zb, zn, cz = front.z, eye.z - NOSE, eye.z + DZ
+    ahead = (front - eye).dot(toward)                          # how much nearer the lens the brim's edge is (m)
+    k = cinema.GATE_H / LENS                                   # frame heights per unit of slope
+
+    def spread(d):
+        """How far apart (frame heights) the brim and his nose land with the lens d from his eyes."""
+        return ((zb - cz) / (d - ahead) - (zn - cz) / (d - 0.02)) / k
+
+    lo_d, hi_d = ahead + 0.05, 4.0
+    for _ in range(60):                                        # spread falls as the lens backs off
+        mid = (lo_d + hi_d) / 2
+        lo_d, hi_d = (mid, hi_d) if spread(mid) > BRIM_V - NOSE_V else (lo_d, mid)
+    d = (lo_d + hi_d) / 2
+    tilt = (zn - cz) / (d - 0.02) - (NOSE_V - 0.5) * k        # the view's slope up from level
+    cam1 = eye + toward * d + Vector((0.0, 0.0, DZ)) - right * THIRD
+    aim = cam1 - toward + Vector((0.0, 0.0, tilt))
+    cam0 = eye + toward * (d * PUSH) + Vector((0.0, 0.0, DZ)) - right * THIRD
+    h = d * k
+    # sharp on the near eye's surface (its bone is inside the eyeball), carried by his head
+    focus = bpy.data.objects.new("eye-focus", None)
+    ctx.scene.collection.objects.link(focus)
+    focus.location = Vector(ch.point(near)) + toward * 0.012
+    vrm.attach(focus, ch, "head")
+    rig = cinema.film(ctx, [cinema.Setup("eyes", 0.0, cinema.line(tuple(cam0), tuple(cam1), tuple(aim),
+                                                                  tuple(aim + (cam0 - cam1))),
+                                         lens=LENS, fstop=FSTOP, focus=focus,
                                          shake=cinema.Shake(breath=0.03, hits=((0.0, 0.2),)))])
+    v = rig.pose(ctx.f1 - 1).screen(tuple(front))[1]
     approach.storm(ctx, rig, st, ground=z)
     # water dripping off the brim's front edge, carried with his head as it comes up
     approach.brim_drips("brim", hat, front=cam0, n=BRIM_DRIPS, period=0.9, hang=0.6, fall=0.9,
@@ -112,9 +134,11 @@ def build(ctx):
     comp = satsuei.setup(ctx.scene, st.cast)
     for f in rig.frames:
         s = ctx.look_at(f)
-        comp.key(f, s.look(rims=[satsuei.Rim(*r) for r in RIMS], para_from=(0.5, 1.0), para_to=(0.5, 0.55),
-                           wrap_width=0.03))
+        # the brim's shade over his brow and down to his eyes (the eyes, unshaded, stay lit in it)
+        comp.key(f, s.look(rims=[satsuei.Rim(*r) for r in RIMS], para_from=(0.5, 0.42), para_to=(0.5, 0.8),
+                           para_amount=PARA, wrap_width=0.03))
     comp.hold()
     ctx.scene.frame_set(ctx.f0)
     print(f"eyes: his eyes at {tuple(round(v, 3) for v in eye)}, the brim's front {front.z - eye.z:+.3f} m over them; "
-          f"the frame {h:.3f} m high, the lens {d * PUSH:.2f} -> {d:.2f} m out")
+          f"{ahead:.3f} m nearer the lens (on screen at {v:.2f}); the frame {h:.3f} m high at his eyes, the lens "
+          f"{d * PUSH:.2f} -> {d:.2f} m out")
