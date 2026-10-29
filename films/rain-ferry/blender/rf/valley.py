@@ -30,7 +30,7 @@ AIM = (40.0, 1800.0, 60.0)
 # real hut is a speck)
 HAMLET = (-14.0, 380.0)
 HAMLET_SCALE = 7.0
-SUN = (0.42, 1.0, 0.32)          # toward the sun (behind the valley's right side, low): the gold light's direction
+SUN = (0.42, 1.0, 0.19)          # toward the sun (behind the valley's right side, low): the gold light's direction
 SKY_FAR = 9000.0                  # the sky dome's radius
 # the scene properties the materials read (linear colours, or 0..1)
 PROPS = ("rf_zenith", "rf_horizon", "rf_fog", "rf_lit", "rf_shade", "rf_accent", "rf_gold", "rf_sun", "rf_rain",
@@ -339,8 +339,9 @@ def sky_material(name: str, *, scene, sun=SUN):
     cloud = n.math("MULTIPLY_ADD", fine, 0.35, n.math("MULTIPLY", big, 0.8))
     # the opening: round the sun, wider as rf_sun rises
     toward = n.math("MAXIMUM", n.vmath("DOT_PRODUCT", d, _unit(sun)), 0.0)
-    opening = n.math("MULTIPLY", n.ramp(toward, 0.55, 0.995), n.prop("rf_sun"))
-    cover = n.math("SUBTRACT", n.math("MULTIPLY_ADD", cloud, 1.0, 0.12), n.math("MULTIPLY", opening, 0.9))
+    opening = n.math("MULTIPLY", n.ramp(toward, 0.82, 0.997), n.prop("rf_sun"))
+    cover = n.math("SUBTRACT", n.math("MULTIPLY_ADD", cloud, 1.0, 0.12),
+                   n.math("ADD", n.math("MULTIPLY", opening, 0.55), n.math("MULTIPLY", n.prop("rf_sun"), 0.06)))
     thick = n.ramp(cover, 0.38, 0.62)
     dark = n.mix(0.55, n.prop("rf_horizon", True), (0.02, 0.022, 0.028))
     shaded = n.mix(n.ramp(fine, 0.3, 0.75), dark, n.mix(0.5, n.prop("rf_horizon", True), n.prop("rf_zenith", True)))
@@ -714,8 +715,9 @@ def ink_pine(name: str, base, height: float, material, coll, *, seed: int = 1, l
         ang = rng.uniform(0, 2 * math.pi)
         far = height * (0.32 - 0.22 * u) * rng.uniform(0.8, 1.3) * reach
         tip = at + np.array([math.cos(ang) * far, math.sin(ang) * far, far * rng.uniform(-0.05, 0.15)])
-        obs.append(shapes.cylinder(f"{name}-branch{j}", tuple(at), tuple(tip), 0.006 * height, material=material, coll=coll,
-                                   n=6, r2=0.002 * height))
+        sag = (at + tip) / 2 + np.array([0.0, 0.0, -0.06 * far + rng.uniform(-0.02, 0.04) * far])
+        obs.append(shapes.loft(f"{name}-branch{j}", np.array([at, sag, tip]), [0.0045 * height, 0.0025 * height, 0.001 * height],
+                               material=material, coll=coll, n=6, subsurf=1))
         pads.append((tip, height * (0.17 - 0.08 * u) * rng.uniform(0.8, 1.25)))
     pads.append((np.array(pts[-1]) + np.array([0, 0, height * 0.02]), height * 0.11))
     for k, (c, r) in enumerate(pads):
