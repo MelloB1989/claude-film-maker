@@ -68,7 +68,7 @@ def build(ctx):
     floor = Vector((float(valley.river_x(1900.0)), 1900.0, 0.0))
     weather.sun_beams("beams", tuple(source), tuple((floor - source).normalized()), spread=(900.0, 220.0),
                       length=(floor - source).length * 1.05, count=BEAMS, width=(25.0, 160.0),
-                      color=tuple(ctx.look_at(ctx.f1 - 1).light.warm), strength=0.2, seed=5, coll=world["coll"])
+                      color=tuple(ctx.look_at(ctx.f1 - 1).light.warm), strength=0.5, seed=5, coll=world["coll"])
 
     # the crow: out from over the camera's shoulder, away toward the sun
     s0 = ctx.look_at(ctx.f1 - 1)
