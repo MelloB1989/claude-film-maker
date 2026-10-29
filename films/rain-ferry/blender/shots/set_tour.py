@@ -5,7 +5,8 @@ sets themselves (not a shot of the film). The view and the weather come from the
         --engine eevee --frames 516 --res 960x540
 
 RF_VIEW is a set_world.views() name, or several by commas (the shot's first frame shows the first, the next frame the
-second, ...: render those frames to see them all from one build) (open, valley, crow, step, walk, ferry, jetty_low, jetty_top, tap, cross);
+second, ...: render those frames to see them all from one build), optionally after a weather and a colon
+("after:cross,valley") (open, valley, crow, step, walk, ferry, jetty_low, jetty_top, tap, cross);
 RF_WEATHER rain, thinning or after (default: the look schedule's at the frame). The rain falls as the schedule's (none
 after the rain), the near set is inked as the standoff inks it.
 """
@@ -26,8 +27,11 @@ def build(ctx):
     from lib import rig, toon
     from rf import set_world
 
-    names = os.environ.get("RF_VIEW", "ferry").split(",")
+    spec = os.environ.get("RF_VIEW", "ferry")
     weather = os.environ.get("RF_WEATHER") or None
+    if ":" in spec:                       # "after:cross,valley": the weather and the views in one variable
+        weather, spec = spec.split(":", 1)
+    names = spec.split(",")
     scene = ctx.scene
     scene.render.use_motion_blur = False
     world = set_world.build(ctx, weather=weather)
