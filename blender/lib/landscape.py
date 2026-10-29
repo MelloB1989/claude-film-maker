@@ -239,7 +239,7 @@ def conifer_mesh(base, height: float, *, seed: int = 1, tiers: int = 5, sides: i
     return np.array(verts, float), faces
 
 
-def cedar_mesh(base, height: float, *, seed: int = 1, clumps: int = 9, sides: int = 6, spread: float = 0.2,
+def cedar_mesh(base, height: float, *, seed: int = 1, clumps: int = 12, sides: int = 8, spread: float = 0.2,
                bare: float = 0.32, lean: float = 0.03) -> tuple[np.ndarray, list]:
     """(verts, faces) of a Japanese cedar (sugi) as an ink painting draws one: a tall straight trunk bare for its
     lowest `bare` of the height, then a narrow crown of `clumps` flat, ragged clouds of needles stacked up it (each
@@ -261,23 +261,24 @@ def cedar_mesh(base, height: float, *, seed: int = 1, clumps: int = 9, sides: in
     faces += [(i, (i + 1) % 4, 4 + (i + 1) % 4, 4 + i) for i in range(4)]
     for c in range(clumps):
         f = c / max(1, clumps - 1)
-        zc = bz + height * (bare + (0.96 - bare) * f ** 0.9)
-        w = spread * height * (1.0 - 0.82 * f) * rng.uniform(0.75, 1.2)
-        th = w * rng.uniform(0.35, 0.5)
+        zc = bz + height * (bare + (0.95 - bare) * f ** 0.85) + rng.normal(0, 0.012 * height)
+        w = spread * height * (1.0 - 0.8 * f) * rng.uniform(0.7, 1.25)
+        th = w * rng.uniform(0.5, 0.75)                   # thick enough that the sprays overlap: one ragged mass
         ax, ay = axis(zc)
         ang = rng.uniform(0, 2 * math.pi)
-        off = w * 0.35 * (1 - f)
+        off = w * 0.25 * (1 - f)
         cx, cy = ax + off * math.cos(ang), ay + off * math.sin(ang)
         top = len(verts)
-        verts.append((cx, cy, zc + th * 0.9))
+        verts.append((cx, cy, zc + th * 0.7))
         ph = rng.uniform(0, 2 * math.pi)
-        for ring, (rk, dz) in enumerate(((0.75, th * 0.25), (1.0, -th * 0.35))):
+        for ring, (rk, dz) in enumerate(((0.6, th * 0.25), (1.0, -th * 0.3))):
             for s in range(sides):
                 a = ph + 2 * math.pi * (s + 0.5 * ring) / sides
-                rr = w * rk * rng.uniform(0.7, 1.15)
-                verts.append((cx + rr * math.cos(a), cy + rr * math.sin(a), zc + dz - (rr / w) ** 2 * th * 0.4 * ring))
+                # the outer ring's points alternate long and short (the sprays' tips), drooping as they reach out
+                rr = w * rk * (rng.uniform(0.85, 1.3) if (s + ring) % 2 == 0 else rng.uniform(0.5, 0.8))
+                verts.append((cx + rr * math.cos(a), cy + rr * math.sin(a), zc + dz - (rr / w) ** 2 * th * 0.6 * ring))
         bot = len(verts)
-        verts.append((cx, cy, zc - th * 0.55))
+        verts.append((cx, cy, zc - th * 0.5))
         r0, r1 = top + 1, top + 1 + sides
         for s in range(sides):
             t = (s + 1) % sides

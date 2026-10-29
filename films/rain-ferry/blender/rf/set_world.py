@@ -34,13 +34,14 @@ COLORS = {
     "slope": ((0.045, 0.05, 0.052), (0.02, 0.022, 0.025)),    # the valley's far ground (the fog pales it)
 }
 # what the rain leaves shining, and how much (of the weather's sheen) and how sharply (roughness)
-WET = {"plank": (1.0, 0.12), "post": (0.8, 0.15), "stave": (0.8, 0.15), "hull": (0.8, 0.15), "wood": (0.8, 0.15),
-       "sign": (0.5, 0.2), "rock": (0.7, 0.18), "mud": (0.5, 0.32)}
+WET = {"plank": (1.0, 0.14), "post": (0.45, 0.3), "stave": (0.45, 0.3), "hull": (0.6, 0.22), "wood": (0.6, 0.22),
+       "sign": (0.4, 0.3), "rock": (0.6, 0.25), "mud": (0.5, 0.32)}
 # the painted ones: (mottle, its patch size m, dry brush, its direction)
-PAINTED = {"mud": (0.45, 0.7, 0.3, "y"), "grass": (0.35, 1.5, 0.25, "z"), "rock": (0.3, 0.4, 0.35, "z"),
+PAINTED = {"mud": (0.6, 0.35, 0.45, "y"), "grass": (0.35, 1.5, 0.25, "z"), "rock": (0.3, 0.4, 0.35, "z"),
            "sign": (0.25, 0.15, 0.5, "z"), "plank": (0.2, 0.5, 0.35, "x")}
 
-# a starting framing for each location: (camera, aim, lens mm). Shots move from these as they need
+# a starting framing for each location: (camera, aim, lens mm); the approach keeps its trees off these cameras
+# (set_approach.CLEAR). Shots move from these as they need
 VIEWS = {
     # 1 open: high on the near slope, down the valley: the hut a speck by the water below, ridge after ridge beyond
     "open": None,
@@ -69,10 +70,10 @@ def views() -> dict:
     P = set_approach.path_xy()
     out = dict(VIEWS)
     g = set_valley.ground
-    out["open"] = ((-38.0, -70.0, float(g(-38.0, -70.0)) + 34.0), (30.0, 160.0, 12.0), 26.0)
-    out["valley"] = ((-20.0, -26.0, float(g(-20.0, -26.0)) + 7.0), (30.0, 110.0, 6.0), 24.0)
+    out["open"] = ((-38.0, -70.0, float(g(-38.0, -70.0)) + 46.0), (30.0, 160.0, 8.0), 26.0)
+    out["valley"] = ((-13.0, -9.0, float(g(-13.0, -9.0)) + 4.5), (30.0, 110.0, 6.0), 24.0)
     sx, sy, sz = _step()
-    out["step"] = ((sx - 1.1, sy - 0.9, sz + 0.14), (sx, sy, sz + 0.05), 24.0)
+    out["step"] = ((sx - 0.9, sy - 1.6, sz + 0.55), (sx + 0.2, sy + 0.3, sz), 28.0)
     i = int(len(P) * 0.55)
     x, y = P[i]
     x2, y2 = P[i - 50]

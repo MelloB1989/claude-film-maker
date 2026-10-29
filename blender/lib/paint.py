@@ -15,6 +15,8 @@ All of it then fades to the look's fog with distance like every toon material, a
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 
 def _math(nt, op: str, a, b=None, *, clamp: bool = False):
     m = nt.nodes.new("ShaderNodeMath")
@@ -56,9 +58,11 @@ def _noise(nt, vec, scale: float, detail: float = 3.0, roughness: float = 0.55):
 
 def wash(name: str, lit, shade, *, look=None, cut: float = 0.38, soft: float = 0.03, flash: float | None = None,
          mottle: float = 0.0, mottle_scale: float = 2.0, brush: float = 0.0, brush_scale: float = 1.0,
-         brush_dir: str = "z", brush_stretch: float = 12.0, mist=None, mist_z=(0.0, 50.0), mist_noise: float = 0.0):
+         brush_dir: str = "z", brush_stretch: float = 12.0, mist=None, mist_z=(0.0, 50.0), mist_noise: float = 0.0,
+         fog: float = 1.0):
     """A painted toon material (see the module): the lit and shade colours banded by the light at `cut`, mottled,
-    dry-brushed and washed into mist as asked, faded to the fog."""
+    dry-brushed and washed into mist as asked, faded to the fog (`fog` times as far as the look fades the rest: a far
+    ridge kept readable through it)."""
     import bpy
 
     from . import toon
@@ -122,7 +126,7 @@ def wash(name: str, lit, shade, *, look=None, cut: float = 0.38, soft: float = 0
         mk.inputs["To Max"].default_value = 0.0
         nt.links.new(z, mk.inputs["Value"])
         col = _mix(nt, mk.outputs["Result"], col, toon.flashed(nt, mist, look.flash_lit, look.flash_fog))
-    col = toon._fog_mix(nt, col, look)
+    col = toon._fog_mix(nt, col, look if fog == 1.0 else replace(look, fog_max=look.fog_max * fog))
     em = nt.nodes.new("ShaderNodeEmission")
     nt.links.new(col, em.inputs["Color"])
     out = nt.nodes.new("ShaderNodeOutputMaterial")

@@ -23,7 +23,7 @@ SLOPE = 0.38                        # the slope's steepness (it climbs SLOPE * d
 TREELINE = 150.0                    # no trees above this
 PEAK = 230.0                        # the slopes level off toward about this high (m), more on the spurs, less between
 MIST_Z = (5.0, 60.0)                # the mist lying in the valley: the slopes and forests fade into it below this
-RIDGES = [(300, 150, 3.0), (400, 190, 2.5), (520, 230, 0.0), (680, 270, 0.0), (880, 300, 0.0)]  # (y, height, tree fringe)
+RIDGES = [(260, 150, 3.0), (340, 190, 2.5), (440, 230, 0.0), (580, 270, 0.0), (760, 300, 0.0)]  # (y, height, tree fringe)
 MIST = [(60, 14, 300), (130, 30, 420), (210, 50, 620), (290, 70, 900), (380, 95, 1200), (500, 120, 1600)]   # (y, height, width)
 INK = ((0.035, 0.04, 0.048), (0.022, 0.026, 0.033))   # the mountains' ink, (lit, shade)
 
@@ -92,7 +92,8 @@ def materials(look, weather, pal: dict) -> dict:
     for k, (d, h, _) in enumerate(RIDGES):
         m[f"ridge{k}"] = paint.wash(f"valley-ridge{k}", *pal.get("ridge", INK), look=look, flash=0.0, brush=0.5,
                                     brush_scale=h / 25, brush_stretch=6.0, mist=fog,
-                                    mist_z=(sets.WATER_Z + 0.1 * h, sets.WATER_Z + 0.85 * h), mist_noise=0.12 * h)
+                                    mist_z=(sets.WATER_Z + 0.1 * h, sets.WATER_Z + 0.85 * h), mist_noise=0.12 * h,
+                                    fog=0.72 - 0.04 * k)
     return m
 
 
@@ -129,12 +130,13 @@ def build(m: dict, near, far, weather, *, seed: int = 7) -> dict:
                         sharp=0.55)
     mist = landscape.mist_layers(far, weather.sky, MIST, base_z=wz, density=0.75 * weather.mist)
     # low mist lying on the river, and banks of it drifting along the slopes (seen across the river too)
-    for k, (y, w) in enumerate(((25, 140), (55, 200))):
+    for k, (y, w) in enumerate(((30, 900), (75, 1100))):
         mist.append(toon.move_to(toon.mist_card(f"river-mist{k}", (FAR_EDGE * 0.5, y, wz + 2.5), (w, 7.0), weather.sky,
                                                 density=0.5 * weather.mist, drift=0.5, seed=7.3 + k), far))
-    for k, (x, y, z, w, h) in enumerate(((FAR_EDGE + 25, 20, 18, 240, 26), (FAR_EDGE + 60, 60, 45, 320, 40),
-                                         (-60, 60, 30, 260, 34), (-45, -40, 26, 200, 30))):
-        card = toon.mist_card(f"slope-mist{k}", (x, y, z), (w, h), weather.sky, density=0.55 * weather.mist, drift=0.7,
+    # (wide: a card's ends are cut square, so they stay out of every view)
+    for k, (x, y, z, w, h) in enumerate(((FAR_EDGE + 75, 40, 50, 1000, 40), (FAR_EDGE + 140, 80, 95, 1200, 60),
+                                         (-90, 60, 55, 1000, 50))):
+        card = toon.mist_card(f"slope-mist{k}", (x, y, z), (w, h), weather.sky, density=0.4 * weather.mist, drift=0.7,
                               seed=3.7 * k + 1, rotation=(math.pi / 2, 0, math.pi / 2))
         mist.append(toon.move_to(card, far))
     for ob in mist:

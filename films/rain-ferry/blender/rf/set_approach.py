@@ -19,6 +19,7 @@ PATH = [(-80.0, 5.5), (-62.0, 6.5), (-46.0, 4.8), (-32.0, 5.6), (-20.0, 4.6), (-
 WIDTH = 1.5                          # the path's width (m)
 SIGN = (-8.75, -2.4)                 # the signpost (x, y), on the path's slope side where it reaches the jetty
 SIGN_TEXT = "渡し"
+CLEAR = [(-13.0, -9.0), (-15.5, -11.5), (-10.6, -5.6), (-8.0, -6.0)]   # cameras the trees keep clear of (set_world views)
 FONT = Path(__file__).resolve().parents[2] / "fonts" / "ShipporiMincho-SemiBold.ttf"
 
 
@@ -60,14 +61,24 @@ def build(m: dict, near, weather, *, seed: int = 11) -> dict:
     for k, i in enumerate(sorted(rng.choice(np.arange(6, len(P) - 3), 14, replace=False))):
         x, y = P[i] + side[i] * rng.uniform(-0.35, 0.35)
         r = rng.uniform(0.22, 0.5)
-        puddles.append(water.puddle(f"path-puddle{k}", m["puddle"], near, (x, y), r, float(ground(x, y)) + 0.035,
+        puddles.append(water.puddle(f"path-puddle{k}", m["puddle"], near, (x, y), r, float(ground(x, y)) + 0.045,
                                     seed=seed + k, stretch=rng.uniform(1.2, 2.0),
                                     angle=math.atan2(tang[i, 1], tang[i, 0])))
     # the shot's own puddle (3 step): on the path's middle a few metres from the jetty's foot
     step_i = int(len(P) * 0.88)
     sx, sy = P[step_i]
-    puddles.append(water.puddle("step-puddle", m["puddle"], near, (sx, sy), 0.42, float(ground(sx, sy)) + 0.04, seed=seed + 99,
+    puddles.append(water.puddle("step-puddle", m["puddle"], near, (sx, sy), 0.42, float(ground(sx, sy)) + 0.05, seed=seed + 99,
                                 stretch=1.5, angle=math.atan2(tang[step_i, 1], tang[step_i, 0])))
+    # pebbles and stones trodden into the mud
+    stones = []
+    for k in range(160):
+        i = rng.integers(0, len(P))
+        x, y = P[i] + side[i] * rng.uniform(-0.5, 0.5) * WIDTH
+        r = rng.uniform(0.02, 0.07)
+        stones.append(shapes.ellipsoid(f"pebble{k}", (x, y, float(ground(x, y)) + 0.03), (r * 1.3, r, r * 0.5),
+                                       material=m["rock"], coll=near, n=6))
+    for st in stones:
+        st.lineart.usage = "EXCLUDE"
     # grass both sides of the path and along the bank, thick by the water; none on the path
     def from_path(x, y):
         return np.min(np.hypot(P[:, 0] - x[:, None], P[:, 1] - y[:, None]), axis=1)
@@ -95,7 +106,10 @@ def build(m: dict, near, weather, *, seed: int = 11) -> dict:
     # the slope's pines close by: tall dark trunks either side of the far path, thinning toward the ferry
     def wood(x, y):
         d = set_valley.inland(x, y)
-        return (from_path(x, y) > 2.2) & (y < -16) & ((d > 8.0) | ((d > 2.0) & (rng.uniform(size=len(x)) < 0.25)))
+        clear = np.ones(len(x), bool)
+        for cx, cy in CLEAR:
+            clear &= np.hypot(x - cx, y - cy) > 6.0
+        return (from_path(x, y) > 2.2) & (y < -16) & clear & ((d > 8.0) | ((d > 2.0) & (rng.uniform(size=len(x)) < 0.25)))
 
     pts = landscape.scatter(150, (-46.0, -4.0), (-82.0, -6.0), seed=seed + 1, min_gap=3.2, keep=wood)
     hs = rng.uniform(14.0, 24.0, len(pts))
