@@ -22,7 +22,7 @@ SIGN_TEXT = "渡し"
 FONT = Path(__file__).resolve().parents[2] / "fonts" / "ShipporiMincho-SemiBold.ttf"
 
 
-def path_xy(n: int = 120) -> np.ndarray:
+def path_xy(n: int = 400) -> np.ndarray:
     """(n, 2) points along the path's middle, from its far end to the jetty's foot."""
     from lib import boat
 
@@ -33,24 +33,28 @@ def path_xy(n: int = 120) -> np.ndarray:
 def build(m: dict, near, weather, *, seed: int = 11) -> dict:
     """The path, its puddles, grass, rocks and trees, and the signpost. `m`: mud, grass, needles, post, sign, paint,
     rock, puddle. Returns the pieces and anchors."""
-    from lib import landscape, shapes, water, wayside
+    from lib import landscape, shapes, toon, water, wayside
 
     rng = np.random.default_rng(seed)
     P = path_xy()
     ground = set_valley.ground
-    # the path: a strip of mud laid on the ground, a little ragged at its edges
+    # the path: a strip of mud laid on the ground, worn into two ruts by feet and carts, lumpy, ragged at its edges
     tang = np.gradient(P, axis=0)
     tang /= np.linalg.norm(tang, axis=1)[:, None]
     side = np.c_[-tang[:, 1], tang[:, 0]]
-    cols = 7
+    cols = 13
     verts = []
     for i, (p, s) in enumerate(zip(P, side)):
         for j in range(cols):
             f = j / (cols - 1) - 0.5
-            w = WIDTH * (1 + (0.25 * rng.uniform(-1, 1) if j in (0, cols - 1) else 0))
+            edge = j in (0, cols - 1)
+            w = WIDTH * (1 + (0.3 * rng.uniform(-1, 1) if edge else 0))
             x, y = p + s * f * w
-            verts.append((x, y, float(ground(x, y)) + 0.025 - 0.02 * (1 - (2 * f) ** 2)))
+            rut = -0.035 * math.exp(-((abs(f) - 0.22) / 0.07) ** 2)
+            lump = 0.025 * math.sin(x * 3.1 + y * 1.7) * math.sin(y * 2.3 - x) + rng.normal(0, 0.006)
+            verts.append((x, y, float(ground(x, y)) + (0.0 if edge else 0.03 + rut + lump)))
     path = shapes.mesh_object("path", verts, landscape.grid_faces(cols, len(P)), m["mud"], near, smooth=True)
+    path.lineart.usage = "OCCLUSION_ONLY"
     # puddles along it (rutted where feet go), each lying level just over the mud
     puddles = []
     for k, i in enumerate(sorted(rng.choice(np.arange(6, len(P) - 3), 14, replace=False))):
@@ -76,7 +80,8 @@ def build(m: dict, near, weather, *, seed: int = 11) -> dict:
 
     roots = landscape.scatter(2600, (-30.0, -2.0), (-82.0, 20.0), seed=seed, min_gap=0.32, keep=bank)
     tufts = [(x, y, float(ground(x, y))) for x, y in roots]
-    grass = landscape.grass("approach-grass", tufts, material=m["grass"], coll=near, seed=seed, blades=5, height=(0.3, 0.8))
+    grass = landscape.grass("approach-grass", tufts, material=m["grass"], coll=near, seed=seed, blades=7, height=(0.3, 0.8))
+    grass.lineart.usage = "EXCLUDE"     # too fine to ink: painted
     # rocks half sunk in the mud by the path
     rocks = []
     for k in range(26):
@@ -93,9 +98,17 @@ def build(m: dict, near, weather, *, seed: int = 11) -> dict:
         return (from_path(x, y) > 2.2) & (y < -16) & ((d > 8.0) | ((d > 2.0) & (rng.uniform(size=len(x)) < 0.25)))
 
     pts = landscape.scatter(150, (-46.0, -4.0), (-82.0, -6.0), seed=seed + 1, min_gap=3.2, keep=wood)
-    hs = rng.uniform(11.0, 20.0, len(pts))
+    hs = rng.uniform(14.0, 24.0, len(pts))
     trees = landscape.forest("approach-forest", [(x, y, float(ground(x, y))) for x, y in pts], hs, material=m["needles"],
-                             coll=near, seed=seed, tiers=6, sides=8, spread=0.22)
+                             coll=near, seed=seed, clumps=10, sides=7, spread=0.17, bare=0.4)
+    # the mist the path comes out of: banks across it, deeper and paler the further down the valley
+    mist = []
+    for k, y in enumerate((-18.0, -26.0, -35.0, -46.0, -58.0, -72.0)):
+        x = float(set_valley.near_edge(y)) - 8.0
+        card = toon.mist_card(f"path-mist{k}", (x, y, float(ground(x, y)) + 2.6 + 0.3 * k), (46.0, 9.0 + k), weather.sky,
+                              density=min(0.95, (0.35 + 0.1 * k) * weather.mist), drift=0.4 + 0.1 * k, seed=11.3 + k)
+        card.lineart.usage = "EXCLUDE"
+        mist.append(toon.move_to(card, near))
     # the signpost, its face to the path coming up from down the valley
     sz = float(ground(*SIGN))
     sign = wayside.signpost("signpost", {"post": m["sign"], "paint": m["paint"]}, near, (SIGN[0], SIGN[1], sz), SIGN_TEXT,
@@ -109,5 +122,5 @@ def build(m: dict, near, weather, *, seed: int = 11) -> dict:
         "sign_top": sign["anchors"]["top"],
         "sign_face": sign["anchors"]["face"],
     }
-    return {"path": path, "path_points": P, "puddles": puddles, "grass": grass, "rocks": rocks, "trees": trees,
+    return {"path": path, "path_points": P, "puddles": puddles, "grass": grass, "rocks": rocks, "trees": trees, "mist": mist,
             "sign": sign, "anchors": anchors}

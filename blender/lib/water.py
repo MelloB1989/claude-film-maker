@@ -216,4 +216,5 @@ def puddle(name: str, material, coll, center, radius: float, z: float, *, seed: 
     faces = [(0, 1 + i, 1 + (i + 1) % n) for i in range(n)]
     ob = shapes.mesh_object(name, verts, faces, material, coll, smooth=False)
     ob.visible_shadow = False
+    ob.lineart.usage = "OCCLUSION_ONLY"     # its rim is water meeting mud, not an edge to ink
     return ob

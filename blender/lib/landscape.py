@@ -16,25 +16,29 @@ import numpy as np
 from . import shapes
 
 
-def ridge_profile(xs: np.ndarray, distance: float, height: float, seed: int, *, trees: float = 0.0) -> np.ndarray:
+def ridge_profile(xs: np.ndarray, distance: float, height: float, seed: int, *, trees: float = 0.0,
+                  sharp: float = 0.0) -> np.ndarray:
     """The crest's height (m) at each x of a ridge `distance` away: rolling summits about `height`, one higher peak,
-    and with `trees` (m) a fringe of tree tips along it. Deterministic in `seed`."""
+    with `sharp` pointed peaks rising up to that share of `height` over them (an ink painting's crags), and with
+    `trees` (m) a fringe of tree tips along it. Deterministic in `seed`."""
     rng = np.random.default_rng(seed)
     ph = rng.uniform(0, 100)
     k = 2 * math.pi / (distance * 0.9)
     h = 0.55 * np.sin(xs * k * 0.7 + ph) + 0.3 * np.sin(xs * k * 1.9 + 2 * ph) + 0.15 * np.sin(xs * k * 4.3 + 3 * ph)
     h = height * (0.55 + 0.45 * h) + height * 0.25 * np.exp(-((xs - rng.uniform(-0.5, 0.5) * distance) / (0.25 * distance)) ** 2)
+    if sharp:
+        h = h + sharp * height * (1 - np.abs(np.sin(xs * k * 1.35 + 4 * ph))) ** 3 * (0.6 + 0.4 * np.sin(xs * k * 0.5 + ph))
     if trees:
         h = h + trees * np.abs(np.sin(xs * 7.3 / max(trees, 1e-3))) * rng.uniform(0.6, 1.0, len(xs))
     return h
 
 
 def ridge(name: str, material, coll, distance: float, height: float, *, seed: int = 1, width: float = 1.6, trees: float = 0.0,
-          base_z: float = -2.0, n: int = 240):
+          base_z: float = -2.0, n: int = 240, sharp: float = 0.0):
     """A ridge's silhouette across the view at y = `distance`, `width` times as wide as it is far, as a curtain down to
     `base_z`."""
     xs = np.linspace(-width * distance, width * distance, n)
-    h = ridge_profile(xs, distance, height, seed, trees=trees)
+    h = ridge_profile(xs, distance, height, seed, trees=trees, sharp=sharp)
     verts = [(x, distance + 0.02 * distance * math.sin(x * 0.01), z) for x, z in zip(xs, h)]
     verts += [(x, distance, base_z) for x in xs]
     faces = [(i, i + 1, n + i + 1, n + i) for i in range(n - 1)]
@@ -235,11 +239,71 @@ def conifer_mesh(base, height: float, *, seed: int = 1, tiers: int = 5, sides: i
     return np.array(verts, float), faces
 
 
-def forest(name: str, bases, heights, *, material, coll, seed: int = 1, tiers: int = 5, sides: int = 7, spread: float = 0.28):
-    """Conifers (`conifer_mesh`) at `bases` [(x, y, z), ...] of `heights`, merged into one object."""
+def cedar_mesh(base, height: float, *, seed: int = 1, clumps: int = 9, sides: int = 6, spread: float = 0.2,
+               bare: float = 0.32, lean: float = 0.03) -> tuple[np.ndarray, list]:
+    """(verts, faces) of a Japanese cedar (sugi) as an ink painting draws one: a tall straight trunk bare for its
+    lowest `bare` of the height, then a narrow crown of `clumps` flat, ragged clouds of needles stacked up it (each
+    off the trunk to one side or the other, their edges drooping), smaller as they climb to a thin spire. Low in
+    faces: a forest is thousands of them in one mesh."""
+    rng = np.random.default_rng(seed)
+    bx, by, bz = base
+    lx, ly = rng.normal(0, lean, 2)
+    verts, faces = [], []
+
+    def axis(z):
+        f = (z - bz) / height
+        return bx + lx * height * f, by + ly * height * f
+
+    r = 0.011 * height
+    for z, rr in ((bz - 0.3, r), (bz + height * 0.97, r * 0.3)):
+        ax, ay = axis(z)
+        verts += [(ax + rr * math.cos(a), ay + rr * math.sin(a), z) for a in (0.0, math.pi / 2, math.pi, 1.5 * math.pi)]
+    faces += [(i, (i + 1) % 4, 4 + (i + 1) % 4, 4 + i) for i in range(4)]
+    for c in range(clumps):
+        f = c / max(1, clumps - 1)
+        zc = bz + height * (bare + (0.96 - bare) * f ** 0.9)
+        w = spread * height * (1.0 - 0.82 * f) * rng.uniform(0.75, 1.2)
+        th = w * rng.uniform(0.35, 0.5)
+        ax, ay = axis(zc)
+        ang = rng.uniform(0, 2 * math.pi)
+        off = w * 0.35 * (1 - f)
+        cx, cy = ax + off * math.cos(ang), ay + off * math.sin(ang)
+        top = len(verts)
+        verts.append((cx, cy, zc + th * 0.9))
+        ph = rng.uniform(0, 2 * math.pi)
+        for ring, (rk, dz) in enumerate(((0.75, th * 0.25), (1.0, -th * 0.35))):
+            for s in range(sides):
+                a = ph + 2 * math.pi * (s + 0.5 * ring) / sides
+                rr = w * rk * rng.uniform(0.7, 1.15)
+                verts.append((cx + rr * math.cos(a), cy + rr * math.sin(a), zc + dz - (rr / w) ** 2 * th * 0.4 * ring))
+        bot = len(verts)
+        verts.append((cx, cy, zc - th * 0.55))
+        r0, r1 = top + 1, top + 1 + sides
+        for s in range(sides):
+            t = (s + 1) % sides
+            faces.append((top, r0 + s, r0 + t))
+            faces.append((r0 + s, r1 + s, r0 + t))
+            faces.append((r0 + t, r1 + s, r1 + t))
+            faces.append((bot, r1 + t, r1 + s))
+    ax, ay = axis(bz + height)
+    tip = len(verts)
+    verts.append((ax, ay, bz + height))
+    zt = bz + height * 0.9
+    tx, ty = axis(zt)
+    for k in range(3):
+        a = 2 * math.pi * k / 3
+        verts.append((tx + 0.02 * height * math.cos(a), ty + 0.02 * height * math.sin(a), zt))
+    faces += [(tip, tip + 1 + k, tip + 1 + (k + 1) % 3) for k in range(3)]
+    return np.array(verts, float), faces
+
+
+def forest(name: str, bases, heights, *, material, coll, seed: int = 1, kind: str = "cedar", **tree):
+    """Trees at `bases` [(x, y, z), ...] of `heights`, merged into one object: cedars (`cedar_mesh`) or, `kind`
+    "fir", tiered conifers (`conifer_mesh`); `tree` goes to each (clumps, sides, spread, ...)."""
+    make = cedar_mesh if kind == "cedar" else conifer_mesh
     verts, faces, off = [], [], 0
     for k, (b, h) in enumerate(zip(bases, heights)):
-        v, f = conifer_mesh(b, float(h), seed=seed * 7919 + k, tiers=tiers, sides=sides, spread=spread)
+        v, f = make(b, float(h), seed=seed * 7919 + k, **tree)
         verts.append(v)
         faces += [tuple(i + off for i in face) for face in f]
         off += len(v)

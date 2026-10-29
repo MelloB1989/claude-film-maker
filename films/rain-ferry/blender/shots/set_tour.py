@@ -20,6 +20,7 @@ def build(ctx):
     from pathlib import Path
 
     import bpy
+    import numpy as np
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import rig, toon
@@ -55,9 +56,14 @@ def build(ctx):
         for fc in toon._fcurves(ob.animation_data.action):
             for kp in fc.keyframe_points:
                 kp.interpolation = "CONSTANT"
-    # the rain round the camera (the cinema's to tune per shot: here the standoff's, as heavy as the weather's)
+    # the rain round each view's camera, falling along world -z (the cinema's to tune per shot: here the standoff's,
+    # as heavy as the weather's)
     if w.rain > 0.02:
-        drops = toon.rain("rain", (-9.0, -9.0, -4.0), (9.0, 9.0, 6.0), count=int(6000 * w.rain), speed=9.5, wind=1.8,
-                          length=0.34, width=0.0055, color=(0.78, 0.81, 0.86), alpha=0.3, seed=4, near=3.5, clear=0.8)
-        drops.parent = cam
-        drops.location = (0.0, 0.0, -9.0)
+        for k, name in enumerate(names):
+            c = np.array(views[name][0])
+            drops = toon.rain(f"rain-{name}", tuple(c - (9.0, 9.0, 8.0)), tuple(c + (9.0, 9.0, 6.0)),
+                              count=int(6000 * w.rain), speed=9.5, wind=1.8, length=0.34, width=0.0055,
+                              color=(0.78, 0.81, 0.86), alpha=0.3, seed=4 + k, near=3.5, clear=0.8)
+            for f in range(ctx.f0, ctx.f0 + len(names)):
+                drops.hide_render = f != ctx.f0 + k
+                drops.keyframe_insert("hide_render", frame=f)
