@@ -35,16 +35,6 @@ CRATE = (0.42, 0.34)        # her seat's width and depth (its height is rf/vroid
 CRATE_BACK = 0.14           # ... feet (m)
 BOAT_POLE = ((4.05, 2.32, -0.13), (1.0, 0.03, 0.04))   # her pole laid in the boat: its foot, its way (world)
 
-# rain for a close shot (weather.Layer: near, far, count, length, width, alpha, shrink, clear): few drops near the
-# lens and none within a face's distance, the far curtain a fine grey veil rather than bright sticks behind a head
-def close_rain():
-    from lib import weather
-
-    return {"near": weather.Layer(0.9, 2.5, 140, 0.3, 0.004, 0.24, shrink=2.5, clear=0.9),
-            "mid": weather.Layer(2.5, 14.0, 2600, 0.3, 0.0042, 0.22),
-            "far": weather.Layer(14.0, 70.0, 5000, 0.6, 0.012, 0.06)}
-
-
 # the cast's variants in this scene (rf/vroid_cast.py)
 VARIANT = {"shinza": dict(kasa="back", sword="back", pose="stand"),
            "tsuru": dict(pipe="hand", pole="boat", seated=True)}
@@ -453,10 +443,16 @@ def shinza_stand(t: float, *, look_out: float = 0.0, reach: float = 0.0, gust: f
     wind, `chin` lifts it (defiance)."""
     from .vroid_shinza import STAND_POSE
 
+    from lib import vrm
+
     br = math.sin(2 * math.pi * t / 3.4)
     legs = {k: v for k, v in STAND_POSE.items() if "Leg" in k or k == "hips"}
     return {
         **legs,
+        # the elbows keyed folded as the IK will want them (the right well in for the hilt over his shoulder), so the
+        # solver starts near its answer: from a straight forearm it settles with the elbow at the target
+        "rightLowerArm": vrm.fold("rightLowerArm", 25.0 + 105.0 * reach),
+        "leftLowerArm": vrm.fold("leftLowerArm", 15.0),
         "spine": (-2.0 + 0.6 * br, 0.0, 3.0),
         "chest": (-3.0 + 0.8 * br, 0.0, -7.0 * reach),
         "upperChest": (-2.0, 0.0, -4.0 * reach),
@@ -468,13 +464,33 @@ def shinza_stand(t: float, *, look_out: float = 0.0, reach: float = 0.0, gust: f
     }
 
 
-def hilt_grip(st: Stage, along: float = 0.06) -> tuple:
+HILT_GRIP = 0.17     # where his right fist closes on the hilt, up from the guard (m): mid-hilt, where his arm reaches
+
+def hilt_grip(st: Stage, along: float = HILT_GRIP) -> tuple:
     """(wrist, turn) of his right fist on the hilt standing over his right shoulder, `along` up it from the guard: its
     knuckles up the hilt and its palm to the blade's flat (against his back), his frame."""
     ch = st.cast["shinza"]["vrm"]
     guard, u = hilt_axis(st)
     turn = hand_turn(ch, "right", u, flat_palm(u, (0.25, 1.0, 0.0)))
     return fist_wrist(ch, "right", guard + u * along, turn), turn
+
+
+def shinza_hold(st: Stage, f: int, t: float, *, narrow: float = 0.6) -> None:
+    """Shinza as demand leaves him: standing over her, his right fist on the hilt over his shoulder, glaring (for a
+    shot he is in the back of)."""
+    ch = st.cast["shinza"]["vrm"]
+    wrist, turn = st.cast["shinza"].setdefault("hilt_grip", None) or (None, None)
+    if wrist is None:
+        from lib import vrm
+
+        vrm.pose(ch, shinza_stand(0.0, reach=1.0), hips=shinza_hips(0.0))
+        wrist, turn = st.cast["shinza"]["hilt_grip"] = hilt_grip(st)
+    st.pose("shinza", f, {**shinza_stand(t, reach=1.0), **fingers("right", 1.0), **fingers("left", 0.3)},
+            hips=shinza_hips(t))
+    st.hand("shinza", "right", f, wrist, turn, (-0.6, -0.25, 1.75))
+    st.hand("shinza", "left", f, HANG["left"], hand_turn(ch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)),
+            (0.3, 0.5, 1.2))
+    st.face("shinza", f, {"glare": 1.0, "narrow": narrow})
 
 
 def tsuru_sit(t: float, *, turn: float = 0.0, down: float = 0.0, eyes=(0.0, 0.0), lean: float = 0.0) -> dict:
@@ -505,11 +521,18 @@ def tsuru_hips(st: Stage, t: float) -> tuple:
     return (0.0, 0.0, SEAT + 0.07 - ch.rest("leftUpperLeg")[2] + 0.0015 * math.sin(2 * math.pi * t / 4.1))
 
 
-def hold_pipe(st: Stage, f: int, point, along) -> None:
-    """Key Tsuru's left fist round her pipe through `point` along `along` (bowl-ward), her frame: the palm in toward
-    her and up a little, as rf/vroid_tsuru.py's builder closed it."""
+# her pipe hand's elbow pole and palm (her frame): low and back by her side with the pipe over her knee; with it at
+# her lips the elbow down by her side and a little forward (S3's rf/jetty_arrive.py SMOKING_POLE, SMOKING_PALM), not up
+# beside her head
+PIPE_ARM = {"lap": ((0.3, 0.6, 0.45), (-0.5, 0.0, 0.8)), "lips": ((0.32, -0.18, 0.35), (-0.7, 0.1, 0.35))}
+
+
+def hold_pipe(st: Stage, f: int, point, along, arm: str = "lap") -> None:
+    """Key Tsuru's left fist round her pipe through `point` along `along` (bowl-ward), her frame, her elbow and palm as
+    PIPE_ARM[arm] has them."""
     d = np.asarray(along, float) / np.linalg.norm(along)
-    st.grip("tsuru", "left", f, point, -d, flat_palm(d, (-0.5, 0.0, 0.8)), (0.3, 0.6, 0.45))   # the elbow back, by her side
+    pole, palm = PIPE_ARM[arm]
+    st.grip("tsuru", "left", f, point, -d, flat_palm(d, palm), pole)
 
 
 def knee_hand(st: Stage, f: int) -> None:
@@ -545,7 +568,7 @@ def tsuru_rest(st: Stage, f: int, t: float, *, smoking: bool = False, **sit) -> 
     hips = tsuru_hips(st, t)
     hold = pipe_at_lips(st, pose, hips) if smoking else TS_PIPE_LAP
     st.pose("tsuru", f, pose, hips=hips)
-    hold_pipe(st, f, *hold)
+    hold_pipe(st, f, *hold, arm="lips" if smoking else "lap")
     knee_hand(st, f)
     st.face("tsuru", f, {"s4-calm": 1.0})
 
@@ -565,7 +588,9 @@ def pipe_smoke(st: Stage, *, emit=None, seed: int = 4):
 
 
 def draw_sword(st: Stage) -> None:
-    """His sword out of its scabbard into his right fist, as it is on the shot's first frame (the draw)."""
+    """His sword out of its scabbard into his right fist from the shot's first frame, where the baked performance has
+    the fist closed on the hilt: call it after `bake`. Parented to the hand there, keeping where it is (vrm_anim's
+    carry moved the sword at the handoff when this was written)."""
     import bpy
 
     from lib import vrm
