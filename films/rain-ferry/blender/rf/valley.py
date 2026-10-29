@@ -174,7 +174,7 @@ def palette(state, *, sun: float | None = None, flash: float = 0.0) -> dict:
     w = state.warm
     sun = w if sun is None else sun
     k = L.key_strength
-    lit = tuple(min(4.0, c * k * (0.035 + 0.1 * w)) for c in L.key)
+    lit = tuple(min(4.0, c * k * (0.035 + 0.035 * w)) for c in L.key)
     zen = tuple(c * (0.62 + 0.1 * w) for c in L.sky)
     shade = tuple(i * (1 - w) + c * w for i, c in zip(INK, (0.03, 0.022, 0.016)))
     return {"rf_zenith": zen, "rf_horizon": tuple(L.sky), "rf_fog": tuple(L.fog), "rf_lit": lit, "rf_shade": shade,
