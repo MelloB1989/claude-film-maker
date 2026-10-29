@@ -508,7 +508,7 @@ def mist(ctx, rig, *, density=None, color=None, banks=BANKS, ground: float = 0.0
     else:
         dens = lambda f: 1.0  # noqa: E731
     if color is None:
-        color = ctx.look_at(ctx.f0).mist_color() if getattr(ctx, "look", None) is not None else (0.5, 0.53, 0.58)
+        color = ctx.look_at(ctx.f0).mist_color if getattr(ctx, "look", None) is not None else (0.5, 0.53, 0.58)
     aspect = ctx.size[0] / ctx.size[1]
     out = []
     for i, s in enumerate(rig.shot.setups):
@@ -527,7 +527,7 @@ def mist(ctx, rig, *, density=None, color=None, banks=BANKS, ground: float = 0.0
                                   rotation=(math.pi / 2, 0.0, yaw))
             toon.move_to(card, coll)
             sock = next(n for n in card.active_material.node_tree.nodes
-                        if n.bl_idname == "ShaderNodeMath" and n.operation == "MULTIPLY"
+                        if n.bl_idname == "ShaderNodeMath" and n.operation == "MULTIPLY" and not n.inputs[1].is_linked
                         and abs(n.inputs[1].default_value - a) < 1e-6).inputs[1]
             for fr in frames:
                 _key(sock, fr, a * max(0.0, dens(fr)))
@@ -745,6 +745,8 @@ def lightning(ctx, strikes, *, bolt=None, lights=(), flare: float = 4.0, width: 
 
 # ---------------------------------------------------------------------------------------------------- one call
 
+_rain, _splashes, _mist, _haze = rain, splashes, mist, haze     # storm's arguments take their names
+
 @dataclass
 class Sky:
     """What `storm` built: the rain, its splashes, the mist's banks, the haze (or None), the flash per frame."""
@@ -769,13 +771,13 @@ def storm(ctx, rig, *, rain=None, speed=None, wind=None, layers=None, mist=None,
         wet = max(ctx.look_at(f).rain.density for f in frames) > 0.001
     else:
         wet = rain is None or max(value_at(rain, (f - ctx.f0) / ctx.fps) for f in frames) > 0.001
-    r = globals()["rain"](ctx, rig, density=rain, speed=speed, wind=wind, layers=layers, floor=floor,
+    r = _rain(ctx, rig, density=rain, speed=speed, wind=wind, layers=layers, floor=floor,
                           seed=seed) if wet else None
-    sp = splashes and r and globals()["splashes"](r, splashes) or []
+    sp = _splashes(r, splashes) if splashes and r else []
     if r and waters:
         ripples(r, waters)
-    banks = [] if mist == 0 else globals()["mist"](ctx, rig, density=mist, ground=ground)
-    hz = None if haze is None else globals()["haze"](ctx, rig, density=haze)
+    banks = [] if mist == 0 else _mist(ctx, rig, density=mist, ground=ground)
+    hz = None if haze is None else _haze(ctx, rig, density=haze)
     if strikes is None and sched:
         strikes = list(getattr(ctx.look, "lightning", None) or [])
     flash = lightning(ctx, strikes, bolt=bolt, lights=lights) if strikes else None
