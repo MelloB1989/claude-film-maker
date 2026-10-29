@@ -26,8 +26,8 @@ WATER_Z = sets.WATER_Z
 EXTENT = (-3200.0, 3200.0, -900.0, 7000.0)     # the land's x and y range (m)
 GRID = (230, 250)                               # its vertices across and along
 # the valley's camera: where it stands (x, y, height over the land), what it looks at
-CAMERA = (-75.0, -390.0, 45.0)        # (x, y, metres over the land), up the near slope behind the crossing
-AIM = (60.0, 1900.0, -110.0)
+CAMERA = (70.0, -430.0, 120.0)        # high over the river below the crossing, the slopes on either side
+AIM = (330.0, 1700.0, 0.0)            # up the valley: the crossing on the lower left third, the river leading in
 SUN = (0.42, 1.0, 0.19)
 KEY = (-0.35, -0.3, 0.88)         # the soft light of the overcast on the land: from high behind the camera's left          # toward the sun (behind the valley's right side, low): the gold light's direction
 SKY_FAR = 9000.0                  # the sky dome's radius
@@ -124,9 +124,9 @@ def height(x, y) -> np.ndarray:
     # rock and gullies on the slopes
     h = h + 22.0 * rise * (noise(x / 60.0, y / 60.0, 11) - 0.5) + 8.0 * (noise(x / 17.0, y / 17.0, 12) - 0.5) * rise
     mine = np.where(d < 0, WATER_Z - 3.0 + d * 0.02, h + WATER_Z - 1.5)
-    # by the crossing: the set's ground (sunk a little under its fine ground round the ferry, as the set sinks its own)
+    # by the crossing: the set's ground
     w = np.clip((140.0 - inland) / 70.0, 0.0, 1.0) * np.clip((430.0 - np.abs(y)) / 130.0, 0.0, 1.0)
-    theirs = set_valley.ground(x, y) - 1.2 * set_valley.fine_mask(x, y)
+    theirs = set_valley.ground(x, y)
     return w * theirs + (1 - w) * mine
 
 
@@ -622,6 +622,11 @@ def build(ctx, *, cam=None, aim=None, weather=None, coll=None, foreground: bool 
     hide = [v["valley_ground"], v["river"], v["sky"], *v["mist"]]
     hide += [ob for ob in world["far"].all_objects if ob.name.startswith(("ridge", "valley-forest", "river-mist",
                                                                            "slope-mist"))]
+    # ... and from this far up, so do the ground, the path, the grass and stones by the ferry: the vista's land
+    # carries the set's ground there (`height`), in the vista's ink; the built things stay (pier, posts, hut, lantern,
+    # ferry, mooring, signpost)
+    hide += [ob for ob in world["near"].all_objects if ob.name.startswith(("bank", "approach", "path", "pebble", "rock",
+                                                                            "step", "deck-puddle"))]
     for ob in hide:
         ob.hide_render = ob.hide_viewport = True
     coll = coll or toon.collection("valley")
@@ -751,6 +756,6 @@ def _foreground(coll, m, cam, aim, *, seed: int = 5) -> list:
 
 
 def camera_location(cam=CAMERA) -> tuple:
-    """CAMERA's (x, y, height over the land) as a point in the world."""
-    x, y, over = cam
-    return (x, y, float(height(x, y)) + over)
+    """CAMERA as a point in the world, kept at least 20 m over the land."""
+    x, y, z = cam
+    return (x, y, max(float(z), float(height(x, y)) + 20.0))
