@@ -64,53 +64,34 @@ def keys_at(keys, t: float, interp=ease):
 # ---------------------------------------------------------------------------------------------------- the world
 
 def world(ctx, *, rain_box=((-8.0, -6.0, -0.6), (8.0, 10.0, 5.5)), clear: float = 1.0, near: float = 3.5,
-          splashes: bool = True, motion_blur: float = 0.0, look_far: float = 480.0) -> dict:
-    """The crossing in the shot's rain and light (ctx.look_at(ctx.f0)): the scene set up as the standoff's, the set,
-    the near set's ink, the world's key, the rain (if it falls) and its splashes. `motion_blur`: a shutter (0 off).
-    Returns {look, crossing, ink, key, sun, rain, splashes, state}."""
-    import bpy
-    from mathutils import Vector
-
+          splashes: bool = True, motion_blur: float = 0.0) -> dict:
+    """The crossing in the shot's rain and light: the sets agent's world (rf/set_world.py, its weather from the look
+    schedule at the shot's start), the near set's ink, the rain (if it falls: ctx.look_at(ctx.f0).rain) and its
+    splashes. `motion_blur`: a shutter (0 off). Returns set_world's dict with "ink", "rain", "splashes", "state"."""
     from lib import toon
-    from rf import sets
+    from rf import set_world, sets
 
     scene = ctx.scene
     s = ctx.look_at(ctx.f0)
     scene.render.use_motion_blur = motion_blur > 0
     if motion_blur > 0:
         scene.render.motion_blur_shutter = motion_blur
-    scene.eevee.use_shadows = True
-    scene.eevee.use_raytracing = True
-    scene.view_settings.view_transform = "Standard"
-    bg = scene.world.node_tree.nodes.get("Background")
-    bg.inputs[0].default_value = (*s.light.ambient, 1)
-
-    look = toon.Look(fog=s.light.fog, fog_near=18.0, fog_far=look_far, fog_max=0.9, fog_power=0.65)
-    crossing = sets.crossing(look)
-    ink = toon.ink("ink-near", crossing["near"], radius=0.0042, crease=150)
-
-    sun = bpy.data.lights.new("key", "SUN")
-    sun.angle = math.radians(3)
-    sun.color = s.light.key
-    sun.energy = 4.2 * s.light.key_strength
-    key = bpy.data.objects.new("key", sun)
-    scene.collection.objects.link(key)
-    key.rotation_euler = Vector((0.55, 0.45, -0.7)).to_track_quat("-Z", "Y").to_euler()
-
+    w = set_world.build(ctx)
+    w["ink"] = toon.ink("ink-near", w["near"], radius=0.0042, crease=150)
     r = s.rain
     rain = None
     drops = r.drops or 5200      # a shot whose rain starts stopped still has its drops, hanging
-    if r.alpha > 0:
+    if r.alpha > 0 and r.density > 0:
         rain = toon.rain("rain", rain_box[0], rain_box[1], count=drops, speed=r.speed or 9.5, wind=r.wind,
                          length=r.length, width=r.width, color=r.color, alpha=r.alpha, seed=4, near=near, clear=clear)
     spl = []
-    if splashes:
-        spl.append(toon.splashes("splash-deck", (sets.SPAN[0], -sets.HALF + 0.05, 0.004),
-                                 (sets.SPAN[1], sets.HALF - 0.05, 0.004), count=240, size=0.08, seed=5))
+    if splashes and rain is not None:
+        spl.append(toon.splashes("splash-deck", (-6.5, -sets.HALF + 0.05, 0.004), (7.6, sets.HALF - 0.05, 0.004),
+                                 count=240, size=0.08, seed=5))
         spl.append(toon.splashes("splash-river", (-7.5, -3.6, sets.WATER_Z + 0.002), (7.5, -1.15, sets.WATER_Z + 0.002),
                                  count=340, size=0.11, alpha=0.45, seed=9))
-    return {"look": look, "crossing": crossing, "ink": ink, "key": key, "sun": sun, "rain": rain, "splashes": spl,
-            "state": s}
+    w.update(rain=rain, splashes=spl, state=s)
+    return w
 
 
 def rain_clock(ctx, obs, speed_at) -> None:
@@ -143,7 +124,6 @@ def cast(ctx, w: dict, variants: dict) -> dict:
     look = w["look"]
     cast_look = toon.Look(fog=look.fog, fog_near=look.fog_near, fog_far=look.fog_far, fog_max=look.fog_max,
                           fog_power=look.fog_power)
-    toon.move_to(w["key"], toon.collection("world-light"))
     out = {"coll": coll}
     for name, kw in variants.items():
         built = getattr(vroid_cast, name)(coll, cast_look, **kw)

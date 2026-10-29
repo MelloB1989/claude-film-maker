@@ -473,10 +473,9 @@ def ink_panel(scene, *, threshold: float = 0.3, soft: float = 0.03, edges: float
 
     amount, invert, white, black = (value(f"ink_{k}", 0.0) for k in ("amount", "invert", "white", "black"))
     # the light: luminance of the picture
-    sep = N.new("ShaderNodeSeparateColor")
-    L.new(src, sep.inputs[0])
-    lum = math_("ADD", math_("ADD", math_("MULTIPLY", sep.outputs[0], 0.2126), math_("MULTIPLY", sep.outputs[1], 0.7152)),
-                math_("MULTIPLY", sep.outputs[2], 0.0722))
+    bw = N.new("CompositorNodeRGBToBW")
+    L.new(src, bw.inputs[0])
+    lum = bw.outputs[0]
     ramp = N.new("ShaderNodeMapRange")
     ramp.interpolation_type = "SMOOTHSTEP"
     ramp.clamp = True
@@ -489,9 +488,9 @@ def ink_panel(scene, *, threshold: float = 0.3, soft: float = 0.03, edges: float
         fl = N.new("CompositorNodeFilter")
         fl.inputs["Type"].default_value = "Sobel"
         L.new(src, fl.inputs["Image"])
-        fsep = N.new("ShaderNodeSeparateColor")
-        L.new(fl.outputs[0], fsep.inputs[0])
-        e = math_("MULTIPLY", math_("GREATER_THAN", fsep.outputs[1], threshold * 0.9), edges)
+        fbw = N.new("CompositorNodeRGBToBW")
+        L.new(fl.outputs[0], fbw.inputs[0])
+        e = math_("MULTIPLY", math_("GREATER_THAN", fbw.outputs[0], threshold * 0.9), edges)
         v = math_("MULTIPLY", v, math_("SUBTRACT", 1.0, e), clamp=True)
     # the negative, then all ink
     v = math_("ADD", math_("MULTIPLY", v, math_("SUBTRACT", 1.0, math_("MULTIPLY", invert, 2.0))), invert)
