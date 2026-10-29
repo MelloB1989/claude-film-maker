@@ -72,6 +72,7 @@ class Stage:
     ink: object | None = None
     flash: dict = field(default_factory=dict)   # film frame -> the lightning's flash, 0..1
     bodies: dict = field(default_factory=dict)  # name -> Body
+    faces: dict = field(default_factory=dict)   # name -> its face from its root (key_lines)
 
     def ch(self, name: str):
         return self.actors[name]["vrm"]
@@ -167,13 +168,17 @@ def lens_at(rig, f: int) -> tuple:
 # ---------------------------------------------------------------------------------------------------- per frame
 
 def key_lines(st: Stage, f: int, cam_at, lens: float, frac: float = OUTLINE) -> None:
-    """Every cast member's outline keyed to `frac` of the frame's height from the camera at `cam_at` with `lens`."""
-    from mathutils import Vector
-
+    """Every cast member's outline keyed to `frac` of the frame's height from the camera at `cam_at` with `lens`. The
+    face is taken where it is the first time (from the character's root, which a duel shot does not move): asking
+    the posed face each frame re-evaluates the whole scene after the frame's keys (minutes over a shot)."""
     from lib import vrm
 
-    for built in st.actors.values():
-        d = (Vector(cam_at) - built["vrm"].face()).length
+    if not st.faces:
+        st.faces = {name: np.array(b["vrm"].face()) - np.array(b["root"].matrix_world.translation)
+                    for name, b in st.actors.items()}
+    for name, built in st.actors.items():
+        face = np.array(built["root"].matrix_world.translation) + st.faces[name]
+        d = float(np.linalg.norm(np.asarray(cam_at, float) - face))
         vrm.key_outline(built["vrm"], vrm.outline_width(frac, d, lens), f)
 
 
@@ -248,6 +253,13 @@ class Body:
 
         self.hair = vrm_rig.chains(ch, HAIR)
         self.cloth = vrm_rig.chains(ch, CLOTH)
+
+    def settle(self, bones) -> None:
+        """Take these bones' pose now (humanoid or armature names: fingers a shot closed with vrm.pose) as built."""
+        pbs = self.ch.armature.pose.bones
+        for b in bones:
+            name = self.bone_name(b)
+            self.rot[name] = pbs[name].rotation_quaternion.copy()
 
     def bone_name(self, bone: str) -> str:
         """The armature's name of a humanoid bone (or an armature bone's own name)."""

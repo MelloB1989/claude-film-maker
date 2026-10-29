@@ -34,9 +34,10 @@ SH_HIPS = (0.0, -0.12, -0.06)
 SH_FEET = {"leftFoot-target": (-0.02, -0.3, 0.16), "rightFoot-target": (0.0, 0.18, 0.04)}
 # Tsuru: her left hand come to the pole above her right (her frame)
 TS_LEFT = ((-0.23, -0.22, 1.13), (0.55, -0.2, 0.9))
-# the camera's glide (world): in front of him, past his blade, along the line, turning to her; what it looks at runs
-# from his face to hers; the focus with it
-PATH = [(-0.55, -1.45, 1.42), (-0.85, -1.05, 1.52), (-0.25, -0.62, 1.42), (0.7, -0.52, 1.3), (1.05, -0.48, 1.26)]
+# the camera's glide on the river side: from close in front of him, out in an arc through the hanging rain until both
+# stand at the frame's edges, and in again to her; what it looks at runs from his face to hers, the focus with it
+PATH = [(-0.7, -1.25, 1.5), (-0.45, -2.3, 1.48), (0.1, -3.8, 1.45), (0.65, -2.3, 1.4), (1.05, -1.25, 1.35)]
+ALONG = (0.0, 0.15, 0.5, 0.85, 1.0)      # how far from his face to hers each point looks
 # (the path from the duel's middle, rf/duel.py MID)
 GLIDE = (0.35, 4.7)
 LENS = (24.0, 32.0)
@@ -63,10 +64,14 @@ def build(ctx):
     # Shinza mid-launch: both hands on the hilt swept up over his head as charge grips it (the sword rides his right
     # hand), the stride
     up = np.asarray(HILT_UP, float) / np.linalg.norm(HILT_UP)
-    hands, _ = clash.shinza_sword(shc, POMMEL, HILT_UP, poles=ELBOWS)
+    hands, fingers = clash.shinza_sword(shc, POMMEL, HILT_UP, poles=ELBOWS)
     for side, (_, point, along, palm, pole) in hands.items():
         vrm.grasp(shc, side, point, along, palm, pole=pole)
-    vrm.grasp(tsc, "left", TS_LEFT[0], (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), pole=TS_LEFT[1], amount=0.9)
+    vrm.pose(shc, fingers, reset=False)
+    sh.settle(fingers)
+    fingers = vrm.grasp(tsc, "left", TS_LEFT[0], (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), pole=TS_LEFT[1], amount=0.9)
+    vrm.pose(tsc, fingers, reset=False)
+    ts.settle(fingers)
     keep_sh = ("leftHand-target", "leftHand-hold", "rightHand-target", "rightHand-hold", "leftHand-pole", "rightHand-pole")
     keep_ts = ("leftHand-target", "leftHand-hold", "leftHand-pole")
     sh.key(ctx.f0 - 1, SH_TURNS, hips=SH_HIPS, moves=SH_FEET, keep=keep_sh,
@@ -116,7 +121,7 @@ def build(ctx):
     mid = np.array((duel.MID[0], duel.MID[1], 0.0))
     cams = [np.asarray(p, float) + mid for p in PATH]
     sh_face, ts_face = np.array(shc.face()), np.array(tsc.face())
-    aims = [sh_face, sh_face, sh_face + (ts_face - sh_face) * 0.45, ts_face, ts_face]
+    aims = [sh_face + (ts_face - sh_face) * k for k in ALONG]
     rig = cinema.film(ctx, [cinema.Setup(
         "glide", 0.0, cinema.path(cams, aims), span=GLIDE, ease="sine", lens=LENS, fstop=FSTOP, focus=(shc, "head"),
         racks=(cinema.Rack(1.2, (tsc, "head"), 3.2),), shake=cinema.Shake(breath=0.02, seed=9))])
