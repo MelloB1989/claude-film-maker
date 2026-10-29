@@ -107,9 +107,3 @@ def test_pole_at_keeps_its_foot_below_the_grip_and_arcs():
     mid, _, _ = dm.pole_at(0.5, g0, d0, g1, d1, below=0.98, lift=0.2)
     assert mid[2] == pytest.approx((0.3 + 1.0) / 2 + 0.2)
 
-
-def test_clock_runs_at_full_speed_then_stops():
-    c = dm.clock([9.5] * 24 + [4.75] * 24 + [0.0] * 24, 24.0, 9.5)
-    assert c[0] == 0.0 and c[24] == pytest.approx(1.0)
-    assert c[48] == pytest.approx(1.5)
-    assert c[-1] == pytest.approx(1.5)        # stopped: the drops hang

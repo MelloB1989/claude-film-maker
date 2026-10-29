@@ -1161,7 +1161,8 @@ class Performance:
         """Walk (or run: `gait`) along `path` (world x, y points; it starts where the character stands, the first
         point moved there) from frame `start`, at the gait's speed (or `speed` m/s), the `lead` foot first, into
         `end_pose` (a pose, default `pose`, default STAND) facing `end_yaw` (default the path's last heading). `pose`
-        is the body's carriage while it walks (keyed as it sets off); `swing` scales each arm's swing (left, right):
+        is the body's carriage while it walks (keyed as it sets off; both are partial keys: a bone they do not name
+        keeps its keys, a hand closed on a pole stays closed); `swing` scales each arm's swing (left, right):
         0 for an arm that holds something. `ground` is the ground's height: a number, a function of world (x, y), or
         an object to cast down onto (`ground_of`), default the height it stands at: each footfall lands on the ground
         under it, the body rides over it (eased over a stride). Returns the frame it stands still on."""
@@ -1282,8 +1283,9 @@ class Performance:
 
         carriage = pose if pose is not None else STAND
         settle_f = start + min(0.4, max(first_land, 0.2)) * fps
-        self.pose(settle_f, carriage, ease="inout")
-        self.pose(end, end_pose if end_pose is not None else carriage, ease="inout")
+        # partial keys: a bone neither names (a hand closed on a pole) keeps what it had
+        self.pose(settle_f, carriage, hips=(0.0, 0.0, 0.0), ease="inout", full=False)
+        self.pose(end, end_pose if end_pose is not None else carriage, hips=(0.0, 0.0, 0.0), ease="inout", full=False)
 
         def layer(f):
             t = (f - start) / fps

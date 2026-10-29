@@ -81,7 +81,8 @@ def drip(s: float, period: float, hang: float, height: float) -> tuple[float, fl
 class Layer:
     """One depth of rain round a setup: drops `near`..`far` metres from the lens, `count` of them at full density,
     streaks `length` long and `width` wide at full speed, `alpha` opaque. `shrink`: drops nearer the lens than this
-    shrink with their distance (a fine streak, not a bar across a face); `clear`: none at all within this of it."""
+    shrink with the square of their distance (a fine streak, not a bar across a face); `clear`: none at all within
+    this of it. No drop of a layer is ever nearer the lens than its `near` (or `clear`)."""
     near: float
     far: float
     count: int
@@ -96,7 +97,7 @@ class Layer:
 # streaks close to the lens, the body of it in the middle, and a fine faint far curtain that greys the distance. As a
 # wide (REF_LENS) sees them: a longer lens sees each further out (`for_lens`)
 LAYERS = {
-    "near": Layer(0.7, 3.0, 220, 0.36, 0.0055, 0.24, shrink=2.5, clear=0.8),
+    "near": Layer(0.7, 3.0, 220, 0.32, 0.0048, 0.17, shrink=3.0, clear=1.2),
     "mid": Layer(3.0, 15.0, 3600, 0.3, 0.0045, 0.22),
     "far": Layer(15.0, 70.0, 5000, 0.55, 0.011, 0.06),
 }
@@ -104,14 +105,30 @@ REF_LENS = 26.0
 
 
 def for_lens(layer: Layer, lens: float, ref: float = REF_LENS) -> Layer:
-    """`layer` as a `lens` (mm) longer than `ref` should see it: every distance out from the lens times lens / ref, so
-    its drops are as big and as many on screen as in the wide (a close-up does not see the far curtain's streaks as
-    sticks behind a face: it sees them further out, smaller and in the depth of field's blur). `clear` is kept: room in
-    front of a face is metres, whatever the lens."""
+    """`layer` as a `lens` (mm) longer than `ref` should see it: its distances out from the lens times lens / ref (k),
+    so its drops are as big and as many on screen as in the wide (a close-up does not see the far curtain's streaks as
+    sticks behind a face: it sees them further out, smaller and in the depth of field's blur). The near layer (one
+    that shrinks by the lens) keeps its inner edge, so drops still fall between a close-up's lens and the face, and
+    shrinks over sqrt(k) times its distance: fine streaks across the face, not bars. `clear` is kept: metres."""
     k = max(1.0, float(lens) / ref)
     if k == 1.0:
         return layer
-    return replace(layer, near=layer.near * k, far=layer.far * k, shrink=layer.shrink * k)
+    if layer.shrink:
+        return replace(layer, far=layer.far * k, shrink=layer.shrink * math.sqrt(k))
+    return replace(layer, near=layer.near * k, far=layer.far * k)
+
+
+# a close-up's own rain (lens CLOSE_LENS or longer): a band of fine drops round the focus distance, a little in front of
+# the subject and more behind, as sharp as the subject is (the other layers stand off in the blur at a long lens)
+FOCUS = Layer(0.0, 0.0, 320, 0.22, 0.0032, 0.24, clear=0.9)
+CLOSE_LENS = 40.0
+
+
+def focus_layer(distance: float, template: Layer = FOCUS, *, before: float = 0.3, after: float = 0.6) -> Layer:
+    """`template` as a band from `before` of `distance` (the setup's focus, m) in front of it to `after` of it behind:
+    unscaled for the lens (it is where the lens is sharp), never nearer than its `clear`."""
+    d = max(float(distance), 1e-3)
+    return replace(template, near=max(template.clear, d * (1.0 - before)), far=max(d * (1.0 + after), template.clear + 0.5))
 
 
 def frustum_box(poses, near: float, far: float, *, aspect: float = 16 / 9, margin: float = 0.1, floor=None,
@@ -312,21 +329,27 @@ class Drops:
         # which drops fall at this density (each its own threshold), and each a little bigger or smaller
         on = b.math("LESS_THAN", b.random(0.0, 1.0, seed + 7, idx.outputs[0]), self.density.outputs[0])
         k = b.math("MULTIPLY", on, b.random(0.65, 1.3, seed, idx.outputs[0]))
-        if layer.shrink or layer.clear:
-            cam = N.new("GeometryNodeInputActiveCamera")
-            ci = N.new("GeometryNodeObjectInfo")
-            ci.transform_space = "ORIGINAL"
-            L.new(cam.outputs[0], ci.inputs["Object"])
-            p2 = N.new("GeometryNodeInputPosition")
-            dist = N.new("ShaderNodeVectorMath")
-            dist.operation = "DISTANCE"
-            L.new(p2.outputs[0], dist.inputs[0])
-            L.new(ci.outputs["Location"], dist.inputs[1])
-            d = dist.outputs["Value"]
-            if layer.shrink:
-                k = b.math("MULTIPLY", k, b.math("MINIMUM", b.math("DIVIDE", d, layer.shrink), 1.0))
-            if layer.clear:
-                k = b.math("MULTIPLY", k, b.math("GREATER_THAN", d, layer.clear))
+        # each drop's distance from the active camera: none nearer than the layer's own inner edge (its box, round a
+        # slanted view, reaches back to the lens), fading in over the last stretch; a near layer's drops shrink too
+        cam = N.new("GeometryNodeInputActiveCamera")
+        ci = N.new("GeometryNodeObjectInfo")
+        ci.transform_space = "ORIGINAL"
+        L.new(cam.outputs[0], ci.inputs["Object"])
+        p2 = N.new("GeometryNodeInputPosition")
+        dist = N.new("ShaderNodeVectorMath")
+        dist.operation = "DISTANCE"
+        L.new(p2.outputs[0], dist.inputs[0])
+        L.new(ci.outputs["Location"], dist.inputs[1])
+        d = dist.outputs["Value"]
+        inner = max(layer.clear, layer.near)
+        fade = N.new("ShaderNodeMapRange")       # clamped: 0 inside 85% of the inner edge, 1 from it out
+        fade.inputs["From Min"].default_value = inner * 0.85
+        fade.inputs["From Max"].default_value = inner
+        L.new(d, fade.inputs["Value"])
+        k = b.math("MULTIPLY", k, fade.outputs["Result"])
+        if layer.shrink:
+            near_k = b.math("MINIMUM", b.math("DIVIDE", d, layer.shrink), 1.0)
+            k = b.math("MULTIPLY", k, b.math("MULTIPLY", near_k, near_k))     # squared: a drop by the lens is a speck
         sc = N.new("ShaderNodeCombineXYZ")
         L.new(k, sc.inputs["X"])
         L.new(k, sc.inputs["Y"])
@@ -378,6 +401,24 @@ def _setup_poses(rig, i: int, step: int = 4) -> list:
     return [rig.shot.pose(t) for t in ts]
 
 
+def _focus_distance(rig, i: int) -> float:
+    """How far in front of the lens setup i of `rig` is focused, the median over its window (the focus empty as the
+    scene evaluates it: it follows its object or bone)."""
+    import bpy
+
+    scene = rig.ctx.scene
+    keep = scene.frame_current
+    a, b = rig.shot.window(i)
+    out = []
+    for u in (0.1, 0.5, 0.9):
+        f = rig.f0 + round((a + (b - a) * u) * rig.ctx.fps)
+        scene.frame_set(min(f, rig.f1 - 1))
+        bpy.context.view_layer.update()
+        out.append(rig.pose(f).depth(tuple(rig.focus.matrix_world.translation)))
+    scene.frame_set(keep)
+    return max(float(np.median(out)), 0.3)
+
+
 def _schedule(ctx, field: str):
     """The look schedule's rain `field` over the shot, as a function of film frame (None when the shot has none)."""
     if getattr(ctx, "look", None) is None:
@@ -399,12 +440,14 @@ class Rain:
 
 
 def rain(ctx, rig, *, density=None, speed=None, wind=None, layers=None, color=None, floor=None, ceiling=None,
-         adapt: bool = True, seed: int = 4, coll=None) -> Rain:
+         adapt: bool = True, focus: Layer | None = FOCUS, seed: int = 4, coll=None) -> Rain:
     """Rain round every setup of `rig` (cinema.Rig) over ctx's frames, in `layers` (LAYERS: names to use, or
     {name: Layer}), its `density` (0..1), `speed` (m/s) and `wind` (m/s along +x) values over the shot (a number or
     keys; None: the look schedule's, else full rain). `floor`/`ceiling`: no drops below/above these heights (the water,
     a roof over a doorway's camera). Each setup's layers show only while it is cut in, pushed out for its lens when
-    `adapt` (`for_lens`: a close-up gets finer, further, defocused rain for free)."""
+    `adapt` (`for_lens`: a close-up gets finer, further, defocused rain for free); a setup through a lens of
+    CLOSE_LENS or longer also gets a "focus" layer of `focus` (None: none) round where it is focused (`focus_layer`),
+    so the rain is sharp where the subject is."""
     import bpy
 
     from . import toon
@@ -437,9 +480,10 @@ def rain(ctx, rig, *, density=None, speed=None, wind=None, layers=None, color=No
     for i, s in enumerate(rig.shot.setups):
         poses = _setup_poses(rig, i)
         lens = float(np.median([p.lens for p in poses]))
-        for j, (ln, layer) in enumerate(layers.items()):
-            if adapt:
-                layer = for_lens(layer, lens)
+        mine = {ln: (for_lens(layer, lens) if adapt else layer) for ln, layer in layers.items()}
+        if focus is not None and lens >= CLOSE_LENS:
+            mine["focus"] = focus_layer(_focus_distance(rig, i), focus)
+        for j, (ln, layer) in enumerate(mine.items()):
             lo, hi = frustum_box(poses, layer.near, layer.far, aspect=ctx.size[0] / ctx.size[1], floor=floor,
                                  ceiling=ceiling)
             d = Drops(f"rain-{s.name}-{ln}", lo, hi, layer, color=color, seed=seed + 13 * i + j, coll=coll)
@@ -453,6 +497,19 @@ def rain(ctx, rig, *, density=None, speed=None, wind=None, layers=None, color=No
           f"{D[frames[0]]:.2f}->{D[frames[-1]]:.2f}, speed {S[frames[0]]:.1f}->{S[frames[-1]]:.1f} m/s")
     bpy.context.view_layer.update()
     return Rain(drops, frames, D, S, W)
+
+
+def into_cast(rain_: Rain, cast, layers=("near", "focus", "mid")) -> list:
+    """Put the rain's `layers` into the satsuei cast collection `cast` as well (the same objects, linked into both): the
+    compositor lays the cast's layer over the world's where the cast is nearer, and a blended drop writes no depth, so
+    only the drops in front of a character come through over them (as standoff_vroid's rain-cast). The far curtain
+    stays out: it is never in front of anyone. Returns the objects linked."""
+    out = []
+    for (_, ln), d in rain_.drops.items():
+        if ln in layers and d.ob.name not in cast.objects:
+            cast.objects.link(d.ob)
+            out.append(d.ob)
+    return out
 
 
 # ---------------------------------------------------------------------------------------------------- what the rain hits
@@ -510,10 +567,21 @@ def ripples(rain_: Rain, materials) -> None:
 BANKS = ((6.0, 0.4, 2.2, 0.18), (14.0, 0.8, 4.5, 0.32), (30.0, 1.5, 9.0, 0.45), (60.0, 3.0, 16.0, 0.55))
 
 
-def mist(ctx, rig, *, density=None, color=None, banks=BANKS, ground: float = 0.0, coll=None, seed: int = 3) -> list:
+def banks_for_lens(banks, lens: float, ref: float = REF_LENS, thin: float = 0.35) -> tuple:
+    """`banks` as a `lens` (mm) longer than `ref` should see them: each one out by lens / ref (k), as `for_lens` does
+    the rain, so a bank is as tall on screen as in the wide and a close-up's subject stands in front of the mist
+    rather than inside a grey card; its opacity times k ** -`thin` (a long lens looks through less air to the
+    subject, and stacks the far banks together). Heights stay: the mist lies on the ground whatever the lens."""
+    k = max(1.0, float(lens) / ref)
+    return tuple((d * k, z, h, a * k ** -thin) for d, z, h, a in banks)
+
+
+def mist(ctx, rig, *, density=None, color=None, banks=BANKS, ground: float = 0.0, adapt: bool = True, coll=None,
+         seed: int = 3) -> list:
     """Banks of drifting mist (toon.mist_card) across each setup's view at `banks`' distances, facing its lens, as wide
     as it sees there, their opacity times `density` over the shot (a value; None: the look schedule's, relative to its
-    cold 0.6). Each setup's banks show only while it is cut in. Returns [(object, its density socket)]."""
+    cold 0.6). Each setup's banks show only while it is cut in, pushed out for its lens when `adapt`
+    (`banks_for_lens`). Returns [(object, its density socket)]."""
     from . import toon
 
     coll = coll or toon.collection("mist")
@@ -535,7 +603,8 @@ def mist(ctx, rig, *, density=None, color=None, banks=BANKS, ground: float = 0.0
         flat = np.array([f[0], f[1], 0.0])
         flat /= max(np.linalg.norm(flat), 1e-9)
         yaw = math.atan2(flat[0], -flat[1])          # a card faces -y; turned to face back along the view
-        for k, (d, z, h, a) in enumerate(banks):
+        lens = float(np.median([p.lens for p in poses]))
+        for k, (d, z, h, a) in enumerate(banks_for_lens(banks, lens) if adapt else banks):
             c = np.mean([p.position for p in poses], axis=0) + flat * d
             hw = d * SENSOR_H_MM / min(p.lens for p in poses) / 2 * aspect
             spread = max(np.linalg.norm(p.position - poses[0].position) for p in poses)
@@ -557,7 +626,7 @@ def mist(ctx, rig, *, density=None, color=None, banks=BANKS, ground: float = 0.0
 def haze(ctx, rig, *, density=0.02, color=(0.6, 0.63, 0.68), anisotropy: float = 0.3, reach: float = 80.0, coll=None):
     """A volumetric haze filling everything each setup sees out to `reach` metres (a box of Principled Volume): light
     scatters in it, so a lantern or a sun beam glows through it and the distance pales with real depth. `density` is a
-    value over the shot. Slow on a software renderer: for the finals and the shots that need it."""
+    value over the shot, per unit of the strongest sun's energy (the painted world does not grow with the key). Slow on a software renderer: for the finals and the shots that need it."""
     import bpy
 
     from . import shapes, toon
@@ -569,6 +638,10 @@ def haze(ctx, rig, *, density=0.02, color=(0.6, 0.63, 0.68), anisotropy: float =
     verts = [tuple(c + s * np.array(v)) for v in
              ((-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1), (-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1))]
     faces = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    # the set is painted (emission), the haze lit by the real sun: its density is per unit of the strongest sun's
+    # energy, so a haze of 0.02 glows about as bright as the painted world whatever the key's strength
+    suns = [ob.data.energy for ob in ctx.scene.objects if ob.type == "LIGHT" and ob.data.type == "SUN"]
+    per = 1.0 / max(1.0, max(suns, default=1.0))
     mat = bpy.data.materials.new("haze")
     nt = toon.nodes(mat)
     vol = nt.nodes.new("ShaderNodeVolumePrincipled")
@@ -579,9 +652,12 @@ def haze(ctx, rig, *, density=0.02, color=(0.6, 0.63, 0.68), anisotropy: float =
     ob = shapes.mesh_object("haze", verts, faces, mat, coll, smooth=False)
     ob.visible_shadow = False
     for f in rig.frames:
-        vol.inputs["Density"].default_value = value_at(density, (f - ctx.f0) / ctx.fps)
+        vol.inputs["Density"].default_value = value_at(density, (f - ctx.f0) / ctx.fps) * per
         vol.inputs["Density"].keyframe_insert("default_value", frame=f)
-    ctx.scene.eevee.volumetric_end = reach
+    ev = ctx.scene.eevee
+    ev.volumetric_end = reach
+    if hasattr(ev, "use_volumetric_shadows"):
+        ev.use_volumetric_shadows = True     # the sun's shadows in the haze: shafts behind what blocks it
     return ob
 
 
@@ -697,16 +773,14 @@ def sun_beams(name: str, origin, direction, *, spread=(24.0, 10.0), length: floa
     lvl = toon.scene_value(nt, "beams")
     a = b.math("MULTIPLY", b.math("MULTIPLY", b.math("MULTIPLY", across, along), breath),
                b.math("MULTIPLY", lvl, strength))
+    # light added over what is behind (a beam never darkens nor dims it): the card fully clear, plus its glow
     em = nt.nodes.new("ShaderNodeEmission")
     em.inputs["Color"].default_value = (*color, 1)
+    nt.links.new(b.math("MAXIMUM", a, 0.0), em.inputs["Strength"])
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
-    add = nt.nodes.new("ShaderNodeAddShader")       # light added over what is behind: a beam never darkens
+    add = nt.nodes.new("ShaderNodeAddShader")
     nt.links.new(tr.outputs[0], add.inputs[0])
-    mx = nt.nodes.new("ShaderNodeMixShader")
-    nt.links.new(b.math("MINIMUM", b.math("MAXIMUM", a, 0.0), 1.0), mx.inputs["Fac"])
-    nt.links.new(tr.outputs[0], mx.inputs[1])
-    nt.links.new(em.outputs[0], mx.inputs[2])
-    nt.links.new(mx.outputs[0], add.inputs[1])
+    nt.links.new(em.outputs[0], add.inputs[1])
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     nt.links.new(add.outputs[0], out.inputs["Surface"])
     mat.surface_render_method = "BLENDED"
@@ -775,21 +849,24 @@ class Sky:
 
 
 def storm(ctx, rig, *, rain=None, speed=None, wind=None, layers=None, mist=None, splashes=(), waters=(),
-          haze=None, strikes=None, bolt=None, lights=(), floor=None, ground: float = 0.0, seed: int = 4) -> Sky:
+          haze=None, strikes=None, bolt=None, lights=(), floor=None, ground: float = 0.0, cast=None,
+          cast_layers=("near", "focus", "mid"), seed: int = 4) -> Sky:
     """A shot's weather in one call, round `rig`'s setups (cinema.Rig): its rain (`rain`: the density over the shot,
     `speed`, `wind`; None: the look schedule's) in `layers` near, mid and far, splashing on `splashes` areas
     [(lo, hi), ...] and ringing the `waters` (lib/water.py materials), all thinning with it; banks of `mist` (its
     density times the banks' own; None the schedule's, 0 none) standing on `ground`; a volumetric `haze` (a density,
     None none); and lightning at `strikes` (None: the schedule's) with its `bolt` and flaring `lights`. No rain at all
-    when its density stays 0 over the shot."""
+    when its density stays 0 over the shot. `cast`: the satsuei cast collection (lib/satsuei.py), whose layer gets the
+    `cast_layers` of rain too (`into_cast`), so the drops in front of a character stay in front of them."""
     sched = getattr(ctx, "look", None) is not None
     frames = list(rig.frames)
     if rain is None and sched:
         wet = max(ctx.look_at(f).rain.density for f in frames) > 0.001
     else:
         wet = rain is None or max(value_at(rain, (f - ctx.f0) / ctx.fps) for f in frames) > 0.001
-    r = _rain(ctx, rig, density=rain, speed=speed, wind=wind, layers=layers, floor=floor,
-                          seed=seed) if wet else None
+    r = _rain(ctx, rig, density=rain, speed=speed, wind=wind, layers=layers, floor=floor, seed=seed) if wet else None
+    if r and cast is not None:
+        into_cast(r, cast, cast_layers)
     sp = _splashes(r, splashes) if splashes and r else []
     if r and waters:
         ripples(r, waters)

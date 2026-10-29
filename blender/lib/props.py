@@ -368,21 +368,23 @@ def kasa_seat(radius: float, height: float, head: float, *, thickness: float = 0
 
 
 def kasa(name: str, m: dict, coll, *, radius: float = 0.3, height: float = 0.12, thickness: float = 0.007,
-         bulge: float = 0.8, bands: int = 9) -> list:
+         bulge: float = 0.8, spokes: int = 24, n: int = 96) -> list:
     """A wide straw kasa, a rain hat, at the origin: its brim's middle at 0, its apex up +z. Its woven straw shows as
-    rings of a lighter straw (`bands` of them out to the brim), a knob at the apex. `m`: straw, straw_tip. Returns
+    `spokes` thin ribs of a darker straw running from the apex to the brim (of `n` sectors round it) and the brim's
+    edge bound in it, a knob at the apex. `m`: straw, straw_dark (straw_tip for the binding when given). Returns
     [hat, knob], the knob carried by the hat: place it by the hat (its matrix_world) after."""
     prof = kasa_profile(radius, height, thickness=thickness, bulge=bulge)
-    hat = shapes.lathe(name, prof, material=m["straw"], coll=coll, n=48)
-    hat.data.materials.append(m.get("straw_tip", m["straw"]))
-    # the top's rings banded (the underside stays plain): every other band of the radius the lighter straw
+    hat = shapes.lathe(name, prof, material=m["straw"], coll=coll, n=n)
+    hat.data.materials.append(m.get("straw_dark", m["straw"]))
     k = len(prof)
     half = (k - 1) // 2
+    every = max(1, n // max(spokes, 1))
     idx = []
     for poly in hat.data.polygons:
-        ring = min(poly.vertices) // 48
-        r = prof[ring][0] / radius
-        idx.append(1 if ring > half and int(r * bands) % 2 == 1 else 0)
+        vs = sorted(poly.vertices)
+        ring, seg = vs[0] // n, vs[0] % n
+        top = ring > half
+        idx.append(1 if (top and seg % every == 0) or ring in (half - 1, half) else 0)
     hat.data.polygons.foreach_set("material_index", idx)
     knob = shapes.ellipsoid(f"{name}-knob", (0.0, 0.0, height), (0.014, 0.014, 0.01), material=m["straw"], coll=coll,
                             n=10)

@@ -26,6 +26,7 @@ from . import set_approach, set_jetty, set_valley, set_weather, sets
 COLORS = {
     **sets.COLORS,
     "wood": ((0.1, 0.092, 0.084), (0.022, 0.021, 0.021)),     # the boat's seats and boards, worn paler than its hull
+    "post": ((0.07, 0.06, 0.05), (0.016, 0.015, 0.014)),      # the deck's posts: old wood, browner than the standoff's
     "stave": ((0.065, 0.06, 0.056), (0.014, 0.014, 0.015)),
     "bamboo": ((0.13, 0.125, 0.1), (0.03, 0.03, 0.027)),
     "sign": ((0.16, 0.155, 0.15), (0.04, 0.04, 0.042)),      # the signpost: grey, bleached by years of weather
@@ -33,14 +34,21 @@ COLORS = {
     "rock": ((0.07, 0.072, 0.075), (0.016, 0.017, 0.019)),
     "slope": ((0.045, 0.05, 0.052), (0.02, 0.022, 0.025)),    # the valley's far ground (the fog pales it)
 }
-WET = ("plank", "post", "stave", "mud", "rock", "hull", "wood", "sign")   # what the rain leaves shining
+# what the rain leaves shining, and how much (of the weather's sheen) and how sharply (roughness)
+WET = {"plank": (1.0, 0.14), "hull": (0.6, 0.22), "wood": (0.6, 0.22),
+       "sign": (0.4, 0.3), "rock": (0.6, 0.25), "mud": (0.5, 0.32)}
+# the painted ones: (mottle, its patch size m, dry brush, its direction)
+PAINTED = {"mud": (0.6, 0.35, 0.45, "y"), "grass": (0.35, 1.5, 0.25, "z"), "rock": (0.3, 0.4, 0.35, "z"),
+           "sign": (0.25, 0.15, 0.5, "z"), "plank": (0.2, 0.5, 0.35, "x"),
+           "post": (0.3, 0.3, 0.5, "z"), "stave": (0.3, 0.3, 0.5, "z")}
 
-# a starting framing for each location: (camera, aim, lens mm). Shots move from these as they need
+# a starting framing for each location: (camera, aim, lens mm); the approach keeps its trees off these cameras
+# (set_approach.CLEAR). Shots move from these as they need
 VIEWS = {
-    # 1 open: high over the near bank, down the valley, the hut a speck by the water
-    "open": ((-34.0, -150.0, 48.0), (12.0, 60.0, 4.0), 30.0),
+    # 1 open: high on the near slope, down the valley: the river winding off below, ridge after ridge beyond
+    "open": None,
     # 25 light: from the near bank's slope over the jetty down the river
-    "valley": ((-26.0, -22.0, 12.0), (30.0, 120.0, 8.0), 24.0),
+    "valley": None,
     # 2 crow: behind the signpost, the hut and the jetty beyond
     "crow": ((-10.6, -5.6, 1.75), (-4.5, 3.0, 1.0), 35.0),
     # 3 step: at the mud, at the puddle
@@ -53,9 +61,14 @@ VIEWS = {
     "jetty_low": ((1.5, -3.6, 0.25), (6.0, 1.2, 0.7), 24.0),
     "jetty_top": ((3.0, -2.5, 9.0), (3.5, 1.0, 0.0), 30.0),
     # 10 tap: the post, the river behind
-    "tap": ((6.35, -0.45, 1.05), (7.42, 1.2, 0.6), 50.0),
+    "tap": ((6.25, -2.35, 0.95), (7.5, -0.95, 0.6), 50.0),
     # 26 cross: from the jetty's foot out across the river (the boat's path)
     "cross": ((-8.0, -6.0, 2.2), (40.0, 14.0, 0.0), 30.0),
+    # 26 out on the river (the boat pushed off to CROSS_PATH's end): over her shoulder toward the far bank, from
+    # the water beside her looking down the valley, and from the jetty's end watching her go
+    "crossing": ((33.0, 16.5, 2.6), (60.0, 30.0, 1.0), 30.0),
+    "crossing_side": ((44.0, 9.0, 0.5), (39.0, 23.0, 0.9), 35.0),
+    "crossing_jetty": ((7.8, 0.3, 1.6), (40.0, 21.0, 0.2), 45.0),
 }
 
 
@@ -63,11 +76,14 @@ def views() -> dict:
     """VIEWS with the path's views worked out on the path itself."""
     P = set_approach.path_xy()
     out = dict(VIEWS)
+    g = set_valley.ground
+    out["open"] = ((-38.0, -70.0, float(g(-38.0, -70.0)) + 46.0), (25.0, 200.0, 55.0), 24.0)
+    out["valley"] = ((-13.0, -9.0, float(g(-13.0, -9.0)) + 4.5), (30.0, 110.0, 6.0), 24.0)
     sx, sy, sz = _step()
-    out["step"] = ((sx - 1.1, sy - 0.9, sz + 0.14), (sx, sy, sz + 0.05), 24.0)
+    out["step"] = ((sx - 0.9, sy - 1.6, sz + 0.55), (sx + 0.2, sy + 0.3, sz), 28.0)
     i = int(len(P) * 0.55)
     x, y = P[i]
-    x2, y2 = P[i - 14]
+    x2, y2 = P[i - 50]
     z = float(set_valley.ground(x, y))
     out["walk"] = ((float(x), float(y), z + 1.35), (float(x2), float(y2), float(set_valley.ground(x2, y2)) + 1.1), 40.0)
     return out
@@ -83,12 +99,26 @@ def materials(look, weather) -> dict:
     """The set's materials in `weather`'s palette, faded with `look`."""
     from lib import toon, water
 
+    from lib import paint
+
     w = set_weather.weather(weather)
     pal = set_weather.palette(w, COLORS)
-    m = {k: toon.cel(f"set-{k}", lit, shade, look=look, cut=0.38,
-                     flash=0.0 if k in ("ridge", "needles", "slope") else None) for k, (lit, shade) in pal.items()}
-    for k in WET:
-        water.wet(m[k], w.wet)
+    m = {}
+    for k, (lit, shade) in pal.items():
+        if k in PAINTED:
+            mot, size, br, axis = PAINTED[k]
+            m[k] = paint.wash(f"set-{k}", lit, shade, look=look, cut=0.38, mottle=mot, mottle_scale=size, brush=br,
+                              brush_scale=size, brush_dir=axis)
+        elif k == "needles":
+            # the near cedars: one ink, barely banded (a cel cut across their ragged clumps reads as facets)
+            soft = tuple(0.55 * a + 0.45 * b for a, b in zip(lit, shade))
+            m[k] = paint.wash(f"set-{k}", lit, soft, look=look, cut=0.2, soft=0.15, flash=0.0, mottle=0.3,
+                              mottle_scale=1.5)
+        else:
+            m[k] = toon.cel(f"set-{k}", lit, shade, look=look, cut=0.38, flash=0.0 if k in ("ridge", "needles") else None)
+    for k, (amount, rough) in WET.items():
+        water.wet(m[k], w.wet, roughness=rough, tint=(amount,) * 3)
+    m.update(set_valley.materials(look, w, pal))
     m["lantern"] = toon.flat("set-lantern", sets.LANTERN, look=look, strength=w.lantern)
     m["door"] = toon.flat("set-door-glow", sets.DOOR, look=look, strength=0.45)
     m["water"] = water.surface("set-river", w.river[0], w.river[1], look=look, rain=w.rain, mirror=w.mirror,

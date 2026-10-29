@@ -106,7 +106,7 @@ def test_a_failed_plate_is_set_aside_so_the_film_slates_it(repo):
 
 def test_the_plate_size_is_the_modes(repo):
     _, f = repo
-    assert P.mode_res(f, P.FINAL) == "2560x1440" and P.mode_res(f, P.PREVIEW) == "960x540"
+    assert P.mode_res(f, P.FINAL) == "1920x1080" and P.mode_res(f, P.PREVIEW) == "960x540"
     assert P.mode_res(f, {**P.PREVIEW, "res": "480x270"}) == "480x270"
 
 
@@ -137,3 +137,13 @@ def test_the_sheet_tiles_pictures_and_slates_with_labels(tmp_path):
     im = Image.open(out)
     assert im.size == (3 * 102 + 6, 30 + 3 * (54 + R.TILE_LABEL + 6) + 6)
     assert im.getpixel((6 + 48, 30 + 6 + R.TILE_LABEL + 27))[0] > 150  # the first tile's red
+
+
+def test_cuts_pair_the_last_frame_out_with_the_first_frame_in():
+    a = P.Scene("a", 0, 2, "a", Path("a.py"), 0, 48)
+    b = P.Scene("b", 2, 3.3, "b_alt", Path("b.py"), 48, 80)
+    c = P.Scene("c", 3.3, 5, "c", Path("c.py"), 80, 120)
+    cuts = R.cut_order([a, b, c])
+    assert [(n, s.id, f) for n, s, f, _ in cuts] == [(1, "a", 47), (2, "b", 48), (2, "b", 79), (3, "c", 80)]
+    assert cuts[0][3].startswith("cut 01 out") and cuts[1][3].startswith("cut 01 in")
+    assert [(s.id, f) for _, s, f, _ in R.cut_order([a, b, c], ["c"])] == [("b", 79), ("c", 80)]
