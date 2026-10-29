@@ -58,6 +58,14 @@ picks every such chain) simulated after the body is baked, a point per joint pul
 carried rigidly (stiffness), with drag, gravity and a gusting wind, lengths kept; keyed as bone turns. Deterministic
 (fixed steps, seeded gusts), no spring-bone add-on needed.
 
+With a cast builder (films/<id>/blender/rf/...) that leaves IK on the limbs (vrm.reach, vrm.grasp, vrm.hold): a
+Performance keeps them and keys their targets when it is told to (`reach`, `grasp`, `plant`, a walk's feet); a limb
+it is not told about stays as the builder left it. To animate an arm freely by FK, drop its IK first
+(vrm_rig.release(ch) gives the pose as turns; vrm.pose(ch, that) before the Performance starts from it).
+
+Two characters: build both Performances, then bake each; one can look at the other by its `face_at` (evaluated from
+its keys, so the order of the bakes does not matter).
+
 The numpy halves (easing, quaternions, tracks, the root's frame, paths, the walk's plan, blinks, morae and visemes,
 look-at angles, the damped follow, the chain sim, FK) are tested without Blender in blender/tests/test_vrm_anim.py.
 """
@@ -1523,6 +1531,10 @@ class Performance:
         frames = list(range(int(f0), int(f1)))
         if getattr(self, "_want_feet", False):
             self.plant_feet(f0)
+        # the add-on's own spring bones and look-at preview stay off: they would move bones on frame changes
+        ext = arm.data.vrm_addon_extension
+        ext.spring_bone1.enable_animation = False
+        ext.vrm1.look_at.enable_preview = False
         # objects a look or a reach follows, where they are on each frame (the scene's own animation)
         objs = {}
         for lm in self.limbs.values():
