@@ -1,5 +1,6 @@
 """Period props from code for anime shots (feudal Japan, rural): a wooden pier plank by plank, a thatched hut with
-its eaves fringed in straw, a covered ferry boat, a paper lantern, a straw rain cape, a katana, a bamboo ferry pole.
+its eaves fringed in straw, a covered ferry boat, a paper lantern, a straw rain cape, a katana (whole or broken) and
+its scabbard, a straw kasa hat, a kiseru pipe, a bamboo ferry pole (one that hides a blade).
 Each takes its materials by part (toon materials, so the line art draws their boards, posts and straw) and its size and
 place, and returns its objects.
 
@@ -250,26 +251,63 @@ def straw_cape(name: str, material, coll, *, center, radii, top_z: float, hem_z:
     return cape
 
 
+def _unit(v) -> np.ndarray:
+    v = np.asarray(v, float)
+    return v / np.linalg.norm(v)
+
+
+def _square(d, up) -> np.ndarray:
+    """A unit direction square to `d`, as near `up` as it can be (another when `up` runs along `d`)."""
+    d, up = _unit(d), np.asarray(up, float)
+    s = up - d * np.dot(up, d)
+    if np.linalg.norm(s) < 1e-6:
+        s = np.array((1.0, 0.0, 0.0)) - d * d[0]
+    return _unit(s)
+
+
+def _carry(parent, kids) -> None:
+    """Parent `kids` to `parent` (all built in place, none moved yet), so moving it moves them."""
+    for kid in kids:
+        kid.parent = parent
+
+
+def blade_path(pommel, hilt_dir, hilt: float, blade: float, sori: float, side, fs) -> np.ndarray:
+    """Points along a curved blade at fractions `fs` of its length from the guard: from `hilt` metres along `hilt_dir`
+    past the pommel, bowed by `sori` away from its edge (the edge on the side away from up, the flat facing `side`)."""
+    pommel, d, side = np.asarray(pommel, float), _unit(hilt_dir), np.asarray(side, float)
+    edge = np.cross(d, side)
+    if edge[2] > 0:
+        edge = -edge                                    # the edge below
+    guard = pommel + d * hilt
+    fs = np.asarray(fs, float)
+    return guard + np.outer(fs * blade, d) + np.outer(sori * np.sin(np.pi * fs), edge)
+
+
 def katana(name: str, m: dict, pommel, hilt_dir, *, hilt: float = 0.27, blade: float = 0.72, sori: float = 0.017,
-           side=(1.0, 0.0, 0.0), coll=None) -> list:
+           side=(1.0, 0.0, 0.0), coll=None, broken: float | None = None) -> list:
     """A katana from its pommel along `hilt_dir` (the hilt, then the blade carrying on): a blade with a gentle curve
     (`sori`; its edge on the side away from up, its flat facing `side`), the collar, an oval guard `hilt` metres from
-    the pommel, a wrapped hilt and its cap. `m`: steel, brass, lacquer, wrap. Returns [blade, collar, guard, hilt,
-    cap]."""
+    the pommel, a wrapped hilt and its cap; a nodachi is one with a longer hilt and blade. `m`: steel, brass, lacquer,
+    wrap. Returns [blade, collar, guard, hilt, cap]; `broken` (a fraction of the blade from the guard) snaps it there,
+    the blade ending in a ragged break and its point a separate object, last: [..., cap, point]."""
     pommel = np.asarray(pommel, float)
-    d = np.asarray(hilt_dir, float)
-    d = d / np.linalg.norm(d)
+    d = _unit(hilt_dir)
     side = np.asarray(side, float)
     guard = pommel + d * hilt
     edge = np.cross(d, side)
     if edge[2] > 0:
-        edge = -edge                                    # the edge below
-    fs = np.linspace(0, 1, 16)
-    path = [guard + d * blade * f + edge * sori * math.sin(math.pi * f) for f in fs]
-    width = np.where(fs < 0.97, 0.016 - 0.004 * fs, 0.002)
-    thick = np.where(fs < 0.97, 0.0036 - 0.0012 * fs, 0.0008)
-    obs = [shapes.loft(f"{name}-blade", path, width, thick, material=m["steel"], coll=coll, n=4, power=1.0, subsurf=0,
-                       up=tuple(side))]
+        edge = -edge
+
+    def piece(label, f0, f1, end_width):
+        fs = np.linspace(f0, f1, max(3, int(16 * (f1 - f0)) + 2))
+        path = blade_path(pommel, d, hilt, blade, sori, side, fs)
+        width = np.where(fs < 0.97, 0.016 - 0.004 * fs, 0.002)
+        thick = np.where(fs < 0.97, 0.0036 - 0.0012 * fs, 0.0008)
+        width[-1] *= end_width
+        return shapes.loft(f"{name}-{label}", path, width, thick, material=m["steel"], coll=coll, n=4, power=1.0,
+                           subsurf=0, up=tuple(side))
+
+    obs = [piece("blade", 0.0, broken if broken else 1.0, 0.55 if broken else 1.0)]
     obs.append(shapes.loft(f"{name}-habaki", [guard, guard + d * 0.03], 0.019, 0.007, material=m["brass"], coll=coll, n=8,
                            subsurf=0, up=tuple(side)))
     obs.append(shapes.loft(f"{name}-tsuba", [guard - d * 0.004, guard + d * 0.004], 0.04, 0.034, material=m["lacquer"],
@@ -278,21 +316,150 @@ def katana(name: str, m: dict, pommel, hilt_dir, *, hilt: float = 0.27, blade: f
                            [0.012, 0.011, 0.0118], material=m["wrap"], coll=coll, n=12, subsurf=0, up=tuple(edge)))
     obs.append(shapes.loft(f"{name}-kashira", [pommel - d * 0.012, pommel + d * 0.004], 0.0155, 0.0125,
                            material=m["lacquer"], coll=coll, n=12, subsurf=0, up=tuple(edge)))
+    if broken:
+        # the snapped-off half: from a ragged break (a little short of the hilt's piece's, so the two never overlap)
+        tip = piece("point", broken + 0.004, 1.0, 1.0)
+        rings = np.array([v.co[:] for v in tip.data.vertices]).reshape(-1, 4, 3)
+        rings[0] += np.array([d * 0.006 * s for s in (0.0, 1.0, 0.3, 1.0)])     # a jagged end, not a clean cut
+        tip.data.vertices.foreach_set("co", rings.reshape(-1).astype(np.float32))
+        tip.data.update()
+        obs.append(tip)
     return obs
+
+
+def saya(name: str, m: dict, coll, mouth, direction, length: float, *, sori: float = 0.02, edge=(0.0, 0.0, -1.0),
+         width: float = 0.019, thickness: float = 0.013) -> list:
+    """A plain scabbard from its mouth at `mouth` along `direction`, `length` long, bowed by `sori` (its curve away
+    from `edge`, the side its blade's edge lies), a horn collar round the mouth and a cap at the end. `m`: lacquer,
+    wrap. Returns [scabbard, collar, cap], the last two carried by the scabbard."""
+    mouth, d = np.asarray(mouth, float), _unit(direction)
+    e = _square(d, edge)
+    fs = np.linspace(0.0, 1.0, 10)
+    path = mouth + np.outer(fs * length, d) - np.outer(sori * np.sin(np.pi * fs), e)
+    up = tuple(np.cross(d, e))
+    sheath = shapes.loft(f"{name}-saya", path, width - 0.002 * fs, thickness - 0.0015 * fs, material=m["lacquer"],
+                         coll=coll, n=12, power=2.2, subsurf=0, up=up)
+    collar = shapes.loft(f"{name}-koiguchi", [mouth - d * 0.002, mouth + d * 0.022], width + 0.0012,
+                         thickness + 0.0012, material=m["wrap"], coll=coll, n=12, power=2.2, subsurf=0, up=up)
+    end = path[-1]
+    cap = shapes.loft(f"{name}-kojiri", [end - d * 0.03, end + d * 0.004], width - 0.0012, thickness - 0.0005,
+                      material=m["wrap"], coll=coll, n=12, power=2.2, subsurf=0, up=up)
+    _carry(sheath, [collar, cap])
+    return [sheath, collar, cap]
+
+
+def kasa_profile(radius: float, height: float, *, thickness: float = 0.007, bulge: float = 0.8, apex: float = 0.012,
+                 n: int = 12) -> np.ndarray:
+    """A kasa's cross-section [(r, z)] as a closed loop for shapes.lathe: its underside from near the apex out to the
+    brim, round the brim's edge, its top back up to the apex. The top falls from `height` at the middle to 0 at the
+    brim (`bulge` < 1: a shallow dome to a cone), the underside `thickness` under it."""
+    us = np.linspace(apex / radius, 1.0, n)
+    top = height * (1.0 - us) ** bulge
+    under = [(u * radius, z - thickness) for u, z in zip(us, top)]
+    over = [(u * radius, z) for u, z in zip(us[::-1], top[::-1])]
+    return np.array(under + [(radius + thickness * 0.4, -thickness * 0.5)] + over)
+
+
+def kasa_seat(radius: float, height: float, head: float, *, thickness: float = 0.007, bulge: float = 0.8) -> float:
+    """How far above its brim a kasa (kasa_profile) rests on a head `head` metres in radius where its underside meets
+    the head's sides: put the brim that far under the head's widest point near the crown."""
+    u = min(head / radius, 1.0)
+    return height * (1.0 - u) ** bulge - thickness
+
+
+def kasa(name: str, m: dict, coll, *, radius: float = 0.3, height: float = 0.12, thickness: float = 0.007,
+         bulge: float = 0.8, bands: int = 9) -> list:
+    """A wide straw kasa, a rain hat, at the origin: its brim's middle at 0, its apex up +z. Its woven straw shows as
+    rings of a lighter straw (`bands` of them out to the brim), a knob at the apex. `m`: straw, straw_tip. Returns
+    [hat, knob], the knob carried by the hat: place it by the hat (its matrix_world) after."""
+    prof = kasa_profile(radius, height, thickness=thickness, bulge=bulge)
+    hat = shapes.lathe(name, prof, material=m["straw"], coll=coll, n=48)
+    hat.data.materials.append(m.get("straw_tip", m["straw"]))
+    # the top's rings banded (the underside stays plain): every other band of the radius the lighter straw
+    k = len(prof)
+    half = (k - 1) // 2
+    idx = []
+    for poly in hat.data.polygons:
+        ring = min(poly.vertices) // 48
+        r = prof[ring][0] / radius
+        idx.append(1 if ring > half and int(r * bands) % 2 == 1 else 0)
+    hat.data.polygons.foreach_set("material_index", idx)
+    knob = shapes.ellipsoid(f"{name}-knob", (0.0, 0.0, height), (0.014, 0.014, 0.01), material=m["straw"], coll=coll,
+                            n=10)
+    _carry(hat, [knob])
+    return [hat, knob]
+
+
+def kiseru(name: str, m: dict, coll, mouth, direction, *, length: float = 0.3, up=(0.0, 0.0, 1.0)) -> list:
+    """A kiseru, the long thin pipe: a brass mouthpiece at `mouth`, a dark bamboo stem along `direction`, a brass neck
+    curving `up` at the far end into a small bowl. `m`: brass, stem (or lacquer). Returns [stem, mouthpiece, neck,
+    bowl], carried by the stem; the bowl's mouth is the last point of the neck plus a little `up` (for smoke)."""
+    mouth, d = np.asarray(mouth, float), _unit(direction)
+    u = _square(d, up)
+    stem_mat = m.get("stem", m.get("lacquer"))
+    a, b = mouth + d * 0.055, mouth + d * (length - 0.05)
+    piece = shapes.loft(f"{name}-suikuchi", [mouth, a + d * 0.004], [0.0032, 0.0048], material=m["brass"], coll=coll,
+                        n=8, subsurf=0)
+    stem = shapes.loft(f"{name}-rao", [a, b], 0.0043, material=stem_mat, coll=coll, n=8, subsurf=0)
+    neck_path = [b - d * 0.004, b + d * 0.025, b + d * 0.042 + u * 0.006, b + d * 0.05 + u * 0.016]
+    neck = shapes.loft(f"{name}-gankubi", neck_path, [0.0048, 0.0042, 0.004, 0.0045], material=m["brass"], coll=coll,
+                       n=8, subsurf=0)
+    top = neck_path[-1]
+    bowl = shapes.loft(f"{name}-hizara", [top - u * 0.004, top + u * 0.006], [0.0055, 0.0075], material=m["brass"],
+                       coll=coll, n=10, subsurf=0)
+    _carry(stem, [piece, neck, bowl])
+    return [stem, piece, neck, bowl]
 
 
 def ferry_pole(name: str, m: dict, coll, foot, top: float, *, radius: float = 0.022, nodes_every: float = 0.34,
-               grip=(1.62, 1.78), turns: int = 6) -> list:
-    """A tall bamboo ferry pole standing upright from `foot` (x, y, z) to height `top`: its nodes every `nodes_every`
-    metres and a cord wound round it where it is held (`grip`: from, to; None for none). `m`: bamboo, cord. Returns
-    [pole, nodes..., cord turns...]."""
-    x, y, z0 = (float(v) for v in foot)
-    obs = [shapes.cylinder(f"{name}-pole", (x, y, z0), (x, y, top), radius, material=m["bamboo"], coll=coll, n=12)]
-    for k, z in enumerate(np.arange(z0 + 0.32, top - 0.1, nodes_every)):
-        obs.append(shapes.cylinder(f"{name}-node{k}", (x, y, z - 0.01), (x, y, z + 0.01), radius + 0.004,
-                                   material=m["bamboo"], coll=coll, n=12))
+               grip=(1.62, 1.78), turns: int = 6, axis=None, split: float | None = None,
+               blade: float | None = None) -> list:
+    """A tall bamboo ferry pole from `foot` (x, y, z) up to height `top`: its nodes every `nodes_every` metres and a
+    cord wound round it where it is held (`grip`: from, to, heights on the upright pole; None for none). `axis` leans
+    it (the same length along that direction: a pole on a shoulder, laid in a boat). `m`: bamboo, cord (steel for a
+    blade). Returns [pole, nodes..., cord turns...], the rest carried by the pole.
+
+    A sword-cane (`split`: the height where it parts, at the cord's lower end) is two: the shaft (foot to split) and
+    the handle above it with the cord, and with `blade` a thin straight blade that long from the split down inside
+    the shaft, carried by the handle: pull the handle away and it is drawn. Returns [shaft, handle, nodes..., cord
+    turns..., blade]."""
+    foot = np.asarray(foot, float)
+    d = np.array((0.0, 0.0, 1.0)) if axis is None else _unit(axis)
+    z0 = float(foot[2])
+    length = top - z0
+    at = lambda h: foot + d * (h - z0)        # noqa: E731  a height on the upright pole, wherever it leans
+    if split is None:
+        obs = [shapes.cylinder(f"{name}-pole", tuple(at(z0)), tuple(at(top)), radius, material=m["bamboo"], coll=coll,
+                               n=12)]
+        sections = [(obs[0], z0, top)]
+    else:
+        shaft = shapes.cylinder(f"{name}-pole", tuple(at(z0)), tuple(at(split)), radius, material=m["bamboo"],
+                                coll=coll, n=12)
+        handle = shapes.cylinder(f"{name}-handle", tuple(at(split)), tuple(at(top)), radius, material=m["bamboo"],
+                                 coll=coll, n=12)
+        obs = [shaft, handle]
+        sections = [(shaft, z0, split), (handle, split, top)]
+
+    def owner(z):
+        return next(s for s, lo, hi in sections if lo <= z <= hi + 1e-6)
+
+    kids = []
+    for k, z in enumerate(np.arange(z0 + 0.32, z0 + length - 0.1, nodes_every)):
+        if split is not None and abs(z - split) < 0.03:
+            continue
+        kids.append((shapes.cylinder(f"{name}-node{k}", tuple(at(z - 0.01)), tuple(at(z + 0.01)), radius + 0.004,
+                                     material=m["bamboo"], coll=coll, n=12), z))
     if grip is not None:
         for k, z in enumerate(np.linspace(grip[0], grip[1], turns)):
-            obs.append(shapes.cylinder(f"{name}-cord{k}", (x, y, z - 0.008), (x, y, z + 0.008), radius + 0.005,
-                                       material=m["cord"], coll=coll, n=12))
-    return obs
+            kids.append((shapes.cylinder(f"{name}-cord{k}", tuple(at(z - 0.008)), tuple(at(z + 0.008)), radius + 0.005,
+                                         material=m["cord"], coll=coll, n=12), z + 0.0081))
+    if split is not None and blade:
+        side = _square(d, (1.0, 0.0, 0.0) if abs(d[0]) < 0.9 else (0.0, 1.0, 0.0))
+        fs = np.linspace(0.0, 1.0, 8)
+        path = [at(split + 0.01) - d * blade * f for f in fs]
+        width = np.where(fs < 0.93, 0.0075 - 0.0015 * fs, 0.0012)
+        kids.append((shapes.loft(f"{name}-blade", path, width, 0.0018, material=m["steel"], coll=coll, n=4, power=1.0,
+                                 subsurf=0, up=tuple(side)), split + 0.01))
+    for ob, z in kids:
+        ob.parent = owner(z)
+    return obs + [ob for ob, _ in kids]
