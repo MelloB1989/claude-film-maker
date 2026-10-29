@@ -11,8 +11,8 @@ starts wider and moves out before it rises.
 The pure half (`Wisp.points`, `ribbon_verts`) is numpy: where every puff of a chain is at a time, given where the source
 was at the times they left it. `ribbon()` makes the Blender object, a strip of quads turned to face the camera, its
 material a pale emission fading along the ribbon, soft at its edges and broken by drifting noise (whitening with
-toon.FLASH); `Ribbon.bake()` samples the source and the camera over the shot (frame_set: call it last, once
-everything is keyed) and works out every frame's strip, set on each frame by a frame_change_pre handler (render.py
+toon.FLASH); `bake()` samples the sources and the camera over the shot (frame_set, every few frames: call it last,
+once everything is keyed) and works out every frame's strip, set on each frame by a frame_change_pre handler (render.py
 guards it). The ribbon can be linked into more collections (`also`): a copy in a shot's cast layer (lib/satsuei.py) so
 the smoke in front of a face stays in front of it, as rain does.
 
@@ -20,7 +20,7 @@ the smoke in front of a face stays in front of it, as rain does.
     wisp = smoke.Wisp(rain=0.6, wind=(0.05, 0.0, 0.0))
     rb = smoke.ribbon("pipe-smoke", wisp, source=bowl, coll=world, also=(cast,))
     ...                                          # the camera, the cast, everything keyed
-    rb.bake(scene, ctx.f0, ctx.f1, ctx.fps)
+    smoke.bake([rb, ...], scene, ctx.f0, ctx.f1, ctx.fps)   # every ribbon of the shot in one pass (rb.bake: one)
 """
 from __future__ import annotations
 
@@ -165,6 +165,13 @@ def ribbon_verts(P, width, cam) -> np.ndarray:
     return out
 
 
+def sample_frames(f0: int, f1: int, back: int, step: int) -> list[int]:
+    """The frames a bake samples the scene on: the start of a puff's life before f0 (the shot's keys hold before
+    it), then every `step` frames from f0, and f1. Sorted, each once."""
+    out = {f0 - back, f1} | set(range(f0, f1 + 1, max(1, step)))
+    return sorted(out)
+
+
 def strip_faces(n: int) -> list[tuple[int, int, int, int]]:
     """The quads of a strip of n pairs."""
     return [(2 * i, 2 * i + 1, 2 * i + 3, 2 * i + 2) for i in range(n - 1)]
@@ -179,35 +186,40 @@ class Ribbon:
         self.ob, self.wisp, self.source, self.offset = ob, wisp, source, np.asarray(offset, float)
         self.frames: dict[int, tuple] = {}
 
-    def bake(self, scene, f0: int, f1: int, fps: float) -> None:
-        """Sample where the source (and the camera) is on every frame from a puff's life before f0 to f1, work out
-        the ribbon on every frame of [f0, f1) and set it on each by a frame_change_pre handler."""
-        import bpy
+    def bake(self, scene, f0: int, f1: int, fps: float, *, step: int = 6) -> None:
+        """Bake this ribbon alone (`bake` below)."""
+        bake([self], scene, f0, f1, fps, step=step)
+
+    def where(self) -> np.ndarray:
+        """Where the source is now (world)."""
         from mathutils import Vector
 
-        back = int(math.ceil(self.wisp.lifetime * fps)) + 1
-        frames = range(f0 - back, f1 + 1)
-        at, cams = {}, {}
-        for f in frames:
-            scene.frame_set(f)
-            if callable(self.source):
-                at[f] = np.asarray(self.source(f), float)
-            else:
-                m = self.source.matrix_world
-                at[f] = np.array(m @ Vector(self.offset))
-            cams[f] = np.array(scene.camera.matrix_world.translation)
-        fs = np.array(list(frames), float)
-        xyz = np.array([at[f] for f in frames])
+        if callable(self.source):
+            import bpy
+
+            return np.asarray(self.source(bpy.context.scene.frame_current), float)
+        return np.array(self.source.matrix_world @ Vector(self.offset))
+
+    def lay(self, samples: dict, cams: dict, f0: int, f1: int, fps: float) -> None:
+        """Work out the ribbon on every frame of [f0, f1) from its source's and the camera's samples ({frame:
+        point}), straight lines between them, and set it on each by a frame_change_pre handler."""
+        import bpy
+
+        fs = np.array(sorted(samples), float)
+        xyz = np.array([samples[f] for f in sorted(samples)])
+        cxyz = np.array([cams[f] for f in sorted(cams)])
+
+        def lerp3(frames, table):
+            fr = np.clip(np.asarray(frames, float), fs[0], fs[-1])
+            return np.stack([np.interp(fr, fs, table[:, k]) for k in range(3)], axis=-1)
 
         def source(times):
-            fr = np.clip(np.asarray(times, float) * fps, fs[0], fs[-1])
-            return np.stack([np.interp(fr, fs, xyz[:, k]) for k in range(3)], axis=1)
+            return lerp3(np.asarray(times, float) * fps, xyz)
 
-        me = self.ob.data
         for f in range(f0, f1):
             P, _, alpha, width = self.wisp.points(f / fps, source)
-            self.frames[f] = (ribbon_verts(P, width, cams[f]).ravel(), np.repeat(alpha, 2))
-        self._set(me, f0)
+            self.frames[f] = (ribbon_verts(P, width, lerp3(f, cxyz)).ravel(), np.repeat(alpha, 2))
+        self._set(self.ob.data, f0)
         name = self.ob.name
 
         def pose_smoke(scn, *_):
@@ -218,7 +230,6 @@ class Ribbon:
 
         pose_smoke.__name__ = f"smoke_{name}".replace("-", "_")
         bpy.app.handlers.frame_change_pre.append(pose_smoke)
-        scene.frame_set(f0)
 
     def _set(self, me, f: int) -> None:
         if not self.frames:
@@ -228,6 +239,23 @@ class Ribbon:
         me.vertices.foreach_set("co", co)
         me.attributes["smoke_alpha"].data.foreach_set("value", alpha)
         me.update()
+
+
+def bake(ribbons, scene, f0: int, f1: int, fps: float, *, step: int = 6) -> None:
+    """Bake every ribbon of a shot in one pass over the scene: its sources and the camera sampled every `step` frames
+    from the longest puff's life before f0 to f1 (`sample_frames`; each frame_set re-evaluates the whole scene, a
+    rigged cast and all: seconds a frame), straight lines between. Call it last, once everything is keyed."""
+    back = max(int(math.ceil(r.wisp.lifetime * fps)) + 1 for r in ribbons)
+    samples = [{} for _ in ribbons]
+    cams = {}
+    for f in sample_frames(f0, f1, back, step):
+        scene.frame_set(f)
+        for r, s in zip(ribbons, samples):
+            s[f] = r.where()
+        cams[f] = np.array(scene.camera.matrix_world.translation)
+    for r, s in zip(ribbons, samples):
+        r.lay(s, cams, f0, f1, fps)
+    scene.frame_set(f0)
 
 
 def ribbon(name: str, wisp: Wisp, *, source, coll, offset=(0.0, 0.0, 0.0), color=(0.62, 0.65, 0.7),

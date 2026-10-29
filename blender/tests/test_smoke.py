@@ -76,3 +76,9 @@ def test_ribbon_faces_the_camera_and_is_as_wide_as_asked():
     # across the strip runs along x, square to both the chain (z) and the view (y)
     assert np.abs((right - left)[:, 1:]).max() < 1e-9
     assert smoke.strip_faces(3) == [(0, 1, 3, 2), (2, 3, 5, 4)]
+
+
+def test_a_bake_samples_the_scene_sparsely_and_covers_the_shot():
+    fs = smoke.sample_frames(100, 220, 60, 4)
+    assert fs[0] == 40 and fs[-1] == 220 and 100 in fs and fs == sorted(set(fs))
+    assert len(fs) <= 2 + 120 // 4 + 1

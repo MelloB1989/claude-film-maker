@@ -15,6 +15,19 @@ from . import jetty_talk as jt
 
 # where Shinza walks from in ask (world x, y: up the jetty from its middle) to his mark (jetty_talk's)
 ASK_FROM = (1.2, -0.62)
+_T0 = [None]
+
+
+def clock(shot: str, step: str) -> None:
+    """Log how long the build has taken so far, by step (a shot's build has a budget of about a minute)."""
+    import time
+
+    now = time.time()
+    if _T0[0] is None:
+        _T0[0] = now
+    print(f"{shot}: {step} at {now - _T0[0]:.1f}s", flush=True)
+
+
 SMOKE = 1.4         # the smoke's colour: the fog's (the look schedule's light) lifted this much
 
 
@@ -97,9 +110,9 @@ def smoking(st, f: int, t: float, *, at_lips: float = 1.0, **sit) -> None:
     other (jetty_talk's PIPE_ARM); her right hand on her knee, her face calm."""
     pose = {**jt.tsuru_sit(t, **sit), **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)}
     hips = jt.tsuru_hips(st, t)
-    lips, lips_way = jt.pipe_at_lips(st, pose, hips)
     lap, lap_way = (np.asarray(v, float) for v in jt.TS_PIPE_LAP)
     k = min(1.0, max(0.0, at_lips))
+    lips, lips_way = _lips(st, t, sit) if k > 0 else (lap, lap_way)
     point = lap + (np.asarray(lips) - lap) * k + np.array((0.03, -0.07, 0.0)) * math.sin(math.pi * k)
     along = lap_way + (np.asarray(lips_way) - lap_way) * k
     d = along / np.linalg.norm(along)
@@ -109,6 +122,22 @@ def smoking(st, f: int, t: float, *, at_lips: float = 1.0, **sit) -> None:
     st.grip("tsuru", "left", f, point, -d, jt.flat_palm(d, palm0 + (palm1 - palm0) * k), pole0 + (pole1 - pole0) * k)
     jt.knee_hand(st, f)
     st.face("tsuru", f, {"s4-calm": 1.0})
+
+
+LIPS_EVERY = 0.25      # s: how often her lips are found as she is posed (each a re-pose of her: slow); held between
+
+
+def _lips(st, t: float, sit: dict) -> tuple:
+    """jetty_talk.pipe_at_lips with her head as tsuru_sit(t, **sit) holds it, found on a grid of LIPS_EVERY seconds
+    (and her head's turns rounded to half degrees) and kept: it re-poses her and re-evaluates the scene each time."""
+    cache = st.__dict__.setdefault("_lips", {})
+    tq = round(t / LIPS_EVERY) * LIPS_EVERY
+    key = (tq, tuple(sorted((k, round(2 * v) / 2 if isinstance(v, float) else v) for k, v in sit.items())))
+    if key not in cache:
+        sq = {k: v for k, v in key[1]}
+        pose = {**jt.tsuru_sit(tq, **sq), **jt.fingers("left", 0.85)}
+        cache[key] = jt.pipe_at_lips(st, pose, jt.tsuru_hips(st, tq))
+    return cache[key]
 
 
 def bowl_smoke(st, *, seed: int = 4, **wisp):
