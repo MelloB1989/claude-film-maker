@@ -214,9 +214,11 @@ def look(st: Stage, f: int, setup: dict, flash_toward=(0.8, 0.6)):
     fl = st.flash.get(f, 0.0)
     if fl <= 0:
         return lk
-    rims = lk.rims + ((satsuei.Rim(flash_toward, FLASH_COLOR, 1.3 * fl, 0.007, 1.0),)
+    # a hard cold edge on the bolt's side and the grade half let go: the figures keep their colour (a full lift and a
+    # broad rim bleached them to white ghosts)
+    rims = lk.rims + ((satsuei.Rim(flash_toward, FLASH_COLOR, 0.7 * fl, 0.004, 1.0),)
                       if len(lk.rims) < satsuei.RIMS else ())
-    return replace(lk, rims=rims, gain=tuple(g + (1 - g) * fl for g in lk.gain), para_amount=lk.para_amount * (1 - fl),
+    return replace(lk, rims=rims, gain=tuple(g + (1 - g) * 0.5 * fl for g in lk.gain), para_amount=lk.para_amount * (1 - fl),
                    flash=0.15 * fl, flash_color=FLASH_COLOR)
 
 
