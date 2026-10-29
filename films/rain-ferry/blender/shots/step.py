@@ -16,9 +16,9 @@ SHOT = {"scene": "step"}
 STRIKE = 0.2                   # s into the shot: the right foot lands in the puddle (the splash's sound at 10.2 s)
 # the lens, in his frame from where the foot lands (ahead of him, to his right, up off the ground), easing in; the aim,
 # a little behind the foot and up (back down the path into the mist)
-CAM = ((0.82, -0.3, 0.14), (0.74, -0.27, 0.13))   # (ahead, left, up) m: high enough to see into the water
-LOOK = (-0.12, 0.02, 0.085)
-LENS, FSTOP = 40.0, 2.8
+CAM = ((0.72, -0.26, 0.11), (0.66, -0.24, 0.105))   # (ahead, left, up) m: high enough to see into the water
+LOOK = (-0.1, 0.02, 0.045)
+LENS, FSTOP = 45.0, 2.8
 SHAKE = (0.0035, 0.18)         # the lens shaken by the footfall: metres at its peak, dying over seconds
 KEY = (-0.5, -0.7, 0.9)        # his key: overcast from above our shoulder
 RIMS = [((0.4, 1.0), (0.6, 0.68, 0.85), 0.35, 0.0035, 0.9), ((1.0, 0.1), (0.5, 0.55, 0.65), 0.15, 0.003, 0.9)]
@@ -57,7 +57,7 @@ def build(ctx):
     lo = np.minimum(puddle[:2] - 3.0, puddle[:2] - fwd * 12)
     hi = np.maximum(puddle[:2] + 3.0, puddle[:2] - fwd * 12)
     st = approach.stage(ctx, rain_box=((lo[0], lo[1], puddle[2] - 0.2), (hi[0], hi[1], puddle[2] + 3.0)),
-                        rain_near=3.0, rain_clear=0.6, key_toward=KEY)
+                        rain_near=6.0, rain_clear=0.6, key_toward=KEY)
     ch = st.shinza["vrm"]
     t0 = ctx.time(ctx.f0)
     t_strike = t0 + STRIKE
@@ -78,11 +78,12 @@ def build(ctx):
     hit = (*(land + fwd * 0.05), float(puddle[2]))
     approach.splash("splash", hit, t_strike, ctx.fps, coll=st.cast, frames=frames, count=140, speed=(0.45, 1.3),
                     size=0.0032, alpha=0.5, seed=3)
-    approach.ripples("rings", hit, t_strike, ctx.fps, coll=st.world["near"], frames=frames, rings=4, squash=0.95)
+    approach.ripples("rings", hit, t_strike, ctx.fps, coll=st.world["near"], frames=frames, rings=4, squash=0.95,
+                     alpha=0.32, color=(0.42, 0.46, 0.52))
     lift = t_strike + gait.stance * 2 * gait.step
     toe = (*(land + fwd * ball), float(puddle[2]))
     approach.ripples("rings-lift", toe, lift - 0.05, ctx.fps, coll=st.world["near"], frames=frames, rings=2, speed=0.22,
-                     alpha=0.4)
+                     alpha=0.25, color=(0.42, 0.46, 0.52))
 
     def sole(t):
         a, _ = gait.foot("right", t, ankle, ball)
