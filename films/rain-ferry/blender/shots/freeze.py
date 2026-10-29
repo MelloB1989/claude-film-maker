@@ -1,173 +1,176 @@
-"""The freeze: the instant before the cut, when time stops. The duel's painted frame is rebuilt as cards in depth (the
-plate far behind, Shinza and Tsuru each on a card of their own at the jetty's distance), rain hangs frozen in the air
-between them and the lens, and the camera glides in through the drops toward the gap between the two fighters, its
-focus on them, the nearest drops gone to soft discs of light.
+"""The freeze: the instant Shinza launches himself, time stops. The rain slows in the air and hangs (the look
+schedule keys its speed from 9.5 m/s to nothing between +0.1 s and +0.9 s); the streaks shorten into beads. Shinza
+is caught mid-stride, his weight thrown forward, the nodachi raised high over his right shoulder, a crown of water
+hanging round the foot he pushed off from and drops flung from his hair and his blade frozen along their arcs. Tsuru
+has not moved, except that her left hand has come to the pole above her right. The camera glides through the hanging
+drops: from in front of him, past his raised blade, along the line between them, turning to her; the near drops
+slide by as soft discs of light while the focus travels from him to her. Silence, then a high ring.
 
-Each card is a full-frame picture placed so that from the camera's first position it covers the frame exactly: the
-first frame is the keyframe's own composition, and the move opens up the depth (the near drops sweep past fastest, the
-plate barely moves). The cards are emission-only (the painting is its own light), the drops a pale light of their own,
-and the world black behind the plate.
+The cast is the duel's (rf/duel.py); the rain's clock is remapped here: the scene time its drops fall by is replaced
+by a keyed clock, the integral of the schedule's speed, so they decelerate to a stop rather than jump.
 
-Layers from tools/ film-anime-cutout --parts (assets/layers/standoff2/): part1.png (Shinza), part2.png (Tsuru), and
-plate-clean.png, the keyframe with both of them painted out (an inpainting of their grown matte).
-(Tsuru). The drops' layout and the camera's path are numpy only; build() needs Blender.
+    blender -b -P blender/render.py -- --film rain-ferry --shot freeze --mode look --engine eevee \\
+        --frames 1635,1665,1700,1754 --res 960x540
 """
 from __future__ import annotations
 
 import math
+import sys
+from pathlib import Path
 
 import numpy as np
 
 SHOT = {"scene": "freeze"}
 
-LENS_MM = 35.0
-GATE_MM = 20.25                       # the engine's gate height: the vertical fov means the same in both renderers
-DEPTH = {"plate": 46.0, "shinza": 15.0, "tsuru": 17.0}
-MOVE = {"forward": 4.6, "side": 0.15, "rise": -0.12, "yaw_deg": -1.0, "roll_deg": -2.0}
-FSTOP = 1.6
-DROPS = 3600
-SEED = 11
+# Shinza mid-launch: a stride on from his mark toward her, his trunk thrown forward, the hilt raised high over his
+# right shoulder (his frame), the right foot swinging forward off the deck, the left pushing off on its ball
+SH_AT = (-1.75, 0.02)
+POMMEL = (-0.13, -0.08, 1.4)
+HILT_UP = (0.12, 0.42, 0.9)        # the hilt's way up, the blade carrying on up and back over his shoulder
+ELBOWS = {"left": (0.5, -0.15, 1.0), "right": (-0.6, 0.1, 1.05)}
+SH_TURNS = {"spine": (12.0, 0.0, 6.0), "chest": (6.0, 0.0, 4.0), "neck": (-6.0, 0.0, 0.0), "head": (-8.0, 0.0, -4.0)}
+SH_HIPS = (0.0, -0.12, -0.06)
+SH_FEET = {"rightFoot-target": (0.02, -0.3, 0.16), "leftFoot-target": (0.0, 0.18, 0.04)}
+# Tsuru: her left hand come to the pole above her right (her frame)
+TS_LEFT = ((-0.23, -0.22, 1.13), (0.55, -0.2, 0.9))
+# the camera's glide (world): in front of him, past his blade, along the line, turning to her; what it looks at runs
+# from his face to hers; the focus with it
+PATH = [(-0.55, -1.45, 1.42), (-0.85, -1.05, 1.52), (-0.25, -0.62, 1.42), (0.7, -0.52, 1.3), (1.05, -0.48, 1.26)]
+GLIDE = (0.35, 4.7)
+LENS = (24.0, 32.0)
+FSTOP = 2.0
+LOOK = dict(rims=[((0.6, 1.0), (0.6, 0.68, 0.85), 0.3, 0.003, 0.9), ((-1.0, 0.3), (1.0, 0.5, 0.18), 0.2, 0.0025, 0.9)],
+            para_from=(0.5, 0.9), para_to=(0.5, 0.05), para_amount=0.3)
+KEYS = {"shinza": (1.0, -0.6, 0.8), "tsuru": (-1.0, -0.6, 0.8)}
+SPEED0 = 9.5
 
 
-def half_height(d: float) -> float:
-    """Half the frame's height at distance d from the camera."""
-    return d * (GATE_MM / 2) / LENS_MM
-
-
-def drop_field(n: int = DROPS, seed: int = SEED, aspect: float = 16 / 9) -> np.ndarray:
-    """(n, 4): x, y (depth), z and a size factor for each drop, filling the camera's view from 2.6 to 34 units deep
-    (with margin for the move), denser in the middle distance where the fighters stand."""
-    rng = np.random.default_rng(seed)
-    # depth: a mix of uniform and a bump around the fighters
-    d = np.concatenate([rng.uniform(2.6, 34.0, n * 2 // 3), rng.normal(13.0, 4.0, n - n * 2 // 3)])
-    d = np.clip(d, 2.6, 34.0)
-    hh = half_height(d) * 1.25
-    hw = hh * aspect
-    x = rng.uniform(-1, 1, n) * hw + MOVE["side"] * 0.5
-    z = rng.uniform(-1, 1, n) * hh
-    s = rng.uniform(0.6, 1.4, n)
-    return np.column_stack([x, d, z, s])
-
-
-def ease(t: np.ndarray | float) -> np.ndarray | float:
-    return 0.5 - 0.5 * np.cos(np.pi * np.clip(t, 0, 1))
-
-
-def camera_at(u: float) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
-    """The camera's position and rotation (radians, XYZ euler) at progress u through the shot."""
-    k = float(ease(u))
-    pos = (MOVE["side"] * k, MOVE["forward"] * k, MOVE["rise"] * k)
-    rot = (math.pi / 2, math.radians(MOVE["roll_deg"]) * k, math.radians(MOVE["yaw_deg"]) * k)
-    return pos, rot
+def clock(speeds, fps: float = 24.0, speed0: float = SPEED0) -> list:
+    """The rain's clock frame by frame for the rain's speed on each frame: seconds of fall at full speed, summed at
+    the speed of the moment, so the drops slow to a stop and hang."""
+    out, c = [], 0.0
+    for v in speeds:
+        out.append(c)
+        c += max(0.0, v) / speed0 / fps
+    return out
 
 
 def build(ctx):
     import bpy
+    from mathutils import Vector
 
-    scene = ctx.scene
-    scene.world.color = (0, 0, 0)
-    if scene.world.use_nodes:
-        bg = scene.world.node_tree.nodes.get("Background")
-        if bg:
-            bg.inputs[0].default_value = (0, 0, 0, 1)
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from lib import rig, satsuei, vrm
+    from rf import duel, vroid_shinza
+    from rf import duel_motion as dm
+    from rf import eye_closeup
 
-    def image_card(name: str, rel: str, depth: float, alpha: bool):
-        img = bpy.data.images.load(str(ctx.film.path(rel)), check_existing=True)
-        img.colorspace_settings.name = "sRGB"
-        mat = bpy.data.materials.new(name)
-        mat.use_nodes = True
-        nt = mat.node_tree
-        nt.nodes.clear()
-        tex = nt.nodes.new("ShaderNodeTexImage")
-        tex.image = img
-        tex.interpolation = "Cubic"
-        emit = nt.nodes.new("ShaderNodeEmission")
-        nt.links.new(tex.outputs["Color"], emit.inputs["Color"])
-        out = nt.nodes.new("ShaderNodeOutputMaterial")
-        if alpha:
-            mix = nt.nodes.new("ShaderNodeMixShader")
-            clear = nt.nodes.new("ShaderNodeBsdfTransparent")
-            nt.links.new(tex.outputs["Alpha"], mix.inputs["Fac"])
-            nt.links.new(clear.outputs[0], mix.inputs[1])
-            nt.links.new(emit.outputs[0], mix.inputs[2])
-            nt.links.new(mix.outputs[0], out.inputs["Surface"])
-            if hasattr(mat, "surface_render_method"):
-                mat.surface_render_method = "DITHERED"  # writes depth: the depth of field blurs it
-        else:
-            nt.links.new(emit.outputs[0], out.inputs["Surface"])
-        h = 2 * half_height(depth)
-        w = h * img.size[0] / img.size[1]
-        bpy.ops.mesh.primitive_plane_add(size=1, location=(0, depth, 0), rotation=(math.pi / 2, 0, 0))
-        ob = bpy.context.active_object
-        ob.name = name
-        ob.scale = (w, h, 1)
-        ob.data.materials.append(mat)
-        return ob
+    st = duel.stage(ctx, splashes=False)
+    sh, ts = st.bodies["shinza"], st.bodies["tsuru"]
+    shc, tsc = st.ch("shinza"), st.ch("tsuru")
+    st.actors["shinza"]["root"].location = (*SH_AT, 0.0)
+    cam, aim = duel.camera(ctx, lens=LENS[0], fstop=FSTOP)
+    duel.rain_input(st.rain, "clear").default_value = 0.25
+    duel.rain_input(st.rain, "near").default_value = 2.5
 
-    image_card("plate", "assets/layers/standoff2/plate-clean.png", DEPTH["plate"], alpha=False)
-    image_card("shinza", "assets/layers/standoff2/part1.png", DEPTH["shinza"], alpha=True)
-    image_card("tsuru", "assets/layers/standoff2/part2.png", DEPTH["tsuru"], alpha=True)
+    # the rain's clock: the scene's time swapped for a keyed value; its drops shortened to beads as they stop
+    tv = {}
+    for ob in (st.rain, st.rain_cast):
+        ng = ob.modifiers[0].node_group
+        tn = next(n for n in ng.nodes if n.bl_idname == "GeometryNodeInputSceneTime")
+        if ng.name not in tv:
+            v = ng.nodes.new("ShaderNodeValue")
+            for link in list(tn.outputs["Seconds"].links):
+                ng.links.new(v.outputs[0], link.to_socket)
+            info = next(n for n in ng.nodes if n.bl_idname == "GeometryNodeObjectInfo" and n.inputs["Object"].default_value
+                        and n.inputs["Object"].default_value.name.endswith("-drop"))
+            info.transform_space = "RELATIVE"     # the drop's keyed scale carried into each instance
+            tv[ng.name] = (v, info.inputs["Object"].default_value)
 
-    # the frozen drops: one mesh, each drop a small elongated diamond (a bead stretched by its fall)
-    field = drop_field(aspect=ctx.size[0] / ctx.size[1])
-    verts, faces = [], []
-    for x, y, z, s in field:
-        r, L = 0.004 * s * (1 + y * 0.02), 0.055 * s * (1 + y * 0.02)
-        base = len(verts)
-        verts += [(x, y, z + L), (x - r, y, z), (x, y - r, z), (x + r, y, z), (x, y + r, z), (x, y, z - L * 0.6)]
-        faces += [(base, base + 1, base + 2), (base, base + 2, base + 3), (base, base + 3, base + 4), (base, base + 4, base + 1),
-                  (base + 5, base + 2, base + 1), (base + 5, base + 3, base + 2), (base + 5, base + 4, base + 3), (base + 5, base + 1, base + 4)]
-    me = bpy.data.meshes.new("drops")
-    me.from_pydata(verts, [], faces)
-    me.update()
-    drops = bpy.data.objects.new("drops", me)
-    scene.collection.objects.link(drops)
-    dm = bpy.data.materials.new("drop")
-    dm.use_nodes = True
-    nt = dm.node_tree
-    nt.nodes.clear()
-    # a bead of water: clear in the middle, a bright rim where it turns away from the lens
-    em = nt.nodes.new("ShaderNodeEmission")
-    em.inputs["Color"].default_value = (0.8, 0.86, 0.94, 1)
-    em.inputs["Strength"].default_value = 1.1
-    rim = nt.nodes.new("ShaderNodeLayerWeight")
-    rim.inputs["Blend"].default_value = 0.35
-    ramp = nt.nodes.new("ShaderNodeMapRange")
-    ramp.inputs["To Min"].default_value = 0.18
-    ramp.inputs["To Max"].default_value = 0.85
-    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
-    mix = nt.nodes.new("ShaderNodeMixShader")
-    out = nt.nodes.new("ShaderNodeOutputMaterial")
-    nt.links.new(rim.outputs["Facing"], ramp.inputs["Value"])
-    nt.links.new(ramp.outputs["Result"], mix.inputs["Fac"])
-    nt.links.new(tr.outputs[0], mix.inputs[1])
-    nt.links.new(em.outputs[0], mix.inputs[2])
-    nt.links.new(mix.outputs[0], out.inputs["Surface"])
-    if hasattr(dm, "surface_render_method"):
-        dm.surface_render_method = "DITHERED"
-    me.materials.append(dm)
+    # Shinza mid-launch: both hands re-closed on the hilt raised high (the sword rides his right hand), the stride
+    hilt0 = vroid_shinza.HILT_DIR / np.linalg.norm(vroid_shinza.HILT_DIR)
+    up = np.asarray(HILT_UP, float) / np.linalg.norm(HILT_UP)
+    R = np.array(Vector(tuple(hilt0)).rotation_difference(Vector(tuple(up))).to_matrix())
+    for side, along in vroid_shinza.GRIPS.items():
+        palm = np.array((1.0 if side == "right" else -1.0, 0.0, -0.6))
+        vrm.grasp(shc, side, np.asarray(POMMEL) + up * along, up, R @ palm, pole=ELBOWS[side])
+    vrm.grasp(tsc, "left", TS_LEFT[0], (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), pole=TS_LEFT[1], amount=0.9)
+    keep_sh = ("leftHand-target", "leftHand-hold", "rightHand-target", "rightHand-hold", "leftHand-pole", "rightHand-pole")
+    keep_ts = ("leftHand-target", "leftHand-hold", "leftHand-pole")
+    sh.key(ctx.f0 - 1, SH_TURNS, hips=SH_HIPS, moves=SH_FEET, keep=keep_sh,
+           chains=sh.sway(0.0, amount=26.0, cloth=14.0, toward=(0.0, 1.0, 0.0), seed=1))
+    ts.key(ctx.f0 - 1, {"head": (-3.0, 0.0, -4.0)}, keep=keep_ts,
+           chains=ts.sway(0.0, amount=6.0, cloth=4.0, toward=(0.0, 1.0, 0.0), seed=7))
+    vrm.express(shc, {"glare": 1.0, "narrow": 0.6, "aa": 0.55}, frame=ctx.f0 - 1)
+    vrm.express(tsc, {"tsuru-calm": 0.4, "tsuru-glare": 0.6}, frame=ctx.f0 - 1)
+    bpy.context.view_layer.update()
 
-    # physically sampled depth of field (the camera jittered over the aperture across the samples) where EEVEE has it
-    if hasattr(scene.eevee, "use_dof_jitter"):
-        scene.eevee.use_dof_jitter = True
-    # the camera: the engine's gate, a glide in toward the gap between them, the focus pulled onto them
-    cam_data = bpy.data.cameras.new("cam")
-    cam_data.lens = LENS_MM
-    cam_data.sensor_fit = "VERTICAL"
-    cam_data.sensor_height = GATE_MM
-    cam_data.clip_start = 0.05
-    cam_data.clip_end = 200
-    cam_data.dof.use_dof = True
-    cam_data.dof.aperture_fstop = FSTOP
-    cam = bpy.data.objects.new("cam", cam_data)
-    scene.collection.objects.link(cam)
-    scene.camera = cam
+    # the water he threw up, hanging: a crown round the foot he pushed off from, drops off his hair and his blade
+    rng = np.random.default_rng(12)
+    beads = []
+    foot = np.array(shc.point("leftToes"))
+    for k in range(46):
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(0.08, 0.26)
+        beads.append((foot + np.array([r * math.cos(a), r * math.sin(a) * 0.7, rng.uniform(0.02, 0.32) * (1.2 - r * 2.5)]),
+                      rng.uniform(0.004, 0.011)))
+    head = np.array(shc.point("head", tail=True))
+    for k in range(26):
+        beads.append((head + np.array([rng.uniform(-0.45, -0.05), rng.uniform(-0.25, 0.25), rng.uniform(-0.15, 0.2)]),
+                      rng.uniform(0.003, 0.007)))
+    tip = np.array(shc.world(np.asarray(POMMEL) + up * 1.0))
+    for k in range(22):
+        s = rng.uniform(0.0, 1.0)
+        beads.append((tip + np.array([-0.5 * s - 0.05, rng.uniform(-0.1, 0.1), -0.25 * s + rng.uniform(-0.05, 0.05)]),
+                      rng.uniform(0.003, 0.008)))
+    me = bpy.data.meshes.new("hung")
+    ob = bpy.data.objects.new("hung", me)
+    st.cast.objects.link(ob)
+    import bmesh
+
+    bm = bmesh.new()
+    for p, r in beads:
+        bmesh.ops.create_uvsphere(bm, u_segments=10, v_segments=6, radius=r,
+                                  matrix=__import__("mathutils").Matrix.Translation(Vector(tuple(p))))
+    bm.to_mesh(me)
+    bm.free()
+    for poly in me.polygons:
+        poly.use_smooth = True
+    me.materials.append(eye_closeup._water("hung", 0.8, 1.3))
+
+    pts = [np.asarray(p, float) for p in PATH]
+    frames = range(ctx.f0 - 1, ctx.f1 + 1)
+    speeds = {f: ctx.look_at(f).rain.speed for f in frames}
+    clocks = dict(zip(frames, clock([speeds[f] for f in frames], ctx.fps)))
+    comp = satsuei.setup(ctx.scene, st.cast)
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
-        u = (f - ctx.f0) / max(1, ctx.f1 - 1 - ctx.f0)
-        pos, rot = camera_at(u)
-        cam.location = pos
-        cam.rotation_euler = rot
-        cam.keyframe_insert("location", frame=f)
-        cam.keyframe_insert("rotation_euler", frame=f)
-        cam_data.dof.focus_distance = (DEPTH["shinza"] + DEPTH["tsuru"]) / 2 - pos[1]
-        cam_data.dof.keyframe_insert("focus_distance", frame=f)
+        t = (f - ctx.f0) / ctx.fps
+        speed = max(0.0, speeds[f])
+        for v, drop in tv.values():
+            v.outputs[0].default_value = clocks[f]
+            v.outputs[0].keyframe_insert("default_value", frame=f)
+            k = speed / SPEED0                     # streak at full speed, bead at rest
+            drop.scale = (1.0 + 0.6 * (1 - k), 1.0, 0.12 + 0.88 * k)
+            drop.keyframe_insert("scale", frame=f)
+        u = dm.ease(dm.span(t, *GLIDE, curve=lambda x: x))
+        cam_at = _along(pts, u, rig) + duel.shake(t, 0.004)
+        sh_face, ts_face = np.array(shc.face()), np.array(tsc.face())
+        w = dm.span(t, 1.2, 4.4)
+        target = sh_face + (ts_face - sh_face) * w
+        lens = LENS[0] + (LENS[1] - LENS[0]) * u
+        duel.key_camera(cam, aim, f, cam_at, target, lens=lens, fstop=FSTOP)
+        duel.key_lines(st, f, cam_at, lens)
+        duel.key_light(st, f, KEYS)
+        comp.key(f, duel.look(st, f, LOOK))
+    comp.hold()
+    duel.hold(st.ch("shinza").armature, st.ch("tsuru").armature)
+    print(f"freeze: Shinza at {SH_AT}, the glide {GLIDE} s, {len(beads)} hanging drops")
+
+
+def _along(pts, u: float, rig) -> np.ndarray:
+    """The point u (0..1) of the way along a Catmull-Rom path through `pts`."""
+    n = len(pts) - 1
+    x = min(u * n, n - 1e-9)
+    i = int(x)
+    p = [pts[max(i - 1, 0)], pts[i], pts[i + 1], pts[min(i + 2, n)]]
+    return np.asarray(rig.catmull_rom(*p, x - i), float)

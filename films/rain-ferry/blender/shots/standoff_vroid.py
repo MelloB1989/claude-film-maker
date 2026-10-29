@@ -4,7 +4,7 @@ mist behind them, the hut's red lantern swinging at the left, the covered boat a
 the letterbox slides in over the first 1.4 s (the engine's: compose for the 2.39 band). The camera creeps in low
 over the water past two old mooring stakes, out of focus in the foreground. He breathes hard behind his low guard,
 settling his weight; she is still, breathing slow. A gust (the mix's at +1.6 s) throws the rain, his hair and
-headband tails, her cape's straw and both hems; lightning whitens everything at +1.95 s (the thunder follows at
+headband tails, her cape's straw and both hems; lightning whitens everything at +2.1 s (the thunder follows at
 +2.2 s); after it she turns her head to him a little.
 
     blender -b -P blender/render.py -- --film rain-ferry --shot standoff_vroid --mode look --engine eevee \\
@@ -23,15 +23,14 @@ AIM_FROM, AIM_TO = (0.05, 0.0, 1.12), (0.02, 0.0, 1.02)
 LENS = (30.0, 31.5)
 FSTOP = 5.6
 GUST = (1.6, 1.5, 1.4)          # s into the shot, length, strength: the mix's wind_gust
-LIGHTNING = 1.95                # s: the thunder is at +2.2 s
 HER_LOOK = (2.5, 3.4, 4.0)      # s: her head turns to him from, to (degrees)
 # two old mooring stakes standing in the water near the lens, framing the shot (x, y, top, radius)
 STAKES = [(-1.95, -5.2, 0.62, 0.075), (2.25, -5.45, 0.34, 0.065)]
 BAND = (0.128, 0.872)           # the 2.39 letterbox's band (frame heights)
-LOOK = dict(gain=(0.86, 0.87, 0.91), saturation=0.9, haze_amount=0.05, para_amount=0.3, para=(0.55, 0.58, 0.7),
-            para_from=(0.5, 0.62), para_to=(0.5, 0.25), rims=[((0.2, 1.0), (0.6, 0.68, 0.85), 0.2, 0.002, 0.8),
-                                                             ((-1.0, 0.2), (1.0, 0.5, 0.18), 0.12, 0.0018, 0.8)],
-            wrap=0.15, wrap_width=0.004)
+# the compositing's setup on the look schedule's base (data/look.json): more of the rain's air between the lens and
+# small figures, the para darkening the deck, the sky's rim from above and the lantern's on his back
+LOOK = dict(haze_amount=0.05, para_amount=0.3, wrap_width=0.004, para_from=(0.5, 0.62), para_to=(0.5, 0.25), rims=[((0.2, 1.0), (0.6, 0.68, 0.85), 0.2, 0.002, 0.8),
+                                                             ((-1.0, 0.2), (1.0, 0.5, 0.18), 0.12, 0.0018, 0.8)])
 KEYS = {"shinza": (1.0, -0.3, 0.8), "tsuru": (-1.0, -0.3, 0.8)}
 
 
@@ -41,7 +40,7 @@ def build(ctx):
     from rf import duel, sets
     from rf import duel_motion as dm
 
-    st = duel.stage(ctx, lightning=[LIGHTNING])
+    st = duel.stage(ctx)   # its lightning the look schedule's (+2.1 s; the thunder is at +2.2 s)
     cam, aim = duel.camera(ctx, lens=LENS[0], fstop=FSTOP)
     post = st.crossing["materials"]["post"]
     for k, (x, y, top, r) in enumerate(STAKES):

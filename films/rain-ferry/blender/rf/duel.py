@@ -75,10 +75,12 @@ class Stage:
 
 
 def stage(ctx, *, who=("shinza", "tsuru"), rain: dict | None = None, frozen: bool = False, ink: float | None = 0.0042,
-          lightning=(), splashes: bool = True, sun_energy: float = 4.2) -> Stage:
+          lightning=None, splashes: bool = True, sun_energy: float = 4.2) -> Stage:
     """The crossing with `who` at their marks, painted, under the rain (`rain`: RAIN's fields overridden; `frozen`:
     the drops hang where they are), the near set inked (`ink`: Line Art radius, m; None for none), lightning striking
-    at `lightning` (s into the shot). The camera, the acting and the compositing are the shot's."""
+    at `lightning` (s into the shot; default the look schedule's). The rain, the world's light and the keys' colour are
+the look schedule's (data/look.json, ctx.look_at) at the shot's first frame. The camera, the acting and the
+compositing are the shot's."""
     import bpy
     from mathutils import Vector
 
@@ -87,12 +89,16 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain: dict | None = None, frozen: boo
     from . import sets, vroid_cast
 
     scene = ctx.scene
+    sched = ctx.look_at(ctx.f0)
+    light = sched.light
+    if lightning is None:
+        lightning = ctx.look.lightning
     scene.render.use_motion_blur = False   # drawn animation has no shutter (and the rain's drops wrap)
     scene.eevee.use_shadows = True
     scene.eevee.use_raytracing = True
     scene.view_settings.view_transform = "Standard"
     bg = scene.world.node_tree.nodes.get("Background")
-    bg.inputs[0].default_value = (0.03, 0.032, 0.038, 1)   # a dim ambient: the cel bands come from the keys
+    bg.inputs[0].default_value = (*light.ambient, 1)   # a dim ambient: the cel bands come from the keys
 
     look = toon.Look(fog=sets.SKY, fog_near=18.0, fog_far=480.0, fog_max=0.9, fog_power=0.65)
     crossing = sets.crossing(look)
@@ -101,12 +107,15 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain: dict | None = None, frozen: boo
     # the world's key: overcast light from the upper left, behind the wide's shoulder
     sun = bpy.data.lights.new("key", "SUN")
     sun.angle = math.radians(3)
-    sun.energy = sun_energy
+    sun.energy = sun_energy * light.key_strength
+    sun.color = light.key
     key = bpy.data.objects.new("key", sun)
     scene.collection.objects.link(key)
     key.rotation_euler = Vector((0.55, 0.45, -0.7)).to_track_quat("-Z", "Y").to_euler()
 
-    r = {**RAIN, **(rain or {})}
+    sr = sched.rain
+    r = {**RAIN, **dict(count=sr.drops, speed=sr.speed, wind=sr.wind, length=sr.length, width=sr.width,
+                        color=sr.color, alpha=sr.alpha), **(rain or {})}
     rain_ob = toon.rain("rain", r["box_min"], r["box_max"], count=r["count"], speed=r["speed"], wind=r["wind"],
                         length=r["length"], width=r["width"], color=r["color"], alpha=r["alpha"], seed=r["seed"],
                         near=r["near"], clear=r.get("clear", 1.2), frozen=frozen)
@@ -123,7 +132,8 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain: dict | None = None, frozen: boo
         bpy.context.view_layer.update()
         keys[name] = toon3d.key(f"{name}-key", [built["root"], *built["root"].children_recursive],
                                 (1.0, -0.3, 0.8) if name == "shinza" else (-1.0, -0.3, 0.8), coll=cast,
-                                angle=KEY_ANGLE)
+                                angle=KEY_ANGLE, color=light.key,
+                                energy=toon3d.ENERGY * light.key_strength)
         tones = {p: toon3d.Tone(**{**kw, **TONES_OF.get(name, {}).get(p, {})}) for p, kw in TONES.items()}
         vrm.anime(built["vrm"], tones, keys[name])
         vrm.smooth(built["vrm"])
@@ -227,7 +237,7 @@ def key_light(st: Stage, f: int, toward: dict) -> None:
 
     for name, d in toward.items():
         toon3d.aim(st.keys[name], d, frame=f)
-    st.sun.energy = 4.2 + 8.0 * st.flash.get(f, 0.0)
+    st.sun.energy = (4.2 + 8.0 * st.flash.get(f, 0.0)) * st.ctx.look_at(f).light.key_strength
     st.sun.keyframe_insert("energy", frame=f)
 
 
@@ -240,22 +250,24 @@ def swing_lantern(st: Stage, f: int, t: float, gust: float = 0.0) -> None:
     lantern.keyframe_insert("rotation_euler", frame=f)
 
 
-def look(st: Stage, f: int, base: dict, flash_toward=(0.8, 0.6)):
-    """The compositing look (satsuei.Look) for film frame f: `base`'s fields (rims as tuples), lifted by the
-    lightning: the grade let go, the para gone, a cold rim from the bolt's side and a fainter one all round."""
+def look(st: Stage, f: int, setup: dict, flash_toward=(0.8, 0.6)):
+    """The compositing look (satsuei.Look) for film frame f: the look schedule's base for the shot with the setup's
+    own on top (`setup`: rims as tuples, para_from, para_to, ...), lifted by the lightning: the grade let go, the
+    para gone, a cold rim from the bolt's side and a fainter one all round."""
+    from dataclasses import replace
+
     from lib import satsuei
 
-    from . import sets
-
-    p = dict(base)
+    p = dict(setup)
+    p["rims"] = tuple(satsuei.Rim(*r) if not isinstance(r, satsuei.Rim) else r for r in p.get("rims", ()))
+    lk = st.ctx.look_at(f).look(**p)
     fl = st.flash.get(f, 0.0)
-    p["rims"] = tuple(satsuei.Rim(*r) for r in p.get("rims", ()))
-    p["gain"] = tuple(g + (1 - g) * fl for g in p.get("gain", (1.0, 1.0, 1.0)))
-    p["para_amount"] = p.get("para_amount", 0.0) * (1 - fl)
-    if fl > 0 and len(p["rims"]) < satsuei.RIMS:
-        p["rims"] += (satsuei.Rim(flash_toward, FLASH_COLOR, 1.3 * fl, 0.007, 1.0),)
-    p.setdefault("haze", tuple(sets.SKY))
-    return satsuei.Look(**p, flash=0.35 * fl, flash_color=FLASH_COLOR)
+    if fl <= 0:
+        return lk
+    rims = lk.rims + ((satsuei.Rim(flash_toward, FLASH_COLOR, 1.3 * fl, 0.007, 1.0),)
+                      if len(lk.rims) < satsuei.RIMS else ())
+    return replace(lk, rims=rims, gain=tuple(g + (1 - g) * fl for g in lk.gain), para_amount=lk.para_amount * (1 - fl),
+                   flash=0.35 * fl, flash_color=FLASH_COLOR)
 
 
 def hold(*owners) -> None:
@@ -310,11 +322,12 @@ class Body:
         return Matrix(d.tolist()).to_quaternion() @ self.rot[name]
 
     def key(self, f: int, turns: dict | None = None, *, hips=(0.0, 0.0, 0.0), moves: dict | None = None,
-            chains: dict | None = None) -> None:
+            chains: dict | None = None, keep=()) -> None:
         """Key the whole body at film frame f: `turns` ({humanoid or armature bone: (x, y, z) degrees}) on top of
         the built pose (every other bone back at it), the hips moved by `hips` (m, character's axes) from where they
         were built, the IK handles in `moves` ({handle key: (x, y, z) m in the character's frame, added}) and the
-        rest where they were, and `chains` ({armature bone: turn}) for hair and cloth."""
+        rest where they were (but those in `keep`, keyed as they stand: a hand a shot moved itself with vrm.grasp), and
+        `chains` ({armature bone: turn}) for hair and cloth."""
         from mathutils import Vector
 
         from lib import vrm
@@ -332,10 +345,14 @@ class Body:
         hp.keyframe_insert("location", frame=f)
         for k, e in self.ch.handles.items():
             loc0, q0 = self.handles.get(k, (e.location.copy(), None))
-            if moves and k in moves:
+            if k in keep:
+                pass
+            elif moves and k in moves:
                 e.location = loc0 + Vector(self.ch.frame @ (np.asarray(moves[k], float) / self.ch.scale))
             elif k in self.handles:
                 e.location = loc0
+                if q0 is not None and e.rotation_mode == "QUATERNION":
+                    e.rotation_quaternion = q0
             e.keyframe_insert("location", frame=f)
             if e.rotation_mode == "QUATERNION":
                 e.keyframe_insert("rotation_quaternion", frame=f)
@@ -367,6 +384,19 @@ def _axis_turn(axis, degrees: float) -> np.ndarray:
     t = math.radians(degrees)
     K = np.array([[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]])
     return np.eye(3) + math.sin(t) * K + (1 - math.cos(t)) * K @ K
+
+
+def to_frame(ch, w) -> np.ndarray:
+    """A world point in a character's frame (vrm.Character.world's inverse)."""
+    m = np.array(ch.armature.matrix_world.inverted())
+    a = m[:3, :3] @ np.asarray(w, float) + m[:3, 3]
+    return ch.scale * (ch.frame.T @ a)
+
+
+def dir_to_frame(ch, d) -> np.ndarray:
+    """A world direction in a character's frame."""
+    v = to_frame(ch, np.asarray(d, float)) - to_frame(ch, np.zeros(3))
+    return v / np.linalg.norm(v)
 
 
 def breathing(t: float, rate: float, depth: float = 1.0, phase: float = 0.0) -> dict:
