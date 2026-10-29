@@ -45,6 +45,7 @@ def build(ctx):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import satsuei, shapes, vrm, vrm_rig
     from rf import duel
+    from rf.vroid_common import to_frame
     from rf import duel_motion as dm
 
     st = duel.stage(ctx)
@@ -67,17 +68,16 @@ def build(ctx):
                coll=st.crossing["near"], rot_z=ch.root.rotation_euler[2] + 0.15)
 
     # the pole: carried by a pivot at its foot, turned from lying out of the boat to upright
-    pole = [ob for ob in st.actors["tsuru"]["props"] if ob.name.startswith("tsuru-pole")]
-    foot1 = np.array(pole[0].matrix_world.translation)          # the pole's foot as built: on the deck by her
+    shaft = st.actors["tsuru"]["parts"]["pole"][0]             # the handle and the cord ride on it
+    foot1 = np.array(shaft.matrix_world.translation)            # the pole's foot as built: on the deck by her
     pivot = bpy.data.objects.new("pole-pivot", None)
     st.cast.objects.link(pivot)
     pivot.location = tuple(foot1)
     pivot.rotation_mode = "QUATERNION"
     bpy.context.view_layer.update()
-    for ob in pole:
-        w = ob.matrix_world.copy()
-        ob.parent = pivot
-        ob.matrix_world = w
+    w = shaft.matrix_world.copy()
+    shaft.parent, shaft.parent_type = pivot, "OBJECT"
+    shaft.matrix_world = w
     grip1 = np.array(ch.world((-0.24, -0.2, 0.98)))              # her hand on it as built (rf/vroid_tsuru.py)
     grip0 = np.array(ch.world(GRIP0))
     foot0 = np.array(POLE_FOOT0)
@@ -102,7 +102,7 @@ def build(ctx):
         pivot.keyframe_insert("location", frame=f)
         pivot.keyframe_insert("rotation_quaternion", frame=f)
         grip = foot + d * (along0 + (along1 - along0) * p)
-        vrm.grasp(ch, "right", duel.to_frame(ch, grip), duel.dir_to_frame(ch, d), (1.0, 0.0, 0.0), pole=(-0.5, 0.4, 0.6),
+        vrm.grasp(ch, "right", to_frame(ch, grip), duel.dir_to_frame(ch, d), (1.0, 0.0, 0.0), pole=(-0.5, 0.4, 0.6),
                   amount=0.95, bend=70.0)
         s = 1.0 - r
         moves = {"leftHand-target": tuple(np.array(SEAT["left"]) * s),

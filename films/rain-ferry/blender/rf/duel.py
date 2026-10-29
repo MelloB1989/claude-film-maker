@@ -386,15 +386,10 @@ def _axis_turn(axis, degrees: float) -> np.ndarray:
     return np.eye(3) + math.sin(t) * K + (1 - math.cos(t)) * K @ K
 
 
-def to_frame(ch, w) -> np.ndarray:
-    """A world point in a character's frame (vrm.Character.world's inverse)."""
-    m = np.array(ch.armature.matrix_world.inverted())
-    a = m[:3, :3] @ np.asarray(w, float) + m[:3, 3]
-    return ch.scale * (ch.frame.T @ a)
-
-
 def dir_to_frame(ch, d) -> np.ndarray:
     """A world direction in a character's frame."""
+    from .vroid_common import to_frame
+
     v = to_frame(ch, np.asarray(d, float)) - to_frame(ch, np.zeros(3))
     return v / np.linalg.norm(v)
 

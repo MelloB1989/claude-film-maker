@@ -35,7 +35,6 @@ class Drop:
 @dataclass
 class Closeup:
     who: str                 # "shinza" or "tsuru"
-    eye: str                 # "leftEye" or "rightEye": the one toward the lens
     bearing: float           # degrees from straight in front of the face round to the eye's side
     height: float            # m: the visible band's height at the eye
     lens: float = 100.0
@@ -84,8 +83,11 @@ def build(ctx, c: Closeup) -> None:
     root = st.actors[c.who]["root"]
     turn = root.rotation_euler[2]
     front = np.array([math.cos(turn), math.sin(turn), 0.0])
-    eye0 = np.array(ch.point(c.eye)) + front * 0.012       # the eye's surface, before its pivot
     out = basis(front, c.bearing)
+    # the eye toward the lens (the VRM's left and right are the model's, whichever way it was built), its surface
+    # before its pivot
+    eyes_at = [np.array(ch.point(e)) for e in ("leftEye", "rightEye")]
+    eye0 = max(eyes_at, key=lambda p: float(p @ out)) + front * 0.012
     d0 = c.height / BAND * c.lens / GATE_H                  # the lens's distance for the band's height at the eye
     up = np.array([0.0, 0.0, 1.0])
     right = np.cross(-out, up)
