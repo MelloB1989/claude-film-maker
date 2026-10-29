@@ -27,11 +27,11 @@ LIDS = (2.95, 3.4)           # the lids lift: the old swordsman looks out
 SMILE = (1.0, 2.0)
 BLINKS = (2.85,)
 # how far round she turns (degrees to her right: the rest of the way to his face is her eyes'), and up
-TURN_BODY, TURN_EYES = -80.0, -16.0
-UP_HEAD, UP_EYES = -22.0, -10.0
+TURN_BODY, TURN_EYES = -95.0, -10.0
+UP_HEAD, UP_EYES = -12.0, -6.0
 # the camera, from her face: its bearing (degrees from +x) and distance, start and end; the lens; how far the aim sits
 # left of her face (m, room on the side she looks to) and how far below it the lens is
-BEARING, DIST, LENS = 226.0, (1.3, 0.98), (68.0, 80.0)
+BEARING, DIST, LENS = 250.0, (1.3, 0.98), (68.0, 80.0)
 LEAD, DROP = 0.045, 0.03
 
 
@@ -67,4 +67,4 @@ def perform(st):
         st.pose("tsuru", f, {**body, **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)}, hips=jt.tsuru_hips(st, t))
         jt.hold_pipe(st, f, lap, lap_along)
         jt.knee_hand(st, f)
-        st.face("tsuru", f, {"s4-calm": 1.0 - 0.45 * lids, "s4-smile": 0.35 + 0.45 * jt.ramp(t, *SMILE)})
+        st.face("tsuru", f, {"s4-calm": 1.0 - 0.7 * lids, "s4-smile": 0.35 + 0.45 * jt.ramp(t, *SMILE)})

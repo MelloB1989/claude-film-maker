@@ -443,10 +443,16 @@ def shinza_stand(t: float, *, look_out: float = 0.0, reach: float = 0.0, gust: f
     wind, `chin` lifts it (defiance)."""
     from .vroid_shinza import STAND_POSE
 
+    from lib import vrm
+
     br = math.sin(2 * math.pi * t / 3.4)
     legs = {k: v for k, v in STAND_POSE.items() if "Leg" in k or k == "hips"}
     return {
         **legs,
+        # the elbows keyed folded as the IK will want them (the right well in for the hilt over his shoulder), so the
+        # solver starts near its answer: from a straight forearm it settles with the elbow at the target
+        "rightLowerArm": vrm.fold("rightLowerArm", 25.0 + 105.0 * reach),
+        "leftLowerArm": vrm.fold("leftLowerArm", 15.0),
         "spine": (-2.0 + 0.6 * br, 0.0, 3.0),
         "chest": (-3.0 + 0.8 * br, 0.0, -7.0 * reach),
         "upperChest": (-2.0, 0.0, -4.0 * reach),
@@ -582,7 +588,9 @@ def pipe_smoke(st: Stage, *, emit=None, seed: int = 4):
 
 
 def draw_sword(st: Stage) -> None:
-    """His sword out of its scabbard into his right fist, as it is on the shot's first frame (the draw)."""
+    """His sword out of its scabbard into his right fist from the shot's first frame, where the baked performance has
+    the fist closed on the hilt: call it after `bake`. Parented to the hand there, keeping where it is (vrm_anim's
+    carry moved the sword at the handoff when this was written)."""
     import bpy
 
     from lib import vrm
