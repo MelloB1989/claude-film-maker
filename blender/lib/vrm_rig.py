@@ -487,8 +487,8 @@ def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float
 
 
 def shift_weights(ch: vrm.Character, ob, faces, below: float, band: float, moves: dict) -> int:
-    """Hand the weight of some vertices from one bone to another ({humanoid from: humanoid to}, e.g. a thigh's to its
-    shin): those of `faces` lower than `below` (metres, the character's frame at rest) fully, eased to none over
+    """Hand the weight of some vertices from one bone to another ({from: to}, humanoid names or the armature's own,
+    e.g. a thigh's to its shin): those of `faces` lower than `below` (metres, the character's frame at rest) fully, eased to none over
     `band` above it. A long robe's skirt seated: below the knees it then hangs from the shins, not jutting on from the
     thighs. Returns how many vertices changed."""
     pts, _ = _to_frame(ch, ob)
@@ -497,7 +497,7 @@ def shift_weights(ch: vrm.Character, ob, faces, below: float, band: float, moves
     k = k * k * (3 - 2 * k)
     groups = {}
     for a, b in moves.items():
-        ga, gb = ch.bones[vrm.canonical(a)], ch.bones[vrm.canonical(b)]
+        ga, gb = (ch.bones.get(vrm.canonical(n), n) for n in (a, b))     # humanoid names, or the armature's
         if ga in ob.vertex_groups:
             groups[ob.vertex_groups[ga].index] = ob.vertex_groups.get(gb) or ob.vertex_groups.new(name=gb)
     n = 0

@@ -84,9 +84,6 @@ INDIGO = ((0.055, 0.075, 0.15), (0.018, 0.026, 0.06))
 # its wide sleeves taken in (tied back for work: vrm_rig.cinch) to SLEEVE metres round her arms, keeping `keep` of
 # the rest, so a hand raised to her face never buries it
 SLEEVE = (0.045, 0.1)
-# seated, the robe's skirt (VRoid's coat-skirt bones) laid forward over her thighs and down over her knees: each
-# chain's first bone swung forward with them, its second back down (degrees, vrm.pose's x), the sides half as far
-SKIRT_SEATED = {"Front": (-80.0, 78.0), "Side1": (-45.0, 40.0), "Side2": (-45.0, 40.0), "Back": (-10.0, 8.0)}
 TS_COLORS = {"hair": HAIR_WHITE}
 
 # ---- her face. The marks are drawn on a front view of it (lib/vrm_skin.py: projected along +y onto the face's skin),
@@ -99,10 +96,10 @@ SPOTS = [((0.074, 1.362), 3.2), ((0.058, 1.303), 2.2), ((-0.034, 1.392), 2.6), (
          ((0.069, 1.27), 2.0), ((-0.081, 1.346), 2.4), ((0.012, 1.398), 1.6)]
 # her expressions, composed from VRoid's per-part shape keys and her own (hood: the upper lids heavy, more at their
 # outer corners; brow-low: the brows down and flat; press: the lips pressed thin; sneer: one corner drawn up): calm
-# and half-lidded, and the glare, narrowed under low brows, the mouth a tight thin line
+# and half-lidded with the faint smile, and the glare, narrowed under low brows, the mouth a tight thin line
 FACES = {
     "tsuru-calm": {"tsuru-hood": 0.5, "tsuru-brow-low": 0.6, "Fcl_EYE_Close": 0.0, "Fcl_BRW_Angry": 0.1,
-                   "Fcl_MTH_Close": 1.0, "tsuru-press": 0.5},
+                   "Fcl_MTH_Close": 1.0, "tsuru-press": 0.3, "Fcl_MTH_Fun": 0.2},
     "tsuru-glare": {"tsuru-hood": 0.45, "Fcl_EYE_Angry": 0.5, "tsuru-brow-low": 1.0, "Fcl_BRW_Angry": 0.3,
                     "Fcl_MTH_Close": 1.0, "tsuru-press": 1.0, "tsuru-sneer": 0.8},
 }
@@ -307,22 +304,20 @@ def indigo(ch) -> None:
 
 
 def drape_skirt(ch) -> None:
-    """Seated: the robe's skirt laid over her thighs and down past her knees (SKIRT_SEATED): below the knees it hangs
-    from her shins (vrm_rig.shift_weights), not on out from her thighs. Before posing."""
+    """Seated: the robe's skirt laid over her thighs and down past her knees: VRoid hangs it from bones of its own
+    (J_Sec_*_CoatSkirt*), which stay where a standing skirt hangs, so it is handed to her legs (vrm_rig.shift_weights),
+    her thighs above the knee and her shins below, the cloth between her knees spanning them."""
     knee = ch.rest("leftLowerLeg")[2]
+    skirt = {}
+    for chain in vrm_rig.chains(ch, "J_Sec_*_CoatSkirt*"):
+        for bone in chain:
+            skirt[bone] = "leftUpperLeg" if "_L_" in bone else "rightUpperLeg"
     for ob in ch.meshes:
         tops = vrm_rig.faces_of(ob, "Tops")
         if tops.size:
+            vrm_rig.shift_weights(ch, ob, tops, 10.0, 0.01, skirt)
             vrm_rig.shift_weights(ch, ob, tops, knee - 0.02, 0.08,
                                   {"leftUpperLeg": "leftLowerLeg", "rightUpperLeg": "rightLowerLeg"})
-    turns = {}
-    for chain in vrm_rig.chains(ch, "J_Sec_*_CoatSkirt*"):
-        part = next((k for k in SKIRT_SEATED if f"CoatSkirt{k}" in chain[0]), None)
-        if part is None:
-            continue
-        for bone, deg in zip(chain, SKIRT_SEATED[part]):
-            turns[bone] = (deg, 0.0, 0.0)
-    vrm_rig.turn_bones(ch, turns)
 
 
 def hair(ch, m: dict, coll, name: str) -> list:
