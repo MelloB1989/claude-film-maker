@@ -33,7 +33,6 @@ import math
 # the jetty from its end (every camera of 22-24), he is on the left, she on the right, the hut's lantern beyond.
 SHINZA_AT = (7.2, 0.08)                            # rf/clash.py FALL["kneel"]
 SHINZA_FACING = 0.0
-HEADBAND_AT = (7.42, -0.2, 35.0)                   # rf/clash.py FALL["headband"], and its turn (deg)
 TSURU_WALK = [(5.0, -0.06), (4.3, 0.42), (3.3, 0.8)]   # her way from her END mark to the ferry's stern (x, y)
 
 
@@ -337,6 +336,25 @@ def hands_rest(built, legs: dict, frame: int | None = None) -> None:
 
 
 # ---------------------------------------------------------------------------------------------------- the leavings
+
+BAND_LANDED = (1.45, -1.45, 1.1)    # shots/fall.py: the turn its headband has taken by the time it lies on the planks
+
+
+def cut_headband(built, *, afloat: bool = False):
+    """His own headband (rf/vroid_shinza.py's, built with headband=True) cut loose as shot 21 (shots/fall.py) leaves
+    it: off his head (rf/clash.py's loose_headband, before he is posed), lying flat on the planks at FALL["headband"],
+    turned as it landed. `afloat`: leave it free for a shot to float it (the cross). Returns the band."""
+    from mathutils import Euler
+
+    from rf import clash
+
+    band = clash.loose_headband(built)
+    r0 = band.matrix_world.to_euler()
+    band.rotation_euler = Euler((r0.x + BAND_LANDED[0], r0.y + BAND_LANDED[1], r0.z + BAND_LANDED[2]))
+    if not afloat:
+        band.location = (*clash.FALL["headband"], 0.012)
+    return band
+
 
 def band_material(look, wet: float = 1.0, name: str = "ending-band"):
     """The headband's cloth (rf/vroid_common.py's band red, as wet as `wet`)."""
