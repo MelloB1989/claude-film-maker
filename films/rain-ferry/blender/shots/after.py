@@ -5,7 +5,7 @@ of the sky and sticks in the planks between them with a thunk (77.3 s: THUNK int
 it quivers. Then she slides her blade home, and her pole is whole.
 
 The camera is low on the river side of the jetty, side on, as the reference stages it (Tsuru left, Shinza right),
-creeping in. rf/duel.py has the world, the cast and the posing; the cast's variants are his sword "broken" (the half a
+creeping in. rf/clash.py has the world, the cast and the posing; the cast's variants are his sword "broken" (the half a
 prop, parts["half"]) and her pole in hand (its handle parts at the cord: parts["handle"]).
 """
 from __future__ import annotations
@@ -14,7 +14,7 @@ import math
 
 SHOT = {"scene": "after"}
 
-MID = 2.1             # x between them (rf/duel.py END)
+MID = 5.4             # x between them (rf/clash.py END)
 CAM = [(0.0, (MID - 0.13, -4.05, 0.42), (MID, 0.0, 0.95)), (4.5, (MID - 0.05, -3.6, 0.38), (MID + 0.01, 0.0, 0.9))]
 LENS, FSTOP = 35.0, 2.2
 THUNK = 1.2           # s into the shot: the half blade lands (data/mix.json blade_thunk at 77.3)
@@ -44,23 +44,23 @@ def build(ctx):
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from rf import duel, vroid_tsuru
+    from rf import clash, vroid_tsuru
 
     fps = ctx.fps
-    w = duel.world(ctx)
+    w = clash.world(ctx)
     # the rain falls again: its clock from the schedule's speed (hung at first, up to full by 1.4 s)
     full = 9.5
-    duel.rain_clock(ctx, [w["rain"], *w["splashes"]], lambda t: ctx.look.at(t).rain.speed / full)
-    actors = duel.cast(ctx, w, {"shinza": {"sword": "broken"}, "tsuru": {"pole": "hand"}})
+    clash.rain_clock(ctx, [w["rain"], *w["splashes"]], lambda t: ctx.look.at(t).rain.speed / full)
+    actors = clash.cast(ctx, w, {"shinza": {"sword": "broken"}, "tsuru": {"pole": "hand"}})
     if actors.get("rain") is not None:
         pass   # the copy shares the rain's node group, and so its clock
     sh, ts = actors["shinza"], actors["tsuru"]
 
     # ---- where they stand: back to back
-    hands, fingers = duel.shinza_sword(sh["vrm"], FOLLOW["pommel"], FOLLOW["hilt"])
-    follow = duel.Pose(at=duel.END["shinza"], yaw=0.0, hips=SH_HIPS, turns=SH_FOLLOW, hands=hands, feet=SH_FEET)
-    duel.apply(sh, follow, fingers=fingers)
-    ts["root"].location = (*duel.END["tsuru"], 0.0)
+    hands, fingers = clash.shinza_sword(sh["vrm"], FOLLOW["pommel"], FOLLOW["hilt"])
+    follow = clash.Pose(at=clash.END["shinza"], yaw=0.0, hips=SH_HIPS, turns=SH_FOLLOW, hands=hands, feet=SH_FEET)
+    clash.apply(sh, follow, fingers=fingers)
+    ts["root"].location = (*clash.END["tsuru"], 0.0)
     ts["root"].rotation_euler = (0.0, 0.0, math.pi)
     bpy.context.view_layer.update()
 
@@ -72,7 +72,7 @@ def build(ctx):
         up = (handle.parent.matrix_world.to_3x3().inverted() @ up).normalized()
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = (f - ctx.f0) / fps
-        out = SHEATH[0] * (1.0 - duel.ease((t - SHEATH[1]) / (SHEATH[2] - SHEATH[1])) ** 0.7)
+        out = SHEATH[0] * (1.0 - clash.ease((t - SHEATH[1]) / (SHEATH[2] - SHEATH[1])) ** 0.7)
         handle.location = rest + up * out
         handle.keyframe_insert("location", frame=f)
     # (the last stretch is a click: no ease into it)
@@ -83,8 +83,8 @@ def build(ctx):
         base = tgt.location.copy()
         for f in range(ctx.f0 - 1, ctx.f1 + 1):
             t = (f - ctx.f0) / fps
-            out = SHEATH[0] * (1.0 - duel.ease((t - SHEATH[1]) / (SHEATH[2] - SHEATH[1])) ** 0.7)
-            on = duel.ease((t - (SHEATH[1] - 0.8)) / 0.6) * (1.0 - duel.ease((t - SHEATH[2] - 0.2) / 0.6))
+            out = SHEATH[0] * (1.0 - clash.ease((t - SHEATH[1]) / (SHEATH[2] - SHEATH[1])) ** 0.7)
+            on = clash.ease((t - (SHEATH[1] - 0.8)) / 0.6) * (1.0 - clash.ease((t - SHEATH[2] - 0.2) / 0.6))
             grip = tch.to_armature((px + 0.03, py - 0.02, vroid_tsuru.SPLIT + 0.06 + out))
             tgt.location = base.lerp(grip, on)
             tgt.keyframe_insert("location", frame=f)
@@ -138,27 +138,27 @@ def build(ctx):
         for ob, path in ((flight, "location"), (flight, "rotation_euler"), (quiver, "rotation_euler"),
                          (half, "hide_render"), (half, "hide_viewport")):
             ob.keyframe_insert(path, frame=f)
-    duel.hold_constant(half)
+    clash.hold_constant(half)
 
     # ---- the camera: low, side on, creeping in; the focus on them, then pulled to the blade
-    cam, aim = duel.camera(ctx, fstop=FSTOP)
+    cam, aim = clash.camera(ctx, fstop=FSTOP)
     cam.data.lens = LENS
-    fo = duel.focus(ctx, cam)
+    fo = clash.focus(ctx, cam)
     figures = Vector((MID, 0.0, 1.2))
     cams = {}
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = (f - ctx.f0) / fps
-        c = duel.keys_at([(k, v) for k, v, _ in CAM], t)
-        a = duel.keys_at([(k, v) for k, _, v in CAM], t)
+        c = clash.keys_at([(k, v) for k, v, _ in CAM], t)
+        a = clash.keys_at([(k, v) for k, _, v in CAM], t)
         cam.location, aim.location = c, a
         cam.keyframe_insert("location", frame=f)
         aim.keyframe_insert("location", frame=f)
-        k = duel.ease((t - RACK[0]) / RACK[1])
+        k = clash.ease((t - RACK[0]) / RACK[1])
         fo.location = figures.lerp(goal + axis_up * 0.25, k)
         fo.keyframe_insert("location", frame=f)
         cams[f] = c
-    duel.outlines(ctx, {"shinza": sh, "tsuru": ts}, lambda f: cams[f], lambda f: LENS)
+    clash.outlines(ctx, {"shinza": sh, "tsuru": ts}, lambda f: cams[f], lambda f: LENS)
 
     # the sky's rim on them from above, the bank's side in shade
-    duel.composite(ctx, actors, lambda f: dict(rims=[((0.2, 1.0), SKY_RIM, 0.22, 0.002, 0.8)],
+    clash.composite(ctx, actors, lambda f: dict(rims=[((0.2, 1.0), SKY_RIM, 0.22, 0.002, 0.8)],
                                                 para_from=(0.5, 0.75), para_to=(0.5, 0.15)))

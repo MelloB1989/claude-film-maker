@@ -2,8 +2,8 @@
 3D VRoid cast painted as the standoff paints it (shots/standoff.py's tones and keys), what the clash does to their
 props, their keyed poses, the light and the compositing, all read from the film's look schedule (ctx.look_at).
 
-The blocking (rf/sets.py's axes: the jetty along x, the deck's top at z 0, the river behind at +y, the camera's side
--y). In the standoff Shinza stands at x -2.3 facing +x and Tsuru at x +2.35 facing -x. He charges along the jetty;
+The blocking (rf/sets.py's axes: the jetty along x out from the bank at -x, the deck's top at z 0, the cameras on
+the -y side). In the standoff Shinza stands at STANDOFF facing +x (screen left) and Tsuru facing -x (screen right). He charges along the jetty;
 they meet at CLASH, pass through each other and stand back to back (END): him further out toward the jetty's end
 facing +x, her nearer the bank facing -x.
 
@@ -23,9 +23,12 @@ from pathlib import Path
 
 import numpy as np
 
-STANDOFF = {"shinza": (-2.3, 0.0), "tsuru": (2.35, 0.05)}
-CLASH = 1.4                       # x where the blades meet: he has run three strides, she has barely moved
-END = {"shinza": (3.0, 0.08), "tsuru": (1.2, -0.06)}
+# the duel's marks, on the outer half of the jetty near its end (rf/set_jetty.py: the end posts at x 7.42), her back
+# to the open river, him 4.5 m from her toward the bank. S5's rf/duel.py publishes the standoff's marks; these follow
+# them until it is merged
+STANDOFF = {"shinza": (1.6, 0.0), "tsuru": (6.1, 0.05)}
+CLASH = 4.9                       # x where the blades meet: he has run three strides, she has stepped in one
+END = {"shinza": (6.6, 0.08), "tsuru": (4.2, -0.06)}   # passed through each other: back to back
 OUTLINE = 0.0018                  # the 3D cast's outline, in frame heights (as the standoff's)
 
 
@@ -163,7 +166,7 @@ def loose_headband(actor):
 
     parts = list(actor["parts"]["headband"])
     if not parts:
-        raise RuntimeError("duel: no headband to cut")
+        raise RuntimeError("clash: no headband to cut")
     bpy.context.view_layer.update()
     for ob in parts:
         world = ob.matrix_world.copy()

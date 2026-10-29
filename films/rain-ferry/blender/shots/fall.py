@@ -13,7 +13,7 @@ import math
 
 SHOT = {"scene": "fall"}
 
-AT = (3.0, 0.08)              # where he stands (rf/duel.py END)
+AT = (6.6, 0.08)              # where he stands (rf/clash.py END)
 CUT, BAND_OFF, BAND_DOWN = 0.45, 1.7, 2.25    # s: the knot gives; the band is off his head; it lands on the planks
 ARMS = (1.9, 2.7)             # s: his arms come down
 KNEES = 3.2                   # s: his knees hit the planks (data/mix.json kneel at 83.8)
@@ -56,39 +56,39 @@ def build(ctx):
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import fx_impact as fx, vrm
-    from rf import duel
+    from rf import clash
 
     fps = ctx.fps
     n = ctx.f1 - ctx.f0
-    w = duel.world(ctx, clear=0.8, near=3.0)
-    actors = duel.cast(ctx, w, {"shinza": {"sword": "broken"}})
+    w = clash.world(ctx, clear=0.8, near=3.0)
+    actors = clash.cast(ctx, w, {"shinza": {"sword": "broken"}})
     sh = actors["shinza"]
     ch = sh["vrm"]
     sh["parts"]["half"][0].hide_render = True     # it is in the planks behind him, out of this shot
 
     def pose_at(arms: str, kneel: bool):
         if arms == "follow":
-            hands, fingers = duel.shinza_sword(ch, FOLLOW["pommel"], FOLLOW["hilt"])
+            hands, fingers = clash.shinza_sword(ch, FOLLOW["pommel"], FOLLOW["hilt"])
         else:
             stub = KNEEL_STUB if kneel else LOW
-            hands, fingers = duel.shinza_sword(ch, stub["pommel"], stub["hilt"])
+            hands, fingers = clash.shinza_sword(ch, stub["pommel"], stub["hilt"])
             left = KNEEL_LEFT if kneel else LEFT_LOOSE
             hands["left"] = ("reach", left[0], left[1], left[2])
             fingers = {k: v for k, v in fingers.items() if not k.startswith("left")}
             fingers.update(vrm.grip_pose("left", 0.35, 0.3))
-        return duel.Pose(at=AT, hips=KNEEL_HIPS if kneel else SH_HIPS, turns=KNEEL if kneel else SH_FOLLOW, hands=hands,
+        return clash.Pose(at=AT, hips=KNEEL_HIPS if kneel else SH_HIPS, turns=KNEEL if kneel else SH_FOLLOW, hands=hands,
                          feet=KNEEL_FEET if kneel else SH_FEET), fingers
 
     def place(t: float, arms: str, kneel: bool):
         p, fingers = pose_at(arms, kneel)
-        duel.apply(sh, p, fingers=fingers)
-        duel.key(sh, ctx.f0 + round(t * fps))
+        clash.apply(sh, p, fingers=fingers)
+        clash.key(sh, ctx.f0 + round(t * fps))
 
     # the follow-through held, the arms coming down, the knees giving (the hips' fall eased in: he drops)
     place(-0.05, "follow", False)
     place(ARMS[0], "follow", False)
     face0 = sh["face"](1.0)
-    band = duel.loose_headband(sh)
+    band = clash.loose_headband(sh)
     place(ARMS[1], "low", False)
     place(KNEES - DROP, "low", False)
     place(KNEES, "low", True)
@@ -109,7 +109,7 @@ def build(ctx):
     # his face: wide eyes from the start, then a flinch at the knees
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = (f - ctx.f0) / fps
-        k = 1.0 - 0.5 * duel.ease((t - KNEES) / 0.4)
+        k = 1.0 - 0.5 * clash.ease((t - KNEES) / 0.4)
         weights = dict(face0)
         try:
             vrm.express(ch, {**{e: v * 0.3 for e, v in weights.items()}, **{e: v * k for e, v in WIDE.items()}}, frame=f)
@@ -136,27 +136,27 @@ def build(ctx):
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = (f - ctx.f0) / fps
         if t < BAND_OFF:
-            loc = duel.keys_at([(k, tuple(v)) for k, v, _ in path], t)
-            rot = duel.keys_at([(k, v) for k, _, v in path], t)
+            loc = clash.keys_at([(k, tuple(v)) for k, v, _ in path], t)
+            rot = clash.keys_at([(k, v) for k, _, v in path], t)
         else:
             # falling free: gravity's arc from where it left him to the planks
             u = min(1.0, (t - BAND_OFF) / (BAND_DOWN - BAND_OFF))
             a, b = path[-2], path[-1]
             loc = tuple(Vector(a[1]).lerp(b[1], u) + Vector((0.0, 0.0, 0.0)))
             loc = (loc[0], loc[1], a[1].z + (b[1].z - a[1].z) * u * u)
-            rot = duel.lerp(a[2], b[2], u)
+            rot = clash.lerp(a[2], b[2], u)
         band.location = loc
         band.rotation_euler = Euler((r0.x + rot[0], r0.y + rot[1], r0.z + rot[2]))
         band.keyframe_insert("location", frame=f)
         band.keyframe_insert("rotation_euler", frame=f)
         # it loosens from the round of his head and curls as it falls, flattening on the planks
-        bend.angle = math.radians(70.0) * duel.ease((t - CUT) / 0.6) * (1.0 - duel.ease((t - BAND_DOWN + 0.1) / 0.3))
+        bend.angle = math.radians(70.0) * clash.ease((t - CUT) / 0.6) * (1.0 - clash.ease((t - BAND_DOWN + 0.1) / 0.3))
         bend.keyframe_insert("angle", frame=f)
 
     # ---- the camera: on his face, sinking with it, jolted when his knees hit
-    cam, aim = duel.camera(ctx, fstop=FSTOP)
+    cam, aim = clash.camera(ctx, fstop=FSTOP)
     cam.data.lens = LENS
-    fo = duel.focus(ctx, cam)
+    fo = clash.focus(ctx, cam)
     bear = yaw - math.radians(CAM_BEARING)
     toward = Vector((math.cos(bear), math.sin(bear), 0.0))
     faces = {}
@@ -174,7 +174,7 @@ def build(ctx):
     cams = {}
     for i, f in enumerate(fs):
         t = (f - ctx.f0) / fps
-        k = duel.ease((t - (KNEES - DROP)) / (DROP + 0.6))
+        k = clash.ease((t - (KNEES - DROP)) / (DROP + 0.6))
         face = faces[f]
         eye = Vector((face.x, face.y, lag[i]))
         dist = CAM_DIST[0] + (CAM_DIST[1] - CAM_DIST[0]) * k
@@ -187,9 +187,9 @@ def build(ctx):
             ob.keyframe_insert("location", frame=f)
         cams[f] = tuple(c)
     fx.shake_camera(cam, shake, fs[0])
-    duel.outlines(ctx, {"shinza": sh}, lambda f: cams[f], lambda f: LENS)
+    clash.outlines(ctx, {"shinza": sh}, lambda f: cams[f], lambda f: LENS)
 
     # the storm's light on him: the sky's rim from above and beyond, the lantern's far behind at the left
-    duel.composite(ctx, actors, lambda f: dict(rims=[((-1.0, 0.3), LANTERN_RIM, 0.3, 0.003, 0.9),
+    clash.composite(ctx, actors, lambda f: dict(rims=[((-1.0, 0.3), LANTERN_RIM, 0.3, 0.003, 0.9),
                                                      ((0.4, 1.0), SKY_RIM, 0.25, 0.003, 0.9)],
                                                 para_from=(0.7, 0.85), para_to=(0.2, 0.12)))

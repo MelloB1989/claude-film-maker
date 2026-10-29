@@ -15,7 +15,7 @@ import math
 
 SHOT = {"scene": "flash"}
 
-CLASH = 1.4                 # x where the blades meet (rf/duel.py CLASH)
+CLASH = 4.9                 # x where the blades meet (rf/clash.py CLASH)
 
 # the beats, frame by frame (24 frames): white-out, negative, positive, negative, positive, the long negative the
 # glint draws across, and the burn to white
@@ -50,16 +50,16 @@ def build(ctx, only: str | None = None):
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import fx_impact as fx, toon
-    from rf import duel
+    from rf import clash
 
     scene = ctx.scene
     fps = ctx.fps
     n = ctx.f1 - ctx.f0
-    w = duel.world(ctx, splashes=False)
-    actors = duel.cast(ctx, w, {"shinza": {"sword": "hand"}, "tsuru": {"pole": "drawn"}})
+    w = clash.world(ctx, splashes=False)
+    actors = clash.cast(ctx, w, {"shinza": {"sword": "hand"}, "tsuru": {"pole": "drawn"}})
     sh, ts = actors["shinza"], actors["tsuru"]
-    hands, fingers = duel.shinza_sword(sh["vrm"], SH_SWORD["pommel"], SH_SWORD["hilt"])
-    duel.apply(sh, duel.Pose(at=(SH_AT, 0.0), hips=SH_HIPS, turns=SH_POSE, hands=hands, feet=SH_FEET), fingers=fingers)
+    hands, fingers = clash.shinza_sword(sh["vrm"], SH_SWORD["pommel"], SH_SWORD["hilt"])
+    clash.apply(sh, clash.Pose(at=(SH_AT, 0.0), hips=SH_HIPS, turns=SH_POSE, hands=hands, feet=SH_FEET), fingers=fingers)
     for name, faces in (("shinza", ({"angry": 1.0, "aa": 0.8}, {"glare": 1.0})),):
         ch = actors[name]["vrm"]
         for f_ in faces:
@@ -77,20 +77,20 @@ def build(ctx, only: str | None = None):
     # lit as a strike lights it, every frame: the threshold's light
     scene[toon.FLASH] = 1.0
 
-    cam, aim = duel.camera(ctx, fstop=4.0)
+    cam, aim = clash.camera(ctx, fstop=4.0)
     cam.data.dof.use_dof = False          # a drawn panel: everything sharp, the lines and splinters over it too
-    fo = duel.focus(ctx, cam)
+    fo = clash.focus(ctx, cam)
     fo.location = (CLASH, 0.0, 1.1)
     shake = fx.shake(fx.jolt(n + 2, JOLT[0] + 1, JOLT[1], decay=JOLT[2]), freq=11.0, seed=7)
     for i, f in enumerate(range(ctx.f0 - 1, ctx.f1 + 1)):
-        k = duel.ease(i / (n + 1)) ** 0.6
-        cam.location = duel.lerp(*CAM, k)
-        aim.location = duel.lerp(*AIM, k)
+        k = clash.ease(i / (n + 1)) ** 0.6
+        cam.location = clash.lerp(*CAM, k)
+        aim.location = clash.lerp(*AIM, k)
         cam.data.lens = LENS[0] + (LENS[1] - LENS[0]) * k
         for ob, path in ((cam, "location"), (aim, "location"), (cam.data, "lens")):
             ob.keyframe_insert(path, frame=f)
     fx.shake_camera(cam, shake, ctx.f0 - 1)
-    duel.outlines(ctx, actors, lambda f: cam.location, lambda f: LENS[1])
+    clash.outlines(ctx, actors, lambda f: cam.location, lambda f: LENS[1])
 
     # where the blades meet, on screen (frame heights from the centre)
     scene.frame_set(ctx.f0)

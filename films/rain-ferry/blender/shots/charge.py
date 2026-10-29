@@ -13,13 +13,13 @@ import math
 
 SHOT = {"scene": "charge"}
 
-START, END_X = -3.4, 0.6        # his x: from (the standoff, a pace back), to (when the cut falls)
+START, END_X = 1.6, 3.9         # his x: from (rf/clash.py STANDOFF), to (when the cut falls: CLASH less his reach)
 LAUNCH = 0.1                    # s before he moves
 TOP_SPEED_AT = 0.5              # s: at full speed
 STEPS = {"left": (0.25, 1.25), "right": (0.75, 1.75)}   # s: each foot's contacts (data/mix.json step_puddle cues)
 STRIDE = 1.0                    # s a foot's cycle takes
 SWING = (1.55, 1.82, 2.0)       # s: the sword thrown back from, at its height, coming over
-CAM = [(0.0, (-1.0, -2.45, 0.55)), (1.0, (0.2, -1.75, 0.62)), (2.0, (1.45, -0.95, 0.78))]
+CAM = [(0.0, (START + 2.1, -2.45, 0.55)), (1.0, (START + 2.75, -1.75, 0.62)), (2.0, (END_X + 0.85, -0.95, 0.78))]
 LENS, FSTOP = 24.0, 2.8
 SHUTTER = 0.5
 RUMBLE, JOLT = 0.004, 0.012
@@ -58,7 +58,7 @@ def x_at(t: float) -> float:
 
 def foot_at(side: str, t: float):
     """(ankle (his frame), heel-up degrees) of a foot at t: the guard's until it moves, then its stride cycle."""
-    from rf import duel
+    from rf import clash
 
     first = STEPS[side][0]
     cyc = [(k, v) for k, v in FOOT["keys"]]
@@ -67,7 +67,7 @@ def foot_at(side: str, t: float):
         if t < first:
             u = t / first
             g, heel0 = GUARD_FEET["left"]
-            y = g[1] + (cyc[-1][1][0] - g[1]) * duel.ease(u)
+            y = g[1] + (cyc[-1][1][0] - g[1]) * clash.ease(u)
             z = g[2] + 0.3 * math.sin(math.pi * u)
             return (SIDE_X[side], y, z), heel0[0] * (1 - u)
     else:
@@ -78,15 +78,15 @@ def foot_at(side: str, t: float):
             u = (t - (first - STRIDE)) / STRIDE
             if t < 0.3:
                 g = GUARD_FEET["right"][0]
-                k = duel.ease(t / 0.3)
+                k = clash.ease(t / 0.3)
                 y = g[1] + (cyc[1][1][0] - g[1]) * k
                 return (SIDE_X[side], y, 0.09 + 0.05 * k), 38.0 * k
             u = (t - 0.3) / (first - 0.3)
-            y, z, heel = duel.keys_at([(0.0, cyc[1][1]), (0.45, cyc[2][1]), (1.0, cyc[0][1])], u)
+            y, z, heel = clash.keys_at([(0.0, cyc[1][1]), (0.45, cyc[2][1]), (1.0, cyc[0][1])], u)
             return (SIDE_X[side], y, z), heel
     # the stride cycle from the last contact
     last = max([c for c in STEPS[side] if c <= t] or [STEPS[side][0]])
-    y, z, heel = duel.keys_at(cyc, (t - last) / STRIDE)
+    y, z, heel = clash.keys_at(cyc, (t - last) / STRIDE)
     return (SIDE_X[side], y, z), heel
 
 
@@ -101,31 +101,31 @@ def build(ctx):
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import fx_impact as fx, toon, vrm
-    from rf import duel
+    from rf import clash
 
     scene = ctx.scene
     fps = ctx.fps
     n = ctx.f1 - ctx.f0
-    w = duel.world(ctx, motion_blur=SHUTTER, clear=0.7, near=2.5)
-    actors = duel.cast(ctx, w, {"shinza": {"sword": "hand"}, "tsuru": {"pole": "hand"}})
+    w = clash.world(ctx, motion_blur=SHUTTER, clear=0.7, near=2.5)
+    actors = clash.cast(ctx, w, {"shinza": {"sword": "hand"}, "tsuru": {"pole": "hand"}})
     sh, ts = actors["shinza"], actors["tsuru"]
     ch = sh["vrm"]
     # she waits at the far end, out of focus beyond him
-    ts["root"].location = (duel.STANDOFF["tsuru"][0], duel.STANDOFF["tsuru"][1], 0.0)
+    ts["root"].location = (clash.STANDOFF["tsuru"][0], clash.STANDOFF["tsuru"][1], 0.0)
     ts["root"].rotation_euler = (0.0, 0.0, math.pi)
-    _, fingers = duel.shinza_sword(ch, GUARD["pommel"], GUARD["hilt"])
+    _, fingers = clash.shinza_sword(ch, GUARD["pommel"], GUARD["hilt"])
 
-    def pose_at(t: float) -> duel.Pose:
-        pommel = duel.keys_at([(k, p) for k, p, _ in SWORDS], t)
-        hilt = duel.keys_at([(k, h) for k, _, h in SWORDS], t)
-        hands, _ = duel.shinza_sword(ch, pommel, hilt, poles={"left": (0.6, 0.3, 1.2), "right": (-0.6, 0.2, 1.2)})
+    def pose_at(t: float) -> clash.Pose:
+        pommel = clash.keys_at([(k, p) for k, p, _ in SWORDS], t)
+        hilt = clash.keys_at([(k, h) for k, _, h in SWORDS], t)
+        hands, _ = clash.shinza_sword(ch, pommel, hilt, poles={"left": (0.6, 0.3, 1.2), "right": (-0.6, 0.2, 1.2)})
         feet = {}
         for side in ("left", "right"):
             (x, y, z), heel = foot_at(side, t)
             feet[side] = ((x, y, z), (SIDE_X[side] * 1.5, -1.2, 0.55), (heel, 0.0, 0.0))
         # the body: dropping into the launch, then bouncing with the strides (lowest just after a contact), leaning in,
         # hips and chest twisting against each other
-        run = duel.ease(t / 0.3)
+        run = clash.ease(t / 0.3)
         phase = 2 * math.pi * (t - STEPS["left"][0]) / (STRIDE / 2)
         bounce = -0.13 - 0.035 * math.cos(phase - 0.6)
         hips = (0.0, -0.04 - 0.04 * run, -0.15 + (bounce + 0.15) * run)
@@ -134,16 +134,16 @@ def build(ctx):
                  "hips": (6.0 * run, 0.0, tw), "chest": (8.0 * run, 0.0, -tw), "head": (-14.0 * run, 0.0, 0.0)}
         if t > SWING[0]:
             # the last stride: the trunk rears back as the sword goes up, then drives over
-            k = duel.ease((t - SWING[0]) / (SWING[1] - SWING[0])) - 1.6 * duel.ease((t - SWING[1]) / (SWING[2] - SWING[1]))
+            k = clash.ease((t - SWING[0]) / (SWING[1] - SWING[0])) - 1.6 * clash.ease((t - SWING[1]) / (SWING[2] - SWING[1]))
             turns["spine"] = (14.0 - 14.0 * k, 0.0, 0.0)
             turns["chest"] = (8.0 - 10.0 * k, 0.0, -tw)
-        return duel.Pose(at=(x_at(t), 0.0), hips=hips, turns=turns, hands=hands, feet=feet)
+        return clash.Pose(at=(x_at(t), 0.0), hips=hips, turns=turns, hands=hands, feet=feet)
 
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = (f - ctx.f0) / fps
-        duel.apply(sh, pose_at(t), fingers=fingers)
-        cry = duel.ease((t - 0.02) / 0.12) * (1.0 - 0.3 * duel.ease((t - 1.76) / 0.15))
-        duel.key(sh, f)
+        clash.apply(sh, pose_at(t), fingers=fingers)
+        cry = clash.ease((t - 0.02) / 0.12) * (1.0 - 0.3 * clash.ease((t - 1.76) / 0.15))
+        clash.key(sh, f)
         try:
             vrm.express(ch, {k: v * cry for k, v in CRY.items()}, frame=f)
         except KeyError:
@@ -167,14 +167,14 @@ def build(ctx):
                 fx.show(ob, [f], ctx.f0 - 1, ctx.f1)
 
     # ---- the camera: running ahead of him, low, jolted by his strides
-    cam, aim = duel.camera(ctx, fstop=FSTOP)
+    cam, aim = clash.camera(ctx, fstop=FSTOP)
     cam.data.lens = LENS
-    fo = duel.focus(ctx, cam)
+    fo = clash.focus(ctx, cam)
     cams, chest = {}, {}
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = (f - ctx.f0) / fps
         x = x_at(t)
-        c = duel.keys_at(CAM, t, interp=lambda u: u)
+        c = clash.keys_at(CAM, t, interp=lambda u: u)
         body = Vector((x + 0.25, 0.0, 1.18))
         cam.location, aim.location, fo.location = c, body + Vector((0.12, 0.0, 0.08)), Vector((x, 0.0, 1.3))
         for ob in (cam, aim, fo):
@@ -185,7 +185,7 @@ def build(ctx):
         for tc in contacts:
             env += fx.jolt(n + 2, round(tc * fps) + 1, JOLT, decay=9.0)
     fx.shake_camera(cam, fx.shake(env, freq=8.0, seed=5), ctx.f0 - 1)
-    duel.outlines(ctx, actors, lambda f: cams[f], lambda f: LENS)
+    clash.outlines(ctx, actors, lambda f: cams[f], lambda f: LENS)
 
     # ---- focus lines on him, on twos, pale as the rain, thickening as he closes
     aspect = ctx.size[0] / ctx.size[1]
@@ -204,6 +204,6 @@ def build(ctx):
         fx.show(ob, [f, f + 1], ctx.f0 - 1, ctx.f1)
 
     # the storm's light: the sky's rim from above and the river, the lantern far behind him at the left
-    duel.composite(ctx, actors, lambda f: dict(rims=[((-1.0, 0.3), LANTERN_RIM, 0.35, 0.003, 0.9),
+    clash.composite(ctx, actors, lambda f: dict(rims=[((-1.0, 0.3), LANTERN_RIM, 0.35, 0.003, 0.9),
                                                      ((0.4, 1.0), SKY_RIM, 0.28, 0.003, 0.9)],
                                                 para_from=(0.6, 0.85), para_to=(0.4, 0.1)))
