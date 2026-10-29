@@ -33,29 +33,30 @@ from .vroid_common import HEIGHT, SOLE, colors, move, plant, posed, sandals, soa
 
 MM = 1e-3
 
-# ---- Tsuru, stooped: the upper back rounded over (the chest and upper chest bent on), the head pushed forward on the
-# neck and lifted to look ahead, the shoulders rolled in, the hips back and down on soft knees; the pole upright in
-# her right hand before her right shoulder, the left arm hanging (lib/vrm.py's turns)
-TS_HIPS = (0.0, 0.05, -0.045)
-TS_POSE = {"spine": (6.0, 0.0, 0.0), "chest": (13.0, 0.0, 0.0), "upperChest": (15.0, 0.0, 0.0),
-           "neck": (12.0, 0.0, 0.0), "head": (-54.0, 0.0, 4.0),
-           "leftShoulder": (0.0, 6.0, -10.0), "rightShoulder": (0.0, -6.0, 10.0),
+# ---- Tsuru standing still: small and perfectly upright, the back straight, the head level and the chin a little down,
+# the shoulders square; the pole upright in her right hand before her right shoulder, the left arm hanging (lib/vrm.py's
+# turns). Her age is in her walk (vrm_anim's "old" gait), not her stance
+TS_HIPS = (0.0, 0.0, -0.01)
+TS_POSE = {"spine": (1.0, 0.0, 0.0), "chest": (1.0, 0.0, 0.0), "upperChest": (0.0, 0.0, 0.0),
+           "neck": (2.0, 0.0, 0.0), "head": (5.0, 0.0, 2.0),
+           "leftShoulder": (0.0, 3.0, 0.0), "rightShoulder": (0.0, -3.0, 0.0),
            **{f"left{f}{j}": (0.0, 28.0, 0.0) for f in ("Index", "Middle", "Ring", "Little") for j in ("Proximal", "Intermediate")}}
-LEFT_HAND = ((0.2, -0.1, 0.66), (0.5, 0.6, 0.9))   # where the hanging left hand's wrist is, and its elbow's pole
+LEFT_HAND = ((0.19, -0.03, 0.68), (0.5, 0.6, 0.9))   # where the hanging left hand's wrist is, and its elbow's pole
 ELBOWS = {"left": 25.0, "right": 70.0}   # how far each elbow starts folded for its IK (vrm.reach): the right well in
 FEET = {"left": ((0.09, 0.03), (0.1, -1.0, 0.45), (0.0, 0.0, 8.0)),
         "right": ((-0.09, -0.01), (-0.1, -1.0, 0.45), (0.0, 0.0, -8.0))}
 # ---- seated on something SEAT high: the hips down onto it, the thighs forward and level, the shins down to her feet
-# on the ground a little in front, the back still rounded (less), the head up
+# on the ground a little in front, upright as she stands
 SEAT = 0.42
-# the skirt below her knees taken in round her shins (radius, keep: vrm_rig.cinch), so it falls straight past them
-SHIN = (0.11, 0.3)
+# seated, the skirt taken in round her thighs and shins, and the cloth between her knees round the line between them
+# (radius, keep, ease: vrm_rig.cinch), so it lies on her lap and falls past her shins as heavy cloth, no bell
+LAP = {"thigh": (0.1, 0.15, 0.25), "shin": (0.1, 0.2, 0.0)}
 SEATED_HANDS = -0.24          # how much lower her held pipe is (m)
-SEATED_POSE = {"spine": (4.0, 0.0, 0.0), "chest": (8.0, 0.0, 0.0), "upperChest": (10.0, 0.0, 0.0),
-               "neck": (10.0, 0.0, 0.0), "head": (-36.0, 0.0, 4.0),
+SEATED_POSE = {"spine": (1.0, 0.0, 0.0), "chest": (1.0, 0.0, 0.0), "upperChest": (0.0, 0.0, 0.0),
+               "neck": (2.0, 0.0, 0.0), "head": (5.0, 0.0, 2.0),
                "leftUpperLeg": (-84.0, 0.0, -5.0), "rightUpperLeg": (-84.0, 0.0, 5.0),
                "leftLowerLeg": (82.0, 0.0, 0.0), "rightLowerLeg": (82.0, 0.0, 0.0),
-               "leftShoulder": (0.0, 6.0, -10.0), "rightShoulder": (0.0, -6.0, 10.0)}
+               "leftShoulder": (0.0, 3.0, 0.0), "rightShoulder": (0.0, -3.0, 0.0)}
 SEATED_FEET = {"left": ((0.11, -0.4), (0.15, -1.5, 0.6), (0.0, 0.0, 10.0)),
                "right": ((-0.11, -0.38), (-0.15, -1.5, 0.6), (0.0, 0.0, -10.0))}
 # ---- her pole: its foot before her right shoulder (her frame), its top; where her right hand holds it upright
@@ -322,8 +323,10 @@ def drape_skirt(ch) -> None:
             vrm_rig.shift_weights(ch, ob, tops, 10.0, 0.01, skirt)
             vrm_rig.shift_weights(ch, ob, tops, knee - 0.02, 0.08,
                                   {"leftUpperLeg": "leftLowerLeg", "rightUpperLeg": "rightLowerLeg"})
-            for side in ("left", "right"):
-                vrm_rig.cinch(ch, ob, tops, side, SHIN[0], keep=SHIN[1], ease=0.0, limb="shin")
+            for limb, (radius, keep, ease) in LAP.items():
+                for side in ("left", "right", "both"):
+                    vrm_rig.cinch(ch, ob, tops, side, radius * (0.7 if side == "both" else 1.0), keep=keep, ease=ease,
+                                  limb=limb)
 
 
 def hair(ch, m: dict, coll, name: str) -> list:

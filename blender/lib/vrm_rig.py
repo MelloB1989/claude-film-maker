@@ -468,24 +468,39 @@ def lengthen(ch: vrm.Character, ob, faces, top: float, bottom: float, *, flare: 
     _from_frame(ch, ob, pts, m)
 
 
+# a limb cinch can take cloth in round: (the bones its segment runs between at rest, the bones that carry it)
+LIMBS = {"arm": (("UpperArm", "Hand"), ("UpperArm", "LowerArm", "Hand")),
+         "thigh": (("UpperLeg", "LowerLeg"), ("UpperLeg",)),
+         "shin": (("LowerLeg", "Foot"), ("LowerLeg", "Foot"))}
+
+
 def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float = 0.25, ease: float = 0.3,
           limb: str = "arm") -> None:
     """A sleeve's volume taken in (cinch_points): the vertices of `faces` the `side` arm ("left", "right") carries,
     from the upper arm to the wrist at rest, pulled in to `radius` (metres) of it, keeping `keep` of the rest. `limb`
-    "shin" does the same round a shin, from the knee to the ankle (a long skirt handed to the legs: shift_weights).
-    Before posing: the vertices keep their weights, so the cloth follows the limb, no longer a bell hanging off it."""
+    "thigh" or "shin" does the same round a leg's (a long skirt handed to the legs: shift_weights); `side` "both" takes
+    in what the two sides carry together (the cloth between the knees, held half by each) round the line midway
+    between them. Before posing: the vertices keep their weights, so the cloth follows the limb, no longer a bell
+    hanging off it."""
     pts, m = _to_frame(ch, ob)
     vs = np.unique(np.concatenate([list(ob.data.polygons[int(i)].vertices) for i in faces]))
-    bones = ("UpperArm", "LowerArm", "Hand") if limb == "arm" else ("LowerLeg", "Foot")
-    a, b = ch.rest(f"{side}{bones[0]}"), ch.rest(f"{side}{bones[-1]}")
-    s = 1.0 if side == "left" else -1.0
-    # only what the limb carries (most of its weight on its bones), on its side: not a long robe's skirt off an arm
-    carrier = {ch.bones[vrm.canonical(f"{side}{b_}")] for b_ in bones}
-    groups = {g.index for g in ob.vertex_groups if g.name in carrier}
-    carried = np.array([sum(g.weight for g in ob.data.vertices[int(v)].groups if g.group in groups) > 0.5 for v in vs],
-                       bool)
-    out = pts[vs, 0] * s > (abs(a[0]) if limb == "arm" else 0.0)
-    vs = vs[carried & out]
+    (top, end), carry = LIMBS[limb]
+    sides = ("left", "right") if side == "both" else (side,)
+    a = np.mean([ch.rest(f"{sd}{top}") for sd in sides], axis=0)
+    b = np.mean([ch.rest(f"{sd}{end}") for sd in sides], axis=0)
+    # how much of each vertex each side carries (its weights on that side's bones)
+    held = []
+    for sd in sides:
+        names = {ch.bones[vrm.canonical(f"{sd}{bone}")] for bone in carry}
+        groups = {g.index for g in ob.vertex_groups if g.name in names}
+        held.append(np.array([sum(g.weight for g in ob.data.vertices[int(v)].groups if g.group in groups) for v in vs]))
+    if side == "both":
+        keep_v = (held[0] > 0.2) & (held[1] > 0.2)
+    else:
+        s = 1.0 if side == "left" else -1.0
+        # on its side, mostly its own: not a long robe's skirt off an arm, nor the cloth the two legs share
+        keep_v = (held[0] > 0.5) & (pts[vs, 0] * s > (abs(a[0]) if limb == "arm" else 0.0))
+    vs = vs[keep_v]
     pts[vs] = cinch_points(pts[vs], a, b, radius, keep=keep, ease=ease)
     _from_frame(ch, ob, pts, m)
 
