@@ -22,7 +22,8 @@ LENS, FSTOP = 45.0, 2.8
 SINK = 0.045                   # m his feet go down into the mud: the sole under the puddle's water, not on it
 SHAKE = 0.35                   # degrees the footfall jolts the lens (cinema.Shake's hit)
 KEY = (-0.5, -0.7, 0.9)        # his key: overcast from above our shoulder
-RIMS = [((0.4, 1.0), (0.6, 0.68, 0.85), 0.35, 0.0035, 0.9), ((1.0, 0.1), (0.5, 0.55, 0.65), 0.15, 0.003, 0.9)]
+RIMS = [((0.4, 1.0), (0.6, 0.68, 0.85), 0.18, 0.0015, 0.6), ((1.0, 0.1), (0.5, 0.55, 0.65), 0.08, 0.0012, 0.6)]
+WRAP = (0.06, 0.004)           # the light wrap: how much, how far in (frame heights)
 
 
 def build(ctx):
@@ -122,6 +123,9 @@ def build(ctx):
     comp = satsuei.setup(ctx.scene, st.cast)
     for f in rig.frames:
         s = ctx.look_at(f)
-        comp.key(f, s.look(rims=[satsuei.Rim(*r) for r in RIMS], para_from=(0.5, 1.0), para_to=(0.5, 0.3)))
+        # the schedule's wrap and rims are sized for figures in a wide (frame heights): his legs fill this frame, so
+        # they are cut down, else they glow round him as a halo
+        comp.key(f, s.look(rims=[satsuei.Rim(*r) for r in RIMS], para_from=(0.5, 1.0), para_to=(0.5, 0.3),
+                           wrap=WRAP[0], wrap_width=WRAP[1]))
     comp.hold()
     print(f"step: foot lands at {tuple(round(v, 3) for v in hit)} at {t_strike:.2f} s, lifts at {lift:.2f} s")

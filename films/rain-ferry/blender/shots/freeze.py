@@ -22,12 +22,12 @@ import numpy as np
 
 SHOT = {"scene": "freeze"}
 
-# Shinza mid-launch, as shots/charge.py has him a fifth of a second in (it carries on from here): just off his mark
-# toward her, his trunk thrown forward, the sword swept up two-handed over his head (charge's SWORDS at +0.3 s: his
-# frame), the left foot swinging forward off the deck, the right pushing off on its ball
-SH_AT = (0.25, 0.0)                # from his mark (rf/duel.py MARKS = rf/clash.py STANDOFF)
-POMMEL = (0.04, -0.12, 1.58)
-HILT_UP = (0.05, 0.35, 0.94)       # the hilt's way up, the blade carrying on up and back over his head
+# Shinza mid-launch, where shots/charge.py takes him on from (its START and SWORDS[0]): a stride on from his mark
+# toward her, his trunk thrown forward, the sword raised two-handed over his right shoulder (his frame), the left foot
+# swinging forward off the deck (charge's lead), the right pushing off on its ball
+SH_AT = (0.55, 0.0)                # from his mark (rf/duel.py MARKS = rf/clash.py STANDOFF): charge's START
+POMMEL = (-0.13, -0.08, 1.4)
+HILT_UP = (0.12, 0.42, 0.9)        # the hilt's way up, the blade carrying on up and back over his shoulder
 ELBOWS = {"left": (0.6, 0.3, 1.2), "right": (-0.6, 0.2, 1.2)}     # charge's POLES
 SH_TURNS = {"spine": (12.0, 0.0, 6.0), "chest": (6.0, 0.0, 4.0), "neck": (-6.0, 0.0, 0.0), "head": (-8.0, 0.0, -4.0)}
 SH_HIPS = (0.0, -0.12, -0.06)

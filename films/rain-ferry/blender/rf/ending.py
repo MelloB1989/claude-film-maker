@@ -33,7 +33,7 @@ import math
 # the jetty from its end (every camera of 22-24), he is on the left, she on the right, the hut's lantern beyond.
 SHINZA_AT = (7.2, 0.08)                            # rf/clash.py FALL["kneel"]
 SHINZA_FACING = 0.0
-TSURU_WALK = [(5.0, -0.06), (4.3, 0.42), (3.3, 0.8)]   # her way from her END mark to the ferry's stern (x, y)
+TSURU_WALK = [(4.4, -0.06), (3.9, 0.45), (3.3, 0.8)]   # her way from her END mark (rf/clash.py) to the ferry's stern (x, y)
 
 
 def smooth(u: float) -> float:
@@ -272,18 +272,14 @@ def fallen(built, *, turns: dict | None = None, stub=None):
     sword in his right hand, its broken end on the planks, his left hand loose on his thigh. `turns` on top of the
     fall's kneel (a breath, the head sinking); `stub` (pommel, hilt direction) moves the sword in both hands instead.
     Returns (rf/clash.py's Pose, the fingers): `clash.apply` it, `clash.key` it."""
-    from lib import vrm
     from rf import clash
 
     fall = shot_module("fall")
     ch = built["vrm"]
-    pommel, hilt = stub or (fall.KNEEL_STUB["pommel"], fall.KNEEL_STUB["hilt"])
-    hands, fingers = clash.shinza_sword(ch, pommel, hilt)
     if stub is None:
-        left = fall.KNEEL_LEFT
-        hands["left"] = ("reach", left[0], left[1], left[2])
-        fingers = {k: v for k, v in fingers.items() if not k.startswith("left")}
-        fingers.update(vrm.grip_pose("left", 0.35, 0.3))
+        hands, fingers = clash.arms(ch, fall.KNEEL_STUB, fall.KNEEL_LEFT)
+    else:
+        hands, fingers = clash.arms(ch, {"pommel": stub[0], "hilt": stub[1]})
     (x, y), yaw = clash.FALL["kneel"], clash.END["shinza"][1]
     return clash.Pose(at=(x, y), yaw=yaw, hips=fall.KNEEL_HIPS, turns={**fall.KNEEL, **(turns or {})}, hands=hands,
                       feet=fall.KNEEL_FEET), fingers

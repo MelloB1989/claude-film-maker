@@ -27,7 +27,7 @@ import numpy as np
 # where each stands (world x, y: the jetty along x, its end at +x, the river beyond toward +y) and which way they face
 # (degrees from +x toward +y). She is turned out past the end post, which stands before her left knee (her pipe's
 # post); he faces her
-TSURU_AT, TSURU_FACING = (7.1, -0.8), -70.0      # the post within her pipe's reach
+TSURU_AT, TSURU_FACING = (7.08, -0.7), -100.0     # the post at her front left, clear of her knees, in her pipe's reach
 SHINZA_AT = (5.45, -0.82)
 SHINZA_FACING = math.degrees(math.atan2(TSURU_AT[1] - SHINZA_AT[1], TSURU_AT[0] - SHINZA_AT[0]))
 POST_RADIUS = 0.14          # rf/set_jetty.py's end posts: the one on the -y side is the one she knocks her pipe on
@@ -524,7 +524,8 @@ def tsuru_hips(st: Stage, t: float) -> tuple:
 # her pipe hand's elbow pole and palm (her frame): low and back by her side with the pipe over her knee; with it at
 # her lips the elbow down by her side and a little forward (S3's rf/jetty_arrive.py SMOKING_POLE, SMOKING_PALM), not up
 # beside her head
-PIPE_ARM = {"lap": ((0.3, 0.6, 0.45), (-0.5, 0.0, 0.8)), "lips": ((0.32, -0.18, 0.35), (-0.7, 0.1, 0.35))}
+PIPE_ARM = {"lap": ((0.45, 0.35, 0.35), (-0.5, 0.0, 0.8)), "lips": ((0.32, -0.18, 0.35), (-0.7, 0.1, 0.35)),
+            "knock": ((0.6, 0.1, 0.55), (-0.5, 0.0, 0.8))}
 
 
 def hold_pipe(st: Stage, f: int, point, along, arm: str = "lap") -> None:

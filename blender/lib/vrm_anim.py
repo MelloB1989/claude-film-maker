@@ -1437,7 +1437,7 @@ class Performance:
         humanoid bone of this character ("rightHand"), ("bone", armature, bone name) for any armature's bone, any
         object, or None (left in the world where it is). It keeps its world transform at the handoff: a sword drawn
         from the sheath on the back to the right hand, a pipe from hand to mouth, a pole lifted from the boat to her
-        shoulder. Before its first `carry` it follows what it was parented to when the first carry was declared."""
+        shoulder. Before its first `carry` it follows what it was parented to, as the scene stands when `bake` starts."""
         import bpy
 
         for o in (ob if isinstance(ob, (list, tuple)) else [ob]):
@@ -1501,7 +1501,8 @@ class Performance:
             o.matrix_world = mw
         hang = np.asarray(toward if toward is not None else (0.0, 0.0, -1.0), float)
         local = np.array(e.matrix_world.to_3x3().inverted()) @ hang
-        self.sec["dangles"].append(dict(empty=e, local=local / np.linalg.norm(local), length=float(length),
+        self.sec["dangles"].append(dict(empty=e, base=np.array(tuple(e.rotation_quaternion)),
+                                        local=local / np.linalg.norm(local), length=float(length),
                                         stiffness=stiffness, drag=drag, wind=wind_scale))
 
 
@@ -1580,6 +1581,11 @@ class Performance:
         frames = list(range(int(f0), int(f1)))
         if getattr(self, "_want_feet", False):
             self.plant_feet(f0)
+        # each prop's place on its first holder as the scene stands now, before any key is written (a shot may move
+        # or re-pose the character between carry() and bake())
+        bpy.context.view_layer.update()
+        for entry in self.props:
+            entry[2], entry[3] = _holder_matrix(entry[1][0][1], ch), np.array(entry[0].matrix_world)
         # the add-on's own spring bones and look-at preview stay off: they would move bones on frame changes
         ext = arm.data.vrm_addon_extension
         ext.spring_bone1.enable_animation = False
@@ -1643,10 +1649,23 @@ class Performance:
             turns, hips = self.body(f)
             self._look(f, turns, hips, root, yaw, look_state)
             limbs = {}
+            heads = None
             for end in self.limbs:
                 p, pole, turn, w, tw = self._limb_target(end, f)
                 pc = to_char(p, root, yaw)
                 limbs[end] = (pc, pole if pole is not None else self._default_pole(end, pc), turn, w, tw)
+                # the elbow or knee no key turns starts folded as far as the target's distance needs (the IK solves
+                # from there: from a straight limb it can settle with the joint on the target)
+                lower = end.replace("Hand", "LowerArm").replace("Foot", "LowerLeg")
+                upper = end.replace("Hand", "UpperArm").replace("Foot", "UpperLeg")
+                if lower in turns and upper in self.rest_heads and lower not in self.rot and w > 0:
+                    if heads is None:
+                        heads = fk(self.order, self.parents, self.rest_heads, turns, hips_offset=hips)[1]
+                    a = np.linalg.norm(self.rest_heads[lower] - self.rest_heads[upper])
+                    b = np.linalg.norm(self.rest_heads[end] - self.rest_heads[lower])
+                    bend = fold_for(a, b, np.linalg.norm(pc - heads[upper]))
+                    folded = quat(vrm.euler(vrm.fold(lower, max(bend, 5.0))))
+                    turns[lower] = matrix(slerp(quat(turns[lower]), folded, min(1.0, w)))
             # the hips no higher than both legs reach (a leg never pulled straight off its planted foot)
             dz = 0.0
             for side, (thigh, shin) in self.legs.items():
@@ -1925,7 +1944,7 @@ class Performance:
         mats = {p: [] for p in parents}
         mws = []
         for d in dangles:
-            d["empty"].rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+            d["empty"].rotation_quaternion = tuple(d["base"])       # as it hangs, under its bone
             d["mats"] = []
         try:
             for f in frames:
@@ -2034,12 +2053,20 @@ class Performance:
                     prev, pts = pts, new
                 m3 = ms[fi][:3, :3] / np.linalg.norm(ms[fi][:3, :3], axis=0)
                 sw = swing_to(m3.T @ (gb[1] - gb[0]), m3.T @ (pts[1] - pts[0]))
-                qs.append(quat(sw))
+                qs.append(quat(matrix(d["base"]) @ sw))
             w.add(d["empty"], "rotation_quaternion", qs)
         for b, qs in out.items():
             arm.pose.bones[b].rotation_mode = "QUATERNION"
             w.add(arm, f'pose.bones["{b}"].rotation_quaternion', qs)
         w.write()
+
+def fold_for(upper: float, lower: float, reach: float) -> float:
+    """How far (degrees from straight) a two-bone limb `upper` and `lower` long folds to span `reach` from its root
+    to its end (law of cosines; straight past its length, fully folded inside their difference)."""
+    r = min(upper + lower, max(abs(upper - lower), float(reach)))
+    c = (upper * upper + lower * lower - r * r) / (2.0 * upper * lower)
+    return 180.0 - math.degrees(math.acos(min(1.0, max(-1.0, c))))
+
 
 def ground_of(ground):
     """The ground's height as a function of world (x, y): from a number (level), a function, or a Blender object

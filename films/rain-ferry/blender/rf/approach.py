@@ -449,7 +449,7 @@ def stage(ctx, *, key_toward, ink: float | None = None) -> Stage:
     return Stage(world, cast, shinza, keys["shinza"])
 
 
-def storm(ctx, rig, st: Stage, *, splashes=(), floor=None, ground: float = 0.0, layers=None, in_cast=("near", "mid")):
+def storm(ctx, rig, st: Stage, *, splashes=(), floor=None, ground: float = 0.0, layers=None, in_cast=("near", "mid", "focus")):
     """The shot's weather (lib/weather.py storm: the look schedule's rain and mist round the rig's setups in `layers`,
     splashing on `splashes`, ringing the set's waters) with the rain's `in_cast` layers falling again in the cast's
     layer too, so the drops between the lens and him stay in front of him once the compositor lays him over the

@@ -3,8 +3,8 @@ upright in her hand, and says "Get in." (L14) without looking round at him. Then
 giving out. The drops thin to nothing, the rings go off the water, and as the last of it falls she says "The rain has
 stopped." (L15); the light begins to warm on her lifted face, and a faint smile.
 
-From the jetty off her front left, looking across the stern at her as she faces up the boat: the river and the far
-bank's mist beyond her, the hut and its lantern at the frame's edge, open sky over her. The camera breathes in toward her; as she lifts her face it sinks a little
+Low on the jetty in front of her, as she stands at the stern turned to it (to him): the open river behind her running
+down the valley, the awning at the frame's right, the sky over her. The camera breathes in toward her; as she lifts her face it sinks a little
 so the sky opens over her.
 
 The rain's density, the water's rings, the sheen and the key's warmth are the look schedule's (data/look.json
@@ -21,9 +21,10 @@ LINES = {"get_in": (95.2, 95.85), "stopped": (97.2, 98.83)}   # L14, L15 (film s
 SETTLE = (94.6, 95.15, 0.07)      # film s: her weight coming down into the boat from this much higher
 LOOK_UP = (96.15, 96.95, 30.0)    # film s: her face lifting to the sky, this many degrees
 SMILE = (98.9, 99.7)              # film s: the faint smile after it
-# the camera, on the jetty off her front left, clear of the awning (in the boat's frame from its stern anchor: x toward
-# the bow, -y toward the jetty): from, to; lower once she looks up
-CAM = ((2.55, -1.8, 1.08), (2.05, -1.55, 0.98))
+# the camera, low on the jetty in front of her, the awning off to the right (in the boat's frame from its stern anchor:
+# x toward the bow, -y toward the jetty): from, to; lower once she looks up
+CAM = ((-0.45, -2.75, 0.98), (-0.3, -2.25, 0.9))
+FACING = -90.0                    # degrees in the boat's frame: she faces the jetty (him), her back to the river
 SINK = 0.18
 LENS, FSTOP = (36.0, 42.0), 2.8
 
@@ -48,11 +49,11 @@ def build(ctx):
 
         actors = E.cast(st, {"tsuru": dict(pole="hand")})
         ts = actors["tsuru"]
-        # Tsuru at the stern, riding the boat, facing its bow (toward us)
+        # Tsuru at the stern, riding the boat, turned to the jetty (to him, toward us)
         ts["root"].parent = stern
         ts["root"].matrix_parent_inverse.identity()
         ts["root"].location = (0.0, 0.0, 0.0)
-        ts["root"].rotation_euler = (0.0, 0.0, 0.0)
+        ts["root"].rotation_euler = (0.0, 0.0, math.radians(FACING))
         ch = ts["vrm"]
         fingers = vrm.grip_pose("right", 0.95)
         for f in range(ctx.f0 - 1, ctx.f1 + 1):
@@ -70,10 +71,9 @@ def build(ctx):
             vrm.pose(ch, pose, hips=(hips[0], hips[1], hips[2] + settle * 0.6), frame=f)
             smile = E.ease((t - SMILE[0]) / (SMILE[1] - SMILE[0]))
             speak = E.mouth(t, list(LINES.values()), rate=6.0)
-            face = {k: v * (1.0 - 0.6 * smile) for k, v in ts["face"]().items()}
-            vrm.express(ch, {**face, "aa": 0.6 * speak, "happy": 0.25 * smile}, frame=f)
+            vrm.express(ch, {**ts["face"](), "aa": 0.6 * speak, "happy": 0.12 * smile}, frame=f)
         # her key from the sky over the river behind the camera, high: her lifted face lit
-        toon3d.aim(ts["key"], (0.8, 0.5, 1.0))
+        toon3d.aim(ts["key"], (0.3, 0.8, 1.0))
 
     # the camera in the boat's frame at the start (the boat bobs a little under it: a camera on the water)
     import bpy
