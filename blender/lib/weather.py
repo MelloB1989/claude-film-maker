@@ -589,7 +589,7 @@ def mist(ctx, rig, *, density=None, color=None, banks=BANKS, ground: float = 0.0
 def haze(ctx, rig, *, density=0.02, color=(0.6, 0.63, 0.68), anisotropy: float = 0.3, reach: float = 80.0, coll=None):
     """A volumetric haze filling everything each setup sees out to `reach` metres (a box of Principled Volume): light
     scatters in it, so a lantern or a sun beam glows through it and the distance pales with real depth. `density` is a
-    value over the shot. Slow on a software renderer: for the finals and the shots that need it."""
+    value over the shot, per unit of the strongest sun's energy (the painted world does not grow with the key). Slow on a software renderer: for the finals and the shots that need it."""
     import bpy
 
     from . import shapes, toon
@@ -601,6 +601,10 @@ def haze(ctx, rig, *, density=0.02, color=(0.6, 0.63, 0.68), anisotropy: float =
     verts = [tuple(c + s * np.array(v)) for v in
              ((-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1), (-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1))]
     faces = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    # the set is painted (emission), the haze lit by the real sun: its density is per unit of the strongest sun's
+    # energy, so a haze of 0.02 glows about as bright as the painted world whatever the key's strength
+    suns = [ob.data.energy for ob in ctx.scene.objects if ob.type == "LIGHT" and ob.data.type == "SUN"]
+    per = 1.0 / max(1.0, max(suns, default=1.0))
     mat = bpy.data.materials.new("haze")
     nt = toon.nodes(mat)
     vol = nt.nodes.new("ShaderNodeVolumePrincipled")
@@ -611,7 +615,7 @@ def haze(ctx, rig, *, density=0.02, color=(0.6, 0.63, 0.68), anisotropy: float =
     ob = shapes.mesh_object("haze", verts, faces, mat, coll, smooth=False)
     ob.visible_shadow = False
     for f in rig.frames:
-        vol.inputs["Density"].default_value = value_at(density, (f - ctx.f0) / ctx.fps)
+        vol.inputs["Density"].default_value = value_at(density, (f - ctx.f0) / ctx.fps) * per
         vol.inputs["Density"].keyframe_insert("default_value", frame=f)
     ev = ctx.scene.eevee
     ev.volumetric_end = reach
@@ -732,16 +736,14 @@ def sun_beams(name: str, origin, direction, *, spread=(24.0, 10.0), length: floa
     lvl = toon.scene_value(nt, "beams")
     a = b.math("MULTIPLY", b.math("MULTIPLY", b.math("MULTIPLY", across, along), breath),
                b.math("MULTIPLY", lvl, strength))
+    # light added over what is behind (a beam never darkens nor dims it): the card fully clear, plus its glow
     em = nt.nodes.new("ShaderNodeEmission")
     em.inputs["Color"].default_value = (*color, 1)
+    nt.links.new(b.math("MAXIMUM", a, 0.0), em.inputs["Strength"])
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
-    add = nt.nodes.new("ShaderNodeAddShader")       # light added over what is behind: a beam never darkens
+    add = nt.nodes.new("ShaderNodeAddShader")
     nt.links.new(tr.outputs[0], add.inputs[0])
-    mx = nt.nodes.new("ShaderNodeMixShader")
-    nt.links.new(b.math("MINIMUM", b.math("MAXIMUM", a, 0.0), 1.0), mx.inputs["Fac"])
-    nt.links.new(tr.outputs[0], mx.inputs[1])
-    nt.links.new(em.outputs[0], mx.inputs[2])
-    nt.links.new(mx.outputs[0], add.inputs[1])
+    nt.links.new(em.outputs[0], add.inputs[1])
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     nt.links.new(add.outputs[0], out.inputs["Surface"])
     mat.surface_render_method = "BLENDED"
