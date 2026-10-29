@@ -2,7 +2,7 @@
 (its stage builds the world, the cast and the compositing for these shots too, so the scene is one from the wide to
 the draw); Shinza comes down the bank and up the jetty to his mark behind her, and stops. What these shots add to
 that stage is here: his walk to his mark timed to stop when the shot needs him still (`arrives`: a lib/vrm_anim.py
-Performance), her lines' visemes for a face keyed frame by frame (`speech`) and the smoke she lets out of her lips
+Performance) and the smoke she lets out of her lips
 (`lips_source`, `breath`).
 """
 from __future__ import annotations
@@ -60,14 +60,15 @@ def arrives(st, path, stop: float, *, gait: str = "heavy", end_yaw: float | None
             seed: int = 1):
     """Shinza's Performance (lib/vrm_anim.py) walking `path` (world x, y; from its first point) with `gait`, timed
     to stand still at `stop` (s into the shot), turning to `end_yaw` (degrees; default facing her mark from his).
-    His builder's IK is let go first (the walk plants his feet). Returns (Performance, the film frame he stops on);
-    the shot adds his look, face and line, then bakes it."""
+    His builder's IK is let go first (the walk plants his feet), and the Performance made from there takes the stage's
+    place (st.perf["shinza"], baked by st.bake). Returns (Performance, the film frame he stops on); the shot adds his
+    look, face and line."""
     from lib import vrm, vrm_anim as va, vrm_rig
 
     ch = st.cast["shinza"]["vrm"]
     vrm.pose(ch, vrm_rig.release(ch))
     fps = st.ctx.fps
-    p = va.Performance(ch, fps=fps, seed=seed)
+    p = st.perf["shinza"] = va.Performance(ch, fps=fps, seed=seed)
     pts = np.asarray(path, float)
     dist = float(np.sum(np.linalg.norm(np.diff(pts, axis=0), axis=1)))
     speed = va.gait_of(gait).scaled(p.height).speed
@@ -81,17 +82,3 @@ def arrives(st, path, stop: float, *, gait: str = "heavy", end_yaw: float | None
     print(f"jetty_arrive: Shinza sets off on {start_f}, stops on {end} (asked {stop_f})")
     return p, end
 
-
-def speech(text: str, start: float, end: float, *, energy: float = 1.0, seed: int = 0):
-    """A function of film seconds giving the mouth's visemes ({name: weight}) for a line (lib/vrm_anim.py visemes),
-    for a face keyed frame by frame (jetty_talk's Stage.face)."""
-    from lib import vrm_anim as va
-
-    track = va.visemes(text, start, end, seed=seed, energy=energy)
-    times = np.array([k for k, _ in track])
-
-    def at(t: float) -> dict:
-        if not len(times) or t < times[0] or t > times[-1]:
-            return {}
-        return dict(track[int(np.argmin(np.abs(times - t)))][1])
-    return at
