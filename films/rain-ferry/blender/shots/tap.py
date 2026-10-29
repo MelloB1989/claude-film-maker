@@ -43,6 +43,9 @@ def build(ctx):
     lines = st.line("L07")
     post = jt.post_top(st)
     perform(st, lines, post)
+    st.say("tsuru", "L07", "kawaoni nara, mou shinda yo", energy=0.7)
+    st.blinks("tsuru", BLINKS)
+    st.bake()
     ash(st, post)
     head = st.tracked_focus("tsuru")
     mid = (head(ctx.f0) + post) / 2
@@ -82,7 +85,6 @@ def bowl_path(t: float, post) -> np.ndarray:
 
 def perform(st, lines, post):
     ch = st.cast["tsuru"]["vrm"]
-    speak = [lines["L07"]]
     for f in st.frames():
         t = st.t(f)
         low = jt.ramp(t, *LOWER)
@@ -101,8 +103,7 @@ def perform(st, lines, post):
         jt.hold_pipe(st, f, fist, along)
         jt.knee_hand(st, f)
         smile = jt.ramp(t, *SMILE)
-        st.face("tsuru", f, {"s4-calm": 1.0, "s4-smile": 0.8 * smile, "blink": jt.blink(t, BLINKS),
-                             **jt.mouth_weights(t, speak, seed=7, scale=0.45)})
+        st.face("tsuru", f, {"s4-calm": 1.0, "s4-smile": 0.8 * smile})
 
 
 def ash(st, post):

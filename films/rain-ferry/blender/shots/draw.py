@@ -46,9 +46,12 @@ BLINKS = (0.55, 3.1)
 def build(ctx):
     st = jt.stage(ctx, who=("shinza",), rain_box=((3.0, -4.0, -0.6), (9.5, 5.0, 4.2)), clear=0.7, near=2.5)
     jt.compose_faces(st)
-    line = st.line("L09")["L09"]
-    perform(st, [(line[0], line[0] + 0.42), (line[1] - 0.78, line[1])])
+    perform(st)
+    st.say("shinza", "L09", "nara... anta de ii", energy=0.9)
+    st.blinks("shinza", BLINKS)
+    st.perf["shinza"].secondary(wind=(0.0, 0.8, 0.0))
     jt.draw_sword(st)
+    st.bake()
     slide_scabbard(st)
     face = st.head_at("shinza", ctx.f0)
     b = math.radians(jt.SHINZA_FACING + BEARING)
@@ -64,7 +67,7 @@ def build(ctx):
                                 para_from=(0.5, 0.95), para_to=(0.5, 0.05)))
 
 
-def perform(st, speak):
+def perform(st):
     from lib import vrm
 
     ch = st.cast["shinza"]["vrm"]
@@ -99,8 +102,7 @@ def perform(st, speak):
                 hips=jt.shinza_hips(t))
         st.hand("shinza", "left", f, jt.HANG["left"], jt.hand_turn(ch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)),
                 (0.3, 0.5, 1.2))
-        st.face("shinza", f, {"glare": 0.4, "s4-grin": jt.ramp(t, *GRIN), "narrow": 0.7 * jt.ramp(t, *NARROW),
-                              "blink": jt.blink(t, BLINKS), **jt.mouth_weights(t, speak, seed=9, scale=0.5)})
+        st.face("shinza", f, {"glare": 0.4, "s4-grin": jt.ramp(t, *GRIN), "narrow": 0.7 * jt.ramp(t, *NARROW)})
 
 
 def slide_scabbard(st):

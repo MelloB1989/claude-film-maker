@@ -12,8 +12,7 @@ through the `Stage` (`pose`, `grip`, `hand`, `face`), its camera (`Stage.camera`
 (`Stage.composite`).
 
 The performance is timed to the dialogue (data/dialogue_timing.json, `Stage.line`) and to the sound cues (data/mix.json:
-the pipe's taps at 42.05 s, the draw's steel at 51.95 s). The pure halves (easing, keys, the mouth, blinks, the
-camera's breath) need no Blender.
+the pipe's taps at 42.05 s, the draw's steel at 51.95 s). The pure halves (easing, keys, the camera's breath) need no Blender.
 """
 from __future__ import annotations
 
@@ -69,35 +68,6 @@ def keys_at(keys, t: float):
                 return v0 + (v1 - v0) * k
             return tuple(a + (b - a) * k for a, b in zip(v0, v1))
     return keys[-1][1]
-
-
-def mouth(t: float, spans, *, rate: float = 7.0, seed: int = 1) -> tuple[float, int]:
-    """How open the mouth is at t (0..1) while speaking in `spans` [(start, end), ...] s, and which vowel (0..2): a
-    syllable every 1/rate s, each opening by its own amount, shut at the span's ends and between spans."""
-    for k, (a, b) in enumerate(spans):
-        if a <= t < b:
-            u = (t - a) * rate
-            i = int(u)
-            rng = np.random.default_rng(seed * 1000 + k * 97 + i)
-            amp = rng.uniform(0.45, 1.0)
-            vowel = int(rng.integers(0, 3))
-            env = min(1.0, (t - a) / 0.06, (b - t) / 0.08)
-            return float(amp * math.sin(math.pi * (u - i)) ** 0.7 * env), vowel
-    return 0.0, 0
-
-
-def blink(t: float, times, *, close: float = 0.05, hold: float = 0.03, open_: float = 0.09) -> float:
-    """How shut the eyes are at t (0..1) for blinks starting at `times`: shut fast, open slower."""
-    v = 0.0
-    for b in times:
-        u = t - b
-        if 0 <= u < close:
-            v = max(v, u / close)
-        elif close <= u < close + hold:
-            v = 1.0
-        elif close + hold <= u < close + hold + open_:
-            v = max(v, 1.0 - ease((u - close - hold) / open_))
-    return v
 
 
 def breath(t: float, amount: float, *, seed: int = 3) -> np.ndarray:
@@ -236,12 +206,10 @@ class Stage:
     def line(self, *ids) -> dict:
         return line_spans(self.start, ids)
 
-    # ---- the performance
+    # ---- the performance (blender/lib/vrm_anim.py: one Performance a character, keyed here, baked by `bake`)
     def pose(self, who: str, f: int, turns: dict, hips=None) -> None:
-        from lib import vrm
-
-        ch = self.cast[who]["vrm"]
-        vrm.pose(ch, turns, hips=hips, frame=f)
+        """Key the character's whole body at film frame f (vrm.pose's turns; held linearly to the next key)."""
+        self.perf[who].pose(f, turns, hips=hips, ease="linear")
 
     def grip(self, who: str, side: str, f: int, point, knuckles, palm, pole, *, local_frame: bool = True) -> None:
         """Key the `side` hand closed round something through `point` (its knuckles along `knuckles`, palm facing
@@ -251,34 +219,32 @@ class Stage:
             point, pole = local(ch, point), local(ch, pole)
             knuckles, palm = local_dir(ch, knuckles), local_dir(ch, palm)
         turn = hand_turn(ch, side, knuckles, palm)
-        self._key_hand(ch, side, f, fist_wrist(ch, side, point, turn), turn, pole)
-
-    def hang(self, who: str, side: str, f: int, wrist, knuckles, palm, pole) -> None:
-        """Key the `side` hand's wrist at `wrist`, turned to knuckles and palm, the elbow toward `pole` (his frame)."""
-        ch = self.cast[who]["vrm"]
-        self._key_hand(ch, side, f, np.asarray(wrist, float), hand_turn(ch, side, knuckles, palm), pole)
+        self.hand(who, side, f, fist_wrist(ch, side, point, turn), turn, pole)
 
     def hand(self, who: str, side: str, f: int, wrist, turn, pole) -> None:
         """Key the `side` hand's wrist at `wrist` turned by `turn` (vrm.align), the elbow toward `pole` (their frame)."""
-        self._key_hand(self.cast[who]["vrm"], side, f, np.asarray(wrist, float), turn, pole)
-
-    def _key_hand(self, ch, side, f, wrist, turn, pole) -> None:
-        from lib import vrm
-
-        bone = f"{side}Hand"
-        c = vrm.reach(ch, bone, wrist, pole=pole, bend=0.0)
-        vrm.hold(ch, bone, turn)
-        for key in ("target", "pole"):
-            ch.handles[f"{bone}-{key}"].keyframe_insert("location", frame=f)
-        h = ch.handles[f"{bone}-hold"]
-        h.keyframe_insert("rotation_quaternion", frame=f)
-        h.keyframe_insert("location", frame=f)
-        c.keyframe_insert("pole_angle", frame=f)
+        self.perf[who].reach(f, f"{side}Hand", ("char", tuple(float(v) for v in wrist)), pole=pole, turn=turn,
+                             ease="linear")
 
     def face(self, who: str, f: int, weights: dict) -> None:
-        from lib import vrm
+        """Key the character's expressions at film frame f (every one not named back to 0)."""
+        self.perf[who].express(f, weights, ease="linear", full=True)
 
-        vrm.express(self.cast[who]["vrm"], weights, frame=f)
+    def say(self, who: str, line: str, text: str, **kw) -> None:
+        """Lip-sync a line of data/dialogue_timing.json (its romaji reading) on the character."""
+        a, b = self.line(line)[line]
+        self.perf[who].say(self.start + a, self.start + b, text, **kw)
+
+    def blinks(self, who: str, times) -> None:
+        """Blinks at these times (s into the shot), and none else."""
+        for t in times:
+            self.perf[who].blink_at(self.ctx.f0 + t * self.ctx.fps)
+
+    def bake(self) -> None:
+        """Write every performance as keys over the shot (and a frame either side)."""
+        for p in self.perf.values():
+            p.bake(self.ctx.f0 - 1, self.ctx.f1 + 1)
+        self.ctx.scene.frame_set(self.ctx.f0)
 
     # ---- the camera
     def camera(self, shot: Shot, focus) -> None:
@@ -404,6 +370,10 @@ def stage(ctx, *, who=("shinza", "tsuru"), rain_box=((2.0, -4.5, -0.6), (10.0, 4
     st = Stage(ctx, crossing=crossing, cast=cast, cast_coll=cast_coll, sun=sun, rain=rain, cam=cam, aim=aim,
                focus=focus, look=look, standoff=so)
     place_cast(st, place)
+    from lib import vrm_anim
+
+    st.perf = {name: vrm_anim.Performance(built["vrm"], fps=ctx.fps, seed=11 + k) for k, (name, built) in
+               enumerate(cast.items())}
     # the lantern swings in the wind all through
     lantern = crossing["lantern"]
     for f in st.frames():
@@ -669,13 +639,6 @@ def draw_sword(st: Stage) -> None:
 
 
 # ---------------------------------------------------------------------------------------------------- faces
-
-def mouth_weights(t: float, spans, seed: int, scale: float = 0.75) -> dict:
-    """The VRM's mouth presets for speaking at t."""
-    a, v = mouth(t, spans, seed=seed)
-    name = ("aa", "oh", "ih")[v]
-    return {name: a * scale} if a > 0 else {}
-
 
 def compose_faces(st: Stage) -> None:
     """The scene's own expressions, of the faces' shape keys (lib/vrm_rig.py compose): his grin (VRoid's fierce mouth

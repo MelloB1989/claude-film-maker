@@ -37,7 +37,10 @@ LEAD, DROP = 0.045, 0.03
 def build(ctx):
     st = jt.stage(ctx, who=("tsuru",), rain_box=((4.0, -4.0, -0.6), (10.0, 6.0, 3.6)), clear=0.6, near=2.2)
     jt.compose_faces(st)
-    perform(st, st.line("L08"))
+    perform(st)
+    st.say("tsuru", "L08", "yonjuunen mae ni ne", energy=0.6)
+    st.blinks("tsuru", BLINKS)
+    st.bake()
     face = st.head_at("tsuru", ctx.f0)
     b = np.radians(BEARING)
     out = np.array((np.cos(b), np.sin(b), 0.0))
@@ -53,8 +56,7 @@ def build(ctx):
                                 para_from=(0.7, 0.95), para_to=(0.2, 0.05)))
 
 
-def perform(st, lines):
-    speak = [lines["L08"]]
+def perform(st):
     lap, lap_along = jt.TS_PIPE_LAP
     for f in st.frames():
         t = st.t(f)
@@ -64,5 +66,4 @@ def perform(st, lines):
         st.pose("tsuru", f, {**body, **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)}, hips=jt.tsuru_hips(st, t))
         jt.hold_pipe(st, f, lap, lap_along)
         jt.knee_hand(st, f)
-        st.face("tsuru", f, {"s4-calm": 1.0 - 0.45 * lids, "s4-smile": 0.35 + 0.45 * jt.ramp(t, *SMILE),
-                             "blink": jt.blink(t, BLINKS), **jt.mouth_weights(t, speak, seed=11, scale=0.4)})
+        st.face("tsuru", f, {"s4-calm": 1.0 - 0.45 * lids, "s4-smile": 0.35 + 0.45 * jt.ramp(t, *SMILE)})
