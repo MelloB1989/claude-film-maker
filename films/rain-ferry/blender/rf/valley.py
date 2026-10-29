@@ -24,10 +24,12 @@ WATER_Z = 0.0
 EXTENT = (-3200.0, 3200.0, -300.0, 7000.0)     # the land's x and y range (m)
 GRID = (230, 250)                               # its vertices across and along
 # the valley's camera: where it stands (x, y, height over the land), what it looks at
-CAMERA = (-150.0, -40.0, 38.0)
-AIM = (60.0, 1400.0, 40.0)
-# the ferry on the near bank: the hut's floor (x, y), the jetty's direction (radians from +x)
-HAMLET = (-58.0, 168.0)
+CAMERA = (-90.0, -220.0, 150.0)
+AIM = (40.0, 1800.0, 60.0)
+# the ferry on the near bank: the hut's floor (x, y), and how much larger than life it is drawn (from this far up a
+# real hut is a speck)
+HAMLET = (-109.0, 700.0)
+HAMLET_SCALE = 5.0
 SUN = (0.42, 1.0, 0.32)          # toward the sun (behind the valley's right side, low): the gold light's direction
 SKY_FAR = 9000.0                  # the sky dome's radius
 # the scene properties the materials read (linear colours, or 0..1)
@@ -119,12 +121,12 @@ def tree_density(x, y, z, slope, cam=CAMERA) -> np.ndarray:
     dist = np.hypot(x - cam[0], y - cam[1])
     above = np.clip((z - 4.0) / 10.0, 0.0, 1.0)
     steep = np.clip(1.4 - slope, 0.0, 1.0)
-    return above * steep * (0.05 / tree_size(dist) ** 2)
+    return above * steep * (0.4 / tree_size(dist) ** 2) * (dist < 5500.0)
 
 
 def tree_size(dist) -> np.ndarray:
     """A pine's height (m) at `dist` from the camera: real near it, drawn larger far off so the ridges' fringes read."""
-    return 9.0 + 0.016 * np.asarray(dist, float)
+    return 7.0 + 0.012 * np.asarray(dist, float)
 
 
 # ---------------------------------------------------------------------------------------------------- materials
@@ -287,13 +289,14 @@ def wash(name: str, *, cam, ink=INK, lit_k: float = 1.0, texture: float = 0.5, s
     tc = n.N.new("ShaderNodeTexCoord")
     # brushwork: long strokes across the slope and a dry-brush grain
     stroke = n.new("ShaderNodeMapping")
-    stroke.inputs["Scale"].default_value = (1.0, 1.0, 3.5)
+    stroke.inputs["Scale"].default_value = (1.0, 1.0, 6.0)
     n.L.new(tc.outputs["Object"], stroke.inputs["Vector"])
-    brush = n.math("MULTIPLY_ADD", n.noise(stroke.outputs[0], 0.012, 5.0, 0.62), 2.0 * texture, 1.0 - texture)
+    # the strokes: rock and gully run down the slope (cun, the texture strokes of a mountain), a finer grain over them
+    brush = n.math("MULTIPLY_ADD", n.noise(stroke.outputs[0], 0.02, 6.0, 0.7), 2.0 * texture, 1.0 - texture)
     shade = n.mix(1.0, n.prop("rf_shade", True), (ink[0] / INK[0], ink[1] / INK[1], ink[2] / INK[2]), "MULTIPLY")
     lit = n.mix(1.0, n.prop("rf_lit", True), (lit_k, lit_k, lit_k), "MULTIPLY")
     col = n.mix(n.math("MULTIPLY", band, brush, clamp=True), shade, n.mix(0.5, shade, lit, "ADD"))
-    col = n.mix(1.0, col, n.math("MULTIPLY_ADD", brush, 0.35, 0.75), "MULTIPLY")
+    col = n.mix(1.0, col, n.math("MULTIPLY_ADD", brush, 1.1, 0.35), "MULTIPLY")
     # a rim of gold on the slopes facing the sun as the clouds open
     facing = n.math("MAXIMUM", n.vmath("DOT_PRODUCT", geo.outputs["Normal"], _unit(SUN)), 0.0)
     rim = n.math("MULTIPLY", n.ramp(facing, 0.45, 0.85), n.prop("rf_sun"))
@@ -367,8 +370,8 @@ def river_material(name: str, *, cam, scene, sun=SUN):
     n.set(sep.inputs[0], geo.outputs["Position"])
     dist = n.vmath("DISTANCE", geo.outputs["Position"], tuple(cam))
     far = n.ramp(dist, 150.0, 3000.0)
-    base = n.mix(far, n.mix(0.5, n.prop("rf_fog", True), (0.05, 0.055, 0.065), "MULTIPLY"),
-                 n.mix(1.0, n.prop("rf_horizon", True), (0.95, 0.95, 0.95), "MULTIPLY"))
+    base = n.mix(far, n.mix(1.0, n.prop("rf_fog", True), (0.22, 0.23, 0.26), "MULTIPLY"),
+                 n.mix(1.0, n.prop("rf_horizon", True), (0.62, 0.63, 0.66), "MULTIPLY"))
     t = n.clock(scene, 1.0)
     cur = n.new("ShaderNodeCombineXYZ")
     n.set(cur.inputs["X"], n.math("MULTIPLY", sep.outputs["X"], 0.25))
@@ -634,12 +637,12 @@ def _hamlet(coll, m) -> dict:
     from lib import props, shapes
 
     hx, hy = HAMLET
-    z = float(height(hx, hy))
+    z = max(float(height(hx, hy)), WATER_Z + 0.6)
     # a little larger than life: from this far up a real hut is a speck (the jetty and boat with it)
     root = bpy.data.objects.new("hamlet", None)
     coll.objects.link(root)
     root.location = (hx, hy, z)
-    root.scale = (2.2, 2.2, 2.2)
+    root.scale = (HAMLET_SCALE,) * 3
     root.rotation_euler = (0, 0, math.radians(-8))
     ink = m["trees"]
     obs = []
@@ -650,11 +653,12 @@ def _hamlet(coll, m) -> dict:
     obs += lobs
     # the jetty out from the bank toward the water (+x), the boat along it
     bank = river_x(hy) - river_half(hy)
-    reach = (bank - hx) / 2.2 + 6.0
+    k = HAMLET_SCALE
+    reach = (bank - hx) / k + 6.0
     obs += props.pier({"plank": ink, "post": ink, "rope": ink}, coll, span=(3.0, reach), half=0.9,
-                      deck_z=(WATER_Z - z) / 2.2 + 0.5, water_z=(WATER_Z - z) / 2.2, post_xs=tuple(np.arange(4.0, reach, 2.5)))
+                      deck_z=(WATER_Z - z) / k + 0.5, water_z=(WATER_Z - z) / k, post_xs=tuple(np.arange(4.0, reach, 2.5)))
     boat = props.covered_boat({"hull": ink, "post": ink, "thatch": m["land"]}, coll, x0=reach - 5.5, y=-1.9,
-                              water_z=(WATER_Z - z) / 2.2)
+                              water_z=(WATER_Z - z) / k)
     obs += boat["objects"]
     for ob in obs:
         if ob.parent is None:
