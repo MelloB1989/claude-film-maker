@@ -27,7 +27,7 @@ blender/tests/test_weather.py); the builders need Blender.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -81,7 +81,8 @@ def drip(s: float, period: float, hang: float, height: float) -> tuple[float, fl
 class Layer:
     """One depth of rain round a setup: drops `near`..`far` metres from the lens, `count` of them at full density,
     streaks `length` long and `width` wide at full speed, `alpha` opaque. `shrink`: drops nearer the lens than this
-    shrink with their distance (a fine streak, not a bar across a face); `clear`: none at all within this of it."""
+    shrink with the square of their distance (a fine streak, not a bar across a face); `clear`: none at all within
+    this of it. No drop of a layer is ever nearer the lens than its `near` (or `clear`)."""
     near: float
     far: float
     count: int
@@ -92,13 +93,26 @@ class Layer:
     clear: float = 0.0
 
 
-# the standoff's rain (5200 drops, 0.34 x 0.0055 m, alpha 0.3, in a box 1 to 16 m out) split by depth: a few long,
-# heavier streaks close to the lens, the body of it in the middle, and a fine far curtain that greys the distance
+# the standoff's rain (5200 drops, 0.34 x 0.0055 m, alpha 0.3, in a box 1 to 16 m out) split by depth: a few longer
+# streaks close to the lens, the body of it in the middle, and a fine faint far curtain that greys the distance. As a
+# wide (REF_LENS) sees them: a longer lens sees each further out (`for_lens`)
 LAYERS = {
-    "near": Layer(0.6, 3.5, 420, 0.5, 0.008, 0.34, shrink=2.5, clear=0.7),
-    "mid": Layer(3.5, 16.0, 4200, 0.34, 0.0055, 0.3),
-    "far": Layer(16.0, 70.0, 7000, 0.9, 0.022, 0.12),
+    "near": Layer(0.7, 3.0, 220, 0.32, 0.0048, 0.17, shrink=3.0, clear=1.2),
+    "mid": Layer(3.0, 15.0, 3600, 0.3, 0.0045, 0.22),
+    "far": Layer(15.0, 70.0, 5000, 0.55, 0.011, 0.06),
 }
+REF_LENS = 26.0
+
+
+def for_lens(layer: Layer, lens: float, ref: float = REF_LENS) -> Layer:
+    """`layer` as a `lens` (mm) longer than `ref` should see it: every distance out from the lens times lens / ref, so
+    its drops are as big and as many on screen as in the wide (a close-up does not see the far curtain's streaks as
+    sticks behind a face: it sees them further out, smaller and in the depth of field's blur). `clear` is kept: room in
+    front of a face is metres, whatever the lens."""
+    k = max(1.0, float(lens) / ref)
+    if k == 1.0:
+        return layer
+    return replace(layer, near=layer.near * k, far=layer.far * k, shrink=layer.shrink * k)
 
 
 def frustum_box(poses, near: float, far: float, *, aspect: float = 16 / 9, margin: float = 0.1, floor=None,
@@ -299,21 +313,27 @@ class Drops:
         # which drops fall at this density (each its own threshold), and each a little bigger or smaller
         on = b.math("LESS_THAN", b.random(0.0, 1.0, seed + 7, idx.outputs[0]), self.density.outputs[0])
         k = b.math("MULTIPLY", on, b.random(0.65, 1.3, seed, idx.outputs[0]))
-        if layer.shrink or layer.clear:
-            cam = N.new("GeometryNodeInputActiveCamera")
-            ci = N.new("GeometryNodeObjectInfo")
-            ci.transform_space = "ORIGINAL"
-            L.new(cam.outputs[0], ci.inputs["Object"])
-            p2 = N.new("GeometryNodeInputPosition")
-            dist = N.new("ShaderNodeVectorMath")
-            dist.operation = "DISTANCE"
-            L.new(p2.outputs[0], dist.inputs[0])
-            L.new(ci.outputs["Location"], dist.inputs[1])
-            d = dist.outputs["Value"]
-            if layer.shrink:
-                k = b.math("MULTIPLY", k, b.math("MINIMUM", b.math("DIVIDE", d, layer.shrink), 1.0))
-            if layer.clear:
-                k = b.math("MULTIPLY", k, b.math("GREATER_THAN", d, layer.clear))
+        # each drop's distance from the active camera: none nearer than the layer's own inner edge (its box, round a
+        # slanted view, reaches back to the lens), fading in over the last stretch; a near layer's drops shrink too
+        cam = N.new("GeometryNodeInputActiveCamera")
+        ci = N.new("GeometryNodeObjectInfo")
+        ci.transform_space = "ORIGINAL"
+        L.new(cam.outputs[0], ci.inputs["Object"])
+        p2 = N.new("GeometryNodeInputPosition")
+        dist = N.new("ShaderNodeVectorMath")
+        dist.operation = "DISTANCE"
+        L.new(p2.outputs[0], dist.inputs[0])
+        L.new(ci.outputs["Location"], dist.inputs[1])
+        d = dist.outputs["Value"]
+        inner = max(layer.clear, layer.near)
+        fade = N.new("ShaderNodeMapRange")       # clamped: 0 inside 85% of the inner edge, 1 from it out
+        fade.inputs["From Min"].default_value = inner * 0.85
+        fade.inputs["From Max"].default_value = inner
+        L.new(d, fade.inputs["Value"])
+        k = b.math("MULTIPLY", k, fade.outputs["Result"])
+        if layer.shrink:
+            near_k = b.math("MINIMUM", b.math("DIVIDE", d, layer.shrink), 1.0)
+            k = b.math("MULTIPLY", k, b.math("MULTIPLY", near_k, near_k))     # squared: a drop by the lens is a speck
         sc = N.new("ShaderNodeCombineXYZ")
         L.new(k, sc.inputs["X"])
         L.new(k, sc.inputs["Y"])
@@ -386,11 +406,12 @@ class Rain:
 
 
 def rain(ctx, rig, *, density=None, speed=None, wind=None, layers=None, color=None, floor=None, ceiling=None,
-         seed: int = 4, coll=None) -> Rain:
+         adapt: bool = True, seed: int = 4, coll=None) -> Rain:
     """Rain round every setup of `rig` (cinema.Rig) over ctx's frames, in `layers` (LAYERS: names to use, or
     {name: Layer}), its `density` (0..1), `speed` (m/s) and `wind` (m/s along +x) values over the shot (a number or
     keys; None: the look schedule's, else full rain). `floor`/`ceiling`: no drops below/above these heights (the water,
-    a roof over a doorway's camera). Each setup's layers show only while it is cut in."""
+    a roof over a doorway's camera). Each setup's layers show only while it is cut in, pushed out for its lens when
+    `adapt` (`for_lens`: a close-up gets finer, further, defocused rain for free)."""
     import bpy
 
     from . import toon
@@ -422,7 +443,10 @@ def rain(ctx, rig, *, density=None, speed=None, wind=None, layers=None, color=No
     drops = {}
     for i, s in enumerate(rig.shot.setups):
         poses = _setup_poses(rig, i)
+        lens = float(np.median([p.lens for p in poses]))
         for j, (ln, layer) in enumerate(layers.items()):
+            if adapt:
+                layer = for_lens(layer, lens)
             lo, hi = frustum_box(poses, layer.near, layer.far, aspect=ctx.size[0] / ctx.size[1], floor=floor,
                                  ceiling=ceiling)
             d = Drops(f"rain-{s.name}-{ln}", lo, hi, layer, color=color, seed=seed + 13 * i + j, coll=coll)

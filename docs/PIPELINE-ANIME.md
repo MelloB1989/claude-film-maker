@@ -263,7 +263,7 @@ The whole film, in one command (`tools/`, Python and uv; Blender is `$BLENDER`, 
 
 ```sh
 cd tools
-uv run film-anime-render --film <id>              # the final, on the Mac: plates 2560x1440 EEVEE 32 samples, the video
+uv run film-anime-render --film <id>              # the final, on the Mac: plates 1920x1080 EEVEE 32 samples (--jobs 2), the video
 uv run film-anime-render --film <id> --preview    # a fleet host (source .tools/env.sh): plates 960x540, a draft video
 uv run film-anime-render --film <id> --only freeze,charge --plates-only     # some plates, scanned, nothing else
 uv run film-anime-render --film <id> --dry-run    # what is stale

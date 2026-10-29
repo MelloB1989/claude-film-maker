@@ -80,3 +80,17 @@ def test_layers_run_near_to_far_without_gaps():
     ls = list(weather.LAYERS.values())
     assert all(a.far == b.near for a, b in zip(ls, ls[1:]))
     assert ls[0].length >= ls[1].length and ls[-1].alpha < ls[1].alpha
+
+
+def test_a_long_lens_sees_the_layers_further_out_and_as_big_on_screen():
+    far = weather.LAYERS["far"]
+    assert weather.for_lens(far, 26.0) is far and weather.for_lens(far, 18.0) is far
+    f85 = weather.for_lens(far, 85.0)
+    k = 85.0 / weather.REF_LENS
+    assert f85.near == pytest.approx(far.near * k) and f85.far == pytest.approx(far.far * k)
+    assert (f85.length, f85.width, f85.count, f85.clear) == (far.length, far.width, far.count, far.clear)
+    # a drop at a layer's middle is as tall on screen through either lens
+    on_screen = lambda L, lens: L.length * lens / ((L.near + L.far) / 2)  # noqa: E731
+    assert on_screen(f85, 85.0) == pytest.approx(on_screen(far, 26.0))
+    n85 = weather.for_lens(weather.LAYERS["near"], 85.0)
+    assert n85.clear == weather.LAYERS["near"].clear and n85.shrink > weather.LAYERS["near"].shrink

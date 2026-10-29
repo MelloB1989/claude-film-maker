@@ -20,6 +20,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from lib import cinema  # noqa: E402
 from rf import jetty_talk as jt  # noqa: E402
 
 SHOT = {"scene": "demand"}
@@ -27,8 +28,7 @@ SHOT = {"scene": "demand"}
 # the camera: low by her right shoulder, looking up at him, creeping in and rising a little (world)
 CAM = [(0.0, (7.12, -1.62, 0.5), (5.5, -0.82, 1.42)),
        (5.8, (6.88, -1.48, 0.6), (5.48, -0.8, 1.47))]
-LENS = [(0.0, 30.0), (5.8, 32.0)]
-FSTOP = [(0.0, 2.8)]
+LENS, FSTOP = (30.0, 32.0), 2.8
 GUST = 1.5             # s into the shot: the gust's peak (data/mix.json wind_gust at 37.5 s)
 # his right hand to the hilt: when it starts up, passes his chest, clears his shoulder and closes on the hilt (s)
 RISE = (3.95, 4.35, 4.72, 4.92, 5.08)
@@ -38,13 +38,20 @@ LANTERN_RIM = (1.0, 0.5, 0.18)
 
 
 def build(ctx):
-    st = jt.stage(ctx, rain_box=((3.0, -3.2, -0.6), (9.5, 6.0, 4.6)), clear=0.7, near=2.5)
+    st = jt.stage(ctx)
     jt.compose_faces(st)
     lines = st.line("L05", "L06")
     perform(st, lines)
-    shot = jt.Shot(CAM, LENS, FSTOP, breath=0.006, kicks=[])
-    st.camera(shot, st.tracked_focus("shinza"))
-    jt.outline(st, shot)
+    st.say("shinza", "L05", "mukougishi ni kawaoni ga iru to kiita", energy=0.9)
+    st.say("shinza", "L06", "soitsu wo kitte, ore ga tenkaichi ni naru", energy=1.1)
+    st.blinks("shinza", BLINKS)
+    st.blinks("tsuru", (0.8, 3.2))
+    st.perf["shinza"].secondary(wind=(0.0, 0.8, 0.0))
+    st.bake()
+    ch = st.cast["shinza"]["vrm"]
+    st.film([cinema.Setup("low", 0.0, cinema.line(CAM[0][1], CAM[1][1], CAM[0][2], CAM[1][2]), lens=LENS, fstop=FSTOP,
+                          focus=(ch, "head"), shake=cinema.Shake(breath=0.08))])
+    jt.outline(st)
     jt.pipe_smoke(st).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)     # her pipe at the frame's edge, still lit
     jt.key_light(st, "shinza", (0.7, -0.9, 0.75))
     jt.key_light(st, "tsuru", (0.3, -1.0, 0.8))
@@ -60,7 +67,6 @@ def perform(st, lines):
     ch = st.cast["shinza"]["vrm"]
     # the hilt where it is once his chest has turned into the reach (it rides on his back)
     vrm.pose(ch, jt.shinza_stand(RISE[3], reach=1.0), hips=jt.shinza_hips(RISE[3]))
-    speak = [lines["L05"], lines["L06"]]
     hang_r, hang_l = jt.HANG["right"], jt.HANG["left"]
     grip_wrist, grip_turn = jt.hilt_grip(st)
     hang_turn_r = jt.hand_turn(ch, "right", (0.0, 1.0, 0.0), (1.0, 0.0, 0.0))
@@ -83,7 +89,6 @@ def perform(st, lines):
         st.hand("shinza", "left", f, hang_l, jt.hand_turn(ch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)),
                 (0.3, 0.5, 1.2))
         narrow = 0.6 * jt.ramp(t, RISE[3], RISE[4] + 0.3)
-        st.face("shinza", f, {"glare": 1.0, "narrow": narrow, "blink": jt.blink(t, BLINKS),
-                              **jt.mouth_weights(t, speak, seed=5)})
+        st.face("shinza", f, {"glare": 1.0, "narrow": narrow})
         if "tsuru" in st.cast:
             jt.tsuru_rest(st, f, t, smoking=True)     # still smoking, as refuse leaves her
