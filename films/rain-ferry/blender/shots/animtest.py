@@ -22,14 +22,22 @@ _spec = importlib.util.spec_from_file_location("shots.standoff", Path(__file__).
 standoff = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(standoff)
 
-SHOT = {"frames": [0, 210], "look": "0,40,72,100,124,160,180,200"}
+SHOT = {"frames": [0, 210], "look": "0,40,72,96,110,124,160,180,200"}
 
 SH_FROM, SH_TO = (-3.6, 0.0), (-0.35, 0.0)
 TS_AT, TS_YAW = (0.9, 1.35), 205.0          # off his left, turned to the line he walks
 LINE = (3.9, 5.5, "tsuyoku naritai")         # L01 (seconds into this shot), as data/dialogue.json reads it
 
 
-DRAW = (136, 150, 166, 182)                  # the hand leaves its side, takes the hilt, draws, comes round
+DRAW = (136, 150, 166, 182)
+CLOSE = (86, 134)                            # the close-up over the look and the line                  # the hand leaves its side, takes the hilt, draws, comes round
+
+
+def va_fcurves(id_):
+    from lib import toon
+
+    ad = id_.animation_data
+    return toon._fcurves(ad.action) if ad is not None and ad.action is not None else []
 
 
 def _centre(ob):
@@ -159,6 +167,18 @@ def build(ctx):
     c.target = aim
     c.track_axis, c.up_axis = "TRACK_NEGATIVE_Z", "UP_Y"
     scene.camera = cam
+    # a cut to his face for the look and the line (from near where she stands), then back out for the draw
+    face = (SH_TO[0], SH_TO[1], 1.62)
+    for fr, at, to, lens in ((f, cam.location[:], aim.location[:], 38.0), (CLOSE[0], (0.75, 0.95, 1.55), face, 55.0),
+                             (CLOSE[1], cam.location[:], aim.location[:], 38.0)):
+        cam.location, aim.location, cam.data.lens = at, to, lens
+        cam.keyframe_insert("location", frame=fr)
+        aim.keyframe_insert("location", frame=fr)
+        cam.data.keyframe_insert("lens", frame=fr)
+    for ob in (cam, aim, cam.data):
+        for fc in va_fcurves(ob):
+            for kp in fc.keyframe_points:
+                kp.interpolation = "CONSTANT"
 
 
 # his carriage walking: the arms hanging easy, the chest set, the chin down a touch; and how he stands when he stops:
