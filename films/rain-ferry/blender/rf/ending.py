@@ -1,23 +1,22 @@
 """The Rain Ferry's ending, shots 22 to 26 (lesson, kneel, board, cross): the jetty after the duel, the rain stopping,
 the crossing. What those shots share lives here; each shot is its own file under shots/.
 
-The weather and the light are the film's look schedule's (films/rain-ferry/data/look.json, `ctx.look_at(f)`): the
-rain's density, the mist, the key's colour and strength, the sky and the fog. The grade is the engine's, over the
-plate: nothing here bakes one in.
+The world is rf/set_world.py's, its weather and light the film's look schedule's (data/look.json, `ctx.look_at(f)`,
+keyed on the set by rf/set_weather.py). The grade is the engine's, over the plate: nothing here bakes one in.
 
-- The stage after the duel (`SHINZA_AT` ...): where Shinza went down on his knees, where his blade's broken half
-  stands in the planks, where the cut headband lies, Tsuru's way to the boat and where she stands in it.
+- The stage after the duel (`SHINZA_AT` ...): where Shinza went down on his knees, where the cut headband lies,
+  Tsuru's way to the boat.
 - Pure helpers for the cast's stand-in animation: `step(s, ...)` (where a walking foot is), `kneel_legs(...)` (where
-  the knee and hips come for a kneel), `mouth(t, lines)` (a line's mouth flaps), `ease`, `smooth`, `keys_at`.
-- In Blender: `stage(ctx, ...)` builds the set lit and weathered as the schedule says (the rain thinned by its
-  density, the river's rings and the splashes with it, the mist cards at their density and colour, the sky and fog
-  from the light), `cast(...)` the 3D cast painted as the standoff paints it, `kneel(...)` and `walk(...)` re-pose them
-  from the standoff, `broken_blade`, `blade_tip` and `headband` are the duel's leavings, `camera(...)` keys a camera
-  frame by frame and `finish(...)` composites the cast over the world (lib/satsuei.py) from the schedule's looks.
+  the knee and hips come for a kneel), `mouth(t, lines)` (a line's mouth flaps), `ease`, `smooth`, `keys_at`,
+  `path_at`, `drift` (a held camera's breathing).
+- In Blender: `stage(ctx)` builds the world, inks it and lets the rain fall in it at the schedule's density (thinned,
+  not faded: fewer drops; the splashes with it); `cast(st, {name: variant})` builds the 3D cast (rf/vroid_cast.py)
+  painted as the standoff paints them; `kneel`, `hands_rest`, `hold_blade` and `walk` pose and animate them;
+  `headband` is the cut band (on the deck, or afloat); `camera(...)` keys a camera frame by frame and `finish(...)`
+  composites the cast over the world (lib/satsuei.py) from the schedule's looks, a shot's rims on top.
 
-Until the core's animation (blender/lib/vrm_anim.py), camera kit (blender/lib/cinema.py) and the sets' after-rain
-river land, the stand-ins here do their work: a procedural walk, a kneel by IK, a camera keyed frame by frame, the rain
-thinned by a mask on its drops.
+Until the core's animation (blender/lib/vrm_anim.py) and camera kit (blender/lib/cinema.py) land, the stand-ins here
+do their work: a procedural walk, a kneel by IK, a camera keyed frame by frame, the rain thinned by a mask on its drops.
 
 World axes are rf/sets.py's: the jetty along x (the bank at -x), its deck's top at z 0, the river toward +y.
 """
@@ -27,15 +26,16 @@ import math
 
 # ---------------------------------------------------------------------------------------------------- the stage
 
-# Where things are after the duel (world metres, rf/sets.py's axes). Shinza's charge carried him past her toward the
-# jetty's end: he went down on his knees there, facing on along it (radians from +x toward +y), half his blade standing
-# in the planks ahead of him where it fell, the cut headband on the deck by his knee. Tsuru, back to back with him
-# behind, walks past him on the river side to the boat moored along the jetty's far edge.
-SHINZA_AT = (2.3, -0.32)
-SHINZA_FACING = math.radians(8.0)
-HEADBAND_AT = (2.55, 0.22, 35.0)                  # (x, y, turn (deg)): where the cut band lies on the deck
-TSURU_WALK = [(1.0, 0.5), (2.6, 0.58), (4.0, 0.64), (5.0, 0.7)]   # her way to the boat (x, y)
-BOARD_AT = (5.2, 2.2)                              # where she stands in the boat (x, y)
+# Where things are after the duel (world metres, rf/sets.py's axes; until S6's fall publishes its end marks, these are
+# the defaults). The duel is near the jetty's end; Shinza's charge carried him past her toward the end: he went down on
+# his knees there, facing on along it (radians from +x toward +y), half his blade standing in the planks ahead of him
+# where it fell (rf/vroid_shinza.py's), the cut headband on the deck by his knee. Tsuru, back to back with him on the
+# land side, walks away from him along the boat's side to the ferry's stern (rf/set_jetty.py). Looking back along
+# the jetty from its end (every camera of 22-24), he is on the left, she on the right, the hut's lantern beyond.
+SHINZA_AT = (5.9, -0.5)
+SHINZA_FACING = math.radians(4.0)
+HEADBAND_AT = (6.3, -0.08, 35.0)                  # (x, y, turn (deg)): where the cut band lies on the deck
+TSURU_WALK = [(4.6, 0.5), (3.9, 0.66), (3.05, 0.82)]   # her way to the boat (x, y)
 
 
 def smooth(u: float) -> float:
@@ -138,7 +138,7 @@ class Stage:
 
 def thin(ob, seed: int = 0):
     """A mask over a Geometry Nodes drop field (toon.rain, toon.splashes): only a share of its points kept, the
-    returned socket's value (key it 0..1), each point at a fixed random rank so the drops thin, not jump."""
+    returned input's value (key it 0..1), each point at a fixed random rank so the drops thin, not jump."""
     from lib import toon
 
     ng = ob.modifiers[0].node_group

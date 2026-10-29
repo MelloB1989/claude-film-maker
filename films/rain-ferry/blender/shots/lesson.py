@@ -1,8 +1,9 @@
 """Shot 22, the lesson: Tsuru walks away to the boat, her pole on her shoulder, not looking back, while Shinza stays on
 his knees in the rain where he went down. "Strength..." / "...isn't how many you've cut down." (L12)
 
-Low behind Shinza's left shoulder, his bowed back a dark mass on the left third, the wet planks running away past
-him to the moored boat; Tsuru small and upright beyond him on the right, walking out of the shot's depth. The camera
+Low from the jetty's end looking back along it toward the bank: Shinza on his knees in the left foreground, his head
+hung, the wet planks running away past him; Tsuru beyond him walking away along the moored boat toward its stern,
+small and upright, the hut's red lantern far behind her. The camera
 eases in after her and a little up; it holds her in focus while she speaks, then, as the line lands, the focus comes
 back to him (his head sinking).
 
@@ -18,9 +19,9 @@ SHOT = {"scene": "lesson"}
 
 LINE = (85.9, 90.1)       # L12 (film s)
 # the camera (world m): from, to (eased over the shot), its aim, lens, f-stop
-CAM = ((0.95, -2.35, 0.62), (1.35, -1.95, 0.7))
-AIM = ((5.6, 1.15, 0.72), (5.6, 1.3, 0.78))
-LENS, FSTOP = 32.0, 2.4
+CAM = ((8.35, -0.88, 0.68), (8.0, -0.76, 0.8))
+AIM = ((-1.1, 2.55, 0.95), (-1.1, 2.55, 1.1))
+LENS, FSTOP = 35.0, 2.4
 RACK = (88.7, 89.7)       # film s: the focus from her back to him
 WALK_FROM, WALK_TO = 0.1, 5.2   # s into the shot: she walks the whole way, easing in and out
 HEAD_SINK = (88.9, 90.4, 9.0)   # his head sinks this many degrees more as the line lands
