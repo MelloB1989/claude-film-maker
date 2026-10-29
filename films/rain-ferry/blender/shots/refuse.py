@@ -47,13 +47,17 @@ SMOKE = dict(rise=0.32, life=3.6, curl=0.07, width=(0.002, 0.03), opacity=0.55)
 
 
 def build(ctx):
+    ja.clock("refuse", "build")
     st = jt.stage(ctx, who=("tsuru",))
+    ja.clock("refuse", "staged")
     jt.compose_faces(st)
     ts = st.cast["tsuru"]["vrm"]
     perform(st)
     st.say("tsuru", "L04", TEXT, energy=0.75)
     st.blinks("tsuru", BLINKS)
+    ja.clock("refuse", "performed")
     st.bake()
+    ja.clock("refuse", "baked")
 
     head = st.head_at("tsuru", ctx.f0)
     fw = np.array((math.cos(math.radians(jt.TSURU_FACING)), math.sin(math.radians(jt.TSURU_FACING)), 0.0))
@@ -71,6 +75,7 @@ def build(ctx):
     st.film([cinema.Setup("refuse", 0.0, cinema.line(cam0, cam1, aim), lens=LENS, fstop=FSTOP, focus=(ts, "head"),
                           shake=cinema.Shake(breath=0.03))], layers=layers)
     jt.outline(st)
+    ja.clock("refuse", "filmed")
     # her key from beyond her and above, so the cheek toward the lens falls into the 1st shade
     jt.key_light(st, "tsuru", tuple(fw - right * 0.35 + np.array((0.0, 0.0, 0.75))))
     st.composite(lambda f: dict(rims=[((1.0, 0.45), SKY_RIM, 0.35, 0.0035, 0.9),
@@ -78,6 +83,7 @@ def build(ctx):
                                 para=(0.5, 0.53, 0.7), para_from=(0.85, 0.9), para_to=(0.15, 0.1), para_amount=0.4,
                                 wrap=0.3, wrap_width=0.02))
     ja.bowl_smoke(st, seed=11, **SMOKE).bake(ctx.scene, ctx.f0, ctx.f1, ctx.fps)
+    ja.clock("refuse", "smoke baked")
 
 
 def perform(st):
