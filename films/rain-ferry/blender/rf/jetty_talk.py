@@ -515,11 +515,18 @@ def tsuru_hips(st: Stage, t: float) -> tuple:
     return (0.0, 0.0, SEAT + 0.07 - ch.rest("leftUpperLeg")[2] + 0.0015 * math.sin(2 * math.pi * t / 4.1))
 
 
-def hold_pipe(st: Stage, f: int, point, along) -> None:
-    """Key Tsuru's left fist round her pipe through `point` along `along` (bowl-ward), her frame: the palm in toward
-    her and up a little, as rf/vroid_tsuru.py's builder closed it."""
+# her pipe hand's elbow pole and palm (her frame): low and back by her side with the pipe over her knee; with it at
+# her lips the elbow down by her side and a little forward (S3's rf/jetty_arrive.py SMOKING_POLE, SMOKING_PALM), not up
+# beside her head
+PIPE_ARM = {"lap": ((0.3, 0.6, 0.45), (-0.5, 0.0, 0.8)), "lips": ((0.32, -0.18, 0.35), (-0.7, 0.1, 0.35))}
+
+
+def hold_pipe(st: Stage, f: int, point, along, arm: str = "lap") -> None:
+    """Key Tsuru's left fist round her pipe through `point` along `along` (bowl-ward), her frame, her elbow and palm as
+    PIPE_ARM[arm] has them."""
     d = np.asarray(along, float) / np.linalg.norm(along)
-    st.grip("tsuru", "left", f, point, -d, flat_palm(d, (-0.5, 0.0, 0.8)), (0.3, 0.6, 0.45))   # the elbow back, by her side
+    pole, palm = PIPE_ARM[arm]
+    st.grip("tsuru", "left", f, point, -d, flat_palm(d, palm), pole)
 
 
 def knee_hand(st: Stage, f: int) -> None:
@@ -555,7 +562,7 @@ def tsuru_rest(st: Stage, f: int, t: float, *, smoking: bool = False, **sit) -> 
     hips = tsuru_hips(st, t)
     hold = pipe_at_lips(st, pose, hips) if smoking else TS_PIPE_LAP
     st.pose("tsuru", f, pose, hips=hips)
-    hold_pipe(st, f, *hold)
+    hold_pipe(st, f, *hold, arm="lips" if smoking else "lap")
     knee_hand(st, f)
     st.face("tsuru", f, {"s4-calm": 1.0})
 
