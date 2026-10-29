@@ -45,7 +45,7 @@ BLINKS = (0.55, 3.1)
 
 
 def build(ctx):
-    st = jt.stage(ctx, who=("shinza",))
+    st = jt.stage(ctx, who=("shinza",), ink=0.0)     # set line art costs ~10 s a frame; his own outline stays
     jt.compose_faces(st)
     perform(st)
     st.say("shinza", "L09", "nara... anta de ii", energy=0.9)

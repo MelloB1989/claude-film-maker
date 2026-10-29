@@ -28,7 +28,7 @@ SMILE = (1.0, 2.0)
 BLINKS = (2.85,)
 # how far round she turns (degrees to her right: the rest of the way to his face is her eyes'), and up
 TURN_BODY, TURN_EYES = -40.0, -16.0
-UP_HEAD, UP_EYES = -4.0, -5.0
+UP_HEAD, UP_EYES = -4.0, 2.0
 # the camera, from her face: its bearing (degrees from +x) and distance, start and end; the lens; how far the aim sits
 # left of her face (m, room on the side she looks to) and how far below it the lens is
 BEARING, DIST, LENS = 235.0, (1.3, 0.98), (68.0, 80.0)

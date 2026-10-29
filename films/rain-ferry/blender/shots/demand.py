@@ -39,7 +39,7 @@ LANTERN_RIM = (1.0, 0.5, 0.18)
 
 
 def build(ctx):
-    st = jt.stage(ctx)
+    st = jt.stage(ctx, ink=0.0)     # set line art costs ~10 s a frame; the cast keeps its outline
     jt.compose_faces(st)
     lines = st.line("L05", "L06")
     perform(st, lines)
