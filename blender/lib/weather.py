@@ -82,7 +82,7 @@ class Layer:
     """One depth of rain round a setup: drops `near`..`far` metres from the lens, `count` of them at full density,
     streaks `length` long and `width` wide at full speed, `alpha` opaque. `shrink`: drops nearer the lens than this
     shrink with the square of their distance (a fine streak, not a bar across a face); `clear`: none at all within
-    this of it."""
+    this of it. No drop of a layer is ever nearer the lens than its `near` (or `clear`)."""
     near: float
     far: float
     count: int
@@ -313,22 +313,27 @@ class Drops:
         # which drops fall at this density (each its own threshold), and each a little bigger or smaller
         on = b.math("LESS_THAN", b.random(0.0, 1.0, seed + 7, idx.outputs[0]), self.density.outputs[0])
         k = b.math("MULTIPLY", on, b.random(0.65, 1.3, seed, idx.outputs[0]))
-        if layer.shrink or layer.clear:
-            cam = N.new("GeometryNodeInputActiveCamera")
-            ci = N.new("GeometryNodeObjectInfo")
-            ci.transform_space = "ORIGINAL"
-            L.new(cam.outputs[0], ci.inputs["Object"])
-            p2 = N.new("GeometryNodeInputPosition")
-            dist = N.new("ShaderNodeVectorMath")
-            dist.operation = "DISTANCE"
-            L.new(p2.outputs[0], dist.inputs[0])
-            L.new(ci.outputs["Location"], dist.inputs[1])
-            d = dist.outputs["Value"]
-            if layer.shrink:
-                near_k = b.math("MINIMUM", b.math("DIVIDE", d, layer.shrink), 1.0)
-                k = b.math("MULTIPLY", k, b.math("MULTIPLY", near_k, near_k))     # squared: a drop by the lens is a speck
-            if layer.clear:
-                k = b.math("MULTIPLY", k, b.math("GREATER_THAN", d, layer.clear))
+        # each drop's distance from the active camera: none nearer than the layer's own inner edge (its box, round a
+        # slanted view, reaches back to the lens), fading in over the last stretch; a near layer's drops shrink too
+        cam = N.new("GeometryNodeInputActiveCamera")
+        ci = N.new("GeometryNodeObjectInfo")
+        ci.transform_space = "ORIGINAL"
+        L.new(cam.outputs[0], ci.inputs["Object"])
+        p2 = N.new("GeometryNodeInputPosition")
+        dist = N.new("ShaderNodeVectorMath")
+        dist.operation = "DISTANCE"
+        L.new(p2.outputs[0], dist.inputs[0])
+        L.new(ci.outputs["Location"], dist.inputs[1])
+        d = dist.outputs["Value"]
+        inner = max(layer.clear, layer.near)
+        fade = N.new("ShaderNodeMapRange")       # clamped: 0 inside 85% of the inner edge, 1 from it out
+        fade.inputs["From Min"].default_value = inner * 0.85
+        fade.inputs["From Max"].default_value = inner
+        L.new(d, fade.inputs["Value"])
+        k = b.math("MULTIPLY", k, fade.outputs["Result"])
+        if layer.shrink:
+            near_k = b.math("MINIMUM", b.math("DIVIDE", d, layer.shrink), 1.0)
+            k = b.math("MULTIPLY", k, b.math("MULTIPLY", near_k, near_k))     # squared: a drop by the lens is a speck
         sc = N.new("ShaderNodeCombineXYZ")
         L.new(k, sc.inputs["X"])
         L.new(k, sc.inputs["Y"])
