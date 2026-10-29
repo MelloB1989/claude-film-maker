@@ -81,7 +81,6 @@ look-at angles, the damped follow, the chain sim, FK) are tested without Blender
 from __future__ import annotations
 
 import math
-import re
 from dataclasses import dataclass, field, replace
 
 import numpy as np
@@ -1241,8 +1240,7 @@ class Performance:
         def foot_at(side, t):
             """(ankle world, foot yaw world, pitch toes-down, toe bend) at t seconds into the walk."""
             mine = [st for st in steps if st.side == side]
-            n_mine = len(mine)
-            pos, yaw = feet0[side], None
+            pos = feet0[side]
             yaw = self._foot_world_yaw(side, start, yaw0)
             last_land, t_lift_next = -math.inf, math.inf
             for i, st in enumerate(mine):
@@ -1308,7 +1306,7 @@ class Performance:
             lead_r = float(np.dot(pr - pl, fwd)) / max(g.stride, 1e-3)
             lead_r = max(-1.2, min(1.2, lead_r))
             # the body over the foot bearing weight; up at mid-stance (a walk), down (a run)
-            sw, bob, stance = 0.0, 0.0, 0.0
+            bob, stance = 0.0, 0.0
             for st in steps:
                 if st.t0 <= t < st.t1:
                     u = (t - st.t0) / (st.t1 - st.t0)
@@ -1611,10 +1609,18 @@ class Performance:
                 objs[kk[1][1].name] = kk[1][1]
         self._objects = {n: {} for n in objs}
         if objs:
-            for f in frames:
+            # every third frame read from the scene, the frames between eased (stepping a scene with its cast in is slow)
+            picks = sorted(set(frames[::3]) | {frames[-1]})
+            for f in picks:
                 scene.frame_set(f)
                 for n, ob in objs.items():
                     self._objects[n][f] = np.array(ob.matrix_world.translation)
+            for n in objs:
+                got = self._objects[n]
+                xs = sorted(got)
+                arr = np.array([got[x] for x in xs])
+                for f in frames:
+                    got[f] = np.array([np.interp(f, xs, arr[:, i]) for i in range(3)])
         # the IK constraints and handles each limb needs
         cons = {}
         for end, lm in self.limbs.items():
@@ -1653,6 +1659,7 @@ class Performance:
         out_face = {kb: [] for kb in bound}
         look_state: dict = {}
         drops = []
+        baked_turns = []
         for f in frames:
             root, yaw = self.root_at(f)
             turns, hips = self.body(f)
@@ -1688,6 +1695,7 @@ class Performance:
                 top = lm[0][2] + math.sqrt(max(0.0, reach_ ** 2 - min(hz, reach_ * 0.995) ** 2))
                 dz = min(dz, top - hip[2])
             drops.append(dz)
+            baked_turns.append(turns)
             for h in self.order:
                 out_q[h].append(quat(vrm.local_rotation(rests[h], F, turns[h])))
             out_hips.append(hips)
@@ -1712,6 +1720,9 @@ class Performance:
             lo = np.array([d[max(0, i - 3):i + 4].min() for i in range(len(d))])
             d = np.convolve(np.pad(lo, 2, mode="edge"), np.ones(5) / 5, mode="valid")
         hips_loc = [vrm.offset_local(hips_rest, F, (h + np.array([0.0, 0.0, dz])) / s) for h, dz in zip(out_hips, d)]
+        # what the secondary pass reads back without stepping the scene through every frame
+        self._baked = dict(frames=frames, turns=baked_turns, hips=[h + np.array([0.0, 0.0, dz]) for h, dz in zip(out_hips, d)],
+                           root=out_root, yaw=out_yaw)
 
         w = _Writer(frames)
         for h in self.order:
@@ -1909,12 +1920,31 @@ class Performance:
                     c.keyframe_insert("influence", frame=fr)
             _constant(ob)
 
+    def _world_mats(self, fi: int) -> dict:
+        """Every humanoid bone's world matrix (pose_bone.matrix in the world) on the bake's fi-th frame, by FK of the
+        baked turns (IK not included)."""
+        ch, F, s = self.ch, self.ch.frame, self.ch.scale
+        b = self._baked
+        tot, heads = fk(self.order, self.parents, self.rest_heads, b["turns"][fi], hips_offset=b["hips"][fi])
+        root = np.eye(4)
+        root[:3, :3] = rz(b["yaw"][fi]) * s
+        root[:3, 3] = b["root"][fi]
+        mw = root @ np.array(ch.armature.matrix_basis)
+        out = {}
+        for h in self.order:
+            bn = ch.bones[h]
+            rest = np.array(ch.armature.data.bones[bn].matrix_local)
+            m = np.eye(4)
+            m[:3, :3] = F @ tot[h] @ F.T @ rest[:3, :3]
+            m[:3, 3] = F @ (heads[h] / s)
+            out[bn] = mw @ m
+        return out
+
     def _bake_secondary(self, frames) -> None:
         """Simulate the loose chains over the baked body and key their bones."""
         import fnmatch
 
         import bpy
-        from mathutils import Quaternion
 
         from . import vrm_rig
 
@@ -1930,7 +1960,6 @@ class Performance:
         if not chains_ and not dangles:
             return
         bones = arm.data.bones
-        mw0 = np.array(arm.matrix_world)
         info = []
         for c in chains_:
             setting = next((v for p, v in cfg["settings"].items() if fnmatch.fnmatchcase(c[0], p)), {})
@@ -1942,31 +1971,71 @@ class Performance:
             info.append(dict(chain=c, parent=parent, rest=rest, prest=prest, basis=basis, lengths=lengths, **{
                 "stiffness": setting.get("stiffness", cfg["stiffness"]), "drag": setting.get("drag", cfg["drag"]),
                 "gravity": setting.get("gravity", cfg["gravity"]), "wind": setting.get("wind_scale", 1.0)}))
-        # the meshes' deformation off while the body is read back: only the armature is evaluated
-        muted = []
-        for ob in ch.meshes:
-            for md in ob.modifiers:
-                if md.show_viewport:
-                    md.show_viewport = False
-                    muted.append(md)
-        parents = sorted({i["parent"] for i in info})
-        mats = {p: [] for p in parents}
-        mws = []
         for d in dangles:
             d["empty"].rotation_quaternion = tuple(d["base"])       # as it hangs, under its bone
-            d["mats"] = []
-        try:
-            for f in frames:
-                scene.frame_set(f)
-                mw = np.array(arm.matrix_world)
-                mws.append(mw)
-                for p in parents:
-                    mats[p].append(mw @ np.array(arm.pose.bones[p].matrix))
-                for d in dangles:
-                    d["mats"].append(np.array(d["empty"].matrix_world))
-        finally:
+            d.pop("mats", None)
+        # each parent's world matrix on every frame: from the baked turns (FK, no scene evaluation) where nothing but
+        # this bake moves it, else read back from the scene on every few frames and eased between
+        bpy.context.view_layer.update()
+        now = {b.name: np.array(arm.matrix_world) @ np.array(b.matrix) for b in arm.pose.bones}
+        names = {v: k for k, v in ch.bones.items()}
+        ik = {self.ch.bones[h] for end in self.limbs for h in _limb_bones(end) if h in self.ch.bones}
+        for pb in arm.pose.bones:
+            if pb.name in names and any(c.type in ("IK", "COPY_ROTATION") for c in pb.constraints):
+                ik.update(self.ch.bones[h] for h in _limb_bones(names[pb.name]) if h in self.ch.bones)
+
+        def anchor(bone):
+            """The humanoid bone a bone is carried by (itself, or its nearest humanoid ancestor)."""
+            b = arm.data.bones[bone]
+            while b is not None and b.name not in names:
+                b = b.parent
+            return b.name if b is not None else None
+
+        free = ch.root.parent is None and not _animated_by_others(ch.root, self)
+        wanted = {i["parent"] for i in info} | {d["empty"].parent_bone for d in dangles
+                                               if d["empty"].parent_type == "BONE" and d["empty"].parent is arm}
+        wanted.discard("")
+        by_fk = {b for b in wanted if free and anchor(b) is not None and anchor(b) not in ik}
+        mats = {b: [] for b in wanted}
+        if by_fk:
+            for fi in range(len(frames)):
+                fk_now = self._world_mats(fi)
+                for b in by_fk:
+                    a = anchor(b)
+                    mats[b].append(fk_now[names[a]] @ np.linalg.inv(now[a]) @ now[b])
+        slow = (wanted - by_fk) | ({None} if any(d["empty"].parent_type != "BONE" or d["empty"].parent is not arm
+                                                 for d in dangles) else set())
+        if slow:
+            step = 3
+            picks = sorted(set(range(0, len(frames), step)) | {len(frames) - 1})
+            got = {b: {} for b in slow}
+            muted = [md for ob in ch.meshes for md in ob.modifiers if md.show_viewport]
             for md in muted:
-                md.show_viewport = True
+                md.show_viewport = False
+            try:
+                for fi in picks:
+                    scene.frame_set(frames[fi])
+                    mw = np.array(arm.matrix_world)
+                    for b in slow:
+                        if b is not None:
+                            got[b][fi] = mw @ np.array(arm.pose.bones[b].matrix)
+                    for k, d in enumerate(dangles):
+                        got.setdefault(("dangle", k), {})[fi] = np.array(d["empty"].matrix_world)
+            finally:
+                for md in muted:
+                    md.show_viewport = True
+            for key, samples in got.items():
+                seq = _ease_mats(samples, len(frames))
+                if isinstance(key, tuple):
+                    dangles[key[1]]["mats"] = seq
+                else:
+                    mats[key] = seq
+        for d in dangles:
+            e = d["empty"]
+            if "mats" not in d:
+                # rigid on its bone: where the bone takes it from how they stand now
+                rel = np.linalg.inv(now[e.parent_bone]) @ np.array(e.matrix_world)
+                d["mats"] = [m @ rel for m in mats[e.parent_bone]]
 
         def goal(ci, pm):
             """The chain carried rigidly by its parent's world matrix: its joints and its tip (n+1, 3), and each
@@ -2068,6 +2137,56 @@ class Performance:
             arm.pose.bones[b].rotation_mode = "QUATERNION"
             w.add(arm, f'pose.bones["{b}"].rotation_quaternion', qs)
         w.write()
+
+def _limb_bones(end: str) -> tuple:
+    """The humanoid bones an IK on a limb's end moves (and every bone carried by them)."""
+    h = vrm.canonical(end)
+    side = "left" if h.startswith("left") else "right" if h.startswith("right") else ""
+    if not side:
+        return ()
+    if h.endswith(("Hand", "LowerArm", "UpperArm")):
+        return (f"{side}UpperArm", f"{side}LowerArm", f"{side}Hand")
+    if h.endswith(("Foot", "LowerLeg", "UpperLeg", "Toes")):
+        return (f"{side}UpperLeg", f"{side}LowerLeg", f"{side}Foot", f"{side}Toes")
+    return ()
+
+
+def _animated_by_others(ob, perf) -> bool:
+    """Whether something other than this performance's root keys moves `ob` (a shot's own keys, a constraint)."""
+    if ob.constraints:
+        return True
+    ad = ob.animation_data
+    if ad is None or ad.action is None:
+        return False
+    from . import toon
+
+    paths = {fc.data_path for fc in toon._fcurves(ad.action)}
+    ours = {"location", "rotation_euler"} if (perf.root_pos or perf.root_yaw) else set()
+    return bool(paths - ours)
+
+
+def _ease_mats(samples: dict, n: int) -> list:
+    """World matrices on every one of n frames from some of them ({index: 4x4}): positions eased linearly, turns
+    slerped (scale kept from the nearer sample)."""
+    keys = sorted(samples)
+    out = []
+    for i in range(n):
+        j = int(np.searchsorted(keys, i, side="right")) - 1
+        a = keys[max(0, j)]
+        b = keys[min(len(keys) - 1, max(0, j) + 1)]
+        if a == b or i <= a:
+            out.append(samples[a] if i <= a or a == b else samples[b])
+            continue
+        k = (i - a) / (b - a)
+        ma, mb = samples[a], samples[b]
+        sa = np.linalg.norm(ma[:3, :3], axis=0)
+        r = matrix(slerp(quat(ma[:3, :3] / sa), quat(mb[:3, :3] / np.linalg.norm(mb[:3, :3], axis=0)), k))
+        m = np.eye(4)
+        m[:3, :3] = r * sa
+        m[:3, 3] = ma[:3, 3] + (mb[:3, 3] - ma[:3, 3]) * k
+        out.append(m)
+    return out
+
 
 def fold_for(upper: float, lower: float, reach: float) -> float:
     """How far (degrees from straight) a two-bone limb `upper` and `lower` long folds to span `reach` from its root
