@@ -269,7 +269,8 @@ def stage(ctx, *, who=("shinza", "tsuru"), ink: float = 0.0035, lantern_near: fl
           place: dict | None = None) -> Stage:
     """The scene for one of the four shots: the world lit at the shot's place in the look schedule, the cast in `who`
     staged and painted (the camera and the weather come after the performance: Stage.film); `ink` is the near set's
-    line art (m; 0 none); `lantern_near` dims the hut's lantern (an
+    line art (m; 0, the default, none: it cost ~2/3 of a frame and the set
+    carries its own painted edges; the cast keeps its outline); `lantern_near` dims the hut's lantern (an
     emission strength) for a shot it sits by a head in. `variant` ({name: {kwarg: value}}) changes a character's
     rf/vroid_cast.py variant over VARIANT's (ask: his kasa on, her pipe in her mouth); `place` ({name: (at, facing)
     or None}) stands a character elsewhere than this scene's mark, or (None) leaves it where it was built, for the
