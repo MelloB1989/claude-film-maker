@@ -119,9 +119,10 @@ def _rings(nt, xy, t, dist, k_rain, arcs, cell: float, rate: float, width: float
            far: float, seed: float):
     """One layer of rain rings over world `xy` (a vector, metres): in Voronoi cells of `cell` m a drop lands at the
     cell's point and its ring opens out to nearly the cell's edge and fades, each cell at its own phase and its own
-    pace; only as many cells ring as the rain is hard (RAIN 0.3: about a third). The ring thickens a little with the
-    distance `dist` (a painter's line, not a sliver), comes in by `appear` m and fades out from `near` to `far` m. Returns (ring, crown): the
-    ring's strength 0..1 (its height for the bump too) and the bright fleck where the drop has just struck."""
+    pace, each drop its own size; only as many cells ring as the rain is hard. The ring thickens a little with the
+    distance `dist` (a painter's line, not a sliver), comes in by `appear` m and fades out from `near` to `far` m;
+    `arcs` (a noise) breaks it into arcs. Returns (ring, crown): the ring's strength 0..1 (its height for the bump
+    too) and the bright fleck where the drop has just struck."""
     vor = nt.nodes.new("ShaderNodeTexVoronoi")
     vor.voronoi_dimensions = "2D"
     vor.inputs["Scale"].default_value = 1.0 / cell
