@@ -152,6 +152,9 @@ def materials(look, weather) -> dict:
                                 sky=w.fog or w.sky)
     m["foam"] = water.foam("set-foam", tuple(min(1.0, c * 2.0) for c in w.river[1]),
                            look=look, amount=0.55 + 0.45 * w.rain)
+    # (the hull's: a quieter lap along its length, no rings running out from so long a waterline)
+    m["hull_foam"] = water.foam("set-hull-foam", tuple(min(1.0, c * 1.5) for c in w.river[1]), look=look,
+                                amount=0.45 + 0.3 * w.rain, ripples=0.1)
     return m
 
 
@@ -177,7 +180,7 @@ def build(ctx=None, *, weather=None, scene=None, look=None, seed: int = 7) -> di
     jetty = set_jetty.build(m, near, w, seed=seed, look=look)
     _collars(m, near, jetty, w)
     world = {"scene": scene, "near": near, "far": far, "look": look, "key": key, "key_base": key.data.energy / w.key_gain,
-             "weather": w, "materials": m, "river_material": m["water"], "waters": [m["water"], m["puddle"], m["foam"]],
+             "weather": w, "materials": m, "river_material": m["water"], "waters": [m["water"], m["puddle"], m["foam"], m["hull_foam"]],
              "wet": [m[k] for k in WET], "valley": valley, "approach": approach, "jetty": jetty,
              "boat": jetty["boat"], "lantern": jetty["lantern"], "sign": approach["sign"], "mooring": jetty["mooring"],
              "anchors": {**approach["anchors"], **jetty["anchors"]}}
@@ -199,7 +202,7 @@ def _collars(m: dict, near, jetty: dict, w) -> None:
     water.collar("post-foam", stand, sets.WATER_Z, m["foam"], near, width=0.3)
     root = jetty["boat"]["root"]
     hull = [ob for ob in root.children_recursive if ob.type == "MESH"]
-    water.collar("hull-foam", [hull], sets.WATER_Z, m["foam"], near, width=0.45, n=48, follow=root)
+    water.collar("hull-foam", [hull], sets.WATER_Z, m["hull_foam"], near, width=0.35, n=48, follow=root)
 
 
 def anchor(world: dict, name: str):
@@ -235,7 +238,7 @@ def push_off(world: dict, ctx, *, t0: float, t1: float, path=None) -> None:
     # (paler than the water's own light, which after the rain is the gold sky's)
     foam_color = tuple(min(1.0, 0.5 * c + 0.55) for c in w.sky)
     foam = water.foam("set-wake", foam_color, look=world["look"], amount=0.0,
-                      reach=0.55, ripples=0.8)
+                      reach=0.5, ripples=0.9, lacing=0.35, broken=False)
     water.key(foam, water.RAIN, [(ctx.f0, 0.0)])
     water.wake("ferry-wake", root, foam, world["near"], sets.WATER_Z, length=set_jetty.BOAT["length"])
     path = path or CROSS_PATH

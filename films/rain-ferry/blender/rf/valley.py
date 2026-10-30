@@ -627,7 +627,8 @@ def build(ctx, *, cam=None, aim=None, weather=None, coll=None, foreground: bool 
     # carries the set's ground there (`height`), in the vista's ink; the built things stay (pier, posts, hut, lantern,
     # ferry, mooring, signpost)
     hide += [ob for ob in world["near"].all_objects if ob.name.startswith(("bank", "approach", "path", "pebble", "rock",
-                                                                            "step", "deck-puddle"))]
+                                                                            "step", "deck-puddle", "post-foam",
+                                                                            "hull-foam"))]
     for ob in hide:
         ob.hide_render = ob.hide_viewport = True
     coll = coll or toon.collection("valley")

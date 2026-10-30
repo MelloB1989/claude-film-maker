@@ -102,7 +102,7 @@ def _xyz(nt, x, y, z=None):
 # where they are gone): fine and dense close to the lens, broader ones further off, each fading before it would
 # shimmer into noise, the broad ones kept off the water close under the lens (rings that size read as puddle rings);
 # past them the water is its current and the strikes' flecks (POCK)
-RING_LAYERS = ((0.14, 1.3, 0.04, 0.0, 3.5, 8.0), (0.26, 1.1, 0.035, 0.0, 6.0, 14.0), (0.45, 0.9, 0.03, 4.0, 14.0, 34.0))
+RING_LAYERS = ((0.14, 1.3, 0.04, 0.0, 3.5, 8.0), (0.26, 1.1, 0.035, 0.0, 8.0, 20.0), (0.45, 0.9, 0.03, 4.0, 14.0, 34.0))
 # beyond the rings: the strikes alone, a fine flicker of flecks pocking the water out to where the mist takes it
 # (cell m, strikes a second per cell, from .. to how far (m) they show)
 POCK = (0.22, 2.2, 6.0, 140.0)
@@ -169,7 +169,7 @@ def _pock(nt, xy, t, dist, k_rain, cell: float, rate: float, near: float, far: f
     fr = _math(nt, "FRACT", _math(nt, "MULTIPLY_ADD", t, rate, rnd.outputs["Red"]))
     on = _ramp(nt, _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", k_rain, 1.3), rnd.outputs["Blue"]), 0.0, 0.1)
     # a fleck the size of a pixel or two however far: wider in the cell the further off
-    size = _math(nt, "MULTIPLY_ADD", dist, 0.0012 / cell, 0.08)
+    size = _math(nt, "MULTIPLY_ADD", dist, 0.0016 / cell, 0.1)
     fleck = _ramp(nt, vor.outputs["Distance"], size, _math(nt, "MULTIPLY", size, 0.3))
     show = _math(nt, "MULTIPLY", _ramp(nt, dist, near * 0.6, near), _ramp(nt, dist, far, far * 0.5))
     return _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", fleck, _ramp(nt, fr, 0.22, 0.0)),
@@ -284,19 +284,19 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         # the view's ray off a level surface
         refl = _vmath(nt, "MULTIPLY", geo.outputs["Incoming"], (-1.0, -1.0, 1.0))
         toward = _vmath(nt, "DOT_PRODUCT", refl, (sx / n, sy / n, sz / n))
-        path = _ramp(nt, toward, 0.86, 0.99)
+        path = _ramp(nt, toward, 0.82, 0.99)
         spark = nt.nodes.new("ShaderNodeTexVoronoi")
         spark.inputs["Scale"].default_value = 1.0
         # (small flecks, which the distance draws out across the path, each twinkling on and off at its own moment)
-        nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 2.0 / scale), _math(nt, "MULTIPLY", across, 2.0 / scale),
+        nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 1.0 / scale), _math(nt, "MULTIPLY", across, 1.0 / scale),
                           _math(nt, "MULTIPLY", t, 0.4)), spark.inputs["Vector"])
         twinkle = nt.nodes.new("ShaderNodeSeparateColor")
         nt.links.new(spark.outputs["Color"], twinkle.inputs[0])
-        on = _ramp(nt, _math(nt, "FRACT", _math(nt, "MULTIPLY_ADD", t, 1.7, twinkle.outputs["Red"])), 0.45, 0.0)
-        fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.12, 0.03), on)
-        crest = _ramp(nt, swell.outputs["Fac"], 0.38, 0.58)
+        on = _ramp(nt, _math(nt, "FRACT", _math(nt, "MULTIPLY_ADD", t, 1.7, twinkle.outputs["Red"])), 0.6, 0.0)
+        fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.16, 0.04), on)
+        crest = _ramp(nt, swell.outputs["Fac"], 0.3, 0.5)
         glint = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", path, k_shine),
-                      _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", fleck, crest), 2.2, _math(nt, "MULTIPLY", path, 0.2)))
+                      _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", fleck, crest), 3.0, _math(nt, "MULTIPLY", path, 0.2)))
     gmix = nt.nodes.new("ShaderNodeMix")
     gmix.data_type = "RGBA"
     gmix.blend_type = "ADD"
@@ -412,12 +412,13 @@ def collar_ring(points, width: float, *, n: int = 32, pad: float = 0.01):
 
 
 def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: float = 1.0, scale: float = 1.0,
-         reach: float = 0.3, ripples: float = 0.35):
+         reach: float = 0.3, ripples: float = 0.35, lacing: float = 1.0, broken: bool = True):
     """Foam and ripples where water meets something standing in it (a `collar`'s band, its "out" attribute 0 at the
     thing, 1 at the band's edge): a broken lace of `color` thick against it and thinning out, churning, with a few
     ripple rings running out from it; more of it the harder it rains (RAIN, keyable like a surface's) and how much at
     all by FOAM. `reach`: how far out (of the band) it is thick in still water; `ripples` how strong the rings are (a
-    wake's are its life). Faded to the look's fog."""
+    wake's are its life), `lacing` how much of the churned lace there is, `broken` whether the churn breaks the rings
+    up (a collar's, against the rain) or they run whole (a wake's, a struck surface's). Faded to the look's fog."""
     import bpy
 
     from . import toon
@@ -447,12 +448,14 @@ def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: 
     dense = _ramp(nt, out_, reach, 0.0)
     strands = _ramp(nt, lace.outputs["Distance"], 0.09, 0.02)
     edge = _ramp(nt, _math(nt, "ADD", churn.outputs["Fac"], _math(nt, "MULTIPLY", dense, 0.3)), 0.6, 0.78)
-    lace_k = _math(nt, "MAXIMUM", _math(nt, "MULTIPLY", strands, dense), _math(nt, "MULTIPLY", edge, dense))
+    lace_k = _math(nt, "MULTIPLY", _math(nt, "MAXIMUM", _math(nt, "MULTIPLY", strands, dense),
+                                         _math(nt, "MULTIPLY", edge, dense)), lacing)
     # ripples running out from it
     wave = _math(nt, "FRACT", _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", out_, 2.5), _math(nt, "MULTIPLY", t, 0.9)))
     ripple = _math(nt, "MULTIPLY", _ramp(nt, _math(nt, "ABSOLUTE", _math(nt, "SUBTRACT", wave, 0.5)), 0.07, 0.0),
                    _math(nt, "MULTIPLY", _ramp(nt, out_, 1.0, 0.2), ripples))
-    ripple = _math(nt, "MULTIPLY", ripple, _ramp(nt, churn.outputs["Fac"], 0.38, 0.6))     # broken, never a drawn ring
+    if broken:
+        ripple = _math(nt, "MULTIPLY", ripple, _ramp(nt, churn.outputs["Fac"], 0.38, 0.6))     # never a drawn ring
     alpha = _math(nt, "MULTIPLY", _math(nt, "MAXIMUM", lace_k, ripple), k_foam, clamp=True)
     alpha = _math(nt, "MULTIPLY", alpha, _ramp(nt, out_, 1.0, 0.75))           # never a hard outer edge
     sd = nt.nodes.new("ShaderNodeAttribute")
@@ -609,7 +612,7 @@ def strike_rings(name: str, events, z: float, coll, *, color, look=None, fps: fl
     for k, (x, y, f) in enumerate(events):
         verts = [(x, y, z + 0.003)] + [(x + radius * math.cos(t), y + radius * math.sin(t), z + 0.003) for t in a]
         faces = [(0, 1 + i, 1 + (i + 1) % n) for i in range(n)]
-        mat = foam(f"{name}{k}", color, look=look, amount=0.0, reach=0.12, ripples=0.9)
+        mat = foam(f"{name}{k}", color, look=look, amount=0.0, reach=0.15, ripples=1.0, broken=False)
         key(mat, RAIN, [(f, 0.0)])
         key(mat, FOAM, [(f - 1, 0.0), (f, 1.0), (f + round(0.4 * life * fps), 0.6), (f + round(life * fps), 0.0)])
         ob = shapes.mesh_object(f"{name}{k}", verts, faces, mat, coll, smooth=False)
