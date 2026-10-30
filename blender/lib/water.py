@@ -289,15 +289,16 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         path = _ramp(nt, toward, 0.82, 0.99)
         spark = nt.nodes.new("ShaderNodeTexVoronoi")
         spark.inputs["Scale"].default_value = 1.0
-        # (small flecks, which the distance draws out across the path, each twinkling on and off at its own moment)
-        nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 1.0 / scale), _math(nt, "MULTIPLY", across, 1.0 / scale),
+        # (small flecks drawn out along the swell's crests, across the flow, each twinkling at its own moment)
+        nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 2.5 / scale), _math(nt, "MULTIPLY", across, 0.6 / scale),
                           _math(nt, "MULTIPLY", t, 0.4)), spark.inputs["Vector"])
         twinkle = nt.nodes.new("ShaderNodeSeparateColor")
         nt.links.new(spark.outputs["Color"], twinkle.inputs[0])
         on = _ramp(nt, _math(nt, "FRACT", _math(nt, "MULTIPLY_ADD", t, 1.7, twinkle.outputs["Red"])), 0.6, 0.0)
-        fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.16, 0.04), on)
+        fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.12, 0.03), on)
         crest = _ramp(nt, swell.outputs["Fac"], 0.3, 0.5)
-        path = _math(nt, "MULTIPLY", path, _ramp(nt, dist, 4.0 * scale, 10.0 * scale))   # none huge under the lens
+        # none close in (out of focus near the lens a fleck swells to a blob)
+        path = _math(nt, "MULTIPLY", path, _ramp(nt, dist, 12.0 * scale, 25.0 * scale))
         glint = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", path, k_shine),
                       _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", fleck, crest), 3.0, _math(nt, "MULTIPLY", path, 0.2)))
     em = nt.nodes.new("ShaderNodeEmission")
@@ -416,13 +417,15 @@ def collar_ring(points, width: float, *, n: int = 32, pad: float = 0.01):
 
 
 def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: float = 1.0, scale: float = 1.0,
-         reach: float = 0.3, ripples: float = 0.35, lacing: float = 1.0, broken: bool = True):
+         reach: float = 0.3, ripples: float = 0.35, lacing: float = 1.0, broken: bool = True, near=None):
     """Foam and ripples where water meets something standing in it (a `collar`'s band, its "out" attribute 0 at the
     thing, 1 at the band's edge): a broken lace of `color` thick against it and thinning out, churning, with a few
     ripple rings running out from it; more of it the harder it rains (RAIN, keyable like a surface's) and how much at
     all by FOAM. `reach`: how far out (of the band) it is thick in still water; `ripples` how strong the rings are (a
     wake's are its life), `lacing` how much of the churned lace there is, `broken` whether the churn breaks the rings
-    up (a collar's, against the rain) or they run whole (a wake's, a struck surface's). Faded to the look's fog."""
+    up (a collar's, against the rain) or they run whole (a wake's, a struck surface's). `near` (m, from .. to): fade
+    it in from the lens's distance (a long bright band close under the lens goes out of focus into a pale arc).
+    Faded to the look's fog."""
     import bpy
 
     from . import toon
@@ -465,7 +468,9 @@ def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: 
     sd = nt.nodes.new("ShaderNodeAttribute")
     sd.attribute_name = "side"                                                 # a wake's strips: soft at their sides
     alpha = _math(nt, "MULTIPLY", alpha, _ramp(nt, sd.outputs["Fac"], 1.0, 0.35))
-    fog_k, _ = _fog_k(nt, look)
+    fog_k, dist = _fog_k(nt, look)
+    if near is not None:
+        alpha = _math(nt, "MULTIPLY", alpha, _ramp(nt, dist, near[0], near[1]))
     col = nt.nodes.new("ShaderNodeMix")
     col.data_type = "RGBA"
     col.inputs["A"].default_value = toon._rgba(color)

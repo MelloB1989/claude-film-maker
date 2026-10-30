@@ -151,7 +151,7 @@ def materials(look, weather) -> dict:
                            look=look, amount=0.55 + 0.45 * w.rain)
     # (the hull's: a quieter lap along its length, no rings running out from so long a waterline)
     m["hull_foam"] = water.foam("set-hull-foam", tuple(min(1.0, c * 1.5) for c in w.river[1]), look=look,
-                                amount=0.3 + 0.25 * w.rain, ripples=0.1)
+                                amount=0.3 + 0.25 * w.rain, ripples=0.1, near=(3.0, 8.0))
     return m
 
 
