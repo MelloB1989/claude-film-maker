@@ -45,7 +45,7 @@ LEFT_HAND = ((0.19, -0.03, 0.68), (0.5, 0.6, 0.9))   # where the hanging left ha
 POLE_PALM = (0.55, 0.85, 0.0)
 POLE_R, HANDLE_R = 0.022, 0.016      # the pole's radius (props.ferry_pole), its corded handle's, for her fingers
 # seated, a hand resting on her thigh: the palm down on it, the fingers forward and over its front (vrm.hold's turn)
-LAP_TURN = {"left": (0.0, 20.0, 90.0), "right": (0.0, -20.0, -90.0)}
+LAP_TURN = {"left": (0.0, 20.0, -90.0), "right": (0.0, -20.0, 90.0)}
 ELBOWS = {"left": 25.0, "right": 70.0}   # how far each elbow starts folded for its IK (vrm.reach): the right well in
 FEET = {"left": ((0.09, 0.03), (0.1, -1.0, 0.45), (0.0, 0.0, 8.0)),
         "right": ((-0.09, -0.01), (-0.1, -1.0, 0.45), (0.0, 0.0, -8.0))}
