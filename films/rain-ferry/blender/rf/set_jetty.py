@@ -21,17 +21,26 @@ END_HEIGHT = 0.62                        # the end posts stand this high over th
 BOAT = dict(location=(4.7, 2.3), length=5.6, beam=1.32)   # the ferry moored along the jetty, bow toward +x
 DECK_PUDDLES = [(-4.2, -0.35, 0.32, 1.8), (-1.6, 0.4, 0.22, 1.4), (1.1, -0.5, 0.3, 2.2), (3.4, 0.15, 0.18, 1.0),
                 (5.8, -0.2, 0.26, 1.6), (6.9, 0.55, 0.16, 1.0)]    # (x, y, radius, stretch along the planks)
+# the hut's parts (lib/minka.py) -> the set's materials
+HUT_MATERIALS = {"wall": "wall", "thatch": "thatch", "door": "door", "post": "hut_beam", "plaster": "plaster",
+                 "thatch_edge": "thatch_edge", "ridge": "hut_ridge", "lattice": "lattice", "stone": "rock",
+                 "dark": "hut_dark", "wood": "wood", "straw": "thatch_edge", "rope": "rope", "lath": "lattice",
+                 "glass": "puddle"}
+LANTERN_LIGHT = ((1.0, 0.42, 0.18), 14.0, 0.12)   # its light's colour, power (W) and size: warm on the boards under it
 BANK_PUDDLES = [(-7.4, 0.9, 0.55), (-8.6, -1.4, 0.4), (-5.9, 1.9, 0.3), (-8.0, 5.8, 0.6)]   # (x, y, radius)
 
 
 def build(m: dict, near, weather, *, seed: int = 7) -> dict:
     """The jetty, the hut and its lantern, the moored boat and its rope, the puddles. `m`: the set's materials (plank,
     post, rope, wall, thatch, door, lantern, hull, wood, bamboo, stave, puddle). Returns the pieces and anchors."""
-    from lib import boat, landscape, props, shapes, water, wayside
+    import bpy
+
+    from lib import boat, landscape, minka, props, shapes, toon, water, wayside, weather
 
     from . import set_valley
 
     wz = sets.WATER_Z
+    near_fx = toon.collection("set-near-fx")       # the hut's drips and its lantern's light: not inked
     deck = props.pier(m, near, span=sets.SPAN, half=sets.HALF, water_z=wz, post_xs=POSTS, seed=seed)
     # under the deck, seen from a low angle or from the boat: a cap beam across each pair of posts and a brace
     # crossing between them, the posts going on down into the river bed
@@ -53,25 +62,26 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
         posts[name] = wayside.staved_post(f"post-{name}", m, near, (x, y, 0.0), height=END_HEIGHT, radius=0.14,
                                           sink=1.4, facing=FACING[name],
                                           seed=seed + len(name))
-    # the hut, its lantern swinging a little under the eave, its lit doorway
-    hut = props.thatched_hut({"wall": m["wall"], "thatch": m["thatch"], "door": m["door"]}, near, sets.HUT)
+    # the hut (lib/minka.py): on the bank's edge, its door and porch toward the river, its red chochin hung under the
+    # eave at the door side's corner, water dripping off its eaves, the lantern's light warm on the wet boards
+    hut = minka.hut({k: m[v] for k, v in HUT_MATERIALS.items()}, near, sets.HUT, ground=set_valley.ground, seed=seed - 2)
     ex, ey, ez = hut["eave"]
-    lantern, _ = props.paper_lantern("lantern", m["lantern"], near, (ex, ey, ez - 0.45), cord=m["post"], cord_top=ez + 0.1)
-    sub = lantern.modifiers.new("round", "SUBSURF")
-    sub.levels = sub.render_levels = 2
-    # its origin at its middle (the lathe builds it round the world's): a focus target, a swing's pivot
-    from mathutils import Matrix, Vector
-
-    mid = sum((v.co for v in lantern.data.vertices), Vector()) / len(lantern.data.vertices)
-    lantern.data.transform(Matrix.Translation(-mid))
-    lantern.location = mid
+    lantern, _ = minka.chochin("lantern", {"lantern": m["lantern"], "cap": m["hut_dark"], "rib": m["lantern_rib"],
+                                           "rope": m["rope"]}, near, (ex, ey, ez - 0.45), cord_top=ez + 0.1)
+    for k, (a, b) in enumerate(hut["eave_edges"]):
+        weather.drips(f"hut-eave{k}", weather.edge(a, b, 18 if k < 2 else 10), period=0.9, fall=2.6,
+                      seed=seed + k, coll=near_fx)
+    lamp = bpy.data.lights.new("lantern-light", "POINT")
+    lamp.color, lamp.energy, lamp.shadow_soft_size = LANTERN_LIGHT
+    lamp.use_custom_distance, lamp.cutoff_distance = True, 6.0
+    glow = bpy.data.objects.new("lantern-light", lamp)
+    near_fx.objects.link(glow)
+    glow.parent = lantern
     # the ferry, moored along the jetty on its +y side
     bx, by = BOAT["location"]
     ferry = boat.river_boat({"hull": m["hull"], "wood": m["wood"], "rope": m["rope"], "bamboo": m["bamboo"]}, near,
                             length=BOAT["length"], beam=BOAT["beam"], location=(bx, by, wz), heading=0.0, awning=True)
     # the mooring rope: from the mooring post's binding, sagging, to the ring at the boat's bow
-    import bpy
-
     bpy.context.view_layer.update()
     ring = np.array(ferry["anchors"]["ring"].matrix_world.translation)
     px, py = END_POSTS["mooring"]
@@ -103,7 +113,7 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
         "boat_middle": ferry["anchors"]["middle"],
         "boat_bow": ferry["anchors"]["bow"],
         "lantern": lantern,
-        "hut_door": (sets.HUT[0] + 1.62, sets.HUT[1] - 0.45, sets.HUT[2]),
+        "hut_door": hut["door"],
     }
     return {"deck": deck, "posts": posts, "hut": hut, "lantern": lantern, "boat": ferry, "mooring": mooring,
             "puddles": puddles, "anchors": anchors}
