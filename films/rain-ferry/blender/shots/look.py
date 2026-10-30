@@ -64,7 +64,7 @@ def perform(st):
         up, turn, lids = jt.ramp(t, *EYES_UP), jt.ramp(t, *TURN), jt.ramp(t, *LIDS)
         body = jt.tsuru_sit(t, turn=4.0 * (1 - turn) + TURN_BODY * turn, down=10.0 * (1 - turn) + UP_HEAD * turn,
                             eyes=(16.0 * (1 - up) + UP_EYES * up, -4.0 * (1 - up) + TURN_EYES * up))
-        st.pose("tsuru", f, {**body, **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)}, hips=jt.tsuru_hips(st, t))
+        st.pose("tsuru", f, {**body, **jt.pipe_fingers(st), **jt.knee_fingers()}, hips=jt.tsuru_hips(st, t))
         jt.hold_pipe(st, f, lap, lap_along)
         jt.knee_hand(st, f)
         st.face("tsuru", f, {"s4-calm": 1.0 - 0.7 * lids, "s4-smile": 0.35 + 0.45 * jt.ramp(t, *SMILE)})
