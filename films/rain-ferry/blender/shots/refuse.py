@@ -32,7 +32,8 @@ SIDE = ((2.0, 0.35, 0.0), (1.8, 0.32, 0.01))
 LEAD, DROP = 0.3, 0.05
 LENS = (65.0, 68.0)
 FSTOP = 2.8
-LIFT = (2.95, 3.75)         # s: the pipe up from her knee to her lips (the far side of her face from here)
+LIFT = (2.95, 4.15)         # s: the pipe up from her knee toward her lips (the far side of her face from here): still
+                            # on its way at the cut, her cuff below her chin, not a blue lump over her mouth
 CHIN = (0.8, 1.1, 2.9, 3.4)   # her chin lifts a touch on the line and settles
 BLINKS = (2.95,)            # s: her one blink, after the line
 TEXT = "ame no hi wa, watasanai yo."    # line 4 as it is spoken (data/dialogue.json L04)
