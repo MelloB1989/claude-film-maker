@@ -102,7 +102,7 @@ def _xyz(nt, x, y, z=None):
 # where they are gone): fine and dense close to the lens, broader ones further off, each fading before it would
 # shimmer into noise, the broad ones kept off the water close under the lens (rings that size read as puddle rings);
 # past them the water is its current and the strikes' flecks (POCK)
-RING_LAYERS = ((0.14, 1.3, 0.04, 0.0, 3.5, 8.0), (0.26, 1.1, 0.035, 0.0, 6.0, 14.0), (0.45, 0.9, 0.03, 4.0, 10.0, 24.0))
+RING_LAYERS = ((0.14, 1.3, 0.04, 0.0, 3.5, 8.0), (0.26, 1.1, 0.035, 0.0, 6.0, 14.0), (0.45, 0.9, 0.03, 4.0, 14.0, 34.0))
 # beyond the rings: the strikes alone, a fine flicker of flecks pocking the water out to where the mist takes it
 # (cell m, strikes a second per cell, from .. to how far (m) they show)
 POCK = (0.22, 2.2, 6.0, 140.0)
@@ -173,7 +173,7 @@ def _pock(nt, xy, t, dist, k_rain, cell: float, rate: float, near: float, far: f
     fleck = _ramp(nt, vor.outputs["Distance"], size, _math(nt, "MULTIPLY", size, 0.3))
     show = _math(nt, "MULTIPLY", _ramp(nt, dist, near * 0.6, near), _ramp(nt, dist, far, far * 0.5))
     return _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", fleck, _ramp(nt, fr, 0.22, 0.0)),
-                 _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", on, show), 0.6))
+                 _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", on, show), 0.9))
 
 
 def _fog_k(nt, look):
@@ -284,16 +284,16 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         # the view's ray off a level surface
         refl = _vmath(nt, "MULTIPLY", geo.outputs["Incoming"], (-1.0, -1.0, 1.0))
         toward = _vmath(nt, "DOT_PRODUCT", refl, (sx / n, sy / n, sz / n))
-        path = _ramp(nt, toward, 0.9, 0.995)
+        path = _ramp(nt, toward, 0.86, 0.99)
         spark = nt.nodes.new("ShaderNodeTexVoronoi")
         spark.inputs["Scale"].default_value = 1.0
-        # (flecks drawn long across the path, each twinkling on and off at its own moment)
-        nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 7.0 / scale), _math(nt, "MULTIPLY", across, 1.8 / scale),
+        # (small flecks, which the distance draws out across the path, each twinkling on and off at its own moment)
+        nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 2.0 / scale), _math(nt, "MULTIPLY", across, 2.0 / scale),
                           _math(nt, "MULTIPLY", t, 0.4)), spark.inputs["Vector"])
         twinkle = nt.nodes.new("ShaderNodeSeparateColor")
         nt.links.new(spark.outputs["Color"], twinkle.inputs[0])
         on = _ramp(nt, _math(nt, "FRACT", _math(nt, "MULTIPLY_ADD", t, 1.7, twinkle.outputs["Red"])), 0.45, 0.0)
-        fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.14, 0.03), on)
+        fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.12, 0.03), on)
         crest = _ramp(nt, swell.outputs["Fac"], 0.38, 0.58)
         glint = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", path, k_shine),
                       _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", fleck, crest), 2.2, _math(nt, "MULTIPLY", path, 0.2)))
