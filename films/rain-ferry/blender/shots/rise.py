@@ -50,6 +50,7 @@ LINE = "L10"
 POLE_FOOT0 = (6.78, 2.02, -0.24)
 POLE_REST = (7.36, 1.17, 0.72)
 GRIP_ALONG = 1.0
+POLE_R = 0.022          # the pole's radius (props.ferry_pole's): her fingers wrap it (lib/vrm_anim.py grasp)
 POLE_FOOT1 = (7.3, 0.36, 0.0)
 # half way up (world): the foot clear of the boat's side and the deck's edge, the pole tipping toward upright
 GRIP_MID, WAY_MID = (7.32, 0.85, 1.05), (0.1, -0.35, 0.93)
@@ -181,12 +182,13 @@ def build(ctx):
 
     palm, elbow = (1.0, 0.0, 0.0), (-0.5, 0.3, 0.6)
     p.grasp(F(GRAB[0]), "right", char(grip0 + np.array((0.0, -0.25, 0.25)), GRAB[0]), char_dir(way0, GRAB[0]), palm,
-            pole=elbow, amount=0.4)
-    p.grasp(F(GRAB[1]), "right", char(grip0, GRAB[1]), char_dir(way0, GRAB[1]), palm, pole=elbow)
+            pole=elbow, amount=0.4, radius=POLE_R)
+    p.grasp(F(GRAB[1]), "right", char(grip0, GRAB[1]), char_dir(way0, GRAB[1]), palm, pole=elbow, radius=POLE_R)
     p.carry(shaft, F(GRAB[1]), "rightHand")
     t_mid = (LIFT[0] + LIFT[1]) / 2
-    p.grasp(F(t_mid), "right", char(GRIP_MID, t_mid), char_dir(way_mid, t_mid), palm, pole=elbow, ease="in")
-    p.grasp(F(LIFT[1]), "right", char(grip1, LIFT[1]), (0.0, 0.0, 1.0), palm, pole=(-0.5, 0.4, 0.6), ease="settle")
+    p.grasp(F(t_mid), "right", char(GRIP_MID, t_mid), char_dir(way_mid, t_mid), palm, pole=elbow, ease="in", radius=POLE_R)
+    p.grasp(F(LIFT[1]), "right", char(grip1, LIFT[1]), (0.0, 0.0, 1.0), palm, pole=(-0.5, 0.4, 0.6), ease="settle",
+            radius=POLE_R)
     # then round toward him, her feet planted, the pole in her fist
     twisted = {**stand, **{k: tuple(a + c for a, c in zip(stand.get(k, (0, 0, 0)), v)) for k, v in TWIST.items()}}
     p.pose(F(TURN[0]), stand, hips=vroid_tsuru.TS_HIPS, full=False)
