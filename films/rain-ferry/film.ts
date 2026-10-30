@@ -22,7 +22,7 @@ const post = (p: Record<string, unknown>) => ({ scene: PostKeys, params: p });
 
 const scenes: ShotSpec[] = [
   // ---- the road ----
-  plate('open', 6, [post({ fade: [[0, 1], [1.8, 0]] })]),
+  plate('open', 6),   // the plate fades in from black itself (S1)
   plate('crow', 4),
   plate('step', 2.5),
   plate('walk', 5.5),
