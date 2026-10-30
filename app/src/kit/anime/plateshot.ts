@@ -43,6 +43,16 @@ export function slateLines(id: string, plate: string, start: number, end: number
   ];
 }
 
+/**
+ * The plate's first film frame and frame count for a shot's window: render.py renders [ceil(start·fps), ceil(end·fps)).
+ * The count clamps held times into the plate: a transition holds its outgoing shot at end − HOLD, which rounds to the
+ * frame after the plate's last (a 404 in export), and its incoming one before start, which holds frame 0.
+ */
+export function plateWindow(start: number, end: number, fps: number, f0?: number): { f0: number; count: number } {
+  const first = f0 ?? Math.ceil(start * fps - 1e-6);
+  return { f0: first, count: Math.max(1, Math.ceil(end * fps - 1e-6) - first) };
+}
+
 export class PlateShot extends Scene {
   // a plate holds its first or last frame past its window (scene.ts): no handles of its own
   override handles: Handles = { head: 0, tail: 0 };
@@ -56,14 +66,14 @@ export class PlateShot extends Scene {
   override async init() {
     const shot = plateFor((this.ctx.params.plate as string | undefined) ?? (this.ctx.params.shot as string | undefined) ?? this.ctx.id,
       typeof location !== 'undefined' ? location.search : '');
-    const f0 = (this.ctx.params.f0 as number | undefined) ?? Math.ceil(this.ctx.start * FPS - 1e-6);
+    const { f0, count } = plateWindow(this.ctx.start, this.ctx.end, FPS, this.ctx.params.f0 as number | undefined);
     if ((this.ctx.params.missing ?? 'slate') === 'slate' && !(await plateRendered(shot))) {
-            const id = (this.ctx.params.shot as string | undefined) ?? this.ctx.id; // a Stack layer's own id is <shot>[i]
+      const id = (this.ctx.params.shot as string | undefined) ?? this.ctx.id; // a Stack layer's own id is <shot>[i]
       console.warn(`plate ${shot}: not rendered, ${id} plays as a slate`);
       this.slate = this.drawSlate(slateLines(id, shot, this.ctx.start, this.ctx.end, FPS));
       return;
     }
-    this.plate = new Plate(shot, f0);
+    this.plate = new Plate(shot, f0, { count });
   }
 
   override async prepare(t: number) {
