@@ -33,9 +33,10 @@ KNEEL_FEET = {"right": ((-0.13, 0.34, 0.07), (-0.15, -1.0, 0.1), (-75.0, 0.0, 0.
 # his hands come to rest where his arms reach kneeling, the elbows soft: the right fist by his right knee, the stub's
 # broken end on the planks before it; the left hand dropped onto the front of his thigh, fingers hanging over it
 KNEEL_STUB = dict(pommel=(-0.208, -0.104, 0.674), hilt=(-0.2, -0.6, -0.77))
-# (the left hand's turn from the T-pose: fingers down, palm back onto the thigh); the elbows back and out, the
-# forearms hanging forward to the thighs
-KNEEL_LEFT = ((0.2, -0.12, 0.6), (0.5, 0.4, 0.8), ((0.0, 1.0, 0.0), (0.0, 0.0, -1.0), (-1.0, 0.0, 0.0)))
+# (the left hand leaning on his thigh above the knee, his weight on it: the arm near straight, the wrist bent back, the
+# palm flat on the thigh's slope and the fingers hanging on down it over the knee; its turn from the T-pose: fingers
+# down the thigh (0, -0.42, -0.9), the palm onto it); the elbows back and out
+KNEEL_LEFT = ((0.12, -0.14, 0.5), (0.5, 0.4, 0.8), ((0.0, 1.0, 0.0), (-0.42, 0.0, -0.9), (-0.9, 0.0, 0.42)))
 KNEEL_ELBOWS = {"left": (0.5, 0.4, 0.8), "right": (-0.5, 0.4, 0.8)}
 # as the knees hit, the hands are a beat behind the body: still up as he lands, through their rest, back to it (m)
 HANDS_LAG = ((0.0, 0.06), (0.12, -0.03), (0.35, 0.0))
@@ -68,7 +69,7 @@ def build(ctx):
             up = np.array((0.0, 0.0, lag))
             hands, fingers = clash.arms(ch, {"pommel": tuple(np.add(KNEEL_STUB["pommel"], up)), "hilt": KNEEL_STUB["hilt"]},
                                         (tuple(np.add(KNEEL_LEFT[0], up)), *KNEEL_LEFT[1:]), poles=KNEEL_ELBOWS)
-            fingers.update(vrm.hand_pose("left", "loose"))
+            fingers.update(vrm.hand_pose("left", "relaxed"))
             p = clash.Pose(at=AT, hips=KNEEL_HIPS, turns=KNEEL, hands=hands, feet=KNEEL_FEET)
         else:
             p, fingers = clash.standing(sh, low=True)

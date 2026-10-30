@@ -125,6 +125,10 @@ NECK, NAPE, CROSS, V_HALF = 1.45, 0.02, 1.27, 0.075
 # the body hidden under the kimono (above the hips, below the neck, the arms to short of the wrists) cut away: where his
 # elbows fold to the hilt it pokes through the sleeves
 UNDER = (0.95, NECK - 0.03, 0.55)
+# ... and the forearms' skin inside the sleeves (out from ARM_UNDER[0], within ARM_UNDER[2] of the arm's line, to
+# ARM_UNDER[1], short of the wrist; the sleeve runs on past it over the hand's root): where an elbow bends or a wrist
+# turns, the sleeve's inner side folds in and the skin under it showed through in a jagged strip
+ARM_UNDER = (0.3, 0.6, 0.1)
 # its collar, a dark band laid along these points (his frame, near the surface), left side over right: from the back of
 # the neck round its left side and down across the chest to the obi at his right; the right side's to the crossing
 ERI = [(0.0, 0.08, 1.455), (0.045, 0.06, 1.455), (0.075, 0.02, 1.45), (0.083, -0.05, 1.43), (0.066, -0.11, 1.38),
@@ -481,6 +485,10 @@ def dress(ch, m, name: str):
     bare = skin_f[in_v(sc) | ((sc[:, 2] > NECK - 0.03) & (sc[:, 2] < NECK + 0.1)) | (sc[:, 2] < HEM[0] - 0.1)]
     vrm_rig.paint(body, bare, tone)
     under = skin_f[(sc[:, 2] > UNDER[0]) & (sc[:, 2] < UNDER[1]) & (np.abs(sc[:, 0]) < UNDER[2]) & ~in_v(sc)]
+    shoulder_z = ch.rest("leftUpperArm")[2]
+    forearm = skin_f[(np.abs(sc[:, 0]) > ARM_UNDER[0]) & (np.abs(sc[:, 0]) < ARM_UNDER[1])
+                     & (np.abs(sc[:, 2] - shoulder_z) < ARM_UNDER[2])]
+    under = np.union1d(under, forearm)
     # the hakama's hem torn: its lowest faces cut away along a ragged line round it
     cb = vrm_rig.face_centers(ch, body)[bottoms]
     hem_z = cb[:, 2].min()
