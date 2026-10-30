@@ -154,7 +154,7 @@ def materials(look, weather) -> dict:
                            look=look, amount=0.55 + 0.45 * w.rain)
     # (the hull's: a quieter lap along its length, no rings running out from so long a waterline)
     m["hull_foam"] = water.foam("set-hull-foam", tuple(min(1.0, c * 1.5) for c in w.river[1]), look=look,
-                                amount=0.45 + 0.3 * w.rain, ripples=0.1)
+                                amount=0.3 + 0.25 * w.rain, ripples=0.1, near=(3.0, 8.0))
     return m
 
 
@@ -238,7 +238,7 @@ def push_off(world: dict, ctx, *, t0: float, t1: float, path=None) -> None:
     # (paler than the water's own light, which after the rain is the gold sky's)
     foam_color = tuple(min(1.0, 0.5 * c + 0.55) for c in w.sky)
     foam = water.foam("set-wake", foam_color, look=world["look"], amount=0.0,
-                      reach=0.5, ripples=0.9, lacing=0.35, broken=False)
+                      reach=0.5, ripples=0.9, lacing=0.0, broken=False)
     water.key(foam, water.RAIN, [(ctx.f0, 0.0)])
     water.wake("ferry-wake", root, foam, world["near"], sets.WATER_Z, length=set_jetty.BOAT["length"])
     path = path or CROSS_PATH

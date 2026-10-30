@@ -115,13 +115,14 @@ def ring_layers(scale: float = 1.0, layers=RING_LAYERS) -> list:
             for cell, rate, width, appear, near, far in layers]
 
 
-def _rings(nt, xy, t, dist, k_rain, cell: float, rate: float, width: float, appear: float, near: float, far: float,
-           seed: float):
+def _rings(nt, xy, t, dist, k_rain, arcs, cell: float, rate: float, width: float, appear: float, near: float,
+           far: float, seed: float):
     """One layer of rain rings over world `xy` (a vector, metres): in Voronoi cells of `cell` m a drop lands at the
     cell's point and its ring opens out to nearly the cell's edge and fades, each cell at its own phase and its own
-    pace; only as many cells ring as the rain is hard (RAIN 0.3: about a third). The ring thickens a little with the
-    distance `dist` (a painter's line, not a sliver), comes in by `appear` m and fades out from `near` to `far` m. Returns (ring, crown): the
-    ring's strength 0..1 (its height for the bump too) and the bright fleck where the drop has just struck."""
+    pace, each drop its own size; only as many cells ring as the rain is hard. The ring thickens a little with the
+    distance `dist` (a painter's line, not a sliver), comes in by `appear` m and fades out from `near` to `far` m;
+    `arcs` (a noise) breaks it into arcs. Returns (ring, crown): the ring's strength 0..1 (its height for the bump
+    too) and the bright fleck where the drop has just struck."""
     vor = nt.nodes.new("ShaderNodeTexVoronoi")
     vor.voronoi_dimensions = "2D"
     vor.inputs["Scale"].default_value = 1.0 / cell
@@ -142,11 +143,7 @@ def _rings(nt, xy, t, dist, k_rain, cell: float, rate: float, width: float, appe
     off = _math(nt, "ABSOLUTE", _math(nt, "SUBTRACT", d_m, radius))
     ring = _ramp(nt, off, w, _math(nt, "MULTIPLY", w, 0.15))
     life = _math(nt, "POWER", _math(nt, "SUBTRACT", 1.0, fr), 2.2)
-    arcs = nt.nodes.new("ShaderNodeTexNoise")
-    arcs.inputs["Scale"].default_value = 2.2 / cell
-    arcs.inputs["Detail"].default_value = 0.0
-    nt.links.new(_vmath(nt, "ADD", xy, (seed, 2.0 * seed, 0.0)), arcs.inputs["Vector"])
-    life = _math(nt, "MULTIPLY", life, _ramp(nt, arcs.outputs["Fac"], 0.38, 0.58))
+    life = _math(nt, "MULTIPLY", life, _ramp(nt, arcs, 0.38, 0.58))
     # how many cells ring: those whose own number is under the rain's
     on = _ramp(nt, _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", k_rain, 1.6), rnd.outputs["Blue"]), 0.0, 0.12)
     lod = _ramp(nt, dist, far, near)
@@ -246,8 +243,13 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
                    _math(nt, "MULTIPLY", _ramp(nt, dist, 140.0 * scale, 12.0 * scale), 0.3 * streaks))
     # the rain's rings and the flecks of its strikes
     rings, crowns = None, None
+    # (one noise breaks every layer's rings into arcs)
+    arcs = nt.nodes.new("ShaderNodeTexNoise")
+    arcs.inputs["Scale"].default_value = 8.0 / scale
+    arcs.inputs["Detail"].default_value = 0.0
+    nt.links.new(drift, arcs.inputs["Vector"])
     for k, layer in enumerate(ring_layers(scale)):
-        r, c = _rings(nt, drift, t, dist, k_rain, *layer, seed=3.7 * k + 0.5)
+        r, c = _rings(nt, drift, t, dist, k_rain, arcs.outputs["Fac"], *layer, seed=3.7 * k + 0.5)
         rings = r if rings is None else _math(nt, "MAXIMUM", rings, r)
         crowns = c if crowns is None else _math(nt, "MAXIMUM", crowns, c)
     crowns = _math(nt, "MAXIMUM", crowns, _pock(nt, drift, t, dist, k_rain, *POCK[:2], POCK[2] * scale,
@@ -259,7 +261,7 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     nt.links.new(body.outputs["Result"], col.inputs["A"])
     col.inputs["B"].default_value = toon._rgba(light)
     nt.links.new(marks, col.inputs["Factor"])
-    # the sky's pale light on a grazing surface, whatever the reflection's rays find
+    # (the sky's pale light on a grazing surface, whatever the reflection's rays find)
     inc = nt.nodes.new("ShaderNodeSeparateXYZ")
     nt.links.new(geo.outputs["Incoming"], inc.inputs[0])
     cos_i = _math(nt, "ABSOLUTE", inc.outputs["Z"])
@@ -284,30 +286,23 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         # the view's ray off a level surface
         refl = _vmath(nt, "MULTIPLY", geo.outputs["Incoming"], (-1.0, -1.0, 1.0))
         toward = _vmath(nt, "DOT_PRODUCT", refl, (sx / n, sy / n, sz / n))
-        path = _ramp(nt, toward, 0.82, 0.99)
+        path = _ramp(nt, toward, 0.78, 0.99)
         spark = nt.nodes.new("ShaderNodeTexVoronoi")
         spark.inputs["Scale"].default_value = 1.0
-        # (small flecks, which the distance draws out across the path, each twinkling on and off at its own moment)
-        nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 1.0 / scale), _math(nt, "MULTIPLY", across, 1.0 / scale),
+        # (small flecks drawn out along the swell's crests, across the flow, each twinkling at its own moment)
+        nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 2.5 / scale), _math(nt, "MULTIPLY", across, 0.6 / scale),
                           _math(nt, "MULTIPLY", t, 0.4)), spark.inputs["Vector"])
         twinkle = nt.nodes.new("ShaderNodeSeparateColor")
         nt.links.new(spark.outputs["Color"], twinkle.inputs[0])
         on = _ramp(nt, _math(nt, "FRACT", _math(nt, "MULTIPLY_ADD", t, 1.7, twinkle.outputs["Red"])), 0.6, 0.0)
-        fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.16, 0.04), on)
-        crest = _ramp(nt, swell.outputs["Fac"], 0.3, 0.5)
+        fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.17, 0.04), on)
+        crest = _ramp(nt, swell.outputs["Fac"], 0.25, 0.45)
+        # none close in (out of focus near the lens a fleck swells to a blob)
+        path = _math(nt, "MULTIPLY", path, _ramp(nt, dist, 12.0 * scale, 25.0 * scale))
         glint = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", path, k_shine),
                       _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", fleck, crest), 3.0, _math(nt, "MULTIPLY", path, 0.2)))
-    gmix = nt.nodes.new("ShaderNodeMix")
-    gmix.data_type = "RGBA"
-    gmix.blend_type = "ADD"
-    nt.links.new(col.outputs["Result"], gmix.inputs["A"])
-    gmix.inputs["B"].default_value = toon._rgba(tuple(c * 2.0 for c in shine_color))
-    if glint is not None:
-        nt.links.new(glint, gmix.inputs["Factor"])
-    else:
-        gmix.inputs["Factor"].default_value = 0.0
     em = nt.nodes.new("ShaderNodeEmission")
-    nt.links.new(toon.flashed(nt, gmix.outputs["Result"], look.flash_lit, 0.25), em.inputs["Color"])
+    nt.links.new(toon.flashed(nt, col.outputs["Result"], look.flash_lit, 0.25), em.inputs["Color"])
     # the reflection, through the bump of the rings, the swell and the chop
     height = _math(nt, "ADD", _math(nt, "MULTIPLY", rings, 0.6),
                    _math(nt, "ADD", _math(nt, "MULTIPLY", swell.outputs["Fac"],
@@ -334,9 +329,19 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     nt.links.new(em.outputs[0], mirror_mix.inputs[1])
     nt.links.new(gl.outputs[0], mirror_mix.inputs[2])
     # a breath of the sky's light on it at a grazing angle, whatever the reflection finds
+    # ... and the glints over everything, the mirror too
+    def scaled(color, k):
+        v = nt.nodes.new("ShaderNodeVectorMath")
+        v.operation = "SCALE"
+        v.inputs[0].default_value = tuple(color)
+        nt.links.new(k, v.inputs["Scale"])
+        return v.outputs["Vector"]
+
+    glow = scaled(sky, _math(nt, "MULTIPLY", fres, _math(nt, "MULTIPLY_ADD", k_rain, -0.12, 0.12)))
+    if glint is not None:
+        glow = _vmath(nt, "ADD", glow, scaled(tuple(c * 2.0 for c in shine_color), glint))
     skyem = nt.nodes.new("ShaderNodeEmission")
-    skyem.inputs["Color"].default_value = toon._rgba(sky)
-    nt.links.new(_math(nt, "MULTIPLY", fres, _math(nt, "MULTIPLY_ADD", k_rain, -0.12, 0.12)), skyem.inputs["Strength"])
+    nt.links.new(glow, skyem.inputs["Color"])
     lit = nt.nodes.new("ShaderNodeAddShader")
     nt.links.new(mirror_mix.outputs[0], lit.inputs[0])
     nt.links.new(skyem.outputs[0], lit.inputs[1])
@@ -412,13 +417,15 @@ def collar_ring(points, width: float, *, n: int = 32, pad: float = 0.01):
 
 
 def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: float = 1.0, scale: float = 1.0,
-         reach: float = 0.3, ripples: float = 0.35, lacing: float = 1.0, broken: bool = True):
+         reach: float = 0.3, ripples: float = 0.35, lacing: float = 1.0, broken: bool = True, near=None):
     """Foam and ripples where water meets something standing in it (a `collar`'s band, its "out" attribute 0 at the
     thing, 1 at the band's edge): a broken lace of `color` thick against it and thinning out, churning, with a few
     ripple rings running out from it; more of it the harder it rains (RAIN, keyable like a surface's) and how much at
     all by FOAM. `reach`: how far out (of the band) it is thick in still water; `ripples` how strong the rings are (a
     wake's are its life), `lacing` how much of the churned lace there is, `broken` whether the churn breaks the rings
-    up (a collar's, against the rain) or they run whole (a wake's, a struck surface's). Faded to the look's fog."""
+    up (a collar's, against the rain) or they run whole (a wake's, a struck surface's). `near` (m, from .. to): fade
+    it in from the lens's distance (a long bright band close under the lens goes out of focus into a pale arc).
+    Faded to the look's fog."""
     import bpy
 
     from . import toon
@@ -461,7 +468,9 @@ def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: 
     sd = nt.nodes.new("ShaderNodeAttribute")
     sd.attribute_name = "side"                                                 # a wake's strips: soft at their sides
     alpha = _math(nt, "MULTIPLY", alpha, _ramp(nt, sd.outputs["Fac"], 1.0, 0.35))
-    fog_k, _ = _fog_k(nt, look)
+    fog_k, dist = _fog_k(nt, look)
+    if near is not None:
+        alpha = _math(nt, "MULTIPLY", alpha, _ramp(nt, dist, near[0], near[1]))
     col = nt.nodes.new("ShaderNodeMix")
     col.data_type = "RGBA"
     col.inputs["A"].default_value = toon._rgba(color)
