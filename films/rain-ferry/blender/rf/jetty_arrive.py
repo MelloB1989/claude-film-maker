@@ -114,10 +114,11 @@ BOWL = dict(opacity=0.65, width=(0.003, 0.045))
 BOWL_LIGHT = 1.45
 
 
-def smoking(st, f: int, t: float, *, at_lips: float = 1.0, **sit) -> None:
+def smoking(st, f: int, t: float, *, at_lips: float = 1.0, wrist: float | None = None, **sit) -> None:
     """Key Tsuru on her crate with the pipe at her lips (`at_lips` 1) or over her left knee (0), and between, the
     hand travelling out in front of her chin rather than through it, the elbow and palm turning from one hold to the
-    other (jetty_talk's PIPE_ARM); her right hand on her knee, her face calm."""
+    other (jetty_talk's PIPE_ARM; the palm and elbow by `wrist`, default with the hand: give it trailing at_lips and
+    the wrist turns after the hand has moved); her right hand on her knee, her face calm."""
     pose = {**jt.tsuru_sit(t, **sit), **jt.pipe_fingers(st), **jt.knee_fingers()}
     hips = jt.tsuru_hips(st, t)
     lap, lap_way = (np.asarray(v, float) for v in jt.TS_PIPE_LAP)
@@ -129,7 +130,8 @@ def smoking(st, f: int, t: float, *, at_lips: float = 1.0, **sit) -> None:
     pole0, palm0 = (np.asarray(v, float) for v in jt.PIPE_ARM["lap"])
     pole1, palm1 = (np.asarray(v, float) for v in jt.PIPE_ARM["lips"])
     st.pose("tsuru", f, pose, hips=hips)
-    st.grip("tsuru", "left", f, point, -d, jt.flat_palm(d, palm0 + (palm1 - palm0) * k), pole0 + (pole1 - pole0) * k,
+    w = k if wrist is None else min(1.0, max(0.0, wrist))
+    st.grip("tsuru", "left", f, point, -d, jt.flat_palm(d, palm0 + (palm1 - palm0) * w), pole0 + (pole1 - pole0) * w,
             depth=jt.PIPE_DEPTH)
     jt.knee_hand(st, f)
     st.face("tsuru", f, {"s4-calm": 1.0})
