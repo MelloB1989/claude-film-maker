@@ -403,7 +403,7 @@ class Gait:
     sway: float = 0.025
     hip_turn: float = 6.0
     chest_turn: float = 1.3
-    arm: float = 16.0
+    arm: float = 18.0
     elbow: float = 12.0
     lean: float = 3.0
     head: float = 0.6
@@ -425,7 +425,7 @@ class Gait:
 GAITS = {
     "walk": Gait(stride=0.64),
     "heavy": Gait(stride=0.7, speed=1.05, duty=0.64, lift=0.08, width=0.2, toe_out=8.0, bob=0.012, drop=0.05,
-                  sway=0.03, hip_turn=7.0, chest_turn=1.1, arm=9.0, elbow=10.0, lean=6.0, head=0.8, roll=20.0,
+                  sway=0.03, hip_turn=7.0, chest_turn=1.1, arm=15.0, elbow=14.0, lean=6.0, head=0.8, roll=20.0,
                   plod=0.022),
     "old": Gait(stride=0.34, speed=0.42, duty=0.72, lift=0.035, width=0.16, toe_out=10.0, bob=0.006, drop=0.03,
                 sway=0.02, hip_turn=3.0, chest_turn=0.8, arm=5.0, elbow=15.0, lean=4.0, head=0.4, roll=8.0,
@@ -739,6 +739,139 @@ EYE_LIMIT = (22.0, 14.0)        # how far eyes turn in the head (yaw, pitch)
 HEAD_LIMIT = (80.0, 45.0)
 
 
+# ---------------------------------------------------------------------------------------------------- arms: arcs, drag
+
+def arc(p0, p1, u: float, *, center=None, lift: float = 0.0, up=(0.0, 0.0, 1.0)) -> np.ndarray:
+    """A point `u` (0..1, eased already) of the way from p0 to p1 along an arc, not a straight line: about `center`
+    (a shoulder: the distance from it eased, the direction swung round it, as an arm swings a hand) and/or bowed
+    `lift` metres toward `up` at the middle (sin-shaped; negative dips). Both None/0: a straight lerp."""
+    p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
+    u = float(u)
+    if center is None:
+        p = p0 + (p1 - p0) * u
+    else:
+        c = np.asarray(center, float)
+        a, b = p0 - c, p1 - c
+        la, lb = float(np.linalg.norm(a)), float(np.linalg.norm(b))
+        if la < 1e-6 or lb < 1e-6:
+            p = p0 + (p1 - p0) * u
+        else:
+            d = slerp_dir(a / la, b / lb, u)
+            p = c + d * (la + (lb - la) * u)
+    if lift:
+        up_ = np.asarray(up, float)
+        p = p + up_ / np.linalg.norm(up_) * lift * math.sin(math.pi * min(1.0, max(0.0, u)))
+    return p
+
+
+def slerp_dir(a, b, u: float) -> np.ndarray:
+    """A unit direction `u` of the way from unit `a` to unit `b` along the great circle."""
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    c = float(np.clip(np.dot(a, b), -1.0, 1.0))
+    om = math.acos(c)
+    if om < 1e-6:
+        d = a + (b - a) * u
+    elif om > math.pi - 1e-4:              # opposite: round any square axis
+        ax = np.cross(a, (0.0, 0.0, 1.0) if abs(a[2]) < 0.9 else (1.0, 0.0, 0.0))
+        d = matrix(np.concatenate([[math.cos(om * u / 2)], math.sin(om * u / 2) * ax / np.linalg.norm(ax)])) @ a
+    else:
+        d = (math.sin((1 - u) * om) * a + math.sin(u * om) * b) / math.sin(om)
+    return d / np.linalg.norm(d)
+
+
+def rotvec(q) -> np.ndarray:
+    """A unit quaternion (w, x, y, z) as a rotation vector (axis * radians), the short way round."""
+    q = np.asarray(q, float)
+    if q[0] < 0:
+        q = -q
+    s = float(np.linalg.norm(q[1:]))
+    if s < 1e-12:
+        return np.zeros(3)
+    return q[1:] / s * 2.0 * math.atan2(s, q[0])
+
+
+def from_rotvec(v) -> np.ndarray:
+    v = np.asarray(v, float)
+    a = float(np.linalg.norm(v))
+    if a < 1e-12:
+        return np.array([1.0, 0.0, 0.0, 0.0])
+    return np.concatenate([[math.cos(a / 2)], math.sin(a / 2) * v / a])
+
+
+def qmul(a, b) -> np.ndarray:
+    w1, x1, y1, z1 = a
+    w2, x2, y2, z2 = b
+    return np.array([w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2, w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+                     w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2, w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2])
+
+
+def qinv(q) -> np.ndarray:
+    return np.array([q[0], -q[1], -q[2], -q[3]])
+
+
+def follow(rots, fps: float = 24.0, *, lag: float = 0.07, bounce: float = 0.35, most: float = 30.0,
+           substeps: int = 4) -> list:
+    """Overlap and drag: a part carried by `rots` (a sequence of 3x3 turns, one a frame: a hand's world turn) that
+    lags them and settles after they stop, as a hand trails a swinging forearm and flops on past where it stopped.
+    A damped spring on the rotation: `lag` seconds (about how far behind it trails a steady swing), `bounce` how
+    much it overshoots (0 none; 0.35 a little flop and back). Returns, a frame each, the turn (3x3) taking the
+    carried turn to the lagged one (applied before it: lagged = D @ carried), at most `most` degrees."""
+    rots = [np.asarray(r, float) for r in rots]
+    if not rots:
+        return []
+    zeta = max(0.05, 1.0 - float(bounce))
+    w0 = 1.0 / max(1e-3, float(lag)) * (2.0 * zeta if zeta < 1 else 2.0)    # a critically damped spring trails a
+    k, c = w0 * w0, 2.0 * zeta * w0                                         # ramp by 2*zeta/w0 seconds
+    dt = 1.0 / fps / substeps
+    q = quat(rots[0])
+    vel = np.zeros(3)
+    out = []
+    prev = quat(rots[0])
+    lim = math.radians(most)
+    for r in rots:
+        tgt = quat(r)
+        for i in range(substeps):
+            t = slerp(prev, tgt, (i + 1) / substeps)
+            err = rotvec(qmul(t, qinv(q)))
+            vel = vel + (k * err - c * vel) * dt
+            q = qmul(from_rotvec(vel * dt), q)
+            q /= np.linalg.norm(q)
+        prev = tgt
+        d = rotvec(qmul(q, qinv(tgt)))
+        a = float(np.linalg.norm(d))
+        if a > lim:
+            d *= lim / a
+            q = qmul(from_rotvec(d), tgt)
+        out.append(matrix(from_rotvec(d)))
+    return out
+
+
+def stagger(n: int, spread: float, *, seed: int = 0, jitter: float = 0.3) -> np.ndarray:
+    """Time offsets (in the units of `spread`) for `n` fingers so none move in lockstep: from -spread/2 (the first)
+    to +spread/2 (the last), each nudged by up to `jitter` of a step (seeded)."""
+    if n <= 1:
+        return np.zeros(max(n, 0))
+    base = np.linspace(-0.5, 0.5, n) * spread
+    step = spread / (n - 1)
+    return base + np.random.default_rng(seed).uniform(-jitter, jitter, n) * step
+
+
+def twist_split(turn, axis, share: float = 0.5) -> tuple[np.ndarray, np.ndarray]:
+    """Split a hand's turn (3x3, relative to its forearm) into the twist about the forearm's `axis` (its own frame)
+    that the forearm takes (`share` of it) and what the hand keeps: (forearm's twist, hand's turn), so that
+    forearm_twist @ hand_turn == turn (a wrist that never wrings like a candy wrapper)."""
+    t = np.asarray(turn, float)
+    ax = np.asarray(axis, float) / np.linalg.norm(axis)
+    q = quat(t)
+    proj = np.dot(q[1:], ax) * ax
+    tw = np.concatenate([[q[0]], proj])
+    n = np.linalg.norm(tw)
+    tw = np.array([1.0, 0.0, 0.0, 0.0]) if n < 1e-9 else tw / n
+    part = slerp(np.array([1.0, 0.0, 0.0, 0.0]), tw, share)
+    fore = matrix(part)
+    return fore, fore.T @ t
+
+
 # ---------------------------------------------------------------------------------------------------- forward kinematics
 
 def fk(order, parents: dict, rest_heads: dict, turns: dict, *, hips_offset=(0.0, 0.0, 0.0)) -> tuple[dict, dict]:
@@ -795,6 +928,7 @@ def gust(t: float, seed: int = 0) -> float:
 
 FEET = ("leftFoot", "rightFoot")
 HANDS = ("leftHand", "rightHand")
+GRIP = 0.016           # a held prop's grip radius when a grasp is not told it (metres)
 _SPINE = ("hips", "spine", "chest", "upperChest", "neck", "head")
 
 
@@ -847,6 +981,10 @@ class Performance:
         self.shifts = Track("vec")       # (side shift, tilt) of the weight
         self.settles: list = []
         self.breath = None
+        self._grips: dict = {}
+        self.arcs = 1.0                  # how far a reaching hand swings round its shoulder (0: straight)
+        self.drag: dict = {}
+        self.follow_through()
         # where the feet stand now, in the character's frame (evaluated: the builder's IK included)
         self.feet_now = {}
         for foot in FEET:
@@ -911,6 +1049,8 @@ class Performance:
         hips (at `hips`, else where they rest); not `full`, only the bones named (an arm, the head) and the hips if
         `hips` is given: a partial pose over what is keyed already."""
         turns = {vrm.canonical(k): v for k, v in rotations.items()}
+        if full:
+            turns = {**vrm.relaxed_fingers(turns), **turns}
         for h in self.order:
             if h in turns:
                 self._track(h).key(frame, turns[h], ease)
@@ -1118,16 +1258,145 @@ class Performance:
         limb.weight.key(frame, [float(weight)], ease)
 
     def grasp(self, frame: float, side: str, point, along, palm, *, pole=None, ease: str = "inout", amount: float = 1.0,
-              thumb: float = 0.6, depth: float = 0.028) -> None:
+              thumb: float = 0.6, depth: float = 0.028, radius: float | None = GRIP, kind: str = "wrap",
+              spread: float = 0.12) -> None:
         """From `frame` the `side` hand closes round a grip running along `along` through `point` (vrm.grasp; all in
         the character's frame; `point` may be a spec as `reach` takes, along and palm stay in the character's
-        frame): the wrist reaches, the hand turns, the fingers curl (keyed with it)."""
+        frame): the wrist reaches, the hand turns, the fingers close (keyed with it, little finger first, over
+        `spread` seconds). `kind`: "wrap" (each finger closed round a grip `radius` thick, the prop's own: a hilt
+        0.013, the ferry pole 0.022; the thumb opposed), "pinch" (something thin between the thumb and the index and
+        middle fingers: a pipe's stem; `point` is where it is pinched) or "fist" (vrm.grip_pose's even curl, as
+        before; also radius=None). `amount` under 1 eases the fingers toward relaxed (a loose hold)."""
         k0, p0, r0 = vrm.hand_rest(self.ch, side)
         t = vrm.align(k0, p0, -np.asarray(along, float), palm)
-        hole = r0 * 0.85 + p0 * depth
+        hole = r0 * 1.22 + p0 * 0.012 if kind == "pinch" else r0 * 0.85 + p0 * depth
         spec = _spec(("char", point) if not callable(point) and np.shape(point) == (3,) else point)
         self.reach(frame, f"{side}Hand", _Offset(spec, -t @ hole), pole=pole, turn=t, ease=ease)
-        self.pose(frame, vrm.grip_pose(side, amount, thumb), ease=ease, full=False)
+        self.fingers(frame, self.grip_fingers(side, radius, kind=kind, amount=amount, thumb=thumb, depth=depth),
+                     ease=ease, spread=spread, closing=True)
+
+    def grip_fingers(self, side: str, radius: float | None = GRIP, *, kind: str = "wrap", amount: float = 1.0,
+                     thumb: float = 0.6, depth: float = 0.028) -> dict:
+        """The fingers of a hand holding something (`grasp`'s kinds), {bone: turn}."""
+        from . import vrm_rig
+
+        if kind == "pinch":
+            f = vrm_rig.pinch(side, 1.0)
+        elif kind == "fist" or radius is None:
+            return vrm.grip_pose(side, amount, thumb)
+        elif kind == "wrap":
+            key = (side, round(float(radius), 4), round(float(thumb), 3), round(float(depth), 4))
+            f = self._grips.get(key)
+            if f is None:
+                f = self._grips[key] = vrm_rig.grip(self.ch, side, radius, depth=depth, thumb=thumb)
+        else:
+            raise ValueError(f"no grip {kind!r} (wrap, pinch, fist)")
+        if amount >= 1.0:
+            return f
+        rel = vrm.hand_pose(side)
+        return {n: vrm_rig.vrm_blend_turn(rel.get(n, (0.0, 0.0, 0.0)), v, max(0.0, amount)) for n, v in f.items()}
+
+    def hilt(self, frame: float, pommel, along, palm, *, grips=(0.045, 0.16), poles=None, radius: float = 0.013,
+             ease: str = "inout", lead: str = "right", amount: float = 1.0) -> None:
+        """Both hands on a sword's hilt from `frame`: the hilt from `pommel` along `along` (toward the guard), the
+        back hand (the other than `lead`) `grips[0]` from the pommel, the lead hand `grips[1]` (by the guard), each
+        palm toward `palm` ({side: direction}, or one direction for the lead, the other mirrored in x); the elbows
+        toward `poles` ({side: point}, default natural); each hand's fingers wrapped round `radius`. All in the
+        character's frame (`pommel` may be a spec as `reach` takes)."""
+        d = np.asarray(along, float) / np.linalg.norm(along)
+        other = "left" if lead == "right" else "right"
+        palms = palm if isinstance(palm, dict) else {lead: np.asarray(palm, float),
+                                                      other: np.asarray(palm, float) * (-1.0, 1.0, 1.0)}
+        for side, g in ((other, grips[0]), (lead, grips[1])):
+            pt = (_Offset(_spec(pommel), d * g) if callable(pommel) or np.shape(pommel) != (3,)
+                  else np.asarray(pommel, float) + d * g)
+            self.grasp(frame, side, pt, d, palms[side], pole=None if poles is None else poles.get(side), ease=ease,
+                       radius=radius, amount=amount)
+
+    def fingers(self, frame: float, turns: dict, *, ease: str = "inout", spread: float = 0.1, closing: bool = True,
+                seed: int | None = None) -> None:
+        """Key fingers ({bone: turn}) at about `frame`, each finger on its own beat over `spread` seconds (the little
+        finger first and the index last when `closing`, the other way opening; the thumb in the middle), never all in
+        lockstep."""
+        names = {vrm.canonical(k): v for k, v in turns.items()}
+        order = ("Little", "Ring", "Middle", "Index") if closing else ("Index", "Middle", "Ring", "Little")
+        off = stagger(4, spread * self.fps, seed=self.seed + (seed or 0) + int(frame))
+        lag = {f: o for f, o in zip(order, off)}
+        lag["Thumb"] = float(np.mean(off)) + 0.25 * spread * self.fps
+        for h, v in names.items():
+            f = next((g for g in lag if g in h), None)
+            self._track(h).key(frame + (lag[f] if f else 0.0), v, ease)
+
+    def hand(self, frame: float, side: str, shape: str = "relaxed", amount: float = 1.0, *, ease: str = "inout",
+             spread: float = 0.1) -> None:
+        """The `side` hand takes a shape (vrm.HAND_SHAPES: relaxed, loose, open, fist, point, beckon, press, tremble)
+        by `frame`, `amount` of it (0 a flat hand), each finger on its own beat (`fingers`)."""
+        cur = self._finger_curl(side, frame)
+        new = vrm.hand_pose(side, shape, amount)
+        closing = _curl_sum(new) >= cur
+        self.fingers(frame, new, ease=ease, spread=spread, closing=closing)
+
+    def gesture(self, frame: float, side: str, name: str, amount: float = 1.0, *, hold: float = 0.8,
+                ease: str = "inout", rate: float | None = None, after: str | None = None) -> None:
+        """A gesture of the `side` hand from `frame` (film frame), its shape `name` (`hand`'s) `amount` strong, held
+        `hold` seconds, then back to `after` (a shape; None: stays). "beckon" curls the fingers in and out (`rate`
+        times a second, 1.6 by default) while held; "tremble" shakes the fingers and the hand (`rate` 9). The arm is
+        the shot's to move (`pose`, `reach`): a gesture is the hand's acting on top of it."""
+        fps = self.fps
+        lead = 0.12 * fps
+        if name == "beckon":
+            r = rate or 1.6
+            half = fps / r / 2.0
+            n = max(1, int(hold * r))
+            self.hand(frame, side, "open", amount, ease=ease, spread=0.06)
+            for i in range(n):
+                self.hand(frame + half * (2 * i + 1), side, "beckon", amount, ease="inout", spread=0.1)
+                self.hand(frame + half * (2 * i + 2), side, "open", amount, ease="inout", spread=0.08)
+            end = frame + half * 2 * n
+        else:
+            self.hand(frame, side, name, amount, ease=ease)
+            end = frame + hold * fps
+        if name == "tremble":
+            r = rate or 9.0
+            ph = np.random.default_rng(self.seed + 31 + int(frame)).uniform(0, 2 * math.pi, 6)
+            sg = 1.0 if side == "left" else -1.0
+
+            def layer(f, f0=frame, f1=end, amp=amount):
+                if f < f0 - 1 or f > f1 + lead:
+                    return {}, np.zeros(3)
+                env = smoothstep(f0, f0 + lead, f) * (1.0 - smoothstep(f1, f1 + lead, f)) * amp
+                t = f / fps
+                out = {f"{side}Hand": vrm.euler((1.2 * env * math.sin(2 * math.pi * r * 0.7 * t + ph[4]),
+                                                 sg * 2.0 * env * math.sin(2 * math.pi * r * t + ph[5]), 0.0))}
+                for i, fn in enumerate(("Index", "Middle", "Ring", "Little")):
+                    a = 3.0 * env * (math.sin(2 * math.pi * r * (1 + 0.13 * i) * t + ph[i])
+                                     + 0.5 * math.sin(2 * math.pi * r * 1.9 * t + ph[(i + 2) % 6]))
+                    out[f"{side}{fn}Proximal"] = vrm.euler((0.0, sg * a, 0.0))
+                return out, np.zeros(3)
+            self.layers.append(layer)
+        if after is not None:
+            self.hand(end + lead, side, after, ease="inout", spread=0.14)
+
+    def follow_through(self, side: str | None = None, amount: float = 1.0, *, lag: float = 0.07, bounce: float = 0.35,
+                       fingers: float = 1.0, holding: float = 0.3, twist: float = 0.5) -> None:
+        """Overlap on the hands (`follow`): each hand lags its forearm's swing and flops on past where it stops, the
+        fingers trailing the hand (on their own beats), worked out in `bake` from the baked arm alone (no scene
+        stepping). On by default (amount 1); `amount` 0 turns it off for a side (None: both); a hand carrying a prop
+        takes `holding` of it (a sword does not flop). `twist`: the share of a hand's twist about its forearm that
+        the forearm takes (FK arms; no candy-wrapper wrists)."""
+        for sd in (("left", "right") if side is None else (side,)):
+            self.drag[sd] = dict(amount=float(amount), lag=float(lag), bounce=float(bounce), fingers=float(fingers),
+                                 holding=float(holding), twist=float(twist))
+
+    def _finger_curl(self, side: str, frame: float) -> float:
+        tot = 0.0
+        for f in vrm.FINGERS:
+            h = f"{side}{f}"
+            tr = self.rot.get(h)
+            m = tr.at(frame) if tr else self.base.get(h)
+            if m is not None:
+                tot += angle_between(np.eye(3), m)
+        return tot
 
     def plant(self, frame: float, foot: str, at=None, *, yaw: float = 0.0, ease: str = "inout", pole=None,
               ground=None) -> None:
@@ -1554,7 +1823,13 @@ class Performance:
         a, b = ks[i - 1], ks[i]
         k = ease((frame - a[0]) / (b[0] - a[0]), b[4])
         pa, pb = to_char(self._resolve(a[1], frame), root, yaw), to_char(self._resolve(b[1], frame), root, yaw)
-        p = to_world(pa + (pb - pa) * k, root, yaw)
+        pc = pa + (pb - pa) * k
+        if end in HANDS and self.arcs > 0 and b[0] - a[0] > 2.5:
+            # a hand travels round its shoulder (an arc), not through it on a straight line
+            sh = self.rest_heads.get(end.replace("Hand", "UpperArm"))
+            if sh is not None:
+                pc = pc + (arc(pa, pb, k, center=sh) - pc) * self.arcs
+        p = to_world(pc, root, yaw)
         pole = None
         if a[2] is not None and b[2] is not None:
             pole = a[2] + (b[2] - a[2]) * k
@@ -1655,7 +1930,7 @@ class Performance:
 
         out_q = {h: [] for h in self.order}
         out_hips, out_root, out_yaw = [], [], []
-        out_limb = {end: dict(t=[], pole=[], q=[], w=[], tw=[]) for end in self.limbs}
+        out_limb = {end: dict(t=[], pole=[], q=[], w=[], tw=[], turn=[]) for end in self.limbs}
         out_face = {kb: [] for kb in bound}
         look_state: dict = {}
         drops = []
@@ -1709,11 +1984,13 @@ class Performance:
                 o["q"].append(quat(F @ (turn if turn is not None else np.eye(3)) @ F.T @ rest_end))
                 o["w"].append(w)
                 o["tw"].append(w * tw)
+                o["turn"].append(turn)
             if face:
                 t = f / self.fps
                 vals = self._face(t, bound, blinks, speech)
                 for kb, v in vals.items():
                     out_face[kb].append(v)
+        self._drag_pass(frames, baked_turns, out_q, out_limb, rests)
         # the drop eased (never above what a leg reaches: the least of each neighbourhood, then softened)
         d = np.array(drops)
         if len(d) and d.min() < 0:
@@ -1753,6 +2030,73 @@ class Performance:
         if self.sec is not None:
             self._bake_secondary(frames)
         scene.frame_set(keep)
+
+    def _holding(self, side: str, f: float) -> bool:
+        """Whether the `side` hand carries a prop at frame `f` (`carry`)."""
+        bone = self.ch.bones.get(f"{side}Hand")
+        for entry in self.props:
+            cur = None
+            for fr, holder in entry[1]:
+                if fr <= f:
+                    cur = holder
+            if isinstance(cur, tuple) and cur[0] == "bone" and cur[1] == self.ch.armature and cur[2] == bone:
+                return True
+        return False
+
+    def _drag_pass(self, frames, baked_turns, out_q, out_limb, rests) -> None:
+        """`follow_through` on the baked arms: each hand's turn in the character's frame lagged (`follow`) and the
+        lag put back on the hand (FK: relative to its forearm; IK: on the hand's held turn), the fingers' curl
+        trailing it; the forearm taking a share of the hand's twist (FK)."""
+        F = self.ch.frame
+        n = len(frames)
+        if n < 3:
+            return
+        for side, cfg in self.drag.items():
+            h, lo = f"{side}Hand", f"{side}LowerArm"
+            if cfg["amount"] <= 0 or h not in self.order or lo not in self.order:
+                continue
+            sg = 1.0 if side == "left" else -1.0
+            limb = out_limb.get(h)
+            fore_tot, hand_tot = [], []
+            for i in range(n):
+                tot, _ = fk(self.order, self.parents, self.rest_heads, baked_turns[i])
+                fore_tot.append(tot[lo])
+                ht = tot[h]
+                if limb is not None and limb["tw"][i] > 0.5 and limb["turn"][i] is not None:
+                    ht = limb["turn"][i]
+                hand_tot.append(ht)
+            amt = np.array([cfg["amount"] * (cfg["holding"] if self._holding(side, f) else 1.0) for f in frames])
+            amt = np.convolve(np.pad(amt, 3, mode="edge"), np.ones(7) / 7, mode="valid")
+            lagD = follow(hand_tot, self.fps, lag=cfg["lag"], bounce=cfg["bounce"])
+            D = [matrix(slerp(np.array([1.0, 0, 0, 0]), quat(d), a)) for d, a in zip(lagD, amt)]
+            lagged = [d @ ht for d, ht in zip(D, hand_tot)]
+            fD = follow(lagged, self.fps, lag=cfg["lag"] * 1.7, bounce=cfg["bounce"] * 0.6, most=40.0)
+            curl = np.array([math.degrees(float(np.dot(rotvec(quat(d)), ht @ np.array([0.0, sg, 0.0]))))
+                             for d, ht in zip(fD, lagged)]) * cfg["fingers"] * amt
+            curl = np.clip(curl, -22.0, 22.0)
+            axis = self.rest_heads[h] - self.rest_heads[lo]
+            for i in range(n):
+                turns = baked_turns[i]
+                fk_ = limb is None or limb["w"][i] < 0.999
+                if fk_:
+                    t_hand = fore_tot[i].T @ D[i] @ fore_tot[i] @ turns[h]
+                    if cfg["twist"] > 0 and lo not in self.ch.bends:
+                        tw_, t_hand = twist_split(t_hand, axis, cfg["twist"])
+                        turns[lo] = turns[lo] @ tw_
+                        out_q[lo][i] = quat(vrm.local_rotation(rests[lo], F, turns[lo]))
+                    turns[h] = t_hand
+                    out_q[h][i] = quat(vrm.local_rotation(rests[h], F, t_hand))
+                if limb is not None and limb["turn"][i] is not None and limb["tw"][i] > 0:
+                    nt = D[i] @ limb["turn"][i]
+                    limb["q"][i] = quat(F @ nt @ F.T @ rests[h])
+                for j, fn in enumerate(("Index", "Middle", "Ring", "Little")):
+                    k = min(n - 1, max(0, i - j // 2))           # the outer fingers a beat behind
+                    c = curl[k] * (0.6 + 0.13 * j)
+                    for joint, w in (("Proximal", 1.0), ("Intermediate", 0.6)):
+                        b = f"{side}{fn}{joint}"
+                        if b in turns and abs(c) > 1e-3:
+                            turns[b] = vrm.euler((0.0, sg * c * w, 0.0)) @ turns[b]
+                            out_q[b][i] = quat(vrm.local_rotation(rests[b], F, turns[b]))
 
     def _look_blinks(self) -> list:
         """Seconds when a look swings far enough to blink on (the start of the swing)."""
@@ -2137,6 +2481,10 @@ class Performance:
             arm.pose.bones[b].rotation_mode = "QUATERNION"
             w.add(arm, f'pose.bones["{b}"].rotation_quaternion', qs)
         w.write()
+
+def _curl_sum(turns: dict) -> float:
+    return sum(angle_between(np.eye(3), turn_matrix(v)) for v in turns.values())
+
 
 def _limb_bones(end: str) -> tuple:
     """The humanoid bones an IK on a limb's end moves (and every bone carried by them)."""

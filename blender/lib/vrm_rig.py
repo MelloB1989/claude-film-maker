@@ -125,6 +125,64 @@ def curl_to_round(joints, center, radius: float, *, step: float = 1.0, most: flo
     return turns
 
 
+def grip(ch: vrm.Character, side: str, radius: float, *, amount: float = 1.0, depth: float = 0.028,
+         reach: float = 0.85, thumb: float = 0.6) -> dict:
+    """A hand closed round a grip `radius` thick (`wrap`: each finger on it, none through it), the thumb opposed
+    round it from the other side by `thumb`; `amount` under 1 eases it toward the relaxed hand (vrm.hand_pose: a
+    grip loosening, or closing as it reaches)."""
+    out = wrap(ch, side, radius, depth=depth, reach=reach, thumb=thumb)
+    out.update(opposed_thumb(side, radius, thumb))
+    if amount >= 1.0:
+        return out
+    rel = vrm.hand_pose(side)
+    k = max(0.0, float(amount))
+    return {n: vrm_blend_turn(rel.get(n, (0.0, 0.0, 0.0)), t, k) for n, t in out.items()}
+
+
+def opposed_thumb(side: str, radius: float, amount: float = 0.6) -> dict:
+    """The thumb's joints round a grip `radius` thick from the side opposite the fingers: dropped toward the palm and
+    swung in over the grip, curled the more the thinner it is (a pole: the tip on the index's middle joint)."""
+    s = 1.0 if side == "left" else -1.0
+    thin = min(1.0, max(0.0, (0.03 - radius) / 0.02))       # 0 at 3 cm, 1 at 1 cm
+    a = float(amount) / 0.6
+    return {f"{side}ThumbMetacarpal": (34.0 * a, s * 8.0 * a, s * (24.0 + 8.0 * thin) * a),
+            f"{side}ThumbProximal": (0.0, s * (18.0 + 14.0 * thin) * a, s * 12.0 * a),
+            f"{side}ThumbDistal": (0.0, s * (22.0 + 18.0 * thin) * a, 0.0)}
+
+
+def pinch(side: str, amount: float = 1.0) -> dict:
+    """A pinch of something thin (a pipe's stem, a brush) between the thumb's pad and the index's and middle's sides:
+    those two curled round it, the ring and little tucked in under them. {bone: (x, y, z)} from the flat hand."""
+    s = 1.0 if side == "left" else -1.0
+    a = float(amount)
+    curls = {"Index": (38, 44, 18), "Middle": (46, 52, 24), "Ring": (62, 74, 40), "Little": (70, 80, 44)}
+    fan = {"Index": -2.0, "Middle": 0.0, "Ring": 2.0, "Little": 4.0}
+    out = {}
+    for f, cs in curls.items():
+        for j, c in zip(_JOINTS[f], cs):
+            out[f"{side}{f}{j}"] = (0.0, s * c * a, s * fan[f] * a if j == "Proximal" else 0.0)
+    out[f"{side}ThumbMetacarpal"] = (30.0 * a, s * 4.0 * a, s * 30.0 * a)
+    out[f"{side}ThumbProximal"] = (0.0, s * 12.0 * a, s * 8.0 * a)
+    out[f"{side}ThumbDistal"] = (0.0, s * 8.0 * a, 0.0)
+    return out
+
+
+def vrm_blend_turn(a, b, k: float):
+    """Between two turns ((x, y, z) degrees or 3x3s) by k: degrees blended as numbers, a 3x3 by its rotation."""
+    if np.shape(a) == (3,) and np.shape(b) == (3,):
+        return tuple(float(x) + (float(y) - float(x)) * k for x, y in zip(a, b))
+    ma = a if np.shape(a) == (3, 3) else vrm.euler(a)
+    mb = b if np.shape(b) == (3, 3) else vrm.euler(b)
+    r = mb @ np.asarray(ma).T
+    ang = math.degrees(math.acos(max(-1.0, min(1.0, (np.trace(r) - 1.0) / 2.0))))
+    if ang < 1e-6:
+        return np.asarray(mb)
+    axis = np.array([r[2, 1] - r[1, 2], r[0, 2] - r[2, 0], r[1, 0] - r[0, 1]])
+    if np.linalg.norm(axis) < 1e-9:
+        return np.asarray(mb) if k > 0.5 else np.asarray(ma)
+    return rotation(axis, ang * k) @ np.asarray(ma)
+
+
 # ---------------------------------------------------------------------------------------------------- garments
 
 def stretch(points, top: float, bottom: float, *, flare: float = 0.0, center=(0.0, 0.0)) -> np.ndarray:
