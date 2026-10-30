@@ -55,6 +55,7 @@ class Weather:
 # the warm world after the rain (`palette` at warm 1): colour comes back into the living things, the wood warms, the far ridges go
 # golden grey in the light through the mist
 AFTER_GRADE = {
+    **sets.HUT_AFTER,
     "plank": ((0.16, 0.12, 0.085), (0.035, 0.03, 0.03)),
     "post": ((0.11, 0.08, 0.06), (0.025, 0.022, 0.022)),
     "rope": ((0.45, 0.33, 0.18), (0.1, 0.075, 0.05)),

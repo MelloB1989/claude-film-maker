@@ -309,8 +309,9 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
     zt = H + peak
     verts, faces, rp = hip_gable_roof(X, Y, ze, zt)
     P.poly("thatch", verts, faces[:4])
-    # courses: bands of straw laid round the slopes and hips, each a step in the thatch
-    for f in (0.28, 0.52):
+    # courses: each a step in the thatch where one layer of straw ends over the next, its foot ragged
+    slope = (zt - ze) / Y
+    for f in (0.3, 0.56):
         u = f / (1 - 0.45)
         zc = ze + f * (zt - ze)
         xc, yc = X - u * (X - rp["xr"]), Y * (1 - f)
@@ -319,9 +320,21 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
             mid = (a + b) / 2
             out = np.array((mid[0], mid[1], 0.0))
             out = out / np.linalg.norm(out)
-            n = out * (zt - ze) + np.array((0.0, 0.0, Y))       # the face's normal (slope and hip alike)
+            n = out * slope + np.array((0.0, 0.0, 1.0))         # the face's normal (slope and hip alike)
             n /= np.linalg.norm(n)
-            P.beam("thatch_edge", a + 0.035 * n, b + 0.035 * n, 0.09, 0.045, up=tuple(n))
+            down = out - np.array((0.0, 0.0, slope))             # down the slope
+            down /= np.linalg.norm(down)
+            k = max(int(np.linalg.norm(b - a) / 0.08), 2)
+            vs = []
+            for j in range(k + 1):
+                p = a + (b - a) * j / k
+                drop = 0.08 + 0.07 * rng.uniform() ** 2 if 0 < j < k else 0.08
+                vs += [p + 0.004 * n, p + 0.05 * n, p + 0.05 * n + drop * down, p + 0.004 * n + drop * 1.15 * down]
+            fs = []
+            for j in range(k):
+                i0, i1 = 4 * j, 4 * (j + 1)
+                fs += [(i0 + 2, i1 + 2, i1 + 1, i0 + 1), (i0 + 3, i1 + 3, i1 + 2, i0 + 2)]
+            P.poly("thatch_edge", vs, fs)
     # the gables: dark smoke gaps, a few slats across each
     for sx in (-1, 1):
         g = [verts[i] for i in faces[4 + (0 if sx > 0 else 1)]]
@@ -333,24 +346,29 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
             zk = zg + (zt - zg) * (1 - abs(k) / 4) - 0.05
             P.box("lattice", (sx * xr, yk, (zg + zk) / 2), (0.03, 0.04, max(zk - zg, 0.04)))
         P.box("post", (sx * xr, 0.0, zg - 0.02), (0.06, 2 * yg + 0.1, 0.06))
-    # its cut edge: thick, in two steps, the upper the slope's own thickness, the lower set back under it, its foot
+    # its eave: rounded over from the slope into a thick cut edge, then a second layer set back under it, its foot
     # ragged where the straw ends hang unevenly
-    def band(key: str, inset: float, z_top: float, z_bot: float, inset_bot: float, ragged: float = 0.0) -> None:
+    def rings(key: str, chain, ragged: float = 0.0) -> None:
+        """Rings round the eave, each (inset, z), top to bottom, joined in a band; the last ragged."""
         corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
-        top_, bot = [], []
+        loops = [[] for _ in chain]
         for (sx, sy), (tx, ty) in zip(corners, corners[1:] + corners[:1]):
             n = max(int(max(abs(tx - sx) * X, abs(ty - sy) * Y) / 0.09), 1) if ragged else 1
             for j in range(n):
                 f = j / n
                 cx, cy = sx + (tx - sx) * f, sy + (ty - sy) * f
-                top_.append((cx * (X - inset), cy * (Y - inset), z_top))
-                drop = ragged * (rng.uniform(0.0, 1.0) ** 2 if j else 0.6)
-                bot.append((cx * (X - inset_bot), cy * (Y - inset_bot), z_bot - drop))
-        k = len(top_)
-        fs = [tuple(reversed((i, (i + 1) % k, k + (i + 1) % k, k + i))) for i in range(k)]
-        P.poly(key, top_ + bot, fs)
-    band("thatch_edge", 0.0, ze, ze - 0.24, 0.02)
-    band("thatch_edge", 0.08, ze - 0.24, ze - 0.44, 0.13, ragged=0.07)
+                for r, (inset, z) in enumerate(chain):
+                    drop = ragged * (rng.uniform(0.0, 1.0) ** 2 if j else 0.6) if r == len(chain) - 1 else 0.0
+                    loops[r].append((cx * (X - inset), cy * (Y - inset), z - drop))
+        k = len(loops[0])
+        vs = [p for loop in loops for p in loop]
+        fs = [tuple(reversed((r * k + i, r * k + (i + 1) % k, (r + 1) * k + (i + 1) % k, (r + 1) * k + i)))
+              for r in range(len(chain) - 1) for i in range(k)]
+        P.poly(key, vs, fs)
+    lip = 0.2
+    rings("thatch", [(lip, ze + lip * slope + 0.03), (0.07, ze + 0.07 * slope + 0.05), (-0.02, ze - 0.02)])
+    rings("thatch_edge", [(-0.02, ze - 0.02), (-0.025, ze - 0.12), (0.0, ze - 0.24), (0.08, ze - 0.26),
+                          (0.13, ze - 0.44)], ragged=0.07)
     # under the eaves: the thatch's underside, rising from the cut edge to the walls, bamboo rafters along it
     zu = ze - 0.42
     zs_t = zt - 0.6
@@ -574,3 +592,103 @@ def paper_glow(name: str, color, *, look=None, strength: float = 1.0, core: floa
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     nt.links.new(em.outputs[0], out.inputs["Surface"])
     return mat
+
+
+def smoke(name: str, coll, base, *, height: float = 2.6, width=(0.12, 1.1), color=(0.62, 0.64, 0.68),
+          density: float = 0.4, rise: float = 0.35, sway: float = 0.35, lean=(0.25, 0.0), look=None, scene=None,
+          seed: float = 0.0):
+    """Thin hearth smoke from a smoke gap at `base`: two crossed cards `height` tall (seen from any side), a wisp
+    widening from width[0] to width[1] as it climbs, swaying, broken by noise rising `rise` m/s, fading in above the
+    gap and out at its top, leaning `lean` (m at its top, x and y) with the wind. Driven by the scene's clock (a
+    shader: no bake). Returns the objects."""
+    import bpy
+
+    from . import toon
+
+    scene = scene or bpy.context.scene
+    look = look or toon.Look()
+    w = width[1] / 2
+    mat = bpy.data.materials.new(name)
+    nt = toon.nodes(mat)
+    N, L = nt.nodes, nt.links
+
+    def math_(op, a, b=None):
+        m = N.new("ShaderNodeMath")
+        m.operation = op
+        for i, v in enumerate((a, b)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                m.inputs[i].default_value = v
+            else:
+                L.new(v, m.inputs[i])
+        return m.outputs[0]
+
+    def ramp(v, a, b):
+        m = N.new("ShaderNodeMapRange")
+        m.interpolation_type = "SMOOTHSTEP"
+        m.inputs["From Min"].default_value, m.inputs["From Max"].default_value = a, b
+        L.new(v, m.inputs["Value"])
+        return m.outputs["Result"]
+
+    tc = N.new("ShaderNodeTexCoord")
+    sep = N.new("ShaderNodeSeparateXYZ")
+    L.new(tc.outputs["Object"], sep.inputs[0])
+    t = toon.frame_value(nt, scene)
+    u, z = sep.outputs["X"], sep.outputs["Z"]
+    zn = math_("DIVIDE", z, height)
+    # the wisp's middle sways more the higher it gets; its half-width grows
+    wave = math_("SINE", math_("ADD", math_("MULTIPLY", zn, 5.0), math_("MULTIPLY", t, 0.9)))
+    wave2 = math_("SINE", math_("ADD", math_("MULTIPLY", zn, 11.0), math_("MULTIPLY", t, -1.7)))
+    mid = math_("MULTIPLY", math_("MULTIPLY", zn, sway), math_("ADD", wave, math_("MULTIPLY", wave2, 0.35)))
+    lean_x = N.new("ShaderNodeAttribute")          # the card's own lean across it (its "smoke_lean")
+    lean_x.attribute_type = "OBJECT"
+    lean_x.attribute_name = "smoke_lean"
+    mid = math_("ADD", mid, math_("MULTIPLY", lean_x.outputs["Fac"], math_("MULTIPLY", zn, zn)))
+    half = math_("ADD", width[0] / 2, math_("MULTIPLY", zn, w - width[0] / 2))
+    across = math_("ABSOLUTE", math_("DIVIDE", math_("SUBTRACT", u, mid), half))
+    prof = math_("SUBTRACT", 1.0, ramp(across, 0.25, 1.0))
+    # torn by noise drifting up with it
+    comb = N.new("ShaderNodeCombineXYZ")
+    L.new(math_("MULTIPLY", u, 2.5), comb.inputs["X"])
+    L.new(math_("SUBTRACT", math_("MULTIPLY", z, 1.4), math_("MULTIPLY", t, rise * 1.4)), comb.inputs["Y"])
+    L.new(math_("ADD", math_("MULTIPLY", t, 0.08), seed), comb.inputs["Z"])
+    noise = N.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = 1.6
+    noise.inputs["Detail"].default_value = 3.0
+    noise.inputs["Roughness"].default_value = 0.55
+    L.new(comb.outputs[0], noise.inputs["Vector"])
+    torn = ramp(noise.outputs["Fac"], 0.4, 0.68)
+    fade = math_("MULTIPLY", ramp(zn, 0.0, 0.12), math_("SUBTRACT", 1.0, ramp(zn, 0.45, 1.0)))
+    a = math_("MULTIPLY", math_("MULTIPLY", math_("MULTIPLY", prof, torn), fade), density)
+    rgb = N.new("ShaderNodeRGB")
+    rgb.outputs[0].default_value = (*color, 1.0)
+    em = N.new("ShaderNodeEmission")
+    L.new(toon.flashed(nt, toon._fog_mix(nt, rgb.outputs[0], look), (1.0, 1.0, 1.0), 0.6), em.inputs["Color"])
+    tr = N.new("ShaderNodeBsdfTransparent")
+    mx = N.new("ShaderNodeMixShader")
+    L.new(a, mx.inputs["Fac"])
+    L.new(tr.outputs[0], mx.inputs[1])
+    L.new(em.outputs[0], mx.inputs[2])
+    out = N.new("ShaderNodeOutputMaterial")
+    L.new(mx.outputs[0], out.inputs["Surface"])
+    mat.surface_render_method = "BLENDED"
+    obs = []
+    lx, ly = lean
+    for k, turn in enumerate((0.0, math.pi / 2)):
+        # each card turned as an object, so the shader's x (its own frame's) runs across the wisp on both
+        llx, lly, _ = shapes.rot_z(-turn) @ np.array((lx, ly, 0.0))
+        rows = 8
+        vs = []
+        for i in range(rows + 1):
+            f = i / rows
+            for x in (-w * 1.2, w * 1.2):
+                vs.append((x + llx * f * f, lly * f * f, f * height))
+        fs = [(2 * i, 2 * i + 1, 2 * i + 3, 2 * i + 2) for i in range(rows)]
+        ob = shapes.mesh_object(f"{name}{k}", vs, fs, mat, coll, smooth=False)
+        ob.location = base
+        ob.rotation_euler = (0.0, 0.0, turn)
+        ob["smoke_lean"] = float(llx)
+        ob.visible_shadow = False
+        obs.append(ob)
+    return obs
