@@ -50,7 +50,7 @@ LINE = "L10"
 POLE_FOOT0 = (6.78, 2.02, -0.24)
 POLE_REST = (7.36, 1.17, 0.72)
 GRIP_ALONG = 1.0
-POLE_FOOT1 = (7.42, 0.45, 0.0)
+POLE_FOOT1 = (7.3, 0.36, 0.0)
 # half way up (world): the foot clear of the boat's side and the deck's edge, the pole tipping toward upright
 GRIP_MID, WAY_MID = (7.32, 0.85, 1.05), (0.1, -0.35, 0.93)
 # her body getting up (her frame's turns, added to the stoop she stands in): leaning over her feet
