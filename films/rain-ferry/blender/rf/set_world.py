@@ -97,9 +97,7 @@ def _step():
 
 def materials(look, weather) -> dict:
     """The set's materials in `weather`'s palette, faded with `look`."""
-    from lib import toon, water
-
-    from lib import paint
+    from lib import minka, paint, toon, water
 
     w = set_weather.weather(weather)
     pal = set_weather.palette(w, COLORS)
