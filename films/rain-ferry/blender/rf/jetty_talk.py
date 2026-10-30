@@ -531,15 +531,18 @@ def shinza_stand(t: float, *, look_out: float = 0.0, reach: float = 0.0, gust: f
         "spine": (-2.0 + 0.6 * br, 0.0, 3.0),
         "chest": (-3.0 + 0.8 * br, 0.0, -7.0 * reach),
         "upperChest": (-2.0, 0.0, -4.0 * reach),
-        "neck": (6.0 - 4.0 * look_out - 3.0 * chin, 0.0, 10.0 * look_out),
-        "head": (12.0 - 9.0 * look_out - 3.0 * reach - 6.0 * chin, -1.5 * gust, 22.0 * look_out - 3.0 * reach),
+        # (reaching, his head cocks a little to his left, away from the fist on the hilt: it shows beside it)
+        "neck": (6.0 - 4.0 * look_out - 3.0 * chin, 3.0 * reach, 10.0 * look_out),
+        "head": (12.0 - 9.0 * look_out - 3.0 * reach - 6.0 * chin, -1.5 * gust + 5.0 * reach,
+                 22.0 * look_out - 3.0 * reach),
         "leftEye": (7.0 - 9.0 * look_out, 0.0, 12.0 * look_out),
         "rightEye": (7.0 - 9.0 * look_out, 0.0, 12.0 * look_out),
         "rightShoulder": (0.0, 9.0 * reach, 0.0),
     }
 
 
-HILT_GRIP = 0.17     # where his right fist closes on the hilt, up from the guard (m): mid-hilt, where his arm reaches
+HILT_GRIP = 0.22     # where his right fist closes on the hilt, up from the guard (m): up it, where his arm still
+                     # reaches, so from demand's low camera the fist stands out past his head against the sky
 # his elbow with the fist on the hilt over his shoulder: up and forward of his shoulder, so the forearm reads going
 # back to the hilt and the fist shows on it, not flung out sideways with the hand lost behind his head
 HILT_POLE = (-0.5, -0.6, 1.7)
