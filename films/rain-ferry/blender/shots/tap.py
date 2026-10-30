@@ -1,7 +1,7 @@
-"""Shot 10, tap (41.8-47.8 s): Tsuru in three-quarter profile on her crate, the end post in front of her and the river
-grey beyond. His boast is still going on off screen ("...and be the strongest under heaven.") when she knocks her pipe
-out on the post, tok, tok (data/mix.json pipe_tap at 42.05 s): ash and one last ember drop from the bowl onto the wet
-wood and die. She lowers the pipe to her knee, lifts her eyes out over the water, and a faint smile comes as she says
+"""Shot 10, tap (41.8-47.8 s): Tsuru in three-quarter profile on her crate, the end post by her and the river grey
+beyond. His boast is still going on off screen ("...and be the strongest under heaven.") when she knocks her pipe out
+on the corner of her crate by her left thigh, tok, tok, with a flick of the wrist (data/mix.json pipe_tap at 42.05 s):
+ash and one last ember drop from the bowl onto the wet wood and die. She lowers the pipe to her knee, lifts her eyes out over the water, and a faint smile comes as she says
 "The River Demon is already dead." The camera drifts slowly along the post toward her.
 
     blender -b -P blender/render.py -- --film rain-ferry --shot tap --mode look --engine eevee \\
