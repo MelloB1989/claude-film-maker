@@ -99,10 +99,11 @@ def _xyz(nt, x, y, z=None):
 
 
 # the rain rings' layers, for a river seen from a jetty (`surface`'s scale 1): (cell size m, rings a second per cell,
-# ring width (of a cell), from how far (m) they fade out .. to where they are gone): fine and dense close to the lens,
-# fewer, broader ones further off, each fading before it would shimmer into noise
-RING_LAYERS = ((0.14, 1.2, 0.045, 3.5, 8.0), (0.26, 1.0, 0.04, 6.0, 16.0), (0.45, 0.85, 0.035, 12.0, 32.0),
-               (0.8, 0.7, 0.03, 24.0, 60.0))
+# ring width (of a cell), how far off (m) they have come in by (0: from the lens), from how far they fade out .. to
+# where they are gone): fine and dense close to the lens, broader ones further off, each fading before it would
+# shimmer into noise, the broad ones kept off the water close under the lens (rings that size read as puddle rings)
+RING_LAYERS = ((0.14, 1.2, 0.045, 0.0, 3.5, 8.0), (0.26, 1.0, 0.04, 0.0, 6.0, 16.0), (0.45, 0.85, 0.035, 4.0, 12.0, 32.0),
+               (0.8, 0.7, 0.03, 10.0, 24.0, 60.0))
 # beyond the rings: the strikes alone, a fine flicker of flecks pocking the water out to where the mist takes it
 # (cell m, strikes a second per cell, from .. to how far (m) they show)
 POCK = (0.22, 2.2, 6.0, 140.0)
@@ -111,15 +112,16 @@ POCK = (0.22, 2.2, 6.0, 140.0)
 def ring_layers(scale: float = 1.0, layers=RING_LAYERS) -> list:
     """`layers` for a surface of `scale` (a puddle's smaller): cell sizes and fade distances times it, never fading
     closer than a metre. Pure Python."""
-    return [(cell * scale, rate, width, max(1.0, near * scale), max(2.0, far * scale)) for cell, rate, width, near, far
-            in layers]
+    return [(cell * scale, rate, width, appear * scale, max(1.0, near * scale), max(2.0, far * scale))
+            for cell, rate, width, appear, near, far in layers]
 
 
-def _rings(nt, xy, t, dist, k_rain, cell: float, rate: float, width: float, near: float, far: float, seed: float):
+def _rings(nt, xy, t, dist, k_rain, cell: float, rate: float, width: float, appear: float, near: float, far: float,
+           seed: float):
     """One layer of rain rings over world `xy` (a vector, metres): in Voronoi cells of `cell` m a drop lands at the
     cell's point and its ring opens out to nearly the cell's edge and fades, each cell at its own phase and its own
     pace; only as many cells ring as the rain is hard (RAIN 0.3: about a third). The ring thickens a little with the
-    distance `dist` (a painter's line, not a sliver) and fades out from `near` to `far` m. Returns (ring, crown): the
+    distance `dist` (a painter's line, not a sliver), comes in by `appear` m and fades out from `near` to `far` m. Returns (ring, crown): the
     ring's strength 0..1 (its height for the bump too) and the bright fleck where the drop has just struck."""
     vor = nt.nodes.new("ShaderNodeTexVoronoi")
     vor.voronoi_dimensions = "3D"
@@ -145,6 +147,8 @@ def _rings(nt, xy, t, dist, k_rain, cell: float, rate: float, width: float, near
     # how many cells ring: those whose own number is under the rain's
     on = _ramp(nt, _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", k_rain, 1.6), rnd.outputs["Blue"]), 0.0, 0.12)
     lod = _ramp(nt, dist, far, near)
+    if appear > 0:
+        lod = _math(nt, "MULTIPLY", lod, _ramp(nt, dist, 0.5 * appear, appear))
     k = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", ring, life), _math(nt, "MULTIPLY", on, lod))
     crown = _math(nt, "MULTIPLY", _ramp(nt, d_m, 0.07 * cell + 0.0015 * 1.0, 0.0),
                   _math(nt, "MULTIPLY", _ramp(nt, fr, 0.09, 0.0), _math(nt, "MULTIPLY", on, lod)))
@@ -446,7 +450,7 @@ def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: 
     reach = _math(nt, "MULTIPLY_ADD", k_rain, 0.35, 0.3)
     dense = _ramp(nt, out_, reach, 0.0)
     strands = _ramp(nt, lace.outputs["Distance"], 0.09, 0.02)
-    edge = _ramp(nt, _math(nt, "ADD", churn.outputs["Fac"], _math(nt, "MULTIPLY", dense, 0.6)), 0.55, 0.75)
+    edge = _ramp(nt, _math(nt, "ADD", churn.outputs["Fac"], _math(nt, "MULTIPLY", dense, 0.3)), 0.6, 0.78)
     lace_k = _math(nt, "MAXIMUM", _math(nt, "MULTIPLY", strands, dense), _math(nt, "MULTIPLY", edge, dense))
     # ripples running out from it
     wave = _math(nt, "FRACT", _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", out_, 2.5), _math(nt, "MULTIPLY", t, 0.9)))

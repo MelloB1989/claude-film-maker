@@ -38,10 +38,10 @@ def test_ring_layers_scale_cells_and_fades_for_a_puddle():
     river = water.ring_layers(1.0)
     puddle = water.ring_layers(0.3)
     assert river == list(water.RING_LAYERS)
-    for (c, rate, w, near, far), (c1, *_rest) in zip(puddle, river):
-        assert c == pytest.approx(c1 * 0.3) and near >= 1.0 and far > near
-    # finer layers fade closer than broader ones
-    assert all(a[4] <= b[4] for a, b in zip(river, river[1:]))
+    for (c, rate, w, appear, near, far), (c1, *_rest) in zip(puddle, river):
+        assert c == pytest.approx(c1 * 0.3) and near >= 1.0 and far > near > appear
+    # finer layers fade closer than broader ones, and the finest ring right under the lens
+    assert all(a[5] <= b[5] and a[3] <= b[3] for a, b in zip(river, river[1:])) and river[0][3] == 0.0
 
 
 def test_wake_shape_opens_from_the_bow_and_trails_the_stern():
