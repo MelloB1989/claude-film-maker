@@ -35,19 +35,22 @@ COLORS = {
     "slope": ((0.045, 0.05, 0.052), (0.02, 0.022, 0.025)),    # the valley's far ground (the fog pales it)
     **sets.HUT_COLORS,
 }
+# the thatch's straw: (mottle, its patch size m, how dark its strands, their width m, how long against wide)
+STRAW = {"thatch": (0.15, 1.5, 0.75, 0.14, 10.0), "thatch_edge": (0.12, 1.0, 0.85, 0.08, 16.0)}
 PLASTER_STAIN = (0.06, 0.052, 0.045)    # the plaster darkened by the splash and the damp up from its foot
 PLASTER_STAIN_Z = (1.25, 1.62)          # ... from its foot (world z) to where it's gone
 PAPER = (1.0, 0.62, 0.3)                # the hut's lit shoji paper, the only warmth but the lantern's
 LANTERN_RIB = (0.32, 0.05, 0.02)        # the lantern's bamboo hoops, dark through its paper
 # what the rain leaves shining, and how much (of the weather's sheen) and how sharply (roughness)
-WET = {"plank": (1.0, 0.14), "thatch": (0.12, 0.6), "wall": (0.5, 0.2), "hut_beam": (0.5, 0.2), "hull": (0.6, 0.22), "wood": (0.6, 0.22),
+WET = {"plank": (1.0, 0.14), "hull": (0.6, 0.22), "wood": (0.6, 0.22),
+       "thatch": (0.12, 0.6), "wall": (0.5, 0.2), "hut_beam": (0.5, 0.2),
        "sign": (0.4, 0.3), "rock": (0.6, 0.25), "mud": (0.5, 0.32)}
 # the painted ones: (mottle, its patch size m, dry brush, its direction)
 PAINTED = {"mud": (0.6, 0.35, 0.45, "y"), "grass": (0.35, 1.5, 0.25, "z"), "rock": (0.3, 0.4, 0.35, "z"),
            "sign": (0.25, 0.15, 0.5, "z"), "plank": (0.2, 0.5, 0.35, "x"),
            "post": (0.3, 0.3, 0.5, "z"), "stave": (0.3, 0.3, 0.5, "z"),
-           "wall": (0.25, 0.4, 0.45, "z"), "hut_beam": (0.25, 0.3, 0.4, "x"), "thatch": (0.35, 0.3, 0.8, "z"),
-           "thatch_edge": (0.3, 0.12, 0.85, "z"), "hut_ridge": (0.3, 0.3, 0.4, "x"), "lattice": (0.15, 0.3, 0.3, "z")}
+           "wall": (0.25, 0.4, 0.45, "z"), "hut_beam": (0.25, 0.3, 0.4, "x"),
+           "hut_ridge": (0.3, 0.3, 0.4, "x"), "lattice": (0.15, 0.3, 0.3, "z")}
 
 # a starting framing for each location: (camera, aim, lens mm); the approach keeps its trees off these cameras
 # (set_approach.CLEAR). Shots move from these as they need
@@ -114,6 +117,10 @@ def materials(look, weather) -> dict:
             # earthen plaster, mottled, stained dark up from its foot
             m[k] = paint.wash(f"set-{k}", lit, shade, look=look, cut=0.38, mottle=0.55, mottle_scale=0.25, brush=0.3,
                               brush_scale=0.2, brush_dir="z", mist=PLASTER_STAIN, mist_z=PLASTER_STAIN_Z)
+        elif k in STRAW:
+            mot, size, br, width, stretch = STRAW[k]
+            m[k] = paint.wash(f"set-{k}", lit, shade, look=look, cut=0.38, mottle=mot, mottle_scale=size, brush=br,
+                              brush_scale=width, brush_dir="z", brush_stretch=stretch)
         elif k in PAINTED:
             mot, size, br, axis = PAINTED[k]
             m[k] = paint.wash(f"set-{k}", lit, shade, look=look, cut=0.38, mottle=mot, mottle_scale=size, brush=br,

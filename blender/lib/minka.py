@@ -284,6 +284,19 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
     zt = H + peak
     verts, faces, rp = hip_gable_roof(X, Y, ze, zt)
     P.poly("thatch", verts, faces[:4])
+    # courses: bands of straw laid round the slopes and hips, each a step in the thatch
+    for f in (0.28, 0.52):
+        u = f / (1 - 0.45)
+        zc = ze + f * (zt - ze)
+        xc, yc = X - u * (X - rp["xr"]), Y * (1 - f)
+        ring = [np.array((sx * xc, sy * yc, zc)) for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+        for a, b in zip(ring, ring[1:] + ring[:1]):
+            mid = (a + b) / 2
+            out = np.array((mid[0], mid[1], 0.0))
+            out = out / np.linalg.norm(out)
+            n = out * (zt - ze) + np.array((0.0, 0.0, Y))       # the face's normal (slope and hip alike)
+            n /= np.linalg.norm(n)
+            P.beam("thatch_edge", a + 0.035 * n, b + 0.035 * n, 0.09, 0.045, up=tuple(n))
     # the gables: dark smoke gaps, a few slats across each
     for sx in (-1, 1):
         g = [verts[i] for i in faces[4 + (0 if sx > 0 else 1)]]
@@ -304,25 +317,31 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
         fs = [(i, (i + 1) % 4, 4 + (i + 1) % 4, 4 + i) for i in range(4)]
         fs = [tuple(reversed(f)) for f in fs]
         P.poly(key, vs, fs)
-        P.poly(key, bot, [(3, 2, 1, 0)])
     band("thatch_edge", 0.0, ze, ze - 0.2, 0.02)
     band("thatch_edge", 0.1, ze - 0.2, ze - 0.36, 0.14)
-    # under the eaves: the bamboo rafters from the wall plates out to the edge
+    # under the eaves: the thatch's underside, rising from the cut edge to the walls, bamboo rafters along it
     zu = ze - 0.37
+    zs_t = zt - 0.55
+    sv, sf, _ = hip_gable_roof(X - 0.14, Y - 0.14, zu, zs_t)
+    P.poly("thatch", sv, [tuple(reversed(f)) for f in sf[:4]])
+
+    def soffit(d):                       # its height `d` in from the cut edge
+        return zu + d * (zs_t - zu) / (Y - 0.14) - 0.035
+
     for s in (-1, 1):
-        for x in np.arange(-X + 0.25, X - 0.2, 0.32):
-            P.cyl("lattice", (x, s * (hd - 0.1), H - 0.02), (x, s * (Y - 0.18), zu + 0.02), 0.022, n=6)
-        for y in np.arange(-Y + 0.35, Y - 0.3, 0.32):
-            P.cyl("lattice", (s * (hw - 0.1), y, H - 0.02), (s * (X - 0.18), y, zu + 0.02), 0.022, n=6)
+        for x in np.arange(-X + 0.35, X - 0.3, 0.32):
+            P.cyl("lattice", (x, s * (hd - 0.1), soffit(Y - hd - 0.04)), (x, s * (Y - 0.2), soffit(0.06)), 0.02, n=6)
+        for y in np.arange(-Y + 0.45, Y - 0.4, 0.32):
+            P.cyl("lattice", (s * (hw - 0.1), y, soffit(X - hw - 0.04)), (s * (X - 0.2), y, soffit(0.06)), 0.02, n=6)
     # the ridge: a rounded bundle of straw capped in bark along its length, a bamboo pole on it, saddled by crossed
     # pieces, ending just past the gables
-    rl = 2 * rp["xr"] + 0.3
-    P.cyl("ridge", (-rl / 2, 0.0, zt - 0.02), (rl / 2, 0.0, zt - 0.02), 0.2, n=10)
-    P.cyl("lattice", (-rl / 2 - 0.05, 0.0, zt + 0.19), (rl / 2 + 0.05, 0.0, zt + 0.19), 0.035, n=6)
+    rl = 2 * rp["xr"] + 0.12
+    P.cyl("ridge", (-rl / 2, 0.0, zt - 0.04), (rl / 2, 0.0, zt - 0.04), 0.14, n=10)
+    P.cyl("lattice", (-rl / 2 - 0.05, 0.0, zt + 0.11), (rl / 2 + 0.05, 0.0, zt + 0.11), 0.03, n=6)
     for k in range(7):
         x = -rl / 2 + 0.2 + (rl - 0.4) * k / 6
         for s in (-1, 1):
-            P.beam("post", (x, s * 0.03, zt + 0.24), (x, s * 0.3, zt - 0.14), 0.06)
+            P.beam("post", (x, s * 0.03, zt + 0.16), (x, s * 0.26, zt - 0.12), 0.05)
 
     # the lived-in clutter, as `clutter` asks
     if clutter:
