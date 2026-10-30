@@ -39,6 +39,7 @@ ARC = 0.045                  # m the stub rises over its straight line at the li
 TRAIL = 0.18                 # the share of the lift the blade's way lags the hilt
 LEFT_GO, LEFT_MEET, LEFT_SHUT = 0.2, 0.68, 0.88
 LEFT_ARC = 0.025             # m the left hand rises over its straight line
+GIVE = (0.0, 0.03, -0.06)    # m the stub sinks (his frame) as his grip gives after the line
 SQUEEZE = 0.14               # how far past the wrap the fingers drive as his grip tightens (rolling little to index)
 GLINT = (91.75, 92.05, 0.045)  # film s: the glint on the break flaring and fading; its size (m)
 
@@ -132,7 +133,10 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
     ed = va.ease(min(1.0, max(0.0, (u - TRAIL) / (1.0 - TRAIL))), "inout")
     p0, h0 = np.asarray(fall.KNEEL_STUB["pommel"], float), np.asarray(fall.KNEEL_STUB["hilt"], float)
     p1, h1 = np.asarray(STUB[0], float), np.asarray(STUB[1], float)
-    pommel = p0 + (p1 - p0) * e + np.array([0.0, 0.0, ARC * math.sin(math.pi * min(u, 1.0)) + shake * (u >= 1.0)])
+    # as his eyes lift after the line, the grip gives a little and the stub sinks toward his lap
+    give = E.ease((t - EYES_UP[0]) / (EYES_UP[1] - EYES_UP[0] + 0.3))
+    pommel = p0 + (p1 - p0) * e + np.array([0.0, 0.0, ARC * math.sin(math.pi * min(u, 1.0)) + shake * (u >= 1.0)]) \
+        + np.asarray(GIVE, float) * give
     hilt = va.matrix(va.slerp(va.quat(va.swing_to((0, 0, 1), h0)), va.quat(va.swing_to((0, 0, 1), h1)), ed)) @ \
         np.array([0.0, 0.0, 1.0])
     hands, wrapped = clash.shinza_sword(ch, tuple(pommel), tuple(hilt))
@@ -167,7 +171,7 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
     for name, v in {**right, **left}.items():
         f = next((f for f in approach.ROLL if f in name), "Thumb")
         x = g * 1.4 - approach.ROLL[f]
-        over = SQUEEZE * math.sin(math.pi * min(1.0, max(0.0, x))) + SQUEEZE * 0.3 * (x >= 1.0)
+        over = SQUEEZE * math.sin(math.pi * min(1.0, max(0.0, x))) + SQUEEZE * 0.3 * (x >= 1.0) - SQUEEZE * 0.8 * give
         m = va.turn_matrix(v)
         out[name] = va.matrix(va.slerp(np.array([1.0, 0, 0, 0]), va.quat(m), 1.0 + over)) if over else m
     return hands, out
