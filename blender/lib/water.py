@@ -597,6 +597,30 @@ def wake(name: str, root, material, coll, z: float, *, length: float, **shape):
     return ob
 
 
+def strike_rings(name: str, events, z: float, coll, *, color, look=None, fps: float = 24.0, radius: float = 1.2,
+                 life: float = 2.6, n: int = 24) -> list:
+    """Rings spreading out where something strikes still water (a pole going in, a drop off an oar): for each of
+    `events` [(x, y, frame), ...] a disc of `radius` on the water at `z` in its own `foam` (white churn at the middle,
+    rings running out), flaring at its frame and gone `life` s later. Returns the objects."""
+    from . import shapes
+
+    obs = []
+    a = np.linspace(0, 2 * math.pi, n, endpoint=False)
+    for k, (x, y, f) in enumerate(events):
+        verts = [(x, y, z + 0.003)] + [(x + radius * math.cos(t), y + radius * math.sin(t), z + 0.003) for t in a]
+        faces = [(0, 1 + i, 1 + (i + 1) % n) for i in range(n)]
+        mat = foam(f"{name}{k}", color, look=look, amount=0.0, reach=0.12, ripples=0.9)
+        key(mat, RAIN, [(f, 0.0)])
+        key(mat, FOAM, [(f - 1, 0.0), (f, 1.0), (f + round(0.4 * life * fps), 0.6), (f + round(life * fps), 0.0)])
+        ob = shapes.mesh_object(f"{name}{k}", verts, faces, mat, coll, smooth=False)
+        at = ob.data.attributes.new("out", "FLOAT", "POINT")
+        at.data.foreach_set("value", np.r_[0.0, np.ones(n)].astype(np.float32))
+        ob.visible_shadow = False
+        ob.lineart.usage = "EXCLUDE"
+        obs.append(ob)
+    return obs
+
+
 def puddle(name: str, material, coll, center, radius: float, z: float, *, seed: int = 1, n: int = 24,
            stretch: float = 1.0, angle: float = 0.0):
     """A pool lying flat at height `z`: a fan over `puddle_outline`."""
