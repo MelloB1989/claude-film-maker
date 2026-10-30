@@ -112,7 +112,8 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
     thatch, thick, its cut edge in two steps, bamboo rafters under its eaves, a ridge capped and saddled, a smoke gap
     under each gable; a sliding shoji door (`door`: its middle along y, width, height) and a barred window glowing
     warm through their paper, a rolled straw blind over the window; a plank porch along the door side; and, with
-    `clutter`, a firewood stack, a rain barrel, a straw cape and a hat hung by the door, oars leaning on the wall.
+    `clutter`, a firewood stack, a rain barrel, a straw cape and a hat hung by the door, oars leaning on the wall,
+    a net drying on a bamboo rack off the back end.
 
     `m`: wall, thatch, door (the lit paper: an emitting material), and as it has them (else see FALLBACK) post,
     plaster, thatch_edge, ridge, lattice, stone, dark, wood, straw, rope, lath, glass (the barrel's water).
@@ -405,6 +406,29 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
             b = np.array((x - 0.12 * (k + 1), -hd - 0.06, H - 0.1))
             P.cyl("wood", a + 0.18 * (b - a), b, 0.022, n=6)
             P.beam("wood", a, a + 0.25 * (b - a), 0.1, 0.02, up=(0.0, 1.0, 0.0))
+        # a fishing net drying on a bamboo rack off the back end, sagging between its poles
+        nx, ny0, ny1, top_ = -hw - 0.55, 0.15, 1.45, 1.75
+        for y in (ny0, ny1):
+            g = local_ground(nx, y)
+            P.cyl("lattice", (nx, y, g - 0.1), (nx, y, top_ + 0.08), 0.025, n=6)
+        P.cyl("lattice", (nx, ny0 - 0.12, top_), (nx, ny1 + 0.12, top_), 0.02, n=6)
+        g = max(local_ground(nx, (ny0 + ny1) / 2), -0.4)
+
+        def net(y, z):                          # the net's drape: sagging between the poles, its foot swaying out
+            f = (y - ny0) / (ny1 - ny0)
+            h = (top_ - z) / (top_ - g - 0.35)
+            return (nx + 0.06 * h * h + 0.02 * math.sin(7 * f), y, z - 0.12 * math.sin(math.pi * f) * (1 - h))
+
+        ys_ = np.linspace(ny0 + 0.05, ny1 - 0.05, 12)
+        zs_ = np.linspace(top_ - 0.02, g + 0.35, 9)
+        for y in ys_:
+            for z0_, z1_ in zip(zs_[:-1], zs_[1:]):
+                P.cyl("rope", net(y, z0_), net(y, z1_), 0.006, n=4)
+        for z in zs_[1:]:
+            for y0_, y1_ in zip(ys_[:-1], ys_[1:]):
+                P.cyl("rope", net(y0_, z), net(y1_, z), 0.006, n=4)
+        for y in ys_[::2]:                      # its floats along the hem
+            P.cyl("wood", net(y, zs_[-1] - 0.02), net(y, zs_[-1] + 0.04), 0.03, n=6)
         # a straw cape (mino) and a spare hat hung on pegs by the door
         mx, my = hw + 0.05, yb + 0.42
         P.cyl("post", (mx - 0.05, my, 1.62), (mx + 0.12, my, 1.62), 0.015, n=5)
