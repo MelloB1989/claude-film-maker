@@ -403,9 +403,10 @@ def river_material(name: str, *, cam, scene, sun=SUN):
     t = n.clock(scene, 1.0)
     cur = n.new("ShaderNodeCombineXYZ")
     n.set(cur.inputs["X"], n.math("MULTIPLY", sep.outputs["X"], 0.25))
-    n.set(cur.inputs["Y"], n.math("MULTIPLY_ADD", t, 0.6, n.math("MULTIPLY", sep.outputs["Y"], 0.012)))
-    streak = n.ramp(n.noise(cur.outputs[0], 0.35, 4.0, 0.6), 0.55, 0.72)
-    col = n.mix(n.math("MULTIPLY", streak, 0.35), base, n.prop("rf_horizon", True))
+    n.set(cur.inputs["Y"], n.math("MULTIPLY_ADD", t, 0.6, n.math("MULTIPLY", sep.outputs["Y"], 0.03)))
+    # (soft broad patches of current, not long white streaks)
+    streak = n.ramp(n.noise(cur.outputs[0], 0.35, 2.0, 0.5), 0.45, 0.8)
+    col = n.mix(n.math("MULTIPLY", streak, 0.14), base, n.prop("rf_horizon", True))
     # the rain pocking it: a fine flicker of rings, near only
     pock = n.new("ShaderNodeTexVoronoi")
     pock.inputs["Scale"].default_value = 0.6

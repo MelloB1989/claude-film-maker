@@ -100,9 +100,9 @@ def _xyz(nt, x, y, z=None):
 # the rain rings' layers, for a river seen from a jetty (`surface`'s scale 1): (cell size m, rings a second per cell,
 # ring width (of a cell), how far off (m) they have come in by (0: from the lens), from how far they fade out .. to
 # where they are gone): fine and dense close to the lens, broader ones further off, each fading before it would
-# shimmer into noise, the broad ones kept off the water close under the lens (rings that size read as puddle rings)
-RING_LAYERS = ((0.14, 1.2, 0.045, 0.0, 3.5, 8.0), (0.26, 1.0, 0.04, 0.0, 6.0, 16.0), (0.45, 0.85, 0.035, 4.0, 12.0, 32.0),
-               (0.8, 0.7, 0.03, 10.0, 24.0, 60.0))
+# shimmer into noise, the broad ones kept off the water close under the lens (rings that size read as puddle rings);
+# past them the water is its current and the strikes' flecks (POCK)
+RING_LAYERS = ((0.14, 1.3, 0.04, 0.0, 3.5, 8.0), (0.26, 1.1, 0.035, 0.0, 6.0, 14.0), (0.45, 0.9, 0.03, 4.0, 14.0, 34.0))
 # beyond the rings: the strikes alone, a fine flicker of flecks pocking the water out to where the mist takes it
 # (cell m, strikes a second per cell, from .. to how far (m) they show)
 POCK = (0.22, 2.2, 6.0, 140.0)
@@ -134,13 +134,19 @@ def _rings(nt, xy, t, dist, k_rain, cell: float, rate: float, width: float, appe
     phase = _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", t, pace), rate, rnd.outputs["Red"])
     fr = _math(nt, "FRACT", phase)
     grow = _math(nt, "POWER", fr, 0.6)                         # fast out of the strike, slowing as it spreads
-    radius = _math(nt, "MULTIPLY", grow, 0.42 * cell)
+    # each drop its own size, and the ring broken into arcs where the surface's chop swallows it
+    radius = _math(nt, "MULTIPLY", grow, _math(nt, "MULTIPLY_ADD", rnd.outputs["Green"], 0.24 * cell, 0.2 * cell))
     d = vor.outputs["Distance"]                                # metres (the vector is in metres times 1/cell)
     d_m = _math(nt, "MULTIPLY", d, cell)
     w = _math(nt, "MULTIPLY_ADD", dist, 0.0016, width * cell)  # thicker far off
     off = _math(nt, "ABSOLUTE", _math(nt, "SUBTRACT", d_m, radius))
     ring = _ramp(nt, off, w, _math(nt, "MULTIPLY", w, 0.15))
-    life = _math(nt, "POWER", _math(nt, "SUBTRACT", 1.0, fr), 1.4)
+    life = _math(nt, "POWER", _math(nt, "SUBTRACT", 1.0, fr), 2.2)
+    arcs = nt.nodes.new("ShaderNodeTexNoise")
+    arcs.inputs["Scale"].default_value = 2.2 / cell
+    arcs.inputs["Detail"].default_value = 0.0
+    nt.links.new(_vmath(nt, "ADD", xy, (seed, 2.0 * seed, 0.0)), arcs.inputs["Vector"])
+    life = _math(nt, "MULTIPLY", life, _ramp(nt, arcs.outputs["Fac"], 0.38, 0.58))
     # how many cells ring: those whose own number is under the rain's
     on = _ramp(nt, _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", k_rain, 1.6), rnd.outputs["Blue"]), 0.0, 0.12)
     lod = _ramp(nt, dist, far, near)
@@ -167,7 +173,7 @@ def _pock(nt, xy, t, dist, k_rain, cell: float, rate: float, near: float, far: f
     fleck = _ramp(nt, vor.outputs["Distance"], size, _math(nt, "MULTIPLY", size, 0.3))
     show = _math(nt, "MULTIPLY", _ramp(nt, dist, near * 0.6, near), _ramp(nt, dist, far, far * 0.5))
     return _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", fleck, _ramp(nt, fr, 0.22, 0.0)),
-                 _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", on, show), 0.6))
+                 _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", on, show), 0.9))
 
 
 def _fog_k(nt, look):
@@ -237,7 +243,7 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     contour = _ramp(nt, _math(nt, "ABSOLUTE", _math(nt, "SUBTRACT", lines.outputs["Fac"], 0.5)), 0.012, 0.0)
     broken = _ramp(nt, patch.outputs["Fac"], 0.45, 0.6)
     line_k = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", contour, broken),
-                   _math(nt, "MULTIPLY", _ramp(nt, dist, 45.0 * scale, 8.0 * scale), 0.35 * streaks))
+                   _math(nt, "MULTIPLY", _ramp(nt, dist, 140.0 * scale, 12.0 * scale), 0.3 * streaks))
     # the rain's rings and the flecks of its strikes
     rings, crowns = None, None
     for k, layer in enumerate(ring_layers(scale)):
@@ -246,7 +252,8 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         crowns = c if crowns is None else _math(nt, "MAXIMUM", crowns, c)
     crowns = _math(nt, "MAXIMUM", crowns, _pock(nt, drift, t, dist, k_rain, *POCK[:2], POCK[2] * scale,
                                                POCK[3] * scale))
-    marks = _math(nt, "MAXIMUM", _math(nt, "MAXIMUM", _math(nt, "MULTIPLY", rings, 0.8), crowns), line_k, clamp=True)
+    near_k = _math(nt, "MULTIPLY_ADD", _ramp(nt, dist, 14.0 * scale, 3.0 * scale), 0.35, 0.25)   # strongest close in
+    marks = _math(nt, "MAXIMUM", _math(nt, "MAXIMUM", _math(nt, "MULTIPLY", rings, near_k), crowns), line_k, clamp=True)
     col = nt.nodes.new("ShaderNodeMix")
     col.data_type = "RGBA"
     nt.links.new(body.outputs["Result"], col.inputs["A"])
@@ -277,15 +284,19 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         # the view's ray off a level surface
         refl = _vmath(nt, "MULTIPLY", geo.outputs["Incoming"], (-1.0, -1.0, 1.0))
         toward = _vmath(nt, "DOT_PRODUCT", refl, (sx / n, sy / n, sz / n))
-        path = _ramp(nt, toward, 0.86, 0.995)
+        path = _ramp(nt, toward, 0.86, 0.99)
         spark = nt.nodes.new("ShaderNodeTexVoronoi")
         spark.inputs["Scale"].default_value = 1.0
-        nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 2.2 / scale), _math(nt, "MULTIPLY", across, 5.0 / scale),
-                          _math(nt, "MULTIPLY", t, 1.3)), spark.inputs["Vector"])
-        fleck = _ramp(nt, spark.outputs["Distance"], 0.13, 0.03)
-        crest = _ramp(nt, swell.outputs["Fac"], 0.45, 0.62)
+        # (small flecks, which the distance draws out across the path, each twinkling on and off at its own moment)
+        nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 2.0 / scale), _math(nt, "MULTIPLY", across, 2.0 / scale),
+                          _math(nt, "MULTIPLY", t, 0.4)), spark.inputs["Vector"])
+        twinkle = nt.nodes.new("ShaderNodeSeparateColor")
+        nt.links.new(spark.outputs["Color"], twinkle.inputs[0])
+        on = _ramp(nt, _math(nt, "FRACT", _math(nt, "MULTIPLY_ADD", t, 1.7, twinkle.outputs["Red"])), 0.45, 0.0)
+        fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.12, 0.03), on)
+        crest = _ramp(nt, swell.outputs["Fac"], 0.38, 0.58)
         glint = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", path, k_shine),
-                      _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", fleck, crest), 1.6, _math(nt, "MULTIPLY", path, 0.25)))
+                      _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", fleck, crest), 2.2, _math(nt, "MULTIPLY", path, 0.2)))
     gmix = nt.nodes.new("ShaderNodeMix")
     gmix.data_type = "RGBA"
     gmix.blend_type = "ADD"
@@ -299,19 +310,24 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     nt.links.new(toon.flashed(nt, gmix.outputs["Result"], look.flash_lit, 0.25), em.inputs["Color"])
     # the reflection, through the bump of the rings, the swell and the chop
     height = _math(nt, "ADD", _math(nt, "MULTIPLY", rings, 0.6),
-                   _math(nt, "ADD", _math(nt, "MULTIPLY", swell.outputs["Fac"], 0.5),
+                   _math(nt, "ADD", _math(nt, "MULTIPLY", swell.outputs["Fac"],
+                                          _math(nt, "MULTIPLY_ADD", k_rain, -0.6, 1.1)),     # calm: the swell shows
                          _math(nt, "MULTIPLY", chop.outputs["Fac"], _math(nt, "MULTIPLY", k_rain, 0.35))))
     bump = nt.nodes.new("ShaderNodeBump")
     bump.inputs["Strength"].default_value = ripple
     bump.inputs["Distance"].default_value = 0.02 * scale
     nt.links.new(height, bump.inputs["Height"])
     gl = nt.nodes.new("ShaderNodeBsdfGlossy")
-    nt.links.new(_math(nt, "MULTIPLY_ADD", k_rain, 0.06, roughness), gl.inputs["Roughness"])
+    nt.links.new(_math(nt, "MULTIPLY_ADD", k_rain, 0.025, roughness), gl.inputs["Roughness"])
     nt.links.new(bump.outputs["Normal"], gl.inputs["Normal"])
-    gl.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+    # the storm's water is ink: what it reflects comes back darker and cooler the harder it rains
+    tint = nt.nodes.new("ShaderNodeCombineColor")
+    for ch, k in zip(("Red", "Green", "Blue"), (0.55, 0.5, 0.42)):
+        nt.links.new(_math(nt, "MULTIPLY_ADD", k_rain, -k, 1.0), tint.inputs[ch])
+    nt.links.new(tint.outputs[0], gl.inputs["Color"])
     # how much of it is the world's reflection: MIRROR, much more at a grazing angle (the rings' marks stay painted
     # over it)
-    k_refl = _math(nt, "MULTIPLY", _math(nt, "MINIMUM", _math(nt, "MULTIPLY_ADD", fres, 2.4, 0.35), 1.0), k_mirror)
+    k_refl = _math(nt, "MINIMUM", _math(nt, "MULTIPLY", _math(nt, "MULTIPLY_ADD", fres, 3.0, 0.7), k_mirror), 1.0)
     k_refl = _math(nt, "MULTIPLY", k_refl, _math(nt, "SUBTRACT", 1.0, _math(nt, "MULTIPLY", marks, 0.7)), clamp=True)
     mirror_mix = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(k_refl, mirror_mix.inputs["Fac"])
@@ -320,7 +336,7 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     # a breath of the sky's light on it at a grazing angle, whatever the reflection finds
     skyem = nt.nodes.new("ShaderNodeEmission")
     skyem.inputs["Color"].default_value = toon._rgba(sky)
-    nt.links.new(_math(nt, "MULTIPLY", fres, _math(nt, "MULTIPLY_ADD", k_mirror, -0.3, 0.3)), skyem.inputs["Strength"])
+    nt.links.new(_math(nt, "MULTIPLY", fres, _math(nt, "MULTIPLY_ADD", k_rain, -0.12, 0.12)), skyem.inputs["Strength"])
     lit = nt.nodes.new("ShaderNodeAddShader")
     nt.links.new(mirror_mix.outputs[0], lit.inputs[0])
     nt.links.new(skyem.outputs[0], lit.inputs[1])
@@ -395,11 +411,13 @@ def collar_ring(points, width: float, *, n: int = 32, pad: float = 0.01):
     return verts, quads, np.r_[np.zeros(n), np.ones(n)]
 
 
-def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: float = 1.0, scale: float = 1.0):
+def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: float = 1.0, scale: float = 1.0,
+         reach: float = 0.3, ripples: float = 0.35):
     """Foam and ripples where water meets something standing in it (a `collar`'s band, its "out" attribute 0 at the
     thing, 1 at the band's edge): a broken lace of `color` thick against it and thinning out, churning, with a few
     ripple rings running out from it; more of it the harder it rains (RAIN, keyable like a surface's) and how much at
-    all by FOAM. Faded to the look's fog."""
+    all by FOAM. `reach`: how far out (of the band) it is thick in still water; `ripples` how strong the rings are (a
+    wake's are its life). Faded to the look's fog."""
     import bpy
 
     from . import toon
@@ -425,7 +443,7 @@ def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: 
     nt.links.new(_vmath(nt, "ADD", geo.outputs["Position"], _xyz(nt, 0.0, 0.0, _math(nt, "MULTIPLY", t, 0.6))),
                  churn.inputs["Vector"])
     # thick at the thing and thinning out, more of it in a downpour
-    reach = _math(nt, "MULTIPLY_ADD", k_rain, 0.35, 0.3)
+    reach = _math(nt, "MULTIPLY_ADD", k_rain, 0.35, reach)
     dense = _ramp(nt, out_, reach, 0.0)
     strands = _ramp(nt, lace.outputs["Distance"], 0.09, 0.02)
     edge = _ramp(nt, _math(nt, "ADD", churn.outputs["Fac"], _math(nt, "MULTIPLY", dense, 0.3)), 0.6, 0.78)
@@ -433,7 +451,8 @@ def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: 
     # ripples running out from it
     wave = _math(nt, "FRACT", _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", out_, 2.5), _math(nt, "MULTIPLY", t, 0.9)))
     ripple = _math(nt, "MULTIPLY", _ramp(nt, _math(nt, "ABSOLUTE", _math(nt, "SUBTRACT", wave, 0.5)), 0.07, 0.0),
-                   _math(nt, "MULTIPLY", _ramp(nt, out_, 1.0, 0.2), 0.55))
+                   _math(nt, "MULTIPLY", _ramp(nt, out_, 1.0, 0.2), ripples))
+    ripple = _math(nt, "MULTIPLY", ripple, _ramp(nt, churn.outputs["Fac"], 0.38, 0.6))     # broken, never a drawn ring
     alpha = _math(nt, "MULTIPLY", _math(nt, "MAXIMUM", lace_k, ripple), k_foam, clamp=True)
     alpha = _math(nt, "MULTIPLY", alpha, _ramp(nt, out_, 1.0, 0.75))           # never a hard outer edge
     sd = nt.nodes.new("ShaderNodeAttribute")
@@ -576,6 +595,30 @@ def wake(name: str, root, material, coll, z: float, *, length: float, **shape):
     cr.target = root
     cr.use_x = cr.use_y = False
     return ob
+
+
+def strike_rings(name: str, events, z: float, coll, *, color, look=None, fps: float = 24.0, radius: float = 1.2,
+                 life: float = 2.6, n: int = 24) -> list:
+    """Rings spreading out where something strikes still water (a pole going in, a drop off an oar): for each of
+    `events` [(x, y, frame), ...] a disc of `radius` on the water at `z` in its own `foam` (white churn at the middle,
+    rings running out), flaring at its frame and gone `life` s later. Returns the objects."""
+    from . import shapes
+
+    obs = []
+    a = np.linspace(0, 2 * math.pi, n, endpoint=False)
+    for k, (x, y, f) in enumerate(events):
+        verts = [(x, y, z + 0.003)] + [(x + radius * math.cos(t), y + radius * math.sin(t), z + 0.003) for t in a]
+        faces = [(0, 1 + i, 1 + (i + 1) % n) for i in range(n)]
+        mat = foam(f"{name}{k}", color, look=look, amount=0.0, reach=0.12, ripples=0.9)
+        key(mat, RAIN, [(f, 0.0)])
+        key(mat, FOAM, [(f - 1, 0.0), (f, 1.0), (f + round(0.4 * life * fps), 0.6), (f + round(life * fps), 0.0)])
+        ob = shapes.mesh_object(f"{name}{k}", verts, faces, mat, coll, smooth=False)
+        at = ob.data.attributes.new("out", "FLOAT", "POINT")
+        at.data.foreach_set("value", np.r_[0.0, np.ones(n)].astype(np.float32))
+        ob.visible_shadow = False
+        ob.lineart.usage = "EXCLUDE"
+        obs.append(ob)
+    return obs
 
 
 def puddle(name: str, material, coll, center, radius: float, z: float, *, seed: int = 1, n: int = 24,
