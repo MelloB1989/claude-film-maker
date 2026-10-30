@@ -594,11 +594,14 @@ def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float
         inside = np.zeros(len(pts), bool)
         inside[vs] = True
         before = _off_axis(pts[vs], a, b)
-        pts = relax_points(pts, edges[inside[edges[:, 0]] & inside[edges[:, 1]]], vs, iterations=relax)
+        # the cloth's edge where it joins the rest (a sleeve at the shoulder) stays put, so no seam opens
+        rim = np.unique(edges[inside[edges[:, 0]] != inside[edges[:, 1]]])
+        free = np.setdiff1d(vs, rim)
+        pts = relax_points(pts, edges[inside[edges[:, 0]] & inside[edges[:, 1]]], free, iterations=relax)
         # ironing a tube shrinks it: back out to its girth (each point off the limb's line by the same share)
         after = _off_axis(pts[vs], a, b)
         grow = np.median(np.linalg.norm(before, axis=1)) / max(np.median(np.linalg.norm(after, axis=1)), 1e-9)
-        pts[vs] += after * (grow - 1.0)
+        pts[free] += _off_axis(pts[free], a, b) * (grow - 1.0)
     _from_frame(ch, ob, pts, m)
 
 
