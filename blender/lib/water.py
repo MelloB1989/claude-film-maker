@@ -412,12 +412,12 @@ def collar_ring(points, width: float, *, n: int = 32, pad: float = 0.01):
 
 
 def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: float = 1.0, scale: float = 1.0,
-         reach: float = 0.3, ripples: float = 0.35, lace: float = 1.0, broken: bool = True):
+         reach: float = 0.3, ripples: float = 0.35, lacing: float = 1.0, broken: bool = True):
     """Foam and ripples where water meets something standing in it (a `collar`'s band, its "out" attribute 0 at the
     thing, 1 at the band's edge): a broken lace of `color` thick against it and thinning out, churning, with a few
     ripple rings running out from it; more of it the harder it rains (RAIN, keyable like a surface's) and how much at
     all by FOAM. `reach`: how far out (of the band) it is thick in still water; `ripples` how strong the rings are (a
-    wake's are its life), `lace` how much of the churned lace there is, `broken` whether the churn breaks the rings
+    wake's are its life), `lacing` how much of the churned lace there is, `broken` whether the churn breaks the rings
     up (a collar's, against the rain) or they run whole (a wake's, a struck surface's). Faded to the look's fog."""
     import bpy
 
@@ -449,7 +449,7 @@ def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: 
     strands = _ramp(nt, lace.outputs["Distance"], 0.09, 0.02)
     edge = _ramp(nt, _math(nt, "ADD", churn.outputs["Fac"], _math(nt, "MULTIPLY", dense, 0.3)), 0.6, 0.78)
     lace_k = _math(nt, "MULTIPLY", _math(nt, "MAXIMUM", _math(nt, "MULTIPLY", strands, dense),
-                                         _math(nt, "MULTIPLY", edge, dense)), lace)
+                                         _math(nt, "MULTIPLY", edge, dense)), lacing)
     # ripples running out from it
     wave = _math(nt, "FRACT", _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", out_, 2.5), _math(nt, "MULTIPLY", t, 0.9)))
     ripple = _math(nt, "MULTIPLY", _ramp(nt, _math(nt, "ABSOLUTE", _math(nt, "SUBTRACT", wave, 0.5)), 0.07, 0.0),
