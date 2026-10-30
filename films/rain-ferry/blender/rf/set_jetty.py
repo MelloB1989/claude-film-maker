@@ -26,8 +26,9 @@ HUT_MATERIALS = {"wall": "wall", "thatch": "thatch", "door": "door", "post": "hu
                  "thatch_edge": "thatch_edge", "ridge": "hut_ridge", "lattice": "lattice", "stone": "rock",
                  "dark": "hut_dark", "wood": "wood", "straw": "thatch_edge", "rope": "rope", "lath": "lattice",
                  "glass": "puddle"}
-LANTERN_LIGHT = ((1.0, 0.42, 0.18), 45.0, 0.12)   # its light's colour, power (W) and size: warm on the boards under it
-WINDOW_LIGHT = ((1.0, 0.6, 0.3), 30.0, 0.3)       # ... the lit windows' on the ground under them
+# the lantern's light: colour, power (W), size, specular: warm on the boards under it; the lit windows' on the ground
+LANTERN_LIGHT = ((1.0, 0.42, 0.18), 45.0, 0.12, 0.5)
+WINDOW_LIGHT = ((1.0, 0.6, 0.3), 14.0, 0.6, 0.0)
 BANK_PUDDLES = [(-7.4, 0.9, 0.55), (-8.6, -1.4, 0.4), (-5.9, 1.9, 0.3), (-8.0, 5.8, 0.6)]   # (x, y, radius)
 
 
@@ -77,7 +78,7 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
     # of each lit window onto the ground under it, unshadowed (cheap)
     from mathutils import Vector
 
-    for name, parent, at, aim, (color, energy, size) in (
+    for name, parent, at, aim, (color, energy, size, spec) in (
             [("lantern-light", lantern, (0.0, 0.0, -0.25), (0.0, 0.0, -1.0), LANTERN_LIGHT)]
             + [(f"hut-window-light{k}", None, p, (d[0], d[1], -0.9), WINDOW_LIGHT)
                for k, (p, d) in enumerate(hut["windows"])]):
@@ -86,6 +87,7 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
         lamp.spot_size, lamp.spot_blend = math.radians(130.0), 1.0
         lamp.use_custom_distance, lamp.cutoff_distance = True, 6.0
         lamp.use_shadow = False
+        lamp.specular_factor = spec                # no hot glints in the puddles: a warm wash, not a spotlight
         ob = bpy.data.objects.new(name, lamp)
         near_fx.objects.link(ob)
         ob.parent = parent
