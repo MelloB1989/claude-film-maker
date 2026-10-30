@@ -9,7 +9,7 @@ line art draws; `far`: the distance, left to the fog) and the pieces shots move 
 """
 from __future__ import annotations
 
-from lib import landscape, props, shapes, toon
+from lib import landscape, minka, props, shapes, toon
 
 WATER_Z = -0.45
 SPAN = (-6.5, 7.6)          # the jetty along x
@@ -30,6 +30,17 @@ COLORS = {
     "needles": ((0.04, 0.05, 0.047), (0.012, 0.015, 0.015)),
     "ridge": ((0.035, 0.04, 0.048), (0.035, 0.04, 0.048)),
 }
+# the hut (lib/minka.py): its frame darker than its boards, earthen plaster, the thatch's cut edge paler than
+# its slopes, the ridge's cedar bark, the lattice and rafters pale bamboo, the dark inside its gaps
+HUT_COLORS = {
+    "thatch": ((0.12, 0.1, 0.074), (0.03, 0.027, 0.024)),     # wet straw: dark, toward the slate
+    "hut_beam": ((0.045, 0.038, 0.032), (0.01, 0.009, 0.009)),
+    "plaster": ((0.2, 0.185, 0.155), (0.075, 0.07, 0.064)),
+    "thatch_edge": ((0.075, 0.062, 0.05), (0.02, 0.018, 0.017)),
+    "hut_ridge": ((0.05, 0.044, 0.04), (0.012, 0.011, 0.011)),
+    "lattice": ((0.15, 0.135, 0.1), (0.035, 0.032, 0.027)),
+    "hut_dark": ((0.012, 0.01, 0.009), (0.006, 0.005, 0.005)),
+}
 # the hut's lantern and doorway, the only warm light in the cold
 LANTERN = (0.95, 0.22, 0.07)
 DOOR = (0.55, 0.25, 0.09)
@@ -45,7 +56,7 @@ MIST = [(45, 18, 260), (100, 35, 420), (165, 55, 620), (250, 80, 900)]          
 def materials(look) -> dict:
     # the distance (ridges and pines) stands dark against a lightning sky
     m = {k: toon.cel(f"set-{k}", lit, shade, look=look, cut=0.38, flash=0.0 if k in ("ridge", "needles") else None)
-         for k, (lit, shade) in COLORS.items()}
+         for k, (lit, shade) in {**COLORS, **HUT_COLORS}.items()}
     m["lantern"] = toon.flat("set-lantern", LANTERN, look=look, strength=3.0)
     m["door"] = toon.flat("set-door-glow", DOOR, look=look, strength=0.45)
     # the ferry's lantern: a softer amber, a warm accent behind her close-up rather than a hot red one
@@ -61,12 +72,13 @@ def crossing(look, *, seed: int = 7) -> dict:
 
     props.pier(m, near, span=SPAN, half=HALF, water_z=WATER_Z, seed=seed)
     landscape.bank("bank", ground=m["mud"], grass=m["grass"], coll=near, edge=BANK_EDGE, water_z=WATER_Z, seed=seed)
-    hut = props.thatched_hut({"wall": m["wall"], "thatch": m["thatch"], "door": m["door"]}, near, HUT)
+    hut = minka.hut({"wall": m["wall"], "thatch": m["thatch"], "door": m["door"], "post": m["hut_beam"],
+                     "plaster": m["plaster"], "thatch_edge": m["thatch_edge"], "ridge": m["hut_ridge"],
+                     "lattice": m["lattice"], "dark": m["hut_dark"], "rope": m["rope"], "wood": m["post"],
+                     "glass": m["water"]}, near, HUT, seed=3)
     ex, ey, ez = hut["eave"]
-    lantern, _ = props.paper_lantern("lantern", m["lantern"], near, (ex, ey, ez - 0.45), cord=m["post"], cord_top=ez + 0.1)
-    # rounded: out of focus behind a close-up the lathe's facets read as an octagon
-    sub = lantern.modifiers.new("round", "SUBSURF")
-    sub.levels = sub.render_levels = 2
+    lantern, _ = minka.chochin("lantern", {"lantern": m["lantern"], "cap": m["hut_dark"], "rope": m["post"]}, near,
+                               (ex, ey, ez - 0.45), cord_top=ez + 0.1)
     boat = props.covered_boat({"hull": m["hull"], "post": m["post"], "thatch": m["thatch"]}, near, x0=3.1, y=2.25, water_z=WATER_Z)
     bx, by, bz = boat["bow"]
     # the ferry's own light: a small lantern hung from a bamboo pole standing on the boat's far side over its roof, a
