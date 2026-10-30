@@ -17,7 +17,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from lib import cinema  # noqa: E402
+from lib import cinema, vrm  # noqa: E402
 from rf import jetty_talk as jt  # noqa: E402
 
 SHOT = {"scene": "tap"}
@@ -89,7 +89,7 @@ def perform(st, lines, post):
         up = jt.ramp(t, *EYES_UP)
         # the pipe: from her fist toward the post, its bowl knocked on it; then down to rest by her knee
         bowl = jt.local(ch, bowl_path(t, post))
-        fist_knock = bowl + np.array((-0.03, 0.19, 0.08))   # the fist 21 cm back up the stem
+        fist_knock = bowl + np.array((-0.03, 0.13, 0.05))   # the fist 14 cm back up the stem
         along_knock = bowl - fist_knock
         lap, lap_along = jt.TS_PIPE_LAP
         fist = fist_knock * (1 - low) + np.asarray(lap) * low
@@ -97,7 +97,11 @@ def perform(st, lines, post):
         knock = sum(math.exp(-((t - a) / 0.05) ** 2) for a in TAPS)
         body = jt.tsuru_sit(t, turn=-14.0 * (1 - up) + 4.0 * up, down=10.0 * (1 - up) - 6.0 * up + 1.5 * knock,
                             eyes=(18.0 * (1 - up) - 2.0 * up, -6.0 * (1 - up)), lean=6.0 * (1 - low))
-        st.pose("tsuru", f, {**body, **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)}, hips=jt.tsuru_hips(st, t))
+        # the fist is close in by her shoulder at the post: start the elbow folded so the IK bends it out and down,
+        # not up behind her
+        fold = {"leftLowerArm": vrm.fold("leftLowerArm", 110.0 * (1 - low))}
+        st.pose("tsuru", f, {**body, **fold, **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)},
+                hips=jt.tsuru_hips(st, t))
         jt.hold_pipe(st, f, fist, along, arm="knock" if low < 0.5 else "lap")
         jt.knee_hand(st, f)
         smile = jt.ramp(t, *SMILE)
