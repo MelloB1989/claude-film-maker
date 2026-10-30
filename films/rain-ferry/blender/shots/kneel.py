@@ -36,10 +36,14 @@ TEETH = [(0.0, 0.0), (0.14, 0.045), (0.27, 0.006), (0.4, 0.062), (0.55, 0.012), 
 # opens as it comes over in an arc and closes round the hilt from LEFT_MEET; the stub carries a hair past where it
 # stops and settles
 ARC = 0.045                  # m the stub rises over its straight line at the lift's middle
+# the stub stays outside him on its way up: the blade swings up on his right, pointing forward and out (WAY_MID, his
+# frame) halfway, before it turns in before his face, and the hilt swings out to his right and forward (OUT)
+WAY_MID = (-0.45, -0.88, 0.15)
+OUT = (-0.07, -0.06, 0.0)
 TRAIL = 0.18                 # the share of the lift the blade's way lags the hilt
 LEFT_GO, LEFT_MEET, LEFT_SHUT = 0.3, 0.8, 0.94
 LEFT_ELBOW = (0.55, 0.05, 0.15)   # the left elbow's way mid-reach (his frame): down and out, never up over the hilt
-LEFT_ARC = 0.025             # m the left hand rises over its straight line
+LEFT_ARC = -0.03             # m the left hand dips under its straight line (it comes in under the stub)
 GIVE = (0.0, 0.03, -0.06)    # m the stub sinks (his frame) as his grip gives after the line
 ROLL = {"Little": 0.0, "Ring": 0.12, "Middle": 0.22, "Index": 0.32, "Thumb": 0.42}   # the squeeze's beats (shares)
 SQUEEZE = 0.14               # how far past the wrap the fingers drive as his grip tightens (rolling little to index)
@@ -138,9 +142,10 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
     # as his eyes lift after the line, the grip gives a little and the stub sinks toward his lap
     give = E.ease((t - EYES_UP[0]) / (EYES_UP[1] - EYES_UP[0] + 0.3))
     pommel = p0 + (p1 - p0) * e + np.array([0.0, 0.0, ARC * math.sin(math.pi * min(u, 1.0)) + shake * (u >= 1.0)]) \
-        + np.asarray(GIVE, float) * give
-    hilt = va.matrix(va.slerp(va.quat(va.swing_to((0, 0, 1), h0)), va.quat(va.swing_to((0, 0, 1), h1)), ed)) @ \
-        np.array([0.0, 0.0, 1.0])
+        + np.asarray(GIVE, float) * give + np.asarray(OUT, float) * math.sin(math.pi * u)
+    q0, qm, q1 = (va.quat(va.swing_to((0, 0, 1), h)) for h in (h0, np.asarray(WAY_MID, float), h1))
+    q = va.slerp(q0, qm, ed * 2.0) if ed < 0.5 else va.slerp(qm, q1, ed * 2.0 - 1.0)
+    hilt = va.matrix(q) @ np.array([0.0, 0.0, 1.0])
     hands, wrapped = clash.shinza_sword(ch, tuple(pommel), tuple(hilt))
     right = {k: v for k, v in wrapped.items() if k.startswith("right")}
     left_wrap = {k: v for k, v in wrapped.items() if k.startswith("left")}
