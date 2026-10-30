@@ -120,6 +120,8 @@ uv run film-temptrack --film my-film --mix       # a score, the beat grid and th
 `--transition <from>-<to>`), `video` (H.264, or `--prores`; `--samples auto` for adaptive motion blur; `--scale 2` for
 4K) and `perf`. `tools/` `film-deliver` renders long films in resumable segments and encodes the named outputs.
 Hero shots can be rendered in Blender as plates the engine composites: [docs/PIPELINE-BLENDER.md](docs/PIPELINE-BLENDER.md).
+Flat 2D-cartoon drawings (inked flat colour, dot-eyed people, the look of illustrated explainers) are built in Blender by
+`blender/draw.py` and played as `src: 'frames/<name>'` with the engine's camera moves on top (`films/lighthouse-keeper`).
 Photos for a film's assets, posters, thumbnails and social cuts are graded headless in named looks with ArtCraft's
 LightCraft + PhotoCraft (`python -m filmtools.artcraft.photo`), and the edit opens in FilmCraft / EffectCraft:
 [docs/ARTCRAFT.md](docs/ARTCRAFT.md).

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { cropRect, entryState, kenBurns, layoutBox } from './frame';
-import { clipFrame, framePath, isVideo, mediaName } from './paths';
+import { clipFrame, framePath, framesName, isFrames, isVideo, mediaName } from './paths';
 import { deviceLayout, scrollAt } from './device';
 
 test('layoutBox: cover fills the box, contain takes the picture\'s aspect', () => {
@@ -80,6 +80,14 @@ test('media paths: clips by extension, names without assets/ and extension', () 
   expect(mediaName('assets/clip.mp4')).toBe('clip');
   expect(mediaName('./assets/demos/run 1.webm')).toBe('demos__run 1');
   expect(framePath('clip', 7)).toBe('media/clip/0007.jpg');
+  expect(framePath('lamp', 12, 'png')).toBe('media/lamp/0012.png');
+});
+
+test('frames/ src: a rendered sequence by name, never a file', () => {
+  expect(isFrames('frames/lamp')).toBe(true);
+  expect(framesName('frames/lamp')).toBe('lamp');
+  for (const s of ['frames/lamp.png', 'frames/a/b', 'frames/', 'assets/frames/x', 'frames/x.mp4']) expect(isFrames(s)).toBe(false);
+  expect(isVideo('frames/lamp')).toBe(false);
 });
 
 test('deviceLayout: inside the frame in every format; the screen inside the body', () => {

@@ -7,7 +7,8 @@
   setup     a clean render scene; lights, materials, rig: studio lighting, themed materials, the engine's camera
   export    plates, proxies, look stills, tracks; blank, handlers, scan: the guards around a render
   thread, bead, braid, weave   hero motifs: threads and ropes, an engraved glass bead, a plait, a loom
+  toon, hand  flat 2D-cartoon drawings (blender/draw.py): flat colour, Line Art ink, people; a posable hand
 
-film, theme, timing, cli, blank, handlers, scan, rig and the motifs' geometry are bpy-free (blender/tests runs them
+film, theme, timing, cli, blank, handlers, scan, rig, hand and the motifs' geometry are bpy-free (blender/tests runs them
 under plain pytest); the rest runs in Blender.
 """

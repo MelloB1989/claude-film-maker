@@ -1,4 +1,7 @@
 // What a media block draws: an image, or a clip's frames. openSource(src) opens either.
+// - 'frames/<name>' opens a rendered sequence from out/<film>/media/<name>/meta.json (no clip in assets/); meta.json's
+//   optional "ext" ("png" for lossless line art; default "jpg") names the frame files, and count 1 is a still. A
+//   missing meta.json fails an export, naming the path; the player warns and draws nothing.
 // - An image (png, jpg, webp, svg) decodes once at init.
 // - A clip plays from its extracted frames (paths.ts: scripts/media.ts writes them to out/<film>/media/<name>/), loaded
 //   through prepare(t) into a small LRU, as plates are (plates.ts): export awaits them, so every frame is exact, and
@@ -6,7 +9,7 @@
 //   an HTMLVideoElement seeked to the clip time, best effort; an export fails naming the command that extracts them.
 import { FPS, filmUrl, outUrl } from '../../engine/config';
 import { LRU } from '../../engine/plates';
-import { clipFrame, framePath, isVideo, mediaName } from './paths';
+import { clipFrame, framePath, framesName, isFrames, isVideo, mediaName } from './paths';
 
 /** A drawable frame and its size in px. */
 export interface Picture { el: CanvasImageSource; width: number; height: number }
@@ -55,7 +58,7 @@ class ImageSource implements MediaSource {
   }
 }
 
-interface Meta { fps: number; count: number; width: number; height: number }
+interface Meta { fps: number; count: number; width: number; height: number; ext?: string }
 
 class FrameSource implements MediaSource {
   private cache = new LRU<number, HTMLImageElement>(pageHas('export') ? 4 : 12, (img) => { img.src = ''; });
@@ -97,7 +100,7 @@ class FrameSource implements MediaSource {
     if (have) return Promise.resolve(have);
     let p = this.pending.get(i);
     if (!p) {
-      const url = outUrl(framePath(this.name, i));
+      const url = outUrl(framePath(this.name, i, this.meta.ext));
       p = loadImage(url).then(
         (img) => {
           this.pending.delete(i);
@@ -145,8 +148,17 @@ class VideoElementSource implements MediaSource {
   }
 }
 
-/** Open a block's `src` (a path in the film's folder, or a URL): an image, or a clip's frames. */
+/** Open a block's `src` (a path in the film's folder, a URL, or 'frames/<name>'): an image, or a clip's frames. */
 export async function openSource(src: string, o: ClipOpts): Promise<MediaSource> {
+  if (isFrames(src)) {
+    const name = framesName(src);
+    const metaUrl = outUrl(`media/${name}/meta.json`);
+    const meta: Meta | null = await fetch(metaUrl).then((r) => (r.ok ? r.json() : null), () => null);
+    if (meta && meta.count > 0) return new FrameSource(name, meta, o);
+    if (pageHas('export')) throw new Error(`shot ${o.id}: frames ${src} has no ${metaUrl} (render the sequence into out/<film>/media/${name}/ with a meta.json)`);
+    console.warn(`shot ${o.id}: frames ${src} has no ${metaUrl}; drawing nothing`);
+    return new ImageSource(null);
+  }
   if (!isVideo(src)) {
     try {
       return new ImageSource(await loadImage(filmUrl(src)));

@@ -20,7 +20,7 @@ the tools record (`data/music_plan.json`) are relative to the film folder. Scene
 ElevenLabs (voice, music, sound effects, forced alignment) is the only paid service. The key comes from
 `$ELEVENLABS_API_KEY`, else from the key file (`pipeline.voice.key_file`, default `~/11labs`); it is never written
 anywhere. Credits spent are logged to `audio/credits.log`. Only `film-vo`, `film-realign`, `film-music` and
-`film-sfx-lib` call the API; `film-temptrack` makes a score without it.
+`film-sfx-lib` call the API; `film-temptrack` makes a score and `film-ambience` the effects without it.
 
 ## The tools
 
@@ -40,6 +40,7 @@ anywhere. Credits spent are logged to `audio/credits.log`. Only `film-vo`, `film
 | `film-vo-chain` | `audio/vo/vo.wav`, `data/vo.json`, `pipeline.voice.chain` | `audio/vo/vo-chain.wav`, `out/<id>/review/vo-chain.json` |
 | `film-sfx-lib probe \| plan \| gen --budget N \| sheet \| backup \| reprocess` | the palette (`pipeline.sfx.palette`) | `audio/sfx/lib/`, `audio/sfx/manifest.json`, `out/<id>/review/sfx/` |
 | `film-sfx [--sheet F] [--out F]` | `data/sfx.json` (`cd app && bun scripts/cues.ts --film <id>`), the manifest | `audio/sfx/sfx.wav` |
+| `film-ambience [--sheet F] [--out F]` | `data/ambience.json`, scene windows | `audio/sfx/sfx.wav` (synthesised beds and one-shots; no API) |
 | `film-mix [--music F] [--no-automation] [--no-sfx] [--no-vo]` | `vo-chain.wav`, the chosen score, `sfx.wav`, `data/audio.json`, `pipeline.mix` | `audio/mix/{mix,vo,music,sfx}.wav`, `out/<id>/review/mix.{json,png}` |
 | `film-sync [--words]` | `data/vo.json`, `data/audio.json`, scene windows, `audio/vo/vo.wav`, paced takes | a report; exit 1 on a problem not waived in `data/sync_waivers.json` |
 | `film-facts [--scenes DIR]` | `films/<id>/scenes/**/*.strings.json`, `data/facts.json`, vo, script, timeline | a report; exit 1 on a string not on the sheet |
@@ -79,9 +80,18 @@ mastered `audio/mix/mix.wav`; `film-mix --no-vo` mixes the score with effects.
 
 `film-temptrack` is a procedural temp score, numpy-synthesised and deterministic for a seed: `pulse` (four-on-the-floor
 kick, claps, hats, a ducking sub, a saw pad on a minor progression, risers out of quiet sections) or `cinematic`
-(sparse low hits on downbeats, ticks, a sub drone, the pad, risers landing on section downbeats). Sections are
+(sparse low hits on downbeats, ticks, a sub drone, the pad, risers landing on section downbeats) or `gentle` (for
+narrated films: no drums or risers, a soft felt-piano arpeggio, a slow pad and a piano bass note per downbeat, each
+section an arc from sparse intro to a thinning outro; 76 BPM when the film gives none). Sections are
 `--phrase` bars; the length is the film's (`data/timeline.json`, else `data/vo.json`) unless `--bars` or `--duration`
 say otherwise. The grid it writes is exact, and `film-beats` keeps it (through splices too) instead of tracking it.
+
+`film-ambience` is the free alternative to `film-sfx-lib` + `film-sfx`: numpy-synthesised, deterministic for a seed,
+writing the same `audio/sfx/sfx.wav` that `film-mix` takes as the effects stem (`film-ambience → film-mix`).
+`data/ambience.json` is `{"seed": 1, "beds": [{"sound": "sea", "start": 0, "end": 40, "gain_db": -18, "fade": 1.5,
+"intensity": 0.5}], "hits": [{"sound": "thunder", "at": 8.0, "gain_db": -12, "duration": 5}]}`; a bed or hit may name
+`"scene": "<id>"` (a bed also `"until"`, a hit also `"offset"`) instead of times. Beds: `sea waves_storm wind rain
+room_tone fire_crackle`; hits: `thunder wave_crash match_strike pen_scratch footsteps gull bell door boat_creak cup knock`.
 
 ## `pipeline` in film.json
 

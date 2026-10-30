@@ -78,6 +78,8 @@ Full reference: [kit/bg-media.md](kit/bg-media.md).
 | `Stack` | several blocks layered in one shot; layers above the first default to a transparent background | `layers: [{ scene, params, blend, opacity, start, end, fade }]` |
 | `Image` | a picture, framed, with a Ken Burns move and an entry | `src`, `fit`, `from`/`to`, `radius`, `shadow`, `entry` |
 | `Video` | a clip, frame-exact (`bun scripts/media.ts --film <id>` extracts its frames) | `src`, `clipStart`, `rate`, `loop`, and Image's framing |
+
+Image and Video also take `src: 'frames/<name>'`: an image sequence rendered straight into `out/<id>/media/<name>/` (Blender, say) with a `meta.json` `{ fps, count, width, height }`, plus `"ext": "png"` for lossless frames (default `jpg`). `count: 1` is a still.
 | `Device` | a screenshot or clip in a browser window or a phone | `device` (`browser` `phone`), `src`, `url`, `scroll`, `rim` |
 
 ## Transitions, looks and beat effects: `@kit/fx`

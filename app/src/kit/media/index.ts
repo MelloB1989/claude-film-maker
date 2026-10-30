@@ -5,4 +5,4 @@ export { Video } from './video';
 export { Device, deviceLayout, scrollAt, type DeviceKind } from './device';
 export { Framed, cropRect, entryState, kenBurns, layoutBox, type Box, type Entry, type Fit, type KB } from './frame';
 export { openSource, type MediaSource, type Picture } from './source';
-export { clipFrame, framePath, isVideo, mediaName } from './paths';
+export { clipFrame, framePath, framesName, isFrames, isVideo, mediaName } from './paths';

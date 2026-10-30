@@ -1,12 +1,15 @@
 """film-temptrack: a procedural temp score, so a film can be cut to a beat with no paid audio.
 
 The score is synthesised from scratch (numpy; the loudness meter is the voice chain's BS.1770 one) on an exact grid:
-beat k sits at offset + k · 60/bpm, and every bar has --beats-per-bar beats. Two styles:
+beat k sits at offset + k · 60/bpm, and every bar has --beats-per-bar beats. Three styles:
 
 - pulse: four-on-the-floor kick, claps on the off beats, closed and open hats, a sub bass that ducks under the kick,
   a band-limited saw pad on a minor progression, and a noise riser into each section after a quiet one;
 - cinematic: sparse low hits on downbeats, ticks, a sustained sub drone, the pad, and risers that land on the
-  downbeat of each new section.
+  downbeat of each new section;
+- gentle: for narrated films, no drums and no risers: a soft felt piano arpeggiating a minor progression, a warm slow
+  pad and a low piano bass note on each downbeat; each section is an arc (sparse intro, fuller middle, an outro that
+  thins out and lets the last chord ring). Its default tempo is 76 BPM.
 
 Sections are --phrase bars long (default 8) and arranged by style (intro, groove or build, break or peak, outro).
 Every voice is band-limited, every hit starts and ends on a short fade, the master fades in over 5 ms and out over
@@ -33,7 +36,8 @@ from . import cli, config, timeline
 from .vochain import loudness
 from .wav import SR, write_wav
 
-STYLES = ("pulse", "cinematic")
+STYLES = ("pulse", "cinematic", "gentle")
+DEFAULT_BPM = {"pulse": 120.0, "cinematic": 120.0, "gentle": 76.0}  # when neither the command nor the film gives one
 FPS = 100  # the analysis frame rate, as film-beats writes it
 CEILING_DBFS = -1.5  # the limiter's sample-peak ceiling: true peaks stay under −1 dBFS
 MAX_LIMIT_DB = 6.0  # more gain reduction than this and the score is left quieter than the target instead
@@ -41,6 +45,8 @@ MAX_LIMIT_DB = 6.0  # more gain reduction than this and the score is left quiete
 # minor-key progressions, in semitones over the root; each degree's triad quality
 PROGRESSIONS = [(0, 8, 3, 10), (0, 5, 8, 7), (0, 10, 8, 10), (0, 3, 10, 5), (0, 8, 5, 7)]
 QUALITY = {0: (0, 3, 7), 3: (0, 4, 7), 5: (0, 3, 7), 7: (0, 4, 7), 8: (0, 4, 7), 10: (0, 4, 7)}
+GENTLE_PROGRESSIONS = [(0, 8, 3, 10), (0, 5, 8, 7)]  # i–VI–III–VII, i–iv–VI–V
+ARPEGGIO = (0, 1, 2, 3, 2, 1, 2, 1)  # the eighth-note pattern over a bar's four voices (three triad tones and the octave)
 ROOTS = (45, 46, 47, 48, 49, 50, 52)  # A2 … E3: the bass a few octaves below, the pad above
 
 
@@ -109,6 +115,8 @@ def arrangement(n: int, style: str) -> list[str]:
         if n >= 6:
             kinds[-1] = "outro"
         return kinds
+    if style == "gentle":
+        return ["middle"] if n == 1 else ["intro"] + ["middle"] * (n - 2) + ["outro"]
     if n == 1:
         return ["build"]
     outro = n >= 5
@@ -223,6 +231,25 @@ def riser(sr: int, rng, seconds: float) -> np.ndarray:
     return 0.7 * out / np.abs(out).max()
 
 
+def felt_piano(sr: int, midi: int) -> np.ndarray:
+    """One soft felt-piano note, mono, peak 1: up to 14 slightly inharmonic partials (each a pair of strings a hair
+    apart), a 7 ms attack, an exponential decay that is longer for low notes and quicker for the upper partials,
+    and a gentle low-pass. It rings for at most 6 s and ends on a fade."""
+    f = midi_hz(midi)
+    tau = float(np.clip(1.8 * (261.6 / f) ** 0.5, 0.7, 4.0))
+    n = int(min(6.0, 4 * tau) * sr)
+    t = np.arange(n) / sr
+    x = np.zeros(n)
+    for k in range(1, int(min(14, 8000 / f)) + 1):
+        fk = k * f * math.sqrt(1 + 0.0005 * k * k)
+        amp = k ** -1.3 * (0.6 if k == 1 and f < 120 else 1.0)
+        string = sum(np.sin(2 * np.pi * fk * (1 + d) * t + 1.7 * k) for d in (-0.0006, 0.0006)) / 2
+        x += amp * string * np.exp(-t * (1 + 0.45 * (k - 1)) / tau)
+    x *= 0.5 - 0.5 * np.cos(np.pi * np.minimum(1.0, t / 0.007))
+    x = _fft_band(x, sr, 0, 3500, soft=0.5)
+    return _fade(x / np.abs(x).max(), sr, 0.0005, 0.3)
+
+
 def wavetable(harmonics: int = 24, size: int = 4096) -> np.ndarray:
     """One cycle of a mellow band-limited saw: harmonics up to `harmonics`, rolled off above the eighth."""
     ph = np.arange(size) / size
@@ -246,6 +273,21 @@ def _smooth(x: np.ndarray, sr: int, seconds: float) -> np.ndarray:
     w = max(1, int(seconds * sr))
     c = np.concatenate([[0.0], np.cumsum(np.pad(x, (w // 2, w - w // 2 - 1), mode="edge"))])
     return (c[w:] - c[:-w]) / w
+
+
+def pad_chord(sr: int, tones: list[float], seconds: float, table: np.ndarray, release: float = 1.5) -> np.ndarray:
+    """A warm pad chord, stereo: each tone a detuned pair of mellow saws per side under a low-pass, a 1 s swell in and
+    a `release` s fade out after `seconds`."""
+    n = int((seconds + release) * sr)
+    out = np.zeros((n, 2))
+    for v, m in enumerate(tones):
+        for ch, det in enumerate((1.0035, 0.9965)):
+            out[:, ch] += osc(np.full(n, midi_hz(m) * det), sr, table, phase0=0.21 * v + 0.43 * ch)
+    out = _fft_band(out.T, sr, 0, 1400, soft=1.0).T
+    t = np.arange(n) / sr
+    env = np.sin(np.pi / 2 * np.minimum(1.0, t / 1.0)) ** 2
+    env *= np.where(t > seconds, 0.5 + 0.5 * np.cos(np.pi * np.clip((t - seconds) / release, 0, 1)), 1.0)
+    return out * env[:, None] / len(tones)
 
 
 # ---------------------------------------------------------------- the score
@@ -276,6 +318,59 @@ def _place(bus: np.ndarray, x: np.ndarray, t: float, sr: int, gain: float = 1.0,
         bus[i:i + len(x)] += gain * x
 
 
+def _gentle(grid: Grid, rng, secs: list[dict], sr: int) -> tuple[dict, dict, list]:
+    """The gentle style: a felt-piano arpeggio, a slow pad and a piano bass on the downbeats, one chord a bar. Every
+    section is an arc: sparse and quiet (intro), fuller with the pad (middle), thinning out (outro); the last bar plays
+    a slow broken chord and rings out. No drums, so the kick/snare/hat onsets stay empty."""
+    n = int(round(grid.duration * sr))
+    root = int(rng.choice(ROOTS))
+    prog = GENTLE_PROGRESSIONS[int(rng.integers(len(GENTLE_PROGRESSIONS)))]
+    st = {k: np.zeros((n, 2)) for k in ("kick", "clap", "hat", "boom", "tick", "sub", "pad", "riser", "piano")}
+    on: dict[str, list[list[float]]] = {"kick": [], "snare": [], "hat": [], "vocal": []}
+    notes: dict[int, np.ndarray] = {}
+    note = lambda m: notes.setdefault(m, felt_piano(sr, m))  # noqa: E731
+    table = wavetable()
+    slots = grid.bpb * 2
+    for sec in secs:
+        kind, nbars = sec["kind"], sec["bar1"] - sec["bar0"]
+        for bi in range(sec["bar0"], sec["bar1"]):
+            u = (bi - sec["bar0"]) / max(1, nbars - 1)  # 0 → 1 across the section
+            last = bi == grid.bars - 1
+            t0 = grid.bar_start(bi)
+            deg = prog[bi % len(prog)]
+            tones = [root + 12 + deg + d for d in QUALITY[deg]]
+            voicing = tones + [tones[0] + 12]
+            m = note(root - 12 + deg)  # the bass, on the downbeat, exactly on the grid
+            _place(st["sub"], m, t0, sr, (0.5 if kind == "intro" else 0.62) * (0.92 + 0.08 * rng.random()), -0.1)
+            if kind == "middle" or (kind == "outro" and u < 0.6) or last:
+                bar_end = grid.bar_start(bi + 1) if bi + 1 < grid.bars else grid.duration
+                chord = pad_chord(sr, tones, bar_end - t0 + 0.4, table)
+                _place(st["pad"], chord, t0, sr, 0.5 if kind == "middle" else 0.4)
+            for s in range(slots):
+                if last:
+                    play, vel = s in (0, 2, 4), 0.42
+                elif kind == "intro":
+                    play, vel = s % 2 == 0 and rng.random() < 0.55, 0.38
+                elif kind == "outro":
+                    play, vel = (s % 2 == 0 or u < 0.3) and rng.random() < 0.8 - 0.55 * u, 0.5 - 0.15 * u
+                else:
+                    play, vel = rng.random() < 0.93, 0.5
+                jitter, wob = rng.normal(0, 0.006), rng.normal(0, 0.12)  # always drawn: the seed fixes the rest
+                if not play:
+                    continue
+                if s % 2 == 0:
+                    vel += 0.1 if s == 0 else 0.04
+                idx = ARPEGGIO[s % len(ARPEGGIO)] if kind != "intro" and not last else (0, 2, 1, 3)[s // 2 % 4]
+                midi = voicing[idx]
+                t = max(0.0, t0 + s * grid.period / 2 + float(np.clip(jitter, -0.015, 0.015)))
+                if t >= grid.duration:
+                    continue
+                pan = float(np.clip((midi - 66) / 24, -0.5, 0.5) + 0.05 * wob)
+                _place(st["piano"], note(midi), t, sr, vel * float(np.clip(1 + wob, 0.7, 1.3)), pan)
+    st["pad"] *= 1.3
+    return st, on, secs
+
+
 def synthesize(grid: Grid, style: str = "pulse", seed: int = 1, phrase: int = 8, sr: int = SR) -> tuple[dict, dict, list]:
     """The stems ({name: (n, 2)}), the onsets they hold and the sections, before mixing."""
     if style not in STYLES:
@@ -283,6 +378,8 @@ def synthesize(grid: Grid, style: str = "pulse", seed: int = 1, phrase: int = 8,
     rng = np.random.default_rng(seed)
     n = int(round(grid.duration * sr))
     secs = sections(grid, style, phrase)
+    if style == "gentle":
+        return _gentle(grid, rng, secs, sr)
     root = int(rng.choice(ROOTS))
     prog = PROGRESSIONS[int(rng.integers(len(PROGRESSIONS)))]
     names = ("kick", "clap", "hat", "boom", "tick", "sub", "pad", "riser")
@@ -385,7 +482,7 @@ def synthesize(grid: Grid, style: str = "pulse", seed: int = 1, phrase: int = 8,
 
 
 GAINS_DB = {"kick": -1.0, "clap": -6.0, "hat": -11.0, "boom": 0.0, "tick": -9.0, "sub": -5.0, "pad": -11.0,
-            "riser": -10.0}
+            "riser": -10.0, "piano": -4.0}
 
 
 def _compress(x: np.ndarray, sr: int, thresh_db: float = -20.0, ratio: float = 2.0, max_db: float = 4.0,
@@ -489,7 +586,7 @@ def analysis(score: Score, sr: int = SR) -> dict:
     g = score.grid
     n = int(math.ceil(g.duration * FPS - 1e-9))
     st = score.stems
-    env = lambda *names: _norm(_frames_rms(sum(st[k] for k in names), n, sr))  # noqa: E731
+    env = lambda *names: _norm(_frames_rms(sum(st[k] for k in names if k in st), n, sr))  # noqa: E731
     r3 = lambda a: [round(float(v), 3) for v in a]  # noqa: E731
     r6 = lambda a: [round(float(v), 6) for v in a]  # noqa: E731
     low = env("kick", "boom", "sub")
@@ -499,10 +596,10 @@ def analysis(score: Score, sr: int = SR) -> dict:
         "sections": [{"name": s["name"], "start": round(s["start"], 6), "end": round(s["end"], 6)}
                      for s in score.sections],
         "fps": FPS,
-        "rms": r3(_norm(_frames_rms(score.audio, n, sr))), "low": r3(low), "mid": r3(env("clap", "pad")),
+        "rms": r3(_norm(_frames_rms(score.audio, n, sr))), "low": r3(low), "mid": r3(env("clap", "pad", "piano")),
         "high": r3(env("hat", "tick", "riser")), "vocal": [0.0] * n,
         "drums": r3(env("kick", "clap", "hat", "boom", "tick")), "bass": r3(env("sub", "boom")),
-        "other": r3(env("pad", "riser")),
+        "other": r3(env("pad", "riser", "piano")),
         "onsets": {k: [list(o) for o in v] for k, v in score.onsets.items()},
         "grid_error_ms": 0.0, "grid_fit": 1.0,
     }
@@ -539,7 +636,7 @@ def write(score: Score, out: Path, film: config.Film, args: dict, choose: bool =
 
 def main(argv=None):
     ap = cli.parser("A procedural temp score on an exact beat grid, with data/audio.json to cut to")
-    ap.add_argument("--bpm", type=float, help="tempo (default: pipeline.music.bpm, else audio.bpm, else 120)")
+    ap.add_argument("--bpm", type=float, help="tempo (default: pipeline.music.bpm, else audio.bpm, else 120; 76 for gentle)")
     length = ap.add_mutually_exclusive_group()
     length.add_argument("--bars", type=int, help="how many bars (default: the film's length, else 16)")
     length.add_argument("--duration", type=float, help="seconds, kept exactly (default: the film's length)")
@@ -554,7 +651,8 @@ def main(argv=None):
     a = cli.parse(ap, argv)
     film = config.load()
     temp = film.music["temp"]
-    bpm = a.bpm or film.bpm or 120.0
+    style = a.style or temp["style"]
+    bpm = a.bpm or film.bpm or DEFAULT_BPM[style]
     bpb = a.beats_per_bar or film.beats_per_bar
     offset = a.offset if a.offset is not None else float(film.audio.get("offset", 0.0))
     duration = a.duration
@@ -563,7 +661,7 @@ def main(argv=None):
         if windows:
             duration = windows["duration"]
     grid = make_grid(bpm, bpb, a.bars if a.bars is not None else (None if duration else 16), duration, offset)
-    style, seed = a.style or temp["style"], a.seed if a.seed is not None else int(temp["seed"])
+    seed = a.seed if a.seed is not None else int(temp["seed"])
     phrase = a.phrase or int(temp["phrase"])
     score = render(grid, style, seed, phrase, float(film.mix["lufs"]))
     out = a.out or film.paths.audio / "music" / "temp.wav"

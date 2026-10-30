@@ -7,6 +7,10 @@
 // (a frame missing fails it). Without extracted frames the player falls back to a <video> element (best effort) and
 // an export fails, naming the command.
 //
+// A rendered sequence needs no clip: src 'frames/<name>' plays out/<id>/media/<name>/ from its meta.json (Image takes the
+// same src; Image's own defaults then apply). meta.json may add "ext": "png" (lossless; default "jpg"); count 1 is a still.
+// A missing meta.json fails an export, naming the path; the player warns and draws nothing.
+//
 // Params: every Image param (src 'assets/clip.mp4', fit, from/to (default no push for a clip), radius, shadow,
 // border, entry, drift...), and
 //   clipStart 0       the clip's time (s) at the shot's start

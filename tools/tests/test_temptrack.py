@@ -45,7 +45,12 @@ def test_one_seed_one_score(style):
     assert not np.array_equal(a.audio, tt.render(g, style, seed=10, phrase=2).audio)
 
 
-@pytest.mark.parametrize("name", ["pulse", "cinematic"])
+@pytest.fixture(scope="module")
+def gentle():
+    return tt.render(tt.make_grid(76, 4, bars=8), "gentle", seed=5, phrase=4)
+
+
+@pytest.mark.parametrize("name", ["pulse", "cinematic", "gentle"])
 def test_peak_safe_stereo_at_the_films_length_and_about_the_target(name, request):
     s = request.getfixturevalue(name)
     assert s.audio.dtype == np.float32 and s.audio.shape == (int(round(s.grid.duration * SR)), 2)
@@ -155,3 +160,37 @@ def test_film_beats_keeps_a_temp_tracks_grid_through_a_splice(film):
     beats.main([])
     cut = json.loads((film.data / "audio.json").read_text())
     assert cut["beats"] == exact["beats"]  # whole bars moved on the grid: the edit keeps it
+
+
+def test_gentle_has_no_drums_and_little_low_energy_on_the_beats(gentle, pulse):
+    def kick_band_on_beats(s, bpm):
+        x = s.audio.mean(axis=1).astype(np.float64)
+        w, tot = int(0.08 * SR), 0.0
+        for b in s.grid.beats:
+            seg = x[int(b * SR):int(b * SR) + w]
+            spec = np.abs(np.fft.rfft(seg * np.hanning(len(seg)))) ** 2
+            f = np.fft.rfftfreq(len(seg), 1 / SR)
+            tot += spec[(f >= 40) & (f <= 100)].sum() / spec.sum()
+        return tot / len(s.grid.beats)
+    assert kick_band_on_beats(gentle, 76) < 0.5 * kick_band_on_beats(pulse, 120)
+    assert gentle.onsets == {"kick": [], "snare": [], "hat": [], "vocal": []}
+    assert not any(gentle.stems[k].any() for k in ("kick", "clap", "hat", "boom", "tick", "riser"))
+    a = tt.analysis(gentle)
+    assert set(a) == BEATS_KEYS and max(a["drums"]) == 0.0
+    assert [s["name"] for s in a["sections"]] == ["intro", "outro"]
+
+
+def test_gentle_sections_are_an_arc():
+    kinds = lambda bars: [s["kind"] for s in tt.sections(tt.make_grid(76, 4, bars=bars), "gentle", 4)]  # noqa: E731
+    assert kinds(4) == ["middle"] and kinds(8) == ["intro", "outro"] and kinds(16) == ["intro", "middle", "middle", "outro"]
+
+
+def test_gentle_is_accepted_by_config_and_the_cli(film):
+    film.config.write_text(json.dumps({"id": "demo", "pipeline": {"music": {"temp": {"style": "gentle"}}}}))
+    tt.main(["--bars", "2", "--seed", "3"])  # the style from the film, the tempo from the style's default
+    side = json.loads((film.audio / "music" / "temp.plan.json").read_text())
+    assert side["temptrack"]["style"] == "gentle" and side["temptrack"]["bpm"] == 76.0
+    a = json.loads((film.data / "audio.json").read_text())
+    assert a["bpm"] == 76 and a["beats"][:3] == [0.0, round(60 / 76, 6), round(120 / 76, 6)]
+    tt.main(["--style", "gentle", "--bars", "2", "--bpm", "90"])  # an explicit tempo is exact
+    assert json.loads((film.data / "audio.json").read_text())["bpm"] == 90

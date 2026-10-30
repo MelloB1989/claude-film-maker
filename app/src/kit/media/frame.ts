@@ -80,7 +80,7 @@ export function roundRect(c: CanvasRenderingContext2D, x: number, y: number, w: 
 /**
  * The media blocks' base: a Scene2D that opens its `src` (an image, or a clip's frames: source.ts) and draws it framed.
  * Params every media block reads (sizes in reference px of a 1080 px short side, positions as fractions of the frame):
- *   src               the picture: a path in the film's folder ('assets/shot.png'), or a clip ('assets/clip.mp4')
+ *   src               the picture: a path in the film's folder ('assets/shot.png'), a clip ('assets/clip.mp4'), or a rendered sequence ('frames/<name>', source.ts)
  *   x 0.5, y 0.5      the picture's centre
  *   w, h              its box (fractions of W, H; Image: 1, 1 full frame)
  *   fit 'cover'       'cover' (fills the box, cropped) | 'contain' (the box takes the picture's aspect)
@@ -150,6 +150,7 @@ export abstract class Framed extends Scene2D {
     }
     if (img) {
       const r = crop(img.width, img.height);
+      c.imageSmoothingEnabled = true; // (a render larger than the box, e.g. 4K line art in a 1080p frame, downscales without aliasing)
       c.imageSmoothingQuality = 'high';
       c.drawImage(img.el, r.sx, r.sy, r.sw, r.sh, box.x, box.y, box.w, box.h);
     }

@@ -221,3 +221,44 @@ them. To prove the pipeline end to end on a machine with Blender, render the smo
 blender -b -P blender/render.py -- --film <id> --shot blender/examples/shots/smoke_cube.py --mode preview
 blender -b -P blender/render.py -- --film <id> --shot blender/examples/shots/smoke_cube.py --scan
 ```
+
+## Toon drawings (`blender/draw.py`)
+
+A second way to use Blender: flat 2D-cartoon **drawings** (the look of illustrated explainers) built from simple 3D
+shapes, rendered as PNG frames the engine plays as an image (`src: 'frames/<name>'`, docs/KIT.md) with its own camera
+moves on top. `blender/lib/toon.py` is the kit:
+
+- every surface a flat colour (an emission shader through the Standard view, so a hex renders as that hex);
+- ink by Line Art, per inked group: a heavier outer line on contours, a lighter inner line on creases, material edges
+  and intersections; resampled, smoothed, tapered at the ends and given a faint wobble that never boils; each group's
+  radius set from its distance to the camera and the lens, so lines keep one weight on screen;
+- `face` marks (eyes, brows, mouths, seams) are already ink and never outlined; `plain` shapes (skies, glows, beams,
+  rain) are never outlined; `occluder` shapes (a sea plane) hide every group's ink and draw none;
+- shapes: `blob` (spheres and superellipsoids, reshaped per vertex), `card` (flat cut-outs), `cyl`, `box`, `torus`,
+  `line` and `mark_on` (ink strokes, laid on a surface), booleans, projection onto surfaces;
+- `Person`: a dot-eyed cartoon person (jawed head, hair, beard, moustache, cap, collar, buttons, pockets, sleeved arms
+  on shoulder, elbow and wrist pivots ending in open cuffs, optional legs) with expressions, blinks, eye glances, head
+  turns and arm and leg poses keyed at frames;
+- `Hand` (`blender/lib/hand.py` is its bpy-free geometry): a posable cartoon hand, a coarse quad cage of palm, four
+  fingers and a thumb under a subdivision surface, so Line Art draws it in one clean line. Poses are joint angles
+  (`rest flat open cup point fist grip wrap hook pinch pen table`, or your own dict, which may start from one); a pinch
+  is solved so the thumb meets the index tip, and every pose keeps the thumb clear of the fingers. `detail: "mitten"`
+  fuses the fingers for a hand small on screen (a pointing index stays apart). A Person's hands switch pose at frames
+  (`hand(side, pose, frame)`); `arm(..., palm=, fingers=)` turns the hand; `reach(side, target, palm, fingers, at=)`
+  solves the elbow so a hand's grip, pinch, fingertip or palm (or any point of something it holds) lands on a target;
+  `hold(side, obj, at=)` puts a prop in the grip. Stand-alone hands (a close-up of a hand writing) use
+  `Hand(...)` with `Person.hand_frame(side, palm, fingers)` to turn it.
+
+```sh
+blender -b --factory-startup -P blender/draw.py -- [--film <id>] --shot <name> [--frames all|a-b,c] [--res WxH] [--taa N] [--out DIR] [--save-blend]
+```
+
+A drawing is `films/<id>/blender/draw/<name>.py`: `DRAW = {"scene", "fps", "pad", "res", "taa", "duration"}` and
+`build(ctx)`. `fps` 0 is a still (rendered at 2× the logical frame, room for a push); 12 is motion on twos; 6 snap
+acting. Its length is the scene's window (`data/timeline.json`, else `data/vo.json`) plus `pad`. It writes
+`out/<id>/media/<name>/####.png` and `meta.json` (`ext: "png"`). The film's style is `films/<id>/data/look/toon.json`:
+`colors` by name, `ink` (`px` the outer line's width on a 1920 px frame, `inner`, `taper`, `smooth`, `wobble`,
+`wobble_scale`, `sample`, `chain`: Line Art joins stroke ends closer than this fraction of the frame; ~0.004 keeps
+the lines on curved shapes like hands from breaking into tapered dashes) and the `cast` (Person specs). `TOON_NO_INK=1` renders the flat colour alone; `--out DIR`
+writes drafts elsewhere, leaving the film's frames alone. Software GL
+works (EEVEE through Mesa llvmpipe): a still takes ~10 s, a sequence frame ~5–25 s depending on load.
