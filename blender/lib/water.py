@@ -433,7 +433,8 @@ def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: 
     # ripples running out from it
     wave = _math(nt, "FRACT", _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", out_, 2.5), _math(nt, "MULTIPLY", t, 0.9)))
     ripple = _math(nt, "MULTIPLY", _ramp(nt, _math(nt, "ABSOLUTE", _math(nt, "SUBTRACT", wave, 0.5)), 0.07, 0.0),
-                   _math(nt, "MULTIPLY", _ramp(nt, out_, 1.0, 0.2), 0.55))
+                   _math(nt, "MULTIPLY", _ramp(nt, out_, 1.0, 0.2), 0.35))
+    ripple = _math(nt, "MULTIPLY", ripple, _ramp(nt, churn.outputs["Fac"], 0.38, 0.6))     # broken, never a drawn ring
     alpha = _math(nt, "MULTIPLY", _math(nt, "MAXIMUM", lace_k, ripple), k_foam, clamp=True)
     alpha = _math(nt, "MULTIPLY", alpha, _ramp(nt, out_, 1.0, 0.75))           # never a hard outer edge
     sd = nt.nodes.new("ShaderNodeAttribute")
