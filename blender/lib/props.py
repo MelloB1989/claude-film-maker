@@ -1,6 +1,6 @@
-"""Period props from code for anime shots (feudal Japan, rural): a wooden pier plank by plank (a whole thatched hut
-and its chochin are lib/minka.py's), a covered ferry boat, a paper lantern, a straw rain cape, a katana (whole or broken) and
-its scabbard, a straw kasa hat, a kiseru pipe, a bamboo ferry pole (one that hides a blade).
+"""Period props from code for anime shots (feudal Japan, rural): a wooden pier plank by plank, a covered ferry boat,
+a paper lantern, a straw rain cape, a katana (whole or broken) and its scabbard, a straw kasa hat, a kiseru pipe, a
+bamboo ferry pole (one that hides a blade). (A whole thatched hut and its chochin are lib/minka.py's.)
 Each takes its materials by part (toon materials, so the line art draws their boards, posts and straw) and its size and
 place, and returns its objects.
 
