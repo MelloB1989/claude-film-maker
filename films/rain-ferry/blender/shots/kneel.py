@@ -42,6 +42,7 @@ WAY_MID = (-0.45, -0.88, 0.15)
 OUT = (-0.07, -0.06, 0.0)
 TRAIL = 0.18                 # the share of the lift the blade's way lags the hilt
 LEFT_GO, LEFT_MEET, LEFT_SHUT = 0.3, 0.8, 0.94
+TUCK = (0.35, 0.25, 0.7)     # his left elbow's way once he gathers himself before the lift (nearer his side than the fall's)
 LEFT_ELBOW = (0.55, 0.05, 0.15)   # the left elbow's way mid-reach (his frame): down and out, never up over the hilt
 LEFT_ARC = -0.03             # m the left hand dips under its straight line (it comes in under the stub)
 GIVE = (0.0, 0.03, -0.06)    # m the stub sinks (his frame) as his grip gives after the line
@@ -152,10 +153,11 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
     thigh = fall.KNEEL_LEFT
     k = min(1.0, max(0.0, (u - LEFT_GO) / (LEFT_MEET - LEFT_GO)))
     if k <= 0.0:
-        hands["left"] = ("reach", *thigh)
-        # loose on his thigh as the fall left it, the fingers easing into a curl as he gathers himself
-        left = _mix({kk: v for kk, v in fingers0.items() if kk.startswith("left")}, vrm.hand_pose("left", "loose"),
-                    E.ease((ur + 0.35) / 0.35))
+        # loose on his thigh as the fall left it; as he gathers himself the fingers curl and the elbow comes in
+        gather = E.ease((ur + 0.35) / 0.35)
+        hands["left"] = ("reach", thigh[0], tuple(np.add(thigh[1], np.subtract(TUCK, thigh[1]) * gather)), thigh[2])
+        left = _mix({kk: v for kk, v in fingers0.items() if kk.startswith("left")}, vrm.hand_pose("left", "loose", 1.2),
+                    gather)
     elif k < 1.0:
         # the wrist on its way from his thigh to where the grasp will put it, in an arc, the hand turning over
         _, point, along, palm, pole = hands["left"]
@@ -167,11 +169,11 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
         at[2] += LEFT_ARC * math.sin(math.pi * k)
         rot = va.matrix(va.slerp(va.quat(va.turn_matrix(thigh[2])), va.quat(turn), ke))
         mid = np.asarray(LEFT_ELBOW, float)
-        elbow = (np.asarray(thigh[1], float) + (mid - thigh[1]) * E.ease(k * 2.0) if k < 0.5
+        elbow = (np.asarray(TUCK, float) + (mid - np.asarray(TUCK, float)) * E.ease(k * 2.0) if k < 0.5
                  else mid + (np.asarray(pole, float) - mid) * E.ease(k * 2.0 - 1.0))
         hands["left"] = ("reach", tuple(at), tuple(elbow), rot)
         # the fingers opening as the hand comes over, to close round the hilt as it lands
-        left = _mix(vrm.hand_pose("left", "loose"), vrm.hand_pose("left", "open"), min(1.0, k * 2.0))
+        left = _mix(vrm.hand_pose("left", "loose", 1.2), vrm.hand_pose("left", "open"), min(1.0, k * 2.0))
     if k >= 1.0:
         s = min(1.0, max(0.0, (u - LEFT_MEET) / (LEFT_SHUT - LEFT_MEET)))
         left = _mix(vrm.hand_pose("left", "open"), left_wrap, E.ease(s))
