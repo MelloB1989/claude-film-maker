@@ -103,7 +103,8 @@ def hip_gable_roof(X: float, Y: float, ze: float, zt: float, *, gable: float = 0
 
 
 def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, peak: float = 1.5, facing: float = 0.0,
-        door=(-0.45, 0.78, 1.72), windows=WINDOWS, ground=None, porch: float = 0.55, clutter: bool = True, prefix: str = "hut",
+        door=(-0.45, 0.78, 1.72), windows=WINDOWS, ground=None, porch: float = 0.55, clutter: bool = True,
+        prefix: str = "hut",
         seed: int = 5) -> dict:
     """A thatched riverside hut with its floor at `center`, `size` (along x, along y, the walls' height), its door on
     the +x side (turned by `facing`): a post-and-beam frame on footing stones (on short stilts where `ground`, a
@@ -386,12 +387,13 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
                 r = rng.uniform(0.055, 0.07)
                 x = fx0 + (fx1 - fx0) * (k + 0.5 + 0.5 * (row % 2)) / 7.5
                 z = 0.12 + row * 0.12
-                P.cyl("wood", (x + rng.uniform(-0.02, 0.02), -hd - 0.06, z), (x, -hd - 0.46 + rng.uniform(-0.03, 0.03), z),
-                      r, n=6)
+                P.cyl("wood", (x + rng.uniform(-0.02, 0.02), -hd - 0.06, z),
+                      (x, -hd - 0.46 + rng.uniform(-0.03, 0.03), z), r, n=6)
         # the rain barrel by the porch's far end, under the eave's corner, brimming
         bx, by = hw - 0.25, hd + 0.42
         gb = max(local_ground(bx, by), -0.6)
-        prof = [(0.0, 0.0), (0.24, 0.0), (0.27, 0.25), (0.25, 0.52), (0.235, 0.52), (0.255, 0.25), (0.22, 0.04), (0.0, 0.04)]
+        prof = [(0.0, 0.0), (0.24, 0.0), (0.27, 0.25), (0.25, 0.52), (0.235, 0.52), (0.255, 0.25), (0.22, 0.04),
+                (0.0, 0.04)]
         ring = 12
         vs = [(r * math.cos(math.tau * j / ring) + bx, r * math.sin(math.tau * j / ring) + by, z + gb)
               for r, z in prof for j in range(ring)]
