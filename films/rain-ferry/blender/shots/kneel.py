@@ -40,6 +40,7 @@ TRAIL = 0.18                 # the share of the lift the blade's way lags the hi
 LEFT_GO, LEFT_MEET, LEFT_SHUT = 0.2, 0.68, 0.88
 LEFT_ARC = 0.025             # m the left hand rises over its straight line
 GIVE = (0.0, 0.03, -0.06)    # m the stub sinks (his frame) as his grip gives after the line
+ROLL = {"Little": 0.0, "Ring": 0.12, "Middle": 0.22, "Index": 0.32, "Thumb": 0.42}   # the squeeze's beats (shares)
 SQUEEZE = 0.14               # how far past the wrap the fingers drive as his grip tightens (rolling little to index)
 GLINT = (91.75, 92.05, 0.045)  # film s: the glint on the break flaring and fading; its size (m)
 
@@ -125,7 +126,7 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
     import numpy as np
 
     from lib import vrm, vrm_anim as va
-    from rf import approach, clash
+    from rf import clash
     from rf import ending as E
 
     ur, u = u, min(1.0, max(0.0, u))
@@ -147,7 +148,7 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
     if k <= 0.0:
         hands["left"] = ("reach", *thigh)
         # loose on his thigh as the fall left it, the fingers easing into a curl as he gathers himself
-        left = _mix({kk: v for kk, v in fingers0.items() if kk.startswith("left")}, approach.hand("left", 0.3),
+        left = _mix({kk: v for kk, v in fingers0.items() if kk.startswith("left")}, vrm.hand_pose("left", "loose"),
                     E.ease((ur + 0.35) / 0.35))
     elif k < 1.0:
         # the wrist on its way from his thigh to where the grasp will put it, in an arc, the hand turning over
@@ -161,16 +162,16 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
         rot = va.matrix(va.slerp(va.quat(va.turn_matrix(thigh[2])), va.quat(turn), ke))
         hands["left"] = ("reach", tuple(at), tuple(np.asarray(thigh[1]) + (np.asarray(pole) - thigh[1]) * ke), rot)
         # the fingers opening as the hand comes over, to close round the hilt as it lands
-        left = _mix(vrm.grip_pose("left", 0.35, 0.3), approach.hand("left", -0.3), min(1.0, k * 2.0))
+        left = _mix(vrm.hand_pose("left", "loose"), vrm.hand_pose("left", "open"), min(1.0, k * 2.0))
     if k >= 1.0:
         s = min(1.0, max(0.0, (u - LEFT_MEET) / (LEFT_SHUT - LEFT_MEET)))
-        left = _mix(approach.hand("left", -0.3), left_wrap, E.ease(s))
+        left = _mix(vrm.hand_pose("left", "open"), left_wrap, E.ease(s))
     # the grip tightening: each finger driving past the wrap and easing back, from the little finger to the index
     g = (t - GRIP[0]) / (GRIP[1] - GRIP[0])
     out = {}
     for name, v in {**right, **left}.items():
-        f = next((f for f in approach.ROLL if f in name), "Thumb")
-        x = g * 1.4 - approach.ROLL[f]
+        f = next((f for f in ROLL if f in name), "Thumb")
+        x = g * 1.4 - ROLL[f]
         over = SQUEEZE * math.sin(math.pi * min(1.0, max(0.0, x))) + SQUEEZE * 0.3 * (x >= 1.0) - SQUEEZE * 0.8 * give
         m = va.turn_matrix(v)
         out[name] = va.matrix(va.slerp(np.array([1.0, 0, 0, 0]), va.quat(m), 1.0 + over)) if over else m

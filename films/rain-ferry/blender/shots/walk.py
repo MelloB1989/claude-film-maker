@@ -22,12 +22,7 @@ AIM_Z = 1.15                   # the camera aims at his chest, trailing him a li
 FOLLOW = 0.35                  # s: how far behind him the aim lags
 FIRST_STEP = 0.2               # s into the shot his first footfall lands (the steps' sound at 12.7 s)
 FIST = (1.6, 0.6)              # s into the shot: his right hand closes on "I want to be strong" (from, over)
-# the arms as he walks (lib/vrm.py's turns): in by his sides, the elbows soft, the wrists eased in; the swing a heavy
-# walk's, a little more than vrm_anim's (his arms are free); as the fist closes the forearm lifts and the wrist cocks
-ARMS = {"leftUpperArm": (0.0, 78.0, 4.0), "rightUpperArm": (0.0, -78.0, -4.0),
-        "leftLowerArm": (0.0, 0.0, -26.0), "rightLowerArm": (0.0, 0.0, 26.0),
-        "leftHand": (6.0, 0.0, -8.0), "rightHand": (-6.0, 0.0, 8.0)}
-SWING = dict(arm=13.0, elbow=14.0)
+# as the fist closes on the line the forearm lifts and the wrist cocks (lib/vrm.py's turns)
 FIST_ARM = {"rightLowerArm": (0.0, 0.0, 34.0), "rightHand": (-6.0, 0.0, 20.0)}
 HEAD_UP = (4.5, 0.9, -9.0)     # ... and his head comes up at its end (from, over, degrees down to up)
 # the air between the lens and him: thick in the mist at the far end of the path, thinning as he comes
@@ -78,22 +73,24 @@ def build(ctx):
 
     p = va.Performance(ch, fps=ctx.fps, seed=1)
     t1 = ctx.time(ctx.f1)
-    # his arms soft at the elbows, the hands easy (curled, never flat); a heavy walk's swing, the hands trailing it
-    carriage = {**va.STAND, **approach.LEAN, **ARMS, **approach.hand("left"), **approach.hand("right")}
-    w = approach.walk_through(p, set_approach.path_xy(240), side="right", at=p1, t=t1, before=7.0, after=2.0,
-                              ground=set_valley.ground, pose=carriage, gait=va.GAITS["heavy"].but(**SWING))
-    approach.drag(p, w["layer"])
+    # his arms and hands at ease as lib/vrm_anim.py stands and walks them (va.STAND: soft elbows, relaxed hands; the
+    # hands trailing the swing, its follow-through)
+    carriage = {**va.STAND, **approach.LEAN}
+    approach.walk_through(p, set_approach.path_xy(240), side="right", at=p1, t=t1, before=7.0, after=2.0,
+                          ground=set_valley.ground, pose=carriage)
 
     def at_s(u):
         return ctx.f0 + u * ctx.fps
 
-    # "I want to be strong.": the right hand rolls shut into a fist, the forearm coming up a little with it and the
-    # wrist cocking as it squeezes, then held
-    approach.fist(p, "right", at_s(FIST[0]), FIST[1] * ctx.fps)
-    p.pose(at_s(FIST[0]), {k: ARMS[k] for k in ("rightLowerArm", "rightHand")}, full=False)
+    # "I want to be strong.": the right hand rolls shut into a fist (little finger first), the forearm coming up a
+    # little with it and the wrist cocking as it squeezes, then held
+    rest = {k: va.STAND[k] for k in ("rightLowerArm", "rightHand")}
+    p.hand(at_s(FIST[0]), "right", "relaxed", spread=0.0)
+    p.hand(at_s(FIST[0] + FIST[1]), "right", "fist", ease="overshoot", spread=FIST[1] * 0.6)
+    p.pose(at_s(FIST[0]), rest, full=False)
     p.pose(at_s(FIST[0] + FIST[1] * 0.7), FIST_ARM, full=False, ease="out")
     p.pose(at_s(FIST[0] + FIST[1] * 1.6), {"rightLowerArm": FIST_ARM["rightLowerArm"],
-                                            "rightHand": ARMS["rightHand"]}, full=False)
+                                            "rightHand": rest["rightHand"]}, full=False)
     lean = {k: approach.LEAN[k] for k in ("neck", "head")}
     p.pose(at_s(HEAD_UP[0]), lean, full=False)
     p.pose(at_s(HEAD_UP[0] + HEAD_UP[1]), {"neck": (lean["neck"][0] + HEAD_UP[2] * 0.4, 0.0, 0.0),

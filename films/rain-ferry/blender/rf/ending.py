@@ -285,7 +285,10 @@ def fallen(built, *, turns: dict | None = None, stub=None):
     fall = shot_module("fall")
     ch = built["vrm"]
     if stub is None:
-        hands, fingers = clash.arms(ch, fall.KNEEL_STUB, fall.KNEEL_LEFT)
+        # the fall's elbows where it gives them (fall.KNEEL_ELBOWS), so the cut from it does not jump
+        poles = getattr(fall, "KNEEL_ELBOWS", None)
+        hands, fingers = (clash.arms(ch, fall.KNEEL_STUB, fall.KNEEL_LEFT, poles=poles) if poles is not None
+                          else clash.arms(ch, fall.KNEEL_STUB, fall.KNEEL_LEFT))
     else:
         hands, fingers = clash.arms(ch, {"pommel": stub[0], "hilt": stub[1]})
     (x, y), yaw = clash.FALL["kneel"], clash.END["shinza"][1]

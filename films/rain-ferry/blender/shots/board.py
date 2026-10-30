@@ -54,7 +54,7 @@ def build(ctx):
     actors = None
 
     if os.environ.get("RF_S7_CAST", "vroid") != "none":
-        from lib import vrm, vrm_rig
+        from lib import vrm
         from rf import vroid_tsuru as T
 
         actors = E.cast(st, {"tsuru": dict(pole="hand")})
@@ -65,12 +65,11 @@ def build(ctx):
         ts["root"].location = (0.0, 0.0, 0.0)
         ts["root"].rotation_euler = (0.0, 0.0, math.radians(FACING))
         ch = ts["vrm"]
-        fingers = vrm_rig.wrap(ch, "right", 0.022)      # closed round the pole (props.ferry_pole's radius)
-        vrm.grasp(ch, "right", (*T.POLE, T.GRIP_Z[False]), (0.0, 0.0, 1.0), PALM, pole=(-0.5, 0.4, 0.6),
-                  bend=T.ELBOWS["right"])
+        # closed round the pole (its radius), knuckles forward
+        fingers = vrm.grasp(ch, "right", (*T.POLE, T.GRIP_Z[False]), (0.0, 0.0, 1.0), PALM, pole=(-0.5, 0.4, 0.6),
+                            bend=T.ELBOWS["right"], radius=T.POLE_R)
 
         from lib import vrm_anim as va
-        from rf import approach
 
         k0, p0, _ = vrm.hand_rest(ch, "left")
         palm_up = vrm.align(k0, p0, LEFT_KNUCKLES, LEFT_PALM)
@@ -91,7 +90,9 @@ def build(ctx):
                                                          max(0.0, min(1.0, kw)))))
             E.key_handles(ts, f, keys=("leftHand-target", "leftHand-pole", "leftHand-hold"))
             close = E.ease((t - c0) / (c1 - c0)) * (1.0 - E.ease((t - d0) / (d1 - d0)))
-            left = approach.hand("left", 0.1 + (-0.35 - 0.1) * max(0.0, min(1.0, kw)) + 0.6 * close)
+            opened = vrm.hand_blend("left", "relaxed", "open", max(0.0, min(1.0, kw)))
+            loose = vrm.hand_pose("left", "loose")
+            left = {n: tuple(x + (y - x) * close for x, y in zip(v, loose[n])) for n, v in opened.items()}
             pose = dict(T.TS_POSE, **fingers, **left)
             sx, sy, sz = pose["upperChest"]
             pose["upperChest"] = (sx - up * 0.25 + 0.8 * breath, sy, sz)

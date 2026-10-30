@@ -83,7 +83,7 @@ def build(ctx):
         from lib import vrm_rig
 
         # both hands closed round the pole (props.ferry_pole's radius): the right high, the left low, pushing
-        fingers = {**vrm_rig.wrap(ch, "right", 0.022), **vrm_rig.wrap(ch, "left", 0.022)}
+        fingers = {**vrm_rig.grip(ch, "right", T.POLE_R), **vrm_rig.grip(ch, "left", T.POLE_R)}
         for f in range(ctx.f0 - 1, ctx.f1 + 2, 2):    # keyed every other frame, eased between (the build's cost)
             t = (f - ctx.f0) / ctx.fps
             u = (t / P["period"]) % 1.0
