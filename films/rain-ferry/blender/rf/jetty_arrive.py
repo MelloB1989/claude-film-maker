@@ -66,14 +66,14 @@ def breath(st, emit, source, *, push: float = 0.3, seed: int = 8, width=(0.008, 
 
 # Shinza walking: leaning into his stride under the kasa, his head down; stopped: upright, his chin up to her
 # his arms not a mannequin's either way: the elbows soft, the upper arms in by his sides, the hands relaxed (a heavy
-# man's loose half-curled fingers, the right a little more closed: it is his sword hand)
+# man's loose half-curled fingers; the shape's amount scales its fan too, so no more than this)
 # (the upper arms turned in 20 degrees so the palms face his thighs, not forward as the sheet's RELAXED leaves them,
 # and the hands bent in off the forearms' line and back off the soft elbow's forward tilt, so they hang straight down
 # by the thighs instead of flaring forward: measured on the cast, palm (-0.98, 0.19, 0), pointing (-0.01, -0.08, -1))
 ARMS = {"leftUpperArm": (20.0, 78.0, 10.0), "rightUpperArm": (20.0, -78.0, -10.0),
         "leftLowerArm": (0.0, 0.0, -20.0), "rightLowerArm": (0.0, 0.0, 20.0),
         "leftHand": (0.0, 18.0, 15.0), "rightHand": (0.0, -18.0, -15.0),
-        **jt.relaxed("left", 1.15), **jt.relaxed("right", 1.35)}
+        **jt.relaxed("left", 1.15), **jt.relaxed("right", 1.15)}
 WALK_POSE = {"spine": (5.0, 0.0, 0.0), "chest": (2.0, 0.0, 0.0), "neck": (4.0, 0.0, 0.0), "head": (6.0, 0.0, 0.0),
              **ARMS}
 STOP_POSE = {"spine": (0.0, 0.0, 0.0), "chest": (-2.0, 0.0, 0.0), "neck": (2.0, 0.0, 0.0), "head": (2.0, 0.0, 0.0),
