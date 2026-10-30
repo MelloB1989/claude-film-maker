@@ -269,7 +269,7 @@ def fist(p, side: str, t0: float, over: float, *, to: float = 1.0, start: float 
             p.pose(fr, {n: pose[n] for n in names}, full=False, ease=e)
 
 
-def drag(p, walk, *, lag: float = 0.11, gain: float = 1.3, fingers: float = 0.5):
+def drag(p, walk, *, lag: float = 0.11, gain: float = 1.3, fingers: float = 0.3):
     """A layer on Performance `p` laying wrist drag and finger follow-through over the arm swing of `walk` (a walk's
     layer, walk_through's "layer"): each hand trails its forearm by `lag` seconds (turned back against the swing by
     `gain` of how far the arm has gone in that time), the fingers trailing again behind it and opening a touch on the

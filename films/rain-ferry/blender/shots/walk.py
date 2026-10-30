@@ -24,8 +24,8 @@ FIRST_STEP = 0.2               # s into the shot his first footfall lands (the s
 FIST = (1.6, 0.6)              # s into the shot: his right hand closes on "I want to be strong" (from, over)
 # the arms as he walks (lib/vrm.py's turns): in by his sides, the elbows soft, the wrists eased in; the swing a heavy
 # walk's, a little more than vrm_anim's (his arms are free); as the fist closes the forearm lifts and the wrist cocks
-ARMS = {"leftUpperArm": (0.0, 76.0, 4.0), "rightUpperArm": (0.0, -76.0, -4.0),
-        "leftLowerArm": (0.0, 0.0, -22.0), "rightLowerArm": (0.0, 0.0, 22.0),
+ARMS = {"leftUpperArm": (0.0, 78.0, 4.0), "rightUpperArm": (0.0, -78.0, -4.0),
+        "leftLowerArm": (0.0, 0.0, -26.0), "rightLowerArm": (0.0, 0.0, 26.0),
         "leftHand": (6.0, 0.0, -8.0), "rightHand": (-6.0, 0.0, 8.0)}
 SWING = dict(arm=13.0, elbow=14.0)
 FIST_ARM = {"rightLowerArm": (0.0, 0.0, 34.0), "rightHand": (-6.0, 0.0, 20.0)}
