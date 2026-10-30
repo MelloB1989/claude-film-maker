@@ -226,7 +226,8 @@ def push_off(world: dict, ctx, *, t0: float, t1: float, path=None) -> None:
 
     w = world["weather"]
     # (paler than the water's own light, which after the rain is the gold sky's)
-    foam = water.foam("set-wake", tuple(min(1.0, 0.5 * c + 0.55) for c in w.sky), look=world["look"], amount=0.0)
+    foam = water.foam("set-wake", tuple(min(1.0, 0.5 * c + 0.55) for c in w.sky), look=world["look"], amount=0.0,
+                      reach=0.55, ripples=0.8)
     water.key(foam, water.RAIN, [(ctx.f0, 0.0)])
     water.wake("ferry-wake", root, foam, world["near"], sets.WATER_Z, length=set_jetty.BOAT["length"])
     path = path or CROSS_PATH
