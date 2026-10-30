@@ -305,9 +305,11 @@ SH_STAND = {"hips": (0.0, 0.0, 6.0), "spine": (6.0, 0.0, -3.0), "chest": (4.0, 0
 SH_STAND_FEET = {"right": ((-0.13, -0.42, 0.095), (-0.15, -1.2, 0.5), (0.0, 0.0, -8.0)),
                  "left": ((0.14, 0.38, 0.13), (0.3, -0.8, 0.5), (20.0, 0.0, 20.0))}
 SH_STAND_HIPS = (0.0, -0.03, -0.1)
-FOLLOW = dict(pommel=(0.03, -0.3, 1.1), hilt=(0.04, -0.95, 0.28))
-LOW = dict(pommel=(-0.2, -0.16, 0.86), hilt=(0.06, -0.55, -0.83))
-LEFT_LOOSE = ((0.22, -0.06, 0.78), (0.6, 0.4, 0.9), (0.0, 10.0, 0.0))
+# (every fist within about 0.45 m of its shoulder: VRoid's arms are 0.47 m to the wrist, and a target past that locks
+# the elbow straight, a mannequin's arm)
+FOLLOW = dict(pommel=(0.0, -0.2, 1.12), hilt=(0.04, -0.95, 0.28))
+LOW = dict(pommel=(-0.21, -0.05, 1.1), hilt=(0.06, -0.55, -0.83))
+LEFT_LOOSE = ((0.2, -0.06, 0.99), (0.6, 0.4, 0.9), (0.0, 10.0, 0.0))
 
 
 def arms(ch, hilt: dict, left=None) -> tuple[dict, dict]:
@@ -323,9 +325,10 @@ def arms(ch, hilt: dict, left=None) -> tuple[dict, dict]:
     return hands, fingers
 
 
-def standing(actor, *, low: bool) -> tuple[Pose, dict]:
-    """Shinza where the pass leaves him (END), in his follow-through or (`low`) his arms come down: (Pose, fingers)."""
-    hands, fingers = arms(actor["vrm"], LOW if low else FOLLOW, LEFT_LOOSE if low else None)
+def standing(actor, *, low: bool, hilt: dict | None = None) -> tuple[Pose, dict]:
+    """Shinza where the pass leaves him (END), in his follow-through or (`low`) his arms come down: (Pose, fingers).
+    `hilt` (pommel, hilt) puts his hands elsewhere on the way between (both on it unless `low`)."""
+    hands, fingers = arms(actor["vrm"], hilt or (LOW if low else FOLLOW), LEFT_LOOSE if low else None)
     (x, y), yaw = END["shinza"]
     return Pose(at=(x, y), yaw=yaw, hips=SH_STAND_HIPS, turns=SH_STAND, hands=hands, feet=SH_STAND_FEET), fingers
 

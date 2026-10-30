@@ -25,13 +25,22 @@ LENS, FSTOP = 24.0, 2.8
 JOLT, STEP = 1.2, 0.5          # the camera's jolt on a stride (degrees), the strides' beat (s)
 FIRST_STEP = 0.25               # s: the first stride lands (data/mix.json step_puddle at 73.35)
 # his frame: front -y, left +x, up z (rf/vroid_shinza.py; lib/vrm.py's turns): where the hilt is
-SWORDS = [(0.0, (-0.13, -0.08, 1.4), (0.12, 0.42, 0.9)),         # raised over his right shoulder, as the freeze holds it
-          (0.3, (0.04, -0.12, 1.58), (0.05, 0.35, 0.94)),         # up over his head (jodan)
-          (SWING[0], (0.04, -0.12, 1.58), (0.05, 0.35, 0.94)),
-          (SWING[1], (0.04, -0.02, 1.62), (0.05, 0.8, 0.6)),      # thrown back
-          (SWING[2], (0.03, -0.32, 1.45), (0.0, -0.45, 0.89))]    # coming over
+# where the hilt is: its pommel, its way (pommel to blade), the elbows' poles, how it arrives (lib/vrm_anim.py EASES).
+# The arms stay bent through it all (VRoid's arms are 0.47 m: a fist much past 0.4 m from its shoulder locks the
+# elbow straight), the elbows out to the sides; the sword goes up and back over his head in an arc and comes over in
+# one, the wrists cocking with the hilt
+OUT, HIGH, DOWN = ((0.55, -0.1, 1.45), (-0.55, -0.1, 1.45)), ((0.5, -0.3, 1.75), (-0.5, -0.3, 1.75)), \
+    ((0.42, 0.0, 1.1), (-0.42, 0.0, 1.1))
+SWORDS = [(0.0, (-0.14, -0.26, 1.36), (0.1, 0.38, 0.92), OUT, "out"),      # hasso over his right shoulder (the freeze's)
+          (0.3, (0.02, -0.23, 1.66), (0.03, 0.55, 0.83), OUT, "overshoot"),  # up over his head (jodan), a fist off it
+          (SWING[0], (0.02, -0.22, 1.67), (0.03, 0.55, 0.83), OUT, "inout"),
+          (1.66, (0.02, -0.16, 1.77), (0.03, 0.85, 0.53), HIGH, "in"),      # winding up: up and back ...
+          (SWING[1], (0.0, -0.07, 1.82), (0.0, 0.86, -0.5), HIGH, "out"),   # ... thrown back, the blade down his back
+          (1.9, (0.02, -0.22, 1.76), (0.0, 0.2, 0.98), HIGH, "in"),         # coming over, upright ...
+          (SWING[2], (0.03, -0.3, 1.47), (0.0, -0.45, 0.89), DOWN, "linear")]   # ... and on down at her, arms out
+# the fists ride a beat behind his strides (each landing sinks them, m)
+BOB, BOB_LAG = 0.025, 0.1
 TS_LEFT = ((-0.23, -0.22, 1.13), (0.55, -0.2, 0.9))     # her left hand on the pole (shots/freeze.py TS_LEFT)
-POLES = {"left": (0.6, 0.3, 1.2), "right": (-0.6, 0.2, 1.2)}
 REAR = {"spine": (2.0, 0.0, 0.0), "chest": (-6.0, 0.0, 0.0)}      # the trunk rearing back as the sword goes up
 DRIVE = {"spine": (22.0, 0.0, 0.0), "chest": (12.0, 0.0, 0.0)}    # ... and driving over
 CRY = {"angry": 0.9, "aa": 1.0}
@@ -71,10 +80,16 @@ def build(ctx):
     p.root(fr(0.0), (START, 0.0, 0.0), yaw=0.0)
     p.walk([(START, 0.0), (END_X + 4.0, 0.0)], fr(0.0), gait=va.GAITS["charge"].but(**GAIT), lead="left",
            swing=(0.0, 0.0))
-    for t, pommel, hilt in SWORDS:
-        hands, _ = clash.shinza_sword(ch, pommel, hilt, poles=POLES)
+    keys = list(SWORDS)
+    # between the jodan and the wind-up the fists sink a little after each stride lands and lift between
+    for k, tc in enumerate(np.arange(FIRST_STEP + BOB_LAG, SWING[0], STEP / 2)):
+        if tc > SWORDS[1][0]:
+            _, pommel, hilt, poles, _ = SWORDS[1]
+            keys.append((tc, np.add(pommel, (0.0, 0.0, -BOB if k % 2 == 0 else 0.0)), hilt, poles, "inout"))
+    for t, pommel, hilt, poles, how in sorted(keys, key=lambda k: k[0]):
+        hands, _ = clash.shinza_sword(ch, pommel, hilt, poles=dict(zip(("left", "right"), poles)))
         for side, (_, point, along, palm, pole) in hands.items():
-            p.grasp(fr(t), side, point, along, palm, pole=pole, ease="out" if t <= SWING[0] else "in")
+            p.grasp(fr(t), side, point, along, palm, pole=pole, ease=how)
     p.pose(fr(SWING[0]), {"spine": (14.0, 0.0, 0.0), "chest": (8.0, 0.0, 0.0)}, full=False)
     p.pose(fr(SWING[1]), REAR, full=False, ease="out")
     p.pose(fr(SWING[2]), DRIVE, full=False, ease="in")

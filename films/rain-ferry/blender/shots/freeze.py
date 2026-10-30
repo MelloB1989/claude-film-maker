@@ -26,9 +26,10 @@ SHOT = {"scene": "freeze"}
 # toward her, his trunk thrown forward, the sword raised two-handed over his right shoulder (his frame), the left foot
 # swinging forward off the deck (charge's lead), the right pushing off on its ball
 SH_AT = (0.55, 0.0)                # from his mark (rf/duel.py MARKS = rf/clash.py STANDOFF): charge's START
-POMMEL = (-0.13, -0.08, 1.4)
-HILT_UP = (0.12, 0.42, 0.9)        # the hilt's way up, the blade carrying on up and back over his shoulder
-ELBOWS = {"left": (0.6, 0.3, 1.2), "right": (-0.6, 0.2, 1.2)}     # charge's POLES
+# (hasso: the fists before his right shoulder, a fist off it, the elbows bent and out; charge's SWORDS[0])
+POMMEL = (-0.14, -0.26, 1.36)
+HILT_UP = (0.1, 0.38, 0.92)        # the hilt's way up, the blade carrying on up and back over his shoulder
+ELBOWS = {"left": (0.55, -0.1, 1.45), "right": (-0.55, -0.1, 1.45)}     # charge's OUT
 SH_TURNS = {"spine": (12.0, 0.0, 6.0), "chest": (6.0, 0.0, 4.0), "neck": (-6.0, 0.0, 0.0), "head": (-8.0, 0.0, -4.0)}
 SH_HIPS = (0.0, -0.12, -0.06)
 SH_FEET = {"leftFoot-target": (-0.02, -0.3, 0.16), "rightFoot-target": (0.0, 0.18, 0.04)}
