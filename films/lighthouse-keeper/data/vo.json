@@ -1,0 +1,1181 @@
+{
+ "duration": 73.975,
+ "lines": [
+  {
+   "id": "L01",
+   "scene": "open",
+   "act": "1",
+   "text": "It's eighteen ninety-one. You are a lighthouse keeper.",
+   "start": 2.2,
+   "end": 5.315,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "It's",
+     "start": 2.24,
+     "end": 2.47
+    },
+    {
+     "w": "eighteen",
+     "start": 2.485,
+     "end": 2.91
+    },
+    {
+     "w": "ninety-one.",
+     "start": 2.99,
+     "end": 3.69
+    },
+    {
+     "w": "You",
+     "start": 4.015,
+     "end": 4.13
+    },
+    {
+     "w": "are",
+     "start": 4.17,
+     "end": 4.25
+    },
+    {
+     "w": "a",
+     "start": 4.29,
+     "end": 4.33
+    },
+    {
+     "w": "lighthouse",
+     "start": 4.39,
+     "end": 4.79
+    },
+    {
+     "w": "keeper.",
+     "start": 4.84,
+     "end": 5.21
+    }
+   ]
+  },
+  {
+   "id": "L02",
+   "scene": "rock",
+   "act": "1",
+   "text": "Your whole world is one rock, one tower, and one light that must never go out.",
+   "start": 6.215,
+   "end": 10.855,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Your",
+     "start": 6.265,
+     "end": 6.415
+    },
+    {
+     "w": "whole",
+     "start": 6.475,
+     "end": 6.655
+    },
+    {
+     "w": "world",
+     "start": 6.775,
+     "end": 7.095
+    },
+    {
+     "w": "is",
+     "start": 7.155,
+     "end": 7.275
+    },
+    {
+     "w": "one",
+     "start": 7.335,
+     "end": 7.475
+    },
+    {
+     "w": "rock,",
+     "start": 7.555,
+     "end": 7.815
+    },
+    {
+     "w": "one",
+     "start": 8.06,
+     "end": 8.255
+    },
+    {
+     "w": "tower,",
+     "start": 8.315,
+     "end": 8.735
+    },
+    {
+     "w": "and",
+     "start": 8.81,
+     "end": 8.935
+    },
+    {
+     "w": "one",
+     "start": 9.055,
+     "end": 9.175
+    },
+    {
+     "w": "light",
+     "start": 9.275,
+     "end": 9.535
+    },
+    {
+     "w": "that",
+     "start": 9.65,
+     "end": 9.755
+    },
+    {
+     "w": "must",
+     "start": 9.795,
+     "end": 9.955
+    },
+    {
+     "w": "never",
+     "start": 10.015,
+     "end": 10.214
+    },
+    {
+     "w": "go",
+     "start": 10.254,
+     "end": 10.395
+    },
+    {
+     "w": "out.",
+     "start": 10.515,
+     "end": 10.755
+    }
+   ]
+  },
+  {
+   "id": "L03",
+   "scene": "wake",
+   "act": "1",
+   "text": "You wake at four, before the sun, because the lamp needs you.",
+   "start": 11.755,
+   "end": 15.25,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "You",
+     "start": 11.815,
+     "end": 11.96
+    },
+    {
+     "w": "wake",
+     "start": 12.0,
+     "end": 12.18
+    },
+    {
+     "w": "at",
+     "start": 12.2,
+     "end": 12.28
+    },
+    {
+     "w": "four,",
+     "start": 12.41,
+     "end": 12.72
+    },
+    {
+     "w": "before",
+     "start": 12.84,
+     "end": 13.14
+    },
+    {
+     "w": "the",
+     "start": 13.18,
+     "end": 13.28
+    },
+    {
+     "w": "sun,",
+     "start": 13.32,
+     "end": 13.64
+    },
+    {
+     "w": "because",
+     "start": 14.0,
+     "end": 14.24
+    },
+    {
+     "w": "the",
+     "start": 14.28,
+     "end": 14.34
+    },
+    {
+     "w": "lamp",
+     "start": 14.38,
+     "end": 14.62
+    },
+    {
+     "w": "needs",
+     "start": 14.68,
+     "end": 14.9
+    },
+    {
+     "w": "you.",
+     "start": 14.98,
+     "end": 15.1
+    }
+   ]
+  },
+  {
+   "id": "L04",
+   "scene": "stairs",
+   "act": "1",
+   "text": "A hundred and twelve steps. Every morning. Every night.",
+   "start": 16.15,
+   "end": 19.74,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "A",
+     "start": 16.19,
+     "end": 16.27
+    },
+    {
+     "w": "hundred",
+     "start": 16.31,
+     "end": 16.59
+    },
+    {
+     "w": "and",
+     "start": 16.61,
+     "end": 16.71
+    },
+    {
+     "w": "twelve",
+     "start": 16.76,
+     "end": 17.09
+    },
+    {
+     "w": "steps.",
+     "start": 17.1,
+     "end": 17.59
+    },
+    {
+     "w": "Every",
+     "start": 17.88,
+     "end": 18.13
+    },
+    {
+     "w": "morning.",
+     "start": 18.23,
+     "end": 18.57
+    },
+    {
+     "w": "Every",
+     "start": 19.03,
+     "end": 19.27
+    },
+    {
+     "w": "night.",
+     "start": 19.35,
+     "end": 19.63
+    }
+   ]
+  },
+  {
+   "id": "L05",
+   "scene": "lens",
+   "act": "1",
+   "text": "You polish the great lens until it gleams, and trim the wick so the flame burns clean.",
+   "start": 20.64,
+   "end": 25.51,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "You",
+     "start": 20.685,
+     "end": 20.805
+    },
+    {
+     "w": "polish",
+     "start": 20.875,
+     "end": 21.245
+    },
+    {
+     "w": "the",
+     "start": 21.285,
+     "end": 21.365
+    },
+    {
+     "w": "great",
+     "start": 21.405,
+     "end": 21.605
+    },
+    {
+     "w": "lens",
+     "start": 21.61,
+     "end": 22.005
+    },
+    {
+     "w": "until",
+     "start": 22.045,
+     "end": 22.265
+    },
+    {
+     "w": "it",
+     "start": 22.285,
+     "end": 22.405
+    },
+    {
+     "w": "gleams,",
+     "start": 22.445,
+     "end": 22.845
+    },
+    {
+     "w": "and",
+     "start": 23.145,
+     "end": 23.245
+    },
+    {
+     "w": "trim",
+     "start": 23.345,
+     "end": 23.585
+    },
+    {
+     "w": "the",
+     "start": 23.625,
+     "end": 23.705
+    },
+    {
+     "w": "wick",
+     "start": 23.745,
+     "end": 23.945
+    },
+    {
+     "w": "so",
+     "start": 24.04,
+     "end": 24.105
+    },
+    {
+     "w": "the",
+     "start": 24.145,
+     "end": 24.265
+    },
+    {
+     "w": "flame",
+     "start": 24.305,
+     "end": 24.585
+    },
+    {
+     "w": "burns",
+     "start": 24.665,
+     "end": 24.945
+    },
+    {
+     "w": "clean.",
+     "start": 25.005,
+     "end": 25.385
+    }
+   ]
+  },
+  {
+   "id": "L06",
+   "scene": "log",
+   "act": "1",
+   "text": "Every few hours, you write it all down. The wind. The weather. Every ship that passes.",
+   "start": 26.41,
+   "end": 32.14,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Every",
+     "start": 26.445,
+     "end": 26.75
+    },
+    {
+     "w": "few",
+     "start": 26.765,
+     "end": 26.99
+    },
+    {
+     "w": "hours,",
+     "start": 27.09,
+     "end": 27.37
+    },
+    {
+     "w": "you",
+     "start": 27.625,
+     "end": 27.79
+    },
+    {
+     "w": "write",
+     "start": 27.81,
+     "end": 28.01
+    },
+    {
+     "w": "it",
+     "start": 28.05,
+     "end": 28.13
+    },
+    {
+     "w": "all",
+     "start": 28.19,
+     "end": 28.31
+    },
+    {
+     "w": "down.",
+     "start": 28.35,
+     "end": 28.73
+    },
+    {
+     "w": "The",
+     "start": 29.08,
+     "end": 29.19
+    },
+    {
+     "w": "wind.",
+     "start": 29.23,
+     "end": 29.63
+    },
+    {
+     "w": "The",
+     "start": 29.875,
+     "end": 29.99
+    },
+    {
+     "w": "weather.",
+     "start": 30.03,
+     "end": 30.33
+    },
+    {
+     "w": "Every",
+     "start": 30.535,
+     "end": 30.93
+    },
+    {
+     "w": "ship",
+     "start": 30.96,
+     "end": 31.25
+    },
+    {
+     "w": "that",
+     "start": 31.29,
+     "end": 31.41
+    },
+    {
+     "w": "passes.",
+     "start": 31.47,
+     "end": 32.03
+    }
+   ]
+  },
+  {
+   "id": "L07",
+   "scene": "boat",
+   "act": "2",
+   "text": "Once a month, a boat brings supplies.",
+   "start": 33.74,
+   "end": 35.88,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Once",
+     "start": 33.75,
+     "end": 33.98
+    },
+    {
+     "w": "a",
+     "start": 34.04,
+     "end": 34.08
+    },
+    {
+     "w": "month,",
+     "start": 34.14,
+     "end": 34.38
+    },
+    {
+     "w": "a",
+     "start": 34.465,
+     "end": 34.56
+    },
+    {
+     "w": "boat",
+     "start": 34.6,
+     "end": 34.78
+    },
+    {
+     "w": "brings",
+     "start": 34.865,
+     "end": 35.14
+    },
+    {
+     "w": "supplies.",
+     "start": 35.18,
+     "end": 35.78
+    }
+   ]
+  },
+  {
+   "id": "L08",
+   "scene": "noboat",
+   "act": "2",
+   "text": "If the sea is rough, it doesn't come at all.",
+   "start": 36.48,
+   "end": 38.695,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "If",
+     "start": 36.525,
+     "end": 36.66
+    },
+    {
+     "w": "the",
+     "start": 36.7,
+     "end": 36.8
+    },
+    {
+     "w": "sea",
+     "start": 36.84,
+     "end": 36.98
+    },
+    {
+     "w": "is",
+     "start": 37.04,
+     "end": 37.16
+    },
+    {
+     "w": "rough,",
+     "start": 37.2,
+     "end": 37.44
+    },
+    {
+     "w": "it",
+     "start": 37.59,
+     "end": 37.7
+    },
+    {
+     "w": "doesn't",
+     "start": 37.74,
+     "end": 37.98
+    },
+    {
+     "w": "come",
+     "start": 38.02,
+     "end": 38.14
+    },
+    {
+     "w": "at",
+     "start": 38.18,
+     "end": 38.28
+    },
+    {
+     "w": "all.",
+     "start": 38.38,
+     "end": 38.56
+    }
+   ]
+  },
+  {
+   "id": "L09",
+   "scene": "meal",
+   "act": "2",
+   "text": "So you eat what you stored. Salted fish. Hard bread. Tea, again.",
+   "start": 39.595,
+   "end": 44.41,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "So",
+     "start": 39.62,
+     "end": 39.815
+    },
+    {
+     "w": "you",
+     "start": 39.855,
+     "end": 39.955
+    },
+    {
+     "w": "eat",
+     "start": 39.97,
+     "end": 40.195
+    },
+    {
+     "w": "what",
+     "start": 40.235,
+     "end": 40.335
+    },
+    {
+     "w": "you",
+     "start": 40.395,
+     "end": 40.495
+    },
+    {
+     "w": "stored.",
+     "start": 40.6,
+     "end": 40.975
+    },
+    {
+     "w": "Salted",
+     "start": 41.275,
+     "end": 41.695
+    },
+    {
+     "w": "fish.",
+     "start": 41.825,
+     "end": 42.115
+    },
+    {
+     "w": "Hard",
+     "start": 42.485,
+     "end": 42.735
+    },
+    {
+     "w": "bread.",
+     "start": 42.82,
+     "end": 43.135
+    },
+    {
+     "w": "Tea,",
+     "start": 43.42,
+     "end": 43.795
+    },
+    {
+     "w": "again.",
+     "start": 43.895,
+     "end": 44.255
+    }
+   ]
+  },
+  {
+   "id": "L10",
+   "scene": "storm",
+   "act": "3",
+   "text": "Some nights, the storm is so loud you can't hear yourself think.",
+   "start": 46.01,
+   "end": 49.395,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Some",
+     "start": 46.035,
+     "end": 46.27
+    },
+    {
+     "w": "nights,",
+     "start": 46.33,
+     "end": 46.63
+    },
+    {
+     "w": "the",
+     "start": 46.775,
+     "end": 46.87
+    },
+    {
+     "w": "storm",
+     "start": 46.955,
+     "end": 47.17
+    },
+    {
+     "w": "is",
+     "start": 47.21,
+     "end": 47.29
+    },
+    {
+     "w": "so",
+     "start": 47.38,
+     "end": 47.55
+    },
+    {
+     "w": "loud",
+     "start": 47.61,
+     "end": 47.91
+    },
+    {
+     "w": "you",
+     "start": 47.95,
+     "end": 48.03
+    },
+    {
+     "w": "can't",
+     "start": 48.07,
+     "end": 48.27
+    },
+    {
+     "w": "hear",
+     "start": 48.31,
+     "end": 48.47
+    },
+    {
+     "w": "yourself",
+     "start": 48.51,
+     "end": 48.91
+    },
+    {
+     "w": "think.",
+     "start": 48.93,
+     "end": 49.29
+    }
+   ]
+  },
+  {
+   "id": "L11",
+   "scene": "ship",
+   "act": "3",
+   "text": "Then you see it. A ship, far too close to the rocks.",
+   "start": 50.295,
+   "end": 53.47,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Then",
+     "start": 50.34,
+     "end": 50.525
+    },
+    {
+     "w": "you",
+     "start": 50.565,
+     "end": 50.665
+    },
+    {
+     "w": "see",
+     "start": 50.745,
+     "end": 50.845
+    },
+    {
+     "w": "it.",
+     "start": 50.905,
+     "end": 51.025
+    },
+    {
+     "w": "A",
+     "start": 51.395,
+     "end": 51.605
+    },
+    {
+     "w": "ship,",
+     "start": 51.645,
+     "end": 51.885
+    },
+    {
+     "w": "far",
+     "start": 52.045,
+     "end": 52.285
+    },
+    {
+     "w": "too",
+     "start": 52.325,
+     "end": 52.405
+    },
+    {
+     "w": "close",
+     "start": 52.475,
+     "end": 52.725
+    },
+    {
+     "w": "to",
+     "start": 52.765,
+     "end": 52.845
+    },
+    {
+     "w": "the",
+     "start": 52.885,
+     "end": 52.925
+    },
+    {
+     "w": "rocks.",
+     "start": 53.005,
+     "end": 53.345
+    }
+   ]
+  },
+  {
+   "id": "L12",
+   "scene": "worry",
+   "act": "3",
+   "text": "You keep the light turning. And you wait.",
+   "start": 54.17,
+   "end": 56.23,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "You",
+     "start": 54.22,
+     "end": 54.33
+    },
+    {
+     "w": "keep",
+     "start": 54.39,
+     "end": 54.53
+    },
+    {
+     "w": "the",
+     "start": 54.57,
+     "end": 54.65
+    },
+    {
+     "w": "light",
+     "start": 54.69,
+     "end": 54.87
+    },
+    {
+     "w": "turning.",
+     "start": 54.895,
+     "end": 55.29
+    },
+    {
+     "w": "And",
+     "start": 55.545,
+     "end": 55.65
+    },
+    {
+     "w": "you",
+     "start": 55.71,
+     "end": 55.79
+    },
+    {
+     "w": "wait.",
+     "start": 55.83,
+     "end": 56.11
+    }
+   ]
+  },
+  {
+   "id": "L13",
+   "scene": "dawn",
+   "act": "3",
+   "text": "By morning, the sea is calm. The ship is gone. Safe.",
+   "start": 57.13,
+   "end": 60.6,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "By",
+     "start": 57.17,
+     "end": 57.37
+    },
+    {
+     "w": "morning,",
+     "start": 57.41,
+     "end": 57.69
+    },
+    {
+     "w": "the",
+     "start": 57.77,
+     "end": 57.87
+    },
+    {
+     "w": "sea",
+     "start": 57.91,
+     "end": 58.07
+    },
+    {
+     "w": "is",
+     "start": 58.11,
+     "end": 58.25
+    },
+    {
+     "w": "calm.",
+     "start": 58.29,
+     "end": 58.65
+    },
+    {
+     "w": "The",
+     "start": 58.925,
+     "end": 59.03
+    },
+    {
+     "w": "ship",
+     "start": 59.05,
+     "end": 59.23
+    },
+    {
+     "w": "is",
+     "start": 59.27,
+     "end": 59.39
+    },
+    {
+     "w": "gone.",
+     "start": 59.43,
+     "end": 59.73
+    },
+    {
+     "w": "Safe.",
+     "start": 60.02,
+     "end": 60.43
+    }
+   ]
+  },
+  {
+   "id": "L14",
+   "scene": "alone",
+   "act": "4",
+   "text": "Nobody will ever thank you. Most people will never even know your name.",
+   "start": 62.2,
+   "end": 66.485,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "Nobody",
+     "start": 62.225,
+     "end": 62.64
+    },
+    {
+     "w": "will",
+     "start": 62.72,
+     "end": 62.88
+    },
+    {
+     "w": "ever",
+     "start": 62.94,
+     "end": 63.14
+    },
+    {
+     "w": "thank",
+     "start": 63.18,
+     "end": 63.42
+    },
+    {
+     "w": "you.",
+     "start": 63.5,
+     "end": 63.66
+    },
+    {
+     "w": "Most",
+     "start": 64.195,
+     "end": 64.5
+    },
+    {
+     "w": "people",
+     "start": 64.54,
+     "end": 64.86
+    },
+    {
+     "w": "will",
+     "start": 64.88,
+     "end": 65.02
+    },
+    {
+     "w": "never",
+     "start": 65.06,
+     "end": 65.24
+    },
+    {
+     "w": "even",
+     "start": 65.255,
+     "end": 65.56
+    },
+    {
+     "w": "know",
+     "start": 65.6,
+     "end": 65.74
+    },
+    {
+     "w": "your",
+     "start": 65.78,
+     "end": 65.92
+    },
+    {
+     "w": "name.",
+     "start": 65.98,
+     "end": 66.34
+    }
+   ]
+  },
+  {
+   "id": "L15",
+   "scene": "light",
+   "act": "4",
+   "text": "But tonight, like every night,",
+   "start": 67.385,
+   "end": 69.055,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "But",
+     "start": 67.43,
+     "end": 67.55
+    },
+    {
+     "w": "tonight,",
+     "start": 67.59,
+     "end": 67.97
+    },
+    {
+     "w": "like",
+     "start": 68.14,
+     "end": 68.35
+    },
+    {
+     "w": "every",
+     "start": 68.41,
+     "end": 68.59
+    },
+    {
+     "w": "night,",
+     "start": 68.67,
+     "end": 68.95
+    }
+   ]
+  },
+  {
+   "id": "L16",
+   "scene": "end",
+   "act": "4",
+   "text": "you light the lamp.",
+   "start": 69.505,
+   "end": 70.475,
+   "take": 1,
+   "factor": 1.0,
+   "words": [
+    {
+     "w": "you",
+     "start": 69.56,
+     "end": 69.675
+    },
+    {
+     "w": "light",
+     "start": 69.715,
+     "end": 69.895
+    },
+    {
+     "w": "the",
+     "start": 69.935,
+     "end": 70.015
+    },
+    {
+     "w": "lamp.",
+     "start": 70.055,
+     "end": 70.375
+    }
+   ]
+  }
+ ],
+ "scenes": [
+  {
+   "id": "open",
+   "act": "1",
+   "start": 0.0,
+   "end": 5.915
+  },
+  {
+   "id": "rock",
+   "act": "1",
+   "start": 5.915,
+   "end": 11.465
+  },
+  {
+   "id": "wake",
+   "act": "1",
+   "start": 11.465,
+   "end": 15.84
+  },
+  {
+   "id": "stairs",
+   "act": "1",
+   "start": 15.84,
+   "end": 20.335
+  },
+  {
+   "id": "lens",
+   "act": "1",
+   "start": 20.335,
+   "end": 26.095
+  },
+  {
+   "id": "log",
+   "act": "1",
+   "start": 26.095,
+   "end": 33.4
+  },
+  {
+   "id": "boat",
+   "act": "2",
+   "start": 33.4,
+   "end": 36.175
+  },
+  {
+   "id": "noboat",
+   "act": "2",
+   "start": 36.175,
+   "end": 39.27
+  },
+  {
+   "id": "meal",
+   "act": "2",
+   "start": 39.27,
+   "end": 45.685
+  },
+  {
+   "id": "storm",
+   "act": "3",
+   "start": 45.685,
+   "end": 49.99
+  },
+  {
+   "id": "ship",
+   "act": "3",
+   "start": 49.99,
+   "end": 53.87
+  },
+  {
+   "id": "worry",
+   "act": "3",
+   "start": 53.87,
+   "end": 56.82
+  },
+  {
+   "id": "dawn",
+   "act": "3",
+   "start": 56.82,
+   "end": 61.875
+  },
+  {
+   "id": "alone",
+   "act": "4",
+   "start": 61.875,
+   "end": 67.08
+  },
+  {
+   "id": "light",
+   "act": "4",
+   "start": 67.08,
+   "end": 69.21
+  },
+  {
+   "id": "end",
+   "act": "4",
+   "start": 69.21,
+   "end": 73.975
+  }
+ ],
+ "acts": [
+  {
+   "id": "1",
+   "name": "The keeper",
+   "start": 0.0,
+   "end": 33.4
+  },
+  {
+   "id": "2",
+   "name": "The month",
+   "start": 33.4,
+   "end": 45.685
+  },
+  {
+   "id": "3",
+   "name": "The storm",
+   "start": 45.685,
+   "end": 61.875
+  },
+  {
+   "id": "4",
+   "name": "The light",
+   "start": 61.875,
+   "end": 73.975
+  }
+ ]
+}

@@ -1,0 +1,41 @@
+{
+ "chosen": "audio/music/temp.wav",
+ "chosen_meta": {
+  "bpm": 76.0,
+  "sections": [
+   {
+    "name": "intro",
+    "start": 0.0,
+    "end": 12.631579
+   },
+   {
+    "name": "middle",
+    "start": 12.631579,
+    "end": 25.263158
+   },
+   {
+    "name": "middle 2",
+    "start": 25.263158,
+    "end": 37.894737
+   },
+   {
+    "name": "middle 3",
+    "start": 37.894737,
+    "end": 50.526316
+   },
+   {
+    "name": "middle 4",
+    "start": 50.526316,
+    "end": 63.157895
+   },
+   {
+    "name": "outro",
+    "start": 63.157895,
+    "end": 73.975
+   }
+  ]
+ },
+ "variants": [
+  "audio/music/temp.wav"
+ ]
+}

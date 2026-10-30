@@ -1,0 +1,219 @@
+{
+  "seed": 7,
+  "beds": [
+    {
+      "sound": "sea",
+      "scene": "open",
+      "until": "rock",
+      "gain_db": -22,
+      "fade": 1.5,
+      "intensity": 0.45
+    },
+    {
+      "sound": "room_tone",
+      "scene": "wake",
+      "until": "log",
+      "gain_db": -36,
+      "fade": 0.6
+    },
+    {
+      "sound": "sea",
+      "scene": "lens",
+      "gain_db": -32,
+      "fade": 0.8,
+      "intensity": 0.3
+    },
+    {
+      "sound": "fire_crackle",
+      "scene": "log",
+      "gain_db": -34,
+      "fade": 0.6,
+      "intensity": 0.3
+    },
+    {
+      "sound": "sea",
+      "scene": "boat",
+      "gain_db": -21,
+      "fade": 0.6,
+      "intensity": 0.55
+    },
+    {
+      "sound": "sea",
+      "scene": "noboat",
+      "gain_db": -24,
+      "fade": 0.4,
+      "intensity": 0.85
+    },
+    {
+      "sound": "wind",
+      "scene": "noboat",
+      "gain_db": -29,
+      "fade": 0.4,
+      "intensity": 0.7
+    },
+    {
+      "sound": "room_tone",
+      "scene": "meal",
+      "gain_db": -36,
+      "fade": 0.5
+    },
+    {
+      "sound": "waves_storm",
+      "scene": "storm",
+      "until": "ship",
+      "gain_db": -21,
+      "fade": 0.4,
+      "intensity": 0.9
+    },
+    {
+      "sound": "wind",
+      "scene": "storm",
+      "until": "ship",
+      "gain_db": -25,
+      "fade": 0.4,
+      "intensity": 0.9
+    },
+    {
+      "sound": "rain",
+      "scene": "storm",
+      "until": "worry",
+      "gain_db": -27,
+      "fade": 0.4,
+      "intensity": 0.8
+    },
+    {
+      "sound": "waves_storm",
+      "scene": "worry",
+      "gain_db": -28,
+      "fade": 0.3,
+      "intensity": 0.6
+    },
+    {
+      "sound": "sea",
+      "scene": "dawn",
+      "until": "alone",
+      "gain_db": -24,
+      "fade": 1.2,
+      "intensity": 0.3
+    },
+    {
+      "sound": "room_tone",
+      "scene": "light",
+      "gain_db": -36,
+      "fade": 0.3
+    },
+    {
+      "sound": "sea",
+      "scene": "end",
+      "gain_db": -25,
+      "fade": 1.5,
+      "intensity": 0.3
+    }
+  ],
+  "hits": [
+    {
+      "sound": "gull",
+      "scene": "open",
+      "offset": 1.2,
+      "gain_db": -27,
+      "pan": -0.4
+    },
+    {
+      "sound": "gull",
+      "scene": "open",
+      "offset": 3.9,
+      "gain_db": -30,
+      "pan": -0.2
+    },
+    {
+      "sound": "gull",
+      "scene": "rock",
+      "offset": 2.2,
+      "gain_db": -30,
+      "pan": -0.5
+    },
+    {
+      "sound": "footsteps",
+      "scene": "stairs",
+      "offset": 0.2,
+      "gain_db": -24,
+      "duration": 4.0
+    },
+    {
+      "sound": "pen_scratch",
+      "scene": "log",
+      "offset": 0.9,
+      "gain_db": -27,
+      "duration": 5.5
+    },
+    {
+      "sound": "boat_creak",
+      "scene": "boat",
+      "offset": 0.3,
+      "gain_db": -25
+    },
+    {
+      "sound": "cup",
+      "scene": "meal",
+      "offset": 5.83,
+      "gain_db": -20
+    },
+    {
+      "sound": "knock",
+      "scene": "meal",
+      "offset": 2.83,
+      "gain_db": -19
+    },
+    {
+      "sound": "knock",
+      "scene": "meal",
+      "offset": 3.17,
+      "gain_db": -20
+    },
+    {
+      "sound": "thunder",
+      "scene": "storm",
+      "offset": 0.1,
+      "gain_db": -19,
+      "duration": 4.0
+    },
+    {
+      "sound": "wave_crash",
+      "scene": "storm",
+      "offset": 0.7,
+      "gain_db": -22
+    },
+    {
+      "sound": "wave_crash",
+      "scene": "storm",
+      "offset": 2.7,
+      "gain_db": -23
+    },
+    {
+      "sound": "thunder",
+      "scene": "ship",
+      "offset": 0.0,
+      "gain_db": -17,
+      "duration": 3.5
+    },
+    {
+      "sound": "match_strike",
+      "scene": "light",
+      "offset": 0.35,
+      "gain_db": -18
+    },
+    {
+      "sound": "gull",
+      "scene": "dawn",
+      "offset": 2.8,
+      "gain_db": -31,
+      "pan": 0.4
+    },
+    {
+      "sound": "bell",
+      "scene": "end",
+      "offset": 0.9,
+      "gain_db": -27
+    }
+  ]
+}

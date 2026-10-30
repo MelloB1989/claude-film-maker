@@ -1,0 +1,149 @@
+{
+ "fps": 24,
+ "duration": 73.975,
+ "format": [
+  1920,
+  1080
+ ],
+ "scenes": [
+  {
+   "id": "open",
+   "start": 0,
+   "end": 5.915
+  },
+  {
+   "id": "rock",
+   "start": 5.915,
+   "end": 11.465
+  },
+  {
+   "id": "wake",
+   "start": 11.465,
+   "end": 15.84
+  },
+  {
+   "id": "stairs",
+   "start": 15.84,
+   "end": 20.335
+  },
+  {
+   "id": "lens",
+   "start": 20.335,
+   "end": 26.095
+  },
+  {
+   "id": "log",
+   "start": 26.095,
+   "end": 33.4
+  },
+  {
+   "id": "boat",
+   "start": 33.4,
+   "end": 36.175
+  },
+  {
+   "id": "noboat",
+   "start": 36.175,
+   "end": 39.27
+  },
+  {
+   "id": "meal",
+   "start": 39.27,
+   "end": 45.685
+  },
+  {
+   "id": "storm",
+   "start": 45.685,
+   "end": 49.99
+  },
+  {
+   "id": "ship",
+   "start": 49.99,
+   "end": 53.87
+  },
+  {
+   "id": "worry",
+   "start": 53.87,
+   "end": 56.82
+  },
+  {
+   "id": "dawn",
+   "start": 56.82,
+   "end": 61.875
+  },
+  {
+   "id": "alone",
+   "start": 61.875,
+   "end": 67.08
+  },
+  {
+   "id": "light",
+   "start": 67.08,
+   "end": 69.21
+  },
+  {
+   "id": "end",
+   "start": 69.21,
+   "end": 73.975
+  }
+ ],
+ "overlays": [],
+ "transitions": [
+  {
+   "id": "open-rock",
+   "kind": "xfade",
+   "cut": 5.915,
+   "start": 5.615,
+   "end": 6.215
+  },
+  {
+   "id": "rock-wake",
+   "kind": "dip",
+   "cut": 11.465,
+   "start": 11.165,
+   "end": 11.765
+  },
+  {
+   "id": "log-boat",
+   "kind": "xfade",
+   "cut": 33.4,
+   "start": 33.1,
+   "end": 33.699999999999996
+  },
+  {
+   "id": "meal-storm",
+   "kind": "dip",
+   "cut": 45.685,
+   "start": 45.385000000000005,
+   "end": 45.985
+  },
+  {
+   "id": "storm-ship",
+   "kind": "flash",
+   "cut": 49.99,
+   "start": 49.89,
+   "end": 50.24
+  },
+  {
+   "id": "worry-dawn",
+   "kind": "xfade",
+   "cut": 56.82,
+   "start": 56.32,
+   "end": 57.1
+  },
+  {
+   "id": "dawn-alone",
+   "kind": "dip",
+   "cut": 61.875,
+   "start": 61.575,
+   "end": 62.175
+  },
+  {
+   "id": "light-end",
+   "kind": "xfade",
+   "cut": 69.21,
+   "start": 68.91,
+   "end": 69.50999999999999
+  }
+ ]
+}

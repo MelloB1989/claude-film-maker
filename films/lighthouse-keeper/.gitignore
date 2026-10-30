@@ -1,0 +1,9 @@
+# generated audio (tools/README.md): takes, voiceover, scores, mixes, the sound library's takes
+audio/vo/takes/
+audio/vo/paced/
+audio/vo/vo.wav
+audio/vo/vo-chain.wav
+audio/music/
+audio/mix/
+audio/sfx/lib/
+audio/sfx/*.wav

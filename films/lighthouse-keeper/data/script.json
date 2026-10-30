@@ -1,0 +1,143 @@
+{
+  "title": "Your Life As a Lighthouse Keeper",
+  "acts": [
+    {
+      "id": "1",
+      "name": "The keeper",
+      "scenes": [
+        "open",
+        "rock",
+        "wake",
+        "stairs",
+        "lens",
+        "log"
+      ]
+    },
+    {
+      "id": "2",
+      "name": "The month",
+      "scenes": [
+        "boat",
+        "noboat",
+        "meal"
+      ]
+    },
+    {
+      "id": "3",
+      "name": "The storm",
+      "scenes": [
+        "storm",
+        "ship",
+        "worry",
+        "dawn"
+      ]
+    },
+    {
+      "id": "4",
+      "name": "The light",
+      "scenes": [
+        "alone",
+        "light",
+        "end"
+      ]
+    }
+  ],
+  "lines": [
+    {
+      "id": "L01",
+      "scene": "open",
+      "text": "It's eighteen ninety-one. You are a lighthouse keeper.",
+      "takes": 1
+    },
+    {
+      "id": "L02",
+      "scene": "rock",
+      "text": "Your whole world is one rock, one tower, and one light that must never go out.",
+      "takes": 1
+    },
+    {
+      "id": "L03",
+      "scene": "wake",
+      "text": "You wake at four, before the sun, because the lamp needs you.",
+      "takes": 1
+    },
+    {
+      "id": "L04",
+      "scene": "stairs",
+      "text": "A hundred and twelve steps. Every morning. Every night.",
+      "takes": 1
+    },
+    {
+      "id": "L05",
+      "scene": "lens",
+      "text": "You polish the great lens until it gleams, and trim the wick so the flame burns clean.",
+      "takes": 1
+    },
+    {
+      "id": "L06",
+      "scene": "log",
+      "text": "Every few hours, you write it all down. The wind. The weather. Every ship that passes.",
+      "takes": 1
+    },
+    {
+      "id": "L07",
+      "scene": "boat",
+      "text": "Once a month, a boat brings supplies.",
+      "takes": 1
+    },
+    {
+      "id": "L08",
+      "scene": "noboat",
+      "text": "If the sea is rough, it doesn't come at all.",
+      "takes": 1
+    },
+    {
+      "id": "L09",
+      "scene": "meal",
+      "text": "So you eat what you stored. Salted fish. Hard bread. Tea, again.",
+      "takes": 1
+    },
+    {
+      "id": "L10",
+      "scene": "storm",
+      "text": "Some nights, the storm is so loud you can't hear yourself think.",
+      "takes": 1
+    },
+    {
+      "id": "L11",
+      "scene": "ship",
+      "text": "Then you see it. A ship, far too close to the rocks.",
+      "takes": 1
+    },
+    {
+      "id": "L12",
+      "scene": "worry",
+      "text": "You keep the light turning. And you wait.",
+      "takes": 1
+    },
+    {
+      "id": "L13",
+      "scene": "dawn",
+      "text": "By morning, the sea is calm. The ship is gone. Safe.",
+      "takes": 1
+    },
+    {
+      "id": "L14",
+      "scene": "alone",
+      "text": "Nobody will ever thank you. Most people will never even know your name.",
+      "takes": 1
+    },
+    {
+      "id": "L15",
+      "scene": "light",
+      "text": "But tonight, like every night,",
+      "takes": 1
+    },
+    {
+      "id": "L16",
+      "scene": "end",
+      "text": "you light the lamp.",
+      "takes": 1
+    }
+  ]
+}

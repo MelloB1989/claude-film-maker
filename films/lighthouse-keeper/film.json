@@ -1,0 +1,70 @@
+{
+  "id": "lighthouse-keeper",
+  "title": "Your Life As a Lighthouse Keeper",
+  "format": "landscape",
+  "fps": 24,
+  "theme": {
+    "extends": "paper",
+    "bg": "#0d0e13",
+    "bg2": "#15171f"
+  },
+  "audio": {
+    "mix": "audio/mix/mix.wav",
+    "analysis": "data/audio.json",
+    "bpm": 76.0,
+    "offset": 0,
+    "beatsPerBar": 4
+  },
+  "vo": "data/vo.json",
+  "pipeline": {
+    "voice": {
+      "provider": "elevenlabs",
+      "name": "George",
+      "voice_id": "JBFqnCBsd6RMkjVDRZzb",
+      "model": "eleven_multilingual_v2",
+      "output_format": "pcm_48000",
+      "speed": 0.95,
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true
+      },
+      "key_file": "~/code/secrets/elevenlabs/11labs",
+      "pace": {
+        "factor": 1.0,
+        "min": 0.85,
+        "max": 1.0,
+        "target_wps": null
+      }
+    },
+    "music": {
+      "styles": [
+        "instrumental"
+      ],
+      "avoid": [
+        "vocals"
+      ],
+      "sections": [],
+      "temp": {
+        "style": "gentle",
+        "seed": 3,
+        "phrase": 4
+      }
+    },
+    "mix": {
+      "lufs": -14.0,
+      "true_peak": -1.0
+    },
+    "deliver": {
+      "outputs": {
+        "rough": {
+          "codec": "copy"
+        },
+        "master": {
+          "crf": 16
+        }
+      }
+    }
+  }
+}
