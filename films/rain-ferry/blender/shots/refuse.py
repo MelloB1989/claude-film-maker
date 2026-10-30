@@ -48,7 +48,7 @@ SMOKE = dict(rise=0.32, life=3.6, curl=0.07, width=(0.002, 0.03), opacity=0.55)
 
 def build(ctx):
     ja.clock("refuse", "build")
-    st = jt.stage(ctx, who=("tsuru",))
+    st = jt.stage(ctx, who=("tsuru",), ink=0.0)
     ja.clock("refuse", "staged")
     jt.compose_faces(st)
     ts = st.cast["tsuru"]["vrm"]

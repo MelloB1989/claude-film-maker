@@ -77,7 +77,7 @@ def build(ctx):
     from rf import vroid_tsuru
     from rf.vroid_common import move
 
-    st = jt.stage(ctx)
+    st = jt.stage(ctx, ink=None)     # the set uninked: its painted edges carry it (the cast keep their lines)
     jt.compose_faces(st)
     ts, sh = st.cast["tsuru"], st.cast["shinza"]
     tch, sch = ts["vrm"], sh["vrm"]
