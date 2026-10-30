@@ -17,7 +17,7 @@ FONTS = Path(__file__).resolve().parents[2] / "fonts"
 JP = FONTS / "ShipporiMincho-SemiBold.ttf"
 LENS = 30.0
 DEPTH = 3.0                  # m before the lens the lettering hangs (the frame is 2.025 m tall there)
-OFFSET = (60.0, 140.0, -10.0)  # the camera's place from the opening's (m): further down the slope, nearer the river
+OFFSET = (-10.0, 150.0, -35.0)  # the camera's place from the opening's (m): on up the river and lower over it
 DRIFT = (16.0, 10.0)         # how far it drifts to the right and along its view over the shot (m)
 # the lettering, in s into the shot (the last drum at 3.25 s: 114.85 in the mix)
 PAPER = (0.05, 1.1)          # the pale wash blooms
@@ -166,16 +166,16 @@ def build(ctx):
     paper.parent = cam
 
     # 「雨渡し」 brushed down the right third; scene time is film time, so its window is the shot's start plus
-    title = brushtext.build("title-calligraphy", "雨渡し", str(JP), size=0.39, vertical=True, spacing=1.0,
+    title = brushtext.build("title-calligraphy", "雨渡し", str(JP), size=0.5, vertical=True, spacing=0.98,
                             start=t0 + BRUSH[0], end=t0 + BRUSH[1], gap=0.3, char_gap=0.9, color=INK, dry=0.65, scene=scene)
     title.parent = cam
-    title.location = (0.62, 0.64, -DEPTH)
+    title.location = (0.66, 0.8, -DEPTH)
     # the seal: a vermilion square with 一閃 cut into it, stamped on the drum
     accent = tuple(ctx.look_at(ctx.f0).light.accent)
     seal_root = bpy.data.objects.new("seal", None)
     scene.collection.objects.link(seal_root)
     seal_root.parent = cam
-    seal_root.location = (0.43, -0.6, -DEPTH + 0.01)
+    seal_root.location = (0.4, -0.72, -DEPTH + 0.01)
     smat, sfade = _fading("seal", accent, strength=1.0)
     sq = shapes.box("seal-square", (0, 0, 0), (0.15, 0.15, 0.002), material=smat)
     sq.parent = seal_root
@@ -190,7 +190,7 @@ def build(ctx):
     for f in range(ctx.f0 - 1, ctx.f1 + 1):
         t = ctx.time(f) - t0
         valley.key(scene, f, ctx.look_at(f), sun=1.0)
-        pfade.default_value = 0.78 * ease((t - PAPER[0]) / (PAPER[1] - PAPER[0]))
+        pfade.default_value = 0.62 * ease((t - PAPER[0]) / (PAPER[1] - PAPER[0]))
         pfade.keyframe_insert("default_value", frame=f)
         # the seal: struck down from a little larger, all at once
         s = (t - SEAL) * ctx.fps

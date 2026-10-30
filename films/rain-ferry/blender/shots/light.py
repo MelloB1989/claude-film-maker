@@ -12,7 +12,7 @@ import math
 SHOT = {"scene": "light", "look": "2412,2440,2462,2490,2520"}
 
 LENS = 28.0
-OFFSET = (25.0, 20.0, -6.0)       # the camera's place from the opening's (m): a little lower and to the right
+OFFSET = (0.0, 0.0, 0.0)          # the camera's place from the opening's (m): the same view, the film's bookend
 PUSH = (60.0, 9.0)                 # how far it moves along its view over the shot, and up (m)
 SUN_OPEN = (0.1, 0.25, 3.2)        # the clouds' opening: from this much, starting at, wide open by (s)
 BEAMS = 14                         # shafts of light
@@ -52,7 +52,7 @@ def build(ctx):
     right = flat.cross(Vector((0, 0, 1)))
     start = base + right * OFFSET[0] + flat * OFFSET[1] + Vector((0, 0, OFFSET[2]))
     # the aim a little toward the sun's side: the opening sits high at the right of the frame
-    aim0 = aim0 + right * 240.0 + Vector((0, 0, 120.0))
+    aim0 = aim0 + right * 60.0 + Vector((0, 0, 40.0))
     world = valley.build(ctx, cam=tuple(start), aim=tuple(aim0))
 
     end = start + fwd * PUSH[0] + Vector((0, 0, PUSH[1]))
@@ -68,7 +68,7 @@ def build(ctx):
     floor = Vector((float(valley.river_x(1900.0)), 1900.0, 0.0))
     weather.sun_beams("beams", tuple(source), tuple((floor - source).normalized()), spread=(900.0, 220.0),
                       length=(floor - source).length * 1.05, count=BEAMS, width=(25.0, 160.0),
-                      color=tuple(ctx.look_at(ctx.f1 - 1).light.warm), strength=0.07, seed=5, coll=world["coll"])
+                      color=tuple(ctx.look_at(ctx.f1 - 1).light.warm), strength=0.5, seed=5, coll=world["coll"])
 
     # the crow: out from over the camera's shoulder, away toward the sun
     s0 = ctx.look_at(ctx.f1 - 1)
