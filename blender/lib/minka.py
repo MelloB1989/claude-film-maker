@@ -103,21 +103,23 @@ def hip_gable_roof(X: float, Y: float, ze: float, zt: float, *, gable: float = 0
 
 
 def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, peak: float = 1.5, facing: float = 0.0,
-        door=(-0.45, 0.78, 1.72), windows=WINDOWS, ground=None, porch: float = 0.55, clutter: bool = True, prefix: str = "hut",
-        seed: int = 5) -> dict:
+        door=(-0.45, 0.78, 1.72), windows=WINDOWS, ground=None, porch: float = 0.55, clutter: bool = True,
+        prefix: str = "hut", seed: int = 5) -> dict:
     """A thatched riverside hut with its floor at `center`, `size` (along x, along y, the walls' height), its door on
     the +x side (turned by `facing`): a post-and-beam frame on footing stones (on short stilts where `ground`, a
     function of world x, y, falls away), dark vertical boards below a rail and earthen plaster above it (one panel
     fallen to its bamboo lath), the wall plates' and tie beams' ends standing out at the corners; a deep hip-and-gable
-    thatch, thick, its cut edge in two steps, bamboo rafters under its eaves, a ridge capped and saddled, a smoke gap
-    under each gable; a sliding shoji door (`door`: its middle along y, width, height) and a barred window glowing
-    warm through their paper, a rolled straw blind over the window; a plank porch along the door side; and, with
-    `clutter`, a firewood stack, a rain barrel, a straw cape and a hat hung by the door, oars leaning on the wall.
+    thatch, thick, banded in courses, its cut edge in two steps ragged at its foot, its underside on bamboo rafters, a
+    ridge capped and saddled, a smoke gap under each gable; a sliding shoji door (`door`: its middle along y, width,
+    height) and barred windows (`windows`, WINDOWS) glowing warm through their paper, a rolled straw blind over those
+    that have one; a plank porch along the door side; and, with `clutter`, a firewood stack, a rain barrel, a straw
+    cape and a hat hung by the door, oars leaning on the wall, a net drying on a bamboo rack off the back end.
 
     `m`: wall, thatch, door (the lit paper: an emitting material), and as it has them (else see FALLBACK) post,
     plaster, thatch_edge, ridge, lattice, stone, dark, wood, straw, rope, lath, glass (the barrel's water).
     Returns {"objects", "eave": under the eave at the door side's -y corner (where a lantern hangs), "door": the
-    doorway's foot (world), "eave_edges": [(a, b), ...] each eave's drip line (world), "smoke": the gaps' tops}."""
+    doorway's foot (world), "eave_edges": [(a, b), ...] each eave's drip line (world), "windows": [(where, outward),
+    ...] a light outside each lit window (world), "smoke": the gaps' tops}."""
     rng = np.random.default_rng(seed)
     C = np.asarray(center, float)
     W, D, H = size
@@ -384,12 +386,13 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
                 r = rng.uniform(0.055, 0.07)
                 x = fx0 + (fx1 - fx0) * (k + 0.5 + 0.5 * (row % 2)) / 7.5
                 z = 0.12 + row * 0.12
-                P.cyl("wood", (x + rng.uniform(-0.02, 0.02), -hd - 0.06, z), (x, -hd - 0.46 + rng.uniform(-0.03, 0.03), z),
-                      r, n=6)
+                P.cyl("wood", (x + rng.uniform(-0.02, 0.02), -hd - 0.06, z),
+                      (x, -hd - 0.46 + rng.uniform(-0.03, 0.03), z), r, n=6)
         # the rain barrel by the porch's far end, under the eave's corner, brimming
         bx, by = hw - 0.25, hd + 0.42
         gb = max(local_ground(bx, by), -0.6)
-        prof = [(0.0, 0.0), (0.24, 0.0), (0.27, 0.25), (0.25, 0.52), (0.235, 0.52), (0.255, 0.25), (0.22, 0.04), (0.0, 0.04)]
+        prof = [(0.0, 0.0), (0.24, 0.0), (0.27, 0.25), (0.25, 0.52), (0.235, 0.52), (0.255, 0.25), (0.22, 0.04),
+                (0.0, 0.04)]
         ring = 12
         vs = [(r * math.cos(math.tau * j / ring) + bx, r * math.sin(math.tau * j / ring) + by, z + gb)
               for r, z in prof for j in range(ring)]
@@ -405,6 +408,29 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
             b = np.array((x - 0.12 * (k + 1), -hd - 0.06, H - 0.1))
             P.cyl("wood", a + 0.18 * (b - a), b, 0.022, n=6)
             P.beam("wood", a, a + 0.25 * (b - a), 0.1, 0.02, up=(0.0, 1.0, 0.0))
+        # a fishing net drying on a bamboo rack off the back end, sagging between its poles
+        nx, ny0, ny1, top_ = -hw - 0.55, 0.15, 1.45, 1.75
+        for y in (ny0, ny1):
+            g = local_ground(nx, y)
+            P.cyl("lattice", (nx, y, g - 0.1), (nx, y, top_ + 0.08), 0.025, n=6)
+        P.cyl("lattice", (nx, ny0 - 0.12, top_), (nx, ny1 + 0.12, top_), 0.02, n=6)
+        g = max(local_ground(nx, (ny0 + ny1) / 2), -0.4)
+
+        def net(y, z):                          # the net's drape: sagging between the poles, its foot swaying out
+            f = (y - ny0) / (ny1 - ny0)
+            h = (top_ - z) / (top_ - g - 0.35)
+            return (nx + 0.06 * h * h + 0.02 * math.sin(7 * f), y, z - 0.12 * math.sin(math.pi * f) * (1 - h))
+
+        ys_ = np.linspace(ny0 + 0.05, ny1 - 0.05, 12)
+        zs_ = np.linspace(top_ - 0.02, g + 0.35, 9)
+        for y in ys_:
+            for z0_, z1_ in zip(zs_[:-1], zs_[1:]):
+                P.cyl("rope", net(y, z0_), net(y, z1_), 0.006, n=4)
+        for z in zs_[1:]:
+            for y0_, y1_ in zip(ys_[:-1], ys_[1:]):
+                P.cyl("rope", net(y0_, z), net(y1_, z), 0.006, n=4)
+        for y in ys_[::2]:                      # its floats along the hem
+            P.cyl("wood", net(y, zs_[-1] - 0.02), net(y, zs_[-1] + 0.04), 0.03, n=6)
         # a straw cape (mino) and a spare hat hung on pegs by the door
         mx, my = hw + 0.05, yb + 0.42
         P.cyl("post", (mx - 0.05, my, 1.62), (mx + 0.12, my, 1.62), 0.015, n=5)
