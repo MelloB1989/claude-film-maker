@@ -38,7 +38,9 @@ COLORS = {
     **sets.HUT_COLORS,
 }
 # the thatch's straw: (mottle, its patch size m, how dark its strands, their width m, how long against wide)
-STRAW = {"thatch": (0.15, 1.5, 0.75, 0.14, 10.0), "thatch_edge": (0.12, 1.0, 0.85, 0.08, 16.0)}
+STRAW = {"thatch": (0.2, 1.5, 0.85, 0.1, 14.0), "thatch_edge": (0.12, 1.0, 0.85, 0.08, 16.0)}
+MOSS = (0.05, 0.052, 0.04)             # moss and the rain's dark creeping up the thatch from its eaves
+MOSS_Z = (1.5, 3.4)                     # ... from (world z) to where it's gone
 PLASTER_STAIN = (0.06, 0.052, 0.045)    # the plaster darkened by the splash and the damp up from its foot
 PLASTER_STAIN_Z = (1.25, 1.62)          # ... from its foot (world z) to where it's gone
 PAPER = (1.0, 0.62, 0.3)                # the hut's lit shoji paper, the only warmth but the lantern's
@@ -121,8 +123,9 @@ def materials(look, weather) -> dict:
                               brush_scale=0.2, brush_dir="z", mist=PLASTER_STAIN, mist_z=PLASTER_STAIN_Z)
         elif k in STRAW:
             mot, size, br, width, stretch = STRAW[k]
+            moss = {"mist": MOSS, "mist_z": MOSS_Z} if k == "thatch" else {}
             m[k] = paint.wash(f"set-{k}", lit, shade, look=look, cut=0.38, mottle=mot, mottle_scale=size, brush=br,
-                              brush_scale=width, brush_dir="z", brush_stretch=stretch)
+                              brush_scale=width, brush_dir="z", brush_stretch=stretch, **moss)
         elif k in PAINTED:
             mot, size, br, axis = PAINTED[k]
             m[k] = paint.wash(f"set-{k}", lit, shade, look=look, cut=0.38, mottle=mot, mottle_scale=size, brush=br,
@@ -171,7 +174,7 @@ def build(ctx=None, *, weather=None, scene=None, look=None, seed: int = 7) -> di
     m = materials(look, w)
     valley = set_valley.build(m, near, far, w, seed=seed)
     approach = set_approach.build(m, near, w, seed=seed + 4)
-    jetty = set_jetty.build(m, near, w, seed=seed)
+    jetty = set_jetty.build(m, near, w, seed=seed, look=look)
     _collars(m, near, jetty, w)
     world = {"scene": scene, "near": near, "far": far, "look": look, "key": key, "key_base": key.data.energy / w.key_gain,
              "weather": w, "materials": m, "river_material": m["water"], "waters": [m["water"], m["puddle"], m["foam"]],

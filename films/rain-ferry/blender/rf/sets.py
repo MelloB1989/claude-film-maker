@@ -40,6 +40,16 @@ HUT_COLORS = {
     "hut_ridge": ((0.05, 0.044, 0.04), (0.012, 0.011, 0.011)),
     "lattice": ((0.15, 0.135, 0.1), (0.035, 0.032, 0.027)),
     "hut_dark": ((0.012, 0.01, 0.009), (0.006, 0.005, 0.005)),
+    "hut_straw": ((0.16, 0.135, 0.09), (0.04, 0.034, 0.026)),   # dry straw under the eaves: the cape, the hat, the blind
+}
+# ... as the warm light after the rain paints them (rf/set_weather.py's AFTER_GRADE)
+HUT_AFTER = {
+    "hut_beam": ((0.09, 0.065, 0.05), (0.022, 0.019, 0.018)),
+    "plaster": ((0.36, 0.3, 0.22), (0.1, 0.085, 0.07)),
+    "thatch_edge": ((0.16, 0.115, 0.07), (0.04, 0.03, 0.024)),
+    "hut_ridge": ((0.1, 0.075, 0.055), (0.025, 0.02, 0.018)),
+    "lattice": ((0.3, 0.24, 0.15), (0.07, 0.055, 0.04)),
+    "hut_straw": ((0.4, 0.31, 0.17), (0.09, 0.07, 0.045)),
 }
 # the hut's lantern and doorway, the only warm light in the cold
 LANTERN = (0.95, 0.22, 0.07)
@@ -75,7 +85,10 @@ def crossing(look, *, seed: int = 7) -> dict:
     hut = minka.hut({"wall": m["wall"], "thatch": m["thatch"], "door": m["door"], "post": m["hut_beam"],
                      "plaster": m["plaster"], "thatch_edge": m["thatch_edge"], "ridge": m["hut_ridge"],
                      "lattice": m["lattice"], "dark": m["hut_dark"], "rope": m["rope"], "wood": m["post"],
-                     "glass": m["water"]}, near, HUT, seed=3)
+                     "glass": m["water"], "straw": m["hut_straw"]}, near, HUT, seed=3)
+    sx, sy, sz = hut["smoke"][0]
+    minka.smoke("hut-smoke", toon.collection("crossing-fx"), (sx - 0.12, sy, sz - 0.4), look=look, height=2.8,
+                density=0.7, color=(0.36, 0.37, 0.39), lean=(-0.4, 0.4))     # not inked
     ex, ey, ez = hut["eave"]
     lantern, _ = minka.chochin("lantern", {"lantern": m["lantern"], "cap": m["hut_dark"], "rope": m["post"]}, near,
                                (ex, ey, ez - 0.45), cord_top=ez + 0.1)

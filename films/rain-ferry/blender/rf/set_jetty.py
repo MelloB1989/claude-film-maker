@@ -24,15 +24,17 @@ DECK_PUDDLES = [(-4.2, -0.35, 0.32, 1.8), (-1.6, 0.4, 0.22, 1.4), (1.1, -0.5, 0.
 # the hut's parts (lib/minka.py) -> the set's materials
 HUT_MATERIALS = {"wall": "wall", "thatch": "thatch", "door": "door", "post": "hut_beam", "plaster": "plaster",
                  "thatch_edge": "thatch_edge", "ridge": "hut_ridge", "lattice": "lattice", "stone": "rock",
-                 "dark": "hut_dark", "wood": "wood", "straw": "thatch_edge", "rope": "rope", "lath": "lattice",
+                 "dark": "hut_dark", "wood": "wood", "straw": "hut_straw", "rope": "rope", "lath": "lattice",
                  "glass": "puddle"}
 # the lantern's light: colour, power (W), size, specular: warm on the boards under it; the lit windows' on the ground
 LANTERN_LIGHT = ((1.0, 0.42, 0.18), 45.0, 0.12, 0.5)
 WINDOW_LIGHT = ((1.0, 0.6, 0.3), 14.0, 0.6, 0.0)
+LANTERN_AIM = (0.45, -0.45, -1.0)    # down and out from the hut's corner: its walls stay out of the cone
+SMOKE = dict(height=2.8, width=(0.14, 1.2), density=0.7, color=(0.36, 0.37, 0.39), lean=(-0.4, 0.4))   # the hearth's, from the back gap
 BANK_PUDDLES = [(-7.4, 0.9, 0.55), (-8.6, -1.4, 0.4), (-5.9, 1.9, 0.3), (-8.0, 5.8, 0.6)]   # (x, y, radius)
 
 
-def build(m: dict, near, weather, *, seed: int = 7) -> dict:
+def build(m: dict, near, weather, *, seed: int = 7, look=None) -> dict:
     """The jetty, the hut and its lantern, the moored boat and its rope, the puddles. `m`: the set's materials (plank,
     post, rope, wall, thatch, door, lantern, hull, wood, bamboo, stave, puddle). Returns the pieces and anchors."""
     import bpy
@@ -80,12 +82,12 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
     from mathutils import Vector
 
     for name, parent, at, aim, (color, energy, size, spec) in (
-            [("lantern-light", lantern, (0.0, 0.0, -0.25), (0.0, 0.0, -1.0), LANTERN_LIGHT)]
+            [("lantern-light", lantern, (0.0, 0.0, -0.25), LANTERN_AIM, LANTERN_LIGHT)]
             + [(f"hut-window-light{k}", None, p, (d[0], d[1], -0.9), WINDOW_LIGHT)
                for k, (p, d) in enumerate(hut["windows"])]):
         lamp = bpy.data.lights.new(name, "SPOT")
         lamp.color, lamp.energy, lamp.shadow_soft_size = color, energy, size
-        lamp.spot_size, lamp.spot_blend = math.radians(130.0), 1.0
+        lamp.spot_size, lamp.spot_blend = math.radians(100.0), 1.0
         lamp.use_custom_distance, lamp.cutoff_distance = True, 6.0
         lamp.use_shadow = False
         lamp.specular_factor = spec                # no hot glints in the puddles: a warm wash, not a spotlight
@@ -94,6 +96,9 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
         ob.parent = parent
         ob.location = at
         ob.rotation_euler = Vector(aim).to_track_quat("-Z", "Y").to_euler()
+    # the hearth's smoke, thin, out of the back end's smoke gap and away on the wind
+    sx, sy, sz = hut["smoke"][0]
+    minka.smoke("hut-smoke", near_fx, (sx - 0.12, sy, sz - 0.4), look=look, seed=seed, **SMOKE)
     # the ferry, moored along the jetty on its +y side
     bx, by = BOAT["location"]
     ferry = boat.river_boat({"hull": m["hull"], "wood": m["wood"], "rope": m["rope"], "bamboo": m["bamboo"]}, near,
