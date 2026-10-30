@@ -265,7 +265,7 @@ class Stage:
         self.tick("composited")
 
 
-def stage(ctx, *, who=("shinza", "tsuru"), ink: float = 0.0035, lantern_near: float | None = None, variant: dict | None = None,
+def stage(ctx, *, who=("shinza", "tsuru"), ink: float = 0.0, lantern_near: float | None = None, variant: dict | None = None,
           place: dict | None = None) -> Stage:
     """The scene for one of the four shots: the world lit at the shot's place in the look schedule, the cast in `who`
     staged and painted (the camera and the weather come after the performance: Stage.film); `ink` is the near set's
