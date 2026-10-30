@@ -259,7 +259,7 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     nt.links.new(body.outputs["Result"], col.inputs["A"])
     col.inputs["B"].default_value = toon._rgba(light)
     nt.links.new(marks, col.inputs["Factor"])
-    # the sky's pale light on a grazing surface, whatever the reflection's rays find
+    # (the sky's pale light on a grazing surface, whatever the reflection's rays find)
     inc = nt.nodes.new("ShaderNodeSeparateXYZ")
     nt.links.new(geo.outputs["Incoming"], inc.inputs[0])
     cos_i = _math(nt, "ABSOLUTE", inc.outputs["Z"])
@@ -297,17 +297,8 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         crest = _ramp(nt, swell.outputs["Fac"], 0.3, 0.5)
         glint = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", path, k_shine),
                       _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", fleck, crest), 3.0, _math(nt, "MULTIPLY", path, 0.2)))
-    gmix = nt.nodes.new("ShaderNodeMix")
-    gmix.data_type = "RGBA"
-    gmix.blend_type = "ADD"
-    nt.links.new(col.outputs["Result"], gmix.inputs["A"])
-    gmix.inputs["B"].default_value = toon._rgba(tuple(c * 2.0 for c in shine_color))
-    if glint is not None:
-        nt.links.new(glint, gmix.inputs["Factor"])
-    else:
-        gmix.inputs["Factor"].default_value = 0.0
     em = nt.nodes.new("ShaderNodeEmission")
-    nt.links.new(toon.flashed(nt, gmix.outputs["Result"], look.flash_lit, 0.25), em.inputs["Color"])
+    nt.links.new(toon.flashed(nt, col.outputs["Result"], look.flash_lit, 0.25), em.inputs["Color"])
     # the reflection, through the bump of the rings, the swell and the chop
     height = _math(nt, "ADD", _math(nt, "MULTIPLY", rings, 0.6),
                    _math(nt, "ADD", _math(nt, "MULTIPLY", swell.outputs["Fac"],
@@ -334,9 +325,19 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     nt.links.new(em.outputs[0], mirror_mix.inputs[1])
     nt.links.new(gl.outputs[0], mirror_mix.inputs[2])
     # a breath of the sky's light on it at a grazing angle, whatever the reflection finds
+    # ... and the glints over everything, the mirror too
+    def scaled(color, k):
+        v = nt.nodes.new("ShaderNodeVectorMath")
+        v.operation = "SCALE"
+        v.inputs[0].default_value = tuple(color)
+        nt.links.new(k, v.inputs["Scale"])
+        return v.outputs["Vector"]
+
+    glow = scaled(sky, _math(nt, "MULTIPLY", fres, _math(nt, "MULTIPLY_ADD", k_rain, -0.12, 0.12)))
+    if glint is not None:
+        glow = _vmath(nt, "ADD", glow, scaled(tuple(c * 2.0 for c in shine_color), glint))
     skyem = nt.nodes.new("ShaderNodeEmission")
-    skyem.inputs["Color"].default_value = toon._rgba(sky)
-    nt.links.new(_math(nt, "MULTIPLY", fres, _math(nt, "MULTIPLY_ADD", k_rain, -0.12, 0.12)), skyem.inputs["Strength"])
+    nt.links.new(glow, skyem.inputs["Color"])
     lit = nt.nodes.new("ShaderNodeAddShader")
     nt.links.new(mirror_mix.outputs[0], lit.inputs[0])
     nt.links.new(skyem.outputs[0], lit.inputs[1])
