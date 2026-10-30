@@ -78,8 +78,10 @@ class Stage:
         return self.actors[name]["vrm"]
 
 
-def stage(ctx, *, who=("shinza", "tsuru"), ink: float | None = 0.0042) -> Stage:
-    """The crossing with `who` at their marks, painted, the near set inked (`ink`: Line Art radius, m; None for none).
+def stage(ctx, *, who=("shinza", "tsuru"), ink: float | None = None) -> Stage:
+    """The crossing with `who` at their marks, painted, the near set uninked by default (`ink`: a Line Art radius, m, to
+    ink it: the set carries its own painted edges, and Line Art over it was most of a frame and of the build, as S7
+    measured; the cast keep their own lines).
     The world's light and the keys' colour are the look schedule's (data/look.json, ctx.look_at) at the shot's first
     frame. The camera (lib/cinema.py), then the weather (`weather`, round the camera's setups), the acting and the
     compositing are the shot's."""
