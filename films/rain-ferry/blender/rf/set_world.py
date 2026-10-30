@@ -20,6 +20,8 @@ sheen), "weather"}. The ferry bobs at its rope on every frame of the shot (keyed
 """
 from __future__ import annotations
 
+import math
+
 from . import set_approach, set_jetty, set_valley, set_weather, sets
 
 # what the set adds to rf/sets.py's palette: (lit, shade), linear
@@ -135,7 +137,8 @@ def materials(look, weather) -> dict:
     for k, (amount, rough) in WET.items():
         water.wet(m[k], w.wet, roughness=rough, tint=(amount,) * 3)
     m.update(set_valley.materials(look, w, pal))
-    m["lantern"] = minka.paper_glow("set-lantern", sets.LANTERN, look=look, strength=w.lantern * 0.8, core=1.5, edge=0.4)
+    m["lantern"] = minka.paper_glow("set-lantern", sets.LANTERN, look=look, strength=w.lantern * 0.8, core=1.5,
+                                    edge=0.4)
     m["lantern_rib"] = toon.flat("set-lantern-rib", LANTERN_RIB, look=look, strength=w.lantern * 0.5)
     m["door"] = toon.flat("set-door-glow", PAPER, look=look, strength=0.65)
     m["water"] = water.surface("set-river", w.river[0], w.river[1], look=look, rain=w.rain, mirror=w.mirror,
@@ -206,12 +209,15 @@ def anchor(world: dict, name: str):
 
 # 26 cross: the ferry poled out from the jetty, across and down the river, toward the far bank
 CROSS_PATH = [(4.7, 2.3), (9.0, 4.2), (17.0, 9.0), (28.0, 15.0), (40.0, 21.0)]
+POLE_STROKE = 3.4            # s: her poling's stroke (shots/cross.py's POLE period) ...
+POLE_IN = (-1.9, -0.9)       # ... and where the pole goes in, in the boat's axes (bow +x): beside the stern
 
 
 def push_off(world: dict, ctx, *, t0: float, t1: float, path=None) -> None:
     """Key the ferry from its mooring out along `path` (default CROSS_PATH) from t0 to t1 (s into the shot), its
-    rope cast off (hidden), bobbing as it goes."""
-    from lib import boat
+    rope cast off (hidden), bobbing as it goes, its wake behind it as strong as it is fast and rings spreading where
+    the pole goes in."""
+    from lib import boat, water
 
     root = world["boat"]["root"]
     root.animation_data_clear()
@@ -222,10 +228,11 @@ def push_off(world: dict, ctx, *, t0: float, t1: float, path=None) -> None:
     world["mooring"].hide_render = True
     world["mooring"].hide_viewport = True
     # its wake, as strong as it is fast
-    from lib import water
-
     w = world["weather"]
-    foam = water.foam("set-wake", tuple(min(1.0, c * 1.6) for c in w.river[1]), look=world["look"], amount=0.0)
+    # (paler than the water's own light, which after the rain is the gold sky's)
+    foam_color = tuple(min(1.0, 0.5 * c + 0.55) for c in w.sky)
+    foam = water.foam("set-wake", foam_color, look=world["look"], amount=0.0,
+                      reach=0.55, ripples=0.8)
     water.key(foam, water.RAIN, [(ctx.f0, 0.0)])
     water.wake("ferry-wake", root, foam, world["near"], sets.WATER_Z, length=set_jetty.BOAT["length"])
     path = path or CROSS_PATH
@@ -234,4 +241,14 @@ def push_off(world: dict, ctx, *, t0: float, t1: float, path=None) -> None:
     for f, a, b in zip(frames, at, at[1:] + at[-1:]):
         speed = ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5 * fps
         water.key(foam, water.FOAM, [(f, min(1.0, speed / 1.4))])
+    # rings where the pole goes in at each stroke (shots/cross.py's: on the stroke's beat from the shot's start),
+    # beside the stern
+    events = []
+    for k in range(int((ctx.f1 - ctx.f0) / fps / POLE_STROKE) + 1):
+        t = k * POLE_STROKE
+        x, y, h = boat.drift_pose(t, path, t0, t1)
+        lx, ly = POLE_IN
+        events.append((x + lx * math.cos(h) - ly * math.sin(h), y + lx * math.sin(h) + ly * math.cos(h),
+                       ctx.f0 + round(t * fps)))
+    water.strike_rings("pole-rings", events, sets.WATER_Z, world["near"], color=foam_color, look=world["look"], fps=fps)
 

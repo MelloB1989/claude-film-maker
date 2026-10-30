@@ -67,7 +67,8 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
                                           seed=seed + len(name))
     # the hut (lib/minka.py): on the bank's edge, its door and porch toward the river, its red chochin hung under the
     # eave at the door side's corner, water dripping off its eaves, the lantern's light warm on the wet boards
-    hut = minka.hut({k: m[v] for k, v in HUT_MATERIALS.items()}, near, sets.HUT, ground=set_valley.ground, seed=seed - 2)
+    hut = minka.hut({k: m[v] for k, v in HUT_MATERIALS.items()}, near, sets.HUT, ground=set_valley.ground,
+                    seed=seed - 2)
     ex, ey, ez = hut["eave"]
     lantern, _ = minka.chochin("lantern", {"lantern": m["lantern"], "cap": m["hut_dark"], "rib": m["lantern_rib"],
                                            "rope": m["rope"]}, near, (ex, ey, ez - 0.45), cord_top=ez + 0.1)
