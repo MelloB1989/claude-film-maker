@@ -115,13 +115,18 @@ BOWL = dict(opacity=0.65, width=(0.003, 0.045))
 BOWL_LIGHT = 1.45
 
 
+# her pipe over her knee between draws: further out than jetty_talk's TS_PIPE_LAP, the forearm out of her wide sleeve
+# so the fist round the stem shows from the river side
+SMOKE_LAP = ((0.15, -0.33, 0.6), (-0.25, -1.0, 0.0))
+
+
 def smoking(st, f: int, t: float, *, at_lips: float = 1.0, **sit) -> None:
     """Key Tsuru on her crate with the pipe at her lips (`at_lips` 1) or over her left knee (0), and between, the
     hand travelling out in front of her chin rather than through it, the elbow and palm turning from one hold to the
     other (jetty_talk's PIPE_ARM); her right hand on her knee, her face calm."""
     pose = {**jt.tsuru_sit(t, **sit), **jt.pipe_fingers(st), **jt.knee_fingers()}
     hips = jt.tsuru_hips(st, t)
-    lap, lap_way = (np.asarray(v, float) for v in jt.TS_PIPE_LAP)
+    lap, lap_way = (np.asarray(v, float) for v in SMOKE_LAP)
     k = min(1.0, max(0.0, at_lips))
     lips, lips_way = _lips(st, t, sit) if k > 0 else (lap, lap_way)
     point = lap + (np.asarray(lips) - lap) * k + np.array((0.03, -0.07, 0.0)) * math.sin(math.pi * k)
