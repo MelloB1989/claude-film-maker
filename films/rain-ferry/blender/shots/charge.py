@@ -57,7 +57,7 @@ def build(ctx):
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import cinema, fx_impact as fx, toon, vrm, vrm_anim as va
-    from rf import clash, vroid_tsuru
+    from rf import clash, vroid_shinza, vroid_tsuru
 
     fps = ctx.fps
     clash.tick("start")
@@ -92,7 +92,10 @@ def build(ctx):
     for t, pommel, hilt, poles, how in sorted(keys, key=lambda k: k[0]):
         hands, _ = clash.shinza_sword(ch, pommel, hilt, poles=dict(zip(("left", "right"), poles)))
         for side, (_, point, along, palm, pole) in hands.items():
-            p.grasp(fr(t), side, point, along, palm, pole=pole, ease=how)
+            p.grasp(fr(t), side, point, along, palm, pole=pole, ease=how, radius=vroid_shinza.TSUKA)
+    # the fingers stay shut on the hilt through the throw (little of the hands' finger drag)
+    for side in ("left", "right"):
+        p.follow_through(side, holding=0.15)
     p.pose(fr(SWING[0]), {"spine": (14.0, 0.0, 0.0), "chest": (8.0, 0.0, 0.0)}, full=False)
     p.pose(fr(SWING[1]), REAR, full=False, ease="out")
     p.pose(fr(SWING[2]), DRIVE, full=False, ease="in")
