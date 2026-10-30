@@ -35,10 +35,10 @@ TEETH = [(0.0, 0.0), (0.14, 0.045), (0.27, 0.006), (0.4, 0.062), (0.55, 0.012), 
 # end dragging after it (its way turning late) in an arc up toward him; the left hand leaves his thigh at LEFT_GO,
 # opens as it comes over in an arc and closes round the hilt from LEFT_MEET; the stub carries a hair past where it
 # stops and settles
-ARC = 0.08                   # m the stub rises over its straight line at the lift's middle
+ARC = 0.045                  # m the stub rises over its straight line at the lift's middle
 TRAIL = 0.18                 # the share of the lift the blade's way lags the hilt
 LEFT_GO, LEFT_MEET, LEFT_SHUT = 0.2, 0.68, 0.88
-LEFT_ARC = 0.07              # m the left hand rises over its straight line
+LEFT_ARC = 0.025             # m the left hand rises over its straight line
 SQUEEZE = 0.14               # how far past the wrap the fingers drive as his grip tightens (rolling little to index)
 GLINT = (91.75, 92.05, 0.045)  # film s: the glint on the break flaring and fading; its size (m)
 
@@ -127,7 +127,7 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
     from rf import approach, clash
     from rf import ending as E
 
-    u = min(1.0, max(0.0, u))
+    ur, u = u, min(1.0, max(0.0, u))
     e = va.ease(u, "overshoot")
     ed = va.ease(min(1.0, max(0.0, (u - TRAIL) / (1.0 - TRAIL))), "inout")
     p0, h0 = np.asarray(fall.KNEEL_STUB["pommel"], float), np.asarray(fall.KNEEL_STUB["hilt"], float)
@@ -142,7 +142,9 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
     k = min(1.0, max(0.0, (u - LEFT_GO) / (LEFT_MEET - LEFT_GO)))
     if k <= 0.0:
         hands["left"] = ("reach", *thigh)
-        left = {kk: v for kk, v in fingers0.items() if kk.startswith("left")}
+        # loose on his thigh as the fall left it, the fingers easing into a curl as he gathers himself
+        left = _mix({kk: v for kk, v in fingers0.items() if kk.startswith("left")}, approach.hand("left", 0.3),
+                    E.ease((ur + 0.35) / 0.35))
     elif k < 1.0:
         # the wrist on its way from his thigh to where the grasp will put it, in an arc, the hand turning over
         _, point, along, palm, pole = hands["left"]
