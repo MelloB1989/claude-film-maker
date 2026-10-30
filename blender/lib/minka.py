@@ -17,6 +17,9 @@ import numpy as np
 
 from . import shapes
 
+# the windows: (wall axis 0: along x / 1: along y, its side -1/+1, from, to along it, sill, lintel height, a blind)
+WINDOWS = ((0, -1, -0.45, 0.45, 1.06, 1.7, True), (1, -1, -0.95, -0.35, 1.1, 1.62, False))
+
 # the parts' material keys, and what each falls back to when a set doesn't give it
 FALLBACK = {"post": "wall", "plaster": "wall", "thatch_edge": "thatch", "ridge": "thatch", "lattice": "post",
             "stone": "post", "dark": "wall", "wood": "post", "straw": "thatch", "rope": "post", "lath": "post",
@@ -100,7 +103,7 @@ def hip_gable_roof(X: float, Y: float, ze: float, zt: float, *, gable: float = 0
 
 
 def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, peak: float = 1.5, facing: float = 0.0,
-        door=(-0.45, 0.78, 1.72), ground=None, porch: float = 0.55, clutter: bool = True, prefix: str = "hut",
+        door=(-0.45, 0.78, 1.72), windows=WINDOWS, ground=None, porch: float = 0.55, clutter: bool = True, prefix: str = "hut",
         seed: int = 5) -> dict:
     """A thatched riverside hut with its floor at `center`, `size` (along x, along y, the walls' height), its door on
     the +x side (turned by `facing`): a post-and-beam frame on footing stones (on short stilts where `ground`, a
@@ -131,6 +134,7 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
         return float(ground(wx, wy)) - C[2]
 
     P = Parts()
+    lights = []                                 # (where, outward): a lit window's light spilling out
     sill = 0.15
     pw = 0.14                                   # the posts' width
     # the posts: the corners, the bays along each side, the door's jambs
@@ -183,25 +187,35 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
             a += w
             k += 1
 
+    def on_wall(axis: int, side: int, a: float, out: float, z: float) -> tuple:
+        """A point on a wall (`axis` 0: along x at y = side * hd; 1: along y at x = side * hw), `out` outward."""
+        return (a, side * (hd + out), z) if axis == 0 else (side * (hw + out), a, z)
+
+    def wall_box(key: str, axis: int, side: int, a0: float, a1: float, out: float, z0: float, z1: float,
+                 thick: float) -> None:
+        c = on_wall(axis, side, (a0 + a1) / 2, out, (z0 + z1) / 2)
+        P.box(key, c, (a1 - a0, thick, z1 - z0) if axis == 0 else (thick, a1 - a0, z1 - z0))
+
     def plaster(axis: int, side: int, a0: float, a1: float, z0: float, z1: float) -> None:
-        out = side * (hd if axis == 0 else hw)
-        c = ((a0 + a1) / 2, out, (z0 + z1) / 2) if axis == 0 else (out, (a0 + a1) / 2, (z0 + z1) / 2)
-        P.box("plaster", c, (a1 - a0, 0.06, z1 - z0) if axis == 0 else (0.06, a1 - a0, z1 - z0))
+        holes = [w for w in windows if w[0] == axis and w[1] == side and a0 < (w[2] + w[3]) / 2 < a1]
+        if not holes:
+            wall_box("plaster", axis, side, a0, a1, 0.0, z0, z1, 0.06)
+            return
+        _, _, b0, b1, c0, c1, _ = holes[0]
+        for p0, p1, q0, q1 in ((a0, b0, z0, z1), (b1, a1, z0, z1), (b0, b1, z0, c0), (b0, b1, c1, z1)):
+            if p1 - p0 > 0.01 and q1 - q0 > 0.01:
+                wall_box("plaster", axis, side, p0, p1, 0.0, q0, q1, 0.06)
 
     top = H - 0.17
-    win = (-0.38, 0.38, 1.12, 1.62)                            # the window in the front (-y) wall's middle bay
     for s in (-1, 1):                                          # the long walls (along x)
         for a0, a1 in zip(xs[:-1], xs[1:]):
             a0, a1 = a0 + pw / 2, a1 - pw / 2
             boards(0, s, a0, a1, 0.0, RAIL - 0.04)
-            if s < 0:
-                plaster(0, s, a0, a1, RAIL + 0.04, top)
-            else:
-                boards(0, s, a0, a1, RAIL + 0.04, top)
+            plaster(0, s, a0, a1, RAIL + 0.04, top)
     ys = [y for x, y in posts if x == -hw]
-    for a0, a1 in zip(ys[:-1], ys[1:]):                        # the back end (-x): boards all the way up
+    for a0, a1 in zip(ys[:-1], ys[1:]):                        # the back end (-x)
         boards(1, -1, a0 + pw / 2, a1 - pw / 2, 0.0, RAIL - 0.04)
-        boards(1, -1, a0 + pw / 2, a1 - pw / 2, RAIL + 0.04, top)
+        plaster(1, -1, a0 + pw / 2, a1 - pw / 2, RAIL + 0.04, top)
     ys = [y for x, y in posts if x == hw]
     for a0, a1 in zip(ys[:-1], ys[1:]):                        # the door's end (+x): boards and plaster round the door
         a0, a1 = a0 + pw / 2, a1 - pw / 2
@@ -221,20 +235,29 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
     for k in range(3):
         P.box("rope", (lx, yl - 0.016, lz - 0.12 + 0.12 * k), (0.5, 0.012, 0.014))
 
-    # the window: barred with bamboo (renji), its paper glowing behind, a sill and a lintel, a rolled blind over it
-    x0, x1, z0, z1 = win
-    yw = -hd
-    P.box("dark", ((x0 + x1) / 2, yw + 0.06, (z0 + z1) / 2), (x1 - x0, 0.02, z1 - z0))
-    P.box("door", ((x0 + x1) / 2, yw + 0.035, (z0 + z1) / 2), (x1 - x0, 0.01, z1 - z0))
-    P.box("post", ((x0 + x1) / 2, yw - 0.04, z0 - 0.03), (x1 - x0 + 0.16, 0.1, 0.05))
-    P.box("post", ((x0 + x1) / 2, yw - 0.035, z1 + 0.03), (x1 - x0 + 0.16, 0.08, 0.06))
-    for k in range(9):
-        x = x0 + 0.05 + (x1 - x0 - 0.1) * k / 8
-        P.cyl("lattice", (x, yw - 0.01, z0), (x, yw - 0.01, z1), 0.013, n=6)
-    P.cyl("straw", (x0 - 0.1, yw - 0.1, z1 + 0.13), (x1 + 0.1, yw - 0.1, z1 + 0.13), 0.06, n=10)
-    P.box("straw", ((x0 + x1) / 2, yw - 0.065, z1 + 0.06), (x1 - x0 + 0.2, 0.012, 0.16))
-    for x in (x0 + 0.05, x1 - 0.05):
-        P.cyl("rope", (x, yw - 0.165, z1 + 0.06), (x, yw - 0.165, z1 + 0.24), 0.008, n=5)
+    # the windows: barred with bamboo (renji), their paper glowing behind, a sill and a lintel, a rolled blind over
+    # the ones that have one
+    for axis, side, a0, a1, z0, z1, blind in windows:
+        am = (a0 + a1) / 2
+        wall_box("door", axis, side, a0, a1, -0.02, z0, z1, 0.01)
+        wall_box("dark", axis, side, a0 - 0.02, a1 + 0.02, -0.035, z0 - 0.02, z1 + 0.02, 0.01)
+        wall_box("post", axis, side, a0 - 0.08, a1 + 0.08, 0.04, z0 - 0.055, z0 - 0.005, 0.1)
+        wall_box("post", axis, side, a0 - 0.08, a1 + 0.08, 0.035, z1, z1 + 0.06, 0.08)
+        for a in (a0, a1):
+            wall_box("post", axis, side, a - 0.025, a + 0.025, 0.01, z0, z1, 0.06)
+        n = max(int((a1 - a0) / 0.085), 3)
+        for k in range(1, n):
+            a = a0 + (a1 - a0) * k / n
+            P.cyl("lattice", on_wall(axis, side, a, 0.015, z0), on_wall(axis, side, a, 0.015, z1), 0.013, n=6)
+        if blind:
+            P.cyl("straw", on_wall(axis, side, a0 - 0.1, 0.1, z1 + 0.13), on_wall(axis, side, a1 + 0.1, 0.1, z1 + 0.13),
+                  0.06, n=10)
+            wall_box("straw", axis, side, a0 - 0.1, a1 + 0.1, 0.065, z1 - 0.02, z1 + 0.14, 0.012)
+            for a in (a0 + 0.05, a1 - 0.05):
+                P.cyl("rope", on_wall(axis, side, a, 0.165, z1 + 0.06), on_wall(axis, side, a, 0.165, z1 + 0.24),
+                      0.008, n=5)
+        lights.append((world(on_wall(axis, side, am, 0.25, (z0 + z1) / 2)),
+                       world(on_wall(axis, side, am, 1.0, 0.0)) - world(on_wall(axis, side, am, 0.0, 0.0))))
 
     # the door: a sliding shoji in its frame, slid a hand's width open on the dark inside, lit through its paper
     xd = hw
@@ -308,20 +331,27 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
             zk = zg + (zt - zg) * (1 - abs(k) / 4) - 0.05
             P.box("lattice", (sx * xr, yk, (zg + zk) / 2), (0.03, 0.04, max(zk - zg, 0.04)))
         P.box("post", (sx * xr, 0.0, zg - 0.02), (0.06, 2 * yg + 0.1, 0.06))
-    # its cut edge: two steps, the upper the slope's own thickness, the lower set back under it
-    def band(key: str, inset: float, z_top: float, z_bot: float, inset_bot: float) -> None:
+    # its cut edge: thick, in two steps, the upper the slope's own thickness, the lower set back under it, its foot
+    # ragged where the straw ends hang unevenly
+    def band(key: str, inset: float, z_top: float, z_bot: float, inset_bot: float, ragged: float = 0.0) -> None:
         corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
-        top_ = [(sx * (X - inset), sy * (Y - inset), z_top) for sx, sy in corners]
-        bot = [(sx * (X - inset_bot), sy * (Y - inset_bot), z_bot) for sx, sy in corners]
-        vs = top_ + bot
-        fs = [(i, (i + 1) % 4, 4 + (i + 1) % 4, 4 + i) for i in range(4)]
-        fs = [tuple(reversed(f)) for f in fs]
-        P.poly(key, vs, fs)
-    band("thatch_edge", 0.0, ze, ze - 0.2, 0.02)
-    band("thatch_edge", 0.1, ze - 0.2, ze - 0.36, 0.14)
+        top_, bot = [], []
+        for (sx, sy), (tx, ty) in zip(corners, corners[1:] + corners[:1]):
+            n = max(int(max(abs(tx - sx) * X, abs(ty - sy) * Y) / 0.09), 1) if ragged else 1
+            for j in range(n):
+                f = j / n
+                cx, cy = sx + (tx - sx) * f, sy + (ty - sy) * f
+                top_.append((cx * (X - inset), cy * (Y - inset), z_top))
+                drop = ragged * (rng.uniform(0.0, 1.0) ** 2 if j else 0.6)
+                bot.append((cx * (X - inset_bot), cy * (Y - inset_bot), z_bot - drop))
+        k = len(top_)
+        fs = [tuple(reversed((i, (i + 1) % k, k + (i + 1) % k, k + i))) for i in range(k)]
+        P.poly(key, top_ + bot, fs)
+    band("thatch_edge", 0.0, ze, ze - 0.24, 0.02)
+    band("thatch_edge", 0.08, ze - 0.24, ze - 0.44, 0.13, ragged=0.07)
     # under the eaves: the thatch's underside, rising from the cut edge to the walls, bamboo rafters along it
-    zu = ze - 0.37
-    zs_t = zt - 0.55
+    zu = ze - 0.42
+    zs_t = zt - 0.6
     sv, sf, _ = hip_gable_roof(X - 0.14, Y - 0.14, zu, zs_t)
     P.poly("thatch", sv, [tuple(reversed(f)) for f in sf[:4]])
 
@@ -408,6 +438,7 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
         b = world((bx_ - 0.08 * np.sign(bx_ - ax), by_ - 0.08 * np.sign(by_ - ay), zu - 0.01))
         edges.append((tuple(a), tuple(b)))
     return {"objects": obs, "eave": tuple(eave), "door": tuple(world((hw + 0.02, dy0, 0.0))), "eave_edges": edges,
+            "windows": [(tuple(p), tuple(d / np.linalg.norm(d))) for p, d in lights],
             "smoke": [tuple(world((s * rp["xr"], 0.0, zt))) for s in (-1, 1)]}
 
 

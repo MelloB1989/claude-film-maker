@@ -26,7 +26,8 @@ HUT_MATERIALS = {"wall": "wall", "thatch": "thatch", "door": "door", "post": "hu
                  "thatch_edge": "thatch_edge", "ridge": "hut_ridge", "lattice": "lattice", "stone": "rock",
                  "dark": "hut_dark", "wood": "wood", "straw": "thatch_edge", "rope": "rope", "lath": "lattice",
                  "glass": "puddle"}
-LANTERN_LIGHT = ((1.0, 0.42, 0.18), 22.0, 0.12)   # its light's colour, power (W) and size: warm on the boards under it
+LANTERN_LIGHT = ((1.0, 0.42, 0.18), 45.0, 0.12)   # its light's colour, power (W) and size: warm on the boards under it
+WINDOW_LIGHT = ((1.0, 0.6, 0.3), 30.0, 0.3)       # ... the lit windows' on the ground under them
 BANK_PUDDLES = [(-7.4, 0.9, 0.55), (-8.6, -1.4, 0.4), (-5.9, 1.9, 0.3), (-8.0, 5.8, 0.6)]   # (x, y, radius)
 
 
@@ -72,16 +73,24 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
     for k, (a, b) in enumerate(hut["eave_edges"]):
         rain_fx.drips(f"hut-eave{k}", rain_fx.edge(a, b, 18 if k < 2 else 10), period=0.9, fall=2.6,
                       seed=seed + k, coll=near_fx)
-    # its light: a soft cone down from it onto the porch and the boards (not up on the eave), unshadowed (cheap)
-    lamp = bpy.data.lights.new("lantern-light", "SPOT")
-    lamp.color, lamp.energy, lamp.shadow_soft_size = LANTERN_LIGHT
-    lamp.spot_size, lamp.spot_blend = math.radians(140.0), 1.0
-    lamp.use_custom_distance, lamp.cutoff_distance = True, 6.0
-    lamp.use_shadow = False
-    glow = bpy.data.objects.new("lantern-light", lamp)
-    near_fx.objects.link(glow)
-    glow.parent = lantern
-    glow.location = (0.0, 0.0, -0.25)            # pointing down (a light's -z)
+    # their light: a soft cone down from the lantern onto the porch and the boards (not up on the eave), and one out
+    # of each lit window onto the ground under it, unshadowed (cheap)
+    from mathutils import Vector
+
+    for name, parent, at, aim, (color, energy, size) in (
+            [("lantern-light", lantern, (0.0, 0.0, -0.25), (0.0, 0.0, -1.0), LANTERN_LIGHT)]
+            + [(f"hut-window-light{k}", None, p, (d[0], d[1], -0.9), WINDOW_LIGHT)
+               for k, (p, d) in enumerate(hut["windows"])]):
+        lamp = bpy.data.lights.new(name, "SPOT")
+        lamp.color, lamp.energy, lamp.shadow_soft_size = color, energy, size
+        lamp.spot_size, lamp.spot_blend = math.radians(130.0), 1.0
+        lamp.use_custom_distance, lamp.cutoff_distance = True, 6.0
+        lamp.use_shadow = False
+        ob = bpy.data.objects.new(name, lamp)
+        near_fx.objects.link(ob)
+        ob.parent = parent
+        ob.location = at
+        ob.rotation_euler = Vector(aim).to_track_quat("-Z", "Y").to_euler()
     # the ferry, moored along the jetty on its +y side
     bx, by = BOAT["location"]
     ferry = boat.river_boat({"hull": m["hull"], "wood": m["wood"], "rope": m["rope"], "bamboo": m["bamboo"]}, near,
