@@ -297,6 +297,7 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         on = _ramp(nt, _math(nt, "FRACT", _math(nt, "MULTIPLY_ADD", t, 1.7, twinkle.outputs["Red"])), 0.6, 0.0)
         fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.16, 0.04), on)
         crest = _ramp(nt, swell.outputs["Fac"], 0.3, 0.5)
+        path = _math(nt, "MULTIPLY", path, _ramp(nt, dist, 4.0 * scale, 10.0 * scale))   # none huge under the lens
         glint = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", path, k_shine),
                       _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", fleck, crest), 3.0, _math(nt, "MULTIPLY", path, 0.2)))
     em = nt.nodes.new("ShaderNodeEmission")
