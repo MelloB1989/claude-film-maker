@@ -31,7 +31,7 @@ BEARING, DIST, HEIGHT = -38.0, (2.35, 1.95), (1.08, 1.12)
 LENS = (32.0, 35.0)
 GRIN = (0.0, 0.5)
 PULL = (0.15, 1.24)          # the slow draw up out of the scabbard (from the steel's onset)
-PULL_LEN, SLIDE = 0.5, 0.24  # how far his fist travels up the scabbard's line, and the scabbard down its own
+PULL_LEN, SLIDE = 0.42, 0.24  # how far his fist travels up the scabbard's line (short of a locked arm), and the scabbard down its own
 CLEAR = 1.3                  # the tip clears: the ring's peak, the jolt
 # the blade's way (his frame: x his left, y his back, z up) and his fist's place through the swing over and down, and
 # the way his palm faces (the blade's flat); the first comes from the scabbard
