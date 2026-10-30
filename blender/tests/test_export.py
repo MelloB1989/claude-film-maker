@@ -68,6 +68,14 @@ def test_resample_area_splits_pixels_at_fractional_scales():
     np.testing.assert_allclose(out[..., 0], [[1.0, 5.0]])  # (0 + 1.5) / 1.5, (1.5 + 6) / 1.5
 
 
+def test_resample_area_at_whole_factors_matches_the_weighted_average():
+    # the proxy's exact half takes the block-mean shortcut: it must give what the weight matrices give
+    img = np.random.default_rng(3).random((12, 18, 4)).astype(np.float32)
+    wy, wx = export._area_weights(12, 6), export._area_weights(18, 6)
+    want = np.einsum("ywc,xw->yxc", (wy @ img.reshape(12, 18 * 4)).reshape(6, 18, 4), wx)
+    np.testing.assert_allclose(export.resample_area(img, 6, 6), want, rtol=1e-5, atol=1e-6)
+
+
 def test_srgb8_is_the_srgb_transfer_clipped_to_8_bits():
     lin = np.array([0.0, 0.001, 0.5, 0.846873, 1.0, 2.0, -1.0])
     assert export.srgb8(lin).tolist() == [0, 3, 188, 237, 255, 255, 0]  # 3.29, 187.52, noir fg's red 237
