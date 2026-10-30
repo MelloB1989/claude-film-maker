@@ -37,7 +37,8 @@ TEETH = [(0.0, 0.0), (0.14, 0.045), (0.27, 0.006), (0.4, 0.062), (0.55, 0.012), 
 # stops and settles
 ARC = 0.045                  # m the stub rises over its straight line at the lift's middle
 TRAIL = 0.18                 # the share of the lift the blade's way lags the hilt
-LEFT_GO, LEFT_MEET, LEFT_SHUT = 0.2, 0.68, 0.88
+LEFT_GO, LEFT_MEET, LEFT_SHUT = 0.3, 0.8, 0.94
+LEFT_ELBOW = (0.55, 0.05, 0.15)   # the left elbow's way mid-reach (his frame): down and out, never up over the hilt
 LEFT_ARC = 0.025             # m the left hand rises over its straight line
 GIVE = (0.0, 0.03, -0.06)    # m the stub sinks (his frame) as his grip gives after the line
 ROLL = {"Little": 0.0, "Ring": 0.12, "Middle": 0.22, "Index": 0.32, "Thumb": 0.42}   # the squeeze's beats (shares)
@@ -160,7 +161,10 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
         at = np.asarray(thigh[0], float) + (wrist - np.asarray(thigh[0], float)) * ke
         at[2] += LEFT_ARC * math.sin(math.pi * k)
         rot = va.matrix(va.slerp(va.quat(va.turn_matrix(thigh[2])), va.quat(turn), ke))
-        hands["left"] = ("reach", tuple(at), tuple(np.asarray(thigh[1]) + (np.asarray(pole) - thigh[1]) * ke), rot)
+        mid = np.asarray(LEFT_ELBOW, float)
+        elbow = (np.asarray(thigh[1], float) + (mid - thigh[1]) * E.ease(k * 2.0) if k < 0.5
+                 else mid + (np.asarray(pole, float) - mid) * E.ease(k * 2.0 - 1.0))
+        hands["left"] = ("reach", tuple(at), tuple(elbow), rot)
         # the fingers opening as the hand comes over, to close round the hilt as it lands
         left = _mix(vrm.hand_pose("left", "loose"), vrm.hand_pose("left", "open"), min(1.0, k * 2.0))
     if k >= 1.0:
