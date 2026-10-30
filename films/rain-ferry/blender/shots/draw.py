@@ -96,11 +96,11 @@ def perform(st):
             p = grip + u * PULL_LEN * jt.ease(jt.ramp(t, *PULL))     # slow, then quicker as it comes
             b, palm = d, start_palm
         else:
-            # the swing in one arc over and down (jt.glide: carried through its keys, not stopping at each), the
-            # blade's way and the palm's turn a beat behind the fist (the wrist rolling it through)
+            # the swing in one arc over and down (jt.glide: carried through its keys, not stopping at each; the
+            # wrist rolling on after it is the core's follow-through)
             p = np.array(jt.glide(keys_p, t))
-            b = np.array(jt.glide(keys_b, t - 0.03))
-            palm = jt.glide(keys_palm, t - 0.04)
+            b = np.array(jt.glide(keys_b, t))
+            palm = jt.glide(keys_palm, t)
         b = b / np.linalg.norm(b)
         turn = jt.hand_turn(ch, "right", -b, jt.flat_palm(b, palm))
         st.hand("shinza", "right", f, jt.fist_wrist(ch, "right", p, turn), turn, jt.keys_at(poles, t))

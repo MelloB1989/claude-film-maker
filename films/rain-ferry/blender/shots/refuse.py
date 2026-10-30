@@ -91,5 +91,4 @@ def perform(st):
     for f in st.frames():
         t = st.t(f)
         chin = jt.ramp(t, CHIN[0], CHIN[1]) - 0.6 * jt.ramp(t, CHIN[2], CHIN[3])
-        ja.smoking(st, f, t, at_lips=jt.ramp(t, *LIFT), wrist=jt.ramp(t, LIFT[0] + 0.1, LIFT[1] + 0.1),
-                   down=-4.0 * chin)
+        ja.smoking(st, f, t, at_lips=jt.ramp(t, *LIFT), down=-4.0 * chin)

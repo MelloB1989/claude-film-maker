@@ -121,18 +121,11 @@ def follow(t: float, a: float, b: float, *, lag: float = 0.06, over: float = 0.1
 
 
 def relaxed(side: str, amount: float = 1.0) -> dict:
-    """A hand at rest, not a mannequin's flat one: each finger curled a little more than the one before it (index
-    least, little most), the thumb soft beside the index, by `amount` (vrm.pose's turns, from a T-pose's flat hand)."""
-    s = 1.0 if side == "left" else -1.0
-    out = {}
-    for finger, (p, i, d) in {"Index": (14.0, 18.0, 10.0), "Middle": (20.0, 26.0, 14.0),
-                              "Ring": (26.0, 31.0, 17.0), "Little": (32.0, 36.0, 20.0)}.items():
-        for joint, deg in (("Proximal", p), ("Intermediate", i), ("Distal", d)):
-            out[f"{side}{finger}{joint}"] = (0.0, s * deg * amount, 0.0)
-    out[f"{side}ThumbMetacarpal"] = (0.0, s * 6.0 * amount, s * 16.0 * amount)
-    out[f"{side}ThumbProximal"] = (0.0, s * 12.0 * amount, s * 6.0 * amount)
-    out[f"{side}ThumbDistal"] = (0.0, s * 16.0 * amount, 0.0)
-    return out
+    """A hand at rest, not a mannequin's flat one (lib/vrm.py's "relaxed" hand shape: index least curled, little most,
+    the thumb soft by the index), by `amount` (past 1, more closed)."""
+    from lib import vrm
+
+    return vrm.hand_pose(side, "relaxed", amount)
 
 
 def blend_hand(a: dict, b: dict, k: float) -> dict:

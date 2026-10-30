@@ -64,8 +64,7 @@ def build(ctx):
     for f in st.frames():
         t = st.t(f)
         out = jt.ramp(t, EXHALE[0] - 0.25, EXHALE[0]) - jt.ramp(t, EXHALE[1], EXHALE[1] + 0.4)
-        ja.smoking(st, f, t, at_lips=1.0 - jt.ramp(t, *DRAW), wrist=1.0 - jt.ramp(t, DRAW[0] + 0.08, DRAW[1] + 0.1),
-                   down=-4.0 * out)
+        ja.smoking(st, f, t, at_lips=1.0 - jt.ramp(t, *DRAW), down=-4.0 * out)
     st.blinks("tsuru", (1.6, 3.9))
     ja.clock("ask", "performed")
     st.bake()

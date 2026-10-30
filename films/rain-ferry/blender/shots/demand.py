@@ -92,10 +92,9 @@ def perform(st, lines):
         if t < RISE[0]:
             right = jt.side_hand(st, "shinza", "right", f, t, curl=0.1 * out)
         else:
-            # the wrist trails the arm a beat on the way up (its turn keyed behind the path); the fingers loose and
-            # curled as it goes (opened, they read as a flat paw from down here), then snap shut on the hilt,
+            # (the wrist's lag behind the arm is the core's follow-through); the fingers loose and curled as it goes (opened, they read as a flat paw from down here), then snap shut on the hilt,
             # squeezing past their hold and easing back
-            st.hand("shinza", "right", f, jt.glide(wrists, t), jt.turn_keys(turns, t - 0.06), jt.keys_at(poles, t))
+            st.hand("shinza", "right", f, jt.glide(wrists, t), jt.turn_keys(turns, t), jt.keys_at(poles, t))
             hand = jt.relaxed("right", 1.2 + 0.4 * jt.ramp(t, RISE[0], RISE[1]) - 0.3 * jt.ramp(t, RISE[2], RISE[3]))
             right = jt.blend_hand(hand, jt.fingers("right", 1.0), jt.follow(t, RISE[3] - 0.04, RISE[4], lag=0.0,
                                                                               over=0.08))

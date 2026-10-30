@@ -103,8 +103,7 @@ def perform(st, lines, post):
         # down to her knee in an arc (out and down, the bowl leading, the fist following), not straight through
         fist = (fist_knock * (1 - low) + np.asarray(lap) * low
                 + np.array((0.03, -0.05, 0.03)) * math.sin(math.pi * low))
-        lag = jt.ramp(t, LOWER[0] + 0.1, LOWER[1] + 0.15)
-        along = along_knock / np.linalg.norm(along_knock) * (1 - lag) + np.asarray(lap_along) / np.linalg.norm(lap_along) * lag
+        along = along_knock / np.linalg.norm(along_knock) * (1 - low) + np.asarray(lap_along) / np.linalg.norm(lap_along) * low
         knock = sum(math.exp(-((t - a) / 0.05) ** 2) for a in TAPS)
         body = jt.tsuru_sit(t, turn=-14.0 * (1 - up) + 4.0 * up, down=10.0 * (1 - up) - 6.0 * up + 1.5 * knock,
                             eyes=(18.0 * (1 - up) - 2.0 * up, -6.0 * (1 - up)), lean=6.0 * (1 - low))
@@ -114,7 +113,7 @@ def perform(st, lines, post):
         st.pose("tsuru", f, {**body, **fold, **jt.pipe_fingers(st), **jt.knee_fingers()},
                 hips=jt.tsuru_hips(st, t))
         (p0, q0), (p1, q1) = np.asarray(jt.PIPE_ARM["knock"], float), np.asarray(jt.PIPE_ARM["lap"], float)
-        jt.hold_pipe(st, f, fist, along, palm_turn=(p0 + (p1 - p0) * low, q0 + (q1 - q0) * lag))   # the palm lags
+        jt.hold_pipe(st, f, fist, along, palm_turn=(p0 + (p1 - p0) * low, q0 + (q1 - q0) * low))
         jt.knee_hand(st, f)
         smile = jt.ramp(t, *SMILE)
         st.face("tsuru", f, {"s4-calm": 1.0, "s4-smile": 0.8 * smile})
