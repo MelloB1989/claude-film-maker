@@ -1429,7 +1429,8 @@ class Performance:
         fingers trailing the hand (on their own beats), worked out in `bake` from the baked arm alone (no scene
         stepping). On by default (amount 1); `amount` 0 turns it off for a side (None: both); a hand carrying a prop
         takes `holding` of it (a sword does not flop). `twist`: the share of a hand's twist about its forearm that
-        the forearm takes (FK arms; no candy-wrapper wrists)."""
+        the forearm takes (FK arms, and IK arms whose hand a hold turns, even with `amount` 0; no candy-wrapper
+        wrists)."""
         for sd in (("left", "right") if side is None else (side,)):
             self.drag[sd] = dict(amount=float(amount), lag=float(lag), bounce=float(bounce), fingers=float(fingers),
                                  holding=float(holding), twist=float(twist))
@@ -2046,6 +2047,7 @@ class Performance:
         # what the secondary pass reads back without stepping the scene through every frame
         self._baked = dict(frames=frames, turns=baked_turns, hips=[h + np.array([0.0, 0.0, dz]) for h, dz in zip(out_hips, d)],
                            root=out_root, yaw=out_yaw)
+        self._ik_twist_pass(frames, baked_turns, out_q, out_limb, rests, hips_loc, cons)
 
         w = _Writer(frames)
         for h in self.order:
@@ -2092,7 +2094,7 @@ class Performance:
     def _drag_pass(self, frames, baked_turns, out_q, out_limb, rests) -> None:
         """`follow_through` on the baked arms: each hand's turn in the character's frame lagged (`follow`) and the
         lag put back on the hand (FK: relative to its forearm; IK: on the hand's held turn), the fingers' curl
-        trailing it; the forearm taking a share of the hand's twist (FK)."""
+        trailing it; the forearm taking a share of the hand's twist (FK; IK arms: `_ik_twist_pass`)."""
         F = self.ch.frame
         n = len(frames)
         if n < 3 or not any(c["amount"] > 0 for c in self.drag.values()):
@@ -2144,6 +2146,72 @@ class Performance:
                         if b in turns and abs(c) > 1e-3:
                             turns[b] = vrm.euler((0.0, sg * c * w, 0.0)) @ turns[b]
                             out_q[b][i] = quat(vrm.local_rotation(rests[b], F, turns[b]))
+
+    def _ik_twist_pass(self, frames, baked_turns, out_q, out_limb, rests, hips_loc, cons) -> None:
+        """The forearm of an arm whose hand an IK hold turns takes `follow_through`'s `twist` share of the hand's twist
+        about it (no wrist wrung like a candy wrapper on a pole or a hilt). The IK's forearm is read off a bare copy
+        of the armature (no meshes to deform: cheap to update) with the same IK, posed as baked; the twist then goes on
+        the forearm's own turn, which the IK keeps (it turns the chain, not the bone about its length)."""
+        import bpy
+        from mathutils import Quaternion, Vector
+
+        ch, F = self.ch, self.ch.frame
+        jobs = []
+        for end, o in out_limb.items():
+            side = "left" if end.startswith("left") else "right"
+            lo = f"{side}LowerArm"
+            share = self.drag.get(side, {}).get("twist", 0.0)
+            if not end.endswith("Hand") or share <= 0 or lo not in self.order or end not in cons:
+                continue
+            # as far as the IK and the hold have the hand (eased in and out with them, never popping on)
+            idx = {i: share * min(1.0, o["w"][i]) * min(1.0, o["tw"][i]) for i in range(len(frames))
+                   if o["w"][i] * o["tw"][i] > 0.01 and o["turn"][i] is not None}
+            if idx:
+                jobs.append((end, lo, share, idx))
+        if not jobs:
+            return
+        arm = ch.armature
+        tmp = bpy.data.objects.new(f"{ch.name}-iktwist", arm.data)
+        bpy.context.scene.collection.objects.link(tmp)
+        made = [tmp]
+        bpy.context.view_layer.update()          # (a new armature object has no pose until it is evaluated)
+        names = {h: ch.bones[h] for h in self.order}
+        pbs = {h: tmp.pose.bones[b] for h, b in names.items()}
+        for pb in pbs.values():
+            pb.rotation_mode = "QUATERNION"
+        hips_pb = pbs["hips"]
+        ends = {}
+        for end, lo, _, idx in jobs:
+            ik = cons[end][0]
+            t, p = (bpy.data.objects.new(f"{ch.name}-iktwist-{k}", None) for k in ("t", "p"))
+            for e in (t, p):
+                bpy.context.scene.collection.objects.link(e)
+                e.parent = tmp
+                made.append(e)
+            c = pbs[lo].constraints.new("IK")
+            c.target, c.pole_target, c.chain_count = t, p, ik.chain_count
+            c.pole_angle, c.use_stretch, c.iterations = ik.pole_angle, ik.use_stretch, ik.iterations
+            ends[end] = (t, p)
+        try:
+            for i in sorted({i for *_, idx in jobs for i in idx}):
+                for h, pb in pbs.items():
+                    pb.rotation_quaternion = Quaternion(out_q[h][i])
+                hips_pb.location = Vector(hips_loc[i])
+                for end, (t, p) in ends.items():
+                    t.location, p.location = Vector(out_limb[end]["t"][i]), Vector(out_limb[end]["pole"][i])
+                bpy.context.view_layer.update()
+                for end, lo, _, idx in jobs:
+                    if i not in idx:
+                        continue
+                    fore = F.T @ np.array(pbs[lo].matrix.to_3x3()) @ rests[lo].T @ F
+                    hand = F.T @ matrix(out_limb[end]["q"][i]) @ rests[end].T @ F
+                    axis = self.rest_heads[end] - self.rest_heads[lo]
+                    tw_, _ = twist_split(fore.T @ hand, axis, idx[i])
+                    baked_turns[i][lo] = baked_turns[i][lo] @ tw_
+                    out_q[lo][i] = quat(vrm.local_rotation(rests[lo], F, baked_turns[i][lo]))
+        finally:
+            for ob in made:
+                bpy.data.objects.remove(ob, do_unlink=True)
 
     def _look_blinks(self) -> list:
         """Seconds when a look swings far enough to blink on (the start of the swing)."""
