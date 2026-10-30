@@ -764,6 +764,41 @@ def arc(p0, p1, u: float, *, center=None, lift: float = 0.0, up=(0.0, 0.0, 1.0))
     return p
 
 
+def glide(keys, t: float) -> np.ndarray:
+    """A point from [(t, (x, y, z)), ...] (times rising) on a smooth path through every key: easing out of the first
+    and into the last, carried through the ones between without stopping (a hand's arc through its poses, not a stop
+    at each). Cubic Hermite with time-scaled tangents (C1); held outside the keys."""
+    ts = [float(k[0]) for k in keys]
+    ps = [np.asarray(k[1], float) for k in keys]
+    if t <= ts[0]:
+        return ps[0].copy()
+    if t >= ts[-1]:
+        return ps[-1].copy()
+    n = len(ps)
+
+    def tangent(i):
+        if i == 0 or i == n - 1:
+            return np.zeros_like(ps[i])
+        return (ps[i + 1] - ps[i - 1]) / (ts[i + 1] - ts[i - 1])
+
+    i = max(j for j in range(n - 1) if ts[j] <= t)
+    h = ts[i + 1] - ts[i]
+    u = (t - ts[i]) / h
+    h00, h10, h01, h11 = 2 * u ** 3 - 3 * u ** 2 + 1, u ** 3 - 2 * u ** 2 + u, -2 * u ** 3 + 3 * u ** 2, u ** 3 - u ** 2
+    return h00 * ps[i] + h10 * h * tangent(i) + h01 * ps[i + 1] + h11 * h * tangent(i + 1)
+
+
+def trail(t: float, a: float, b: float, *, lag: float = 0.06, over: float = 0.12) -> float:
+    """0 before `a`, 1 after `b` (seconds or frames, alike), eased, but dragging `lag` behind and swinging `over` past 1
+    as it arrives, back on 1 half the move's length later: a wrist or the fingers following the arm that carries them
+    (overlap and follow-through) as a pure function of time, for a shot that keys its own frames. C1 all through."""
+    if b <= a:
+        return float(t >= a + lag)
+    u = (t - a - lag) / (b - a)
+    bump = math.sin(math.pi * (u - 0.5)) ** 2 if 0.5 < u < 1.5 else 0.0
+    return ease(u) + over * bump
+
+
 def slerp_dir(a, b, u: float) -> np.ndarray:
     """A unit direction `u` of the way from unit `a` to unit `b` along the great circle."""
     a, b = np.asarray(a, float), np.asarray(b, float)
@@ -2049,8 +2084,9 @@ class Performance:
         trailing it; the forearm taking a share of the hand's twist (FK)."""
         F = self.ch.frame
         n = len(frames)
-        if n < 3:
+        if n < 3 or not any(c["amount"] > 0 for c in self.drag.values()):
             return
+        tots = [fk(self.order, self.parents, self.rest_heads, baked_turns[i])[0] for i in range(n)]
         for side, cfg in self.drag.items():
             h, lo = f"{side}Hand", f"{side}LowerArm"
             if cfg["amount"] <= 0 or h not in self.order or lo not in self.order:
@@ -2059,7 +2095,7 @@ class Performance:
             limb = out_limb.get(h)
             fore_tot, hand_tot = [], []
             for i in range(n):
-                tot, _ = fk(self.order, self.parents, self.rest_heads, baked_turns[i])
+                tot = tots[i]
                 fore_tot.append(tot[lo])
                 ht = tot[h]
                 if limb is not None and limb["tw"][i] > 0.5 and limb["turn"][i] is not None:

@@ -33,14 +33,24 @@ COLORS = {
     "paint": ((0.012, 0.012, 0.014), (0.006, 0.006, 0.007)),  # its characters, ink
     "rock": ((0.07, 0.072, 0.075), (0.016, 0.017, 0.019)),
     "slope": ((0.045, 0.05, 0.052), (0.02, 0.022, 0.025)),    # the valley's far ground (the fog pales it)
+    **sets.HUT_COLORS,
 }
+# the thatch's straw: (mottle, its patch size m, how dark its strands, their width m, how long against wide)
+STRAW = {"thatch": (0.15, 1.5, 0.75, 0.14, 10.0), "thatch_edge": (0.12, 1.0, 0.85, 0.08, 16.0)}
+PLASTER_STAIN = (0.06, 0.052, 0.045)    # the plaster darkened by the splash and the damp up from its foot
+PLASTER_STAIN_Z = (1.25, 1.62)          # ... from its foot (world z) to where it's gone
+PAPER = (1.0, 0.62, 0.3)                # the hut's lit shoji paper, the only warmth but the lantern's
+LANTERN_RIB = (0.32, 0.05, 0.02)        # the lantern's bamboo hoops, dark through its paper
 # what the rain leaves shining, and how much (of the weather's sheen) and how sharply (roughness)
 WET = {"plank": (1.0, 0.14), "hull": (0.6, 0.22), "wood": (0.6, 0.22),
+       "thatch": (0.12, 0.6), "wall": (0.5, 0.2), "hut_beam": (0.5, 0.2),
        "sign": (0.4, 0.3), "rock": (0.6, 0.25), "mud": (0.5, 0.32)}
 # the painted ones: (mottle, its patch size m, dry brush, its direction)
 PAINTED = {"mud": (0.6, 0.35, 0.45, "y"), "grass": (0.35, 1.5, 0.25, "z"), "rock": (0.3, 0.4, 0.35, "z"),
            "sign": (0.25, 0.15, 0.5, "z"), "plank": (0.2, 0.5, 0.35, "x"),
-           "post": (0.3, 0.3, 0.5, "z"), "stave": (0.3, 0.3, 0.5, "z")}
+           "post": (0.3, 0.3, 0.5, "z"), "stave": (0.3, 0.3, 0.5, "z"),
+           "wall": (0.25, 0.4, 0.45, "z"), "hut_beam": (0.25, 0.3, 0.4, "x"),
+           "hut_ridge": (0.3, 0.3, 0.4, "x"), "lattice": (0.15, 0.3, 0.3, "z")}
 
 # a starting framing for each location: (camera, aim, lens mm); the approach keeps its trees off these cameras
 # (set_approach.CLEAR). Shots move from these as they need
@@ -97,15 +107,21 @@ def _step():
 
 def materials(look, weather) -> dict:
     """The set's materials in `weather`'s palette, faded with `look`."""
-    from lib import toon, water
-
-    from lib import paint
+    from lib import minka, paint, toon, water
 
     w = set_weather.weather(weather)
     pal = set_weather.palette(w, COLORS)
     m = {}
     for k, (lit, shade) in pal.items():
-        if k in PAINTED:
+        if k == "plaster":
+            # earthen plaster, mottled, stained dark up from its foot
+            m[k] = paint.wash(f"set-{k}", lit, shade, look=look, cut=0.38, mottle=0.55, mottle_scale=0.25, brush=0.3,
+                              brush_scale=0.2, brush_dir="z", mist=PLASTER_STAIN, mist_z=PLASTER_STAIN_Z)
+        elif k in STRAW:
+            mot, size, br, width, stretch = STRAW[k]
+            m[k] = paint.wash(f"set-{k}", lit, shade, look=look, cut=0.38, mottle=mot, mottle_scale=size, brush=br,
+                              brush_scale=width, brush_dir="z", brush_stretch=stretch)
+        elif k in PAINTED:
             mot, size, br, axis = PAINTED[k]
             m[k] = paint.wash(f"set-{k}", lit, shade, look=look, cut=0.38, mottle=mot, mottle_scale=size, brush=br,
                               brush_scale=size, brush_dir=axis)
@@ -119,12 +135,17 @@ def materials(look, weather) -> dict:
     for k, (amount, rough) in WET.items():
         water.wet(m[k], w.wet, roughness=rough, tint=(amount,) * 3)
     m.update(set_valley.materials(look, w, pal))
-    m["lantern"] = toon.flat("set-lantern", sets.LANTERN, look=look, strength=w.lantern)
-    m["door"] = toon.flat("set-door-glow", sets.DOOR, look=look, strength=0.45)
+    m["lantern"] = minka.paper_glow("set-lantern", sets.LANTERN, look=look, strength=w.lantern * 0.8, core=1.5, edge=0.4)
+    m["lantern_rib"] = toon.flat("set-lantern-rib", LANTERN_RIB, look=look, strength=w.lantern * 0.5)
+    m["door"] = toon.flat("set-door-glow", PAPER, look=look, strength=0.65)
     m["water"] = water.surface("set-river", w.river[0], w.river[1], look=look, rain=w.rain, mirror=w.mirror,
-                               shine=w.shine, shine_color=w.shine_color, flow=(0.0, 0.35), roughness=0.05)
+                               shine=w.shine, shine_color=w.shine_color, flow=(0.0, 0.35), roughness=0.03,
+                               sun=tuple(-c for c in w.key), sky=w.fog or w.sky)
     m["puddle"] = water.surface("set-puddle", tuple(c * 0.6 for c in w.river[0]), w.river[1], look=look, rain=w.rain,
-                                mirror=w.puddle_mirror, scale=0.35, streaks=0.0, roughness=0.02, ripple=0.35)
+                                mirror=w.puddle_mirror, scale=0.35, streaks=0.0, roughness=0.02, ripple=0.35,
+                                sky=w.fog or w.sky)
+    m["foam"] = water.foam("set-foam", tuple(min(1.0, c * 2.0) for c in w.river[1]),
+                           look=look, amount=0.55 + 0.45 * w.rain)
     return m
 
 
@@ -148,8 +169,9 @@ def build(ctx=None, *, weather=None, scene=None, look=None, seed: int = 7) -> di
     valley = set_valley.build(m, near, far, w, seed=seed)
     approach = set_approach.build(m, near, w, seed=seed + 4)
     jetty = set_jetty.build(m, near, w, seed=seed)
+    _collars(m, near, jetty, w)
     world = {"scene": scene, "near": near, "far": far, "look": look, "key": key, "key_base": key.data.energy / w.key_gain,
-             "weather": w, "materials": m, "river_material": m["water"], "waters": [m["water"], m["puddle"]],
+             "weather": w, "materials": m, "river_material": m["water"], "waters": [m["water"], m["puddle"], m["foam"]],
              "wet": [m[k] for k in WET], "valley": valley, "approach": approach, "jetty": jetty,
              "boat": jetty["boat"], "lantern": jetty["lantern"], "sign": approach["sign"], "mooring": jetty["mooring"],
              "anchors": {**approach["anchors"], **jetty["anchors"]}}
@@ -160,6 +182,18 @@ def build(ctx=None, *, weather=None, scene=None, look=None, seed: int = 7) -> di
                  bob={"calm": 1.0 - 0.6 * w.warm})
     bpy.context.view_layer.update()
     return world
+
+
+def _collars(m: dict, near, jetty: dict, w) -> None:
+    """Foam and ripple collars where the jetty's posts and piles and the ferry's hull stand in the river."""
+    from lib import water
+
+    stand = [ob for ob in near.all_objects if ob.name.startswith(("pier-post", "pier-pile"))]
+    stand += [[ob for ob in near.all_objects if ob.name.startswith(f"post-{name}")] for name in jetty["posts"]]
+    water.collar("post-foam", stand, sets.WATER_Z, m["foam"], near, width=0.3)
+    root = jetty["boat"]["root"]
+    hull = [ob for ob in root.children_recursive if ob.type == "MESH"]
+    water.collar("hull-foam", [hull], sets.WATER_Z, m["foam"], near, width=0.45, n=48, follow=root)
 
 
 def anchor(world: dict, name: str):
@@ -187,4 +221,17 @@ def push_off(world: dict, ctx, *, t0: float, t1: float, path=None) -> None:
                  path=path or CROSS_PATH, push=(t0, t1), bob={"calm": 1.0 - 0.6 * world["weather"].warm})
     world["mooring"].hide_render = True
     world["mooring"].hide_viewport = True
+    # its wake, as strong as it is fast
+    from lib import water
+
+    w = world["weather"]
+    foam = water.foam("set-wake", tuple(min(1.0, c * 1.6) for c in w.river[1]), look=world["look"], amount=0.0)
+    water.key(foam, water.RAIN, [(ctx.f0, 0.0)])
+    water.wake("ferry-wake", root, foam, world["near"], sets.WATER_Z, length=set_jetty.BOAT["length"])
+    path = path or CROSS_PATH
+    frames = range(ctx.f0 - 1, ctx.f1 + 1)
+    at = [boat.drift_pose((f - ctx.f0) / fps, path, t0, t1)[:2] for f in frames]
+    for f, a, b in zip(frames, at, at[1:] + at[-1:]):
+        speed = ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5 * fps
+        water.key(foam, water.FOAM, [(f, min(1.0, speed / 1.4))])
 

@@ -41,9 +41,11 @@ TS_POSE = {"spine": (1.0, 0.0, 0.0), "chest": (1.0, 0.0, 0.0), "upperChest": (0.
            "neck": (2.0, 0.0, 0.0), "head": (5.0, 0.0, 2.0),
            "leftShoulder": (0.0, 3.0, 0.0), "rightShoulder": (0.0, -3.0, 0.0), **vrm.hand_pose("left")}
 LEFT_HAND = ((0.19, -0.03, 0.68), (0.5, 0.6, 0.9))   # where the hanging left hand's wrist is, and its elbow's pole
+# her knuckles forward round the upright pole, the palm in and back (square in, the pole reads beside her fist)
+POLE_PALM = (0.55, 0.85, 0.0)
 POLE_R, HANDLE_R = 0.022, 0.016      # the pole's radius (props.ferry_pole), its corded handle's, for her fingers
 # seated, a hand resting on her thigh: the palm down on it, the fingers forward and over its front (vrm.hold's turn)
-LAP_TURN = {"left": (0.0, 20.0, 90.0), "right": (0.0, -20.0, -90.0)}
+LAP_TURN = {"left": (0.0, 20.0, -90.0), "right": (0.0, -20.0, 90.0)}
 ELBOWS = {"left": 25.0, "right": 70.0}   # how far each elbow starts folded for its IK (vrm.reach): the right well in
 FEET = {"left": ((0.09, 0.03), (0.1, -1.0, 0.45), (0.0, 0.0, 8.0)),
         "right": ((-0.09, -0.01), (-0.1, -1.0, 0.45), (0.0, 0.0, -8.0))}
@@ -403,7 +405,7 @@ def tsuru(coll, look, name: str = "tsuru", *, pipe: str | None = None, pole: str
     px, py = POLE
     up = np.array((0.0, 0.0, 1.0))
     if pole == "hand":
-        fingers.update(vrm.grasp(ch, "right", (px, py, GRIP_Z[seated]), up, (1.0, 0.0, 0.0), pole=(-0.5, 0.4, 0.6),
+        fingers.update(vrm.grasp(ch, "right", (px, py, GRIP_Z[seated]), up, POLE_PALM, pole=(-0.5, 0.4, 0.6),
                                  bend=ELBOWS["right"], radius=POLE_R))
     elif pole == "shoulder":
         over = posed(ch, "rightShoulder", ch.rest("rightUpperArm") + np.asarray(SHOULDER["over"]))

@@ -144,3 +144,18 @@ def test_twist_split_composes():
     fore, hand = va.twist_split(t, (1.0, 0.0, 0.0), 0.5)
     assert np.allclose(fore @ hand, t)
     assert va.angle_between(np.eye(3), fore) == pytest.approx(35.0, abs=4.0)
+
+
+def test_glide_passes_keys_without_stopping():
+    keys = [(0.0, (0, 0, 0)), (1.0, (1, 1, 0)), (2.0, (2, 0, 0))]
+    assert np.allclose(va.glide(keys, 1.0), (1, 1, 0))
+    v = (va.glide(keys, 1.01) - va.glide(keys, 0.99)) / 0.02
+    assert v[0] > 0.5                                           # still moving through the middle key
+    assert np.allclose(va.glide(keys, -1), (0, 0, 0)) and np.allclose(va.glide(keys, 3), (2, 0, 0))
+
+
+def test_trail_lags_and_overshoots():
+    assert va.trail(0.0, 0.0, 1.0) == 0.0
+    assert va.trail(0.5, 0.0, 1.0) < va.ease(0.5)
+    assert max(va.trail(x / 50, 0.0, 1.0) for x in range(100)) > 1.0
+    assert va.trail(3.0, 0.0, 1.0) == pytest.approx(1.0)

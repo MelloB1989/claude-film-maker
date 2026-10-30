@@ -285,7 +285,10 @@ def fallen(built, *, turns: dict | None = None, stub=None):
     fall = shot_module("fall")
     ch = built["vrm"]
     if stub is None:
-        hands, fingers = clash.arms(ch, fall.KNEEL_STUB, fall.KNEEL_LEFT)
+        # the fall's elbows where it gives them (fall.KNEEL_ELBOWS), so the cut from it does not jump
+        poles = getattr(fall, "KNEEL_ELBOWS", None)
+        hands, fingers = (clash.arms(ch, fall.KNEEL_STUB, fall.KNEEL_LEFT, poles=poles) if poles is not None
+                          else clash.arms(ch, fall.KNEEL_STUB, fall.KNEEL_LEFT))
     else:
         hands, fingers = clash.arms(ch, {"pommel": stub[0], "hilt": stub[1]})
     (x, y), yaw = clash.FALL["kneel"], clash.END["shinza"][1]
@@ -337,6 +340,31 @@ def hands_rest(built, legs: dict, frame: int | None = None) -> None:
         vrm.reach(ch, f"{side}Hand", at, pole=(s * 0.6, 0.5, 0.6))
         vrm.hold(ch, f"{side}Hand", (0.0, s * -12.0, -s * 80.0))
     built["fingers"] = {**vrm.grip_pose("left", 0.3, 0.3), **vrm.grip_pose("right", 0.3, 0.3)}
+
+
+def seat(built, ob, side: str, *, depth: float = 0.028, reach: float = 0.85) -> float:
+    """Slide a straight prop the `side` hand carries (`ob`, its axis its own z: a pole, a shaft) square to its axis so
+    the axis runs through the fist's hole where the hand is posed now (vrm.grasp's hole: `reach` of the way from the
+    wrist to the middle knuckle, `depth` out from the palm): an IK that falls short of its target leaves the hand
+    beside the prop, not round it. Returns how far it moved (m)."""
+    import bpy
+    from mathutils import Vector
+
+    from lib import vrm
+
+    bpy.context.view_layer.update()
+    ch = built["vrm"]
+    k0, p0, r0 = vrm.hand_rest(ch, side)
+    pb = ch.bone(f"{side}Hand")
+    hole = (ch.armature.matrix_world @ pb.matrix @ pb.bone.matrix_local.inverted()
+            @ ch.to_armature(ch.rest(f"{side}Hand") + r0 * reach + p0 * depth))
+    axis = (ob.matrix_world.to_3x3() @ Vector((0.0, 0.0, 1.0))).normalized()
+    d = hole - ob.matrix_world.translation
+    off = d - axis * d.dot(axis)
+    mw = ob.matrix_world.copy()
+    mw.translation += off
+    ob.matrix_world = mw
+    return off.length
 
 
 # ---------------------------------------------------------------------------------------------------- the leavings

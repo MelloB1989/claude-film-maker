@@ -84,6 +84,59 @@ def line_spans(shot_start: float, ids, path: Path = LINES) -> dict:
     return {i: (rows[i]["start"] - shot_start, rows[i]["end"] - shot_start) for i in ids}
 
 
+def glide(keys, t: float) -> tuple:
+    """A point from [(t, (x, y, z)), ...] (times rising) on a smooth path through every key: easing out of the first
+    and into the last, but carried through the ones between without stopping (a hand's arc, not keys_at's stop at
+    each). Cubic Hermite with time-scaled tangents (C1); held outside the keys."""
+    if t <= keys[0][0]:
+        return tuple(keys[0][1])
+    if t >= keys[-1][0]:
+        return tuple(keys[-1][1])
+    ts = [k[0] for k in keys]
+    ps = [np.asarray(k[1], float) for k in keys]
+    n = len(keys)
+
+    def tangent(i):
+        if i == 0 or i == n - 1:
+            return np.zeros_like(ps[i])
+        return (ps[i + 1] - ps[i - 1]) / (ts[i + 1] - ts[i - 1])
+
+    i = max(j for j in range(n - 1) if ts[j] <= t)
+    h = ts[i + 1] - ts[i]
+    u = (t - ts[i]) / h
+    h00, h10, h01, h11 = 2 * u ** 3 - 3 * u ** 2 + 1, u ** 3 - 2 * u ** 2 + u, -2 * u ** 3 + 3 * u ** 2, u ** 3 - u ** 2
+    p = h00 * ps[i] + h10 * h * tangent(i) + h01 * ps[i + 1] + h11 * h * tangent(i + 1)
+    return tuple(float(v) for v in p)
+
+
+def follow(t: float, a: float, b: float, *, lag: float = 0.06, over: float = 0.12) -> float:
+    """0 before a, 1 after b like `ramp`, but dragging `lag` s behind and swinging `over` past 1 as it arrives, back
+    on 1 half the move's length later: a wrist or fingers following the arm that carries them (overlap and
+    follow-through). Smooth (C1) all through."""
+    if b <= a:
+        return float(t >= a + lag)
+    u = (t - a - lag) / (b - a)
+    bump = math.sin(math.pi * (u - 0.5)) ** 2 if 0.5 < u < 1.5 else 0.0
+    return ease(u) + over * bump
+
+
+def relaxed(side: str, amount: float = 1.0) -> dict:
+    """A hand at rest, not a mannequin's flat one (lib/vrm.py's "relaxed" hand shape: index least curled, little most,
+    the thumb soft by the index), by `amount` (past 1, more closed)."""
+    from lib import vrm
+
+    return vrm.hand_pose(side, "relaxed", amount)
+
+
+def blend_hand(a: dict, b: dict, k: float) -> dict:
+    """Between two hands' finger poses (each {bone: (x, y, z)}), by k (k past 1 overshoots: a hand closing hard)."""
+    out = {}
+    for name in set(a) | set(b):
+        va, vb = np.asarray(a.get(name, (0.0, 0.0, 0.0)), float), np.asarray(b.get(name, (0.0, 0.0, 0.0)), float)
+        out[name] = tuple(float(v) for v in va + (vb - va) * k)
+    return out
+
+
 # ---------------------------------------------------------------------------------------------------- Blender
 
 def _standoff():
@@ -180,15 +233,17 @@ class Stage:
         """Key the character's whole body at film frame f (vrm.pose's turns; held linearly to the next key)."""
         self.perf[who].pose(f, turns, hips=hips, ease="linear")
 
-    def grip(self, who: str, side: str, f: int, point, knuckles, palm, pole, *, local_frame: bool = True) -> None:
+    def grip(self, who: str, side: str, f: int, point, knuckles, palm, pole, *, local_frame: bool = True,
+             depth: float = 0.028) -> None:
         """Key the `side` hand closed round something through `point` (its knuckles along `knuckles`, palm facing
-        `palm`), the elbow toward `pole`: all in the character's frame unless local_frame is False (world)."""
+        `palm`), the elbow toward `pole`: all in the character's frame unless local_frame is False (world); `depth`
+        how far out from the palm the thing held runs (vrm.grasp's: a hilt's; less for a thin stem)."""
         ch = self.cast[who]["vrm"]
         if not local_frame:
             point, pole = local(ch, point), local(ch, pole)
             knuckles, palm = local_dir(ch, knuckles), local_dir(ch, palm)
         turn = hand_turn(ch, side, knuckles, palm)
-        self.hand(who, side, f, fist_wrist(ch, side, point, turn), turn, pole)
+        self.hand(who, side, f, fist_wrist(ch, side, point, turn, depth), turn, pole)
 
     def hand(self, who: str, side: str, f: int, wrist, turn, pole) -> None:
         """Key the `side` hand's wrist at `wrist` turned by `turn` (vrm.align), the elbow toward `pole` (their frame)."""
@@ -436,6 +491,10 @@ def pipe_bowl(st: Stage) -> np.ndarray:
 
 # where the hands hang at rest (each character's frame: x their left, y their back, z up; wrists)
 HANG = {"right": (-0.21, -0.01, 0.97), "left": (0.21, -0.01, 0.97)}
+# a standing man's hand at his side, not a mannequin's: the wrist in by his thigh and a little forward of it, the
+# elbow soft and back (its pole), the palm turned in to the thigh and a touch back (the thumb forward), the knuckles
+# running from the front of the thigh to its back (wrist, palm, knuckles, elbow pole; his frame, the left's)
+SIDE = dict(wrist=(0.185, -0.055, 0.99), palm=(-0.85, 0.5, -0.05), knuckles=(0.5, 0.86, -0.12), pole=(0.3, 0.65, 1.2))
 TS_KNEE_HAND = (-0.13, -0.24, 0.56)      # her right hand resting on her knee
 TS_PIPE_LAP = ((0.12, -0.25, 0.62), (-0.2, -1.0, 0.05))   # her pipe resting over her left knee: (fist, along)
 
@@ -481,6 +540,9 @@ def shinza_stand(t: float, *, look_out: float = 0.0, reach: float = 0.0, gust: f
 
 
 HILT_GRIP = 0.17     # where his right fist closes on the hilt, up from the guard (m): mid-hilt, where his arm reaches
+# his elbow with the fist on the hilt over his shoulder: up and forward of his shoulder, so the forearm reads going
+# back to the hilt and the fist shows on it, not flung out sideways with the hand lost behind his head
+HILT_POLE = (-0.5, -0.6, 1.7)
 
 def hilt_grip(st: Stage, along: float = HILT_GRIP) -> tuple:
     """(wrist, turn) of his right fist on the hilt standing over his right shoulder, `along` up it from the guard: its
@@ -489,6 +551,19 @@ def hilt_grip(st: Stage, along: float = HILT_GRIP) -> tuple:
     guard, u = hilt_axis(st)
     turn = hand_turn(ch, "right", u, flat_palm(u, (0.25, 1.0, 0.0)))
     return fist_wrist(ch, "right", guard + u * along, turn), turn
+
+
+def side_hand(st: Stage, who: str, side: str, f: int, t: float, *, curl: float = 0.0, out=(0.0, 0.0, 0.0)) -> dict:
+    """Key the `side` hand hanging easy at the character's side (SIDE, mirrored for the right), its wrist breathing with
+    the body, moved by `out` (m, their frame); returns its fingers' pose: relaxed, closed toward a loose fist by `curl`
+    (0..1, past 1 a hard one). Pose them with the body at f."""
+    ch = st.cast[who]["vrm"]
+    m = np.array((1.0 if side == "left" else -1.0, 1.0, 1.0))
+    br = math.sin(2 * math.pi * t / 3.4)
+    wrist = np.asarray(SIDE["wrist"]) * m + (0.0, -0.004 * br, 0.003 * br) + np.asarray(out, float)
+    turn = hand_turn(ch, side, np.asarray(SIDE["knuckles"]) * m, np.asarray(SIDE["palm"]) * m)
+    st.hand(who, side, f, wrist, turn, np.asarray(SIDE["pole"]) * m)
+    return blend_hand(relaxed(side), fingers(side, 0.8), curl)
 
 
 def shinza_hold(st: Stage, f: int, t: float, *, narrow: float = 0.6) -> None:
@@ -501,11 +576,9 @@ def shinza_hold(st: Stage, f: int, t: float, *, narrow: float = 0.6) -> None:
 
         vrm.pose(ch, shinza_stand(0.0, reach=1.0), hips=shinza_hips(0.0))
         wrist, turn = st.cast["shinza"]["hilt_grip"] = hilt_grip(st)
-    st.pose("shinza", f, {**shinza_stand(t, reach=1.0), **fingers("right", 1.0), **fingers("left", 0.3)},
-            hips=shinza_hips(t))
-    st.hand("shinza", "right", f, wrist, turn, (-0.6, -0.25, 1.75))
-    st.hand("shinza", "left", f, HANG["left"], hand_turn(ch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)),
-            (0.3, 0.5, 1.2))
+    left = side_hand(st, "shinza", "left", f, t, curl=0.55)      # his free hand half closed, as demand leaves it
+    st.pose("shinza", f, {**shinza_stand(t, reach=1.0), **fingers("right", 1.0), **left}, hips=shinza_hips(t))
+    st.hand("shinza", "right", f, wrist, turn, HILT_POLE)
     st.face("shinza", f, {"glare": 1.0, "narrow": narrow})
 
 
@@ -541,15 +614,41 @@ def tsuru_hips(st: Stage, t: float) -> tuple:
 # her lips the elbow down by her side and a little forward (S3's rf/jetty_arrive.py SMOKING_POLE, SMOKING_PALM), not up
 # beside her head
 PIPE_ARM = {"lap": ((0.45, 0.35, 0.35), (-0.5, 0.0, 0.8)), "lips": ((0.32, -0.18, 0.35), (-0.7, 0.1, 0.35)),
-            "knock": ((0.6, 0.1, 0.55), (-0.5, 0.0, 0.8))}
+            "knock": ((0.55, 0.4, 0.45), (-0.5, 0.0, 0.8))}     # (knocking: the elbow down and back by her side)
 
 
-def hold_pipe(st: Stage, f: int, point, along, arm: str = "lap") -> None:
+# her kiseru's thin stem (props.kiseru's 4.3 mm) held in close to the palm's crease, not a hilt's fist away from it
+PIPE_DEPTH, PIPE_RADIUS = 0.017, 0.0045
+
+
+def pipe_fingers(st: Stage, side: str = "left") -> dict:
+    """Her fingers closed round the pipe's thin stem where hold_pipe puts it (vrm_rig.wrap: each finger curled until
+    it lies on the stem), the index a little looser along it and the little finger tucked, the thumb over it; worked
+    out once a shot (pure arithmetic on her rest pose)."""
+    from lib import vrm_rig
+
+    cache = st.cast["tsuru"].setdefault("pipe_fingers", {})
+    if side not in cache:
+        ch = st.cast["tsuru"]["vrm"]
+        w = vrm_rig.wrap(ch, side, PIPE_RADIUS, depth=PIPE_DEPTH, slack=0.007, thumb=0.75)
+        from lib import vrm_anim as va
+
+        cache[side] = {k: (va.matrix(va.slerp((1.0, 0.0, 0.0, 0.0), va.quat(v), 0.8)) if "Index" in k else v)
+                       for k, v in w.items()}
+    return cache[side]
+
+
+def hold_pipe(st: Stage, f: int, point, along, arm: str = "lap", palm_turn=None) -> None:
     """Key Tsuru's left fist round her pipe through `point` along `along` (bowl-ward), her frame, her elbow and palm as
-    PIPE_ARM[arm] has them."""
+    PIPE_ARM[arm] has them (or (pole, palm) given as `palm_turn`: between two holds)."""
     d = np.asarray(along, float) / np.linalg.norm(along)
-    pole, palm = PIPE_ARM[arm]
-    st.grip("tsuru", "left", f, point, -d, flat_palm(d, palm), pole)
+    pole, palm = palm_turn or PIPE_ARM[arm]
+    st.grip("tsuru", "left", f, point, -d, flat_palm(d, palm), pole, depth=PIPE_DEPTH)
+
+
+def knee_fingers() -> dict:
+    """Her right hand's fingers over her knee: relaxed, a little more curled round it."""
+    return relaxed("right", 1.25)
 
 
 def knee_hand(st: Stage, f: int) -> None:
@@ -581,7 +680,7 @@ def pipe_at_lips(st: Stage, pose: dict, hips) -> tuple:
 def tsuru_rest(st: Stage, f: int, t: float, *, smoking: bool = False, **sit) -> None:
     """Tsuru still on her crate: her pipe resting over her left knee (or at her lips, `smoking`), her right hand on
     her right knee."""
-    pose = {**tsuru_sit(t, **sit), **fingers("left", 0.85), **fingers("right", 0.35)}
+    pose = {**tsuru_sit(t, **sit), **pipe_fingers(st), **knee_fingers()}
     hips = tsuru_hips(st, t)
     hold = TS_PIPE_LAP
     if smoking:     # worked out once (her head barely moves while she sits smoking): re-posing a VRM is slow
