@@ -36,9 +36,10 @@ EYES_UP = (1.5, 2.3)         # her eyes off the post and out over the river
 SMILE = (2.2, 3.4)
 BLINKS = (1.35, 3.9, 5.7)
 ASH = 7                      # flecks of ash knocked out at each knock
-# her fist through the knocks, from the bowl at rest over the post (her frame: toward her middle, a little forward of
-# the bowl and above it: the stem runs out to her left onto the post), and how much of the bowl's drop it shares
-KNOCK_FIST, FLICK = np.array((-0.2, -0.02, 0.07)), 0.3
+# her fist through the knocks, from the bowl at rest over the post (her frame: out at her left side, back from the
+# bowl and a little above it: the stem runs forward from it onto the post, her forearm low, not across her face),
+# and how much of the bowl's drop it shares
+KNOCK_FIST, FLICK = np.array((-0.05, 0.13, 0.04)), 0.3
 
 
 def build(ctx):
@@ -109,7 +110,7 @@ def perform(st, lines, post):
                             eyes=(18.0 * (1 - up) - 2.0 * up, -6.0 * (1 - up)), lean=6.0 * (1 - low))
         # the fist is close in by her shoulder at the post: start the elbow folded so the IK bends it out and down,
         # not up behind her
-        fold = {"leftLowerArm": vrm.fold("leftLowerArm", 70.0 * (1 - low) + 20.0)}
+        fold = {"leftLowerArm": vrm.fold("leftLowerArm", 80.0 * (1 - low) + 20.0)}
         st.pose("tsuru", f, {**body, **fold, **jt.pipe_fingers(st), **jt.knee_fingers()},
                 hips=jt.tsuru_hips(st, t))
         (p0, q0), (p1, q1) = np.asarray(jt.PIPE_ARM["knock"], float), np.asarray(jt.PIPE_ARM["lap"], float)

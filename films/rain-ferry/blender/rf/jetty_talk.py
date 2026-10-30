@@ -621,7 +621,7 @@ def tsuru_hips(st: Stage, t: float) -> tuple:
 # her lips the elbow down by her side and a little forward (S3's rf/jetty_arrive.py SMOKING_POLE, SMOKING_PALM), not up
 # beside her head
 PIPE_ARM = {"lap": ((0.45, 0.35, 0.35), (-0.5, 0.0, 0.8)), "lips": ((0.32, -0.18, 0.35), (-0.7, 0.1, 0.35)),
-            "knock": ((0.6, 0.1, 0.55), (-0.5, 0.0, 0.8))}
+            "knock": ((0.55, 0.4, 0.45), (-0.5, 0.0, 0.8))}     # (knocking: the elbow down and back by her side)
 
 
 # her kiseru's thin stem (props.kiseru's 4.3 mm) held in close to the palm's crease, not a hilt's fist away from it

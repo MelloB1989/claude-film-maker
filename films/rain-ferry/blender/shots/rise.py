@@ -156,8 +156,12 @@ def build(ctx):
     # her hands as she comes up: the pipe to her hip, the right hand off her knee to hang
     for f in (F(UP[1]), ctx.f1 + 1):
         jt.hold_pipe(st, f, *PIPE_UP)
-    st.hand("tsuru", "right", F(UP[1]), jt.HANG["right"],
-            jt.hand_turn(tch, "right", (0.0, 1.0, 0.0), (1.0, 0.0, 0.0)), (-0.3, 0.5, 1.2))
+    # (her own hang, rf/vroid_tsuru.py's LEFT_HAND mirrored: an old woman's wrist by her thigh, not a tall man's;
+    # the palm turned in to it, the elbow soft)
+    (hx, hy, hz), (ex, ey, ez) = vroid_tsuru.LEFT_HAND
+    m = np.array((-1.0, 1.0, 1.0))
+    p.reach(F(UP[1]), "rightHand", ("char", (-hx, hy, hz)), pole=(-ex, ey, ez), ease="inout",
+            turn=jt.hand_turn(tch, "right", np.asarray(jt.SIDE["knuckles"]) * m, np.asarray(jt.SIDE["palm"]) * m))
     # she looks away from him as she turns to go: dismissed
     p.look(F(WALK), None)
     end = p.walk([tuple(EDGE)], F(WALK), gait=va.GAITS["old"].but(stride=0.42), pose=stand, end_pose=stand,
