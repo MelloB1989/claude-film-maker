@@ -58,14 +58,16 @@ def keys_at(keys, t: float, interp=ease):
 
 # ---------------------------------------------------------------------------------------------------- the world
 
-def world(ctx) -> dict:
-    """The crossing as every shot has it (rf/set_world.py: lit for the look schedule's weather at the shot's start),
-    its near set inked. Returns set_world's dict with "ink" and "state" (the schedule at the first frame)."""
+def world(ctx, *, ink: float | None = None) -> dict:
+    """The crossing as every shot has it (rf/set_world.py: lit for the look schedule's weather at the shot's start).
+    The set carries its own painted edges, so it is uninked unless `ink` gives a line radius (Line Art over the whole
+    near set was most of every frame and of the build; rf/ending.py stage()). Returns set_world's dict with "ink" (or
+    None) and "state" (the schedule at the first frame)."""
     from lib import toon
     from rf import set_world
 
     w = set_world.build(ctx)
-    w["ink"] = toon.ink("ink-near", w["near"], radius=0.0042, crease=150)
+    w["ink"] = toon.ink("ink-near", w["near"], radius=ink, crease=150) if ink else None
     w["state"] = ctx.look_at(ctx.f0)
     return w
 
