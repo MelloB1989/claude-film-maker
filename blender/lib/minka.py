@@ -466,10 +466,11 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
                            z1 + (0.05 if j % 2 else 0.0) + rng.uniform(-0.02, 0.02)))
             P.poly("straw", vs, [(j, j + 1, n + 2 + j, n + 1 + j) for j in range(n)])
             # the straw's ends hanging past each tier's hem, uneven
-            ends = [np.asarray(vs[n + 1 + j]) for j in range(0, n + 1, 1)]
+            ends = [np.asarray(vs[n + 1 + j]) * (1 - f) + np.asarray(vs[n + 1 + j + 1]) * f
+                    for j in range(n) for f in (0.0, 0.5)]
             _spikes(P, "straw", [e + (0.004, 0.0, 0.03) for e in ends],
-                    [e + (0.01 + 0.02 * tier, rng.uniform(-0.02, 0.02), -rng.uniform(0.05, 0.14)) for e in ends],
-                    [0.022] * len(ends))
+                    [e + (0.01 + 0.02 * tier, rng.uniform(-0.02, 0.02), -rng.uniform(0.03, 0.1)) for e in ends],
+                    [0.013] * len(ends))
         hx_, hy_ = hw + 0.06, yb + 0.95
         prof = [(0.0, 0.14), (0.08, 0.11), (0.2, 0.05), (0.3, 0.0), (0.3, -0.01), (0.0, 0.12)]
         kv = []
