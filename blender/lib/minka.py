@@ -104,8 +104,7 @@ def hip_gable_roof(X: float, Y: float, ze: float, zt: float, *, gable: float = 0
 
 def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, peak: float = 1.5, facing: float = 0.0,
         door=(-0.45, 0.78, 1.72), windows=WINDOWS, ground=None, porch: float = 0.55, clutter: bool = True,
-        prefix: str = "hut",
-        seed: int = 5) -> dict:
+        prefix: str = "hut", seed: int = 5) -> dict:
     """A thatched riverside hut with its floor at `center`, `size` (along x, along y, the walls' height), its door on
     the +x side (turned by `facing`): a post-and-beam frame on footing stones (on short stilts where `ground`, a
     function of world x, y, falls away), dark vertical boards below a rail and earthen plaster above it (one panel
