@@ -68,27 +68,38 @@ def perform(st, lines):
     ch = st.cast["shinza"]["vrm"]
     # the hilt where it is once his chest has turned into the reach (it rides on his back)
     vrm.pose(ch, jt.shinza_stand(RISE[3], reach=1.0), hips=jt.shinza_hips(RISE[3]))
-    hang_r, hang_l = jt.HANG["right"], jt.HANG["left"]
     grip_wrist, grip_turn = jt.hilt_grip(st)
-    hang_turn_r = jt.hand_turn(ch, "right", (0.0, 1.0, 0.0), (1.0, 0.0, 0.0))
+    m = np.array((-1.0, 1.0, 1.0))
+    side_r = np.asarray(jt.SIDE["wrist"]) * m
+    side_turn_r = jt.hand_turn(ch, "right", np.asarray(jt.SIDE["knuckles"]) * m, np.asarray(jt.SIDE["palm"]) * m)
     up_turn = jt.hand_turn(ch, "right", (0.0, 0.2, 1.0), (0.9, -0.3, 0.0))
-    wrists = [(RISE[0], hang_r), (RISE[1], (-0.25, -0.24, 1.18)), (RISE[2], (-0.29, -0.12, 1.5)),
-              (RISE[3], tuple(grip_wrist + (0.0, -0.02, 0.03))), (RISE[4], tuple(grip_wrist))]
-    turns = [(RISE[0], hang_turn_r), (RISE[2], up_turn), (RISE[3], grip_turn)]
-    poles = [(RISE[0], (-0.3, 0.5, 1.2)), (RISE[1], (-0.6, -0.1, 1.2)), (RISE[3], (-0.6, -0.25, 1.75))]
+    # the hand's path up to the hilt: a small dip back first (the anticipation), then one sweep up in front of his
+    # chest, out past his shoulder and in onto the hilt, carried through each point (jt.glide), landing a little
+    # past the grip and settling back onto it
+    wrists = [(RISE[0], tuple(side_r)), (RISE[0] + 0.12, tuple(side_r + (0.0, 0.03, -0.012))),
+              (RISE[1], (-0.25, -0.24, 1.18)), (RISE[2], (-0.31, -0.13, 1.5)),
+              (RISE[3], tuple(grip_wrist + (0.0, -0.025, 0.035))), (RISE[4] + 0.06, tuple(grip_wrist))]
+    turns = [(RISE[0] + 0.1, side_turn_r), (RISE[2], up_turn), (RISE[3], grip_turn)]
+    poles = [(RISE[0], np.asarray(jt.SIDE["pole"]) * m), (RISE[1], (-0.6, -0.1, 1.2)), (RISE[3], jt.HILT_POLE)]
     for f in st.frames():
         t = st.t(f)
         out = jt.ramp(t, LOOK_OUT[0], LOOK_OUT[1]) - jt.ramp(t, LOOK_OUT[2], LOOK_OUT[3])
         rise = jt.ramp(t, RISE[0], RISE[3])
         gust = math.exp(-((t - GUST) / 0.6) ** 2)
         body = jt.shinza_stand(t, look_out=out, reach=rise, gust=gust)
-        # the hand: open as it rises, a fist on the hilt
-        curl = 0.25 - 0.2 * jt.ramp(t, RISE[0], RISE[2]) + 0.95 * jt.ramp(t, RISE[3], RISE[4] + 0.04)
-        st.pose("shinza", f, {**body, **jt.fingers("right", curl), **jt.fingers("left", 0.3)},
-                hips=jt.shinza_hips(t))
-        st.hand("shinza", "right", f, jt.keys_at(wrists, t), jt.turn_keys(turns, t), jt.keys_at(poles, t))
-        st.hand("shinza", "left", f, hang_l, jt.hand_turn(ch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)),
-                (0.3, 0.5, 1.2))
+        # his left hand closes slowly as his boast comes ("I'll cut it down"): the tension of it
+        left = jt.side_hand(st, "shinza", "left", f, t, curl=0.55 * jt.ramp(t, lines["L06"][0], RISE[3]))
+        if t < RISE[0]:
+            right = jt.side_hand(st, "shinza", "right", f, t, curl=0.1 * out)
+        else:
+            # the wrist trails the arm a beat on the way up (its turn keyed behind the path) and the fingers open
+            # as the hand reaches, then snap shut on the hilt, squeezing past their hold and easing back
+            st.hand("shinza", "right", f, jt.glide(wrists, t), jt.turn_keys(turns, t - 0.06), jt.keys_at(poles, t))
+            open_ = jt.ramp(t, RISE[0] + 0.1, RISE[2]) * (1 - jt.ramp(t, RISE[2], RISE[3]))
+            hand = jt.blend_hand(jt.relaxed("right"), jt.relaxed("right", 0.3), open_)
+            right = jt.blend_hand(hand, jt.fingers("right", 1.0), jt.follow(t, RISE[3] - 0.04, RISE[4], lag=0.0,
+                                                                              over=0.08))
+        st.pose("shinza", f, {**body, **right, **left}, hips=jt.shinza_hips(t))
         narrow = 0.6 * jt.ramp(t, RISE[3], RISE[4] + 0.3)
         st.face("shinza", f, {"glare": 1.0, "narrow": narrow})
         if "tsuru" in st.cast:

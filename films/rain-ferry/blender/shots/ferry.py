@@ -84,7 +84,7 @@ def build(ctx):
     wisp = smoke.Wisp(rain=min(1.0, s.rain.density), wind=(0.12, 0.05, 0.0), seed=3, **WISP)
     rb = smoke.ribbon("pipe-smoke", wisp, source=bowl, offset=tuple(top), coll=st.crossing["near"],
                       also=(st.cast_coll,), color=tuple(np.array(s.light.fog) * ja.SMOKE))
-    pose = {**jt.tsuru_sit(0.0), **jt.fingers("left", 0.85)}
+    pose = {**jt.tsuru_sit(0.0), **jt.pipe_fingers(st)}
     smoke.bake([rb, ja.breath(st, [EXHALE], ja.lips_source(st, pose, jt.tsuru_hips(st, 0.0)), push=0.35,
                               width=(0.02, 0.22), opacity=0.4)], ctx.scene, ctx.f0, ctx.f1, ctx.fps, step=12)
     ja.clock("ferry", "smoke baked")

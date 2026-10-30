@@ -65,8 +65,18 @@ def breath(st, emit, source, *, push: float = 0.3, seed: int = 8, width=(0.008, 
 # ---------------------------------------------------------------------------------------------------- acting (lib/vrm_anim.py)
 
 # Shinza walking: leaning into his stride under the kasa, his head down; stopped: upright, his chin up to her
-WALK_POSE = {"spine": (5.0, 0.0, 0.0), "chest": (2.0, 0.0, 0.0), "neck": (4.0, 0.0, 0.0), "head": (6.0, 0.0, 0.0)}
-STOP_POSE = {"spine": (0.0, 0.0, 0.0), "chest": (-2.0, 0.0, 0.0), "neck": (2.0, 0.0, 0.0), "head": (2.0, 0.0, 0.0)}
+# his arms not a mannequin's either way: the elbows soft, the upper arms in by his sides, the hands relaxed (a heavy
+# man's loose half-curled fingers, the right a little more closed: it is his sword hand)
+# (the upper arms turned in 20 degrees so the palms face his thighs, not forward as the sheet's RELAXED leaves them,
+# and the hands bent in off the forearms' line: measured, palm (-0.97, 0.24, 0) and pointing (-0.07, -0.24, -0.97))
+ARMS = {"leftUpperArm": (20.0, 78.0, 10.0), "rightUpperArm": (20.0, -78.0, -10.0),
+        "leftLowerArm": (0.0, 0.0, -20.0), "rightLowerArm": (0.0, 0.0, 20.0),
+        "leftHand": (0.0, 18.0, 0.0), "rightHand": (0.0, -18.0, 0.0),
+        **jt.relaxed("left", 1.15), **jt.relaxed("right", 1.35)}
+WALK_POSE = {"spine": (5.0, 0.0, 0.0), "chest": (2.0, 0.0, 0.0), "neck": (4.0, 0.0, 0.0), "head": (6.0, 0.0, 0.0),
+             **ARMS}
+STOP_POSE = {"spine": (0.0, 0.0, 0.0), "chest": (-2.0, 0.0, 0.0), "neck": (2.0, 0.0, 0.0), "head": (2.0, 0.0, 0.0),
+             **ARMS}
 
 
 def arrives(st, path, stop: float, *, gait: str = "heavy", end_yaw: float | None = None, ground=0.0,
@@ -108,7 +118,7 @@ def smoking(st, f: int, t: float, *, at_lips: float = 1.0, **sit) -> None:
     """Key Tsuru on her crate with the pipe at her lips (`at_lips` 1) or over her left knee (0), and between, the
     hand travelling out in front of her chin rather than through it, the elbow and palm turning from one hold to the
     other (jetty_talk's PIPE_ARM); her right hand on her knee, her face calm."""
-    pose = {**jt.tsuru_sit(t, **sit), **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)}
+    pose = {**jt.tsuru_sit(t, **sit), **jt.pipe_fingers(st), **jt.knee_fingers()}
     hips = jt.tsuru_hips(st, t)
     lap, lap_way = (np.asarray(v, float) for v in jt.TS_PIPE_LAP)
     k = min(1.0, max(0.0, at_lips))
@@ -119,7 +129,8 @@ def smoking(st, f: int, t: float, *, at_lips: float = 1.0, **sit) -> None:
     pole0, palm0 = (np.asarray(v, float) for v in jt.PIPE_ARM["lap"])
     pole1, palm1 = (np.asarray(v, float) for v in jt.PIPE_ARM["lips"])
     st.pose("tsuru", f, pose, hips=hips)
-    st.grip("tsuru", "left", f, point, -d, jt.flat_palm(d, palm0 + (palm1 - palm0) * k), pole0 + (pole1 - pole0) * k)
+    st.grip("tsuru", "left", f, point, -d, jt.flat_palm(d, palm0 + (palm1 - palm0) * k), pole0 + (pole1 - pole0) * k,
+            depth=jt.PIPE_DEPTH)
     jt.knee_hand(st, f)
     st.face("tsuru", f, {"s4-calm": 1.0})
 
@@ -135,7 +146,7 @@ def _lips(st, t: float, sit: dict) -> tuple:
     key = (tq, tuple(sorted((k, round(2 * v) / 2 if isinstance(v, float) else v) for k, v in sit.items())))
     if key not in cache:
         sq = {k: v for k, v in key[1]}
-        pose = {**jt.tsuru_sit(tq, **sq), **jt.fingers("left", 0.85)}
+        pose = {**jt.tsuru_sit(tq, **sq), **jt.pipe_fingers(st)}
         cache[key] = jt.pipe_at_lips(st, pose, jt.tsuru_hips(st, tq))
     return cache[key]
 
