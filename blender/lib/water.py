@@ -7,7 +7,6 @@ with rings (or that lies still as a mirror once it stops), and a wet sheen over 
   (EEVEE ray tracing), more at a grazing angle, broken by the rings and the chop, all fading into the fog. Its
   weather is three Value nodes a shot may key (`key`): RAIN (0 still, 1 a downpour: how many cells ring, the chop,
   the roughness), MIRROR (how much of the world it reflects) and SHINE (glints sparkling along the sun's path).
-- `probe(...)`: a sphere light probe, so a reflection whose rays leave the frame still finds the sky and the set.
 - `wet(mat, amount)`: a toon material (toon.cel's emission) given a glossy coat on top: planks and mud glistening in
   the rain, or after it. Its WET Value node is keyable.
 - `puddle_outline(...)` (numpy only, tested without Blender) and `puddle(...)`: a flat irregular pool lying on the
@@ -124,13 +123,11 @@ def _rings(nt, xy, t, dist, k_rain, cell: float, rate: float, width: float, appe
     distance `dist` (a painter's line, not a sliver), comes in by `appear` m and fades out from `near` to `far` m. Returns (ring, crown): the
     ring's strength 0..1 (its height for the bump too) and the bright fleck where the drop has just struck."""
     vor = nt.nodes.new("ShaderNodeTexVoronoi")
-    vor.voronoi_dimensions = "3D"
+    vor.voronoi_dimensions = "2D"
     vor.inputs["Scale"].default_value = 1.0 / cell
     vor.inputs["Randomness"].default_value = 0.85
-    # a third coordinate off the seed keeps the layers' cells apart
-    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
-    nt.links.new(xy, sep.inputs[0])
-    nt.links.new(_xyz(nt, sep.outputs["X"], sep.outputs["Y"], seed), vor.inputs["Vector"])
+    # the seed shifts each layer's cells off the others'
+    nt.links.new(_vmath(nt, "ADD", xy, (seed * 7.1, seed * 3.3, 0.0)), vor.inputs["Vector"])
     rnd = nt.nodes.new("ShaderNodeSeparateColor")
     nt.links.new(vor.outputs["Color"], rnd.inputs[0])
     pace = _math(nt, "MULTIPLY_ADD", rnd.outputs["Green"], 0.6, 0.7)            # 0.7 .. 1.3 times `rate`
@@ -158,10 +155,9 @@ def _rings(nt, xy, t, dist, k_rain, cell: float, rate: float, width: float, appe
 def _pock(nt, xy, t, dist, k_rain, cell: float, rate: float, near: float, far: float):
     """The flecks of drops striking far-off water (`_rings`' crowns without their rings), from `near` to `far` m."""
     vor = nt.nodes.new("ShaderNodeTexVoronoi")
+    vor.voronoi_dimensions = "2D"
     vor.inputs["Scale"].default_value = 1.0 / cell
-    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
-    nt.links.new(xy, sep.inputs[0])
-    nt.links.new(_xyz(nt, sep.outputs["X"], sep.outputs["Y"], 11.3), vor.inputs["Vector"])
+    nt.links.new(_vmath(nt, "ADD", xy, (11.3, 5.9, 0.0)), vor.inputs["Vector"])
     rnd = nt.nodes.new("ShaderNodeSeparateColor")
     nt.links.new(vor.outputs["Color"], rnd.inputs[0])
     fr = _math(nt, "FRACT", _math(nt, "MULTIPLY_ADD", t, rate, rnd.outputs["Red"]))
@@ -223,7 +219,7 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     # ... in soft patches, long with the flow, the body a little lighter and darker in them ...
     patch = nt.nodes.new("ShaderNodeTexNoise")
     patch.inputs["Scale"].default_value = 1.0
-    patch.inputs["Detail"].default_value = 2.0
+    patch.inputs["Detail"].default_value = 1.0
     nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 0.05 / scale), _math(nt, "MULTIPLY", across, 0.22 / scale),
                       _math(nt, "MULTIPLY", t, 0.03)), patch.inputs["Vector"])
     body = nt.nodes.new("ShaderNodeMix")
@@ -235,7 +231,7 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     # ... and a few thin lines where the current shears, meandering, broken, faint, drawn only near
     lines = nt.nodes.new("ShaderNodeTexNoise")
     lines.inputs["Scale"].default_value = 1.0
-    lines.inputs["Detail"].default_value = 3.0
+    lines.inputs["Detail"].default_value = 1.5
     nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 0.12 / scale), _math(nt, "MULTIPLY", across, 0.9 / scale),
                       _math(nt, "MULTIPLY", t, 0.05)), lines.inputs["Vector"])
     contour = _ramp(nt, _math(nt, "ABSOLUTE", _math(nt, "SUBTRACT", lines.outputs["Fac"], 0.5)), 0.012, 0.0)
@@ -256,7 +252,7 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     nt.links.new(body.outputs["Result"], col.inputs["A"])
     col.inputs["B"].default_value = toon._rgba(light)
     nt.links.new(marks, col.inputs["Factor"])
-    # the sky's pale light on a grazing surface (where the reflection's rays find no geometry, a probe gives the rest)
+    # the sky's pale light on a grazing surface, whatever the reflection's rays find
     inc = nt.nodes.new("ShaderNodeSeparateXYZ")
     nt.links.new(geo.outputs["Incoming"], inc.inputs[0])
     cos_i = _math(nt, "ABSOLUTE", inc.outputs["Z"])
@@ -264,14 +260,14 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     # the swell: long and slow, across the flow
     swell = nt.nodes.new("ShaderNodeTexNoise")
     swell.inputs["Scale"].default_value = 1.0
-    swell.inputs["Detail"].default_value = 3.0
+    swell.inputs["Detail"].default_value = 2.0
     swell.inputs["Roughness"].default_value = 0.45
     nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 0.25 / scale), _math(nt, "MULTIPLY", across, 0.7 / scale),
                       _math(nt, "MULTIPLY", t, 0.12)), swell.inputs["Vector"])
     # the rain's chop: fine, quick, as hard as the rain (the reflection smeared, not mirrored)
     chop = nt.nodes.new("ShaderNodeTexNoise")
     chop.inputs["Scale"].default_value = 7.0 / scale
-    chop.inputs["Detail"].default_value = 2.0
+    chop.inputs["Detail"].default_value = 0.0
     nt.links.new(_xyz(nt, X, _math(nt, "MULTIPLY", Y, 1.0), _math(nt, "MULTIPLY", t, 1.5)), chop.inputs["Vector"])
     # glints along the sun's path, sparkling on the swell (SHINE)
     glint = None
@@ -338,24 +334,6 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
     out = nt.nodes.new("ShaderNodeOutputMaterial")
     nt.links.new(fmix.outputs[0], out.inputs["Surface"])
     return mat
-
-
-def probe(name: str, coll, location, *, radius: float = 60.0, resolution: str | None = None):
-    """A sphere light probe at `location` reaching `radius` m: what a water surface's (or a wet plank's) reflection
-    falls back on where its rays leave the frame (the sky, the far bank, the hut behind the lens), as EEVEE captures it
-    each frame. Returns the object."""
-    import bpy
-
-    lp = bpy.data.lightprobes.new(name, "SPHERE")
-    lp.influence_distance = radius
-    if hasattr(lp, "clip_end"):
-        lp.clip_end = 3000.0
-    if resolution and hasattr(lp, "resolution"):
-        lp.resolution = resolution
-    ob = bpy.data.objects.new(name, lp)
-    ob.location = location
-    coll.objects.link(ob)
-    return ob
 
 
 def wet(mat, amount: float = 0.25, *, roughness: float = 0.12, tint=(1.0, 1.0, 1.0)):
@@ -443,7 +421,7 @@ def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: 
                  lace.inputs["Vector"])
     churn = nt.nodes.new("ShaderNodeTexNoise")
     churn.inputs["Scale"].default_value = 5.0 / scale
-    churn.inputs["Detail"].default_value = 3.0
+    churn.inputs["Detail"].default_value = 1.5
     nt.links.new(_vmath(nt, "ADD", geo.outputs["Position"], _xyz(nt, 0.0, 0.0, _math(nt, "MULTIPLY", t, 0.6))),
                  churn.inputs["Vector"])
     # thick at the thing and thinning out, more of it in a downpour
@@ -534,7 +512,6 @@ def collar(name: str, objects, z: float, material, coll, *, width: float = 0.35,
     a.data.foreach_set("value", np.asarray(outs, np.float32))
     ob.visible_shadow = False
     ob.lineart.usage = "EXCLUDE"
-    ob.hide_probe_sphere = True             # (a dithered layer-attribute material breaks the probe's capture on Metal)
     if follow is not None:
         cl = ob.constraints.new("COPY_LOCATION")
         cl.target = follow
@@ -591,7 +568,6 @@ def wake(name: str, root, material, coll, z: float, *, length: float, **shape):
         a.data.foreach_set("value", np.asarray(vals, np.float32))
     ob.visible_shadow = False
     ob.lineart.usage = "EXCLUDE"
-    ob.hide_probe_sphere = True
     ob.location.z = z + 0.003
     cl = ob.constraints.new("COPY_LOCATION")
     cl.target = root

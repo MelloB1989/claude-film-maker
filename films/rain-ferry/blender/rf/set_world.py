@@ -138,7 +138,7 @@ def build(ctx=None, *, weather=None, scene=None, look=None, seed: int = 7) -> di
     shot's frames. Without ctx, `scene` and `weather` are needed (a still, a test)."""
     import bpy
 
-    from lib import boat, toon, water
+    from lib import boat, toon
 
     scene = scene or ctx.scene
     if weather is None:
@@ -152,8 +152,6 @@ def build(ctx=None, *, weather=None, scene=None, look=None, seed: int = 7) -> di
     valley = set_valley.build(m, near, far, w, seed=seed)
     approach = set_approach.build(m, near, w, seed=seed + 4)
     jetty = set_jetty.build(m, near, w, seed=seed)
-    # what the river's and the planks' reflections fall back on off the frame's edge: the sky, the banks, the hut
-    water.probe("water-probe", far, (2.0, 0.0, 2.5), radius=400.0)
     _collars(m, near, jetty, w)
     world = {"scene": scene, "near": near, "far": far, "look": look, "key": key, "key_base": key.data.energy / w.key_gain,
              "weather": w, "materials": m, "river_material": m["water"], "waters": [m["water"], m["puddle"], m["foam"]],
