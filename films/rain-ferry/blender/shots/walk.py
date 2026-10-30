@@ -23,6 +23,7 @@ FOLLOW = 0.35                  # s: how far behind him the aim lags
 FIRST_STEP = 0.2               # s into the shot his first footfall lands (the steps' sound at 12.7 s)
 FIST = (1.6, 0.6)              # s into the shot: his right hand closes on "I want to be strong" (from, over)
 # as the fist closes on the line the forearm lifts and the wrist cocks (lib/vrm.py's turns)
+FOLLOW_THROUGH = (1.5, 0.09, 0.4)   # the hands' overlap on the walk: amount, lag (s), bounce (vrm_anim.follow_through)
 FIST_ARM = {"rightLowerArm": (0.0, 0.0, 34.0), "rightHand": (-6.0, 0.0, 20.0)}
 HEAD_UP = (4.5, 0.9, -9.0)     # ... and his head comes up at its end (from, over, degrees down to up)
 # the air between the lens and him: thick in the mist at the far end of the path, thinning as he comes
@@ -95,6 +96,9 @@ def build(ctx):
     p.pose(at_s(HEAD_UP[0]), lean, full=False)
     p.pose(at_s(HEAD_UP[0] + HEAD_UP[1]), {"neck": (lean["neck"][0] + HEAD_UP[2] * 0.4, 0.0, 0.0),
                                           "head": (lean["head"][0] + HEAD_UP[2], 0.0, 0.0)}, full=False, ease="out")
+    # on a long lens head-on the swing is foreshortened: the hands' lag and flop a little stronger than the core's
+    # default so they read, the fist (held) taking less of it
+    p.follow_through(amount=FOLLOW_THROUGH[0], lag=FOLLOW_THROUGH[1], bounce=FOLLOW_THROUGH[2])
     p.express(ctx.f0 - 1, st.shinza["face"](1.0))
     p.blinks(mean=4.0)
     p.secondary(wind=(0.6, 0.0, 0.0))
