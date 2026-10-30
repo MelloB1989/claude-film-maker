@@ -35,7 +35,8 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
     post, rope, wall, thatch, door, lantern, hull, wood, bamboo, stave, puddle). Returns the pieces and anchors."""
     import bpy
 
-    from lib import boat, landscape, minka, props, shapes, toon, water, wayside, weather
+    from lib import boat, landscape, minka, props, shapes, toon, water, wayside
+    from lib import weather as rain_fx
 
     from . import set_valley
 
@@ -69,11 +70,12 @@ def build(m: dict, near, weather, *, seed: int = 7) -> dict:
     lantern, _ = minka.chochin("lantern", {"lantern": m["lantern"], "cap": m["hut_dark"], "rib": m["lantern_rib"],
                                            "rope": m["rope"]}, near, (ex, ey, ez - 0.45), cord_top=ez + 0.1)
     for k, (a, b) in enumerate(hut["eave_edges"]):
-        weather.drips(f"hut-eave{k}", weather.edge(a, b, 18 if k < 2 else 10), period=0.9, fall=2.6,
+        rain_fx.drips(f"hut-eave{k}", rain_fx.edge(a, b, 18 if k < 2 else 10), period=0.9, fall=2.6,
                       seed=seed + k, coll=near_fx)
     lamp = bpy.data.lights.new("lantern-light", "POINT")
     lamp.color, lamp.energy, lamp.shadow_soft_size = LANTERN_LIGHT
     lamp.use_custom_distance, lamp.cutoff_distance = True, 6.0
+    lamp.use_shadow = False                        # cheap: it only warms what's near it
     glow = bpy.data.objects.new("lantern-light", lamp)
     near_fx.objects.link(glow)
     glow.parent = lantern

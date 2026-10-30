@@ -314,16 +314,15 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
             P.cyl("lattice", (x, s * (hd - 0.1), H - 0.02), (x, s * (Y - 0.18), zu + 0.02), 0.022, n=6)
         for y in np.arange(-Y + 0.35, Y - 0.3, 0.32):
             P.cyl("lattice", (s * (hw - 0.1), y, H - 0.02), (s * (X - 0.18), y, zu + 0.02), 0.022, n=6)
-    # the ridge: capped along its length, saddled by crossed pieces, its ends cut square
-    rl = 2 * rp["xr"] + 0.5
-    P.box("ridge", (0.0, 0.0, zt + 0.05), (rl, 0.5, 0.26))
-    P.box("ridge", (0.0, 0.0, zt + 0.21), (rl + 0.1, 0.26, 0.14))
+    # the ridge: a rounded bundle of straw capped in bark along its length, a bamboo pole on it, saddled by crossed
+    # pieces, ending just past the gables
+    rl = 2 * rp["xr"] + 0.3
+    P.cyl("ridge", (-rl / 2, 0.0, zt - 0.02), (rl / 2, 0.0, zt - 0.02), 0.2, n=10)
+    P.cyl("lattice", (-rl / 2 - 0.05, 0.0, zt + 0.19), (rl / 2 + 0.05, 0.0, zt + 0.19), 0.035, n=6)
     for k in range(7):
         x = -rl / 2 + 0.2 + (rl - 0.4) * k / 6
         for s in (-1, 1):
-            a = (x, s * 0.02, zt + 0.3)
-            b = (x, s * 0.36, zt - 0.08)
-            P.beam("post", a, b, 0.07)
+            P.beam("post", (x, s * 0.03, zt + 0.24), (x, s * 0.3, zt - 0.14), 0.06)
 
     # the lived-in clutter, as `clutter` asks
     if clutter:
@@ -360,16 +359,19 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
         # a straw cape (mino) and a spare hat hung on pegs by the door
         mx, my = hw + 0.05, yb + 0.42
         P.cyl("post", (mx - 0.05, my, 1.62), (mx + 0.12, my, 1.62), 0.015, n=5)
-        roots, tips, wid = [], [], []
-        for row in range(3):
-            for k in range(12):
-                t = k / 11
-                y = my + (t - 0.5) * (0.28 + 0.16 * row)
-                roots.append((mx + 0.06 + 0.02 * row, y, 1.62 - 0.25 * row))
-                tips.append((mx + 0.08 + 0.04 * row + rng.uniform(0, 0.03), y + (t - 0.5) * 0.12,
-                             1.62 - 0.25 * row - rng.uniform(0.32, 0.42)))
-                wid.append(0.03)
-        _spikes(P, "straw", roots, tips, wid)
+        for tier in range(3):                  # three layers of straw, each overlapping the one below
+            z0, z1 = 1.6 - 0.24 * tier, 1.6 - 0.24 * tier - 0.36
+            r0, r1 = 0.12 + 0.08 * tier, 0.2 + 0.09 * tier
+            n = 14
+            vs = []
+            for j in range(n + 1):
+                a = math.pi * (j / n - 0.5)
+                vs.append((mx + 0.04 + 0.4 * r0 * math.cos(a) + 0.02 * tier, my + r0 * math.sin(a), z0))
+            for j in range(n + 1):
+                a = math.pi * (j / n - 0.5)
+                vs.append((mx + 0.04 + 0.45 * r1 * math.cos(a) + 0.02 * tier, my + r1 * math.sin(a),
+                           z1 + (0.05 if j % 2 else 0.0) + rng.uniform(-0.02, 0.02)))
+            P.poly("straw", vs, [(j, j + 1, n + 2 + j, n + 1 + j) for j in range(n)])
         hx_, hy_ = hw + 0.06, yb + 0.95
         prof = [(0.0, 0.14), (0.08, 0.11), (0.2, 0.05), (0.3, 0.0), (0.3, -0.01), (0.0, 0.12)]
         kv = []

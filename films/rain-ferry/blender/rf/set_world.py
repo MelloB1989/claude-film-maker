@@ -40,14 +40,14 @@ PLASTER_STAIN_Z = (1.25, 1.62)          # ... from its foot (world z) to where i
 PAPER = (1.0, 0.62, 0.3)                # the hut's lit shoji paper, the only warmth but the lantern's
 LANTERN_RIB = (0.32, 0.05, 0.02)        # the lantern's bamboo hoops, dark through its paper
 # what the rain leaves shining, and how much (of the weather's sheen) and how sharply (roughness)
-WET = {"plank": (1.0, 0.14), "thatch": (0.35, 0.4), "wall": (0.5, 0.2), "hut_beam": (0.5, 0.2), "hull": (0.6, 0.22), "wood": (0.6, 0.22),
+WET = {"plank": (1.0, 0.14), "thatch": (0.12, 0.6), "wall": (0.5, 0.2), "hut_beam": (0.5, 0.2), "hull": (0.6, 0.22), "wood": (0.6, 0.22),
        "sign": (0.4, 0.3), "rock": (0.6, 0.25), "mud": (0.5, 0.32)}
 # the painted ones: (mottle, its patch size m, dry brush, its direction)
 PAINTED = {"mud": (0.6, 0.35, 0.45, "y"), "grass": (0.35, 1.5, 0.25, "z"), "rock": (0.3, 0.4, 0.35, "z"),
            "sign": (0.25, 0.15, 0.5, "z"), "plank": (0.2, 0.5, 0.35, "x"),
            "post": (0.3, 0.3, 0.5, "z"), "stave": (0.3, 0.3, 0.5, "z"),
-           "wall": (0.25, 0.4, 0.45, "z"), "hut_beam": (0.25, 0.3, 0.4, "x"), "thatch": (0.4, 0.7, 0.6, "z"),
-           "thatch_edge": (0.35, 0.25, 0.55, "z"), "hut_ridge": (0.3, 0.3, 0.4, "x"), "lattice": (0.15, 0.3, 0.3, "z")}
+           "wall": (0.25, 0.4, 0.45, "z"), "hut_beam": (0.25, 0.3, 0.4, "x"), "thatch": (0.35, 0.3, 0.8, "z"),
+           "thatch_edge": (0.3, 0.12, 0.85, "z"), "hut_ridge": (0.3, 0.3, 0.4, "x"), "lattice": (0.15, 0.3, 0.3, "z")}
 
 # a starting framing for each location: (camera, aim, lens mm); the approach keeps its trees off these cameras
 # (set_approach.CLEAR). Shots move from these as they need
