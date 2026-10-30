@@ -222,7 +222,77 @@ def walk_through(p, line, *, side: str, at, t: float, gait="heavy", ground=None,
     d0 = path[1] - path[0]
     p.root(start, (*path[0], z0), yaw=math.degrees(math.atan2(d0[1], d0[0])))
     stop = p.walk(path, start, gait=g, ground=ground, pose=pose)
-    return {"start": start, "stop": stop, "path": path, "plan": steps, "index": i}
+    return {"start": start, "stop": stop, "path": path, "plan": steps, "index": i, "layer": p.layers[-1]}
+
+
+# ---- his hands on the walk
+
+# hands at ease (degrees, lib/vrm.py's convention, from the T-pose's flat hand): each finger curled a little more than
+# the one before it toward the little finger, the thumb in by the index; never a flat hand. `fist(side, k)` closes
+# from it.
+EASY = {"Index": (14.0, 18.0, 10.0), "Middle": (20.0, 24.0, 14.0), "Ring": (26.0, 28.0, 16.0),
+        "Little": (32.0, 32.0, 18.0)}
+EASY_THUMB = ((0.0, 8.0, 14.0), (0.0, 10.0, 8.0), (0.0, 14.0, 0.0))
+FIST = {"Index": (82.0, 95.0, 60.0), "Middle": (86.0, 98.0, 62.0), "Ring": (88.0, 100.0, 62.0),
+        "Little": (90.0, 100.0, 60.0)}
+FIST_THUMB = ((0.0, 18.0, 34.0), (0.0, 34.0, 26.0), (0.0, 48.0, 0.0))
+JOINTS = ("Proximal", "Intermediate", "Distal")
+THUMB = ("Metacarpal", "Proximal", "Distal")
+# the order fingers close in (a fist rolls shut from the little finger), each its share of the close's time later
+ROLL = {"Little": 0.0, "Ring": 0.12, "Middle": 0.22, "Index": 0.32, "Thumb": 0.42}
+
+
+def hand(side: str, k: float = 0.0) -> dict:
+    """One hand's fingers (lib/vrm.py turns) between at ease (k 0: EASY) and a hard fist (1), k past 1 squeezing on."""
+    s = 1.0 if side == "left" else -1.0
+    out = {}
+    for f, ease_ in EASY.items():
+        for j, a, b in zip(JOINTS, ease_, FIST[f]):
+            out[f"{side}{f}{j}"] = (0.0, s * (a + (b - a) * k), 0.0)
+    for j, a, b in zip(THUMB, EASY_THUMB, FIST_THUMB):
+        out[f"{side}Thumb{j}"] = tuple(s * (x + (y - x) * k) if i else 0.0 for i, (x, y) in enumerate(zip(a, b)))
+    return out
+
+
+def fist(p, side: str, t0: float, over: float, *, to: float = 1.0, start: float = 0.0, squeeze: float = 0.12) -> None:
+    """Key Performance `p` (lib/vrm_anim.py) closing `side`'s hand from `start` (hand's k) to `to` between frames
+    t0 and t0 + over: the fingers rolling shut from the little finger to the thumb (ROLL), each driving past a
+    little (`squeeze`) and easing back onto the grip."""
+    def finger_keys(name, d):
+        a, b = t0 + over * d, t0 + over * (d + 0.5)
+        return a, b, b + over * 0.35
+    for f, d in ROLL.items():
+        a, b, c = finger_keys(f, d)
+        names = [k for k in hand(side) if k.startswith(f"{side}{f}")]
+        for fr, k, e in ((a, start, "inout"), (b, to + squeeze, "in"), (c, to, "out")):
+            pose = hand(side, k)
+            p.pose(fr, {n: pose[n] for n in names}, full=False, ease=e)
+
+
+def drag(p, walk, *, lag: float = 0.11, gain: float = 1.3, fingers: float = 0.5):
+    """A layer on Performance `p` laying wrist drag and finger follow-through over the arm swing of `walk` (a walk's
+    layer, walk_through's "layer"): each hand trails its forearm by `lag` seconds (turned back against the swing by
+    `gain` of how far the arm has gone in that time), the fingers trailing again behind it and opening a touch on the
+    forward swing."""
+    from lib import vrm
+
+    def fwd(f, side):
+        m = walk(f)[0].get(f"{side}UpperArm")
+        return 0.0 if m is None else -math.degrees(math.atan2(m[2, 1], m[1, 1]))
+
+    def layer(f):
+        out = {}
+        for side, s in (("left", -1.0), ("right", 1.0)):
+            d = (fwd(f - lag * p.fps, side) - fwd(f, side)) * gain
+            d2 = (fwd(f - 2 * lag * p.fps, side) - fwd(f, side)) * gain * fingers
+            # forward of the forearm: the right hand turns +z, the left -z (lib/vrm.py's elbow fold)
+            out[f"{side}Hand"] = vrm.euler((0.0, 0.0, s * d))
+            for fn in EASY:
+                out[f"{side}{fn}Proximal"] = vrm.euler((0.0, -s * d2 * 0.5, 0.0))
+                out[f"{side}{fn}Intermediate"] = vrm.euler((0.0, -s * d2 * 0.4, 0.0))
+        return out, np.zeros(3)
+    p.layers.append(layer)
+    return layer
 
 
 # ---- water thrown up and rings left
