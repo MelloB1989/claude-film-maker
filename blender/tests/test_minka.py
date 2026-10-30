@@ -57,3 +57,24 @@ def test_material_falls_back():
     assert minka.material(m, "ridge") == "T"
     assert minka.material(m, "lattice") == "W"                   # lattice -> post -> wall
     assert minka.material({**m, "post": "P"}, "lattice") == "P"
+
+
+def test_parts_gather_boxes_beams_and_cylinders_per_material():
+    P = minka.Parts()
+    P.box("wall", (0, 0, 0), (2, 1, 0.5))
+    P.box("wall", (5, 0, 0), (1, 1, 1), rot_z=0.3)
+    P.cyl("rope", (0, 0, 0), (0, 0, 1), 0.1, n=6)
+    P.beam("post", (0, 0, 0), (3, 4, 0), 0.2, 0.1)
+    assert len(P.v["wall"]) == 16 and len(P.f["wall"]) == 12
+    assert max(max(f) for f in P.f["wall"]) == 15                # the second box's faces index its own points
+    assert len(P.v["rope"]) == 12 and len(P.f["rope"]) == 6 + 2
+    beam = np.asarray(P.v["post"])
+    assert np.ptp(beam @ np.array([0.6, 0.8, 0.0])) == pytest.approx(5.0)   # 5 long along a-b
+    assert np.ptp(beam[:, 2]) == pytest.approx(0.1)                       # `h` deep, upright
+
+
+def test_hip_gable_roof_eaves_stay_where_asked():
+    verts, _, _ = minka.hip_gable_roof(2.2, 1.9, 2.1, 3.5)
+    v = np.asarray(verts)
+    assert v[:, 0].max() == pytest.approx(2.2) and v[:, 1].max() == pytest.approx(1.9)
+    assert v[:, 2].min() == pytest.approx(2.1) and v[:, 2].max() == pytest.approx(3.5)
