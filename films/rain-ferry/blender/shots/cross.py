@@ -23,7 +23,8 @@ AIM = ((14.3, 27.5, 2.2), (14.5, 28.0, 3.6))
 LENS, FSTOP = 28.0, 2.8
 RACK = (1.6, 3.6)            # s: the focus from the headband out to the boat
 BAND = ((7.55, -6.95), (8.3, -5.45))   # the headband's drift on the water (x, y), from and to over the shot
-POLE = dict(period=3.4, push=0.62, tilt=(-8.0, 32.0), grip=((-0.2, -0.18, 1.12), (-0.2, 0.2, 0.82)))
+POLE = dict(period=3.4, push=0.62, tilt=(-8.0, 32.0), grip=((-0.2, -0.18, 1.12), (-0.2, 0.2, 0.82)),
+            low=0.42, lag=0.06)   # her left hand this far down the pole below her right; the pole's lean trailing (s)
 
 
 def build(ctx):
@@ -79,7 +80,10 @@ def build(ctx):
         # it, then lifts it and swings it forward again
         ch = ts["vrm"]
         P = POLE
-        fingers = vrm.grip_pose("right", 0.95)
+        from lib import vrm_rig
+
+        # both hands closed round the pole (props.ferry_pole's radius): the right high, the left low, pushing
+        fingers = {**vrm_rig.wrap(ch, "right", 0.022), **vrm_rig.wrap(ch, "left", 0.022)}
         for f in range(ctx.f0 - 1, ctx.f1 + 2, 2):    # keyed every other frame, eased between (the build's cost)
             t = (f - ctx.f0) / ctx.fps
             u = (t / P["period"]) % 1.0
@@ -87,16 +91,24 @@ def build(ctx):
                 k = E.ease(u / P["push"])
             else:
                 k = 1.0 - E.ease((u - P["push"]) / (1.0 - P["push"]))
-            a = math.radians(P["tilt"][0] + (P["tilt"][1] - P["tilt"][0]) * k)
+            # the pole's lean trails the hands a little (it is long and in the water)
+            tl = t - P["lag"]
+            ul = (tl / P["period"]) % 1.0
+            kl = E.ease(ul / P["push"]) if ul < P["push"] else 1.0 - E.ease((ul - P["push"]) / (1.0 - P["push"]))
+            a = math.radians(P["tilt"][0] + (P["tilt"][1] - P["tilt"][0]) * kl)
+            way = (0.0, -math.sin(a), math.cos(a))
             grip = E.lerp(*P["grip"], k)
-            vrm.grasp(ch, "right", grip, (0.0, -math.sin(a), math.cos(a)), (1.0, 0.0, 0.0), pole=(-0.5, 0.4, 0.6),
-                      amount=0.95, bend=70.0)
-            E.key_handles(ts, f, keys=("rightHand-target", "rightHand-pole", "rightHand-hold"))
+            low = tuple(g - w * P["low"] for g, w in zip(grip, way))
+            vrm.grasp(ch, "right", grip, way, (1.0, 0.0, 0.0), pole=(-0.5, 0.4, 0.6), amount=0.95, bend=70.0)
+            vrm.grasp(ch, "left", low, way, (-1.0, 0.0, 0.3), pole=(0.5, -0.2, 0.5), amount=0.95, bend=60.0)
+            E.key_handles(ts, f, keys=[f"{s}Hand-{h}" for s in ("left", "right") for h in ("target", "pole", "hold")])
             pose = dict(T.TS_POSE, **fingers)
             sx, sy, sz = pose["spine"]
             pose["spine"] = (sx + 10.0 * k, sy, sz)
             vrm.pose(ch, pose, hips=(T.TS_HIPS[0], T.TS_HIPS[1] + 0.03 * k, T.TS_HIPS[2] - 0.02 * k), frame=f)
             vrm.express(ch, ts["face"](), frame=f)
+        ctx.scene.frame_set(ctx.f0)
+        print(f"cross: her pole seated in her fist ({E.seat(ts, ts['parts']['pole'][0], 'right') * 100:.1f} cm)")
         # the evening sun low down the valley behind them: their keys from there, their faces in the 1st shade
         toon3d.aim(ts["key"], (0.5, 1.0, 0.35))
         toon3d.aim(sh["key"], (0.5, 1.0, 0.35))
