@@ -221,6 +221,14 @@ def cinch_points(points, a, b, radius: float, *, keep: float = 0.25, ease: float
     return p
 
 
+def _off_axis(points, a, b) -> np.ndarray:
+    """Each point's offset (n, 3) from the line through a and b, square to it."""
+    p, a, b = np.asarray(points, float), np.asarray(a, float), np.asarray(b, float)
+    ab = (b - a) / np.linalg.norm(b - a)
+    d = p - a
+    return d - np.outer(d @ ab, ab)
+
+
 def relax_points(points, edges, moving, *, iterations: int = 4, k: float = 0.5) -> np.ndarray:
     """`points` (n, 3) with those in `moving` (indices) eased `k` of the way to the mean of their neighbours along
     `edges` ((m, 2) index pairs), `iterations` times; the rest stay. A sleeve pulled in (`cinch`) keeps its old folds
@@ -585,7 +593,12 @@ def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float
         edges = edges.reshape(-1, 2)
         inside = np.zeros(len(pts), bool)
         inside[vs] = True
+        before = _off_axis(pts[vs], a, b)
         pts = relax_points(pts, edges[inside[edges[:, 0]] & inside[edges[:, 1]]], vs, iterations=relax)
+        # ironing a tube shrinks it: back out to its girth (each point off the limb's line by the same share)
+        after = _off_axis(pts[vs], a, b)
+        grow = np.median(np.linalg.norm(before, axis=1)) / max(np.median(np.linalg.norm(after, axis=1)), 1e-9)
+        pts[vs] += after * (grow - 1.0)
     _from_frame(ch, ob, pts, m)
 
 
