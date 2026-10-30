@@ -67,7 +67,7 @@ def build(ctx):
     up = np.asarray(HILT_UP, float) / np.linalg.norm(HILT_UP)
     hands, fingers = clash.shinza_sword(shc, POMMEL, HILT_UP, poles=ELBOWS)
     for side, (_, point, along, palm, pole) in hands.items():
-        fingers.update(vrm.grasp(shc, side, point, along, palm, pole=pole, radius=vroid_shinza.TSUKA))
+        fingers.update(vrm.grasp(shc, side, point, along, palm, pole=pole, radius=vroid_shinza.TSUKA, thumb=0.35))
     vrm.pose(shc, fingers, reset=False)
     sh.settle(fingers)
     fingers = vrm.grasp(tsc, "left", TS_LEFT[0], (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), pole=TS_LEFT[1],

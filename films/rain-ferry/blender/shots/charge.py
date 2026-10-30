@@ -92,7 +92,8 @@ def build(ctx):
     for t, pommel, hilt, poles, how in sorted(keys, key=lambda k: k[0]):
         hands, _ = clash.shinza_sword(ch, pommel, hilt, poles=dict(zip(("left", "right"), poles)))
         for side, (_, point, along, palm, pole) in hands.items():
-            p.grasp(fr(t), side, point, along, palm, pole=pole, ease=how, radius=vroid_shinza.TSUKA)
+            p.grasp(fr(t), side, point, along, palm, pole=pole, ease=how, radius=vroid_shinza.TSUKA,
+                    thumb=0.35)
     # the fingers stay shut on the hilt through the throw (little of the hands' finger drag)
     for side in ("left", "right"):
         p.follow_through(side, holding=0.15)

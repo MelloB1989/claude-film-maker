@@ -138,3 +138,17 @@ def test_ribbon_lies_flat_on_its_surface():
     # one width per point
     v2, _ = vrm_rig.ribbon(pts, nrm, [0.06, 0.05, 0.04, 0.04, 0.04], 0.004)
     assert np.ptp(v2[:4, 1]) == pytest.approx(0.06) and np.ptp(v2[-4:, 1]) == pytest.approx(0.04)
+
+
+def test_relax_points_irons_a_crumple_and_leaves_the_rest():
+    # a ring of 12 points round z, every other one pushed out (a crumpled sleeve); one more point off it, fixed
+    ang = np.linspace(0, 2 * np.pi, 12, endpoint=False)
+    r = np.where(np.arange(12) % 2 == 0, 1.0, 1.3)
+    ring = np.c_[r * np.cos(ang), r * np.sin(ang), np.zeros(12)]
+    pts = np.vstack([ring, [[5.0, 5.0, 5.0]]])
+    edges = [(i, (i + 1) % 12) for i in range(12)]
+    out = vrm_rig.relax_points(pts, edges, np.arange(12), iterations=4)
+    radii = np.linalg.norm(out[:12, :2], axis=1)
+    assert np.ptp(radii) < 0.3 * np.ptp(r)          # the crumple mostly gone
+    assert np.allclose(out[12], pts[12])             # a point not moving stays
+    assert np.allclose(vrm_rig.relax_points(pts, edges, [], iterations=3), pts)
