@@ -199,14 +199,14 @@ def shinza(coll, look, name: str = "shinza", *, kasa: str | None = "back", sword
             # finger wrapped round it (vrm_rig.wrap), not every hand curled alike
             palm = np.array((1.0 if side == "right" else -1.0, 0.0, -0.6))
             vrm.grasp(ch, side, POMMEL + hilt * along, hilt, palm, pole=SH_ELBOWS[side])
-            fingers.update(vrm_rig.wrap(ch, side, TSUKA))
+            fingers.update(vrm_rig.grip(ch, side, TSUKA))
         vrm.pose(ch, {**SH_POSE, **fingers}, hips=SH_HIPS)
         plant(ch, SH_FEET)
     else:
         fingers = {}
         if sword in ("hand", "broken"):
             fingers = vrm.grasp(ch, "right", HANG["hole"], HANG["way"], (1.0, 0.0, 0.0), pole=(-0.5, 0.5, 0.9))
-            fingers.update(vrm_rig.wrap(ch, "right", TSUKA))
+            fingers.update(vrm_rig.grip(ch, "right", TSUKA))
         vrm.pose(ch, {**STAND_POSE, **fingers})
         plant(ch, {"left": ((0.1, 0.0, ch.rest("leftFoot")[2]), (0.1, -1.0, 0.45), (0.0, 0.0, 10.0)),
                    "right": ((-0.11, -0.04, ch.rest("rightFoot")[2]), (-0.1, -1.0, 0.45), (0.0, 0.0, -12.0))})
