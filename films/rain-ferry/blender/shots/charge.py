@@ -36,7 +36,7 @@ SWORDS = [(0.0, (-0.14, -0.26, 1.36), (0.1, 0.38, 0.92), OUT, "out"),      # has
           (0.3, (0.02, -0.23, 1.5), (0.03, 0.55, 0.83), OUT, "overshoot"),  # up over his head (jodan), a fist off it
           (SWING[0], (0.02, -0.22, 1.51), (0.03, 0.55, 0.83), OUT, "inout"),
           (1.66, (0.02, -0.16, 1.61), (0.03, 0.85, 0.53), HIGH, "in"),      # winding up: up and back ...
-          (SWING[1], (0.0, -0.07, 1.66), (0.0, 0.86, -0.5), HIGH, "out"),   # ... thrown back, the blade down his back
+          (SWING[1], (0.0, -0.04, 1.71), (0.0, 0.86, -0.5), HIGH, "out"),   # ... thrown back, the blade down his back
           (1.9, (0.02, -0.24, 1.58), (0.0, 0.2, 0.98), HIGH, "in"),         # coming over, upright ...
           (SWING[2], (0.03, -0.32, 1.3), (0.0, -0.45, 0.89), DOWN, "linear")]   # ... and on down at her, arms out
 # the fists ride a beat behind his strides (each landing sinks them, m)

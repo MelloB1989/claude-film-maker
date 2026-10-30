@@ -308,8 +308,8 @@ SH_STAND_HIPS = (0.0, -0.03, -0.1)
 # (every fist within about 0.45 m of its shoulder: VRoid's arms are 0.47 m to the wrist, and a target past that locks
 # the elbow straight, a mannequin's arm)
 FOLLOW = dict(pommel=(0.0, -0.2, 1.12), hilt=(0.04, -0.95, 0.28))
-LOW = dict(pommel=(-0.21, -0.05, 1.1), hilt=(0.06, -0.55, -0.83))
-LEFT_LOOSE = ((0.2, -0.06, 0.99), (0.6, 0.4, 0.9), (0.0, 10.0, 0.0))
+LOW = dict(pommel=(-0.21, -0.032, 1.013), hilt=(0.06, -0.55, -0.83))       # (his shoulders 0.1 m down in the stance)
+LEFT_LOOSE = ((0.2, -0.05, 0.87), (0.4, 0.5, 0.9), (0.0, 10.0, 0.0))
 
 
 def arms(ch, hilt: dict, left=None, *, poles: dict | None = None) -> tuple[dict, dict]:

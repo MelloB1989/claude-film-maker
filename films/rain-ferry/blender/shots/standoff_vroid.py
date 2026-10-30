@@ -35,6 +35,7 @@ BAND = (0.128, 0.872)           # the 2.39 letterbox's band (frame heights)
 LOOK = dict(haze_amount=0.05, para_amount=0.3, wrap_width=0.004, para_from=(0.5, 0.62), para_to=(0.5, 0.25), rims=[((0.2, 1.0), (0.6, 0.68, 0.85), 0.2, 0.002, 0.8),
                                                              ((-1.0, 0.2), (1.0, 0.5, 0.18), 0.12, 0.0018, 0.8)])
 KEYS = {"shinza": (1.0, -0.3, 0.8), "tsuru": (-1.0, -0.3, 0.8)}
+BREATH_FISTS = 0.008             # m his fists rise on a full breath
 STRIKE = 2.1                    # s: the look schedule's lightning (the thunder at +2.2 s)
 BOLT = ((-9.0, 64.0, 34.0), (-12.5, 70.0, -1.0))    # the fork, far out in the gap between them: sky to water, from MID
 
@@ -72,8 +73,12 @@ def build(ctx):
         # Shinza: hard breaths behind his guard, his weight settling forward and down through the shot, the head
         # dropping to a glare; the gust throws his hair and his hakama
         settle = dm.ease(t / 4.0)
+        # his fists ride his breaths a beat late (the blade's point rising and dipping with them), and his grip
+        # pushes forward and down as his weight settles
+        lift = BREATH_FISTS * dm.breath(t - 0.12, 0.45) * 1.8
+        fists = (0.0, -0.025 * settle, lift - 0.02 * settle)
         sh.key(f, duel.add(duel.breathing(t, 0.45, 1.8), {"spine": (1.5 * settle, 0.0, 0.0), "head": (2.5 * settle, 0.0, 0.0)}),
-               hips=(0.0, -0.02 * settle, -0.015 * settle),
+               hips=(0.0, -0.02 * settle, -0.015 * settle), moves={"leftHand-target": fists, "rightHand-target": fists},
                chains=sh.sway(t, amount=9.0, cloth=4.0, toward=(0.0, -1.0, 0.0), seed=1, at=gust))
         # Tsuru: still; a slow breath; after the strike her head turns to him a little
         look_k = dm.span(t, HER_LOOK[0], HER_LOOK[1])
