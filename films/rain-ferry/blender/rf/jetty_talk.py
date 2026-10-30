@@ -619,7 +619,7 @@ def tsuru_hips(st: Stage, t: float) -> tuple:
 # (over her knee the hand holds the stem from above, palm down and in: the knuckles and the thumb along the stem show;
 # palm up, only fingertips showed under the cuff and the pipe looked held by nothing; at her lips the elbow down by her
 # side, the forearm standing up to them, so her wide cuff hangs below her chin rather than over her mouth)
-PIPE_ARM = {"lap": ((0.45, 0.35, 0.35), (-0.5, 0.0, -0.85)), "lips": ((0.36, 0.12, 0.45), (-0.7, 0.1, 0.35)),
+PIPE_ARM = {"lap": ((0.45, 0.35, 0.35), (-0.5, 0.0, -0.85)), "lips": ((0.24, 0.04, 0.12), (-0.7, 0.1, 0.35)),
             "knock": ((0.55, 0.4, 0.45), (-0.5, 0.0, 0.8))}     # (knocking: the elbow down and back by her side)
 
 
