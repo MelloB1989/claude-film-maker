@@ -39,7 +39,8 @@ ASH = 7                      # flecks of ash knocked out at each knock
 # her fist through the knocks, from the bowl at rest over the post (her frame: out at her left side, back from the
 # bowl and a little above it: the stem runs forward from it onto the post, her forearm low, not across her face),
 # and how much of the bowl's drop it shares
-KNOCK_FIST, FLICK = np.array((-0.05, 0.13, 0.04)), 0.3
+# (the kiseru's bowl is ~0.21 m on from the fist: rf/vroid_tsuru.py's KISERU less the 0.09 behind it)
+KNOCK_FIST, FLICK = np.array((-0.15, 0.13, 0.05)), 0.3
 
 
 def build(ctx):
@@ -109,7 +110,9 @@ def perform(st, lines, post):
                             eyes=(18.0 * (1 - up) - 2.0 * up, -6.0 * (1 - up)), lean=6.0 * (1 - low))
         # the fist is close in by her shoulder at the post: start the elbow folded so the IK bends it out and down,
         # not up behind her
-        fold = {"leftLowerArm": vrm.fold("leftLowerArm", 80.0 * (1 - low) + 20.0)}
+        # (and the upper arm started hanging by her side, not from the T-pose: so the IK folds the elbow down and
+        # back, not up behind her)
+        fold = {"leftLowerArm": vrm.fold("leftLowerArm", 80.0 * (1 - low) + 20.0), "leftUpperArm": (0.0, 70.0, 0.0)}
         st.pose("tsuru", f, {**body, **fold, **jt.pipe_fingers(st), **jt.knee_fingers()},
                 hips=jt.tsuru_hips(st, t))
         (p0, q0), (p1, q1) = np.asarray(jt.PIPE_ARM["knock"], float), np.asarray(jt.PIPE_ARM["lap"], float)
