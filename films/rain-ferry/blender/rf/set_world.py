@@ -122,9 +122,13 @@ def materials(look, weather) -> dict:
     m["lantern"] = toon.flat("set-lantern", sets.LANTERN, look=look, strength=w.lantern)
     m["door"] = toon.flat("set-door-glow", sets.DOOR, look=look, strength=0.45)
     m["water"] = water.surface("set-river", w.river[0], w.river[1], look=look, rain=w.rain, mirror=w.mirror,
-                               shine=w.shine, shine_color=w.shine_color, flow=(0.0, 0.35), roughness=0.05)
+                               shine=w.shine, shine_color=w.shine_color, flow=(0.0, 0.35), roughness=0.03,
+                               sun=tuple(-c for c in w.key), sky=w.fog or w.sky)
     m["puddle"] = water.surface("set-puddle", tuple(c * 0.6 for c in w.river[0]), w.river[1], look=look, rain=w.rain,
-                                mirror=w.puddle_mirror, scale=0.35, streaks=0.0, roughness=0.02, ripple=0.35)
+                                mirror=w.puddle_mirror, scale=0.35, streaks=0.0, roughness=0.02, ripple=0.35,
+                                sky=w.fog or w.sky)
+    m["foam"] = water.foam("set-foam", tuple(min(1.0, c * 2.0) for c in w.river[1]),
+                           look=look, amount=0.55 + 0.45 * w.rain)
     return m
 
 
@@ -134,7 +138,7 @@ def build(ctx=None, *, weather=None, scene=None, look=None, seed: int = 7) -> di
     shot's frames. Without ctx, `scene` and `weather` are needed (a still, a test)."""
     import bpy
 
-    from lib import boat, toon
+    from lib import boat, toon, water
 
     scene = scene or ctx.scene
     if weather is None:
@@ -148,8 +152,11 @@ def build(ctx=None, *, weather=None, scene=None, look=None, seed: int = 7) -> di
     valley = set_valley.build(m, near, far, w, seed=seed)
     approach = set_approach.build(m, near, w, seed=seed + 4)
     jetty = set_jetty.build(m, near, w, seed=seed)
+    # what the river's and the planks' reflections fall back on off the frame's edge: the sky, the banks, the hut
+    water.probe("water-probe", far, (2.0, 0.0, 2.5), radius=400.0)
+    _collars(m, near, jetty, w)
     world = {"scene": scene, "near": near, "far": far, "look": look, "key": key, "key_base": key.data.energy / w.key_gain,
-             "weather": w, "materials": m, "river_material": m["water"], "waters": [m["water"], m["puddle"]],
+             "weather": w, "materials": m, "river_material": m["water"], "waters": [m["water"], m["puddle"], m["foam"]],
              "wet": [m[k] for k in WET], "valley": valley, "approach": approach, "jetty": jetty,
              "boat": jetty["boat"], "lantern": jetty["lantern"], "sign": approach["sign"], "mooring": jetty["mooring"],
              "anchors": {**approach["anchors"], **jetty["anchors"]}}
@@ -160,6 +167,18 @@ def build(ctx=None, *, weather=None, scene=None, look=None, seed: int = 7) -> di
                  bob={"calm": 1.0 - 0.6 * w.warm})
     bpy.context.view_layer.update()
     return world
+
+
+def _collars(m: dict, near, jetty: dict, w) -> None:
+    """Foam and ripple collars where the jetty's posts and piles and the ferry's hull stand in the river."""
+    from lib import water
+
+    stand = [ob for ob in near.all_objects if ob.name.startswith(("pier-post", "pier-pile"))]
+    stand += [[ob for ob in near.all_objects if ob.name.startswith(f"post-{name}")] for name in jetty["posts"]]
+    water.collar("post-foam", stand, sets.WATER_Z, m["foam"], near, width=0.3)
+    root = jetty["boat"]["root"]
+    hull = [ob for ob in root.children_recursive if ob.type == "MESH"]
+    water.collar("hull-foam", [hull], sets.WATER_Z, m["foam"], near, width=0.45, n=48, follow=root)
 
 
 def anchor(world: dict, name: str):
