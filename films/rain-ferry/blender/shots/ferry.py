@@ -45,7 +45,7 @@ def build(ctx):
     from rf import set_approach, set_valley
 
     ja.clock("ferry", "build")
-    st = jt.stage(ctx, ink=0.006, variant={"shinza": {"kasa": "on"}}, place={"shinza": None})
+    st = jt.stage(ctx, ink=0.0, variant={"shinza": {"kasa": "on"}}, place={"shinza": None})
     jt.compose_faces(st)
     # Shinza down the last of the path, still walking at the cut
     P = set_approach.path_xy()
