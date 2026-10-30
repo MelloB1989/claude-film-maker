@@ -115,8 +115,8 @@ def ring_layers(scale: float = 1.0, layers=RING_LAYERS) -> list:
             for cell, rate, width, appear, near, far in layers]
 
 
-def _rings(nt, xy, t, dist, k_rain, cell: float, rate: float, width: float, appear: float, near: float, far: float,
-           seed: float):
+def _rings(nt, xy, t, dist, k_rain, arcs, cell: float, rate: float, width: float, appear: float, near: float,
+           far: float, seed: float):
     """One layer of rain rings over world `xy` (a vector, metres): in Voronoi cells of `cell` m a drop lands at the
     cell's point and its ring opens out to nearly the cell's edge and fades, each cell at its own phase and its own
     pace; only as many cells ring as the rain is hard (RAIN 0.3: about a third). The ring thickens a little with the
@@ -142,11 +142,7 @@ def _rings(nt, xy, t, dist, k_rain, cell: float, rate: float, width: float, appe
     off = _math(nt, "ABSOLUTE", _math(nt, "SUBTRACT", d_m, radius))
     ring = _ramp(nt, off, w, _math(nt, "MULTIPLY", w, 0.15))
     life = _math(nt, "POWER", _math(nt, "SUBTRACT", 1.0, fr), 2.2)
-    arcs = nt.nodes.new("ShaderNodeTexNoise")
-    arcs.inputs["Scale"].default_value = 2.2 / cell
-    arcs.inputs["Detail"].default_value = 0.0
-    nt.links.new(_vmath(nt, "ADD", xy, (seed, 2.0 * seed, 0.0)), arcs.inputs["Vector"])
-    life = _math(nt, "MULTIPLY", life, _ramp(nt, arcs.outputs["Fac"], 0.38, 0.58))
+    life = _math(nt, "MULTIPLY", life, _ramp(nt, arcs, 0.38, 0.58))
     # how many cells ring: those whose own number is under the rain's
     on = _ramp(nt, _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", k_rain, 1.6), rnd.outputs["Blue"]), 0.0, 0.12)
     lod = _ramp(nt, dist, far, near)
@@ -246,8 +242,13 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
                    _math(nt, "MULTIPLY", _ramp(nt, dist, 140.0 * scale, 12.0 * scale), 0.3 * streaks))
     # the rain's rings and the flecks of its strikes
     rings, crowns = None, None
+    # (one noise breaks every layer's rings into arcs)
+    arcs = nt.nodes.new("ShaderNodeTexNoise")
+    arcs.inputs["Scale"].default_value = 8.0 / scale
+    arcs.inputs["Detail"].default_value = 0.0
+    nt.links.new(drift, arcs.inputs["Vector"])
     for k, layer in enumerate(ring_layers(scale)):
-        r, c = _rings(nt, drift, t, dist, k_rain, *layer, seed=3.7 * k + 0.5)
+        r, c = _rings(nt, drift, t, dist, k_rain, arcs.outputs["Fac"], *layer, seed=3.7 * k + 0.5)
         rings = r if rings is None else _math(nt, "MAXIMUM", rings, r)
         crowns = c if crowns is None else _math(nt, "MAXIMUM", crowns, c)
     crowns = _math(nt, "MAXIMUM", crowns, _pock(nt, drift, t, dist, k_rain, *POCK[:2], POCK[2] * scale,
