@@ -31,6 +31,15 @@ EYES_UP = (93.95, 94.55, 7.0)   # after the line: his head lifts this many degre
 SNAP = (0.2, 0.17)
 TEETH = [(0.0, 0.0), (0.14, 0.045), (0.27, 0.006), (0.4, 0.062), (0.55, 0.012), (0.68, 0.04), (0.82, -0.006),
          (1.0, 0.0)]
+# the lift's acting (shares of LIFT): the right hand draws the stub up off the planks, the hilt leading and the broken
+# end dragging after it (its way turning late) in an arc up toward him; the left hand leaves his thigh at LEFT_GO,
+# opens as it comes over in an arc and closes round the hilt from LEFT_MEET; the stub carries a hair past where it
+# stops and settles
+ARC = 0.08                   # m the stub rises over its straight line at the lift's middle
+TRAIL = 0.18                 # the share of the lift the blade's way lags the hilt
+LEFT_GO, LEFT_MEET, LEFT_SHUT = 0.2, 0.68, 0.88
+LEFT_ARC = 0.07              # m the left hand rises over its straight line
+SQUEEZE = 0.14               # how far past the wrap the fingers drive as his grip tightens (rolling little to index)
 GLINT = (91.75, 92.05, 0.045)  # film s: the glint on the break flaring and fading; its size (m)
 
 
@@ -73,11 +82,8 @@ def build(ctx):
             hx, hy, hz = turns["head"]
             turns["head"] = (hx - 12.0 * lift - up, hy, hz * (1 - lift) + 6.0 * lift)
             turns["leftEye"] = turns["rightEye"] = (12.0 * lift - 1.5 * up, 0.0, 6.0 * lift)
-            if LIFT[0] < t < LIFT[1]:
-                continue                     # the lift: tweened between the fall's pose and the held stub
-            pommel, hilt = STUB
-            stub = (tuple(np.add(pommel, (0.0, 0.0, shake))), hilt) if lift >= 1.0 else None
-            p, fingers = E.fallen(sh, turns=turns, stub=stub)
+            p, fingers = E.fallen(sh, turns=turns)
+            p.hands, fingers = _hands(ch, fall, (t - LIFT[0]) / (LIFT[1] - LIFT[0]), t, fingers, shake)
             p.hips = (p.hips[0], p.hips[1], p.hips[2] + 0.004 * breath)
             clash.apply(sh, p, fingers=fingers)
             clash.key(sh, f)
@@ -109,6 +115,68 @@ def build(ctx):
                     para_from=(0.5, 0.9), para_to=(0.5, 0.0))
 
     E.finish(ctx, st, look, actors, lambda f: LENS)
+
+
+def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
+    """Both his hands at `u` (0..1) through the lift and `t` (film s): (clash Pose.hands, the fingers). Before it, as
+    the fall left him (the stub's end on the planks in his right hand, the left on his thigh); after it, the stub
+    held up before him in both, trembling by `shake`; between, the arcs and the left hand's reach (see ARC ...)."""
+    import numpy as np
+
+    from lib import vrm, vrm_anim as va
+    from rf import approach, clash
+    from rf import ending as E
+
+    u = min(1.0, max(0.0, u))
+    e = va.ease(u, "overshoot")
+    ed = va.ease(min(1.0, max(0.0, (u - TRAIL) / (1.0 - TRAIL))), "inout")
+    p0, h0 = np.asarray(fall.KNEEL_STUB["pommel"], float), np.asarray(fall.KNEEL_STUB["hilt"], float)
+    p1, h1 = np.asarray(STUB[0], float), np.asarray(STUB[1], float)
+    pommel = p0 + (p1 - p0) * e + np.array([0.0, 0.0, ARC * math.sin(math.pi * min(u, 1.0)) + shake * (u >= 1.0)])
+    hilt = va.matrix(va.slerp(va.quat(va.swing_to((0, 0, 1), h0)), va.quat(va.swing_to((0, 0, 1), h1)), ed)) @ \
+        np.array([0.0, 0.0, 1.0])
+    hands, wrapped = clash.shinza_sword(ch, tuple(pommel), tuple(hilt))
+    right = {k: v for k, v in wrapped.items() if k.startswith("right")}
+    left_wrap = {k: v for k, v in wrapped.items() if k.startswith("left")}
+    thigh = fall.KNEEL_LEFT
+    k = min(1.0, max(0.0, (u - LEFT_GO) / (LEFT_MEET - LEFT_GO)))
+    if k <= 0.0:
+        hands["left"] = ("reach", *thigh)
+        left = {kk: v for kk, v in fingers0.items() if kk.startswith("left")}
+    elif k < 1.0:
+        # the wrist on its way from his thigh to where the grasp will put it, in an arc, the hand turning over
+        _, point, along, palm, pole = hands["left"]
+        k0, q0, r0 = vrm.hand_rest(ch, "left")
+        turn = vrm.align(k0, q0, -np.asarray(along, float), palm)
+        wrist = np.asarray(point, float) - turn @ (r0 * 0.85 + q0 * 0.028)
+        ke = E.ease(k)
+        at = np.asarray(thigh[0], float) + (wrist - np.asarray(thigh[0], float)) * ke
+        at[2] += LEFT_ARC * math.sin(math.pi * k)
+        rot = va.matrix(va.slerp(va.quat(vrm.euler(thigh[2])), va.quat(turn), ke))
+        hands["left"] = ("reach", tuple(at), tuple(np.asarray(thigh[1]) + (np.asarray(pole) - thigh[1]) * ke), rot)
+        # the fingers opening as the hand comes over, to close round the hilt as it lands
+        left = _mix(vrm.grip_pose("left", 0.35, 0.3), approach.hand("left", -0.3), min(1.0, k * 2.0))
+    if k >= 1.0:
+        s = min(1.0, max(0.0, (u - LEFT_MEET) / (LEFT_SHUT - LEFT_MEET)))
+        left = _mix(approach.hand("left", -0.3), left_wrap, E.ease(s))
+    # the grip tightening: each finger driving past the wrap and easing back, from the little finger to the index
+    g = (t - GRIP[0]) / (GRIP[1] - GRIP[0])
+    out = {}
+    for name, v in {**right, **left}.items():
+        f = next((f for f in approach.ROLL if f in name), "Thumb")
+        x = g * 1.4 - approach.ROLL[f]
+        over = SQUEEZE * math.sin(math.pi * min(1.0, max(0.0, x))) + SQUEEZE * 0.3 * (x >= 1.0)
+        m = va.turn_matrix(v)
+        out[name] = va.matrix(va.slerp(np.array([1.0, 0, 0, 0]), va.quat(m), 1.0 + over)) if over else m
+    return hands, out
+
+
+def _mix(a: dict, b: dict, k: float) -> dict:
+    """Two finger poses (turns or 3x3s) blended by k."""
+    from lib import vrm_anim as va
+
+    return {n: va.matrix(va.slerp(va.quat(va.turn_matrix(a.get(n, (0.0, 0.0, 0.0)))),
+                                  va.quat(va.turn_matrix(b.get(n, (0.0, 0.0, 0.0)))), k)) for n in {*a, *b}}
 
 
 def _face(ctx, ch, line) -> None:

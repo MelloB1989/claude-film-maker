@@ -25,6 +25,7 @@ LENS, FSTOP = 35.0, 2.4
 RACK = (88.7, 89.7)       # film s: the focus from her back to him
 SETS_OFF = 0.35           # s into the shot: she turns away and walks
 HEAD_SINK = (88.9, 90.4, 9.0)   # his head sinks this many degrees more as the line lands
+SLUMP = (3.0, 6.0, 8.0)   # degrees: his shoulders lifting on each hard breath; dropping and rounding as his head sinks
 
 
 def build(ctx):
@@ -56,7 +57,13 @@ def build(ctx):
             t = ctx.time(f)
             breath = math.sin(2 * math.pi * 0.42 * (t - t0))
             sink = HEAD_SINK[2] * E.ease((t - HEAD_SINK[0]) / (HEAD_SINK[1] - HEAD_SINK[0]))
-            p, fingers = E.fallen(sh, turns={"spine": (sx + 2.0 * breath, sy, sz), "head": (hx + sink, hy, hz)})
+            # his shoulders heave with each breath and, as the line lands, drop and round forward: the arms (on the
+            # stub and his thigh) folding with them instead of hanging
+            k = sink / HEAD_SINK[2]
+            lift = SLUMP[0] * max(0.0, breath)
+            sh_l = (0.0, 2.0 - lift + SLUMP[1] * k, -4.0 - SLUMP[2] * k)
+            p, fingers = E.fallen(sh, turns={"spine": (sx + 2.0 * breath, sy, sz), "head": (hx + sink, hy, hz),
+                                             "leftShoulder": sh_l, "rightShoulder": (0.0, -sh_l[1], -sh_l[2])})
             p.hips = (p.hips[0], p.hips[1], p.hips[2] + 0.004 * breath)
             clash.apply(sh, p, fingers=fingers)
             clash.key(sh, f, face={"sad": 0.3})
