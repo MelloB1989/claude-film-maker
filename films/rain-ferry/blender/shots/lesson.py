@@ -25,6 +25,7 @@ LENS, FSTOP = 35.0, 2.4
 RACK = (88.7, 89.7)       # film s: the focus from her back to him
 SETS_OFF = 0.35           # s into the shot: she turns away and walks
 HEAD_SINK = (88.9, 90.4, 9.0)   # his head sinks this many degrees more as the line lands
+POLE_BOB = (0.014, 0.08)  # m her pole hand dips with each step, s behind her footfalls
 SLUMP = (3.0, 6.0, 8.0)   # degrees: his shoulders lifting on each hard breath; dropping and rounding as his head sinks
 
 
@@ -78,6 +79,19 @@ def build(ctx):
         perf.breathe(rate=0.22, depth=0.6)
         perf.blinks(seed=22)
         perf.bake(ctx.f0 - 1, ctx.f1 + 1)
+        # her hand on the pole riding her steps: it dips a little after each footfall, a beat behind her body, so the
+        # long pole over her shoulder nods with her walk instead of riding still
+        g = va.gait_of("old").scaled(perf.height)
+        beat = g.stride / g.speed
+        tch = ts["vrm"]
+        hand = tch.handles["rightHand-target"]
+        rest = hand.location.copy()
+        go = ctx.f0 + round(SETS_OFF * ctx.fps)
+        for f in range(ctx.f0 - 1, ctx.f1 + 2, 2):
+            t = (f - go) / ctx.fps - POLE_BOB[1]
+            dz = -POLE_BOB[0] * min(1.0, max(0.0, t / beat)) * (0.5 - 0.5 * math.cos(2 * math.pi * t / beat))
+            hand.location = rest + tch.to_armature((0.0, 0.0, dz))
+            hand.keyframe_insert("location", frame=f)
         # their keys from beyond the boat (the open sky over the river): his face and front in the 1st shade toward
         # the lens, her back edged
         toon3d.aim(sh["key"], (-0.3, 1.0, 0.8))
