@@ -312,12 +312,12 @@ LOW = dict(pommel=(-0.21, -0.05, 1.1), hilt=(0.06, -0.55, -0.83))
 LEFT_LOOSE = ((0.2, -0.06, 0.99), (0.6, 0.4, 0.9), (0.0, 10.0, 0.0))
 
 
-def arms(ch, hilt: dict, left=None) -> tuple[dict, dict]:
+def arms(ch, hilt: dict, left=None, *, poles: dict | None = None) -> tuple[dict, dict]:
     """Shinza's hands (Pose.hands, fingers): both on the hilt at `hilt` (pommel, hilt), or the right alone and the
-    left reaching `left` ((wrist, pole, turn), his frame) loose."""
+    left reaching `left` ((wrist, pole, turn), his frame) loose; `poles` ({side: point}) where the elbows go."""
     from lib import vrm
 
-    hands, fingers = shinza_sword(ch, hilt["pommel"], hilt["hilt"])
+    hands, fingers = shinza_sword(ch, hilt["pommel"], hilt["hilt"], poles=poles)
     if left is not None:
         hands["left"] = ("reach", *left)
         fingers = {k: v for k, v in fingers.items() if not k.startswith("left")}

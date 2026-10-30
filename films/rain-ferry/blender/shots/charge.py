@@ -28,16 +28,17 @@ FIRST_STEP = 0.25               # s: the first stride lands (data/mix.json step_
 # where the hilt is: its pommel, its way (pommel to blade), the elbows' poles, how it arrives (lib/vrm_anim.py EASES).
 # The arms stay bent through it all (VRoid's arms are 0.47 m: a fist much past 0.4 m from its shoulder locks the
 # elbow straight), the elbows out to the sides; the sword goes up and back over his head in an arc and comes over in
-# one, the wrists cocking with the hilt
-OUT, HIGH, DOWN = ((0.55, -0.1, 1.45), (-0.55, -0.1, 1.45)), ((0.5, -0.3, 1.75), (-0.5, -0.3, 1.75)), \
+# one, the wrists cocking with the hilt. (The charge's gait carries him crouched, his shoulders some 0.15 m lower than
+# standing: the fists are placed for that.)
+OUT, HIGH, DOWN = ((0.55, -0.1, 1.35), (-0.55, -0.1, 1.35)), ((0.5, -0.3, 1.6), (-0.5, -0.3, 1.6)), \
     ((0.42, 0.0, 1.1), (-0.42, 0.0, 1.1))
 SWORDS = [(0.0, (-0.14, -0.26, 1.36), (0.1, 0.38, 0.92), OUT, "out"),      # hasso over his right shoulder (the freeze's)
-          (0.3, (0.02, -0.23, 1.66), (0.03, 0.55, 0.83), OUT, "overshoot"),  # up over his head (jodan), a fist off it
-          (SWING[0], (0.02, -0.22, 1.67), (0.03, 0.55, 0.83), OUT, "inout"),
-          (1.66, (0.02, -0.16, 1.77), (0.03, 0.85, 0.53), HIGH, "in"),      # winding up: up and back ...
-          (SWING[1], (0.0, -0.07, 1.82), (0.0, 0.86, -0.5), HIGH, "out"),   # ... thrown back, the blade down his back
-          (1.9, (0.02, -0.22, 1.76), (0.0, 0.2, 0.98), HIGH, "in"),         # coming over, upright ...
-          (SWING[2], (0.03, -0.3, 1.47), (0.0, -0.45, 0.89), DOWN, "linear")]   # ... and on down at her, arms out
+          (0.3, (0.02, -0.23, 1.5), (0.03, 0.55, 0.83), OUT, "overshoot"),  # up over his head (jodan), a fist off it
+          (SWING[0], (0.02, -0.22, 1.51), (0.03, 0.55, 0.83), OUT, "inout"),
+          (1.66, (0.02, -0.16, 1.61), (0.03, 0.85, 0.53), HIGH, "in"),      # winding up: up and back ...
+          (SWING[1], (0.0, -0.07, 1.66), (0.0, 0.86, -0.5), HIGH, "out"),   # ... thrown back, the blade down his back
+          (1.9, (0.02, -0.24, 1.58), (0.0, 0.2, 0.98), HIGH, "in"),         # coming over, upright ...
+          (SWING[2], (0.03, -0.32, 1.3), (0.0, -0.45, 0.89), DOWN, "linear")]   # ... and on down at her, arms out
 # the fists ride a beat behind his strides (each landing sinks them, m)
 BOB, BOB_LAG = 0.025, 0.1
 TS_LEFT = ((-0.23, -0.22, 1.13), (0.55, -0.2, 0.9))     # her left hand on the pole (shots/freeze.py TS_LEFT)
