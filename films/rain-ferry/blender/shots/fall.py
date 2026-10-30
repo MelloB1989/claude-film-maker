@@ -21,7 +21,7 @@ LENS, FSTOP = 50.0, 2.0
 CAM_BEARING = 38.0            # degrees round from his front toward his right (the camera's side)
 CAM_DIST = (1.25, 2.1)        # m from his face: the close-up, easing back to a medium as he lands (the band in frame)
 CAM_DZ = (-0.04, 0.02)        # m the lens sits off his eyes' height: start, end
-DOWN = 0.34                   # m the aim sinks from his eyes once he is down
+DOWN = 0.2                    # m the aim sinks from his eyes once he is down
 JOLT = (1.4, 6.0)             # the knees' jolt: degrees, decay a second
 # kneeling: the hips down on his heels' height, the shins flat behind the knees, slumped, the head bowed
 KNEEL_HIPS = (0.0, 0.12, -0.42)
