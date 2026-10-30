@@ -221,6 +221,24 @@ def cinch_points(points, a, b, radius: float, *, keep: float = 0.25, ease: float
     return p
 
 
+def relax_points(points, edges, moving, *, iterations: int = 4, k: float = 0.5) -> np.ndarray:
+    """`points` (n, 3) with those in `moving` (indices) eased `k` of the way to the mean of their neighbours along
+    `edges` ((m, 2) index pairs), `iterations` times; the rest stay. A sleeve pulled in (`cinch`) keeps its old folds
+    as crumples of single faces, which a toon shade's hard edge draws as a sawtooth: this irons them out."""
+    p = np.array(points, dtype=float, copy=True)
+    e = np.asarray(edges, int).reshape(-1, 2)
+    mv = np.zeros(len(p), bool)
+    mv[np.asarray(moving, int)] = True
+    count = np.bincount(e.ravel(), minlength=len(p)).astype(float)
+    for _ in range(iterations):
+        acc = np.zeros_like(p)
+        np.add.at(acc, e[:, 0], p[e[:, 1]])
+        np.add.at(acc, e[:, 1], p[e[:, 0]])
+        has = mv & (count > 0)
+        p[has] += k * (acc[has] / count[has, None] - p[has])
+    return p
+
+
 def box_blur(img, radius: int) -> np.ndarray:
     """A 2D array blurred by a box `radius` pixels either way (edges clamped)."""
     out = np.asarray(img, float)
@@ -534,13 +552,13 @@ LIMBS = {"arm": (("UpperArm", "Hand"), ("UpperArm", "LowerArm", "Hand")),
 
 
 def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float = 0.25, ease: float = 0.3,
-          limb: str = "arm") -> None:
+          limb: str = "arm", relax: int = 0) -> None:
     """A sleeve's volume taken in (cinch_points): the vertices of `faces` the `side` arm ("left", "right") carries,
     from the upper arm to the wrist at rest, pulled in to `radius` (metres) of it, keeping `keep` of the rest. `limb`
     "thigh", "shin" or "leg" (hip to ankle) does the same round a leg's (a long skirt handed to the legs: shift_weights); `side` "both" takes
     in what the two sides carry together (the cloth between the knees, held half by each) round the line midway
     between them. Before posing: the vertices keep their weights, so the cloth follows the limb, no longer a bell
-    hanging off it."""
+    hanging off it. `relax` irons the pulled-in cloth that many times (relax_points), its crumpled folds smoothed."""
     pts, m = _to_frame(ch, ob)
     vs = np.unique(np.concatenate([list(ob.data.polygons[int(i)].vertices) for i in faces]))
     (top, end), carry = LIMBS[limb]
@@ -561,6 +579,13 @@ def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float
         keep_v = (held[0] > 0.5) & (pts[vs, 0] * s > (abs(a[0]) if limb == "arm" else 0.0))
     vs = vs[keep_v]
     pts[vs] = cinch_points(pts[vs], a, b, radius, keep=keep, ease=ease)
+    if relax:
+        edges = np.empty(len(ob.data.edges) * 2, int)
+        ob.data.edges.foreach_get("vertices", edges)
+        edges = edges.reshape(-1, 2)
+        inside = np.zeros(len(pts), bool)
+        inside[vs] = True
+        pts = relax_points(pts, edges[inside[edges[:, 0]] & inside[edges[:, 1]]], vs, iterations=relax)
     _from_frame(ch, ob, pts, m)
 
 
