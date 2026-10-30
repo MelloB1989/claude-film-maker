@@ -286,7 +286,7 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         # the view's ray off a level surface
         refl = _vmath(nt, "MULTIPLY", geo.outputs["Incoming"], (-1.0, -1.0, 1.0))
         toward = _vmath(nt, "DOT_PRODUCT", refl, (sx / n, sy / n, sz / n))
-        path = _ramp(nt, toward, 0.82, 0.99)
+        path = _ramp(nt, toward, 0.78, 0.99)
         spark = nt.nodes.new("ShaderNodeTexVoronoi")
         spark.inputs["Scale"].default_value = 1.0
         # (small flecks drawn out along the swell's crests, across the flow, each twinkling at its own moment)
@@ -295,8 +295,8 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         twinkle = nt.nodes.new("ShaderNodeSeparateColor")
         nt.links.new(spark.outputs["Color"], twinkle.inputs[0])
         on = _ramp(nt, _math(nt, "FRACT", _math(nt, "MULTIPLY_ADD", t, 1.7, twinkle.outputs["Red"])), 0.6, 0.0)
-        fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.12, 0.03), on)
-        crest = _ramp(nt, swell.outputs["Fac"], 0.3, 0.5)
+        fleck = _math(nt, "MULTIPLY", _ramp(nt, spark.outputs["Distance"], 0.17, 0.04), on)
+        crest = _ramp(nt, swell.outputs["Fac"], 0.25, 0.45)
         # none close in (out of focus near the lens a fleck swells to a blob)
         path = _math(nt, "MULTIPLY", path, _ramp(nt, dist, 12.0 * scale, 25.0 * scale))
         glint = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", path, k_shine),
