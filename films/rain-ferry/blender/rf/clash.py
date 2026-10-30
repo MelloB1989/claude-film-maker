@@ -294,7 +294,7 @@ def shinza_sword(ch, pommel, hilt_dir, *, flat=(1.0, 0.0, 0.0), poles=None) -> t
     hands = sword_hands(pommel, hilt_dir, flat, vs.GRIPS, poles or vs.SH_ELBOWS, hilt, (1.0, 0.0, 0.0), palms)
     fingers = {}
     for side in vs.GRIPS:
-        fingers.update(vrm_rig.grip(ch, side, vs.TSUKA))      # each finger round the hilt, the thumb opposed
+        fingers.update(vrm_rig.grip(ch, side, vs.TSUKA, thumb=0.35))   # each finger round the hilt, the thumb opposed
     return hands, fingers
 
 
