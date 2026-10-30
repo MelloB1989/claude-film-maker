@@ -69,8 +69,12 @@ def build(ctx):
             clash.apply(sh, p, fingers=fingers)
             clash.key(sh, f, face={"sad": 0.3})
         # Tsuru: from her END mark, the pole on her shoulder, walking away to the ferry's stern; never turning back
-        (x, y), yaw = clash.END["tsuru"]
-        E.place(ts, (x, y), yaw)
+        # the fall (shot 21) is between her END mark and here: by now she has shouldered the pole and turned onto her
+        # way to the boat, so it lies across her shoulder from the first frame (turning on the cut, a pole pointing
+        # away down the lens reads as standing upright)
+        (x, y), _ = clash.END["tsuru"]
+        (ax, ay), (bx, by) = E.TSURU_WALK[:2]
+        E.place(ts, (x, y), math.atan2(by - ay, bx - ax))
         perf = va.Performance(ts["vrm"], fps=ctx.fps, seed=22)
         carriage = {**T.TS_POSE, **vrm.grip_pose("right", 0.95), "head": (-46.0, 0.0, 0.0)}
         perf.pose(ctx.f0 - 1, carriage)
