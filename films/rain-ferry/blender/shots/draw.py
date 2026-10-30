@@ -38,8 +38,13 @@ CLEAR = 1.3                  # the tip clears: the ring's peak, the jolt
 SWING = [(1.36, (0.15, 0.85, 0.5), (-0.33, 0.05, 1.93), (0.4, 0.3, 0.0)),
          (1.46, (0.0, 0.1, 1.0), (-0.31, -0.1, 1.84), (0.9, 0.0, 0.1)),
          (1.57, (0.1, -0.9, 0.3), (-0.33, -0.3, 1.6), (1.0, 0.0, -0.1)),
-         (1.68, (0.24, -0.72, -0.66), (-0.32, -0.4, 1.3), (1.0, 0.0, -0.3)),
-         (1.9, (0.2, -0.78, -0.58), (-0.3, -0.38, 1.33), (1.0, 0.0, -0.3))]
+         (1.68, (0.24, -0.72, -0.66), (-0.36, -0.42, 1.2), (1.0, 0.0, -0.3)),
+         (1.9, (0.2, -0.78, -0.58), (-0.36, -0.4, 1.16), (1.0, 0.0, -0.3))]
+# his left hand on the scabbard: it takes it low behind his hip (this far down it from the guard, m) as the draw
+# starts and pulls it down its own line with the blade coming out (the long blade's draw from the back), then lets go
+# and comes back to his side, half closed
+SAYA_HOLD, LEFT_TAKE, LEFT_FREE = 0.72, (0.0, 0.3), (CLEAR + 0.25, CLEAR + 0.75)
+SAYA_POLE = np.array((0.5, 0.35, 1.0))     # its elbow out and back the while
 NARROW = (1.7, 2.0)
 BLINKS = (0.55, 3.1)
 
@@ -77,20 +82,25 @@ def perform(st):
     grip = guard + u * jt.HILT_GRIP
     d = -u                                            # the blade's way, sheathed
     start_palm = (0.25, 1.0, 0.0)
-    keys_b = [(PULL[1], tuple(d))] + [(t, b) for t, b, _, _ in SWING]
+    keys_b = [(PULL[1], tuple(d))] + [(t, tuple(np.asarray(b) / np.linalg.norm(b))) for t, b, _, _ in SWING]
     keys_p = [(PULL[1], tuple(grip + u * PULL_LEN))] + [(t, p) for t, _, p, _ in SWING]
     keys_palm = [(PULL[1], start_palm)] + [(t, q) for t, _, _, q in SWING]
-    poles = [(0.0, (-0.6, -0.25, 1.75)), (PULL[1], (-0.8, 0.0, 1.9)), (SWING[2][0], (-0.7, -0.1, 1.5)),
-             (SWING[-1][0], (-0.55, 0.25, 1.05))]
+    poles = [(0.0, jt.HILT_POLE), (PULL[1], (-0.8, 0.0, 1.9)), (SWING[2][0], (-0.7, -0.1, 1.5)),
+             (SWING[-1][0], (-0.6, 0.25, 1.0))]
+    saya = guard - u * SAYA_HOLD
+    saya_turn = jt.hand_turn(ch, "left", -u, jt.flat_palm(-u, (-0.6, 0.7, 0.0)))
+    side_turn = jt.hand_turn(ch, "left", jt.SIDE["knuckles"], jt.SIDE["palm"])
     for f in st.frames():
         t = st.t(f)
         if t <= PULL[1]:
             p = grip + u * PULL_LEN * jt.ease(jt.ramp(t, *PULL))     # slow, then quicker as it comes
             b, palm = d, start_palm
         else:
-            p = np.array(jt.keys_at(keys_p, t))
-            b = np.array(jt.keys_at(keys_b, t))
-            palm = jt.keys_at(keys_palm, t)
+            # the swing in one arc over and down (jt.glide: carried through its keys, not stopping at each), the
+            # blade's way and the palm's turn a beat behind the fist (the wrist rolling it through)
+            p = np.array(jt.glide(keys_p, t))
+            b = np.array(jt.glide(keys_b, t - 0.03))
+            palm = jt.glide(keys_palm, t - 0.04)
         b = b / np.linalg.norm(b)
         turn = jt.hand_turn(ch, "right", -b, jt.flat_palm(b, palm))
         st.hand("shinza", "right", f, jt.fist_wrist(ch, "right", p, turn), turn, jt.keys_at(poles, t))
@@ -98,10 +108,20 @@ def perform(st):
         body = jt.shinza_stand(t, reach=1.0 - swing, chin=0.6 * jt.ramp(t, *PULL) - 0.9 * jt.ramp(t, *NARROW))
         body["spine"] = (body["spine"][0] + 7.0 * swing, 0.0, body["spine"][2] - 8.0 * swing)
         body["leftShoulder"] = (0.0, -6.0 * jt.ramp(t, *PULL) * (1 - swing), 0.0)   # dropping: the scabbard drawn down
-        st.pose("shinza", f, {**body, **jt.fingers("right", 1.0), **jt.fingers("left", 0.3 + 0.6 * swing)},
-                hips=jt.shinza_hips(t))
-        st.hand("shinza", "left", f, jt.HANG["left"], jt.hand_turn(ch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)),
-                (0.3, 0.5, 1.2))
+        # his left hand: from his side back to the scabbard, drawing it down with the pull, and away again
+        on = jt.ramp(t, *LEFT_TAKE) * (1 - jt.ramp(t, *LEFT_FREE))
+        slide = SLIDE * jt.ramp(t, *PULL) * (1 - jt.ramp(t, CLEAR + 0.2, CLEAR + 0.9))
+        held = jt.fist_wrist(ch, "left", saya - u * slide, saya_turn)
+        side_w = np.asarray(jt.SIDE["wrist"]) + (0.0, 0.04 * jt.ramp(t, *LEFT_FREE), 0.0)
+        # (off the scabbard it swings out a little on its way, the path bowed away from his hip)
+        bow = np.array((0.06, 0.0, 0.03)) * np.sin(np.pi * on)
+        st.hand("shinza", "left", f, tuple(side_w + (held - side_w) * on + bow),
+                jt.slerp_turn(side_turn, saya_turn, on), np.asarray(jt.SIDE["pole"]) * (1 - on) + SAYA_POLE * on)
+        curl = 0.55 + 0.15 * jt.follow(t, *LEFT_FREE, lag=0.05, over=0.15)     # (demand left it half closed)
+        left = jt.blend_hand(jt.blend_hand(jt.relaxed("left"), jt.fingers("left", 0.8), curl), jt.fingers("left", 0.95),
+                             jt.follow(t, LEFT_TAKE[1] - 0.05, LEFT_TAKE[1] + 0.05, lag=0.0, over=0.1)
+                             * (1 - jt.ramp(t, LEFT_FREE[0] - 0.05, LEFT_FREE[0] + 0.1)))
+        st.pose("shinza", f, {**body, **jt.fingers("right", 1.0), **left}, hips=jt.shinza_hips(t))
         st.face("shinza", f, {"glare": 0.4, "s4-grin": jt.ramp(t, *GRIN), "narrow": 0.7 * jt.ramp(t, *NARROW)})
 
 

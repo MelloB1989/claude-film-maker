@@ -583,7 +583,7 @@ def shinza_hold(st: Stage, f: int, t: float, *, narrow: float = 0.6) -> None:
 
         vrm.pose(ch, shinza_stand(0.0, reach=1.0), hips=shinza_hips(0.0))
         wrist, turn = st.cast["shinza"]["hilt_grip"] = hilt_grip(st)
-    left = side_hand(st, "shinza", "left", f, t, curl=0.45)      # his free hand half closed: he means it
+    left = side_hand(st, "shinza", "left", f, t, curl=0.55)      # his free hand half closed, as demand leaves it
     st.pose("shinza", f, {**shinza_stand(t, reach=1.0), **fingers("right", 1.0), **left}, hips=shinza_hips(t))
     st.hand("shinza", "right", f, wrist, turn, HILT_POLE)
     st.face("shinza", f, {"glare": 1.0, "narrow": narrow})
