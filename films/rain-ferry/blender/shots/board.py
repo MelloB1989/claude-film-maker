@@ -32,6 +32,9 @@ LEFT_EASY = ((0.17, -0.07, 0.71), (0.5, 0.5, 0.9), (0.0, 74.0, -10.0))
 LEFT_UP = ((0.27, -0.25, 0.97), (0.6, 0.35, 0.75))
 LEFT_KNUCKLES, LEFT_PALM = (-0.92, -0.3, 0.1), (0.1, 0.0, 1.0)
 LEFT_TIMES = ((95.9, 96.75), (97.35, 98.1), (99.0, 99.75))
+# her grip on the pole turned so its knuckles face forward round it (the cast's grasp has the palm square in, which
+# from in front shows the pole beside her hand, not in it): the palm's way (her frame)
+PALM = (0.55, 0.85, 0.0)
 LEFT_ARC = 0.05              # m its path bows up and out over the straight line
 LENS, FSTOP = (36.0, 42.0), 2.8
 
@@ -63,6 +66,8 @@ def build(ctx):
         ts["root"].rotation_euler = (0.0, 0.0, math.radians(FACING))
         ch = ts["vrm"]
         fingers = vrm_rig.wrap(ch, "right", 0.022)      # closed round the pole (props.ferry_pole's radius)
+        vrm.grasp(ch, "right", (*T.POLE, T.GRIP_Z[False]), (0.0, 0.0, 1.0), PALM, pole=(-0.5, 0.4, 0.6),
+                  bend=T.ELBOWS["right"])
 
         from lib import vrm_anim as va
         from rf import approach
