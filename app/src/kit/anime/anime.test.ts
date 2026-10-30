@@ -2,6 +2,9 @@ import { expect, test } from 'bun:test';
 import { W, H } from '../../engine/config';
 import { FX_KINDS, stateAt, transitionEntries } from '../../engine/transition';
 import { cameraAt, drift } from './parallax';
+import { plateWindow } from './plateshot';
+import { Plate } from '../../engine/plates';
+import { HOLD } from '../../engine/transition';
 import { lightningAt, rainClock } from './rain';
 import { trackAt } from './postkeys';
 import { cueAlpha } from './subtitles';
@@ -94,4 +97,17 @@ test('ink transition: an effects kind whose blots open from all A to all B; its 
   expect(() => transitionEntries([{ from: 'a', to: 'b', kind: 'ink', pre: 0.4, post: 0.4, scale: 0 }], spans, [])).toThrow(/scale/);
   expect(() => transitionEntries([{ from: 'a', to: 'b', kind: 'ink', pre: 0.4, post: 0.4, color: 'pink' }], spans, [])).toThrow(/color/);
   expect(() => transitionEntries([{ from: 'a', to: 'b', kind: 'ink', pre: 0.4, post: 0.4, color: '#101012' }], spans, [])).not.toThrow();
+});
+
+test("plateWindow: a shot's plate covers render.py's window, so a transition's held times stay inside it", () => {
+  // eyes at 24 fps: 18 to 21.5 s is film frames 432-515, 84 plate frames
+  expect(plateWindow(18, 21.5, 24)).toEqual({ f0: 432, count: 84 });
+  expect(plateWindow(18, 21.5, 24, 430)).toEqual({ f0: 430, count: 86 });
+  // at the engine's 30 fps: 2 to 3.3 s is frames 60-98; end − HOLD rounds to frame 99, which the count clamps to 38
+  const w = plateWindow(2, 3.3, 30);
+  expect(w).toEqual({ f0: 60, count: 39 });
+  const p = new Plate('_x', w.f0, { mode: 'export', count: w.count });
+  expect(p.index(3.3 - HOLD)).toBe(38);
+  expect(p.index(2 - HOLD)).toBe(0);
+  expect(new Plate('_x', w.f0, { mode: 'export' }).index(3.3 - HOLD)).toBe(39); // unclamped: one past the plate
 });
