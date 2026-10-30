@@ -1349,10 +1349,11 @@ class Performance:
                        radius=radius, amount=amount)
 
     def fingers(self, frame: float, turns: dict, *, ease: str = "inout", spread: float = 0.1, closing: bool = True,
-                seed: int | None = None) -> None:
+                seed: int | None = None, over: float = 0.22) -> None:
         """Key fingers ({bone: turn}) at about `frame`, each finger on its own beat over `spread` seconds (the little
         finger first and the index last when `closing`, the other way opening; the thumb in the middle), never all in
-        lockstep."""
+        lockstep. Each moves over the last `over` seconds before its beat (holding what it had until then: a hand
+        keeps its shape between gestures instead of drifting from one to the next across the gap)."""
         names = {vrm.canonical(k): v for k, v in turns.items()}
         order = ("Little", "Ring", "Middle", "Index") if closing else ("Index", "Middle", "Ring", "Little")
         off = stagger(4, spread * self.fps, seed=self.seed + (seed or 0) + int(frame))
@@ -1360,7 +1361,17 @@ class Performance:
         lag["Thumb"] = float(np.mean(off)) + 0.25 * spread * self.fps
         for h, v in names.items():
             f = next((g for g in lag if g in h), None)
-            self._track(h).key(frame + (lag[f] if f else 0.0), v, ease)
+            at = frame + (lag[f] if f else 0.0)
+            tr = self._track(h)
+            t0 = at - over * self.fps
+            before = [k.frame for k in tr.keys if k.frame < at - 1e-6]
+            if before:
+                t0 = max(t0, before[-1] + (at - before[-1]) * 0.2)
+                if t0 > before[-1] + 0.5:
+                    tr.key(t0, tr.at(t0), "linear")
+            elif h in self.base and over > 0:
+                tr.key(t0, self.base[h], "linear")
+            tr.key(at, v, ease)
 
     def hand(self, frame: float, side: str, shape: str = "relaxed", amount: float = 1.0, *, ease: str = "inout",
              spread: float = 0.1) -> None:

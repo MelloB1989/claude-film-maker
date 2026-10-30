@@ -137,7 +137,8 @@ def materials(look, weather) -> dict:
     for k, (amount, rough) in WET.items():
         water.wet(m[k], w.wet, roughness=rough, tint=(amount,) * 3)
     m.update(set_valley.materials(look, w, pal))
-    m["lantern"] = minka.paper_glow("set-lantern", sets.LANTERN, look=look, strength=w.lantern * 0.8, core=1.5, edge=0.4)
+    m["lantern"] = minka.paper_glow("set-lantern", sets.LANTERN, look=look, strength=w.lantern * 0.8, core=1.5,
+                                    edge=0.4)
     m["lantern_rib"] = toon.flat("set-lantern-rib", LANTERN_RIB, look=look, strength=w.lantern * 0.5)
     m["door"] = toon.flat("set-door-glow", PAPER, look=look, strength=0.65)
     m["water"] = water.surface("set-river", w.river[0], w.river[1], look=look, rain=w.rain, mirror=w.mirror,

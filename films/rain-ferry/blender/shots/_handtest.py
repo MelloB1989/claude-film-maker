@@ -26,7 +26,7 @@ _spec.loader.exec_module(standoff)
 
 SHOT = {"frames": [0, 244], "look": "10,40,62,84,96,130,150,154,158,164,180,212,236"}
 
-SH_AT, TS_AT = (-0.45, 0.0), (0.75, 0.35)
+SH_AT, TS_AT = (-0.45, 0.0), (0.35, -0.95)
 CLOSE = 224                                   # the cut to her hands
 # his left arm's acting (lib/vrm.py's turns, from the T-pose): offering palm up, pointing ahead, a fist raised
 OFFER = {"leftUpperArm": (0.0, 62.0, -30.0), "leftLowerArm": (-90.0, 0.0, -70.0), "leftHand": (0.0, -10.0, 0.0)}
@@ -46,7 +46,7 @@ def build(ctx):
     ts = vroid_cast.tsuru(cast, look, pipe="hand", pole="hand")
     sh["root"].location = (*SH_AT, 0.0)
     ts["root"].location = (*TS_AT, 0.0)
-    ts["root"].rotation_euler = (0.0, 0.0, math.radians(-15.0))
+    ts["root"].rotation_euler = (0.0, 0.0, math.radians(20.0))
     bpy.context.view_layer.update()
     for name, built, toward in (("shinza", sh, (0.6, -1.0, 0.8)), ("tsuru", ts, (-0.4, -1.0, 0.8))):
         key = toon3d.key(f"{name}-key", [built["root"], *built["root"].children_recursive], toward, coll=cast,
@@ -118,9 +118,10 @@ def build(ctx):
     c.target = aim
     c.track_axis, c.up_axis = "TRACK_NEGATIVE_Z", "UP_Y"
     scene.camera = cam
-    # the cast face +x: the camera out in front of them, a little to his side
-    for fr, at, to, lens in ((f, (3.4, -0.9, 1.25), (0.0, -0.1, 1.05), 40.0),
-                             (CLOSE, (TS_AT[0] + 1.3, TS_AT[1] - 0.5, 1.05), (TS_AT[0], TS_AT[1] - 0.1, 0.92), 50.0)):
+    # the cast face +x: the camera in front of him, off his left (the acting hand's side); then her hands, close
+    for fr, at, to, lens in ((f, (1.9, 1.7, 1.3), (SH_AT[0], SH_AT[1] + 0.1, 1.1), 42.0),
+                             (CLOSE, (TS_AT[0] + 1.1, TS_AT[1] + 0.55, 1.05), (TS_AT[0] - 0.05, TS_AT[1] - 0.05, 0.92),
+                              50.0)):
         cam.location, aim.location, cam.data.lens = at, to, lens
         cam.keyframe_insert("location", frame=fr)
         aim.keyframe_insert("location", frame=fr)

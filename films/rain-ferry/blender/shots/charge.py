@@ -36,7 +36,7 @@ SWORDS = [(0.0, (-0.14, -0.26, 1.36), (0.1, 0.38, 0.92), OUT, "out"),      # has
           (0.3, (0.02, -0.23, 1.5), (0.03, 0.55, 0.83), OUT, "overshoot"),  # up over his head (jodan), a fist off it
           (SWING[0], (0.02, -0.22, 1.51), (0.03, 0.55, 0.83), OUT, "inout"),
           (1.66, (0.02, -0.16, 1.61), (0.03, 0.85, 0.53), HIGH, "in"),      # winding up: up and back ...
-          (SWING[1], (0.0, -0.07, 1.66), (0.0, 0.86, -0.5), HIGH, "out"),   # ... thrown back, the blade down his back
+          (SWING[1], (0.0, -0.04, 1.71), (0.0, 0.86, -0.5), HIGH, "out"),   # ... thrown back, the blade down his back
           (1.9, (0.02, -0.24, 1.58), (0.0, 0.2, 0.98), HIGH, "in"),         # coming over, upright ...
           (SWING[2], (0.03, -0.32, 1.3), (0.0, -0.45, 0.89), DOWN, "linear")]   # ... and on down at her, arms out
 # the fists ride a beat behind his strides (each landing sinks them, m)
@@ -57,7 +57,7 @@ def build(ctx):
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import cinema, fx_impact as fx, toon, vrm, vrm_anim as va
-    from rf import clash
+    from rf import clash, vroid_tsuru
 
     fps = ctx.fps
     clash.tick("start")
@@ -71,7 +71,9 @@ def build(ctx):
     # (as shots/freeze.py holds her)
     ts["root"].location = (clash.STANDOFF["tsuru"][0], clash.STANDOFF["tsuru"][1], 0.0)
     ts["root"].rotation_euler = (0.0, 0.0, math.pi + 0.3)
-    vrm.grasp(ts["vrm"], "left", TS_LEFT[0], (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), pole=TS_LEFT[1], amount=0.9)
+    fingers = vrm.grasp(ts["vrm"], "left", TS_LEFT[0], (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), pole=TS_LEFT[1],
+                        radius=vroid_tsuru.POLE_R)
+    vrm.pose(ts["vrm"], fingers, reset=False)
     sh["root"].location = (START, 0.0, 0.0)
 
     def fr(t):

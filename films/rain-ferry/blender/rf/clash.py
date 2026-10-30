@@ -308,8 +308,8 @@ SH_STAND_HIPS = (0.0, -0.03, -0.1)
 # (every fist within about 0.45 m of its shoulder: VRoid's arms are 0.47 m to the wrist, and a target past that locks
 # the elbow straight, a mannequin's arm)
 FOLLOW = dict(pommel=(0.0, -0.2, 1.12), hilt=(0.04, -0.95, 0.28))
-LOW = dict(pommel=(-0.21, -0.05, 1.1), hilt=(0.06, -0.55, -0.83))
-LEFT_LOOSE = ((0.2, -0.06, 0.99), (0.6, 0.4, 0.9), (0.0, 10.0, 0.0))
+LOW = dict(pommel=(-0.21, 0.008, 0.933), hilt=(0.06, -0.55, -0.83))       # (his shoulders 0.1 m down in the stance)
+LEFT_LOOSE = ((0.2, -0.05, 0.82), (0.4, 0.5, 0.9), (12.0, 88.0, 0.0))    # (vrm.HANG_TURN: the palm to his thigh)
 
 
 def arms(ch, hilt: dict, left=None, *, poles: dict | None = None) -> tuple[dict, dict]:
@@ -321,7 +321,7 @@ def arms(ch, hilt: dict, left=None, *, poles: dict | None = None) -> tuple[dict,
     if left is not None:
         hands["left"] = ("reach", *left)
         fingers = {k: v for k, v in fingers.items() if not k.startswith("left")}
-        fingers.update(vrm.grip_pose("left", 0.35, 0.3))
+        fingers.update(vrm.hand_pose("left", "relaxed"))
     return hands, fingers
 
 
