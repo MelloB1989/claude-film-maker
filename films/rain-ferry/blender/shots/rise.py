@@ -72,14 +72,14 @@ DRAWN = ((0.2, -0.78, -0.58), (-0.36, -0.4, 1.16), (1.0, 0.0, -0.3))
 # ... and where it settles as she gets up (s into the shot): the fist low by his right hip, the blade's point down to
 # the deck between them, the elbow soft at his side
 SETTLE = (0.5, 1.7)
-CARRY = ((0.22, -0.55, -0.8), (-0.3, -0.3, 1.0), (1.0, 0.0, -0.2))
-CARRY_POLE = (-0.45, 0.4, 1.0)
+CARRY = ((0.22, -0.55, -0.8), (-0.25, -0.22, 1.02), (1.0, 0.0, -0.2))
+CARRY_POLE = (-0.35, 0.6, 0.9)
 
 
 def build(ctx):
     import bpy
 
-    from lib import cinema, vrm_anim as va
+    from lib import cinema, vrm, vrm_anim as va
     from rf import vroid_tsuru
     from rf.vroid_common import move
 
@@ -157,12 +157,10 @@ def build(ctx):
     # her hands as she comes up: the pipe to her hip, the right hand off her knee to hang
     for f in (F(UP[1]), ctx.f1 + 1):
         jt.hold_pipe(st, f, *PIPE_UP)
-    # (her own hang, rf/vroid_tsuru.py's LEFT_HAND mirrored and a little lower: an old woman's wrist by her thigh,
-    # not a tall man's; the palm turned in to it, the elbow soft and back, not out at her hip)
-    (hx, hy, hz), (ex, ey, ez) = vroid_tsuru.LEFT_HAND
-    m = np.array((-1.0, 1.0, 1.0))
-    p.reach(F(UP[1]), "rightHand", ("char", (-hx, hy - 0.02, hz - 0.05)), pole=(-0.5 * ex, ey, ez), ease="inout",
-            turn=jt.hand_turn(tch, "right", np.asarray(jt.SIDE["knuckles"]) * m, np.asarray(jt.SIDE["palm"]) * m))
+    # (off her knee, the IK let go: her right arm hangs by FK as the core's RELAXED has it, palm to her thigh, the
+    # elbow soft; as an IK target behind her stooped hip it bent out into a fist on her hip)
+    p.pose(F(UP[1]), {k: v for k, v in vrm.RELAXED.items() if k.startswith("right")}, ease="inout", full=False)
+    p.reach(F(UP[1]), "rightHand", ("char", jt.TS_KNEE_HAND), ease="inout", weight=0.0)
     # she looks away from him as she turns to go: dismissed
     p.look(F(WALK), None)
     end = p.walk([tuple(EDGE)], F(WALK), gait=va.GAITS["old"].but(stride=0.42), pose=stand, end_pose=stand,
