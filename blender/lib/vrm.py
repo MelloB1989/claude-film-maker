@@ -71,11 +71,77 @@ _BY_KEY = {re.sub(r"[^a-z]", "", h.lower()): h for h in HUMANOID}
 # VRM 0.x named the thumb's joints one along: its proximal is 1.0's metacarpal
 VRM0_THUMB = {"ThumbProximal": "ThumbMetacarpal", "ThumbIntermediate": "ThumbProximal"}
 KINDS = ("skin", "cloth", "hair", "face", "eye")
-# standing easy: the arms down by the sides from the T-pose, elbows and fingers a little bent (a sheet's pose)
-RELAXED = {"leftUpperArm": (0.0, 72.0, 6.0), "rightUpperArm": (0.0, -72.0, -6.0),
-           "leftLowerArm": (0.0, 0.0, -12.0), "rightLowerArm": (0.0, 0.0, 12.0),
-           **{f"{s}{f}{j}": (0.0, (12.0 if s == "left" else -12.0), 0.0) for s in ("left", "right")
-              for f in ("Index", "Middle", "Ring", "Little") for j in ("Proximal", "Intermediate")}}
+# a hand's shapes, the left's (the right's mirrored: `hand_pose`), {finger joint: (x, y, z) degrees} from the T-pose's
+# flat hand (palm down, fingers along +x): y + curls a finger toward the palm, z + fans it back (toward the little
+# finger's side), x + drops the thumb toward the palm. Every finger its own: a cascade, index least, little most
+_CURL = ("Proximal", "Intermediate", "Distal")
+
+
+def _shape(curls: dict, fan: dict, thumb) -> dict:
+    out = {}
+    for f, cs in curls.items():
+        for j, c in zip(_CURL, cs):
+            out[f"{f}{j}"] = (0.0, float(c), float(fan.get(f, 0.0)) if j == "Proximal" else 0.0)
+    for j, t in zip(("Metacarpal", "Proximal", "Distal"), thumb):
+        out[f"Thumb{j}"] = tuple(float(v) for v in t)
+    return out
+
+
+_FAN = {"Index": -3.0, "Middle": -0.5, "Ring": 2.0, "Little": 5.0}
+HAND_SHAPES = {
+    # at rest: a soft cascade, the thumb lying against the index's side, its tip by the index's middle joint
+    "relaxed": _shape({"Index": (10, 16, 10), "Middle": (16, 24, 14), "Ring": (22, 30, 16), "Little": (28, 36, 18)},
+                      _FAN, ((18, 6, 16), (0, 10, 8), (0, 14, 0))),
+    # loose: half closed, an idle or tired hand
+    "loose": _shape({"Index": (28, 38, 22), "Middle": (34, 46, 26), "Ring": (40, 52, 30), "Little": (46, 58, 32)},
+                    _FAN, ((26, 10, 22), (0, 18, 12), (0, 20, 0))),
+    # open: fingers out and fanned, a little curl left in them (an open hand never goes dead flat)
+    "open": _shape({"Index": (2, 4, 2), "Middle": (3, 5, 3), "Ring": (5, 7, 4), "Little": (7, 9, 5)},
+                   {"Index": -8.0, "Middle": -2.0, "Ring": 4.0, "Little": 11.0}, ((6, -4, -6), (0, 2, -4), (0, 4, 0))),
+    # a fist: knuckles in, the thumb folded across the index's and middle's middle joints
+    "fist": _shape({"Index": (82, 96, 62), "Middle": (86, 98, 64), "Ring": (88, 100, 64), "Little": (90, 100, 62)},
+                   {"Index": -1.0, "Middle": 0.0, "Ring": 1.0, "Little": 3.0}, ((42, 14, 30), (0, 30, 20), (0, 40, 0))),
+    # point: the index out (a touch of curl), the rest closed, the thumb on the middle finger
+    "point": _shape({"Index": (2, 6, 4), "Middle": (78, 92, 58), "Ring": (84, 96, 60), "Little": (88, 98, 60)},
+                    {"Index": -2.0, "Middle": 0.0, "Ring": 1.0, "Little": 3.0}, ((36, 10, 26), (0, 26, 16), (0, 30, 0))),
+    # beckon: the fingers curled in (a beckoning hand goes between "open" and this: Performance.gesture)
+    "beckon": _shape({"Index": (52, 70, 40), "Middle": (56, 74, 42), "Ring": (58, 74, 42), "Little": (60, 74, 40)},
+                     _FAN, ((20, 6, 18), (0, 12, 10), (0, 16, 0))),
+    # press: flat and together, pressed to something (a palm on the deck, on a chest), the fingertips a little back
+    "press": _shape({"Index": (-6, 2, 4), "Middle": (-6, 2, 4), "Ring": (-5, 3, 4), "Little": (-4, 4, 4)},
+                    {"Index": -1.0, "Middle": 0.0, "Ring": 1.0, "Little": 2.0}, ((4, 0, 12), (0, 2, 4), (0, 6, 0))),
+    # tremble: a strained half-open hand (Performance.gesture shakes it)
+    "tremble": _shape({"Index": (14, 22, 14), "Middle": (20, 30, 18), "Ring": (26, 36, 20), "Little": (32, 42, 22)},
+                      {"Index": -6.0, "Middle": -1.0, "Ring": 3.0, "Little": 8.0}, ((14, 0, 6), (0, 10, 4), (0, 18, 0))),
+}
+FINGERS = tuple(f"{f}{j}" for f, joints in _FINGERS for j in joints)
+
+
+def hand_pose(side: str, shape: str = "relaxed", amount: float = 1.0) -> dict:
+    """The fingers of one hand ("left" or "right") in a shape (HAND_SHAPES), `amount` of the way from the flat T-pose
+    hand (1 the shape; between, the shape eased in). {humanoid bone: (x, y, z)}: merge it into any pose."""
+    if shape not in HAND_SHAPES:
+        raise KeyError(f"no hand shape {shape!r} (one of {', '.join(HAND_SHAPES)})")
+    s = 1.0 if side == "left" else -1.0
+    a = float(amount)
+    return {f"{side}{k}": (x * a, s * y * a, s * z * a) for k, (x, y, z) in HAND_SHAPES[shape].items()}
+
+
+def hand_blend(side: str, a: str, b: str, k: float) -> dict:
+    """A hand between two shapes (HAND_SHAPES), `k` of the way from `a` to `b`."""
+    pa, pb = hand_pose(side, a), hand_pose(side, b)
+    return {n: tuple(x + (y - x) * k for x, y in zip(pa[n], pb[n])) for n in pa}
+
+
+# standing easy: the arms hanging close by the sides from the T-pose, the elbows softly bent, the palms toward the
+# thighs (a little back), the wrists a touch flexed, the hands relaxed (a sheet's pose)
+RELAXED = {"leftUpperArm": (0.0, 76.0, 5.0), "rightUpperArm": (0.0, -76.0, -5.0),
+           "leftLowerArm": (12.0, 0.0, -16.0), "rightLowerArm": (12.0, 0.0, 16.0),
+           "leftHand": (0.0, 10.0, -4.0), "rightHand": (0.0, -10.0, 4.0),
+           **hand_pose("left"), **hand_pose("right")}
+# a hanging hand's turn (vrm.hold's, the character's frame from the T-pose): fingers down, the palm toward the thigh and
+# a little back, the wrist a touch flexed; for an IK hand left to hang (vrm.reach)
+HANG_TURN = {"left": (12.0, 88.0, 0.0), "right": (12.0, -88.0, 0.0)}
 LUMA = (0.2126, 0.7152, 0.0722)
 GATE_H = 20.25   # the engine's gate (mm), fit vertically (lib/rig.py)
 FOLD = 20.0      # degrees an elbow or knee starts folded when an IK reaches through it (`fold`)
@@ -197,6 +263,20 @@ def align(k0, p0, k1, p1) -> np.ndarray:
         p /= n
         return np.column_stack([k, p, np.cross(k, p)])
     return frame(k1, p1) @ frame(k0, p0).T
+
+
+RELAX_HANDS = True     # a pose that names none of a hand's fingers rests them relaxed (HAND_SHAPES), not flat
+
+
+def relaxed_fingers(turns) -> dict:
+    """The relaxed fingers (hand_pose) of each hand none of whose fingers `turns` names (with RELAX_HANDS)."""
+    if not RELAX_HANDS:
+        return {}
+    out = {}
+    for side in ("left", "right"):
+        if not any(f"{side}{f}" in turns for f in FINGERS):
+            out.update(hand_pose(side))
+    return out
 
 
 def grip_pose(side: str, amount: float = 1.0, thumb: float = 0.6) -> dict:
@@ -506,6 +586,8 @@ def pose(ch: Character, rotations: dict, *, hips=None, frame: int | None = None,
     from mathutils import Matrix, Quaternion, Vector
 
     turns = {canonical(k): v for k, v in rotations.items()}
+    if reset:
+        turns = {**{k: v for k, v in relaxed_fingers(turns).items() if k in ch.bones}, **turns}
     missing = sorted(set(turns) - set(ch.bones))
     if missing:
         print(f"vrm: {ch.name} has no {', '.join(missing)}; left out of the pose")
@@ -616,18 +698,26 @@ def hand_rest(ch: Character, side: str) -> tuple[np.ndarray, np.ndarray, np.ndar
 
 
 def grasp(ch: Character, side: str, point, along, palm, *, pole, amount: float = 1.0, thumb: float = 0.6,
-          depth: float = 0.028, bend: float = FOLD) -> dict:
+          depth: float = 0.028, bend: float = FOLD, radius: float | None = None, kind: str = "wrap") -> dict:
     """Close the `side` hand ("left" or "right") round a hilt or a pole running along `along` through `point`: its
     knuckles along `along` (index first), its palm facing `palm`, the fist's hole on the point; the elbow toward
     `pole`, starting folded by `bend` (`reach`). All in the character's frame. Returns the fingers' pose (pass it to
-    `pose` with the rest of the body, or pose with reset=False after)."""
+    `pose` with the rest of the body, or pose with reset=False after). With `radius` (the grip's, metres) each finger
+    closes round it (vrm_rig.wrap: no gap, none through it), `amount` under 1 easing it toward relaxed. `kind`
+    "pinch": something thin (a pipe's stem) held between the thumb and the index and middle fingers at `point`."""
     k0, p0, r0 = hand_rest(ch, side)
     turn = align(k0, p0, -np.asarray(along, float), palm)
     # the fist's hole: most of the way to the knuckles, out from the palm
-    hole = r0 * 0.85 + p0 * depth
+    hole = r0 * 1.22 + p0 * 0.012 if kind == "pinch" else r0 * 0.85 + p0 * depth
     wrist = np.asarray(point, float) - turn @ hole
     hold(ch, f"{side}Hand", turn)
     reach(ch, f"{side}Hand", wrist, pole=pole, bend=bend)
+    if kind == "pinch":
+        from . import vrm_rig
+        return vrm_rig.pinch(side, amount)
+    if radius is not None:
+        from . import vrm_rig
+        return vrm_rig.grip(ch, side, radius, amount=amount, depth=depth, thumb=thumb)
     return grip_pose(side, amount, thumb)
 
 

@@ -45,8 +45,14 @@ def build(ctx):
     sh, ts = actors["shinza"], actors["tsuru"]
 
     # ---- where they stand: back to back; held in his follow-through, then his arms come down
-    for t, low in ((-0.05, False), (LOWER[0], False), (LOWER[1], True), ((ctx.f1 - ctx.f0) / fps + 0.05, True)):
-        pose, fingers = clash.standing(sh, low=low)
+    # held, the fists sinking a little as he breathes out; then the arms come down in an arc, the elbows leading and
+    # the wrists a beat behind (the hilt still pointing out as the fists drop), the left hand letting go last
+    lo, fo = np.asarray(clash.LOW["pommel"]), np.asarray(clash.FOLLOW["pommel"])
+    sunk = dict(clash.FOLLOW, pommel=tuple(fo + (0.0, 0.01, -0.03)))
+    down = dict(pommel=tuple(fo + (lo - fo) * 0.45 + (0.0, 0.0, 0.03)), hilt=clash.FOLLOW["hilt"])
+    for t, low, hilt in ((-0.05, False, None), (LOWER[0], False, sunk), (LOWER[0] + 0.4, False, down), (LOWER[1], True, None),
+                         ((ctx.f1 - ctx.f0) / fps + 0.05, True, None)):
+        pose, fingers = clash.standing(sh, low=low, hilt=hilt)
         clash.apply(sh, pose, fingers=fingers)
         clash.key(sh, ctx.f0 + round(t * fps))
     ts["root"].location = (*clash.END["tsuru"][0], 0.0)

@@ -39,9 +39,13 @@ MM = 1e-3
 TS_HIPS = (0.0, 0.0, -0.01)
 TS_POSE = {"spine": (1.0, 0.0, 0.0), "chest": (1.0, 0.0, 0.0), "upperChest": (0.0, 0.0, 0.0),
            "neck": (2.0, 0.0, 0.0), "head": (5.0, 0.0, 2.0),
-           "leftShoulder": (0.0, 3.0, 0.0), "rightShoulder": (0.0, -3.0, 0.0),
-           **{f"left{f}{j}": (0.0, 28.0, 0.0) for f in ("Index", "Middle", "Ring", "Little") for j in ("Proximal", "Intermediate")}}
+           "leftShoulder": (0.0, 3.0, 0.0), "rightShoulder": (0.0, -3.0, 0.0), **vrm.hand_pose("left")}
 LEFT_HAND = ((0.19, -0.03, 0.68), (0.5, 0.6, 0.9))   # where the hanging left hand's wrist is, and its elbow's pole
+# her knuckles forward round the upright pole, the palm in and back (square in, the pole reads beside her fist)
+POLE_PALM = (0.55, 0.85, 0.0)
+POLE_R, HANDLE_R = 0.022, 0.016      # the pole's radius (props.ferry_pole), its corded handle's, for her fingers
+# seated, a hand resting on her thigh: the palm down on it, the fingers forward and over its front (vrm.hold's turn)
+LAP_TURN = {"left": (0.0, 20.0, -90.0), "right": (0.0, -20.0, 90.0)}
 ELBOWS = {"left": 25.0, "right": 70.0}   # how far each elbow starts folded for its IK (vrm.reach): the right well in
 FEET = {"left": ((0.09, 0.03), (0.1, -1.0, 0.45), (0.0, 0.0, 8.0)),
         "right": ((-0.09, -0.01), (-0.1, -1.0, 0.45), (0.0, 0.0, -8.0))}
@@ -401,35 +405,37 @@ def tsuru(coll, look, name: str = "tsuru", *, pipe: str | None = None, pole: str
     px, py = POLE
     up = np.array((0.0, 0.0, 1.0))
     if pole == "hand":
-        fingers.update(vrm.grasp(ch, "right", (px, py, GRIP_Z[seated]), up, (1.0, 0.0, 0.0), pole=(-0.5, 0.4, 0.6),
-                                 amount=0.95, bend=ELBOWS["right"]))
+        fingers.update(vrm.grasp(ch, "right", (px, py, GRIP_Z[seated]), up, POLE_PALM, pole=(-0.5, 0.4, 0.6),
+                                 bend=ELBOWS["right"], radius=POLE_R))
     elif pole == "shoulder":
         over = posed(ch, "rightShoulder", ch.rest("rightUpperArm") + np.asarray(SHOULDER["over"]))
         way = np.asarray(SHOULDER["way"]) / np.linalg.norm(SHOULDER["way"])
         fingers.update(vrm.grasp(ch, "right", over + way * SHOULDER["hand"], way, (0.3, 0.0, -1.0),
-                                 pole=(-0.45, -0.1, 0.75), amount=0.95, bend=ELBOWS["right"]))
+                                 pole=(-0.45, -0.1, 0.75), bend=ELBOWS["right"], radius=POLE_R))
     elif pole == "drawn":
         fingers.update(vrm.grasp(ch, "right", DRAWN["grip"], DRAWN["way"], (1.0, 0.0, 0.2), pole=(-0.5, 0.2, 0.7),
-                                 bend=ELBOWS["right"]))
+                                 bend=ELBOWS["right"], radius=HANDLE_R))
         fingers.update(vrm.grasp(ch, "left", DRAWN["shaft"], up, (-1.0, 0.0, 0.0), pole=(0.5, 0.4, 0.7),
-                                 bend=ELBOWS["left"]))
+                                 bend=ELBOWS["left"], radius=POLE_R))
     else:
         vrm.reach(ch, "rightHand", (-LEFT_HAND[0][0], *LEFT_HAND[0][1:]) if not seated else (-0.13, -0.24, SEAT + 0.14),
                   pole=(-0.5, 0.6, 0.9), bend=ELBOWS["left"])
+        vrm.hold(ch, "rightHand", vrm.HANG_TURN["right"] if not seated else LAP_TURN["right"])
     mouth = None
     # seated, her hands in her lap come down with her hips
     pipe_hole = np.asarray(PIPE_HAND["hole"]) + np.array((0.0, -0.08, SEATED_HANDS)) * float(seated)
     if pipe == "hand":
         fingers.update(vrm.grasp(ch, "left", pipe_hole, PIPE_HAND["way"], (-0.5, 0.0, 0.8),
-                                 pole=(0.5, 0.4, 0.7), amount=0.85, bend=ELBOWS["left"]))
+                                 pole=(0.5, 0.4, 0.7), bend=ELBOWS["left"], kind="pinch"))
     elif pipe == "mouth":
         mouth = _mouth(ch, lm) if lm is not None else np.array((0.02, -0.12, 1.28))
         pway = np.asarray(PIPE_MOUTH["way"]) / np.linalg.norm(PIPE_MOUTH["way"])
         fingers.update(vrm.grasp(ch, "left", mouth + pway * PIPE_MOUTH["hold"], pway, (-0.6, 0.0, 0.6),
-                                 pole=PIPE_MOUTH["elbow"], amount=0.8, bend=60.0))
+                                 pole=PIPE_MOUTH["elbow"], bend=60.0, kind="pinch"))
     elif pole != "drawn":
         vrm.reach(ch, "leftHand", LEFT_HAND[0] if not seated else (0.13, -0.24, SEAT + 0.14), pole=LEFT_HAND[1],
                   bend=ELBOWS["left"])
+        vrm.hold(ch, "leftHand", vrm.HANG_TURN["left"] if not seated else LAP_TURN["left"])
     vrm.pose(ch, {**base, **fingers}, hips=hips)
     if seated:
         drape_skirt(ch)

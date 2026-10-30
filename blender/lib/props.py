@@ -1,6 +1,6 @@
-"""Period props from code for anime shots (feudal Japan, rural): a wooden pier plank by plank, a thatched hut with
-its eaves fringed in straw, a covered ferry boat, a paper lantern, a straw rain cape, a katana (whole or broken) and
-its scabbard, a straw kasa hat, a kiseru pipe, a bamboo ferry pole (one that hides a blade).
+"""Period props from code for anime shots (feudal Japan, rural): a wooden pier plank by plank, a covered ferry boat,
+a paper lantern, a straw rain cape, a katana (whole or broken) and its scabbard, a straw kasa hat, a kiseru pipe, a
+bamboo ferry pole (one that hides a blade). (A whole thatched hut and its chochin are lib/minka.py's.)
 Each takes its materials by part (toon materials, so the line art draws their boards, posts and straw) and its size and
 place, and returns its objects.
 
@@ -55,37 +55,6 @@ def paper_lantern(name: str, material, coll, center, *, radius: float = 0.16, he
     if cord is not None and cord_top is not None:
         obs.append(shapes.cylinder(f"{name}-cord", (cx, cy, cz + h), (cx, cy, cord_top), 0.006, material=cord, coll=coll, n=6))
     return lantern, obs
-
-
-def thatched_hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.55, peak: float = 1.35, door_side: str = "+x",
-                 prefix: str = "hut", seed: int = 5) -> dict:
-    """A small hut at `center` (its floor), walls of dark boards (battens on the door side), a deep gabled roof of thatch
-    with straw hanging from its eaves, a lit doorway on `door_side`. `m`: wall, thatch, door (an emitting glow)."""
-    rng = np.random.default_rng(seed)
-    cx, cy, cz = center
-    W, D, Hh = size
-    sgn = 1 if door_side == "+x" else -1
-    obs = [shapes.box(f"{prefix}-walls", (cx, cy, cz + Hh / 2), (W, D, Hh), material=m["wall"], coll=coll)]
-    for k in range(9):
-        obs.append(shapes.box(f"{prefix}-batten{k}", (cx + sgn * (W / 2 + 0.01), cy - D / 2 + 0.15 + k * (D - 0.3) / 8, cz + Hh / 2),
-                              (0.02, 0.04, Hh), material=m["wall"], coll=coll))
-    obs.append(shapes.box(f"{prefix}-door", (cx + sgn * (W / 2 + 0.02), cy - 0.45, cz + 0.8), (0.02, 0.7, 1.5), material=m["door"], coll=coll))
-    for s in (-1, 1):
-        a = math.atan2(peak, D / 2 + overhang)
-        L = math.hypot(peak, D / 2 + overhang)
-        obs.append(shapes.box(f"{prefix}-roof{s}", (cx, cy + s * (D / 2 + overhang) / 2, cz + Hh + peak / 2), (W + 2 * overhang, L, 0.22),
-                              material=m["thatch"], coll=coll, rot=shapes.rot_x(-s * a)))
-    roots, dirs, lens, wid = [], [], [], []
-    for s in (-1, 1):
-        for k in range(70):
-            roots.append((cx - W / 2 - overhang + (W + 2 * overhang) * k / 69, cy + s * (D / 2 + overhang), cz + Hh - 0.05))
-            dirs.append((0, s * 0.3, -1))
-            lens.append(rng.uniform(0.15, 0.3))
-            wid.append(0.07)
-    obs.append(shapes.strips(f"{prefix}-eaves", roots, dirs, lens, wid, material=m["thatch"], coll=coll, segs=2))
-    obs.append(shapes.box(f"{prefix}-ridge", (cx, cy, cz + Hh + peak), (W + 2 * overhang + 0.1, 0.25, 0.18), material=m["thatch"], coll=coll))
-    eave = (cx + sgn * (W / 2 + 0.35), cy - D / 2 - 0.1, cz + Hh)
-    return {"objects": obs, "eave": eave}
 
 
 def covered_boat(m: dict, coll, *, x0: float, y: float, water_z: float, length: float = 5.0, beam: float = 1.36, prefix: str = "boat",

@@ -36,6 +36,11 @@ EYES_UP = (1.5, 2.3)         # her eyes off the post and out over the river
 SMILE = (2.2, 3.4)
 BLINKS = (1.35, 3.9, 5.7)
 ASH = 7                      # flecks of ash knocked out at each knock
+# her fist through the knocks, from the bowl at rest over the post (her frame: out at her left side, back from the
+# bowl and a little above it: the stem runs forward from it onto the post, her forearm low, not across her face),
+# and how much of the bowl's drop it shares
+# (the kiseru's bowl is ~0.21 m on from the fist: rf/vroid_tsuru.py's KISERU less the 0.09 behind it)
+KNOCK_FIST, FLICK = np.array((-0.15, 0.13, 0.05)), 0.3
 
 
 def build(ctx):
@@ -83,26 +88,35 @@ def bowl_path(t: float, post) -> np.ndarray:
 
 def perform(st, lines, post):
     ch = st.cast["tsuru"]["vrm"]
+    rest_bowl = jt.local(ch, bowl_path(-1.0, post))
     for f in st.frames():
         t = st.t(f)
         low = jt.ramp(t, *LOWER)
         up = jt.ramp(t, *EYES_UP)
         # the pipe: from her fist toward the post, its bowl knocked on it; then down to rest by her knee
+        # the knock is the wrist's: her fist held in front of her, the stem out across to the post, and the bowl
+        # flicked down onto it about the fist (which gives only a little of the drop), not the whole arm pumping
         bowl = jt.local(ch, bowl_path(t, post))
-        fist_knock = bowl + np.array((-0.03, 0.13, 0.05))   # the fist 14 cm back up the stem
+        rest = rest_bowl
+        fist_knock = rest + KNOCK_FIST + (bowl - rest) * FLICK
         along_knock = bowl - fist_knock
         lap, lap_along = jt.TS_PIPE_LAP
-        fist = fist_knock * (1 - low) + np.asarray(lap) * low
+        # down to her knee in an arc (out and down, the bowl leading, the fist following), not straight through
+        fist = (fist_knock * (1 - low) + np.asarray(lap) * low
+                + np.array((0.03, -0.05, 0.03)) * math.sin(math.pi * low))
         along = along_knock / np.linalg.norm(along_knock) * (1 - low) + np.asarray(lap_along) / np.linalg.norm(lap_along) * low
         knock = sum(math.exp(-((t - a) / 0.05) ** 2) for a in TAPS)
         body = jt.tsuru_sit(t, turn=-14.0 * (1 - up) + 4.0 * up, down=10.0 * (1 - up) - 6.0 * up + 1.5 * knock,
                             eyes=(18.0 * (1 - up) - 2.0 * up, -6.0 * (1 - up)), lean=6.0 * (1 - low))
         # the fist is close in by her shoulder at the post: start the elbow folded so the IK bends it out and down,
         # not up behind her
-        fold = {"leftLowerArm": vrm.fold("leftLowerArm", 110.0 * (1 - low))}
-        st.pose("tsuru", f, {**body, **fold, **jt.fingers("left", 0.85), **jt.fingers("right", 0.35)},
+        # (and the upper arm started hanging by her side, not from the T-pose: so the IK folds the elbow down and
+        # back, not up behind her)
+        fold = {"leftLowerArm": vrm.fold("leftLowerArm", 80.0 * (1 - low) + 20.0), "leftUpperArm": (0.0, 70.0, 0.0)}
+        st.pose("tsuru", f, {**body, **fold, **jt.pipe_fingers(st), **jt.knee_fingers()},
                 hips=jt.tsuru_hips(st, t))
-        jt.hold_pipe(st, f, fist, along, arm="knock" if low < 0.5 else "lap")
+        (p0, q0), (p1, q1) = np.asarray(jt.PIPE_ARM["knock"], float), np.asarray(jt.PIPE_ARM["lap"], float)
+        jt.hold_pipe(st, f, fist, along, palm_turn=(p0 + (p1 - p0) * low, q0 + (q1 - q0) * low))
         jt.knee_hand(st, f)
         smile = jt.ramp(t, *SMILE)
         st.face("tsuru", f, {"s4-calm": 1.0, "s4-smile": 0.8 * smile})

@@ -50,6 +50,7 @@ LINE = "L10"
 POLE_FOOT0 = (6.78, 2.02, -0.24)
 POLE_REST = (7.36, 1.17, 0.72)
 GRIP_ALONG = 1.0
+POLE_R = 0.022          # the pole's radius (props.ferry_pole's): her fingers wrap it (lib/vrm_anim.py grasp)
 POLE_FOOT1 = (7.3, 0.36, 0.0)
 # half way up (world): the foot clear of the boat's side and the deck's edge, the pole tipping toward upright
 GRIP_MID, WAY_MID = (7.32, 0.85, 1.05), (0.1, -0.35, 0.93)
@@ -67,7 +68,12 @@ CAMERA = [((5.9, -3.6, 1.25), (6.55, -0.9, 1.12)),
 LENS = (30.0, 34.0)
 GRIP = jt.HILT_GRIP     # his fist on the hilt from its guard, as draw closes it
 # draw's last frame (shots/draw.py SWING[-1]): his blade's way, his fist, his palm (his frame)
-DRAWN = ((0.2, -0.78, -0.58), (-0.3, -0.38, 1.33), (1.0, 0.0, -0.3))
+DRAWN = ((0.2, -0.78, -0.58), (-0.36, -0.4, 1.16), (1.0, 0.0, -0.3))
+# ... and where it settles as she gets up (s into the shot): the fist low by his right hip, the blade's point down to
+# the deck between them, the elbow soft at his side
+SETTLE = (0.5, 1.7)
+CARRY = ((0.22, -0.55, -0.8), (-0.3, -0.3, 1.0), (1.0, 0.0, -0.2))
+CARRY_POLE = (-0.45, 0.4, 1.0)
 
 
 def build(ctx):
@@ -87,19 +93,27 @@ def build(ctx):
         """Shot seconds to a film frame."""
         return ctx.f0 + s * fps
 
-    # ---- him: draw's last frame held, breathing; his eyes follow her up
+    # ---- him: from draw's last frame, the sword arm settling (the elbow giving, the fist sinking to his hip, the
+    # point lowered toward the deck by her, the wrist easing after the arm), breathing; his eyes follow her up
     b = np.asarray(DRAWN[0]) / np.linalg.norm(DRAWN[0])
-    turn = jt.hand_turn(sch, "right", -b, jt.flat_palm(b, DRAWN[2]))
+    fists = [(0.0, DRAWN[1]), (SETTLE[0], DRAWN[1]), (SETTLE[1], CARRY[1])]
+    ways = [(SETTLE[0] + 0.08, tuple(b)), (SETTLE[1] + 0.2, tuple(np.asarray(CARRY[0]) / np.linalg.norm(CARRY[0])))]
+    palms = [(SETTLE[0] + 0.08, DRAWN[2]), (SETTLE[1] + 0.2, CARRY[2])]
+    elbows = [(SETTLE[0], (-0.6, 0.25, 1.0)), (SETTLE[1], CARRY_POLE)]
     for f in st.frames():
         t = st.t(f) + 3.8
-        st.hand("shinza", "right", f, jt.fist_wrist(sch, "right", DRAWN[1], turn), turn, (-0.55, 0.25, 1.05))
+        u = st.t(f)
+        way = np.asarray(jt.glide(ways, u))
+        way /= np.linalg.norm(way)
+        turn = jt.hand_turn(sch, "right", -way, jt.flat_palm(way, jt.glide(palms, u)))
+        st.hand("shinza", "right", f, jt.fist_wrist(sch, "right", jt.glide(fists, u), turn), turn,
+                jt.keys_at(elbows, u))
         body = jt.shinza_stand(t, reach=0.0, chin=-0.3)
         body["spine"] = (body["spine"][0] + 7.0, 0.0, body["spine"][2] - 8.0)
         follow = jt.ramp(st.t(f), UP[0], UP[1] + 0.3)
         body["head"] = (body["head"][0] - 14.0 * follow, 0.0, body["head"][2])
-        st.pose("shinza", f, {**body, **jt.fingers("right", 1.0), **jt.fingers("left", 0.9)}, hips=jt.shinza_hips(t))
-        st.hand("shinza", "left", f, jt.HANG["left"], jt.hand_turn(sch, "left", (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)),
-                (0.3, 0.5, 1.2))
+        left = jt.side_hand(st, "shinza", "left", f, t, curl=0.7 - 0.25 * jt.ramp(u, *SETTLE))   # as draw leaves it
+        st.pose("shinza", f, {**body, **jt.fingers("right", 1.0), **left}, hips=jt.shinza_hips(t))
         st.face("shinza", f, {"glare": 0.4, "s4-grin": 1.0 - 0.6 * jt.ramp(st.t(f), 1.4, 2.6), "narrow": 0.7})
 
     # ---- the pole: out of the boat, leaning on the tap post
@@ -143,8 +157,12 @@ def build(ctx):
     # her hands as she comes up: the pipe to her hip, the right hand off her knee to hang
     for f in (F(UP[1]), ctx.f1 + 1):
         jt.hold_pipe(st, f, *PIPE_UP)
-    st.hand("tsuru", "right", F(UP[1]), jt.HANG["right"],
-            jt.hand_turn(tch, "right", (0.0, 1.0, 0.0), (1.0, 0.0, 0.0)), (-0.3, 0.5, 1.2))
+    # (her own hang, rf/vroid_tsuru.py's LEFT_HAND mirrored and a little lower: an old woman's wrist by her thigh,
+    # not a tall man's; the palm turned in to it, the elbow soft and back, not out at her hip)
+    (hx, hy, hz), (ex, ey, ez) = vroid_tsuru.LEFT_HAND
+    m = np.array((-1.0, 1.0, 1.0))
+    p.reach(F(UP[1]), "rightHand", ("char", (-hx, hy - 0.02, hz - 0.05)), pole=(-0.5 * ex, ey, ez), ease="inout",
+            turn=jt.hand_turn(tch, "right", np.asarray(jt.SIDE["knuckles"]) * m, np.asarray(jt.SIDE["palm"]) * m))
     # she looks away from him as she turns to go: dismissed
     p.look(F(WALK), None)
     end = p.walk([tuple(EDGE)], F(WALK), gait=va.GAITS["old"].but(stride=0.42), pose=stand, end_pose=stand,
@@ -164,12 +182,13 @@ def build(ctx):
 
     palm, elbow = (1.0, 0.0, 0.0), (-0.5, 0.3, 0.6)
     p.grasp(F(GRAB[0]), "right", char(grip0 + np.array((0.0, -0.25, 0.25)), GRAB[0]), char_dir(way0, GRAB[0]), palm,
-            pole=elbow, amount=0.4)
-    p.grasp(F(GRAB[1]), "right", char(grip0, GRAB[1]), char_dir(way0, GRAB[1]), palm, pole=elbow)
+            pole=elbow, amount=0.4, radius=POLE_R)
+    p.grasp(F(GRAB[1]), "right", char(grip0, GRAB[1]), char_dir(way0, GRAB[1]), palm, pole=elbow, radius=POLE_R)
     p.carry(shaft, F(GRAB[1]), "rightHand")
     t_mid = (LIFT[0] + LIFT[1]) / 2
-    p.grasp(F(t_mid), "right", char(GRIP_MID, t_mid), char_dir(way_mid, t_mid), palm, pole=elbow, ease="in")
-    p.grasp(F(LIFT[1]), "right", char(grip1, LIFT[1]), (0.0, 0.0, 1.0), palm, pole=(-0.5, 0.4, 0.6), ease="settle")
+    p.grasp(F(t_mid), "right", char(GRIP_MID, t_mid), char_dir(way_mid, t_mid), palm, pole=elbow, ease="in", radius=POLE_R)
+    p.grasp(F(LIFT[1]), "right", char(grip1, LIFT[1]), (0.0, 0.0, 1.0), palm, pole=(-0.5, 0.4, 0.6), ease="settle",
+            radius=POLE_R)
     # then round toward him, her feet planted, the pole in her fist
     twisted = {**stand, **{k: tuple(a + c for a, c in zip(stand.get(k, (0, 0, 0)), v)) for k, v in TWIST.items()}}
     p.pose(F(TURN[0]), stand, hips=vroid_tsuru.TS_HIPS, full=False)
