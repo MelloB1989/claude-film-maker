@@ -117,7 +117,6 @@ HEM = (0.55, 0.075, 0.3)
 # the sleeves tied back by the tasuki: their hanging volume taken in to SLEEVE metres round each arm (vrm_rig.cinch,
 # keeping `keep` of the rest)
 SLEEVE = (0.05, 0.1)
-SLEEVE_RELAX = 16       # ... and ironed (vrm_rig.relax_points): its old folds, squeezed, crumpled into a sawtooth shade
 TATTER = 0.07
 # the kimono's V: the shirt's collar cut away above NECK in front of NAPE (behind it, it stands under the kimono's
 # collar) and the shirt in front down to CROSS, V_HALF either side at NECK; the skin under it painted (VRoid paints the
@@ -465,7 +464,7 @@ def dress(ch, m, name: str):
     skin_f, shoes = vrm_rig.faces_of(body, "Body_00_SKIN"), vrm_rig.faces_of(body, "Shoes")
     vrm_rig.lengthen(ch, body, bottoms, HEM[0], HEM[1], flare=HEM[2])
     for side in ("left", "right"):
-        vrm_rig.cinch(ch, body, tops, side, SLEEVE[0], keep=SLEEVE[1], ease=0.15, relax=SLEEVE_RELAX)
+        vrm_rig.cinch(ch, body, tops, side, SLEEVE[0], keep=SLEEVE[1], ease=0.15)
 
     c = vrm_rig.face_centers(ch, body)
     # patches: the cloth under a few boxes a lighter, faded grey

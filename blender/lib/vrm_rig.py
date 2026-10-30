@@ -566,7 +566,8 @@ def cinch(ch: vrm.Character, ob, faces, side: str, radius: float, *, keep: float
     "thigh", "shin" or "leg" (hip to ankle) does the same round a leg's (a long skirt handed to the legs: shift_weights); `side` "both" takes
     in what the two sides carry together (the cloth between the knees, held half by each) round the line midway
     between them. Before posing: the vertices keep their weights, so the cloth follows the limb, no longer a bell
-    hanging off it. `relax` irons the pulled-in cloth that many times (relax_points), its crumpled folds smoothed."""
+    hanging off it. `relax` irons the pulled-in cloth that many times (relax_points), its crumpled folds smoothed (a
+    mesh split along a seam opens there: VRoid's sleeves do, so Shinza's are not ironed)."""
     pts, m = _to_frame(ch, ob)
     vs = np.unique(np.concatenate([list(ob.data.polygons[int(i)].vertices) for i in faces]))
     (top, end), carry = LIMBS[limb]
