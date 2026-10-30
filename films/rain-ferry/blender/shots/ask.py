@@ -42,7 +42,7 @@ SKY_RIM, LANTERN_RIM = (0.6, 0.68, 0.85), (1.0, 0.5, 0.18)
 
 def build(ctx):
     ja.clock("ask", "build")
-    st = jt.stage(ctx, variant={"shinza": {"kasa": "on"}}, place={"shinza": None})
+    st = jt.stage(ctx, ink=0.0, variant={"shinza": {"kasa": "on"}}, place={"shinza": None})
     ja.clock("ask", "staged")
     jt.compose_faces(st)
     ts, sh_ch = st.cast["tsuru"]["vrm"], st.cast["shinza"]["vrm"]
