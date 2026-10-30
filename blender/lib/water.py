@@ -101,7 +101,11 @@ def _xyz(nt, x, y, z=None):
 # the rain rings' layers, for a river seen from a jetty (`surface`'s scale 1): (cell size m, rings a second per cell,
 # ring width (of a cell), from how far (m) they fade out .. to where they are gone): fine and dense close to the lens,
 # fewer, broader ones further off, each fading before it would shimmer into noise
-RING_LAYERS = ((0.28, 0.9, 0.035, 5.0, 12.0), (0.6, 0.75, 0.03, 10.0, 28.0), (1.3, 0.6, 0.028, 22.0, 70.0))
+RING_LAYERS = ((0.14, 1.2, 0.045, 3.5, 8.0), (0.26, 1.0, 0.04, 6.0, 16.0), (0.45, 0.85, 0.035, 12.0, 32.0),
+               (0.8, 0.7, 0.03, 24.0, 60.0))
+# beyond the rings: the strikes alone, a fine flicker of flecks pocking the water out to where the mist takes it
+# (cell m, strikes a second per cell, from .. to how far (m) they show)
+POCK = (0.22, 2.2, 6.0, 140.0)
 
 
 def ring_layers(scale: float = 1.0, layers=RING_LAYERS) -> list:
@@ -137,15 +141,33 @@ def _rings(nt, xy, t, dist, k_rain, cell: float, rate: float, width: float, near
     w = _math(nt, "MULTIPLY_ADD", dist, 0.0016, width * cell)  # thicker far off
     off = _math(nt, "ABSOLUTE", _math(nt, "SUBTRACT", d_m, radius))
     ring = _ramp(nt, off, w, _math(nt, "MULTIPLY", w, 0.15))
-    fade = _math(nt, "SUBTRACT", 1.0, fr)
-    life = _math(nt, "MULTIPLY", fade, fade)
+    life = _math(nt, "POWER", _math(nt, "SUBTRACT", 1.0, fr), 1.4)
     # how many cells ring: those whose own number is under the rain's
-    on = _ramp(nt, _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", k_rain, 1.1), rnd.outputs["Blue"]), 0.0, 0.12)
+    on = _ramp(nt, _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", k_rain, 1.6), rnd.outputs["Blue"]), 0.0, 0.12)
     lod = _ramp(nt, dist, far, near)
     k = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", ring, life), _math(nt, "MULTIPLY", on, lod))
     crown = _math(nt, "MULTIPLY", _ramp(nt, d_m, 0.07 * cell + 0.0015 * 1.0, 0.0),
                   _math(nt, "MULTIPLY", _ramp(nt, fr, 0.09, 0.0), _math(nt, "MULTIPLY", on, lod)))
     return k, crown
+
+
+def _pock(nt, xy, t, dist, k_rain, cell: float, rate: float, near: float, far: float):
+    """The flecks of drops striking far-off water (`_rings`' crowns without their rings), from `near` to `far` m."""
+    vor = nt.nodes.new("ShaderNodeTexVoronoi")
+    vor.inputs["Scale"].default_value = 1.0 / cell
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(xy, sep.inputs[0])
+    nt.links.new(_xyz(nt, sep.outputs["X"], sep.outputs["Y"], 11.3), vor.inputs["Vector"])
+    rnd = nt.nodes.new("ShaderNodeSeparateColor")
+    nt.links.new(vor.outputs["Color"], rnd.inputs[0])
+    fr = _math(nt, "FRACT", _math(nt, "MULTIPLY_ADD", t, rate, rnd.outputs["Red"]))
+    on = _ramp(nt, _math(nt, "SUBTRACT", _math(nt, "MULTIPLY", k_rain, 1.3), rnd.outputs["Blue"]), 0.0, 0.1)
+    # a fleck the size of a pixel or two however far: wider in the cell the further off
+    size = _math(nt, "MULTIPLY_ADD", dist, 0.0012 / cell, 0.08)
+    fleck = _ramp(nt, vor.outputs["Distance"], size, _math(nt, "MULTIPLY", size, 0.3))
+    show = _math(nt, "MULTIPLY", _ramp(nt, dist, near * 0.6, near), _ramp(nt, dist, far, far * 0.5))
+    return _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", fleck, _ramp(nt, fr, 0.22, 0.0)),
+                 _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", on, show), 0.6))
 
 
 def _fog_k(nt, look):
@@ -222,6 +244,8 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         r, c = _rings(nt, drift, t, dist, k_rain, *layer, seed=3.7 * k + 0.5)
         rings = r if rings is None else _math(nt, "MAXIMUM", rings, r)
         crowns = c if crowns is None else _math(nt, "MAXIMUM", crowns, c)
+    crowns = _math(nt, "MAXIMUM", crowns, _pock(nt, drift, t, dist, k_rain, *POCK[:2], POCK[2] * scale,
+                                               POCK[3] * scale))
     marks = _math(nt, "MAXIMUM", _math(nt, "MAXIMUM", _math(nt, "MULTIPLY", rings, 0.8), crowns), line_k, clamp=True)
     col = nt.nodes.new("ShaderNodeMix")
     col.data_type = "RGBA"
@@ -430,6 +454,9 @@ def foam(name: str, color=(0.75, 0.78, 0.82), *, look=None, scene=None, amount: 
                    _math(nt, "MULTIPLY", _ramp(nt, out_, 1.0, 0.2), 0.55))
     alpha = _math(nt, "MULTIPLY", _math(nt, "MAXIMUM", lace_k, ripple), k_foam, clamp=True)
     alpha = _math(nt, "MULTIPLY", alpha, _ramp(nt, out_, 1.0, 0.75))           # never a hard outer edge
+    sd = nt.nodes.new("ShaderNodeAttribute")
+    sd.attribute_name = "side"                                                 # a wake's strips: soft at their sides
+    alpha = _math(nt, "MULTIPLY", alpha, _ramp(nt, sd.outputs["Fac"], 1.0, 0.35))
     fog_k, _ = _fog_k(nt, look)
     col = nt.nodes.new("ShaderNodeMix")
     col.data_type = "RGBA"
@@ -503,6 +530,7 @@ def collar(name: str, objects, z: float, material, coll, *, width: float = 0.35,
     a.data.foreach_set("value", np.asarray(outs, np.float32))
     ob.visible_shadow = False
     ob.lineart.usage = "EXCLUDE"
+    ob.hide_probe_sphere = True             # (a dithered layer-attribute material breaks the probe's capture on Metal)
     if follow is not None:
         cl = ob.constraints.new("COPY_LOCATION")
         cl.target = follow
@@ -511,6 +539,62 @@ def collar(name: str, objects, z: float, material, coll, *, width: float = 0.35,
         cr = ob.constraints.new("COPY_ROTATION")
         cr.target = follow
         cr.use_x = cr.use_y = False
+    return ob
+
+
+def wake_shape(length: float, *, arm: float = 9.0, spread: float = 19.5, width=(0.2, 1.1), trail: float = 6.0,
+               trail_width=(0.5, 1.6), n: int = 16):
+    """A boat's wake in its own axes (bow toward +x, `length` long, its middle at the origin): two arms opening from
+    the bow at `spread` degrees either side of its track, `arm` m long, widening along `width`, and a trail of churned
+    water `trail` m long straight back from the stern, widening along `trail_width`. Strips of `n` segments. Returns
+    (verts (k, 2), quads, out (k,): 0 at the boat .. 1 at the far end, side (k,): 0 a strip's middle .. 1 its edges).
+    Numpy only."""
+    verts, quads, out, side = [], [], [], []
+
+    def strip(start, direction, ln, w):
+        d = np.asarray(direction, float) / np.linalg.norm(direction)
+        nrm = np.array([-d[1], d[0]])
+        base = len(verts)
+        for i in range(n + 1):
+            u = i / n
+            c = np.asarray(start, float) + d * ln * u
+            half = 0.5 * (w[0] + (w[1] - w[0]) * u)
+            for sgn in (-1.0, 0.0, 1.0):
+                verts.append(tuple(c + nrm * half * sgn))
+                out.append(u)
+                side.append(abs(sgn))
+        for i in range(n):
+            for j in range(2):
+                a = base + 3 * i + j
+                quads.append((a, a + 1, a + 4, a + 3))
+
+    a = math.radians(spread)
+    for sgn in (-1.0, 1.0):
+        strip((0.5 * length, 0.0), (-math.cos(a), sgn * math.sin(a)), arm, width)
+    strip((-0.5 * length, 0.0), (-1.0, 0.0), trail, trail_width)
+    return np.asarray(verts), quads, np.asarray(out), np.asarray(side)
+
+
+def wake(name: str, root, material, coll, z: float, *, length: float, **shape):
+    """A boat's wake (`wake_shape`, in `material`: a `foam`) following `root` (its x, y and heading, on the water at
+    `z` whatever its bob). Key its material's FOAM to how fast the boat moves. Returns the object."""
+    from . import shapes
+
+    v2, quads, out, side = wake_shape(length, **shape)
+    ob = shapes.mesh_object(name, [(x, y, 0.0) for x, y in v2], quads, material, coll, smooth=False)
+    for attr, vals in (("out", out), ("side", side)):
+        a = ob.data.attributes.new(attr, "FLOAT", "POINT")
+        a.data.foreach_set("value", np.asarray(vals, np.float32))
+    ob.visible_shadow = False
+    ob.lineart.usage = "EXCLUDE"
+    ob.hide_probe_sphere = True
+    ob.location.z = z + 0.003
+    cl = ob.constraints.new("COPY_LOCATION")
+    cl.target = root
+    cl.use_z = False
+    cr = ob.constraints.new("COPY_ROTATION")
+    cr.target = root
+    cr.use_x = cr.use_y = False
     return ob
 
 

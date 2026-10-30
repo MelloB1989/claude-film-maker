@@ -42,3 +42,14 @@ def test_ring_layers_scale_cells_and_fades_for_a_puddle():
         assert c == pytest.approx(c1 * 0.3) and near >= 1.0 and far > near
     # finer layers fade closer than broader ones
     assert all(a[4] <= b[4] for a, b in zip(river, river[1:]))
+
+
+def test_wake_shape_opens_from_the_bow_and_trails_the_stern():
+    v, quads, out, side = water.wake_shape(5.0, arm=8.0, spread=20.0, trail=4.0, n=8)
+    assert len(v) == 3 * 3 * 9 and len(quads) == 3 * 8 * 2 and max(max(q) for q in quads) == len(v) - 1
+    assert out.min() == 0.0 and out.max() == 1.0 and set(side) == {0.0, 1.0}
+    mid = v[side == 0.0]
+    assert mid[:, 0].max() == pytest.approx(2.5)                     # starts at the bow
+    assert mid[:, 0].min() < -2.5                                     # and runs back behind the boat
+    # the arms open symmetrically either side of the track
+    assert np.allclose(np.sort(v[:, 1]), np.sort(-v[:, 1]))

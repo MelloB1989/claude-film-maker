@@ -206,4 +206,17 @@ def push_off(world: dict, ctx, *, t0: float, t1: float, path=None) -> None:
                  path=path or CROSS_PATH, push=(t0, t1), bob={"calm": 1.0 - 0.6 * world["weather"].warm})
     world["mooring"].hide_render = True
     world["mooring"].hide_viewport = True
+    # its wake, as strong as it is fast
+    from lib import water
+
+    w = world["weather"]
+    foam = water.foam("set-wake", tuple(min(1.0, c * 1.6) for c in w.river[1]), look=world["look"], amount=0.0)
+    water.key(foam, water.RAIN, [(ctx.f0, 0.0)])
+    water.wake("ferry-wake", root, foam, world["near"], sets.WATER_Z, length=set_jetty.BOAT["length"])
+    path = path or CROSS_PATH
+    frames = range(ctx.f0 - 1, ctx.f1 + 1)
+    at = [boat.drift_pose((f - ctx.f0) / fps, path, t0, t1)[:2] for f in frames]
+    for f, a, b in zip(frames, at, at[1:] + at[-1:]):
+        speed = ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5 * fps
+        water.key(foam, water.FOAM, [(f, min(1.0, speed / 1.4))])
 
