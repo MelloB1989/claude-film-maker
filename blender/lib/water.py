@@ -277,15 +277,15 @@ def surface(name: str, base, light, *, look=None, scene=None, rain: float = 1.0,
         # the view's ray off a level surface
         refl = _vmath(nt, "MULTIPLY", geo.outputs["Incoming"], (-1.0, -1.0, 1.0))
         toward = _vmath(nt, "DOT_PRODUCT", refl, (sx / n, sy / n, sz / n))
-        path = _ramp(nt, toward, 0.86, 0.995)
+        path = _ramp(nt, toward, 0.8, 0.99)
         spark = nt.nodes.new("ShaderNodeTexVoronoi")
         spark.inputs["Scale"].default_value = 1.0
         nt.links.new(_xyz(nt, _math(nt, "MULTIPLY", along, 2.2 / scale), _math(nt, "MULTIPLY", across, 5.0 / scale),
                           _math(nt, "MULTIPLY", t, 1.3)), spark.inputs["Vector"])
-        fleck = _ramp(nt, spark.outputs["Distance"], 0.13, 0.03)
-        crest = _ramp(nt, swell.outputs["Fac"], 0.45, 0.62)
+        fleck = _ramp(nt, spark.outputs["Distance"], 0.2, 0.05)
+        crest = _ramp(nt, swell.outputs["Fac"], 0.38, 0.58)
         glint = _math(nt, "MULTIPLY", _math(nt, "MULTIPLY", path, k_shine),
-                      _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", fleck, crest), 1.6, _math(nt, "MULTIPLY", path, 0.25)))
+                      _math(nt, "MULTIPLY_ADD", _math(nt, "MULTIPLY", fleck, crest), 2.2, _math(nt, "MULTIPLY", path, 0.2)))
     gmix = nt.nodes.new("ShaderNodeMix")
     gmix.data_type = "RGBA"
     gmix.blend_type = "ADD"
