@@ -545,7 +545,7 @@ HILT_GRIP = 0.27     # where his right fist closes on the hilt, up from the guar
                      # reaches, so from demand's low camera the fist stands out past his head against the sky
 # his elbow with the fist on the hilt over his shoulder: up and forward of his shoulder, so the forearm reads going
 # back to the hilt and the fist shows on it, not flung out sideways with the hand lost behind his head
-HILT_POLE = (-0.55, -0.7, 1.55)
+HILT_POLE = (-0.85, -0.15, 1.35)
 
 def hilt_grip(st: Stage, along: float = HILT_GRIP) -> tuple:
     """(wrist, turn) of his right fist on the hilt standing over his right shoulder, `along` up it from the guard: its
