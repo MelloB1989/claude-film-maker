@@ -68,7 +68,7 @@ def build(ctx):
             up = np.array((0.0, 0.0, lag))
             hands, fingers = clash.arms(ch, {"pommel": tuple(np.add(KNEEL_STUB["pommel"], up)), "hilt": KNEEL_STUB["hilt"]},
                                         (tuple(np.add(KNEEL_LEFT[0], up)), *KNEEL_LEFT[1:]), poles=KNEEL_ELBOWS)
-            fingers.update(vrm.grip_pose("left", 0.3, 0.2))
+            fingers.update(vrm.hand_pose("left", "loose"))
             p = clash.Pose(at=AT, hips=KNEEL_HIPS, turns=KNEEL, hands=hands, feet=KNEEL_FEET)
         else:
             p, fingers = clash.standing(sh, low=True)

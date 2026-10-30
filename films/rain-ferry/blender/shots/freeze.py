@@ -54,7 +54,7 @@ def build(ctx):
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from lib import cinema, satsuei, vrm
-    from rf import clash, duel
+    from rf import clash, duel, vroid_tsuru
     from rf import eye_closeup
 
     st = duel.stage(ctx)
@@ -70,7 +70,8 @@ def build(ctx):
         vrm.grasp(shc, side, point, along, palm, pole=pole)
     vrm.pose(shc, fingers, reset=False)
     sh.settle(fingers)
-    fingers = vrm.grasp(tsc, "left", TS_LEFT[0], (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), pole=TS_LEFT[1], amount=0.9)
+    fingers = vrm.grasp(tsc, "left", TS_LEFT[0], (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), pole=TS_LEFT[1],
+                        radius=vroid_tsuru.POLE_R)
     vrm.pose(tsc, fingers, reset=False)
     ts.settle(fingers)
     keep_sh = ("leftHand-target", "leftHand-hold", "rightHand-target", "rightHand-hold", "leftHand-pole", "rightHand-pole")
