@@ -30,7 +30,7 @@ HUT_MATERIALS = {"wall": "wall", "thatch": "thatch", "door": "door", "post": "hu
 LANTERN_LIGHT = ((1.0, 0.42, 0.18), 45.0, 0.12, 0.5)
 WINDOW_LIGHT = ((1.0, 0.6, 0.3), 14.0, 0.6, 0.0)
 LANTERN_AIM = (0.45, -0.45, -1.0)    # down and out from the hut's corner: its walls stay out of the cone
-SMOKE = dict(height=2.6, width=(0.12, 1.1), density=0.35, lean=(-0.4, 0.4))   # the hearth's, from the back gap
+SMOKE = dict(height=2.8, width=(0.14, 1.2), density=0.7, color=(0.36, 0.37, 0.39), lean=(-0.4, 0.4))   # the hearth's, from the back gap
 BANK_PUDDLES = [(-7.4, 0.9, 0.55), (-8.6, -1.4, 0.4), (-5.9, 1.9, 0.3), (-8.0, 5.8, 0.6)]   # (x, y, radius)
 
 

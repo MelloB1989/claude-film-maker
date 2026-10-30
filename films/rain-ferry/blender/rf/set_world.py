@@ -39,8 +39,8 @@ COLORS = {
 }
 # the thatch's straw: (mottle, its patch size m, how dark its strands, their width m, how long against wide)
 STRAW = {"thatch": (0.2, 1.5, 0.85, 0.1, 14.0), "thatch_edge": (0.12, 1.0, 0.85, 0.08, 16.0)}
-MOSS = (0.034, 0.044, 0.03)             # moss and the rain's dark creeping up the thatch from its eaves
-MOSS_Z = (2.2, 3.0)                     # ... from (world z) to where it's gone
+MOSS = (0.05, 0.056, 0.04)             # moss and the rain's dark creeping up the thatch from its eaves
+MOSS_Z = (1.9, 3.2)                     # ... from (world z) to where it's gone
 PLASTER_STAIN = (0.06, 0.052, 0.045)    # the plaster darkened by the splash and the damp up from its foot
 PLASTER_STAIN_Z = (1.25, 1.62)          # ... from its foot (world z) to where it's gone
 PAPER = (1.0, 0.62, 0.3)                # the hut's lit shoji paper, the only warmth but the lantern's

@@ -87,8 +87,8 @@ def crossing(look, *, seed: int = 7) -> dict:
                      "lattice": m["lattice"], "dark": m["hut_dark"], "rope": m["rope"], "wood": m["post"],
                      "glass": m["water"], "straw": m["hut_straw"]}, near, HUT, seed=3)
     sx, sy, sz = hut["smoke"][0]
-    minka.smoke("hut-smoke", toon.collection("crossing-fx"), (sx - 0.12, sy, sz - 0.4), look=look, height=2.6,
-                density=0.35, lean=(-0.4, 0.4))     # not inked
+    minka.smoke("hut-smoke", toon.collection("crossing-fx"), (sx - 0.12, sy, sz - 0.4), look=look, height=2.8,
+                density=0.7, color=(0.36, 0.37, 0.39), lean=(-0.4, 0.4))     # not inked
     ex, ey, ez = hut["eave"]
     lantern, _ = minka.chochin("lantern", {"lantern": m["lantern"], "cap": m["hut_dark"], "rope": m["post"]}, near,
                                (ex, ey, ez - 0.45), cord_top=ez + 0.1)
