@@ -33,14 +33,7 @@ COLORS = {
     "paint": ((0.012, 0.012, 0.014), (0.006, 0.006, 0.007)),  # its characters, ink
     "rock": ((0.07, 0.072, 0.075), (0.016, 0.017, 0.019)),
     "slope": ((0.045, 0.05, 0.052), (0.02, 0.022, 0.025)),    # the valley's far ground (the fog pales it)
-    # the hut (lib/minka.py): its frame darker than its boards, earthen plaster, the thatch's cut edge paler than
-    # its slopes, the ridge's cedar bark, the lattice and rafters pale bamboo, the dark inside its gaps
-    "hut_beam": ((0.045, 0.038, 0.032), (0.01, 0.009, 0.009)),
-    "plaster": ((0.15, 0.135, 0.11), (0.036, 0.034, 0.032)),
-    "thatch_edge": ((0.25, 0.21, 0.14), (0.055, 0.047, 0.034)),
-    "hut_ridge": ((0.05, 0.044, 0.04), (0.012, 0.011, 0.011)),
-    "lattice": ((0.15, 0.135, 0.1), (0.035, 0.032, 0.027)),
-    "hut_dark": ((0.012, 0.01, 0.009), (0.006, 0.005, 0.005)),
+    **sets.HUT_COLORS,
 }
 PLASTER_STAIN = (0.06, 0.052, 0.045)    # the plaster darkened by the splash and the damp up from its foot
 PLASTER_STAIN_Z = (1.25, 1.62)          # ... from its foot (world z) to where it's gone
