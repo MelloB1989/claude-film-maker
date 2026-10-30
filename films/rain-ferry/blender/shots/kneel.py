@@ -154,7 +154,7 @@ def _hands(ch, fall, u: float, t: float, fingers0: dict, shake: float):
         ke = E.ease(k)
         at = np.asarray(thigh[0], float) + (wrist - np.asarray(thigh[0], float)) * ke
         at[2] += LEFT_ARC * math.sin(math.pi * k)
-        rot = va.matrix(va.slerp(va.quat(vrm.euler(thigh[2])), va.quat(turn), ke))
+        rot = va.matrix(va.slerp(va.quat(va.turn_matrix(thigh[2])), va.quat(turn), ke))
         hands["left"] = ("reach", tuple(at), tuple(np.asarray(thigh[1]) + (np.asarray(pole) - thigh[1]) * ke), rot)
         # the fingers opening as the hand comes over, to close round the hilt as it lands
         left = _mix(vrm.grip_pose("left", 0.35, 0.3), approach.hand("left", -0.3), min(1.0, k * 2.0))
