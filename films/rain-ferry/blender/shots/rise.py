@@ -59,7 +59,9 @@ LEAN = {"spine": (22.0, 0.0, 0.0), "chest": (12.0, 0.0, 0.0), "neck": (-6.0, 0.0
 BEND = {"spine": (20.0, 0.0, 0.0), "chest": (20.0, 0.0, -6.0), "upperChest": (18.0, 0.0, -4.0), "neck": (14.0, 0.0, 0.0),
         "head": (-40.0, 0.0, 0.0)}
 # her pipe hand once she is up: the fist at her hip, the bowl forward and down (her frame: fist, along)
-PIPE_UP = ((0.15, -0.17, 0.9), (-0.25, -1.0, -0.35))
+PIPE_UP = ((0.13, -0.15, 0.78), (-0.25, -1.0, -0.35))
+# ... its elbow by her side and the palm in (at her ribs with the elbow out it read as a fist on her hip)
+PIPE_UP_ARM = ((0.25, 0.45, 0.55), (-0.7, 0.0, 0.6))
 # the camera on the -y side: first the two of them whole, his blade's point down toward her; it creeps in and turns
 # with her to the edge, leaving him at the frame's left (world: at, aim)
 CAMERA = [((5.9, -3.6, 1.25), (6.55, -0.9, 1.12)),
@@ -156,7 +158,7 @@ def build(ctx):
     p.root(F(UP[1]), root0 + ahead * FORWARD, yaw=yaw0)
     # her hands as she comes up: the pipe to her hip, the right hand off her knee to hang
     for f in (F(UP[1]), ctx.f1 + 1):
-        jt.hold_pipe(st, f, *PIPE_UP)
+        jt.hold_pipe(st, f, *PIPE_UP, palm_turn=PIPE_UP_ARM)
     # (off her knee, the IK let go: her right arm hangs by FK as the core's RELAXED has it, palm to her thigh, the
     # elbow soft; as an IK target behind her stooped hip it bent out into a fist on her hip)
     p.pose(F(UP[1]), {k: v for k, v in vrm.RELAXED.items() if k.startswith("right")}, ease="inout", full=False)

@@ -613,7 +613,9 @@ def tsuru_hips(st: Stage, t: float) -> tuple:
 # her pipe hand's elbow pole and palm (her frame): low and back by her side with the pipe over her knee; with it at
 # her lips the elbow down by her side and a little forward (S3's rf/jetty_arrive.py SMOKING_POLE, SMOKING_PALM), not up
 # beside her head
-PIPE_ARM = {"lap": ((0.45, 0.35, 0.35), (-0.5, 0.0, 0.8)), "lips": ((0.32, -0.18, 0.35), (-0.7, 0.1, 0.35)),
+# (over her knee the hand holds the stem from above, palm down and in: the knuckles and the thumb along the stem show;
+# palm up, only fingertips showed under the cuff and the pipe looked held by nothing)
+PIPE_ARM = {"lap": ((0.45, 0.35, 0.35), (-0.5, 0.0, -0.85)), "lips": ((0.32, -0.18, 0.35), (-0.7, 0.1, 0.35)),
             "knock": ((0.55, 0.4, 0.45), (-0.5, 0.0, 0.8))}     # (knocking: the elbow down and back by her side)
 
 

@@ -1,7 +1,7 @@
-"""Shot 10, tap (41.8-47.8 s): Tsuru in three-quarter profile on her crate, the end post in front of her and the river
-grey beyond. His boast is still going on off screen ("...and be the strongest under heaven.") when she knocks her pipe
-out on the post, tok, tok (data/mix.json pipe_tap at 42.05 s): ash and one last ember drop from the bowl onto the wet
-wood and die. She lowers the pipe to her knee, lifts her eyes out over the water, and a faint smile comes as she says
+"""Shot 10, tap (41.8-47.8 s): Tsuru in three-quarter profile on her crate, the end post by her and the river grey
+beyond. His boast is still going on off screen ("...and be the strongest under heaven.") when she knocks her pipe out
+on the corner of her crate by her left thigh, tok, tok, with a flick of the wrist (data/mix.json pipe_tap at 42.05 s):
+ash and one last ember drop from the bowl onto the wet wood and die. She lowers the pipe to her knee, lifts her eyes out over the water, and a faint smile comes as she says
 "The River Demon is already dead." The camera drifts slowly along the post toward her.
 
     blender -b -P blender/render.py -- --film rain-ferry --shot tap --mode look --engine eevee \\
@@ -36,31 +36,33 @@ EYES_UP = (1.5, 2.3)         # her eyes off the post and out over the river
 SMILE = (2.2, 3.4)
 BLINKS = (1.35, 3.9, 5.7)
 ASH = 7                      # flecks of ash knocked out at each knock
-# her fist through the knocks, from the bowl at rest over the post (her frame: out at her left side, back from the
-# bowl and a little above it: the stem runs forward from it onto the post, her forearm low, not across her face),
-# and how much of the bowl's drop it shares
-# (the kiseru's bowl is ~0.21 m on from the fist: rf/vroid_tsuru.py's KISERU less the 0.09 behind it)
-KNOCK_FIST, FLICK = np.array((-0.15, 0.13, 0.05)), 0.3
+# where she knocks it out (her frame): the front corner of her crate by her left thigh. (The end post is at her back
+# left as the stage turns her: reaching it bent her arm up behind her, the pipe hidden behind her cape.) Her fist
+# through the knocks from the bowl at rest over it: forward, out and up the kiseru's length (~0.21 m: rf/vroid_tsuru.py's
+# KISERU less the 0.09 behind the fist), the forearm low by her side; and how much of the bowl's drop it shares
+KNOCK_AT = (0.22, -0.04, 0.0)        # (its height: the crate's top, rf/vroid_tsuru.py's SEAT)
+KNOCK_FIST, FLICK = np.array((0.08, -0.14, 0.15)), 0.3
 
 
 def build(ctx):
     st = jt.stage(ctx, ink=0.0)     # the set out of focus behind her: no lines over it
     jt.compose_faces(st)
     lines = st.line("L07")
-    post = jt.post_top(st)
-    perform(st, lines, post)
+    post = jt.post_top(st)          # (the camera's: it frames her over the post)
+    knock = knock_point(st)
+    perform(st, lines, knock)
     st.say("tsuru", "L07", "kawaoni nara, mou shinda yo", energy=0.7)
     st.say("shinza", "L06", "soitsu wo kitte, ore ga tenkaichi ni naru", energy=1.1)   # his boast still going on
     st.blinks("tsuru", BLINKS)
     st.blinks("shinza", (2.4, 4.9))
     st.bake()
-    ash(st, post)
+    ash(st, knock)
     ch = st.cast["tsuru"]["vrm"]
     mid = (st.head_at("tsuru", ctx.f0) + post) / 2
     (c0, a0), (c1, a1) = (cinema.frame_on(mid, share=k, lens=LENS, **FRAME) for k in SHARE)
     # the focus on the bowl through the knocks, racked to her face as the pipe goes down
     st.film([cinema.Setup("knock", 0.0, cinema.line(c0, c1, a0, a1),
-                          lens=LENS, fstop=FSTOP, focus=tuple(post), racks=(cinema.Rack(LOWER[0], (ch, "head"), 0.6),),
+                          lens=LENS, fstop=FSTOP, focus=tuple(knock), racks=(cinema.Rack(LOWER[0], (ch, "head"), 0.6),),
                           shake=cinema.Shake(breath=0.05))])
     jt.outline(st)
     # the wisp off the bowl until the first knock puts it out
@@ -72,10 +74,18 @@ def build(ctx):
                                 para_from=(0.6, 0.95), para_to=(0.3, 0.05)))
 
 
+def knock_point(st) -> np.ndarray:
+    """Where the bowl strikes (world): KNOCK_AT on her crate's top."""
+    from rf.vroid_tsuru import SEAT
+
+    ch = st.cast["tsuru"]["vrm"]
+    return np.array(ch.world((KNOCK_AT[0], KNOCK_AT[1], SEAT)))
+
+
 def bowl_path(t: float, post) -> np.ndarray:
     """Where the pipe's bowl is (world) at t: hovering over the post's top on her side of it, knocked down onto it at
     each of TAPS."""
-    rest = np.asarray(post) + (-0.05, 0.04, 0.02 + LIFT)
+    rest = np.asarray(post) + (0.0, 0.0, 0.01 + LIFT)
     z = LIFT
     for at in TAPS:
         u = t - at
@@ -106,10 +116,10 @@ def perform(st, lines, post):
                 + np.array((0.03, -0.05, 0.03)) * math.sin(math.pi * low))
         along = along_knock / np.linalg.norm(along_knock) * (1 - low) + np.asarray(lap_along) / np.linalg.norm(lap_along) * low
         knock = sum(math.exp(-((t - a) / 0.05) ** 2) for a in TAPS)
-        body = jt.tsuru_sit(t, turn=-14.0 * (1 - up) + 4.0 * up, down=10.0 * (1 - up) - 6.0 * up + 1.5 * knock,
-                            eyes=(18.0 * (1 - up) - 2.0 * up, -6.0 * (1 - up)), lean=6.0 * (1 - low))
-        # the fist is close in by her shoulder at the post: start the elbow folded so the IK bends it out and down,
-        # not up behind her
+        # (her head a little round to her left and down to the knock, her eyes on it)
+        body = jt.tsuru_sit(t, turn=6.0 * (1 - up) + 4.0 * up, down=12.0 * (1 - up) - 6.0 * up + 1.5 * knock,
+                            eyes=(18.0 * (1 - up) - 2.0 * up, 8.0 * (1 - up)), lean=10.0 * (1 - low))
+        # the fist is close in by her side: start the elbow folded so the IK bends it out and down
         # (and the upper arm started hanging by her side, not from the T-pose: so the IK folds the elbow down and
         # back, not up behind her)
         fold = {"leftLowerArm": vrm.fold("leftLowerArm", 80.0 * (1 - low) + 20.0), "leftUpperArm": (0.0, 70.0, 0.0)}
