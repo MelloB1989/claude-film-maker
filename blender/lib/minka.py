@@ -109,16 +109,17 @@ def hut(m: dict, coll, center, *, size=(3.2, 2.6, 2.0), overhang: float = 0.62, 
     the +x side (turned by `facing`): a post-and-beam frame on footing stones (on short stilts where `ground`, a
     function of world x, y, falls away), dark vertical boards below a rail and earthen plaster above it (one panel
     fallen to its bamboo lath), the wall plates' and tie beams' ends standing out at the corners; a deep hip-and-gable
-    thatch, thick, its cut edge in two steps, bamboo rafters under its eaves, a ridge capped and saddled, a smoke gap
-    under each gable; a sliding shoji door (`door`: its middle along y, width, height) and a barred window glowing
-    warm through their paper, a rolled straw blind over the window; a plank porch along the door side; and, with
-    `clutter`, a firewood stack, a rain barrel, a straw cape and a hat hung by the door, oars leaning on the wall,
-    a net drying on a bamboo rack off the back end.
+    thatch, thick, banded in courses, its cut edge in two steps ragged at its foot, its underside on bamboo rafters, a
+    ridge capped and saddled, a smoke gap under each gable; a sliding shoji door (`door`: its middle along y, width,
+    height) and barred windows (`windows`, WINDOWS) glowing warm through their paper, a rolled straw blind over those
+    that have one; a plank porch along the door side; and, with `clutter`, a firewood stack, a rain barrel, a straw
+    cape and a hat hung by the door, oars leaning on the wall, a net drying on a bamboo rack off the back end.
 
     `m`: wall, thatch, door (the lit paper: an emitting material), and as it has them (else see FALLBACK) post,
     plaster, thatch_edge, ridge, lattice, stone, dark, wood, straw, rope, lath, glass (the barrel's water).
     Returns {"objects", "eave": under the eave at the door side's -y corner (where a lantern hangs), "door": the
-    doorway's foot (world), "eave_edges": [(a, b), ...] each eave's drip line (world), "smoke": the gaps' tops}."""
+    doorway's foot (world), "eave_edges": [(a, b), ...] each eave's drip line (world), "windows": [(where, outward),
+    ...] a light outside each lit window (world), "smoke": the gaps' tops}."""
     rng = np.random.default_rng(seed)
     C = np.asarray(center, float)
     W, D, H = size
