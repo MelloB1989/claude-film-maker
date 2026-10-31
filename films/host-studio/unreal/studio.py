@@ -18,7 +18,7 @@ from fmbridge.ops import level as L, look as K, mh
 
 T = "/Game/Studio/Textures"
 M = "/Game/Studio/Materials"
-KEEP = {"Floor", "BackWall", "SideWallL", "Host", "HostCam"}
+KEEP = {"Floor", "BackWall", "SideWallL", "Host", "HostCam", "HostCamB"}
 rnd = random.Random(5)
 
 # clear the old dressing and lights
@@ -54,6 +54,14 @@ K.apply("Floor", mat["floor"])
 
 def box(label, center, size, material, rot=None):
     return L.spawn(label, shape="cube", loc=center, size=size, rot_=rot, material=material)
+
+
+def prop(label, name, loc, yaw=0.0, scale=1.0):
+    """A prop made in Blender (props/, imported by build.py), or None when it is not in the project yet."""
+    path = f"/Game/Studio/Props/{name}/{name}"
+    if not unreal.EditorAssetLibrary.does_asset_exist(path):
+        return None
+    return L.spawn(label, asset=path, loc=loc, rot_={"yaw": yaw}, scale=scale)
 
 
 # ------------------------------------------------------------------------------------------ the slat wall
@@ -106,11 +114,12 @@ K.light("OrbLight", "point", loc=(-240, 150, 214), intensity=1.6, temperature=24
 L.spawn("Print", shape="cube", loc=(-254, 84, 148 + 2 + 26), size=(1.5, 40, 52), material=mat["poster"],
         rot_={"pitch": 0, "yaw": 0, "roll": 0})
 L.move("Print", rot_={"pitch": -8, "yaw": 0, "roll": 0})
-L.spawn("PlantPot", shape="cylinder", loc=(-246, 132, 148 + 2 + 7), size=(15, 15, 14), material=mat["terracotta"])
-for k in range(9):  # a loose ball of leaves: soft and organic at this blur
-    a, r = k * 2.4, rnd.uniform(3, 8)
-    L.spawn(f"Leaf{k}", shape="sphere", loc=(-246 + rnd.uniform(-4, 4), 132 + math.cos(a) * r, 148 + 16 + rnd.uniform(6, 20)),
-            size=(rnd.uniform(9, 13), rnd.uniform(9, 14), rnd.uniform(7, 11)), material=mat["leaf"])
+if not prop("ShelfPlant", "plant_shelf", (-246, 132, 150)):  # the Blender pothos, else a stand-in
+    L.spawn("PlantPot", shape="cylinder", loc=(-246, 132, 148 + 2 + 7), size=(15, 15, 14), material=mat["terracotta"])
+    for k in range(9):
+        a, r = k * 2.4, rnd.uniform(3, 8)
+        L.spawn(f"Leaf{k}", shape="sphere", loc=(-246 + rnd.uniform(-4, 4), 132 + math.cos(a) * r, 148 + 16 + rnd.uniform(6, 20)),
+                size=(rnd.uniform(9, 13), rnd.uniform(9, 14), rnd.uniform(7, 11)), material=mat["leaf"])
 # bottom shelf: books lying flat, a speaker
 for k in range(3):
     box(f"Stack{k}", (-248, 74 + k * 1.5, 92 + 2 + 2.2 + k * 4.4), (20, 26 - k * 2, 4.2), books[(k + 2) % len(books)],
@@ -119,6 +128,11 @@ box("Speaker", (-246, 128, 92 + 2 + 13), (18, 15, 26), mat["metal"])
 L.spawn("SpeakerCone", shape="cylinder", loc=(-236.8, 128, 92 + 2 + 16), size=(9, 9, 0.6), material=mat["felt"],
         rot_={"pitch": 90, "yaw": 0, "roll": 0})
 
+# a monstera on the floor at the frame's left edge, its leaves reaching in
+if prop("FloorPlant", "plant_floor", (-172, 132, 0), yaw=160):
+    K.light("PlantLight", "spot", loc=(-120, 60, 230), look_at=(-172, 132, 110), intensity=6, temperature=3000, cone=28,
+            radius=400, volumetric=0.2)
+
 # fairy bulbs along the upper left: bokeh at f/2
 for k in range(14):
     t = k / 13
@@ -126,21 +140,23 @@ for k in range(14):
     L.spawn(f"Bulb{k}", shape="sphere", loc=(-250 + rnd.uniform(-4, 4), yy, zz), size=(2.4, 2.4, 2.4), material=mat["bulb"])
 
 # --------------------------------------------------------------------------------- the side table, midground right
-TX, TY = -120.0, -80.0
-box("TableTop", (TX, TY, 74), (55, 85, 3.5), mat["oak"])
+TX, TY, TZ = -120.0, -80.0, 92.0  # a standing-height table, so its top just shows at the frame's foot
+box("TableTop", (TX, TY, TZ - 1.75), (55, 85, 3.5), mat["oak"])
 for n, (dx, dy) in enumerate(((-22, -36), (-22, 36), (22, -36), (22, 36))):
-    L.spawn(f"TableLeg{n}", shape="cylinder", loc=(TX + dx, TY + dy, 36), size=(3, 3, 72), material=mat["metal"])
+    L.spawn(f"TableLeg{n}", shape="cylinder", loc=(TX + dx, TY + dy, (TZ - 3.5) / 2), size=(3, 3, TZ - 3.5), material=mat["metal"])
 yaw = 19.0  # the monitor turned toward the camera
-box("Monitor", (TX - 6, TY - 4, 112), (2.5, 62, 36), mat["metal"], rot={"yaw": yaw})
-K.card("MonitorScreen", (TX - 6, TY - 4, 112), 59, 33.2, mat["screen"], yaw=yaw, offset=1.35)
-box("MonitorStand", (TX - 8, TY - 4, 85), (12, 3, 20), mat["metal"], rot={"yaw": yaw})
-K.light("MonitorGlow", "rect", loc=(TX + 2, TY - 2, 112), look_at=(60, 40, 112), intensity=0.5, color=(0.45, 0.6, 1.0),
-        width=55, height=30, shadows=False)
-L.spawn("LampShade", shape="cone", loc=(TX + 8, TY - 30, 112), size=(16, 16, 14), material=mat["metal"],
+box("Monitor", (TX - 6, TY - 4, TZ + 24), (2.5, 62, 36), mat["metal"], rot={"yaw": yaw})
+K.card("MonitorScreen", (TX - 6, TY - 4, TZ + 24), 59, 33.2, mat["screen"], yaw=yaw, offset=1.35)
+box("MonitorStand", (TX - 8, TY - 4, TZ + 3), (12, 3, 6), mat["metal"], rot={"yaw": yaw})
+K.light("MonitorGlow", "rect", loc=(TX + 2, TY - 2, TZ + 24), look_at=(60, 40, TZ + 24), intensity=0.5,
+        color=(0.45, 0.6, 1.0), width=55, height=30, shadows=False)
+L.spawn("LampShade", shape="cone", loc=(TX + 8, TY - 30, TZ + 34), size=(16, 16, 14), material=mat["metal"],
         rot_={"pitch": 0, "yaw": 0, "roll": 180})
-L.spawn("LampStem", shape="cylinder", loc=(TX + 8, TY - 30, 93), size=(1.5, 1.5, 34), material=mat["metal"])
-K.light("LampLight", "spot", loc=(TX + 8, TY - 30, 106), look_at=(TX + 8, TY - 30, 70), intensity=12, temperature=2600,
+L.spawn("LampStem", shape="cylinder", loc=(TX + 8, TY - 30, TZ + 15), size=(1.5, 1.5, 30), material=mat["metal"])
+K.light("LampLight", "spot", loc=(TX + 8, TY - 30, TZ + 28), look_at=(TX + 8, TY - 30, TZ), intensity=12, temperature=2600,
         cone=50, radius=300)
+prop("Keyboard", "keyboard", (TX + 14, TY + 6, TZ), yaw=12)
+prop("Mug", "mug", (TX + 12, TY + 34, TZ), yaw=200)
 
 # --------------------------------------------------------------------------------------------- the host's light
 FACE = (8.0, 0.0, 172.0)

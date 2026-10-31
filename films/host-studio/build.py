@@ -38,6 +38,16 @@ def textures() -> list:
     return _ok(client.op("assets.import", files=remote, dest="/Game/Studio/Textures"))
 
 
+def props() -> dict:
+    """Send the Blender props (props/out/*.fbx) and import each into its own folder (their material names overlap)."""
+    out = {}
+    for p in sorted((HERE / "props" / "out").glob("*.fbx")):
+        remote = f"{REMOTE}\\props\\{p.name}"
+        client.push(str(p), remote)
+        out[p.stem] = _ok(client.op("assets.import", files=[remote], dest=f"/Game/Studio/Props/{p.stem}"))
+    return out
+
+
 def still(frame: int, name: str, sequence: str = "/Game/Studio/SEQ_Line2") -> Path:
     remote = rf"C:\UEProjects\HostStudio\Saved\Stills\{name}.png"
     _ok(client.op("seq.still", path=sequence, frame=frame, camera="HostCam", out=remote))
@@ -54,6 +64,7 @@ def main() -> None:
     a = ap.parse_args()
     if not a.still_only:
         print("textures:", json.dumps(textures()))
+        print("props:", json.dumps(props()))
         _ok(client.op("seq.close"))
         print("studio:", json.dumps(_ok(client.exec_code((HERE / "unreal" / "studio.py").read_text(), 600))))
     print(still(a.frame, a.name))

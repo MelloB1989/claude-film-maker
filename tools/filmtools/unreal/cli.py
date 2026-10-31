@@ -9,7 +9,7 @@
     film-ue exec FILE.py | -c CODE              run Python in the editor; `result = ...` is returned
     film-ue screen OUT.png                      the workstation's desktop
     film-ue gui click X Y [W H] | type TEXT | key ctrl+s | drag X1 Y1 X2 Y2 [W H] | wait MS
-    film-ue push LOCAL REMOTE | pull REMOTE LOCAL
+    film-ue push LOCAL REMOTE | pull REMOTE LOCAL | pull-dir REMOTE_DIR LOCAL_DIR (through S3, for renders)
     film-ue log [N]                             the editor log's tail
     film-ue tunnel | close                      open/close the SSM tunnel (opened on demand anyway)
 """
@@ -134,6 +134,7 @@ def main() -> None:
     s.add_argument("--region")
     s.add_argument("--project-dir")
     s.add_argument("--key")
+    s.add_argument("--bucket")
     for n in ("up", "down", "status", "password", "install", "health", "tunnel", "close"):
         sub.add_parser(n)
     sub.add_parser("ops").add_argument("prefix", nargs="?", default="")
@@ -149,7 +150,7 @@ def main() -> None:
     g = sub.add_parser("gui")
     g.add_argument("action")
     g.add_argument("rest", nargs="*")
-    for n in ("push", "pull"):
+    for n in ("push", "pull", "pull-dir"):
         p = sub.add_parser(n)
         p.add_argument("src")
         p.add_argument("dst")
@@ -158,7 +159,8 @@ def main() -> None:
 
     if a.cmd == "set":
         print(json.dumps(ws.save(**{k: v for k, v in (("instance", a.instance), ("region", a.region),
-                                                       ("project_dir", a.project_dir), ("key", a.key)) if v}), indent=1))
+                                                       ("project_dir", a.project_dir), ("key", a.key), ("bucket", a.bucket)) if v}),
+                         indent=1))
     elif a.cmd == "up":
         print(json.dumps(ws.start(), indent=1, default=str))
     elif a.cmd == "down":
@@ -200,6 +202,8 @@ def main() -> None:
         print(json.dumps(client.push(a.src, a.dst)))
     elif a.cmd == "pull":
         print(client.pull(a.src, a.dst))
+    elif a.cmd == "pull-dir":
+        print(ws.pull_dir(a.src, a.dst), "files")
     elif a.cmd == "log":
         print(json.loads(client.request("GET", f"/log?lines={a.lines}"))["log"])
 

@@ -25,12 +25,22 @@ def list_assets(path: str = "/Game", cls: str = "", recursive: bool = True, limi
 
 
 @op("assets.import")
-def import_files(files: list, dest: str, replace: bool = True) -> list:
-    """Import files on the workstation (fbx, wav, png, exr, ...) into a content folder; returns the new assets."""
+def import_files(files: list, dest: str, replace: bool = True, combine: bool = True) -> list:
+    """Import files on the workstation (fbx, wav, png, exr, ...) into a content folder; returns the new assets. An FBX
+    comes in as one static mesh (its parts combined unless `combine` is off) with its materials, without lightmap UVs
+    (Lumen needs none)."""
     tasks = []
     for f in files:
         t = unreal.AssetImportTask()
         t.filename, t.destination_path, t.automated, t.replace_existing, t.save = f, dest, True, replace, True
+        if f.lower().endswith(".fbx"):
+            ui = unreal.FbxImportUI()
+            ui.import_mesh, ui.import_as_skeletal, ui.import_materials, ui.import_textures = True, False, True, False
+            ui.import_animations = False
+            sm = ui.static_mesh_import_data
+            sm.combine_meshes, sm.generate_lightmap_u_vs, sm.auto_generate_collision = combine, False, False
+            sm.normal_import_method = unreal.FBXNormalImportMethod.FBXNIM_IMPORT_NORMALS
+            t.options = ui
         tasks.append(t)
     unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks(tasks)
     return [p for t in tasks for p in t.imported_object_paths]

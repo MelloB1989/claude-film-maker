@@ -13,7 +13,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from filmtools.unreal import client
+from filmtools.unreal import client, workstation as ws
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "out" / "host-studio"
@@ -70,8 +70,10 @@ def gaze() -> dict:
                         out=f"{ANIM}/AS_line1_gaze", camera="HostCam", timeout=1800))
 
 
-def render(name: str = "line1_v2", temporal: int = 8) -> Path:
+def render(name: str = "line1_v2", temporal: int = 8, fetch_only: bool = False) -> Path:
     remote = rf"{PROJECT}\Saved\MovieRenders\{name}"
+    if fetch_only:
+        return encode(name, remote)
     ok(client.op("seq.close"))
     ok(client.op("assets.save_all"))
     ok(client.op("render.mrq", sequence=SEQ, level=LEVEL, out_dir=remote, temporal=temporal, name=name))
@@ -83,10 +85,13 @@ def render(name: str = "line1_v2", temporal: int = 8) -> Path:
             break
         time.sleep(15)
     print()
-    files = ok(client.exec_code(f"import os\nresult = sorted(os.listdir(r'{remote}'))"))
+    return encode(name, remote)
+
+
+def encode(name: str, remote: str) -> Path:
+    """Bring a render's frames back (through S3) and cut them with its audio into out/host-studio/<name>.mp4."""
     local = OUT / "renders" / name
-    for f in files:
-        client.pull(f"{remote}\\{f}", str(local / f))
+    print(ws.pull_dir(remote, str(local)), "files back")
     mp4 = OUT / f"{name}.mp4"
     subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-framerate", "24", "-i", str(local / "%04d.png"),
                     "-i", str(local / "MasterSubmixDefault.wav"), "-c:v", "libx264", "-preset", "slow", "-crf", "16",
@@ -101,6 +106,7 @@ def main() -> None:
         ap.add_argument(f"--{f}", action="store_true")
     ap.add_argument("--name", default="line1_v2")
     ap.add_argument("--temporal", type=int, default=8)
+    ap.add_argument("--fetch", action="store_true", help="only bring back and encode a finished render")
     a = ap.parse_args()
     if a.solve or a.all:
         print("solve:", json.dumps(solve()))
@@ -111,8 +117,8 @@ def main() -> None:
     if a.gaze or a.all:
         g = gaze()
         print("gaze:", json.dumps({k: g[k] for k in ("anim", "frames", "passes")}))
-    if a.render or a.all:
-        print("render:", render(a.name, a.temporal))
+    if a.render or a.all or a.fetch:
+        print("render:", render(a.name, a.temporal, fetch_only=a.fetch))
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """The Unreal workstation on EC2: settings, start/stop/state, its Windows password, and SSM commands on it.
 
-Settings live in ~/.config/film-ue.json: {"region", "instance", "project_dir", "port", "key"} (key: the RSA key pair
-that decrypts the Administrator password). Nothing secret is stored there; the bridge token is cached beside it.
+Settings live in ~/.config/film-ue.json: {"region", "instance", "project_dir", "port", "key", "bucket"} (key: the RSA
+key pair that decrypts the Administrator password; bucket: an S3 bucket for bringing renders back). Nothing secret is stored there; the bridge token is cached beside it.
 """
 from __future__ import annotations
 
@@ -102,3 +102,19 @@ def put_text(path: str, data: bytes) -> None:
     b64 = base64.b64encode(data).decode()
     ps(f"New-Item -ItemType Directory -Force -Path (Split-Path '{path}') | Out-Null; "
        f"[IO.File]::WriteAllBytes('{path}', [Convert]::FromBase64String('{b64}'))")
+
+
+def pull_dir(remote_dir: str, local_dir: str) -> int:
+    """Bring a whole folder back (a render's frames) through S3, far faster than the tunnel: the workstation uploads
+    it to the bucket in settings (`bucket`), this machine syncs it down, the bucket copy is deleted. Returns files."""
+    c = conf()
+    if not c.get("bucket"):
+        raise SystemExit("no bucket set: film-ue set --bucket NAME (one the workstation's role can write)")
+    prefix = "film-ue/" + Path(remote_dir.replace("\\", "/")).name + f"-{int(time.time())}"
+    ps(f"Write-S3Object -BucketName {c['bucket']} -KeyPrefix {prefix} -Folder '{remote_dir}' -Recurse -Region {c['region']}",
+       timeout=1800)
+    Path(local_dir).mkdir(parents=True, exist_ok=True)
+    s3 = f"s3://{c['bucket']}/{prefix}"
+    subprocess.run(["aws", "s3", "sync", "--only-show-errors", s3, local_dir, "--region", c["region"]], check=True)
+    subprocess.run(["aws", "s3", "rm", "--only-show-errors", "--recursive", s3, "--region", c["region"]], check=True)
+    return sum(1 for _ in Path(local_dir).iterdir())
