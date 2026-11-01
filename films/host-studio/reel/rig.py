@@ -71,8 +71,8 @@ def main() -> None:
         raise SystemExit("no SignHalo in the level: run studio.py first (it needs karma_halo.json)")
     halo = f"{T}/T_KarmaHalo"  # as studio.py: the plain colour while the texture is missing
     wipe = ok(client.op("look.material", name="MI_K_HaloWipe", color=[1.0, 0.62, 0.32], kind="GlowWipe",
-                        texture=halo if exists(halo) else "", intensity=HALO_CARD, scalars={"Reveal": 1.0, "Softness": 0.03},
-                        folder=M))
+                        texture=halo if exists(halo) else "", intensity=HALO_CARD,
+                        scalars={"Reveal": 1.0, "Softness": 0.03}, folder=M))
     ok(client.op("look.apply", label="SignHalo", material=wipe))
     done.append("SignHalo <- MI_K_HaloWipe")
     ok(client.op("level.save"))
