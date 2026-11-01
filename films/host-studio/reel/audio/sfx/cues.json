@@ -1,0 +1,606 @@
+{
+ "fps": 24,
+ "frames": 1560,
+ "beds": [
+  {
+   "sound": "room_tone",
+   "from_frame": 0,
+   "to_frame": 1560,
+   "gain_db": -30,
+   "keys": [
+    [
+     0,
+     0
+    ],
+    [
+     1536,
+     0
+    ],
+    [
+     1560,
+     -12
+    ]
+   ]
+  },
+  {
+   "sound": "birds",
+   "from_frame": 0,
+   "to_frame": 700,
+   "gain_db": -20,
+   "keys": [
+    [
+     0,
+     -2
+    ],
+    [
+     240,
+     0
+    ],
+    [
+     480,
+     -3
+    ],
+    [
+     600,
+     -12
+    ],
+    [
+     690,
+     -40
+    ]
+   ]
+  },
+  {
+   "sound": "crickets",
+   "from_frame": 480,
+   "to_frame": 1560,
+   "gain_db": -27,
+   "keys": [
+    [
+     480,
+     -40
+    ],
+    [
+     600,
+     -10
+    ],
+    [
+     700,
+     0
+    ],
+    [
+     780,
+     -3
+    ],
+    [
+     840,
+     -8
+    ],
+    [
+     1536,
+     -8
+    ],
+    [
+     1560,
+     -40
+    ]
+   ]
+  },
+  {
+   "sound": "city",
+   "from_frame": 520,
+   "to_frame": 1560,
+   "gain_db": -34,
+   "keys": [
+    [
+     520,
+     -40
+    ],
+    [
+     680,
+     0
+    ],
+    [
+     840,
+     -4
+    ],
+    [
+     1536,
+     -4
+    ],
+    [
+     1560,
+     -40
+    ]
+   ]
+  },
+  {
+   "sound": "crackle",
+   "from_frame": 705,
+   "to_frame": 960,
+   "gain_db": -26,
+   "keys": [
+    [
+     705,
+     0
+    ],
+    [
+     720,
+     0
+    ],
+    [
+     780,
+     -6
+    ],
+    [
+     900,
+     -12
+    ],
+    [
+     960,
+     -30
+    ]
+   ]
+  },
+  {
+   "sound": "halo_hum",
+   "from_frame": 720,
+   "to_frame": 1560,
+   "gain_db": -33,
+   "keys": [
+    [
+     720,
+     -14
+    ],
+    [
+     735,
+     -10
+    ],
+    [
+     750,
+     -7
+    ],
+    [
+     765,
+     -4
+    ],
+    [
+     772,
+     -1
+    ],
+    [
+     790,
+     0
+    ],
+    [
+     1440,
+     0
+    ],
+    [
+     1542,
+     0
+    ],
+    [
+     1560,
+     -40
+    ]
+   ]
+  }
+ ],
+ "cues": [
+  {
+   "frame": 120.0,
+   "t": 5.0,
+   "sound": "tick",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 127.5,
+   "t": 5.3125,
+   "sound": "tock",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 135.0,
+   "t": 5.625,
+   "sound": "tick",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 138,
+   "t": 5.75,
+   "sound": "curtain_air",
+   "gain_db": -24,
+   "pan": 0.5,
+   "shot": "S02",
+   "what": "the sheers breathe (screen-left of camera)"
+  },
+  {
+   "frame": 142.5,
+   "t": 5.9375,
+   "sound": "tock",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 150.0,
+   "t": 6.25,
+   "sound": "tick",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 157.5,
+   "t": 6.5625,
+   "sound": "tock",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 165.0,
+   "t": 6.875,
+   "sound": "tick",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 172.5,
+   "t": 7.1875,
+   "sound": "tock",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 180.0,
+   "t": 7.5,
+   "sound": "tick",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 187.5,
+   "t": 7.8125,
+   "sound": "tock",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 195.0,
+   "t": 8.125,
+   "sound": "tick",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 202.5,
+   "t": 8.4375,
+   "sound": "tock",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 210.0,
+   "t": 8.75,
+   "sound": "tick",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 217.5,
+   "t": 9.0625,
+   "sound": "tock",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 225.0,
+   "t": 9.375,
+   "sound": "tick",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 232.5,
+   "t": 9.6875,
+   "sound": "tock",
+   "gain_db": -30,
+   "pan": -0.35,
+   "shot": "S02",
+   "what": "a wall clock's tick, in eighths"
+  },
+  {
+   "frame": 244,
+   "t": 10.1667,
+   "sound": "cloth_swipe",
+   "gain_db": -17,
+   "pan": 0.2,
+   "shot": "S03",
+   "what": "a fingertip along the green book cloth"
+  },
+  {
+   "frame": 315,
+   "t": 13.125,
+   "sound": "paper_flick",
+   "gain_db": -17,
+   "pan": -0.1,
+   "shot": "S04",
+   "what": "the polaroid nudged against the books"
+  },
+  {
+   "frame": 390,
+   "t": 16.25,
+   "sound": "glass_tick",
+   "gain_db": -17,
+   "pan": 0.15,
+   "shot": "S05",
+   "what": "a tick on the frosted acrylic"
+  },
+  {
+   "frame": 420,
+   "t": 17.5,
+   "sound": "coin_ring",
+   "gain_db": -16,
+   "pan": -0.1,
+   "shot": "S06",
+   "what": "the coin's ring"
+  },
+  {
+   "frame": 450,
+   "t": 18.75,
+   "sound": "brass_tink",
+   "gain_db": -19,
+   "pan": 0.2,
+   "shot": "S06",
+   "what": "a mined tink on the pickaxe's rack"
+  },
+  {
+   "frame": 486,
+   "t": 20.25,
+   "sound": "servo",
+   "gain_db": -21,
+   "pan": 0.0,
+   "shot": "S07",
+   "what": "the gimbal's servos settling"
+  },
+  {
+   "frame": 525,
+   "t": 21.875,
+   "sound": "blip",
+   "gain_db": -22,
+   "pan": 0.0,
+   "shot": "S07",
+   "what": "the red front LED"
+  },
+  {
+   "frame": 540,
+   "t": 22.5,
+   "sound": "key1",
+   "gain_db": -18,
+   "pan": 0.1,
+   "shot": "S08",
+   "what": "a keystroke"
+  },
+  {
+   "frame": 548,
+   "t": 22.8333,
+   "sound": "key2",
+   "gain_db": -20,
+   "pan": 0.12,
+   "shot": "S08",
+   "what": "a keystroke"
+  },
+  {
+   "frame": 555,
+   "t": 23.125,
+   "sound": "key3",
+   "gain_db": -19,
+   "pan": 0.08,
+   "shot": "S08",
+   "what": "a keystroke"
+  },
+  {
+   "frame": 570,
+   "t": 23.75,
+   "sound": "cursor",
+   "gain_db": -26,
+   "pan": 0.0,
+   "shot": "S08",
+   "what": "the cursor's blink"
+  },
+  {
+   "frame": 585,
+   "t": 24.375,
+   "sound": "cursor",
+   "gain_db": -26,
+   "pan": 0.0,
+   "shot": "S08",
+   "what": "the cursor's blink"
+  },
+  {
+   "frame": 630,
+   "t": 26.25,
+   "sound": "paper_settle",
+   "gain_db": -18,
+   "pan": 0.2,
+   "shot": "S09",
+   "what": "a calendar page settling"
+  },
+  {
+   "frame": 705,
+   "t": 29.375,
+   "sound": "needle_drop",
+   "gain_db": -18,
+   "pan": 0.0,
+   "shot": "S10",
+   "what": "the stylus lands; the breath before the drop"
+  },
+  {
+   "frame": 720,
+   "t": 30.0,
+   "sound": "sub_whoomph",
+   "gain_db": -10,
+   "pan": 0.0,
+   "shot": "S11",
+   "what": "the drop's sub"
+  },
+  {
+   "frame": 720,
+   "t": 30.0,
+   "sound": "electric_swell",
+   "gain_db": -24,
+   "pan": 0.0,
+   "shot": "S11",
+   "what": "the halo's power coming up"
+  },
+  {
+   "frame": 720,
+   "t": 30.0,
+   "sound": "relay_0",
+   "gain_db": -19,
+   "pan": -0.4,
+   "shot": "S11",
+   "what": "letter 1 of k a r m a lights"
+  },
+  {
+   "frame": 735,
+   "t": 30.625,
+   "sound": "relay_1",
+   "gain_db": -19,
+   "pan": -0.2,
+   "shot": "S11",
+   "what": "letter 2 of k a r m a lights"
+  },
+  {
+   "frame": 750,
+   "t": 31.25,
+   "sound": "relay_2",
+   "gain_db": -19,
+   "pan": 0.0,
+   "shot": "S11",
+   "what": "letter 3 of k a r m a lights"
+  },
+  {
+   "frame": 765,
+   "t": 31.875,
+   "sound": "relay_3",
+   "gain_db": -19,
+   "pan": 0.2,
+   "shot": "S11",
+   "what": "letter 4 of k a r m a lights"
+  },
+  {
+   "frame": 772,
+   "t": 32.1667,
+   "sound": "relay_4",
+   "gain_db": -19,
+   "pan": 0.4,
+   "shot": "S11",
+   "what": "letter 5 of k a r m a lights"
+  },
+  {
+   "frame": 780,
+   "t": 32.5,
+   "sound": "downlight",
+   "gain_db": -19,
+   "pan": -0.5,
+   "shot": "S12",
+   "what": "a downlight group's contactor"
+  },
+  {
+   "frame": 795,
+   "t": 33.125,
+   "sound": "downlight",
+   "gain_db": -19,
+   "pan": -0.15,
+   "shot": "S12",
+   "what": "a downlight group's contactor"
+  },
+  {
+   "frame": 810,
+   "t": 33.75,
+   "sound": "downlight",
+   "gain_db": -19,
+   "pan": 0.2,
+   "shot": "S12",
+   "what": "a downlight group's contactor"
+  },
+  {
+   "frame": 825,
+   "t": 34.375,
+   "sound": "downlight",
+   "gain_db": -19,
+   "pan": 0.5,
+   "shot": "S12",
+   "what": "a downlight group's contactor"
+  },
+  {
+   "frame": 900,
+   "t": 37.5,
+   "sound": "key_thunk",
+   "gain_db": -22,
+   "pan": 0.15,
+   "shot": "S13",
+   "what": "his key light"
+  },
+  {
+   "frame": 1000,
+   "t": 41.6667,
+   "sound": "cloth_a",
+   "gain_db": -28,
+   "pan": 0.1,
+   "shot": "S14",
+   "what": "his open-hand gesture"
+  },
+  {
+   "frame": 1108,
+   "t": 46.1667,
+   "sound": "cloth_b",
+   "gain_db": -29,
+   "pan": -0.15,
+   "shot": "S15",
+   "what": "he turns his head to her"
+  },
+  {
+   "frame": 1236,
+   "t": 51.5,
+   "sound": "cloth_c",
+   "gain_db": -28,
+   "pan": -0.2,
+   "shot": "S16",
+   "what": "her small gesture with the watch hand"
+  }
+ ]
+}
