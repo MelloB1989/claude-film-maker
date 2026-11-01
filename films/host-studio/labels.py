@@ -174,9 +174,7 @@ def sleeve(n: int = 2048) -> None:
 def calendar(px_cm: int = 100) -> None:
     w, h = int(10 * px_cm), int(12 * px_cm)
     alb = paper(w, h, (247, 246, 241), 31, fibre=0.02)
-    for k in range(11):  # the punched holes for the twin-loop wire
-        x = int((0.75 + k * 0.85) * px_cm)
-        alb[int(0.3 * px_cm):int(0.62 * px_cm), x:x + int(0.36 * px_cm)] = (30, 30, 30)
+    # the wire's holes are cut in the card itself (props/desk_calendar.py): none drawn here
     day = text_layer((w, h), "27", font(SANS, int(5.6 * px_cm), 640), (w / 2, h * 0.47), "mm")
     month = text_layer((w, h), "NOV", font(SANS, int(1.55 * px_cm), 560), (w / 2, h * 0.80), "mm",
                        spacing=int(0.22 * px_cm))
