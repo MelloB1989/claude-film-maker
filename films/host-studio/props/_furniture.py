@@ -85,11 +85,18 @@ def wood(name, light, dark, roughness=0.5, ring=16.0, contrast=1.0, end_grain=Fa
         bend = math_("SINE", math_("MULTIPLY_ADD", u, 1.9, seed * 5.0), 0)
         coord = math_("MULTIPLY_ADD", bend, 0.022, v)
         coord = math_("MULTIPLY_ADD", warp, 0.06, coord)
+        # uneven ring spacing and line strength, so the figure is not a regular pinstripe
+        jm = node("ShaderNodeMapping", Vector=uvw, Location=(seed * 2, 0.5, 0), Scale=(0.6, 30.0, 1.0))
+        jit = node("ShaderNodeTexNoise", Vector=jm.outputs["Vector"], Scale=1.0, Detail=1.0).outputs["Fac"]
+        coord = math_("MULTIPLY_ADD", jit, 0.012, coord)
+        sm = node("ShaderNodeMapping", Vector=uvw, Location=(seed, 1.3, 0), Scale=(0.35, 70.0, 1.0))
+        strength = maprange(node("ShaderNodeTexNoise", Vector=sm.outputs["Vector"], Scale=1.0,
+                                 Detail=0.0).outputs["Fac"], 0.3, 0.7, 0.15, 1.0)
         s1 = math_("SINE", math_("MULTIPLY", coord, 2 * math.pi * ring / 0.16), 0)
         s2 = math_("SINE", math_("MULTIPLY", coord, 2 * math.pi * ring * 3.7 / 0.16), 0)
-        l1 = maprange(s1, 0.72, 1.0, 0.0, 1.0)
-        l2 = maprange(s2, 0.6, 1.0, 0.0, 0.3)
-        line = math_("MAXIMUM", l1, l2)
+        l1 = maprange(s1, 0.80, 1.0, 0.0, 0.75)
+        l2 = maprange(s2, 0.7, 1.0, 0.0, 0.18)
+        line = math_("MAXIMUM", math_("MULTIPLY", l1, strength), l2)
         pm = node("ShaderNodeMapping", Vector=uvw, Location=(seed * 3, 0, 0), Scale=(28.0, 900.0, 1.0))
         pores = node("ShaderNodeTexNoise", Vector=pm.outputs["Vector"], Scale=1.0, Detail=1.0).outputs["Fac"]
     line = math_("MULTIPLY", line, contrast)
@@ -412,3 +419,19 @@ def led_light(name, centre, length, width=0.014, energy=20.0, color=(1.0, 0.72, 
     ob.location = centre
     ob.rotation_euler = (0, 0, math.pi / 2)
     return ob
+
+
+# --------------------------------------------------------------------------- shared materials
+
+def oak():
+    """Light oak, as in the concept: honey-blond, satin oil finish."""
+    return wood("M_Oak", (0.83, 0.65, 0.44), (0.63, 0.46, 0.28), roughness=0.5, ring=11.0)
+
+
+def oak_end():
+    return wood("M_OakEnd", (0.75, 0.57, 0.37), (0.58, 0.42, 0.25), roughness=0.6, end_grain=True)
+
+
+def black_metal(name="M_Plinth"):
+    """Black powder-coated steel."""
+    return plain(name, (0.035, 0.035, 0.037), 0.42, metallic=0.0)

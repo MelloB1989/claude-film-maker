@@ -40,8 +40,8 @@ Y_CH = LEN / 2 - CH_END
 
 def materials():
     return dict(
-        oak=F.wood("M_Oak", (0.84, 0.68, 0.49), (0.64, 0.47, 0.30), roughness=0.5),
-        end=F.wood("M_OakEnd", (0.76, 0.59, 0.41), (0.60, 0.44, 0.28), roughness=0.6, end_grain=True),
+        oak=F.oak(),
+        end=F.oak_end(),
         alu=F.plain("M_Alu", (0.80, 0.80, 0.81), 0.32, metallic=1.0),
         led=F.emissive("M_LedStrip", (1.0, 0.80, 0.58), 4.0, roughness=0.35),
     )
