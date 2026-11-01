@@ -412,12 +412,12 @@ def tex_oakend(N, px, rng):
 
     c = lerp(col((182, 142, 98)), col((150, 108, 70)), late ** 2)
     c = lerp(c, col((140, 100, 64)), early * 0.5)
-    c = c * (1 + 0.05 * lf + 0.02 * saw)[..., None]
+    c = c * (1 + 0.02 * lf + 0.02 * saw)[..., None]
     c = lerp(c, col((48, 31, 20)), big_pores * 0.9)
     c = lerp(c, col((96, 64, 42)), small_pores * 0.7)
     c = lerp(c, col((194, 158, 116)), rays * 0.45)
     c = match_mean(c, (160, 120, 82))
-    h = -60e-6 * big_pores - 25e-6 * small_pores - 6e-6 * early + 4e-6 * rays + 2e-6 * saw + 40e-6 * gnoise(rng, shp, 15 * mm)
+    h = -60e-6 * big_pores - 25e-6 * small_pores - 6e-6 * early + 4e-6 * rays + 2e-6 * saw + 15e-6 * gnoise(rng, shp, 15 * mm)
     rough = 0.66 + 0.1 * big_pores + 0.04 * early - 0.04 * rays + 0.02 * lf
     return dict(A=c, H=h, R=np.clip(rough, 0.55, 0.85))
 
@@ -642,7 +642,7 @@ def tex_wool(N, px, rng):
     A = match_mean(c, (214, 202, 180))
     H = hn * 4.0e-3 + 0.12e-3 * fuzz + 0.2e-3 * hair
     R = 0.95 - 0.03 * sstep(0.3, 1.0, hn) + 0.02 * fuzz
-    return dict(A=A, H=H, R=np.clip(R, 0.88, 1.0), nscale=0.35)
+    return dict(A=A, H=H, R=np.clip(R, 0.88, 1.0), nscale=0.3)
 
 
 def tex_felt(N, px, rng):
@@ -659,10 +659,10 @@ def tex_felt(N, px, rng):
     mott = gnoise(rng, shp, 12 * mm) + 0.5 * gnoise(rng, shp, 3 * mm)
     grain = gnoise(rng, shp, 0.6)
     pits = sstep(2.0, 2.6, gnoise(rng, shp, 0.5 * mm))  # needle-punch holes
-    v = 1 + 0.035 * mott + 0.06 * grain + 0.2 * fib + 0.35 * light - 0.15 * pits
+    v = 1 + 0.035 * mott + 0.06 * grain + 0.1 * fib + 0.12 * light - 0.12 * pits
     c = col((31, 31, 33))[None, None] * v[..., None]
     A = match_mean(c, (31, 31, 33))
-    H = 25e-6 * fib + 15e-6 * grain + 60e-6 * gnoise(rng, shp, 2 * mm) + 0.1e-3 * mott / 3 - 30e-6 * pits
+    H = 12e-6 * fib + 8e-6 * grain + 8e-6 * gnoise(rng, shp, 2 * mm) + 15e-6 * mott - 15e-6 * pits
     R = 0.94 - 0.03 * fib + 0.02 * grain
     return dict(A=A, H=H, R=np.clip(R, 0.88, 1.0))
 
@@ -725,23 +725,21 @@ def voronoi_edges(rng, N, n, jitter=2.0):
 
 
 def tex_leather(N, px, rng):
-    """Black protein (PU) leather: a pebbled grain of ~1.5 mm cells with fine creases, a smaller grain inside, and a
-    soft satin sheen on the crowns."""
+    """Black protein (PU) leather for headphone pads: a fine pebble grain of ~0.9 mm rounded cells with soft valleys
+    between them, a smaller grain inside, a satin sheen on the crowns."""
     shp = (N, N)
     mm = 0.001 / px
-    eb, f1b, ib = voronoi_edges(rng, N, int((N / (1.5 * mm)) ** 2), 2.5)
-    es, _, _ = voronoi_edges(rng, N, int((N / (0.55 * mm)) ** 2), 1.2)
-    cellh = rng.normal(0, 1, ib.max() + 1)[ib]
-    hb = sstep(0, 3.2, eb)
-    hs = sstep(0, 1.6, es)
-    dome = 1 - np.clip(f1b / (0.9 * mm), 0, 1) ** 2
+    eb, f1b, _ = voronoi_edges(rng, N, int((N / (0.9 * mm)) ** 2), 1.6)
+    es, _, _ = voronoi_edges(rng, N, int((N / (0.35 * mm)) ** 2), 0.8)
+    hb = sstep(0, 4.5, eb) ** 0.7  # rounded crowns, soft valleys
+    hs = sstep(0, 2.0, es)
     micro = gnoise(rng, shp, 0.8)
-    H = 30e-6 * hb + 7e-6 * hs + 8e-6 * dome + 3e-6 * cellh + 2e-6 * micro + 30e-6 * gnoise(rng, shp, 40 * mm)
-    v = 1 + 0.06 * (hb - 0.7) + 0.04 * micro + 0.03 * cellh
+    H = 12e-6 * hb + 2.5e-6 * hs + 1.5e-6 * micro + 20e-6 * gnoise(rng, shp, 30 * mm)
+    v = 1 + 0.05 * (hb - 0.7) + 0.03 * micro
     c = col((19, 19, 20))[None, None] * v[..., None]
     A = match_mean(c, (19, 19, 20))
-    R = 0.48 - 0.1 * (hb - 0.7) - 0.03 * hs + 0.015 * micro
-    return dict(A=A, H=H, R=np.clip(R, 0.32, 0.62))
+    R = 0.44 - 0.06 * (hb - 0.7) - 0.02 * hs + 0.012 * micro + 0.02 * gnoise(rng, shp, 15 * mm)
+    return dict(A=A, H=H, R=np.clip(R, 0.32, 0.58))
 
 
 def tex_stoneware(N, px, rng):
@@ -785,10 +783,11 @@ def tex_brushed(N, px, rng):
     st /= st.std()
     scratch = sstep(2.4, 3.2, gnoise(rng, shp, 60 * mm, 0.06 * mm, angle=rng.normal(0, 0.02)))
     lf = gnoise(rng, shp, 30 * mm, 10 * mm)
+    fine = gnoise(rng, shp, 40 * mm, 0.05 * mm)
     a = 0.6 * (1 + 0.015 * st + 0.01 * lf + 0.03 * scratch)
     A = np.repeat(a[..., None], 3, -1).astype(F32)
-    H = 0.6e-6 * st + 1.5e-6 * scratch
-    R = 0.3 + 0.045 * st + 0.03 * lf + 0.08 * scratch
+    H = 0.5e-6 * fine + 0.25e-6 * st + 1.2e-6 * scratch
+    R = 0.3 + 0.02 * fine + 0.012 * st + 0.015 * lf + 0.05 * scratch
     return dict(A=A, H=H, R=np.clip(R, 0.18, 0.48))
 
 
@@ -924,7 +923,7 @@ def blender_preview(argv):
     ap.add_argument("--tex", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--only", nargs="*", default=None)
-    ap.add_argument("--samples", type=int, default=32)
+    ap.add_argument("--samples", type=int, default=128)
     ap.add_argument("--res", type=int, default=900)
     a = ap.parse_args(argv)
     tex = Path(a.tex)
@@ -992,7 +991,8 @@ def blender_preview(argv):
     key.shape = "DISK"
     key.size = 0.9
     key.energy = 700
-    kd = Vector((0.35, -1.0, 0.24)).normalized()  # from the left, ~13 degrees above the plane: grazing
+    key.color = (1.0, 0.93, 0.85)  # a little warm, as the studio's lamps
+    kd = Vector((0.45, 1.0, 0.26)).normalized()  # from the right, ~13 degrees above the plane: grazing
     ko = bpy.data.objects.new("key", key)
     sc.collection.objects.link(ko)
     ko.location = kd * 3.2
@@ -1010,7 +1010,16 @@ def blender_preview(argv):
     for attr in ("use_shadows", "use_raytracing"):
         if hasattr(sc.eevee, attr):
             setattr(sc.eevee, attr, True)
+    for attr, val in (("shadow_ray_count", 4), ("shadow_step_count", 16)):
+        if hasattr(sc.eevee, attr):
+            setattr(sc.eevee, attr, val)
+    if hasattr(key, "use_shadow_jitter"):
+        key.use_shadow_jitter = True
     sc.view_settings.view_transform = "AgX"
+    try:
+        sc.view_settings.look = "AgX - Medium High Contrast"
+    except TypeError:
+        pass
     sc.render.resolution_x = sc.render.resolution_y = a.res
     sc.render.image_settings.file_format = "PNG"
 
@@ -1069,8 +1078,8 @@ def blender_preview(argv):
         sc.render.filepath = str(out / f"{name}_wide.png")
         bpy.ops.render.render(write_still=True)
         w = close_width(cover)
-        # close-up on the box's front-right top edge and the plane in front of it
-        look((0.03 - w * 0.12, -0.075 + w * 0.05, 0.11 - w * 0.25), (1.0, 0.55, 0.6), w)
+        # close-up on the box's front-right top corner, the lit side and the plane beside it
+        look((0.03 - w * 0.05, -0.075 + w * 0.12, 0.12 - w * 0.18), (1.0, 0.8, 0.65), w)
         sc.render.filepath = str(out / f"{name}_close.png")
         bpy.ops.render.render(write_still=True)
 
@@ -1078,6 +1087,7 @@ def blender_preview(argv):
 if __name__ == "__main__":
     try:
         import bpy  # noqa: F401
-        blender_preview(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else [])
     except ImportError:
         main()
+    else:
+        blender_preview(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else [])
