@@ -119,7 +119,8 @@ for label in LABELS:
                                                  for c in sec.get_editor_property("scalar_parameter_names_and_curves")])
                     tr["sections"].append(sr)
             tracks.append(tr)
-        row[key] = {"bound": objs, "tracks": tracks}
+        # a list: two bindings of one name (an old possessable beside a new one) must both show
+        row.setdefault(key, []).append({"guid": tryit(lambda: str(b.get_id())), "bound": objs, "tracks": tracks})
     out[label] = row
 LSE.open_level_sequence(seq)
 LSE.set_current_time(725)
