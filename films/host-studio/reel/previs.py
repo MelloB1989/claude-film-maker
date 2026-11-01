@@ -108,6 +108,11 @@ def main() -> None:
     made = []
     SEQ_ = a.seq
     ats = [float(u) for u in a.at.split(",")] if a.at else [None]
+
+    def drop_seq():
+        ok(client.exec_code(f"import unreal\nE = unreal.EditorAssetLibrary\n"
+                            f"result = E.delete_asset({SEQ_!r}) if E.does_asset_exist({SEQ_!r}) else None"))
+
     try:
         for s, u in [(s, u) for s in shots for u in ats]:
             loc, at = place(s, host, u)
@@ -120,6 +125,7 @@ def main() -> None:
             # look.still alone takes the viewport's field of view; a still through a sequence cut to the camera
             # (locked to the viewport) uses the cine lens: a throwaway sequence per shot, deleted at the end
             ok(client.op("seq.close"))
+            drop_seq()  # never create over an existing asset: the overwrite prompt is modal and freezes the editor
             ok(client.op("seq.shot", path=SEQ_, actor_label="Host", anims={"Body": IDLE}, camera=label, seconds=1.0))
             remote = rf"{REMOTE}\{s.id}_{0 if u is None else round(u * 100)}.png"
             ok(client.op("seq.still", path=SEQ_, frame=12, camera=label, out=remote, width=a.width,
@@ -130,8 +136,7 @@ def main() -> None:
             print(s.id, [round(v) for v in loc], "->", [round(v) for v in at], f"{s.lens:g}mm", flush=True)
     finally:
         ok(client.op("seq.close"))
-        ok(client.exec_code(f"import unreal\nE = unreal.EditorAssetLibrary\n"
-                            f"result = E.delete_asset({SEQ_!r}) if E.does_asset_exist({SEQ_!r}) else None"))
+        drop_seq()
         if made:
             ok(client.op("level.delete", labels=made))
 
