@@ -249,9 +249,11 @@ def cloth_inflate(label: str, cm: float = 0.6, component: str = "SkeletalMesh", 
     MEL = unreal.MaterialEditingLibrary
 
     def comp():  # fetched afresh: a Blueprint's construction script may have replaced it
-        return next(c for c in actor(label).get_components_by_class(unreal.SkeletalMeshComponent)
-                    if c.get_name() == component)
+        return next((c for c in actor(label).get_components_by_class(unreal.SkeletalMeshComponent)
+                     if c.get_name() == component), None)
 
+    if comp() is None:  # built without the default garment (her own outfit is attached separately)
+        return {}
     used = _in_use()
     swaps, done = {}, {}
     for mi in {m.get_path_name(): m for m in comp().get_materials() if isinstance(m, unreal.MaterialInstance)}.values():
