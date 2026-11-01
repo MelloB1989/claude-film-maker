@@ -417,32 +417,11 @@ BEDS = [
 
 # One-shots: (frame, sound, gain dB, pan -1..1, shot, what). The hit lands on the frame.
 CUES = [
-    # S02 the room (bars 3-4): the curtain breathes, a clock ticks in eighths under the empty room
-    *[(120 + 7.5 * i, "tick" if i % 2 == 0 else "tock", -30, -0.35, "S02", "a wall clock's tick, in eighths")
-      for i in range(16)],
-    (138, "curtain_air", -24, 0.5, "S02", "the sheers breathe (screen-left of camera)"),
-    # S03 seven spines (bar 5): a finger along the cloth, from the cut
-    (244, "cloth_swipe", -17, 0.2, "S03", "a fingertip along the green book cloth"),
-    # S04 the polaroid (bar 6): a soft flick on beat 2
-    (315, "paper_flick", -17, -0.1, "S04", "the polaroid nudged against the books"),
-    # S05 lyzn (bar 7): a glassy tick on beat 3
-    (390, "glass_tick", -17, 0.15, "S05", "a tick on the frosted acrylic"),
-    # S06 the coin (bar 8): its ring with the kick on beat 1, the pickaxe's tink on beat 3 (the focus rack)
-    (420, "coin_ring", -16, -0.1, "S06", "the coin's ring"),
-    (450, "brass_tink", -19, 0.2, "S06", "a mined tink on the pickaxe's rack"),
-    # S07 the drone (bar 9): the gimbal whirrs as the camera cranes down, the LED blips on beat 4
-    (486, "servo", -21, 0.0, "S07", "the gimbal's servos settling"),
-    (525, "blip", -22, 0.0, "S07", "the red front LED"),
-    # S08 hello, friend (bar 10): three keystrokes (beat 1, its &, beat 2), the cursor ticking on 3 and 4
-    (540, "key1", -18, 0.1, "S08", "a keystroke"),
-    (548, "key2", -20, 0.12, "S08", "a keystroke"),
-    (555, "key3", -19, 0.08, "S08", "a keystroke"),
-    (570, "cursor", -26, 0.0, "S08", "the cursor's blink"),
-    (585, "cursor", -26, 0.0, "S08", "the cursor's blink"),
-    # S09 27 NOV (bar 11): a calendar page settling as the focus lands on it
-    (630, "paper_settle", -18, 0.2, "S09", "a calendar page settling"),
-    # S10 the crate (bar 12): the needle drops on beat 4, the breath (the crackle bed carries it)
-    (705, "needle_drop", -18, 0.0, "S10", "the stylus lands; the breath before the drop"),
+    # PLAN v2: no foley for single objects (the picture no longer points at any); the room speaks instead.
+    # V03 the window and the olive (bars 7-8): the sheers breathe as the crane rises past the tree
+    (378, "curtain_air", -24, 0.5, "V03", "the sheers breathe"),
+    # V05 the room (bar 12): the needle drops on beat 4, the breath (the crackle bed carries it)
+    (705, "needle_drop", -19, 0.25, "V05", "the stylus lands on the turntable in the wide; the breath before the drop"),
     # S11 the drop (bar 13): the sub, the power swelling, a relay clack per letter (k a r m a on 1, 2, 3, 4, 4&)
     (720, "sub_whoomph", -10, 0.0, "S11", "the drop's sub"),
     (720, "electric_swell", -24, 0.0, "S11", "the halo's power coming up"),
@@ -451,12 +430,12 @@ CUES = [
     # S12 the studio comes on (bar 14): four downlight groups, one per beat, across the room
     *[(780 + 15 * i, "downlight", -19, p, "S12", "a downlight group's contactor")
       for i, p in enumerate([-0.5, -0.15, 0.2, 0.5])],
-    # S13 him (bar 16): his key light comes up with a soft thunk
-    (900, "key_thunk", -22, 0.15, "S13", "his key light"),
-    # the presenters: light cloth movement only (his open hand in S14, his turn to her in S15, her watch hand in S16)
-    (1000, "cloth_a", -28, 0.1, "S14", "his open-hand gesture"),
-    (1108, "cloth_b", -29, -0.15, "S15", "he turns his head to her"),
-    (1236, "cloth_c", -28, -0.2, "S16", "her small gesture with the watch hand"),
+    # S13 him (bar 17 beat 3): his key light comes up with a soft thunk as he looks up
+    (990, "key_thunk", -22, 0.15, "S13", "his key light"),
+    (992, "cloth_a", -30, 0.1, "S13", "his head comes up"),
+    # the presenters: light cloth movement only (his turn to her after L2, the glance between them in S17)
+    (1125, "cloth_b", -29, -0.15, "S15", "he turns his head to her"),
+    (1380, "cloth_c", -30, -0.2, "S17", "the glance between them"),
 ]
 
 
