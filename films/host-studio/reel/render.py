@@ -6,6 +6,7 @@ rendered cold carries the previous shot's temporal history (a double exposure); 
 
     cd tools && uv run python ../films/host-studio/reel/render.py --shots S01,S02 [--res 1080|2160] [--samples 8]
     cd tools && uv run python ../films/host-studio/reel/render.py --shots S14 --frames 24   # a calibration chunk
+    cd tools && uv run python ../films/host-studio/reel/render.py --shots N01 --at 946 --frames 8   # a mid-shot test
 
 Run studio.py, rig.py, build.py and light.py --seq first (PLAN.md section 5). Quality as the plan's: Lumen deferred,
 render.QUALITY_CVARS, the hair strands' sky light off, motion blur from the cameras, `--samples` temporal samples.
@@ -40,23 +41,24 @@ def remote(sid: str, res: int) -> str:
     return rf"{PROJECT}\Saved\MovieRenders\reel_{res}p\{sid}"
 
 
-def render(sid: str, res: int, samples: int, frames: int = 0) -> dict:
+def render(sid: str, res: int, samples: int, frames: int = 0, at: int = 0) -> dict:
     s = next(x for x in SHOTS if x.id == sid)
-    end = s.start + frames if frames else s.end
-    out = remote(sid, res)
+    first = at or s.start
+    end = first + frames if frames else s.end
+    out = remote(sid, res) + (f"_t{at}" if at else "")  # a mid-shot test keeps the shot's own dir
     ok(client.exec_code(f"import shutil\nshutil.rmtree({out!r}, ignore_errors=True)\nresult = True"))  # no stale frames
     ok(client.op("seq.close"))
     t0 = time.time()
     ok(client.op("render.mrq", sequence=SEQ, level=LEVEL, out_dir=out, width=res * 16 // 9, height=res,
-                 start=s.start - PREROLL,
+                 start=first - PREROLL,
                  end=end, temporal=samples, spatial=1, name=f"reel_{sid}", warmup=32, cvars=CVARS))
     while True:
-        p = ok(client.op("render.progress", out_dir=out, expected=end - s.start + PREROLL))
+        p = ok(client.op("render.progress", out_dir=out, expected=end - first + PREROLL))
         if p["done"]:
             break
         time.sleep(10)
     dt = time.time() - t0
-    return {"shot": sid, "dir": out, "frames": p["frames"], "expected": end - s.start + PREROLL, "first": s.start,
+    return {"shot": sid, "dir": out, "frames": p["frames"], "expected": end - first + PREROLL, "first": first,
             "last": end - 1, "s": round(dt), "s_per_frame": round(dt / max(1, p["frames"]), 1)}
 
 
@@ -66,9 +68,10 @@ def main() -> None:
     ap.add_argument("--res", type=int, default=1080, help="frame height: 1080 (the first cut) or 2160")
     ap.add_argument("--samples", type=int, default=8, help="temporal samples per frame")
     ap.add_argument("--frames", type=int, default=0, help="only the first N frames of each shot (calibration)")
+    ap.add_argument("--at", type=int, default=0, help="a test from this master frame (into <shot>_t<at>)")
     a = ap.parse_args()
     for sid in a.shots.split(","):
-        print(render(sid, a.res, a.samples, a.frames), flush=True)
+        print(render(sid, a.res, a.samples, a.frames, a.at), flush=True)
 
 
 if __name__ == "__main__":
