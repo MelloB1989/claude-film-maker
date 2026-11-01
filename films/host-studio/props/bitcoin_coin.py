@@ -1,18 +1,23 @@
-"""bitcoin_coin — a gold commemorative coin, 40 mm across, 3.2 mm thick, lying flat face up.
+"""bitcoin_coin — a 60 mm gold display coin standing in a slotted walnut block.
 
-Body: a lathe with a raised rim on both faces, small chamfers and a finely reeded (milled) edge
-as real geometry (144 reeds). Obverse: a flat field with, in relief, a bitcoin "B" (a B with two
-short vertical strokes through its top and bottom, tilted 14 degrees clockwise) standing 0.4 mm
+The coin: 60 mm across, 4.8 mm thick (the 40 mm design scaled 1.5x, relief included): a lathe
+with a raised rim on both faces, small chamfers and a finely reeded (milled) edge as real
+geometry (216 reeds). Obverse: a flat field with, in relief, a bitcoin "B" (a B with two
+short vertical strokes through its top and bottom, tilted 14 degrees clockwise) standing 0.6 mm
 proud with filleted edges, and around it a subtle circuit-trace pattern (traces, pads and vias,
-0.12 mm proud) running out to a thin raised ring inside the rim. The B is our own geometric
+0.18 mm proud) running out to a thin raised ring inside the rim. The B is our own geometric
 construction (a stem, two D-shaped bowls with counters, serifs and two bar pairs), not traced
 from any logo artwork. The relief is cut into the field with a constrained Delaunay
 triangulation of the outlines, so the coin stays one closed, manifold shell.
 
-The B reads upright with its top towards -X: stood up facing +X (rotate +90 degrees about Y, or
-75 degrees to lean it on a wall as in the concept), it is upright and unmirrored.
-Origin: centre of the bottom face. Slot: M_Gold. UVs: the faces planar (0..1 across the
-diameter), the edge cylindrical.
+The stand: a walnut block 80 x 40 x 20 mm (Y x X x Z), every edge rounded (1.5 mm), with a
+router-cut slot 5.4 mm wide, 46 mm long with round ends and 9 mm deep, cut leaning back 10
+degrees. The coin stands in it, its rim resting on the slot floor, leaning back 10 degrees and
+facing +X with the B upright and unmirrored.
+
+Origin: bottom centre of the stand. Slots: M_Gold, M_Walnut. UVs: the coin's faces planar
+(0..1 across the diameter), its edge cylindrical; the walnut box-projected (1 UV = 1 m) with
+the grain along the block (Y).
 
     blender -b --factory-startup -P films/host-studio/props/bitcoin_coin.py -- --out films/host-studio/props/out
 """
@@ -21,12 +26,14 @@ import os
 import sys
 
 import bmesh
+import bpy
 from mathutils import Matrix, Vector
 from mathutils.geometry import delaunay_2d_cdt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _studio as S  # noqa: E402
 import _smalls as M  # noqa: E402
+import _furniture as F  # noqa: E402
 
 NAME = "bitcoin_coin"
 MM = M.MM
@@ -34,8 +41,8 @@ TAU = M.TAU
 
 R = 20.0            # radius, mm
 T = 3.2             # thickness
-SEG = 144           # segments of the plain rings
-REEDS = 144         # reeds on the edge (2 vertices each: ridge, groove)
+SEG = 216           # segments of the plain rings
+REEDS = 216         # reeds on the edge (2 vertices each: ridge, groove)
 REED_DEPTH = 0.15
 FIELD_R = 18.15     # obverse field radius
 FIELD_Z = 2.75      # obverse field height (the rim stands to 3.2)
@@ -284,9 +291,9 @@ def coin_uvs(bm):
 
 
 def gold_material():
-    """Preview gold with a proof finish: mirror field, frosted relief (read from the Relief
-    colour attribute), faint wear in the roughness."""
-    m = S.material("M_Gold", (0.98, 0.78, 0.38), 0.12, metallic=1.0)
+    """Preview gold: a satin-polished field (a mirror field flares white on the shelf), frosted
+    relief (read from the Relief colour attribute), faint wear in the roughness."""
+    m = S.material("M_Gold", (0.70, 0.42, 0.12), 0.12, metallic=1.0)
     nt = m.node_tree
     b = M.principled(m)
     attr = nt.nodes.new("ShaderNodeAttribute")
@@ -295,14 +302,14 @@ def gold_material():
     nz.inputs["Scale"].default_value = 300.0
     nz.inputs["Detail"].default_value = 4.0
     wear = nt.nodes.new("ShaderNodeMapRange")
-    wear.inputs["To Min"].default_value = 0.08
-    wear.inputs["To Max"].default_value = 0.20
+    wear.inputs["To Min"].default_value = 0.16
+    wear.inputs["To Max"].default_value = 0.28
     nt.links.new(nz.outputs["Fac"], wear.inputs["Value"])
     mix = nt.nodes.new("ShaderNodeMix")
     mix.data_type = "FLOAT"
     nt.links.new(attr.outputs["Fac"], mix.inputs["Factor"])
     nt.links.new(wear.outputs["Result"], mix.inputs[2])
-    mix.inputs[3].default_value = 0.42
+    mix.inputs[3].default_value = 0.45
     nt.links.new(mix.outputs[0], b.inputs["Roughness"])
     return m
 
@@ -324,7 +331,8 @@ def relief_colors(ob):
     me.update()
 
 
-def build():
+def build_coin():
+    """The coin as designed (40 mm), lying flat, face up (+Z), the B's top towards -X."""
     gold = gold_material()
     bm = bmesh.new()
     field_ring = body(bm)
@@ -334,32 +342,101 @@ def build():
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_edges], context="VERTS")
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     coin_uvs(bm)
-    return [M.obj(bm, NAME, [gold])]
+    return M.obj(bm, NAME + "_coin", [gold])
+
+
+# ---- display (mm)
+SCALE = 1.5                 # 40 mm design -> 60 mm display coin
+BLOCK = (40.0, 80.0, 20.0)  # X (depth) x Y (width) x Z (height)
+BLOCK_R = 1.5               # edge rounding
+SLOT_W = 5.4                # coin is 4.8 thick
+SLOT_L = 46.0
+SLOT_D = 9.0                # depth along the slot axis
+SLOT_X = 3.0                # slot centre (top surface), in front of the block centre
+LEAN = 10.0                 # degrees back from vertical
+
+
+def walnut():
+    return F.wood("M_Walnut", (0.36, 0.225, 0.14), (0.16, 0.085, 0.045), roughness=0.5, ring=14.0, seed=0.7)
+
+
+def axis():
+    a = math.radians(LEAN)
+    return Vector((-math.sin(a), 0.0, math.cos(a)))
+
+
+def stand(mat):
+    bx, by, bz = (v * MM for v in BLOCK)
+    blk = S.box("stand", (-bx / 2, -by / 2, 0), (bx / 2, by / 2, bz), mat)
+    bev = blk.modifiers.new("Bevel", "BEVEL")
+    bev.width = BLOCK_R * MM
+    bev.segments = 4
+    bev.limit_method = "ANGLE"
+    blk = M.bake(blk)
+    ax = axis()
+    top = Vector((SLOT_X * MM, 0, bz))
+    p0 = top - ax * (SLOT_D * MM / ax.z)        # the floor, SLOT_D below the top along the slot
+    p1 = top + ax * 6 * MM
+    outline = S.rounded_rect(SLOT_W * MM, SLOT_L * MM, SLOT_W * MM / 2 * 0.999, segs=10)
+    cutter = S.prism("slot", outline, p0, p1, mat, up=(1, 0, 0))
+    boo = blk.modifiers.new("Slot", "BOOLEAN")
+    boo.operation = "DIFFERENCE"
+    boo.solver = "EXACT"
+    boo.object = cutter
+    blk = M.bake(blk)
+    bpy.data.objects.remove(cutter, do_unlink=True)
+    rim = blk.modifiers.new("SlotRim", "BEVEL")    # soften the slot's cut edges
+    rim.width = 0.45 * MM
+    rim.segments = 2
+    rim.limit_method = "ANGLE"
+    rim.angle_limit = math.radians(50)
+    rim.harden_normals = False
+    blk = M.bake(blk)
+    bm = bmesh.new()
+    bm.from_mesh(blk.data)
+    M.box_uv(bm, grain=1)
+    bm.to_mesh(blk.data)
+    bm.free()
+    return blk, p0
+
+
+def build():
+    coin = build_coin()
+    relief_colors(coin)                         # in coin space, before it is moved
+    blk, floor = stand(walnut())
+    ax = axis()
+    me = coin.data
+    me.transform(Matrix.Translation((0, 0, -T / 2 * MM)))
+    me.transform(Matrix.Scale(SCALE, 4))
+    me.transform(Matrix.Rotation(math.radians(90 - LEAN), 4, "Y"))
+    centre = floor + ax * (R * SCALE * MM + 0.05 * MM)
+    me.transform(Matrix.Translation(centre))
+    me.update()
+    return [blk, coin]
 
 
 def flat_normals(ob):
-    """Custom normals: faces lying flat (field, relief tops, rim tops) keep their own normal at
-    every corner, so the fillets' smoothing cannot bleed across the long field triangles; the
-    reeds, chamfers and fillets keep their smooth normals."""
+    """Custom normals: on the gold, faces square to the coin's axis (field, relief tops, rim
+    tops) keep their own normal at every corner, so the fillets' smoothing cannot bleed across
+    the long field triangles; the reeds, chamfers and fillets keep their smooth normals."""
     me = ob.data
+    face_n = Matrix.Rotation(math.radians(90 - LEAN), 3, "Y") @ Vector((0, 0, 1))
+    gold = [i for i, m in enumerate(me.materials) if m.name == "M_Gold"][0]
     normals = []
     for p in me.polygons:
-        flat = abs(p.normal.z) > 0.999
+        flat = p.material_index == gold and abs(p.normal.dot(face_n)) > 0.999
         for li in p.loop_indices:
             normals.append(tuple(p.normal) if flat else tuple(me.corner_normals[li].vector))
     me.normals_split_custom_set(normals)
     me.update()
-    relief_colors(ob)
 
-
-CLOSE_VIEW = (1.0, -0.30, 1.35)
 
 if __name__ == "__main__":
     args = S.parse_args(__file__)
     S.reset_scene()
-    lo, hi = Vector((-0.012, -0.012, 0.0)), Vector((0.012, 0.012, 0.0032))
-    M.finish(NAME, build(), args, origin=(0, 0, 0), sharp_angle=55, post=flat_normals, views=[
-        ("", (1.0, -0.75, 0.85), 70, 1.15),
-        ("_front", (1.0, 0.0, 0.08), 70, 1.15),
-        ("_close", CLOSE_VIEW, 100, 1.3, (lo, hi)),
+    lo, hi = Vector((-0.03, -0.042, 0.0)), Vector((0.03, 0.042, 0.075))
+    M.finish(NAME, build(), args, origin=(0, 0, 0), sharp_angle=55, post=flat_normals, glossy=True, views=[
+        ("", (1.0, 0.75, 0.85), 70, 1.12),
+        ("_front", (1.0, 0.0, 0.10), 70, 1.12),
+        ("_close", (1.0, 0.25, 0.35), 100, 1.05, (Vector((-0.012, -0.032, 0.012)), Vector((0.012, 0.032, 0.072)))),
     ])
