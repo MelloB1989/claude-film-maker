@@ -21,6 +21,7 @@ CAMS = {  # her on her mark facing +X; +Y is her right. (loc, look_at, focal) re
 }
 LABELS = ["Host", "Presenter", "HerEarL", "HerEarR", "HerWatch", "Stool"]
 STATE = '''
+import unreal
 from fmbridge.ops import level as L
 out = {}
 for lab in %r:
@@ -30,7 +31,10 @@ for lab in %r:
     except ValueError:
         pass
 p = L.actor("Presenter").get_actor_location()
-result = {"hidden": out, "her": [p.x, p.y, p.z]}
+cur = unreal.LevelSequenceEditorBlueprintLibrary.get_current_level_sequence()
+LSE = unreal.LevelSequenceEditorBlueprintLibrary
+result = {"hidden": out, "her": [p.x, p.y, p.z], "seq": cur.get_path_name().split(".")[0] if cur else "",
+          "t": LSE.get_current_time() if cur else 0, "lock": LSE.is_camera_cut_locked_to_viewport() if cur else False}
 '''
 SET = '''
 from fmbridge.ops import level as L
@@ -71,6 +75,14 @@ for lab, comp, bone in (("HerWatch", "Body", "lowerarm_twist_02_l"), ("HerEarL",
     out[lab] = {"at": v(p), "bone": v(b), "dist": round((p - b).length(), 2)}
 out["hand_l"] = v(comps["Body"].get_socket_location("hand_l"))
 result = out
+'''
+REOPEN = '''
+import unreal
+LSE = unreal.LevelSequenceEditorBlueprintLibrary
+LSE.open_level_sequence(unreal.load_asset(%r))
+LSE.set_lock_camera_cut_to_viewport(%r)
+LSE.set_current_time(%r)
+result = True
 '''
 
 
@@ -136,11 +148,13 @@ def main():
                     shots.append(p)
     finally:
         client.op("seq.close")
+        if st.get("seq"):  # put back the sequence that was open (the reel), locked to its cut as before
+            client.exec_code(REOPEN % (st["seq"], st["lock"], st["t"]))
         client.exec_code(SHIRT % (True,))
         ok(client.exec_code(SET % (before,)))
         if made:
             client.op("level.delete", labels=sorted(set(made)))
-    print(json.dumps({"stills": shots, "where": where, "restored": before}))
+    print(json.dumps({"stills": shots, "where": where, "restored": before, "reopened": st.get("seq")}))
 
 
 if __name__ == "__main__":
