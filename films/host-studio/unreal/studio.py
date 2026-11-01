@@ -401,12 +401,12 @@ def finish():
     poking through, and mh.cloth_inflate only swaps a garment's material once its shaders have compiled and a few
     frames have rendered (a material swapped or recompiled while it is drawn crashes the renderer; see README)."""
     inflated = {}
-    for lab, cm in (("Host", 0.4), ("Presenter", 0.3)):
+    for lab, cm in (("Host", 0.4), ("Presenter", 0.5)):
         try:
             L.actor(lab)
         except ValueError:
             continue
-        inflated[lab] = yield from mh.cloth_inflate(lab, cm=cm)
+        inflated[lab] = yield from mh.cloth_inflate(lab, cm=cm, which="Shirt")  # over the shorts, not with them
     L.save_level()
     return {"actors": len(L.actors()), "undressed": UNDRESSED, "inflated": inflated}
 
