@@ -55,6 +55,7 @@ def render(cam: str, path_tracer: bool) -> Path:
     ok(client.op("seq.shot", path=seq, actor_label="Host", anims={"Body": IDLE}, camera=cam, seconds=2.0))
     ok(client.op("assets.save_all"))
     remote = rf"{PROJECT}\Saved\MovieRenders\karma_{cam}"
+    ok(client.exec_code(f"import shutil\nshutil.rmtree({remote!r}, ignore_errors=True)\nresult = True"))  # no stale frame
     ok(client.op("render.mrq", sequence=seq, level=LEVEL, out_dir=remote, width=w, height=h, start=24, end=25,
                  temporal=1 if path_tracer else 16, spatial=64 if path_tracer else 2, path_tracer=path_tracer,
                  name=f"karma_{cam}", warmup=64, cvars=CVARS))
