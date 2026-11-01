@@ -50,7 +50,8 @@ STATES = {  # name: (start, still frame)
 # studio.py's day and night values (studio.py builds the day; its night is what BLUE/NIGHT match)
 DAY_SUN = dict(elevation=28.0, azimuth=-28.0, lux=17000.0, temperature=5100.0, sky=0.6)
 NIGHT_SUN = dict(elevation=-8.0, lux=0.0, temperature=7500.0, sky=0.04)
-WINDOW_NIGHT = (0.3, 0.45, 0.95)  # WindowSky's night colour (sRGB 0-1, as look.light takes it)
+WINDOW_NIGHT = (0.42, 0.53, 0.74)  # WindowSky's night colour (sRGB 0-1, as look.light takes it): a steel blue; a
+# saturated blue goes magenta through the tonemapper (S12 796 had the curtain violet)
 WINDOW_BLUE = (0.39, 0.53, 0.9)    # and its blue hour, a lighter blue
 SUN_LOC = (0.0, 0.0, 500.0)        # look.sky's FM_Sun
 
@@ -192,7 +193,7 @@ def tracks() -> list:
     add("FM_SkyLight", "float", "Intensity", C((0, 0.6), (g, 0.6), (d, 0.2), (d + 50, 0.12), (d + 90, 0.12), (b, 0.5), (bh, 0.5), (ig, NIGHT_SUN["sky"])))
     # the window: daylight 6200 K, warming in GOLDEN, cooling to the night's blue through DUSK and BLUE. Temperature
     # multiplies the colour (use_temperature stays on), so the night blue is the colour over a neutral 6500 K.
-    add("WindowSky", "float", "Intensity", C((0, 8.0), (g, 8.0), (d, 5.0), (b, 3.0), (bh, 3.0), (ig, 1.2)))
+    add("WindowSky", "float", "Intensity", C((0, 8.0), (g, 8.0), (d, 5.0), (b, 3.0), (bh, 3.0), (ig, 1.0)))
     add("WindowSky", "float", "Temperature", C((0, 6200.0), (g, 6200.0), (d, 4300.0), (d + 90, 5600.0),
                                                (b, 6500.0)))
     add("WindowSky", "color", "LightColor", C((0, (1.0, 1.0, 1.0)), (d, (1.0, 1.0, 1.0)), (d + 90, (0.75, 0.8, 0.95)),
