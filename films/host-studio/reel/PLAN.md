@@ -151,7 +151,7 @@ both facing the camera (+X); in the level today both stand at the origin.
 
 ### S03 · Seven spines — 0:10.00–0:12.12 (bars 5–5, f240–299, 2.5 s)
 
-- **Camera:** 100 mm full frame, T4. Macro slider parallel to the shelf, 44 cm screen-left to right along the green spines. From `[-196, -100, 212]` → `[-196, -144, 212]`, aimed at `[-236, -148, 211]`.
+- **Camera:** 100 mm full frame, T4. Macro slider parallel to the shelf, 28 cm screen-left to right along the green spines. From `[-196, -100, 212]` → `[-196, -128, 212]`, aimed at `[-236, -132, 211]`.
 - **In frame:** the seven dark-green spines, titles reading bottom to top: Socify, Noobsverse, Lyzn, Avidia, Respawn, Noobspaces, Noobs Learning; cloth texture, gilt titles.
 - **Light:** GOLDEN.
 - **Sound:** a finger along book cloth, a soft kick lands with the cut.
@@ -176,8 +176,8 @@ both facing the camera (+X); in the level today both stand at the origin.
 
 ### S06 · The coin and the pickaxe — 0:17.12–0:20.00 (bars 8–8, f420–479, 2.5 s)
 
-- **Camera:** 100 mm full frame, T2.8. Low push at shelf height, 11 cm, focus racks from the coin to the pickaxe on beat 3. From `[-190, -160, 168]` → `[-200, -165, 168]`, aimed at `[-250, -178, 169]`.
-- **Focus pull:** +0 f: 59 cm, +30 f: 54 cm, +42 f: 59 cm.
+- **Camera:** 100 mm full frame, T2.8. Low push at shelf height, 11 cm, focus racks from the coin to the pickaxe on beat 3. From `[-178, -157, 169]` → `[-189, -162, 169]`, aimed at `[-250, -179, 172]`.
+- **Focus pull:** +0 f: on `[-249.0, -169.0, 172.0]`, +30 f: on `[-249.0, -169.0, 172.0]`, +42 f: on `[-251.0, -186.0, 178.0]`.
 - **In frame:** the coin on its walnut stand in front, the brass pickaxe behind; the candle's flame soft at frame left.
 - **Light:** GOLDEN.
 - **Sound:** a coin's ring (a single ping on beat 1), a mined 'tink' on the rack.
@@ -220,7 +220,7 @@ both facing the camera (+X); in the level today both stand at the origin.
 
 ### S11 · The sign lights — 0:30.00–0:32.12 (bars 13–13, f720–779, 2.5 s)
 
-- **Camera:** 40 mm full frame, T4. Slow push-in from below, 60 cm, as the halo ignites letter by letter (k a r m a on beats 1-4, + 'a' on 4&). From `[-40, 10, 150]` → `[-95, 15, 170]`, aimed at `[-256, 25, 228]`.
+- **Camera:** 40 mm full frame, T4. Slow push-in from below, 60 cm, as the halo ignites letter by letter (k a r m a on beats 1-4, + 'a' on 4&). From `[-40, 14, 150]` → `[-95, 30, 170]`, aimed at `[-256, 22, 228]`.
 - **In frame:** the slat wall and the black Samarkan letters in near dark, the warm halo flaring behind each in turn.
 - **Light:** IGNITION.
 - **Sound:** the drop: a sub hit, a relay clunk and electrical hum per letter, the full beat comes in.

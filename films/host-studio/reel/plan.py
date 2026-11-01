@@ -23,7 +23,7 @@ def shot_md(s: S.Shot) -> str:
            f"- **Camera:** {s.lens:g} mm full frame, T{s.stop:g}. {s.move[0].upper() + s.move[1:]}. "
            f"From `{r(s.keys[0][1])}` → `{r(s.keys[-1][1])}`, aimed at `{r(s.keys[-1][2])}`."]
     if s.focus:
-        out.append("- **Focus pull:** " + ", ".join(f"+{f} f: {d} cm" for f, d in s.focus) + ".")
+        out.append("- **Focus pull:** " + ", ".join(f"+{f} f: " + (f"on `{r(d)}`" if isinstance(d, list) else f"{d} cm") for f, d in s.focus) + ".")
     out.append(f"- **In frame:** {s.frame}.")
     out.append(f"- **Light:** {s.light}.")
     if s.action:
