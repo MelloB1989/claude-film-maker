@@ -39,16 +39,17 @@ NAME = "his_outfit"
 VOX = 0.4                       # body voxels
 TROUSERS = dict(
     close=2.5,                  # the bridging (closing radius) of his lower body
-    ease_waist=0.45, ease_hip=1.3, ease_thigh=1.5, ease_knee=1.5, ease_ankle=0.9,
+    soften=1.2,                 # his body's field blurred by this much (cm): cloth lies over the muscles, not into them
+    ease_waist=0.45, ease_hip=1.5, ease_thigh=1.8, ease_knee=1.6, ease_ankle=0.9,
     band=3.8,                   # waistband height
     waist_above_pelvis=8.2,     # the waist edge: this far above his pelvis joint (a mid rise, under the tee's hem)
     hem_above_ankle=1.6,        # the hem: at the ankle bone (foot joint) + this
     leg_hem_r=5.75, leg_knee_r=7.0,  # the taper's floor: half-girth at the hem (a 36 cm opening) and at the knee
     crease_h=0.12, crease_w=1.0,    # a soft pressed crease
-    crotch_drop=2.0,            # the trousers' crotch below his
-    rise_front=8.5, rise_back=10.5,   # the centre seams' curve under to the crotch point: its height in front, behind
+    crotch_drop=3.2,            # the trousers' crotch below his
+    rise_front=4.0, rise_back=9.0,   # the centre seams' curve under to the crotch point: its height in front, behind
     notch_slope=1.35, notch_round=1.6,   # the opening between the legs under that curve: how fast it widens, its round
-    bridge_ramp=12.0,           # the front bridge between the thighs: none at the crotch, full this far above it
+    bridge_ramp=3.0,            # the front bridge between the thighs: none at the crotch, full this far above it
     row_smooth=3.0,             # the hip rows evened up the body (gaussian, in rows)
     thick=0.08, band_thick=0.2,
     tee_gap=0.14,               # the trousers' outside under the tee's inside
@@ -957,7 +958,7 @@ class LowerShape:
         ins[tuple(idx[drop].T)] = False
         self.sd_raw = Field(body.lo, h, sdf_of(ins, h).astype(np.float32))   # him (no arms), not closed
         closed = closing(ins, TROUSERS["close"], h)
-        self.sd = Field(body.lo, h, sdf_of(closed, h).astype(np.float32))
+        self.sd = Field(body.lo, h, ndimage.gaussian_filter(sdf_of(closed, h), TROUSERS["soften"] / h).astype(np.float32))
         # the legs' lower part: per leg, a centre line from the knee to the ankle
         self.legs = []
         for s in (1, -1):
@@ -1370,7 +1371,7 @@ def trousers_detail(T, tr, marks):
             kz = Z - (zk + 1.0) - 0.12 * np.abs(s_crease)
             d += 0.07 * ripple(kz / 3.2 * 2 * math.pi) * gauss(kz, 4.0) * gauss(s_crease, 7.0)
             az = Z - (zh + 3.6) + 0.22 * np.abs(s_crease)          # the V points down at the crease
-            d += 0.17 * ripple(az / 2.6 * 2 * math.pi) * gauss(az, 2.6) * gauss(s_crease, 6.5) \
+            d += 0.24 * ripple(az / 2.6 * 2 * math.pi) * gauss(az, 2.6) * gauss(s_crease, 6.5) \
                 * smoothstep(zh + 0.6, zh + 1.8, Z)
             wz = Z - (zc + 2.0) - 0.55 * np.maximum(s_mid, 0)       # rising from the crotch towards the hip
             d += 0.05 * ripple(wz / 2.4 * 2 * math.pi) * gauss(wz, 3.0) * gauss(s_mid - 6.0, 5.0) * below_band
@@ -1994,8 +1995,11 @@ def bake_clearance(him, ob, n, Q, lap, src, args, surf, anims, gap=0.3, iters=2,
     reset_pose(him.arm)
 
 
-def prepare_export_armature(him):
-    """The armature object as Unreal's skeleton root: unparented, scale applied, named 'root'."""
+def prepare_export_armature(him, garments):
+    """(agent-02's recipe.) The armature object as Unreal's skeleton root: unparented, scale applied, named 'root';
+    then the armature and the garments in centimetres (scene unit 0.01, everything x100 and applied), as his body's FBX is. Exported in
+    metres, the root carried x100 over bones in metres: the garment matched her at rest and shrank to nothing as soon
+    as leader pose moved it."""
     arm = him.arm
     mw = arm.matrix_world.copy()
     arm.parent = None
@@ -2006,6 +2010,20 @@ def prepare_export_armature(him):
     bpy.context.view_layer.objects.active = arm
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     arm.name = "root"
+    parented = [g for g in garments if g.parent == arm]
+    for g in garments:
+        gw = g.matrix_world.copy()
+        g.parent = None
+        g.matrix_world = gw
+    for o in [arm] + list(garments):
+        o.matrix_world = Matrix.Scale(100.0, 4) @ o.matrix_world
+        o.select_set(True)
+    bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)
+    for g in parented:
+        g.parent = arm
+        g.matrix_parent_inverse = arm.matrix_world.inverted()
+    us = bpy.context.scene.unit_settings
+    us.system, us.scale_length = "METRIC", 0.01
 
 
 def export_skeletal(him, ob, path):
@@ -2099,7 +2117,7 @@ def main():
                "anims": idle_test(him, garments, a, cols, anims, under_tee)}
         with open(os.path.join(a.out, f"{NAME}_tests.json"), "w") as f:
             json.dump(res, f, indent=1, default=str)
-    prepare_export_armature(him)
+    prepare_export_armature(him, [ob_tr])
     export_skeletal(him, ob_tr, os.path.join(a.out, "his_trousers.fbx"))
     with open(os.path.join(a.out, f"{NAME}_marks.json"), "w") as f:
         json.dump(rep, f, indent=1)
