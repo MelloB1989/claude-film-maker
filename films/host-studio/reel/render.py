@@ -1,7 +1,8 @@
 """The reel's renders (task R7): each shot of /Game/Reel/SEQ_Reel through Movie Render Queue, one shot per call so
 the bridge is free between them, into Saved\\MovieRenders\\reel_<res>\\<shot>\\<master frame:04d>.png on the
 workstation (agent-07's cut pulls them from there through S3). Frames are numbered by the master sequence's frame
-(S03 = 0240..0299), the shot's own range [start, end) without handles: the camera cut track owns the handles.
+(S03 = 0240..0299), the shot's own range [start, end), plus PREROLL frames before it: the first frame of a shot
+rendered cold carries the previous shot's temporal history (a double exposure); the cut ignores the pre-roll.
 
     cd tools && uv run python ../films/host-studio/reel/render.py --shots S01,S02 [--res 1080|2160] [--samples 8]
     cd tools && uv run python ../films/host-studio/reel/render.py --shots S14 --frames 24   # a calibration chunk
@@ -26,6 +27,7 @@ SEQ = "/Game/Reel/SEQ_Reel"
 LEVEL = "/Game/Studio/Studio"
 PROJECT = r"C:\UEProjects\HostStudio"
 CVARS = {"r.HairStrands.SkyLighting": 0}
+PREROLL = 4
 
 
 def ok(res: dict):
@@ -45,15 +47,16 @@ def render(sid: str, res: int, samples: int, frames: int = 0) -> dict:
     ok(client.exec_code(f"import shutil\nshutil.rmtree({out!r}, ignore_errors=True)\nresult = True"))  # no stale frames
     ok(client.op("seq.close"))
     t0 = time.time()
-    ok(client.op("render.mrq", sequence=SEQ, level=LEVEL, out_dir=out, width=res * 16 // 9, height=res, start=s.start,
+    ok(client.op("render.mrq", sequence=SEQ, level=LEVEL, out_dir=out, width=res * 16 // 9, height=res,
+                 start=s.start - PREROLL,
                  end=end, temporal=samples, spatial=1, name=f"reel_{sid}", warmup=32, cvars=CVARS))
     while True:
-        p = ok(client.op("render.progress", out_dir=out, expected=end - s.start))
+        p = ok(client.op("render.progress", out_dir=out, expected=end - s.start + PREROLL))
         if p["done"]:
             break
         time.sleep(10)
     dt = time.time() - t0
-    return {"shot": sid, "dir": out, "frames": p["frames"], "expected": end - s.start, "first": s.start,
+    return {"shot": sid, "dir": out, "frames": p["frames"], "expected": end - s.start + PREROLL, "first": s.start,
             "last": end - 1, "s": round(dt), "s_per_frame": round(dt / max(1, p["frames"]), 1)}
 
 

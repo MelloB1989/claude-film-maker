@@ -113,7 +113,14 @@ def cameras() -> None:
     rebind([f"Reel_{s.id}" for s in SHOTS])
     for s in SHOTS:
         lab, sm = f"Reel_{s.id}", M.samples(s)
-        keys = [[s.start + f, loc, {"pitch": pitch, "yaw": yaw, "roll": 0.0}] for f, loc, pitch, yaw, _ in sm]
+        keys, last = [], None
+        for f, loc, pitch, yaw, _ in sm:
+            while last is not None and yaw - last > 180:  # unwrapped: Sequencer interpolates the numbers, so a move
+                yaw -= 360                                 # across +-180 deg would swing the long way round and
+            while last is not None and yaw - last < -180:  # face the wall behind (S05's orbit, S11)
+                yaw += 360
+            keys.append([s.start + f, loc, {"pitch": pitch, "yaw": yaw, "roll": 0.0}])
+            last = yaw
         ok(client.op("seq.key_transform", path=SEQ, label=lab, keys=keys))
         ok(client.op("seq.key_float", path=SEQ, label=lab, component="CameraComponent", prop=FOCUS,
                      keys=[[s.start + f, d] for f, *_, d in sm]))
