@@ -163,10 +163,11 @@ def sleeve(n: int = 2048) -> None:
     edge = np.minimum(np.minimum(xx, 1 - xx), np.minimum(yy, 1 - yy))
     alb *= (1 - 0.05 * ring[..., None])
     alb = alb + (np.exp(-edge / 0.006) * noise(n, n, 12, 23) * 40)[..., None]  # scuffed edges
-    f = font(GROTESK, int(n * 0.085), 720, wdth=88, opsz=60)
+    # the crate's front board hides the sleeve's lower ~40% (props/record_crate.py): the list lives in the top 58%
+    f = font(GROTESK, int(n * 0.074), 720, wdth=88, opsz=60)
     cover = np.zeros((n, n), np.float32)
     for k, name in enumerate(ARTISTS):
-        cover = np.maximum(cover, text_layer((n, n), name, f, (n * 0.085, n * (0.12 + k * 0.152)), "lt"))
+        cover = np.maximum(cover, text_layer((n, n), name, f, (n * 0.08, n * (0.075 + k * 0.1)), "lt"))
     alb = ink(alb, cover * 0.96, (24, 23, 22), 24, breakup=0.04)
     save(to_img(alb), "T_Label_SleeveFront")
 

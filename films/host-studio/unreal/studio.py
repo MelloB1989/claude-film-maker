@@ -105,7 +105,7 @@ MAT = {
     "M_Leaf": leaf("Pothos", (1.0, 1.0, 1.0), (0.4, 0.5, 0.1), texture=tex(T, "T_PothosLeaf")),
     "M_Stem": plain("Stem", (0.1, 0.16, 0.05), 0.6), "M_Root": plain("Root", (0.12, 0.09, 0.06), 0.8),
     # music
-    "M_FootMetal": brass, "M_Platter": satin_black, "M_Vinyl": plain("Vinyl", (0.008, 0.008, 0.008), 0.25),
+    "M_FootMetal": brass, "M_BlackMetal": plain("Anodised2", (0.015, 0.015, 0.016), 0.35, 1.0), "M_Platter": satin_black, "M_Vinyl": plain("Vinyl", (0.008, 0.008, 0.008), 0.25),
     "M_Label_Record": label("Record", roughness=0.6), "M_ArmMetal": silver,
     "M_StandMetal": black_metal, "M_HPBlack": matte_black,
     "M_HPLeather": surface("Leather", 10, color=(0.4, 0.4, 0.4), roughness=0.9), "M_HPMetal": silver,
