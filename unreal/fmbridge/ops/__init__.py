@@ -27,10 +27,14 @@ def call(op_name: str, /, **args):
 
 
 @op("list")
-def list_ops(prefix: str = "") -> dict:
-    """Every op with its signature and the first line of its docstring."""
-    return {n: f"{n}{inspect.signature(f)}: {(inspect.getdoc(f) or '').splitlines()[0] if inspect.getdoc(f) else ''}"
-            for n, f in sorted(_OPS.items()) if n.startswith(prefix)}
+def list_ops(prefix: str = "", full: bool = False) -> dict:
+    """Every op with its signature and the first line of its docstring; the whole docstring with `full`, or when the
+    prefix names one op (`film-ue ops seq.key_float`)."""
+    found = {n: f for n, f in sorted(_OPS.items()) if n.startswith(prefix)}
+    full = full or len(found) == 1
+    return {n: f"{n}{inspect.signature(f)}: " + ((inspect.getdoc(f) or "") if full or n == prefix else
+                                                  ((inspect.getdoc(f) or "").splitlines() or [""])[0])
+            for n, f in found.items()}
 
 
 from . import assets, level, look, mh, speech, anim, seq, render  # noqa: E402,F401  (register)
