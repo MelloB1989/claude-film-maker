@@ -7,6 +7,7 @@ the workstation, check it, lay it out for a look, and cut a rolling preview of e
     ... assemble.py sheet S03               # sheets/S03.jpg: every 6th frame; sheets/S02-S03.jpg: the cut into it
     ... assemble.py preview --mix MIX.wav --cues CUES.json   # preview_<n>.mp4 (1080p 16:9) and preview_<n>_9x16.mp4
     ... assemble.py final --mix MIX.wav --mix45 MIX_45.wav --cues CUES.json   # every deliverable, 65 s and 45 s
+    ... assemble.py final ... --only prores,1080p                            # the 16:9 ones only (round 3: no 9:16)
 
 FRAMES (--frames-dir) is out/host-studio/reel/frames/ of the repo the output belongs in, one directory per shot (S01/
 ...), numbered as cut.py reads them (the master's clock or the shot's own). n in preview_<n> is the number of whole
@@ -134,14 +135,17 @@ def preview(frames: Path, out: Path, mix: Path, cues: Path | None, scale: float,
     print(out / f"preview_{n}.mp4", out / f"preview_{n}_9x16.mp4", f"({n} of {len(SHOTS)} shots: {', '.join(whole(frames))})")
 
 
-def final(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | None, source: str, hold: str) -> None:
+def final(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | None, source: str, hold: str,
+          only: str = "") -> None:
     """The deliverables into OUT: the 65 s reel (ProRes master, 4K H.264/HEVC, 1080p, 9:16, SRT/VTT, cut.json) and the
     45 s cut (the same, karma-reel-45s-*: R5's mix made for it, or the full mix cut on its edits). From --source 1080p
-    frames: a 1080p master, no 4K, the 9:16 as karma-reel-9x16-preview-*. Every frame must be in: no slates."""
+    frames: a 1080p master, no 4K, the 9:16 as karma-reel-9x16-preview-*. --only (cut.py's) picks the outputs, e.g.
+    prores,1080p for the 16:9 ones alone. Every frame must be in: no slates."""
     missing = [s.id for s in SHOTS if s.id not in whole(frames)]
     if missing:
         raise SystemExit(f"not every shot is in: {', '.join(missing)}")
     c = (["--cues", str(cues)] if cues else []) + ["--source", source, "--hold-first", hold]
+    c += ["--only", only] if only else []
     cut.main([str(frames), "--mix", str(mix), "--out", str(out), *c])
     cut.main([str(frames), "--edl", "45s", "--mix", str(mix45 or mix), "--out", str(out), *c])
 
@@ -169,6 +173,7 @@ def main(argv=None) -> None:
     p.add_argument("--mix", type=Path, required=True)
     p.add_argument("--mix45", type=Path, help="R5's mix for the 45 s cut (else the full mix, cut on its edits)")
     p.add_argument("--cues", type=Path)
+    p.add_argument("--only", default="", help="cut.py's --only: prores,1080p skips the 9:16")
     a = ap.parse_args(argv)
     frames = a.frames_dir or a.out / "frames"
     if a.cmd == "pull":
@@ -178,7 +183,7 @@ def main(argv=None) -> None:
     elif a.cmd == "sheet":
         sheet(frames, a.out, a.shot.upper(), a.every)
     elif a.cmd == "final":
-        final(frames, a.out, a.mix, a.mix45, a.cues, a.source, a.hold_first)
+        final(frames, a.out, a.mix, a.mix45, a.cues, a.source, a.hold_first, a.only)
     else:
         preview(frames, a.out, a.mix, a.cues, a.scale, a.source, a.hold_first)
 
