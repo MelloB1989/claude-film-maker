@@ -1,4 +1,4 @@
-"""The reel's voice: lines L1-L4 of PLAN.md §2, spoken by ElevenLabs voices (one for him, one for her), a few takes
+"""The reel's voice: the lines of PLAN.md §2 (shots.LINES), spoken by ElevenLabs voices (one for him, one for her), a few takes
 each, measured, the selects trimmed and placed on the master's frames.
 
     cd tools && uv run python ../films/host-studio/reel/vo.py takes [--only L1,L3] [--takes 3] [--voice ID]
@@ -27,7 +27,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from shots import FPS, BAR  # noqa: E402
+from shots import BAR, FPS, LINES as SHOT_LINES  # noqa: E402
 
 from filmtools.align import words_from_alignment, words_to_dicts  # noqa: E402
 from filmtools.elevenlabs import ElevenLabs  # noqa: E402
@@ -51,16 +51,11 @@ class Line:
     intensity: float
 
 
-# PLAN.md §2 "Voice lines", as the operator approved them; L4 is split between the two voices.
-LINES = [
-    Line("L1", "him", "This is karma. Everything on these shelves is a story — seven of them, built one late night at a "
-                      "time.", 930, 1080, "CONFIDENCE", 0.8),
-    Line("L2", "him", "She'll tell you the next one.", 1110, 1150, "HAPPINESS", 0.6),
-    Line("L3", "her", "Tech, explained the way we'd want it explained: calm, honest, and made right here.", 1158, 1310,
-         "CONFIDENCE", 0.9),
-    Line("L4a", "him", "Welcome…", 1360, 1382, "HAPPINESS", 0.7),
-    Line("L4b", "her", "…to karma.", 1386, 1410, "HAPPINESS", 0.7),
-]
+# PLAN v2 §2 "Voice lines": the text and frames are shots.LINES (one source); the mood each is played in is here.
+# Short, playful, confident: a tease, a wink, a hand-off, a sign-off. The delivery is in the words' punctuation.
+MOODS = {"L1": ("CONFIDENCE", 0.7), "L2": ("HAPPINESS", 0.6), "L3a": ("HAPPINESS", 0.6), "L3b": ("CONFIDENCE", 0.8),
+         "L4a": ("HAPPINESS", 0.6), "L4b": ("HAPPINESS", 0.8)}
+LINES = [Line(i, who, text, f0, f1, *MOODS[i]) for i, who, f0, f1, text in SHOT_LINES]
 BY_ID = {ln.id: ln for ln in LINES}
 
 # The voices (ElevenLabs voice library). Him: warm, confident, a light Indian-English accent; her: warm and clear.
@@ -75,6 +70,12 @@ CANDIDATES = {
     "tarun": "qr9D67rNgxf5xNgv46nx", "ranbir": "9PvnT6XRzlljoaDG6Knu", "shrey": "x3gYeuNB0kLLYxOZsaSh",
     "tripti": "ET6E1GmpkG4a6Sotpwm3", "ziina": "FaqthkZu1EWxXxUFbAfb", "priyanka": "BpjGufoPiobT79j2vtj4",
 }
+
+
+def spoken(text: str) -> str:
+    """What the voice is given: a leading ellipsis (a line that picks up the partner's) is for the captions only; read
+    aloud it came back as a breathy artefact and a hole before the first word."""
+    return text.lstrip("…").lstrip()
 
 
 def take_path(line: str, voice: str, k: int) -> Path:
@@ -98,8 +99,10 @@ def takes(client: ElevenLabs, only: set | None, n: int, voice: str | None, speed
             wav = take_path(line.id, v["name"], k)
             meta = wav.with_suffix(".json")
             if wav.exists() and meta.exists():
+                if json.loads(meta.read_text())["text"] != line.text:
+                    raise SystemExit(f"{wav} is a take of other words: move takes/{line.id} aside first")
                 continue
-            r = client.tts(v["voice_id"], line.text, MODEL, f"pcm_{SR}", speed=speed, seed=SEED + k, settings=SETTINGS)
+            r = client.tts(v["voice_id"], spoken(line.text), MODEL, f"pcm_{SR}", speed=speed, seed=SEED + k, settings=SETTINGS)
             x = pcm16_to_float(r.audio)
             write_wav(wav, x, SR)
             meta.write_text(json.dumps({

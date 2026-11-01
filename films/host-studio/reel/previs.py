@@ -53,8 +53,8 @@ def focus_at(shot, frame: float):
     return ks[-1][1]
 
 
-def place(shot, host: list):
-    loc, at = shot.at(shot.previs)
+def place(shot, host: list, u: float | None = None):
+    loc, at = shot.at(shot.previs if u is None else u)
     shift = [0.0, 0.0, 0.0]
     if shot.cast:
         mark = MARK_HER if shot.cast == ("her",) else MARK_HIM
@@ -89,6 +89,8 @@ def main() -> None:
     ap.add_argument("--sheet", action="store_true", help="only make previs/contact.jpg from the stills (no bridge)")
     ap.add_argument("--only", default="")
     ap.add_argument("--width", type=int, default=1920)
+    ap.add_argument("--at", default="", help="stills at these fractions of each move (e.g. 0,0.5,1) into previs/v2/")
+    ap.add_argument("--seq", default=SEQ, help="the scratch sequence (deleted after the run)")
     ap.add_argument("--animations", action="store_true", help="list the engine's MetaHuman animations (read only)")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
@@ -104,27 +106,32 @@ def main() -> None:
     shots = [s for s in SHOTS if s.previs is not None and (want is None or s.id in want)]
     host = where("Host")
     made = []
+    SEQ_ = a.seq
+    ats = [float(u) for u in a.at.split(",")] if a.at else [None]
     try:
-        for s in shots:
-            loc, at = place(s, host)
+        for s, u in [(s, u) for s in shots for u in ats]:
+            loc, at = place(s, host, u)
             label = f"Previs_{s.id}"
-            d = focus_at(s, s.previs * s.frames)
+            d = focus_at(s, (s.previs if u is None else u) * s.frames)
             ok(client.op("look.camera", label=label, loc=loc, look_at=at, focal=float(s.lens), aperture=float(s.stop),
                          focus=d, filmback=list(FULL_FRAME), pilot=False))
-            made.append(label)
+            if label not in made:
+                made.append(label)
             # look.still alone takes the viewport's field of view; a still through a sequence cut to the camera
             # (locked to the viewport) uses the cine lens: a throwaway sequence per shot, deleted at the end
             ok(client.op("seq.close"))
-            ok(client.op("seq.shot", path=SEQ, actor_label="Host", anims={"Body": IDLE}, camera=label, seconds=1.0))
-            remote = rf"{REMOTE}\{s.id}.png"
-            ok(client.op("seq.still", path=SEQ, frame=12, camera=label, out=remote, width=a.width,
+            ok(client.op("seq.shot", path=SEQ_, actor_label="Host", anims={"Body": IDLE}, camera=label, seconds=1.0))
+            remote = rf"{REMOTE}\{s.id}_{0 if u is None else round(u * 100)}.png"
+            ok(client.op("seq.still", path=SEQ_, frame=12, camera=label, out=remote, width=a.width,
                          height=a.width * 9 // 16))
-            client.pull(remote, str(OUT / f"{s.id}.png"))
+            dst = OUT / f"{s.id}.png" if u is None else OUT / "v2" / f"{s.id}_{round(u * 100):03d}.png"
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            client.pull(remote, str(dst))
             print(s.id, [round(v) for v in loc], "->", [round(v) for v in at], f"{s.lens:g}mm", flush=True)
     finally:
         ok(client.op("seq.close"))
         ok(client.exec_code(f"import unreal\nE = unreal.EditorAssetLibrary\n"
-                            f"result = E.delete_asset({SEQ!r}) if E.does_asset_exist({SEQ!r}) else None"))
+                            f"result = E.delete_asset({SEQ_!r}) if E.does_asset_exist({SEQ_!r}) else None"))
         if made:
             ok(client.op("level.delete", labels=made))
 
