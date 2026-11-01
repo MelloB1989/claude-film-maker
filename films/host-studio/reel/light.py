@@ -381,6 +381,10 @@ def test(states: list, out: Path, keep: bool = False, width: int = 1920) -> list
             ok(client.op("look.camera", label=label, loc=loc, look_at=at, focal=focal, aperture=ap, pilot=False))
             made.append(label)
         apply(TEST_SEQ)
+        # a throwaway still first: the first evaluation after opening the sequence can miss the material tracks
+        warm = rf"{REMOTE}\warmup.png"
+        ok(client.op("seq.still", path=TEST_SEQ, frame=STATES[states[0]][1], camera=f"Test_{TEST}_Wide", out=warm,
+                     width=640, height=360, settle=40))
         shots = []
         for s in states:
             f = STATES[s][1]

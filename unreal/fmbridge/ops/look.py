@@ -144,7 +144,8 @@ def _pbr(m, kind: str, col, param) -> None:
         glow = mul(base, "", k, "", -300, -100)
         if kind == "GlowWipe":  # saturate((Reveal - U) / Softness): 0 right of the edge, 1 once it has passed
             u = MEL.create_material_expression(m, unreal.MaterialExpressionComponentMask, -1300, 400)
-            u.set_editor_property("r", True)
+            for c in "rgba":  # just U: a new mask has R and G on, and a float2 here fails to compile (a checker)
+                u.set_editor_property(c, c == "r")
             MEL.connect_material_expressions(uv, "", u, "")
             reveal = param(unreal.MaterialExpressionScalarParameter, "Reveal", -1300, 500, 1.0)
             soft = param(unreal.MaterialExpressionScalarParameter, "Softness", -1300, 600, 0.03)
