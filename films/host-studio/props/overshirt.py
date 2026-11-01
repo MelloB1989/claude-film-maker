@@ -1213,7 +1213,7 @@ SEAM_Y = 1.0                   # side seams this far behind her centre line
 PLACKET_W = 2.8
 HEM_W = 2.0
 BUTTONS_Z = (121.0, 113.0, 105.0)
-REVERS = dict(break_z=125.0, top_z=139.5, top_w=3.8, roll=0.36)  # the fronts' tops fold back from the break point
+REVERS = dict(break_z=125.0, top_z=134.0, top_w=3.0, roll=0.36)  # the fronts' tops fold back from the break point
 POCKET = dict(inset=0.6, top=127.0, w=10.5, h=12.2, chamfer=1.3, hem=2.2)  # inset: from the placket
 THICK = 0.11                   # cotton twill
 BAND = 0.13                    # extra at the folded hem and the plackets
@@ -1723,15 +1723,30 @@ def relax_collar(G, NS, surf_bvh, neck_bvh, a, up, th, iters=40):
         M[:, -1] = 0.5 * L[:, -1] + 0.5 * (2 * L[:, -2] - L[:, -3])
         M[:, 0] = G[:, 0]                                    # sewn to the neckline
         G = M
+        # the fall lies on the shirt, and over the turned-back lapel where it covers the front: past the nearest
+        # surface, a short ray in along the collar's own normal finds a layer just above the point
+        du = np.gradient(G, axis=0)
+        dv = np.gradient(G, axis=1)
+        Nc = np.cross(du, dv)
+        Nc /= np.linalg.norm(Nc, axis=-1, keepdims=True) + 1e-12
         for i in range(nu):
             for j in range(fall0, nv):
                 loc, nor, _, dist = surf_bvh.find_nearest(Vector(G[i, j]))
                 if loc is None:
                     continue
                 sp, sn = np.array(loc[:]), np.array(nor[:])
+                o = G[i, j] - a - up * ((G[i, j] - a) @ up)
+                if sn @ o < 0 and sn @ up < 0.3:  # as in the march: the shirt's outside faces away from her neck
+                    sn = -sn
                 h = (G[i, j] - sp) @ sn
-                if h < lift:
+                if -1.5 < h < lift:  # deeper than that is the far side of an edge, not the shirt under it
                     G[i, j] = G[i, j] + sn * (lift - h)
+                n = Nc[i, j] if Nc[i, j] @ sn > 0 else -Nc[i, j]
+                hit = surf_bvh.ray_cast(Vector(G[i, j] + n * 0.8), Vector(-n), 0.8 + lift)
+                if hit[0] is not None:
+                    h = (G[i, j] - np.array(hit[0][:])) @ n
+                    if h < lift:
+                        G[i, j] = G[i, j] + n * (lift - h)
             for j in range(1, fall0):
                 loc, nor, _, dist = neck_bvh.find_nearest(Vector(G[i, j]))
                 if loc is None:
@@ -2010,9 +2025,10 @@ def fold_revers(X, R, rmap, pattern):
         else:
             mq = foot - (d[i] - math.pi * r) * m
             h = rmap.at(mq[0], mq[1], True)
-            if h is None:
-                continue
-            X[i] = h[0] + h[1] * 2 * r
+            if h is None:  # past the rest surface (up by the neckline): carry on flat from the roll
+                X[i] = p0 - t * (d[i] - math.pi * r) + n0 * 2 * r
+            else:
+                X[i] = h[0] + h[1] * 2 * r
         moved += 1
     log(f"revers: folded {moved} verts")
     return X
@@ -2157,6 +2173,22 @@ def main():
             sa, da = a.project(m["X"])
             on = (sa > a.L1) & (da < a.r.max() + 5)
             pins = np.maximum(pins, np.where(on, smoothstep(a.L1 + SLEEVE_END - 4.0, a.L1 + SLEEVE_END - 1.5, sa), 0))
+        # the neckline and the lapels' edges are held too (softly, two rings in): free, they ruck against her neck
+        # and chest, and the collar is sewn to them
+        X0 = m["X"]
+        rn, rmax = neck_radius(her, X0)
+        bnd = boundary_mask(len(X0), m["Q"])
+        neck = bnd & (X0[:, 2] > 128) & (rn < rmax + 2.0)
+        neck |= bnd & (X0[:, 2] > REVERS["break_z"] - 3) & (X0[:, 1] < -4) & (np.abs(X0[:, 0]) < 16)  # the lapels' edge
+        nb = nbr_lists(len(X0), m["Q"])
+        w = neck.astype(float)
+        for k in (0.6, 0.3):
+            ring = np.zeros(len(X0), bool)
+            for i in np.where(w > 0)[0]:
+                ring[nb[i]] = True
+            w = np.where((w == 0) & ring, k, w)
+        log(f"sim: neckline pinned at {int(neck.sum())} verts")
+        pins = np.maximum(pins, w)
         X = simulate(her, m["X"], m["Q"], args, pins=pins)
         save_mesh(sim_path, X=X, Q=m["Q"], X0=m["X"])
         ob = arrays_object("sim", X, m["Q"])
