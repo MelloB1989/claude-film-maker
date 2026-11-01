@@ -187,19 +187,20 @@ K.card("Outside", (WALL - 140, 205, 150), 520, 900,
 # ------------------------------------------------------------------------------------------- slats and the sign
 SLAT_Y, SLAT_DEPTH = 25.0, 3.4
 prop("SlatPanel", "slat_panel", (WALL, SLAT_Y, 0))
-SIGN_Z = 214.0
-if prop("Sign", "karma_sign", (WALL + SLAT_DEPTH, SLAT_Y, SIGN_Z)):
+SIGN_Z, SIGN_SCALE = 210.0, 1.2  # the concept's sign is ~120 cm across the 170 cm panel
+if prop("Sign", "karma_sign", (WALL + SLAT_DEPTH, SLAT_Y, SIGN_Z), scale=SIGN_SCALE):
     halo = os.path.join(unreal.Paths.project_saved_dir(), "Import", "host-studio", "props", "karma_halo.json")
     if os.path.exists(halo):  # a soft glow card on the slats exactly behind the letters
         b = json.load(open(halo))
-        w, h = (b["y1"] - b["y0"]), (b["z1"] - b["z0"])
-        K.card("SignHalo", (WALL + SLAT_DEPTH + 0.3, SLAT_Y - (b["y0"] + b["y1"]) / 2, SIGN_Z + (b["z0"] + b["z1"]) / 2),
+        w, h = (b["y1"] - b["y0"]) * SIGN_SCALE, (b["z1"] - b["z0"]) * SIGN_SCALE
+        K.card("SignHalo", (WALL + SLAT_DEPTH + 0.3, SLAT_Y - (b["y0"] + b["y1"]) / 2 * SIGN_SCALE,
+                            SIGN_Z + (b["z0"] + b["z1"]) / 2 * SIGN_SCALE),
                w * 1.3, h * 1.6, K.material("MI_K_Halo", (1.0, 0.62, 0.32), kind="Glow", texture=tex(T, "T_KarmaHalo"),
                                             intensity=2.5, folder=M))
     lo, hi = bbox("Sign")
     for k in range(9):  # LEDs on the letters' backs: warm light raking the slats around each letter
         y = lo[1] + 6 + (hi[1] - lo[1] - 12) * k / 8
-        K.light(f"Halo{k}", "point", loc=(WALL + SLAT_DEPTH + 2.0, y, (lo[2] + hi[2]) / 2), intensity=1.2,
+        K.light(f"Halo{k}", "point", loc=(WALL + SLAT_DEPTH + 2.0 * SIGN_SCALE, y, (lo[2] + hi[2]) / 2), intensity=1.2,
                 temperature=2700, radius=45, shadows=True, volumetric=0.0)
     K.channels([f"Halo{k}" for k in range(9)], [2])
     K.channels(["SlatPanel"], [0, 2])
