@@ -750,6 +750,9 @@ def main(argv=None) -> None:
     ap.add_argument("--pattern", default="{frame:04d}.png")
     ap.add_argument("--frame-offset", type=int, default=0, help="file number = frame + this")
     ap.add_argument("--fill", choices=["slate"], help="stand a slate in for missing frames")
+    ap.add_argument("--hold-first", metavar="S02,S03|all", default="",
+                    help="these shots' second frame stands in for their first (a first frame rendered cold across the "
+                         "camera cut, the previous shot ghosted into it)")
     ap.add_argument("--grade", choices=["none", "gentle"], default="none")
     ap.add_argument("--lut", type=Path, help="a .cube LUT after the grade")
     ap.add_argument("--grain", type=float, default=0.0, help="film grain on luma (0 off; 2-4 gentle)")
@@ -791,6 +794,10 @@ def main(argv=None) -> None:
         found = {}
         for c, b in segs:
             found.update(find_frames(a.frames, c, b, a.pattern, a.frame_offset))
+        held = [s.id for s in SHOTS if a.hold_first == "all" or s.id in a.hold_first.upper().split(",")]
+        for s in SHOTS:
+            if s.id in held and found.get(s.start) and found.get(s.start + 1):
+                found[s.start] = found[s.start + 1]
         first = next((p for p in found.values() if p), None)
         SW, SH = src_["size"]
         size = png_size(first) if first else (even(SW * a.scale), even(SH * a.scale))
@@ -821,7 +828,7 @@ def main(argv=None) -> None:
                   "lut": str(a.lut) if a.lut else None, "sound": loud,
                   "shots": {s.id: sorted({str(Path(p).parent) for f, p in found.items() if p and s.start <= f < s.end})
                             for s in SHOTS if spans_out(segs, s.start, s.end)},
-                  "missing": sum(1 for p in found.values() if p is None), "outputs": made,
+                  "missing": sum(1 for p in found.values() if p is None), "held first": a.hold_first, "outputs": made,
                   "title": TITLE, "lines": LINES,
                   "captions": [[a, b, t] for (a, b), t in cs], "cues": str(a.cues) if a.cues else None, "vcrop_keys (draft)": VCROP_KEYS}
         (a.out / (f"cut-{tag}.json" if tag else "cut.json")).write_text(json.dumps(report, indent=1, ensure_ascii=False))
