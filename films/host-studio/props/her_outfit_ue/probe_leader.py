@@ -36,7 +36,7 @@ try:
     body0 = c["Body"].get_path_name()
     out["after_set"] = lead(comps(tmp)["Top"])
     tmp.set_actor_location(unreal.Vector(0, 0, -4990), False, False)
-    tmp.rerun_construction_scripts()
+    tmp.set_editor_property("tags", ["agent02probe"])  # an edited property re-runs a Blueprint's construction script
     c = comps(tmp)
     out["after_rerun"] = {"top_leader": lead(c["Top"]) if "Top" in c else "component gone",
                           "same_body_object": c["Body"].get_path_name() == body0, "components": sorted(c)}

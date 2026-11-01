@@ -348,8 +348,9 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
     # >>> outfit
     # her fitted outfit (props/her_outfit.py, imported onto her skeleton by props/her_outfit_ue/import_outfit.py): a
     # cream rib-knit top tucked into high-rise charcoal trousers, skeletal mesh components under her body that take the
-    # body's pose (leader pose). Her MetaHuman is built without the default garment, so these are all she wears.
+    # body's pose. Her MetaHuman is built without the default garment, so these are all she wears.
     FIT_DIR = "/Game/Host/Presenter_Outfit"
+    FOLLOW = "/MetaHumanCharacter/Animation/ABP_Clothing_PostProcess"
     fit = {"Top": (f"{FIT_DIR}/SKM_Presenter_Top", {
                "M_Top": K.material("MI_K_HerTop", (1.0, 1.0, 1.0), kind="Pbr", texture=tex(FIT_DIR, "T_HerRib_A"),
                                    normal=tex(FIT_DIR, "T_HerRib_N"), mask=tex(FIT_DIR, "T_HerRib_M"),
@@ -380,7 +381,12 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
         for slot_, mi_ in mats.items():
             her_part(part).set_material_by_name(slot_, unreal.load_asset(mi_))
         her_part(part).set_editor_property("lighting_channels", her_part("Body").get_editor_property("lighting_channels"))
-        her_part(part).set_leader_pose_component(her_part("Body"))
+        # not leader pose: that link lives only in the editor session (it reads None after a reload, and the garment
+        # stays in its bind pose while the body moves). MetaHuman's clothing post-process anim Blueprint copies the
+        # pose from the mesh it is attached to, and it is saved with the component.
+        her_part(part).set_leader_pose_component(None)
+        her_part(part).set_animation_mode(unreal.AnimationMode.ANIMATION_BLUEPRINT)
+        her_part(part).set_anim_instance_class(unreal.load_asset(FOLLOW).generated_class())
     # <<< outfit
     # small gold hoops through the lobes, a black smartwatch on the left wrist, riding her bones
     comps = {c.get_name(): c for c in her.get_components_by_class(unreal.SkeletalMeshComponent)}
@@ -403,8 +409,8 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
     at = b - fwd * 3.6  # just above the wrist bone
     if prop("HerWatch", "smartwatch", (at.x, at.y, at.z)):
         w = ride("HerWatch")
-        w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)
         w.attach_to_component(body_, "lowerarm_twist_02_l", rule, rule, rule, False)
+        w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)  # once attached (it kept the bone's)
     for lab in ("HerEarL", "HerEarR", "HerWatch"):
         try:
             x = L.actor(lab)
