@@ -193,7 +193,7 @@ def key_transform(path: str, label: str, keys: list, interp: str = "auto") -> in
     """Animate an actor in a sequence: keys are [frame, [x, y, z], {"pitch", "yaw", "roll"} | [x, y, z] to look at]
     with an optional 4th element, the interpolation leaving that key: "auto" (smooth, eases at held ends), "linear"
     or "constant" (hold until the next key, a jump cut). `interp` is the default. Replaces the actor's transform
-    track (and only that); yaw is keyed as given, so unwrap it yourself across +-180."""
+    track (and only that), keeping the actor's scale; yaw is keyed as given, so unwrap it yourself across +-180."""
     seq = load(path)
     b = _bound(seq, label)
     for t in b.find_tracks_by_type(unreal.MovieScene3DTransformTrack):
@@ -201,11 +201,12 @@ def key_transform(path: str, label: str, keys: list, interp: str = "auto") -> in
     sec = b.add_track(unreal.MovieScene3DTransformTrack).add_section()
     sec.set_range(seq.get_playback_start(), seq.get_playback_end())
     ch = list(sec.get_all_channels())[:9]  # location x y z, rotation x (roll) y (pitch) z (yaw), scale x y z
+    sc = actor(label).get_actor_scale3d()  # kept as the actor has it
     for frame, loc, aim, *how in keys:
         mode = _interp(how[0] if how else interp)
         r = look_rot(loc, aim) if isinstance(aim, (list, tuple)) else unreal.Rotator(
             roll=aim.get("roll", 0.0), pitch=aim.get("pitch", 0.0), yaw=aim.get("yaw", 0.0))
-        for c, v in zip(ch, list(loc) + [r.roll, r.pitch, r.yaw] + [1.0, 1.0, 1.0]):
+        for c, v in zip(ch, list(loc) + [r.roll, r.pitch, r.yaw] + [sc.x, sc.y, sc.z]):
             c.add_key(unreal.FrameNumber(int(frame)), float(v), interpolation=mode)
     EAL.save_asset(path)
     return len(keys)
