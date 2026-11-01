@@ -67,13 +67,14 @@ TOP = dict(
     bridge=0.82,                # how much of a hollow across a slice the knit bridges (1: straight across)
 )
 TROUSERS = dict(
-    close=2.5,                  # the bridging (closing radius) of her lower body
+    close=3.0,                  # the bridging (closing radius) of her lower body
     ease_waist=0.55, ease_hip=0.75, ease_thigh=1.25, ease_knee=1.6,
     band=4.0,                   # waistband height
     rise=0.0,                   # waist edge above her natural waist
     hem_above_ankle=0.0,        # the hem: at the ankle bone (foot_l joint) + this
     leg_hem_r=7.1, leg_knee_r=6.9,   # straight leg: least half-girth (cm) at the knee and the hem
     crease_h=0.2, crease_w=1.1,
+    crotch_drop=2.6,            # the trousers' crotch below hers
     thick=0.08, band_thick=0.22,
 )
 
@@ -613,6 +614,15 @@ class Surf:
             d[i] = s * dist
             n[i] = (v.normalized() * s)[:] if dist > 1e-6 else nor[:]
         return d, n
+
+
+class MeshSurf(Surf):
+    """Closest-point queries on any mesh (cm)."""
+
+    def __init__(self, V, F):
+        self.V = np.asarray(V)
+        self.T = tri_split(F)
+        self.bvh = BVHTree.FromPolygons(self.V.tolist(), self.T.tolist())
 
 
 def push_out(X, surf, clear, iters=3, lap=None, F=None, mask=None):
@@ -1234,14 +1244,11 @@ class LowerShape:
         h = VOX
         ins = body.inside.copy()
         xs, ys, zs = body.sd.coords()
-        # her arms and hands are not in the trousers: drop the voxels nearest an arm-weighted vertex
-        arm_pts = her.bx[her.armw > 0.3]
-        tree = cKDTree(arm_pts)
+        # her arms and hands are not in the trousers: drop the voxels whose nearest skin is the arm's
         idx = np.argwhere(ins)
         P = body.lo + idx * h
-        d, _ = tree.query(P, distance_upper_bound=1.2)
-        far_side = np.abs(P[:, 0]) > 15
-        drop = (d < 1.2) & far_side
+        _, nearest = cKDTree(her.bx).query(P)
+        drop = her.armw[nearest] > 0.3
         ins[tuple(idx[drop].T)] = False
         closed = closing(ins, TROUSERS["close"], h)
         self.sd = Field(body.lo, h, sdf_of(closed, h).astype(np.float32))
@@ -1256,7 +1263,8 @@ class LowerShape:
 
     def ease(self, z):
         mk = self.mk
-        e = np.interp(z, [mk.z_crotch - 20, mk.z_crotch, mk.z_hip, mk.z_waist, self.z_w + 2],
+        zc, zw = mk.z_crotch, self.z_w
+        e = np.interp(z, [zc - 24, zc - 8, zc + 8, zw - 7, zw + 2],
                       [TROUSERS["ease_knee"], TROUSERS["ease_thigh"], TROUSERS["ease_hip"],
                        TROUSERS["ease_waist"], TROUSERS["ease_waist"]])
         return e
@@ -1275,9 +1283,9 @@ class LowerShape:
             dx, dy = P[:, 0] - c[:, 0], P[:, 1] - c[:, 1]
             r = np.hypot(dx, dy)
             th = np.arctan2(dy, dx)
-            R = self.leg_R[s](th, P[:, 2])
+            # above the knee the tube narrows away, so her thigh (eased) takes over smoothly
+            R = self.leg_R[s](th, P[:, 2]) * (1 - 0.45 * smoothstep(k[2] + 1, k[2] + 18, P[:, 2]))
             f = r - R
-            f = np.maximum(f, P[:, 2] - (k[2] + 14.0))
             out = np.minimum(out, f)
         return out
 
@@ -1316,13 +1324,16 @@ class LowerShape:
     def sdf(self, P):
         z = P[:, 2]
         f = self.sd(P) - self.ease(z)
-        f = np.minimum(f, self.straight_sdf(P) + 0.0)
+        f = smin(f, self.straight_sdf(P), 2.5)
+        # the legs part below the crotch (her thighs touch lower down; the cloth goes up between them)
+        zc = self.mk.z_crotch - TROUSERS["crotch_drop"]
+        f = np.where(z < zc, np.maximum(f, 0.12 - np.abs(P[:, 0])), f)
         # the top's tuck lies inside the waist: the trousers clear its outer face
         tz = (z > self.z_w - TROUSERS["band"] - TOP["tuck"] - 3) & (z < self.z_w + 1)
         ft = self.top_shape.torso_sdf(P) - (TOP["thick"] + 0.25)
         f = np.where(tz, np.minimum(f, ft), f)
         # the waistband zone follows the hull (a smooth band, no dents)
-        bz = (z > self.z_w - TROUSERS["band"] - 1.5)
+        bz = (z > self.z_w - TROUSERS["band"] - 1.5) & (z < self.z_w + 1)
         fb = self.top_shape.torso_sdf(P) - (TOP["thick"] + 0.3)
         f = np.where(bz, np.minimum(f, fb), f)
         return f
@@ -1339,11 +1350,13 @@ def ray_section(F, centre, z, angles, rmax=30.0, step=0.12):
     f = F(P.reshape(-1, 3)).reshape(len(angles), len(rs))
     out = np.zeros((len(angles), 3))
     for i in range(len(angles)):
-        ins = np.where(f[i] < 0)[0]
-        if len(ins) == 0:
+        ins = f[i] < 0
+        if not ins.any():
             out[i] = (*centre, z)
             continue
-        j = ins[-1]
+        j0 = int(np.argmax(ins))                       # the first inside sample (the centre may be just outside)
+        outs = np.where(~ins[j0:])[0]
+        j = j0 + (outs[0] - 1 if len(outs) else len(rs) - 1 - j0)   # the last inside sample before the first exit
         if j + 1 < len(rs):
             t = f[i, j] / (f[i, j] - f[i, j + 1])
             r = rs[j] + t * step
@@ -1373,7 +1386,7 @@ def resample_between(curve, s, i0, i1, fr):
 def column_fracs(n_half, dense=0.18):
     """Column positions over a panel half (0 at a seam, 1 at the crease), denser near the crease."""
     u = np.linspace(0, 1, n_half + 1)
-    return u - dense * np.sin(u * math.pi) * u  # pulls toward 1 slightly
+    return 0.55 * u + 0.45 * 0.5 * (1 - np.cos(u * math.pi))    # denser at both ends: the seam and the crease
 
 
 def build_trousers(her, marks, body, top_shape, z_w):
@@ -1381,38 +1394,46 @@ def build_trousers(her, marks, body, top_shape, z_w):
     lower.fit_legs(her)
     F = lower.sdf
     z_hem = float(marks.ankle[2]) + TROUSERS["hem_above_ankle"]
-    z_crotch_tr = None
-    # the crotch of the trousers' volume: the lowest inside point at x = 0, from below
-    ys = np.arange(marks.cy - 14, marks.cy + 14, 0.25)
-    zs = np.arange(marks.z_crotch - 12, marks.z_crotch + 6, 0.1)
-    Y, Z = np.meshgrid(ys, zs, indexing="ij")
-    P = np.stack([np.zeros(Y.size), Y.ravel(), Z.ravel()], 1)
-    f = F(P).reshape(Y.shape)
-    lowest = np.array([zs[np.argmax(f[i] < 0)] if (f[i] < 0).any() else 1e9 for i in range(len(ys))])
-    ia = int(np.argmin(lowest))
-    z_apex, y_apex = float(lowest[ia]), float(ys[ia])
-    log(f"trousers: hem z {z_hem:.1f}, crotch apex z {z_apex:.1f} y {y_apex:.1f}, waist edge z {z_w:.1f}")
+    # the crotch: where the legs part (the floor between them); its point at the floor's middle
+    z_apex = marks.z_crotch - TROUSERS["crotch_drop"]
+    ys = np.arange(marks.cy - 16, marks.cy + 16, 0.1)
+    fin = F(np.stack([np.zeros(len(ys)), ys, np.full(len(ys), z_apex + 0.3)], 1)) < 0
+    y_apex = float(ys[fin].mean()) if fin.any() else float(marks.cy)
+    log(f"trousers: hem z {z_hem:.1f}, crotch z {z_apex:.1f} (floor y {ys[fin].min() if fin.any() else 0:.1f}.."
+        f"{ys[fin].max() if fin.any() else 0:.1f}), waist edge z {z_w:.1f}")
     # rows: legs from the hem to just under the apex, the apex row, then the hips to the waist edge
-    leg_rows = np.linspace(z_hem, z_apex - 0.35, max(8, int((z_apex - z_hem) / 1.1)))
-    hip_rows = np.linspace(z_apex + 0.25, z_w, max(8, int((z_w - z_apex) / 0.6)))
+    leg_rows = graded_rows(z_hem, z_apex - 0.35, 1.0, [(z_hem, 0.25, 2.5)])
+    zb = z_w - TROUSERS["band"]
+    hip_rows = graded_rows(z_apex + 0.25, z_w, 0.32, [(zb, 0.12, 0.8), (zb - WELT["drop"], 0.12, 1.2),
+                                                       (z_w, 0.15, 0.8)])
     rows = list(leg_rows) + [z_apex] + list(hip_rows)
     jc = len(leg_rows)
     NA = 900
     angles = np.linspace(-math.pi, math.pi, NA, endpoint=False)
-    nh = 14   # columns per half panel (seam -> crease, crease -> seam)
+    nh = 32   # columns per half panel (seam -> crease, crease -> seam)
     fr = column_fracs(nh)
     panels = {k: [] for k in ("LF", "LB", "RF", "RB")}
     for j, z in enumerate(rows):
         for s, (kf, kb) in ((1, ("LF", "LB")), (-1, ("RF", "RB"))):
             if j <= jc:
                 c = lower.leg_centre(s, z)[:2]
-                cur = ray_section(F, c, z, angles)
+                cur = ray_section(F, c, min(z, z_apex - 0.05), angles)
+                cur[:, 2] = z
                 # keep only her own leg's lobe (the other leg is not on these rays: rays start inside this one)
                 xl = c[0]
             else:
                 c = np.array((0.0, marks.cy))
                 cur = ray_section(F, c, z, angles)
                 xl = float(lower.leg_centre(s, min(z, marks.knee[2] + 30))[0]) * 0.92
+            # cloth over hollows: each section towards its convex hull (the seat's cleft, the front between the
+            # legs fully; the sides partly, so the waist-hip line still reads)
+            hr = polar_radius(convex_hull_2d(cur[:, :2]), c, angles)
+            rr = np.hypot(cur[:, 0] - c[0], cur[:, 1] - c[1])
+            sy = np.sin(angles)
+            w = np.ones(len(angles)) if j <= jc else 0.65 + 0.35 * smoothstep(0.2, 0.7, np.abs(sy))
+            rn = rr + w * np.maximum(hr - rr, 0)
+            cur[:, 0] = c[0] + np.cos(angles) * rn
+            cur[:, 1] = c[1] + np.sin(angles) * rn
             ang = np.arctan2(cur[:, 1] - c[1], cur[:, 0] - c[0])
             # landmarks (indices on the curve)
             i_side = int(np.argmin(np.abs(np.angle(np.exp(1j * (ang - (0.0 if s > 0 else math.pi)))))))
@@ -1464,8 +1485,269 @@ def build_trousers(her, marks, body, top_shape, z_w):
             panels[kf].append(fpts)
             panels[kb].append(bpts)
     G = {k: np.array(v) for k, v in panels.items()}   # (rows, cols, 3)
+    # even the sections out up the body (the voxel field and the per-row hulls leave a fine ripple between rows):
+    # the hips' rows and the legs' rows each smoothed along the columns' height, the crotch row and the edges kept
+    for k in G:
+        g = G[k]
+        for lo_, hi_, sig in ((1, jc - 1, 1.6), (jc + 2, len(rows) - 2, 1.3)):
+            seg = g[lo_:hi_, :, :2]
+            g[lo_:hi_, :, :2] = ndimage.gaussian_filter1d(seg, sig, axis=0, mode="nearest")
+        G[k] = g
     return dict(G=G, rows=np.array(rows), jc=jc, z_hem=z_hem, z_apex=z_apex, y_apex=y_apex, lower=lower,
                 nh=nh, fr=fr, z_w=z_w)
+
+
+def graded_rows(z0, z1, step, dense):
+    """Row heights from z0 to z1 about `step` apart, finer (step2) within `width` of each dense z."""
+    zs = [z0]
+    z = z0
+    while z < z1 - 1e-6:
+        h = step
+        for zc, h2, wd in dense:
+            if abs(z - zc) < wd:
+                h = min(h, h2)
+        z = min(z + h, z1)
+        zs.append(z)
+    return np.array(zs)
+
+
+WELT = dict(drop=6.0, from_cb=4.0, width=11.0, lip=0.55)   # back welt pockets: below the band, from the centre back
+POCKET = dict(top_from_side=8.5, depth=15.5)                 # slanted front pockets: opening at the band, to the side
+FLY = dict(width=3.3, bottom=7.0)                            # fly topstitch: from the centre front; its bottom above the crotch
+DART = dict(from_cb=8.8, length=8.0)
+
+
+def trousers_detail(T, tr, marks):
+    """Per-vertex displacement (cm, along the normal) for the tailoring, plus the crease edges and the button's place.
+    Every feature is placed in each panel's own (arc across the row, height) coordinates."""
+    V, idx, nh = T["V"], T["idx"], tr["nh"]
+    n = len(V)
+    N = vertex_normals(V, T["F"])
+    disp = np.zeros(n)
+    z_w, zc = tr["z_w"], tr["z_apex"]
+    zb = z_w - TROUSERS["band"]
+    sharp = []
+    rows = tr["rows"]
+    gauss = lambda x, w: np.exp(-(x / w) ** 2)
+    for k, I in idx.items():
+        front = k[1] == "F"
+        nr, nc = I.shape
+        P = V[I]                                                    # (rows, cols, 3)
+        seg = np.linalg.norm(np.diff(P, axis=1), axis=2)
+        S = np.concatenate([np.zeros((nr, 1)), np.cumsum(seg, 1)], 1)   # arc from column 0
+        L = S[:, -1:]
+        # from the side seam / from the centre (front: col 0 is the side; back: col 0 is the centre/inseam)
+        s_side = S if front else L - S
+        s_mid = L - S if front else S
+        s_crease = S - S[:, nh:nh + 1]
+        Z = P[..., 2]
+        d = np.zeros((nr, nc))
+        below_band = Z < zb - 0.05
+        # the pressed crease: a sharp ridge, front to the band, back to below the seat
+        if front:
+            fade = 1 - 0.45 * smoothstep(zc + 4, zb - 1, Z)
+            fade *= 1 - smoothstep(zb - 1.2, zb - 0.2, Z)
+        else:
+            fade = 1 - smoothstep(zc - 12, zc - 3, Z)
+        tent = np.clip(1 - np.abs(s_crease) / TROUSERS["crease_w"], 0, 1) ** 1.7
+        d += TROUSERS["crease_h"] * tent * fade
+        for r in range(nr - 1):
+            if fade[r, nh] > 0.3 and fade[r + 1, nh] > 0.3:
+                sharp.append((I[r, nh], I[r + 1, nh]))
+        # seams: shallow valleys with the pressed allowance either side
+        seam = lambda x: -0.045 * gauss(x, 0.16) + 0.018 * gauss(np.abs(x) - 0.45, 0.3)
+        d += seam(s_side) * below_band                                # side seams
+        inner = np.where(Z < zc, s_mid, 99.0)                          # inseams
+        d += seam(inner)
+        if not front:
+            d += np.where(Z >= zc, seam(s_mid), 0) * below_band        # centre back
+        # the waistband: stands proud of the trousers, its seam a crisp valley
+        band = smoothstep(zb - 0.08, zb + 0.18, Z)
+        d += 0.13 * band - 0.06 * gauss(Z - zb, 0.12)
+        d += -0.025 * gauss(Z - (zb + 0.35), 0.06) - 0.025 * gauss(Z - (z_w - 0.35), 0.06)   # band topstitch
+        if front:
+            # fly: the left front laps over; its edge at the centre and a J of topstitching
+            if k[0] == "L":
+                zbot = zc + FLY["bottom"]
+                y = Z - zbot
+                # the J: straight down at FLY width, then a quarter circle into the centre
+                rr = FLY["width"]
+                dj = np.where(y >= 0, np.abs(s_mid - rr), np.abs(np.hypot(s_mid, y) - rr))
+                on = (Z < zb) & (Z > zbot - rr)
+                d += np.where(on, -0.03 * gauss(dj, 0.07), 0)
+                # the fly's folded edge at the centre: a soft roll, the lap a hair proud of the panel beside it
+                edge = (Z < zb) & (Z > zbot - rr * 0.8)
+                d += np.where(edge, 0.05 * gauss(s_mid - 0.18, 0.2) + 0.015 * (1 - smoothstep(rr - 0.3, rr + 0.2, s_mid)), 0)
+            # slanted pocket: from the band (POCKET top_from_side from the side seam) down to the side seam
+            a = np.array((POCKET["top_from_side"], zb))
+            b = np.array((0.0, zb - POCKET["depth"]))
+            q = np.stack([s_side, Z], -1) - a
+            t = np.clip((q @ (b - a)) / ((b - a) @ (b - a)), 0, 1)
+            dist = np.linalg.norm(q - t[..., None] * (b - a), axis=-1)
+            sgn = np.sign(np.cross(np.broadcast_to(b - a, q.shape), q))
+            on = (t > 0.0) & (t < 1.0) & below_band
+            d += np.where(on, -0.05 * gauss(dist, 0.1) + 0.045 * smoothstep(0.0, 0.3, dist) * (sgn > 0)
+                          * (1 - smoothstep(0.5, 1.5, dist)), 0)
+        else:
+            # welt pocket: two lips between grooves, ends bar-tacked
+            zt = zb - WELT["drop"]
+            sw0, sw1 = WELT["from_cb"], WELT["from_cb"] + WELT["width"]
+            inw = smoothstep(sw0 - 0.1, sw0 + 0.1, s_mid) * (1 - smoothstep(sw1 - 0.1, sw1 + 0.1, s_mid))
+            lp = WELT["lip"]
+            prof = -0.05 * gauss(Z - (zt + lp), 0.06) - 0.06 * gauss(Z - zt, 0.05) - 0.05 * gauss(Z - (zt - lp), 0.06) \
+                + 0.03 * (gauss(Z - (zt + lp / 2), 0.18) + gauss(Z - (zt - lp / 2), 0.18))
+            d += prof * inw
+            # dart: a tapering valley down from the band
+            dz = (zb - Z) / DART["length"]
+            on = (dz > 0) & (dz < 1)
+            d += np.where(on, -0.05 * (1 - dz) * gauss(s_mid - DART["from_cb"], 0.12 + 0.1 * (1 - dz)), 0)
+        disp[I.ravel()] = np.where(np.abs(d.ravel()) > np.abs(disp[I.ravel()]), d.ravel(), disp[I.ravel()])
+    Vd = V + N * disp[:, None]
+    # the button: on the band at the centre front, on the left (under-lap) side of the fly's edge
+    I = idx["LF"]
+    P = V[I]
+    zb_mid = zb + TROUSERS["band"] * 0.5
+    r = int(np.argmin(np.abs(P[:, -1, 2] - zb_mid)))
+    S = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P[r], axis=0), axis=1))])
+    c = int(np.argmin(np.abs((S[-1] - S) - 1.5)))
+    btn = (Vd[I[r, c]], N[I[r, c]])
+    return Vd, sharp, btn
+
+
+def button_part(at, normal, mat_i):
+    """A small domed gold button (1.5 cm), a raised rim, a shank, facing along the normal (cm)."""
+    prof = [(0.0, 0.26), (0.32, 0.25), (0.58, 0.21), (0.70, 0.17), (0.75, 0.12), (0.76, 0.05), (0.72, 0.0),
+            (0.22, 0.0), (0.2, -0.12), (0.0, -0.12)]
+    seg = 40
+    n = Vector(normal).normalized()
+    up = Vector((0, 0, 1))
+    u = (up - n * up.dot(n)).normalized()
+    v = n.cross(u)
+    verts, faces = [], []
+    for r, h in prof:
+        for k in range(seg):
+            a = 2 * math.pi * k / seg
+            p = Vector(at) + n * (h + 0.12) + (u * math.cos(a) + v * math.sin(a)) * r
+            verts.append(p[:])
+    for i in range(len(prof) - 1):
+        for k in range(seg):
+            k2 = (k + 1) % seg
+            faces.append([i * seg + k, i * seg + k2, (i + 1) * seg + k2, (i + 1) * seg + k])
+    X = np.array(verts)
+    uv = [[((X[q][j][0] - at[0]) * 0.01, (X[q][j][2] - at[2]) * 0.01) for j in range(4)] for q in faces]
+    return X, faces, uv
+
+
+def finish_trousers(T, Vd, tr, btn):
+    """Thickness (the band thicker), per-panel UVs (U across the panel from its first seam, V up; metres), the button
+    joined in. Returns verts, faces, uvs, the source surface vertex of each vert, material indices, sharp edges."""
+    idx, F, fpanel = T["idx"], T["F"], T["fpanel"]
+    keys = list(idx)
+    sval = []
+    for k in keys:
+        I = idx[k]
+        P = Vd[I]
+        S = np.concatenate([np.zeros((I.shape[0], 1)), np.cumsum(np.linalg.norm(np.diff(P, axis=1), axis=2), 1)], 1)
+        sval.append({int(v): float(x) for v, x in zip(I.ravel(), S.ravel())})
+    uvs = [[(sval[pi][v] * 0.01, Vd[v, 2] * 0.01) for v in f] for f, pi in zip(F, fpanel)]
+    zb = tr["z_w"] - TROUSERS["band"]
+    thick = np.where(Vd[:, 2] > zb, TROUSERS["band_thick"], TROUSERS["thick"])
+    # the hem is turned up: a touch thicker at the bottom edge
+    thick = np.where(Vd[:, 2] < tr["z_hem"] + 1.0, TROUSERS["thick"] * 1.8, thick)
+    X, FF, UV, src = solidify(Vd, F, thick, uvs, rim_round=1.0)
+    mat = [0] * len(FF)
+    # the button
+    bX, bF, bUV = button_part(btn[0], btn[1], 1)
+    near = cKDTree(Vd).query(bX)[1]
+    off = len(X)
+    X = np.vstack([X, bX])
+    FF = FF + [[off + i for i in f] for f in bF]
+    UV = UV + bUV
+    src = np.concatenate([src, near])
+    mat += [1] * len(bF)
+    return X, FF, UV, src, mat
+
+
+def assemble_trousers(tr, her, marks, surf, top_surf):
+    """The four panel grids welded into one mesh (side seams, inseams, centre front and back shared), smoothed,
+    kept off her and off the top; then the details. Returns verts, quads and per-vertex data."""
+    G, jc, nh = tr["G"], tr["jc"], tr["nh"]
+    nr, nc = G["LF"].shape[:2]
+    ids = {}
+    V = []
+
+    def vid(key, p):
+        if key not in ids:
+            ids[key] = len(V)
+            V.append(np.array(p, float))
+        else:
+            V[ids[key]] = 0.5 * (V[ids[key]] + p)
+        return ids[key]
+
+    def key(k, r, c):
+        side = "L" if k[0] == "L" else "R"
+        front = k[1] == "F"
+        last = nc - 1
+        if (front and c == 0) or (not front and c == last):
+            return ("side", side, r)
+        inner = (front and c == last) or (not front and c == 0)
+        if inner:
+            if r == jc:
+                return ("apex",)
+            if r < jc:
+                return ("inseam", side, r)
+            return ("cf" if front else "cb", r)
+        return (k, r, c)
+
+    idx = {}
+    for k, g in G.items():
+        I = np.zeros((nr, nc), int)
+        for r in range(nr):
+            for c in range(nc):
+                I[r, c] = vid(key(k, r, c), g[r, c])
+        idx[k] = I
+    V = np.array(V)
+    F, fpanel = [], []
+    for pi, (k, I) in enumerate(idx.items()):
+        for r in range(nr - 1):
+            for c in range(nc - 1):
+                q = [I[r, c], I[r, c + 1], I[r + 1, c + 1], I[r + 1, c]]
+                if len(set(q)) < 3:
+                    continue
+                if len(set(q)) == 3:   # a quad collapsed at the crotch point: a triangle
+                    q = list(dict.fromkeys(q))
+                F.append(q)
+                fpanel.append(pi)
+    # outward faces: each panel's winding by its mean normal against the way out from the body's axis
+    fpanel = np.array(fpanel)
+    for pi in range(4):
+        sel = np.where(fpanel == pi)[0]
+        dots = 0.0
+        for f in sel[::7]:
+            q = F[f]
+            p = V[q].mean(0)
+            n = np.cross(V[q[1]] - V[q[0]], V[q[-1]] - V[q[0]])
+            k = list(idx)[pi]
+            s = 1 if k[0] == "L" else -1
+            if p[2] < tr["z_apex"]:
+                c = tr["lower"].leg_centre(s, p[2])
+                o = p - np.array((c[0], c[1], p[2]))
+            else:
+                o = p - np.array((0.0, marks.cy, p[2]))
+            dots += float(n @ o)
+        if dots < 0:
+            for f in sel:
+                F[f] = F[f][::-1]
+    lap = Lap(len(V), F)
+    bnd = np.zeros(len(V), bool)
+    for a, b in boundary_edges(F):
+        bnd[a] = bnd[b] = True
+    V = taubin(V, lap, 6, fixed=bnd)
+    V = push_out(V, surf, 0.3, iters=2)
+    if top_surf is not None:
+        near_top = V[:, 2] > tr["z_w"] - TOP["tuck"] + 0.6
+        V = push_out(V, top_surf, 0.12, iters=2, mask=near_top)
+    return dict(V=V, F=F, idx=idx, fpanel=fpanel, lap=lap, bnd=bnd, nr=nr, nc=nc)
 
 
 # ================================================================ skinning, pose tests, export
@@ -1794,15 +2076,22 @@ def main():
     if a.stage != "top":
         body = Body(her)
         tr = build_trousers(her, marks, body, top["shape"], z_w)
-        obs = {}
-        for k, G in tr["G"].items():
-            nr, nc = G.shape[:2]
-            FF = [[r * nc + c, r * nc + c + 1, (r + 1) * nc + c + 1, (r + 1) * nc + c] for r in range(nr - 1)
-                  for c in range(nc - 1)]
-            obs[k] = arrays_object(f"tr_{k}", G.reshape(-1, 3), FF)
-        cols.update({obs["LF"]: (0.15, 0.15, 0.17), obs["LB"]: (0.25, 0.2, 0.2), obs["RF"]: (0.15, 0.17, 0.25),
-                     obs["RB"]: (0.2, 0.25, 0.2)})
+        top_surf = MeshSurf(X[src == np.arange(len(src))] if False else top["Vd"], top["Q"])
+        T = assemble_trousers(tr, her, marks, surf, top_surf)
+        Vd, sharp, btn = trousers_detail(T, tr, marks)
+        Xt, Ft, UVt, srct, matt = finish_trousers(T, Vd, tr, btn)
+        side = np.zeros(len(Vd))
+        for k, I in T["idx"].items():
+            side[I.ravel()] = 1 if k[0] == "L" else -1
+        Wtr, groups = skin_trousers(her, Vd, T["lap"], side)
+        ob_tr = make_skinned(her, "her_trousers", Xt, Ft, UVt, [M["M_Trousers"], M["M_Hardware"]], matt, Wtr, srct,
+                             groups, sharp=sharp)
+        garments.append(ob_tr)
+        cols.update({ob_tr: (0.09, 0.09, 0.1)})
+        rep["trousers"] = {"verts": len(Xt), "tris": int(sum(len(f) - 2 for f in Ft))}
         snapshot(os.path.join(a.out, f"{NAME}_tr{a.tag}"), cols, VIEWS, centre=(0, 0, 0.8), ortho=1.75)
+        snapshot(os.path.join(a.out, f"{NAME}_trc{a.tag}"), cols, (("front", (0, 1, 0)), ("q", (0.62, 1, -0.2)),
+                 ("low", (0.3, 1, 0.6)), ("back", (0, -1, 0))), centre=(0, 0, 0.92), ortho=0.42, res=(1000, 1000))
     if not a.no_tests:
         res = {"poses": pose_tests(her, garments, a, cols), "idle": idle_test(her, garments, a, cols)}
         with open(os.path.join(a.out, f"{NAME}_tests.json"), "w") as f:
