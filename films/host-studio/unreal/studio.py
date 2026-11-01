@@ -370,7 +370,11 @@ if unreal.EditorAssetLibrary.does_asset_exist(HIS_TROUSERS):
         if "short" in str(slot_).lower():
             his_part("SkeletalMesh").set_material(i, unreal.load_asset(his_hidden))
     his_part("Trousers").set_editor_property("use_bounds_from_leader_pose_component", True)
-    his_part("Trousers").set_leader_pose_component(his_part("Body"))
+    # leader pose last, on every garment (after agent-02): a change to one instance component re-creates the others,
+    # and a re-created component has lost its leader (it then stays in its bind pose while the body moves)
+    for c in L.actor("Host").get_components_by_class(unreal.SkeletalMeshComponent):
+        if c.get_name() not in ("Body", "Face"):
+            c.set_leader_pose_component(his_part("Body"))
 # <<< his outfit
 
 # her: the female presenter on the same mark, hidden until a shot asks for her (stills.py --who her)

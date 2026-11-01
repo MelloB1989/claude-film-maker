@@ -1528,7 +1528,7 @@ def pull_in_tee(V, tee, gap, mask, iters=3):
     for it in range(iters):
         idx = np.nonzero(mask)[0]
         d, n = tee.signed(V[idx], maxd=4.0)
-        bad = (d > -gap) & (d < 90)
+        bad = (d > -gap + 0.01) & (d < 90)
         V[idx[bad]] -= n[bad] * (d[bad] + gap)[:, None]
         log(f"pull_in_tee {it}: {int(bad.sum())} verts (max out {d[bad].max() if bad.any() else 0:.2f} cm)")
         if not bad.any():
@@ -1751,8 +1751,9 @@ def eval_points(ob):
 
 
 def clip_check(him, ob, step=3, under=None):
-    """Garment verts inside him body (or inside the layer under it) in the current pose: count, deepest (cm)."""
-    V, T = eval_points(him.body_ob)
+    """Garment verts inside his skin as Unreal shows it (his cut body: where MetaHuman removed the skin under the
+    default garment there is none to poke through) in the current pose: count, deepest (cm)."""
+    V, T = eval_points(him.body_vis)
     layers = [(V, T)]
     if under is not None:
         layers.append(eval_points(under))
@@ -2071,7 +2072,6 @@ def main():
     garments = [ob_tr]
     cols = {ob_tr: TR, him.tee_ob: TEE, him.body_vis: SKIN}
     if a.tag == "rays":   # debug: what the front and back rays hit first round the waist
-        dg = bpy.context.evaluated_depsgraph_get()
         for o in bpy.context.scene.objects:
             o.hide_viewport = o not in cols
         bpy.context.view_layer.update()

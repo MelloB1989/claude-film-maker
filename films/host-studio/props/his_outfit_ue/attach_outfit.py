@@ -34,6 +34,15 @@ if c is not None:
                        "materials": [m.get_name() if m else None for m in c.get_materials()],
                        "same_as_body": [round((c.get_socket_location(b) - comps["Body"].get_socket_location(b)).length(), 3)
                                         for b in ("pelvis", "calf_r", "foot_l", "spine_02")]}
+def ref(c, bone):  # a garment whose root carries a scale (bones in metres under a x100 root) collapses when posed
+    t = c.get_ref_pose_transform(c.get_bone_index(bone))
+    return [round(t.translation.x, 3), round(t.translation.y, 3), round(t.translation.z, 3),
+            round(t.scale3d.x, 3)]
+
+
+for n in ("Body", "Trousers", "SkeletalMesh"):
+    if n in comps:
+        out[n + "_ref"] = {b: ref(comps[n], b) for b in ("root", "pelvis", "calf_l")}
 g = comps.get("SkeletalMesh")
 out["garment"] = [f"{s}: {m.get_name() if m else None}" for s, m in zip(g.get_material_slot_names(), g.get_materials())]
 result = out
