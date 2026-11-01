@@ -68,6 +68,8 @@ def parse_args():
     ap.add_argument("--src", default=os.path.join(here, "out", "overshirt_ue"))
     ap.add_argument("--out", default=os.path.join(here, "out"))
     ap.add_argument("--stage", default="all", help="envelope | sim | detail | all")
+    ap.add_argument("--body", default="SKM_Presenter_F_BodyMesh.fbx")
+    ap.add_argument("--under", default="Presenter_F_Outfits.fbx", help="comma-separated FBXs worn under it")
     ap.add_argument("--frames", type=int, default=60)
     ap.add_argument("--quality", type=int, default=6)
     ap.add_argument("--mass", type=float, default=0.02)
@@ -110,16 +112,42 @@ def mesh_arrays(ob):
 
 
 class Her:
-    """Her reference A-pose: the armature, the tee + shorts, the limbs, the neck."""
+    """Her reference A-pose: the armature, her body, what she wears under the overshirt, the neck.
 
-    def __init__(self, src):
+    `under` lists the FBXs of the layer under the overshirt (each on her skeleton): by default MetaHuman's tee and
+    shorts; with her own fitted top and trousers, those. Their faces' material index tells the torso (0) from the
+    hips (1): a single-material file takes its position in the list."""
+
+    def __init__(self, src, body="SKM_Presenter_F_BodyMesh.fbx", under=("Presenter_F_Outfits.fbx",)):
         for ob in list(bpy.data.objects):
             bpy.data.objects.remove(ob, do_unlink=True)
-        body_objs = import_fbx(os.path.join(src, "SKM_Presenter_F_BodyMesh.fbx"))
+        body_objs = import_fbx(os.path.join(src, body))
         self.arm = next(o for o in body_objs if o.type == "ARMATURE")
         self.body_ob = next(o for o in body_objs if o.type == "MESH")
-        out_objs = import_fbx(os.path.join(src, "Presenter_F_Outfits.fbx"))
-        self.outfit_ob = next(o for o in out_objs if o.type == "MESH")
+        self.under_obs = []
+        xs, ts, tms, ws, off = [], [], [], {}, 0
+        for k, f in enumerate(under):
+            objs = import_fbx(f if os.path.isabs(f) else os.path.join(src, f))
+            for ob in (o for o in objs if o.type == "MESH"):
+                self.under_obs.append(ob)
+                X, T, TM, W = mesh_arrays(ob)
+                if len(ob.data.materials) <= 1:
+                    TM = np.full(len(T), min(k, 1))
+                xs.append(X)
+                ts.append(T + off)
+                tms.append(TM)
+                for g, a in W.items():
+                    ws.setdefault(g, [])
+                    ws[g].append((off, a))
+                off += len(X)
+        self.ox, self.ot, self.otm = np.concatenate(xs), np.concatenate(ts), np.concatenate(tms)
+        self.ow = {}
+        for g, parts in ws.items():
+            full = np.zeros(off)
+            for o, a in parts:
+                full[o:o + len(a)] = a
+            self.ow[g] = full
+        self.outfit_ob = self.under_obs[0]
         self.face_ob = None
         fp = os.path.join(src, "face.fbx")
         if os.path.exists(fp):
@@ -127,11 +155,10 @@ class Her:
             self.face_ob = next((o for o in fo if o.type == "MESH"), None)
         self.bone = {b.name: np.array((self.arm.matrix_world @ b.head_local)[:]) * 100.0 for b in self.arm.data.bones}
         self.bx, self.bt, self.btm, self.bw = mesh_arrays(self.body_ob)
-        self.ox, self.ot, self.otm, self.ow = mesh_arrays(self.outfit_ob)
         if self.face_ob is not None:
             fx, ft, _, _ = mesh_arrays(self.face_ob)
             self.fx, self.ft = fx, ft
-        log("body verts", len(self.bx), "outfit verts", len(self.ox), "face", self.face_ob is not None)
+        log("body verts", len(self.bx), "under verts", len(self.ox), "face", self.face_ob is not None)
 
     def arm_weight(self, W, n, side):
         s = "_l" if side > 0 else "_r"
@@ -148,7 +175,7 @@ class Her:
         return sh, el, wr
 
     def colliders_objects(self):
-        return [o for o in (self.outfit_ob, self.body_ob, self.face_ob) if o is not None]
+        return [o for o in (*self.under_obs, self.body_ob, self.face_ob) if o is not None]
 
     def colliders(self):
         """Points/triangles (cm) of what the overshirt lies on: the tee, the shorts, the arms, the neck."""
@@ -236,6 +263,9 @@ class Torso:
         shirt = (vmat == 0) & (armw < 0.35)
         shorts = (vmat == 1)
         P = her.ox[shirt | (shorts & (her.ox[:, 2] > 68.0))]
+        nb = len(her.bx)
+        barm = np.maximum(her.arm_weight(her.bw, nb, 1), her.arm_weight(her.bw, nb, -1))
+        P = np.concatenate([P, her.bx[(barm < 0.35) & (her.bx[:, 2] > 68.0)]])  # an uncut body adds its torso
         self.c = np.array((0.0, float(np.median(her.ox[shirt, 1]))))
         z0, z1 = 66.0, float(P[:, 2].max())
         self.zs = np.arange(z0, z1 + 1e-6, 1.0)
@@ -984,7 +1014,7 @@ def eval_points(ob):
 def clip_check(her, ob, step=4, tol=0.0):
     """Garment vertices inside her (tee, limbs) in the current pose: count and deepest (cm)."""
     V, T = [], []
-    for o in (her.outfit_ob, her.body_ob):
+    for o in (*her.under_obs, her.body_ob):
         X, Tr = eval_points(o)
         T.append(Tr + sum(len(v) for v in V))
         V.append(X)
@@ -1039,7 +1069,7 @@ POSES = {  # name: [(bone, world axis, degrees)]; her left is +X, her front -Y
 
 def pose_tests(her, ob, args, colours):
     arm = her.arm
-    for o in (her.outfit_ob, her.body_ob):  # the tee and the limbs follow the same armature
+    for o in (*her.under_obs, her.body_ob):  # what she wears and her limbs follow the same armature
         for m in o.modifiers:
             if m.type == "ARMATURE":
                 m.object = arm
@@ -1686,7 +1716,7 @@ def cuff(arm, X, sleeve_mask):
     t = -(Q @ a)                                              # up the sleeve from its end
     ang = np.arctan2(Q @ b2, Q @ b1)
     rad = np.hypot(Q @ b1, Q @ b2)
-    W = 5.6
+    W = 4.8
     rmax = np.zeros(NT)
     rend = np.zeros(NT)
     for k in range(NT):
@@ -1703,9 +1733,9 @@ def cuff(arm, X, sleeve_mask):
     rng = np.random.default_rng(7 if arm.side > 0 else 11)
     ph = rng.uniform(0, 2 * math.pi, 3)
     wob = 0.12 * np.sin(2 * th + ph[0]) + 0.07 * np.sin(3 * th + ph[1])
-    rb = np.maximum(rmax, rend) + 0.42 + wob
+    rb = np.maximum(rmax, rend) + 0.3 + wob
     Wk = W + 0.35 * np.sin(th + ph[2]) + 0.15 * np.sin(2 * th + ph[0])
-    T = 0.32                                                  # the band's thickness (three layers)
+    T = 0.28                                                  # the band's thickness (three layers)
     prof = []                                                  # (t, r) per angle
     for k in range(NT):
         r0, r1, w = rend[k] - 0.05, rb[k], Wk[k]
@@ -2063,11 +2093,12 @@ def garment_materials():
 def main():
     args = parse_args()
     os.makedirs(args.out, exist_ok=True)
-    her = Her(args.src)
+    her = Her(args.src, args.body, [u for u in args.under.split(",") if u])
     stages = {"envelope", "sim", "detail"} if args.stage == "all" else set(args.stage.split(","))
     env_path = os.path.join(args.out, "overshirt_env.npz")
     sim_path = os.path.join(args.out, "overshirt_sim.npz")
-    colours = {her.outfit_ob: (0.85, 0.85, 0.82), her.body_ob: (0.55, 0.42, 0.35)}
+    colours = {o: (0.85, 0.85, 0.82) for o in her.under_obs}
+    colours[her.body_ob] = (0.55, 0.42, 0.35)
     if her.face_ob is not None:
         colours[her.face_ob] = (0.55, 0.42, 0.35)
     if "envelope" in stages:
