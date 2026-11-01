@@ -19,15 +19,15 @@ from stills import ok
 BODIES = {
     # him: a fit, athletic man; a V-taper (shoulders and chest well over the waist), defined arms, no gut
     "him": ("/Game/Host/Host_Trey", "Host", {
-        "Height": 182, "Across Shoulder": 47, "Front Interscye Length": 42.5, "Chest": 110, "Underbust": None,
-        "Waist": 74, "High Hip": 80, "Hip": 92, "Neck Base": 41, "Neck": 39, "Bicep": 38, "Forearm": 30,
-        "Thigh": 57, "Knee": 34, "Calf": 37, "Fat": -2.8, "Muscularity": 2.0, "Masculine/Feminine": -1.6}),
+        "Height": 182, "Across Shoulder": 46.5, "Front Interscye Length": 42, "Chest": 108, "Underbust": None,
+        "Waist": 74, "High Hip": 80, "Hip": 92, "Neck Base": 41, "Neck": 38.5, "Bicep": 35.5, "Forearm": 29,
+        "Thigh": 56, "Knee": 34, "Calf": 37, "Fat": -2.8, "Muscularity": 1.6, "Masculine/Feminine": -1.6}),
     # her: slim and clearly feminine; a defined bust over a narrow waist, curved hips, slender arms and shoulders
     "her": ("/Game/Host/Presenter_F", "Presenter", {
-        "Height": 168, "Across Shoulder": 33, "Front Interscye Length": 31, "Chest": 95, "Bust Span": 19.5,
-        "Shoulder to Apex": 25.5, "Underbust": 70, "Waist": 61, "High Hip": 79, "Hip": 98, "Neck Base": 34,
-        "Neck": 31.6, "Neck to Waist": 35.5, "Bicep": 24, "Forearm": 20.5, "Thigh": 53, "Fat": -1.0,
-        "Muscularity": 0.0, "Masculine/Feminine": 1.8}),
+        "Height": 168, "Across Shoulder": 32.5, "Front Interscye Length": 30.5, "Chest": 94, "Bust Span": 19,
+        "Shoulder to Apex": 25, "Underbust": 70, "Waist": 61, "High Hip": 76, "Hip": 94, "Neck Base": 33.5,
+        "Neck": 31.2, "Neck to Waist": 36, "Bicep": 23, "Forearm": 19.5, "Thigh": 50, "Calf": 33, "Fat": -1.8,
+        "Muscularity": 0.0, "Masculine/Feminine": 1.9}),
 }
 
 

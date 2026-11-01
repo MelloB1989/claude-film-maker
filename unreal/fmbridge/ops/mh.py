@@ -233,7 +233,8 @@ def _settle(ticks: int = 8):
 
 
 @op("mh.cloth_inflate")
-def cloth_inflate(label: str, cm: float = 0.6, component: str = "SkeletalMesh", folder: str = "/Game/FM/Cloth"):
+def cloth_inflate(label: str, cm: float = 0.6, component: str = "SkeletalMesh", folder: str = "/Game/FM/Cloth",
+                  which: str = ""):
     """Push a garment out along its normals by `cm`, so skin under tight cloth stops poking through. A multi-tick job.
 
     Nothing the renderer is drawing is ever edited: a material in use that is reparented or recompiled while frames
@@ -242,7 +243,9 @@ def cloth_inflate(label: str, cm: float = 0.6, component: str = "SkeletalMesh", 
     `{folder}/{label}_<name>_Inflate`, the copy is parented on project copies of its plugin chain whose master gains a
     World Position Offset (normal x FM_Inflate), every shader finishes compiling, the editor ticks a few frames, and
     only then does the component swap to the copy. A master already in use is never recompiled (a new one is made);
-    re-running on an inflated garment only changes the amount, a plain parameter change that is safe."""
+    re-running on an inflated garment only changes the amount, a plain parameter change that is safe. `which` limits it
+    to the garments whose material name contains it (e.g. "Shirt": a top pushed out over shorts that stay put, else
+    both move together and the shorts' waistband still shows through the tee); others already inflated go back to 0."""
     MEL = unreal.MaterialEditingLibrary
 
     def comp():  # fetched afresh: a Blueprint's construction script may have replaced it
@@ -252,10 +255,13 @@ def cloth_inflate(label: str, cm: float = 0.6, component: str = "SkeletalMesh", 
     used = _in_use()
     swaps, done = {}, {}
     for mi in {m.get_path_name(): m for m in comp().get_materials() if isinstance(m, unreal.MaterialInstance)}.values():
+        hit = which.lower() in mi.get_name().lower()
         if mi.get_path_name().startswith(folder + "/") and _has_inflate(mi):  # inflated already: only the amount
-            MEL.set_material_instance_scalar_parameter_value(mi, "FM_Inflate", float(cm))
+            MEL.set_material_instance_scalar_parameter_value(mi, "FM_Inflate", float(cm) if hit else 0.0)
             EAL.save_asset(mi.get_path_name().split(".")[0])
-            done[mi.get_name()] = "amount"
+            done[mi.get_name()] = float(cm) if hit else 0.0
+            continue
+        if not hit:
             continue
         chain, x = [], mi
         while isinstance(x, unreal.MaterialInstance):
