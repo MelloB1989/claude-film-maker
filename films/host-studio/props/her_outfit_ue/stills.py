@@ -27,7 +27,7 @@ out = {}
 for lab in %r:
     try:
         a = L.actor(lab)
-        out[lab] = [a.is_temporarily_hidden_in_editor(), a.is_hidden()]
+        out[lab] = [a.is_temporarily_hidden_in_editor(), a.get_editor_property("hidden")]
     except ValueError:
         pass
 p = L.actor("Presenter").get_actor_location()
