@@ -68,7 +68,7 @@ def channel(mats):
 
 def build(mats=None):
     mats = mats or materials()
-    body = F.bevel_box("shelf_body", (0, -LEN / 2, 0), (DEPTH, LEN / 2, THICK), mats["oak"], EDGE, segments=3)
+    body = F.bevel_box("shelf_body", (0, -LEN / 2, 0), (DEPTH, LEN / 2, THICK), mats["oak"], EDGE, segments=4)
     body.data.materials.append(mats["end"])
     cutter = S.box("groove", (X0 - CLEAR, -Y_CH - CLEAR, -0.5 * cm), (X1 + CLEAR, Y_CH + CLEAR, CH_D + CLEAR),
                    mats["oak"])
@@ -97,8 +97,8 @@ def main():
     out = args.out
     F.shoot(os.path.join(out, NAME + ".png"), (1.0, 0.75, 0.55), lo, hi, args.samples, lens=60)
     F.shoot(os.path.join(out, NAME + "_front.png"), (1.0, 0.0, 0.06), lo, hi, args.samples, lens=60)
-    F.shoot(os.path.join(out, NAME + "_close.png"), (1.0, 0.45, -0.55), lo, hi, args.samples, lens=40,
-            target=(0.17, 0.55, 0.0), distance=0.55, light_size=0.8)
+    F.shoot(os.path.join(out, NAME + "_close.png"), (1.0, 1.0, -0.6), lo, hi, args.samples, lens=40,
+            target=(0.17, 0.66, 0.01), distance=0.42, light_size=0.8)
 
 
 if __name__ == "__main__":

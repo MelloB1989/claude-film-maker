@@ -111,6 +111,8 @@ def wood(name, light, dark, roughness=0.5, ring=16.0, contrast=1.0, end_grain=Fa
     c2 = node("ShaderNodeVectorMath", "SCALE", Vector=c1.outputs["Vector"], Scale=big_f)
     links.new(c2.outputs["Vector"], bsdf.inputs["Base Color"])
     links.new(maprange(line, 0.0, 1.0, roughness - 0.05, roughness + 0.05), bsdf.inputs["Roughness"])
+    if "Specular IOR Level" in bsdf.inputs:          # oiled wood: a soft sheen, not a gloss
+        bsdf.inputs["Specular IOR Level"].default_value = 0.3
     bump = node("ShaderNodeBump", Height=pore, Strength=0.12, Distance=0.0003)
     bump.invert = True
     links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
@@ -201,12 +203,17 @@ def uv_box(ob, grain, offset=(0.0, 0.0), end_slot=None, end_test=None):
     return ob
 
 
-def uv_tube(ob, p0, p1, offset=(0.0, 0.0)):
-    """U along the axis p0 -> p1 (metres), V around it (arc length at the local radius)."""
+def uv_tube(ob, p0, p1, offset=(0.0, 0.0), seam=None):
+    """U along the axis p0 -> p1 (metres), V around it (arc length at the local radius).
+    The V seam runs along the side facing `seam` (put it where the camera won't look)."""
     p0, p1 = Vector(p0), Vector(p1)
     ax = (p1 - p0).normalized()
     ref = Vector((0, 0, 1)) if abs(ax.z) < 0.9 else Vector((1, 0, 0))
     e1 = ax.cross(ref).normalized()
+    if seam is not None:
+        sd = Vector(seam) - Vector(seam).dot(ax) * ax
+        if sd.length > 1e-6:
+            e1 = -sd.normalized()
     e2 = ax.cross(e1)
     bm = bmesh.new()
     bm.from_mesh(ob.data)

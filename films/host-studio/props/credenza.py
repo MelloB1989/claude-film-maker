@@ -81,7 +81,7 @@ def build(mats):
                              segs=24, r2=1.35 * cm)
             S.bevel(leg, 0.12 * cm, segments=2)
             F.bake(leg)
-            F.uv_tube(leg, (x, y, 0), (x, y, LEG_H))
+            F.uv_tube(leg, (x, y, 0), (x, y, LEG_H), seam=(-1, 0, 0))
             parts += [plate, leg]
     return parts
 
