@@ -48,16 +48,17 @@ STATES = {  # name: (start, still frame)
 }
 
 # studio.py's day and night values (studio.py builds the day; its night is what BLUE/NIGHT match)
-DAY_SUN = dict(elevation=28.0, azimuth=-28.0, lux=30000.0, temperature=5100.0, sky=0.6)
+DAY_SUN = dict(elevation=28.0, azimuth=-28.0, lux=17000.0, temperature=5100.0, sky=0.6)
 NIGHT_SUN = dict(elevation=-8.0, lux=2.0, temperature=7500.0, sky=0.04)
 WINDOW_NIGHT = (0.35, 0.47, 0.85)  # WindowSky's night colour (sRGB 0-1, as look.light takes it)
+WINDOW_BLUE = (0.39, 0.53, 0.9)    # and its blue hour, a lighter blue
 SUN_LOC = (0.0, 0.0, 500.0)        # look.sky's FM_Sun
 
 # the night's recessed downlights (studio.py night), added at 0 by rig.py: label, loc, aim, candelas, pop frame
-DOWN = [("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, 72.0), 15.0, bar(14, 1)),
+DOWN = [("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, 72.0), 12.0, bar(14, 1)),
         ("DownSlats", (WALL + 32, SLAT_Y, 296), (WALL + 4, SLAT_Y, 90), 16.0, bar(14, 2)),
         ("DownOlive", (WALL + 75, 205, 296), (WALL + 62, 205, 120), 9.0, bar(14, 3)),
-        ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 3.5, bar(14, 4))]
+        ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 2.5, bar(14, 4))]
 
 # The halo: the letters k a r m a ignite on bar 13 beats 1, 2, 3, 4 and 4& (PLAN.md section 2). The wipe edge runs
 # between the gaps of the glyphs, measured on props/out/karma_halo.png (U across the halo card, 0 = screen-left):
@@ -76,7 +77,7 @@ LETTER_OF_LIGHT = [next(i for i in range(5) if GAPS[i] <= u < GAPS[i + 1]) for u
 FACE = (8.0, 0.0, 172.0)
 HOST = {  # label: (loc, aimed at (relative to FACE), candelas at night)
     "Key": ((140, 130, 215), (0, 0, 0), 5.5),
-    "Fill": ((190, -125, 160), (0, 0, 0), 1.0),
+    "Fill": ((190, -125, 160), (0, 0, 0), 0.7),
     "HairLight": ((-85, 25, 258), (-8, 0, 14), 5.0),
     "RimWarm": ((-90, -105, 180), (-8, 0, -12), 3.0),
     "RimWindow": ((-90, 110, 185), (-8, 0, -12), 3.5),
@@ -176,6 +177,7 @@ class Track:
 # ---------------------------------------------------------------------------------------------- the timeline
 def tracks() -> list:
     g, d, b, ig, n = (STATES[s][0] for s in ("GOLDEN", "DUSK", "BLUE", "IGNITION", "NIGHT"))
+    bh = STATES["BLUE"][1]  # blue hour holds through V05 to bar 12 beat 3, then drops into the night at ignition
     dim0 = STATES["NIGHT-DIM"][0]
     T = []
     add = lambda *a, **k: T.append(Track(*a, **k))  # noqa: E731
@@ -186,33 +188,33 @@ def tracks() -> list:
              (ig, NIGHT_SUN["elevation"]))
     T.append(Track("FM_Sun", "transform", "", C((0, SUN_LOC), (END, SUN_LOC)), aim=elev,
                    note="pitch = -elevation, yaw = azimuth"))
-    add("FM_Sun", "float", "Intensity", C((0, 30000.0), (g, 30000.0), (d, 8000.0), (d + 60, 1500.0, "out"),
+    add("FM_Sun", "float", "Intensity", C((0, 17000.0), (g, 17000.0), (d, 4500.0), (d + 60, 1000.0, "out"),
                                           (d + 110, 40.0, "lin"), (b, 2.0, "out")))
     add("FM_Sun", "float", "Temperature", C((0, 5100.0), (g, 5100.0), (d, 3200.0), (d + 120, 2400.0),
                                             (ig, NIGHT_SUN["temperature"])))
-    add("FM_SkyLight", "float", "Intensity", C((0, 0.6), (g, 0.6), (d, 0.35), (b, 0.08), (ig, NIGHT_SUN["sky"])))
+    add("FM_SkyLight", "float", "Intensity", C((0, 0.6), (g, 0.6), (d, 0.35), (b, 0.3), (bh, 0.3), (ig, NIGHT_SUN["sky"])))
     # the window: daylight 6200 K, warming in GOLDEN, cooling to the night's blue through DUSK and BLUE. Temperature
     # multiplies the colour (use_temperature stays on), so the night blue is the colour over a neutral 6500 K.
-    add("WindowSky", "float", "Intensity", C((0, 8.0), (g, 8.0), (d, 5.0), (b, 1.4), (ig, 0.35)))
+    add("WindowSky", "float", "Intensity", C((0, 8.0), (g, 8.0), (d, 5.0), (b, 3.0), (bh, 3.0), (ig, 0.6)))
     add("WindowSky", "float", "Temperature", C((0, 6200.0), (g, 6200.0), (d, 4300.0), (d + 90, 5600.0),
                                                (b, 6500.0)))
     add("WindowSky", "color", "LightColor", C((0, (1.0, 1.0, 1.0)), (d, (1.0, 1.0, 1.0)), (d + 90, (0.75, 0.8, 0.95)),
-                                              (b, WINDOW_NIGHT)))
-    add("RoomBounce", "float", "Intensity", C((0, 1.5), (g, 1.5), (d, 1.0), (b, 0.45), (ig, 0.3)))
-    add("RoomBounce", "float", "Temperature", C((0, 4500.0), (g, 4500.0), (d, 3600.0), (ig, 2800.0)))
+                                              (b, WINDOW_BLUE), (bh, WINDOW_BLUE), (ig, WINDOW_NIGHT)))
+    add("RoomBounce", "float", "Intensity", C((0, 0.8), (g, 0.8), (d, 1.0), (b, 0.7), (bh, 0.7), (ig, 0.25)))
+    add("RoomBounce", "float", "Temperature", C((0, 4500.0), (g, 4500.0), (d, 3600.0), (b, 8500.0), (ig, 9000.0)))
     # the garden outside: the day card fades out as the night card (rig.py, additive in front of it) fades in
-    add("Outside", "material", "Intensity", C((0, 40.0), (g, 40.0), (d, 22.0), (b, 4.0), (ig, 0.0, "out")), slot=0)
-    add("OutsideNight", "material", "Intensity", C((0, 0.0), (d + 60, 0.0), (b, 1.0, "in"), (ig, 3.0)), slot=0)
-    add("Curtains", "material", "Glow", C((0, 0.25), (g, 0.25), (d, 0.15), (b, 0.05), (ig, 0.02)), slot="M_Sheer")
+    add("Outside", "material", "Intensity", C((0, 18.0), (g, 18.0), (d, 10.0), (b, 0.0, "out"), (ig, 0.0)), slot=0)
+    add("OutsideNight", "material", "Intensity", C((0, 0.0), (d + 60, 0.0), (b, 2.0, "in"), (bh, 2.0), (ig, 1.2)), slot=0)
+    add("Curtains", "material", "Glow", C((0, 0.12), (g, 0.12), (d, 0.08), (b, 0.03), (ig, 0.02)), slot="M_Sheer")
     # the air thickens a little for the downlights' cones
-    add("FM_Fog", "float", "FogDensity", C((0, 0.0002), (d, 0.0002), (n, 0.0006)))
-    # exposure opens up as the light goes: studio.py's day 8.3, its night 9.6
-    add("FM_Post", "float", "Settings.AutoExposureBias", C((0, 8.3), (g, 8.3), (d, 8.8), (b, 9.2), (ig, 9.6)))
+    add("FM_Fog", "float", "FogDensity", C((0, 0.0001), (d, 0.0001), (n, 0.0006)))
+    # exposure opens up as the light goes: studio.py's day 8.3, its night 9.1 (studio.py follows, look-polish); blue hour lifted to 9.4
+    add("FM_Post", "float", "Settings.AutoExposureBias", C((0, 8.3), (g, 8.3), (d, 8.8), (b, 9.4), (bh, 9.4), (ig, 9.1)))
 
     # practicals: the shelf LEDs come up in DUSK, everything eases down 30% in NIGHT-DIM
     end_dim = bar(27)  # two bars
     for k in range(4):
-        add(f"ShelfLed{k}", "float", "Intensity", C((0, 1.3), (d, 1.3), (b, 1.5), (dim0, 1.5), (end_dim, 1.5 * DIM)))
+        add(f"ShelfLed{k}", "float", "Intensity", C((0, 1.15), (d, 1.15), (b, 0.9), (bh, 0.9), (ig, 0.7), (dim0, 0.7), (end_dim, 0.7 * DIM)))
     add("CandleLight", "float", "Intensity", C((0, 0.1), (dim0, 0.1), (end_dim, 0.1 * DIM)))
     # NOTE: a material-slot track, which does not land in UE 5.8 (see the halo below); S08 is out of v2. To use it,
     # move Blink onto MPC_FM like the halo's WipeOn
