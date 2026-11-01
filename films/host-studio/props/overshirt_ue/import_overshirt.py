@@ -22,11 +22,13 @@ ui.skeleton = unreal.load_asset(SKEL)
 ui.import_materials, ui.import_textures, ui.import_animations = False, False, False
 ui.create_physics_asset = False
 sk = ui.skeletal_mesh_import_data
-sk.import_morph_targets = False
-sk.normal_import_method = unreal.FBXNormalImportMethod.FBXNIM_IMPORT_NORMALS
-sk.update_skeleton_reference_pose = False
-sk.use_t0_as_reference_pose = False
-sk.convert_scene, sk.force_front_x_axis, sk.convert_scene_unit = True, False, False
+for k, v in dict(import_morph_targets=False, normal_import_method=unreal.FBXNormalImportMethod.FBXNIM_IMPORT_NORMALS,
+                update_skeleton_reference_pose=False, use_t0_as_reference_pose=False, convert_scene=True,
+                force_front_x_axis=False, convert_scene_unit=False).items():
+    try:    # the names vary across engine versions; skip the ones this one lacks
+        sk.set_editor_property(k, v)
+    except Exception:
+        pass
 t.options = ui
 unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t])
 texs = [os.path.join(SRC, f"T_OvershirtTwill_{k}.png") for k in ("A", "N", "M")]

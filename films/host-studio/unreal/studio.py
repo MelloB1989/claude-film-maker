@@ -396,10 +396,12 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
             sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
             SDL = unreal.SubobjectDataBlueprintFunctionLibrary
             handles = sds.k2_gather_subobject_data_for_instance(L.actor("Presenter"))
-            body_h = next(h for h in handles if (lambda o: o is not None and o.get_name() == "Body")(
-                SDL.get_object(SDL.get_data(h))))
+            # the blueprint's own components come back as their templates (Body_GEN_VARIABLE): match the variable name
+            body_h = next(h for h in handles if str(SDL.get_variable_name(SDL.get_data(h))) == "Body")
             new_h, why = sds.add_new_subobject(unreal.AddNewSubobjectParams(
                 parent_handle=body_h, new_class=unreal.SkeletalMeshComponent))
+            if why and str(why):
+                raise RuntimeError(f"overshirt: add_new_subobject failed: {why}")
             sds.rename_subobject(new_h, unreal.Text("Overshirt"))
         her_comp("Overshirt").set_skeletal_mesh_asset(unreal.load_asset(SHIRT))
         for slot_, mi_ in shirt_mats.items():
