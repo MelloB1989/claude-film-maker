@@ -190,7 +190,7 @@ def tracks() -> list:
                    note="pitch = -elevation, yaw = azimuth"))
     add("FM_Sun", "float", "Intensity", C((0, 17000.0), (g, 17000.0), (d, 6000.0), (d + 60, 1200.0, "out"),
                                           (d + 110, 40.0, "lin"), (b, 0.0, "out")))
-    add("FM_Sun", "float", "Temperature", C((0, 5100.0), (g, 5100.0), (d, 3200.0), (d + 120, 2400.0),
+    add("FM_Sun", "float", "Temperature", C((0, 5100.0), (g, 5100.0), (d, 3900.0), (d + 120, 2500.0),
                                             (ig, NIGHT_SUN["temperature"])))
     add("FM_SkyLight", "float", "Intensity", C((0, 0.6), (g, 0.6), (d, 0.35), (b, 0.5), (bh, 0.5), (ig, NIGHT_SUN["sky"])))
     # the window: daylight 6200 K, warming in GOLDEN, cooling to the night's blue through DUSK and BLUE. Temperature
