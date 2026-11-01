@@ -151,8 +151,17 @@ for label in LABELS:
 # the world's MPC_FM, which the halo's GlowWipe reads (light.py keys WipeOn and WipeReveal there)
 world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
 mpc = unreal.EditorAssetLibrary.load_asset("/Game/FM/Materials/MPC_FM")
-out["MPC_FM"] = {p: unreal.KismetMaterialLibrary.get_scalar_parameter_value(world, mpc, p)
-                 for p in ("WipeOn", "WipeReveal")} if mpc else "(no MPC_FM: install the bridge, run rig.py)"
+def mpc_value(p):  # KismetMaterialLibrary is not in every engine's Python (5.8's lacks it): the instance, else none
+    try:
+        return unreal.KismetMaterialLibrary.get_scalar_parameter_value(world, mpc, p)
+    except AttributeError:
+        pass
+    try:
+        return world.get_parameter_collection_instance(mpc).get_scalar_parameter_value(p)
+    except Exception as e:
+        return f"!unreadable here ({type(e).__name__}): judge it by the stills"
+out["MPC_FM"] = {p: mpc_value(p) for p in ("WipeOn", "WipeReveal")} if mpc else \
+    "(no MPC_FM: install the bridge, run rig.py)"
 result = out
 '''
 
