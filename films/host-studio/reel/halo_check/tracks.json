@@ -1,0 +1,135 @@
+{
+ "engine": "5.8.4-58902052+++UE5+Release-5.8",
+ "SignHalo": {
+  "actor": "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_437",
+  "SignHalo/StaticMeshComponent0": {
+   "bound": [
+    "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_437.StaticMeshComponent0"
+   ],
+   "tracks": [
+    {
+     "class": "MovieSceneComponentMaterialTrack",
+     "name": "Material Element 0",
+     "info": {
+      "material_slot_index": "0",
+      "material_slot_name": "lambert1",
+      "material_type": "<ComponentMaterialType.EMPTY: 0>"
+     },
+     "sections": [
+      {
+       "class": "MovieSceneComponentMaterialParameterSection",
+       "active": true,
+       "range": [
+        false,
+        false
+       ],
+       "params": "!AttributeError: 'MovieSceneComponentMaterialParameterSection' object has no attribute 'get_parameter_names'",
+       "channels": [
+        [
+         "Intensity_3",
+         3,
+         "!AttributeError: 'MovieSceneScriptingFloatChannel' object has no attribute 'evaluate'"
+        ],
+        [
+         "Reveal_1",
+         53,
+         "!AttributeError: 'MovieSceneScriptingFloatChannel' object has no attribute 'evaluate'"
+        ]
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "SignHalo": {
+   "bound": [
+    "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_437"
+   ],
+   "tracks": []
+  }
+ },
+ "Outside": {
+  "actor": "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_434",
+  "Outside/StaticMeshComponent0": {
+   "bound": [
+    "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_434.StaticMeshComponent0"
+   ],
+   "tracks": [
+    {
+     "class": "MovieSceneComponentMaterialTrack",
+     "name": "Material Element 0",
+     "info": {
+      "material_slot_index": "0",
+      "material_slot_name": "lambert1",
+      "material_type": "<ComponentMaterialType.EMPTY: 0>"
+     },
+     "sections": [
+      {
+       "class": "MovieSceneComponentMaterialParameterSection",
+       "active": true,
+       "range": [
+        false,
+        false
+       ],
+       "params": "!AttributeError: 'MovieSceneComponentMaterialParameterSection' object has no attribute 'get_parameter_names'",
+       "channels": [
+        [
+         "Intensity_4",
+         482,
+         "!AttributeError: 'MovieSceneScriptingFloatChannel' object has no attribute 'evaluate'"
+        ]
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "Outside": {
+   "bound": [
+    "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_434"
+   ],
+   "tracks": []
+  }
+ },
+ "Terminal": {
+  "actor": "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_458"
+ }
+}
+{
+ "SignHalo": [
+  {
+   "component": "StaticMeshComponent0",
+   "slot": 0,
+   "class": "MaterialInstanceConstant",
+   "material": "/Game/Studio/Materials/MI_K_HaloWipe.MI_K_HaloWipe"
+  }
+ ],
+ "Outside": [
+  {
+   "component": "StaticMeshComponent0",
+   "slot": 0,
+   "class": "MaterialInstanceConstant",
+   "material": "/Game/Studio/Materials/MI_K_Outside.MI_K_Outside"
+  }
+ ],
+ "Terminal": [
+  {
+   "component": "StaticMeshComponent0",
+   "slot": 0,
+   "class": "MaterialInstanceConstant",
+   "material": "/Game/Studio/Materials/MI_K_Anodised.MI_K_Anodised"
+  },
+  {
+   "component": "StaticMeshComponent0",
+   "slot": 1,
+   "class": "MaterialInstanceConstant",
+   "material": "/Game/Studio/Materials/MI_K_Label_Terminal.MI_K_Label_Terminal"
+  },
+  {
+   "component": "StaticMeshComponent0",
+   "slot": 2,
+   "class": "MaterialInstanceConstant",
+   "material": "/Game/Studio/Materials/MI_K_ScreenGlass.MI_K_ScreenGlass"
+  }
+ ]
+}
