@@ -87,13 +87,13 @@ GLIDE = "nothing centred, held on or racked to: the details pass by and the eye 
 SHOTS = [
     # ---------------------------------------------------------------- A/B. the reveal, area by area (bars 1-12)
     Shot("V01", "The shelves", bar(1), bar(4), 40, 2.0,
-         "slow lateral dolly along the four shelves, screen-left to right, 120 cm with a 20 cm crane down; "
-         "the lens looks a little ahead of the move so the shelves stream past in parallax",
-         [[0, [-110, -10, 212], [-250, -55, 196]], [180, [-110, -130, 192], [-250, -175, 180]]],
-         "the shelves as a whole, two to three shelves tall: books, vases, frames, the small things between them, "
-         "the trailing pothos at the start, the LED strips under each board; " + GLIDE,
-         "DAY", "the morning sun raking across the boards; dust in the light", into="cut on bar 4",
-         focus=[[0, 150], [90, 166], [180, 152]], previs=0.5, vcrop=0.5,
+         "a slow crane down the four shelves, top board to bottom, 100 cm, drifting 25 cm screen-right to left and "
+         "a little oblique, so the boards and their things stream up through the frame in parallax",
+         [[0, [-90, -178, 250], [-250, -132, 226]], [180, [-90, -153, 150], [-250, -128, 140]]],
+         "the shelves as a whole, the full 150 cm width, two to three boards tall at a time: books, vases, frames, "
+         "the maker's things, the trailing pothos at frame left, the LED strips under each board; " + GLIDE,
+         "DAY", "the morning sun raking across the boards", into="cut on bar 4",
+         focus=[[0, 178], [90, 192], [180, 180]], previs=0.5, vcrop=0.5,
          sound="room tone, birds outside, the felt-piano motif"),
     Shot("V02", "The credenza", bar(4), bar(7), 40, 2.0,
          "slow lateral dolly along the credenza top, screen-right to left (the opposite way to V01), low, "
@@ -105,17 +105,17 @@ SHOTS = [
          focus=[[0, 140], [100, 125], [180, 138]], previs=0.5, vcrop=0.5,
          sound="the first kick lands mid-glide (bar 5), the room waking up"),
     Shot("V03", "The window and the olive", bar(7), bar(9), 35, 2.8,
-         "a rising lateral crane past the olive tree, its crown crossing the glowing sheers, 40 cm across and 45 cm up",
-         [[0, [-40, 130, 118], [-215, 215, 138]], [120, [-40, 168, 163], [-215, 222, 165]]],
+         "a rising lateral crane past the olive tree from 2.6 m, its crown crossing the glowing sheers, 55 cm across and 37 cm up",
+         [[0, [40, 118, 128], [-220, 200, 128]], [120, [40, 172, 165], [-220, 214, 150]]],
          "the window and the olive as a whole: the sheers lit gold by the low sun, the leaves in silhouette and "
          "translucent against them, the pot and the light on the floor at the start",
          "GOLDEN", "the sun low and long through the sheers; the window holds detail", into="cut on bar 9",
-         focus=[[0, 175], [120, 182]], previs=0.5, vcrop=0.45,
+         focus=[[0, 255], [120, 262]], previs=0.5, vcrop=0.45,
          sound="birds thinning outside, the sheers breathe"),
     Shot("V04", "The slats and the sign", bar(9), bar(11), 35, 2.8,
          "a slow crane up the slat wall, drifting screen-right, to the unlit sign; the sign arrives at the top of "
          "the frame, never centred, still dark",
-         [[0, [-60, 70, 115], [-260, 35, 140]], [120, [-60, 45, 170], [-260, 15, 205]]],
+         [[0, [-60, 70, 115], [-260, 35, 140]], [120, [-60, 45, 165], [-260, 15, 192]]],
          "the walnut slats in the last light, their rhythm filling the frame, the black karma letters arriving "
          "unlit at the top; the pothos' vines and the shelves' first LEDs at frame right",
          "DUSK", "the window cooling; the shelf LEDs coming up", into="cut on bar 11",
@@ -144,9 +144,9 @@ SHOTS = [
          "NIGHT", into="cut on bar 15", previs=1.0, vcrop=0.5, sound="four relay clicks on the beats"),
     # ---------------------------------------------------------------- D. night (bars 15-16), then him (bars 17-18)
     Shot("N01", "The shelves at night", bar(15), bar(17), 50, 2.0,
-         "a night glide: from the lit sign's edge along the shelves, screen-left to right, 90 cm, slightly oblique "
+         "a night glide: from the lit sign's edge along the shelves, screen-left to right, 115 cm, slightly oblique "
          "so the boards' LED lines converge; the halo's spill leaves frame left",
-         [[0, [-150, 30, 182], [-252, -45, 192]], [120, [-150, -60, 176], [-252, -135, 184]]],
+         [[0, [-150, 20, 186], [-252, -55, 196]], [120, [-150, -95, 180], [-252, -170, 190]]],
          "the shelves at night: warm LED lines under each board, the things on them half silhouette, half lit, "
          "the downlight's pool, the blue-black window reflected in a frame's glass; " + GLIDE,
          "NIGHT", "the room at rest", into="cut on bar 17", focus=[[0, 100], [60, 116], [120, 104]], previs=0.5,

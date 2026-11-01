@@ -53,10 +53,7 @@ BEDS_DUCK = {**MUSIC_DUCK, "ratio": 2.0, "range_db": 3.0}
 
 # The lines on the master's clock (R4's measured speech, PLAN.md §2 "Voice lines"; R6's captions use the same):
 # name -> (first frame, last frame, who). A line file given with --line lands its first sample on its first frame.
-LINES = {
-    "L1": (930, 1069, "him"), "L2": (1110, 1141, "him"), "L3": (1158, 1305, "her"),
-    "L4a": (1360, 1373, "him"), "L4b": (1386, 1403, "her"),
-}
+LINES = {name: (f0, f1, who) for name, who, f0, f1, _ in S.LINES}  # PLAN v2: shots.LINES (voice start, slot end)
 
 
 def _stereo(x: np.ndarray) -> np.ndarray:
