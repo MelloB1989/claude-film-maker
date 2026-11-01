@@ -155,9 +155,11 @@ SHOTS = [
          "NIGHT", "the room at rest", into="cut on bar 17", focus=[[0, 140], [60, 156], [120, 144]], previs=0.5,
          vcrop=0.5, sound="the score's drumless breakdown; the halo's hum, crickets"),
     Shot("S13", "Him", bar(17), bar(19), 35, 2.8,
-         "slow push, 30 cm; his key light ramps up on bar 17 beat 3 (12 frames): a light reveal",
-         [[0, [230, 70, 152], [30, 40, 160]], [120, [200, 62, 156], [30, 40, 162]]],
-         "him on his mark, a silhouette against the halo-lit slats, then lit; shelves soft screen-right",
+         "slow push, 30 cm, from a little above his eyeline so his head sits under the sign, not over it; his key "
+         "light ramps up on bar 17 beat 3 (12 frames): a light reveal",
+         [[0, [230, 70, 188], [30, 40, 168]], [120, [200, 62, 190], [30, 40, 170]]],
+         "him on his mark, a silhouette against the halo-lit slats, then lit, the whole word clear above his head; "
+         "shelves soft screen-right",
          "NIGHT+KEY", "head down; lifts his gaze to the lens with the key light (bar 17 beat 3); L1 on bar 18 beat 1, "
          "then a small smirk held to the cut", into="cut on bar 19", cast=("him",), previs=1.0, vcrop=0.42,
          sound="the groove returns (bar 17); the key light's soft 'thunk'; VO L1"),
