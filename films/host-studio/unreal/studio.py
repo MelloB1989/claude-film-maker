@@ -313,7 +313,7 @@ else:
                               ("DownOlive", (WALL + 75, 205, 296), (WALL + 62, 205, 120), 9.0),
                               ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 3.5)):
         K.light(name, "spot", loc=loc, look_at=at, intensity=cd, temperature=2700, cone=32, radius=600,
-                volumetric=0.4)
+                volumetric=0.4, shadows=name != "DownSlats")  # the slat wash would throw the sign's shadow down the slats
 
 # --------------------------------------------------------------------------------------------- the host's light
 FACE = (8.0, 0.0, 172.0)
@@ -380,7 +380,7 @@ K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_
         "bloom_intensity": 0.25, "bloom_threshold": 1.0, "vignette_intensity": 0.25, "film_grain_intensity": 0.06,
         "scene_fringe_intensity": 0.0, "lumen_final_gather_quality": 4.0, "lumen_reflection_quality": 2.0,
         "lumen_scene_detail": 2.0, "lumen_scene_lighting_quality": 2.0, "lumen_max_trace_distance": 2000.0})
-mh.cloth_inflate("Host", cm=1.0)
+# mh.cloth_inflate("Host", cm=0.4)  # off for now: right after a MetaHuman rebuild it crashes the renderer (see README)
 # hair strands take the sky light unoccluded: in this closed, daylit room it would turn the host's hair white
 unreal.SystemLibrary.execute_console_command(unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world(),
                                              "r.HairStrands.SkyLighting 0")
