@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -39,6 +40,7 @@ def whole(frames: Path) -> list:
 def pull(frames: Path, shot: str, remote: str) -> None:
     from filmtools.unreal import workstation as ws
     d = frames / shot
+    shutil.rmtree(d, ignore_errors=True)  # a re-render replaces the shot whole: no old frame survives beside new ones
     n = ws.pull_dir(remote, str(d))
     print(f"{shot}: {n} files in {d}")
     check(frames, [shot])
