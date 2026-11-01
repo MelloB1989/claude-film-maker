@@ -2,7 +2,7 @@
 board and a half-size breadboard with three LEDs, all leaning back ~20 degrees against the tray's back.
 
 Generic look-alikes only: no logos, brand names or printed text anywhere.
-Tray 42 cm (Y) x 13 cm (X), front toward +X. Origin: bottom centre of the tray.
+Tray 32 cm (Y) x 11 cm (X), front toward +X. Origin: bottom centre of the tray.
 
     blender -b --factory-startup -P films/host-studio/props/iot_tray.py -- --out films/host-studio/props/out
 """
@@ -685,16 +685,18 @@ def build_breadboard():
     # ---- jumper wires
     wires = {k: bmesh.new() for k in WIRES}
     tips = bmesh.new()
-    for colour, a, b, h in (("red", (0, "B+"), (0, "T+"), 13.0),
-                            ("black", (1, "B-"), (1, "T-"), 11.0),
-                            ("yellow", (18, "f"), (8, "c"), 7.5),
-                            ("blue", (22, "f"), (11, "c"), 8.0),
-                            ("red", (26, "f"), (14, "c"), 8.5),
-                            ("black", (2, "a"), (2, "B-"), 4.0)):
+    # h = how far the arch stands off the board (mm): wires rise straight out of the holes, then loop over
+    for colour, a, b, h in (("red", (0, "B+"), (0, "T+"), 12.0),
+                            ("black", (1, "B-"), (1, "T-"), 10.0),
+                            ("yellow", (18, "f"), (8, "c"), 8.0),
+                            ("blue", (22, "f"), (11, "c"), 9.5),
+                            ("red", (26, "f"), (14, "c"), 11.0),
+                            ("black", (2, "a"), (2, "B-"), 6.5)):
         A, B = hole(*a), hole(*b)
         d = B - A
-        pts = [A + n * 0.6, A + n * 1.8 + d * 0.01, A + n * (h * 0.8) + d * 0.12, (A + B) / 2 + n * h,
-               B + n * (h * 0.8) - d * 0.12, B + n * 1.8 - d * 0.01, B + n * 0.6]
+        pts = [A + n * 0.6, A + n * 2.5, A + n * (h * 0.7) + d * 0.04, A + n * (h * 0.95) + d * 0.2,
+               (A + B) / 2 + n * h,
+               B + n * (h * 0.95) - d * 0.2, B + n * (h * 0.7) - d * 0.04, B + n * 2.5, B + n * 0.6]
         add_tube(wires[colour], S.catmull_rom(pts, 8), 0.65, sides=10)
         for p in (A, B):
             add_cyl(tips, p - n * 2.2, p + n * 1.0, 0.3, 8)
@@ -743,11 +745,11 @@ def resistor(p0, p1, legs):
 
 
 # ---------------------------------------------------------------- the walnut tray (cm)
-T, L, D = 1.2, 42.0, 13.0
+T, L, D = 1.2, 32.0, 11.0
 Y_IN = L / 2 - T - 0.01
 A = math.radians(20.0)
 sA, cA = math.sin(A), math.cos(A)
-XI = -2.9           # foot of the back board's front face
+XI = -1.9           # foot of the back board's front face
 LW = 7.0            # back board length up the slope
 XZ = Matrix(((1, 0, 0, 0), (0, 0, 1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))   # outline (x, z), extrude along y
 
@@ -771,7 +773,7 @@ tray.append(mk("tray_back", bm, WALNUT, bevel=0.15, segs=3))
 
 def cheek_outline():
     pts = [(D / 2, 0.0), (D / 2, 2.7)]
-    xt, zt, r = -5.0, 8.8, 1.5
+    xt, zt, r = -D / 2 + 1.5, 8.0, 1.5
     n = 20
     for i in range(1, n + 1):
         t = i / n
@@ -801,12 +803,26 @@ def board_matrix(y0):
                    (0, 0, 0, 1))) @ Matrix.Scale(mm, 4)
 
 
-sbc = build_sbc()
-place(sbc, board_matrix(-16.01))
-mcu = build_mcu()
-place(mcu, board_matrix(-2.87))
-bb = build_breadboard()
-place(bb, board_matrix(7.82))
+def y_extent(objs):
+    ys = [(o.matrix_world @ v.co).y / cm for o in objs for v in o.data.vertices]
+    return min(ys), max(ys)
+
+
+# left to right along Y, GAP cm apart (outermost parts, ports included), the row centred in the tray
+GAP = 1.8
+groups = [build_sbc(), build_mcu(), build_breadboard()]
+for g in groups:
+    place(g, board_matrix(0.0))
+spans = [y_extent(g) for g in groups]
+y = -(sum(hi - lo for lo, hi in spans) + GAP * (len(groups) - 1)) / 2
+BOARD_Y = []
+for g, (lo, hi) in zip(groups, spans):
+    place(g, Matrix.Translation((0, (y - lo) * cm, 0)))
+    BOARD_Y.append(y - lo)
+    y += hi - lo + GAP
+print("board origins y (cm):", [round(v, 2) for v in BOARD_Y],
+      "cheek margins (cm):", round(BOARD_Y[0] + spans[0][0] + Y_IN, 2), round(Y_IN - (y - GAP), 2))
+sbc, mcu, bb = groups
 
 parts = []
 for o in tray:
@@ -843,11 +859,12 @@ def shoot(path, view_dir=None, lens=60, margin=1.08, loc=None, target=None):
 
 if not args.no_render:
     shoot(os.path.join(args.out, "iot_tray_front.png"), view_dir=(1.0, 0.0, 0.12), lens=60)
-    target = Vector((0.0, 0.03, 0.04))
+    # oblique, from the breadboard's side, so the jumper arches read in profile
+    target = board_matrix(BOARD_Y[2]) @ Vector((36, 27.5, 4))
     shoot(os.path.join(args.out, "iot_tray_close.png"), lens=55,
-          loc=target + Vector((1.0, -0.22, 0.42)).normalized() * 0.5, target=target)
+          loc=target + Vector((0.6, 0.75, 0.32)).normalized() * 0.32, target=target)
     if os.environ.get("DBG"):
-        for tag, y0, w, h in (("sbc", -16.01, 85, 56), ("mcu", -2.87, 68.6, 53.3), ("bb", 7.82, 82, 55)):
+        for tag, y0, w, h in zip(("sbc", "mcu", "bb"), BOARD_Y, (85, 68.6, 82), (56, 53.3, 55)):
             c = board_matrix(y0) @ Vector((w / 2, h / 2, 5))
             for k, dv in enumerate(((1.0, -0.5, 0.5), (1.0, 0.6, 0.25))):
                 shoot(os.path.join(args.out, f"dbg_{tag}{k}.png"), lens=50,
