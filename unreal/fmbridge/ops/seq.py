@@ -13,7 +13,7 @@ import math
 import unreal
 
 from . import op
-from .assets import EAL, load
+from .assets import EAL, free, load
 from .level import actor, look_rot
 
 LSE = unreal.LevelSequenceEditorBlueprintLibrary
@@ -27,7 +27,7 @@ def shot(path: str, actor_label: str, anims: dict, camera: str, audio: str = "",
     if EAL.does_asset_exist(path):
         if LSE.get_current_level_sequence():
             LSE.close_level_sequence()
-        EAL.delete_asset(path)
+        free(path)  # create_asset over an existing asset asks in a modal dialog
     folder, name = path.rsplit("/", 1)
     seq = unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, folder, unreal.LevelSequence, unreal.LevelSequenceFactoryNew())
     wave = load(audio) if audio else None

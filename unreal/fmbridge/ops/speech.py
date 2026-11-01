@@ -5,7 +5,7 @@ from __future__ import annotations
 import unreal
 
 from . import op
-from .assets import EAL, import_files, load
+from .assets import EAL, free, import_files, load
 
 MOODS = [m for m in dir(unreal.AudioDrivenAnimationMood) if m.isupper()]
 
@@ -24,8 +24,7 @@ def to_face(wav: str, name: str, face_mesh: str, mood: str = "CONFIDENCE", inten
     A multi-tick job."""
     wave = import_files([wav], f"{folder}/Audio")[0].split(".")[0]
     perf_path = f"{folder}/Perf_{name}"
-    if EAL.does_asset_exist(perf_path):
-        EAL.delete_asset(perf_path)
+    free(perf_path)
     perf = unreal.AssetToolsHelpers.get_asset_tools().create_asset(f"Perf_{name}", folder, unreal.MetaHumanPerformance,
                                                                    unreal.MetaHumanPerformanceFactoryNew())
     perf.set_editor_property("input_type", unreal.DataInputType.AUDIO)
@@ -44,6 +43,10 @@ def to_face(wav: str, name: str, face_mesh: str, mood: str = "CONFIDENCE", inten
     yield 0.5
     while perf.is_processing():
         yield 0.5
+    # the export asks "Overwrite Existing Object?" in a modal dialog (the game thread waits for a click) when the
+    # animation exists: free the name first, deleting it, or moving it aside if something still holds it
+    out = f"{folder}/Anim/AS_{name}"
+    free(out)
     U = unreal.MetaHumanPerformanceExportUtils
     st = U.get_export_animation_sequence_settings(perf)
     for k, v in (("package_path", f"{folder}/Anim"), ("asset_name", f"AS_{name}"), ("show_export_dialog", False),
