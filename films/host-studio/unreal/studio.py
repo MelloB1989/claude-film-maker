@@ -92,7 +92,8 @@ MAT = {
     "M_Rod": black_metal, "M_Rug": surface("Wool", 60),
     # the slat wall and the sign
     "M_Walnut": walnut, "M_Felt": surface("Felt", 40, color=(0.6, 0.6, 0.6)),
-    "M_LetterBlack": plain("Powder", (0.011, 0.011, 0.012), 0.62), "M_Metal": black_metal,
+    "M_LetterBlack": plain("Powder", (0.011, 0.011, 0.012), 0.62),
+    "M_Metal": plain("BracketMetal", (0.8, 0.66, 0.42), 0.35, 1.0),  # the card's bracket (and the sign's hidden pins)
     # furniture
     "M_Oak": oak, "M_OakEnd": surface("OakEnd", 20), "M_Alu": alu,
     "M_LedStrip": glow("LedStrip", (1.0, 0.66, 0.36), 9.0), "M_Plinth": matte_black,
@@ -120,6 +121,11 @@ MAT = {
     "M_LedRed": glow("LedRed", (1.0, 0.05, 0.03), 40), "M_LedYellow": glow("LedYellow", (1.0, 0.6, 0.05), 40),
     "M_LedGreen": glow("LedGreen", (0.1, 1.0, 0.15), 40),
     "M_FrameBlack": satin_black, "M_FanBlack": matte_black, "M_AccentGold": gold,
+    "M_PrintRed": plain("PrintRed", (0.5, 0.03, 0.03), 0.5), "M_PrintBlue": plain("PrintBlue", (0.02, 0.06, 0.45), 0.5),
+    "M_Ceramic": plain("SmdCeramic", (0.35, 0.3, 0.22), 0.5), "M_ResistorBody": plain("Resistor", (0.55, 0.45, 0.3), 0.5),
+    "M_Shroud": plain("Shroud", (0.025, 0.025, 0.028), 0.4, 0.6), "M_PcbBlack": plain("PcbBlack", (0.02, 0.02, 0.02), 0.35),
+    "M_Heatsink": alu, "M_Copper": plain("Copper", (0.95, 0.55, 0.38), 0.3, 1.0),
+    "M_PlasticBlack": matte_black, "M_FrameBacking": surface("Linen", 8, color=(0.7, 0.68, 0.64), roughness=1.0),
     # small objects
     "M_Brass": brass, "M_HandleWood": walnut, "M_Wax": plain("Wax", (0.75, 0.68, 0.55), 0.6),
     "M_Wick": matte_black, "M_Flame": glow("Flame", (1.0, 0.6, 0.25), 60),
