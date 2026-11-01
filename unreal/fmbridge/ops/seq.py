@@ -486,9 +486,10 @@ def key_material(path: str, label: str, param: str, keys: list, slot=0, componen
     sec.set_start_frame_bounded(False)
     sec.set_end_frame_bounded(False)
     vector = bool(keys) and isinstance(keys[0][1], (list, tuple))
-    # Sequencer writes into the MID by the whole parameter info (name, association, index), so a plain material
-    # parameter needs GLOBAL_PARAMETER and index -1 said outright: a bare MaterialParameterInfo from Python names the
-    # parameter but matches none, and the MID keeps the instance's values. The bare one is removed too (older keys).
+    # A section's add_*_parameter_key takes its time in the sequence's tick resolution (e.g. 24000/s), not in display
+    # frames as a scripting channel's add_key does: keyed as display frames, a whole timeline landed in its first
+    # instants and every later frame held the last key (the halo lit from f0, its wipe never playing). Hence _ticks.
+    # The parameter info is a plain (global) one, said outright; 5.8's bare MaterialParameterInfo is the same.
     bare = unreal.MaterialParameterInfo()
     bare.set_editor_property("name", param)
     info = unreal.MaterialParameterInfo()
@@ -505,10 +506,10 @@ def key_material(path: str, label: str, param: str, keys: list, slot=0, componen
         mode = _interp(how[0] if how else interp)
         if vector:
             rgba = list(v) + [1.0] * (4 - len(v))
-            sec.add_color_parameter_key(info, unreal.FrameNumber(int(frame)), unreal.LinearColor(*rgba), "", "",
+            sec.add_color_parameter_key(info, unreal.FrameNumber(_ticks(seq, frame)), unreal.LinearColor(*rgba), "", "",
                                         default_interpolation=mode)
         else:
-            sec.add_scalar_parameter_key(info, unreal.FrameNumber(int(frame)), float(v), "", "",
+            sec.add_scalar_parameter_key(info, unreal.FrameNumber(_ticks(seq, frame)), float(v), "", "",
                                          default_interpolation=mode)
     _done(path)
     return {"binding": f"{label}.{mesh.get_name()}", "slot": index, "param": param, "keys": len(keys)}
@@ -544,7 +545,7 @@ def key_collection(path: str, collection: str, param: str, keys: list, interp: s
     used = None
     for frame, v, *how in keys:
         mode = _interp(how[0] if how else interp)
-        at = unreal.FrameNumber(int(frame))
+        at = unreal.FrameNumber(_ticks(seq, frame))  # a section's parameter keys are in ticks (see key_material)
         tries = [lambda: sec.add_scalar_parameter_key(info, at, float(v), "", "", default_interpolation=mode),
                  lambda: sec.add_scalar_parameter_key(param, at, float(v), default_interpolation=mode),
                  lambda: sec.add_scalar_parameter_key(param, at, float(v))]
