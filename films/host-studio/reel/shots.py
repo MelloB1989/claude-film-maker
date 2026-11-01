@@ -20,6 +20,7 @@ SIGN = (WALL + 4, SLAT_Y, 228.0)  # the sign's centre: 120 cm across, ~36 cm tal
 # In the scene today both stand at the origin (her hidden): the reel's sequence moves them with transform keys.
 MARK_HIM, MARK_HER = (30.0, 40.0, 0.0), (-50.0, -55.0, 0.0)
 EYES_HIM, EYES_HER = 174.0, 158.0
+COIN, PICK = [-249.0, -169.0, 172.0], [-251.0, -186.0, 178.0]  # S06's rack: the coin's face, the pickaxe's head
 
 
 def bar(n: int, beat: int = 1) -> int:
@@ -41,7 +42,7 @@ class Shot:
     light: str                 # the lighting state (LIGHT below)
     action: str = ""           # the presenters (or the set's own motion)
     into: str = "cut"          # the transition into the next shot
-    focus: list = field(default_factory=list)  # [frame offset, distance cm]: a focus pull; empty = on the look-at
+    focus: list = field(default_factory=list)  # [frame offset, distance cm | [x, y, z] to focus on]: a pull; empty = on the look-at
     cast: tuple = ()           # who is visible: "him", "her"
     vcrop: float = 0.5         # 9:16 cut: the crop window's centre across the 16:9 frame (0 left .. 1 right)
     previs: float | None = None  # where in the move (0..1) the previs still is taken; None = no previs
@@ -114,7 +115,7 @@ SHOTS = [
          "low push at shelf height, 11 cm, focus racks from the coin to the pickaxe on beat 3",
          [[0, [-190, -160, 170], [-250, -178, 174]], [60, [-200, -165, 170], [-250, -178, 174]]],
          "the coin on its walnut stand in front, the brass pickaxe behind; the candle's flame soft at frame left",
-         "GOLDEN", into="cut", focus=[[0, 59], [30, 54], [42, 59]], previs=0.6, vcrop=0.45,
+         "GOLDEN", into="cut", focus=[[0, COIN], [30, COIN], [42, PICK]], previs=0.6, vcrop=0.45,
          sound="a coin's ring (a single ping on beat 1), a mined 'tink' on the rack"),
     Shot("S07", "The drone", bar(9), bar(10), 50, 4.0,
          "crane down from a three-quarter top view to eye level with the gimbal, ending on its red LED",
@@ -142,7 +143,7 @@ SHOTS = [
     # ---------------------------------------------------------------- C. ignition (bars 13-14): the drop
     Shot("S11", "The sign lights", bar(13), bar(14), 40, 4.0,
          "slow push-in from below, 60 cm, as the halo ignites letter by letter (k a r m a on beats 1-4, + 'a' on 4&)",
-         [[0, [-40, 10, 150], [-256, 25, 228]], [60, [-95, 15, 170], [-256, 25, 228]]],
+         [[0, [-40, 14, 150], [-256, 22, 228]], [60, [-95, 30, 170], [-256, 22, 228]]],
          "the slat wall and the black Samarkan letters in near dark, the warm halo flaring behind each in turn",
          "IGNITION", into="cut on bar 14", previs=1.0, vcrop=0.5,
          sound="the drop: a sub hit, a relay clunk and electrical hum per letter, the full beat comes in"),

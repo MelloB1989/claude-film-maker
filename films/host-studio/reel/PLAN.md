@@ -177,7 +177,7 @@ both facing the camera (+X); in the level today both stand at the origin.
 ### S06 · The coin and the pickaxe — 0:17.12–0:20.00 (bars 8–8, f420–479, 2.5 s)
 
 - **Camera:** 65 mm full frame, T4. Low push at shelf height, 11 cm, focus racks from the coin to the pickaxe on beat 3. From `[-190, -160, 170]` → `[-200, -165, 170]`, aimed at `[-250, -178, 174]`.
-- **Focus pull:** +0 f: 59 cm, +30 f: 54 cm, +42 f: 59 cm.
+- **Focus pull:** +0 f: on `[-249.0, -169.0, 172.0]`, +30 f: on `[-249.0, -169.0, 172.0]`, +42 f: on `[-251.0, -186.0, 178.0]`.
 - **In frame:** the coin on its walnut stand in front, the brass pickaxe behind; the candle's flame soft at frame left.
 - **Light:** GOLDEN.
 - **Sound:** a coin's ring (a single ping on beat 1), a mined 'tink' on the rack.
@@ -220,7 +220,7 @@ both facing the camera (+X); in the level today both stand at the origin.
 
 ### S11 · The sign lights — 0:30.00–0:32.12 (bars 13–13, f720–779, 2.5 s)
 
-- **Camera:** 40 mm full frame, T4. Slow push-in from below, 60 cm, as the halo ignites letter by letter (k a r m a on beats 1-4, + 'a' on 4&). From `[-40, 10, 150]` → `[-95, 15, 170]`, aimed at `[-256, 25, 228]`.
+- **Camera:** 40 mm full frame, T4. Slow push-in from below, 60 cm, as the halo ignites letter by letter (k a r m a on beats 1-4, + 'a' on 4&). From `[-40, 14, 150]` → `[-95, 30, 170]`, aimed at `[-256, 22, 228]`.
 - **In frame:** the slat wall and the black Samarkan letters in near dark, the warm halo flaring behind each in turn.
 - **Light:** IGNITION.
 - **Sound:** the drop: a sub hit, a relay clunk and electrical hum per letter, the full beat comes in.
