@@ -91,6 +91,11 @@ These are the traps the ops already handle; they matter when writing new ones.
 - **Glass lit as a volume reads white** in a bright room: translucent glass is lit per pixel as a surface.
 - **Hair strands take the sky light unoccluded**: indoors in daylight the hair goes white; set
   `r.HairStrands.SkyLighting 0` (in the editor and as a render cvar).
+- **A failed ops import can wedge the bridge.** When `from . import ops` fails partway (a module imports a name its
+  sibling does not have yet, e.g. a half-copied install), the siblings that did import stay in `sys.modules`. Every
+  later call, and the install's own boot, runs that import first and hits the same stale module, so `film-ue install`
+  keeps failing with the same ImportError. Unstick it by writing, over SSM, a copy of the importing modules that
+  tolerates the missing name, booting the bridge (it purges every `fmbridge` module), then installing normally.
 - **Never change a material while it is being drawn.** Reparenting a material instance that a visible mesh wears,
   or recompiling a parent it inherits from, leaves the render thread's uniform-expression cache pointing at the old
   shader map, and the next frame asserts (`UniformExpressionCache.CachedUniformExpressionShaderMap ==
