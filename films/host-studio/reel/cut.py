@@ -90,7 +90,7 @@ TITLE = {"wordmark": True, "line": "a studio by MelloB", "date": None}
 # framing note, R3). DRAFT until the animatic shows the real framings. S17 follows the lines: him (frame-left) for L4a
 # (f1350), her (frame-right) for L4b (f1386); the two-shot is too wide for one 9:16 window.
 VCROP_KEYS = {"S15": [[0, 0.20], [60, 0.20], [78, 0.68]],
-              "S17": [[0, 0.34], [52, 0.37], [68, 0.62], [120, 0.60]]}
+              "S17": [[0, 0.34], [52, 0.37], [68, 0.62], [120, 0.63]]}
 
 BT709 = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"]
 X264 = ["-c:v", "libx264", "-preset", "slow", "-profile:v", "high", "-pix_fmt", "yuv420p", "-g", "48", "-bf", "2"]
