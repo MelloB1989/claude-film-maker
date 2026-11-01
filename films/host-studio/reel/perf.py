@@ -306,24 +306,32 @@ ROLL = r"""
 import json, unreal
 AL, EAL = unreal.AnimationLibrary, unreal.EditorAssetLibrary
 P = json.loads(PARAMS)
-if EAL.does_asset_exist(P["out"]):
-    EAL.delete_asset(P["out"])
-EAL.duplicate_asset(P["src"], P["out"])
-a = unreal.load_asset(P["out"])
-n = AL.get_num_keys(a)
-L = a.get_editor_property("sequence_length")
-shift = int(round(P["seconds"] / L * (n - 1)))
-ctrl = a.get_editor_property("controller")
-ctrl.open_bracket("roll idle", True)
-names = [str(b) for b in AL.get_animation_track_names(a)]
-for b in names:
-    poses = [AL.get_bone_pose_for_frame(a, b, k, False) for k in range(n - 1)]
-    poses = poses[shift:] + poses[:shift]
-    poses.append(poses[0])
-    ctrl.set_bone_track_keys(b, [t.translation for t in poses], [t.rotation for t in poses], [t.scale3d for t in poses])
-ctrl.close_bracket(True)
-EAL.save_asset(P["out"])
-result = {"anim": P["out"], "keys": n, "shift": shift, "bones": len(names)}
+def job():  # across editor ticks (a yield every few bones), one bracket: one recompression
+    if EAL.does_asset_exist(P["out"]):
+        EAL.delete_asset(P["out"])
+    EAL.duplicate_asset(P["src"], P["out"])
+    a = unreal.load_asset(P["out"])
+    n = AL.get_num_keys(a)
+    L = a.get_editor_property("sequence_length")
+    shift = int(round(P["seconds"] / L * (n - 1)))
+    ctrl = a.get_editor_property("controller")
+    names = [str(b) for b in AL.get_animation_track_names(a)]
+    ctrl.open_bracket("roll idle", False)
+    try:
+        for i, b in enumerate(names):
+            poses = [AL.get_bone_pose_for_frame(a, b, k, False) for k in range(n - 1)]
+            poses = poses[shift:] + poses[:shift]
+            poses.append(poses[0])
+            ctrl.set_bone_track_keys(b, [t.translation for t in poses], [t.rotation for t in poses],
+                                     [t.scale3d for t in poses], False)
+            if i % 8 == 7:
+                yield
+    finally:
+        ctrl.close_bracket(False)
+    yield
+    EAL.save_asset(P["out"])
+    return {"anim": P["out"], "keys": n, "shift": shift, "bones": len(names)}
+result = job()
 """
 
 SPAWN = r"""
