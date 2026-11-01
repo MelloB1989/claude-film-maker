@@ -188,7 +188,7 @@ SHOTS = [
     Shot("S18", "Title", bar(25), bar(27), 28, 4.0,
          "locked off on the end of S17; the practicals ease down, the halo holds; title type fades in",
          [[0, [320, -10, 195], [-100, -5, 172]], [120, [320, -10, 195], [-100, -5, 172]]],
-         "the wide with the lit sign; 2D title lockup over it, then a fade to black on the halo",
+         "the wide with the lit sign; the title over it (the karma wordmark, then \"a studio by MelloB\"), then a fade to black on the halo",
          "NIGHT-DIM", "both hold, a natural idle", into="fade to black (last 24 frames)", cast=("him", "her"),
          vcrop=0.5, sound="the final chord and a sub tail; the halo's hum fades last"),
 ]
