@@ -214,6 +214,8 @@ def tracks() -> list:
     for k in range(4):
         add(f"ShelfLed{k}", "float", "Intensity", C((0, 1.3), (d, 1.3), (b, 1.5), (dim0, 1.5), (end_dim, 1.5 * DIM)))
     add("CandleLight", "float", "Intensity", C((0, 0.1), (dim0, 0.1), (end_dim, 0.1 * DIM)))
+    # NOTE: a material-slot track, which does not land in UE 5.8 (see the halo below); S08 is out of v2. To use it,
+    # move Blink onto MPC_FM like the halo's WipeOn
     add("Terminal", "material", "Blink", C((0, 1.0), *((f, v, "hold") for f, v in BLINK)), slot="M_Label_Terminal")
 
     # the halo: off all day (WipeOn 0); the card is wiped on letter by letter (WipeReveal) and each letter's LEDs
