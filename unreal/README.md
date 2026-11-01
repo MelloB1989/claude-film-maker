@@ -80,3 +80,12 @@ These are the traps the ops already handle; they matter when writing new ones.
 - **Cine cameras default to a Super 35 back** (23.76 mm), not full frame: plan the frame with the real filmback.
 - **A request sent while the bridge restarts** would hang on the old server: `install` waits for the new one, and
   `server.stop()` answers anything still queued.
+- **A checker on a surface is a failed material**, not a missing texture: the engine draws WorldGridMaterial. The
+  usual cause is a sampler of the wrong kind for its texture (a TC_MASKS map needs the Masks sampler, not Linear
+  Color). `look.material`'s textured kinds pick matching defaults; `MaterialEditingLibrary.get_statistics(m)` gives
+  `num_samplers == -1` for a material that does not compile.
+- **Glass lit as a volume reads white** in a bright room: translucent glass is lit per pixel as a surface.
+- **Hair strands take the sky light unoccluded**: indoors in daylight the hair goes white; set
+  `r.HairStrands.SkyLighting 0` (in the editor and as a render cvar).
+- **The editor may open an Untitled level** after a restart: open the studio's level before building in it.
+- **Big files go through S3** (`workstation.push_dir` / `pull_dir`), not the tunnel.
