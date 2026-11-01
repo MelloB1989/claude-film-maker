@@ -1,5 +1,5 @@
 """Previs stills of the reel's key shots: a scratch camera (`Previs_<shot>`) placed as shots.py plans it, a viewport
-still (look.still, not Movie Render Queue), the still brought back, the camera deleted. Nothing else in the scene is
+still through a scratch sequence cut to it (seq.still, not Movie Render Queue), the still brought back, the camera deleted. Nothing else in the scene is
 touched: the light is whatever the level has now, and the presenters stand where they stand.
 
 The presenters' reel marks (shots.py MARK_HIM, MARK_HER) are not set in the level: both stand on one mark, her hidden.
@@ -24,6 +24,8 @@ from shots import EYES_HER, EYES_HIM, FULL_FRAME, MARK_HER, MARK_HIM, SHOTS  # n
 OUT = HERE / "previs"
 REMOTE = r"C:\UEProjects\HostStudio\Saved\Previs\reel"
 ANIMS = "/MetaHumanCharacter/Optional/Animation"
+IDLE = f"{ANIMS}/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle"
+SEQ = "/Game/Reel/Previs/SEQ_Previs_agent11"  # scratch, deleted after each run
 
 
 def ok(res: dict):
@@ -64,7 +66,8 @@ def sheet(cols: int = 3, w: int = 640) -> Path:
     """previs/contact.jpg: every previs still in shot order, captioned with its shot, time, lens and light."""
     from PIL import Image, ImageDraw, ImageFont
     font = ImageFont.truetype(str(HERE.parents[2] / "fonts" / "src" / "Geist[wght].ttf"), 17)
-    items = [(s, OUT / f"{s.id}.png") for s in SHOTS if (OUT / f"{s.id}.png").exists()]
+    pick = lambda s: next((p for p in (OUT / f"{s.id}.jpg", OUT / f"{s.id}.png") if p.exists()), None)  # noqa: E731
+    items = [(s, pick(s)) for s in SHOTS if pick(s)]
     h, cap, pad = w * 9 // 16, 30, 8
     rows = -(-len(items) // cols)
     img = Image.new("RGB", (cols * (w + pad) + pad, rows * (h + cap + pad) + pad), (16, 16, 17))
@@ -107,11 +110,19 @@ def main() -> None:
             ok(client.op("look.camera", label=label, loc=loc, look_at=at, focal=float(s.lens), aperture=float(s.stop),
                          focus=d, filmback=list(FULL_FRAME), pilot=False))
             made.append(label)
+            # look.still alone takes the viewport's field of view; a still through a sequence cut to the camera
+            # (locked to the viewport) uses the cine lens: a throwaway sequence per shot, deleted at the end
+            ok(client.op("seq.close"))
+            ok(client.op("seq.shot", path=SEQ, actor_label="Host", anims={"Body": IDLE}, camera=label, seconds=1.0))
             remote = rf"{REMOTE}\{s.id}.png"
-            ok(client.op("look.still", camera_label=label, path=remote, width=a.width, height=a.width * 9 // 16))
+            ok(client.op("seq.still", path=SEQ, frame=12, camera=label, out=remote, width=a.width,
+                         height=a.width * 9 // 16))
             client.pull(remote, str(OUT / f"{s.id}.png"))
             print(s.id, [round(v) for v in loc], "->", [round(v) for v in at], f"{s.lens:g}mm", flush=True)
     finally:
+        ok(client.op("seq.close"))
+        ok(client.exec_code(f"import unreal\nE = unreal.EditorAssetLibrary\n"
+                            f"result = E.delete_asset({SEQ!r}) if E.does_asset_exist({SEQ!r}) else None"))
         if made:
             ok(client.op("level.delete", labels=made))
 

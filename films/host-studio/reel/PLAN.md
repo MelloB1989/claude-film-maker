@@ -70,8 +70,7 @@ The beats that are hit on purpose (frame = (bar−1)·60 + (beat−1)·15):
   Tycho, "Awake" (warmth, pace); Ritviz's softer productions (Indian colour in electronic music); Lane 8's
   deep-house risers (the pre-drop breath).
 - **How:** generate it with the repo's score pipeline: `music_plan.py` sections in whole bars (A 4, B 8, C 2, D 4,
-  E 4, F 4 = 26 bars at 96 bpm) → `music.py` (ElevenLabs Music, cleared for commercial use on a paid plan; *check
-  the plan tier before publishing*), then `beats.py` to measure the grid against the cut (grid fit ≥ 0.9, else
+  E 4, F 4 = 26 bars at 96 bpm) → `music.py` (ElevenLabs Music: the operator's choice; key: the fleet secret `elevenlabs`), then `beats.py` to measure the grid against the cut (grid fit ≥ 0.9, else
   regenerate). Until it exists, cut to `temptrack.py`'s procedural score at 96 bpm (owned outright, no licence
   question at all); it is also the fallback if the generated score does not fit.
 - **Never:** commercial tracks, the crate's artists' music (the record crate is visual only), stock libraries with
@@ -94,19 +93,20 @@ licence-free), each one-shot aligned to its frame:
 
 ### Voice lines
 
-Two presenters, four short lines (about 16 s of speech in 65 s). **Draft copy — the operator should approve or
-rewrite it** (see the questions at the end).
+Two presenters, four short lines (about 16 s of speech in 65 s). **Approved by the operator as written**
+(2026-11-01).
 
-| Line | Who | When | Text (draft) | Mood (`speech.to_face`) |
+| Line | Who | When | Text | Mood (`speech.to_face`) |
 |---|---|---|---|---|
 | L1 | him | f930–1080 (S13→S14) | "This is karma. Everything on these shelves is a story — seven of them, built one late night at a time." | CONFIDENCE 0.8 |
 | L2 | him | f1110–1150 (S15) | "She'll tell you the next one." | HAPPINESS 0.6 |
 | L3 | her | f1158–1310 (S15→S16) | "Tech, explained the way we'd want it explained: calm, honest, and made right here." | CONFIDENCE 0.9 |
 | L4 | him, then her | f1360–1410 (S17) | him: "Welcome…" — her: "…to karma." | HAPPINESS 0.7 |
 
-Voices: either recorded by the operator and a collaborator (best, and most personal), or ElevenLabs voices through
-`vo.py` (one voice per presenter, a few takes each). Each line becomes a face with `speech.to_face`, as in
-`films/host-studio/shot.py`.
+Voices: **ElevenLabs** (operator's decision): one male voice for him, one female voice for her, through
+`vo.py` (a few takes per line, chosen by listening, not dozens). The API key is the fleet secret `elevenlabs`, used
+only through `fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- …`. Each line becomes a face with
+`speech.to_face`, as in `films/host-studio/shot.py`.
 
 ## 3. Lighting states
 
@@ -134,11 +134,11 @@ both facing the camera (+X); in the level today both stand at the origin.
 ### S01 · Light through the olive — 0:00.00–0:05.00 (bars 1–2, f0–119, 5.0 s)
 
 - **Camera:** 85 mm full frame, T2. Slow lateral truck (screen-right to left) through the olive's crown, 25 cm over 5 s. From `[-130, 165, 160]` → `[-130, 188, 160]`, aimed at `[-215, 222, 152]`.
-- **In frame:** olive leaves backlit by the sheers, the window's glow blooming between them; 70% out of focus.
+- **In frame:** olive leaves backlit by the sheers, the window's glow blooming between them; focus on the nearest twigs (~60 cm), exposure 1.5 stops under DAY so the window holds detail (the previs is blown out).
 - **Light:** DAY.
 - **Action:** the leaves are still (static mesh); a faint dust drift in the volumetric fog.
 - **Sound:** room tone, birds outside, a felt-piano motif enters.
-- **Into the next:** cut on bar 3. **9:16:** crop centred at 55% of the width. **Previs:** [`previs/S01.png`](previs/S01.png).
+- **Into the next:** cut on bar 3. **9:16:** crop centred at 55% of the width. **Previs:** [`previs/S01.jpg`](previs/S01.jpg).
 
 ### S02 · The room — 0:05.00–0:10.00 (bars 3–4, f120–239, 5.0 s)
 
@@ -147,76 +147,76 @@ both facing the camera (+X); in the level today both stand at the origin.
 - **Light:** DAY.
 - **Action:** empty room; sun patches on the rug.
 - **Sound:** the curtain breathes (soft air), a clock-like tick doubles the tempo.
-- **Into the next:** cut on bar 5 (first kick). **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S02.png`](previs/S02.png).
+- **Into the next:** cut on bar 5 (first kick). **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S02.jpg`](previs/S02.jpg).
 
 ### S03 · Seven spines — 0:10.00–0:12.12 (bars 5–5, f240–299, 2.5 s)
 
-- **Camera:** 100 mm full frame, T4. Macro slider parallel to the shelf, 44 cm screen-left to right along the green spines. From `[-196, -100, 212]` → `[-196, -144, 212]`, aimed at `[-236, -148, 211]`.
+- **Camera:** 85 mm full frame, T5.6. Macro slider parallel to the shelf, 44 cm screen-left to right along the green spines. From `[-181, -100, 212]` → `[-181, -144, 212]`, aimed at `[-236, -148, 211]`.
 - **In frame:** the seven dark-green spines, titles reading bottom to top: Socify, Noobsverse, Lyzn, Avidia, Respawn, Noobspaces, Noobs Learning; cloth texture, gilt titles.
 - **Light:** GOLDEN.
 - **Sound:** a finger along book cloth, a soft kick lands with the cut.
-- **Into the next:** cut. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S03.png`](previs/S03.png).
+- **Into the next:** cut. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S03.jpg`](previs/S03.jpg).
 
 ### S04 · V and the heart — 0:12.12–0:15.00 (bars 6–6, f300–359, 2.5 s)
 
-- **Camera:** 85 mm full frame, T2. Slow push-in, 12 cm, with a rack from the vase behind to the polaroid. From `[-185, -140, 214]` → `[-196, -147, 210]`, aimed at `[-239, -163, 205]`.
+- **Camera:** 85 mm full frame, T4. Slow push-in, 12 cm, with a rack from the vase behind to the polaroid. From `[-185, -140, 214]` → `[-196, -147, 210]`, aimed at `[-239, -163, 205]`.
 - **Focus pull:** +0 f: 73 cm, +36 f: 47 cm.
 - **In frame:** the polaroid (the V and the heart) leaning on the books, the speckled vase soft behind it.
 - **Light:** GOLDEN.
 - **Sound:** a polaroid's soft flick.
-- **Into the next:** cut. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S04.png`](previs/S04.png).
+- **Into the next:** cut. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S04.jpg`](previs/S04.jpg).
 
 ### S05 · lyzn — 0:15.00–0:17.12 (bars 7–7, f360–419, 2.5 s)
 
-- **Camera:** 65 mm full frame, T2.8. Orbit around the acrylic block, 35 deg at 50 cm radius, the sun's glint crawling across its edge. From `[-196.7, -179.1, 208]` → `[-198.0, -209.1, 208]`, aimed at `[-245, -192, 205]`.
+- **Camera:** 65 mm full frame, T4. Orbit around the acrylic block, 35 deg at 50 cm radius, the sun's glint crawling across its edge. From `[-196.7, -179.1, 208]` → `[-198.0, -209.1, 208]`, aimed at `[-245, -192, 205]`.
 - **In frame:** the frosted lyzn block, its engraved word catching the light, the shelf LED strip a line of bokeh above.
 - **Light:** GOLDEN.
 - **Sound:** a glassy tick on beat 3.
-- **Into the next:** cut. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S05.png`](previs/S05.png).
+- **Into the next:** cut. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S05.jpg`](previs/S05.jpg).
 
 ### S06 · The coin and the pickaxe — 0:17.12–0:20.00 (bars 8–8, f420–479, 2.5 s)
 
-- **Camera:** 100 mm full frame, T2.8. Low push at shelf height, 11 cm, focus racks from the coin to the pickaxe on beat 3. From `[-190, -160, 168]` → `[-200, -165, 168]`, aimed at `[-250, -178, 169]`.
+- **Camera:** 65 mm full frame, T4. Low push at shelf height, 11 cm, focus racks from the coin to the pickaxe on beat 3. From `[-190, -160, 170]` → `[-200, -165, 170]`, aimed at `[-250, -178, 174]`.
 - **Focus pull:** +0 f: 59 cm, +30 f: 54 cm, +42 f: 59 cm.
 - **In frame:** the coin on its walnut stand in front, the brass pickaxe behind; the candle's flame soft at frame left.
 - **Light:** GOLDEN.
 - **Sound:** a coin's ring (a single ping on beat 1), a mined 'tink' on the rack.
-- **Into the next:** cut. **9:16:** crop centred at 45% of the width. **Previs:** [`previs/S06.png`](previs/S06.png).
+- **Into the next:** cut. **9:16:** crop centred at 45% of the width. **Previs:** [`previs/S06.jpg`](previs/S06.jpg).
 
 ### S07 · The drone — 0:20.00–0:22.12 (bars 9–9, f480–539, 2.5 s)
 
-- **Camera:** 50 mm full frame, T2.8. Crane down from a three-quarter top view to eye level with the gimbal, ending on its red LED. From `[-222, -124, 205]` → `[-212, -116, 178]`, aimed at `[-247.5, -124, 167]`.
+- **Camera:** 50 mm full frame, T4. Crane down from a three-quarter top view to eye level with the gimbal, ending on its red LED. From `[-222, -124, 205]` → `[-212, -116, 178]`, aimed at `[-247.5, -124, 167]`.
 - **In frame:** the mini drone on the shelf, props folded, the gimbal lens and the red front LED.
 - **Light:** DUSK.
 - **Sound:** a gimbal servo whirr, an LED blip on beat 4.
-- **Into the next:** cut. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S07.png`](previs/S07.png).
+- **Into the next:** cut. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S07.jpg`](previs/S07.jpg).
 
 ### S08 · hello, friend — 0:22.12–0:25.00 (bars 10–10, f540–599, 2.5 s)
 
-- **Camera:** 65 mm full frame, T2.8. Pedestal down and slight truck from the red print to the terminal's root prompt. From `[-195, -100, 150]` → `[-200, -90, 133]`, aimed at `[-248, -82, 129]`.
+- **Camera:** 65 mm full frame, T4. Pedestal down and slight truck from the red print to the terminal's root prompt. From `[-195, -100, 150]` → `[-200, -90, 133]`, aimed at `[-248, -82, 129]`.
 - **In frame:** the framed red print, then the slim terminal display: root@mellob:~# and its cursor.
 - **Light:** DUSK.
 - **Action:** the terminal's cursor blinks on the beat (material param, new).
 - **Sound:** three keystrokes, a cursor tick per beat.
-- **Into the next:** cut. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S08.png`](previs/S08.png).
+- **Into the next:** cut. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S08.jpg`](previs/S08.jpg).
 
 ### S09 · 27 NOV — 0:25.00–0:27.12 (bars 11–11, f600–659, 2.5 s)
 
-- **Camera:** 50 mm full frame, T1.8. A slow 8 cm drift, focus racking from the MelloB block (foreground) to the 27 NOV calendar. From `[-195, -85, 86]` → `[-199, -90, 85]`, aimed at `[-224, -150, 78]`.
-- **Focus pull:** +0 f: 46 cm, +24 f: 46 cm, +40 f: 94 cm.
+- **Camera:** 50 mm full frame, T2.8. A slow 8 cm drift, focus racking from the MelloB block (foreground) to the 27 NOV calendar. From `[-170, -95, 84]` → `[-173, -99, 83]`, aimed at `[-224, -143, 78]`.
+- **Focus pull:** +0 f: 60 cm, +24 f: 60 cm, +40 f: 100 cm.
 - **In frame:** the walnut MelloB nameplate soft in the foreground, the calendar's 27 NOV pulling sharp behind.
 - **Light:** DUSK.
 - **Sound:** a calendar page settling.
-- **Into the next:** cut. **9:16:** crop centred at 60% of the width. **Previs:** [`previs/S09.png`](previs/S09.png).
+- **Into the next:** cut. **9:16:** crop centred at 60% of the width. **Previs:** [`previs/S09.jpg`](previs/S09.jpg).
 
 ### S10 · The crate — 0:27.12–0:30.00 (bars 12–12, f660–719, 2.5 s)
 
-- **Camera:** 65 mm full frame, T2.8. Push-in 30 cm into the crate's front sleeve, ending on the name KARMA in its artist list. From `[-150, -150, 100]` → `[-182, -154, 96]`, aimed at `[-232, -157, 90]`.
+- **Camera:** 65 mm full frame, T4. Push-in 30 cm into the crate's front sleeve, ending on the name KARMA in its artist list. From `[-150, -150, 100]` → `[-182, -154, 96]`, aimed at `[-232, -157, 90]`.
 - **In frame:** the walnut crate of LPs: SEEDHE MAUT, KR$NA, RAFTAAR, KARMA, BELLA on the front sleeve.
 - **Light:** BLUE.
 - **Action:** the shelf LEDs carry the frame; the window goes blue behind.
 - **Sound:** needle drop and vinyl crackle, a riser, then silence on beat 4 (+).
-- **Into the next:** smash cut on the drop (bar 13). **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S10.png`](previs/S10.png).
+- **Into the next:** smash cut on the drop (bar 13). **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S10.jpg`](previs/S10.jpg).
 
 ### S11 · The sign lights — 0:30.00–0:32.12 (bars 13–13, f720–779, 2.5 s)
 
@@ -224,7 +224,7 @@ both facing the camera (+X); in the level today both stand at the origin.
 - **In frame:** the slat wall and the black Samarkan letters in near dark, the warm halo flaring behind each in turn.
 - **Light:** IGNITION.
 - **Sound:** the drop: a sub hit, a relay clunk and electrical hum per letter, the full beat comes in.
-- **Into the next:** cut on bar 14. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S11.png`](previs/S11.png).
+- **Into the next:** cut on bar 14. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S11.jpg`](previs/S11.jpg).
 
 ### S12 · The studio comes on — 0:32.12–0:35.00 (bars 14–14, f780–839, 2.5 s)
 
@@ -232,7 +232,7 @@ both facing the camera (+X); in the level today both stand at the origin.
 - **In frame:** the whole room at night: the sign lit, downlights popping on the beats (credenza, slats, olive, shelves).
 - **Light:** NIGHT.
 - **Sound:** four relay clicks on the beats.
-- **Into the next:** cut on bar 15. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S12.png`](previs/S12.png).
+- **Into the next:** cut on bar 15. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S12.jpg`](previs/S12.jpg).
 
 ### S13 · Him — 0:35.00–0:40.00 (bars 15–16, f840–959, 5.0 s)
 
@@ -241,7 +241,7 @@ both facing the camera (+X); in the level today both stand at the origin.
 - **Light:** NIGHT+KEY.
 - **Action:** head down, lifts his gaze to the lens on bar 16 beat 1, starts line 1 on beat 3.
 - **Sound:** the key light's soft 'thunk'; VO L1.
-- **Into the next:** cut on bar 17. **9:16:** crop centred at 42% of the width. **Previs:** [`previs/S13.png`](previs/S13.png).
+- **Into the next:** cut on bar 17. **9:16:** crop centred at 42% of the width. **Previs:** [`previs/S13.jpg`](previs/S13.jpg).
 
 ### S14 · His line — 0:40.00–0:45.00 (bars 17–18, f960–1079, 5.0 s)
 
@@ -250,7 +250,7 @@ both facing the camera (+X); in the level today both stand at the origin.
 - **Light:** NIGHT+KEY.
 - **Action:** line 1 continues, one open-hand gesture.
 - **Sound:** VO L1, music ducks 6-9 dB.
-- **Into the next:** cut on bar 19. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S14.png`](previs/S14.png).
+- **Into the next:** cut on bar 19. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S14.jpg`](previs/S14.jpg).
 
 ### S15 · The hand-off — 0:45.00–0:50.00 (bars 19–20, f1080–1199, 5.0 s)
 
@@ -260,7 +260,7 @@ both facing the camera (+X); in the level today both stand at the origin.
 - **Light:** NIGHT+KEY.
 - **Action:** he says L2 and turns his head to her; she looks up from him to the lens and starts L3.
 - **Sound:** VO L2 then L3.
-- **Into the next:** cut on bar 21. **9:16:** crop centred at 62% of the width. **Previs:** [`previs/S15.png`](previs/S15.png).
+- **Into the next:** cut on bar 21. **9:16:** crop centred at 62% of the width. **Previs:** [`previs/S15.jpg`](previs/S15.jpg).
 
 ### S16 · Her line — 0:50.00–0:55.00 (bars 21–22, f1200–1319, 5.0 s)
 
@@ -269,7 +269,7 @@ both facing the camera (+X); in the level today both stand at the origin.
 - **Light:** NIGHT+KEY.
 - **Action:** line 3 continues; a small gesture with the watch hand.
 - **Sound:** VO L3.
-- **Into the next:** cut on bar 23. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S16.png`](previs/S16.png).
+- **Into the next:** cut on bar 23. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S16.jpg`](previs/S16.jpg).
 
 ### S17 · Together — 0:55.00–1:00.00 (bars 23–24, f1320–1439, 5.0 s)
 
@@ -278,18 +278,40 @@ both facing the camera (+X); in the level today both stand at the origin.
 - **Light:** NIGHT+KEY.
 - **Action:** him: 'Welcome' / her: 'to karma.'; both settle, a small smile to the lens.
 - **Sound:** VO L4, the theme's last phrase.
-- **Into the next:** cut on bar 25. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S17.png`](previs/S17.png).
+- **Into the next:** cut on bar 25. **9:16:** crop centred at 50% of the width. **Previs:** [`previs/S17.jpg`](previs/S17.jpg).
 
 ### S18 · Title — 1:00.00–1:05.00 (bars 25–26, f1440–1559, 5.0 s)
 
 - **Camera:** 28 mm full frame, T4. Locked off on the end of S17; the practicals ease down, the halo holds; title type fades in. From `[320, -10, 195]` → `[320, -10, 195]`, aimed at `[-100, -5, 172]`.
-- **In frame:** the wide with the lit sign; 2D title lockup over it, then a fade to black on the halo.
+- **In frame:** the wide with the lit sign; the title over it (the karma wordmark, then "a studio by MelloB"), then a fade to black on the halo.
 - **Light:** NIGHT-DIM.
 - **Action:** both hold, a natural idle.
 - **Sound:** the final chord and a sub tail; the halo's hum fades last.
 - **Into the next:** fade to black (last 24 frames). **9:16:** crop centred at 50% of the width.
 
 <!-- shots:end -->
+
+## 4b. What the previs showed
+
+17 stills (S18 is S17's last frame plus the title), taken through the bridge on 2026-11-01 with a scratch camera per
+shot placed from `shots.py` and the presenters' marks; contact sheet: [`previs/contact.jpg`](previs/contact.jpg).
+
+- **The scene was as the operator agent had it, not the reel's light**: the day build with the halo on, so the
+  DAY → NIGHT story is not in the stills; only framing and lenses are. She is not in the level's view (hidden), so
+  her shots (S16) and the two-shots (S15, S17) frame **him as a stand-in** on her mark's eye line.
+- **Lens trap (new, add to unreal/README.md):** `look.still` alone renders at the editor viewport's 90° field of
+  view, whatever the cine camera's lens; a still through a sequence whose camera cut is that camera (`seq.still`)
+  uses the real lens and depth of field. The first batch was wrong because of this and was retaken.
+- **Macro lenses revised** after the honest stills: at 100 mm and 40 cm a spine shot holds three spines with a few
+  millimetres in focus. Now 85 mm at 55 cm for the spines (four to five spines at a time as the slider passes) and
+  65 mm for the coin/pickaxe; macro stops T4–T5.6 (T2.8 for the calendar).
+- **S09 re-planned** after the still: the first camera saw the crate's corner and the calendar's easel side-on.
+  The new position (from front-left, MelloB 60 cm, the calendar 100 cm) is computed, **not yet previs'd**.
+- **S06** aimed 5 cm higher (the pickaxe head was cut off); **S01** was blown out by the day window: plan it 1.5
+  stops under, focused on the nearest twigs.
+- Reads well already: the spines' titles (S03), the V and the heart (S04), lyzn (S05), the coin's ₿ (S06), the
+  drone's gimbal (S07), `root@mellob:~#` with its cursor (S08), RAFTAAR/KARMA/BELLA (S10), the halo-lit sign (S11),
+  his MCU against the sign and the shelves' bokeh (S14), the hand-off depth (S15).
 
 ## 5. Technical breakdown
 
@@ -341,9 +363,11 @@ name on a MetaHuman (its construction script replaces them), and keys added by `
 | Face and body as one skeleton; eyes on the lens | S13–S17 | `anim.bake_follow`, `anim.head_to_body`, `anim.gaze_lock` | **available** |
 | Eyes and head turned to the partner | S15 | `anim.gaze_lock` with a target point; a head-yaw curve | **op change** (small) |
 | Silent reactions (a smile, a nod, listening) | S15, S17, S18 | `speech.to_face` on a near-silent WAV (breaths, an "mm") then smile/brow curves with `anim.set_curve`/`anim.scale_curves` | doable with existing ops |
-| Talk gestures (an open hand, a small wave toward her) | S14, S15, S16 | Not in the engine's MetaHuman content as far as is known (to confirm: `previs.py --animations` lists it). Options, best first: (a) Mixamo "Talking"/"Explaining" clips (free, royalty-free) retargeted with an IK Retargeter onto the MetaHuman body; never commit the clips to this public repo; (b) Epic's free Game Animation Sample (locomotion, a few idles); (c) hand-keyed bone poses written with `anim.bake_pose`-style bone tracks | **must be made** (task R4) |
+| Talk gestures (an open hand, a small wave toward her) | S14, S15, S16 | **Not in the engine's MetaHuman content** (checked: `previs/metahuman_animations.json`, 56 clips). Options, best first: (a) Mixamo "Talking"/"Explaining" clips (free, royalty-free) retargeted with an IK Retargeter onto the MetaHuman body; never commit the clips to this public repo; (b) Epic's free Game Animation Sample (locomotion, a few idles); (c) hand-keyed bone poses written with `anim.bake_pose`-style bone tracks | **must be made** (task R4) |
 | His head down → up to the lens | S13 | a head-pitch curve on his face anim before L1 (`anim.set_curve`) | doable with existing ops |
-| Walking | — | avoided on purpose: no shot needs it (foot sliding, cost) | — |
+| Walking | — | avoided on purpose: no shot needs it. If wanted later, the engine has walk start/loop/stop clips (`UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_*`, F/B/L/R) | available, unused |
+| Facial expressions between lines | S15, S17, S18 | `TemplateAnimations/Expression_Loops/HappyA,B` (and Sad, Surprise, Fear, Anger loops) and `Facial_Poses/Happy`, as a face layer or a curve source | **available** |
+| A second standing idle | S13–S18 | `TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_f_idle`, `UEFNAnimPreset/Locomotion/AS_MH_Neutral_Stand_Idle_Loop` (so the two presenters do not breathe in sync) | **available** |
 
 Her accessories (hoops on the ear bones, the watch on the forearm) are attached to her bones, so they follow her
 transform keys and animation.
@@ -376,25 +400,28 @@ scripts); everyone else writes code and data, tests offline what can be tested, 
 | **R1. Sequencer ops** | `seq.key_float`, `seq.key_color`, `seq.key_visible`, `seq.key_material`, `seq.anim` (sections at offsets with blends), `seq.audio`, `seq.stills` across the cut, `gaze_lock(target=…)`; docstrings and `film-ue ops` listing; a test sequence | — | 1 agent | 1 day |
 | **R2. Light timeline** | `reel/rig.py` (what the day build lacks) and `reel/light.py`: the states of §3 as data, the halo wipe material (`GlowWipe` in `look.material`), the ignition, the downlight pops, keys onto `SEQ_Reel` | R1 | 1 agent | 1 day |
 | **R3. Cameras and the cut** | `reel/build.py`: the Reel_* cameras and their keys from `shots.py`, orbit/arc helpers, focus pulls, camera cuts, the presenters' marks and visibility; refine framings from the previs and the animatic | R1 | 1 agent | 1 day |
-| **R4. Performances** | the VO (recorded or `vo.py`), `speech.to_face` per line, idle/line/idle sections, gestures (retarget), the hand-off look, reactions, gaze locks for both | R1, approved lines | 1–2 agents | 1–2 days |
-| **R5. Score and sound** | temp track now (`temptrack.py`, 96 bpm, 26 bars); the ElevenLabs score from the section plan; the SFX palette and cue sheet on the frames of §2/§4; the mix | — | 1 agent | 1 day (can start now) |
+| **R4. Performances** | the VO (ElevenLabs via `vo.py`), `speech.to_face` per line, idle/line/idle sections, gestures (retarget), the hand-off look, reactions, gaze locks for both | R1 | agent-03:2 | 1–2 days |
+| **R5. Score and sound** | temp track now (`temptrack.py`, 96 bpm, 26 bars); the ElevenLabs score from the section plan; the SFX palette and cue sheet on the frames of §2/§4; the mix | — | agent-11 | 1 day (can start now) |
 | **R6. Post and delivery** | `reel/cut.py`: frames → 16:9 master, the 9:16 crop from `vcrop`, the title overlay (Geist and the Samarkan wordmark), captions for L1–L4 (burned-in for social), loudness, the deliverables | — | 1 agent | ½ day (can start now) |
 | **R7. Execution in Unreal** | install R1, run R2/R3/R4 in the editor, the animatic, the calibration renders, the final renders by shot range; bring frames back through S3 | R1–R4 | the Unreal operator agent | 1 day of machine time |
 
 Order: R5 and R6 start at once; R1 first among the Unreal tasks; R2, R3 and R4 in parallel once R1 lands; R7
 runs the animatic as soon as R2 and R3 exist (with idles only), and the finals once R4 is in.
 
-## 7. Open questions for the operator
+## 7. Decisions and open questions
 
-1. **The words.** Are the draft lines L1–L4 right, or should the presenters not speak at all (a pure music reel
-   with the title)? Who voices them: the operator and a collaborator recorded on a phone, or ElevenLabs voices?
-2. **The title card.** What does it say? A proposal: the karma wordmark (the sign itself), then "a studio by
-   MelloB", and a date or a handle. Is 27 NOV the launch date (it would be the natural end card)?
-3. **Names on screen.** Should the presenters be named (a lower third), or stay "him" and "her"?
-4. **Seven products.** Is it fine to read every spine title on screen (S03), and to show the V-and-heart polaroid
+Decided by the operator (2026-11-01):
+
+- **The words:** lines L1–L4 as written, voiced with ElevenLabs (a male voice for him, a female voice for her).
+- **The title card:** the karma wordmark, then "a studio by MelloB".
+- **The score:** ElevenLabs Music.
+
+Still open:
+
+1. **Names on screen.** Should the presenters be named (a lower third), or stay "him" and "her"?
+2. **Seven products.** Is it fine to read every spine title on screen (S03), and to show the V-and-heart polaroid
    up close (S04)? It is personal.
-5. **The crate's artists.** The names are on screen (S10); none of their music is used. Fine?
-6. **Score.** ElevenLabs Music (paid plan, commercial use) or only the repo's procedural score?
-7. **Length.** 65 s is planned; a 45 s cut drops S01, S05, S07, S09 and shortens S13/S17 by a bar each. Wanted too?
-8. **Marks.** The plan moves him to (30, 40) and her to (−50, −55) only inside the reel's sequence; the level is
+3. **The crate's artists.** The names are on screen (S10); none of their music is used. Fine?
+4. **Length.** 65 s is planned; a 45 s cut drops S01, S05, S07, S09 and shortens S13/S17 by a bar each. Wanted too?
+5. **Marks.** The plan moves him to (30, 40) and her to (−50, −55) only inside the reel's sequence; the level is
    unchanged. Is that acceptable, or should the reel have its own level copy?
