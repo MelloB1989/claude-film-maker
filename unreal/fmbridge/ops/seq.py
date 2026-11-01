@@ -480,30 +480,87 @@ def key_material(path: str, label: str, param: str, keys: list, slot=0, componen
             track = t
     if track is None:
         track = b.add_track(unreal.MovieSceneComponentMaterialTrack)
-        _set_material_index(track, index, names[index] if index < len(names) else "")
+    _set_material_index(track, index, names[index] if index < len(names) else "")  # also mends an older track
     secs = track.get_sections()
     sec = secs[0] if secs else track.add_section()
     sec.set_start_frame_bounded(False)
     sec.set_end_frame_bounded(False)
     vector = bool(keys) and isinstance(keys[0][1], (list, tuple))
+    # A section's add_*_parameter_key takes its time in the sequence's tick resolution (e.g. 24000/s), not in display
+    # frames as a scripting channel's add_key does: keyed as display frames, a whole timeline landed in its first
+    # instants and every later frame held the last key (the halo lit from f0, its wipe never playing). Hence _ticks.
+    # The parameter info is a plain (global) one, said outright; 5.8's bare MaterialParameterInfo is the same.
+    bare = unreal.MaterialParameterInfo()
+    bare.set_editor_property("name", param)
     info = unreal.MaterialParameterInfo()
     info.set_editor_property("name", param)
-    for remove in ("remove_scalar_parameter", "remove_color_parameter"):
-        try:
-            getattr(sec, remove)(info)
-        except Exception:
-            pass
+    info.set_editor_property("association", unreal.MaterialParameterAssociation.GLOBAL_PARAMETER)
+    info.set_editor_property("index", -1)
+    for old in (bare, info):
+        for remove in ("remove_scalar_parameter", "remove_color_parameter"):
+            try:
+                getattr(sec, remove)(old)
+            except Exception:
+                pass
     for frame, v, *how in keys:
         mode = _interp(how[0] if how else interp)
         if vector:
             rgba = list(v) + [1.0] * (4 - len(v))
-            sec.add_color_parameter_key(info, unreal.FrameNumber(int(frame)), unreal.LinearColor(*rgba), "", "",
+            sec.add_color_parameter_key(info, unreal.FrameNumber(_ticks(seq, frame)), unreal.LinearColor(*rgba), "", "",
                                         default_interpolation=mode)
         else:
-            sec.add_scalar_parameter_key(info, unreal.FrameNumber(int(frame)), float(v), "", "",
+            sec.add_scalar_parameter_key(info, unreal.FrameNumber(_ticks(seq, frame)), float(v), "", "",
                                          default_interpolation=mode)
     _done(path)
     return {"binding": f"{label}.{mesh.get_name()}", "slot": index, "param": param, "keys": len(keys)}
+
+
+@op("seq.key_collection")
+def key_collection(path: str, collection: str, param: str, keys: list, interp: str = "auto") -> dict:
+    """Key a scalar parameter of a material parameter collection (look.collection) on the sequence's track for that
+    collection: keys [[frame, value(, interp)], ...]. Sequencer writes the world's instance of the collection, so the
+    value reaches every material reading it with no mesh binding and no MID in between. Replaces only that
+    parameter's keys."""
+    seq = load(path)
+    mpc = load(collection)
+    track = next((t for t in seq.find_tracks_by_type(unreal.MovieSceneMaterialParameterCollectionTrack)
+                  if t.get_editor_property("mpc") == mpc), None)
+    if track is None:
+        track = seq.add_track(unreal.MovieSceneMaterialParameterCollectionTrack)
+        track.set_editor_property("mpc", mpc)
+    secs = track.get_sections()
+    sec = secs[0] if secs else track.add_section()
+    sec.set_start_frame_bounded(False)
+    sec.set_end_frame_bounded(False)
+    # the section's key API names a parameter by FName, or (since 5.4) by a full FMaterialParameterInfo, as a global
+    info = unreal.MaterialParameterInfo()
+    info.set_editor_property("name", param)
+    info.set_editor_property("association", unreal.MaterialParameterAssociation.GLOBAL_PARAMETER)
+    info.set_editor_property("index", -1)
+    for old in (param, info):
+        try:
+            sec.remove_scalar_parameter(old)
+        except Exception:
+            pass
+    used = None
+    for frame, v, *how in keys:
+        mode = _interp(how[0] if how else interp)
+        at = unreal.FrameNumber(_ticks(seq, frame))  # a section's parameter keys are in ticks (see key_material)
+        tries = [lambda: sec.add_scalar_parameter_key(info, at, float(v), "", "", default_interpolation=mode),
+                 lambda: sec.add_scalar_parameter_key(param, at, float(v), default_interpolation=mode),
+                 lambda: sec.add_scalar_parameter_key(param, at, float(v))]
+        for k in ([used] if used is not None else range(len(tries))):
+            try:
+                tries[k]()
+                used = k
+                break
+            except TypeError:
+                continue
+        else:
+            raise TypeError(f"no add_scalar_parameter_key form takes {param!r} on {sec.get_class().get_name()}")
+    _done(path)
+    return {"collection": collection, "param": param, "keys": len(keys), "section": sec.get_class().get_name(),
+            "form": ["info", "name+interp", "name"][used] if used is not None else None}
 
 
 def _material_index(t) -> int:
@@ -511,7 +568,12 @@ def _material_index(t) -> int:
 
 
 def _set_material_index(t, index: int, name: str):
+    """Point a material track at a mesh's slot. Since UE 5.4 the track's info also has a material type, and a track
+    made from Python starts at EMPTY (the editor's UI sets it): an EMPTY track resolves to no material, so Sequencer
+    makes no MID and none of its keys reach the mesh."""
     info = t.get_material_info()
+    if hasattr(unreal, "ComponentMaterialType"):
+        info.set_editor_property("material_type", unreal.ComponentMaterialType.INDEXED_MATERIAL)
     info.set_editor_property("material_slot_index", index)
     if name:
         info.set_editor_property("material_slot_name", name)

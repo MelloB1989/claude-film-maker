@@ -6,7 +6,10 @@ nothing in the day level (the stills keep working), and re-running it is harmles
 - the night garden: a second outside card (OutsideNight, T_OutsideNight) 1 cm in front of the day one, additive
   (look.material kind Glow) at intensity 0, so light.py can crossfade day -> night by two intensities;
 - the halo's wipe: SignHalo's material becomes MI_K_HaloWipe (kind GlowWipe: the same texture, colour and intensity
-  as studio.py's MI_K_Halo, with Reveal 1 = fully lit, i.e. the day level looks the same); light.py keys Reveal.
+  as studio.py's MI_K_Halo, with Reveal 1 = fully lit, i.e. the day level looks the same). The wipe also reads
+  look.py's collection MPC_FM (WipeReveal, WipeOn, both 1 by default), and light.py keys those, not the card's slot;
+- the terminal's cursor: the Terminal's screen becomes MI_K_TerminalBlink (kind ScreenBlink: MI_K_Label_Terminal with
+  the cursor's rectangle dimmed by Blink, 1 = as before); light.py keys Blink on S08's beats.
 
 The cameras (Reel_S01 ... S18) are R3's (reel/build.py). studio.py rebuilds the level from scratch, so run this again
 after every studio.py:
@@ -26,7 +29,7 @@ from filmtools.unreal import client
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from light import DOWN, HALO_CARD  # noqa: E402
+from light import CURSOR_UV, DOWN, HALO_CARD  # noqa: E402
 from shots import WALL  # noqa: E402
 
 M = "/Game/Studio/Materials"
@@ -58,7 +61,9 @@ def remove(save: bool) -> None:
     ok(client.op("level.delete", labels=[d[0] for d in DOWN] + ["OutsideNight"]))
     if where("SignHalo") is not None:
         ok(client.op("look.apply", label="SignHalo", material=f"{M}/MI_K_Halo"))
-    for mi in ("MI_K_HaloWipe", "MI_K_OutsideNight"):
+    if where("Terminal") is not None:
+        ok(client.op("look.apply", label="Terminal", material=f"{M}/MI_K_Label_Terminal", slot="M_Label_Terminal"))
+    for mi in ("MI_K_HaloWipe", "MI_K_OutsideNight", "MI_K_TerminalBlink"):
         ok(client.exec_code(f"import unreal\nresult = unreal.EditorAssetLibrary.delete_asset('{M}/{mi}')"))
     if save:
         ok(client.op("level.save"))
@@ -96,6 +101,13 @@ def main() -> None:
                         scalars={"Reveal": 1.0, "Softness": 0.03}, folder=M))
     ok(client.op("look.apply", label="SignHalo", material=wipe))
     done.append("SignHalo <- MI_K_HaloWipe")
+    # the terminal's blinking cursor (S08), identical to MI_K_Label_Terminal with Blink 1
+    if where("Terminal") is not None:
+        blink = ok(client.op("look.material", name="MI_K_TerminalBlink", kind="ScreenBlink",
+                             texture=f"{T}/T_Label_Terminal", intensity=2.2, roughness=0.1,
+                             scalars={"Blink": 1.0, **CURSOR_UV}, folder=M))
+        ok(client.op("look.apply", label="Terminal", material=blink, slot="M_Label_Terminal"))
+        done.append("Terminal <- MI_K_TerminalBlink")
     if not a.no_save:
         ok(client.op("level.save"))
     print("\n".join(done))
