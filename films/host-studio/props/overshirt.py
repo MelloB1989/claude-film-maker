@@ -127,7 +127,10 @@ class Her:
         self.under_obs = []
         xs, ts, tms, ws, off = [], [], [], {}, 0
         for k, f in enumerate(under):
-            objs = import_fbx(f if os.path.isabs(f) else os.path.join(src, f))
+            if f.startswith("skin:"):
+                objs = [self.skin_layer(float(f[5:]))]
+            else:
+                objs = import_fbx(f if os.path.isabs(f) else os.path.join(src, f))
             for ob in (o for o in objs if o.type == "MESH"):
                 self.under_obs.append(ob)
                 X, T, TM, W = mesh_arrays(ob)
@@ -140,6 +143,8 @@ class Her:
                     ws.setdefault(g, [])
                     ws[g].append((off, a))
                 off += len(X)
+        if not xs:
+            raise SystemExit("no layer under the overshirt (--under)")
         self.ox, self.ot, self.otm = np.concatenate(xs), np.concatenate(ts), np.concatenate(tms)
         self.ow = {}
         for g, parts in ws.items():
@@ -159,6 +164,38 @@ class Her:
             fx, ft, _, _ = mesh_arrays(self.face_ob)
             self.fx, self.ft = fx, ft
         log("body verts", len(self.bx), "under verts", len(self.ox), "face", self.face_ob is not None)
+
+    def skin_layer(self, off):
+        """A stand-in for a fitted top and trousers not yet made: her torso and hips (no arms, neck or legs below
+        the hip), `off` cm out along the normals, skinned as she is. Material 0 above her natural waist, 1 below."""
+        me = self.body_ob.data.copy()
+        ob = self.body_ob.copy()
+        ob.data = me
+        bpy.context.scene.collection.objects.link(ob)
+        bone = {b.name: (self.arm.matrix_world @ b.head_local).z * 100.0 for b in self.arm.data.bones}
+        neck, waist = bone["neck_01"] - 1.5, bone.get("spine_02", bone["spine_01"])
+        X, _, _, W = mesh_arrays(ob)
+        n = len(X)
+        armw = np.maximum(self.arm_weight(W, n, 1), self.arm_weight(W, n, -1))
+        keep = (armw < 0.5) & (X[:, 2] < neck) & (X[:, 2] > 66.0)
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        bm.verts.ensure_lookup_table()
+        bm.normal_update()
+        for v in bm.verts:
+            v.co += v.normal * (off / 100.0 / max(ob.matrix_world.to_scale()[0], 1e-9))
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if not all(keep[v.index] for v in f.verts)], context="FACES")
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+        for f in bm.faces:
+            zc = sum((ob.matrix_world @ v.co).z for v in f.verts) / len(f.verts) * 100.0
+            f.material_index = 0 if zc > waist else 1
+        bm.to_mesh(me)
+        bm.free()
+        while len(me.materials) < 2:
+            me.materials.append(None)
+        ob.name = "UnderSkin"
+        log(f"under: her skin +{off} cm, {len(me.vertices)} verts, waist z {waist:.1f}, neck z {neck:.1f}")
+        return ob
 
     def arm_weight(self, W, n, side):
         s = "_l" if side > 0 else "_r"
@@ -341,7 +378,8 @@ class ArmTube:
         n = len(her.ox)
         armw = her.arm_weight(her.ow, n, side)
         pts = [her.ox[armw > 0.5]]
-        bsel = (np.sign(her.bx[:, 0]) == side) & (np.abs(her.bx[:, 0]) > 11.0) & (her.bx[:, 2] > 90.0)
+        # her arm's own skin (an uncut body's torso side is not the arm, though it lies within reach of its axis)
+        bsel = her.arm_weight(her.bw, len(her.bx), side) > 0.5
         pts.append(her.bx[bsel])
         P = np.concatenate(pts)
         s, dist = self.project(P)
@@ -1014,7 +1052,9 @@ def eval_points(ob):
 def clip_check(her, ob, step=4, tol=0.0):
     """Garment vertices inside her (tee, limbs) in the current pose: count and deepest (cm)."""
     V, T = [], []
-    for o in (*her.under_obs, her.body_ob):
+    for o in (*her.under_obs, her.body_ob, her.face_ob):  # the face mesh carries her neck
+        if o is None:
+            continue
         X, Tr = eval_points(o)
         T.append(Tr + sum(len(v) for v in V))
         V.append(X)
