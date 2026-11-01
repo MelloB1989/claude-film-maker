@@ -27,26 +27,21 @@ STEP = 2     # a key every STEP frames (the keys are dense, so their tangents ne
 
 # (speed in, speed out) for each shot, in units of the move's average speed; see the docstring
 EASE = {
-    "S01": (1.0, 1.0),  # the truck through the olive: an even slider from the first frame
-    "S02": (0.8, 0.0),  # push and settle on the room
-    "S03": (1.0, 1.0),  # macro slider along the spines
-    "S04": (0.8, 0.2),  # push-in onto the polaroid as the rack lands
-    "S05": (1.0, 1.0),  # orbit round the acrylic block
-    "S06": (1.0, 0.4),  # low push, easing as the focus racks to the pickaxe
-    "S07": (0.9, 0.0),  # crane down, settling on the red LED
-    "S08": (0.9, 0.0),  # pedestal down, settling on the root prompt
-    "S09": (1.0, 1.0),  # a slow drift
-    "S10": (0.9, 0.3),  # push into the sleeve, nearly settled on KARMA when the drop smashes in
+    "V01": (0.6, 1.0),  # the shelves: the dolly eases off the first frame and keeps streaming through the cut
+    "V02": (1.0, 1.0),  # the credenza: an even slider, moving through both cuts
+    "V03": (1.0, 0.8),  # the rising crane past the olive
+    "V04": (1.0, 0.6),  # the crane up the slats, slowing as the dark sign arrives
+    "V05": (0.8, 0.0),  # the room: push and settle (S12 holds the frame at night)
     "S11": (0.5, 1.2),  # the push starts with the drop and gathers pace as the letters light
-    "S12": (1.0, 0.7),  # the S02 match, a slow push
+    "S12": (1.0, 0.7),  # the V05 match, a slow push
+    "N01": (1.0, 1.0),  # the night glide: an even slider
     "S13": (1.0, 1.0),  # a creeping push on him
-    "S14": (1.0, 1.0),  # arc and push while he speaks
     "S15": (1.0, 1.0),  # near locked-off drift
     "S16": (1.0, 1.0),  # slow push on her
     "S17": (0.3, 0.0),  # crane up and back, settling into the wide that S18 holds
     "S18": (0.0, 0.0),  # locked off
 }
-ARC = {"S05", "S14"}
+ARC: set = set()  # PLAN v2 has no orbit or arc
 
 EYE_FWD = 9.0  # cm: a presenter's eyes are ahead of the mark (feet centre) towards +X, the way both face
 
