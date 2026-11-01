@@ -26,7 +26,20 @@ HERE = Path(__file__).resolve().parent
 SEQ = "/Game/Reel/SEQ_Reel"
 REMOTE = r"C:\UEProjects\HostStudio\Saved\Previs\halo_check"
 
-STATE = r'''
+# a scalar parameter's value on a MIC (MaterialEditingLibrary) or a MID (the one Sequencer makes): neither reader
+# takes the other
+VALUE = r'''
+import unreal
+def value(m, p):
+    try:
+        if isinstance(m, unreal.MaterialInstanceDynamic):
+            return m.get_scalar_parameter_value(p)
+        return unreal.MaterialEditingLibrary.get_material_instance_scalar_parameter_value(m, p)
+    except Exception as e:
+        return f"!{type(e).__name__}: {e}"
+'''
+
+STATE = VALUE + r'''
 import unreal
 from fmbridge.ops import level as L
 EAL, MEL = unreal.EditorAssetLibrary, unreal.MaterialEditingLibrary
@@ -48,7 +61,7 @@ for label, param in (("SignHalo", "Reveal"), ("Terminal", "Blink")):
                    "material": mi.get_path_name() if mi else None}
             if isinstance(mi, unreal.MaterialInstance):
                 row["parent"] = mi.get_editor_property("parent").get_path_name()
-                row[param] = MEL.get_material_instance_scalar_parameter_value(mi, param)
+                row[param] = value(mi, param)
             mats.append(row)
     out[label] = mats
 result = out
@@ -108,7 +121,7 @@ LSE.set_current_time(725)
 result = out
 '''
 
-LIVE = r'''
+LIVE = VALUE + r'''
 import unreal
 from fmbridge.ops import level as L
 out = {}
@@ -124,17 +137,63 @@ for label in LABELS:
             m = c.get_material(i)
             r = {"component": c.get_name(), "slot": i, "class": m.get_class().get_name() if m else None,
                  "material": m.get_path_name() if m else None}
-            if isinstance(m, unreal.MaterialInstanceDynamic):
-                r.update({p: m.k2_get_scalar_parameter_value(p) for p in ("Reveal", "Intensity", "Blink")})
+            if isinstance(m, unreal.MaterialInstance):
+                r["parent"] = m.get_editor_property("parent").get_path_name()
+                r.update({p: value(m, p) for p in ("Reveal", "Intensity", "Softness", "Blink")})
             rows.append(r)
     out[label] = rows
 result = out
 '''
 
 
+# M_FM_GlowWipe's emissive graph, walked from the output: each node's class, parameter name and mask channels
+GRAPH = r'''
+import unreal
+MEL = unreal.MaterialEditingLibrary
+m = unreal.EditorAssetLibrary.load_asset("/Game/FM/Materials/M_FM_GlowWipe")
+def node(e, depth=0):
+    if e is None or depth > 12:
+        return None
+    d = {"class": e.get_class().get_name()}
+    for k in ("parameter_name", "coordinate_index", "const_a", "const_b"):
+        try:
+            d[k] = str(e.get_editor_property(k))
+        except Exception:
+            pass
+    if isinstance(e, unreal.MaterialExpressionComponentMask):
+        d["mask"] = "".join(c for c in "rgba" if e.get_editor_property(c))
+    try:
+        d["in"] = [node(i, depth + 1) for i in MEL.get_inputs_for_material_expression(m, e)]
+    except Exception as x:
+        d["in"] = f"!{x}"
+    return d
+result = {"blend": str(m.get_editor_property("blend_mode")), "shading": str(m.get_editor_property("shading_model")),
+          "emissive": node(MEL.get_material_property_input_node(m, unreal.MaterialProperty.MP_EMISSIVE_COLOR))}
+'''
+
+# every mesh in the level wearing a Glow or GlowWipe material, or the halo texture: a second glow behind the sign?
+GLOWS = r'''
+import unreal
+out = []
+for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+    for c in a.get_components_by_class(unreal.MeshComponent):
+        for i in range(c.get_num_materials()):
+            m = c.get_material(i)
+            if m is None:
+                continue
+            base = m.get_base_material().get_path_name() if hasattr(m, "get_base_material") else m.get_path_name()
+            if "Glow" in base or "Halo" in m.get_path_name():
+                p = a.get_actor_location()
+                out.append({"actor": a.get_actor_label(), "component": c.get_name(), "slot": i,
+                            "material": m.get_path_name(), "base": base, "loc": [round(p.x), round(p.y), round(p.z)],
+                            "visible": c.is_visible()})
+result = out
+'''
+
+
 def tracks() -> None:
     head = f"SEQ = {SEQ!r}\nLABELS = ['SignHalo', 'Outside', 'Terminal']\n"
-    for code in (TRACKS, LIVE):  # two calls: the open sequence evaluates on the editor's tick in between
+    for code in (TRACKS, LIVE, GRAPH, GLOWS):  # separate calls: the open sequence evaluates on a tick in between
         res = client.exec_code(head + code)
         if not res.get("ok"):
             raise SystemExit(res.get("stdout", "") + res.get("error", ""))
