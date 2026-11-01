@@ -188,13 +188,16 @@ def tracks() -> list:
              (ig, NIGHT_SUN["elevation"]))
     T.append(Track("FM_Sun", "transform", "", C((0, SUN_LOC), (END, SUN_LOC)), aim=elev,
                    note="pitch = -elevation, yaw = azimuth"))
-    add("FM_Sun", "float", "Intensity", C((0, 17000.0), (g, 17000.0), (d, 6000.0), (d + 60, 1200.0, "out"),
-                                          (d + 110, 40.0, "lin"), (b, 0.0, "out")))
+    add("FM_Sun", "float", "Intensity", C((0, 17000.0), (g, 17000.0), (d, 6000.0), (d + 30, 1000.0, "lin"),
+                                          (d + 50, 0.0, "out"), (b, 0.0)))
     add("FM_Sun", "float", "Temperature", C((0, 5100.0), (g, 5100.0), (d, 4300.0), (d + 120, 3300.0),
                                             (ig, NIGHT_SUN["temperature"])))
+    # under ~5 deg the SkyAtmosphere's transmittance turns the sun red whatever its Temperature: it is gone by d+50
+    # (V04 f560 showed the window frame's shadow sharp and red on the sheers), and WindowSky and RoomBounce carry
+    # the cooling dusk from there
     # the sky light captures the atmosphere live: with the sun at 8 to -3 deg it goes salmon-red and tints the whole
     # room, so it stays low through DUSK and lifts only once the sun is under and the sky reads blue (V05)
-    add("FM_SkyLight", "float", "Intensity", C((0, 0.6), (g, 0.6), (d, 0.2), (d + 90, 0.2), (b, 0.5), (bh, 0.5), (ig, NIGHT_SUN["sky"])))
+    add("FM_SkyLight", "float", "Intensity", C((0, 0.6), (g, 0.6), (d, 0.2), (d + 50, 0.12), (d + 90, 0.12), (b, 0.5), (bh, 0.5), (ig, NIGHT_SUN["sky"])))
     # the window: daylight 6200 K, warming in GOLDEN, cooling to the night's blue through DUSK and BLUE. Temperature
     # multiplies the colour (use_temperature stays on), so the night blue is the colour over a neutral 6500 K.
     add("WindowSky", "float", "Intensity", C((0, 8.0), (g, 8.0), (d, 5.0), (b, 3.0), (bh, 3.0), (ig, 1.2)))
@@ -202,7 +205,7 @@ def tracks() -> list:
                                                (b, 6500.0)))
     add("WindowSky", "color", "LightColor", C((0, (1.0, 1.0, 1.0)), (d, (1.0, 1.0, 1.0)), (d + 90, (0.75, 0.8, 0.95)),
                                               (b, WINDOW_BLUE), (bh, WINDOW_BLUE), (ig, WINDOW_NIGHT)))
-    add("RoomBounce", "float", "Intensity", C((0, 0.8), (g, 0.8), (d, 1.1), (b, 1.0), (bh, 1.0), (ig, 0.4)))
+    add("RoomBounce", "float", "Intensity", C((0, 0.8), (g, 0.8), (d, 1.1), (d + 60, 1.3), (b, 1.0), (bh, 1.0), (ig, 0.4)))
     add("RoomBounce", "float", "Temperature", C((0, 4500.0), (g, 4500.0), (d, 4300.0), (d + 60, 4300.0), (b, 8500.0), (ig, 10000.0)))
     # the garden outside: the day card fades out as the night card (rig.py, additive in front of it) fades in
     add("Outside", "material", "Intensity", C((0, 18.0), (g, 18.0), (d, 10.0), (b, 0.0, "out"), (ig, 0.0)), slot=0)
@@ -211,7 +214,7 @@ def tracks() -> list:
     # the air thickens a little for the downlights' cones
     add("FM_Fog", "float", "FogDensity", C((0, 0.0001), (d, 0.0001), (n, 0.0006)))
     # exposure opens up as the light goes: studio.py's day 8.3, its night 9.1 (studio.py follows, look-polish); blue hour lifted to 9.8
-    add("FM_Post", "float", "Settings.AutoExposureBias", C((0, 8.3), (g, 8.3), (d, 8.8), (b, 9.8), (bh, 9.8), (ig, 9.1)))
+    add("FM_Post", "float", "Settings.AutoExposureBias", C((0, 8.3), (g, 8.3), (d, 8.8), (d + 50, 8.9), (b, 9.8), (bh, 9.8), (ig, 9.1)))
 
     # practicals: the shelf LEDs come up in DUSK, everything eases down 30% in NIGHT-DIM
     end_dim = bar(27)  # two bars
