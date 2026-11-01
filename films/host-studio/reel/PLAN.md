@@ -144,8 +144,8 @@ frames (S11, S12 are unchanged and already rendered); the new ones are V01–V05
 
 ### V03 · The window and the olive — 0:15.00–0:20.00 (bars 7–8, f360–479, 5.0 s)
 
-- **Camera:** 35 mm full frame, T2.8. A rising lateral crane past the olive tree from 2.6 m, its crown crossing the glowing sheers, 55 cm across and 37 cm up. From `[40, 118, 128]` → `[40, 172, 165]`, aimed at `[-220, 214, 150]`.
-- **Focus:** +0 f: 255 cm, +120 f: 262 cm.
+- **Camera:** 75 mm full frame, T2.8. A rising lateral crane square to the window, 3 m off the olive, its crown crossing the glowing sheers, 30 cm across and 40 cm up; a 75 holds the frame to the window (y 120-300), so the side wall stays out and the slats and sign stay out for V04, and the crown, about two thirds of the frame wide, drifts from just right of centre to the right third. From `[100, 210, 115]` → `[100, 240, 155]`, aimed at `[-220, 240, 150]`.
+- **Focus:** +0 f: 292 cm, +60 f: 304 cm, +120 f: 298 cm.
 - **In frame:** the window and the olive as a whole: the sheers lit gold by the low sun, the leaves in silhouette and translucent against them, the pot and the light on the floor at the start.
 - **Light:** GOLDEN.
 - **Action:** the sun low and long through the sheers; the window holds detail.
@@ -189,8 +189,8 @@ frames (S11, S12 are unchanged and already rendered); the new ones are V01–V05
 
 ### N01 · The shelves at night — 0:35.00–0:40.00 (bars 15–16, f840–959, 5.0 s)
 
-- **Camera:** 50 mm full frame, T2. A night glide: from the lit sign's edge along the shelves, screen-left to right, 115 cm, slightly oblique so the boards' LED lines converge; the halo's spill leaves frame left. From `[-150, 20, 186]` → `[-150, -95, 180]`, aimed at `[-252, -170, 190]`.
-- **Focus:** +0 f: 100 cm, +60 f: 116 cm, +120 f: 104 cm.
+- **Camera:** 50 mm full frame, T2. A night glide: from the lit sign's edge along the shelves, screen-left to right, 115 cm, slightly oblique so the boards' LED lines converge; the halo's spill leaves frame left. From `[-110, 20, 184]` → `[-110, -95, 178]`, aimed at `[-252, -170, 176]`.
+- **Focus:** +0 f: 140 cm, +60 f: 156 cm, +120 f: 144 cm.
 - **In frame:** the shelves at night: warm LED lines under each board, the things on them half silhouette, half lit, the downlight's pool, the blue-black window reflected in a frame's glass; nothing centred, held on or racked to: the details pass by and the eye finds them.
 - **Light:** NIGHT.
 - **Action:** the room at rest.

@@ -104,13 +104,16 @@ SHOTS = [
          "GOLDEN", "the light warms as the sun drops", into="cut on bar 7",
          focus=[[0, 140], [100, 125], [180, 138]], previs=0.5, vcrop=0.5,
          sound="the first kick lands mid-glide (bar 5), the room waking up"),
-    Shot("V03", "The window and the olive", bar(7), bar(9), 35, 2.8,
-         "a rising lateral crane past the olive tree from 2.6 m, its crown crossing the glowing sheers, 55 cm across and 37 cm up",
-         [[0, [40, 118, 128], [-220, 200, 128]], [120, [40, 172, 165], [-220, 214, 150]]],
+    Shot("V03", "The window and the olive", bar(7), bar(9), 75, 2.8,
+         "a rising lateral crane square to the window, 3 m off the olive, its crown crossing the glowing sheers, 30 cm "
+         "across and 40 cm up; a 75 holds the frame to the window (y 120-300), so the side wall stays out and the "
+         "slats and sign stay out for V04, and the crown, about two thirds of the frame wide, drifts from just right "
+         "of centre to the right third",
+         [[0, [100, 210, 115], [-220, 218, 125]], [120, [100, 240, 155], [-220, 240, 150]]],
          "the window and the olive as a whole: the sheers lit gold by the low sun, the leaves in silhouette and "
          "translucent against them, the pot and the light on the floor at the start",
          "GOLDEN", "the sun low and long through the sheers; the window holds detail", into="cut on bar 9",
-         focus=[[0, 255], [120, 262]], previs=0.5, vcrop=0.45,
+         focus=[[0, 292], [60, 304], [120, 298]], previs=0.5, vcrop=0.45,
          sound="birds thinning outside, the sheers breathe"),
     Shot("V04", "The slats and the sign", bar(9), bar(11), 35, 2.8,
          "a slow crane up the slat wall, drifting screen-right, to the unlit sign; the sign arrives at the top of "
@@ -146,10 +149,10 @@ SHOTS = [
     Shot("N01", "The shelves at night", bar(15), bar(17), 50, 2.0,
          "a night glide: from the lit sign's edge along the shelves, screen-left to right, 115 cm, slightly oblique "
          "so the boards' LED lines converge; the halo's spill leaves frame left",
-         [[0, [-150, 20, 186], [-252, -55, 196]], [120, [-150, -95, 180], [-252, -170, 190]]],
+         [[0, [-110, 20, 184], [-252, -55, 180]], [120, [-110, -95, 178], [-252, -170, 176]]],
          "the shelves at night: warm LED lines under each board, the things on them half silhouette, half lit, "
          "the downlight's pool, the blue-black window reflected in a frame's glass; " + GLIDE,
-         "NIGHT", "the room at rest", into="cut on bar 17", focus=[[0, 100], [60, 116], [120, 104]], previs=0.5,
+         "NIGHT", "the room at rest", into="cut on bar 17", focus=[[0, 140], [60, 156], [120, 144]], previs=0.5,
          vcrop=0.5, sound="the score's drumless breakdown; the halo's hum, crickets"),
     Shot("S13", "Him", bar(17), bar(19), 35, 2.8,
          "slow push, 30 cm; his key light ramps up on bar 17 beat 3 (12 frames): a light reveal",
