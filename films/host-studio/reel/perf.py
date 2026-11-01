@@ -83,7 +83,15 @@ def stems() -> list[Path]:
     """Each presenter's VO stem cut to their performance window (START .. END), the audio the base solve hears."""
     made = []
     for who in ("him", "her"):
-        x, sr = read_wav(VO / f"vo_{who}.wav")
+        if (VO / f"vo_{who}.wav").exists():
+            x, sr = read_wav(VO / f"vo_{who}.wav")
+        else:  # only the line WAVs and cues.json: each line placed on its file frame
+            sr, x = SR, np.zeros(int((END + FPS) * SR / FPS), np.float32)
+            for k, c in cues().items():
+                if c["who"] == who:
+                    w, _ = read_wav(VO / c["wav"])
+                    i0 = int(round(c["file_frame"] / FPS * sr))
+                    x[i0:i0 + len(w)] += w[:len(x) - i0]
         y = x[START[who] * sr // FPS:END * sr // FPS]
         y = y + np.random.default_rng(7).normal(0, 10 ** (-72 / 20), len(y)).astype(np.float32)  # a room-tone floor
         p = OUT / "wav" / f"stem_{who}.wav"
