@@ -48,16 +48,27 @@ STATES = {  # name: (start, still frame)
 }
 
 # studio.py's day and night values (studio.py builds the day; its night is what BLUE/NIGHT match)
-DAY_SUN = dict(elevation=28.0, azimuth=-28.0, lux=30000.0, temperature=5100.0, sky=0.6)
-NIGHT_SUN = dict(elevation=-8.0, lux=2.0, temperature=7500.0, sky=0.04)
-WINDOW_NIGHT = (0.35, 0.47, 0.85)  # WindowSky's night colour (sRGB 0-1, as look.light takes it)
+DAY_SUN = dict(elevation=28.0, azimuth=-28.0, lux=17000.0, temperature=5100.0, sky=0.6)
+NIGHT_SUN = dict(elevation=-8.0, lux=0.0, temperature=7500.0, sky=0.04)
+WINDOW_NIGHT = (0.42, 0.53, 0.74)  # WindowSky's night colour (sRGB 0-1, as look.light takes it): a steel blue; a
+# saturated blue goes magenta through the tonemapper (S12 796 had the curtain violet)
+WINDOW_BLUE = (0.39, 0.53, 0.9)    # and its blue hour, a lighter blue
 SUN_LOC = (0.0, 0.0, 500.0)        # look.sky's FM_Sun
+# V03 looks straight into the sun-lit sheers: the low sun through them (and through the olive's leaves, two-sided
+# foliage) is many stops over the room, and 4.5 stops of camera exposure still clipped 34% (MRQ f360), the garden
+# card (grey in the gaps) and the sheers' own Glow are not the hot ones. So over V03's frames only the sun is cut to
+# V03_SUN (cut-matched: V02's last and V04's first frames keep the curve) and the garden a stop down to sit with it;
+# build.py's V03 EXPOSURE goes back to -3 so the room reads. If the sheers still clip, lower V03_SUN; if the leaves
+# and the room go black, raise V03_SUN rather than the exposure
+V03 = (bar(7), bar(9))             # its frames: 360-479
+V03_SUN, V03_OUTSIDE = 0.08, 0.5
 
 # the night's recessed downlights (studio.py night), added at 0 by rig.py: label, loc, aim, candelas, pop frame
-DOWN = [("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, 72.0), 15.0, bar(14, 1)),
-        ("DownSlats", (WALL + 32, SLAT_Y, 296), (WALL + 4, SLAT_Y, 90), 16.0, bar(14, 2)),
+DOWN = [("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, 72.0), 12.0, bar(14, 1)),
+        ("DownSlats", (WALL + 32, SLAT_Y, 296), (WALL + 4, SLAT_Y, 90), 10.0, bar(14, 2)),
         ("DownOlive", (WALL + 75, 205, 296), (WALL + 62, 205, 120), 9.0, bar(14, 3)),
-        ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 3.5, bar(14, 4))]
+        ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 0.8, bar(14, 4))]
+SLAT_SPILL, SLAT_SPILL_K = 0.6, 7500.0  # DownSlats through BLUE (V05): a cool spill, a sixteenth of its night wash
 
 # The halo: the letters k a r m a ignite on bar 13 beats 1, 2, 3, 4 and 4& (PLAN.md section 2). The wipe edge runs
 # between the gaps of the glyphs, measured on props/out/karma_halo.png (U across the halo card, 0 = screen-left):
@@ -65,6 +76,7 @@ DOWN = [("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, 72.0), 15.0, 
 IGNITE = [bar(13, 1), bar(13, 2), bar(13, 3), bar(13, 4), bar(13, 4) + BEAT // 2]
 GAPS = [0.0, 0.235, 0.388, 0.537, 0.778, 1.0]
 HALO_CARD, HALO_LIGHTS, HALO_LIGHT = 2.5, 1.2, 1.2  # studio.py: SignHalo intensity, Halo0-8 candelas
+MPC = "/Game/FM/Materials/MPC_FM"  # look.py's collection: GlowWipe takes min(Reveal, WipeReveal) x WipeOn
 WIPE = 10          # frames for a letter to come up (shortened when the next letter comes sooner)
 # studio.py's Halo0-8 run evenly from 6 cm inside the sign's screen-right end (min Y) to 6 cm inside its left end;
 # the halo card spans the letters' 100 cm plus 6 cm each side: light k sits at U = (56 - (-44 + 11 k)) / 112
@@ -75,7 +87,7 @@ LETTER_OF_LIGHT = [next(i for i in range(5) if GAPS[i] <= u < GAPS[i + 1]) for u
 FACE = (8.0, 0.0, 172.0)
 HOST = {  # label: (loc, aimed at (relative to FACE), candelas at night)
     "Key": ((140, 130, 215), (0, 0, 0), 5.5),
-    "Fill": ((190, -125, 160), (0, 0, 0), 1.0),
+    "Fill": ((190, -125, 160), (0, 0, 0), 0.7),
     "HairLight": ((-85, 25, 258), (-8, 0, 14), 5.0),
     "RimWarm": ((-90, -105, 180), (-8, 0, -12), 3.0),
     "RimWindow": ((-90, 110, 185), (-8, 0, -12), 3.5),
@@ -91,6 +103,13 @@ AIMS = [(bar(17), FACE_HIM),   # S13: him
         (bar(19), FACE_HIM),   # S15: him sharp in front; her soft behind, in the practicals and rims
         (bar(21), FACE_HER),   # S16: her
         (bar(23), BOTH)]       # S17, S18: both
+# S08's terminal: the cursor (baked into labels.py's T_Label_Terminal) holds solid through the typing on beats 1, 1&
+# and 2 of bar 10, then blinks: off on each &, on with a tick on beats 3 and 4 (SOUND.md f570, f585), on again at the
+# cut. rig.py puts the terminal on a ScreenBlink material; its rectangle in UV is the cursor's (labels.terminal: U
+# 0.686-0.729, V 0.376-0.620) plus its 6 px glow.
+CURSOR_UV = dict(CursorU0=0.677, CursorU1=0.738, CursorV0=0.335, CursorV1=0.661)
+BLINK = [(bar(10, 2) + 8, 0.0), (bar(10, 3), 1.0), (bar(10, 3) + 8, 0.0), (bar(10, 4), 1.0), (bar(10, 4) + 8, 0.0),
+         (bar(11), 1.0)]
 DIM = 0.7  # NIGHT-DIM: the practicals ease down 30% over bars 25-26; the halo holds
 
 
@@ -154,11 +173,22 @@ def C(*points) -> Curve:
     return Curve([list(p) if len(p) == 3 else [p[0], p[1], "inout"] for p in points])
 
 
+def _dip(c: Curve, start: int, end: int, k: float) -> Curve:
+    """The curve scaled by k from `start` to `end` - 1 (a shot), stepping at its cuts: the shots either side keep
+    the curve. Between the curve's points either side of the shot it is sampled every frame, as keys() bakes it."""
+    a = max(p[0] for p in c.points if p[0] < start)
+    z = min([p[0] for p in c.points if p[0] > end] or [end])
+    pts = [p for p in c.points if p[0] <= a]
+    for f in range(a + 1, z + 1):
+        pts.append([f, c.at(f) * (k if start <= f < end else 1.0), "hold" if f in (start, end) else "lin"])
+    return Curve(pts + [p for p in c.points if p[0] > z])
+
+
 @dataclass
 class Track:
-    label: str             # the actor
-    kind: str              # float | color | material | transform
-    prop: str              # the property (float, color), the material parameter (material); "" for transform
+    label: str             # the actor (collection: the material parameter collection's path)
+    kind: str              # float | color | material | collection | transform
+    prop: str              # the property (float, color), the parameter (material, collection); "" for transform
     curve: Curve
     slot: object = None    # material: the slot (index or name)
     aim: Curve | None = None  # transform: what the actor looks at (location in `curve`)
@@ -168,6 +198,7 @@ class Track:
 # ---------------------------------------------------------------------------------------------- the timeline
 def tracks() -> list:
     g, d, b, ig, n = (STATES[s][0] for s in ("GOLDEN", "DUSK", "BLUE", "IGNITION", "NIGHT"))
+    bh = STATES["BLUE"][1]  # blue hour holds through V05 to bar 12 beat 3, then drops into the night at ignition
     dim0 = STATES["NIGHT-DIM"][0]
     T = []
     add = lambda *a, **k: T.append(Track(*a, **k))  # noqa: E731
@@ -178,48 +209,65 @@ def tracks() -> list:
              (ig, NIGHT_SUN["elevation"]))
     T.append(Track("FM_Sun", "transform", "", C((0, SUN_LOC), (END, SUN_LOC)), aim=elev,
                    note="pitch = -elevation, yaw = azimuth"))
-    add("FM_Sun", "float", "Intensity", C((0, 30000.0), (g, 30000.0), (d, 8000.0), (d + 60, 1500.0, "out"),
-                                          (d + 110, 40.0, "lin"), (b, 2.0, "out")))
-    add("FM_Sun", "float", "Temperature", C((0, 5100.0), (g, 5100.0), (d, 3200.0), (d + 120, 2400.0),
+    sun = C((0, 17000.0), (g, 17000.0), (d, 6000.0), (d + 30, 1000.0, "lin"), (d + 50, 0.0, "out"), (b, 0.0))
+    add("FM_Sun", "float", "Intensity", _dip(sun, *V03, V03_SUN))
+    add("FM_Sun", "float", "Temperature", C((0, 5100.0), (g, 5100.0), (d, 4300.0), (d + 120, 3300.0),
                                             (ig, NIGHT_SUN["temperature"])))
-    add("FM_SkyLight", "float", "Intensity", C((0, 0.6), (g, 0.6), (d, 0.35), (b, 0.08), (ig, NIGHT_SUN["sky"])))
+    # under ~5 deg the SkyAtmosphere's transmittance turns the sun red whatever its Temperature: it is gone by d+50
+    # (V04 f560 showed the window frame's shadow sharp and red on the sheers), and WindowSky and RoomBounce carry
+    # the cooling dusk from there
+    # the sky light captures the atmosphere live: with the sun at 8 to -3 deg it goes salmon-red and tints the whole
+    # room, so it stays low through DUSK and lifts only once the sun is under and the sky reads blue (V05)
+    add("FM_SkyLight", "float", "Intensity", C((0, 0.6), (g, 0.6), (d, 0.2), (d + 50, 0.12), (d + 90, 0.12), (b, 0.5), (bh, 0.5), (ig, NIGHT_SUN["sky"])))
     # the window: daylight 6200 K, warming in GOLDEN, cooling to the night's blue through DUSK and BLUE. Temperature
     # multiplies the colour (use_temperature stays on), so the night blue is the colour over a neutral 6500 K.
-    add("WindowSky", "float", "Intensity", C((0, 8.0), (g, 8.0), (d, 5.0), (b, 1.4), (ig, 0.35)))
+    add("WindowSky", "float", "Intensity", C((0, 8.0), (g, 8.0), (d, 5.0), (b, 3.0), (bh, 3.0), (ig, 1.0)))
     add("WindowSky", "float", "Temperature", C((0, 6200.0), (g, 6200.0), (d, 4300.0), (d + 90, 5600.0),
                                                (b, 6500.0)))
     add("WindowSky", "color", "LightColor", C((0, (1.0, 1.0, 1.0)), (d, (1.0, 1.0, 1.0)), (d + 90, (0.75, 0.8, 0.95)),
-                                              (b, WINDOW_NIGHT)))
-    add("RoomBounce", "float", "Intensity", C((0, 1.5), (g, 1.5), (d, 1.0), (b, 0.45), (ig, 0.3)))
-    add("RoomBounce", "float", "Temperature", C((0, 4500.0), (g, 4500.0), (d, 3600.0), (ig, 2800.0)))
+                                              (b, WINDOW_BLUE), (bh, WINDOW_BLUE), (ig, WINDOW_NIGHT)))
+    add("RoomBounce", "float", "Intensity", C((0, 0.8), (g, 0.8), (d, 1.1), (d + 60, 1.3), (b, 1.0), (bh, 1.0), (ig, 0.4)))
+    add("RoomBounce", "float", "Temperature", C((0, 4500.0), (g, 4500.0), (d, 4300.0), (d + 60, 4300.0), (b, 8500.0), (ig, 10000.0)))
     # the garden outside: the day card fades out as the night card (rig.py, additive in front of it) fades in
-    add("Outside", "material", "Intensity", C((0, 40.0), (g, 40.0), (d, 22.0), (b, 4.0), (ig, 0.0, "out")), slot=0)
-    add("OutsideNight", "material", "Intensity", C((0, 0.0), (d + 60, 0.0), (b, 1.0, "in"), (ig, 3.0)), slot=0)
-    add("Curtains", "material", "Glow", C((0, 0.25), (g, 0.25), (d, 0.15), (b, 0.05), (ig, 0.02)), slot="M_Sheer")
+    outside = C((0, 18.0), (g, 18.0), (d, 10.0), (b, 0.0, "out"), (ig, 0.0))
+    add("Outside", "material", "Intensity", _dip(outside, *V03, V03_OUTSIDE), slot=0)
+    add("OutsideNight", "material", "Intensity", C((0, 0.0), (d + 60, 0.0), (b, 1.2, "in"), (bh, 1.2), (ig, 1.2)), slot=0)
+    add("Curtains", "material", "Glow", C((0, 0.12), (g, 0.12), (d, 0.08), (b, 0.01), (ig, 0.01)), slot="M_Sheer")
     # the air thickens a little for the downlights' cones
-    add("FM_Fog", "float", "FogDensity", C((0, 0.0002), (d, 0.0002), (n, 0.0006)))
-    # exposure opens up as the light goes: studio.py's day 8.3, its night 9.6
-    add("FM_Post", "float", "Settings.AutoExposureBias", C((0, 8.3), (g, 8.3), (d, 8.8), (b, 9.2), (ig, 9.6)))
+    add("FM_Fog", "float", "FogDensity", C((0, 0.0001), (d, 0.0001), (n, 0.0006)))
+    # exposure opens up as the light goes: studio.py's day 8.3, its night 9.1 (studio.py follows, look-polish); blue hour lifted to 9.8
+    add("FM_Post", "float", "Settings.AutoExposureBias", C((0, 8.3), (g, 8.3), (d, 8.8), (d + 50, 8.9), (b, 9.8), (bh, 9.8), (ig, 9.1)))
 
     # practicals: the shelf LEDs come up in DUSK, everything eases down 30% in NIGHT-DIM
     end_dim = bar(27)  # two bars
     for k in range(4):
-        add(f"ShelfLed{k}", "float", "Intensity", C((0, 1.3), (d, 1.3), (b, 1.5), (dim0, 1.5), (end_dim, 1.5 * DIM)))
+        add(f"ShelfLed{k}", "float", "Intensity", C((0, 1.15), (d, 1.15), (b, 0.8), (bh, 0.8), (ig, 0.45), (dim0, 0.45), (end_dim, 0.45 * DIM)))
     add("CandleLight", "float", "Intensity", C((0, 0.1), (dim0, 0.1), (end_dim, 0.1 * DIM)))
+    # NOTE: a material-slot track, which does not land in UE 5.8 (see the halo below); S08 is out of v2. To use it,
+    # move Blink onto MPC_FM like the halo's WipeOn
+    add("Terminal", "material", "Blink", C((0, 1.0), *((f, v, "hold") for f, v in BLINK)), slot="M_Label_Terminal")
 
-    # the halo: off all day; the card is wiped on letter by letter (Reveal) and each letter's LEDs strike in turn
-    add("SignHalo", "material", "Intensity", C((0, 0.0), (ig, HALO_CARD, "hold")), slot=0)
+    # the halo: off all day (WipeOn 0); the card is wiped on letter by letter (WipeReveal) and each letter's LEDs
+    # strike in turn. Keyed on MPC_FM, which the card's GlowWipe reads, not on SignHalo's material slot: the slot's
+    # keys made Sequencer's MID but never reached it (S11 at f725 showed the instance's Reveal 1, Intensity 2.5)
+    add(MPC, "collection", "WipeOn", C((0, 0.0), (ig, 1.0, "hold")))
     reveal = [(0, 0.0), (ig - 1, 0.0, "hold")]
     for k, f in enumerate(IGNITE):
         dur = min(WIPE, (IGNITE[k + 1] - f) if k + 1 < len(IGNITE) else WIPE)
         reveal += [(f, GAPS[k], "hold"), (f + dur, GAPS[k + 1], "out")]
-    add("SignHalo", "material", "Reveal", C(*_dedupe(reveal)), slot=0)
+    add(MPC, "collection", "WipeReveal", C(*_dedupe(reveal)))
     for k, letter in enumerate(LETTER_OF_LIGHT):
         f = IGNITE[letter]
         add(f"Halo{k}", "float", "Intensity", C((0, 0.0), (f, 0.0), (f + WIPE, HALO_LIGHT, "pop")))
 
     # the downlights pop on, one per beat of bar 14 (an LED driver: three frames)
     for label, _, _, cd, f in DOWN:
+        if label == "DownSlats":  # BLUE: a faint cool spill so the slats and the unlit sign read in V05's wide, gone
+            # by ignition so the halo strikes in a dark room; the warm wash then pops as before
+            add(label, "float", "Intensity", C((0, 0.0), (b, 0.0), (b + 30, SLAT_SPILL), (bh, SLAT_SPILL), (ig, 0.0),
+                                               (f, 0.0), (f + 3, cd, "out"), (dim0, cd), (end_dim, cd * DIM)))
+            add(label, "float", "Temperature", C((0, SLAT_SPILL_K), (f - 1, SLAT_SPILL_K), (f, 2700.0, "hold")))
+            continue
         add(label, "float", "Intensity", C((0, 0.0), (f, 0.0), (f + 3, cd, "out"), (dim0, cd), (end_dim, cd * DIM)))
 
     # the presenters' lights: off until S13; hair and rims first (him a silhouette against the halo), then the key,
@@ -270,6 +318,8 @@ def payload(t: Track) -> tuple:
         return "seq.key_color", dict(label=t.label, prop=t.prop, keys=_lin(t.curve.keys()))
     if t.kind == "material":
         return "seq.key_material", dict(label=t.label, param=t.prop, slot=t.slot, keys=_lin(t.curve.keys()))
+    if t.kind == "collection":
+        return "seq.key_collection", dict(collection=t.label, param=t.prop, keys=_lin(t.curve.keys()))
     if t.kind == "transform":
         frames = sorted({k[0] for k in t.curve.keys()} | {k[0] for k in t.aim.keys()})
         keys = []
@@ -290,6 +340,15 @@ def _lin(keys):
 
 def apply(seq: str, only: set | None = None) -> list:
     from filmtools.unreal import client
+    # a studio rebuild (or rig.py) respawns the lights, and a binding left on the dead actor keys nothing: the S12
+    # downlights never popped in MRQ although their keys were right. Point every light's binding at the live actor first.
+    labels = sorted({t.label for t in tracks() if t.kind != "collection" and (not only or t.label in only)})
+    res = client.op("seq.rebind", path=seq, labels=labels)
+    if not res.get("ok"):
+        raise SystemExit(f"seq.rebind: {res.get('error', '')}{res.get('stdout', '')}")
+    missing = [k for k, v in (res.get("result") or {}).items() if v != "ok"]
+    if missing:
+        print("not in the level (their tracks key nothing):", ", ".join(missing))
     done = []
     for t in tracks():
         if only and t.label not in only:

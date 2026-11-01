@@ -106,7 +106,7 @@ def exists(labels: list) -> list:
 
 # Exposure compensation per shot (stops, relative to the light timeline's exposure; bias() makes it absolute): S01 looks into the sheers
 # from inside the olive's crown, 1.5 stops under the DAY room so the window holds (measured on viewport stills).
-EXPOSURE = {"V03": -2.0, "N01": -1.0, "S12": 1.0}  # V03: contre-jour into the sun-lit sheers, two stops under so the window holds detail; N01: night must read dark, the LED lines carry it; S12: the night wide, a stop up so the room reads (MRQ luma 14 at 0)
+EXPOSURE = {"V03": -3.0, "V04": 2.5, "V05": 2.0, "N01": -1.0, "S12": 1.0}  # V03: contre-jour into the sun-lit sheers, three stops under so the window holds detail and the leaves go to silhouette; exposure alone could not (MRQ at -4.5 still clipped 34% at f360), so light.py cuts the sun over V03's frames (V03_SUN) and the room keeps -3; V04: two and a half stops up so the unlit letters read against the slats at dusk (MRQ at +1: f560 mean 33, slats 16; at +4: mean 105, slats 89, but it reads as day); V05: two stops up so the slat wall and the dark sign, the payoff's centre, are not a black void (MRQ at +1: f610 mean 43, 17% crushed), with light.py's cool slat spill keeping it blue against S12's warm night; N01: night must read dark, the LED lines carry it; S12: the night wide, a stop up so the room reads (MRQ luma 14 at 0)
 
 
 def bias(s) -> float | None:

@@ -24,6 +24,21 @@ def list_assets(path: str = "/Game", cls: str = "", recursive: bool = True, limi
     return [x for x in out if not cls or x[0] == cls][:limit]
 
 
+def free(path: str) -> None:
+    """Make sure nothing is at `path`, without a dialog: its editors closed, then deleted, else renamed aside."""
+    if not EAL.does_asset_exist(path):
+        return
+    obj = EAL.load_asset(path)
+    if obj is not None:
+        unreal.get_editor_subsystem(unreal.AssetEditorSubsystem).close_all_editors_for_asset(obj)
+    if EAL.delete_asset(path) and not EAL.does_asset_exist(path):
+        return
+    import time
+    aside = f"{path}_old{int(time.time())}"
+    if not EAL.rename_asset(path, aside) or EAL.does_asset_exist(path):
+        raise RuntimeError(f"cannot free {path} (in use?): not exporting over it, which would open a dialog")
+
+
 @op("assets.import")
 def import_files(files: list, dest: str, replace: bool = True, combine: bool = True) -> list:
     """Import files on the workstation (fbx, wav, png, exr, ...) into a content folder; returns the new assets. An FBX

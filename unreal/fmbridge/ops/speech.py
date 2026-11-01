@@ -5,7 +5,7 @@ from __future__ import annotations
 import unreal
 
 from . import op
-from .assets import EAL, import_files, load
+from .assets import EAL, free, import_files, load
 
 MOODS = [m for m in dir(unreal.AudioDrivenAnimationMood) if m.isupper()]
 
@@ -20,11 +20,11 @@ def moods() -> list:
 def to_face(wav: str, name: str, face_mesh: str, mood: str = "CONFIDENCE", intensity: float = 1.0,
             head: bool = True, blinks: bool = True, folder: str = "/Game/Speech") -> dict:
     """Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at
-    `intensity`, and export an animation on `face_mesh`'s skeleton. Returns the sound, performance and animation."""
+    `intensity`, and export an animation on `face_mesh`'s skeleton. Returns the sound, performance and animation.
+    A multi-tick job."""
     wave = import_files([wav], f"{folder}/Audio")[0].split(".")[0]
     perf_path = f"{folder}/Perf_{name}"
-    if EAL.does_asset_exist(perf_path):
-        EAL.delete_asset(perf_path)
+    free(perf_path)
     perf = unreal.AssetToolsHelpers.get_asset_tools().create_asset(f"Perf_{name}", folder, unreal.MetaHumanPerformance,
                                                                    unreal.MetaHumanPerformanceFactoryNew())
     perf.set_editor_property("input_type", unreal.DataInputType.AUDIO)
@@ -38,8 +38,15 @@ def to_face(wav: str, name: str, face_mesh: str, mood: str = "CONFIDENCE", inten
             perf.set_editor_property(k, v)
         except Exception:
             pass
-    perf.set_blocking_processing(True)
+    perf.set_blocking_processing(False)  # across editor ticks: a blocking solve holds the game thread for minutes
     err = perf.start_pipeline(True)
+    yield 0.5
+    while perf.is_processing():
+        yield 0.5
+    # the export asks "Overwrite Existing Object?" in a modal dialog (the game thread waits for a click) when the
+    # animation exists: free the name first, deleting it, or moving it aside if something still holds it
+    out = f"{folder}/Anim/AS_{name}"
+    free(out)
     U = unreal.MetaHumanPerformanceExportUtils
     st = U.get_export_animation_sequence_settings(perf)
     for k, v in (("package_path", f"{folder}/Anim"), ("asset_name", f"AS_{name}"), ("show_export_dialog", False),

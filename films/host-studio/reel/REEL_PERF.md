@@ -59,6 +59,90 @@ The pipeline (`perf.py` docstring has the commands):
 7. **Place**: `perf.py place --seq /Game/Reel/SEQ_Reel` (R7): one Face and one Body section per presenter from
    f840 / f1080. Run `mh.drive_face` on Host and Presenter first.
 
-## Status
+## Re-placing after a studio rebuild (runbook, from cold)
 
-(filled in below as the editor passes run)
+`studio.py` respawns Host and Presenter. That loses two things the performances need: the face's animation mode
+(`mh.drive_face` is set on the level actor, not saved in SEQ_Reel), and SEQ_Reel's Host/Presenter bindings, which
+still point at the deleted actors. Their tracks are kept, but nothing plays them. The animations under
+`/Game/Reel/Perf` are assets, so a rebuild leaves them alone. Nothing is solved, composed or gazed again. Run from
+`tools/` on reel-v2 (277d6fb or later), in this order:
+
+    # 0. the reel's own lights (OutsideNight, the four Down*) and her garments' leader pose: studio.py drops both
+    uv run python ../films/host-studio/reel/rig.py --no-save
+    uv run film-ue exec ../films/host-studio/props/her_outfit_ue/restore_leader.py   # Top/Trousers/Overshirt -> Body
+    # 1. rebind SEQ_Reel to the new actors (skip if build.py's build() has already run since the rebuild: it rebinds)
+    uv run film-ue op seq.rebind path=/Game/Reel/SEQ_Reel 'labels=["Host","Presenter","HerEarL","HerEarR","HerWatch"]'
+    # 2. Sequencer drives the faces
+    uv run python ../films/host-studio/reel/perf.py drive_faces
+    # 3. the Face and Body sections (replaces the tracks' sections, so a rerun is safe)
+    uv run python ../films/host-studio/reel/perf.py place --seq /Game/Reel/SEQ_Reel
+
+What a good result looks like:
+
+- `seq.rebind` gives `"ok"` for every label. `"missing"` means that actor is not in the level under that label.
+  Stop there: `place` finds bindings by name, so it would write onto the dead one and nothing would play.
+- `drive_faces` prints two `...ANIMATION_SINGLE_NODE` strings, one each for Host and Presenter.
+- `place` prints four lists `[anim, start, end, row]`, in this order:
+  - Host Face: `[[/Game/Reel/Perf/AS_reel_him_gaze5, 960, 1608, 0]]`
+  - Host Body: `[[...mhc_mh001_fmn_b_idle, 720, 966, 0], [/Game/Reel/Perf/AS_reel_him_body, 960, 1560, 1],
+    [...idle, 1554, 1608, 0]]`
+  - Presenter Face: `[[.../AS_reel_her_gaze5, 1080, 1608, 0]]`
+  - Presenter Body: `[[.../AS_reel_her_idle, 840, 1086, 0], [.../AS_reel_her_body, 1080, 1560, 1],
+    [.../AS_reel_her_idle, 1554, 1608, 0]]`
+
+  A "no binding" or "no actor" error means step 1 is still missing. A missing asset means `/Game/Reel/Perf` was
+  touched, so stop and ask. Do not re-run solve, compose or gaze.
+- `uv run film-ue op seq.tracks path=/Game/Reel/SEQ_Reel` shows one `MovieSceneSkeletalAnimationTrack` under
+  `Host.Face` (1 section) and one under `Host.Body` (3 sections), and the same for `Presenter`.
+- A still from SEQ_Reel's own cut (`seq.still path=/Game/Reel/SEQ_Reel frame=1032 camera=""`): his mouth open
+  mid-L1, eyes in the lens. At f1240 she is mid-L3b with her eyes in the lens. At f1170 his head is turned over
+  his right shoulder towards her.
+- What goes wrong and why:
+  - **The face is neutral, or blinks but does not speak**: `drive_face` did not run on that actor (or the editor
+    restarted after it, without saving the level). Run step 2 again.
+  - **The whole body is frozen in its rest pose (A-pose) or does not move**: the binding is dead. Do step 1, then
+    step 3 again.
+
+Run nothing else in perf.py on SEQ_Reel. `cleanup` deletes only the `Test_agent-10_*` actors and sequences, but it
+is not needed here.
+
+## Status (PLAN v2, placed on SEQ_Reel)
+
+The voice above is v1 and no longer ships: PLAN v2 (agent-13) replaced the lines; its VO (vo/ L1, L2, L3a, L3b, L4a,
+L4b + cues.json) is made by agent-13's vo.py. With it:
+
+- **Solves**: his stem f960-1560 (CONFIDENCE 0.7), hers f1080-1560 (CONFIDENCE 0.8); L2 and L4a (HAPPINESS 0.6) spliced
+  on him, L3a (HAPPINESS 0.6) and L4b (HAPPINESS 0.8) on her.
+- **Beats** (`beats()`): his head down in silhouette, eyes up with the key (f990-1002); a one-sided smirk after L1;
+  after L2 his look over his right shoulder to her (head 65 deg, eyes the rest), held through S15; her watching him
+  during L2, then to the lens and a half-smile on "Nice try."; her head tilt on "yourself" (word frame from cues.json);
+  the glances between them on "comes around"; small smiles and a settling nod to the lens, held through S18.
+- **Gaze**: every lens range locked to <= 0.1 deg (mean 0.02-0.03 deg after the passes); the looks at the partner are
+  written, not locked (below).
+- **Placed** (`place`): Face from START (last pose held), Body idle -> performance -> idle with 6-frame blends;
+  `drive_faces` on Host and Presenter. Stills: `previs/perf/` (viewport, f1032 S13 L1, f1170 S15 the hand-off,
+  f1240 S16 L3b, f1394 S17 the glance; `crop_` versions enlarged).
+- **Gestures**: none used (the hand-keyed S14 one went with S14; her watch-hand lift reads stiff on the idle body).
+
+What the rig taught (measured, `signs`, eye probes):
+
+- The head curves' names do not say what they do: **HeadYaw nods** (+ down), **HeadRoll turns** (+ towards world -Y),
+  **HeadPitch tilts** ear to shoulder; 1 unit = 1 deg on the head bone. `PITCH`/`turn()` in perf.py hide this.
+- **eyeLookLeft turns the eyes to the face's own right** (world -Y for both presenters), eyeLookRight to its left.
+- **Eye curves top out at ~40 deg** (calibration: Left 42, Right 37, Up 30, Down 40). Her mark is ~130 deg from his
+  front (80 cm behind, 95 cm to his right): no lock reaches it, and `anim.gaze_lock` aimed that far off picks the
+  eye's side axis as "forward" and does nothing, so both looks at the partner are written as beats.
+
+Editor safety (fmbridge, merged into the reel install by agent-06:2):
+
+- Curves are written through the animation controller in one bracket, each curve in one call
+  (`AnimationLibrary.add_float_curve_keys` recompresses after every key: a 30 s face held the game thread 40+ min).
+- `speech.to_face` polls a non-blocking solve across ticks instead of holding the game thread.
+- `assets.free` before every create/export/duplicate (speech, seq.shot, gaze_lock, bake_pose, perf.py's scripts): the
+  solve's export over an existing animation opened a modal "Overwrite Existing Object" dialog.
+- `gaze_lock` with `frames` kept the solved frames as its range (the argument was overwritten): fixed.
+- `gaze` sets each pass's source on the track first: a rerun otherwise wrote into an animation nobody played.
+
+For R3/R7 (fleet/agent-10/reel-cut): after a level rebuild, rebinding *added* the new camera to old bindings, so ten
+SEQ_Reel camera bindings each moved two cameras (S05's keys moved Reel_S11: the wall shot); build.py drops such
+bindings and keys afresh.

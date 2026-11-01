@@ -79,11 +79,144 @@ def leaf(name, color, transmission, texture=""):
                       transmission=transmission, folder=M)
 
 
+# >>> bespoke materials (graphs look.material's kinds cannot express; built here, rebuilt when BESPOKE_REV changes)
+MEL = unreal.MaterialEditingLibrary
+BESPOKE_REV = "2"
+
+
+def bespoke(name, build, folder=M):
+    """A parent material of this studio's own: `build(m, x)` wires it; made once, rebuilt in place when BESPOKE_REV
+    changes (its instances keep their values)."""
+    path = f"{folder}/{name}"
+    eal = unreal.EditorAssetLibrary
+    if eal.does_asset_exist(path):
+        m = unreal.load_asset(path)
+        if eal.get_metadata_tag(m, "k_rev") == BESPOKE_REV:
+            return m
+        MEL.delete_all_material_expressions(m)
+    else:
+        m = unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, folder, unreal.Material,
+                                                                     unreal.MaterialFactoryNew())
+    pos = [0]
+
+    def x(cls, *ins, **props):
+        """A MaterialExpression<cls>; each of `ins` is an expression or (expression, input pin), wired from its first
+        output to the pin (default A, B in order; the only input when there is one). `param=` names a parameter."""
+        pos[0] += 1
+        e = MEL.create_material_expression(m, getattr(unreal, "MaterialExpression" + cls), -300 - 40 * pos[0],
+                                           60 * pos[0])
+        for k, v in props.items():
+            e.set_editor_property("parameter_name" if k == "param" else k, v)
+        for i, src in enumerate(ins):
+            src, pin = src if isinstance(src, tuple) else (src, ("A", "B")[i] if len(ins) > 1 else "")
+            MEL.connect_material_expressions(src, "", e, pin)
+        return e
+
+    def out(e, prop):
+        MEL.connect_material_property(e, "", getattr(unreal.MaterialProperty, prop))
+    build(m, x, out)
+    MEL.recompile_material(m)
+    eal.set_metadata_tag(m, "k_rev", BESPOKE_REV)
+    eal.save_asset(path)
+    return m
+
+
+def instance(name, parent, vectors=None, scalars=None, folder=M):
+    """An instance of a bespoke parent with its vector (linear RGB) and scalar parameters set."""
+    path = f"{folder}/{name}"
+    eal = unreal.EditorAssetLibrary
+    mi = unreal.load_asset(path) if eal.does_asset_exist(path) else unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+        name, folder, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+    mi.set_editor_property("parent", parent)
+    for k, v in (vectors or {}).items():
+        MEL.set_material_instance_vector_parameter_value(mi, k, unreal.LinearColor(*v, 1.0))
+    for k, v in (scalars or {}).items():
+        MEL.set_material_instance_scalar_parameter_value(mi, k, float(v))
+    eal.save_asset(path)
+    return path
+
+
+def _scalar(x, name, v):
+    return x("ScalarParameter", param=name, default_value=v)
+
+
+def _polished_metal(m, x, out):
+    """Polished metal: Color (its F0), metallic 1, and a finish map from the mesh's vertex colours (the coin's Relief
+    attribute): FieldRough where it is black, ReliefRough where R is 1 (the raised design), RimRough where G is 1
+    (rims and edge); a mesh without vertex colours reads white and takes ReliefRough all over. The roughness is broken
+    up by +-Var with a fine world-space noise (polish marks, fingerprints) and a slower one (uneven buffing), and the
+    fine noise ripples the normal a little, so a highlight wobbles as it runs over the relief instead of sliding like
+    CG chrome."""
+    out(x("VectorParameter", param="Color", default_value=unreal.LinearColor(1.0, 0.77, 0.34, 1.0)), "MP_BASE_COLOR")
+    out(x("Constant", r=1.0), "MP_METALLIC")
+    vc = x("VertexColor")
+    r = x("ComponentMask", vc, r=True, g=False, b=False, a=False)
+    g = x("ComponentMask", vc, r=False, g=True, b=False, a=False)
+    base = x("LinearInterpolate", (x("LinearInterpolate", (_scalar(x, "FieldRough", 0.3), "A"),
+                                     (_scalar(x, "RimRough", 0.08), "B"), (g, "Alpha")), "A"),
+             (_scalar(x, "ReliefRough", 0.08), "B"), (r, "Alpha"))
+    wp = x("WorldPosition")
+    fine = x("Noise", (wp, "Position"), scale=_FINE, levels=3, output_min=0.0, output_max=1.0)
+    slow = x("Noise", (wp, "Position"), scale=_SLOW, levels=2, output_min=0.0, output_max=1.0)
+    mix = x("LinearInterpolate", (fine, "A"), (slow, "B"), (x("Constant", r=0.45), "Alpha"))
+    var = x("Multiply", x("Subtract", mix, x("Constant", r=0.5)), x("Multiply", _scalar(x, "Var", 0.3), x("Constant", r=2.0)))
+    out(x("Multiply", base, x("Add", var, x("Constant", r=1.0))), "MP_ROUGHNESS")
+    tilt = x("Multiply", x("Subtract", fine, x("Constant", r=0.5)), _scalar(x, "Ripple", 0.01))
+    nrm = x("AppendVector", x("AppendVector", tilt, tilt), x("Constant", r=1.0))
+    out(x("Normalize", nrm), "MP_NORMAL")
+
+
+_FINE, _SLOW = 1.6, 0.25  # the noises' frequencies (per cm): ~6 mm polish marks, ~4 cm buffing
+
+
+def _acrylic(m, x, out):
+    """Frosted acrylic, opaque with subsurface scattering (Lumen lights it, it casts a real soft shadow, light soaks
+    in and comes back warm) plus an LED glow from inside: GlowColor x Glow, strongest at the base and fading up the
+    block, 0.2 + 0.8 (1 - h / GlowFade)^2 for h cm over the actor's pivot (its bottom centre)."""
+    m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_SUBSURFACE)
+    out(x("VectorParameter", param="Color", default_value=unreal.LinearColor(0.8, 0.79, 0.76, 1.0)), "MP_BASE_COLOR")
+    out(_scalar(x, "Roughness", 0.42), "MP_ROUGHNESS")
+    out(_scalar(x, "Specular", 0.5), "MP_SPECULAR")
+    out(_scalar(x, "Scatter", 0.85), "MP_OPACITY")  # a subsurface material's opacity: how much light scatters in
+    out(x("VectorParameter", param="ScatterColor", default_value=unreal.LinearColor(1.0, 0.82, 0.62, 1.0)),
+        "MP_SUBSURFACE_COLOR")
+    z = lambda e: x("ComponentMask", e, r=False, g=False, b=True, a=False)  # noqa: E731
+    h = x("Subtract", z(x("WorldPosition")), z(x("ObjectPositionWS")))
+    f = x("Saturate", x("OneMinus", x("Divide", h, _scalar(x, "GlowFade", 12.0))))
+    fade = x("Add", x("Multiply", x("Multiply", f, f), x("Constant", r=0.8)), x("Constant", r=0.2))
+    glow = x("Multiply", x("Multiply", x("VectorParameter", param="GlowColor",
+                                         default_value=unreal.LinearColor(1.0, 0.72, 0.45, 1.0)),
+                           _scalar(x, "Glow", 0.0)), fade)
+    out(glow, "MP_EMISSIVE_COLOR")
+
+
+GOLD_PARENT = bespoke("M_K_PolishedMetal", _polished_metal)
+ACRYLIC_PARENT = bespoke("M_K_Acrylic", _acrylic)
+# <<< bespoke materials
+
 oak = surface("Oak", 100, roughness=1.0)
 walnut = surface("Walnut", 100)
 black_metal = plain("BlackMetal", (0.012, 0.012, 0.013), 0.45, 1.0)
 brass = plain("Brass", (0.78, 0.56, 0.28), 0.3, 1.0)
-gold = plain("Gold", (0.95, 0.7, 0.32), 0.22, 1.0)
+GOLD = (1.0, 0.68, 0.25)  # gold's F0 (linear), a touch deeper than the textbook value: the room is warm already
+# polished gold, evenly buffed (the GPU frame's accents, the pins, her hoops); the coin has its own finish below
+gold = instance("MI_K_GoldPolished", GOLD_PARENT, vectors={"Color": GOLD},
+                scalars={"FieldRough": 0.16, "ReliefRough": 0.16, "RimRough": 0.16, "Var": 0.3, "Ripple": 0.01})
+# the coin: a satin field with mirror-polished relief and rims (from its Relief colours), so the B and the circuit
+# read as bright metal against soft gold whatever the room puts in the reflection
+coin_gold = instance("MI_K_CoinGold", GOLD_PARENT, vectors={"Color": GOLD},
+                     scalars={"FieldRough": 0.26, "ReliefRough": 0.06, "RimRough": 0.06, "Var": 0.12, "Ripple": 0.008})
+# the lyzn block: frosted faces, polished round-overs that glow brighter (edge-lit), white engraved letters
+ACRYLIC = {"Color": (0.78, 0.78, 0.77), "ScatterColor": (0.95, 0.92, 0.88), "GlowColor": (1.0, 0.86, 0.7)}
+GLOW = 2.0 if NIGHT else 1.0  # the block's LED base: a little brighter in the dark room
+acrylic_frost = instance("MI_K_AcrylicFrost", ACRYLIC_PARENT, vectors=ACRYLIC,
+                         scalars={"Roughness": 0.4, "Scatter": 0.9, "Glow": 0.3 * GLOW, "GlowFade": 12.0})
+acrylic_polish = instance("MI_K_AcrylicPolish", ACRYLIC_PARENT, vectors=ACRYLIC,
+                          scalars={"Roughness": 0.05, "Scatter": 0.9, "Glow": 1.0 * GLOW, "GlowFade": 12.0})
+acrylic_engrave = instance("MI_K_AcrylicEngrave", ACRYLIC_PARENT,
+                           vectors={"Color": (0.95, 0.95, 0.94), "ScatterColor": (1.0, 0.95, 0.9),
+                                    "GlowColor": (1.0, 0.88, 0.74)},
+                           scalars={"Roughness": 0.8, "Scatter": 0.6, "Glow": 2.2 * GLOW, "GlowFade": 12.0})
 silver = plain("Silver", (0.85, 0.85, 0.86), 0.3, 1.0)
 alu = plain("Alu", (0.7, 0.7, 0.72), 0.35, 1.0)
 satin_black = plain("SatinBlack", (0.014, 0.014, 0.015), 0.5)
@@ -99,7 +232,7 @@ MAT = {
     "M_WinFrame": plain("WinFrame", (0.68, 0.66, 0.62), 0.4), "M_Glass": clear_glass,
     "M_Sheer": K.material("MI_K_Sheer", (1.0, 0.98, 0.94), kind="Sheer", texture=tex(S, "T_Linen_A"),
                           mask=tex(S, "T_Linen_O"), tiling=100.0 / 8, opacity=0.9, roughness=0.8,
-                          transmission=(1.0, 0.92, 0.8), glow=0.02 if NIGHT else 0.25, folder=M),
+                          transmission=(0.66, 0.63, 0.58), glow=0.01 if NIGHT else 0.12, folder=M),
     "M_Rod": black_metal, "M_Rug": surface("Wool", 60),
     # the slat wall and the sign
     "M_Walnut": walnut, "M_Felt": surface("Felt", 40, color=(0.6, 0.6, 0.6)),
@@ -155,8 +288,7 @@ MAT = {
     "M_Label_WatchFace": K.material("MI_K_Label_WatchFace", kind="Screen", texture=tex(T, "T_Label_WatchFace"),
                                     intensity=1.5, roughness=0.05, folder=M),
     "M_WatchBand": plain("WatchBand", (0.015, 0.015, 0.016), 0.7),
-    "M_Acrylic": K.material("MI_K_Acrylic", (0.92, 0.94, 0.96), kind="Glass", opacity=0.45, roughness=0.45, folder=M),
-    "M_Label_Lyzn": label("Lyzn", kind="PbrMasked", roughness=0.7),
+    "M_Acrylic": acrylic_frost, "M_AcrylicPolish": acrylic_polish, "M_AcrylicEngrave": acrylic_engrave,
     # the label objects
     "M_Label_Name": label("Name", roughness=0.5), "M_CalStand": black_metal, "M_Wire": silver,
     "M_Paper": plain("Paper", (0.82, 0.81, 0.78), 0.85), "M_Label_Calendar": label("Calendar", roughness=0.85),
@@ -182,7 +314,8 @@ for i in range(1, 8):
     MAT[f"M_Label_Spine{i}"] = label(f"Spine{i}", roughness=1.0)
 
 UNDRESSED = {}
-OVERRIDE = {"Window": {"M_Glass": win_glass}}  # a slot name that means something else on one prop
+OVERRIDE = {"Window": {"M_Glass": win_glass},  # a slot name that means something else on one prop
+            "Coin": {"M_Gold": coin_gold}}
 
 
 def prop(label_, name, loc, yaw=0.0, pitch=0.0, roll=0.0, scale=1.0):
@@ -213,7 +346,7 @@ for lab, name in (("Room", "room_shell"), ("Window", "window"), ("Curtains", "cu
 # the garden outside, out of focus behind the glass
 K.card("Outside", (WALL - 140, 205, 150), 520, 900,
        K.material("MI_K_Outside", kind="Screen", texture=tex(T, "T_OutsideNight" if NIGHT else "T_Outside"),
-                  intensity=3.0 if NIGHT else 40.0, roughness=1.0, folder=M))
+                  intensity=1.2 if NIGHT else 18.0, roughness=1.0, folder=M))
 
 # ------------------------------------------------------------------------------------------- slats and the sign
 SLAT_Y, SLAT_DEPTH = 25.0, 3.4
@@ -246,7 +379,7 @@ TOPS = (125.0, 162.0, 199.0, 236.0)   # shelf top surfaces, bottom to top
 for n, z in enumerate(TOPS):
     prop(f"Shelf{n}", "shelf", (WALL, SH_C, z - 4.5))
     K.light(f"ShelfLed{n}", "rect", loc=(WALL + 23, SH_C, z - 5.2), look_at=(WALL + 18, SH_C, z - 60),
-            intensity=1.5 if NIGHT else 1.3,
+            intensity=0.45 if NIGHT else 1.15,
             temperature=2700, width=SH_LEN - 8, height=1.6, barn_angle=60, volumetric=0.0)
 CR_C, CR_TOP = -135.0, 72.0
 prop("Credenza", "credenza", (WALL, CR_C, 0))
@@ -270,7 +403,7 @@ prop("Drone", "drone", (WALL + 12.5, SH_L - 64, TOPS[1]), yaw=-8)
 prop("Candle", "candle", (WALL + 14, SH_L - 93, TOPS[1]))
 K.light("CandleLight", "point", loc=(WALL + 14, SH_L - 93, TOPS[1] + 14), intensity=0.1, temperature=1800, radius=70,
         shadows=False, volumetric=0.0)
-prop("Coin", "bitcoin_coin", (WALL + 11, SH_L - 109, TOPS[1]), yaw=-12)
+prop("Coin", "bitcoin_coin", (WALL + 11, SH_L - 109, TOPS[1]), yaw=20)  # turned out to the room, as displayed
 prop("Pickaxe", "pickaxe", (WALL + 9, SH_L - 128, TOPS[1]), yaw=-10)
 # bottom shelf: the root prompt, the print, a looser row of books, the small pothos
 prop("Terminal", "terminal_display", (WALL + 12, SH_L - 22, TOPS[0]), yaw=4)
@@ -295,23 +428,23 @@ prop("Stool", "stool", (-95, 20, 0), yaw=25)  # for the empty-room shots; hidden
 
 # ------------------------------------------------------------------------------------------------- daylight
 if not NIGHT:
-    K.sky(elevation=28, azimuth=-28, lux=30000, temperature=5100, sky_intensity=0.6, shadow_softness=0.7)
+    K.sky(elevation=28, azimuth=-28, lux=17000, temperature=5100, sky_intensity=0.6, shadow_softness=0.7)
     K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=8,
             temperature=6200, width=150, height=280, barn_angle=80, volumetric=0.0)
-    K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=1.5, temperature=4500, width=300,
+    K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=0.8, temperature=4500, width=300,
             height=300, shadows=False, specular=0.0, volumetric=0.0)
 else:
-    # the sun below the horizon (the atmosphere goes blue-hour), only a cool glow from the window
-    K.sky(elevation=-8, azimuth=-28, lux=2.0, temperature=7500, sky_intensity=0.04, shadow_softness=2.0)
-    K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=0.35,
-            color=(0.35, 0.47, 0.85), width=150, height=280, barn_angle=80, shadows=False, volumetric=0.0)
-    K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=0.3, temperature=2800, width=300,
+    # the sun off below the horizon; a cool moonlit glow from the window and a cool fill against the warm practicals
+    K.sky(elevation=-8, azimuth=-28, lux=0.0, temperature=7500, sky_intensity=0.04, shadow_softness=2.0)
+    K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=1.2,
+            color=(0.3, 0.45, 0.95), width=150, height=280, barn_angle=80, shadows=False, volumetric=0.0)
+    K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=0.4, temperature=10000, width=300,
             height=300, shadows=False, specular=0.0, volumetric=0.0)
     # warm recessed downlights: pools on the credenza, a wash down the slats, a lift on the olive tree
-    for name, loc, at, cd in (("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, CR_TOP), 15.0),
-                              ("DownSlats", (WALL + 32, SLAT_Y, 296), (WALL + 4, SLAT_Y, 90), 16.0),
+    for name, loc, at, cd in (("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, CR_TOP), 12.0),
+                              ("DownSlats", (WALL + 32, SLAT_Y, 296), (WALL + 4, SLAT_Y, 90), 10.0),
                               ("DownOlive", (WALL + 75, 205, 296), (WALL + 62, 205, 120), 9.0),
-                              ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 3.5)):
+                              ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 0.8)):
         K.light(name, "spot", loc=loc, look_at=at, intensity=cd, temperature=2700, cone=32, radius=600,
                 volumetric=0.4, shadows=name != "DownSlats")  # the slat wash would throw the sign's shadow down the slats
 
@@ -320,7 +453,7 @@ FACE = (8.0, 0.0, 172.0)
 K.light("Key", "rect", loc=(140, 130, 215), look_at=FACE, intensity=5.5 if NIGHT else 9.0,
         temperature=4300 if NIGHT else 5000, width=140, height=140,
         barn_angle=70, volumetric=0.0)
-K.light("Fill", "rect", loc=(190, -125, 160), look_at=FACE, intensity=1.0, temperature=4800, width=180, height=180,
+K.light("Fill", "rect", loc=(190, -125, 160), look_at=FACE, intensity=0.7, temperature=4800, width=180, height=180,
         specular=0.3, volumetric=0.0)
 K.light("HairLight", "rect", loc=(-85, 25, 258), look_at=(0, 0, 186), intensity=5.0, temperature=3800, width=60,
         height=30, barn_angle=55, volumetric=0.0)
@@ -334,6 +467,48 @@ HOST_LIGHTS = ["Key", "Fill", "HairLight", "RimWarm", "RimWindow", "EyeLight"]
 K.channels(HOST_LIGHTS, [1])
 K.channels(["Host"], [0, 1])  # the daylight reaches the host too, so the host sits in the room's light
 mh.garment("Host", "Shirt", vectors={"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
+# >>> his outfit
+# his slim charcoal trousers (props/his_outfit.py, imported onto his skeleton by props/his_outfit_ue/import_outfit.py),
+# a skeletal mesh component under his body that takes the body's pose (leader pose), worn under the default garment's
+# tee (kept); the default garment's shorts are cut out (their slots get a fully transparent masked material).
+HIS_DIR = "/Game/Host/Host_Outfit"
+HIS_TROUSERS = f"{HIS_DIR}/SKM_Host_Trousers"
+if unreal.EditorAssetLibrary.does_asset_exist(HIS_TROUSERS):
+    his_mats = {"M_Trousers": K.material("MI_K_HisTrousers", (1.0, 1.0, 1.0), kind="Pbr",
+                                         texture=tex(HIS_DIR, "T_HisTwill_A"), normal=tex(HIS_DIR, "T_HisTwill_N"),
+                                         mask=tex(HIS_DIR, "T_HisTwill_M"), tiling=100.0 / 1.0, roughness=1.0,
+                                         metallic=0.0, folder=M)}
+    his_hidden = K.material("MI_K_HisHidden", (1.0, 1.0, 1.0), kind="PbrMasked", texture=tex(HIS_DIR, "T_HisHidden"),
+                            folder=M)
+
+    def his_part(name):  # fetched afresh each time: a change on one component rebuilds the others
+        return next((c for c in L.actor("Host").get_components_by_class(unreal.SkeletalMeshComponent)
+                     if c.get_name() == name), None)
+
+    if his_part("Trousers") is None:
+        sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+        SDL = unreal.SubobjectDataBlueprintFunctionLibrary
+        body_h = next(h for h in sds.k2_gather_subobject_data_for_instance(L.actor("Host"))  # the blueprint's
+                      if str(SDL.get_variable_name(SDL.get_data(h))) == "Body")  # components are templates: by variable
+        new_h, why = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+            parent_handle=body_h, new_class=unreal.SkeletalMeshComponent))
+        if why and str(why):
+            raise RuntimeError(f"his outfit: add_new_subobject failed: {why}")
+        sds.rename_subobject(new_h, unreal.Text("Trousers"))
+    his_part("Trousers").set_skeletal_mesh_asset(unreal.load_asset(HIS_TROUSERS))
+    for slot_, mi_ in his_mats.items():
+        his_part("Trousers").set_material_by_name(slot_, unreal.load_asset(mi_))
+    his_part("Trousers").set_editor_property("lighting_channels", his_part("Body").get_editor_property("lighting_channels"))
+    for i, slot_ in enumerate(his_part("SkeletalMesh").get_material_slot_names()):  # the shorts: four slots, one name
+        if "short" in str(slot_).lower():
+            his_part("SkeletalMesh").set_material(i, unreal.load_asset(his_hidden))
+    his_part("Trousers").set_editor_property("use_bounds_from_leader_pose_component", True)
+    # leader pose last, on every garment (after agent-02): a change to one instance component re-creates the others,
+    # and a re-created component has lost its leader (it then stays in its bind pose while the body moves)
+    for c in L.actor("Host").get_components_by_class(unreal.SkeletalMeshComponent):
+        if c.get_name() not in ("Body", "Face"):
+            c.set_leader_pose_component(his_part("Body"))
+# <<< his outfit
 
 # her: the female presenter on the same mark, hidden until a shot asks for her (stills.py --who her)
 HER_BP = "/Game/Host/Unpacked/Presenter/BP_Presenter"
@@ -345,25 +520,81 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
     her.set_actor_hidden_in_game(True)
     her.set_is_temporarily_hidden_in_editor(True)
     K.channels(["Presenter"], [0, 1])
-    mh.garment("Presenter", "Shirt", vectors={"diffuse_color_1": (0.82, 0.82, 0.8), "diffuse_color_2": (0.8, 0.8, 0.78)})
+    # >>> outfit
+    # her fitted outfit (props/her_outfit.py, imported onto her skeleton by props/her_outfit_ue/import_outfit.py): a
+    # cream rib-knit top tucked into high-rise charcoal trousers, skeletal mesh components under her body that take the
+    # body's pose (leader pose, set at the end of her section). Her MetaHuman is built without the default garment, so these are all she wears.
+    FIT_DIR = "/Game/Host/Presenter_Outfit"
+    fit = {"Top": (f"{FIT_DIR}/SKM_Presenter_Top", {
+               "M_Top": K.material("MI_K_HerTop", (1.0, 1.0, 1.0), kind="Pbr", texture=tex(FIT_DIR, "T_HerRib_A"),
+                                   normal=tex(FIT_DIR, "T_HerRib_N"), mask=tex(FIT_DIR, "T_HerRib_M"),
+                                   tiling=100.0 / 2.0, roughness=1.0, metallic=0.0, folder=M)}),
+           "Trousers": (f"{FIT_DIR}/SKM_Presenter_Trousers", {
+               "M_Trousers": K.material("MI_K_HerTrousers", (1.0, 1.0, 1.0), kind="Pbr",
+                                        texture=tex(FIT_DIR, "T_HerWool_A"), normal=tex(FIT_DIR, "T_HerWool_N"),
+                                        mask=tex(FIT_DIR, "T_HerWool_M"), tiling=100.0 / 1.0, roughness=1.0,
+                                        metallic=0.0, folder=M),
+               "M_Hardware": plain("HerGold", (0.9, 0.62, 0.28), 0.25, metallic=1.0)})}
+
+    def her_part(name):  # fetched afresh each time: a change on one component rebuilds the others
+        return next((c for c in L.actor("Presenter").get_components_by_class(unreal.SkeletalMeshComponent)
+                     if c.get_name() == name), None)
+
+    for part, (mesh, mats) in fit.items():
+        if not unreal.EditorAssetLibrary.does_asset_exist(mesh):
+            continue
+        if her_part(part) is None:
+            sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+            SDL = unreal.SubobjectDataBlueprintFunctionLibrary
+            body_h = next(h for h in sds.k2_gather_subobject_data_for_instance(L.actor("Presenter"))  # the
+                          if str(SDL.get_variable_name(SDL.get_data(h))) == "Body")  # template is Body_GEN_VARIABLE
+            new_h, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+                parent_handle=body_h, new_class=unreal.SkeletalMeshComponent))
+            sds.rename_subobject(new_h, unreal.Text(part))
+        her_part(part).set_skeletal_mesh_asset(unreal.load_asset(mesh))
+        for slot_, mi_ in mats.items():
+            her_part(part).set_material_by_name(slot_, unreal.load_asset(mi_))
+        her_part(part).set_editor_property("lighting_channels", her_part("Body").get_editor_property("lighting_channels"))
+    # <<< outfit
     # small gold hoops through the lobes, a black smartwatch on the left wrist, riding her bones
     comps = {c.get_name(): c for c in her.get_components_by_class(unreal.SkeletalMeshComponent)}
     face, body_ = comps["Face"], comps["Body"]
     rule = unreal.AttachmentRule.KEEP_WORLD
+
+    def ride(lab):  # a prop spawns Static, and a Static root silently refuses to attach to a moving bone
+        L.actor(lab).root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+        return L.actor(lab)
+
     for side, bone in (("L", "FACIAL_L_Ear4"), ("R", "FACIAL_R_Ear4")):
         p = face.get_socket_location(bone)
         inward = 0.25 if side == "L" else -0.25  # through the lobe, not on its surface
         if prop(f"HerEar{side}", "hoop_earring", (p.x - 0.1, p.y + inward, p.z + 0.15)):
-            L.actor(f"HerEar{side}").attach_to_component(face, bone, rule, rule, rule, False)
+            ride(f"HerEar{side}").attach_to_component(face, bone, rule, rule, rule, False)
     a, b = body_.get_socket_location("lowerarm_twist_02_l"), body_.get_socket_location("hand_l")
     fwd = (b - a).normal()
     out = body_.get_socket_location("wrist_outer_l") - body_.get_socket_location("wrist_inner_l")
     up = (out - fwd * out.dot(fwd)).normal()  # the back of the wrist, square to the forearm
     at = b - fwd * 3.6  # just above the wrist bone
     if prop("HerWatch", "smartwatch", (at.x, at.y, at.z)):
-        w = L.actor("HerWatch")
-        w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)
+        w = ride("HerWatch")
         w.attach_to_component(body_, "lowerarm_twist_02_l", rule, rule, rule, False)
+        w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)  # once attached (it kept the bone's)
+    # her hair: sleek black, even root to tip. The preset's hair (melanin 0.8, redness 0.25) read with green lengths in
+    # the warm day shots, from no parameter of the material and no light (reel hair tests a-h); full melanin hides it.
+    # A child of each preset instance (strands, cards, helmet) so the rest of the preset's look carries over.
+    hair = next((c for c in L.actor("Presenter").get_components_by_class(unreal.GroomComponent)
+                 if c.get_name() == "Hair"), None)
+    if hair:
+        for i, suffix in enumerate(("", "_Cards", "_Helmet")):
+            parent = unreal.load_asset(f"/Game/Host/Unpacked/Presenter/Grooms/MI_WI_Hair_L_Straight_Hair{suffix}")
+            if parent:
+                hair.set_material(i, unreal.load_asset(instance(
+                    f"MI_K_HerHair{suffix}", parent, scalars={"hairMelanin": 1.0, "hairRedness": 0.05})))
+    # leader pose last, on every garment (hers and the overshirt): a change to one instance component re-creates the
+    # others, and a re-created component has lost its leader (it then stays in its bind pose while the body moves)
+    for c in L.actor("Presenter").get_components_by_class(unreal.SkeletalMeshComponent):
+        if c.get_name() not in ("Body", "Face"):
+            c.set_leader_pose_component(her_part("Body"))
     for lab in ("HerEarL", "HerEarR", "HerWatch"):
         try:
             x = L.actor(lab)
@@ -372,11 +603,50 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
             K.channels([lab], [0, 1])
         except ValueError:
             pass
+    # >>> overshirt
+    # her olive cotton-twill overshirt, worn open over her fitted top (props/overshirt.py, imported onto her skeleton by
+    # props/overshirt_ue/import_overshirt.py): a skeletal mesh component under her body that takes the body's pose
+    # (leader pose). Set last: a property change on her components reruns her construction script.
+    SHIRT_DIR = "/Game/Host/Presenter_Overshirt"
+    SHIRT = f"{SHIRT_DIR}/SKM_Presenter_Overshirt"
+    if unreal.EditorAssetLibrary.does_asset_exist(SHIRT):
+        shirt_mats = {
+            "M_Overshirt": K.material("MI_K_Overshirt", (1.0, 1.0, 1.0), kind="Pbr",
+                                      texture=tex(SHIRT_DIR, "T_OvershirtTwill_A"),
+                                      normal=tex(SHIRT_DIR, "T_OvershirtTwill_N"),
+                                      mask=tex(SHIRT_DIR, "T_OvershirtTwill_M"), tiling=100.0 / 2.0,
+                                      roughness=1.0, metallic=0.0, folder=M),
+            "M_Buttons": plain("OvershirtButtons", (0.07, 0.05, 0.032), 0.32, specular=0.5),  # dark horn
+        }
+
+        def her_comp(name):
+            return next((c for c in L.actor("Presenter").get_components_by_class(unreal.SkeletalMeshComponent)
+                         if c.get_name() == name), None)
+
+        if her_comp("Overshirt") is None:
+            sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+            SDL = unreal.SubobjectDataBlueprintFunctionLibrary
+            handles = sds.k2_gather_subobject_data_for_instance(L.actor("Presenter"))
+            # the blueprint's own components come back as their templates (Body_GEN_VARIABLE): match the variable name
+            body_h = next(h for h in handles if str(SDL.get_variable_name(SDL.get_data(h))) == "Body")
+            new_h, why = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+                parent_handle=body_h, new_class=unreal.SkeletalMeshComponent))
+            if why and str(why):
+                raise RuntimeError(f"overshirt: add_new_subobject failed: {why}")
+            sds.rename_subobject(new_h, unreal.Text("Overshirt"))
+        her_comp("Overshirt").set_skeletal_mesh_asset(unreal.load_asset(SHIRT))
+        for slot_, mi_ in shirt_mats.items():
+            her_comp("Overshirt").set_material_by_name(slot_, unreal.load_asset(mi_))
+        her_comp("Overshirt").set_editor_property("lighting_channels",
+                                                  her_comp("Body").get_editor_property("lighting_channels"))
+        her_comp("Overshirt").set_editor_property("use_bounds_from_leader_pose_component", True)
+        her_comp("Overshirt").set_leader_pose_component(her_comp("Body"))
+    # <<< overshirt
 
 # --------------------------------------------------------------------------------------------- air, lens, cameras
-K.fog(density=0.0006 if NIGHT else 0.0002, volumetric=True, albedo=(0.95, 0.93, 0.9), extinction=0.05,
+K.fog(density=0.0006 if NIGHT else 0.0001, volumetric=True, albedo=(0.95, 0.93, 0.9), extinction=0.05,
       height_falloff=0.02)
-K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_bias": 9.6 if NIGHT else 8.3, "white_temp": 5600.0,
+K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_bias": 9.1 if NIGHT else 8.3, "white_temp": 5600.0,
         "bloom_intensity": 0.25, "bloom_threshold": 1.0, "vignette_intensity": 0.25, "film_grain_intensity": 0.06,
         "scene_fringe_intensity": 0.0, "lumen_final_gather_quality": 4.0, "lumen_reflection_quality": 2.0,
         "lumen_scene_detail": 2.0, "lumen_scene_lighting_quality": 2.0, "lumen_max_trace_distance": 2000.0})
