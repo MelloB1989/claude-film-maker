@@ -1,4 +1,4 @@
-"""hoodie: a black cotton-fleece hoodie draped over the right-hand end of the credenza (a Mr. Robot nod).
+"""hoodie: a black cotton-fleece hoodie thrown onto the right-hand end of the credenza (a Mr. Robot nod).
 
 Run headless (on the Mac, through the fleet wrapper):
     blender -b --factory-startup -P films/host-studio/props/hoodie.py -- --out films/host-studio/props/out
@@ -10,11 +10,12 @@ How it is made
      Both layers are triangulated (constrained Delaunay) with the seams as constrained edges and share
      their vertices along the sewn outline (side seams, underarms, shoulders, sleeve tops, hood), so the
      garment is one closed double-layer envelope, open only at the hem, the cuffs and the face opening.
-  2. The envelope is wrapped, a few mm off the surfaces, round the credenza's right end: the body hangs
-     down the end face (front of the garment facing out) and round the front-right corner, the front
-     sleeve along the front face, the far sleeve folded out from the end face (it would be in the wall
-     otherwise), the hood folded back over the top edge onto the top, opening up.
-  3. Blender's cloth solver (self-collision on, the credenza, wall and floor as colliders) drops it to rest.
+  2. It is laid out face down over the credenza's front-right corner, 14% smaller than its pattern: the
+     shoulders a little out past the front edge, the hood beyond them, the body packed back toward the wall in
+     soft waves, the sleeves folded across the back at the armholes, crossed.
+  3. Blender's cloth solver (self-collision on, the credenza, wall and floor as colliders) drops it from a few
+     cm; it grows back to full size as it settles, so it bunches on the top, the shoulders and the hood fall
+     and hang down the front at the corner.
   4. Loop subdivision, a settle onto the collider surfaces, seam grooves, then a 3.5 mm solidify with
      rounded rims at the open edges; the kangaroo pocket is a second thickened layer on the front; metal
      eyelets; flat drawcords from a small rope simulation lying on the draped garment, with metal aglets.
@@ -61,16 +62,24 @@ EYELET = np.array([9.9, 75.0])                # drawcord eyelets on the hood's f
 GROOVES = {"hem_seam", "armhole", "cuff_seam", "neck_front", "neck_back", "hood_cf", "hood_cb", "channel"}
 
 # ---------------------------------------------------------------- the drape
-V_FOLD = 66.5          # pattern height that sits on the top's end edge
-S_C = -15.0            # garment centre line: x = 45 + S_C on the end face
-D0 = 1.2               # start the garment this far off the top's outline
-E_GAP = 0.45           # half the gap between the layers at the start
-GROW = 0.12
-HOOD_HINGE = 70.0
-HOOD_TILT = math.radians(25.0)
+# Thrown face down onto the front-right corner: the shoulders a little out past the front edge, the hood beyond
+# them (both fall and hang down the front, the hood at the corner); the body packed back toward the wall in soft
+# waves; the sleeves folded across the back at the armholes, crossed. It is laid out COMPRESS smaller than its
+# pattern, dropped from a few cm, and grows back to full size as it settles, so it bunches and piles.
+# Plane coordinates (a, b) are the pattern's (u, v); heights are above the top (+ = away from the credenza).
+ALPHA = math.radians(10.0)            # hood direction, from +X toward +Y
+NECK = np.array([50.0, -19.0])        # centre of the shoulder line (pattern v = SR[1])
+Z0 = TOP_Z + 5.6                      # dropped from this height
+E_GAP = 0.35                          # half the gap between the layers at the start
+B1 = 54.0                             # below this pattern height the body is packed along its length
+SLACK = 0.6                           # ... into this fraction of its length (lowered if it would stretch)
+WAVE_A, WAVE_L = 4.2, 14.0            # ... in waves this high and this long
+B2, CA, WAVE2_A, WAVE2_L = 31.0, 0.74, 2.0, 14.0   # below B2, across too: packed to CA of its width, in waves
+FOLD_A_AT, FOLD_A_R = 2.0, 1.2        # sleeves: folded across the back just past the armhole, over rolls this
+FOLD_B_AT, FOLD_B_R = 2.0, 2.0        # ... radius (the second lies over the first)
+COMPRESS = 0.86                       # the whole garment starts this much smaller than its pattern
 USE_PINS = True
 FRICTION = 80.0
-S_HINGE = -42.0        # the far sleeve is folded out of the end face beyond x = 45 + S_HINGE
 
 
 def parse_args():
@@ -79,13 +88,14 @@ def parse_args():
     ap.add_argument("--out", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "out"))
     ap.add_argument("--no-render", action="store_true")
     ap.add_argument("--samples", type=int, default=64)
-    ap.add_argument("--h", type=float, default=1.85, help="cloth-sim edge length, cm")
-    ap.add_argument("--frames", type=int, default=240)
+    ap.add_argument("--h", type=float, default=1.42, help="cloth-sim edge length, cm")
+    ap.add_argument("--frames", type=int, default=420)
     ap.add_argument("--quality", type=int, default=8)
     ap.add_argument("--reuse-sim", action="store_true", help="load <out>/hoodie_sim.npz instead of simulating")
     ap.add_argument("--sim-only", action="store_true")
     ap.add_argument("--grey", action="store_true", help="debug: light grey fleece in the previews")
     ap.add_argument("--snapshots", default="", help="comma-separated frames to save as debug .npy")
+    ap.add_argument("--no-pins", action="store_true", help="debug: no pinned shoulders")
     return ap.parse_args(argv)
 
 
@@ -431,74 +441,114 @@ def assemble(pat):
                 joined=joined, seams=seams, djoin=djoin, nf=nf)
 
 
-# ================================================================ starting pose round the credenza's end
+# ================================================================ starting pose over the credenza's corner
 
-def path_xy(s):
-    """Horizontal path D0 off the top's outline (end face -> corner -> front face); far sleeve hinged out."""
-    if s < S_HINGE:
-        r = 1.5
-        sig = S_HINGE - s
-        if sig <= math.pi * r / 2:
-            b = sig / r
-            return np.array([TOP_X + S_HINGE - r * math.sin(b), D0 + r - r * math.cos(b)]), \
-                np.array([math.sin(b), math.cos(b)]), None
-        return np.array([TOP_X + S_HINGE - r, D0 + r + sig - math.pi * r / 2]), np.array([1.0, 0.0]), None
-    if s <= 0:
-        return np.array([TOP_X + s, D0]), np.array([0.0, 1.0]), np.array([TOP_X + s, 0.0])
-    arc = math.pi * D0 / 2
-    if s <= arc:
-        a = s / D0
-        n = np.array([math.sin(a), math.cos(a)])
-        return np.array([TOP_X, 0.0]) + D0 * n, n, np.array([TOP_X, 0.0])
-    return np.array([TOP_X + D0, -(s - arc)]), np.array([1.0, 0.0]), np.array([TOP_X, -(s - arc)])
+def sleeve_frame(p, side):
+    """(along, across) of pattern points p in the sleeve on `side`'s frame."""
+    a = np.array([math.cos(TH), -math.sin(TH)])
+    n = np.array([-math.sin(TH), -math.cos(TH)])
+    q = np.stack([p[:, 0] * side, p[:, 1]], 1) - SR
+    return q @ a, q @ n
 
 
-def place(u, v, off):
-    s = u + S_C
-    t = v - V_FOLD
-    P, N, E = path_xy(s)
-    if t <= 0 or E is None:
-        base = np.array([P[0], P[1], TOP_Z + t])
-        nrm = np.array([N[0], N[1], 0.0])
-    else:
-        rho = D0
-        arc = math.pi * rho / 2
-        if t <= arc:
-            f = t / rho
-            base = np.array([E[0] + rho * math.cos(f) * N[0], E[1] + rho * math.cos(f) * N[1],
-                             TOP_Z + rho * math.sin(f)])
-            nrm = np.array([math.cos(f) * N[0], math.cos(f) * N[1], math.sin(f)])
+def fold(P, hgt, region, hinge, d_from, d_to, r):
+    """Fold the part of `region` past a line through `hinge` (plane coords) up and over: a strip running along
+    d_from comes back along d_to, over a roll of radius r resting on the cloth at the hinge."""
+    line = d_from + d_to
+    line /= np.linalg.norm(line)
+    nrm = np.array([line[1], -line[0]])
+    if d_from @ nrm < 0:
+        nrm = -nrm
+    s = (P - hinge) @ nrm
+    sel = region & (s > 0)
+    near = region & (np.abs(s) < 1.5)
+    hb = float(np.median(hgt[near])) if near.any() else 0.0
+    P, hgt = P.copy(), hgt.copy()
+    for i in np.where(sel)[0]:
+        si, h = s[i], hgt[i] - hb
+        base = P[i] - si * nrm
+        if si < math.pi * r:
+            th = si / r
+            P[i] = base + (r - h) * math.sin(th) * nrm
+            hgt[i] = hb + r - (r - h) * math.cos(th)
         else:
-            d = t - arc
-            base = np.array([E[0] - d * N[0], E[1] - d * N[1], TOP_Z + rho])
-            nrm = np.array([0.0, 0.0, 1.0])
-    return base + off * nrm
+            P[i] = base - (si - math.pi * r) * nrm
+            hgt[i] = hb + 2 * r - h
+    return P, hgt, sel
 
 
-PHI = math.radians(50.0)       # hood axis: from the neck into the top, between -Y and -X
-NECK_XY = np.array([41.0, -8.0])
-V0 = 58.0                       # pattern height placed at NECK_XY
+def fold_sleeve(uv, hgt):
+    """The sleeves crossed on the back, as when a hoodie is folded: each folded at the armhole straight across
+    the back, the end-side one (u > 0) first, the other over it."""
+    sel = np.zeros(len(uv), bool)
+    P = uv
+    for side, at, r in ((1, FOLD_A_AT, FOLD_A_R), (-1, FOLD_B_AT, FOLD_B_R)):
+        along, across = sleeve_frame(uv, side)
+        sleeve = (uv[:, 0] * side > 15.0) & (across < 19.5) & (along > -3.0)
+        d = np.array([side * math.cos(TH), -math.sin(TH)])
+        sr, ur = np.array([side * SR[0], SR[1]]), np.array([side * UR[0], UR[1]])
+        chord = (ur - sr) / np.linalg.norm(ur - sr)
+        d1 = 2 * (d @ chord) * chord - d                     # the sleeve's way after a fold along the chord
+        hinge = 0.5 * (sr + ur) + at * d
+        # the hinge in today's plane coords (the first fold does not move the second sleeve)
+        P, hgt, s1 = fold(P, hgt, sleeve, hinge, d, d1, r)
+        sel |= s1
+    return P, hgt, sel
 
 
-def place_flat(u, v, off):
-    """Flat, face up, a little above the top; the body overhangs the front-right corner diagonally."""
-    H = np.array([-math.sin(PHI), -math.cos(PHI)])
-    U = np.array([-math.cos(PHI), math.sin(PHI)])
-    # the hood starts tilted up from the neckline, so it falls onto the top and crumples
-    lift = max(0.0, v - HOOD_HINGE)
-    along = (min(v, HOOD_HINGE) - V0) + lift * math.cos(HOOD_TILT)
-    xy = NECK_XY + u * U + along * H
-    z = TOP_Z + D0 + lift * math.sin(HOOD_TILT)
-    nz = np.array([*(-H * math.sin(HOOD_TILT)), math.cos(HOOD_TILT)]) if lift > 0 else np.array([0, 0, 1.0])
-    return np.array([xy[0], xy[1], z]) + off * nz
+def top_inside(xy):
+    """Distance inside the top's outline (negative outside)."""
+    return np.minimum(np.minimum(TOP_X - xy[:, 0], -xy[:, 1]), xy[:, 0])
+
+
+def lay_out(P, hgt, slack):
+    """Plane coords -> 3D above the top: the hood and shoulders straight out over the front edge, the body behind
+    them packed in waves (along it from B1 down, across it from B2 down)."""
+    b0 = SR[1]
+    bb = np.linspace(-5.0, b0, 800)
+    c = np.where(bb > B1, 1.0, slack + (1 - slack) * smoothstep((bb - (B1 - 6.0)) / 6.0))
+    # sigma(b): distance along the spine from the shoulder line into the body (negative up into the hood)
+    sig = np.concatenate([[0.0], np.cumsum(0.5 * (c[1:] + c[:-1]) * np.diff(bb))])
+    sig = sig[-1] - sig
+    H = np.array([math.cos(ALPHA), math.sin(ALPHA)])
+    U = np.array([-H[1], H[0]])                                       # face down: the pattern's +u is to +Y
+    a = P[:, 0] * COMPRESS
+    b = b0 + (P[:, 1] - b0) * COMPRESS
+    sg = np.where(b < b0, np.interp(b, bb, sig), b0 - b)
+    ramp = smoothstep((B1 - b) / 8.0)
+    ramp2 = smoothstep((B2 - b) / 10.0)                               # across: below the sleeves only
+    a = a * (1.0 - (1.0 - CA) * ramp2)
+    xy = NECK - sg[:, None] * H + a[:, None] * U
+    z = Z0 + ramp * WAVE_A * np.sin(2 * math.pi * sg / WAVE_L) + ramp2 * WAVE2_A * np.sin(2 * math.pi * a / WAVE2_L)
+    # waves fade out near the edges, so the cloth turns over them cleanly
+    fade = smoothstep((top_inside(xy) - 2.0) / 12.0)
+    return np.column_stack([xy, Z0 + (z - Z0) * fade + hgt])
+
+
+def edge_stretch(X, uv, faces, sel=None):
+    E = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
+    L = np.linalg.norm(X[E[:, 0]] - X[E[:, 1]], axis=1)
+    L0 = np.linalg.norm(uv[E[:, 0]] - uv[E[:, 1]], axis=1)
+    return L / np.maximum(L0, 1e-9)
 
 
 def start_pose(g):
-    X = np.empty((len(g["uv"]), 3))
+    """Mid-surface laid out and folded, then each layer moved off it along its own normal (outward)."""
+    P, hgt, folded = fold_sleeve(g["uv"].copy(), np.zeros(len(g["uv"])))
+    slack = SLACK
+    for _ in range(14):
+        Xm = lay_out(P, hgt, slack)
+        r = edge_stretch(Xm, g["uv"], g["faces"])
+        # (the folded sleeve's rolls on the waves stretch a little); the hem must stay off the wall
+        if np.percentile(r, 99.5) <= 1.03 and Xm[:, 0].min() > 2.0:
+            break
+        slack *= 0.94
     w = smoothstep(g["djoin"] / 2.5)
-    for i, (p, lay) in enumerate(zip(g["uv"], g["layer"])):
-        off = 0.0 if lay == 2 else (E_GAP if lay == 0 else -E_GAP) * w[i]
-        X[i] = place_flat(p[0], p[1], off)
+    X = Xm + vertex_normals(Xm, g["faces"]) * (E_GAP * w)[:, None]
+    r2 = edge_stretch(X, g["uv"], g["faces"])
+    print(f"[{NAME}] start pose: slack {slack:.2f}, mid-surface stretch max {r.max():.3f}, "
+          f"with the layer gap {r2.max():.3f} (99.9% {np.percentile(r2, 99.9):.3f})")
+    g["folded"] = folded
     return X
 
 
@@ -545,20 +595,15 @@ def add_collider(name, lo, hi, friction, bevel=0.003):
 
 
 def pin_weights(g, X0):
-    """Friction, standing in: the back layer of the shoulders and upper back, lying on the credenza top under
+    """Friction, standing in: the front layer of the chest, lying on the credenza top under
     everything else, stays where it starts (in the sim a heavy hoodie this far over the edge slides off)."""
     v = g["uv"][:, 1]
-    on_top = (X0[:, 0] < TOP_X - 3.0) & (X0[:, 1] < -3.0)
-    return ((g["layer"] == 1) & on_top & (v > 40.0) & (v < HOOD_HINGE - 1.0)).astype(float)
+    on_top = (top_inside(X0[:, :2]) > 7.0) & (X0[:, 2] > TOP_Z)
+    trough = X0[:, 2] < TOP_Z + 1.3                        # where the packed body's waves touch down
+    return ((g["layer"] == 0) & on_top & trough & ~g["folded"] & (v > 8.0) & (v < 50.0)).astype(float)
 
 
-def grow_weights(g):
-    """The hood is given a little more cloth than it has room for, so it settles in folds on the top.
-    (Blender grows cloth at weight 0 with shrink_min < 0, so the weight is 1 where the cloth keeps its size.)"""
-    return 1.0 - smoothstep((g["uv"][:, 1] - 70.0) / 6.0)
-
-
-def simulate(X0, faces, args, pins=None, grow=None):
+def simulate(X0, faces, args, pins=None):
     sc = bpy.context.scene
     me = bpy.data.meshes.new("hoodie_sim")
     me.from_pydata((X0 * 0.01).tolist(), [], faces.tolist())
@@ -571,11 +616,6 @@ def simulate(X0, faces, args, pins=None, grow=None):
         add_collider("_c_wall", (-20, -LEN, 0), (0, 60, 200), 20, bevel=0),
         add_collider("_c_floor", (-20, -LEN, -10), (200, 150, 0), 40, bevel=0),
     ]
-    if grow is not None:
-        vg = ob.vertex_groups.new(name="grow")
-        for i, w in enumerate(grow):
-            if w > 1e-3:
-                vg.add([i], float(w), "REPLACE")
     if pins is not None:
         vg = ob.vertex_groups.new(name="pin")
         for i, w in enumerate(pins):
@@ -586,18 +626,16 @@ def simulate(X0, faces, args, pins=None, grow=None):
     if pins is not None:
         st.vertex_group_mass = "pin"
         st.pin_stiffness = 2.0
-    if grow is not None:
-        st.vertex_group_shrink = "grow"
-        st.shrink_min = -GROW
-        st.shrink_max = 0.0
+    # the garment was laid out COMPRESS smaller than its pattern: it grows back as it settles, into folds
+    st.shrink_min = -(1.0 / COMPRESS - 1.0)
     st.quality = args.quality
-    st.mass = 0.35
-    st.air_damping = 1.5
+    st.mass = 0.5
+    st.air_damping = 1.2
     st.bending_model = "ANGULAR"
-    st.tension_stiffness = 40.0
-    st.compression_stiffness = 30.0
-    st.shear_stiffness = 12.0
-    st.bending_stiffness = 2.5
+    st.tension_stiffness = 45.0
+    st.compression_stiffness = 12.0
+    st.shear_stiffness = 6.0
+    st.bending_stiffness = 0.3
     st.tension_damping = 6.0
     st.compression_damping = 6.0
     st.shear_damping = 6.0
@@ -607,7 +645,7 @@ def simulate(X0, faces, args, pins=None, grow=None):
     cs.distance_min = 0.0045
     cs.use_self_collision = True
     cs.self_distance_min = 0.004
-    cs.self_friction = 15.0
+    cs.self_friction = 25.0
     cs.self_impulse_clamp = 0.0
     sc.frame_start = 1
     sc.frame_end = args.frames
@@ -715,6 +753,16 @@ def vertex_normals(X, F):
     return vn / np.maximum(np.linalg.norm(vn, axis=1)[:, None], 1e-12)
 
 
+def smooth_normals(X, F, iters=4):
+    """Vertex normals averaged over the neighbours a few times (the pocket rides on these)."""
+    vn = vertex_normals(X, F)
+    nb = neighbours(len(X), F)
+    for _ in range(iters):
+        vn = np.array([vn[s].mean(0) if len(s) else vn[i] for i, s in enumerate(nb)])
+        vn /= np.maximum(np.linalg.norm(vn, axis=1)[:, None], 1e-9)
+    return vn
+
+
 def neighbours(n, F):
     nb = [set() for _ in range(n)]
     for f in F:
@@ -748,6 +796,28 @@ def settle(X, target=0.25, reach=0.8):
     f = np.clip((reach - d[band]) / (reach - 0.5), 0, 1)
     move[band] = -(d[band] - target) * f
     return X + g * move[:, None]
+
+
+def lift_for_pocket(m):
+    """Where the pocket lies between the garment and the credenza (face down), lift the garment, and whatever is
+    piled on it, enough to make room for the pocket's own layer."""
+    X, F = m["X"], m["faces"]
+    pv = np.unique(F[m["fregion"] == 2])
+    vn = smooth_normals(X, F)
+    need = THICK + 0.035 + 0.12 + THICK / 2 + 0.25
+    d = env_sdf(X[pv] + vn[pv] * need)
+    bad = d < 0.0
+    if not bad.any():
+        return X, 0.0
+    src, D = X[pv[bad]], env_grad(X[pv[bad]] + vn[pv[bad]] * need) * (-d[bad])[:, None]
+    disp = np.zeros_like(X)
+    for s0 in range(0, len(X), 2000):
+        Q = X[s0:s0 + 2000]
+        dist = np.sqrt(((Q[:, None, :] - src[None]) ** 2).sum(2))
+        j = dist.argmin(1)
+        f = smoothstep(1.0 - dist[np.arange(len(Q)), j] / 3.0)
+        disp[s0:s0 + 2000] = D[j] * f[:, None]
+    return X + disp, float(np.linalg.norm(D, axis=1).max())
 
 
 def boundary_loops(F):
@@ -944,6 +1014,9 @@ def rope(start, out_dir, length, seg, surf_bvh, other=None, iters=700):
                 h = (Vector(P[i]) - loc).dot(nrm)
                 if h < rc:
                     P[i] = np.array((loc + nrm * rc)[:])
+                elif h < rc + 1.5:
+                    # fleece is grippy: a cord near the cloth lies on it rather than hanging free
+                    P[i] = P[i] - np.array(nrm[:]) * (h - rc) * 0.2
             if other is not None:
                 for i in range(2, n):
                     d = np.linalg.norm(other - P[i], axis=1)
@@ -1141,6 +1214,7 @@ def note_object(c_m, n, size=0.076):
 
 
 THICK = 0.35   # fleece thickness, cm
+STUDIO_CAM = (TOP_X + 300.0, -250.0, 160.0)   # the studio camera (cm, this frame), aimed at the top's front corner
 
 
 def shells(m):
@@ -1172,11 +1246,7 @@ def shells(m):
     dop = seg_dist(uvp[pverts], np.concatenate([op[:-1], mop[:-1]]), np.concatenate([op[1:], mop[1:]]))
     lift = THICK + 0.035 + 0.12 * smoothstep(1 - dop / 3.0)
     # offset along smoothed normals, so the pocket rides over tight folds without kinking
-    pn_s = vn.copy()
-    nb = neighbours(len(Xs), F)
-    for _ in range(4):
-        pn_s = np.array([pn_s[s].mean(0) if len(s) else pn_s[i] for i, s in enumerate(nb)])
-        pn_s /= np.maximum(np.linalg.norm(pn_s, axis=1)[:, None], 1e-9)
+    pn_s = smooth_normals(Xs, F)
     PX = Xs[pverts] + pn_s[pverts] * lift[:, None]
 
     def uv_pocket(v, shell):
@@ -1219,8 +1289,8 @@ def main():
         else:
             print(f"[{NAME}] cache topology differs; simulating")
     if X is None:
-        X = simulate(X0, g["faces"], args, pin_weights(g, X0) if USE_PINS else None, grow_weights(g))
-        np.savez(cache, X=X, faces=g["faces"], X0=X0)
+        X = simulate(X0, g["faces"], args, pin_weights(g, X0) if USE_PINS and not args.no_pins else None)
+        np.savez(cache, X=X, faces=g["faces"], X0=X0, uv=g["uv"], layer=g["layer"])
     if args.sim_only:
         return
 
@@ -1230,6 +1300,11 @@ def main():
     m["X"] = taubin(X, nb, iters=2)
     m = loop_subdivide(m)
     m["X"] = settle(settle(m["X"]))
+    m["X"], plift = lift_for_pocket(m)
+    m["X"], plift2 = lift_for_pocket(m)
+    plift += plift2
+    if plift:
+        print(f"[{NAME}] garment lifted up to {plift * 10:.1f} mm over the pocket")
     F = m["faces"]
 
     # first pass: shells, then the eyelets and drawcords lying on them
@@ -1251,7 +1326,7 @@ def main():
         starts.append((top + nrm * 0.1, nrm))
     paths = []
     for k, (start, nrm) in enumerate(starts):
-        paths.append(rope(start, nrm, [31.0, 33.5][k], 0.5, surf_tree, paths[0] if paths else None))
+        paths.append(rope(start, nrm, [16.0, 22.0][k], 0.5, surf_tree, paths[0] if paths else None))
     for P in paths:
         P = P.copy()
         arcl = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
@@ -1376,6 +1451,18 @@ def render_all(ob, args, note_c, n):
     frame_helper((0.0, -0.55, -TOP_Z * 0.01), (max(hi.x, 0.5), hi.y + 0.02, max(hi.z, 0.05)))
     S.render_preview(bpy.data.objects["_frame"], os.path.join(args.out, NAME + "_on_box.png"),
                      (1.0, -0.62, 0.42), args.samples, lens=50)
+    clear_preview()
+    # from the studio camera's direction: it stands 300 cm out in front and 250 cm to the left of the corner (Unreal
+    # +Y, which is this frame's -Y once the FBX is imported) at 160 cm, and looks at the corner; a long lens for its
+    # flat perspective from 4 m away
+    top = S.box("_box_top", (0, -0.75, -TOP_T * 0.01), (TOP_X * 0.01, 0, 0), oak)
+    body = S.box("_box_body", (0, -0.75 + OVER * 0.01, -TOP_Z * 0.01), ((TOP_X - OVER) * 0.01, -OVER * 0.01,
+                                                                          -TOP_T * 0.01), oak)
+    note_object(note_m, n)
+    frame_helper((0.0, -0.45, -0.45), (max(hi.x, 0.5), hi.y + 0.02, max(hi.z, 0.05)))
+    cam = Vector(STUDIO_CAM) - Vector((TOP_X, 0.0, TOP_Z))
+    S.render_preview(bpy.data.objects["_frame"], os.path.join(args.out, NAME + "_studio.png"),
+                     tuple(cam), args.samples, lens=85)
     clear_preview()
     # close-up of the note patch, from about 60 cm
     top = S.box("_box_top", (0, -0.75, -TOP_T * 0.01), (TOP_X * 0.01, 0, 0), oak)
