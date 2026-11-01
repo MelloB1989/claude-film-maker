@@ -39,7 +39,7 @@ PROJECT = r"C:\UEProjects\HostStudio"
 IMPORT = rf"{PROJECT}\Saved\Import\reel"
 SPEECH = "/Game/Speech"
 ANIM = "/Game/Reel/Perf"
-ME = "agent-03"
+ME = "agent-10"
 IDLE = "/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle"
 FACE_MESH = {"him": "/Game/Host/Unpacked/Host/Face/SKM_Host_Trey_FaceMesh",
              "her": "/Game/Host/Unpacked/Presenter/Face/SKM_Presenter_F_FaceMesh"}
@@ -69,7 +69,7 @@ def ok(res: dict):
 
 
 def cues() -> dict:
-    return json.loads((VO / "cues.json").read_text())["lines"]
+    return json.loads((VO / "cues.json").read_text())["lines"]  # vo.py build
 
 
 def anim_name(key: str) -> str:
@@ -612,21 +612,45 @@ def cleanup() -> dict:
     return {"actors": n, "sequences": gone}
 
 
+# The body's idle around the performance (seq.anim's idle -> line -> idle): from PRE_ROLL frames before START (both
+# are hidden until their first shot; the pre-roll covers the handles and a render's warm-up) to POST_ROLL after END,
+# phased so the idle is where the baked body starts and ends, cross-faded over BLEND frames.
+PRE_ROLL, POST_ROLL, BLEND = 240, 48, 6
+
+
+def drive_faces() -> list:
+    """Sequencer drives the level's presenters' faces (their Blueprint has no slot for it). It changes the faces
+    in any render that does not carry these sections: run it only once the editor's operator says so."""
+    return [ok(client.op("mh.drive_face", label=LABEL[w])) for w in ("him", "her")]
+
+
 def place(path: str) -> list:
-    """The performances on a sequence (SEQ_Reel, for R7): one Face and one Body section per presenter from START.
-    The faces need mh.drive_face on Host and Presenter (their Blueprint has no slot for Sequencer)."""
+    """The performances on a sequence (SEQ_Reel, for R7): per presenter one Face section START..END (the last
+    pose held after), and the Body as idle -> performance -> idle. Run drive_faces first."""
     out = []
+    lengths = ok(client.exec_code("import unreal\nresult = {p: unreal.load_asset(p).get_editor_property("
+                                  "'sequence_length') for p in %r}" % [idle_for(w) for w in ("him", "her")]))
     for who in ("him", "her"):
+        s0, s1 = START[who], END
+        idle, L = idle_for(who), lengths[idle_for(who)]
+        phase = lambda f: ((f - s0) / FPS) % L  # noqa: E731  the idle's time at master frame f (0 at START)
         body = f"{ANIM}/AS_reel_{who}_body" + ("_g" if USE_GESTURE[who] else "")
-        for comp, anim in (("Face", final_face(who)), ("Body", body)):
-            out.append(ok(client.op("seq.anim", path=path, label=LABEL[who], component=comp,
-                                    sections=[{"anim": anim, "start": START[who], "end": END + 12}])))
+        out.append(ok(client.op("seq.anim", path=path, label=LABEL[who], component="Face",
+                                sections=[{"anim": final_face(who), "start": s0, "end": s1 + POST_ROLL,
+                                           "loop": False}])))
+        out.append(ok(client.op("seq.anim", path=path, label=LABEL[who], component="Body", sections=[
+            {"anim": idle, "start": s0 - PRE_ROLL, "end": s0 + BLEND, "offset": phase(s0 - PRE_ROLL),
+             "blend_out": BLEND},
+            {"anim": body, "start": s0, "end": s1, "blend_in": BLEND, "blend_out": BLEND, "loop": False},
+            {"anim": idle, "start": s1 - BLEND, "end": s1 + POST_ROLL, "offset": phase(s1 - BLEND),
+             "blend_in": BLEND}])))
     return out
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "place", "arm_axes", "gesture"])
+    ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces",
+                                       "place", "arm_axes", "gesture"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
     ap.add_argument("--frames", help="stills: master frames, comma-separated")
@@ -652,6 +676,8 @@ def main() -> None:
             print(w, json.dumps(r, default=str))
     elif a.cmd == "cleanup":
         print(json.dumps(cleanup()))
+    elif a.cmd == "drive_faces":
+        print(json.dumps(drive_faces()))
     elif a.cmd == "place":
         print(json.dumps(place(a.seq)))
 
