@@ -386,18 +386,23 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
     comps = {c.get_name(): c for c in her.get_components_by_class(unreal.SkeletalMeshComponent)}
     face, body_ = comps["Face"], comps["Body"]
     rule = unreal.AttachmentRule.KEEP_WORLD
+
+    def ride(lab):  # a prop spawns Static, and a Static root silently refuses to attach to a moving bone
+        L.actor(lab).root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+        return L.actor(lab)
+
     for side, bone in (("L", "FACIAL_L_Ear4"), ("R", "FACIAL_R_Ear4")):
         p = face.get_socket_location(bone)
         inward = 0.25 if side == "L" else -0.25  # through the lobe, not on its surface
         if prop(f"HerEar{side}", "hoop_earring", (p.x - 0.1, p.y + inward, p.z + 0.15)):
-            L.actor(f"HerEar{side}").attach_to_component(face, bone, rule, rule, rule, False)
+            ride(f"HerEar{side}").attach_to_component(face, bone, rule, rule, rule, False)
     a, b = body_.get_socket_location("lowerarm_twist_02_l"), body_.get_socket_location("hand_l")
     fwd = (b - a).normal()
     out = body_.get_socket_location("wrist_outer_l") - body_.get_socket_location("wrist_inner_l")
     up = (out - fwd * out.dot(fwd)).normal()  # the back of the wrist, square to the forearm
     at = b - fwd * 3.6  # just above the wrist bone
     if prop("HerWatch", "smartwatch", (at.x, at.y, at.z)):
-        w = L.actor("HerWatch")
+        w = ride("HerWatch")
         w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)
         w.attach_to_component(body_, "lowerarm_twist_02_l", rule, rule, rule, False)
     for lab in ("HerEarL", "HerEarR", "HerWatch"):

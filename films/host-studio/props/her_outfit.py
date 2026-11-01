@@ -93,6 +93,7 @@ def parse_args():
     ap.add_argument("--stage", default="all", help="measure | top | trousers | all")
     ap.add_argument("--no-render", action="store_true")
     ap.add_argument("--no-tests", action="store_true")
+    ap.add_argument("--no-bake", action="store_true")
     ap.add_argument("--samples", type=int, default=48)
     ap.add_argument("--tag", default="")
     return ap.parse_args(argv)
@@ -2008,7 +2009,7 @@ def clip_check(her, ob, step=3, under=None):
         layers.append(eval_points(under))
     G, _ = eval_points(ob)
     G = G[::step]
-    bad, deep = 0, 0.0
+    bad, deep, where = 0, 0.0, []
     for V, T in layers:
         bvh = BVHTree.FromPolygons(V.tolist(), T.tolist())
         for p in G:
@@ -2018,7 +2019,14 @@ def clip_check(her, ob, step=3, under=None):
             if (Vector(p) - loc).dot(nor) < 0:
                 bad += 1
                 deep = max(deep, dist)
-    return bad * step, deep
+                where.append(p)
+    # where they are: clusters of 4 cm cells, the biggest few (cell centre, count)
+    cells = {}
+    for p in where:
+        k = tuple((np.asarray(p) // 4 * 4 + 2).astype(int).tolist())
+        cells[k] = cells.get(k, 0) + 1
+    top = sorted(cells.items(), key=lambda kv: -kv[1])[:6]
+    return bad * step, deep, top
 
 
 def pose_bone_world(arm, bone, axis, deg):
@@ -2058,6 +2066,8 @@ def pose_tests(her, garments, args, colours):
     reset_pose(arm)
     res["rest"] = {g.name: clip_check(her, g) for g in garments}
     log(f"pose at rest: {res['rest']}")
+    for g, v in res["rest"].items():
+        log(f"rest clip cells {g}: {v[2]}")
     for g in [her.body_ob] + list(garments):
         Xe, _ = eval_points(g)
         X0 = np.array([(g.matrix_world @ v.co)[:] for v in g.data.vertices]) * 100.0
@@ -2109,7 +2119,7 @@ def idle_test(her, garments, args, colours, samples=8):
         retarget(src, her.arm)
         bpy.context.view_layer.update()
         res[f] = {g.name: clip_check(her, g) for g in garments}
-        log(f"idle {f}: " + ", ".join(f"{k} {v[0]} inside (deepest {v[1]:.2f} cm)" for k, v in res[f].items()))
+        log(f"idle {f}: " + ", ".join(f"{k} {v[0]} inside (deepest {v[1]:.2f} cm) at {v[2][:3]}" for k, v in res[f].items()))
         if f == frames[len(frames) // 2]:
             snapshot(os.path.join(args.out, f"{NAME}_idle"), colours, VIEWS[:3], centre=(0, 0, 0.95), ortho=1.9,
                      res=(700, 900))
@@ -2117,6 +2127,98 @@ def idle_test(her, garments, args, colours, samples=8):
         bpy.data.objects.remove(o, do_unlink=True)
     reset_pose(her.arm)
     return res
+
+
+def load_idle(her, args):
+    """Her idle (idle.fbx) on its own armature, hidden; (armature, its objects, frames) or None."""
+    p = os.path.join(args.src, "idle.fbx")
+    if not os.path.exists(p):
+        return None
+    before = set(bpy.data.actions)
+    objs = import_fbx(p)
+    acts = [a for a in bpy.data.actions if a not in before]
+    src = next((o for o in objs if o.type == "ARMATURE"), None)
+    if not acts or src is None:
+        return None
+    for o in objs:
+        o.hide_render = True
+    f0, f1 = (int(x) for x in acts[0].frame_range)
+    return src, objs, (f0, f1)
+
+
+def bake_clearance(her, ob, n, Q, lap, src, args, surf, gap=0.3, iters=2, samples=10):
+    """Keep her skin from poking through as she moves: pose her through her idle (and the arms down), find where the
+    garment's inner layer comes within `gap` of her skin (not where the skin faces the cloth from outside: an arm closing
+    onto the torso, a sandwich no offset can fix), and push the cloth out by that much in the rest pose, away from her
+    there, spread and smoothed over the surface; twice, as the push changes the posed cloth a little. Last, nothing
+    left closer than gap/2 to her at rest."""
+    bind_body(her)
+    idle = load_idle(her, args)
+    me = ob.data
+    poses = []
+    if idle:
+        f0, f1 = idle[2]
+        poses += [("idle", int(f0 + (f1 - f0) * k / (samples - 1))) for k in range(samples)]
+    poses.append(("pose", "arms_down"))
+    for it in range(iters):
+        X = np.zeros(len(me.vertices) * 3)
+        me.vertices.foreach_get("co", X)
+        X = X.reshape(-1, 3) * 100.0
+        need = np.zeros(n)
+        for kind, what in poses:
+            reset_pose(her.arm)
+            if kind == "idle":
+                bpy.context.scene.frame_set(what)
+                retarget(idle[0], her.arm)
+            else:
+                for bone, ax, deg in POSES[what]:
+                    pose_bone_world(her.arm, bone, ax, deg)
+            bpy.context.view_layer.update()
+            G, _ = eval_points(ob)
+            Np = vertex_normals(G[:n], Q)
+            parts = [eval_points(her.body_ob)] + ([eval_points(her.face_ob)] if her.face_ob is not None else [])
+            BV = np.concatenate([p[0] for p in parts])
+            BT = np.concatenate([p[1] + sum(len(q[0]) for q in parts[:k]) for k, p in enumerate(parts)])
+            bvh = BVHTree.FromPolygons(BV.tolist(), BT.tolist())
+            for i in range(n):
+                p = Vector(G[n + i])
+                loc, nor, fi, dist = bvh.find_nearest(p, gap + 2.5)
+                if loc is None or Vector(Np[i]).dot(nor) < -0.3:
+                    continue
+                sd = dist if (p - loc).dot(nor) >= 0 else -dist
+                if sd < gap:
+                    need[i] = max(need[i], gap - sd)
+        reset_pose(her.arm)
+        bpy.context.view_layer.update()
+        hit = int((need > 0).sum())
+        # spread a plateau round each spot, then soften its edge
+        sp = need.copy()
+        for _ in range(6):
+            sp = np.maximum(need, lap.avg(sp) * 0.97)
+        for _ in range(4):
+            sp = 0.5 * sp + 0.5 * lap.avg(sp)
+        sp = np.maximum(sp, need)
+        _, Nb = surf.signed(X[n:2 * n], maxd=6.0)        # away from her, at rest
+        Nb = np.where((np.abs(Nb).sum(1) > 0)[:, None], Nb, vertex_normals(X[:n], Q))
+        Nb = lap.avg(Nb)
+        Nb /= np.maximum(np.linalg.norm(Nb, axis=1)[:, None], 1e-9)
+        X += (sp[:, None] * Nb)[src]
+        me.vertices.foreach_set("co", (X * 0.01).ravel())
+        me.update()
+        log(f"clearance {ob.name} pass {it}: {hit} verts under {gap} cm, pushed up to {need.max():.2f} cm")
+    X = np.zeros(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", X)
+    X = X.reshape(-1, 3) * 100.0
+    d, nb = surf.signed(X[n:2 * n], maxd=6.0)
+    short = np.where(d < gap * 0.5, gap * 0.5 - d, 0.0)
+    X += (short[:, None] * nb)[src]
+    me.vertices.foreach_set("co", (X * 0.01).ravel())
+    me.update()
+    log(f"clearance {ob.name} at rest: {int((short > 0).sum())} verts set off to {gap * 0.5} cm")
+    if idle:
+        for o in idle[1]:
+            bpy.data.objects.remove(o, do_unlink=True)
+    reset_pose(her.arm)
 
 
 def prepare_export_armature(her):
@@ -2207,6 +2309,10 @@ def main():
         snapshot(os.path.join(a.out, f"{NAME}_tr{a.tag}"), cols, VIEWS, centre=(0, 0, 0.8), ortho=1.75)
         snapshot(os.path.join(a.out, f"{NAME}_trc{a.tag}"), cols, (("front", (0, 1, 0)), ("q", (0.62, 1, -0.2)),
                  ("low", (0.3, 1, 0.6)), ("back", (0, -1, 0))), centre=(0, 0, 0.92), ortho=0.42, res=(1000, 1000))
+    if not a.no_bake:
+        bake_clearance(her, ob_top, len(top["Vd"]), top["Q"], top["lap"], src, a, surf, gap=0.12)
+        if a.stage != "top":
+            bake_clearance(her, ob_tr, len(Vd), T["F"], T["lap"], srct, a, surf, gap=0.3)
     if not a.no_tests:
         res = {"poses": pose_tests(her, garments, a, cols), "idle": idle_test(her, garments, a, cols)}
         with open(os.path.join(a.out, f"{NAME}_tests.json"), "w") as f:
