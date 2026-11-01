@@ -31,7 +31,11 @@ film-ue / filmtools.unreal.client  ──SSM port-forward──▶  127.0.0.1:18
   - `mh`: MetaHuman presets, rig, textures, wardrobe, build, garment colour, garment inflate, face driving.
   - `speech`: voice to face with MetaHuman Animator's audio solver, in a mood.
   - `anim`: curves, the closed-loop gaze lock, pose baking between face and body.
-  - `seq`: shots, animation swaps, transform keys, camera cuts, sampling, stills and contact sheets.
+  - `seq`: shots, animation swaps, transform keys, camera cuts, sampling, stills and contact sheets; for building a
+    long sequence by script: `seq.new` (create or keep), keys on any property (`seq.key_float`, `seq.key_color`,
+    `seq.key_visible`, `seq.key_material`), animation sections at offsets with blends (`seq.anim`), audio clips
+    (`seq.audio`), the edit read back (`seq.cuts`), stills through the cut (`seq.stills` with no camera), bindings
+    re-pointed after a level rebuild (`seq.rebind`) and an inventory (`seq.tracks`).
   - `render`: Movie Render Queue, deferred or path traced, with a frame range.
 - `fmbridge/gui.py`: SendInput clicks, drags, typing and keys, and screenshots (DCV's grabber or GDI), for the few
   things only the UI does (Fab, some dialogs).
