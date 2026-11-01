@@ -60,13 +60,36 @@ def place(shot, host: list):
     return [p + s for p, s in zip(loc, shift)], [p + s for p, s in zip(at, shift)]
 
 
+def sheet(cols: int = 3, w: int = 640) -> Path:
+    """previs/contact.jpg: every previs still in shot order, captioned with its shot, time, lens and light."""
+    from PIL import Image, ImageDraw, ImageFont
+    font = ImageFont.truetype(str(HERE.parents[2] / "fonts" / "src" / "Geist[wght].ttf"), 17)
+    items = [(s, OUT / f"{s.id}.png") for s in SHOTS if (OUT / f"{s.id}.png").exists()]
+    h, cap, pad = w * 9 // 16, 30, 8
+    rows = -(-len(items) // cols)
+    img = Image.new("RGB", (cols * (w + pad) + pad, rows * (h + cap + pad) + pad), (16, 16, 17))
+    d = ImageDraw.Draw(img)
+    for k, (s, p) in enumerate(items):
+        x, y = pad + k % cols * (w + pad), pad + k // cols * (h + cap + pad)
+        img.paste(Image.open(p).convert("RGB").resize((w, h), Image.LANCZOS), (x, y))
+        t = f"{s.id}  {s.title}  ·  {s.start / 24:.1f}s  ·  {s.lens:g}mm T{s.stop:g}  ·  {s.light}"
+        d.text((x + 2, y + h + 6), t, fill=(225, 220, 210), font=font)
+    out = OUT / "contact.jpg"
+    img.save(out, quality=88)
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--sheet", action="store_true", help="only make previs/contact.jpg from the stills (no bridge)")
     ap.add_argument("--only", default="")
     ap.add_argument("--width", type=int, default=1920)
     ap.add_argument("--animations", action="store_true", help="list the engine's MetaHuman animations (read only)")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
+    if a.sheet:
+        print(sheet())
+        return
     if a.animations:
         found = ok(client.op("assets.list", path=ANIMS, cls="AnimSequence", limit=2000))
         (OUT / "metahuman_animations.json").write_text(json.dumps(found, indent=1))
