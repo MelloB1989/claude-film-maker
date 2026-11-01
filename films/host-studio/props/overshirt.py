@@ -54,11 +54,11 @@ HEM_RISE = 2.5                 # the shirttail: the hem is this much higher at t
 TAPER = {"front": 0.07, "side": 0.11, "back": 0.06}   # how much a slice may narrow per cm going down
 EASE_TOP, EASE_CHEST, EASE_LOW = 0.6, 1.3, 2.4        # ease on the shoulders, the chest, the waist/hips
 EASE_BACK = 0.6                                         # extra at the back (room to reach forward)
-ARM_EASE_UP, ARM_EASE_ELBOW, ARM_EASE_END = 1.4, 2.0, 0.9
+ARM_EASE_UP, ARM_EASE_ELBOW, ARM_EASE_END = 1.4, 1.6, 0.6
 SMOOTH_K = 3.0                 # the underarm's smooth union
 SLEEVE_END = 5.0               # the sleeve's (rolled) end: this far down the forearm from the elbow
 NECK_R = {"back": 6.0, "side": 6.9, "front": 8.0}   # neckline: horizontal radius round the neck's axis
-FRONT_GAP = ((141.0, 5.5), (125.0, 7.5), (100.0, 8.5), (74.0, 9.5))  # (z, half-gap between the open fronts)
+FRONT_GAP = ((141.0, 5.0), (125.0, 6.5), (100.0, 7.5), (74.0, 8.5))  # (z, half-gap between the open fronts)
 
 
 def parse_args():
@@ -824,6 +824,926 @@ def load_mesh(path):
     return {k: (list(d[k]) if k == "Q" else d[k]) for k in d.files}
 
 
+# ================================================================ detail: the pattern (rest) space
+
+YOKE_Z = 131.0                 # the back yoke seam
+ARMHOLE = (19.5, 139.0, 16.0, 119.0)   # the armhole seam: (x, z) at the shoulder top and at the underarm
+SEAM_Y = 1.0                   # side seams this far behind her centre line
+PLACKET_W = 2.8
+HEM_W = 2.0
+BUTTONS_Z = (122.0, 113.0, 104.0, 95.0, 86.0)
+REVERS = dict(break_z=125.0, top_z=139.5, top_w=3.8, roll=0.36)  # the fronts' tops fold back from the break point
+POCKET = dict(inset=0.6, top=127.0, w=10.5, h=12.2, chamfer=1.3, hem=2.2)  # inset: from the placket
+THICK = 0.11                   # cotton twill
+BAND = 0.13                    # extra at the folded hem and the plackets
+
+
+class Pattern:
+    """Seam lines and regions, as functions of a point's rest (envelope) position."""
+
+    def __init__(self, her):
+        self.her = her
+        self.torso = Torso(her)
+        self.arms = [ArmTube(her, 1), ArmTube(her, -1)]
+        x0, z0, x1, z1 = ARMHOLE
+        d = np.array((x0 - x1, 0.0, z0 - z1))
+        n = np.array((d[2], 0.0, -d[0]))
+        self.ah_n = n / np.linalg.norm(n)          # for her left arm; mirrored for the right
+        self.ah_p = np.array((x0, 0.0, z0))
+
+    def armhole(self, R):
+        """Signed distance past the armhole seam (> 0 on the sleeve), and which side."""
+        side = np.where(R[:, 0] >= 0, 1.0, -1.0)
+        Q = R.copy()
+        Q[:, 0] *= side
+        phi = (Q - self.ah_p) @ self.ah_n
+        near = np.zeros(len(R), bool)
+        for a in self.arms:
+            s, d = a.project(R)
+            near |= (np.sign(R[:, 0]) == a.side) & (d < a.r.max() + 4.0) & (R[:, 2] > 100)
+        phi = np.where(near, phi, -10.0)
+        return phi, side
+
+    def sleeve(self, R):
+        phi, _ = self.armhole(R)
+        return phi > 0
+
+    def seam_y(self, z):
+        return self.torso.c[1] + SEAM_Y - 2.5 * smoothstep(124, 134, z)
+
+    def fields(self, R):
+        """{name: (phi, active, kind)} for every seam line (phi ~ cm across the line)."""
+        t = self.torso
+        ah, side = self.armhole(R)
+        sl = ah > 0
+        out = {}
+        # the side seams over the shoulder (the shoulder seam) and the sleeves' underarm seams
+        phi_y = R[:, 1] - self.seam_y(R[:, 2])
+        under = np.zeros(len(R), bool)
+        for a in self.arms:
+            s, d = a.project(R)
+            q = R - (a.sh + np.outer(np.clip(s, 0, a.L1) / a.L1, a.el - a.sh))
+            w = np.cross(a.udir, np.array((0.0, 1.0, 0.0)))
+            w = w if w[2] < 0 else -w
+            under |= (np.sign(R[:, 0]) == a.side) & ((q @ w) > 0)
+        side_ok = (~sl & (np.abs(R[:, 0]) > 7.0)) | (sl & under)
+        out["side"] = (phi_y, side_ok & (R[:, 2] > hem_z(R, t) - 1), "seam")
+        out["armhole"] = (ah, (ah > -5) & (ah < 5), "seam")
+        back = R[:, 1] > t.c[1] + 3.0
+        out["yoke"] = (R[:, 2] - YOKE_Z, back & ~sl & (np.abs(R[:, 0]) < 22), "seam")
+        # topstitching: the hem and the plackets
+        e_hem = R[:, 2] - hem_z(R, t)
+        out["hem"] = (e_hem - (HEM_W - 0.35), ~sl & (R[:, 2] < 100), "stitch")
+        front = (R[:, 1] < t.c[1]) & ~sl
+        e_pl = np.abs(R[:, 0]) - front_gap(R[:, 2])
+        out["placket_in"] = (e_pl - (PLACKET_W - 0.3), front & (R[:, 2] < 142), "stitch")
+        out["placket_edge"] = (e_pl - 0.45, front & (R[:, 2] < 142), "stitch")
+        rd = revers_dist(R, t.c[1])
+        out["revers"] = (rd - REVERS["roll"] * 1.5, rd > -2, "fold")
+        band = np.zeros(len(R))
+        band = np.maximum(band, np.where(~sl & (R[:, 2] < 100), 1 - smoothstep(HEM_W - 0.3, HEM_W + 0.1, e_hem), 0))
+        band = np.maximum(band, np.where(front, 1 - smoothstep(PLACKET_W - 0.2, PLACKET_W + 0.2, e_pl), 0))
+        return out, band
+
+    def uv(self, R, n):
+        """World-scale UV (m) at rest points R with rest normals n: grain down the body and along the sleeves."""
+        uv = np.zeros((len(R), 2))
+        sl = self.sleeve(R)
+        ax = np.abs(n[:, 0]) > np.abs(n[:, 1])
+        top = np.abs(n[:, 2]) > 0.8
+        uv[:, 0] = np.where(ax, R[:, 1] * np.sign(n[:, 0]), -R[:, 0] * np.sign(n[:, 1] + 1e-9))
+        uv[:, 1] = np.where(top, R[:, 1], R[:, 2])
+        uv[top, 0] = R[top, 0]
+        for a in self.arms:
+            m = sl & (np.sign(R[:, 0]) == a.side)
+            if not m.any():
+                continue
+            s, _ = a.project(R[m])
+            b1 = np.cross(a.udir, (0, 1.0, 0))
+            b1 /= np.linalg.norm(b1)
+            b2 = np.cross(a.udir, b1)
+            q = R[m] - a.sh
+            nb1, nb2 = n[m] @ b1, n[m] @ b2
+            uv[m, 0] = np.where(np.abs(nb1) > np.abs(nb2), (q @ b2) * np.sign(nb1), (q @ b1) * -np.sign(nb2))
+            uv[m, 1] = -s
+        return uv * 0.01
+
+
+# ================================================================ detail: the cloth surface
+
+def nbr_lists(n, F):
+    nb = [set() for _ in range(n)]
+    for f in F:
+        k = len(f)
+        for i in range(k):
+            nb[f[i]].add(f[(i + 1) % k])
+            nb[f[(i + 1) % k]].add(f[i])
+    return [np.array(sorted(s), int) for s in nb]
+
+
+def boundary_mask(n, F):
+    cnt = {}
+    for f in F:
+        k = len(f)
+        for i in range(k):
+            e = (min(f[i], f[(i + 1) % k]), max(f[i], f[(i + 1) % k]))
+            cnt[e] = cnt.get(e, 0) + 1
+    m = np.zeros(n, bool)
+    for (a, b), c in cnt.items():
+        if c == 1:
+            m[a] = m[b] = True
+    return m
+
+
+def taubin_np(X, nb, iters, fixed, lam=0.5, mu=-0.53):
+    X = X.copy()
+    for _ in range(iters):
+        for w in (lam, mu):
+            avg = np.array([X[s].mean(0) if len(s) else X[i] for i, s in enumerate(nb)])
+            d = (avg - X) * w
+            d[fixed] = 0
+            X += d
+    return X
+
+
+def smooth_edges(X, X0, Q, nb, sigma=2.5, iters=3):
+    """Even out the free edges (hem, fronts, neckline, sleeve ends): the drape leaves a fine ripple on them.
+    The edge curves are smoothed along their length (corners kept), then the strip inside follows."""
+    X = X.copy()
+    for loop in boundary_loops_of(Q):
+        L = np.array(loop)
+        n = len(L)
+        if n < 8:
+            continue
+        P0 = X0[L]
+        a, b = np.roll(P0, 1, 0) - P0, np.roll(P0, -1, 0) - P0
+        cosang = (a * b).sum(1) / np.maximum(np.linalg.norm(a, axis=1) * np.linalg.norm(b, axis=1), 1e-9)
+        corner = cosang > -0.6          # turning more than ~50 degrees in the pattern
+        # smooth each run between corners
+        P = X[L]
+        Ps = smooth1d(P, sigma, axis=0, wrap=True)
+        if corner.any():
+            w = np.ones(n)
+            for c in np.where(corner)[0]:
+                for k in range(-4, 5):
+                    w[(c + k) % n] = min(w[(c + k) % n], abs(k) / 4.0)
+            Ps = P + (Ps - P) * w[:, None]
+        X[L] = Ps
+    fixed = np.zeros(len(X), bool)
+    for loop in boundary_loops_of(Q):
+        fixed[loop] = True
+    return taubin_np(X, nb, iters, fixed)
+
+
+def subdivide_pair(Xr, Xs, Q):
+    """One Catmull-Clark step of the rest and the draped mesh alike (same topology -> same vertex order)."""
+    res = []
+    for X in (Xr, Xs):
+        ob = arrays_object("_sub", X, Q)
+        mod = ob.modifiers.new("Sub", "SUBSURF")
+        mod.levels = mod.render_levels = 1
+        dg = bpy.context.evaluated_depsgraph_get()
+        me = bpy.data.meshes.new_from_object(ob.evaluated_get(dg))
+        V = np.array([v.co[:] for v in me.vertices]) * 100.0
+        F = [list(p.vertices) for p in me.polygons]
+        res.append((V, F))
+        bpy.data.objects.remove(ob, do_unlink=True)
+        bpy.data.meshes.remove(me)
+    assert len(res[0][0]) == len(res[1][0])
+    return res[0][0], res[1][0], res[1][1]
+
+
+def tri_split(F):
+    T = []
+    for f in F:
+        for k in range(1, len(f) - 1):
+            T.append((f[0], f[k], f[k + 1]))
+    return np.array(T, int)
+
+
+class RestMap:
+    """Maps pattern-space (rest) points on the garment to the draped surface: a ray along +Y (front) or -Y (back)
+    finds the rest face, its barycentric coordinates carry the point to the draped face."""
+
+    def __init__(self, Rr, Rs, F):
+        self.T = tri_split(F)
+        self.Rr, self.Rs = Rr, Rs
+        self.bvh = BVHTree.FromPolygons([Vector(p) for p in Rr], [tuple(t) for t in self.T])
+        a, b, c = Rs[self.T[:, 0]], Rs[self.T[:, 1]], Rs[self.T[:, 2]]
+        fn = np.cross(b - a, c - a)
+        self.vn = np.zeros_like(Rs)
+        for k in range(3):
+            np.add.at(self.vn, self.T[:, k], fn)
+        self.vn /= np.maximum(np.linalg.norm(self.vn, axis=1)[:, None], 1e-12)
+
+    def at(self, x, z, front=True):
+        o = Vector((x, -60.0 if front else 60.0, z))
+        d = Vector((0, 1.0 if front else -1.0, 0))
+        loc, nor, fi, dist = self.bvh.ray_cast(o, d)
+        if loc is None:
+            return None
+        t = self.T[fi]
+        A, B, C = (Vector(self.Rr[i]) for i in t)
+        from mathutils.geometry import barycentric_transform
+        p = barycentric_transform(loc, A, B, C, *(Vector(self.Rs[i]) for i in t))
+        w = self._bary(np.array(loc[:]), self.Rr[t])
+        n = (self.vn[t] * w[:, None]).sum(0)
+        return np.array(p[:]), n / np.linalg.norm(n)
+
+    @staticmethod
+    def _bary(p, tri):
+        a, b, c = tri
+        v0, v1, v2 = b - a, c - a, p - a
+        d00, d01, d11 = v0 @ v0, v0 @ v1, v1 @ v1
+        d20, d21 = v2 @ v0, v2 @ v1
+        den = d00 * d11 - d01 * d01
+        v = (d11 * d20 - d01 * d21) / den
+        w = (d00 * d21 - d01 * d20) / den
+        return np.array((1 - v - w, v, w))
+
+    def frame(self, x, z, front=True, h=0.5):
+        """Point, normal and the draped direction of rest +Z (up the garment) at (x, z)."""
+        p = self.at(x, z, front)
+        q = self.at(x, z + h, front)
+        if p is None or q is None:
+            return None
+        up = q[0] - p[0]
+        n = p[1]
+        up -= n * (up @ n)
+        return p[0], n, up / np.linalg.norm(up)
+
+
+def refine_near(bm, rest, fields, width, passes=1):
+    """Split the edges near the seam lines so the grooves have vertices to sit on."""
+    for _ in range(passes):
+        bm.verts.ensure_lookup_table()
+        R = np.array([v[rest][:] for v in bm.verts])
+        near = np.zeros(len(R), bool)
+        for phi, act, kind in fields(R)[0].values():
+            near |= act & (np.abs(phi) < width)
+        edges = [e for e in bm.edges if near[e.verts[0].index] and near[e.verts[1].index]]
+        bmesh.ops.subdivide_edges(bm, edges=edges, cuts=1, use_grid_fill=True, smooth=0.0)
+        width *= 0.6
+    bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
+
+
+def groove(phi, kind):
+    if kind == "fold":
+        return 0.0 * phi
+    if kind == "seam":   # the joining seam: a valley, the pressed allowance puffs on one side
+        return -0.075 * np.exp(-(phi / 0.17) ** 2) + 0.035 * np.exp(-((phi - 0.55) / 0.35) ** 2)
+    return -0.032 * np.exp(-(phi / 0.1) ** 2)  # topstitching
+
+
+def vertex_normals_any(X, F):
+    vn = np.zeros_like(X)
+    for f in F:
+        f = list(f)
+        for k in range(1, len(f) - 1):
+            a, b, c = X[f[0]], X[f[k]], X[f[k + 1]]
+            n = np.cross(b - a, c - a)
+            for i in (f[0], f[k], f[k + 1]):
+                vn[i] += n
+    return vn / np.maximum(np.linalg.norm(vn, axis=1)[:, None], 1e-12)
+
+
+def solidify(X, F, thick, uvs_of, rim_round=0.9):
+    """Thicken a surface (cm): the outer layer is X, the inner X - n*thick (per vertex); rounded rims on open edges.
+    Returns verts, faces, per-face-corner uvs."""
+    vn = vertex_normals_any(X, F)
+    n = len(X)
+    inner = X - vn * thick[:, None]
+    verts = list(X) + list(inner)
+    faces, uvs = [], []
+    for f in F:
+        faces.append(list(f))
+        uvs.append([uvs_of(i) for i in f])
+        faces.append([n + i for i in reversed(f)])
+        uvs.append([uvs_of(i) for i in reversed(f)])
+    edges = {}
+    for fi, f in enumerate(F):
+        k = len(f)
+        for i in range(k):
+            a, b = f[i], f[(i + 1) % k]
+            key = (min(a, b), max(a, b))
+            edges.setdefault(key, []).append((a, b, fi))
+    bedges = [v[0] for v in edges.values() if len(v) == 1]
+    bdir = np.zeros_like(X)
+    for a, b, fi in bedges:
+        e = X[b] - X[a]
+        out = np.cross(e, vn[a] + vn[b])
+        cen = X[F[fi]].mean(0)
+        if out @ (0.5 * (X[a] + X[b]) - cen) < 0:
+            out = -out
+        out /= max(np.linalg.norm(out), 1e-12)
+        bdir[a] += out
+        bdir[b] += out
+    rows = {}
+    for v in {x for e in bedges for x in e[:2]}:
+        d = bdir[v] / max(np.linalg.norm(bdir[v]), 1e-12)
+        h = thick[v] / 2
+        mid = X[v] - vn[v] * h
+        ids = [v]
+        for ang in (45, 90, 135):
+            r = math.radians(ang)
+            ids.append(len(verts))
+            verts.append(mid + vn[v] * h * math.cos(r) + d * h * math.sin(r) * rim_round * 1.6)
+        ids.append(n + v)
+        rows[v] = ids
+    for a, b, fi in bedges:
+        ra, rb = rows[a], rows[b]
+        ua, ub = uvs_of(a), uvs_of(b)
+        for k in range(4):
+            faces.append([rb[k], ra[k], ra[k + 1], rb[k + 1]])
+            dv = thick[a] * 0.01 / 4
+            uvs.append([(ub[0], ub[1] + dv * k), (ua[0], ua[1] + dv * k), (ua[0], ua[1] + dv * (k + 1)),
+                        (ub[0], ub[1] + dv * (k + 1))])
+    return np.array(verts), faces, uvs
+
+
+class Piece:
+    """A part of the garment (cm): verts, faces, per-corner uvs, material slot."""
+
+    def __init__(self, name, V, F, UV, mat):
+        self.name, self.V, self.F, self.UV, self.mat = name, np.asarray(V, float), [list(f) for f in F], UV, mat
+
+
+def grid_faces(nu, nv, wrap_u=False):
+    F = []
+    for i in range(nu - (0 if wrap_u else 1)):
+        for j in range(nv - 1):
+            i2 = (i + 1) % nu
+            F.append([i * nv + j, i2 * nv + j, i2 * nv + j + 1, i * nv + j + 1])
+    return F
+
+
+def grid_piece(name, P, mat, thick, wrap_u=False, uv=None, rim=True):
+    """A (nu, nv, 3) grid surface (cm), thickened; uv (nu, nv, 2) in m (default: arc lengths)."""
+    nu, nv = P.shape[:2]
+    if uv is None:
+        du = np.concatenate([np.zeros((1, nv)), np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=2), 0)], 0)
+        dv = np.concatenate([np.zeros((nu, 1)), np.cumsum(np.linalg.norm(np.diff(P, axis=1), axis=2), 1)], 1)
+        uv = np.stack([du, dv], -1) * 0.01
+    X = P.reshape(-1, 3)
+    UVf = uv.reshape(-1, 2)
+    F = grid_faces(nu, nv, wrap_u)
+    if thick is None:
+        return Piece(name, X, F, [[tuple(UVf[i]) for i in f] for f in F], mat)
+    t = np.full(len(X), thick) if np.isscalar(thick) else np.asarray(thick).reshape(-1)
+    V, FF, UV = solidify(X, F, t, lambda i: tuple(UVf[i]))
+    return Piece(name, V, FF, UV, mat)
+
+
+# ================================================================ detail: collar, cuffs, pocket, buttons
+
+def boundary_loops_of(F):
+    """Ordered boundary loops (vertex lists) of a polygon mesh."""
+    cnt = {}
+    for f in F:
+        k = len(f)
+        for i in range(k):
+            a, b = f[i], f[(i + 1) % k]
+            cnt.setdefault((min(a, b), max(a, b)), []).append((a, b))
+    nxt = {}
+    for v in cnt.values():
+        if len(v) == 1:
+            a, b = v[0]
+            nxt[a] = b
+    loops, seen = [], set()
+    for s0 in nxt:
+        if s0 in seen:
+            continue
+        loop, v = [], s0
+        while v not in seen and v in nxt:
+            seen.add(v)
+            loop.append(v)
+            v = nxt[v]
+        loops.append(loop)
+    return loops
+
+
+def neckline_chain(X, F, R, pattern):
+    """The neckline's boundary, ordered from her right front edge round the back to her left front edge."""
+    loop = max(boundary_loops_of(F), key=len)
+    L = np.array(loop)
+    rn, rmax = neck_radius(pattern.her, R[L])
+    neck = (R[L, 2] > 128) & (rn < rmax + 2.0)
+    # the longest cyclic run of neck vertices
+    n = len(L)
+    best, cur, best_end = 0, 0, -1
+    for i in range(2 * n):
+        if neck[i % n]:
+            cur += 1
+            if cur > best:
+                best, best_end = cur, i
+        else:
+            cur = 0
+    best = min(best, n)
+    idx = [(best_end - best + 1 + k) % n for k in range(best)]
+    chain = L[idx]
+    if R[chain[0], 0] > R[chain[-1], 0]:
+        chain = chain[::-1]
+    return chain
+
+
+def resample_curve(P, n):
+    seg = np.linalg.norm(np.diff(P, axis=0), axis=1)
+    cum = np.concatenate([[0], np.cumsum(seg)])
+    s = np.linspace(0, cum[-1], n)
+    return np.stack([np.interp(s, cum, P[:, k]) for k in range(3)], 1), cum[-1]
+
+
+def collar(X, F, R, pattern, surf_bvh, neck_bvh):
+    chain = neckline_chain(X, F, R, pattern)
+    P = X[chain]
+    log(f"collar: neckline chain {len(chain)} verts, from {P[0].round(1)} to {P[-1].round(1)}, "
+        f"length {np.linalg.norm(np.diff(P, axis=0), axis=1).sum():.1f} cm")
+    P = np.array(S.catmull_rom([tuple(p) for p in P[::2]] + [tuple(P[-1])], per_seg=4))
+    P, length = resample_curve(P, 160)
+    a, b = neck_axis(pattern.her)
+    up = (b - a) / np.linalg.norm(b - a)
+    nu = len(P)
+    u = np.linspace(0, 1, nu)
+    back = np.exp(-((u - 0.5) / 0.28) ** 2)
+    end = np.minimum(u, 1 - u) * length                      # cm from the nearer collar end
+    flap_len = REVERS["top_w"] + 0.5                          # the neckline's turned-back part at each end
+    hs = (2.5 + 0.7 * back) * (0.6 + 0.4 * smoothstep(flap_len - 1.0, flap_len + 2.5, end))  # stand height
+    point = (1 - smoothstep(0.0, 9.0, end)) ** 1.5           # 1 at the collar points
+    wf = 4.1 + 3.3 * point                                   # the fall, measured from the fold
+    th = 0.16
+    rows = []
+    NS, NF = 7, 16
+    for i in range(nu):
+        p = P[i]
+        o = p - a - up * ((p - a) @ up)
+        o /= np.linalg.norm(o)
+        upi = up - 0.22 * o
+        upi /= np.linalg.norm(upi)
+        col = []
+        base = p - upi * 0.35 - o * 0.1
+        for j in range(NS):
+            q = base + upi * (hs[i] + 0.35) * j / (NS - 1)
+            col.append(q)
+        top = col[-1]
+        # keep clear of the neck
+        loc, nor, _, dist = neck_bvh.find_nearest(Vector(top))
+        if loc is not None:
+            gap = (top - np.array(loc[:])) @ o
+            if gap < 0.45:
+                shift = o * (0.45 - gap)
+                col = [c + shift * (k / (NS - 1)) ** 0.5 for k, c in enumerate(col)]
+                top = col[-1]
+        # the fold: half a turn outward
+        for k in range(1, 4):
+            ang = math.pi * k / 4
+            col.append(top + upi * (th * 1.2) * math.sin(ang) + o * (th * 1.2) * (1 - math.cos(ang)))
+        f0 = top + o * th * 2.4
+        # the fall: down the stand's outside, then on over the shirt
+        rest = wf[i]
+        cur = f0.copy()
+        d = -upi + o * 0.7 * point[i]
+        d /= np.linalg.norm(d)
+        step = rest / NF
+        for k in range(NF):
+            nxt = cur + d * step
+            loc, nor, _, dist = surf_bvh.find_nearest(Vector(nxt))
+            if loc is not None:
+                sp = np.array(loc[:])
+                sn = np.array(nor[:])
+                if sn @ o < 0 and sn @ upi < 0.3:
+                    sn = -sn
+                lift = th * 2.4 + 0.12
+                if (nxt - sp) @ sn < lift:
+                    nxt = sp + sn * lift
+            d = nxt - cur
+            d /= np.linalg.norm(d)
+            cur = nxt
+            col.append(cur)
+        rows.append(col)
+    G = np.array(rows)
+    G = relax_collar(G, NS, surf_bvh, neck_bvh, a, up, th)
+    return grid_piece("collar", G, 0, th), (P, up, hs, a)
+
+
+def relax_collar(G, NS, surf_bvh, neck_bvh, a, up, th, iters=40):
+    """Smooth the collar as one surface (the per-column march jitters), keeping it on top of the shirt and clear of
+    her neck; the stand's sewn edge stays where it is."""
+    G = G.copy()
+    nu, nv = G.shape[:2]
+    lift = th * 2.4 + 0.12
+    fall0 = NS + 3
+    for it in range(iters):
+        L = G.copy()
+        L[1:-1] = 0.5 * G[1:-1] + 0.25 * (G[:-2] + G[2:])
+        L[0] = 0.5 * G[0] + 0.5 * (2 * G[1] - G[2])         # ends: keep straight
+        L[-1] = 0.5 * G[-1] + 0.5 * (2 * G[-2] - G[-3])
+        M = L.copy()
+        M[:, 1:-1] = 0.5 * L[:, 1:-1] + 0.25 * (L[:, :-2] + L[:, 2:])
+        M[:, -1] = 0.5 * L[:, -1] + 0.5 * (2 * L[:, -2] - L[:, -3])
+        M[:, 0] = G[:, 0]                                    # sewn to the neckline
+        G = M
+        for i in range(nu):
+            for j in range(fall0, nv):
+                loc, nor, _, dist = surf_bvh.find_nearest(Vector(G[i, j]))
+                if loc is None:
+                    continue
+                sp, sn = np.array(loc[:]), np.array(nor[:])
+                h = (G[i, j] - sp) @ sn
+                if h < lift:
+                    G[i, j] = G[i, j] + sn * (lift - h)
+            for j in range(1, fall0):
+                loc, nor, _, dist = neck_bvh.find_nearest(Vector(G[i, j]))
+                if loc is None:
+                    continue
+                sp, sn = np.array(loc[:]), np.array(nor[:])
+                h = (G[i, j] - sp) @ sn
+                if h < 0.45:
+                    G[i, j] = G[i, j] + sn * (0.45 - h)
+    return G
+
+
+def cuff(arm, X, sleeve_mask):
+    """A rolled cuff round the sleeve's end: a fold at the end and a band up the sleeve, gripping the forearm."""
+    a = arm.fdir
+    c0 = arm.el + a * SLEEVE_END
+    b1 = np.cross(a, (0, 1.0, 0))
+    b1 /= np.linalg.norm(b1)
+    b2 = np.cross(a, b1)
+    NT = 64
+    th = np.linspace(0, 2 * math.pi, NT, endpoint=False)
+    Q = X[sleeve_mask] - c0
+    t = -(Q @ a)                                              # up the sleeve from its end
+    ang = np.arctan2(Q @ b2, Q @ b1)
+    rad = np.hypot(Q @ b1, Q @ b2)
+    W = 5.6
+    rmax = np.zeros(NT)
+    rend = np.zeros(NT)
+    for k in range(NT):
+        dth = np.angle(np.exp(1j * (ang - th[k])))
+        m = np.abs(dth) < 0.2
+        mb = m & (t > -0.5) & (t < W + 0.5)
+        rmax[k] = rad[mb].max() if mb.any() else 0
+        me = m & (t > -0.6) & (t < 0.8)
+        rend[k] = np.median(rad[me]) if me.any() else 0
+    rmax[rmax == 0] = rmax[rmax > 0].mean()
+    rend[rend == 0] = rend[rend > 0].mean()
+    rmax = smooth1d(rmax, 2.0, wrap=True)
+    rend = smooth1d(rend, 2.0, wrap=True)
+    rng = np.random.default_rng(7 if arm.side > 0 else 11)
+    ph = rng.uniform(0, 2 * math.pi, 3)
+    wob = 0.12 * np.sin(2 * th + ph[0]) + 0.07 * np.sin(3 * th + ph[1])
+    rb = np.maximum(rmax, rend) + 0.42 + wob
+    Wk = W + 0.35 * np.sin(th + ph[2]) + 0.15 * np.sin(2 * th + ph[0])
+    T = 0.32                                                  # the band's thickness (three layers)
+    prof = []                                                  # (t, r) per angle
+    for k in range(NT):
+        r0, r1, w = rend[k] - 0.05, rb[k], Wk[k]
+        pts = [(0.9, r0 + 0.02), (0.3, r0)]
+        rm, hr = (r0 + r1) / 2, (r1 - r0) / 2
+        for j in range(1, 8):  # the bottom fold, round
+            g = math.pi * j / 8
+            pts.append((-hr * math.sin(g) * 0.9, rm - hr * math.cos(g)))
+        n_band = 14
+        for j in range(n_band + 1):
+            tt = w * j / n_band
+            bulge = 0.08 * math.sin(math.pi * tt / w) - 0.05 * math.exp(-((tt - w * 0.48) / 0.18) ** 2)
+            pts.append((tt, r1 + bulge))
+        for j in range(1, 6):  # the top edge, round
+            g = math.pi * j / 6
+            pts.append((w + (T / 2) * math.sin(g), r1 - T / 2 + (T / 2) * math.cos(g)))
+        pts.append((w - 0.8, r1 - T))
+        pts.append((w - 1.6, r1 - T - 0.02))
+        prof.append(pts)
+    G = np.zeros((NT, len(prof[0]), 3))
+    for k in range(NT):
+        d = math.cos(th[k]) * b1 + math.sin(th[k]) * b2
+        for j, (tt, r) in enumerate(prof[k]):
+            G[k, j] = c0 - a * tt + d * r
+    arc = th * rb.mean()
+    uv = np.zeros(G.shape[:2] + (2,))
+    dv = np.concatenate([np.zeros((NT, 1)), np.cumsum(np.linalg.norm(np.diff(G, axis=1), axis=2), 1)], 1)
+    uv[..., 0] = arc[:, None] * 0.01
+    uv[..., 1] = dv * 0.01
+    return grid_piece(f"cuff{arm.side:+d}", G, 0, None, wrap_u=True, uv=uv)
+
+
+def arc_table(rmap, z, x0, x1, front=True, step=0.2):
+    """Rest x against surface arc length along the rest surface at height z, from x0 towards x1."""
+    xs = np.arange(x0, x1, step if x1 > x0 else -step)
+    P = []
+    for x in xs:
+        r = rmap.bvh.ray_cast(Vector((x, -60.0 if front else 60.0, z)), Vector((0, 1.0 if front else -1.0, 0)))
+        if r[0] is None:
+            break
+        P.append(np.array(r[0][:]))
+    P = np.array(P)
+    s = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
+    return xs[:len(P)], s
+
+
+def pocket(rmap):
+    """The chest patch pocket on her left front, laid out by arc length on the fabric."""
+    p = POCKET
+    nu, nv = 24, 28
+    G = np.zeros((nu, nv, 3))
+    N = np.zeros((nu, nv, 3))
+    uv = np.zeros((nu, nv, 2))
+    z0 = p["top"] - p["h"]
+    for j in range(nv):
+        z = z0 + p["h"] * j / (nv - 1)
+        xa = front_gap(z) + PLACKET_W + p["inset"]
+        xs, sarc = arc_table(rmap, z, xa, 40.0)
+        for i in range(nu):
+            u = p["w"] * i / (nu - 1)
+            zz = z
+            # chamfer the bottom corners
+            dx = min(u, p["w"] - u)
+            dz = zz - z0
+            if dx + dz < p["chamfer"]:
+                k = (p["chamfer"] - dx - dz) / 2
+                zz += k
+                u += k if u < p["w"] / 2 else -k
+            x = float(np.interp(u, sarc, xs))
+            G[i, j], N[i, j] = rmap.at(x, zz, True)
+            uv[i, j] = (u * 0.01, zz * 0.01)
+    zz = uv[..., 1] * 100
+    thick = np.where(zz > p["top"] - p["hem"], 0.24, 0.12)
+    G = G + N * (thick + 0.06)[..., None]
+    return grid_piece("pocket", G, 0, thick, uv=uv)
+
+
+def button_mesh(p, n, up, scale=1.0):
+    """A four-hole shirt button (dark horn) on the surface at p, facing n, with its tonal thread cross."""
+    n = n / np.linalg.norm(n)
+    upv = up - n * (up @ n)
+    upv /= np.linalg.norm(upv)
+    rt = np.cross(upv, n)
+    M = np.eye(4)
+    M[:3, 0], M[:3, 1], M[:3, 2], M[:3, 3] = rt, upv, n, p
+    R = 0.575 * scale
+    prof = [(0, 0.11), (0.18, 0.11), (0.30, 0.125), (0.40, 0.165), (0.50, 0.215), (0.555, 0.205), (0.575, 0.16),
+            (0.565, 0.05), (0.53, 0.0), (0, 0.0)]
+    prof = [(r * scale, z * scale) for r, z in prof]
+    segs = 28
+    V, F = [], []
+    rings = []
+    for r, z in prof:
+        if r < 1e-9:
+            rings.append([len(V)])
+            V.append((0, 0, z))
+        else:
+            ring = []
+            for k in range(segs):
+                g = 2 * math.pi * k / segs
+                ring.append(len(V))
+                V.append((r * math.cos(g), r * math.sin(g), z))
+            rings.append(ring)
+    for i in range(len(rings) - 1):
+        A, B = rings[i], rings[i + 1]
+        for k in range(segs):
+            k2 = (k + 1) % segs
+            if len(A) == 1:
+                F.append([A[0], B[k2], B[k]])
+            elif len(B) == 1:
+                F.append([A[k], A[k2], B[0]])
+            else:
+                F.append([A[k], A[k2], B[k2], B[k]])
+    V = np.array(V)
+    Vw = (M[:3, :3] @ V.T).T + p
+    # the faces were built for a +Z normal outward on the top; flip if needed later by tidy
+    btn = Piece("button", Vw, [f[::-1] for f in F], None, 1)
+    btn.UV = [[(Vw[i] @ rt * 0.01, Vw[i] @ upv * 0.01) for i in f] for f in btn.F]
+    # thread: two short bars crossing over the holes
+    th = []
+    hole = 0.11 * scale
+    for sgn in (1, -1):
+        a = p + n * 0.125 * scale + (rt * hole + upv * hole * sgn)
+        b = p + n * 0.125 * scale - (rt * hole + upv * hole * sgn)
+        th.append(tube_piece("thread", [a - n * 0.02, (a + b) / 2 + n * 0.025, b - n * 0.02], 0.028 * scale, 0, segs=6))
+    return [btn] + th
+
+
+def tube_piece(name, pts, r, mat, segs=8):
+    pts = [np.asarray(q, float) for q in pts]
+    pts = [np.array(q) for q in S.catmull_rom([tuple(q) for q in pts], per_seg=4)]
+    G = []
+    nrm = None
+    for i, q in enumerate(pts):
+        t = pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]
+        t /= np.linalg.norm(t)
+        if nrm is None:
+            nrm = np.cross(t, (0.3, 0.5, 0.8))
+        nrm = nrm - t * (nrm @ t)
+        nrm /= np.linalg.norm(nrm)
+        b = np.cross(t, nrm)
+        G.append([q + r * (math.cos(2 * math.pi * k / segs) * nrm + math.sin(2 * math.pi * k / segs) * b)
+                  for k in range(segs)])
+    G = np.array(G)
+    pc = grid_piece(name, G, mat, None, wrap_u=False)
+    # close the tube round its circumference
+    nu, nv = G.shape[:2]
+    F = list(pc.F)
+    UV = list(pc.UV)
+    for i in range(nu - 1):
+        F.append([i * nv + nv - 1, (i + 1) * nv + nv - 1, (i + 1) * nv, i * nv])
+        UV.append([(0, 0)] * 4)
+    pc.F, pc.UV = F, UV
+    return pc
+
+
+def buttonhole(p, n, up, length=1.6, width=0.36, vertical=True):
+    """A stitched buttonhole: a raised bead round a slit, on the surface at p."""
+    n = n / np.linalg.norm(n)
+    upv = up - n * (up @ n)
+    upv /= np.linalg.norm(upv)
+    rt = np.cross(upv, n)
+    if not vertical:
+        upv, rt = rt, -upv
+    def ring(L, W, h, segs=40):
+        out = []
+        r = W / 2
+        for k in range(segs):
+            g = 2 * math.pi * k / segs
+            x, y = r * math.cos(g), (L / 2 - r) * np.sign(math.sin(g)) + r * math.sin(g)
+            out.append(p + rt * x + upv * y + n * h)
+        return out
+    rows = [ring(length + 0.06, width + 0.06, -0.02), ring(length, width, 0.035), ring(length - 0.12, width - 0.12, 0.05),
+            ring(length - 0.24, 0.07, 0.02), ring(length - 0.26, 0.04, -0.06)]
+    G = np.array(rows).transpose(1, 0, 2)
+    return grid_piece("buttonhole", G, 0, None, wrap_u=True)
+
+
+def revers_lines():
+    """Per side: the break point, the unit direction of the break line and its normal towards the front edge
+    (rest x, z)."""
+    out = {}
+    for s in (1.0, -1.0):
+        B = np.array((s * front_gap(REVERS["break_z"]), REVERS["break_z"]))
+        T = np.array((s * (front_gap(REVERS["top_z"]) + REVERS["top_w"]), REVERS["top_z"]))
+        L = (T - B) / np.linalg.norm(T - B)
+        m = np.array((-L[1], L[0]))
+        if m[0] * s > 0:
+            m = -m
+        out[s] = (B, L, m)
+    return out
+
+
+def revers_dist(R, c):
+    """Distance into the folding flap (> 0) from the break line, and the flap mask, per vertex."""
+    d = np.full(len(R), -99.0)
+    q = np.stack([R[:, 0], R[:, 2]], 1)
+    for s, (B, L, m) in revers_lines().items():
+        ds = (q - B) @ m
+        along = (q - B) @ L
+        ok = (R[:, 1] < c) & (np.sign(R[:, 0]) == s) & (along > -1.0) & (R[:, 2] > B[1] - 1.5)
+        d = np.where(ok, ds, d)
+    return d
+
+
+def fold_revers(X, R, rmap, pattern):
+    """Fold each front's top back along the break line (from the break point on the front edge up to the
+    neckline) round a soft roll, so the open neck makes a V and the collar can lie on the turned-back fronts."""
+    c = pattern.torso.c[1]
+    X = X.copy()
+    r = REVERS["roll"]
+    d = revers_dist(R, c)
+    lines = revers_lines()
+    moved = 0
+    for i in np.where(d > 0)[0]:
+        s = 1.0 if R[i, 0] > 0 else -1.0
+        B, L, m = lines[s]
+        q = np.array((R[i, 0], R[i, 2]))
+        foot = q - d[i] * m
+        f = rmap.at(foot[0], foot[1], True)
+        g = rmap.at(foot[0] + 0.4 * m[0], foot[1] + 0.4 * m[1], True)
+        if f is None or g is None:
+            continue
+        p0, n0 = f
+        t = g[0] - p0
+        t -= n0 * (t @ n0)
+        t /= np.linalg.norm(t)
+        if d[i] < math.pi * r:
+            ph = d[i] / r
+            ctr = p0 + n0 * r
+            X[i] = ctr + r * (math.sin(ph) * t - math.cos(ph) * n0)
+        else:
+            mq = foot - (d[i] - math.pi * r) * m
+            h = rmap.at(mq[0], mq[1], True)
+            if h is None:
+                continue
+            X[i] = h[0] + h[1] * 2 * r
+        moved += 1
+    log(f"revers: folded {moved} verts")
+    return X
+
+
+# ================================================================ detail: assemble
+
+def detail(her, m, args):
+    pat = Pattern(her)
+    Xs, X0, Q = m["X"], m["X0"], m["Q"]
+    nb = nbr_lists(len(Xs), Q)
+    bnd = boundary_mask(len(Xs), Q)
+    Xs = taubin_np(Xs, nb, 4, bnd)
+    Xs = smooth_edges(Xs, X0, Q, nb)
+    surf = Surf(her)
+    d, nrm = surf.signed(Xs)
+    lo = d < 0.35
+    Xs[lo] += nrm[lo] * (0.35 - d[lo])[:, None]
+    log(f"detail: pushed {lo.sum()} verts out of her (min {d.min():.2f} cm)")
+    Rr, Rs, F = subdivide_pair(X0, Xs, Q)
+    rmap = RestMap(Rr, Rs, F)
+    # the cloth surface with its rest position as a vertex layer, refined along the seams
+    bm = bmesh.new()
+    rest = bm.verts.layers.float_vector.new("rest")
+    vs = []
+    for p, r in zip(Rs, Rr):
+        v = bm.verts.new(p)
+        v[rest] = r
+        vs.append(v)
+    for f in F:
+        bm.faces.new([vs[i] for i in f])
+    refine_near(bm, rest, pat.fields, 0.9, passes=2)
+    bm.verts.ensure_lookup_table()
+    bm.faces.ensure_lookup_table()
+    X = np.array([v.co[:] for v in bm.verts])
+    R = np.array([v[rest][:] for v in bm.verts])
+    FF = [[v.index for v in f.verts] for f in bm.faces]
+    bm.free()
+    X = fold_revers(X, R, rmap, pat)
+    vn = vertex_normals_any(X, FF)
+    fields, band = pat.fields(R)
+    disp = BAND * band
+    for name, (phi, act, kind) in fields.items():
+        disp += np.where(act, groove(phi, kind), 0.0)
+    Xo = X + vn * disp[:, None]
+    # uvs from the rest shape (so the weave follows the folds)
+    rn = vertex_normals_any(R, FF)
+    UVv = pat.uv(R, rn)
+    thick = THICK + BAND * band + np.maximum(disp - BAND * band, 0) * 0
+    V, Fs, UVs = solidify(Xo, FF, thick + 0.0, lambda i: tuple(UVv[i]))
+    pieces = [Piece("body", V, Fs, UVs, 0)]
+    log(f"detail: body verts {len(V)} faces {len(Fs)}")
+    # collar, on the shirt and clear of her neck
+    sbvh = BVHTree.FromPolygons([Vector(p) for p in Xo], [tuple(f) for f in FF])
+    nbvh = BVHTree.FromPolygons([Vector(p) for p in her.fx], [tuple(map(int, t)) for t in her.ft]) \
+        if her.face_ob is not None else sbvh
+    col, cinfo = collar(Xo, FF, R, pat, sbvh, nbvh)
+    pieces.append(col)
+    # cuffs
+    sl = pat.sleeve(R)
+    for a in pat.arms:
+        pieces.append(cuff(a, Xo, sl & (np.sign(R[:, 0]) == a.side)))
+    # the chest pocket (her left)
+    pieces.append(pocket(rmap))
+    # buttons on her left placket, buttonholes on her right
+    for z in BUTTONS_Z:
+        for side in (1, -1):
+            x = side * (front_gap(z) + PLACKET_W / 2)
+            fr = rmap.frame(x, z, True)
+            if fr is None:
+                continue
+            p, n, up = fr
+            lift = THICK * 0 + BAND + 0.02
+            if side > 0:
+                pieces += button_mesh(p + n * lift, n, up)
+            else:
+                pieces.append(buttonhole(p + n * lift, n, up))
+    return pieces
+
+
+def pieces_object(name, pieces, mats):
+    V, F, UV, M = [], [], [], []
+    off = 0
+    for pc in pieces:
+        V.append(pc.V)
+        for f, uv in zip(pc.F, pc.UV):
+            F.append([i + off for i in f])
+            UV.append(uv)
+            M.append(pc.mat)
+        off += len(pc.V)
+    V = np.concatenate(V) * 0.01
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(V.tolist(), [], F)
+    me.update()
+    for mt in mats:
+        me.materials.append(mt)
+    me.polygons.foreach_set("material_index", np.array(M, np.int32))
+    uvl = me.uv_layers.new(name="UVMap")
+    flat = [c for uv in UV for c in uv]
+    uvl.data.foreach_set("uv", np.array(flat, float).reshape(-1))
+    me.shade_smooth()
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(ob)
+    return ob
+
+
+def garment_materials():
+    olive = S.material("M_Overshirt", (0.085, 0.095, 0.05), 0.85)
+    buttons = S.material("M_Buttons", (0.07, 0.05, 0.032), 0.35)
+    return [olive, buttons]
+
+
 def main():
     args = parse_args()
     os.makedirs(args.out, exist_ok=True)
@@ -858,6 +1778,34 @@ def main():
                  views=(("front", (0, 1, 0)), ("side", (-1, 0, -0.3)), ("back", (0, -1, -0.5)), ("q", (0.6, 1, -0.6))),
                  centre=(0, 0, 1.36), ortho=0.5, res=(900, 900))
         bpy.data.objects.remove(ob, do_unlink=True)
+    if "detail" in stages:
+        m = load_mesh(sim_path)
+        t0 = time.time()
+        pieces = detail(her, m, args)
+        ob = pieces_object(NAME, pieces, garment_materials())
+        tidy_normals(ob)
+        log(f"detail: {time.time() - t0:.0f}s  triangles {S.tri_count(ob)}")
+        snapshot(os.path.join(args.out, "overshirt_det"), {ob: (0.33, 0.38, 0.22), **colours})
+        snapshot(os.path.join(args.out, "overshirt_detneck"), {ob: (0.33, 0.38, 0.22), **colours},
+                 views=(("front", (0, 1, 0)), ("side", (-1, 0, -0.3)), ("back", (0, -1, -0.5)), ("q", (0.6, 1, -0.6))),
+                 centre=(0, 0, 1.3), ortho=0.6, res=(900, 900))
+        snapshot(os.path.join(args.out, "overshirt_detclose"), {ob: (0.33, 0.38, 0.22), **colours},
+                 views=(("front", (0, 1, -0.15)), ("q", (0.5, 1, -0.3))), centre=(0, -0.08, 1.33), ortho=0.36,
+                 res=(1100, 1100))
+        if args.tag == "dbg":
+            snapshot(os.path.join(args.out, "overshirt_dbg"), {ob: (0.33, 0.38, 0.22), **colours},
+                     views=(("a", (0.2, 1, 0)), ("b", (-0.3, 1, 0.1))), centre=(-0.065, -0.13, 1.19), ortho=0.07,
+                     res=(900, 900))
+
+
+def tidy_normals(ob):
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.shade_smooth()
 
 
 if __name__ == "__main__":
