@@ -55,16 +55,16 @@ VOX = 0.4                       # body voxels
 TOP = dict(
     clear=0.32,                 # her skin to the top's inner face
     thick=0.16,                 # the knit
-    rho_front=3.0, rho_back=3.0, rho_side=1.5,   # vertical bridging (parabola radius) by side
+    rho_front=7.0, rho_back=3.0, rho_side=1.5,   # vertical bridging (parabola radius) by side
     neck_hw=8.6,                # the square neckline: half width
     neck_drop=3.2,              # its front edge below the sternal notch
     neck_r=1.8,                 # its corner radius
-    back_drop=3.4,              # the back neckline below the base of her neck at the centre
+    back_drop=4.6,              # the back neckline below the base of her neck (straight across, as the front)
     sleeve=11.5,                # sleeve length from the shoulder joint, along the upper arm
     tuck=6.5,                   # the tucked hem: this far below the trousers' waist edge
     bind=1.0,                   # rib binding width (neckline, sleeve ends)
     grid=0.5,                   # surface-net voxel
-    bridge=0.82,                # how much of a hollow across a slice the knit bridges (1: straight across)
+    bridge=0.92,                # how much of a hollow across a slice the knit bridges (1: straight across)
 )
 TROUSERS = dict(
     close=3.0,                  # the bridging (closing radius) of her lower body
@@ -75,6 +75,10 @@ TROUSERS = dict(
     leg_hem_r=7.1, leg_knee_r=6.9,   # straight leg: least half-girth (cm) at the knee and the hem
     crease_h=0.2, crease_w=1.1,
     crotch_drop=2.6,            # the trousers' crotch below hers
+    rise_front=9.0, rise_back=11.0,   # the centre seams' curve under to the crotch point: its height in front, behind
+    notch_slope=1.35, notch_round=1.6,   # the opening between the legs under that curve: how fast it widens, its round
+    bridge_ramp=14.0,           # the front bridge between the thighs: none at the crotch, full this far above it
+    row_smooth=3.0,             # the hip rows evened up the body (gaussian, in rows)
     thick=0.08, band_thick=0.22,
 )
 
@@ -868,7 +872,7 @@ class TopCuts:
     def z_open(self, P):
         """The neckline's lower edge: square in front, a shallow scoop at the back, sloping between over the
         shoulders."""
-        zb = self.z_back + 1.2 * (np.abs(P[:, 0]) / self.hw) ** 2
+        zb = self.z_back + 0.3 * (np.abs(P[:, 0]) / self.hw) ** 2
         w = smoothstep(self.mk.cy - 4.0, self.mk.cy + 4.0, P[:, 1])
         return self.z_front + (zb - self.z_front) * w
 
@@ -1007,12 +1011,24 @@ def build_top(her, marks, surf, z_hem, z_band):
             P = project_to(on_cut(w), P, 2)
             P = project_to(shape.sdf, P, 2)
             V[L] = project_to(on_cut(w), P, 2)
+        V = pull_inside_cuts(V, cuts, bnd)
         V = tangential_relax(V, Q, lap, 2, fixed=bnd)
     V = tangential_relax(V, Q, lap, 12, fixed=bnd)
     V = taubin(V, lap, 8, fixed=bnd)
     V = push_out(V, surf, TOP["clear"] * 0.85, iters=3, lap=lap, F=Q)
     V = smooth_openings(V, Q, lap, loops, loop_kind, cuts, shape, surf, bnd)
     return dict(V=V, Q=Q, shape=shape, cuts=cuts, lap=lap, bnd=bnd, loops=loops, loop_kind=loop_kind)
+
+
+def pull_inside_cuts(V, cuts, bnd, margin=0.25):
+    """Inner verts the surface net left past (or right on) an opening's cut: back inside it by `margin`, so the row
+    next to the edge never folds over it (the saw-tooth along the sleeve ends and the back neckline)."""
+    inner = np.nonzero(~bnd)[0]
+    C = cuts.C(V[inner])
+    bad = inner[C < margin]
+    if len(bad):
+        V[bad] = project_to(lambda X: cuts.C(X) - margin, V[bad], 3)
+    return V
 
 
 def smooth_openings(V, Q, lap, loops, loop_kind, cuts, shape, surf, bnd, clear=None):
@@ -1028,6 +1044,7 @@ def smooth_openings(V, Q, lap, loops, loop_kind, cuts, shape, surf, bnd, clear=N
             bad = d < clear
             P[bad] += nrm[bad] * (clear - d[bad])[:, None]
             V[L] = P
+        V = pull_inside_cuts(V, cuts, bnd, 0.2)
         V = tangential_relax(V, Q, lap, 1, fixed=bnd)
     # the rows next to the edge: a few Laplacian passes with the edge held
     ring = np.zeros(len(V), bool)
@@ -1221,8 +1238,25 @@ def solidify(X, F, thick, uvs, rim_round=1.0):
     return np.array(verts), faces, fuv, np.array(src)
 
 
+def even_loops(V, loops, lap, bnd, sigma=1.6):
+    """The openings as smooth closed curves (a gaussian along each loop) and the row inside them relaxed after, so
+    no edge zig-zags where the sleeve's tube meets the torso's volume."""
+    V = V.copy()
+    for L in loops:
+        L = np.array(L)
+        V[L] = ndimage.gaussian_filter1d(V[L], sigma, axis=0, mode="wrap")
+    ring = np.zeros(len(V), bool)
+    for i in np.where(bnd)[0]:
+        ring[lap.idx[i, :lap.deg[i]]] = True
+    ring &= ~bnd
+    for _ in range(3):
+        A = lap.avg(V)
+        V[ring] += 0.5 * (A[ring] - V[ring])
+    return V
+
+
 def finish_top(top, marks):
-    V = top["Vd"]
+    V = even_loops(top["Vd"], top["loops"], top["lap"], top["bnd"])
     Q = top["Q"]
     # one Catmull-Clark step for smooth silhouettes (the knit is soft): done on the surface, uvs re-derived
     uvs = top_uv(dict(V=top["V"], Q=Q, shape=top["shape"]), marks)
@@ -1250,6 +1284,7 @@ class LowerShape:
         _, nearest = cKDTree(her.bx).query(P)
         drop = her.armw[nearest] > 0.3
         ins[tuple(idx[drop].T)] = False
+        self.sd_raw = Field(body.lo, h, sdf_of(ins, h).astype(np.float32))   # her (no arms), not closed
         closed = closing(ins, TROUSERS["close"], h)
         self.sd = Field(body.lo, h, sdf_of(closed, h).astype(np.float32))
         self.top_shape = top_shape
@@ -1417,7 +1452,7 @@ def build_trousers(her, marks, body, top_shape, z_w):
         for s, (kf, kb) in ((1, ("LF", "LB")), (-1, ("RF", "RB"))):
             if j <= jc:
                 c = lower.leg_centre(s, z)[:2]
-                cur = ray_section(F, c, min(z, z_apex - 0.05), angles)
+                cur = ray_section(leg_field(lower, F, z_apex, y_apex), c, min(z, z_apex - 0.05), angles)
                 cur[:, 2] = z
                 # keep only her own leg's lobe (the other leg is not on these rays: rays start inside this one)
                 xl = c[0]
@@ -1430,10 +1465,20 @@ def build_trousers(her, marks, body, top_shape, z_w):
             hr = polar_radius(convex_hull_2d(cur[:, :2]), c, angles)
             rr = np.hypot(cur[:, 0] - c[0], cur[:, 1] - c[1])
             sy = np.sin(angles)
-            w = np.ones(len(angles)) if j <= jc else 0.65 + 0.35 * smoothstep(0.2, 0.7, np.abs(sy))
+            if j <= jc:
+                w = np.ones(len(angles))
+            else:
+                w = 0.65 + 0.35 * smoothstep(0.2, 0.7, np.abs(sy))
+                # in front the bridge between the thighs fades out down to the crotch, so the hips meet the legs'
+                # own round sections there (the seat stays bridged behind: it hangs from the buttocks)
+                w = w * np.where(sy < 0, smoothstep(z_apex, z_apex + TROUSERS["bridge_ramp"], z), 1.0)
             rn = rr + w * np.maximum(hr - rr, 0)
-            cur[:, 0] = c[0] + np.cos(angles) * rn
-            cur[:, 1] = c[1] + np.sin(angles) * rn
+            cs = crotch_section(lower, c, z, angles, rn, z_apex, y_apex) if j > jc else None
+            if cs is not None:
+                cur = cs
+            else:
+                cur[:, 0] = c[0] + np.cos(angles) * rn
+                cur[:, 1] = c[1] + np.sin(angles) * rn
             ang = np.arctan2(cur[:, 1] - c[1], cur[:, 0] - c[0])
             # landmarks (indices on the curve)
             i_side = int(np.argmin(np.abs(np.angle(np.exp(1j * (ang - (0.0 if s > 0 else math.pi)))))))
@@ -1487,14 +1532,84 @@ def build_trousers(her, marks, body, top_shape, z_w):
     G = {k: np.array(v) for k, v in panels.items()}   # (rows, cols, 3)
     # even the sections out up the body (the voxel field and the per-row hulls leave a fine ripple between rows):
     # the hips' rows and the legs' rows each smoothed along the columns' height, the crotch row and the edges kept
+    # all rows together first (across the crotch row too, so the hips run into the legs without a ledge), then the
+    # hips a little more; the crotch point and the centre seams (x = 0) pinned again after
     for k in G:
         g = G[k]
-        for lo_, hi_, sig in ((1, jc - 1, 1.6), (jc + 2, len(rows) - 2, 1.3)):
+        for lo_, hi_, sig in ((1, len(rows) - 2, 2.0), (jc + 4, len(rows) - 2, TROUSERS["row_smooth"])):
             seg = g[lo_:hi_, :, :2]
             g[lo_:hi_, :, :2] = ndimage.gaussian_filter1d(seg, sig, axis=0, mode="nearest")
+        ci = -1 if k[1] == "F" else 0
+        g[jc, ci, :2] = (0.0, y_apex)
+        g[jc + 1:, ci, 0] = 0.0
         G[k] = g
     return dict(G=G, rows=np.array(rows), jc=jc, z_hem=z_hem, z_apex=z_apex, y_apex=y_apex, lower=lower,
                 nh=nh, fr=fr, z_w=z_w)
+
+
+def crotch_curve(z, z_apex, y_apex, y0, H):
+    """The centre seam's y at height z (front or back): straight up above z_apex + H (at y0), then a quarter ellipse
+    curving under to the crotch point (level there, upright at the top), as a trouser rise is cut."""
+    t = float(np.clip((z - z_apex) / H, 0.0, 1.0))
+    return y0 + (y_apex - y0) * (1.0 - math.sqrt(max(0.0, 1.0 - (1.0 - t) ** 2)))
+
+
+def leg_field(lower, F, z_apex, y_apex):
+    """The legs' field just under the crotch: the closing's fill between her thighs cut away in front of and behind
+    the crotch point (the rounded V of crotch_section, at the crotch point's own y), the cut drawing off forward and
+    back down the thigh so it is gone a few cm lower; her own body (eased) always kept."""
+    sl, r0 = TROUSERS["notch_slope"], TROUSERS["notch_round"]
+
+    def fn(P):
+        f = F(P)
+        dz = np.maximum(z_apex - P[:, 2], 0.0)
+        near = dz < 10.0
+        if not near.any():
+            return f
+        Q = P[near]
+        g = np.sqrt((Q[:, 0] * sl) ** 2 + r0 ** 2) - r0 + 1.6 * dz[near]
+        cut = np.maximum((y_apex - g) - Q[:, 1], Q[:, 1] - (y_apex + g))
+        body = lower.sd_raw(Q) - lower.ease(Q[:, 2])
+        f[near] = np.minimum(np.maximum(f[near], cut), body)
+        return f
+
+    return fn
+
+
+def crotch_section(lower, c, z, angles, rn, z_apex, y_apex, rmax=30.0, step=0.1):
+    """A hip row near the crotch: the bridged section (radius rn round c), cut under the centre seams' curves by a
+    rounded V opening between the legs (front and back), but never into her (her own body, eased, stays inside).
+    The outermost crossing per ray from the seams' midpoint, so the two leg lobes and the bridge between them are all
+    kept. None above the curves (the plain bridged section applies)."""
+    if z - z_apex >= max(TROUSERS["rise_front"], TROUSERS["rise_back"]):
+        return None
+    y0f = c[1] - float(np.interp(-math.pi / 2, angles, rn, period=2 * math.pi))
+    y0b = c[1] + float(np.interp(math.pi / 2, angles, rn, period=2 * math.pi))
+    ycf = crotch_curve(z, z_apex, y_apex, y0f, TROUSERS["rise_front"])
+    ycb = crotch_curve(z, z_apex, y_apex, y0b, TROUSERS["rise_back"])
+    c2 = np.array((0.0, 0.5 * (ycf + ycb)))
+    rs = np.arange(0.0, rmax, step)
+    d = np.stack([np.cos(angles), np.sin(angles)], 1)
+    X = c2[0] + d[:, 0, None] * rs[None]
+    Y = c2[1] + d[:, 1, None] * rs[None]
+    th = np.arctan2(Y - c[1], X - c[0])
+    rad = np.hypot(X - c[0], Y - c[1]) - np.interp(th, angles, rn, period=2 * math.pi)
+    sl, r0 = TROUSERS["notch_slope"], TROUSERS["notch_round"]
+    g = np.sqrt((X * sl) ** 2 + r0 ** 2) - r0
+    cloth = np.maximum(rad, np.maximum((ycf - g) - Y, Y - (ycb + g)))
+    P = np.stack([X, Y, np.full_like(X, z)], -1).reshape(-1, 3)
+    body = (lower.sd_raw(P) - lower.ease(z)).reshape(X.shape)
+    f = np.minimum(cloth, body)
+    out = np.zeros((len(angles), 3))
+    for i in range(len(angles)):
+        w = np.nonzero(f[i] < 0)[0]
+        if not len(w):
+            out[i] = (*c2, z)
+            continue
+        j = int(w[-1])
+        r = rs[j] + (f[i, j] / (f[i, j] - f[i, j + 1]) * step if j + 1 < len(rs) else 0.0)
+        out[i] = (c2[0] + d[i, 0] * r, c2[1] + d[i, 1] * r, z)
+    return out
 
 
 def graded_rows(z0, z1, step, dense):
@@ -1545,14 +1660,14 @@ def trousers_detail(T, tr, marks):
         below_band = Z < zb - 0.05
         # the pressed crease: a sharp ridge, front to the band, back to below the seat
         if front:
-            fade = 1 - 0.45 * smoothstep(zc + 4, zb - 1, Z)
-            fade *= 1 - smoothstep(zb - 1.2, zb - 0.2, Z)
+            # pressed sharp down the leg, softening over the thigh to a faint line at the band
+            fade = 1 - smoothstep(zc - 2, zc + 9, Z)
         else:
             fade = 1 - smoothstep(zc - 12, zc - 3, Z)
         tent = np.clip(1 - np.abs(s_crease) / TROUSERS["crease_w"], 0, 1) ** 1.7
         d += TROUSERS["crease_h"] * tent * fade
         for r in range(nr - 1):
-            if fade[r, nh] > 0.3 and fade[r + 1, nh] > 0.3:
+            if fade[r, nh] > 0.75 and fade[r + 1, nh] > 0.75:
                 sharp.append((I[r, nh], I[r + 1, nh]))
         # seams: shallow valleys with the pressed allowance either side
         seam = lambda x: -0.045 * gauss(x, 0.16) + 0.018 * gauss(np.abs(x) - 0.45, 0.3)
