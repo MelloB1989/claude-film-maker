@@ -167,6 +167,7 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str 
     s1 = sec.get_end_frame() if sec and sec.has_end_frame() else seq.get_playback_end()
     prm = sec.get_editor_property("params") if sec else None
     rate = prm.get_editor_property("play_rate") if prm else 1.0
+    rate = rate.to_fixed_play_rate() if hasattr(rate, "to_fixed_play_rate") else rate  # a time-warp variant since 5.5
     off = 0.0
     for k in ("first_loop_start_frame_offset", "start_frame_offset"):
         try:

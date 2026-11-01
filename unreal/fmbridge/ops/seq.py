@@ -518,6 +518,15 @@ def _set_material_index(t, index: int, name: str):
     t.set_material_info(info)
 
 
+def _play_rate(rate: float):
+    """A section's play rate: a float before UE 5.5, a time-warp variant set to a fixed rate since."""
+    if not hasattr(unreal, "MovieSceneTimeWarpVariant"):
+        return float(rate)
+    v = unreal.MovieSceneTimeWarpVariant()
+    v.set_fixed_play_rate(float(rate))
+    return v
+
+
 @op("seq.anim")
 def anim_track(path: str, label: str, component: str, sections: list, replace: bool = True) -> list:
     """Animation sections on an actor's skeletal mesh component (a MetaHuman's "Body" or "Face"), each
@@ -554,7 +563,8 @@ def anim_track(path: str, label: str, component: str, sections: list, replace: b
         sec.set_row_index(int(row))
         p = sec.get_editor_property("params")
         p.set_editor_property("animation", a)
-        p.set_editor_property("play_rate", rate)
+        if rate != 1.0:
+            p.set_editor_property("play_rate", _play_rate(rate))
         if offset:
             for k in ("first_loop_start_frame_offset", "start_frame_offset"):
                 try:
@@ -575,13 +585,12 @@ def anim_track(path: str, label: str, component: str, sections: list, replace: b
             for ch in sec.get_all_channels():
                 if "weight" in str(ch.get_name()).lower():
                     ch.set_default(float(d["weight"]))
-        e = sec.get_editor_property("easing")
-        for side in ("in", "out"):
-            n = d.get(f"blend_{side}")
-            if n:
-                e.set_editor_property(f"manual_ease_{side}", True)
-                e.set_editor_property(f"manual_ease_{side}_duration", _ticks(seq, n))
-        sec.set_editor_property("easing", e)
+        ease = [f"bManualEase{side}=True,ManualEase{side}Duration={_ticks(seq, d[f'blend_{side.lower()}'])}"
+                for side in ("In", "Out") if d.get(f"blend_{side.lower()}")]
+        if ease:  # the manual-ease flags are not editor properties: set them as text
+            e = sec.get_editor_property("easing")
+            e.import_text("(" + ",".join(ease) + ")")
+            sec.set_editor_property("easing", e)
         taken.append((start, end, row))
         out.append([d["anim"], start, end, int(row)])
     _done(path)
