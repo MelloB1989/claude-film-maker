@@ -73,11 +73,40 @@ def _base(kind: str):
             MEL.connect_material_property(param(unreal.MaterialExpressionScalarParameter, name, -500, y, d), "", prop)
         if kind == "Glass":
             m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+            # lit as a surface (per-light specular), not as a volume: in the volume mode clear glass reads white
+            m.set_editor_property("translucency_lighting_mode", unreal.TranslucencyLightingMode.TLM_SURFACE_PER_PIXEL_LIGHTING)
             MEL.connect_material_property(param(unreal.MaterialExpressionScalarParameter, "Opacity", -500, 500, 0.2), "",
                                           unreal.MaterialProperty.MP_OPACITY)
     MEL.recompile_material(m)
     EAL.save_asset(path)
     return m
+
+
+def _white(linear: bool) -> str:
+    """A plain white texture of the right kind for a sampler (a colour one, or linear for masks): a sampler given a
+    texture of the wrong kind renders the engine's checker instead."""
+    name = f"T_FM_White{'Linear' if linear else ''}"
+    path = f"/Game/FM/Textures/{name}"
+    if not EAL.does_asset_exist(path):
+        import struct
+        import zlib
+        png = os.path.join(unreal.Paths.project_saved_dir(), "fmbridge_white.png")
+        row = b"\x00" + b"\xff\xff\xff" * 4
+        chunk = lambda tag, data: (struct.pack(">I", len(data)) + tag + data
+                                   + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+        with open(png, "wb") as f:
+            f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 4, 4, 8, 2, 0, 0, 0))
+                    + chunk(b"IDAT", zlib.compress(row * 4)) + chunk(b"IEND", b""))
+        t = unreal.AssetImportTask()
+        t.filename, t.destination_path, t.destination_name = png, "/Game/FM/Textures", name
+        t.automated, t.replace_existing, t.save = True, True, True
+        unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([t])
+        tex = load(path)
+        tex.set_editor_property("srgb", not linear)
+        if linear:
+            tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_MASKS)
+        EAL.save_asset(path)
+    return path
 
 
 def _pbr(m, kind: str, col, param) -> None:
@@ -103,8 +132,7 @@ def _pbr(m, kind: str, col, param) -> None:
     uvm = MEL.create_material_expression(m, unreal.MaterialExpressionMultiply, -1300, 50)
     MEL.connect_material_expressions(uv, "", uvm, "A")
     MEL.connect_material_expressions(til, "", uvm, "B")
-    white = "/Engine/EngineResources/WhiteSquareTexture"
-    tex = sample("Tex", -1000, -300, white, "SAMPLERTYPE_COLOR")
+    tex = sample("Tex", -1000, -300, _white(False), "SAMPLERTYPE_COLOR")
     base = mul(tex, "RGB", col, "", -600, -200)
     P = unreal.MaterialProperty
     if kind == "Glow":
@@ -114,7 +142,7 @@ def _pbr(m, kind: str, col, param) -> None:
         MEL.connect_material_property(mul(base, "", k, "", -300, -100), "", P.MP_EMISSIVE_COLOR)
         return
     nrm = sample("Normal", -1000, 0, "/Engine/EngineMaterials/DefaultNormal", "SAMPLERTYPE_NORMAL")
-    msk = sample("Mask", -1000, 300, white, "SAMPLERTYPE_LINEAR_COLOR")
+    msk = sample("Mask", -1000, 300, _white(True), "SAMPLERTYPE_MASKS")  # TC_MASKS textures
     MEL.connect_material_property(base, "", P.MP_BASE_COLOR)
     MEL.connect_material_property(nrm, "RGB", P.MP_NORMAL)
     rough = param(unreal.MaterialExpressionScalarParameter, "Roughness", -700, 300, 0.6)
@@ -133,14 +161,14 @@ def _pbr(m, kind: str, col, param) -> None:
         m.set_editor_property("two_sided", True)
         op_ = param(unreal.MaterialExpressionScalarParameter, "Opacity", -700, 650, 0.6)
         cov = mul(msk, "B", op_, "", -450, 650)  # Mask's B: the weave's open area (white = thread)
-        dither = MEL.create_material_expression(m, unreal.MaterialExpressionDitherTemporalAA, -250, 650)
-        for pin in ("AlphaThreshold", "Alpha Threshold", ""):
-            try:
-                MEL.connect_material_expressions(cov, "", dither, pin)
-                break
-            except Exception:
-                continue
-        MEL.connect_material_property(dither, "", P.MP_OPACITY_MASK)
+        # the engine's DitherTemporalAA function: partial coverage as a temporal dither, resolved by TSR / MRQ samples
+        dither = MEL.create_material_expression(m, unreal.MaterialExpressionMaterialFunctionCall, -250, 650)
+        dither.set_editor_property("material_function",
+                                   load("/Engine/Functions/Engine_MaterialFunctions02/Utility/DitherTemporalAA"))
+        if MEL.connect_material_expressions(cov, "", dither, "Alpha Threshold"):
+            MEL.connect_material_property(dither, "Result", P.MP_OPACITY_MASK)
+        else:
+            MEL.connect_material_property(cov, "", P.MP_OPACITY_MASK)
         trans = param(unreal.MaterialExpressionVectorParameter, "Transmission", -700, 800,
                       unreal.LinearColor(0.9, 0.85, 0.75, 1.0))
         MEL.connect_material_property(trans, "", P.MP_SUBSURFACE_COLOR)
@@ -164,9 +192,11 @@ def material(name: str, color=(1.0, 1.0, 1.0), kind: str = "Surface", roughness:
         name, folder, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
     mi.set_editor_property("parent", parent)
     MEL.set_material_instance_vector_parameter_value(mi, "Color", unreal.LinearColor(*color, 1.0))
+    defaults = {"Tex": _white(False), "Normal": "/Engine/EngineMaterials/DefaultNormal", "Mask": _white(True)}
     for k, v in (("Tex", texture), ("Normal", normal), ("Mask", mask)):
-        if v:
-            MEL.set_material_instance_texture_parameter_value(mi, k, load(v))
+        if v or kind in ("Pbr", "PbrMasked", "Sheer"):  # an unused map goes back to its plain default
+            if k != "Tex" or v or kind != "Glow":
+                MEL.set_material_instance_texture_parameter_value(mi, k, load(v or defaults[k]))
     if transmission is not None:
         MEL.set_material_instance_vector_parameter_value(mi, "Transmission", unreal.LinearColor(*transmission, 1.0))
     for k, v in (("Roughness", roughness), ("Metallic", metallic), ("Specular", specular), ("Intensity", intensity),

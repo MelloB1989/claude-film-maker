@@ -9,9 +9,10 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import shutil
 from pathlib import Path
 
-from filmtools.unreal import client
+from filmtools.unreal import client, workstation as ws
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -48,12 +49,17 @@ def halo() -> None:
         glow.convert("RGB").save(OUT / "textures" / "T_KarmaHalo.png")
 
 
-def push_import(files: list, dest: str) -> list:
-    remote = []
+def push_import(files: list, dest: str, sub: str) -> list:
+    """Send files in one go through S3 (into REMOTE\\sub) and import them into `dest`."""
+    if not files:
+        return []
+    stage = OUT / "_stage" / sub
+    shutil.rmtree(stage, ignore_errors=True)
+    stage.mkdir(parents=True)
     for p in files:
-        client.push(str(p), f"{REMOTE}\\{p.name}")
-        remote.append(f"{REMOTE}\\{p.name}")
-    return _ok(client.op("assets.import", files=remote, dest=dest)) if remote else []
+        shutil.copy2(p, stage / p.name)
+    ws.push_dir(str(stage), f"{REMOTE}\\{sub}")
+    return _ok(client.op("assets.import", files=[f"{REMOTE}\\{sub}\\{p.name}" for p in files], dest=dest))
 
 
 def textures() -> list:
@@ -61,20 +67,26 @@ def textures() -> list:
         _run(script)
     halo()
     out = push_import(sorted((OUT / "textures").glob("T_*.png")) + sorted((HERE / "props" / "out").glob("T_*.png")),
-                      "/Game/Studio/Textures")
-    return out + push_import(sorted((HERE / "surfaces").glob("T_*.png")), "/Game/Studio/Surfaces")
+                      "/Game/Studio/Textures", "textures")
+    return out + push_import(sorted((HERE / "surfaces").glob("T_*.png")), "/Game/Studio/Surfaces", "surfaces")
 
 
-def props() -> dict:
-    """Send the Blender props (props/out/*.fbx) and import each into its own folder (their material names overlap)."""
-    out = {}
-    for p in sorted((HERE / "props" / "out").glob("*.json")):  # placement notes (the halo's bounds, the note's patch)
-        client.push(str(p), f"{REMOTE}\\props\\{p.name}")
-    for p in sorted((HERE / "props" / "out").glob("*.fbx")):
-        remote = f"{REMOTE}\\props\\{p.name}"
-        client.push(str(p), remote)
-        out[p.stem] = _ok(client.op("assets.import", files=[remote], dest=f"/Game/Studio/Props/{p.stem}"))
-    return out
+RETIRED = {"keyboard", "mic_boom", "mug", "plant_floor"}  # the first studio's props, not in the karma room
+
+
+def props(only: list | None = None) -> dict:
+    """Send the Blender props (props/out/*.fbx, with their placement notes *.json) through S3 and import each into its
+    own folder (their material names overlap)."""
+    src = HERE / "props" / "out"
+    fbx = [p for p in sorted(src.glob("*.fbx")) if p.stem not in RETIRED and (not only or p.stem in only)]
+    stage = OUT / "_stage" / "props"
+    shutil.rmtree(stage, ignore_errors=True)
+    stage.mkdir(parents=True)
+    for p in fbx + sorted(src.glob("*.json")):
+        shutil.copy2(p, stage / p.name)
+    ws.push_dir(str(stage), f"{REMOTE}\\props")
+    return {p.stem: _ok(client.op("assets.import", files=[f"{REMOTE}\\props\\{p.name}"], dest=f"/Game/Studio/Props/{p.stem}"))
+            for p in fbx}
 
 
 def still(frame: int, name: str, sequence: str = "/Game/Studio/SEQ_Line2") -> Path:
@@ -90,10 +102,14 @@ def main() -> None:
     ap.add_argument("--still-only", action="store_true")
     ap.add_argument("--frame", type=int, default=96)
     ap.add_argument("--name", default="studio")
+    ap.add_argument("--props", default="", help="comma list: import only these props")
+    ap.add_argument("--skip", default="", help="comma list of steps to skip: textures,props")
     a = ap.parse_args()
     if not a.still_only:
-        print("textures:", json.dumps(textures()))
-        print("props:", json.dumps(props()))
+        if "textures" not in a.skip:
+            print("textures:", len(textures()))
+        if "props" not in a.skip:
+            print("props:", json.dumps(props(a.props.split(",") if a.props else None)))
         _ok(client.op("seq.close"))
         print("studio:", json.dumps(_ok(client.exec_code((HERE / "unreal" / "studio.py").read_text(), 600))))
     print(still(a.frame, a.name))

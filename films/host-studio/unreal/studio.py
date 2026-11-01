@@ -37,9 +37,18 @@ def tex(folder, name):
     return p if unreal.EditorAssetLibrary.does_asset_exist(p) else ""
 
 
+# what each surface averages to (linear), for while its texture is missing
+PLAIN = {"Limewash": (0.68, 0.62, 0.53), "OakFloor": (0.5, 0.33, 0.18), "Oak": (0.55, 0.38, 0.22),
+         "OakEnd": (0.45, 0.3, 0.17), "Walnut": (0.13, 0.065, 0.03), "Felt": (0.012, 0.012, 0.012),
+         "Wool": (0.62, 0.57, 0.48), "Stoneware": (0.66, 0.62, 0.55), "BookCloth": (0.016, 0.045, 0.028),
+         "Fleece": (0.015, 0.015, 0.016), "Leather": (0.02, 0.02, 0.02), "Linen": (0.75, 0.72, 0.66)}
+
+
 def surface(name, tile_cm, color=(1.0, 1.0, 1.0), roughness=1.0, kind="Pbr", **kw):
     """A tileable surface from surfaces/ on world-scale UVs (1 UV = 1 m), the texture covering `tile_cm`."""
     a = tex(S, f"T_{name}_A")
+    if not a:
+        color, roughness = PLAIN.get(name, color), min(roughness, 0.7)
     return K.material(f"MI_K_{name}", color, kind=kind, texture=a, normal=tex(S, f"T_{name}_N"), mask=tex(S, f"T_{name}_R"),
                       tiling=100.0 / tile_cm, roughness=roughness, metallic=0.0, folder=M, **kw)
 
@@ -58,8 +67,8 @@ def glow(name, color, intensity):
     return K.material(f"MI_K_{name}", color, kind="Emissive", intensity=intensity, folder=M)
 
 
-def glass(name, color=(0.9, 0.92, 0.95), opacity=0.12, roughness=0.05):
-    return K.material(f"MI_K_{name}", color, kind="Glass", opacity=opacity, roughness=roughness, specular=0.5, folder=M)
+def glass(name, color=(0.9, 0.92, 0.95), opacity=0.12, roughness=0.05, specular=0.3):
+    return K.material(f"MI_K_{name}", color, kind="Glass", opacity=opacity, roughness=roughness, specular=specular, folder=M)
 
 
 def leaf(name, color, transmission, texture=""):
@@ -79,13 +88,13 @@ satin_black = plain("SatinBlack", (0.014, 0.014, 0.015), 0.5)
 matte_black = plain("MatteBlack", (0.012, 0.012, 0.012), 0.7)
 pages = plain("Pages", (0.62, 0.57, 0.47), 0.85)
 win_glass = glass("WindowGlass", opacity=0.04)
-clear_glass = glass("ClearGlass", opacity=0.1)
+clear_glass = glass("ClearGlass", (0.02, 0.02, 0.02), opacity=0.03, roughness=0.02)  # picture glass, the candle jar
 
 MAT = {
     # the room
     "M_Wall": surface("Limewash", 200), "M_Ceiling": plain("Ceiling", (0.72, 0.7, 0.66), 0.9),
     "M_Floor": surface("OakFloor", 200), "M_Baseboard": plain("Baseboard", (0.66, 0.62, 0.56), 0.55),
-    "M_WinFrame": plain("WinFrame", (0.68, 0.66, 0.62), 0.4), "M_Glass": win_glass,
+    "M_WinFrame": plain("WinFrame", (0.68, 0.66, 0.62), 0.4), "M_Glass": clear_glass,
     "M_Sheer": K.material("MI_K_Sheer", (1.0, 0.98, 0.94), kind="Sheer", texture=tex(S, "T_Linen_A"),
                           mask=tex(S, "T_Linen_O"), tiling=100.0 / 8, opacity=0.9, roughness=0.8,
                           transmission=(1.0, 0.92, 0.8), glow=0.25, folder=M),
@@ -159,6 +168,7 @@ for i in range(1, 8):
     MAT[f"M_Label_Spine{i}"] = label(f"Spine{i}", roughness=1.0)
 
 UNDRESSED = {}
+OVERRIDE = {"Window": {"M_Glass": win_glass}}  # a slot name that means something else on one prop
 
 
 def prop(label_, name, loc, yaw=0.0, pitch=0.0, roll=0.0, scale=1.0):
@@ -171,7 +181,7 @@ def prop(label_, name, loc, yaw=0.0, pitch=0.0, roll=0.0, scale=1.0):
     names = []
     for c in L.actor(label_).get_components_by_class(unreal.StaticMeshComponent):
         names += [str(n) for n in c.get_material_slot_names()]
-    K.slots(label_, {n: MAT[n] for n in names if n in MAT})
+    K.slots(label_, {n: OVERRIDE.get(label_, {}).get(n, MAT[n]) for n in names if n in MAT})
     missing = [n for n in names if n not in MAT]
     if missing:
         UNDRESSED[label_] = missing
@@ -220,7 +230,7 @@ SH_C = SH_L - SH_LEN / 2
 TOPS = (125.0, 162.0, 199.0, 236.0)   # shelf top surfaces, bottom to top
 for n, z in enumerate(TOPS):
     prop(f"Shelf{n}", "shelf", (WALL, SH_C, z - 4.5))
-    K.light(f"ShelfLed{n}", "rect", loc=(WALL + 23, SH_C, z - 5.2), look_at=(WALL + 18, SH_C, z - 60), intensity=2.2,
+    K.light(f"ShelfLed{n}", "rect", loc=(WALL + 23, SH_C, z - 5.2), look_at=(WALL + 18, SH_C, z - 60), intensity=1.3,
             temperature=2700, width=SH_LEN - 8, height=1.6, barn_angle=60, volumetric=0.0)
 CR_C, CR_TOP = -135.0, 72.0
 prop("Credenza", "credenza", (WALL, CR_C, 0))
@@ -233,15 +243,15 @@ prop("VaseWhite", "vase_white", (WALL + 13, SH_L - 90, TOPS[3]), yaw=20)
 prop("BookStack", "books_stack", (WALL + 12, SH_L - 122, TOPS[3]), yaw=-4)
 prop("VaseBlack", "vase_black", (WALL + 12, SH_L - 122, TOPS[3] + 8.4))
 # second shelf: the seven product books among plain ones, the polaroid half behind a vase, the lyzn block bookend
-prop("BooksMain", "books_main", (D, SH_L - 42, TOPS[2]))
-prop("Polaroid", "polaroid", (WALL + 17, SH_L - 83, TOPS[2]), yaw=8, roll=-12)
-prop("VaseSpeckle", "vase_speckle", (WALL + 14, SH_L - 97, TOPS[2]), yaw=40)
-prop("LyznBlock", "lyzn_block", (WALL + 15, SH_L - 116, TOPS[2]), yaw=-8)
+prop("BooksMain", "books_main", (D, SH_L - 62, TOPS[2]))  # clear of the pothos' vines (they reach ~30 cm in)
+prop("Polaroid", "polaroid", (WALL + 19, SH_L - 101, TOPS[2]), yaw=8, roll=-12)
+prop("VaseSpeckle", "vase_speckle", (WALL + 13, SH_L - 113, TOPS[2]), yaw=40, scale=0.8)
+prop("LyznBlock", "lyzn_block", (WALL + 15, SH_L - 132, TOPS[2]), yaw=-8)
 # third shelf: the maker tray, the candle, the coin and the pickaxe
 prop("IotTray", "iot_tray", (WALL + 12, SH_L - 34, TOPS[1]), yaw=3)
 prop("Candle", "candle", (WALL + 14, SH_L - 78, TOPS[1]))
-K.light("CandleLight", "point", loc=(WALL + 14, SH_L - 78, TOPS[1] + 13), intensity=0.8, temperature=1900, radius=120,
-        shadows=True, volumetric=0.0)
+K.light("CandleLight", "point", loc=(WALL + 14, SH_L - 78, TOPS[1] + 14), intensity=0.1, temperature=1800, radius=70,
+        shadows=False, volumetric=0.0)
 prop("Coin", "bitcoin_coin", (WALL + 6, SH_L - 95, TOPS[1] + 2.0), pitch=-72)
 prop("Pickaxe", "pickaxe", (WALL + 12, SH_L - 115, TOPS[1]), yaw=-20)
 # bottom shelf: the root prompt, the print, a looser row of books, the small pothos
@@ -261,13 +271,13 @@ prop("Hoodie", "hoodie", (WALL, CR_C - 95, CR_TOP))
 NOTE = os.path.join(unreal.Paths.project_saved_dir(), "Import", "host-studio", "props", "hoodie_note.json")
 if os.path.exists(NOTE):  # the hoodie's report says where the note's flat patch is, in the hoodie's frame
     n = json.load(open(NOTE))
-    prop("StickyNote", "sticky_note", (WALL + n["x"], CR_C - 95 - n["y"], CR_TOP + n["z"]), yaw=n.get("yaw", 0.0),
+    prop("StickyNote", "sticky_note", (WALL + n["x"], CR_C - 95 - n["y"], CR_TOP + n["z"]), yaw=-n.get("yaw", 0.0),
          pitch=n.get("pitch", 0.0))
 prop("Stool", "stool", (-95, 20, 0), yaw=25)  # for the empty-room shots; hidden when the host is in frame
 
 # ------------------------------------------------------------------------------------------------- daylight
-K.sky(elevation=28, azimuth=-28, lux=55000, temperature=5300, sky_intensity=1.0, shadow_softness=0.7)
-K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=18,
+K.sky(elevation=28, azimuth=-28, lux=30000, temperature=5100, sky_intensity=0.6, shadow_softness=0.7)
+K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=8,
         temperature=6200, width=150, height=280, barn_angle=80, volumetric=0.0)
 K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=1.5, temperature=4500, width=300,
         height=300, shadows=False, specular=0.0, volumetric=0.0)
@@ -292,20 +302,20 @@ K.channels(["Host"], [0, 1])  # the daylight reaches the host too, so the host s
 mh.garment("Host", "Shirt", vectors={"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
 
 # --------------------------------------------------------------------------------------------- air, lens, cameras
-K.fog(density=0.0015, volumetric=True, albedo=(0.95, 0.93, 0.9), extinction=0.15, height_falloff=0.02)
-K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_bias": 11.0, "white_temp": 5600.0,
+K.fog(density=0.0002, volumetric=True, albedo=(0.95, 0.93, 0.9), extinction=0.05, height_falloff=0.02)
+K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_bias": 8.3, "white_temp": 5600.0,
         "bloom_intensity": 0.25, "bloom_threshold": 1.0, "vignette_intensity": 0.25, "film_grain_intensity": 0.06,
         "scene_fringe_intensity": 0.0, "lumen_final_gather_quality": 4.0, "lumen_reflection_quality": 2.0,
         "lumen_scene_detail": 2.0, "lumen_scene_lighting_quality": 2.0, "lumen_max_trace_distance": 2000.0})
 mh.cloth_inflate("Host", cm=1.0)
 SUPER35 = [23.76, 13.365]
 CAMS = {  # name: (location, look-at, focal mm, aperture, filmback)
-    "KarmaHost": ([160, 12, 168], [0, -10, 160], 30.0, 2.8, SUPER35),
-    "KarmaWide": ([395, -60, 150], [WALL, 30, 135], 22.0, 5.6, [36.0, 20.25]),
-    "KarmaVertical": ([170, 8, 160], [0, 0, 170], 28.0, 2.8, [13.365, 23.76]),
-    "KarmaShelf": ([WALL + 95, SH_L + 25, 205], [WALL + 10, SH_L - 60, 182], 50.0, 2.8, [24.0, 30.0]),
-    "KarmaCredenza": ([WALL + 120, CR_C + 45, 140], [WALL + 15, CR_C - 10, 100], 45.0, 2.8, [24.0, 30.0]),
-    "KarmaSign": ([WALL + 160, SLAT_Y - 70, 185], [WALL, SLAT_Y, 228], 50.0, 4.0, [24.0, 24.0]),
+    "KarmaHost": ([192, 12, 178], [0, -14, 166], 27.0, 2.8, SUPER35),
+    "KarmaWide": ([255, -35, 150], [WALL, 15, 140], 30.0, 5.6, [36.0, 20.25]),
+    "KarmaVertical": ([178, 6, 174], [0, 0, 166], 24.0, 2.8, [13.365, 23.76]),
+    "KarmaShelf": ([WALL + 125, SH_L + 40, 192], [WALL + 8, SH_L - 78, 178], 35.0, 4.0, [24.0, 30.0]),
+    "KarmaCredenza": ([WALL + 135, CR_C + 60, 135], [WALL + 15, CR_C - 15, 100], 38.0, 4.0, [24.0, 30.0]),
+    "KarmaSign": ([WALL + 250, SLAT_Y - 70, 178], [WALL, SLAT_Y + 4, 224], 40.0, 5.6, [24.0, 24.0]),
 }
 for name, (loc, at, focal, ap, fb) in CAMS.items():
     K.camera(name, loc, at, focal=focal, aperture=ap, filmback=fb, pilot=False)

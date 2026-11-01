@@ -104,6 +104,22 @@ def put_text(path: str, data: bytes) -> None:
        f"[IO.File]::WriteAllBytes('{path}', [Convert]::FromBase64String('{b64}'))")
 
 
+def push_dir(local_dir: str, remote_dir: str) -> int:
+    """Send a whole folder (textures, meshes) to the workstation through S3, far faster than the tunnel: this machine
+    syncs it up, the workstation downloads it into `remote_dir`, the bucket copy is deleted. Returns files sent."""
+    c = conf()
+    if not c.get("bucket"):
+        raise SystemExit("no bucket set: film-ue set --bucket NAME (one the workstation's role can read)")
+    prefix = "film-ue/up-" + Path(local_dir).name + f"-{int(time.time())}"
+    s3 = f"s3://{c['bucket']}/{prefix}"
+    subprocess.run(["aws", "s3", "sync", "--only-show-errors", local_dir, s3, "--region", c["region"]], check=True)
+    ps(f"New-Item -ItemType Directory -Force -Path '{remote_dir}' | Out-Null; "
+       f"Read-S3Object -BucketName {c['bucket']} -KeyPrefix {prefix} -Folder '{remote_dir}' -Region {c['region']} | Out-Null",
+       timeout=1800)
+    subprocess.run(["aws", "s3", "rm", "--only-show-errors", "--recursive", s3, "--region", c["region"]], check=True)
+    return sum(1 for f in Path(local_dir).rglob("*") if f.is_file())
+
+
 def pull_dir(remote_dir: str, local_dir: str) -> int:
     """Bring a whole folder back (a render's frames) through S3, far faster than the tunnel: the workstation uploads
     it to the bucket in settings (`bucket`), this machine syncs it down, the bucket copy is deleted. Returns files."""
