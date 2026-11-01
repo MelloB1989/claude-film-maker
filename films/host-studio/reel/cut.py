@@ -59,7 +59,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from shots import BEAT, FPS, SHOTS, bar  # noqa: E402
+from shots import BEAT, FPS, SHOTS, bar, LINES as _LINES  # noqa: E402
 
 ROOT = HERE.parents[2]
 GEIST = ROOT / "fonts" / "src" / "Geist[wght].ttf"
@@ -74,20 +74,11 @@ FADE_OUT = (TOTAL - FPS, TOTAL)  # f1536-1559: the fade to black on the halo
 TITLE_IN = (bar(25, 2), bar(25, 4) + BEAT)  # the title fades in over bar 25 beats 2-4 (f1455-1500)
 LUFS, TRUE_PEAK = -14.0, -1.0
 
-# The voice lines (PLAN.md §2, "Voice lines"; the operator approved the copy as written). Frames on the master's clock:
-# [first, last) of the line's speech; the captions follow the words.
-LINES = {
-    "L1": (930, 1080, "This is karma. Everything on these shelves is a story — seven of them, built one late night "
-                      "at a time."),
-    "L2": (1110, 1150, "She'll tell you the next one."),
-    "L3": (1158, 1310, "Tech, explained the way we'd want it explained: calm, honest, and made right here."),
-    "L4": (1360, 1410, "Welcome… to karma."),
-}
-# The short cut (PLAN.md §7 q4): master frames kept, in order, all on bar lines. The plan's list (drop S01, S05, S07,
-# S09; a bar off S13 and S17) comes to 47.5 s and its S17 bar would cut through L4 (f1360-1403 spans both its bars), so:
-# S02's first bar, S03-S04, S08, S10-S12, S13's second bar (L1 starts at f930), S14-S18; S06 goes too (the coin and
-# pickaxe still show in the wider shots; S10's artists are a shout-out the operator wants). 45.0 s.
-EDLS = {"45s": [(120, 180), (240, 360), (540, 600), (660, 840), (900, 1560)]}
+# The voice lines: shots.LINES (PLAN v2, agent-13) as {id: (first, last, text)}, frames on the master's clock, [first,
+# last) the line's window; the captions follow the words. L3a/L3b and L4a/L4b are lines of their own (two voices).
+LINES = {k: (f0, f1, text) for k, _who, f0, f1, text in _LINES}
+# The short cut (PLAN v2, agent-13): master frames kept, in order, all on bar lines; 18 bars, 45.0 s.
+EDLS = {"45s": [(0, 120), (240, 360), (420, 480), (660, 840), (960, 1560)]}
 XFADE = 0.012  # s: the equal-power crossfade at each sound edit, centred on the cut
 
 # The title lockup, as the operator chose it (PLAN.md §7 q2): the wordmark, then "a studio by MelloB". None drops a
