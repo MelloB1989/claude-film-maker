@@ -104,9 +104,20 @@ def exists(labels: list) -> list:
     return [lab for lab in labels if lab in have]
 
 
-# Exposure compensation per shot on its camera (stops, over the light timeline's exposure): S01 looks into the sheers
+# Exposure compensation per shot (stops, relative to the light timeline's exposure; bias() makes it absolute): S01 looks into the sheers
 # from inside the olive's crown, 1.5 stops under the DAY room so the window holds (measured on viewport stills).
 EXPOSURE = {"V03": -1.0, "N01": -1.0}  # V03: the sheers lit by the low sun, a stop under so the window holds detail; N01: night must read dark, the LED lines carry it
+
+
+def bias(s) -> float | None:
+    """The camera's auto_exposure_bias for a shot with an EXPOSURE entry. A camera's post-process override replaces
+    FM_Post's keyed bias, it does not add to it (N01's -1.0 rendered near-black in MRQ), so the override is absolute:
+    light.py's exposure at the shot's middle frame plus the shot's compensation."""
+    if s.id not in EXPOSURE:
+        return None
+    import light
+    post = next(t for t in light.tracks() if t.label == "FM_Post")
+    return round(post.curve.at(s.start + s.frames / 2) + EXPOSURE[s.id], 3)
 
 # A binding that drives more than its own camera: after the level is rebuilt, rebinding (replace_binding_with_actors)
 # added the new camera to old bindings instead of replacing it, so one binding moved two cameras (S05's keys moved
@@ -154,7 +165,7 @@ def cameras() -> None:
     dropped = run(f"SEQ = {SEQ!r}\n" + CLEAN)
     if dropped:
         print("dropped bindings that drove more than their camera:", dropped)
-    run(f"BIAS = {({f'Reel_{s.id}': EXPOSURE.get(s.id) for s in SHOTS})!r}\n" + EXPOSE)
+    run(f"BIAS = {({f'Reel_{s.id}': bias(s) for s in SHOTS})!r}\n" + EXPOSE)
     for s in SHOTS:
         lab, sm = f"Reel_{s.id}", M.samples(s)
         keys, last = [], None
