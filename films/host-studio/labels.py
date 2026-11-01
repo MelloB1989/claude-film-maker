@@ -219,15 +219,15 @@ def polaroid(px_cm: int = 200) -> None:
     # the handwriting on the chin, in felt tip
     pen = Image.new("L", (w, h), 0)
     d = ImageDraw.Draw(pen)
-    cx, cy, s = 2.55 * px_cm, 9.55 * px_cm, 0.62 * px_cm
+    cx, cy, s = 2.75 * px_cm, 9.5 * px_cm, 0.95 * px_cm  # big enough to read across the room
     _stroke(d, _bezier((cx - s * 0.62, cy - s * 0.7), (cx - s * 0.42, cy - s * 0.1), (cx - s * 0.18, cy + s * 0.45),
-                       (cx - s * 0.02, cy + s * 0.62)), 0.09 * px_cm, 255)
+                       (cx - s * 0.02, cy + s * 0.62)), 0.13 * px_cm, 255)
     _stroke(d, _bezier((cx - s * 0.02, cy + s * 0.62), (cx + s * 0.18, cy + s * 0.15), (cx + s * 0.4, cy - s * 0.45),
-                       (cx + s * 0.66, cy - s * 0.78)), 0.085 * px_cm, 255)
+                       (cx + s * 0.66, cy - s * 0.78)), 0.125 * px_cm, 255)
     black = np.asarray(pen.filter(ImageFilter.GaussianBlur(0.8)), np.float32) / 255
     heart = Image.new("L", (w, h), 0)
     d = ImageDraw.Draw(heart)
-    hx, hy, hs = cx + 1.25 * s * 1.6, cy + 0.02 * px_cm, 0.36 * px_cm
+    hx, hy, hs = cx + 1.5 * s * 1.5, cy + 0.04 * px_cm, 0.56 * px_cm
     outline = (_bezier((hx, hy + hs * 0.95), (hx - hs * 1.25, hy + hs * 0.1), (hx - hs * 1.05, hy - hs * 0.95),
                        (hx - hs * 0.05, hy - hs * 0.4))
                + _bezier((hx - hs * 0.05, hy - hs * 0.4), (hx + hs * 0.95, hy - hs * 1.0), (hx + hs * 1.3, hy + hs * 0.05),

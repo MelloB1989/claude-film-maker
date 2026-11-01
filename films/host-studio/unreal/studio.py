@@ -244,8 +244,9 @@ prop("BookStack", "books_stack", (WALL + 12, SH_L - 122, TOPS[3]), yaw=-4)
 prop("VaseBlack", "vase_black", (WALL + 12, SH_L - 122, TOPS[3] + 8.4))
 # second shelf: the seven product books among plain ones, the polaroid half behind a vase, the lyzn block bookend
 prop("BooksMain", "books_main", (D, SH_L - 62, TOPS[2]))  # clear of the pothos' vines (they reach ~30 cm in)
-prop("Polaroid", "polaroid", (WALL + 19, SH_L - 101, TOPS[2]), yaw=8, roll=-12)
-prop("VaseSpeckle", "vase_speckle", (WALL + 13, SH_L - 113, TOPS[2]), yaw=40, scale=0.8)
+# Vaishnavi's polaroid: in front of the vase, leaning back on the last books, turned to the host camera
+prop("Polaroid", "polaroid", (WALL + 21, SH_L - 103, TOPS[2]), yaw=20, pitch=12, scale=1.25)
+prop("VaseSpeckle", "vase_speckle", (WALL + 11, SH_L - 116, TOPS[2]), yaw=40, scale=0.8)
 prop("LyznBlock", "lyzn_block", (WALL + 15, SH_L - 132, TOPS[2]), yaw=-8)
 # third shelf: the maker tray, the candle, the coin and the pickaxe
 prop("IotTray", "iot_tray", (WALL + 12, SH_L - 34, TOPS[1]), yaw=3)
@@ -308,9 +309,12 @@ K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_
         "scene_fringe_intensity": 0.0, "lumen_final_gather_quality": 4.0, "lumen_reflection_quality": 2.0,
         "lumen_scene_detail": 2.0, "lumen_scene_lighting_quality": 2.0, "lumen_max_trace_distance": 2000.0})
 mh.cloth_inflate("Host", cm=1.0)
+# hair strands take the sky light unoccluded: in this closed, daylit room it would turn the host's hair white
+unreal.SystemLibrary.execute_console_command(unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world(),
+                                             "r.HairStrands.SkyLighting 0")
 SUPER35 = [23.76, 13.365]
 CAMS = {  # name: (location, look-at, focal mm, aperture, filmback)
-    "KarmaHost": ([192, 12, 178], [0, -14, 166], 27.0, 2.8, SUPER35),
+    "KarmaHost": ([192, 12, 178], [0, -14, 166], 27.0, 4.0, SUPER35),
     "KarmaWide": ([255, -35, 150], [WALL, 15, 140], 30.0, 5.6, [36.0, 20.25]),
     "KarmaVertical": ([178, 6, 174], [0, 0, 166], 24.0, 2.8, [13.365, 23.76]),
     "KarmaShelf": ([WALL + 125, SH_L + 40, 192], [WALL + 8, SH_L - 78, 178], 35.0, 4.0, [24.0, 30.0]),

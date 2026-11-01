@@ -17,6 +17,8 @@ OUT = ROOT / "out" / "host-studio" / "stills" / "karma"
 PROJECT = r"C:\UEProjects\HostStudio"
 LEVEL = "/Game/Studio/Studio"
 IDLE = "/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle"
+# hair strands take the sky light unoccluded: in a closed, daylit room it turns the host's hair white
+CVARS = {"r.HairStrands.SkyLighting": 0}
 SHOTS = {  # camera: (width, height, host in frame)
     "KarmaHost": (3840, 2160, True),
     "KarmaVertical": (2160, 3840, True),
@@ -55,7 +57,7 @@ def render(cam: str, path_tracer: bool) -> Path:
     remote = rf"{PROJECT}\Saved\MovieRenders\karma_{cam}"
     ok(client.op("render.mrq", sequence=seq, level=LEVEL, out_dir=remote, width=w, height=h, start=24, end=25,
                  temporal=1 if path_tracer else 16, spatial=64 if path_tracer else 2, path_tracer=path_tracer,
-                 name=f"karma_{cam}", warmup=64))
+                 name=f"karma_{cam}", warmup=64, cvars=CVARS))
     t0 = time.time()
     while not ok(client.op("render.progress", out_dir=remote))["done"]:
         time.sleep(10)
