@@ -5,6 +5,7 @@ transparent overlays (Geist from fonts/src, the Samarkan wordmark from props/out
     cd tools && uv run --with pillow python ../films/host-studio/reel/cut.py FRAMES --mix MIX.wav [--out DIR]
     cd tools && uv run --with pillow python ../films/host-studio/reel/cut.py FRAMES --score SCORE.wav \\
         --vo L1=l1.wav --vo L2=l2.wav --vo L3=l3.wav --vo L4=l4.wav
+    ... cut.py FRAMES --score SCORE.wav --cues out/host-studio/reel/vo/cues.json   the VO as R4's vo.py built it
     ... cut.py --test-frames DIR [--scale 0.25]      synthetic placeholder frames (a slate per shot) to cut with
 
 FRAMES holds the renders as Movie Render Queue writes them, <dir>/<frame:04d>.png (--pattern to change it): one
@@ -28,9 +29,11 @@ Out (DIR, default films/host-studio/reel/out/):
     cut.json                                  what was made: loudness, sizes, frames, the source of every shot
 
 The sound: --mix is the finished mix (R5's mix.py: -14 LUFS, -1 dBTP), re-measured and only re-mastered if it is off;
-or --score plus the voice lines (--vo L1=...), each placed at its line's frame (LINES below), the score ducked under
-them and mastered to -14 LUFS with filmtools.mix (static gain + limiter). Either is trimmed or padded to the picture's
-exact length: picture and sound both start at frame 0 and end together.
+or --score plus the voice lines (--vo L1=...), each placed at its line's frame (LINES below), or R4's cues.json (--cues:
+every line's WAV beside it, placed at its file_frame, L4 in two voices as L4a/L4b), the score ducked under them and
+mastered to -14 LUFS with filmtools.mix (static gain + limiter). Either is trimmed or padded to the picture's
+exact length: picture and sound both start at frame 0 and end together. With --cues the captions are timed by the
+spoken words (each cue from its first word to its last, then held); without it, by characters across LINES' windows.
 
 --frames A:B (master frames, B exclusive) or --shots S13-S18 cuts part of the reel (a test, a review): the title,
 captions and fade keep their places on the master's clock. --scale S makes everything S times the size (a quick look);
@@ -357,11 +360,36 @@ def title_card(size: tuple[int, int], vertical: bool):
     return img, (w - img.width) // 2, int(cy - img.height / 2)
 
 
-def cues(lines: dict = LINES, max_chars: int = 64, hold: int = 6) -> list:
-    """The captions: each line split into cues at its clauses (at most max_chars each), timed by characters across
-    the line's frames, each held `hold` frames after its words unless the next cue starts first. [(first, last), text]"""
+def read_cues(path: Path) -> dict:
+    """R4's cues.json (vo.py build): {line: {"wav": Path, "file_frame": float, "words": [{"w", "start", "end"}]}}."""
+    d = json.loads(path.read_text())
+    if d.get("fps", FPS) != FPS:
+        raise SystemExit(f"{path}: fps {d['fps']}, the reel is {FPS}")
+    return {k: {**v, "wav": path.parent / v["wav"]} for k, v in d["lines"].items()}
+
+
+def line_words(spoken: dict) -> dict:
+    """The spoken words per LINES key (L4a and L4b are L4's two voices), in order."""
+    out = {}
+    for k, v in sorted(spoken.items(), key=lambda kv: kv[1]["words"][0]["start"]):
+        key = next((n for n in LINES if k == n or (k.startswith(n) and k[len(n):].isalpha())), None)
+        if key is None:
+            raise SystemExit(f"cues.json line {k} is not one of {', '.join(LINES)}")
+        out.setdefault(key, []).extend(v["words"])
+    return out
+
+
+def alnum(t: str) -> int:
+    return sum(ch.isalnum() for ch in t)
+
+
+def cues(lines: dict = LINES, max_chars: int = 64, hold: int = 6, words: dict | None = None) -> list:
+    """The captions: each line split into cues at its clauses (at most max_chars each), each held `hold` frames after
+    its words unless the next cue starts first. [(first, last), text]. With `words` (line_words) a cue runs from its
+    first spoken word to its last (matched by letters and digits, so the text's punctuation need not match the
+    aligner's); otherwise it is timed by characters across the line's frames."""
     out = []
-    for first, last, text in sorted(lines.values()):
+    for name, (first, last, text) in sorted(lines.items(), key=lambda kv: kv[1]):
         phrases = [p for p in re.split(r"(?<=[.,:;?!—…])\s+", text) if p]
         chunks = []
         for p in phrases:
@@ -369,6 +397,19 @@ def cues(lines: dict = LINES, max_chars: int = 64, hold: int = 6) -> list:
                 chunks[-1] += " " + p
             else:
                 chunks.append(p)
+        ws = (words or {}).get(name)
+        if ws:
+            if alnum("".join(c for c in chunks)) != alnum("".join(w["w"] for w in ws)):
+                raise SystemExit(f"cues.json's words for {name} are not LINES' text: {' '.join(w['w'] for w in ws)!r}")
+            i = 0
+            for c in chunks:
+                need, j = alnum(c), i
+                while need > 0:
+                    need -= alnum(ws[j]["w"])
+                    j += 1
+                out.append([round(ws[i]["start"]), round(ws[j - 1]["end"]), c])
+                i = j
+            continue
         n = sum(len(c) for c in chunks)
         t = first
         for c in chunks:
@@ -435,8 +476,9 @@ def write_captions(out: Path, cs: list, f0: int, f1: int) -> None:
 # ---------------------------------------------------------------- the sound
 
 
-def sound(work: Path, f0: int, f1: int, mix: Path | None, score: Path | None, vo: dict) -> tuple[Path, dict]:
-    """The reel's mix for [f0, f1): 48 kHz stereo 24-bit, exactly as long as the picture."""
+def sound(work: Path, f0: int, f1: int, mix: Path | None, score: Path | None, vo: list) -> tuple[Path, dict]:
+    """The reel's mix for [f0, f1): 48 kHz stereo 24-bit, exactly as long as the picture. vo: [(line, WAV, ms)], each
+    WAV starting `ms` into the master."""
     from filmtools.mix import loudnorm, measure, premix  # the tools env (cd tools && uv run ...)
     full = work / "mix_full.wav"
     if mix:
@@ -451,8 +493,7 @@ def sound(work: Path, f0: int, f1: int, mix: Path | None, score: Path | None, vo
         music = score
         if vo:
             ins, graph = [], []
-            for k, (name, path) in enumerate(sorted(vo.items())):
-                ms = round(LINES[name][0] * 1000 / FPS)
+            for k, (name, path, ms) in enumerate(vo):
                 ins += ["-i", path]
                 graph.append(f"[{k}:a]aformat=sample_rates=48000:channel_layouts=stereo,adelay={ms}:all=1[v{k}]")
             graph.append("".join(f"[v{k}]" for k in range(len(vo))) +
@@ -464,7 +505,7 @@ def sound(work: Path, f0: int, f1: int, mix: Path | None, score: Path | None, vo
             premix(vo_track, music, pre)
             music = pre
         m = loudnorm(music, full, LUFS)
-        how = f"score{' + VO ' + ','.join(sorted(vo)) if vo else ''}, mastered to {LUFS:g} LUFS"
+        how = f"score{' + VO ' + ','.join(n for n, _, _ in vo) if vo else ''}, mastered to {LUFS:g} LUFS"
     else:
         run(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", TOTAL / FPS, "-c:a", "pcm_s24le", full])
         m, how = {"I": None, "TP": None, "LRA": None}, "silence (no --mix or --score)"
@@ -607,6 +648,8 @@ def main(argv=None) -> None:
     ap.add_argument("--mix", type=Path, help="the finished mix (R5)")
     ap.add_argument("--score", type=Path, help="the score, when there is no finished mix")
     ap.add_argument("--vo", action="append", default=[], metavar="L1=path", help="a voice line's WAV (with --score)")
+    ap.add_argument("--cues", type=Path, help="R4's cues.json: the voice lines beside it (with --score) and word-timed "
+                                              "captions")
     ap.add_argument("--out", type=Path, default=OUT)
     ap.add_argument("--frames", dest="span", metavar="A:B", help="master frames [A, B) only")
     ap.add_argument("--shots", metavar="S13-S18", help="these shots only")
@@ -631,6 +674,11 @@ def main(argv=None) -> None:
     vo = dict(v.split("=", 1) for v in a.vo)
     if set(vo) - set(LINES):
         ap.error(f"--vo names a line that is not one of {', '.join(LINES)}")
+    if vo and a.cues:
+        ap.error("--vo and --cues both name the voice: one or the other")
+    spoken = read_cues(a.cues) if a.cues else {}
+    vo = ([(k, v["wav"], round(v["file_frame"] * 1000 / FPS)) for k, v in sorted(spoken.items())] if spoken else
+          [(k, Path(p), round(LINES[k][0] * 1000 / FPS)) for k, p in sorted(vo.items())])
     want = set(a.only.split(",")) if a.only else {"prores", *(o.name for o in OUTPUTS)}
     n = f1 - f0
     a.out.mkdir(parents=True, exist_ok=True)
@@ -648,7 +696,7 @@ def main(argv=None) -> None:
         pre = ",".join(x for x in [grade_filter(a.grade, a.lut), yuv(mw, mh),
                                    f"noise=c0s={a.grain:g}:c0f=t" if a.grain else ""] if x)
         audio, loud = sound(work, f0, f1, a.mix, a.score, vo)
-        cs = cues()
+        cs = cues(words=line_words(spoken) if spoken else None)
         write_captions(a.out / "karma-reel", cs, f0, f1)
         made = []
         if "prores" in want:
@@ -669,7 +717,8 @@ def main(argv=None) -> None:
                   "shots": {s.id: sorted({str(Path(p).parent) for f, p in found.items() if p and s.start <= f < s.end})
                             for s in SHOTS if s.start < f1 and s.end > f0},
                   "missing": sum(1 for p in found.values() if p is None), "outputs": made,
-                  "title": TITLE, "lines": LINES, "vcrop_keys (draft)": VCROP_KEYS}
+                  "title": TITLE, "lines": LINES,
+                  "captions": [[a, b, t] for (a, b), t in cs], "cues": str(a.cues) if a.cues else None, "vcrop_keys (draft)": VCROP_KEYS}
         (a.out / "cut.json").write_text(json.dumps(report, indent=1, ensure_ascii=False))
         bad = [f"{m['file']}: {', '.join(m['problems'])}" for m in made if m["problems"]]
         snd = f"{loud['I']:.1f} LUFS, {loud['TP']:.1f} dBTP" if loud.get("I") is not None else "silent"
