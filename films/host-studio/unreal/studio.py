@@ -198,25 +198,25 @@ oak = surface("Oak", 100, roughness=1.0)
 walnut = surface("Walnut", 100)
 black_metal = plain("BlackMetal", (0.012, 0.012, 0.013), 0.45, 1.0)
 brass = plain("Brass", (0.78, 0.56, 0.28), 0.3, 1.0)
-GOLD = (1.0, 0.72, 0.3)  # gold's F0 (linear), a touch deeper than the textbook value: the room is warm already
+GOLD = (1.0, 0.68, 0.25)  # gold's F0 (linear), a touch deeper than the textbook value: the room is warm already
 # polished gold, evenly buffed (the GPU frame's accents, the pins, her hoops); the coin has its own finish below
 gold = instance("MI_K_GoldPolished", GOLD_PARENT, vectors={"Color": GOLD},
                 scalars={"FieldRough": 0.16, "ReliefRough": 0.16, "RimRough": 0.16, "Var": 0.3, "Ripple": 0.01})
 # the coin: a satin field with mirror-polished relief and rims (from its Relief colours), so the B and the circuit
 # read as bright metal against soft gold whatever the room puts in the reflection
 coin_gold = instance("MI_K_CoinGold", GOLD_PARENT, vectors={"Color": GOLD},
-                     scalars={"FieldRough": 0.32, "ReliefRough": 0.07, "RimRough": 0.07, "Var": 0.25, "Ripple": 0.01})
+                     scalars={"FieldRough": 0.26, "ReliefRough": 0.06, "RimRough": 0.06, "Var": 0.12, "Ripple": 0.008})
 # the lyzn block: frosted faces, polished round-overs that glow brighter (edge-lit), white engraved letters
-ACRYLIC = {"Color": (0.86, 0.86, 0.85), "ScatterColor": (0.95, 0.92, 0.88), "GlowColor": (1.0, 0.86, 0.7)}
+ACRYLIC = {"Color": (0.78, 0.78, 0.77), "ScatterColor": (0.95, 0.92, 0.88), "GlowColor": (1.0, 0.86, 0.7)}
 GLOW = 2.0 if NIGHT else 1.0  # the block's LED base: a little brighter in the dark room
 acrylic_frost = instance("MI_K_AcrylicFrost", ACRYLIC_PARENT, vectors=ACRYLIC,
-                         scalars={"Roughness": 0.4, "Scatter": 0.9, "Glow": 0.8 * GLOW, "GlowFade": 12.0})
+                         scalars={"Roughness": 0.4, "Scatter": 0.9, "Glow": 0.3 * GLOW, "GlowFade": 12.0})
 acrylic_polish = instance("MI_K_AcrylicPolish", ACRYLIC_PARENT, vectors=ACRYLIC,
-                          scalars={"Roughness": 0.05, "Scatter": 0.9, "Glow": 2.0 * GLOW, "GlowFade": 12.0})
+                          scalars={"Roughness": 0.05, "Scatter": 0.9, "Glow": 1.0 * GLOW, "GlowFade": 12.0})
 acrylic_engrave = instance("MI_K_AcrylicEngrave", ACRYLIC_PARENT,
                            vectors={"Color": (0.95, 0.95, 0.94), "ScatterColor": (1.0, 0.95, 0.9),
                                     "GlowColor": (1.0, 0.88, 0.74)},
-                           scalars={"Roughness": 0.8, "Scatter": 0.6, "Glow": 3.5 * GLOW, "GlowFade": 12.0})
+                           scalars={"Roughness": 0.8, "Scatter": 0.6, "Glow": 2.2 * GLOW, "GlowFade": 12.0})
 silver = plain("Silver", (0.85, 0.85, 0.86), 0.3, 1.0)
 alu = plain("Alu", (0.7, 0.7, 0.72), 0.35, 1.0)
 satin_black = plain("SatinBlack", (0.014, 0.014, 0.015), 0.5)
@@ -232,7 +232,7 @@ MAT = {
     "M_WinFrame": plain("WinFrame", (0.68, 0.66, 0.62), 0.4), "M_Glass": clear_glass,
     "M_Sheer": K.material("MI_K_Sheer", (1.0, 0.98, 0.94), kind="Sheer", texture=tex(S, "T_Linen_A"),
                           mask=tex(S, "T_Linen_O"), tiling=100.0 / 8, opacity=0.9, roughness=0.8,
-                          transmission=(1.0, 0.92, 0.8), glow=0.02 if NIGHT else 0.25, folder=M),
+                          transmission=(0.7, 0.64, 0.56), glow=0.01 if NIGHT else 0.12, folder=M),
     "M_Rod": black_metal, "M_Rug": surface("Wool", 60),
     # the slat wall and the sign
     "M_Walnut": walnut, "M_Felt": surface("Felt", 40, color=(0.6, 0.6, 0.6)),
@@ -346,7 +346,7 @@ for lab, name in (("Room", "room_shell"), ("Window", "window"), ("Curtains", "cu
 # the garden outside, out of focus behind the glass
 K.card("Outside", (WALL - 140, 205, 150), 520, 900,
        K.material("MI_K_Outside", kind="Screen", texture=tex(T, "T_OutsideNight" if NIGHT else "T_Outside"),
-                  intensity=3.0 if NIGHT else 40.0, roughness=1.0, folder=M))
+                  intensity=1.2 if NIGHT else 18.0, roughness=1.0, folder=M))
 
 # ------------------------------------------------------------------------------------------- slats and the sign
 SLAT_Y, SLAT_DEPTH = 25.0, 3.4
@@ -379,7 +379,7 @@ TOPS = (125.0, 162.0, 199.0, 236.0)   # shelf top surfaces, bottom to top
 for n, z in enumerate(TOPS):
     prop(f"Shelf{n}", "shelf", (WALL, SH_C, z - 4.5))
     K.light(f"ShelfLed{n}", "rect", loc=(WALL + 23, SH_C, z - 5.2), look_at=(WALL + 18, SH_C, z - 60),
-            intensity=1.5 if NIGHT else 1.3,
+            intensity=0.45 if NIGHT else 1.15,
             temperature=2700, width=SH_LEN - 8, height=1.6, barn_angle=60, volumetric=0.0)
 CR_C, CR_TOP = -135.0, 72.0
 prop("Credenza", "credenza", (WALL, CR_C, 0))
@@ -428,23 +428,23 @@ prop("Stool", "stool", (-95, 20, 0), yaw=25)  # for the empty-room shots; hidden
 
 # ------------------------------------------------------------------------------------------------- daylight
 if not NIGHT:
-    K.sky(elevation=28, azimuth=-28, lux=30000, temperature=5100, sky_intensity=0.6, shadow_softness=0.7)
+    K.sky(elevation=28, azimuth=-28, lux=17000, temperature=5100, sky_intensity=0.6, shadow_softness=0.7)
     K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=8,
             temperature=6200, width=150, height=280, barn_angle=80, volumetric=0.0)
-    K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=1.5, temperature=4500, width=300,
+    K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=0.8, temperature=4500, width=300,
             height=300, shadows=False, specular=0.0, volumetric=0.0)
 else:
-    # the sun below the horizon (the atmosphere goes blue-hour), only a cool glow from the window
-    K.sky(elevation=-8, azimuth=-28, lux=2.0, temperature=7500, sky_intensity=0.04, shadow_softness=2.0)
-    K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=0.35,
-            color=(0.35, 0.47, 0.85), width=150, height=280, barn_angle=80, shadows=False, volumetric=0.0)
-    K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=0.3, temperature=2800, width=300,
+    # the sun off below the horizon; a cool moonlit glow from the window and a cool fill against the warm practicals
+    K.sky(elevation=-8, azimuth=-28, lux=0.0, temperature=7500, sky_intensity=0.04, shadow_softness=2.0)
+    K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=1.2,
+            color=(0.3, 0.45, 0.95), width=150, height=280, barn_angle=80, shadows=False, volumetric=0.0)
+    K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=0.4, temperature=10000, width=300,
             height=300, shadows=False, specular=0.0, volumetric=0.0)
     # warm recessed downlights: pools on the credenza, a wash down the slats, a lift on the olive tree
-    for name, loc, at, cd in (("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, CR_TOP), 15.0),
-                              ("DownSlats", (WALL + 32, SLAT_Y, 296), (WALL + 4, SLAT_Y, 90), 16.0),
+    for name, loc, at, cd in (("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, CR_TOP), 12.0),
+                              ("DownSlats", (WALL + 32, SLAT_Y, 296), (WALL + 4, SLAT_Y, 90), 10.0),
                               ("DownOlive", (WALL + 75, 205, 296), (WALL + 62, 205, 120), 9.0),
-                              ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 3.5)):
+                              ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 0.8)):
         K.light(name, "spot", loc=loc, look_at=at, intensity=cd, temperature=2700, cone=32, radius=600,
                 volumetric=0.4, shadows=name != "DownSlats")  # the slat wash would throw the sign's shadow down the slats
 
@@ -453,7 +453,7 @@ FACE = (8.0, 0.0, 172.0)
 K.light("Key", "rect", loc=(140, 130, 215), look_at=FACE, intensity=5.5 if NIGHT else 9.0,
         temperature=4300 if NIGHT else 5000, width=140, height=140,
         barn_angle=70, volumetric=0.0)
-K.light("Fill", "rect", loc=(190, -125, 160), look_at=FACE, intensity=1.0, temperature=4800, width=180, height=180,
+K.light("Fill", "rect", loc=(190, -125, 160), look_at=FACE, intensity=0.7, temperature=4800, width=180, height=180,
         specular=0.3, volumetric=0.0)
 K.light("HairLight", "rect", loc=(-85, 25, 258), look_at=(0, 0, 186), intensity=5.0, temperature=3800, width=60,
         height=30, barn_angle=55, volumetric=0.0)
@@ -507,9 +507,9 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
             pass
 
 # --------------------------------------------------------------------------------------------- air, lens, cameras
-K.fog(density=0.0006 if NIGHT else 0.0002, volumetric=True, albedo=(0.95, 0.93, 0.9), extinction=0.05,
+K.fog(density=0.0006 if NIGHT else 0.0001, volumetric=True, albedo=(0.95, 0.93, 0.9), extinction=0.05,
       height_falloff=0.02)
-K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_bias": 9.6 if NIGHT else 8.3, "white_temp": 5600.0,
+K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_bias": 9.1 if NIGHT else 8.3, "white_temp": 5600.0,
         "bloom_intensity": 0.25, "bloom_threshold": 1.0, "vignette_intensity": 0.25, "film_grain_intensity": 0.06,
         "scene_fringe_intensity": 0.0, "lumen_final_gather_quality": 4.0, "lumen_reflection_quality": 2.0,
         "lumen_scene_detail": 2.0, "lumen_scene_lighting_quality": 2.0, "lumen_max_trace_distance": 2000.0})
