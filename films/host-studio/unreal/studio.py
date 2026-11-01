@@ -372,6 +372,42 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
             K.channels([lab], [0, 1])
         except ValueError:
             pass
+    # >>> overshirt
+    # her olive cotton-twill overshirt, worn open over the tee (props/overshirt.py, imported onto her skeleton by
+    # props/overshirt_ue/import_overshirt.py): a skeletal mesh component under her body that takes the body's pose
+    # (leader pose). Set last: a property change on her components reruns her construction script.
+    SHIRT_DIR = "/Game/Host/Presenter_Overshirt"
+    SHIRT = f"{SHIRT_DIR}/SKM_Presenter_Overshirt"
+    if unreal.EditorAssetLibrary.does_asset_exist(SHIRT):
+        shirt_mats = {
+            "M_Overshirt": K.material("MI_K_Overshirt", (1.0, 1.0, 1.0), kind="Pbr",
+                                      texture=tex(SHIRT_DIR, "T_OvershirtTwill_A"),
+                                      normal=tex(SHIRT_DIR, "T_OvershirtTwill_N"),
+                                      mask=tex(SHIRT_DIR, "T_OvershirtTwill_M"), tiling=100.0 / 2.0,
+                                      roughness=1.0, metallic=0.0, folder=M),
+            "M_Buttons": plain("OvershirtButtons", (0.07, 0.05, 0.032), 0.32, specular=0.5),  # dark horn
+        }
+
+        def her_comp(name):
+            return next((c for c in L.actor("Presenter").get_components_by_class(unreal.SkeletalMeshComponent)
+                         if c.get_name() == name), None)
+
+        if her_comp("Overshirt") is None:
+            sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+            SDL = unreal.SubobjectDataBlueprintFunctionLibrary
+            handles = sds.k2_gather_subobject_data_for_instance(L.actor("Presenter"))
+            body_h = next(h for h in handles if (lambda o: o is not None and o.get_name() == "Body")(
+                SDL.get_object(SDL.get_data(h))))
+            new_h, why = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+                parent_handle=body_h, new_class=unreal.SkeletalMeshComponent))
+            sds.rename_subobject(new_h, unreal.Text("Overshirt"))
+        her_comp("Overshirt").set_skeletal_mesh_asset(unreal.load_asset(SHIRT))
+        for slot_, mi_ in shirt_mats.items():
+            her_comp("Overshirt").set_material_by_name(slot_, unreal.load_asset(mi_))
+        her_comp("Overshirt").set_editor_property("lighting_channels",
+                                                  her_comp("Body").get_editor_property("lighting_channels"))
+        her_comp("Overshirt").set_leader_pose_component(her_comp("Body"))
+    # <<< overshirt
 
 # --------------------------------------------------------------------------------------------- air, lens, cameras
 K.fog(density=0.0006 if NIGHT else 0.0002, volumetric=True, albedo=(0.95, 0.93, 0.9), extinction=0.05,

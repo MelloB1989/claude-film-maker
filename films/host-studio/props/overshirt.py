@@ -736,6 +736,18 @@ def snapshot(path, objs_colors, views=(("front", (0, 1, 0)), ("side", (-1, 0, 0)
         sc.collection.objects.link(cam)
     sc.camera = cam
     out = []
+    try:
+        _snap_views(path, views, centre, dist, sc, cam, out)
+    finally:
+        for ob in objs_colors:
+            for sl in ob.material_slots:
+                if sl.link == "OBJECT":
+                    sl.material = None
+                    sl.link = "DATA"
+    return out
+
+
+def _snap_views(path, views, centre, dist, sc, cam, out):
     for name, d in views:
         d = Vector(d).normalized()
         c = Vector(centre)
@@ -822,6 +834,292 @@ def save_mesh(path, **kw):
 def load_mesh(path):
     d = np.load(path, allow_pickle=True)
     return {k: (list(d[k]) if k == "Q" else d[k]) for k in d.files}
+
+
+# ================================================================ skinning, pose tests, export
+
+def weight_source(her, sel_out, sel_body):
+    """Points, triangles and per-vertex weights (n x G) of the chosen tee/body vertices, as one mesh."""
+    parts = []
+    for X, T, W, sel in ((her.ox, her.ot, her.ow, sel_out), (her.bx, her.bt, her.bw, sel_body)):
+        keep = sel[T].all(1)
+        parts.append((X, T[keep], W))
+    groups = sorted({g for _, _, W in parts for g in W})
+    gi = {g: i for i, g in enumerate(groups)}
+    V, T, WW = [], [], []
+    off = 0
+    for X, Tk, W in parts:
+        A = np.zeros((len(X), len(groups)), np.float32)
+        for g, a in W.items():
+            A[:, gi[g]] = a
+        V.append(X)
+        T.append(Tk + off)
+        WW.append(A)
+        off += len(X)
+    V, T, WW = np.concatenate(V), np.concatenate(T), np.concatenate(WW)
+    bvh = BVHTree.FromPolygons([Vector(p) for p in V], [tuple(map(int, t)) for t in T])
+    return dict(V=V, T=T, W=WW, groups=groups, bvh=bvh)
+
+
+def bary_weights(src, P, gmap, G):
+    """Weights at points P (cm) from the nearest point of a weight source, interpolated over its triangle."""
+    out = np.zeros((len(P), G), np.float32)
+    tri = src["T"]
+    cols = np.array([gmap[g] for g in src["groups"]])
+    for i, p in enumerate(P):
+        loc, nor, fi, dist = src["bvh"].find_nearest(Vector(p))
+        if loc is None:
+            continue
+        t = tri[fi]
+        w = RestMap._bary(np.array(loc[:]), src["V"][t])
+        w = np.clip(w, 0, 1)
+        w /= max(w.sum(), 1e-9)
+        out[i, cols] = (src["W"][t] * w[:, None]).sum(0)
+    return out
+
+
+def mesh_adjacency(me, lo, hi):
+    """Edge neighbour lists for vertices lo..hi of a mesh (indices relative to lo)."""
+    E = np.zeros(len(me.edges) * 2, np.int64)
+    me.edges.foreach_get("vertices", E)
+    E = E.reshape(-1, 2)
+    E = E[(E >= lo).all(1) & (E < hi).all(1)] - lo
+    n = hi - lo
+    nb = [[] for _ in range(n)]
+    for a, b in E:
+        nb[a].append(b)
+        nb[b].append(a)
+    return [np.array(x, int) for x in nb]
+
+
+def skin(her, ob, pat):
+    """Vertex groups for the overshirt on her skeleton."""
+    me = ob.data
+    X = np.zeros(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", X)
+    X = X.reshape(-1, 3) * 100.0
+    ranges = json.loads(ob["pieces"])
+    n_out, n_body = len(her.ox), len(her.bx)
+    armw_out = [her.arm_weight(her.ow, n_out, s) for s in (1, -1)]
+    body_arm = [(np.sign(her.bx[:, 0]) == s) & (np.abs(her.bx[:, 0]) > 11.0) & (her.bx[:, 2] > 90.0) for s in (1, -1)]
+    full = weight_source(her, np.ones(n_out, bool), her.bx[:, 2] > 60.0)
+    arm_src = [weight_source(her, armw_out[k] > 0.5, body_arm[k]) for k in range(2)]
+    groups = sorted(set(full["groups"]) | set(arm_src[0]["groups"]) | set(arm_src[1]["groups"]))
+    gmap = {g: i for i, g in enumerate(groups)}
+    G = len(groups)
+    W = np.zeros((len(X), G), np.float32)
+    # the shirt's panels: from her (the sleeves from her arm only), smoothed over the cloth
+    _, b0, b1 = next(r for r in ranges if r[0] == "body")
+    Pb = X[b0:b1]
+    ah, side = pat.armhole(Pb)
+    sleeve = ah > -1.5
+    blend = smoothstep(-1.5, 2.5, ah)
+    Wt = bary_weights(full, Pb, gmap, G)
+    Wa = np.zeros_like(Wt)
+    for k, s in enumerate((1, -1)):
+        m = sleeve & (side == s)
+        Wa[m] = bary_weights(arm_src[k], Pb[m], gmap, G)
+    Wb = Wt * (1 - blend)[:, None] + Wa * blend[:, None]
+    nb = mesh_adjacency(me, b0, b1)
+    for _ in range(25):
+        avg = np.array([Wb[x].mean(0) if len(x) else Wb[i] for i, x in enumerate(nb)])
+        Wb = 0.5 * Wb + 0.5 * avg
+    W[b0:b1] = Wb
+    # everything sewn on (collar, cuffs, pocket, buttons) moves with the cloth under it
+    tri = []
+    for poly in me.polygons:
+        if b0 <= poly.vertices[0] < b1:
+            v = list(poly.vertices)
+            for k in range(1, len(v) - 1):
+                tri.append((v[0] - b0, v[k] - b0, v[k + 1] - b0))
+    shirt = dict(V=Pb, T=np.array(tri), W=Wb, groups=groups,
+                 bvh=BVHTree.FromPolygons([Vector(p) for p in Pb], tri))
+    for name, a0, a1 in ranges:
+        if name == "body":
+            continue
+        W[a0:a1] = bary_weights(shirt, X[a0:a1], gmap, G)
+    # at most 8 bones a vertex, normalised
+    W[W < 0.005] = 0
+    if G > 8:
+        idx = np.argsort(-W, axis=1)[:, 8:]
+        np.put_along_axis(W, idx, 0, axis=1)
+    W /= np.maximum(W.sum(1, keepdims=True), 1e-9)
+    for g in list(ob.vertex_groups):
+        ob.vertex_groups.remove(g)
+    used = [i for i in range(G) if W[:, i].max() > 0]
+    for i in used:
+        vg = ob.vertex_groups.new(name=groups[i])
+        nz = np.nonzero(W[:, i])[0]
+        # group equal weights to cut down the calls
+        ww = np.round(W[nz, i], 4)
+        for w in np.unique(ww):
+            vg.add(nz[ww == w].tolist(), float(w), "REPLACE")
+    log(f"skin: {len(used)} bones, max influences {(W > 0).sum(1).max()}")
+    return [groups[i] for i in used]
+
+
+def bind(her, ob):
+    arm = her.arm
+    ob.parent = arm
+    ob.matrix_parent_inverse = arm.matrix_world.inverted()
+    mod = ob.modifiers.new("Armature", "ARMATURE")
+    mod.object = arm
+    return mod
+
+
+def eval_points(ob):
+    dg = bpy.context.evaluated_depsgraph_get()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    X = np.zeros(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", X)
+    X = (np.array(ob.matrix_world) @ np.c_[X.reshape(-1, 3), np.ones(len(me.vertices))].T).T[:, :3] * 100.0
+    me.calc_loop_triangles()
+    T = np.zeros(len(me.loop_triangles) * 3, np.int64)
+    me.loop_triangles.foreach_get("vertices", T)
+    ev.to_mesh_clear()
+    return X, T.reshape(-1, 3)
+
+
+def clip_check(her, ob, step=4, tol=0.0):
+    """Garment vertices inside her (tee, limbs) in the current pose: count and deepest (cm)."""
+    V, T = [], []
+    for o in (her.outfit_ob, her.body_ob):
+        X, Tr = eval_points(o)
+        T.append(Tr + sum(len(v) for v in V))
+        V.append(X)
+    V, T = np.concatenate(V), np.concatenate(T)
+    bvh = BVHTree.FromPolygons([Vector(p) for p in V], [tuple(map(int, t)) for t in T])
+    G, _ = eval_points(ob)
+    G = G[::step]
+    bad, deep = 0, 0.0
+    for p in G:
+        loc, nor, fi, dist = bvh.find_nearest(Vector(p), 3.0)
+        if loc is None:
+            continue
+        if (Vector(p) - loc).dot(nor) < -tol:
+            bad += 1
+            deep = max(deep, dist)
+    return bad * step, deep
+
+
+def pose_bone_world(arm, bone, axis, deg):
+    pb = arm.pose.bones[bone]
+    M = pb.matrix.copy()
+    h = M.translation.copy()
+    R = Matrix.Rotation(math.radians(deg), 4, Vector(axis))
+    pb.matrix = Matrix.Translation(h) @ R @ Matrix.Translation(-h) @ M
+    bpy.context.view_layer.update()
+
+
+def reset_pose(arm):
+    for pb in arm.pose.bones:
+        pb.matrix_basis = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+
+
+POSES = {  # name: [(bone, world axis, degrees)]; her left is +X, her front -Y
+    "raise60": [("upperarm_l", (0, 1, 0), -60), ("upperarm_r", (0, 1, 0), 60)],
+    "down40": [("upperarm_l", (0, 1, 0), 40), ("upperarm_r", (0, 1, 0), -40)],
+    "fwd60": [("upperarm_l", (1, 0, 0), 60), ("upperarm_r", (1, 0, 0), 60)],
+    "back60": [("upperarm_l", (1, 0, 0), -45), ("upperarm_r", (1, 0, 0), -45)],
+    "elbow60": [("lowerarm_l", (1, 0, 0), 60), ("lowerarm_r", (1, 0, 0), 60)],
+}
+
+
+def pose_tests(her, ob, args, colours):
+    arm = her.arm
+    for o in (her.outfit_ob, her.body_ob):  # the tee and the limbs follow the same armature
+        for m in o.modifiers:
+            if m.type == "ARMATURE":
+                m.object = arm
+    res = {}
+    for name, moves in POSES.items():
+        reset_pose(arm)
+        for bone, ax, deg in moves:
+            pose_bone_world(arm, bone, ax, deg)
+        res[name] = clip_check(her, ob)
+        log(f"pose {name}: {res[name][0]} verts inside her, deepest {res[name][1]:.2f} cm")
+        snapshot(os.path.join(args.out, f"overshirt_pose_{name}"), {ob: (0.33, 0.38, 0.22), **colours},
+                 views=(("front", (0, 1, 0)), ("q", (0.6, 1, -0.25))), centre=(0, 0, 1.15), ortho=1.25,
+                 res=(800, 900))
+    reset_pose(arm)
+    return res
+
+
+def retarget(src, dst):
+    """Her pose from another armature of the same skeleton, as Unreal plays an animation on her: each bone takes
+    the source's local rotation on her own bone offsets (her proportions)."""
+    for pb in dst.pose.bones:
+        sb = src.pose.bones.get(pb.name)
+        if sb is None or pb.parent is None:
+            continue
+        sl = (sb.parent.matrix.inverted() @ sb.matrix) if sb.parent else sb.matrix
+        rl = pb.parent.bone.matrix_local.inverted() @ pb.bone.matrix_local
+        want = Matrix.Translation(rl.translation) @ sl.to_quaternion().to_matrix().to_4x4()
+        pb.matrix_basis = rl.inverted() @ want
+
+
+def idle_test(her, ob, args, colours, samples=10):
+    """Play her idle (the stills' animation) retargeted onto her: clipping per sampled frame."""
+    p = os.path.join(args.src, "idle.fbx")
+    if not os.path.exists(p):
+        return {}
+    before = set(bpy.data.actions)
+    objs = import_fbx(p)
+    acts = [a for a in bpy.data.actions if a not in before]
+    src = next((o for o in objs if o.type == "ARMATURE"), None)
+    if not acts or src is None:
+        return {}
+    for o in objs:
+        o.hide_render = True
+    f0, f1 = (int(x) for x in acts[0].frame_range)
+    targets = [her.arm]
+    if her.face_ob is not None and her.face_ob.parent is not None and her.face_ob.parent.type == "ARMATURE":
+        targets.append(her.face_ob.parent)
+    res = {}
+    shots = {f0 + (f1 - f0) // 3, f0 + 2 * (f1 - f0) // 3}
+    frames = sorted({int(f0 + (f1 - f0) * k / (samples - 1)) for k in range(samples)} | shots)
+    for f in frames:
+        bpy.context.scene.frame_set(f)
+        for t in targets:
+            retarget(src, t)
+        bpy.context.view_layer.update()
+        res[f] = clip_check(her, ob)
+        log(f"idle frame {f}: {res[f][0]} verts inside her, deepest {res[f][1]:.2f} cm")
+        if f in shots:
+            snapshot(os.path.join(args.out, f"overshirt_idle_{f}"), {ob: (0.33, 0.38, 0.22), **colours},
+                     views=(("front", (0, 1, 0)), ("q", (0.6, 1, -0.25)), ("side", (-1, 0, 0))),
+                     centre=(0, 0, 1.15), ortho=1.25, res=(800, 900))
+    for o in objs:
+        bpy.data.objects.remove(o, do_unlink=True)
+    for t in targets:
+        reset_pose(t)
+    return res
+
+
+def export_skeletal(her, ob, path):
+    """The overshirt on her skeleton, as Unreal expects it: the armature object is the skeleton's root bone."""
+    arm = her.arm
+    mw = arm.matrix_world.copy()
+    arm.parent = None
+    arm.matrix_world = mw
+    for o in bpy.context.scene.objects:
+        o.select_set(False)
+    arm.select_set(True)
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    arm.name = "root"
+    for o in bpy.context.scene.objects:
+        o.select_set(o in (arm, ob))
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.export_scene.fbx(
+        filepath=path, use_selection=True, object_types={"ARMATURE", "MESH"},
+        apply_unit_scale=True, apply_scale_options="FBX_SCALE_ALL", global_scale=1.0,
+        axis_forward="-Y", axis_up="Z", add_leaf_bones=False, use_armature_deform_only=False,
+        bake_anim=False, mesh_smooth_type="FACE", use_mesh_modifiers=False, use_tspace=False,
+        primary_bone_axis="Y", secondary_bone_axis="X", path_mode="STRIP")
+    log(f"exported {path}")
 
 
 # ================================================================ detail: the pattern (rest) space
@@ -1735,6 +2033,11 @@ def pieces_object(name, pieces, mats):
     me.shade_smooth()
     ob = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(ob)
+    ranges, off = [], 0
+    for pc in pieces:
+        ranges.append((pc.name, off, off + len(pc.V)))
+        off += len(pc.V)
+    ob["pieces"] = json.dumps(ranges)
     return ob
 
 
@@ -1792,6 +2095,13 @@ def main():
         snapshot(os.path.join(args.out, "overshirt_detclose"), {ob: (0.33, 0.38, 0.22), **colours},
                  views=(("front", (0, 1, -0.15)), ("q", (0.5, 1, -0.3))), centre=(0, -0.08, 1.33), ortho=0.36,
                  res=(1100, 1100))
+        if "skin" in stages:
+            pat = Pattern(her)
+            skin(her, ob, pat)
+            bind(her, ob)
+            res = {"poses": pose_tests(her, ob, args, colours), "idle": idle_test(her, ob, args, colours)}
+            json.dump(res, open(os.path.join(args.out, "overshirt_clip.json"), "w"), indent=1)
+            export_skeletal(her, ob, os.path.join(args.out, NAME + ".fbx"))
         if args.tag == "dbg":
             snapshot(os.path.join(args.out, "overshirt_dbg"), {ob: (0.33, 0.38, 0.22), **colours},
                      views=(("a", (0.2, 1, 0)), ("b", (-0.3, 1, 0.1))), centre=(-0.065, -0.13, 1.19), ortho=0.07,
@@ -1799,9 +2109,9 @@ def main():
 
 
 def tidy_normals(ob):
+    """Outward normals per piece (vertex order is kept: the skinning relies on it)."""
     bm = bmesh.new()
     bm.from_mesh(ob.data)
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bm.to_mesh(ob.data)
     bm.free()
