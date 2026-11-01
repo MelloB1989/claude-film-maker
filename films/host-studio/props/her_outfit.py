@@ -971,6 +971,22 @@ def clean_mesh(V, Q, hole_sides=12):
     return V2, Q2
 
 
+def prune_corners(V, Q, rounds=4):
+    """Drop the surface net's corner quads along the openings (three or four verts on the edge: the steps of a
+    staircase), so each opening is a clean path; smoothed later, they would fold over into teeth along the hem."""
+    for _ in range(rounds):
+        bnd = np.zeros(len(V), bool)
+        for a, b in boundary_edges(Q):
+            bnd[a] = bnd[b] = True
+        keep = [q for q in Q if bnd[np.asarray(q)].sum() < 3]
+        if len(keep) == len(Q):
+            break
+        Q = keep_largest(V, np.array(keep, dtype=object) if any(len(q) != 4 for q in keep) else np.array(keep))
+        V, Q = compact(V, list(Q))
+        V, Q = clean_mesh(V, Q)
+    return V, Q
+
+
 def build_top(her, marks, surf, z_hem, z_band):
     shape = TopShape(her, marks, z_hem)
     cuts = TopCuts(marks, shape, z_hem)
@@ -991,6 +1007,7 @@ def build_top(her, marks, surf, z_hem, z_band):
     Q = keep_largest(V, Q)
     V, Q = compact(V, Q)
     V, Q = clean_mesh(V, Q)
+    V, Q = prune_corners(V, Q)
     lap = Lap(len(V), Q)
     loops = boundary_loops(Q)
     bnd = np.zeros(len(V), bool)
@@ -1182,8 +1199,14 @@ def top_uv(top, marks):
 
 
 def solidify(X, F, thick, uvs, rim_round=1.0):
-    """Thicken a surface (cm): outer = X, inner = X - n*thick; rounded rims on open edges. uvs: per face corner."""
+    """Thicken a surface (cm): outer = X, inner = X - n*thick; rounded rims on open edges. uvs: per face corner.
+    The normals are evened over their neighbours first: at an opening a vertex's few faces can tilt its normal one way
+    and its neighbour's the other, and the inner layer and the rim would zig-zag along the hem."""
     vn = vertex_normals(X, F)
+    lp = Lap(len(X), F)
+    for _ in range(4):
+        vn = 0.5 * vn + 0.5 * lp.avg(vn)
+        vn /= np.maximum(np.linalg.norm(vn, axis=1)[:, None], 1e-12)
     n = len(X)
     inner = X - vn * thick[:, None]
     verts = list(X) + list(inner)
