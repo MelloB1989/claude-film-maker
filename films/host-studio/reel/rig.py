@@ -11,12 +11,14 @@ nothing in the day level (the stills keep working), and re-running it is harmles
 The cameras (Reel_S01 ... S18) are R3's (reel/build.py). studio.py rebuilds the level from scratch, so run this again
 after every studio.py:
 
-    cd tools && uv run python ../films/host-studio/reel/rig.py
+    cd tools && uv run python ../films/host-studio/reel/rig.py [--no-save]
+    cd tools && uv run python ../films/host-studio/reel/rig.py --remove   # take it all out again
 
 It needs the bridge with look.material's GlowWipe kind installed (`film-ue install` from a checkout with it).
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -50,7 +52,26 @@ def where(label: str):
     return ok(client.exec_code(code))
 
 
+def remove(save: bool) -> None:
+    """Take the rig out: the downlights and the night card deleted, SignHalo back on studio.py's MI_K_Halo, the rig's
+    material instances deleted."""
+    ok(client.op("level.delete", labels=[d[0] for d in DOWN] + ["OutsideNight"]))
+    if where("SignHalo") is not None:
+        ok(client.op("look.apply", label="SignHalo", material=f"{M}/MI_K_Halo"))
+    for mi in ("MI_K_HaloWipe", "MI_K_OutsideNight"):
+        ok(client.exec_code(f"import unreal\nresult = unreal.EditorAssetLibrary.delete_asset('{M}/{mi}')"))
+    if save:
+        ok(client.op("level.save"))
+    print("removed")
+
+
 def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--no-save", action="store_true", help="leave the level unsaved (a test)")
+    ap.add_argument("--remove", action="store_true", help="take the rig out again")
+    a = ap.parse_args()
+    if a.remove:
+        return remove(not a.no_save)
     done = []
     # the downlights, as studio.py's night places them, dark
     for label, loc, at, _, _ in DOWN:
@@ -75,7 +96,8 @@ def main() -> None:
                         scalars={"Reveal": 1.0, "Softness": 0.03}, folder=M))
     ok(client.op("look.apply", label="SignHalo", material=wipe))
     done.append("SignHalo <- MI_K_HaloWipe")
-    ok(client.op("level.save"))
+    if not a.no_save:
+        ok(client.op("level.save"))
     print("\n".join(done))
 
 
