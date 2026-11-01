@@ -2251,8 +2251,11 @@ def bake_clearance(her, ob, n, Q, lap, src, args, surf, gap=0.3, iters=2, sample
     reset_pose(her.arm)
 
 
-def prepare_export_armature(her):
-    """The armature object as Unreal's skeleton root: unparented, scale applied, named 'root'."""
+def prepare_export_armature(her, garments):
+    """The armature object as Unreal's skeleton root: unparented, scale applied, named 'root'; then the armature and
+    the garments in centimetres (scene unit 0.01, everything x100 and applied), as her body's FBX is. Exported in
+    metres, the root carried x100 over bones in metres: the garment matched her at rest and shrank to nothing as soon
+    as leader pose moved it."""
     arm = her.arm
     mw = arm.matrix_world.copy()
     arm.parent = None
@@ -2263,6 +2266,20 @@ def prepare_export_armature(her):
     bpy.context.view_layer.objects.active = arm
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     arm.name = "root"
+    parented = [g for g in garments if g.parent == arm]
+    for g in garments:
+        gw = g.matrix_world.copy()
+        g.parent = None
+        g.matrix_world = gw
+    for o in [arm] + list(garments):
+        o.matrix_world = Matrix.Scale(100.0, 4) @ o.matrix_world
+        o.select_set(True)
+    bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)
+    for g in parented:
+        g.parent = arm
+        g.matrix_parent_inverse = arm.matrix_world.inverted()
+    us = bpy.context.scene.unit_settings
+    us.system, us.scale_length = "METRIC", 0.01
 
 
 def export_skeletal(her, ob, path):
@@ -2347,7 +2364,7 @@ def main():
         res = {"poses": pose_tests(her, garments, a, cols), "idle": idle_test(her, garments, a, cols)}
         with open(os.path.join(a.out, f"{NAME}_tests.json"), "w") as f:
             json.dump(res, f, indent=1, default=str)
-    prepare_export_armature(her)
+    prepare_export_armature(her, garments)
     for g in garments:
         export_skeletal(her, g, os.path.join(a.out, f"{g.name}.fbx"))
     rep["top"] = {"verts": len(X), "tris": int(sum(len(f) - 2 for f in F))}

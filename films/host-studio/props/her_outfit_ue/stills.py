@@ -20,6 +20,7 @@ CAMS = {  # her on her mark facing +X; +Y is her right. (loc, look_at, focal) re
     "HerFitC": ([105, -30, 124], [0, 0, 116], 50.0),
 }
 BEFORE = {}
+REST = False
 LABELS = ["Host", "Presenter", "HerEarL", "HerEarR", "HerWatch", "Stool"]
 STATE = '''
 import unreal
@@ -36,6 +37,13 @@ cur = unreal.LevelSequenceEditorBlueprintLibrary.get_current_level_sequence()
 LSE = unreal.LevelSequenceEditorBlueprintLibrary
 result = {"hidden": out, "her": [p.x, p.y, p.z], "seq": cur.get_path_name().split(".")[0] if cur else "",
           "t": LSE.get_current_time() if cur else 0, "lock": LSE.is_camera_cut_locked_to_viewport() if cur else False}
+'''
+BODY = '''
+import unreal
+from fmbridge.ops import level as L
+c = next(c for c in L.actor("Presenter").get_components_by_class(unreal.SkeletalMeshComponent) if c.get_name() == "Body")
+c.set_visibility(%r, False)  # just the body's skin: the garments follow its pose all the same
+result = True
 '''
 SHIRT = '''
 import unreal
@@ -85,7 +93,8 @@ def shoot(cam, secs):
     """A scratch shot through `cam`. She is hidden in game in the level (the empty-room shots) and only the reel's
     visibility track shows her: key her (and what rides her) visible here, the Host and Stool hidden, in this
     sequence only, so the level's flags stay as they are."""
-    ok(client.op("seq.shot", path=SEQ, actor_label="Presenter", anims={"Body": IDLE}, camera=cam, seconds=secs))
+    ok(client.op("seq.shot", path=SEQ, actor_label="Presenter", anims={} if REST else {"Body": IDLE}, camera=cam,
+                 seconds=secs))
     ok(client.op("seq.key_visible", path=SEQ, label="Presenter", keys=[[0, True]], attached=True))
     for lab in ("Host", "Stool"):
         if lab in BEFORE:
@@ -102,14 +111,21 @@ def main():
     ap.add_argument("--shirt", default="off,on")
     ap.add_argument("--only", default="")
     ap.add_argument("--close", default="watch,ear")
+    ap.add_argument("--body", default="on", help="on, or off to see the garments alone (a hole in them then is theirs)")
+    ap.add_argument("--rest", action="store_true", help="her rest pose, no idle")
     a = ap.parse_args()
     frames = [int(x) for x in a.frames.split(",")]
     st = ok(client.exec_code(STATE % (LABELS,)))
     before, her = st["hidden"], st["her"]
     BEFORE.update(before)
+    global REST
+    REST = a.rest
+    tag = ("_rest" if a.rest else "") + ("_nobody" if a.body == "off" else "")
     cams = {k: v for k, v in CAMS.items() if not a.only or k[-1] in a.only.split(",")}
     shots, where, made = [], {}, []
     try:
+        if a.body == "off":
+            ok(client.exec_code(BODY % (False,)))
         for name, (loc, at, focal) in cams.items():
             ok(client.op("look.camera", label=name, loc=add(her, loc), look_at=add(her, at), focal=focal,
                          aperture=4.0, filmback=[24.0, 30.0], pilot=False))
@@ -128,7 +144,9 @@ def main():
                 close["HerWatchC"] = (add(p, [26, -16, 8]), p, 85.0)
             if "ear" in a.close and "HerEarL" in w:
                 p = w["HerEarL"]["at"]
-                close["HerEarLC"] = (add(p, [14, -24, 2]), p, 85.0)
+                # from in front and a little below: her hair falls over the ear from the side; the hoop hangs under
+                # the lobe (she faces +X, her left is -Y)
+                close["HerEarLC"] = (add(p, [22, -10, -3]), add(p, [0, 0, -1.2]), 85.0)
             for name, (loc, at, focal) in close.items():
                 ok(client.op("look.camera", label=name, loc=loc, look_at=at, focal=focal, aperture=5.6,
                              filmback=[24.0, 24.0], pilot=False))
@@ -139,12 +157,13 @@ def main():
                     if cam in close and shirt == "on":
                         continue
                     ok(client.exec_code(SHIRT % (shirt == "on",)))
-                    p = rf"{OUT}\{cam}_{f}_shirt{shirt}.png"
+                    p = rf"{OUT}\{cam}_{f}_shirt{shirt}{tag}.png"
                     wh = (1600, 1600) if cam in close else (1600, 2000)
                     ok(client.op("seq.still", path=SEQ, frame=f, camera=cam, out=p, width=wh[0], height=wh[1]))
                     shots.append(p)
     finally:
         client.op("seq.close")
+        client.exec_code(BODY % (True,))
         if st.get("seq"):  # put back the sequence that was open (the reel), locked to its cut as before
             client.exec_code(REOPEN % (st["seq"], st["lock"], st["t"]))
         client.exec_code(SHIRT % (True,))

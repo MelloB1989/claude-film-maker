@@ -32,8 +32,10 @@ o = body_.get_socket_location("wrist_outer_l") - body_.get_socket_location("wris
 up = (o - fwd * o.dot(fwd)).normal()
 at = b_ - fwd * 3.6
 w.set_actor_location(at, False, False)
-w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)
 out["HerWatch_ok"] = w.attach_to_component(body_, "lowerarm_twist_02_l", rule, rule, rule, False)
+w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)  # once attached, as studio.py
+out["HerWatch_axes"] = {"y.forearm": round(w.get_actor_right_vector().dot(fwd), 2),
+                        "z.back_of_wrist": round(w.get_actor_up_vector().dot(up), 2)}
 for lab, comp, bone in (("HerEarL", face, "FACIAL_L_Ear4"), ("HerEarR", face, "FACIAL_R_Ear4"),
                         ("HerWatch", body_, "lowerarm_twist_02_l")):
     a = L.actor(lab)

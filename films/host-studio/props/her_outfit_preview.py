@@ -16,6 +16,8 @@ ap = argparse.ArgumentParser()
 for k in ("--src", "--body", "--face", "--maps", "--out"):
     ap.add_argument(k)
 ap.add_argument("--samples", type=int, default=48)
+ap.add_argument("--cull", action="store_true", help="cull back faces as the engine does (shows flipped winding)")
+ap.add_argument("--only", default="", help="comma-separated preview names")
 A = ap.parse_args(argv)
 for ob in list(bpy.data.objects):
     bpy.data.objects.remove(ob)
@@ -42,6 +44,7 @@ def load(path):
 def cloth(name, maps, tile_cm, roughness_scale=1.0):
     m = bpy.data.materials.new(name)
     m.use_nodes = True
+    m.use_backface_culling = A.cull
     nt = m.node_tree
     b = nt.nodes["Principled BSDF"]
     tc = nt.nodes.new("ShaderNodeTexCoord")
@@ -74,6 +77,7 @@ def plain(name, rgb, rough, metal=0.0, sss=0.0):
     b.inputs["Base Color"].default_value = (*rgb, 1)
     b.inputs["Roughness"].default_value = rough
     b.inputs["Metallic"].default_value = metal
+    m.use_backface_culling = A.cull
     if sss:
         b.inputs["Subsurface Weight"].default_value = sss
     return m
@@ -120,7 +124,11 @@ for name, d, at, lens, dist in (("her_outfit", (0.55, 1, -0.28), (0, 0, 0.92), 5
                                 ("her_outfit_close", (0.3, 1, -0.1), (0, 0, 1.18), 85, 2.6),
                                 ("her_outfit_hip", (-0.5, 1, 0), (-0.12, -0.02, 0.92), 85, 1.4),
                                 ("her_outfit_sleeve", (0.4, 1, -0.2), (0.2, 0.0, 1.25), 85, 1.0),
-                                ("her_outfit_pocket", (0.55, 1, 0.0), (-0.13, -0.06, 0.92), 85, 1.0)):
+                                ("her_outfit_pocket", (0.55, 1, 0.0), (-0.13, -0.06, 0.92), 85, 1.0),
+                                ("her_outfit_side", (1, 0, 0), (0, 0, 0.92), 50, 4.4),
+                                ("her_outfit_back", (0, -1, 0), (0, 0, 0.92), 50, 4.4)):
+    if A.only and name not in A.only.split(","):
+        continue
     d = Vector(d).normalized()
     cd.lens = lens
     cam.location = Vector(at) - d * dist
