@@ -334,6 +334,44 @@ HOST_LIGHTS = ["Key", "Fill", "HairLight", "RimWarm", "RimWindow", "EyeLight"]
 K.channels(HOST_LIGHTS, [1])
 K.channels(["Host"], [0, 1])  # the daylight reaches the host too, so the host sits in the room's light
 mh.garment("Host", "Shirt", vectors={"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
+# >>> his outfit
+# his slim charcoal trousers (props/his_outfit.py, imported onto his skeleton by props/his_outfit_ue/import_outfit.py),
+# a skeletal mesh component under his body that takes the body's pose (leader pose), worn under the default garment's
+# tee (kept); the default garment's shorts are cut out (their slots get a fully transparent masked material).
+HIS_DIR = "/Game/Host/Host_Outfit"
+HIS_TROUSERS = f"{HIS_DIR}/SKM_Host_Trousers"
+if unreal.EditorAssetLibrary.does_asset_exist(HIS_TROUSERS):
+    his_mats = {"M_Trousers": K.material("MI_K_HisTrousers", (1.0, 1.0, 1.0), kind="Pbr",
+                                         texture=tex(HIS_DIR, "T_HisTwill_A"), normal=tex(HIS_DIR, "T_HisTwill_N"),
+                                         mask=tex(HIS_DIR, "T_HisTwill_M"), tiling=100.0 / 1.0, roughness=1.0,
+                                         metallic=0.0, folder=M)}
+    his_hidden = K.material("MI_K_HisHidden", (1.0, 1.0, 1.0), kind="PbrMasked", texture=tex(HIS_DIR, "T_HisHidden"),
+                            folder=M)
+
+    def his_part(name):  # fetched afresh each time: a change on one component rebuilds the others
+        return next((c for c in L.actor("Host").get_components_by_class(unreal.SkeletalMeshComponent)
+                     if c.get_name() == name), None)
+
+    if his_part("Trousers") is None:
+        sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+        SDL = unreal.SubobjectDataBlueprintFunctionLibrary
+        body_h = next(h for h in sds.k2_gather_subobject_data_for_instance(L.actor("Host"))  # the blueprint's
+                      if str(SDL.get_variable_name(SDL.get_data(h))) == "Body")  # components are templates: by variable
+        new_h, why = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+            parent_handle=body_h, new_class=unreal.SkeletalMeshComponent))
+        if why and str(why):
+            raise RuntimeError(f"his outfit: add_new_subobject failed: {why}")
+        sds.rename_subobject(new_h, unreal.Text("Trousers"))
+    his_part("Trousers").set_skeletal_mesh_asset(unreal.load_asset(HIS_TROUSERS))
+    for slot_, mi_ in his_mats.items():
+        his_part("Trousers").set_material_by_name(slot_, unreal.load_asset(mi_))
+    his_part("Trousers").set_editor_property("lighting_channels", his_part("Body").get_editor_property("lighting_channels"))
+    for i, slot_ in enumerate(his_part("SkeletalMesh").get_material_slot_names()):  # the shorts: four slots, one name
+        if "short" in str(slot_).lower():
+            his_part("SkeletalMesh").set_material(i, unreal.load_asset(his_hidden))
+    his_part("Trousers").set_editor_property("use_bounds_from_leader_pose_component", True)
+    his_part("Trousers").set_leader_pose_component(his_part("Body"))
+# <<< his outfit
 
 # her: the female presenter on the same mark, hidden until a shot asks for her (stills.py --who her)
 HER_BP = "/Game/Host/Unpacked/Presenter/BP_Presenter"
