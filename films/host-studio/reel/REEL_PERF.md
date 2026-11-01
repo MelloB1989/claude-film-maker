@@ -59,6 +59,50 @@ The pipeline (`perf.py` docstring has the commands):
 7. **Place**: `perf.py place --seq /Game/Reel/SEQ_Reel` (R7): one Face and one Body section per presenter from
    f840 / f1080. Run `mh.drive_face` on Host and Presenter first.
 
+## Re-placing after a studio rebuild (runbook, from cold)
+
+`studio.py` respawns Host and Presenter. That loses two things the performances need: the face's animation mode
+(`mh.drive_face` is set on the level actor, not saved in SEQ_Reel), and SEQ_Reel's Host/Presenter bindings, which
+still point at the deleted actors. Their tracks are kept, but nothing plays them. The animations under
+`/Game/Reel/Perf` are assets, so a rebuild leaves them alone. Nothing is solved, composed or gazed again. Run from
+`tools/` on reel-v2 (277d6fb or later), in this order:
+
+    # 1. rebind SEQ_Reel to the new actors (skip if build.py's build() has already run since the rebuild: it rebinds)
+    uv run film-ue op seq.rebind path=/Game/Reel/SEQ_Reel 'labels=["Host","Presenter","HerEarL","HerEarR","HerWatch"]'
+    # 2. Sequencer drives the faces
+    uv run python ../films/host-studio/reel/perf.py drive_faces
+    # 3. the Face and Body sections (replaces the tracks' sections, so a rerun is safe)
+    uv run python ../films/host-studio/reel/perf.py place --seq /Game/Reel/SEQ_Reel
+
+What a good result looks like:
+
+- `seq.rebind` gives `"ok"` for every label. `"missing"` means that actor is not in the level under that label.
+  Stop there: `place` finds bindings by name, so it would write onto the dead one and nothing would play.
+- `drive_faces` prints two `...ANIMATION_SINGLE_NODE` strings, one each for Host and Presenter.
+- `place` prints four lists `[anim, start, end, row]`, in this order:
+  - Host Face: `[[/Game/Reel/Perf/AS_reel_him_gaze5, 960, 1608, 0]]`
+  - Host Body: `[[...mhc_mh001_fmn_b_idle, 720, 966, 0], [/Game/Reel/Perf/AS_reel_him_body, 960, 1560, 1],
+    [...idle, 1554, 1608, 0]]`
+  - Presenter Face: `[[.../AS_reel_her_gaze5, 1080, 1608, 0]]`
+  - Presenter Body: `[[.../AS_reel_her_idle, 840, 1086, 0], [.../AS_reel_her_body, 1080, 1560, 1],
+    [.../AS_reel_her_idle, 1554, 1608, 0]]`
+
+  A "no binding" or "no actor" error means step 1 is still missing. A missing asset means `/Game/Reel/Perf` was
+  touched, so stop and ask. Do not re-run solve, compose or gaze.
+- `uv run film-ue op seq.tracks path=/Game/Reel/SEQ_Reel` shows one `MovieSceneSkeletalAnimationTrack` under
+  `Host.Face` (1 section) and one under `Host.Body` (3 sections), and the same for `Presenter`.
+- A still from SEQ_Reel's own cut (`seq.still path=/Game/Reel/SEQ_Reel frame=1032 camera=""`): his mouth open
+  mid-L1, eyes in the lens. At f1240 she is mid-L3b with her eyes in the lens. At f1170 his head is turned over
+  his right shoulder towards her.
+- What goes wrong and why:
+  - **The face is neutral, or blinks but does not speak**: `drive_face` did not run on that actor (or the editor
+    restarted after it, without saving the level). Run step 2 again.
+  - **The whole body is frozen in its rest pose (A-pose) or does not move**: the binding is dead. Do step 1, then
+    step 3 again.
+
+Run nothing else in perf.py on SEQ_Reel. `cleanup` deletes only the `Test_agent-10_*` actors and sequences, but it
+is not needed here.
+
 ## Status (PLAN v2, placed on SEQ_Reel)
 
 The voice above is v1 and no longer ships: PLAN v2 (agent-13) replaced the lines; its VO (vo/ L1, L2, L3a, L3b, L4a,
