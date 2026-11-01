@@ -480,7 +480,7 @@ def key_material(path: str, label: str, param: str, keys: list, slot=0, componen
             track = t
     if track is None:
         track = b.add_track(unreal.MovieSceneComponentMaterialTrack)
-        _set_material_index(track, index, names[index] if index < len(names) else "")
+    _set_material_index(track, index, names[index] if index < len(names) else "")  # also mends an older track
     secs = track.get_sections()
     sec = secs[0] if secs else track.add_section()
     sec.set_start_frame_bounded(False)
@@ -511,7 +511,12 @@ def _material_index(t) -> int:
 
 
 def _set_material_index(t, index: int, name: str):
+    """Point a material track at a mesh's slot. Since UE 5.4 the track's info also has a material type, and a track
+    made from Python starts at EMPTY (the editor's UI sets it): an EMPTY track resolves to no material, so Sequencer
+    makes no MID and none of its keys reach the mesh."""
     info = t.get_material_info()
+    if hasattr(unreal, "ComponentMaterialType"):
+        info.set_editor_property("material_type", unreal.ComponentMaterialType.INDEXED_MATERIAL)
     info.set_editor_property("material_slot_index", index)
     if name:
         info.set_editor_property("material_slot_name", name)
