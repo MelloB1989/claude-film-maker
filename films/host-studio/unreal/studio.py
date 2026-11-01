@@ -345,23 +345,64 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
     her.set_actor_hidden_in_game(True)
     her.set_is_temporarily_hidden_in_editor(True)
     K.channels(["Presenter"], [0, 1])
-    mh.garment("Presenter", "Shirt", vectors={"diffuse_color_1": (0.82, 0.82, 0.8), "diffuse_color_2": (0.8, 0.8, 0.78)})
+    # >>> outfit
+    # her fitted outfit (props/her_outfit.py, imported onto her skeleton by props/her_outfit_ue/import_outfit.py): a
+    # cream rib-knit top tucked into high-rise charcoal trousers, skeletal mesh components under her body that take the
+    # body's pose (leader pose). Her MetaHuman is built without the default garment, so these are all she wears.
+    FIT_DIR = "/Game/Host/Presenter_Outfit"
+    fit = {"Top": (f"{FIT_DIR}/SKM_Presenter_Top", {
+               "M_Top": K.material("MI_K_HerTop", (1.0, 1.0, 1.0), kind="Pbr", texture=tex(FIT_DIR, "T_HerRib_A"),
+                                   normal=tex(FIT_DIR, "T_HerRib_N"), mask=tex(FIT_DIR, "T_HerRib_M"),
+                                   tiling=100.0 / 2.0, roughness=1.0, metallic=0.0, folder=M)}),
+           "Trousers": (f"{FIT_DIR}/SKM_Presenter_Trousers", {
+               "M_Trousers": K.material("MI_K_HerTrousers", (1.0, 1.0, 1.0), kind="Pbr",
+                                        texture=tex(FIT_DIR, "T_HerWool_A"), normal=tex(FIT_DIR, "T_HerWool_N"),
+                                        mask=tex(FIT_DIR, "T_HerWool_M"), tiling=100.0 / 1.0, roughness=1.0,
+                                        metallic=0.0, folder=M),
+               "M_Hardware": plain("HerGold", (0.9, 0.62, 0.28), 0.25, metallic=1.0)})}
+
+    def her_part(name):  # fetched afresh each time: a change on one component rebuilds the others
+        return next((c for c in L.actor("Presenter").get_components_by_class(unreal.SkeletalMeshComponent)
+                     if c.get_name() == name), None)
+
+    for part, (mesh, mats) in fit.items():
+        if not unreal.EditorAssetLibrary.does_asset_exist(mesh):
+            continue
+        if her_part(part) is None:
+            sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+            SDL = unreal.SubobjectDataBlueprintFunctionLibrary
+            body_h = next(h for h in sds.k2_gather_subobject_data_for_instance(L.actor("Presenter"))  # the
+                          if str(SDL.get_variable_name(SDL.get_data(h))) == "Body")  # template is Body_GEN_VARIABLE
+            new_h, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
+                parent_handle=body_h, new_class=unreal.SkeletalMeshComponent))
+            sds.rename_subobject(new_h, unreal.Text(part))
+        her_part(part).set_skeletal_mesh_asset(unreal.load_asset(mesh))
+        for slot_, mi_ in mats.items():
+            her_part(part).set_material_by_name(slot_, unreal.load_asset(mi_))
+        her_part(part).set_editor_property("lighting_channels", her_part("Body").get_editor_property("lighting_channels"))
+        her_part(part).set_leader_pose_component(her_part("Body"))
+    # <<< outfit
     # small gold hoops through the lobes, a black smartwatch on the left wrist, riding her bones
     comps = {c.get_name(): c for c in her.get_components_by_class(unreal.SkeletalMeshComponent)}
     face, body_ = comps["Face"], comps["Body"]
     rule = unreal.AttachmentRule.KEEP_WORLD
+
+    def ride(lab):  # a prop spawns Static, and a Static root silently refuses to attach to a moving bone
+        L.actor(lab).root_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+        return L.actor(lab)
+
     for side, bone in (("L", "FACIAL_L_Ear4"), ("R", "FACIAL_R_Ear4")):
         p = face.get_socket_location(bone)
         inward = 0.25 if side == "L" else -0.25  # through the lobe, not on its surface
         if prop(f"HerEar{side}", "hoop_earring", (p.x - 0.1, p.y + inward, p.z + 0.15)):
-            L.actor(f"HerEar{side}").attach_to_component(face, bone, rule, rule, rule, False)
+            ride(f"HerEar{side}").attach_to_component(face, bone, rule, rule, rule, False)
     a, b = body_.get_socket_location("lowerarm_twist_02_l"), body_.get_socket_location("hand_l")
     fwd = (b - a).normal()
     out = body_.get_socket_location("wrist_outer_l") - body_.get_socket_location("wrist_inner_l")
     up = (out - fwd * out.dot(fwd)).normal()  # the back of the wrist, square to the forearm
     at = b - fwd * 3.6  # just above the wrist bone
     if prop("HerWatch", "smartwatch", (at.x, at.y, at.z)):
-        w = L.actor("HerWatch")
+        w = ride("HerWatch")
         w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)
         w.attach_to_component(body_, "lowerarm_twist_02_l", rule, rule, rule, False)
     for lab in ("HerEarL", "HerEarR", "HerWatch"):
