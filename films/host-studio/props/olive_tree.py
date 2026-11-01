@@ -49,8 +49,8 @@ INNER_FLOOR = 0.395        # hidden false floor under the pebble bed
 
 TOTAL_H = 1.95
 TRUNK_TOP = PEBBLE_Z + 0.90
-CROWN_C = Vector((0.0, 0.015, 1.425))      # twig-tip envelope (leaves reach a few cm beyond)
-CROWN_A = Vector((0.425, 0.425, 0.49))
+CROWN_C = Vector((0.01, 0.005, 1.415))      # twig-tip envelope (leaves reach a few cm beyond)
+CROWN_A = Vector((0.50, 0.545, 0.53))
 
 LEAF_GAP = 0.0008          # minimum clearance between leaf mid-surfaces
 LEAF_THICK = 0.0004
@@ -413,18 +413,19 @@ class Envelope:
         self.ph = Vector((rng.uniform(0, 100), rng.uniform(0, 100), rng.uniform(0, 100)))
         # see-through gaps in the crown: no twig ends or leaves inside these
         self.voids = []
-        while len(self.voids) < 6:
+        while len(self.voids) < 4:
             p = CROWN_C + Vector((rng.uniform(-1, 1) * CROWN_A.x, rng.uniform(-1, 1) * CROWN_A.y,
-                                  rng.uniform(-0.8, 0.9) * CROWN_A.z))
-            if 0.35 < self.value(p) < 0.85 and (p.xy - CROWN_C.xy).length > 0.10:
-                self.voids.append((p, rng.uniform(0.07, 0.12)))
+                                  rng.uniform(-0.7, 0.8) * CROWN_A.z))
+            if 0.55 < self.value(p) < 0.90 and (p.xy - CROWN_C.xy).length > 0.12 and \
+                    all((p - c).length > 0.30 for c, _ in self.voids):
+                self.voids.append((p, rng.uniform(0.05, 0.075)))
 
     def in_void(self, p, pad=0.0):
         return any((p - c).length < r + pad for c, r in self.voids)
 
     def radii(self, d):
         # lumpy, so the outline is irregular rather than a clean ellipsoid
-        k = 1.0 + 0.20 * noise.noise(d * 1.3 + self.ph) + 0.07 * noise.noise(d * 3.5 + self.ph)
+        k = 1.0 + 0.13 * noise.noise(d * 1.3 + self.ph) + 0.06 * noise.noise(d * 3.5 + self.ph)
         return Vector((CROWN_A.x * k, CROWN_A.y * k, CROWN_A.z * k))
 
     def value(self, p):
@@ -468,7 +469,7 @@ class Branch:
 GROW = {  # level: step, wobble, tropism (up), sides
     1: (0.020, 0.10, 0.06, 10),
     2: (0.018, 0.16, 0.04, 6),
-    3: (0.013, 0.20, 0.03, 4),
+    3: (0.016, 0.20, 0.03, 4),
 }
 
 
@@ -481,8 +482,8 @@ def grow(env, rng, start, d0, length, level, droop=0.0):
         d = (d + rand_unit(rng) * wob + UP * (trop - droop * (i / n))).normalized()
         p = pts[-1] + d * step
         e = env.value(p)
-        if e > 0.9:
-            d = (d + (CROWN_C - p).normalized() * (e - 0.9) * 2.5).normalized()
+        if e > 0.95:
+            d = (d + (CROWN_C - p).normalized() * (e - 0.95) * 2.5).normalized()
             p = pts[-1] + d * step
         pts.append(p)
     return pts
@@ -596,13 +597,13 @@ def build_tree(acc, rng, env):
 
     # ---- trunk: slender, slightly S-curved and twisting, gnarled near the base
     base = Vector((0.006, -0.004, INNER_FLOOR + 0.004))
-    lean = Vector((rng.uniform(-0.02, 0.02), rng.uniform(0.0, 0.03), 0))
+    lean = Vector((rng.uniform(0.035, 0.05), rng.uniform(0.015, 0.03), 0))     # a light lean
     trunk_pts = []
     n_tr = 95
     for i in range(n_tr + 1):
         t = i / n_tr
         z = base.z + (TRUNK_TOP - base.z) * t
-        off = lean * t + Vector((0.022 * math.sin(t * 5.2 + 0.7), 0.018 * math.sin(t * 3.9 + 2.1), 0)) * \
+        off = lean * t * t + Vector((0.014 * math.sin(t * 5.2 + 0.7), 0.012 * math.sin(t * 3.9 + 2.1), 0)) * \
             smoothstep(0.0, 0.25, t)
         trunk_pts.append(Vector((base.x, base.y, z)) + off)
     soil_t = (PEBBLE_Z - base.z) / (TRUNK_TOP - base.z)
@@ -611,18 +612,18 @@ def build_tree(acc, rng, env):
     def trunk_r(i, th):
         t = i / n_tr
         h = max(0.0, (t - soil_t)) * (TRUNK_TOP - base.z)          # height above the pebbles
-        r = 0.0175 + (0.0100 - 0.0175) * smoothstep(soil_t, 1.0, t)
-        r += 0.0075 * math.exp(-h / 0.035)                            # root flare
-        g = 1.0 * math.exp(-h / 0.22) + 0.12                         # gnarl, strongest low down
+        r = 0.0200 + (0.0110 - 0.0200) * smoothstep(soil_t, 1.0, t)
+        r += 0.0070 * math.exp(-h / 0.035)                            # root flare
+        g = 0.9 * math.exp(-h / 0.07) + 0.025                        # fluting only very low; smooth above
         tw = 3.4 * h                                                  # slight twist of the fluting
         lobes = 0.26 * math.cos(3 * th + tw + 0.4) + 0.13 * math.cos(5 * th - 1.3 * tw + 2.0)
         p = trunk_pts[i]
         knob = noise.noise(Vector((math.cos(th) * 0.9, math.sin(th) * 0.9, p.z * 16)) + tph)
         fiss = noise.noise(Vector((math.cos(th + tw) * 3.0, math.sin(th + tw) * 3.0, p.z * 6)) + tph * 2)
-        return r * (1 + g * lobes + 0.45 * g * knob + 0.04 * fiss)
+        return r * (1 + g * lobes + 0.45 * g * knob + 0.012 * fiss)
 
     trunk_rad = [trunk_r(i, 0.0) for i in range(n_tr + 1)]
-    trunk = Branch(trunk_pts, [0.019 if i / n_tr < soil_t + 0.05 else trunk_rad[i] for i in range(n_tr + 1)], 0)
+    trunk = Branch(trunk_pts, [0.021 if i / n_tr < soil_t + 0.05 else trunk_rad[i] for i in range(n_tr + 1)], 0)
     trunk.rfun = trunk_r
     register(trunk)
 
@@ -639,11 +640,11 @@ def build_tree(acc, rng, env):
         stubs.append((pts, taper(6, 0.0062, 0.0042)))
 
     # ---- main scaffold branches from the top of the trunk
-    n_main = rng.randint(4, 6)
+    n_main = rng.randint(7, 8)
     mains = []
     leader_br = None
     az0 = rng.uniform(0, 2 * math.pi)
-    tops = sorted(rng.uniform(0.80, 0.97) for _ in range(n_main - 1)) + [1.0]
+    tops = sorted(rng.uniform(0.64, 0.97) for _ in range(n_main - 1)) + [1.0]
     for k in range(n_main):
         leader = k == n_main - 1
         for attempt in range(12):
@@ -654,13 +655,13 @@ def build_tree(acc, rng, env):
             if leader:
                 d = (trunk.fr[n_tr][0] + rand_unit(rng) * 0.08).normalized()
             else:
-                az = az0 + k * 2 * math.pi / (n_main - 1) + rng.uniform(-0.35, 0.35) + attempt * 0.4
-                elev = math.radians(rng.uniform(22, 58))
+                az = az0 + k * 2.39996 + rng.uniform(-0.3, 0.3) + attempt * 0.4    # golden-angle spread
+                elev = math.radians(rng.uniform(18, 50) + 10 * (1 - t))
                 d = Vector((math.cos(az) * math.cos(elev), math.sin(az) * math.cos(elev), math.sin(elev)))
             L = env.dist(start, d) * rng.uniform(0.75, 0.95)
             L = max(0.25, L)
             pts = grow(env, rng, start, d, L, 1)
-            r0 = trunk_rad[i] * (0.97 if leader else 0.70)
+            r0 = trunk_rad[i] * 0.97 if leader else min(trunk_rad[i] * 0.62, 0.0075)
             rad = taper(len(pts), r0, 0.0022, 0.8)
             if not clashes(pts, rad, 0.04):
                 br = Branch(pts, rad, 1, trunk)
@@ -705,10 +706,10 @@ def build_tree(acc, rng, env):
         return out
 
     for m in mains:
-        seconds += add_children(m, 2, 0.20, 0.95, (0.045, 0.075), (40, 75), 0.36, 0.07, 0.75, 0.30)
+        seconds += add_children(m, 2, 0.15, 0.95, (0.034, 0.056), (40, 75), 0.32, 0.06, 0.75, 0.30)
     # a few low shoots straight off the trunk (the concept shows foliage low on the stem)
     low = []
-    for z0 in sorted(rng.uniform(0.95, 1.26) for _ in range(7)):
+    for z0 in sorted(rng.uniform(0.90, 1.12) for _ in range(6)):
         i = int((z0 - base.z) / (TRUNK_TOP - base.z) * n_tr)
         T, N, B = trunk.fr[i]
         for attempt in range(8):
@@ -727,9 +728,9 @@ def build_tree(acc, rng, env):
 
     twigs = []
     for sbr in seconds:
-        twigs += add_children(sbr, 3, 0.18, 0.92, (0.032, 0.055), (32, 58), 0.15, 0.045, 0.8, 0.20)
+        twigs += add_children(sbr, 3, 0.12, 0.94, (0.026, 0.044), (32, 62), 0.13, 0.035, 0.8, 0.20)
     for m in mains:  # twigs straight off the outer scaffold too
-        twigs += add_children(m, 3, 0.70, 0.98, (0.04, 0.07), (35, 55), 0.13, 0.045, 0.6, 0.10)
+        twigs += add_children(m, 3, 0.55, 0.98, (0.03, 0.05), (35, 60), 0.12, 0.035, 0.6, 0.10)
 
     print(f"[{NAME}] branches: main {len(mains)}  secondary {len(seconds)}  twigs {len(twigs)}")
 
@@ -743,9 +744,9 @@ def build_tree(acc, rng, env):
     def try_leaf(br, i, phi, k_from_tip):
         T, N, B = br.fr[i]
         young = k_from_tip < 2
-        size = min(1.0, 0.50 + 0.16 * k_from_tip) * rng.uniform(0.85, 1.12)
-        L = max(0.022, min(0.072, rng.uniform(0.045, 0.068) * size))
-        W = max(0.0075, min(0.014, L * rng.uniform(0.15, 0.20)))
+        size = min(1.0, 0.55 + 0.15 * k_from_tip) * rng.uniform(0.88, 1.10)
+        L = max(0.020, min(0.062, rng.uniform(0.040, 0.060) * size))
+        W = max(0.0065, min(0.012, L * rng.uniform(0.17, 0.23)))
         for attempt in range(6):
             stats["tried"] += 1
             ph = phi + rng.uniform(-0.3, 0.3) * (1 + attempt * 0.4)
@@ -807,18 +808,21 @@ def build_tree(acc, rng, env):
         k = 0
         while s > br.length * s_from:
             i = br.at(s)
-            for side in (0, math.pi):
-                try_leaf(br, i, phi + side, k)
+            # denser toward the twig ends and the crown's outer shell, thinner inside
+            shell = env.value(br.pts[i])
+            if k < 4 or shell > 0.66 or rng.random() < 0.32:
+                for side in (0, math.pi):
+                    try_leaf(br, i, phi + side, k)
             phi += math.pi / 2 + rng.uniform(-0.25, 0.25)        # decussate pairs
-            s -= rng.uniform(0.010, 0.014) if k < 3 else rng.uniform(0.014, 0.021)
+            s -= rng.uniform(0.0075, 0.010) if k < 4 else rng.uniform(0.011, 0.016)
             k += 1
 
     for br in twigs:
         leaf_branch(br, 0.10)
     for br in seconds:
-        leaf_branch(br, 0.35)
+        leaf_branch(br, 0.25)
     for br in mains:
-        leaf_branch(br, 0.78)
+        leaf_branch(br, 0.72)
     print(f"[{NAME}] leaves placed {stats['placed']} of {stats['tried']} tries")
 
     # ---- bark geometry (after the leaves, so twigs that ended up leafless can be left out)
@@ -918,14 +922,14 @@ def node_mats():
     nt.links.new(inv.outputs[0], bump.inputs["Height"])
     nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
-    bark = S.material("M_Bark", (0.072, 0.066, 0.056), 0.88)
+    bark = S.material("M_Bark", (0.088, 0.082, 0.074), 0.82)
     nt = bark.node_tree
     bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
     nz = nt.nodes.new("ShaderNodeTexNoise")
     nz.inputs["Scale"].default_value = 220.0
     nz.inputs["Detail"].default_value = 6.0
     bump = nt.nodes.new("ShaderNodeBump")
-    bump.inputs["Strength"].default_value = 0.5
+    bump.inputs["Strength"].default_value = 0.25
     bump.inputs["Distance"].default_value = 0.001
     nt.links.new(nz.outputs["Fac"], bump.inputs["Height"])
     nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
@@ -944,8 +948,8 @@ def node_mats():
         nt.links.new(mix.outputs[0], out.inputs["Surface"])
         return m
 
-    top = leaf("M_LeafTop", (0.042, 0.055, 0.030), 0.48, (0.16, 0.22, 0.05), 0.30)
-    under = leaf("M_LeafUnder", (0.16, 0.175, 0.145), 0.52, (0.14, 0.19, 0.07), 0.25)
+    top = leaf("M_LeafTop", (0.048, 0.062, 0.036), 0.50, (0.15, 0.20, 0.06), 0.25)      # sage grey-green
+    under = leaf("M_LeafUnder", (0.25, 0.27, 0.235), 0.42, (0.17, 0.21, 0.12), 0.12)      # silvery
     return [pot, peb, bark, top, under]
 
 
