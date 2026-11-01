@@ -85,8 +85,9 @@ LINES = {
 }
 # The short cut (PLAN.md §7 q4): master frames kept, in order, all on bar lines. The plan's list (drop S01, S05, S07,
 # S09; a bar off S13 and S17) comes to 47.5 s and its S17 bar would cut through L4 (f1360-1403 spans both its bars), so:
-# S02's first bar, S03-S04, S06, S08, S11-S12, S13's second bar (L1 starts at f930), S14-S18; S10 goes too. 45.0 s.
-EDLS = {"45s": [(120, 180), (240, 360), (420, 480), (540, 600), (720, 840), (900, 1560)]}
+# S02's first bar, S03-S04, S08, S10-S12, S13's second bar (L1 starts at f930), S14-S18; S06 goes too (the coin and
+# pickaxe still show in the wider shots; S10's artists are a shout-out the operator wants). 45.0 s.
+EDLS = {"45s": [(120, 180), (240, 360), (540, 600), (660, 840), (900, 1560)]}
 XFADE = 0.012  # s: the equal-power crossfade at each sound edit, centred on the cut
 
 # The title lockup, as the operator chose it (PLAN.md §7 q2): the wordmark, then "a studio by MelloB". None drops a
