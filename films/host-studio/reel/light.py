@@ -37,13 +37,13 @@ SH_C = SH_L - 75.0
 # ------------------------------------------------------------------------------------------------ the states
 # Each state's first frame, and the frame a test still of it is taken at (where the state reads best).
 STATES = {  # name: (start, still frame)
-    "DAY": (0, bar(2)),
-    "GOLDEN": (bar(5), bar(8, 3)),
-    "DUSK": (bar(9), bar(11, 3)),
-    "BLUE": (bar(12), bar(12, 4)),
+    "DAY": (0, bar(2)),              # PLAN v2: V01
+    "GOLDEN": (bar(4), bar(8, 1)),   # V02, V03
+    "DUSK": (bar(9), bar(10, 3)),    # V04
+    "BLUE": (bar(11), bar(12, 3)),   # V05
     "IGNITION": (bar(13), bar(13, 4) + 3),     # mid-ignition: k a r lit, m igniting
     "NIGHT": (bar(14), bar(15)),
-    "NIGHT+KEY": (bar(15), bar(17)),
+    "NIGHT+KEY": (bar(17), bar(18)),
     "NIGHT-DIM": (bar(25), bar(26, 4)),
 }
 
@@ -81,13 +81,13 @@ HOST = {  # label: (loc, aimed at (relative to FACE), candelas at night)
     "RimWindow": ((-90, 110, 185), (-8, 0, -12), 3.5),
     "EyeLight": ((214, 6, 186), (0, 0, 0), 0.5),
 }
-KEY_UP = bar(16)   # his key light ramps up over 12 frames: the reveal of S13
+KEY_UP = bar(17, 3)  # his key light ramps up over 12 frames: the reveal of S13 (PLAN v2: S13 is bars 17-18)
 # where the presenters' lights point, shot by shot: one face, or the midpoint of both in the two-shots (each switch
 # falls on a cut, where no camera sees it)
 FACE_HIM = (MARK_HIM[0] + FACE[0], MARK_HIM[1], EYES_HIM - 2)
 FACE_HER = (MARK_HER[0] + FACE[0], MARK_HER[1], EYES_HER - 2)
 BOTH = tuple((a + b) / 2 for a, b in zip(FACE_HIM, FACE_HER))
-AIMS = [(bar(15), FACE_HIM),   # S13, S14: him
+AIMS = [(bar(17), FACE_HIM),   # S13: him
         (bar(19), FACE_HIM),   # S15: him sharp in front; her soft behind, in the practicals and rims
         (bar(21), FACE_HER),   # S16: her
         (bar(23), BOTH)]       # S17, S18: both
@@ -223,9 +223,9 @@ def tracks() -> list:
         add(label, "float", "Intensity", C((0, 0.0), (f, 0.0), (f + 3, cd, "out"), (dim0, cd), (end_dim, cd * DIM)))
 
     # the presenters' lights: off until S13; hair and rims first (him a silhouette against the halo), then the key,
-    # fill and eye light come up together over 12 frames on bar 16 beat 1
+    # fill and eye light come up together over 12 frames on bar 17 beat 3
     for label, (_, _, cd) in HOST.items():
-        first = bar(15) if label in ("HairLight", "RimWarm", "RimWindow") else KEY_UP  # S13's first frame or KEY_UP
+        first = bar(17) if label in ("HairLight", "RimWarm", "RimWindow") else KEY_UP  # S13's first frame or KEY_UP
         ramp = "hold" if first < KEY_UP else "out"
         pts = [(0, 0.0), (first, cd, ramp)] if ramp == "hold" else [(0, 0.0), (first, 0.0), (first + 12, cd, ramp)]
         add(label, "float", "Intensity", C(*pts))
