@@ -135,6 +135,12 @@ OUTPUTS = [
            codec=(*X264, "-crf", "17", "-maxrate", "16M", "-bufsize", "32M", "-level:v", "4.2", *AAC)),
 ]
 PRORES = "karma-reel-2160p-textless-prores4444.mov"
+# --source 1080p (a 1920x1080 render pass, before the 4K one): the master and every output come from 1080p frames, so
+# there is no 4K output, and the 9:16 cut, only a 608-px-wide window of the frame before it is scaled, is a preview.
+SOURCES = {"2160p": {"size": (W, H), "skip": set(), "rename": {}},
+           "1080p": {"size": (1920, 1080), "skip": {"2160p", "hevc"},
+                     "rename": {PRORES: "karma-reel-1080p-textless-prores4444.mov",
+                                "karma-reel-9x16-h264.mp4": "karma-reel-9x16-preview-h264.mp4"}}}
 
 
 def even(v: float) -> int:
@@ -738,6 +744,8 @@ def main(argv=None) -> None:
     ap.add_argument("--edl", metavar="45s|A:B,C:D", help="a cut of the reel: a name in EDLS or master frame ranges; "
                                                        "the outputs are named karma-reel-<name>-...")
     ap.add_argument("--only", default="", help="outputs: prores,2160p,hevc,1080p,vertical (default all)")
+    ap.add_argument("--source", choices=list(SOURCES), default="2160p",
+                    help="the frames' resolution: 1080p makes a 1080p master, no 4K outputs, the 9:16 as a preview")
     ap.add_argument("--scale", type=float, default=1.0, help="every output this many times its size (a quick look)")
     ap.add_argument("--pattern", default="{frame:04d}.png")
     ap.add_argument("--frame-offset", type=int, default=0, help="file number = frame + this")
@@ -768,7 +776,12 @@ def main(argv=None) -> None:
     spoken = read_cues(a.cues) if a.cues else {}
     vo = ([(k, v["wav"], round(v["file_frame"] * 1000 / FPS)) for k, v in sorted(spoken.items())] if spoken else
           [(k, Path(p), round(LINES[k][0] * 1000 / FPS)) for k, p in sorted(vo.items())])
-    want = set(a.only.split(",")) if a.only else {"prores", *(o.name for o in OUTPUTS)}
+    src_ = SOURCES[a.source]
+    want = set(a.only.split(",")) if a.only else {"prores", *(o.name for o in OUTPUTS)} - src_["skip"]
+    if want & src_["skip"]:
+        ap.error(f"--source {a.source} makes no {', '.join(sorted(want & src_['skip']))}")
+    base = name
+    name = lambda f: base(src_["rename"].get(f, f))  # noqa: E731
     n = sum(b - c for c, b in segs)
     a.out.mkdir(parents=True, exist_ok=True)
     ovl = a.out / "overlays"
@@ -779,9 +792,10 @@ def main(argv=None) -> None:
         for c, b in segs:
             found.update(find_frames(a.frames, c, b, a.pattern, a.frame_offset))
         first = next((p for p in found.values() if p), None)
-        size = png_size(first) if first else (even(W * a.scale), even(H * a.scale))
+        SW, SH = src_["size"]
+        size = png_size(first) if first else (even(SW * a.scale), even(SH * a.scale))
         seq = stage(found, segs, work, a.fill, size)
-        mw, mh = even(W * a.scale), even(H * a.scale)
+        mw, mh = even(SW * a.scale), even(SH * a.scale)
         if size != (mw, mh):
             print(f"note: the frames are {size[0]}x{size[1]}, scaled to {mw}x{mh}", file=sys.stderr)
         pre = ",".join(x for x in [grade_filter(a.grade, a.lut), yuv(mw, mh),

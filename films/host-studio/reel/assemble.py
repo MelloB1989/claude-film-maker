@@ -119,27 +119,27 @@ def sheet(frames: Path, out: Path, shot: str, every: int = 6, tile: int = 640) -
     return made
 
 
-def preview(frames: Path, out: Path, mix: Path, cues: Path | None, scale: float) -> None:
+def preview(frames: Path, out: Path, mix: Path, cues: Path | None, scale: float, source: str) -> None:
     """The reel so far: rendered shots and slates for the rest, the mix, title and captions; 1080p 16:9 and 9:16."""
     n = len(whole(frames))
     work = out / "preview_work"
     args = [str(frames), "--fill", "slate", "--only", "1080p,vertical", "--mix", str(mix), "--out", str(work),
-            "--scale", str(scale)]
+            "--scale", str(scale), "--source", source]
     cut.main(args + (["--cues", str(cues)] if cues else []))
     (work / "karma-reel-1080p-h264.mp4").replace(out / f"preview_{n}.mp4")
-    (work / "karma-reel-9x16-h264.mp4").replace(out / f"preview_{n}_9x16.mp4")
+    (work / cut.SOURCES[source]["rename"].get(v := "karma-reel-9x16-h264.mp4", v)).replace(out / f"preview_{n}_9x16.mp4")
     (work / "cut.json").replace(out / f"preview_{n}.json")
     print(out / f"preview_{n}.mp4", out / f"preview_{n}_9x16.mp4", f"({n} of {len(SHOTS)} shots: {', '.join(whole(frames))})")
 
 
-def final(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | None) -> None:
+def final(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | None, source: str) -> None:
     """The deliverables into OUT: the 65 s reel (ProRes master, 4K H.264/HEVC, 1080p, 9:16, SRT/VTT, cut.json) and the
-    45 s cut (the same, karma-reel-45s-*: R5's mix made for it, or the full mix cut on its edits). Every frame must be
-    in: no slates."""
+    45 s cut (the same, karma-reel-45s-*: R5's mix made for it, or the full mix cut on its edits). From --source 1080p
+    frames: a 1080p master, no 4K, the 9:16 as karma-reel-9x16-preview-*. Every frame must be in: no slates."""
     missing = [s.id for s in SHOTS if s.id not in whole(frames)]
     if missing:
         raise SystemExit(f"not every shot is in: {', '.join(missing)}")
-    c = ["--cues", str(cues)] if cues else []
+    c = (["--cues", str(cues)] if cues else []) + ["--source", source]
     cut.main([str(frames), "--mix", str(mix), "--out", str(out), *c])
     cut.main([str(frames), "--edl", "45s", "--mix", str(mix45 or mix), "--out", str(out), *c])
 
@@ -148,6 +148,7 @@ def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--out", type=Path, default=DEFAULT, help="where the previews and sheets go")
     ap.add_argument("--frames-dir", type=Path, help="the shots' frames (default OUT/frames)")
+    ap.add_argument("--source", choices=["2160p", "1080p"], default="2160p", help="the frames' resolution (cut.py)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("pull")
     p.add_argument("shot")
@@ -174,9 +175,9 @@ def main(argv=None) -> None:
     elif a.cmd == "sheet":
         sheet(frames, a.out, a.shot.upper(), a.every)
     elif a.cmd == "final":
-        final(frames, a.out, a.mix, a.mix45, a.cues)
+        final(frames, a.out, a.mix, a.mix45, a.cues, a.source)
     else:
-        preview(frames, a.out, a.mix, a.cues, a.scale)
+        preview(frames, a.out, a.mix, a.cues, a.scale, a.source)
 
 
 if __name__ == "__main__":
