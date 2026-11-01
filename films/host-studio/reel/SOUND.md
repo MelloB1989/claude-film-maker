@@ -7,7 +7,7 @@ the prompts, seeds, layers, cues and levels are in [`score.py`](score.py), [`sfx
 | File | What |
 |---|---|
 | `audio/mix/mix.wav` | **the mix**: 48 kHz stereo 24-bit, 3 120 000 samples (65.000 s from frame 0), −14.1 LUFS, −1.7 dBTP, LRA 5.7 LU. R6: `cut.py FRAMES --mix audio/mix/mix.wav` |
-| `audio/mix/mix_45.wav` | **the 45 s cut** (PLAN §7 item 4, R6's edit list in [`mix45.py`](mix45.py)): 2 160 000 samples, −14.1 LUFS, −1.7 dBTP, LRA 5.9 LU; the score plays bar 12's riser and breath under S08 so the cut to S11 lands on the drop; `mix_45.json` has the lines' frames in the cut |
+| `audio/mix/mix_45.wav` | **the 45 s cut** (PLAN §7 item 4, R6's edit list in [`mix45.py`](mix45.py)): 2 160 000 samples, −14.1 LUFS, −1.7 dBTP, LRA 5.9 LU; S06 dropped, S10 into S11 unbroken so the riser, breath, needle drop and crackle play as written and the drop lands on cut f300; `mix_45.json` has the lines' frames in the cut |
 | `audio/score/score.wav` | the score alone, conformed and arranged, same length (peak −1 dBTP, not loudness-normalised) |
 | `audio/sfx/beds.wav`, `fx.wav` | the effects' two stems (beds: room, outside, hum, crackle; fx: the one-shots), same length |
 | `audio/sfx/cues.json` | the cue sheet as data: every one-shot's frame, sound, gain, pan, shot |

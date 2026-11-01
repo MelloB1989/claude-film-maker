@@ -4,11 +4,11 @@ by mix.py's chain (the same levels, the same duck, -14 LUFS / -1 dBTP), 48 kHz s
     cd tools && python ../films/host-studio/reel/mix45.py                 # the voice from audio/vo/
     cd tools && python ../films/host-studio/reel/mix45.py --vo-dir DIR    # R4's stems
 
-The picture keeps master frames 120-180 (S02), 240-360 (S03, S04), 420-480 (S06), 540-600 (S08), 720-840 (S11, S12)
-and 900-1560 (S13 bar 2 to the end): every cut is on a bar line (a bar is 60 frames at 96 bpm). The beds, the
-effects and the voice follow the picture. The score follows it too except under S08, which plays bar 12 (master
-660-720) instead of bar 10: the riser and the breath (f705-719) then lead into the drop on the cut to S11, as in
-the long cut. Every splice is an equal-power crossfade that ends on the bar line, so the incoming downbeat is whole
+The picture keeps master frames 120-180 (S02), 240-360 (S03, S04), 540-600 (S08), 660-840 (S10, S11, S12) and
+900-1560 (S13 bar 2 to the end): every cut is on a bar line (a bar is 60 frames at 96 bpm), and S06 is the shot
+dropped. The score, the beds, the effects and the voice all follow the picture: S10 runs into S11 unbroken, so the
+riser, the breath (f705-719), the needle drop and the crackle play where they were written and the drop lands on
+cut f300. Every splice is an equal-power crossfade that ends on the bar line, so the incoming downbeat is whole
 (the incoming source's pre-roll fades in under the outgoing segment's last milliseconds).
 """
 from __future__ import annotations
@@ -26,9 +26,9 @@ sys.path.insert(0, str(HERE))
 import mix as M  # noqa: E402
 from mix import SPF, SR, load, loudness, master, sidechain_gain, true_peak, write_wav  # noqa: E402
 
-# (master start, master end) frames, in the cut's order, and the score's source where it differs from the picture's
-PICTURE = [(120, 180), (240, 360), (420, 480), (540, 600), (720, 840), (900, 1560)]
-SCORE = [(120, 180), (240, 360), (420, 480), (660, 720), (720, 840), (900, 1560)]
+# (master start, master end) frames, in the cut's order (R6's cut.py --edl 45s), and the score's source if it differs
+PICTURE = [(120, 180), (240, 360), (540, 600), (660, 840), (900, 1560)]
+SCORE = PICTURE
 FRAMES = sum(b - a for a, b in PICTURE)  # 1080
 N = FRAMES * SPF  # 2 160 000
 XFADE_MS = {"music": 10.0, "voice": 10.0, "fx": 10.0, "beds": 40.0}

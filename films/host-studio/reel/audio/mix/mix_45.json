@@ -1,9 +1,9 @@
 {
- "lufs": -14.09,
+ "lufs": -14.08,
  "true_peak_dbtp": -1.69,
  "seconds": 45.0,
  "samples": 2160000,
- "master_gain_db": 2.68,
+ "master_gain_db": 2.66,
  "voice": "stems /home/nikhil/code/.worktrees/agent-11/reel-sound/films/host-studio/reel/audio/vo/vo_him.wav + vo_her.wav",
  "score_gain_db": 0.8,
  "voice_gain_db": 3.5,
@@ -17,15 +17,11 @@
    360
   ],
   [
-   420,
-   480
-  ],
-  [
    540,
    600
   ],
   [
-   720,
+   660,
    840
   ],
   [
@@ -43,15 +39,11 @@
    360
   ],
   [
-   420,
-   480
+   540,
+   600
   ],
   [
    660,
-   720
-  ],
-  [
-   720,
    840
   ],
   [
@@ -106,9 +98,8 @@
  "segments_lufs": {
   "120-180": -16.6,
   "240-360": -15.0,
-  "420-480": -19.0,
-  "540-600": -14.9,
-  "720-840": -12.2,
+  "540-600": -18.5,
+  "660-840": -12.8,
   "900-1560": -13.9
  }
 }
