@@ -91,6 +91,13 @@ AIMS = [(bar(15), FACE_HIM),   # S13, S14: him
         (bar(19), FACE_HIM),   # S15: him sharp in front; her soft behind, in the practicals and rims
         (bar(21), FACE_HER),   # S16: her
         (bar(23), BOTH)]       # S17, S18: both
+# S08's terminal: the cursor (baked into labels.py's T_Label_Terminal) holds solid through the typing on beats 1, 1&
+# and 2 of bar 10, then blinks: off on each &, on with a tick on beats 3 and 4 (SOUND.md f570, f585), on again at the
+# cut. rig.py puts the terminal on a ScreenBlink material; its rectangle in UV is the cursor's (labels.terminal: U
+# 0.686-0.729, V 0.376-0.620) plus its 6 px glow.
+CURSOR_UV = dict(CursorU0=0.677, CursorU1=0.738, CursorV0=0.335, CursorV1=0.661)
+BLINK = [(bar(10, 2) + 8, 0.0), (bar(10, 3), 1.0), (bar(10, 3) + 8, 0.0), (bar(10, 4), 1.0), (bar(10, 4) + 8, 0.0),
+         (bar(11), 1.0)]
 DIM = 0.7  # NIGHT-DIM: the practicals ease down 30% over bars 25-26; the halo holds
 
 
@@ -206,6 +213,7 @@ def tracks() -> list:
     for k in range(4):
         add(f"ShelfLed{k}", "float", "Intensity", C((0, 1.3), (d, 1.3), (b, 1.5), (dim0, 1.5), (end_dim, 1.5 * DIM)))
     add("CandleLight", "float", "Intensity", C((0, 0.1), (dim0, 0.1), (end_dim, 0.1 * DIM)))
+    add("Terminal", "material", "Blink", C((0, 1.0), *((f, v, "hold") for f, v in BLINK)), slot="M_Label_Terminal")
 
     # the halo: off all day; the card is wiped on letter by letter (Reveal) and each letter's LEDs strike in turn
     add("SignHalo", "material", "Intensity", C((0, 0.0), (ig, HALO_CARD, "hold")), slot=0)

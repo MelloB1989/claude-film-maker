@@ -17,7 +17,7 @@ BASE = "/Game/FM/Materials"
 
 # a kind's graph revision: bump it when a kind's graph changes, and the next look.material rebuilds that parent in
 # place (its instances keep their values); a parent is otherwise made once per project and never rebuilt
-REV = {"GlowWipe": 2}  # 2: U masked to R only (rev 1's R+G mask failed to compile)
+REV = {"GlowWipe": 2, "ScreenBlink": 1}  # GlowWipe 2: U masked to R only (rev 1's R+G mask failed to compile)
 
 
 def _base(kind: str):
@@ -46,7 +46,7 @@ def _base(kind: str):
         MEL.recompile_material(m)
         EAL.save_asset(path)
         return m
-    if kind in ("Screen", "Textured"):  # Color tints a texture (Tex), tiled `Tiling` times
+    if kind in ("Screen", "ScreenBlink", "Textured"):  # Color tints a texture (Tex), tiled `Tiling` times
         uv = MEL.create_material_expression(m, unreal.MaterialExpressionTextureCoordinate, -1100, -200)
         til = param(unreal.MaterialExpressionScalarParameter, "Tiling", -1100, -100, 1.0)
         uvm = MEL.create_material_expression(m, unreal.MaterialExpressionMultiply, -900, -150)
@@ -59,11 +59,13 @@ def _base(kind: str):
         MEL.connect_material_expressions(tex, "RGB", tint, "A")
         MEL.connect_material_expressions(col, "", tint, "B")
         col = tint
-    if kind == "Screen":  # a lit display: the picture is emitted, the glass is glossy black
+    if kind in ("Screen", "ScreenBlink"):  # a lit display: the picture is emitted, the glass is glossy black
         k = param(unreal.MaterialExpressionScalarParameter, "Intensity", -500, 200, 4.0)
         mul = MEL.create_material_expression(m, unreal.MaterialExpressionMultiply, -200, 100)
         MEL.connect_material_expressions(col, "", mul, "A")
         MEL.connect_material_expressions(k, "", mul, "B")
+        if kind == "ScreenBlink":
+            mul = _blink(m, uv, mul, param)
         MEL.connect_material_property(mul, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
         black = MEL.create_material_expression(m, unreal.MaterialExpressionConstant3Vector, -200, 300)
         MEL.connect_material_property(black, "", unreal.MaterialProperty.MP_BASE_COLOR)
@@ -91,6 +93,37 @@ def _base(kind: str):
     MEL.recompile_material(m)
     EAL.save_asset(path)
     return m
+
+
+def _blink(m, uv, emitted, param):
+    """ScreenBlink: the emitted picture dimmed to `Blink` inside the UV rectangle CursorU0-U1 x CursorV0-V1 (a text
+    cursor baked into the texture, keyed on and off in a sequence); 1 - (1 - Blink) x inside."""
+    def ex(cls, x, y, *ins, **props):
+        e = MEL.create_material_expression(m, cls, x, y)
+        for k, v in props.items():
+            e.set_editor_property(k, v)
+        for (src, pin), slot in zip(ins, ("A", "B")):
+            MEL.connect_material_expressions(src, "", e, slot if len(ins) > 1 else pin)
+        return e
+
+    def above(a, b, x, y):  # 1 where a > b (a hard step)
+        d = ex(unreal.MaterialExpressionSubtract, x, y, (a, ""), (b, ""))
+        return ex(unreal.MaterialExpressionSaturate, x + 300, y, (ex(unreal.MaterialExpressionMultiply, x + 150, y,
+                                                                     (d, "A"), const_b=1000.0), ""))
+    inside = None
+    for i, (ch, lo, hi) in enumerate((("r", "CursorU0", "CursorU1"), ("g", "CursorV0", "CursorV1"))):
+        c = ex(unreal.MaterialExpressionComponentMask, -1100, 700 + 300 * i, (uv, ""),
+               **{k: k == ch for k in "rgba"})  # one channel: a new mask has R and G on
+        y = 650 + 300 * i
+        a = above(c, param(unreal.MaterialExpressionScalarParameter, lo, -1100, y + 100, 0.0), -900, y)
+        b = above(param(unreal.MaterialExpressionScalarParameter, hi, -1100, y + 200, 0.0), c, -900, y + 150)
+        both = ex(unreal.MaterialExpressionMultiply, -400, y, (a, ""), (b, ""))
+        inside = both if inside is None else ex(unreal.MaterialExpressionMultiply, -300, 800, (inside, ""), (both, ""))
+    off = ex(unreal.MaterialExpressionOneMinus, -400, 1300,
+             (param(unreal.MaterialExpressionScalarParameter, "Blink", -600, 1300, 1.0), ""))
+    lit = ex(unreal.MaterialExpressionOneMinus, -150, 1000, (ex(unreal.MaterialExpressionMultiply, -250, 1000,
+                                                                (inside, ""), (off, "")), ""))
+    return ex(unreal.MaterialExpressionMultiply, -100, 100, (emitted, ""), (lit, ""))
 
 
 def _white(linear: bool) -> str:
@@ -213,9 +246,10 @@ def material(name: str, color=(1.0, 1.0, 1.0), kind: str = "Surface", roughness:
              folder: str = "/Game/FM/Materials", scalars: dict = None) -> str:
     """A material instance: kind Surface (color, roughness, metallic, specular), Textured (a texture tinted by color,
     tiled), Screen (an emitted texture x intensity behind glossy glass), Emissive (color x intensity, unlit), Glass
-    (translucent, opacity), Pbr (texture, normal and mask maps; mask R x roughness, G x metallic), PbrMasked (Pbr cut
-    out by the texture's alpha), Sheer (backlit thin fabric: mask B x opacity, dithered; transmission colour, glow),
-    Glow (texture x color x intensity, additive) or GlowWipe (Glow revealed left to right: scalars Reveal 0-1 and
+    (translucent, opacity), ScreenBlink (Screen with a baked-in cursor that blinks: scalars Blink 0-1 and the cursor's
+    UV rectangle CursorU0, CursorU1, CursorV0, CursorV1), Pbr (texture, normal and mask maps; mask R x roughness,
+    G x metallic), PbrMasked (Pbr cut out by the texture's alpha), Sheer (backlit thin fabric: mask B x opacity,
+    dithered; transmission colour, glow), Glow (texture x color x intensity, additive) or GlowWipe (Glow revealed left to right: scalars Reveal 0-1 and
     Softness). `scalars` sets any other scalar parameters by name. Colours are linear. Re-running updates it."""
     path = f"{folder}/{name}"
     parent = _base(kind)
