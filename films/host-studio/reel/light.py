@@ -182,9 +182,11 @@ def tracks() -> list:
                    note="pitch = -elevation, yaw = azimuth"))
     add("FM_Sun", "float", "Intensity", C((0, 17000.0), (g, 17000.0), (d, 6000.0), (d + 60, 1200.0, "out"),
                                           (d + 110, 40.0, "lin"), (b, 0.0, "out")))
-    add("FM_Sun", "float", "Temperature", C((0, 5100.0), (g, 5100.0), (d, 3900.0), (d + 120, 2500.0),
+    add("FM_Sun", "float", "Temperature", C((0, 5100.0), (g, 5100.0), (d, 4300.0), (d + 120, 3300.0),
                                             (ig, NIGHT_SUN["temperature"])))
-    add("FM_SkyLight", "float", "Intensity", C((0, 0.6), (g, 0.6), (d, 0.35), (b, 0.5), (bh, 0.5), (ig, NIGHT_SUN["sky"])))
+    # the sky light captures the atmosphere live: with the sun at 8 to -3 deg it goes salmon-red and tints the whole
+    # room, so it stays low through DUSK and lifts only once the sun is under and the sky reads blue (V05)
+    add("FM_SkyLight", "float", "Intensity", C((0, 0.6), (g, 0.6), (d, 0.2), (d + 90, 0.2), (b, 0.5), (bh, 0.5), (ig, NIGHT_SUN["sky"])))
     # the window: daylight 6200 K, warming in GOLDEN, cooling to the night's blue through DUSK and BLUE. Temperature
     # multiplies the colour (use_temperature stays on), so the night blue is the colour over a neutral 6500 K.
     add("WindowSky", "float", "Intensity", C((0, 8.0), (g, 8.0), (d, 5.0), (b, 3.0), (bh, 3.0), (ig, 1.2)))
@@ -192,8 +194,8 @@ def tracks() -> list:
                                                (b, 6500.0)))
     add("WindowSky", "color", "LightColor", C((0, (1.0, 1.0, 1.0)), (d, (1.0, 1.0, 1.0)), (d + 90, (0.75, 0.8, 0.95)),
                                               (b, WINDOW_BLUE), (bh, WINDOW_BLUE), (ig, WINDOW_NIGHT)))
-    add("RoomBounce", "float", "Intensity", C((0, 0.8), (g, 0.8), (d, 1.0), (b, 1.0), (bh, 1.0), (ig, 0.4)))
-    add("RoomBounce", "float", "Temperature", C((0, 4500.0), (g, 4500.0), (d, 3600.0), (b, 8500.0), (ig, 10000.0)))
+    add("RoomBounce", "float", "Intensity", C((0, 0.8), (g, 0.8), (d, 1.1), (b, 1.0), (bh, 1.0), (ig, 0.4)))
+    add("RoomBounce", "float", "Temperature", C((0, 4500.0), (g, 4500.0), (d, 4300.0), (d + 60, 4300.0), (b, 8500.0), (ig, 10000.0)))
     # the garden outside: the day card fades out as the night card (rig.py, additive in front of it) fades in
     add("Outside", "material", "Intensity", C((0, 18.0), (g, 18.0), (d, 10.0), (b, 0.0, "out"), (ig, 0.0)), slot=0)
     add("OutsideNight", "material", "Intensity", C((0, 0.0), (d + 60, 0.0), (b, 1.2, "in"), (bh, 1.2), (ig, 1.2)), slot=0)
