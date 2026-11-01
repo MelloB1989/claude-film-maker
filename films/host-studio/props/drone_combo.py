@@ -76,7 +76,7 @@ def main():
     d, _ = K.assemble("drone", drone.build())
     r, _ = K.assemble("drone_remote", drone_remote.build())
     d.location = (0.0, -0.06, 0.0)
-    r.location = (0.035, 0.265, 0.0)
+    r.location = (0.04, 0.31, 0.0)
     r.rotation_euler = (0, 0, math.radians(-16))
 
     slab("shelf", (-DEPTH / 2, -LENGTH / 2, -THICK), (DEPTH / 2, LENGTH / 2, 0), oak(), bevel=0.002)

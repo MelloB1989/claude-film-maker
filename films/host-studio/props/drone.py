@@ -3,11 +3,12 @@ if just put down, props parked. No logos, names or text anywhere.
 
 Modelled in cm, nose toward +X, then scaled to metres with the origin at the bottom centre of the footprint.
 
-    fuselage   two shells with a real parting line: a faceted top shell (crown, shoulder, chamfer, side wall,
-               small radii on every feature line) over a tucked lower shell; the battery is a separate pack
-               sliding in at the rear under the top shell, with a ribbed grip and latch buttons
-    sensors    forward stereo pair on the nose, rear pair under the top shell's tail, downward pair and a ToF
-               window underneath; side intakes with louvres, a bottom grille, a USB-C port and card slot
+    fuselage   two shells with a real parting line: a faceted top shell (crown, shoulder, 45 deg chamfer, side
+               wall, 0.4-2 mm radii on the feature lines) over a tucked lower shell; the battery is a separate
+               pack forming the rear of the fuselage in the same surface language, the top shell raking down
+               onto it; ribbed grip across its rear face, latch buttons on its chamfers, power button, level LEDs
+    sensors    forward stereo pair in sockets on the nose, rear pair on the raked tail looking back, downward
+               pair and a ToF window underneath; side intakes with louvres, a bottom grille, USB-C and card slot
     arms       front arms hinge out sideways from the upper body, rear arms from the lower body on a raked
                axis; hinge barrels with knuckles and pins; aerofoil arm sections; landing legs with pads
     motors     outrunner bells with spoked tops and side slots, wound stator visible inside, screw-on hubs
@@ -629,7 +630,9 @@ def main():
 
     def cm(p):
         return Vector(p) * K.CM - origin
+    hero = cm((0.0, 0.0, 4.2))
     shots = {
+        "": dict(loc=hero + Vector((1.0, -0.75, 0.7)).normalized() * 0.56, target=hero, lens=60),
         "front": dict(view_dir=(1.0, 0.0, 0.08), lens=60),
         "top": dict(view_dir=(0.001, 0.0, 1.0), lens=60),
         "close": dict(loc=cm((6.0, -0.3, 2.9)) + Vector((0.8, -0.55, 0.25)).normalized() * 0.2,
@@ -642,12 +645,12 @@ def main():
                       "dbg_under": dict(view_dir=(0.3, -0.4, -0.6), lens=60),
                       "dbg_side": dict(view_dir=(0.0, -1.0, 0.1), lens=60)})
     for tag, kw in shots.items():
-        if only and tag not in only.split(","):
+        if only and (tag or "hero") not in only.split(","):
             continue
         floor = bpy.data.objects.get("_floor")
         if floor is not None:
             floor.hide_render = tag == "dbg_under"
-        K.shoot(ob, out(f"drone_{tag}.png"), **kw)
+        K.shoot(ob, out(f"drone_{tag}.png" if tag else "drone.png"), **kw)
     if not only or "shelf" in only:
         shelf_shot(ob, out("drone_shelf.png"), args)
 
