@@ -298,6 +298,8 @@ def gold_material():
     b = M.principled(m)
     attr = nt.nodes.new("ShaderNodeAttribute")
     attr.attribute_name = "Relief"
+    sep = nt.nodes.new("ShaderNodeSeparateColor")
+    nt.links.new(attr.outputs["Color"], sep.inputs[0])
     nz = nt.nodes.new("ShaderNodeTexNoise")
     nz.inputs["Scale"].default_value = 300.0
     nz.inputs["Detail"].default_value = 4.0
@@ -307,7 +309,7 @@ def gold_material():
     nt.links.new(nz.outputs["Fac"], wear.inputs["Value"])
     mix = nt.nodes.new("ShaderNodeMix")
     mix.data_type = "FLOAT"
-    nt.links.new(attr.outputs["Fac"], mix.inputs["Factor"])
+    nt.links.new(sep.outputs[0], mix.inputs["Factor"])  # R: the relief
     nt.links.new(wear.outputs["Result"], mix.inputs[2])
     mix.inputs[3].default_value = 0.45
     nt.links.new(mix.outputs[0], b.inputs["Roughness"])
@@ -315,17 +317,19 @@ def gold_material():
 
 
 def relief_colors(ob):
-    """Colour attribute "Relief": white on the raised B, 40 % grey on the circuit, black
-    elsewhere, so a material can frost the relief against a polished field (proof finish)."""
+    """Colour attribute "Relief", the finish map: R is 1 on the raised B, 0.4 on the circuit, 0 elsewhere; G is 1 on
+    the rims, chamfers and the reeded edge (outside the field). A material can then give the field, the relief and
+    the rims each their own polish (unreal/studio.py: a satin field with mirror-polished relief and rims)."""
     me = ob.data
     ca = me.color_attributes.new("Relief", "BYTE_COLOR", "CORNER")
     top = (FIELD_Z + 0.02) * MM
     b_top = (FIELD_Z + 0.2) * MM
     for p in me.polygons:
         zmin = min(me.vertices[v].co.z for v in p.vertices)
-        raised = zmin > top and p.center.length < FIELD_R * MM
+        inside = max(me.vertices[v].co.xy.length for v in p.vertices) < FIELD_R * MM + 1e-7
+        raised = zmin > top and inside
         k = (1.0 if zmin > b_top else 0.4) if raised else 0.0   # the circuit only half-frosted
-        c = (k, k, k, 1.0)
+        c = (k, 0.0 if inside and zmin < (FIELD_Z + 0.5) * MM and zmin > 0.5 * MM else 1.0, 0.0, 1.0)
         for li in p.loop_indices:
             ca.data[li].color = c
     me.update()

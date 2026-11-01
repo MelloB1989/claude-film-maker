@@ -69,7 +69,8 @@ def ok(r):
 
 def main():
     frames = [int(x) for x in sys.argv[1:] if x.isdigit()] or [48]
-    noleader = "--noleader" in sys.argv  # diagnosis: the shirt in its own bind pose, not following her body
+    keyanim = "--keyanim" in sys.argv  # the idle keyed on the Overshirt itself, as on Body, instead of the leader pose
+    noleader = keyanim or "--noleader" in sys.argv  # diagnosis: the shirt in its own bind pose, not following her body
     cams = {k: v for k, v in CAMS.items() if not noleader or k == "OvershirtCamF"}
     before = ok(client.exec_code(STATE % (LABELS,)))  # nothing here changes these: reported as a check
     was_open = ok(client.exec_code(OPENSEQ))  # someone else's sequence (the reel) goes back open as we found it
@@ -89,7 +90,7 @@ def main():
                          filmback=[24.0, 30.0], pilot=False))
         for cam in cams:  # the viewport follows the sequence's camera cut: one sequence per camera
             ok(client.op("seq.close"))
-            ok(client.op("seq.shot", path=SEQ, actor_label="Presenter", anims={"Body": IDLE}, camera=cam,
+            ok(client.op("seq.shot", path=SEQ, actor_label="Presenter", anims={"Body": IDLE, **({"Overshirt": IDLE} if keyanim else {})}, camera=cam,
                          seconds=max(frames) / 24 + 1))
             # the level keeps her hidden in game (empty-room shots; only the reel's visibility track shows her):
             # show her, with what is attached to her, in this scratch sequence only, and hide the host's stool

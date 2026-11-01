@@ -1227,6 +1227,22 @@ def export_skeletal(her, ob, path):
     arm.select_set(True)
     bpy.context.view_layer.objects.active = arm
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    # In centimetres, as her body's FBX is: in metres the FBX root gets scale 100, which Unreal keeps in the
+    # mesh's ref pose, so every pose (scale 1) shrinks the overshirt a hundredfold and it vanishes.
+    mw = ob.matrix_world.copy()
+    ob.parent = None
+    ob.matrix_world = mw
+    s100 = Matrix.Scale(100.0, 4)
+    for o in (arm, ob):
+        o.matrix_world = s100 @ o.matrix_world
+    for o in bpy.context.scene.objects:
+        o.select_set(o in (arm, ob))
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)
+    ob.parent = arm
+    ob.matrix_parent_inverse = arm.matrix_world.inverted()
+    bpy.context.scene.unit_settings.system = "METRIC"
+    bpy.context.scene.unit_settings.scale_length = 0.01
     arm.name = "root"
     for o in bpy.context.scene.objects:
         o.select_set(o in (arm, ob))

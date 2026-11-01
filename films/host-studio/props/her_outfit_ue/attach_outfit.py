@@ -33,7 +33,9 @@ for n in ("Top", "Trousers"):
     if c is None:
         continue
     lead = c.get_editor_property("leader_pose_component")
-    out[n] = {"leader": lead.get_name() if lead else None,
+    ac = c.get_editor_property("anim_class")
+    out[n] = {"leader": lead.get_name() if lead else None, "anim_class": ac.get_name() if ac else None,
+              "mode": str(c.get_editor_property("animation_mode")),
               "parent": c.get_attach_parent().get_name() if c.get_attach_parent() else None,
               "mesh": c.get_skeletal_mesh_asset().get_path_name() if c.get_skeletal_mesh_asset() else None,
               "materials": [m.get_name() if m else None for m in c.get_materials()],
