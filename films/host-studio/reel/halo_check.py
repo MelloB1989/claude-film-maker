@@ -148,6 +148,11 @@ for label in LABELS:
                 r.update({p: value(m, p) for p in ("Reveal", "Intensity", "Softness", "Blink")})
             rows.append(r)
     out[label] = rows
+# the world's MPC_FM, which the halo's GlowWipe reads (light.py keys WipeOn and WipeReveal there)
+world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
+mpc = unreal.EditorAssetLibrary.load_asset("/Game/FM/Materials/MPC_FM")
+out["MPC_FM"] = {p: unreal.KismetMaterialLibrary.get_scalar_parameter_value(world, mpc, p)
+                 for p in ("WipeOn", "WipeReveal")} if mpc else "(no MPC_FM: install the bridge, run rig.py)"
 result = out
 '''
 

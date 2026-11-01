@@ -17,7 +17,10 @@ BASE = "/Game/FM/Materials"
 
 # a kind's graph revision: bump it when a kind's graph changes, and the next look.material rebuilds that parent in
 # place (its instances keep their values); a parent is otherwise made once per project and never rebuilt
-REV = {"GlowWipe": 2, "ScreenBlink": 1}  # GlowWipe 2: U masked to R only (rev 1's R+G mask failed to compile)
+REV = {"GlowWipe": 3, "ScreenBlink": 1}  # GlowWipe 2: U masked to R only (rev 1's R+G mask failed to compile);
+# 3: also gated by MPC_FM's WipeReveal and WipeOn (a sequence keys a collection without any MID: see GlowWipe)
+MPC = f"{BASE}/MPC_FM"
+MPC_SCALARS = {"WipeReveal": 1.0, "WipeOn": 1.0}  # at their defaults a GlowWipe looks as its instance says
 
 
 def _base(kind: str):
@@ -191,7 +194,18 @@ def _pbr(m, kind: str, col, param) -> None:
             for c in "rgba":  # just U: a new mask has R and G on, and a float2 here fails to compile (a checker)
                 u.set_editor_property(c, c == "r")
             MEL.connect_material_expressions(uv, "", u, "")
-            reveal = param(unreal.MaterialExpressionScalarParameter, "Reveal", -1300, 500, 1.0)
+            reveal = param(unreal.MaterialExpressionScalarParameter, "Reveal", -1500, 500, 1.0)
+            coll = load(collection(MPC, MPC_SCALARS))
+
+            def from_mpc(name, x, y):
+                e = MEL.create_material_expression(m, unreal.MaterialExpressionCollectionParameter, x, y)
+                e.set_editor_property("collection", coll)
+                e.set_editor_property("parameter_name", name)  # (its edit hook looks up the parameter's id)
+                return e
+            lower = MEL.create_material_expression(m, unreal.MaterialExpressionMin, -1300, 500)
+            MEL.connect_material_expressions(reveal, "", lower, "A")
+            MEL.connect_material_expressions(from_mpc("WipeReveal", -1500, 600), "", lower, "B")
+            reveal = lower
             soft = param(unreal.MaterialExpressionScalarParameter, "Softness", -1300, 600, 0.03)
             sub = MEL.create_material_expression(m, unreal.MaterialExpressionSubtract, -1100, 450)
             MEL.connect_material_expressions(reveal, "", sub, "A")
@@ -201,7 +215,7 @@ def _pbr(m, kind: str, col, param) -> None:
             MEL.connect_material_expressions(soft, "", div, "B")
             sat = MEL.create_material_expression(m, unreal.MaterialExpressionSaturate, -700, 500)
             MEL.connect_material_expressions(div, "", sat, "")
-            glow = mul(glow, "", sat, "", -150, 0)
+            glow = mul(mul(glow, "", sat, "", -150, 0), "", from_mpc("WipeOn", -300, 700), "", -50, 100)
         MEL.connect_material_property(glow, "", P.MP_EMISSIVE_COLOR)
         return
     nrm = sample("Normal", -1000, 0, "/Engine/EngineMaterials/DefaultNormal", "SAMPLERTYPE_NORMAL")
@@ -249,8 +263,10 @@ def material(name: str, color=(1.0, 1.0, 1.0), kind: str = "Surface", roughness:
     (translucent, opacity), ScreenBlink (Screen with a baked-in cursor that blinks: scalars Blink 0-1 and the cursor's
     UV rectangle CursorU0, CursorU1, CursorV0, CursorV1), Pbr (texture, normal and mask maps; mask R x roughness,
     G x metallic), PbrMasked (Pbr cut out by the texture's alpha), Sheer (backlit thin fabric: mask B x opacity,
-    dithered; transmission colour, glow), Glow (texture x color x intensity, additive) or GlowWipe (Glow revealed left to right: scalars Reveal 0-1 and
-    Softness). `scalars` sets any other scalar parameters by name. Colours are linear. Re-running updates it."""
+    dithered; transmission colour, glow), Glow (texture x color x intensity, additive) or GlowWipe (Glow revealed
+    left to right: scalars Reveal 0-1 and Softness; it also takes the lower of Reveal and MPC_FM's WipeReveal, and is
+    multiplied by MPC_FM's WipeOn, both 1 unless a sequence keys them). `scalars` sets any other scalar parameters by
+    name. Colours are linear. Re-running updates it."""
     path = f"{folder}/{name}"
     parent = _base(kind)
     mi = load(path) if EAL.does_asset_exist(path) else unreal.AssetToolsHelpers.get_asset_tools().create_asset(
@@ -268,6 +284,27 @@ def material(name: str, color=(1.0, 1.0, 1.0), kind: str = "Surface", roughness:
                  ("Opacity", opacity), ("Tiling", tiling), ("Glow", glow), *(scalars or {}).items()):
         if v is not None:
             MEL.set_material_instance_scalar_parameter_value(mi, k, float(v))
+    EAL.save_asset(path)
+    return path
+
+
+@op("look.collection")
+def collection(path: str, scalars: dict) -> str:
+    """A material parameter collection with these scalar parameters at these defaults (made, or the missing ones
+    added; existing ones keep their defaults). A sequence keys a collection on a track of its own, with no per-mesh
+    material instance in between."""
+    folder, name = path.rsplit("/", 1)
+    c = load(path) if EAL.does_asset_exist(path) else unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+        name, folder, unreal.MaterialParameterCollection, unreal.MaterialParameterCollectionFactoryNew())
+    params = list(c.get_editor_property("scalar_parameters"))
+    have = {str(p.get_editor_property("parameter_name")) for p in params}
+    for k, v in scalars.items():
+        if k not in have:
+            p = unreal.CollectionScalarParameter()
+            p.set_editor_property("parameter_name", k)
+            p.set_editor_property("default_value", float(v))
+            params.append(p)
+    c.set_editor_property("scalar_parameters", params)
     EAL.save_asset(path)
     return path
 

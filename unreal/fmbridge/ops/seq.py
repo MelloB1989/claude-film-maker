@@ -514,6 +514,54 @@ def key_material(path: str, label: str, param: str, keys: list, slot=0, componen
     return {"binding": f"{label}.{mesh.get_name()}", "slot": index, "param": param, "keys": len(keys)}
 
 
+@op("seq.key_collection")
+def key_collection(path: str, collection: str, param: str, keys: list, interp: str = "auto") -> dict:
+    """Key a scalar parameter of a material parameter collection (look.collection) on the sequence's track for that
+    collection: keys [[frame, value(, interp)], ...]. Sequencer writes the world's instance of the collection, so the
+    value reaches every material reading it with no mesh binding and no MID in between. Replaces only that
+    parameter's keys."""
+    seq = load(path)
+    mpc = load(collection)
+    track = next((t for t in seq.find_tracks_by_type(unreal.MovieSceneMaterialParameterCollectionTrack)
+                  if t.get_editor_property("mpc") == mpc), None)
+    if track is None:
+        track = seq.add_track(unreal.MovieSceneMaterialParameterCollectionTrack)
+        track.set_editor_property("mpc", mpc)
+    secs = track.get_sections()
+    sec = secs[0] if secs else track.add_section()
+    sec.set_start_frame_bounded(False)
+    sec.set_end_frame_bounded(False)
+    # the section's key API names a parameter by FName, or (since 5.4) by a full FMaterialParameterInfo, as a global
+    info = unreal.MaterialParameterInfo()
+    info.set_editor_property("name", param)
+    info.set_editor_property("association", unreal.MaterialParameterAssociation.GLOBAL_PARAMETER)
+    info.set_editor_property("index", -1)
+    for old in (param, info):
+        try:
+            sec.remove_scalar_parameter(old)
+        except Exception:
+            pass
+    used = None
+    for frame, v, *how in keys:
+        mode = _interp(how[0] if how else interp)
+        at = unreal.FrameNumber(int(frame))
+        tries = [lambda: sec.add_scalar_parameter_key(info, at, float(v), "", "", default_interpolation=mode),
+                 lambda: sec.add_scalar_parameter_key(param, at, float(v), default_interpolation=mode),
+                 lambda: sec.add_scalar_parameter_key(param, at, float(v))]
+        for k in ([used] if used is not None else range(len(tries))):
+            try:
+                tries[k]()
+                used = k
+                break
+            except TypeError:
+                continue
+        else:
+            raise TypeError(f"no add_scalar_parameter_key form takes {param!r} on {sec.get_class().get_name()}")
+    _done(path)
+    return {"collection": collection, "param": param, "keys": len(keys), "section": sec.get_class().get_name(),
+            "form": ["info", "name+interp", "name"][used] if used is not None else None}
+
+
 def _material_index(t) -> int:
     return int(t.get_material_info().get_editor_property("material_slot_index"))
 
