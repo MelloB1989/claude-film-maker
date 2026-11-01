@@ -334,6 +334,7 @@ def stage(who: str) -> dict:
     """My copy of `who` on its (offset) mark, the body idle, test cameras keyed like the reel's, and the sequence:
     frame 0 = master frame START[who]."""
     res = {"spawn": run(SPAWN, {"source": LABEL[who], "label": test_label(who), "loc": shifted(MARK[who])})}
+    res["face_mode"] = ok(client.op("mh.drive_face", label=test_label(who)))  # Sequencer drives the face (README)
     if IDLE_OFFSET[who]:
         res["idle"] = run(ROLL, {"src": IDLE, "out": idle_for(who), "seconds": IDLE_OFFSET[who]}, 1800)
     by_id = {s.id: s for s in SHOTS}
@@ -612,7 +613,8 @@ def cleanup() -> dict:
 
 
 def place(path: str) -> list:
-    """The performances on a sequence (SEQ_Reel, for R7): one Face and one Body section per presenter from START."""
+    """The performances on a sequence (SEQ_Reel, for R7): one Face and one Body section per presenter from START.
+    The faces need mh.drive_face on Host and Presenter (their Blueprint has no slot for Sequencer)."""
     out = []
     for who in ("him", "her"):
         body = f"{ANIM}/AS_reel_{who}_body" + ("_g" if USE_GESTURE[who] else "")
