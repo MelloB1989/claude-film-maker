@@ -373,7 +373,7 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
         except ValueError:
             pass
     # >>> overshirt
-    # her olive cotton-twill overshirt, worn open over the tee (props/overshirt.py, imported onto her skeleton by
+    # her olive cotton-twill overshirt, worn open over her fitted top (props/overshirt.py, imported onto her skeleton by
     # props/overshirt_ue/import_overshirt.py): a skeletal mesh component under her body that takes the body's pose
     # (leader pose). Set last: a property change on her components reruns her construction script.
     SHIRT_DIR = "/Game/Host/Presenter_Overshirt"

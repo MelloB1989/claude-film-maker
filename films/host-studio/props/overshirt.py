@@ -1,28 +1,33 @@
-"""overshirt: her olive cotton-twill overshirt, worn open over the white tee, sleeves rolled below the elbow.
+"""overshirt: her olive cotton-twill overshirt, cropped to the high hip and tailored, worn open over her fitted ribbed
+top, sleeves rolled to just below the elbow.
 
 A skinned garment for the female presenter (MetaHuman "Presenter"), on her own skeleton (metahuman_base_skel), fitted
-to her A-pose reference body as exported from Unreal (out/overshirt_ue/: SKM_Presenter_F_BodyMesh.fbx, whose torso is
-cut away under the outfit, Presenter_F_Outfits.fbx, the tee and shorts she wears, and face.fbx for the neck).
+to her A-pose reference body as exported from Unreal (--src: her uncut body FBX, face.fbx for the neck, idle.fbx for
+the clip test). It is built over --under: by default her skin 0.6 cm out (skin:0.6), the envelope agreed for the
+fitted top (its outer face <= 0.6 cm off her skin, bridged hollows aside); garment FBXs on her skeleton can be given
+instead. --check names garments it is only tested against (the fitted top's FBX).
 
 Run headless (on the Mac, through the fleet wrapper):
-    blender -b --factory-startup -P overshirt.py -- --src <dir with the UE FBXs> --out <out dir> [--stage all]
+    blender -b --factory-startup -P overshirt.py -- --src <dir with the UE FBXs> --out <out dir> \
+        --stage envelope,sim,detail,skin --body body.fbx --under skin:0.6 --check her_top.fbx
 
 How it is made
   1. The envelope (cm, Blender frame: her left +X, her front -Y, up +Z). Her torso is sliced every cm; each slice of
-     the tee (and the shorts over the hips) gives a convex hull, so the cloth bridges the bust and the small of the
+     the layer under it (and the hips) gives a convex hull, so the cloth bridges the bust and the small of the
      back as a shirt does. Going down, a slice may not be narrower than the one above it less a little taper, so the
      shirt falls from the bust and the shoulder blades instead of following the waist. Ease is added (little on the
      shoulders, more at the waist and back). Each arm is a tube round its bone axis, as wide as the arm (or the
-     tee's sleeve) plus ease. The torso and arm volumes are joined with a smooth union (the underarm), and the
+     sleeve under it) plus ease. The torso and arm volumes are joined with a smooth union (the underarm), and the
      surface is meshed (surface nets, quads) from that field.
   2. The openings are cut and their edges snapped to clean curves: a shirttail hem, the sleeve ends below the elbow,
      the neckline, and the open front (the fronts hang apart, as worn open).
-  3. Blender's cloth solver drops it onto her (the tee, the arms, the neck as colliders): it settles on the
+  3. Blender's cloth solver drops it onto her (the layer under it, the arms, the neck as colliders): it settles on the
      shoulders, the sleeves slide and bunch toward the elbows, the fronts hang.
   4. Detail on the settled cloth: subdivision, seams as stitched grooves (shoulder, yoke, armholes, sides, sleeve
      underarms, hem and placket stitching), a collar with a stand, plackets, buttons (her left) and buttonholes (her
      right), a chest patch pocket (her left), rolled cuffs, thickness.
-  5. Skinning: weights transferred from the tee and the body (nearest face, interpolated), smoothed, checked by
+  5. Skinning: weights transferred from her body (nearest face, interpolated; the panels from her torso, the
+     sleeves from her arms), smoothed, checked by
      posing the arms; exported as a skeletal mesh FBX on her skeleton.
 
 Material slots: M_Overshirt (olive cotton twill), M_Buttons. UVs: world scale (1 UV = 1 m), the grain (V) along the
