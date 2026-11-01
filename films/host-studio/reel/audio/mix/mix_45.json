@@ -1,80 +1,85 @@
 {
- "lufs": -14.08,
- "true_peak_dbtp": -1.69,
+ "lufs": -14.1,
+ "true_peak_dbtp": -1.72,
  "seconds": 45.0,
  "samples": 2160000,
- "master_gain_db": 2.66,
- "voice": "stems /home/nikhil/code/.worktrees/agent-11/reel-sound/films/host-studio/reel/audio/vo/vo_him.wav + vo_her.wav",
+ "master_gain_db": 2.55,
+ "voice": "stems ../out/host-studio/reel/vo/vo_him.wav + vo_her.wav",
  "score_gain_db": 0.8,
- "voice_gain_db": 3.5,
+ "voice_gain_db": 3.63,
  "picture_master_frames": [
   [
-   120,
-   180
+   0,
+   120
   ],
   [
    240,
    360
   ],
   [
-   540,
-   600
+   420,
+   480
   ],
   [
    660,
    840
   ],
   [
-   900,
+   960,
    1560
   ]
  ],
  "score_master_frames": [
   [
-   120,
-   180
+   0,
+   120
   ],
   [
    240,
    360
   ],
   [
-   540,
-   600
+   420,
+   480
   ],
   [
    660,
    840
   ],
   [
-   900,
+   960,
    1560
   ]
  ],
  "lines_cut_frames": {
   "L1": [
-   450,
-   589,
+   540,
+   585,
    "him"
   ],
   "L2": [
-   630,
-   661,
+   615,
+   653,
    "him"
   ],
-  "L3": [
+  "L3a": [
    678,
-   825,
+   705,
+   "her"
+  ],
+  "L3b": [
+   735,
+   810,
    "her"
   ],
   "L4a": [
-   880,
-   893,
+   870,
+   897,
    "him"
   ],
   "L4b": [
    906,
-   923,
+   953,
    "her"
   ]
  },
@@ -85,7 +90,10 @@
   "L2": {
    "median_db": -8.0
   },
-  "L3": {
+  "L3a": {
+   "median_db": -8.0
+  },
+  "L3b": {
    "median_db": -8.0
   },
   "L4a": {
@@ -96,10 +104,10 @@
   }
  },
  "segments_lufs": {
-  "120-180": -16.6,
-  "240-360": -15.0,
-  "540-600": -18.5,
+  "0-120": -15.8,
+  "240-360": -15.2,
+  "420-480": -21.3,
   "660-840": -12.8,
-  "900-1560": -13.9
+  "960-1560": -13.9
  }
 }

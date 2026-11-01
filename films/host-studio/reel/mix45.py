@@ -27,7 +27,7 @@ import mix as M  # noqa: E402
 from mix import SPF, SR, load, loudness, master, sidechain_gain, true_peak, write_wav  # noqa: E402
 
 # (master start, master end) frames, in the cut's order (R6's cut.py --edl 45s), and the score's source if it differs
-PICTURE = [(120, 180), (240, 360), (540, 600), (660, 840), (900, 1560)]
+PICTURE = [(0, 120), (240, 360), (420, 480), (660, 840), (960, 1560)]  # PLAN v2 section 6
 SCORE = PICTURE
 FRAMES = sum(b - a for a, b in PICTURE)  # 1080
 N = FRAMES * SPF  # 2 160 000

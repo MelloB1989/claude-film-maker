@@ -189,8 +189,8 @@ frames (S11, S12 are unchanged and already rendered); the new ones are V01–V05
 
 ### N01 · The shelves at night — 0:35.00–0:40.00 (bars 15–16, f840–959, 5.0 s)
 
-- **Camera:** 50 mm full frame, T2. A night glide: from the lit sign's edge along the shelves, screen-left to right, 115 cm, slightly oblique so the boards' LED lines converge; the halo's spill leaves frame left. From `[-150, 20, 186]` → `[-150, -95, 180]`, aimed at `[-252, -170, 190]`.
-- **Focus:** +0 f: 100 cm, +60 f: 116 cm, +120 f: 104 cm.
+- **Camera:** 50 mm full frame, T2. A night glide: from the lit sign's edge along the shelves, screen-left to right, 115 cm, slightly oblique so the boards' LED lines converge; the halo's spill leaves frame left. From `[-110, 20, 184]` → `[-110, -95, 178]`, aimed at `[-252, -170, 176]`.
+- **Focus:** +0 f: 140 cm, +60 f: 156 cm, +120 f: 144 cm.
 - **In frame:** the shelves at night: warm LED lines under each board, the things on them half silhouette, half lit, the downlight's pool, the blue-black window reflected in a frame's glass; nothing centred, held on or racked to: the details pass by and the eye finds them.
 - **Light:** NIGHT.
 - **Action:** the room at rest.

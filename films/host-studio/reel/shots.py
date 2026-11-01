@@ -146,10 +146,10 @@ SHOTS = [
     Shot("N01", "The shelves at night", bar(15), bar(17), 50, 2.0,
          "a night glide: from the lit sign's edge along the shelves, screen-left to right, 115 cm, slightly oblique "
          "so the boards' LED lines converge; the halo's spill leaves frame left",
-         [[0, [-150, 20, 186], [-252, -55, 196]], [120, [-150, -95, 180], [-252, -170, 190]]],
+         [[0, [-110, 20, 184], [-252, -55, 180]], [120, [-110, -95, 178], [-252, -170, 176]]],
          "the shelves at night: warm LED lines under each board, the things on them half silhouette, half lit, "
          "the downlight's pool, the blue-black window reflected in a frame's glass; " + GLIDE,
-         "NIGHT", "the room at rest", into="cut on bar 17", focus=[[0, 100], [60, 116], [120, 104]], previs=0.5,
+         "NIGHT", "the room at rest", into="cut on bar 17", focus=[[0, 140], [60, 156], [120, 144]], previs=0.5,
          vcrop=0.5, sound="the score's drumless breakdown; the halo's hum, crickets"),
     Shot("S13", "Him", bar(17), bar(19), 35, 2.8,
          "slow push, 30 cm; his key light ramps up on bar 17 beat 3 (12 frames): a light reveal",
