@@ -51,7 +51,7 @@ NAME = "overshirt"
 VOX = 1.0                      # envelope grid
 HEM_Z = 95.0                   # hem height at the centre front/back: cropped, at the high hip
 HEM_RISE = 1.5                 # the shirttail: the hem is this much higher at the side seams
-TAPER = {"front": 0.10, "side": 0.30, "back": 0.16}   # how much a slice may narrow per cm going down
+TAPER = {"front": 0.10, "side": 0.45, "back": 0.40}   # how much a slice may narrow per cm going down
 EASE_TOP, EASE_CHEST, EASE_LOW = 0.6, 1.1, 1.4        # ease on the shoulders, the chest, the waist/hips
 EASE_BACK = 0.3                                         # extra at the back (room to reach forward)
 ARM_EASE_UP, ARM_EASE_ELBOW, ARM_EASE_END = 1.0, 1.3, 0.6
@@ -69,7 +69,9 @@ def parse_args():
     ap.add_argument("--out", default=os.path.join(here, "out"))
     ap.add_argument("--stage", default="all", help="envelope | sim | detail | all")
     ap.add_argument("--body", default="SKM_Presenter_F_BodyMesh.fbx")
-    ap.add_argument("--under", default="Presenter_F_Outfits.fbx", help="comma-separated FBXs worn under it")
+    ap.add_argument("--under", default="skin:0.6",
+                    help="comma-separated FBXs worn under it (skin:<cm> for her skin that far out)")
+    ap.add_argument("--check", default="", help="comma-separated FBXs worn under it, for the clip tests only")
     ap.add_argument("--frames", type=int, default=60)
     ap.add_argument("--quality", type=int, default=6)
     ap.add_argument("--mass", type=float, default=0.02)
@@ -118,7 +120,7 @@ class Her:
     shorts; with her own fitted top and trousers, those. Their faces' material index tells the torso (0) from the
     hips (1): a single-material file takes its position in the list."""
 
-    def __init__(self, src, body="SKM_Presenter_F_BodyMesh.fbx", under=("Presenter_F_Outfits.fbx",)):
+    def __init__(self, src, body="SKM_Presenter_F_BodyMesh.fbx", under=("Presenter_F_Outfits.fbx",), check=()):
         for ob in list(bpy.data.objects):
             bpy.data.objects.remove(ob, do_unlink=True)
         body_objs = import_fbx(os.path.join(src, body))
@@ -153,6 +155,9 @@ class Her:
                 full[o:o + len(a)] = a
             self.ow[g] = full
         self.outfit_ob = self.under_obs[0]
+        # layers the overshirt is tested against but not built on (a draft that may still change in detail)
+        self.check_obs = [o for f in check for o in import_fbx(f if os.path.isabs(f) else os.path.join(src, f))
+                          if o.type == "MESH"]
         self.face_ob = None
         fp = os.path.join(src, "face.fbx")
         if os.path.exists(fp):
@@ -166,8 +171,9 @@ class Her:
         log("body verts", len(self.bx), "under verts", len(self.ox), "face", self.face_ob is not None)
 
     def skin_layer(self, off):
-        """A stand-in for a fitted top and trousers not yet made: her torso and hips (no arms, neck or legs below
-        the hip), `off` cm out along the normals, skinned as she is. Material 0 above her natural waist, 1 below."""
+        """A stand-in for a fitted top and trousers: her torso, hips and the top of her arms (where a short sleeve
+        would be; no neck, forearms or legs below the hip), `off` cm out along the normals, skinned as she is.
+        Material 0 above her natural waist, 1 below."""
         me = self.body_ob.data.copy()
         ob = self.body_ob.copy()
         ob.data = me
@@ -177,7 +183,13 @@ class Her:
         X, _, _, W = mesh_arrays(ob)
         n = len(X)
         armw = np.maximum(self.arm_weight(W, n, 1), self.arm_weight(W, n, -1))
-        keep = (armw < 0.5) & (X[:, 2] < neck) & (X[:, 2] > 66.0)
+        sleeve = np.zeros(n, bool)
+        for s in ("_l", "_r"):
+            sh, el = (np.array((self.arm.matrix_world @ self.arm.data.bones[b + s].head_local)[:]) * 100.0
+                      for b in ("upperarm", "lowerarm"))
+            u = (el - sh) / np.linalg.norm(el - sh)
+            sleeve |= ((X - sh) @ u < 14.0) & (W.get("upperarm" + s, np.zeros(n)) + W.get("clavicle" + s, np.zeros(n)) > 0.3)
+        keep = ((armw < 0.5) | sleeve) & (X[:, 2] < neck) & (X[:, 2] > 66.0)
         bm = bmesh.new()
         bm.from_mesh(me)
         bm.verts.ensure_lookup_table()
@@ -969,8 +981,11 @@ def skin(her, ob, pat):
     ranges = json.loads(ob["pieces"])
     n_out, n_body = len(her.ox), len(her.bx)
     armw_out = [her.arm_weight(her.ow, n_out, s) for s in (1, -1)]
-    body_arm = [(np.sign(her.bx[:, 0]) == s) & (np.abs(her.bx[:, 0]) > 11.0) & (her.bx[:, 2] > 90.0) for s in (1, -1)]
-    full = weight_source(her, np.ones(n_out, bool), her.bx[:, 2] > 60.0)
+    body_armw = [her.arm_weight(her.bw, n_body, s) for s in (1, -1)]
+    body_arm = [w > 0.5 for w in body_armw]
+    # the panels take their weights from her torso only: her arms lie close to the side seams, and a panel that
+    # follows the arm in to her side goes through her
+    full = weight_source(her, np.maximum(*armw_out) < 0.5, (her.bx[:, 2] > 60.0) & (np.maximum(*body_armw) < 0.5))
     arm_src = [weight_source(her, armw_out[k] > 0.5, body_arm[k]) for k in range(2)]
     groups = sorted(set(full["groups"]) | set(arm_src[0]["groups"]) | set(arm_src[1]["groups"]))
     gmap = {g: i for i, g in enumerate(groups)}
@@ -1052,7 +1067,7 @@ def eval_points(ob):
 def clip_check(her, ob, step=4, tol=0.0):
     """Garment vertices inside her (tee, limbs) in the current pose: count and deepest (cm)."""
     V, T = [], []
-    for o in (*her.under_obs, her.body_ob, her.face_ob):  # the face mesh carries her neck
+    for o in (*her.under_obs, *her.check_obs, her.body_ob, her.face_ob):  # the face mesh carries her neck
         if o is None:
             continue
         X, Tr = eval_points(o)
@@ -1062,8 +1077,18 @@ def clip_check(her, ob, step=4, tol=0.0):
     bvh = BVHTree.FromPolygons([Vector(p) for p in V], [tuple(map(int, t)) for t in T])
     G, _ = eval_points(ob)
     G = G[::step]
+    # which part each tested vertex is: a piece, and on the shirt's body a sleeve (mostly on her arm) or a panel
+    part = np.empty(len(ob.data.vertices), object)
+    for name, a0, a1 in json.loads(ob["pieces"]):
+        part[a0:a1] = name
+    armg = {g.index for g in ob.vertex_groups if any(k in g.name for k in ("upperarm", "lowerarm"))}
+    for v in ob.data.vertices:
+        if part[v.index] == "body" and sum(g.weight for g in v.groups if g.group in armg) > 0.5:
+            part[v.index] = "sleeve"
+    part = part[::step]
     bad, deep, where = 0, 0.0, []
-    for p in G:
+    parts = {}
+    for p, pt in zip(G, part):
         loc, nor, fi, dist = bvh.find_nearest(Vector(p), 6.0)
         if loc is None:
             continue
@@ -1071,6 +1096,11 @@ def clip_check(her, ob, step=4, tol=0.0):
             bad += 1
             deep = max(deep, dist)
             where.append((p, dist))
+            c = parts.setdefault(pt, [0, 0.0])
+            c[0] += step
+            c[1] = max(c[1], dist)
+    if parts:
+        log("   clip by part (count, deepest): " + "; ".join(f"{k}: {v[0]}, {v[1]:.1f}" for k, v in sorted(parts.items())))
     if where:  # where it happens, coarsely: 10 cm cells, the worst first
         cells = {}
         for p, d in where:
@@ -1109,7 +1139,7 @@ POSES = {  # name: [(bone, world axis, degrees)]; her left is +X, her front -Y
 
 def pose_tests(her, ob, args, colours):
     arm = her.arm
-    for o in (*her.under_obs, her.body_ob):  # what she wears and her limbs follow the same armature
+    for o in (*her.under_obs, *her.check_obs, her.body_ob):  # what she wears and her limbs follow the same armature
         for m in o.modifiers:
             if m.type == "ARMATURE":
                 m.object = arm
@@ -1214,7 +1244,7 @@ PLACKET_W = 2.8
 HEM_W = 2.0
 BUTTONS_Z = (121.0, 113.0, 105.0)
 REVERS = dict(break_z=125.0, top_z=134.0, top_w=3.0, roll=0.36)  # the fronts' tops fold back from the break point
-POCKET = dict(inset=0.6, top=127.0, w=10.5, h=12.2, chamfer=1.3, hem=2.2)  # inset: from the placket
+POCKET = dict(inset=0.6, top=127.0, w=9.5, h=12.2, chamfer=1.3, hem=2.2)  # inset: from the placket
 THICK = 0.11                   # cotton twill
 BAND = 0.13                    # extra at the folded hem and the plackets
 
@@ -1696,8 +1726,9 @@ def collar(X, F, R, pattern, surf_bvh, neck_bvh):
                 lift = th * 2.4 + 0.12
                 if (nxt - sp) @ sn < lift:
                     nxt = sp + sn * lift
-            d = nxt - cur
-            d /= np.linalg.norm(d)
+            dn = nxt - cur
+            if np.linalg.norm(dn) > 1e-6:  # a step pushed straight back keeps the direction it had
+                d = dn / np.linalg.norm(dn)
             cur = nxt
             col.append(cur)
         rows.append(col)
@@ -2149,11 +2180,11 @@ def garment_materials():
 def main():
     args = parse_args()
     os.makedirs(args.out, exist_ok=True)
-    her = Her(args.src, args.body, [u for u in args.under.split(",") if u])
+    her = Her(args.src, args.body, [u for u in args.under.split(",") if u], [u for u in args.check.split(",") if u])
     stages = {"envelope", "sim", "detail"} if args.stage == "all" else set(args.stage.split(","))
     env_path = os.path.join(args.out, "overshirt_env.npz")
     sim_path = os.path.join(args.out, "overshirt_sim.npz")
-    colours = {o: (0.85, 0.85, 0.82) for o in her.under_obs}
+    colours = {o: (0.85, 0.85, 0.82) for o in (*her.under_obs, *her.check_obs)}
     colours[her.body_ob] = (0.55, 0.42, 0.35)
     if her.face_ob is not None:
         colours[her.face_ob] = (0.55, 0.42, 0.35)
