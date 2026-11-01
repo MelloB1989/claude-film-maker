@@ -1,5 +1,10 @@
 {
  "engine": "5.8.4-58902052+++UE5+Release-5.8",
+ "bare_info": {
+  "name": "None",
+  "association": "<MaterialParameterAssociation.GLOBAL_PARAMETER: 2>",
+  "index": "-1"
+ },
  "SignHalo": {
   "actor": "/Game/Studio/Studio.Studio:PersistentLevel.StaticMeshActor_437",
   "SignHalo/StaticMeshComponent0": {
@@ -25,14 +30,15 @@
        ],
        "channels": [
         [
-         "Intensity_7",
+         "Intensity_9",
          3
         ],
         [
-         "Reveal_3",
+         "Reveal_4",
          53
         ]
-       ]
+       ],
+       "infos": "!Exception: MovieSceneComponentMaterialParameterSection: Failed to find property 'scalar_parameter_names_and_curves' for attribute 'scalar_parameter_names_and_curves' on 'MovieSceneComponentMaterialParameterSection'"
       }
      ]
     }
@@ -70,10 +76,11 @@
        ],
        "channels": [
         [
-         "Intensity_8",
-         482
+         "Intensity_10",
+         542
         ]
-       ]
+       ],
+       "infos": "!Exception: MovieSceneComponentMaterialParameterSection: Failed to find property 'scalar_parameter_names_and_curves' for attribute 'scalar_parameter_names_and_curves' on 'MovieSceneComponentMaterialParameterSection'"
       }
      ]
     }
@@ -111,10 +118,11 @@
        ],
        "channels": [
         [
-         "Blink_1",
+         "Blink_2",
          13
         ]
-       ]
+       ],
+       "infos": "!Exception: MovieSceneComponentMaterialParameterSection: Failed to find property 'scalar_parameter_names_and_curves' for attribute 'scalar_parameter_names_and_curves' on 'MovieSceneComponentMaterialParameterSection'"
       }
      ]
     }
