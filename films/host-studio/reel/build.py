@@ -104,6 +104,46 @@ def exists(labels: list) -> list:
     return [lab for lab in labels if lab in have]
 
 
+# Exposure compensation per shot on its camera (stops, over the light timeline's exposure): S01 looks into the sheers
+# from inside the olive's crown, 1.5 stops under the DAY room so the window holds (measured on viewport stills).
+EXPOSURE = {"S01": -0.5}
+
+# A binding that drives more than its own camera: after the level is rebuilt, rebinding (replace_binding_with_actors)
+# added the new camera to old bindings instead of replacing it, so one binding moved two cameras (S05's keys moved
+# Reel_S11 too: S11 looked at the wall behind) and removing the extra actor does not stick. Such bindings are dropped
+# (their tracks go with them) and cameras() keys the shots afresh.
+CLEAN = r"""
+import unreal
+seq = unreal.load_asset(SEQ)
+unreal.LevelSequenceEditorBlueprintLibrary.open_level_sequence(seq)
+world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
+gone = []
+for b in list(seq.get_bindings()):
+    labs = [o.get_actor_label() for o in seq.locate_bound_objects(b, world) if hasattr(o, "get_actor_label")]
+    name = str(b.get_display_name())
+    if any(l.startswith("Reel_") for l in labs) and (labs != [name] or not name.startswith("Reel_")):
+        for c in b.get_child_possessables():
+            c.remove()
+        b.remove()
+        gone.append([name, labs])
+unreal.EditorAssetLibrary.save_asset(SEQ)
+result = gone
+"""
+
+EXPOSE = r"""
+import unreal
+EAS = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+acts = {a.get_actor_label(): a for a in EAS.get_all_level_actors()}
+for lab, bias in BIAS.items():
+    c = acts[lab].get_cine_camera_component()
+    pp = c.get_editor_property("post_process_settings")
+    pp.set_editor_property("override_auto_exposure_bias", bias is not None)
+    pp.set_editor_property("auto_exposure_bias", bias or 0.0)
+    c.set_editor_property("post_process_settings", pp)
+result = BIAS
+"""
+
+
 def cameras() -> None:
     """A Reel_ cine camera per shot, placed at its first frame, then its move and focus keyed."""
     for s in SHOTS:
@@ -111,9 +151,20 @@ def cameras() -> None:
         ok(client.op("look.camera", label=f"Reel_{s.id}", loc=loc, look_at=at, focal=float(s.lens),
                      aperture=float(s.stop), filmback=list(FULL_FRAME), pilot=False))
     rebind([f"Reel_{s.id}" for s in SHOTS])
+    dropped = run(f"SEQ = {SEQ!r}\n" + CLEAN)
+    if dropped:
+        print("dropped bindings that drove more than their camera:", dropped)
+    run(f"BIAS = {({f'Reel_{s.id}': EXPOSURE.get(s.id) for s in SHOTS})!r}\n" + EXPOSE)
     for s in SHOTS:
         lab, sm = f"Reel_{s.id}", M.samples(s)
-        keys = [[s.start + f, loc, {"pitch": pitch, "yaw": yaw, "roll": 0.0}] for f, loc, pitch, yaw, _ in sm]
+        keys, last = [], None
+        for f, loc, pitch, yaw, _ in sm:
+            while last is not None and yaw - last > 180:  # unwrapped: Sequencer interpolates the numbers, so a move
+                yaw -= 360                                 # across +-180 deg would swing the long way round and
+            while last is not None and yaw - last < -180:  # face the wall behind (S05's orbit, S11)
+                yaw += 360
+            keys.append([s.start + f, loc, {"pitch": pitch, "yaw": yaw, "roll": 0.0}])
+            last = yaw
         ok(client.op("seq.key_transform", path=SEQ, label=lab, keys=keys))
         ok(client.op("seq.key_float", path=SEQ, label=lab, component="CameraComponent", prop=FOCUS,
                      keys=[[s.start + f, d] for f, *_, d in sm]))

@@ -84,7 +84,7 @@ SHOTS = [
          [[0, [-130, 165, 160], [-215, 200, 152]], [120, [-130, 188, 160], [-215, 222, 152]]],
          "olive leaves backlit by the sheers, the window's glow blooming between them; 70% out of focus",
          "DAY", "the leaves are still (static mesh); a faint dust drift in the volumetric fog",
-         into="cut on bar 3", previs=0.5, vcrop=0.55,
+         into="cut on bar 3", focus=[[0, 60], [120, 60]], previs=0.5, vcrop=0.55,
          sound="room tone, birds outside, a felt-piano motif enters"),
     Shot("S02", "The room", bar(3), bar(5), 28, 5.6,
          "slow push and settle down: crane from 170 to 150 cm, dolly in 45 cm",
