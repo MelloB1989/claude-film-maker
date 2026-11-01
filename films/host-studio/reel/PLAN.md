@@ -199,8 +199,8 @@ frames (S11, S12 are unchanged and already rendered); the new ones are V01–V05
 
 ### S13 · Him — 0:40.00–0:45.00 (bars 17–18, f960–1079, 5.0 s)
 
-- **Camera:** 35 mm full frame, T2.8. Slow push, 30 cm; his key light ramps up on bar 17 beat 3 (12 frames): a light reveal. From `[230, 70, 152]` → `[200, 62, 156]`, aimed at `[30, 40, 162]`.
-- **In frame:** him on his mark, a silhouette against the halo-lit slats, then lit; shelves soft screen-right.
+- **Camera:** 35 mm full frame, T2.8. Slow push, 30 cm, from a little above his eyeline so his head sits under the sign, not over it; his key light ramps up on bar 17 beat 3 (12 frames): a light reveal. From `[230, 70, 188]` → `[200, 62, 190]`, aimed at `[30, 40, 170]`.
+- **In frame:** him on his mark, a silhouette against the halo-lit slats, then lit, the whole word clear above his head; shelves soft screen-right.
 - **Light:** NIGHT+KEY.
 - **Action:** head down; lifts his gaze to the lens with the key light (bar 17 beat 3); L1 on bar 18 beat 1, then a small smirk held to the cut.
 - **Sound:** the groove returns (bar 17); the key light's soft 'thunk'; VO L1.
