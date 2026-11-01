@@ -46,51 +46,13 @@ def run(code: str):
 
 def sequence() -> None:
     """SEQ_Reel at 24 fps over the film and its handles, made if missing; an existing one keeps all its tracks."""
-    run(f"""
-import unreal
-from fmbridge.ops.assets import EAL, load
-p = {SEQ!r}
-if EAL.does_asset_exist(p):
-    seq = load(p)
-else:
-    folder, name = p.rsplit("/", 1)
-    seq = unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, folder, unreal.LevelSequence,
-                                                                   unreal.LevelSequenceFactoryNew())
-seq.set_display_rate(unreal.FrameRate({FPS}, 1))
-seq.set_playback_start({START})
-seq.set_playback_end({END})
-seq.set_work_range_start({START / FPS})
-seq.set_work_range_end({END / FPS})
-seq.set_view_range_start({START / FPS})
-seq.set_view_range_end({END / FPS})
-EAL.save_asset(p)
-result = p
-""")
+    ok(client.op("seq.new", path=SEQ, start=START, end=END, fps=FPS))
 
 
-def rebind(labels: list) -> list:
+def rebind(labels: list) -> dict:
     """Point the sequence's bindings named like these actors at the level's actors of that label (after studio.py or
     this script respawned them), so their tracks (the reel's and other scripts') stay with them."""
-    return run(f"""
-import unreal
-from fmbridge.ops.assets import load
-from fmbridge.ops.level import actor
-LSE = unreal.LevelSequenceEditorBlueprintLibrary
-seq = load({SEQ!r})
-LSE.open_level_sequence(seq)
-sub = unreal.get_editor_subsystem(unreal.LevelSequenceEditorSubsystem)
-done = []
-for b in seq.get_bindings():
-    name = str(b.get_display_name())
-    if name in {labels!r}:
-        try:
-            a = actor(name)
-        except ValueError:
-            continue
-        sub.replace_binding_with_actors([a], b)
-        done.append(name)
-result = done
-""")
+    return ok(client.op("seq.rebind", path=SEQ, labels=labels))
 
 
 def pose(label: str) -> dict:
@@ -134,11 +96,10 @@ def marks() -> None:
         rot = {k: p[k] for k in ("pitch", "yaw", "roll")}
         ok(client.op("seq.key_transform", path=SEQ, label=lab, keys=[[START, list(mark), rot]]))
     have = exists(HIM + HER + EMPTY_ROOM)
-    for who, labels in (("him", HIM), ("her", HER)):
-        keys = [[f, who in cast] for f, cast in M.cast_at()]
-        for lab in labels:
-            if lab in have:
-                ok(client.op("seq.key_visible", path=SEQ, label=lab, keys=keys))
+    for who, lab in (("him", "Host"), ("her", "Presenter")):  # with what rides on them (her hoops and watch)
+        if lab in have:
+            ok(client.op("seq.key_visible", path=SEQ, label=lab, keys=[[f, who in cast] for f, cast in M.cast_at()],
+                         attached=True))
     for lab in EMPTY_ROOM:
         if lab in have:
             ok(client.op("seq.key_visible", path=SEQ, label=lab, keys=[[f, not cast] for f, cast in M.cast_at()]))
@@ -159,16 +120,18 @@ def build() -> None:
 
 def previs(every: int, width: int) -> None:
     """Viewport stills across the cut, each through its own shot's camera: every `every` frames of each shot from its
-    first, and its last frame, into previs/cut/<shot>_<frame>.png."""
+    first, and its last frame, through the camera-cut track, into previs/cut/<shot>_<frame>.png."""
     OUT.mkdir(parents=True, exist_ok=True)
     try:
         for s in SHOTS:
             frames = sorted(set(range(s.start, s.end, every)) | {s.end - 1})
             remote = rf"{REMOTE}\{s.id}"
-            got = ok(client.op("seq.stills", path=SEQ, frames=frames, camera=f"Reel_{s.id}", out_dir=remote,
-                               width=width, height=width * 9 // 16))
-            for f, p in zip(frames, got):
-                client.pull(p, str(OUT / f"{s.id}_{f:04d}.png"))
+            got = ok(client.op("seq.stills", path=SEQ, frames=frames, camera="", out_dir=remote,
+                               width=width, height=width * 9 // 16))  # through the cut's own camera at each frame
+            for f, cam, p in got:
+                if cam != f"Reel_{s.id}":
+                    print(f"  f{f}: the cut shows {cam}, not Reel_{s.id}")
+                client.pull(p, str(OUT / f"{s.id}_{int(f):04d}.png"))
             print(s.id, len(frames), "stills", flush=True)
     finally:
         ok(client.op("seq.close"))
