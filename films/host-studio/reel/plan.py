@@ -29,7 +29,7 @@ def shot_md(s: S.Shot) -> str:
     if s.action:
         out.append(f"- **Action:** {s.action}.")
     out.append(f"- **Sound:** {s.sound}.")
-    pv = f" **Previs:** [`previs/{s.id}.png`](previs/{s.id}.png)." if s.previs is not None else ""
+    pv = f" **Previs:** [`previs/{s.id}.jpg`](previs/{s.id}.jpg)." if s.previs is not None else ""
     out.append(f"- **Into the next:** {s.into}. **9:16:** crop centred at {round(s.vcrop * 100)}% of the width.{pv}")
     return "\n".join(out) + "\n"
 
