@@ -5,6 +5,11 @@ f745 k a r, at f770 all five; through Reel_S08 the cursor is off at f566 and f58
     cd tools && uv run python ../films/host-studio/reel/halo_check.py [--frames 725,745,770] [--no-stills]
     cd tools && uv run python ../films/host-studio/reel/halo_check.py --camera Reel_S08 --frames 566,572,580,588
     cd tools && uv run python ../films/host-studio/reel/halo_check.py --tracks   # the material tracks themselves
+    cd tools && uv run python ../films/host-studio/reel/halo_check.py --isolate --camera Reel_V05 --frames 700
+
+--isolate: is the glow SignHalo's? At each frame, three stills: as it is, with SignHalo hidden, and with SignHalo and
+Halo0-8 hidden (temporarily, in the editor only: both are shown again afterwards, whatever happens), plus SignHalo's
+visibility and MPC_FM's values as the editor has them.
 
 --tracks (no stills): for SignHalo, Outside and Terminal, the sequence's bindings and whether they resolve to the
 level's actor and component, each material track's slot info (its material_type must be INDEXED_MATERIAL: an EMPTY
@@ -211,6 +216,56 @@ result = out
 '''
 
 
+HIDE = r'''
+import unreal
+from fmbridge.ops import level as L
+out = {}
+for label in LABELS:
+    try:
+        a = L.actor(label)
+    except Exception as e:
+        out[label] = f"no actor: {e}"
+        continue
+    a.set_is_temporarily_hidden_in_editor(HIDDEN)
+    out[label] = {"hidden_in_game": a.get_editor_property("hidden"),
+                  "visible": [c.is_visible() for c in a.get_components_by_class(unreal.SceneComponent)][:1]}
+result = out
+'''
+
+
+def isolate(camera: str, frames: list, out: Path) -> None:
+    halo = ["SignHalo"]
+    lights = [f"Halo{k}" for k in range(9)]
+
+    def hide(labels, hidden):
+        res = client.exec_code(f"LABELS = {labels!r}\nHIDDEN = {hidden!r}\n" + HIDE)
+        if not res.get("ok"):
+            raise SystemExit(res.get("stdout", "") + res.get("error", ""))
+        return res["result"]
+
+    def still(f, tag):
+        remote = rf"{REMOTE}\{camera}_f{f}_{tag}.png"
+        r = client.op("seq.still", path=SEQ, frame=f, camera=camera, out=remote, width=1280, height=720, settle=40)
+        if not r.get("ok"):
+            raise SystemExit(r.get("stdout", "") + r.get("error", ""))
+        print(client.pull(remote, str(out / f"{camera}_f{f}_{tag}.png")))
+
+    res = client.exec_code(f"SEQ = {SEQ!r}\nLABELS = []\n" + LIVE)  # MPC_FM's values (and nothing else)
+    print(json.dumps(res.get("result"), indent=1, default=str) if res.get("ok") else res.get("error"))
+    print(json.dumps(hide(halo, False), indent=1, default=str))  # SignHalo as the level has it
+    try:
+        for f in frames:
+            still(f, "warm")  # thrown away: the first evaluation after opening can miss tracks
+            still(f, "as_is")
+            hide(halo, True)
+            still(f, "no_card")
+            hide(lights, True)
+            still(f, "no_card_no_lights")
+            hide(halo + lights, False)
+    finally:
+        hide(halo + lights, False)
+
+
 def tracks() -> None:
     head = f"SEQ = {SEQ!r}\nLABELS = ['SignHalo', 'Outside', 'Terminal']\n"
     for code in (TRACKS, LIVE, GRAPH, GLOWS):  # separate calls: the open sequence evaluates on a tick in between
@@ -226,10 +281,13 @@ def main() -> None:
     ap.add_argument("--frames", default="725,745,770")
     ap.add_argument("--no-stills", action="store_true")
     ap.add_argument("--out", type=Path, default=HERE / "halo_check")
+    ap.add_argument("--isolate", action="store_true", help="stills with and without SignHalo and Halo0-8")
     ap.add_argument("--tracks", action="store_true", help="dump the material tracks and what the meshes wear at f725")
     a = ap.parse_args()
     if a.tracks:
         return tracks()
+    if a.isolate:
+        return isolate(a.camera, [int(x) for x in a.frames.split(",")], a.out)
     res = client.exec_code(STATE)
     if not res.get("ok"):
         raise SystemExit(res.get("stdout", "") + res.get("error", ""))
