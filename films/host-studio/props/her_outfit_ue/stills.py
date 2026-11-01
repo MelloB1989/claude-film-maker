@@ -25,7 +25,8 @@ from fmbridge.ops import level as L
 out = {}
 for lab in %r:
     try:
-        out[lab] = L.actor(lab).is_temporarily_hidden_in_editor()
+        a = L.actor(lab)
+        out[lab] = [a.is_temporarily_hidden_in_editor(), a.is_hidden()]
     except ValueError:
         pass
 p = L.actor("Presenter").get_actor_location()
@@ -38,7 +39,9 @@ for lab, hide in %r.items():
         a = L.actor(lab)
     except ValueError:
         continue
-    a.set_is_temporarily_hidden_in_editor(hide)
+    ed, game = hide if isinstance(hide, list) else (hide, hide)
+    a.set_is_temporarily_hidden_in_editor(ed)
+    a.set_actor_hidden_in_game(game)  # a high-res screenshot draws as the game would
 result = True
 '''
 SHIRT = '''
@@ -101,10 +104,11 @@ def main():
         ok(client.exec_code(SET % ({"Host": True, "Stool": True, "Presenter": False, "HerEarL": False,
                                     "HerEarR": False, "HerWatch": False},)))
         ok(client.op("seq.close"))
-        first = next(iter(cams), "HerFitF")
-        ok(client.op("seq.shot", path=SEQ, actor_label="Presenter", anims={"Body": IDLE}, camera=first,
-                     seconds=max(frames) / 24 + 1))
+        secs = max(frames) / 24 + 1
         for f in frames:
+            # the still goes through the sequence's camera cut: one shot per camera
+            ok(client.op("seq.shot", path=SEQ, actor_label="Presenter", anims={"Body": IDLE},
+                         camera=next(iter(cams), "HerFitF"), seconds=secs))
             ok(client.op("seq.scrub", path=SEQ, frame=f))
             w = ok(client.exec_code(WHERE))
             where[f] = w
@@ -119,11 +123,13 @@ def main():
                 ok(client.op("look.camera", label=name, loc=loc, look_at=at, focal=focal, aperture=5.6,
                              filmback=[24.0, 24.0], pilot=False))
                 made.append(name)
-            for shirt in a.shirt.split(","):
-                ok(client.exec_code(SHIRT % (shirt == "on",)))
-                for cam in list(cams) + list(close):
+            for cam in list(cams) + list(close):
+                ok(client.op("seq.shot", path=SEQ, actor_label="Presenter", anims={"Body": IDLE}, camera=cam,
+                             seconds=secs))
+                for shirt in a.shirt.split(","):
                     if cam in close and shirt == "on":
                         continue
+                    ok(client.exec_code(SHIRT % (shirt == "on",)))
                     p = rf"{OUT}\{cam}_{f}_shirt{shirt}.png"
                     wh = (1600, 1600) if cam in close else (1600, 2000)
                     ok(client.op("seq.still", path=SEQ, frame=f, camera=cam, out=p, width=wh[0], height=wh[1]))

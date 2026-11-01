@@ -371,8 +371,8 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
         if her_part(part) is None:
             sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
             SDL = unreal.SubobjectDataBlueprintFunctionLibrary
-            body_h = next(h for h in sds.k2_gather_subobject_data_for_instance(L.actor("Presenter"))
-                          if (lambda o: o is not None and o.get_name() == "Body")(SDL.get_object(SDL.get_data(h))))
+            body_h = next(h for h in sds.k2_gather_subobject_data_for_instance(L.actor("Presenter"))  # the
+                          if str(SDL.get_variable_name(SDL.get_data(h))) == "Body")  # template is Body_GEN_VARIABLE
             new_h, _ = sds.add_new_subobject(unreal.AddNewSubobjectParams(
                 parent_handle=body_h, new_class=unreal.SkeletalMeshComponent))
             sds.rename_subobject(new_h, unreal.Text(part))
