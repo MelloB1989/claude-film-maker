@@ -7,8 +7,9 @@ f745 k a r, at f770 all five; through Reel_S08 the cursor is off at f566 and f58
     cd tools && uv run python ../films/host-studio/reel/halo_check.py --tracks   # the material tracks themselves
 
 --tracks (no stills): for SignHalo, Outside and Terminal, the sequence's bindings and whether they resolve to the
-level's actor and component, each material track's slot info and sections (their class, parameters, channel values
-at f725), then, with the sequence open at f725, what the component actually wears and its parameter values.
+level's actor and component, each material track's slot info (its material_type must be INDEXED_MATERIAL: an EMPTY
+one reaches nothing) and sections (their class and channels), then, with the sequence open at f725, what each
+component actually wears (a MID once a track reaches it) and its parameter values.
 
 A wipe parent without fm_rev 2 was built before look.py's GlowWipe fix (and is never rebuilt by an older bridge):
 install the bridge from this checkout (`film-ue install`) and run rig.py again, which rebuilds it in place.
@@ -95,10 +96,8 @@ for label in LABELS:
                 tr["sections"] = []
                 for sec in t.get_sections():
                     sr = {"class": sec.get_class().get_name(), "active": tryit(lambda: sec.is_active()),
-                          "range": tryit(lambda: [sec.has_start_frame(), sec.has_end_frame()]),
-                          "params": tryit(lambda: [str(n) for n in sec.get_parameter_names()])}
-                    at = unreal.FrameTime(unreal.FrameNumber(725))
-                    sr["channels"] = tryit(lambda: [(ch.get_name(), ch.get_num_keys(), tryit(lambda: ch.evaluate(at)))
+                          "range": tryit(lambda: [sec.has_start_frame(), sec.has_end_frame()])}
+                    sr["channels"] = tryit(lambda: [(ch.get_name(), ch.get_num_keys())
                                                     for ch in sec.get_all_channels()])
                     tr["sections"].append(sr)
             tracks.append(tr)
