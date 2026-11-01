@@ -232,7 +232,7 @@ MAT = {
     "M_WinFrame": plain("WinFrame", (0.68, 0.66, 0.62), 0.4), "M_Glass": clear_glass,
     "M_Sheer": K.material("MI_K_Sheer", (1.0, 0.98, 0.94), kind="Sheer", texture=tex(S, "T_Linen_A"),
                           mask=tex(S, "T_Linen_O"), tiling=100.0 / 8, opacity=0.9, roughness=0.8,
-                          transmission=(0.7, 0.64, 0.56), glow=0.01 if NIGHT else 0.12, folder=M),
+                          transmission=(0.66, 0.63, 0.58), glow=0.01 if NIGHT else 0.12, folder=M),
     "M_Rod": black_metal, "M_Rug": surface("Wool", 60),
     # the slat wall and the sign
     "M_Walnut": walnut, "M_Felt": surface("Felt", 40, color=(0.6, 0.6, 0.6)),
