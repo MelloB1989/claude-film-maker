@@ -68,6 +68,7 @@ DOWN = [("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, 72.0), 12.0, 
         ("DownSlats", (WALL + 32, SLAT_Y, 296), (WALL + 4, SLAT_Y, 90), 10.0, bar(14, 2)),
         ("DownOlive", (WALL + 75, 205, 296), (WALL + 62, 205, 120), 9.0, bar(14, 3)),
         ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 0.8, bar(14, 4))]
+SLAT_SPILL, SLAT_SPILL_K = 0.6, 7500.0  # DownSlats through BLUE (V05): a cool spill, a sixteenth of its night wash
 
 # The halo: the letters k a r m a ignite on bar 13 beats 1, 2, 3, 4 and 4& (PLAN.md section 2). The wipe edge runs
 # between the gaps of the glyphs, measured on props/out/karma_halo.png (U across the halo card, 0 = screen-left):
@@ -261,6 +262,12 @@ def tracks() -> list:
 
     # the downlights pop on, one per beat of bar 14 (an LED driver: three frames)
     for label, _, _, cd, f in DOWN:
+        if label == "DownSlats":  # BLUE: a faint cool spill so the slats and the unlit sign read in V05's wide, gone
+            # by ignition so the halo strikes in a dark room; the warm wash then pops as before
+            add(label, "float", "Intensity", C((0, 0.0), (b, 0.0), (b + 30, SLAT_SPILL), (bh, SLAT_SPILL), (ig, 0.0),
+                                               (f, 0.0), (f + 3, cd, "out"), (dim0, cd), (end_dim, cd * DIM)))
+            add(label, "float", "Temperature", C((0, SLAT_SPILL_K), (f - 1, SLAT_SPILL_K), (f, 2700.0, "hold")))
+            continue
         add(label, "float", "Intensity", C((0, 0.0), (f, 0.0), (f + 3, cd, "out"), (dim0, cd), (end_dim, cd * DIM)))
 
     # the presenters' lights: off until S13; hair and rims first (him a silhouette against the halo), then the key,
