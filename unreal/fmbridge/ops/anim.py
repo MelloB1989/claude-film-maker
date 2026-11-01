@@ -203,8 +203,10 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str 
     def at(f):  # seconds into the animation at sequence frame f
         return off + (f - s0) / fps * rate
 
+    span = frames  # `frames` is reused for the solved frames below: aimed() keeps the range it was given
+
     def aimed(f):  # what the eyes look at on frame f: "target", "camera" or None
-        if target is not None and (frames is None or frames[0] <= f <= frames[1]):
+        if target is not None and (span is None or span[0] <= f <= span[1]):
             return "target"
         return "camera" if camera else None
     solve = [f for f in range(max(s0, seq.get_playback_start()), min(s1, seq.get_playback_end()), every)

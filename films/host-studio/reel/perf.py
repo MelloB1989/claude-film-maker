@@ -47,16 +47,17 @@ LABEL = {"him": "Host", "her": "Presenter"}
 MARK = {"him": MARK_HIM, "her": MARK_HER}
 EYES = {"him": EYES_HIM, "her": EYES_HER}
 # Each presenter's performance runs from the first shot they are in to the end of the reel (master frames).
-START = {"him": 840, "her": 1080}
+START = {"him": 960, "her": 1080}  # PLAN v2: S13 is bars 17-18, S14 is gone
 END = 1560
 # The body idle: both presenters play the engine's idle; her copy starts 17 s in, so the two never sway in step.
 IDLE_OFFSET = {"him": 0.0, "her": 17.0}
 
 # The solves: each presenter's whole stem in their base mood, and the lines whose mood differs (PLAN.md §2) alone.
+# PLAN v2 moods: L1 confident/amused, L2 playful, L3a/L3b playful-confident, L4a/L4b warm and happy.
 SOLVES = {
-    "him": {"wav": "stem_him", "who": "him", "mood": "CONFIDENCE", "intensity": 0.8},
-    "her": {"wav": "stem_her", "who": "her", "mood": "CONFIDENCE", "intensity": 0.9},
-    "L2": {"wav": "L2", "who": "him", "mood": "HAPPINESS", "intensity": 0.6},
+    "him": {"wav": "stem_him", "who": "him", "mood": "CONFIDENCE", "intensity": 0.7},
+    "her": {"wav": "stem_her", "who": "her", "mood": "CONFIDENCE", "intensity": 0.75},
+    "L2": {"wav": "L2", "who": "him", "mood": "HAPPINESS", "intensity": 0.45},
     "L4a": {"wav": "L4a", "who": "him", "mood": "HAPPINESS", "intensity": 0.7},
     "L4b": {"wav": "L4b", "who": "her", "mood": "HAPPINESS", "intensity": 0.7},
 }
@@ -82,7 +83,15 @@ def stems() -> list[Path]:
     """Each presenter's VO stem cut to their performance window (START .. END), the audio the base solve hears."""
     made = []
     for who in ("him", "her"):
-        x, sr = read_wav(VO / f"vo_{who}.wav")
+        if (VO / f"vo_{who}.wav").exists():
+            x, sr = read_wav(VO / f"vo_{who}.wav")
+        else:  # only the line WAVs and cues.json: each line placed on its file frame
+            sr, x = SR, np.zeros(int((END + FPS) * SR / FPS), np.float32)
+            for k, c in cues().items():
+                if c["who"] == who:
+                    w, _ = read_wav(VO / c["wav"])
+                    i0 = int(round(c["file_frame"] / FPS * sr))
+                    x[i0:i0 + len(w)] += w[:len(x) - i0]
         y = x[START[who] * sr // FPS:END * sr // FPS]
         y = y + np.random.default_rng(7).normal(0, 10 ** (-72 / 20), len(y)).astype(np.float32)  # a room-tone floor
         p = OUT / "wav" / f"stem_{who}.wav"
@@ -108,52 +117,93 @@ def solve(key: str) -> dict:
 # ---------------------------------------------------------------------------------------------------- the face
 
 # Silent beats on the face's curves, in master frames: [curve, [[frame, value], ...]] added onto what the solve made
-# (eased between keys, so a beat starts and ends at 0). Head* are degrees (HeadPitch > 0 tips the head down, HeadYaw > 0
-# turns it to his own left = screen right; `signs` measures them and SIGN flips them if the rig disagrees).
-SIGN = {"HeadPitch": 1.0, "HeadYaw": 1.0}
+# (eased between keys, so a beat starts and ends at 0). The head curves are degrees, but on this rig their names do not
+# say what they do (`signs` measured it on the head bone, +-20 each): HeadYaw nods (+ tips the head down), HeadRoll
+# turns (+ towards world -Y: his own right, screen left from the front) and HeadPitch tilts ear to shoulder.
+# The beats use PITCH (+ down) and turn() (+ towards world +Y: own left, screen right from the front).
+PITCH = "HeadYaw"
+TURN, TURN_SIGN = "HeadRoll", -1.0
+SIGN: dict = {}
+
+
+def turn(keys: list) -> list:
+    return [TURN, [[f, v * TURN_SIGN] for f, v in keys]]
 SMILE = ("CTRL_expressions_mouthCornerPullL", "CTRL_expressions_mouthCornerPullR")
 SQUINT = ("CTRL_expressions_eyeSquintInnerL", "CTRL_expressions_eyeSquintInnerR")
 CHEEK = ("CTRL_expressions_eyeCheekRaiseL", "CTRL_expressions_eyeCheekRaiseR")
 
 
-def smile(f0: int, f1: int, f2: int, f3: int, amount: float) -> list:
-    """A smile that grows f0->f1, holds, and lets go f2->f3 (cheeks and a hint of squint come with it)."""
+def smile(f0: int, f1: int, f2: int, f3: int, amount: float, side: str = "LR") -> list:
+    """A smile that grows f0->f1, holds, and lets go f2->f3 (cheeks and a hint of squint come with it); one `side`
+    ("L" or "R", the face's own) for a smirk or a half-smile."""
     keys = lambda a: [[f0, 0.0], [f1, a], [f2, a], [f3, 0.0]]  # noqa: E731
-    return ([[c, keys(amount)] for c in SMILE] + [[c, keys(amount * 0.5)] for c in CHEEK] +
-            [[c, keys(amount * 0.3)] for c in SQUINT])
+    pick = lambda pair: [c for c in pair if c[-1] in side]  # noqa: E731
+    return ([[c, keys(amount)] for c in pick(SMILE)] + [[c, keys(amount * 0.5)] for c in pick(CHEEK)] +
+            [[c, keys(amount * 0.3)] for c in pick(SQUINT)])
+
+
+def eyes(f0: int, f1: int, f2: int, f3: int, look: dict) -> list:
+    """Both eyes held on eye-look curves ({"Left": 0.6, "Down": 0.1}) f1..f2, eased in from f0 and out to f3. On this
+    rig eyeLookLeft turns the eyes to the face's own right (world -Y for both presenters), eyeLookRight to its left."""
+    return [[f"CTRL_expressions_eyeLook{d}{s}", [[f0, 0.0], [f1, v], [f2, v], [f3, 0.0]]] for s in "LR" for d, v in look.items()]
+
+
+def word(line: str, w: str, default: float) -> float:
+    """The master frame a word of a line starts on (cues.json), else `default`."""
+    try:
+        return next(x["start"] for x in cues()[line]["words"] if x["w"].strip(".,…!?'").lower() == w)
+    except (OSError, KeyError, StopIteration):
+        return default
 
 
 def nod(f: int, deg: float = 4.0) -> list:
     """A small nod: down over 6 frames, back over 9."""
-    return [["HeadPitch", [[f, 0.0], [f + 6, deg], [f + 15, 0.0]]]]
+    return [[PITCH, [[f, 0.0], [f + 6, deg], [f + 15, 0.0]]]]
 
 
-BEATS = {
-    "him": [
-        # S13: head down in the dark, then up to the lens with the key light (bar 16 beat 1, f900, 15 frames)
-        ["HeadPitch", [[840, 16.0], [896, 15.0], [914, 0.0]]],
-        ["CTRL_expressions_eyeLookDownL", [[840, 0.35], [898, 0.35], [910, 0.0]]],
-        ["CTRL_expressions_eyeLookDownR", [[840, 0.35], [898, 0.35], [910, 0.0]]],
-        # S15: after L2 ("She'll tell you the next one", ends f1141) he turns his head to her and holds while she
-        # starts; back to the front during S16 (he is off screen), ready for S17
-        ["HeadYaw", [[1136, 0.0], [1152, 42.0], [1196, 45.0], [1290, 45.0], [1316, 0.0]]],
-        ["HeadPitch", [[1136, 0.0], [1152, 4.0], [1290, 4.0], [1316, 0.0]]],
-        *smile(1138, 1150, 1180, 1200, 0.25),
-        # S17-S18: "Welcome..." then a small smile to the lens, a settling nod, held through the title
-        *nod(1404, 3.0),
-        *smile(1376, 1396, 1530, 1560, 0.35),
-    ],
-    "her": [
-        # S15: she watches him while he speaks (head turned towards him), a smile at "the next one", then she turns
-        # to the lens for L3 (f1158)
-        ["HeadYaw", [[1080, -22.0], [1140, -24.0], [1156, 0.0]]],
-        ["HeadPitch", [[1080, -3.0], [1140, -3.0], [1156, 0.0]]],
-        *smile(1124, 1138, 1146, 1160, 0.3),
-        # S17-S18: "...to karma." then the smile to the lens and a settling nod with him
-        *nod(1408, 3.0),
-        *smile(1398, 1416, 1530, 1560, 0.35),
-    ],
-}
+def beats(who: str) -> list:
+    """The silent beats of PLAN v2 (S13 f960-1079, S15 f1080-1199, S16 f1200-1319, S17 f1320-1439, S18 to f1560)."""
+    if who == "him":
+        return [
+            # S13: a silhouette, head down; his eyes come up to the lens as the key ramps (bar 17 beat 3, f990-1002)
+            [PITCH, [[960, 16.0], [986, 15.0], [1004, 0.0]]],
+            *eyes(960, 960, 988, 1000, {"Down": 0.35}),
+            # L1 "Took you long enough." (f1020), then a small smirk held to the cut, let go as L2 comes
+            *smile(1046, 1056, 1084, 1096, 0.32, side="R"),
+            # S15: L2 "Ask her what's next." (f1095), then he turns his head to her and holds through S15; back to the
+            # front during S16 (he is off screen). She stands 80 cm behind him and 95 cm to his right (world -Y),
+            # ~130 deg from his front: more than a lock converges on, so the look is written, the head over his right
+            # shoulder and the eyes the rest of the way
+            turn([[1128, 0.0], [1146, -62.0], [1196, -65.0], [1290, -65.0], [1316, 0.0]]),
+            [PITCH, [[1128, 0.0], [1146, 5.0], [1290, 5.0], [1316, 0.0]]],
+            *eyes(1130, 1142, 1196, 1206, {"Left": 0.6, "Down": 0.1}),
+            *smile(1126, 1140, 1180, 1200, 0.22),
+            # S17: L4a "What goes around..." (f1350), a glance to her as she says "comes around", back to the lens
+            turn([[1378, 0.0], [1388, -32.0], [1400, -34.0], [1412, 0.0]]),
+            *eyes(1378, 1386, 1400, 1410, {"Left": 0.7}),
+            # ...then a small warm smile to the lens, a settling nod, held through S18
+            *smile(1404, 1420, 1530, 1560, 0.32),
+            *nod(1424, 3.0),
+        ]
+    tilt = word("L3b", "yourself", 1282)
+    return [
+        # S15: she watches him while he speaks L2 (he is 80 cm in front of her and 95 cm to her left, world +Y, his
+        # eyes 16 cm higher; written, as a lock does not converge from there), then to the lens for L3a (f1158)
+        turn([[1080, 34.0], [1140, 36.0], [1154, 0.0]]),
+        [PITCH, [[1080, -4.0], [1140, -4.0], [1154, 0.0]]],
+        *eyes(1080, 1080, 1142, 1152, {"Right": 0.35, "Up": 0.12}),
+        # "Nice try." with a half-smile: a playful refusal, held a beat, gone by L3b
+        *smile(1160, 1172, 1196, 1212, 0.3, side="L"),
+        # S16: L3b to the lens, unhurried; a small head tilt on "yourself"
+        ["HeadPitch", [[tilt - 6, 0.0], [tilt + 4, 6.0], [tilt + 24, 6.0], [tilt + 40, 0.0]]],
+        # S17: L4b "...comes around. That's karma." (f1386): a glance to him on "comes around", then the lens
+        turn([[1376, 0.0], [1386, 30.0], [1398, 32.0], [1408, 0.0]]),
+        *eyes(1376, 1384, 1398, 1406, {"Right": 0.35, "Up": 0.1}),
+        *smile(1412, 1426, 1530, 1560, 0.35),
+        *nod(1430, 3.0),
+    ]
+
+
 # The lines whose mood differs from the base solve: spliced over the base with a 4-frame cross-fade at each end.
 SPLICES = {"him": ["L2", "L4a"], "her": ["L4b"]}
 
@@ -261,7 +311,7 @@ def compose(who: str) -> dict:
     sec = lambda f: (f - START[who]) / FPS  # noqa: E731  master frame -> seconds into the performance
     splices = [{"anim": f"{SPEECH}/Anim/AS_{anim_name(k)}", "t0": sec(c[k]["file_frame"]), "fade": 4 / FPS}
                for k in SPLICES[who]]
-    beats = [[n, [[sec(f), v * SIGN.get(n, 1.0)] for f, v in ks]] for n, ks in BEATS[who]]
+    beats = [[n, [[sec(f), v * SIGN.get(n, 1.0)] for f, v in ks]] for n, ks in globals()["beats"](who)]
     params = {"base": f"{SPEECH}/Anim/AS_{anim_name(who)}", "out": f"{ANIM}/AS_reel_{who}_face",
               "splices": splices, "beats": beats}
     return ok(client.exec_code(f"PARAMS = {json.dumps(json.dumps(params))}\n" + COMPOSE, timeout=1800))
@@ -273,7 +323,7 @@ def compose(who: str) -> dict:
 # My own copies of the presenters (same Blueprint class as Host / Presenter) and test cameras, all moved by OFFSET
 # out of every reel camera's view (under the floor): the geometry between eyes, lenses and partner is what matters.
 OFFSET = (0.0, 0.0, -2500.0)
-SHOTS_OF = {"him": ["S13", "S14", "S15", "S17", "S18"], "her": ["S15", "S16", "S17", "S18"]}
+SHOTS_OF = {"him": ["S13", "S15", "S17", "S18"], "her": ["S15", "S16", "S17", "S18"]}
 
 
 def test_label(who: str) -> str:
@@ -383,41 +433,51 @@ def stage(who: str) -> dict:
     return res
 
 
+def restage(who: str) -> dict:
+    """stage again (my copy and cameras are gone after the level is reloaded) and put the synced animations back on
+    the test sequence's tracks, so gaze can go on from where it was."""
+    res = stage(who)
+    have = ok(client.exec_code("import unreal\nresult = [p for p in %r if unreal.EditorAssetLibrary.does_asset_exist(p)]"
+                               % [f"{ANIM}/AS_reel_{who}_follow", f"{ANIM}/AS_reel_{who}_body"]))
+    for comp, anim in (("Face", f"{ANIM}/AS_reel_{who}_follow"), ("Body", f"{ANIM}/AS_reel_{who}_body")):
+        if anim in have:
+            ok(client.op("seq.set_anim", path=test_seq(who), component=comp, anim=anim, label=test_label(who)))
+    res["tracks"] = have
+    return res
+
+
 def signs(who: str = "him") -> dict:
-    """Which way HeadPitch and HeadYaw turn this rig: the eyes' mid-point with each curve at +15 against 0, on my
-    copy in its test sequence (frame 0)."""
-    face = f"{ANIM}/AS_reel_{who}_face"
-    probe = f"{ANIM}/AS_reel_signprobe"
+    """What each head curve does on this rig: the head bone's up axis and the eyes' mid-point with the curve at +-20
+    against all at 0, on my copy in its test sequence (frame 2). Read it to set PITCH and TURN."""
+    face, probe = f"{ANIM}/AS_reel_{who}_face", f"{ANIM}/AS_reel_signprobe"
+    bones = ["head", "FACIAL_L_Eye", "FACIAL_R_Eye"]
     out = {}
-    eyes = ["FACIAL_L_Eye", "FACIAL_R_Eye"]
-    for name in (None, "HeadPitch", "HeadYaw"):
-        ok(client.exec_code(f"""
-import unreal
-AL, EAL = unreal.AnimationLibrary, unreal.EditorAssetLibrary
-if EAL.does_asset_exist({probe!r}):
-    EAL.delete_asset({probe!r})
-EAL.duplicate_asset({face!r}, {probe!r})
-a = unreal.load_asset({probe!r})
+    for name, val in ((None, 0), ("HeadPitch", 20), ("HeadPitch", -20), ("HeadYaw", 20), ("HeadYaw", -20),
+                      ("HeadRoll", 20), ("HeadRoll", -20)):
+        run(r"""
+import json, unreal
+import fmbridge.ops.anim as A
+EAL = unreal.EditorAssetLibrary
+P = json.loads(PARAMS)
+if EAL.does_asset_exist(P["probe"]):
+    EAL.delete_asset(P["probe"])
+EAL.duplicate_asset(P["face"], P["probe"])
+a = unreal.load_asset(P["probe"])
 L = a.get_editor_property("sequence_length")
-for n in ("HeadPitch", "HeadYaw", "HeadRoll"):
-    if AL.does_curve_exist(a, n, unreal.RawCurveTrackTypes.RCT_FLOAT):
-        AL.remove_curve(a, n, False)
-    AL.add_curve(a, n, unreal.RawCurveTrackTypes.RCT_FLOAT, False)
-    AL.add_float_curve_keys(a, n, [0.0, L], [15.0, 15.0] if n == {name!r} else [0.0, 0.0])
-EAL.save_asset({probe!r})
+A._write(a, {n: ([0.0, L], [P["val"]] * 2 if n == P["name"] else [0.0, 0.0]) for n in ("HeadPitch", "HeadYaw", "HeadRoll")})
+EAL.save_asset(P["probe"])
 result = True
-"""))
+""", {"face": face, "probe": probe, "name": name, "val": float(val)})
         ok(client.op("seq.set_anim", path=test_seq(who), component="Face", anim=probe, label=test_label(who)))
-        m = ok(client.op("seq.sample", path=test_seq(who), actor_label=test_label(who), component="Face", bones=eyes,
-                         frames=[2], ticks=6))
-        mid = [(m["bones"][eyes[0]][0][k] + m["bones"][eyes[1]][0][k]) / 2 for k in range(3)]
-        out[name or "rest"] = [round(v, 2) for v in mid]
+        m = ok(client.op("seq.sample", path=test_seq(who), actor_label=test_label(who), component="Face", bones=bones,
+                         frames=[2], ticks=8))
+        mid = [(m["bones"][bones[1]][0][k] + m["bones"][bones[2]][0][k]) / 2 for k in range(3)]
+        out[f"{name}{val:+d}" if name else "rest"] = {"eyes": mid, "head_up": m["bones"]["head"][0][3:6]}
     ok(client.op("seq.set_anim", path=test_seq(who), component="Face", anim=face, label=test_label(who)))
     ok(client.exec_code(f"import unreal\nunreal.EditorAssetLibrary.delete_asset({probe!r})\nresult = True"))
-    r = out["rest"]
-    out["pitch_down_positive"] = out["HeadPitch"][2] < r[2]
-    out["yaw_screen_right_positive"] = out["HeadYaw"][1] < r[1]  # screen right is -Y
-    return out
+    r = out["rest"]["eyes"]
+    return {k: {"eyes_moved": [round(a - b, 2) for a, b in zip(v["eyes"], r)], "head_up": [round(x, 3) for x in v["head_up"]]}
+            for k, v in out.items()}
 
 
 # ---------------------------------------------------------------------------------------------------- face and body
@@ -439,11 +499,10 @@ def sync(who: str) -> dict:
 
 
 # Where the eyes go, master frames: a test camera (the shot's lens) or the partner's eyes. Frames in none of these
-# keep the solve's own eyes (his head-down opening, his S16 off screen).
-GAZE = {
-    "him": [["S13", 908, 959], ["S14", 960, 1079], ["S15", 1080, 1137], ["her", 1146, 1199], ["S17", 1320, 1439],
-            ["S18", 1440, 1559]],
-    "her": [["him", 1080, 1149], ["S15", 1156, 1199], ["S16", 1200, 1319], ["S17", 1320, 1439], ["S18", 1440, 1559]],
+# keep the solve's own eyes and the beats' (his head-down opening, his written look to her, his S16 off screen).
+GAZE = {  # each lens range ends before a written look starts and begins after it has let go
+    "him": [["S13", 1000, 1079], ["S15", 1080, 1127], ["S17", 1320, 1377], ["S17", 1412, 1439], ["S18", 1440, 1559]],
+    "her": [["S15", 1152, 1199], ["S16", 1200, 1319], ["S17", 1320, 1375], ["S17", 1408, 1439], ["S18", 1440, 1559]],
 }
 
 
@@ -451,18 +510,22 @@ def final_face(who: str) -> str:
     return f"{ANIM}/AS_reel_{who}_gaze{len(GAZE[who])}"
 
 
-def gaze(who: str, start_at: int = 1) -> list:
+def gaze(who: str, start_at: int = 1, stop_at: int = 99) -> list:
     """The eye locks one range at a time (gaze_lock with a target and frames), each pass on the last one's output."""
     path, lab = test_seq(who), test_label(who)
     out = []
     for i, (what, f0, f1) in enumerate(GAZE[who], 1):
         src = f"{ANIM}/AS_reel_{who}_follow" if i == 1 else f"{ANIM}/AS_reel_{who}_gaze{i - 1}"
-        if i < start_at:
+        if i < start_at or i > stop_at:
             continue
         target = eyes_at(what) if what in ("him", "her") else cam_label(what)
+        # the Face track plays this pass's source first: gaze_lock swaps only the sections playing `anim`, so a rerun
+        # (the track left on this pass's earlier output) would otherwise write into an animation nobody plays
+        ok(client.op("seq.set_anim", path=path, component="Face", anim=src, label=lab))
         r = ok(client.op("anim.gaze_lock", sequence=path, actor_label=lab, anim=src, out=f"{ANIM}/AS_reel_{who}_gaze{i}",
                          target=target, frames=[f0 - START[who], f1 - START[who]], timeout=3600))
-        out.append({"range": [f0, f1], "target": what, "passes": r.get("passes"), "head_to_lens": r.get("head_to_lens_deg")})
+        out.append({"range": [f0, f1], "target": what, "passes": r.get("passes"), "head_to_lens": r.get("head_to_lens_deg"),
+                    "calibration": r.get("calibration"), "frames": r.get("frames")})
         print(who, i, json.dumps(out[-1]), flush=True)
     return out
 
@@ -601,7 +664,7 @@ def gesture(who: str) -> dict:
 
 # ---------------------------------------------------------------------------------------------------- looking at it
 
-STILLS = {"him": [870, 925, 1000, 1060, 1120, 1170, 1380, 1420], "her": [1100, 1150, 1180, 1250, 1300, 1395, 1420]}
+STILLS = {"him": [975, 1030, 1070, 1110, 1170, 1360, 1394, 1430], "her": [1110, 1165, 1240, 1290, 1394, 1430]}
 REMOTE_STILLS = rf"{PROJECT}\Saved\Reel\perf"
 
 
@@ -674,12 +737,13 @@ def place(path: str) -> list:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces",
+    ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces", "restage",
                                        "place", "arm_axes", "gesture"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
     ap.add_argument("--frames", help="stills: master frames, comma-separated")
     ap.add_argument("--from", dest="start_at", type=int, default=1, help="gaze: resume at this range (1-based)")
+    ap.add_argument("--to", dest="stop_at", type=int, default=99, help="gaze: stop after this range (short jobs)")
     ap.add_argument("--only", help="solve: comma-separated SOLVES keys")
     a = ap.parse_args()
     if a.cmd == "push":
@@ -690,10 +754,10 @@ def main() -> None:
     elif a.cmd == "compose":
         for w in a.who.split(","):
             print(w, json.dumps(compose(w)))
-    elif a.cmd in ("stage", "signs", "sync", "gaze", "stills", "arm_axes", "gesture"):
+    elif a.cmd in ("stage", "restage", "signs", "sync", "gaze", "stills", "arm_axes", "gesture"):
         for w in a.who.split(","):
             if a.cmd == "gaze":
-                r = gaze(w, a.start_at)
+                r = gaze(w, a.start_at, a.stop_at)
             elif a.cmd == "stills":
                 r = stills(w, [int(f) for f in a.frames.split(",")] if a.frames else None)
             else:
