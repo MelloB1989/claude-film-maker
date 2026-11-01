@@ -19,6 +19,7 @@ CAMS = {  # her on her mark facing +X; +Y is her right. (loc, look_at, focal) re
     "HerFitS": ([0, 265, 96], [0, 0, 94], 35.0),
     "HerFitC": ([105, -30, 124], [0, 0, 116], 50.0),
 }
+BEFORE = {}
 LABELS = ["Host", "Presenter", "HerEarL", "HerEarR", "HerWatch", "Stool"]
 STATE = '''
 import unreal
@@ -35,18 +36,6 @@ cur = unreal.LevelSequenceEditorBlueprintLibrary.get_current_level_sequence()
 LSE = unreal.LevelSequenceEditorBlueprintLibrary
 result = {"hidden": out, "her": [p.x, p.y, p.z], "seq": cur.get_path_name().split(".")[0] if cur else "",
           "t": LSE.get_current_time() if cur else 0, "lock": LSE.is_camera_cut_locked_to_viewport() if cur else False}
-'''
-SET = '''
-from fmbridge.ops import level as L
-for lab, hide in %r.items():
-    try:
-        a = L.actor(lab)
-    except ValueError:
-        continue
-    ed, game = hide if isinstance(hide, list) else (hide, hide)
-    a.set_is_temporarily_hidden_in_editor(ed)
-    a.set_actor_hidden_in_game(game)  # a high-res screenshot draws as the game would
-result = True
 '''
 SHIRT = '''
 import unreal
@@ -92,6 +81,17 @@ def ok(r):
     return r.get("result")
 
 
+def shoot(cam, secs):
+    """A scratch shot through `cam`. She is hidden in game in the level (the empty-room shots) and only the reel's
+    visibility track shows her: key her (and what rides her) visible here, the Host and Stool hidden, in this
+    sequence only, so the level's flags stay as they are."""
+    ok(client.op("seq.shot", path=SEQ, actor_label="Presenter", anims={"Body": IDLE}, camera=cam, seconds=secs))
+    ok(client.op("seq.key_visible", path=SEQ, label="Presenter", keys=[[0, True]], attached=True))
+    for lab in ("Host", "Stool"):
+        if lab in BEFORE:
+            ok(client.op("seq.key_visible", path=SEQ, label=lab, keys=[[0, False]]))
+
+
 def add(a, b):
     return [x + y for x, y in zip(a, b)]
 
@@ -106,6 +106,7 @@ def main():
     frames = [int(x) for x in a.frames.split(",")]
     st = ok(client.exec_code(STATE % (LABELS,)))
     before, her = st["hidden"], st["her"]
+    BEFORE.update(before)
     cams = {k: v for k, v in CAMS.items() if not a.only or k[-1] in a.only.split(",")}
     shots, where, made = [], {}, []
     try:
@@ -113,14 +114,11 @@ def main():
             ok(client.op("look.camera", label=name, loc=add(her, loc), look_at=add(her, at), focal=focal,
                          aperture=4.0, filmback=[24.0, 30.0], pilot=False))
             made.append(name)
-        ok(client.exec_code(SET % ({"Host": True, "Stool": True, "Presenter": False, "HerEarL": False,
-                                    "HerEarR": False, "HerWatch": False},)))
         ok(client.op("seq.close"))
         secs = max(frames) / 24 + 1
         for f in frames:
             # the still goes through the sequence's camera cut: one shot per camera
-            ok(client.op("seq.shot", path=SEQ, actor_label="Presenter", anims={"Body": IDLE},
-                         camera=next(iter(cams), "HerFitF"), seconds=secs))
+            shoot(next(iter(cams), "HerFitF"), secs)
             ok(client.op("seq.scrub", path=SEQ, frame=f))
             w = ok(client.exec_code(WHERE))
             where[f] = w
@@ -136,8 +134,7 @@ def main():
                              filmback=[24.0, 24.0], pilot=False))
                 made.append(name)
             for cam in list(cams) + list(close):
-                ok(client.op("seq.shot", path=SEQ, actor_label="Presenter", anims={"Body": IDLE}, camera=cam,
-                             seconds=secs))
+                shoot(cam, secs)
                 for shirt in a.shirt.split(","):
                     if cam in close and shirt == "on":
                         continue
@@ -151,10 +148,9 @@ def main():
         if st.get("seq"):  # put back the sequence that was open (the reel), locked to its cut as before
             client.exec_code(REOPEN % (st["seq"], st["lock"], st["t"]))
         client.exec_code(SHIRT % (True,))
-        ok(client.exec_code(SET % (before,)))
         if made:
             client.op("level.delete", labels=sorted(set(made)))
-    print(json.dumps({"stills": shots, "where": where, "restored": before, "reopened": st.get("seq")}))
+    print(json.dumps({"stills": shots, "where": where, "level_hidden": before, "reopened": st.get("seq")}))
 
 
 if __name__ == "__main__":
