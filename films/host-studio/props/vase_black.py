@@ -1,12 +1,20 @@
-"""vase_black — a round matte-black ceramic vase, 16 cm tall, 15 cm across, small mouth.
+"""vase_black — a 16 cm black moon jar: a full, round body, a short neck and a rolled lip.
 
-Thrown on a lathe profile with a little out-of-round; hollow, with a short neck, a rolled lip
-and the inner neck modelled. Origin: bottom centre. Slot: M_CeramicBlack.
+Premium studio ceramic for close-ups: a smooth, finely tessellated thrown profile (adaptive
+rings, ~200 columns) with only a trace of out-of-round, a rounded lip slightly thicker than the
+neck wall and the inside of the neck modelled (it reads dark in the mouth). A glossy black glaze
+(M_CeramicBlack) stops ~1.6 cm above the foot on a soft rolled bead with two gentle drips and a
+little pooling where the shoulder turns into the neck; below it a crisp trimmed foot ring in raw
+buff stoneware (M_ClayFoot) with a recessed base. Colour attribute "Glaze": R = glaze build-up,
+G = thin glaze over the lip (where a black glaze breaks to brown), B = cavity (inside the
+neck). Origin: bottom centre.
 
     blender -b --factory-startup -P films/host-studio/props/vase_black.py -- --out films/host-studio/props/out
 """
 import os
 import sys
+
+from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _studio as S  # noqa: E402
@@ -14,25 +22,37 @@ import _smalls as M  # noqa: E402
 
 NAME = "vase_black"
 
+UNDER = M.foot_ring(0.30, 3.70, 4.22, 0.45, 0.18, (4.70, 0.86))
 OUTER = [
-    (0.0, 0.2), (3.5, 0.2), (3.78, 0.1), (3.95, 0.02), (4.15, 0.0), (4.45, 0.05), (4.75, 0.22),
-    (5.6, 0.85), (6.5, 1.9), (7.15, 3.4), (7.48, 5.2), (7.48, 7.0), (7.12, 9.0), (6.25, 11.0),
-    (4.95, 12.65), (3.55, 13.85), (2.45, 14.6), (1.98, 15.05), (1.86, 15.45), (1.90, 15.75),
-    (1.86, 15.93), (1.75, 16.0), (1.62, 15.98), (1.53, 15.88),
+    (4.70, 0.86), (5.12, 1.30), (5.78, 2.12), (6.55, 3.25), (7.28, 4.65), (7.86, 6.3), (8.18, 8.0),
+    (8.24, 9.4), (8.02, 10.75), (7.45, 12.0), (6.55, 13.08), (5.42, 13.95), (4.32, 14.6), (3.48, 15.0),
+    (3.02, 15.26), (2.82, 15.48), (2.79, 15.66),
+] + M.lip_roll(2.88, 2.42, 16.0)[:1]
+INNER = M.lip_roll(2.88, 2.42, 16.0)[1:] + [
+    (2.40, 15.6), (2.40, 15.38), (2.58, 15.12), (3.0, 14.86), (3.85, 14.4), (4.95, 13.7), (6.0, 12.75),
+    (6.9, 11.5), (7.5, 10.1), (7.72, 8.6), (7.62, 6.9), (7.2, 5.25), (6.5, 3.85), (5.6, 2.7),
+    (4.6, 1.85), (3.3, 1.22), (1.6, 1.02), (0.0, 0.98),
 ]
-INNER = [   # the inside: the neck matters (it shows in the mouth); the belly is never seen
-    (1.49, 15.6), (1.47, 15.15), (1.62, 14.65), (2.5, 13.95), (4.2, 12.6), (6.1, 10.2),
-    (6.95, 7.0), (6.7, 3.6), (5.4, 1.5), (3.2, 0.8), (0.0, 0.75),
-]
+GLAZE_Z = 2.2
+DRIPS = [(20.0, 0.62, 0.62), (52.0, 0.36, 0.5)]   # (theta deg, length, width) cm
+
+
+def materials():
+    glaze = M.glaze_material("M_CeramicBlack", (0.014, 0.0135, 0.013), 0.09,
+                             thin=(0.075, 0.036, 0.018), pooled=(0.006, 0.006, 0.006))
+    return glaze, M.clay_foot_material()
 
 
 def build():
-    mat = M.S.material("M_CeramicBlack", (0.022, 0.021, 0.020), 0.62)
-    M.roughness_noise(mat, 0.56, 0.64, scale=220.0)
-    return [M.vase(NAME, OUTER, INNER, mat, seed=23, amp=0.006, lean=0.0012)]
+    glaze, clay = materials()
+    return [M.glazed_vase(NAME, UNDER, OUTER, INNER, [glaze, clay], GLAZE_Z, DRIPS, segs=160, seed=23, wobble=0.0035,
+                          pool=(14.4, 15.4, 0.03))]
 
+
+VIEWS = M.VASE_VIEWS + [("_close", (1.0, 0.35, 0.12), 85, 1.05, (Vector((-0.06, -0.06, 0.0)),
+                                                               Vector((0.06, 0.06, 0.05))))]
 
 if __name__ == "__main__":
     args = S.parse_args(__file__)
     S.reset_scene()
-    M.finish(NAME, build(), args, sharp_angle=60)
+    M.finish(NAME, build(), args, sharp_angle=60, views=VIEWS, glossy=True)

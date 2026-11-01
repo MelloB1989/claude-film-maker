@@ -1,13 +1,20 @@
-"""vase_speckle — a cream speckled stoneware bottle vase, 24 cm tall, 11 cm across, 3 cm neck.
+"""vase_speckle — a 24 cm cream speckled stoneware bottle vase, 11 cm across, 3.6 cm mouth.
 
-Thrown on a lathe profile with a little out-of-round, lean and throwing lines; hollow, with a
-rounded lip and the inner neck modelled so the mouth reads from above.
-Origin: bottom centre. Slot: M_Stoneware.
+The same form as before, refined to the premium-ceramic standard of the other vases: a smooth,
+finely tessellated thrown profile with a trace of out-of-round, a rounded lip slightly thicker
+than the neck wall and the inner neck modelled. A glossy speckled glaze (M_Stoneware) stops
+~1.9 cm above the foot on a soft rolled bead with two gentle drips and a little pooling at the
+shoulder; below it a crisp trimmed foot ring in raw buff stoneware (M_ClayFoot) with a recessed
+base. Colour attribute "Glaze": R = glaze build-up, G = thin glaze over the lip,
+B = cavity (inside the neck).
+Origin: bottom centre.
 
     blender -b --factory-startup -P films/host-studio/props/vase_speckle.py -- --out films/host-studio/props/out
 """
 import os
 import sys
+
+from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _studio as S  # noqa: E402
@@ -15,27 +22,55 @@ import _smalls as M  # noqa: E402
 
 NAME = "vase_speckle"
 
-# (r, z) cm: foot centre, up the outside, over the lip ...
+UNDER = M.foot_ring(0.30, 3.0, 3.50, 0.40, 0.18, (4.05, 0.72))
 OUTER = [
-    (0.0, 0.22), (2.8, 0.22), (3.08, 0.12), (3.3, 0.03), (3.5, 0.0), (3.76, 0.05), (3.98, 0.22),
-    (4.35, 0.75), (4.82, 1.9), (5.22, 3.8), (5.45, 6.2), (5.50, 8.7), (5.38, 11.1), (4.98, 13.4),
-    (4.15, 15.4), (3.05, 16.95), (2.1, 18.15), (1.64, 19.25), (1.50, 20.4), (1.52, 21.6),
-    (1.62, 22.65), (1.74, 23.45), (1.79, 23.78), (1.75, 23.94), (1.66, 24.0), (1.55, 23.98), (1.46, 23.87),
+    (4.05, 0.72), (4.42, 1.12), (4.84, 1.95), (5.22, 3.8), (5.45, 6.2), (5.50, 8.7), (5.38, 11.1),
+    (4.98, 13.4), (4.15, 15.4), (3.05, 16.95), (2.1, 18.15), (1.64, 19.25), (1.50, 20.4), (1.52, 21.6),
+    (1.61, 22.65), (1.72, 23.42),
+] + M.lip_roll(1.82, 1.38, 24.0)[:1]
+INNER = M.lip_roll(1.82, 1.38, 24.0)[1:] + [
+    (1.36, 23.55), (1.27, 22.65), (1.15, 21.6), (1.12, 20.4), (1.24, 19.25), (1.64, 18.15),
+    (2.57, 16.95), (3.64, 15.4), (4.5, 13.3), (4.98, 11.0), (5.08, 8.7), (4.96, 6.0), (4.62, 3.8),
+    (4.08, 2.25), (3.15, 1.35), (1.6, 1.02), (0.0, 0.98),
 ]
-# ... and down the inside of the neck to the inner floor.
-INNER = [
-    (1.40, 23.55), (1.24, 22.65), (1.12, 21.6), (1.10, 20.4), (1.22, 19.25), (1.62, 18.15),
-    (2.55, 16.95), (3.62, 15.4), (4.75, 12.4), (5.0, 8.7), (4.75, 4.0), (4.0, 1.6), (2.5, 0.84), (0.0, 0.78),
-]
+GLAZE_Z = 1.9
+DRIPS = [(10.0, 0.6, 0.66), (-58.0, 0.38, 0.52)]   # (theta deg, length, width) cm
+
+
+def materials():
+    base = (0.70, 0.62, 0.49)
+    glaze = M.glaze_material("M_Stoneware", base, 0.11, orange_peel=0.008)
+    for n in [n for n in glaze.node_tree.nodes if n.type in ("ATTRIBUTE", "SEPARATE_COLOR", "MIX", "MATH")]:
+        glaze.node_tree.nodes.remove(n)          # rebuilt below on the speckled base
+    nt = glaze.node_tree
+    b = M.principled(glaze)
+    specks = M.dot_speckle(glaze, base, (0.17, 0.10, 0.055),
+                            layers=((650.0, 0.17, 0.30), (230.0, 0.13, 0.75), (90.0, 0.09, 0.93)))
+    # thin glaze over the lip and the bead's build-up tint the speckled base (attribute "Glaze")
+    attr = nt.nodes.new("ShaderNodeAttribute")
+    attr.attribute_name = "Glaze"
+    sep = nt.nodes.new("ShaderNodeSeparateColor")
+    nt.links.new(attr.outputs["Color"], sep.inputs["Color"])
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    nt.links.new(sep.outputs["Green"], mix.inputs["Factor"])
+    nt.links.new(specks, mix.inputs[6])
+    mix.inputs[7].default_value = (0.60, 0.44, 0.28, 1)
+    nt.links.new(mix.outputs[2], b.inputs["Base Color"])
+    M.cavity_darken(glaze, sep.outputs["Blue"])
+    return glaze, M.clay_foot_material()
 
 
 def build():
-    mat = M.speckle_material("M_Stoneware", (0.72, 0.63, 0.49), (0.20, 0.13, 0.08), 0.48,
-                             fine=(380.0, 0.66), coarse=(130.0, 0.75))
-    return [M.vase(NAME, OUTER, INNER, mat, seed=11, amp=0.009, lean=0.0018)]
+    glaze, clay = materials()
+    return [M.glazed_vase(NAME, UNDER, OUTER, INNER, [glaze, clay], GLAZE_Z, DRIPS, segs=152, seed=11,
+                          pool=(15.0, 17.5, 0.03))]
 
+
+VIEWS = M.VASE_VIEWS + [("_close", (1.0, 0.35, 0.16), 85, 1.05, (Vector((-0.06, -0.06, 0.0)),
+                                                              Vector((0.06, 0.06, 0.06))))]
 
 if __name__ == "__main__":
     args = S.parse_args(__file__)
     S.reset_scene()
-    M.finish(NAME, build(), args, sharp_angle=60)
+    M.finish(NAME, build(), args, sharp_angle=60, views=VIEWS, glossy=True)

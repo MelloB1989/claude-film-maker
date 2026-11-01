@@ -1,13 +1,17 @@
-"""pickaxe — a palm-sized brass pickaxe: 14 cm dark-wood handle, 11 cm curved double-pointed head.
+"""pickaxe — a brass display pickaxe on a walnut plinth: 20 cm dark-wood handle, 15.6 cm head.
 
-Built standing (handle up +Z, head across Y, thickness along X), then laid on its side as it
-rests on a shelf: the handle runs along +Y with the head at the +Y end, the head's span along X
-and its points curving back towards the handle. It is tipped a fraction of a degree about X so
-that both the head's eye and the handle's butt knob touch z = 0 (it rests stably, nothing
-floats). Head: a tapered crescent swept along an arc, unioned with a rounded eye block; the
-handle passes through the eye and shows 4 mm above it. Handle: an oval loft (long axis in the
-swing plane, so lying flat it rests on its narrow side) with a butt knob, a slim waist and a
-swell at the eye. Origin: bottom centre of the footprint. Slots: M_Brass, M_HandleWood.
+The pick: a tapered, curved, double-pointed brass head (a crescent swept along an arc, unioned
+with a forged eye collar) on an oval dark-wood handle with a butt knob, a slim waist and a
+swell at the eye; the handle shows 6 mm above the eye. It is the palm-sized design scaled 1.42x.
+
+The display: the pick is mounted diagonally, its handle 35 degrees from vertical with the head
+up and to the right (+Y), the head's span in the YZ plane (parallel to the wall, facing +X), on
+a vertical brass pin (4.8 mm) rising from a turned brass collar on a walnut plinth 12 x 6 x
+2.5 cm (Y x X x Z, edges rounded 2 mm). The pin enters the handle from below and ends at its
+axis; the pin sits under the pick's centre of width, the butt end clears the plinth by 2 cm.
+
+Origin: bottom centre of the plinth. Slots: M_Brass, M_HandleWood, M_Walnut. UVs: handle along
+its length; brass parts lofted/lathed; walnut box-projected (1 UV = 1 m), grain along Y.
 
     blender -b --factory-startup -P films/host-studio/props/pickaxe.py -- --out films/host-studio/props/out
 """
@@ -22,6 +26,7 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _studio as S  # noqa: E402
 import _smalls as M  # noqa: E402
+import _furniture as F  # noqa: E402
 
 NAME = "pickaxe"
 CM = M.CM
@@ -57,7 +62,7 @@ def oval(a, b, sides=16, n=2.0):
 def handle(mat):
     rings = []
     for z, a, b in HANDLE:
-        rings.append([Vector((x * CM, y * CM, z * CM)) for x, y in oval(a, b, 24)])
+        rings.append([Vector((x * CM, y * CM, z * CM)) for x, y in oval(a, b, 40)])
     return M.loft("handle", rings, [mat], cap0=(0, 0, 0), cap1=(0, 0, HANDLE_TOP * CM))
 
 
@@ -75,7 +80,7 @@ def crescent(mat):
     us = [0.0, 0.05, 0.10, 0.16, 0.22, 0.29, 0.36, 0.43, 0.50, 0.57, 0.64, 0.70, 0.76, 0.81, 0.855, 0.895,
           0.928, 0.955, 0.975, 0.99]
     ts = [-u for u in reversed(us[1:])] + us
-    prof = oval(1.0, 1.0, 28, n=2.6)
+    prof = oval(1.0, 1.0, 40, n=2.6)
     rings = []
     for t in ts:
         u = abs(t)
@@ -104,7 +109,7 @@ def head(mat):
     blade, chamfered ends), unioned with the crescent."""
     rings = []
     for z, b, a in EYE:
-        rings.append([Vector((x * CM, y * CM, z * CM)) for x, y in oval(a, b, 24, n=4.0)])
+        rings.append([Vector((x * CM, y * CM, z * CM)) for x, y in oval(a, b, 40, n=4.0)])
     eye = M.loft("eye", rings, [mat], cap0="ngon", cap1="ngon")
     recalc_normals(eye)
     cres = crescent(mat)
@@ -138,34 +143,70 @@ def materials():
     return brass, wood
 
 
-def lay_down(ob):
-    """Standing -> lying on its side, then tip about X so the eye and the butt knob both rest on z = 0."""
-    # standing (x, y, z) -> lying (y, z, x): handle along +Y, head span along X, thickness along Z
-    rot = Matrix(((0, 1, 0, 0), (0, 0, 1, 0), (1, 0, 0, 0), (0, 0, 0, 1)))
-    ob.data.transform(rot)
-    vs = [v.co.copy() for v in ob.data.vertices]
-    for _ in range(3):
-        head_low = min((v for v in vs if v.y > 9 * CM), key=lambda v: v.z)
-        butt_low = min((v for v in vs if v.y < 4 * CM), key=lambda v: v.z)
-        ang = math.atan2(butt_low.z - head_low.z, head_low.y - butt_low.y)
-        if abs(ang) < 1e-6:
-            break
-        r = Matrix.Rotation(ang, 4, "X")
-        ob.data.transform(r)
-        vs = [v.co.copy() for v in ob.data.vertices]
-    ob.data.update()
+SCALE = 1.42                    # palm-sized design -> display size
+TILT = 35.0                     # handle from vertical, head up and to +Y
+PLINTH = (6.0, 12.0, 2.5)       # X (depth) x Y (width) x Z, cm
+PLINTH_R = 0.2
+CLEAR = 2.0                     # butt end above the plinth, cm
+PIN_R = 0.24
+COLLAR = [(0.0, -0.05), (0.62, -0.05), (0.62, 0.10), (0.60, 0.17), (0.55, 0.21), (0.42, 0.25),
+          (0.30, 0.30), (0.26, 0.36), (0.0, 0.36)]      # turned collar (r, z) cm over the plinth top
+
+
+def walnut():
+    return F.wood("M_Walnut", (0.36, 0.225, 0.14), (0.16, 0.085, 0.045), roughness=0.5, ring=12.0, seed=0.3)
+
+
+def plinth(mat):
+    x, y, z = (v * CM for v in PLINTH)
+    ob = S.box("plinth", (-x / 2, -y / 2, 0), (x / 2, y / 2, z), mat)
+    bev = ob.modifiers.new("Bevel", "BEVEL")
+    bev.width = PLINTH_R * CM
+    bev.segments = 4
+    bev.limit_method = "ANGLE"
+    ob = M.bake(ob)
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    M.box_uv(bm, grain=1)
+    bm.to_mesh(ob.data)
+    bm.free()
     return ob
+
+
+def mount(pick, brass):
+    """Tilt the standing pick, put it over the plinth and add the pin and its collar."""
+    me = pick.data
+    me.transform(Matrix.Scale(SCALE, 4))
+    me.transform(Matrix.Rotation(math.radians(-TILT), 4, "X"))
+    vs = [v.co for v in me.vertices]
+    y_mid = (min(v.y for v in vs) + max(v.y for v in vs)) / 2
+    z_low = min(v.z for v in vs)
+    top = PLINTH[2] * CM
+    # the handle axis runs from the origin along (0, sin, cos): the pin meets it at y = y_mid
+    t = y_mid / math.sin(math.radians(TILT))
+    axis_pt = Vector((0.0, y_mid, t * math.cos(math.radians(TILT))))
+    shift = Vector((0.0, -y_mid, top + CLEAR * CM - z_low))
+    me.transform(Matrix.Translation(shift))
+    me.update()
+    pin_top = axis_pt + shift
+    pin = M.lathe_uv("pin", [(0.0, top), (PIN_R * CM, top), (PIN_R * CM, pin_top.z), (0.0, pin_top.z)],
+                     [brass], segs=24)
+    collar = M.lathe_uv("collar", [(r * CM, top + z * CM) for r, z in COLLAR], [brass], segs=48)
+    print(f"pickaxe: pin {(pin_top.z - top) / CM:.1f} cm from the plinth to the handle axis")
+    return [pin, collar]
 
 
 def build():
     brass, wood = materials()
-    parts = [handle(wood), head(brass)]
-    ob = S.join(NAME, parts)
-    lay_down(ob)
-    return [ob]
+    pick = S.join("pick", [handle(wood), head(brass)])
+    parts = [pick] + mount(pick, brass) + [plinth(walnut())]
+    return parts
 
 
 if __name__ == "__main__":
     args = S.parse_args(__file__)
     S.reset_scene()
-    M.finish(NAME, build(), args, sharp_angle=45)
+    M.finish(NAME, build(), args, origin=(0, 0, 0), sharp_angle=45, glossy=True, views=[
+        ("", (1.0, 0.75, 0.85), 70, 1.12),
+        ("_front", (1.0, 0.0, 0.10), 70, 1.12),
+    ])
