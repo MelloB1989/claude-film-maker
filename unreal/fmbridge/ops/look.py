@@ -30,6 +30,11 @@ def _base(kind: str):
             e.set_editor_property("default_value", default)
         return e
     col = param(unreal.MaterialExpressionVectorParameter, "Color", -500, 0)
+    if kind in ("Pbr", "PbrMasked", "Sheer", "Glow"):
+        _pbr(m, kind, col, param)
+        MEL.recompile_material(m)
+        EAL.save_asset(path)
+        return m
     if kind in ("Screen", "Textured"):  # Color tints a texture (Tex), tiled `Tiling` times
         uv = MEL.create_material_expression(m, unreal.MaterialExpressionTextureCoordinate, -1100, -200)
         til = param(unreal.MaterialExpressionScalarParameter, "Tiling", -1100, -100, 1.0)
@@ -75,23 +80,97 @@ def _base(kind: str):
     return m
 
 
+def _pbr(m, kind: str, col, param) -> None:
+    """The textured kinds. Pbr: Tex (albedo) x Color, Normal, Mask (R roughness x Roughness, G metallic x Metallic),
+    all tiled `Tiling` times. PbrMasked: Pbr cut out by Tex's alpha, two-sided (an engraving, a leaf). Sheer: a thin
+    two-sided fabric that light passes through (foliage shading), Opacity dithered so it stays sorted, plus a little
+    Glow of its own colour (backlit sheers). Glow: Tex x Color x Intensity added on top, unlit (a halo, a light leak)."""
+    def sample(name, x, y, default, stype):
+        e = param(unreal.MaterialExpressionTextureSampleParameter2D, name, x, y)
+        e.set_editor_property("texture", load(default))
+        e.set_editor_property("sampler_type", getattr(unreal.MaterialSamplerType, stype))
+        MEL.connect_material_expressions(uvm, "", e, "UVs")
+        return e
+
+    def mul(a, a_out, b, b_out, x, y):
+        e = MEL.create_material_expression(m, unreal.MaterialExpressionMultiply, x, y)
+        MEL.connect_material_expressions(a, a_out, e, "A")
+        MEL.connect_material_expressions(b, b_out, e, "B")
+        return e
+
+    uv = MEL.create_material_expression(m, unreal.MaterialExpressionTextureCoordinate, -1500, 0)
+    til = param(unreal.MaterialExpressionScalarParameter, "Tiling", -1500, 100, 1.0)
+    uvm = MEL.create_material_expression(m, unreal.MaterialExpressionMultiply, -1300, 50)
+    MEL.connect_material_expressions(uv, "", uvm, "A")
+    MEL.connect_material_expressions(til, "", uvm, "B")
+    white = "/Engine/EngineResources/WhiteSquareTexture"
+    tex = sample("Tex", -1000, -300, white, "SAMPLERTYPE_COLOR")
+    base = mul(tex, "RGB", col, "", -600, -200)
+    P = unreal.MaterialProperty
+    if kind == "Glow":
+        m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+        m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_ADDITIVE)
+        k = param(unreal.MaterialExpressionScalarParameter, "Intensity", -600, 0, 10.0)
+        MEL.connect_material_property(mul(base, "", k, "", -300, -100), "", P.MP_EMISSIVE_COLOR)
+        return
+    nrm = sample("Normal", -1000, 0, "/Engine/EngineMaterials/DefaultNormal", "SAMPLERTYPE_NORMAL")
+    msk = sample("Mask", -1000, 300, white, "SAMPLERTYPE_LINEAR_COLOR")
+    MEL.connect_material_property(base, "", P.MP_BASE_COLOR)
+    MEL.connect_material_property(nrm, "RGB", P.MP_NORMAL)
+    rough = param(unreal.MaterialExpressionScalarParameter, "Roughness", -700, 300, 0.6)
+    metal = param(unreal.MaterialExpressionScalarParameter, "Metallic", -700, 400, 0.0)
+    MEL.connect_material_property(mul(msk, "R", rough, "", -400, 300), "", P.MP_ROUGHNESS)
+    MEL.connect_material_property(mul(msk, "G", metal, "", -400, 400), "", P.MP_METALLIC)
+    MEL.connect_material_property(param(unreal.MaterialExpressionScalarParameter, "Specular", -700, 500, 0.5), "",
+                                  P.MP_SPECULAR)
+    if kind == "PbrMasked":
+        m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_MASKED)
+        m.set_editor_property("two_sided", True)
+        MEL.connect_material_property(tex, "A", P.MP_OPACITY_MASK)
+    if kind == "Sheer":
+        m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_TWO_SIDED_FOLIAGE)
+        m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_MASKED)
+        m.set_editor_property("two_sided", True)
+        op_ = param(unreal.MaterialExpressionScalarParameter, "Opacity", -700, 650, 0.6)
+        cov = mul(msk, "B", op_, "", -450, 650)  # Mask's B: the weave's open area (white = thread)
+        dither = MEL.create_material_expression(m, unreal.MaterialExpressionDitherTemporalAA, -250, 650)
+        for pin in ("AlphaThreshold", "Alpha Threshold", ""):
+            try:
+                MEL.connect_material_expressions(cov, "", dither, pin)
+                break
+            except Exception:
+                continue
+        MEL.connect_material_property(dither, "", P.MP_OPACITY_MASK)
+        trans = param(unreal.MaterialExpressionVectorParameter, "Transmission", -700, 800,
+                      unreal.LinearColor(0.9, 0.85, 0.75, 1.0))
+        MEL.connect_material_property(trans, "", P.MP_SUBSURFACE_COLOR)
+        glow = param(unreal.MaterialExpressionScalarParameter, "Glow", -700, 900, 0.0)
+        MEL.connect_material_property(mul(base, "", glow, "", -400, 900), "", P.MP_EMISSIVE_COLOR)
+
+
 @op("look.material")
 def material(name: str, color=(1.0, 1.0, 1.0), kind: str = "Surface", roughness: float = None, metallic: float = None,
              specular: float = None, intensity: float = None, opacity: float = None, texture: str = "",
-             tiling: float = None, folder: str = "/Game/FM/Materials") -> str:
+             tiling: float = None, normal: str = "", mask: str = "", glow: float = None, transmission=None,
+             folder: str = "/Game/FM/Materials") -> str:
     """A material instance: kind Surface (color, roughness, metallic, specular), Textured (a texture tinted by color,
-    tiled), Screen (an emitted texture x intensity behind glossy glass), Emissive (color x intensity, unlit) or Glass
-    (translucent, opacity). Colours are linear. Re-running updates it."""
+    tiled), Screen (an emitted texture x intensity behind glossy glass), Emissive (color x intensity, unlit), Glass
+    (translucent, opacity), Pbr (texture, normal and mask maps; mask R x roughness, G x metallic), PbrMasked (Pbr cut
+    out by the texture's alpha), Sheer (backlit thin fabric: mask B x opacity, dithered; transmission colour, glow) or
+    Glow (texture x color x intensity, additive). Colours are linear. Re-running updates it."""
     path = f"{folder}/{name}"
     parent = _base(kind)
     mi = load(path) if EAL.does_asset_exist(path) else unreal.AssetToolsHelpers.get_asset_tools().create_asset(
         name, folder, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
     mi.set_editor_property("parent", parent)
     MEL.set_material_instance_vector_parameter_value(mi, "Color", unreal.LinearColor(*color, 1.0))
-    if texture:
-        MEL.set_material_instance_texture_parameter_value(mi, "Tex", load(texture))
+    for k, v in (("Tex", texture), ("Normal", normal), ("Mask", mask)):
+        if v:
+            MEL.set_material_instance_texture_parameter_value(mi, k, load(v))
+    if transmission is not None:
+        MEL.set_material_instance_vector_parameter_value(mi, "Transmission", unreal.LinearColor(*transmission, 1.0))
     for k, v in (("Roughness", roughness), ("Metallic", metallic), ("Specular", specular), ("Intensity", intensity),
-                 ("Opacity", opacity), ("Tiling", tiling)):
+                 ("Opacity", opacity), ("Tiling", tiling), ("Glow", glow)):
         if v is not None:
             MEL.set_material_instance_scalar_parameter_value(mi, k, float(v))
     EAL.save_asset(path)
@@ -99,11 +178,34 @@ def material(name: str, color=(1.0, 1.0, 1.0), kind: str = "Surface", roughness:
 
 
 @op("look.apply")
-def apply(label: str, material: str, slot: int = 0) -> str:
-    """Put a material on an actor's static meshes."""
+def apply(label: str, material: str, slot=0) -> str:
+    """Put a material on an actor's static meshes, in slot `slot`: its index or its name (an FBX's material name)."""
     for c in actor(label).get_components_by_class(unreal.StaticMeshComponent):
-        c.set_material(slot, load(material))
+        if isinstance(slot, str):
+            c.set_material_by_name(slot, load(material))
+        else:
+            c.set_material(slot, load(material))
     return label
+
+
+@op("look.slots")
+def slots(label: str, materials: dict = None) -> dict:
+    """An actor's material slots by name ({slot: material}); `materials` sets those named (unknown names are
+    reported, not guessed)."""
+    out, missing = {}, []
+    for c in actor(label).get_components_by_class(unreal.StaticMeshComponent):
+        names = [str(n) for n in c.get_material_slot_names()]
+        for name, mat in (materials or {}).items():
+            if name in names:
+                c.set_material_by_name(name, load(mat))
+            else:
+                missing.append(name)
+        for k, name in enumerate(names):
+            m = c.get_material(k)
+            out[name] = m.get_path_name().split(".")[0] if m else None
+    if missing:
+        out["_missing"] = sorted(set(missing))
+    return out
 
 
 @op("look.light")
@@ -139,6 +241,31 @@ def light(label: str, kind: str = "rect", loc=(0, 0, 200), look_at=None, intensi
         c.set_editor_property("outer_cone_angle", float(cone))
         c.set_editor_property("inner_cone_angle", float(cone) * 0.6)
     return label
+
+
+@op("look.sky")
+def sky(elevation: float = 30.0, azimuth: float = 0.0, lux: float = 60000.0, temperature: float = 5600.0,
+        sky_intensity: float = 1.0, shadow_softness: float = 0.5, channels: list = (0,)) -> dict:
+    """Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the
+    back wall towards the camera; 90 = shining along +Y) and `elevation` above the horizon, a sky atmosphere and a
+    real-time captured sky light. `shadow_softness` is the sun's source angle in degrees."""
+    spawn("FM_Sun", cls="DirectionalLight", loc=(0, 0, 500))
+    sun = actor("FM_Sun")
+    sun.set_actor_rotation(unreal.Rotator(roll=0.0, pitch=-float(elevation), yaw=float(azimuth)), False)
+    c = sun.get_component_by_class(unreal.DirectionalLightComponent)
+    for k, v in (("intensity", float(lux)), ("use_temperature", True), ("temperature", float(temperature)),
+                 ("atmosphere_sun_light", True), ("light_source_angle", float(shadow_softness)), ("cast_shadows", True)):
+        c.set_editor_property(k, v)
+    lc = unreal.LightingChannels()
+    for k in range(3):
+        lc.set_editor_property(f"channel{k}", k in channels)
+    c.set_editor_property("lighting_channels", lc)
+    spawn("FM_Atmosphere", cls="SkyAtmosphere", loc=(0, 0, 0))
+    spawn("FM_SkyLight", cls="SkyLight", loc=(0, 0, 400))
+    s = actor("FM_SkyLight").get_component_by_class(unreal.SkyLightComponent)
+    s.set_editor_property("real_time_capture", True)
+    s.set_editor_property("intensity", float(sky_intensity))
+    return {"sun": "FM_Sun", "sky": "FM_SkyLight", "atmosphere": "FM_Atmosphere"}
 
 
 @op("look.fog")

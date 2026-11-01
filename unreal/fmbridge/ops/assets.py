@@ -43,7 +43,16 @@ def import_files(files: list, dest: str, replace: bool = True, combine: bool = T
             t.options = ui
         tasks.append(t)
     unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks(tasks)
-    return [p for t in tasks for p in t.imported_object_paths]
+    paths = [p for t in tasks for p in t.imported_object_paths]
+    for p in paths:  # data textures by suffix: _N a normal map, _M/_R/_O masks (linear, not colour)
+        stem = p.rsplit(".", 1)[-1]
+        kind = {"N": "TC_NORMALMAP", "M": "TC_MASKS", "R": "TC_MASKS", "O": "TC_MASKS"}.get(stem.rsplit("_", 1)[-1])
+        tex = EAL.load_asset(p) if kind else None
+        if isinstance(tex, unreal.Texture2D):
+            tex.set_editor_property("compression_settings", getattr(unreal.TextureCompressionSettings, kind))
+            tex.set_editor_property("srgb", False)
+            EAL.save_asset(p.rsplit(".", 1)[0])
+    return paths
 
 
 @op("assets.duplicate")

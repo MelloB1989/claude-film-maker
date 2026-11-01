@@ -1,191 +1,306 @@
-"""The host's studio, built in the open level by the bridge's ops (unreal/fmbridge): run in the editor with
-`film-ue exec films/host-studio/unreal/studio.py` after build.py has imported the textures. Re-running rebuilds it.
+"""The host's studio, "karma": built in the open level by the bridge's ops (unreal/fmbridge). Run it in the editor with
+`film-ue exec films/host-studio/unreal/studio.py` after build.py has imported the textures and the props. Re-running
+rebuilds it.
 
-The frame: the camera (HostCam, 38 mm on a Super 35 back) stands 2.3 m in front of the host and looks back along -X
-at the wall (x = -260), so screen-left is +Y. At the wall the frame spans y -147..159 and z 52..224; the host covers
-y -45..55 there.
-    screen-left   floating walnut shelves under warm light: books, a print, a vase, an orb lamp, a plant
-    centre-right  a walnut slat wall grazed from above, a pink neon </> on it, two teal light bars beside it
-    midground     a side table on the right with a monitor of code and a lamp, between the host and the wall
-    host          a big soft key camera-left, a weak fill, warm hair light, teal and amber rims, an eye light
-    air           a thin haze, so the lights have a body
+The room (cm): the back wall at x = -260, the camera side towards +X, screen-left +Y, the host at the origin facing +X.
+    back wall      warm limewash; a floor-to-ceiling window at y +130..+280 with sheer linen curtains, daylight
+    centre         a walnut slat panel (y -60..+110), the black Samarkan "karma" on it, halo-lit from behind
+    left           an olive tree in a pale pot in front of the sheers
+    right          four floating light-oak shelves with warm LED strips over a light-oak credenza, dressed with the
+                   owner's things: the seven product books, the polaroid, the lyzn block, the maker tray, the framed
+                   card, the coin and pickaxe, the root prompt, the records, the 27 NOV calendar, the MelloB block,
+                   the black hoodie with its note
+    host           a soft key from the window side, a weak fill, a warm hair light and a warm rim from the shelves
+Every prop comes from Blender (props/), each FBX in its own folder; its material slots are dressed by name from MAT.
 """
+import json
 import math
-import random
+import os
 
 import unreal
 from fmbridge.ops import level as L, look as K, mh
 
-T = "/Game/Studio/Textures"
+T = "/Game/Studio/Textures"  # the label textures (labels.py) and the old ones (textures.py)
+S = "/Game/Studio/Surfaces"  # the tileable surfaces (surfaces.py)
 M = "/Game/Studio/Materials"
-KEEP = {"Floor", "BackWall", "SideWallL", "Host", "HostCam", "HostCamB"}
-rnd = random.Random(5)
+KEEP = {"Host", "HostCam", "HostCamB"}
+WALL = -260.0
 
-# clear the old dressing and lights
+# clear the old studio (its floor and walls too: the room is a prop now)
 L.delete([a[0] for a in L.actors() if a[0] not in KEEP])
 
+
 # ------------------------------------------------------------------------------------------------- materials
-mat = {
-    "wall": K.material("MI_HS_Wall", (0.022, 0.023, 0.026), roughness=0.9, folder=M),
-    "floor": K.material("MI_HS_Floor", (0.03, 0.028, 0.026), roughness=0.55, folder=M),
-    "felt": K.material("MI_HS_Felt", (0.006, 0.006, 0.007), roughness=1.0, specular=0.2, folder=M),
-    "walnut": K.material("MI_HS_Walnut", (1.0, 0.9, 0.85), kind="Textured", texture=f"{T}/T_Walnut", roughness=0.45, folder=M),
-    "oak": K.material("MI_HS_Oak", (1.6, 1.45, 1.25), kind="Textured", texture=f"{T}/T_Walnut", roughness=0.5, folder=M),
-    "metal": K.material("MI_HS_BlackMetal", (0.02, 0.02, 0.022), roughness=0.35, metallic=1.0, folder=M),
-    "ceramic": K.material("MI_HS_Ceramic", (0.75, 0.72, 0.66), roughness=0.25, folder=M),
-    "terracotta": K.material("MI_HS_Terracotta", (0.42, 0.16, 0.08), roughness=0.8, folder=M),
-    "leaf": K.material("MI_HS_Leaf", (0.03, 0.12, 0.035), roughness=0.55, folder=M),
-    "screen": K.material("MI_HS_CodeScreen", kind="Screen", texture=f"{T}/T_CodeScreen", intensity=2.5, folder=M),
-    "neon": K.material("MI_HS_Neon", kind="Screen", texture=f"{T}/T_Neon", intensity=14.0, roughness=0.3, folder=M),
-    "poster": K.material("MI_HS_Poster", (0.55, 0.55, 0.55), kind="Textured", texture=f"{T}/T_Poster", roughness=0.7, folder=M),
-    "warm_led": K.material("MI_HS_WarmLed", (1.0, 0.55, 0.22), kind="Emissive", intensity=18.0, folder=M),
-    "teal_led": K.material("MI_HS_TealLed", (0.05, 0.85, 0.75), kind="Emissive", intensity=22.0, folder=M),
-    "orb": K.material("MI_HS_Orb", (1.0, 0.62, 0.3), kind="Emissive", intensity=9.0, folder=M),
-    "bulb": K.material("MI_HS_Bulb", (1.0, 0.7, 0.4), kind="Emissive", intensity=40.0, folder=M),
+
+def tex(folder, name):
+    p = f"{folder}/{name}"
+    return p if unreal.EditorAssetLibrary.does_asset_exist(p) else ""
+
+
+def surface(name, tile_cm, color=(1.0, 1.0, 1.0), roughness=1.0, kind="Pbr", **kw):
+    """A tileable surface from surfaces/ on world-scale UVs (1 UV = 1 m), the texture covering `tile_cm`."""
+    a = tex(S, f"T_{name}_A")
+    return K.material(f"MI_K_{name}", color, kind=kind, texture=a, normal=tex(S, f"T_{name}_N"), mask=tex(S, f"T_{name}_R"),
+                      tiling=100.0 / tile_cm, roughness=roughness, metallic=0.0, folder=M, **kw)
+
+
+def label(name, kind="Pbr", color=(1.0, 1.0, 1.0), roughness=0.8, **kw):
+    return K.material(f"MI_K_Label_{name}", color, kind=kind, texture=tex(T, f"T_Label_{name}"),
+                      normal=tex(T, f"T_Label_{name}_N"), mask=tex(T, f"T_Label_{name}_M"), roughness=roughness,
+                      metallic=1.0, folder=M, **kw)
+
+
+def plain(name, color, roughness=0.6, metallic=0.0, specular=None):
+    return K.material(f"MI_K_{name}", color, roughness=roughness, metallic=metallic, specular=specular, folder=M)
+
+
+def glow(name, color, intensity):
+    return K.material(f"MI_K_{name}", color, kind="Emissive", intensity=intensity, folder=M)
+
+
+def glass(name, color=(0.9, 0.92, 0.95), opacity=0.12, roughness=0.05):
+    return K.material(f"MI_K_{name}", color, kind="Glass", opacity=opacity, roughness=roughness, specular=0.5, folder=M)
+
+
+def leaf(name, color, transmission, texture=""):
+    """Two-sided leaves that let the daylight through (foliage shading, fully opaque)."""
+    return K.material(f"MI_K_{name}", color, kind="Sheer", texture=texture, opacity=1.0, roughness=0.5,
+                      transmission=transmission, folder=M)
+
+
+oak = surface("Oak", 100, roughness=1.0)
+walnut = surface("Walnut", 100)
+black_metal = plain("BlackMetal", (0.012, 0.012, 0.013), 0.45, 1.0)
+brass = plain("Brass", (0.78, 0.56, 0.28), 0.3, 1.0)
+gold = plain("Gold", (0.95, 0.7, 0.32), 0.22, 1.0)
+silver = plain("Silver", (0.85, 0.85, 0.86), 0.3, 1.0)
+alu = plain("Alu", (0.7, 0.7, 0.72), 0.35, 1.0)
+satin_black = plain("SatinBlack", (0.014, 0.014, 0.015), 0.5)
+matte_black = plain("MatteBlack", (0.012, 0.012, 0.012), 0.7)
+pages = plain("Pages", (0.62, 0.57, 0.47), 0.85)
+win_glass = glass("WindowGlass", opacity=0.04)
+clear_glass = glass("ClearGlass", opacity=0.1)
+
+MAT = {
+    # the room
+    "M_Wall": surface("Limewash", 200), "M_Ceiling": plain("Ceiling", (0.72, 0.7, 0.66), 0.9),
+    "M_Floor": surface("OakFloor", 200), "M_Baseboard": plain("Baseboard", (0.66, 0.62, 0.56), 0.55),
+    "M_WinFrame": plain("WinFrame", (0.68, 0.66, 0.62), 0.4), "M_Glass": win_glass,
+    "M_Sheer": K.material("MI_K_Sheer", (1.0, 0.98, 0.94), kind="Sheer", texture=tex(S, "T_Linen_A"),
+                          mask=tex(S, "T_Linen_O"), tiling=100.0 / 8, opacity=0.9, roughness=0.8,
+                          transmission=(1.0, 0.92, 0.8), glow=0.25, folder=M),
+    "M_Rod": black_metal, "M_Rug": surface("Wool", 60),
+    # the slat wall and the sign
+    "M_Walnut": walnut, "M_Felt": surface("Felt", 40, color=(0.6, 0.6, 0.6)),
+    "M_LetterBlack": plain("Powder", (0.011, 0.011, 0.012), 0.62), "M_Metal": black_metal,
+    # furniture
+    "M_Oak": oak, "M_OakEnd": surface("OakEnd", 20), "M_Alu": alu,
+    "M_LedStrip": glow("LedStrip", (1.0, 0.66, 0.36), 9.0), "M_Plinth": matte_black,
+    # plants
+    "M_Pot": surface("Stoneware", 30, roughness=0.7), "M_Pebbles": plain("Pebbles", (0.24, 0.21, 0.18), 0.9),
+    "M_Soil": plain("Soil", (0.05, 0.035, 0.025), 0.95), "M_Bark": plain("Bark", (0.16, 0.13, 0.1), 0.9),
+    "M_LeafTop": leaf("OliveTop", (0.07, 0.09, 0.05), (0.35, 0.42, 0.12)),
+    "M_LeafUnder": leaf("OliveUnder", (0.2, 0.22, 0.17), (0.35, 0.42, 0.12)),
+    "M_Leaf": leaf("Pothos", (1.0, 1.0, 1.0), (0.4, 0.5, 0.1), texture=tex(T, "T_PothosLeaf")),
+    "M_Stem": plain("Stem", (0.1, 0.16, 0.05), 0.6), "M_Root": plain("Root", (0.12, 0.09, 0.06), 0.8),
+    # music
+    "M_FootMetal": brass, "M_Platter": satin_black, "M_Vinyl": plain("Vinyl", (0.008, 0.008, 0.008), 0.25),
+    "M_Label_Record": label("Record", roughness=0.6), "M_ArmMetal": silver,
+    "M_StandMetal": black_metal, "M_HPBlack": matte_black,
+    "M_HPLeather": surface("Leather", 10, color=(0.4, 0.4, 0.4), roughness=0.9), "M_HPMetal": silver,
+    "M_Sleeve1": plain("Sleeve1", (0.015, 0.015, 0.015), 0.6), "M_Sleeve2": plain("Sleeve2", (0.2, 0.04, 0.035), 0.7),
+    "M_Sleeve3": plain("Sleeve3", (0.45, 0.3, 0.08), 0.7), "M_Sleeve4": plain("Sleeve4", (0.1, 0.12, 0.14), 0.7),
+    "M_Sleeve5": plain("Sleeve5", (0.6, 0.56, 0.47), 0.7), "M_Label_SleeveFront": label("SleeveFront"),
+    # the maker tray and the framed card
+    "M_PcbGreen": plain("PcbGreen", (0.02, 0.17, 0.06), 0.35), "M_PcbBlue": plain("PcbBlue", (0.01, 0.07, 0.3), 0.35),
+    "M_Gold": gold, "M_ChipBlack": plain("Chip", (0.015, 0.015, 0.015), 0.5), "M_ChipLid": silver,
+    "M_PortMetal": silver, "M_Breadboard": plain("Breadboard", (0.75, 0.74, 0.7), 0.5),
+    "M_WireRed": plain("WireRed", (0.5, 0.02, 0.02), 0.4), "M_WireBlack": plain("WireBlack", (0.01, 0.01, 0.01), 0.4),
+    "M_WireYellow": plain("WireYellow", (0.7, 0.5, 0.02), 0.4), "M_WireBlue": plain("WireBlue", (0.02, 0.1, 0.5), 0.4),
+    "M_LedRed": glow("LedRed", (1.0, 0.05, 0.03), 40), "M_LedYellow": glow("LedYellow", (1.0, 0.6, 0.05), 40),
+    "M_LedGreen": glow("LedGreen", (0.1, 1.0, 0.15), 40),
+    "M_FrameBlack": satin_black, "M_FanBlack": matte_black, "M_AccentGold": gold,
+    # small objects
+    "M_Brass": brass, "M_HandleWood": walnut, "M_Wax": plain("Wax", (0.75, 0.68, 0.55), 0.6),
+    "M_Wick": matte_black, "M_Flame": glow("Flame", (1.0, 0.6, 0.25), 60),
+    "M_Stoneware": surface("Stoneware", 30, roughness=0.6),
+    "M_CeramicBlack": plain("CeramicBlack", (0.02, 0.02, 0.022), 0.55),
+    "M_CeramicWhite": plain("CeramicWhite", (0.72, 0.7, 0.66), 0.35),
+    "M_Acrylic": K.material("MI_K_Acrylic", (0.92, 0.94, 0.96), kind="Glass", opacity=0.45, roughness=0.45, folder=M),
+    "M_Label_Lyzn": label("Lyzn", kind="PbrMasked", roughness=0.7),
+    # the label objects
+    "M_Label_Name": label("Name", roughness=0.5), "M_CalStand": black_metal, "M_Wire": silver,
+    "M_Paper": plain("Paper", (0.82, 0.81, 0.78), 0.85), "M_Label_Calendar": label("Calendar", roughness=0.85),
+    "M_Case": plain("Anodised", (0.018, 0.018, 0.02), 0.4, 1.0),
+    "M_ScreenGlass": glass("ScreenGlass", (0.02, 0.02, 0.02), opacity=0.25, roughness=0.02),
+    "M_Label_Terminal": K.material("MI_K_Label_Terminal", kind="Screen", texture=tex(T, "T_Label_Terminal"),
+                                   intensity=2.2, roughness=0.1, folder=M),
+    "M_Label_Polaroid": label("Polaroid", roughness=0.35), "M_PolaroidBack": plain("PolaroidBack", (0.06, 0.06, 0.06), 0.6),
+    "M_Label_Sticky": label("Sticky", roughness=0.85), "M_StickyBack": plain("StickyBack", (0.85, 0.7, 0.2), 0.85),
+    "M_Mat": plain("PrintMat", (0.8, 0.79, 0.75), 0.9), "M_Label_Print": label("Print", roughness=0.85),
+    # books
+    "M_GreenCloth": surface("BookCloth", 10), "M_Pages": pages,
+    "M_Book_Cream": plain("BookCream", (0.62, 0.56, 0.44), 0.8), "M_Book_White": plain("BookWhite", (0.7, 0.69, 0.65), 0.75),
+    "M_Book_Grey": plain("BookGrey", (0.22, 0.22, 0.21), 0.85), "M_Book_Black": plain("BookBlack", (0.02, 0.02, 0.02), 0.7),
+    "M_Book_Navy": plain("BookNavy", (0.02, 0.04, 0.1), 0.75), "M_Book_Sage": plain("BookSage", (0.24, 0.28, 0.2), 0.8),
+    "M_Book_Green": plain("BookGreen", (0.03, 0.08, 0.05), 0.8),
+    "M_Book_Terracotta": plain("BookTerracotta", (0.4, 0.13, 0.06), 0.8),
+    # the hoodie
+    "M_Fleece": surface("Fleece", 10, color=(0.5, 0.5, 0.5)), "M_Rib": surface("Fleece", 10, color=(0.45, 0.45, 0.45)),
+    "M_Drawcord": plain("Drawcord", (0.012, 0.012, 0.012), 0.8), "M_Aglet": silver,
 }
-books = [K.material(f"MI_HS_Book{i}", c, roughness=0.75, folder=M) for i, c in enumerate([
-    (0.25, 0.04, 0.03), (0.03, 0.06, 0.12), (0.6, 0.5, 0.35), (0.02, 0.02, 0.02), (0.05, 0.16, 0.13), (0.55, 0.2, 0.05),
-    (0.7, 0.68, 0.62)])]
+for i in range(1, 8):
+    MAT[f"M_Label_Spine{i}"] = label(f"Spine{i}", roughness=1.0)
 
-K.apply("BackWall", mat["wall"])
-K.apply("SideWallL", mat["wall"])
-K.apply("Floor", mat["floor"])
+UNDRESSED = {}
 
 
-def box(label, center, size, material, rot=None):
-    return L.spawn(label, shape="cube", loc=center, size=size, rot_=rot, material=material)
-
-
-def prop(label, name, loc, yaw=0.0, scale=1.0):
-    """A prop made in Blender (props/, imported by build.py), or None when it is not in the project yet."""
+def prop(label_, name, loc, yaw=0.0, pitch=0.0, roll=0.0, scale=1.0):
+    """A Blender prop (props/, imported by build.py) dressed by slot name, or None when it is not imported yet."""
     path = f"/Game/Studio/Props/{name}/{name}"
     if not unreal.EditorAssetLibrary.does_asset_exist(path):
+        UNDRESSED[label_] = "not imported"
         return None
-    return L.spawn(label, asset=path, loc=loc, rot_={"yaw": yaw}, scale=scale)
+    L.spawn(label_, asset=path, loc=loc, rot_={"yaw": yaw, "pitch": pitch, "roll": roll}, scale=scale)
+    names = []
+    for c in L.actor(label_).get_components_by_class(unreal.StaticMeshComponent):
+        names += [str(n) for n in c.get_material_slot_names()]
+    K.slots(label_, {n: MAT[n] for n in names if n in MAT})
+    missing = [n for n in names if n not in MAT]
+    if missing:
+        UNDRESSED[label_] = missing
+    return label_
 
 
-# ------------------------------------------------------------------------------------------ the slat wall
-SY0, SY1, SZ = -105.0, 35.0, 262.0
-box("SlatBacker", (-258.5, (SY0 + SY1) / 2, SZ / 2), (3, SY1 - SY0, SZ), mat["felt"])
-y, i = SY0 + 2.5, 0
-while y < SY1 - 2:
-    box(f"Slat{i:02d}", (-255.5, y, SZ / 2), (3.5, 4.5, SZ), mat["walnut"])
-    y, i = y + 6.6, i + 1
-K.light("SlatGraze", "rect", loc=(-249, (SY0 + SY1) / 2, SZ + 4), look_at=(-256, (SY0 + SY1) / 2, 0), intensity=14,
-        temperature=2900, width=SY1 - SY0 - 10, height=4, barn_angle=88, volumetric=0.3)
-SLATS = ["SlatBacker"] + [f"Slat{k:02d}" for k in range(i)]
-K.channels(["SlatGraze"], [2])  # it grazes the slats alone: on the plain wall it threw the shelves' shadows
-K.channels(SLATS, [0, 2])
-box("NeonBack", (-252.6, -72, 196), (1.2, 64, 34), mat["felt"])
-K.card("Neon", (-252.0, -72, 196), 60, 30, mat["neon"])
-
-# teal light bars at the slat wall's right edge
-for n, yy in enumerate((-115.0, -128.0)):
-    box(f"TealBar{n}", (-256.0, yy, 140), (2.5, 2.5, 230), mat["teal_led"])
-    K.light(f"TealBarLight{n}", "rect", loc=(-252.0, yy, 140), look_at=(0, yy, 140), intensity=4.0,
-            color=(0.05, 0.9, 0.8), width=3, height=225, shadows=False)
-
-# ------------------------------------------------------------------------------------------ shelves, left
-SH_Y0, SH_Y1 = 58.0, 190.0
-for n, z in enumerate((92.0, 148.0, 204.0)):
-    box(f"Shelf{n}", (-246.0, (SH_Y0 + SH_Y1) / 2, z), (28, SH_Y1 - SH_Y0, 4), mat["oak"])
-    box(f"ShelfLed{n}", (-234.0, (SH_Y0 + SH_Y1) / 2, z - 2.4), (1.0, SH_Y1 - SH_Y0 - 4, 0.6), mat["warm_led"])
-    K.light(f"ShelfLight{n}", "rect", loc=(-238.0, (SH_Y0 + SH_Y1) / 2, z - 3), look_at=(-250.0, (SH_Y0 + SH_Y1) / 2, z - 60),
-            intensity=1.4, temperature=2700, width=SH_Y1 - SH_Y0 - 6, height=3, barn_angle=45, volumetric=0.2)
+def bbox(label_):
+    o, e = L.actor(label_).get_actor_bounds(False)
+    return [o.x - e.x, o.y - e.y, o.z - e.z], [o.x + e.x, o.y + e.y, o.z + e.z]
 
 
-def book_row(prefix, y0, z, count, lean_last=False):
-    y = y0
-    for k in range(count):
-        th, hh = rnd.uniform(2.2, 4.5), rnd.uniform(18, 26)
-        box(f"{prefix}{k}", (-248.0, y + th / 2, z + 2 + hh / 2), (rnd.uniform(14, 18), th, hh), rnd.choice(books))
-        y += th + 0.15
-    if lean_last:
-        box(f"{prefix}Lean", (-248.0, y + 5, z + 2 + 10), (16, 3, 22), rnd.choice(books), rot={"roll": -16})
-    return y
+# ----------------------------------------------------------------------------------------------------- the room
+for lab, name in (("Room", "room_shell"), ("Window", "window"), ("Curtains", "curtains"), ("Rug", "rug")):
+    prop(lab, name, (0, 0, 0))
+# the garden outside, out of focus behind the glass
+K.card("Outside", (WALL - 140, 205, 150), 520, 900,
+       K.material("MI_K_Outside", kind="Screen", texture=tex(T, "T_Outside"), intensity=40.0, roughness=1.0, folder=M))
 
+# ------------------------------------------------------------------------------------------- slats and the sign
+SLAT_Y, SLAT_DEPTH = 25.0, 3.4
+prop("SlatPanel", "slat_panel", (WALL, SLAT_Y, 0))
+SIGN_Z = 214.0
+if prop("Sign", "karma_sign", (WALL + SLAT_DEPTH, SLAT_Y, SIGN_Z)):
+    halo = os.path.join(unreal.Paths.project_saved_dir(), "Import", "host-studio", "props", "karma_halo.json")
+    if os.path.exists(halo):  # a soft glow card on the slats exactly behind the letters
+        b = json.load(open(halo))
+        w, h = (b["y1"] - b["y0"]), (b["z1"] - b["z0"])
+        K.card("SignHalo", (WALL + SLAT_DEPTH + 0.3, SLAT_Y - (b["y0"] + b["y1"]) / 2, SIGN_Z + (b["z0"] + b["z1"]) / 2),
+               w * 1.3, h * 1.6, K.material("MI_K_Halo", (1.0, 0.62, 0.32), kind="Glow", texture=tex(T, "T_KarmaHalo"),
+                                            intensity=2.5, folder=M))
+    lo, hi = bbox("Sign")
+    for k in range(9):  # LEDs on the letters' backs: warm light raking the slats around each letter
+        y = lo[1] + 6 + (hi[1] - lo[1] - 12) * k / 8
+        K.light(f"Halo{k}", "point", loc=(WALL + SLAT_DEPTH + 2.0, y, (lo[2] + hi[2]) / 2), intensity=1.2,
+                temperature=2700, radius=45, shadows=True, volumetric=0.0)
+    K.channels([f"Halo{k}" for k in range(9)], [2])
+    K.channels(["SlatPanel"], [0, 2])
 
-# top shelf: a row of books, a white vase, the orb lamp
-book_row("BookA", 62, 204, 7, lean_last=True)
-L.spawn("Vase", shape="cylinder", loc=(-247, 118, 204 + 2 + 11), size=(12, 12, 22), material=mat["ceramic"])
-L.spawn("Orb", shape="sphere", loc=(-246, 150, 204 + 2 + 8), size=(16, 16, 16), material=mat["orb"])
-K.light("OrbLight", "point", loc=(-240, 150, 214), intensity=1.6, temperature=2400, radius=200, shadows=False)
-# middle shelf: the print leaning on the wall, a plant
-L.spawn("Print", shape="cube", loc=(-254, 84, 148 + 2 + 26), size=(1.5, 40, 52), material=mat["poster"],
-        rot_={"pitch": 0, "yaw": 0, "roll": 0})
-L.move("Print", rot_={"pitch": -8, "yaw": 0, "roll": 0})
-if not prop("ShelfPlant", "plant_shelf", (-246, 132, 150)):  # the Blender pothos, else a stand-in
-    L.spawn("PlantPot", shape="cylinder", loc=(-246, 132, 148 + 2 + 7), size=(15, 15, 14), material=mat["terracotta"])
-    for k in range(9):
-        a, r = k * 2.4, rnd.uniform(3, 8)
-        L.spawn(f"Leaf{k}", shape="sphere", loc=(-246 + rnd.uniform(-4, 4), 132 + math.cos(a) * r, 148 + 16 + rnd.uniform(6, 20)),
-                size=(rnd.uniform(9, 13), rnd.uniform(9, 14), rnd.uniform(7, 11)), material=mat["leaf"])
-# bottom shelf: books lying flat, a speaker
-for k in range(3):
-    box(f"Stack{k}", (-248, 74 + k * 1.5, 92 + 2 + 2.2 + k * 4.4), (20, 26 - k * 2, 4.2), books[(k + 2) % len(books)],
-        rot={"yaw": rnd.uniform(-6, 6)})
-box("Speaker", (-246, 128, 92 + 2 + 13), (18, 15, 26), mat["metal"])
-L.spawn("SpeakerCone", shape="cylinder", loc=(-236.8, 128, 92 + 2 + 16), size=(9, 9, 0.6), material=mat["felt"],
-        rot_={"pitch": 90, "yaw": 0, "roll": 0})
+# ---------------------------------------------------------------------------------------- the olive tree, left
+prop("OliveTree", "olive_tree", (WALL + 62, 205, 0), yaw=35)
 
-# a monstera on the floor at the frame's left edge, its leaves reaching in
-if prop("FloorPlant", "plant_floor", (-172, 132, 0), yaw=160):
-    K.light("PlantLight", "spot", loc=(-120, 60, 230), look_at=(-172, 132, 110), intensity=6, temperature=3000, cone=28,
-            radius=400, volumetric=0.2)
+# ------------------------------------------------------------------------------------ shelves and credenza, right
+SH_L, SH_LEN = -60.0, 150.0           # the shelves' left end (screen-left, +Y) and length
+SH_C = SH_L - SH_LEN / 2
+TOPS = (125.0, 162.0, 199.0, 236.0)   # shelf top surfaces, bottom to top
+for n, z in enumerate(TOPS):
+    prop(f"Shelf{n}", "shelf", (WALL, SH_C, z - 4.5))
+    K.light(f"ShelfLed{n}", "rect", loc=(WALL + 23, SH_C, z - 5.2), look_at=(WALL + 18, SH_C, z - 60), intensity=2.2,
+            temperature=2700, width=SH_LEN - 8, height=1.6, barn_angle=60, volumetric=0.0)
+CR_C, CR_TOP = -135.0, 72.0
+prop("Credenza", "credenza", (WALL, CR_C, 0))
 
-# fairy bulbs along the upper left: bokeh at f/2
-for k in range(14):
-    t = k / 13
-    yy, zz = 30 + t * 140, 222 - math.sin(t * math.pi) * 12 + rnd.uniform(-2, 2)
-    L.spawn(f"Bulb{k}", shape="sphere", loc=(-250 + rnd.uniform(-4, 4), yy, zz), size=(2.4, 2.4, 2.4), material=mat["bulb"])
+D = WALL + 4.0  # where a row of books stands: 4 cm off the wall
+# top shelf: the trailing pothos at the left end, the framed card, two vases on a little stack of books
+prop("Pothos", "pothos_trailing", (WALL, SH_L, TOPS[3]))
+prop("GpuFrame", "gpu_frame", (WALL + 1.5, SH_L - 50, TOPS[3]))
+prop("VaseWhite", "vase_white", (WALL + 13, SH_L - 90, TOPS[3]), yaw=20)
+prop("BookStack", "books_stack", (WALL + 12, SH_L - 122, TOPS[3]), yaw=-4)
+prop("VaseBlack", "vase_black", (WALL + 12, SH_L - 122, TOPS[3] + 8.4))
+# second shelf: the seven product books among plain ones, the polaroid half behind a vase, the lyzn block bookend
+prop("BooksMain", "books_main", (D, SH_L - 42, TOPS[2]))
+prop("Polaroid", "polaroid", (WALL + 17, SH_L - 83, TOPS[2]), yaw=8, roll=-12)
+prop("VaseSpeckle", "vase_speckle", (WALL + 14, SH_L - 97, TOPS[2]), yaw=40)
+prop("LyznBlock", "lyzn_block", (WALL + 15, SH_L - 116, TOPS[2]), yaw=-8)
+# third shelf: the maker tray, the candle, the coin and the pickaxe
+prop("IotTray", "iot_tray", (WALL + 12, SH_L - 34, TOPS[1]), yaw=3)
+prop("Candle", "candle", (WALL + 14, SH_L - 78, TOPS[1]))
+K.light("CandleLight", "point", loc=(WALL + 14, SH_L - 78, TOPS[1] + 13), intensity=0.8, temperature=1900, radius=120,
+        shadows=True, volumetric=0.0)
+prop("Coin", "bitcoin_coin", (WALL + 6, SH_L - 95, TOPS[1] + 2.0), pitch=-72)
+prop("Pickaxe", "pickaxe", (WALL + 12, SH_L - 115, TOPS[1]), yaw=-20)
+# bottom shelf: the root prompt, the print, a looser row of books, the small pothos
+prop("Terminal", "terminal_display", (WALL + 12, SH_L - 22, TOPS[0]), yaw=4)
+K.light("TerminalGlow", "rect", loc=(WALL + 16, SH_L - 22, TOPS[0] + 4), look_at=(WALL + 60, SH_L - 22, TOPS[0] + 4),
+        intensity=0.15, color=(0.35, 1.0, 0.5), width=20, height=4, shadows=False, volumetric=0.0)
+prop("Print", "framed_print", (WALL + 6, SH_L - 50, TOPS[0]))
+prop("BooksLow", "books_low", (D, SH_L - 95, TOPS[0]))
+prop("ShelfPlant", "plant_shelf", (WALL + 13, SH_L - 135, TOPS[0]), yaw=180)
+# the credenza: the turntable, headphones, the MelloB block, the crate of records, the calendar, the hoodie
+prop("Turntable", "turntable", (WALL + 22, CR_C + 62, CR_TOP), yaw=-6)
+prop("Headphones", "headphones", (WALL + 15, CR_C + 22, CR_TOP), yaw=12)
+prop("Nameplate", "nameplate", (WALL + 36, CR_C + 14, CR_TOP), yaw=8)
+prop("Crate", "record_crate", (WALL + 17, CR_C - 22, CR_TOP), yaw=-4)
+prop("Calendar", "desk_calendar", (WALL + 36, CR_C - 44, CR_TOP), yaw=-14)
+prop("Hoodie", "hoodie", (WALL, CR_C - 95, CR_TOP))
+NOTE = os.path.join(unreal.Paths.project_saved_dir(), "Import", "host-studio", "props", "hoodie_note.json")
+if os.path.exists(NOTE):  # the hoodie's report says where the note's flat patch is, in the hoodie's frame
+    n = json.load(open(NOTE))
+    prop("StickyNote", "sticky_note", (WALL + n["x"], CR_C - 95 - n["y"], CR_TOP + n["z"]), yaw=n.get("yaw", 0.0),
+         pitch=n.get("pitch", 0.0))
+prop("Stool", "stool", (-95, 20, 0), yaw=25)  # for the empty-room shots; hidden when the host is in frame
 
-# --------------------------------------------------------------------------------- the side table, midground right
-TX, TY, TZ = -120.0, -80.0, 92.0  # a standing-height table, so its top just shows at the frame's foot
-box("TableTop", (TX, TY, TZ - 1.75), (55, 85, 3.5), mat["oak"])
-for n, (dx, dy) in enumerate(((-22, -36), (-22, 36), (22, -36), (22, 36))):
-    L.spawn(f"TableLeg{n}", shape="cylinder", loc=(TX + dx, TY + dy, (TZ - 3.5) / 2), size=(3, 3, TZ - 3.5), material=mat["metal"])
-yaw = 19.0  # the monitor turned toward the camera
-box("Monitor", (TX - 6, TY - 4, TZ + 24), (2.5, 62, 36), mat["metal"], rot={"yaw": yaw})
-K.card("MonitorScreen", (TX - 6, TY - 4, TZ + 24), 59, 33.2, mat["screen"], yaw=yaw, offset=1.35)
-box("MonitorStand", (TX - 8, TY - 4, TZ + 3), (12, 3, 6), mat["metal"], rot={"yaw": yaw})
-K.light("MonitorGlow", "rect", loc=(TX + 2, TY - 2, TZ + 24), look_at=(60, 40, TZ + 24), intensity=0.5,
-        color=(0.45, 0.6, 1.0), width=55, height=30, shadows=False)
-L.spawn("LampShade", shape="cone", loc=(TX + 8, TY - 30, TZ + 34), size=(16, 16, 14), material=mat["metal"],
-        rot_={"pitch": 0, "yaw": 0, "roll": 180})
-L.spawn("LampStem", shape="cylinder", loc=(TX + 8, TY - 30, TZ + 15), size=(1.5, 1.5, 30), material=mat["metal"])
-K.light("LampLight", "spot", loc=(TX + 8, TY - 30, TZ + 28), look_at=(TX + 8, TY - 30, TZ), intensity=12, temperature=2600,
-        cone=50, radius=300)
-prop("Keyboard", "keyboard", (TX + 14, TY + 6, TZ), yaw=12)
-prop("Mug", "mug", (TX + 12, TY + 34, TZ), yaw=200)
+# ------------------------------------------------------------------------------------------------- daylight
+K.sky(elevation=28, azimuth=-28, lux=55000, temperature=5300, sky_intensity=1.0, shadow_softness=0.7)
+K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=18,
+        temperature=6200, width=150, height=280, barn_angle=80, volumetric=0.0)
+K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=1.5, temperature=4500, width=300,
+        height=300, shadows=False, specular=0.0, volumetric=0.0)
 
 # --------------------------------------------------------------------------------------------- the host's light
 FACE = (8.0, 0.0, 172.0)
-K.light("Key", "rect", loc=(150, 118, 228), look_at=FACE, intensity=10.0, temperature=5200, width=130, height=130,
-        barn_angle=70, volumetric=0.4)
-K.light("Fill", "rect", loc=(190, -125, 160), look_at=FACE, intensity=1.1, temperature=6500, width=180, height=180,
+K.light("Key", "rect", loc=(140, 130, 215), look_at=FACE, intensity=9.0, temperature=5000, width=140, height=140,
+        barn_angle=70, volumetric=0.0)
+K.light("Fill", "rect", loc=(190, -125, 160), look_at=FACE, intensity=1.0, temperature=4800, width=180, height=180,
         specular=0.3, volumetric=0.0)
-K.light("HairLight", "rect", loc=(-85, 25, 258), look_at=(0, 0, 186), intensity=7.0, temperature=3600, width=60,
-        height=30, barn_angle=55)
-K.light("RimTeal", "rect", loc=(-90, -105, 182), look_at=(0, 0, 160), intensity=5.0, color=(0.15, 0.8, 0.78), width=25,
-        height=130, barn_angle=50)
-K.light("RimAmber", "rect", loc=(-90, 105, 178), look_at=(0, 0, 160), intensity=3.5, color=(1.0, 0.6, 0.3), width=25,
-        height=120, barn_angle=50)
-K.light("EyeLight", "rect", loc=(214, 6, 186), look_at=FACE, intensity=0.5, temperature=6000, width=24, height=24,
+K.light("HairLight", "rect", loc=(-85, 25, 258), look_at=(0, 0, 186), intensity=5.0, temperature=3800, width=60,
+        height=30, barn_angle=55, volumetric=0.0)
+K.light("RimWarm", "rect", loc=(-90, -105, 180), look_at=(0, 0, 160), intensity=3.0, temperature=3000, width=25,
+        height=130, barn_angle=50, volumetric=0.0)
+K.light("RimWindow", "rect", loc=(-90, 110, 185), look_at=(0, 0, 160), intensity=3.5, temperature=6000, width=25,
+        height=130, barn_angle=50, volumetric=0.0)
+K.light("EyeLight", "rect", loc=(214, 6, 186), look_at=FACE, intensity=0.5, temperature=5600, width=24, height=24,
         shadows=False, volumetric=0.0)
-# lighting channels: the host's lights reach only the host (no spill or shadows on the set), the set's only the set
-HOST_LIGHTS = ["Key", "Fill", "HairLight", "RimTeal", "RimAmber", "EyeLight"]
+HOST_LIGHTS = ["Key", "Fill", "HairLight", "RimWarm", "RimWindow", "EyeLight"]
 K.channels(HOST_LIGHTS, [1])
-K.channels(["Host"], [1])
+K.channels(["Host"], [0, 1])  # the daylight reaches the host too, so the host sits in the room's light
 mh.garment("Host", "Shirt", vectors={"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
 
-# --------------------------------------------------------------------------------------------- air and lens
-K.fog(density=0.012, volumetric=True, albedo=(0.85, 0.85, 0.9), extinction=0.35, height_falloff=0.02)
-K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_bias": 9.2, "white_temp": 6200.0,
-        "bloom_intensity": 0.3, "bloom_threshold": 1.0, "vignette_intensity": 0.35, "film_grain_intensity": 0.08,
-        "scene_fringe_intensity": 0.0})
+# --------------------------------------------------------------------------------------------- air, lens, cameras
+K.fog(density=0.0015, volumetric=True, albedo=(0.95, 0.93, 0.9), extinction=0.15, height_falloff=0.02)
+K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_bias": 11.0, "white_temp": 5600.0,
+        "bloom_intensity": 0.25, "bloom_threshold": 1.0, "vignette_intensity": 0.25, "film_grain_intensity": 0.06,
+        "scene_fringe_intensity": 0.0, "lumen_final_gather_quality": 4.0, "lumen_reflection_quality": 2.0,
+        "lumen_scene_detail": 2.0, "lumen_scene_lighting_quality": 2.0, "lumen_max_trace_distance": 2000.0})
 mh.cloth_inflate("Host", cm=1.0)
-cam = L.actor("HostCam").get_cine_camera_component()
-cam.set_editor_property("current_aperture", 2.0)
-cam.set_editor_property("current_focal_length", 38.0)
+SUPER35 = [23.76, 13.365]
+CAMS = {  # name: (location, look-at, focal mm, aperture, filmback)
+    "KarmaHost": ([160, 12, 168], [0, -10, 160], 30.0, 2.8, SUPER35),
+    "KarmaWide": ([395, -60, 150], [WALL, 30, 135], 22.0, 5.6, [36.0, 20.25]),
+    "KarmaVertical": ([170, 8, 160], [0, 0, 170], 28.0, 2.8, [13.365, 23.76]),
+    "KarmaShelf": ([WALL + 95, SH_L + 25, 205], [WALL + 10, SH_L - 60, 182], 50.0, 2.8, [24.0, 30.0]),
+    "KarmaCredenza": ([WALL + 120, CR_C + 45, 140], [WALL + 15, CR_C - 10, 100], 45.0, 2.8, [24.0, 30.0]),
+    "KarmaSign": ([WALL + 160, SLAT_Y - 70, 185], [WALL, SLAT_Y, 228], 50.0, 4.0, [24.0, 24.0]),
+}
+for name, (loc, at, focal, ap, fb) in CAMS.items():
+    K.camera(name, loc, at, focal=focal, aperture=ap, filmback=fb, pilot=False)
 L.save_level()
-result = {"actors": len(L.actors())}
+result = {"actors": len(L.actors()), "undressed": UNDRESSED}
