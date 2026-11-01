@@ -313,6 +313,15 @@ def _lin(keys):
 
 def apply(seq: str, only: set | None = None) -> list:
     from filmtools.unreal import client
+    # a studio rebuild (or rig.py) respawns the lights, and a binding left on the dead actor keys nothing: the S12
+    # downlights never popped in MRQ although their keys were right. Point every light's binding at the live actor first.
+    labels = sorted({t.label for t in tracks() if t.kind != "collection" and (not only or t.label in only)})
+    res = client.op("seq.rebind", path=seq, labels=labels)
+    if not res.get("ok"):
+        raise SystemExit(f"seq.rebind: {res.get('error', '')}{res.get('stdout', '')}")
+    missing = [k for k, v in (res.get("result") or {}).items() if v != "ok"]
+    if missing:
+        print("not in the level (their tracks key nothing):", ", ".join(missing))
     done = []
     for t in tracks():
         if only and t.label not in only:
