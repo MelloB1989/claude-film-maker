@@ -144,10 +144,13 @@ BEATS = {
         ["CTRL_expressions_eyeLookDownR", [[840, 0.35], [898, 0.35], [910, 0.0]]],
         # S15: after L2 ("She'll tell you the next one", ends f1141) he turns his head to her and holds while she
         # starts; back to the front during S16 (he is off screen), ready for S17
-        # she stands 80 cm behind him and 95 cm to his right (world -Y): a glance over his right shoulder, the head
-        # most of the way and the eyes (gaze "her") the rest
-        turn([[1136, 0.0], [1152, -46.0], [1196, -50.0], [1290, -50.0], [1316, 0.0]]),
-        [PITCH, [[1136, 0.0], [1152, 4.0], [1290, 4.0], [1316, 0.0]]],
+        # she stands 80 cm behind him and 95 cm to his right (world -Y), ~130 deg from his front: more than head and
+        # eyes can lock on (gaze_lock picks the wrong eye axis that far off), so the look is written: the head over
+        # his right shoulder, the eyes the rest of the way (eyeLookLeft turns them to his right on this rig, measured)
+        turn([[1136, 0.0], [1154, -62.0], [1196, -65.0], [1290, -65.0], [1316, 0.0]]),
+        [PITCH, [[1136, 0.0], [1154, 5.0], [1290, 5.0], [1316, 0.0]]],
+        *[[f"CTRL_expressions_eyeLook{d}{s}", [[1138, 0.0], [1148, v], [1196, v], [1206, 0.0]]]
+          for s in "LR" for d, v in (("Left", 0.6), ("Down", 0.1))],
         *smile(1138, 1150, 1180, 1200, 0.25),
         # S17-S18: "Welcome..." then a small smile to the lens, a settling nod, held through the title
         *nod(1404, 3.0),
@@ -394,6 +397,19 @@ def stage(who: str) -> dict:
     return res
 
 
+def restage(who: str) -> dict:
+    """stage again (my copy and cameras are gone after the level is reloaded) and put the synced animations back on
+    the test sequence's tracks, so gaze can go on from where it was."""
+    res = stage(who)
+    have = ok(client.exec_code("import unreal\nresult = [p for p in %r if unreal.EditorAssetLibrary.does_asset_exist(p)]"
+                               % [f"{ANIM}/AS_reel_{who}_follow", f"{ANIM}/AS_reel_{who}_body"]))
+    for comp, anim in (("Face", f"{ANIM}/AS_reel_{who}_follow"), ("Body", f"{ANIM}/AS_reel_{who}_body")):
+        if anim in have:
+            ok(client.op("seq.set_anim", path=test_seq(who), component=comp, anim=anim, label=test_label(who)))
+    res["tracks"] = have
+    return res
+
+
 def signs(who: str = "him") -> dict:
     """What each head curve does on this rig: the head bone's up axis and the eyes' mid-point with the curve at +-20
     against all at 0, on my copy in its test sequence (frame 2). Read it to set PITCH and TURN."""
@@ -447,10 +463,9 @@ def sync(who: str) -> dict:
 
 
 # Where the eyes go, master frames: a test camera (the shot's lens) or the partner's eyes. Frames in none of these
-# keep the solve's own eyes (his head-down opening, his S16 off screen).
+# keep the solve's own eyes and the beats' (his head-down opening, his written look to her, his S16 off screen).
 GAZE = {
-    "him": [["S13", 908, 959], ["S14", 960, 1079], ["S15", 1080, 1137], ["her", 1146, 1199], ["S17", 1320, 1439],
-            ["S18", 1440, 1559]],
+    "him": [["S13", 908, 959], ["S14", 960, 1079], ["S15", 1080, 1137], ["S17", 1320, 1439], ["S18", 1440, 1559]],
     "her": [["him", 1080, 1149], ["S15", 1156, 1199], ["S16", 1200, 1319], ["S17", 1320, 1439], ["S18", 1440, 1559]],
 }
 
@@ -459,18 +474,22 @@ def final_face(who: str) -> str:
     return f"{ANIM}/AS_reel_{who}_gaze{len(GAZE[who])}"
 
 
-def gaze(who: str, start_at: int = 1) -> list:
+def gaze(who: str, start_at: int = 1, stop_at: int = 99) -> list:
     """The eye locks one range at a time (gaze_lock with a target and frames), each pass on the last one's output."""
     path, lab = test_seq(who), test_label(who)
     out = []
     for i, (what, f0, f1) in enumerate(GAZE[who], 1):
         src = f"{ANIM}/AS_reel_{who}_follow" if i == 1 else f"{ANIM}/AS_reel_{who}_gaze{i - 1}"
-        if i < start_at:
+        if i < start_at or i > stop_at:
             continue
         target = eyes_at(what) if what in ("him", "her") else cam_label(what)
+        # the Face track plays this pass's source first: gaze_lock swaps only the sections playing `anim`, so a rerun
+        # (the track left on this pass's earlier output) would otherwise write into an animation nobody plays
+        ok(client.op("seq.set_anim", path=path, component="Face", anim=src, label=lab))
         r = ok(client.op("anim.gaze_lock", sequence=path, actor_label=lab, anim=src, out=f"{ANIM}/AS_reel_{who}_gaze{i}",
                          target=target, frames=[f0 - START[who], f1 - START[who]], timeout=3600))
-        out.append({"range": [f0, f1], "target": what, "passes": r.get("passes"), "head_to_lens": r.get("head_to_lens_deg")})
+        out.append({"range": [f0, f1], "target": what, "passes": r.get("passes"), "head_to_lens": r.get("head_to_lens_deg"),
+                    "calibration": r.get("calibration"), "frames": r.get("frames")})
         print(who, i, json.dumps(out[-1]), flush=True)
     return out
 
@@ -682,12 +701,13 @@ def place(path: str) -> list:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces",
+    ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces", "restage",
                                        "place", "arm_axes", "gesture"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
     ap.add_argument("--frames", help="stills: master frames, comma-separated")
     ap.add_argument("--from", dest="start_at", type=int, default=1, help="gaze: resume at this range (1-based)")
+    ap.add_argument("--to", dest="stop_at", type=int, default=99, help="gaze: stop after this range (short jobs)")
     ap.add_argument("--only", help="solve: comma-separated SOLVES keys")
     a = ap.parse_args()
     if a.cmd == "push":
@@ -698,10 +718,10 @@ def main() -> None:
     elif a.cmd == "compose":
         for w in a.who.split(","):
             print(w, json.dumps(compose(w)))
-    elif a.cmd in ("stage", "signs", "sync", "gaze", "stills", "arm_axes", "gesture"):
+    elif a.cmd in ("stage", "restage", "signs", "sync", "gaze", "stills", "arm_axes", "gesture"):
         for w in a.who.split(","):
             if a.cmd == "gaze":
-                r = gaze(w, a.start_at)
+                r = gaze(w, a.start_at, a.stop_at)
             elif a.cmd == "stills":
                 r = stills(w, [int(f) for f in a.frames.split(",")] if a.frames else None)
             else:
