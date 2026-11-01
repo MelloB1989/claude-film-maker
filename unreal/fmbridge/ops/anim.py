@@ -23,11 +23,36 @@ def _keys(anim, name):
     return list(t), list(v)
 
 
+def _curve_id(anim, name):
+    X = unreal.AnimationCurveIdentifierExtensions
+    for args in ((name, FLOAT), (anim.get_skeleton(), name, FLOAT)):
+        try:
+            return X.get_curve_identifier(*args)
+        except Exception:
+            pass
+    return X.find_curve_identifier(anim, name, FLOAT)
+
+
+def _write(anim, curves: dict) -> None:
+    """Replace float curves {name: (times, values)} in one controller bracket: each curve's keys in one call, and one
+    recompression for the lot. AnimationLibrary.add_float_curve_keys recompresses the animation after every key
+    (a few ms on a short clip, tens on a long face: a long curve held the game thread for many minutes)."""
+    ctrl = anim.get_editor_property("controller")
+    lin = unreal.RichCurveInterpMode.RCIM_LINEAR
+    ctrl.open_bracket("fmbridge curves", False)
+    try:
+        for name, (times, values) in curves.items():
+            cid = _curve_id(anim, name)
+            if not AL.does_curve_exist(anim, name, FLOAT):
+                ctrl.add_curve(cid, 4, False)  # AACF_Editable
+            ctrl.set_curve_keys(cid, [unreal.RichCurveKey(time=float(t), value=float(v), interp_mode=lin)
+                                      for t, v in zip(times, values)], False)
+    finally:
+        ctrl.close_bracket(False)
+
+
 def _set(anim, name, times, values):
-    if AL.does_curve_exist(anim, name, FLOAT):
-        AL.remove_curve(anim, name, False)
-    AL.add_curve(anim, name, FLOAT, False)
-    AL.add_float_curve_keys(anim, name, times, values)
+    _write(anim, {name: (times, values)})
 
 
 @op("anim.curves")
@@ -97,8 +122,22 @@ def _angles(lv, g, u):
 
 
 def _write_eyes(a, times, curves):
-    for (side, d), v in curves.items():
-        _set(a, f"CTRL_expressions_eyeLook{d}{side}", times, v)
+    _write(a, {f"CTRL_expressions_eyeLook{d}{side}": (v if isinstance(v, tuple) else (times, v))
+               for (side, d), v in curves.items()})
+
+
+def _merged(times, curves, orig, gap):
+    """Solved eye curves on `times`, and the animation's own keys (`orig`) wherever no solved time is near (more than
+    1.5 `gap` seconds away): the eyes wander as recorded outside the aimed range. Each curve as (times, values)."""
+    if len(times) < 2:
+        return curves
+    out = {}
+    for k, v in curves.items():
+        ot, ov = orig.get(k, ([], []))
+        keep = [(t, x) for t, x in zip(ot, ov) if min(abs(t - s) for s in times) > 1.5 * gap]
+        pts = sorted(list(zip(times, v)) + keep)
+        out[k] = ([t for t, _ in pts], [x for _, x in pts])
+    return out
 
 
 def _await_change(measure, frame: int, bone: str, before: list, timeout: float = 30.0):
@@ -115,35 +154,79 @@ def _await_change(measure, frame: int, bone: str, before: list, timeout: float =
 
 
 @op("anim.gaze_lock")
-def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str, component: str = "Face",
-              saccades: float = 0.5, seed: int = 3, every: int = 2, iterations: int = 2):
+def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str = "", component: str = "Face",
+              saccades: float = 0.5, seed: int = 3, every: int = 2, iterations: int = 2, target=None,
+              target_offset=None, frames=None):
     """Keep a talking face's eyes on the lens, measured rather than guessed: `out` (a copy of `anim`) goes on
-    `component`'s track in `sequence`; the eye-look curves are calibrated on the rig, then solved per frame from the
-    eye bones' real pose (head and body motion included) toward `camera`, with small saccades, and refined
-    `iterations` times against a fresh measurement. Returns the angle error per pass. A multi-tick job."""
-    from .seq import sample, set_anim
-    if EAL.does_asset_exist(out):
+    `component`'s track in `sequence` (on the sections that play `anim`, wherever they start); the eye-look curves are
+    calibrated on the rig, then solved per frame from the eye bones' real pose (head and body motion included)
+    toward `camera`, with small saccades, and refined `iterations` times against a fresh measurement.
+    `target` aims the eyes elsewhere: a point [x, y, z], an actor (+ `target_offset` in its frame) or
+    "Label:Component:bone" (her eyes: "Presenter:Face:FACIAL_L_Eye"); with `frames` [first, last] only in that range
+    (the camera, if given, elsewhere). Frames with neither keep the animation's own eye curves. Returns the angle error
+    per pass. A multi-tick job."""
+    from .seq import _comp_binding, sample, set_anim
+    if not camera and target is None:
+        raise ValueError("gaze_lock needs a camera or a target")
+    if EAL.does_asset_exist(out) and out != anim:
         EAL.delete_asset(out)
     EAL.duplicate_asset(anim, out)
     a = load(out)
     length = a.get_editor_property("sequence_length")
+    orig = {(s, d): _keys(a, f"CTRL_expressions_eyeLook{d}{s}") for s in EYES for d in LOOK}
     zero2 = {(s, d): [0.0, 0.0] for s in EYES for d in LOOK}
     _write_eyes(a, [0.0, length], zero2)
     EAL.save_asset(out)
-    set_anim(sequence, component, out)
+    set_anim(sequence, component, out, label=actor_label, only=anim)
     yield 1.0
+    seq = load(sequence)
+    fps = seq.get_display_rate().numerator / seq.get_display_rate().denominator
+    tick = seq.get_tick_resolution().numerator / seq.get_tick_resolution().denominator
+    # where the animation plays: the section on this actor's track that carries it (frame -> seconds into the anim)
+    secs = [x for t in _comp_binding(seq, actor_label, component, create=False).find_tracks_by_type(
+        unreal.MovieSceneSkeletalAnimationTrack) for x in t.get_sections()
+        if (x.get_editor_property("params").get_editor_property("animation") or a).get_path_name().split(".")[0] == out]
+    sec = min(secs, key=lambda x: x.get_start_frame()) if secs else None
+    s0 = sec.get_start_frame() if sec and sec.has_start_frame() else 0
+    s1 = sec.get_end_frame() if sec and sec.has_end_frame() else seq.get_playback_end()
+    prm = sec.get_editor_property("params") if sec else None
+    rate = prm.get_editor_property("play_rate") if prm else 1.0
+    rate = rate.to_fixed_play_rate() if hasattr(rate, "to_fixed_play_rate") else rate  # a time-warp variant since 5.5
+    off = 0.0
+    for k in ("first_loop_start_frame_offset", "start_frame_offset"):
+        try:
+            off = prm.get_editor_property(k).value / tick
+            break
+        except Exception:
+            pass
+
+    def at(f):  # seconds into the animation at sequence frame f
+        return off + (f - s0) / fps * rate
+
+    def aimed(f):  # what the eyes look at on frame f: "target", "camera" or None
+        if target is not None and (frames is None or frames[0] <= f <= frames[1]):
+            return "target"
+        return "camera" if camera else None
+    solve = [f for f in range(max(s0, seq.get_playback_start()), min(s1, seq.get_playback_end()), every)
+             if at(f) <= length and aimed(f)]
+    if not solve:
+        raise ValueError(f"no frame of {sequence} plays {anim} with something to look at")
+    f0 = solve[0]
     bones = list(EYES.values())
     probe = EYES["L"]
 
-    def measure(frames):
-        return (yield from sample(sequence, actor_label, component, bones, frames=frames, ticks=3, camera=camera))
+    def measure(fs):
+        m = yield from sample(sequence, actor_label, component, bones, frames=fs, ticks=3, camera=camera,
+                              target=target, target_offset=target_offset)
+        m["aim"] = [m["target"][i] if aimed(f) == "target" else m["camera"][i] for i, f in enumerate(fs)]
+        return m
 
     # calibrate on the first frame: each look direction at full against none
-    base = yield from measure([0])
+    base = yield from measure([f0])
     g, u = {}, {}
     for side, bone in EYES.items():
         x = base["bones"][bone][0]
-        to_cam = _norm([base["camera"][0][k] - x[k] for k in range(3)])
+        to_cam = _norm([base["aim"][0][k] - x[k] for k in range(3)])
         lc = _local(to_cam, x)
         k = max(range(3), key=lambda i: abs(lc[i]))
         g[side] = (k + 1) * (1 if lc[k] > 0 else -1)
@@ -155,7 +238,7 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str,
         c = dict(zero2)
         c.update({(s, d): [1.0, 1.0] for s in EYES})
         _write_eyes(a, [0.0, length], c)
-        m = yield from _await_change(measure, 0, probe, last["bones"][probe][0])
+        m = yield from _await_change(measure, f0, probe, last["bones"][probe][0])
         last = m
         for side, bone in EYES.items():
             gw = _axes(m["bones"][bone][0])[abs(g[side]) - 1]
@@ -164,12 +247,10 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str,
 
     # the eyes' rest pose through the whole shot, then the solve
     _write_eyes(a, [0.0, length], zero2)
-    yield from _await_change(measure, 0, probe, last["bones"][probe][0])
-    seq = load(sequence)
-    fps = seq.get_display_rate().numerator / seq.get_display_rate().denominator
-    frames = [f for f in range(0, seq.get_playback_end(), every) if f / fps <= length]
+    yield from _await_change(measure, f0, probe, last["bones"][probe][0])
+    frames = solve
     rest = yield from measure(frames)
-    times = [f / fps for f in frames]
+    times = [at(f) for f in frames]
     rnd = random.Random(seed)
     off, hold = [], 0.0
     sh = sv = 0.0
@@ -182,11 +263,11 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str,
 
     def need(sample_, i, side):
         x = sample_["bones"][EYES[side]][i]
-        to_cam = _norm([sample_["camera"][i][k] - x[k] for k in range(3)])
+        to_cam = _norm([sample_["aim"][i][k] - x[k] for k in range(3)])
         return _angles(_local(to_cam, x), g[side], u[side])
 
-    target = {side: [need(rest, i, side) for i in range(len(frames))] for side in EYES}
-    want = {side: [(y + off[i][0], p + off[i][1]) for i, (y, p) in enumerate(target[side])] for side in EYES}
+    need_rest = {side: [need(rest, i, side) for i in range(len(frames))] for side in EYES}
+    want = {side: [(y + off[i][0], p + off[i][1]) for i, (y, p) in enumerate(need_rest[side])] for side in EYES}
     yaw_gain = {s: (cal[(s, "Left")][0], cal[(s, "Right")][0]) for s in EYES}
     pitch_gain = {s: (cal[(s, "Up")][1], cal[(s, "Down")][1]) for s in EYES}
 
@@ -203,13 +284,13 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str,
         return c
 
     report = {"calibration": {f"{s}.{d}": [round(v, 2) for v in cal[(s, d)]] for s, d in cal},
-              "head_to_lens_deg": {s: [round(min(abs(y) for y, _ in target[s]), 2), round(max(abs(y) for y, _ in target[s]), 2)]
+              "head_to_lens_deg": {s: [round(min(abs(y) for y, _ in need_rest[s]), 2), round(max(abs(y) for y, _ in need_rest[s]), 2)]
                                    for s in EYES}, "passes": []}
     cmd = {s: list(want[s]) for s in EYES}  # what the curves ask for, corrected each pass by what the eyes did
     prev, seen = rest, None
     for it in range(iterations + 1):
         curves = curves_for(cmd)
-        _write_eyes(a, times, curves)
+        _write_eyes(a, times, _merged(times, curves, orig, every * rate / fps))
         EAL.save_asset(out)
         # wait on the frame whose eyes this write moves most, then measure the shot
         i_probe = max(range(len(frames)), key=lambda i: abs(curves[("L", "Left")][i] - curves[("L", "Right")][i]) +
@@ -232,7 +313,7 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str,
                                  "err_max_deg": round(errs[-1], 2), "off_lens_mean_deg": round(sum(lens) / len(lens), 2)})
         if it == iterations:
             break
-    return {"anim": out, "frames": len(frames), **report}
+    return {"anim": out, "frames": len(frames), "range": [frames[0], frames[-1]], **report}
 
 
 def _q(t):
@@ -305,7 +386,7 @@ def bake_pose(sequence: str, actor_label: str, source: str, target: str, anim: s
         ctrl.set_bone_track_keys(b, P, R, S)
     ctrl.close_bracket(True)
     EAL.save_asset(out)
-    set_anim(sequence, target, out)
+    set_anim(sequence, target, out, label=actor_label)
     return {"anim": out, "bones": len(bones), "keys": n_keys, "frames": len(frames)}
 
 

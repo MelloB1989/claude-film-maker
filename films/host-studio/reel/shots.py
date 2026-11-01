@@ -20,6 +20,7 @@ SIGN = (WALL + 4, SLAT_Y, 228.0)  # the sign's centre: 120 cm across, ~36 cm tal
 # In the scene today both stand at the origin (her hidden): the reel's sequence moves them with transform keys.
 MARK_HIM, MARK_HER = (30.0, 40.0, 0.0), (-50.0, -55.0, 0.0)
 EYES_HIM, EYES_HER = 174.0, 158.0
+COIN, PICK = [-249.0, -169.0, 172.0], [-251.0, -186.0, 178.0]  # S06's rack: the coin's face, the pickaxe's head
 
 
 def bar(n: int, beat: int = 1) -> int:
@@ -41,7 +42,7 @@ class Shot:
     light: str                 # the lighting state (LIGHT below)
     action: str = ""           # the presenters (or the set's own motion)
     into: str = "cut"          # the transition into the next shot
-    focus: list = field(default_factory=list)  # [frame offset, distance cm]: a focus pull; empty = on the look-at
+    focus: list = field(default_factory=list)  # [frame offset, distance cm | [x, y, z] to focus on]: a pull; empty = on the look-at
     cast: tuple = ()           # who is visible: "him", "her"
     vcrop: float = 0.5         # 9:16 cut: the crop window's centre across the 16:9 frame (0 left .. 1 right)
     previs: float | None = None  # where in the move (0..1) the previs still is taken; None = no previs
@@ -76,121 +77,125 @@ LIGHT = {
     "NIGHT-DIM": "NIGHT with the practicals easing down 30%: the halo and the presenters' rims carry the frame",
 }
 
+# PLAN v2 (the operator's review, 2026-11-01): no shot singles out one object. The studio is revealed area by area in
+# unhurried glides (shelves -> credenza and records -> window and olive -> slats and the unlit sign), the light falling
+# from day to blue hour across them, then the whole room in one wide (the payoff), the sign igniting on the drop and
+# the same wide at night; a night glide over the breakdown, and only then the presenters, with four short lines.
+# Shot ids: kept ones keep their v1 id (their frames and renders stay valid where nothing changed); new ones are Vxx
+# (the reveal) and N01 (the night glide). S14 is gone (his line is two words now).
+GLIDE = "nothing centred, held on or racked to: the details pass by and the eye finds them"
 SHOTS = [
-    # ---------------------------------------------------------------- A. morning (bars 1-4): no drums
-    Shot("S01", "Light through the olive", bar(1), bar(3), 85, 2.0,
-         "slow lateral truck (screen-right to left) through the olive's crown, 25 cm over 5 s",
-         [[0, [-130, 165, 160], [-215, 200, 152]], [120, [-130, 188, 160], [-215, 222, 152]]],
-         "olive leaves backlit by the sheers, the window's glow blooming between them; focus on the nearest twigs (~60 cm), exposure 1.5 stops under DAY so the window holds detail (the previs is blown out)",
-         "DAY", "the leaves are still (static mesh); a faint dust drift in the volumetric fog",
-         into="cut on bar 3", previs=0.5, vcrop=0.55,
-         sound="room tone, birds outside, a felt-piano motif enters"),
-    Shot("S02", "The room", bar(3), bar(5), 28, 5.6,
-         "slow push and settle down: crane from 170 to 150 cm, dolly in 45 cm",
+    # ---------------------------------------------------------------- A/B. the reveal, area by area (bars 1-12)
+    Shot("V01", "The shelves", bar(1), bar(4), 40, 2.0,
+         "slow lateral dolly along the four shelves, screen-left to right, 120 cm with a 20 cm crane down; "
+         "the lens looks a little ahead of the move so the shelves stream past in parallax",
+         [[0, [-110, -10, 212], [-250, -55, 196]], [180, [-110, -130, 192], [-250, -175, 180]]],
+         "the shelves as a whole, two to three shelves tall: books, vases, frames, the small things between them, "
+         "the trailing pothos at the start, the LED strips under each board; " + GLIDE,
+         "DAY", "the morning sun raking across the boards; dust in the light", into="cut on bar 4",
+         focus=[[0, 150], [90, 166], [180, 152]], previs=0.5, vcrop=0.5,
+         sound="room tone, birds outside, the felt-piano motif"),
+    Shot("V02", "The credenza", bar(4), bar(7), 40, 2.0,
+         "slow lateral dolly along the credenza top, screen-right to left (the opposite way to V01), low, "
+         "looking slightly down across it, 125 cm",
+         [[0, [-115, -215, 118], [-245, -175, 84]], [180, [-115, -90, 110], [-245, -50, 82]]],
+         "the credenza's top as a whole: the record crate, the calendar, the walnut block, headphones, the "
+         "turntable, the hoodie's sleeve at the start; the shelves' LED glow above the frame; " + GLIDE,
+         "GOLDEN", "the light warms as the sun drops", into="cut on bar 7",
+         focus=[[0, 140], [100, 125], [180, 138]], previs=0.5, vcrop=0.5,
+         sound="the first kick lands mid-glide (bar 5), the room waking up"),
+    Shot("V03", "The window and the olive", bar(7), bar(9), 35, 2.8,
+         "a rising lateral crane past the olive tree, its crown crossing the glowing sheers, 40 cm across and 45 cm up",
+         [[0, [-40, 130, 118], [-215, 215, 138]], [120, [-40, 168, 163], [-215, 222, 165]]],
+         "the window and the olive as a whole: the sheers lit gold by the low sun, the leaves in silhouette and "
+         "translucent against them, the pot and the light on the floor at the start",
+         "GOLDEN", "the sun low and long through the sheers; the window holds detail", into="cut on bar 9",
+         focus=[[0, 175], [120, 182]], previs=0.5, vcrop=0.45,
+         sound="birds thinning outside, the sheers breathe"),
+    Shot("V04", "The slats and the sign", bar(9), bar(11), 35, 2.8,
+         "a slow crane up the slat wall, drifting screen-right, to the unlit sign; the sign arrives at the top of "
+         "the frame, never centred, still dark",
+         [[0, [-60, 70, 115], [-260, 35, 140]], [120, [-60, 45, 170], [-260, 15, 205]]],
+         "the walnut slats in the last light, their rhythm filling the frame, the black karma letters arriving "
+         "unlit at the top; the pothos' vines and the shelves' first LEDs at frame right",
+         "DUSK", "the window cooling; the shelf LEDs coming up", into="cut on bar 11",
+         focus=[[0, 205], [120, 205]], previs=1.0, vcrop=0.5,
+         sound="crickets begin, a far city; the riser starts (bar 11 is next)"),
+    Shot("V05", "The room", bar(11), bar(13), 28, 5.6,
+         "the payoff: the first and only view of the whole studio before the drop: S02's push and settle "
+         "(crane 172 to 150 cm, dolly in 45 cm), settling into the frame S12 holds at night",
          [[0, [300, -35, 172], [-260, 15, 142]], [120, [255, -35, 150], [-260, 15, 140]]],
-         "the whole set: sheers and olive left, slat wall and the unlit sign centre, shelves and credenza right, stool",
-         "DAY", "empty room; sun patches on the rug", into="cut on bar 5 (first kick)", previs=1.0, vcrop=0.5,
-         sound="the curtain breathes (soft air), a clock-like tick doubles the tempo"),
-    # ---------------------------------------------------------------- B. the things (bars 5-12): one bar each
-    Shot("S03", "Seven spines", bar(5), bar(6), 85, 5.6,
-         "macro slider parallel to the shelf, 44 cm screen-left to right along the green spines",
-         [[0, [-181, -100, 212], [-236, -104, 211]], [60, [-181, -144, 212], [-236, -148, 211]]],
-         "the seven dark-green spines, titles reading bottom to top: Socify, Noobsverse, Lyzn, Avidia, Respawn, "
-         "Noobspaces, Noobs Learning; cloth texture, gilt titles", "GOLDEN", into="cut", previs=0.5, vcrop=0.5,
-         sound="a finger along book cloth, a soft kick lands with the cut"),
-    Shot("S04", "V and the heart", bar(6), bar(7), 85, 4.0,
-         "slow push-in, 12 cm, with a rack from the vase behind to the polaroid",
-         [[0, [-185, -140, 214], [-239, -163, 205]], [60, [-196, -147, 210], [-239, -163, 205]]],
-         "the polaroid (the V and the heart) leaning on the books, the speckled vase soft behind it",
-         "GOLDEN", into="cut", focus=[[0, 73], [36, 47]], previs=1.0, vcrop=0.5,
-         sound="a polaroid's soft flick"),
-    Shot("S05", "lyzn", bar(7), bar(8), 65, 4.0,
-         "orbit around the acrylic block, 35 deg at 50 cm radius, the sun's glint crawling across its edge",
-         [[0, [-196.7, -179.1, 208], [-245, -192, 205]], [30, [-195.4, -193.6, 208], [-245, -192, 205]],
-          [60, [-198.0, -209.1, 208], [-245, -192, 205]]],
-         "the frosted lyzn block, its engraved word catching the light, the shelf LED strip a line of bokeh above",
-         "GOLDEN", into="cut", previs=0.5, vcrop=0.5, sound="a glassy tick on beat 3"),
-    Shot("S06", "The coin and the pickaxe", bar(8), bar(9), 65, 4.0,
-         "low push at shelf height, 11 cm, focus racks from the coin to the pickaxe on beat 3",
-         [[0, [-190, -160, 170], [-250, -178, 174]], [60, [-200, -165, 170], [-250, -178, 174]]],
-         "the coin on its walnut stand in front, the brass pickaxe behind; the candle's flame soft at frame left",
-         "GOLDEN", into="cut", focus=[[0, 59], [30, 54], [42, 59]], previs=0.6, vcrop=0.45,
-         sound="a coin's ring (a single ping on beat 1), a mined 'tink' on the rack"),
-    Shot("S07", "The drone", bar(9), bar(10), 50, 4.0,
-         "crane down from a three-quarter top view to eye level with the gimbal, ending on its red LED",
-         [[0, [-222, -124, 205], [-247.5, -124, 165]], [60, [-212, -116, 178], [-247.5, -124, 167]]],
-         "the mini drone on the shelf, props folded, the gimbal lens and the red front LED",
-         "DUSK", into="cut", previs=0.7, vcrop=0.5, sound="a gimbal servo whirr, an LED blip on beat 4"),
-    Shot("S08", "hello, friend", bar(10), bar(11), 65, 4.0,
-         "pedestal down and slight truck from the red print to the terminal's root prompt",
-         [[0, [-195, -100, 150], [-254, -110, 140]], [60, [-200, -90, 133], [-248, -82, 129]]],
-         "the framed red print, then the slim terminal display: root@mellob:~# and its cursor",
-         "DUSK", "the terminal's cursor blinks on the beat (material param, new)", into="cut", previs=1.0,
-         vcrop=0.5, sound="three keystrokes, a cursor tick per beat"),
-    Shot("S09", "27 NOV", bar(11), bar(12), 50, 2.8,
-         "a slow 8 cm drift, focus racking from the MelloB block (foreground) to the 27 NOV calendar",
-         [[0, [-170, -95, 84], [-224, -143, 78]], [60, [-173, -99, 83], [-224, -143, 78]]],
-         "the walnut MelloB nameplate soft in the foreground, the calendar's 27 NOV pulling sharp behind",
-         "DUSK", into="cut", focus=[[0, 60], [24, 60], [40, 100]], previs=1.0, vcrop=0.6,
-         sound="a calendar page settling"),
-    Shot("S10", "The crate", bar(12), bar(13), 65, 4.0,
-         "push-in 30 cm into the crate's front sleeve, ending on the name KARMA in its artist list",
-         [[0, [-150, -150, 100], [-232, -157, 92]], [60, [-182, -154, 96], [-232, -157, 90]]],
-         "the walnut crate of LPs: SEEDHE MAUT, KR$NA, RAFTAAR, KARMA, BELLA on the front sleeve",
-         "BLUE", "the shelf LEDs carry the frame; the window goes blue behind", into="smash cut on the drop (bar 13)",
-         previs=1.0, vcrop=0.5, sound="needle drop and vinyl crackle, a riser, then silence on beat 4 (+)"),
+         "the whole set at blue hour: the window blue, the olive, the slat wall and the dark sign centre, the "
+         "shelves and the credenza glowing on their LEDs, the stool",
+         "BLUE", "empty room; the last of the light", into="smash cut on the drop (bar 13)", previs=1.0, vcrop=0.5,
+         sound="the riser, then silence on bar 12 beat 4 (the breath)"),
     # ---------------------------------------------------------------- C. ignition (bars 13-14): the drop
     Shot("S11", "The sign lights", bar(13), bar(14), 40, 4.0,
          "slow push-in from below, 60 cm, as the halo ignites letter by letter (k a r m a on beats 1-4, + 'a' on 4&)",
-         [[0, [-40, 10, 150], [-256, 25, 228]], [60, [-95, 15, 170], [-256, 25, 228]]],
+         [[0, [-40, 14, 150], [-256, 22, 228]], [60, [-95, 30, 170], [-256, 22, 228]]],
          "the slat wall and the black Samarkan letters in near dark, the warm halo flaring behind each in turn",
          "IGNITION", into="cut on bar 14", previs=1.0, vcrop=0.5,
          sound="the drop: a sub hit, a relay clunk and electrical hum per letter, the full beat comes in"),
     Shot("S12", "The studio comes on", bar(14), bar(15), 28, 5.6,
-         "the S02 frame at night (a match), a slow 30 cm push",
+         "the V05 frame at night (a match), a slow 30 cm push",
          [[0, [300, -35, 165], [-260, 15, 140]], [60, [270, -35, 155], [-260, 15, 140]]],
-         "the whole room at night: the sign lit, downlights popping on the beats (credenza, slats, olive, shelves)",
+         "the whole room at night: the sign lit, downlights popping on the beats (credenza, slats, olive, shelves), "
+         "the window blue-black",
          "NIGHT", into="cut on bar 15", previs=1.0, vcrop=0.5, sound="four relay clicks on the beats"),
-    # ---------------------------------------------------------------- D. him (bars 15-18)
-    Shot("S13", "Him", bar(15), bar(17), 35, 2.8,
-         "slow push, 30 cm; his key light ramps up on bar 16 beat 1 (12 frames): a light reveal",
+    # ---------------------------------------------------------------- D. night (bars 15-16), then him (bars 17-18)
+    Shot("N01", "The shelves at night", bar(15), bar(17), 50, 2.0,
+         "a night glide: from the lit sign's edge along the shelves, screen-left to right, 90 cm, slightly oblique "
+         "so the boards' LED lines converge; the halo's spill leaves frame left",
+         [[0, [-150, 30, 182], [-252, -45, 192]], [120, [-150, -60, 176], [-252, -135, 184]]],
+         "the shelves at night: warm LED lines under each board, the things on them half silhouette, half lit, "
+         "the downlight's pool, the blue-black window reflected in a frame's glass; " + GLIDE,
+         "NIGHT", "the room at rest", into="cut on bar 17", focus=[[0, 100], [60, 116], [120, 104]], previs=0.5,
+         vcrop=0.5, sound="the score's drumless breakdown; the halo's hum, crickets"),
+    Shot("S13", "Him", bar(17), bar(19), 35, 2.8,
+         "slow push, 30 cm; his key light ramps up on bar 17 beat 3 (12 frames): a light reveal",
          [[0, [230, 70, 152], [30, 40, 160]], [120, [200, 62, 156], [30, 40, 162]]],
          "him on his mark, a silhouette against the halo-lit slats, then lit; shelves soft screen-right",
-         "NIGHT+KEY", "head down, lifts his gaze to the lens on bar 16 beat 1, starts line 1 on beat 3",
-         into="cut on bar 17", cast=("him",), previs=1.0, vcrop=0.42, sound="the key light's soft 'thunk'; VO L1"),
-    Shot("S14", "His line", bar(17), bar(19), 65, 2.0,
-         "medium close-up, a 6 degree arc and a 10 cm push while he speaks",
-         [[0, [175, 58, 172], [30, 40, 170]], [120, [165, 46, 172], [30, 40, 170]]],
-         "him, chest up, the sign's halo behind his shoulder, eyes on the lens (gaze lock)",
-         "NIGHT+KEY", "line 1 continues, one open-hand gesture", into="cut on bar 19", cast=("him",), previs=0.5,
-         vcrop=0.5, sound="VO L1, music ducks 6-9 dB"),
+         "NIGHT+KEY", "head down; lifts his gaze to the lens with the key light (bar 17 beat 3); L1 on bar 18 beat 1, "
+         "then a small smirk held to the cut", into="cut on bar 19", cast=("him",), previs=1.0, vcrop=0.42,
+         sound="the groove returns (bar 17); the key light's soft 'thunk'; VO L1"),
     # ---------------------------------------------------------------- E. the hand-off and her (bars 19-22)
     Shot("S15", "The hand-off", bar(19), bar(21), 85, 2.0,
          "near locked-off (a 7 cm drift) on his shoulder line; the focus pulls from him (195 cm) to her (304 cm) in 18 frames on bar 20",
          [[0, [220, 85, 165], [-10, -10, 163]], [120, [214, 80, 165], [-10, -10, 162]]],
          "him sharp in the foreground frame-left, her soft in the background frame-right by the shelves",
-         "NIGHT+KEY", "he says L2 and turns his head to her; she looks up from him to the lens and starts L3",
+         "NIGHT+KEY", "he says L2 and turns his head to her; she looks up from him to the lens: L3a, a half-smile",
          into="cut on bar 21", focus=[[0, 195], [60, 195], [78, 304]], cast=("him", "her"), previs=0.5, vcrop=0.62,
-         sound="VO L2 then L3"),
+         sound="VO L2 then L3a"),
     Shot("S16", "Her line", bar(21), bar(23), 65, 2.0,
          "medium close-up, a slow 10 cm push, the shelf LEDs as bokeh behind her",
          [[0, [110, -40, 158], [-50, -55, 156]], [120, [100, -42, 158], [-50, -55, 156]]],
          "her, chest up, hoops and watch, the shelves and their things soft behind",
-         "NIGHT+KEY", "line 3 continues; a small gesture with the watch hand", into="cut on bar 23", cast=("her",),
-         previs=0.5, vcrop=0.5, sound="VO L3"),
+         "NIGHT+KEY", "L3b to the lens, unhurried, a small tilt of the head on 'yourself'", into="cut on bar 23",
+         cast=("her",), previs=0.5, vcrop=0.5, sound="VO L3b; the lift (bar 21)"),
     # ---------------------------------------------------------------- F. together, and the title (bars 23-26)
     Shot("S17", "Together", bar(23), bar(25), 28, 4.0,
          "crane up and back 150 cm into the wide, keeping the sign centred",
          [[0, [170, -5, 150], [-20, -5, 165]], [120, [320, -10, 195], [-100, -5, 172]]],
-         "both on their marks under the sign, the whole studio opening up around them",
-         "NIGHT+KEY", "him: 'Welcome' / her: 'to karma.'; both settle, a small smile to the lens",
-         into="cut on bar 25", cast=("him", "her"), previs=1.0, vcrop=0.5, sound="VO L4, the theme's last phrase"),
+         "both on their marks under the sign, the whole studio at night opening up around them",
+         "NIGHT+KEY", "him: L4a / her: L4b; a glance between them on 'comes around', then both to the lens, a small smile",
+         into="cut on bar 25", cast=("him", "her"), previs=1.0, vcrop=0.5, sound="VO L4a, L4b; the theme's last phrase"),
     Shot("S18", "Title", bar(25), bar(27), 28, 4.0,
          "locked off on the end of S17; the practicals ease down, the halo holds; title type fades in",
          [[0, [320, -10, 195], [-100, -5, 172]], [120, [320, -10, 195], [-100, -5, 172]]],
          "the wide with the lit sign; the title over it (the karma wordmark, then \"a studio by MelloB\"), then a fade to black on the halo",
          "NIGHT-DIM", "both hold, a natural idle", into="fade to black (last 24 frames)", cast=("him", "her"),
          vcrop=0.5, sound="the final chord and a sub tail; the halo's hum fades last"),
+]
+
+# The voice lines (PLAN.md section 2): [id, who, first frame of the voice, last frame of the window, text]. Under 10 s
+# of speech in all; nothing explains, everything teases.
+LINES = [
+    ["L1", "him", bar(18), bar(18, 4), "Took you long enough."],
+    ["L2", "him", bar(19, 2), bar(19, 4) + 8, "Ask her what's next."],
+    ["L3a", "her", bar(20, 2) + 3, bar(20, 4), "Nice try."],
+    ["L3b", "her", bar(21, 2), bar(22, 3), "Some things you have to see for yourself."],
+    ["L4a", "him", bar(23, 3), bar(23, 4) + 12, "What goes around…"],
+    ["L4b", "her", bar(24, 1) + 6, bar(24, 4) + 8, "…comes around. That's karma."],
 ]
 
 assert sum(s.frames for s in SHOTS) == SHOTS[-1].end == 26 * BAR

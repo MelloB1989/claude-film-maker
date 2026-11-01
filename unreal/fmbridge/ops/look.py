@@ -15,13 +15,24 @@ MEL = unreal.MaterialEditingLibrary
 BASE = "/Game/FM/Materials"
 
 
+# a kind's graph revision: bump it when a kind's graph changes, and the next look.material rebuilds that parent in
+# place (its instances keep their values); a parent is otherwise made once per project and never rebuilt
+REV = {"GlowWipe": 2}  # 2: U masked to R only (rev 1's R+G mask failed to compile)
+
+
 def _base(kind: str):
-    """The parameterised parent materials the instances come from (made once per project)."""
+    """The parameterised parent materials the instances come from (made once per project, rebuilt on a new REV)."""
     path = f"{BASE}/M_FM_{kind}"
+    rev = str(REV.get(kind, 1))
     if EAL.does_asset_exist(path):
-        return load(path)
-    at = unreal.AssetToolsHelpers.get_asset_tools()
-    m = at.create_asset(f"M_FM_{kind}", BASE, unreal.Material, unreal.MaterialFactoryNew())
+        m = load(path)
+        if EAL.get_metadata_tag(m, "fm_rev") == rev or kind not in REV:
+            return m
+        MEL.delete_all_material_expressions(m)
+    else:
+        m = unreal.AssetToolsHelpers.get_asset_tools().create_asset(f"M_FM_{kind}", BASE, unreal.Material,
+                                                                     unreal.MaterialFactoryNew())
+    EAL.set_metadata_tag(m, "fm_rev", rev)
 
     def param(cls, name, x, y, default=None):
         e = MEL.create_material_expression(m, cls, x, y)
@@ -30,7 +41,7 @@ def _base(kind: str):
             e.set_editor_property("default_value", default)
         return e
     col = param(unreal.MaterialExpressionVectorParameter, "Color", -500, 0)
-    if kind in ("Pbr", "PbrMasked", "Sheer", "Glow"):
+    if kind in ("Pbr", "PbrMasked", "Sheer", "Glow", "GlowWipe"):
         _pbr(m, kind, col, param)
         MEL.recompile_material(m)
         EAL.save_asset(path)
@@ -113,7 +124,9 @@ def _pbr(m, kind: str, col, param) -> None:
     """The textured kinds. Pbr: Tex (albedo) x Color, Normal, Mask (R roughness x Roughness, G metallic x Metallic),
     all tiled `Tiling` times. PbrMasked: Pbr cut out by Tex's alpha, two-sided (an engraving, a leaf). Sheer: a thin
     two-sided fabric that light passes through (foliage shading), Opacity dithered so it stays sorted, plus a little
-    Glow of its own colour (backlit sheers). Glow: Tex x Color x Intensity added on top, unlit (a halo, a light leak)."""
+    Glow of its own colour (backlit sheers). Glow: Tex x Color x Intensity added on top, unlit (a halo, a light leak).
+    GlowWipe: Glow revealed left to right: lit where the card's U (0 at its left edge, unscaled by Tiling) is below
+    `Reveal`, over a soft edge `Softness` wide (a sign switching on letter by letter, keyed in a sequence)."""
     def sample(name, x, y, default, stype):
         e = param(unreal.MaterialExpressionTextureSampleParameter2D, name, x, y)
         e.set_editor_property("texture", load(default))
@@ -135,11 +148,28 @@ def _pbr(m, kind: str, col, param) -> None:
     tex = sample("Tex", -1000, -300, _white(False), "SAMPLERTYPE_COLOR")
     base = mul(tex, "RGB", col, "", -600, -200)
     P = unreal.MaterialProperty
-    if kind == "Glow":
+    if kind in ("Glow", "GlowWipe"):
         m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
         m.set_editor_property("blend_mode", unreal.BlendMode.BLEND_ADDITIVE)
         k = param(unreal.MaterialExpressionScalarParameter, "Intensity", -600, 0, 10.0)
-        MEL.connect_material_property(mul(base, "", k, "", -300, -100), "", P.MP_EMISSIVE_COLOR)
+        glow = mul(base, "", k, "", -300, -100)
+        if kind == "GlowWipe":  # saturate((Reveal - U) / Softness): 0 right of the edge, 1 once it has passed
+            u = MEL.create_material_expression(m, unreal.MaterialExpressionComponentMask, -1300, 400)
+            for c in "rgba":  # just U: a new mask has R and G on, and a float2 here fails to compile (a checker)
+                u.set_editor_property(c, c == "r")
+            MEL.connect_material_expressions(uv, "", u, "")
+            reveal = param(unreal.MaterialExpressionScalarParameter, "Reveal", -1300, 500, 1.0)
+            soft = param(unreal.MaterialExpressionScalarParameter, "Softness", -1300, 600, 0.03)
+            sub = MEL.create_material_expression(m, unreal.MaterialExpressionSubtract, -1100, 450)
+            MEL.connect_material_expressions(reveal, "", sub, "A")
+            MEL.connect_material_expressions(u, "", sub, "B")
+            div = MEL.create_material_expression(m, unreal.MaterialExpressionDivide, -900, 500)
+            MEL.connect_material_expressions(sub, "", div, "A")
+            MEL.connect_material_expressions(soft, "", div, "B")
+            sat = MEL.create_material_expression(m, unreal.MaterialExpressionSaturate, -700, 500)
+            MEL.connect_material_expressions(div, "", sat, "")
+            glow = mul(glow, "", sat, "", -150, 0)
+        MEL.connect_material_property(glow, "", P.MP_EMISSIVE_COLOR)
         return
     nrm = sample("Normal", -1000, 0, "/Engine/EngineMaterials/DefaultNormal", "SAMPLERTYPE_NORMAL")
     msk = sample("Mask", -1000, 300, _white(True), "SAMPLERTYPE_MASKS")  # TC_MASKS textures
@@ -180,12 +210,13 @@ def _pbr(m, kind: str, col, param) -> None:
 def material(name: str, color=(1.0, 1.0, 1.0), kind: str = "Surface", roughness: float = None, metallic: float = None,
              specular: float = None, intensity: float = None, opacity: float = None, texture: str = "",
              tiling: float = None, normal: str = "", mask: str = "", glow: float = None, transmission=None,
-             folder: str = "/Game/FM/Materials") -> str:
+             folder: str = "/Game/FM/Materials", scalars: dict = None) -> str:
     """A material instance: kind Surface (color, roughness, metallic, specular), Textured (a texture tinted by color,
     tiled), Screen (an emitted texture x intensity behind glossy glass), Emissive (color x intensity, unlit), Glass
     (translucent, opacity), Pbr (texture, normal and mask maps; mask R x roughness, G x metallic), PbrMasked (Pbr cut
-    out by the texture's alpha), Sheer (backlit thin fabric: mask B x opacity, dithered; transmission colour, glow) or
-    Glow (texture x color x intensity, additive). Colours are linear. Re-running updates it."""
+    out by the texture's alpha), Sheer (backlit thin fabric: mask B x opacity, dithered; transmission colour, glow),
+    Glow (texture x color x intensity, additive) or GlowWipe (Glow revealed left to right: scalars Reveal 0-1 and
+    Softness). `scalars` sets any other scalar parameters by name. Colours are linear. Re-running updates it."""
     path = f"{folder}/{name}"
     parent = _base(kind)
     mi = load(path) if EAL.does_asset_exist(path) else unreal.AssetToolsHelpers.get_asset_tools().create_asset(
@@ -195,12 +226,12 @@ def material(name: str, color=(1.0, 1.0, 1.0), kind: str = "Surface", roughness:
     defaults = {"Tex": _white(False), "Normal": "/Engine/EngineMaterials/DefaultNormal", "Mask": _white(True)}
     for k, v in (("Tex", texture), ("Normal", normal), ("Mask", mask)):
         if v or kind in ("Pbr", "PbrMasked", "Sheer"):  # an unused map goes back to its plain default
-            if k != "Tex" or v or kind != "Glow":
+            if k != "Tex" or v or kind not in ("Glow", "GlowWipe"):
                 MEL.set_material_instance_texture_parameter_value(mi, k, load(v or defaults[k]))
     if transmission is not None:
         MEL.set_material_instance_vector_parameter_value(mi, "Transmission", unreal.LinearColor(*transmission, 1.0))
     for k, v in (("Roughness", roughness), ("Metallic", metallic), ("Specular", specular), ("Intensity", intensity),
-                 ("Opacity", opacity), ("Tiling", tiling), ("Glow", glow)):
+                 ("Opacity", opacity), ("Tiling", tiling), ("Glow", glow), *(scalars or {}).items()):
         if v is not None:
             MEL.set_material_instance_scalar_parameter_value(mi, k, float(v))
     EAL.save_asset(path)

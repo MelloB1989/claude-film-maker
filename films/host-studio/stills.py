@@ -49,12 +49,15 @@ def ok(res: dict):
 
 # her eyes sit ~16 cm lower than his: her host shots are framed from lower down
 HER_CAMS = {"KarmaHost": ([192, 12, 162], [0, -14, 151]), "KarmaVertical": ([178, 6, 160], [0, 0, 152])}
+# and his (studio.py's): put back for him, so a pass for him after one for her frames him, not her eye line
+HIM_CAMS = {"KarmaHost": ([192, 12, 178], [0, -14, 166]), "KarmaVertical": ([178, 6, 174], [0, 0, 166])}
 
 
 def render(cam: str, path_tracer: bool, who: str = "him", tag: str = "") -> Path:
     w, h, host = SHOTS[cam]
-    if who == "her" and cam in HER_CAMS:
-        ok(client.op("level.move", label=cam, loc=HER_CAMS[cam][0], look_at=HER_CAMS[cam][1]))
+    if cam in HER_CAMS:
+        loc, at = (HER_CAMS if who == "her" else HIM_CAMS)[cam]
+        ok(client.op("level.move", label=cam, loc=loc, look_at=at))
     her = not (host and who == "her")
     ok(client.exec_code(SHOW.format(hidden={"Host": not (host and who == "him"), "Presenter": her, "HerEarL": her,
                                             "HerEarR": her, "HerWatch": her, "Stool": host})))

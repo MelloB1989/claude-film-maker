@@ -380,7 +380,6 @@ K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_
         "bloom_intensity": 0.25, "bloom_threshold": 1.0, "vignette_intensity": 0.25, "film_grain_intensity": 0.06,
         "scene_fringe_intensity": 0.0, "lumen_final_gather_quality": 4.0, "lumen_reflection_quality": 2.0,
         "lumen_scene_detail": 2.0, "lumen_scene_lighting_quality": 2.0, "lumen_max_trace_distance": 2000.0})
-# mh.cloth_inflate("Host", cm=0.4)  # off for now: right after a MetaHuman rebuild it crashes the renderer (see README)
 # hair strands take the sky light unoccluded: in this closed, daylit room it would turn the host's hair white
 unreal.SystemLibrary.execute_console_command(unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world(),
                                              "r.HairStrands.SkyLighting 0")
@@ -395,5 +394,21 @@ CAMS = {  # name: (location, look-at, focal mm, aperture, filmback)
 }
 for name, (loc, at, focal, ap, fb) in CAMS.items():
     K.camera(name, loc, at, focal=focal, aperture=ap, filmback=fb, pilot=False)
-L.save_level()
-result = {"actors": len(L.actors()), "undressed": UNDRESSED}
+
+
+def finish():
+    """The last steps run across editor ticks: the shirts are pushed out a few mm so skin under the tight tee stops
+    poking through, and mh.cloth_inflate only swaps a garment's material once its shaders have compiled and a few
+    frames have rendered (a material swapped or recompiled while it is drawn crashes the renderer; see README)."""
+    inflated = {}
+    for lab, cm in (("Host", 0.4), ("Presenter", 1.0)):
+        try:
+            L.actor(lab)
+        except ValueError:
+            continue
+        inflated[lab] = yield from mh.cloth_inflate(lab, cm=cm, which="Shirt")  # over the shorts, not with them
+    L.save_level()
+    return {"actors": len(L.actors()), "undressed": UNDRESSED, "inflated": inflated}
+
+
+result = finish()

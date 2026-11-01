@@ -31,7 +31,11 @@ film-ue / filmtools.unreal.client  ──SSM port-forward──▶  127.0.0.1:18
   - `mh`: MetaHuman presets, rig, textures, wardrobe, build, garment colour, garment inflate, face driving.
   - `speech`: voice to face with MetaHuman Animator's audio solver, in a mood.
   - `anim`: curves, the closed-loop gaze lock, pose baking between face and body.
-  - `seq`: shots, animation swaps, transform keys, camera cuts, sampling, stills and contact sheets.
+  - `seq`: shots, animation swaps, transform keys, camera cuts, sampling, stills and contact sheets; for building a
+    long sequence by script: `seq.new` (create or keep), keys on any property (`seq.key_float`, `seq.key_color`,
+    `seq.key_visible`, `seq.key_material`), animation sections at offsets with blends (`seq.anim`), audio clips
+    (`seq.audio`), the edit read back (`seq.cuts`), stills through the cut (`seq.stills` with no camera), bindings
+    re-pointed after a level rebuild (`seq.rebind`) and an inventory (`seq.tracks`).
   - `render`: Movie Render Queue, deferred or path traced, with a frame range.
 - `fmbridge/gui.py`: SendInput clicks, drags, typing and keys, and screenshots (DCV's grabber or GDI), for the few
   things only the UI does (Fab, some dialogs).
@@ -87,5 +91,16 @@ These are the traps the ops already handle; they matter when writing new ones.
 - **Glass lit as a volume reads white** in a bright room: translucent glass is lit per pixel as a surface.
 - **Hair strands take the sky light unoccluded**: indoors in daylight the hair goes white; set
   `r.HairStrands.SkyLighting 0` (in the editor and as a render cvar).
+- **Never change a material while it is being drawn.** Reparenting a material instance that a visible mesh wears,
+  or recompiling a parent it inherits from, leaves the render thread's uniform-expression cache pointing at the old
+  shader map, and the next frame asserts (`UniformExpressionCache.CachedUniformExpressionShaderMap ==
+  Material.GetRenderingThreadShaderMap()`) and takes the editor down. A MetaHuman rebuild made it certain: it writes
+  fresh garment instances on the plugin's parents, and the old `mh.cloth_inflate` reparented them in place onto the
+  inflating copy while frames rendered. `mh.cloth_inflate` is now a multi-tick job that edits only materials nobody
+  wears: it copies the worn instance, parents the copy on project copies of the chain (a master already drawn is
+  never recompiled; a new one is made), waits for every shader to finish compiling and a few frames, and only then
+  swaps the component to the copy (a plain material swap, which the renderer handles). Changing a scalar or vector
+  parameter on a worn instance (`mh.garment`, the inflate amount) is safe. Call it from exec'd code as
+  `yield from mh.cloth_inflate(...)` inside a generator (studio.py's `finish`): a bare call does nothing.
 - **The editor may open an Untitled level** after a restart: open the studio's level before building in it.
 - **Big files go through S3** (`workstation.push_dir` / `pull_dir`), not the tunnel.
