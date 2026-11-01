@@ -312,7 +312,17 @@ def nameplate(px_cm: int = 100) -> None:
 
 
 def print_art(px_cm: int = 100) -> None:
-    """A small abstract print: an arch, a sun and a line, in the room's palette."""
+    """The framed print beside the root prompt: an original Mr. Robot-inspired picture (a hooded hacker at a glowing
+    terminal under a red sun; generated, no stills, logos or likeness from the show), cropped to the 13 x 18 window."""
+    w, h = int(13 * px_cm), int(18 * px_cm)
+    im = Image.open(HERE / "labels" / "mrrobot_print.jpg").convert("RGB")
+    ch = int(im.width * h / w)
+    im = im.crop((0, (im.height - ch) // 2, im.width, (im.height - ch) // 2 + ch)) if ch <= im.height else im
+    save(im.resize((w, h), Image.LANCZOS), "T_Label_Print")
+
+
+def abstract_print(px_cm: int = 100) -> None:
+    """A small abstract print: an arch, a sun and a line, in the room's palette (the first print, unused)."""
     w, h = int(13 * px_cm), int(18 * px_cm)
     alb = paper(w, h, (241, 236, 225), 81, fibre=0.03)
     layer = Image.new("L", (w, h), 0)
@@ -344,9 +354,19 @@ def record_label(n: int = 1024) -> None:
 
 
 def outside() -> None:
-    """The garden through the window, behind the sheers (a soft, out-of-focus photo)."""
-    im = Image.open(HERE / "labels" / "outside.jpg").convert("RGB").resize((1024, 2048), Image.LANCZOS)
-    save(im, "T_Outside")
+    """The garden through the window, behind the sheers (soft, out-of-focus photos): by day and at night."""
+    for src, name in (("outside.jpg", "T_Outside"), ("outside_night.jpg", "T_OutsideNight")):
+        save(Image.open(HERE / "labels" / src).convert("RGB").resize((1024, 2048), Image.LANCZOS), name)
+
+
+def watch_face(n: int = 512) -> None:
+    """Her smartwatch's screen: the time, white on black, with a thin activity ring."""
+    im = Image.new("RGB", (n, n), (2, 2, 3))
+    d = ImageDraw.Draw(im)
+    d.arc((n * 0.12, n * 0.12, n * 0.88, n * 0.88), 140, 400, fill=(60, 200, 120), width=int(n * 0.022))
+    d.text((n / 2, n * 0.5), "10:09", font=font(SANS, int(n * 0.24), 420), fill=(240, 240, 240), anchor="mm")
+    d.text((n / 2, n * 0.7), "SUN 1", font=font(SANS, int(n * 0.07), 500), fill=(150, 150, 150), anchor="mm")
+    save(im, "T_Label_WatchFace")
 
 
 def main() -> None:
@@ -361,6 +381,7 @@ def main() -> None:
     print_art()
     record_label()
     outside()
+    watch_face()
 
 
 if __name__ == "__main__":

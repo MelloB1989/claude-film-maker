@@ -25,6 +25,8 @@ S = "/Game/Studio/Surfaces"  # the tileable surfaces (surfaces.py)
 M = "/Game/Studio/Materials"
 KEEP = {"Host", "HostCam", "HostCamB"}
 WALL = -260.0
+MOOD = globals().get("MOOD", "day")  # "night": no sun, a blue-hour garden outside, warm downlights and practicals
+NIGHT = MOOD == "night"
 
 # clear the old studio (its floor and walls too: the room is a prop now)
 L.delete([a[0] for a in L.actors() if a[0] not in KEEP])
@@ -97,7 +99,7 @@ MAT = {
     "M_WinFrame": plain("WinFrame", (0.68, 0.66, 0.62), 0.4), "M_Glass": clear_glass,
     "M_Sheer": K.material("MI_K_Sheer", (1.0, 0.98, 0.94), kind="Sheer", texture=tex(S, "T_Linen_A"),
                           mask=tex(S, "T_Linen_O"), tiling=100.0 / 8, opacity=0.9, roughness=0.8,
-                          transmission=(1.0, 0.92, 0.8), glow=0.25, folder=M),
+                          transmission=(1.0, 0.92, 0.8), glow=0.02 if NIGHT else 0.25, folder=M),
     "M_Rod": black_metal, "M_Rug": surface("Wool", 60),
     # the slat wall and the sign
     "M_Walnut": walnut, "M_Felt": surface("Felt", 40, color=(0.6, 0.6, 0.6)),
@@ -107,7 +109,7 @@ MAT = {
     "M_Oak": oak, "M_OakEnd": surface("OakEnd", 20), "M_Alu": alu,
     "M_LedStrip": glow("LedStrip", (1.0, 0.66, 0.36), 9.0), "M_Plinth": matte_black,
     # plants
-    "M_Pot": surface("Stoneware", 30, roughness=0.7), "M_Pebbles": plain("Pebbles", (0.24, 0.21, 0.18), 0.9),
+    "M_Pot": surface("Stoneware", 30, roughness=0.3), "M_Pebbles": plain("Pebbles", (0.24, 0.21, 0.18), 0.9),
     "M_Soil": plain("Soil", (0.05, 0.035, 0.025), 0.95), "M_Bark": plain("Bark", (0.16, 0.13, 0.1), 0.9),
     "M_LeafTop": leaf("OliveTop", (0.07, 0.09, 0.05), (0.35, 0.42, 0.12)),
     "M_LeafUnder": leaf("OliveUnder", (0.2, 0.22, 0.17), (0.35, 0.42, 0.12)),
@@ -138,9 +140,21 @@ MAT = {
     # small objects
     "M_Brass": brass, "M_HandleWood": walnut, "M_Wax": plain("Wax", (0.75, 0.68, 0.55), 0.6),
     "M_Wick": matte_black, "M_Flame": glow("Flame", (1.0, 0.6, 0.25), 60),
-    "M_Stoneware": surface("Stoneware", 30, roughness=0.6),
-    "M_CeramicBlack": plain("CeramicBlack", (0.02, 0.02, 0.022), 0.55),
-    "M_CeramicWhite": plain("CeramicWhite", (0.72, 0.7, 0.66), 0.35),
+    "M_Stoneware": surface("Stoneware", 30, roughness=0.25),
+    "M_CeramicBlack": plain("CeramicBlack", (0.012, 0.012, 0.013), 0.08, specular=0.6),  # high-gloss glazes
+    "M_CeramicWhite": plain("CeramicWhite", (0.78, 0.77, 0.73), 0.1, specular=0.6),
+    "M_ClayFoot": plain("ClayFoot", (0.5, 0.42, 0.32), 0.85),
+    # the drone and its remote
+    "M_DroneBody": plain("DroneBody", (0.42, 0.42, 0.41), 0.45), "M_DroneDark": plain("DroneDark", (0.06, 0.06, 0.065), 0.5),
+    "M_Motor": plain("Motor", (0.03, 0.03, 0.032), 0.35, 0.8), "M_Prop": plain("Prop", (0.55, 0.55, 0.54), 0.4),
+    "M_GimbalBlack": plain("Gimbal", (0.012, 0.012, 0.013), 0.3), "M_Lens": glass("Lens", (0.01, 0.01, 0.015), 0.6, 0.02),
+    "M_LedFront": glow("DroneLed", (1.0, 0.05, 0.03), 25), "M_ControllerBody": plain("Controller", (0.05, 0.05, 0.055), 0.5),
+    # her watch (black, as in the concept)
+    "M_WatchCase": plain("WatchCase", (0.02, 0.02, 0.022), 0.3, 1.0), "M_WatchBlack": matte_black,
+    "M_WatchGlass": glass("WatchGlass", (0.01, 0.01, 0.01), 0.15, 0.02),
+    "M_Label_WatchFace": K.material("MI_K_Label_WatchFace", kind="Screen", texture=tex(T, "T_Label_WatchFace"),
+                                    intensity=1.5, roughness=0.05, folder=M),
+    "M_WatchBand": plain("WatchBand", (0.015, 0.015, 0.016), 0.7),
     "M_Acrylic": K.material("MI_K_Acrylic", (0.92, 0.94, 0.96), kind="Glass", opacity=0.45, roughness=0.45, folder=M),
     "M_Label_Lyzn": label("Lyzn", kind="PbrMasked", roughness=0.7),
     # the label objects
@@ -198,7 +212,8 @@ for lab, name in (("Room", "room_shell"), ("Window", "window"), ("Curtains", "cu
     prop(lab, name, (0, 0, 0))
 # the garden outside, out of focus behind the glass
 K.card("Outside", (WALL - 140, 205, 150), 520, 900,
-       K.material("MI_K_Outside", kind="Screen", texture=tex(T, "T_Outside"), intensity=40.0, roughness=1.0, folder=M))
+       K.material("MI_K_Outside", kind="Screen", texture=tex(T, "T_OutsideNight" if NIGHT else "T_Outside"),
+                  intensity=3.0 if NIGHT else 40.0, roughness=1.0, folder=M))
 
 # ------------------------------------------------------------------------------------------- slats and the sign
 SLAT_Y, SLAT_DEPTH = 25.0, 3.4
@@ -230,7 +245,8 @@ SH_C = SH_L - SH_LEN / 2
 TOPS = (125.0, 162.0, 199.0, 236.0)   # shelf top surfaces, bottom to top
 for n, z in enumerate(TOPS):
     prop(f"Shelf{n}", "shelf", (WALL, SH_C, z - 4.5))
-    K.light(f"ShelfLed{n}", "rect", loc=(WALL + 23, SH_C, z - 5.2), look_at=(WALL + 18, SH_C, z - 60), intensity=1.3,
+    K.light(f"ShelfLed{n}", "rect", loc=(WALL + 23, SH_C, z - 5.2), look_at=(WALL + 18, SH_C, z - 60),
+            intensity=1.5 if NIGHT else 1.3,
             temperature=2700, width=SH_LEN - 8, height=1.6, barn_angle=60, volumetric=0.0)
 CR_C, CR_TOP = -135.0, 72.0
 prop("Credenza", "credenza", (WALL, CR_C, 0))
@@ -249,12 +265,13 @@ prop("Polaroid", "polaroid", (WALL + 21, SH_L - 103, TOPS[2]), yaw=20, pitch=12,
 prop("VaseSpeckle", "vase_speckle", (WALL + 11, SH_L - 116, TOPS[2]), yaw=40, scale=0.8)
 prop("LyznBlock", "lyzn_block", (WALL + 15, SH_L - 132, TOPS[2]), yaw=-8)
 # third shelf: the maker tray, the candle, the coin and the pickaxe
-prop("IotTray", "iot_tray", (WALL + 12, SH_L - 34, TOPS[1]), yaw=3)
-prop("Candle", "candle", (WALL + 14, SH_L - 78, TOPS[1]))
-K.light("CandleLight", "point", loc=(WALL + 14, SH_L - 78, TOPS[1] + 14), intensity=0.1, temperature=1800, radius=70,
+prop("IotTray", "iot_tray", (WALL + 12, SH_L - 28, TOPS[1]), yaw=3)
+prop("Drone", "drone", (WALL + 12.5, SH_L - 64, TOPS[1]), yaw=-8)
+prop("Candle", "candle", (WALL + 14, SH_L - 93, TOPS[1]))
+K.light("CandleLight", "point", loc=(WALL + 14, SH_L - 93, TOPS[1] + 14), intensity=0.1, temperature=1800, radius=70,
         shadows=False, volumetric=0.0)
-prop("Coin", "bitcoin_coin", (WALL + 6, SH_L - 95, TOPS[1] + 2.0), pitch=-72)
-prop("Pickaxe", "pickaxe", (WALL + 12, SH_L - 115, TOPS[1]), yaw=-20)
+prop("Coin", "bitcoin_coin", (WALL + 11, SH_L - 109, TOPS[1]), yaw=-12)
+prop("Pickaxe", "pickaxe", (WALL + 9, SH_L - 128, TOPS[1]), yaw=-10)
 # bottom shelf: the root prompt, the print, a looser row of books, the small pothos
 prop("Terminal", "terminal_display", (WALL + 12, SH_L - 22, TOPS[0]), yaw=4)
 K.light("TerminalGlow", "rect", loc=(WALL + 16, SH_L - 22, TOPS[0] + 4), look_at=(WALL + 60, SH_L - 22, TOPS[0] + 4),
@@ -277,15 +294,31 @@ if os.path.exists(NOTE):  # the hoodie's report says where the note's flat patch
 prop("Stool", "stool", (-95, 20, 0), yaw=25)  # for the empty-room shots; hidden when the host is in frame
 
 # ------------------------------------------------------------------------------------------------- daylight
-K.sky(elevation=28, azimuth=-28, lux=30000, temperature=5100, sky_intensity=0.6, shadow_softness=0.7)
-K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=8,
-        temperature=6200, width=150, height=280, barn_angle=80, volumetric=0.0)
-K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=1.5, temperature=4500, width=300,
-        height=300, shadows=False, specular=0.0, volumetric=0.0)
+if not NIGHT:
+    K.sky(elevation=28, azimuth=-28, lux=30000, temperature=5100, sky_intensity=0.6, shadow_softness=0.7)
+    K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=8,
+            temperature=6200, width=150, height=280, barn_angle=80, volumetric=0.0)
+    K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=1.5, temperature=4500, width=300,
+            height=300, shadows=False, specular=0.0, volumetric=0.0)
+else:
+    # the sun below the horizon (the atmosphere goes blue-hour), only a cool glow from the window
+    K.sky(elevation=-8, azimuth=-28, lux=2.0, temperature=7500, sky_intensity=0.04, shadow_softness=2.0)
+    K.light("WindowSky", "rect", loc=(WALL + 14, 205, 150), look_at=(WALL + 300, 205 - 60, 120), intensity=0.35,
+            color=(0.35, 0.47, 0.85), width=150, height=280, barn_angle=80, shadows=False, volumetric=0.0)
+    K.light("RoomBounce", "rect", loc=(150, 0, 290), look_at=(0, 0, 0), intensity=0.3, temperature=2800, width=300,
+            height=300, shadows=False, specular=0.0, volumetric=0.0)
+    # warm recessed downlights: pools on the credenza, a wash down the slats, a lift on the olive tree
+    for name, loc, at, cd in (("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, CR_TOP), 15.0),
+                              ("DownSlats", (WALL + 32, SLAT_Y, 296), (WALL + 4, SLAT_Y, 90), 16.0),
+                              ("DownOlive", (WALL + 75, 205, 296), (WALL + 62, 205, 120), 9.0),
+                              ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 3.5)):
+        K.light(name, "spot", loc=loc, look_at=at, intensity=cd, temperature=2700, cone=32, radius=600,
+                volumetric=0.4)
 
 # --------------------------------------------------------------------------------------------- the host's light
 FACE = (8.0, 0.0, 172.0)
-K.light("Key", "rect", loc=(140, 130, 215), look_at=FACE, intensity=9.0, temperature=5000, width=140, height=140,
+K.light("Key", "rect", loc=(140, 130, 215), look_at=FACE, intensity=5.5 if NIGHT else 9.0,
+        temperature=4300 if NIGHT else 5000, width=140, height=140,
         barn_angle=70, volumetric=0.0)
 K.light("Fill", "rect", loc=(190, -125, 160), look_at=FACE, intensity=1.0, temperature=4800, width=180, height=180,
         specular=0.3, volumetric=0.0)
@@ -302,9 +335,48 @@ K.channels(HOST_LIGHTS, [1])
 K.channels(["Host"], [0, 1])  # the daylight reaches the host too, so the host sits in the room's light
 mh.garment("Host", "Shirt", vectors={"diffuse_color_1": (0.032, 0.034, 0.038), "diffuse_color_2": (0.045, 0.047, 0.052)})
 
+# her: the female presenter on the same mark, hidden until a shot asks for her (stills.py --who her)
+HER_BP = "/Game/Host/Unpacked/Presenter/BP_Presenter"
+if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
+    host = L.actor("Host")
+    her = unreal.get_editor_subsystem(unreal.EditorActorSubsystem).spawn_actor_from_object(
+        unreal.load_asset(HER_BP), host.get_actor_location(), host.get_actor_rotation())
+    her.set_actor_label("Presenter")
+    her.set_actor_hidden_in_game(True)
+    her.set_is_temporarily_hidden_in_editor(True)
+    K.channels(["Presenter"], [0, 1])
+    mh.garment("Presenter", "Shirt", vectors={"diffuse_color_1": (0.82, 0.82, 0.8), "diffuse_color_2": (0.8, 0.8, 0.78)})
+    # small gold hoops through the lobes, a black smartwatch on the left wrist, riding her bones
+    comps = {c.get_name(): c for c in her.get_components_by_class(unreal.SkeletalMeshComponent)}
+    face, body_ = comps["Face"], comps["Body"]
+    rule = unreal.AttachmentRule.KEEP_WORLD
+    for side, bone in (("L", "FACIAL_L_Ear4"), ("R", "FACIAL_R_Ear4")):
+        p = face.get_socket_location(bone)
+        inward = 0.25 if side == "L" else -0.25  # through the lobe, not on its surface
+        if prop(f"HerEar{side}", "hoop_earring", (p.x - 0.1, p.y + inward, p.z + 0.15)):
+            L.actor(f"HerEar{side}").attach_to_component(face, bone, rule, rule, rule, False)
+    a, b = body_.get_socket_location("lowerarm_twist_02_l"), body_.get_socket_location("hand_l")
+    fwd = (b - a).normal()
+    out = body_.get_socket_location("wrist_outer_l") - body_.get_socket_location("wrist_inner_l")
+    up = (out - fwd * out.dot(fwd)).normal()  # the back of the wrist, square to the forearm
+    at = b - fwd * 3.6  # just above the wrist bone
+    if prop("HerWatch", "smartwatch", (at.x, at.y, at.z)):
+        w = L.actor("HerWatch")
+        w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)
+        w.attach_to_component(body_, "lowerarm_twist_02_l", rule, rule, rule, False)
+    for lab in ("HerEarL", "HerEarR", "HerWatch"):
+        try:
+            x = L.actor(lab)
+            x.set_actor_hidden_in_game(True)
+            x.set_is_temporarily_hidden_in_editor(True)
+            K.channels([lab], [0, 1])
+        except ValueError:
+            pass
+
 # --------------------------------------------------------------------------------------------- air, lens, cameras
-K.fog(density=0.0002, volumetric=True, albedo=(0.95, 0.93, 0.9), extinction=0.05, height_falloff=0.02)
-K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_bias": 8.3, "white_temp": 5600.0,
+K.fog(density=0.0006 if NIGHT else 0.0002, volumetric=True, albedo=(0.95, 0.93, 0.9), extinction=0.05,
+      height_falloff=0.02)
+K.post({"auto_exposure_method": "AutoExposureMethod.AEM_MANUAL", "auto_exposure_bias": 9.6 if NIGHT else 8.3, "white_temp": 5600.0,
         "bloom_intensity": 0.25, "bloom_threshold": 1.0, "vignette_intensity": 0.25, "film_grain_intensity": 0.06,
         "scene_fringe_intensity": 0.0, "lumen_final_gather_quality": 4.0, "lumen_reflection_quality": 2.0,
         "lumen_scene_detail": 2.0, "lumen_scene_lighting_quality": 2.0, "lumen_max_trace_distance": 2000.0})

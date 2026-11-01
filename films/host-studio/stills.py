@@ -47,12 +47,21 @@ def ok(res: dict):
     return res.get("result")
 
 
-def render(cam: str, path_tracer: bool) -> Path:
+# her eyes sit ~16 cm lower than his: her host shots are framed from lower down
+HER_CAMS = {"KarmaHost": ([192, 12, 162], [0, -14, 151]), "KarmaVertical": ([178, 6, 160], [0, 0, 152])}
+
+
+def render(cam: str, path_tracer: bool, who: str = "him", tag: str = "") -> Path:
     w, h, host = SHOTS[cam]
-    ok(client.exec_code(SHOW.format(hidden={"Host": not host, "Stool": host})))
+    if who == "her" and cam in HER_CAMS:
+        ok(client.op("level.move", label=cam, loc=HER_CAMS[cam][0], look_at=HER_CAMS[cam][1]))
+    her = not (host and who == "her")
+    ok(client.exec_code(SHOW.format(hidden={"Host": not (host and who == "him"), "Presenter": her, "HerEarL": her,
+                                            "HerEarR": her, "HerWatch": her, "Stool": host})))
     seq = f"/Game/Studio/Stills/SEQ_{cam}"
     ok(client.op("seq.close"))
-    ok(client.op("seq.shot", path=seq, actor_label="Host", anims={"Body": IDLE}, camera=cam, seconds=2.0))
+    ok(client.op("seq.shot", path=seq, actor_label="Presenter" if who == "her" else "Host", anims={"Body": IDLE},
+                 camera=cam, seconds=2.0))
     ok(client.op("assets.save_all"))
     remote = rf"{PROJECT}\Saved\MovieRenders\karma_{cam}"
     ok(client.exec_code(f"import shutil\nshutil.rmtree({remote!r}, ignore_errors=True)\nresult = True"))  # no stale frame
@@ -63,15 +72,15 @@ def render(cam: str, path_tracer: bool) -> Path:
     while not ok(client.op("render.progress", out_dir=remote))["done"]:
         time.sleep(10)
     print(f"{cam}: {time.time() - t0:.0f}s")
-    return fetch(cam)
+    return fetch(cam, tag)
 
 
-def fetch(cam: str) -> Path:
+def fetch(cam: str, tag: str = "") -> Path:
     remote = rf"{PROJECT}\Saved\MovieRenders\karma_{cam}"
     tmp = OUT / f"_{cam}"
     ws.pull_dir(remote, str(tmp))
     png = sorted(tmp.glob("*.png"))[-1]
-    dst = OUT / f"{cam}.png"
+    dst = OUT / f"{cam}{tag}.png"
     shutil.move(str(png), dst)
     shutil.rmtree(tmp, ignore_errors=True)
     return dst
@@ -82,12 +91,19 @@ def main() -> None:
     ap.add_argument("--only", default="")
     ap.add_argument("--path-tracer", action="store_true")
     ap.add_argument("--fetch", action="store_true", help="only bring back finished renders")
+    ap.add_argument("--who", choices=("him", "her"), default="him", help="which presenter is in the host shots")
+    ap.add_argument("--mood", choices=("day", "night"), default="", help="rebuild the studio in this light first")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
+    if a.mood:  # studio.py reads MOOD from its globals
+        src = (Path(__file__).parent / "unreal" / "studio.py").read_text()
+        ok(client.exec_code(f"MOOD = {a.mood!r}\n" + src, 900))
+    tag = ("_her" if a.who == "her" else "") + (f"_{a.mood}" if a.mood == "night" else "")
     cams = a.only.split(",") if a.only else list(SHOTS)
     for cam in cams:
-        print(fetch(cam) if a.fetch else render(cam, a.path_tracer))
-    ok(client.exec_code(SHOW.format(hidden={"Host": False, "Stool": True})))
+        print(fetch(cam, tag) if a.fetch else render(cam, a.path_tracer, a.who, tag))
+    ok(client.exec_code(SHOW.format(hidden={"Host": False, "Presenter": True, "HerEarL": True, "HerEarR": True,
+                                            "HerWatch": True, "Stool": True})))
 
 
 if __name__ == "__main__":

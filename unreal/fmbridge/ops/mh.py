@@ -84,13 +84,64 @@ def palette(character: str) -> dict:
 
 
 @op("mh.add_item")
-def add_item(character: str, item: str) -> str:
-    """Add a wardrobe item (a groom or garment from mh.wardrobe) to the character's collection."""
+def add_item(character: str, item: str, slot: str = "") -> str:
+    """Put a wardrobe item (a groom or garment from mh.wardrobe) in a slot of the character's collection and select
+    it there, replacing what the slot held (slot: Hair, Eyebrows, Beard, Mustache, Eyelashes, Peachfuzz, Outfits;
+    guessed from the item's path when empty)."""
     c = _char(character)
     coll = c.get_editor_property("internal_collection")
-    key = coll.try_add_item_from_wardrobe_item(load(item))
+    if not slot:
+        slot = next((s for s in ("Hair", "Eyebrows", "Beard", "Mustache", "Eyelashes", "Peachfuzz") if f"/{s}/" in item),
+                    "Outfits")
+    key = coll.try_add_item_from_wardrobe_item(slot, load(item))
+    if key is None:
+        raise ValueError(f"{item} cannot go in slot {slot}")
+    coll.get_editor_property("default_instance").set_single_slot_selection(slot, key)
     EAL.save_asset(character)
-    return str(key)
+    return f"{slot}: {coll.get_item_display_name(key)}"
+
+
+@op("mh.clear_slot")
+def clear_slot(character: str, slot: str) -> str:
+    """Select nothing in a slot (e.g. no Beard)."""
+    c = _char(character)
+    coll = c.get_editor_property("internal_collection")
+    coll.get_editor_property("default_instance").set_single_slot_selection(slot, unreal.MetaHumanPaletteItemKey())
+    EAL.save_asset(character)
+    return slot
+
+
+@op("mh.skin")
+def skin(character: str, u: float = None, v: float = None, roughness: float = None) -> dict:
+    """The skin tone (MetaHuman Creator's tone palette coordinates u, v) and roughness; returns the new values."""
+    c = _char(character)
+    ss = c.get_editor_property("skin_settings")
+    sk = ss.skin
+    for k, val in (("u", u), ("v", v), ("roughness", roughness)):
+        if val is not None:
+            setattr(sk, k, float(val))
+    ss.skin = sk
+    sub().commit_skin_settings(c, ss)
+    EAL.save_asset(character)
+    return {"u": sk.u, "v": sk.v, "roughness": sk.roughness}
+
+
+@op("mh.body")
+def body(character: str, measurements: dict) -> dict:
+    """Shape the parametric body by measurements in cm (Height, Chest, Waist, Hip, Thigh, ...) and the unitless Fat,
+    Muscularity, Masculine/Feminine; each named one becomes an active constraint. Re-rig and re-build afterwards."""
+    c = _char(character)
+    new = []
+    for x in sub().get_body_constraints(c, True):
+        y = x.copy()  # the array hands out copies: edit a copy and pass the whole list back
+        if str(y.name) in measurements:
+            y.is_active, y.target_measurement = True, float(measurements[str(y.name)])
+        new.append(y)
+    sub().set_body_constraints(c, new)
+    sub().commit_body_state(c)
+    EAL.save_asset(character)
+    return {str(x.name): round(x.target_measurement, 1) for x in sub().get_body_constraints(c, True)
+            if str(x.name) in measurements}
 
 
 @op("mh.build")
