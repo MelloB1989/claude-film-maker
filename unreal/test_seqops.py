@@ -36,17 +36,18 @@ def ok(res: dict):
     return res.get("result")
 
 
-def op(name: str, **kw):
-    return ok(client.op(name, **kw))
+def op(op_name: str, /, **kw):
+    return ok(client.op(op_name, **kw))
 
 
 def check(what: str, got, want, tol: float = 1e-3) -> bool:
-    if isinstance(want, (list, tuple)):
-        good = len(got) == len(want) and all(abs(g - w) <= tol for g, w in zip(got, want))
-    elif isinstance(want, float):
-        good = abs(got - want) <= tol
-    else:
-        good = got == want
+    def close(g, w):
+        if isinstance(w, (list, tuple)):
+            return isinstance(g, (list, tuple)) and len(g) == len(w) and all(close(x, y) for x, y in zip(g, w))
+        if isinstance(w, (int, float)) and not isinstance(w, bool) and isinstance(g, (int, float)):
+            return abs(g - w) <= tol
+        return g == w
+    good = close(got, want)
     results.append([("PASS" if good else "FAIL"), what, got, want])
     print(f"{'PASS' if good else 'FAIL'}  {what}: got {got!r}, want {want!r}", flush=True)
     return good

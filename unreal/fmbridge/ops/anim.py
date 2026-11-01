@@ -241,8 +241,8 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str 
         to_cam = _norm([sample_["aim"][i][k] - x[k] for k in range(3)])
         return _angles(_local(to_cam, x), g[side], u[side])
 
-    target = {side: [need(rest, i, side) for i in range(len(frames))] for side in EYES}
-    want = {side: [(y + off[i][0], p + off[i][1]) for i, (y, p) in enumerate(target[side])] for side in EYES}
+    need_rest = {side: [need(rest, i, side) for i in range(len(frames))] for side in EYES}
+    want = {side: [(y + off[i][0], p + off[i][1]) for i, (y, p) in enumerate(need_rest[side])] for side in EYES}
     yaw_gain = {s: (cal[(s, "Left")][0], cal[(s, "Right")][0]) for s in EYES}
     pitch_gain = {s: (cal[(s, "Up")][1], cal[(s, "Down")][1]) for s in EYES}
 
@@ -259,7 +259,7 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str 
         return c
 
     report = {"calibration": {f"{s}.{d}": [round(v, 2) for v in cal[(s, d)]] for s, d in cal},
-              "head_to_lens_deg": {s: [round(min(abs(y) for y, _ in target[s]), 2), round(max(abs(y) for y, _ in target[s]), 2)]
+              "head_to_lens_deg": {s: [round(min(abs(y) for y, _ in need_rest[s]), 2), round(max(abs(y) for y, _ in need_rest[s]), 2)]
                                    for s in EYES}, "passes": []}
     cmd = {s: list(want[s]) for s in EYES}  # what the curves ask for, corrected each pass by what the eyes did
     prev, seen = rest, None
@@ -361,7 +361,7 @@ def bake_pose(sequence: str, actor_label: str, source: str, target: str, anim: s
         ctrl.set_bone_track_keys(b, P, R, S)
     ctrl.close_bracket(True)
     EAL.save_asset(out)
-    set_anim(sequence, target, out)
+    set_anim(sequence, target, out, label=actor_label)
     return {"anim": out, "bones": len(bones), "keys": n_keys, "frames": len(frames)}
 
 

@@ -486,51 +486,36 @@ def key_material(path: str, label: str, param: str, keys: list, slot=0, componen
     sec.set_start_frame_bounded(False)
     sec.set_end_frame_bounded(False)
     vector = bool(keys) and isinstance(keys[0][1], (list, tuple))
+    info = unreal.MaterialParameterInfo()
+    info.set_editor_property("name", param)
     for remove in ("remove_scalar_parameter", "remove_color_parameter"):
         try:
-            getattr(sec, remove)(param)
+            getattr(sec, remove)(info)
         except Exception:
             pass
-    for frame, v, *_ in keys:
+    for frame, v, *how in keys:
+        mode = _interp(how[0] if how else interp)
         if vector:
             rgba = list(v) + [1.0] * (4 - len(v))
-            sec.add_color_parameter_key(param, unreal.FrameNumber(int(frame)), unreal.LinearColor(*rgba))
+            sec.add_color_parameter_key(info, unreal.FrameNumber(int(frame)), unreal.LinearColor(*rgba), "", "",
+                                        default_interpolation=mode)
         else:
-            sec.add_scalar_parameter_key(param, unreal.FrameNumber(int(frame)), float(v))
-    _key_modes(sec, param, keys, interp, vector)
+            sec.add_scalar_parameter_key(info, unreal.FrameNumber(int(frame)), float(v), "", "",
+                                         default_interpolation=mode)
     _done(path)
     return {"binding": f"{label}.{mesh.get_name()}", "slot": index, "param": param, "keys": len(keys)}
 
 
 def _material_index(t) -> int:
-    try:
-        return int(t.get_editor_property("material_info").get_editor_property("material_slot_index"))
-    except Exception:
-        return int(t.get_material_index())
+    return int(t.get_material_info().get_editor_property("material_slot_index"))
 
 
 def _set_material_index(t, index: int, name: str):
-    try:
-        info = t.get_editor_property("material_info")
-        info.set_editor_property("material_slot_index", index)
-        if name:
-            info.set_editor_property("material_slot_name", name)
-        t.set_editor_property("material_info", info)
-    except Exception:
-        t.set_material_index(index)
-
-
-def _key_modes(sec, param: str, keys: list, interp: str, vector: bool):
-    """Interpolation for the keys just added by parameter (add_*_parameter_key takes none): the channels named after
-    the parameter (a vector one has .R .G .B .A)."""
-    if all(len(k) < 3 for k in keys) and interp == "auto":
-        return
-    modes = [_interp(k[2] if len(k) > 2 else interp) for k in keys]
-    for ch in sec.get_all_channels():
-        n = str(ch.get_name())
-        if n == param or (vector and n.startswith(param + ".")):
-            for key, mode in zip(sorted(ch.get_keys(), key=lambda k: k.get_time().frame_number.value), modes):
-                key.set_interpolation_mode(mode)
+    info = t.get_material_info()
+    info.set_editor_property("material_slot_index", index)
+    if name:
+        info.set_editor_property("material_slot_name", name)
+    t.set_material_info(info)
 
 
 @op("seq.anim")
@@ -649,14 +634,14 @@ def audio(path: str, clips: list, track: str = "Audio", replace: bool = True) ->
 def cuts(path: str) -> list:
     """The edit as it stands: [camera label, first frame, end frame] for each camera cut, in order."""
     seq = load(path)
-    by_id = {}
-    for b in seq.get_bindings():
-        by_id[str(b.get_id())] = str(b.get_display_name())
+    by_id = {b.get_id().export_text(): str(b.get_display_name()) for b in seq.get_bindings()}  # a Guid's str() is its repr
     out = []
     for t in seq.find_tracks_by_type(unreal.MovieSceneCameraCutTrack):
         for s in t.get_sections():
-            g = s.get_camera_binding_id().get_editor_property("guid")
-            out.append([by_id.get(str(g), str(g)), s.get_start_frame(), s.get_end_frame()])
+            g = s.get_camera_binding_id().get_editor_property("guid").export_text()
+            if g not in by_id:
+                raise ValueError(f"camera cut at {s.get_start_frame()} is bound to no binding of {path} ({g})")
+            out.append([by_id[g], s.get_start_frame(), s.get_end_frame()])
     return sorted(out, key=lambda c: c[1])
 
 
