@@ -105,12 +105,13 @@ SHOTS = [
          focus=[[0, 140], [100, 125], [180, 138]], previs=0.5, vcrop=0.5,
          sound="the first kick lands mid-glide (bar 5), the room waking up"),
     Shot("V03", "The window and the olive", bar(7), bar(9), 35, 2.8,
-         "a rising lateral crane past the olive tree from 2.6 m, its crown crossing the glowing sheers, 55 cm across and 37 cm up",
-         [[0, [40, 118, 128], [-220, 200, 128]], [120, [40, 172, 165], [-220, 214, 150]]],
+         "a rising lateral crane past the olive tree from 2.6 m, its crown crossing the glowing sheers, 55 cm across and 37 cm up; aimed 55 cm short of the tree, so "
+         "it rides the right third and is never centred",
+         [[0, [40, 118, 128], [-220, 150, 128]], [120, [40, 172, 165], [-220, 172, 150]]],
          "the window and the olive as a whole: the sheers lit gold by the low sun, the leaves in silhouette and "
          "translucent against them, the pot and the light on the floor at the start",
          "GOLDEN", "the sun low and long through the sheers; the window holds detail", into="cut on bar 9",
-         focus=[[0, 255], [120, 262]], previs=0.5, vcrop=0.45,
+         focus=[[0, 250], [60, 258], [120, 244]], previs=0.5, vcrop=0.45,
          sound="birds thinning outside, the sheers breathe"),
     Shot("V04", "The slats and the sign", bar(9), bar(11), 35, 2.8,
          "a slow crane up the slat wall, drifting screen-right, to the unlit sign; the sign arrives at the top of "
