@@ -9,4 +9,4 @@ if [ "${PRE:-}" = 1 ]; then
   uv run python ../films/host-studio/reel/halo_check.py --camera Reel_V03 --frames 420 | tail -1
   uv run python ../films/host-studio/reel/halo_check.py --camera Reel_N01 --frames 900 | tail -1
 fi
-uv run python ../films/host-studio/reel/render.py --shots "$1"
+[ -n "${1:-}" ] && uv run python ../films/host-studio/reel/render.py --shots "$1"; true
