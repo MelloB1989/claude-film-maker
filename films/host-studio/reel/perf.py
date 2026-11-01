@@ -161,70 +161,79 @@ COMPOSE = r"""
 import json, bisect, unreal
 AL, EAL, F = unreal.AnimationLibrary, unreal.EditorAssetLibrary, unreal.RawCurveTrackTypes.RCT_FLOAT
 P = json.loads(PARAMS)
-if EAL.does_asset_exist(P["out"]):
-    EAL.delete_asset(P["out"])
-EAL.duplicate_asset(P["base"], P["out"])
-a = unreal.load_asset(P["out"])
-L = a.get_editor_property("sequence_length")
-dt = 1.0 / 30
-grid = [i * dt for i in range(int(L / dt) + 1)]
-def keys(anim, n):
-    if not AL.does_curve_exist(anim, n, F):
-        return [], []
-    t, v = AL.get_float_keys(anim, n)
-    return list(t), list(v)
-def at(t, v, x):
-    if not t:
-        return 0.0
-    i = bisect.bisect_right(t, x)
-    if i <= 0:
-        return v[0]
-    if i >= len(t):
-        return v[-1]
-    u = (x - t[i - 1]) / ((t[i] - t[i - 1]) or 1)
-    return v[i - 1] + (v[i] - v[i - 1]) * u
-def ease(u):
-    return u * u * (3 - 2 * u)
-names = [str(n) for n in AL.get_animation_curve_names(a, F)]
-cur = {}
-def get(n):
-    if n not in cur:
-        t, v = keys(a, n)
-        cur[n] = [at(t, v, x) for x in grid]
-    return cur[n]
-report = {"length": L, "splices": [], "beats": 0}
-for sp in P["splices"]:
-    s = unreal.load_asset(sp["anim"])
-    sl = s.get_editor_property("sequence_length")
-    t0, fade = sp["t0"], sp["fade"]
-    sn = [str(n) for n in AL.get_animation_curve_names(s, F)]
-    for n in sn:
-        st, sv = keys(s, n)
-        base = get(n)
-        for i, x in enumerate(grid):
-            u = x - t0
-            if u < 0 or u > sl:
-                continue
-            w = ease(min(1.0, u / fade, (sl - u) / fade))
-            base[i] = base[i] * (1 - w) + at(st, sv, u) * w
-    report["splices"].append([sp["anim"], round(t0, 3), round(sl, 3), len(sn)])
-for n, ks in P["beats"]:
-    v = get(n)
-    for (ta, va), (tb, vb) in zip(ks, ks[1:]):
-        for i, x in enumerate(grid):
-            if ta <= x < tb or (x == tb and (tb, vb) == tuple(ks[-1])):
-                v[i] += va + (vb - va) * ease((x - ta) / ((tb - ta) or 1))
-    report["beats"] += 1
-for n, v in cur.items():
-    if n.startswith("CTRL_"):
-        v = [min(1.0, max(0.0, x)) for x in v]
-    if AL.does_curve_exist(a, n, F):
-        AL.remove_curve(a, n, False)
-    AL.add_curve(a, n, F, False)
-    AL.add_float_curve_keys(a, n, grid, v)
-EAL.save_asset(P["out"])
-report["curves_written"] = len(cur)
-result = report
+def job():
+    if EAL.does_asset_exist(P["out"]):
+        EAL.delete_asset(P["out"])
+    EAL.duplicate_asset(P["base"], P["out"])
+    a = unreal.load_asset(P["out"])
+    L = a.get_editor_property("sequence_length")
+    dt = 1.0 / 30
+    grid = [i * dt for i in range(int(L / dt) + 1)]
+    def keys(anim, n):
+        if not AL.does_curve_exist(anim, n, F):
+            return [], []
+        t, v = AL.get_float_keys(anim, n)
+        return list(t), list(v)
+    def at(t, v, x):
+        if not t:
+            return 0.0
+        i = bisect.bisect_right(t, x)
+        if i <= 0:
+            return v[0]
+        if i >= len(t):
+            return v[-1]
+        u = (x - t[i - 1]) / ((t[i] - t[i - 1]) or 1)
+        return v[i - 1] + (v[i] - v[i - 1]) * u
+    def ease(u):
+        return u * u * (3 - 2 * u)
+    names = [str(n) for n in AL.get_animation_curve_names(a, F)]
+    cur = {}
+    def get(n):
+        if n not in cur:
+            t, v = keys(a, n)
+            cur[n] = [at(t, v, x) for x in grid]
+        return cur[n]
+    report = {"length": L, "splices": [], "beats": 0}
+    for sp in P["splices"]:
+        s = unreal.load_asset(sp["anim"])
+        sl = s.get_editor_property("sequence_length")
+        t0, fade = sp["t0"], sp["fade"]
+        sn = [str(n) for n in AL.get_animation_curve_names(s, F)]
+        for n in sn:
+            st, sv = keys(s, n)
+            base = get(n)
+            for i, x in enumerate(grid):
+                u = x - t0
+                if u < 0 or u > sl:
+                    continue
+                w = ease(min(1.0, u / fade, (sl - u) / fade))
+                base[i] = base[i] * (1 - w) + at(st, sv, u) * w
+        yield
+        report["splices"].append([sp["anim"], round(t0, 3), round(sl, 3), len(sn)])
+    for n, ks in P["beats"]:
+        v = get(n)
+        for (ta, va), (tb, vb) in zip(ks, ks[1:]):
+            for i, x in enumerate(grid):
+                if ta <= x < tb or (x == tb and (tb, vb) == tuple(ks[-1])):
+                    v[i] += va + (vb - va) * ease((x - ta) / ((tb - ta) or 1))
+        report["beats"] += 1
+    ctrl = a.get_editor_property("controller")
+    ctrl.open_bracket("fmbridge reel compose", True)  # one recompression for every curve, not one per curve
+    for n, v in cur.items():
+        if n.startswith("CTRL_"):
+            v = [min(1.0, max(0.0, x)) for x in v]
+        if AL.does_curve_exist(a, n, F):
+            AL.remove_curve(a, n, False)
+        AL.add_curve(a, n, F, False)
+        AL.add_float_curve_keys(a, n, grid, v)
+    ctrl.close_bracket(True)
+    yield
+    EAL.save_asset(P["out"])
+    report["curves_written"] = len(cur)
+    return report
+
+
+result = job()
 """
 
 
@@ -238,7 +247,7 @@ def compose(who: str) -> dict:
     beats = [[n, [[sec(f), v * SIGN.get(n, 1.0)] for f, v in ks]] for n, ks in BEATS[who]]
     params = {"base": f"{SPEECH}/Anim/AS_{anim_name(who)}", "out": f"{ANIM}/AS_reel_{who}_face",
               "splices": splices, "beats": beats}
-    return ok(client.exec_code(f"PARAMS = {json.dumps(json.dumps(params))}\n" + COMPOSE, timeout=600))
+    return ok(client.exec_code(f"PARAMS = {json.dumps(json.dumps(params))}\n" + COMPOSE, timeout=1800))
 
 
 
@@ -432,6 +441,138 @@ def gaze(who: str, start_at: int = 1) -> list:
     return out
 
 
+
+# ---------------------------------------------------------------------------------------------------- gestures
+
+# The engine's MetaHuman content has no talk gestures (only the idle, facial loops, ROM clips, locomotion), and the
+# brief rules out downloading packs, so a gesture is written by hand: rotations added onto the arm bones of the baked
+# body animation, eased in and out, in each bone's own axes. Which local axis does what on this rig is measured first
+# (`arm_axes`), not guessed. Subtle on purpose: a stiff gesture reads worse than none.
+ARM = {"him": "r", "her": "l"}  # his right hand (towards the shelves, screen right); her left (the watch hand)
+GESTURES = {
+    # S14, on "Everything on these shelves": the hand comes up open, palm a little up, and settles back
+    "him": {"keys": [[962, 0.0], [980, 1.0], [998, 0.85], [1022, 0.0]],
+            "rot": {"upperarm": ["fwd", 14.0], "lowerarm": ["flex", 48.0], "hand": ["supinate", 35.0]}},
+    # S16, on "calm, honest": the watch hand lifts a little, palm in
+    "her": {"keys": [[1236, 0.0], [1252, 1.0], [1270, 0.9], [1292, 0.0]],
+            "rot": {"upperarm": ["fwd", 8.0], "lowerarm": ["flex", 38.0], "hand": ["supinate", 15.0]}},
+}
+
+AXES_PROBE = r"""
+import json, unreal
+AL, EAL = unreal.AnimationLibrary, unreal.EditorAssetLibrary
+P = json.loads(PARAMS)
+if EAL.does_asset_exist(P["out"]):
+    EAL.delete_asset(P["out"])
+EAL.duplicate_asset(P["src"], P["out"])
+a = unreal.load_asset(P["out"])
+n = AL.get_num_keys(a)
+b = P["bone"]
+poses = [AL.get_bone_pose_for_frame(a, b, k, False) for k in range(n)]
+ax = unreal.Vector(*P["axis"])
+dq = unreal.MathLibrary.quat_make_from_euler(unreal.Vector(*[P["deg"] * c for c in P["axis"]]))
+ctrl = a.get_editor_property("controller")
+ctrl.open_bracket("arm probe", True)
+ctrl.set_bone_track_keys(b, [t.translation for t in poses], [unreal.MathLibrary.multiply_quat_quat(t.rotation, dq) for t in poses],
+                         [t.scale3d for t in poses])
+ctrl.close_bracket(True)
+EAL.save_asset(P["out"])
+result = n
+"""
+
+GESTURE = r"""
+import json, math, unreal
+AL, EAL = unreal.AnimationLibrary, unreal.EditorAssetLibrary
+P = json.loads(PARAMS)
+def job():
+    if EAL.does_asset_exist(P["out"]):
+        EAL.delete_asset(P["out"])
+    EAL.duplicate_asset(P["src"], P["out"])
+    a = unreal.load_asset(P["out"])
+    n = AL.get_num_keys(a)
+    L = a.get_editor_property("sequence_length")
+    rate = (n - 1) / L
+    ks = P["keys"]
+    def env(t):
+        if t <= ks[0][0] or t >= ks[-1][0]:
+            return 0.0
+        for (ta, va), (tb, vb) in zip(ks, ks[1:]):
+            if ta <= t <= tb:
+                u = (t - ta) / (tb - ta)
+                return va + (vb - va) * u * u * (3 - 2 * u)
+        return 0.0
+    ctrl = a.get_editor_property("controller")
+    ctrl.open_bracket("reel gesture", True)
+    for b, (axis, deg) in P["rot"].items():
+        poses = [AL.get_bone_pose_for_frame(a, b, k, False) for k in range(n)]
+        rots = []
+        for k, t in enumerate(poses):
+            w = env(k / rate)
+            if w <= 0:
+                rots.append(t.rotation)
+                continue
+            dq = unreal.MathLibrary.quat_make_from_euler(unreal.Vector(*[deg * w * c for c in axis]))
+            rots.append(unreal.MathLibrary.multiply_quat_quat(t.rotation, dq))
+        ctrl.set_bone_track_keys(b, [t.translation for t in poses], rots, [t.scale3d for t in poses])
+        yield
+    ctrl.close_bracket(True)
+    EAL.save_asset(P["out"])
+    return {"anim": P["out"], "keys": n, "bones": list(P["rot"])}
+result = job()
+"""
+
+
+def arm_axes(who: str) -> dict:
+    """For each arm bone and each local axis: where the hand goes (world cm, his/her own frame) and how the palm turns
+    when that bone is rotated +25 deg about the axis. Read it to fill AXES below."""
+    side = ARM[who]
+    body = f"{ANIM}/AS_reel_{who}_body"
+    probe = f"{ANIM}/AS_reel_armprobe"
+    path, lab = test_seq(who), test_label(who)
+    frame = (GESTURES[who]["keys"][1][0] - START[who])
+    hand = f"hand_{side}"
+    base = None
+    out = {}
+    for bone in (f"upperarm_{side}", f"lowerarm_{side}", hand):
+        for k, axis in enumerate(([1, 0, 0], [0, 1, 0], [0, 0, 1], None)):
+            if axis is None and base is not None:
+                continue
+            if axis is not None:
+                run(AXES_PROBE, {"src": body, "out": probe, "bone": bone, "axis": axis, "deg": 25.0})
+                ok(client.op("seq.set_anim", path=path, component="Body", anim=probe, label=lab))
+            else:
+                ok(client.op("seq.set_anim", path=path, component="Body", anim=body, label=lab))
+            m = ok(client.op("seq.sample", path=path, actor_label=lab, component="Body", bones=[hand], frames=[frame],
+                             ticks=6))
+            x = m["bones"][hand][0]
+            if axis is None:
+                base = x
+                continue
+            out[f"{bone}.{'XYZ'[k]}"] = {"hand_moves": [round(x[i] - base[i], 1) for i in range(3)],
+                                         "hand_axes": [round(v, 2) for v in x[3:]]}
+    ok(client.op("seq.set_anim", path=path, component="Body", anim=body, label=lab))
+    out["base_axes"] = [round(v, 2) for v in base[3:]]
+    return out
+
+
+# Whether the reviewed gesture goes into the reel (set after looking at the stills; dropped if it reads stiff).
+USE_GESTURE = {"him": False, "her": False}
+# Filled from arm_axes on this rig: the local rotation axis (and sign) for each named motion.
+AXES = {"fwd": [0, 0, 1], "flex": [0, 0, 1], "supinate": [1, 0, 0]}
+
+
+def gesture(who: str) -> dict:
+    """The gesture on `who`'s body animation -> AS_reel_<who>_body_g (the sequence's Body track is switched to it)."""
+    g, side = GESTURES[who], ARM[who]
+    sec = lambda f: (f - START[who]) / FPS  # noqa: E731
+    rot = {f"{bone}_{side}": [AXES[motion], deg] for bone, (motion, deg) in g["rot"].items()}
+    r = run(GESTURE, {"src": f"{ANIM}/AS_reel_{who}_body", "out": f"{ANIM}/AS_reel_{who}_body_g",
+                      "keys": [[sec(f), v] for f, v in g["keys"]], "rot": rot}, 1800)
+    ok(client.op("seq.set_anim", path=test_seq(who), component="Body", anim=f"{ANIM}/AS_reel_{who}_body_g",
+                 label=test_label(who)))
+    return r
+
+
 # ---------------------------------------------------------------------------------------------------- looking at it
 
 STILLS = {"him": [870, 925, 1000, 1060, 1120, 1170, 1380, 1420], "her": [1100, 1150, 1180, 1250, 1300, 1395, 1420]}
@@ -474,7 +615,8 @@ def place(path: str) -> list:
     """The performances on a sequence (SEQ_Reel, for R7): one Face and one Body section per presenter from START."""
     out = []
     for who in ("him", "her"):
-        for comp, anim in (("Face", final_face(who)), ("Body", f"{ANIM}/AS_reel_{who}_body")):
+        body = f"{ANIM}/AS_reel_{who}_body" + ("_g" if USE_GESTURE[who] else "")
+        for comp, anim in (("Face", final_face(who)), ("Body", body)):
             out.append(ok(client.op("seq.anim", path=path, label=LABEL[who], component=comp,
                                     sections=[{"anim": anim, "start": START[who], "end": END + 12}])))
     return out
@@ -482,7 +624,7 @@ def place(path: str) -> list:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "place"])
+    ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "place", "arm_axes", "gesture"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
     ap.add_argument("--frames", help="stills: master frames, comma-separated")
@@ -497,7 +639,7 @@ def main() -> None:
     elif a.cmd == "compose":
         for w in a.who.split(","):
             print(w, json.dumps(compose(w)))
-    elif a.cmd in ("stage", "signs", "sync", "gaze", "stills"):
+    elif a.cmd in ("stage", "signs", "sync", "gaze", "stills", "arm_axes", "gesture"):
         for w in a.who.split(","):
             if a.cmd == "gaze":
                 r = gaze(w, a.start_at)
