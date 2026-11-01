@@ -106,7 +106,7 @@ def exists(labels: list) -> list:
 
 # Exposure compensation per shot (stops, relative to the light timeline's exposure; bias() makes it absolute): S01 looks into the sheers
 # from inside the olive's crown, 1.5 stops under the DAY room so the window holds (measured on viewport stills).
-EXPOSURE = {"V03": -3.0, "N01": -1.0, "S12": 1.0}  # V03: contre-jour into the sun-lit sheers, three stops under so the window holds detail (MRQ at -2 still near white over two-thirds); N01: night must read dark, the LED lines carry it; S12: the night wide, a stop up so the room reads (MRQ luma 14 at 0)
+EXPOSURE = {"V03": -4.5, "V04": 1.0, "N01": -1.0, "S12": 1.0}  # V03: contre-jour into the sun-lit sheers, four and a half stops under so the window holds detail and the leaves go to silhouette (MRQ at -3: luma 217, 36% clipped at f360); V04: a stop up so the unlit letters still read against the slats at dusk (MRQ at 0 ends at luma 22); N01: night must read dark, the LED lines carry it; S12: the night wide, a stop up so the room reads (MRQ luma 14 at 0)
 
 
 def bias(s) -> float | None:
