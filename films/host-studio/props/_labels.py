@@ -639,8 +639,8 @@ def build_terminal_display():
     glass_m = glass("M_ScreenGlass")
     W, H, D, TILT = 24.0, 7.0, 6.0, math.radians(8)
     SW, SH = 21.0, 4.5
-    xb = D / 2 - H * math.tan(TILT)          # the face's bottom edge; its top edge is forward
-    prof = [(-D / 2, 0), (xb, 0), (D / 2, H), (-D / 2, H)]
+    xt = D / 2 - H * math.tan(TILT)          # the face's top edge; it leans back, looking slightly up
+    prof = [(-D / 2, 0), (D / 2, 0), (xt, H), (-D / 2, H)]
     bm = bmesh.new()
     left = [bm.verts.new((x, -W / 2, z)) for x, z in prof]
     right = [bm.verts.new((x, W / 2, z)) for x, z in prof]
@@ -653,8 +653,8 @@ def build_terminal_display():
     bmesh.ops.bevel(bm, geom=list(bm.edges), offset=0.22, segments=4, profile=0.5, affect="EDGES",
                     clamp_overlap=True)
     bm.normal_update()
-    nface = Vector((math.cos(TILT), 0, -math.sin(TILT)))
-    up = Vector((math.sin(TILT), 0, math.cos(TILT)))
+    nface = Vector((math.cos(TILT), 0, math.sin(TILT)))
+    up = Vector((-math.sin(TILT), 0, math.cos(TILT)))
     front = max((f for f in bm.faces if f.normal.dot(nface) > 0.999), key=lambda f: f.calc_area())
     c = front.calc_center_median()
     bmesh.ops.inset_individual(bm, faces=[front], thickness=0.6, depth=0.0)
@@ -835,8 +835,14 @@ def run_combo():
     pol, disp = obs["polaroid"].data, obs["terminal_display"].data
     pol.transform(Matrix.Translation((0, 0.05, 0)) @ Matrix.Rotation(math.radians(-14), 4, "Y"))
     pol.transform(Matrix.Translation((0, 0, -min(v.co.z for v in pol.vertices))))
-    face_x = max(v.co.x for v in disp.vertices if v.co.z > 0.055)
-    pol.transform(Matrix.Translation((face_x + 0.0008 - min(v.co.x for v in pol.vertices if v.co.z > 0.055), 0, 0)))
+    zt = max(v.co.z for v in pol.vertices)
+    xb0 = min(v.co.x for v in pol.vertices if v.co.z < 0.001)
+    xt0 = min(v.co.x for v in pol.vertices if v.co.z > zt - 0.001)
+
+    def pol_back(z):                         # the polaroid's rearmost x at height z: its back is straight up its height
+        return xb0 + (xt0 - xb0) * z / zt
+    gap = max(v.co.x - pol_back(v.co.z) for v in disp.vertices if v.co.z > 0.02 and v.co.x > 0)
+    pol.transform(Matrix.Translation((gap + 0.0008, 0, 0)))
     pol.update()
     place("framed_print", (-9, -17, 0), 6)
     place("terminal_display", (-10, 8, 0), -4)
