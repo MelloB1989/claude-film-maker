@@ -4,7 +4,6 @@
  "model": "music_v2_5",
  "format": "pcm_48000",
  "request_id": "",
- "cost": 22,
  "seconds": 65.0,
  "planned": 65.0,
  "sections": [
@@ -635,5 +634,8 @@
    }
   ]
  },
- "plan_version": "v1"
+ "plan_version": "v1",
+ "credits_counter_delta": 22,
+ "credits_measured": 446,
+ "credits_note": "from /v1/usage/character-stats: 1338 Music credits for the three takes"
 }

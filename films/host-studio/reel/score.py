@@ -224,10 +224,12 @@ def gen(plan: str, seed: int, force: bool = False) -> Path:
         r = el.compose(chunk_plan(plan), model_id=MODEL, output_format="mp3_44100_128", seed=seed)
         fmt = "mp3_44100_128"
     x = decode(r.audio, fmt)
+    # the subscription's counter lags a music request by minutes, so this is often 0: the measured price is 446
+    # credits per 65 s take (GET /v1/usage/character-stats, Music, after three takes: 1338)
     cost = el.credits_used() - before
     sf.write(str(flac), np.asarray(x, np.float32), SR, subtype="PCM_24")
     meta.write_text(json.dumps({"hash": h, "seed": seed, "model": MODEL, "format": fmt, "request_id": r.request_id,
-                                "cost": cost, "seconds": round(len(x) / SR, 3), "planned": DURATION,
+                                "credits_counter_delta": cost, "credits_measured": None, "seconds": round(len(x) / SR, 3), "planned": DURATION,
                                 "plan_version": plan, "sections": section_starts(plan), "plan": chunk_plan(plan)}, indent=1))
     print(f"seed {seed}: {len(x) / SR:.2f} s (planned {DURATION:.2f}), {cost} credits ({fmt}) -> {flac}")
     return flac

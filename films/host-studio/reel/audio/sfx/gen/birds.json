@@ -1,0 +1,10 @@
+{
+ "request": {
+  "prompt": "Gentle songbirds outside on a calm sunny morning, heard from inside a quiet room through a closed window, soft and distant, a few sparrows and a bulbul, no music, no voices, no wind",
+  "duration": 10.0,
+  "influence": 0.55,
+  "seed": 4101
+ },
+ "request_id": "",
+ "seconds": 10.0
+}

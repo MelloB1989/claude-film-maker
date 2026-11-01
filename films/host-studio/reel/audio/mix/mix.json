@@ -1,0 +1,63 @@
+{
+ "lufs": -14.08,
+ "true_peak_dbtp": -1.69,
+ "seconds": 65.0,
+ "samples": 3120000,
+ "master_gain_db": 3.03,
+ "voice": "stems /home/nikhil/code/.worktrees/agent-11/reel-sound/films/host-studio/reel/audio/vo/vo_him.wav + vo_her.wav",
+ "score_gain_db": 0.8,
+ "voice_gain_db": 3.5,
+ "stems_lufs": {
+  "music": -15.5,
+  "voice": -12.5,
+  "beds": -34.8,
+  "fx": -21.9
+ },
+ "duck": {
+  "L1": {
+   "who": "him",
+   "median_db": -8.0,
+   "deepest_db": -8.0
+  },
+  "L2": {
+   "who": "him",
+   "median_db": -8.0,
+   "deepest_db": -8.0
+  },
+  "L3": {
+   "who": "her",
+   "median_db": -8.0,
+   "deepest_db": -8.0
+  },
+  "L4a": {
+   "who": "him",
+   "median_db": -8.0,
+   "deepest_db": -8.0
+  },
+  "L4b": {
+   "who": "her",
+   "median_db": -8.0,
+   "deepest_db": -8.0
+  }
+ },
+ "sections_lufs": {
+  "S01": -15.3,
+  "S02": -18.4,
+  "S03": -12.2,
+  "S04": -21.6,
+  "S05": -12.4,
+  "S06": -18.7,
+  "S07": -15.8,
+  "S08": -18.1,
+  "S09": -13.5,
+  "S10": -14.7,
+  "S11": -10.3,
+  "S12": -14.3,
+  "S13": -15.1,
+  "S14": -12.4,
+  "S15": -13.5,
+  "S16": -13.4,
+  "S17": -15.0,
+  "S18": -14.2
+ }
+}
