@@ -12,7 +12,7 @@ import random
 import unreal
 
 from . import op
-from .assets import EAL, load
+from .assets import EAL, free, load
 
 AL = unreal.AnimationLibrary
 FLOAT = unreal.RawCurveTrackTypes.RCT_FLOAT
@@ -168,8 +168,8 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str 
     from .seq import _comp_binding, sample, set_anim
     if not camera and target is None:
         raise ValueError("gaze_lock needs a camera or a target")
-    if EAL.does_asset_exist(out) and out != anim:
-        EAL.delete_asset(out)
+    if out != anim:
+        free(out)
     EAL.duplicate_asset(anim, out)
     a = load(out)
     length = a.get_editor_property("sequence_length")
@@ -339,8 +339,7 @@ def bake_pose(sequence: str, actor_label: str, source: str, target: str, anim: s
     from .seq import component_of, set_anim
     LSE = unreal.LevelSequenceEditorBlueprintLibrary
     src = component_of(actor_label, source)
-    if EAL.does_asset_exist(out):
-        EAL.delete_asset(out)
+    free(out)
     EAL.duplicate_asset(anim, out)
     a = load(out)
     seq = load(sequence)

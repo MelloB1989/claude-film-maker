@@ -212,11 +212,11 @@ SPLICES = {"him": ["L2", "L4a"], "her": ["L3a", "L4b"]}
 COMPOSE = r"""
 import json, bisect, time, unreal
 AL, EAL, F = unreal.AnimationLibrary, unreal.EditorAssetLibrary, unreal.RawCurveTrackTypes.RCT_FLOAT
+from fmbridge.ops.assets import free  # never a dialog over an existing asset
 P = json.loads(PARAMS)
 T0 = time.time()
 def job():
-    if EAL.does_asset_exist(P["out"]):
-        EAL.delete_asset(P["out"])
+    free(P["out"])
     EAL.duplicate_asset(P["base"], P["out"])
     a = unreal.load_asset(P["out"])
     L = a.get_editor_property("sequence_length")
@@ -357,10 +357,10 @@ def idle_for(who: str) -> str:
 ROLL = r"""
 import json, unreal
 AL, EAL = unreal.AnimationLibrary, unreal.EditorAssetLibrary
+from fmbridge.ops.assets import free  # never a dialog over an existing asset
 P = json.loads(PARAMS)
 def job():  # across editor ticks (a yield every few bones), one bracket: one recompression
-    if EAL.does_asset_exist(P["out"]):
-        EAL.delete_asset(P["out"])
+    free(P["out"])
     EAL.duplicate_asset(P["src"], P["out"])
     a = unreal.load_asset(P["out"])
     n = AL.get_num_keys(a)
@@ -460,9 +460,9 @@ def signs(who: str = "him") -> dict:
 import json, unreal
 import fmbridge.ops.anim as A
 EAL = unreal.EditorAssetLibrary
+from fmbridge.ops.assets import free
 P = json.loads(PARAMS)
-if EAL.does_asset_exist(P["probe"]):
-    EAL.delete_asset(P["probe"])
+free(P["probe"])
 EAL.duplicate_asset(P["face"], P["probe"])
 a = unreal.load_asset(P["probe"])
 L = a.get_editor_property("sequence_length")
@@ -552,9 +552,9 @@ GESTURES = {
 AXES_PROBE = r"""
 import json, unreal
 AL, EAL = unreal.AnimationLibrary, unreal.EditorAssetLibrary
+from fmbridge.ops.assets import free  # never a dialog over an existing asset
 P = json.loads(PARAMS)
-if EAL.does_asset_exist(P["out"]):
-    EAL.delete_asset(P["out"])
+free(P["out"])
 EAL.duplicate_asset(P["src"], P["out"])
 a = unreal.load_asset(P["out"])
 n = AL.get_num_keys(a)
@@ -574,10 +574,10 @@ result = n
 GESTURE = r"""
 import json, math, unreal
 AL, EAL = unreal.AnimationLibrary, unreal.EditorAssetLibrary
+from fmbridge.ops.assets import free  # never a dialog over an existing asset
 P = json.loads(PARAMS)
 def job():
-    if EAL.does_asset_exist(P["out"]):
-        EAL.delete_asset(P["out"])
+    free(P["out"])
     EAL.duplicate_asset(P["src"], P["out"])
     a = unreal.load_asset(P["out"])
     n = AL.get_num_keys(a)
