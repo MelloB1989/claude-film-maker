@@ -159,9 +159,12 @@ BEATS = {
     "her": [
         # S15: she watches him while he speaks (head turned towards him), a smile at "the next one", then she turns
         # to the lens for L3 (f1158)
-        # he is 80 cm in front of her and 95 cm to her left (world +Y), his eyes 16 cm higher
-        turn([[1080, 28.0], [1140, 30.0], [1156, 0.0]]),
+        # he is 80 cm in front of her and 95 cm to her left (world +Y), his eyes 16 cm higher: written like his look
+        # (a lock on him does not converge from that turn), the eyes the rest of the way (eyeLookRight: to her left)
+        turn([[1080, 34.0], [1140, 36.0], [1156, 0.0]]),
         [PITCH, [[1080, -4.0], [1140, -4.0], [1156, 0.0]]],
+        *[[f"CTRL_expressions_eyeLook{d}{s}", [[1080, v], [1142, v], [1154, 0.0]]]
+          for s in "LR" for d, v in (("Right", 0.35), ("Up", 0.12))],
         *smile(1124, 1138, 1146, 1160, 0.3),
         # S17-S18: "...to karma." then the smile to the lens and a settling nod with him
         *nod(1408, 3.0),
@@ -466,7 +469,7 @@ def sync(who: str) -> dict:
 # keep the solve's own eyes and the beats' (his head-down opening, his written look to her, his S16 off screen).
 GAZE = {
     "him": [["S13", 908, 959], ["S14", 960, 1079], ["S15", 1080, 1137], ["S17", 1320, 1439], ["S18", 1440, 1559]],
-    "her": [["him", 1080, 1149], ["S15", 1156, 1199], ["S16", 1200, 1319], ["S17", 1320, 1439], ["S18", 1440, 1559]],
+    "her": [["S15", 1156, 1199], ["S16", 1200, 1319], ["S17", 1320, 1439], ["S18", 1440, 1559]],
 }
 
 
