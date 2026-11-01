@@ -238,7 +238,10 @@ def mk(name, bm, mats, bevel=None, segs=2, angle=35, cut=None):
     Faces of the cutter keep their own material_index, so a recess can be lined with a second slot."""
     if not isinstance(mats, (list, tuple)):
         mats = [mats]
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    if os.environ.get("DBG"):
+        print(f"  mk {name}: {len(bm.verts)} verts {len(bm.faces)} faces")
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
@@ -301,10 +304,19 @@ def bvh_of(objs):
     return tree
 
 
+def bvh_bm(bm):
+    """BVH of a bmesh being built, with outward face normals (so hit() returns real normals)."""
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.normal_update()
+    return BVHTree.FromBMesh(bm)
+
+
 def hit(bvh, origin, direction):
     loc, nrm, _i, _d = bvh.ray_cast(Vector(origin), Vector(direction).normalized())
     if loc is None:
         raise RuntimeError(f"ray from {origin} along {direction} missed")
+    if nrm.length < 1e-6:
+        raise RuntimeError(f"ray from {origin}: zero normal (bmesh normals not computed)")
     return loc, nrm.normalized()
 
 
@@ -314,21 +326,35 @@ def _bsdf(m):
     return next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
 
 
+def _set(b, key, val):
+    if key in b.inputs:
+        b.inputs[key].default_value = val
+
+
 def materials():
     M = {
-        "body": S.material("M_DroneBody", (0.40, 0.41, 0.42), 0.62, specular=0.4),
-        "dark": S.material("M_DroneDark", (0.030, 0.031, 0.034), 0.55, specular=0.4),
-        "motor": S.material("M_Motor", (0.055, 0.057, 0.062), 0.34, metallic=0.8),
-        "prop": S.material("M_Prop", (0.43, 0.44, 0.45), 0.4, specular=0.5),
-        "gimbal": S.material("M_GimbalBlack", (0.011, 0.011, 0.012), 0.38),
-        "lens": S.material("M_Lens", (0.004, 0.005, 0.008), 0.03, specular=1.0),
+        "body": S.material("M_DroneBody", (0.42, 0.41, 0.385), 0.44, specular=0.5),
+        "dark": S.material("M_DroneDark", (0.026, 0.027, 0.030), 0.5, specular=0.45),
+        "motor": S.material("M_Motor", (0.2, 0.2, 0.21), 0.34, metallic=0.9),
+        "prop": S.material("M_Prop", (0.20, 0.205, 0.21), 0.28, specular=0.5),
+        "gimbal": S.material("M_GimbalBlack", (0.012, 0.012, 0.013), 0.36, specular=0.5),
+        "lens": S.material("M_Lens", (0.004, 0.005, 0.007), 0.0, specular=0.5),
         "led": S.material("M_LedFront", (0.9, 0.05, 0.03), 0.25),
         "ctrl": S.material("M_ControllerBody", (0.055, 0.057, 0.061), 0.58, specular=0.4),
     }
     b = _bsdf(M["lens"])
-    for key, val in (("Coat Weight", 1.0), ("Coat Roughness", 0.02)):
-        if key in b.inputs:
-            b.inputs[key].default_value = val
+    _set(b, "Coat Weight", 1.0)
+    _set(b, "Coat Roughness", 0.02)
+    _set(b, "Alpha", 0.9)
+    _set(b, "IOR", 1.6)
+    _set(b, "Thin Film Thickness", 420.0)
+    _set(b, "Thin Film IOR", 1.38)
+    b = _bsdf(M["prop"])
+    _set(b, "Alpha", 0.86)
+    for m in (M["lens"],):
+        for attr, val in (("use_raytrace_refraction", True), ("use_screen_refraction", True)):
+            if hasattr(m, attr):
+                setattr(m, attr, val)
     b = _bsdf(M["led"])
     for key in ("Emission Color", "Emission"):
         if key in b.inputs:
@@ -431,3 +457,101 @@ def shoot(ob, path, view_dir=None, lens=60, margin=1.08, loc=None, target=None):
         cam.location = centre + (Vector(co) - centre) * margin
     sc.render.filepath = path
     bpy.ops.render.render(write_still=True)
+
+
+# ---------------------------------------------------------------- drone v2: lofts, profiles, shelf scene
+
+def mirror_half(half):
+    """Half outline [(y, z)] from bottom centre (y=0) round +y to top centre (y=0) -> closed CCW outline."""
+    return list(half) + [(-y, z) for y, z in reversed(half[1:-1])]
+
+
+def end_curve(u, p):
+    """Superelliptic end: scale factor at fraction u (0 at the start of the rounding, 1 at the tip)."""
+    u = min(max(u, 0.0), 1.0)
+    return (1.0 - u ** p) ** (1.0 / p)
+
+
+def end_stations(x_flat, x_end, n, p):
+    """Stations between the start of an end rounding and (excluding) its tip, dense towards the tip."""
+    out = []
+    for k in range(1, n):
+        th = k / n * math.pi / 2
+        u = math.sin(th) ** (2.0 / p)
+        out.append(x_flat + u * (x_end - x_flat))
+    return out
+
+
+def loft(bm, stations, section, cap0, cap1, slot=0):
+    """Skin section(x) -> [(y, z)] (constant length) along x; caps as for add_grid."""
+    rings = [[(x, y, z) for y, z in section(x)] for x in stations]
+    return add_grid(bm, rings, cap0, cap1, slot)
+
+
+def naca(x, t):
+    """NACA 4-digit half thickness at chord fraction x for thickness ratio t (max = t/2)."""
+    return 5 * t * (0.2969 * math.sqrt(max(x, 0.0)) - 0.126 * x - 0.3516 * x ** 2 + 0.2843 * x ** 3
+                    - 0.1036 * x ** 4)
+
+
+def foil(h, t, n=10, blunt=0.05):
+    """Closed symmetric aerofoil section [(a, b)]: chord h along a (leading edge at +h/2), max thickness t."""
+    xs = [0.5 * (1 - math.cos(math.pi * k / n)) for k in range(n + 1)]
+
+    def half(x):
+        return t * naca(x, 1.0) + blunt * x / 2
+    side1 = [(h / 2 - x * h, half(x)) for x in xs]
+    side2 = [(h / 2 - x * h, -half(x)) for x in reversed(xs[1:])]
+    return side1 + side2
+
+
+def conform_strip(bvh, pts, dirn, prof, bm, lift=0.0, slot=0):
+    """A small swept strip (rib, bead) lying on a surface: raycast each point of pts along dirn."""
+    path, nrm0 = [], None
+    for p in pts:
+        loc, n = hit(bvh, Vector(p) - Vector(dirn) * 20, dirn)
+        path.append(loc + n * lift)
+        nrm0 = nrm0 or n
+    add_tube(bm, path, lambda u: prof, hint=tuple(nrm0), slot=slot)
+
+
+def oak():
+    """Light oak for preview shelves, grain along world Y."""
+    m = S.material("_Oak", (0.62, 0.43, 0.25), 0.55)
+    nt = m.node_tree
+    bsdf = _bsdf(m)
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.inputs["Scale"].default_value = (1.0, 0.025, 1.0)
+    wave = nt.nodes.new("ShaderNodeTexWave")
+    wave.wave_type = "BANDS"
+    wave.bands_direction = "X"
+    wave.inputs["Scale"].default_value = 110.0
+    wave.inputs["Distortion"].default_value = 14.0
+    wave.inputs["Detail"].default_value = 4.0
+    wave.inputs["Detail Scale"].default_value = 1.5
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = (0.50, 0.32, 0.17, 1)
+    ramp.color_ramp.elements[1].color = (0.64, 0.45, 0.27, 1)
+    ramp.color_ramp.elements[0].position = 0.2
+    ramp.color_ramp.elements[1].position = 0.75
+    nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
+    nt.links.new(mp.outputs["Vector"], wave.inputs["Vector"])
+    nt.links.new(wave.outputs["Fac"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    return m
+
+
+def area_light(name, loc, target, energy, size, color=(1.0, 0.86, 0.7), shape="RECTANGLE", size_y=None):
+    light = bpy.data.lights.new(name, "AREA")
+    light.shape = shape
+    light.size = size
+    if size_y is not None:
+        light.size_y = size_y
+    light.energy = energy
+    light.color = color
+    ob = bpy.data.objects.new(name, light)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.location = Vector(loc)
+    ob.rotation_euler = (Vector(target) - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
+    return ob
