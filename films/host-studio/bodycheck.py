@@ -24,12 +24,20 @@ VIEWS = {  # name: (location, look-at, focal mm, width, height) for a presenter 
     "waist": ([150, 25, 140], [0, 0, 128], 35.0, 1080, 1350),
 }
 WHO = {"him": "Host", "her": "Presenter"}
+GARMENT = '''
+from fmbridge.ops import level as L
+for c in L.actor({label!r}).get_components_by_class(unreal.SkeletalMeshComponent):
+    if c.get_name() == "SkeletalMesh":
+        c.set_visibility({show!r})
+result = True
+'''
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--bare", action="store_true", help="hide the garment: judge the body itself (a diagnostic)")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     for name, (loc, at, focal, w, h) in VIEWS.items():
@@ -39,6 +47,7 @@ def main() -> None:
         her = who != "her"
         ok(client.exec_code(SHOW.format(hidden={"Host": who != "him", "Presenter": her, "HerEarL": her,
                                                 "HerEarR": her, "HerWatch": her, "Stool": True})))
+        ok(client.exec_code(GARMENT.format(label=WHO[who], show=not a.bare)))
         for name, (_, _, _, w, h) in VIEWS.items():
             # one shot per view: the viewport follows the sequence's camera cut, whatever camera the still names
             seq = f"/Game/Studio/Stills/SEQ_BodyCheck_{name}"
@@ -50,6 +59,7 @@ def main() -> None:
             local = OUT / f"{who}_{name}{'_' + a.tag if a.tag else ''}.png"
             client.pull(remote, str(local))
             print(local)
+        ok(client.exec_code(GARMENT.format(label=WHO[who], show=True)))
     ok(client.op("seq.close"))
     ok(client.exec_code(SHOW.format(hidden={"Host": False, "Presenter": True, "HerEarL": True, "HerEarR": True,
                                             "HerWatch": True, "Stool": True})))

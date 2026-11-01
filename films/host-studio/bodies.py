@@ -19,9 +19,9 @@ from stills import ok
 BODIES = {
     # him: a fit, athletic man; a V-taper (shoulders and chest well over the waist), defined arms, no gut
     "him": ("/Game/Host/Host_Trey", "Host", {
-        "Height": 182, "Across Shoulder": 46.5, "Front Interscye Length": 42, "Chest": 108, "Underbust": None,
-        "Waist": 76, "High Hip": 82, "Hip": 94, "Neck Base": 42, "Neck": 39.5, "Bicep": 37, "Forearm": 30,
-        "Thigh": 57, "Knee": 34, "Calf": 37, "Fat": -2.2, "Muscularity": 1.8, "Masculine/Feminine": -1.5}),
+        "Height": 182, "Across Shoulder": 47, "Front Interscye Length": 42.5, "Chest": 110, "Underbust": None,
+        "Waist": 74, "High Hip": 80, "Hip": 92, "Neck Base": 41, "Neck": 39, "Bicep": 38, "Forearm": 30,
+        "Thigh": 57, "Knee": 34, "Calf": 37, "Fat": -2.8, "Muscularity": 2.0, "Masculine/Feminine": -1.6}),
     # her: slim and clearly feminine; a defined bust over a narrow waist, curved hips, slender arms and shoulders
     "her": ("/Game/Host/Presenter_F", "Presenter", {
         "Height": 168, "Across Shoulder": 33, "Front Interscye Length": 31, "Chest": 95, "Bust Span": 19.5,
