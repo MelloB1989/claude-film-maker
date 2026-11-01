@@ -7,7 +7,7 @@ its left end, back edge (x = 0 wall, y = 0 left end, z = 0 shelf top).  +X towar
 screen-right seen from +X.  The shelves (150 x 26 x 4.5, tops at z = 0, -37, -74, -111) are
 colliders only and are not exported.  The pot is centred at (14, 14).
 
-Writes <out>/pothos_trailing.fbx, <out>/T_PothosLeaf.png (1024 px leaf texture), previews
+Writes <out>/pothos_trailing.fbx, <out>/T_PothosLeaf.png (2048 px atlas of four leaves), previews
 pothos_trailing.png, pothos_trailing_front.png, pothos_on_shelves.png, pothos_trailing_close.png and
 pothos_leaf_close.png.  Seeded (--seed): a run is reproducible.
 """
@@ -44,12 +44,14 @@ def parse_args():
 
 
 # =========================================================================== leaf outline
-# Normalised leaf (length 1, base/petiole at the origin, tip at +y): a cordate margin in polar form,
-# r(theta) through control points (smoothed with a monotone cubic), theta = 0 at the tip.
-W0 = 0.92                      # nominal width factor baked into the outline (and the texture)
+# Normalised leaf: total length 1 (lobe bottoms to tip), petiole/sinus at the origin, tip at +y.  The
+# margin is a polar curve r(theta) through control points (monotone cubic), theta = 0 at the tip; x is
+# then scaled so the width is ASPECT of the length: a broad cordate blade, a short acuminate tip (the
+# fast drop over the first few degrees) and rounded basal lobes either side of a moderate sinus.
+ASPECT = 0.70
 TH_MAX = math.radians(166)     # the lobes end here, behind the petiole; the sinus runs back to the origin
-_CTRL = [(0, 1.0), (5, 0.945), (12, 0.83), (22, 0.715), (36, 0.635), (55, 0.565), (75, 0.52),
-         (95, 0.50), (115, 0.47), (135, 0.43), (152, 0.38), (166, 0.31)]
+_CTRL = [(0, 1.0), (2, 0.945), (5, 0.892), (9, 0.862), (15, 0.828), (24, 0.775), (36, 0.712), (52, 0.648),
+         (70, 0.598), (90, 0.560), (110, 0.520), (128, 0.460), (143, 0.375), (156, 0.285), (166, 0.205)]
 
 
 def _monotone_table(ctrl, n=2000):
@@ -80,20 +82,52 @@ def margin_r_np(th):
     return np.interp(np.abs(th), _TT, _TR)
 
 
-def _bounds():
+def _raw_bounds():
     xs, ys = [], []
-    for k in range(721):
-        th = -TH_MAX + 2 * TH_MAX * k / 720
+    for k in range(1441):
+        th = -TH_MAX + 2 * TH_MAX * k / 1440
         r = margin_r(abs(th))
-        xs.append(W0 * r * math.sin(th))
+        xs.append(r * math.sin(th))
         ys.append(r * math.cos(th))
     return min(xs), max(xs), min(ys), max(ys)
 
 
-XMIN, XMAX, YMIN, YMAX = _bounds()
+_rx0, _rx1, _ry0, _ry1 = _raw_bounds()
+KL = 1.0 / (_ry1 - _ry0)                       # raw polar units -> leaf lengths
+KW = ASPECT * (_ry1 - _ry0) / (_rx1 - _rx0)    # extra x scale for the width
+XMIN, XMAX, YMIN, YMAX = _rx0 * KW * KL, _rx1 * KW * KL, _ry0 * KL, _ry1 * KL
+
+
+def outline_pt(th):
+    """Normalised margin point at polar angle th (signed: + is the leaf's +x side)."""
+    r = margin_r(th)
+    return KW * KL * r * math.sin(th), KL * r * math.cos(th)
+
+
+def inside_np(xn, yn):
+    """(inside, R - r) of normalised points against the margin, in raw polar units."""
+    rx, ry = xn / (KW * KL), yn / KL
+    th = np.arctan2(rx, ry)
+    r = np.hypot(rx, ry)
+    R = margin_r_np(np.clip(np.abs(th), 0, TH_MAX))
+    return (np.abs(th) <= TH_MAX) & (r <= R), R - r
 
 
 # =========================================================================== leaf texture
+# T_PothosLeaf is a 2 x 2 atlas: four different leaves, each in its own 1024 px quadrant mapped over the
+# leaf's bounding box (inset by ATLAS_INSET), so neighbouring leaves on the plant never share a pattern.
+ATLAS_INSET = 0.012
+# golden-streak coverage of the blade per quadrant (q = qx + 2 qy): one nearly all-green leaf, three marbled
+QUAD_COVER = (0.03, 0.12, 0.18, 0.24)
+QUAD_SEED = (31, 47, 59, 73)
+G_DEEP = np.array([30, 70, 26]) / 255.0
+G_MID = np.array([45, 95, 38]) / 255.0
+G_LIGHT = np.array([62, 112, 44]) / 255.0
+LIME = np.array([150, 160, 64]) / 255.0
+GOLD = np.array([215, 190, 85]) / 255.0
+GOLD_PALE = np.array([226, 208, 120]) / 255.0
+
+
 def _smooth(a, b, x):
     t = np.clip((x - a) / (b - a), 0, 1)
     return t * t * (3 - 2 * t)
@@ -134,126 +168,143 @@ def _blur(a, sigma):
     return np.apply_along_axis(lambda c: np.convolve(c, k, mode="same"), 0, out)
 
 
-def leaf_texture_pixels(size=1024, seed=11):
-    """A pothos leaf, top side, in the leaf's UV frame: green with golden-cream variegation and veins.
+# lateral veins: y = y0 + VA |x| + VB x^2 (normalised), leaving the midrib forward and curving towards the tip
+VA, VB = 0.62, 1.25
+VEIN_Y0 = (0.10, 0.19, 0.29, 0.39, 0.49, 0.59, 0.69)
 
-    Returns float32 (size, size, 3) sRGB 0..1, row 0 = v 0 (bottom of the UV square)."""
+
+def vein_w(xn, yn):
+    """Vein coordinate: constant along a lateral vein, increasing towards the tip."""
+    a = np.abs(xn)
+    return yn - VA * a - VB * a * a
+
+
+def leaf_texture_pixels(size=1024, seed=31, cover=0.18):
+    """One pothos leaf, top side, in the leaf's UV frame: glossy green with thin feathered golden streaks
+    radiating from the midrib along the lateral veins.  Returns float32 (size, size, 3) sRGB 0..1, row 0 =
+    v 0 (bottom of the UV square)."""
     rs = np.random.default_rng(seed)
     N = size
-    grids = [rs.random((96, 96)) for _ in range(8)]
+    grids = [rs.random((128, 128)) for _ in range(8)]
     c = (np.arange(N) + 0.5) / N
     U, V = np.meshgrid(c, c)
-    xn = XMIN + U * (XMAX - XMIN)
-    yn = YMIN + V * (YMAX - YMIN)
-    rx = xn / W0
-    th = np.arctan2(rx, yn)
-    r = np.hypot(rx, yn)
-    R = margin_r_np(np.clip(np.abs(th), 0, TH_MAX))
-    inside = (np.abs(th) <= TH_MAX) & (r <= R)
-    edge = np.clip((R - r) / 0.10, 0, 1)          # 0 at the margin, 1 well inside
+    ul = (U - ATLAS_INSET) / (1 - 2 * ATLAS_INSET)
+    vl = (V - ATLAS_INSET) / (1 - 2 * ATLAS_INSET)
+    xn = XMIN + ul * (XMAX - XMIN)
+    yn = YMIN + vl * (YMAX - YMIN)
+    inside, dR = inside_np(xn, yn)
+    edge = np.clip(dR / 0.08, 0, 1)                 # 0 at the margin, 1 well inside
+    ax = np.abs(xn)
+    half = ax / np.maximum(1e-3, np.interp(yn, *_halfwidth_table()))   # 0 at the midrib, 1 at the margin
+    half = np.clip(half, 0, 1)
+    w = vein_w(xn, yn)
+    side = np.where(xn < 0, 17.3, 0.0)              # the two halves are streaked independently
 
-    # organic warp
-    wx = (_fbm(grids[:3], U, V, 3, 3) - 0.5) * 0.14
-    wy = (_fbm(grids[3:6], U + 7.3, V + 3.1, 3, 3) - 0.5) * 0.14
-    Uw, Vw = U + wx, V + wy
+    # base green: deep at the margin and in broad soft patches, a lighter band either side of the midrib
+    patch = _fbm(grids, U * 2.0 + 3.1, V * 2.0 + 7.7, 2.5, 3)
+    col = G_MID[None, None, :] * np.ones((N, N, 1))
+    dk = np.clip(0.55 * (1 - edge) + 0.9 * (patch - 0.5), 0, 1)
+    col = col * (1 - dk[..., None]) + G_DEEP[None, None, :] * dk[..., None]
+    lt = np.clip(0.45 * np.exp(-(ax / 0.06) ** 2) + 0.6 * (0.5 - patch), 0, 1) * 0.6
+    col = col * (1 - lt[..., None]) + G_LIGHT[None, None, :] * lt[..., None]
 
-    # variegation: splashes + streaks that radiate from the base along the veins, more at the margin
-    ax_ = np.abs(xn)
-    side = (xn < 0) * 3.7
-    sa, ca = math.sin(math.radians(56)), math.cos(math.radians(56))
-    along = ax_ * sa + yn * ca
-    across = ax_ * ca - yn * sa + side
-    streak = _fbm(grids, along * 1.0 + 1.0, across * 4.5 + 2.0, 1.0, 3)       # streaks parallel to the veins
-    streak2 = _fbm(grids, along * 2.0 + 5.0, across * 9.0 + 7.0, 1.0, 2)
-    sp = _fbm(grids, Uw + 1.7, Vw + 4.2, 2.2, 4)
-    s = (0.60 * sp + 0.32 * streak + 0.12 * streak2
-         + 0.12 * (1 - edge) * (0.4 + 0.6 * _fbm(grids, Uw + 3, Vw + 5, 5.0, 2))
-         - 0.25 * np.exp(-(xn / 0.05) ** 2))
-    q = np.quantile(s[inside], 1 - 0.25)
-    A1 = _smooth(q - 0.030, q - 0.004, s)          # yellow-green
-    A2 = _smooth(q - 0.004, q + 0.016, s)          # gold
-    Cc = _smooth(q + 0.075, q + 0.14, s)           # pale cream core of a splash
-    # fine pale speckles: round dots (not noise blobs), denser near the edge of a splash
-    dots = np.zeros((N, N), np.float32)
-    nd = 5200
-    dx = rs.random(nd)
-    dy = rs.random(nd)
-    px_, py_ = (dx * N).astype(int), (dy * N).astype(int)
-    near = _smooth(q - 0.22, q - 0.02, s[py_, px_])
-    keep = (rs.random(nd) < 0.015 + 0.45 * near) & inside[py_, px_]
-    np.add.at(dots, (py_[keep], px_[keep]), rs.uniform(0.5, 1.5, keep.sum()))
-    dots = _smooth(0.10, 0.16, _blur(dots, 2.4) * 16.0)
-    fleck = dots * (1 - A2)
+    # streaks: noise stretched along the veins (low frequency along |x|, high across w), gated by a slow
+    # mask so they gather in marbled sectors, strongest by the midrib and fading towards the margin
+    along = ax * 6.0 + side
+    ww = w + 0.018 * (_fbm(grids[2:], U * 3 + side, V * 3, 2.0, 2) - 0.5)     # veins are not ruled lines
+    s1 = _fbm(grids, along + 0.7, ww * 34.0 + side, 1.0, 3)
+    s2 = _fbm(grids[3:], along * 2.4 + 4.1, ww * 120.0 + 2.0 * side, 1.0, 2)   # feathering: fine striations
+    sector = _fbm(grids[5:], U * 1.0 + 0.3 + side, ww * 4.0 + 9.0, 2.2, 2)
+    radial = 0.14 * (1 - half) ** 1.4 - 0.10 * half ** 3
+    s = 0.40 * s1 + 0.30 * s2 + 0.50 * sector + radial
+    s = s - 0.20 * np.exp(-(ax / 0.012) ** 2)        # the midrib itself stays clear
+    q = np.quantile(s[inside], 1 - cover)
+    feather = _smooth(q - 0.045, q - 0.004, s)       # yellow-green halo
+    gold = _smooth(q - 0.012, q + 0.030, s) * 0.92
+    core = _smooth(q + 0.07, q + 0.12, s)
+    col = col * (1 - 0.45 * feather[..., None]) + LIME[None, None, :] * (0.45 * feather[..., None])
+    col = col * (1 - gold[..., None]) + GOLD[None, None, :] * gold[..., None]
+    col = col * (1 - 0.4 * core[..., None]) + GOLD_PALE[None, None, :] * (0.4 * core[..., None])
 
-    g_lo = np.array([18, 54, 14]) / 255.0
-    g_hi = np.array([44, 92, 26]) / 255.0
-    lime = np.array([120, 142, 38]) / 255.0
-    gold = np.array([212, 156, 26]) / 255.0
-    cream = np.array([224, 186, 76]) / 255.0
-    mixg = np.clip(0.30 + 1.5 * (_fbm(grids, Uw + 6, Vw + 8, 6.0, 3) - 0.5) + 0.30 * (1 - edge), 0, 1)
-    col = g_lo[None, None, :] * (1 - mixg[..., None]) + g_hi[None, None, :] * mixg[..., None]
-    col = col * (1 - A1[..., None]) + lime[None, None, :] * A1[..., None]
-    col = col * (1 - A2[..., None]) + gold[None, None, :] * A2[..., None]
-    col = col * (1 - 0.4 * Cc[..., None]) + cream[None, None, :] * (0.4 * Cc[..., None])
-    col = col * (1 - 0.9 * fleck[..., None]) + gold[None, None, :] * (0.9 * fleck[..., None])
-
-    # veins: a midrib and ~7 lateral veins per side sweeping forward to the margin, then blurred
+    # veins: the midrib, lateral veins along constant w and a basal vein into each lobe, slightly sunken
     mid = np.zeros((N, N), np.float32)
     lat = np.zeros((N, N), np.float32)
 
-    def stamp(acc, pts, w):
-        px = ((pts[:, 0] - XMIN) / (XMAX - XMIN) * N).astype(int)
-        py = ((pts[:, 1] - YMIN) / (YMAX - YMIN) * N).astype(int)
+    def stamp(acc, x, y, wt):
+        px = ((ATLAS_INSET + (x - XMIN) / (XMAX - XMIN) * (1 - 2 * ATLAS_INSET)) * N).astype(int)
+        py = ((ATLAS_INSET + (y - YMIN) / (YMAX - YMIN) * (1 - 2 * ATLAS_INSET)) * N).astype(int)
         ok = (px >= 0) & (px < N) & (py >= 0) & (py < N)
-        np.add.at(acc, (py[ok], px[ok]), w[ok])
+        np.add.at(acc, (py[ok], px[ok]), wt[ok])
 
-    t = np.linspace(0, 1, 2400)
-    stamp(mid, np.stack([np.zeros_like(t), 0.0 + 0.97 * t], 1), (1 - 0.55 * t))
-    y0s = [0.0, 0.10, 0.21, 0.33, 0.46, 0.60, 0.74]
-    a0s = [105, 74, 64, 58, 53, 49, 45]
-    for y0, a0 in zip(y0s, a0s):
-        x, y = 0.0, y0
-        path = [(x, y)]
-        ds = 0.0015
-        for k in range(1200):
-            tau = min(k * ds / 0.55, 1.0)
-            ang = math.radians(a0 * (1 - 0.62 * tau ** 0.9))
-            x += ds * math.sin(ang) * W0
-            y += ds * math.cos(ang)
-            thp = math.atan2(x / W0, y)
-            if math.hypot(x / W0, y) > margin_r(abs(thp)) * 0.965:
-                break
-            path.append((x, y))
-        pa = np.array(path)
-        if len(pa) < 3:
+    t = np.linspace(0, 1, 3000)
+    stamp(mid, np.zeros_like(t), YMAX * 0.97 * t, 1 - 0.6 * t)
+    xs = np.linspace(0, XMAX, 3000)
+    for y0 in VEIN_Y0:
+        ys = y0 + VA * xs + VB * xs * xs
+        ins, dr = inside_np(xs, ys)
+        ok = ins & (dr > 0.02)
+        if ok.sum() < 3:
             continue
-        w = 1 - 0.65 * np.linspace(0, 1, len(pa))
+        last = np.argmin(ok) if not ok.all() else len(ok)
+        xv, yv = xs[:last], ys[:last]
+        wt = 1 - 0.7 * np.linspace(0, 1, len(xv))
         for sg in (-1, 1):
-            stamp(lat, np.stack([sg * pa[:, 0], pa[:, 1]], 1), w)
-    mid = _blur(mid, 3.2) * 0.95
-    lat = _blur(lat, 1.7) * 2.6
-    net = 1 - np.abs(2 * _fbm(grids, U + 2, V + 9, 44.0, 2) - 1)
-    net = _smooth(0.85, 0.98, net) * 0.07
+            stamp(lat, sg * xv, yv, wt)
+    th = np.linspace(0, 1, 2000)            # basal vein: from the sinus out and back into the lobe
+    bx = 0.80 * XMAX * th
+    by = 0.02 + 0.05 * th - 0.20 * th ** 1.6
+    ins, dr = inside_np(bx, by)
+    ok = ins & (dr > 0.02)
+    for sg in (-1, 1):
+        stamp(lat, sg * bx[ok], by[ok], 0.8 - 0.5 * th[ok])
+    mid = _blur(mid, 2.6) * 0.9
+    lat = _blur(lat, 1.5) * 2.2
+    net = 1 - np.abs(2 * _fbm(grids, U + 2, V + 9, 48.0, 2) - 1)
+    net = _smooth(0.86, 0.98, net) * 0.05
     vein = np.clip(mid + lat + net, 0, 1)
-    vein_col = (np.array([150, 198, 100]) / 255.0)[None, None, :] * (1 - A2[..., None]) \
-        + (np.array([250, 238, 168]) / 255.0)[None, None, :] * A2[..., None]
-    col = col * (1 - 0.72 * vein[..., None]) + vein_col * 0.72 * vein[..., None]
+    vein_col = (np.array([118, 158, 70]) / 255.0)[None, None, :] * (1 - gold[..., None]) \
+        + (np.array([236, 220, 140]) / 255.0)[None, None, :] * gold[..., None]
+    col = col * (1 - 0.6 * vein[..., None]) + vein_col * 0.6 * vein[..., None]
+    col = col * (1 - 0.18 * vein[..., None] * (1 - gold[..., None]))   # sunken veins read a touch darker
 
-    # slightly darker rim and a fine grain
-    col = col * (0.84 + 0.16 * _smooth(0.0, 0.4, edge))[..., None]
-    grain = 0.965 + 0.07 * _fbm(grids, U * 1.0 + 4, V + 1, 70.0, 2)
+    # a fine grain; outside the blade the colour simply continues (harmless if it bleeds into a mip)
+    grain = 0.97 + 0.06 * _fbm(grids, U + 4, V + 1, 80.0, 2)
     col = np.clip(col * grain[..., None], 0, 1)
-    if DEBUG_OUTLINE:
-        ring = inside & ~np.roll(inside, 1, 0) | inside & ~np.roll(inside, 1, 1) | inside & ~np.roll(inside, -1, 0) | inside & ~np.roll(inside, -1, 1)
-        col[ring] = (1, 0, 0)
     return col.astype(np.float32)
 
 
-DEBUG_OUTLINE = False
+_HW = None
 
 
-def write_leaf_texture(path, size=1024):
-    px = leaf_texture_pixels(size)
+def _halfwidth_table():
+    """(y, half width) of the normalised blade, for the 0..1 midrib-to-margin coordinate."""
+    global _HW
+    if _HW is None:
+        ys = np.linspace(YMIN, YMAX, 400)
+        hw = np.zeros_like(ys)
+        for k in range(2001):
+            th = TH_MAX * k / 2000
+            x, y = outline_pt(th)
+            i = int(round((y - YMIN) / (YMAX - YMIN) * 399))
+            hw[i] = max(hw[i], x)
+        for i in range(1, 400):               # fill gaps left by the sampling
+            if hw[i] == 0:
+                hw[i] = hw[i - 1]
+        _HW = (ys, np.maximum(hw, 0.02))
+    return _HW
+
+
+def atlas_pixels(size=2048):
+    n = size // 2
+    out = np.zeros((size, size, 3), np.float32)
+    for q in range(4):
+        qx, qy = q % 2, q // 2
+        out[qy * n:(qy + 1) * n, qx * n:(qx + 1) * n] = leaf_texture_pixels(n, QUAD_SEED[q], QUAD_COVER[q])
+    return out
+
+
+def write_leaf_texture(path, size=2048):
+    px = atlas_pixels(size)
     img = bpy.data.images.new("T_PothosLeaf_gen", size, size, alpha=False)
     img.colorspace_settings.name = "Non-Color"           # raw sRGB values, written as they are
     rgba = np.ones((size, size, 4), np.float32)
@@ -263,6 +314,16 @@ def write_leaf_texture(path, size=1024):
     img.file_format = "PNG"
     img.save()
     bpy.data.images.remove(img)
+
+
+def leaf_uv(xn, yn, quad, flip):
+    u = (xn - XMIN) / (XMAX - XMIN)
+    v = (yn - YMIN) / (YMAX - YMIN)
+    if flip:
+        u = 1 - u
+    u = ATLAS_INSET + u * (1 - 2 * ATLAS_INSET)
+    v = ATLAS_INSET + v * (1 - 2 * ATLAS_INSET)
+    return ((quad % 2) + u) / 2, ((quad // 2) + v) / 2
 
 
 # =========================================================================== small geometry helpers
@@ -643,7 +704,8 @@ class LeafShape:
         self.twist = rr.uniform(-0.12, 0.12)
         self.wsv = rr.uniform(0.92, 1.08)
         self.flip = rr.random() < 0.5
-        self.nu, self.ns = (13, 3) if L >= 8.0 else ((11, 3) if L >= 5.5 else (9, 3))
+        self.quad = rr.randrange(4)
+        self.nu, self.ns = (12, 3) if L >= 7.0 else ((10, 3) if L >= 4.8 else (8, 3))
 
     def zfield(self, x, y):
         L = self.L
@@ -678,34 +740,31 @@ class LeafShape:
             mid[k] = m
             top[k] = m + n * (ht - groove)
             bot[k] = m - n * (ht + ridge)
-            u = (xn - XMIN) / (XMAX - XMIN)
-            uv[k] = (1 - u if self.flip else u, (yn - YMIN) / (YMAX - YMIN))
+            uv[k] = leaf_uv(xn, yn, self.quad, self.flip)
 
         for i in range(nu):
             t = i / nu
-            th = TH_MAX * (1 - t)
-            r = margin_r(th)
-            xm, ym = W0 * r * math.sin(th), r * math.cos(th)
+            xm, ym = outline_pt(TH_MAX * (1 - t))
             ay = t ** 2.2
             for j in range(-ns, ns + 1):
                 s = (1 if j > 0 else -1) * sv[abs(j)] if j else 0.0
                 put(i, j, s * xm, ay + (ym - ay) * abs(s))
-        put(nu, 0, 0.0, 1.0)
+        put(nu, 0, 0.0, YMAX)
         return mid, top, bot, uv
 
 
 def emit_leaf(sink, shape, M, base):
-    """Add the leaf (top + bottom + rim) at world frame (M, base) to the sink."""
+    """Add the leaf at world frame (M, base) to the sink: a top and a bottom surface that meet in a
+    knife-thin margin (the boundary vertices are shared), so the blade is closed without rim faces."""
     nu, ns = shape.nu, shape.ns
     nv, faces, boundary, tris, idx = leaf_topology(nu, ns)
     mid, top, bot, uv = shape.local()
-    tv = [sink.bm.verts.new(base + M @ p) for p in top]
-    bv = [sink.bm.verts.new(base + M @ p) for p in bot]
+    rim = {i for e in boundary for i in e}
+    tv = [sink.bm.verts.new(base + M @ (mid[i] if i in rim else top[i])) for i in range(nv)]
+    bv = [tv[i] if i in rim else sink.bm.verts.new(base + M @ bot[i]) for i in range(nv)]
     for f in faces:
         sink.face([tv[i] for i in f], [uv[i] for i in f])
         sink.face([bv[i] for i in reversed(f)], [uv[i] for i in reversed(f)])
-    for a, b in boundary:
-        sink.face([tv[a], bv[a], bv[b], tv[b]], [uv[a], uv[a], uv[b], uv[b]])
 
 
 def leaf_world(shape, M, base):
@@ -733,6 +792,11 @@ class Plant:
     # ---------------------------------------------------------------- vines
     def vine_path(self, spec):
         rr = random.Random(self.rng.random())
+        if "start" in spec:          # a branch: leaves its parent sideways, then hangs
+            P = spec["start"]
+            off = Vector((spec["off"][0], spec["off"][1], 0))
+            wp = [P, P + off * 0.45 + Vector((0, 0, -2.2)), P + off + Vector((0, 0, -6.5))]
+            return self.hang_path(wp, 0, spec, rr)
         phi = math.radians(spec["phi"])
         u = Vector((math.cos(phi), math.sin(phi), 0))
         rs = spec.get("r_soil", 2.5)
@@ -755,10 +819,15 @@ class Plant:
                 f = 1 - (1 - t) ** 2.3
                 xy = E + (Hh - E) * f
                 wp.append(Vector((xy.x, xy.y, zr - (zr - zh) * t)))
-        last = wp[-1]
-        pts = catmull_centripetal(wp, per_cm=4)
-        pts = resample(pts, 0.5)
+        pts = resample(catmull_centripetal(wp, per_cm=4), 0.5)
         i_rim_s = min(range(len(pts)), key=lambda i: (pts[i] - R0).length)
+        return self.hang_path(wp, i_rim_s, spec, rr)
+
+    def hang_path(self, wp, i_rim_s, spec, rr):
+        """Spline through the head waypoints, then a gravity hang to length spec['L'], relaxed out of
+        the colliders (only past index i_rim_s: before it the vine is inside the pot)."""
+        last = wp[-1]
+        pts = resample(catmull_centripetal(wp, per_cm=4), 0.5)
         # tail: a gravity hang with gentle S-curves
         ds = 1.0
         L = spec["L"]
@@ -811,23 +880,51 @@ class Plant:
                         p = loc + d.normalized() * rmin
         return p
 
+    def branch_specs(self, specs):
+        """Side shoots of the primary vines: each leaves its parent where it already hangs."""
+        out = []
+        for pi, spec in enumerate(specs):
+            info = self.vine_info[pi]
+            pts, cum = info["pts"], info["cum"]
+            for at, L, ox, oy in spec.get("br", ()):
+                s0 = at * cum[-1]
+                while s0 < cum[-1] - 20:
+                    P, tan = at_len(pts, cum, s0)
+                    if tan.z < -0.6 and P.z < -2.0:
+                        break
+                    s0 += 1.0
+                P, tan = at_len(pts, cum, s0)
+                L = min(L, P.z + 116.0)
+                if L < 20:
+                    continue
+                b = {k: spec[k] for k in ("ymax", "xmin", "xmax", "drift") if k in spec}
+                b.update({"start": P, "off": (ox, oy), "L": L, "first": 3.5, "parent": pi, "thin": True})
+                out.append(b)
+        return out
+
     def build_vines(self, specs):
-        for vi, spec in enumerate(specs):
+        n_primary = len(specs)
+        self.build_vine_list(specs, 0)
+        self.build_vine_list(self.branch_specs(specs), n_primary)
+
+    def build_vine_list(self, specs, i0):
+        for vi, spec in enumerate(specs, i0):
             pts = self.vine_path(spec)
             cum = cum_len(pts)
             Ltot = cum[-1]
-            # nodes every 3.2-4.6 cm, after the rim
+            # nodes every 3.9-5.2 cm, after the rim
             nodes = []
             s = spec.get("first", 17.0)
             rr = random.Random(self.rng.random())
             while s < Ltot - 0.8:
                 nodes.append(s)
-                s += rr.uniform(2.9, 4.1)
+                s += rr.uniform(3.9, 5.2)
             nodes.append(Ltot - 0.5)
             # radius profile: stout at the pot, thin at the tip, a little swelling at every node
+            r0, r1 = (0.085, 0.085) if spec.get("thin") else (0.115, 0.115)
             radii = []
             for i, c in enumerate(cum):
-                r = 0.115 + 0.115 * (1 - c / Ltot) ** 0.8
+                r = r0 + r1 * (1 - c / Ltot) ** 0.8
                 for sn in nodes:
                     r *= 1 + 0.22 * math.exp(-((c - sn) / 0.55) ** 2)
                 radii.append(r)
@@ -860,7 +957,9 @@ class Plant:
         for attempt in range(44):
             f = 1.0 if attempt < 14 else (0.88 if attempt < 26 else (0.76 if attempt < 36 else 0.66))
             Ls = L * f
-            t, hint, roll, hdir, plen = gen(attempt)
+            g = gen(attempt)
+            t, hint, roll, hdir, plen = g[:5]
+            arch = g[5] if len(g) > 5 else 0.15
             plen *= (0.6 + Ls / 18.0)
             M = frame(t, hint, roll)
             base = att + hdir * plen
@@ -871,14 +970,14 @@ class Plant:
             tree = bvh_of(wv, [tuple(t_) for t_ in tris])
             if self.leaf_clear(wv, tree, own_vine):
                 # petiole
-                p1 = att + hdir * plen * 0.55 + Vector((0, 0, 0.15 * plen))
-                p2 = base - Vector(t).normalized() * plen * 0.45
+                p1 = att + hdir * plen * 0.55 + Vector((0, 0, arch * plen))
+                p2 = base - (M @ Vector((0, 1, 0))) * plen * 0.40
                 pet = []
-                for k in range(6):
-                    q = k / 5
+                for k in range(5):
+                    q = k / 4
                     pet.append(att * (1 - q) ** 3 + p1 * 3 * (1 - q) ** 2 * q + p2 * 3 * (1 - q) * q * q + base * q ** 3)
                 pr = 0.07 + 0.0035 * Ls
-                pradii = [pr * (1.25 - 0.3 * k / 5) for k in range(6)]
+                pradii = [pr * (1.25 - 0.3 * k / 4) for k in range(5)]
                 pv, pf = tube_mesh_data(pet, pradii, sides=4)
                 ptree = bvh_of(pv, pf)
                 if self.petiole_clear(pet, ptree, own_vine):
@@ -941,7 +1040,7 @@ class Plant:
                 return
             if self.pot_tree.find_nearest(p, 0.15)[0] is not None:
                 return
-        add_tube(self.stem, pts, [0.07, 0.06, 0.05, 0.035], sides=5, cone_end=True)
+        add_tube(self.stem, pts, [0.07, 0.06, 0.05, 0.035], sides=4, cone_end=True)
 
     def hang_gen(self, rr, sign, az0=0.0, pitch=(40, 82), spread=(20, 75)):
         def g(a):
@@ -985,10 +1084,12 @@ class Plant:
             for n, s in enumerate(nodes):
                 p, tan = at_len(pts, cum, s)
                 frac = s / Ltot
-                L = 10.4 * (1 - 0.64 * frac ** 0.85) * rr.uniform(0.9, 1.08)
+                # 6-10 cm along most of the vine, shrinking only over the last ~22 cm to the tip
+                L = rr.uniform(7.2, 10.0) * (1 - 0.15 * frac)
+                L = 3.4 + (L - 3.4) * smoothstep1(0.0, 22.0, Ltot - s)
                 if n == len(nodes) - 1:
                     L = 3.4
-                L = min(max(L, 3.4), 11.0)
+                L = min(max(L, 3.4), 10.0)
                 sign = -sign if rr.random() > 0.12 else sign
                 hanging = tan.z < -0.5
                 if hanging:
@@ -1002,17 +1103,33 @@ class Plant:
                 ok = self.try_leaf(p, gen, L, vi, rr, f"v{vi}_{n}")
                 placed += ok
                 hd = Vector((-tan.y, tan.x, 0)).normalized() if tan.xy.length > 0.2 else Vector((1, 0, 0))
-                if rr.random() < 0.75:
+                if rr.random() < 0.45:
                     self.aerial_root(p, hd, rr)
             info["leaves"] = placed
 
     # ---------------------------------------------------------------- crown
+    def mound_gen(self, rr, az0, elev=(30, 60), spread=55, plen=(3.2, 5.5), rise=38):
+        """Crown leaf on an arching petiole: the petiole rises outward from the node, the blade faces
+        outward and up (its normal 30-60 deg above the horizontal) and the tip falls away from the pot."""
+        def g(a):
+            sp = spread if a < 16 else (spread * 1.6 if a < 30 else 180)
+            az = az0 + math.radians(rr.uniform(-sp, sp))
+            out = Vector((math.cos(az), math.sin(az), 0))
+            e = math.radians(rr.uniform(*elev))
+            n = out * math.cos(e) + Vector((0, 0, math.sin(e)))
+            t = out * math.sin(e) - Vector((0, 0, math.cos(e)))
+            t = Matrix.Rotation(math.radians(rr.uniform(-30, 30)), 3, n) @ t     # tip swings within the blade
+            r_ = math.radians(rise + rr.uniform(-12, 12))
+            hdir = out * math.cos(r_) + Vector((0, 0, math.sin(r_)))
+            return t, n, 0.0, hdir, rr.uniform(*plen), 0.32
+        return g
+
     def crown(self):
         rr = random.Random(self.rng.random())
         # 1) rim spill: short stems over the pot rim, leaves hanging down the pot sides
-        nrim = 14
+        nrim = 9
         for k in range(nrim):
-            az = 2 * math.pi * (k + rr.uniform(-0.25, 0.25)) / nrim + 0.2
+            az = 2 * math.pi * (k + rr.uniform(-0.25, 0.25)) / nrim + 0.35
             u = Vector((math.cos(az), math.sin(az), 0))
             rs = rr.uniform(3.0, 5.2)
             S0 = POT_C + u * rs
@@ -1021,46 +1138,35 @@ class Plant:
                    POT_C + u * 8.4 + Vector((0, 0, 16.55))]
             pts = resample(catmull_centripetal(pts, 5), 0.6)
             self.add_crown_stem(pts, 0.19, 0.15, k + 100)
-            tip = pts[-1]
-            L = rr.uniform(6.0, 8.6)
-            gen = self.hang_gen(rr, 1 if k % 2 else -1, az0=az, pitch=(20, 60), spread=(8, 45))
-            self.try_leaf(tip, gen, L, k + 100, rr, f"rim{k}")
-            if rr.random() < 0.7:  # a second leaf a bit earlier on the stem
-                p2 = pts[len(pts) // 2 + 1]
-                self.try_leaf(p2, self.flat_gen(rr, az, 1 if k % 2 == 0 else -1, pitch=(-5, 40)), rr.uniform(5.5, 8.0),
-                              k + 100, rr, f"rim{k}b")
-        # 2) rising stems with leaves facing up and out
-        nst = 24
+            gen = self.hang_gen(rr, 1 if k % 2 else -1, az0=az, pitch=(25, 60), spread=(8, 45))
+            self.try_leaf(pts[-1], gen, rr.uniform(6.5, 8.5), k + 100, rr, f"rim{k}")
+        # 2) the mound: short stems rising from the soil, leaning out, each with 3 leaves on arching
+        #    petioles.  Inner stems are taller, so the leaves stack into a dome over the pot.
+        nst = 12
         for k in range(nst):
             az = 2 * math.pi * (k + rr.uniform(-0.3, 0.3)) / nst
             u = Vector((math.cos(az), math.sin(az), 0))
-            rs = rr.uniform(0.3, 4.0)
+            rs = rr.uniform(0.4, 4.6)
             S0 = POT_C + u * rs
             S0.z = 12.6
-            h = rr.uniform(10, 25)
-            reach = rr.uniform(3.5, 12.0)
-            if u.x < 0:
-                reach = min(reach, 3.5 + 4.0 * (1 + u.x))
-            P0 = S0
-            P1 = S0 + Vector((0, 0, h * 0.55)) + u * reach * 0.05
-            P2 = S0 + Vector((0, 0, h * 0.95)) + u * reach * 0.55
-            P3 = S0 + Vector((0, 0, h * 0.85)) + u * reach
+            h = rr.uniform(9.0, 14.0) - 0.9 * rs
+            reach = rr.uniform(1.0, 3.5)
+            P1 = S0 + Vector((0, 0, h * 0.55))
+            P2 = S0 + Vector((0, 0, h * 0.95)) + u * reach * 0.4
+            P3 = S0 + Vector((0, 0, h)) + u * reach
             pts = []
-            for q in range(21):
-                t = q / 20
-                pts.append(P0 * (1 - t) ** 3 + P1 * 3 * (1 - t) ** 2 * t + P2 * 3 * (1 - t) * t * t + P3 * t ** 3)
+            for q in range(13):
+                t = q / 12
+                pts.append(S0 * (1 - t) ** 3 + P1 * 3 * (1 - t) ** 2 * t + P2 * 3 * (1 - t) * t * t + P3 * t ** 3)
             pts = resample(pts, 0.6)
-            self.add_crown_stem(pts, 0.21, 0.13, k + 200)
+            self.add_crown_stem(pts, 0.20, 0.14, k + 200)
             cum = cum_len(pts)
-            sgn = 1 if k % 2 else -1
-            for q, tfrac in enumerate((0.38, 0.55, 0.72, 0.88, 1.0)):
+            for q, (tfrac, dz) in enumerate(((0.45, -40), (0.75, 40), (1.0, 0))):
                 p, tan = at_len(pts, cum, tfrac * cum[-1])
-                L = rr.uniform(8.0, 11.0) * (1 - 0.28 * tfrac)
-                if tfrac >= 1.0:
-                    L = rr.uniform(5.0, 7.0)
-                pitch = (-20, 35) if tfrac < 0.95 else (0, 45)
-                self.try_leaf(p, self.flat_gen(rr, az, sgn * (1 if q % 2 == 0 else -1), pitch=pitch),
-                              L, k + 200, rr, f"crown{k}_{q}")
+                L = rr.uniform(7.5, 10.0)
+                az_leaf = az + math.radians(dz + rr.uniform(-25, 25))
+                elev = (30, 48) if q < 2 else (40, 60)
+                self.try_leaf(p, self.mound_gen(rr, az_leaf, elev=elev), L, k + 200, rr, f"crown{k}_{q}")
 
     def add_crown_stem(self, pts, r0, r1, sid):
         radii = [r0 + (r1 - r0) * i / (len(pts) - 1) for i in range(len(pts))]
@@ -1096,10 +1202,17 @@ class Plant:
 # =========================================================================== specs
 VINES = [
     # free hangers: over the left rim, arc out, fall past the shelves' left ends
-    {"phi": -100, "H": (13.0, -7.0, 1.5), "L": 140, "ymax": -2.2, "xmin": 6.0, "xmax": 24.0, "drift": (0.0, -0.01), "r_soil": 2.6},
-    {"phi": -68, "H": (21.5, -4.6, 2.5), "L": 125, "ymax": -2.0, "xmin": 8.0, "xmax": 29.0, "drift": (0.01, -0.01), "r_soil": 3.4},
-    {"phi": -128, "H": (6.2, -3.4, 2.0), "L": 100, "ymax": -1.6, "xmin": 4.2, "xmax": 15.0, "r_soil": 3.0},
-    {"phi": -40, "H": (27.4, -2.8, 3.0), "L": 90, "ymax": -1.6, "xmin": 14.0, "xmax": 32.0, "drift": (0.01, -0.005), "r_soil": 3.8},
+    # "br": side shoots (fraction of the parent's length where it starts, length, x and y offset)
+    {"phi": -100, "H": (13.0, -7.0, 1.5), "L": 140, "ymax": -2.2, "xmin": 6.0, "xmax": 24.0, "drift": (0.0, -0.01), "r_soil": 2.6,
+     "br": [(0.22, 85, -4.0, -3.5), (0.45, 60, 4.0, -2.0), (0.32, 75, 1.0, -11.0)]},
+    {"phi": -68, "H": (21.5, -4.6, 2.5), "L": 125, "ymax": -2.0, "xmin": 8.0, "xmax": 29.0, "drift": (0.01, -0.01), "r_soil": 3.4,
+     "br": [(0.20, 90, 4.5, -4.0), (0.40, 70, -3.5, -5.0), (0.30, 80, 7.0, -9.0)]},
+    {"phi": -128, "H": (6.2, -3.4, 2.0), "L": 115, "ymax": -1.6, "xmin": 4.2, "xmax": 15.0, "r_soil": 3.0,
+     "br": [(0.25, 75, 3.0, -6.0)]},
+    {"phi": -40, "H": (27.4, -2.8, 3.0), "L": 105, "ymax": -1.6, "xmin": 14.0, "xmax": 32.0, "drift": (0.01, -0.005), "r_soil": 3.8,
+     "br": [(0.25, 80, -4.0, -5.0), (0.50, 50, 3.0, -2.5), (0.15, 85, 4.0, -12.0)]},
+    {"phi": -115, "H": (9.5, -10.5, 1.0), "L": 115, "ymax": -4.0, "xmin": 4.0, "xmax": 20.0, "drift": (0.005, -0.01), "r_soil": 3.2,
+     "br": [(0.25, 70, 5.0, 2.0), (0.48, 55, -3.0, -3.0), (0.20, 80, -2.0, -9.0)]},
     # lies on the shelf-2 top, loops, drapes over its left end and continues down
     {"phi": -88, "L": 120, "ymax": -0.65, "xmin": 8.0, "xmax": 24.0, "r_soil": 4.2, "first": 20.0, "drift": (0.0, -0.01),
      "head": [(12.7, 3.6, 15.8), (12.5, -1.2, 10.5), (12.3, -3.5, 3.0), (12.0, -3.7, -9.0), (11.8, -3.5, -20.0),
@@ -1109,11 +1222,13 @@ VINES = [
     # drapes over the top shelf's left end and hugs the end faces on the way down
     {"phi": -78, "L": 140, "ymax": -0.65, "xmin": 8.0, "xmax": 24.0, "r_soil": 3.6, "first": 18.0, "drift": (0.0, -0.006),
      "head": [(15.9, 5.3, 13.0), (15.9, 4.6, 8.0), (15.7, 3.5, 3.0), (15.6, 2.4, 0.32), (15.7, 1.3, 0.31),
-              (15.8, 0.35, 0.31), (15.8, -0.1, 0.27), (15.8, -0.31, 0.0), (15.8, -0.36, -0.8), (15.7, -0.6, -3.0)]},
+              (15.8, 0.35, 0.31), (15.8, -0.1, 0.27), (15.8, -0.31, 0.0), (15.8, -0.36, -0.8), (15.7, -0.6, -3.0)],
+     "br": [(0.30, 75, 3.0, -6.0), (0.45, 60, 6.0, -12.0)]},
     # spill over the front edge and fall in front of the shelves
     {"phi": 8, "L": 70, "xmin": 26.5, "xmax": 31.0, "r_soil": 3.2, "first": 17.0, "drift": (0.01, 0.0),
      "head": [(23.4, 15.3, 14.0), (24.5, 15.5, 8.5), (25.0, 15.7, 3.0), (25.2, 15.8, 0.32), (25.8, 15.9, 0.31),
-              (26.0, 15.95, 0.31), (26.22, 16.0, 0.22), (26.31, 16.0, 0.0), (26.36, 16.05, -0.8), (26.55, 16.1, -3.0)]},
+              (26.0, 15.95, 0.31), (26.22, 16.0, 0.22), (26.31, 16.0, 0.0), (26.36, 16.05, -0.8), (26.55, 16.1, -3.0)],
+     "br": [(0.40, 45, 1.5, -5.0), (0.25, 60, 2.0, 6.0)]},
     {"phi": 38, "L": 38, "xmin": 26.5, "xmax": 30.0, "r_soil": 3.0, "first": 16.0,
      "head": [(22.6, 19.7, 14.0), (24.2, 20.6, 8.5), (24.9, 21.0, 3.0), (25.2, 21.1, 0.32), (25.8, 21.2, 0.31),
               (26.0, 21.25, 0.31), (26.22, 21.3, 0.22), (26.31, 21.3, 0.0), (26.38, 21.3, -0.8), (26.6, 21.4, -3.0)]},
@@ -1125,7 +1240,7 @@ def make_materials(out_dir):
     M = {}
     M["pot"] = S.material("M_Pot", (0.70, 0.58, 0.42), 0.25, specular=0.6)
     M["soil"] = S.material("M_Soil", (0.030, 0.021, 0.014), 0.95)
-    M["leaf"] = S.material("M_Leaf", (0.12, 0.30, 0.05), 0.38)
+    M["leaf"] = S.material("M_Leaf", (0.06, 0.20, 0.04), 0.36, specular=0.35)
     M["stem"] = S.material("M_Stem", (0.14, 0.24, 0.05), 0.5)
     tex = bpy.data.images.load(os.path.join(out_dir, "T_PothosLeaf.png"))
     tex.colorspace_settings.name = "sRGB"
@@ -1253,9 +1368,9 @@ def plant_views(plant_ob, out, samples, want):
     centre = (lo + hi) / 2
 
     def lights(centre, d):
-        add_area("_key", centre + Vector((0.6, 0.9, 0.9)).normalized() * d, centre, 38 * d * d, d * 0.8)
-        add_area("_fill", centre + Vector((0.8, -0.8, 0.3)).normalized() * d, centre, 12 * d * d, d * 1.1)
-        add_area("_rim", centre + Vector((-1.0, 0.2, 0.8)).normalized() * d, centre, 22 * d * d, d * 0.5)
+        add_area("_key", centre + Vector((0.6, 0.9, 0.9)).normalized() * d, centre, 21 * d * d, d * 0.8)
+        add_area("_fill", centre + Vector((0.8, -0.8, 0.3)).normalized() * d, centre, 7 * d * d, d * 1.1)
+        add_area("_rim", centre + Vector((-1.0, 0.2, 0.8)).normalized() * d, centre, 12 * d * d, d * 0.5)
 
     if "3q" in want:
         clear_preview()
@@ -1293,8 +1408,8 @@ def shelf_scene(plant_ob, out, samples):
         objs.append(S.box(f"pv_slat{k}", (-0.02, y0 * CM, -150 * CM), (0.0, (y0 + 5.2) * CM, 60 * CM), walnut))
     set_world(0.05, 0.25, (0.35, 0.28, 0.22))
     tgt = Vector((10 * CM, 10 * CM, -42 * CM))
-    add_area("_key", Vector((190, -140, 90)) * CM, tgt, 120, 1.6, (1.0, 0.93, 0.82))
-    add_area("_fill", Vector((160, 120, 20)) * CM, tgt, 25, 1.6, (0.9, 0.95, 1.0))
+    add_area("_key", Vector((190, -140, 90)) * CM, tgt, 80, 1.6, (1.0, 0.93, 0.82))
+    add_area("_fill", Vector((160, 120, 20)) * CM, tgt, 16, 1.6, (0.9, 0.95, 1.0))
     for i, z in enumerate(SHELF_TOPS):     # warm LED strips under each shelf's front edge
         add_area(f"_led{i}", Vector((22 * CM, 20 * CM, (z - SHELF_T - 1.0) * CM)), Vector((2 * CM, 20 * CM, (z - SHELF_T - 26) * CM)),
                  25, 0.22, (1.0, 0.62, 0.30), "RECTANGLE")
@@ -1307,35 +1422,37 @@ def close_scene(plant_ob, out, samples):
     clear_preview()
     set_world()
     tgt = Vector((12, -2, 10)) * CM
-    add_area("_key", tgt + Vector((0.7, 0.4, 1.0)).normalized() * 0.9, tgt, 45, 0.7)
-    add_area("_fill", tgt + Vector((0.8, -0.8, 0.2)).normalized() * 0.9, tgt, 10, 0.9)
-    add_area("_rim", tgt + Vector((-0.5, -0.2, 1.0)).normalized() * 0.9, tgt, 18, 0.5)
+    add_area("_key", tgt + Vector((0.7, 0.4, 1.0)).normalized() * 0.9, tgt, 24, 0.7)
+    add_area("_fill", tgt + Vector((0.8, -0.8, 0.2)).normalized() * 0.9, tgt, 6, 0.9)
+    add_area("_rim", tgt + Vector((-0.5, -0.2, 1.0)).normalized() * 0.9, tgt, 10, 0.5)
     add_camera(Vector((82, -52, 36)) * CM, tgt, 50)
     setup_render(samples, os.path.join(out, NAME + "_close.png"))
     render("close")
 
 
 def leaf_close(out, samples, M):
-    """One leaf close-up on its own to show T_PothosLeaf."""
+    """The four atlas leaves of T_PothosLeaf side by side, one per quadrant, 9 cm long."""
     for ob in list(bpy.data.objects):
         bpy.data.objects.remove(ob, do_unlink=True)
     sink = Sink()
-    rr = random.Random(2)
-    shape = LeafShape(rr, 12.0)
-    shape.flip = False
-    shape.nu, shape.ns = 16, 5
     SV[5] = [0.0, 0.08, 0.22, 0.45, 0.72, 1.0]
-    shape.cup, shape.droop, shape.wave = 0.14, 0.14, 0.012
-    Mx = frame((0, 0, 1), (1, 0, 0), 0.0)     # leaf faces +X, tip up
-    emit_leaf(sink, shape, Mx, Vector((0, 0, 0)))
+    for q in range(4):
+        shape = LeafShape(random.Random(2 + q), 9.0)
+        shape.flip, shape.quad = False, q
+        shape.nu, shape.ns = 16, 5
+        shape.cup, shape.droop, shape.wave, shape.twist, shape.wsv = 0.12, 0.10, 0.010, 0.0, 1.0
+        Mx = frame((0, 0, 1), (1, 0, 0), 0.0)     # leaf faces +X, tip up
+        emit_leaf(sink, shape, Mx, Vector((0, (q - 1.5) * 7.6, 0)))
     ob = sink.to_object("pv_leaf", M["leaf"])
     S.tidy(ob, 40)
     set_world()
-    tgt = Vector((0.0, 0.0, 0.058))
-    add_area("_key", tgt + Vector((0.8, 0.5, 0.7)).normalized() * 0.8, tgt, 22, 0.6)
-    add_area("_fill", tgt + Vector((0.8, -0.8, 0.1)).normalized() * 0.8, tgt, 9, 0.8)
-    add_area("_rim", tgt + Vector((-0.8, 0.3, 0.6)).normalized() * 0.8, tgt, 18, 0.5)
-    add_camera(tgt + Vector((0.42, 0.0, 0.0)), tgt, 50)
+    tgt = Vector((0.0, 0.0, 0.032))
+    add_area("_key", tgt + Vector((0.8, 0.5, 0.7)).normalized() * 0.9, tgt, 13, 0.7)
+    add_area("_fill", tgt + Vector((0.8, -0.8, 0.1)).normalized() * 0.9, tgt, 5, 0.9)
+    add_area("_rim", tgt + Vector((-0.8, 0.3, 0.6)).normalized() * 0.9, tgt, 9, 0.5)
+    cam = add_camera(tgt + Vector((1.0, 0.0, 0.0)), tgt, 50)
+    cam.data.type = "ORTHO"
+    cam.data.ortho_scale = 0.32
     setup_render(samples, os.path.join(out, "pothos_leaf_close.png"))
     render("leaf")
 
