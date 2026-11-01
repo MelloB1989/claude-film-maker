@@ -329,8 +329,11 @@ def garment(label: str, which: str = "Shirt", vectors: dict | None = None, scala
     """Set parameters on a worn garment's material (slots whose name contains `which`): `vectors` take linear [r,g,b],
     e.g. the default garment's {"diffuse_color_1": [...], "diffuse_color_2": [...]} is its colour."""
     MEL = unreal.MaterialEditingLibrary
-    comp = next(c for c in actor(label).get_components_by_class(unreal.SkeletalMeshComponent) if c.get_name() == component)
+    comp = next((c for c in actor(label).get_components_by_class(unreal.SkeletalMeshComponent)
+                 if c.get_name() == component), None)
     done = {}
+    if comp is None:  # built without the default garment
+        return done
     for name, mi in zip(comp.get_material_slot_names(), comp.get_materials()):
         if which.lower() not in str(name).lower() or not isinstance(mi, unreal.MaterialInstanceConstant):
             continue
