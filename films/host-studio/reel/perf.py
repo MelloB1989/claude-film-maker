@@ -53,13 +53,15 @@ END = 1560
 IDLE_OFFSET = {"him": 0.0, "her": 17.0}
 
 # The solves: each presenter's whole stem in their base mood, and the lines whose mood differs (PLAN.md §2) alone.
-# PLAN v2 moods: L1 confident/amused, L2 playful, L3a/L3b playful-confident, L4a/L4b warm and happy.
+# PLAN v2 moods (vo.py MOODS): L1 CONFIDENCE 0.7, L2 HAPPINESS 0.6, L3a HAPPINESS 0.6, L3b CONFIDENCE 0.8, L4a HAPPINESS
+# 0.6, L4b HAPPINESS 0.8. Each stem is solved whole in the speaker's base mood (L1 / L3b) and the other lines spliced.
 SOLVES = {
     "him": {"wav": "stem_him", "who": "him", "mood": "CONFIDENCE", "intensity": 0.7},
-    "her": {"wav": "stem_her", "who": "her", "mood": "CONFIDENCE", "intensity": 0.75},
-    "L2": {"wav": "L2", "who": "him", "mood": "HAPPINESS", "intensity": 0.45},
-    "L4a": {"wav": "L4a", "who": "him", "mood": "HAPPINESS", "intensity": 0.7},
-    "L4b": {"wav": "L4b", "who": "her", "mood": "HAPPINESS", "intensity": 0.7},
+    "her": {"wav": "stem_her", "who": "her", "mood": "CONFIDENCE", "intensity": 0.8},
+    "L2": {"wav": "L2", "who": "him", "mood": "HAPPINESS", "intensity": 0.6},
+    "L3a": {"wav": "L3a", "who": "her", "mood": "HAPPINESS", "intensity": 0.6},
+    "L4a": {"wav": "L4a", "who": "him", "mood": "HAPPINESS", "intensity": 0.6},
+    "L4b": {"wav": "L4b", "who": "her", "mood": "HAPPINESS", "intensity": 0.8},
 }
 
 
@@ -169,7 +171,7 @@ def beats(who: str) -> list:
             [PITCH, [[960, 16.0], [986, 15.0], [1004, 0.0]]],
             *eyes(960, 960, 988, 1000, {"Down": 0.35}),
             # L1 "Took you long enough." (f1020), then a small smirk held to the cut, let go as L2 comes
-            *smile(1046, 1056, 1084, 1096, 0.32, side="R"),
+            *smile(1056, 1066, 1086, 1098, 0.32, side="R"),
             # S15: L2 "Ask her what's next." (f1095), then he turns his head to her and holds through S15; back to the
             # front during S16 (he is off screen). She stands 80 cm behind him and 95 cm to his right (world -Y),
             # ~130 deg from his front: more than a lock converges on, so the look is written, the head over his right
@@ -199,13 +201,13 @@ def beats(who: str) -> list:
         # S17: L4b "...comes around. That's karma." (f1386): a glance to him on "comes around", then the lens
         turn([[1376, 0.0], [1386, 30.0], [1398, 32.0], [1408, 0.0]]),
         *eyes(1376, 1384, 1398, 1406, {"Right": 0.35, "Up": 0.1}),
-        *smile(1412, 1426, 1530, 1560, 0.35),
-        *nod(1430, 3.0),
+        *smile(1424, 1438, 1530, 1560, 0.35),
+        *nod(1436, 3.0),
     ]
 
 
 # The lines whose mood differs from the base solve: spliced over the base with a 4-frame cross-fade at each end.
-SPLICES = {"him": ["L2", "L4a"], "her": ["L4b"]}
+SPLICES = {"him": ["L2", "L4a"], "her": ["L3a", "L4b"]}
 
 COMPOSE = r"""
 import json, bisect, time, unreal
