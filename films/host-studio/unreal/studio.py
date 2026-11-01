@@ -79,11 +79,144 @@ def leaf(name, color, transmission, texture=""):
                       transmission=transmission, folder=M)
 
 
+# >>> bespoke materials (graphs look.material's kinds cannot express; built here, rebuilt when BESPOKE_REV changes)
+MEL = unreal.MaterialEditingLibrary
+BESPOKE_REV = "2"
+
+
+def bespoke(name, build, folder=M):
+    """A parent material of this studio's own: `build(m, x)` wires it; made once, rebuilt in place when BESPOKE_REV
+    changes (its instances keep their values)."""
+    path = f"{folder}/{name}"
+    eal = unreal.EditorAssetLibrary
+    if eal.does_asset_exist(path):
+        m = unreal.load_asset(path)
+        if eal.get_metadata_tag(m, "k_rev") == BESPOKE_REV:
+            return m
+        MEL.delete_all_material_expressions(m)
+    else:
+        m = unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, folder, unreal.Material,
+                                                                     unreal.MaterialFactoryNew())
+    pos = [0]
+
+    def x(cls, *ins, **props):
+        """A MaterialExpression<cls>; each of `ins` is an expression or (expression, input pin), wired from its first
+        output to the pin (default A, B in order; the only input when there is one). `param=` names a parameter."""
+        pos[0] += 1
+        e = MEL.create_material_expression(m, getattr(unreal, "MaterialExpression" + cls), -300 - 40 * pos[0],
+                                           60 * pos[0])
+        for k, v in props.items():
+            e.set_editor_property("parameter_name" if k == "param" else k, v)
+        for i, src in enumerate(ins):
+            src, pin = src if isinstance(src, tuple) else (src, ("A", "B")[i] if len(ins) > 1 else "")
+            MEL.connect_material_expressions(src, "", e, pin)
+        return e
+
+    def out(e, prop):
+        MEL.connect_material_property(e, "", getattr(unreal.MaterialProperty, prop))
+    build(m, x, out)
+    MEL.recompile_material(m)
+    eal.set_metadata_tag(m, "k_rev", BESPOKE_REV)
+    eal.save_asset(path)
+    return m
+
+
+def instance(name, parent, vectors=None, scalars=None, folder=M):
+    """An instance of a bespoke parent with its vector (linear RGB) and scalar parameters set."""
+    path = f"{folder}/{name}"
+    eal = unreal.EditorAssetLibrary
+    mi = unreal.load_asset(path) if eal.does_asset_exist(path) else unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+        name, folder, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+    mi.set_editor_property("parent", parent)
+    for k, v in (vectors or {}).items():
+        MEL.set_material_instance_vector_parameter_value(mi, k, unreal.LinearColor(*v, 1.0))
+    for k, v in (scalars or {}).items():
+        MEL.set_material_instance_scalar_parameter_value(mi, k, float(v))
+    eal.save_asset(path)
+    return path
+
+
+def _scalar(x, name, v):
+    return x("ScalarParameter", param=name, default_value=v)
+
+
+def _polished_metal(m, x, out):
+    """Polished metal: Color (its F0), metallic 1, and a finish map from the mesh's vertex colours (the coin's Relief
+    attribute): FieldRough where it is black, ReliefRough where R is 1 (the raised design), RimRough where G is 1
+    (rims and edge); a mesh without vertex colours reads white and takes ReliefRough all over. The roughness is broken
+    up by +-Var with a fine world-space noise (polish marks, fingerprints) and a slower one (uneven buffing), and the
+    fine noise ripples the normal a little, so a highlight wobbles as it runs over the relief instead of sliding like
+    CG chrome."""
+    out(x("VectorParameter", param="Color", default_value=unreal.LinearColor(1.0, 0.77, 0.34, 1.0)), "MP_BASE_COLOR")
+    out(x("Constant", r=1.0), "MP_METALLIC")
+    vc = x("VertexColor")
+    r = x("ComponentMask", vc, r=True, g=False, b=False, a=False)
+    g = x("ComponentMask", vc, r=False, g=True, b=False, a=False)
+    base = x("LinearInterpolate", (x("LinearInterpolate", (_scalar(x, "FieldRough", 0.3), "A"),
+                                     (_scalar(x, "RimRough", 0.08), "B"), (g, "Alpha")), "A"),
+             (_scalar(x, "ReliefRough", 0.08), "B"), (r, "Alpha"))
+    wp = x("WorldPosition")
+    fine = x("Noise", (wp, "Position"), scale=_FINE, levels=3, output_min=0.0, output_max=1.0)
+    slow = x("Noise", (wp, "Position"), scale=_SLOW, levels=2, output_min=0.0, output_max=1.0)
+    mix = x("LinearInterpolate", (fine, "A"), (slow, "B"), (x("Constant", r=0.45), "Alpha"))
+    var = x("Multiply", x("Subtract", mix, x("Constant", r=0.5)), x("Multiply", _scalar(x, "Var", 0.3), x("Constant", r=2.0)))
+    out(x("Multiply", base, x("Add", var, x("Constant", r=1.0))), "MP_ROUGHNESS")
+    tilt = x("Multiply", x("Subtract", fine, x("Constant", r=0.5)), _scalar(x, "Ripple", 0.01))
+    nrm = x("AppendVector", x("AppendVector", tilt, tilt), x("Constant", r=1.0))
+    out(x("Normalize", nrm), "MP_NORMAL")
+
+
+_FINE, _SLOW = 1.6, 0.25  # the noises' frequencies (per cm): ~6 mm polish marks, ~4 cm buffing
+
+
+def _acrylic(m, x, out):
+    """Frosted acrylic, opaque with subsurface scattering (Lumen lights it, it casts a real soft shadow, light soaks
+    in and comes back warm) plus an LED glow from inside: GlowColor x Glow, strongest at the base and fading up the
+    block, 0.2 + 0.8 (1 - h / GlowFade)^2 for h cm over the actor's pivot (its bottom centre)."""
+    m.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_SUBSURFACE)
+    out(x("VectorParameter", param="Color", default_value=unreal.LinearColor(0.8, 0.79, 0.76, 1.0)), "MP_BASE_COLOR")
+    out(_scalar(x, "Roughness", 0.42), "MP_ROUGHNESS")
+    out(_scalar(x, "Specular", 0.5), "MP_SPECULAR")
+    out(_scalar(x, "Scatter", 0.85), "MP_OPACITY")  # a subsurface material's opacity: how much light scatters in
+    out(x("VectorParameter", param="ScatterColor", default_value=unreal.LinearColor(1.0, 0.82, 0.62, 1.0)),
+        "MP_SUBSURFACE_COLOR")
+    z = lambda e: x("ComponentMask", e, r=False, g=False, b=True, a=False)  # noqa: E731
+    h = x("Subtract", z(x("WorldPosition")), z(x("ObjectPositionWS")))
+    f = x("Saturate", x("OneMinus", x("Divide", h, _scalar(x, "GlowFade", 12.0))))
+    fade = x("Add", x("Multiply", x("Multiply", f, f), x("Constant", r=0.8)), x("Constant", r=0.2))
+    glow = x("Multiply", x("Multiply", x("VectorParameter", param="GlowColor",
+                                         default_value=unreal.LinearColor(1.0, 0.72, 0.45, 1.0)),
+                           _scalar(x, "Glow", 0.0)), fade)
+    out(glow, "MP_EMISSIVE_COLOR")
+
+
+GOLD_PARENT = bespoke("M_K_PolishedMetal", _polished_metal)
+ACRYLIC_PARENT = bespoke("M_K_Acrylic", _acrylic)
+# <<< bespoke materials
+
 oak = surface("Oak", 100, roughness=1.0)
 walnut = surface("Walnut", 100)
 black_metal = plain("BlackMetal", (0.012, 0.012, 0.013), 0.45, 1.0)
 brass = plain("Brass", (0.78, 0.56, 0.28), 0.3, 1.0)
-gold = plain("Gold", (0.95, 0.7, 0.32), 0.22, 1.0)
+GOLD = (1.0, 0.72, 0.3)  # gold's F0 (linear), a touch deeper than the textbook value: the room is warm already
+# polished gold, evenly buffed (the GPU frame's accents, the pins, her hoops); the coin has its own finish below
+gold = instance("MI_K_GoldPolished", GOLD_PARENT, vectors={"Color": GOLD},
+                scalars={"FieldRough": 0.16, "ReliefRough": 0.16, "RimRough": 0.16, "Var": 0.3, "Ripple": 0.01})
+# the coin: a satin field with mirror-polished relief and rims (from its Relief colours), so the B and the circuit
+# read as bright metal against soft gold whatever the room puts in the reflection
+coin_gold = instance("MI_K_CoinGold", GOLD_PARENT, vectors={"Color": GOLD},
+                     scalars={"FieldRough": 0.32, "ReliefRough": 0.07, "RimRough": 0.07, "Var": 0.25, "Ripple": 0.01})
+# the lyzn block: frosted faces, polished round-overs that glow brighter (edge-lit), white engraved letters
+ACRYLIC = {"Color": (0.86, 0.86, 0.85), "ScatterColor": (0.95, 0.92, 0.88), "GlowColor": (1.0, 0.86, 0.7)}
+GLOW = 2.0 if NIGHT else 1.0  # the block's LED base: a little brighter in the dark room
+acrylic_frost = instance("MI_K_AcrylicFrost", ACRYLIC_PARENT, vectors=ACRYLIC,
+                         scalars={"Roughness": 0.4, "Scatter": 0.9, "Glow": 0.8 * GLOW, "GlowFade": 12.0})
+acrylic_polish = instance("MI_K_AcrylicPolish", ACRYLIC_PARENT, vectors=ACRYLIC,
+                          scalars={"Roughness": 0.05, "Scatter": 0.9, "Glow": 2.0 * GLOW, "GlowFade": 12.0})
+acrylic_engrave = instance("MI_K_AcrylicEngrave", ACRYLIC_PARENT,
+                           vectors={"Color": (0.95, 0.95, 0.94), "ScatterColor": (1.0, 0.95, 0.9),
+                                    "GlowColor": (1.0, 0.88, 0.74)},
+                           scalars={"Roughness": 0.8, "Scatter": 0.6, "Glow": 3.5 * GLOW, "GlowFade": 12.0})
 silver = plain("Silver", (0.85, 0.85, 0.86), 0.3, 1.0)
 alu = plain("Alu", (0.7, 0.7, 0.72), 0.35, 1.0)
 satin_black = plain("SatinBlack", (0.014, 0.014, 0.015), 0.5)
@@ -155,8 +288,7 @@ MAT = {
     "M_Label_WatchFace": K.material("MI_K_Label_WatchFace", kind="Screen", texture=tex(T, "T_Label_WatchFace"),
                                     intensity=1.5, roughness=0.05, folder=M),
     "M_WatchBand": plain("WatchBand", (0.015, 0.015, 0.016), 0.7),
-    "M_Acrylic": K.material("MI_K_Acrylic", (0.92, 0.94, 0.96), kind="Glass", opacity=0.45, roughness=0.45, folder=M),
-    "M_Label_Lyzn": label("Lyzn", kind="PbrMasked", roughness=0.7),
+    "M_Acrylic": acrylic_frost, "M_AcrylicPolish": acrylic_polish, "M_AcrylicEngrave": acrylic_engrave,
     # the label objects
     "M_Label_Name": label("Name", roughness=0.5), "M_CalStand": black_metal, "M_Wire": silver,
     "M_Paper": plain("Paper", (0.82, 0.81, 0.78), 0.85), "M_Label_Calendar": label("Calendar", roughness=0.85),
@@ -182,7 +314,8 @@ for i in range(1, 8):
     MAT[f"M_Label_Spine{i}"] = label(f"Spine{i}", roughness=1.0)
 
 UNDRESSED = {}
-OVERRIDE = {"Window": {"M_Glass": win_glass}}  # a slot name that means something else on one prop
+OVERRIDE = {"Window": {"M_Glass": win_glass},  # a slot name that means something else on one prop
+            "Coin": {"M_Gold": coin_gold}}
 
 
 def prop(label_, name, loc, yaw=0.0, pitch=0.0, roll=0.0, scale=1.0):
@@ -270,7 +403,7 @@ prop("Drone", "drone", (WALL + 12.5, SH_L - 64, TOPS[1]), yaw=-8)
 prop("Candle", "candle", (WALL + 14, SH_L - 93, TOPS[1]))
 K.light("CandleLight", "point", loc=(WALL + 14, SH_L - 93, TOPS[1] + 14), intensity=0.1, temperature=1800, radius=70,
         shadows=False, volumetric=0.0)
-prop("Coin", "bitcoin_coin", (WALL + 11, SH_L - 109, TOPS[1]), yaw=-12)
+prop("Coin", "bitcoin_coin", (WALL + 11, SH_L - 109, TOPS[1]), yaw=20)  # turned out to the room, as displayed
 prop("Pickaxe", "pickaxe", (WALL + 9, SH_L - 128, TOPS[1]), yaw=-10)
 # bottom shelf: the root prompt, the print, a looser row of books, the small pothos
 prop("Terminal", "terminal_display", (WALL + 12, SH_L - 22, TOPS[0]), yaw=4)
