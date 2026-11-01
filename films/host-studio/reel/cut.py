@@ -6,6 +6,8 @@ transparent overlays (Geist from fonts/src, the Samarkan wordmark from props/out
     cd tools && uv run --with pillow python ../films/host-studio/reel/cut.py FRAMES --score SCORE.wav \\
         --vo L1=l1.wav --vo L2=l2.wav --vo L3=l3.wav --vo L4=l4.wav
     ... cut.py FRAMES --score SCORE.wav --cues out/host-studio/reel/vo/cues.json   the VO as R4's vo.py built it
+    ... cut.py FRAMES --mix films/host-studio/reel/audio/mix/mix.wav --cues .../vo/cues.json   the delivery: R5's mix,
+                                              the captions on R4's words (--cues only times them; the mix has the VO)
     ... cut.py --test-frames DIR [--scale 0.25]      synthetic placeholder frames (a slate per shot) to cut with
 
 FRAMES holds the renders as Movie Render Queue writes them, <dir>/<frame:04d>.png (--pattern to change it): one
