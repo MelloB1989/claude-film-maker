@@ -92,6 +92,38 @@ def weighted_normals(ob):
     bake(ob)
 
 
+def flatten_panels(ob, min_area=1.5e-4, tol=0.5):
+    """Pin the normals of flat panels (coplanar face groups of at least `min_area` m2) to their plane, so a cap
+    split into thin triangles shades flat instead of picking up its rounded edges."""
+    me = ob.data
+    loop_n = [Vector(c.vector) for c in me.corner_normals]
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.faces.ensure_lookup_table()
+    cos_tol = math.cos(math.radians(tol))
+    seen = set()
+    for f in bm.faces:
+        if f.index in seen:
+            continue
+        group, stack = [], [f]
+        seen.add(f.index)
+        while stack:
+            g = stack.pop()
+            group.append(g)
+            for e in g.edges:
+                for h in e.link_faces:
+                    if h.index not in seen and h.normal.dot(f.normal) > cos_tol:
+                        seen.add(h.index)
+                        stack.append(h)
+        if sum(g.calc_area() for g in group) < min_area:
+            continue
+        for g in group:
+            for li in me.polygons[g.index].loop_indices:
+                loop_n[li] = f.normal.copy()
+    bm.free()
+    me.normals_split_custom_set(loop_n)
+
+
 def principled(mat):
     return next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
 
@@ -117,11 +149,6 @@ def wood_preview(mat, dark, light, rings=110.0):
     ramp.color_ramp.elements[1].color = (*light, 1)
     nt.links.new(nz.outputs["Fac"], ramp.inputs["Fac"])
     nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
-    bump = nt.nodes.new("ShaderNodeBump")
-    bump.inputs["Strength"].default_value = 0.02
-    bump.inputs["Distance"].default_value = 0.0005
-    nt.links.new(nz.outputs["Fac"], bump.inputs["Height"])
-    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
 
 GLYPHS = {
@@ -194,6 +221,7 @@ def finish(name, parts, sharp_angle=40):
     S.set_origin(ob, (0, 0, 0))
     S.tidy(ob, sharp_angle)
     weighted_normals(ob)
+    flatten_panels(ob)
     os.makedirs(args.out, exist_ok=True)
     fbx = os.path.join(args.out, name + ".fbx")
     S.export_fbx(ob, fbx)
@@ -406,6 +434,7 @@ pad_profile = [  # (r, y from the pad face), outer back -> face -> inner back
     (4.45, PAD_D + 0.02), (4.62, PAD_D - 0.25), (4.74, PAD_D - 0.8), (4.76, 1.2), (4.70, 0.75), (4.55, 0.42),
     (4.32, 0.18), (4.0, 0.05), (3.6, 0.0), (3.2, 0.0), (2.85, 0.06), (2.6, 0.22), (2.45, 0.5), (2.38, 0.9),
     (2.36, 1.4), (2.40, PAD_D - 0.5), (2.5, PAD_D - 0.2), (2.62, PAD_D + 0.02),
+    (4.45, PAD_D + 0.02),                                    # closed back (inside the shell)
 ]
 pad_profile = [(2.4 + (r - 2.4) * PADK if r > 2.4 else r, y) for r, y in pad_profile]
 shell_profile = [  # (r, y from the pad face): baffle, shell side, metal bezel, outer plate
@@ -461,7 +490,17 @@ for side in (-1, 1):
                                      axis=((sx * (SHELL_R - 0.25) * cm, ys * cm, CZ * cm),
                                            (sx * (Y_RAD + 0.35) * cm, ys * cm, CZ * cm)))))
     # cup: ear pad (leather) and shell (plastic + metal bezel)
-    pad = lathe_y(f"pad_{tag}", pad_profile, [LEATHER], side, segs=80)
+    pad = lathe_y(f"pad_{tag}", pad_profile, [LEATHER], side, segs=168)
+    # soft pleats where the leather gathers round the inner rim and the front face
+    for v in pad.data.vertices:
+        x, y, z = v.co.x / cm, v.co.y / cm, v.co.z / cm - CZ
+        r = math.hypot(x, z)
+        depth = abs(y) - PAD_IN
+        w = smoothstep(3.9, 2.6, r) * smoothstep(PAD_D, 0.6, depth)
+        if w <= 0:
+            continue
+        dr = 0.045 * w * math.sin(28 * math.atan2(z, x))
+        v.co.x, v.co.z = (x * (1 + dr / r)) * cm, (z * (1 + dr / r) + CZ) * cm
     parts.append(uv_box(pad))
     shell = lathe_y(f"shell_{tag}", shell_profile, [HP, HPMETAL], side, segs=80, mat_split=shell_slot)
     parts.append(uv_box(shell))

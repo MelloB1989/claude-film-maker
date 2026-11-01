@@ -94,6 +94,38 @@ def weighted_normals(ob):
     bake(ob)
 
 
+def flatten_panels(ob, min_area=1.5e-4, tol=0.5):
+    """Pin the normals of flat panels (coplanar face groups of at least `min_area` m2) to their plane, so a cap
+    split into thin triangles shades flat instead of picking up its rounded edges."""
+    me = ob.data
+    loop_n = [Vector(c.vector) for c in me.corner_normals]
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.faces.ensure_lookup_table()
+    cos_tol = math.cos(math.radians(tol))
+    seen = set()
+    for f in bm.faces:
+        if f.index in seen:
+            continue
+        group, stack = [], [f]
+        seen.add(f.index)
+        while stack:
+            g = stack.pop()
+            group.append(g)
+            for e in g.edges:
+                for h in e.link_faces:
+                    if h.index not in seen and h.normal.dot(f.normal) > cos_tol:
+                        seen.add(h.index)
+                        stack.append(h)
+        if sum(g.calc_area() for g in group) < min_area:
+            continue
+        for g in group:
+            for li in me.polygons[g.index].loop_indices:
+                loop_n[li] = f.normal.copy()
+    bm.free()
+    me.normals_split_custom_set(loop_n)
+
+
 def principled(mat):
     return next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
 
@@ -119,11 +151,6 @@ def wood_preview(mat, dark, light, rings=110.0):
     ramp.color_ramp.elements[1].color = (*light, 1)
     nt.links.new(nz.outputs["Fac"], ramp.inputs["Fac"])
     nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
-    bump = nt.nodes.new("ShaderNodeBump")
-    bump.inputs["Strength"].default_value = 0.02
-    bump.inputs["Distance"].default_value = 0.0005
-    nt.links.new(nz.outputs["Fac"], bump.inputs["Height"])
-    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
 
 
 GLYPHS = {
@@ -188,14 +215,36 @@ def add_slot(ob, mat):
     ob.data.materials.append(mat)
     return len(ob.data.materials) - 1
 
+# --------------------------------------------------------------------------- finish: join, origin, normals, export, previews
+
+
+def finish(name, parts, sharp_angle=40):
+    ob = S.join(name, parts)
+    S.set_origin(ob, (0, 0, 0))
+    S.tidy(ob, sharp_angle)
+    weighted_normals(ob)
+    flatten_panels(ob)
+    os.makedirs(args.out, exist_ok=True)
+    fbx = os.path.join(args.out, name + ".fbx")
+    S.export_fbx(ob, fbx)
+    lo, hi = S.bbox(ob)
+    print("=" * 60)
+    print(f"{name}: exported {fbx}")
+    print(f"{name}: materials {[m.name for m in ob.data.materials]}")
+    print(f"{name}: triangles {S.tri_count(ob)}")
+    print(f"{name}: bbox cm  X {lo.x*100:.1f}..{hi.x*100:.1f}  Y {lo.y*100:.1f}..{hi.y*100:.1f}"
+          f"  Z {lo.z*100:.1f}..{hi.z*100:.1f}")
+    print("=" * 60)
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(args.out, name + ".blend"), compress=True)
+    return ob
 
 # --------------------------------------------------------------------------- materials
 
-WALNUT = S.material("M_Walnut", (0.15, 0.065, 0.032), 0.5)
+WALNUT = S.material("M_Walnut", (0.15, 0.065, 0.032), 0.58)
 FOOT = S.material("M_FootMetal", (0.72, 0.52, 0.26), 0.32, metallic=1.0)        # brass
 BLACK = S.material("M_BlackMetal", (0.018, 0.018, 0.019), 0.38, metallic=0.6)   # black anodised parts
 PLATTER = S.material("M_Platter", (0.012, 0.012, 0.013), 0.30)                  # black lacquered platter
-VINYL = S.material("M_Vinyl", (0.008, 0.008, 0.009), 0.28)
+VINYL = S.material("M_Vinyl", (0.008, 0.008, 0.009), 0.34)
 LABEL = S.material("M_Label_Record", (0.80, 0.78, 0.72), 0.5)
 ARM = S.material("M_ArmMetal", (0.78, 0.78, 0.77), 0.24, metallic=1.0)          # brushed aluminium
 wood_preview(WALNUT, (0.045, 0.018, 0.009), (0.20, 0.085, 0.040))
@@ -223,7 +272,7 @@ def vinyl_preview(mat):
     nz.inputs["Detail"].default_value = 2.0
     nt.links.new(mul.outputs["Value"], nz.inputs["W"])
     bump = nt.nodes.new("ShaderNodeBump")
-    bump.inputs["Strength"].default_value = 0.12
+    bump.inputs["Strength"].default_value = 0.05
     bump.inputs["Distance"].default_value = 0.0002
     nt.links.new(nz.outputs["Fac"], bump.inputs["Height"])
     nt.links.new(bump.outputs["Normal"], principled(mat).inputs["Normal"])
@@ -290,7 +339,7 @@ platter_profile = [
     (R, 2.18), (R - 0.03, 2.22), (R - 0.03, 2.30), (R, 2.34),                                        # machined line
     (R, 2.66), (R - 0.04, 2.75), (R - 0.14, PLAT_T), (0.0, PLAT_T),
 ]
-platter = lathe_at("platter", platter_profile, [PLATTER], (PC.x * cm, PC.y * cm, Z_PB * cm), segs=128)
+platter = lathe_at("platter", platter_profile, [PLATTER], (PC.x * cm, PC.y * cm, Z_PB * cm), segs=112)
 parts.append(uv_box(platter))
 
 MOTOR = Vector((-13.8, -19.0))
@@ -466,8 +515,8 @@ parts.append(uv_box(lathe_at("rest_base", [(0, -0.05), (0.75, -0.05), (0.75, 0.2
                              [BLACK], v3(REST, ZT), segs=32)))
 rest_top = Z_ARM - 0.45
 parts.append(uv_box(S.cylinder("rest_post", v3(REST, ZT + 0.2), v3(REST, rest_top), 0.28 * cm, ARM, segs=20)))
-cradle_parts = [((-0.45, -0.75, -0.25), (0.45, 0.75, 0.05)), ((-0.45, -0.75, 0.05), (0.45, -0.42, 0.55)),
-                ((-0.45, 0.42, 0.05), (0.45, 0.75, 0.55))]
+cradle_parts = [((-0.45, -0.75, -0.25), (0.45, 0.75, 0.05)), ((-0.45, -0.75, 0.0), (0.45, -0.42, 0.55)),
+                ((-0.45, 0.42, 0.0), (0.45, 0.75, 0.55))]
 for i, (lo, hi) in enumerate(cradle_parts):
     c = S.box(f"cradle_{i}", ((REST.x + lo[0]) * cm, (REST.y + lo[1]) * cm, (rest_top + lo[2]) * cm),
               ((REST.x + hi[0]) * cm, (REST.y + hi[1]) * cm, (rest_top + hi[2]) * cm), BLACK)
@@ -510,27 +559,6 @@ for i, (dy, h) in enumerate(((-1.0, 0.55), (1.0, 0.32))):          # 33 up, 45 p
     parts.append(uv_box(lathe_at(f"sel_btn{i}", [(0, 0.1), (0.58, 0.1), (0.58, h - 0.06), (0.53, h), (0, h - 0.02)],
                                  [ARM], v3(SEL + Vector((0, dy)), ZT + 0.12), segs=32)))
 
-# --------------------------------------------------------------------------- finish: join, origin, normals, export, previews
-
-
-def finish(name, parts, sharp_angle=40):
-    ob = S.join(name, parts)
-    S.set_origin(ob, (0, 0, 0))
-    S.tidy(ob, sharp_angle)
-    weighted_normals(ob)
-    os.makedirs(args.out, exist_ok=True)
-    fbx = os.path.join(args.out, name + ".fbx")
-    S.export_fbx(ob, fbx)
-    lo, hi = S.bbox(ob)
-    print("=" * 60)
-    print(f"{name}: exported {fbx}")
-    print(f"{name}: materials {[m.name for m in ob.data.materials]}")
-    print(f"{name}: triangles {S.tri_count(ob)}")
-    print(f"{name}: bbox cm  X {lo.x*100:.1f}..{hi.x*100:.1f}  Y {lo.y*100:.1f}..{hi.y*100:.1f}"
-          f"  Z {lo.z*100:.1f}..{hi.z*100:.1f}")
-    print("=" * 60)
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(args.out, name + ".blend"), compress=True)
-    return ob
 
 
 ob = finish("turntable", parts)
