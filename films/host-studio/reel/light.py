@@ -54,6 +54,14 @@ WINDOW_NIGHT = (0.42, 0.53, 0.74)  # WindowSky's night colour (sRGB 0-1, as look
 # saturated blue goes magenta through the tonemapper (S12 796 had the curtain violet)
 WINDOW_BLUE = (0.39, 0.53, 0.9)    # and its blue hour, a lighter blue
 SUN_LOC = (0.0, 0.0, 500.0)        # look.sky's FM_Sun
+# V03 looks straight into the sun-lit sheers: the low sun through them (and through the olive's leaves, two-sided
+# foliage) is many stops over the room, and 4.5 stops of camera exposure still clipped 34% (MRQ f360), the garden
+# card (grey in the gaps) and the sheers' own Glow are not the hot ones. So over V03's frames only the sun is cut to
+# V03_SUN (cut-matched: V02's last and V04's first frames keep the curve) and the garden a stop down to sit with it;
+# build.py's V03 EXPOSURE goes back to -3 so the room reads. If the sheers still clip, lower V03_SUN; if the leaves
+# and the room go black, raise V03_SUN rather than the exposure
+V03 = (bar(7), bar(9))             # its frames: 360-479
+V03_SUN, V03_OUTSIDE = 0.08, 0.5
 
 # the night's recessed downlights (studio.py night), added at 0 by rig.py: label, loc, aim, candelas, pop frame
 DOWN = [("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, 72.0), 12.0, bar(14, 1)),
@@ -164,6 +172,17 @@ def C(*points) -> Curve:
     return Curve([list(p) if len(p) == 3 else [p[0], p[1], "inout"] for p in points])
 
 
+def _dip(c: Curve, start: int, end: int, k: float) -> Curve:
+    """The curve scaled by k from `start` to `end` - 1 (a shot), stepping at its cuts: the shots either side keep
+    the curve. Between the curve's points either side of the shot it is sampled every frame, as keys() bakes it."""
+    a = max(p[0] for p in c.points if p[0] < start)
+    z = min([p[0] for p in c.points if p[0] > end] or [end])
+    pts = [p for p in c.points if p[0] <= a]
+    for f in range(a + 1, z + 1):
+        pts.append([f, c.at(f) * (k if start <= f < end else 1.0), "hold" if f in (start, end) else "lin"])
+    return Curve(pts + [p for p in c.points if p[0] > z])
+
+
 @dataclass
 class Track:
     label: str             # the actor (collection: the material parameter collection's path)
@@ -189,8 +208,8 @@ def tracks() -> list:
              (ig, NIGHT_SUN["elevation"]))
     T.append(Track("FM_Sun", "transform", "", C((0, SUN_LOC), (END, SUN_LOC)), aim=elev,
                    note="pitch = -elevation, yaw = azimuth"))
-    add("FM_Sun", "float", "Intensity", C((0, 17000.0), (g, 17000.0), (d, 6000.0), (d + 30, 1000.0, "lin"),
-                                          (d + 50, 0.0, "out"), (b, 0.0)))
+    sun = C((0, 17000.0), (g, 17000.0), (d, 6000.0), (d + 30, 1000.0, "lin"), (d + 50, 0.0, "out"), (b, 0.0))
+    add("FM_Sun", "float", "Intensity", _dip(sun, *V03, V03_SUN))
     add("FM_Sun", "float", "Temperature", C((0, 5100.0), (g, 5100.0), (d, 4300.0), (d + 120, 3300.0),
                                             (ig, NIGHT_SUN["temperature"])))
     # under ~5 deg the SkyAtmosphere's transmittance turns the sun red whatever its Temperature: it is gone by d+50
@@ -209,7 +228,8 @@ def tracks() -> list:
     add("RoomBounce", "float", "Intensity", C((0, 0.8), (g, 0.8), (d, 1.1), (d + 60, 1.3), (b, 1.0), (bh, 1.0), (ig, 0.4)))
     add("RoomBounce", "float", "Temperature", C((0, 4500.0), (g, 4500.0), (d, 4300.0), (d + 60, 4300.0), (b, 8500.0), (ig, 10000.0)))
     # the garden outside: the day card fades out as the night card (rig.py, additive in front of it) fades in
-    add("Outside", "material", "Intensity", C((0, 18.0), (g, 18.0), (d, 10.0), (b, 0.0, "out"), (ig, 0.0)), slot=0)
+    outside = C((0, 18.0), (g, 18.0), (d, 10.0), (b, 0.0, "out"), (ig, 0.0))
+    add("Outside", "material", "Intensity", _dip(outside, *V03, V03_OUTSIDE), slot=0)
     add("OutsideNight", "material", "Intensity", C((0, 0.0), (d + 60, 0.0), (b, 1.2, "in"), (bh, 1.2), (ig, 1.2)), slot=0)
     add("Curtains", "material", "Glow", C((0, 0.12), (g, 0.12), (d, 0.08), (b, 0.01), (ig, 0.01)), slot="M_Sheer")
     # the air thickens a little for the downlights' cones
