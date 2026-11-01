@@ -49,16 +49,16 @@ STATES = {  # name: (start, still frame)
 
 # studio.py's day and night values (studio.py builds the day; its night is what BLUE/NIGHT match)
 DAY_SUN = dict(elevation=28.0, azimuth=-28.0, lux=17000.0, temperature=5100.0, sky=0.6)
-NIGHT_SUN = dict(elevation=-8.0, lux=2.0, temperature=7500.0, sky=0.04)
-WINDOW_NIGHT = (0.35, 0.47, 0.85)  # WindowSky's night colour (sRGB 0-1, as look.light takes it)
+NIGHT_SUN = dict(elevation=-8.0, lux=0.0, temperature=7500.0, sky=0.04)
+WINDOW_NIGHT = (0.3, 0.45, 0.95)  # WindowSky's night colour (sRGB 0-1, as look.light takes it)
 WINDOW_BLUE = (0.39, 0.53, 0.9)    # and its blue hour, a lighter blue
 SUN_LOC = (0.0, 0.0, 500.0)        # look.sky's FM_Sun
 
 # the night's recessed downlights (studio.py night), added at 0 by rig.py: label, loc, aim, candelas, pop frame
 DOWN = [("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, 72.0), 12.0, bar(14, 1)),
-        ("DownSlats", (WALL + 32, SLAT_Y, 296), (WALL + 4, SLAT_Y, 90), 16.0, bar(14, 2)),
+        ("DownSlats", (WALL + 32, SLAT_Y, 296), (WALL + 4, SLAT_Y, 90), 10.0, bar(14, 2)),
         ("DownOlive", (WALL + 75, 205, 296), (WALL + 62, 205, 120), 9.0, bar(14, 3)),
-        ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 2.5, bar(14, 4))]
+        ("DownShelves", (WALL + 60, SH_C, 296), (WALL + 15, SH_C, 140), 0.8, bar(14, 4))]
 
 # The halo: the letters k a r m a ignite on bar 13 beats 1, 2, 3, 4 and 4& (PLAN.md section 2). The wipe edge runs
 # between the gaps of the glyphs, measured on props/out/karma_halo.png (U across the halo card, 0 = screen-left):
@@ -180,20 +180,20 @@ def tracks() -> list:
              (ig, NIGHT_SUN["elevation"]))
     T.append(Track("FM_Sun", "transform", "", C((0, SUN_LOC), (END, SUN_LOC)), aim=elev,
                    note="pitch = -elevation, yaw = azimuth"))
-    add("FM_Sun", "float", "Intensity", C((0, 17000.0), (g, 17000.0), (d, 4500.0), (d + 60, 1000.0, "out"),
-                                          (d + 110, 40.0, "lin"), (b, 2.0, "out")))
+    add("FM_Sun", "float", "Intensity", C((0, 17000.0), (g, 17000.0), (d, 6000.0), (d + 60, 1200.0, "out"),
+                                          (d + 110, 40.0, "lin"), (b, 0.0, "out")))
     add("FM_Sun", "float", "Temperature", C((0, 5100.0), (g, 5100.0), (d, 3200.0), (d + 120, 2400.0),
                                             (ig, NIGHT_SUN["temperature"])))
     add("FM_SkyLight", "float", "Intensity", C((0, 0.6), (g, 0.6), (d, 0.35), (b, 0.5), (bh, 0.5), (ig, NIGHT_SUN["sky"])))
     # the window: daylight 6200 K, warming in GOLDEN, cooling to the night's blue through DUSK and BLUE. Temperature
     # multiplies the colour (use_temperature stays on), so the night blue is the colour over a neutral 6500 K.
-    add("WindowSky", "float", "Intensity", C((0, 8.0), (g, 8.0), (d, 5.0), (b, 3.0), (bh, 3.0), (ig, 0.6)))
+    add("WindowSky", "float", "Intensity", C((0, 8.0), (g, 8.0), (d, 5.0), (b, 3.0), (bh, 3.0), (ig, 1.2)))
     add("WindowSky", "float", "Temperature", C((0, 6200.0), (g, 6200.0), (d, 4300.0), (d + 90, 5600.0),
                                                (b, 6500.0)))
     add("WindowSky", "color", "LightColor", C((0, (1.0, 1.0, 1.0)), (d, (1.0, 1.0, 1.0)), (d + 90, (0.75, 0.8, 0.95)),
                                               (b, WINDOW_BLUE), (bh, WINDOW_BLUE), (ig, WINDOW_NIGHT)))
-    add("RoomBounce", "float", "Intensity", C((0, 0.8), (g, 0.8), (d, 1.0), (b, 1.0), (bh, 1.0), (ig, 0.25)))
-    add("RoomBounce", "float", "Temperature", C((0, 4500.0), (g, 4500.0), (d, 3600.0), (b, 8500.0), (ig, 9000.0)))
+    add("RoomBounce", "float", "Intensity", C((0, 0.8), (g, 0.8), (d, 1.0), (b, 1.0), (bh, 1.0), (ig, 0.4)))
+    add("RoomBounce", "float", "Temperature", C((0, 4500.0), (g, 4500.0), (d, 3600.0), (b, 8500.0), (ig, 10000.0)))
     # the garden outside: the day card fades out as the night card (rig.py, additive in front of it) fades in
     add("Outside", "material", "Intensity", C((0, 18.0), (g, 18.0), (d, 10.0), (b, 0.0, "out"), (ig, 0.0)), slot=0)
     add("OutsideNight", "material", "Intensity", C((0, 0.0), (d + 60, 0.0), (b, 1.2, "in"), (bh, 1.2), (ig, 1.2)), slot=0)
@@ -206,7 +206,7 @@ def tracks() -> list:
     # practicals: the shelf LEDs come up in DUSK, everything eases down 30% in NIGHT-DIM
     end_dim = bar(27)  # two bars
     for k in range(4):
-        add(f"ShelfLed{k}", "float", "Intensity", C((0, 1.15), (d, 1.15), (b, 0.8), (bh, 0.8), (ig, 0.7), (dim0, 0.7), (end_dim, 0.7 * DIM)))
+        add(f"ShelfLed{k}", "float", "Intensity", C((0, 1.15), (d, 1.15), (b, 0.8), (bh, 0.8), (ig, 0.45), (dim0, 0.45), (end_dim, 0.45 * DIM)))
     add("CandleLight", "float", "Intensity", C((0, 0.1), (dim0, 0.1), (end_dim, 0.1 * DIM)))
 
     # the halo: off all day; the card is wiped on letter by letter (Reveal) and each letter's LEDs strike in turn
