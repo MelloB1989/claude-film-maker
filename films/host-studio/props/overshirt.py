@@ -49,16 +49,16 @@ NAME = "overshirt"
 
 # ---------------------------------------------------------------- fit (cm)
 VOX = 1.0                      # envelope grid
-HEM_Z = 74.5                   # hem height at the centre front/back
-HEM_RISE = 2.5                 # the shirttail: the hem is this much higher at the side seams
-TAPER = {"front": 0.07, "side": 0.11, "back": 0.06}   # how much a slice may narrow per cm going down
-EASE_TOP, EASE_CHEST, EASE_LOW = 0.6, 1.3, 2.4        # ease on the shoulders, the chest, the waist/hips
-EASE_BACK = 0.6                                         # extra at the back (room to reach forward)
-ARM_EASE_UP, ARM_EASE_ELBOW, ARM_EASE_END = 1.4, 1.6, 0.6
+HEM_Z = 95.0                   # hem height at the centre front/back: cropped, at the high hip
+HEM_RISE = 1.5                 # the shirttail: the hem is this much higher at the side seams
+TAPER = {"front": 0.10, "side": 0.30, "back": 0.16}   # how much a slice may narrow per cm going down
+EASE_TOP, EASE_CHEST, EASE_LOW = 0.6, 1.1, 1.4        # ease on the shoulders, the chest, the waist/hips
+EASE_BACK = 0.3                                         # extra at the back (room to reach forward)
+ARM_EASE_UP, ARM_EASE_ELBOW, ARM_EASE_END = 1.0, 1.3, 0.6
 SMOOTH_K = 3.0                 # the underarm's smooth union
 SLEEVE_END = 5.0               # the sleeve's (rolled) end: this far down the forearm from the elbow
 NECK_R = {"back": 6.0, "side": 6.9, "front": 8.0}   # neckline: horizontal radius round the neck's axis
-FRONT_GAP = ((141.0, 5.0), (125.0, 6.5), (100.0, 7.5), (74.0, 8.5))  # (z, half-gap between the open fronts)
+FRONT_GAP = ((141.0, 5.0), (125.0, 6.5), (110.0, 7.5), (94.0, 8.5))  # (z, half-gap between the open fronts)
 
 
 def parse_args():
@@ -992,14 +992,24 @@ def clip_check(her, ob, step=4, tol=0.0):
     bvh = BVHTree.FromPolygons([Vector(p) for p in V], [tuple(map(int, t)) for t in T])
     G, _ = eval_points(ob)
     G = G[::step]
-    bad, deep = 0, 0.0
+    bad, deep, where = 0, 0.0, []
     for p in G:
-        loc, nor, fi, dist = bvh.find_nearest(Vector(p), 3.0)
+        loc, nor, fi, dist = bvh.find_nearest(Vector(p), 6.0)
         if loc is None:
             continue
         if (Vector(p) - loc).dot(nor) < -tol:
             bad += 1
             deep = max(deep, dist)
+            where.append((p, dist))
+    if where:  # where it happens, coarsely: 10 cm cells, the worst first
+        cells = {}
+        for p, d in where:
+            k = tuple((np.floor(p / 10) * 10).astype(int))
+            c = cells.setdefault(k, [0, 0.0])
+            c[0] += 1
+            c[1] = max(c[1], d)
+        top = sorted(cells.items(), key=lambda kv: -kv[1][0])[:6]
+        log("   clip cells (x,y,z cm: count, deepest): " + "; ".join(f"{k}: {v[0] * step}, {v[1]:.1f}" for k, v in top))
     return bad * step, deep
 
 
@@ -1091,6 +1101,9 @@ def idle_test(her, ob, args, colours, samples=10):
             snapshot(os.path.join(args.out, f"overshirt_idle_{f}"), {ob: (0.33, 0.38, 0.22), **colours},
                      views=(("front", (0, 1, 0)), ("q", (0.6, 1, -0.25)), ("side", (-1, 0, 0))),
                      centre=(0, 0, 1.15), ortho=1.25, res=(800, 900))
+            snapshot(os.path.join(args.out, f"overshirt_idleclose_{f}"), {ob: (0.33, 0.38, 0.22), **colours},
+                     views=(("front", (0, 1, -0.1)), ("qr", (-0.6, 1, -0.2)), ("ql", (0.6, 1, -0.2))),
+                     centre=(0, -0.05, 1.3), ortho=0.45, res=(900, 900))
     for o in objs:
         bpy.data.objects.remove(o, do_unlink=True)
     for t in targets:
@@ -1129,7 +1142,7 @@ ARMHOLE = (19.5, 139.0, 16.0, 119.0)   # the armhole seam: (x, z) at the shoulde
 SEAM_Y = 1.0                   # side seams this far behind her centre line
 PLACKET_W = 2.8
 HEM_W = 2.0
-BUTTONS_Z = (122.0, 113.0, 104.0, 95.0, 86.0)
+BUTTONS_Z = (121.0, 113.0, 105.0)
 REVERS = dict(break_z=125.0, top_z=139.5, top_w=3.8, roll=0.36)  # the fronts' tops fold back from the break point
 POCKET = dict(inset=0.6, top=127.0, w=10.5, h=12.2, chamfer=1.3, hem=2.2)  # inset: from the placket
 THICK = 0.11                   # cotton twill
