@@ -59,6 +59,43 @@ The pipeline (`perf.py` docstring has the commands):
 7. **Place**: `perf.py place --seq /Game/Reel/SEQ_Reel` (R7): one Face and one Body section per presenter from
    f840 / f1080. Run `mh.drive_face` on Host and Presenter first.
 
-## Status
+## Status (PLAN v2, placed on SEQ_Reel)
 
-(filled in below as the editor passes run)
+The voice above is v1 and no longer ships: PLAN v2 (agent-13) replaced the lines; its VO (vo/ L1, L2, L3a, L3b, L4a,
+L4b + cues.json) is made by agent-13's vo.py. With it:
+
+- **Solves**: his stem f960-1560 (CONFIDENCE 0.7), hers f1080-1560 (CONFIDENCE 0.8); L2 and L4a (HAPPINESS 0.6) spliced
+  on him, L3a (HAPPINESS 0.6) and L4b (HAPPINESS 0.8) on her.
+- **Beats** (`beats()`): his head down in silhouette, eyes up with the key (f990-1002); a one-sided smirk after L1;
+  after L2 his look over his right shoulder to her (head 65 deg, eyes the rest), held through S15; her watching him
+  during L2, then to the lens and a half-smile on "Nice try."; her head tilt on "yourself" (word frame from cues.json);
+  the glances between them on "comes around"; small smiles and a settling nod to the lens, held through S18.
+- **Gaze**: every lens range locked to <= 0.1 deg (mean 0.02-0.03 deg after the passes); the looks at the partner are
+  written, not locked (below).
+- **Placed** (`place`): Face from START (last pose held), Body idle -> performance -> idle with 6-frame blends;
+  `drive_faces` on Host and Presenter. Stills: `previs/perf/` (viewport, f1032 S13 L1, f1170 S15 the hand-off,
+  f1240 S16 L3b, f1394 S17 the glance; `crop_` versions enlarged).
+- **Gestures**: none used (the hand-keyed S14 one went with S14; her watch-hand lift reads stiff on the idle body).
+
+What the rig taught (measured, `signs`, eye probes):
+
+- The head curves' names do not say what they do: **HeadYaw nods** (+ down), **HeadRoll turns** (+ towards world -Y),
+  **HeadPitch tilts** ear to shoulder; 1 unit = 1 deg on the head bone. `PITCH`/`turn()` in perf.py hide this.
+- **eyeLookLeft turns the eyes to the face's own right** (world -Y for both presenters), eyeLookRight to its left.
+- **Eye curves top out at ~40 deg** (calibration: Left 42, Right 37, Up 30, Down 40). Her mark is ~130 deg from his
+  front (80 cm behind, 95 cm to his right): no lock reaches it, and `anim.gaze_lock` aimed that far off picks the
+  eye's side axis as "forward" and does nothing, so both looks at the partner are written as beats.
+
+Editor safety (fmbridge, merged into the reel install by agent-06:2):
+
+- Curves are written through the animation controller in one bracket, each curve in one call
+  (`AnimationLibrary.add_float_curve_keys` recompresses after every key: a 30 s face held the game thread 40+ min).
+- `speech.to_face` polls a non-blocking solve across ticks instead of holding the game thread.
+- `assets.free` before every create/export/duplicate (speech, seq.shot, gaze_lock, bake_pose, perf.py's scripts): the
+  solve's export over an existing animation opened a modal "Overwrite Existing Object" dialog.
+- `gaze_lock` with `frames` kept the solved frames as its range (the argument was overwritten): fixed.
+- `gaze` sets each pass's source on the track first: a rerun otherwise wrote into an animation nobody played.
+
+For R3/R7 (fleet/agent-10/reel-cut): after a level rebuild, rebinding *added* the new camera to old bindings, so ten
+SEQ_Reel camera bindings each moved two cameras (S05's keys moved Reel_S11: the wall shot); build.py drops such
+bindings and keys afresh.
