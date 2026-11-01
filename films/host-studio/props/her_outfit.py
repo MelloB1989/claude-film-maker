@@ -757,6 +757,9 @@ class TopShape:
         Rc = smooth1d(Rc, 1.5, axis=1, wrap=True)
         Rc = smooth1d(Rc, 0.8, axis=0)
         self.R = np.maximum(Rc, R) + TOP["clear"]
+        # tucked in, under the waistband: the knit lies flat on her (the trousers hold it), no bridging to bulge there
+        tuck = smoothstep(z_lo + TOP["tuck"] - 0.5, z_lo + TOP["tuck"] + 1.5, zz)[:, None]
+        self.R = np.minimum(self.R, R + TOP["clear"] + tuck * 99.0)
         self.ztop = top
         # sleeves
         self.arms = [Sleeve(her, marks, s) for s in (1, -1)]
@@ -2169,7 +2172,7 @@ def load_idle(her, args):
     return src, objs, (f0, f1)
 
 
-def bake_clearance(her, ob, n, Q, lap, src, args, surf, gap=0.3, iters=2, samples=10):
+def bake_clearance(her, ob, n, Q, lap, src, args, surf, gap=0.3, iters=2, samples=10, arms=True):
     """Keep her skin from poking through as she moves: pose her through her idle (and the arms down), find where the
     garment's inner layer comes within `gap` of her skin (not where the skin faces the cloth from outside: an arm closing
     onto the torso, a sandwich no offset can fix), and push the cloth out by that much in the rest pose, away from her
@@ -2199,7 +2202,11 @@ def bake_clearance(her, ob, n, Q, lap, src, args, surf, gap=0.3, iters=2, sample
             bpy.context.view_layer.update()
             G, _ = eval_points(ob)
             Np = vertex_normals(G[:n], Q)
-            parts = [eval_points(her.body_ob)] + ([eval_points(her.face_ob)] if her.face_ob is not None else [])
+            # the trousers clear her torso and legs, not her arms and hands: a hand resting on the hip is not cloth's
+            # to clear (the top keeps her arms: its sleeves are on them)
+            bv, bt = eval_points(her.body_ob)
+            parts = [(bv, bt if arms else bt[her.armw[bt].max(1) < 0.5])] + ([eval_points(her.face_ob)] if her.face_ob is not None
+                                                             else [])
             BV = np.concatenate([p[0] for p in parts])
             BT = np.concatenate([p[1] + sum(len(q[0]) for q in parts[:k]) for k, p in enumerate(parts)])
             bvh = BVHTree.FromPolygons(BV.tolist(), BT.tolist())
@@ -2335,7 +2342,7 @@ def main():
     if not a.no_bake:
         bake_clearance(her, ob_top, len(top["Vd"]), top["Q"], top["lap"], src, a, surf, gap=0.12)
         if a.stage != "top":
-            bake_clearance(her, ob_tr, len(Vd), T["F"], T["lap"], srct, a, surf, gap=0.3)
+            bake_clearance(her, ob_tr, len(Vd), T["F"], T["lap"], srct, a, surf, gap=0.3, arms=False)
     if not a.no_tests:
         res = {"poses": pose_tests(her, garments, a, cols), "idle": idle_test(her, garments, a, cols)}
         with open(os.path.join(a.out, f"{NAME}_tests.json"), "w") as f:

@@ -119,7 +119,8 @@ for name, d, at, lens, dist in (("her_outfit", (0.55, 1, -0.28), (0, 0, 0.92), 5
                                 ("her_outfit_front", (0, 1, 0), (0, 0, 0.92), 50, 4.4),
                                 ("her_outfit_close", (0.3, 1, -0.1), (0, 0, 1.18), 85, 2.6),
                                 ("her_outfit_hip", (-0.5, 1, 0), (-0.12, -0.02, 0.92), 85, 1.4),
-                                ("her_outfit_sleeve", (0.4, 1, -0.2), (0.2, 0.0, 1.25), 85, 1.0)):
+                                ("her_outfit_sleeve", (0.4, 1, -0.2), (0.2, 0.0, 1.25), 85, 1.0),
+                                ("her_outfit_pocket", (0.55, 1, 0.0), (-0.13, -0.06, 0.92), 85, 1.0)):
     d = Vector(d).normalized()
     cd.lens = lens
     cam.location = Vector(at) - d * dist
