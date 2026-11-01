@@ -67,6 +67,9 @@ still point at the deleted actors. Their tracks are kept, but nothing plays them
 `/Game/Reel/Perf` are assets, so a rebuild leaves them alone. Nothing is solved, composed or gazed again. Run from
 `tools/` on reel-v2 (277d6fb or later), in this order:
 
+    # 0. the reel's own lights (OutsideNight, the four Down*) and her garments' leader pose: studio.py drops both
+    uv run python ../films/host-studio/reel/rig.py --no-save
+    uv run film-ue exec ../films/host-studio/props/her_outfit_ue/restore_leader.py   # Top/Trousers/Overshirt -> Body
     # 1. rebind SEQ_Reel to the new actors (skip if build.py's build() has already run since the rebuild: it rebinds)
     uv run film-ue op seq.rebind path=/Game/Reel/SEQ_Reel 'labels=["Host","Presenter","HerEarL","HerEarR","HerWatch"]'
     # 2. Sequencer drives the faces
