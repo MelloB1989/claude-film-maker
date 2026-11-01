@@ -66,8 +66,8 @@ FADE_OUT = (TOTAL - FPS, TOTAL)  # f1536-1559: the fade to black on the halo
 TITLE_IN = (bar(25, 2), bar(25, 4) + BEAT)  # the title fades in over bar 25 beats 2-4 (f1455-1500)
 LUFS, TRUE_PEAK = -14.0, -1.0
 
-# The voice lines (PLAN.md §2, "Voice lines"): DRAFT copy until the operator approves it (PLAN.md §7 q1). Frames on the
-# master's clock: [first, last) of the line's speech; the captions follow the words.
+# The voice lines (PLAN.md §2, "Voice lines"; the operator approved the copy as written). Frames on the master's clock:
+# [first, last) of the line's speech; the captions follow the words.
 LINES = {
     "L1": (930, 1080, "This is karma. Everything on these shelves is a story — seven of them, built one late night "
                       "at a time."),
@@ -75,8 +75,9 @@ LINES = {
     "L3": (1158, 1310, "Tech, explained the way we'd want it explained: calm, honest, and made right here."),
     "L4": (1360, 1410, "Welcome… to karma."),
 }
-# The title lockup (PLAN.md §7 q2): DRAFT text until the operator decides. None drops a line.
-TITLE = {"wordmark": True, "line": "a studio by MelloB", "date": "27 NOV"}
+# The title lockup, as the operator chose it (PLAN.md §7 q2): the wordmark, then "a studio by MelloB". None drops a
+# line; "date" adds a small tracked line under it.
+TITLE = {"wordmark": True, "line": "a studio by MelloB", "date": None}
 
 # 9:16 crop keys that override shots.py's single vcrop: {shot: [[frame offset in the shot, centre 0..1], ...]}, eased
 # between keys. S15 follows the focus pull: him (sharp, frame-left) until bar 20, her once the pull lands (agent-10's
@@ -317,7 +318,7 @@ def wordmark(width: int):
 
 
 def title_card(size: tuple[int, int], vertical: bool):
-    """The title lockup on a transparent frame-sized canvas, cropped to its box: (image, x, y). DRAFT text (TITLE)."""
+    """The title lockup on a transparent frame-sized canvas, cropped to its box: (image, x, y)."""
     from PIL import Image, ImageDraw
     w, h = size
     unit = w / 1080 if vertical else h / 1080  # 1 px at 1080 lines (16:9) or 1080 columns (9:16)
@@ -668,7 +669,7 @@ def main(argv=None) -> None:
                   "shots": {s.id: sorted({str(Path(p).parent) for f, p in found.items() if p and s.start <= f < s.end})
                             for s in SHOTS if s.start < f1 and s.end > f0},
                   "missing": sum(1 for p in found.values() if p is None), "outputs": made,
-                  "drafts": {"lines": "PLAN.md §2 draft copy", "title": TITLE, "vcrop_keys": VCROP_KEYS}}
+                  "title": TITLE, "lines": LINES, "vcrop_keys (draft)": VCROP_KEYS}
         (a.out / "cut.json").write_text(json.dumps(report, indent=1, ensure_ascii=False))
         bad = [f"{m['file']}: {', '.join(m['problems'])}" for m in made if m["problems"]]
         snd = f"{loud['I']:.1f} LUFS, {loud['TP']:.1f} dBTP" if loud.get("I") is not None else "silent"
