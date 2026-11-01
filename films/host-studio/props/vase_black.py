@@ -1,13 +1,13 @@
 """vase_black — a 16 cm black moon jar: a full, round body, a short neck and a rolled lip.
 
-Premium studio ceramic for close-ups: a smooth, finely tessellated thrown profile (adaptive
-rings, ~200 columns) with only a trace of out-of-round, a rounded lip slightly thicker than the
-neck wall and the inside of the neck modelled (it reads dark in the mouth). A glossy black glaze
-(M_CeramicBlack) stops ~1.6 cm above the foot on a soft rolled bead with two gentle drips and a
-little pooling where the shoulder turns into the neck; below it a crisp trimmed foot ring in raw
-buff stoneware (M_ClayFoot) with a recessed base. Colour attribute "Glaze": R = glaze build-up,
-G = thin glaze over the lip (where a black glaze breaks to brown), B = cavity (inside the
-neck). Origin: bottom centre.
+Premium studio ceramic for close-ups: a smooth, finely tessellated thrown profile (adaptive rings,
+~190 columns) with only a trace of out-of-round, a rounded lip slightly thicker than the neck wall
+and the inside of the neck modelled (it reads dark in the mouth). A glossy black glaze
+(M_CeramicBlack) stops ~2.2 cm up (~1.7 cm above the foot ring) on a soft rolled bead with two
+gentle drips and a little pooling where the shoulder turns into the neck; below it a crisp trimmed
+foot ring in raw buff stoneware (M_ClayFoot) with a recessed base. Colour attribute "Glaze": R =
+glaze build-up, G = thin glaze over the lip (where a black glaze breaks to brown), B = cavity
+(inside the neck). Origin: bottom centre.
 
     blender -b --factory-startup -P films/host-studio/props/vase_black.py -- --out films/host-studio/props/out
 """

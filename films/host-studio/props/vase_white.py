@@ -1,12 +1,12 @@
 """vase_white — a 22 cm white porcelain bottle vase: a slender neck over a soft, high shoulder.
 
-Premium studio ceramic for close-ups: a smooth, finely tessellated thrown profile (adaptive
-rings, ~190 columns) with only a trace of out-of-round, a rounded lip slightly thicker than the
-neck wall, the inside of the neck modelled (it reads dark in the mouth). A glossy glaze
-(M_CeramicWhite) stops ~1.7 cm above the foot on a soft rolled bead with two gentle drips and a
-little pooling where the shoulder turns into the neck; below it a crisp trimmed foot ring in raw
-buff stoneware (M_ClayFoot) with a recessed base. Colour attribute "Glaze": R = glaze build-up,
-G = thin glaze over the lip, B = cavity (inside the neck). Origin: bottom centre.
+Premium studio ceramic for close-ups: a smooth, finely tessellated thrown profile (adaptive rings,
+~190 columns) with only a trace of out-of-round, a rounded lip slightly thicker than the neck wall,
+the inside of the neck modelled (it reads dark in the mouth). A glossy glaze (M_CeramicWhite) stops
+~1.75 cm up (~1.3 cm above the foot ring) on a soft rolled bead with two gentle drips and a little
+pooling where the shoulder turns into the neck; below it a crisp trimmed foot ring in raw buff
+stoneware (M_ClayFoot) with a recessed base. Colour attribute "Glaze": R = glaze build-up, G = thin
+glaze over the lip, B = cavity (inside the neck). Origin: bottom centre.
 
     blender -b --factory-startup -P films/host-studio/props/vase_white.py -- --out films/host-studio/props/out
 """
@@ -37,8 +37,8 @@ DRIPS = [(14.0, 0.62, 0.58), (47.0, 0.36, 0.48)]   # (theta deg, length, width) 
 
 
 def materials():
-    glaze = M.glaze_material("M_CeramicWhite", (0.885, 0.875, 0.845), 0.09,
-                             thin=(0.80, 0.70, 0.56), pooled=(0.80, 0.82, 0.83), subsurface=0.08)
+    glaze = M.glaze_material("M_CeramicWhite", (0.82, 0.81, 0.78), 0.09,
+                             thin=(0.76, 0.67, 0.54), pooled=(0.74, 0.76, 0.77), subsurface=0.08)
     return glaze, M.clay_foot_material()
 
 

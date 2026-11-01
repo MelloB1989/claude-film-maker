@@ -1,13 +1,12 @@
 """vase_speckle — a 24 cm cream speckled stoneware bottle vase, 11 cm across, 3.6 cm mouth.
 
 The same form as before, refined to the premium-ceramic standard of the other vases: a smooth,
-finely tessellated thrown profile with a trace of out-of-round, a rounded lip slightly thicker
-than the neck wall and the inner neck modelled. A glossy speckled glaze (M_Stoneware) stops
-~1.9 cm above the foot on a soft rolled bead with two gentle drips and a little pooling at the
-shoulder; below it a crisp trimmed foot ring in raw buff stoneware (M_ClayFoot) with a recessed
-base. Colour attribute "Glaze": R = glaze build-up, G = thin glaze over the lip,
-B = cavity (inside the neck).
-Origin: bottom centre.
+finely tessellated thrown profile with a trace of out-of-round, a rounded lip slightly thicker than
+the neck wall and the inner neck modelled. A glossy speckled glaze (M_Stoneware) stops ~1.9 cm up
+(~1.5 cm above the foot ring) on a soft rolled bead with two gentle drips and a little pooling at
+the shoulder; below it a crisp trimmed foot ring in raw buff stoneware (M_ClayFoot) with a recessed
+base. Colour attribute "Glaze": R = glaze build-up, G = thin glaze over the lip, B = cavity (inside
+the neck). Origin: bottom centre.
 
     blender -b --factory-startup -P films/host-studio/props/vase_speckle.py -- --out films/host-studio/props/out
 """

@@ -467,7 +467,7 @@ def shoot(path, lo, hi, view_dir, lens=70, margin=1.12, samples=64, aim=None):
 def finish(name, parts, args, origin=None, sharp_angle=40, views=None, post=None, extras=None, glossy=False):
     """Join, origin at the bottom centre of the footprint (or `origin`), tidy, export, report,
     render. views: list of (suffix, view_dir, lens, margin) -- suffix "" is <name>.png.
-    glossy: preview on glossy_stage() (a window and a softbox to reflect)."""
+    glossy: preview on glossy_stage() (rectangular softboxes to reflect)."""
     if len(parts) == 1:
         ob = bake(parts[0])
         ob.name = ob.data.name = name
@@ -781,7 +781,7 @@ def glazed_vase(name, under, outer, inner, mats, glaze_z, drips, segs=176, seed=
     the drips carry a heavier bead at their tips. `pool` = (z0, z1, extra cm): extra glaze
     pooled in a band (the shoulder). The ring rows near the line follow it exactly, so the
     material border is a clean curve. A colour attribute "Glaze" records R = glaze build-up
-    (bead, drips, pool), G = thin glaze (the lip) and B = cavity (0 at the lip, 1 from 3.5 cm
+    (bead, drips, pool), G = thin glaze (the lip) and B = cavity (0 at the lip, 1 from 2.5 cm
     down inside the neck), for the material.
 
     UVs: U = theta x the widest radius (m), V = arc length along the profile (m)."""
@@ -1017,91 +1017,10 @@ def glazed_vase(name, under, outer, inner, mats, glaze_z, drips, segs=176, seed=
             j, i = vinfo[vi]
             s, build, _r = info[j][i]
             thin = 0.6 * math.exp(-((s - lip_mid) / 0.13) ** 2)          # the glaze runs thin over the lip
-            cavity = smoothstep(lip_in + 0.3, lip_in + 3.5, s)               # down inside the neck
+            cavity = smoothstep(lip_in + 0.1, lip_in + 2.0, s)               # down inside the neck
             ca.data[li].color = (min(1.0, build), thin, cavity, 1.0)
     print(f"{name}: {n_rows} rows x {n} columns, glaze line at s={s_line0:.2f} cm")
     return ob
-
-
-def window_world(strength=0.45, window_dir=(0.55, -1.0, 0.45), size=(0.75, 0.95), power=9.0,
-                 tint=(1.0, 0.97, 0.92)):
-    """The preview world: the interior HDRI plus a bright mullioned window in direction
-    `window_dir`, so glossy surfaces show a crisp window reflection (Eevee reflects the world
-    probe). size = half extents (tan of the half angles) across and up."""
-    _world(strength)
-    sc = bpy.context.scene
-    world = sc.world
-    for attr, val in (("probe_resolution", "2048"), ("sun_threshold", 1000.0)):
-        try:
-            setattr(world, attr, val)
-        except Exception:
-            pass
-    nt = world.node_tree
-    bg = next(n for n in nt.nodes if n.type == "BACKGROUND")
-    links = nt.links
-    c = Vector(window_dir).normalized()
-    e1 = c.cross(Vector((0, 0, 1))).normalized()
-    e2 = e1.cross(c).normalized()
-
-    def vm(op, a, b=None):
-        n = nt.nodes.new("ShaderNodeVectorMath")
-        n.operation = op
-        for k, v in enumerate((a, b)):
-            if v is None:
-                continue
-            if isinstance(v, bpy.types.NodeSocket):
-                links.new(v, n.inputs[k])
-            else:
-                n.inputs[k].default_value = v
-        return n.outputs["Value"] if op in ("DOT_PRODUCT", "LENGTH") else n.outputs["Vector"]
-
-    def mth(op, *args, clamp=False):
-        n = nt.nodes.new("ShaderNodeMath")
-        n.operation = op
-        n.use_clamp = clamp
-        for k, v in enumerate(args):
-            if isinstance(v, bpy.types.NodeSocket):
-                links.new(v, n.inputs[k])
-            else:
-                n.inputs[k].default_value = v
-        return n.outputs[0]
-
-    def band(x, half, soft):
-        """1 inside |x| < half, soft edge."""
-        ax = mth("ABSOLUTE", x)
-        return mth("SUBTRACT", 1.0, mth("DIVIDE", mth("SUBTRACT", ax, half - soft), 2 * soft, ), clamp=True)
-
-    tc = nt.nodes.new("ShaderNodeTexCoord")
-    d = vm("NORMALIZE", tc.outputs["Generated"])
-    dc = vm("DOT_PRODUCT", d, tuple(c))
-    front = mth("GREATER_THAN", dc, 0.2)
-    u = mth("DIVIDE", vm("DOT_PRODUCT", d, tuple(e1)), dc)
-    v = mth("DIVIDE", vm("DOT_PRODUCT", d, tuple(e2)), dc)
-    hu, hv = size
-    pane = mth("MULTIPLY", band(u, hu, 0.012), band(v, hv, 0.012))
-    bar = 0.018
-    mull = mth("MAXIMUM", band(u, bar, 0.004), band(mth("SUBTRACT", mth("ABSOLUTE", v), hv / 3), bar, 0.004))
-    mask = mth("MULTIPLY", mth("MULTIPLY", pane, mth("SUBTRACT", 1.0, mull, clamp=True)), front)
-    # brighter towards the top of the window (sky), a little cooler
-    grad = mth("MULTIPLY_ADD", v, 0.35 / max(hv, 1e-3), 1.0)
-    lum = mth("MULTIPLY", mth("MULTIPLY", mask, grad), power)
-    src = bg.inputs["Color"].links[0].from_socket if bg.inputs["Color"].links else None
-    add = nt.nodes.new("ShaderNodeMix")
-    add.data_type = "RGBA"
-    add.blend_type = "ADD"
-    add.inputs["Factor"].default_value = 1.0
-    if src is not None:
-        links.new(src, add.inputs[6])
-    else:
-        add.inputs[6].default_value = (0.2, 0.18, 0.16, 1)
-    win_col = nt.nodes.new("ShaderNodeMix")
-    win_col.data_type = "RGBA"
-    win_col.blend_type = "MULTIPLY"
-    win_col.inputs["Factor"].default_value = 1.0
-    links.new(lum, win_col.inputs[6])
-    win_col.inputs[7].default_value = (*tint, 1)
-    links.new(win_col.outputs[2], add.inputs[7])
-    links.new(add.outputs[2], bg.inputs["Color"])
 
 
 def softbox(name, centre, aim, w, h, energy, color=(1.0, 0.96, 0.9)):
@@ -1119,15 +1038,15 @@ def softbox(name, centre, aim, w, h, energy, color=(1.0, 0.96, 0.9)):
     return ob
 
 
-def glossy_stage(lo, hi, window_dir=(0.55, -1.0, 0.45), light_scale=0.75, box_side=1.0, wall_gap=None):
-    """stage() plus a mullioned window in the world (reflections) and a tall softbox at the
-    front-right (a soft rectangular highlight), for glazed and polished props."""
+def glossy_stage(lo, hi, light_scale=0.75, box_side=1.0, wall_gap=None):
+    """stage() with rectangular softboxes instead of disks (crisp rectangular highlights) plus a
+    tall softbox at the front-right, and finer ray-traced reflections, for glazed and polished
+    props."""
     stage(lo, hi, wall_gap=wall_gap, light_scale=light_scale)
     for ob in bpy.context.scene.objects:            # softboxes, not disks: rectangular highlights
         if ob.type == "LIGHT" and ob.data.type == "AREA":
             ob.data.shape = "RECTANGLE"
             ob.data.size_y = ob.data.size * 1.4
-    window_world(window_dir=window_dir)
     size = max((hi - lo).length, 0.05)
     centre = (lo + hi) / 2
     softbox("_softbox", centre + Vector((0.9, 0.75 * box_side, 0.55)).normalized() * size * 2.6, centre,

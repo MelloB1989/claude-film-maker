@@ -293,7 +293,7 @@ def coin_uvs(bm):
 def gold_material():
     """Preview gold: a satin-polished field (a mirror field flares white on the shelf), frosted
     relief (read from the Relief colour attribute), faint wear in the roughness."""
-    m = S.material("M_Gold", (0.96, 0.70, 0.30), 0.12, metallic=1.0)
+    m = S.material("M_Gold", (0.70, 0.42, 0.12), 0.12, metallic=1.0)
     nt = m.node_tree
     b = M.principled(m)
     attr = nt.nodes.new("ShaderNodeAttribute")
