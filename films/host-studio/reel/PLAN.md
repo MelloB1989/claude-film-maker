@@ -70,8 +70,7 @@ The beats that are hit on purpose (frame = (bar−1)·60 + (beat−1)·15):
   Tycho, "Awake" (warmth, pace); Ritviz's softer productions (Indian colour in electronic music); Lane 8's
   deep-house risers (the pre-drop breath).
 - **How:** generate it with the repo's score pipeline: `music_plan.py` sections in whole bars (A 4, B 8, C 2, D 4,
-  E 4, F 4 = 26 bars at 96 bpm) → `music.py` (ElevenLabs Music, cleared for commercial use on a paid plan; *check
-  the plan tier before publishing*), then `beats.py` to measure the grid against the cut (grid fit ≥ 0.9, else
+  E 4, F 4 = 26 bars at 96 bpm) → `music.py` (ElevenLabs Music: the operator's choice; key: the fleet secret `elevenlabs`), then `beats.py` to measure the grid against the cut (grid fit ≥ 0.9, else
   regenerate). Until it exists, cut to `temptrack.py`'s procedural score at 96 bpm (owned outright, no licence
   question at all); it is also the fallback if the generated score does not fit.
 - **Never:** commercial tracks, the crate's artists' music (the record crate is visual only), stock libraries with
@@ -94,19 +93,20 @@ licence-free), each one-shot aligned to its frame:
 
 ### Voice lines
 
-Two presenters, four short lines (about 16 s of speech in 65 s). **Draft copy — the operator should approve or
-rewrite it** (see the questions at the end).
+Two presenters, four short lines (about 16 s of speech in 65 s). **Approved by the operator as written**
+(2026-11-01).
 
-| Line | Who | When | Text (draft) | Mood (`speech.to_face`) |
+| Line | Who | When | Text | Mood (`speech.to_face`) |
 |---|---|---|---|---|
 | L1 | him | f930–1080 (S13→S14) | "This is karma. Everything on these shelves is a story — seven of them, built one late night at a time." | CONFIDENCE 0.8 |
 | L2 | him | f1110–1150 (S15) | "She'll tell you the next one." | HAPPINESS 0.6 |
 | L3 | her | f1158–1310 (S15→S16) | "Tech, explained the way we'd want it explained: calm, honest, and made right here." | CONFIDENCE 0.9 |
 | L4 | him, then her | f1360–1410 (S17) | him: "Welcome…" — her: "…to karma." | HAPPINESS 0.7 |
 
-Voices: either recorded by the operator and a collaborator (best, and most personal), or ElevenLabs voices through
-`vo.py` (one voice per presenter, a few takes each). Each line becomes a face with `speech.to_face`, as in
-`films/host-studio/shot.py`.
+Voices: **ElevenLabs** (operator's decision): one male voice for him, one female voice for her, through
+`vo.py` (a few takes per line, chosen by listening, not dozens). The API key is the fleet secret `elevenlabs`, used
+only through `fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- …`. Each line becomes a face with
+`speech.to_face`, as in `films/host-studio/shot.py`.
 
 ## 3. Lighting states
 
@@ -283,7 +283,7 @@ both facing the camera (+X); in the level today both stand at the origin.
 ### S18 · Title — 1:00.00–1:05.00 (bars 25–26, f1440–1559, 5.0 s)
 
 - **Camera:** 28 mm full frame, T4. Locked off on the end of S17; the practicals ease down, the halo holds; title type fades in. From `[320, -10, 195]` → `[320, -10, 195]`, aimed at `[-100, -5, 172]`.
-- **In frame:** the wide with the lit sign; 2D title lockup over it, then a fade to black on the halo.
+- **In frame:** the wide with the lit sign; the title over it (the karma wordmark, then "a studio by MelloB"), then a fade to black on the halo.
 - **Light:** NIGHT-DIM.
 - **Action:** both hold, a natural idle.
 - **Sound:** the final chord and a sub tail; the halo's hum fades last.
@@ -376,25 +376,28 @@ scripts); everyone else writes code and data, tests offline what can be tested, 
 | **R1. Sequencer ops** | `seq.key_float`, `seq.key_color`, `seq.key_visible`, `seq.key_material`, `seq.anim` (sections at offsets with blends), `seq.audio`, `seq.stills` across the cut, `gaze_lock(target=…)`; docstrings and `film-ue ops` listing; a test sequence | — | 1 agent | 1 day |
 | **R2. Light timeline** | `reel/rig.py` (what the day build lacks) and `reel/light.py`: the states of §3 as data, the halo wipe material (`GlowWipe` in `look.material`), the ignition, the downlight pops, keys onto `SEQ_Reel` | R1 | 1 agent | 1 day |
 | **R3. Cameras and the cut** | `reel/build.py`: the Reel_* cameras and their keys from `shots.py`, orbit/arc helpers, focus pulls, camera cuts, the presenters' marks and visibility; refine framings from the previs and the animatic | R1 | 1 agent | 1 day |
-| **R4. Performances** | the VO (recorded or `vo.py`), `speech.to_face` per line, idle/line/idle sections, gestures (retarget), the hand-off look, reactions, gaze locks for both | R1, approved lines | 1–2 agents | 1–2 days |
-| **R5. Score and sound** | temp track now (`temptrack.py`, 96 bpm, 26 bars); the ElevenLabs score from the section plan; the SFX palette and cue sheet on the frames of §2/§4; the mix | — | 1 agent | 1 day (can start now) |
+| **R4. Performances** | the VO (ElevenLabs via `vo.py`), `speech.to_face` per line, idle/line/idle sections, gestures (retarget), the hand-off look, reactions, gaze locks for both | R1 | agent-03:2 | 1–2 days |
+| **R5. Score and sound** | temp track now (`temptrack.py`, 96 bpm, 26 bars); the ElevenLabs score from the section plan; the SFX palette and cue sheet on the frames of §2/§4; the mix | — | agent-11 | 1 day (can start now) |
 | **R6. Post and delivery** | `reel/cut.py`: frames → 16:9 master, the 9:16 crop from `vcrop`, the title overlay (Geist and the Samarkan wordmark), captions for L1–L4 (burned-in for social), loudness, the deliverables | — | 1 agent | ½ day (can start now) |
 | **R7. Execution in Unreal** | install R1, run R2/R3/R4 in the editor, the animatic, the calibration renders, the final renders by shot range; bring frames back through S3 | R1–R4 | the Unreal operator agent | 1 day of machine time |
 
 Order: R5 and R6 start at once; R1 first among the Unreal tasks; R2, R3 and R4 in parallel once R1 lands; R7
 runs the animatic as soon as R2 and R3 exist (with idles only), and the finals once R4 is in.
 
-## 7. Open questions for the operator
+## 7. Decisions and open questions
 
-1. **The words.** Are the draft lines L1–L4 right, or should the presenters not speak at all (a pure music reel
-   with the title)? Who voices them: the operator and a collaborator recorded on a phone, or ElevenLabs voices?
-2. **The title card.** What does it say? A proposal: the karma wordmark (the sign itself), then "a studio by
-   MelloB", and a date or a handle. Is 27 NOV the launch date (it would be the natural end card)?
-3. **Names on screen.** Should the presenters be named (a lower third), or stay "him" and "her"?
-4. **Seven products.** Is it fine to read every spine title on screen (S03), and to show the V-and-heart polaroid
+Decided by the operator (2026-11-01):
+
+- **The words:** lines L1–L4 as written, voiced with ElevenLabs (a male voice for him, a female voice for her).
+- **The title card:** the karma wordmark, then "a studio by MelloB".
+- **The score:** ElevenLabs Music.
+
+Still open:
+
+1. **Names on screen.** Should the presenters be named (a lower third), or stay "him" and "her"?
+2. **Seven products.** Is it fine to read every spine title on screen (S03), and to show the V-and-heart polaroid
    up close (S04)? It is personal.
-5. **The crate's artists.** The names are on screen (S10); none of their music is used. Fine?
-6. **Score.** ElevenLabs Music (paid plan, commercial use) or only the repo's procedural score?
-7. **Length.** 65 s is planned; a 45 s cut drops S01, S05, S07, S09 and shortens S13/S17 by a bar each. Wanted too?
-8. **Marks.** The plan moves him to (30, 40) and her to (−50, −55) only inside the reel's sequence; the level is
+3. **The crate's artists.** The names are on screen (S10); none of their music is used. Fine?
+4. **Length.** 65 s is planned; a 45 s cut drops S01, S05, S07, S09 and shortens S13/S17 by a bar each. Wanted too?
+5. **Marks.** The plan moves him to (30, 40) and her to (−50, −55) only inside the reel's sequence; the level is
    unchanged. Is that acceptable, or should the reel have its own level copy?
