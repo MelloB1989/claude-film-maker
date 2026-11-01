@@ -579,6 +579,17 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
         w = ride("HerWatch")
         w.attach_to_component(body_, "lowerarm_twist_02_l", rule, rule, rule, False)
         w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)  # once attached (it kept the bone's)
+    # her hair: sleek black, even root to tip. The preset's hair (melanin 0.8, redness 0.25) read with green lengths in
+    # the warm day shots, from no parameter of the material and no light (reel hair tests a-h); full melanin hides it.
+    # A child of each preset instance (strands, cards, helmet) so the rest of the preset's look carries over.
+    hair = next((c for c in L.actor("Presenter").get_components_by_class(unreal.GroomComponent)
+                 if c.get_name() == "Hair"), None)
+    if hair:
+        for i, suffix in enumerate(("", "_Cards", "_Helmet")):
+            parent = unreal.load_asset(f"/Game/Host/Unpacked/Presenter/Grooms/MI_WI_Hair_L_Straight_Hair{suffix}")
+            if parent:
+                hair.set_material(i, unreal.load_asset(instance(
+                    f"MI_K_HerHair{suffix}", parent, scalars={"hairMelanin": 1.0, "hairRedness": 0.05})))
     # leader pose last, on every garment (hers and the overshirt): a change to one instance component re-creates the
     # others, and a re-created component has lost its leader (it then stays in its bind pose while the body moves)
     for c in L.actor("Presenter").get_components_by_class(unreal.SkeletalMeshComponent):

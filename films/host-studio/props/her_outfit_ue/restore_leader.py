@@ -1,6 +1,7 @@
-"""Her Top and Trousers back on leader pose to Body (no anim Blueprint), as studio.py's final pass does, and each
+"""Her Top, Trousers and Overshirt back on leader pose to Body (no anim Blueprint), as studio.py's final pass does, and each
 garment's reference pose against the body's: a garment whose root carries a scale (bones in metres under a x100 root)
-shrinks to nothing as soon as anything poses it. The Overshirt is only read. Run with film-ue exec; nothing saved."""
+shrinks to nothing as soon as anything poses it. All three in one pass: touching one instance component re-creates
+the others, so setting only Top/Trousers dropped the Overshirt's leader. Run with film-ue exec; nothing saved."""
 import unreal
 
 from fmbridge.ops import level as L
@@ -22,7 +23,7 @@ def ref(c, bone):
 for n in ("Body", "Top", "Trousers", "Overshirt"):
     if n in comps:
         out[n + "_ref"] = {b: ref(comps[n], b) for b in ("root", "pelvis", "spine_01")}
-for n in ("Top", "Trousers"):
+for n in ("Top", "Trousers", "Overshirt"):
     c = comps[n]
     c.set_anim_instance_class(None)
     c.set_leader_pose_component(comps["Body"])
