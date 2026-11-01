@@ -129,19 +129,23 @@ def skin(character: str, u: float = None, v: float = None, roughness: float = No
 @op("mh.body")
 def body(character: str, measurements: dict) -> dict:
     """Shape the parametric body by measurements in cm (Height, Chest, Waist, Hip, Thigh, ...) and the unitless Fat,
-    Muscularity, Masculine/Feminine; each named one becomes an active constraint. Re-rig and re-build afterwards."""
+    Muscularity, Masculine/Feminine; each named one becomes an active constraint (None frees it again). Re-rig and
+    re-build afterwards."""
     c = _char(character)
     new = []
     for x in sub().get_body_constraints(c, True):
         y = x.copy()  # the array hands out copies: edit a copy and pass the whole list back
         if str(y.name) in measurements:
-            y.is_active, y.target_measurement = True, float(measurements[str(y.name)])
+            v = measurements[str(y.name)]
+            y.is_active = v is not None
+            if v is not None:
+                y.target_measurement = float(v)
         new.append(y)
     sub().set_body_constraints(c, new)
     sub().commit_body_state(c)
     EAL.save_asset(character)
-    return {str(x.name): round(x.target_measurement, 1) for x in sub().get_body_constraints(c, True)
-            if str(x.name) in measurements}
+    return {str(x.name): round(x.target_measurement, 1) if x.is_active else None
+            for x in sub().get_body_constraints(c, True) if str(x.name) in measurements}
 
 
 @op("mh.build")
@@ -179,21 +183,90 @@ def drive_face(label: str, component: str = "Face") -> str:
     return str(c.get_editor_property("animation_mode"))
 
 
-@op("mh.cloth_inflate")
-def cloth_inflate(label: str, cm: float = 0.6, component: str = "SkeletalMesh", folder: str = "/Game/FM/Cloth") -> dict:
-    """Push a garment out along its normals by `cm`, so skin under tight cloth stops poking through: its material
-    chain is copied out of the plugin into `folder`, and the master gains a World Position Offset (normal x
-    FM_Inflate). Re-running only changes the amount."""
+def _has_inflate(m) -> bool:
+    return "FM_Inflate" in [str(n) for n in unreal.MaterialEditingLibrary.get_scalar_parameter_names(m)]
+
+
+def _add_inflate(master):
+    """World Position Offset += vertex normal x FM_Inflate on a master material, recompiled (a fresh one only)."""
     MEL = unreal.MaterialEditingLibrary
-    comp = next(c for c in actor(label).get_components_by_class(unreal.SkeletalMeshComponent) if c.get_name() == component)
-    done = {}
-    for mi in {m.get_path_name(): m for m in comp.get_materials() if m}.values():
+    n = MEL.create_material_expression(master, unreal.MaterialExpressionVertexNormalWS, -900, 1400)
+    k = MEL.create_material_expression(master, unreal.MaterialExpressionScalarParameter, -900, 1500)
+    k.set_editor_property("parameter_name", "FM_Inflate")
+    k.set_editor_property("default_value", 0.0)
+    mul = MEL.create_material_expression(master, unreal.MaterialExpressionMultiply, -700, 1450)
+    MEL.connect_material_expressions(n, "", mul, "A")
+    MEL.connect_material_expressions(k, "", mul, "B")
+    wpo = unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET
+    prev = MEL.get_material_property_input_node(master, wpo)
+    if prev:
+        add = MEL.create_material_expression(master, unreal.MaterialExpressionAdd, -500, 1450)
+        MEL.connect_material_expressions(prev, MEL.get_material_property_input_node_output_name(master, wpo), add, "A")
+        MEL.connect_material_expressions(mul, "", add, "B")
+        MEL.connect_material_property(add, "", wpo)
+    else:
+        MEL.connect_material_property(mul, "", wpo)
+    master.set_editor_property("used_with_skeletal_mesh", True)
+    MEL.recompile_material(master)
+
+
+def _in_use() -> set:
+    """Every material (and its parents) on a skeletal mesh in the open level: what the renderer may be drawing."""
+    used = set()
+    for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+        for c in a.get_components_by_class(unreal.SkeletalMeshComponent):
+            for x in c.get_materials():
+                while x:
+                    used.add(x.get_path_name())
+                    x = x.get_editor_property("parent") if isinstance(x, unreal.MaterialInstance) else None
+    return used
+
+
+def _settle(ticks: int = 8):
+    """Let every pending shader and asset compile finish, then a few frames render with the result."""
+    for _ in range(2):
+        yield
+    unreal.AutomationUtilsBlueprintLibrary.finish_all_asset_compilation()
+    for _ in range(ticks):
+        yield
+    yield 0.5
+
+
+@op("mh.cloth_inflate")
+def cloth_inflate(label: str, cm: float = 0.6, component: str = "SkeletalMesh", folder: str = "/Game/FM/Cloth"):
+    """Push a garment out along its normals by `cm`, so skin under tight cloth stops poking through. A multi-tick job.
+
+    Nothing the renderer is drawing is ever edited: a material in use that is reparented or recompiled while frames
+    render trips `UniformExpressionCache... == Material.GetRenderingThreadShaderMap()` and takes the editor down (it
+    did, right after a MetaHuman rebuild had made fresh garment instances). So the worn instance is copied to
+    `{folder}/{label}_<name>_Inflate`, the copy is parented on project copies of its plugin chain whose master gains a
+    World Position Offset (normal x FM_Inflate), every shader finishes compiling, the editor ticks a few frames, and
+    only then does the component swap to the copy. A master already in use is never recompiled (a new one is made);
+    re-running on an inflated garment only changes the amount, a plain parameter change that is safe."""
+    MEL = unreal.MaterialEditingLibrary
+
+    def comp():  # fetched afresh: a Blueprint's construction script may have replaced it
+        return next(c for c in actor(label).get_components_by_class(unreal.SkeletalMeshComponent)
+                    if c.get_name() == component)
+
+    used = _in_use()
+    swaps, done = {}, {}
+    for mi in {m.get_path_name(): m for m in comp().get_materials() if isinstance(m, unreal.MaterialInstance)}.values():
+        if mi.get_path_name().startswith(folder + "/") and _has_inflate(mi):  # inflated already: only the amount
+            MEL.set_material_instance_scalar_parameter_value(mi, "FM_Inflate", float(cm))
+            EAL.save_asset(mi.get_path_name().split(".")[0])
+            done[mi.get_name()] = "amount"
+            continue
         chain, x = [], mi
         while isinstance(x, unreal.MaterialInstance):
             chain.append(x)
             x = x.get_editor_property("parent")
-        copies = []  # the chain from the first plugin asset down, now as project copies
-        for a in chain[1:] + [x]:
+        master_src = x.get_path_name().split(".")[0]
+        master_dst = f"{folder}/{master_src.rsplit('/', 1)[1]}_FM"
+        if EAL.does_asset_exist(master_dst) and not _has_inflate(load(master_dst)):
+            master_dst += "2"  # an old copy without the offset: never recompile one that may be drawn
+        copies = []  # the parents from the first plugin asset up, as project copies
+        for a in chain[1:]:
             path = a.get_path_name().split(".")[0]
             if path.startswith("/Game/"):
                 copies.append(a)
@@ -202,32 +275,43 @@ def cloth_inflate(label: str, cm: float = 0.6, component: str = "SkeletalMesh", 
             if not EAL.does_asset_exist(dst):
                 EAL.duplicate_asset(path, dst)
             copies.append(load(dst))
-        for child, parent in zip([chain[0]] + copies[:-1], copies):
+        if not EAL.does_asset_exist(master_dst):
+            EAL.duplicate_asset(master_src, master_dst)
+            _add_inflate(load(master_dst))
+        master = load(master_dst)
+        if not _has_inflate(master):
+            raise RuntimeError(f"{master_dst} has no FM_Inflate")
+        copies.append(master)
+        for child, parent in zip(copies[:-1], copies[1:]):
             if child.get_editor_property("parent") != parent:
+                if child.get_path_name() in used:
+                    raise RuntimeError(f"{child.get_name()} is being drawn; not reparenting it")
                 MEL.set_material_instance_parent(child, parent)
-        master = copies[-1]
-        if "FM_Inflate" not in [str(n) for n in MEL.get_scalar_parameter_names(master)]:
-            n = MEL.create_material_expression(master, unreal.MaterialExpressionVertexNormalWS, -900, 1400)
-            k = MEL.create_material_expression(master, unreal.MaterialExpressionScalarParameter, -900, 1500)
-            k.set_editor_property("parameter_name", "FM_Inflate")
-            k.set_editor_property("default_value", 0.0)
-            mul = MEL.create_material_expression(master, unreal.MaterialExpressionMultiply, -700, 1450)
-            MEL.connect_material_expressions(n, "", mul, "A")
-            MEL.connect_material_expressions(k, "", mul, "B")
-            wpo = unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET
-            prev = MEL.get_material_property_input_node(master, wpo)
-            if prev:
-                add = MEL.create_material_expression(master, unreal.MaterialExpressionAdd, -500, 1450)
-                MEL.connect_material_expressions(prev, MEL.get_material_property_input_node_output_name(master, wpo), add, "A")
-                MEL.connect_material_expressions(mul, "", add, "B")
-                MEL.connect_material_property(add, "", wpo)
-            else:
-                MEL.connect_material_property(mul, "", wpo)
-            MEL.recompile_material(master)
-        MEL.set_material_instance_scalar_parameter_value(chain[0], "FM_Inflate", float(cm))
-        for a in [chain[0]] + copies:
+        new = f"{folder}/{label}_{mi.get_name()}_Inflate"
+        if EAL.does_asset_exist(new):  # a copy of an older build's instance: not drawn, so brought up to date in place
+            if new + "." + new.rsplit("/", 1)[1] in used:
+                raise RuntimeError(f"{new} is being drawn but not by {label}.{component}")
+            n = load(new)
+            for k in ("scalar_parameter_values", "vector_parameter_values", "texture_parameter_values"):
+                n.set_editor_property(k, mi.get_editor_property(k))
+        else:
+            EAL.duplicate_asset(mi.get_path_name().split(".")[0], new)
+            n = load(new)
+        if n.get_editor_property("parent") != copies[0]:
+            MEL.set_material_instance_parent(n, copies[0])
+        MEL.set_material_instance_scalar_parameter_value(n, "FM_Inflate", float(cm))
+        MEL.update_material_instance(n)
+        for a in [n] + copies:
             EAL.save_asset(a.get_path_name().split(".")[0])
-        done[chain[0].get_name()] = [c.get_name() for c in copies]
+        swaps[mi.get_path_name()] = n
+        done[mi.get_name()] = [n.get_name()] + [c.get_name() for c in copies]
+    if swaps:
+        yield from _settle()
+        c = comp()
+        for i, m in enumerate(c.get_materials()):
+            if m and m.get_path_name() in swaps:
+                c.set_material(i, swaps[m.get_path_name()])
+        yield from _settle(4)
     return done
 
 

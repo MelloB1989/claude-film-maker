@@ -87,5 +87,16 @@ These are the traps the ops already handle; they matter when writing new ones.
 - **Glass lit as a volume reads white** in a bright room: translucent glass is lit per pixel as a surface.
 - **Hair strands take the sky light unoccluded**: indoors in daylight the hair goes white; set
   `r.HairStrands.SkyLighting 0` (in the editor and as a render cvar).
+- **Never change a material while it is being drawn.** Reparenting a material instance that a visible mesh wears,
+  or recompiling a parent it inherits from, leaves the render thread's uniform-expression cache pointing at the old
+  shader map, and the next frame asserts (`UniformExpressionCache.CachedUniformExpressionShaderMap ==
+  Material.GetRenderingThreadShaderMap()`) and takes the editor down. A MetaHuman rebuild made it certain: it writes
+  fresh garment instances on the plugin's parents, and the old `mh.cloth_inflate` reparented them in place onto the
+  inflating copy while frames rendered. `mh.cloth_inflate` is now a multi-tick job that edits only materials nobody
+  wears: it copies the worn instance, parents the copy on project copies of the chain (a master already drawn is
+  never recompiled; a new one is made), waits for every shader to finish compiling and a few frames, and only then
+  swaps the component to the copy (a plain material swap, which the renderer handles). Changing a scalar or vector
+  parameter on a worn instance (`mh.garment`, the inflate amount) is safe. Call it from exec'd code as
+  `yield from mh.cloth_inflate(...)` inside a generator (studio.py's `finish`): a bare call does nothing.
 - **The editor may open an Untitled level** after a restart: open the studio's level before building in it.
 - **Big files go through S3** (`workstation.push_dir` / `pull_dir`), not the tunnel.
