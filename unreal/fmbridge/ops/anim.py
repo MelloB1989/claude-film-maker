@@ -23,11 +23,36 @@ def _keys(anim, name):
     return list(t), list(v)
 
 
+def _curve_id(anim, name):
+    X = unreal.AnimationCurveIdentifierExtensions
+    for args in ((name, FLOAT), (anim.get_skeleton(), name, FLOAT)):
+        try:
+            return X.get_curve_identifier(*args)
+        except Exception:
+            pass
+    return X.find_curve_identifier(anim, name, FLOAT)
+
+
+def _write(anim, curves: dict) -> None:
+    """Replace float curves {name: (times, values)} in one controller bracket: each curve's keys in one call, and one
+    recompression for the lot. AnimationLibrary.add_float_curve_keys recompresses the animation after every key
+    (a few ms on a short clip, tens on a long face: a long curve held the game thread for many minutes)."""
+    ctrl = anim.get_editor_property("controller")
+    lin = unreal.RichCurveInterpMode.RCIM_LINEAR
+    ctrl.open_bracket("fmbridge curves", False)
+    try:
+        for name, (times, values) in curves.items():
+            cid = _curve_id(anim, name)
+            if not AL.does_curve_exist(anim, name, FLOAT):
+                ctrl.add_curve(cid, 4, False)  # AACF_Editable
+            ctrl.set_curve_keys(cid, [unreal.RichCurveKey(time=float(t), value=float(v), interp_mode=lin)
+                                      for t, v in zip(times, values)], False)
+    finally:
+        ctrl.close_bracket(False)
+
+
 def _set(anim, name, times, values):
-    if AL.does_curve_exist(anim, name, FLOAT):
-        AL.remove_curve(anim, name, False)
-    AL.add_curve(anim, name, FLOAT, False)
-    AL.add_float_curve_keys(anim, name, times, values)
+    _write(anim, {name: (times, values)})
 
 
 @op("anim.curves")
@@ -97,9 +122,8 @@ def _angles(lv, g, u):
 
 
 def _write_eyes(a, times, curves):
-    for (side, d), v in curves.items():
-        t, v = v if isinstance(v, tuple) else (times, v)
-        _set(a, f"CTRL_expressions_eyeLook{d}{side}", t, v)
+    _write(a, {f"CTRL_expressions_eyeLook{d}{side}": (v if isinstance(v, tuple) else (times, v))
+               for (side, d), v in curves.items()})
 
 
 def _merged(times, curves, orig, gap):

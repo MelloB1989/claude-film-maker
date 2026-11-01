@@ -158,9 +158,10 @@ BEATS = {
 SPLICES = {"him": ["L2", "L4a"], "her": ["L4b"]}
 
 COMPOSE = r"""
-import json, bisect, unreal
+import json, bisect, time, unreal
 AL, EAL, F = unreal.AnimationLibrary, unreal.EditorAssetLibrary, unreal.RawCurveTrackTypes.RCT_FLOAT
 P = json.loads(PARAMS)
+T0 = time.time()
 def job():
     if EAL.does_asset_exist(P["out"]):
         EAL.delete_asset(P["out"])
@@ -217,19 +218,35 @@ def job():
                 if ta <= x < tb or (x == tb and (tb, vb) == tuple(ks[-1])):
                     v[i] += va + (vb - va) * ease((x - ta) / ((tb - ta) or 1))
         report["beats"] += 1
+    # each curve's keys in one controller call, one bracket, so one recompression for the asset
+    # (AnimationLibrary.add_float_curve_keys recompresses after every key: it held the game thread for 40 min)
+    X = unreal.AnimationCurveIdentifierExtensions
+    def cid(n):
+        for args in ((n, F), (a.get_skeleton(), n, F)):
+            try:
+                return X.get_curve_identifier(*args)
+            except Exception:
+                pass
+        return X.find_curve_identifier(a, n, F)
+    t0 = time.time()
+    lin = unreal.RichCurveInterpMode.RCIM_LINEAR
     ctrl = a.get_editor_property("controller")
-    ctrl.open_bracket("fmbridge reel compose", True)  # one recompression for every curve, not one per curve
-    for n, v in cur.items():
-        if n.startswith("CTRL_"):
-            v = [min(1.0, max(0.0, x)) for x in v]
-        if AL.does_curve_exist(a, n, F):
-            AL.remove_curve(a, n, False)
-        AL.add_curve(a, n, F, False)
-        AL.add_float_curve_keys(a, n, grid, v)
-    ctrl.close_bracket(True)
+    ctrl.open_bracket("fmbridge reel compose", False)
+    try:
+        for n, v in cur.items():
+            if n.startswith("CTRL_"):
+                v = [min(1.0, max(0.0, x)) for x in v]
+            c = cid(n)
+            if not AL.does_curve_exist(a, n, F):
+                ctrl.add_curve(c, 4, False)
+            ctrl.set_curve_keys(c, [unreal.RichCurveKey(time=x, value=y, interp_mode=lin) for x, y in zip(grid, v)], False)
+    finally:
+        ctrl.close_bracket(False)
+    report["write_s"] = round(time.time() - t0, 2)
     yield
     EAL.save_asset(P["out"])
     report["curves_written"] = len(cur)
+    report["total_s"] = round(time.time() - T0, 2)
     return report
 
 
