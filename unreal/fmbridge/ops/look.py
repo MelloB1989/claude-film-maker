@@ -15,13 +15,24 @@ MEL = unreal.MaterialEditingLibrary
 BASE = "/Game/FM/Materials"
 
 
+# a kind's graph revision: bump it when a kind's graph changes, and the next look.material rebuilds that parent in
+# place (its instances keep their values); a parent is otherwise made once per project and never rebuilt
+REV = {"GlowWipe": 2}  # 2: U masked to R only (rev 1's R+G mask failed to compile)
+
+
 def _base(kind: str):
-    """The parameterised parent materials the instances come from (made once per project)."""
+    """The parameterised parent materials the instances come from (made once per project, rebuilt on a new REV)."""
     path = f"{BASE}/M_FM_{kind}"
+    rev = str(REV.get(kind, 1))
     if EAL.does_asset_exist(path):
-        return load(path)
-    at = unreal.AssetToolsHelpers.get_asset_tools()
-    m = at.create_asset(f"M_FM_{kind}", BASE, unreal.Material, unreal.MaterialFactoryNew())
+        m = load(path)
+        if EAL.get_metadata_tag(m, "fm_rev") == rev or kind not in REV:
+            return m
+        MEL.delete_all_material_expressions(m)
+    else:
+        m = unreal.AssetToolsHelpers.get_asset_tools().create_asset(f"M_FM_{kind}", BASE, unreal.Material,
+                                                                     unreal.MaterialFactoryNew())
+    EAL.set_metadata_tag(m, "fm_rev", rev)
 
     def param(cls, name, x, y, default=None):
         e = MEL.create_material_expression(m, cls, x, y)
