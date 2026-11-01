@@ -7,6 +7,12 @@ f745 k a r, at f770 all five; through Reel_S08 the cursor is off at f566 and f58
     cd tools && uv run python ../films/host-studio/reel/halo_check.py --tracks   # the material tracks themselves
     cd tools && uv run python ../films/host-studio/reel/halo_check.py --isolate --camera Reel_V05 --frames 700
 
+--mpc (with --camera and --frames): does the card read MPC_FM, and does SEQ_Reel's collection track reach it? It
+prints M_FM_GlowWipe's fm_rev and the CollectionParameter nodes in its graph, and SEQ_Reel's collection tracks; then
+at each frame a still as it is and one with MPC_FM's default WipeOn set to 0 (put back to 1 afterwards, whatever
+happens). Dark only in the second: the graph reads the collection and the track is not applied. Lit in both: the
+graph does not read it (the rev 3 rebuild did not happen).
+
 --isolate: is the glow SignHalo's? At each frame, three stills: as it is, with SignHalo hidden, and with SignHalo and
 Halo0-8 hidden (temporarily, in the editor only: both are shown again afterwards, whatever happens), plus SignHalo's
 visibility and MPC_FM's values as the editor has them.
@@ -266,9 +272,79 @@ def isolate(camera: str, frames: list, out: Path) -> None:
         hide(halo + lights, False)
 
 
+MPC_STATE = r'''
+import unreal
+EAL, MEL = unreal.EditorAssetLibrary, unreal.MaterialEditingLibrary
+m = EAL.load_asset("/Game/FM/Materials/M_FM_GlowWipe")
+out = {"fm_rev": EAL.get_metadata_tag(m, "fm_rev")}
+nodes, seen = [], set()
+def walk(e):
+    if e is None or e.get_name() in seen:
+        return
+    seen.add(e.get_name())
+    if isinstance(e, unreal.MaterialExpressionCollectionParameter):
+        c = e.get_editor_property("collection")
+        nodes.append({"param": str(e.get_editor_property("parameter_name")),
+                      "collection": c.get_path_name() if c else None})
+    for i in MEL.get_inputs_for_material_expression(m, e):
+        walk(i)
+walk(MEL.get_material_property_input_node(m, unreal.MaterialProperty.MP_EMISSIVE_COLOR))
+out["collection_nodes"] = nodes
+seq = EAL.load_asset(SEQ)
+trs = []
+for t in seq.find_tracks_by_type(unreal.MovieSceneMaterialParameterCollectionTrack):
+    c = t.get_editor_property("mpc")
+    trs.append({"mpc": c.get_path_name() if c else None,
+                "sections": [{"class": x.get_class().get_name(), "active": x.is_active(),
+                              "range": [x.has_start_frame(), x.has_end_frame()],
+                              "channels": [(ch.get_name(), ch.get_num_keys()) for ch in x.get_all_channels()]}
+                             for x in t.get_sections()]})
+out["collection_tracks"] = trs
+result = out
+'''
+
+MPC_DEFAULT = r'''
+import unreal
+c = unreal.EditorAssetLibrary.load_asset("/Game/FM/Materials/MPC_FM")
+ps = list(c.get_editor_property("scalar_parameters"))
+for p in ps:
+    if str(p.get_editor_property("parameter_name")) == "WipeOn":
+        p.set_editor_property("default_value", VALUE)
+c.set_editor_property("scalar_parameters", ps)
+result = [(str(p.get_editor_property("parameter_name")), p.get_editor_property("default_value")) for p in ps]
+'''
+
+
+def mpc_probe(camera: str, frames: list, out: Path) -> None:
+    def run(code):
+        res = client.exec_code(code)
+        if not res.get("ok"):
+            raise SystemExit(res.get("stdout", "") + res.get("error", ""))
+        print(json.dumps(res["result"], indent=1, default=str))
+
+    def still(f, tag):
+        remote = rf"{REMOTE}\{camera}_f{f}_{tag}.png"
+        r = client.op("seq.still", path=SEQ, frame=f, camera=camera, out=remote, width=1280, height=720, settle=40)
+        if not r.get("ok"):
+            raise SystemExit(r.get("stdout", "") + r.get("error", ""))
+        print(client.pull(remote, str(out / f"{camera}_f{f}_{tag}.png")))
+
+    run(f"SEQ = {SEQ!r}\n" + MPC_STATE)
+    try:
+        for f in frames:
+            still(f, "warm")
+            still(f, "as_is")
+            run("VALUE = 0.0\n" + MPC_DEFAULT)
+            still(f, "wipeon_default_0")
+            run("VALUE = 1.0\n" + MPC_DEFAULT)
+    finally:
+        run("VALUE = 1.0\n" + MPC_DEFAULT)
+
+
 def tracks() -> None:
     head = f"SEQ = {SEQ!r}\nLABELS = ['SignHalo', 'Outside', 'Terminal']\n"
-    for code in (TRACKS, LIVE, GRAPH, GLOWS):  # separate calls: the open sequence evaluates on a tick in between
+    for name, code in (("TRACKS", TRACKS), ("LIVE", LIVE), ("GRAPH", GRAPH), ("GLOWS", GLOWS)):  # separate calls:
+        print(f"== {name} ==")                                  # the open sequence evaluates on a tick in between
         res = client.exec_code(head + code)
         if not res.get("ok"):
             raise SystemExit(res.get("stdout", "") + res.get("error", ""))
@@ -281,11 +357,14 @@ def main() -> None:
     ap.add_argument("--frames", default="725,745,770")
     ap.add_argument("--no-stills", action="store_true")
     ap.add_argument("--out", type=Path, default=HERE / "halo_check")
+    ap.add_argument("--mpc", action="store_true", help="does the card read MPC_FM, does the track reach it")
     ap.add_argument("--isolate", action="store_true", help="stills with and without SignHalo and Halo0-8")
     ap.add_argument("--tracks", action="store_true", help="dump the material tracks and what the meshes wear at f725")
     a = ap.parse_args()
     if a.tracks:
         return tracks()
+    if a.mpc:
+        return mpc_probe(a.camera, [int(x) for x in a.frames.split(",")], a.out)
     if a.isolate:
         return isolate(a.camera, [int(x) for x in a.frames.split(",")], a.out)
     res = client.exec_code(STATE)
