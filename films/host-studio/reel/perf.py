@@ -412,7 +412,8 @@ def stage(who: str) -> dict:
     frame 0 = master frame START[who]."""
     res = {"spawn": run(SPAWN, {"source": LABEL[who], "label": test_label(who), "loc": shifted(MARK[who])})}
     res["face_mode"] = ok(client.op("mh.drive_face", label=test_label(who)))  # Sequencer drives the face (README)
-    if IDLE_OFFSET[who]:
+    if IDLE_OFFSET[who] and not ok(client.exec_code(
+            f"import unreal\nresult = unreal.EditorAssetLibrary.does_asset_exist({idle_for(who)!r})")):
         res["idle"] = run(ROLL, {"src": IDLE, "out": idle_for(who), "seconds": IDLE_OFFSET[who]}, 1800)
     by_id = {s.id: s for s in SHOTS}
     for sid in SHOTS_OF[who]:
