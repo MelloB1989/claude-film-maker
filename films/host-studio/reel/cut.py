@@ -37,7 +37,10 @@ mastered to -14 LUFS with filmtools.mix (static gain + limiter). Either is trimm
 exact length: picture and sound both start at frame 0 and end together. With --cues the captions are timed by the
 spoken words (each cue from its first word to its last, then held); without it, by characters across LINES' windows.
 
---frames A:B (master frames, B exclusive) or --shots S13-S18 cuts part of the reel (a test, a review): the title,
+--edl 45s makes the short cut (EDLS below; or --edl A:B,C:D,... master frames): the picture's pieces in order, the
+title, captions, fade and the 9:16 crop keys kept on their frames, the sound a mix made for the cut or the full mix cut
+on the same edits; the outputs are named karma-reel-45s-... and cut-45s.json. --frames A:B (master frames, B
+exclusive) or --shots S13-S18 cuts part of the reel (a test, a review): the title,
 captions and fade keep their places on the master's clock. --scale S makes everything S times the size (a quick look);
 --only picks outputs by name (prores, 2160p, hevc, 1080p, vertical).
 """
@@ -80,6 +83,12 @@ LINES = {
     "L3": (1158, 1310, "Tech, explained the way we'd want it explained: calm, honest, and made right here."),
     "L4": (1360, 1410, "Welcome… to karma."),
 }
+# The short cut (PLAN.md §7 q4): master frames kept, in order, all on bar lines. The plan's list (drop S01, S05, S07,
+# S09; a bar off S13 and S17) comes to 47.5 s and its S17 bar would cut through L4 (f1360-1403 spans both its bars), so:
+# S02's first bar, S03-S04, S06, S08, S11-S12, S13's second bar (L1 starts at f930), S14-S18; S10 goes too. 45.0 s.
+EDLS = {"45s": [(120, 180), (240, 360), (420, 480), (540, 600), (720, 840), (900, 1560)]}
+XFADE = 0.012  # s: the equal-power crossfade at each sound edit, centred on the cut
+
 # The title lockup, as the operator chose it (PLAN.md §7 q2): the wordmark, then "a studio by MelloB". None drops a
 # line; "date" adds a small tracked line under it.
 TITLE = {"wordmark": True, "line": "a studio by MelloB", "date": None}
@@ -149,6 +158,36 @@ def probe(path: Path) -> dict:
 # ---------------------------------------------------------------- the frames
 
 
+def edl(name: str) -> list:
+    """--edl: a name in EDLS or A:B,C:D,... (master frames, each [A, B)); in order, not overlapping."""
+    segs = EDLS.get(name) or [tuple(map(int, x.split(":"))) for x in name.split(",")]
+    for (a, b), (c, _) in zip(segs, segs[1:] + [(TOTAL, 0)]):
+        if not 0 <= a < b <= c <= TOTAL:
+            raise SystemExit(f"--edl {name}: {a}:{b} is empty, out of order or outside the reel (0:{TOTAL})")
+    return [tuple(x) for x in segs]
+
+
+def to_out(segs: list, m: float) -> float | None:
+    """The output frame of master frame m, None if it was cut."""
+    off = 0
+    for a, b in segs:
+        if a <= m < b:
+            return off + m - a
+        off += b - a
+    return None
+
+
+def spans_out(segs: list, a: float, b: float) -> list:
+    """Master [a, b) on the output clock: one (x, y) per segment it falls in."""
+    out, off = [], 0
+    for sa, sb in segs:
+        lo, hi = max(a, sa), min(b, sb)
+        if lo < hi:
+            out.append((off + lo - sa, off + hi - sa))
+        off += sb - sa
+    return out
+
+
 def span(frames: str | None, shots: str | None) -> tuple[int, int]:
     """The master frames to cut, [first, last)."""
     if frames:
@@ -206,8 +245,8 @@ def slate(path: Path, s, size: tuple[int, int], note: str = "") -> Path:
     return path
 
 
-def stage(found: dict, f0: int, work: Path, fill: str | None, size: tuple[int, int]) -> Path:
-    """Link the frames in order (seq/00000.png ...) so ffmpeg reads one image sequence."""
+def stage(found: dict, segs: list, work: Path, fill: str | None, size: tuple[int, int]) -> Path:
+    """Link the frames in output order (seq/00000.png ...) so ffmpeg reads one image sequence."""
     seq = work / "seq"
     shutil.rmtree(seq, ignore_errors=True)
     seq.mkdir(parents=True)
@@ -225,7 +264,7 @@ def stage(found: dict, f0: int, work: Path, fill: str | None, size: tuple[int, i
             if s.id not in slates:
                 slates[s.id] = slate(work / f"slate_{s.id}.png", s, size, "(not rendered)")
             p = slates[s.id]
-        (seq / f"{f - f0:05d}.png").symlink_to(Path(p).resolve())
+        (seq / f"{to_out(segs, f):05d}.png").symlink_to(Path(p).resolve())
     return seq
 
 
@@ -247,15 +286,27 @@ def crop_x(c: float, src_w: int, crop_w: int) -> float:
     return min(max(c * src_w - crop_w / 2, 0), src_w - crop_w)
 
 
-def crop_expr(f0: int, f1: int, src_w: int, crop_w: int) -> str:
-    """ffmpeg crop x for frame n (0 = master frame f0): piecewise over the shots, each shot's keys eased
-    (smoothstep) between them. Nested if()s; commas escaped for the filter graph."""
+def crop_expr(segs: list, src_w: int, crop_w: int) -> str:
+    """ffmpeg crop x for output frame n: piecewise over the shots (each piece of a shot the cut keeps), each shot's
+    keys eased (smoothstep) between them. Nested if()s; commas escaped for the filter graph."""
+    parts, off = [], 0
+    for f0, f1 in segs:
+        parts += crop_parts(f0, f1, off, src_w, crop_w)
+        off += f1 - f0
+    out = parts[-1][1]
+    for end, expr in reversed(parts[:-1]):
+        out = f"if(lt(n\\,{end})\\,{expr}\\,{out})"
+    return f"floor({out})"
+
+
+def crop_parts(f0: int, f1: int, off: int, src_w: int, crop_w: int) -> list:
+    """crop_expr's pieces for master [f0, f1), which starts at output frame off: [(output end, expr)]."""
     parts = []
     for s in SHOTS:
         if s.end <= f0 or s.start >= f1:
             continue
         ks = vcrop_keys(s)
-        a = s.start - f0  # n of the shot's first frame
+        a = off + s.start - f0  # n of the shot's first frame (before the piece, if the cut starts inside the shot)
         expr = f"{crop_x(ks[-1][1], src_w, crop_w):.1f}"
         for (fa, ca), (fb, cb) in reversed(list(zip(ks, ks[1:]))):
             xa, xb = crop_x(ca, src_w, crop_w), crop_x(cb, src_w, crop_w)
@@ -263,11 +314,8 @@ def crop_expr(f0: int, f1: int, src_w: int, crop_w: int) -> str:
             expr = f"if(lt(n\\,{a + fb})\\,{xa:.1f}+({xb - xa:.1f})*{u}*{u}*(3-2*{u})\\,{expr})"
         if len(ks) > 1 or ks[0][0]:
             expr = f"if(lt(n\\,{a + ks[0][0]})\\,{crop_x(ks[0][1], src_w, crop_w):.1f}\\,{expr})"
-        parts.append((s.end - f0, expr))
-    out = parts[-1][1]
-    for end, expr in reversed(parts[:-1]):
-        out = f"if(lt(n\\,{end})\\,{expr}\\,{out})"
-    return f"floor({out})"
+        parts.append((off + min(s.end, f1) - f0, expr))
+    return parts
 
 
 # ---------------------------------------------------------------- titles and captions
@@ -467,8 +515,8 @@ def srt_time(f: int, sep: str = ",") -> str:
     return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d}{sep}{ms % 1000:03d}"
 
 
-def write_captions(out: Path, cs: list, f0: int, f1: int) -> None:
-    keep = [((max(a, f0) - f0, min(b, f1) - f0), t) for (a, b), t in cs if a < f1 and b > f0]
+def write_captions(out: Path, cs: list, segs: list) -> None:
+    keep = [(ab, t) for (a, b), t in cs for ab in spans_out(segs, a, b)]
     out.with_suffix(".srt").write_text("".join(f"{i}\n{srt_time(a)} --> {srt_time(b)}\n{t}\n\n"
                                                for i, ((a, b), t) in enumerate(keep, 1)))
     out.with_suffix(".vtt").write_text("WEBVTT\n\n" + "".join(f"{srt_time(a, '.')} --> {srt_time(b, '.')}\n{t}\n\n"
@@ -478,11 +526,15 @@ def write_captions(out: Path, cs: list, f0: int, f1: int) -> None:
 # ---------------------------------------------------------------- the sound
 
 
-def sound(work: Path, f0: int, f1: int, mix: Path | None, score: Path | None, vo: list) -> tuple[Path, dict]:
-    """The reel's mix for [f0, f1): 48 kHz stereo 24-bit, exactly as long as the picture. vo: [(line, WAV, ms)], each
-    WAV starting `ms` into the master."""
+def sound(work: Path, segs: list, mix: Path | None, score: Path | None, vo: list) -> tuple[Path, dict]:
+    """The reel's mix for the cut: 48 kHz stereo 24-bit, exactly as long as the picture. vo: [(line, WAV, ms)], each
+    WAV starting `ms` into the master. A --mix already the cut's length (a mix made for it) is taken as it is; a
+    full-length one is cut on the picture's edits, each a XFADE equal-power crossfade centred on the cut."""
     from filmtools.mix import loudnorm, measure, premix  # the tools env (cd tools && uv run ...)
     full = work / "mix_full.wav"
+    n = sum(b - a for a, b in segs)
+    if mix and len(segs) > 1 and abs(float(probe(mix)["format"]["duration"]) - n / FPS) < 0.5 / FPS:
+        segs = [(0, n)]  # made for this cut
     if mix:
         m = measure(mix)
         if abs(m["I"] - LUFS) > 0.5 or m["TP"] > TRUE_PEAK:
@@ -512,9 +564,32 @@ def sound(work: Path, f0: int, f1: int, mix: Path | None, score: Path | None, vo
         run(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", TOTAL / FPS, "-c:a", "pcm_s24le", full])
         m, how = {"I": None, "TP": None, "LRA": None}, "silence (no --mix or --score)"
     out = work / "mix.wav"
-    a, b = f0 / FPS, f1 / FPS
-    run(["-i", full, "-af", f"atrim=start={a}:end={b},asetpts=PTS-STARTPTS,apad=whole_dur={b - a},"
-         f"atrim=end={b - a}", "-ar", "48000", "-ac", "2", "-c:a", "pcm_s24le", out])
+    d = n / FPS
+    if len(segs) == 1:
+        a, b = segs[0][0] / FPS, segs[0][1] / FPS
+        run(["-i", full, "-af", f"atrim=start={a}:end={b},asetpts=PTS-STARTPTS,apad=whole_dur={b - a},"
+             f"atrim=end={b - a}", "-ar", "48000", "-ac", "2", "-c:a", "pcm_s24le", out])
+        return out, {"how": how, **m}
+    x, graph = XFADE / 2, []
+    for i, (a, b) in enumerate(segs):  # each piece runs x past its cut on both inner sides: the crossfades eat 2x each
+        lo = a / FPS - (x if i else 0)
+        hi = b / FPS + (x if i < len(segs) - 1 else 0)
+        graph.append(f"[0:a]atrim=start={lo:.6f}:end={hi:.6f},asetpts=PTS-STARTPTS[p{i}]")
+    last = "p0"
+    for i in range(1, len(segs)):
+        graph.append(f"[{last}][p{i}]acrossfade=d={XFADE}:c1=qsin:c2=qsin[x{i}]")
+        last = f"x{i}"
+    graph.append(f"[{last}]apad=whole_dur={d},atrim=end={d}[out]")
+    cut_ = work / "mix_cut.wav"
+    run(["-i", full, "-filter_complex", ";".join(graph), "-map", "[out]", "-ar", "48000", "-ac", "2",
+         "-c:a", "pcm_s24le", cut_])
+    m = measure(cut_)
+    if abs(m["I"] - LUFS) > 0.5 or m["TP"] > TRUE_PEAK:
+        m = loudnorm(cut_, out, LUFS)
+        how += f"; cut on the picture's {len(segs) - 1} edits, remastered to {LUFS:g} LUFS"
+    else:
+        shutil.move(cut_, out)
+        how += f"; cut on the picture's {len(segs) - 1} edits"
     return out, {"how": how, **m}
 
 
@@ -539,35 +614,38 @@ def yuv(w: int, h: int) -> str:
     return f"scale={w}:{h}:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv444p10le"
 
 
-def encode(out: Output, src: list, pre: str, src_size: tuple[int, int], audio: Path, f0: int, f1: int, scale: float,
+def encode(out: Output, src: list, pre: str, src_size: tuple[int, int], audio: Path, segs: list, scale: float,
            cs: list, ovl_dir: Path, path: Path) -> None:
-    n = f1 - f0
+    n = sum(b - a for a, b in segs)
     dur = n / FPS
     w, h = out.size(scale)
     sw, sh = src_size
     chain = [pre] if pre else []
     if out.vertical:
         cw = even(sh * VW / VH) if (sh * VW / VH) % 1 else int(sh * VW / VH)
-        chain.append(f"crop=w={cw}:h={sh}:x='{crop_expr(f0, f1, sw, cw)}':y=0")
+        chain.append(f"crop=w={cw}:h={sh}:x='{crop_expr(segs, sw, cw)}':y=0")
     chain.append(f"scale={w}:{h}:flags=lanczos,format=yuv444p10le")
     graph = [f"[0:v]{','.join(chain)}[b0]"]
     inputs = [*src]
     last, k = "b0", 1
     overlays = []
-    if out.title and f1 > TITLE_IN[0]:
+    title_at = next((to_out(segs, f) for f in range(*TITLE_IN) if to_out(segs, f) is not None), None)
+    if out.title and title_at is not None:
         img, x, y = title_card((w, h), out.vertical)
         p = ovl_dir / f"title_{out.name}.png"
         img.save(p)
-        st = (TITLE_IN[0] - f0) / FPS
+        st = title_at / FPS
         overlays.append((p, x, y, f"fade=t=in:st={st:.4f}:d={(TITLE_IN[1] - TITLE_IN[0]) / FPS:.4f}:alpha=1", None))
     if out.captions:
         for i, ((a, b), text) in enumerate(cs):
-            if b <= f0 or a >= f1:
+            spans = spans_out(segs, a, b)
+            if not spans:
                 continue
             img, x, y = caption(text, (w, h), out.vertical)
             p = ovl_dir / f"cap_{out.name}_{i:02d}.png"
             img.save(p)
-            overlays.append((p, x, y, None, ((a - f0) / FPS, (b - f0) / FPS)))
+            for x0, x1 in spans:
+                overlays.append((p, x, y, None, (x0 / FPS, x1 / FPS)))
     for p, x, y, fade, window in overlays:
         inputs += ["-loop", "1", "-framerate", FPS, "-t", f"{dur:.4f}", "-i", p]
         prep = f"[{k}:v]format=rgba{',' + fade if fade else ''},scale=out_color_matrix=bt709:out_range=tv," \
@@ -575,8 +653,9 @@ def encode(out: Output, src: list, pre: str, src_size: tuple[int, int], audio: P
         en = f":enable='between(t\\,{window[0]:.4f}\\,{window[1] - 0.001:.4f})'" if window else ""
         graph += [prep, f"[{last}][o{k}]overlay=x={x}:y={y}:format=yuv444p10:eof_action=pass{en}[b{k}]"]
         last, k = f"b{k}", k + 1
-    if out.fade and f1 > FADE_OUT[0]:
-        st = max(0, FADE_OUT[0] - f0) / FPS
+    fade_at = next((to_out(segs, f) for f in range(*FADE_OUT) if to_out(segs, f) is not None), None)
+    if out.fade and fade_at is not None:
+        st = fade_at / FPS
         graph.append(f"[{last}]fade=t=out:st={st:.4f}:d={(FADE_OUT[1] - FADE_OUT[0]) / FPS:.4f}[bf]")
         last = "bf"
     graph.append(f"[{last}]null[v]")
@@ -655,6 +734,8 @@ def main(argv=None) -> None:
     ap.add_argument("--out", type=Path, default=OUT)
     ap.add_argument("--frames", dest="span", metavar="A:B", help="master frames [A, B) only")
     ap.add_argument("--shots", metavar="S13-S18", help="these shots only")
+    ap.add_argument("--edl", metavar="45s|A:B,C:D", help="a cut of the reel: a name in EDLS or master frame ranges; "
+                                                       "the outputs are named karma-reel-<name>-...")
     ap.add_argument("--only", default="", help="outputs: prores,2160p,hevc,1080p,vertical (default all)")
     ap.add_argument("--scale", type=float, default=1.0, help="every output this many times its size (a quick look)")
     ap.add_argument("--pattern", default="{frame:04d}.png")
@@ -666,7 +747,12 @@ def main(argv=None) -> None:
     ap.add_argument("--no-captions", action="store_true", help="burn no captions (the SRT is still written)")
     ap.add_argument("--test-frames", type=Path, metavar="DIR", help="write placeholder frames to DIR and stop")
     a = ap.parse_args(argv)
+    if a.edl and (a.span or a.shots):
+        ap.error("--edl is a cut of the whole reel: not with --frames or --shots")
     f0, f1 = span(a.span, a.shots)
+    segs = edl(a.edl) if a.edl else [(f0, f1)]
+    tag = (a.edl if a.edl in EDLS else "edl") if a.edl else ""
+    name = (lambda f: f.replace("karma-reel", f"karma-reel-{tag}", 1)) if tag else (lambda f: f)
     if a.test_frames:
         test_frames(a.test_frames, a.scale, f0, f1)
         print(a.test_frames)
@@ -682,27 +768,29 @@ def main(argv=None) -> None:
     vo = ([(k, v["wav"], round(v["file_frame"] * 1000 / FPS)) for k, v in sorted(spoken.items())] if spoken else
           [(k, Path(p), round(LINES[k][0] * 1000 / FPS)) for k, p in sorted(vo.items())])
     want = set(a.only.split(",")) if a.only else {"prores", *(o.name for o in OUTPUTS)}
-    n = f1 - f0
+    n = sum(b - c for c, b in segs)
     a.out.mkdir(parents=True, exist_ok=True)
     ovl = a.out / "overlays"
     ovl.mkdir(exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="reelcut-", dir=a.out))
     try:
-        found = find_frames(a.frames, f0, f1, a.pattern, a.frame_offset)
+        found = {}
+        for c, b in segs:
+            found.update(find_frames(a.frames, c, b, a.pattern, a.frame_offset))
         first = next((p for p in found.values() if p), None)
         size = png_size(first) if first else (even(W * a.scale), even(H * a.scale))
-        seq = stage(found, f0, work, a.fill, size)
+        seq = stage(found, segs, work, a.fill, size)
         mw, mh = even(W * a.scale), even(H * a.scale)
         if size != (mw, mh):
             print(f"note: the frames are {size[0]}x{size[1]}, scaled to {mw}x{mh}", file=sys.stderr)
         pre = ",".join(x for x in [grade_filter(a.grade, a.lut), yuv(mw, mh),
                                    f"noise=c0s={a.grain:g}:c0f=t" if a.grain else ""] if x)
-        audio, loud = sound(work, f0, f1, a.mix, a.score, vo)
+        audio, loud = sound(work, segs, a.mix, a.score, vo)
         cs = cues(words=line_words(spoken) if spoken else None)
-        write_captions(a.out / "karma-reel", cs, f0, f1)
+        write_captions(a.out / name("karma-reel"), cs, segs)
         made = []
         if "prores" in want:
-            p = a.out / PRORES
+            p = a.out / name(PRORES)
             prores(seq, pre, audio, n, p)
             made.append(check(p, n, (mw, mh)))
             src, src_pre = ["-i", p], ""
@@ -710,21 +798,21 @@ def main(argv=None) -> None:
             src, src_pre = ["-framerate", FPS, "-i", seq / "%05d.png"], pre
         for o in OUTPUTS:
             if o.name in want:
-                p = a.out / o.file
-                encode(o, src, src_pre, (mw, mh), audio, f0, f1, a.scale, [] if a.no_captions else cs, ovl, p)
+                p = a.out / name(o.file)
+                encode(o, src, src_pre, (mw, mh), audio, segs, a.scale, [] if a.no_captions else cs, ovl, p)
                 made.append(check(p, n, o.size(a.scale)))
                 print(f"{p.name}: {made[-1]['size']} {made[-1]['mbps']} Mb/s", flush=True)
-        report = {"frames": [f0, f1], "seconds": n / FPS, "scale": a.scale, "grade": a.grade, "grain": a.grain,
+        report = {"frames": [list(x) for x in segs], "edl": a.edl, "seconds": n / FPS, "scale": a.scale, "grade": a.grade, "grain": a.grain,
                   "lut": str(a.lut) if a.lut else None, "sound": loud,
                   "shots": {s.id: sorted({str(Path(p).parent) for f, p in found.items() if p and s.start <= f < s.end})
-                            for s in SHOTS if s.start < f1 and s.end > f0},
+                            for s in SHOTS if spans_out(segs, s.start, s.end)},
                   "missing": sum(1 for p in found.values() if p is None), "outputs": made,
                   "title": TITLE, "lines": LINES,
                   "captions": [[a, b, t] for (a, b), t in cs], "cues": str(a.cues) if a.cues else None, "vcrop_keys (draft)": VCROP_KEYS}
-        (a.out / "cut.json").write_text(json.dumps(report, indent=1, ensure_ascii=False))
+        (a.out / (f"cut-{tag}.json" if tag else "cut.json")).write_text(json.dumps(report, indent=1, ensure_ascii=False))
         bad = [f"{m['file']}: {', '.join(m['problems'])}" for m in made if m["problems"]]
         snd = f"{loud['I']:.1f} LUFS, {loud['TP']:.1f} dBTP" if loud.get("I") is not None else "silent"
-        print(f"{n} frames ({n / FPS:.2f} s) · sound: {loud['how']} ({snd}) · {a.out / 'cut.json'}")
+        print(f"{n} frames ({n / FPS:.2f} s) · sound: {loud['how']} ({snd}) · {a.out}")
         if bad:
             raise SystemExit("problems:\n" + "\n".join(bad))
     finally:
