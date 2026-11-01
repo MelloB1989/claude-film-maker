@@ -35,7 +35,7 @@ from shots import WALL  # noqa: E402
 M = "/Game/Studio/Materials"
 T = "/Game/Studio/Textures"
 OUTSIDE = (WALL - 140, 205, 150)  # studio.py's Outside card: 520 x 900 cm
-NIGHT_OUTSIDE = 3.0               # studio.py night's Outside intensity (light.py fades OutsideNight up to it)
+NIGHT_OUTSIDE = 1.2               # studio.py night's Outside intensity (light.py fades OutsideNight up to it)
 
 
 def ok(res: dict):
