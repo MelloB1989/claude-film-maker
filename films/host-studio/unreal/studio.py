@@ -401,7 +401,7 @@ def finish():
     poking through, and mh.cloth_inflate only swaps a garment's material once its shaders have compiled and a few
     frames have rendered (a material swapped or recompiled while it is drawn crashes the renderer; see README)."""
     inflated = {}
-    for lab, cm in (("Host", 0.4), ("Presenter", 0.5)):
+    for lab, cm in (("Host", 0.4), ("Presenter", 1.0)):
         try:
             L.actor(lab)
         except ValueError:

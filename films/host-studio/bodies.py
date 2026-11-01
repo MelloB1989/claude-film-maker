@@ -24,9 +24,9 @@ BODIES = {
         "Thigh": 56, "Knee": 34, "Calf": 37, "Fat": -2.8, "Muscularity": 1.6, "Masculine/Feminine": -1.6}),
     # her: slim and clearly feminine; a defined bust over a narrow waist, curved hips, slender arms and shoulders
     "her": ("/Game/Host/Presenter_F", "Presenter", {
-        "Height": 168, "Across Shoulder": 32.5, "Front Interscye Length": 30.5, "Chest": 94, "Bust Span": 19,
-        "Shoulder to Apex": 25, "Underbust": 70, "Waist": 61, "High Hip": 76, "Hip": 94, "Neck Base": 33.5,
-        "Neck": 31.2, "Neck to Waist": 36, "Bicep": 23, "Forearm": 19.5, "Thigh": 50, "Calf": 33, "Fat": -1.8,
+        "Height": 168, "Across Shoulder": 33, "Front Interscye Length": 31, "Chest": 94, "Bust Span": 19.5,
+        "Shoulder to Apex": 25.5, "Underbust": 70, "Waist": 61, "High Hip": 76, "Hip": 94, "Neck Base": 34,
+        "Neck": 31.6, "Neck to Waist": 35.5, "Bicep": 23, "Forearm": 19.5, "Thigh": 50, "Calf": 33, "Fat": -1.8,
         "Muscularity": 0.0, "Masculine/Feminine": 1.9}),
 }
 
