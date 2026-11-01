@@ -104,10 +104,10 @@ SHOTS = [
          "GOLDEN", "the light warms as the sun drops", into="cut on bar 7",
          focus=[[0, 140], [100, 125], [180, 138]], previs=0.5, vcrop=0.5,
          sound="the first kick lands mid-glide (bar 5), the room waking up"),
-    Shot("V03", "The window and the olive", bar(7), bar(9), 35, 2.8,
-         "a rising lateral crane past the olive tree from 2.6 m, its crown crossing the glowing sheers, 55 cm across and 37 cm up; aimed 55 cm short of the tree, so "
-         "it rides the right third and is never centred",
-         [[0, [40, 118, 128], [-220, 150, 128]], [120, [40, 172, 165], [-220, 172, 150]]],
+    Shot("V03", "The window and the olive", bar(7), bar(9), 50, 2.8,
+         "a rising lateral crane past the olive tree from 2.6 m, its crown crossing the glowing sheers, 55 cm across and 37 cm up; a 50 aimed 30-40 cm past the tree (+Y), so "
+         "it rides the right third, never centred, and the slats and sign stay out of frame for V04",
+         [[0, [40, 118, 128], [-220, 235, 128]], [120, [40, 172, 165], [-220, 248, 150]]],
          "the window and the olive as a whole: the sheers lit gold by the low sun, the leaves in silhouette and "
          "translucent against them, the pot and the light on the floor at the start",
          "GOLDEN", "the sun low and long through the sheers; the window holds detail", into="cut on bar 9",

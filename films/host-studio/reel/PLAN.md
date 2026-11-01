@@ -144,7 +144,7 @@ frames (S11, S12 are unchanged and already rendered); the new ones are V01–V05
 
 ### V03 · The window and the olive — 0:15.00–0:20.00 (bars 7–8, f360–479, 5.0 s)
 
-- **Camera:** 35 mm full frame, T2.8. A rising lateral crane past the olive tree from 2.6 m, its crown crossing the glowing sheers, 55 cm across and 37 cm up; aimed 55 cm short of the tree, so it rides the right third and is never centred. From `[40, 118, 128]` → `[40, 172, 165]`, aimed at `[-220, 172, 150]`.
+- **Camera:** 50 mm full frame, T2.8. A rising lateral crane past the olive tree from 2.6 m, its crown crossing the glowing sheers, 55 cm across and 37 cm up; a 50 aimed 30-40 cm past the tree (+Y), so it rides the right third, never centred, and the slats and sign stay out of frame for V04. From `[40, 118, 128]` → `[40, 172, 165]`, aimed at `[-220, 248, 150]`.
 - **Focus:** +0 f: 250 cm, +60 f: 258 cm, +120 f: 244 cm.
 - **In frame:** the window and the olive as a whole: the sheers lit gold by the low sun, the leaves in silhouette and translucent against them, the pot and the light on the floor at the start.
 - **Light:** GOLDEN.
