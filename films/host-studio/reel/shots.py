@@ -179,14 +179,15 @@ SHOTS = [
          cast=("her",), previs=0.5, vcrop=0.5, sound="VO L3b; the lift (bar 21)"),
     # ---------------------------------------------------------------- F. together, and the title (bars 23-26)
     Shot("S17", "Together", bar(23), bar(25), 28, 4.0,
-         "crane up and back 150 cm into the wide, keeping the sign centred",
-         [[0, [170, -5, 150], [-20, -5, 165]], [120, [320, -10, 195], [-100, -5, 172]]],
+         "crane up and back 150 cm into the wide, keeping the sign centred; it ends tilted up enough that both are cut above the "
+         "knee (her at ~57 cm, him at ~86 cm): the presenters are barefoot, so no feet in any shot",
+         [[0, [170, -5, 150], [-20, -5, 165]], [120, [320, -10, 195], [-100, -5, 190]]],
          "both on their marks under the sign, the whole studio at night opening up around them",
          "NIGHT+KEY", "him: L4a / her: L4b; a glance between them on 'comes around', then both to the lens, a small smile",
          into="cut on bar 25", cast=("him", "her"), previs=1.0, vcrop=0.5, sound="VO L4a, L4b; the theme's last phrase"),
     Shot("S18", "Title", bar(25), bar(27), 28, 4.0,
          "locked off on the end of S17; the practicals ease down, the halo holds; title type fades in",
-         [[0, [320, -10, 195], [-100, -5, 172]], [120, [320, -10, 195], [-100, -5, 172]]],
+         [[0, [320, -10, 195], [-100, -5, 190]], [120, [320, -10, 195], [-100, -5, 190]]],
          "the wide with the lit sign; the title over it (the karma wordmark, then \"a studio by MelloB\"), then a fade to black on the halo",
          "NIGHT-DIM", "both hold, a natural idle", into="fade to black (last 24 frames)", cast=("him", "her"),
          vcrop=0.5, sound="the final chord and a sub tail; the halo's hum fades last"),
