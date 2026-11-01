@@ -108,9 +108,17 @@ def solve(key: str) -> dict:
 # ---------------------------------------------------------------------------------------------------- the face
 
 # Silent beats on the face's curves, in master frames: [curve, [[frame, value], ...]] added onto what the solve made
-# (eased between keys, so a beat starts and ends at 0). Head* are degrees (HeadPitch > 0 tips the head down, HeadYaw > 0
-# turns it to his own left = screen right; `signs` measures them and SIGN flips them if the rig disagrees).
-SIGN = {"HeadPitch": 1.0, "HeadYaw": 1.0}
+# (eased between keys, so a beat starts and ends at 0). The head curves are degrees, but on this rig their names do not
+# say what they do (`signs` measured it on the head bone, +-20 each): HeadYaw nods (+ tips the head down), HeadRoll
+# turns (+ towards world -Y: his own right, screen left from the front) and HeadPitch tilts ear to shoulder.
+# The beats use PITCH (+ down) and turn() (+ towards world +Y: own left, screen right from the front).
+PITCH = "HeadYaw"
+TURN, TURN_SIGN = "HeadRoll", -1.0
+SIGN: dict = {}
+
+
+def turn(keys: list) -> list:
+    return [TURN, [[f, v * TURN_SIGN] for f, v in keys]]
 SMILE = ("CTRL_expressions_mouthCornerPullL", "CTRL_expressions_mouthCornerPullR")
 SQUINT = ("CTRL_expressions_eyeSquintInnerL", "CTRL_expressions_eyeSquintInnerR")
 CHEEK = ("CTRL_expressions_eyeCheekRaiseL", "CTRL_expressions_eyeCheekRaiseR")
@@ -125,19 +133,21 @@ def smile(f0: int, f1: int, f2: int, f3: int, amount: float) -> list:
 
 def nod(f: int, deg: float = 4.0) -> list:
     """A small nod: down over 6 frames, back over 9."""
-    return [["HeadPitch", [[f, 0.0], [f + 6, deg], [f + 15, 0.0]]]]
+    return [[PITCH, [[f, 0.0], [f + 6, deg], [f + 15, 0.0]]]]
 
 
 BEATS = {
     "him": [
         # S13: head down in the dark, then up to the lens with the key light (bar 16 beat 1, f900, 15 frames)
-        ["HeadPitch", [[840, 16.0], [896, 15.0], [914, 0.0]]],
+        [PITCH, [[840, 16.0], [896, 15.0], [914, 0.0]]],
         ["CTRL_expressions_eyeLookDownL", [[840, 0.35], [898, 0.35], [910, 0.0]]],
         ["CTRL_expressions_eyeLookDownR", [[840, 0.35], [898, 0.35], [910, 0.0]]],
         # S15: after L2 ("She'll tell you the next one", ends f1141) he turns his head to her and holds while she
         # starts; back to the front during S16 (he is off screen), ready for S17
-        ["HeadYaw", [[1136, 0.0], [1152, 42.0], [1196, 45.0], [1290, 45.0], [1316, 0.0]]],
-        ["HeadPitch", [[1136, 0.0], [1152, 4.0], [1290, 4.0], [1316, 0.0]]],
+        # she stands 80 cm behind him and 95 cm to his right (world -Y): a glance over his right shoulder, the head
+        # most of the way and the eyes (gaze "her") the rest
+        turn([[1136, 0.0], [1152, -46.0], [1196, -50.0], [1290, -50.0], [1316, 0.0]]),
+        [PITCH, [[1136, 0.0], [1152, 4.0], [1290, 4.0], [1316, 0.0]]],
         *smile(1138, 1150, 1180, 1200, 0.25),
         # S17-S18: "Welcome..." then a small smile to the lens, a settling nod, held through the title
         *nod(1404, 3.0),
@@ -146,8 +156,9 @@ BEATS = {
     "her": [
         # S15: she watches him while he speaks (head turned towards him), a smile at "the next one", then she turns
         # to the lens for L3 (f1158)
-        ["HeadYaw", [[1080, -22.0], [1140, -24.0], [1156, 0.0]]],
-        ["HeadPitch", [[1080, -3.0], [1140, -3.0], [1156, 0.0]]],
+        # he is 80 cm in front of her and 95 cm to her left (world +Y), his eyes 16 cm higher
+        turn([[1080, 28.0], [1140, 30.0], [1156, 0.0]]),
+        [PITCH, [[1080, -4.0], [1140, -4.0], [1156, 0.0]]],
         *smile(1124, 1138, 1146, 1160, 0.3),
         # S17-S18: "...to karma." then the smile to the lens and a settling nod with him
         *nod(1408, 3.0),
@@ -384,40 +395,37 @@ def stage(who: str) -> dict:
 
 
 def signs(who: str = "him") -> dict:
-    """Which way HeadPitch and HeadYaw turn this rig: the eyes' mid-point with each curve at +15 against 0, on my
-    copy in its test sequence (frame 0)."""
-    face = f"{ANIM}/AS_reel_{who}_face"
-    probe = f"{ANIM}/AS_reel_signprobe"
+    """What each head curve does on this rig: the head bone's up axis and the eyes' mid-point with the curve at +-20
+    against all at 0, on my copy in its test sequence (frame 2). Read it to set PITCH and TURN."""
+    face, probe = f"{ANIM}/AS_reel_{who}_face", f"{ANIM}/AS_reel_signprobe"
+    bones = ["head", "FACIAL_L_Eye", "FACIAL_R_Eye"]
     out = {}
-    eyes = ["FACIAL_L_Eye", "FACIAL_R_Eye"]
-    for name in (None, "HeadPitch", "HeadYaw"):
-        ok(client.exec_code(f"""
-import unreal
-AL, EAL = unreal.AnimationLibrary, unreal.EditorAssetLibrary
-if EAL.does_asset_exist({probe!r}):
-    EAL.delete_asset({probe!r})
-EAL.duplicate_asset({face!r}, {probe!r})
-a = unreal.load_asset({probe!r})
+    for name, val in ((None, 0), ("HeadPitch", 20), ("HeadPitch", -20), ("HeadYaw", 20), ("HeadYaw", -20),
+                      ("HeadRoll", 20), ("HeadRoll", -20)):
+        run(r"""
+import json, unreal
+import fmbridge.ops.anim as A
+EAL = unreal.EditorAssetLibrary
+P = json.loads(PARAMS)
+if EAL.does_asset_exist(P["probe"]):
+    EAL.delete_asset(P["probe"])
+EAL.duplicate_asset(P["face"], P["probe"])
+a = unreal.load_asset(P["probe"])
 L = a.get_editor_property("sequence_length")
-for n in ("HeadPitch", "HeadYaw", "HeadRoll"):
-    if AL.does_curve_exist(a, n, unreal.RawCurveTrackTypes.RCT_FLOAT):
-        AL.remove_curve(a, n, False)
-    AL.add_curve(a, n, unreal.RawCurveTrackTypes.RCT_FLOAT, False)
-    AL.add_float_curve_keys(a, n, [0.0, L], [15.0, 15.0] if n == {name!r} else [0.0, 0.0])
-EAL.save_asset({probe!r})
+A._write(a, {n: ([0.0, L], [P["val"]] * 2 if n == P["name"] else [0.0, 0.0]) for n in ("HeadPitch", "HeadYaw", "HeadRoll")})
+EAL.save_asset(P["probe"])
 result = True
-"""))
+""", {"face": face, "probe": probe, "name": name, "val": float(val)})
         ok(client.op("seq.set_anim", path=test_seq(who), component="Face", anim=probe, label=test_label(who)))
-        m = ok(client.op("seq.sample", path=test_seq(who), actor_label=test_label(who), component="Face", bones=eyes,
-                         frames=[2], ticks=6))
-        mid = [(m["bones"][eyes[0]][0][k] + m["bones"][eyes[1]][0][k]) / 2 for k in range(3)]
-        out[name or "rest"] = [round(v, 2) for v in mid]
+        m = ok(client.op("seq.sample", path=test_seq(who), actor_label=test_label(who), component="Face", bones=bones,
+                         frames=[2], ticks=8))
+        mid = [(m["bones"][bones[1]][0][k] + m["bones"][bones[2]][0][k]) / 2 for k in range(3)]
+        out[f"{name}{val:+d}" if name else "rest"] = {"eyes": mid, "head_up": m["bones"]["head"][0][3:6]}
     ok(client.op("seq.set_anim", path=test_seq(who), component="Face", anim=face, label=test_label(who)))
     ok(client.exec_code(f"import unreal\nunreal.EditorAssetLibrary.delete_asset({probe!r})\nresult = True"))
-    r = out["rest"]
-    out["pitch_down_positive"] = out["HeadPitch"][2] < r[2]
-    out["yaw_screen_right_positive"] = out["HeadYaw"][1] < r[1]  # screen right is -Y
-    return out
+    r = out["rest"]["eyes"]
+    return {k: {"eyes_moved": [round(a - b, 2) for a, b in zip(v["eyes"], r)], "head_up": [round(x, 3) for x in v["head_up"]]}
+            for k, v in out.items()}
 
 
 # ---------------------------------------------------------------------------------------------------- face and body
