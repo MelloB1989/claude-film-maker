@@ -65,6 +65,7 @@ DOWN = [("DownCredenza", (WALL + 55, CR_C, 296), (WALL + 25, CR_C, 72.0), 15.0, 
 IGNITE = [bar(13, 1), bar(13, 2), bar(13, 3), bar(13, 4), bar(13, 4) + BEAT // 2]
 GAPS = [0.0, 0.235, 0.388, 0.537, 0.778, 1.0]
 HALO_CARD, HALO_LIGHTS, HALO_LIGHT = 2.5, 1.2, 1.2  # studio.py: SignHalo intensity, Halo0-8 candelas
+MPC = "/Game/FM/Materials/MPC_FM"  # look.py's collection: GlowWipe takes min(Reveal, WipeReveal) x WipeOn
 WIPE = 10          # frames for a letter to come up (shortened when the next letter comes sooner)
 # studio.py's Halo0-8 run evenly from 6 cm inside the sign's screen-right end (min Y) to 6 cm inside its left end;
 # the halo card spans the letters' 100 cm plus 6 cm each side: light k sits at U = (56 - (-44 + 11 k)) / 112
@@ -163,9 +164,9 @@ def C(*points) -> Curve:
 
 @dataclass
 class Track:
-    label: str             # the actor
-    kind: str              # float | color | material | transform
-    prop: str              # the property (float, color), the material parameter (material); "" for transform
+    label: str             # the actor (collection: the material parameter collection's path)
+    kind: str              # float | color | material | collection | transform
+    prop: str              # the property (float, color), the parameter (material, collection); "" for transform
     curve: Curve
     slot: object = None    # material: the slot (index or name)
     aim: Curve | None = None  # transform: what the actor looks at (location in `curve`)
@@ -215,13 +216,15 @@ def tracks() -> list:
     add("CandleLight", "float", "Intensity", C((0, 0.1), (dim0, 0.1), (end_dim, 0.1 * DIM)))
     add("Terminal", "material", "Blink", C((0, 1.0), *((f, v, "hold") for f, v in BLINK)), slot="M_Label_Terminal")
 
-    # the halo: off all day; the card is wiped on letter by letter (Reveal) and each letter's LEDs strike in turn
-    add("SignHalo", "material", "Intensity", C((0, 0.0), (ig, HALO_CARD, "hold")), slot=0)
+    # the halo: off all day (WipeOn 0); the card is wiped on letter by letter (WipeReveal) and each letter's LEDs
+    # strike in turn. Keyed on MPC_FM, which the card's GlowWipe reads, not on SignHalo's material slot: the slot's
+    # keys made Sequencer's MID but never reached it (S11 at f725 showed the instance's Reveal 1, Intensity 2.5)
+    add(MPC, "collection", "WipeOn", C((0, 0.0), (ig, 1.0, "hold")))
     reveal = [(0, 0.0), (ig - 1, 0.0, "hold")]
     for k, f in enumerate(IGNITE):
         dur = min(WIPE, (IGNITE[k + 1] - f) if k + 1 < len(IGNITE) else WIPE)
         reveal += [(f, GAPS[k], "hold"), (f + dur, GAPS[k + 1], "out")]
-    add("SignHalo", "material", "Reveal", C(*_dedupe(reveal)), slot=0)
+    add(MPC, "collection", "WipeReveal", C(*_dedupe(reveal)))
     for k, letter in enumerate(LETTER_OF_LIGHT):
         f = IGNITE[letter]
         add(f"Halo{k}", "float", "Intensity", C((0, 0.0), (f, 0.0), (f + WIPE, HALO_LIGHT, "pop")))
@@ -278,6 +281,8 @@ def payload(t: Track) -> tuple:
         return "seq.key_color", dict(label=t.label, prop=t.prop, keys=_lin(t.curve.keys()))
     if t.kind == "material":
         return "seq.key_material", dict(label=t.label, param=t.prop, slot=t.slot, keys=_lin(t.curve.keys()))
+    if t.kind == "collection":
+        return "seq.key_collection", dict(collection=t.label, param=t.prop, keys=_lin(t.curve.keys()))
     if t.kind == "transform":
         frames = sorted({k[0] for k in t.curve.keys()} | {k[0] for k in t.aim.keys()})
         keys = []

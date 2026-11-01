@@ -119,7 +119,8 @@ for label in LABELS:
                                                  for c in sec.get_editor_property("scalar_parameter_names_and_curves")])
                     tr["sections"].append(sr)
             tracks.append(tr)
-        row[key] = {"bound": objs, "tracks": tracks}
+        # a list: two bindings of one name (an old possessable beside a new one) must both show
+        row.setdefault(key, []).append({"guid": tryit(lambda: str(b.get_id())), "bound": objs, "tracks": tracks})
     out[label] = row
 LSE.open_level_sequence(seq)
 LSE.set_current_time(725)
@@ -147,6 +148,11 @@ for label in LABELS:
                 r.update({p: value(m, p) for p in ("Reveal", "Intensity", "Softness", "Blink")})
             rows.append(r)
     out[label] = rows
+# the world's MPC_FM, which the halo's GlowWipe reads (light.py keys WipeOn and WipeReveal there)
+world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
+mpc = unreal.EditorAssetLibrary.load_asset("/Game/FM/Materials/MPC_FM")
+out["MPC_FM"] = {p: unreal.KismetMaterialLibrary.get_scalar_parameter_value(world, mpc, p)
+                 for p in ("WipeOn", "WipeReveal")} if mpc else "(no MPC_FM: install the bridge, run rig.py)"
 result = out
 '''
 
