@@ -408,6 +408,7 @@ if unreal.EditorAssetLibrary.does_asset_exist(HER_BP):
             her_comp("Overshirt").set_material_by_name(slot_, unreal.load_asset(mi_))
         her_comp("Overshirt").set_editor_property("lighting_channels",
                                                   her_comp("Body").get_editor_property("lighting_channels"))
+        her_comp("Overshirt").set_editor_property("use_bounds_from_leader_pose_component", True)
         her_comp("Overshirt").set_leader_pose_component(her_comp("Body"))
     # <<< overshirt
 
