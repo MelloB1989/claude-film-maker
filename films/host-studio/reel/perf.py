@@ -47,16 +47,17 @@ LABEL = {"him": "Host", "her": "Presenter"}
 MARK = {"him": MARK_HIM, "her": MARK_HER}
 EYES = {"him": EYES_HIM, "her": EYES_HER}
 # Each presenter's performance runs from the first shot they are in to the end of the reel (master frames).
-START = {"him": 840, "her": 1080}
+START = {"him": 960, "her": 1080}  # PLAN v2: S13 is bars 17-18, S14 is gone
 END = 1560
 # The body idle: both presenters play the engine's idle; her copy starts 17 s in, so the two never sway in step.
 IDLE_OFFSET = {"him": 0.0, "her": 17.0}
 
 # The solves: each presenter's whole stem in their base mood, and the lines whose mood differs (PLAN.md §2) alone.
+# PLAN v2 moods: L1 confident/amused, L2 playful, L3a/L3b playful-confident, L4a/L4b warm and happy.
 SOLVES = {
-    "him": {"wav": "stem_him", "who": "him", "mood": "CONFIDENCE", "intensity": 0.8},
-    "her": {"wav": "stem_her", "who": "her", "mood": "CONFIDENCE", "intensity": 0.9},
-    "L2": {"wav": "L2", "who": "him", "mood": "HAPPINESS", "intensity": 0.6},
+    "him": {"wav": "stem_him", "who": "him", "mood": "CONFIDENCE", "intensity": 0.7},
+    "her": {"wav": "stem_her", "who": "her", "mood": "CONFIDENCE", "intensity": 0.75},
+    "L2": {"wav": "L2", "who": "him", "mood": "HAPPINESS", "intensity": 0.45},
     "L4a": {"wav": "L4a", "who": "him", "mood": "HAPPINESS", "intensity": 0.7},
     "L4b": {"wav": "L4b", "who": "her", "mood": "HAPPINESS", "intensity": 0.7},
 }
@@ -124,11 +125,27 @@ SQUINT = ("CTRL_expressions_eyeSquintInnerL", "CTRL_expressions_eyeSquintInnerR"
 CHEEK = ("CTRL_expressions_eyeCheekRaiseL", "CTRL_expressions_eyeCheekRaiseR")
 
 
-def smile(f0: int, f1: int, f2: int, f3: int, amount: float) -> list:
-    """A smile that grows f0->f1, holds, and lets go f2->f3 (cheeks and a hint of squint come with it)."""
+def smile(f0: int, f1: int, f2: int, f3: int, amount: float, side: str = "LR") -> list:
+    """A smile that grows f0->f1, holds, and lets go f2->f3 (cheeks and a hint of squint come with it); one `side`
+    ("L" or "R", the face's own) for a smirk or a half-smile."""
     keys = lambda a: [[f0, 0.0], [f1, a], [f2, a], [f3, 0.0]]  # noqa: E731
-    return ([[c, keys(amount)] for c in SMILE] + [[c, keys(amount * 0.5)] for c in CHEEK] +
-            [[c, keys(amount * 0.3)] for c in SQUINT])
+    pick = lambda pair: [c for c in pair if c[-1] in side]  # noqa: E731
+    return ([[c, keys(amount)] for c in pick(SMILE)] + [[c, keys(amount * 0.5)] for c in pick(CHEEK)] +
+            [[c, keys(amount * 0.3)] for c in pick(SQUINT)])
+
+
+def eyes(f0: int, f1: int, f2: int, f3: int, look: dict) -> list:
+    """Both eyes held on eye-look curves ({"Left": 0.6, "Down": 0.1}) f1..f2, eased in from f0 and out to f3. On this
+    rig eyeLookLeft turns the eyes to the face's own right (world -Y for both presenters), eyeLookRight to its left."""
+    return [[f"CTRL_expressions_eyeLook{d}{s}", [[f0, 0.0], [f1, v], [f2, v], [f3, 0.0]]] for s in "LR" for d, v in look.items()]
+
+
+def word(line: str, w: str, default: float) -> float:
+    """The master frame a word of a line starts on (cues.json), else `default`."""
+    try:
+        return next(x["start"] for x in cues()[line]["words"] if x["w"].strip(".,…!?'").lower() == w)
+    except (OSError, KeyError, StopIteration):
+        return default
 
 
 def nod(f: int, deg: float = 4.0) -> list:
@@ -136,41 +153,49 @@ def nod(f: int, deg: float = 4.0) -> list:
     return [[PITCH, [[f, 0.0], [f + 6, deg], [f + 15, 0.0]]]]
 
 
-BEATS = {
-    "him": [
-        # S13: head down in the dark, then up to the lens with the key light (bar 16 beat 1, f900, 15 frames)
-        [PITCH, [[840, 16.0], [896, 15.0], [914, 0.0]]],
-        ["CTRL_expressions_eyeLookDownL", [[840, 0.35], [898, 0.35], [910, 0.0]]],
-        ["CTRL_expressions_eyeLookDownR", [[840, 0.35], [898, 0.35], [910, 0.0]]],
-        # S15: after L2 ("She'll tell you the next one", ends f1141) he turns his head to her and holds while she
-        # starts; back to the front during S16 (he is off screen), ready for S17
-        # she stands 80 cm behind him and 95 cm to his right (world -Y), ~130 deg from his front: more than head and
-        # eyes can lock on (gaze_lock picks the wrong eye axis that far off), so the look is written: the head over
-        # his right shoulder, the eyes the rest of the way (eyeLookLeft turns them to his right on this rig, measured)
-        turn([[1136, 0.0], [1154, -62.0], [1196, -65.0], [1290, -65.0], [1316, 0.0]]),
-        [PITCH, [[1136, 0.0], [1154, 5.0], [1290, 5.0], [1316, 0.0]]],
-        *[[f"CTRL_expressions_eyeLook{d}{s}", [[1138, 0.0], [1148, v], [1196, v], [1206, 0.0]]]
-          for s in "LR" for d, v in (("Left", 0.6), ("Down", 0.1))],
-        *smile(1138, 1150, 1180, 1200, 0.25),
-        # S17-S18: "Welcome..." then a small smile to the lens, a settling nod, held through the title
-        *nod(1404, 3.0),
-        *smile(1376, 1396, 1530, 1560, 0.35),
-    ],
-    "her": [
-        # S15: she watches him while he speaks (head turned towards him), a smile at "the next one", then she turns
-        # to the lens for L3 (f1158)
-        # he is 80 cm in front of her and 95 cm to her left (world +Y), his eyes 16 cm higher: written like his look
-        # (a lock on him does not converge from that turn), the eyes the rest of the way (eyeLookRight: to her left)
-        turn([[1080, 34.0], [1140, 36.0], [1156, 0.0]]),
-        [PITCH, [[1080, -4.0], [1140, -4.0], [1156, 0.0]]],
-        *[[f"CTRL_expressions_eyeLook{d}{s}", [[1080, v], [1142, v], [1154, 0.0]]]
-          for s in "LR" for d, v in (("Right", 0.35), ("Up", 0.12))],
-        *smile(1124, 1138, 1146, 1160, 0.3),
-        # S17-S18: "...to karma." then the smile to the lens and a settling nod with him
-        *nod(1408, 3.0),
-        *smile(1398, 1416, 1530, 1560, 0.35),
-    ],
-}
+def beats(who: str) -> list:
+    """The silent beats of PLAN v2 (S13 f960-1079, S15 f1080-1199, S16 f1200-1319, S17 f1320-1439, S18 to f1560)."""
+    if who == "him":
+        return [
+            # S13: a silhouette, head down; his eyes come up to the lens as the key ramps (bar 17 beat 3, f990-1002)
+            [PITCH, [[960, 16.0], [986, 15.0], [1004, 0.0]]],
+            *eyes(960, 960, 988, 1000, {"Down": 0.35}),
+            # L1 "Took you long enough." (f1020), then a small smirk held to the cut, let go as L2 comes
+            *smile(1046, 1056, 1084, 1096, 0.32, side="R"),
+            # S15: L2 "Ask her what's next." (f1095), then he turns his head to her and holds through S15; back to the
+            # front during S16 (he is off screen). She stands 80 cm behind him and 95 cm to his right (world -Y),
+            # ~130 deg from his front: more than a lock converges on, so the look is written, the head over his right
+            # shoulder and the eyes the rest of the way
+            turn([[1128, 0.0], [1146, -62.0], [1196, -65.0], [1290, -65.0], [1316, 0.0]]),
+            [PITCH, [[1128, 0.0], [1146, 5.0], [1290, 5.0], [1316, 0.0]]],
+            *eyes(1130, 1142, 1196, 1206, {"Left": 0.6, "Down": 0.1}),
+            *smile(1126, 1140, 1180, 1200, 0.22),
+            # S17: L4a "What goes around..." (f1350), a glance to her as she says "comes around", back to the lens
+            turn([[1378, 0.0], [1388, -32.0], [1400, -34.0], [1412, 0.0]]),
+            *eyes(1378, 1386, 1400, 1410, {"Left": 0.7}),
+            # ...then a small warm smile to the lens, a settling nod, held through S18
+            *smile(1404, 1420, 1530, 1560, 0.32),
+            *nod(1424, 3.0),
+        ]
+    tilt = word("L3b", "yourself", 1282)
+    return [
+        # S15: she watches him while he speaks L2 (he is 80 cm in front of her and 95 cm to her left, world +Y, his
+        # eyes 16 cm higher; written, as a lock does not converge from there), then to the lens for L3a (f1158)
+        turn([[1080, 34.0], [1140, 36.0], [1154, 0.0]]),
+        [PITCH, [[1080, -4.0], [1140, -4.0], [1154, 0.0]]],
+        *eyes(1080, 1080, 1142, 1152, {"Right": 0.35, "Up": 0.12}),
+        # "Nice try." with a half-smile: a playful refusal, held a beat, gone by L3b
+        *smile(1160, 1172, 1196, 1212, 0.3, side="L"),
+        # S16: L3b to the lens, unhurried; a small head tilt on "yourself"
+        ["HeadPitch", [[tilt - 6, 0.0], [tilt + 4, 6.0], [tilt + 24, 6.0], [tilt + 40, 0.0]]],
+        # S17: L4b "...comes around. That's karma." (f1386): a glance to him on "comes around", then the lens
+        turn([[1376, 0.0], [1386, 30.0], [1398, 32.0], [1408, 0.0]]),
+        *eyes(1376, 1384, 1398, 1406, {"Right": 0.35, "Up": 0.1}),
+        *smile(1412, 1426, 1530, 1560, 0.35),
+        *nod(1430, 3.0),
+    ]
+
+
 # The lines whose mood differs from the base solve: spliced over the base with a 4-frame cross-fade at each end.
 SPLICES = {"him": ["L2", "L4a"], "her": ["L4b"]}
 
@@ -278,7 +303,7 @@ def compose(who: str) -> dict:
     sec = lambda f: (f - START[who]) / FPS  # noqa: E731  master frame -> seconds into the performance
     splices = [{"anim": f"{SPEECH}/Anim/AS_{anim_name(k)}", "t0": sec(c[k]["file_frame"]), "fade": 4 / FPS}
                for k in SPLICES[who]]
-    beats = [[n, [[sec(f), v * SIGN.get(n, 1.0)] for f, v in ks]] for n, ks in BEATS[who]]
+    beats = [[n, [[sec(f), v * SIGN.get(n, 1.0)] for f, v in ks]] for n, ks in globals()["beats"](who)]
     params = {"base": f"{SPEECH}/Anim/AS_{anim_name(who)}", "out": f"{ANIM}/AS_reel_{who}_face",
               "splices": splices, "beats": beats}
     return ok(client.exec_code(f"PARAMS = {json.dumps(json.dumps(params))}\n" + COMPOSE, timeout=1800))
@@ -290,7 +315,7 @@ def compose(who: str) -> dict:
 # My own copies of the presenters (same Blueprint class as Host / Presenter) and test cameras, all moved by OFFSET
 # out of every reel camera's view (under the floor): the geometry between eyes, lenses and partner is what matters.
 OFFSET = (0.0, 0.0, -2500.0)
-SHOTS_OF = {"him": ["S13", "S14", "S15", "S17", "S18"], "her": ["S15", "S16", "S17", "S18"]}
+SHOTS_OF = {"him": ["S13", "S15", "S17", "S18"], "her": ["S15", "S16", "S17", "S18"]}
 
 
 def test_label(who: str) -> str:
@@ -467,9 +492,9 @@ def sync(who: str) -> dict:
 
 # Where the eyes go, master frames: a test camera (the shot's lens) or the partner's eyes. Frames in none of these
 # keep the solve's own eyes and the beats' (his head-down opening, his written look to her, his S16 off screen).
-GAZE = {
-    "him": [["S13", 908, 959], ["S14", 960, 1079], ["S15", 1080, 1137], ["S17", 1320, 1439], ["S18", 1440, 1559]],
-    "her": [["S15", 1156, 1199], ["S16", 1200, 1319], ["S17", 1320, 1439], ["S18", 1440, 1559]],
+GAZE = {  # each lens range ends before a written look starts and begins after it has let go
+    "him": [["S13", 1000, 1079], ["S15", 1080, 1127], ["S17", 1320, 1377], ["S17", 1412, 1439], ["S18", 1440, 1559]],
+    "her": [["S15", 1152, 1199], ["S16", 1200, 1319], ["S17", 1320, 1375], ["S17", 1408, 1439], ["S18", 1440, 1559]],
 }
 
 
@@ -631,7 +656,7 @@ def gesture(who: str) -> dict:
 
 # ---------------------------------------------------------------------------------------------------- looking at it
 
-STILLS = {"him": [870, 925, 1000, 1060, 1120, 1170, 1380, 1420], "her": [1100, 1150, 1180, 1250, 1300, 1395, 1420]}
+STILLS = {"him": [975, 1030, 1070, 1110, 1170, 1360, 1394, 1430], "her": [1110, 1165, 1240, 1290, 1394, 1430]}
 REMOTE_STILLS = rf"{PROJECT}\Saved\Reel\perf"
 
 
