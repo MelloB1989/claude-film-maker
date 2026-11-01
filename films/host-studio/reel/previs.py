@@ -41,6 +41,8 @@ def focus_at(shot, frame: float):
     if not shot.focus:
         return None
     ks = shot.focus
+    if any(isinstance(d, (list, tuple)) for _, d in ks):
+        return None  # a pull onto points (motion.py works those out): previs focuses on the look-at
     if frame <= ks[0][0]:
         return ks[0][1]
     for (f0, d0), (f1, d1) in zip(ks, ks[1:]):

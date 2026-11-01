@@ -55,6 +55,39 @@ def rebind(labels: list) -> dict:
     return ok(client.op("seq.rebind", path=SEQ, labels=labels))
 
 
+def snapshot(labels: list) -> dict:
+    """The level state of the actors the sequence moves or hides: Sequencer leaves them as the sequence had them when
+    it is closed (Host on his reel mark, the stool hidden), so build() puts them back with restore()."""
+    return run(f"""
+from fmbridge.ops.level import actor
+out = {{}}
+for lab in {labels!r}:
+    try:
+        a = actor(lab)
+    except ValueError:
+        continue
+    p, r = a.get_actor_location(), a.get_actor_rotation()
+    out[lab] = [[p.x, p.y, p.z], [r.pitch, r.yaw, r.roll], a.is_temporarily_hidden_in_editor(), a.is_hidden_ed()]
+result = out
+""")
+
+
+def restore(state: dict) -> None:
+    """Close the sequence and put the actors back as snapshot() found them (attached ones only their visibility)."""
+    ok(client.op("seq.close"))
+    run(f"""
+import unreal
+from fmbridge.ops.level import actor
+for lab, (loc, rot, temp, hid) in {state!r}.items():
+    a = actor(lab)
+    if a.get_attach_parent_actor() is None:
+        a.set_actor_location_and_rotation(unreal.Vector(*loc), unreal.Rotator(pitch=rot[0], yaw=rot[1], roll=rot[2]),
+                                          False, False)
+    a.set_is_temporarily_hidden_in_editor(temp)
+result = len({state!r})
+""")
+
+
 def pose(label: str) -> dict:
     """An actor's rotation and scale in the level (the marks keep the facing studio.py gave them)."""
     return run(f"""
@@ -115,26 +148,31 @@ def build() -> None:
     rebind(HIM + HER + EMPTY_ROOM)
     cameras()
     marks()
-    print(ok(client.op("seq.camera_cuts", path=SEQ, cuts=M.cuts())))
+    ok(client.op("seq.camera_cuts", path=SEQ, cuts=M.cuts()))
+    got = ok(client.op("seq.cuts", path=SEQ))
+    want = [[c, f, (M.cuts() + [[None, END]])[k + 1][1]] for k, (c, f) in enumerate(M.cuts())]
+    # the ranges must match; the camera names too, once seq.cuts gives labels (it gave a Guid's repr on 2026-11-01)
+    if [g[1:3] for g in got] != [w[1:] for w in want] or any(g[0].startswith("Reel_") and g[0] != w[0]
+                                                              for g, w in zip(got, want)):
+        raise SystemExit(f"the cut in SEQ_Reel is not the plan's: {got}")
+    print("cut:", len(got), "shots,", got[0][1], "to", got[-1][2])
 
 
-def previs(every: int, width: int) -> None:
+def previs(every: int, width: int, only: set | None = None) -> None:
     """Viewport stills across the cut, each through its own shot's camera: every `every` frames of each shot from its
-    first, and its last frame, through the camera-cut track, into previs/cut/<shot>_<frame>.png."""
+    first, and its last frame, into previs/cut/<shot>_<frame>.png."""
     OUT.mkdir(parents=True, exist_ok=True)
-    try:
-        for s in SHOTS:
-            frames = sorted(set(range(s.start, s.end, every)) | {s.end - 1})
-            remote = rf"{REMOTE}\{s.id}"
-            got = ok(client.op("seq.stills", path=SEQ, frames=frames, camera="", out_dir=remote,
-                               width=width, height=width * 9 // 16))  # through the cut's own camera at each frame
-            for f, cam, p in got:
-                if cam != f"Reel_{s.id}":
-                    print(f"  f{f}: the cut shows {cam}, not Reel_{s.id}")
-                client.pull(p, str(OUT / f"{s.id}_{int(f):04d}.png"))
-            print(s.id, len(frames), "stills", flush=True)
-    finally:
-        ok(client.op("seq.close"))
+    for s in SHOTS:
+        if only and s.id not in only:
+            continue
+        frames = sorted(set(range(s.start, s.end, every)) | {s.end - 1})
+        remote = rf"{REMOTE}\{s.id}"
+        # each shot's own camera: every frame here is inside its cut (seq.cuts checked it in build())
+        got = ok(client.op("seq.stills", path=SEQ, frames=frames, camera=f"Reel_{s.id}", out_dir=remote,
+                           width=width, height=width * 9 // 16))
+        for f, g in zip(frames, got):
+            client.pull(g[-1] if isinstance(g, list) else g, str(OUT / f"{s.id}_{f:04d}.png"))
+        print(s.id, len(frames), "stills", flush=True)
 
 
 def sheet(w: int = 400) -> Path:
@@ -168,15 +206,18 @@ def main() -> None:
     ap.add_argument("--previs", type=int, default=0, help="also a still every N frames of the cut (0: none)")
     ap.add_argument("--width", type=int, default=640, help="previs still width (16:9)")
     ap.add_argument("--sheet", action="store_true", help="only remake the contact sheet from previs/cut (no bridge)")
+    ap.add_argument("--only", default="", help="previs only these shots (S03,S04)")
     ap.add_argument("--no-build", action="store_true", help="previs the sequence as it is, without rebuilding")
     a = ap.parse_args()
     if not a.sheet:
-        if not a.no_build:
-            build()
-        if a.previs:
-            previs(a.previs, a.width)
-        else:
-            ok(client.op("seq.close"))
+        state = snapshot(HIM + HER + EMPTY_ROOM)
+        try:
+            if not a.no_build:
+                build()
+            if a.previs:
+                previs(a.previs, a.width, set(a.only.split(",")) if a.only else None)
+        finally:
+            restore(state)
     if a.sheet or a.previs:
         print(sheet())
 

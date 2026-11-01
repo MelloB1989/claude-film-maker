@@ -142,11 +142,12 @@ def samples(shot: Shot, handle: int = HANDLE) -> list:
         if prev is not None:
             yaw += 360 * round((prev - yaw) / 360)
         prev = yaw
-        if shot.focus:
-            dist = _eased(shot.focus, f)
+        fw = forward(pitch, yaw)
+        along = lambda p: sum((q - c) * w for c, q, w in zip(loc, p, fw))  # noqa: E731
+        if shot.focus:  # a pull, its keys distances or points (focused on as the camera moves)
+            dist = _eased([[k, along(v) if isinstance(v, (list, tuple)) else v] for k, v in shot.focus], f)
         else:
-            fw = forward(pitch, yaw)
-            dist = sum((q - p) * w for p, q, w in zip(loc, target or at, fw))
+            dist = along(target or at)
         out.append([f, loc, pitch, yaw, dist])
     return out
 
