@@ -486,13 +486,21 @@ def key_material(path: str, label: str, param: str, keys: list, slot=0, componen
     sec.set_start_frame_bounded(False)
     sec.set_end_frame_bounded(False)
     vector = bool(keys) and isinstance(keys[0][1], (list, tuple))
+    # Sequencer writes into the MID by the whole parameter info (name, association, index), so a plain material
+    # parameter needs GLOBAL_PARAMETER and index -1 said outright: a bare MaterialParameterInfo from Python names the
+    # parameter but matches none, and the MID keeps the instance's values. The bare one is removed too (older keys).
+    bare = unreal.MaterialParameterInfo()
+    bare.set_editor_property("name", param)
     info = unreal.MaterialParameterInfo()
     info.set_editor_property("name", param)
-    for remove in ("remove_scalar_parameter", "remove_color_parameter"):
-        try:
-            getattr(sec, remove)(info)
-        except Exception:
-            pass
+    info.set_editor_property("association", unreal.MaterialParameterAssociation.GLOBAL_PARAMETER)
+    info.set_editor_property("index", -1)
+    for old in (bare, info):
+        for remove in ("remove_scalar_parameter", "remove_color_parameter"):
+            try:
+                getattr(sec, remove)(old)
+            except Exception:
+                pass
     for frame, v, *how in keys:
         mode = _interp(how[0] if how else interp)
         if vector:

@@ -81,7 +81,8 @@ def tryit(f):
         return f"!{type(e).__name__}: {e}"
 def props(o, names):
     return {n: tryit(lambda n=n: str(o.get_editor_property(n))) for n in names}
-out = {"engine": unreal.SystemLibrary.get_engine_version()}
+out = {"engine": unreal.SystemLibrary.get_engine_version(),
+       "bare_info": props(unreal.MaterialParameterInfo(), ("name", "association", "index"))}
 for label in LABELS:
     row = {}
     try:
@@ -112,6 +113,10 @@ for label in LABELS:
                           "range": tryit(lambda: [sec.has_start_frame(), sec.has_end_frame()])}
                     sr["channels"] = tryit(lambda: [(ch.get_name(), ch.get_num_keys())
                                                     for ch in sec.get_all_channels()])
+                    # the parameter info each curve is stored under: Sequencer matches the MID's on all three
+                    sr["infos"] = tryit(lambda: [props(c.get_editor_property("parameter_info"),
+                                                       ("name", "association", "index"))
+                                                 for c in sec.get_editor_property("scalar_parameter_names_and_curves")])
                     tr["sections"].append(sr)
             tracks.append(tr)
         row[key] = {"bound": objs, "tracks": tracks}
