@@ -106,7 +106,7 @@ def exists(labels: list) -> list:
 
 # Exposure compensation per shot on its camera (stops, over the light timeline's exposure): S01 looks into the sheers
 # from inside the olive's crown, 1.5 stops under the DAY room so the window holds (measured on viewport stills).
-EXPOSURE = {"S01": -0.5}
+EXPOSURE = {"V03": -1.0}  # the sheers lit by the low sun: a stop under, so the window holds detail
 
 # A binding that drives more than its own camera: after the level is rebuilt, rebinding (replace_binding_with_actors)
 # added the new camera to old bindings instead of replacing it, so one binding moved two cameras (S05's keys moved
