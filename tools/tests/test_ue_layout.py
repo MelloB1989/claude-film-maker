@@ -269,3 +269,31 @@ def test_example_office_applies(ue):
     spec = yaml.safe_load((Path(__file__).resolve().parents[2] / "examples/unreal/scene/office.yaml").read_text())
     r = run_op("scene.apply", spec=spec)
     assert r["remaining"] == [] and ue.actor("Lamp").get_actor_location().z == pytest.approx(75 + 22.5)
+
+
+def test_settle_bakes_where_physics_left_them(ue):
+    _shapes(ue)
+    run_op("level.spawn", label="Book", shape="cube", loc=[0, 0, 300], size=[20, 30, 4])
+    run_op("level.spawn", label="Mug", shape="cylinder", loc=[100, 0, 5], size=[8, 8, 10])
+    comp = ue.actor("Book").static_mesh_component
+    comp._props["mobility"] = "STATIC"
+
+    def physics(world):  # the book falls and tips; the mug stays
+        book = next(a for a in world.actors() if a.get_actor_label() == "Book")
+        book.set_actor_location(ue.Vector(3, -2, 2))
+        book.set_actor_rotation(ue.Rotator(roll=0, pitch=0, yaw=37))
+    ue.on_simulate = physics
+    r = run_op("layout.settle", labels=["Book", "Mug"], seconds=0)
+    assert set(r["moved"]) == {"Book"} and r["still"] == ["Mug"]
+    assert r["moved"]["Book"]["loc"] == [3, -2, 2] and r["moved"]["Book"]["rot"]["yaw"] == 37
+    assert ue.pie is False and comp.is_simulating_physics() is False and comp._props["mobility"] == "STATIC"
+
+
+def test_settle_refuses_during_play(ue):
+    _shapes(ue)
+    run_op("level.spawn", label="Book", shape="cube")
+    ue.pie = True
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError) as e:
+        run_op("layout.settle", labels=["Book"])
+    assert e.value.code == "conflict"

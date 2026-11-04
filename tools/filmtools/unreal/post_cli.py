@@ -5,6 +5,8 @@
     film-post frames SPEC [--json]        which frames each shot must render, and which are missing on disk
     film-post edl SPEC                    the edit as CMX 3600 on stdout
     film-post captions SPEC               the SRT on stdout (needs audio.timing)
+    film-post loudness WAV [--lufs -14] [--true-peak -1]
+                                          a mix's loudness as a check ({"pass", "metric", "threshold", "why"})
     film-post timing --lines L.json | --vo-json data/vo.json | --cues cues.json  [--fps 24] [-o timing.json]
                                           a timing document (filmtools.unreal.audio_timing)
     film-post handoff TIMING --faces faces.json [--wav-root /box/dir]
@@ -38,6 +40,10 @@ def main(argv=None) -> int:
         p.add_argument("--json", action="store_true")
         if name == "cut":
             p.add_argument("--only", default="")
+    ld = sub.add_parser("loudness")
+    ld.add_argument("wav")
+    ld.add_argument("--lufs", type=float, default=-14.0)
+    ld.add_argument("--true-peak", type=float, default=-1.0)
     t = sub.add_parser("timing")
     g = t.add_mutually_exclusive_group(required=True)
     g.add_argument("--lines")
@@ -54,6 +60,11 @@ def main(argv=None) -> int:
     h.add_argument("--mood", default="CONFIDENCE")
     a = ap.parse_args(argv)
 
+    if a.cmd == "loudness":
+        from ..mix import measure
+        res = post_cut.loudness_check(measure(Path(a.wav)), a.lufs, a.true_peak)
+        print(json.dumps(res, indent=1))
+        return 0 if res["pass"] else 1
     if a.cmd == "timing":
         try:
             if a.lines:

@@ -1,0 +1,17 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "op",
+ "description": "One op call with its arguments, run on every apply (not diffable): the escape hatch for what has no kind yet. Prefer ops marked idempotent.",
+ "type": "object",
+ "required": ["kind", "name", "op"],
+ "additionalProperties": false,
+ "properties": {
+  "kind": {"const": "op"},
+  "version": {"type": "integer", "const": 1},
+  "name": {"type": "string", "description": "this step's id (unique among op documents)"},
+  "op": {"type": "string", "pattern": "^[a-z_]+\\.[a-z_0-9]+$", "description": "area.verb"},
+  "args": {"type": "object", "default": {}, "description": "the op's keyword arguments"},
+  "why": {"type": "string", "description": "shown in the plan"},
+  "timeout": {"type": "number", "exclusiveMinimum": 0, "description": "seconds to wait for it (900)"}
+ }
+}

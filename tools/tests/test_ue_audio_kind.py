@@ -53,4 +53,4 @@ def test_examples_validate():
     assert set(s) <= set(schema["properties"])
     assert audio_timing.validate(json.loads((EX / "audio/timing.json").read_text())) == []
     d = post_cut.load_spec(EX / "delivery/two-shots.yaml")
-    assert post_cut.length(d["edl"]) == 120 and len(post_cut.plan(d)) == 10
+    assert post_cut.length(d["edl"]) == 120 and len(post_cut.plan(d)) == 12
