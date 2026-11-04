@@ -256,3 +256,13 @@ def test_examples_validate():
     for f in files:
         if f.parent.name in ("level", "actor", "op", "demo"):
             spec.load(f)
+
+
+def test_op_unless_converges():
+    s = {"name": "rig", "op": "mh.rig", "args": {"character": "/Game/MH/C"},
+         "unless": {"op": "assets.list", "args": {"path": "/Game/MH"}, "has": "0"}}
+    assert core.plan_op(s, {"done": True}) == []
+    (st,) = core.plan_op(s, {"done": False})
+    assert st["op"] == "mh.rig" and not st.get("always")
+    assert core.plan_op({"name": "x", "op": "look.fog"}, None)[0]["always"]
+    assert core._truthy({"a": [{"b": 1}]}, "a.0.b") and not core._truthy([], "") and not core._truthy({"a": []}, "a")
