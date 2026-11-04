@@ -111,3 +111,25 @@ def test_bad_box_and_non_camera(ue, fmb):
     ue.spawn("StaticMeshActor", label="NotCam")
     with pytest.raises(OpError, match="no camera component"):
         run_op("wp.load", camera="NotCam")
+
+
+def test_load_through_a_shot(ue, fmb, monkeypatch):
+    ue.partition(ACTORS + [{"label": "CamB", "bounds": [[0, 0, 0], [10, 10, 10]], "cls": "CineCameraActor"}])
+    ca = ue.spawn("CineCameraActor", label="CamA", location=ue.Vector(0, 0, 50))
+    ca.get_component_by_class(ue.CameraComponent).set_editor_property("field_of_view", 60.0)
+    ue.add_sequence("/Game/S/Seq", 0, 48, 24)
+    monkeypatch.setattr(fmb.seq, "cut_camera", lambda path, f: "CamA" if f < 24 else "CamB")
+    gen = fmb.call("wp.load", sequence="/Game/S/Seq", frames=[0, 48], every=12, far_cm=5000, pad_cm=0)
+    from fakeunreal import drive
+
+    def turn_b(_dt):  # CamB arrives as the descriptor's actor: aim it at the house
+        b = ue.actor("CamB")
+        if b is not None and not getattr(b, "_aimed", False):
+            object.__setattr__(b, "_aimed", True)
+            b.set_actor_rotation(ue.Rotator(yaw=45))
+            b.get_component_by_class(ue.CameraComponent).set_editor_property("field_of_view", 60.0)
+    ue.register_slate_post_tick_callback(turn_b)
+    r, _ = drive(gen)
+    assert r["cameras"] == ["CamA", "CamB"] and ue.actor("Rock_Near") is not None and ue.actor("House") is not None
+    assert ue.actor("Tree_Behind") is None
+    assert ue.LevelSequenceEditorBlueprintLibrary.get_current_level_sequence() is None  # closed again

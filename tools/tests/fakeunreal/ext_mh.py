@@ -134,7 +134,9 @@ Eyelashes = struct("MetaHumanCharacterEyelashesProperties", {
     "lightness": 0.5, "enable_grooms": True})
 Teeth = struct("MetaHumanCharacterTeethProperties", {
     "tooth_length": 0.0, "tooth_spacing": 0.0, "upper_shift": 0.0, "lower_shift": 0.0, "overbite": 0.0,
-    "overjet": 0.0, "worn_down": 0.0, "teeth_color": _lc(1, 1, 1), "gum_color": _lc(1, 1, 1), "plaque_amount": 0.0})
+    "overjet": 0.0, "worn_down": 0.0, "polycanine": 0.0, "receding_gums": 0.0, "narrowness": 0.0, "variation": 0.0,
+    "jaw_open": 0.0, "teeth_color": _lc(1, 1, 1), "gum_color": _lc(1, 1, 1), "plaque_color": _lc(1, 1, 1),
+    "plaque_amount": 0.0, "enable_show_teeth_expression": False})
 HeadModel = struct("MetaHumanCharacterHeadModelSettings", {"eyelashes": Eyelashes(), "teeth": Teeth()})
 Foundation = struct("MetaHumanCharacterFoundationMakeupProperties", {"apply_foundation": False, "color": _lc(0, 0, 0),
                                                                     "intensity": 0.5, "concealer": 0.57})

@@ -321,6 +321,14 @@ def _ptype(p: dict) -> tuple[str, bool]:
 
 
 def index(schema: dict) -> dict:
+    if schema is _CACHE.get("schema"):
+        if _CACHE.get("index") is None:
+            _CACHE["index"] = _index(schema)
+        return _CACHE["index"]
+    return _index(schema)
+
+
+def _index(schema: dict) -> dict:
     """The schema keyed for the generators: {"ops": {name: op + derived}, "areas": {area: {"doc", "ops": [...]}}}.
     Each param gains flag (CLI spelling: `rot_` -> `rot`), kind_of (the value kind), nullable, doc, choices."""
     ops, areas = {}, {}
@@ -349,13 +357,19 @@ def index(schema: dict) -> dict:
 
 # ----------------------------------------------------------------------------------------------------------- load
 
+_CACHE: dict = {}
+
+
 def load(path: Path | None = None) -> dict:
-    """The schema: extracted from the ops in this checkout when they are here (always current), else the committed
-    snapshot (a copy of tools/ without the unreal/ tree)."""
+    """The schema: extracted from the ops in this checkout when they are here (always current; cached until an ops
+    file changes), else the committed snapshot (a copy of tools/ without the unreal/ tree)."""
     if path:
         return json.loads(Path(path).read_text())
     if OPS_DIR.is_dir():
-        return extract()
+        key = tuple((str(p), p.stat().st_mtime_ns) for p in sorted(OPS_DIR.rglob("*.py")))
+        if _CACHE.get("key") != key:
+            _CACHE.update(key=key, schema=extract(), index=None)
+        return _CACHE["schema"]
     return json.loads(SNAPSHOT.read_text())
 
 

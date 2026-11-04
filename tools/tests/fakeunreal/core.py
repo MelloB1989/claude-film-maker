@@ -421,7 +421,8 @@ class UClass:
         return self.py.__name__
 
     def get_path_name(self) -> str:
-        return f"/Script/Engine.{self.py.__name__}"
+        bp = getattr(self.py, "_bp_path", None)  # a Blueprint's generated class: /Game/X/BP_Y.BP_Y_C
+        return f"{bp}.{self.py.__name__}" if bp else f"/Script/Engine.{self.py.__name__}"
 
     def __repr__(self):
         return f"<UClass {self.py.__name__}>"
@@ -1105,6 +1106,13 @@ class EditorActorSubsystem(EditorSubsystem):
     def spawn_actor_from_object(self, object_to_use, location=None, rotation=None, transient: bool = False):
         f = _fake()
         cls = {StaticMesh: StaticMeshActor, SkeletalMesh: SkeletalMeshActor}.get(type(object_to_use), Actor)
+        if isinstance(object_to_use, Blueprint):  # an actor of the Blueprint's generated class
+            pkg = object_to_use.get_path_name().rsplit(".", 1)[0]
+            name = pkg.rsplit("/", 1)[-1] + "_C"
+            cls = f._bp_classes.get(pkg)
+            if cls is None:
+                base = object_to_use._props.get("parent_class", Actor)
+                cls = f._bp_classes[pkg] = _AutoMeta(name, (base,), {"__module__": "unreal", "_bp_path": pkg})
         a = f.spawn(cls, location=location, rotation=rotation)
         if isinstance(a, StaticMeshActor):
             a.static_mesh_component.set_static_mesh(object_to_use)
@@ -1381,6 +1389,7 @@ class FakeUnreal(types.ModuleType):
         self.viewport_realtime = True
         self.pie = False
         self.tag_providers: list = []
+        self._bp_classes: dict = {}
         self.on_simulate = None
         self.ticks = 0
         self._singletons: dict = {}

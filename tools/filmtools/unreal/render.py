@@ -153,12 +153,42 @@ def encode_local(r: dict, root: str, kinds: list, fps: float, start: int | None 
     return out
 
 
+def pixel_qa(img, *, hot_ratio: float = 20.0, hot_min: float = 1.0) -> dict:
+    """Bad pixels in one linear float image (H x W x C numpy array): NaN, Inf, negative values, and fireflies (a
+    pixel brighter than hot_min and over hot_ratio x the mean of its 8 neighbours, as a lone sample spike is).
+    Returns {"nan", "inf", "negative", "hot", "max"} (counts of pixels; max of the finite values)."""
+    import numpy as np
+    a = np.asarray(img, dtype=np.float32)
+    if a.ndim == 2:
+        a = a[..., None]
+    nan = int(np.isnan(a).any(axis=-1).sum())
+    inf = int(np.isinf(a).any(axis=-1).sum())
+    fin = np.where(np.isfinite(a), a, 0.0)
+    neg = int((fin < 0).any(axis=-1).sum())
+    lum = fin[..., :3].mean(axis=-1) if fin.shape[-1] >= 3 else fin[..., 0]
+    p = np.pad(lum, 1, mode="edge")
+    h, w = lum.shape
+    nb = sum(p[1 + dy:1 + dy + h, 1 + dx:1 + dx + w] for dy in (-1, 0, 1) for dx in (-1, 0, 1) if dy or dx) / 8.0
+    hot = int(((lum > hot_min) & (lum > hot_ratio * np.maximum(nb, 1e-6))).sum())
+    return {"nan": nan, "inf": inf, "negative": neg, "hot": hot, "max": float(fin.max()) if fin.size else 0.0}
+
+
+def read_float_frame(path: str, width: int, height: int, ffmpeg: str):
+    """A frame as linear float RGB (H x W x 3) through ffmpeg (any format ffmpeg reads, EXR PIZ included)."""
+    import numpy as np
+    raw = subprocess.run([ffmpeg, "-hide_banner", "-loglevel", "error", "-i", path, "-f", "rawvideo",
+                          "-pix_fmt", "gbrpf32le", "-"], capture_output=True, check=True).stdout
+    planes = np.frombuffer(raw, dtype="<f4")[: width * height * 3].reshape(3, height, width)
+    return np.stack([planes[2], planes[0], planes[1]], axis=-1)  # gbr planes -> rgb
+
+
 def check_frames(r: dict, root: str, start: int, end: int, *, black_luma: float = 4.0, flicker_ratio: float = 4.0,
-                 ffmpeg: str | None = None) -> dict:
+                 ffmpeg: str | None = None, pixels_every: int = 1, hot_ratio: float = 20.0) -> dict:
     """Per-frame QA of a finished render in `root` (B24): missing frames, files cut off, black frames (mean luma
     below black_luma of 255) and flicker (a frame-to-frame luma change over flicker_ratio x the median change, and
-    over 2/255). Luma comes from ffmpeg's signalstats. Returns a check: {"pass", "metric", "threshold", "why",
-    "missing", "corrupt", "black", "flicker", "luma"}."""
+    over 2/255), and for EXR frames NaN/Inf pixels and fireflies (every `pixels_every`-th frame). Luma and pixels come
+    through ffmpeg. Returns a check: {"pass", "metric", "threshold", "why", "missing", "corrupt", "black", "flicker",
+    "nan_frames", "firefly_frames", "luma", "pixels"}."""
     r = {**r, "out_dir": root}
     have = _local_frames(r, root)
     missing = rs.missing_frames(have, start, end)
@@ -184,7 +214,19 @@ def check_frames(r: dict, root: str, start: int, end: int, *, black_luma: float 
         txt = subprocess.run(argv, capture_output=True, text=True).stdout
         luma = rs.parse_signalstats(txt, start)
     q = rs.frame_qa(luma, black_luma=black_luma, flicker_ratio=flicker_ratio)
-    bad = len(missing) + len(corrupt) + len(q["black"]) + len(q["flicker"])
+    pixels, nan_frames, hot_frames = {}, [], []
+    if ff and rs._pattern(r)[1] == "exr":
+        for f in sorted(x for x in have if start <= x < end and x not in corrupt)[::max(1, pixels_every)]:
+            try:
+                px = pixel_qa(read_float_frame(rs.frame_path(r, f), r["width"], r["height"], ff), hot_ratio=hot_ratio)
+            except (subprocess.CalledProcessError, ValueError) as e:
+                px = {"error": str(e)[:200]}
+            pixels[f] = px
+            if px.get("nan") or px.get("inf"):
+                nan_frames.append(f)
+            if px.get("hot"):
+                hot_frames.append(f)
+    bad = len(missing) + len(corrupt) + len(q["black"]) + len(q["flicker"]) + len(nan_frames) + len(hot_frames)
     why = []
     if missing:
         why.append(f"missing {missing[:5]}")
@@ -194,10 +236,15 @@ def check_frames(r: dict, root: str, start: int, end: int, *, black_luma: float 
         why.append(f"black {q['black'][:5]}")
     if q["flicker"]:
         why.append(f"flicker at {q['flicker'][:5]}")
+    if nan_frames:
+        why.append(f"NaN/Inf pixels in {nan_frames[:5]}")
+    if hot_frames:
+        why.append(f"fireflies in {hot_frames[:5]}")
     if not luma:
         why.append("luma not measured (no ffmpeg, or frames missing)")
     return {"pass": bad == 0, "metric": bad, "threshold": 0, "why": "; ".join(why) or "every frame present and sane",
-            "missing": missing, "corrupt": corrupt, **q, "luma": luma}
+            "missing": missing, "corrupt": corrupt, **q, "nan_frames": nan_frames, "firefly_frames": hot_frames,
+            "luma": luma, "pixels": pixels}
 
 
 def stitch(r: dict, plan_: dict, have_by_dir: dict) -> dict:
@@ -313,7 +360,7 @@ def main(argv: list | None = None) -> int:
         lo = min(have) if a.start is None else a.start
         hi = max(have) + 1 if a.end is None else a.end
         res = check_frames(r, a.local, lo, hi)
-        _print({k: v for k, v in res.items() if k != "luma"})
+        _print({k: v for k, v in res.items() if k not in ("luma", "pixels")})
         return 0 if res["pass"] else 1
     return 2
 

@@ -1,0 +1,16 @@
+# Outdoors at golden hour on a real date and place, hazy, with volumetric clouds and fog shafts.
+kind: environment
+version: 1
+name: golden
+preset: exterior_golden
+sun: {time: golden_evening, lat: 34.05, lon: -118.24, date: "2026-07-15", tz: -7}
+atmosphere: {preset: hazy, haze: 3.5}
+clouds: {bottom_km: 2.0, height_km: 5.0}
+fog: {preset: haze, extinction: 0.6, scattering: 0.4}
+grade: {preset: golden_hour, grain: 0.05}
+quality: cinematic
+moods:
+  blue_hour:
+    sun: {time: blue_hour, lat: 34.05, lon: -118.24, date: "2026-07-15", tz: -7}
+    exposure: {mode: manual, ev100: 6}
+    grade: {preset: neutral, white_balance: 7200}

@@ -341,3 +341,9 @@ State (fleet/agent-13/ue-dx, merged into ue-helpers by the lead as it lands):
   B46 DONE: `film-ue selftest plan [--md|--json]` (tools/filmtools/unreal/selftest_plan.py): order platform, dx, then
   assets, layout, look, mh, anim, perf, seq, cam, render, qa, audio, then the rest; `film-ue selftest` runs in that
   order and stops after a failed gate unless --keep-going.
+  B48 DONE: tools/tests/test_ue_dx_demo.py applies the WHOLE demo (examples/unreal/demo/demo.yaml, every stage) on the
+  fake engine through the spec engine, the SDK and every area's ops, then requires the second plan to be empty. It
+  provides only what a box has and the fake does not (a preset, the sign-in, the audio solve, a WAV, Body/Face
+  components with a standing pose, the template idle). KNOWN (what cannot converge, with why): the scene's Blueprint
+  actor: fixed by the lead in WP6 (scene.state reports `blueprint`), so KNOWN is now empty. Found and fixed on
+  the way: the demo's host_bp/face_mesh paths (<folder>/Unpacked/<name>/...).

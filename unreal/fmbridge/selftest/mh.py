@@ -2,7 +2,8 @@
 body measurements (constraint copies, range warnings, idempotent), face blend of two presets and a landmark move
 (applied once), skin/freckles/texture resolution, eyes, eyelashes, teeth, makeup, the hair groom with melanin and
 redness and its instance parameters, slots, describe/export, a variant copy, actionable errors, the live preview actor
-and a still of it, mh.apply on a spec twice (second run changes nothing). Part 2 (only with the Epic sign-in, else
+and a still of it, mh.apply on a spec twice (second run changes nothing), a cast of 4 extras (mh.variants: distinct, same seed same
+cast, previews in a row, a contact sheet through view.sheet). Part 2 (only with the Epic sign-in, else
 noted and skipped): the cloud rig (multi-tick, ~30 s) and its up-to-date skip, the textures (~20 s), the cinematic
 build (~3 min on an L4, the editor blocks), the built Blueprint placed, a garment of its own dressed on it with leader
 pose (checked on the bones), a prop riding a bone, the clipping check, stills. Takes ~2 min without the cloud, ~6 min
@@ -114,10 +115,10 @@ def run(t):
     t.ok("can_build explains what is missing", cb["can_build"] or bool(cb["hint"]), detail=str(cb))
 
     # --- preview and a still ------------------------------------------------------------------------------------
-    prev = t.op("mh.preview", path=ch, label=p + "Preview", loc=[0, 0, 0], yaw_deg=180)
-    t.idempotent("preview converges on its label", "mh.preview", path=ch, label=p + "Preview", loc=[0, 0, 0],
+    prev = t.op("mh.preview", path=ch, label=p + "Preview", loc=[0, -300, 0], yaw_deg=180)
+    t.idempotent("preview converges on its label", "mh.preview", path=ch, label=p + "Preview", loc=[0, -300, 0],
                  yaw_deg=180)
-    t.op("look.camera", label=p + "Cam", loc=[160, 0, 165], look_at=[0, 0, 160], focal=50.0, pilot=False)
+    t.op("look.camera", label=p + "Cam", loc=[160, -300, 165], look_at=[0, -300, 160], focal=50.0, pilot=False)
     yield from t.still("preview_face", camera=p + "Cam")
     t.note(f"preview actor {prev['label']}")
 
@@ -130,6 +131,28 @@ def run(t):
     t.ok("mh.apply makes the character", r1["changed"])
     t.ok("mh.apply again changes nothing", not r2["changed"],
          detail=str([x["op"] for x in r2["steps"] if x["changed"]]))
+
+    # --- a cast of extras (B47): distinct, deterministic, made shape-only, previewed in a row, one contact sheet -----
+    cast = {"seed": 11, "count": 4, "folder": f"{s}/Cast", "prefix": p + "C", "presets": presets[:3], "rig": "none",
+            "build": False, "age": [20, 75]}
+    r = yield from t.op("mh.variants", cast=cast, make=True, preview=True, spacing_cm=90)
+    t.check("cast size", len(r["members"]), 4)
+    t.ok("cast members are distinct", all(d is None or d > 0.1 for d in r["distances"]), detail=str(r["distances"]))
+    again = yield from t.op("mh.variants", cast=cast)
+    t.ok("the same seed gives the same cast", again["members"] == r["members"])
+    shots = []
+    for i, (label, m) in enumerate(zip(r["previews"], r["members"])):
+        t.op("look.camera", label=f"{p}CastCam{i}", loc=[170, i * 90, 160], look_at=[0, i * 90, 150], focal=40.0,
+             pilot=False)
+        shots.append((yield from t.still(f"cast_{i}", camera=f"{p}CastCam{i}")))
+    from .. import ops as _ops
+    if "view.sheet" in _ops._OPS and all(isinstance(x, str) for x in shots):
+        try:
+            sh = t.op("view.sheet", images=shots, out=t.path("mh_cast_sheet.png"), title="mh.variants seed 11",
+                      labels=[m["description"] for m in r["members"]])
+            t.artifact(sh["path"])
+        except Exception as e:  # the sheet is for a person to look at; a failure here is not the area's
+            t.note(f"cast contact sheet not made: {e}")
 
     # --- part 2: the cloud ------------------------------------------------------------------------------------------
     caps = t.box.get("capabilities", {})

@@ -194,6 +194,24 @@ SCHEMA: dict = {
                                      "with several passes)"},
         "zero_pad": _int("digits in frame numbers", 1, maximum=8),
         "boxes": _int("render boxes to plan for (default 1): chunks are balanced by estimated time", 1, maximum=64),
+        "game_overrides": {
+            "type": "object", "additionalProperties": False,
+            "description": "MRQ Game Overrides to set explicitly (absent = MRQ's own defaults, which every render "
+                           "already gets as a transient setting: cinematic scalability, LOD 0, no HLODs, cloth "
+                           "time-step smoothing off); give only what you want to change",
+            "properties": {
+                "cinematic_quality": {"type": "boolean", "description": "Cinematic scalability while rendering"},
+                "texture_streaming": {"enum": ["none", "disabled", "fully_load"],
+                                      "description": "none: leave the project's; disabled: no streaming (most VRAM); "
+                                                     "fully_load: load used textures fully (less VRAM)"},
+                "lod_zero": {"type": "boolean", "description": "force LOD 0 on every mesh"},
+                "disable_hlods": {"type": "boolean", "description": "no HLOD proxies"},
+                "high_quality_shadows": {"type": "boolean", "description": "raise shadow distance/resolution"},
+                "shadow_distance_scale": _int("with high_quality_shadows: shadow distance multiplier", 1, maximum=10),
+                "view_distance_scale": _int("view distance multiplier (r.ViewDistanceScale), unset = project's", 1,
+                                            maximum=100),
+                "flush_streaming": {"type": "boolean", "description": "flush streaming managers every frame"},
+            }},
         "vram": {"type": "object", "additionalProperties": False, "description": "GPU memory guards",
                  "properties": {
                      "path_tracer_min_gb": {"type": "number", "description": f"refuse the path tracer below this total "
@@ -294,7 +312,7 @@ def resolve(spec: dict) -> dict:
     r.update({"preset": preset, "path_tracer": r.get("path_tracer", False), "passes": r.get("passes", ["beauty"]),
               "preroll": "cut", "aa_method": None, "executor": "pie", "save_dirty": True, "chunking": "shot",
               "resume": True, "overwrite": False, "zero_pad": 4, "boxes": 1, "cvars": {}, "level": "",
-              "frames": None, "shots": None})
+              "frames": None, "shots": None, "game_overrides": None})
     r.update(copy.deepcopy({k: v for k, v in spec.items() if k not in ("kind", "version")}))
     r["name"] = r.get("name") or spec["sequence"].rstrip("/").rsplit("/", 1)[-1].split(".")[0]
     r["passes"] = ["beauty"] + [p for p in r["passes"] if p != "beauty"]  # MRQ always writes the main image

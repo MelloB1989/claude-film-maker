@@ -6,8 +6,9 @@ an editor. Everything is in seconds and degrees; curves are `{name: (times, valu
 
     curves      sampling, easing (min-jerk, asymmetric), overshoot-settle moves, smooth 1/f noise, key reduction
     rig         the MetaHuman face's curve names (verified in the 5.8.4 source) and the head curves
-    head        organic head motion: gaze-driven turns with eye/head coordination, nods, tilts, micro-motion, and
-                `naturalize` for a solver's robotic head curves
+    gaze        eye-head coordination: saccades, head share, eyes-lead/head-lead timing, overshoot-settle turns
+    head        organic head motion: the gaze plan's turns, nods, tilts, micro-motion, and `naturalize` for a
+                solver's robotic head curves
     eyes        gaze in the head: saccades (main sequence), vestibulo-ocular counter-roll, fixational darts, face
                 scanning, vergence, eye-look curves
     blinks      spontaneous blinks (log-normal intervals), gaze-evoked and phrase-end blinks, asymmetric shape
@@ -15,10 +16,12 @@ an editor. Everything is in seconds and degrees; curves are `{name: (times, valu
                 mood baselines and emotion blending
     audio       a WAV's loudness envelope: pauses and stressed syllables for emphasis, with the stdlib only
     body        gestures (timing to the stroke), idles with variation, walk-to / turn-to plans
+    face        all of the above over an animation's own curves: what perf.face writes
+    library     what an animation is from its path, and a plain-words search (the MetaHuman templates listed)
     spec        the PERFORMANCE spec: validate and compile to a plan of curves and sections
     metrics     numeric naturalness checks (robotic holds, blink statistics, asymmetry, head velocity profiles)
-    svg         a curve plot as SVG text, for Claude to look at without matplotlib
 """
 from __future__ import annotations
 
-__all__ = ["curves", "rig", "head", "eyes", "blinks", "expressions", "audio", "body", "spec", "metrics", "svg"]
+__all__ = ["curves", "rig", "gaze", "head", "eyes", "blinks", "expressions", "audio", "body", "face", "library",
+           "spec", "metrics"]
