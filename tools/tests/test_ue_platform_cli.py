@@ -21,8 +21,8 @@ def parser(taken=()):
 
 
 def test_commands_another_module_has_are_left_to_it():
-    parser(taken=("editor", "provision"))
-    assert "editor" not in cli_platform._MINE and "provision" not in cli_platform._MINE
+    parser(taken=("provision",))
+    assert "provision" not in cli_platform._MINE and "editor" not in cli_platform._MINE  # editor: an extension
     assert {"box", "profile", "sync", "sh", "epic-login", "desktop"} <= cli_platform._MINE
     assert cli_platform.dispatch(argparse.Namespace(cmd="editor")) is False
     assert cli_platform.dispatch(argparse.Namespace(cmd="health")) is False
@@ -45,7 +45,7 @@ def test_sync_and_editor_and_sh(monkeypatch, capsys):
     cli_platform.dispatch(parser().parse_args(["sync", "project", "up", "--dry-run"]))
     assert json.loads(capsys.readouterr().out)["dry_run"] is True
     monkeypatch.setattr(editorsvc, "control", lambda act, **kw: {"action": act, **kw})
-    cli_platform.dispatch(parser().parse_args(["editor", "restart", "--wait", "--once-args=-x"]))
+    assert cli_platform.editor_cli(["restart", "--wait", "--once-args=-x"]) == 0
     assert json.loads(capsys.readouterr().out) == {"action": "restart", "wait": True, "once_args": "-x"}
 
     class T:

@@ -5,7 +5,8 @@ shell on the box. cli.py finds this module (cli_<area>.py), calls register(sub) 
     film-ue box ls | status NAME | extend NAME --ttl 2h | keepalive NAME | down NAME [--forget]
     film-ue profile ls | use NAME | show [NAME] | copy SRC DST | rm NAME
     film-ue editor status | start | stop | restart [--wait] [--once-args="..."] | log [N] [--journal] | crashes [N]
-                   | mode default|offscreen|xvfb
+                   | mode default|offscreen|xvfb | enable      (editor_cli: hand-written verbs beside the generated
+                                                                 op commands film-ue editor describe|cvar|...)
     film-ue sync project up|down [--delete] [--allow-dirty] [--stop-editor] | ddc save|restore [--version V]
                  | epic save|restore|status | engine restore --engine-s3 S3 --version V | status       [--dry-run]
     film-ue epic-login [--fab] [--exchange-code-cmd CMD]
@@ -71,14 +72,6 @@ def register(sub) -> None:
         c.add_argument("src")
         c.add_argument("dst")
         ps.add_parser("rm").add_argument("name")
-    p = _add(sub, "editor", help="the editor service: status, start, stop, restart, log, crashes, mode")
-    if p:
-        p.add_argument("action", choices=("status", "start", "stop", "restart", "log", "crashes", "mode", "enable"))
-        p.add_argument("arg", nargs="?", default="", help="log/crashes: how many; mode: default|offscreen|xvfb")
-        p.add_argument("--wait", action="store_true", help="start/restart: until the bridge answers")
-        p.add_argument("--once-args", default="", help="start/restart: extra editor arguments for this start only "
-                       "(write --once-args=\"-A -B\": they start with a dash)")
-        p.add_argument("--journal", action="store_true", help="log: the unit's journal instead of the editor's log")
     p = _add(sub, "sync", help="project / DDC / Epic sign-in / engine between the box and S3")
     if p:
         p.add_argument("what", choices=("project", "ddc", "epic", "engine", "status"))
@@ -155,25 +148,6 @@ def dispatch(a) -> bool:
         _out({"ls": lambda: profiles.listing(), "use": lambda: profiles.use(a.name),
               "show": lambda: profiles.show(a.name), "copy": lambda: profiles.copy(a.src, a.dst),
               "rm": lambda: profiles.remove(a.name)}[p]())
-    elif cmd == "editor":
-        from . import editorsvc
-        act = a.action
-        if act == "status":
-            _out(editorsvc.status())
-        elif act in ("start", "stop", "restart"):
-            _out(editorsvc.control(act, wait=a.wait, once_args=a.once_args))
-        elif act == "log":
-            _out(editorsvc.log(int(a.arg or 200), journal=a.journal))
-        elif act == "crashes":
-            _out(editorsvc.crashes(int(a.arg or 5)))
-        elif act == "enable":
-            _linux_only("editor enable")
-            _out(ws.editor("enable"))
-        elif act == "mode":
-            _linux_only("editor mode")
-            from . import linuxbox
-            linuxbox.upload_kit()
-            _out(linuxbox.step("mode", a.arg or "default", timeout=300))
     elif cmd == "sync":
         from . import sync
         w, d = a.what, a.direction
@@ -212,3 +186,39 @@ def dispatch(a) -> bool:
     elif cmd == "sh":
         _out(ws.transport().run(a.command, a.timeout, root=a.root))
     return True
+
+
+EDITOR_VERBS = ("status", "start", "stop", "restart", "log", "crashes", "mode", "enable")
+
+
+def editor_cli(argv: list) -> int:
+    """`film-ue editor <verb>` for the service verbs (opcli.EXTENSIONS["editor"]); the editor.* ops keep their own
+    generated commands (film-ue editor describe, film-ue editor cvar --name ...)."""
+    import argparse
+    ap = argparse.ArgumentParser(prog="film-ue editor", description="the editor as a service on its box")
+    ap.add_argument("action", choices=EDITOR_VERBS)
+    ap.add_argument("arg", nargs="?", default="", help="log/crashes: how many; mode: default|offscreen|xvfb")
+    ap.add_argument("--wait", action="store_true", help="start/restart: until the bridge answers")
+    ap.add_argument("--once-args", default="", help="start/restart: extra editor arguments for this start only "
+                                                    "(write --once-args=\"-A -B\": they start with a dash)")
+    ap.add_argument("--journal", action="store_true", help="log: the unit's journal instead of the editor's log")
+    a = ap.parse_args(argv)
+    from . import editorsvc
+    act = a.action
+    if act == "status":
+        _out(editorsvc.status())
+    elif act in ("start", "stop", "restart"):
+        _out(editorsvc.control(act, wait=a.wait, once_args=a.once_args))
+    elif act == "log":
+        _out(editorsvc.log(int(a.arg or 200), journal=a.journal))
+    elif act == "crashes":
+        _out(editorsvc.crashes(int(a.arg or 5)))
+    elif act == "enable":
+        _linux_only("editor enable")
+        _out(ws.editor("enable"))
+    elif act == "mode":
+        _linux_only("editor mode")
+        from . import linuxbox
+        linuxbox.upload_kit()
+        _out(linuxbox.step("mode", a.arg or "default", timeout=300))
+    return 0
