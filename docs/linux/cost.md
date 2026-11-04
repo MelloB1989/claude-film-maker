@@ -23,7 +23,7 @@ datacenter "Tesla" driver is enough for headless Vulkan, see §5), and spot is u
   scripted shooting on spot: a pool of `gr6.8xlarge` ($0.528/h, <5 % interruption), `g6.8xlarge` ($0.486/h),
   `gr6.4xlarge` / `g6.4xlarge` (~$0.57/h, >20 % interruption). *confirmed (prices) / likely (works)*
 - **The engine does not have to be built**: Epic publishes a precompiled Linux editor zip per 5.8 hotfix
-  (`Linux_Unreal_Engine_5.8.x.zip`, ~20 GB) behind an Epic-account login. If the operator downloads it, the one-off
+  (`Linux_Unreal_Engine_5.8.x.zip`, ~39 GB, ~70 GB unpacked for 5.8.1 per agent-04's engine note) behind an Epic-account login. If the operator downloads it, the one-off
   build cost is zero. If it is built from source, one `c8i.48xlarge` / `m8a.48xlarge` hour (~$9-12) does it. §6.
 - **No cost blocker.** The blockers are in the engine task (MetaHuman Creator / audio-to-face / Fab on Linux).
 
@@ -152,7 +152,7 @@ on 16 vCPU for MetaHumans + groom; unknown). Compile it once and keep the Linux 
   `UnrealEditor-Cmd ... -RenderOffscreen` starts with the Vulkan RHI (engine task's test).
 - If a desktop is ever wanted: GRID from `s3://ec2-linux-nvidia-drivers/latest/` + DCV, still free.
 - Bake one **render AMI**: Ubuntu + driver + the engine on its own volume + the Linux DDC. AMI storage is snapshot
-  storage: ~100-150 GB → $5-7.5/month.
+  storage: ~150-200 GB (agent-04's engine sizes) → $7.5-10/month.
 
 ## 6. Getting the engine (one-off)
 
@@ -163,13 +163,16 @@ forum posts; whether 5.8.4 is there is unknown). ~20 GB zip, ~60 GB unpacked. *l
 Needs the **operator's Epic login in a browser**; a forum report (2026-09-09) says the page can loop on the EULA:
 if it does, the source build below is the fallback. Store: the zip in S3 ($0.50/month). Match the Windows patch (or
 newer within 5.8) so assets open unchanged (*likely*: hotfixes keep the asset format).
+**Correction from the engine task** (agent-04, `docs/linux/engine.md` on `fleet/agent-04/linux-engine`): the 5.8.1
+zip is ~39 GB and unpacks to ~70 GB (an Epic moderator advises planning 150-200 GB); the ~20/60 GB community figure
+is from older releases. S3 for the zip: ~$1/month.
 
 ### b. Built from source — target 15-20 min compile
 
 | Step | How | Time (*likely*) |
 |---|---|---|
 | Instance | **`c8i.48xlarge`** (192 vCPU = 96 cores, 384 GiB, $9.00/h OD, Mumbai) or **`m8a.48xlarge`** (192 physical cores, Zen 5, 768 GiB, $12.29/h). Cheaper and slower: `c6a.48xlarge` ($4.49/h, Zen 3). On-demand, not spot (spot $1.3-1.6/h saves a few dollars and risks the hour) | — |
-| Disk | 500 GB gp3 at 16000 IOPS / 1000 MB/s (an hour of it costs cents), or on m8a build in tmpfs (`/dev/shm`, 768 GiB) | — |
+| Disk | 500 GB gp3 (a 5.4 source tree took 340+ GiB while building, ~190 GiB built: agent-04) at 16000 IOPS / 1000 MB/s (an hour of it costs cents), or on m8a build in tmpfs (`/dev/shm`, 768 GiB) | — |
 | Clone | `git clone --depth 1 --single-branch --branch 5.8.4-release https://github.com/EpicGames/UnrealEngine.git` with the mellob-ai token as a secret on that instance only | 1-3 min (~2.5 GB) |
 | Dependencies | `./Setup.sh` (GitDependencies) with Linux only: `--exclude=Win64 --exclude=Mac --exclude=Android --exclude=IOS --exclude=TVOS --exclude=HoloLens --exclude=LinuxArm64`; `--threads=64` | 3-8 min (~20-30 GB) |
 | Project files | `./GenerateProjectFiles.sh` | 1-2 min |
@@ -250,7 +253,10 @@ worth it only while some character step is Windows-only (engine task).
    Fab, groom, MRQ under `-RenderOffscreen`. A Windows-only step forces scenario C.
 2. **Render speed unmeasured**: 0.9 s/frame is the brief's number, not the repo's; 4K is a 4x range. Calibrate with
    PLAN.md's 24 frames of S14 and S11, on Windows first, then the same on Linux (Vulkan vs D3D12 speed: unknown).
-3. **RAM**: g6.4xlarge has 64 GiB vs today's 128; peak use unknown. Read `Get-Process UnrealEditor` WorkingSet64
+3. **RAM and VRAM**: g6.4xlarge has 64 GiB vs today's 128; peak use unknown. Agent-04 found a known MetaHuman
+   assembly OOM on Linux in 5.8 (add swap on the NVMe) and Epic's remark that Linux Vulkan memory management lags
+   DX12, so the L4's 22 GiB may be tight at 4K with MetaHumans + groom + Lumen; the step up is g6e (L40S, 44 GiB:
+   2xl $2.693/h OD, $1.423 spot). This is one more reason to prefer gr6 (128 GiB) for building.    Read `Get-Process UnrealEditor` WorkingSet64
    peak during a MetaHuman build and a 4K render next time.
 4. **Spot**: quota may be 0; advisor data is 7 months old; prices per AZ differ from the feed.
 5. **Precompiled download** may loop on Epic's EULA page; the patch you need may not be offered.
