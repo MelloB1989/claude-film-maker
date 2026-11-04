@@ -51,6 +51,17 @@ must not hard-code a project path: use `workstation.project("Saved", "Stills")`,
 
 ## A sign-in (Epic account: Fab, MetaHuman cloud services)
 
+No desktop is needed. `film-ue --box linux epic-login` checks for a saved sign-in. If there is none, the editor starts
+Epic's device sign-in, and the command prints only its code: anyone with the account opens
+https://www.epicgames.com/activate in their own browser, signs in and enters it. The sign-in (the EOS SDK's persistent
+credential, `~/.local/share/.eos_sdk`) survives editor restarts. With `film-ue set --epic-s3 s3://bucket/key`
+(`EPIC_S3` in `/etc/default/ue-editor`) it is also kept in S3, SSE-KMS (`ue-epic.sh`). The unit restores it before
+the editor starts and saves it after the editor stops, so a refreshed token is kept and a new box starts signed in.
+It signs in to the whole Epic account: keep the S3 key readable only by the box's role, and never print or copy it.
+Never sign out in the editor: that deletes the credential.
+
+The temporary desktop below is the older route; on the PoC box the editor could not draw on it (see setup.sh).
+
 The one thing code cannot do is type someone's password. `film-ue --box linux desktop on` starts Xorg on the GPU
 with a virtual 1920x1080 screen, openbox, Firefox and x11vnc on the box's 127.0.0.1:5900, restarts the editor onto
 that screen (without `-unattended`, so the sign-in dialog shows), and forwards the VNC port here through SSM: open

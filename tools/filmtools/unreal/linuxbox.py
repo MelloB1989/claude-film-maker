@@ -11,7 +11,7 @@ from pathlib import Path
 from . import workstation as ws
 
 KIT_SRC = Path(__file__).resolve().parents[3] / "unreal" / "linux"
-KIT_FILES = ("setup.sh", "ue-editor.sh", "ue-editor.service")
+KIT_FILES = ("setup.sh", "ue-editor.sh", "ue-editor.service", "ue-epic.sh")
 
 
 def kit_dir() -> str:
@@ -59,10 +59,11 @@ WINDISK = "/mnt/win"
 
 
 def provision(engine_s3: str, version: str, project_src: str, project_name: str, level: str = "",
-              mount: str = "/srv/ue", driver: str = "580-server", log=print) -> dict:
+              mount: str = "/srv/ue", driver: str = "580-server", epic_s3: str = "", log=print) -> dict:
     """Everything a fresh Ubuntu 22.04 GPU box needs to run the editor under systemd. `project_src`: an s3:// prefix,
     or win:<path on the Windows disk> (e.g. win:UEProjects/Name; the disk is mounted read-only at /mnt/win and stays
-    there, so its Saved/ renders can serve as references). Saves `project_dir` for the box."""
+    there, so its Saved/ renders can serve as references). `epic_s3` (default: the box's `epic_s3` setting): where
+    the Epic sign-in is kept; it is restored before the editor first starts. Saves `project_dir` for the box."""
     log("kit: " + upload_kit())
     log(step("volume", mount, timeout=300).strip())
     out = step("driver", driver, timeout=1800)
@@ -79,9 +80,41 @@ def provision(engine_s3: str, version: str, project_src: str, project_name: str,
         log(step("project-copy", f"{WINDISK}/{project_src[4:].strip('/')}", project_dir, timeout=3600).strip())
     else:
         log(step("project", project_src, project_dir, timeout=3600).strip())
-    log(step("service", engine, f"{project_dir}/{project_name}.uproject", level, timeout=300).strip())
+    epic_s3 = epic_s3 or ws.conf().get("epic_s3", "")
+    log(step("service", engine, f"{project_dir}/{project_name}.uproject", level, epic_s3, timeout=600).strip())
     ws.save(project_dir=project_dir)
     return check()
+
+
+def epic_login(wait_minutes: float = 10, log=print) -> str:
+    """Make sure the box's editor is signed in to Epic (MetaHuman cloud services, Fab). Signed in already (a saved
+    sign-in, restored from S3 at start): nothing to do. Otherwise the editor starts Epic's device sign-in, and this
+    prints only its code: a person opens https://www.epicgames.com/activate anywhere, signs in and enters it. The
+    sign-in is then saved to S3 (and again whenever the editor stops)."""
+    from . import client
+    if "signed_in=yes" in step("epic", "status", timeout=120):
+        return "signed in"
+    step("epic", "clear-code", timeout=60)
+    r = client.op("mh.login", timeout=300)
+    if not r.get("ok"):
+        raise SystemExit(f"mh.login: {r.get('error', r)}")
+    if r.get("result", {}).get("signed_in"):
+        return "signed in"
+    code, end = "", time.time() + 120
+    while not code and time.time() < end:
+        time.sleep(5)
+        code = next((x.split("=", 1)[1] for x in step("epic", "code", timeout=60).split() if x.startswith("code=")), "")
+    if not code:
+        raise SystemExit("no sign-in started: see the editor log (film-ue editor log 200, LogEOSAuth)")
+    log(f"open https://www.epicgames.com/activate, sign in to Epic and enter the code {code}")
+    end = time.time() + wait_minutes * 60
+    while time.time() < end:
+        time.sleep(10)
+        if "signed_in=yes" in step("epic", "status", timeout=120):
+            step("epic", "clear-code", timeout=60)
+            log(step("epic", "save", timeout=300).strip())
+            return "signed in"
+    raise SystemExit(f"not signed in after {wait_minutes:.0f} min: run film-ue epic-login again for a new code")
 
 
 def desktop(on: bool, local_port: int = 5901) -> str:

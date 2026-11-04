@@ -16,6 +16,8 @@ EDITOR=("$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" "$UE_PROJECT")
 COMMON=(-nosplash -NoLiveCoding -log -stdout -FullStdOutLogOutput)
 # shellcheck disable=SC2206
 EXTRA=(${UE_MAP:-} ${UE_ARGS:-})
+# no desktop, no browser: a sign-in the engine starts (Epic's device-code page) is kept for `film-ue epic-login`
+if [ -x /usr/local/bin/ue-epic-url ]; then export BROWSER=/usr/local/bin/ue-epic-url; fi
 case "$mode" in
     default)
         unset DISPLAY WAYLAND_DISPLAY SDL_VIDEODRIVER
@@ -29,6 +31,7 @@ case "$mode" in
         export SDL_VIDEODRIVER=x11
         exec xvfb-run -a -s "-screen 0 1920x1080x24" "${EDITOR[@]}" "${EXTRA[@]}" -unattended "${COMMON[@]}" ;;
     x11)
+        unset BROWSER  # someone is at this desktop: the sign-in page opens in its browser
         export DISPLAY="${DISPLAY:-:0}" SDL_VIDEODRIVER=x11
         exec "${EDITOR[@]}" "${EXTRA[@]}" "${COMMON[@]}" ;;
     *)

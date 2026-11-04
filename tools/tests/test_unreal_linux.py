@@ -163,3 +163,62 @@ def test_bridge_over_ssm_commands_without_a_tunnel(home, monkeypatch):
     monkeypatch.setattr(ws, "sh", lambda *a, **k: "FMCODE=000 FMSIZE=0\nFMBODY\n\n")
     with pytest.raises(SystemExit, match="no answer"):
         client.health()
+
+
+def _ue_epic(tmp_path, *args, s3_obj=None, env_extra=None):
+    """Run unreal/linux/ue-epic.sh with HOME in tmp_path and a fake `aws` that keeps S3 objects as local files."""
+    import os
+    import subprocess
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    store = tmp_path / "s3"
+    store.mkdir(exist_ok=True)
+    aws = bin_dir / "aws"
+    aws.write_text('#!/bin/sh\n# aws s3 cp [--only-show-errors] [--sse aws:kms] SRC DST, SRC/DST "-" or s3://...\n'
+                   'args=""; for a in "$@"; do case "$a" in s3|cp|--only-show-errors|--sse|aws:kms) ;; *) args="$args $a";; esac; done\n'
+                   'set -- $args; f() { echo "$STORE/$(echo "$1" | tr / _)"; }\n'
+                   'case "$1" in s3://*) [ -f "$(f "$1")" ] || exit 1; if [ "$2" = - ]; then cat "$(f "$1")"; else cp "$(f "$1")" "$2"; fi;;\n'
+                   '*) if [ "$1" = - ]; then cat > "$(f "$2")"; else cp "$1" "$(f "$2")"; fi;; esac\n')
+    aws.chmod(0o755)
+    script = ROOT / "unreal" / "linux" / "ue-epic.sh"
+    env = {**os.environ, "HOME": str(tmp_path / "home"), "PATH": f"{bin_dir}:{os.environ['PATH']}", "STORE": str(store),
+           "EPIC_S3": s3_obj or "s3://b/secrets/epic.tgz", **(env_extra or {})}
+    (tmp_path / "home").mkdir(exist_ok=True)
+    return subprocess.run(["bash", str(script), *args], env=env, capture_output=True, text=True)
+
+
+def test_ue_epic_never_saves_an_empty_sign_in_and_restores_any_archive_prefix(tmp_path):
+    import subprocess
+    if sys.platform == "win32":
+        pytest.skip("bash")
+    r = _ue_epic(tmp_path, "save")
+    assert "not signed in" in r.stdout and not list((tmp_path / "s3").iterdir())
+    assert _ue_epic(tmp_path, "status").stdout.strip() == "signed_in=no"
+    # an archive made elsewhere, with the full home path inside it (tar of /home/<user>/.local/share/.eos_sdk)
+    src = tmp_path / "src" / "home" / "op" / ".local" / "share" / ".eos_sdk" / "keychain" / "abc" / "persistent_auth"
+    src.mkdir(parents=True)
+    (src / "credential").write_text("fake")
+    subprocess.run(["tar", "-czf", str(tmp_path / "s3" / "s3:__b_secrets_epic.tgz"), "-C", str(tmp_path / "src"), "home"],
+                   check=True)
+    r = _ue_epic(tmp_path, "restore")
+    assert "restored" in r.stdout, r.stderr
+    cred = tmp_path / "home" / ".local" / "share" / ".eos_sdk" / "keychain" / "abc" / "persistent_auth" / "credential"
+    assert cred.read_text() == "fake" and oct(cred.stat().st_mode & 0o777) == "0o600"
+    assert "kept" in _ue_epic(tmp_path, "restore").stdout  # never replaces a sign-in the box already has
+    assert "saved" in _ue_epic(tmp_path, "save").stdout
+
+
+def test_ue_epic_url_keeps_only_the_code(tmp_path):
+    import os
+    import subprocess
+    if sys.platform == "win32":
+        pytest.skip("bash")
+    link = tmp_path / "ue-epic-url"
+    os.symlink(ROOT / "unreal" / "linux" / "ue-epic.sh", link)
+    home = tmp_path / "home"
+    home.mkdir()
+    subprocess.run(["bash", str(link), "https://www.epicgames.com/activate?userCode=ABCD1234&x=1"],
+                   env={**os.environ, "HOME": str(home)}, check=True)
+    assert _ue_epic(tmp_path, "code").stdout.strip() == "code=ABCD1234"
+    _ue_epic(tmp_path, "clear-code")
+    assert _ue_epic(tmp_path, "code").stdout.strip() == ""

@@ -61,6 +61,22 @@ def _signed_in() -> bool:
     return bool(glob.glob(os.path.expanduser("~/.local/share/.eos_sdk/keychain/*/persistent_auth/credential")))
 
 
+@op("mh.login")
+def login(preset: str = "", folder: str = "/Game/FM/Login") -> dict:
+    """Start Epic's sign-in if there is none: the MetaHuman cloud service asks for one when a rig is requested (on a
+    throwaway character), and the engine hands the device sign-in page to the system browser. On a box with no
+    desktop that "browser" keeps the page for `film-ue epic-login` (ue-epic.sh). Returns at once."""
+    if _signed_in():
+        return {"signed_in": True}
+    dest = f"{folder}/MH_Login"
+    if not EAL.does_asset_exist(dest):
+        EAL.duplicate_asset(f"{PRESETS}/{preset or presets()[0]}", dest)
+    p = unreal.MetaHumanCharacterAutoRiggingRequestParams()
+    p.rig_type, p.blocking, p.report_progress = unreal.MetaHumanRigType.JOINTS_ONLY, False, False
+    sub().request_auto_rigging(_char(dest), p)
+    return {"signed_in": False, "requested": True}
+
+
 @op("mh.rig")
 def rig(character: str, full: bool = True) -> str:
     """Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs). Blocks until done (about

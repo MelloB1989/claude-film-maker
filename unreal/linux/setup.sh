@@ -9,7 +9,10 @@
 #   project S3_PREFIX DIR          the project folder from S3 (Content, Config, the .uproject; no Saved/DDC)
 #   windisk [MOUNT]                mount a Windows volume (an EBS copy of a workstation's snapshot) read-only
 #   project-copy SRC DIR           the project folder from a mounted disk (SRC e.g. /mnt/win/UEProjects/Name)
-#   service ENGINE UPROJECT [MAP]  /etc/default/ue-editor, /usr/local/bin/ue-editor, ue-editor.service (enabled)
+#   service ENGINE UPROJECT [MAP] [EPIC_S3]
+#                                  /etc/default/ue-editor, /usr/local/bin/ue-editor + ue-epic, ue-editor.service
+#                                  (enabled); EPIC_S3: where the Epic sign-in is kept (ue-epic.sh), restored now
+#   epic restore|save|status|code  the editor user's Epic sign-in, from/to EPIC_S3 (ue-epic.sh)
 #   mode default|offscreen|xvfb    the editor's display mode (ue-editor.sh), then restart it
 #   desktop on|off                 a temporary desktop for one interactive step (a sign-in): Xorg on the GPU with a
 #                                  virtual screen, openbox, a browser, x11vnc on 127.0.0.1:5900 (reached only through
@@ -103,21 +106,44 @@ step_project-copy() {
     echo "project: $(du -sh "$dir" | cut -f1) in $dir; $(ls "$dir"/*.uproject)"
 }
 
+region() {  # the box's own region (IMDSv2), for the AWS CLI the unit runs (ue-epic save)
+    local t
+    t="$(curl -fsS -m 5 -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 60')"
+    curl -fsS -m 5 -H "X-aws-ec2-metadata-token: $t" http://169.254.169.254/latest/meta-data/placement/region
+}
+
 step_service() {
-    local engine="$1" uproject="$2" map="${3:-}"
+    local engine="$1" uproject="$2" map="${3:-}" epic="${4:-}"
     cat > /etc/default/ue-editor <<EOF
 UE_ROOT=$engine
 UE_PROJECT=$uproject
 UE_MAP=$map
 UE_SDL=default
 UE_ARGS=
+EPIC_S3=$epic
+AWS_DEFAULT_REGION=$(region || true)
 EOF
-    apt-get install -y -qq xvfb xauth >/dev/null  # display mode "xvfb" (ue-editor.sh), if the offscreen ones fail
+    # xvfb: display mode "xvfb" (ue-editor.sh), if the offscreen ones fail; xdg-utils: how the engine opens a sign-in
+    apt-get install -y -qq xvfb xauth xdg-utils >/dev/null
     install -m 755 "$HERE/ue-editor.sh" /usr/local/bin/ue-editor
+    install -m 755 "$HERE/ue-epic.sh" /usr/local/bin/ue-epic
+    ln -sf /usr/local/bin/ue-epic /usr/local/bin/ue-epic-url
     sed "s/@USER@/$UE_USER/g" "$HERE/ue-editor.service" > /etc/systemd/system/ue-editor.service
     systemctl daemon-reload
     systemctl enable ue-editor >/dev/null 2>&1
     echo "service: ue-editor enabled ($(systemctl is-active ue-editor || true))"
+    step_epic restore
+}
+
+step_epic() {  # as the editor's user, with the unit's settings (EPIC_S3, AWS_DEFAULT_REGION)
+    local what="${1:?epic restore|save|status|code|clear-code}" home
+    install -m 755 "$HERE/ue-epic.sh" /usr/local/bin/ue-epic
+    ln -sf /usr/local/bin/ue-epic /usr/local/bin/ue-epic-url
+    home="$(getent passwd "$UE_USER" | cut -d: -f6)"
+    # shellcheck disable=SC1091
+    ( set -a; . /etc/default/ue-editor; set +a
+      runuser -u "$UE_USER" -- env HOME="$home" EPIC_S3="${EPIC_S3:-}" AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-}" \
+          /usr/local/bin/ue-epic "$what" )
 }
 
 step_mode() {

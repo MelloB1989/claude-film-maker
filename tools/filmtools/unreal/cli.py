@@ -9,6 +9,8 @@
                       [--level /Game/...]
                                                 a fresh Linux box: volume, driver, engine, project, editor unit
     film-ue editor start|stop|restart|status|enable|log [N]|mode default|offscreen|xvfb   the editor's unit (Linux)
+    film-ue epic-login                          Linux: sign the editor in to Epic if it is not (prints a code for
+                                                epicgames.com/activate); kept in S3 (set --epic-s3) for the next box
     film-ue desktop on|off                      Linux: a temporary desktop (VNC through SSM) for a one-off sign-in
     film-ue install                             copy unreal/fmbridge + init_unreal.py into the project, start the bridge
     film-ue health                              bridge up? engine, project, queue
@@ -173,7 +175,7 @@ def wait_bridge(seconds: int = 900) -> dict:
 
 
 SETTINGS = ("instance", "region", "os", "project_dir", "key", "bucket", "user", "service", "local_port", "transport",
-            "ssh", "ssh_key", "bridge")
+            "ssh", "ssh_key", "bridge", "epic_s3")
 
 
 def main() -> None:
@@ -199,6 +201,7 @@ def main() -> None:
     ed.add_argument("action", choices=("start", "stop", "restart", "status", "enable", "log", "mode"))
     ed.add_argument("arg", nargs="?", default="", help="log: lines (80); mode: default|offscreen|xvfb")
     sub.add_parser("desktop").add_argument("state", choices=("on", "off"))
+    sub.add_parser("epic-login")
     sub.add_parser("poc", add_help=False)  # its own arguments: filmtools.unreal.poc
     sub.add_parser("ops").add_argument("prefix", nargs="?", default="")
     o = sub.add_parser("op")
@@ -224,7 +227,7 @@ def main() -> None:
     if a.box:
         os.environ["FILM_UE_BOX"] = a.box
 
-    if a.cmd in ("provision", "editor", "desktop") and not ws.linux():
+    if a.cmd in ("provision", "editor", "desktop", "epic-login") and not ws.linux():
         raise SystemExit(f"film-ue {a.cmd} is for a Linux box: film-ue --box NAME set --os linux ...")
 
     if a.cmd == "set":
@@ -245,6 +248,9 @@ def main() -> None:
             print(linuxbox.step("mode", a.arg or "default", timeout=300))
         else:
             print(ws.editor(a.action))
+    elif a.cmd == "epic-login":
+        from . import linuxbox
+        print(linuxbox.epic_login())
     elif a.cmd == "desktop":
         from . import linuxbox
         print(linuxbox.desktop(a.state == "on"))
