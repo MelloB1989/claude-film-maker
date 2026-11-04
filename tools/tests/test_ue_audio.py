@@ -102,3 +102,19 @@ def test_plan_clips_pure(fmb):
                    {"s": 1.0}, 24)
     assert p[0]["end_frame"] == 18 and p[0]["row"] == 0
     assert abs(gain_to_db(db_to_gain(-6)) + 6) < 1e-9
+
+
+def test_selftest_passes_on_the_fake(ue, fmb):
+    import importlib
+
+    class T:
+        scratch = "/Game/_Selftest/audio"
+        results = []
+
+        def check(self, name, ok, **details):
+            self.results.append((name, bool(ok), details))
+
+    t = T()
+    importlib.import_module("fmbridge.selftest.audio").run(t)
+    failed = [(n, d) for n, ok, d in t.results if not ok]
+    assert len(t.results) >= 13 and failed == []
