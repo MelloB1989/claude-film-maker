@@ -39,6 +39,14 @@ def _supports(exclude: set) -> list:
     return out
 
 
+def _visibility_channel():
+    """The Visibility trace channel. Every TraceTypeQueryN is hidden in C++ (EngineTypes.h:1276) and the editor
+    re-exposes the mapped ones under ScriptName ECC_<channel> at start (CollisionProfile.cpp:499-512), so the live name
+    is ECC_VISIBILITY; TRACE_TYPE_QUERY1 survives only as a deprecated alias that warns on every call."""
+    q = unreal.TraceTypeQuery
+    return getattr(q, "ECC_VISIBILITY", None) or q.TRACE_TYPE_QUERY1
+
+
 def _trace_down(a, depth: float) -> float | None:
     """Z of the first blocking surface under the actor's bounds centre (Visibility channel), ignoring itself."""
     b = bounds_box(a)
@@ -46,7 +54,7 @@ def _trace_down(a, depth: float) -> float | None:
     start = unreal.Vector(c[0], c[1], b[0][2] - 0.1)
     end = unreal.Vector(c[0], c[1], b[0][2] - depth)
     world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
-    hit = unreal.SystemLibrary.line_trace_single(world, start, end, unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, True,
+    hit = unreal.SystemLibrary.line_trace_single(world, start, end, _visibility_channel(), True,
                                                  [a], unreal.DrawDebugTrace.NONE, True)
     if not hit:
         return None
