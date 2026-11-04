@@ -84,7 +84,7 @@ class AnimSequence(core.AnimSequence):
         return self._props.get("skeleton")
 
     def get_editor_property(self, name: str):
-        if name == "sequence_length":
+        if name == "sequence_length" and "sequence_length" not in self._props:  # a value set explicitly wins
             return self.length_s
         return super().get_editor_property(name)
 
