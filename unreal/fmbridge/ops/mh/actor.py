@@ -286,7 +286,7 @@ def import_garment(*, fbx: str, dest: str, skeleton: str = "", replace: bool = T
     ui.set_editor_property("skeleton", skel)
     sk = ui.get_editor_property("skeletal_mesh_import_data")
     for k, v in dict(normal_import_method=unreal.FBXNormalImportMethod.FBXNIM_IMPORT_NORMALS,
-                     update_skeleton_reference_pose=False, use_t0_as_reference_pose=False, convert_scene=True,
+                     update_skeleton_reference_pose=False, use_t0_as_ref_pose=False, convert_scene=True,
                      force_front_x_axis=False, convert_scene_unit=False).items():
         try:  # the names vary across engine versions: skip what this one lacks
             sk.set_editor_property(k, v)

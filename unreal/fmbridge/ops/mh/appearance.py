@@ -246,7 +246,7 @@ def eyes(*, path: str, both: dict | None = None, left: dict | None = None, right
     for both eyes or each.
 
     Args: path: the character. both/left/right: FMetaHumanCharacterEyeProperties fields as nested JSON, e.g.
-    {"iris": {"iris_pattern": "Iris003", "primary_color_u": 0.2, "primary_color_v": 0.6}, "sclera": {"vascularity_intensity": 0.5}}.
+    {"iris": {"pattern": "Iris003", "primary_color_u": 0.2, "primary_color_v": 0.6}, "sclera": {"vascularity_intensity": 0.5}}.
     `left`/`right` go over `both`. Returns: {"changed", "eyes_settings"}.
     Example: film-ue op mh.eyes path=/Game/Characters/Ava/MH_Ava 'both={"iris": {"primary_color_u": 0.2}}'
     """

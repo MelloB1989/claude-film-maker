@@ -59,7 +59,7 @@ face model's coefficients. It is **experimental**: judge the still before spendi
 ```bash
 film-ue op mh.skin character=... u=0.55 v=0.45 roughness=1.0 texture_resolution=4k \
   'settings={"freckles": {"density": 0.4, "mask": "Type1"}, "accents": {"cheeks": {"redness": 0.65}}}'
-film-ue op mh.eyes path=... 'both={"iris": {"iris_pattern": "Iris003", "primary_color_u": 0.2, "primary_color_v": 0.6}}'
+film-ue op mh.eyes path=... 'both={"iris": {"pattern": "Iris003", "primary_color_u": 0.2, "primary_color_v": 0.6}}'
 film-ue op mh.eyelashes path=... 'settings={"type": "LongCurl", "melanin": 0.9}'
 film-ue op mh.teeth path=... 'settings={"overbite": 0.2, "worn_down": 0.1}'
 film-ue op mh.makeup path=... 'settings={"lips": {"type": "Natural", "color": [0.3, 0.06, 0.05]}, "eyes": {"type": "ThinLiner"}}'
@@ -259,6 +259,12 @@ Example: `examples/unreal/cast/cafe-extras.yaml`.
   first (`unrig=true`); then re-rig.
 - **The exchange code is echoed to the log** when set with a console command (`ProcessUserConsoleInput` writes to
   GLog). Use a fresh single-use code (~5 min validity).
+- **Two eye fields have Python names unlike their C++ names** (ScriptName): `IrisPattern` is `iris.pattern`,
+  `IrisRotation` is `iris.rotation` (MetaHumanCharacterEyes.h:39, :43). The ops accept the C++ forms too
+  (`iris_pattern`); `mh.describe` reports `pattern`. Found by agent-06's API audit (B57).
+- **FBX garments import through Interchange** in 5.8 by default. Whether `FbxImportUI`'s `import_materials=False` /
+  `create_physics_asset=False` carry over is unverified (B57). `mh.import_garment` works either way; check for stray
+  materials and physics assets next to the mesh.
 - **LODs:** assembly quality is the LOD control (`pipeline=optimized quality=low|medium|high`; cinematic is always
   cinematic). `AssemblySettings` on the character and `PipelineOverride` on the build parameters are not editable
   from Python (VisibleAnywhere / no specifiers).
@@ -297,7 +303,7 @@ reflected names. Every row was read in the header/source (✓).
 | `unreal.MetaHumanCharacter`, `unreal.MetaHumanCharacterFactoryNew` (AssetTools.create_asset) | UCLASS; factory has no dialog | MetaHumanCharacter/Public/MetaHumanCharacter.h:206; MetaHumanCharacterEditor/Public/MetaHumanCharacterFactoryNew.h | ✓ |
 | character props `skin_settings`, `eyes_settings`, `makeup_settings`, `head_model_settings`, `has_high_resolution_textures`, `fixed_body_type`, `internal_collection`, `has_face_dna_blendshapes` | UPROPERTY (Visible/EditAnywhere) | MetaHumanCharacter.h:387-402, 515, 528 | ✓ |
 | skin settings: `skin` (`u`, `v`, `roughness`, `face_texture_index`, ...), `freckles` (`mask`: NONE/TYPE1-3), `accents` (8 regions), `desired_texture_sources_resolutions` (RES2K/4K/8K) | FMetaHumanCharacterSkinSettings and parts | MetaHumanCharacter/Public/MetaHumanCharacterSkin.h:14, 100, 136, 271, 340 | ✓ |
-| eyes `eye_left`/`eye_right` → `iris` (`iris_pattern` IRIS001-009, `primary_color_u/v`, ...), `pupil`, `cornea`, `sclera` | FMetaHumanCharacterEyesSettings | MetaHumanCharacterEyes.h:34, 241 | ✓ |
+| eyes `eye_left`/`eye_right` → `iris` (`pattern` IRIS001-009, `primary_color_u/v`, ...), `pupil`, `cornea`, `sclera` | FMetaHumanCharacterEyesSettings | MetaHumanCharacterEyes.h:34, 241 | ✓ |
 | head model `eyelashes` (`type` NONE/SHORT_SPARSE/.../LONG_THICK_CURL, `melanin`, ...), `teeth` (`tooth_length`, `overbite`, ...) | FMetaHumanCharacterHeadModelSettings | MetaHumanCharacter.h:162; Eyes.h:271; Teeth.h:28 | ✓ |
 | makeup `foundation`, `eyes` (`type`), `blush`, `lips` | FMetaHumanCharacterMakeupSettings | MetaHumanCharacterMakeup.h:196 | ✓ |
 | body constraint `name`, `is_active`, `target_measurement`, `min_measurement`, `max_measurement`, `.copy()` | FMetaHumanCharacterBodyConstraint | MetaHuman/MetaHumanCoreTechLib/Source/MetaHumanCoreTechLib/Public/MetaHumanCharacterBodyIdentity.h:89 | ✓ |

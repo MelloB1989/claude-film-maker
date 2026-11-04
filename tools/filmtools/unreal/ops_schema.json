@@ -10059,7 +10059,7 @@
    "verb": "auth_status",
    "module": "fmbridge.ops.mh.cloud",
    "file": "unreal/fmbridge/ops/mh/cloud.py",
-   "line": 39,
+   "line": 41,
    "summary": "Whether the MetaHuman cloud services can sign in to Epic without asking.",
    "doc": "Whether the MetaHuman cloud services can sign in to Epic without asking.\n\nReturns: {\"signed_in\": true|false|null (Windows: unknown, kept in the credential store), \"credentials\": n saved\nEOS sign-ins on this machine, \"platform\"}.\nExample: film-ue op mh.auth_status",
    "params": [],
@@ -10734,7 +10734,7 @@
    "file": "unreal/fmbridge/ops/mh/appearance.py",
    "line": 242,
    "summary": "The eyes: iris (pattern Iris001..Iris009, colour as palette u/v, blend, limbal ring), pupil, cornea, sclera,",
-   "doc": "The eyes: iris (pattern Iris001..Iris009, colour as palette u/v, blend, limbal ring), pupil, cornea, sclera,\nfor both eyes or each.\n\nArgs: path: the character. both/left/right: FMetaHumanCharacterEyeProperties fields as nested JSON, e.g.\n{\"iris\": {\"iris_pattern\": \"Iris003\", \"primary_color_u\": 0.2, \"primary_color_v\": 0.6}, \"sclera\": {\"vascularity_intensity\": 0.5}}.\n`left`/`right` go over `both`. Returns: {\"changed\", \"eyes_settings\"}.\nExample: film-ue op mh.eyes path=/Game/Characters/Ava/MH_Ava 'both={\"iris\": {\"primary_color_u\": 0.2}}'",
+   "doc": "The eyes: iris (pattern Iris001..Iris009, colour as palette u/v, blend, limbal ring), pupil, cornea, sclera,\nfor both eyes or each.\n\nArgs: path: the character. both/left/right: FMetaHumanCharacterEyeProperties fields as nested JSON, e.g.\n{\"iris\": {\"pattern\": \"Iris003\", \"primary_color_u\": 0.2, \"primary_color_v\": 0.6}, \"sclera\": {\"vascularity_intensity\": 0.5}}.\n`left`/`right` go over `both`. Returns: {\"changed\", \"eyes_settings\"}.\nExample: film-ue op mh.eyes path=/Game/Characters/Ava/MH_Ava 'both={\"iris\": {\"primary_color_u\": 0.2}}'",
    "params": [
     {
      "name": "path",
@@ -11252,7 +11252,7 @@
    "verb": "login",
    "module": "fmbridge.ops.mh.cloud",
    "file": "unreal/fmbridge/ops/mh/cloud.py",
-   "line": 51,
+   "line": 53,
    "summary": "Start Epic's sign-in for the MetaHuman cloud services if there is none, and return at once.",
    "doc": "Start Epic's sign-in for the MetaHuman cloud services if there is none, and return at once.\n\nWith `exchange_code` (a one-time code from Epic's account service, valid ~5 minutes) the next cloud request signs\nin with it, no browser (the code is set in the CVar MetaHuman.Cloud.Config.ExchangeCode; the console echoes it to\nthe log, so use a fresh single-use code). Without it, a rig is requested on a throwaway character so the service\nstarts its device sign-in: the engine hands the page to the system browser, which on a box without a desktop\nkeeps it for `film-ue epic-login`. The sign-in then persists across editor restarts.\nReturns: {\"signed_in\", \"requested\", \"exchange_code_set\"}.\nExample: film-ue op mh.login",
    "params": [
@@ -11372,7 +11372,7 @@
    "verb": "preview",
    "module": "fmbridge.ops.mh.build",
    "file": "unreal/fmbridge/ops/mh/build.py",
-   "line": 112,
+   "line": 113,
    "summary": "A live MetaHuman Editor actor of the character in the open level, with no rig and no build: it follows",
    "doc": "A live MetaHuman Editor actor of the character in the open level, with no rig and no build: it follows\nchanges made to the character (body, face, skin, wardrobe), for stills while shaping one.\n\nRe-running with the same label moves the existing one. Args: label: the actor label (default MHPreview_<name>).\nloc: [x, y, z] cm. yaw_deg: facing. transient: not saved with the level.\nReturns: {\"label\", \"changed\"}.\nExample: film-ue op mh.preview path=/Game/Characters/Ava/MH_Ava 'loc=[0,0,0]'",
    "params": [
@@ -11461,7 +11461,7 @@
    "verb": "rig",
    "module": "fmbridge.ops.mh.cloud",
    "file": "unreal/fmbridge/ops/mh/cloud.py",
-   "line": 120,
+   "line": 122,
    "summary": "Epic's cloud auto-rig, as a multi-tick job (about 30 s once signed in). Needed before mh.textures and",
    "doc": "Epic's cloud auto-rig, as a multi-tick job (about 30 s once signed in). Needed before mh.textures and\nmh.build, and again after any body or face change.\n\nSkips the request when the character is rigged and its body and face are what they were at the last rig\n(`changed: false`); `force` re-rigs anyway. Without a saved Epic sign-in it fails at once (require_login) instead\nof waiting on a browser.\nArgs: character: the character. full: joints + blend shapes (what facial animation needs) or joints only.\ntimeout_s: give up after. force: rig even if up to date. require_login: fail fast without a sign-in.\nReturns: {\"changed\", \"seconds\", \"rig\": \"full\"|\"joints\", \"log\"}.\nExample: film-ue op mh.rig character=/Game/Characters/Ava/MH_Ava",
    "params": [
@@ -11663,7 +11663,7 @@
    "verb": "textures",
    "module": "fmbridge.ops.mh.cloud",
    "file": "unreal/fmbridge/ops/mh/cloud.py",
-   "line": 160,
+   "line": 162,
    "summary": "Epic's cloud high-resolution skin texture sources (face and body), as a multi-tick job (about 20 s). Needs a",
    "doc": "Epic's cloud high-resolution skin texture sources (face and body), as a multi-tick job (about 20 s). Needs a\nrig first (the service signs in during the rig); mh.build needs them.\n\nSkips when the character already has them (`changed: false`); a skin change (mh.skin) discards them. The\nresolution is the skin setting desired_texture_sources_resolutions (mh.skin texture_resolution=4k).\nReturns: {\"changed\", \"seconds\", \"has_high_res_textures\", \"log\"}.\nExample: film-ue op mh.textures character=/Game/Characters/Ava/MH_Ava",
    "params": [

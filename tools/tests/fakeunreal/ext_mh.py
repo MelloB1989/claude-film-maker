@@ -119,7 +119,7 @@ SkinSettings = struct("MetaHumanCharacterSkinSettings", {
     "skin": SkinProperties(), "freckles": Freckles(), "accents": Accents(),
     "desired_texture_sources_resolutions": Resolutions(), "enable_texture_overrides": False})
 Iris = struct("MetaHumanCharacterEyeIrisProperties", {
-    "iris_pattern": _e("MetaHumanCharacterEyesIrisPattern", "IRIS001"), "iris_rotation": 0.0, "primary_color_u": 0.5, "primary_color_v": 0.5,
+    "pattern": _e("MetaHumanCharacterEyesIrisPattern", "IRIS001"), "rotation": 0.0, "primary_color_u": 0.5, "primary_color_v": 0.5,
     "secondary_color_u": 0.5, "secondary_color_v": 0.5, "color_blend": 0.5, "blend_method": _e("MetaHumanCharacterEyesBlendMethod", "STRUCTURAL"),
     "limbal_ring_size": 0.725, "limbal_ring_color": _lc(0, 0, 0)})
 Pupil = struct("MetaHumanCharacterEyePupilProperties", {"dilation": 0.95, "feather": 0.45})
