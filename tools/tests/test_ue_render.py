@@ -296,3 +296,37 @@ def test_game_overrides_only_when_asked(stage):
     from fmbridge.errors import OpError
     with pytest.raises(OpError, match="did you mean 'lod_zero'"):
         run_op("render.plan", spec={**stage["spec"], "game_overrides": {"lod_0": True}})
+
+
+def _pngs(d, frames, shade):
+    from fmbridge.qa import image as qim
+    for f in frames:
+        img = qim.solid(32, 18, (shade(f), 80, 40))
+        qim.write(img, os.path.join(d, f"{f:04d}.png"))
+
+
+def test_compare_two_renders_with_qa(stage, tmp_path):
+    a, b = str(tmp_path / "a"), str(tmp_path / "b")
+    _pngs(a, range(10, 16), lambda f: 120)
+    _pngs(b, range(10, 16), lambda f: 120 if f != 13 else 250)  # frame 13 differs
+    res = run_op("render.compare", a=a, b=b, method="qa", sheet=str(tmp_path / "ab.png"), worst=2)
+    assert res["method"] == "qa" and res["frames"] == 6 and res["pass"] is False
+    assert res["worst"][0][0] == 13 and res["below"] == [13] and os.path.isfile(res["sheet"])
+    same = run_op("render.compare", a=a, b=a, method="qa", frames=[10, 13])
+    assert same["pass"] and same["frames"] == 3
+
+
+def test_compare_errors(stage, tmp_path):
+    from fmbridge.errors import OpError
+    a = str(tmp_path / "a")
+    _pngs(a, range(0, 3), lambda f: 9)
+    with pytest.raises(OpError, match="no folder"):
+        run_op("render.compare", a=a, b=str(tmp_path / "nope"))
+    with pytest.raises(OpError, match="not in both") as e:
+        run_op("render.compare", a=a, b=a, frames=[0, 5])
+    assert e.value.code == "not_found"
+    for f in (0, 1):
+        with open(os.path.join(a, f"{f:04d}.jpg"), "wb") as fh:
+            fh.write(b"\xff\xd8x\xff\xd9")
+    with pytest.raises(OpError, match="PNG only"):
+        run_op("render.compare", a=a, b=a, ext="jpg", method="qa")
