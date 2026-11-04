@@ -10,14 +10,15 @@ through `ssh -L`, folders by rsync; for a box someone else starts and stops). Wi
 tunnel, {"bridge": "ssm"} sends each bridge call as one SSM command (curl on the box). Several boxes: set
 FILM_UE_BOX=<name> (or `film-ue --box <name>`) and they live in film-ue.<name>.json, each with its own token and
 tunnel (give each its own `local_port`). Nothing secret is stored there; the bridge token is cached beside it.
+
+How commands and files reach the box is filmtools.unreal.transport (ssm, ssh or local, by the `transport` setting):
+the functions here keep their names and signatures for the code that already calls them.
 """
 from __future__ import annotations
 
-import base64
 import json
 import os
 import shlex
-import shutil
 import subprocess
 import time
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -64,42 +65,24 @@ def over_ssh() -> bool:
     return conf().get("transport") == "ssh"
 
 
-def _ssh_base() -> list:
+def local() -> bool:
+    return conf().get("transport") == "local"
+
+
+def transport():
+    """The current box's transport (filmtools.unreal.transport): SSM commands go through `_ssm` here, which tests
+    replace."""
+    from . import transport as t
     c = conf()
-    if not c.get("ssh"):
-        raise SystemExit("no ssh target set: film-ue set --transport ssh --ssh ubuntu@<host> --ssh-key <path>")
-    opts = ["-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=30",
-            "-o", "ConnectTimeout=20"]
-    return ["ssh", *(["-i", c["ssh_key"]] if c.get("ssh_key") else []), *opts]
+    if (c.get("transport") or "ssm") == "ssm":
+        return t.SSM(c, ssm=lambda document, script, timeout: _ssm(document, script, timeout))
+    return t.get(c)
 
 
-def _ssh(script: str, timeout: int) -> str:
-    """bash as root on the box over ssh (the login user has passwordless sudo), the script on stdin."""
-    try:
-        r = subprocess.run([*_ssh_base(), conf()["ssh"], "sudo", "bash", "-s"], input=script, capture_output=True,
-                           text=True, timeout=timeout + 30)
-    except subprocess.TimeoutExpired:
-        raise SystemExit("workstation command timed out")
-    if r.returncode:
-        raise SystemExit(f"workstation command failed ({r.returncode}): {(r.stderr or r.stdout)[-800:]}")
-    return r.stdout
-
-
-def forward(remote_port: int, local_port: int, log_path: Path | None = None) -> subprocess.Popen:
-    """A local port forwarded to the box's 127.0.0.1:remote_port (no inbound port on the box): ssh -L or SSM."""
-    c = conf()
-    out = open(log_path, "w") if log_path else subprocess.DEVNULL
-    if over_ssh():
-        cmd = [*_ssh_base(), "-N", "-o", "ExitOnForwardFailure=yes", "-L", f"127.0.0.1:{local_port}:127.0.0.1:{remote_port}",
-               c["ssh"]]
-    else:
-        if not shutil.which("session-manager-plugin"):
-            raise SystemExit("the AWS Session Manager plugin is needed: https://docs.aws.amazon.com/systems-manager/latest/"
-                             "userguide/session-manager-working-with-install-plugin.html")
-        cmd = ["aws", "ssm", "start-session", "--region", c["region"], "--target", c["instance"],
-               "--document-name", "AWS-StartPortForwardingSession", "--parameters",
-               json.dumps({"portNumber": [str(remote_port)], "localPortNumber": [str(local_port)]})]
-    return subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+def forward(remote_port: int, local_port: int, log_path: Path | None = None):
+    """A local port forwarded to the box's 127.0.0.1:remote_port (no inbound port on the box): SSM or ssh -L; None
+    for a local box."""
+    return transport().forward(remote_port, local_port, log_path)
 
 
 def rjoin(*parts: str) -> str:
@@ -134,8 +117,9 @@ def instance() -> dict:
 
 
 def state() -> dict:
-    if over_ssh():
-        return {"ssh": conf()["ssh"], "os": conf()["os"], "uptime": _ssh("uptime", 60).strip()}
+    if over_ssh() or local():
+        up = transport().run("uptime" if linux() else "(Get-CimInstance Win32_OperatingSystem).LastBootUpTime", 60, root=True)
+        return {**transport().describe(), "uptime": up.strip()}
     i = instance()
     return {"id": i["InstanceId"], "type": i["InstanceType"], "state": i["State"]["Name"], "ip": i.get("PublicIpAddress"),
             "os": conf()["os"], "launched": i["LaunchTime"]}
@@ -151,8 +135,8 @@ def wait_ssm(tries: int = 60) -> bool:
 
 
 def start(wait: bool = True) -> dict:
-    if over_ssh():
-        return state()  # a box reached over ssh is started and stopped by whoever owns it
+    if over_ssh() or local():
+        return state()  # a box reached over ssh (or this machine) is started and stopped by whoever owns it
     aws("ec2", "start-instances", "--instance-ids", conf()["instance"])
     if wait:
         aws("ec2", "wait", "instance-running", "--instance-ids", conf()["instance"])
@@ -161,7 +145,7 @@ def start(wait: bool = True) -> dict:
 
 
 def stop(wait: bool = False) -> dict:
-    if over_ssh():
+    if over_ssh() or local():
         return state()
     aws("ec2", "stop-instances", "--instance-ids", conf()["instance"])
     if wait:
@@ -180,34 +164,19 @@ def password() -> str:
 # ------------------------------------------------------------------------------------------- commands over SSM
 
 def _ssm(document: str, script: str, timeout: int) -> str:
-    c = conf()
-    params = json.dumps({"commands": [script], "executionTimeout": [str(timeout)]})
-    cid = aws("ssm", "send-command", "--instance-ids", c["instance"], "--document-name", document,
-              "--parameters", params)["Command"]["CommandId"]
-    end = time.time() + timeout + 30
-    while time.time() < end:
-        time.sleep(2)
-        r = aws("ssm", "get-command-invocation", "--command-id", cid, "--instance-id", c["instance"], check=False)
-        if isinstance(r, dict) and r.get("Status") in ("Success", "Failed", "TimedOut", "Cancelled"):
-            if r["Status"] != "Success":
-                raise SystemExit(f"workstation command {r['Status']}: {(r.get('StandardErrorContent', '') or r.get('StandardOutputContent', ''))[-800:]}")
-            return r.get("StandardOutputContent", "")
-    raise SystemExit("workstation command timed out")
+    from . import transport as t
+    return t.ssm_cmd(conf(), document, script, timeout, aws=aws)
 
 
 def ps(script: str, timeout: int = 600) -> str:
-    """Run PowerShell on a Windows workstation through SSM (as SYSTEM, no desktop) and return its output."""
-    return _ssm("AWS-RunPowerShellScript", script, timeout)
+    """Run PowerShell on a Windows workstation (SSM: as SYSTEM, no desktop) and return its output."""
+    return transport().run(script, timeout)
 
 
 def sh(script: str, timeout: int = 600, root: bool = False) -> str:
-    """Run bash on a Linux workstation through SSM and return its output: as the editor's user (files it writes are
-    the editor's), or as root (`root=True`: packages, systemd)."""
-    if not root:
-        script = f"runuser -u {shlex.quote(conf()['user'])} -- bash -c {shlex.quote(script)}"
-    if over_ssh():
-        return _ssh("set -e\n" + script, timeout)
-    return _ssm("AWS-RunShellScript", "set -e\n" + script, timeout)
+    """Run bash on a Linux workstation and return its output: as the editor's user (files it writes are the
+    editor's), or as root (`root=True`: packages, systemd)."""
+    return transport().run(script, timeout, root=root)
 
 
 def run(script: str, timeout: int = 600) -> str:
@@ -216,22 +185,14 @@ def run(script: str, timeout: int = 600) -> str:
 
 
 def put_text(path: str, data: bytes) -> None:
-    """Write a file on the workstation through SSM (small files: SSM caps a command near 100 KB)."""
-    b64 = base64.b64encode(data).decode()
-    if linux():
-        q = shlex.quote(path)
-        sh(f"mkdir -p $(dirname {q}) && echo {b64} | base64 -d > {q}")
-    else:
-        ps(f"New-Item -ItemType Directory -Force -Path (Split-Path '{path}') | Out-Null; "
-           f"[IO.File]::WriteAllBytes('{path}', [Convert]::FromBase64String('{b64}'))")
+    """Write a small file on the workstation (through the command channel: SSM caps a command near 100 KB)."""
+    transport().put(path, data)
 
 
 def read_text(path: str) -> str:
     """A small text file on the workstation, or "" when it is not there."""
-    if linux():
-        q = shlex.quote(path)
-        return sh(f"if [ -f {q} ]; then cat {q}; fi")
-    return ps(f"if (Test-Path '{path}') {{ Get-Content '{path}' -Raw }}")
+    data = transport().get(path)
+    return data.decode("utf-8", "replace") if data else ""
 
 
 def editor(action: str) -> str:
@@ -244,60 +205,13 @@ def editor(action: str) -> str:
     return sh(f"systemctl {action} {svc}", root=True)
 
 
-# ------------------------------------------------------------------------------------------- big folders via S3
-
-def _bucket() -> str:
-    b = conf().get("bucket")
-    if not b:
-        raise SystemExit("no bucket set: film-ue set --bucket NAME (one the workstation's role can read and write)")
-    return b
-
-
-def _rsync(src: str, dst: str) -> None:
-    c = conf()
-    ssh = " ".join(shlex.quote(x) for x in _ssh_base())
-    subprocess.run(["rsync", "-a", "--mkpath", "-e", ssh, f"--rsync-path=sudo -u {c['user']} rsync", src, dst], check=True)
-
-
+# ------------------------------------------------------------------------------------------- big folders
 def push_dir(local_dir: str, remote_dir: str) -> int:
-    """Send a whole folder (textures, meshes) to the workstation through S3, far faster than the tunnel: this machine
-    syncs it up, the workstation downloads it into `remote_dir`, the bucket copy is deleted (over ssh: rsync).
-    Returns files sent."""
-    if over_ssh():
-        _rsync(local_dir.rstrip("/") + "/", f"{conf()['ssh']}:{remote_dir.rstrip('/')}/")
-        return sum(1 for f in Path(local_dir).rglob("*") if f.is_file())
-    c, bucket = conf(), _bucket()
-    prefix = "film-ue/up-" + Path(local_dir).name + f"-{int(time.time())}"
-    s3 = f"s3://{bucket}/{prefix}"
-    subprocess.run(["aws", "s3", "sync", "--only-show-errors", local_dir, s3, "--region", c["region"]], check=True)
-    if linux():
-        sh(f"mkdir -p {shlex.quote(remote_dir)} && aws s3 sync --only-show-errors {s3} {shlex.quote(remote_dir)} "
-           f"--region {c['region']}", timeout=1800)
-    else:
-        ps(f"New-Item -ItemType Directory -Force -Path '{remote_dir}' | Out-Null; "
-           f"Read-S3Object -BucketName {bucket} -KeyPrefix {prefix} -Folder '{remote_dir}' -Region {c['region']} | Out-Null",
-           timeout=1800)
-    subprocess.run(["aws", "s3", "rm", "--only-show-errors", "--recursive", s3, "--region", c["region"]], check=True)
-    return sum(1 for f in Path(local_dir).rglob("*") if f.is_file())
+    """Send a whole folder (textures, meshes) to the workstation: through the box's S3 bucket (SSM), rsync/scp (ssh)
+    or a copy (local); far faster than the bridge. Returns files sent."""
+    return transport().push_dir(local_dir, remote_dir)
 
 
 def pull_dir(remote_dir: str, local_dir: str) -> int:
-    """Bring a whole folder back (a render's frames) through S3, far faster than the tunnel: the workstation uploads
-    it to the bucket in settings (`bucket`), this machine syncs it down, the bucket copy is deleted (over ssh: rsync).
-    Returns files."""
-    if over_ssh():
-        Path(local_dir).mkdir(parents=True, exist_ok=True)
-        _rsync(f"{conf()['ssh']}:{remote_dir.rstrip('/')}/", local_dir.rstrip("/") + "/")
-        return sum(1 for _ in Path(local_dir).iterdir())
-    c, bucket = conf(), _bucket()
-    prefix = "film-ue/" + Path(remote_dir.replace("\\", "/")).name + f"-{int(time.time())}"
-    s3 = f"s3://{bucket}/{prefix}"
-    if linux():
-        sh(f"aws s3 sync --only-show-errors {shlex.quote(remote_dir)} {s3} --region {c['region']}", timeout=1800)
-    else:
-        ps(f"Write-S3Object -BucketName {bucket} -KeyPrefix {prefix} -Folder '{remote_dir}' -Recurse -Region {c['region']}",
-           timeout=1800)
-    Path(local_dir).mkdir(parents=True, exist_ok=True)
-    subprocess.run(["aws", "s3", "sync", "--only-show-errors", s3, local_dir, "--region", c["region"]], check=True)
-    subprocess.run(["aws", "s3", "rm", "--only-show-errors", "--recursive", s3, "--region", c["region"]], check=True)
-    return sum(1 for _ in Path(local_dir).iterdir())
+    """Bring a whole folder back (a render's frames), the same ways as push_dir. Returns files."""
+    return transport().pull_dir(remote_dir, local_dir)
