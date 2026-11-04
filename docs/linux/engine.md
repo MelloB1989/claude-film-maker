@@ -177,7 +177,9 @@ Two routes. Prefer **source** for the long term, because it is scriptable, repro
 
 ### 6a. Fast build plan (target 15–20 min)
 
-_See the build appendix (§10)._
+See §10. In short: a 15–20 minute **compile** is plausible on 192 physical cores; the **whole run** (clone,
+dependencies, compile, archive) is more like 35–55 minutes. That is an estimate: no public 192-core Linux benchmark
+exists, so the first run must time it.
 
 ### 6b. Does a Windows project open as-is on Linux?
 
@@ -263,7 +265,55 @@ and the Tesla 580 driver, the engine from agent-06's S3 tarball, and the project
 
 ## 10. Build appendix (fast source build)
 
-_Pending: filled in from the build research and agent-06's PoC._
+Desk research for agent-06's build PoC (20261104-task-build-the-ue-08c2). Their measurements replace these estimates.
+
+**Instance** (x86_64 only: there is no Linux ARM64 editor host; L):
+
+| Type (ap-south-1) | Cores / RAM | $/h on-demand | Note | Conf. |
+|---|---|---|---|---|
+| c8i.96xlarge | 192 cores (384 vCPU) / 768 GiB | 17.99 | fastest; in Mumbai since Jan 2026 | C (region) / L (price) |
+| m8a.48xlarge | 192 physical cores (no SMT) / 768 GiB | U in Mumbai (11.69 in us-east-1) | in Mumbai since Jun 2026 | C / U |
+| c7i.48xlarge | 96 cores (192 vCPU) / 384 GiB | 8.57 | cheapest big one; probably 1.5–2× slower | L |
+
+The vCPU quota for standard on-demand instances must allow the chosen size (384 for c8i.96xlarge). RAM: UBT budgets
+1.5 GiB per action by default (`MemoryPerActionBytes`); 2 GiB/vCPU is enough. **Disk**: one gp3 volume of 500 GiB,
+16k+ IOPS, 1,000+ MiB/s (peak tree about 200–300 GB; with 384–768 GiB of RAM most I/O hits the page cache). OS: Ubuntu 22.04.
+
+**Steps** (estimated time each):
+
+1. Packages (`build-essential git curl zstd`, AWS CLI), `ulimit -n 1048576`: 2–3 min.
+2. Source: `git clone --depth 1 --single-branch --branch 5.8.4-release` (about 2.5 GB), or the tag tarball from the
+   GitHub API piped into `tar`. Setup.sh does not need `.git`. Confirm the tag with `git ls-remote --tags`: 2–4 min.
+3. `./Setup.sh --force --threads=64 --exclude=Win64 --exclude=WinArm64 --exclude=Win32 --exclude=Mac --exclude=osx64
+   --exclude=IOS --exclude=TVOS --exclude=VisionOS --exclude=HoloLens --exclude=LinuxArm64 --exclude=Android`
+   (`--dry-run` first gives the size). It also fetches the v26 clang 20.1.8 toolchain. 4–10 min (U). Check afterwards
+   that the MetaHuman Creator Core Data / presets (`/MetaHumanCharacter/Optional/Presets`, used by `mh.presets`) are
+   present. If not, find where the source tree gets them (U).
+4. `~/.config/Unreal Engine/UnrealBuildTool/BuildConfiguration.xml`: `bAllCores=true` (the default is one action per
+   *physical* core), `bAllowUBAExecutor=false` and `bAllowUBALocalExecutor=false` (UBA on Linux is marked
+   unsupported and broke ISPC headers in 5.5), `bDisableDumpSyms=true`; optionally `bDisableDebugInfo=true` (faster,
+   smaller, no symbols).
+5. A single UBT call so all targets share one queue: `Engine/Build/BatchFiles/Linux/Build.sh -Target="UnrealEditor
+   Linux Development" -Target="ShaderCompileWorker Linux Development" -Target="InterchangeWorker Linux Development"
+   -Target="UnrealPak Linux Development"`: **15–35 min (the main unknown)**. `GenerateProjectFiles.sh` and `make` are
+   not needed. Do not use the BuildGraph "Installed Build" route: it also compiles game targets and a DDC.
+6. Smoke test: `UnrealEditor-Cmd -nullrhi -unattended -nosplash -ExecCmds=quit`: 1–3 min.
+7. Archive: `tar -I 'zstd -T0 -3' --exclude=.git --exclude='*/DerivedDataCache'` streamed to the **private** bucket
+   (`ue-linux/`). Keep `Engine/Intermediate` (generated headers, UBT makefiles). Excluding `*.debug` roughly halves the
+   size but loses callstacks. Estimated 40–80 GB compressed. Also take an **EBS snapshot** for fast EC2 restores
+   (lazy-loading unless a provisioned initialization rate of 100–300 MiB/s or Fast Snapshot Restore is used). An AMI adds little over a snapshot: 5–10 min.
+
+ccache/sccache: UBT 5.8 has no setting for them, and a cache cannot help a one-shot build (L). Rebuilding is avoided
+by keeping the result instead.
+
+The archive must never be public: the EULA allows sharing engine code only with other licensees (L).
+
+The first run should record: total action count and the parallelism UBT chose, wall time per step, peak RAM and
+disk throughput (`/usr/bin/time -v`, `vmstat`, `iostat`), the single-threaded tail (final links), the Setup.sh
+download size, `du` of Binaries/Intermediate/Plugins and of `*.debug`, and the compressed archive size.
+
+Alternative with no build: Epic's precompiled `Linux_Unreal_Engine_5.8.x.zip` (about 39 GB; 5.8.4 not confirmed on
+the page; download needs a browser login).
 
 ## 11. Generic helpers worth building in claude-film-maker
 
