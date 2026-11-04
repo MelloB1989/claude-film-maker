@@ -224,3 +224,15 @@ def test_mat_assign_to_mesh_slot(ue):
     assert r["slot"] == 1 and r["changed"]
     assert run_op("mat.assign", mesh="/Game/P/SM_A", material="/Game/M/MI_Oak", slot=1)["changed"] is False
     assert _err("mat.assign", mesh="/Game/P/SM_A", material="/Game/M/MI_Oak", slot="Leg").candidates == ["Legs"]
+
+
+def test_nothing_calls_editor_asset_library_directly():
+    """EditorAssetLibrary is a plugin (EditorScriptingUtilities) that a new project has off; ops/assets.py's EAL falls
+    back to the always-there EditorAssetSubsystem. Everything else imports EAL from there."""
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2] / "unreal" / "fmbridge"
+    bad = [f"{p.relative_to(root)}:{i}" for p in root.rglob("*.py") if p.name != "assets.py" or p.parent.name != "ops"
+           for i, line in enumerate(p.read_text().splitlines(), 1)
+           if re.search(r"unreal\.EditorAssetLibrary\b", line) and not line.lstrip().startswith("#")]
+    assert not bad, f"use `from .assets import EAL` (ops) / `from ..ops.assets import EAL` (selftests): {bad}"

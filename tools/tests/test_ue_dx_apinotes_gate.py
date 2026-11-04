@@ -15,8 +15,6 @@ ALLOWLIST = {  # 2026-11-05, apinotes at ue-helpers 106fb52+: owner in the comme
     "MaterialExpressionScalarParameter", "MaterialExpressionSubtract", "MaterialExpressionTextureCoordinate",
     "MaterialExpressionTextureSampleParameter2D", "MaterialExpressionVectorParameter", "MaterialParameterCollection",
     "MaterialParameterCollectionFactoryNew", "TextureCompressionSettings",
-    # agent-02 (assets/fab)
-    "AssetEditorSubsystem", "MaterialInterface", "PointLight", "new_object",
     # agent-05 (render)
     "DirectoryPath", "IntPoint",
 }

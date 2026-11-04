@@ -9,6 +9,7 @@ import unreal
 from . import op
 from ..errors import OpError, not_found
 from ._util import actor
+from .assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 ASSET_DIR = "/Game/DataLayers"
 
@@ -69,13 +70,13 @@ def layer_add(*, name: str, labels: list = (), asset_dir: str = ASSET_DIR) -> di
     inst = found.get(name)
     if inst is None:
         path = f"{asset_dir.rstrip('/')}/{name}"
-        asset = unreal.EditorAssetLibrary.load_asset(path)
+        asset = EAL.load_asset(path)
         if asset is None:
             asset = unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, asset_dir, unreal.DataLayerAsset,
                                                                             unreal.DataLayerFactory())
             if asset is None:
                 raise OpError(f"could not create the data layer asset {path}", code="engine")
-            unreal.EditorAssetLibrary.save_asset(path)
+            EAL.save_asset(path)
         params = unreal.DataLayerCreationParameters()
         params.set_editor_property("data_layer_asset", asset)
         inst = s.create_data_layer_instance(params)

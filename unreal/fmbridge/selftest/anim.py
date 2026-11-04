@@ -13,9 +13,11 @@ It proves, in a scratch level:
   head curves do not move the head), and a PERFORMANCE spec applied with perf.apply makes the head bone turn toward
   a gaze target (sampled with seq.sample), converges (a second apply runs nothing), and perf.describe reads it back;
 - errors are actionable (a misspelt animation, an unknown expression preset, a bad spec);
+- body life: perf.calibrate_body measures the spine/clavicle/pelvis axes on a template body mesh and anim.body_life
+  bakes a local-space additive from them;
 - stills of the face at rest and turned (artifacts).
 
-Takes about 1-2 minutes. Needs: the MetaHuman plugin's optional content (/MetaHumanCharacter/Optional/Animation)
+Takes about 2-3 minutes. Needs: the MetaHuman plugin's optional content (/MetaHumanCharacter/Optional/Animation)
 and a GPU for the stills; no Epic login. Leaves nothing outside /Game/_Selftest/anim (and
 Saved/fmbridge/perf/signs_<face skeleton>.json, the calibration, which is meant to stay).
 """
@@ -36,7 +38,7 @@ TIMEOUT = 900
 MH = "/MetaHumanCharacter/Optional/Animation"
 FACE_LOOP = MH + "/TemplateAnimations/Expression_Loops/HappyA/mhc_mh002_fmn_f_facialloop_happy_f_s001"
 BODY_IDLE = MH + "/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle"
-EAL = unreal.EditorAssetLibrary
+from ..ops.assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 
 def _wav(path: str, seconds: float = 3.0, sr: int = 16000) -> str:
@@ -183,7 +185,35 @@ def run(t):
     t.op("seq.scrub", path=seqp, frame=60)
     yield from t.still("turned", camera=cam, width=480, height=270)
     t.op("seq.close")
-    return {"face_loop": FACE_LOOP, "face_mesh": mesh, "component": comp}
+    body = yield from _body_life(t, root, P)
+    return {"face_loop": FACE_LOOP, "face_mesh": mesh, "component": comp, "body": body}
+
+
+def _body_life(t, root: str, P: str):
+    """Body life on a body mesh from the template idle's skeleton: calibrate the bone axes, bake an additive."""
+    if not EAL.does_asset_exist(BODY_IDLE):
+        t.note("no template body idle: body life part skipped")
+        return None
+    bskel = t.op("anim.describe", anim=BODY_IDLE)["skeleton"]
+    bmesh = _face_mesh(bskel)
+    if not bmesh:
+        t.note(f"no body SkeletalMesh on {bskel}: body life part skipped")
+        return None
+    body = P + "Body"
+    t.op("level.spawn", label=body, asset=bmesh, loc=[300, 0, 0])
+    comp = _actor(body).get_components_by_class(unreal.SkeletalMeshComponent)[0].get_name()
+    try:
+        cal = yield from t.op("perf.calibrate_body", label=body, component=comp, scratch=root + "/CalibrateBody")
+        t.ok("body.calibrated", len(cal["axes"]) >= 8 and cal["shift_axis"], detail=cal["axes"])
+        t.artifact(cal["file"])
+    except Exception as e:
+        t.ok("body.calibrated", False, detail=str(e)[:500])
+        return None
+    life = t.op("anim.body_life", out=f"{root}/AS_{P}life", body_mesh=bmesh, length_s=8.0, state="talk")
+    t.ok("body.life_baked", len(life["bones"]) >= 8 and 12 < life["breaths_per_min"] < 18, detail=life)
+    d = t.op("anim.describe", anim=life["out"])
+    t.ok("body.life_additive", "LOCAL_SPACE" in d["additive"]["type"].upper(), detail=d["additive"])
+    return {"mesh": bmesh, "axes": cal["axes"]}
 
 
 def _actor(label: str):

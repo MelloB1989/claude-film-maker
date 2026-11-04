@@ -128,3 +128,30 @@ def _load_inline(doc, tmp=Path("/tmp")):
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
         json.dump(doc, fh)
     return spec.load([Path(fh.name)])
+
+
+def test_export_round_trip_converges():
+    st = {"path": "/Game/M/MI_X", "chain": ["/Game/M/MI_X", "/Game/FM/Lib/M_Lib_Opaque"],
+          "params": {"Tint": {"kind": "vector", "value": [0.5, 0.2, 0.1, 1.0]},
+                     "Roughness": {"kind": "scalar", "value": 0.3}, "NormalMap": {"kind": "texture", "value": None}}}
+    doc = K.material_spec(st)
+    assert doc["master"] == "opaque" and doc["params"] == {"Roughness": 0.3, "Tint": [0.5, 0.2, 0.1]}
+    assert K.plan_material(doc, st) == []  # exported then applied: nothing to do
+    a = {"path": "/Game/P/SM_Chair", "class": "StaticMesh", "source": "/srv/p/chair.fbx", "nanite": True, "lods": 3,
+         "collision": {"simple": 4, "convex": 4}, "tags": {"category": "furniture"}}
+    ad = K.asset_spec(a)
+    assert ad["file"] == "/srv/p/chair.fbx" and ad["asset"] == "SM_Chair" and ad["mesh"]["collision"] == "convex"
+    assert K.plan_asset(ad, a) == []
+
+
+def test_export_spec_cli_with_a_fake_sdk():
+    from filmtools.unreal import cli_exportspec as E
+
+    class Area:
+        def __init__(self, f):
+            self.describe = f
+    ue = type("UE", (), {})()
+    ue.mat = Area(lambda path: {"path": path, "chain": [path, "/Game/Other/M_Base"], "params": {}})
+    docs = E.export("material", ["/Game/M/MI_A"], ue=ue)
+    assert docs == [{"kind": "material", "version": 1, "name": "MI_A", "path": "/Game/M/MI_A",
+                     "parent": "/Game/Other/M_Base"}]
