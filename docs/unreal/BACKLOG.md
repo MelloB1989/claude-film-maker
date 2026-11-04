@@ -15,9 +15,9 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | id | item | area | size | status |
 |---|---|---|---|---|
 | B01 | `ops/_util.py`: one home for vec/rot/colour parsing, actor-by-label with did-you-mean, asset free/ensure-folder, frame/second conversion. Migrate level/look/seq/anim to it without changing their signatures | WP0 | M | claimed agent-10 |
-| B02 | `level.find`: actors by label glob, class, tag, within a radius/box, with transform + bounds; `level.describe` the whole level as JSON (counts by class, lights, cameras, sequences) | WP6 | M | open |
-| B03 | Layout primitives: `layout.place` (on floor via a downward trace, snap to grid, align to another actor's face), `layout.array` (row/grid/circle of an asset), `layout.scatter` (Poisson-disk with seed and exclusion zones) | WP6 | L | open |
-| B04 | `scene` spec kind: actors, assets, transforms, materials, lights, cameras in one YAML; plan/apply on top of level.* and look.*; round-trip `film-ue describe scene > scene.yaml` | WP6 | L | open |
+| B02 | `level.find`: actors by label glob, class, tag, within a radius/box, with transform + bounds; `level.describe` the whole level as JSON (counts by class, lights, cameras, sequences) | WP6 | M | merged (agent-10, ue-layout) |
+| B03 | Layout primitives: `layout.place` (on floor via a downward trace, snap to grid, align to another actor's face), `layout.array` (row/grid/circle of an asset), `layout.scatter` (Poisson-disk with seed and exclusion zones) | WP6 | L | merged (agent-10, ue-layout) |
+| B04 | `scene` spec kind: actors, assets, transforms, materials, lights, cameras in one YAML; plan/apply on top of level.* and look.*; round-trip `film-ue describe scene > scene.yaml` | WP6 | L | merged (agent-10, ue-layout) |
 | B05 | Penetration and overlap check: `qa.overlaps` (actor pairs whose bounds or collision meshes intersect, depth in cm), `qa.floating` (actors not resting on anything) | WP10 | M | review agent-09 (ue-qa) |
 | B06 | `qa.framing`: for a camera at a frame, a target actor/bone's screen-space box, % of frame, headroom, lead room, rule-of-thirds distance, and whether it is clipped by the frame edge | WP10/WP7 | M | review agent-09 (ue-qa) |
 | B07 | `qa.exposure`: histogram, mean/median luma, clipped %, crushed %, per-region (face box) exposure from a still; verdict vs a target EV range | WP10 | S | review agent-09 (ue-qa) |
@@ -51,7 +51,7 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B35 | `GUIDE.md` for Claude: the 20 most common tasks as copy-paste recipes, with the expected JSON output of each step | WP11 | M | open |
 | B36 | Fab: list/import owned Fab assets by code (Fab plugin at Engine/Plugins/Fab), or document precisely why not headless and the narrowest UI fallback | WP2 | L | claimed agent-02 |
 | B37 | World Partition / large level support: load/unload regions, data layers on/off by op | WP6 | M | open |
-| B38 | Physics settle: drop props with physics sim for N ticks then bake transforms (realistic resting objects), multi-tick | WP6 | M | open |
+| B38 | Physics settle: drop props with physics sim for N ticks then bake transforms (realistic resting objects), multi-tick | WP6 | M | review (agent-10, ue-layout) |
 | B39 | Foliage/PCG: scatter foliage by code (InstancedFoliage / PCG graph with parameters), deterministic seed | WP5/WP6 | L | open |
 | B40 | Static analysis gate: a test that every engine API name used under unreal/fmbridge appears in some doc's API_NOTES table (keeps the "verify APIs" rule honest) | WP0 | S | merged (agent-10) |
 | B41 | Fake engine fidelity: a Sequencer fake (ext_seq) good enough to unit-test track/section/key writes and batching | WP8 | M | open |

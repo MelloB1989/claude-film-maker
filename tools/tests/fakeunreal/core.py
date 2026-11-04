@@ -473,6 +473,15 @@ class SceneComponent(ActorComponent):
     def set_relative_rotation(self, rot, sweep=False, teleport=False):
         self._props["relative_rotation"] = rot
 
+    def set_mobility(self, new_mobility):
+        self._props["mobility"] = new_mobility
+
+    def is_simulating_physics(self, bone_name="") -> bool:
+        return bool(self._props.get("simulate_physics", False))
+
+    def set_simulate_physics(self, simulate: bool):
+        self._props["simulate_physics"] = bool(simulate)
+
     def set_visibility(self, new_visibility: bool, propagate_to_children: bool = False):
         self._props["visible"] = bool(new_visibility)
 
@@ -1117,7 +1126,7 @@ class UnrealEditorSubsystem(EditorSubsystem):
         return _fake().world
 
     def get_game_world(self):
-        return None
+        return _fake().world if _fake().pie else None
 
     def get_level_viewport_camera_info(self):
         return True, Vector(), Rotator()
@@ -1151,6 +1160,22 @@ class LevelEditorSubsystem(EditorSubsystem):
 
     def editor_set_viewport_realtime(self, realtime: bool, viewport_config_key=""):
         _fake().viewport_realtime = realtime
+
+    # Play/Simulate in Editor: the "game world" is the editor world itself; fake.on_simulate(world), when set, runs
+    # at start (a test moves actors there as physics would)
+    def editor_play_simulate(self):
+        f = _fake()
+        f.pie = True
+        if f.on_simulate:
+            f.on_simulate(f.world)
+
+    editor_request_begin_play = editor_play_simulate
+
+    def editor_request_end_play(self):
+        _fake().pie = False
+
+    def is_in_play_in_editor(self) -> bool:
+        return _fake().pie
 
 
 class AssetEditorSubsystem(EditorSubsystem):
@@ -1342,6 +1367,8 @@ class FakeUnreal(types.ModuleType):
         self.transactions: list = []
         self.selection: list = []
         self.viewport_realtime = True
+        self.pie = False
+        self.on_simulate = None
         self.ticks = 0
         self._singletons: dict = {}
         self._tick_callbacks: dict = {}

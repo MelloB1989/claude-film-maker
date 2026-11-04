@@ -8,6 +8,8 @@ on layout.drop asks the physics scene instead (needs collision on the support).
 """
 from __future__ import annotations
 
+import time
+
 import unreal
 
 from . import _layout as L
@@ -338,3 +340,78 @@ def snap(*, labels: list, grid_cm: float = 10.0, yaw_step_deg: float = 0.0) -> d
             a.set_actor_rotation(r2, False)
             moved.append(lab)
     return {"changed": bool(moved), "moved": moved}
+
+
+@op("layout.settle", mutates=True, idempotent=False, tags=["slow", "physics", "experimental"])
+def settle(*, labels: list, seconds: float = 2.0, start_timeout_s: float = 60.0, keep_physics: bool = False):
+    """Let props fall and come to rest under physics, then keep where they landed (a pile of books, a dropped
+    cushion, a chair knocked over): runs Simulate in Editor for `seconds`, reads each actor's resting transform from
+    the simulated world and writes it back onto the editor actor. Multi-tick. The actors' meshes need collision, and
+    so does what they land on.
+
+    Args: labels: actors to simulate (made Movable, physics on for the run; restored after unless keep_physics).
+    seconds: simulated time to let them settle. start_timeout_s: how long to wait for Simulate to start.
+    Returns: {"changed", "moved": {label: {"loc", "rot", "dist_cm"}}, "still": [labels that did not move > 0.5 cm]}.
+    Example: film-ue op layout.settle 'labels=["Book_00","Book_01","Cushion"]' seconds=3
+    """
+    les = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+    ues = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
+    if les.is_in_play_in_editor():
+        raise OpError("a Play/Simulate session is already running", code="conflict",
+                      hint="stop it first (editor.console 'Exit' or the level editor) and retry")
+    acts = {lab: actor(lab) for lab in labels}
+    saved = {}
+    for lab, a in acts.items():
+        comps = a.get_components_by_class(unreal.PrimitiveComponent)
+        if not comps:
+            raise OpError(f"{lab} has nothing physical to simulate", code="bad_args", hint="level.get shows its components")
+        saved[lab] = [(c, c.get_editor_property("mobility"), c.is_simulating_physics()) for c in comps]
+        for c in comps:
+            c.set_mobility(unreal.ComponentMobility.MOVABLE)
+            c.set_simulate_physics(True)
+    before = {lab: (a.get_actor_location(), a.get_actor_rotation()) for lab, a in acts.items()}
+    landed = {}
+    try:
+        les.editor_play_simulate()
+        t0 = time.time()
+        while ues.get_game_world() is None:
+            if time.time() - t0 > start_timeout_s:
+                raise OpError(f"Simulate did not start within {start_timeout_s:g}s", code="timeout",
+                              hint="is the editor offscreen with no viewport? check film-ue log")
+            yield 0.1
+        world = ues.get_game_world()
+        end = time.time() + float(seconds)
+        while time.time() < end:
+            yield
+        for a in unreal.GameplayStatics.get_all_actors_of_class(world, unreal.Actor):
+            lab = a.get_actor_label()
+            if lab in acts:
+                landed[lab] = (a.get_actor_location(), a.get_actor_rotation())
+    finally:
+        if les.is_in_play_in_editor():
+            les.editor_request_end_play()
+        for _ in range(600):  # until the play world is gone (a few frames)
+            if not les.is_in_play_in_editor():
+                break
+            yield
+        for lab, comps in saved.items():
+            for c, mobility, sim in comps:
+                c.set_simulate_physics(bool(sim) or keep_physics)
+                if not keep_physics:
+                    c.set_mobility(mobility)
+    missing = sorted(set(acts) - set(landed))
+    if missing:
+        raise OpError(f"no simulated counterpart for {missing}", code="engine",
+                      hint="their transforms are unchanged; is the actor editor-only or in a sublevel?")
+    moved, still = {}, []
+    for lab, (loc, rot) in landed.items():
+        d = (loc - before[lab][0]).length()
+        if d <= 0.5 and rot.is_near_equal(before[lab][1], 0.5):
+            still.append(lab)
+            continue
+        acts[lab].set_actor_location(loc, False, True)
+        acts[lab].set_actor_rotation(rot, True)
+        moved[lab] = {"loc": [round(loc.x, 2), round(loc.y, 2), round(loc.z, 2)],
+                      "rot": {"pitch": round(rot.pitch, 3), "yaw": round(rot.yaw, 3), "roll": round(rot.roll, 3)},
+                      "dist_cm": round(d, 2)}
+    return {"changed": bool(moved), "moved": moved, "still": still}
