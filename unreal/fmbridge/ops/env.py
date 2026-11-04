@@ -886,7 +886,11 @@ def meter(*, camera: str, width: int = 192, height: int = 108, exposure_ev100: f
             for _ in range(3):  # temporal history and streaming settle across a few captures
                 cc.capture_scene()
                 yield
-            px = RL.read_render_target_raw_pixel_area(w, rt, 0, 0, int(width) - 1, int(height) - 1, key == "display")
+            # bNormalize False: raw HDR values (True clamps to 0-1: KismetRenderingLibrary.cpp:328); the LDR target
+            # holds display values already. A bool + out-param UFUNCTION returns the array (None on failure).
+            px = RL.read_render_target_raw(w, rt, key == "display")
+            if isinstance(px, tuple):
+                px = next((x for x in px if isinstance(x, (list, tuple))), None)
             rgb = [(float(p.r), float(p.g), float(p.b)) for p in (px or [])]
             if not rgb:
                 raise OpError(f"the {key} capture read back no pixels", code="engine",

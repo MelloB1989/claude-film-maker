@@ -1,0 +1,1818 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://claude-film-maker/schemas/environment.schema.json",
+ "title": "environment spec",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "kind"
+ ],
+ "properties": {
+  "kind": {
+   "const": "environment"
+  },
+  "version": {
+   "const": 1
+  },
+  "name": {
+   "type": "string",
+   "description": "owner name: prune scope"
+  },
+  "description": {
+   "type": "string"
+  },
+  "mood": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the mood to apply (a key of moods)"
+  },
+  "prune": {
+   "type": "boolean",
+   "description": "remove what this spec made earlier and no longer asks for"
+  },
+  "checks": {
+   "type": "object",
+   "description": "env.check: {camera, targets} (envlib/stats.py check targets)"
+  },
+  "lights": {
+   "type": "object",
+   "additionalProperties": {
+    "anyOf": [
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+       "at": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "barn_door_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "barn_door_length_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "channels": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "color": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "cone_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "diffuse": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "height_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "ies": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "ies_brightness": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "indirect": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "inner_cone_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "intensity_cd": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "intensity_lux": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "kind": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "label": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "loc": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "look_at": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "lumens": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "lux": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "nits": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "role": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "rotation": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "shadows": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "soft_radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "softness_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "source_length_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "source_radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "specular": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "tags": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "temperature_k": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "volumetric": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "width_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       }
+      }
+     },
+     {
+      "type": "boolean",
+      "const": false
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "description": ""
+   },
+   "description": "label -> light"
+  },
+  "practicals": {
+   "type": "object",
+   "additionalProperties": {
+    "anyOf": [
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+       "at": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "barn_door_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "barn_door_length_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "channels": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "color": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "cone_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "diffuse": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "height_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "ies": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "ies_brightness": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "indirect": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "inner_cone_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "intensity_cd": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "intensity_lux": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "kind": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "label": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "loc": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "look_at": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "lumens": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "lux": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "nits": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "role": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "rotation": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "shadows": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "soft_radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "softness_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "source_length_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "source_radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "specular": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "tags": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "temperature_k": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "volumetric": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "width_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "type": {
+        "enum": [
+         "bulb",
+         "candle",
+         "desk_lamp",
+         "downlight",
+         "fire",
+         "lamp",
+         "led_strip",
+         "neon",
+         "phone",
+         "screen",
+         "streetlight",
+         "tube",
+         "window"
+        ]
+       },
+       "aim": {
+        "enum": [
+         "down"
+        ]
+       },
+       "scale": {
+        "type": "number"
+       }
+      },
+      "required": [
+       "type"
+      ]
+     },
+     {
+      "type": "boolean",
+      "const": false
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "description": ""
+   },
+   "description": "label -> practical"
+  },
+  "rigs": {
+   "type": "object",
+   "additionalProperties": {
+    "anyOf": [
+     {
+      "type": "object",
+      "description": "a lighting rig",
+      "additionalProperties": false,
+      "properties": {
+       "subject": {
+        "description": "an actor label or [x,y,z] cm"
+       },
+       "subject_offset": {
+        "description": "[x,y,z] cm added (e.g. eye height)"
+       },
+       "socket": {
+        "description": "a socket/bone on the subject's skeletal mesh to light (e.g. 'head')"
+       },
+       "camera": {
+        "description": "a camera label or [x,y,z]"
+       },
+       "facing_yaw_deg": {
+        "description": "the subject's facing when there is no camera"
+       },
+       "preset": {
+        "description": "a rig preset (env.presets: rigs)"
+       },
+       "key_lux": {
+        "description": "lux on the subject from the key"
+       },
+       "ratio": {
+        "description": "lighting ratio (key+fill):fill"
+       },
+       "lights": {
+        "description": "per-role overrides {role: {...} | null}"
+       },
+       "key_side": {
+        "description": "left|right (camera-left/right)"
+       },
+       "scale": {
+        "description": "x distances and sizes"
+       },
+       "temperature_k": {
+        "description": "every light's kelvin"
+       },
+       "channels": {
+        "description": "lighting channels for every light"
+       }
+      }
+     },
+     {
+      "type": "boolean",
+      "const": false
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "description": "a lighting rig"
+   },
+   "description": "name -> rig; its lights are labelled <name>_<Role>"
+  },
+  "channels": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "array",
+    "items": {
+     "enum": [
+      0,
+      1,
+      2
+     ]
+    }
+   },
+   "description": "actor label -> lighting channels"
+  },
+  "preset": {
+   "enum": [
+    "exterior_blue_hour",
+    "exterior_day",
+    "exterior_golden",
+    "exterior_night",
+    "exterior_overcast",
+    "interior_day",
+    "interior_night",
+    "studio_black",
+    "studio_grey"
+   ],
+   "description": "a base environment"
+  },
+  "sun": {
+   "anyOf": [
+    {
+     "type": "object",
+     "description": "sun",
+     "additionalProperties": false,
+     "properties": {
+      "time": {
+       "description": "local time 'HH:MM', decimal hours, or a named time of day (env.presets: times)"
+      },
+      "lat": {
+       "description": "latitude, degrees north"
+      },
+      "lon": {
+       "description": "longitude, degrees east"
+      },
+      "date": {
+       "description": "YYYY-MM-DD"
+      },
+      "tz": {
+       "description": "time zone, hours east of UTC"
+      },
+      "elevation_deg": {
+       "description": "sun elevation above the horizon (overrides time)"
+      },
+      "azimuth_deg": {
+       "description": "compass azimuth, degrees clockwise from north"
+      },
+      "north_yaw_deg": {
+       "description": "the level yaw of geographic north (0 = +X)"
+      },
+      "intensity_lux": {
+       "description": "illuminance; 'auto' = 120000 with an atmosphere (it attenuates), else by elevation"
+      },
+      "temperature_k": {
+       "description": "colour temperature; 'auto' = 6500 with an atmosphere (it tints), else by elevation"
+      },
+      "softness_deg": {
+       "description": "the sun's angular diameter (shadow softness), 0.5357 is the real sun"
+      },
+      "channels": {
+       "description": "lighting channels [0..2]"
+      },
+      "cloud_shadows": {
+       "description": "cast shadows from volumetric clouds"
+      }
+     }
+    },
+    {
+     "type": "boolean",
+     "const": false
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "sun"
+  },
+  "moon": {
+   "anyOf": [
+    {
+     "type": "object",
+     "description": "moon",
+     "additionalProperties": false,
+     "properties": {
+      "elevation_deg": {
+       "description": "moon elevation"
+      },
+      "azimuth_deg": {
+       "description": "compass azimuth"
+      },
+      "north_yaw_deg": {
+       "description": "level yaw of north"
+      },
+      "intensity_lux": {
+       "description": "illuminance (full moon ~0.25; stylised night 0.5-2)"
+      },
+      "temperature_k": {
+       "description": "kelvin"
+      },
+      "softness_deg": {
+       "description": "angular size"
+      },
+      "channels": {
+       "description": "lighting channels"
+      }
+     }
+    },
+    {
+     "type": "boolean",
+     "const": false
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "moon"
+  },
+  "atmosphere": {
+   "anyOf": [
+    {
+     "type": "object",
+     "description": "atmosphere",
+     "additionalProperties": false,
+     "properties": {
+      "preset": {
+       "description": "clear|crisp|hazy|smoggy|dusty"
+      },
+      "haze": {
+       "description": "x Mie scattering (aerosols)"
+      },
+      "rayleigh": {
+       "description": "x Rayleigh scattering (sky blueness)"
+      },
+      "aerial_distance_scale": {
+       "description": "x aerial perspective"
+      },
+      "mie_anisotropy": {
+       "description": "0-1 forward scattering of haze"
+      },
+      "ground_albedo": {
+       "description": "[r,g,b] linear"
+      },
+      "multi_scattering": {
+       "description": "multi-scattering factor"
+      },
+      "height_fog_contribution": {
+       "description": "0-1"
+      }
+     }
+    },
+    {
+     "type": "boolean",
+     "const": false
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "atmosphere"
+  },
+  "clouds": {
+   "anyOf": [
+    {
+     "type": "object",
+     "description": "clouds",
+     "additionalProperties": false,
+     "properties": {
+      "bottom_km": {
+       "description": "cloud layer bottom altitude, km"
+      },
+      "height_km": {
+       "description": "cloud layer thickness, km"
+      },
+      "material": {
+       "description": "a volumetric cloud material path (default: the engine's simple clouds)"
+      }
+     }
+    },
+    {
+     "type": "boolean",
+     "const": false
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "clouds"
+  },
+  "sky_light": {
+   "anyOf": [
+    {
+     "type": "object",
+     "description": "sky_light",
+     "additionalProperties": false,
+     "properties": {
+      "mode": {
+       "description": "realtime|captured|cubemap"
+      },
+      "intensity": {
+       "description": "scale"
+      },
+      "cubemap": {
+       "description": "a TextureCube path"
+      },
+      "cubemap_angle_deg": {
+       "description": "rotation of the cubemap"
+      },
+      "lower_hemisphere_black": {
+       "description": "bool"
+      },
+      "lower_hemisphere_color": {
+       "description": "[r,g,b] linear"
+      },
+      "channels": {
+       "description": "lighting channels"
+      },
+      "cast_shadows": {
+       "description": "bool"
+      }
+     }
+    },
+    {
+     "type": "boolean",
+     "const": false
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "sky_light"
+  },
+  "hdri": {
+   "anyOf": [
+    {
+     "type": "object",
+     "description": "hdri",
+     "additionalProperties": false,
+     "properties": {
+      "cubemap": {
+       "description": "a TextureCube path (an .hdr imported as a long-lat cubemap)"
+      },
+      "intensity": {
+       "description": "sky light scale"
+      },
+      "rotation_deg": {
+       "description": "yaw of the image"
+      },
+      "backdrop": {
+       "description": "also show it as a backdrop (HDRIBackdrop plugin)"
+      },
+      "size_cm": {
+       "description": "backdrop size"
+      }
+     }
+    },
+    {
+     "type": "boolean",
+     "const": false
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "hdri"
+  },
+  "fog": {
+   "anyOf": [
+    {
+     "type": "object",
+     "description": "fog",
+     "additionalProperties": false,
+     "properties": {
+      "preset": {
+       "description": "none|light|haze|mist|dense|ground|interior_haze"
+      },
+      "density": {
+       "description": "fog density"
+      },
+      "falloff": {
+       "description": "height falloff"
+      },
+      "height_cm": {
+       "description": "fog base height (actor z)"
+      },
+      "start_cm": {
+       "description": "start distance"
+      },
+      "max_opacity": {
+       "description": "0-1"
+      },
+      "cutoff_cm": {
+       "description": "cutoff distance (0 = none)"
+      },
+      "color": {
+       "description": "inscattering [r,g,b] linear"
+      },
+      "volumetric": {
+       "description": "bool: volumetric fog (light shafts)"
+      },
+      "albedo": {
+       "description": "volumetric albedo [r,g,b]"
+      },
+      "extinction": {
+       "description": "volumetric extinction scale"
+      },
+      "distance_cm": {
+       "description": "volumetric fog view distance"
+      },
+      "scattering": {
+       "description": "volumetric scattering distribution (-0.9..0.9, 0.2 = slightly forward)"
+      },
+      "emissive": {
+       "description": "volumetric emissive [r,g,b]"
+      }
+     }
+    },
+    {
+     "type": "boolean",
+     "const": false
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "fog"
+  },
+  "exposure": {
+   "anyOf": [
+    {
+     "type": "object",
+     "description": "exposure",
+     "additionalProperties": false,
+     "properties": {
+      "mode": {
+       "description": "manual|physical|auto"
+      },
+      "ev100": {
+       "description": "the scene EV100 to expose for, or 'auto' (from the key light / sun)"
+      },
+      "compensation": {
+       "description": "stops brighter (+) or darker (-)"
+      },
+      "fstop": {
+       "description": "physical: aperture"
+      },
+      "shutter_s": {
+       "description": "physical: shutter time, s"
+      },
+      "iso": {
+       "description": "physical: ISO"
+      },
+      "min_ev100": {
+       "description": "auto: the darkest scene EV100 it adapts to"
+      },
+      "max_ev100": {
+       "description": "auto: the brightest"
+      },
+      "speed": {
+       "description": "auto: adaptation speed (stops/s)"
+      }
+     }
+    },
+    {
+     "type": "boolean",
+     "const": false
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "exposure"
+  },
+  "grade": {
+   "anyOf": [
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "bloom": {},
+      "bloom_intensity": {},
+      "bloom_threshold": {},
+      "chromatic_aberration": {},
+      "color_contrast": {},
+      "color_contrast_highlights": {},
+      "color_contrast_midtones": {},
+      "color_contrast_shadows": {},
+      "color_gain": {},
+      "color_gain_highlights": {},
+      "color_gain_midtones": {},
+      "color_gain_shadows": {},
+      "color_gamma": {},
+      "color_gamma_highlights": {},
+      "color_gamma_midtones": {},
+      "color_gamma_shadows": {},
+      "color_grading_intensity": {},
+      "color_grading_lut": {},
+      "color_offset": {},
+      "color_offset_highlights": {},
+      "color_offset_midtones": {},
+      "color_offset_shadows": {},
+      "color_saturation": {},
+      "color_saturation_highlights": {},
+      "color_saturation_midtones": {},
+      "color_saturation_shadows": {},
+      "color_tint": {},
+      "contrast": {},
+      "film_black_clip": {},
+      "film_grain_intensity": {},
+      "film_shoulder": {},
+      "film_slope": {},
+      "film_toe": {},
+      "film_white_clip": {},
+      "fringe": {},
+      "gain": {},
+      "gamma": {},
+      "grain": {},
+      "lut": {},
+      "lut_intensity": {},
+      "offset": {},
+      "preset": {
+       "enum": [
+        "bleach_bypass",
+        "clean",
+        "documentary",
+        "golden_hour",
+        "high_contrast",
+        "moonlight",
+        "neutral",
+        "noir_bw",
+        "pastel",
+        "teal_orange",
+        "vintage_fade",
+        "warm_film"
+       ]
+      },
+      "saturation": {},
+      "scene_color_tint": {},
+      "scene_fringe_intensity": {},
+      "tint": {},
+      "vignette": {},
+      "vignette_intensity": {},
+      "white_balance": {},
+      "white_temp": {},
+      "white_tint": {}
+     },
+     "description": "colour grade"
+    },
+    {
+     "type": "boolean",
+     "const": false
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "colour grade"
+  },
+  "quality": {
+   "anyOf": [
+    {
+     "enum": [
+      "cinematic",
+      "draft",
+      "final",
+      "no_gi",
+      "preview"
+     ]
+    },
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "cvars": {},
+      "fog_grid": {},
+      "gi": {},
+      "hit_lighting": {},
+      "hwrt": {},
+      "lumen": {},
+      "megalights": {},
+      "preset": {},
+      "reflections": {},
+      "shadows": {},
+      "trace_mesh_sdfs": {},
+      "vsm_bias": {}
+     }
+    },
+    {
+     "const": false
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "Lumen/VSM/HWRT preset (envlib/quality.py)"
+  },
+  "post": {
+   "type": "object",
+   "description": "raw PostProcessSettings fields"
+  },
+  "reflection_captures": {
+   "type": "object",
+   "additionalProperties": {
+    "anyOf": [
+     {
+      "type": "object",
+      "description": "a reflection capture",
+      "additionalProperties": false,
+      "properties": {
+       "shape": {
+        "description": "sphere|box"
+       },
+       "loc": {
+        "description": "[x,y,z] cm"
+       },
+       "radius_cm": {
+        "description": "sphere influence radius"
+       },
+       "extent_cm": {
+        "description": "box half-size [x,y,z] cm"
+       },
+       "transition_cm": {
+        "description": "box blend distance"
+       },
+       "brightness": {
+        "description": "scale"
+       }
+      }
+     },
+     {
+      "type": "boolean",
+      "const": false
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "description": "a reflection capture"
+   },
+   "description": "label -> capture"
+  },
+  "cvars": {
+   "type": "object",
+   "description": "console variables"
+  },
+  "moods": {
+   "type": "object",
+   "description": "name -> a partial spec merged over this one",
+   "additionalProperties": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "sun": {
+      "anyOf": [
+       {
+        "type": "object",
+        "description": "sun",
+        "additionalProperties": false,
+        "properties": {
+         "time": {
+          "description": "local time 'HH:MM', decimal hours, or a named time of day (env.presets: times)"
+         },
+         "lat": {
+          "description": "latitude, degrees north"
+         },
+         "lon": {
+          "description": "longitude, degrees east"
+         },
+         "date": {
+          "description": "YYYY-MM-DD"
+         },
+         "tz": {
+          "description": "time zone, hours east of UTC"
+         },
+         "elevation_deg": {
+          "description": "sun elevation above the horizon (overrides time)"
+         },
+         "azimuth_deg": {
+          "description": "compass azimuth, degrees clockwise from north"
+         },
+         "north_yaw_deg": {
+          "description": "the level yaw of geographic north (0 = +X)"
+         },
+         "intensity_lux": {
+          "description": "illuminance; 'auto' = 120000 with an atmosphere (it attenuates), else by elevation"
+         },
+         "temperature_k": {
+          "description": "colour temperature; 'auto' = 6500 with an atmosphere (it tints), else by elevation"
+         },
+         "softness_deg": {
+          "description": "the sun's angular diameter (shadow softness), 0.5357 is the real sun"
+         },
+         "channels": {
+          "description": "lighting channels [0..2]"
+         },
+         "cloud_shadows": {
+          "description": "cast shadows from volumetric clouds"
+         }
+        }
+       },
+       {
+        "type": "boolean",
+        "const": false
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "sun"
+     },
+     "moon": {
+      "anyOf": [
+       {
+        "type": "object",
+        "description": "moon",
+        "additionalProperties": false,
+        "properties": {
+         "elevation_deg": {
+          "description": "moon elevation"
+         },
+         "azimuth_deg": {
+          "description": "compass azimuth"
+         },
+         "north_yaw_deg": {
+          "description": "level yaw of north"
+         },
+         "intensity_lux": {
+          "description": "illuminance (full moon ~0.25; stylised night 0.5-2)"
+         },
+         "temperature_k": {
+          "description": "kelvin"
+         },
+         "softness_deg": {
+          "description": "angular size"
+         },
+         "channels": {
+          "description": "lighting channels"
+         }
+        }
+       },
+       {
+        "type": "boolean",
+        "const": false
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "moon"
+     },
+     "atmosphere": {
+      "anyOf": [
+       {
+        "type": "object",
+        "description": "atmosphere",
+        "additionalProperties": false,
+        "properties": {
+         "preset": {
+          "description": "clear|crisp|hazy|smoggy|dusty"
+         },
+         "haze": {
+          "description": "x Mie scattering (aerosols)"
+         },
+         "rayleigh": {
+          "description": "x Rayleigh scattering (sky blueness)"
+         },
+         "aerial_distance_scale": {
+          "description": "x aerial perspective"
+         },
+         "mie_anisotropy": {
+          "description": "0-1 forward scattering of haze"
+         },
+         "ground_albedo": {
+          "description": "[r,g,b] linear"
+         },
+         "multi_scattering": {
+          "description": "multi-scattering factor"
+         },
+         "height_fog_contribution": {
+          "description": "0-1"
+         }
+        }
+       },
+       {
+        "type": "boolean",
+        "const": false
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "atmosphere"
+     },
+     "clouds": {
+      "anyOf": [
+       {
+        "type": "object",
+        "description": "clouds",
+        "additionalProperties": false,
+        "properties": {
+         "bottom_km": {
+          "description": "cloud layer bottom altitude, km"
+         },
+         "height_km": {
+          "description": "cloud layer thickness, km"
+         },
+         "material": {
+          "description": "a volumetric cloud material path (default: the engine's simple clouds)"
+         }
+        }
+       },
+       {
+        "type": "boolean",
+        "const": false
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "clouds"
+     },
+     "sky_light": {
+      "anyOf": [
+       {
+        "type": "object",
+        "description": "sky_light",
+        "additionalProperties": false,
+        "properties": {
+         "mode": {
+          "description": "realtime|captured|cubemap"
+         },
+         "intensity": {
+          "description": "scale"
+         },
+         "cubemap": {
+          "description": "a TextureCube path"
+         },
+         "cubemap_angle_deg": {
+          "description": "rotation of the cubemap"
+         },
+         "lower_hemisphere_black": {
+          "description": "bool"
+         },
+         "lower_hemisphere_color": {
+          "description": "[r,g,b] linear"
+         },
+         "channels": {
+          "description": "lighting channels"
+         },
+         "cast_shadows": {
+          "description": "bool"
+         }
+        }
+       },
+       {
+        "type": "boolean",
+        "const": false
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "sky_light"
+     },
+     "hdri": {
+      "anyOf": [
+       {
+        "type": "object",
+        "description": "hdri",
+        "additionalProperties": false,
+        "properties": {
+         "cubemap": {
+          "description": "a TextureCube path (an .hdr imported as a long-lat cubemap)"
+         },
+         "intensity": {
+          "description": "sky light scale"
+         },
+         "rotation_deg": {
+          "description": "yaw of the image"
+         },
+         "backdrop": {
+          "description": "also show it as a backdrop (HDRIBackdrop plugin)"
+         },
+         "size_cm": {
+          "description": "backdrop size"
+         }
+        }
+       },
+       {
+        "type": "boolean",
+        "const": false
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "hdri"
+     },
+     "fog": {
+      "anyOf": [
+       {
+        "type": "object",
+        "description": "fog",
+        "additionalProperties": false,
+        "properties": {
+         "preset": {
+          "description": "none|light|haze|mist|dense|ground|interior_haze"
+         },
+         "density": {
+          "description": "fog density"
+         },
+         "falloff": {
+          "description": "height falloff"
+         },
+         "height_cm": {
+          "description": "fog base height (actor z)"
+         },
+         "start_cm": {
+          "description": "start distance"
+         },
+         "max_opacity": {
+          "description": "0-1"
+         },
+         "cutoff_cm": {
+          "description": "cutoff distance (0 = none)"
+         },
+         "color": {
+          "description": "inscattering [r,g,b] linear"
+         },
+         "volumetric": {
+          "description": "bool: volumetric fog (light shafts)"
+         },
+         "albedo": {
+          "description": "volumetric albedo [r,g,b]"
+         },
+         "extinction": {
+          "description": "volumetric extinction scale"
+         },
+         "distance_cm": {
+          "description": "volumetric fog view distance"
+         },
+         "scattering": {
+          "description": "volumetric scattering distribution (-0.9..0.9, 0.2 = slightly forward)"
+         },
+         "emissive": {
+          "description": "volumetric emissive [r,g,b]"
+         }
+        }
+       },
+       {
+        "type": "boolean",
+        "const": false
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "fog"
+     },
+     "exposure": {
+      "anyOf": [
+       {
+        "type": "object",
+        "description": "exposure",
+        "additionalProperties": false,
+        "properties": {
+         "mode": {
+          "description": "manual|physical|auto"
+         },
+         "ev100": {
+          "description": "the scene EV100 to expose for, or 'auto' (from the key light / sun)"
+         },
+         "compensation": {
+          "description": "stops brighter (+) or darker (-)"
+         },
+         "fstop": {
+          "description": "physical: aperture"
+         },
+         "shutter_s": {
+          "description": "physical: shutter time, s"
+         },
+         "iso": {
+          "description": "physical: ISO"
+         },
+         "min_ev100": {
+          "description": "auto: the darkest scene EV100 it adapts to"
+         },
+         "max_ev100": {
+          "description": "auto: the brightest"
+         },
+         "speed": {
+          "description": "auto: adaptation speed (stops/s)"
+         }
+        }
+       },
+       {
+        "type": "boolean",
+        "const": false
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "exposure"
+     },
+     "grade": {
+      "anyOf": [
+       {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "bloom": {},
+         "bloom_intensity": {},
+         "bloom_threshold": {},
+         "chromatic_aberration": {},
+         "color_contrast": {},
+         "color_contrast_highlights": {},
+         "color_contrast_midtones": {},
+         "color_contrast_shadows": {},
+         "color_gain": {},
+         "color_gain_highlights": {},
+         "color_gain_midtones": {},
+         "color_gain_shadows": {},
+         "color_gamma": {},
+         "color_gamma_highlights": {},
+         "color_gamma_midtones": {},
+         "color_gamma_shadows": {},
+         "color_grading_intensity": {},
+         "color_grading_lut": {},
+         "color_offset": {},
+         "color_offset_highlights": {},
+         "color_offset_midtones": {},
+         "color_offset_shadows": {},
+         "color_saturation": {},
+         "color_saturation_highlights": {},
+         "color_saturation_midtones": {},
+         "color_saturation_shadows": {},
+         "color_tint": {},
+         "contrast": {},
+         "film_black_clip": {},
+         "film_grain_intensity": {},
+         "film_shoulder": {},
+         "film_slope": {},
+         "film_toe": {},
+         "film_white_clip": {},
+         "fringe": {},
+         "gain": {},
+         "gamma": {},
+         "grain": {},
+         "lut": {},
+         "lut_intensity": {},
+         "offset": {},
+         "preset": {
+          "enum": [
+           "bleach_bypass",
+           "clean",
+           "documentary",
+           "golden_hour",
+           "high_contrast",
+           "moonlight",
+           "neutral",
+           "noir_bw",
+           "pastel",
+           "teal_orange",
+           "vintage_fade",
+           "warm_film"
+          ]
+         },
+         "saturation": {},
+         "scene_color_tint": {},
+         "scene_fringe_intensity": {},
+         "tint": {},
+         "vignette": {},
+         "vignette_intensity": {},
+         "white_balance": {},
+         "white_temp": {},
+         "white_tint": {}
+        },
+        "description": "colour grade"
+       },
+       {
+        "type": "boolean",
+        "const": false
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "colour grade"
+     },
+     "quality": {
+      "anyOf": [
+       {
+        "enum": [
+         "cinematic",
+         "draft",
+         "final",
+         "no_gi",
+         "preview"
+        ]
+       },
+       {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "cvars": {},
+         "fog_grid": {},
+         "gi": {},
+         "hit_lighting": {},
+         "hwrt": {},
+         "lumen": {},
+         "megalights": {},
+         "preset": {},
+         "reflections": {},
+         "shadows": {},
+         "trace_mesh_sdfs": {},
+         "vsm_bias": {}
+        }
+       },
+       {
+        "const": false
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Lumen/VSM/HWRT preset (envlib/quality.py)"
+     },
+     "post": {
+      "type": "object",
+      "description": "raw PostProcessSettings fields"
+     },
+     "reflection_captures": {
+      "type": "object",
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "object",
+         "description": "a reflection capture",
+         "additionalProperties": false,
+         "properties": {
+          "shape": {
+           "description": "sphere|box"
+          },
+          "loc": {
+           "description": "[x,y,z] cm"
+          },
+          "radius_cm": {
+           "description": "sphere influence radius"
+          },
+          "extent_cm": {
+           "description": "box half-size [x,y,z] cm"
+          },
+          "transition_cm": {
+           "description": "box blend distance"
+          },
+          "brightness": {
+           "description": "scale"
+          }
+         }
+        },
+        {
+         "type": "boolean",
+         "const": false
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "a reflection capture"
+      },
+      "description": "label -> capture"
+     },
+     "cvars": {
+      "type": "object",
+      "description": "console variables"
+     },
+     "lights": {
+      "type": "object",
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "object",
+         "additionalProperties": false,
+         "properties": {
+          "at": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "barn_door_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "barn_door_length_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "channels": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "color": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "cone_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "diffuse": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "height_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "ies": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "ies_brightness": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "indirect": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "inner_cone_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "intensity_cd": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "intensity_lux": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "kind": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "label": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "loc": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "look_at": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "lumens": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "lux": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "nits": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "role": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "rotation": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "shadows": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "soft_radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "softness_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "source_length_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "source_radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "specular": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "tags": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "temperature_k": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "volumetric": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "width_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          }
+         }
+        },
+        {
+         "type": "boolean",
+         "const": false
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": ""
+      },
+      "description": "label -> light"
+     },
+     "rigs": {
+      "type": "object",
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "object",
+         "description": "a lighting rig",
+         "additionalProperties": false,
+         "properties": {
+          "subject": {
+           "description": "an actor label or [x,y,z] cm"
+          },
+          "subject_offset": {
+           "description": "[x,y,z] cm added (e.g. eye height)"
+          },
+          "socket": {
+           "description": "a socket/bone on the subject's skeletal mesh to light (e.g. 'head')"
+          },
+          "camera": {
+           "description": "a camera label or [x,y,z]"
+          },
+          "facing_yaw_deg": {
+           "description": "the subject's facing when there is no camera"
+          },
+          "preset": {
+           "description": "a rig preset (env.presets: rigs)"
+          },
+          "key_lux": {
+           "description": "lux on the subject from the key"
+          },
+          "ratio": {
+           "description": "lighting ratio (key+fill):fill"
+          },
+          "lights": {
+           "description": "per-role overrides {role: {...} | null}"
+          },
+          "key_side": {
+           "description": "left|right (camera-left/right)"
+          },
+          "scale": {
+           "description": "x distances and sizes"
+          },
+          "temperature_k": {
+           "description": "every light's kelvin"
+          },
+          "channels": {
+           "description": "lighting channels for every light"
+          }
+         }
+        },
+        {
+         "type": "boolean",
+         "const": false
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "a lighting rig"
+      },
+      "description": "name -> rig; its lights are labelled <name>_<Role>"
+     },
+     "practicals": {
+      "type": "object",
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "object",
+         "additionalProperties": false,
+         "properties": {
+          "at": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "barn_door_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "barn_door_length_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "channels": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "color": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "cone_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "diffuse": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "height_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "ies": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "ies_brightness": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "indirect": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "inner_cone_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "intensity_cd": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "intensity_lux": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "kind": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "label": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "loc": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "look_at": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "lumens": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "lux": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "nits": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "role": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "rotation": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "shadows": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "soft_radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "softness_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "source_length_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "source_radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "specular": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "tags": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "temperature_k": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "volumetric": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "width_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "type": {
+           "enum": [
+            "bulb",
+            "candle",
+            "desk_lamp",
+            "downlight",
+            "fire",
+            "lamp",
+            "led_strip",
+            "neon",
+            "phone",
+            "screen",
+            "streetlight",
+            "tube",
+            "window"
+           ]
+          },
+          "aim": {
+           "enum": [
+            "down"
+           ]
+          },
+          "scale": {
+           "type": "number"
+          }
+         },
+         "required": [
+          "type"
+         ]
+        },
+        {
+         "type": "boolean",
+         "const": false
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": ""
+      },
+      "description": "label -> practical"
+     },
+     "channels": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "array",
+       "items": {
+        "enum": [
+         0,
+         1,
+         2
+        ]
+       }
+      },
+      "description": "actor label -> lighting channels"
+     }
+    }
+   }
+  }
+ }
+}
