@@ -7,7 +7,7 @@ from pathlib import Path
 
 BRIDGE = Path(__file__).resolve().parents[2] / "unreal" / "fmbridge"
 HELPER = "ops/_util.py"                      # the one place allowed to name the fallback
-PENDING = {"ops/qa.py"}                      # agent-09's switch (ca9b8e0) not merged yet: delete once it is
+PENDING: set = set()                         # files still switching (empty: qa.py and foliage.py both use the helper)
 
 
 def uses() -> dict:
