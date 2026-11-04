@@ -93,6 +93,7 @@ def log_tail(logs: str, lines: int = 200) -> str:
         return "\n".join(f.read().decode("utf-8", "replace").splitlines()[-lines:])
 
 
+IDLE_FPS = 30  # offscreen editor between jobs; a bridge op that runs over several ticks advances one step per tick
 NO_DESKTOP = {"ok": False, "error": f"no desktop on {sys.platform}: use look.still / seq.still for pictures"}
 
 
@@ -136,9 +137,25 @@ def _tick(_dt):
         return
     _state["in_tick"] = True
     try:
+        if not _state.get("idle_set"):
+            _state["idle_set"] = True
+            _idle_offscreen()
         _drain()
     finally:
         _state["in_tick"] = False
+
+
+def _idle_offscreen():
+    """With no desktop nobody looks at the level viewport, but a realtime one still renders the scene every frame
+    (Lumen and all: the GPU at full load between jobs). Off Windows: the viewport redraws only on change, and the
+    editor ticks at most IDLE_FPS (Movie Render Queue lifts the cap with its own t.MaxFPS while it renders)."""
+    if sys.platform == "win32":
+        return
+    try:
+        unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).editor_set_viewport_realtime(False)
+        unreal.SystemLibrary.execute_console_command(None, f"t.MaxFPS {IDLE_FPS}")
+    except Exception as e:
+        unreal.log_warning(f"fmbridge: could not idle the offscreen viewport: {e}")
 
 
 def _drain():

@@ -59,6 +59,7 @@ def mrq(sequence: str, level: str, out_dir: str, width: int = 1920, height: int 
     aa.spatial_sample_count, aa.temporal_sample_count = spatial, temporal
     aa.engine_warm_up_count = aa.render_warm_up_count = warmup
     cv = dict(QUALITY_CVARS if quality else {})
+    cv["t.MaxFPS"] = 0  # no frame cap while rendering (the bridge caps an offscreen editor between jobs)
     cv.update(cvars or {})
     if cv:
         cvs = cfg.find_or_add_setting_by_class(unreal.MoviePipelineConsoleVariableSetting)
