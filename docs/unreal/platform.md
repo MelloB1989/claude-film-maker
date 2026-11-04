@@ -120,6 +120,9 @@ film-ue pull-dir REMOTE_DIR LOCAL_DIR              # a folder (S3 / rsync / copy
 | `editor.wait_compile(timeout_s, settle_s, finish)` | multi-tick: until no ShaderCompileWorker, then finish asset compilation |
 | `editor.gc()` | collect garbage; memory before/after |
 | `editor.epic_exchange_code(code)` | hand the MetaHuman services a single-use exchange code (never returned or journaled) |
+| `editor.plugins(enable, disable, prefix)` | enabled plugins; turn plugins on/off in the .uproject (`restart_required`) |
+| `editor.cvars(names, values, snapshot, restore)` | several cvars at once; a named snapshot to put them back later (survives a bridge reload) |
+| `editor.project_setting(file, section, key, value)` | read/write Config/Default<file>.ini, comments and arrays untouched (`restart_required`) |
 | `bridge.health` | the /health answer as an op |
 | `jobs.list(state, name, limit)`, `jobs.get(id)`, `jobs.cancel(id)` | the bridge's jobs |
 
@@ -129,6 +132,16 @@ HTTP (what the client speaks): `POST /op`, `POST /exec` (`{"async": true}` retur
 `Saved/fmbridge.token` (compared in constant time). JSON requests are capped at 32 MB and a `PUT /file` at 4 GB
 (413 above). `/file` paths must be absolute and inside the project, the temp folder or the editor user's home:
 `FMBRIDGE_FILE_ROOTS` (os.pathsep-separated) adds roots, and anything else is 403.
+
+### Plugins, console variables and project settings
+
+```bash
+film-ue op editor.plugins prefix=Movie                                # enabled plugins
+film-ue op editor.plugins 'enable=["MovieRenderPipeline"]'            # .uproject; then: film-ue editor restart --wait
+film-ue op editor.cvars 'values={"r.RayTracing": 0}' snapshot=pre      # change several, remember the old values
+film-ue op editor.cvars restore=pre                                   # put them back
+film-ue op editor.project_setting section=/Script/Engine.RendererSettings key=r.RayTracing value=True
+```
 
 ### Several ops in one call
 
@@ -203,6 +216,9 @@ None: boxes and the editor are imperative on purpose (a TTL, a restart, a sync h
 | `-NoMetaHumanAccountPortalLoginFallback` | MetaHumanCloudAuthentication.cpp:262 | fail fast instead of a browser |
 | `Fab.Login`, `Fab.Logout`, `Fab.SetEnvironment` | Plugins/Fab/Source/Fab/Private/FabConsoleCommands.cpp:28, :19, :43 | Logout and SetEnvironment delete the persistent auth |
 | `FPlatformProcess::LaunchURL` → `/usr/bin/xdg-open URL` | Runtime/Core/Private/Unix/UnixPlatformProcess.cpp:712 | why `BROWSER=ue-epic-url` captures the device-code page on a box with no desktop |
+| `PluginBlueprintLibrary.get_enabled_plugin_names` | Runtime/Engine/Public/PluginBlueprintLibrary.h:48 | editor.plugins |
+| `PluginBlueprintLibrary.get_plugin_descriptor_file_path` | PluginBlueprintLibrary.h:74 | a bool UFUNCTION with an out parameter returns the out value, or None for false (PythonScriptPlugin/.../PyGenUtil.cpp:1161) |
+| (no API enables a plugin) | — | editor.plugins edits the .uproject's "Plugins" list; the engine reads it at start |
 | embedded Python 3.11 | Engine/Source/ThirdParty/Python3 (python_v3.11.x.tps) | no 3.12 syntax under unreal/ |
 
 ## 7. Selftest
