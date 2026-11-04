@@ -1,0 +1,179 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "scene.schema.json",
+ "title": "scene",
+ "description": "A set of actors in the open level, converged by film-ue apply (scene.apply in the editor).",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "kind",
+  "version",
+  "name",
+  "actors"
+ ],
+ "properties": {
+  "kind": {
+   "const": "scene"
+  },
+  "version": {
+   "const": 1
+  },
+  "name": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9_.-]+$",
+   "description": "Scene id; its actors are tagged fm.scene:<name>."
+  },
+  "description": {
+   "type": "string"
+  },
+  "folder": {
+   "type": "string",
+   "description": "Default outliner folder for the scene's actors."
+  },
+  "prune": {
+   "type": "boolean",
+   "default": false,
+   "description": "Delete actors tagged with this scene that the spec no longer lists."
+  },
+  "actors": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/actor"
+   }
+  }
+ },
+ "$defs": {
+  "vec3": {
+   "type": "array",
+   "items": {
+    "type": "number"
+   },
+   "minItems": 3,
+   "maxItems": 3
+  },
+  "actor": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "label"
+   ],
+   "properties": {
+    "label": {
+     "type": "string",
+     "minLength": 1,
+     "description": "Actor label, unique in the level."
+    },
+    "asset": {
+     "type": "string",
+     "pattern": "^/",
+     "description": "Mesh or Blueprint package path."
+    },
+    "shape": {
+     "enum": [
+      "cone",
+      "cube",
+      "cylinder",
+      "plane",
+      "sphere"
+     ],
+     "description": "A basic shape (100 cm)."
+    },
+    "class": {
+     "type": "string",
+     "description": "An actor class name (PointLight, CineCameraActor)."
+    },
+    "loc": {
+     "$ref": "#/$defs/vec3",
+     "description": "Location [x, y, z] cm."
+    },
+    "rot": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "pitch": {
+       "type": "number"
+      },
+      "yaw": {
+       "type": "number"
+      },
+      "roll": {
+       "type": "number"
+      }
+     },
+     "description": "Rotation in degrees (missing axes are 0)."
+    },
+    "scale": {
+     "oneOf": [
+      {
+       "type": "number"
+      },
+      {
+       "$ref": "#/$defs/vec3"
+      }
+     ],
+     "description": "Uniform or [x, y, z] scale."
+    },
+    "size": {
+     "$ref": "#/$defs/vec3",
+     "description": "For shapes: size [x, y, z] cm (scale = size / 100)."
+    },
+    "material": {
+     "type": "string",
+     "pattern": "^/",
+     "description": "Material for slot 0."
+    },
+    "tags": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "folder": {
+     "type": "string",
+     "description": "Outliner folder (overrides the scene's)."
+    },
+    "hidden": {
+     "type": "boolean",
+     "description": "Hidden in game and renders."
+    },
+    "drop": {
+     "type": "boolean",
+     "description": "Rest on what is under it after placing."
+    },
+    "props": {
+     "type": "object",
+     "description": "Editor properties to set on the actor."
+    },
+    "relative": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "of"
+     ],
+     "properties": {
+      "of": {
+       "type": "string"
+      },
+      "offset_cm": {
+       "$ref": "#/$defs/vec3",
+       "description": "[forward, right, up] cm in `of`'s yaw frame."
+      },
+      "face": {
+       "enum": [
+        "toward",
+        "away",
+        "same",
+        "none",
+        "fixed"
+       ]
+      },
+      "yaw_deg": {
+       "type": "number"
+      }
+     },
+     "description": "Place relative to another actor instead of `loc`."
+    }
+   }
+  }
+ }
+}
