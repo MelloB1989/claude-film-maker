@@ -235,7 +235,8 @@ def rig(*, subject: str | list, camera: str | list = None, facing_yaw_deg: float
     window). key_lux: lux on the subject from the key. ratio: (key+fill):fill, 2 flat .. 8 noir. lights: per-role
     overrides {"rim": {"rel": 1.5}, "fill": null, "kicker": {}} (fields: angle side elevation distance width height
     cone temperature color rel lux candelas shadows channels). prefix: label prefix (lights are <prefix><Role>).
-    key_side: left|right (camera-left/right). scale: x distances/sizes. temperature_k/channels: for every light.
+    key_side: left|right (camera-left/right), or short|broad (from the subject's facing: `facing_yaw_deg` or the
+    subject actor's yaw, +X its front; short keys the side of the face turned away from the lens). scale: x distances/sizes. temperature_k/channels: for every light.
     Returns: {"changed", "lights": [labels], "removed": [labels], "subject_point", "camera_point",
     "measured": {"lux", "per_light", "ratio"}}.
     Example: film-ue op light.rig subject=Host camera=HostCam preset=interview key_lux=900 prefix=Host_
@@ -243,9 +244,12 @@ def rig(*, subject: str | list, camera: str | list = None, facing_yaw_deg: float
     sp = _point_of(subject, subject_offset, socket)
     cp = _point_of(camera, head=False) if camera is not None else None
     try:
+        syaw = facing_yaw_deg
+        if syaw is None and isinstance(subject, str) and U.find(subject) is not None:
+            syaw = float(U.find(subject).get_actor_rotation().yaw)  # the actor's +X is its front
         planned = R.plan(sp, camera=cp, facing=facing_yaw_deg, preset=preset, key_lux=key_lux, ratio=ratio,
                          lights=lights, prefix=prefix, key_side=key_side, scale=scale, temperature=temperature_k,
-                         channels=channels)
+                         channels=channels, subject_yaw=syaw)
         canon = R.to_lights(planned)
     except ValueError as e:
         raise OpError(str(e), code="bad_args", hint="env.presets lists the rig presets and roles") from None

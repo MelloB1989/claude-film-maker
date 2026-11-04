@@ -8,7 +8,7 @@ from fakeunreal import run_op
 
 # checks only a real renderer can judge (the fake's captures are a flat grey we choose)
 RENDER = {"one stop more exposure brightens the image", "env.check fails an underexposed card with a fix",
-          "noir_bw has no colour cast"}
+          "noir_bw has no colour cast", "env.autoexpose lands near the card's EV100"}
 
 
 def test_env_selftest_on_the_fake(ue, fmb, tmp_path, monkeypatch):

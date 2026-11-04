@@ -4043,6 +4043,118 @@
    ]
   },
   {
+   "name": "env.autoexpose",
+   "area": "env",
+   "verb": "autoexpose",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 976,
+   "summary": "Closed-loop exposure: measure a region through a camera and change the exposure (or the key light) until the",
+   "doc": "Closed-loop exposure: measure a region through a camera and change the exposure (or the key light) until the\nregion reads at the target, within a tolerance. Converges: already in range -> changed False, no change made.\n\nArgs: camera: a camera label. The region: `region` [x0,y0,x1,y1] (0..1, y down), or `subject` (an actor label:\nits box from qa.framing; part=face: the top of a standing figure's box), else the whole frame.\ntarget_stops: stops above middle grey (0 = a grey card; skin +0.5..+1; a dark mood -1.5); or target_display\n(0-1 display luma). tolerance_stops: how close. adjust: exposure (Env_Post's manual exposure, switching it to\nmanual if needed) | lights (scale `lights`' intensities, e.g. a rig's key: [\"Host_Key\"]).\nReturns: {\"changed\", \"converged\", \"iterations\": [{\"setting\", \"display\", \"error_stops\"}], \"before\", \"after\",\n\"ev100\"? (the exposure it ended at), \"scale\"? (the light scale applied)}.\nExample: film-ue op env.autoexpose camera=HostCam subject=Host part=face target_stops=0.7",
+   "params": [
+    {
+     "name": "camera",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "region",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "subject",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "part",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "body"
+    },
+    {
+     "name": "target_stops",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "target_display",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "tolerance_stops",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.1
+    },
+    {
+     "name": "adjust",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "exposure"
+    },
+    {
+     "name": "lights",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "max_iterations",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 6
+    },
+    {
+     "name": "width",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 192
+    },
+    {
+     "name": "height",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 108
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "qa",
+    "gpu"
+   ]
+  },
+  {
    "name": "env.captures_rebuild",
    "area": "env",
    "verb": "captures_rebuild",
@@ -4076,7 +4188,7 @@
    "verb": "check",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 924,
+   "line": 1072,
    "summary": "A numeric verdict on a look: meter through `camera` (env.meter) or read a still `png` on the box (any",
    "doc": "A numeric verdict on a look: meter through `camera` (env.meter) or read a still `png` on the box (any\nlook.still / render frame), and compare with targets: mean [lo,hi] (display luma), median, clipped_max,\ncrushed_max, cast_max, warm [lo,hi], ev100 [lo,hi] (scene), range_stops_max, stops_over [lo,hi]. Defaults: a\nnatural, well exposed frame. A multi-tick job.\n\nArgs: targets, or `spec` (its checks: {camera, targets}). step: png subsampling.\nReturns: {\"pass\", \"issues\": [{code, severity, message, fix, value, expected}], \"metrics\": {...}}.\nExample: film-ue op env.check camera=HostCam 'targets={\"mean\":[0.3,0.5],\"clipped_max\":0.01}'",
    "params": [
@@ -4541,9 +4653,9 @@
    "verb": "meter",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 872,
+   "line": 934,
    "summary": "Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back",
-   "doc": "Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back\nraw, unclamped) gives the scene's luminance statistics and the EV100 a reflected meter would choose; a second in\nfinal colour gives the image's brightness, clipping, crush and colour cast. A multi-tick job (a few ticks).\n\nArgs: camera: a camera actor label. width/height: capture size (small is enough for statistics).\nexposure_ev100: compare the scene with this exposure (default: what Env_Post exposes for, if manual).\nReturns: {\"scene\": scene_stats, \"display\": display_stats, \"camera\", \"fov_deg\"}.\nExample: film-ue op env.meter camera=HostCam",
+   "doc": "Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back\nraw, unclamped) gives the scene's luminance statistics and the EV100 a reflected meter would choose; a second in\nfinal colour gives the image's brightness, clipping, crush and colour cast. A multi-tick job (a few ticks).\n\nArgs: camera: a camera actor label. width/height: capture size (small is enough for statistics).\nexposure_ev100: compare the scene with this exposure (default: what Env_Post exposes for, if manual).\nregion: only this box [x0, y0, x1, y1] (0..1, y down), e.g. a face box from qa.framing (spot metering).\nReturns: {\"scene\": scene_stats, \"display\": display_stats, \"camera\", \"fov_deg\", \"region\"}.\nExample: film-ue op env.meter camera=HostCam",
    "params": [
     {
      "name": "camera",
@@ -4570,6 +4682,13 @@
      "name": "exposure_ev100",
      "kind": "keyword",
      "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "region",
+     "kind": "keyword",
+     "type": "list",
      "required": false,
      "default": null
     }
@@ -7924,7 +8043,7 @@
    "verb": "channels",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 354,
+   "line": 358,
    "summary": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh/character/groom, which",
    "doc": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh/character/groom, which\nlights reach it. Re-fetches components by name (a Blueprint actor's construction script replaces them).\n\nArgs: assign: {actor label: [channels]}, e.g. {\"Host\": [0, 1], \"Key\": [1]}.\nReturns: {\"changed\", \"components\": {label: n set}}.\nExample: film-ue op light.channels 'assign={\"Host\":[0,1],\"Host_Key\":[1]}'",
    "params": [
@@ -7950,7 +8069,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 306,
+   "line": 310,
    "summary": "Every light in the level (or `labels`) as numbers: kind, loc, rotation, forward, intensity (cd, or lux for a",
    "doc": "Every light in the level (or `labels`) as numbers: kind, loc, rotation, forward, intensity (cd, or lux for a\ndirectional), temperature or colour, size, cone, radius, channels, owner/role/rig; with `at` [x,y,z] also what\neach gives there (light.measure).\n\nReturns: {\"lights\": {label: {...}}, \"rigs\": {prefix: {...}}, \"at\": {...}?}.\nExample: film-ue op light.describe 'at=[0,0,165]'",
    "params": [
@@ -7983,7 +8102,7 @@
    "verb": "measure",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 335,
+   "line": 339,
    "summary": "What the lights give at a point, analytically (inverse square, cosine, spot cone, attenuation; no shadows,",
    "doc": "What the lights give at a point, analytically (inverse square, cosine, spot cone, attenuation; no shadows,\nno bounce): the numeric check of a rig without a render.\n\nArgs: at: [x,y,z] cm. normal: the surface normal there (else each light is measured facing it). labels: only\nthese lights (default all, directional lights included). key/fill: labels to report their lighting ratio.\nReturns: {\"lux\", \"ev100\" (incident), \"per_light\": {label: lux}, \"ratio\"?}.\nExample: film-ue op light.measure 'at=[0,0,165]' key=Host_Key fill=Host_Fill",
    "params": [
@@ -8183,7 +8302,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 399,
+   "line": 403,
    "summary": "Remove lights (and reflection captures) the env/light ops made: by `labels`, every light of a `rig` prefix,",
    "doc": "Remove lights (and reflection captures) the env/light ops made: by `labels`, every light of a `rig` prefix,\nor everything an `owner` (spec name) made. Actors the ops did not make are never removed; missing ones are fine.\n\nReturns: {\"changed\", \"removed\": [labels]}.\nExample: film-ue op light.remove rig=Host_",
    "params": [
@@ -8225,7 +8344,7 @@
    "file": "unreal/fmbridge/ops/light.py",
    "line": 224,
    "summary": "Light a subject with a named rig (key/fill/rim/...) placed around it relative to the camera, intensities from",
-   "doc": "Light a subject with a named rig (key/fill/rim/...) placed around it relative to the camera, intensities from\nthe key's lux at the subject and the lighting ratio; converges (re-running moves/retunes, a dropped role is removed).\n\nArgs: subject: an actor label or [x,y,z] cm (a label lights ~eye height of its bounds, or `socket`, or its\nlocation + `subject_offset`). camera: a label or [x,y,z] (else `facing_yaw_deg`). preset: env.presets rigs\n(three_point, interview, loop, rembrandt, butterfly, clamshell, split, high_key, low_key, noir, silhouette,\nwindow). key_lux: lux on the subject from the key. ratio: (key+fill):fill, 2 flat .. 8 noir. lights: per-role\noverrides {\"rim\": {\"rel\": 1.5}, \"fill\": null, \"kicker\": {}} (fields: angle side elevation distance width height\ncone temperature color rel lux candelas shadows channels). prefix: label prefix (lights are <prefix><Role>).\nkey_side: left|right (camera-left/right). scale: x distances/sizes. temperature_k/channels: for every light.\nReturns: {\"changed\", \"lights\": [labels], \"removed\": [labels], \"subject_point\", \"camera_point\",\n\"measured\": {\"lux\", \"per_light\", \"ratio\"}}.\nExample: film-ue op light.rig subject=Host camera=HostCam preset=interview key_lux=900 prefix=Host_",
+   "doc": "Light a subject with a named rig (key/fill/rim/...) placed around it relative to the camera, intensities from\nthe key's lux at the subject and the lighting ratio; converges (re-running moves/retunes, a dropped role is removed).\n\nArgs: subject: an actor label or [x,y,z] cm (a label lights ~eye height of its bounds, or `socket`, or its\nlocation + `subject_offset`). camera: a label or [x,y,z] (else `facing_yaw_deg`). preset: env.presets rigs\n(three_point, interview, loop, rembrandt, butterfly, clamshell, split, high_key, low_key, noir, silhouette,\nwindow). key_lux: lux on the subject from the key. ratio: (key+fill):fill, 2 flat .. 8 noir. lights: per-role\noverrides {\"rim\": {\"rel\": 1.5}, \"fill\": null, \"kicker\": {}} (fields: angle side elevation distance width height\ncone temperature color rel lux candelas shadows channels). prefix: label prefix (lights are <prefix><Role>).\nkey_side: left|right (camera-left/right), or short|broad (from the subject's facing: `facing_yaw_deg` or the\nsubject actor's yaw, +X its front; short keys the side of the face turned away from the lens). scale: x distances/sizes. temperature_k/channels: for every light.\nReturns: {\"changed\", \"lights\": [labels], \"removed\": [labels], \"subject_point\", \"camera_point\",\n\"measured\": {\"lux\", \"per_light\", \"ratio\"}}.\nExample: film-ue op light.rig subject=Host camera=HostCam preset=interview key_lux=900 prefix=Host_",
    "params": [
     {
      "name": "subject",

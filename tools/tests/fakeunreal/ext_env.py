@@ -40,14 +40,14 @@ def _white():
 LIGHT = {"intensity": 5000.0, "light_color": None, "use_temperature": False, "temperature": 6500.0,
          "cast_shadows": True, "specular_scale": 1.0, "diffuse_scale": 1.0, "volumetric_scattering_intensity": 1.0,
          "indirect_lighting_intensity": 1.0, "ies_texture": None, "use_ies_brightness": False,
-         "ies_brightness_scale": 1.0}
+         "ies_brightness_scale": 1.0, "mobility": "STATIONARY"}
 LOCAL = {"intensity_units": "UNITLESS", "attenuation_radius": 1000.0}
 POINT = {"source_radius": 0.0, "soft_source_radius": 0.0, "source_length": 0.0}
 SPOT = {"inner_cone_angle": 0.0, "outer_cone_angle": 44.0}
 RECT = {"source_width": 64.0, "source_height": 64.0, "barn_door_angle": 88.0, "barn_door_length": 20.0}
 DIRECTIONAL = {"intensity": 10.0, "light_source_angle": 0.5357, "atmosphere_sun_light": False,
                "atmosphere_sun_light_index": 0, "cast_cloud_shadows": False}
-SKY = {"intensity": 1.0, "real_time_capture": False, "source_type": "CAPTURED", "cubemap": None,
+SKY = {"mobility": "STATIONARY", "intensity": 1.0, "real_time_capture": False, "source_type": "CAPTURED", "cubemap": None,
        "source_cubemap_angle": 0.0, "lower_hemisphere_is_black": True,
        "lower_hemisphere_color": None, "cast_shadows": True}
 FOG = {"fog_density": 0.02, "fog_height_falloff": 0.2, "start_distance": 0.0, "fog_max_opacity": 1.0,
@@ -84,6 +84,8 @@ def _defaults(obj, table: dict, fake) -> None:
             v = core.Color(r=255, g=255, b=255, a=255) if k == "volumetric_fog_albedo" else core.Color(r=170, g=170, b=170, a=255)
         elif k == "volumetric_fog_emissive":
             v = core.LinearColor(0.0, 0.0, 0.0, 1.0)
+        elif k == "mobility":
+            v = getattr(fake.ComponentMobility, v)
         elif k == "intensity_units":
             v = getattr(fake.LightUnits, v)
         elif k == "source_type":
@@ -122,6 +124,9 @@ def install(fake):
         setattr(fake, name, cls)
         return cls
 
+    def set_mobility(self, m):
+        self._props["mobility"] = m
+    core.LightComponentBase.set_mobility = set_mobility
     PLC = sub(core.PointLightComponent, "PointLightComponent", LIGHT, LOCAL, POINT)
     SLC = sub(core.SpotLightComponent, "SpotLightComponent", LIGHT, LOCAL, POINT, SPOT)
     RLC = sub(core.RectLightComponent, "RectLightComponent", LIGHT, LOCAL, RECT)
