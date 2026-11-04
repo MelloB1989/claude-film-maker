@@ -77,7 +77,7 @@ already loaded.
 | API (Python) | source | notes |
 |---|---|---|
 | `WorldPartitionBlueprintLibrary.get_editor_world_bounds / get_runtime_world_bounds` | Engine/Source/Runtime/Engine/Public/WorldPartition/WorldPartitionBlueprintLibrary.h:106,113 | invalid box (`is_valid` false) without a partition |
-| `...get_actor_descs() -> (ok, [ActorDesc])`, `get_intersecting_actor_descs(box)` | WorldPartitionBlueprintLibrary.h:144,151 | editor world (UnrealEditorSubsystem), recursing into containers (.cpp:83-110, 243) |
+| `...get_actor_descs() -> [ActorDesc] or None`, `get_intersecting_actor_descs(box)` | WorldPartitionBlueprintLibrary.h:144,151 | editor world (UnrealEditorSubsystem), recursing into containers (.cpp:83-110, 243) |
 | `...load_actors(guids) / unload_actors(guids) / pin_actors(guids)` | WorldPartitionBlueprintLibrary.h:119,125,131; .cpp:193-230 | FLoaderAdapterActorList per world |
 | `ActorDesc.guid, label, name, native_class, bounds, runtime_grid, is_spatially_loaded, actor_is_editor_only, data_layer_assets` | WorldPartitionBlueprintLibrary.h:20-77 | BlueprintReadOnly |
 | `Actor.actor_guid` | Engine/Source/Runtime/Engine/Classes/GameFramework/Actor.h:1097 | BlueprintReadOnly: matches descriptors to loaded actors |
@@ -98,5 +98,6 @@ and that a plain level answers `partitioned: false`.
 ## HANDOFF
 
 Done: the ops, the frustum math, the fake, 9 unit tests, the selftest and this doc. Unproven until the box runs the
-selftest: the tuple return of `get_actor_descs` in Python (the code accepts a tuple or a list), `Guid.to_string`, and
-whether the reopened level comes up unloaded. `wp.load sequence=` is unit-tested only (not yet in the selftest).
+selftest: `Guid.to_string` and whether the reopened level comes up unloaded. (The return of `get_actor_descs` is
+settled by the Python plugin's rule: a bool return with out params gives None for false, else the out value;
+PythonScriptPlugin/Private/PyGenUtil.cpp:1161.) `wp.load sequence=` is unit-tested only (not yet in the selftest).
