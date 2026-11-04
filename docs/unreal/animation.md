@@ -22,6 +22,8 @@ makes motion read robotic, and what perfkit does instead:
 | expressions as switches, mirrored | attack / sustain-relax / release envelopes, one side leads and is stronger, slow drift while held; a Duchenne smile lifts the cheeks a beat after the mouth (`expressions`) |
 | a smile that fights the lip-sync | the mouth region is quieted while the voice is loud (`mouth_mix`) |
 | emphasis by hand | stressed syllables and pauses found in the WAV (`audio`): beat nods and brow flashes there |
+| a listener frozen while the other talks | small backchannel nods every 2.5-5 s on listen lines (`face.backchannel`) |
+| eyes locked on a person for a whole speech | brief thinking glances away (8-15 deg, 0.6-1.2 s) after pauses, never off a lens (`face.aversion`) |
 
 `anim.check` / `perf.check` measure all of this (see Recipes) so Claude can tell without looking.
 
@@ -44,6 +46,17 @@ film-ue op perf.plot anim=/Game/Speech/Anim/AS_l1_perf out=/tmp/l1_perf.png
 Check (pull the PNG and look): head lines are eased S-curves with a small overshoot, not straight ramps; the eye
 strip jumps at each gaze shift and then drifts back as the head catches up; blinks are irregular, some right after a
 shift; brows rise on the stressed words. `perf.face ... plot=/tmp/x.png` writes the same for its result.
+A sample: [img/perf_plot_sample.png](img/perf_plot_sample.png) (perfkit alone, 10 s, four gaze shifts, a warm mood).
+
+**Long or flaky audio.** `speech.to_face` cuts recordings longer than `max_chunk_s` (40 s) in pauses, solves each
+chunk (under `{folder}/Chunks`) and stitches one animation; each solve has a time budget (`timeout_s`, default
+60 s + 20 x its length) and is cancelled past it. A failed solve raises `engine`/`timeout` with the reason and a
+hint when `fallback=false`; by default that part becomes a loudness-driven lip flap and the result says
+`"fallback": true` with `errors` (re-solve later; perf.face still adds head, eyes and blinks over it).
+```bash
+film-ue op speech.to_face wav=/home/ue/Audio/monologue.wav name=mono face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh max_chunk_s=30
+```
+Check: `chunks`, `fallback` false, `errors` empty.
 
 **Calibrate once per face skeleton** (makes the head/eye signs exact; until then perfkit guesses).
 ```bash
@@ -186,6 +199,11 @@ actions:
   - {at_s: 12.0, walk_to: desk, speed_cm_s: 120, end_facing: camera}
 ```
 
+Timing on the words: any nod, expression or gesture may say `on_emphasis: 2` (the line's 2nd stressed word),
+`strongest`, `first` or `last` instead of `at_s`; the stressed words come from the line's audio (or its `emphasis`
+list). An expression put on a word starts 0.15 s before it, so it peaks on it. Listen lines get backchannel nods
+(`face.backchannel`), and lines spoken to a person get brief thinking glances away after pauses (`face.aversion`).
+
 How it composes: one continuous face animation (`AS_<name>_face`) on the face track: every line's lip-sync (its
 speech solve, or `face_anim`) placed at its time and closed between lines, with perfkit's head, eyes, blinks,
 moods and expressions over the whole timeline, so nothing jumps at a line boundary. The body gets idles split around
@@ -215,12 +233,17 @@ of their WAV, mood and intensity. Change a mood and only that line re-solves.
 - **Curves are keyed linearly** (RCIM_LINEAR) at 30-60 Hz before reduction; perfkit's checks sample at frame rate,
   so dense linear keys are not mistaken for robotic straight lines.
 - **Blink rate on short shots** (< 20 s) is judged by count (one per 8 s at least), not rate.
+- **Control Rig tracks from Python need a Blueprint-based rig.** 5.8 makes new Control Rigs as independent assets
+  (`RigVM.BlueprintIndependentAssets` true), which `load_blueprint_class` cannot turn into a class: `anim.rig_keys`
+  with `rig_class` works for legacy ControlRigBlueprint assets (the MetaHuman boards); for others add the track once
+  in the editor and key it by code.
 - **perf.face copies** the source (`out`, default `<anim>_perf`) and re-makes it on each call; the source is never
   touched.
 
 ## Audio2Face-3D (design only, offline)
 
-NVIDIA Audio2Face-3D (A2F-3D, open-sourced 2025: SDK + models; inference on an NVIDIA GPU) can replace or complement
+NVIDIA Audio2Face-3D (A2F-3D; NVIDIA published the SDK and models in 2025 — check the current licence and
+packaging before building; inference on an NVIDIA GPU) can replace or complement
 MetaHuman Animator's audio solver. Route, offline and unbuilt (nothing here runs it):
 
 1. On the GPU box (an L4 works), run A2F-3D's offline inference (`audio2face-3d` SDK sample or the Maya/UE ACE
@@ -229,8 +252,9 @@ MetaHuman Animator's audio solver. Route, offline and unbuilt (nothing here runs
 2. Map ARKit blendshapes to MetaHuman curves with a table (`perfkit/a2f.py`, to be written): e.g. `jawOpen ->
    CTRL_expressions_jawOpen`, `mouthSmileLeft -> CTRL_expressions_mouthCornerPullL`, `eyeBlinkLeft ->
    CTRL_expressions_eyeBlinkL`, `browInnerUp -> browRaiseInL/R`, `mouthFunnel -> mouthFunnelUL/UR/DL/DR`, ...;
-   Epic ships an ARKit-to-MetaHuman pose asset (mh_arkit_mapping_pose) in the MetaHuman content: read its pose
-   weights once with anim.read_curves to build the table instead of guessing.
+   MetaHuman content has shipped an ARKit-to-MetaHuman mapping pose asset for Live Link (named like
+   `mh_arkit_mapping_pose`; not in the engine source, so find it on the box with `assets.list` / `anim.find`): read
+   its pose weights once to build the table instead of guessing.
 3. Write the curves with `anim.new` + `anim.write_curves` (one batch), then `perf.face` with `blink_mode=replace`,
    `solver_head=replace` (A2F has no head), and `layers` all: the same head/eyes/blinks/brows as for the solver.
 4. As a spec option: `lines[].solver: a2f` making perf.plan emit `perf.solve_a2f` instead of `perf.solve`.
@@ -244,6 +268,20 @@ reflected names; an out-parameter comes back as the return value.
 
 | Python | C++ | file:line | verified |
 |---|---|---|---|
+| `AnimationCurveIdentifier().set_curve_identifier(name, RCT_FLOAT)` (ref-self) | `UAnimationCurveIdentifierExtensions::SetCurveIdentifier` (GetCurveIdentifier is deprecated in 5.8) | Engine/Source/Runtime/Engine/Classes/Animation/AnimData/CurveIdentifier.h:150-152 | yes |
+| `ControlRig.get_hierarchy().get_controls()` | `URigHierarchy::GetControlKeys` (ScriptName GetControls) | Engine/Plugins/Animation/ControlRig/Source/ControlRig/Public/Rigs/RigHierarchy.h:1181 | yes |
+| `MetaHumanPerformance.start_pipeline(True)` -> `StartPipelineErrorType` (NONE, NO_FRAMES, DISABLED) | `StartPipeline`, `EStartPipelineErrorType` | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformance.h:486, :65 | yes |
+| `MetaHumanPerformance.is_processing() / cancel_pipeline() / get_number_of_processed_frames()` | `IsProcessing` / `CancelPipeline` / `GetNumberOfProcessedFrames` | MetaHumanPerformance.h:492 / :489 / :563 | yes |
+| `unreal.AnimationCurveIdentifierExtensions` (class) | `UAnimationCurveIdentifierExtensions` (UBlueprintFunctionLibrary) | Engine/Source/Runtime/Engine/Classes/Animation/AnimData/CurveIdentifier.h:111 | yes |
+| `unreal.RawCurveTrackTypes.RCT_FLOAT` | `ERawCurveTrackTypes::RCT_Float` (UENUM BlueprintType) | Engine/Source/Runtime/Engine/Public/Animation/AnimCurveTypes.h:1044 | yes |
+| `unreal.RichCurveKey(time=, value=, interp_mode=)` | `FRichCurveKey` (USTRUCT BlueprintType) | Engine/Source/Runtime/Engine/Classes/Curves/RichCurve.h:79 | yes |
+| `unreal.IKRetargeter` | `UIKRetargeter` (UCLASS BlueprintType) | Engine/Plugins/Animation/IKRig/Source/IKRig/Public/Retargeter/IKRetargeter.h:69 | yes |
+| `unreal.IKRigDefinitionFactory.create_new_ik_rig_asset(path, name)` | `CreateNewIKRigAsset` (BlueprintCallable; DisplayName does not rename it) | Engine/Plugins/Animation/IKRig/Source/IKRigEditor/Public/RigEditor/IKRigDefinitionFactory.h:43 | yes |
+| `unreal.RetargetSourceOrTarget.SOURCE / TARGET` | `ERetargetSourceOrTarget` (UENUM) | Engine/Plugins/Animation/IKRig/Source/IKRig/Public/Retargeter/IKRetargetSettings.h:11 | yes |
+| `unreal.AutoMapChainType.FUZZY` | `EAutoMapChainType::Fuzzy` (UENUM, exported through AutoMapChains) | Engine/Plugins/Animation/IKRig/Source/IKRig/Public/Retargeter/IKRetargetChainMapping.h:13 | yes |
+| `unreal.DataInputType.AUDIO` | `EDataInputType::Audio` (UENUM BlueprintType) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformance.h:34 | yes |
+| `unreal.MetaHumanPerformanceFactoryNew()` | `UMetaHumanPerformanceFactoryNew` (UCLASS, a UFactory) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Private/MetaHumanPerformanceFactoryNew.h:13 | yes |
+| `unreal.PerformanceExportRange.WHOLE_SEQUENCE` | `EPerformanceExportRange::WholeSequence` (UENUM) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformanceExportUtils.h:20 | yes |
 | `unreal.AnimationLibrary.get_animation_curve_names` | `GetAnimationCurveNames` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:89 | yes |
 | `unreal.AnimationLibrary.get_float_keys` | `GetFloatKeys` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:456 | yes |
 | `unreal.AnimationLibrary.does_curve_exist` | `DoesCurveExist` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:514 | yes |
@@ -301,7 +339,6 @@ reflected names; an out-parameter comes back as the return value.
 | `ControlRigSequencerLibrary.set_local_control_rig_floats` | `SetLocalControlRigFloats` | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:650 | yes |
 | `ControlRigSequencerLibrary.set_local_control_rig_rotators` | `SetLocalControlRigRotators` | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:917 | yes |
 | `ControlRigSequencerLibrary.set_local_control_rig_euler_transforms` | `SetLocalControlRigEulerTransforms` | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:1024 | yes |
-| `RigHierarchy.GetControls` | `GetControls` | Engine/Plugins/Animation/ControlRig/Source/ControlRig/Public/Rigs/RigHierarchy.h:1181 | yes |
 | `EulerTransform` | `EulerTransform` | Engine/Source/Runtime/AnimationCore/Public/EulerTransform.h:31 | yes |
 | `SkelAnimParams` | `SkelAnimParams` | Engine/Source/Runtime/MovieSceneTracks/Public/Sections/MovieSceneSkeletalAnimationSection.h:20 | yes |
 | `AdditiveInSequencer` | `AdditiveInSequencer` | Engine/Source/Runtime/AnimGraphRuntime/Private/AnimSequencerInstanceProxy.cpp:176 | yes |
@@ -342,6 +379,10 @@ State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead as it lands):
   plus the older curve/gaze/bake ops with flags and examples), perf.* (face, check, calibrate, analyze_audio,
   head_curves, vocab, state/plan/apply/compose/solve/lock_eyes/describe, idle/gestures/walk_to/turn_to), the
   `performance` kind (schema, client planner, 2 examples), selftest/anim.py, this doc.
+- Every engine call in ops/anim.py, ops/perf.py and the selftest was re-checked by an independent audit against the
+  5.8.4 source (it found `get_controls` vs `get_control_keys` and the deprecated curve-identifier route: fixed).
+- speech.to_face (B52): validation first, time budget + cancel, chunking at pauses, lip-flap fallback; on the fake
+  with injected failures (`ue.mh_solve = "NO_FRAMES" | "hang"`).
 - NOT run on a real editor (no GPU box tonight). First thing on the box: `film-ue selftest anim`. Most likely to
   need a fix, in order:
   1. `perf.calibrate`: whether the face plays the scratch animation (the face component must be Sequencer-driven;
@@ -356,6 +397,10 @@ State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead as it lands):
      one frame: AnimSequenceFactory.cpp:78-79).
   5. `anim.retarget`: the auto-generated chains on a Mixamo skeleton; the progress window under -unattended.
   6. `anim.rig_keys`: `ControlRigSequencerBindingProxy.proxy.get_display_name()` matching the actor/component.
+  7. `_curve_id`: `AnimationCurveIdentifier().set_curve_identifier(...)` relies on a ref-self script method writing
+     back into the struct; if curves stop being written (selftest `read.round_trip` fails), fall back to the
+     deprecated `get_curve_identifier(skeleton, ...)` (it worked on the reel, with a warning per curve).
+  8. speech.to_face chunking: whether a chunk's solved head motion jumps at a seam (perf.face softens it).
 - Not done / next: procedural additive gestures (author bone-offset additives by code: needs bone axis calibration
   like the head's); `perf.solve_a2f` (Audio2Face route, design above). B31 (pose library) went to agent-11 as
   pose.* calling anim.rig_keys.

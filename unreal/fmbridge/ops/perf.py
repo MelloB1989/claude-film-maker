@@ -541,8 +541,17 @@ def compose(*, spec: dict) -> dict:
     signs = signs_for(_skel_of(face_mesh), fa.pop("signs", None))
     r = FACE.build(**fa, base=base, speech=_speech_fn(c["timeline"], st), signs=signs)
     out = c["face_out"]
-    anim_new(path=out, skeleton=face_mesh, length_s=c["duration_s"], fps=30, replace=True)
+    try:  # converge on the existing animation (the sequence plays it), else start afresh
+        anim_new(path=out, skeleton=face_mesh, length_s=c["duration_s"], fps=30)
+    except OpError:
+        anim_new(path=out, skeleton=face_mesh, length_s=c["duration_s"], fps=30, replace=True)
     o = load(out)
+    ctrl = o.get_editor_property("controller")
+    ctrl.open_bracket("fmbridge perf.compose", False)
+    try:  # last composition's curves go: a line taken out must not leave its mouth behind
+        ctrl.remove_all_curves_of_type(unreal.RawCurveTrackTypes.RCT_FLOAT, False)
+    finally:
+        ctrl.close_bracket(False)
     _write(o, {**base, **r["curves"]})
     fp = SP.fingerprint(spec, st)
     _meta(o, "fm.perf.fingerprint", fp)

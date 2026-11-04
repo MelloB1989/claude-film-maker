@@ -519,3 +519,75 @@ def test_plot_draws_a_strip_per_part(tmp_path):
     back = png.read(str(tmp_path / "p.png"))
     assert (back.w, back.h) == (img.w, img.h) and img.h > 4 * 120  # head, eyes, blinks, upper face, mouth
     assert len(set(bytes(img.px))) > 10  # something was drawn
+
+
+def test_listeners_backchannel_and_talkers_look_away_to_think():
+    long_listen = json.loads(json.dumps(SPEC))
+    long_listen["lines"][1]["duration_s"] = 8.0
+    c = S.compile(long_listen, STATE)
+    nods = [n for n in c["face"]["nods"] if 4.35 <= n["t"] <= 12.35]
+    assert len(nods) >= 2  # the listen line had no nods: it gets small ones
+    st = json.loads(json.dumps(STATE))
+    st["audio"]["l1"]["phrase_ends"] = [0.8]  # a pause while the line still looks at the guest? (it looks at camera)
+    c2 = S.compile(SPEC, st)
+    assert not [s for s in c2["face"]["shifts"] if s.get("label") == "aversion"]  # never away from the lens
+    sp = json.loads(json.dumps(SPEC))
+    sp["lines"][0]["gaze"] = [{"at_s": 0, "target": "guest", "scan": "face"}]
+    found = 0
+    for seed in range(6):
+        sp["seed"] = seed
+        found += bool([s for s in S.compile(sp, st)["face"]["shifts"] if s.get("label") == "aversion"])
+    assert found >= 2
+    sp["face"] = {"aversion": False, "backchannel": False}
+    c3 = S.compile(sp, st)
+    assert not [s for s in c3["face"]["shifts"] if s.get("label") == "aversion"]
+    sp["lines"][1]["duration_s"] = 8.0
+    c3 = S.compile(sp, st)
+    assert not [n for n in c3["face"]["nods"] if 4.35 <= n["t"] <= 12.35]
+    assert S.backchannel(0, 10, seed=1) == S.backchannel(0, 10, seed=1)
+
+
+def test_perfkit_is_engine_free():
+    """perfkit must import without `unreal` (the client plans with it) and with no third-party package."""
+    import ast
+    for p in (REPO / "unreal" / "fmbridge" / "perfkit").glob("*.py"):
+        for node in ast.walk(ast.parse(p.read_text())):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
+                for n in names:
+                    assert n.split(".")[0] not in ("unreal", "numpy", "scipy"), (p.name, n)
+
+
+def test_on_emphasis_places_things_on_the_stressed_words():
+    sp = json.loads(json.dumps(SPEC))
+    sp["lines"][0]["gestures"] = [{"name": "palms", "on_emphasis": "strongest"}]
+    sp["lines"][0]["nods"] = [{"on_emphasis": 2, "kind": "beat"}, {"on_emphasis": 9}]
+    sp["lines"][0]["expressions"] = [{"preset": "brow_raise", "on_emphasis": "first"}]
+    assert S.validate(sp) == []
+    c = S.compile(sp, STATE)  # l1's emphasis: 1.2 (1.0), 2.9 (0.7)
+    g = next(s for s in c["body"] if s["kind"] == "gesture")
+    assert g["stroke_frame"] == round((1.2 - 0.08) * 24)
+    assert any(n["t"] == pytest.approx(2.9) and n["kind"] == "beat" for n in c["face"]["nods"])
+    assert any("on_emphasis 9" in n.get("why", "") for n in c["notes"])
+    ev = next(e for e in c["face"]["expressions"] if e["preset"] == "brow_raise")
+    assert ev["t"] == pytest.approx(1.2 - 0.15)
+    with pytest.raises(ValueError):
+        S.at_s({"on_emphasis": 1}, [])
+
+
+def test_long_audio_is_cut_in_pauses(tmp_path):
+    segs = []
+    for _ in range(9):  # 9 phrases of 4 s with 0.5 s pauses: 40.5 s
+        segs += [(4.0, 0.4), (0.5, 0.0)]
+    p = _wav(tmp_path / "long.wav", segs)
+    env = AU.Envelope.from_wav(p)
+    cuts = AU.split_points(env, max_s=10.0, min_s=3.0)
+    assert cuts and all(b - a <= 10.0 + 1e-6 for a, b in zip([0.0] + cuts, cuts + [env.duration_s]))
+    for c in cuts:  # each cut in a pause (4.0-4.5, 8.5-9.0, ... every 4.5 s)
+        assert 4.0 - 0.1 <= c % 4.5 <= 4.5 + 0.1 or c % 4.5 < 0.1
+    out = AU.write_chunk(p, str(tmp_path / "c.wav"), 4.5, 9.0)
+    assert abs(AU.Envelope.from_wav(out).duration_s - 4.5) < 0.02
+    assert AU.split_points(env, max_s=60) == []
+    flap = AU.lip_flap(AU.Envelope.from_wav(out))
+    jaw = flap["CTRL_expressions_jawOpen"]
+    assert max(jaw[1]) > 0.2 and C.at(*jaw, 4.3) < 0.05  # open while talking, shut in the pause
