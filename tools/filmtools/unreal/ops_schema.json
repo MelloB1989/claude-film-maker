@@ -3206,7 +3206,7 @@
      "kind": "keyword",
      "type": "str",
      "required": false,
-     "default": null
+     "default": "/Game/DataLayers"
     }
    ],
    "returns": "dict",
@@ -6250,7 +6250,7 @@
    "verb": "cleanup",
    "module": "fmbridge.ops.selftest",
    "file": "unreal/fmbridge/ops/selftest.py",
-   "line": 54,
+   "line": 58,
    "summary": "Delete a selftest's scratch folder (/Game/_Selftest/<area>, or all of /Game/_Selftest), leaving it first if it",
    "doc": "Delete a selftest's scratch folder (/Game/_Selftest/<area>, or all of /Game/_Selftest), leaving it first if it\nis the open level. Returns {\"deleted\": [...], \"changed\"}.\n\nExample: film-ue selftest cleanup --area dx",
    "params": [
@@ -6292,7 +6292,7 @@
    "file": "unreal/fmbridge/ops/selftest.py",
    "line": 30,
    "summary": "Run one area's selftest in a fresh scratch level (/Game/_Selftest/<area>), deleted afterwards unless `keep`.",
-   "doc": "Run one area's selftest in a fresh scratch level (/Game/_Selftest/<area>), deleted afterwards unless `keep`.\nMulti-tick. Returns the report: {\"area\", \"ok\", \"status\": done|skipped|error, \"passed\", \"failed\", \"checks\": [...],\n\"ops_covered\", \"ops_missed\", \"stills\", \"metrics\", \"errors\", \"report\": <its JSON on the box>}.\n\nArgs:\n    area: a selftest module's name (selftest.list).\n    out_dir: the report folder on the box (default Saved/SelfTest/<time>).\n    keep: keep the scratch level and assets to look at afterwards.\n\nExample: film-ue selftest run --area dx --keep",
+   "doc": "Run one area's selftest in a fresh scratch level (/Game/_Selftest/<area>), deleted afterwards unless `keep`.\nMulti-tick. Returns the report: {\"area\", \"ok\", \"status\": done|skipped|error, \"passed\", \"failed\", \"checks\": [...],\n\"ops_covered\", \"ops_missed\", \"stills\", \"metrics\", \"errors\", \"report\": <its JSON on the box>}.\n\nArgs:\n    area: a selftest module's name (selftest.list).\n    out_dir: the report folder on the box (default Saved/SelfTest/<time>).\n    keep: keep the scratch level and assets to look at afterwards.\n    baseline: stills against their stored baselines (WP10): auto (compare, store the first), compare, update, off.\n\nExample: film-ue selftest run --area dx --keep",
    "params": [
     {
      "name": "area",
@@ -6314,6 +6314,13 @@
      "type": "bool",
      "required": false,
      "default": false
+    },
+    {
+     "name": "baseline",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "auto"
     }
    ],
    "returns": null,

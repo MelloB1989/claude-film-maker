@@ -254,5 +254,49 @@ def test_examples_validate():
     ex = spec.SCHEMAS.parents[3] / "examples" / "unreal"
     files = sorted(ex.rglob("*.yaml")) if ex.exists() else []
     for f in files:
-        if f.parent.name in ("level", "actor", "op", "demo"):
+        if f.parent.name in ("level", "actor", "op"):
             spec.load(f)
+
+
+DEMO = spec.SCHEMAS.parents[3] / "examples" / "unreal" / "demo"
+
+
+def test_demo_loads_and_plans_offline_in_stage_order():
+    """The morning demo: every document validates, every step names a real op with real arguments (checked against
+    the op schema), and the stages run in dependency order."""
+    docs = spec.load(DEMO / "demo.yaml")
+    items = spec.plan(docs, state={})
+    assert [i.error for i in items if i.error] == []
+    seq = [(i.kind, i.name) for i in items]
+    pos = {k: n for n, k in enumerate(seq)}
+    assert pos[("op", "mh-build")] < pos[("scene", "demo-set")] < pos[("op", "speech")] < pos[("op", "sequence")]
+    assert pos[("op", "sequence")] < pos[("audio", "demo-audio")] < pos[("shot", "/Game/_Demo/SEQ_Demo")]
+    assert seq[-1] == ("op", "review") and seq[0] == ("level", "/Game/_Demo/L_Demo")
+    kinds_used = {i.kind for i in items}
+    assert {"level", "scene", "op", "audio", "shot"} <= kinds_used
+    areas = {s["op"].split(".")[0] for i in items for s in i.steps}
+    assert {"mh", "level", "look", "speech", "seq", "audio", "qa"} <= areas, areas
+
+
+def test_demo_render_stage_validates_when_the_render_kind_is_here():
+    if "render" not in spec.kinds():
+        pytest.skip("WP9's render kind is not merged into this tree yet")
+    docs = spec.load(DEMO / "80-render.yaml")
+    assert [i.error for i in spec.plan(docs, state={}) if i.error] == []
+
+
+def test_demo_stages_by_order():
+    docs = spec.load(DEMO / "demo.yaml")
+    st = spec.stages(docs)
+    assert [g[0]["kind"] for g in st][:3] == ["level", "op", "scene"]
+    assert sum(len(g) for g in st) == len(docs)
+
+
+def test_op_unless_converges():
+    s = {"name": "rig", "op": "mh.rig", "args": {"character": "/Game/MH/C"},
+         "unless": {"op": "assets.list", "args": {"path": "/Game/MH"}, "has": "0"}}
+    assert core.plan_op(s, {"done": True}) == []
+    (st,) = core.plan_op(s, {"done": False})
+    assert st["op"] == "mh.rig" and not st.get("always")
+    assert core.plan_op({"name": "x", "op": "look.fog"}, None)[0]["always"]
+    assert core._truthy({"a": [{"b": 1}]}, "a.0.b") and not core._truthy([], "") and not core._truthy({"a": []}, "a")
