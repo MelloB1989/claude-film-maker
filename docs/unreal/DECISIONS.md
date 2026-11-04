@@ -97,6 +97,19 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
 - **WP0: merge gate.** Every merge into ue-helpers goes through `dx gen`, then the whole ue suite (`test_ue_*`,
   `test_unreal_*`, `test_fmbridge_jobs`) with numpy, Pillow and soundfile installed, then `dx docs` as a warning.
   Nothing is pushed on red.
+- **2026-11-05 WP5 agent-08: exposure is photographic EV100, and manual mode turns physical camera exposure off.**
+  The manual scale is 2^(bias - EVcam) (PostProcessEyeAdaptation.cpp), and a cine camera writes its aperture into
+  DepthOfFieldFstop (CineCameraComponent.cpp:709), so with physical exposure on, an aperture change would change
+  brightness. `env.exposure mode=manual ev100=E` sets bias = 0.526 - E (a metered grey renders at 0.18). `physical`
+  mode is still there for when a camera's settings should decide.
+- **WP5: one planner, two front doors.** The environment/lighting planner is pure Python under
+  `unreal/fmbridge/envlib/spec.py`. `env.apply` runs it in the editor, and `film-ue apply` runs it through
+  `tools/filmtools/unreal/env_kind.py` (which loads envlib standalone), so the two never disagree.
+- **WP5: ownership by tag.** Every env/light actor carries `fm_env` + `fm_owner:<spec name>`. Prune and replace only
+  touch those. An existing same-label actor the ops did not make is a `conflict`. Rig records and the post-field list
+  live in hex-encoded actor tags (FName-safe), so they travel with the level.
+- **WP5: the sun is NOAA in pure Python**, not the SunPosition plugin (off by default, and its actor is a Blueprint).
+- **WP5: B17 (light rigs) is covered by `light.rig`.** Agreed with agent-11 (WP7), who is not building one.
 - **2026-11-05 WP4 agent-01: the eyes lead the head by default.** The brief said "head leads the eyes"; in people
   the eyes start a gaze shift (saccade) and the head follows 20-60 ms later while the eyes counter-rotate (VOR), and
   animators teach "eyes lead". Both are built: `character.lead: eyes` (default) or `head` (the head sets off first,
@@ -113,3 +126,18 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   straight lines score 0.9+, eased motion < 0.3), frozen-head share, >6 Hz jitter, blink rate/irregularity/shape,
   left-right asymmetry, upper-face range, gaze activity. Thresholds were tuned on synthetic robotic and natural
   curves in the tests; tune them on the first real renders.
+- **2026-11-05 WP2 agent-02: materials split with WP5.** `mat.*` (ops/mat.py) owns the master materials, built by
+  code into `/Game/FM/Lib` from graph specs (12 masters, presets, `mat.graph` for any material); WP5 keeps `look.*`
+  as it is and may build on `from .mat import master`. Emissive is in nits (`Luminance_nits`, cd/m2) to pair with
+  WP5's photometric practicals. Agreed with agent-08.
+- **WP2: `EAL` falls back to the EditorAssetSubsystem.** EditorAssetLibrary lives in the EditorScriptingUtilities
+  plugin, off by default; `ops/assets.py` exports `EAL = unreal.EditorAssetLibrary if present else the subsystem`
+  (same calls). Modules that call `unreal.EditorAssetLibrary` directly are listed in assets.md HANDOFF.
+- **WP2: material slots belong to the `material` kind.** Assets apply before materials (order 10 vs 12), so a
+  material document names the mesh slots it goes on (`assign`); the `asset` kind has no material field.
+- **WP2: Fab without a window.** Sign-in through the plugin's own saved credential (`fab.login` opens a Fab tab:
+  the only trigger of its persist login); downloads from a signed URL are fetched and imported in Python (Megascans
+  through the plugin's own InterchangeMegascansPipeline); Epic's AddToProject is reachable only through a small C++
+  reflection plugin (`unreal/plugins/FabScript`), optional, needed for unreal-engine packs. A listing id -> signed
+  URL needs Fab's web page: `fab_shim.py` (headless Chromium), experimental.
+- **WP2: redirectors are fixed by resaving referencers** (AssetTools.FixupReferencers has no UFUNCTION).

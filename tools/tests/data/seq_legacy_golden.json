@@ -1,0 +1,866 @@
+{
+ "describe": {
+  "bindings": [
+   {
+    "bound": true,
+    "class": "CineCameraActor",
+    "kind": "possessable",
+    "name": "CamA"
+   },
+   {
+    "bound": true,
+    "class": "PointLight",
+    "kind": "possessable",
+    "name": "Key"
+   },
+   {
+    "bound": true,
+    "class": "SkeletalMeshActor",
+    "kind": "possessable",
+    "name": "Host"
+   },
+   {
+    "bound": true,
+    "class": "StaticMeshActor",
+    "kind": "possessable",
+    "name": "Sign"
+   },
+   {
+    "bound": true,
+    "class": "CineCameraActor",
+    "kind": "possessable",
+    "name": "CamB"
+   }
+  ],
+  "exists": true,
+  "fps": "24",
+  "markers": [],
+  "range": [
+   0,
+   144
+  ],
+  "sequence": "/Game/L/SEQ_Legacy",
+  "tick_resolution": 24000,
+  "tracks": [
+   {
+    "binding": "CamA",
+    "component": "",
+    "kind": "transform",
+    "name": "",
+    "params": {},
+    "sections": [
+     {
+      "channels": {
+       "location.x": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          -400.0,
+          "auto"
+         ],
+         [
+          48,
+          -300.0,
+          "linear"
+         ],
+         [
+          96,
+          -200.0,
+          "constant"
+         ]
+        ]
+       },
+       "location.y": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          0.0,
+          "auto"
+         ],
+         [
+          48,
+          0.0,
+          "linear"
+         ],
+         [
+          96,
+          50.0,
+          "constant"
+         ]
+        ]
+       },
+       "location.z": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          160.0,
+          "auto"
+         ],
+         [
+          48,
+          160.0,
+          "linear"
+         ],
+         [
+          96,
+          160.0,
+          "constant"
+         ]
+        ]
+       },
+       "rotation.pitch": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          0.0,
+          "auto"
+         ],
+         [
+          48,
+          -11.309932474020213,
+          "linear"
+         ],
+         [
+          96,
+          -10.0,
+          "constant"
+         ]
+        ]
+       },
+       "rotation.roll": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          0.0,
+          "auto"
+         ],
+         [
+          48,
+          0.0,
+          "linear"
+         ],
+         [
+          96,
+          0.0,
+          "constant"
+         ]
+        ]
+       },
+       "rotation.yaw": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          0.0,
+          "auto"
+         ],
+         [
+          48,
+          0.0,
+          "linear"
+         ],
+         [
+          96,
+          20.0,
+          "constant"
+         ]
+        ]
+       },
+       "scale.x": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          1.0,
+          "auto"
+         ],
+         [
+          48,
+          1.0,
+          "linear"
+         ],
+         [
+          96,
+          1.0,
+          "constant"
+         ]
+        ]
+       },
+       "scale.y": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          1.0,
+          "auto"
+         ],
+         [
+          48,
+          1.0,
+          "linear"
+         ],
+         [
+          96,
+          1.0,
+          "constant"
+         ]
+        ]
+       },
+       "scale.z": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          1.0,
+          "auto"
+         ],
+         [
+          48,
+          1.0,
+          "linear"
+         ],
+         [
+          96,
+          1.0,
+          "constant"
+         ]
+        ]
+       }
+      },
+      "params": {},
+      "range": [
+       0,
+       144
+      ],
+      "row": 0
+     }
+    ]
+   },
+   {
+    "binding": "Key",
+    "component": "point_light_component",
+    "kind": "float",
+    "name": "Intensity",
+    "params": {},
+    "sections": [
+     {
+      "channels": {
+       "value": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          6.0,
+          "auto"
+         ],
+         [
+          24,
+          12.0,
+          "linear"
+         ]
+        ]
+       }
+      },
+      "params": {},
+      "range": [
+       null,
+       null
+      ],
+      "row": 0
+     }
+    ]
+   },
+   {
+    "binding": "Key",
+    "component": "point_light_component",
+    "kind": "color",
+    "name": "LightColor",
+    "params": {},
+    "sections": [
+     {
+      "channels": {
+       "a": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          1.0,
+          "auto"
+         ]
+        ]
+       },
+       "b": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          0.05087608817155679,
+          "auto"
+         ]
+        ]
+       },
+       "g": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          0.21404114048223255,
+          "auto"
+         ]
+        ]
+       },
+       "r": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          1.0,
+          "auto"
+         ]
+        ]
+       }
+      },
+      "params": {},
+      "range": [
+       null,
+       null
+      ],
+      "row": 0
+     }
+    ]
+   },
+   {
+    "binding": "CamA",
+    "component": "CameraComponent",
+    "kind": "float",
+    "name": "CurrentFocalLength",
+    "params": {},
+    "sections": [
+     {
+      "channels": {
+       "value": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          35.0,
+          "auto"
+         ]
+        ]
+       }
+      },
+      "params": {},
+      "range": [
+       null,
+       null
+      ],
+      "row": 0
+     }
+    ]
+   },
+   {
+    "binding": "Host",
+    "component": "",
+    "kind": "visibility",
+    "name": "",
+    "params": {},
+    "sections": [
+     {
+      "channels": {
+       "visible": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          true,
+          "constant"
+         ],
+         [
+          100,
+          false,
+          "constant"
+         ]
+        ]
+       }
+      },
+      "params": {},
+      "range": [
+       null,
+       null
+      ],
+      "row": 0
+     }
+    ]
+   },
+   {
+    "binding": "Sign",
+    "component": "static_mesh_component",
+    "kind": "material",
+    "name": "slot:0",
+    "params": {
+     "slot": 0,
+     "slot_name": ""
+    },
+    "sections": [
+     {
+      "channels": {
+       "Glow": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          0.0,
+          "auto"
+         ],
+         [
+          24,
+          1.0,
+          "auto"
+         ]
+        ]
+       },
+       "Tint": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          [
+           1.0,
+           0.0,
+           0.0,
+           1.0
+          ],
+          "auto"
+         ]
+        ]
+       }
+      },
+      "params": {},
+      "range": [
+       null,
+       null
+      ],
+      "row": 0
+     }
+    ]
+   },
+   {
+    "binding": "Host",
+    "component": "Body",
+    "kind": "anim",
+    "name": "",
+    "params": {},
+    "sections": [
+     {
+      "channels": {
+       "weight": {
+        "default": 1.0,
+        "keys": []
+       }
+      },
+      "params": {
+       "anim": "/Game/A/Talk",
+       "blend_in": 0,
+       "blend_out": 0,
+       "offset": 0.0,
+       "rate": 1.0,
+       "reverse": false,
+       "slot": "DefaultSlot"
+      },
+      "range": [
+       0,
+       96
+      ],
+      "row": 0
+     },
+     {
+      "channels": {
+       "weight": {
+        "default": 0.8,
+        "keys": []
+       }
+      },
+      "params": {
+       "anim": "/Game/A/Talk",
+       "blend_in": 0,
+       "blend_out": 0,
+       "offset": 0.0,
+       "rate": 1.0,
+       "reverse": false,
+       "slot": "DefaultSlot"
+      },
+      "range": [
+       40,
+       76
+      ],
+      "row": 1
+     }
+    ]
+   },
+   {
+    "binding": "Host",
+    "component": "Face",
+    "kind": "anim",
+    "name": "",
+    "params": {},
+    "sections": [
+     {
+      "channels": {
+       "weight": {
+        "default": 1.0,
+        "keys": []
+       }
+      },
+      "params": {
+       "anim": "/Game/A/Talk",
+       "blend_in": 0,
+       "blend_out": 0,
+       "offset": 0.0,
+       "rate": 0.0,
+       "reverse": false,
+       "slot": "DefaultSlot"
+      },
+      "range": [
+       10,
+       50
+      ],
+      "row": 0
+     }
+    ]
+   },
+   {
+    "binding": "",
+    "component": "",
+    "kind": "mpc",
+    "name": "/Game/MPC",
+    "params": {},
+    "sections": [
+     {
+      "channels": {
+       "Wipe": {
+        "default": null,
+        "keys": [
+         [
+          0,
+          0.0,
+          "auto"
+         ],
+         [
+          12,
+          1.0,
+          "constant"
+         ]
+        ]
+       }
+      },
+      "params": {},
+      "range": [
+       null,
+       null
+      ],
+      "row": 0
+     }
+    ]
+   },
+   {
+    "binding": "",
+    "component": "",
+    "kind": "audio",
+    "name": "VO",
+    "params": {},
+    "sections": [
+     {
+      "channels": {
+       "pitch": {
+        "default": null,
+        "keys": []
+       },
+       "volume": {
+        "default": null,
+        "keys": []
+       }
+      },
+      "params": {
+       "offset": 0.0,
+       "sound": "/Game/Au/L1"
+      },
+      "range": [
+       12,
+       48
+      ],
+      "row": 0
+     },
+     {
+      "channels": {
+       "pitch": {
+        "default": null,
+        "keys": []
+       },
+       "volume": {
+        "default": 0.5,
+        "keys": []
+       }
+      },
+      "params": {
+       "offset": 0.25,
+       "sound": "/Game/Au/L1"
+      },
+      "range": [
+       20,
+       50
+      ],
+      "row": 1
+     }
+    ]
+   },
+   {
+    "binding": "",
+    "component": "",
+    "kind": "camera_cut",
+    "name": "",
+    "params": {},
+    "sections": [
+     {
+      "channels": {},
+      "params": {
+       "camera": "CamA"
+      },
+      "range": [
+       0,
+       72
+      ],
+      "row": 0
+     },
+     {
+      "channels": {},
+      "params": {
+       "camera": "CamB"
+      },
+      "range": [
+       72,
+       144
+      ],
+      "row": 0
+     }
+    ]
+   }
+  ],
+  "unsupported": []
+ },
+ "results": {
+  "anim": [
+   [
+    "/Game/A/Idle",
+    0,
+    96,
+    0
+   ],
+   [
+    "/Game/A/Talk",
+    40,
+    76,
+    1
+   ]
+  ],
+  "anim_add": [
+   [
+    "/Game/A/Talk",
+    10,
+    50,
+    0
+   ]
+  ],
+  "audio": [
+   [
+    "/Game/Au/L1",
+    12,
+    48,
+    0
+   ],
+   [
+    "/Game/Au/L1",
+    20,
+    50,
+    1
+   ]
+  ],
+  "camera_cuts": [
+   [
+    "CamA",
+    0,
+    72
+   ],
+   [
+    "CamB",
+    72,
+    144
+   ]
+  ],
+  "cuts": [
+   [
+    "CamA",
+    0,
+    72
+   ],
+   [
+    "CamB",
+    72,
+    144
+   ]
+  ],
+  "key_collection": {
+   "collection": "/Game/MPC",
+   "form": "info",
+   "keys": 2,
+   "param": "Wipe",
+   "section": "FakeSection"
+  },
+  "key_color": {
+   "binding": "Key.point_light_component",
+   "keys": 1,
+   "prop": "LightColor",
+   "srgb": true
+  },
+  "key_float": {
+   "binding": "Key.point_light_component",
+   "keys": 2,
+   "prop": "Intensity"
+  },
+  "key_float_again": {
+   "binding": "Key.point_light_component",
+   "keys": 2,
+   "prop": "Intensity"
+  },
+  "key_float_cam": {
+   "binding": "CamA.CameraComponent",
+   "keys": 1,
+   "prop": "CurrentFocalLength"
+  },
+  "key_material": {
+   "binding": "Sign.static_mesh_component",
+   "keys": 2,
+   "param": "Glow",
+   "slot": 0
+  },
+  "key_material2": {
+   "binding": "Sign.static_mesh_component",
+   "keys": 1,
+   "param": "Tint",
+   "slot": 0
+  },
+  "key_transform": 3,
+  "key_visible": {
+   "bindings": [
+    "Host"
+   ],
+   "keys": 2
+  },
+  "new": {
+   "created": true,
+   "end": 120,
+   "fps": 24.0,
+   "sequence": "/Game/L/SEQ_Legacy",
+   "start": 0
+  },
+  "new_again": {
+   "created": false,
+   "end": 144,
+   "fps": 24.0,
+   "sequence": "/Game/L/SEQ_Legacy",
+   "start": 0
+  },
+  "set_anim": "/Game/A/Talk",
+  "tracks": {
+   "": [
+    [
+     "MovieSceneMaterialParameterCollectionTrack",
+     "",
+     1,
+     2
+    ],
+    [
+     "MovieSceneAudioTrack",
+     "",
+     2,
+     0
+    ],
+    [
+     "MovieSceneCameraCutTrack",
+     "",
+     2,
+     0
+    ]
+   ],
+   "CamA": [
+    [
+     "MovieScene3DTransformTrack",
+     "",
+     1,
+     27
+    ]
+   ],
+   "CamA.CameraComponent": [
+    [
+     "MovieSceneFloatTrack",
+     "CurrentFocalLength",
+     1,
+     1
+    ]
+   ],
+   "CamB": [],
+   "Host": [
+    [
+     "MovieSceneVisibilityTrack",
+     "bHiddenInGame",
+     1,
+     2
+    ]
+   ],
+   "Host.Body": [
+    [
+     "MovieSceneSkeletalAnimationTrack",
+     "",
+     2,
+     0
+    ]
+   ],
+   "Host.Face": [
+    [
+     "MovieSceneSkeletalAnimationTrack",
+     "",
+     1,
+     0
+    ]
+   ],
+   "Key": [],
+   "Key.point_light_component": [
+    [
+     "MovieSceneFloatTrack",
+     "Intensity",
+     1,
+     2
+    ],
+    [
+     "MovieSceneColorTrack",
+     "LightColor",
+     1,
+     4
+    ]
+   ],
+   "Sign": [],
+   "Sign.static_mesh_component": [
+    [
+     "MovieSceneComponentMaterialTrack",
+     "",
+     1,
+     6
+    ]
+   ]
+  }
+ }
+}

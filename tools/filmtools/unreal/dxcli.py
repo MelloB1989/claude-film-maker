@@ -35,7 +35,10 @@ def register(sub) -> None:
             p.add_argument("--dry-run", action="store_true", help="plan only (same as film-ue plan)")
             p.add_argument("--stop", action="store_true", help="stop at the first failing document")
     s = sub.add_parser("selftest", help="each area's acceptance test on the box; one report")
-    s.add_argument("areas", nargs="*", default=["all"], help="areas (default all); `film-ue selftest --list`")
+    s.add_argument("areas", nargs="*", default=["all"],
+                   help="areas (default all, in the plan's order); `list`: what the box has; `plan`: the run order offline")
+    s.add_argument("--md", action="store_true", help="plan: the table as Markdown (for MORNING-REPORT.md)")
+    s.add_argument("--keep-going", action="store_true", help="run every area even when a gate (platform, dx) fails")
     s.add_argument("--list", action="store_true", help="the areas with a selftest, and what each needs")
     s.add_argument("--out", default="", help="local folder for the report (default selftest-reports/<time>)")
     s.add_argument("--keep", action="store_true", help="keep the scratch level and assets afterwards")

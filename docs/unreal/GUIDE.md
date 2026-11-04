@@ -22,12 +22,13 @@ measured.
 ## Before anything: is the box healthy?
 
 ```bash
+film-ue doctor                  # FIRST: client, bridge, plugins, RHI, op modules, disk, Epic sign-in; each with a fix
 film-ue health                  # the bridge answers: engine, platform, queue
 film-ue op ops.broken           # {} = every op module imported (else: each broken one's traceback)
 film-ue selftest --list         # capabilities: gpu, epic_login, ... and which tests will skip
 film-ue selftest dx             # 30 s: the registry, errors, specs, CLI, on THIS box
 ```
-If `film-ue health` fails: `film-ue status` (is the box up?), then `film-ue editor status` / `film-ue editor log`.
+[doctor.md](doctor.md) lists every check and its fix. If `film-ue health` fails: `film-ue status` (is the box up?), then `film-ue editor status` / `film-ue editor log`.
 After editing anything under `unreal/`, `film-ue install` puts it on the box (seconds).
 
 ## Finding and calling ops
@@ -69,7 +70,10 @@ film-ue apply set.yaml --json         # read "converged" and, if false, "left"
 ## Recipes
 
 **A set.** A `scene` spec (WP6: [layout.md](layout.md)): actors by label with `shape`/`asset`/`class`, `loc`, `rot`,
-`size`/`scale`, `relative` placement, `drop: true` to rest on what is under it, tags and folders. Check: `film-ue qa
+`size`/`scale`, `relative` placement, `drop: true` to rest on what is under it, tags and folders. For dressing by rule
+rather than by coordinates, the layout ops: `layout.drop` (rest things on what is under them), `layout.relative`
+(place one actor relative to another), `layout.array` (rows, grids, circles), `layout.scatter` (seeded, with
+exclusion zones), and `layout.settle` (let physics settle props, then keep the result). Check: `film-ue qa
 floating --json`, `film-ue qa overlaps --json`; a still from a camera.
 
 **A character.** MetaHuman from a preset, cloud rig, textures, build (WP3: [metahuman.md](metahuman.md); the demo's
@@ -88,11 +92,24 @@ focus on a subject; times in frames, seconds or dialogue lines. The solver frame
 `film-ue shot check ...`, `film-ue cam check_cut ...` (the 180-degree line, the 30-degree rule), then `film-ue view
 stills --sequence ... --out-dir ...` and LOOK at the contact sheet.
 
+**Shoot, render and review a shot list in one go** (WP7, [camera.md](camera.md) Recipes):
+```bash
+film-ue shotlist table ../examples/unreal/shot/interview.yaml                 # offline: the shots, frames, sizes
+film-ue shotlist pipeline ../examples/unreal/shot/interview.yaml --out /srv/renders --preset draft \
+    --level /Game/Maps/Set --per-shot 2 --h264 -o /tmp/interview.pipeline.yaml # one spec: shots, render, reviews
+film-ue plan /tmp/interview.pipeline.yaml
+film-ue apply /tmp/interview.pipeline.yaml
+```
+Check: the render report says ok with no missing chunks, each review.json passes, a second plan is empty; then
+`film-ue op shot.check ...` for the framing numbers.
+
 **Review.** `film-ue qa review --sequence ... --out-dir ...`: one JSON (`pass`, `summary` worst first, `issues` each
 with a `fix`) and one picture. Fix the fails, re-apply, review again (WP10: [qa.md](qa.md)).
 
 **Render.** A `render` spec, preset `preview` first, then `final` (WP9: [render.md](render.md)). Path tracing does not
-fit the 24 GB L4. Check: `film-ue render progress --out-dir ...`; pull a frame and look.
+fit the 24 GB L4. Check: `film-ue render status`, or the report at `<out_dir>/_render/<name>.report.json` (status ok,
+`missing: []` per chunk); after pulling the frames, `film-ue render check SPEC --local DIR`; then look at a frame.
+`render.job` resumes: re-running the spec is the fix for an interrupted render.
 
 **Deliver.** Pull the frames (`film-ue pull-dir`), then `film-post` with a `delivery` spec (WP12: [post.md](post.md)).
 
@@ -118,7 +135,8 @@ fit the 24 GB L4. Check: `film-ue render progress --out-dir ...`; pull a frame a
 - **Multi-tick ops are generators**: in exec'd code `yield from op(...)` inside a generator; a bare call does nothing.
 - **A face played by Sequencer** stops following the body: bake them together (`anim.bake_follow`).
 - **Hair goes white indoors in daylight**: `r.HairStrands.SkyLighting 0`.
-- **Cloth needs pre-roll**: render a shot from its start, not from the middle.
+- **Cloth needs pre-roll**: `render.job` pre-rolls any chunk that starts mid-shot from its cut start automatically
+  (`preroll: cut`); judge a cut's first frame on its own.
 - **Path tracing OOMs on the 24 GB L4.** Use deferred (Lumen) renders.
 - **Never change a material while it is drawn** (an assert takes the editor down): ops that do it are multi-tick for
   a reason.

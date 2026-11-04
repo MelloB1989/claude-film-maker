@@ -128,7 +128,7 @@ def apply(*, spec: dict, force: bool = False) -> dict:
 
 
 @op("shot.describe", mutates=False, idempotent=True, tags=["camera", "sequencer"])
-def describe(*, sequence: str, subjects=None) -> dict:
+def describe(*, sequence: str, subjects: list | None = None) -> dict:
     """The edit of a sequence as it stands: each cut's camera and frames with the camera's lens and pose now (its
     first key's pose is what the cut opens on when scrubbed), the size it gives on `subjects`, and the stored spec
     hash.
@@ -159,7 +159,7 @@ def _cam_at(sequence: str, label: str, frame: int):
 
 
 @op("shot.check", mutates=False, idempotent=True, tags=["camera", "qa", "sequencer"])
-def check(*, sequence: str, subjects, at: str = "start") -> dict:
+def check(*, sequence: str, subjects: list, at: str = "start") -> dict:
     """Check a sequence's edit numerically: every shot's frame (cam.check: QA's framing plus focus, safe areas,
     dutch) at its start (or "middle"), and every cut (180-degree line, 30-degree rule). Scrubs the sequence: a
     multi-tick job.

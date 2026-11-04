@@ -1,0 +1,754 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://claude-film-maker/schemas/lighting.schema.json",
+ "title": "lighting spec",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "kind"
+ ],
+ "properties": {
+  "kind": {
+   "const": "lighting"
+  },
+  "version": {
+   "const": 1
+  },
+  "name": {
+   "type": "string",
+   "description": "owner name: prune scope"
+  },
+  "description": {
+   "type": "string"
+  },
+  "mood": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the mood to apply (a key of moods)"
+  },
+  "prune": {
+   "type": "boolean",
+   "description": "remove what this spec made earlier and no longer asks for"
+  },
+  "checks": {
+   "type": "object",
+   "description": "env.check: {camera, targets} (envlib/stats.py check targets)"
+  },
+  "lights": {
+   "type": "object",
+   "additionalProperties": {
+    "anyOf": [
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+       "at": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "barn_door_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "barn_door_length_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "channels": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "color": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "cone_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "diffuse": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "height_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "ies": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "ies_brightness": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "indirect": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "inner_cone_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "intensity_cd": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "intensity_lux": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "kind": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "label": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "loc": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "look_at": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "lumens": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "lux": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "nits": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "role": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "rotation": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "shadows": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "soft_radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "softness_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "source_length_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "source_radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "specular": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "tags": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "temperature_k": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "volumetric": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "width_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       }
+      }
+     },
+     {
+      "type": "boolean",
+      "const": false
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "description": ""
+   },
+   "description": "label -> light"
+  },
+  "practicals": {
+   "type": "object",
+   "additionalProperties": {
+    "anyOf": [
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+       "at": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "barn_door_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "barn_door_length_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "channels": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "color": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "cone_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "diffuse": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "height_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "ies": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "ies_brightness": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "indirect": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "inner_cone_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "intensity_cd": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "intensity_lux": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "kind": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "label": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "loc": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "look_at": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "lumens": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "lux": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "nits": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "role": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "rotation": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "shadows": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "soft_radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "softness_deg": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "source_length_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "source_radius_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "specular": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "tags": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "temperature_k": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "volumetric": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "width_cm": {
+        "description": "see envlib/lights.py: canonical light"
+       },
+       "type": {
+        "enum": [
+         "bulb",
+         "candle",
+         "desk_lamp",
+         "downlight",
+         "fire",
+         "lamp",
+         "led_strip",
+         "neon",
+         "phone",
+         "screen",
+         "streetlight",
+         "tube",
+         "window"
+        ]
+       },
+       "aim": {
+        "enum": [
+         "down"
+        ]
+       },
+       "scale": {
+        "type": "number"
+       }
+      },
+      "required": [
+       "type"
+      ]
+     },
+     {
+      "type": "boolean",
+      "const": false
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "description": ""
+   },
+   "description": "label -> practical"
+  },
+  "rigs": {
+   "type": "object",
+   "additionalProperties": {
+    "anyOf": [
+     {
+      "type": "object",
+      "description": "a lighting rig",
+      "additionalProperties": false,
+      "properties": {
+       "subject": {
+        "description": "an actor label or [x,y,z] cm"
+       },
+       "subject_offset": {
+        "description": "[x,y,z] cm added (e.g. eye height)"
+       },
+       "socket": {
+        "description": "a socket/bone on the subject's skeletal mesh to light (e.g. 'head')"
+       },
+       "camera": {
+        "description": "a camera label or [x,y,z]"
+       },
+       "facing_yaw_deg": {
+        "description": "the subject's facing when there is no camera"
+       },
+       "preset": {
+        "description": "a rig preset (env.presets: rigs)"
+       },
+       "key_lux": {
+        "description": "lux on the subject from the key"
+       },
+       "ratio": {
+        "description": "lighting ratio (key+fill):fill"
+       },
+       "lights": {
+        "description": "per-role overrides {role: {...} | null}"
+       },
+       "key_side": {
+        "description": "left|right (camera-left/right)"
+       },
+       "scale": {
+        "description": "x distances and sizes"
+       },
+       "temperature_k": {
+        "description": "every light's kelvin"
+       },
+       "channels": {
+        "description": "lighting channels for every light"
+       }
+      }
+     },
+     {
+      "type": "boolean",
+      "const": false
+     },
+     {
+      "type": "null"
+     }
+    ],
+    "description": "a lighting rig"
+   },
+   "description": "name -> rig; its lights are labelled <name>_<Role>"
+  },
+  "channels": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "array",
+    "items": {
+     "enum": [
+      0,
+      1,
+      2
+     ]
+    }
+   },
+   "description": "actor label -> lighting channels"
+  },
+  "moods": {
+   "type": "object",
+   "description": "name -> a partial spec merged over this one",
+   "additionalProperties": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "lights": {
+      "type": "object",
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "object",
+         "additionalProperties": false,
+         "properties": {
+          "at": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "barn_door_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "barn_door_length_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "channels": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "color": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "cone_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "diffuse": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "height_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "ies": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "ies_brightness": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "indirect": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "inner_cone_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "intensity_cd": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "intensity_lux": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "kind": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "label": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "loc": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "look_at": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "lumens": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "lux": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "nits": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "role": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "rotation": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "shadows": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "soft_radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "softness_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "source_length_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "source_radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "specular": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "tags": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "temperature_k": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "volumetric": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "width_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          }
+         }
+        },
+        {
+         "type": "boolean",
+         "const": false
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": ""
+      },
+      "description": "label -> light"
+     },
+     "rigs": {
+      "type": "object",
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "object",
+         "description": "a lighting rig",
+         "additionalProperties": false,
+         "properties": {
+          "subject": {
+           "description": "an actor label or [x,y,z] cm"
+          },
+          "subject_offset": {
+           "description": "[x,y,z] cm added (e.g. eye height)"
+          },
+          "socket": {
+           "description": "a socket/bone on the subject's skeletal mesh to light (e.g. 'head')"
+          },
+          "camera": {
+           "description": "a camera label or [x,y,z]"
+          },
+          "facing_yaw_deg": {
+           "description": "the subject's facing when there is no camera"
+          },
+          "preset": {
+           "description": "a rig preset (env.presets: rigs)"
+          },
+          "key_lux": {
+           "description": "lux on the subject from the key"
+          },
+          "ratio": {
+           "description": "lighting ratio (key+fill):fill"
+          },
+          "lights": {
+           "description": "per-role overrides {role: {...} | null}"
+          },
+          "key_side": {
+           "description": "left|right (camera-left/right)"
+          },
+          "scale": {
+           "description": "x distances and sizes"
+          },
+          "temperature_k": {
+           "description": "every light's kelvin"
+          },
+          "channels": {
+           "description": "lighting channels for every light"
+          }
+         }
+        },
+        {
+         "type": "boolean",
+         "const": false
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "a lighting rig"
+      },
+      "description": "name -> rig; its lights are labelled <name>_<Role>"
+     },
+     "practicals": {
+      "type": "object",
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "object",
+         "additionalProperties": false,
+         "properties": {
+          "at": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "barn_door_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "barn_door_length_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "channels": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "color": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "cone_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "diffuse": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "height_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "ies": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "ies_brightness": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "indirect": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "inner_cone_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "intensity_cd": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "intensity_lux": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "kind": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "label": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "loc": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "look_at": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "lumens": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "lux": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "nits": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "role": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "rotation": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "shadows": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "soft_radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "softness_deg": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "source_length_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "source_radius_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "specular": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "tags": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "temperature_k": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "volumetric": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "width_cm": {
+           "description": "see envlib/lights.py: canonical light"
+          },
+          "type": {
+           "enum": [
+            "bulb",
+            "candle",
+            "desk_lamp",
+            "downlight",
+            "fire",
+            "lamp",
+            "led_strip",
+            "neon",
+            "phone",
+            "screen",
+            "streetlight",
+            "tube",
+            "window"
+           ]
+          },
+          "aim": {
+           "enum": [
+            "down"
+           ]
+          },
+          "scale": {
+           "type": "number"
+          }
+         },
+         "required": [
+          "type"
+         ]
+        },
+        {
+         "type": "boolean",
+         "const": false
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": ""
+      },
+      "description": "label -> practical"
+     },
+     "channels": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "array",
+       "items": {
+        "enum": [
+         0,
+         1,
+         2
+        ]
+       }
+      },
+      "description": "actor label -> lighting channels"
+     }
+    }
+   }
+  }
+ }
+}

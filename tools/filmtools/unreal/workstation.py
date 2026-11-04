@@ -21,7 +21,7 @@ import os
 import shlex
 import subprocess
 import time
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 
 CONF_DIR = Path(os.environ.get("FILM_UE_CONF_DIR") or Path.home() / ".config")  # settings, tokens, tunnel state
 DEFAULTS = {"region": "ap-south-1", "instance": "", "os": "windows", "project_dir": r"C:\UEProjects\HostStudio",
@@ -95,16 +95,16 @@ def forward(remote_port: int, local_port: int, log_path: Path | None = None):
 
 
 def rjoin(*parts: str) -> str:
-    """A path on the workstation, joined in its own style."""
-    return str((PurePosixPath if linux() else PureWindowsPath)(*parts))
+    """A path on the workstation, joined in its own style (boxpaths.BoxPaths.join)."""
+    from .boxpaths import BoxPaths
+    return BoxPaths("linux" if linux() else "windows", "").join(*parts)
 
 
 def project(*parts: str) -> str:
-    """A path inside the project on the workstation: project("Saved", "Stills", "a.png")."""
-    pd = conf()["project_dir"]
-    if not pd:
-        raise SystemExit("no project dir set: film-ue set --project-dir /srv/ue/projects/<Name>")
-    return rjoin(pd, *parts)
+    """A path inside the project on the workstation: project("Saved", "Stills", "a.png"). Named locations (renders,
+    token, bridge in/out, ...) are on boxpaths.BoxPaths.current()."""
+    from .boxpaths import BoxPaths
+    return BoxPaths.current().project(*parts)
 
 
 def aws(*args, check: bool = True) -> dict | str:

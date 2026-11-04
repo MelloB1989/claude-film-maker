@@ -69,8 +69,9 @@ SPEC` only writes the manifests and prints the argv, so you can run them elsewhe
 
 **QA a finished render.** Run `film-ue render check SPEC --local DIR` (frames pulled locally; ffmpeg for luma). It
 returns a check (`pass`, `metric`, `why`) with `missing`, `corrupt` (truncated files), `black` (mean luma under 4/255)
-and `flicker` (a one-frame luma spike over 4x the median frame-to-frame change and over 2/255; a steady fade is not
-flicker).
+`flicker` (a one-frame luma spike over 4x the median frame-to-frame change and over 2/255; a steady fade is not
+flicker), and for EXR `nan_frames` (NaN/Inf pixels) and `firefly_frames` (a lone pixel over 1.0 and over 20x the
+mean of its 8 neighbours), read as linear float through ffmpeg.
 
 **How fast will it be?** Run `render.plan` (estimate) before and look at `report.measured` after. The next plan of
 the same job uses the measured seconds per sample.
@@ -120,6 +121,7 @@ The schema is `tools/filmtools/unreal/schemas/render.schema.json` (`film-ue rend
 | `resume` / `overwrite` | true / false | skip complete frames / delete the range first |
 | `file_name`, `zero_pad` | {frame_number}, 4 | MRQ format; `{render_pass}/{frame_number}` with several passes |
 | `boxes` | 1 | plan the chunks over N boxes |
+| `game_overrides` | absent | MRQ Game Overrides to set: cinematic_quality, texture_streaming (none/disabled/fully_load), lod_zero, disable_hlods, high_quality_shadows, shadow_distance_scale, view_distance_scale, flush_streaming; absent = MRQ's defaults as before |
 | `vram` | 40 GB, 97 %, false | `path_tracer_min_gb`, `abort_pct` (cancel before the driver OOMs), `force` |
 
 Presets:
@@ -168,7 +170,8 @@ Example specs: `examples/unreal/render/` (reel_final, shot_preview, grade_exr, f
   defaults apply to every render: cinematic scalability, `p.ChaosCloth.UseTimeStepSmoothing 0` (cloth stays right
   with temporal samples), `p.Chaos.ImmPhys.MinStepTime 0`, `Slate.bAllowThrottling 0` and
   `wp.Runtime.BlockOnSlowStreaming 0` (MoviePipelineGameOverrideSetting.cpp:150-170). The reel's renders had them
-  too, so we add nothing.
+  too, so we add nothing. To change one (say `texture_streaming: fully_load` for blurry far textures, or
+  `lod_zero: false` to save memory on a big world), set `game_overrides` in the spec; only the keys you give change.
 - **Frames are numbered by the sequence's display-rate frame** (`{frame_number}`, 4 digits), the same as the
   reel's `<master frame>.png`.
 - **An idle offscreen editor holds the GPU at 97 %**; the bridge caps it (`t.MaxFPS`), and every render sets
@@ -198,11 +201,13 @@ snake_case of the reflected name.
 | `MoviePipelineWaveOutput.file_name_format_override` | MovieRenderPipelineRenderPasses/Public/MoviePipelineWaveOutput.h:35 | |
 | `MoviePipelinePIEExecutor`, `MoviePipelineNewProcessExecutor` | MovieRenderPipelineEditor/Public/*.h | PIE uses job.map as GlobalMapOverride (Private/MoviePipelinePIEExecutor.cpp:206); unsaved map = silent finish offscreen (:119) |
 | NewProcess save prompt | MovieRenderPipelineEditor/Private/MoviePipelineNewProcessExecutor.cpp:36-43 | `SaveDirtyPackages(bPromptUserToSave=true, ...)`: the stall |
+| `MoviePipelineGameOverrideSetting.cinematic_quality_settings, texture_streaming (MoviePipelineTextureStreamingMethod NONE/DISABLED/FULLY_LOAD), use_lod_zero, disable_hlods (ScriptName), use_high_quality_shadows, shadow_distance_scale, override_view_distance_scale, view_distance_scale, flush_streaming_managers` | MovieRenderPipelineCore/Public/MoviePipelineGameOverrideSetting.h:14,87-143 | transient default on every job (:66 IgnoreTransientFilters) |
 | `MoviePipelineInProcessExecutorSettings.additional_command_line_arguments` | MovieRenderPipelineCore/Public/MoviePipelineInProcessExecutorSettings.h:50 | -RenderOffscreen for the child on Linux |
 | `MoviePipelineExecutorBase.cancel_all_jobs`, `on_executor_errored_delegate(executor, pipeline, is_fatal, error_text)` | MovieRenderPipelineCore/Public/MoviePipelineExecutor.h:176,313,25 | |
 | `MoviePipelineEditorBlueprintLibrary.save_queue_to_manifest_file(queue) -> (queue, path)` | MovieRenderPipelineEditor/Public/MoviePipelineEditorBlueprintLibrary.h:41 | writes Saved/MovieRenderPipeline/QueueManifest.utxt; we copy it per chunk |
 | Command line `-game -MoviePipelineConfig=<.utxt or asset>` | MovieRenderPipelineCore/Private/MovieRenderPipelineCommandLine.cpp:195-300 | relative paths are under Saved/; exit codes MovieRenderPipelineCoreModule.h:70 |
 | `MovieSceneSequenceExtensions.get_display_rate / get_playback_start / get_playback_end / find_tracks_by_type` | Engine/Plugins/MovieScene/SequencerScripting/.../MovieSceneSequenceExtensions.h:98,174,192,59 | |
+| `LevelSequenceEditorBlueprintLibrary.get_current_level_sequence / close_level_sequence` | Engine/Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:42,72 | an open Sequencer is closed before a render |
 | `EditorAssetLibrary.does_asset_exist` | Engine/Plugins/Editor/EditorScriptingUtilities/.../EditorAssetLibrary.h:70 | |
 | `EditorLoadingAndSavingUtils.get_dirty_map_packages / get_dirty_content_packages / save_dirty_packages(maps, content)` | Engine/Source/Editor/UnrealEd/Public/FileHelpers.h:136,144,108 | no prompt |
 | `Paths.engine_dir / get_project_file_path / convert_relative_path_to_full` | Engine/Source/Runtime/Engine/Classes/Kismet/BlueprintPathsLibrary.h:41,391 | |
@@ -245,6 +250,5 @@ State at 2026-11-05 (agent-05, branch `fleet/agent-05/ue-render`):
   If a check fails, start from API_NOTES.
 - **Next:**
   - a cloth A/B on the reel (S15 1136 chunk vs 1080 full shot, the P6 case) to confirm the pre-roll on real cloth;
-  - NaN/firefly detection on EXR (needs an EXR reader; B24 covers PNG/JPG luma only);
   - a Movie Render Graph backend if a feature needs it (we use the legacy preset configuration on purpose: it is
     what was proven on Linux).

@@ -5,7 +5,8 @@ money when nobody is using it, and an editor from staying stuck:
   ttl      past its time-to-live (box up --ttl, box extend): power off
   idle     nothing has happened for `idle_min` minutes: power off. Something happens when the bridge was called
            recently or has jobs, the GPU is busy, the CPU is busy (a shader compile, a restore), someone is logged
-           in (ssh or an SSM session), or something touched /run/film-ue/keepalive
+           in (ssh), or something touched /run/film-ue/keepalive (film-ue box keepalive). An open tunnel alone does
+           not count
   stall    the editor answered once and then stopped answering (or its game thread stopped ticking) for
            `stall_min` minutes: restart it; more than `max_restarts` restarts in an hour: power off (a crash loop)
   dead     the editor's unit failed (systemd gave up restarting it): start it again, counted like a stall restart
@@ -14,7 +15,9 @@ On EC2 the box is launched with "shutdown behaviour: terminate" (film-ue box up)
 before that the editor is stopped cleanly so its unit saves the Epic sign-in to S3 (ue-epic save).
 
 Config: /etc/film-ue/watchdog.json {"ttl_until": epoch|null, "idle_min": 20, "stall_min": 15, "max_restarts": 3,
-"grace_min": 30, "service": "ue-editor", "port": 18765, "token": path, "dry_run": false}. State and the last decision:
+"grace_min": 30, "service": "ue-editor", "port": 18765, "token": path, "dry_run": false, "on_exit": [shell commands
+run (as root, in order, up to `on_exit_s` seconds in all) after the editor stopped and before the power-off: e.g. a
+DDC save to S3, film-ue box up --save-ddc-on-exit]}. State and the last decision:
 /var/lib/film-ue/watchdog.json (film-ue box status shows it). Everything decided is logged to the journal.
 
 `decide()` is a pure function of the config, the state and what was measured, so it is unit-tested
@@ -31,7 +34,7 @@ STATE = "/var/lib/film-ue/watchdog.json"
 KEEPALIVE = "/run/film-ue/keepalive"
 DEFAULTS = {"ttl_until": None, "idle_min": 20, "stall_min": 15, "max_restarts": 3, "grace_min": 30,
             "service": "ue-editor", "port": 18765, "token": "", "dry_run": False,
-            "gpu_busy_pct": 15, "load_busy": 2.0}
+            "gpu_busy_pct": 15, "load_busy": 2.0, "on_exit": [], "on_exit_s": 1200}
 
 
 # ------------------------------------------------------------------------------------------------- deciding
@@ -133,8 +136,9 @@ def measure(cfg):
     out = _run(["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"])
     m["gpu_pct"] = max((int(x) for x in out.split() if x.strip().isdigit()), default=None)
     m["load1"] = os.getloadavg()[0]
-    m["sessions"] = len([x for x in _run(["who"]).splitlines() if x.strip()]) + \
-        len([x for x in _run(["pgrep", "-f", "ssm-session-worker"]).split() if x.strip()])
+    # logins only (ssh, a console): an SSM port-forward is also an ssm-session-worker, and the bridge's own tunnel
+    # left open must not keep an idle box alive (its calls count through the bridge's idle_s instead)
+    m["sessions"] = len([x for x in _run(["who"]).splitlines() if x.strip()])
     try:
         m["keepalive_age_s"] = now - os.path.getmtime(KEEPALIVE)
     except OSError:
@@ -153,6 +157,14 @@ def act(cfg, actions):
             continue
         if kind == "poweroff":
             _run(["systemctl", "stop", cfg["service"]], timeout=180)  # its ExecStopPost saves the Epic sign-in
+            end = time.time() + float(cfg.get("on_exit_s") or 1200)
+            for cmd in cfg.get("on_exit") or []:  # e.g. the DDC to S3: best effort, bounded, then off regardless
+                left = end - time.time()
+                if left <= 0:
+                    print("film-ue watchdog: on_exit out of time", flush=True)
+                    break
+                print(f"film-ue watchdog: on_exit: {cmd[:120]}", flush=True)
+                _run(["bash", "-c", cmd], timeout=left)
             _run(["systemctl", "poweroff"])
         elif kind == "restart":
             _run(["systemctl", "restart", cfg["service"]], timeout=180)

@@ -14,21 +14,28 @@ Every call is a job (fmbridge.jobs): {"async": true} returns its id at once; a g
     GET  /job?id=                                             a job's state, progress and (when finished) result
     GET  /jobs?state=&name=&limit=                            recent jobs, newest first (no results)
     POST /job/cancel {"id": ...}                              cancel a queued job, or a running multi-tick one
+    POST /batch  {"calls": [{"name": op, "args": {...}}, ...], "stop_on_error": true}   several ops as one job, in
+                 order, as many per tick as fit (a multi-tick op among them runs across ticks); one result each
     POST /gui    {"actions": [...]}                           desktop input (fmbridge.gui.run; Windows only, else 501)
     GET  /screen                                              the desktop as PNG (Windows only, else 501)
-    GET  /file?path=   PUT /file?path=                         read or write any file (bytes)
+    GET  /file?path=   PUT /file?path=                         read or write a file under the project, the temp
+                                                              folder or the editor user's home (FMBRIDGE_FILE_ROOTS
+                                                              adds more, os.pathsep-separated)
     GET  /log?lines=N                                         the editor log's tail
     GET  /health                                              engine, platform, project, uptime, jobs, memory, idle cap
 """
 from __future__ import annotations
 
+import hmac
 import http.server
+import inspect
 import json
 import os
 import platform
 import secrets
 import socketserver
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -45,6 +52,9 @@ TOKEN_PATH = os.path.join(SAVED, "fmbridge.token")
 JOURNAL = os.path.join(SAVED, "Bridge", "jobs")
 
 _state = {"server": None, "tick": None, "started": time.time(), "token": None, "registry": None, "last_call": time.time()}
+MAX_JSON = 32 * 2**20      # bytes in one JSON request (a /batch of many calls, an exec script)
+MAX_FILE = 4 * 2**30       # bytes in one PUT /file (folders go by S3/rsync: workstation.push_dir)
+MAX_BATCH = 500            # calls in one /batch
 
 
 def _namespace() -> dict:
@@ -56,12 +66,63 @@ def _namespace() -> dict:
 def _run(kind: str, payload: dict):
     """On the game thread: run code or an op and return its value (a generator for a multi-tick job). The registry
     captures what it prints and turns an exception into a failed job."""
+    if kind == "batch":
+        return _batch(payload.get("calls") or [], bool(payload.get("stop_on_error", True)))
     if kind == "exec":
         ns = _namespace()
         exec(compile(payload["code"], payload.get("name", "<bridge>"), "exec"), ns)
         return ns.get("result")
     from . import ops
     return ops.call(payload["name"], **(payload.get("args") or {}))
+
+
+def _batch(calls: list, stop_on_error: bool):
+    """Several ops in order, as one job: plain ops run back to back in the same tick, a multi-tick one runs across
+    ticks before the next starts. Each gets {"ok", "name", "result"} or the structured failure."""
+    from . import ops
+    out = []
+    for i, c in enumerate(calls):
+        name = c.get("name")
+        try:
+            res = ops.call(name, **(c.get("args") or {}))
+            if inspect.isgenerator(res):
+                res = yield from res
+            out.append({"ok": True, "i": i, "name": name, "result": _jsonable(res)})
+        except Exception as e:
+            out.append({"ok": False, "i": i, "name": name, "error": traceback.format_exc(), **_failure_detail(e)})
+            if stop_on_error:
+                break
+    if False:  # a batch is always a generator, even when every op in it is plain
+        yield
+    return {"ok": all(r["ok"] for r in out) and len(out) == len(calls), "ran": len(out), "of": len(calls),
+            "results": out}
+
+
+def _batch_calls(req: dict):
+    """The calls of a /batch request, or an error message."""
+    calls = req.get("calls")
+    if not isinstance(calls, list) or not calls:
+        return None, "batch needs calls: [{\"name\": op, \"args\": {...}}, ...]"
+    if len(calls) > MAX_BATCH:
+        return None, f"at most {MAX_BATCH} calls in one batch (got {len(calls)}): split it"
+    for i, c in enumerate(calls):
+        if not isinstance(c, dict) or not isinstance(c.get("name"), str) or not isinstance(c.get("args", {}), dict):
+            return None, f"call {i}: {{\"name\": op, \"args\": {{...}}}}"
+    return calls, None
+
+
+def _file_roots() -> list:
+    roots = [os.path.dirname(_state.get("project") or "") or SAVED, tempfile.gettempdir(), os.path.expanduser("~")]
+    roots += [r for r in os.environ.get("FMBRIDGE_FILE_ROOTS", "").split(os.pathsep) if r]
+    return [os.path.normcase(os.path.realpath(r)) for r in roots if r]
+
+
+def _file_allowed(p: str) -> bool:
+    """A /file path must be absolute and inside one of the roots (no ../ escapes, symlinks resolved)."""
+    if not p or not os.path.isabs(p):
+        return False
+    real = os.path.normcase(os.path.realpath(p))
+    return any(real == r or real.startswith(r.rstrip(os.sep) + os.sep) for r in _file_roots())
 
 
 def registry() -> "_jobs_mod.Registry":
@@ -216,7 +277,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         pass
 
     def _auth(self) -> bool:
-        if self.headers.get("X-FM-Token") == _state["token"]:
+        tok = _state["token"] or ""
+        if tok and hmac.compare_digest(str(self.headers.get("X-FM-Token") or ""), tok):  # constant time
             return True
         self._send(401, {"ok": False, "error": "bad token"})
         return False
@@ -229,8 +291,21 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _body(self) -> bytes:
-        return self.rfile.read(int(self.headers.get("Content-Length") or 0))
+    def _body(self, limit: int | None = None):
+        """The request body, or None after answering 400/413 (no length, a bad one, or too big)."""
+        limit = MAX_JSON if limit is None else limit
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if n < 0:
+            self._send(400, {"ok": False, "error": "bad Content-Length"})
+            return None
+        if n > limit:
+            self._send(413, {"ok": False, "error": f"request of {n} bytes; the limit here is {limit} "
+                                                    "(big files: workstation.push_dir; many ops: several batches)"})
+            return None
+        return self.rfile.read(n)
 
     def do_GET(self):
         if not self._auth():
@@ -250,7 +325,10 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                                                                    int(q.get("limit", "50")))})
         elif u.path == "/file":
             p = q.get("path", "")
-            if not os.path.isfile(p):
+            if not _file_allowed(p):
+                self._send(403, {"ok": False, "error": f"{p!r} is outside the project, temp and home folders "
+                                                       "(FMBRIDGE_FILE_ROOTS adds roots)"})
+            elif not os.path.isfile(p):
                 self._send(404, {"ok": False, "error": f"no file {p}"})
             else:
                 with open(p, "rb") as f:
@@ -274,8 +352,14 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if u.path != "/file" or not p:
             self._send(400, {"ok": False, "error": "PUT /file?path=..."})
             return
+        if not _file_allowed(p):
+            self._send(403, {"ok": False, "error": f"{p!r} is outside the project, temp and home folders "
+                                                   "(FMBRIDGE_FILE_ROOTS adds roots)"})
+            return
+        data = self._body(MAX_FILE)
+        if data is None:
+            return
         os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
-        data = self._body()
         with open(p, "wb") as f:
             f.write(data)
         self._send(200, {"ok": True, "bytes": len(data), "path": p})
@@ -283,14 +367,24 @@ class _Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._auth():
             return
+        body = self._body()
+        if body is None:
+            return
         try:
-            req = json.loads(self._body() or b"{}")
+            req = json.loads(body or b"{}")
         except ValueError:
             self._send(400, {"ok": False, "error": "body must be JSON"})
             return
         path = urllib.parse.urlparse(self.path).path
         if path == "/job/cancel":
             self._send(200, registry().cancel(str(req.get("id", ""))))
+        elif path == "/batch":
+            calls, err = _batch_calls(req)
+            if err:
+                self._send(400, {"ok": False, "code": "bad_args", "error": err})
+                return
+            payload = {"calls": calls, "stop_on_error": req.get("stop_on_error", True), "name": "batch"}
+            self._send(200, submit("batch", payload, float(req.get("timeout", 600)), not req.get("async")))
         elif path in ("/exec", "/op"):
             kind = path[1:]
             if kind == "exec" and "code" not in req:

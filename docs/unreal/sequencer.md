@@ -58,6 +58,13 @@ Each chunk is `{start, end, eval_from, preroll_frames, shot, first_after_cut, co
 keep `[start, end)`. A chunk never starts a simulation mid-shot (the Linux PoC's open overshirt, docs/linux/engine.md
 P6); `max_preroll` caps the cost and flags `cold`. Judge `first_after_cut` frames on their own (TSR history).
 
+**A shot list → an edit (master + one sequence per shot).** `examples/unreal/sequence/shot_list.yaml`: each shot
+entry takes `duration` (start defaults to the previous shot's end), `camera: <label>` (a one-camera shot sequence)
+or `shot: {...}` (the shot's own tracks, an inline spec), `handles` and `preroll`. Apply converges every shot
+sequence (`<master>_<name>`) first, then the master's shot track; a change inside one shot re-applies only that
+shot. Frame the cameras with WP7 (`cam.frame`, `shot.apply` into the shot sequence); render with `seq.chunks` on the
+master.
+
 **Pull a shot out, move time.**
 
     film-ue op seq.copy src=/Game/Film/SEQ_All dst=/Game/Film/SEQ_sh020 start=120 end=240   # window -> [0, 120)
@@ -67,6 +74,19 @@ P6); `max_preroll` caps the cost and flags `cold`. Judge `first_after_cut` frame
 Copy without a window duplicates the asset (everything, even unmodelled tracks). With a window, clips start that
 much later into themselves and curves hold their values at the edges. Retime plays animation at rate/scale; audio
 is moved, never stretched.
+
+**Change the frame rate (conform).**
+
+    film-ue op seq.conform path=/Game/Film/SEQ_010 fps=25                  # keep TIME: every key stays at its second
+    film-ue op seq.conform path=/Game/Film/SEQ_010 fps=48 keep=frames out=/Game/Film/SEQ_010_48   # keep FRAMES
+
+Keeping time only relabels frames (keys, sections and markers live in ticks); `off_frame` counts what now falls
+between frames. Keeping frames rewrites every track at the same frame numbers: the sequence plays faster or slower,
+animation rates follow, audio sections end where their sound does. A rate that does not land on whole ticks (29.97,
+59.94 on 24000) switches the tick resolution to 60000 first, keys migrated.
+
+**Slow down one beat.** `film-ue op seq.retime path=... start=48 end=72 scale=2` plays [48, 72) twice as long and
+moves everything after it by 24 frames (animation inside at half rate; audio moved, not stretched).
 
 **Times.** `film-ue op seq.time value=00:01:00:00 fps=23.976` → frame, seconds, timecode (drop-frame `;` at
 29.97/59.94), ticks. Specs take `48`, `"48f"`, `"2s"`, `"1m30s"`, `"500ms"` or `"HH:MM:SS:FF"` wherever a frame goes.
@@ -88,10 +108,12 @@ is moved, never stretched.
 | `seq.diff(path, other? / spec?)` | what differs, and where each track first differs (a spec: only what it states) | no |
 | `seq.check(path)` | numeric QA verdict | no |
 | `seq.shots(path)`, `seq.chunks(path, ...)`, `seq.preroll(path, frames)` | shots, render chunks, pre-roll | -, -, yes / yes |
-| `seq.copy(src, dst, start?, end?, to, replace)`, `seq.retime(path, offset, scale, pivot, after, out)` | edit time | yes / copy yes, retime no |
+| `seq.copy(src, dst, start?, end?, to, replace)`, `seq.retime(path, offset, scale, pivot, after, start?, end?, out)` | edit time | yes / copy yes, retime no |
+| `seq.conform(path, fps, keep=time\|frames, out)` | change the display rate keeping time or frames | yes / yes |
 | `seq.time(value, fps, path)` | conversions | no |
 
-Older ops (`ops/seq.py`, kept with their signatures; WP7's `cam.*`/`shot.*` call them): `seq.new`, `seq.shot`,
+Older ops (`ops/seq.py`, kept with their signatures and results, now a thin layer: every write goes through
+seqcore's `write_track`, `seq.cuts`/`seq.set_anim` read through `describe`; pinned by `tests/test_ue_seq_legacy.py`): `seq.new`, `seq.shot`,
 `seq.key_transform`, `seq.key_float`, `seq.key_color`, `seq.key_visible`, `seq.key_material`, `seq.key_collection`,
 `seq.anim`, `seq.audio`, `seq.camera_cuts`, `seq.cuts`, `seq.rebind`, `seq.tracks`, `seq.set_anim`, `seq.scrub`,
 `seq.close`, `seq.sample` (bones by ticking, for rigs that settle), `seq.still`, `seq.stills` (stills through the cut).
@@ -126,7 +148,8 @@ bindings:
 camera_cuts: [[CamWide, 0], [CamClose, 3s]]
 audio: {VO: [{sound: /Game/Audio/L1, start: 12}]}
 fade: {color: [0, 0, 0], keys: [[0, 1], [12, 0]]}
-shots: [{sequence: /Game/Shots/SEQ_sh010, start: 0, end: 120, preroll: 24}]
+shots: [{sequence: /Game/Shots/SEQ_sh010, start: 0, end: 120, preroll: 24},   # or a shot list:
+        {name: close, camera: CamClose, duration: 3s, handles: 12}]   # start = previous end; made for you
 collections: [{collection: /Game/MPC_Grade, param: Exposure, keys: [[0, 0], [120, 0.3]]}]
 tracks: []                                    # raw canonical tracks (seq.describe's shape)
 ```
@@ -251,13 +274,22 @@ cut. Its report names everything it could not exercise (no AnimSequence, no audi
 
 ## HANDOFF
 
-State at the end of the night (agent-06, branch `fleet/agent-06/ue-sequencer`):
+State at the end of the night (agent-06, branch `fleet/agent-06/ue-sequencer`, merged into `ue-helpers` by the lead):
 
-- Done: the pure core (time incl. drop-frame timecode, keys and curves, canonical document, spec compiler, plan,
-  lint, shots, render chunks, copy/retime transforms), the engine adapter for every listed track kind, 18 `seq.*`
-  ops (19 with seq.diff), the `sequence` spec kind for WP11's engine, the schema and two examples, the fake Sequencer, 53 unit tests,
-  the selftest. All UE APIs verified on the 5.8.4 source (table above).
-- Not yet run on an engine: everything engine-side is proven only against the fake. Tomorrow's first run of
-  `film-ue selftest seq` is the acceptance test. The places most likely to need a fix are noted in Gotchas: reading colour/vector/byte channels by order; the material section's colour-channel grouping.
-- Not done: writing event tracks (read only), camera-shake / data-layer tracks (listed as unsupported), the
-  legacy `ops/seq.py` ops still write key by key in-process (batched per call, not routed through `seqcore`).
+- Done: the pure core (time incl. drop-frame timecode and compatible tick resolutions, keys and curves, canonical
+  document, spec compiler, plan, diff, lint, shots, render chunks, copy / retime / stretch transforms), the engine
+  adapter for every listed track kind, 20 new `seq.*` ops plus flags/examples on the 20 older ones, the `sequence`
+  spec kind for WP11's engine (shot lists: B20), seq.conform (B22), the schema and three examples, the fake
+  Sequencer (B41: keys, ranges, playback and markers in ticks), 64 unit tests, the selftest (dry-run on the fake
+  through the real harness: every check passes up to the GPU stills). Every UE API verified on the 5.8.4 source
+  (table above).
+- Not yet run on an engine: tomorrow's first `film-ue selftest seq` is the acceptance test. Most likely to need a
+  fix: reading colour / vector / byte channels by order (`_engine._channels`), the material section's colour-channel
+  grouping, `get_start_frame` rounding of off-frame sections after a conform (the fake floors).
+- Not done: writing event tracks (read only: needs a director-blueprint endpoint), camera-shake / data-layer tracks
+  (listed as unsupported); `seq.anim`'s `loop: false` still does nothing in 5.8 (no
+  hold-last-frame field), as before.
+- Later the same night: `ops/seq.py` became a layer over seqcore (one engine path; B01's helpers from `_util`). Its
+  results are pinned against the old implementation (golden `tools/tests/data/seq_legacy_golden.json`); three
+  differences are on purpose (anim offset now StartFrameOffset, play rate via make_time_warp, collection keys by
+  FName) and listed in that test.

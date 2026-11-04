@@ -146,7 +146,7 @@ def _resolve(spec: dict) -> dict:
         return rs.resolve(spec)
     except rs.SpecError as e:
         raise OpError("render spec: " + "; ".join(e.errors), code="bad_args", details={"errors": e.errors},
-                      hint="film-ue render presets / docs/unreal/render.md show the fields") from None
+                      hint="film-ue render presets and film-ue render schema show the fields (docs/unreal/render.md)") from None
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -201,6 +201,12 @@ def _setting(cfg, cls_name: str, exact: bool = True):
 
 _AA = {"none": "AAM_NONE", "fxaa": "AAM_FXAA", "taa": "AAM_TEMPORAL_AA", "msaa": "AAM_MSAA", "tsr": "AAM_TSR",
        "smaa": "AAM_SMAA"}
+
+
+_GAME_OVERRIDES = {"cinematic_quality": "cinematic_quality_settings", "texture_streaming": "texture_streaming",
+                   "lod_zero": "use_lod_zero", "disable_hlods": "disable_hlods",
+                   "high_quality_shadows": "use_high_quality_shadows", "shadow_distance_scale": "shadow_distance_scale",
+                   "view_distance_scale": "view_distance_scale", "flush_streaming": "flush_streaming_managers"}
 
 
 def _configure(job, r: dict, chunk: dict) -> None:
@@ -270,6 +276,18 @@ def _configure(job, r: dict, chunk: dict) -> None:
     if r["aa_method"]:
         aa.set_editor_property("override_anti_aliasing", True)
         aa.set_editor_property("anti_aliasing_method", getattr(unreal.AntiAliasingMethod, _AA[r["aa_method"]]))
+
+    go = r.get("game_overrides")
+    if go:  # absent: MRQ's transient Game Overrides apply with their defaults, as in every earlier render
+        g = _setting(cfg, "MoviePipelineGameOverrideSetting")
+        for key, prop in _GAME_OVERRIDES.items():
+            if key in go:
+                v = go[key]
+                if key == "texture_streaming":
+                    v = getattr(unreal.MoviePipelineTextureStreamingMethod, v.upper())
+                g.set_editor_property(prop, v)
+        if "view_distance_scale" in go:
+            g.set_editor_property("override_view_distance_scale", True)
 
     cvs = _setting(cfg, "MoviePipelineConsoleVariableSetting")
     for name, value in r["cvars"].items():
@@ -468,6 +486,17 @@ def _cancel_now() -> None:
             pass
 
 
+def _close_sequencer() -> None:
+    """Close a sequence open in Sequencer before a render (the reel's render.py did, through seq.close): an open
+    sequence keeps evaluating on the editor world and its edit state is not what MRQ renders."""
+    try:
+        lse = unreal.LevelSequenceEditorBlueprintLibrary
+        if lse.get_current_level_sequence():
+            lse.close_level_sequence()
+    except Exception:
+        pass
+
+
 def _guards(r: dict) -> dict:
     g = gpu_info(0)
     v = rs.vram_check(r, g)
@@ -506,6 +535,7 @@ def _run_job(r: dict, plan: dict, level: str, stall_s: float):
         if r["executor"] == "process":
             _offscreen_child()
     os.makedirs(r["out_dir"], exist_ok=True)
+    _close_sequencer()
     if r["overwrite"]:
         for f in rs.frames_on_disk(r, _walk(r["out_dir"])):
             if plan["range"][0] <= f < plan["range"][1]:
@@ -581,8 +611,8 @@ def plan(*, spec: dict) -> dict:
 
 @op("render.job", mutates=True, idempotent=True, tags=["slow", "gpu"])
 def job(*, spec: dict, stall_s: float = 900.0):
-    """Render a RENDER SPEC to the end (multi-tick: the bridge returns a job id at once with wait=false; follow it,
-    or render.status): plan the chunks, check the level and the GPU, render each chunk with MRQ (pre-rolled from its
+    """Render a RENDER SPEC to the end (multi-tick: with --async the bridge returns a job id at once; follow it with
+    film-ue job ID, or render.status): plan the chunks, check the level and the GPU, render each chunk with MRQ (pre-rolled from its
     shot start), watch frames, VRAM and stalls, then write <out_dir>/_render/<name>.report.json. Re-running resumes:
     frames on disk (and complete) are skipped, so a finished job re-runs as a no-op.
 
@@ -590,7 +620,7 @@ def job(*, spec: dict, stall_s: float = 900.0):
     Returns: the report: {"status": ok|incomplete|failed|stalled|vram_abort|cancelled, "changed", "frames",
     "seconds", "chunks": [{"id", "status", "frames", "missing", "median_s", "vram_peak_gb", "errors", ...}],
     "measured": {"s_per_frame", "sample_s_1080p"}, "report": path, "errors"}.
-    Example: film-ue op render.job --no-wait 'spec={"sequence": "/Game/Reel/SEQ_Reel", "out_dir": "/srv/r/reel", "preset": "final", "shots": ["Reel_S16"]}'
+    Example: film-ue op render.job 'spec={"sequence": "/Game/Reel/SEQ_Reel", "out_dir": "/srv/r/reel", "preset": "final", "shots": ["Reel_S16"]}' (or film-ue render job ... --async; film-ue render run SPEC)
     """
     r = _resolve(spec)
     if _mq().is_rendering() or _RUN.get("status") == "running":
@@ -767,7 +797,7 @@ def _ffmpeg() -> str:
     if not exe:
         raise OpError("ffmpeg is not installed on the render box", code="unsupported",
                       hint="install it (Ubuntu: apt-get install -y ffmpeg), or pull the frames and run "
-                           "film-ue render encode --local")
+                           "film-ue render video SPEC --local DIR")
     return exe
 
 

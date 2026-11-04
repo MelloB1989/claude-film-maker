@@ -279,3 +279,13 @@ def test_selftest_runs_on_the_fake(mh, fmb, tmp_path, monkeypatch):
                                                                    "prop rides", "attach", "presets ship",
                                                                    "hair grooms", "preview converges"))]
     assert not judged, judged
+
+
+def test_body_mesh_from_the_build(mh):
+    run_op("mh.apply", spec={"kind": "character", "asset": P, "from": {"preset": "Ada"}, "build": {"name": "Ava"}})
+    mh.add_asset("/Game/Chars/Ava/Unpacked/Ava/Body/SKM_Ava_Body", "SkeletalMesh")
+    mh.add_asset("/Game/Chars/Ava/Unpacked/Ava/Face/SKM_Ava_FaceMesh", "SkeletalMesh")
+    r = run_op("mh.body_mesh", character=P)
+    assert r["body"].endswith("SKM_Ava_Body") and r["face"].endswith("SKM_Ava_FaceMesh")
+    e = err(run_op, "mh.body_mesh", bp="/Game/Nope/BP_X")
+    assert e.code == "not_found"

@@ -263,3 +263,59 @@ def test_diff_two_sequences_and_against_a_spec(level):
     s["fade"]["keys"] = [[0, 1], [24, 0]]
     d = run_op("seq.diff", path=SEQ, spec=s)
     assert [t["track"] for t in d["tracks"]] == ["/fade"]
+
+
+def test_conform_keeps_time_or_frames(level):
+    run_op("seq.apply", spec=spec())
+    a = run_op("seq.describe", path=SEQ)
+    r = run_op("seq.conform", path=SEQ, fps=30, keep="time")
+    assert r["changed"] and r["range"] == [0, 300] and r["tick_resolution"] == 24000
+    b = run_op("seq.describe", path=SEQ)
+    assert b["markers"] == [{"frame": 60, "label": "beat"}]
+    cuts = [s["range"] for s in tracks(b, "camera_cut")[0]["sections"]]
+    assert cuts == [[0, 150], [150, 300]]                       # 5 s is still 5 s
+    assert tracks(b, "float", "Key")[0]["sections"][0]["channels"]["value"]["keys"][1][0] == 30
+    assert run_op("seq.conform", path=SEQ, fps=30)["changed"] is False
+    r = run_op("seq.conform", path=SEQ, fps="29.97", keep="time")
+    assert r["tick_resolution"] == 60000                        # 24000 does not land on 29.97 frames
+    run_op("seq.apply", spec=spec())                             # back to 24 fps, frames as the spec says
+    r = run_op("seq.conform", path=SEQ, fps=48, keep="frames", out="/Game/T/SEQ_48")
+    c = run_op("seq.describe", path="/Game/T/SEQ_48")
+    assert c["fps"] == "48" and c["range"] == a["range"]
+    assert [s["range"] for s in tracks(c, "camera_cut")[0]["sections"]] == [[0, 120], [120, 240]]
+    assert tracks(c, "anim", "Hero")[0]["sections"][0]["params"]["rate"] == 2.0
+    assert tracks(c, "audio")[0]["sections"][0]["range"] == [12, 108]   # 2 s of sound at 48 fps
+
+
+def test_retime_stretches_a_span(level):
+    run_op("seq.apply", spec=spec())
+    r = run_op("seq.retime", path=SEQ, start=100, end=140, scale=1.5)
+    doc = run_op("seq.describe", path=SEQ)
+    assert doc["range"] == [0, 260] and [s["range"] for s in tracks(doc, "camera_cut")[0]["sections"]] == \
+        [[0, 130], [130, 260]]
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError):
+        run_op("seq.retime", path=SEQ, start=100, scale=2)
+
+
+def test_shot_list_builds_shot_sequences_and_master(level):
+    level.add_asset("/Game/F/SEQ_existing", "LevelSequence")
+    s = {"sequence": "/Game/F/SEQ_Edit", "fps": 24,
+         "shots": [{"name": "wide", "camera": "CamA", "duration": 72, "handles": 12},
+                   {"name": "close", "duration": 48, "shot": {
+                       "bindings": {"CamB": {"props": {f"{CAM['comp']}/CurrentFocalLength": [[0, 85]]}}},
+                       "camera_cuts": [["CamB", 0]]}},
+                   {"sequence": "/Game/F/SEQ_existing", "duration": 24}]}
+    r = run_op("seq.apply", spec=s)
+    assert r["converged"], r["remaining"]
+    assert [x["op"] for x in r["steps"]][:3] == ["seq.add", "seq.apply", "seq.apply"]
+    wide = run_op("seq.describe", path="/Game/F/SEQ_Edit_wide")
+    assert wide["range"] == [0, 96] and [c["params"]["camera"] for c in tracks(wide, "camera_cut")[0]["sections"]] == ["CamA"]
+    shots = run_op("seq.shots", path="/Game/F/SEQ_Edit")
+    assert [(x["name"], x["start"], x["end"]) for x in shots] == [("wide", 0, 72), ("close", 72, 120),
+                                                                  ("SEQ_existing", 120, 144)]
+    assert run_op("seq.apply", spec=s)["changed"] is False
+    s["shots"][1]["shot"]["bindings"]["CamB"]["props"][f"{CAM['comp']}/CurrentFocalLength"] = [[0, 50]]
+    r = run_op("seq.apply", spec=s)
+    assert [(x["op"], x["result"]["sequence"]) for x in r["steps"]] == [("seq.apply", "/Game/F/SEQ_Edit_close")]
+    assert r["converged"]

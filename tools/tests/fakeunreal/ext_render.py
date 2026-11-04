@@ -278,11 +278,17 @@ def install(fake):
             setattr(seq_cls, name, fn)
 
     def add_sequence(path, start=0, end=120, fps=24, cuts=None):
-        """A LevelSequence asset with a playback range [start, end), a display rate and camera cuts
-        [[label, start, end]] (read back as seq.cuts; tests point fmbridge.ops.seq.cuts at it)."""
-        s = fake.add_asset(path, seq_cls)
-        object.__setattr__(s, "_pb", [start, end])
-        object.__setattr__(s, "_fps", fps)
+        """A LevelSequence asset (whichever fake class is current: ext_seq's when loaded) with a playback range
+        [start, end), a display rate and camera cuts [[label, start, end]] (read back as seq.cuts; tests point
+        fmbridge.ops.seq.cuts at it)."""
+        s = fake.add_asset(path, fake.LevelSequence)
+        if hasattr(type(s), "set_playback_start") and "set_playback_start" in vars(type(s)):
+            s.set_display_rate(fake.FrameRate(fps, 1))
+            s.set_playback_start(start)
+            s.set_playback_end(end)
+        else:
+            object.__setattr__(s, "_pb", [start, end])
+            object.__setattr__(s, "_fps", fps)
         object.__setattr__(s, "cuts", [list(c) for c in (cuts or [])])
         return s
 

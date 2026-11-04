@@ -245,3 +245,53 @@ def clip(doc: dict, start: float, end: float, *, to: float = 0.0, fps: float = 2
         out["markers"] = [dict(m, frame=snap(m["frame"] - start + to)) for m in out.get("markers") or []
                           if start <= m["frame"] < end]
     return out, notes
+
+
+def stretch(doc: dict, start: float, end: float, scale: float) -> tuple:
+    """A copy of `doc` with the span [start, end) played `scale` times as long and everything after it moved by the
+    difference (a ripple): f < start stays, start <= f <= end -> start + (f - start) * scale, f > end -> f + (end -
+    start) * (scale - 1). Animation sections wholly inside play at rate / scale; ones straddling an edge keep their
+    rate (noted); audio moves, never stretches (noted). Returns (new doc, notes)."""
+    if scale <= 0 or end <= start:
+        raise ValueError(f"stretch needs start < end and scale > 0, got [{start}, {end}) x{scale}")
+    notes: list = []
+
+    def fn(f):
+        if f < start:
+            return f
+        if f <= end:
+            return start + (f - start) * scale
+        return f + (end - start) * (scale - 1)
+
+    out = _copy.deepcopy(doc)
+    tracks = out["tracks"] if "tracks" in out else [out]
+    for t in tracks:
+        for s in t.get("sections") or []:
+            s0, s1 = s["range"]
+            inside = s0 is not None and s1 is not None and start <= s0 and s1 <= end
+            if t["kind"] == "audio" and s0 is not None and s1 is not None:
+                n0 = fn(s0)
+                s["range"] = [snap(n0), snap(n0 + (s1 - s0))]
+                if scale != 1.0 and (start <= s0 < end or start < s1 <= end):
+                    notes.append(f"{track_label(t)}: audio at {s0} moved, not stretched")
+            else:
+                s["range"] = [_map(s0, fn), _map(s1, fn)]
+            if t["kind"] == "anim" and scale != 1.0:
+                if inside:
+                    s["params"]["rate"] = float(s["params"].get("rate", 1.0)) / scale
+                elif s0 is not None and s1 is not None and s0 < end and start < s1:
+                    notes.append(f"{track_label(t)}: the animation section [{s0}, {s1}) straddles the stretch; its "
+                                 f"rate is kept")
+            for c in (s.get("channels") or {}).values():
+                for k in c.get("keys") or []:
+                    inside_k = start <= k[0] <= end
+                    k[0] = snap(fn(k[0]))
+                    if inside_k and scale != 1.0 and len(k) > 3 and k[3]:
+                        for n in ("arrive", "leave"):
+                            if n in k[3]:
+                                k[3][n] = k[3][n] / scale
+    if "range" in out and isinstance(out["range"], list):
+        out["range"] = [_map(out["range"][0], fn), _map(out["range"][1], fn)]
+    for m in out.get("markers") or []:
+        m["frame"] = snap(fn(m["frame"]))
+    return out, notes
