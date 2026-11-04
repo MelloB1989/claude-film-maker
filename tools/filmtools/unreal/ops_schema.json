@@ -4838,12 +4838,237 @@
    "tags": []
   },
   {
+   "name": "qa.baseline_check",
+   "area": "qa",
+   "verb": "baseline_check",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 547,
+   "summary": "What a test does per still: compare with the baseline, or make it the baseline when there is none.",
+   "doc": "What a test does per still: compare with the baseline, or make it the baseline when there is none.\n\nArgs: suite/name/image: as qa.baseline_compare. mode: auto (compare, or create when missing), compare (never\ncreate), update (replace: accept the new look), off. diff_out: heatmap when it differs. meta: stored on create.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"status\": created|updated|match|differs|different|no_baseline|off, ...}}.\nExample: film-ue op qa.baseline_check suite=selftest/look name=key image=/srv/st/look_key.png",
+   "params": [
+    {
+     "name": "suite",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "image",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "mode",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "auto"
+    },
+    {
+     "name": "diff_out",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "meta",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": false,
+   "tags": []
+  },
+  {
+   "name": "qa.baseline_compare",
+   "area": "qa",
+   "verb": "baseline_compare",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 531,
+   "summary": "A still against its baseline: SSIM, PSNR, changed cells, exposure shift, a diff heatmap when it moved.",
+   "doc": "A still against its baseline: SSIM, PSNR, changed cells, exposure shift, a diff heatmap when it moved.\n\nArgs: suite/name: the baseline. image: the new still (PNG on the box). diff_out: write the heatmap there when it\ndiffers. min_ssim: override the match threshold (default the baseline's own, else 0.95).\nReturns: {\"pass\", \"issues\", \"metrics\": {\"status\": match|differs|different|no_baseline, \"ssim\", \"psnr\",\n\"changed\", \"stops_shift\", \"mean_shift\", \"diff\"?}}. no_baseline passes (with an info issue).\nExample: film-ue op qa.baseline_compare suite=film/s010 name=00048 image=/srv/qa/new/00048.png diff_out=/srv/qa/d.png",
+   "params": [
+    {
+     "name": "suite",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "image",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "diff_out",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "min_ssim",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "qa.baseline_list",
+   "area": "qa",
+   "verb": "baseline_list",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 566,
+   "summary": "The baselines on the box (all, or one suite and its sub-suites).",
+   "doc": "The baselines on the box (all, or one suite and its sub-suites).\n\nReturns: {\"root\", \"baselines\": [{\"suite\", \"name\", \"updated\", \"size\", \"png\", \"json\", \"rel\"}]}; `rel` is the PNG's\npath under root (film-qa baseline pull mirrors it).\nExample: film-ue op qa.baseline_list suite=selftest",
+   "params": [
+    {
+     "name": "suite",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "qa.baseline_remove",
+   "area": "qa",
+   "verb": "baseline_remove",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 578,
+   "summary": "Delete one baseline (nothing there is fine).",
+   "doc": "Delete one baseline (nothing there is fine).\n\nReturns: {\"changed\": bool}.\nExample: film-ue op qa.baseline_remove suite=film/s010 name=00048",
+   "params": [
+    {
+     "name": "suite",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "qa.baseline_save",
+   "area": "qa",
+   "verb": "baseline_save",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 510,
+   "summary": "Keep a still as the golden baseline suite/name (with its exposure/colour numbers).",
+   "doc": "Keep a still as the golden baseline suite/name (with its exposure/colour numbers).\n\nArgs: suite: a group (\"selftest/look\", \"film/s010\"; slashes make folders). name: the still's name in it.\nimage: PNG path on the box. overwrite: replace an existing baseline (accept a change); otherwise an existing one\nis kept. meta: anything to remember (camera, frame, commit). min_ssim: this baseline's own match threshold (a\nnoisy shot).\nReturns: {\"suite\", \"name\", \"png\", \"json\", \"size\", \"metrics\", \"changed\"}.\nExample: film-ue op qa.baseline_save suite=film/s010 name=00048 image=/srv/qa/s010/00048.png",
+   "params": [
+    {
+     "name": "suite",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "image",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "overwrite",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "meta",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "min_ssim",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "qa.compare",
    "area": "qa",
    "verb": "compare",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 140,
+   "line": 141,
    "summary": "A PNG against a reference PNG: SSIM, PSNR, which cells changed, mean colour shift, and a diff heatmap.",
    "doc": "A PNG against a reference PNG: SSIM, PSNR, which cells changed, mean colour shift, and a diff heatmap.\n\nArgs: image, reference: PNG paths (same aspect; sizes may differ). out_diff: write the heatmap there (\"\" skips).\nmin_ssim: below this the check fails/warns. width_px: compare size. grid: [cols, rows] for the change map.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"ssim\", \"psnr\", \"grid\", \"changed\", \"mean_shift\", \"verdict\"},\n\"diff\"?: path}.\nExample: film-ue op qa.compare image=/tmp/qa/new/00048.png reference=/tmp/qa/ref/00048.png out_diff=/tmp/qa/d.png",
    "params": [
@@ -4902,7 +5127,7 @@
    "verb": "diff",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 470,
+   "line": 471,
    "summary": "What changed between two snapshots (files from qa.snapshot), or between one and the level now.",
    "doc": "What changed between two snapshots (files from qa.snapshot), or between one and the level now.\n\nArgs: before: snapshot path. after: snapshot path (\"\" = now). ignore: labels or prefixes (\"Light*\") to skip.\nseverity: \"info\" when versions are expected to differ, \"warn\" when they should match. tolerance: {\"loc_cm\",\n\"rot_deg\", \"scale\", \"prop\"}.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"added\", \"removed\", \"changed\", \"summary\"}}.\nExample: film-ue op qa.diff before=/tmp/qa/before.json 'ignore=[\"FMQA_*\"]'",
    "params": [
@@ -4954,7 +5179,7 @@
    "verb": "exposure",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 120,
+   "line": 121,
    "summary": "Exposure of a PNG: histogram, luma mean/median/percentiles, clipped and crushed %, stops from mid grey, per",
    "doc": "Exposure of a PNG: histogram, luma mean/median/percentiles, clipped and crushed %, stops from mid grey, per\nregion, and a verdict against a target range.\n\nArgs: image: PNG path. target_stops: [lo, hi] the mean should land in (stops from 18% grey; default -2.5..+1.5).\nregions: {name: [x0,y0,x1,y1]} (0..1) measured separately, e.g. a face box from qa.framing.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"exposure\", \"histogram\" (32 bins of luma), \"regions\"}}.\nExample: film-ue op qa.exposure image=/tmp/qa/a.png 'target_stops=[-2,-0.5]'",
    "params": [
@@ -4992,7 +5217,7 @@
    "verb": "floating",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 355,
+   "line": 356,
    "summary": "Actors hovering above the surface under them: a line trace down from the bottom of each one's bounds (its",
    "doc": "Actors hovering above the surface under them: a line trace down from the bottom of each one's bounds (its\nown collision ignored) measures the gap.\n\nArgs: labels: the actors (default every visible mesh actor). ignore: labels to skip (things meant to hang:\nlamps, pictures). tolerance_cm: a gap over this is floating. max_check_cm: how far down to look.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"gaps\": {label: cm or None}}}. Needs collision on what is underneath\n(an object over a floor without collision reads as unsupported).\nExample: film-ue op qa.floating 'ignore=[\"Pendant\"]'",
    "params": [
@@ -5037,7 +5262,7 @@
    "verb": "framing",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 191,
+   "line": 192,
    "summary": "How subjects sit in a camera's frame, measured from their bones (characters) or bounds (anything else).",
    "doc": "How subjects sit in a camera's frame, measured from their bones (characters) or bounds (anything else).\n\nArgs: subjects: actor labels. camera: a camera label; \"\" with sequence+frame: the cut's camera at that frame\n(the sequence is scrubbed there first so animated cameras and bodies are where the shot has them).\nexpect: intent per subject or for all: {\"size\": \"MCU\"|[\"MS\",\"MCU\"], \"headroom\": [lo, hi], \"side\":\n\"left\"|\"right\"|\"center\", \"in_frame\": 1.0}, or {\"Ada\": {...}, \"Ben\": {...}}. width_px/height_px: the output\naspect. still_out: also capture a still there with each subject's box and the problems drawn.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"camera\", \"subjects\": {label: {size, box, headroom, eyes, looks,\nlook_room}}}, \"still\"?}. Multi-tick when sequence or still_out is given.\nExample: film-ue op qa.framing 'subjects=[\"Ada\"]' camera=CamA 'expect={\"size\":\"MCU\"}'",
    "params": [
@@ -5110,7 +5335,7 @@
    "verb": "image",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 101,
+   "line": 102,
    "summary": "Exposure, clipping, colour and focus of a PNG on the box, as numbers and issues.",
    "doc": "Exposure, clipping, colour and focus of a PNG on the box, as numbers and issues.\n\nArgs: image: PNG path. subjects: {name: [x0,y0,x1,y1]} boxes (0..1; qa.framing returns them) for per-subject\nbrightness and focus. expect: intent, so a mood is not flagged: {\"stops\": [-3, -1]} mean exposure range in stops\nfrom mid grey, {\"cast\": \"warm\"|\"cool\"|\"neutral\"}. limits: override thresholds (fmbridge.qa.metrics.LIMITS).\nwidth_px: analysis size.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"exposure\", \"color\", \"regions\", \"subjects\", \"size\"}}.\nExample: film-ue op qa.image image=/tmp/qa/a.png 'expect={\"stops\":[-2,0]}'",
    "params": [
@@ -5162,7 +5387,7 @@
    "verb": "overlaps",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 396,
+   "line": 397,
    "summary": "Actors whose bounds interpenetrate (a chair sunk into a table, two props in one place).",
    "doc": "Actors whose bounds interpenetrate (a chair sunk into a table, two props in one place).\n\nArgs: labels: the actors (default every visible mesh actor). ignore: labels to skip (the floor, walls, the\nset's shell). ignore_pairs: [[a, b]] that may overlap (a book on a shelf). min_fraction: the share of the\nsmaller box that counts. touching_cm: resting contact allowed.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"pairs\": [[a, b, fraction, depth_cm]]}}. Axis-aligned bounds: confirm a hit\nwith a still.\nExample: film-ue op qa.overlaps 'ignore=[\"Floor\",\"Walls\"]'",
    "params": [
@@ -5214,7 +5439,7 @@
    "verb": "parts",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 248,
+   "line": 249,
    "summary": "An actor's primitive components (names, classes, meshes, bounds): what to pass as body/garments.",
    "doc": "An actor's primitive components (names, classes, meshes, bounds): what to pass as body/garments.\n\nReturns: {\"label\", \"components\": [{\"name\", \"class\", \"mesh\", \"visible\", \"bounds\": [origin, extent]}]}.\nExample: film-ue op qa.parts label=Ada",
    "params": [
@@ -5238,7 +5463,7 @@
    "verb": "penetration",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 271,
+   "line": 272,
    "summary": "Body showing through clothes, measured as the viewer would see it: two depth captures from each view (the",
    "doc": "Body showing through clothes, measured as the viewer would see it: two depth captures from each view (the\nbody parts alone, the garments alone); where a garment covers a pixel and the body is nearer by more than\n`tolerance_cm`, skin pokes through.\n\nArgs: label: the character. body/garments: component names (default a MetaHuman's Body+Face / Torso+Legs+Feet;\nqa.parts lists them), or labels of other actors whose meshes form that layer. camera: look from this camera (with sequence+frame: the shot's camera and pose); views: N\nviews around the character instead (or as well), at elevation_deg. size_px: capture size (square for views;\nthe camera's aspect otherwise). out_dir: write a still per view with the penetrating pixels painted magenta.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"views\": {name: {fraction, pixels, worst_cm, box}}, \"worst_fraction\"}}.\nMulti-tick.\nExample: film-ue op qa.penetration label=Ada views=6 out_dir=/tmp/qa/pen",
    "params": [
@@ -5334,9 +5559,9 @@
    "verb": "review",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 504,
+   "line": 599,
    "summary": "Everything wrong with a shot, a sequence or a set, in one JSON and one picture.",
-   "doc": "Everything wrong with a shot, a sequence or a set, in one JSON and one picture.\n\nFor each frame (sequence: `frames`, or `per_shot` per camera cut; no sequence: one still through `camera`) it\ntakes a still, measures exposure and colour, frames every subject (headroom, cuts, size), compares with\n`reference_dir`/{frame:05d}.png when given, and (with \"penetration\") checks garments from the shot's camera;\nonce for the scene it checks floating and overlapping props; across cuts it checks exposure/colour continuity.\n\nArgs: out_dir: where frames, review.json and review.png go. sequence/frames/per_shot/camera: what to look at.\nsubjects: characters/props to frame (default every visible character). expect: per-subject or global intent\nfor qa.framing, plus {\"image\": {...}} for qa.image (e.g. {\"image\": {\"stops\": [-3,-1]}}). checks: a subset of\nimage, framing, penetration, floating, overlaps, continuity, reference (default all but penetration).\nignore: labels skipped by floating/overlaps (floor, walls). mode: still mode (view.still).\nReturns: {\"pass\", \"verdict\", \"counts\", \"summary\": [lines, worst first], \"issues\", \"metrics\": {\"frames\"},\n\"report\": review.json path, \"image\": review.png path}. Multi-tick; ~1 s a frame with mode=capture.\nExample: film-ue op qa.review sequence=/Game/Seq/S010 out_dir=/tmp/qa/s010 per_shot=2",
+   "doc": "Everything wrong with a shot, a sequence or a set, in one JSON and one picture.\n\nFor each frame (sequence: `frames`, or `per_shot` per camera cut; no sequence: one still through `camera`) it\ntakes a still, measures exposure and colour, frames every subject (headroom, cuts, size), compares with\n`reference_dir`/{frame:05d}.png when given, and (with \"penetration\") checks garments from the shot's camera;\nonce for the scene it checks floating and overlapping props; across cuts it checks exposure/colour continuity.\n\nArgs: out_dir: where frames, review.json and review.png go. sequence/frames/per_shot/camera: what to look at.\nsubjects: characters/props to frame (default every visible character). expect: per-subject or global intent\nfor qa.framing, plus {\"image\": {...}} for qa.image (e.g. {\"image\": {\"stops\": [-3,-1]}}). checks: a subset of\nimage, framing, penetration, floating, overlaps, continuity, reference (default all but penetration).\nignore: labels skipped by floating/overlaps (floor, walls). mode: still mode (view.still). baseline: a baseline\nsuite: each frame's still is checked against <suite>/<frame> (qa.baseline_check, `baseline_mode` auto: the first\nrun makes the baselines, later runs regress against them).\nReturns: {\"pass\", \"verdict\", \"counts\", \"summary\": [lines, worst first], \"issues\", \"metrics\": {\"frames\"},\n\"report\": review.json path, \"image\": review.png path}. Multi-tick; ~1 s a frame with mode=capture.\nExample: film-ue op qa.review sequence=/Game/Seq/S010 out_dir=/tmp/qa/s010 per_shot=2",
    "params": [
     {
      "name": "out_dir",
@@ -5442,6 +5667,20 @@
      "type": "str",
      "required": false,
      "default": ""
+    },
+    {
+     "name": "baseline",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "baseline_mode",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "auto"
     }
    ],
    "returns": "dict",
@@ -5459,7 +5698,7 @@
    "verb": "snapshot",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 435,
+   "line": 436,
    "summary": "The level's state as JSON for later diffs: every actor's class, transform, bounds, visibility, materials,",
    "doc": "The level's state as JSON for later diffs: every actor's class, transform, bounds, visibility, materials,\nmeshes, light and lens settings.\n\nArgs: out: also write it to this file. labels: only these actors.\nReturns: {\"actors\": {label: {class, loc, rot, scale, bounds, hidden, mesh, materials, props}}, \"meta\"}.\nExample: film-ue op qa.snapshot out=/tmp/qa/before.json",
    "params": [
