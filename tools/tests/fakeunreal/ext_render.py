@@ -263,27 +263,27 @@ def install(fake):
 
     fake.register_slate_post_tick_callback(tick)
 
-    class LevelSequence(O):
-        """A sequence with a playback range [start, end), a display rate and camera cuts [[label, start, end]]."""
+    # Level sequences: share ext_audio's storage (_pb = [start, end), _fps) so both areas' fakes agree.
+    seq_cls = fake.LevelSequence
 
-        def __init__(self, name=None, outer=None, start=0, end=120, fps=24, cuts=None, **props):
-            super().__init__(name, outer, **props)
-            object.__setattr__(self, "_range", [start, end])
-            object.__setattr__(self, "_fps", fps)
-            object.__setattr__(self, "cuts", [list(c) for c in (cuts or [])])
+    def _get(self, k, default):
+        if k not in self.__dict__:
+            object.__setattr__(self, k, default)
+        return self.__dict__[k]
 
-        def get_playback_start(self):
-            return self._range[0]
-
-        def get_playback_end(self):
-            return self._range[1]
-
-        def get_display_rate(self):
-            return fake.FrameRate(self._fps, 1)
-
-    fake.LevelSequence = LevelSequence
+    for name, fn in {"get_playback_start": lambda self: _get(self, "_pb", [0, 120])[0],
+                     "get_playback_end": lambda self: _get(self, "_pb", [0, 120])[1],
+                     "get_display_rate": lambda self: fake.FrameRate(int(_get(self, "_fps", 24)), 1)}.items():
+        if not any(name in vars(b) for b in seq_cls.__mro__ if b is not fake.Object):
+            setattr(seq_cls, name, fn)
 
     def add_sequence(path, start=0, end=120, fps=24, cuts=None):
-        return fake.add_asset(path, LevelSequence, start=start, end=end, fps=fps, cuts=cuts)
+        """A LevelSequence asset with a playback range [start, end), a display rate and camera cuts
+        [[label, start, end]] (read back as seq.cuts; tests point fmbridge.ops.seq.cuts at it)."""
+        s = fake.add_asset(path, seq_cls)
+        object.__setattr__(s, "_pb", [start, end])
+        object.__setattr__(s, "_fps", fps)
+        object.__setattr__(s, "cuts", [list(c) for c in (cuts or [])])
+        return s
 
     fake.add_sequence = add_sequence
