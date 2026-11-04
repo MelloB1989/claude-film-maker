@@ -237,7 +237,8 @@ operator wants a look from the Mac anyway:
 - **Fallback lane (mode E) + Amazon DCV console session**: DCV on Linux supports a console session with direct GPU
   access, OpenGL without extra software; virtual sessions need `dcv-gl` and are OpenGL-oriented; Vulkan in DCV is
   not stated in the official session docs (confirmed for console/virtual; unknown for Vulkan:
-  https://docs.aws.amazon.com/dcv/latest/adminguide/managing-sessions-intro.html). Needs the GRID driver (below).
+  https://docs.aws.amazon.com/dcv/latest/adminguide/managing-sessions-intro.html). Needs the GRID driver (below). DCV
+  on EC2 needs no licence (agent-05, `docs/linux/cost.md` on `fleet/agent-05/linux-cost`).
 - **Editor Pixel Streaming** from the offscreen editor (mode A): Epic documents it, experimental; WebRTC to a browser;
   on Linux the default viewer port is 8080 (https://dev.epicgames.com/documentation/unreal-engine/pixel-streaming-in-editor).
   Reach it through the same SSM port-forward (signalling port), no inbound port. Memory growth over hours with
@@ -247,7 +248,9 @@ operator wants a look from the Mac anyway:
 
 - **Driver:** AWS documents GRID drivers for G6/Gr6 (L4) on Linux, with the step `NVreg_EnableGpuFirmware=0` for the
   G6 family (likely: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/nvidia-GRID-driver.html). Mode A needs only
-  Vulkan on the device (no X), which the datacenter (Tesla) driver also ships; mode E with Xorg/DCV wants GRID.
+  Vulkan on the device (no X). AWS lists Vulkan for the public datacenter (Tesla) driver on G4dn/G5/G6/Gr6/G6e
+  (g6f/gr6f are GRID-only) (confirmed via agent-05's `docs/linux/cost.md`), so mode A can use the Tesla driver;
+  mode E with Xorg/DCV wants GRID.
   PoC 1 settles it with `vulkaninfo --summary` and the editor log's chosen device.
 - **UE 5.8 on Linux has fresh reports**: an NVIDIA `VK_ERROR_DEVICE_LOST` crash at start (thread tagged fixed, fix
   not stated), Wayland/SDL3 explicit-sync crashes worked around with `SDL_VIDEODRIVER=x11`, AMD/Mesa black screens
@@ -277,10 +280,12 @@ operator wants a look from the Mac anyway:
 
 Fallback at step 2/3: switch the systemd unit to mode E (Xorg headless on the GPU) and rerun PoC 2–4.
 
-PoC instance ask (for the orchestrator, when the engine exists): one **g6.4xlarge or gr6.4xlarge** (1×L4, as today,
-so frame times compare), Ubuntu 22.04, **root 100 GB + a 200 GB gp3 project/DDC volume**, **~4 hours**, ap-south-1,
-self-terminating; purpose PoC 1–7. A g6.xlarge would do for 1–3 but its 16 GB RAM is likely too small for the
-editor with two MetaHumans (unknown).
+PoC instance ask (for the orchestrator, when the engine exists): one **g6.4xlarge** (1×L4 as today, so frame
+times compare; 16 vCPU, 64 GiB; Linux on-demand $1.589/h in ap-south-1 vs gr6.4xlarge $1.848/h, Windows gr6.4xlarge
+$2.584/h, per agent-05 on 2026-11-04), Ubuntu 22.04, **root 100 GB + a 200 GB gp3 project/DDC volume**, **~4 hours**,
+self-terminating; purpose PoC 1–7. Take gr6.4xlarge instead only if the editor with two MetaHumans tops 64 GiB
+(PoC 2 records peak RSS). A g6.xlarge (16 GiB) is likely too small (unknown). Spot (g6.8xlarge ~$0.49/h) suits mode D
+renders later, not the long-running editor.
 
 ## 9. Code changes (list; no code yet)
 
