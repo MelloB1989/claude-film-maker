@@ -69,6 +69,18 @@ MOODS = {
     "thoughtful": [("thinking", 0.3)],
     "skeptical": [("skeptical", 0.3)],
     "disgusted": [("disgust", 0.3)],
+    "bored": [("lip_press", 0.1)],
+    "playful": [("smirk", 0.3), ("brow_raise", 0.1)],
+    "confused": [("skeptical", 0.25), ("concern", 0.15)],
+}
+
+# the speech solver's mood for each (unreal.AudioDrivenAnimationMood; verified in
+# Engine/Plugins/Animation/AudioDrivenAnimation/StreamingADA/Source/SpeechAnimationSolver/Public/SpeechAnimationSolverTypes.h:13-29)
+SOLVER_MOOD = {
+    "neutral": "NEUTRAL", "calm": "NEUTRAL", "warm": "HAPPINESS", "happy": "HAPPINESS", "joy": "HAPPINESS",
+    "confident": "CONFIDENCE", "excited": "EXCITEMENT", "sad": "SADNESS", "concerned": "SADNESS", "angry": "ANGER",
+    "surprised": "SURPRISE", "fearful": "FEAR", "thoughtful": "NEUTRAL", "skeptical": "CONFUSION",
+    "disgusted": "DISGUST", "bored": "BOREDOM", "playful": "PLAYFULNESS", "confused": "CONFUSION",
 }
 
 
