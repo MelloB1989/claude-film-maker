@@ -7,6 +7,11 @@ the same checks as the editor's qa.* ops (unreal/fmbridge/qa, imported from the 
     film-qa overlay STILL OUT.png [--guides thirds,safe] [--box x0,y0,x1,y1[:label]] [--caption TEXT]
     film-qa review DIR [--reference DIR] [--out DIR] [--title T]                 every PNG/JPG in DIR: one review
     film-qa framing CAMERA.json BONES.json [--subject NAME] [--expect-size MCU]  the framing check from numbers
+    film-qa baseline pull DIR [--suite S]        the box's baselines (qa.baseline_list) mirrored into DIR
+    film-qa baseline push DIR [--suite S]        DIR's baselines onto the box (accept them there)
+    film-qa baseline check DIR SUITE STILL...    stills against local baselines DIR/SUITE/<stem>.png (offline;
+                                                 --mode auto|compare|update: auto creates missing ones)
+    film-qa baseline list DIR [--suite S]        what DIR holds
 
 Every command prints JSON ({"pass", "issues", "metrics", ...}) and exits 1 when a "fail" issue was found, so a
 script (or Claude) can branch on it. JPEG and other formats need Pillow (`uv sync --extra anime` has it); PNG never
@@ -34,7 +39,8 @@ def qa():
     mod = importlib.util.module_from_spec(spec)
     sys.modules["fmqa"] = mod
     spec.loader.exec_module(mod)
-    for sub in ("image", "draw", "overlay", "sheet", "metrics", "compare", "framing", "geometry", "continuity", "review"):
+    for sub in ("image", "draw", "overlay", "sheet", "metrics", "compare", "framing", "geometry", "continuity", "review",
+                "baseline"):
         __import__(f"fmqa.{sub}")
     return mod
 
@@ -125,6 +131,62 @@ def framing(camera: dict, bones: dict, subject: str = "subject", expect: dict | 
     return _result(iss, r)
 
 
+def baseline_pull(local_dir: str, suite: str = "", client=None) -> dict:
+    """Mirror the box's baselines (all, or a suite) into local_dir: <local_dir>/<suite>/<name>.png + .json."""
+    client = client or _client()
+    r = client.op("qa.baseline_list", suite=suite)
+    if not r.get("ok", True):
+        raise SystemExit(r.get("error") or r.get("message") or "qa.baseline_list failed")
+    res = r.get("result", r)
+    got = []
+    for b in res["baselines"]:
+        rel = b["rel"]
+        dst = Path(local_dir) / rel
+        client.pull(b["png"], str(dst))
+        client.pull(b["json"], str(dst.with_suffix(".json")))
+        got.append(rel)
+    return {"root": res["root"], "pulled": got, "dir": local_dir}
+
+
+def baseline_push(local_dir: str, suite: str = "", client=None) -> dict:
+    """Put local baselines (PNG + JSON pairs under local_dir, or its `suite` sub-folder) onto the box's root."""
+    client = client or _client()
+    r = client.op("qa.baseline_list", suite="")
+    if not r.get("ok", True):
+        raise SystemExit(r.get("error") or r.get("message") or "qa.baseline_list failed")
+    res = r.get("result", r)
+    root = str(res["root"]).rstrip("/\\")
+    base = Path(local_dir) / suite if suite else Path(local_dir)
+    sent = []
+    for png in sorted(base.rglob("*.png")):
+        js = png.with_suffix(".json")
+        if not js.is_file():
+            continue
+        rel = png.relative_to(local_dir).as_posix()
+        client.push(str(png), f"{root}/{rel}")
+        client.push(str(js), f"{root}/{rel[:-4]}.json")
+        sent.append(rel)
+    return {"root": root, "pushed": sent}
+
+
+def baseline_check(local_dir: str, suite: str, stills: list, mode: str = "auto", diff_dir: str = "") -> dict:
+    """Stills against local baselines (offline): one record per still, named by its file stem."""
+    q = qa()
+    bl = sys.modules["fmqa.baseline"]
+    out, issues = [], []
+    for p in stills:
+        d = str(Path(diff_dir) / f"diff_{Path(p).name}") if diff_dir else ""
+        r = bl.check(local_dir, suite, Path(p).stem, p, mode=mode, diff_out=d)
+        issues += [dict(i, image=p) for i in r.pop("issues")]
+        out.append(r)
+    return {"pass": q.worst(issues) != "fail", "issues": issues, "metrics": {"stills": out}}
+
+
+def _client():
+    from . import client
+    return client
+
+
 def _box(s: str) -> dict:
     coords, _, label = s.partition(":")
     return {"box": [float(v) for v in coords.split(",")], "label": label}
@@ -165,6 +227,13 @@ def main(argv=None) -> None:
     f.add_argument("bones_json")
     f.add_argument("--subject", default="subject")
     f.add_argument("--expect-size", default="")
+    bp = sub.add_parser("baseline")
+    bp.add_argument("action", choices=("pull", "push", "check", "list"))
+    bp.add_argument("dir")
+    bp.add_argument("rest", nargs="*", help="check: SUITE STILL...")
+    bp.add_argument("--suite", default="")
+    bp.add_argument("--mode", default="auto", choices=("auto", "compare", "update"))
+    bp.add_argument("--diff-dir", default="")
     x = ap.parse_args(argv)
     if x.cmd == "image":
         subs = {k: [float(v) for v in b.split(",")] for k, _, b in (s_.partition("=") for s_ in x.subject)}
@@ -175,6 +244,18 @@ def main(argv=None) -> None:
         res = sheet(x.out, x.stills, [v for v in x.labels.split(",")] if x.labels else None, x.cols, x.width, x.title)
     elif x.cmd == "overlay":
         res = overlay(x.still, x.out, [g for g in x.guides.split(",") if g], [_box(b) for b in x.box], x.caption)
+    elif x.cmd == "baseline":
+        if x.action == "pull":
+            res = baseline_pull(x.dir, x.suite)
+        elif x.action == "push":
+            res = baseline_push(x.dir, x.suite)
+        elif x.action == "list":
+            qa()
+            res = {"baselines": sys.modules["fmqa.baseline"].list_(x.dir, x.suite)}
+        else:
+            if len(x.rest) < 2:
+                raise SystemExit("film-qa baseline check DIR SUITE STILL...")
+            res = baseline_check(x.dir, x.rest[0], x.rest[1:], x.mode, x.diff_dir)
     elif x.cmd == "review":
         res = review(x.folder, x.out, x.reference, x.title)
     else:

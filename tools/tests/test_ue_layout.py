@@ -297,3 +297,30 @@ def test_settle_refuses_during_play(ue):
     with pytest.raises(OpError) as e:
         run_op("layout.settle", labels=["Book"])
     assert e.value.code == "conflict"
+
+
+def test_data_layers(ue):
+    _shapes(ue)
+    for lab in ("Lamp", "Candle", "Desk"):
+        run_op("level.spawn", label=lab, shape="cube")
+    r = run_op("level.layer_add", name="Night", labels=["Lamp", "Candle"])
+    assert r == {"changed": True, "created": True, "added": ["Lamp", "Candle"]}
+    assert "/Game/DataLayers/Night" in ue.assets
+    assert run_op("level.layer_add", name="Night", labels=["Lamp", "Candle"])["changed"] is False
+    assert run_op("level.layers")["layers"] == [{"name": "Night", "visible": True, "initially_visible": True,
+                                                  "runtime": False, "actors": ["Candle", "Lamp"]}]
+    assert run_op("level.layer_set", name="Night", visible=False)["set"] == ["visible"]
+    assert run_op("level.layer_set", name="Night", visible=False)["changed"] is False
+    assert run_op("level.layer_remove", name="Night", labels=["Lamp", "Desk"])["removed"] == ["Lamp"]
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError) as e:
+        run_op("level.layer_set", name="Nite", visible=True)
+    assert e.value.candidates == ["Night"]
+
+
+def test_data_layers_need_a_partitioned_level(ue):
+    ue.partitioned = False
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError) as e:
+        run_op("level.layer_add", name="Night")
+    assert e.value.code == "unsupported"

@@ -314,6 +314,7 @@ def run(argv: list, ix: dict | None = None, transport=None) -> int:
 # A WP adds its line here (module:function taking argv, returning an exit code); the op verbs always win.
 EXTENSIONS = {
     "render": "filmtools.unreal.render:main",
+    "editor": "filmtools.unreal.cli_platform:editor_cli",   # WP1: status|start|stop|restart|log|crashes|mode|enable
 }
 
 

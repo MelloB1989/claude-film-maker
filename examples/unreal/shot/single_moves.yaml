@@ -1,0 +1,26 @@
+# One subject, one camera language per shot: a crane-down reveal, an orbit, a handheld follow-focus, a dolly zoom.
+kind: shot
+version: 1
+name: moves-demo
+sequence: /Game/Films/demo/Seq_Moves
+fps: 24
+subjects:
+  P: {actor: Presenter}
+shots:
+  - id: M1_crane
+    duration: 4s
+    frame: {subjects: [P], size: WS, angle: 20, side: left, height: high, focal_mm: 24}
+    moves: [{move: crane, rise: -150, reach: 80, ease: in_out}]
+  - id: M2_orbit
+    duration: 5s
+    frame: {subjects: [P], size: MS, angle: 3/4, side: left, focal_mm: 35}
+    moves: [{move: orbit, degrees: 60}]
+  - id: M3_handheld
+    duration: 3s
+    frame: {subjects: [P], size: MCU, angle: 25, side: right, focal_mm: 65}
+    noise: {preset: handheld, seed: 3}
+    focus: P
+  - id: M4_vertigo
+    duration: 3s
+    frame: {subjects: [P], size: MCU, angle: front, focal_mm: 24}
+    moves: [{move: dolly_zoom, focal: 85}]

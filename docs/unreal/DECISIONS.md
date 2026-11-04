@@ -57,6 +57,7 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   positions are not reachable from Python, and bounds or physics capsules are too coarse for cloth.
 - **WP10: issue codes are dotted `area.snake_case`** and every check returns `{"pass", "issues", "metrics"}`
   (CONVENTIONS §8).
+<<<<<<< HEAD
 - **2026-11-05 WP5 agent-08: exposure is photographic EV100, and manual mode turns physical camera exposure off.**
   The manual scale is 2^(bias - EVcam) (PostProcessEyeAdaptation.cpp), and a cine camera writes its aperture into
   DepthOfFieldFstop (CineCameraComponent.cpp:709), so with physical exposure on, an aperture change would change
@@ -70,3 +71,35 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   live in hex-encoded actor tags (FName-safe), so they travel with the level.
 - **WP5: the sun is NOAA in pure Python**, not the SunPosition plugin (off by default, and its actor is a Blueprint).
 - **WP5: B17 (light rigs) is covered by `light.rig`.** Agreed with agent-11 (WP7), who is not building one.
+=======
+- **WP7 agent-11: camkit is a pure package at `unreal/fmbridge/camkit/`** (approved by the lead), not `ops/_x.py`:
+  the camera maths (lens, framing solver, moves, coverage, shot lists, cut checks, PNG sheets) imports nothing from
+  `unreal`, so it is unit-tested without the fake and can be imported by client tools and by WP10's QA (one
+  projection: `camkit.lens.project`).
+- **WP7: default filmback "16:9 Digital Film" (23.76 x 13.365 mm)**, the engine's own default, so "a 50 mm" means
+  what it means on a Super 35 cinema camera. `look.camera` (WP5) defaults to 16:9 DSLR (full frame): a 50 mm there
+  is a 33 mm here (`camkit.lens.equivalent_focal`).
+- **WP7: shot sizes are anchored between joints.** Each size puts the frame's top on the head (headroom per size)
+  and the bottom edge between two landmarks (MCU: 30% of the way from chest to waist), never on a joint. Sizes are
+  measured, not guessed: `framing.classify` names the nearest size of any frame.
+- **WP7: left and right.** A subject's `side` is its own left/right (the camera on its left sees its left cheek). A
+  scene's side of the line is left/right of the line from the first subject to the second, seen from above; in
+  Unreal's left-handed frame `checks.side_of_line` is negative on the left. Shot lists and coverage choose each
+  single's own side so every camera stays on the scene's side.
+- **WP7: moves are baked keys**, not camera-shake assets or rig constraints: every `step` frames (default 2) the
+  camera's transform (and focal/focus when they change) is computed in Python and keyed through WP8's ops, so a
+  move is deterministic, checkable before it is written, and handheld noise is seeded. Rails and cranes (the engine's
+  rigs) are there too (`cam.rig`, `cam.rig_move`) for a physical-looking dolly.
+- **WP7: shot.apply converges by hash.** The spec's hash and camera list are stored as asset metadata on the
+  sequence (`fm_shot_spec`, `fm_shot_cameras`); the same spec again changes nothing, a changed one rewrites the
+  cameras' tracks and the cut track, and cameras it no longer uses are removed.
+
+- **WP9: renders use MRQ's legacy preset configuration**, not Movie Render Graph: it is what rendered the reel on
+  Windows and passed the Linux PoC (P3/P4/P6); the job sets `set_config_mode(PRESET)` explicitly.
+- **WP9: video is always ffmpeg from image frames.** MRQ's ProRes/DNx outputs are Win64/Mac-only plugins and its MP4
+  encoder has only a Windows backend (5.8.4 source), so in-engine video would differ per OS.
+- **WP9: one MRQ job per camera cut by default, pre-rolled from the cut start** (MRQ camera-cut warm-up) when a chunk
+  starts mid-shot: the cloth rule from docs/linux/engine.md P6, applied by the planner instead of by hand.
+- **WP9: the path tracer is refused under 40 GB VRAM** unless `vram.force` (P5: 1080p with strand hair killed the
+  editor on a 24 GB L4).
+>>>>>>> origin/ue-helpers

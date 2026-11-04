@@ -80,6 +80,39 @@ film-ue op qa.review sequence=/Game/Seq/S010 out_dir=/srv/qa/new reference_dir=/
 Check: `ssim` (1 identical; > 0.95 same picture; 0.8-0.95 same shot with changes; < 0.6 different), `psnr` dB,
 `changed` (grid cells with their boxes), the heatmap.
 
+**Regression against golden stills (baselines, B43)**
+```bash
+film-ue op qa.baseline_check suite=film/s010 name=00048 image=/srv/qa/s010/00048.png   # 1st run: created
+film-ue op qa.baseline_check suite=film/s010 name=00048 image=/srv/qa/s010/00048.png   # later: match/differs
+film-ue op qa.review sequence=/Game/Seq/S010 out_dir=/srv/qa/s010 baseline=film/s010   # every frame, one call
+film-ue op qa.baseline_save suite=film/s010 name=00048 image=/srv/qa/new.png overwrite=true   # accept a change
+film-ue op qa.baseline_list suite=film
+uv run film-qa baseline pull baselines/ --suite film      # mirror to the operator's side (PNG + JSON)
+uv run film-qa baseline check baselines/ film/s010 frames/*.png --diff-dir diffs/   # offline, by file stem
+uv run film-qa baseline push baselines/                   # accepted locally -> the box
+```
+Check: `metrics.status` = created | match | differs (warn) | different (fail) | updated, `ssim`, `stops_shift`
+(exposure drift is reported even when the structure matches), `diff` (heatmap). Baselines live on the box under
+`<project>/Saved/fmbridge/baselines/<suite>/<name>.png|.json` (`$FMBRIDGE_BASELINES` overrides); a baseline's JSON may
+carry its own `thresholds.min_ssim` for a noisy shot (`qa.baseline_save min_ssim=0.9`). The selftest harness checks
+every `t.still` against `selftest/<area>/<name>` (mode auto: the first GPU run creates them).
+
+**Hair: tune and measure it (B28: `groom.*`)**
+```bash
+film-ue op groom.describe label=Ada                       # components, per-group overrides, hair params, the cvar
+film-ue op groom.measure label=Ada views=4 out_dir=/srv/qa/hair
+film-ue op groom.set label=Ada component=Hair melanin=0.95 redness=0.1 width_cm=0.008 shadow_density=0.7 \
+   measure_views=2 out_dir=/srv/qa/hair                   # before/after in numbers
+film-ue op groom.sky_lighting enable=false measure_label=Ada   # the README's white-hair trap, as a number
+```
+Check: `groom.measure` gives, per view (front, back, sides from the face's direction), the hair's `share_of_head`
+(hair pixels / head+hair silhouette: thinner or shorter hair shows more scalp; a density proxy), its colour in the
+lit scene (`mean_rgb`, `stops`, `saturation`, `name`); `groom.set ... measure_views=N` returns `before`, `after` and
+`delta`. Melanin up = darker (stops down); redness up = hue toward red/orange; width/shadow_density/length_scale move
+`share_of_head`. `lost` in the result lists anything a Blueprint construction script reset. `strand_fraction` (real
+strand count) edits the shared groom asset and rebuilds it: only with `edit_asset=true`. Pass `render_cvars` from
+`groom.sky_lighting` to render ops so MRQ renders with the guard too.
+
 **What changed in the level?**
 ```bash
 film-ue op qa.snapshot out=/srv/qa/before.json
@@ -123,13 +156,19 @@ Every command prints JSON and exits 1 when a `fail` issue was found.
 | `qa.floating` | gap under each actor (line traces) | |
 | `qa.overlaps` | interpenetrating bounds, share and depth | |
 | `qa.snapshot` / `qa.diff` | the level as JSON; what changed | |
-| `qa.review` | all of it for a sequence or a camera: review.json + review.png | yes |
+| `qa.review` | all of it for a sequence or a camera: review.json + review.png (`baseline=<suite>` too) | yes |
+| `qa.baseline_save` / `_compare` / `_check` / `_list` / `_remove` | golden stills by suite/name; regress against them | |
+| `groom.describe` | grooms on an actor: per-group instance overrides, hair material params, the sky cvar | |
+| `groom.set` | per instance: width_cm, root/tip scale, shadow density, LOD bias, length; melanin, redness, roughness, white, light, dye, any param; strand_fraction (asset, opt-in); before/after | yes |
+| `groom.measure` | hair coverage (share of the head silhouette) and colour per view | yes |
+| `groom.sky_lighting` | the r.HairStrands.SkyLighting guard, with render_cvars and an optional before/after | yes |
 
 Every `qa.*` returns `{"pass", "issues", "metrics"}` (CONVENTIONS §8). Issue codes (dotted, stable):
 `image.flat`, `exposure.under|over|clipped_highlights|crushed_shadows|subject_dark`, `color.cast|cast_expected`,
 `focus.subject_soft`, `compare.differs|region_changed|color_shift|no_reference`, `framing.*` (above),
 `mesh.penetration|garments_not_seen|penetration_skipped|floating|unsupported|sunk|overlap`,
-`continuity.added|removed|changed|exposure_jump|hue_jump|cast_jump|structure`, `review.image_unreadable`.
+`continuity.added|removed|changed|exposure_jump|hue_jump|cast_jump|structure`, `review.image_unreadable`,
+`baseline.missing|differs|different|region|exposure|shape`.
 
 Pure modules (import `fmbridge.qa.<m>`; client: `filmtools.unreal.qa_local.qa()`): `image` (Image, PNG
 read/write, resize, crop, colour), `draw` (5x7 font), `overlay`, `sheet`, `metrics`, `compare`, `framing` (Camera,
@@ -234,6 +273,16 @@ names are the snake_case of the reflected names. Paths are relative to `Engine/S
 | `Actor.set_actor_location_and_rotation(loc, rot, sweep, teleport)` | Actor.h:1682-1683 | yes |
 | `UnrealEditorSubsystem.get_editor_world()` | Editor/UnrealEd/Public/Subsystems/UnrealEditorSubsystem.h:49 | yes |
 | `LightComponent.intensity / light_color / temperature`, `CineCameraComponent.current_aperture` (read in qa.snapshot; missing ones skipped) | read with get_editor_property, failures ignored | partly |
+| `unreal.GroomComponent` (a MeshComponent), `.groom_asset` (BlueprintReadWrite), `.binding_asset` (BlueprintReadOnly) | Engine/Plugins/Runtime/HairStrands/Source/HairStrandsCore/Public/GroomComponent.h:29, :35-37, :50-52 | yes |
+| `GroomComponent.groom_groups_desc` (BlueprintReadWrite, TArray<FHairGroupDesc>) | GroomComponent.h:271-273 | yes |
+| `HairGroupDesc.hair_width / _override, hair_root_scale, hair_tip_scale, hair_shadow_density, lod_bias, hair_length_scale` (+ `_override` flags) | HairStrandsCore/Public/GroomDesc.h:18-82 | yes |
+| `GroomAsset.hair_groups_interpolation` (BlueprintGetter/Setter) → `.decimation_settings.curve_decimation` (EditAnywhere) | HairStrandsCore/Public/GroomAsset.h:517-518, :629-630; GroomAssetInterpolation.h:76-78, :205-206 | yes |
+| MetaHuman hair material params `hairMelanin, hairRedness, HairRoughness, WhiteAmount, LightAmount, HairDye` | Engine/Plugins/MetaHuman/MetaHumanCharacter/Source/MetaHumanDefaultPipeline/Public/Item/MetaHumanDefaultGroomPipeline.h:26-44 (MaterialParamName) | yes |
+| `PrimitiveComponent.create_dynamic_material_instance(index, source, name)` | Runtime/Engine/Classes/Components/PrimitiveComponent.h:1628-1629 | yes |
+| `MaterialInstanceDynamic.set_scalar_parameter_value / get_scalar_parameter_value (K2_ ScriptName) / set_vector_parameter_value` | Runtime/Engine/Public/Materials/MaterialInstanceDynamic.h:23-24, :56-57, :108-109 | yes |
+| `MaterialEditingLibrary.get_scalar_parameter_names / get_vector_parameter_names / get_material_instance_scalar_parameter_value` | Editor/MaterialEditor/Public/MaterialEditingLibrary.h:501-506, :416-417 | yes |
+| `r.HairStrands.SkyLighting` (cvar), `SystemLibrary.get_console_variable_int_value` | Runtime/Renderer/Private/HairStrands/HairStrandsEnvironment.cpp:38; KismetSystemLibrary.h:630-631 | yes |
+| `Actor.get_actor_forward_vector` | Runtime/Engine/Classes/GameFramework/Actor.h (K2 BlueprintCallable; used by every area) | yes (in use) |
 | `EditorActorSubsystem.get_all_level_actors / spawn_actor_from_class / destroy_actor`, `SystemLibrary.get_engine_version`, `EditorAssetLibrary.*` | used by every area; proven on the box (unreal/README.md) | yes (in use) |
 
 ## Selftest
@@ -257,6 +306,15 @@ Where WP10 stopped (2026-11-05 night, agent-09):
   value (EMPTY_DEPTH), Lumen warm-up count (8) is enough, `capture_source` set through set_editor_property on an
   `interp` property, show-only lists with skeletal meshes (MetaHuman parts), `read_render_target_raw` speed at
   256-384 px (expected ~0.1 s), `HitResult.to_tuple()` field order.
+- B43 baselines (fleet/agent-09/ue-b43-baselines): store/compare/check in `fmbridge/qa/baseline.py`, `qa.baseline_*`
+  ops, `qa.review baseline=`, `film-qa baseline pull|push|check|list`. The harness hook (T.still -> baseline check,
+  `film-ue selftest --baseline auto|compare|update|off`) is agent-13's file: the patch was sent to them. The match
+  threshold (SSIM 0.95 at 480 px) is a guess until two GPU runs of the same scene are compared: tune MIN_SSIM then.
+- B28 grooms (fleet/agent-09/ue-b28-groom): `ops/groom.py` + `fakeunreal/ext_groom.py` + `test_ue_groom.py`. Unproven
+  until a GPU box with a built MetaHuman: that GroomGroupsDesc writes survive the MetaHuman Blueprint's construction
+  script (the op reads back and reports `lost`), and that the hair MIC's params are named as the pipeline header says
+  on a built character (groom.describe's `scalar_names` shows them). agent-04's mh.groom sets the same look at BUILD
+  time (character asset); groom.* is per instance, per shot.
 - Not done / ideas: occlusion of a subject by another actor in frame (a line trace camera→bone; WP7 started one in
   camkit), checker-texture (failed material) detection in stills, per-frame penetration across a whole shot
   (`qa.review checks=["penetration"]` does it per sampled frame; a dense scan would be a separate op), WP7's
