@@ -335,6 +335,11 @@ notes of the same night (same source, same lines).
 | `FJsonObjectConverter::JsonObjectToUStruct(obj, UStruct*, void*, ...)` | Engine/Source/Runtime/JsonUtilities/Public/JsonObjectConverter.h:239 (rg) | FabScript | |
 | `FindFProperty<T>(const UStruct*, FName)` | Engine/Source/Runtime/CoreUObject/Public/UObject/UnrealType.h:7394 (rg) | FabScript | |
 | `RenderingLibrary` / `SceneCapture2D` captures | WP10's view.py | assets.thumbnail | via view.turntable |
+| `AssetEditorSubsystem.close_all_editors_for_asset(asset)` | Engine/Source/Editor/UnrealEd/Public/Subsystems/AssetEditorSubsystem.h:112 (class), :169-170 (UFUNCTION BlueprintCallable `int32 CloseAllEditorsForAsset(UObject*)`) (rg) | assets.free, assets.remove | returns the number closed |
+| `MaterialInterface` (isinstance checks) | Engine/Source/Runtime/Engine/Public/Materials/MaterialInterface.h:351 `class UMaterialInterface : public UObject` (rg) | assets, mat, catalog | base of Material and MaterialInstance |
+| `PointLight` (spawn_actor_from_class) | Engine/Source/Runtime/Engine/Classes/Engine/PointLight.h:11 `class APointLight : public ALight` (rg) | assets.thumbnail | its PointLightComponent: attenuation_radius, set_intensity |
+| `unreal.new_object(type, outer, name, base_type)`, `unreal.load_class(outer, name)` | Engine/Plugins/Experimental/PythonScriptPlugin/Source/PythonScriptPlugin/Private/PyCore.cpp:2072, :2075 (rg) | fab | module functions of the Python plugin |
+| `Object.call_method(name, args=(), kwargs={})` | .../PythonScriptPlugin/Private/PyWrapperObject.cpp:1135 (rg) | fab | calls any UFunction by name: args is a tuple |
 
 ## 8. Selftest
 
