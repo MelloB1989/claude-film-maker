@@ -285,4 +285,26 @@ On the fake engine the whole thing passes in tests (`test_film_ue_selftest_dx_en
 
 ## 10. HANDOFF
 
-See the end of this file (kept current as work lands).
+State (fleet/agent-13/ue-dx, merged into ue-helpers by the lead as it lands):
+
+- Done and tested on the fake (tools/tests/test_ue_dx*.py, ~95 tests): schema (static == live, field for field),
+  generated CLI, SDK, describe, errors, job, plan/apply engine + generic kinds + bridge-planned scene/shot, selftest
+  harness + ops + client runner + client phases, baselines hook (WP10), `dx gen|check|lint|docs`, GUIDE.md, the skill
+  (.claude/skills/film-ue/SKILL.md), the demo (examples/unreal/demo) with its README.
+- NOT run on a real editor yet (no GPU box tonight). First thing tomorrow on the box: `film-ue install`,
+  `film-ue selftest dx` (must be all OK: it exercises the registry, the error contract, spawn/move, a still, and on
+  the client side plan/apply/drift and the generated CLI), then `film-ue selftest` (all areas), then the demo README.
+- Things most likely to need a fix on the real box, in order: (1) the `actor` kind's exec snippets (READ_ACTORS uses
+  get_actor_location/rotation/scale3d and `a.tags`: verified APIs, but the str() of an FName tag is assumed); (2)
+  `selftest._fresh_level` on a path whose level is loaded elsewhere (delete_asset of a loaded world: it steps aside to
+  the blank level first); (3) the demo's `host_bp` / `face_mesh` paths (where mh.build puts them: README stage 1 says
+  how to check and set them); (4) `look.post` setting names in 30-look.yaml (auto_exposure_method/bias); (5) the
+  `capabilities()` display check on Linux (DISPLAY env inside the editor).
+- cli.py still has provision/editor/epic-login/desktop: delete them (parsers, branches, the Linux guard) in the first
+  commit after agent-07's cli_platform.py (fleet/agent-07/ue-platform) is in ue-helpers; `opcli.EXTENSIONS["editor"]`
+  already points at `cli_platform:editor_cli`.
+- Known gaps: no `--prune` in the engine (scene has its own `prune:`); `film-ue apply` has no per-step progress output
+  (it prints at the end; use `--json` and read `items`); the SDK's Job polls every 2 s (WP1's client.wait with
+  on_progress could replace it); kind schemas of other WPs are validated only for what jsonschema_lite supports
+  (no `if/then`, `dependentRequired`, `format`).
+- Backlog claimed: B10 scratch context, B32 op journal, B34 SDK example scripts, B35 GUIDE recipes with expected JSON.
