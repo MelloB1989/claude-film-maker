@@ -22,7 +22,7 @@ import subprocess
 import time
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
-CONF_DIR = Path.home() / ".config"
+CONF_DIR = Path(os.environ.get("FILM_UE_CONF_DIR") or Path.home() / ".config")  # settings, tokens, tunnel state
 DEFAULTS = {"region": "ap-south-1", "instance": "", "os": "windows", "project_dir": r"C:\UEProjects\HostStudio",
             "port": 18765, "key": str(Path.home() / ".ssh" / "ue-workstation.pem")}
 LINUX_DEFAULTS = {"project_dir": "", "user": "ubuntu", "service": "ue-editor", "transport": "ssm"}
