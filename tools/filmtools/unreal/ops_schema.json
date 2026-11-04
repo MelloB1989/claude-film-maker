@@ -3567,6 +3567,53 @@
    ]
   },
   {
+   "name": "editor.cvars",
+   "area": "editor",
+   "verb": "cvars",
+   "module": "fmbridge.ops.editor_config",
+   "file": "unreal/fmbridge/ops/editor_config.py",
+   "line": 72,
+   "summary": "Console variables as a set: read several, set several, and take or restore a named snapshot (so a test or a",
+   "doc": "Console variables as a set: read several, set several, and take or restore a named snapshot (so a test or a\nrender can change cvars and put them back). Snapshots live until the editor stops, and in Saved/Bridge/cvars.\n\nArgs: names: cvars to read. values: {name: value} to set (read back after). snapshot: save the current values of\n`names` and of the keys of `values` under this name, before setting anything. restore: set the cvars of this\nsnapshot back.\nReturns: {\"values\": {name: value now}, \"changed\": [names], \"snapshot\"?, \"restored\"?}.\nExample: film-ue op editor.cvars 'values={\"r.RayTracing\": 0}' snapshot=pre",
+   "params": [
+    {
+     "name": "names",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "values",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "snapshot",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "restore",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "platform"
+   ]
+  },
+  {
    "name": "editor.describe",
    "area": "editor",
    "verb": "describe",
@@ -3678,6 +3725,93 @@
      "type": "bool",
      "required": false,
      "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "platform"
+   ]
+  },
+  {
+   "name": "editor.plugins",
+   "area": "editor",
+   "verb": "plugins",
+   "module": "fmbridge.ops.editor_config",
+   "file": "unreal/fmbridge/ops/editor_config.py",
+   "line": 39,
+   "summary": "The plugins: which are enabled now, and what the .uproject lists. With `enable`/`disable`, edit the .uproject",
+   "doc": "The plugins: which are enabled now, and what the .uproject lists. With `enable`/`disable`, edit the .uproject\n(applies at the next editor start: restart_required).\n\nArgs: enable, disable: plugin names (as in their .uplugin, e.g. \"MovieRenderPipeline\", \"PythonScriptPlugin\").\nprefix: only list enabled plugins whose name starts with this.\nReturns: {\"enabled\": [names], \"project\": {name: on}, \"changed\": [names], \"restart_required\": bool}.\nExample: film-ue op editor.plugins 'enable=[\"MovieRenderPipeline\"]'",
+   "params": [
+    {
+     "name": "enable",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "disable",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "prefix",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "platform"
+   ]
+  },
+  {
+   "name": "editor.project_setting",
+   "area": "editor",
+   "verb": "project_setting",
+   "module": "fmbridge.ops.editor_config",
+   "file": "unreal/fmbridge/ops/editor_config.py",
+   "line": 133,
+   "summary": "Read or set one project setting in the project's Config/Default<file>.ini (what Project Settings writes);",
+   "doc": "Read or set one project setting in the project's Config/Default<file>.ini (what Project Settings writes);\napplies at the next editor start (restart_required when it changed). For a live change of a console variable\nuse editor.cvar; this one makes it the project's default.\n\nArgs: file: Engine|Game|Editor|Input|... (Config/Default<file>.ini). section: e.g. \"/Script/Engine.RendererSettings\"\nor \"/Script/LinuxTargetPlatform.LinuxTargetSettings\". key: e.g. \"r.RayTracing\". value: omit to read.\nReturns: {\"file\", \"section\", \"key\", \"value\", \"before\", \"changed\", \"restart_required\"}.\nExample: film-ue op editor.project_setting section=/Script/Engine.RendererSettings key=r.RayTracing value=True",
+   "params": [
+    {
+     "name": "file",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Engine"
+    },
+    {
+     "name": "section",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "key",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "value",
+     "kind": "keyword",
+     "type": null,
+     "required": false,
+     "default": null
     }
    ],
    "returns": "dict",
