@@ -68,6 +68,10 @@ def run(t):
     off = mt["scene"]["metered_ev100"] - EXPECTED_EV
     t.metric("meter_offset_stops", round(off, 3), "stops")
     t.metric("grey_card_display", mt["display"]["mean"], "display luma")
+    t.note(f"grey card display {mt['display']['mean']:.3f}: env.py MID_GREY_DISPLAY is 0.46; set it to this if they differ")
+    if abs(off) >= 0.05:
+        t.note(f"meter calibration: set METER_OFFSET_STOPS = {off:.3f} in unreal/fmbridge/ops/env.py "
+               f"(currently corrected by the constant already: re-run after setting it)")
     t.ok("the grey card meters within 0.5 stop of the prediction", abs(off) < 0.5,
          detail=f"metered {mt['scene']['metered_ev100']:.2f}, predicted {EXPECTED_EV:.2f}")
     t.ok("the grey card reads as a mid grey (0.3..0.62 display luma)", 0.3 <= mt["display"]["mean"] <= 0.62,
