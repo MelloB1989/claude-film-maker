@@ -85,7 +85,8 @@ Check: `perf.walk_to` returns `slide` (the walk loop's play rate and the expecte
 ```bash
 film-ue op anim.retarget 'anims=["/Game/Mixamo/Wave"]' source_mesh=/Game/Mixamo/Y_Bot target_mesh=/Game/MetaHumans/Ada/Body/m_med_nrw_body out_folder=/Game/Anim/Retargeted
 ```
-Check: `results` lists the new animations (suffix `_RTG`); `anim.describe` on one shows the target skeleton. Re-runs
+`target_mesh` for a built MetaHuman comes from WP3's `mh.body_mesh` (docs/unreal/metahuman.md). Check: `results`
+lists the new animations (suffix `_RTG`); `anim.describe` on one shows the target skeleton. Re-runs
 overwrite the results of the same name. If the auto chains are wrong, make IK Rigs by hand and pass
 `source_rig`/`target_rig`.
 
@@ -325,3 +326,27 @@ Tests: `tools/tests/test_ue_anim_perfkit.py` (48, pure), `test_ue_anim_ops.py` (
 
 ## HANDOFF
 
+State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead as it lands):
+
+- Done, tested on the fake and in pure tests (65 tests): perfkit (gaze/head/eyes/blinks/expressions/audio/metrics/
+  body/spec/library), anim.* (find, describe, new, read/write curves, check, additive, retarget, rig controls/keys,
+  plus the older curve/gaze/bake ops with flags and examples), perf.* (face, check, calibrate, analyze_audio,
+  head_curves, vocab, state/plan/apply/compose/solve/lock_eyes/describe, idle/gestures/walk_to/turn_to), the
+  `performance` kind (schema, client planner, 2 examples), selftest/anim.py, this doc.
+- NOT run on a real editor (no GPU box tonight). First thing on the box: `film-ue selftest anim`. Most likely to
+  need a fix, in order:
+  1. `perf.calibrate`: whether the face plays the scratch animation (the face component must be Sequencer-driven;
+     on a bare SkeletalMeshActor the post-process AnimBP of the MetaHuman face mesh should still run RigLogic) and
+     whether HeadYaw/Pitch/Roll turn the head on that path. If it fails with "did not move", run it on a built
+     MetaHuman after `mh.drive_face`.
+  2. The sign conventions (`HeadSigns`): until calibrated, a gaze to the character's left may turn the head right.
+     Look at the `turned` still; calibrate fixes it everywhere.
+  3. `anim.find`: `AssetData.get_tag_value` return shape (string vs tuple) and the "Skeleton" tag format
+     ("/Script/Engine.Skeleton'/Game/...'" is parsed by splitting on quotes).
+  4. `anim.new`: AnimSequenceFactory + `set_number_of_frames` on a fresh model (FactoryCreateNew initialises it with
+     one frame: AnimSequenceFactory.cpp:78-79).
+  5. `anim.retarget`: the auto-generated chains on a Mixamo skeleton; the progress window under -unattended.
+  6. `anim.rig_keys`: `ControlRigSequencerBindingProxy.proxy.get_display_name()` matching the actor/component.
+- Not done / next: procedural additive gestures (author bone-offset additives by code: needs bone axis calibration
+  like the head's); `perf.solve_a2f` (Audio2Face route, design above); a curve plot (SVG) for Claude to look at;
+  B31 pose library (anim.pose) is unclaimed and fits here.

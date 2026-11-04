@@ -97,3 +97,19 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
 - **WP0: merge gate.** Every merge into ue-helpers goes through `dx gen`, then the whole ue suite (`test_ue_*`,
   `test_unreal_*`, `test_fmbridge_jobs`) with numpy, Pillow and soundfile installed, then `dx docs` as a warning.
   Nothing is pushed on red.
+- **2026-11-05 WP4 agent-01: the eyes lead the head by default.** The brief said "head leads the eyes"; in people
+  the eyes start a gaze shift (saccade) and the head follows 20-60 ms later while the eyes counter-rotate (VOR), and
+  animators teach "eyes lead". Both are built: `character.lead: eyes` (default) or `head` (the head sets off first,
+  a deliberate or heavy look). Decided alone (orchestrator offline).
+- **WP4: performance synthesis is a pure package (`unreal/fmbridge/perfkit/`), not op code.** It has no `unreal`
+  import, so it is unit-tested without the fake, runs on the client (`perf_kind` plans offline with it), and the ops
+  stay thin. It lives beside `camkit`, outside `ops/` (auto-discovery would import it as ops).
+- **WP4: one continuous face animation per performance.** perf.compose places every line's speech solve at its time
+  in one face animation and lays the head, eyes, blinks and expressions over the whole timeline, instead of one face
+  section per line: no head/eye jumps at line boundaries, and one fingerprint decides convergence.
+- **WP4: nod kinds are `nod`, `beat`, `up`, `shake`.** YAML 1.1 reads a bare `yes`/`no` as a boolean; `yes`/`no`
+  are still accepted from JSON/Python.
+- **WP4: "robotic" is measured.** `anim.check` = perfkit.metrics: constant-velocity share of head motion (keyed
+  straight lines score 0.9+, eased motion < 0.3), frozen-head share, >6 Hz jitter, blink rate/irregularity/shape,
+  left-right asymmetry, upper-face range, gaze activity. Thresholds were tuned on synthetic robotic and natural
+  curves in the tests; tune them on the first real renders.
