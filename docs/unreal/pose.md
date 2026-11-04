@@ -68,6 +68,8 @@ interpolate between them.
 | `.find_or_create_control_rig_track` (through anim.rig_keys) | same:154 | yes |
 | `MovieSceneTimeUnit.DISPLAY_RATE`, `FrameNumber` | (enum EMovieSceneTimeUnit, used by the signatures above) | yes |
 | `RigHierarchy.get_controls()` (ScriptName of GetControlKeys; `get_control_keys` does not exist in Python) | Plugins/Animation/ControlRig/Source/ControlRig/Public/Rigs/RigHierarchy.h:1181 | yes |
+| `LevelSequenceEditorBlueprintLibrary.set_global_position(MovieSceneSequencePlaybackParams, MovieSceneTimeUnit)` (replaces set_current_time, deprecated 5.4: :88-90), in ops/_scrub.py | Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:107-108 | yes |
+| `MovieSceneSequencePlaybackParams(frame=FrameTime(FrameNumber(f)), position_type=MovieScenePositionType.FRAME, update_method=UpdatePositionMethod.SCRUB)` | Runtime/MovieScene/Public/MovieSceneSequencePlayer.h:91-120 (EMovieScenePositionType :83, EUpdatePositionMethod :39); FrameTime: Runtime/Core/Public/Misc/FrameTime.h | yes |
 | `SkeletalMeshComponent.does_socket_exist`, `get_socket_location` | Runtime/Engine/Classes/Components/SceneComponent.h:809,832 | yes |
 | `LevelSequenceEditorBlueprintLibrary.open_level_sequence`, `set_current_time`, `refresh_current_level_sequence`, `get_current_level_sequence` | Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:36,90,254 | yes |
 | `EditorAssetLibrary.set_metadata_tag`, `get_metadata_tag` | EditorAssetLibrary.h:385,376 | yes |
