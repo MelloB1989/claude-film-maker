@@ -1,0 +1,33 @@
+# THE DEMO: a 3-shot scene with a MetaHuman, a set, lights, cameras and a render, exercising every work package.
+# Run it stage by stage (README.md here has the commands, what each prints and what to check):
+#   film-ue plan examples/unreal/demo/demo.yaml          # every stage's steps, nothing changes
+#   film-ue apply examples/unreal/demo/demo.yaml --json  # all of it; re-running changes nothing ("converged": true)
+# Paths and names are vars: change them here or with --set name=value.
+kind: vars
+vars:
+  root: /Game/_Demo
+  level: /Game/_Demo/L_Demo
+  mh: /Game/_Demo/MH
+  character: /Game/_Demo/MH/Demo_Host            # the MetaHuman Character asset (mh.from_preset)
+  preset: Trey                                   # a MetaHuman Creator preset (film-ue mh presets)
+  host: Host                                     # the built Blueprint is BP_Host; its actor label in the level
+  host_bp: /Game/_Demo/MH/BP_Host                # where mh.build puts it: CHECK after stage 1 (README)
+  face_mesh: /Game/_Demo/MH/Face/SKM_Demo_Host_FaceMesh   # the built face mesh: CHECK after stage 1 (README)
+  speech: /Game/_Demo/Speech
+  voice_wav: /srv/film/demo/demo_line.wav        # a 3-5 s spoken line ON THE BOX (film-ue push it there)
+  voice_sound: /Game/_Demo/Speech/Audio/demo_line
+  face_anim: /Game/_Demo/Speech/Anim/AS_demo_line
+  idle: /MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle
+  seq: /Game/_Demo/SEQ_Demo
+  out: /srv/film/demo/out                        # renders, QA and stills on the box
+---
+kind: include
+files:
+  - 10-character.yaml     # WP3 MetaHuman: preset -> cloud rig + textures -> build (needs the Epic sign-in)
+  - 20-set.yaml           # WP6 layout (scene kind) + the generic level kind; WP2 assets (engine shapes)
+  - 30-look.yaml          # WP5 lighting, fog, post
+  - 40-performance.yaml   # WP4 speech to face (MetaHuman Animator); WP12 the WAV in as a SoundWave
+  - 50-sequence.yaml      # WP8 the sequence, body idle + face; WP12 the voice on an audio track
+  - 60-shots.yaml         # WP7 three shots: WS, MCU with a push-in, CU; cuts
+  - 70-qa.yaml            # WP10 one review of the cut (stills, framing, exposure, floating props)
+# 80-render.yaml (WP9) and 90-delivery.yaml (WP12, film-post) run separately: see README.md

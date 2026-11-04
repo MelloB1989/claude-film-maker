@@ -9,7 +9,8 @@ A spec file (YAML, several documents split by `---`; or JSON, one object or a li
     cls: RectLight              # ... the kind's own fields, validated by schemas/<kind>.schema.json
     loc: [300, 0, 250]
 
-Two documents belong to the engine: `{kind: vars, vars: {fps: 24}}` (then `${fps}` in any string of the documents
+Any document may say `order: N` to run before or after its kind's default order (level 0 ... op 80, render 90):
+a staged spec (the demo) orders its op steps between the kinds that depend on them. Two documents belong to the engine: `{kind: vars, vars: {fps: 24}}` (then `${fps}` in any string of the documents
 after it; a string that is exactly "${fps}" takes the value's type; `--set fps=30` overrides) and
 `{kind: include, files: [other.yaml]}` (relative to this file).
 
@@ -43,6 +44,7 @@ SCHEMAS = Path(__file__).with_name("schemas")
 ENGINE_KINDS = ("vars", "include")
 ENVELOPE = {"kind": {"type": "string"}, "version": {"type": "integer"}, "name": {"type": "string"},
             "description": {"type": "string"}}
+ENGINE_KEYS = ("order",)  # per document, read by the engine and never seen by a kind: `order: 15` overrides the kind's
 
 
 class SpecError(ValueError):
@@ -222,6 +224,9 @@ def load(paths, sets: list | None = None) -> list:
             if d.get("version", SPEC_VERSION) != SPEC_VERSION:
                 problems.append(errors.Problem("bad_spec", f"{where}: version {d.get('version')}; this engine reads "
                                                            f"{SPEC_VERSION}", ""))
+            engine = {k: d.pop(k) for k in ENGINE_KEYS if k in d}
+            if "order" in engine and not isinstance(engine["order"], (int, float)):
+                problems.append(errors.Problem("bad_spec", f"{where}: order should be a number", "e.g. order: 15"))
             for p, msg, cands in validate_doc(d, kd):
                 problems.append(errors.Problem("bad_spec", f"{where} ({kd.name} {d.get(kd.key)!r}) {p}: {msg}",
                                                f"film-ue plan --kinds {kd.name} shows its fields", cands))
@@ -235,6 +240,8 @@ def load(paths, sets: list | None = None) -> list:
             s = kd.schema_doc()
             d = jsonschema_lite.defaults(d, s) if s else d
             d["_src"] = where
+            if "order" in engine:
+                d["_order"] = engine["order"]
             out.append(d)
 
     for p in ([paths] if isinstance(paths, (str, Path)) else paths):
@@ -308,7 +315,7 @@ def plan(docs: list, ue=None, state: dict | None = None, only: set | None = None
     reg = kinds()
     index = index or _schema.index(_schema.load())
     docs = [d for d in docs if not only or d["kind"] in only]
-    order = sorted(range(len(docs)), key=lambda i: (reg[docs[i]["kind"]].order, i))
+    order = sorted(range(len(docs)), key=lambda i: (docs[i].get("_order", reg[docs[i]["kind"]].order), i))
     items = []
     by_kind: dict = {}
     for i in order:  # readers and planners see the document without the engine's own keys (_src)
@@ -372,12 +379,35 @@ def run(items: list, ue, keep_going: bool = True) -> list:
     return items
 
 
+def stages(docs: list, only: set | None = None) -> list:
+    """The documents in apply order, grouped: consecutive documents of one kind at one order form a stage."""
+    reg = kinds()
+    docs = [d for d in docs if not only or d["kind"] in only]
+    key = lambda d: (d.get("_order", reg[d["kind"]].order), d["kind"])  # noqa: E731
+    out: list = []
+    for d in sorted(docs, key=lambda d: key(d)[0]):  # stable: file order within an order
+        if out and key(out[-1][0]) == key(d):
+            out[-1].append(d)
+        else:
+            out.append([d])
+    return out
+
+
 def apply(docs: list, ue, only: set | None = None, keep_going: bool = True, verify: bool = True) -> dict:
-    items = run(plan(docs, ue, only=only), ue, keep_going)
+    """Stage by stage: each stage is described and planned just before it runs, so a kind sees what the stages before
+    it made (the shots see the actor the scene spawned). Then everything is planned again to verify."""
+    from . import schema as _schema
+    index = _schema.index(_schema.load())
+    items: list = []
+    for group in stages(docs, only):
+        got = run(plan(group, ue, index=index), ue, keep_going)
+        items += got
+        if not keep_going and any(it.error for it in got):
+            break
     failed = [it for it in items if it.error]
     out = {"ok": not failed, "items": [it.as_dict() for it in items], "summary": summarize(items)}
     if verify:
-        again = plan(docs, ue, only=only)
+        again = plan(docs, ue, only=only, index=index)
         left = [it.as_dict() for it in again if [s for s in it.steps if not s.get("always")] or it.error]
         out["converged"] = not left
         if left:

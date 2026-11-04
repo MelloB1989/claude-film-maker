@@ -138,3 +138,19 @@ def test_selftests_are_311_and_documented():
         doc = ast.get_docstring(tree) or ""
         assert "Takes" in doc and "Needs" in doc, f"{p.name}: say 'Takes ~N s/min. Needs: ...' in the docstring"
         assert any(isinstance(n, ast.FunctionDef) and n.name == "run" for n in tree.body), f"{p.name}: def run(t)"
+
+
+def test_op_name_argument_passes_through(st, tmp_path, fmb, monkeypatch):
+    def named(*, name: str) -> dict:
+        """An op with its own `name` argument."""
+        return {"name": name, "changed": False}
+    monkeypatch.setitem(fmb._OPS, "zz.named", named)
+
+    def run(t):
+        t.check("op", t.op("zz.named", name="a")["name"], "a")
+        t.check("call", t.call("zz.named", name="b")["name"], "b")
+        t.idempotent("idempotent", "zz.named", name="c")
+        t.raises("raises", "zz.named", code="bad_args", name="d", extra=1)
+    _module("zzname", run, NEEDS_LEVEL=False)
+    rep, _ = drive(st.run("zzname", str(tmp_path)))
+    assert rep["errors"] == [] and rep["failed"] == 0, rep["checks"]

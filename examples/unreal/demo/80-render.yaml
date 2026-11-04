@@ -1,0 +1,12 @@
+# Stage 8 (WP9): the render, after demo.yaml converged. A preview first (fast), then the final:
+#   film-ue apply examples/unreal/demo/80-render.yaml --set preset=preview
+kind: vars
+vars: {seq: /Game/_Demo/SEQ_Demo, level: /Game/_Demo/L_Demo, out: /srv/film/demo/out, preset: preview}
+---
+kind: render
+version: 1
+name: demo
+sequence: "${seq}"
+level: "${level}"
+out_dir: "${out}/render"
+preset: "${preset}"

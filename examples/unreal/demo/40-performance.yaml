@@ -1,0 +1,10 @@
+# Stage 4 (WP4): the voice line becomes the face's animation (MetaHuman Animator's audio solver). Imports the WAV as
+# a SoundWave too (${voice_sound}), which stage 5 puts on the audio track. Multi-tick, ~1-3 min.
+kind: op
+version: 1
+order: 45
+name: speech
+op: speech.to_face
+args: {wav: "${voice_wav}", name: demo_line, face_mesh: "${face_mesh}", mood: CONFIDENCE, intensity: 1.0, folder: "${speech}"}
+timeout: 1800
+unless: {op: assets.list, args: {path: "${speech}/Anim", cls: AnimSequence}, has: "0"}

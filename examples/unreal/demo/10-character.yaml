@@ -1,0 +1,40 @@
+# Stage 1 (WP3): the MetaHuman. Each step converges with `unless` (a read op that says it is done), so a re-run skips
+# the slow cloud calls. Needs: the Epic sign-in (film-ue epic-login on Linux) and MetaHuman Creator's core data.
+kind: op
+version: 1
+order: 5
+name: mh-character
+op: mh.from_preset
+args: {preset: "${preset}", dest: "${character}"}
+unless: {op: assets.list, args: {path: "${mh}", cls: MetaHumanCharacter}, has: "0"}
+why: "a character from the preset"
+---
+kind: op
+version: 1
+order: 5
+name: mh-rig
+op: mh.rig
+args: {character: "${character}", full: true}
+timeout: 1800
+unless: {op: assets.list, args: {path: "${mh}", cls: Blueprint}, has: "0"}
+why: "Epic's cloud auto-rig (joints + blend shapes: the face animation needs them)"
+---
+kind: op
+version: 1
+order: 5
+name: mh-textures
+op: mh.textures
+args: {character: "${character}"}
+timeout: 1800
+unless: {op: assets.list, args: {path: "${mh}", cls: Blueprint}, has: "0"}
+why: "the cloud's high-resolution skin textures"
+---
+kind: op
+version: 1
+order: 5
+name: mh-build
+op: mh.build
+args: {character: "${character}", name: "${host}", cinematic: true}
+timeout: 1800
+unless: {op: assets.list, args: {path: "${mh}", cls: Blueprint}, has: "0"}
+why: "assemble the Blueprint (BP_${host})"
