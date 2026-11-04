@@ -124,4 +124,18 @@ Updated through the night:
 - **Uncalled:** a real ElevenLabs TTS call (`film-post speak`) and real ffmpeg (none on the fleet). The key comes
   through `fleetctl secret` only.
 - **PyYAML is a direct client dependency** now. Re-lock `tools/uv.lock` on a dev machine (`uv lock`).
+- **Behaviour change for host-studio (the reel):** `look.fog volumetric=true` now really enables volumetric fog
+  (`enable_volumetric_fog`). The old code set a property name that does not exist in 5.8, so volumetric fog was
+  silently never on. Re-renders of the reel's shots will differ in the haze. To keep the old look, pass
+  `volumetric=false` in the studio scripts. Other deliberate differences: `tools/tests/test_ue_look_legacy.py`.
+- **Cross-area API audits (B57) found live-only bugs the fakes hid, all fixed tonight:**
+  - MetaHuman iris property names (`pattern`/`rotation`; every cast's eyes step).
+  - The FBX option `use_t0_as_ref_pose`.
+  - The audio Volume channel matched by its unique object name.
+  - `seq.eval`'s ControlRigSequencerLibrary name.
+  - The gaze-lock clip offset.
+  - The hidden TraceTypeQuery enum (ECC_VISIBILITY).
+  - `env.quality` writing project settings on the CDO (modal-dialog risk).
+
+  The rule for how engine calls return in Python (PyGenUtil.cpp) is now in CONVENTIONS §12.
 - **The orchestrator was offline.** Decisions the lead took alone are in DECISIONS.md.
