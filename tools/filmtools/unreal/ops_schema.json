@@ -15120,7 +15120,7 @@
    "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
    "line": 359,
    "summary": "What the sequence evaluates to at frames, without playing it: actors' world transforms (opens the sequence in",
-   "doc": "What the sequence evaluates to at frames, without playing it: actors' world transforms (opens the sequence in\nSequencer: ControlRigSequencerEditorLibrary evaluates the open one) and tracks' channel values (curve\nevaluation; works closed). For checking keys landed where meant.\n\nArgs: frames: display frames. labels: actor labels -> [[x, y, z, pitch, yaw, roll], ...] per frame.\ntracks: [{\"kind\", \"binding\", \"component\", \"name\"}] -> {channel: [values]}.\nReturns: {\"frames\", \"transforms\": {label: [...]}, \"channels\": {track label: {channel: [...]}}}.\nExample: film-ue op seq.eval path=/Game/S/SEQ_A 'frames=[0,24,48]' 'labels=[\"CamA\"]'",
+   "doc": "What the sequence evaluates to at frames, without playing it: actors' world transforms (opens the sequence in\nSequencer: ControlRigSequencerLibrary evaluates the open one) and tracks' channel values (curve\nevaluation; works closed). For checking keys landed where meant.\n\nArgs: frames: display frames. labels: actor labels -> [[x, y, z, pitch, yaw, roll], ...] per frame.\ntracks: [{\"kind\", \"binding\", \"component\", \"name\"}] -> {channel: [values]}.\nReturns: {\"frames\", \"transforms\": {label: [...]}, \"channels\": {track label: {channel: [...]}}}.\nExample: film-ue op seq.eval path=/Game/S/SEQ_A 'frames=[0,24,48]' 'labels=[\"CamA\"]'",
    "params": [
     {
      "name": "path",
