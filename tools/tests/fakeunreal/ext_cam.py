@@ -48,6 +48,17 @@ class CineCameraComponent(core.CineCameraComponent):
             value = min(max(float(value), ls._props["min_f_stop"]), ls._props["max_f_stop"])
         super().set_editor_property(name, value, notify_mode)
 
+    def get_horizontal_field_of_view(self):
+        """CineCameraComponent.cpp:286-301 with no crop, squeeze 1, no overscan."""
+        import math
+        w = self._props["filmback"]._props["sensor_width"]
+        return math.degrees(2 * math.atan(w / (2 * self._props["current_focal_length"])))
+
+    def get_vertical_field_of_view(self):
+        import math
+        h = self._props["filmback"]._props["sensor_height"]
+        return math.degrees(2 * math.atan(h / (2 * self._props["current_focal_length"])))
+
     def set_custom_near_clipping_plane(self, v):
         self._props["custom_near_clipping_plane"] = float(v)
 

@@ -74,7 +74,8 @@ def _blocks(cam: dict, blocker: dict, s: dict, radius: float = 22.0) -> bool:
 
 
 def side_of_line(cam_loc, a, b) -> float:
-    """Which side of the line a -> b (seen from above) a camera stands: + one side, - the other, 0 on it."""
+    """Which side of the line a -> b (seen from above) a camera stands: negative on its left, positive on its right
+    (Unreal is left-handed: seen from above X is up and Y right), 0 on it."""
     a, b, c = geo.v(a), geo.v(b), geo.v(cam_loc)
     return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
 

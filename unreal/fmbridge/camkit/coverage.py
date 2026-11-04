@@ -17,11 +17,12 @@ SINGLE = ("WS", "MS", "MCU", "CU")
 
 
 def _line_side(side: str) -> float:
+    # checks.side_of_line is negative on the left of a->b seen from above (Unreal's frame is left-handed)
     s = str(side).lower()
-    if s in ("left", "l", "+"):
-        return 1.0
-    if s in ("right", "r", "-"):
+    if s in ("left", "l"):
         return -1.0
+    if s in ("right", "r"):
+        return 1.0
     raise ValueError(f"side {side!r}: 'left' or 'right' of the line from the first subject to the second")
 
 

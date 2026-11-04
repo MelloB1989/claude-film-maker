@@ -19,7 +19,7 @@
         frame: {subjects: [A, B], size: WS, angle: front, height: eye, focal_mm: 28}
       - id: S2
         start: L1.start-4f
-        frame: {subjects: [A], size: MCU, angle: 3/4, side: left}
+        frame: {subjects: [A], size: MCU, angle: 3/4}   # no side: the one that keeps the scene's side of the line
         moves: [{move: push_in, fraction: 0.15}]
         noise: subtle
         focus: A                             # follow-focus on A's eyes; or {distance_cm: 300}; or off
@@ -313,6 +313,7 @@ def plan(spec: dict, subjects: dict, describe_cov: bool = False) -> dict:
         raise SpecError([{"path": f"subjects.{n}", "message": f"subject {n!r} was not resolved", "fix":
                           "cam.subject on its actor"} for n in missing])
     subs_all = [subjects[n] for n in spec.get("subjects") or {}]
+    line_side = (spec.get("coverage") or {}).get("side", d["side"])  # the scene's side of the line
     cov = None
     needs_cov = spec.get("auto") or any("coverage" in sh for sh in spec.get("shots") or [])
     if needs_cov:
@@ -338,8 +339,14 @@ def plan(spec: dict, subjects: dict, describe_cov: bool = False) -> dict:
             if "frame" in sh:
                 fr = dict(sh["frame"])
                 who = [fr["subjects"]] if isinstance(fr["subjects"], str) else list(fr["subjects"])
+                side = fr.get("side")
+                if side is None and len(who) == 1 and len(subs_all) >= 2:
+                    # the subject's own side that keeps the camera on the scene's side of the line
+                    pa, pb = subs_all[0]["points"]["eyes"], subs_all[1]["points"]["eyes"]
+                    side = coverage._subject_side_for(subjects[who[0]], framing.angle_deg(fr.get("angle", 0.0)),
+                                                      coverage._line_side(line_side), pa, pb)
                 r = framing.solve([subjects[n] for n in who], fr.get("size", "MCU"), angle=fr.get("angle", 0.0),
-                                  side=fr.get("side", d["side"]), height=fr.get("height", d["height"]),
+                                  side=side or d["side"], height=fr.get("height", d["height"]),
                                   focal=None if fr.get("distance_cm") is not None and "focal_mm" not in fr else
                                   float(fr.get("focal_mm", d["focal_mm"])),
                                   distance=fr.get("distance_cm"), place=fr.get("place", "auto"),

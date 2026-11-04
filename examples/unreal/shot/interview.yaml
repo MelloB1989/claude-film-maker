@@ -20,13 +20,13 @@ shots:
     frame: {subjects: [Host, Guest], size: WS, angle: front, focal_mm: 28}
   - id: S2_host
     start: L1.start-4f
-    frame: {subjects: [Host], size: MCU, angle: 30, side: right}
+    frame: {subjects: [Host], size: MCU, angle: 30}       # side picked to stay on the scene's side of the line
     noise: subtle
   - id: S3_guest_over
     start: L2.start-4f
     coverage: Guest_OTS
   - id: S4_host_push
     start: L3.start-4f
-    frame: {subjects: [Host], size: MS, angle: 30, side: right, focal_mm: 50}
+    frame: {subjects: [Host], size: MS, angle: 30, focal_mm: 50}
     moves: [{move: push_in, fraction: 0.25, ease: in_out}]
     focus: Host

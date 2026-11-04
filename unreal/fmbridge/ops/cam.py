@@ -11,7 +11,6 @@ chest, waist, knees, feet; any other actor is framed from its bounds), or a poin
 """
 from __future__ import annotations
 
-import os
 
 import unreal
 
@@ -570,12 +569,13 @@ def _qa_issues(cam: dict, targets, subs: list, size) -> list:
         for lab, s in zip(labels, subs):
             a = _find(str(lab).split(":")[0]) if isinstance(lab, str) else None
             bones = dict(_bones_of(a)) if a is not None else {}
-            bones.update({"eyes": s["points"]["eyes"], "head_top": s["points"]["head_top"]})
+            if bones:  # a skeleton: add the landmarks it lacks; a prop or stand-in is judged from its bounds alone
+                bones.update({"eyes": s["points"]["eyes"], "head_top": s["points"]["head_top"]})
             bounds = None
             if a is not None:
                 o, e = a.get_actor_bounds(False)
                 bounds = (_v3(o), _v3(e))
-            r = qaf.check(qcam, s["name"], bones=bones, bounds=bounds, facing=s["facing"],
+            r = qaf.check(qcam, s["name"], bones=bones or None, bounds=bounds, facing=s["facing"],
                           expect={"size": framing.size_key(size)} if size else None)
             out += list(r.get("issues", []) if isinstance(r, dict) else r)
     except Exception as e:  # their API moved: say so, keep ours
