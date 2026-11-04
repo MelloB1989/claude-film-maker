@@ -1,0 +1,15 @@
+# For grading and compositing: 16-bit half EXR (PIZ, lossless) with depth and motion vectors in one multilayer file
+# per frame, plus ProRes 422 HQ from the beauty pass. Long shots are split into 240-frame jobs; each later job is
+# pre-rolled from its cut start so cloth matches a full-shot render.
+kind: render
+version: 1
+name: grade
+sequence: /Game/Reel/SEQ_Reel
+out_dir: /srv/ue/renders/grade
+preset: final_exr
+passes: [beauty, depth, motion_vectors]
+outputs:
+  - {kind: exr, compression: piz, multilayer: true}
+  - {kind: wav}
+  - {kind: prores, profile: 3}
+chunking: 240

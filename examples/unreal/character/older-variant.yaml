@@ -1,0 +1,11 @@
+# A variant of Maeve 25 years on: a copy of her character (mh.duplicate), heavier, grey-streaked hair, worn teeth.
+kind: character
+version: 1
+name: MaeveOlder
+asset: /Game/Characters/Maeve/MH_MaeveOlder
+from: {source: /Game/Characters/Maeve/MH_Maeve}
+body: {Waist: 74, Fat: 0.8}
+grooms:
+  Hair: {melanin: 0.3, redness: 0.6, params: {Whiteness: 0.45}}
+teeth: {worn_down: 0.4, plaque_amount: 0.2}
+build: {name: MaeveOlder}

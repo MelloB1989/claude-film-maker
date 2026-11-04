@@ -1,0 +1,39 @@
+# A two-camera dialogue beat: the host walks in, a key light swells, the cut goes from wide to close.
+# Apply: film-ue plan examples/unreal/sequence/two_shot.yaml   then   film-ue apply ...
+# Needs actors labelled Host (a MetaHuman: Body component), CamWide, CamClose and Key in the open level.
+kind: sequence
+version: 1
+name: two_shot
+sequence: /Game/Examples/Seq/SEQ_TwoShot
+fps: 24
+range: [0, 8s]
+markers: [[48, line_starts], [4s, turn]]
+bindings:
+  Host:
+    transform:
+      interp: auto
+      keys:
+        - [0, [-300, 0, 0], {yaw: 0}]
+        - {frame: 2s, loc: [0, 0, 0], look_at: CamClose}
+        - {frame: 8s, loc: [0, 0, 0], rot: {yaw: -150}, interp: constant}
+    anim:
+      component: Body
+      sections:
+        - {anim: /Game/Anim/Walk_Fwd, start: 0, end: 48, blend_out: 6}
+        - {anim: /Game/Anim/Idle_Talk, start: 42, end: 8s, blend_in: 6, loop: true}
+    visible: [[0, true]]
+  Key:
+    props:
+      LightComponent0/Intensity: [[0, 2], [2s, 8, linear], [8s, 8]]
+      LightComponent0/LightColor: {type: color, srgb: true, keys: [[0, [1.0, 0.85, 0.7]]]}
+  CamWide:
+    props:
+      CameraComponent/CurrentFocalLength: [[0, 24]]
+      CameraComponent/FocusSettings.ManualFocusDistance: [[0, 400], [2s, 300]]
+  CamClose:
+    transform: [[0, [180, -40, 160], [0, 0, 160]]]
+    props:
+      CameraComponent/CurrentFocalLength: [[0, 85]]
+      CameraComponent/CurrentAperture: [[0, 2.0]]
+camera_cuts: [[CamWide, 0], [CamClose, 3s]]
+fade: {color: [0, 0, 0], keys: [[0, 1], [12, 0]]}

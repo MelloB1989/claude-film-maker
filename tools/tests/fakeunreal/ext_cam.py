@@ -66,6 +66,12 @@ class CineCameraComponent(core.CineCameraComponent):
 class CineCameraActor(core.CameraActor):
     COMPONENTS = (("scene_component", core.SceneComponent), ("camera_component", CineCameraComponent))
 
+    def __init__(self, name=None, outer=None, **props):
+        super().__init__(name, outer, **props)
+        # the engine's subobject names (CameraActor.cpp:19,25; CineCameraActor.cpp:16): Sequencer binds by them
+        object.__setattr__(self._props["scene_component"], "_name", "SceneComponent")
+        object.__setattr__(self._props["camera_component"], "_name", "CameraComponent")
+
     def get_cine_camera_component(self):
         return self._props["camera_component"]
 

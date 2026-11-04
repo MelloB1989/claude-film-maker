@@ -1,0 +1,11 @@
+# Shaping only, no Epic sign-in needed: no cloud rig, no textures, no build. Check it with mh.preview and a still,
+# then switch rig/build on.
+kind: character
+version: 1
+name: Draft
+asset: /Game/Characters/Draft/MH_Draft
+from: {blank: true}
+body: {measurements: {Height: 175, Chest: 100}, reset: true}
+skin: {u: 0.5, v: 0.5}
+rig: none
+build: false

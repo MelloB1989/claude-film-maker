@@ -200,7 +200,25 @@ def _yields(fn) -> bool:
     return False
 
 
-def _wire_params(fn) -> list:
+def _constants(tree) -> dict:
+    """Module-level NAME = <literal> (and NAME: T = <literal>), so a default like `min_free_gb=MIN_FREE_GB` is read as
+    its value, as the live schema (inspect) sees it."""
+    out = {}
+    for n in tree.body:
+        targets, value = [], None
+        if isinstance(n, ast.Assign):
+            targets, value = [t.id for t in n.targets if isinstance(t, ast.Name)], n.value
+        elif isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name) and n.value is not None:
+            targets, value = [n.target.id], n.value
+        for t in targets:
+            try:
+                out[t] = ast.literal_eval(value)
+            except (ValueError, SyntaxError, TypeError):
+                pass
+    return out
+
+
+def _wire_params(fn, consts: dict | None = None) -> list:
     a = fn.args
     pos = a.posonlyargs + a.args
     defaults = [None] * (len(pos) - len(a.defaults)) + list(a.defaults)
@@ -209,18 +227,19 @@ def _wire_params(fn) -> list:
                             [(x, d, "keyword") for x, d in zip(a.kwonlyargs, a.kw_defaults)]):
         v = _literal(dflt) if dflt is not None else None
         if isinstance(v, dict) and set(v) == {"expr"}:
-            v = None  # not a JSON literal: the wire shape says null
+            name = v["expr"]
+            v = _deep_list((consts or {})[name]) if name in (consts or {}) else None  # else not a literal: null
         out.append({"name": arg.arg, "kind": kind, "type": ast.unparse(arg.annotation) if arg.annotation else None,
                     "required": dflt is None, "default": v})
     return out
 
 
-def _wire(name: str, meta: dict, fn, doc: str, module: str, file: str, multi: bool) -> dict:
+def _wire(name: str, meta: dict, fn, doc: str, module: str, file: str, multi: bool, consts: dict | None = None) -> dict:
     area, _, verb = name.partition(".")
     tags = meta.get("tags")
     return {"name": name, "area": area if verb else "", "verb": verb or name, "module": module, "file": file,
             "line": min([getattr(fn, "lineno", 0)] + [d.lineno for d in getattr(fn, "decorator_list", [])]) or None,
-            "summary": (doc.splitlines() or [""])[0], "doc": doc, "params": _wire_params(fn),
+            "summary": (doc.splitlines() or [""])[0], "doc": doc, "params": _wire_params(fn, consts),
             "returns": ast.unparse(fn.returns) if getattr(fn, "returns", None) else None, "multi_tick": multi,
             "mutates": meta.get("mutates"), "idempotent": meta.get("idempotent"),
             "tags": list(tags) if isinstance(tags, (list, tuple)) else []}
@@ -244,6 +263,7 @@ def extract(ops_dir: Path = OPS_DIR, root: Path = ROOT) -> dict:
             broken[module] = f"SyntaxError: {e.msg} ({rel}:{e.lineno})"
             continue
         mod_doc = ast.get_docstring(tree) or ""
+        consts = _constants(tree)
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
@@ -251,7 +271,7 @@ def extract(ops_dir: Path = OPS_DIR, root: Path = ROOT) -> dict:
             if not dec:
                 continue
             name, meta = dec
-            o = _wire(name, meta, node, ast.get_docstring(node) or "", module, rel, _yields(node))
+            o = _wire(name, meta, node, ast.get_docstring(node) or "", module, rel, _yields(node), consts)
             ops.append(o)
             if o["area"] and mod_doc and (o["area"] not in areas or parts[-1] in (o["area"], "__init__")):
                 areas[o["area"]] = summary(mod_doc)

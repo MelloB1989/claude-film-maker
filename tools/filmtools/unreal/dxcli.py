@@ -42,8 +42,10 @@ def register(sub) -> None:
     s.add_argument("--json", action="store_true")
     s.add_argument("--timeout", type=float, default=3600, help="per area")
     s.add_argument("--no-pull", action="store_true", help="leave stills on the box")
+    s.add_argument("--baseline", default="auto", choices=("auto", "compare", "update", "off"),
+                   help="stills against stored baselines (WP10): auto stores the first and compares after")
     x = sub.add_parser("dx", help="the generated layers: gen (schema snapshot + SDK), check (stale?), lint (op docs)")
-    x.add_argument("action", choices=("gen", "check", "lint"))
+    x.add_argument("action", choices=("gen", "check", "lint", "docs"))
     x.add_argument("--json", action="store_true")
 
 
@@ -99,6 +101,12 @@ def dx(action: str, as_json: bool = False) -> int:
         _print({"ok": not problems, "stale": problems}, as_json,
                "up to date" if not problems else "STALE: " + "; ".join(problems) + "\n  fix: film-ue dx gen")
         return 1 if problems else 0
+    if action == "docs":
+        from . import doccheck
+        probs = doccheck.check()
+        _print({"ok": not probs, "problems": [{"file": f, "line": n, "command": c, "problem": p} for f, n, c, p in probs]},
+               as_json, "\n".join(f"{f}:{n}: film-ue {c}\n    {p}" for f, n, c, p in probs) or "every film-ue command in the docs parses")
+        return 1 if probs else 0
     found = schema.lint(schema.extract())
     _print({"ok": not found, "problems": [{"op": o, "problem": p} for o, p in found]}, as_json,
            "\n".join(f"{o}: {p}" for o, p in found) or "no problems")

@@ -50,7 +50,7 @@ def rig_gone(ue):
 def test_still_from_camera(scene, tmp_path):
     out = str(tmp_path / "a.png")
     r = run_op("view.still", out=out, camera="CamWide", width_px=96, height_px=54, warmup=3, guides=["thirds"])
-    assert os.path.isfile(out) and (r["width"], r["height"]) == (96, 54)
+    assert os.path.isfile(out) and (r["width"], r["height"]) == (96, 54) and "alpha_dropped" not in r
     assert r["camera_info"]["fov"] == pytest.approx(54.43, abs=0.01) and r["mode"] == "capture"
     assert os.path.isfile(r["guides_path"])
     assert len(scene.called("SceneCaptureComponent2D.capture_scene")) == 4  # 3 warm-up + the kept one
@@ -256,3 +256,18 @@ def test_review_camera_only_and_errors(scene, tmp_path):
         run_op("qa.review", out_dir=str(tmp_path / "x"))
     with pytest.raises(OpError):
         run_op("qa.review", camera="CamWide", out_dir=str(tmp_path / "x"), checks=["nope"])
+
+
+def test_still_drops_a_non_opaque_alpha(scene, ue, tmp_path, monkeypatch):
+    """A capture whose alpha is not 255 is rewritten as RGB (a viewer would see an empty PNG)."""
+    import fakeunreal.ext_qa as ext
+    orig = ext._render
+
+    def render(fake, core, comp):
+        comp._props["fake_alpha"] = 0.0
+        return orig(fake, core, comp)
+    monkeypatch.setattr(ext, "_render", render)
+    r = run_op("view.still", out=str(tmp_path / "a.png"), camera="CamWide", width_px=48, height_px=27, warmup=0)
+    assert r.get("alpha_dropped") is True
+    from fmbridge.qa import image
+    assert image.read(r["path"]).c == 3

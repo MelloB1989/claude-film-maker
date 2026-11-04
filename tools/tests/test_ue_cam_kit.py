@@ -320,3 +320,41 @@ def test_plan_moves_focus_and_group_split_focus():
     assert s1["start_camera"]["focus"] == pytest.approx(2 * near * far / (near + far))
     assert s2["keys"][0]["frame"] == 48 and s2["keys"][-1]["frame"] == 96
     assert s2["keys"][-1]["focus"] < s2["keys"][0]["focus"]  # pushed in: the follow-focus came closer
+
+
+# --- words --------------------------------------------------------------------------------------------------------
+
+from camkit import words  # noqa: E402
+
+
+def test_parse_sentences():
+    p = words.parse("medium close-up of Host from 30 degrees left at eye level, 50mm f/2.8", ["Host", "Guest"])
+    assert {k: p[k] for k in ("size", "angle", "side", "height", "focal_mm", "aperture", "subjects")} == {
+        "size": "MCU", "angle": 30.0, "side": "left", "height": "eye", "focal_mm": 50.0, "aperture": 2.8,
+        "subjects": ["Host"]}
+    assert p["unparsed"] == []
+    p = words.parse("Two-shot of Guest and Host, low angle, 35mm, dutch", ["Host", "Guest"])
+    assert p["subjects"] == ["Guest", "Host"] and p["size"] == "MS" and p["height"] == "low" and p["dutch_deg"] == 12
+    p = words.parse("CU of Guest from 3/4 right, 2 m away", ["Guest"])
+    assert p["angle"] == 45 and p["side"] == "right" and p["distance_cm"] == 200
+    assert words.solver_args(p)["focal"] is None  # the focal length is solved
+    p = words.parse("wide of Host from behind, bird's eye, wobbly", ["Host"])
+    assert p["size"] == "WS" and p["angle"] == 180 and p["height"] == "overhead" and p["unparsed"] == ["wobbly"]
+    p = words.parse("ECU of Host, profile left, slightly low, right third", ["Host"])
+    assert (p["size"], p["angle"], p["side"], p["height"], p["place"]) == ("ECU", 90, "left", "slight low",
+                                                                             "right third")
+
+
+@pytest.mark.parametrize("size", ["CU", "MCU", "MS", "WS"])
+@pytest.mark.parametrize("angle,side,height", [(0, "left", "eye"), (41, "left", "eye"), (70, "right", "high"),
+                                               (30, "right", "slight low"), (55, "left", 33.0),
+                                               (20, "right", -7.0)])
+def test_words_round_trip(size, angle, side, height):
+    s = person("Host")
+    r = framing.solve(s, size, angle=angle, side=side, height=height, focal=50, aperture=2.8)
+    text = words.describe({**r["camera"], "aperture": 2.8}, [s])
+    back = words.parse(text, ["Host"])
+    r2 = framing.solve(s, back["size"], **{k: v for k, v in words.solver_args(back).items() if k != "size"})
+    assert back["size"] == size, text
+    assert r2["camera"]["loc"] == pytest.approx(r["camera"]["loc"], abs=2.0), text
+    assert r2["camera"]["focal"] == pytest.approx(50)
