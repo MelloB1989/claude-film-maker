@@ -75,6 +75,17 @@ film-ue selftest look seq --keep      # keep the scratch levels to look at
 ```
 Check: `selftest-reports/<time>/summary.md` (status per area, failures with got/want, stills) and `summary.json`.
 
+**See what was done to the level, and rebuild it** (the op journal, B32)
+```bash
+film-ue journal tail --n 20 --json                # the last ops that changed something: op, args, ms, result
+film-ue journal tail --prefix level. --since-s 600
+film-ue journal clear                             # before building something you will want to replay
+film-ue journal replay --dry-run                  # what would run; without --dry-run it runs (multi-tick)
+```
+Every op whose `mutates` is True or unset is appended to `Saved/fmbridge/journal.jsonl` by an `ops.after_call` hook
+(journal.*, selftest.*, ops.* are not); a multi-tick op is recorded when it starts and its outcome folded in when the
+job registry reports it (`jobs.on_finish`, when WP1's jobs.py has it).
+
 **After changing or adding ops** (in the same commit)
 ```bash
 film-ue dx gen      # rewrite tools/filmtools/unreal/ops_schema.json and sdk/_generated.py from the ops
@@ -99,7 +110,8 @@ film-ue dx sdk      # every ue.<area>.<verb>(...) / ue.call("a.v") in examples/ 
 | `film-ue selftest [AREA...\|all] [--list] [--keep] [--out DIR] [--no-pull] [--json]` | acceptance tests |
 | `film-ue dx gen\|check\|lint\|docs\|sdk [FILE...]` | the generated layers; op/schema lint; doc commands against the schema |
 
-Bridge ops of this area: `selftest.list`, `selftest.run` (multi-tick), `selftest.cleanup`. `ops.schema` / `ops.broken` /
+Bridge ops of this area: `selftest.list`, `selftest.run` (multi-tick), `selftest.cleanup`; `journal.tail`,
+`journal.clear`, `journal.record`, `journal.replay` (multi-tick). `ops.schema` / `ops.broken` /
 `list` are the lead's (ops/__init__.py).
 
 Files (all WP11 unless noted):
@@ -317,4 +329,5 @@ State (fleet/agent-13/ue-dx, merged into ue-helpers by the lead as it lands):
   on_progress could replace it); kind schemas of other WPs are validated only for what jsonschema_lite supports
   (no `if/then`, `dependentRequired`, `format`).
 - Backlog: B10 scratch context DONE (ops/_scratch.py); B34 SDK examples DONE (examples/unreal/sdk, `dx sdk` checker).
-  Claimed: B32 op journal, B35 GUIDE recipes with expected JSON.
+  B32 op journal DONE (ops/journal.py + the after_call hook in ops/__init__.py; the job outcome line needs
+  `jobs.on_finish` from WP1: asked agent-07). Claimed: B35 GUIDE recipes with expected JSON.
