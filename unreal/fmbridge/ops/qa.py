@@ -25,6 +25,7 @@ import unreal
 
 from . import op
 from ..errors import OpError
+from ..qa import baseline as _baseline
 from ..qa import compare as _compare
 from ..qa import continuity as _continuity
 from ..qa import framing as _framing
@@ -490,6 +491,100 @@ def diff(*, before: str, after: str = "", ignore: list | None = None, severity: 
     return _result(iss, r)
 
 
+# --- baselines -----------------------------------------------------------------------------------------------------
+
+def baseline_root() -> str:
+    """Where baselines live on the box: $FMBRIDGE_BASELINES, else <project>/Saved/fmbridge/baselines."""
+    env = os.environ.get("FMBRIDGE_BASELINES")
+    if env:
+        return env
+    saved = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir())
+    return os.path.join(saved, "fmbridge", "baselines")
+
+
+def _need_image(image: str):
+    if not os.path.isfile(image):
+        raise OpError(f"no image at {image}", code="not_found", hint="make one with view.still")
+
+
+@op("qa.baseline_save", mutates=True, idempotent=True)
+def baseline_save(*, suite: str, name: str, image: str, overwrite: bool = False, meta: dict | None = None,
+                  min_ssim: float | None = None) -> dict:
+    """Keep a still as the golden baseline suite/name (with its exposure/colour numbers).
+
+    Args: suite: a group ("selftest/look", "film/s010"; slashes make folders). name: the still's name in it.
+    image: PNG path on the box. overwrite: replace an existing baseline (accept a change); otherwise an existing one
+    is kept. meta: anything to remember (camera, frame, commit). min_ssim: this baseline's own match threshold (a
+    noisy shot).
+    Returns: {"suite", "name", "png", "json", "size", "metrics", "changed"}.
+    Example: film-ue op qa.baseline_save suite=film/s010 name=00048 image=/srv/qa/s010/00048.png
+    """
+    _need_image(image)
+    try:
+        rec = _baseline.save(baseline_root(), suite, name, image, meta=meta, overwrite=overwrite,
+                             thresholds={"min_ssim": float(min_ssim)} if min_ssim is not None else None)
+    except ValueError as e:
+        raise OpError(str(e), code="bad_args") from None
+    return rec
+
+
+@op("qa.baseline_compare", mutates=True, idempotent=True)
+def baseline_compare(*, suite: str, name: str, image: str, diff_out: str = "", min_ssim: float | None = None) -> dict:
+    """A still against its baseline: SSIM, PSNR, changed cells, exposure shift, a diff heatmap when it moved.
+
+    Args: suite/name: the baseline. image: the new still (PNG on the box). diff_out: write the heatmap there when it
+    differs. min_ssim: override the match threshold (default the baseline's own, else 0.95).
+    Returns: {"pass", "issues", "metrics": {"status": match|differs|different|no_baseline, "ssim", "psnr",
+    "changed", "stops_shift", "mean_shift", "diff"?}}. no_baseline passes (with an info issue).
+    Example: film-ue op qa.baseline_compare suite=film/s010 name=00048 image=/srv/qa/new/00048.png diff_out=/srv/qa/d.png
+    """
+    _need_image(image)
+    r = _baseline.compare(baseline_root(), suite, name, image, diff_out=diff_out, min_ssim=min_ssim)
+    iss = r.pop("issues")
+    return _result(iss, r)
+
+
+@op("qa.baseline_check", mutates=True, idempotent=False)
+def baseline_check(*, suite: str, name: str, image: str, mode: str = "auto", diff_out: str = "",
+                   meta: dict | None = None) -> dict:
+    """What a test does per still: compare with the baseline, or make it the baseline when there is none.
+
+    Args: suite/name/image: as qa.baseline_compare. mode: auto (compare, or create when missing), compare (never
+    create), update (replace: accept the new look), off. diff_out: heatmap when it differs. meta: stored on create.
+    Returns: {"pass", "issues", "metrics": {"status": created|updated|match|differs|different|no_baseline|off, ...}}.
+    Example: film-ue op qa.baseline_check suite=selftest/look name=key image=/srv/st/look_key.png
+    """
+    _need_image(image)
+    try:
+        r = _baseline.check(baseline_root(), suite, name, image, mode=mode, diff_out=diff_out, meta=meta)
+    except ValueError as e:
+        raise OpError(str(e), code="bad_args") from None
+    iss = r.pop("issues")
+    return _result(iss, r)
+
+
+@op("qa.baseline_list", mutates=False, idempotent=True)
+def baseline_list(*, suite: str = "") -> dict:
+    """The baselines on the box (all, or one suite and its sub-suites).
+
+    Returns: {"root", "baselines": [{"suite", "name", "updated", "size", "png", "json", "rel"}]}; `rel` is the PNG's
+    path under root (film-qa baseline pull mirrors it).
+    Example: film-ue op qa.baseline_list suite=selftest
+    """
+    root = baseline_root()
+    return {"root": root, "baselines": _baseline.list_(root, suite)}
+
+
+@op("qa.baseline_remove", mutates=True, idempotent=True)
+def baseline_remove(*, suite: str, name: str) -> dict:
+    """Delete one baseline (nothing there is fine).
+
+    Returns: {"changed": bool}.
+    Example: film-ue op qa.baseline_remove suite=film/s010 name=00048
+    """
+    return {"changed": _baseline.remove(baseline_root(), suite, name)}
+
+
 # --- the review ----------------------------------------------------------------------------------------------------
 
 CHECKS = ("image", "framing", "penetration", "floating", "overlaps", "continuity", "reference")
@@ -505,7 +600,8 @@ def _default_subjects() -> list:
 def review(*, out_dir: str, sequence: str = "", frames: list | None = None, per_shot: int = 2, camera: str = "",
            subjects: list | None = None, expect: dict | None = None, checks: list | None = None,
            reference_dir: str = "", width_px: int = 960, height_px: int = 540, mode: str = "capture",
-           ignore: list | None = None, title: str = "", level: str = "") -> dict:
+           ignore: list | None = None, title: str = "", level: str = "", baseline: str = "",
+           baseline_mode: str = "auto") -> dict:
     """Everything wrong with a shot, a sequence or a set, in one JSON and one picture.
 
     For each frame (sequence: `frames`, or `per_shot` per camera cut; no sequence: one still through `camera`) it
@@ -517,7 +613,9 @@ def review(*, out_dir: str, sequence: str = "", frames: list | None = None, per_
     subjects: characters/props to frame (default every visible character). expect: per-subject or global intent
     for qa.framing, plus {"image": {...}} for qa.image (e.g. {"image": {"stops": [-3,-1]}}). checks: a subset of
     image, framing, penetration, floating, overlaps, continuity, reference (default all but penetration).
-    ignore: labels skipped by floating/overlaps (floor, walls). mode: still mode (view.still).
+    ignore: labels skipped by floating/overlaps (floor, walls). mode: still mode (view.still). baseline: a baseline
+    suite: each frame's still is checked against <suite>/<frame> (qa.baseline_check, `baseline_mode` auto: the first
+    run makes the baselines, later runs regress against them).
     Returns: {"pass", "verdict", "counts", "summary": [lines, worst first], "issues", "metrics": {"frames"},
     "report": review.json path, "image": review.png path}. Multi-tick; ~1 s a frame with mode=capture.
     Example: film-ue op qa.review sequence=/Game/Seq/S010 out_dir=/tmp/qa/s010 per_shot=2
@@ -569,6 +667,12 @@ def review(*, out_dir: str, sequence: str = "", frames: list | None = None, per_
                 metrics["reference"] = {"ssim": cr["ssim"], "psnr": cr["psnr"], "verdict": cr["verdict"]}
             else:
                 iss.append(issue("compare.no_reference", "info", f"no reference {ref}"))
+        if baseline:
+            br = _baseline.check(baseline_root(), baseline, f"{f:05d}" if f is not None else cam_label, p,
+                                 mode=baseline_mode, diff_out=os.path.join(out_dir, f"diff_{os.path.basename(p)}"),
+                                 meta={"camera": cam_label, "frame": f, "sequence": sequence})
+            iss += br.pop("issues")
+            metrics["baseline"] = {k: br.get(k) for k in ("status", "ssim", "stops_shift", "diff") if k in br}
         if "penetration" in todo:
             for s in subjects:
                 try:

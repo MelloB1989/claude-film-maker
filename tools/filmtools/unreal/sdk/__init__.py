@@ -12,7 +12,8 @@
 
 Arguments are keyword-only and spelled as the op spells them (`rot_`, `cls`); `assets.import` is `ue.assets.import_`.
 An argument left out takes the op's own default on the bridge. `ue.call("area.verb", **args)` reaches an op this
-checkout's SDK does not know (a newer bridge). Regenerate after changing ops: `film-ue dx gen` (a test fails if stale).
+checkout's SDK does not know (a newer bridge). The typed areas are generated from this checkout's ops when the SDK
+loads (in memory, or from sdk/_generated.py when `film-ue dx gen` wrote a current one): they never lag the ops.
 """
 from __future__ import annotations
 
@@ -113,6 +114,32 @@ class _Area:
         return f"<ue.{self._area}: {', '.join(n for n in dir(self) if not n.startswith('_'))}>"
 
 
+_GEN: dict = {}
+
+
+def generated():
+    """The typed areas for the ops in this checkout: sdk/_generated.py when it matches the current op schema, else
+    generated in memory from it (so the SDK never lags the ops; `film-ue dx gen` writes the file to read)."""
+    if "mod" in _GEN:
+        return _GEN["mod"]
+    import types
+    from . import gen
+    ix = _schema.index(_schema.load())
+    mod = None
+    try:
+        from . import _generated as mod
+        if getattr(mod, "FINGERPRINT", "") != ix["fingerprint"]:
+            mod = None
+    except ImportError:
+        mod = None
+    if mod is None:
+        mod = types.ModuleType(__name__ + "._generated")
+        mod.__package__ = __name__
+        exec(compile(gen.generate(ix), "<filmtools.unreal.sdk generated>", "exec"), mod.__dict__)
+    _GEN["mod"] = mod
+    return mod
+
+
 class Unreal:
     """The bridge as typed areas (ue.seq, ue.level, ...). `transport(kind, payload, timeout) -> dict` is the wire
     (default: filmtools.unreal.client, i.e. film-ue's workstation); tests pass a fake. `check` validates argument
@@ -124,8 +151,7 @@ class Unreal:
         self._check = check
         self._log = log
         self._index = None
-        from . import _generated
-        for area, cls in _generated.AREAS.items():
+        for area, cls in generated().AREAS.items():
             setattr(self, area, cls(self))
 
     @property

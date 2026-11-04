@@ -220,3 +220,20 @@ def test_every_finished_state_is_done(state):
     j = jobs.Job("op", {"name": "x"})
     j.state = state
     assert j.view()["done"] is True and j.view()["ok"] is (state == "done")
+
+
+def test_finish_hooks_see_every_ending_with_the_generator(monkeypatch):
+    seen = []
+    monkeypatch.setattr(jobs, "_ON_FINISH", [])
+    jobs.on_finish(lambda gen, view: seen.append((gen is not None, view["state"])))
+    jobs.on_finish(lambda gen, view: 1 / 0)  # a broken hook changes nothing
+
+    def g():
+        yield
+        return 1
+    reg = jobs.Registry(runner({"t.g": g, "t.one": lambda: 1}))
+    reg.submit("op", {"name": "t.one"})
+    reg.submit("op", {"name": "t.g"})
+    reg.tick()
+    reg.tick()
+    assert sorted(seen) == [(False, "done"), (True, "done")]

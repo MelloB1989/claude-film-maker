@@ -1,0 +1,20 @@
+# Let the lines cut the scene: the master, then each speaker's MCU single, 4 frames ahead of the line. The timing
+# comes from WP12's audio timing document (a path is read on the client when planning).
+kind: shot
+version: 1
+name: auto-dialogue
+sequence: /Game/Films/demo/Seq_Auto
+fps: 24
+timing:
+  kind: audio
+  version: 1
+  fps: 24
+  lines:
+    - {id: L1, speaker: A, start_frame: 36, end_frame: 100}
+    - {id: L2, speaker: B, start_frame: 110, end_frame: 190}
+    - {id: L3, speaker: A, start_frame: 200, end_frame: 260}
+subjects:
+  A: {actor: Host}
+  B: {actor: Guest}
+coverage: {side: left, focal_mm: 50}
+auto: {from_lines: true, lead_frames: 4, size: MCU}

@@ -1,0 +1,15 @@
+# The reel's finals, as rendered for Round 3 on Linux: every camera cut its own MRQ job, pre-rolled from the cut start
+# (cloth), PNG + WAV, then an H.264 review copy. Resume by running it again.
+#   film-ue render plan examples/unreal/render/reel_final.yaml
+#   film-ue apply examples/unreal/render/reel_final.yaml
+kind: render
+version: 1
+name: reel_final
+sequence: /Game/Reel/SEQ_Reel
+level: /Game/Studio/Studio
+out_dir: /srv/ue/renders/reel_final
+preset: final
+outputs:
+  - {kind: png}
+  - {kind: wav}
+  - {kind: h264, crf: 18}

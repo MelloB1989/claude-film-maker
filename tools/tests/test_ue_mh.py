@@ -271,7 +271,7 @@ def test_selftest_runs_on_the_fake(mh, fmb, tmp_path, monkeypatch):
     monkeypatch.delitem(fmb._OPS, "view.still", raising=False)
     monkeypatch.setattr(st, "capabilities", lambda: {"gpu": True, "display": False, "linux": True, "windows": False,
                                                      "epic_login": True, "mh_cloud": True})
-    rep = run_op("selftest.run", area="mh", out_dir=str(tmp_path))
+    rep = run_op("selftest.run", area="mh", out_dir=str(tmp_path), baseline="off")  # the stills are fake bytes
     assert rep["status"] in ("done", "skipped"), rep.get("errors")
     assert not rep.get("errors"), rep["errors"]
     fails = [c for c in rep["checks"] if not c["ok"]]

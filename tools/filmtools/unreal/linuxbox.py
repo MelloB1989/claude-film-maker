@@ -11,7 +11,8 @@ from pathlib import Path
 from . import workstation as ws
 
 KIT_SRC = Path(__file__).resolve().parents[3] / "unreal" / "linux"
-KIT_FILES = ("setup.sh", "ue-editor.sh", "ue-editor.service", "ue-epic.sh")
+KIT_FILES = ("setup.sh", "ue-editor.sh", "ue-editor.service", "ue-epic.sh", "ue_watchdog.py", "ue-watchdog.service",
+             "ue-watchdog.timer")
 
 
 def kit_dir() -> str:
@@ -91,7 +92,19 @@ def _sign_ins() -> int:
     return int(next((x.split("=", 1)[1] for x in out.split() if x.startswith("sign_ins=")), "0") or 0)
 
 
-def epic_login(fab: bool = False, wait_minutes: float = 10, log=print) -> str:
+def exchange_code(cmd: str) -> str:
+    """Run the operator's own helper that prints a fresh Epic exchange code (it holds the refresh token; film-ue
+    never does) and return the code. Nothing of it is printed or logged here."""
+    import subprocess
+    r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120)
+    code = (r.stdout or "").strip().splitlines()[-1].strip() if r.stdout.strip() else ""
+    if r.returncode or not code.isalnum():
+        raise SystemExit(f"the exchange-code helper failed (exit {r.returncode}); it must print one code on its "
+                         "last line (stderr is not shown: it may hold secrets)")
+    return code
+
+
+def epic_login(fab: bool = False, wait_minutes: float = 10, log=print, exchange_code_cmd: str = "") -> str:
     """Make sure the box's editor is signed in to Epic. The MetaHuman cloud services and Fab are separate Epic clients
     with a sign-in each (`fab`: Fab's). Signed in already (a saved sign-in, restored from S3 at start): nothing to do
     for MetaHuman; Fab is always asked (it says itself whether a saved sign-in still works). Otherwise the editor
@@ -102,6 +115,25 @@ def epic_login(fab: bool = False, wait_minutes: float = 10, log=print) -> str:
     before = _sign_ins()
     if not fab and before:
         return "signed in"
+    if exchange_code_cmd:  # no person needed: the MetaHuman services sign in with a single-use code (§12c)
+        if fab:
+            raise SystemExit("Fab reads an exchange code only from the editor's command line when its tab opens (a "
+                             "desktop): use film-ue epic-login --fab (device code) instead")
+        r = client.op("editor.epic_exchange_code", code=exchange_code(exchange_code_cmd), timeout=60)
+        if not r.get("ok"):
+            raise SystemExit(f"editor.epic_exchange_code: {r.get('message') or r.get('error', r)}")
+        seen = client.log(2000).count("Login complete: EOS_Success")
+        client.op("mh.login", timeout=300)
+        end = time.time() + 120
+        while time.time() < end:
+            time.sleep(5)
+            if _sign_ins() > before:
+                log(step("epic", "save", timeout=300).strip())
+                return "signed in (exchange code), and the sign-in is saved"
+            if client.log(2000).count("Login complete: EOS_Success") > seen:
+                return ("signed in for this editor session (exchange code); no saved sign-in appeared, so the next "
+                        "start needs a new code")
+        raise SystemExit("the exchange code did not sign in (expired? used?): film-ue editor log 200 | grep EOSAuth")
     step("epic", "clear-code", timeout=60)
     if fab:
         r = client.exec_code('import unreal\nunreal.SystemLibrary.execute_console_command(None, "Fab.Login")\n'

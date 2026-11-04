@@ -32,6 +32,15 @@ FINISHED = ("done", "failed", "cancelled", "lost")
 KEEP_SECONDS = 24 * 3600  # finished jobs answer this long, in memory and in the journal
 KEEP_JOBS = 500
 STDOUT_MAX = 200_000  # characters of a job's printed output kept (the tail)
+_ON_FINISH: list = []  # hooks called as each job finishes: fn(generator or None, the job's view)
+
+
+def on_finish(fn):
+    """Register fn(gen, view) to be called when any job finishes (done, failed, cancelled, lost): `gen` is the
+    multi-tick job's generator (None for a one-step job), `view` what GET /job answers. The op journal (B32) uses it
+    to record a multi-tick op's result. A hook that raises is ignored."""
+    _ON_FINISH.append(fn)
+    return fn
 
 
 class Job:
@@ -249,6 +258,13 @@ class Registry:
         if job.buf is not None:
             out = job.buf.getvalue()
             job.stdout = out[-STDOUT_MAX:]
+        if _ON_FINISH:
+            view = job.view()
+            for hook in list(_ON_FINISH):
+                try:
+                    hook(job.gen, view)
+                except Exception:
+                    pass
         job.gen, job.buf = None, None
         self._write(job)
         job.event.set()

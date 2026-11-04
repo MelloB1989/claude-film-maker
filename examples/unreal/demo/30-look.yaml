@@ -1,0 +1,39 @@
+# Stage 3 (WP5): the light. Three rect lights (key, fill, rim) on the host, a bit of haze, exposure fixed for the
+# render. look.light converges on its label (respawned with the same settings), so these re-run safely.
+kind: include
+files: [vars.yaml]
+---
+kind: op
+version: 1
+order: 40
+name: light-key
+op: look.light
+args: {label: Key, kind: rect, loc: [260, 170, 230], look_at: [0, 0, 160], intensity: 18, temperature: 5200, width: 120, height: 120}
+---
+kind: op
+version: 1
+order: 40
+name: light-fill
+op: look.light
+args: {label: Fill, kind: rect, loc: [260, -220, 160], look_at: [0, 0, 150], intensity: 5, temperature: 5600, width: 200, height: 200, shadows: false}
+---
+kind: op
+version: 1
+order: 40
+name: light-rim
+op: look.light
+args: {label: Rim, kind: rect, loc: [-260, 120, 260], look_at: [0, 0, 165], intensity: 14, temperature: 4300}
+---
+kind: op
+version: 1
+order: 40
+name: haze
+op: look.fog
+args: {density: 0.01, volumetric: true}
+---
+kind: op
+version: 1
+order: 40
+name: exposure
+op: look.post
+args: {settings: {auto_exposure_method: AEM_MANUAL, auto_exposure_bias: 10.0}, label: Demo_Post}
