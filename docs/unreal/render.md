@@ -69,8 +69,9 @@ SPEC` only writes the manifests and prints the argv, so you can run them elsewhe
 
 **QA a finished render.** Run `film-ue render check SPEC --local DIR` (frames pulled locally; ffmpeg for luma). It
 returns a check (`pass`, `metric`, `why`) with `missing`, `corrupt` (truncated files), `black` (mean luma under 4/255)
-and `flicker` (a one-frame luma spike over 4x the median frame-to-frame change and over 2/255; a steady fade is not
-flicker).
+`flicker` (a one-frame luma spike over 4x the median frame-to-frame change and over 2/255; a steady fade is not
+flicker), and for EXR `nan_frames` (NaN/Inf pixels) and `firefly_frames` (a lone pixel over 1.0 and over 20x the
+mean of its 8 neighbours), read as linear float through ffmpeg.
 
 **How fast will it be?** Run `render.plan` (estimate) before and look at `report.measured` after. The next plan of
 the same job uses the measured seconds per sample.
@@ -246,6 +247,5 @@ State at 2026-11-05 (agent-05, branch `fleet/agent-05/ue-render`):
   If a check fails, start from API_NOTES.
 - **Next:**
   - a cloth A/B on the reel (S15 1136 chunk vs 1080 full shot, the P6 case) to confirm the pre-roll on real cloth;
-  - NaN/firefly detection on EXR (needs an EXR reader; B24 covers PNG/JPG luma only);
   - a Movie Render Graph backend if a feature needs it (we use the legacy preset configuration on purpose: it is
     what was proven on Linux).
