@@ -345,5 +345,5 @@ State (fleet/agent-13/ue-dx, merged into ue-helpers by the lead as it lands):
   fake engine through the spec engine, the SDK and every area's ops, then requires the second plan to be empty. It
   provides only what a box has and the fake does not (a preset, the sign-in, the audio solve, a WAV, Body/Face
   components with a standing pose, the template idle). KNOWN (what cannot converge, with why): the scene's Blueprint
-  actor (WP6: scene.state has no Blueprint for a BP actor, so it respawns each apply; reported). Found and fixed on
+  actor: fixed by the lead in WP6 (scene.state reports `blueprint`), so KNOWN is now empty. Found and fixed on
   the way: the demo's host_bp/face_mesh paths (<folder>/Unpacked/<name>/...).
