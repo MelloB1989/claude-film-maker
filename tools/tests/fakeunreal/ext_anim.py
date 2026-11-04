@@ -83,6 +83,11 @@ class AnimSequence(core.AnimSequence):
     def get_skeleton(self):
         return self._props.get("skeleton")
 
+    def get_editor_property(self, name: str):
+        if name == "sequence_length":
+            return self.length_s
+        return super().get_editor_property(name)
+
     @property
     def length_s(self):
         return self._data["frames"] / self._data["fps"]
@@ -155,6 +160,59 @@ class AnimSequenceFactory(core.Object):
     pass
 
 
+class MetaHumanPerformance(core.Object):
+    """MetaHuman Animator's performance, audio input: the solve finishes at once (is_processing False) and covers the
+    audio's duration at 30 fps."""
+
+    def set_blocking_processing(self, blocking):
+        self._props["blocking"] = blocking
+
+    def start_pipeline(self, is_scripted=True):
+        self._props["started"] = True
+        return "EPipelineExitStatus.OK"
+
+    def is_processing(self):
+        return False
+
+    def get_number_of_processed_frames(self):
+        snd = self._props.get("audio")
+        return int(round(snd.get_editor_property("duration") * 30)) if snd is not None else 0
+
+
+class MetaHumanPerformanceFactoryNew(core.Object):
+    pass
+
+
+class MetaHumanPerformanceExportUtils(core.Object):
+    @staticmethod
+    def get_export_animation_sequence_settings(perf):
+        return core.Object("ExportSettings")
+
+    @staticmethod
+    def export_animation_sequence(perf, settings):
+        """An AnimSequence at package_path/asset_name as long as the audio, with talking curves (jaw, a little head
+        motion, a blink) on the target skeleton."""
+        f = core._fake()
+        p = settings._props
+        path = f"{p['package_path'].rstrip('/')}/{p['asset_name']}"
+        if path in f.assets:
+            f.dialogs.append(("overwrite", path))
+            return None
+        snd = perf._props.get("audio")
+        dur = float(snd.get_editor_property("duration")) if snd is not None else 1.0
+        import math
+        t = [i / 30 for i in range(int(dur * 30) + 1)]
+        a = f.put_asset(path, AnimSequence(p["asset_name"]))
+        a._data.update({"fps": 30.0, "frames": max(1, int(round(dur * 30))), "curves": {
+            "CTRL_expressions_jawOpen": (t, [abs(math.sin(x * 8)) * 0.5 for x in t]),
+            "HeadYaw": (t, [3 * math.sin(x) for x in t]), "HeadPitch": (t, [0.0] * len(t)),
+            "HeadRoll": (t, [0.0] * len(t)), "CTRL_expressions_eyeBlinkL": ([0, 1, 1.1, 1.3, dur], [0, 0, 1, 0, 0])}})
+        tgt = p.get("target_skeleton_or_skeletal_mesh")
+        if tgt is not None:
+            a._props["skeleton"] = tgt.get_skeleton() if isinstance(tgt, SkeletalMesh) else tgt
+        return a
+
+
 class ARFilter(core.Object):
     pass
 
@@ -166,7 +224,8 @@ class TopLevelAssetPath:
 
 def install(fake):
     for cls in (Skeleton, SkeletalMesh, AnimSequence, AnimationLibrary, AnimationCurveIdentifierExtensions,
-                RichCurveKey, AnimSequenceFactory, ARFilter, TopLevelAssetPath):
+                RichCurveKey, AnimSequenceFactory, ARFilter, TopLevelAssetPath, MetaHumanPerformance,
+                MetaHumanPerformanceFactoryNew, MetaHumanPerformanceExportUtils):
         if hasattr(fake, "_classes"):
             fake._classes[cls.__name__] = cls
         setattr(fake, cls.__name__, cls)

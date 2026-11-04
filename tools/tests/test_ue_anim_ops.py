@@ -224,3 +224,25 @@ def test_perf_face_and_plot_write_a_png(ue, tmp_path):
     assert r["plot"]["width"] == 1200 and (tmp_path / "f.png").stat().st_size > 1000
     p = run_op("perf.plot", anim="/Game/S/AS_talk_perf", out=str(tmp_path / "g.png"), t0_s=1.0, t1_s=3.0)
     assert p["changed"] and (tmp_path / "g.png").exists()
+
+
+def test_perf_apply_solves_spoken_lines_then_converges(ue, fmb, monkeypatch, tmp_path):
+    """The whole loop with audio: perf.solve per line (speech.to_face on the fake's MetaHuman Animator), compose,
+    and a second apply that does nothing; then a changed mood re-solves only that line."""
+    ue.metahuman("Host")
+    w1, w2 = wav(tmp_path / "l1.wav", 2.0), wav(tmp_path / "l2.wav", 1.5)
+    spec = {"kind": "performance", "version": 1, "name": "spoken", "sequence": "/Game/S/Seq2", "actor": "Host",
+            "lines": [{"id": "l1", "audio": w1, "mood": "confident", "gaze": [{"at_s": 0, "target": {"yaw": 0}}]},
+                      {"id": "l2", "audio": w2, "mood": "warm"}]}
+    calls = _record_seq_ops(monkeypatch)
+    r = run_op("perf.apply", spec=spec)
+    assert r["converged"] and [x["op"] for x in r["ran"]] == ["perf.solve", "perf.solve", "perf.compose"]
+    face = ue.assets["/Game/Perf/spoken/AS_spoken_face"]._data["curves"]
+    t, v = face["CTRL_expressions_jawOpen"]
+    assert t[0] < 0.05 and max(t) > 2.3  # both lines' lip-sync placed, the second after the first
+    assert ue.dialogs == []
+    assert run_op("perf.apply", spec=spec)["ran"] == []
+    spec["lines"][1]["mood"] = "sad"
+    r = run_op("perf.apply", spec=spec)
+    assert [x["op"] for x in r["ran"]] == ["perf.solve", "perf.compose"]
+    assert calls
