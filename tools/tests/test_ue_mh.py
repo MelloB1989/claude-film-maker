@@ -252,3 +252,30 @@ def test_package_keeps_legacy_names(fmb):
               "skin", "body", "build", "components", "drive_face", "cloth_inflate", "garment"):
         assert callable(getattr(M, n)), n
     assert os.path.basename(M.__file__) == "__init__.py"
+
+
+def test_selftest_runs_on_the_fake(mh, fmb, tmp_path, monkeypatch):
+    """The box acceptance test runs through on the fake (part 1 and, with a 'sign-in', part 2): no errors, and no
+    failures the fake can judge (stills and engine-only facts aside)."""
+    import fmbridge.selftest as st
+    import fmbridge.ops.mh.cloud as cloud
+    monkeypatch.setattr(cloud, "POLL_S", 0)
+
+    def still(**k):  # the fake has no renderer
+        """A fake still."""
+        yield
+        path = k.get("path") or k.get("out")
+        open(path, "wb").write(b"\x89PNG fake")
+        return {"path": path}
+    monkeypatch.setitem(fmb._OPS, "look.still", still)
+    monkeypatch.delitem(fmb._OPS, "view.still", raising=False)
+    monkeypatch.setattr(st, "capabilities", lambda: {"gpu": True, "display": False, "linux": True, "windows": False,
+                                                     "epic_login": True, "mh_cloud": True})
+    rep = run_op("selftest.run", area="mh", out_dir=str(tmp_path))
+    assert rep["status"] in ("done", "skipped"), rep.get("errors")
+    assert not rep.get("errors"), rep["errors"]
+    fails = [c for c in rep["checks"] if not c["ok"]]
+    judged = [c for c in fails if not any(w in c["name"] for w in ("garment", "dress", "leader", "bone", "Body and Face",
+                                                                   "prop rides", "attach", "presets ship",
+                                                                   "hair grooms", "preview converges"))]
+    assert not judged, judged

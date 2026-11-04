@@ -44,7 +44,8 @@ def _find_bp(folder: str, name: str) -> str:
 
 
 @op("mh.build", mutates=True, idempotent=True, tags=["slow", "metahuman"])
-def build(character: str, name: str = "", cinematic: bool = True, *, pipeline: str = "", quality: str = "",
+def build(character: str, name: str = "", cinematic: bool = True, *, bp_name: str = "", pipeline: str = "",
+          quality: str = "",
           build_path: str = "", common_path: str = "", animation_system: str = "", validate_wardrobe: bool = True,
           force: bool = False) -> dict:
     """Assemble the character into a Blueprint (BP_<name>) with its face, body, grooms and outfit: what levels place.
@@ -52,8 +53,8 @@ def build(character: str, name: str = "", cinematic: bool = True, *, pipeline: s
     Skips when the Blueprint exists and nothing that goes into it changed since it was built (`changed: false`);
     `force` rebuilds. The engine call blocks the editor for the whole build (about 3 minutes for a cinematic build on
     an L4) and cannot be split. The character must be rigged (mh.rig) and textured (mh.textures).
-    Args: character: the character. name: the Blueprint's name (BP_<name>) and unpack folder (default: the
-    character's name). cinematic: legacy switch (False = optimized/high). pipeline: cinematic|optimized|uefn.
+    Args: character: the character. name (or bp_name, for callers whose own `name` argument is taken): the
+    Blueprint's name (BP_<name>) and unpack folder (default: the character's name without MH_). cinematic: legacy switch (False = optimized/high). pipeline: cinematic|optimized|uefn.
     quality: low|medium|high|cinematic (LOD/detail level; optimized and uefn only, cinematic is always cinematic).
     build_path: an absolute content folder for the built assets (default: the palette's unpack folder next to the
     character, <folder>/Unpacked/<name>). common_path: where shared MetaHuman assets go. animation_system: e.g. AnimBP.
@@ -64,7 +65,7 @@ def build(character: str, name: str = "", cinematic: bool = True, *, pipeline: s
     from .character import build_fingerprint, state
     path = K.package(character)
     c = K.char(path)
-    name = name or path.rsplit("/", 1)[1].removeprefix("MH_")
+    name = name or bp_name or path.rsplit("/", 1)[1].removeprefix("MH_")
     pipe = (pipeline or ("cinematic" if cinematic else "optimized")).lower()
     qual = (quality or ("cinematic" if pipe == "cinematic" else "high")).lower()
     if pipe not in PIPELINES:

@@ -89,8 +89,15 @@ def _selected(inst) -> dict:
 
 
 def _params(inst, sel) -> list:
-    path = sel.get_selected_item_path()
-    return list(inst.get_instance_parameters(path) or [])
+    try:
+        path = sel.get_selected_item_path()
+    except AttributeError:  # the ScriptMethod's static form
+        path = unreal.MetaHumanPipelineSlotSelectionBlueprintLibrary.get_selected_item_path(sel)
+    try:
+        got = inst.get_instance_parameters(path)  # ScriptMethod "GetInstanceParameters"
+    except AttributeError:
+        got = unreal.MetaHumanCharacterInstanceBlueprintLibrary.get_instance_parameters_for_item(inst, path)
+    return list(got or [])
 
 
 def _param_value(p):

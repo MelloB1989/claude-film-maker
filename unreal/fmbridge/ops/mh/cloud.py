@@ -29,6 +29,7 @@ AUTH_FAIL = (r"LogMetaHumanAuth: .*Login failed", r"LogMetaHumanAuth: .*Invalid 
              r"LogMetaHumanAuth: .*account is restricted", r"LogMetaHumanAuth: .*pin grant code")
 PORTAL = (r"LaunchAccountPortalWithPlatformBrowser", r"Login using account portal")
 EXCHANGE_CVAR = "MetaHuman.Cloud.Config.ExchangeCode"
+POLL_S = 1.0  # how often a cloud job looks at the character and the log
 
 
 def _world():
@@ -88,13 +89,13 @@ def _need_login(require_login: bool):
                                "or pass require_login=false to let the service ask (it waits for the sign-in)")
 
 
-def _wait(watch, ok, fail, done, timeout_s: float, what: str, poll_s: float = 1.0):
+def _wait(watch, ok, fail, done, timeout_s: float, what: str, poll_s: float | None = None):
     """Poll once a second (yielding to the editor) until `done()` or an `ok` log line; raise on a `fail` line, an
     auth failure or the timeout. Returns (seconds, the outcome line)."""
     t0 = time.time()
     portal_seen = False
     while True:
-        yield poll_s
+        yield POLL_S if poll_s is None else poll_s
         lines = watch.new()
         bad = K.find(lines, fail)
         if bad:
