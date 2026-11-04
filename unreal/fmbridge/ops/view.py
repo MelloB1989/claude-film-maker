@@ -121,7 +121,25 @@ def remove_rig() -> bool:
     return False
 
 
+STILL_FORMATS = ("RTF_RGBA8", "RTF_RGBA8_SRGB")  # ExportRenderTarget writes PNG only for 8-bit targets (EXR for float)
+RT_FORMATS = ("RTF_R8", "RTF_RG8", "RTF_RGBA8", "RTF_RGBA8_SRGB", "RTF_R16F", "RTF_RG16F", "RTF_RGBA16F", "RTF_R32F",
+              "RTF_RG32F", "RTF_RGBA32F", "RTF_RGB10A2")  # ETextureRenderTargetFormat, TextureRenderTarget2D.h:23-43
+
+
+def _format(fmt: str, allowed=None) -> str:
+    """A TextureRenderTargetFormat name as Python spells it (upper case: the C++ RTF_RGBA16f is RTF_RGBA16F), checked."""
+    name = str(fmt).strip().upper()
+    if not name.startswith("RTF_"):
+        name = "RTF_" + name
+    valid = list(allowed or RT_FORMATS)
+    if name not in valid:
+        raise OpError(f"render target format {fmt!r} is not one of {valid}", code="bad_args", candidates=valid,
+                      hint="a still exports as PNG only from an 8-bit target" if allowed else "")
+    return name
+
+
 def _rt(w: int, h: int, fmt: str):
+    fmt = _format(fmt)
     key = (w, h, fmt)
     rt = _RTS.get(key)
     if rt is None:
@@ -258,8 +276,8 @@ def still(*, out: str, camera: str = "", sequence: str = "", frame: int | None =
     through render.frames: the final look, slower; needs sequence+frame and `level`), "viewport" (look.still's
     high-res screenshot). warmup: captures before the kept one (temporal AA, Lumen). settle_ticks: editor ticks after
     a scrub. hide: actor labels left out. guides: overlay guides drawn on a copy saved as <out>.guides.png
-    ("thirds", "safe", ...). rt_format: capture mode's render target format (advanced; default RTF_RGBA8, the
-    selftest compares it with RTF_RGBA8_SRGB against a viewport still).
+    ("thirds", "safe", ...). rt_format: capture mode's render target format (advanced; RTF_RGBA8, the default, or
+    RTF_RGBA8_SRGB, any case: a float target would export EXR, so it is refused; the selftest compares the two).
     Returns: {"path", "width", "height", "camera", "mode", "frame", "camera_info": {loc, rot, fov, aspect},
     "guides_path"?}. A multi-tick job.
     Example: film-ue op view.still out=/tmp/qa/a.png camera=CamA width_px=960 height_px=540
@@ -275,6 +293,7 @@ def still(*, out: str, camera: str = "", sequence: str = "", frame: int | None =
     aspect = width_px / height_px
     res = {"camera": camera or "adhoc", "mode": mode, "frame": frame}
     if mode == "capture":
+        rt_format = _format(rt_format, STILL_FORMATS) if rt_format else ""
         cam = camera_info(camera, loc, look_at, fov_deg, aspect)
         hidden = [find_actor(h) for h in (hide or [])]
         try:
