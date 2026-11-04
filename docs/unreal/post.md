@@ -134,6 +134,9 @@ module docstring of `post_cut.py`.
 - **MRQ frame numbering**: a shot rendered from the master sequence is numbered on the master's clock; a shot
   rendered as its own sequence from 0. `film-post` finds either; if renders start at a handle (f-12 numbered 0) set
   the shot's `offset`.
+- **WP9's render layout** (`render.mrq`, agent-05): frames at `<out_dir>/NNNN.png` (the sequence's display frame) are
+  read with the default pattern; with several passes point the shot's `frames` at `<out_dir>/FinalImage` (and set
+  `pattern` to the pass's extension). `render.encode` makes a one-job review video; masters come from `film-post`.
 - **Cloth needs pre-roll** (docs/linux/engine.md): render each shot from its start even when the edit keeps only its
   end, and let the edl drop the head. `film-post frames` prints the ranges the edit needs.
 - **Never offset the sound with `-itsoffset`, `-ss` or `-shortest`**: picture and sound both start at output frame 0
