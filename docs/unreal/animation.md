@@ -44,6 +44,7 @@ film-ue op perf.plot anim=/Game/Speech/Anim/AS_l1_perf out=/tmp/l1_perf.png
 Check (pull the PNG and look): head lines are eased S-curves with a small overshoot, not straight ramps; the eye
 strip jumps at each gaze shift and then drifts back as the head catches up; blinks are irregular, some right after a
 shift; brows rise on the stressed words. `perf.face ... plot=/tmp/x.png` writes the same for its result.
+A sample: [img/perf_plot_sample.png](img/perf_plot_sample.png) (perfkit alone, 10 s, four gaze shifts, a warm mood).
 
 **Calibrate once per face skeleton** (makes the head/eye signs exact; until then perfkit guesses).
 ```bash
