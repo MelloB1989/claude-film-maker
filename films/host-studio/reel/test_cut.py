@@ -30,19 +30,19 @@ def touch(d: Path, frames) -> None:
 
 def test_span():
     assert cut.span(None, None) == (0, 1560)
-    assert cut.span(None, "S13-S18") == (840, 1560)
-    assert cut.span(None, "s03") == (240, 300)
+    assert cut.span(None, "S13-S18") == (960, 1560)
+    assert cut.span(None, "v02") == (180, 360)
     assert cut.span("100:200", None) == (100, 200)
     with pytest.raises(SystemExit):
         cut.span("0:2000", None)
 
 
 def test_find_frames_per_shot_master_and_local(tmp_path):
-    touch(tmp_path / "S03", range(228, 312))  # master numbering with 12-frame handles
-    touch(tmp_path / "S04", range(0, 60))     # shot-local numbering
-    found = cut.find_frames(tmp_path, 240, 360)
-    assert found[240] == tmp_path / "S03" / "0240.png" and found[299] == tmp_path / "S03" / "0299.png"
-    assert found[300] == tmp_path / "S04" / "0000.png" and found[359] == tmp_path / "S04" / "0059.png"
+    touch(tmp_path / "S11", range(708, 792))  # master numbering with 12-frame handles
+    touch(tmp_path / "S12", range(0, 60))     # shot-local numbering
+    found = cut.find_frames(tmp_path, 720, 840)
+    assert found[720] == tmp_path / "S11" / "0720.png" and found[779] == tmp_path / "S11" / "0779.png"
+    assert found[780] == tmp_path / "S12" / "0000.png" and found[839] == tmp_path / "S12" / "0059.png"
     assert len(found) == 120 and all(found.values())
 
 
@@ -51,13 +51,13 @@ def test_find_frames_flat_offset_and_missing(tmp_path):
     found = cut.find_frames(tmp_path, 0, 120, offset=12)
     assert found[0] == tmp_path / "0012.png" and found[99] == tmp_path / "0111.png"
     assert [f for f, p in found.items() if p is None] == list(range(100, 120))
-    with pytest.raises(SystemExit, match=r"S01 100-119 \(20\)"):
+    with pytest.raises(SystemExit, match=r"V01 100-119 \(20\)"):
         cut.stage({**found, **{f: None for f in range(100, 120)}}, 0, tmp_path / "w", None, (64, 36))
 
 
 def test_crop_follows_shots_and_keys():
     sw, cw = 3840, 1215
-    e = cut.crop_expr(0, TOTAL, sw, cw)
+    e = cut.crop_expr([(0, TOTAL)], sw, cw)
     for s in SHOTS:
         ks = cut.vcrop_keys(s)
         assert crop_at(e, s.start) == math.floor(cut.crop_x(ks[0][1], sw, cw)), s.id
@@ -70,7 +70,7 @@ def test_crop_follows_shots_and_keys():
 
 
 def test_crop_of_a_range_starts_at_its_first_frame():
-    e = cut.crop_expr(840, 1560, 1920, 608)
+    e = cut.crop_expr([(960, 1560)], 1920, 608)
     s13 = next(s for s in SHOTS if s.id == "S13")
     assert crop_at(e, 0) == math.floor(cut.crop_x(s13.vcrop, 1920, 608))
 
@@ -86,10 +86,10 @@ def test_cues_cover_the_lines_in_order():
 
 
 def test_captions_files(tmp_path):
-    cut.write_captions(tmp_path / "x", cut.cues(), 840, 1560)
+    cut.write_captions(tmp_path / "x", cut.cues(), [(960, 1560)])
     srt = (tmp_path / "x.srt").read_text()
-    assert srt.startswith("1\n00:00:03,750 --> ")  # L1 at f930 = 90 frames into the range
-    assert (tmp_path / "x.vtt").read_text().startswith("WEBVTT\n\n00:00:03.750 --> ")
+    assert srt.startswith("1\n00:00:02,500 --> ")  # L1 at f1020 = 60 frames into the range
+    assert (tmp_path / "x.vtt").read_text().startswith("WEBVTT\n\n00:00:02.500 --> ")
 
 
 def test_wrap_balances_a_widow():
