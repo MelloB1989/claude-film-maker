@@ -22,7 +22,7 @@ measured.
 
 ```bash
 film-ue health                  # the bridge answers: engine, platform, queue
-film-ue ops broken --json      # {} = every op module imported (else: each broken one's traceback)
+film-ue op ops.broken           # {} = every op module imported (else: each broken one's traceback)
 film-ue selftest --list         # capabilities: gpu, epic_login, ... and which tests will skip
 film-ue selftest dx             # 30 s: the registry, errors, specs, CLI, on THIS box
 ```
@@ -35,13 +35,13 @@ After editing anything under `unreal/`, `film-ue install` puts it on the box (se
 film-ue describe                       # areas
 film-ue describe cam                   # one line per op, ~ marks multi-tick ones
 film-ue describe cam.frame             # arguments with types, defaults, units; the docstring; an example
-film-ue cam frame --label CAM_A --subjects '["Host"]' --size MCU --dry-run   # check the call, send nothing
-film-ue cam frame --label CAM_A --subjects '["Host"]' --size MCU --json      # call it
+film-ue cam frame --camera CAM_A --subjects '["Host"]' --size MCU --dry-run   # check the call, send nothing
+film-ue cam frame --camera CAM_A --subjects '["Host"]' --size MCU --json      # call it
 ```
 - Always `--json` when you will read the answer: one JSON document, also on failure. Exit 2 means the call was bad
   and nothing was sent (read `error.candidates`); 1 means the op ran and failed (read `error.hint`); 3 no bridge.
 - Long ops (renders, MetaHuman cloud calls, solves) take `--async`: you get a job id; `film-ue job ID --wait`.
-- In Python (scripts, loops, anything with logic), the SDK: `ue = Unreal(); ue.cam.frame(label=..., ...)`. It raises
+- In Python (scripts, loops, anything with logic), the SDK: `ue = Unreal(); ue.cam.frame(camera=..., subjects=[...], size="MCU")`. It raises
   `OpError` with `.code .message .hint .candidates`.
 - Units are in the names (`focal_mm`, `duration_s`, `intensity_cd`); distances are cm, rotations `{pitch, yaw, roll}`
   degrees, times in a sequence are frames at its rate (CONVENTIONS §3).
@@ -73,10 +73,10 @@ floating --json`, `film-ue qa overlaps --json`; a still from a camera.
 
 **A character.** MetaHuman from a preset, cloud rig, textures, build (WP3: [metahuman.md](metahuman.md); the demo's
 stage 1). Needs the Epic sign-in on the box (`film-ue selftest --list` shows `epic_login`). Check:
-`film-ue view turntable --label Host ...` and `film-ue qa penetration ...` for clothes.
+`film-ue view turntable --target Host --out-dir ...` and `film-ue qa penetration ...` for clothes.
 
 **Light and look.** Lights by label, fog, post (WP5: [look.md](look.md)). Check exposure with numbers, not taste:
-`film-ue qa image --path still.png --json` (clipping, mean stops) on a still through the shot's camera.
+`film-ue qa image --image still.png --json` (clipping, mean stops) on a still through the shot's camera.
 
 **A performance.** A voice line to a face (`speech.to_face`), body animation sections (`seq.anim`), face and body as
 one skeleton (`anim.bake_follow` / `anim.head_to_body`), eyes on the lens (`anim.gaze_lock`) (WP4:
@@ -106,7 +106,7 @@ fit the 24 GB L4. Check: `film-ue render progress --out-dir ...`; pull a frame a
 | `error [engine]` | the engine refused | the message is the engine's; check the editor log (`film-ue log 200`) |
 | apply `"converged": false` | something did not stick | `left` shows what a second plan still wants and why |
 | a plan step `?` ERROR in a kind's describe | the reader failed (often: an earlier stage has not run yet) | apply the earlier stage first |
-| `ops broken` non-empty | an op module failed to import on the box | fix it, `film-ue install` |
+| `film-ue op ops.broken` non-empty | an op module failed to import on the box | fix it, `film-ue install` |
 
 ## Traps (each cost a day; the ops already handle them, your scripts must too)
 
