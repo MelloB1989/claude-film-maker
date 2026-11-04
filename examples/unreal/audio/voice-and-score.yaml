@@ -1,0 +1,13 @@
+# The voice from a timing document (film-post timing ... -o vo/timing.json) and a score under it.
+kind: audio
+version: 1
+name: main-audio
+sequence: /Game/Seq/SQ_Main
+tracks:
+  - name: VO
+    timing: examples/unreal/audio/timing.json
+    wav_root: /srv/film/vo
+    folder: /Game/Audio/VO
+  - name: Music
+    clips:
+      - {sound: /Game/Audio/Score, start_frame: 0, volume_db: -4}
