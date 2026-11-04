@@ -95,7 +95,8 @@ def floating(items: dict, ground: dict, tolerance_cm: float = 1.0, max_check_cm:
             o, e = items[lab]
             issues.append(issue("mesh.floating", "warn" if g < 10 else "fail", f"{lab} floats {g:.1f} cm above "
                                 "what is under it", f"lower it by {g:.1f} cm (level.move label={lab!r} "
-                                f"loc=[{o[0]:.1f}, {o[1]:.1f}, {o[2] - g:.1f}])", subject=lab, value=round(g, 2)))
+                                f"loc=[{o[0]:.1f}, {o[1]:.1f}, {o[2] - g:.1f}]), or let physics rest it "
+                                f"(layout.settle labels=[{lab!r}])", subject=lab, value=round(g, 2)))
         elif g < -max(tolerance_cm, 2.0):
             issues.append(issue("mesh.sunk", "info", f"{lab}'s bounds go {-g:.1f} cm into what is under it "
                                 "(sunk, or its bounds are loose)", "raise it if it should rest on the surface",
