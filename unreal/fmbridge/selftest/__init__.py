@@ -122,8 +122,10 @@ def box() -> dict:
 class T:
     """One area's test run: what the test calls (see the module docstring)."""
 
-    def __init__(self, area: str, out_dir: str, keep: bool = False, areas=None):
+    def __init__(self, area: str, out_dir: str, keep: bool = False, areas=None, baseline_mode: str = "auto"):
         self.area, self.out, self.keep = area, out_dir, keep
+        self.baseline_mode = baseline_mode  # WP10's baselines (fmbridge.qa.baseline): auto|compare|update|off
+        self.baselines: list = []
         self.areas = list(areas or [area])
         self.scratch = f"{SCRATCH_ROOT}/{area}"
         self.prefix = f"ST_{area}_"
@@ -237,7 +239,28 @@ class T:
         self._add(f"still {name}", ok, detail=path if ok else f"no file at {path}: {res!r}"[:300])
         if ok:
             self.stills.append(path)
+            self._baseline(name, path)
         return path if ok else None
+
+    def _baseline(self, name: str, path: str):
+        """Compare the still with its stored baseline (WP10): `different` fails, `differs` (render noise, a small
+        change) passes with its status; the first run stores it (`created`). Off when WP10's module is absent."""
+        if self.baseline_mode == "off":
+            return
+        try:
+            from ..qa import baseline as _bl
+            from ..ops.qa import baseline_root
+        except ImportError:
+            return
+        try:
+            r = _bl.check(baseline_root(), f"selftest/{self.area}", name, path, mode=self.baseline_mode,
+                          diff_out=path[:-4] + ".diff.png", meta={"engine": self.box.get("engine")})
+        except Exception:
+            self._add(f"baseline {name}", False, detail=traceback.format_exc()[-1200:])
+            return
+        self.baselines.append({"name": name, **{k: r.get(k) for k in ("status", "ssim", "stops_shift", "diff")}})
+        self._add(f"baseline {name}", r.get("status") != "different", r.get("ssim"),
+                  (r.get("thresholds") or {}).get("min_ssim"), detail=r.get("status", ""))
 
     def artifact(self, path: str):
         self.artifacts.append(str(path))
@@ -328,7 +351,7 @@ def _coverage(t: T) -> tuple:
     return sorted(n for n in mine if n in t.covered), sorted(n for n in mine if n not in t.covered)
 
 
-def run(area: str, out_dir: str, keep: bool = False):
+def run(area: str, out_dir: str, keep: bool = False, baseline: str = "auto"):
     """Run one area's selftest (a generator: the harness ticks the editor while the test does). Returns the report,
     also written to <out_dir>/<area>.json."""
     t0 = time.time()
@@ -340,7 +363,7 @@ def run(area: str, out_dir: str, keep: bool = False):
     except Exception:
         report["errors"].append({"where": "import", "error": traceback.format_exc()[-3000:]})
         return _finish(report, out_dir, t0)
-    t = T(area, out_dir, keep, getattr(mod, "AREAS", None))
+    t = T(area, out_dir, keep, getattr(mod, "AREAS", None), baseline)
     report["box"] = t.box
     report["doc"] = (inspect.getdoc(mod) or "").split("\n\n")[0]
     caps = t.box["capabilities"]
@@ -374,7 +397,7 @@ def run(area: str, out_dir: str, keep: bool = False):
         report["errors"].append({"where": "run", "error": traceback.format_exc()[-4000:]})
     finally:
         report["checks"], report["stills"], report["artifacts"] = t.checks, t.stills, t.artifacts
-        report["notes"], report["metrics"] = t.notes, t.metrics
+        report["notes"], report["metrics"], report["baselines"] = t.notes, t.metrics, t.baselines
         report["ops_covered"], report["ops_missed"] = _coverage(t)
         try:
             report["level_after"] = _leave(previous, t.scratch)

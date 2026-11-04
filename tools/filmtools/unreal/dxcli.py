@@ -42,6 +42,8 @@ def register(sub) -> None:
     s.add_argument("--json", action="store_true")
     s.add_argument("--timeout", type=float, default=3600, help="per area")
     s.add_argument("--no-pull", action="store_true", help="leave stills on the box")
+    s.add_argument("--baseline", default="auto", choices=("auto", "compare", "update", "off"),
+                   help="stills against stored baselines (WP10): auto stores the first and compares after")
     x = sub.add_parser("dx", help="the generated layers: gen (schema snapshot + SDK), check (stale?), lint (op docs)")
     x.add_argument("action", choices=("gen", "check", "lint"))
     x.add_argument("--json", action="store_true")
