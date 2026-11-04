@@ -195,3 +195,13 @@ def linear_to_srgb(c: float) -> float:
 def luma(rgb) -> float:
     """Rec.709 relative luminance of linear RGB."""
     return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+
+
+def quantize_fcolor(c) -> list:
+    """A linear colour as it comes back from an FColor property (8-bit sRGB: light_color, volumetric_fog_albedo,
+    ground_albedo): the planner compares like with like, so a re-plan does not chase rounding."""
+    out = []
+    for x in list(c)[:3]:
+        q = int(round(max(0.0, min(1.0, linear_to_srgb(float(x)))) * 255)) / 255.0
+        out.append(round(srgb_to_linear(q), 4))
+    return out

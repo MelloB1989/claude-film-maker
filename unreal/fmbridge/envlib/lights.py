@@ -100,7 +100,7 @@ def normalize(spec: dict, label: str = None) -> dict:
     else:
         out["intensity_cd"] = 10.0
     if s.get("color") is not None:
-        out["color"] = [float(c) for c in s["color"]][:3]
+        out["color"] = ph.quantize_fcolor(s["color"])  # LightColor is an FColor (8-bit sRGB)
         out["temperature_k"] = None
     else:
         out["temperature_k"] = float(s.get("temperature_k", 6500.0))

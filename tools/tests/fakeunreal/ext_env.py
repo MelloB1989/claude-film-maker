@@ -185,15 +185,22 @@ def install(fake):
                       "use_hardware_ray_tracing_for_lumen": False})
     fake._singletons[fake.RendererSettings] = rs
 
-    # cvars: execute_console_command "name value" updates fake.cvars (the getters read it)
-    orig = fake.SystemLibrary.execute_console_command
+    # the cvars WP5 sets exist, at their engine code defaults (API_NOTES): ext_platform's console sets known ones
+    for k, v in {"r.DynamicGlobalIlluminationMethod": "0", "r.ReflectionMethod": "2", "r.Shadow.Virtual.Enable": "0",
+                 "r.Lumen.HardwareRayTracing": "1", "r.Lumen.Reflections.HardwareRayTracing": "1",
+                 "r.Lumen.HardwareRayTracing.LightingMode": "0", "r.VolumetricFog.GridPixelSize": "16",
+                 "r.VolumetricFog.GridSizeZ": "64", "r.Shadow.Virtual.ResolutionLodBiasDirectional": "0",
+                 "r.Lumen.TraceMeshSDFs": "0", "r.MegaLights.EnableForProject": "0",
+                 "r.HairStrands.SkyLighting": "1"}.items():
+        fake.cvars.setdefault(k, v)
 
-    def execute_console_command(world_context_object, command, specific_player=None):
-        orig(world_context_object, command, specific_player)
-        parts = str(command).split()
-        if len(parts) == 2:
-            try:
-                fake.cvars[parts[0]] = float(parts[1])
-            except ValueError:
-                pass
-    fake.SystemLibrary.execute_console_command = staticmethod(execute_console_command)
+    # every primitive starts on lighting channel 0, as FLightingChannels' defaults (EngineTypes.h:576)
+    if "_env_channels" not in core.PrimitiveComponent.__dict__:
+        orig_get = core.PrimitiveComponent.get_editor_property
+
+        def get_editor_property(self, name, _orig=orig_get):
+            if name == "lighting_channels" and name not in self._props:
+                self._props[name] = LightingChannels()
+            return _orig(self, name)
+        core.PrimitiveComponent.get_editor_property = get_editor_property
+        core.PrimitiveComponent._env_channels = True

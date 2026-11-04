@@ -325,6 +325,7 @@ def norm_atmosphere(v: dict) -> dict:
             b[f] = float(v[k])
     if "ground_albedo" in v:
         b["ground_albedo"] = [float(c) for c in v["ground_albedo"]]
+    b["ground_albedo"] = ph.quantize_fcolor(b["ground_albedo"])  # an FColor property
     return {"label": LABELS["atmosphere"], **{k: (round(x, 7) if isinstance(x, float) else x) for k, x in b.items()}}
 
 
@@ -382,6 +383,7 @@ def norm_fog(v: dict) -> dict:
     for k, d in FOG_DEFAULT.items():
         x = base.get(k, d)
         out[k] = bool(x) if isinstance(d, bool) else [float(c) for c in x] if isinstance(d, list) else float(x)
+    out["albedo"] = ph.quantize_fcolor(out["albedo"])  # VolumetricFogAlbedo is an FColor
     return out
 
 
