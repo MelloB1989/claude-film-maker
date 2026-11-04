@@ -243,9 +243,37 @@ each of these:
 Metrics: s/frame, measured seconds per sample, VRAM peak, and the job times. On the fake engine it runs end to end
 in `tools/tests/test_ue_render_selftest.py`.
 
+## Day-1 triage
+
+When a `film-ue selftest render` check fails (or a real render misbehaves), find the row and apply the fix. Logs:
+`film-ue log 400 | grep -E "LogMovieRenderPipeline|LogPython|Error"`. The job report is
+`<out_dir>/_render/<name>.report.json`. Code pointers are in `unreal/fmbridge/ops/render.py` unless noted.
+
+| failing check / symptom | likely cause | fix |
+|---|---|---|
+| `render.gpu sees the GPU` | no `nvidia-smi` on PATH for the editor process | harmless for rendering (the VRAM guard is skipped); `sudo apt-get install -y nvidia-utils-<driver>` or add it to the service's PATH |
+| `job ok` false, chunk error "the render never started" | map not on disk, or a modal waiting | `film-ue op level.save`; check the log for `UnsavedMapFailureDialog`; for the process executor make sure `save_dirty` is true |
+| `job ok` false, "MRQ refused to start the queue" / AttributeError on a setting | a Python name differs in 5.8 (`set_config_mode`, `EXRCompressionFormat`, `AntiAliasingMethod`) | `film-ue exec` with `print(dir(unreal.MoviePipelineAntiAliasingSetting))` etc.; correct the name in `_configure` / `_AA`; API_NOTES lists the source line |
+| `job frames` < 48 with no error | `custom_end_frame` interpreted inclusively, or frames written under another name | `ls <out_dir>`; if names are not `NNNN.png`, check `file_name_format` and `zero_pad_frame_numbers` in `_configure`; `rs.frames_on_disk` must match the names |
+| `re-run converges` false | frames failing `image_ok` (a format we do not recognise), so resume re-renders | `python -c` with `render_spec.image_ok` on a frame's head and tail; extend `image_ok` (render_spec.py) |
+| `resume plans one pre-rolled chunk` wrong | camera-cut sections not where `seq.cuts` says | `film-ue op seq.cuts path=...`; the planner trusts it |
+| `pre-rolled chunk matches the full-shot render` / `render.compare ... passes` false | MRQ camera-cut warm-up did not run (log: "no warmup range was detected") or physics/cloth is not deterministic across PIE sessions | log line present: the cut does not start before the chunk (check seq.cuts); no log line but PSNR low: compare `psnr_cold` too; if equal, the warm-up ran but sim differs: report `ab_min_ssim` and render chunks from shot starts (`preroll: none` + `chunking: shot`) as the fallback |
+| `pre-roll is closer ... than a cold start` false, both PSNR high | the falling cube left the frame or landed before frame 30 (scene, not render) | ignore if both ≥ 35 dB; else move the cube (selftest `_build`) |
+| `AOV folders` names differ | MRQ names post-process passes differently from the material name | `ls <out_dir>`; set the right folder names in `render_spec.PASSES` (second field) |
+| `EXR frames per pass` 0 | EXR plugin module (`UEOpenExrRTTI`) missing in the build | check `MovieRenderPipeline.uplugin` modules load; fall back to `outputs: [{kind: png}]` for AOVs |
+| `new-process executor renders` false, status `stalled` | the child did not start: save prompt (dirty packages) or no `-RenderOffscreen` | `film-ue log` for "Launching a new process"; `save_dirty: true`; check Project Settings > Movie Render Pipeline > Additional Command Line Arguments contains `-RenderOffscreen` (`_offscreen_child`) |
+| `command-line render` false, exit code 1-3 | 1: crash/critical (see the chunk's `.log`); 2: sequence path; 3: manifest path | open `<out_dir>/_render/<chunk>.log`; for 3 check the `.utxt` exists and the path has no spaces; the argv is in the report (`chunks[].argv`): run it by hand over ssh |
+| `command-line render` hangs | the child waits on a display / Vulkan device | check `-RenderOffscreen` and `-vulkan` are in the argv (`render_spec.cmdline`) and that the child inherits the editor's environment (no DISPLAY); never add `-nullrhi` (it renders nothing) |
+| `H.264 of 48 frames` false | ffmpeg missing or no libx264 | `apt-get install -y ffmpeg`; or `film-ue render video SPEC --local DIR` on the client |
+| `path tracer refused under 40 GB` false on an L4 | `nvidia-smi` missing, so the guard could not read VRAM | install nvidia-utils (row 1); never `vram.force` on the L4 (P5 killed the editor) |
+| `cancel` / `cancelled job reports cancelled` false | `cancel_all_jobs` did not stop PIE quickly, or the job finished first | harmless if the job finished; else check the log for MRQ's cancel line |
+| a real render: `vram_abort` | VRAM above 97 % | lower `width/height`/`temporal`, drop AOVs, restart the editor (RSS/VRAM growth), or a bigger GPU |
+| a real render: `s_per_frame` ≫ 0.73 at final 1080p | shaders compiling during the job, cold DDC, or different cvars | render a 24-frame chunk twice (second run is the number); check `r.ScreenPercentage` and the quality cvars in the report's `spec.cvars` |
+| a real render: WAV missing or silent | MRQ WAV is experimental; no audio device on Linux | ignore for picture; mix audio outside (WP12 film-post) |
+
 ## HANDOFF
 
-State at 2026-11-05 ~00:00 UTC (agent-05, branch `fleet/agent-05/ue-render`, merged into `ue-helpers` by the lead):
+State at 2026-11-05 ~01:30 UTC (agent-05, branch `fleet/agent-05/ue-render`, merged into `ue-helpers` by the lead):
 
 - **Done:**
   - the spec, schema and presets;
@@ -256,7 +284,8 @@ State at 2026-11-05 ~00:00 UTC (agent-05, branch `fleet/agent-05/ue-render`, mer
   - B23 (split, stitch) and B24 (frame QA: missing, corrupt, black, flicker, EXR NaN/Inf/fireflies);
   - the fake MRQ, 80+ unit tests, the selftest (~5 min, GPU), and this doc.
 
-  Also mine: B37 World Partition (`docs/unreal/wp.md`).
+  Also mine: B37 World Partition (`docs/unreal/wp.md`). B57 audit fixes are in (sequence and map as full object
+  paths; the sequence set by property write). A **Day-1 triage** table sits just above this section.
 - **First hour on the GPU box (morning notes; the lead may quote them).** Each step: the command, then what a
   pass looks like.
   1. **Selftest.** `film-ue selftest render` (~5 min). Every check passes, except "path tracer refused under 40 GB",
