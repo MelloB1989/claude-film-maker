@@ -282,6 +282,38 @@ It passes against the real server on the fake engine (`tests/test_ue_platform_cl
 Unit tests: `tests/test_fmbridge_jobs.py`, `test_ue_platform_*.py` (ops, client against the real server over HTTP,
 profiles, boxes, watchdog, editor service, sync, CLI), `test_unreal_transport.py`, `test_unreal_linux.py`.
 
+## 7b. Day-1 triage
+
+What to do when a platform check fails on the real box: the check, the likely cause, then the exact fix. Box `B`
+stands for your profile (`--box B`). The project dir is `P` (`film-ue profile show`).
+
+| failing check (selftest / first-run step) | likely cause | exact fix |
+|---|---|---|
+| first-run `settings` | a profile without instance / project dir | `film-ue box up B --like linux` or `film-ue --box B set --project-dir /srv/ue/projects/<Name>` |
+| first-run `reach` | the box is stopped, or SSM is not online yet (first boot ~2 min) | `film-ue box ls`; `film-ue --box B status`; wait, then `film-ue --box B first-run` |
+| first-run `editor`: unit failed | a crash at start (missing libs, Vulkan ICD, bad args) | `film-ue --box B editor crashes 3`, `film-ue --box B editor log 200 --journal`; a Vulkan/X error: `film-ue --box B editor mode default` |
+| first-run `bridge` / "bridge protocol 2" | the bridge on the box is older than this checkout | `film-ue --box B install` (restarts it), then `film-ue --box B health` |
+| "engine version reported" (None) | the bridge was started without `server.start()` (an old inbox reload) | `film-ue --box B editor restart --wait` |
+| "game thread ticking" (`last_tick_s` large) | a blocking call or a modal dialog holds the game thread | `film-ue --box B op jobs.list state=running`, then `jobs.cancel id=...`; still stuck: `film-ue --box B editor restart --wait` (the watchdog does this after `--stall`) |
+| "background throttling off" is False | the settings defaults object or the property name did not resolve (`server._no_background_throttle`) | `film-ue --box B log 300 \| grep "background throttling"`. Workaround: `film-ue --box B sh "printf '[/Script/UnrealEd.EditorPerformanceSettings]\nbThrottleCPUWhenNotForeground=False\n' >> P/Saved/Config/LinuxEditor/EditorSettings.ini"`, then `editor restart --wait` |
+| "Vulkan SM6 on Linux" | the project targets SM5, or the RHI line was not found in the log head | `film-ue --box B log 2000 \| grep -i ShaderPlatform`. SM5: add `-TargetedRHIs=SF_VULKAN_SM5` and `+TargetedRHIs=SF_VULKAN_SM6` under `[/Script/LinuxTargetPlatform.LinuxTargetSettings]` in `P/Config/DefaultEngine.ini` (`film-ue sh`; `editor.project_setting` does not write `+`/`-` array lines), restart (it recompiles shaders). Wording changed: adjust `ops/editor.py:_rhi_from_log` |
+| "cvar set reads back" / "idle cap applied" | the cvar was set with a higher priority (ini or code) than the console's | `film-ue --box B op editor.cvar name=t.MaxFPS`; harmless for renders (MRQ sets its own); note it |
+| "unknown cvar is not_found" | `get_console_variable_string_value` answers something for unknown names on this build | fix the test in `ops/editor.py:cvar` (compare `before` with a known-missing sentinel) |
+| "shaders compiled" (`editor.wait_compile` timeout) | the first open of the project (~21 min on 8 cores), with no DDC restored | `film-ue --box B sync ddc restore` (editor stopped) next time; now: `film-ue --box B op editor.wait_compile timeout_s=3600` |
+| `editor.wait_compile` AttributeError on `AutomationBlueprintFunctionLibrary` | the FunctionalTesting module is not loaded in this editor | `film-ue --box B op editor.wait_compile finish=false` (it waits on the workers only); pointer: `ops/editor.py:wait_compile` |
+| "journaled" | `P/Saved/Bridge/jobs` is not writable by the editor's user | `film-ue --box B sh --root "chown -R ubuntu: P/Saved/Bridge"` |
+| client "bridge file round trip": HTTP 403 | the path is outside the project, temp, home and `/srv` | write under `P/Saved/...`, or add `FMBRIDGE_FILE_ROOTS=/other` to `/etc/default/ue-editor` and restart |
+| client "command-channel file round trip" | SSM rejected a part (size or quoting); on Windows, `Add-Content` encoding | lower `transport.Transport.PART` (60000 → 30000); a folder goes by `film-ue pull-dir` instead |
+| client "polling survives a dropped tunnel" | no Session Manager plugin, or the forward fails to reopen | `film-ue --box B tunnel` and read `~/.config/film-ue.B.tunnel.log`; or `film-ue --box B set --bridge ssm` (no tunnel at all) |
+| client "editor status answers" | the unit has another name on this box | `film-ue --box B set --service <unit>` |
+| first-run `epic`: no saved sign-in | the S3 copy could not be read (role, KMS), or there was never one | `film-ue --box B editor log 100 --journal \| grep epic:`; "no access": give the box role `kms:Decrypt` + `s3:GetObject` on `epic_s3`; else `film-ue --box B epic-login` |
+| `epic-login --exchange-code-cmd` says "for this editor session" | an exchange-code login leaves no saved sign-in (untested) | the next start needs a new code, or use the device code once: `film-ue --box B epic-login` |
+| `mh.rig` errors "no Epic sign-in saved" | as above | `film-ue --box B epic-login` |
+| the box powered itself off | TTL reached, or nothing counted as activity for `--idle` | `film-ue box ls` (gone = terminated). Next time: `film-ue box up ... --idle 60m`, `film-ue box keepalive B` before a long pause, `film-ue box extend B --ttl 2h` |
+| the watchdog never ends an idle box | user-data did not run, or the timer is off | `film-ue --box B sh --root "systemctl status ue-watchdog.timer film-ue-ttl.timer; tail -30 /var/log/cloud-init-output.log; cat /var/lib/film-ue/watchdog.json"` |
+| `box up` fails `UnauthorizedOperation` / no `ue-workstation` profile | the IAM instance profile is missing or not passable | `film-ue box up B --iam-profile <existing profile>` (needs SSM + S3 + KMS on the bucket) |
+| `box image` leaves the box rebooting a long time | the image takes a snapshot of a 300 GB volume | wait (`film-ue box images` shows `pending`); the box answers again after its reboot |
+
 ## 8. HANDOFF
 
 **Done:** everything above, with every AWS call mocked. That includes:
@@ -291,8 +323,15 @@ profiles, boxes, watchdog, editor service, sync, CLI), `test_unreal_transport.py
 - B49: film-ue first-run.
 - B54: box image, images, image-rm, and `box up --ami latest`.
 - The client-phase selftest.
-- The watchdog's on_exit, and `box up --save-ddc-on-exit`. Nothing in `boxes`/`sync`/`editorsvc` has run against AWS:
-the operator's rule for the night.
+- The watchdog's on_exit, and `box up --save-ddc-on-exit`.
+- A first-run dry run end to end against the real bridge on the fake, including a resume after a stop. It found
+  that `/file` refused `/srv`, which would have broken the demo's stage-0 push. `/srv` is now an allowed root on
+  Linux.
+- The image prepare script, run for real in a sandbox by a test: no Epic credential and no token are left in an
+  image.
+- The Day-1 triage table (§7b).
+
+Nothing in `boxes`, `sync` or `editorsvc` has run against AWS: the operator's rule for the night.
 
 **Run first on the next GPU box:** `film-ue --box NAME first-run` does the list below for you and stops with the
 next command. In detail:
@@ -308,7 +347,7 @@ next command. In detail:
 8. `box status` (the watchdog's last decision).
 9. Let it idle for `--idle` minutes on purpose: it must power off and terminate.
 
-**Open / unverified:**
+**Open / unverified** (each has a row in §7b):
 
 - the exchange-code route end to end, and whether it leaves a saved sign-in;
 - `set_editor_property` by C++ name on the performance settings CDO (the source says yes; watch the log for "could
@@ -317,10 +356,9 @@ next command. In detail:
 - `sync status` against a real bucket;
 - spot interruption (the profile then finds nothing; `box ls` shows it).
 
-**Left for the CLI owner (WP11), agreed:** cli.py's own `provision`/`editor`/`epic-login`/`desktop` go once this
-branch is in ue-helpers (cli_platform then serves them; `editor` service verbs via opcli.EXTENSIONS). `install`
-still lives in cli.py and sends the bridge in 80 KB printf parts (the lead's fix). It could use `transport.put` (parts
-for both shells) when it moves here.
+**CLI:** done by WP11. cli.py no longer has `provision`, `editor`, `epic-login` or `desktop`; `cli_platform` serves
+them, and the `editor` service verbs reach `cli_platform.editor_cli` through `opcli.EXTENSIONS`. `install` still
+lives in cli.py, where the lead's fix sends the bridge in 80 KB printf parts.
 
 **Next ideas:**
 
