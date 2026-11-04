@@ -263,6 +263,54 @@ and the Tesla 580 driver, the engine from agent-06's S3 tarball, and the project
 | P11 | `speech.to_face` with a reel line | animation exported, frames > 0, lip-sync plausible | **audio-to-face** |
 | P12 | Fab plugin zip + sign-in, add one free asset (only if new Fab content will ever be needed on Linux) | asset lands in Content | Fab |
 
+### 9a. The PoC under the operator's decision (no Windows boots; project from an EBS snapshot)
+
+The operator decided there will be no more Windows boots. The project comes from an EBS snapshot of the stopped
+workstation's root volume (agent-02), mounted read-only with `ntfs-3g` on the Linux GPU box. Linux renders are
+compared with the existing Windows renders of the reel. Steps:
+
+1. **Mount.** Create a volume from the snapshot in the box's AZ, attach it, and run `mount -t ntfs-3g -o ro …`. A
+   Windows volume left hibernated or with fast startup on refuses a read-write mount, but read-only is fine.
+2. **Read the facts from the disk, not a live Windows.** This settles open items in minutes:
+   - `C:\Program Files\Epic Games\UE_5.8\Engine\Build\Build.version`: expect 5.8.4, CL 58902052, so build tag
+     `5.8.4-release`.
+   - Under `Engine/Plugins/MetaHuman/` and `Engine/Plugins/NNE/`, run `grep -rn RigLogicEditor --include=*.Build.cs
+     --include=*.uplugin`. This shows whether MetaHuman Character editing needs the Win64-only module (§2).
+   - Read the `.uplugin`/`Build.cs` of the audio-to-face module (`Speech2Face`/`AudioDriven*`) and of
+     `NNERuntimeORT` for Linux branches and `PlatformAllowList`. This settles S-2 and S-3 of §8 without the private
+     GitHub source.
+   - `Engine/Plugins/MetaHuman/MetaHumanCharacter/Content/Optional/` holds the **Creator Core Data** (presets,
+     wardrobe, grooms). The content is platform-independent, so if the Linux source build lacks it, copy it from
+     here into the Linux engine's same path (L; P9 checks).
+3. **Copy the project to ext4, not run from NTFS.** The editor writes `Saved/`, `Intermediate/` and
+   `DerivedDataCache/`; ntfs-3g is slow, and the mount is read-only anyway. Run `rsync -a
+   /mnt/win/UEProjects/HostStudio/ /data/HostStudio/` excluding `Saved/`, `Intermediate/` and `DerivedDataCache/`
+   (Windows D3D shaders, useless on Vulkan). Content is 3.7 GB. Then set `.uproject` `EngineAssociation` to `"5.8"`
+   or register the Linux engine under the GUID.
+4. **Reference frames are on the same disk.** `Saved/MovieRenders/reel_1080p/<shot>/<master frame>.png` is 8.5 GB,
+   so no copy from the Mac is needed. Fall back to `out/host-studio/reel/` on the Mac for anything missing. ProRes
+   is not a reference: it is a lossy re-encode, so compare against the PNG frames.
+5. **Render exactly as Windows did.** `films/host-studio/reel/render.py` (reel branches) drives
+   `render.mrq(sequence=/Game/Reel/SEQ_Reel, level=/Game/Studio/Studio, width=1920, height=1080, temporal=8,
+   spatial=1, warmup=32, start=shot.start-4 (PREROLL), end=shot.end, cvars={r.HairStrands.SkyLighting: 0})` plus
+   `render.QUALITY_CVARS`, deferred pass, PNG. The only change needed is `PROJECT = r"C:\UEProjects\HostStudio"` →
+   the Linux project dir (better: `unreal.Paths.project_saved_dir()` on the editor side, which is generic). Start
+   with a calibration chunk per shot type (`--frames 24`), not whole shots.
+6. **Check the level state before the first render.** REEL_PERF.md notes that a face which "is neutral, or blinks but
+   does not speak" means `drive_face` did not persist. Run `mh.components` on each presenter and expect
+   `ANIMATION_SINGLE_NODE` on the Face components. If the saved level lacks it, run the reel's drive step first.
+   Otherwise a "Linux difference" would really be a scene-state difference.
+7. **Compare.** Lumen, TSR and temporal sampling are not bit-deterministic even on the same machine, so do not
+   expect identical pixels. Per frame, compute PSNR/SSIM and a mean-colour delta for skin, eyes, hair and clothing
+   crops, and make a side-by-side contact sheet. Pass if no structural difference (missing hair, black eyes, wrong
+   SSS, missing shadows, flicker) and a small, uniform colour delta. If hardware Lumen fails on Vulkan, re-render
+   with `r.Lumen.HardwareRayTracing 0` and report the look delta separately.
+8. **Time it.** Record seconds per frame (render.py prints `s_per_frame`) next to the Windows numbers for the same
+   shots, for agent-05's cost model.
+
+Order on the box: P1, then P2 (editor offscreen with the bridge on the copied project), then steps 5–8 (= P3, P4,
+P6), then P5, then P9–P11 (MetaHuman, which needs the sign-in, so last). P7, P8 and P12 only as needed.
+
 ## 10. Build appendix (fast source build)
 
 Desk research for agent-06's build PoC (20261104-task-build-the-ue-08c2). Their measurements replace these estimates.
