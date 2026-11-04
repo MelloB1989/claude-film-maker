@@ -140,7 +140,8 @@ size. Read, through `film-ue` (`workstation.ps`):
 (Content, DerivedDataCache, Saved, Intermediate), the shared DDC `"$env:LOCALAPPDATA\UnrealEngine\Common\DerivedDataCache"`,
 and `Get-Volume C`. And the **engine patch**: `Get-Content 'C:\Program Files\Epic Games\UE_5.8\Engine\Build\Build.version'`
 (MajorVersion/MinorVersion/PatchVersion/Changelist), or in the editor `unreal.SystemLibrary.get_engine_version()`.
-Working assumption for the tables: project 60 GB, engine 60 GB, DDC 40 GB. **The Windows DDC is useless on Linux**
+Working assumption for the tables: project 60 GB, engine 60 GB, DDC 40 GB (measured since: project 3.9 GB, engine
+78 GB unpacked, §6; storage costs in §8 are therefore on the high side). **The Windows DDC is useless on Linux**
 (D3D shaders vs Vulkan SPIR-V): the first Linux open compiles every shader again (*likely*; tens of minutes to hours
 on 16 vCPU for MetaHumans + groom; unknown). Compile it once and keep the Linux DDC (S3 or a snapshot).
 
@@ -187,6 +188,15 @@ is from older releases. S3 for the zip: ~$1/month.
 In flight (2026-11-04): agent-06 builds 5.8 from source on a 192-vCPU instance (task 20261104-task-build-the-ue-08c2)
 and agent-02 reads the exact engine version and plugin list and copies the project (20261104-task-inventory-the-windows-f7e8);
 both store under `ue-linux/` in the render bucket. Their measured numbers replace §4's and §6's estimates.
+
+**Measured (agent-06, 2026-11-04, `docs/linux/build.md` on `fleet/agent-06/linux-build`)**, replacing the
+estimates above: `m8a.48xlarge` on **spot at $2.05/h**. Tag tarball from GitHub 579 MB in 87 s (instead of a clone);
+`Setup.sh` 101 s; compile (Editor + ShaderCompileWorker + InterchangeWorker + UnrealPak with the project's plugins,
+6,246 actions) **374 s**; zstd -12 package + upload 107 s. Instance up ~25 min: **~$0.9 on spot** (~$5.2 on-demand).
+Engine tarball **26.6 GB** (78 GB unpacked; without Intermediate/Saved/DDC/*.debug; still holds Engine/Source 28 GB
+and Win64/Android dependencies, so it could be about halved). Prepared-source cache 29.4 GB. **S3 ~57 GB, ~$1.4/month.**
+Restore onto a g6.4xlarge: 258 s. **The project is 3.9 GB** (copied in 13 s), far below the 60 GB assumed in §4.
+So the engine is a solved, sub-$1 one-off; the precompiled zip is no longer needed.
 
 Plus, either way, **the Linux DDC** for the project: open the project once on the GPU instance (or try
 `-run=DerivedDataCache -fill` on a big CPU box with `-nullrhi`; whether that fills the *editor's* Vulkan SM6 shaders
