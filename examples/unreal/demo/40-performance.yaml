@@ -1,5 +1,8 @@
 # Stage 4 (WP4): the voice line becomes the face's animation (MetaHuman Animator's audio solver). Imports the WAV as
 # a SoundWave too (${voice_sound}), which stage 5 puts on the audio track. Multi-tick, ~1-3 min.
+kind: include
+files: [vars.yaml]
+---
 kind: op
 version: 1
 order: 45

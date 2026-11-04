@@ -1,5 +1,8 @@
 # Stage 7 (WP10): one review of the whole cut: 2 stills per shot, exposure, framing of the host, floating and
 # overlapping props (floor and walls ignored). Always runs (a check, not a change): read its verdict and issues.
+kind: include
+files: [vars.yaml]
+---
 kind: op
 version: 1
 order: 95

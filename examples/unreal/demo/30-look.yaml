@@ -1,5 +1,8 @@
 # Stage 3 (WP5): the light. Three rect lights (key, fill, rim) on the host, a bit of haze, exposure fixed for the
 # render. look.light converges on its label (respawned with the same settings), so these re-run safely.
+kind: include
+files: [vars.yaml]
+---
 kind: op
 version: 1
 order: 40

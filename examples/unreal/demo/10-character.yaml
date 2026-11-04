@@ -1,5 +1,8 @@
 # Stage 1 (WP3): the MetaHuman. Each step converges with `unless` (a read op that says it is done), so a re-run skips
 # the slow cloud calls. Needs: the Epic sign-in (film-ue epic-login on Linux) and MetaHuman Creator's core data.
+kind: include
+files: [vars.yaml]
+---
 kind: op
 version: 1
 order: 5

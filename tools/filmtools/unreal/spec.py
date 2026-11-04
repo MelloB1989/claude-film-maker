@@ -417,8 +417,11 @@ def apply(docs: list, ue, only: set | None = None, keep_going: bool = True, veri
 
 
 def summarize(items: list) -> dict:
+    pend = lambda it: [x for x in it.steps if not x.get("always")]  # noqa: E731
     return {"documents": len(items), "steps": sum(len(it.steps) for it in items),
-            "converged_docs": sum(1 for it in items if not [s for s in it.steps if not s.get("always")] and not it.error),
+            "always_steps": sum(1 for it in items for x in it.steps if x.get("always")),
+            "converged_docs": sum(1 for it in items if not pend(it) and not it.error and not it.steps),
+            "pending_docs": sum(1 for it in items if pend(it) and not it.error),
             "failed": sum(1 for it in items if it.error)}
 
 
@@ -439,8 +442,8 @@ def plan_text(items: list) -> str:
             args = json.dumps(s["args"], default=str)
             lines.append(f"      {mark} {s['op']} {args[:160]}" + (f"   # {s['why']}" if s.get("why") else ""))
     s = summarize(items)
-    lines.append(f"  {s['documents']} documents, {s['steps']} steps, {s['converged_docs']} already converged, "
-                 f"{s['failed']} failed")
+    lines.append(f"  {s['documents']} documents: {s['pending_docs']} to change, {s['converged_docs']} converged, "
+                 f"{s['failed']} failed; {s['steps']} steps ({s['always_steps']} re-run on every apply: !)")
     return "\n".join(lines)
 
 

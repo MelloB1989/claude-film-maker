@@ -1,4 +1,7 @@
 # Stage 6 (WP7): three shots of the host, framed by the solver from the host's real skeleton, with the cuts.
+kind: include
+files: [vars.yaml]
+---
 kind: shot
 version: 1
 name: demo-shots
