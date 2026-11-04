@@ -4566,6 +4566,46 @@
    "tags": []
   },
   {
+   "name": "mh.body_mesh",
+   "area": "mh",
+   "verb": "body_mesh",
+   "module": "fmbridge.ops.mh.actor",
+   "file": "unreal/fmbridge/ops/mh/actor.py",
+   "line": 587,
+   "summary": "The skeletal meshes of a built MetaHuman: its body and face (and skeletons), e.g. the target_mesh for",
+   "doc": "The skeletal meshes of a built MetaHuman: its body and face (and skeletons), e.g. the target_mesh for\nanim.retarget (a Mixamo or mannequin animation onto a MetaHuman body).\n\nGive one of: label (a placed actor: read from its Body/Face components), bp (the built Blueprint: the meshes in\nits unpack folder), character (the character asset: its last build, mh.build's bp).\nReturns: {\"body\", \"face\", \"body_skeleton\", \"face_skeleton\"} package paths (\"\" when not found).\nExample: film-ue op mh.body_mesh character=/Game/Characters/Ava/MH_Ava",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "bp",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "character",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "metahuman"
+   ]
+  },
+  {
    "name": "mh.build",
    "area": "mh",
    "verb": "build",

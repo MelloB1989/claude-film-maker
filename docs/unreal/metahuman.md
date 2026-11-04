@@ -118,6 +118,15 @@ render.
 film-ue op mh.attach label=Ava prop=AvaWatch bone=lowerarm_twist_02_l      # makes it Movable first
 ```
 
+**An animation from elsewhere (Mixamo, the UE mannequin) onto a MetaHuman body** (with WP4's `anim.retarget`)
+```bash
+film-ue op mh.body_mesh character=/Game/Characters/Ava/MH_Ava          # {"body": ".../SKM_Ava_Body", ...}
+film-ue op anim.retarget 'anims=["/Game/Mixamo/Wave"]' source_mesh=/Game/Mixamo/Y_Bot target_mesh=<body> out_folder=/Game/Anim/Ava
+```
+Put the result on the Body in a sequence (`seq.anim`). The face follows the body once they are one skeleton
+(`anim.head_to_body`). The retarget's IK rigs are auto-generated, which works because the MetaHuman body matches an
+engine template.
+
 **A character as a spec (round trip, B27)**
 ```bash
 film-ue op mh.export path=/Game/Host/Host_Trey > trey.json  # then change asset/from and apply it for a twin
@@ -142,7 +151,7 @@ film-ue op mh.export path=/Game/Host/Host_Trey > trey.json  # then change asset/
 | `mh.wardrobe` `mh.palette` `mh.add_item` `mh.clear_slot` `mh.groom` `mh.item_params` `mh.item_set` | wardrobe and item parameters | no duplicate palette entries |
 | `mh.auth_status` `mh.login` `mh.rig`~ `mh.textures`~ | Epic sign-in, cloud rig and textures | needs-epic-login, slow |
 | `mh.can_build` `mh.build` `mh.preview` | assemble; why it cannot be built; live preview actor | slow (build blocks) |
-| `mh.components` `mh.drive_face` `mh.import_garment` `mh.dress` `mh.leader` `mh.leader_check` `mh.attach` `mh.clip_check`~ `mh.cloth_inflate`~ `mh.garment` | the placed actor | |
+| `mh.components` `mh.body_mesh` `mh.drive_face` `mh.import_garment` `mh.dress` `mh.leader` `mh.leader_check` `mh.attach` `mh.clip_check`~ `mh.cloth_inflate`~ `mh.garment` | the placed actor | |
 | `mh.apply`~ | converge to a `character` spec in one job | slow |
 
 ## 3. Spec kind `character`

@@ -582,3 +582,41 @@ def clip_check(*, label: str, garment: str, body: str = "Body", tolerance_cm: fl
             "why": (f"{pokes} of {checked} body points under {garment} poke through by > {tolerance_cm} cm" if checked
                     else f"no body points within {near_cm} cm of {garment}: is it on the body?"),
             "checked": checked, "pokes": pokes, "max_cm": worst[0][3] if worst else 0.0, "worst": worst[:20]}
+
+
+@op("mh.body_mesh", mutates=False, idempotent=True, tags=["metahuman"])
+def body_mesh(*, label: str = "", bp: str = "", character: str = "") -> dict:
+    """The skeletal meshes of a built MetaHuman: its body and face (and skeletons), e.g. the target_mesh for
+    anim.retarget (a Mixamo or mannequin animation onto a MetaHuman body).
+
+    Give one of: label (a placed actor: read from its Body/Face components), bp (the built Blueprint: the meshes in
+    its unpack folder), character (the character asset: its last build, mh.build's bp).
+    Returns: {"body", "face", "body_skeleton", "face_skeleton"} package paths ("" when not found).
+    Example: film-ue op mh.body_mesh character=/Game/Characters/Ava/MH_Ava
+    """
+    from ..assets import list_assets
+    out = {"body": "", "face": "", "body_skeleton": "", "face_skeleton": ""}
+    if label:
+        comps = _skm(label)
+        for part, name in (("body", "Body"), ("face", "Face")):
+            m = comps[name].get_skeletal_mesh_asset() if name in comps else None
+            if m is not None:
+                out[part] = K.package(m.get_path_name())
+    else:
+        if character:
+            bp = K.get_tag(K.char(character), "BuildBP")
+            if not bp:
+                raise OpError(f"{character} has not been built by mh.build", code="not_found", hint="run mh.build")
+        bp = K.package(bp)
+        if not EAL.does_asset_exist(bp):
+            raise OpError(f"no Blueprint {bp}", code="not_found", hint="mh.find shows each character's bp")
+        meshes = [p for c, p in list_assets(K.folder_of(bp), "SkeletalMesh")]
+        for part, key in (("body", "body"), ("face", "face")):
+            hit = [p for p in meshes if key in p.rsplit("/", 1)[-1].lower()]
+            out[part] = sorted(hit, key=len)[0] if hit else ""
+    for part in ("body", "face"):
+        if out[part]:
+            m = EAL.load_asset(out[part])
+            sk = m.get_editor_property("skeleton") if m is not None else None
+            out[f"{part}_skeleton"] = K.package(sk.get_path_name()) if sk is not None else ""
+    return out
