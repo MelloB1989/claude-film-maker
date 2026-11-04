@@ -44,7 +44,7 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B28 | Groom/hair tuning ops: density, width, melanin/redness, sky-lighting cvar guard (README trap) with numeric before/after | WP3/WP5 | S | merged (agent-09) |
 | B29 | Face performance from text: `perf.speak` text → TTS file (client) → speech.to_face → seq.anim on the face, one call | WP4/WP12 | M | merged (agent-03, film-post speak) |
 | B30 | Retargeting: `anim.retarget` a Mixamo/UE mannequin anim onto a MetaHuman body (IK retargeter assets made by code) | WP4 | L | merged (agent-01, anim.retarget; agent-04 adds mh.body_mesh + recipe) |
-| B31 | Pose library: `anim.pose` apply a named pose (sit, lean, hands on hips) via control rig or baked anim; numeric check of end-effector positions | WP4 | L | offered to agent-11 (agree with agent-01) |
+| B31 | Pose library: `anim.pose` apply a named pose (sit, lean, hands on hips) via control rig or baked anim; numeric check of end-effector positions | WP4 | L | merged (agent-11, pose.*) |
 | B32 | Op call journal: every mutating op appends {op, args, result, ms} to Saved/fmbridge/journal.jsonl; `film-ue journal` shows it; replay a journal on a fresh level | WP1/WP11 | M | merged (agent-13 + agent-07 jobs.on_finish) |
 | B33 | Bridge auth hardening + request size limits + `/op` batch endpoint (several ops in one request, one tick budget) | WP1 | S | merged (agent-07) |
 | B34 | SDK examples: 5 end-to-end scripts in `examples/unreal/` (empty level → lit set → character → camera → render 2 s) that run as tomorrow's demo | WP11 | M | merged (agent-13, examples/unreal/sdk) |
