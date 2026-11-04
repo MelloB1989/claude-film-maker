@@ -94,6 +94,7 @@ class _AutoMeta(type):
             v = EnumValue(cls.__name__, attr)
             type.__setattr__(cls, attr, v)
             return v
+        _audit(cls, attr, "static")
         return Stub(f"{cls.__name__}.{attr}")
 
 
@@ -333,6 +334,7 @@ class Object(metaclass=_AutoMeta):
     # editor properties: also reachable as attributes, as in the engine
     def get_editor_property(self, name: str):
         if name not in self._props:
+            _audit(type(self), name, "prop")
             self._props[name] = Stub(f"{type(self).__name__}.{name}")
         return self._props[name]
 
@@ -350,6 +352,7 @@ class Object(metaclass=_AutoMeta):
         props = object.__getattribute__(self, "_props")
         if attr in props:
             return props[attr]
+        _audit(type(self), attr)
         return _BoundStub(self, attr)
 
     def __setattr__(self, attr, value):
@@ -435,6 +438,17 @@ def _uclass(py) -> UClass:
     if py not in _UCLASSES:
         _UCLASSES[py] = UClass(py)
     return _UCLASSES[py]
+
+
+_AUDIT = os.environ.get("FAKEUNREAL_AUDIT", "")  # a file: every unmodelled name the ops touched, for B58's check
+
+
+def _audit(cls, attr: str, kind: str = "attr") -> None:
+    """With FAKEUNREAL_AUDIT=<file>, append 'Class.attr' for a name the fake does not model, so a run of the suite
+    lists every engine name the ops use that no fake checks (tools/filmtools/unreal/fakeaudit.py verifies them)."""
+    if _AUDIT and not attr.startswith("_"):
+        with open(_AUDIT, "a", encoding="utf-8") as f:
+            f.write(f"{kind}\t{cls.__name__}\t{attr}\n")
 
 
 class _BoundStub(Stub):
