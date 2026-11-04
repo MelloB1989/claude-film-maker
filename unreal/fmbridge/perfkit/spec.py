@@ -34,6 +34,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import random
 
 from . import body as Bd
 from . import expressions as X
@@ -47,7 +48,7 @@ LINE = {"id", "start_s", "gap_s", "audio", "face_anim", "duration_s", "text", "m
         "emphasis", "gaze", "gestures", "expressions", "nods", "tilts", "listen"}
 CHARACTER = {"facing_offset_deg", "lead", "head", "energy", "auto_turn_deg", "eye_micro_deg", "signs"}
 FACE = {"out", "layers", "solver_head", "blink_mode", "mouth_mix", "camera_lock", "solve_folder", "brow_chance",
-        "beat_every", "tail_s"}
+        "beat_every", "tail_s", "backchannel", "aversion"}
 ACTION = {"at_s", "walk_to", "path", "speed_cm_s", "turn_to", "end_facing"}
 
 
@@ -346,9 +347,15 @@ def compile(spec: dict, state: dict) -> dict:  # noqa: A001 (the spec's verb)
                 emphasis.append((t0 + float(e["at_s"]), float(e.get("strength", 1.0))))
             else:
                 emphasis.append((t0 + float(e[0]), float(e[1])))
+        line_ends = [t0 + t for t in ((state.get("audio") or {}).get(x["id"]) or {}).get("phrase_ends", [])]
+        if x["listen"] and fc.get("backchannel", True) and not ln.get("nods"):
+            nods += backchannel(t0, t1, seed=seed + x["index"])
+        if not x["listen"] and fc.get("aversion", True):
+            shifts += aversions(t0, t1, line_ends, [s for s in shifts if t0 <= s["t"] <= t1], seed=seed + x["index"])
         phrase_ends.append(t1)
         (listen_spans if x["listen"] else talk_spans).append((t0, t1))
 
+    shifts.sort(key=lambda s: s["t"])
     blink_state = [{"t0": a, "t1": b, "state": "talk"} for a, b in talk_spans] + \
                   [{"t0": a, "t1": b, "state": "listen"} for a, b in listen_spans]
     blink_state.sort(key=lambda s: s["t0"])
@@ -382,6 +389,44 @@ def compile(spec: dict, state: dict) -> dict:  # noqa: A001 (the spec's verb)
     body = sorted(isecs + gsecs + [s for s, _ in walk_secs], key=lambda s: s["start"])
     return {"timeline": tl, "duration_s": round(total, 4), "fps": fps, "face": face_args, "body": body,
             "transform": keys, "notes": notes, "face_out": out_anim(spec)}
+
+
+def backchannel(t0: float, t1: float, seed: int = 0) -> list:
+    """A listener's small nods (beats, now and then a double nod) every 2.5-5 s while the other one talks: what keeps a
+    listening face from reading as frozen. Applied to listen lines without nods of their own (face.backchannel)."""
+    rnd = random.Random(seed * 7919 + 11)
+    out, t = [], t0 + rnd.uniform(0.5, 1.8)
+    while t < t1 - 0.4:
+        if rnd.random() < 0.25:
+            out.append({"t": round(t, 3), "kind": "nod", "count": 2, "depth_deg": round(rnd.uniform(2.0, 3.5), 2)})
+        else:
+            out.append({"t": round(t, 3), "kind": "beat", "depth_deg": round(rnd.uniform(1.2, 2.4), 2)})
+        t += rnd.uniform(2.5, 5.0)
+    return out
+
+
+def aversions(t0: float, t1: float, phrase_ends: list, line_shifts: list, seed: int = 0) -> list:
+    """Thinking glances while talking TO A PERSON: after a pause, people look away briefly (up and to a side,
+    8-15 deg, 0.6-1.2 s) as they plan the next phrase, then come back. Not when the line looks at a lens (a presenter
+    holds the camera). Returns extra gaze shifts (away and back) for the phrase starts that allow one."""
+    rnd = random.Random(seed * 104729 + 3)
+    out = []
+    for pe in phrase_ends:
+        held = [s for s in line_shifts if s["t"] <= pe]
+        if not held or held[-1].get("scan") == "lens" or held[-1].get("label") == "camera":
+            continue
+        cur = held[-1]
+        if any(pe - 0.3 < s["t"] < pe + 2.0 for s in line_shifts):  # a planned shift is already there
+            continue
+        if rnd.random() > 0.6:
+            continue
+        side = rnd.choice((-1.0, 1.0))
+        away = {"t": round(pe + rnd.uniform(0.05, 0.25), 3), "yaw": cur["yaw"] + side * rnd.uniform(8.0, 15.0),
+                "pitch": cur["pitch"] + rnd.uniform(3.0, 9.0), "dist_cm": 300.0, "scan": "still", "label": "aversion"}
+        back = {**cur, "t": round(away["t"] + rnd.uniform(0.6, 1.2), 3)}
+        if back["t"] < t1:
+            out += [away, back]
+    return out
 
 
 def _layers():

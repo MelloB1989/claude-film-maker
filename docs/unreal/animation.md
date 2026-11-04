@@ -22,6 +22,8 @@ makes motion read robotic, and what perfkit does instead:
 | expressions as switches, mirrored | attack / sustain-relax / release envelopes, one side leads and is stronger, slow drift while held; a Duchenne smile lifts the cheeks a beat after the mouth (`expressions`) |
 | a smile that fights the lip-sync | the mouth region is quieted while the voice is loud (`mouth_mix`) |
 | emphasis by hand | stressed syllables and pauses found in the WAV (`audio`): beat nods and brow flashes there |
+| a listener frozen while the other talks | small backchannel nods every 2.5-5 s on listen lines (`face.backchannel`) |
+| eyes locked on a person for a whole speech | brief thinking glances away (8-15 deg, 0.6-1.2 s) after pauses, never off a lens (`face.aversion`) |
 
 `anim.check` / `perf.check` measure all of this (see Recipes) so Claude can tell without looking.
 

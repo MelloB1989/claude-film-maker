@@ -346,6 +346,14 @@
      "type": "number",
      "description": "seconds kept after the last line (default 0.5)",
      "minimum": 0
+    },
+    "backchannel": {
+     "type": "boolean",
+     "description": "listen lines without nods get small listener nods every 2.5-5 s (default true)"
+    },
+    "aversion": {
+     "type": "boolean",
+     "description": "while talking to a person (not a lens), brief thinking glances away after pauses (default true)"
     }
    },
    "description": "the face composition"

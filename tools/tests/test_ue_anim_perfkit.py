@@ -519,3 +519,29 @@ def test_plot_draws_a_strip_per_part(tmp_path):
     back = png.read(str(tmp_path / "p.png"))
     assert (back.w, back.h) == (img.w, img.h) and img.h > 4 * 120  # head, eyes, blinks, upper face, mouth
     assert len(set(bytes(img.px))) > 10  # something was drawn
+
+
+def test_listeners_backchannel_and_talkers_look_away_to_think():
+    long_listen = json.loads(json.dumps(SPEC))
+    long_listen["lines"][1]["duration_s"] = 8.0
+    c = S.compile(long_listen, STATE)
+    nods = [n for n in c["face"]["nods"] if 4.35 <= n["t"] <= 12.35]
+    assert len(nods) >= 2  # the listen line had no nods: it gets small ones
+    st = json.loads(json.dumps(STATE))
+    st["audio"]["l1"]["phrase_ends"] = [0.8]  # a pause while the line still looks at the guest? (it looks at camera)
+    c2 = S.compile(SPEC, st)
+    assert not [s for s in c2["face"]["shifts"] if s.get("label") == "aversion"]  # never away from the lens
+    sp = json.loads(json.dumps(SPEC))
+    sp["lines"][0]["gaze"] = [{"at_s": 0, "target": "guest", "scan": "face"}]
+    found = 0
+    for seed in range(6):
+        sp["seed"] = seed
+        found += bool([s for s in S.compile(sp, st)["face"]["shifts"] if s.get("label") == "aversion"])
+    assert found >= 2
+    sp["face"] = {"aversion": False, "backchannel": False}
+    c3 = S.compile(sp, st)
+    assert not [s for s in c3["face"]["shifts"] if s.get("label") == "aversion"]
+    sp["lines"][1]["duration_s"] = 8.0
+    c3 = S.compile(sp, st)
+    assert not [n for n in c3["face"]["nods"] if 4.35 <= n["t"] <= 12.35]
+    assert S.backchannel(0, 10, seed=1) == S.backchannel(0, 10, seed=1)
