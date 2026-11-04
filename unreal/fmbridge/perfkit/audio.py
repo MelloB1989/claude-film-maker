@@ -61,18 +61,16 @@ class Envelope:
         else:
             raise ValueError(f"unsupported sample width {width}")
         hop = max(1, int(sample_rate / rate))
-        win = hop * 2
-        frames = len(a) // channels
+        mono = a[::channels] if channels > 1 else a  # the first channel is plenty for loudness
+        # sum of squares per hop, once; each frame's window is two hops
+        sq = [sum(x * x for x in mono[i:i + hop]) for i in range(0, len(mono), hop)]
         dbs = []
-        for start in range(0, max(1, frames - hop), hop):
-            s = start * channels
-            seg = a[s:s + win * channels]
-            if not seg:
+        for k in range(max(1, len(sq) - 1)):
+            n = min(len(mono) - k * hop, 2 * hop)
+            if n <= 0:
                 break
-            acc = 0.0
-            for x in seg[::max(1, channels)]:  # first channel is plenty for loudness
-                acc += x * x
-            rms = math.sqrt(acc / max(1, len(seg) // max(1, channels))) / scale
+            acc = sq[k] + (sq[k + 1] if k + 1 < len(sq) else 0.0)
+            rms = math.sqrt(acc / n) / scale
             dbs.append(20.0 * math.log10(max(rms, 1e-9)))
         if not dbs:
             return cls([0.0], rate, offset_s)
