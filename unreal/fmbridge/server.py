@@ -19,8 +19,8 @@ Every call is a job (fmbridge.jobs): {"async": true} returns its id at once; a g
     POST /gui    {"actions": [...]}                           desktop input (fmbridge.gui.run; Windows only, else 501)
     GET  /screen                                              the desktop as PNG (Windows only, else 501)
     GET  /file?path=   PUT /file?path=                         read or write a file under the project, the temp
-                                                              folder or the editor user's home (FMBRIDGE_FILE_ROOTS
-                                                              adds more, os.pathsep-separated)
+                                                              folder, the editor user's home or (Linux) /srv
+                                                              (FMBRIDGE_FILE_ROOTS adds more, os.pathsep-separated)
     GET  /log?lines=N                                         the editor log's tail
     GET  /health                                              engine, platform, project, uptime, jobs, memory, idle cap
 """
@@ -113,6 +113,8 @@ def _batch_calls(req: dict):
 
 def _file_roots() -> list:
     roots = [os.path.dirname(_state.get("project") or "") or SAVED, tempfile.gettempdir(), os.path.expanduser("~")]
+    if sys.platform.startswith("linux"):
+        roots.append("/srv")  # a Linux box's data volume: projects, the engine, film inputs (/srv/film/...)
     roots += [r for r in os.environ.get("FMBRIDGE_FILE_ROOTS", "").split(os.pathsep) if r]
     return [os.path.normcase(os.path.realpath(r)) for r in roots if r]
 
