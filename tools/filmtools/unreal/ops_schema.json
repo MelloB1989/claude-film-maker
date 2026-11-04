@@ -3119,6 +3119,144 @@
    "tags": []
   },
   {
+   "name": "level.layer_add",
+   "area": "level",
+   "verb": "layer_add",
+   "module": "fmbridge.ops.layers",
+   "file": "unreal/fmbridge/ops/layers.py",
+   "line": 58,
+   "summary": "Put actors in a data layer, making the layer (its DataLayerAsset under asset_dir and its instance in this",
+   "doc": "Put actors in a data layer, making the layer (its DataLayerAsset under asset_dir and its instance in this\nlevel) when it does not exist yet. Re-running changes nothing.\n\nReturns: {\"changed\", \"created\": bool, \"added\": [labels newly in it]}.\nExample: film-ue op level.layer_add name=Props_Night 'labels=[\"Lamp\",\"Candle\"]'",
+   "params": [
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": []
+    },
+    {
+     "name": "asset_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "level.layer_remove",
+   "area": "level",
+   "verb": "layer_remove",
+   "module": "fmbridge.ops.layers",
+   "file": "unreal/fmbridge/ops/layers.py",
+   "line": 94,
+   "summary": "Take actors out of a data layer (actors not in it are skipped).",
+   "doc": "Take actors out of a data layer (actors not in it are skipped).\n\nExample: film-ue op level.layer_remove name=Props_Night 'labels=[\"Lamp\"]'",
+   "params": [
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "level.layer_set",
+   "area": "level",
+   "verb": "layer_set",
+   "module": "fmbridge.ops.layers",
+   "file": "unreal/fmbridge/ops/layers.py",
+   "line": 109,
+   "summary": "Show/hide a data layer in the editor (`visible`), load/unload its actors in the editor (`loaded`), or set",
+   "doc": "Show/hide a data layer in the editor (`visible`), load/unload its actors in the editor (`loaded`), or set\nwhether it starts visible (`initially_visible`). Only the arguments given change.\n\nExample: film-ue op level.layer_set name=Props_Night visible=false",
+   "params": [
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "visible",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "loaded",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "initially_visible",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "level.layers",
+   "area": "level",
+   "verb": "layers",
+   "module": "fmbridge.ops.layers",
+   "file": "unreal/fmbridge/ops/layers.py",
+   "line": 39,
+   "summary": "The level's data layers: name, visible, initially visible, runtime or editor, and (with `actors`) the labels",
+   "doc": "The level's data layers: name, visible, initially visible, runtime or editor, and (with `actors`) the labels\nof the actors in each.\n\nReturns: {\"layers\": [{\"name\", \"visible\", \"initially_visible\", \"runtime\", \"actors\"?}]}.\nExample: film-ue op level.layers",
+   "params": [
+    {
+     "name": "actors",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "level.material",
    "area": "level",
    "verb": "material",
