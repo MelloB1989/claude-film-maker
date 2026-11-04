@@ -74,13 +74,30 @@ def _jsonable(v):
     return json.loads(json.dumps(v, default=str))
 
 
+def _intended(want: dict) -> dict:
+    """The golden (taken from the pre-seqcore implementation) with the differences made on purpose when these ops
+    became a layer over seqcore, each a fix:
+    - seq.anim `offset` now sets StartFrameOffset (what seq.describe reads and seqcore writes); it set
+      FirstLoopStartFrameOffset first, which describe does not report (offset 0.0 -> 0.5);
+    - seq.anim `rate` is set with MovieSceneTimeWarpExtensions.make_time_warp (rate 0.0 in the fake -> 2.0);
+    - seq.key_collection keys by FName, the form 5.8's MovieSceneParameterSection takes (form "info" -> "name+interp":
+      the old code tried the MaterialParameterInfo form first, which only the fake accepted)."""
+    want["results"]["key_collection"]["form"] = "name+interp"
+    for t in want["describe"]["tracks"]:
+        if t["kind"] == "anim" and t["component"] == "Body":
+            t["sections"][1]["params"]["offset"] = 0.5
+        if t["kind"] == "anim" and t["component"] == "Face":
+            t["sections"][0]["params"]["rate"] = 2.0
+    return want
+
+
 def test_legacy_ops_pinned(scene):
     got = {"results": _jsonable(scenario()), "describe": _jsonable(run_op("seq.describe", path=SEQ))}
     assert scene.dialogs == []
     if os.environ.get("SEQ_LEGACY_REGEN"):
         GOLDEN.parent.mkdir(exist_ok=True)
         GOLDEN.write_text(json.dumps(got, indent=1, sort_keys=True) + "\n")
-    want = json.loads(GOLDEN.read_text())
+    want = _intended(json.loads(GOLDEN.read_text()))
     assert got["results"] == want["results"]
     for k in ("fps", "range", "markers", "bindings"):
         assert got["describe"][k] == want["describe"][k], k
