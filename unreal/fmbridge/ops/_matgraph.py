@@ -116,7 +116,9 @@ DOMAINS = {"surface": "MD_SURFACE", "deferred_decal": "MD_DEFERRED_DECAL", "ligh
            "volume": "MD_VOLUME", "post_process": "MD_POST_PROCESS", "ui": "MD_UI"}
 TRANSLUCENCY_LIGHTING = {"volumetric_nondirectional": "TLM_VOLUMETRIC_NON_DIRECTIONAL",
                          "volumetric_directional": "TLM_VOLUMETRIC_DIRECTIONAL",
-                         "volumetric_perpixel_nondirectional": "TLM_VOLUMETRIC_PER_VERTEX_NON_DIRECTIONAL",
+                         "volumetric_pervertex_nondirectional": "TLM_VOLUMETRIC_PER_VERTEX_NON_DIRECTIONAL",
+                         "volumetric_pervertex_directional": "TLM_VOLUMETRIC_PER_VERTEX_DIRECTIONAL",
+                         "volumetric_perpixel_nondirectional": "TLM_VOLUMETRIC_PER_VERTEX_NON_DIRECTIONAL",  # old key
                          "surface": "TLM_SURFACE", "surface_per_pixel": "TLM_SURFACE_PER_PIXEL_LIGHTING"}
 # Material bool properties a spec may set: usage flags (a material used on a skeletal mesh without the flag is
 # replaced by the default material in a cooked/headless build) and the rest

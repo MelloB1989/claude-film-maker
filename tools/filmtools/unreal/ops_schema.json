@@ -1055,7 +1055,7 @@
    "verb": "catalog",
    "module": "fmbridge.ops.assets_catalog",
    "file": "unreal/fmbridge/ops/assets_catalog.py",
-   "line": 145,
+   "line": 149,
    "summary": "The assets of a folder as data, from the asset registry (no loading): path, class, size in cm, triangles,",
    "doc": "The assets of a folder as data, from the asset registry (no loading): path, class, size in cm, triangles,\nLODs, Nanite, material count, texture size/format, source file. Cached in Saved/fmbridge/catalog.json.\n\nArgs: folder: content folder (recursive). cls: one class (StaticMesh, SkeletalMesh, Texture2D, Material,\n      MaterialInstanceConstant, Blueprint, SoundWave, AnimSequence, GroomAsset, ...). refresh: rebuild now.\n      load: also load meshes whose counts are missing, and read metadata tags (slower). max_age_s: reuse a\n      cached catalog this young. limit: at most this many entries returned.\nReturns: {\"folder\", \"count\", \"built_at\", \"entries\": [{\"path\", \"name\", \"class\", \"size_cm\": [x, y, z],\n         \"triangles\", \"lods\", \"nanite\", \"materials\", \"dimensions\", \"format\", \"source\", \"tags\"}]}.\nExample: film-ue op assets.catalog folder=/Game/Props cls=StaticMesh",
    "params": [
@@ -1140,7 +1140,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.assets_catalog",
    "file": "unreal/fmbridge/ops/assets_catalog.py",
-   "line": 218,
+   "line": 222,
    "summary": "One asset as numbers: class, size in cm and bounds, triangles/vertices per LOD, Nanite, collision, material",
    "doc": "One asset as numbers: class, size in cm and bounds, triangles/vertices per LOD, Nanite, collision, material\nslots (meshes); size, sRGB, compression, LOD group (textures); parent and parameters (materials: see\nmat.describe); skeleton, bones (skeletal); duration (sounds); source file; metadata tags; who uses it.\n\nArgs: path: /Game/... asset. refs: include referencers/dependencies.\nReturns: {\"path\", \"class\", ...per class..., \"source\", \"tags\", \"referencers\", \"dependencies\"}.\nExample: film-ue op assets.describe path=/Game/Props/SM_Chair",
    "params": [
@@ -1211,7 +1211,7 @@
    "verb": "find",
    "module": "fmbridge.ops.assets_catalog",
    "file": "unreal/fmbridge/ops/assets_catalog.py",
-   "line": 174,
+   "line": 178,
    "summary": "Search assets by what they are and how big: words (name, folders, tags; a few synonyms: sofa/couch...), a",
    "doc": "Search assets by what they are and how big: words (name, folders, tags; a few synonyms: sofa/couch...), a\nsize (\"a 45 cm chair\", \"table 120x80 cm\", \"lamp 1.5 m tall\"), class, a name glob, tags, size bounds. Each hit\nsays how far its size is from the asked one and the uniform scale that would make it exact.\n\nArgs: query: plain words with optional sizes (mm/cm/m/in/ft; no unit = cm; tall/wide/long pick the axis).\n      cls: StaticMesh, SkeletalMesh, Texture2D, MaterialInstanceConstant, ... folder: where to look.\n      name: a glob on the asset name (SM_Chair*). tags: {key: value} metadata tags (assets.tag) to match.\n      min_size_cm / max_size_cm: [x, y, z] bounds the size must be within (0 = no bound on that axis).\n      limit: at most this many. refresh: rebuild the catalog first.\nReturns: {\"query\": parsed, \"hits\": [{\"path\", \"class\", \"size_cm\", \"score\" 0..1, \"size_error\", \"scale\", ...}],\n         \"count\"}. Nothing found: hits [] and a hint.\nExample: film-ue op assets.find 'query=a 45 cm chair' cls=StaticMesh",
    "params": [
@@ -2103,7 +2103,7 @@
    "verb": "thumbnail",
    "module": "fmbridge.ops.assets_catalog",
    "file": "unreal/fmbridge/ops/assets_catalog.py",
-   "line": 278,
+   "line": 282,
    "summary": "Pictures of an asset with no viewport: a temporary actor of it is placed away from the set, captured alone",
    "doc": "Pictures of an asset with no viewport: a temporary actor of it is placed away from the set, captured alone\n(WP10's view.turntable with isolate), and removed. One view (a 3/4 shot) or several around it plus a sheet.\nThe open level's lights reach it only if it is placed among them (loc); `light` adds a temporary point light\nabove and in front of it, removed afterwards.\n\nArgs: path: /Game/... StaticMesh, SkeletalMesh or Blueprint. out_dir: where the PNGs go on the box. views: how\n      many. size_px: square size. elevation_deg/yaw_deg: the camera's angle above and around it. loc: where the\n      temporary actor stands [x, y, z] cm (default far below the set). light: add a temporary key light.\nReturns: {\"path\", \"views\": [{\"yaw\", \"path\"}], \"sheet\", \"size_cm\"}. Multi-tick.\nExample: film-ue op assets.thumbnail path=/Game/Props/SM_Chair out_dir=/tmp/thumbs/chair views=4",
    "params": [

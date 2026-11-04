@@ -27,7 +27,11 @@ CATALOG_CLASSES = ("StaticMesh", "SkeletalMesh", "Texture2D", "TextureCube", "Ma
 
 
 def _tag(ad, name: str):
+    """A registry tag's value, or None. (get_tag_value is bool + out FString: Python gives the string, or None
+    when the tag is absent: PyGenUtil.cpp PackReturnValues.)"""
     try:
+        if ad is None or not ad.is_valid():  # find_asset_data on a missing path gives an invalid AssetData
+            return None
         v = ad.get_tag_value(name)
     except Exception:
         return None
