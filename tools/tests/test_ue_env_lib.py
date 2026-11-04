@@ -396,3 +396,11 @@ def test_short_and_broad_lighting():
     assert short["key"]["loc"][1] > 0 > broad["key"]["loc"][1]  # short: camera-left (+Y), the side it turns to
     with pytest.raises(ValueError, match="needs the subject's facing"):
         R.plan([0, 0, 160], camera=[300, 0, 160], key_side="short")
+
+
+
+def test_project_ini_values():
+    v = Q.project_ini_values("final")
+    assert v == {"r.DynamicGlobalIlluminationMethod": "1", "r.ReflectionMethod": "1", "r.Shadow.Virtual.Enable": "1",
+                 "r.Lumen.HardwareRayTracing": "True", "r.GenerateMeshDistanceFields": "True"}
+    assert "r.GenerateMeshDistanceFields" not in Q.project_ini_values("no_gi")

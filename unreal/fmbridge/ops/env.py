@@ -189,9 +189,11 @@ def clouds(*, bottom_km: float = 5.0, height_km: float = 10.0, material: str = N
         m = U.load(material)
         if m is None:
             raise OpError(f"no cloud material {material!r}", code="not_found", hint="assets.list /Game/... to find one")
-        cur = U.to_json(c.get_editor_property("material"))
-        if cur != material.split(".", 1)[0]:
+        want = material.split(".", 1)[0]
+        # the soft pointer reads back None until it loads: compare with what was set (a tag), not the property
+        if U.tag_value(a, "fm_cloud_material") != want:
             c.set_material(m)  # Material is a soft pointer: SetMaterial (VolumetricCloudComponent.h:186)
+            U.set_tags(a, {"fm_cloud_material": want})
             ch.append("material")
     return {"label": L["clouds"], "changed": bool(created or ch), "created": created, "props": ch}
 
@@ -555,9 +557,10 @@ def quality(*, preset: str = "final", overrides: dict = None, project: bool = Fa
     none|reflections|all, lumen {final_gather, reflection, scene_detail, scene_lighting, max_trace_distance},
     fog_grid [pixel, z], vsm_bias, megalights, cvars). Sets the cvars now and the post fields on Env_Post.
 
-    Args: project: also write the project's renderer settings (URendererSettings GI/reflections/VSM/HWRT; HWRT
-    needs ray tracing on in the project and an editor restart). Returns: {"changed", "cvars": {...}, "post": [...],
-    "render_cvars": [ "name value", ... ] (to pass to a render job)}.
+    Args: project: also make it the project's default (GI, reflections, VSM, HWRT, mesh distance fields) in
+    Config/DefaultEngine.ini through editor.project_setting; applies at the next editor start (restart_required).
+    HWRT also needs r.RayTracing=True there (editor.project_setting key=r.RayTracing value=True). Returns: {"changed", "cvars": {...}, "post": [...],
+    "render_cvars": [ "name value", ... ] (to pass to a render job), "project_settings", "restart_required"}.
     Example: film-ue op env.quality preset=cinematic
     """
     spec = {"preset": preset, **(overrides or {})}
@@ -568,16 +571,23 @@ def quality(*, preset: str = "final", overrides: dict = None, project: bool = Fa
     a = cvars(cvars=cv)
     b = post(fields=pf, owner=owner)
     changed = a["changed"] or b["changed"]
+    project_settings, restart = {}, False
     if project:
         q = Q.resolve(spec)
-        rs = unreal.get_default_object(unreal.RendererSettings)
-        ch = U.set_props(rs, {"dynamic_global_illumination": Q.GI_ENUM[q["gi"]],
-                              "reflections": Q.REFL_ENUM[q["reflections"]],
-                              "shadow_map_method": "ShadowMapMethod.VIRTUAL_SHADOW_MAPS" if q["shadows"] == "vsm"
-                              else "ShadowMapMethod.SHADOW_MAPS",
-                              "use_hardware_ray_tracing_for_lumen": bool(q["hwrt"])})
-        changed |= bool(ch)
-    return {"changed": changed, "cvars": cv, "post": sorted(pf), "render_cvars": [f"{k} {v}" for k, v in cv.items()]}
+        if q["gi"] == "lumen" and q["reflections"] != "lumen":
+            raise OpError("with Lumen GI the engine forces Lumen reflections (RendererSettings.cpp:293)", code="bad_args",
+                          hint="use reflections=lumen, or project=false for a session-only ssr look")
+        # the project's defaults go to Config/DefaultEngine.ini through editor.project_setting (WP1): never through
+        # the URendererSettings CDO, whose PostEditChangeProperty can open modal dialogs (RendererSettings.cpp:288-310)
+        # and which does not persist. The cvars above already made it live for this session.
+        from . import call
+        for k, v in Q.project_ini_values(spec).items():
+            r = call("editor.project_setting", section=Q.INI_SECTION.strip("[]"), key=k, value=v)
+            project_settings[k] = r.get("value")
+            changed |= bool(r.get("changed"))
+            restart |= bool(r.get("restart_required"))
+    return {"changed": changed, "cvars": cv, "post": sorted(pf), "render_cvars": [f"{k} {v}" for k, v in cv.items()],
+            "project_settings": project_settings, "restart_required": restart}
 
 
 # ------------------------------------------------------------------------------------------------ captures

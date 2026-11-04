@@ -299,3 +299,27 @@ def test_autoexpose_by_lights(ue, fmb):
     from fmbridge.errors import OpError
     with pytest.raises(OpError, match="needs `lights`"):
         run_op("env.autoexpose", camera="Cam", adjust="lights")
+
+
+def test_quality_project_goes_to_the_ini_not_the_cdo(ue, fmb, monkeypatch):
+    calls = []
+
+    def project_setting(*, file="Engine", section, key, value=None):
+        """A fake editor.project_setting."""
+        calls.append((section, key, value))
+        return {"value": value, "changed": True, "restart_required": True}
+    monkeypatch.setitem(fmb._OPS, "editor.project_setting", project_setting)
+    r = run_op("env.quality", preset="final", project=True)
+    assert r["restart_required"] and ("/Script/Engine.RendererSettings", "r.Lumen.HardwareRayTracing", "True") in calls
+    assert not [a for a, _ in ue.called("Object.set_editor_property")
+                if a[0] in ("reflections", "dynamic_global_illumination", "generate_mesh_distance_fields")]
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError, match="forces Lumen reflections"):
+        run_op("env.quality", preset="final", overrides={"reflections": "ssr"}, project=True)
+
+
+def test_clouds_material_converges(ue, fmb):
+    ue.add_asset("/Game/Sky/MI_Clouds", "MaterialInstanceConstant")
+    assert run_op("env.clouds", material="/Game/Sky/MI_Clouds")["changed"]
+    ue.actor("Env_Clouds").get_component_by_class(ue.VolumetricCloudComponent)._props["material"] = None  # unloaded
+    assert run_op("env.clouds", material="/Game/Sky/MI_Clouds")["changed"] is False
