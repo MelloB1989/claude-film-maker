@@ -217,6 +217,11 @@ def run(t):                 # may be a generator: yield ticks the editor once, y
 - `t.scratch` (`/Game/_Selftest/<area>`) holds every asset you make; the harness deletes it afterwards and goes back to
   the level that was open (or a blank one) unless `--keep`. `t.out` is the report folder on the box, `t.box` the
   engine, platform, command line and capabilities.
+- Outside a selftest (any op or exec'd script that needs a throwaway place): `from fmbridge.ops._scratch import scratch`
+  then `with scratch("/Game/_Scratch/<name>") as s:` (a fresh level at `s.level`, `s.prefix` for labels; back to the
+  previous level and the folder deleted on exit, also on an exception or a closed generator; `level=False` stays in
+  the open level and destroys `s.prefix*` actors on exit; only /Game/_Scratch and /Game/_Selftest are allowed). The
+  harness uses the same code.
 - `t.call(op, ...)` runs a short multi-tick op to its end without ticking (for a test that is not a generator).
 - Report (`<out>/<area>.json`): `{area, ok, status: done|skipped|error, passed, failed, checks: [{name, ok, got, want,
   detail, ms}], ops_covered, ops_missed, stills, artifacts, notes, metrics (incl. op_ms per op), errors, extra, box,
@@ -307,4 +312,5 @@ State (fleet/agent-13/ue-dx, merged into ue-helpers by the lead as it lands):
   (it prints at the end; use `--json` and read `items`); the SDK's Job polls every 2 s (WP1's client.wait with
   on_progress could replace it); kind schemas of other WPs are validated only for what jsonschema_lite supports
   (no `if/then`, `dependentRequired`, `format`).
-- Backlog claimed: B10 scratch context, B32 op journal, B34 SDK example scripts, B35 GUIDE recipes with expected JSON.
+- Backlog: B10 scratch context DONE (ops/_scratch.py). Claimed: B32 op journal, B34 SDK example scripts, B35 GUIDE
+  recipes with expected JSON.
