@@ -509,7 +509,32 @@ class StaticMeshComponent(MeshComponent):
 
 
 class SkinnedMeshComponent(MeshComponent):
-    pass
+    """Bones: a table {name: [x, y, z] world cm} in _props["bones"] (fake.pose(actor, {...}) sets it; the older key
+    "fake_bones" is read too). Sockets are bones. Without a table, a socket is the component's location."""
+
+    def _bones(self) -> dict:
+        return self._props.get("bones") or self._props.get("fake_bones") or {}
+
+    def does_socket_exist(self, in_socket_name) -> bool:
+        return str(in_socket_name) in self._bones()
+
+    def get_socket_location(self, in_socket_name):
+        b = self._bones().get(str(in_socket_name))
+        return Vector(*b) if b is not None else self.get_world_location()
+
+    def get_bone_index(self, bone_name) -> int:
+        names = list(self._bones())
+        return names.index(str(bone_name)) if str(bone_name) in names else -1
+
+    def get_bone_name(self, bone_index: int):
+        names = list(self._bones())
+        return Name(names[bone_index]) if 0 <= bone_index < len(names) else Name("None")
+
+    def get_num_bones(self) -> int:
+        return len(self._bones())
+
+    def get_all_socket_names(self) -> list:
+        return [Name(n) for n in self._bones()]
 
 
 class SkeletalMeshComponent(SkinnedMeshComponent):
@@ -1433,6 +1458,13 @@ class FakeUnreal(types.ModuleType):
         if extent is not None:
             object.__setattr__(a, "_extent", Vector(*extent))
         return self.world.add(a)
+
+    def pose(self, actor, bones: dict):
+        """Give an actor's skeletal mesh a pose: {bone: [x, y, z]} in world cm (read by get_socket_location etc.)."""
+        a = self.actor(actor) if isinstance(actor, str) else actor
+        comp = a.get_components_by_class(SkinnedMeshComponent)[0]
+        comp._props["bones"] = {k: list(v) for k, v in bones.items()}
+        return a
 
     def actor(self, label: str):
         """The actor with this label, or None."""

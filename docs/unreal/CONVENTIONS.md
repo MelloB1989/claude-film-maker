@@ -205,7 +205,8 @@ Every visual change must be checkable without a UI:
   severity `fail`.
 - An issue is `{"code", "severity": "fail"|"warn"|"info", "message", "fix", "frame", "camera", "subject", "box",
   "value", "expected"}`:
-  - `code`: a stable snake_case id (`headroom_tight`, `exposure_clipped`).
+  - `code`: a stable dotted id, `area.snake_case` (`framing.headroom_low`, `exposure.clipped_highlights`,
+    `mesh.penetration`).
   - `fix`: the op call or change that would resolve it.
   - `box`: `[x0, y0, x1, y1]` in 0..1 image coordinates.
   - Fields that do not apply are omitted.
