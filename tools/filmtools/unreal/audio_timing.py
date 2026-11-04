@@ -23,6 +23,8 @@ import math
 import wave
 from pathlib import Path
 
+from .boxpaths import BoxPaths
+
 KIND, VERSION = "timing", 1
 LINE_KEYS = {"id", "speaker", "wav", "start_frame", "start_s", "end_frame", "duration_s", "offset_s", "volume_db",
              "text", "words", "take", "mood"}
@@ -175,7 +177,8 @@ def performance_handoff(doc: dict, faces: dict, mood: str = "CONFIDENCE", wav_ro
         f = faces.get(ln.get("speaker", ""))
         if not f:
             continue
-        wav = ln["wav"] if not wav_root or ln["wav"].startswith("/") else f"{wav_root.rstrip('/')}/{ln['wav']}"
+        bp = BoxPaths.style_of(wav_root) if wav_root else None
+        wav = ln["wav"] if bp is None or bp.is_abs(ln["wav"]) else bp.join(wav_root, ln["wav"])
         out.append({"line": ln["id"], "speaker": ln.get("speaker", ""), "wav": wav,
                     "speech": {"wav": wav, "name": ln["id"], "face_mesh": f["face_mesh"],
                                "mood": ln.get("mood") or f.get("mood") or mood, "folder": anim_folder},

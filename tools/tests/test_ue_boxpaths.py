@@ -35,3 +35,12 @@ def test_errors():
 def test_to_dict_lists_every_location():
     d = LIN.to_dict()
     assert d["os"] == "linux" and all(v.startswith("/srv/ue/projects/HostStudio") for k, v in d.items() if k != "os")
+
+
+def test_style_of_and_users():
+    from filmtools.unreal import audio_timing
+    assert BoxPaths.style_of(r"D:\vo").join(r"D:\vo", "L1.wav") == r"D:\vo\L1.wav"
+    assert BoxPaths.style_of("/srv/vo").os == "linux"
+    doc = audio_timing.from_lines([{"id": "L1", "wav": "L1.wav", "start_frame": 0, "duration_s": 1, "speaker": "h"}], 24)
+    h = audio_timing.performance_handoff(doc, {"h": {"face_mesh": "/Game/F", "label": "H"}}, wav_root=r"C:\P\Saved\Audio")
+    assert h[0]["wav"] == r"C:\P\Saved\Audio\L1.wav"

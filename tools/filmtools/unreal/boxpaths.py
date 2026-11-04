@@ -116,6 +116,13 @@ class BoxPaths:
                 "ddc": self.ddc()}
 
     @classmethod
+    def style_of(cls, path: str) -> "BoxPaths":
+        """A BoxPaths in the style a path is written in (a drive letter or a backslash: Windows), for joining onto
+        a root the caller gave without knowing the box."""
+        win = "\\" in path or (len(path) > 1 and path[1] == ":")
+        return cls("windows" if win else "linux", path)
+
+    @classmethod
     def current(cls) -> "BoxPaths":
         """From film-ue's settings: the box's os ("windows" unless set) and project_dir."""
         from . import workstation as ws

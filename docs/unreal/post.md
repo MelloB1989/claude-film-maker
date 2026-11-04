@@ -57,7 +57,7 @@ frame) for where the face animation goes. A speaker with no face (a narrator) is
 ```bash
 fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- uv run film-post speak --text "Welcome in." --id L1 \
     --sequence /Game/Seq/SQ_Main --start-frame 48 --face-mesh /Game/MH/Host/Face --label Host \
-    --voice-id <id> --box-dir /srv/film/vo --out-dir out/vo        # --dry-run: the plan, no TTS, no bridge
+    --voice-id <id> --out-dir out/vo     # box: <project>/Saved/Audio (--box-dir to change); --dry-run: plan only
 ```
 
 It runs, in order: TTS on the client (the take cached in out/vo/L1.wav + .json, keyed on text and voice, so a re-run
