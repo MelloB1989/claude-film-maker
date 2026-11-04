@@ -95,6 +95,7 @@ film-ue dx lint     # ops that are hard for an agent: no docstring, untyped requ
                     # kind schemas without descriptions or with additionalProperties not false
 film-ue dx docs     # every `film-ue <area> <verb> --flag` line in the docs parses against the op schema
 film-ue dx sdk      # every ue.<area>.<verb>(...) / ue.call("a.v") in examples/ and films/*/unreal/ matches the schema
+film-ue dx coverage # which ops each selftest exercises (statically), and the op areas with no selftest
 ```
 `ops_schema.json` can conflict in a merge when two branches both regenerated it: take either side and run
 `film-ue dx gen` again.
@@ -110,7 +111,7 @@ film-ue dx sdk      # every ue.<area>.<verb>(...) / ue.call("a.v") in examples/ 
 | `film-ue plan SPEC... [--state FILE] [--only K] [--set N=V] [--json]` | the steps |
 | `film-ue apply SPEC... [--dry-run] [--stop] [--only K] [--set N=V] [--json]` | converge and verify |
 | `film-ue selftest [AREA...\|all] [--list] [--keep] [--out DIR] [--no-pull] [--json]` | acceptance tests |
-| `film-ue dx gen\|check\|lint\|docs\|sdk [FILE...]` | the generated layers; op/schema lint; doc commands against the schema |
+| `film-ue dx gen\|check\|lint\|docs\|sdk [FILE...]\|coverage` | the generated layers; op/schema lint; doc commands against the schema |
 
 Bridge ops of this area: `selftest.list`, `selftest.run` (multi-tick), `selftest.cleanup`; `journal.tail`,
 `journal.clear`, `journal.record`, `journal.replay` (multi-tick). `ops.schema` / `ops.broken` /

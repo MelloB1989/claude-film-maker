@@ -45,7 +45,7 @@ def register(sub) -> None:
     s.add_argument("--baseline", default="auto", choices=("auto", "compare", "update", "off"),
                    help="stills against stored baselines (WP10): auto stores the first and compares after")
     x = sub.add_parser("dx", help="the generated layers: gen (schema snapshot + SDK), check (stale?), lint (op docs)")
-    x.add_argument("action", choices=("gen", "check", "lint", "docs", "sdk"))
+    x.add_argument("action", choices=("gen", "check", "lint", "docs", "sdk", "coverage"))
     x.add_argument("paths", nargs="*", help="dx sdk: Python files to check (default examples/ and films/*/unreal/)")
     x.add_argument("--json", action="store_true")
 
@@ -102,6 +102,11 @@ def dx(action: str, as_json: bool = False, paths: list | None = None) -> int:
         _print({"ok": not problems, "stale": problems}, as_json,
                "up to date" if not problems else "STALE: " + "; ".join(problems) + "\n  fix: film-ue dx gen")
         return 1 if problems else 0
+    if action == "coverage":
+        from . import coverage
+        r = coverage.report()
+        _print(r, as_json, coverage.text(r))
+        return 0
     if action == "sdk":
         from . import sdkcheck
         probs = sdkcheck.check(paths or sdkcheck.default_paths())
