@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from filmtools import paths
+from fakeunreal.plugin import fmb, ue  # noqa: F401  (fixtures for the Unreal bridge's tests)
 
 
 def make_film(root: Path, fid: str = "demo", **doc) -> paths.FilmPaths:
