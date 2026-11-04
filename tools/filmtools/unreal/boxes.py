@@ -6,6 +6,8 @@ nobody uses it.
     film-ue box status gpu1              the instance and its watchdog's last decision (why it is or is not idle)
     film-ue box extend gpu1 --ttl 2h     more time (from now)
     film-ue box down gpu1 [--forget]     terminate it (and forget its profile)
+    film-ue box image gpu1 [--label hs]  bake it into an AMI (engine, project, warm DDC; no sign-in) for --ami latest
+    film-ue box images | image-rm AMI    the images; deregister one and delete its snapshots
 
 `box up` launches an EC2 instance (Ubuntu 22.04 by default, or --ami: an image with the engine already on it) with
 "shutdown behaviour: terminate", tags it (film-ue:box, film-ue:ttl-until, film-ue:owner) and gives it, through its
@@ -189,6 +191,8 @@ def up(name: str, *, instance_type: str = DEFAULT_TYPE, ttl: str = "4h", idle: s
     if ttl_s < 600:
         raise SystemExit("ttl under 10 minutes: a box needs that long just to start (--ttl 1h)")
     ttl_until = int(time.time()) + ttl_s
+    if ami == "latest":  # the newest film-ue image (box image) for this project, else Ubuntu
+        ami = latest_image((base.get("project_dir") or "").rstrip("/").rsplit("/", 1)[-1], region, aws)
     if not ami:
         ami = aws("ssm", "get-parameter", "--name", UBUNTU_AMI_PARAM)["Parameter"]["Value"]
     project_dir = base.get("project_dir", "")
@@ -303,3 +307,107 @@ def keepalive(name: str, *, run=None) -> str:
     with _on(name):
         (run or (lambda s: ws.sh(s, 60, root=True)))("mkdir -p /run/film-ue && touch /run/film-ue/keepalive")
     return f"box {name}: idle clock reset"
+
+
+# ------------------------------------------------------------------------------------------------- images (B51)
+IMAGE_TAG = "film-ue:image"
+
+PREPARE_IMAGE = r"""set -e
+# a box about to become an image: the editor stopped cleanly (its unit saves the Epic sign-in to S3 first), then
+# nothing secret or per-box left on disk; the watchdog kept, idle protection only (a box launched from the image by
+# hand still ends itself when idle; film-ue box up writes its own TTL)
+systemctl stop {service} || true
+U={user}
+H=$(getent passwd "$U" | cut -d: -f6)
+rm -rf "$H/.local/share/.eos_sdk" "$H/.film-ue/ue-args-once" "$H/.film-ue/epic-signin.url" /root/vnc-pass /root/fleet-vnc.pass
+rm -f {project}/Saved/fmbridge.token
+rm -rf {project}/Saved/Bridge/jobs {project}/Saved/Bridge/cvars
+mkdir -p /etc/film-ue
+python3 - <<'PY'
+import json
+p = "/etc/film-ue/watchdog.json"
+try:
+    c = json.load(open(p))
+except (OSError, ValueError):
+    c = {{}}
+c.update(ttl_until=None, on_exit=[])
+json.dump(c, open(p, "w"), indent=1)
+PY
+rm -f /var/lib/film-ue/watchdog.json
+systemctl stop film-ue-ttl.timer 2>/dev/null || true
+cloud-init clean --logs >/dev/null 2>&1 || true
+journalctl --rotate >/dev/null 2>&1; journalctl --vacuum-time=1s >/dev/null 2>&1 || true
+sync
+echo prepared
+"""
+
+
+def image(name: str, *, label: str = "", wait: bool = False, aws=None, run=None, log=print) -> dict:
+    """Bake a provisioned box into an AMI (engine, project, warm DDC, bridge; no Epic sign-in, no tokens), so the
+    next `box up --ami latest` starts in minutes. The box reboots once (a consistent disk) and comes back up."""
+    import shlex
+    prof = _profile(name)
+    region = prof.get("region") or ws.conf()["region"]
+    aws = aws or _aws(region)
+    row = _find(name, region, aws)
+    if not row or row["state"] != "running":
+        raise SystemExit(f"box {name!r} is not running (film-ue box ls)")
+    script = PREPARE_IMAGE.format(service=shlex.quote(prof.get("service") or "ue-editor"),
+                                  user=shlex.quote(prof.get("user") or "ubuntu"),
+                                  project=shlex.quote(prof.get("project_dir") or "/nonexistent"))
+    with _on(name):
+        out = (run or (lambda s: ws.sh(s, 600, root=True)))(script)
+    if "prepared" not in (out or ""):
+        raise SystemExit(f"box {name}: preparing the image failed: {(out or '')[-400:]}")
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    ami_name = f"film-ue-{label or name}-{stamp}"
+    project = (prof.get("project_dir") or "").rstrip("/").rsplit("/", 1)[-1]
+    tags = [{"Key": IMAGE_TAG, "Value": label or name}, {"Key": "film-ue:project", "Value": project},
+            {"Key": "film-ue:engine", "Value": prof.get("engine_version") or "5.8.4"},
+            {"Key": "film-ue:from", "Value": row["id"]}]
+    r = aws("ec2", "create-image", "--instance-id", row["id"], "--name", ami_name,
+            "--description", f"film-ue box image: engine, project {project}, warm DDC, bridge (no sign-in)",
+            "--tag-specifications", json.dumps([{"ResourceType": "image", "Tags": tags},
+                                                {"ResourceType": "snapshot", "Tags": tags}]))
+    ami = r["ImageId"]
+    log(f"box {name}: imaging as {ami} ({ami_name}); the box reboots and comes back")
+    if wait:
+        aws("ec2", "wait", "image-available", "--image-ids", ami)
+    return {"name": name, "ami": ami, "ami_name": ami_name, "project": project, "state": "available" if wait else "pending"}
+
+
+def images(region: str | None = None, aws=None) -> list[dict]:
+    """The film-ue images in the region, newest first."""
+    region = region or ws.conf()["region"]
+    aws = aws or _aws(region)
+    d = aws("ec2", "describe-images", "--owners", "self", "--filters", f"Name=tag-key,Values={IMAGE_TAG}")
+    rows = []
+    for i in d.get("Images", []):
+        tags = {t["Key"]: t["Value"] for t in i.get("Tags", [])}
+        rows.append({"ami": i["ImageId"], "name": i.get("Name"), "state": i.get("State"), "created": i.get("CreationDate"),
+                     "label": tags.get(IMAGE_TAG), "project": tags.get("film-ue:project"),
+                     "engine": tags.get("film-ue:engine"),
+                     "snapshots": [b["Ebs"]["SnapshotId"] for b in i.get("BlockDeviceMappings", []) if "Ebs" in b]})
+    return sorted(rows, key=lambda r: r["created"] or "", reverse=True)
+
+
+def latest_image(project: str = "", region: str | None = None, aws=None) -> str:
+    """The newest available film-ue image (for `project` when given)."""
+    rows = [r for r in images(region, aws) if r["state"] == "available" and (not project or r["project"] == project)]
+    if not rows:
+        raise SystemExit("no film-ue image" + (f" for project {project}" if project else "") +
+                         ": film-ue box image NAME (from a provisioned box) first, or box up without --ami")
+    return rows[0]["ami"]
+
+
+def image_rm(ami: str, *, aws=None, region: str | None = None) -> dict:
+    """Deregister a film-ue image and delete its snapshots (they cost money while kept)."""
+    region = region or ws.conf()["region"]
+    aws = aws or _aws(region)
+    row = next((r for r in images(region, aws) if r["ami"] == ami), None)
+    if not row:
+        raise SystemExit(f"{ami} is not a film-ue image here (film-ue box images)")
+    aws("ec2", "deregister-image", "--image-id", ami)
+    for snap in row["snapshots"]:
+        aws("ec2", "delete-snapshot", "--snapshot-id", snap)
+    return {"ami": ami, "deleted_snapshots": row["snapshots"]}
