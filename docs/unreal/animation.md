@@ -272,6 +272,16 @@ reflected names; an out-parameter comes back as the return value.
 | `ControlRig.get_hierarchy().get_controls()` | `URigHierarchy::GetControlKeys` (ScriptName GetControls) | Engine/Plugins/Animation/ControlRig/Source/ControlRig/Public/Rigs/RigHierarchy.h:1181 | yes |
 | `MetaHumanPerformance.start_pipeline(True)` -> `StartPipelineErrorType` (NONE, NO_FRAMES, DISABLED) | `StartPipeline`, `EStartPipelineErrorType` | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformance.h:486, :65 | yes |
 | `MetaHumanPerformance.is_processing() / cancel_pipeline() / get_number_of_processed_frames()` | `IsProcessing` / `CancelPipeline` / `GetNumberOfProcessedFrames` | MetaHumanPerformance.h:492 / :489 / :563 | yes |
+| `unreal.AnimationCurveIdentifierExtensions` (class) | `UAnimationCurveIdentifierExtensions` (UBlueprintFunctionLibrary) | Engine/Source/Runtime/Engine/Classes/Animation/AnimData/CurveIdentifier.h:111 | yes |
+| `unreal.RawCurveTrackTypes.RCT_FLOAT` | `ERawCurveTrackTypes::RCT_Float` (UENUM BlueprintType) | Engine/Source/Runtime/Engine/Public/Animation/AnimCurveTypes.h:1044 | yes |
+| `unreal.RichCurveKey(time=, value=, interp_mode=)` | `FRichCurveKey` (USTRUCT BlueprintType) | Engine/Source/Runtime/Engine/Classes/Curves/RichCurve.h:79 | yes |
+| `unreal.IKRetargeter` | `UIKRetargeter` (UCLASS BlueprintType) | Engine/Plugins/Animation/IKRig/Source/IKRig/Public/Retargeter/IKRetargeter.h:69 | yes |
+| `unreal.IKRigDefinitionFactory.create_new_ik_rig_asset(path, name)` | `CreateNewIKRigAsset` (BlueprintCallable; DisplayName does not rename it) | Engine/Plugins/Animation/IKRig/Source/IKRigEditor/Public/RigEditor/IKRigDefinitionFactory.h:43 | yes |
+| `unreal.RetargetSourceOrTarget.SOURCE / TARGET` | `ERetargetSourceOrTarget` (UENUM) | Engine/Plugins/Animation/IKRig/Source/IKRig/Public/Retargeter/IKRetargetSettings.h:11 | yes |
+| `unreal.AutoMapChainType.FUZZY` | `EAutoMapChainType::Fuzzy` (UENUM, exported through AutoMapChains) | Engine/Plugins/Animation/IKRig/Source/IKRig/Public/Retargeter/IKRetargetChainMapping.h:13 | yes |
+| `unreal.DataInputType.AUDIO` | `EDataInputType::Audio` (UENUM BlueprintType) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformance.h:34 | yes |
+| `unreal.MetaHumanPerformanceFactoryNew()` | `UMetaHumanPerformanceFactoryNew` (UCLASS, a UFactory) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Private/MetaHumanPerformanceFactoryNew.h:13 | yes |
+| `unreal.PerformanceExportRange.WHOLE_SEQUENCE` | `EPerformanceExportRange::WholeSequence` (UENUM) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformanceExportUtils.h:20 | yes |
 | `unreal.AnimationLibrary.get_animation_curve_names` | `GetAnimationCurveNames` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:89 | yes |
 | `unreal.AnimationLibrary.get_float_keys` | `GetFloatKeys` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:456 | yes |
 | `unreal.AnimationLibrary.does_curve_exist` | `DoesCurveExist` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:514 | yes |
