@@ -43,7 +43,9 @@ def _clean(argv: list) -> list | None:
             continue
         if w.startswith("--box="):
             continue
-        if "..." in w or re.search(r"<[^>]+>", w) or w in ("|", "&&", ";", ">", "2>&1") or w.startswith(">"):
+        placeholder = (re.fullmatch(r"--?[A-Z][A-Z_]*", w) or re.fullmatch(r"[A-Z][A-Z_]+", w)
+                       or ("/" in w and not w.startswith(("/", ".", "@", "~")) and "=" not in w and ":" not in w))
+        if "..." in w or re.search(r"<[^>]+>", w) or w in ("|", "&&", ";", ">", "2>&1") or w.startswith(">") or placeholder:
             if out and out[-1].startswith("--") and "=" not in out[-1]:
                 out.append("X")  # the placeholder was this flag's value
             break
@@ -51,23 +53,68 @@ def _clean(argv: list) -> list | None:
     return out
 
 
+def _own_parser():
+    """film-ue's own commands' parser, raising instead of exiting."""
+    import argparse
+    from . import cli
+
+    class Bad(Exception):
+        pass
+
+    def error(self, message):
+        raise Bad(f"{self.prog}: {message}")
+    old = argparse.ArgumentParser.error
+    argparse.ArgumentParser.error = error
+    try:
+        ap, sub, _ = cli.build_parser()
+    finally:
+        argparse.ArgumentParser.error = old
+    return ap, sub, Bad, error
+
+
+def _check_own(argv: list, own) -> str:
+    """'' when film-ue's own command line parses (argparse, nothing run), else what is wrong."""
+    import argparse
+    ap, sub, Bad, error = own
+    old = argparse.ArgumentParser.error
+    argparse.ArgumentParser.error = error
+    try:
+        ns, extra = ap.parse_known_args(argv)
+    except Bad as e:
+        return "" if "arguments are required" in str(e) else str(e)  # docs abbreviate: a missing argument is fine
+    except SystemExit:  # --help and the like
+        return ""
+    finally:
+        argparse.ArgumentParser.error = old
+    bad = [w for w in extra if w.startswith("--")]
+    return f"unknown option {bad[0]}" if bad and ns.cmd not in ("poc",) else ""
+
+
 def check(paths=None, ix: dict | None = None) -> list:
     """[(file, line, command, problem)]"""
     ix = ix or _schema.index(_schema.load())
     parser = opcli.build(ix)
+    own = _own_parser()
     files = paths or sorted({p for g in GLOBS for p in ROOT.glob(g)})
     problems = []
     for f in files:
         f = Path(f)
         for n, argv in commands(f.read_text(errors="replace")):
             argv = _clean(argv)
-            if not argv or argv[0] not in ix["areas"] or argv[0] in BUILTIN:
+            if not argv:
+                continue
+            rel = f.relative_to(ROOT).as_posix() if f.is_relative_to(ROOT) else str(f)
+            if argv[0] in own[1].choices and not opcli.wants(argv, set(own[1].choices) - set(opcli.EXTENSIONS), ix):
+                p = _check_own(argv, own)
+                if p:
+                    problems.append((rel, n, " ".join(argv), p))
+                continue
+            if argv[0] not in ix["areas"]:
                 continue
             if len(argv) < 2 or argv[1].startswith("-"):
                 continue
             if opcli.extension(argv, ix) or argv[0] in opcli.EXTENSIONS and f"{argv[0]}.{argv[1]}" not in ix["ops"]:
                 continue  # an area's hand-written command (film-ue render validate ...)
-            rel = f.relative_to(ROOT).as_posix() if f.is_relative_to(ROOT) else str(f)
             name = f"{argv[0]}.{argv[1]}"
             if name not in ix["ops"]:
                 from .errors import close

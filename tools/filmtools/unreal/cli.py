@@ -223,8 +223,10 @@ SETTINGS = ("instance", "region", "os", "project_dir", "key", "bucket", "user", 
             "ssh", "ssh_key", "bridge", "epic_s3")
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+def build_parser():
+    """film-ue's own commands (and every cli_<area>.py hook's): (parser, subparsers, hooks). The generated op
+    commands are not in it (opcli builds those)."""
+    ap = argparse.ArgumentParser(prog="film-ue", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--box", help="which workstation (default: FILM_UE_BOX, else the one in film-ue.json)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("set")
@@ -242,6 +244,7 @@ def main() -> None:
     o.add_argument("name")
     o.add_argument("args", nargs="*")
     o.add_argument("--timeout", type=float, default=900)
+    o.add_argument("--async", dest="async_", action="store_true", help="start it as a job: film-ue job ID --wait")
     e = sub.add_parser("exec")
     e.add_argument("file", nargs="?")
     e.add_argument("-c", dest="code")
@@ -264,6 +267,12 @@ def main() -> None:
             hooks.append(h)
         except Exception as e:  # e.g. two hooks adding the same command
             sys.stderr.write(f"film-ue: {h.__name__}.register failed ({e}); its commands are missing\n")
+    return ap, sub, hooks
+
+
+def main() -> None:
+    ap, sub, hooks = build_parser()
+    from . import dxcli
     argv = sys.argv[1:]
     from . import opcli
     if opcli.wants(_after_box(argv), set(sub.choices)):  # film-ue <area> <verb> ...: the generated op commands
@@ -309,7 +318,11 @@ def main() -> None:
     elif a.cmd == "ops":
         _print(client.op("list", prefix=a.prefix))
     elif a.cmd == "op":
-        _print(client.op(a.name, timeout=a.timeout, **_kv(a.args)))
+        if a.async_:
+            r = client.op(a.name, timeout=a.timeout, wait=False, **_kv(a.args))
+            print(json.dumps({**r, "hint": f"film-ue job {r.get('job')} --wait"} if r.get("ok") else r, indent=1))
+        else:
+            _print(client.op(a.name, timeout=a.timeout, **_kv(a.args)))
     elif a.cmd == "exec":
         code = a.code if a.code is not None else Path(a.file).read_text()
         _print(client.exec_code(code, a.timeout))

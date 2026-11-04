@@ -302,3 +302,12 @@ def test_sdk_job_lost_is_an_operror():
     with pytest.raises(OpError) as e:
         job.wait(every=0)
     assert e.value.code == "job_lost" and e.value.hint == "h"
+
+
+def test_doccheck_checks_film_ues_own_commands(tmp_path):
+    from filmtools.unreal import doccheck
+    p = tmp_path / "x.md"
+    p.write_text("```\nfilm-ue plan s.yaml --bogus x.json\nfilm-ue selftest dx --kep\nfilm-ue apply s.yaml --dry-run\n"
+                 "film-ue op level.move label=K --async\nfilm-ue job\n```\n")
+    probs = [x[3] for x in doccheck.check([p])]
+    assert len(probs) == 2 and all("unknown option" in x or "unrecognized" in x for x in probs), probs
