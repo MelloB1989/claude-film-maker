@@ -593,7 +593,7 @@ def pbr(*, path: str, maps: dict = None, files: list = None, folder: str = "", t
     Returns: {"path", "master", "maps": {role: texture path}, "changed", "imported": [paths], "ignored": [files]}.
     Example: film-ue op mat.pbr path=/Game/Mats/MI_Rock folder=/data/megascans/rock_4k
     """
-    from . import assets as A
+    from . import assets_import as A
     maps = dict(maps or {})
     files = list(files or [])
     if folder:
@@ -670,7 +670,7 @@ def assign(*, mesh: str, material: str, slot=0) -> dict:
     Returns: {"mesh", "slot", "slot_name", "material", "changed"}.
     Example: film-ue op mat.assign mesh=/Game/Props/SM_Chair material=/Game/Mats/MI_Oak slot=0
     """
-    from . import assets as A
+    from . import assets_catalog as A
     mp = AL.package_path(mesh)
     if not EAL.does_asset_exist(mp):
         raise not_found("mesh", mp, [], hint="assets.find cls=StaticMesh")

@@ -220,3 +220,207 @@ def install(fake):
 
     fake.MaterialEditingLibrary = MEL
     fake._classes["MaterialEditingLibrary"] = MEL
+    _install_meshes(fake)
+    _install_import(fake)
+
+
+def _install_meshes(fake):
+    """Meshes with numbers, the static mesh editor subsystem, asset registry tags and references."""
+    core = __import__(f"{__package__}.core", fromlist=["core"])
+    fake.refs = {}  # package -> set of packages it depends on
+
+    class Box(core.Object):
+        pass
+
+    class StaticMaterial(core.Object):
+        pass
+
+    def mesh_data(m):
+        return m._props.setdefault("__mesh", {"size": [100.0, 100.0, 100.0], "tris": 1000, "lods": 1,
+                                              "nanite": False, "keep": 1.0, "simple": 0, "convex": 0,
+                                              "uv": 1, "lod_group": "None"})
+
+    def get_num_lods(self):
+        return mesh_data(self)["lods"]
+
+    def get_num_triangles(self, lod_index=0):
+        return int(mesh_data(self)["tris"] / (2 ** lod_index))
+
+    def get_num_vertices(self, lod_index=0):
+        return int(mesh_data(self)["tris"] * 0.6 / (2 ** lod_index))
+
+    def get_bounding_box(self):
+        x, y, z = mesh_data(self)["size"]
+        b = Box("Box")
+        b._props.update({"min": core.Vector(-x / 2, -y / 2, 0), "max": core.Vector(x / 2, y / 2, z)})
+        return b
+
+    def get_bounds(self):
+        x, y, z = mesh_data(self)["size"]
+        b = Box("BoxSphereBounds")
+        b._props.update({"origin": core.Vector(0, 0, z / 2), "box_extent": core.Vector(x / 2, y / 2, z / 2)})
+        return b
+
+    def set_material(self, material_index, new_material):
+        slots = self._props.get("static_materials") or []
+        slots[material_index]._props["material_interface"] = new_material
+
+    for cls in (core.StaticMesh, core.SkeletalMesh):
+        cls.get_bounds = get_bounds
+    core.StaticMesh.get_num_lods = get_num_lods
+    core.StaticMesh.get_num_triangles = get_num_triangles
+    core.StaticMesh.get_num_vertices = get_num_vertices
+    core.StaticMesh.get_bounding_box = get_bounding_box
+    core.StaticMesh.set_material = set_material
+
+    class SME(core.Object):
+        def get_nanite_settings(self, static_mesh):
+            d = mesh_data(static_mesh)
+            s = core.Object("MeshNaniteSettings")
+            s._props.update({"enabled": d["nanite"], "keep_percent_triangles": d["keep"]})
+            return s
+
+        def set_nanite_settings(self, static_mesh, nanite_settings, apply_changes=True):
+            d = mesh_data(static_mesh)
+            d["nanite"] = bool(nanite_settings._props["enabled"])
+            d["keep"] = float(nanite_settings._props["keep_percent_triangles"])
+
+        def get_lod_count(self, static_mesh):
+            return mesh_data(static_mesh)["lods"]
+
+        def set_lods(self, static_mesh, reduction_options):
+            n = len(reduction_options._props.get("reduction_settings") or [])
+            mesh_data(static_mesh)["lods"] = n
+            return n
+
+        def get_lod_group(self, static_mesh):
+            return fake.Name(mesh_data(static_mesh)["lod_group"])
+
+        def set_lod_group(self, static_mesh, lod_group, rebuild_immediately=True):
+            mesh_data(static_mesh)["lod_group"] = str(lod_group)
+            return True
+
+        def get_simple_collision_count(self, static_mesh):
+            return mesh_data(static_mesh)["simple"]
+
+        def get_convex_collision_count(self, static_mesh):
+            return mesh_data(static_mesh)["convex"]
+
+        def remove_collisions(self, static_mesh):
+            mesh_data(static_mesh).update(simple=0, convex=0)
+            return True
+
+        def add_simple_collisions(self, static_mesh, shape_type):
+            mesh_data(static_mesh)["simple"] += 1
+            static_mesh._props["body_setup"] = core.Object("BodySetup")
+            return 0
+
+        def set_convex_decomposition_collisions(self, static_mesh, hull_count, max_hull_verts, hull_precision):
+            mesh_data(static_mesh).update(convex=int(hull_count), simple=int(hull_count))
+            return True
+
+        def set_generate_lightmap_uv(self, static_mesh, generate_lightmap_uv):
+            mesh_data(static_mesh)["lightmap"] = bool(generate_lightmap_uv)
+            return True
+
+        def set_allow_cpu_access(self, static_mesh, allow_cpu_access):
+            static_mesh._props["allow_cpu_access"] = bool(allow_cpu_access)
+
+        def get_num_uv_channels(self, static_mesh, lod_index=0):
+            return mesh_data(static_mesh)["uv"]
+
+    fake.StaticMeshEditorSubsystem = SME
+    fake._classes["StaticMeshEditorSubsystem"] = SME
+
+    def add_mesh(path, size=(100, 100, 100), tris=1000, lods=1, materials=("Body",), skeletal=False, nanite=False,
+                 saved=True):
+        m = fake.add_asset(path, "SkeletalMesh" if skeletal else "StaticMesh")
+        mesh_data(m).update(size=[float(v) for v in size], tris=tris, lods=lods, nanite=nanite)
+        slots = []
+        for n in materials:
+            s = StaticMaterial(n)
+            s._props.update({"material_slot_name": fake.Name(n), "material_interface": None})
+            slots.append(s)
+        m._props["static_materials" if not skeletal else "materials"] = slots
+        m._props["allow_cpu_access"] = False
+        m._props["__saved_tags"] = saved
+        return m
+
+    fake.add_mesh = add_mesh
+
+    def get_tag_value(self, tag):
+        a = self._obj
+        tags = dict(a._props.get("__tags", {}))
+        if "__mesh" in a._props and a._props.get("__saved_tags", True):
+            d = a._props["__mesh"]
+            tags.update(ApproxSize="x".join(str(int(round(v))) for v in d["size"]), Triangles=str(d["tris"]),
+                        Vertices=str(int(d["tris"] * 0.6)), LODs=str(d["lods"]),
+                        NaniteEnabled="True" if d["nanite"] else "False",
+                        Materials=str(len(a._props.get("static_materials") or a._props.get("materials") or [])))
+        v = tags.get(str(tag))
+        return None if v is None else str(v)
+
+    def is_redirector(self):
+        return type(self._obj).__name__ == "ObjectRedirector"
+
+    core.AssetData.get_tag_value = get_tag_value
+    core.AssetData.is_redirector = is_redirector
+
+    def _deps(pkg):
+        return sorted(fake.refs.get(str(pkg), set()))
+
+    def get_dependencies(self, package_name, dependency_options=None):
+        return [fake.Name(x) for x in _deps(package_name)] or None  # bool+out: None when nothing
+
+    def get_referencers(self, package_name, dependency_options=None):
+        out = [fake.Name(k) for k, v in sorted(fake.refs.items()) if str(package_name) in v]
+        return out or None
+
+    core.AssetRegistry.get_dependencies = get_dependencies
+    core.AssetRegistry.get_referencers = get_referencers
+
+
+def _install_import(fake):
+    """Interchange pipelines with their real sub-pipelines (the ops set fields on them), and import options whose
+    struct-valued fields exist (conversion settings)."""
+    core = __import__(f"{__package__}.core", fromlist=["core"])
+
+    def sub(name):
+        return type(name, (core.Object,), {"__module__": "unreal"})
+
+    Mesh, Common, Skel = sub("InterchangeGenericMeshPipeline"), sub("InterchangeGenericCommonMeshesProperties"), \
+        sub("InterchangeGenericCommonSkeletalMeshesAndAnimationsProperties")
+    Anim, Mat, Tex = sub("InterchangeGenericAnimationPipeline"), sub("InterchangeGenericMaterialPipeline"), \
+        sub("InterchangeGenericTexturePipeline")
+
+    class InterchangeGenericAssetsPipeline(core.Object):
+        def __init__(self, name=None, outer=None, **props):
+            super().__init__(name, outer, **props)
+            mat = Mat("material_pipeline", self)
+            mat._props["texture_pipeline"] = Tex("texture_pipeline", mat)
+            self._props.update(mesh_pipeline=Mesh("mesh_pipeline", self), animation_pipeline=Anim("anim", self),
+                               common_meshes_properties=Common("common", self), material_pipeline=mat,
+                               common_skeletal_meshes_and_animations_properties=Skel("skel", self),
+                               import_offset_uniform_scale=1.0)
+
+    class InterchangePipelineStackOverride(core.Object):
+        def add_pipeline(self, pipeline):
+            self._props.setdefault("override_pipelines", []).append(pipeline)
+
+    class Conversion(core.Object):
+        pass
+
+    class AbcImportSettings(core.Object):
+        def __init__(self, name=None, outer=None, **props):
+            super().__init__(name, outer, **props)
+            self._props["conversion_settings"] = Conversion("AbcConversionSettings")
+
+    class GroomImportOptions(core.Object):
+        def __init__(self, name=None, outer=None, **props):
+            super().__init__(name, outer, **props)
+            self._props["conversion_settings"] = Conversion("GroomConversionSettings")
+
+    for c in (InterchangeGenericAssetsPipeline, InterchangePipelineStackOverride, AbcImportSettings,
+              GroomImportOptions, Mesh, Common, Skel, Anim, Mat, Tex):
+        setattr(fake, c.__name__, c)
+        fake._classes[c.__name__] = c

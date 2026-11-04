@@ -19,7 +19,9 @@ from . import _assetlib as AL
 from . import op
 from ..errors import OpError, closest, not_found
 
-EAL = unreal.EditorAssetLibrary
+# EditorAssetLibrary is in the EditorScriptingUtilities plugin (off by default in a new project); the
+# EditorAssetSubsystem has the same calls and is always there (and runs each call as an unattended script)
+EAL = getattr(unreal, "EditorAssetLibrary", None) or unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)
 
 
 def load(path: str):
@@ -237,7 +239,7 @@ def remove(*, paths: list = (), folder: str = "", force: bool = False, dry_run: 
 
     Args: paths: /Game/... assets. folder: every asset under a content folder (and the folder). force: delete even
           if referenced (referencers then point at nothing: they render the default material/mesh). dry_run: only
-          report.
+          report what would go (removed) and what is in use (kept).
     Returns: {"removed": [paths], "kept": {path: [referencers]}, "changed"}.
     Example: film-ue op assets.remove 'paths=["/Game/Old/SM_Box"]'
     """
@@ -251,15 +253,14 @@ def remove(*, paths: list = (), folder: str = "", force: bool = False, dry_run: 
         users = [u for u in referencers(t) if u not in tset]
         if users and not force:
             kept[t] = users
+    if dry_run:
+        return {"removed": [t for t in targets if t not in kept], "kept": kept, "changed": False}
     if kept and not force:
         raise OpError(f"{len(kept)} asset(s) are still used: " + "; ".join(f"{k} by {', '.join(v[:3])}"
                                                                          for k, v in list(kept.items())[:3]),
                       code="conflict", details={"kept": kept},
                       hint="repoint or remove the users first (assets.refs), or force=true")
     for t in targets:
-        if dry_run:
-            removed.append(t)
-            continue
         obj = EAL.load_asset(t)
         if obj is not None:
             unreal.get_editor_subsystem(unreal.AssetEditorSubsystem).close_all_editors_for_asset(obj)
@@ -267,9 +268,9 @@ def remove(*, paths: list = (), folder: str = "", force: bool = False, dry_run: 
             removed.append(t)
         else:
             raise OpError(f"could not delete {t}", code="engine", hint="is it loaded in the level? see film-ue log")
-    if folder and not dry_run and EAL.does_directory_exist(folder) and not _assets_under(folder):
+    if folder and EAL.does_directory_exist(folder) and not _assets_under(folder):
         EAL.delete_directory(folder)
-    return {"removed": removed, "kept": kept, "changed": bool(removed) and not dry_run}
+    return {"removed": removed, "kept": kept, "changed": bool(removed)}
 
 
 @op("assets.folder", mutates=True, idempotent=True)
@@ -416,22 +417,40 @@ def _level_users(p: str) -> list:
 
 
 def _redirectors_under(folder: str) -> list:
-    return [str(a.package_name) for a in _assets_under(folder) if _class_name(a) == "ObjectRedirector"]
+    out = []
+    for a in _assets_under(folder):
+        try:
+            red = a.is_redirector()
+        except Exception:
+            red = _class_name(a) == "ObjectRedirector"
+        if red:
+            out.append(str(a.package_name))
+    return out
 
 
 def fix_redirectors_in(folder: str) -> dict:
+    """Repoint referencers of every redirector under `folder` and delete the redirectors. AssetTools'
+    FixupReferencers is not reachable from Python (IAssetTools.h: no UFUNCTION), so: load each referencer (loading
+    follows the redirector), mark it dirty and save it (it now points at the real asset), then delete the
+    redirector."""
     reds = _redirectors_under(folder)
     if not reds:
-        return {"fixed": 0, "left": []}
-    objs = [EAL.load_asset(r) for r in reds]
-    objs = [o for o in objs if o is not None]
-    tools = unreal.AssetToolsHelpers.get_asset_tools()
-    try:
-        tools.fixup_referencers(objs, checkout_dialog_prompt=False)
-    except TypeError:
-        tools.fixup_referencers(objs)
-    left = [r for r in _redirectors_under(folder)]
-    return {"fixed": len(reds) - len(left), "left": left}
+        return {"fixed": 0, "left": [], "resaved": []}
+    resaved = []
+    for r in reds:
+        for user in referencers(r):
+            if user in resaved or user in reds:
+                continue
+            obj = EAL.load_asset(user)
+            if obj is None:
+                continue
+            obj.modify()
+            if EAL.save_loaded_asset(obj, only_if_is_dirty=False):
+                resaved.append(user)
+        if not referencers(r):
+            EAL.delete_asset(r)
+    left = _redirectors_under(folder)
+    return {"fixed": len(reds) - len(left), "left": left, "resaved": resaved}
 
 
 @op("assets.fix_redirectors", mutates=True, idempotent=True)
