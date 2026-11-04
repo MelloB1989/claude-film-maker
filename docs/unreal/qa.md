@@ -80,6 +80,23 @@ film-ue op qa.review sequence=/Game/Seq/S010 out_dir=/srv/qa/new reference_dir=/
 Check: `ssim` (1 identical; > 0.95 same picture; 0.8-0.95 same shot with changes; < 0.6 different), `psnr` dB,
 `changed` (grid cells with their boxes), the heatmap.
 
+**Regression against golden stills (baselines, B43)**
+```bash
+film-ue op qa.baseline_check suite=film/s010 name=00048 image=/srv/qa/s010/00048.png   # 1st run: created
+film-ue op qa.baseline_check suite=film/s010 name=00048 image=/srv/qa/s010/00048.png   # later: match/differs
+film-ue op qa.review sequence=/Game/Seq/S010 out_dir=/srv/qa/s010 baseline=film/s010   # every frame, one call
+film-ue op qa.baseline_save suite=film/s010 name=00048 image=/srv/qa/new.png overwrite=true   # accept a change
+film-ue op qa.baseline_list suite=film
+uv run film-qa baseline pull baselines/ --suite film      # mirror to the operator's side (PNG + JSON)
+uv run film-qa baseline check baselines/ film/s010 frames/*.png --diff-dir diffs/   # offline, by file stem
+uv run film-qa baseline push baselines/                   # accepted locally -> the box
+```
+Check: `metrics.status` = created | match | differs (warn) | different (fail) | updated, `ssim`, `stops_shift`
+(exposure drift is reported even when the structure matches), `diff` (heatmap). Baselines live on the box under
+`<project>/Saved/fmbridge/baselines/<suite>/<name>.png|.json` (`$FMBRIDGE_BASELINES` overrides); a baseline's JSON may
+carry its own `thresholds.min_ssim` for a noisy shot (`qa.baseline_save min_ssim=0.9`). The selftest harness checks
+every `t.still` against `selftest/<area>/<name>` (mode auto: the first GPU run creates them).
+
 **What changed in the level?**
 ```bash
 film-ue op qa.snapshot out=/srv/qa/before.json
@@ -123,13 +140,15 @@ Every command prints JSON and exits 1 when a `fail` issue was found.
 | `qa.floating` | gap under each actor (line traces) | |
 | `qa.overlaps` | interpenetrating bounds, share and depth | |
 | `qa.snapshot` / `qa.diff` | the level as JSON; what changed | |
-| `qa.review` | all of it for a sequence or a camera: review.json + review.png | yes |
+| `qa.review` | all of it for a sequence or a camera: review.json + review.png (`baseline=<suite>` too) | yes |
+| `qa.baseline_save` / `_compare` / `_check` / `_list` / `_remove` | golden stills by suite/name; regress against them | |
 
 Every `qa.*` returns `{"pass", "issues", "metrics"}` (CONVENTIONS §8). Issue codes (dotted, stable):
 `image.flat`, `exposure.under|over|clipped_highlights|crushed_shadows|subject_dark`, `color.cast|cast_expected`,
 `focus.subject_soft`, `compare.differs|region_changed|color_shift|no_reference`, `framing.*` (above),
 `mesh.penetration|garments_not_seen|penetration_skipped|floating|unsupported|sunk|overlap`,
-`continuity.added|removed|changed|exposure_jump|hue_jump|cast_jump|structure`, `review.image_unreadable`.
+`continuity.added|removed|changed|exposure_jump|hue_jump|cast_jump|structure`, `review.image_unreadable`,
+`baseline.missing|differs|different|region|exposure|shape`.
 
 Pure modules (import `fmbridge.qa.<m>`; client: `filmtools.unreal.qa_local.qa()`): `image` (Image, PNG
 read/write, resize, crop, colour), `draw` (5x7 font), `overlay`, `sheet`, `metrics`, `compare`, `framing` (Camera,
@@ -257,6 +276,10 @@ Where WP10 stopped (2026-11-05 night, agent-09):
   value (EMPTY_DEPTH), Lumen warm-up count (8) is enough, `capture_source` set through set_editor_property on an
   `interp` property, show-only lists with skeletal meshes (MetaHuman parts), `read_render_target_raw` speed at
   256-384 px (expected ~0.1 s), `HitResult.to_tuple()` field order.
+- B43 baselines (fleet/agent-09/ue-b43-baselines): store/compare/check in `fmbridge/qa/baseline.py`, `qa.baseline_*`
+  ops, `qa.review baseline=`, `film-qa baseline pull|push|check|list`. The harness hook (T.still -> baseline check,
+  `film-ue selftest --baseline auto|compare|update|off`) is agent-13's file: the patch was sent to them. The match
+  threshold (SSIM 0.95 at 480 px) is a guess until two GPU runs of the same scene are compared: tune MIN_SSIM then.
 - Not done / ideas: occlusion of a subject by another actor in frame (a line trace camera→bone; WP7 started one in
   camkit), checker-texture (failed material) detection in stills, per-frame penetration across a whole shot
   (`qa.review checks=["penetration"]` does it per sampled frame; a dense scan would be a separate op), WP7's
