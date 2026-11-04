@@ -13,6 +13,7 @@ shell on the box. cli.py finds this module (cli_<area>.py), calls register(sub) 
     film-ue provision --engine-s3 S3 --version 5.8.4 --project-src s3://...|win:PATH --project NAME [--level L]
                       [--epic-s3 S3] [--watchdog-ttl 4h --idle 20m --stall 15m]
     film-ue desktop on|off
+    film-ue first-run [--restart] [--from STEP] [--epic] [--voice FILE] [--status]   the new-box checklist (resumable)
     film-ue sh 'COMMAND' [--root] [--timeout S]      run it in the box's own shell (bash or PowerShell)
 
 Every command prints JSON (or plain text for logs). A command another module already registered is left to it."""
@@ -103,6 +104,15 @@ def register(sub) -> None:
     p = _add(sub, "desktop", help="a temporary desktop (VNC through SSM) for a one-off sign-in")
     if p:
         p.add_argument("state", choices=("on", "off"))
+    p = _add(sub, "first-run", help="the resumable checklist for a new box (prints the next command on a failure)")
+    if p:
+        p.add_argument("--restart", action="store_true", help="from the first step again")
+        p.add_argument("--from", dest="from_step", default="", help="from this step (settings, reach, editor, bridge, "
+                                                                     "shaders, doctor, epic, selftest, demo0)")
+        p.add_argument("--epic", action="store_true", help="run the Epic sign-in if there is none (prints a code)")
+        p.add_argument("--voice", default="", help="the demo's voice line (a WAV) to put on the box")
+        p.add_argument("--status", action="store_true", help="where it stopped last time")
+        p.add_argument("--json", action="store_true")
     p = _add(sub, "sh", help="run a command in the box's own shell")
     if p:
         p.add_argument("command")
@@ -186,6 +196,11 @@ def dispatch(a) -> bool:
         _linux_only("desktop")
         from . import linuxbox
         _out(linuxbox.desktop(a.state == "on"))
+    elif cmd == "first-run":
+        from . import firstrun
+        code = firstrun.main_args(a)
+        if code:
+            raise SystemExit(code)
     elif cmd == "sh":
         _out(ws.transport().run(a.command, a.timeout, root=a.root))
     return True

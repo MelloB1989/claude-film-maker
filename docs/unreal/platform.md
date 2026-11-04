@@ -29,6 +29,19 @@ The box ends itself: at its TTL (the watchdog, plus a systemd timer as a backsto
 nothing happening (no bridge call or job, GPU and CPU quiet, nobody logged in). Powering off terminates it. Before
 it ends, the editor is stopped, so its unit saves the Epic sign-in to S3.
 
+### The first morning on a new box: one resumable command
+
+```bash
+film-ue --box gpu1 first-run [--epic] [--voice demo_line.wav]   # settings, reach, editor, bridge, shaders, doctor,
+                                                                 # epic, selftest platform+dx, the demo's stage 0
+film-ue --box gpu1 first-run --status                            # where it stopped, and the next command
+```
+
+Each step checks one thing and fixes what it safely can: it starts the editor, installs or updates the bridge, and
+waits out the shader compile. On a failure it stops, prints the exact next command (`next: ...`), and keeps its
+progress in the profile. Running it again continues from there. `--from STEP` reruns from a step, `--restart`
+reruns everything. Steps that need a person (the Epic sign-in, the voice line) say so.
+
 ### Keep a box, give it more time, end it
 
 ```bash
