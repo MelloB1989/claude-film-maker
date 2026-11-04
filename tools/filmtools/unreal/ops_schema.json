@@ -6039,7 +6039,7 @@
    "verb": "textures",
    "module": "fmbridge.ops.mh.cloud",
    "file": "unreal/fmbridge/ops/mh/cloud.py",
-   "line": 157,
+   "line": 160,
    "summary": "Epic's cloud high-resolution skin texture sources (face and body), as a multi-tick job (about 20 s). Needs a",
    "doc": "Epic's cloud high-resolution skin texture sources (face and body), as a multi-tick job (about 20 s). Needs a\nrig first (the service signs in during the rig); mh.build needs them.\n\nSkips when the character already has them (`changed: false`); a skin change (mh.skin) discards them. The\nresolution is the skin setting desired_texture_sources_resolutions (mh.skin texture_resolution=4k).\nReturns: {\"changed\", \"seconds\", \"has_high_res_textures\", \"log\"}.\nExample: film-ue op mh.textures character=/Game/Characters/Ava/MH_Ava",
    "params": [

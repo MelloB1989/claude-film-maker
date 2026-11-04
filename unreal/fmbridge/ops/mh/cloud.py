@@ -143,8 +143,11 @@ def rig(character: str, full: bool = True, *, timeout_s: float = 900, force: boo
     p.set_editor_property("blocking", False)
     p.set_editor_property("report_progress", False)
     watch = K.LogWatch()
+    had = bool(c.get_editor_property("has_face_dna_blendshapes"))
     K.sub().request_auto_rigging(c, p)
-    done = (lambda: bool(c.get_editor_property("has_face_dna_blendshapes"))) if full else (lambda: False)
+
+    def done():  # a re-rig starts with the old rig's blend shapes: only a fresh appearance counts, else the log line
+        return full and not had and bool(c.get_editor_property("has_face_dna_blendshapes"))
     seconds, line = yield from _wait(watch, RIG_OK, RIG_FAIL, done, timeout_s, f"auto-rig of {character}")
     if full and not c.get_editor_property("has_face_dna_blendshapes"):
         yield 0.5  # the DNA is applied a tick after the log line
@@ -175,11 +178,24 @@ def textures(character: str, *, timeout_s: float = 900, force: bool = False, req
     p.set_editor_property("blocking", False)
     p.set_editor_property("report_progress", False)
     watch = K.LogWatch()
+    had = bool(c.get_editor_property("has_high_resolution_textures"))  # true only with force
     K.sub().request_texture_sources(c, p)
-    def done():  # set once both the face and the body sources are in (P10: body 4 s, face 11 s)
-        return bool(c.get_editor_property("has_high_resolution_textures"))
+    seen = set()
 
-    seconds, line = yield from _wait(watch, (), TEX_FAIL, done, timeout_s, f"texture download for {character}")
+    class Seen:  # the log watch, remembering which of the two downloads (face, body) have finished
+        @staticmethod
+        def new():
+            lines = watch.new()
+            for pat in (TEX_OK_FACE, TEX_OK_BODY):
+                if K.find(lines, (pat,)):
+                    seen.add(pat)
+            return lines
+
+    def done():  # both sources in (P10: body 4 s, face 11 s): the flag turning on, or both log lines
+        return (not had and bool(c.get_editor_property("has_high_resolution_textures"))) or len(seen) == 2
+
+    seconds, line = yield from _wait(Seen, (), TEX_FAIL, done, timeout_s,
+                                     f"texture download for {character}")
     if save:
         K.save(character)
     return {"changed": True, "seconds": seconds, "has_high_res_textures": True, "log": line}
