@@ -68,6 +68,22 @@ class MaterialEditingLibrary(core.Object):
         return float((instance._props.get("scalars") or {}).get(str(parameter_name), 0.0))
 
 
+def _both(name, theirs, mine):
+    """A MaterialEditingLibrary read that answers from WP2's storage and from ours."""
+    if name.endswith("_names"):
+        def names(material):
+            out = list(theirs(material) or [])
+            have = {str(x) for x in out}
+            return out + [x for x in mine(material) if str(x) not in have]
+        return names
+
+    def value(instance, parameter_name, association=None):
+        if str(parameter_name) in (instance._props.get("scalars") or {}):
+            return mine(instance, parameter_name, association)
+        return theirs(instance, parameter_name, association)
+    return value
+
+
 def install(fake):
     for cls in (HairGroupDesc, MaterialInstanceDynamic, GroomComponent):
         setattr(fake, cls.__name__, cls)
@@ -77,11 +93,17 @@ def install(fake):
     if mel is None or not isinstance(mel, type):
         fake.MaterialEditingLibrary = MaterialEditingLibrary
         fake._classes["MaterialEditingLibrary"] = MaterialEditingLibrary
-    else:
+    else:  # WP2's library (ext_assets) keeps instance params in _props["__params"]; ours in "scalars"/"vectors":
+        # each read answers from both, so a groom material made here is readable through either library
+        mine = MaterialEditingLibrary.__dict__
         for n in ("get_scalar_parameter_names", "get_vector_parameter_names",
                   "get_material_instance_scalar_parameter_value"):
-            if not any(n in k.__dict__ for k in mel.__mro__):
-                setattr(mel, n, MaterialEditingLibrary.__dict__[n])
+            theirs = next((k.__dict__[n] for k in mel.__mro__ if n in k.__dict__), None)
+            if theirs is None:
+                setattr(mel, n, mine[n])
+                continue
+            setattr(mel, n, staticmethod(_both(n, theirs.__func__ if isinstance(theirs, staticmethod) else theirs,
+                                               mine[n].__func__)))
     fake.cvars.setdefault("r.HairStrands.SkyLighting", "1")
 
     def groom(actor, name="Hair", groups=1, params=None, asset="/Game/Hair/GR_Hair"):
