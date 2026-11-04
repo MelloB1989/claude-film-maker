@@ -162,3 +162,36 @@ Updated through the night:
 
   The rule for how engine calls return in Python (PyGenUtil.cpp) is now in CONVENTIONS §12.
 - **The orchestrator was offline.** Decisions the lead took alone are in DECISIONS.md.
+
+## 5. Decisions waiting for the operator
+
+1. **Merging `ue-helpers`.** Merge it into `anime/rain-ferry` / `main` once the selftests pass on the GPU box.
+   `ue-helpers` = rain-ferry + reel + Linux work + tonight; nothing was pushed to either base.
+2. **The reel's fog.** Keep the newly working volumetric fog, or pin `volumetric=false` in
+   `films/host-studio` (see §4).
+3. **FabScript.** Build the C++ plugin into the project (Fab packs of the `unreal-engine` type need it), or live
+   with the Python download route (Megascans and glTF work without it).
+4. **AWS, when allowed again:**
+   - `film-ue box image` (B54) bakes a provisioned box into an AMI, saving about 1.5 h per new box. It is coded
+     and mocked; it has never run against AWS.
+   - `box up --ami latest` uses that image.
+5. **Secrets for tomorrow:** `ue-src-ssh` is in use tonight. ElevenLabs (`film-post speak`) and the Epic sign-in
+   (the device code at `film-ue first-run --epic`) are needed.
+6. **`tools/uv.lock`.** Re-lock it for PyYAML (`uv lock`), then commit.
+
+## 6. How the night ran
+
+- **13 work packages and 59 backlog items:**
+  - 57 items merged or covered.
+  - B39 (foliage) and B44 (data layers) are merged but not yet proven on an engine.
+  - WP6 had no owner (agent-12 was stopped by the operator), so the lead built it.
+- **Merges:**
+  - Every merge went through one gate (`dx gen`, then the whole ue suite with numpy/Pillow/soundfile, then
+    `dx docs`), and nothing was pushed red.
+  - Three early merges went out red and were fixed within minutes; the gate was built because of them.
+- **Fake engine:** four collisions between areas' fakes were found and fixed (bones, camera FOV, material
+  parameters, registry tags). The rule is now that extensions register and never replace. B58's audit lists the
+  engine names no fake models; all 50 exist in the 5.8.4 headers.
+- **Audits:** fresh-eyes audits of each area by another agent (B57) found the live-only bugs in §4.
+- **Records:** all decisions are in DECISIONS.md, claims and outcomes in BACKLOG.md, and each area's state in its
+  doc's HANDOFF.
