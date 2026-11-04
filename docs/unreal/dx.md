@@ -319,9 +319,39 @@ area.verb name; an unknown op is `not_found` with candidates; a misspelt argumen
 fixed with exactly one `level.move`, `film-ue level actors --json` answers, a missing actor is an actionable error.
 On the fake engine the whole thing passes in tests (`test_film_ue_selftest_dx_end_to_end`).
 
+## 9b. Day-1 triage (the box is running: read the failing check, do the fix, rerun `film-ue selftest dx`)
+
+| failing check (selftest dx) | likely cause | fix |
+|---|---|---|
+| no op module failed to import | a module touches an engine class at import that this editor lacks (a plugin off) | `film-ue op ops.broken` shows the traceback; guard the import or enable the plugin; `film-ue install` |
+| every schema entry has the CONVENTIONS shape / list and ops.schema name the same ops | the box runs an older bridge than the checkout | `film-ue install`, then `film-ue describe --live --json` vs `film-ue describe --json` |
+| an unknown op is not_found / a misspelt argument is bad_args | old server without OpError fields | `film-ue install`; `film-ue health` (bridge protocol 2) |
+| level.spawn made one actor | `/Engine/BasicShapes/Cube` not loadable, or EditorScriptingUtilities off | `film-ue doctor` (plugins); `film-ue assets list --path /Engine/BasicShapes` |
+| level.spawn again keeps one | a second actor kept the label (spawn's replace did not find it) | `film-ue level find --label 'ST_dx_*' --json`; `film-ue op selftest.cleanup area=dx` |
+| level.move moves it / level.actors sees the move | the location came back snapped or in another unit | read got/want in the report; level.move in ops/level.py |
+| the journal hook is installed | ops/__init__.py on the box predates `after_call` | `film-ue install` |
+| the journal recorded the move / journal.replay ... | Saved/fmbridge not writable, or the move went through a cached old ops module | `film-ue op journal.tail` (its `path`); disk (`film-ue doctor`) |
+| a generator job ticks the editor | the bridge's tick is not running (editor stuck, shader compile) | `film-ue editor status`; `film-ue selftest platform`; rerun after `editor.wait_compile` |
+| still box | no GPU RHI (`-nullrhi`) or the capture failed | `film-ue doctor` (RHI); `film-ue selftest qa` for the still path itself |
+| (client) first plan has no errors | the `actor` kind's editor snippet failed (kinds/core.py READ_ACTORS: tags, get_actor_scale3d) | `film-ue describe --live actor ST_dx_client_Box --json` shows the error; fix READ_ACTORS |
+| (client) apply converged / second plan is empty | the engine rounds a transform past the kind's tolerance (loc 0.5 cm, rot 0.05 deg, scale 1e-3) | `film-ue apply ... --json`, read `left`; widen `TOL` in kinds/core.py |
+| (client) drift: one move of the moved actor | the plan wants a respawn instead (class reported differently) | plan_actor in kinds/core.py: compare `cls` only for `cls:` specs |
+| (client) film-ue level actors --json answers | the subprocess CLI talks to another box (no FILM_UE_BOX) | `film-ue profile use NAME`, or set FILM_UE_BOX, rerun |
+| (client) a missing actor is an actionable error | an op raised a plain exception (no code/hint) | the op's `actor()` lookup must raise `not_found` (ops/_util.py) |
+
+| harness symptom (film-ue selftest) | likely cause | fix |
+|---|---|---|
+| `no selftest dx on the box` | the box's bridge predates the area's selftest | `film-ue install` |
+| stopped after the gate `platform` | bridge or editor not healthy | the platform report first (platform.md Day-1 triage), then `film-ue selftest --keep-going` |
+| an area `status: error` with `TIMEOUT` | first start compiling shaders, or a stuck job | `film-ue op editor.wait_compile`; rerun the one area |
+| `ERROR in cleanup` (delete_directory) | the scratch level was still loaded | `film-ue op selftest.cleanup area=<area>` |
+| job lost mid-area | the editor crashed or restarted | `film-ue editor crashes`; rerun the area; the report up to then is in `<out>/<area>.json` |
+| baseline `different` | a real visual change, or the first run on a new GPU | look at `stills/<area>_<name>.diff.png`; `film-ue selftest <area> --baseline update` when the change is right |
+| `film-ue apply` of the demo: `no asset .../BP_Host` | mh.build put it elsewhere | `film-ue assets list --path /Game/_Demo/MH --cls Blueprint`; `--set host_bp=...` (demo README stage 1) |
+
 ## 10. HANDOFF
 
-State (fleet/agent-13/ue-dx, merged into ue-helpers by the lead as it lands):
+State (fleet/agent-13/ue-dx, merged into ue-helpers by the lead as it lands; last push of the night 2026-11-05):
 
 - Done and tested on the fake (tools/tests/test_ue_dx*.py, ~95 tests): schema (static == live, field for field),
   generated CLI, SDK, describe, errors, job, plan/apply engine + generic kinds + bridge-planned scene/shot, selftest
@@ -342,6 +372,11 @@ State (fleet/agent-13/ue-dx, merged into ue-helpers by the lead as it lands):
   (it prints at the end; use `--json` and read `items`); the SDK's Job polls every 2 s (WP1's client.wait with
   on_progress could replace it); kind schemas of other WPs are validated only for what jsonschema_lite supports
   (no `if/then`, `dependentRequired`, `format`).
+- Also done since: B57 WP6 API audit (findings sent, the trace-channel one fixed fleet-wide), the API_NOTES gate
+  (test_ue_dx_apinotes_gate.py: no engine name without a row; its allowlist is empty: every owner added theirs)
+  and the hidden-enum gate (test_ue_dx_hidden_enums.py), `film-ue dx docs` parsing film-ue's own commands too, the
+  morning path starting at `film-ue first-run`, the SDK mapping a lost job to OpError job_lost, the level kind
+  working without the EditorScriptingUtilities plugin.
 - Backlog: B10 scratch context DONE (ops/_scratch.py); B34 SDK examples DONE (examples/unreal/sdk, `dx sdk` checker).
   B32 op journal DONE (ops/journal.py + the after_call hook in ops/__init__.py; the job outcome line needs
   `jobs.on_finish` from WP1: asked agent-07). B35 DONE: docs/unreal/RECIPES.md, generated by tools/tests/recipes_gen.py (20 tasks run on the fake engine through

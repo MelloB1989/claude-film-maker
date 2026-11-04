@@ -6,18 +6,7 @@ was added, each sent to its owner to verify on the source box). Adding a row for
 """
 from filmtools.unreal import apinotes
 
-ALLOWLIST = {  # 2026-11-05, apinotes at ue-helpers 106fb52+: owner in the comment
-    # agent-08 (look/env)
-    "LightingChannels", "Vector4", "LightingBuildQuality", "get_default_object", "CollectionScalarParameter",
-    "MaterialExpressionCollectionParameter", "MaterialExpressionComponentMask", "MaterialExpressionConstant3Vector",
-    "MaterialExpressionDivide", "MaterialExpressionMaterialFunctionCall", "MaterialExpressionMin",
-    "MaterialExpressionMultiply", "MaterialExpressionOneMinus", "MaterialExpressionSaturate",
-    "MaterialExpressionScalarParameter", "MaterialExpressionSubtract", "MaterialExpressionTextureCoordinate",
-    "MaterialExpressionTextureSampleParameter2D", "MaterialExpressionVectorParameter", "MaterialParameterCollection",
-    "MaterialParameterCollectionFactoryNew", "TextureCompressionSettings",
-    # agent-05 (render)
-    "DirectoryPath", "IntPoint",
-}
+ALLOWLIST: set = set()  # 2026-11-05: every engine name the bridge uses has an API_NOTES row (B40/B57)
 
 
 def test_no_new_engine_name_without_api_notes():
