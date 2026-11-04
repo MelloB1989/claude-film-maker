@@ -111,3 +111,14 @@ These are the traps the ops already handle; they matter when writing new ones.
   `yield from mh.cloth_inflate(...)` inside a generator (studio.py's `finish`): a bare call does nothing.
 - **The editor may open an Untitled level** after a restart: open the studio's level before building in it.
 - **Big files go through S3** (`workstation.push_dir` / `pull_dir`), not the tunnel.
+- **A hidden dialog says no.** Under `-unattended` (and in every EditorAssetSubsystem call or automated import) a
+  message box returns its default, No/Cancel, without showing: an action that "asks" silently does not happen. Check
+  results, never trust the call (docs/unreal/assets.md Gotchas).
+- **Material instance setters always return False** (MaterialEditingLibrary, 5.8) and accept any parameter name
+  (an orphan override): check names against the parent and read values back (`mat.instance` does).
+- **`delete_all_material_expressions` leaves every other node** (it deletes while iterating): delete one by one and
+  check the count is 0. **`recompile_material` returns the compile errors**: read them.
+- **EditorAssetLibrary is a plugin (EditorScriptingUtilities), off in a new project**; the EditorAssetSubsystem has
+  the same calls and is always there: import `EAL` from `ops/assets.py` (it falls back).
+- **An Interchange pipeline override replaces the whole stack**: a glTF import needs Epic's DefaultGLTFPipeline back,
+  and never edit `/Interchange/Pipelines/Default*` in memory (a later save writes it into the project's defaults).

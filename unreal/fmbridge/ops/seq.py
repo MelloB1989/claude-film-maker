@@ -1,11 +1,13 @@
-"""Level sequences: a shot from an actor, animations per component, audio and a camera; open and scrub. Keys on any
-property of an actor or component (floats, colours, visibility, material parameters), animation sections at offsets
-with blends, audio clips, and stills through the edit.
+"""The older single-purpose sequence ops (seq.shot, seq.key_*, seq.anim, seq.audio, seq.camera_cuts, seq.new,
+seq.cuts, seq.set_anim, seq.rebind, seq.tracks) and the viewport ones (seq.scrub, seq.close, seq.sample, seq.still,
+seq.stills). Same signatures and results as before; every write is now a canonical track handed to the Sequencer
+core (ops/seqcore: _engine.write_track, batched, Sequencer closed while writing), and seq.cuts / seq.set_anim read
+through its describe, so there is one engine path. New work: the declarative seq.apply (docs/unreal/sequencer.md).
 
-Sequencer traps these ops handle: frames are display-rate frames (the sequence's fps); section easing and start
-offsets are in tick resolution, converted here. Components are bound under their actor's binding and found by the
-pair (actor, component), never by the component's name alone (both presenters have a "Body"). Each key op replaces
-only its own track (that property, that parameter) on that binding, so re-running it is safe and tracks coexist."""
+Traps handled (by seqcore now): frames are display-rate frames; easing, start offsets and parameter keys are in
+ticks. Components are bound under their actor's binding and found by the pair (actor, component), never by the
+component's name alone (both presenters have a "Body"). Each key op replaces only its own track (that property,
+that parameter) on that binding, so re-running it is safe and tracks coexist."""
 from __future__ import annotations
 
 import math
@@ -13,10 +15,58 @@ import math
 import unreal
 
 from . import op
+from ..errors import not_found
+from ._util import actor, find_actor
 from .assets import EAL, free, load
-from .level import actor, look_rot
+from .level import look_rot
+from .seqcore import _engine as E
+from .seqcore._model import TRANSFORM_CHANNELS
 
 LSE = unreal.LevelSequenceEditorBlueprintLibrary
+
+
+# --- the layer over seqcore: every write goes through seqcore._engine.write_track (one engine path) ---------------
+
+def _section(rng=(None, None), row: int = 0, params: dict | None = None, channels: dict | None = None) -> dict:
+    return {"range": [rng[0], rng[1]], "row": int(row), "params": dict(params or {}), "channels": dict(channels or {})}
+
+
+def _track(kind: str, binding: str = "", component: str = "", name: str = "", params: dict | None = None,
+           sections: list | None = None) -> dict:
+    return {"kind": kind, "binding": binding, "component": component, "name": name, "params": dict(params or {}),
+            "sections": list(sections or [])}
+
+
+def _write(seq, tracks: list) -> None:
+    """Write canonical tracks through seqcore (batched, Sequencer closed while writing), save, refresh. The older
+    ops are plain functions, so seqcore's multi-tick writer is run to its end here (each yields per 2000 keys)."""
+    with E.Writing(seq, save=True):
+        for t in tracks:
+            g = E.write_track(seq, t)
+            try:
+                while True:
+                    next(g)
+            except StopIteration:
+                pass
+    if LSE.get_current_level_sequence():
+        LSE.refresh_current_level_sequence()
+
+
+def _interp_name(name: str) -> str:
+    """This module's interpolation names ("step" too) as seqcore's."""
+    n = str(name).lower()
+    if n not in INTERP:
+        raise ValueError(f"unknown interpolation {name!r}: one of {', '.join(INTERP)}")
+    return "constant" if n == "step" else n
+
+
+def _label_of(seq, component: str) -> str:
+    """The actor whose binding has a child binding `component` (the only one: else name the label)."""
+    found = [a for (a, c) in E.bindings(seq) if c == component]
+    if len(found) != 1:
+        raise not_found("component binding", component, [f"{a}.{c}" for a, c in E.bindings(seq) if c],
+                        hint="pass label= to say whose")
+    return found[0]
 
 
 @op("seq.shot", mutates=True, idempotent=False, tags=["sequencer", "legacy"])
@@ -30,37 +80,20 @@ def shot(path: str, actor_label: str, anims: dict, camera: str, audio: str = "",
         if LSE.get_current_level_sequence():
             LSE.close_level_sequence()
         free(path)  # create_asset over an existing asset asks in a modal dialog
-    folder, name = path.rsplit("/", 1)
-    seq = unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, folder, unreal.LevelSequence, unreal.LevelSequenceFactoryNew())
     wave = load(audio) if audio else None
     secs = seconds or (wave.get_editor_property("duration") if wave else 0) or max(
         load(a).get_editor_property("sequence_length") for a in anims.values())
     end = int(math.ceil(secs * fps)) + tail
-    seq.set_display_rate(unreal.FrameRate(fps, 1))
-    seq.set_playback_start(0)
-    seq.set_playback_end(end)
-    a = actor(actor_label)
-    seq.add_possessable(a)
-    comps = {c.get_name(): c for c in a.get_components_by_class(unreal.SkeletalMeshComponent)}
-    for comp, anim in anims.items():
-        b = seq.add_possessable(comps[comp])
-        tr = b.add_track(unreal.MovieSceneSkeletalAnimationTrack)
-        sec = tr.add_section()
-        sec.set_range(0, end)
-        p = sec.get_editor_property("params")
-        p.set_editor_property("animation", load(anim))
-        sec.set_editor_property("params", p)
+    from .seqcore import seq_core
+    seq_core.add(path=path, fps=fps, start=0, end=end, save=False)
+    seq = E.get(path)
+    E.binding(seq, actor_label, create=True)
+    tracks = [_track("anim", actor_label, comp, sections=[_section((0, end), params={"anim": a})])
+              for comp, a in anims.items()]
     if wave:
-        tr = seq.add_track(unreal.MovieSceneAudioTrack)
-        s = tr.add_section()
-        s.set_range(audio_start, end)
-        s.set_sound(wave)
-    cb = seq.add_possessable(actor(camera))
-    cut = seq.add_track(unreal.MovieSceneCameraCutTrack)
-    cs = cut.add_section()
-    cs.set_range(0, end)
-    cs.set_camera_binding_id(seq.get_binding_id(cb))
-    EAL.save_asset(path)
+        tracks.append(_track("audio", name="Audio", sections=[_section((audio_start, end), params={"sound": audio})]))
+    tracks.append(_track("camera_cut", sections=[_section((0, end), params={"camera": camera})]))
+    _write(seq, tracks)
     return {"sequence": path, "frames": end, "fps": fps}
 
 
@@ -84,12 +117,6 @@ def close() -> bool:
     return True
 
 
-def _binding(seq, name: str):
-    for b in seq.get_bindings():
-        if str(b.get_display_name()) == name or str(b.get_name()) == name:
-            return b
-    raise ValueError(f"no binding {name!r} in {seq.get_path_name()}")
-
 
 def component_of(actor_label: str, component: str):
     return next(c for c in actor(actor_label).get_components_by_class(unreal.SceneComponent) if c.get_name() == component)
@@ -102,18 +129,19 @@ def set_anim(path: str, component: str, anim: str, label: str = "", only: str = 
     Example: film-ue op seq.set_anim path=/Game/S/SEQ_A component=Body anim=/Game/A/Walk label=Host
     """
     seq = load(path)
-    b = _comp_binding(seq, label, component, create=False) if label else _binding(seq, component)
-    tracks = b.find_tracks_by_type(unreal.MovieSceneSkeletalAnimationTrack)
-    for s in tracks[0].get_sections():
-        p = s.get_editor_property("params")
-        cur = p.get_editor_property("animation")
-        if only and not (cur and cur.get_path_name().split(".")[0] in (only, anim)):
+    have = E.describe(path)
+    comp_label = label or _label_of(seq, component)
+    t = E.track_by_id(have, ("anim", comp_label, component, ""))
+    if t is None:
+        raise not_found("animation track", f"{comp_label}.{component}",
+                        [f"{x['binding']}.{x['component']}" for x in have["tracks"] if x["kind"] == "anim"],
+                        hint="seq.tracks lists them")
+    for s in t["sections"]:
+        cur = s["params"].get("anim")
+        if only and not (cur and cur in (only, anim)):
             continue
-        p.set_editor_property("animation", load(anim))
-        s.set_editor_property("params", p)
-    EAL.save_asset(path)
-    if LSE.get_current_level_sequence():
-        LSE.refresh_current_level_sequence()
+        s["params"]["anim"] = anim
+    _write(seq, [t])
     return anim
 
 
@@ -192,13 +220,6 @@ def seq_still(path: str, frame: int, camera: str, out: str, width: int = 1920, h
     return (yield from still(camera, out, width, height))
 
 
-def _bound(seq, label: str):
-    """The sequence's binding for an actor, made when missing."""
-    for b in seq.get_bindings():
-        if str(b.get_display_name()) == label:
-            return b
-    return seq.add_possessable(actor(label))
-
 
 @op("seq.key_transform", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def key_transform(path: str, label: str, keys: list, interp: str = "auto") -> int:
@@ -209,20 +230,17 @@ def key_transform(path: str, label: str, keys: list, interp: str = "auto") -> in
     Example: film-ue op seq.key_transform path=/Game/S/SEQ_A label=CamA 'keys=[[0,[0,-300,160],{"yaw":90}],[48,[100,-300,160],[0,0,150]]]'
     """
     seq = load(path)
-    b = _bound(seq, label)
-    for t in b.find_tracks_by_type(unreal.MovieScene3DTransformTrack):
-        b.remove_track(t)
-    sec = b.add_track(unreal.MovieScene3DTransformTrack).add_section()
-    sec.set_range(seq.get_playback_start(), seq.get_playback_end())
-    ch = list(sec.get_all_channels())[:9]  # location x y z, rotation x (roll) y (pitch) z (yaw), scale x y z
     sc = actor(label).get_actor_scale3d()  # kept as the actor has it
+    ch = {n: [] for n in TRANSFORM_CHANNELS}
     for frame, loc, aim, *how in keys:
-        mode = _interp(how[0] if how else interp)
+        mode = _interp_name(how[0] if how else interp)
         r = look_rot(loc, aim) if isinstance(aim, (list, tuple)) else unreal.Rotator(
             roll=aim.get("roll", 0.0), pitch=aim.get("pitch", 0.0), yaw=aim.get("yaw", 0.0))
-        for c, v in zip(ch, list(loc) + [r.roll, r.pitch, r.yaw] + [sc.x, sc.y, sc.z]):
-            c.add_key(unreal.FrameNumber(int(frame)), float(v), interpolation=mode)
-    EAL.save_asset(path)
+        for n, v in zip(TRANSFORM_CHANNELS, list(loc) + [r.roll, r.pitch, r.yaw] + [sc.x, sc.y, sc.z]):
+            ch[n].append([int(frame), float(v), mode])
+    _write(seq, [_track("transform", label, sections=[_section(
+        (seq.get_playback_start(), seq.get_playback_end()), channels={n: {"keys": k, "default": None}
+                                                                      for n, k in ch.items()})])])
     return len(keys)
 
 
@@ -232,18 +250,13 @@ def camera_cuts(path: str, cuts: list) -> list:
     Example: film-ue op seq.camera_cuts path=/Game/S/SEQ_A 'cuts=[["CamA",0],["CamB",72]]'
     """
     seq = load(path)
-    for t in seq.find_tracks_by_type(unreal.MovieSceneCameraCutTrack):
-        seq.remove_track(t)
-    track = seq.add_track(unreal.MovieSceneCameraCutTrack)
     end = seq.get_playback_end()
-    out = []
+    out, secs = [], []
     for k, (cam, start) in enumerate(cuts):
         stop = cuts[k + 1][1] if k + 1 < len(cuts) else end
-        s = track.add_section()
-        s.set_range(int(start), int(stop))
-        s.set_camera_binding_id(seq.get_binding_id(_bound(seq, cam)))
+        secs.append(_section((int(start), int(stop)), params={"camera": cam}))
         out.append([cam, int(start), int(stop)])
-    EAL.save_asset(path)
+    _write(seq, [_track("camera_cut", sections=secs)])
     return out
 
 
@@ -269,9 +282,6 @@ def seq_stills(path: str, frames: list, camera: str = "", out_dir: str = "", wid
 
 INTERP = {"auto": "AUTO", "linear": "LINEAR", "constant": "CONSTANT", "step": "CONSTANT", "user": "USER", "break": "BREAK"}
 
-
-def _interp(name: str):
-    return getattr(unreal.MovieSceneKeyInterpolation, INTERP[str(name).lower()])
 
 
 def _snake(name: str) -> str:
@@ -324,38 +334,8 @@ def _owner(label: str, component: str, prop: str):
 def _comp_binding(seq, label: str, component: str = "", create: bool = True):
     """The binding of an actor (component "") or of one of its components, under the actor's binding; made when
     missing (`create`)."""
-    ab = _bound(seq, label) if create else next(b for b in seq.get_bindings() if str(b.get_display_name()) == label)
-    if not component:
-        return ab
-    name = _component(label, component).get_name() if create else component
-    for b in seq.get_bindings():
-        try:
-            parent = b.get_parent()
-        except Exception:
-            parent = None
-        if str(b.get_display_name()) == name and parent is not None and parent == ab:
-            return b
-    for b in ab.get_child_possessables():
-        if str(b.get_display_name()) == name:
-            return b
-    if not create:
-        raise ValueError(f"no binding for {label}.{component} in {seq.get_path_name()}")
-    return seq.add_possessable(_component(label, component))
+    return E.binding(seq, label, component, create=create)
 
-
-def _property_track(b, cls, prop: str):
-    """A fresh track of `cls` for `prop` on a binding (the old one for that property removed, others kept), with one
-    section open at both ends so the first and last keys hold before and after."""
-    path, leaf = _path(prop)
-    for t in b.find_tracks_by_type(cls):
-        if str(t.get_property_path()) == path:
-            b.remove_track(t)
-    t = b.add_track(cls)
-    t.set_property_name_and_path(leaf, path)
-    sec = t.add_section()
-    sec.set_start_frame_bounded(False)
-    sec.set_end_frame_bounded(False)
-    return t, sec
 
 
 def _ticks(seq, frames: float) -> int:
@@ -369,11 +349,6 @@ def _fps(seq) -> float:
     return r.numerator / r.denominator
 
 
-def _done(path: str):
-    EAL.save_asset(path)
-    if LSE.get_current_level_sequence():
-        LSE.refresh_current_level_sequence()
-
 
 @op("seq.new", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def new(path: str, start: int = 0, end: int = 120, fps: int = 24, replace: bool = False) -> dict:
@@ -385,19 +360,12 @@ def new(path: str, start: int = 0, end: int = 120, fps: int = 24, replace: bool 
         if LSE.get_current_level_sequence():
             LSE.close_level_sequence()
         EAL.delete_asset(path)
-    if EAL.does_asset_exist(path):
-        seq, made = load(path), False
-    else:
-        folder, name = path.rsplit("/", 1)
-        seq = unreal.AssetToolsHelpers.get_asset_tools().create_asset(name, folder, unreal.LevelSequence,
-                                                                     unreal.LevelSequenceFactoryNew())
-        seq.set_display_rate(unreal.FrameRate(fps, 1))
-        made = True
-    seq.set_playback_start(int(start))
-    seq.set_playback_end(int(end))
-    EAL.save_asset(path)
-    return {"sequence": path, "created": made, "start": seq.get_playback_start(), "end": seq.get_playback_end(),
-            "fps": _fps(seq)}
+    made = not EAL.does_asset_exist(path)
+    from .seqcore import seq_core
+    # an existing sequence keeps its rate (only its range is set), as this op always did
+    r = seq_core.add(path=path, fps=fps if made else None, start=int(start), end=int(end))
+    seq = E.get(path)
+    return {"sequence": path, "created": made, "start": r["range"][0], "end": r["range"][1], "fps": _fps(seq)}
 
 
 @op("seq.key_float", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
@@ -414,12 +382,9 @@ def key_float(path: str, label: str, prop: str, keys: list, component: str = "",
     """
     seq = load(path)
     comp = _owner(label, component, prop)
-    b = _comp_binding(seq, label, comp)
-    _, sec = _property_track(b, unreal.MovieSceneDoubleTrack if double else unreal.MovieSceneFloatTrack, prop)
-    ch = sec.get_all_channels()[0]
-    for frame, v, *how in keys:
-        ch.add_key(unreal.FrameNumber(int(frame)), float(v), interpolation=_interp(how[0] if how else interp))
-    _done(path)
+    keys_ = [[int(frame), float(v), _interp_name(how[0] if how else interp)] for frame, v, *how in keys]
+    _write(seq, [_track("float", label, comp, _path(prop)[0], {"double": True} if double else {},
+                        [_section(channels={"value": {"keys": keys_, "default": None}})])])
     return {"binding": f"{label}.{comp}" if comp else label, "prop": _path(prop)[0], "keys": len(keys)}
 
 
@@ -440,16 +405,15 @@ def key_color(path: str, label: str, prop: str, keys: list, component: str = "",
     owner = _component(label, comp) if comp else actor(label)
     if srgb is None:
         srgb = isinstance(_value(owner, prop), unreal.Color)
-    b = _comp_binding(seq, label, comp)
-    _, sec = _property_track(b, unreal.MovieSceneColorTrack, prop)
-    ch = sec.get_all_channels()[:4]  # r g b a
+    ch = {n: [] for n in "rgba"}
     for frame, rgb, *how in keys:
         rgba = list(rgb) + [1.0] * (4 - len(rgb))
         if srgb:  # the channels are linear; the engine writes an FColor property back as sRGB
             rgba = [_to_linear(x) for x in rgba[:3]] + rgba[3:]
-        for c, v in zip(ch, rgba):
-            c.add_key(unreal.FrameNumber(int(frame)), float(v), interpolation=_interp(how[0] if how else interp))
-    _done(path)
+        for n, v in zip("rgba", rgba):
+            ch[n].append([int(frame), float(v), _interp_name(how[0] if how else interp)])
+    _write(seq, [_track("color", label, comp, _path(prop)[0], sections=[_section(
+        channels={n: {"keys": k, "default": None} for n, k in ch.items()})])])
     return {"binding": f"{label}.{comp}" if comp else label, "prop": _path(prop)[0], "keys": len(keys), "srgb": srgb}
 
 
@@ -463,19 +427,9 @@ def key_visible(path: str, label: str, keys: list, component: str = "", attached
     """
     seq = load(path)
     labels = [label] + ([a.get_actor_label() for a in actor(label).get_attached_actors()] if attached and not component else [])
-    for lab in labels:
-        b = _comp_binding(seq, lab, component)
-        for t in b.find_tracks_by_type(unreal.MovieSceneVisibilityTrack):
-            b.remove_track(t)
-        t = b.add_track(unreal.MovieSceneVisibilityTrack)
-        t.set_property_name_and_path("bHiddenInGame", "bHiddenInGame")
-        sec = t.add_section()
-        sec.set_start_frame_bounded(False)
-        sec.set_end_frame_bounded(False)
-        ch = sec.get_all_channels()[0]
-        for frame, vis in keys:
-            ch.add_key(unreal.FrameNumber(int(frame)), bool(vis))
-    _done(path)
+    ks = [[int(frame), bool(vis), "constant"] for frame, vis in keys]
+    _write(seq, [_track("visibility", lab, component, sections=[_section(
+        channels={"visible": {"keys": list(ks), "default": None}})]) for lab in labels])
     return {"bindings": labels, "keys": len(keys)}
 
 
@@ -501,45 +455,14 @@ def key_material(path: str, label: str, param: str, keys: list, slot=0, componen
     mesh = _mesh(label, component)
     names = [str(n) for n in mesh.get_material_slot_names()]
     index = names.index(slot) if isinstance(slot, str) else int(slot)
-    b = _comp_binding(seq, label, mesh.get_name())
-    track = None
-    for t in b.find_tracks_by_type(unreal.MovieSceneComponentMaterialTrack):
-        if _material_index(t) == index:
-            track = t
-    if track is None:
-        track = b.add_track(unreal.MovieSceneComponentMaterialTrack)
-    _set_material_index(track, index, names[index] if index < len(names) else "")  # also mends an older track
-    secs = track.get_sections()
-    sec = secs[0] if secs else track.add_section()
-    sec.set_start_frame_bounded(False)
-    sec.set_end_frame_bounded(False)
     vector = bool(keys) and isinstance(keys[0][1], (list, tuple))
-    # A section's add_*_parameter_key takes its time in the sequence's tick resolution (e.g. 24000/s), not in display
-    # frames as a scripting channel's add_key does: keyed as display frames, a whole timeline landed in its first
-    # instants and every later frame held the last key (the halo lit from f0, its wipe never playing). Hence _ticks.
-    # The parameter info is a plain (global) one, said outright; 5.8's bare MaterialParameterInfo is the same.
-    bare = unreal.MaterialParameterInfo()
-    bare.set_editor_property("name", param)
-    info = unreal.MaterialParameterInfo()
-    info.set_editor_property("name", param)
-    info.set_editor_property("association", unreal.MaterialParameterAssociation.GLOBAL_PARAMETER)
-    info.set_editor_property("index", -1)
-    for old in (bare, info):
-        for remove in ("remove_scalar_parameter", "remove_color_parameter"):
-            try:
-                getattr(sec, remove)(old)
-            except Exception:
-                pass
-    for frame, v, *how in keys:
-        mode = _interp(how[0] if how else interp)
-        if vector:
-            rgba = list(v) + [1.0] * (4 - len(v))
-            sec.add_color_parameter_key(info, unreal.FrameNumber(_ticks(seq, frame)), unreal.LinearColor(*rgba), "", "",
-                                        default_interpolation=mode)
-        else:
-            sec.add_scalar_parameter_key(info, unreal.FrameNumber(_ticks(seq, frame)), float(v), "", "",
-                                         default_interpolation=mode)
-    _done(path)
+    ks = [[int(frame), [float(x) for x in v] + [1.0] * (4 - len(v)) if vector else float(v),
+           _interp_name(how[0] if how else interp)] for frame, v, *how in keys]
+    params = {"slot": index}
+    if index < len(names):
+        params["slot_name"] = names[index]
+    _write(seq, [_track("material", label, mesh.get_name(), f"slot:{index}", params,
+                        [_section(channels={param: {"keys": ks, "default": None}})])])
     return {"binding": f"{label}.{mesh.get_name()}", "slot": index, "param": param, "keys": len(keys)}
 
 
@@ -552,71 +475,20 @@ def key_collection(path: str, collection: str, param: str, keys: list, interp: s
     Example: film-ue op seq.key_collection path=/Game/S/SEQ_A collection=/Game/MPC_FM param=WipeOn 'keys=[[0,0],[24,1]]'
     """
     seq = load(path)
+    load(collection)
+    ks = [[int(frame), float(v), _interp_name(how[0] if how else interp)] for frame, v, *how in keys]
+    _write(seq, [_track("mpc", name=collection, sections=[_section(
+        channels={param: {"keys": ks, "default": None}})])])
     mpc = load(collection)
-    track = next((t for t in seq.find_tracks_by_type(unreal.MovieSceneMaterialParameterCollectionTrack)
-                  if t.get_editor_property("mpc") == mpc), None)
-    if track is None:
-        track = seq.add_track(unreal.MovieSceneMaterialParameterCollectionTrack)
-        track.set_editor_property("mpc", mpc)
-    secs = track.get_sections()
-    sec = secs[0] if secs else track.add_section()
-    sec.set_start_frame_bounded(False)
-    sec.set_end_frame_bounded(False)
-    # the section's key API names a parameter by FName, or (since 5.4) by a full FMaterialParameterInfo, as a global
-    info = unreal.MaterialParameterInfo()
-    info.set_editor_property("name", param)
-    info.set_editor_property("association", unreal.MaterialParameterAssociation.GLOBAL_PARAMETER)
-    info.set_editor_property("index", -1)
-    for old in (param, info):
-        try:
-            sec.remove_scalar_parameter(old)
-        except Exception:
-            pass
-    used = None
-    for frame, v, *how in keys:
-        mode = _interp(how[0] if how else interp)
-        at = unreal.FrameNumber(_ticks(seq, frame))  # a section's parameter keys are in ticks (see key_material)
-        tries = [lambda: sec.add_scalar_parameter_key(info, at, float(v), "", "", default_interpolation=mode),
-                 lambda: sec.add_scalar_parameter_key(param, at, float(v), default_interpolation=mode),
-                 lambda: sec.add_scalar_parameter_key(param, at, float(v))]
-        for k in ([used] if used is not None else range(len(tries))):
-            try:
-                tries[k]()
-                used = k
-                break
-            except TypeError:
-                continue
-        else:
-            raise TypeError(f"no add_scalar_parameter_key form takes {param!r} on {sec.get_class().get_name()}")
-    _done(path)
+    track = next(t for t in seq.find_tracks_by_type(unreal.MovieSceneMaterialParameterCollectionTrack)
+                 if t.get_editor_property("mpc") == mpc)
+    sec = track.get_sections()[0]
+    # seqcore keys a collection by FName (MovieSceneParameterSection.add_scalar_parameter_key(name, ticks, v, interp))
     return {"collection": collection, "param": param, "keys": len(keys), "section": sec.get_class().get_name(),
-            "form": ["info", "name+interp", "name"][used] if used is not None else None}
+            "form": "name+interp"}
 
 
-def _material_index(t) -> int:
-    return int(t.get_material_info().get_editor_property("material_slot_index"))
 
-
-def _set_material_index(t, index: int, name: str):
-    """Point a material track at a mesh's slot. Since UE 5.4 the track's info also has a material type, and a track
-    made from Python starts at EMPTY (the editor's UI sets it): an EMPTY track resolves to no material, so Sequencer
-    makes no MID and none of its keys reach the mesh."""
-    info = t.get_material_info()
-    if hasattr(unreal, "ComponentMaterialType"):
-        info.set_editor_property("material_type", unreal.ComponentMaterialType.INDEXED_MATERIAL)
-    info.set_editor_property("material_slot_index", index)
-    if name:
-        info.set_editor_property("material_slot_name", name)
-    t.set_material_info(info)
-
-
-def _play_rate(rate: float):
-    """A section's play rate: a float before UE 5.5, a time-warp variant set to a fixed rate since."""
-    if not hasattr(unreal, "MovieSceneTimeWarpVariant"):
-        return float(rate)
-    v = unreal.MovieSceneTimeWarpVariant()
-    v.set_fixed_play_rate(float(rate))
-    return v
 
 
 @op("seq.anim", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
@@ -631,15 +503,12 @@ def anim_track(path: str, label: str, component: str, sections: list, replace: b
     Example: film-ue op seq.anim path=/Game/S/SEQ_A label=Host component=Body 'sections=[{"anim":"/Game/A/Idle","start":0,"blend_in":6}]'
     """
     seq = load(path)
-    b = _comp_binding(seq, label, component)
-    tracks = b.find_tracks_by_type(unreal.MovieSceneSkeletalAnimationTrack)
-    track = tracks[0] if tracks else b.add_track(unreal.MovieSceneSkeletalAnimationTrack)
-    if replace:
-        for s in track.get_sections():
-            track.remove_section(s)
+    E.binding(seq, label, component, create=True)
+    have = E.track_by_id(E.describe(path), ("anim", label, component, ""))
+    old = [] if replace or have is None else have["sections"]
     fps = _fps(seq)
-    taken = [] if replace else [(s.get_start_frame(), s.get_end_frame(), s.get_row_index()) for s in track.get_sections()]
-    out = []
+    taken = [(s["range"][0], s["range"][1], s.get("row", 0)) for s in old]
+    secs, out = list(old), []
     for d in sections:
         a = load(d["anim"])
         rate = float(d.get("rate", 1.0))
@@ -652,42 +521,15 @@ def anim_track(path: str, label: str, component: str, sections: list, replace: b
             row = 0
             while any(r == row and s < end and start < e for s, e, r in taken):
                 row += 1
-        sec = track.add_section()
-        sec.set_range(start, end)
-        sec.set_row_index(int(row))
-        p = sec.get_editor_property("params")
-        p.set_editor_property("animation", a)
-        if rate != 1.0:
-            p.set_editor_property("play_rate", _play_rate(rate))
-        if offset:
-            for k in ("first_loop_start_frame_offset", "start_frame_offset"):
-                try:
-                    p.set_editor_property(k, unreal.FrameNumber(_ticks(seq, offset * fps)))
-                    break
-                except Exception:
-                    pass
-        if d.get("loop") is False:
-            p.set_editor_property("force_custom_mode", False)
-            for k in ("hold_last_frame", "b_hold_last_frame"):  # hold rather than loop past the end of the clip
-                try:
-                    p.set_editor_property(k, True)
-                    break
-                except Exception:
-                    pass
-        sec.set_editor_property("params", p)
-        if "weight" in d:
-            for ch in sec.get_all_channels():
-                if "weight" in str(ch.get_name()).lower():
-                    ch.set_default(float(d["weight"]))
-        ease = [f"bManualEase{side}=True,ManualEase{side}Duration={_ticks(seq, d[f'blend_{side.lower()}'])}"
-                for side in ("In", "Out") if d.get(f"blend_{side.lower()}")]
-        if ease:  # the manual-ease flags are not editor properties: set them as text
-            e = sec.get_editor_property("easing")
-            e.import_text("(" + ",".join(ease) + ")")
-            sec.set_editor_property("easing", e)
+        p = {"anim": d["anim"], "offset": offset, "rate": rate}
+        for side in ("in", "out"):  # frames of manual ease (seqcore sets them in ticks)
+            if d.get(f"blend_{side}"):
+                p[f"blend_{side}"] = d[f"blend_{side}"]
+        ch = {"weight": {"keys": [], "default": float(d["weight"])}} if "weight" in d else {}
+        secs.append(_section((start, end), int(row), p, ch))
         taken.append((start, end, row))
         out.append([d["anim"], start, end, int(row)])
-    _done(path)
+    _write(seq, [_track("anim", label, component, sections=secs)])
     return out
 
 
@@ -700,16 +542,11 @@ def audio(path: str, clips: list, track: str = "Audio", replace: bool = True) ->
     Example: film-ue op seq.audio path=/Game/S/SEQ_A track=VO 'clips=[["/Game/Audio/L1",12]]'
     """
     seq = load(path)
-    t = next((x for x in seq.find_tracks_by_type(unreal.MovieSceneAudioTrack) if str(x.get_display_name()) == track), None)
-    if t is not None and replace:
-        seq.remove_track(t)
-        t = None
-    if t is None:
-        t = seq.add_track(unreal.MovieSceneAudioTrack)
-        t.set_display_name(track)
+    have = E.track_by_id(E.describe(path), ("audio", "", "", track))
+    old = [] if replace or have is None else have["sections"]
     fps = _fps(seq)
-    taken = [(s.get_start_frame(), s.get_end_frame(), s.get_row_index()) for s in t.get_sections()]
-    out = []
+    taken = [(s["range"][0], s["range"][1], s.get("row", 0)) for s in old]
+    secs, out = list(old), []
     for c in clips:
         c = c if isinstance(c, dict) else {"sound": c[0], "start": c[1]}
         wave = load(c["sound"])
@@ -719,19 +556,11 @@ def audio(path: str, clips: list, track: str = "Audio", replace: bool = True) ->
         row = 0
         while any(r == row and s < end and start < e for s, e, r in taken):
             row += 1
-        s = t.add_section()
-        s.set_range(start, end)
-        s.set_row_index(row)
-        s.set_sound(wave)
-        if offset:
-            s.set_editor_property("start_frame_offset", unreal.FrameNumber(_ticks(seq, offset * fps)))
-        if "volume" in c:
-            for ch in s.get_all_channels():
-                if "volume" in str(ch.get_name()).lower():
-                    ch.set_default(float(c["volume"]))
+        ch = {"volume": {"keys": [], "default": float(c["volume"])}} if "volume" in c else {}
+        secs.append(_section((start, end), row, {"sound": c["sound"], "offset": offset}, ch))
         taken.append((start, end, row))
         out.append([c["sound"], start, end, row])
-    _done(path)
+    _write(seq, [_track("audio", name=track, sections=secs)])
     return out
 
 
@@ -740,15 +569,18 @@ def cuts(path: str) -> list:
     """The edit as it stands: [camera label, first frame, end frame] for each camera cut, in order.
     Example: film-ue op seq.cuts path=/Game/S/SEQ_A
     """
-    seq = load(path)
-    by_id = {b.get_id().export_text(): str(b.get_display_name()) for b in seq.get_bindings()}  # a Guid's str() is its repr
+    doc = E.describe(path, keys=False)
+    if not doc["exists"]:
+        raise not_found("sequence", path, hint="seq.new or seq.add makes it")
     out = []
-    for t in seq.find_tracks_by_type(unreal.MovieSceneCameraCutTrack):
-        for s in t.get_sections():
-            g = s.get_camera_binding_id().get_editor_property("guid").export_text()
-            if g not in by_id:
-                raise ValueError(f"camera cut at {s.get_start_frame()} is bound to no binding of {path} ({g})")
-            out.append([by_id[g], s.get_start_frame(), s.get_end_frame()])
+    for t in doc["tracks"]:
+        if t["kind"] != "camera_cut":
+            continue
+        for s in t["sections"]:
+            cam = s["params"]["camera"]
+            if cam.startswith("?"):
+                raise ValueError(f"camera cut at {s['range'][0]} is bound to no binding of {path} ({cam[1:]})")
+            out.append([cam, s["range"][0], s["range"][1]])
     return sorted(out, key=lambda c: c[1])
 
 
@@ -768,28 +600,22 @@ def rebind(path: str, labels: list | None = None) -> dict:
     Example: film-ue op seq.rebind path=/Game/S/SEQ_A 'labels=["Host"]'
     """
     seq = load(path)
-    LSE.open_level_sequence(seq)
-    lss = unreal.get_editor_subsystem(unreal.LevelSequenceEditorSubsystem)
     out = {}
-    for b in seq.get_bindings():
-        name = str(b.get_display_name())
-        try:
-            if b.get_parent() is not None and str(b.get_parent().get_display_name()):
-                continue  # a component binding follows its actor's
-        except Exception:
-            pass
+    for (name, comp), b in E.bindings(seq).items():
+        if comp or E.is_spawnable(b):
+            continue  # a component binding follows its actor's; a spawnable has no level actor
         if labels is not None and name not in labels:
             continue
-        try:
-            a = actor(name)
-        except ValueError:
+        if find_actor(name) is None:
             if labels is not None:
                 out[name] = "missing"
             continue
-        lss.replace_binding_with_actors([a], b)
+        if E.is_bound(seq, b) is False:  # bound to an actor that is gone: re-point it, its tracks kept
+            E.bind(seq, name)
         out[name] = "ok"
     EAL.save_asset(path)
-    LSE.refresh_current_level_sequence()
+    if LSE.get_current_level_sequence():
+        LSE.refresh_current_level_sequence()
     return out
 
 

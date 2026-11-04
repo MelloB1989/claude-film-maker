@@ -1,0 +1,33 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "material",
+ "description": "A material (WP2): an instance of a library master or of any material with parameters, a named preset, or a node graph; and the mesh asset slots that wear it. Converged by mat.instance / mat.preset / mat.graph / mat.assign.",
+ "type": "object",
+ "required": ["kind", "path"],
+ "additionalProperties": false,
+ "properties": {
+  "kind": {"const": "material"},
+  "version": {"type": "integer", "const": 1},
+  "name": {"type": "string", "description": "unique name of this document"},
+  "description": {"type": "string", "description": "free text"},
+  "path": {"type": "string", "pattern": "^/[A-Za-z0-9_]+/", "description": "content path of the material or instance, e.g. /Game/Set/Mats/MI_Rock"},
+  "master": {"type": "string", "enum": ["opaque", "opaque_orm", "masked", "masked_orm", "foliage", "glass", "emissive", "screen", "cloth", "skin", "unlit", "decal"], "description": "a library master (mat.masters); the instance's parent"},
+  "parent": {"type": "string", "pattern": "^/", "description": "any material or instance content path to be the parent (instead of master)"},
+  "preset": {"type": "string", "description": "a named look (mat.presets: chrome, glass_clear, emissive_panel, ...); params adjust it"},
+  "graph": {"type": "object", "description": "a node-graph material (mat.graph's spec: blend, shading, nodes, outputs); builds a Material, not an instance"},
+  "params": {"type": "object", "description": "parameter values by name: number (scalar, unit per the master's doc), [r, g, b(, a)] linear 0..1 (vector), /Game texture path, true/false (static switch); emissive in nits (Luminance_nits)"},
+  "assign": {
+   "type": "array",
+   "description": "mesh asset slots that wear this material (every actor showing the mesh changes)",
+   "items": {
+    "type": "object",
+    "required": ["mesh"],
+    "additionalProperties": false,
+    "properties": {
+     "mesh": {"type": "string", "pattern": "^/", "description": "StaticMesh or SkeletalMesh content path"},
+     "slot": {"type": ["integer", "string"], "default": 0, "description": "slot index, or slot name"}
+    }
+   }
+  }
+ }
+}

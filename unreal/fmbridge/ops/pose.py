@@ -84,7 +84,7 @@ def _rig(sequence: str, label: str, component: str, rig_class: str):
         if p is None:
             raise OpError("the engine made no control rig track", code="engine")
     rig = p.get_editor_property("control_rig")
-    names = [str(k.get_editor_property("name")) for k in rig.get_hierarchy().get_control_keys()]
+    names = [str(k.get_editor_property("name")) for k in rig.get_hierarchy().get_controls()]  # ScriptName of GetControlKeys (RigHierarchy.h:1181)
     return seq, rig, names
 
 

@@ -86,20 +86,22 @@ def _assets_under(path: str, recursive: bool = True, scan: bool = True) -> list:
     return list(ar.get_assets_by_path(path, recursive=recursive) or [])
 
 
-@op("assets.list")
+@op("assets.list", mutates=False, idempotent=True)
 def list_assets(path: str = "/Game", cls: str = "", recursive: bool = True, limit: int = 500) -> list:
     """Assets under a path, optionally of one class name ('StaticMesh', 'MetaHumanCharacter', ...): [class, path].
-    (For search by name, size, tags use assets.find; for one asset's numbers assets.describe.)"""
+    (For search by name, size, tags use assets.find; for one asset's numbers assets.describe.)
+    Example: film-ue assets list --path /Game/Props --cls StaticMesh"""
     out = [[_class_name(a), str(a.package_name)] for a in _assets_under(path, recursive)]
     return [x for x in out if not cls or x[0] == cls][:limit]
 
 
 # ------------------------------------------------------------------------------------------------- management
 
-@op("assets.duplicate")
+@op("assets.duplicate", mutates=True, idempotent=True)
 def duplicate(src: str, dst: str, overwrite: bool = False) -> str:
     """Copy an asset (a MetaHuman preset, a material...) to a new path; an existing `dst` is kept unless overwrite
-    (then it is freed first). Returns dst. Example: film-ue op assets.duplicate src=/Game/M/MI_A dst=/Game/M/MI_B"""
+    (then it is freed first). Returns dst.
+    Example: film-ue assets duplicate --src /Game/M/MI_A --dst /Game/M/MI_B"""
     src_p, dst_p = AL.package_path(src), _check_path(dst)
     if not EAL.does_asset_exist(src_p):
         load(src_p)  # raises with candidates
@@ -112,15 +114,17 @@ def duplicate(src: str, dst: str, overwrite: bool = False) -> str:
     return dst_p
 
 
-@op("assets.delete")
+@op("assets.delete", mutates=True, idempotent=True)
 def delete(path: str) -> bool:
-    """Delete an asset now, used or not (prefer assets.remove, which checks who uses it first)."""
+    """Delete an asset now, used or not (prefer assets.remove, which checks who uses it first); False if absent.
+    Example: film-ue assets delete --path /Game/Old/SM_Box"""
     return EAL.delete_asset(path) if EAL.does_asset_exist(path) else False
 
 
-@op("assets.save_all")
+@op("assets.save_all", mutates=True, idempotent=True)
 def save_all() -> bool:
-    """Save every dirty package and map."""
+    """Save every dirty package and map.
+    Example: film-ue assets save_all"""
     return unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
 
 
@@ -140,9 +144,10 @@ def save(*, paths: list = (), folder: str = "") -> dict:
     return {"saved": saved, "failed": failed, "changed": bool(saved)}
 
 
-@op("assets.props")
+@op("assets.props", mutates=False, idempotent=True)
 def props(path: str, names: list | None = None) -> dict:
-    """An asset's editor properties (all readable ones, or the named)."""
+    """An asset's editor properties (all readable ones, or the named), as text.
+    Example: film-ue assets props --path /Game/T/T_Wood_D --names srgb,compression_settings"""
     a = load(path)
     names = names or [p for p in dir(a) if not p.startswith("_") and not callable(getattr(a, p, None))]
     out = {}

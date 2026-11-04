@@ -292,3 +292,22 @@ def test_doccheck_finds_a_bad_flag(tmp_path):
                  "film-ue --box b seq new --path ...\n```\n")
     probs = doccheck.check([p])
     assert [x[3].split(" (")[0] for x in probs] == ["level.move has no --lable", "no op level.mvoe"]
+
+
+def test_sdk_job_lost_is_an_operror():
+    answers = iter([{"ok": True, "job": "j1"}, {"id": "j1", "state": "lost", "done": True, "ok": False,
+                                                 "code": "job_lost", "message": "the editor restarted", "hint": "h"}])
+    ue = Unreal(transport=lambda k, p, t: next(answers))
+    job = ue.call("seq.stills", wait=False, path="/Game/S", frames=[1])
+    with pytest.raises(OpError) as e:
+        job.wait(every=0)
+    assert e.value.code == "job_lost" and e.value.hint == "h"
+
+
+def test_doccheck_checks_film_ues_own_commands(tmp_path):
+    from filmtools.unreal import doccheck
+    p = tmp_path / "x.md"
+    p.write_text("```\nfilm-ue plan s.yaml --bogus x.json\nfilm-ue selftest dx --kep\nfilm-ue apply s.yaml --dry-run\n"
+                 "film-ue op level.move label=K --async\nfilm-ue job\n```\n")
+    probs = [x[3] for x in doccheck.check([p])]
+    assert len(probs) == 2 and all("unknown option" in x or "unrecognized" in x for x in probs), probs

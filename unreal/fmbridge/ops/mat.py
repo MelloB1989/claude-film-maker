@@ -496,7 +496,8 @@ def describe(*, path: str) -> dict:
 
     Args: path: /Game/... of a Material or MaterialInstance.
     Returns: {"path", "class", "chain": [paths], "master", "blend", "shading", "two_sided", "params": {name:
-             {"kind", "value"}}, "stats", "users": [labels]}.
+             {"kind", "value"}}, "stats", "users": [labels], "fingerprint": the spec hash it was built from (mat.graph,
+             mat.master) or null}.
     Example: film-ue op mat.describe path=/Game/Mats/MI_RedPaint
     """
     p = AL.package_path(path)
@@ -520,6 +521,7 @@ def describe(*, path: str) -> dict:
         except Exception:
             out[key] = None
     out["stats"] = _stats(base)
+    out["fingerprint"] = EAL.get_metadata_tag(base, FP_TAG) or None  # the graph spec it was built from
     return out
 
 

@@ -330,3 +330,20 @@ def test_describe_includes_the_partition(ue):
     d = run_op("level.describe")
     assert "partition" in d and "partitioned" in d["partition"]
     assert "partition" not in run_op("level.describe", partition=False)
+
+
+def test_scene_converges_on_a_blueprint_actor(ue):
+    """An actor spawned from a Blueprint (a MetaHuman's BP_Host) matches `asset:` by its class's Blueprint, so apply
+    does not respawn it every time (found by B48's demo run)."""
+    _shapes(ue)
+    ue.add_asset("/Game/Chars/BP_Host", "Blueprint")
+    spec = {"kind": "scene", "version": 1, "name": "cast", "actors": [
+        {"label": "Host", "asset": "/Game/Chars/BP_Host", "loc": [0, 0, 0], "rot": {"yaw": 180}}]}
+    r = run_op("scene.apply", spec=spec)
+    assert r["changed"] and r["remaining"] == []
+    host = ue.actor("Host")
+    assert run_op("level.get", label="Host", components=False)["blueprint"] == "/Game/Chars/BP_Host"
+    assert run_op("scene.plan", spec=spec)["converged"]
+    assert run_op("scene.apply", spec=spec)["changed"] is False and ue.actor("Host") is host
+    back = run_op("scene.describe", name="cast")
+    assert back["actors"][0]["asset"] == "/Game/Chars/BP_Host"
