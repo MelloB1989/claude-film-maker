@@ -146,7 +146,7 @@ def _resolve(spec: dict) -> dict:
         return rs.resolve(spec)
     except rs.SpecError as e:
         raise OpError("render spec: " + "; ".join(e.errors), code="bad_args", details={"errors": e.errors},
-                      hint="film-ue render presets / docs/unreal/render.md show the fields") from None
+                      hint="film-ue render presets and film-ue render schema show the fields (docs/unreal/render.md)") from None
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -611,8 +611,8 @@ def plan(*, spec: dict) -> dict:
 
 @op("render.job", mutates=True, idempotent=True, tags=["slow", "gpu"])
 def job(*, spec: dict, stall_s: float = 900.0):
-    """Render a RENDER SPEC to the end (multi-tick: the bridge returns a job id at once with wait=false; follow it,
-    or render.status): plan the chunks, check the level and the GPU, render each chunk with MRQ (pre-rolled from its
+    """Render a RENDER SPEC to the end (multi-tick: with --async the bridge returns a job id at once; follow it with
+    film-ue job ID, or render.status): plan the chunks, check the level and the GPU, render each chunk with MRQ (pre-rolled from its
     shot start), watch frames, VRAM and stalls, then write <out_dir>/_render/<name>.report.json. Re-running resumes:
     frames on disk (and complete) are skipped, so a finished job re-runs as a no-op.
 
@@ -620,7 +620,7 @@ def job(*, spec: dict, stall_s: float = 900.0):
     Returns: the report: {"status": ok|incomplete|failed|stalled|vram_abort|cancelled, "changed", "frames",
     "seconds", "chunks": [{"id", "status", "frames", "missing", "median_s", "vram_peak_gb", "errors", ...}],
     "measured": {"s_per_frame", "sample_s_1080p"}, "report": path, "errors"}.
-    Example: film-ue op render.job --no-wait 'spec={"sequence": "/Game/Reel/SEQ_Reel", "out_dir": "/srv/r/reel", "preset": "final", "shots": ["Reel_S16"]}'
+    Example: film-ue op render.job 'spec={"sequence": "/Game/Reel/SEQ_Reel", "out_dir": "/srv/r/reel", "preset": "final", "shots": ["Reel_S16"]}' (or film-ue render job ... --async; film-ue render run SPEC)
     """
     r = _resolve(spec)
     if _mq().is_rendering() or _RUN.get("status") == "running":
@@ -797,7 +797,7 @@ def _ffmpeg() -> str:
     if not exe:
         raise OpError("ffmpeg is not installed on the render box", code="unsupported",
                       hint="install it (Ubuntu: apt-get install -y ffmpeg), or pull the frames and run "
-                           "film-ue render encode --local")
+                           "film-ue render video SPEC --local DIR")
     return exe
 
 
