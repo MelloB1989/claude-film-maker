@@ -18,7 +18,7 @@ from . import call, op
 from ..camkit import checks as ck
 from ..camkit import coverage as cov
 from ..camkit import framing, geo, lens, moves
-from ..camkit import png
+from ..camkit import png, words
 from ..errors import OpError, not_found
 from ._util import eas, find_actor, rot, vec
 
@@ -427,15 +427,49 @@ def focus(*, label: str, mode: str = "manual", distance_cm: float | None = None,
 
 
 @op("cam.describe", mutates=False, idempotent=True, tags=["camera"])
-def describe(*, label: str = "") -> dict:
+def describe(*, label: str = "", subjects=None) -> dict:
     """Every cine camera in the level (or one): location, rotation, focal, aperture, filmback, focus, fields of view,
-    the rig it hangs on.
+    the rig it hangs on; with `subjects`, also each camera's shot in words ("MCU of Host from 3/4 left (41 deg), eye
+    level, 50 mm f/2.8, right third"), which cam.shoot reads back.
 
-    Example: film-ue op cam.describe label=CAM_A
+    Example: film-ue op cam.describe label=CAM_A subjects=Host
     """
-    if label:
-        return {"cameras": [read(label)]}
-    return {"cameras": [read(l) for l in _labels(unreal.CineCameraActor)]}
+    cams = [read(label)] if label else [read(l) for l in _labels(unreal.CineCameraActor)]
+    if subjects:
+        subs = _subjects(subjects)
+        for c in cams:
+            c["words"] = words.describe(c, subs)
+    return {"cameras": cams}
+
+
+@op("cam.shoot", mutates=True, idempotent=True, tags=["camera"])
+def shoot(*, camera: str, text: str, apply: bool = True) -> dict:
+    """Frame a camera from a sentence of shot grammar: "medium close-up of Host from 30 deg left at eye level, 50mm",
+    "two-shot of Host and Guest, low angle, 35mm", "CU of Guest from 3/4 right, 2 m away" (the focal length solved).
+    The subjects are the level's actor labels found in the text. Words it does not understand are returned in
+    `unparsed` (nothing is guessed); the vocabulary is in docs/unreal/camera.md.
+
+    Returns: cam.frame's result plus {"parsed": the arguments it read, "words": the camera described back}.
+    Example: film-ue op cam.shoot camera=CAM_A text='MCU of Host from 3/4 left, eye level, 50mm'
+    """
+    names = _labels()
+    p = words.parse(text, names)
+    if not p.get("subjects"):
+        raise OpError(f"no subject named in {text!r}", code="bad_args", hint="name an actor label (level.find)",
+                      candidates=sorted(n for n in names if not n.startswith(("CAM_", "Cine")))[:12])
+    a = words.solver_args(p)
+    kw = {"camera": camera, "subjects": p["subjects"], "size": a.get("size", "MS" if len(p["subjects"]) > 1 else "MCU"),
+          "angle": a.get("angle", 0.0), "side": a.get("side", "left"), "height": a.get("height", "eye"),
+          "place": a.get("place", "auto"), "dutch_deg": a.get("dutch", 0.0), "apply": apply}
+    if "distance" in a:
+        kw.update(distance_cm=a["distance"], focal_mm=a.get("focal"))
+    elif "focal" in a:
+        kw["focal_mm"] = a["focal"]
+    if "aperture" in a:
+        kw["aperture"] = a["aperture"]
+    r = frame(**kw)
+    cam = r.get("camera") or {**r["plan"], "aperture": a.get("aperture", 2.8)}
+    return {**r, "parsed": p, "words": words.describe(cam, _subjects(p["subjects"]))}
 
 
 @op("cam.remove", mutates=True, idempotent=True, tags=["camera"])

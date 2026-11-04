@@ -44,6 +44,18 @@ the solver put the landmarks: they must sit on the face, the chin, the chest...)
   the side they face, or `side` of the line when they face each other).
 - Plan without touching anything: `apply=false`.
 
+**Say it in words.** `film-ue op cam.shoot camera=CAM_A text='medium close-up of Host from 30 deg left, slightly
+high, 50mm f/2.8'` (any order; subjects are the level's actor labels found in the text). The result has `parsed`
+(the arguments it read), `unparsed` words it ignored (nothing is guessed: check it is empty), and `words`: the camera
+described back. `cam.describe subjects=Host` gives every camera's `words` ("MCU of Host from 1/4 left (30 deg),
+slightly high, 50 mm f/2.8, right third"); feeding them to `cam.shoot` puts the camera exactly where it is.
+Vocabulary: sizes (extreme close-up/ECU/choker, close-up/CU, medium close-up/MCU, medium/mid/waist shot/MS, cowboy,
+medium wide/MWS/knee shot, wide/full/long/WS, extreme wide/establishing/EWS, two-shot/group shot), angles (front/
+head-on, 1/4, 3/4, profile/side, 3/4 back, behind, `<n> deg`), side (left/right: the subject's own), heights (eye
+level, slightly high/low, high/low angle, overhead/bird's eye, worm's eye, ground/hip/chest/shoulder/knee level,
+`<n> deg above|below eye level`), `<n>mm`, `<n> m|cm away` (the focal length is then solved), `f/<n>` or `T<n>`,
+centered / left third / right third, dutch [n deg].
+
 **Place a camera by hand, then read it.**
 `cam.add label=CAM_B 'loc=[400,0,160]' look_at=eyes:Presenter focal_mm=35 aperture=2.8 filmback="16:9 DSLR"`
 (look_at: a point, an actor, `Label:Component:bone`, `eyes:Label`). `cam.describe` (all cameras) gives loc, rot,
@@ -118,7 +130,8 @@ sizes apart).
 | `cam.add` | make or converge a cine camera (pose, lens, filmback, focus); `changed`, `created` |
 | `cam.set` | lens: focal (or `hfov_deg`), aperture, filmback, lens preset, near clip |
 | `cam.focus` | manual / track / off |
-| `cam.describe` | every camera (or one) as numbers |
+| `cam.describe` | every camera (or one) as numbers; with `subjects`, its shot in words |
+| `cam.shoot` | frame a camera from a sentence of shot grammar (the inverse of the words) |
 | `cam.remove` | by labels or prefix (cameras and rigs) |
 | `cam.subject` | an actor's landmarks, facing and height as the solver sees them |
 | `cam.point` | where a target is (point, actor, bone, eyes:Label) |

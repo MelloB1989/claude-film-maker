@@ -352,3 +352,20 @@ def test_shot_plan_keeps_the_line(ue, fmb):
     crossed = {**SPEC, "shots": [SPEC["shots"][0], {**SPEC["shots"][1], "frame": {**SPEC["shots"][1]["frame"],
                                                                                    "side": "right"}}]}
     assert [i for i in run_op("shot.plan", spec=crossed)["issues"] if i["code"] == "shot.line_180"]
+
+
+def test_shoot_and_words_round_trip(ue, fmb):
+    from fmbridge.errors import OpError
+    person(ue, "Host", (0, -90), turn=90)
+    person(ue, "Guest", (0, 90), turn=-90)
+    r = run_op("cam.shoot", camera="CAM_W", text="medium close-up of Host from 30 degrees left, slightly high, 50mm")
+    assert r["parsed"]["subjects"] == ["Host"] and r["solve"]["size"] == "MCU" and r["changed"]
+    said = run_op("cam.describe", label="CAM_W", subjects="Host")["cameras"][0]["words"]
+    assert said.startswith("MCU of Host from 1/4 left (30 deg), slightly high, 50 mm"), said
+    again = run_op("cam.shoot", camera="CAM_W", text=said)
+    assert not again["changed"]  # the words put the camera back where it is
+    two = run_op("cam.shoot", camera="CAM_2", text="two-shot of Host and Guest, low angle, 35mm", apply=False)
+    assert two["parsed"]["subjects"] == ["Host", "Guest"] and two["words"].startswith("two-shot")
+    with pytest.raises(OpError) as e:
+        run_op("cam.shoot", camera="CAM_X", text="close-up of nobody")
+    assert e.value.code == "bad_args"
