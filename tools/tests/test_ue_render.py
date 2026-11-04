@@ -275,3 +275,10 @@ def test_bridge_cancel_closes_the_job_and_stops_mrq(stage, fmb):
     assert run_op("render.status")["status"] == "cancelled" and stage["ue"].mrq.active is None
     with open(os.path.join(stage["out"], "_render", "SEQ_T.report.json")) as f:
         assert json.load(f)["status"] == "cancelled"
+
+
+def test_frames_overwrite_renders_again(stage):
+    ue = stage["ue"]
+    run_op("render.frames", sequence=SEQ, level=LEVEL, frames=[3], out_dir=stage["out"])
+    res = run_op("render.frames", sequence=SEQ, level=LEVEL, frames=[3], out_dir=stage["out"], overwrite=True)
+    assert res["changed"] and len(ue.mrq.jobs) == 2

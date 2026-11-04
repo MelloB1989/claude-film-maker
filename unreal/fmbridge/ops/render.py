@@ -613,14 +613,15 @@ def job(*, spec: dict, stall_s: float = 900.0):
 
 @op("render.frames", mutates=True, idempotent=True, tags=["gpu"])
 def frames(*, sequence: str, frames: list, out_dir: str, level: str = "", preset: str = "preview",
-           width: int | None = None, height: int | None = None, cvars: dict | None = None):
+           width: int | None = None, height: int | None = None, cvars: dict | None = None, overwrite: bool = False):
     """Render a few frames of a sequence through its camera cuts with MRQ, viewport-free (works offscreen on Linux):
     for stills, contact sheets and checks (WP10's qa.still mode=mrq builds on it). Consecutive frames in one cut are
     one MRQ job, pre-rolled from the cut start. Frames already on disk are reused.
 
     Args: sequence: /Game/... level sequence. frames: sequence frame numbers. out_dir: directory on the box.
     level: map (default the open one). preset: preview|draft|final|... width/height: pixels (default the preset's).
-    cvars: extra console variables.
+    cvars: extra console variables. overwrite: render again even when the frame is on disk (out_dir shared with
+    other stills, or the scene changed since).
     Returns: {"frames": {frame: png/jpg path}, "cameras": {frame: camera label}, "width", "height", "seconds",
     "changed", "report"}.
     Example: film-ue op render.frames sequence=/Game/Reel/SEQ_Reel 'frames=[1200,1260]' out_dir=/srv/r/stills
@@ -646,7 +647,7 @@ def frames(*, sequence: str, frames: list, out_dir: str, level: str = "", preset
             raise OpError(f"frame {f} is outside every camera cut of {sequence}", code="bad_args",
                           hint=f"cuts: {[c[1:] for c in st['cuts']]}; seq.cuts lists them")
         cams[f] = cam[0] if cam else ""
-    done = set(st["done"])
+    done = set() if overwrite else set(st["done"])
     todo = [f for f in want if f not in done]
     t0 = time.time()
     rep = None
