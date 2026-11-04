@@ -156,7 +156,9 @@ def build(character: str, name: str, cinematic: bool = True) -> str:
     sub().build_meta_human(c, p)
     folder = character.rsplit("/", 1)[0]
     bps = [p for k, p in list_assets(folder, "Blueprint") if p.endswith(f"BP_{name}")]
-    return bps[0] if bps else ""
+    if not bps:  # the subsystem logs why (LogMetaHumanCharacterEditor) and returns nothing: an unrigged character, ...
+        raise RuntimeError(f"no BP_{name} built in {folder}: is the character rigged (mh.rig)? see the editor log")
+    return bps[0]
 
 
 @op("mh.components")
