@@ -179,7 +179,7 @@ def test_apply_converges_and_switches_mood(ue, fmb):
     assert run_op("env.plan", spec=SPEC)["steps"] == []
     again = run_op("env.apply", spec=SPEC)
     assert again["steps"] == [] and again["changed"] is False
-    n = run_op("env.mood", name="night", spec_name="studio")
+    n = run_op("env.mood", mood="night", spec_name="studio")
     assert n["converged"], n["remaining"]
     assert "Env_Sun" not in labels(ue) and "Env_Moon" in labels(ue)
     assert run_op("env.describe")["exposure"]["ev100"] == pytest.approx(4.0, abs=1e-3)

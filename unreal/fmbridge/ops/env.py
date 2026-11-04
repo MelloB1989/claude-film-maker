@@ -788,12 +788,12 @@ def apply(*, spec: dict, mood: str = None, dry_run: bool = False):
 
 
 @op("env.mood", mutates=True, idempotent=True, tags=["environment", "spec"])
-def mood(*, name: str = None, spec_name: str = "env"):
+def mood(*, mood: str = None, spec_name: str = "env"):
     """Switch the last applied spec `spec_name` to one of its moods (day/night, ...): env.apply with that mood;
-    `name` None goes back to the spec's own mood. A multi-tick job.
+    `mood` None goes back to the spec's own mood. A multi-tick job.
 
     Returns: env.apply's result plus {"mood"}.
-    Example: film-ue op env.mood name=night spec_name=studio
+    Example: film-ue op env.mood mood=night spec_name=studio
     """
     path = _spec_store(spec_name)
     if not os.path.exists(path):
@@ -803,8 +803,8 @@ def mood(*, name: str = None, spec_name: str = "env"):
                       hint="apply it first with env.apply (or film-ue apply)")
     with open(path) as f:
         spec = json.load(f)
-    res = yield from apply(spec=spec, mood=name or "")
-    res["mood"] = name
+    res = yield from apply(spec=spec, mood=mood or "")
+    res["mood"] = mood
     return res
 
 

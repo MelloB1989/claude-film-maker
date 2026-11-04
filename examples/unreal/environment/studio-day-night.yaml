@@ -1,5 +1,5 @@
 # A presenter's studio by day, with a night mood: `film-ue apply studio-day-night.yaml` (day), then
-# `film-ue op env.mood name=night spec_name=studio` (or set `mood: night` here and apply again).
+# `film-ue op env.mood mood=night spec_name=studio` (or set `mood: night` here and apply again).
 # Needs actors labelled Host (the presenter) and HostCam (a cine camera) in the level.
 kind: environment
 version: 1

@@ -2826,10 +2826,10 @@
    "file": "unreal/fmbridge/ops/env.py",
    "line": 790,
    "summary": "Switch the last applied spec `spec_name` to one of its moods (day/night, ...): env.apply with that mood;",
-   "doc": "Switch the last applied spec `spec_name` to one of its moods (day/night, ...): env.apply with that mood;\n`name` None goes back to the spec's own mood. A multi-tick job.\n\nReturns: env.apply's result plus {\"mood\"}.\nExample: film-ue op env.mood name=night spec_name=studio",
+   "doc": "Switch the last applied spec `spec_name` to one of its moods (day/night, ...): env.apply with that mood;\n`mood` None goes back to the spec's own mood. A multi-tick job.\n\nReturns: env.apply's result plus {\"mood\"}.\nExample: film-ue op env.mood mood=night spec_name=studio",
    "params": [
     {
-     "name": "name",
+     "name": "mood",
      "kind": "keyword",
      "type": "str",
      "required": false,
