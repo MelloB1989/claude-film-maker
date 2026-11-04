@@ -38,8 +38,8 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B22 | Retime/conform: change a sequence's display rate or stretch a section, keeping keys and audio aligned | WP8 | M | open |
 | B23 | Render farm split: `render.split` a job into N chunks across boxes with pre-roll, and `render.stitch` back with frame-exact checks (missing/duplicate frames) | WP9 | M | claimed agent-05 |
 | B24 | Render QA: per-frame checks on a finished render (black frames, NaN/firefly detection on EXR, flicker = luma delta spikes, missing frames) | WP9/WP10 | M | claimed agent-05 |
-| B25 | Audio: `audio.mix` stems into a sequence with levels in dB and fades in frames; loudness check (LUFS) client-side | WP12 | M | claimed agent-03 |
-| B26 | Delivery presets: ProRes 422 HQ, H.264 web, 9:16 crop with safe-area check, burnt-in captions from SRT; ffmpeg argv generated from a spec | WP12 | M | claimed agent-03 |
+| B25 | Audio: `audio.mix` stems into a sequence with levels in dB and fades in frames; loudness check (LUFS) client-side | WP12 | M | merged (agent-03) |
+| B26 | Delivery presets: ProRes 422 HQ, H.264 web, 9:16 crop with safe-area check, burnt-in captions from SRT; ffmpeg argv generated from a spec | WP12 | M | merged (agent-03) |
 | B27 | MetaHuman spec round-trip: `film-ue describe character Host > host.yaml` and apply it to a fresh preset to get the same character (body, skin, hair, wardrobe) | WP3 | L | open |
 | B28 | Groom/hair tuning ops: density, width, melanin/redness, sky-lighting cvar guard (README trap) with numeric before/after | WP3/WP5 | S | open |
 | B29 | Face performance from text: `perf.speak` text → TTS file (client) → speech.to_face → seq.anim on the face, one call | WP4/WP12 | M | open |
