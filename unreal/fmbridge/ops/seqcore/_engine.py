@@ -211,6 +211,11 @@ def bind(seq, label: str, spawn: dict | None = None, replace: bool = False) -> t
     if have is not None and not replace and bool(spawn) == is_spawnable(have):
         if spawn or is_bound(seq, have) is not False:
             return have, False
+        a = actor(label)  # bound to an actor that is gone: point it at the level's actor, keeping its tracks
+        if LSE.get_current_level_sequence() != seq:
+            LSE.open_level_sequence(seq)
+        unreal.get_editor_subsystem(unreal.LevelSequenceEditorSubsystem).replace_binding_with_actors([a], have)
+        return have, True
     if have is not None:
         have.remove()
     if not spawn:

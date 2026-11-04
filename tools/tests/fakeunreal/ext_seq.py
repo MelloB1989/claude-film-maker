@@ -747,6 +747,13 @@ class LevelSequenceEditorBlueprintLibrary(core.Object):
         return []
 
 
+class LevelSequenceEditorSubsystem(core.Object):
+    def replace_binding_with_actors(self, actors, binding):
+        if LevelSequenceEditorBlueprintLibrary.current is not binding.seq:
+            raise RuntimeError("replace_binding_with_actors needs the sequence open in Sequencer")
+        binding.data.obj_label = actors[0].get_actor_label()
+
+
 class _XQuat:
     def __init__(self, rot):
         self._r = rot
@@ -798,6 +805,6 @@ def install(fake) -> None:
     for name in TRACK_CLASSES:
         setattr(fake, name, type(name, (), {}))  # class tokens: add_track(cls) makes a FakeTrack named after it
     for cls in (LevelSequence, MovieSceneMarkedFrame, MaterialParameterInfo, LevelSequenceEditorBlueprintLibrary,
-                ControlRigSequencerEditorLibrary, MovieSceneTimeWarpExtensions):
+                LevelSequenceEditorSubsystem, ControlRigSequencerEditorLibrary, MovieSceneTimeWarpExtensions):
         setattr(fake, cls.__name__, cls)
     LevelSequenceEditorBlueprintLibrary.current = None

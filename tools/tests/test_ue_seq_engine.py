@@ -239,3 +239,14 @@ def test_add_converges_rate_and_range(level):
     b = run_op("seq.add", path=SEQ, fps="23.976", start=0, end=100)
     assert b["changed"] is False
     assert run_op("seq.add", path=SEQ, end=120)["changed"]
+
+
+def test_bind_rebinds_an_unbound_possessable_keeping_its_tracks(level):
+    run_op("seq.apply", spec=spec())
+    seq = level.assets[SEQ]
+    hero = next(b for b in seq.ms.bindings if b.name == "Hero")
+    hero.obj_label = "GoneHero"  # the level was rebuilt: the old actor is gone
+    assert run_op("seq.check", path=SEQ)["pass"] is False
+    res = run_op("seq.bind", path=SEQ, label="Hero")
+    assert res["changed"] and hero.obj_label == "Hero"
+    assert tracks(run_op("seq.describe", path=SEQ), "transform", "Hero")
