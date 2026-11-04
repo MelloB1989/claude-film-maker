@@ -85,3 +85,16 @@ def test_describe_live_kind_state(monkeypatch, capsys):
     monkeypatch.setattr(kd, "describe_many", lambda ue, docs: {"Box": {"cls": "StaticMeshActor", "loc": [0, 0, 0]}})
     code, out, _ = run(monkeypatch, capsys, "describe", "--live", "actor", "Box")
     assert code == 0 and json.loads(out)["state"]["cls"] == "StaticMeshActor"
+
+
+def test_platform_commands_come_from_cli_platform(monkeypatch, capsys):
+    """provision / epic-login / desktop are WP1's (cli_platform.py); editor's non-op verbs reach its editor_cli."""
+    import filmtools.unreal.cli_platform as cp
+    got = {}
+    monkeypatch.setattr(cp, "editor_cli", lambda argv: got.setdefault("argv", argv) and 0)
+    run(monkeypatch, capsys, "editor", "status")
+    assert got["argv"] == ["status"]
+    code, out, _ = run(monkeypatch, capsys, "editor", "describe", "--dry-run")
+    assert code == 0 and json.loads(out)["op"] == "editor.describe"
+    code, out, err = run(monkeypatch, capsys, "provision", "--help")
+    assert code == 0 and "provision" in out
