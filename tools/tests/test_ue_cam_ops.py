@@ -112,10 +112,10 @@ def test_check_focus_and_cut(ue, fmb):
     assert ok["pass"] and ok["metrics"]["size"]["A"]["size"] == "MCU"
     run_op("cam.focus", label="C1", mode="manual", distance_cm=50)
     bad = run_op("cam.check", camera="C1", subjects="A")
-    assert not bad["pass"] and any(i["code"] == "focus" for i in bad["issues"])
+    assert not bad["pass"] and any(i["code"] == "cam.focus" for i in bad["issues"])
     run_op("cam.frame", camera="C2", subjects="B", size="MCU", angle=30, side="right", focal_mm=50)
     cut = run_op("cam.check_cut", camera_a="C1", camera_b="C2", subjects=["A", "B"])
-    assert not cut["pass"] and cut["issues"][0]["code"] == "line_180"
+    assert not cut["pass"] and cut["issues"][0]["code"] == "shot.line_180"
     tr = run_op("cam.focus", label="C2", mode="track", target="B")
     assert tr["focus_method"] == "tracking" and tr["focus_track"]["actor"] == "B"
     off = run_op("cam.focus", label="C2", mode="off")

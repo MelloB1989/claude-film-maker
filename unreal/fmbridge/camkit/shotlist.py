@@ -347,7 +347,7 @@ def plan(spec: dict, subjects: dict, describe_cov: bool = False) -> dict:
                                   filmback=d["filmback"], aperture=aperture, snap_focal=bool(fr.get("snap_focal")),
                                   lead=float(fr.get("lead", 1 / 3)), margin=float(fr.get("margin", 0.06)))
                 cam, size = r["camera"], r["size"]
-                issues += [{"code": "framing", "severity": "warn", "message": w, "fix": "", "camera": label,
+                issues += [{"code": "cam.solver_warning", "severity": "warn", "message": w, "fix": "", "camera": label,
                             "subject": who[0], "frame": tm["start"]} for w in r["warnings"]]
             elif "coverage" in sh:
                 if sh["coverage"] not in cov_by:
@@ -393,7 +393,7 @@ def plan(spec: dict, subjects: dict, describe_cov: bool = False) -> dict:
             errs.append({"path": f"{p}.moves", "message": str(e), "fix": ""})
             continue
         if baked["keys"][-1]["frame"] > tm["end"]:
-            issues.append({"code": "move_overrun", "severity": "warn", "message": f"{sh['id']}'s moves run to "
+            issues.append({"code": "shot.move_overrun", "severity": "warn", "message": f"{sh['id']}'s moves run to "
                            f"{baked['keys'][-1]['frame']}, past its end {tm['end']}", "fix": "shorten the moves",
                            "camera": label, "frame": tm["end"]})
         entry = {"id": sh["id"], "camera": label, "start": tm["start"], "end": tm["end"], "size": size,

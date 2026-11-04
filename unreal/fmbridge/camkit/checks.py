@@ -35,7 +35,7 @@ def frame(cam: dict, subjects, others=None, camera: str = "", at: int | None = N
             continue  # out of frame: QA's out_of_frame says so
         m = (1 - ACTION_SAFE) / 2
         if not (m <= eye["u"] <= 1 - m and m <= eye["v"] <= 1 - m):
-            out.append(issue("safe_area", "warn", f"{n}'s eyes are outside action safe ({ACTION_SAFE:.0%}) at "
+            out.append(issue("cam.safe_area", "warn", f"{n}'s eyes are outside action safe ({ACTION_SAFE:.0%}) at "
                              f"u={eye['u']:.2f} v={eye['v']:.2f}", "pan or tilt the face inward", camera, n,
                              [round(eye["u"], 3), round(eye["v"], 3)], [m, 1 - m], at))
         if cam.get("focus") and cam.get("aperture"):
@@ -44,19 +44,19 @@ def frame(cam: dict, subjects, others=None, camera: str = "", at: int | None = N
             sharp = d["near"] <= depth and (d["far"] is None or depth <= d["far"])
             if not sharp:
                 far = "inf" if d["far"] is None else f"{d['far']:.0f}"
-                out.append(issue("focus", "fail" if k == 0 else "info",
+                out.append(issue("cam.focus", "fail" if k == 0 else "info",
                                  f"{n}'s eyes at {depth:.0f} cm are outside the sharp zone {d['near']:.0f}-{far} cm "
                                  f"(focus {cam['focus']:.0f} cm, f/{cam['aperture']:g})",
                                  "camera.focus on the subject's eyes, or stop down (camera.lens aperture=...)",
                                  camera, n, round(depth, 1), [round(d["near"], 1), d["far"] and round(d["far"], 1)], at))
     roll = abs(geo.wrap180(cam["rot"].get("roll", 0.0)))
     if 0.3 < roll < 4.0:
-        out.append(issue("horizon", "warn", f"roll {roll:.1f} deg: a dutch this small reads as a mistake",
+        out.append(issue("cam.horizon", "warn", f"roll {roll:.1f} deg: a dutch this small reads as a mistake",
                          "roll 0, or 5+ deg for a deliberate dutch", camera, "", round(roll, 2), 0.0, at))
     for o in others or []:
         for s in subs:
             if o is not s and _blocks(cam, o, s):
-                out.append(issue("occlusion", "warn", f"{o['name']} stands between the camera and {s['name']}'s face",
+                out.append(issue("cam.occlusion", "warn", f"{o['name']} stands between the camera and {s['name']}'s face",
                                  "move the camera around (angle) or raise it", camera, s["name"], o["name"], None, at))
     return out
 
@@ -90,7 +90,7 @@ def cut(cam_a: dict, cam_b: dict, subjects, size_a: str | None = None, size_b: s
         a, b = subs[0]["points"]["eyes"], subs[1]["points"]["eyes"]
         sa, sb = side_of_line(cam_a["loc"], a, b), side_of_line(cam_b["loc"], a, b)
         if sa * sb < 0:
-            out.append(issue("line_180", "fail", f"the cut {label} crosses the line between {subs[0]['name']} and "
+            out.append(issue("shot.line_180", "fail", f"the cut {label} crosses the line between {subs[0]['name']} and "
                              f"{subs[1]['name']}: their screen directions flip",
                              "keep both cameras on one side (camera.coverage side=...), or cut through a neutral "
                              "shot on the line", label, subs[0]["name"], None, None, at))
@@ -101,7 +101,7 @@ def cut(cam_a: dict, cam_b: dict, subjects, size_a: str | None = None, size_b: s
     kb = framing.size_key(size_b) if size_b else framing.classify(cam_b, s)["size"]
     step = abs(framing.ORDER.index(ka) - framing.ORDER.index(kb)) if ka and kb else 0
     if ang < 30.0 and step < 2:
-        out.append(issue("rule_30", "warn", f"a jump cut on {s['name']} ({label}): {ang:.0f} deg apart, {ka} -> {kb}",
+        out.append(issue("shot.rule_30", "warn", f"a jump cut on {s['name']} ({label}): {ang:.0f} deg apart, {ka} -> {kb}",
                          "move the camera 30+ deg around the subject or change the size by two steps (MS -> CU)",
                          label, s["name"], round(ang, 1), 30.0, at))
     return out

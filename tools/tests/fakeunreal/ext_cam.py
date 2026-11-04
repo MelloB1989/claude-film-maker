@@ -3,8 +3,7 @@
 - CineCameraComponent starts as the engine's default camera (filmback "16:9 Digital Film", lens "Universal Zoom"
   4-1000 mm f/1.2-22, focal 35, f/2.8, manual focus) and clamps current_focal_length / current_aperture to its
   lens settings as CineCameraComponent.cpp:528-529 does.
-- SkeletalMeshComponent answers does_socket_exist / get_socket_location from a bone table set with
-  `fake.pose(actor, {bone: [x, y, z]})` (world cm); without one it answers as core does.
+- Skeletons: core's bone table (`fake.pose(actor, {bone: [x, y, z]})`).
 - CameraRig_Rail (a spline you can set points on) and CameraRig_Crane.
 """
 from . import core
@@ -60,17 +59,6 @@ class CineCameraActor(core.CameraActor):
         return self._props["camera_component"]
 
 
-def _does_socket_exist(self, name) -> bool:
-    return str(name) in self._props.get("bones", {})
-
-
-def _get_socket_location(self, name, _orig=core.SceneComponent.get_socket_location):
-    b = self._props.get("bones", {})
-    if str(name) in b:
-        return core.Vector(*b[str(name)])
-    return _orig(self, name)
-
-
 class SplineComponent(core.SceneComponent):
     def set_spline_points(self, points, coordinate_space=None, update_spline=True):
         self._props["points"] = [core.Vector(p.x, p.y, p.z) for p in points]
@@ -92,13 +80,4 @@ def install(fake):
                 CineCameraComponent, CineCameraActor, SplineComponent, CameraRig_Rail, CameraRig_Crane):
         fake._classes[cls.__name__] = cls
         setattr(fake, cls.__name__, cls)
-
-    def pose(actor, bones: dict):
-        """Give an actor's skeletal mesh a pose: {bone: [x, y, z]} in world cm."""
-        a = fake.actor(actor) if isinstance(actor, str) else actor
-        comp = a.get_components_by_class(core.SkeletalMeshComponent)[0]
-        comp._props["bones"] = {k: list(v) for k, v in bones.items()}
-        return a
-    fake.pose = pose
-    # bones on every skeletal mesh (a superset of core's: without a bone table it answers as before)
-    # bones on skeletal meshes: core.SkinnedMeshComponent's table (shared with WP10's fakes)
+    # bones on skeletal meshes: core's table, set with fake.pose(actor, {bone: [x, y, z]}) (shared with WP10)

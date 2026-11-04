@@ -229,11 +229,11 @@ def test_line_and_jump_cut():
     one = framing.solve(a, "MCU", angle=40, side="right", focal=50)["camera"]   # on A's right: -X side
     two = framing.solve(b, "MCU", angle=40, side="left", focal=50)["camera"]    # B's left is -X too
     crossed = framing.solve(b, "MCU", angle=40, side="right", focal=50)["camera"]
-    assert not [i for i in checks.cut(one, two, [a, b], "MCU", "MCU") if i["code"] == "line_180"]
+    assert not [i for i in checks.cut(one, two, [a, b], "MCU", "MCU") if i["code"] == "shot.line_180"]
     bad = checks.cut(one, crossed, [a, b], "MCU", "MCU")
-    assert any(i["code"] == "line_180" and i["severity"] == "fail" for i in bad)
+    assert any(i["code"] == "shot.line_180" and i["severity"] == "fail" for i in bad)
     near = framing.solve(a, "MS", angle=40, side="right", focal=50)["camera"]
-    assert any(i["code"] == "rule_30" for i in checks.cut(one, near, [a], "MCU", "MS"))
+    assert any(i["code"] == "shot.rule_30" for i in checks.cut(one, near, [a], "MCU", "MS"))
     assert not checks.cut(one, framing.solve(a, "WS", angle=40, side="right", focal=50)["camera"], [a])
 
 
@@ -241,11 +241,11 @@ def test_focus_occlusion_and_dutch():
     a = person("A")
     r = framing.solve(a, "MCU", focal=85)
     cam = {**r["camera"], "aperture": 1.4, "focus": r["focus"] + 80}
-    assert any(i["code"] == "focus" and i["severity"] == "fail" for i in checks.frame(cam, [a]))
+    assert any(i["code"] == "cam.focus" and i["severity"] == "fail" for i in checks.frame(cam, [a]))
     assert not checks.frame({**cam, "focus": r["focus"]}, [a])
     blocker = person("B", at=(r["camera"]["loc"][0] / 2, 0))
-    assert any(i["code"] == "occlusion" for i in checks.frame(r["camera"], [a], others=[blocker]))
-    assert any(i["code"] == "horizon" for i in checks.frame({**r["camera"], "rot": {**r["camera"]["rot"], "roll": 2}},
+    assert any(i["code"] == "cam.occlusion" for i in checks.frame(r["camera"], [a], others=[blocker]))
+    assert any(i["code"] == "cam.horizon" for i in checks.frame({**r["camera"], "rot": {**r["camera"]["rot"], "roll": 2}},
                                                              [a]))
     assert checks.worst([]) == "pass"
 
@@ -305,7 +305,7 @@ def test_plan_auto_edit_cuts_on_speakers():
     assert [c[0] for c in r["cuts"]] == ["CAM_auto_master", "CAM_auto_L1", "CAM_auto_L3"]
     assert [c[1] for c in r["cuts"]] == [0, 20, 80]
     assert r["range"] == [0, 144]  # the last line's end + 1 s
-    assert not [i for i in r["issues"] if i["code"] == "line_180"]
+    assert not [i for i in r["issues"] if i["code"] == "shot.line_180"]
 
 
 def test_plan_moves_focus_and_group_split_focus():

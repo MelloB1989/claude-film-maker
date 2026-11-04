@@ -107,7 +107,7 @@ def plan(subjects, side: str = "left", focal: float = 50.0, wide_focal: float = 
     for i, x in enumerate(shots):
         for y in shots[i + 1:]:
             for it in checks.cut(x["solve"]["camera"], y["solve"]["camera"], subs, names=(x["name"], y["name"])):
-                if it["code"] == "line_180":
+                if it["code"] == "shot.line_180":
                     issues.append(it)
     return {"line": [list(pa), list(pb)], "side": side, "shots": shots, "issues": issues}
 
