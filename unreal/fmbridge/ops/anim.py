@@ -205,11 +205,10 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str 
     prm = sec.get_editor_property("params") if sec else None
     rate = prm.get_editor_property("play_rate") if prm else 1.0
     rate = rate.to_fixed_play_rate() if hasattr(rate, "to_fixed_play_rate") else rate  # a time-warp variant since 5.5
-    off = 0.0
-    for k in ("first_loop_start_frame_offset", "start_frame_offset"):
+    off = 0.0  # the engine maps time with both offsets summed (MovieSceneSkeletalAnimationSection.cpp:72-78)
+    for k in ("start_frame_offset", "first_loop_start_frame_offset"):
         try:
-            off = prm.get_editor_property(k).value / tick
-            break
+            off += prm.get_editor_property(k).value / tick
         except Exception:
             pass
 
