@@ -93,13 +93,26 @@ def body(character: str, measurements: dict | None = None, *, from_character: st
 
 # --------------------------------------------------------------------------------------------------------------- face
 
+def face_fingerprint(blend=None, coefficients=None, landmarks=None) -> str:
+    """What a face call asks for, canonical (weights normalised, numbers rounded): the tools' planner computes the
+    same (tools/filmtools/unreal/mh_spec.py face_fingerprint)."""
+    b = None
+    if blend:
+        total = sum(float(w) for w in blend.values()) or 1.0
+        b = {str(k): round(float(w) / total, 6) for k, w in sorted(blend.items())}
+    co = [round(float(x), 4) for x in coefficients] if coefficients is not None else None
+    lm = {str(int(k)): [round(float(x), 4) for x in v] for k, v in sorted((landmarks or {}).items(),
+                                                                          key=lambda kv: int(kv[0]))} or None
+    return K.fingerprint({"blend": b, "coefficients": co, "landmarks": lm})
+
+
 def _coeffs(c) -> list:
     return [float(v) for v in (K.sub().get_face_model_coefficients(c) or [])]
 
 
 @op("mh.face", mutates=True, idempotent=True, tags=["metahuman", "experimental"])
 def face(*, path: str, blend: dict | None = None, coefficients: list | None = None, landmarks: dict | None = None,
-         unrig: bool = True, save: bool = True) -> dict:
+         unrig: bool = True, force: bool = False, save: bool = True) -> dict:
     """Shape the face: blend presets or other characters' faces, set the face model's coefficients, or move face
     landmarks (Creator's sculpt points).
 
@@ -107,18 +120,24 @@ def face(*, path: str, blend: dict | None = None, coefficients: list | None = No
     is not exposed to Python, this is its linear equivalent on the model (experimental: judge the still). landmarks
     moves points by deltas in cm ({index: [dx, dy, dz]}; mh.face_landmarks lists them). A face change on a rigged
     character removes the rig first (`unrig`), as Creator does: re-run mh.rig, mh.textures, mh.build.
+    Landmark moves are deltas: what was applied is fingerprinted on the asset (mh.describe face.applied), so the same
+    call twice moves them once; `force` applies again.
     Args: path: the character. blend: {preset name or character path: weight}. coefficients: the full list (from
-    mh.describe full=true). landmarks: {index: [dx, dy, dz]} cm. unrig: allow removing the rig. save: save the asset.
+    mh.describe full=true). landmarks: {index: [dx, dy, dz]} cm. unrig: allow removing the rig. force: apply even if
+    this exact face was applied last. save: save the asset.
     Returns: {"changed", "coefficients": n, "max_delta", "unrigged"}.
     Example: film-ue op mh.face path=/Game/Characters/Ava/MH_Ava 'blend={"Ada": 0.7, "Vivian": 0.3}'
     """
     from .character import _preset_path
     c = K.char(path)
     sub = K.sub()
-    cur = _coeffs(c)
-    target = list(cur)
     if blend and coefficients:
         raise OpError("give blend or coefficients, not both", code="bad_args")
+    fp = face_fingerprint(blend, coefficients, landmarks)
+    if not force and K.get_tag(c, "Face") == fp:
+        return {"changed": False, "coefficients": len(_coeffs(c)), "max_delta": 0.0, "unrigged": False}
+    cur = _coeffs(c)
+    target = list(cur)
     if blend:
         total = sum(float(w) for w in blend.values())
         if total <= 0:
@@ -154,8 +173,9 @@ def face(*, path: str, blend: dict | None = None, coefficients: list | None = No
             idx = sorted(moves)
             sub.translate_face_landmarks(c, idx, [unreal.Vector(*[float(x) for x in moves[i]]) for i in idx])
         sub.commit_face_state(c)
-        if save:
-            K.save(path)
+    K.set_tag(c, "Face", fp)
+    if save:
+        K.save(path)
     return {"changed": changed, "coefficients": len(target), "max_delta": round(delta, 6), "unrigged": unrigged}
 
 

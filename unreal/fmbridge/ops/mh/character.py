@@ -85,7 +85,7 @@ def add(*, path: str, preset: str = "", source: str = "", blank: bool = False, o
             raise OpError(f"could not create a blank character at {path}", code="engine",
                           hint="is the MetaHumanCharacter plugin enabled? see LogMetaHumanCharacterEditor")
     c = K.char(path)
-    for t in ("Rig", "Build", "BuildOpts", "BuildBP"):
+    for t in ("Rig", "Build", "BuildOpts", "BuildBP"):  # (Face stays: it describes the copied face)
         K.set_tag(c, t, "")  # a copy carries its source's fingerprints; it has not been rigged/built as itself
     if save:
         K.save(path)
@@ -150,7 +150,7 @@ def state(c, path: str, full: bool = False) -> dict:
         s["body_ranges"] = {str(x.name): [round(float(x.min_measurement), 2), round(float(x.max_measurement), 2)]
                             for x in cons}
     inputs = K.rig_inputs(c)
-    s["face"] = {"fingerprint": inputs["face"]}
+    s["face"] = {"fingerprint": inputs["face"], "applied": K.get_tag(c, "Face")}
     if full:
         try:
             s["face"]["coefficients"] = [round(float(v), 5) for v in sub.get_face_model_coefficients(c)]

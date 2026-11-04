@@ -81,6 +81,9 @@ def test_face_blend_unrigs_a_rigged_face(mh):
     assert r["changed"] and r["unrigged"]
     assert mh.assets[P]._props["__fm_face"] == [1.5] * 8
     assert run_op("mh.face", path=P, blend={"Ada": 1, "Jorge": 1})["changed"] is False
+    run_op("mh.face", path=P, landmarks={"2": [0, 0, 1.5]})
+    assert run_op("mh.face", path=P, landmarks={"2": [0, 0, 1.5]})["changed"] is False  # deltas apply once
+    assert mh.assets[P]._props["__fm_landmarks"][2].z == 161.5
     e = err(run_op, "mh.face", path=P, coefficients=[0.0])
     assert e.code == "bad_args"
 
@@ -124,7 +127,7 @@ def test_groom_add_is_idempotent_and_colours(mh):
     r2 = run_op("mh.groom", character=P, slot="Hair", item="WI_Hair_L_Straight", melanin=1.0, redness=0.05)
     assert r2["changed"] is False
     coll = mh.assets[P]._props["internal_collection"]
-    assert list(coll._items) == ["WI_Hair_L_Straight"]  # no second palette entry
+    assert [k for k in coll._items if "Hair" in k] == ["WI_Hair_L_Straight"]  # no second palette entry
     assert run_op("mh.item_params", character=P, slot="Hair")["params"]["Redness"] == 0.05
     assert run_op("mh.groom", character=P, slot="Beard", item="none")["changed"] is False
     e = err(run_op, "mh.item_set", character=P, slot="Hair", params={"Melanine": 0.5})
@@ -223,8 +226,9 @@ def test_export_round_trip(mh):
     twin = {**out, "asset": "/Game/Chars/Twin/MH_Twin", "from": {"preset": "Jorge"}, "build": {"name": "Twin"}}
     run_op("mh.apply", spec=twin)
     a, b = run_op("mh.describe", path=P), run_op("mh.describe", path="/Game/Chars/Twin/MH_Twin")
-    for k in ("body", "face", "skin", "eyes", "makeup", "eyelashes", "teeth"):
+    for k in ("body", "skin", "eyes", "makeup", "eyelashes", "teeth"):
         assert a[k] == b[k], k
+    assert a["face"]["fingerprint"] == b["face"]["fingerprint"]  # the same face (made by blend vs by coefficients)
     assert a["wardrobe"]["Hair"]["params"] == b["wardrobe"]["Hair"]["params"]
 
 

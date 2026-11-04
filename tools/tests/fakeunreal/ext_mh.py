@@ -156,7 +156,8 @@ BODY = {"Height": (170.0, 140, 210), "Chest": (95.0, 70, 140), "Waist": (75.0, 5
         "Across Shoulder": (40.0, 30, 55), "Neck": (35.0, 28, 50), "Bicep": (28.0, 20, 45), "Thigh": (52.0, 38, 80),
         "Fat": (0.0, -3, 3), "Muscularity": (0.0, -3, 3), "Masculine/Feminine": (0.0, -3, 3)}
 GROOM_PARAMS = {"Melanin": 0.16, "Redness": 0.0, "Roughness": 0.25, "Whiteness": 0.0, "Lightness": 0.0,
-                "DyeColor": None, "bUseOmbre": False, "OmbreU": 0.0}
+                "DyeColor": core.LinearColor(1, 1, 1), "bUseOmbre": False, "OmbreU": 0.0, "OmbreV": 0.0,
+                "OmbreIntensity": 0.0}
 
 
 # ---------------------------------------------------------------------------------------------------- the palette
@@ -500,10 +501,15 @@ def install(fake):
 
 def add_presets(fake, names=("Ada", "Jorge", "Vivian")):
     """Preset characters where the engine keeps them, each with a different face and height."""
+    brows = fake.add_asset("/MetaHumanCharacter/Optional/Grooms/Bindings/Eyebrows/WI_Eyebrows_M_Natural",
+                           "MetaHumanWardrobeItem")
     for i, n in enumerate(names):
         c = fake.put_asset(f"/MetaHumanCharacter/Optional/Presets/{n}", MetaHumanCharacter(n))
         c._props["__fm_face"] = [float(i + 1)] * 8
         c._props["__fm_body"]["Height"] = [True, 160.0 + 10 * i]
+        coll = c._props["internal_collection"]  # presets come wearing eyebrows
+        coll._props["default_instance"].set_single_slot_selection("Eyebrows",
+                                                                  coll.try_add_item_from_wardrobe_item("Eyebrows", brows))
     return names
 
 
