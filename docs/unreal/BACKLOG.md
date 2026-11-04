@@ -26,9 +26,9 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B10 | Undo-safe "scratch" context: `with scratch("/Game/_Selftest/x")` creates a temporary level/folder, tears it down even on failure (no dialogs) | WP11 | S | open |
 | B11 | `film-ue doctor`: checks the box end to end (bridge up, engine version, plugins enabled: MRQ, MetaHuman, Python Editor Script; GPU/RHI, disk, DDC, Epic login state) and prints fixes | WP1/WP11 | M | open |
 | B12 | Plugin/project settings op: `editor.plugins` (list/enable, needs restart flag), `editor.cvars` (get/set/snapshot/restore a set of cvars), `editor.project_setting` | WP1 | M | open |
-| B13 | Asset dependency + reference report: `assets.refs` (who uses this), `assets.deps`; `assets.audit` unused/missing/broken (checkerboard) materials | WP2 | M | open |
-| B14 | Texture import rules: sRGB/compression by suffix and by content (normal-map detection), virtual textures off/on, max size; `assets.texture_set` imports a PBR set (BaseColor/Normal/ORM) and builds an MI | WP2 | M | open |
-| B15 | Material library: a small set of master materials (opaque PBR, masked foliage, glass, emissive screen, decal) created by code with documented parameters; `mat.instance` converges an MI from a dict of params | WP2/WP5 | L | open |
+| B13 | Asset dependency + reference report: `assets.refs` (who uses this), `assets.deps`; `assets.audit` unused/missing/broken (checkerboard) materials | WP2 | M | claimed agent-02 |
+| B14 | Texture import rules: sRGB/compression by suffix and by content (normal-map detection), virtual textures off/on, max size; `assets.texture_set` imports a PBR set (BaseColor/Normal/ORM) and builds an MI | WP2 | M | claimed agent-02 |
+| B15 | Material library: a small set of master materials (opaque PBR, masked foliage, glass, emissive screen, decal) created by code with documented parameters; `mat.instance` converges an MI from a dict of params | WP2/WP5 | L | claimed agent-02 |
 | B16 | HDRI/sky environment presets: `env.preset` (studio, overcast, golden hour, night interior) building sky/sun/fog/post consistently; numbers in lux/EV documented | WP5 | M | open |
 | B17 | Light rigs: `light.rig` three-point/key-fill-rim around a target actor at distances and angles relative to a camera, with lighting channels | WP5/WP7 | M | open |
 | B18 | Camera from description: `cam.frame` "medium close-up of Host from 30° left at eye level" → placement, focal length, focus; inverse `cam.describe` in the same words | WP7 | L | open |
@@ -36,8 +36,8 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B20 | Shot list → sequence: a `shotlist` spec (shots with camera, duration_s, subject, action) building subsequences/camera cuts in one apply | WP8 | L | open |
 | B21 | Timecode utilities: frames↔seconds↔SMPTE at any rate (23.976, 29.97 drop-frame), shared by client and bridge (pure module) | WP8 | S | open |
 | B22 | Retime/conform: change a sequence's display rate or stretch a section, keeping keys and audio aligned | WP8 | M | open |
-| B23 | Render farm split: `render.split` a job into N chunks across boxes with pre-roll, and `render.stitch` back with frame-exact checks (missing/duplicate frames) | WP9 | M | open |
-| B24 | Render QA: per-frame checks on a finished render (black frames, NaN/firefly detection on EXR, flicker = luma delta spikes, missing frames) | WP9/WP10 | M | open |
+| B23 | Render farm split: `render.split` a job into N chunks across boxes with pre-roll, and `render.stitch` back with frame-exact checks (missing/duplicate frames) | WP9 | M | claimed agent-05 |
+| B24 | Render QA: per-frame checks on a finished render (black frames, NaN/firefly detection on EXR, flicker = luma delta spikes, missing frames) | WP9/WP10 | M | claimed agent-05 |
 | B25 | Audio: `audio.mix` stems into a sequence with levels in dB and fades in frames; loudness check (LUFS) client-side | WP12 | M | open |
 | B26 | Delivery presets: ProRes 422 HQ, H.264 web, 9:16 crop with safe-area check, burnt-in captions from SRT; ffmpeg argv generated from a spec | WP12 | M | open |
 | B27 | MetaHuman spec round-trip: `film-ue describe character Host > host.yaml` and apply it to a fresh preset to get the same character (body, skin, hair, wardrobe) | WP3 | L | open |
@@ -49,7 +49,7 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B33 | Bridge auth hardening + request size limits + `/op` batch endpoint (several ops in one request, one tick budget) | WP1 | S | open |
 | B34 | SDK examples: 5 end-to-end scripts in `examples/unreal/` (empty level → lit set → character → camera → render 2 s) that run as tomorrow's demo | WP11 | M | open |
 | B35 | `GUIDE.md` for Claude: the 20 most common tasks as copy-paste recipes, with the expected JSON output of each step | WP11 | M | open |
-| B36 | Fab: list/import owned Fab assets by code (Fab plugin at Engine/Plugins/Fab), or document precisely why not headless and the narrowest UI fallback | WP2 | L | open |
+| B36 | Fab: list/import owned Fab assets by code (Fab plugin at Engine/Plugins/Fab), or document precisely why not headless and the narrowest UI fallback | WP2 | L | claimed agent-02 |
 | B37 | World Partition / large level support: load/unload regions, data layers on/off by op | WP6 | M | open |
 | B38 | Physics settle: drop props with physics sim for N ticks then bake transforms (realistic resting objects), multi-tick | WP6 | M | open |
 | B39 | Foliage/PCG: scatter foliage by code (InstancedFoliage / PCG graph with parameters), deterministic seed | WP5/WP6 | L | open |
