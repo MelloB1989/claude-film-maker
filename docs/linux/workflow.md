@@ -54,7 +54,7 @@ Run with `film-ue --box linux` and `poc.py` against agent-04's run sheet (`docs/
 | P9 MetaHuman Creator | PASS after the sign-in. Preset, body, skin, wardrobe, rig (about 30 s), textures (20 s), build (178 s, RSS 15.6 GB, no swap used). The order is rig, then textures, then build |
 | P11 audio to face | PASS. 0.11 s of solver CPU per second of audio (ORT on CPU), 366 frames, lips move |
 | P10 sign-in | PASS. The editor cannot draw to X on this driver setup (the EGL ICD swapchain crashes; the GLX ICD is incompatible), and it does not need to. It runs offscreen as usual, with `DISPLAY=:0` set and Xorg running. `mh.rig` then makes EOS open the Epic account portal in Firefox on :0: a device-code page, so the operator can enter the code in their own browser, with no VNC at all. The sign-in persists across offscreen restarts with no DISPLAY (the EOS persistent credential under `~/.local/share/.eos_sdk/`, a whole-account credential: never copy it) |
-| P12 Fab | The plugin loads; there is no Python API. Adding assets is only possible from its web panel: untested |
+| P12 Fab | The plugin loads; there is no Python API. `Fab.Login` works with no desktop: it starts its own device sign-in, separate from MetaHuman's (`film-ue epic-login --fab`). The sign-in itself and adding assets (only from Fab's web panel) are untested. Never run `Fab.Logout` or `Fab.SetEnvironment`: both delete the saved sign-in |
 
 Code changes from the PoC (on this branch): the bridge idles an offscreen editor (no realtime viewport, 30 fps cap)
 and MRQ lifts the cap; `render.mrq` refuses the process executor with unsaved packages; `mh.rig` runs across ticks
