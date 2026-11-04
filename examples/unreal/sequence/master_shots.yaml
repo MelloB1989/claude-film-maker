@@ -1,0 +1,16 @@
+# A master sequence that strings shot sequences together, each with cloth pre-roll (simulations need history:
+# a render that starts cold mid-shot is wrong). Render chunks: film-ue op seq.chunks path=/Game/Examples/Seq/SEQ_Master
+kind: sequence
+version: 1
+name: master
+sequence: /Game/Examples/Seq/SEQ_Master
+fps: 24
+range: [0, 360]
+shots:
+  - {sequence: /Game/Examples/Seq/SEQ_sh010, name: sh010, start: 0, end: 120, preroll: 24}
+  - {sequence: /Game/Examples/Seq/SEQ_sh020, name: sh020, start: 120, end: 240, offset: 12, preroll: 24}
+  - {sequence: /Game/Examples/Seq/SEQ_sh030, name: sh030, start: 240, end: 360, timescale: 0.5, preroll: 24}
+audio:
+  Score: [{sound: /Game/Audio/Score_Main, start: 0, volume: 0.8}]
+collections:
+  - {collection: /Game/Examples/MPC_Grade, param: Exposure, keys: [[0, 0], [120, 0.3], [240, 0]]}

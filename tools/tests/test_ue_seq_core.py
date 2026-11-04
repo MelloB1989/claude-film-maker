@@ -301,3 +301,38 @@ def test_shots_fall_back_to_camera_cuts():
     doc = compiled()
     doc["tracks"] = [t for t in doc["tracks"] if t["kind"] != "shot"]
     assert [s["camera"] for s in C.plan.shots_of(doc)] == ["CamA", "Hero"]
+
+
+# --- the kind: examples, schema, WP11's engine ---------------------------------------------------------------------------
+
+from pathlib import Path  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[2]
+EXAMPLES = sorted((ROOT / "examples/unreal/sequence").glob("*.yaml"))
+
+
+def test_examples_validate_against_schema_and_compile():
+    import json
+    from filmtools.unreal import jsonschema_lite
+    schema = json.loads((ROOT / "tools/filmtools/unreal/schemas/sequence.schema.json").read_text())
+    assert EXAMPLES
+    for p in EXAMPLES:
+        for doc in seq_spec.load(str(p)):
+            assert jsonschema_lite.validate(doc, schema) == [], p.name
+            v = seq_spec.validate(doc)
+            assert v["ok"], (p.name, v["problems"])
+
+
+def test_schema_rejects_a_typo():
+    import json
+    from filmtools.unreal import jsonschema_lite
+    schema = json.loads((ROOT / "tools/filmtools/unreal/schemas/sequence.schema.json").read_text())
+    assert jsonschema_lite.validate({"sequence": "/Game/X", "camera_cut": []}, schema)
+
+
+def test_kind_registered_with_the_spec_engine():
+    from filmtools.unreal import spec as engine
+    k = engine.kinds()["sequence"]
+    assert k.order == 60
+    doc = seq_spec.load(str(EXAMPLES[-1]))[0]
+    assert k.plan(doc, None)[0]["op"] == "seq.add"

@@ -138,12 +138,15 @@
    "type": "string"
   },
   "$schema": {
-   "type": "string"
+   "type": "string",
+   "description": "the schema's URL (editor hint; ignored)"
   },
   "description": {
    "type": "string"
   },
-  "notes": {},
+  "notes": {
+   "description": "free text for people (ignored)"
+  },
   "sequence": {
    "type": "string",
    "pattern": "^/",
@@ -892,7 +895,8 @@
       "type": "integer"
      }
     }
-   }
+   },
+   "description": "sections that show or hide streaming levels: {start, end (frames), visible, levels}"
   },
   "collections": {
    "type": "array",
@@ -935,7 +939,8 @@
       ]
      }
     }
-   }
+   },
+   "description": "material parameter collection keys: {collection path, param, keys (frame, value)}"
   },
   "shots": {
    "type": "array",
@@ -1232,7 +1237,8 @@
    "type": "array",
    "items": {
     "$ref": "#/$defs/track"
-   }
+   },
+   "description": "raw canonical tracks, seq.describe's shape (frames, linear colours, offsets in seconds)"
   }
  }
 }

@@ -49,7 +49,7 @@ def _compiled(spec: dict) -> tuple:
 
 
 @op("seq.describe", mutates=False, idempotent=True, tags=["sequencer", "describe"])
-def describe(*, path: str, spec=None, keys: bool = True, check: bool = False) -> dict:
+def describe(*, path: str, spec: dict = None, keys: bool = True, check: bool = False) -> dict:
     """A level sequence as JSON: rate, range, markers, bindings (bound or not), every track with sections and keys.
 
     The same shape seq.apply takes ("tracks"), so a describe fed back is a no-op. With `spec`, also "want": the
@@ -70,7 +70,7 @@ def describe(*, path: str, spec=None, keys: bool = True, check: bool = False) ->
 
 
 @op("seq.validate", mutates=False, idempotent=True, tags=["sequencer", "spec"])
-def validate(*, spec) -> dict:
+def validate(*, spec: dict) -> dict:
     """Check a sequence spec without touching anything: every problem at once, with where and what to write.
 
     Args: spec: a sequence spec (dict). Returns: {"ok", "problems": [...], "notes": [...], "tracks": [labels]}.
@@ -80,7 +80,7 @@ def validate(*, spec) -> dict:
 
 
 @op("seq.plan", mutates=False, idempotent=True, tags=["sequencer", "spec"])
-def plan(*, spec, prune: bool = None) -> dict:
+def plan(*, spec: dict, prune: bool = None) -> dict:
     """What seq.apply would do to converge the level's sequence to `spec`: the steps, nothing changed.
 
     Args: spec: a sequence spec. prune: also remove unlisted tracks of the bindings the spec names (default: the
@@ -105,7 +105,7 @@ def _brief(step: dict) -> dict:
 
 
 @op("seq.apply", mutates=True, idempotent=True, tags=["sequencer", "spec"])
-def apply(*, spec, prune: bool = None, dry_run: bool = False, save: bool = True):
+def apply(*, spec: dict, prune: bool = None, dry_run: bool = False, save: bool = True):
     """Converge a level sequence to a SEQUENCE SPEC in one call: create it, bind actors, write only the tracks that
     differ (each track's keys batched), set markers; then describe again and confirm nothing is left to do.
 
@@ -474,7 +474,7 @@ def copy_sequence(*, src: str, dst: str, start: int = None, end: int = None, to:
 
 
 @op("seq.time", mutates=False, idempotent=True, tags=["sequencer"])
-def time(*, value, fps=None, path: str = "") -> dict:
+def time(*, value: str, fps=None, path: str = "") -> dict:
     """Convert a time between frames, seconds, timecode and ticks at a sequence's rate (or `fps`).
 
     Args: value: 48, "2s", "48f", "1m30s", "00:00:02:00". fps: a rate (default: the sequence's, else 24).

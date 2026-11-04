@@ -5851,6 +5851,67 @@
    ]
   },
   {
+   "name": "seq.add",
+   "area": "seq",
+   "verb": "add",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 160,
+   "summary": "Make a level sequence, or converge an existing one's rate and playback range [start, end) (frames).",
+   "doc": "Make a level sequence, or converge an existing one's rate and playback range [start, end) (frames).\n\nChanging `fps` on an existing sequence keeps every key at its time in seconds (keys live in ticks); its\nframe numbers change. `tick_resolution` migrates existing keys. Never opens a dialog.\nArgs: path: /Game/... . fps: 24, 25, 30, 23.976, \"30000/1001\". start, end: frames. tick_resolution: per second.\nReturns: {\"sequence\", \"created\", \"changed\", \"fps\", \"range\", \"tick_resolution\"}.\nExample: film-ue op seq.add path=/Game/Film/SEQ_010 fps=24 start=0 end=240",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "fps",
+     "kind": "keyword",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "start",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "end",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "tick_resolution",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "sequencer"
+   ]
+  },
+  {
    "name": "seq.anim",
    "area": "seq",
    "verb": "anim",
@@ -5903,6 +5964,54 @@
    "tags": []
   },
   {
+   "name": "seq.apply",
+   "area": "seq",
+   "verb": "apply",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 107,
+   "summary": "Converge a level sequence to a SEQUENCE SPEC in one call: create it, bind actors, write only the tracks that",
+   "doc": "Converge a level sequence to a SEQUENCE SPEC in one call: create it, bind actors, write only the tracks that\ndiffer (each track's keys batched), set markers; then describe again and confirm nothing is left to do.\n\nRe-running with the same spec changes nothing (changed false). Tracks the spec does not name are kept unless\n`prune`. A multi-tick job (big writes yield). See docs/unreal/sequencer.md for the spec.\nArgs: spec: the spec (dict). prune: bool. dry_run: plan only. save: save the asset.\nReturns: {\"changed\", \"steps\": [{\"op\", \"why\", \"result\"}], \"converged\", \"remaining\": [...], \"notes\", \"sequence\"}.\nExample: film-ue apply examples/unreal/sequence/two_shot.yaml",
+   "params": [
+    {
+     "name": "spec",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "prune",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "dry_run",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "sequencer",
+    "spec"
+   ]
+  },
+  {
    "name": "seq.audio",
    "area": "seq",
    "verb": "audio",
@@ -5948,6 +6057,60 @@
    "tags": []
   },
   {
+   "name": "seq.bind",
+   "area": "seq",
+   "verb": "bind",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 202,
+   "summary": "Bind an actor to a sequence by its label (a possessable), or make a spawnable the sequence owns.",
+   "doc": "Bind an actor to a sequence by its label (a possessable), or make a spawnable the sequence owns.\n\nspawn: {\"class\": \"CineCameraActor\"} or {\"template\": \"<level actor label>\"}; the binding is named `label`.\n`replace` remakes the binding (its tracks go with it). Converges: an existing, bound binding is kept.\nReturns: {\"binding\", \"kind\", \"changed\"}.\nExample: film-ue op seq.bind path=/Game/Film/SEQ_010 label=Hero",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "spawn",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "replace",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "sequencer"
+   ]
+  },
+  {
    "name": "seq.camera_cuts",
    "area": "seq",
    "verb": "camera_cuts",
@@ -5979,6 +6142,95 @@
    "tags": []
   },
   {
+   "name": "seq.check",
+   "area": "seq",
+   "verb": "check",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 296,
+   "summary": "Numeric checks of a sequence: unbound bindings, camera-cut gaps and missing cameras, keys outside the",
+   "doc": "Numeric checks of a sequence: unbound bindings, camera-cut gaps and missing cameras, keys outside the\nrange, rotation flips across +-180, overlapping shots, empty tracks.\n\nReturns: {\"pass\", \"issues\": [{\"code\", \"severity\", \"message\", \"fix\", \"frame\", \"subject\"}], \"metrics\"}.\nExample: film-ue op seq.check path=/Game/Film/SEQ_010",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "sequencer",
+    "qa"
+   ]
+  },
+  {
+   "name": "seq.chunks",
+   "area": "seq",
+   "verb": "chunks",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 344,
+   "summary": "Render chunks that never start cloth cold: each lies in one shot and pre-rolls back to its shot's start.",
+   "doc": "Render chunks that never start cloth cold: each lies in one shot and pre-rolls back to its shot's start.\n\nCloth (and any simulation) needs its history: a render that starts mid-shot is wrong (the Linux PoC's open\novershirt). Render [eval_from, end) and keep [start, end). max_frames > 0 splits long shots; max_preroll\ncaps the pre-roll (the chunk is then flagged \"cold\"); preroll adds frames before every shot start.\nReturns: {\"chunks\": [{\"start\", \"end\", \"shot\", \"shot_start\", \"preroll_frames\", \"eval_from\", \"first_after_cut\",\n\"cold\"}], \"frames\", \"preroll_total\"}.\nExample: film-ue op seq.chunks path=/Game/Film/SEQ_010 max_frames=48 preroll=8",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "start",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "end",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "max_frames",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "preroll",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "max_preroll",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "sequencer",
+    "render"
+   ]
+  },
+  {
    "name": "seq.close",
    "area": "seq",
    "verb": "close",
@@ -5993,6 +6245,74 @@
    "mutates": null,
    "idempotent": null,
    "tags": []
+  },
+  {
+   "name": "seq.copy",
+   "area": "seq",
+   "verb": "copy",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 436,
+   "summary": "Copy a sequence (all of it: the asset duplicated), or a window [start, end) of it moved to begin at `to`:",
+   "doc": "Copy a sequence (all of it: the asset duplicated), or a window [start, end) of it moved to begin at `to`:\nsections cut to the window (clips start that much later into themselves), curves holding their values at the\nedges, markers inside kept. For pulling a shot out of a long sequence. A multi-tick job.\n\n`replace` frees an existing `dst` first (no dialog), else an existing dst is an error.\nReturns: {\"sequence\", \"range\", \"tracks\", \"notes\", \"changed\"}.\nExample: film-ue op seq.copy src=/Game/Film/SEQ_All dst=/Game/Film/SEQ_sh020 start=120 end=240",
+   "params": [
+    {
+     "name": "src",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "dst",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "start",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "end",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "to",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "replace",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "sequencer"
+   ]
   },
   {
    "name": "seq.cuts",
@@ -6017,6 +6337,102 @@
    "mutates": null,
    "idempotent": null,
    "tags": []
+  },
+  {
+   "name": "seq.describe",
+   "area": "seq",
+   "verb": "describe",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 51,
+   "summary": "A level sequence as JSON: rate, range, markers, bindings (bound or not), every track with sections and keys.",
+   "doc": "A level sequence as JSON: rate, range, markers, bindings (bound or not), every track with sections and keys.\n\nThe same shape seq.apply takes (\"tracks\"), so a describe fed back is a no-op. With `spec`, also \"want\": the\nspec compiled against the level (look-at targets, clip lengths, property owners resolved) for planning\noffline. `keys` False gives key counts instead of keys. `check` adds \"lint\" (seq.check's verdict).\nArgs: path: /Game/... sequence. spec: a sequence spec (dict). keys: bool. check: bool.\nReturns: {\"exists\", \"sequence\", \"fps\", \"tick_resolution\", \"range\": [start, end), \"markers\", \"bindings\",\n\"tracks\", \"unsupported\"(, \"want\", \"notes\", \"lint\")}.\nExample: film-ue op seq.describe path=/Game/Film/SEQ_010 keys=false",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "spec",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "keys",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "check",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "sequencer",
+    "describe"
+   ]
+  },
+  {
+   "name": "seq.eval",
+   "area": "seq",
+   "verb": "eval",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 310,
+   "summary": "What the sequence evaluates to at frames, without playing it: actors' world transforms (opens the sequence in",
+   "doc": "What the sequence evaluates to at frames, without playing it: actors' world transforms (opens the sequence in\nSequencer: ControlRigSequencerEditorLibrary evaluates the open one) and tracks' channel values (curve\nevaluation; works closed). For checking keys landed where meant.\n\nArgs: frames: display frames. labels: actor labels -> [[x, y, z, pitch, yaw, roll], ...] per frame.\ntracks: [{\"kind\", \"binding\", \"component\", \"name\"}] -> {channel: [values]}.\nReturns: {\"frames\", \"transforms\": {label: [...]}, \"channels\": {track label: {channel: [...]}}}.\nExample: film-ue op seq.eval path=/Game/S/SEQ_A 'frames=[0,24,48]' 'labels=[\"CamA\"]'",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": []
+    },
+    {
+     "name": "tracks",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": []
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "sequencer",
+    "qa"
+   ]
   },
   {
    "name": "seq.key_collection",
@@ -6366,6 +6782,46 @@
    "tags": []
   },
   {
+   "name": "seq.markers",
+   "area": "seq",
+   "verb": "markers",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 278,
+   "summary": "Set a sequence's marked frames (replacing them): [{\"frame\", \"label\"}] or [[frame, label]], display frames.",
+   "doc": "Set a sequence's marked frames (replacing them): [{\"frame\", \"label\"}] or [[frame, label]], display frames.\n\nReturns: {\"markers\": n, \"changed\"}.\nExample: film-ue op seq.markers path=/Game/S/SEQ_A 'markers=[[48,\"beat\"],[96,\"hit\"]]'",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "markers",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "sequencer"
+   ]
+  },
+  {
    "name": "seq.new",
    "area": "seq",
    "verb": "new",
@@ -6418,6 +6874,88 @@
    "tags": []
   },
   {
+   "name": "seq.plan",
+   "area": "seq",
+   "verb": "plan",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 82,
+   "summary": "What seq.apply would do to converge the level's sequence to `spec`: the steps, nothing changed.",
+   "doc": "What seq.apply would do to converge the level's sequence to `spec`: the steps, nothing changed.\n\nArgs: spec: a sequence spec. prune: also remove unlisted tracks of the bindings the spec names (default: the\nspec's `prune`). Returns: {\"steps\": [{\"op\", \"args\", \"why\"}], \"converged\": bool, \"notes\"}.\nExample: film-ue plan examples/unreal/sequence/two_shot.yaml",
+   "params": [
+    {
+     "name": "spec",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "prune",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "sequencer",
+    "spec"
+   ]
+  },
+  {
+   "name": "seq.preroll",
+   "area": "seq",
+   "verb": "preroll",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 362,
+   "summary": "Give every shot / subsequence section of a sequence `frames` of pre-roll (and `postroll`): Sequencer then",
+   "doc": "Give every shot / subsequence section of a sequence `frames` of pre-roll (and `postroll`): Sequencer then\nevaluates each inner sequence that long before its section starts, so simulations have history at the cut.\n\nReturns: {\"sections\": n, \"changed\"}.\nExample: film-ue op seq.preroll path=/Game/Film/SEQ_Master frames=24",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "keyword",
+     "type": "int",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "postroll",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "sequencer",
+    "render"
+   ]
+  },
+  {
    "name": "seq.rebind",
    "area": "seq",
    "verb": "rebind",
@@ -6447,6 +6985,175 @@
    "mutates": null,
    "idempotent": null,
    "tags": []
+  },
+  {
+   "name": "seq.remove_binding",
+   "area": "seq",
+   "verb": "remove_binding",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 261,
+   "summary": "Remove an actor's binding (with its component bindings and all their tracks). Removing nothing is fine.",
+   "doc": "Remove an actor's binding (with its component bindings and all their tracks). Removing nothing is fine.\n\nReturns: {\"removed\": n, \"changed\"}.\nExample: film-ue op seq.remove_binding path=/Game/S/SEQ_A label=OldCam",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "sequencer"
+   ]
+  },
+  {
+   "name": "seq.remove_track",
+   "area": "seq",
+   "verb": "remove_track",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 245,
+   "summary": "Remove a track by identity: its kind, binding (actor label, \"\" = the sequence's own), component, and name",
+   "doc": "Remove a track by identity: its kind, binding (actor label, \"\" = the sequence's own), component, and name\n(property path, track name, \"slot:N\", collection path). Removing nothing is fine.\n\nReturns: {\"removed\": n, \"changed\"}.\nExample: film-ue op seq.remove_track path=/Game/S/SEQ_A kind=float binding=Key name=Intensity",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "kind",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "binding",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "sequencer"
+   ]
+  },
+  {
+   "name": "seq.retime",
+   "area": "seq",
+   "verb": "retime",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 387,
+   "summary": "Move or stretch a sequence's time: f -> pivot + (f - pivot) * scale + offset, keys, sections and range alike.",
+   "doc": "Move or stretch a sequence's time: f -> pivot + (f - pivot) * scale + offset, keys, sections and range alike.\n\n`after` makes it a ripple (only what is at or after that frame moves: insert time with offset > 0, close a gap\nwith offset < 0). Animation sections play at rate / scale; audio is moved, never stretched. `out`: write to a\ncopy (made with the asset duplicated) and leave `path` as it is. Tracks of unsupported classes are not moved\n(listed in \"untouched\"). Not idempotent: each call moves again. A multi-tick job.\nReturns: {\"sequence\", \"tracks\", \"notes\", \"untouched\", \"changed\"}.\nExample: film-ue op seq.retime path=/Game/S/SEQ_A offset=12 after=96",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "offset",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "scale",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "pivot",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "after",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "out",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": false,
+   "tags": [
+    "sequencer"
+   ]
   },
   {
    "name": "seq.sample",
@@ -6699,6 +7406,32 @@
    "tags": []
   },
   {
+   "name": "seq.shots",
+   "area": "seq",
+   "verb": "shots",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 331,
+   "summary": "The shots of a sequence in order: its cinematic shot track's sections, else its camera cuts.",
+   "doc": "The shots of a sequence in order: its cinematic shot track's sections, else its camera cuts.\n\nReturns: [{\"name\", \"start\", \"end\", \"sequence\" | \"camera\", \"preroll\"}] (frames).\nExample: film-ue op seq.shots path=/Game/Film/SEQ_Master",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "sequencer"
+   ]
+  },
+  {
    "name": "seq.still",
    "area": "seq",
    "verb": "still",
@@ -6831,6 +7564,46 @@
    "tags": []
   },
   {
+   "name": "seq.time",
+   "area": "seq",
+   "verb": "time",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 476,
+   "summary": "Convert a time between frames, seconds, timecode and ticks at a sequence's rate (or `fps`).",
+   "doc": "Convert a time between frames, seconds, timecode and ticks at a sequence's rate (or `fps`).\n\nArgs: value: 48, \"2s\", \"48f\", \"1m30s\", \"00:00:02:00\". fps: a rate (default: the sequence's, else 24).\nReturns: {\"frame\", \"seconds\", \"timecode\", \"ticks\", \"fps\"}.\nExample: film-ue op seq.time value=00:01:00:00 fps=23.976",
+   "params": [
+    {
+     "name": "value",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "fps",
+     "kind": "keyword",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "sequencer"
+   ]
+  },
+  {
    "name": "seq.tracks",
    "area": "seq",
    "verb": "tracks",
@@ -6853,6 +7626,73 @@
    "mutates": null,
    "idempotent": null,
    "tags": []
+  },
+  {
+   "name": "seq.validate",
+   "area": "seq",
+   "verb": "validate",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 72,
+   "summary": "Check a sequence spec without touching anything: every problem at once, with where and what to write.",
+   "doc": "Check a sequence spec without touching anything: every problem at once, with where and what to write.\n\nArgs: spec: a sequence spec (dict). Returns: {\"ok\", \"problems\": [...], \"notes\": [...], \"tracks\": [labels]}.\nExample: film-ue op seq.validate 'spec={\"sequence\": \"/Game/S/SEQ_A\", \"duration\": \"5s\"}'",
+   "params": [
+    {
+     "name": "spec",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "sequencer",
+    "spec"
+   ]
+  },
+  {
+   "name": "seq.write",
+   "area": "seq",
+   "verb": "write",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 219,
+   "summary": "Write one canonical track (seq.describe's shape) into a sequence, replacing the track of the same identity.",
+   "doc": "Write one canonical track (seq.describe's shape) into a sequence, replacing the track of the same identity.\n\nEvery key of the track goes in one call (batched, Sequencer closed while writing, a tick yielded every 2000\nkeys). Material and collection tracks replace only the parameters given. Bindings are made as needed\n(possessables by label). A multi-tick job. Unchanged tracks are left alone (changed false).\nArgs: path: sequence. track: {\"kind\", \"binding\", \"component\", \"name\", \"params\", \"sections\"}. save: bool.\nReturns: {\"track\", \"keys\", \"sections\", \"changed\"}.\nExample: film-ue op seq.write path=/Game/S/SEQ_A 'track={\"kind\":\"float\",\"binding\":\"Key\",\"name\":\"Intensity\",\"sections\":[{\"range\":[null,null],\"channels\":{\"value\":{\"keys\":[[0,5],[24,10]]}}}]}'",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "track",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "sequencer"
+   ]
   },
   {
    "name": "shot.apply",

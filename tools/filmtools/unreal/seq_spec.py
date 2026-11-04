@@ -74,3 +74,25 @@ def load(path: str) -> list:
         return d if isinstance(d, list) else [d]
     import yaml
     return [d for d in yaml.safe_load_all(text) if d]
+
+
+def describe(ue, spec: dict) -> dict | None:
+    """The kind's reader for WP11's engine: seq.describe with the spec (so "want" is resolved in the editor);
+    None when the sequence does not exist."""
+    state = ue.call("seq.describe", path=spec["sequence"], spec=_wire(spec))
+    return state if state.get("exists", True) else None
+
+
+def _plan_kind(spec: dict, state: dict | None) -> list:
+    return plan(_wire(spec), state)
+
+
+def _wire(spec: dict) -> dict:
+    """The spec as the bridge takes it (the engine's envelope keys are allowed by the compiler too)."""
+    return {k: v for k, v in spec.items() if k not in ("$schema",)}
+
+
+SPEC_KINDS = [{"name": KIND, "plan": _plan_kind, "describe": describe, "order": 60,
+               "doc": "A level sequence: bindings and their tracks (transform, visibility, animation, properties, "
+                      "materials), camera cuts, audio, fade, shots, markers; batched, idempotent (docs/unreal/"
+                      "sequencer.md)."}]
