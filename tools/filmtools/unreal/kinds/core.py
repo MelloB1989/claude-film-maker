@@ -25,8 +25,9 @@ for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_
 READ_LEVEL = '''
 import unreal
 w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
-result = {"current": w.get_path_name().split(".")[0] if w else "",
-          "exists": unreal.EditorAssetLibrary.does_asset_exist(PATH)}
+# EditorAssetLibrary needs the EditorScriptingUtilities plugin (off in a new project); the subsystem is always there
+EAL = getattr(unreal, "EditorAssetLibrary", None) or unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)
+result = {"current": w.get_path_name().split(".")[0] if w else "", "exists": EAL.does_asset_exist(PATH)}
 '''
 
 

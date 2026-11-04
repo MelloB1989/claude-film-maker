@@ -295,6 +295,7 @@ def run(t):                 # may be a generator: yield ticks the editor once, y
 | `LevelEditorSubsystem.load_level(path)` | `LoadLevel` | Engine/Source/Editor/LevelEditor/Public/LevelEditorSubsystem.h:167 | yes |
 | `EditorAssetLibrary.does_asset_exist / load_asset` | `DoesAssetExist` / `LoadAsset` | Engine/Plugins/Editor/EditorScriptingUtilities/Source/EditorScriptingUtilities/Public/EditorAssetLibrary.h:70 / :37 | yes |
 | `EditorAssetLibrary.delete_directory / does_directory_exist` | `DeleteDirectory` / `DoesDirectoryExist` | same file :156 / :301 | yes |
+| `EditorAssetSubsystem.does_asset_exist / load_asset / delete_directory / does_directory_exist` (when the EditorScriptingUtilities plugin is off; bridge code goes through `ops.assets.EAL`) | `DoesAssetExist` / `LoadAsset` / `DeleteDirectory` / `DoesDirectoryExist` (BlueprintCallable) | Engine/Source/Editor/UnrealEd/Public/Subsystems/EditorAssetSubsystem.h:87 / :54 / :167 / :323 | yes |
 | `Actor.get_actor_label()` | `GetActorLabel` (editor) | Engine/Source/Runtime/Engine/Classes/GameFramework/Actor.h:2734 | yes |
 | `Actor.get_actor_location / get_actor_rotation` | `K2_GetActorLocation` / `K2_GetActorRotation` | Actor.h:1568 / :1589 | yes |
 | `Actor.get_actor_scale3d()` | `GetActorScale3D` | Actor.h:1710 | yes |
