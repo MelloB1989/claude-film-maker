@@ -261,7 +261,9 @@ def analyze(img: Image, subjects: dict | None = None, limits: dict | None = None
         bg_sharp = sharpness(small)
         for name, s in subs.items():
             if bg_sharp > 20 and s["sharpness"] < L["soft_ratio"] * bg_sharp:
-                issues.append(issue("focus.subject_soft", "warn", f"{name} is soft (detail {s['sharpness']:.0f}) while "
+                # a plain, untextured subject also reads "soft": only a big gap is a likely focus miss
+                sev = "warn" if s["sharpness"] < 0.4 * L["soft_ratio"] * bg_sharp else "info"
+                issues.append(issue("focus.subject_soft", sev, f"{name} is soft (detail {s['sharpness']:.0f}) while "
                                     f"the frame is sharper ({bg_sharp:.0f}): focus missed?", "set focus on the subject "
                                     "(look.focus_track or the camera's manual_focus_distance)", subject=name,
                                     box=s["box"], value=s["sharpness"]))

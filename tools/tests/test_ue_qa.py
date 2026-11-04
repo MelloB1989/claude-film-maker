@@ -394,6 +394,8 @@ def test_overlaps():
     r = geometry.overlaps(items)
     pairs = {frozenset(p[:2]) for p in r["pairs"]}
     assert frozenset(("table", "chair")) in pairs and frozenset(("table", "cup")) not in pairs
+    tc = next(p for p in r["pairs"] if set(p[:2]) == {"table", "chair"})
+    assert tc[3] == pytest.approx(33.0)  # chair x 26..74 into table x ..59 (both shrunk 1 cm for contact)
     assert not any("far" in p for p in pairs)
     assert geometry.overlaps(items, ignore_pairs=[("table", "chair")])["pairs"] == []
     assert r["issues"][0]["code"] == "mesh.overlap"

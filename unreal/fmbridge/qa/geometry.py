@@ -32,6 +32,12 @@ def overlap_volume(a: tuple, b: tuple) -> float:
     return v
 
 
+def separation(a: tuple, b: tuple) -> float:
+    """How far (cm) one box must move, along its best axis, to stop overlapping the other (0 when apart)."""
+    d = [min(a[1][k], b[1][k]) - max(a[0][k], b[0][k]) for k in range(3)]
+    return max(0.0, min(d)) if all(x > 0 for x in d) else 0.0
+
+
 def volume(b: tuple) -> float:
     return max(0.0, (b[1][0] - b[0][0]) * (b[1][1] - b[0][1]) * (b[1][2] - b[0][2]))
 
@@ -42,7 +48,7 @@ def overlaps(items: dict, min_fraction: float = 0.05, ignore_pairs=(), touching_
     sunk into a table does). Boxes are shrunk by `touching_cm` first, so objects resting on each other do not count.
     Bounds are axis-aligned: a rotated or hollow object over-reports, so treat a hit as "look here", and confirm
     with a still (the issue says which pair and where).
-    Returns {"pairs": [[a, b, fraction]], "issues"}."""
+    Returns {"pairs": [[a, b, fraction, depth_cm]], "issues"}; depth_cm: how far to move one apart."""
     boxes = {}
     for lab, (o, e) in items.items():
         e2 = [max(0.0, x - touching_cm) for x in e]
@@ -60,15 +66,15 @@ def overlaps(items: dict, min_fraction: float = 0.05, ignore_pairs=(), touching_
             small = min(volume(boxes[a]), volume(boxes[b])) or 1.0
             f = v / small
             if f >= min_fraction:
-                pairs.append([a, b, round(f, 3)])
-    for a, b, f in sorted(pairs, key=lambda p: -p[2]):
+                pairs.append([a, b, round(f, 3), round(separation(boxes[a], boxes[b]), 2)])
+    for a, b, f, depth in sorted(pairs, key=lambda p: -p[2]):
         lo = [max(boxes[a][0][k], boxes[b][0][k]) for k in range(3)]
         hi = [min(boxes[a][1][k], boxes[b][1][k]) for k in range(3)]
         centre = [round((lo[k] + hi[k]) / 2, 1) for k in range(3)]
         issues.append(issue("mesh.overlap", "warn" if f < 0.5 else "fail",
                             f"{a} and {b} interpenetrate: their bounds share {100 * f:.0f}% of the smaller one, "
-                            f"around {centre}", f"move one apart (level.move label={b!r} loc=...) or, if intended "
-                            "(a prop inside a container), ignore the pair", subject=f"{a}|{b}", value=f, at=centre))
+                            f"{depth:.1f} cm deep, around {centre}", f"move one apart (level.move label={b!r} loc=...) or, if intended "
+                            "(a prop inside a container), ignore the pair", subject=f"{a}|{b}", value=f, depth_cm=depth, at=centre))
     return {"pairs": pairs, "issues": issues}
 
 

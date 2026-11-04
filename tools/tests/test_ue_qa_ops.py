@@ -13,7 +13,7 @@ from test_ue_qa import body  # the standing-figure bones
 def character(ue, label="Ada", at=(0.0, 0.0, 0.0), parts=()):
     bones = body(at)
     a = ue.spawn("SkeletalMeshActor", label, location=ue.Vector(at[0], at[1], at[2] + 90), extent=(25, 25, 90))
-    a.skeletal_mesh_component._props["fake_bones"] = bones
+    ue.pose(a, bones)
     for p in parts:
         a.add_component(ue.SkeletalMeshComponent, p)
     return a
@@ -24,10 +24,9 @@ def cine(ue, label, loc, look_at, focal=35.0):
     r = framing.look_at(loc, look_at)
     cam = ue.spawn("CineCameraActor", label, location=ue.Vector(*loc), rotation=ue.Rotator(**r))
     comp = cam.get_cine_camera_component()
-    fb = ue.CameraFilmbackSettings()
+    fb = comp.get_editor_property("filmback")
     fb.set_editor_property("sensor_width", 36.0)
     fb.set_editor_property("sensor_height", 20.25)
-    comp.set_editor_property("filmback", fb)
     comp.set_editor_property("current_focal_length", focal)
     return cam
 
@@ -124,6 +123,9 @@ def test_qa_image_and_compare(scene, tmp_path):
     black = image.write(image.solid(32, 18, (0, 0, 0)), str(tmp_path / "black.png"))
     bad = run_op("qa.image", image=black)
     assert bad["pass"] is False and bad["issues"][0]["code"] == "image.flat"
+    ex = run_op("qa.exposure", image=a["path"], target_stops=[5, 6], regions={"mid": [0.4, 0.2, 0.6, 0.8]})
+    assert len(ex["metrics"]["histogram"]) == 32 and set(ex["metrics"]["regions"]) == {"mid"}
+    assert any(i["code"] == "exposure.under" for i in ex["issues"])
     c = run_op("qa.compare", image=a["path"], reference=a["path"], out_diff=str(tmp_path / "d.png"))
     assert c["pass"] and c["metrics"]["ssim"] == pytest.approx(1.0) and os.path.isfile(c["diff"])
     b = run_op("view.still", out=str(tmp_path / "b.png"), camera="CamClose", width_px=96, height_px=54, warmup=0)
