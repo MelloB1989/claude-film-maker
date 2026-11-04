@@ -145,8 +145,9 @@ module docstring of `post_cut.py`.
   `get_tick_resolution()`, 24000/s by default). `audio.place` converts from `offset_s`.
 - **Levels and fades live on the section's Volume channel.** `volume_db` sets its default (linear gain 10^(dB/20));
   `fade_in_frames` / `fade_out_frames` add linear keys from/to silence (at most four a clip). `audio.describe` reads
-  the fades back from the keys. `EMovieSceneKeyInterpolation` is a `UENUM()` without BlueprintType: if the Python
-  wrapper does not export it, the keys fall back to add_key's default (Auto), a slightly curved ramp.
+  the fades back from the keys. `EMovieSceneKeyInterpolation` is a `UENUM()` without BlueprintType but is exported because an
+  exported function takes it (PythonScriptPlugin PyWrapperTypeRegistry.cpp:1174, found by agent-06), so the ramps are
+  Linear; the `_linear()` guard stays as a harmless fallback.
 - **MRQ frame numbering**: a shot rendered from the master sequence is numbered on the master's clock; a shot
   rendered as its own sequence from 0. `film-post` finds either; if renders start at a handle (f-12 numbered 0) set
   the shot's `offset`.
@@ -189,6 +190,7 @@ module docstring of `post_cut.py`.
 | `section.set_row_index / get_row_index` | UMovieSceneSection UFUNCTIONs | Engine/Source/Runtime/MovieScene/Public/MovieSceneSection.h:541-546 |
 | `section.set_sound / get_sound` | UMovieSceneAudioSection UFUNCTIONs | Engine/Source/Runtime/MovieSceneTracks/Public/Sections/MovieSceneAudioSection.h:37-42 |
 | `section.set_start_offset / get_start_offset` (FFrameNumber, tick resolution) | UFUNCTIONs over `StartFrameOffset` | MovieSceneAudioSection.h:49-54, 306-307 |
+| `channel.get_editor_property("channel_name")` (never `get_name()`: the scripting object's name is made unique per call, "Volume_1"...) | `UMovieSceneScriptingChannel::ChannelName` BlueprintReadOnly; MakeUniqueObjectName | Plugins/MovieScene/SequencerScripting/Source/SequencerScripting/Public/MovieSceneScriptingChannel.h:60-61; .../ExtensionLibraries/MovieSceneSectionExtensions.h:304-310 |
 | Volume channel name `"Volume"` (and `"Pitch"`) | `SetIdentifiers` in the editor data | Engine/Source/Runtime/MovieSceneTracks/Private/Sections/MovieSceneAudioSection.cpp:85-86, 236 |
 | `channel.add_key(FrameNumber, value, sub_frame, MovieSceneTimeUnit.DISPLAY_RATE, interp) / get_keys`, `key.get_time() / get_value()` | UMovieSceneScriptingFloatChannel / FloatKey UFUNCTIONs; `EMovieSceneTimeUnit` UENUM(BlueprintType); `EMovieSceneKeyInterpolation` UENUM() | MovieSceneScriptingFloat.h:375-376, 410-411, 33, 49; Engine/Source/Runtime/MovieScene/Public/MovieSceneTimeUnit.h:11-15; KeyParams.h:10-22 |
 | `channel.set_default / get_default / has_default` | UMovieSceneScriptingFloatChannel UFUNCTIONs | Plugins/MovieScene/SequencerScripting/Source/SequencerScripting/Private/KeysAndChannels/MovieSceneScriptingFloat.h:598-599, 616-617, 650-651 |

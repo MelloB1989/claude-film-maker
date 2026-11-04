@@ -22,9 +22,16 @@ class SoundWave(core.SoundWave):
         return super().get_editor_property(name)
 
 
+_SERIAL = {"n": 0}
+
+
 class _Channel(core.Object):
+    """As the engine: channel_name is the channel's ("Volume"); get_name() is the scripting object's, unique per
+    get_all_channels() call ("Volume_3"), so code must not match on it."""
+
     def __init__(self, name=None, outer=None, **props):
         super().__init__(name, outer, **props)
+        self._props["channel_name"] = core.Name(name)
         object.__setattr__(self, "_default", None)
         object.__setattr__(self, "_keys", [])
 
@@ -37,7 +44,8 @@ class _Channel(core.Object):
         return sorted(self._keys, key=lambda k: k._time.value)
 
     def get_name(self):
-        return self._name
+        _SERIAL["n"] += 1
+        return f"{self._name}_{_SERIAL['n']}"
 
     def set_default(self, v):
         object.__setattr__(self, "_default", float(v))
