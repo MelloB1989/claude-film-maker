@@ -18,7 +18,7 @@ cameras, Sequencer keys and stills made by scripts.
 |---|---|---|
 | **Render-only** (open the finished project, MRQ deferred + Lumen, write PNG/EXR + WAV) | **Feasible, likely.** No hard blocker. | Lumen, VSM, Nanite and MRQ run on Vulkan SM6 (C). `-RenderOffscreen` editors render on Linux GPU nodes with no desktop (L, 5.3 and one 5.8 report). Unproven: a 5.8 headless editor with no display server at all, the MRQ WAV with no sound device, and pixel parity of MetaHuman skin, eyes and groom with DX12. All three need a PoC. Path tracer and Lumen HWRT on Vulkan are **Experimental** (C), and the project renders with Lumen HWRT today (agent-02). Software Lumen is the fallback. |
 | **Shoot by script** (Sequencer, cameras, keys, gaze lock, stills) | **Feasible, likely**, after one bridge fix and a new still path. | All the ops are plain editor Python; Python on Linux is documented (C). Today the bridge **cannot start on Linux** because `fmbridge/gui.py` touches `ctypes.windll` at import (repo fact). `look.still` and `seq.show` lean on an editor viewport (`take_high_res_screenshot`, lock-camera-to-viewport), and an offscreen editor may not have a usable one (U). MRQ-based stills are the fallback. |
-| **Full** (MetaHuman Character editor, cloud rig + textures, build/assemble, audio-to-face) | **Plausible, not proven.** Two possible blockers. | Creator has run on Linux since 5.7. 5.8 claims "platform parity", assembly runs on Linux (with an OOM known issue), and MetaHuman Animator's offline facial solve is on Linux in 5.8 (C). Unproven: (a) the **Epic account sign-in** the cloud rig and texture services need, done inside a headless Linux editor (U); (b) **audio-to-face** specifically on Linux. "Offline facial" is documented; audio is not named (U/L). Fallback if either fails: do character building and the speech solve on Windows (rare, one-time steps), and shoot and render on Linux. |
+| **Full** (MetaHuman Character editor, cloud rig + textures, build/assemble, audio-to-face) | **Plausible, not proven.** Two possible blockers. | Creator has run on Linux since 5.7. 5.8 claims "platform parity", assembly runs on Linux (with an OOM known issue), and MetaHuman Animator's offline facial solve is on Linux in 5.8 (C). Unproven: (a) the **Epic account sign-in** the cloud rig and texture services need, done inside a headless Linux editor (U); (b) **audio-to-face** specifically on Linux. "Offline facial" is documented; audio is not named (U/L). The operator rules out a Windows fallback (2026-11-04): if either fails, use the code-only alternatives in §12a. |
 
 **No hard blocker found.** Per the operator's rule, go straight to the PoC (§9).
 
@@ -379,15 +379,28 @@ These are generic, not film-specific, and worth building only once P2 and P3 pas
 6. **Scripted shot helpers** (camera rigs, dolly/orbit keys, lens/focus pulls, shot lists to Sequencer) on top of
    `seq` and `look`. These are platform-independent and agent-07's workflow report covers them.
 
-## 12. Questions only the operator can answer
+## 12. Operator answers (2026-11-04)
 
-1. Which **Epic account** may sign in on the Linux box for the MetaHuman cloud services (and Fab), and is a one-time
-   interactive login (VNC into a temporary box) acceptable if the login turns out not to persist headless?
-2. If audio-to-face or the cloud rig fail on Linux, is a **hybrid** acceptable: character building and speech solves
-   on the Windows box (rare), shooting and rendering on Linux?
-3. Will **new Fab content** be needed on Linux, or only content already in the project?
-4. Is a **visual difference** between DX12 and Vulkan renders acceptable within a tolerance, or must the reel's
-   already-rendered shots match new Linux shots exactly (mixed-platform cut)?
+1. **Epic login**: yes, the operator's own Epic account. The operator logs in once, interactively, through a temporary
+   remote screen when the PoC reaches P10/P12. Everything else stays code-only. For that session only: run the editor
+   on a virtual display (`Xvfb :1` + `x11vnc`, or NICE DCV for Linux) instead of `-RenderOffscreen`. Afterwards,
+   restart the editor offscreen and test whether the login **persists** (EOS keeps a refresh token in the user's
+   config dir; U). If it does not persist, every MetaHuman cloud request needs a new interactive session, which
+   makes the code-only alternatives below more important.
+2. **Hybrid**: no. Linux only. If something fails on Linux, look for code-only alternatives (§12a).
+3. **Fab**: new Fab content must work on Linux, so P12 is in scope.
+4. **Round 3** of the reel will be rendered entirely on Linux. There is no mixing, so the DX12-vs-Vulkan comparison
+   (P6, §9a) is there to catch errors (missing hair, wrong skin), not to match Windows to the pixel.
+
+### 12a. Code-only alternatives if a MetaHuman service fails on Linux
+
+| Need | If it fails on Linux | Code-only alternative | Conf. |
+|---|---|---|---|
+| Characters that already exist | — | Round 3 re-renders an existing reel: the built characters, rigs and textures are assets in `Content/` (from the snapshot) and need **no** cloud call again. Cloud rig and textures matter only for **new or reshaped** characters | C (repo: `mh.rig`/`mh.textures` save results into the assets) |
+| Cloud auto-rig (`mh.rig`) | Sign-in or service fails | No real substitute for a new face. Epic's **MetaHuman DNA Calibration** (DNACalib: Python/C++, prebuilt for Linux, open) edits an existing DNA rig by code (joints, blend-shape deltas, LODs), but it does not create a rig from a new mesh, and its docs say it is compatible with MetaHumans from UE ≤ 5.5. Mitigation: start new characters from presets that are already rigged and keep edits within what the rig tolerates. A one-off cloud rig through the operator's interactive session is the fallback | L |
+| Cloud textures (`mh.textures`) | Same | The Creator synthesizes standard-resolution skin textures locally (agent-02 saw `texture_synthesis` in `MetaHumanCoreTechLib` source), so the character works without the high-res set at lower texture detail. Check `has_high_resolution_textures` and the look in P9 | L |
+| Audio-to-face (`speech.to_face`) | Audio solve unavailable on Linux | **NVIDIA Audio2Face-3D**: SDK (C++/CUDA) and UE plugin open-sourced in Sept 2025. Core components are MIT; the model weights are under NVIDIA's open model licence. It runs on Linux. Run it **outside the editor** on the GPU box (wav → ARKit-style blend-shape / MetaHuman curves per frame), then write the curves into an AnimSequence with the existing `anim` ops. That is engine-version-independent, unlike its UE plugin (5.5/5.6). Needs a PoC: quality vs MHA, mapping to the MetaHuman face rig, licence of the weights for the operator's use | L |
+| Fab content | In-editor Fab browser fails or needs clicks | The Fab plugin ships **with source** and allows Linux (agent-02), so it compiles into the source-built engine. Login: the operator's one interactive session. Adding assets is UI-driven: either during that session, or by porting `fmbridge/gui.py` to Linux (xdotool + an X screenshot under Xvfb), which brings back the Windows box's `/gui` and `/screen`. Content once added is plain `Content/` and moves with the project | L / U |
 
 ## Sources
 
@@ -445,3 +458,8 @@ MoviePipelineQueueSubsystem, MoviePipelineWaveOutput, MovieScene{Audio,CameraCut
 MaterialParameterCollection,SkeletalAnimation,Visibility}Track, MovieSceneTimeWarpVariant, PerformanceExportRange,
 SkeletalMeshEditorSubsystem, SkyLightComponent, SubobjectDataBlueprintFunctionLibrary, SubobjectDataSubsystem,
 SystemLibrary, UnrealEditorSubsystem, and the core math/struct types.
+
+Sources added for §12a: NVIDIA Audio2Face-3D open-sourcing (https://gigazine.net/gsc_news/en/20250926-nvidia-audio2face-open-sources,
+https://huggingface.co/nvidia/Audio2Face-3D-v2.3-Mark/blob/main/README.md, https://build.nvidia.com/nvidia/audio2face-3d/modelcard);
+MetaHuman DNA Calibration (https://github.com/EpicGames/MetaHuman-DNA-Calibration,
+https://dev.epicgames.com/documentation/metahuman/metahuman-dna-calibration-tools).
