@@ -58,8 +58,9 @@ def main(argv=None) -> int:
     t.add_argument("--speaker", default="")
     t.add_argument("-o", "--out")
     sp = sub.add_parser("speak")
-    for k in ("--text", "--id", "--sequence", "--face-mesh", "--label", "--box-dir", "--out-dir"):
+    for k in ("--text", "--id", "--sequence", "--face-mesh", "--label", "--out-dir"):
         sp.add_argument(k, required=True)
+    sp.add_argument("--box-dir", default="", help="where the WAV goes on the box (default <project>/Saved/Audio)")
     sp.add_argument("--start-frame", type=int, required=True)
     sp.add_argument("--voice-id", default="")
     sp.add_argument("--model", default="")
