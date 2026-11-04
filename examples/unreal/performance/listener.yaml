@@ -1,0 +1,18 @@
+# A listener with no lines of her own: 8 s of attentive listening (blinks, darts between the speaker's eyes and
+# mouth, nods on the speaker's beats, a thinking moment). No audio needed.
+kind: performance
+version: 1
+name: guest_listens
+sequence: /Game/_Examples/Perf/Seq_PresenterIntro
+actor: Guest
+targets:
+  host: "Presenter:Face:FACIAL_R_Eye"
+default_gaze: host
+lines:
+  - id: listen
+    duration_s: 8.0
+    listen: true
+    mood: warm
+    gaze: [{at_s: 0, target: host, scan: face}, {at_s: 5.2, target: {yaw: 18, pitch: 8}}, {at_s: 6.4, target: host, scan: face}]
+    nods: [{at_s: 1.5, kind: beat}, {at_s: 3.1, kind: nod, count: 2, depth_deg: 3}]
+    expressions: [{preset: thinking, at_s: 5.0, duration_s: 1.5, intensity: 0.5}]

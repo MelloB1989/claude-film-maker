@@ -142,7 +142,7 @@ def test_big_turn_dips_the_chin():
 
 
 def test_yes_nod_drops_rebounds_and_settles():
-    n = H.Nod(1.0, "yes", 5.0)
+    n = H.Nod(1.0, "nod", 5.0)
     vals = [n.at(1.0 + i / 200) for i in range(400)]
     assert min(vals) == pytest.approx(-5.0, abs=0.2)
     assert max(vals) > 0.5  # the rebound past level
@@ -153,13 +153,13 @@ def test_yes_nod_drops_rebounds_and_settles():
 
 
 def test_repeated_nods_shrink_and_no_shakes_yaw():
-    n = H.Nod(0.0, "yes", 6.0, count=3)
+    n = H.Nod(0.0, "nod", 6.0, count=3)
     lows = []
     for k in range(3):
         a = k * (0.16 + 0.24 * 0.8)
         lows.append(min(n.at(a + i / 200) for i in range(60)))
     assert lows[0] < lows[1] < lows[2] < 0
-    assert H.Nod(0, "no").axis() == "yaw"
+    assert H.Nod(0, "shake").axis() == "yaw" and H.Nod(0, "no").kind == "shake"
 
 
 def test_compose_is_alive_and_deterministic():
@@ -447,7 +447,7 @@ SPEC = {"kind": "performance", "version": 1, "name": "demo", "sequence": "/Game/
                    "gaze": [{"at_s": 0, "target": "camera"}, {"at_s": 2.4, "target": "guest", "scan": "face"}],
                    "gestures": [{"name": "palms", "at_s": 1.1}],
                    "expressions": [{"preset": "smile", "at_s": 2.6, "duration_s": 1.4, "intensity": 0.6}],
-                   "nods": [{"at_s": 3.0, "kind": "yes"}]},
+                   "nods": [{"at_s": 3.0, "kind": "nod"}]},
                   {"id": "beat", "duration_s": 1.5, "listen": True, "gaze": [{"at_s": 0, "target": "guest", "scan": "face"}]}],
         "actions": [{"at_s": 6.0, "walk_to": "desk", "speed_cm_s": 120, "end_facing": "camera"}]}
 STATE = {"fps": 24, "actor": {"loc": [0, 0, 0], "yaw": 0, "head_z_cm": 165, "face_mesh": "/Game/MH/Face"},

@@ -265,6 +265,12 @@ def calibrate(*, label: str, face_component: str = "Face", scratch: str = "/Game
         else:  # top of the head to the character's left: the right eye rises against the left
             v = (r1[2] - l1[2]) - (eR[2] - eL[2])
         raw[name] = round(v, 4)
+        if abs(v) < 0.05:  # 10 degrees of head turn moves the eyes over a centimetre
+            apply({})
+            raise OpError(f"{name}={degrees} did not move {label}'s head ({v:.4f} cm at the eyes): the face rig is "
+                          "not turning the head from the head curves", code="failed", details={"raw": raw},
+                          hint="drive the face from Sequencer with mh.drive_face, and check its Anim Blueprint reads "
+                               "HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1")
         signs[key] = 1.0 if v > 0 else -1.0
     apply({})
     yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0])
@@ -327,7 +333,7 @@ def _solve_path(spec: dict, line: dict, i: int) -> str:
 
 
 @op("perf.state", mutates=False, idempotent=True)
-def state(*, spec) -> dict:
+def state(*, spec: dict) -> dict:
     """What a performance spec depends on, read from the editor (the planner's input): the sequence's rate, the
     actor's position/facing/head height and face mesh, every target's position, clip lengths, each line's audio
     analysis and speech-solve key, and the composed face animation's fingerprint.
@@ -396,7 +402,7 @@ def state(*, spec) -> dict:
 
 
 @op("perf.plan", mutates=False, idempotent=True)
-def plan(*, spec) -> dict:
+def plan(*, spec: dict) -> dict:
     """What perf.apply would do for a performance spec, without doing it: {"steps": [{"op", "args", "why"}],
     "compiled": timeline, body sections and notes}. Empty steps = converged.
     Example: film-ue op perf.plan spec=@performance.yaml
@@ -472,7 +478,7 @@ def _speech_fn(tl: list, st: dict):
 
 
 @op("perf.compose", mutates=True, idempotent=True)
-def compose(*, spec) -> dict:
+def compose(*, spec: dict) -> dict:
     """Compose a performance spec into the sequence: one continuous face animation (every line's lip-sync placed at
     its time, with the head, eyes, blinks, moods and expressions of perfkit over the whole timeline, so nothing
     jumps between lines) on the face track, the body's idle/gesture/walk sections, and the actor's transform keys.
@@ -536,7 +542,7 @@ def _skel_of(mesh_path: str) -> str:
 
 
 @op("perf.lock_eyes", mutates=True, idempotent=True, tags=["slow"])
-def lock_eyes(*, spec):
+def lock_eyes(*, spec: dict):
     """Measured eye contact with the spec's camera over the composed face (anim.gaze_lock: the eye curves solved
     from the eye bones' real pose on the lines that look at the camera). A multi-tick job."""
     spec = _spec(spec)
@@ -546,7 +552,7 @@ def lock_eyes(*, spec):
 
 
 @op("perf.apply", mutates=True, idempotent=True, tags=["slow"])
-def apply(*, spec, dry_run: bool = False, max_rounds: int = 2):
+def apply(*, spec: dict, dry_run: bool = False, max_rounds: int = 2):
     """Converge the editor on a PERFORMANCE spec (kind: performance): speech-solve the lines whose audio or mood
     changed, compose the face, key the body and the actor's moves in the sequence; re-run safely (a converged spec
     does nothing). `dry_run` returns the plan only. A multi-tick job (speech solves take seconds per line).
@@ -623,7 +629,7 @@ def _clip(path: str, speed: float = 0.0) -> dict:
 
 
 @op("perf.walk_to", mutates=True, idempotent=True)
-def walk_to(*, sequence: str, label: str, to, walk_anim: str, at_frame: int = 0, speed_cm_s: float = 140.0,
+def walk_to(*, sequence: str, label: str, to: list | str, walk_anim: str, at_frame: int = 0, speed_cm_s: float = 140.0,
             clip_speed_cm_s: float = 0.0, path: list | None = None, end_facing=None, facing_offset_deg: float = 0.0,
             component: str = "Body") -> dict:
     """Walk an actor to a point in a sequence: turn in place if needed, accelerate, follow `path` waypoints, brake,
@@ -664,7 +670,7 @@ def walk_to(*, sequence: str, label: str, to, walk_anim: str, at_frame: int = 0,
 
 
 @op("perf.turn_to", mutates=True, idempotent=True)
-def turn_to(*, sequence: str, label: str, target, at_frame: int = 0, facing_offset_deg: float = 0.0,
+def turn_to(*, sequence: str, label: str, target: list | str | float, at_frame: int = 0, facing_offset_deg: float = 0.0,
             speed: float = 1.0) -> dict:
     """Turn an actor in place to face a target (a point, an actor, "Label:Component:bone") or a yaw (degrees),
     eased with a skewed min-jerk over 0.45 s + 0.5 s per 90 deg (/ speed); keys its transform (replacing the
@@ -738,7 +744,7 @@ def head_curves(*, duration_s: float, gaze: list | None = None, nods: list | Non
     """Preview organic head motion with no engine and no animation: the HeadYaw/Pitch/Roll curves (character frame,
     degrees) perfkit makes for these gaze shifts, nods and tilts, with the plan and the head checks. For trying
     styles before writing them (perf.face).
-    Example: film-ue op perf.head_curves duration_s=6 'gaze=[{"t":1,"yaw":30},{"t":3.5,"yaw":-10,"pitch":-5}]' 'nods=[{"t":4.5,"kind":"yes"}]'
+    Example: film-ue op perf.head_curves duration_s=6 'gaze=[{"t":1,"yaw":30},{"t":3.5,"yaw":-10,"pitch":-5}]' 'nods=[{"t":4.5,"kind":"nod"}]'
     """
     from ..perfkit import gaze as GZ
     from ..perfkit import metrics as M

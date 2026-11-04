@@ -122,7 +122,7 @@ def test_anim_describe_and_additive(ue):
 def test_perf_vocab_and_head_preview(ue):
     v = run_op("perf.vocab")
     assert "smile" in v["expressions"] and v["moods"]["confident"]["solver_mood"] == "CONFIDENCE"
-    h = run_op("perf.head_curves", duration_s=5, gaze=[{"t": 1, "yaw": 30}], nods=[{"t": 3, "kind": "yes"}])
+    h = run_op("perf.head_curves", duration_s=5, gaze=[{"t": 1, "yaw": 30}], nods=[{"t": 3, "kind": "nod"}])
     assert len(h["times"]) == len(h["yaw"]) and max(h["yaw"]) > 15
     assert all(c["pass"] for c in h["checks"])
 
