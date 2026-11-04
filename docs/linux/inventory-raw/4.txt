@@ -1,0 +1,60 @@
+Plugins\MetaHuman\MetaHumanAnimator\Source\MetaHumanCaptureSource\MetaHumanCaptureSource.Build.cs:44: if (Target.Platform == UnrealTargetPlatform.Win64)
+Plugins\MetaHuman\MetaHumanAnimator\Source\MetaHumanCaptureSource\MetaHumanCaptureSource.Build.cs:48: PublicDelayLoadDLLs.AddRange(new[] {
+Plugins\MetaHuman\MetaHumanAnimator\Source\MetaHumanCaptureSource\MetaHumanCaptureSource.Build.cs:49: "mf.dll", "mfplat.dll", "mfreadwrite.dll", "propsys.dll"
+Plugins\MetaHuman\MetaHumanAnimator\Source\MetaHumanCaptureSource\MetaHumanCaptureSource.Build.cs:59: || Target.Platform == UnrealTargetPlatform.Mac
+Plugins\MetaHuman\MetaHumanAnimator\Source\MetaHumanCaptureSource\MetaHumanCaptureSource.Build.cs:63: AddEngineThirdPartyPrivateStaticDependencies(Target, "LibJpegTurbo");
+Plugins\MetaHuman\MetaHumanAnimator\Source\MetaHumanPlatform\MetaHumanPlatform.Build.cs:30: if (Target.Platform.IsInGroup(UnrealPlatformGroup.Linux))
+Plugins\MetaHuman\MetaHumanAnimator\Source\MetaHumanPlatform\MetaHumanPlatform.Build.cs:38: if (Target.Platform == UnrealTargetPlatform.Mac)
+Plugins\MetaHuman\MetaHumanSDK\Source\MetaHumanSDKEditor\MetaHumanSDKEditor.Build.cs:81: AddEngineThirdPartyPrivateStaticDependencies(Target, "zlib");
+Plugins\MetaHuman\MetaHumanSDK\Source\MetaHumanSDKEditor\MetaHumanSDKEditor.Build.cs:83: AddEngineThirdPartyPrivateStaticDependencies(Target, "Protobuf");
+Plugins\Animation\RigLogic\Source\RigLogicLib\RigLogicLib.Build.cs:37: if (Target.Platform == UnrealTargetPlatform.Win64)
+Plugins\Animation\RigLogic\Source\RigLogicLib\RigLogicLib.Build.cs:49: if (Target.Platform == UnrealTargetPlatform.Linux || Target.Platform == UnrealTargetPlatform.LinuxArm64)
+Plugins\Animation\RigLogic\Source\RigLogicLib\RigLogicLib.Build.cs:54: if (Target.Platform == UnrealTargetPlatform.Linux ||
+Plugins\Animation\RigLogic\Source\RigLogicLib\RigLogicLib.Build.cs:55: Target.Platform == UnrealTargetPlatform.LinuxArm64 ||
+Plugins\Animation\RigLogic\Source\RigLogicLib\RigLogicLib.Build.cs:56: Target.Platform == UnrealTargetPlatform.Mac)
+Plugins\Animation\RigLogic\Source\RigLogicLibTest\RigLogicLibTest.Build.cs:17: if (Target.Platform == UnrealTargetPlatform.Win64)
+Plugins\Animation\RigLogic\Source\RigLogicModule\RigLogicModule.Build.cs:43: if (Target.Platform == UnrealTargetPlatform.Win64
+Plugins\Animation\RigLogic\Source\RigLogicModule\RigLogicModule.Build.cs:44: || Target.Platform == UnrealTargetPlatform.Linux
+Plugins\Animation\RigLogic\Source\RigLogicModule\RigLogicModule.Build.cs:45: || Target.Platform == UnrealTargetPlatform.Mac)
+== ThirdParty dirs under MetaHuman
+Plugins\MetaHuman\MetaHumanAnimator\Source\MetaHumanMeshTracker\Private\rlibv\include\ThirdParty
+  Plugins\MetaHuman\MetaHumanAnimator\Source\MetaHumanMeshTracker\Private\rlibv\include\ThirdParty\dlib
+  Plugins\MetaHuman\MetaHumanAnimator\Source\MetaHumanMeshTracker\Private\rlibv\include\ThirdParty\dlib\dlib_original_sources
+Plugins\MetaHuman\MetaHumanCalibrationProcessing\Source\Thirdparty
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\Thirdparty
+== Source dirs MetaHumanCoreTechLib
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Public
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\api
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\bodyshapeeditor
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\carbon
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\conformer
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\nls
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\nrr
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\resourceloader
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\rig
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\rigcalibration_core
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\rigmorpher
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\texture_synthesis
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\api\Internals
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\bodyshapeeditor\include
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\bodyshapeeditor\src
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\carbon\include
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\carbon\src
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\conformer\include
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\conformer\src
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\nls\include
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\nls\src
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\nrr\include
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\nrr\src
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\resourceloader\include
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\resourceloader\src
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\rig\include
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\rig\src
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\rigcalibration_core\include
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\rigcalibration_core\src
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\rigmorpher\include
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\rigmorpher\src
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\texture_synthesis\include
+Plugins\MetaHuman\MetaHumanCoreTechLib\Source\MetaHumanCoreTechLib\Private\texture_synthesis\src
+
