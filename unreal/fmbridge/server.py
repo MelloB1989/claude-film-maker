@@ -145,7 +145,12 @@ def _no_background_throttle():
         cdo = unreal.find_object(None, "/Script/UnrealEd.Default__EditorPerformanceSettings")
         if cdo is None:
             raise LookupError("no /Script/UnrealEd.Default__EditorPerformanceSettings")
-        cdo.set_editor_property("throttle_cpu_when_not_foreground", False)
+        # the wrapper is the nearest exposed base class, which has no Python name for this property: set_editor_property
+        # then looks the name up on the real class as given (PyWrapperObject.cpp FindEditorPropertyImpl)
+        try:
+            cdo.set_editor_property("bThrottleCPUWhenNotForeground", False)
+        except Exception:
+            cdo.set_editor_property("throttle_cpu_when_not_foreground", False)
         _state["throttle_off"] = True
     except Exception as e:
         _state["throttle_off"] = False
