@@ -203,6 +203,7 @@ snake_case of the reflected name.
 | `MoviePipelineEditorBlueprintLibrary.save_queue_to_manifest_file(queue) -> (queue, path)` | MovieRenderPipelineEditor/Public/MoviePipelineEditorBlueprintLibrary.h:41 | writes Saved/MovieRenderPipeline/QueueManifest.utxt; we copy it per chunk |
 | Command line `-game -MoviePipelineConfig=<.utxt or asset>` | MovieRenderPipelineCore/Private/MovieRenderPipelineCommandLine.cpp:195-300 | relative paths are under Saved/; exit codes MovieRenderPipelineCoreModule.h:70 |
 | `MovieSceneSequenceExtensions.get_display_rate / get_playback_start / get_playback_end / find_tracks_by_type` | Engine/Plugins/MovieScene/SequencerScripting/.../MovieSceneSequenceExtensions.h:98,174,192,59 | |
+| `LevelSequenceEditorBlueprintLibrary.get_current_level_sequence / close_level_sequence` | Engine/Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:42,72 | an open Sequencer is closed before a render |
 | `EditorAssetLibrary.does_asset_exist` | Engine/Plugins/Editor/EditorScriptingUtilities/.../EditorAssetLibrary.h:70 | |
 | `EditorLoadingAndSavingUtils.get_dirty_map_packages / get_dirty_content_packages / save_dirty_packages(maps, content)` | Engine/Source/Editor/UnrealEd/Public/FileHelpers.h:136,144,108 | no prompt |
 | `Paths.engine_dir / get_project_file_path / convert_relative_path_to_full` | Engine/Source/Runtime/Engine/Classes/Kismet/BlueprintPathsLibrary.h:41,391 | |

@@ -468,6 +468,17 @@ def _cancel_now() -> None:
             pass
 
 
+def _close_sequencer() -> None:
+    """Close a sequence open in Sequencer before a render (the reel's render.py did, through seq.close): an open
+    sequence keeps evaluating on the editor world and its edit state is not what MRQ renders."""
+    try:
+        lse = unreal.LevelSequenceEditorBlueprintLibrary
+        if lse.get_current_level_sequence():
+            lse.close_level_sequence()
+    except Exception:
+        pass
+
+
 def _guards(r: dict) -> dict:
     g = gpu_info(0)
     v = rs.vram_check(r, g)
@@ -506,6 +517,7 @@ def _run_job(r: dict, plan: dict, level: str, stall_s: float):
         if r["executor"] == "process":
             _offscreen_child()
     os.makedirs(r["out_dir"], exist_ok=True)
+    _close_sequencer()
     if r["overwrite"]:
         for f in rs.frames_on_disk(r, _walk(r["out_dir"])):
             if plan["range"][0] <= f < plan["range"][1]:
