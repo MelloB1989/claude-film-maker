@@ -545,3 +545,14 @@ def test_listeners_backchannel_and_talkers_look_away_to_think():
     c3 = S.compile(sp, st)
     assert not [n for n in c3["face"]["nods"] if 4.35 <= n["t"] <= 12.35]
     assert S.backchannel(0, 10, seed=1) == S.backchannel(0, 10, seed=1)
+
+
+def test_perfkit_is_engine_free():
+    """perfkit must import without `unreal` (the client plans with it) and with no third-party package."""
+    import ast
+    for p in (REPO / "unreal" / "fmbridge" / "perfkit").glob("*.py"):
+        for node in ast.walk(ast.parse(p.read_text())):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
+                for n in names:
+                    assert n.split(".")[0] not in ("unreal", "numpy", "scipy"), (p.name, n)
