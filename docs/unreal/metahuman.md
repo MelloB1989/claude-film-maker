@@ -118,10 +118,34 @@ render.
 film-ue op mh.attach label=Ava prop=AvaWatch bone=lowerarm_twist_02_l      # makes it Movable first
 ```
 
+**An animation from elsewhere (Mixamo, the UE mannequin) onto a MetaHuman body** (with WP4's `anim.retarget`)
+```bash
+film-ue op mh.body_mesh character=/Game/Characters/Ava/MH_Ava          # {"body": ".../SKM_Ava_Body", ...}
+film-ue op anim.retarget 'anims=["/Game/Mixamo/Wave"]' source_mesh=/Game/Mixamo/Y_Bot target_mesh=<body> out_folder=/Game/Anim/Ava
+```
+Put the result on the Body in a sequence (`seq.anim`). The face follows the body once they are one skeleton
+(`anim.head_to_body`). The retarget's IK rigs are auto-generated, which works because the MetaHuman body matches an
+engine template.
+
 **A character as a spec (round trip, B27)**
 ```bash
 film-ue op mh.export path=/Game/Host/Host_Trey > trey.json  # then change asset/from and apply it for a twin
 ```
+
+**A cast of background extras (B47): N distinct characters from one seed**
+```bash
+film-ue plan examples/unreal/cast/cafe-extras.yaml        # every member's steps (offline too)
+film-ue op mh.variants cast=@cafe-extras.yaml             # the members as character specs, nothing made
+film-ue op mh.variants cast=@cafe-extras.yaml make=true preview=true --async   # make them, previews in a row along +Y
+# stills of the previews (one camera each, or view.stills), then: film-ue op view.sheet images=[...] out=... (a contact sheet)
+film-ue apply examples/unreal/cast/cafe-extras.yaml       # or converge through the plan engine
+```
+The cast is deterministic: the same seed gives the same cast, and raising `count` keeps the first members unchanged.
+Members must differ: one closer than `min_distance` to an earlier member (in normalised face, sex, body, tone, hair,
+age) is redrawn. Age has no MetaHuman parameter, so it is mapped by rule of thumb: grey hair and brows from ~35, worn
+teeth and receding gums from ~45, slightly rougher skin. Judge the sheet. Start with `rig: none` to shape and check
+the cast for free, then set `rig: full` to rig, texture and build them all. Give `presets` per sex so faces and bodies
+match.
 
 **Headless Epic sign-in** (docs/linux/engine.md §12c)
 - The services take an exchange code: `film-ue op mh.login exchange_code=<code>` sets
@@ -142,8 +166,9 @@ film-ue op mh.export path=/Game/Host/Host_Trey > trey.json  # then change asset/
 | `mh.wardrobe` `mh.palette` `mh.add_item` `mh.clear_slot` `mh.groom` `mh.item_params` `mh.item_set` | wardrobe and item parameters | no duplicate palette entries |
 | `mh.auth_status` `mh.login` `mh.rig`~ `mh.textures`~ | Epic sign-in, cloud rig and textures | needs-epic-login, slow |
 | `mh.can_build` `mh.build` `mh.preview` | assemble; why it cannot be built; live preview actor | slow (build blocks) |
-| `mh.components` `mh.drive_face` `mh.import_garment` `mh.dress` `mh.leader` `mh.leader_check` `mh.attach` `mh.clip_check`~ `mh.cloth_inflate`~ `mh.garment` | the placed actor | |
+| `mh.components` `mh.body_mesh` `mh.drive_face` `mh.import_garment` `mh.dress` `mh.leader` `mh.leader_check` `mh.attach` `mh.clip_check`~ `mh.cloth_inflate`~ `mh.garment` | the placed actor | |
 | `mh.apply`~ | converge to a `character` spec in one job | slow |
+| `mh.variants`~ | a cast: N distinct character specs from a seed; make and preview them | deterministic |
 
 ## 3. Spec kind `character`
 
@@ -182,6 +207,18 @@ build: {name: Maeve}
 **Examples** (one per look): `presenter.yaml` (a fit man, buzz cut with a little grey, stubble),
 `blended-face.yaml` (a new face from two presets, freckles, red ombre hair, natural makeup), `older-variant.yaml` (a
 variant 25 years on), `shape-only.yaml` (no cloud), `dressed.yaml` (garments of your own on the placed actor).
+
+### Spec kind `cast` (B47)
+
+The schema is `schemas/cast.schema.json`. The kind is `filmtools.unreal.mh_cast` (order 31); it runs the bridge's
+pure generator `ops/mh/_cast.py` from the checkout and plans each member as a `character`. The fields:
+- `seed`, `count`, `folder`, `prefix`.
+- `presets` (a list, or per sex), `sex` (`any`, `female`, `male`, or a share 0..1).
+- Ranges: `age` (years), `height_cm` (per sex), `fat`, `muscularity`, `skin_tone` {u, v}, `eyes` {u, v, patterns}.
+- Pools: `hair` {items or per sex, melanin, redness}, `beard` {chance, items}, `outfits`.
+- `min_distance`, `max_attempts`, `rig`, `build`.
+
+Example: `examples/unreal/cast/cafe-extras.yaml`.
 
 ## 4. Gotchas (the operator's lessons and what the source says)
 
@@ -333,6 +370,12 @@ It takes ~6 min with the cloud. Unit-tested on the fake: `tests/test_ue_mh.py::t
 7. The `instance.get_instance_parameters(path)` ScriptMethod name on UMetaHumanInstance. `_params` falls back to
    `MetaHumanCharacterInstanceBlueprintLibrary.get_instance_parameters_for_item` when it is missing.
 
+**Also done:**
+- B47 cast generator: `mh.variants`, the `cast` kind, an example, 8 tests, and the selftest's contact sheet.
+- `mh.body_mesh` (B30 glue for agent-01's `anim.retarget`).
+
 **Next:**
 - B27 is covered by `mh.export` + apply. Run it on Host_Trey on the box.
+- On the box, look at the cast sheet. Are the ages and faces plausible? Tune `age_look` and the blend range in
+  `_cast.py`.
 - B28 (groom tuning on placed actors) went to agent-09 as `groom.*`, with the parameter mapping.

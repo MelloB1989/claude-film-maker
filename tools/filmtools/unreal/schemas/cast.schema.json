@@ -1,0 +1,40 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "cast",
+ "description": "N distinct, plausible background MetaHumans from one seed and a few ranges (WP3, B47). Each member is a character spec (asset <folder>/MH_<prefix><NN>), deterministic per seed; a larger count keeps the first members. Converged member by member through the character ops; in the editor by mh.variants make=true.",
+ "type": "object",
+ "required": ["kind", "seed", "folder", "presets"],
+ "additionalProperties": false,
+ "$defs": {
+  "range": {"oneOf": [{"type": "number"}, {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}], "description": "[low, high] or one value"},
+  "bySex": {"description": "one value for all, or {female: ..., male: ...}"},
+  "pool": {"oneOf": [{"type": "array", "items": {"type": "string"}, "minItems": 1}, {"type": "object", "properties": {"female": {"type": "array", "items": {"type": "string"}}, "male": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false}], "description": "names to pick from: one list, or per sex"}
+ },
+ "properties": {
+  "kind": {"const": "cast"},
+  "version": {"type": "integer", "const": 1},
+  "name": {"type": "string", "description": "the cast's name"},
+  "description": {"type": "string"},
+  "seed": {"type": ["integer", "string"], "description": "the seed: the same seed gives the same cast"},
+  "count": {"type": "integer", "minimum": 1, "maximum": 200, "default": 4, "description": "how many members"},
+  "folder": {"type": "string", "pattern": "^/Game/", "description": "where the members' character assets go"},
+  "prefix": {"type": "string", "default": "Extra", "description": "member names: <prefix>01, <prefix>02, ..."},
+  "presets": {"$ref": "#/$defs/pool", "description": "the preset faces to start from and blend (two per member, 50-90 % the first); per sex to keep faces and bodies matched"},
+  "sex": {"oneOf": [{"enum": ["any", "female", "male"]}, {"type": "number", "minimum": 0, "maximum": 1}], "default": "any", "description": "any (half and half), female, male, or the share of women 0..1"},
+  "age": {"$ref": "#/$defs/range", "description": "years; mapped by rule of thumb onto grey hair/brows (from ~35), worn teeth and receding gums (from ~45), skin roughness"},
+  "height_cm": {"description": "cm: [low, high] for all, or {female: [..], male: [..]} (default 155-178 / 165-192)"},
+  "fat": {"$ref": "#/$defs/range", "description": "Creator's Fat constraint, unitless about -3..3"},
+  "muscularity": {"$ref": "#/$defs/range", "description": "Creator's Muscularity constraint, unitless about -3..3"},
+  "skin_tone": {"type": "object", "additionalProperties": false, "description": "skin tone palette ranges 0..1", "properties": {"u": {"$ref": "#/$defs/range"}, "v": {"$ref": "#/$defs/range"}}},
+  "eyes": {"type": "object", "additionalProperties": false, "description": "iris colour palette ranges and patterns", "properties": {"u": {"$ref": "#/$defs/range"}, "v": {"$ref": "#/$defs/range"}, "patterns": {"type": "array", "items": {"type": "string"}, "description": "Iris001..Iris009"}}},
+  "hair": {"type": "object", "additionalProperties": false, "description": "hair groom pool (one list in items, or per sex) and colour ranges",
+           "properties": {"items": {"type": "array", "items": {"type": "string"}}, "female": {"type": "array", "items": {"type": "string"}}, "male": {"type": "array", "items": {"type": "string"}},
+                          "melanin": {"$ref": "#/$defs/range"}, "redness": {"$ref": "#/$defs/range"}}},
+  "beard": {"type": "object", "additionalProperties": false, "description": "men only: the chance of a beard and the pool; everyone else gets none", "properties": {"chance": {"type": "number", "minimum": 0, "maximum": 1}, "items": {"type": "array", "items": {"type": "string"}}}},
+  "outfits": {"$ref": "#/$defs/pool", "description": "Creator outfits to pick from"},
+  "min_distance": {"type": "number", "minimum": 0, "default": 0.35, "description": "how different two members must be (normalised traits); a closer candidate is redrawn"},
+  "max_attempts": {"type": "integer", "minimum": 1, "default": 40, "description": "redraws per member before keeping the most different"},
+  "rig": {"enum": ["full", "joints", "none"], "default": "full", "description": "for every member: the cloud rig (none: shape only, no build)"},
+  "build": {"oneOf": [{"type": "boolean"}, {"type": "object"}], "default": true, "description": "build each member's Blueprint (BP_<name>), or false; an object passes build options (pipeline, quality)"}
+ }
+}
