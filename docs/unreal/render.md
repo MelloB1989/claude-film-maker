@@ -163,6 +163,12 @@ Example specs: `examples/unreal/render/` (reel_final, shot_preview, grade_exr, f
   pass. The ops always pass `exact_match=True`.
 - **PNG writes alpha by default in MRQ** (`bWriteAlpha = true` in the constructor). The spec's default is
   `alpha: false`.
+- **Game Overrides are always on.** MRQ adds `MoviePipelineGameOverrideSetting` as a transient setting even when a job
+  does not list it (`IgnoreTransientFilters`, MoviePipelineGameOverrideSetting.h:66; PrimaryConfig.cpp:33). Its
+  defaults apply to every render: cinematic scalability, `p.ChaosCloth.UseTimeStepSmoothing 0` (cloth stays right
+  with temporal samples), `p.Chaos.ImmPhys.MinStepTime 0`, `Slate.bAllowThrottling 0` and
+  `wp.Runtime.BlockOnSlowStreaming 0` (MoviePipelineGameOverrideSetting.cpp:150-170). The reel's renders had them
+  too, so we add nothing.
 - **Frames are numbered by the sequence's display-rate frame** (`{frame_number}`, 4 digits), the same as the
   reel's `<master frame>.png`.
 - **An idle offscreen editor holds the GPU at 97 %**; the bridge caps it (`t.MaxFPS`), and every render sets
