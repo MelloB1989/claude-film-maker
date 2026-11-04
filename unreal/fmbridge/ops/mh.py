@@ -2,7 +2,9 @@
 beard, brows, clothes), the cinematic build to a Blueprint, and how an assembled character is driven."""
 from __future__ import annotations
 
-import time
+import glob
+import os
+import sys
 
 import unreal
 
@@ -50,32 +52,29 @@ def from_preset(preset: str, dest: str, overwrite: bool = False) -> str:
     return dest
 
 
-def _rigged(c) -> bool:
-    ok = sub().can_build_meta_human(c)  # (bool, reason) where Python returns the out parameter too
-    return bool(ok[0] if isinstance(ok, tuple) else ok)
+def _signed_in() -> bool:
+    """Whether this machine holds an Epic sign-in the MetaHuman cloud services can use without asking: the EOS SDK's
+    persistent credential (Linux: ~/.local/share/.eos_sdk/keychain/<id>/persistent_auth/credential). Windows keeps it
+    in the credential store, so there it is assumed."""
+    if sys.platform == "win32":
+        return True
+    return bool(glob.glob(os.path.expanduser("~/.local/share/.eos_sdk/keychain/*/persistent_auth/credential")))
 
 
 @op("mh.rig")
-def rig(character: str, full: bool = True, wait_s: float = 900):
-    """Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs). Runs across editor ticks
-    and ends when the character can be built. The service needs an Epic sign-in in this editor; without one it never
-    answers and says nothing, so after `wait_s` seconds this is an error rather than a game thread held forever
-    (sign in once on the temporary desktop: film-ue desktop on)."""
-    c = _char(character)
-    if _rigged(c):
-        return character
+def rig(character: str, full: bool = True) -> str:
+    """Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs). Blocks until done (about
+    30 s). Without a sign-in the service would open a browser and wait for one, holding the editor: so with no saved
+    sign-in this is an error at once. Sign in once per box (film-ue desktop on, or the device code it shows); the
+    sign-in then survives editor restarts. After the rig: mh.textures, then mh.build."""
+    if not _signed_in():
+        raise RuntimeError("no Epic sign-in saved on this machine: sign in once (film-ue desktop on), then rig")
     p = unreal.MetaHumanCharacterAutoRiggingRequestParams()
     p.rig_type = unreal.MetaHumanRigType.JOINTS_AND_BLEND_SHAPES if full else unreal.MetaHumanRigType.JOINTS_ONLY
-    p.blocking, p.report_progress = False, True
-    sub().request_auto_rigging(c, p)
-    end = time.time() + wait_s
-    while time.time() < end:
-        yield 2.0
-        if _rigged(c):
-            EAL.save_asset(character)
-            return character
-    raise RuntimeError(f"auto-rig of {character} did not finish in {wait_s:.0f} s: is the editor signed in to Epic "
-                       "(film-ue desktop on, then sign in)? See LogMetaHumanCharacterEditor")
+    p.blocking, p.report_progress = True, True
+    sub().request_auto_rigging(_char(character), p)
+    EAL.save_asset(character)
+    return character
 
 
 @op("mh.textures")
