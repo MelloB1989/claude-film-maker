@@ -300,7 +300,8 @@ def areas() -> dict:
 # ----------------------------------------------------------------------------------------------------------- level
 
 def _eal():
-    return unreal.EditorAssetLibrary
+    from ..ops.assets import EAL  # EditorAssetLibrary, or its subsystem twin when the plugin is off
+    return EAL
 
 
 def _current_level() -> str:

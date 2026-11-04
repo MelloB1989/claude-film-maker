@@ -41,6 +41,22 @@ film-ue mat check --path /Game/Set/Mats/MI_Rock
 Check: `master` (opaque_orm when there is a packed ORM map), `maps` (role -> texture), `ignored` (files it could not
 place), then `mat check` `pass: true` (it compiles; every texture matches its sampler).
 
+**Prepare a texture set before pushing it** (client side, needs pillow): separate AO/roughness/metallic maps packed
+into one ORM (one sampler instead of three), gloss inverted into roughness, an RMA/MRA map reordered, OpenGL normals
+flipped with `--flip-green`:
+```bash
+film-ue texpack ~/downloads/rock_4k --out /tmp/rock_set --flip-green
+```
+Check: one line per set with the files it wrote and notes ("gloss inverted into roughness", "no metallic map: 0 in
+its channel"); files it could not place by name are listed. Then push `/tmp/rock_set` and run `mat pbr --folder`.
+
+**Capture what is there as specs** (the round trip of `film-ue apply`):
+```bash
+film-ue export-spec material /Game/Set/Mats/MI_Rock /Game/Set/Mats/MI_Oak > mats.yaml
+film-ue export-spec asset /Game/Set/Props/SM_Chair > props.yaml
+```
+Applying an exported spec to the same project plans nothing; edit it and apply it to change or recreate things.
+
 **A material from the library**
 ```bash
 film-ue mat masters                                # what each master is for and its parameters (with units)
@@ -335,6 +351,11 @@ notes of the same night (same source, same lines).
 | `FJsonObjectConverter::JsonObjectToUStruct(obj, UStruct*, void*, ...)` | Engine/Source/Runtime/JsonUtilities/Public/JsonObjectConverter.h:239 (rg) | FabScript | |
 | `FindFProperty<T>(const UStruct*, FName)` | Engine/Source/Runtime/CoreUObject/Public/UObject/UnrealType.h:7394 (rg) | FabScript | |
 | `RenderingLibrary` / `SceneCapture2D` captures | WP10's view.py | assets.thumbnail | via view.turntable |
+| `AssetEditorSubsystem.close_all_editors_for_asset(asset)` | Engine/Source/Editor/UnrealEd/Public/Subsystems/AssetEditorSubsystem.h:112 (class), :169-170 (UFUNCTION BlueprintCallable `int32 CloseAllEditorsForAsset(UObject*)`) (rg) | assets.free, assets.remove | returns the number closed |
+| `MaterialInterface` (isinstance checks) | Engine/Source/Runtime/Engine/Public/Materials/MaterialInterface.h:351 `class UMaterialInterface : public UObject` (rg) | assets, mat, catalog | base of Material and MaterialInstance |
+| `PointLight` (spawn_actor_from_class) | Engine/Source/Runtime/Engine/Classes/Engine/PointLight.h:11 `class APointLight : public ALight` (rg) | assets.thumbnail | its PointLightComponent: attenuation_radius, set_intensity |
+| `unreal.new_object(type, outer, name, base_type)`, `unreal.load_class(outer, name)` | Engine/Plugins/Experimental/PythonScriptPlugin/Source/PythonScriptPlugin/Private/PyCore.cpp:2072, :2075 (rg) | fab | module functions of the Python plugin |
+| `Object.call_method(name, args=(), kwargs={})` | .../PythonScriptPlugin/Private/PyWrapperObject.cpp:1135 (rg) | fab | calls any UFunction by name: args is a tuple |
 
 ## 8. Selftest
 
@@ -365,15 +386,12 @@ and merged into ue-helpers in chunks; nothing has run in a real editor yet (no b
 6. **`fab.login` on Linux offscreen**: does `OpenInNewTab` create the CEF tab (or its error tab) and trigger the
    persist login? `fab.library`'s account id from the JWT `sub` is an assumption; the endpoint is private.
 7. **FabScript** has not been compiled.
-8. **EditorScriptingUtilities**: `ops/assets.py` `EAL` falls back to the EditorAssetSubsystem when the plugin is off,
-   so every area that imports `EAL` from assets.py keeps working (speech, mh, anim, seq, look, level, audio). These
-   call `unreal.EditorAssetLibrary` directly and would fail with the plugin off (as of ue-helpers 94d0712):
-   ops/shot.py:23 (`EAL = ...`), ops/cam.py:746, ops/render.py:294, ops/layers.py:72-78, ops/selftest.py:72,
-   selftest/__init__.py:304, selftest/cam.py:164, selftest/qa.py:195. Each is a one-line change to
-   `from .assets import EAL` (their owners'). Then editor.doctor (B11) can treat the plugin as optional.
+8. **EditorScriptingUtilities**: done. `ops/assets.py` `EAL` falls back to the EditorAssetSubsystem when the plugin
+   is off, every module of the bridge now imports it (577192b), and a test fails on any new direct
+   `unreal.EditorAssetLibrary`. editor.doctor (B11) can treat the plugin as optional.
 9. **mat.check's sampler expectations** come from the library's own masters only; for other materials it checks
    compilation only.
 
-Not done: Fab listing id -> signed URL is only the Playwright shim (untested against fab.com, and it needs
-Playwright on the client); USD/Alembic/groom imports are untested even on the fake beyond their options; texture
-packing (separate R/M/AO -> ORM) is not done (the opaque master takes separate maps instead).
+Also done after the WP: `film-ue texpack` (cli_texpack.py) and `film-ue export-spec` (cli_exportspec.py), both
+unit-tested. Not done: Fab listing id -> signed URL is only the Playwright shim (untested against fab.com, and it
+needs Playwright on the client); USD/Alembic/groom imports are untested even on the fake beyond their options.

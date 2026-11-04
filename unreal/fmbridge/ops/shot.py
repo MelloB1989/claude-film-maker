@@ -20,7 +20,7 @@ from ..camkit import checks as ck
 from ..camkit import framing, png, shotlist
 from ..errors import OpError, not_found
 
-EAL = unreal.EditorAssetLibrary
+from .assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 TAG_HASH, TAG_CAMS = "fm_shot_spec", "fm_shot_cameras"
 LSE = unreal.LevelSequenceEditorBlueprintLibrary
 

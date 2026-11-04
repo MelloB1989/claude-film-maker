@@ -20,7 +20,7 @@ from ._util import actors, find_actor, vec
 from ..errors import OpError, not_found
 
 ROOT = "/Game/_Foliage"
-EAL = unreal.EditorAssetLibrary
+from .assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 TAG_HASH, TAG_ARGS, TAG_COUNT, TAG_MESH = "fm_scatter_hash", "fm_scatter_args", "fm_scatter_count", "fm_scatter_mesh"
 
 

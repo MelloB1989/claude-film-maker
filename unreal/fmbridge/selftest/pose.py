@@ -13,6 +13,7 @@ is skipped with a note: e.g. a MetaHuman character asset). Leaves nothing outsid
 from __future__ import annotations
 
 import unreal
+from ..ops.assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 REQUIRES: list = []
 AREAS = ["pose"]
@@ -60,7 +61,7 @@ def run(t):
     P = t.prefix
     who = P + "Body"
     eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
-    a = eas.spawn_actor_from_object(unreal.EditorAssetLibrary.load_asset(mesh), unreal.Vector(0, 0, 0),
+    a = eas.spawn_actor_from_object(EAL.load_asset(mesh), unreal.Vector(0, 0, 0),
                                     unreal.Rotator(roll=0.0, pitch=0.0, yaw=0.0))
     a.set_actor_label(who)
     seq = f"{str(t.scratch).rstrip('/')}/{P}Seq"

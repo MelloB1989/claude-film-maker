@@ -18,7 +18,7 @@ from ._util import find_actor, actors
 from ..errors import OpError, not_found
 
 LSE = unreal.LevelSequenceEditorBlueprintLibrary
-EAL = unreal.EditorAssetLibrary
+from .assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 ALL_BONES = tuple(dict.fromkeys(b for names in P.ANCHOR_BONES.values() for b in names)) + (
     "clavicle_l", "clavicle_r", "upperarm_l", "upperarm_r", "FACIAL_L_Eye", "FACIAL_R_Eye", "ball_l", "ball_r")
 
