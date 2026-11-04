@@ -25,7 +25,6 @@ PLUGINS = {  # plugin name: (why it matters, severity when missing)
     "MetaHuman": ("speech.to_face (MetaHuman Animator)", "warn"),
     "Fab": ("fab.* (the Fab library)", "info"),
 }
-MIN_FREE_GB = 50.0
 
 
 def _issue(code: str, severity: str, message: str, fix: str = "", **kw) -> dict:
@@ -54,7 +53,7 @@ def _project_dir() -> str:
 
 
 @op("editor.doctor", mutates=False, idempotent=True, tags=["platform"])
-def doctor(*, min_free_gb: float = MIN_FREE_GB) -> dict:
+def doctor(*, min_free_gb: float = 50.0) -> dict:
     """Check that this editor can do the work: engine 5.8, Python 3.11, a real GPU RHI (not -nullrhi), the plugins
     the ops need, every op module imported, free disk, the Epic sign-in (Linux), the render/MetaHuman/data layer
     APIs reachable from Python, and the hair sky-lighting trap. Read-only.

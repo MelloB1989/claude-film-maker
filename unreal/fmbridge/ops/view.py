@@ -184,7 +184,22 @@ def export_png(rt, path: str) -> dict:
     if not os.path.isfile(path):
         raise OpError(f"the engine wrote no file at {path}", code="engine",
                       hint="check the editor log (film-ue log) for ExportRenderTarget warnings")
-    return {"path": path, "width": int(rt.get_editor_property("size_x")), "height": int(rt.get_editor_property("size_y"))}
+    out = {"path": path, "width": int(rt.get_editor_property("size_x")), "height": int(rt.get_editor_property("size_y"))}
+    if not _opaque(rt, out["width"], out["height"]):
+        # a scene capture's alpha is not coverage (often 0 on opaque pixels): a PNG with it looks empty to a viewer.
+        # Rewrite it as RGB from the raw pixels (slower: ~1 s at 720p, only when needed)
+        _image.write(to_image(rt), path)
+        out["alpha_dropped"] = True
+    return out
+
+
+def _opaque(rt, w: int, h: int) -> bool:
+    """Whether a few sampled pixels have alpha 255 (RenderingLibrary.read_render_target_pixel gives an FColor)."""
+    for x, y in ((w // 2, h // 2), (1, 1), (w - 2, h - 2), (w // 4, 3 * h // 4), (3 * w // 4, h // 4)):
+        c = unreal.RenderingLibrary.read_render_target_pixel(_world(), rt, int(x), int(y))
+        if int(getattr(c, "a", 255)) != 255:
+            return False
+    return True
 
 
 def read_pixels(rt, channels: str = "r") -> list:

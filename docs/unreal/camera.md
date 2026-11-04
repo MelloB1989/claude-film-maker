@@ -9,7 +9,8 @@ guides, contact sheets).
 
 The maths is `unreal/fmbridge/camkit/` (pure Python, stdlib only, no `unreal`): you can plan and test a whole shot
 list without an editor. The ops (`unreal/fmbridge/ops/cam.py`, `ops/shot.py`) read the level into it and write the
-answers back; Sequencer data goes only through WP8's `seq.*` ops.
+answers back; Sequencer data goes only through WP8's ops: one batched `seq.apply` per write when WP8's core is
+installed, the per-track `seq.key_*` ops otherwise.
 
 Conventions: cm, degrees, frames at the sequence's rate; `focal_mm`, `sensor_mm` [w, h]; a rotation is
 `{"pitch", "yaw", "roll"}`; frame positions **u, v are 0..1 of the picture from its top-left** (outside = out of
@@ -43,6 +44,18 @@ the solver put the landmarks: they must sit on the face, the chin, the chest...)
   widens until everyone fits inside the side margins. A group "faces" square to the line between the first two (on
   the side they face, or `side` of the line when they face each other).
 - Plan without touching anything: `apply=false`.
+
+**Say it in words.** `film-ue op cam.shoot camera=CAM_A text='medium close-up of Host from 30 deg left, slightly
+high, 50mm f/2.8'` (any order; subjects are the level's actor labels found in the text). The result has `parsed`
+(the arguments it read), `unparsed` words it ignored (nothing is guessed: check it is empty), and `words`: the camera
+described back. `cam.describe subjects=Host` gives every camera's `words` ("MCU of Host from 1/4 left (30 deg),
+slightly high, 50 mm f/2.8, right third"); feeding them to `cam.shoot` puts the camera exactly where it is.
+Vocabulary: sizes (extreme close-up/ECU/choker, close-up/CU, medium close-up/MCU, medium/mid/waist shot/MS, cowboy,
+medium wide/MWS/knee shot, wide/full/long/WS, extreme wide/establishing/EWS, two-shot/group shot), angles (front/
+head-on, 1/4, 3/4, profile/side, 3/4 back, behind, `<n> deg`), side (left/right: the subject's own), heights (eye
+level, slightly high/low, high/low angle, overhead/bird's eye, worm's eye, ground/hip/chest/shoulder/knee level,
+`<n> deg above|below eye level`), `<n>mm`, `<n> m|cm away` (the focal length is then solved), `f/<n>` or `T<n>`,
+centered / left third / right third, dutch [n deg].
 
 **Place a camera by hand, then read it.**
 `cam.add label=CAM_B 'loc=[400,0,160]' look_at=eyes:Presenter focal_mm=35 aperture=2.8 filmback="16:9 DSLR"`
@@ -118,7 +131,8 @@ sizes apart).
 | `cam.add` | make or converge a cine camera (pose, lens, filmback, focus); `changed`, `created` |
 | `cam.set` | lens: focal (or `hfov_deg`), aperture, filmback, lens preset, near clip |
 | `cam.focus` | manual / track / off |
-| `cam.describe` | every camera (or one) as numbers |
+| `cam.describe` | every camera (or one) as numbers; with `subjects`, its shot in words |
+| `cam.shoot` | frame a camera from a sentence of shot grammar (the inverse of the words) |
 | `cam.remove` | by labels or prefix (cameras and rigs) |
 | `cam.subject` | an actor's landmarks, facing and height as the solver sees them |
 | `cam.point` | where a target is (point, actor, bone, eyes:Label) |
@@ -255,8 +269,10 @@ run in a real editor yet. Tomorrow on the GPU box:
      or the scrub needing more ticks.
 2. `cam.check` on a MetaHuman: compare our landmarks (`cam.subject`) with WP10's from the same bones; the crown
    offset (`CROWN_ABOVE_EYES`) may want tuning per character (hair).
-3. When WP8's `seq.apply` (one batched call per binding) lands, switch `cam.write_keys` to it (it is the only
-   writer).
+3. Writes: `cam.write_tracks` is the only Sequencer writer. With WP8's `seq.apply` registered it sends one
+   sequence spec (`cam.seq_doc`: transform keys, `CameraComponent/...` props, camera cuts, range) in one batched
+   call; otherwise the per-track ops. Trial-merged with fleet/agent-06/ue-sequencer@4291b0a: green and converging
+   (`test_shot_apply_on_wp8_sequencer` runs once WP8's core is on ue-helpers).
 
 Not done: a `film-ue` CLI shortcut beyond `op`/`plan`/`apply` (WP11's call); shot subsequences on a cinematic shot
 track (WP8's `seq.shots`; we cut one sequence with camera cuts); camera shake assets (we bake noise).

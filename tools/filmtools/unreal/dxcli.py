@@ -128,8 +128,6 @@ def stale() -> list:
     live = schema.extract()
     if not schema.SNAPSHOT.exists() or json.loads(schema.SNAPSHOT.read_text()) != json.loads(json.dumps(live)):
         out.append(f"{schema.SNAPSHOT.name} differs from the ops")
-    if not gen.OUT.exists() or gen.OUT.read_text() != gen.generate(schema.index(live)):
-        out.append(f"sdk/{gen.OUT.name} differs from the ops")
     return out
 
 

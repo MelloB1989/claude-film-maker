@@ -32,3 +32,4 @@ films/rain-ferry/assets/clips/
 films/rain-ferry/assets/layers/
 films/rain-ferry/assets/vroid/*.vroid
 films/rain-ferry/audio/**/*.wav
+tools/filmtools/unreal/sdk/_generated.py

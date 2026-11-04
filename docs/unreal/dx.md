@@ -88,14 +88,16 @@ job registry reports it (`jobs.on_finish`, when WP1's jobs.py has it).
 
 **After changing or adding ops** (in the same commit)
 ```bash
-film-ue dx gen      # rewrite tools/filmtools/unreal/ops_schema.json and sdk/_generated.py from the ops
+film-ue dx gen      # rewrite tools/filmtools/unreal/ops_schema.json (committed) and sdk/_generated.py (not
+                    # committed: the SDK builds itself in memory from the ops when the file is absent or stale)
 film-ue dx check    # exit 1 when they are stale (tests/test_ue_dx.py fails too)
 film-ue dx lint     # ops that are hard for an agent: no docstring, untyped required args, not area.verb, broken;
                     # kind schemas without descriptions or with additionalProperties not false
 film-ue dx docs     # every `film-ue <area> <verb> --flag` line in the docs parses against the op schema
 film-ue dx sdk      # every ue.<area>.<verb>(...) / ue.call("a.v") in examples/ and films/*/unreal/ matches the schema
 ```
-`film-ue dx gen` is a merge-conflict magnet: when two branches both regenerated, take either side and run it again.
+`ops_schema.json` can conflict in a merge when two branches both regenerated it: take either side and run
+`film-ue dx gen` again.
 
 ## 2. Reference
 
@@ -121,7 +123,7 @@ Files (all WP11 unless noted):
 | `tools/filmtools/unreal/schema.py` | static op schema (AST over `unreal/fmbridge/ops/**`), `index()` for the generators, `lint()` |
 | `tools/filmtools/unreal/ops_schema.json` | the committed snapshot (for a tools/ without unreal/) |
 | `tools/filmtools/unreal/opcli.py` | the generated `film-ue <area> <verb>` |
-| `tools/filmtools/unreal/sdk/` | `Unreal`, `OpError`, `Job`; `_generated.py` (do not edit), `gen.py` |
+| `tools/filmtools/unreal/sdk/` | `Unreal`, `OpError`, `Job`; `gen.py` (writes `_generated.py`, gitignored: a readable copy) |
 | `tools/filmtools/unreal/errors.py` | `Problem`, `explain()` (bridge answer -> code/message/hint/candidates), `check_args()` |
 | `tools/filmtools/unreal/describe.py` | `film-ue describe` |
 | `tools/filmtools/unreal/spec.py`, `jsonschema_lite.py`, `kinds/` | the plan/apply engine; generic kinds level/actor/op |
@@ -260,8 +262,8 @@ def run(t):                 # may be a generator: yield ticks the editor once, y
 
 ## 7. Gotchas
 
-- `film-ue dx gen` after every op change, or `test_snapshot_and_sdk_are_current` fails (and the SDK lacks the op;
-  `ue.call("area.verb")` still reaches it).
+- `film-ue dx gen` after every op change, or `test_snapshot_and_sdk_are_current` fails: the SDK follows the ops by
+  itself, only the committed snapshot can be stale (and `ue.call("area.verb")` reaches any op the bridge has).
 - Specs never contain secrets or film-specific paths outside `films/<id>/`.
 - `apply` re-describes everything after running: a kind whose describe is slow makes apply slow; give it
   `describe_many` (one op call for all documents of the kind).
