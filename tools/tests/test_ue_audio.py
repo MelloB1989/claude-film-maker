@@ -128,6 +128,8 @@ def test_fades_are_keys_read_back_and_converge(ue, tmp_path, seq, fmb):
     with pytest.raises(OpError, match="do not fit"):
         run_op("audio.place", sequence=seq, clips=[{**clips[0], "fade_in_frames": 40}], track="Music")
     assert fade_keys(0, 48, 1.0, 0, 0) == [] and fades_of(fade_keys(10, 58, 0.5, 4, 0), 10, 58) == (4, 0)
+    assert fade_keys(0, 48, 1.0, 0, 6)[-1] == (47, 0.0)  # silent on the last frame played (ranges end-exclusive)
+    assert fades_of(fade_keys(0, 48, 1.0, 6, 6), 0, 48) == (6, 6)
 
 
 def test_adding_a_line_twice_does_not_duplicate(ue, tmp_path, seq):
