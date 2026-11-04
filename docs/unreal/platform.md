@@ -42,6 +42,19 @@ waits out the shader compile. On a failure it stops, prints the exact next comma
 progress in the profile. Running it again continues from there. `--from STEP` reruns from a step, `--restart`
 reruns everything. Steps that need a person (the Epic sign-in, the voice line) say so.
 
+### Bake a ready box into an image (the next box starts in minutes)
+
+```bash
+film-ue box image gpu1 --label hs [--wait]     # editor stopped, sign-in and tokens removed, then an AMI; reboots once
+film-ue box images                             # newest first: ami, project, engine, state, snapshots
+film-ue box up gpu2 --like linux --ami latest  # the newest image for that profile's project
+film-ue box image-rm ami-...                   # deregister + delete its snapshots (they cost money while kept)
+```
+
+The image holds the engine, the project, the warm DDC and the bridge. It holds no Epic sign-in (the new box restores
+it from S3 at the editor's start) and no TTL: the watchdog in it keeps idle protection only, and `box up` gives the
+new box its own TTL.
+
 ### Keep a box, give it more time, end it
 
 ```bash

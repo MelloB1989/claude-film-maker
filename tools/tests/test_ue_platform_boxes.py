@@ -143,3 +143,101 @@ def test_save_ddc_on_exit_puts_the_ddc_save_in_the_watchdog(conf, monkeypatch):
     assert ws.conf()["os"] in ("windows", "linux")  # the temporary conf is gone
     with pytest.raises(SystemExit, match="needs --like"):
         boxes.up("gpu2", save_ddc_on_exit=True, aws=aws, wait=False, log=lambda m: None)
+
+
+class ImageAWS(FakeAWS):
+    def __init__(self):
+        super().__init__()
+        self.images = {}
+
+    def __call__(self, *args, check=True):
+        svc, verb = args[0], args[1]
+        if (svc, verb) == ("ec2", "create-image"):
+            self.calls.append(args)
+            ami = f"ami-{len(self.images):03d}"
+            tags = json.loads(args[args.index("--tag-specifications") + 1])[0]["Tags"]
+            self.images[ami] = {"ImageId": ami, "Name": args[args.index("--name") + 1], "State": "available",
+                                "CreationDate": f"2026-11-05T0{len(self.images)}:00:00Z", "Tags": tags,
+                                "BlockDeviceMappings": [{"Ebs": {"SnapshotId": f"snap-{ami}"}}]}
+            return {"ImageId": ami}
+        if (svc, verb) == ("ec2", "describe-images"):
+            self.calls.append(args)
+            return {"Images": list(self.images.values())}
+        if (svc, verb) == ("ec2", "deregister-image"):
+            self.calls.append(args)
+            self.images.pop(args[3])
+            return {}
+        return super().__call__(*args, check=check)
+
+
+def test_image_prepares_the_box_without_secrets_and_box_up_uses_the_latest(conf, monkeypatch):
+    aws = ImageAWS()
+    monkeypatch.setenv("FILM_UE_BOX", "linux")
+    ws.save(os="linux", project_dir="/srv/ue/projects/Demo", bucket="b", region="ap-south-1")
+    monkeypatch.delenv("FILM_UE_BOX")
+    boxes.up("gpu1", like="linux", aws=aws, wait=False, log=lambda m: None)
+    ran = []
+    r = boxes.image("gpu1", label="hs", aws=aws, run=lambda s: ran.append(s) or "prepared", log=lambda m: None)
+    s = ran[0]
+    assert "systemctl stop ue-editor" in s and ".local/share/.eos_sdk" in s and "fleet-vnc.pass" in s
+    assert "/srv/ue/projects/Demo/Saved/fmbridge.token" in s and "ttl_until=None" in s and "c = {}" in s
+    assert "cloud-init clean" in s and r["ami"] == "ami-000" and r["ami_name"].startswith("film-ue-hs-")
+    tags = {t["Key"]: t["Value"] for t in aws.images["ami-000"]["Tags"]}
+    assert tags["film-ue:image"] == "hs" and tags["film-ue:project"] == "Demo"
+    boxes.image("gpu1", label="hs", aws=aws, run=lambda s: "prepared", log=lambda m: None)
+    assert [i["ami"] for i in boxes.images(aws=aws)] == ["ami-001", "ami-000"]   # newest first
+    boxes.up("gpu2", like="linux", ami="latest", aws=aws, wait=False, log=lambda m: None)
+    run = aws.made("run-instances")[-1]
+    assert run[run.index("--image-id") + 1] == "ami-001"
+    out = boxes.image_rm("ami-000", aws=aws)
+    assert out["deleted_snapshots"] == ["snap-ami-000"] and aws.made("delete-snapshot")
+    with pytest.raises(SystemExit, match="not a film-ue image"):
+        boxes.image_rm("ami-zzz", aws=aws)
+
+
+def test_image_refuses_a_box_that_is_not_running_or_not_prepared(conf):
+    aws = ImageAWS()
+    with pytest.raises(SystemExit, match="not running"):
+        boxes.image("nope", aws=aws)
+    boxes.up("gpu1", aws=aws, wait=False, log=lambda m: None)
+    with pytest.raises(SystemExit, match="preparing the image failed"):
+        boxes.image("gpu1", aws=aws, run=lambda s: "error", log=lambda m: None)
+    assert not aws.made("create-image")
+    with pytest.raises(SystemExit, match="no film-ue image"):
+        boxes.latest_image("Demo", aws=aws)
+
+
+def test_the_prepared_image_holds_no_epic_sign_in_no_token_and_no_ttl(tmp_path):
+    """The real prepare script, run in bash against a fake home and project: the credential is gone afterwards."""
+    import os
+    import subprocess
+    home, proj, etc, state, root, stub = (tmp_path / n for n in ("home", "proj", "etc", "state", "root", "bin"))
+    cred = home / ".local/share/.eos_sdk/keychain/abc/persistent_auth/credential"
+    cred.parent.mkdir(parents=True)
+    cred.write_text("whole-account-credential")
+    (home / ".film-ue").mkdir()
+    (home / ".film-ue/ue-args-once").write_text("-AUTH_PASSWORD=x")
+    (proj / "Saved/Bridge/jobs").mkdir(parents=True)
+    (proj / "Saved/fmbridge.token").write_text("tok")
+    etc.mkdir()
+    (etc / "watchdog.json").write_text(json.dumps({"ttl_until": 123, "idle_min": 20, "on_exit": ["x"]}))
+    state.mkdir()
+    (state / "watchdog.json").write_text("{}")
+    root.mkdir()
+    (root / "fleet-vnc.pass").write_text("pw")
+    stub.mkdir()
+    for tool in ("systemctl", "cloud-init", "journalctl"):
+        (stub / tool).write_text("#!/bin/sh\nexit 0\n")
+        (stub / tool).chmod(0o755)
+    (stub / "getent").write_text(f"#!/bin/sh\necho 'ue:x:1000:1000::{home}:/bin/bash'\n")
+    (stub / "getent").chmod(0o755)
+    script = boxes.prepare_image_script(user="ue", project_dir=str(proj), etc=str(etc), state=str(state), root=str(root))
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                       env={**os.environ, "PATH": f"{stub}:{os.environ['PATH']}"})
+    assert r.returncode == 0 and "prepared" in r.stdout, r.stderr
+    assert not (home / ".local/share/.eos_sdk").exists() and not cred.exists()   # the Epic sign-in is NOT in the image
+    assert not (home / ".film-ue/ue-args-once").exists() and not (root / "fleet-vnc.pass").exists()
+    assert not (proj / "Saved/fmbridge.token").exists() and not (proj / "Saved/Bridge/jobs").exists()
+    cfg = json.loads((etc / "watchdog.json").read_text())
+    assert cfg["ttl_until"] is None and cfg["on_exit"] == [] and cfg["idle_min"] == 20   # idle protection kept
+    assert not (state / "watchdog.json").exists()
