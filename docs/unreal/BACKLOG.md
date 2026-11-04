@@ -41,7 +41,7 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B25 | Audio: `audio.mix` stems into a sequence with levels in dB and fades in frames; loudness check (LUFS) client-side | WP12 | M | merged (agent-03) |
 | B26 | Delivery presets: ProRes 422 HQ, H.264 web, 9:16 crop with safe-area check, burnt-in captions from SRT; ffmpeg argv generated from a spec | WP12 | M | merged (agent-03) |
 | B27 | MetaHuman spec round-trip: `film-ue describe character Host > host.yaml` and apply it to a fresh preset to get the same character (body, skin, hair, wardrobe) | WP3 | L | open |
-| B28 | Groom/hair tuning ops: density, width, melanin/redness, sky-lighting cvar guard (README trap) with numeric before/after | WP3/WP5 | S | open |
+| B28 | Groom/hair tuning ops: density, width, melanin/redness, sky-lighting cvar guard (README trap) with numeric before/after | WP3/WP5 | S | claimed agent-09 |
 | B29 | Face performance from text: `perf.speak` text → TTS file (client) → speech.to_face → seq.anim on the face, one call | WP4/WP12 | M | claimed agent-03 |
 | B30 | Retargeting: `anim.retarget` a Mixamo/UE mannequin anim onto a MetaHuman body (IK retargeter assets made by code) | WP4 | L | open |
 | B31 | Pose library: `anim.pose` apply a named pose (sit, lean, hands on hips) via control rig or baked anim; numeric check of end-effector positions | WP4 | L | open |
@@ -56,5 +56,5 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B40 | Static analysis gate: a test that every engine API name used under unreal/fmbridge appears in some doc's API_NOTES table (keeps the "verify APIs" rule honest) | WP0 | S | merged (agent-10) |
 | B41 | Fake engine fidelity: a Sequencer fake (ext_seq) good enough to unit-test track/section/key writes and batching | WP8 | M | open |
 | B42 | Cross-platform path helper: box paths (Windows/Linux) for project/Saved/renders used everywhere instead of string joins | WP1 | S | open |
-| B43 | Visual baselines: qa.baseline save/compare/list (golden stills + metrics per selftest/check under Saved/fmbridge/baselines, client pull/push), selftest harness compares each t.still to its baseline (SSIM/diff in the report): the first GPU run sets them, later runs regress | WP10/WP11 | M | claimed agent-09 |
+| B43 | Visual baselines: qa.baseline save/compare/list (golden stills + metrics per selftest/check under Saved/fmbridge/baselines, client pull/push), selftest harness compares each t.still to its baseline (SSIM/diff in the report): the first GPU run sets them, later runs regress | WP10/WP11 | M | merged (agent-09; harness hook with agent-13) |
 | B44 | Data layers: level.layers (list, visible, loaded), level.layer_add (create + put actors in), level.layer_set (visible/loaded in editor); partitioned worlds only, a clear `unsupported` otherwise | WP6 | M | merged (agent-10) |
