@@ -946,18 +946,14 @@
    "type": "array",
    "items": {
     "type": "object",
-    "required": [
-     "sequence",
-     "start"
-    ],
     "additionalProperties": false,
     "properties": {
      "sequence": {
       "type": "string",
-      "description": "the shot's LevelSequence package path"
+      "description": "the shot's LevelSequence package path (default with camera/shot: <master>_<name>)"
      },
      "start": {
-      "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+      "description": "frames; default: the previous shot's end on the same row",
       "oneOf": [
        {
         "type": "number"
@@ -1032,6 +1028,25 @@
      "row": {
       "type": "integer",
       "minimum": 0
+     },
+     "camera": {
+      "type": "string",
+      "description": "shot list: a one-camera shot sequence on this camera (actor label)"
+     },
+     "shot": {
+      "type": "object",
+      "description": "shot list: the shot's own sequence spec inline (bindings, camera_cuts, ...; frames from the shot sequence's 0)"
+     },
+     "handles": {
+      "description": "shot list: frames of the shot sequence before and after the cut",
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ]
      }
     }
    },
@@ -1046,18 +1061,14 @@
       "type": "array",
       "items": {
        "type": "object",
-       "required": [
-        "sequence",
-        "start"
-       ],
        "additionalProperties": false,
        "properties": {
         "sequence": {
          "type": "string",
-         "description": "the shot's LevelSequence package path"
+         "description": "the shot's LevelSequence package path (default with camera/shot: <master>_<name>)"
         },
         "start": {
-         "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+         "description": "frames; default: the previous shot's end on the same row",
          "oneOf": [
           {
            "type": "number"
@@ -1132,6 +1143,25 @@
         "row": {
          "type": "integer",
          "minimum": 0
+        },
+        "camera": {
+         "type": "string",
+         "description": "shot list: a one-camera shot sequence on this camera (actor label)"
+        },
+        "shot": {
+         "type": "object",
+         "description": "shot list: the shot's own sequence spec inline (bindings, camera_cuts, ...; frames from the shot sequence's 0)"
+        },
+        "handles": {
+         "description": "shot list: frames of the shot sequence before and after the cut",
+         "oneOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "string"
+          }
+         ]
         }
        }
       }
@@ -1141,18 +1171,14 @@
      "type": "array",
      "items": {
       "type": "object",
-      "required": [
-       "sequence",
-       "start"
-      ],
       "additionalProperties": false,
       "properties": {
        "sequence": {
         "type": "string",
-        "description": "the shot's LevelSequence package path"
+        "description": "the shot's LevelSequence package path (default with camera/shot: <master>_<name>)"
        },
        "start": {
-        "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+        "description": "frames; default: the previous shot's end on the same row",
         "oneOf": [
          {
           "type": "number"
@@ -1227,6 +1253,25 @@
        "row": {
         "type": "integer",
         "minimum": 0
+       },
+       "camera": {
+        "type": "string",
+        "description": "shot list: a one-camera shot sequence on this camera (actor label)"
+       },
+       "shot": {
+        "type": "object",
+        "description": "shot list: the shot's own sequence spec inline (bindings, camera_cuts, ...; frames from the shot sequence's 0)"
+       },
+       "handles": {
+        "description": "shot list: frames of the shot sequence before and after the cut",
+        "oneOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "string"
+         }
+        ]
        }
       }
      }

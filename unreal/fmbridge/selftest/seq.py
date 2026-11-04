@@ -9,7 +9,7 @@ audio, fade, a parameter collection when one exists, markers), then:
 - one track changed: only that track is rewritten; prune removes what the spec dropped;
 - a 20,000-key bake through seq.write: timed (keys/s), and the editor keeps ticking (multi-tick);
 - shots: a master of three shot sequences with pre-roll, seq.shots, seq.chunks (cloth pre-roll back to each shot
-  start), seq.preroll; seq.copy of a window, seq.retime ripple, seq.time, seq.validate, seq.check;
+  start), seq.preroll; a shot list (one sequence per shot, end to end, handles); seq.conform keeping time; seq.copy of a window, seq.retime ripple, seq.time, seq.validate, seq.check;
 - errors an agent can act on: a typo'd actor label (not_found + candidates), a bad spec (bad_args, all problems);
 - stills through the cut at four frames (seq.stills), when a GPU renders.
 
@@ -167,7 +167,8 @@ def run(t):
     t.ok("20k keys in under 60 s", dt < 60, detail=f"{dt:.1f} s")
     w2 = yield from t.op("seq.write", path=seq, track=bake)
     t.check("the same bake again changes nothing", w2["changed"], False)
-    t.op("seq.remove_track", path=seq, kind="float", binding=key, component="LightComponent0", name="AttenuationRadius")
+    t.op("seq.remove_track", path=seq, kind="float", binding=key, component="LightComponent0",
+        name="AttenuationRadius")
     t.op("seq.add", path=seq, end=120)
 
     # --- shots, chunks, pre-roll --------------------------------------------------------------------------------
@@ -189,6 +190,26 @@ def run(t):
             [(150, 100), (190, 100), (200, 200), (240, 200)])
     t.idempotent("seq.preroll converges", "seq.preroll", path=master["sequence"], frames=12)
     t.check("pre-roll on every shot", [s["preroll"] for s in t.op("seq.shots", path=master["sequence"])], [12, 12, 12])
+
+    # --- a shot list: one sequence per shot, laid end to end (B20) ----------------------------------------------
+    edit = {"sequence": f"{S}/{p}Edit", "fps": 24,
+            "shots": [{"name": "a", "camera": cam_a, "duration": 48, "handles": 6, "preroll": 12},
+                      {"name": "b", "duration": 36, "shot": {"bindings": {cam_b: {}}, "camera_cuts": [[cam_b, 0]]}}]}
+    r = yield from t.op("seq.apply", spec=edit)
+    t.check("shot list converges", [r["converged"], r["remaining"]], [True, []])
+    r = yield from t.op("seq.apply", spec=edit)
+    t.check("shot list idempotent", r["changed"], False)
+    t.check("shots end to end", [(x["name"], x["start"], x["end"]) for x in t.op("seq.shots", path=edit["sequence"])],
+            [("a", 0, 48), ("b", 48, 84)])
+    t.check("shot a has its handles", t.op("seq.describe", path=f"{S}/{p}Edit_a", keys=False)["range"], [0, 60])
+
+    # --- conform (B22) ------------------------------------------------------------------------------------------
+    r = yield from t.op("seq.conform", path=seq, fps=30, keep="time", out=f"{S}/{p}At30")
+    t.check("conform keeps time: range in 30 fps frames", r["range"], [0, 150])
+    ev30 = t.op("seq.eval", path=f"{S}/{p}At30", frames=[60], labels=[cube])
+    t.check("the cube is where it was at 2 s", ev30["transforms"][cube][0][:3], [tr[2][0], tr[2][1], tr[2][2]], tol=0.01)
+    r = yield from t.op("seq.conform", path=seq, fps="29.97", keep="time", out=f"{S}/{p}At2997")
+    t.check("29.97 needs 60000 ticks", r["tick_resolution"], 60000)
 
     # --- copy, retime, time -------------------------------------------------------------------------------------
     r = yield from t.op("seq.copy", src=seq, dst=f"{S}/{p}Cut", start=60, end=120, replace=True)

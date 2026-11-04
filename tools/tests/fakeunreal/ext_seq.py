@@ -51,6 +51,13 @@ class Guid:
         return hash(self.n)
 
 
+def _clone(obj):
+    """A copy of a fake Object with its own editor-property dict (copy.copy would share it)."""
+    c = copy.copy(obj)
+    object.__setattr__(c, "_props", dict(obj._props))
+    return c
+
+
 def _enum(enum: str, name: str):
     return getattr(getattr(core.FAKE, enum), name)
 
@@ -140,11 +147,18 @@ class FakeChannel:
             raise TypeError(f"{self.kind} channel add_key takes no interpolation")
         unit = getattr(time_unit, "name", "DISPLAY_RATE")
         tick = time.value if unit == "TICK_RESOLUTION" else int(round((time.value + sub_frame) * self.seq_tpf()))
-        self.keys = [k for k in self.keys if k.tick != tick]
         k = FakeKey(self, tick, value, getattr(interpolation, "name", "AUTO") if self.kind in ("double", "float")
                     else "CONSTANT")
-        self.keys.append(k)
-        self.keys.sort(key=lambda k: k.tick)
+        if not self.keys or self.keys[-1].tick < tick:  # the usual case: keys arrive in order
+            self.keys.append(k)
+        else:
+            import bisect
+            ticks = [x.tick for x in self.keys]
+            i = bisect.bisect_left(ticks, tick)
+            if i < len(ticks) and ticks[i] == tick:
+                self.keys[i] = k
+            else:
+                self.keys.insert(i, k)
         seq = self.section.track.seq
         object.__setattr__(seq, "key_writes", seq.key_writes + 1)
         return k
@@ -211,8 +225,8 @@ class FakeSection(core.Object):
     def __init__(self, track):
         super().__init__("Section")
         object.__setattr__(self, "track", track)
-        object.__setattr__(self, "start", track.seq.playback[0])
-        object.__setattr__(self, "end", track.seq.playback[1])
+        object.__setattr__(self, "start", track.seq.ms.playback[0])  # ticks, as the engine keeps them
+        object.__setattr__(self, "end", track.seq.ms.playback[1])
         object.__setattr__(self, "bounded", [True, True])
         object.__setattr__(self, "row", 0)
         cls = track.cls
@@ -236,19 +250,25 @@ class FakeSection(core.Object):
 
     def get_editor_property(self, name):
         v = super().get_editor_property(name)
-        return copy.copy(v) if isinstance(v, Struct) else v
+        return _clone(v) if isinstance(v, Struct) else v
 
     # range
+    def _t(self, f):
+        return int(round(int(f) * self.track.seq._tpf()))
+
+    def _f(self, t):
+        return int(t // self.track.seq._tpf())  # whole display frames, floored
+
     def set_range(self, a, b):
-        object.__setattr__(self, "start", int(a))
-        object.__setattr__(self, "end", int(b))
+        object.__setattr__(self, "start", self._t(a))
+        object.__setattr__(self, "end", self._t(b))
         self.bounded[:] = [True, True]
 
     def set_start_frame(self, a):
-        object.__setattr__(self, "start", int(a))
+        object.__setattr__(self, "start", self._t(a))
 
     def set_end_frame(self, b):
-        object.__setattr__(self, "end", int(b))
+        object.__setattr__(self, "end", self._t(b))
 
     def set_start_frame_bounded(self, v):
         self.bounded[0] = bool(v)
@@ -263,10 +283,10 @@ class FakeSection(core.Object):
         return self.bounded[1]
 
     def get_start_frame(self):
-        return self.start
+        return self._f(self.start)
 
     def get_end_frame(self):
-        return self.end
+        return self._f(self.end)
 
     def set_row_index(self, r):
         object.__setattr__(self, "row", int(r))
@@ -457,10 +477,10 @@ class FakeTrack(core.Object):
         object.__setattr__(self, "num_channels", int(n))
 
     def get_material_info(self):
-        return copy.copy(self._props["material_info"])
+        return _clone(self._props["material_info"])
 
     def set_material_info(self, info):
-        self._props["material_info"] = copy.copy(info)
+        self._props["material_info"] = _clone(info)
 
 
 class _Owner:
@@ -558,7 +578,7 @@ class MovieSceneData:
         # the engine's default is 30 (CVar LevelSequence.DefaultDisplayRate); the fakes agree on 24 (ext_audio's tests)
         self.display_rate = core.FrameRate(24, 1)
         self.tick_resolution = core.FrameRate(24000, 1)
-        self.playback = [0, 150]
+        self.playback = [0, 150 * 1000]  # ticks (150 frames at 24 fps)
         self.bindings: list = []
         self.tracks: list = []
         self.marks: list = []
@@ -623,19 +643,33 @@ class LevelSequence(core.MovieSceneSequence, _Owner):
                 for c in s.channels:
                     for k in c.keys:
                         k.tick = int(round(k.tick * (r.numerator / r.denominator) / (old.numerator / old.denominator)))
+        k = (r.numerator / r.denominator) / (old.numerator / old.denominator)
+        for t in self._all_tracks():
+            for s in t.sections:
+                object.__setattr__(s, "start", int(round(s.start * k)))
+                object.__setattr__(s, "end", int(round(s.end * k)))
+                s.ease[:] = [int(round(x * k)) for x in s.ease]
+                s.roll[:] = [int(round(x * k)) for x in s.roll]
+        self.ms.playback = [int(round(x * k)) for x in self.ms.playback]
+        for m in self.ms.marks:
+            m.set_editor_property("frame_number", core.FrameNumber(int(round(m.frame_number.value * k))))
         self.ms.tick_resolution = r
 
+    def _tpf(self) -> float:
+        t, d = self.ms.tick_resolution, self.ms.display_rate
+        return (t.numerator / t.denominator) / (d.numerator / d.denominator)
+
     def get_playback_start(self):
-        return self.ms.playback[0]
+        return int(round(self.ms.playback[0] / self._tpf()))
 
     def get_playback_end(self):
-        return self.ms.playback[1]
+        return int(round(self.ms.playback[1] / self._tpf()))
 
     def set_playback_start(self, v):
-        self.ms.playback[0] = int(v)
+        self.ms.playback[0] = int(round(int(v) * self._tpf()))
 
     def set_playback_end(self, v):
-        self.ms.playback[1] = int(v)
+        self.ms.playback[1] = int(round(int(v) * self._tpf()))
 
     def make_range(self, start, duration):
         return _Range(start, duration)
@@ -704,10 +738,17 @@ class LevelSequence(core.MovieSceneSequence, _Owner):
 
     # markers (display-rate variants)
     def get_marked_frames_from_sequence(self, time_unit=None):
-        return [copy.copy(m) for m in self.ms.marks]
+        out = []
+        for m in self.ms.marks:  # kept in ticks
+            c = _clone(m)
+            c.set_editor_property("frame_number", core.FrameNumber(int(round(m.frame_number.value / self._tpf()))))
+            out.append(c)
+        return out
 
     def add_marked_frame_to_sequence(self, mf, time_unit=None):
-        self.ms.marks.append(copy.copy(mf))
+        c = _clone(mf)
+        c.set_editor_property("frame_number", core.FrameNumber(int(round(mf.frame_number.value * self._tpf()))))
+        self.ms.marks.append(c)
         return len(self.ms.marks) - 1
 
     def delete_marked_frames(self):

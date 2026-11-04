@@ -218,9 +218,9 @@ def get(*, label: str, components: bool = True) -> dict:
 
 
 @op("level.describe", mutates=False, idempotent=True)
-def describe(*, actors: bool = False) -> dict:
+def describe(*, actors: bool = False, partition: bool = True) -> dict:
     """The open level at a glance: its path, actor count by class, lights, cameras, the overall bounds of visible
-    geometry, and every actor (as level.find) with `actors`.
+    geometry, its World Partition summary (`partition`: wp.describe), and every actor (as level.find) with `actors`.
 
     Example: film-ue op level.describe
     """
@@ -245,6 +245,13 @@ def describe(*, actors: bool = False) -> dict:
            "by_class": dict(sorted(by_class.items())), "lights": sorted(lights), "cameras": sorted(cameras),
            "geometry_bounds": {"min": [round(v, 1) for v in lo], "max": [round(v, 1) for v in hi]}
            if lo[0] != float("inf") else None}
+    if partition:
+        from . import _OPS
+        if "wp.describe" in _OPS:
+            try:
+                out["partition"] = _OPS["wp.describe"]()
+            except Exception as e:  # a describe must not fail on its optional part
+                out["partition"] = {"error": f"{type(e).__name__}: {e}"}
     if actors:
         out["actors"] = everything
     return out

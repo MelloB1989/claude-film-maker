@@ -34,6 +34,11 @@ film-ue op view.still camera=Cam_A out=/tmp/a.png
 from just off-screen are there too. The planner keeps only actors whose bounds meet the frustum itself, not just its
 bounding box. Running it again changes nothing (`changed: false`).
 
+**Load everything a shot sees.** `film-ue op wp.load sequence=/Game/Reel/SEQ_Reel 'frames=[1080,1160]' every=12`
+scrubs the sequence in Sequencer (opened and closed again), samples every 12th frame through the camera cuts, loads
+each cut's camera actor if it is not loaded, and loads what any sampled frustum meets. `cameras` lists the cameras
+used. Sample more often (`every=4`) for fast camera moves.
+
 **Load a region, a spot or named actors.** Use `box=[[x,y,z],[x,y,z]]` (cm), `around=[x,y,z] radius_cm=3000`,
 `labels=[House, Bridge]`, or `all=true` (careful on a big world). Add `pin=true` to keep them loaded when the editor
 changes its regions.
@@ -50,7 +55,7 @@ Check: `wp.describe`'s `loaded` count goes up after a load and back down after a
 |---|---|
 | `wp.describe` | partitioned?, editor/runtime bounds, actors, loaded, spatially/always loaded, per grid, loaded_by_ops |
 | `wp.find [contains cls box loaded limit]` | actor descriptors (loaded or not): label, guid, class, bounds, grid, spatial, data layers, loaded |
-| `wp.load camera= / box= / around= radius_cm= / labels= / all=true [far_cm pad_cm pin timeout_s]` | multi-tick: load, wait until they are in the editor world |
+| `wp.load camera= / sequence= [frames every] / box= / around= radius_cm= / labels= / all=true [far_cm pad_cm pin timeout_s]` | multi-tick: load, wait until they are in the editor world |
 | `wp.unload labels= / box= / all=true` | unload what wp.load loaded |
 
 On a level that is not partitioned, every op answers `partitioned: false` with no error, because everything is
@@ -78,6 +83,7 @@ already loaded.
 | `Actor.actor_guid` | Engine/Source/Runtime/Engine/Classes/GameFramework/Actor.h:1097 | BlueprintReadOnly: matches descriptors to loaded actors |
 | `CameraComponent.field_of_view, aspect_ratio` | Engine/Source/Runtime/Engine/Classes/Camera/CameraComponent.h:44,108 | horizontal FOV in degrees |
 | `Box(min, max, is_valid)` | Engine/Source/Runtime/CoreUObject/Public/UObject/NoExportTypes.h:1560 | |
+| `LevelSequenceEditorBlueprintLibrary.open_level_sequence / set_current_time / close_level_sequence` | Engine/Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:72 (+ the same file) | wp.load sequence= scrubs through them, as seq.scrub does |
 | `LevelEditorSubsystem.new_level(path, is_partitioned_world)` (selftest) | Engine/Source/Editor/LevelEditor/Public/LevelEditorSubsystem.h:147 | |
 | MRQ streams WP itself | MovieRenderPipelineCore/Private/MoviePipelineRendering.cpp:641, MoviePipelineGameOverrideSetting.cpp:164 | no wp.load needed for renders |
 | `UWorldPartitionEditorLoaderAdapter` (regions as in the UI) | Engine/Source/Runtime/Engine/Public/WorldPartition/WorldPartitionEditorLoaderAdapter.h:10 | no UFUNCTIONs: not reachable from Python, hence the actor-list route |
@@ -93,5 +99,4 @@ and that a plain level answers `partitioned: false`.
 
 Done: the ops, the frustum math, the fake, 9 unit tests, the selftest and this doc. Unproven until the box runs the
 selftest: the tuple return of `get_actor_descs` in Python (the code accepts a tuple or a list), `Guid.to_string`, and
-whether the reopened level comes up unloaded. Next: `wp.load sequence= frames=`, the union of a shot's camera
-frustums (needs camera transforms per frame from WP7/WP8), so a whole shot is loaded for editor stills.
+whether the reopened level comes up unloaded. `wp.load sequence=` is unit-tested only (not yet in the selftest).

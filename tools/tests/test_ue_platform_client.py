@@ -125,3 +125,74 @@ def test_no_editor_is_an_actionable_error(tmp_path, monkeypatch):
     ws.save(os="linux", transport="local", port=_free_port(), project_dir=str(tmp_path / "p"))
     with pytest.raises(client.BridgeDown, match="no bridge token"):
         client.health()
+
+
+def test_batch_runs_ops_in_order_as_one_job_and_stops_at_a_failure(bridge):
+    r = client.batch([("editor.cvar", {"name": "t.MaxFPS", "value": 12}), ("editor.cvar", {"name": "t.MaxFPS"})])
+    assert r["ok"] and r["name"] == "batch" and r["result"]["ran"] == 2
+    assert r["result"]["results"][1]["result"]["value"] == "12"
+    r = client.batch([{"name": "bridge.nope"}, {"name": "bridge.health"}])
+    res = r["result"]
+    assert res["ok"] is False and res["ran"] == 1 and res["results"][0]["code"] == "not_found"
+    r = client.batch([{"name": "bridge.nope"}, {"name": "bridge.health"}], stop_on_error=False)
+    assert r["result"]["ran"] == 2 and r["result"]["results"][1]["ok"]
+    with pytest.raises(SystemExit, match="HTTP 400"):
+        client.call("/batch", {"calls": []})
+
+
+def test_files_only_inside_the_project_temp_or_home(bridge, tmp_path):
+    import os
+    inside = os.path.join(os.path.dirname(bridge.TOKEN_PATH), "PoC", "a.txt")
+    src = tmp_path / "src.txt"
+    src.write_text("hello")
+    client.push(str(src), inside)
+    assert client.pull(inside, str(tmp_path / "back.txt")) and (tmp_path / "back.txt").read_text() == "hello"
+    for bad in ("/etc/passwd", "relative/path.txt", os.path.dirname(bridge.TOKEN_PATH) + "/.." * 30 + "/etc/x"):
+        with pytest.raises(SystemExit, match="HTTP 403"):
+            client.request("GET", "/file?path=" + bad, timeout=10)
+
+
+def test_too_big_a_request_is_refused_and_a_bad_token_is_401(bridge, monkeypatch):
+    monkeypatch.setattr(bridge, "MAX_JSON", 100)
+    with pytest.raises(SystemExit, match="HTTP 413"):
+        client.exec_code("result = '" + "x" * 500 + "'")
+    monkeypatch.setattr(bridge, "MAX_JSON", 32 * 2**20)
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(f"http://127.0.0.1:{ws.conf()['port']}/health", headers={"X-FM-Token": "wrong"})
+    with pytest.raises(urllib.error.HTTPError) as e:
+        urllib.request.urlopen(req, timeout=5)
+    assert e.value.code == 401
+
+
+class ClientT:
+    """Enough of WP11's ClientT for the client phase."""
+
+    def __init__(self):
+        self.checks, self.notes, self.metrics = [], [], {}
+        self.prefix, self.scratch = "ST_platform_", "/Game/_Selftest/platform_client"
+
+    def check(self, name, got, want, tol=1e-3):
+        self.checks.append((name, got == want, got, want))
+
+    def ok(self, name, cond, detail=""):
+        self.checks.append((name, bool(cond), detail, None))
+
+    def note(self, text):
+        self.notes.append(text)
+
+    def metric(self, name, value, unit=""):
+        self.metrics[name] = value
+
+
+def test_the_client_phase_selftest_passes_against_the_real_server(bridge, monkeypatch):
+    from filmtools.unreal import editorsvc
+    from filmtools.unreal.selftests import platform as st
+    # systemd is not here: the service view is stubbed; everything else runs for real over HTTP and the local shell
+    monkeypatch.setattr(editorsvc, "status", lambda: {"bridge": client.health(), "unit": {"active": "active"}})
+    monkeypatch.setattr(editorsvc, "crashes", lambda n=5: [])
+    t = ClientT()
+    st.run(None, t)
+    failed = [c for c in t.checks if not c[1]]
+    assert not failed, failed
+    assert len(t.checks) >= 12

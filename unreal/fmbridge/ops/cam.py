@@ -296,9 +296,9 @@ def presets() -> dict:
 
 
 @op("cam.add", mutates=True, idempotent=True, tags=["camera"])
-def add(*, label: str, loc: list | None = None, rot_: dict | None = None, look_at=None, focal_mm: float | None = None,
-        aperture: float | None = None, sensor_mm=None, filmback: str | None = None, lens_preset: str | None = None,
-        focus_cm: float | None = None, focus_on=None) -> dict:
+def add(*, label: str, loc: list | None = None, rot_: dict | None = None, look_at: str | list | None = None, focal_mm: float | None = None,
+        aperture: float | None = None, sensor_mm: list | None = None, filmback: str | None = None, lens_preset: str | None = None,
+        focus_cm: float | None = None, focus_on: str | list | None = None) -> dict:
     """Make or converge a cine camera named `label`: place it, aim it, set its lens and focus.
 
     Args: label: actor label. loc: [x, y, z] cm. rot_: {"pitch", "yaw", "roll"} deg, or look_at: a point [x, y, z],
@@ -352,7 +352,7 @@ def _point(target, offset=None) -> list:
 
 
 @op("cam.point", mutates=False, idempotent=True, tags=["camera"])
-def point(*, target, offset=None) -> dict:
+def point(*, target: str, offset: list | None = None) -> dict:
     """Where a target is now, in world cm: a point, an actor label (its location; with `offset` in its own frame),
     "Label:Component:bone", "eyes:Label" (between its eyes), or a camera's label (its lens).
 
@@ -362,7 +362,7 @@ def point(*, target, offset=None) -> dict:
 
 
 @op("cam.set", mutates=True, idempotent=True, tags=["camera"])
-def set_(*, label: str, focal_mm: float | None = None, aperture: float | None = None, sensor_mm=None,
+def set_(*, label: str, focal_mm: float | None = None, aperture: float | None = None, sensor_mm: list | None = None,
          filmback: str | None = None, lens_preset: str | None = None, near_clip_cm: float | None = None,
          hfov_deg: float | None = None) -> dict:
     """Change an existing camera's lens: focal length (or the horizontal field of view it gives), aperture,
@@ -387,7 +387,7 @@ def set_(*, label: str, focal_mm: float | None = None, aperture: float | None = 
 
 
 @op("cam.focus", mutates=True, idempotent=True, tags=["camera"])
-def focus(*, label: str, mode: str = "manual", distance_cm: float | None = None, target=None, offset=(0.0, 0.0, 0.0),
+def focus(*, label: str, mode: str = "manual", distance_cm: float | None = None, target: str | None = None, offset: list = (0.0, 0.0, 0.0),
           smooth_speed: float | None = None) -> dict:
     """Set a camera's focus: mode "manual" (distance_cm, or the distance to `target` now), "track" (follow an actor,
     the engine's tracking focus: `target` an actor label, or "eyes:Label" for its eyes at the current pose, or
@@ -427,7 +427,7 @@ def focus(*, label: str, mode: str = "manual", distance_cm: float | None = None,
 
 
 @op("cam.describe", mutates=False, idempotent=True, tags=["camera"])
-def describe(*, label: str = "", subjects=None) -> dict:
+def describe(*, label: str = "", subjects: list | None = None) -> dict:
     """Every cine camera in the level (or one): location, rotation, focal, aperture, filmback, focus, fields of view,
     the rig it hangs on; with `subjects`, also each camera's shot in words ("MCU of Host from 3/4 left (41 deg), eye
     level, 50 mm f/2.8, right third"), which cam.shoot reads back.
@@ -491,7 +491,7 @@ def remove(*, labels: list | None = None, prefix: str = "") -> dict:
 
 
 @op("cam.subject", mutates=False, idempotent=True, tags=["camera"])
-def subject_op(*, target, mode: str = "auto", facing=None, top_z: float | None = None) -> dict:
+def subject_op(*, target: str, mode: str = "auto", facing: list | None = None, top_z: float | None = None) -> dict:
     """What the framing solver sees of an actor: its landmarks (head_top, eyes, nose, mouth, chin, neck, shoulders,
     chest, waist, hips, knees, ankles, feet) in world cm, its facing and height, and whether they came from its
     skeleton or its bounds.
@@ -505,8 +505,8 @@ def subject_op(*, target, mode: str = "auto", facing=None, top_z: float | None =
 
 
 @op("cam.frame", mutates=True, idempotent=True, tags=["camera"])
-def frame(*, camera: str, subjects, size: str = "MCU", angle=0.0, side: str = "left", height="eye",
-          focal_mm: float | None = 50.0, distance_cm: float | None = None, place="auto", headroom: float | None = None,
+def frame(*, camera: str, subjects: list, size: str = "MCU", angle: float | str = 0.0, side: str = "left", height: str | float | dict = "eye",
+          focal_mm: float | None = 50.0, distance_cm: float | None = None, place: str | float = "auto", headroom: float | None = None,
           dutch_deg: float = 0.0, aperture: float | None = None, filmback: str | None = None, snap_focal: bool = False,
           focus: bool = True, apply: bool = True, mode: str = "auto") -> dict:
     """Frame subjects with a camera by shot grammar: "MCU of Presenter from 3/4 left, eye level, 50 mm".
@@ -548,7 +548,7 @@ def frame(*, camera: str, subjects, size: str = "MCU", angle=0.0, side: str = "l
 
 
 @op("cam.project", mutates=False, idempotent=True, tags=["camera", "qa"])
-def project(*, camera: str, points=None, subjects=None) -> dict:
+def project(*, camera: str, points: dict | None = None, subjects: list | None = None) -> dict:
     """Where things land in a camera's frame: u, v (0..1 from the top left; outside = out of frame) and depth (cm),
     for named points ({"name": [x, y, z] | label | "Label:Component:bone"}) and every landmark of `subjects`.
 
@@ -568,7 +568,7 @@ def project(*, camera: str, points=None, subjects=None) -> dict:
 
 
 @op("cam.check", mutates=False, idempotent=True, tags=["camera", "qa"])
-def check(*, camera: str, subjects, size: str | None = None, others=None) -> dict:
+def check(*, camera: str, subjects: list, size: str | None = None, others: list | None = None) -> dict:
     """Numeric checks of a camera's frame on its subjects: QA's per-frame framing (headroom, cut-offs, feet, size, look
     room; when fmbridge.qa is installed) plus the camera's own: focus, safe areas, an accidental dutch, a subject
     blocked by `others`.
@@ -619,7 +619,7 @@ def _qa_issues(cam: dict, targets, subs: list, size) -> list:
 
 
 @op("cam.check_cut", mutates=False, idempotent=True, tags=["camera", "qa"])
-def check_cut(*, camera_a: str, camera_b: str, subjects, size_a: str | None = None,
+def check_cut(*, camera_a: str, camera_b: str, subjects: list, size_a: str | None = None,
               size_b: str | None = None) -> dict:
     """Would a cut from camera A to camera B work: the 180-degree line between the first two subjects, the
     30-degree rule and the size step on the first.
@@ -632,9 +632,9 @@ def check_cut(*, camera_a: str, camera_b: str, subjects, size_a: str | None = No
 
 
 @op("cam.coverage", mutates=True, idempotent=True, tags=["camera"])
-def coverage_op(*, subjects, side: str = "left", focal_mm: float = 50.0, wide_focal_mm: float = 28.0,
+def coverage_op(*, subjects: list, side: str = "left", focal_mm: float = 50.0, wide_focal_mm: float = 28.0,
                 prefix: str = "CAM_", create: bool = True, overs: bool = True, filmback: str | None = None,
-                aperture: float = 2.8, height="eye") -> dict:
+                aperture: float = 2.8, height: str | float | dict = "eye") -> dict:
     """The coverage of a scene, all on one side of the line: for one subject a WS/MS/MCU/CU from 3/4 and a profile;
     for two or more a master, a two-shot, each one's MS/MCU/CU single and an over-the-shoulder. Makes a camera per
     shot ({prefix}{name}) unless create=False.
@@ -728,7 +728,7 @@ def write_tracks(sequence: str, cameras: dict, cuts=None, fps=None, rng=None):
 
 @op("cam.move", mutates=True, idempotent=True, tags=["camera", "sequencer"])
 def move(*, camera: str, sequence: str, moves_: list, start_frame: int = 0, end_frame: int | None = None,
-         step: int = 2, aim=None, focus_on=None, noise=None, fps: float | None = None) -> dict:
+         step: int = 2, aim: str | list | None = None, focus_on: str | list | None = None, noise: str | dict | None = None, fps: float | None = None) -> dict:
     """Key camera moves into a sequence: dolly, push_in, pull_out, truck, pedestal, crane, orbit/arc, pan, tilt,
     roll, zoom, dolly_zoom, whip, rack, follow, hold; eased, one after another from the camera's current pose, with
     optional handheld noise. Replaces the camera's transform (and focal/focus) tracks in that sequence.
@@ -842,7 +842,7 @@ def rig_move(*, rig_label: str, sequence: str, keys: list) -> dict:
 # --- pictures ---------------------------------------------------------------------------------------------------
 
 @op("cam.still", mutates=False, idempotent=True, tags=["camera", "qa", "gpu"])
-def still(*, camera: str, out: str, width: int = 960, height: int = 540, guides: bool = True, subjects=None):
+def still(*, camera: str, out: str, width: int = 960, height: int = 540, guides: bool = True, subjects: list | None = None):
     """A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each
     subject's landmarks where the lens math puts them (green crosses), so a mismatch between solver and render shows.
     A multi-tick job. Keep it small (960x540): the overlay is drawn in pure Python.

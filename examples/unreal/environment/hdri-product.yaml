@@ -1,0 +1,12 @@
+# A product shot lit by an HDRI (an .hdr imported as a long-lat cubemap) plus a three-point rig on the product.
+kind: environment
+version: 1
+name: product
+preset: studio_black
+hdri: {cubemap: /Game/HDRI/T_StudioSoftbox, intensity: 1.0, rotation_deg: 45}
+rigs:
+  Bottle: {subject: [0, 0, 20], camera: [120, 0, 35], preset: three_point, key_lux: 1500, scale: 0.4}
+reflection_captures:
+  ProductCapture: {shape: sphere, loc: [0, 0, 30], radius_cm: 400}
+grade: {preset: clean}
+quality: final

@@ -180,43 +180,91 @@ def _select(box, camera, far_cm, pad_cm, around, radius_cm, labels, all_):
     return ds, box
 
 
+def _load_descs(todo: list, pin: bool, timeout_s: float):
+    """Load these descriptors and wait (multi-tick) until they are in the editor world; returns the labels missing."""
+    if not todo:
+        return []
+    _lib().load_actors([d["guid_obj"] for d in todo])
+    if pin:
+        _lib().pin_actors([d["guid_obj"] for d in todo])
+    import time
+    t0 = time.time()
+    want = {d["guid"] for d in todo}
+    while True:
+        have = _loaded_guids()
+        if want <= set(have) or time.time() - t0 > timeout_s:
+            break
+        yield {"message": f"loading {len(want - set(have))} of {len(want)} actors", "wait": 0.2}
+    for d in todo:
+        if d["guid"] in have:
+            _LOADED[d["guid"]] = d["label"]
+    return [d["label"] for d in todo if d["guid"] not in have]
+
+
+def _shot_frustums(sequence: str, frames, every: int, far_cm: float, pad_cm: float, pin: bool, timeout_s: float):
+    """Scrub a sequence through Sequencer and collect each sampled frame's camera frustum (multi-tick): returns
+    ([(box, planes)], cameras used). A camera actor that is not loaded is loaded first."""
+    from . import seq as seqops
+    lse = unreal.LevelSequenceEditorBlueprintLibrary
+    s = unreal.load_asset(sequence.split(".")[0])
+    if s is None:
+        raise OpError(f"no level sequence {sequence!r}", code="not_found", hint="assets.list cls=LevelSequence")
+    lo, hi = frames or [int(s.get_playback_start()), int(s.get_playback_end())]
+    picks = sorted(set(list(range(int(lo), int(hi), max(1, int(every)))) + [int(hi) - 1]))
+    lse.open_level_sequence(s)
+    out, cams = [], []
+    try:
+        for f in picks:
+            cam = seqops.cut_camera(sequence, f)
+            if cam not in cams:
+                cams.append(cam)
+                d = [x for x in (_descs() or []) if x["label"] == cam and not x["loaded"]]
+                if d:
+                    yield from _load_descs(d, pin, timeout_s)
+            lse.set_current_time(f)
+            yield  # the camera moves to the frame
+            out.append(_camera_box(cam, far_cm, pad_cm))
+    finally:
+        lse.close_level_sequence()
+    return out, cams
+
+
 @op("wp.load", mutates=True, idempotent=True)
 def load(*, box: list | None = None, camera: str = "", far_cm: float = 5000.0, pad_cm: float = 500.0,
          around: list | None = None, radius_cm: float = 3000.0, labels: list | None = None, all: bool = False,
-         pin: bool = False, timeout_s: float = 60.0):
+         sequence: str = "", frames: list | None = None, every: int = 12, pin: bool = False, timeout_s: float = 60.0):
     """Load part of a World Partition level into the editor: the actors whose bounds meet a box (cm), what a camera
-    sees out to far_cm (its frustum's box, padded), a sphere around a point, named actors, or everything. Waits
-    (multi-tick) until they are in the editor world. `pin` also pins them (kept loaded when regions change).
+    sees out to far_cm (its frustum, padded by pad_cm), what a sequence's cameras see through a shot (`sequence` with
+    `frames` [start, end) sampled `every` frames, through the camera cuts), a sphere around a point, named actors, or
+    everything. Waits (multi-tick) until they are in the editor world. `pin` also pins them.
 
     Returns: {"partitioned", "changed", "requested", "newly_loaded", "already_loaded", "missing": [labels that did
-    not appear], "box"}.
+    not appear], "box", "cameras" (with sequence)}.
     Example: film-ue op wp.load camera=Cam_A far_cm=8000
     """
-    ds, used = _select(box, camera, far_cm, pad_cm, around, radius_cm, labels, all)
-    if ds is None:
-        return _not_partitioned({"requested": 0})
-    todo = [d for d in ds if not d["loaded"]]
-    if todo:
-        _lib().load_actors([d["guid_obj"] for d in todo])
-        if pin:
-            _lib().pin_actors([d["guid_obj"] for d in todo])
-        import time
-        t0 = time.time()
-        want = {d["guid"] for d in todo}
-        while True:
-            have = _loaded_guids()
-            if want <= set(have) or time.time() - t0 > timeout_s:
-                break
-            yield {"message": f"loading {len(want - set(have))} of {len(want)} actors", "wait": 0.2}
-        for d in todo:
-            if d["guid"] in have:
-                _LOADED[d["guid"]] = d["label"]
-        missing = [d["label"] for d in todo if d["guid"] not in have]
+    cams = None
+    if sequence:
+        if any((box, camera, around, labels, all)):
+            raise OpError("give sequence alone (with frames/every), not with box/camera/around/labels/all",
+                          code="bad_args")
+        if not _partitioned():
+            return _not_partitioned({"requested": 0})
+        shots, cams = yield from _shot_frustums(sequence, frames, every, far_cm, pad_cm, pin, timeout_s)
+        used = _wp.union(b for b, _ in shots)
+        ds = [d for d in (_descs(used) or []) if d["bounds"] is None or
+              any(_wp.box_in_frustum(d["bounds"]["min"], d["bounds"]["max"], pl) for _, pl in shots)]
     else:
-        missing = []
-    return {"partitioned": True, "changed": bool(todo) and len(missing) < len(todo), "requested": len(ds),
-            "newly_loaded": len(todo) - len(missing), "already_loaded": len(ds) - len(todo), "missing": missing,
-            "box": _wp.box_dict(*used) if used else None}
+        ds, used = _select(box, camera, far_cm, pad_cm, around, radius_cm, labels, all)
+        if ds is None:
+            return _not_partitioned({"requested": 0})
+    todo = [d for d in ds if not d["loaded"]]
+    missing = yield from _load_descs(todo, pin, timeout_s)
+    res = {"partitioned": True, "changed": bool(todo) and len(missing) < len(todo), "requested": len(ds),
+           "newly_loaded": len(todo) - len(missing), "already_loaded": len(ds) - len(todo), "missing": missing,
+           "box": _wp.box_dict(*used) if used else None}
+    if cams is not None:
+        res["cameras"] = cams
+    return res
 
 
 @op("wp.unload", mutates=True, idempotent=True)
