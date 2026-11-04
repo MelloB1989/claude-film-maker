@@ -3,46 +3,116 @@
  "title": "audio",
  "description": "A sequence's audio tracks (WP12): voice lines from a timing document, or clips at frames. Converged by audio.lines / audio.place / audio.remove.",
  "type": "object",
- "required": ["kind", "sequence", "tracks"],
+ "required": [
+  "kind",
+  "sequence",
+  "tracks"
+ ],
  "additionalProperties": false,
  "properties": {
-  "kind": {"const": "audio"},
-  "version": {"type": "integer", "const": 1},
-  "name": {"type": "string", "description": "unique name of this document"},
-  "description": {"type": "string"},
-  "sequence": {"type": "string", "pattern": "^/Game/", "description": "LevelSequence content path"},
-  "remove_others": {"type": "boolean", "default": false, "description": "remove audio tracks the spec does not list"},
+  "kind": {
+   "const": "audio"
+  },
+  "version": {
+   "type": "integer",
+   "const": 1
+  },
+  "name": {
+   "type": "string",
+   "description": "unique name of this document"
+  },
+  "description": {
+   "type": "string"
+  },
+  "sequence": {
+   "type": "string",
+   "pattern": "^/Game/",
+   "description": "LevelSequence content path"
+  },
+  "remove_others": {
+   "type": "boolean",
+   "default": false,
+   "description": "remove audio tracks the spec does not list"
+  },
   "tracks": {
    "type": "array",
    "items": {
     "type": "object",
-    "required": ["name"],
+    "required": [
+     "name"
+    ],
     "additionalProperties": false,
     "properties": {
-     "name": {"type": "string", "description": "the audio track's display name (VO, Music, SFX)"},
-     "timing": {"type": ["string", "object"], "description": "a timing document (kind timing): path relative to the working directory, or inline"},
-     "wav_root": {"type": "string", "description": "box folder the timing's relative wav paths are under"},
-     "folder": {"type": "string", "pattern": "^/Game/", "default": "/Game/Audio/VO", "description": "where the lines' SoundWaves are imported"},
+     "name": {
+      "type": "string",
+      "description": "the audio track's display name (VO, Music, SFX)"
+     },
+     "timing": {
+      "type": [
+       "string",
+       "object"
+      ],
+      "description": "a timing document (kind timing): path relative to the working directory, or inline"
+     },
+     "wav_root": {
+      "type": "string",
+      "description": "box folder the timing's relative wav paths are under"
+     },
+     "folder": {
+      "type": "string",
+      "pattern": "^/Game/",
+      "default": "/Game/Audio/VO",
+      "description": "where the lines' SoundWaves are imported"
+     },
      "clips": {
       "type": "array",
       "items": {
        "type": "object",
-       "required": ["sound"],
+       "required": [
+        "sound"
+       ],
        "additionalProperties": false,
        "properties": {
-        "sound": {"type": "string", "description": "SoundWave content path (audio.import makes it)"},
-        "start_frame": {"type": "integer", "description": "first frame, at the sequence's display rate"},
-        "start_s": {"type": "number", "description": "start in seconds (instead of start_frame)"},
-        "end_frame": {"type": "integer", "description": "end frame (exclusive); default: the sound's end"},
-        "duration_s": {"type": "number", "description": "length in seconds (instead of end_frame)"},
-        "offset_s": {"type": "number", "description": "seconds into the sound the clip starts"},
-        "volume_db": {"type": "number", "description": "gain in dB, 0 = unity"},
-        "id": {"type": "string"}
-       }
-      }
+        "sound": {
+         "type": "string",
+         "description": "SoundWave content path (audio.import makes it)"
+        },
+        "start_frame": {
+         "type": "integer",
+         "description": "first frame, at the sequence's display rate"
+        },
+        "start_s": {
+         "type": "number",
+         "description": "start in seconds (instead of start_frame)"
+        },
+        "end_frame": {
+         "type": "integer",
+         "description": "end frame (exclusive); default: the sound's end"
+        },
+        "duration_s": {
+         "type": "number",
+         "description": "length in seconds (instead of end_frame)"
+        },
+        "offset_s": {
+         "type": "number",
+         "description": "seconds into the sound the clip starts"
+        },
+        "volume_db": {
+         "type": "number",
+         "description": "gain in dB, 0 = unity"
+        },
+        "id": {
+         "type": "string"
+        }
+       },
+       "description": "one sound at a frame"
+      },
+      "description": "sounds at frames on this track (instead of timing)"
      }
-    }
-   }
+    },
+    "description": "one audio track: {name, timing, wav_root, folder} or {name, clips}"
+   },
+   "description": "the sequence's audio tracks to converge, each by name: voice lines from a timing document, or clips at frames"
   }
  }
 }

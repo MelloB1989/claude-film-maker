@@ -52,6 +52,22 @@ uv run film-post handoff /tmp/timing.json --faces faces.json --wav-root /srv/fil
 Per line it prints `speech` (the exact args of `speech.to_face`) and `place` (actor label, component, start/end
 frame) for where the face animation goes. A speaker with no face (a narrator) is left out.
 
+**A speaking face from text, in one call (B29, `perf_speak`).**
+
+```bash
+fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- uv run film-post speak --text "Welcome in." --id L1 \
+    --sequence /Game/Seq/SQ_Main --start-frame 48 --face-mesh /Game/MH/Host/Face --label Host \
+    --voice-id <id> --box-dir /srv/film/vo --out-dir out/vo        # --dry-run: the plan, no TTS, no bridge
+```
+
+It runs, in order: TTS on the client (the take cached in out/vo/L1.wav + .json, keyed on text and voice, so a re-run
+pays nothing), `client.push`, `audio.lines` (replace=false: the line is added to VO, never duplicated),
+`speech.to_face` (WP4), `perf.face` (WP4: head, eyes, blinks, brows over the lip-sync, `emphasis` [[t_s, 0.3..1]]
+from the word alignment; skipped with a note in `notes` when the bridge lacks it; `--no-perf-face` skips it) and
+`seq.anim` (the face animation at the line's frame, added to the face track; `--replace-face` empties it first).
+Check: the JSON result's `steps[*].result`, `anim`, and `audio.describe` for the VO clip at the frame. Op boundary
+agreed with WP4 (agent-01): the orchestration is client-side and adds no op.
+
 **Cut and deliver Unreal renders.** Write a `delivery` spec (`examples/unreal/delivery/two-shots.yaml`), then:
 
 ```bash
@@ -86,6 +102,7 @@ within 1.5 frames) and the cut's loudness. `ok: true` when every output is clean
   pieces: `to_out`, `spans_out`, `timecode`, `cmx3600`, `caption_cues`, `captions_text`, `crop_expr`,
   `encode_args`, `cut_audio_args`, `vo_bus_args`, `check_output`). The mastering uses `filmtools.mix` (static gain to
   the LUFS target + a delay-free limiter; never two-pass loudnorm, which rides the gain).
+- `filmtools.unreal.perf_speak`: B29 (`speak`, `synthesize`, `plan`, `emphasis`).
 - `filmtools.unreal.post_cli`: `film-post`.
 
 ## Spec kinds
@@ -117,6 +134,9 @@ module docstring of `post_cut.py`.
 - **MRQ frame numbering**: a shot rendered from the master sequence is numbered on the master's clock; a shot
   rendered as its own sequence from 0. `film-post` finds either; if renders start at a handle (f-12 numbered 0) set
   the shot's `offset`.
+- **WP9's render layout** (`render.mrq`, agent-05): frames at `<out_dir>/NNNN.png` (the sequence's display frame) are
+  read with the default pattern; with several passes point the shot's `frames` at `<out_dir>/FinalImage` (and set
+  `pattern` to the pass's extension). `render.encode` makes a one-job review video; masters come from `film-post`.
 - **Cloth needs pre-roll** (docs/linux/engine.md): render each shot from its start even when the edit keeps only its
   end, and let the edl drop the head. `film-post frames` prints the ranges the edit needs.
 - **Never offset the sound with `-itsoffset`, `-ss` or `-shortest`**: picture and sound both start at output frame 0
@@ -178,6 +198,9 @@ Not done / next:
 - **Never run against real ffmpeg here** (the fleet container has none): `film-post cut` is unit-tested at the argv
   level only. First thing on a box with ffmpeg: `film-post cut examples/unreal/delivery/two-shots.yaml` with test
   frames (any PNGs in out/renders/S01, S02) and read `cut-two-shots.json`.
+- B29 (claimed via the lead): `perf_speak` + `film-post speak` done with a fake TTS and a recorded bridge. Untested:
+  a real ElevenLabs call (the key comes in the morning: `fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- ...`),
+  and `perf.face` against a real editor (args anim, wav, mood, emphasis and its result key `out` confirmed by agent-01).
 - B25 (claimed): fades in frames and the client LUFS check are done. Not done: an `audio.mix`-style call that
   places a set of stems (VO/Music/SFX WAVs) with levels in one go; today that is one `audio.place` per track, or an
   `audio` spec with several tracks (which is the declarative way and probably enough).

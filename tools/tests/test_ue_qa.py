@@ -493,3 +493,17 @@ def test_issue_validation():
         qa.issue("x", "bad", "m")
     i = qa.issue("a.b", "warn", "m", frame=None, value=0)
     assert "frame" not in i and i["value"] == 0
+
+
+def test_masked_region(backend):
+    img = image.solid(20, 10, (30, 30, 30))
+    draw.fill(img, 4, 2, 10, 6, (120, 60, 20))  # a brown patch
+    mask = [1 if 4 <= i % 20 < 10 and 2 <= i // 20 < 6 else 0 for i in range(200)]
+    r = metrics.masked(img, mask)
+    assert r["pixels"] == 24 and r["mean_rgb"] == [120.0, 60.0, 20.0] and r["box"] == [0.2, 0.2, 0.5, 0.6]
+    assert r["name"] in ("orange", "red") and r["coverage"] == 0.12
+    half = [mask[(y * 2) * 20 + x * 2] for y in range(5) for x in range(10)]  # the same mask at half size
+    assert metrics.masked(img, half)["pixels"] == 24
+    assert metrics.masked(img, [0] * 200) == {"pixels": 0, "coverage": 0.0}
+    with pytest.raises(ValueError):
+        metrics.masked(img, [1] * 7)

@@ -40,7 +40,6 @@ import traceback
 import unreal
 
 SCRATCH_ROOT = "/Game/_Selftest"
-BLANK = SCRATCH_ROOT + "/_Blank/L_Blank"  # where the harness waits when it must leave a scratch level
 DEFAULT_TIMEOUT = 900.0
 CAPABILITIES = ("gpu", "display", "linux", "windows", "epic_login", "mh_cloud")
 
@@ -305,42 +304,13 @@ def _eal():
 
 
 def _current_level() -> str:
-    try:
-        w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
-        return w.get_path_name().split(".")[0] if w else ""
-    except Exception:
-        return ""
-
-
-def _les():
-    return unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
-
-
-def _fresh_level(path: str) -> None:
-    """A new empty level at `path`, opened: whatever was there is deleted first (never an overwrite dialog)."""
-    if _current_level() == path:  # cannot delete the open level: step aside to the blank one
-        _open_blank()
-    if _eal().does_asset_exist(path):
-        _eal().delete_asset(path)
-    if not _les().new_level(path):
-        raise RuntimeError(f"could not create the scratch level {path}")
+    from ..ops._scratch import current_level
+    return current_level()
 
 
 def _open_blank() -> None:
-    if _eal().does_asset_exist(BLANK):
-        _les().load_level(BLANK)
-    else:
-        _les().new_level(BLANK)
-
-
-def _leave(previous: str, scratch: str) -> str:
-    """Back to the level that was open before (when it is a saved one outside the scratch area)."""
-    if previous and previous.startswith("/") and not previous.startswith(SCRATCH_ROOT) and _eal().does_asset_exist(previous):
-        _les().load_level(previous)
-        return previous
-    if _current_level().startswith(scratch):
-        _open_blank()
-    return _current_level()
+    from ..ops import _scratch
+    _scratch._open_blank()
 
 
 # ------------------------------------------------------------------------------------------------------------- run
@@ -371,11 +341,12 @@ def run(area: str, out_dir: str, keep: bool = False, baseline: str = "auto"):
     if unmet:
         report.update(status="skipped", ok=True, skipped=f"needs {', '.join(unmet)}")
         return _finish(report, out_dir, t0)
+    from ..ops import _scratch  # B10: the same scratch rules as `with scratch(...)`
     previous = _current_level()
     timeout = float(getattr(mod, "TIMEOUT", DEFAULT_TIMEOUT))
     try:
         if getattr(mod, "NEEDS_LEVEL", True):
-            _fresh_level(t.level)
+            _scratch.fresh_level(t.level)
             yield  # let the new level settle for a tick
         res = mod.run(t)
         if inspect.isgenerator(res):
@@ -400,7 +371,7 @@ def run(area: str, out_dir: str, keep: bool = False, baseline: str = "auto"):
         report["notes"], report["metrics"], report["baselines"] = t.notes, t.metrics, t.baselines
         report["ops_covered"], report["ops_missed"] = _coverage(t)
         try:
-            report["level_after"] = _leave(previous, t.scratch)
+            report["level_after"] = _scratch.leave(previous, t.scratch)
             if not keep and _eal().does_directory_exist(t.scratch):
                 _eal().delete_directory(t.scratch)
                 report["cleaned"] = t.scratch

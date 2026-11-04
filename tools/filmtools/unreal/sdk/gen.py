@@ -1,5 +1,5 @@
-"""Generate filmtools/unreal/sdk/_generated.py from the op schema: `film-ue dx gen` (or `python -m
-filmtools.unreal.sdk.gen`). The file is committed; tests/test_unreal_dx.py fails when it is older than the ops."""
+"""Generate the SDK's typed areas from the op schema: in memory when the SDK loads (sdk.generated()), or as the
+readable file sdk/_generated.py with `film-ue dx gen` (gitignored: never merged, never stale in git)."""
 from __future__ import annotations
 
 import json

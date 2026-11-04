@@ -133,3 +133,17 @@ def test_fades_are_keys_read_back_and_converge(ue, tmp_path, seq, fmb):
     with pytest.raises(OpError, match="do not fit"):
         run_op("audio.place", sequence=seq, clips=[{**clips[0], "fade_in_frames": 40}], track="Music")
     assert fade_keys(0, 48, 1.0, 0, 0) == [] and fades_of(fade_keys(10, 58, 0.5, 4, 0), 10, 58) == (4, 0)
+
+
+def test_adding_a_line_twice_does_not_duplicate(ue, tmp_path, seq):
+    root = tmp_path / "vo"
+    wav(root / "L1.wav", 1.0)
+    wav(root / "L2.wav", 1.0)
+    one = lambda i, f: {"kind": "timing", "version": 1, "fps": 24,  # noqa: E731
+                        "lines": [{"id": i, "wav": f"{i}.wav", "start_frame": f}]}
+    run_op("audio.lines", sequence=seq, timing=one("L1", 0), wav_root=str(root), replace=False)
+    run_op("audio.lines", sequence=seq, timing=one("L2", 48), wav_root=str(root), replace=False)
+    again = run_op("audio.lines", sequence=seq, timing=one("L2", 48), wav_root=str(root), replace=False)
+    assert again["changed"] is False
+    clips = run_op("audio.describe", sequence=seq)["tracks"][0]["clips"]
+    assert [c["start_frame"] for c in clips] == [0, 48]
