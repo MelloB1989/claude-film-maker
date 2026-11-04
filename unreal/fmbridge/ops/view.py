@@ -235,7 +235,7 @@ def cut_camera(sequence: str, frame: int) -> str:
 def still(*, out: str, camera: str = "", sequence: str = "", frame: int | None = None, loc: list | None = None,
           look_at: list | None = None, fov_deg: float = 0.0, width_px: int = 1280, height_px: int = 720,
           mode: str = "capture", warmup: int = 8, settle_ticks: int = 20, level: str = "", hide: list | None = None,
-          guides: list | None = None):
+          guides: list | None = None, rt_format: str = ""):
     """A PNG of what a camera sees, with no viewport.
 
     Args: out: the PNG path on the box. camera: a camera actor label; "" with `sequence`+`frame` takes the camera
@@ -245,7 +245,8 @@ def still(*, out: str, camera: str = "", sequence: str = "", frame: int | None =
     through render.frames: the final look, slower; needs sequence+frame and `level`), "viewport" (look.still's
     high-res screenshot). warmup: captures before the kept one (temporal AA, Lumen). settle_ticks: editor ticks after
     a scrub. hide: actor labels left out. guides: overlay guides drawn on a copy saved as <out>.guides.png
-    ("thirds", "safe", ...).
+    ("thirds", "safe", ...). rt_format: capture mode's render target format (advanced; default RTF_RGBA8, the
+    selftest compares it with RTF_RGBA8_SRGB against a viewport still).
     Returns: {"path", "width", "height", "camera", "mode", "frame", "camera_info": {loc, rot, fov, aspect},
     "guides_path"?}. A multi-tick job.
     Example: film-ue op view.still out=/tmp/qa/a.png camera=CamA width_px=960 height_px=540
@@ -264,7 +265,7 @@ def still(*, out: str, camera: str = "", sequence: str = "", frame: int | None =
         cam = camera_info(camera, loc, look_at, fov_deg, aspect)
         hidden = [find_actor(h) for h in (hide or [])]
         try:
-            rt = yield from capture(cam, width_px, height_px, "final", hidden=hidden, warmup=warmup)
+            rt = yield from capture(cam, width_px, height_px, "final", hidden=hidden, warmup=warmup, fmt=rt_format)
             res.update(export_png(rt, out))
         finally:
             remove_rig()

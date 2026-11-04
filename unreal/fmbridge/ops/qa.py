@@ -208,8 +208,17 @@ def framing(*, subjects: list, camera: str = "", sequence: str = "", frame: int 
 # --- meshes --------------------------------------------------------------------------------------------------------
 
 def _parts(a, names, kind: str) -> list:
+    """Components of `a` by name; a name that is no component of `a` but another actor's label stands for all of
+    that actor's primitives (a skin and a cloth as separate actors, or a test rig)."""
     comps = {_comp_name(c): c for c in a.get_components_by_class(unreal.PrimitiveComponent)}
-    got = [comps[n] for n in names if n in comps]
+    got = []
+    for n in names:
+        if n in comps:
+            got.append(comps[n])
+            continue
+        other = next((x for x in _eas().get_all_level_actors() if x.get_actor_label() == n), None)
+        if other is not None:
+            got += list(other.get_components_by_class(unreal.PrimitiveComponent))
     if not got:
         raise OpError(f"{a.get_actor_label()} has none of the {kind} components {list(names)}", code="not_found",
                       candidates=sorted(comps)[:12], hint=f"pass {kind}=[component names] (qa.parts lists them)")
@@ -248,7 +257,7 @@ def penetration(*, label: str, body: list | None = None, garments: list | None =
     `tolerance_cm`, skin pokes through.
 
     Args: label: the character. body/garments: component names (default a MetaHuman's Body+Face / Torso+Legs+Feet;
-    qa.parts lists them). camera: look from this camera (with sequence+frame: the shot's camera and pose); views: N
+    qa.parts lists them), or labels of other actors whose meshes form that layer. camera: look from this camera (with sequence+frame: the shot's camera and pose); views: N
     views around the character instead (or as well), at elevation_deg. size_px: capture size (square for views;
     the camera's aspect otherwise). out_dir: write a still per view with the penetrating pixels painted magenta.
     Returns: {"pass", "issues", "metrics": {"views": {name: {fraction, pixels, worst_cm, box}}, "worst_fraction"}}.
