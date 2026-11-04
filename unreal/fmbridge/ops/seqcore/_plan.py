@@ -46,6 +46,12 @@ def plan(want: dict, have: dict | None, *, prune: bool | None = None, tol: float
             steps.append(_step("seq.add", "range/rate differ: " + ", ".join(
                 f"{k} {have.get('range') if k in ('start', 'end') else have.get(k)} -> {v}" for k, v in diff.items()),
                 path=path, **diff))
+    kids = have.get("children") or {}
+    for child in want.get("children") or []:  # shot sequences first: the shot track points at them
+        st = kids.get(child["sequence"])
+        if st is None or st.get("steps", 1):
+            steps.append(_step("seq.apply", f"shot sequence {child['sequence']} " + (
+                "is not converged" if st else "state unknown or missing"), spec=child))
     hb = {b["name"]: b for b in have.get("bindings") or []}
     for b in want.get("bindings") or []:
         cur = hb.get(b["name"])
