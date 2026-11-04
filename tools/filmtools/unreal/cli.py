@@ -141,6 +141,9 @@ def install() -> str:
     raise SystemExit("the editor did not pick up the install (is it running? film-ue screen)")
 
 
+SSM_CHUNK = 80_000  # base64 characters per SSM command (its document limit is about 100 KB)
+
+
 def _install_linux(files: list) -> str:
     """No bridge to talk to (the first install, or a broken one that cannot run the inbox): unpack the files over SSM in
     one command and restart the editor through systemd; init_unreal.py starts the new bridge."""
@@ -152,10 +155,15 @@ def _install_linux(files: list) -> str:
         for f in files:
             t.add(f, arcname=str(f.relative_to(ROOT / "unreal")))
     b64 = base64.b64encode(buf.getvalue()).decode()
-    if len(b64) > 90_000:
-        raise SystemExit("the bridge is too big for one SSM command; install it over the bridge or S3")
     dest = shlex.quote(ws.project("Content", "Python"))
-    ws.sh(f"mkdir -p {dest} && echo {b64} | base64 -d | tar -xz -C {dest}")
+    if len(b64) <= SSM_CHUNK:
+        ws.sh(f"mkdir -p {dest} && echo {b64} | base64 -d | tar -xz -C {dest}")
+    else:  # an SSM command carries about 100 KB: send the bundle in parts, then unpack it once
+        part = "/tmp/fmbridge-install.b64"
+        chunks = [b64[i:i + SSM_CHUNK] for i in range(0, len(b64), SSM_CHUNK)]
+        for i, c in enumerate(chunks):
+            ws.sh(f"printf %s {c} {'>' if i == 0 else '>>'} {part}")
+        ws.sh(f"mkdir -p {dest} && base64 -d {part} | tar -xz -C {dest} && rm -f {part}")
     ws.editor("restart")
     health = wait_bridge(3600)  # the first start on a box compiles every shader before the editor settles
     return f"installed {len(files)} files (via ssm + editor restart); bridge up on {health.get('engine')}"

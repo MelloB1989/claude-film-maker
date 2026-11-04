@@ -59,29 +59,39 @@ def test_bad_args_are_named(fmb):
     assert e.value.code == "bad_args" and "prefx" in e.value.message
 
 
-def test_server_answers_op_errors_with_code_and_hint(ue):
+def test_server_answers_op_errors_with_code_and_hint(ue, tmp_path, monkeypatch):
     from fakeunreal import load_fmbridge
     load_fmbridge()
-    from fmbridge import server
-    r = server._run("op", {"name": "level.spwn", "args": {}})
+    from fmbridge import server, jobs
+    reg = jobs.Registry(server._run, server._jsonable, str(tmp_path), failure=server._failure_detail)
+    monkeypatch.setitem(server._state, "registry", reg)
+    bad_op = reg.submit("op", {"name": "level.spwn", "args": {}})
+    bad_exec = reg.submit("exec", {"code": "result = 1/0"})
+    reg.tick()
+    r = bad_op.view()
     assert r["ok"] is False and r["code"] == "not_found" and "level.spawn" in r["candidates"]
     assert "Traceback" in r["error"]
-    r = server._run("exec", {"code": "result = 1/0"})
+    r = bad_exec.view()
     assert r["ok"] is False and r["code"] == "exception" and r["message"].startswith("ZeroDivisionError")
+    assert server._failure(ValueError("x"))["code"] == "exception"
 
 
-def test_server_steps_a_multi_tick_job(ue):
+def test_server_steps_a_multi_tick_job(ue, tmp_path, monkeypatch):
     from fakeunreal import load_fmbridge
     load_fmbridge()
-    from fmbridge import server
+    from fmbridge import server, jobs
+    reg = jobs.Registry(server._run, server._jsonable, str(tmp_path), failure=server._failure_detail)
+    monkeypatch.setitem(server._state, "registry", reg)
     code = "def job():\n    for i in range(3):\n        yield\n    return 'done'\nresult = job()"
-    box = {"done": False}
-    r = server._run("exec", {"code": code})
-    job = [r["gen"], box, r["buf"], 0.0, r["t0"]]
-    steps = 0
-    while not server._step(job):
-        steps += 1
-    assert steps == 3 and box["ok"] and box["result"] == "done"
+    started = server.submit("exec", {"code": code}, wait=False)
+    assert started["ok"] and started["state"] == "queued"
+    ticks = 0
+    while not reg.get(started["job"]).view()["done"]:
+        server._tick(0.016)
+        ticks += 1
+    v = reg.get(started["job"]).view()
+    assert ticks == 4 and v["ok"] and v["result"] == "done"
+    assert server.health()["jobs"] == {"queued": 0, "running": 0}
 
 
 def test_a_broken_module_is_reported_not_fatal(ue, tmp_path):

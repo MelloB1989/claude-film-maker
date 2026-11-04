@@ -385,7 +385,7 @@ class Object(metaclass=_AutoMeta):
         return o
 
     def get_class(self):
-        return type(self)
+        return _uclass(type(self))
 
     def get_world(self):
         return _fake().world
@@ -398,7 +398,7 @@ class Object(metaclass=_AutoMeta):
 
     @classmethod
     def static_class(cls):
-        return cls
+        return _uclass(cls)
 
     @classmethod
     def cast(cls, obj):
@@ -408,6 +408,32 @@ class Object(metaclass=_AutoMeta):
 
     def __repr__(self):
         return f"<{type(self).__name__} {self.get_path_name()}>"
+
+
+class UClass:
+    """What get_class() and static_class() return: one per Python class, with the engine's get_name() and
+    get_path_name(); `py` is the Python class (for isinstance in fakes)."""
+
+    def __init__(self, py):
+        self.py = py
+
+    def get_name(self) -> str:
+        return self.py.__name__
+
+    def get_path_name(self) -> str:
+        return f"/Script/Engine.{self.py.__name__}"
+
+    def __repr__(self):
+        return f"<UClass {self.py.__name__}>"
+
+
+_UCLASSES: dict = {}
+
+
+def _uclass(py) -> UClass:
+    if py not in _UCLASSES:
+        _UCLASSES[py] = UClass(py)
+    return _UCLASSES[py]
 
 
 class _BoundStub(Stub):
@@ -483,7 +509,32 @@ class StaticMeshComponent(MeshComponent):
 
 
 class SkinnedMeshComponent(MeshComponent):
-    pass
+    """Bones: a table {name: [x, y, z] world cm} in _props["bones"] (fake.pose(actor, {...}) sets it; the older key
+    "fake_bones" is read too). Sockets are bones. Without a table, a socket is the component's location."""
+
+    def _bones(self) -> dict:
+        return self._props.get("bones") or self._props.get("fake_bones") or {}
+
+    def does_socket_exist(self, in_socket_name) -> bool:
+        return str(in_socket_name) in self._bones()
+
+    def get_socket_location(self, in_socket_name):
+        b = self._bones().get(str(in_socket_name))
+        return Vector(*b) if b is not None else self.get_world_location()
+
+    def get_bone_index(self, bone_name) -> int:
+        names = list(self._bones())
+        return names.index(str(bone_name)) if str(bone_name) in names else -1
+
+    def get_bone_name(self, bone_index: int):
+        names = list(self._bones())
+        return Name(names[bone_index]) if 0 <= bone_index < len(names) else Name("None")
+
+    def get_num_bones(self) -> int:
+        return len(self._bones())
+
+    def get_all_socket_names(self) -> list:
+        return [Name(n) for n in self._bones()]
 
 
 class SkeletalMeshComponent(SkinnedMeshComponent):
@@ -623,6 +674,12 @@ class Actor(Object):
         c = cls(name, self)
         self._components.append(c)
         return c
+
+    def get_folder_path(self):
+        return Name(self._props.get("__folder", ""))
+
+    def set_folder_path(self, new_folder_path):
+        self._props["__folder"] = str(new_folder_path)
 
     def actor_has_tag(self, tag) -> bool:
         return str(tag) in [str(t) for t in self._props["tags"]]
@@ -1254,7 +1311,7 @@ class ScopedSlowTask:
 # the module
 
 _EXPORTS = {k: v for k, v in dict(globals()).items()
-            if isinstance(v, type) and k not in ("Stub", "EnumValue", "_AutoMeta", "_BoundStub")}
+            if isinstance(v, type) and k not in ("Stub", "EnumValue", "_AutoMeta", "_BoundStub", "UClass")}
 
 
 class FakeUnreal(types.ModuleType):
@@ -1389,6 +1446,8 @@ class FakeUnreal(types.ModuleType):
         size in cm."""
         if isinstance(cls, str):
             cls = getattr(self, cls)
+        if isinstance(cls, UClass):
+            cls = cls.py
         n = sum(1 for a in self.world.actors() if type(a) is cls)
         a = cls(f"{cls.__name__}_{n}", self.world, **props)
         a.set_actor_label(label or f"{cls.__name__}{n or ''}")
@@ -1399,6 +1458,13 @@ class FakeUnreal(types.ModuleType):
         if extent is not None:
             object.__setattr__(a, "_extent", Vector(*extent))
         return self.world.add(a)
+
+    def pose(self, actor, bones: dict):
+        """Give an actor's skeletal mesh a pose: {bone: [x, y, z]} in world cm (read by get_socket_location etc.)."""
+        a = self.actor(actor) if isinstance(actor, str) else actor
+        comp = a.get_components_by_class(SkinnedMeshComponent)[0]
+        comp._props["bones"] = {k: list(v) for k, v in bones.items()}
+        return a
 
     def actor(self, label: str):
         """The actor with this label, or None."""
@@ -1482,3 +1548,18 @@ def run_op(name: str, /, **args):
     """Call an op as the bridge would (argument check, then the op; a generator driven to its end); its result."""
     ops = load_fmbridge()
     return drive(ops.call(name, **args))[0]
+
+
+def pure(relpath: str):
+    """Import one engine-free module of the bridge by its path under unreal/fmbridge ("ops/_layout.py") without
+    importing the package (which needs `unreal`): for unit tests of pure planners and math."""
+    import importlib.util
+    path = REPO / "unreal" / "fmbridge" / relpath
+    name = "fmbridge_pure_" + relpath.replace("/", "_").removesuffix(".py")
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
