@@ -15,7 +15,9 @@ On EC2 the box is launched with "shutdown behaviour: terminate" (film-ue box up)
 before that the editor is stopped cleanly so its unit saves the Epic sign-in to S3 (ue-epic save).
 
 Config: /etc/film-ue/watchdog.json {"ttl_until": epoch|null, "idle_min": 20, "stall_min": 15, "max_restarts": 3,
-"grace_min": 30, "service": "ue-editor", "port": 18765, "token": path, "dry_run": false}. State and the last decision:
+"grace_min": 30, "service": "ue-editor", "port": 18765, "token": path, "dry_run": false, "on_exit": [shell commands
+run (as root, in order, up to `on_exit_s` seconds in all) after the editor stopped and before the power-off: e.g. a
+DDC save to S3, film-ue box up --save-ddc-on-exit]}. State and the last decision:
 /var/lib/film-ue/watchdog.json (film-ue box status shows it). Everything decided is logged to the journal.
 
 `decide()` is a pure function of the config, the state and what was measured, so it is unit-tested
@@ -32,7 +34,7 @@ STATE = "/var/lib/film-ue/watchdog.json"
 KEEPALIVE = "/run/film-ue/keepalive"
 DEFAULTS = {"ttl_until": None, "idle_min": 20, "stall_min": 15, "max_restarts": 3, "grace_min": 30,
             "service": "ue-editor", "port": 18765, "token": "", "dry_run": False,
-            "gpu_busy_pct": 15, "load_busy": 2.0}
+            "gpu_busy_pct": 15, "load_busy": 2.0, "on_exit": [], "on_exit_s": 1200}
 
 
 # ------------------------------------------------------------------------------------------------- deciding
@@ -155,6 +157,14 @@ def act(cfg, actions):
             continue
         if kind == "poweroff":
             _run(["systemctl", "stop", cfg["service"]], timeout=180)  # its ExecStopPost saves the Epic sign-in
+            end = time.time() + float(cfg.get("on_exit_s") or 1200)
+            for cmd in cfg.get("on_exit") or []:  # e.g. the DDC to S3: best effort, bounded, then off regardless
+                left = end - time.time()
+                if left <= 0:
+                    print("film-ue watchdog: on_exit out of time", flush=True)
+                    break
+                print(f"film-ue watchdog: on_exit: {cmd[:120]}", flush=True)
+                _run(["bash", "-c", cmd], timeout=left)
             _run(["systemctl", "poweroff"])
         elif kind == "restart":
             _run(["systemctl", "restart", cfg["service"]], timeout=180)

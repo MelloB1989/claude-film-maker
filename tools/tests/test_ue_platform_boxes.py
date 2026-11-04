@@ -127,3 +127,19 @@ def test_down_never_terminates_a_permanent_workstation(conf, monkeypatch):
 def test_user_data_fits_and_the_backstop_is_at_least_a_minute():
     ud = boxes.user_data(int(time.time()) + 5, 20, 15)
     assert len(ud.encode()) < 16000 and "--on-active=60s" in ud
+
+
+def test_save_ddc_on_exit_puts_the_ddc_save_in_the_watchdog(conf, monkeypatch):
+    aws = FakeAWS()
+    monkeypatch.setenv("FILM_UE_BOX", "linux")
+    ws.save(os="linux", project_dir="/srv/ue/projects/Demo", bucket="bkt", region="ap-south-1")
+    monkeypatch.delenv("FILM_UE_BOX")
+    boxes.up("gpu1", like="linux", save_ddc_on_exit=True, aws=aws, wait=False, log=lambda m: None)
+    run = aws.made("run-instances")[0]
+    ud = run[run.index("--user-data") + 1]
+    cfg = json.loads(ud.split("watchdog.json <<'FMEOF'\n", 1)[1].split("\nFMEOF", 1)[0])
+    assert len(cfg["on_exit"]) == 1 and "runuser -u ubuntu" in cfg["on_exit"][0]
+    assert "s3://bkt/ue-linux/ddc/5.8.4/zen-data" in cfg["on_exit"][0]
+    assert ws.conf()["os"] in ("windows", "linux")  # the temporary conf is gone
+    with pytest.raises(SystemExit, match="needs --like"):
+        boxes.up("gpu2", save_ddc_on_exit=True, aws=aws, wait=False, log=lambda m: None)
