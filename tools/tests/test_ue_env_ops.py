@@ -20,6 +20,7 @@ def test_light_add_converges_and_reports(ue, fmb):
     c = ue.actor("Key").get_component_by_class(ue.RectLightComponent)
     assert c.get_editor_property("intensity") == pytest.approx(3200.0)
     assert c.get_editor_property("intensity_units") == "CANDELAS"
+    assert c.get_editor_property("mobility") == "MOVABLE"  # lights spawn Stationary; ours are dynamic
     assert c.get_editor_property("lighting_channels").get_editor_property("channel1") is True
     again = run_op("light.add", label="Key", kind="rect", loc=[200, 0, 160], look_at=[0, 0, 160], lux=800,
                    temperature_k=5600, width_cm=120, height_cm=120, channels=[1])

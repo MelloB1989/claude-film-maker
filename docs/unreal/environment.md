@@ -216,6 +216,8 @@ prune: true
 - **Rig subjects** default to ~eye height of the actor's bounds (0.86 of the half-height above centre); for a seated
   or posed character pass `socket=` or `subject_offset=`.
 - **Ownership**: a spec prunes only what its `name` made. Two specs that both define `sun` fight over `Env_Sun`.
+- **Lights spawn Stationary** in the engine; the ops make theirs Movable (Lumen is dynamic; a Stationary light in an
+  unbuilt level shows "lighting needs rebuild" and preview shadows in stills). Lights made elsewhere keep theirs.
 - **Box captures**: the influence box is the actor's scale in cm (`ReflectionCaptureComponent.cpp:1358`), not a
   property: `extent_cm` sets the scale.
 
@@ -254,6 +256,7 @@ EditAnywhere: settable with `set_editor_property` only (PropertyAccessUtil.cpp:7
 | EV100ToLuminance = 2^EV | | Engine/Source/Runtime/RenderCore/Public/RenderUtils.h:744-768 | yes |
 | captures: Sphere/BoxReflectionCapture, `influence_radius`, `box_transition_distance`, `brightness` | | E/SphereReflectionCapture.h:17, E/BoxReflectionCapture.h:16, C/SphereReflectionCaptureComponent.h:19, C/BoxReflectionCaptureComponent.h:19, C/ReflectionCaptureComponent.h:51 | yes |
 | box influence = actor scale | UpdatePreviewShape | Engine/Private/Components/ReflectionCaptureComponent.cpp:1358 | yes |
+| `SceneComponent.set_mobility(ComponentMobility.MOVABLE)`; lights default Stationary | SetMobility | C/SceneComponent.h:1296; Engine/Private/Light.cpp:190/244, RectLight.cpp:12, SpotLight.cpp:27 | yes |
 | `LevelEditorSubsystem.build_light_maps(quality, with_reflection_captures)` | BuildLightMaps | Editor/LevelEditor/Public/LevelEditorSubsystem.h:222 | yes |
 | SceneCapture2D `capture_component2d` (property: GetCaptureComponent2D is not a UFUNCTION), `capture_source`, `texture_target`, `fov_angle`, `capture_scene()`, `always_persist_rendering_state` | | E/SceneCapture2D.h:23, C/SceneCaptureComponent.h:81/132, C/SceneCaptureComponent2D.h:44/80/299 | yes |
 | `RenderingLibrary.create_render_target2d(world, w, h, format)`, `read_render_target_raw(world, rt, normalize)` | UKismetRenderingLibrary | Engine/Classes/Kismet/KismetRenderingLibrary.h:48/192; normalize clamps: KismetRenderingLibrary.cpp:328 | yes |
