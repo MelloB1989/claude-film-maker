@@ -1,0 +1,15 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "level",
+ "description": "The level to work in: opened if it exists, else created empty and opened (WP11 generic kind).",
+ "type": "object",
+ "required": ["kind", "path"],
+ "additionalProperties": false,
+ "properties": {
+  "kind": {"const": "level"},
+  "version": {"type": "integer", "const": 1},
+  "name": {"type": "string", "description": "optional label for this document"},
+  "path": {"type": "string", "pattern": "^/Game/", "description": "content path of the level, /Game/..."},
+  "create": {"type": "boolean", "default": true, "description": "create it when it does not exist"}
+ }
+}
