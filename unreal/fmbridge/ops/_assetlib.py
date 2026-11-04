@@ -388,3 +388,17 @@ def search(entries: list, query: str, limit: int = 10, cls: str = "") -> list:
             out.append({**e, **f})
     out.sort(key=lambda x: (-x["score"], x.get("size_error") or 0, x.get("path", "")))
     return out[:limit]
+
+
+def write_png(path: str, rgb, size: int = 4, alpha: int | None = None) -> str:
+    """A small solid-colour 8-bit PNG (the library's default textures), pure Python."""
+    chans = 3 if alpha is None else 4
+    px = bytes(rgb[:3]) + (b"" if alpha is None else bytes([alpha]))
+    raw = (b"\x00" + px * size) * size
+    chunk = lambda tag, d: struct.pack(">I", len(d)) + tag + d + struct.pack(">I", zlib.crc32(tag + d) & 0xFFFFFFFF)
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    with open(path, "wb") as fh:
+        fh.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 2 if chans == 3 else 6,
+                                                                      0, 0, 0))
+                 + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+    return path

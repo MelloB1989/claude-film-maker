@@ -236,3 +236,37 @@ MASTERS = {
 def master_path(name: str) -> str:
     """'opaque_orm' -> '/Game/FM/Lib/M_Lib_OpaqueOrm'."""
     return f"{LIB}/M_Lib_" + "".join(p.capitalize() for p in name.split("_"))
+
+
+# named looks: preset -> (master, params). Values are linear colours and 0..1 scalars; physically sensible defaults
+# (metals: Tint is the reflectance colour; dielectrics: specular 0.5)
+PRESETS = {
+    "matte_paint": ("opaque", {"Tint": [0.5, 0.5, 0.5], "Roughness": 0.85}),
+    "satin_paint": ("opaque", {"Tint": [0.5, 0.5, 0.5], "Roughness": 0.45}),
+    "plastic_gloss": ("opaque", {"Tint": [0.3, 0.3, 0.3], "Roughness": 0.2}),
+    "plastic_matte": ("opaque", {"Tint": [0.3, 0.3, 0.3], "Roughness": 0.6}),
+    "rubber": ("opaque", {"Tint": [0.03, 0.03, 0.03], "Roughness": 0.9, "Specular": 0.35}),
+    "ceramic": ("opaque", {"Tint": [0.8, 0.8, 0.78], "Roughness": 0.12}),
+    "chrome": ("opaque", {"Tint": [0.95, 0.95, 0.95], "Metallic": 1.0, "Roughness": 0.04}),
+    "brushed_steel": ("opaque", {"Tint": [0.75, 0.75, 0.75], "Metallic": 1.0, "Roughness": 0.35}),
+    "aluminium": ("opaque", {"Tint": [0.91, 0.92, 0.92], "Metallic": 1.0, "Roughness": 0.25}),
+    "gold": ("opaque", {"Tint": [1.0, 0.77, 0.34], "Metallic": 1.0, "Roughness": 0.15}),
+    "copper": ("opaque", {"Tint": [0.95, 0.64, 0.54], "Metallic": 1.0, "Roughness": 0.2}),
+    "brass": ("opaque", {"Tint": [0.91, 0.78, 0.42], "Metallic": 1.0, "Roughness": 0.25}),
+    "glass_clear": ("glass", {"Tint": [0.95, 0.97, 1.0], "Opacity": 0.12, "Roughness": 0.02, "IOR": 1.5}),
+    "glass_frosted": ("glass", {"Tint": [0.95, 0.97, 1.0], "Opacity": 0.45, "Roughness": 0.35, "IOR": 1.5}),
+    "glass_tinted": ("glass", {"Tint": [0.35, 0.45, 0.4], "Opacity": 0.3, "Roughness": 0.03, "IOR": 1.52}),
+    "water": ("glass", {"Tint": [0.8, 0.9, 0.95], "Opacity": 0.2, "Roughness": 0.02, "IOR": 1.33}),
+    "emissive_panel": ("emissive", {"Color": [1.0, 1.0, 1.0], "Luminance_nits": 300.0}),
+    "lamp_shade": ("emissive", {"Color": [1.0, 0.85, 0.65], "Luminance_nits": 1500.0}),
+    "bulb": ("emissive", {"Color": [1.0, 0.9, 0.75], "Luminance_nits": 20000.0}),
+    "screen": ("screen", {"Color": [1.0, 1.0, 1.0], "Luminance_nits": 200.0}),
+    "velvet": ("cloth", {"Tint": [0.25, 0.04, 0.06], "FuzzColor": [0.7, 0.35, 0.4], "Roughness": 0.8}),
+    "cotton": ("cloth", {"Tint": [0.7, 0.7, 0.68], "FuzzColor": [0.5, 0.5, 0.5], "Roughness": 0.9, "Cloth": 0.6}),
+    "wax": ("skin", {"Tint": [0.85, 0.8, 0.65], "SubsurfaceColor": [0.9, 0.6, 0.3], "Roughness": 0.35}),
+    "marble": ("skin", {"Tint": [0.85, 0.85, 0.82], "SubsurfaceColor": [0.8, 0.8, 0.75], "SubsurfaceAmount": 0.4,
+                        "Roughness": 0.15}),
+    "skin_generic": ("skin", {}),
+    "leaf": ("foliage", {"Tint": [0.12, 0.25, 0.05]}),
+    "backdrop": ("unlit", {"Tint": [1.0, 1.0, 1.0]}),
+}
