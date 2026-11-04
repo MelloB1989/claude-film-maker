@@ -70,9 +70,6 @@ def install(fake):
     def get_materials(self):
         return list(self._props.get("override_materials", []))
 
-    core.SkinnedMeshComponent.get_bone_index = get_bone_index
-    core.SkinnedMeshComponent.get_num_bones = get_num_bones
-    core.SkinnedMeshComponent.get_socket_location = get_socket_location
     core.SkeletalMeshComponent.get_skeletal_mesh_asset = get_skeletal_mesh_asset
     core.MeshComponent.get_materials = get_materials
 

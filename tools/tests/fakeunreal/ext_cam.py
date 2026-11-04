@@ -26,7 +26,7 @@ class CameraTrackingFocusSettings(core.Object):
     pass
 
 
-class CineCameraComponent(core.CameraComponent):
+class CineCameraComponent(core.CineCameraComponent):
     def __init__(self, name=None, outer=None, **props):
         super().__init__(name, outer, **props)
         p = self._props
@@ -101,5 +101,4 @@ def install(fake):
         return a
     fake.pose = pose
     # bones on every skeletal mesh (a superset of core's: without a bone table it answers as before)
-    core.SkeletalMeshComponent.does_socket_exist = _does_socket_exist
-    core.SkeletalMeshComponent.get_socket_location = _get_socket_location
+    # bones on skeletal meshes: core.SkinnedMeshComponent's table (shared with WP10's fakes)
