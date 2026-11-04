@@ -284,7 +284,8 @@ State at 2026-11-05 ~01:30 UTC (agent-05, branch `fleet/agent-05/ue-render`, mer
   - B23 (split, stitch) and B24 (frame QA: missing, corrupt, black, flicker, EXR NaN/Inf/fireflies);
   - the fake MRQ, 80+ unit tests, the selftest (~5 min, GPU), and this doc.
 
-  Also mine: B37 World Partition (`docs/unreal/wp.md`).
+  Also mine: B37 World Partition (`docs/unreal/wp.md`). B57 audit fixes are in (sequence and map as full object
+  paths; the sequence set by property write). A **Day-1 triage** table sits just above this section.
 - **First hour on the GPU box (morning notes; the lead may quote them).** Each step: the command, then what a
   pass looks like.
   1. **Selftest.** `film-ue selftest render` (~5 min). Every check passes, except "path tracer refused under 40 GB",
