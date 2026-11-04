@@ -40,3 +40,4 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   and masters the mix (filmtools.mix) from the same timing. MRQ's wave output stays unused.
 - **WP12: captions burn through libass** (ffmpeg `subtitles`) instead of the reel's Pillow overlays; titles are
   film-specific and stay in films/<id>/.
+- **2026-11-05 WP0: PyYAML is a direct client dependency** (tools/pyproject.toml). uv.lock already resolves pyyaml (it is a transitive dependency), but the lock was not regenerated on the fleet (no uv there): the first `uv run` on a dev machine updates it. Commit that.
