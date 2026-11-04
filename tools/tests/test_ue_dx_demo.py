@@ -24,10 +24,7 @@ STANDING = {  # a 170 cm adult at the origin, facing +X: the bones the framing s
     "ball_l": [12, -10, 2], "ball_r": [12, 10, 2], "FACIAL_L_Eye": [8, -3, 165], "FACIAL_R_Eye": [8, 3, 165]}
 
 # (kind, name) -> why it cannot converge on the fake (empty when everything converges)
-KNOWN: dict = {
-    ("scene", "demo-set"): "WP6: a Blueprint asset (the MetaHuman) never matches: scene.state reports `mesh` only for "
-                           "static meshes, so every apply respawns it (reported to the lead)",
-}
+KNOWN: dict = {}
 
 
 def _box_content(ue, fmb, tmp_path, monkeypatch, docs_vars):
@@ -47,6 +44,10 @@ def _box_content(ue, fmb, tmp_path, monkeypatch, docs_vars):
         """A built MetaHuman Blueprint spawns with its Body and Face skeletal mesh components."""
         if getattr(obj, "get_path_name", lambda: "")().split(".")[0] == host_bp:
             a = ue.metahuman("__mh", face_mesh=docs_vars["face_mesh"])
+            # an actor of the Blueprint's generated class (BP_Host_C), as the engine spawns it: scene.state reports
+            # that Blueprint, so the set converges instead of respawning the host
+            a.__class__ = core._AutoMeta(host_bp.rsplit("/", 1)[-1] + "_C", (type(a),),
+                                         {"__module__": "unreal", "_bp_path": host_bp})
             ue.pose(a, STANDING)
             if location is not None:
                 a.set_actor_location(location, False, False)
