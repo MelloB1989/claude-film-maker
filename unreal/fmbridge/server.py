@@ -9,23 +9,23 @@ messages while a click lands.
     POST /exec   {"code": str, "timeout": s, "async": bool}  run Python; `result` in its namespace is returned
     POST /op     {"name": "mh.build", "args": {...}}           call a registered op (fmbridge.ops), same options
 
-A job whose result is a generator runs across editor ticks: each `yield` lets the editor tick once (so a scrubbed
-sequence, an animation or a rig settles), `yield 0.5` waits that many seconds; its return value is the result.
-    GET  /job?id=                                             an async job's state and result
+Every call is a job (fmbridge.jobs): {"async": true} returns its id at once; a generator runs across editor ticks
+(`yield` one tick, `yield 0.5` seconds, `yield {"progress": .4, "message": ...}`); finished jobs outlive a reload.
+    GET  /job?id=                                             a job's state, progress and (when finished) result
+    GET  /jobs?state=&name=&limit=                            recent jobs, newest first (no results)
+    POST /job/cancel {"id": ...}                              cancel a queued job, or a running multi-tick one
     POST /gui    {"actions": [...]}                           desktop input (fmbridge.gui.run; Windows only, else 501)
     GET  /screen                                              the desktop as PNG (Windows only, else 501)
     GET  /file?path=   PUT /file?path=                         read or write any file (bytes)
     GET  /log?lines=N                                         the editor log's tail
-    GET  /health                                              engine version, platform, project, uptime
+    GET  /health                                              engine, platform, project, uptime, jobs, memory, idle cap
 """
 from __future__ import annotations
 
 import http.server
-import inspect
-import io
 import json
 import os
-import queue
+import platform
 import secrets
 import socketserver
 import sys
@@ -33,17 +33,18 @@ import threading
 import time
 import traceback
 import urllib.parse
-import uuid
 
 import unreal
 
-PORT = int(os.environ.get("FMBRIDGE_PORT", "18765"))
-TOKEN_PATH = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir()), "fmbridge.token")
+from . import jobs as _jobs_mod
 
-_work: "queue.Queue[tuple]" = queue.Queue()
-_jobs: dict[str, dict] = {}
-_active: list = []  # multi-tick jobs: [generator, box, stdout buffer, wake time, start time]
-_state = {"server": None, "tick": None, "started": time.time(), "token": None}
+VERSION = 2  # the bridge's protocol: 2 = jobs (/jobs, /job/cancel, progress), health extras
+PORT = int(os.environ.get("FMBRIDGE_PORT", "18765"))
+SAVED = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir())
+TOKEN_PATH = os.path.join(SAVED, "fmbridge.token")
+JOURNAL = os.path.join(SAVED, "Bridge", "jobs")
+
+_state = {"server": None, "tick": None, "started": time.time(), "token": None, "registry": None, "last_call": time.time()}
 
 
 def _namespace() -> dict:
@@ -52,26 +53,21 @@ def _namespace() -> dict:
     return {"unreal": unreal, "fmbridge": fmbridge, "ops": fmbridge.ops, "__name__": "__fmbridge__", "result": None}
 
 
-def _run(kind: str, payload: dict) -> dict:
-    """On the game thread: run code or an op, capturing stdout/stderr."""
-    out, saved = io.StringIO(), (sys.stdout, sys.stderr)
-    sys.stdout = sys.stderr = out
-    t0 = time.time()
-    try:
-        if kind == "exec":
-            ns = _namespace()
-            exec(compile(payload["code"], payload.get("name", "<bridge>"), "exec"), ns)
-            res = ns.get("result")
-        else:
-            from . import ops
-            res = ops.call(payload["name"], **(payload.get("args") or {}))
-        if inspect.isgenerator(res):  # a multi-tick job: _tick steps it
-            return {"gen": res, "buf": out, "t0": t0}
-        return {"ok": True, "result": _jsonable(res), "stdout": out.getvalue(), "ms": int((time.time() - t0) * 1000)}
-    except Exception:
-        return {"ok": False, "error": traceback.format_exc(), "stdout": out.getvalue(), "ms": int((time.time() - t0) * 1000)}
-    finally:
-        sys.stdout, sys.stderr = saved
+def _run(kind: str, payload: dict):
+    """On the game thread: run code or an op and return its value (a generator for a multi-tick job). The registry
+    captures what it prints and turns an exception into a failed job."""
+    if kind == "exec":
+        ns = _namespace()
+        exec(compile(payload["code"], payload.get("name", "<bridge>"), "exec"), ns)
+        return ns.get("result")
+    from . import ops
+    return ops.call(payload["name"], **(payload.get("args") or {}))
+
+
+def registry() -> "_jobs_mod.Registry":
+    if _state["registry"] is None:
+        _state["registry"] = _jobs_mod.Registry(_run, _jsonable, JOURNAL)
+    return _state["registry"]
 
 
 def _gui():
@@ -113,26 +109,8 @@ def _jsonable(v):
     return str(v)
 
 
-def _step(job) -> bool:
-    """Advance a multi-tick job by one step; True when it has finished."""
-    gen, box, buf, _, t0 = job
-    saved = sys.stdout, sys.stderr
-    sys.stdout = sys.stderr = buf
-    try:
-        wait = next(gen)
-        job[3] = time.time() + (float(wait) if isinstance(wait, (int, float)) and not isinstance(wait, bool) else 0.0)
-        return False
-    except StopIteration as e:
-        box.update({"ok": True, "result": _jsonable(e.value), "stdout": buf.getvalue(), "ms": int((time.time() - t0) * 1000)})
-    except Exception:
-        box.update({"ok": False, "error": traceback.format_exc(), "stdout": buf.getvalue(), "ms": int((time.time() - t0) * 1000)})
-    finally:
-        sys.stdout, sys.stderr = saved
-    box["done"] = True
-    return True
-
-
 def _tick(_dt):
+    _state["last_tick"] = time.time()  # health reports how long ago: a long silence is a stuck game thread
     if _state.get("in_tick"):  # a job that saves or loads pumps Slate, which ticks again inside it: never re-enter
         return
     _state["in_tick"] = True
@@ -140,7 +118,7 @@ def _tick(_dt):
         if not _state.get("idle_set"):
             _state["idle_set"] = True
             _idle_offscreen()
-        _drain()
+        registry().tick()
     finally:
         _state["in_tick"] = False
 
@@ -154,41 +132,62 @@ def _idle_offscreen():
     try:
         unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).editor_set_viewport_realtime(False)
         unreal.SystemLibrary.execute_console_command(None, f"t.MaxFPS {IDLE_FPS}")
+        _state["idle_fps"] = IDLE_FPS
     except Exception as e:
         unreal.log_warning(f"fmbridge: could not idle the offscreen viewport: {e}")
 
 
-def _drain():
-    now = time.time()
-    _active[:] = [j for j in _active if j[3] > now or not _step(j)]
-    budget = time.time() + 0.25
-    while time.time() < budget:
-        try:
-            kind, payload, box = _work.get_nowait()
-        except queue.Empty:
-            return
-        r = _run(kind, payload)
-        if "gen" in r:
-            _active.append([r["gen"], box, r["buf"], 0.0, r["t0"]])
-            continue
-        box.update(r)
-        box["done"] = True
+def _no_background_throttle():
+    """Driven remotely, the editor is never the foreground app, and the editor's "Use less CPU when in background"
+    (UEditorPerformanceSettings::bThrottleCPUWhenNotForeground, on by default) then throttles it and skips rendering
+    (EditorEngine.cpp). The class is not exposed to Python by name, so its defaults object is found by path."""
+    try:
+        cdo = unreal.find_object(None, "/Script/UnrealEd.Default__EditorPerformanceSettings")
+        if cdo is None:
+            raise LookupError("no /Script/UnrealEd.Default__EditorPerformanceSettings")
+        cdo.set_editor_property("throttle_cpu_when_not_foreground", False)
+        _state["throttle_off"] = True
+    except Exception as e:
+        _state["throttle_off"] = False
+        unreal.log_warning(f"fmbridge: could not stop background throttling: {e}")
 
 
 def submit(kind: str, payload: dict, timeout: float = 600.0, wait: bool = True) -> dict:
-    box: dict = {"done": False, "id": uuid.uuid4().hex[:12], "queued": time.time()}
-    for k in [k for k, b in _jobs.items() if b["done"] and time.time() - b["queued"] > 3600]:
-        del _jobs[k]
-    _jobs[box["id"]] = box
-    _work.put((kind, payload, box))
+    """Queue a job; wait for it (up to `timeout`) or return its id at once. A job still running at the timeout keeps
+    running: the answer says so and carries its id (GET /job?id=)."""
+    _state["last_call"] = time.time()
+    reg = registry()
+    job = reg.submit(kind, payload)
     if not wait:
-        return {"ok": True, "job": box["id"]}
-    end = time.time() + timeout
-    while not box["done"] and time.time() < end:
-        time.sleep(0.02)
-    if not box["done"]:
-        return {"ok": False, "error": f"timeout after {timeout}s (still running as job {box['id']})", "job": box["id"]}
-    return {k: v for k, v in box.items() if k not in ("done", "queued")}
+        return {"ok": True, "job": job.id, "id": job.id, "state": job.state}
+    if not reg.wait(job, timeout):
+        return {"ok": False, "error": f"timeout after {timeout}s (still {job.state} as job {job.id}: GET /job?id={job.id})",
+                "job": job.id, "id": job.id, "state": job.state}
+    return job.view()
+
+
+def _rss_mb() -> float | None:
+    try:
+        if sys.platform.startswith("linux"):
+            with open("/proc/self/status") as f:
+                for line in f:
+                    if line.startswith("VmRSS:"):
+                        return round(int(line.split()[1]) / 1024, 1)
+        return None
+    except OSError:
+        return None
+
+
+def health() -> dict:
+    """What a client (or a watchdog) needs to know the editor is alive and what it is (no game-thread call: the HTTP
+    thread answers this even while a long job holds the game thread)."""
+    reg = registry()
+    now = time.time()
+    return {"ok": True, "engine": _state.get("engine"), "platform": sys.platform, "project": _state.get("project"),
+            "uptime": int(now - _state["started"]), "bridge": VERSION, "python": platform.python_version(),
+            "pid": os.getpid(), "rss_mb": _rss_mb(), "jobs": reg.counts(), "queued": reg.counts()["queued"],
+            "idle_fps": _state.get("idle_fps"), "throttle_off": _state.get("throttle_off"),
+            "last_tick_s": round(now - _state.get("last_tick", now), 1), "idle_s": int(now - _state["last_call"])}
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):
@@ -220,14 +219,16 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         q = dict(urllib.parse.parse_qsl(u.query))
         if u.path == "/health":
-            self._send(200, {"ok": True, "engine": _state["engine"], "platform": sys.platform, "project": _state["project"],
-                             "uptime": int(time.time() - _state["started"]), "queued": _work.qsize()})
+            self._send(200, health())
         elif u.path == "/job":
-            box = _jobs.get(q.get("id", ""))
-            if not box:
-                self._send(404, {"ok": False, "error": "no such job"})
+            job = registry().get(q.get("id", ""))
+            if not job:
+                self._send(404, {"ok": False, "error": f"no job {q.get('id', '')!r} (GET /jobs lists recent ones)"})
             else:
-                self._send(200, {"done": box["done"], **{k: v for k, v in box.items() if k not in ("done",)}})
+                self._send(200, job.view())
+        elif u.path == "/jobs":
+            self._send(200, {"ok": True, "jobs": registry().list(q.get("state", ""), q.get("name", ""),
+                                                                   int(q.get("limit", "50")))})
         elif u.path == "/file":
             p = q.get("path", "")
             if not os.path.isfile(p):
@@ -269,7 +270,9 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             self._send(400, {"ok": False, "error": "body must be JSON"})
             return
         path = urllib.parse.urlparse(self.path).path
-        if path in ("/exec", "/op"):
+        if path == "/job/cancel":
+            self._send(200, registry().cancel(str(req.get("id", ""))))
+        elif path in ("/exec", "/op"):
             kind = path[1:]
             if kind == "exec" and "code" not in req:
                 self._send(400, {"ok": False, "error": "exec needs code"})
@@ -303,11 +306,8 @@ def start(port: int = PORT) -> str:
     _state["engine"] = unreal.SystemLibrary.get_engine_version()
     _state["project"] = unreal.Paths.get_project_file_path()
     _state["log_dir"] = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_log_dir())
-    try:  # driven remotely, the editor is never the foreground window: do not let it idle at a few frames a second
-        perf = unreal.get_default_object(unreal.EditorPerformanceSettings)
-        perf.set_editor_property("throttle_cpu_when_not_foreground", False)
-    except Exception as e:
-        unreal.log_warning(f"fmbridge: could not stop background throttling: {e}")
+    _no_background_throttle()
+    registry()  # read the journal now: results of jobs from before a reload answer at once
     _state["token"] = secrets.token_urlsafe(24)
     with open(TOKEN_PATH, "w") as f:
         f.write(_state["token"])
@@ -320,15 +320,8 @@ def start(port: int = PORT) -> str:
 
 
 def stop() -> None:
-    while True:  # whatever is still queued here will never run: answer it now rather than let a client hang
-        try:
-            _, _, box = _work.get_nowait()
-        except queue.Empty:
-            break
-        box.update({"ok": False, "error": "the bridge restarted before this ran; send it again", "done": True})
-    for job in _active:
-        job[1].update({"ok": False, "error": "the bridge restarted while this ran", "done": True})
-    _active.clear()
+    if _state["registry"] is not None:  # whatever is queued or running will never finish here: answer it now
+        _state["registry"].shutdown("the bridge restarted")
     if _state["server"]:
         _state["server"].shutdown()
         _state["server"].server_close()  # release the port now, not at garbage collection
