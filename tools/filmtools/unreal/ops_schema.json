@@ -10214,6 +10214,205 @@
    "tags": []
   },
   {
+   "name": "pose.apply",
+   "area": "pose",
+   "verb": "apply",
+   "module": "fmbridge.ops.pose",
+   "file": "unreal/fmbridge/ops/pose.py",
+   "line": 138,
+   "summary": "Pose a character at a frame of a sequence: key its Control Rig so each effector reaches the pose's goal, solved",
+   "doc": "Pose a character at a frame of a sequence: key its Control Rig so each effector reaches the pose's goal, solved\nclosed-loop on what the engine evaluates, then report the remaining error per effector.\n\nArgs: label: the character (its body's skeletal mesh; `component` names it, else the one with a pelvis).\npose: a library name (pose.library) or {effector: {\"anchor\", \"offset\": [fwd, right, up]} | \"keep\" | [x,y,z]}.\nparams: {\"drop_cm\": 45} for sit. rig_class: the body's Control Rig Blueprint, to make the rig track if missing.\ncontrols: {effector: control name} overrides for the pattern match. tolerance_cm, iterations: the solve.\nGoals are relative to the character's REST pose, captured the first time a pose is applied in this sequence\n(stored on it); `reset_rest` captures it again (after the character moved).\nA multi-tick job. Re-running converges (the controls are re-solved to the same goals).\nReturns: {\"pass\", \"errors_cm\": {effector: cm}, \"controls\": {effector: control}, \"iterations\", \"goals\",\n\"issues\", \"changed\"}.\nExample: film-ue op pose.apply label=Host sequence=/Game/Seq/S010 frame=48 pose=hands_on_hips",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frame",
+     "kind": "keyword",
+     "type": "int",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "pose",
+     "kind": "keyword",
+     "type": "str | dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "params",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "rig_class",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "controls",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "tolerance_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "iterations",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 8
+    },
+    {
+     "name": "reset_rest",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "animation",
+    "sequencer"
+   ]
+  },
+  {
+   "name": "pose.check",
+   "area": "pose",
+   "verb": "check",
+   "module": "fmbridge.ops.pose",
+   "file": "unreal/fmbridge/ops/pose.py",
+   "line": 198,
+   "summary": "Is the character in the pose at that frame? Scrub there and measure each effector against the pose's goals.",
+   "doc": "Is the character in the pose at that frame? Scrub there and measure each effector against the pose's goals.\nGoals are anchored on the rest pose pose.apply stored on the sequence, else on the bones now (a held pose then\nchecks against itself); `rest` ({bone: [x, y, z]}) overrides both. A multi-tick job.\n\nReturns: {\"pass\", \"issues\", \"metrics\": {\"errors_cm\"}}.\nExample: film-ue op pose.check label=Host sequence=/Game/Seq/S010 frame=60 pose=hands_on_hips",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "sequence",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frame",
+     "kind": "keyword",
+     "type": "int",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "pose",
+     "kind": "keyword",
+     "type": "str | dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "params",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "tolerance_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 2.0
+    },
+    {
+     "name": "rest",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "animation",
+    "qa"
+   ]
+  },
+  {
+   "name": "pose.library",
+   "area": "pose",
+   "verb": "library",
+   "module": "fmbridge.ops.pose",
+   "file": "unreal/fmbridge/ops/pose.py",
+   "line": 124,
+   "summary": "The named poses: what each looks like and which effectors it sets (hand_l/r, foot_l/r, pelvis, chest, head),",
+   "doc": "The named poses: what each looks like and which effectors it sets (hand_l/r, foot_l/r, pelvis, chest, head),\nwith the goal table (anchor + [forward, right, up] cm in the body's frame) for one `pose`.\n\nExample: film-ue op pose.library pose=hands_on_hips",
+   "params": [
+    {
+     "name": "pose",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "animation"
+   ]
+  },
+  {
    "name": "qa.baseline_check",
    "area": "qa",
    "verb": "baseline_check",
@@ -14820,6 +15019,7 @@
   "mh": "An assembled MetaHuman in a level (the Blueprint mh.build made, placed as an actor): its components, the face driven by Sequencer, garments of your own on its body (skeletal FBX garments on the MetaHuman skeleton, posed by the body through ",
   "ops": "The bridge's operations: named functions the operator's machine calls through POST /op (fmbridge.server), each a plain Python function over the `unreal` API, registered with @op(\"area.verb\").",
   "perf": "Performance: make a MetaHuman act by code.",
+  "pose": "Poses by name, on the real rig: \"hands on hips\", \"sit\", \"arms crossed\", \"lean forward\"...",
   "qa": "QA checks Claude can read: numbers and issues about pictures, framing, meshes and continuity, and one REVIEW that gathers them for a shot, a sequence, a set or a character.",
   "render": "Rendering with Movie Render Queue, driven by a RENDER SPEC (fmbridge/render_spec.py; docs/unreal/render.md): presets (preview, draft, final, final_exr, 4k, pathtrace), image sequences (PNG, JPG, 16-bit EXR) plus the WAV, AOVs (depth, motion",
   "scene": "Scenes: a whole set of actors as one declarative spec (kind: scene; the format is in ops/_scene.py and tools/filmtools/unreal/schemas/scene.schema.json).",
