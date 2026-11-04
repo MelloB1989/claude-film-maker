@@ -70,6 +70,7 @@ def ensure(label: str, cls_name: str, owner: str = "manual", role: str = "", loc
             raise OpError(f"{label!r} exists ({cname}) but was not made by the env/light ops", code="conflict",
                           hint="use another label, or delete it first with level.delete")
         if asset or cname == cls_name:
+            movable(a)
             return a, False
         EAS().destroy_actor(a)  # ours, of another class (a spot that becomes a rect): remake it
     v = unreal.Vector(*[float(x) for x in (loc or (0, 0, 0))])
@@ -88,7 +89,20 @@ def ensure(label: str, cls_name: str, owner: str = "manual", role: str = "", loc
         raise OpError(f"could not spawn {cls_name} {label!r}", code="engine")
     a.set_actor_label(label)
     a.set_editor_property("tags", [TAG, f"fm_owner:{owner or 'manual'}"] + ([f"fm_role:{role}"] if role else []))
+    movable(a)
     return a, True
+
+
+def movable(a) -> None:
+    """Lights and sky lights spawn Stationary (Light.cpp:190/244, RectLight.cpp:12, SpotLight.cpp:27): in a level
+    with no lighting build that means "unbuilt" overlays and preview shadows in stills. Everything here is dynamic
+    (Lumen), so the ops' lights are Movable (SceneComponent.SetMobility, SceneComponent.h:1296)."""
+    for c in a.get_components_by_class(unreal.LightComponentBase):
+        try:
+            if to_json(c.get_editor_property("mobility")) != "ComponentMobility.MOVABLE":
+                c.set_mobility(unreal.ComponentMobility.MOVABLE)
+        except Exception:  # noqa: BLE001 (a component that cannot move stays as it is; describe shows the light)
+            pass
 
 
 def remove(labels, only_owned: bool = True) -> list:

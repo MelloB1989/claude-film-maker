@@ -298,7 +298,11 @@ def _new_job(r: dict, chunk: dict, level: str):
     q = _mq().get_queue()
     q.delete_all_jobs()
     job = q.allocate_new_job(unreal.MoviePipelineExecutorJob)
-    job.set_editor_property("sequence", unreal.SoftObjectPath(_pkg(r["sequence"])))
+    path = unreal.SoftObjectPath(_pkg(r["sequence"]))
+    try:
+        job.set_sequence(path)  # Sequence's BlueprintSetter (MoviePipelineQueue.h:616)
+    except AttributeError:
+        job.set_editor_property("sequence", path)
     job.set_editor_property("map", unreal.SoftObjectPath(level))
     job.set_editor_property("job_name", chunk.get("id") or r["name"])
     _configure(job, r, chunk)

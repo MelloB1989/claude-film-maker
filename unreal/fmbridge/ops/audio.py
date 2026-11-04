@@ -122,9 +122,18 @@ def gain_to_db(g: float) -> float:
     return 20 * math.log10(g) if g > 0 else -120.0
 
 
+def _channel_name(ch) -> str:
+    """A scripting channel's channel name ("Volume"). Not get_name(): that is the transient UObject's name, made
+    unique per call (MakeUniqueObjectName), so it reads "Volume_1", "Volume_2"... while earlier ones live."""
+    try:
+        return str(ch.get_editor_property("channel_name"))
+    except Exception:
+        return str(ch.get_name()).rsplit("_", 1)[0] if "_" in str(ch.get_name()) else str(ch.get_name())
+
+
 def _volume_channel(section):
     for ch in section.get_all_channels():
-        if str(ch.get_name()).lower() in ("volume", "soundvolume"):
+        if _channel_name(ch).lower() in ("volume", "soundvolume"):
             return ch
     return None
 

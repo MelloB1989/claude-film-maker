@@ -194,9 +194,11 @@ snake_case of the reflected name.
 |---|---|---|
 | `MoviePipelineQueueSubsystem.get_queue / render_queue_with_executor / is_rendering / get_active_executor` | MovieRenderPipelineEditor/Public/MoviePipelineQueueSubsystem.h:27,52,67,93 | editor subsystem; render_queue_with_executor returns the executor |
 | `MoviePipelineQueue.allocate_new_job / delete_all_jobs` | MovieRenderPipelineCore/Public/MoviePipelineQueue.h:804,818 | |
-| `MoviePipelineExecutorJob.sequence / map / job_name`, `get_configuration`, `set_config_mode(MoviePipelineConfigMode.PRESET)` | MoviePipelineQueue.h:692,696,688,529,548 | 5.8 jobs have Preset/Graph/Basic modes; we use Preset (legacy settings) |
+| `MoviePipelineExecutorJob.set_sequence(path)` (Sequence's BlueprintSetter), `map / job_name`, `get_configuration`, `set_config_mode(MoviePipelineConfigMode.PRESET)` | MoviePipelineQueue.h:692,696,688,529,548 | 5.8 jobs have Preset/Graph/Basic modes; we use Preset (legacy settings) |
 | `MoviePipelineConfigBase.find_or_add_setting_by_class(cls, include_disabled, exact_match)` | MoviePipelineConfigBase.h:145 | exact_match matters (subclasses) |
 | `MoviePipelineOutputSetting.output_directory, file_name_format, output_resolution, override_existing_output, handle_frame_count, use_custom_playback_range, custom_start_frame, custom_end_frame, zero_pad_frame_numbers` | MovieRenderPipelineCore/Public/MoviePipelineOutputSetting.h:39-108 | custom range overrides the sequence's playback range (MoviePipeline.cpp:202) |
+| `DirectoryPath(path)` (FDirectoryPath.Path) | Engine/Source/Runtime/CoreUObject/Public/UObject/SoftObjectPath.h:759 | USTRUCT(BlueprintType), Path BlueprintReadWrite: the type of output_directory |
+| `IntPoint(x, y)` (FIntPoint.X/Y) | Engine/Source/Runtime/CoreUObject/Public/UObject/NoExportTypes.h:1009 | BlueprintType core struct: the type of output_resolution |
 | `MoviePipelineAntiAliasingSetting.spatial_sample_count, temporal_sample_count, override_anti_aliasing, anti_aliasing_method, render_warm_up_count, use_camera_cut_for_warm_up, engine_warm_up_count` | MoviePipelineAntiAliasingSetting.h:49-101 | camera-cut warm-up = the cut's frames before the range, evaluated per frame (MoviePipelineBlueprintLibrary.cpp:745, MoviePipeline.cpp:1235) |
 | `AntiAliasingMethod.AAM_NONE/FXAA/TEMPORAL_AA/MSAA/TSR/SMAA` | Engine/Source/Runtime/Engine/Public/SceneUtils.h:44 | |
 | `MoviePipelineConsoleVariableSetting.add_or_update_console_variable(name, float)` | MovieRenderPipelineSettings/Public/MoviePipelineConsoleVariableSetting.h:103 | |
@@ -255,12 +257,34 @@ State at 2026-11-05 ~00:00 UTC (agent-05, branch `fleet/agent-05/ue-render`, mer
   - the fake MRQ, 80+ unit tests, the selftest (~5 min, GPU), and this doc.
 
   Also mine: B37 World Partition (`docs/unreal/wp.md`).
-- **First hour on the GPU box:**
-  1. `film-ue selftest render`, then read the report: every check plus the metrics s/frame, sample_s_1080p,
-     vram_peak_gb and ab_min_ssim.
-  2. The reel's cloth A/B: `examples/unreal/render/preroll_ab.yaml` with the reel's sequence, `shots: [Reel_S15]`
-     and `frames: [1136, 1160]`, then `render.compare`. SSIM ≥ 0.98 confirms the pre-roll on real cloth.
-  3. `film-ue render run` of one reel shot at `final`. Compare with the Windows reference PNGs via `render.compare`.
+- **First hour on the GPU box (morning notes; the lead may quote them).** Each step: the command, then what a
+  pass looks like.
+  1. **Selftest.** `film-ue selftest render` (~5 min). Every check passes, except "path tracer refused under 40 GB",
+     which on an L4 is the expected refusal: it passes when the code is `unsupported`. The report's metrics:
+     - `s_per_frame_480p_draft`: a sanity number only.
+     - `vram_peak_gb`: should stay far under 24 at 480p.
+     - `ab_min_ssim`: ≥ 0.98, the pre-roll on the physics cube.
+     - `psnr_preroll_vs_full_min` ≥ 35 dB and ≥ `psnr_cold_vs_full_min`: the pre-roll beats a cold start.
+     - `process_job_s` and `cmdline_job_s`: they prove the two out-of-editor executors launch; expect a minute or
+       two for the cmdline child's engine start.
+  2. **Calibration against the PoC.** `film-ue render run` of one reel shot with `preset: final` (1080p, 8
+     temporal, 32 warm-up, quality cvars, same as the PoC). Then `film-ue render status`. In the report:
+     - `measured.s_per_frame` should be near **0.73 s** (P3: 0.72-0.75 on the L4). Over ~1 s means something
+       differs from the PoC (shader compile, the DDC, cvars). Check `measured.sample_s_1080p` ≈ 0.09.
+     - `vram_peak_gb` should be ~6-10 GB for one presenter (P4: 6.4-7.1; S15 with two presenters 10.3).
+     - Every chunk has `status: ok` and `missing: []`, and the report's `errors` is empty.
+     The next `render.plan` of the same job uses the measured cost for its estimate.
+  3. **Cloth A/B (the real proof of the pre-roll).** `examples/unreal/render/preroll_ab.yaml` with
+     `sequence: /Game/Reel/SEQ_Reel`, the full doc `shots: [Reel_S15]`, the chunk doc `frames: [1136, 1160]`. Then
+     `render.compare a=<full> b=<chunk> 'frames=[1136,1160]' sheet=...`. Pass is `pass: true` (SSIM ≥ 0.98 on every
+     frame). If it fails, open the sheet: the overshirt hanging open at her right shoulder is the P6 signature of a
+     cold start, which means the camera-cut warm-up did not run. Look in the log for MRQ's "no warmup range was
+     detected" warning, and check that the shot's camera cut section really starts at 1080.
+  4. **VRAM guard.** `film-ue render plan` of a `preset: pathtrace` spec: `vram.ok` is false with the L4 message;
+     `render.job` refuses with `unsupported`. Do not use `vram.force` on the L4: P5 crashed the editor twice.
+  5. **If anything hangs.** `render.status` shows the chunk and its frame count. A chunk with no new frame for
+     `stall_s` (15 min) is cancelled and marked `stalled`. `film-ue log` will show MRQ's lines
+     (`LogMovieRenderPipeline`). Re-running the spec resumes.
 - **Unproven until then (if a check fails, start from API_NOTES):**
   - the cmdline executor's child command line on Linux (`-vulkan`, `MoviePipelineEntryMap` with a queue manifest);
   - `save_queue_to_manifest_file` returning a tuple in Python;
