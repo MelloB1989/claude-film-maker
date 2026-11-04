@@ -258,10 +258,10 @@ Linux DDC fill, one 1080p check pass, one 4K final and one 4K re-render of about
 | 4K final | 3.35-12.48 | 1.12-4.17 | 2.35-7.67 |
 | 4K re-render, half the reel | 1.8-6.3 | 0.6-2.1 | 1.3-3.9 |
 | **Round 3 total** | **~$7-24** | **~$2.5-8** | **~$6-18** |
-| vs the same on Windows gr6.4xlarge OD (no DDC fill) | ~$6-23 | | |
+| vs the same on Windows gr6.4xlarge OD (no DDC fill: 1.65 + 4.68-17.44 + 2.3-8.7) | ~$9-28 | | |
 
-The Windows comparison row has no shader-cache fill, because the Windows DDC already exists. So the first round on
-Linux costs about the same as on Windows on-demand; the saving starts on spot, and on every round after the first.
+Even with the one-off shader-cache fill, round 3 on Linux on-demand costs ~20 % less than on Windows; on spot ~70 %
+less; later rounds skip the fill.
 
 **The Epic sign-in costs nothing extra.** The operator's one login (P10/P12) can use a DCV *virtual* session on the
 PoC box: it is free on EC2, needs no GRID driver, and takes minutes of instance time already being paid for. For the
