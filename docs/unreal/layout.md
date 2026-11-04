@@ -178,6 +178,9 @@ After `apply`, `remaining` must be `[]` and a second `plan` must be empty (`conv
 | `AssetTools.create_asset(name, dir, DataLayerAsset, DataLayerFactory())` | `UDataLayerFactory` (MinimalAPI, reflected) | Editor/DataLayerEditor/Public/DataLayer/DataLayerFactory.h:19 |
 | `LevelEditorSubsystem.editor_play_simulate / editor_request_end_play / is_in_play_in_editor`, `UnrealEditorSubsystem.get_game_world` (layout.settle) | UFUNCTION BlueprintCallable, DevelopmentOnly | LevelEditorSubsystem.h:63, 81, 84; Editor/UnrealEd/Public/Subsystems/UnrealEditorSubsystem.h:52 |
 | `PrimitiveComponent.set_simulate_physics`, `SceneComponent.is_simulating_physics / set_mobility` | UFUNCTION BlueprintCallable | Components/PrimitiveComponent.h:1661; Components/SceneComponent.h:690, 1296 |
+| `GameplayStatics.get_all_actors_of_class(world, Actor)` → list (the out-array is the return; layout.settle reads the simulated world) | `UGameplayStatics::GetAllActorsOfClass` | Runtime/Engine/Classes/Kismet/GameplayStatics.h:98 |
+| editor property `mobility` / `ComponentMobility.MOVABLE` (layout.settle) | `USceneComponent::Mobility`, EditAnywhere; `EComponentMobility::Movable` | Components/SceneComponent.h:302; Engine/EngineTypes.h:4054 |
+| `ActorComponent` (level.get iterates components by it) | `UActorComponent` | Runtime/Engine/Classes/Components/ActorComponent.h |
 | `LevelEditorSubsystem.new_level / load_level / save_current_level` | | Editor/LevelEditor/Public/LevelEditorSubsystem.h:147, 167, 174 |
 
 Not yet proven on a running editor:

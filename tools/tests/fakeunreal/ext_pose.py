@@ -17,7 +17,7 @@ class _Hierarchy:
     def __init__(self, names):
         self.names = names
 
-    def get_control_keys(self):
+    def get_controls(self, traverse=True):  # Python name of GetControlKeys (ScriptName GetControls)
         out = []
         for n in self.names:
             k = _Name(n)

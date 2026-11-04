@@ -1008,7 +1008,7 @@
    "verb": "audit",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 469,
+   "line": 474,
    "summary": "What in a folder needs attention: assets nothing uses (and no level), redirectors, materials that do not",
    "doc": "What in a folder needs attention: assets nothing uses (and no level), redirectors, materials that do not\ncompile (they draw the engine's checker), material instances whose textures do not match their samplers.\n\nArgs: folder: content folder (recursive). unused: report unused assets. broken: compile-check materials (loads\n      them: slower). limit: at most this many of each.\nReturns: {\"pass\", \"issues\": [{\"code\": asset.unused | asset.redirector | material.not_compiling |\n         material.texture_kind, \"severity\", \"subject\", \"message\", \"fix\"}], \"metrics\": {\"assets\", \"unused\",\n         \"redirectors\", \"broken\"}}.\nExample: film-ue op assets.audit folder=/Game/Props",
    "params": [
@@ -1116,9 +1116,9 @@
    "verb": "delete",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 115,
-   "summary": "Delete an asset now, used or not (prefer assets.remove, which checks who uses it first).",
-   "doc": "Delete an asset now, used or not (prefer assets.remove, which checks who uses it first).",
+   "line": 117,
+   "summary": "Delete an asset now, used or not (prefer assets.remove, which checks who uses it first); False if absent.",
+   "doc": "Delete an asset now, used or not (prefer assets.remove, which checks who uses it first); False if absent.\nExample: film-ue assets delete --path /Game/Old/SM_Box",
    "params": [
     {
      "name": "path",
@@ -1130,8 +1130,8 @@
    ],
    "returns": "bool",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
+   "mutates": true,
+   "idempotent": true,
    "tags": []
   },
   {
@@ -1173,9 +1173,9 @@
    "verb": "duplicate",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 99,
+   "line": 100,
    "summary": "Copy an asset (a MetaHuman preset, a material...) to a new path; an existing `dst` is kept unless overwrite",
-   "doc": "Copy an asset (a MetaHuman preset, a material...) to a new path; an existing `dst` is kept unless overwrite\n(then it is freed first). Returns dst. Example: film-ue op assets.duplicate src=/Game/M/MI_A dst=/Game/M/MI_B",
+   "doc": "Copy an asset (a MetaHuman preset, a material...) to a new path; an existing `dst` is kept unless overwrite\n(then it is freed first). Returns dst.\nExample: film-ue assets duplicate --src /Game/M/MI_A --dst /Game/M/MI_B",
    "params": [
     {
      "name": "src",
@@ -1201,8 +1201,8 @@
    ],
    "returns": "str",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
+   "mutates": true,
+   "idempotent": true,
    "tags": []
   },
   {
@@ -1293,7 +1293,7 @@
    "verb": "fix_redirectors",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 456,
+   "line": 461,
    "summary": "Repoint everything that references a redirector (left behind by a rename/move) at the real asset and delete",
    "doc": "Repoint everything that references a redirector (left behind by a rename/move) at the real asset and delete\nthe redirectors, without a dialog.\n\nArgs: folder: where to look (recursive).\nReturns: {\"fixed\": int, \"left\": [redirectors that could not be fixed], \"changed\"}.\nExample: film-ue op assets.fix_redirectors folder=/Game/Props",
    "params": [
@@ -1317,7 +1317,7 @@
    "verb": "folder",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 276,
+   "line": 281,
    "summary": "Content folders: make one, rename/move one (with everything in it), or remove an empty one.",
    "doc": "Content folders: make one, rename/move one (with everything in it), or remove an empty one.\n\nArgs: path: /Game/... folder. action: make | rename | remove. to: the new folder path for rename.\nReturns: {\"path\", \"changed\", \"to\"}.\nExample: film-ue op assets.folder path=/Game/Props/Chairs",
    "params": [
@@ -1355,9 +1355,9 @@
    "verb": "import",
    "module": "fmbridge.ops.assets_import",
    "file": "unreal/fmbridge/ops/assets_import.py",
-   "line": 324,
+   "line": 344,
    "summary": "Import files on the box into a content folder, any format, with no dialog: FBX/OBJ/glTF/GLB (Interchange),",
-   "doc": "Import files on the box into a content folder, any format, with no dialog: FBX/OBJ/glTF/GLB (Interchange),\nAlembic (static, geometry cache, skeletal, or a groom), USD, images (settings by role, see\nassets.import_textures), WAV. Returns the new assets' object paths (or with detail, per file).\n\nArgs: files: paths on the box. dest: content folder. replace: re-import over existing (an Interchange re-import).\n      combine: merge an FBX's parts into one static mesh. kind: static | skeletal | auto (what the file says) |\n      geometry_cache (Alembic). skeleton: /Game/... Skeleton for skeletal meshes/animations (else a new one).\n      scale: uniform import scale (the source's units are converted to cm first). nanite: build Nanite (default\n      on for static). collision: none | box | sphere | capsule | convex | convex10 | convex26 (a simple shape\n      generated). lods: import LODs in the file. materials/textures: import the file's materials and textures.\n      animations: import animations. groom: an Alembic of hair curves -> a Groom asset. abc_preset: maya | max |\n      none (Alembic axis conversion). name: asset name for a single file. detail: return\n      {\"imported\": [{\"file\", \"kind\", \"assets\", \"objects\"}], \"changed\"}.\nExample: film-ue op assets.import 'files=[\"/data/props/chair.fbx\"]' dest=/Game/Props/Chair collision=convex",
+   "doc": "Import files on the box into a content folder, any format, with no dialog: FBX/OBJ/glTF/GLB (Interchange),\nAlembic (static, geometry cache, skeletal, or a groom), USD, images (settings by role, see\nassets.import_textures), WAV. Returns the new assets' object paths (or with detail, per file).\n\nArgs: files: paths on the box. dest: content folder. replace: re-import over existing (an Interchange re-import);\n      false keeps what an earlier import of the same file made in dest (changed false).\n      combine: merge an FBX's parts into one static mesh. kind: static | skeletal | auto (what the file says) |\n      geometry_cache (Alembic). skeleton: /Game/... Skeleton for skeletal meshes/animations (else a new one).\n      scale: uniform import scale (the source's units are converted to cm first). nanite: build Nanite (default\n      on for static). collision: none | box | sphere | capsule | convex | convex10 | convex26 (a simple shape\n      generated). lods: import LODs in the file. materials/textures: import the file's materials and textures.\n      animations: import animations. groom: an Alembic of hair curves -> a Groom asset. abc_preset: maya | max |\n      none (Alembic axis conversion). name: asset name for a single file. detail: return\n      {\"imported\": [{\"file\", \"kind\", \"assets\", \"objects\"}], \"changed\"}.\nExample: film-ue op assets.import 'files=[\"/data/props/chair.fbx\"]' dest=/Game/Props/Chair collision=convex",
    "params": [
     {
      "name": "files",
@@ -1481,9 +1481,11 @@
    ],
    "returns": null,
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "import"
+   ]
   },
   {
    "name": "assets.import_textures",
@@ -1548,7 +1550,7 @@
    "file": "unreal/fmbridge/ops/assets.py",
    "line": 89,
    "summary": "Assets under a path, optionally of one class name ('StaticMesh', 'MetaHumanCharacter', ...): [class, path].",
-   "doc": "Assets under a path, optionally of one class name ('StaticMesh', 'MetaHumanCharacter', ...): [class, path].\n(For search by name, size, tags use assets.find; for one asset's numbers assets.describe.)",
+   "doc": "Assets under a path, optionally of one class name ('StaticMesh', 'MetaHumanCharacter', ...): [class, path].\n(For search by name, size, tags use assets.find; for one asset's numbers assets.describe.)\nExample: film-ue assets list --path /Game/Props --cls StaticMesh",
    "params": [
     {
      "name": "path",
@@ -1581,8 +1583,8 @@
    ],
    "returns": "list",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
+   "mutates": false,
+   "idempotent": true,
    "tags": []
   },
   {
@@ -1591,7 +1593,7 @@
    "verb": "mesh",
    "module": "fmbridge.ops.assets_import",
    "file": "unreal/fmbridge/ops/assets_import.py",
-   "line": 356,
+   "line": 377,
    "summary": "Converge a static mesh's build settings: Nanite, generated LODs, simple collision, lightmap UVs, CPU access.",
    "doc": "Converge a static mesh's build settings: Nanite, generated LODs, simple collision, lightmap UVs, CPU access.\n\nArgs: path: /Game/... StaticMesh. nanite: on/off. nanite_keep_percent: 0..100 triangles kept by Nanite.\n      lods: number of LODs to generate (1 = just the base; generated by reduction: LOD i keeps lod_percents[i] %\n      of the triangles, default 100, 50, 25, 12.5...). collision: none (remove simple collision) | box | sphere |\n      capsule | convex (a decomposition into convex_hulls hulls) | ndop10 | ndop18 | ndop26. lightmap_uv:\n      generate lightmap UVs. cpu_access: allow CPU access (needed to read vertices at runtime).\n      lod_group: a LOD group name (LargeProp, SmallProp, HighDetail, ...).\nReturns: {\"path\", \"changed\", \"set\": [...], \"lods\", \"triangles\", \"nanite\", \"collision_prims\"}.\nExample: film-ue op assets.mesh path=/Game/Props/SM_Chair nanite=true collision=convex convex_hulls=8",
    "params": [
@@ -1680,7 +1682,7 @@
    "verb": "move",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 215,
+   "line": 220,
    "summary": "Move assets into a folder, keeping their names (references follow).",
    "doc": "Move assets into a folder, keeping their names (references follow).\n\nArgs: paths: /Game/... assets. folder: destination folder. fix_redirectors: as assets.rename.\nReturns: {\"moved\": {src: dst}, \"changed\"}.\nExample: film-ue op assets.move 'paths=[\"/Game/Imports/SM_Chair\"]' folder=/Game/Props",
    "params": [
@@ -1718,9 +1720,9 @@
    "verb": "props",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 143,
-   "summary": "An asset's editor properties (all readable ones, or the named).",
-   "doc": "An asset's editor properties (all readable ones, or the named).",
+   "line": 147,
+   "summary": "An asset's editor properties (all readable ones, or the named), as text.",
+   "doc": "An asset's editor properties (all readable ones, or the named), as text.\nExample: film-ue assets props --path /Game/T/T_Wood_D --names srgb,compression_settings",
    "params": [
     {
      "name": "path",
@@ -1739,8 +1741,8 @@
    ],
    "returns": "dict",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
+   "mutates": false,
+   "idempotent": true,
    "tags": []
   },
   {
@@ -1749,7 +1751,7 @@
    "verb": "refs",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 368,
+   "line": 373,
    "summary": "Who uses an asset (referencers) and what it uses (dependencies), from the asset registry; with depth > 1 the",
    "doc": "Who uses an asset (referencers) and what it uses (dependencies), from the asset registry; with depth > 1 the\ntree is followed that many levels.\n\nArgs: path: /Game/... asset. depth: levels to follow (1 = direct only, max 5).\nReturns: {\"path\", \"referencers\": [paths], \"dependencies\": [paths], \"level_actors\": [labels using it in the open\n         level], \"tree\": {path: {\"referencers\", \"dependencies\"}} when depth > 1}.\nExample: film-ue op assets.refs path=/Game/Mats/MI_Oak",
    "params": [
@@ -1780,7 +1782,7 @@
    "verb": "reimport",
    "module": "fmbridge.ops.assets_import",
    "file": "unreal/fmbridge/ops/assets_import.py",
-   "line": 451,
+   "line": 472,
    "summary": "Re-import an asset from its source file (or from a new file), keeping its settings, with no dialog.",
    "doc": "Re-import an asset from its source file (or from a new file), keeping its settings, with no dialog.\n\nArgs: path: /Game/... asset. file: a new source file on the box (else the one it was imported from).\nReturns: {\"path\", \"source\", \"changed\"}.\nExample: film-ue op assets.reimport path=/Game/Props/SM_Chair file=/data/props/chair_v2.fbx",
    "params": [
@@ -1813,7 +1815,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 235,
+   "line": 240,
    "summary": "Delete assets safely: refused (code conflict, naming who) while another asset or the open level uses them,",
    "doc": "Delete assets safely: refused (code conflict, naming who) while another asset or the open level uses them,\nunless force. Removing what is not there is fine.\n\nArgs: paths: /Game/... assets. folder: every asset under a content folder (and the folder). force: delete even\n      if referenced (referencers then point at nothing: they render the default material/mesh). dry_run: only\n      report what would go (removed) and what is in use (kept).\nReturns: {\"removed\": [paths], \"kept\": {path: [referencers]}, \"changed\"}.\nExample: film-ue op assets.remove 'paths=[\"/Game/Old/SM_Box\"]'",
    "params": [
@@ -1858,7 +1860,7 @@
    "verb": "rename",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 189,
+   "line": 194,
    "summary": "Rename or move an asset (references follow), without a dialog; re-running after it moved changes nothing.",
    "doc": "Rename or move an asset (references follow), without a dialog; re-running after it moved changes nothing.\n\nArgs: src: current /Game/... path. dst: new path (another folder moves it). fix_redirectors: repoint every\n      referencer at the new path and delete the redirector left at src.\nReturns: {\"src\", \"dst\", \"changed\", \"redirectors_fixed\": int}.\nExample: film-ue op assets.rename src=/Game/Imports/chair dst=/Game/Props/Chairs/SM_Chair",
    "params": [
@@ -1896,7 +1898,7 @@
    "verb": "save",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 127,
+   "line": 131,
    "summary": "Save assets by path, or every dirty asset under a folder.",
    "doc": "Save assets by path, or every dirty asset under a folder.\n\nArgs: paths: /Game/... assets. folder: a content folder (recursive).\nReturns: {\"saved\": [paths], \"failed\": [paths], \"changed\"}.\nExample: film-ue op assets.save folder=/Game/Props",
    "params": [
@@ -1927,14 +1929,14 @@
    "verb": "save_all",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 121,
+   "line": 124,
    "summary": "Save every dirty package and map.",
-   "doc": "Save every dirty package and map.",
+   "doc": "Save every dirty package and map.\nExample: film-ue assets save_all",
    "params": [],
    "returns": "bool",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
+   "mutates": true,
+   "idempotent": true,
    "tags": []
   },
   {
@@ -1943,7 +1945,7 @@
    "verb": "set_props",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 157,
+   "line": 162,
    "summary": "Set editor properties on an asset (enums by name, e.g. {\"lod_group\": \"TEXTUREGROUP_WORLD\"}).",
    "doc": "Set editor properties on an asset (enums by name, e.g. {\"lod_group\": \"TEXTUREGROUP_WORLD\"}).\n\nArgs: path: /Game/... asset. props: {property: value}; an enum value is \"ENUM_NAME\" or \"EnumClass.ENUM_NAME\".\n      save: save the asset.\nReturns: {\"path\", \"changed\", \"set\": [names]}.\nExample: film-ue op assets.set_props path=/Game/T/T_Wood_D 'props={\"max_texture_size\": 2048}'",
    "params": [
@@ -1981,7 +1983,7 @@
    "verb": "tag",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 310,
+   "line": 315,
    "summary": "Metadata tags on an asset (searchable by assets.find tags=...): set or remove key/values.",
    "doc": "Metadata tags on an asset (searchable by assets.find tags=...): set or remove key/values.\n\nArgs: path: /Game/... asset. set: {key: value} strings. remove: keys to drop.\nReturns: {\"path\", \"tags\": {key: value}, \"changed\"}.\nExample: film-ue op assets.tag path=/Game/Props/SM_Chair 'set={\"category\": \"furniture\", \"style\": \"mid-century\"}'",
    "params": [
@@ -2103,7 +2105,7 @@
    "file": "unreal/fmbridge/ops/assets_catalog.py",
    "line": 278,
    "summary": "Pictures of an asset with no viewport: a temporary actor of it is placed away from the set, captured alone",
-   "doc": "Pictures of an asset with no viewport: a temporary actor of it is placed away from the set, captured alone\n(WP10's view.turntable with isolate), and removed. One view (a 3/4 shot) or several around it plus a sheet.\nLighting is the open level's: in an empty level the asset is dark (add a light, or use a lit scratch level).\n\nArgs: path: /Game/... StaticMesh, SkeletalMesh or Blueprint. out_dir: where the PNGs go on the box. views: how\n      many. size_px: square size. elevation_deg/yaw_deg: the camera's angle above and around it.\nReturns: {\"path\", \"views\": [{\"yaw\", \"path\"}], \"sheet\", \"size_cm\"}. Multi-tick.\nExample: film-ue op assets.thumbnail path=/Game/Props/SM_Chair out_dir=/tmp/thumbs/chair views=4",
+   "doc": "Pictures of an asset with no viewport: a temporary actor of it is placed away from the set, captured alone\n(WP10's view.turntable with isolate), and removed. One view (a 3/4 shot) or several around it plus a sheet.\nThe open level's lights reach it only if it is placed among them (loc); `light` adds a temporary point light\nabove and in front of it, removed afterwards.\n\nArgs: path: /Game/... StaticMesh, SkeletalMesh or Blueprint. out_dir: where the PNGs go on the box. views: how\n      many. size_px: square size. elevation_deg/yaw_deg: the camera's angle above and around it. loc: where the\n      temporary actor stands [x, y, z] cm (default far below the set). light: add a temporary key light.\nReturns: {\"path\", \"views\": [{\"yaw\", \"path\"}], \"sheet\", \"size_cm\"}. Multi-tick.\nExample: film-ue op assets.thumbnail path=/Game/Props/SM_Chair out_dir=/tmp/thumbs/chair views=4",
    "params": [
     {
      "name": "path",
@@ -2146,6 +2148,24 @@
      "type": "float",
      "required": false,
      "default": 35.0
+    },
+    {
+     "name": "loc",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": [
+      0.0,
+      0.0,
+      -50000.0
+     ]
+    },
+    {
+     "name": "light",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
     }
    ],
    "returns": null,
@@ -9174,7 +9194,7 @@
    "verb": "assign",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 663,
+   "line": 665,
    "summary": "Set a material on a mesh ASSET's slot (every actor showing the mesh changes). For one actor only use",
    "doc": "Set a material on a mesh ASSET's slot (every actor showing the mesh changes). For one actor only use\nlevel.material.\n\nArgs: mesh: /Game/... StaticMesh or SkeletalMesh. material: /Game/... material or instance. slot: index or slot\n      name.\nReturns: {\"mesh\", \"slot\", \"slot_name\", \"material\", \"changed\"}.\nExample: film-ue op mat.assign mesh=/Game/Props/SM_Chair material=/Game/Mats/MI_Oak slot=0",
    "params": [
@@ -9214,7 +9234,7 @@
    "verb": "check",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 526,
+   "line": 528,
    "summary": "Does a material render as meant: it compiles (else the engine draws its checker), and every texture it uses",
    "doc": "Does a material render as meant: it compiles (else the engine draws its checker), and every texture it uses\nhas the compression its sampler needs (a normal map TC_NORMALMAP, a data map TC_MASKS and linear, a colour map\nsRGB and neither).\n\nArgs: path: /Game/... of a Material or instance.\nReturns: {\"pass\", \"issues\": [{\"code\": material.not_compiling | material.texture_kind, \"severity\", \"message\",\n         \"fix\", \"subject\", \"value\", \"expected\"}], \"metrics\": {\"num_samplers\", ..., \"textures_checked\"}}.\nExample: film-ue op mat.check path=/Game/Mats/MI_Rock",
    "params": [
@@ -9243,7 +9263,7 @@
    "file": "unreal/fmbridge/ops/mat.py",
    "line": 492,
    "summary": "A material or instance as JSON: class, parent chain, library master (if any), blend/shading, every parameter",
-   "doc": "A material or instance as JSON: class, parent chain, library master (if any), blend/shading, every parameter\nwith its current value, compile statistics, and which actors in the open level draw it.\n\nArgs: path: /Game/... of a Material or MaterialInstance.\nReturns: {\"path\", \"class\", \"chain\": [paths], \"master\", \"blend\", \"shading\", \"two_sided\", \"params\": {name:\n         {\"kind\", \"value\"}}, \"stats\", \"users\": [labels]}.\nExample: film-ue op mat.describe path=/Game/Mats/MI_RedPaint",
+   "doc": "A material or instance as JSON: class, parent chain, library master (if any), blend/shading, every parameter\nwith its current value, compile statistics, and which actors in the open level draw it.\n\nArgs: path: /Game/... of a Material or MaterialInstance.\nReturns: {\"path\", \"class\", \"chain\": [paths], \"master\", \"blend\", \"shading\", \"two_sided\", \"params\": {name:\n         {\"kind\", \"value\"}}, \"stats\", \"users\": [labels], \"fingerprint\": the spec hash it was built from (mat.graph,\n         mat.master) or null}.\nExample: film-ue op mat.describe path=/Game/Mats/MI_RedPaint",
    "params": [
     {
      "name": "path",
@@ -9448,7 +9468,7 @@
    "verb": "pbr",
    "module": "fmbridge.ops.mat",
    "file": "unreal/fmbridge/ops/mat.py",
-   "line": 579,
+   "line": 581,
    "summary": "A PBR material instance from a texture set: imports the files (or takes textures already in the project),",
    "doc": "A PBR material instance from a texture set: imports the files (or takes textures already in the project),\nsets each texture's sRGB/compression by its role, picks the master (opaque, opaque_orm for a packed ORM map,\nmasked/foliage for cut-outs) and wires every map in.\n\nArgs: path: /Game/... of the instance. maps: {role: texture path or file}: roles base_color, normal, orm,\n      roughness, metallic, ao, opacity, translucency, emissive, gloss (inverted into roughness is not\n      supported: convert it first). files: files on the box (a texture set; roles from their names, e.g.\n      T_Rock_BaseColor.png, T_Rock_Normal.png, T_Rock_ORM.png). folder: a folder on the box holding one set.\n      texture_dest: where textures are imported (default: the instance's folder + /Textures). cutout: use the\n      masked master (opacity map, or base colour alpha). foliage: the foliage master. params: other master\n      parameters (Tint, Tiling, NormalStrength, ...).\nReturns: {\"path\", \"master\", \"maps\": {role: texture path}, \"changed\", \"imported\": [paths], \"ignored\": [files]}.\nExample: film-ue op mat.pbr path=/Game/Mats/MI_Rock folder=/data/megascans/rock_4k",
    "params": [
@@ -13681,6 +13701,95 @@
    "tags": []
   },
   {
+   "name": "render.compare",
+   "area": "render",
+   "verb": "compare",
+   "module": "fmbridge.ops.render",
+   "file": "unreal/fmbridge/ops/render.py",
+   "line": 928,
+   "summary": "Compare two renders frame by frame (two outputs of the same frames: a pre-rolled chunk against the full-shot",
+   "doc": "Compare two renders frame by frame (two outputs of the same frames: a pre-rolled chunk against the full-shot\nrender, Linux against Windows, today against yesterday, a render against reference frames): per-frame SSIM and\nPSNR, the worst frames, a pass/fail check at min_ssim, and optionally a sheet of the worst frames side by side.\n\nArgs: a, b: folders of frames named <frame>.<ext> (the beauty pass: <out_dir> or <out_dir>/FinalImage). frames:\n[start, end) (default every frame in both). ext: png|jpg|exr. min_ssim: the pass threshold. worst: how many worst\nframes to list (and sheet). every: compare every n-th frame. sheet: a PNG path for the worst frames side by side\n(PNG frames). method: auto (ffmpeg ssim/psnr when the box has ffmpeg, else qa.compare at 480 px), ffmpeg or qa.\nReturns: {\"pass\", \"metric\" (min SSIM), \"threshold\", \"why\", \"mean_ssim\", \"min_psnr\", \"mean_psnr\", \"worst\":\n[[frame, ssim, psnr]], \"below\", \"frames\", \"per_frame\": {frame: [ssim, psnr]}, \"method\", \"sheet\"}.\nExample: film-ue op render.compare a=/srv/r/full b=/srv/r/chunk 'frames=[1136,1160]' sheet=/srv/r/ab.png",
+   "params": [
+    {
+     "name": "a",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "b",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "ext",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "png"
+    },
+    {
+     "name": "zero_pad",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 4
+    },
+    {
+     "name": "min_ssim",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.98
+    },
+    {
+     "name": "worst",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 5
+    },
+    {
+     "name": "every",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "sheet",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "method",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "auto"
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "slow"
+   ]
+  },
+  {
    "name": "render.concat",
    "area": "render",
    "verb": "concat",
@@ -13969,7 +14078,7 @@
    "verb": "mrq",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 922,
+   "line": 1012,
    "summary": "Start one Movie Render Queue job and return at once (poll render.progress); render.job does a whole spec.",
    "doc": "Start one Movie Render Queue job and return at once (poll render.progress); render.job does a whole spec.\nFrames go to `out_dir` as {frame}.png|exr|jpg, the audio as a wav; `start`/`end` (end exclusive) render part of\nthe sequence. `preroll_from`: the shot's first frame when `start` is mid-shot: the frames between are evaluated\nwithout rendering so cloth arrives as in a full-shot render (needs the camera cut to begin there). `executor`:\n\"pie\" (in this editor) or \"process\" (a separate -game process; offscreen where the editor has no desktop). The\nprocess loads the level from disk, and with unsaved changes the executor asks to save first: unattended, that\nquestion goes unanswered and the job never starts, so unsaved packages are an error unless `save_dirty`.\n\nExample: film-ue op render.mrq sequence=/Game/Reel/SEQ_Reel level=/Game/Studio/Studio out_dir=/srv/r/s16 start=1196 end=1220",
    "params": [
@@ -14154,7 +14263,7 @@
    "verb": "progress",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 962,
+   "line": 1052,
    "summary": "Frames written so far in out_dir (and whether Movie Render Queue is still running).",
    "doc": "Frames written so far in out_dir (and whether Movie Render Queue is still running).\n\nExample: film-ue op render.progress out_dir=/srv/r/s16 expected=24",
    "params": [
@@ -14506,7 +14615,7 @@
    "verb": "anim",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 622,
+   "line": 494,
    "summary": "Animation sections on an actor's skeletal mesh component (a MetaHuman's \"Body\" or \"Face\"), each",
    "doc": "Animation sections on an actor's skeletal mesh component (a MetaHuman's \"Body\" or \"Face\"), each\n{\"anim\", \"start\", \"end\", \"offset\", \"blend_in\", \"blend_out\", \"rate\", \"weight\", \"loop\", \"row\"}: `start`/`end`\nframes (end default: start + the animation's length / rate; past that it loops, `loop` False holds the last\npose), `offset` seconds into the animation where it starts, `blend_in`/`blend_out` frames of ease (weights\ncross-fade where sections overlap: idle -> line -> idle), `weight` (1), `row` (default: the first free one; overlaps\ngo on separate rows). `replace` clears the track's sections first, else these are added. Returns [[anim, start,\nend, row]].\nExample: film-ue op seq.anim path=/Game/S/SEQ_A label=Host component=Body 'sections=[{\"anim\":\"/Game/A/Idle\",\"start\":0,\"blend_in\":6}]'",
    "params": [
@@ -14609,7 +14718,7 @@
    "verb": "audio",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 694,
+   "line": 536,
    "summary": "Sounds in a sequence on a named audio track (\"VO\", \"Score\", \"SFX\"): clips [{\"sound\", \"start\", \"end\", \"offset\",",
    "doc": "Sounds in a sequence on a named audio track (\"VO\", \"Score\", \"SFX\"): clips [{\"sound\", \"start\", \"end\", \"offset\",\n\"volume\"}] or [sound, start]: a SoundWave asset (assets.import a WAV first) from frame `start`, `offset` seconds\ninto it, to `end` (default: its length), at `volume` (1). For timing in the editor; the mix is made in post.\n`replace` empties the named track first, else adds to it. Returns [[sound, start, end, row]].\nExample: film-ue op seq.audio path=/Game/S/SEQ_A track=VO 'clips=[[\"/Game/Audio/L1\",12]]'",
    "params": [
@@ -14711,7 +14820,7 @@
    "verb": "camera_cuts",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 229,
+   "line": 247,
    "summary": "The edit: cuts are [camera label, first frame] in order; each runs to the next (the last to the end).",
    "doc": "The edit: cuts are [camera label, first frame] in order; each runs to the next (the last to the end).\nExample: film-ue op seq.camera_cuts path=/Game/S/SEQ_A 'cuts=[[\"CamA\",0],[\"CamB\",72]]'",
    "params": [
@@ -14834,7 +14943,7 @@
    "verb": "close",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 78,
+   "line": 111,
    "summary": "Close the open sequence.",
    "doc": "Close the open sequence.\nExample: film-ue op seq.close",
    "params": [],
@@ -14975,7 +15084,7 @@
    "verb": "cuts",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 738,
+   "line": 567,
    "summary": "The edit as it stands: [camera label, first frame, end frame] for each camera cut, in order.",
    "doc": "The edit as it stands: [camera label, first frame, end frame] for each camera cut, in order.\nExample: film-ue op seq.cuts path=/Game/S/SEQ_A",
    "params": [
@@ -15146,7 +15255,7 @@
    "verb": "key_collection",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 546,
+   "line": 469,
    "summary": "Key a scalar parameter of a material parameter collection (look.collection) on the sequence's track for that",
    "doc": "Key a scalar parameter of a material parameter collection (look.collection) on the sequence's track for that\ncollection: keys [[frame, value(, interp)], ...]. Sequencer writes the world's instance of the collection, so the\nvalue reaches every material reading it with no mesh binding and no MID in between. Replaces only that\nparameter's keys.\nExample: film-ue op seq.key_collection path=/Game/S/SEQ_A collection=/Game/MPC_FM param=WipeOn 'keys=[[0,0],[24,1]]'",
    "params": [
@@ -15201,7 +15310,7 @@
    "verb": "key_color",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 430,
+   "line": 395,
    "summary": "Key a colour property: keys [[frame, [r, g, b(, a)](, interp)], ...]. An FColor property (a light's",
    "doc": "Key a colour property: keys [[frame, [r, g, b(, a)](, interp)], ...]. An FColor property (a light's\n\"LightColor\") takes sRGB 0-1, as look.light does; an FLinearColor one (fog \"FogInscatteringLuminance\", a post\n\"Settings.ColorGain\") takes linear values. `srgb` overrides that guess. Component and replacement as key_float.\nExample: film-ue op seq.key_color path=/Game/S/SEQ_A label=Key prop=LightColor 'keys=[[0,[1,0.8,0.6]]]'",
    "params": [
@@ -15270,7 +15379,7 @@
    "verb": "key_float",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 403,
+   "line": 371,
    "summary": "Key a float property of an actor or component: keys [[frame, value(, interp)], ...], interp \"auto\" (smooth,",
    "doc": "Key a float property of an actor or component: keys [[frame, value(, interp)], ...], interp \"auto\" (smooth,\neased at held ends), \"linear\" or \"constant\" (stepped). `prop` is the C++ name or a path into structs, either\nspelling: \"Intensity\", \"Temperature\", \"FocusSettings.ManualFocusDistance\" (CameraComponent), \"CurrentAperture\",\n\"Settings.AutoExposureBias\" (a PostProcessVolume actor: set its override flag once with look.post), \"FogDensity\".\n`component` by name or class (\"CameraComponent\", \"LightComponent0\"); \"\" = the actor if it has the property, else\nits root component (a light's). `double` for a double property (a UE5 large-world value). Replaces only this\nproperty's track on that binding; the keys hold before the first and after the last.\nExample: film-ue op seq.key_float path=/Game/S/SEQ_A label=Key prop=Intensity 'keys=[[0,5],[24,10]]'",
    "params": [
@@ -15339,7 +15448,7 @@
    "verb": "key_material",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 491,
+   "line": 445,
    "summary": "Key a material parameter on a mesh component's material slot (the material there must be an instance or",
    "doc": "Key a material parameter on a mesh component's material slot (the material there must be an instance or\nmaterial with that parameter): keys [[frame, value(, interp)], ...], a float for a scalar parameter or\n[r, g, b(, a)] (linear) for a vector one. `slot` is its index or name (\"M_Sheer\"); `component` \"\" = the actor's\nfirst mesh component. Replaces only that parameter's keys in the slot's track; other parameters keep theirs.\nExample: film-ue op seq.key_material path=/Game/S/SEQ_A label=Sign param=Glow 'keys=[[0,0],[24,1]]'",
    "params": [
@@ -15408,7 +15517,7 @@
    "verb": "key_transform",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 203,
+   "line": 224,
    "summary": "Animate an actor in a sequence: keys are [frame, [x, y, z], {\"pitch\", \"yaw\", \"roll\"} | [x, y, z] to look at]",
    "doc": "Animate an actor in a sequence: keys are [frame, [x, y, z], {\"pitch\", \"yaw\", \"roll\"} | [x, y, z] to look at]\nwith an optional 4th element, the interpolation leaving that key: \"auto\" (smooth, eases at held ends), \"linear\"\nor \"constant\" (hold until the next key, a jump cut). `interp` is the default. Replaces the actor's transform\ntrack (and only that), keeping the actor's scale; yaw is keyed as given, so unwrap it yourself across +-180.\nExample: film-ue op seq.key_transform path=/Game/S/SEQ_A label=CamA 'keys=[[0,[0,-300,160],{\"yaw\":90}],[48,[100,-300,160],[0,0,150]]]'",
    "params": [
@@ -15456,7 +15565,7 @@
    "verb": "key_visible",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 456,
+   "line": 420,
    "summary": "Show and hide an actor (or one of its components) over a sequence: keys [[frame, visible], ...], stepped; the",
    "doc": "Show and hide an actor (or one of its components) over a sequence: keys [[frame, visible], ...], stepped; the\nfirst key holds before it. Overrides the level's hidden state while the sequence is open or playing (a\npresenter hidden in the level can appear in the reel). `attached` keys the actors attached to it too (her\nearrings and watch). Replaces only the visibility track.\nExample: film-ue op seq.key_visible path=/Game/S/SEQ_A label=Prop 'keys=[[0,true],[100,false]]'",
    "params": [
@@ -15551,7 +15660,7 @@
    "verb": "new",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 378,
+   "line": 353,
    "summary": "An empty level sequence for building into (no actor, no camera): playback [start, end) at `fps`. If it exists it",
    "doc": "An empty level sequence for building into (no actor, no camera): playback [start, end) at `fps`. If it exists it\nis kept as it is (only its range set), so several scripts can each add their tracks; `replace` starts it afresh.\nExample: film-ue op seq.new path=/Game/S/SEQ_A start=0 end=240 fps=24",
    "params": [
@@ -15688,7 +15797,7 @@
    "verb": "rebind",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 763,
+   "line": 595,
    "summary": "Point a sequence's actor bindings at the level's actors of the same label again, after the level was rebuilt",
    "doc": "Point a sequence's actor bindings at the level's actors of the same label again, after the level was rebuilt\nand the old actors are gone (their tracks are kept; a binding removed and remade would lose them). `labels` None\n= every actor binding whose name is an actor in the level. Returns {label: \"ok\" | \"missing\"}.\nExample: film-ue op seq.rebind path=/Game/S/SEQ_A 'labels=[\"Host\"]'",
    "params": [
@@ -15905,7 +16014,7 @@
    "verb": "sample",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 145,
+   "line": 173,
    "summary": "Play a sequence frame by frame across editor ticks (so animation and rigs settle) and record bones' world",
    "doc": "Play a sequence frame by frame across editor ticks (so animation and rigs settle) and record bones' world\ntransforms, each [x, y, z, axis_x(3), axis_y(3), axis_z(3)], `camera`'s location, and `target`'s (see\nseq.aim_point: a point, an actor, \"Label:Component:bone\"). A multi-tick job.\nExample: film-ue op seq.sample path=/Game/S/SEQ_A actor_label=Host component=Face 'bones=[\"FACIAL_L_Eye\"]' 'frames=[0,24]'",
    "params": [
@@ -15995,7 +16104,7 @@
    "verb": "scrub",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 67,
+   "line": 100,
    "summary": "Open a sequence in Sequencer, locked to its camera, at a frame (for checking a pose in the viewport).",
    "doc": "Open a sequence in Sequencer, locked to its camera, at a frame (for checking a pose in the viewport).\nExample: film-ue op seq.scrub path=/Game/S/SEQ_A frame=48",
    "params": [
@@ -16029,7 +16138,7 @@
    "verb": "set_anim",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 98,
+   "line": 125,
    "summary": "Swap the animation on a component's track in a sequence: every section of it, or only those playing `only`.",
    "doc": "Swap the animation on a component's track in a sequence: every section of it, or only those playing `only`.\n`label` picks the actor when several have a component of that name (both presenters have \"Body\").\nExample: film-ue op seq.set_anim path=/Game/S/SEQ_A component=Body anim=/Game/A/Walk label=Host",
    "params": [
@@ -16084,7 +16193,7 @@
    "verb": "shot",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 22,
+   "line": 72,
    "summary": "A shot: `anims` maps component names to animations ({\"Body\": idle, \"Face\": talk}); `audio` a SoundWave; the",
    "doc": "A shot: `anims` maps component names to animations ({\"Body\": idle, \"Face\": talk}); `audio` a SoundWave; the\ncamera cut on `camera`. Length: `seconds`, else the audio's, else the longest animation's.\nExample: film-ue op seq.shot path=/Game/S/SEQ_A actor_label=Host 'anims={\"Body\": \"/Game/A/Idle\"}' camera=CamA seconds=5",
    "params": [
@@ -16193,7 +16302,7 @@
    "verb": "still",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 176,
+   "line": 204,
    "summary": "A still of a sequence at a frame through `camera`, or, with camera \"\", through the camera the edit (the camera",
    "doc": "A still of a sequence at a frame through `camera`, or, with camera \"\", through the camera the edit (the camera\ncut track) shows at that frame: scrub there, let it settle `settle` ticks (temporal anti-aliasing, Lumen),\ncapture. A multi-tick job.\nExample: film-ue op seq.still path=/Game/S/SEQ_A frame=48 camera=CamA out=/tmp/f48.png",
    "params": [
@@ -16262,7 +16371,7 @@
    "verb": "stills",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 250,
+   "line": 263,
    "summary": "Stills of a sequence at many frames ({out_dir}/{frame:04d}.png): a contact sheet's worth in one call. Through",
    "doc": "Stills of a sequence at many frames ({out_dir}/{frame:04d}.png): a contact sheet's worth in one call. Through\none `camera`, or with camera \"\" each frame through its own shot's camera (the camera cut track): a previs of the\nwhole cut. A multi-tick job; returns [[frame, camera, path]].\nExample: film-ue op seq.stills path=/Game/S/SEQ_A 'frames=[0,48,96]' out_dir=/tmp/sheet",
    "params": [
@@ -16371,7 +16480,7 @@
    "verb": "tracks",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 796,
+   "line": 622,
    "summary": "What a sequence holds: for each binding (an actor, or actor.component) its tracks as [class, property or",
    "doc": "What a sequence holds: for each binding (an actor, or actor.component) its tracks as [class, property or\nname, sections, keys]; master tracks under \"\". For checking what a build script made.\nExample: film-ue op seq.tracks path=/Game/S/SEQ_A",
    "params": [
@@ -17543,7 +17652,7 @@
   "render": "Rendering with Movie Render Queue, driven by a RENDER SPEC (fmbridge/render_spec.py; docs/unreal/render.md): presets (preview, draft, final, final_exr, 4k, pathtrace), image sequences (PNG, JPG, 16-bit EXR) plus the WAV, AOVs (depth, motion",
   "scene": "Scenes: a whole set of actors as one declarative spec (kind: scene; the format is in ops/_scene.py and tools/filmtools/unreal/schemas/scene.schema.json).",
   "selftest": "Selftests: list the areas that have one, and run one in a scratch level, writing its JSON report and stills on the box (fmbridge/selftest; `film-ue selftest [area|all]` runs them all and merges one report).",
-  "seq": "Level sequences: a shot from an actor, animations per component, audio and a camera; open and scrub.",
+  "seq": "The older single-purpose sequence ops (seq.shot, seq.key_*, seq.anim, seq.audio, seq.camera_cuts, seq.new, seq.cuts, seq.set_anim, seq.rebind, seq.tracks) and the viewport ones (seq.scrub, seq.close, seq.sample, seq.still, seq.stills).",
   "shot": "Shooting a scene from a shot list: a declarative spec (kind \"shot\", camkit.shotlist) becomes cameras, their keys and the sequence's camera cuts; read back as the edit with each shot's camera and size; checked shot by shot and cut by cut; an",
   "speech": "Speech to face: a voice file on the workstation becomes a MetaHuman facial animation (lip-sync, blinks, brows, head movement), through MetaHuman Animator's audio solver with a chosen mood.",
   "view": "Claude's eyes in the editor: pictures with no viewport.",

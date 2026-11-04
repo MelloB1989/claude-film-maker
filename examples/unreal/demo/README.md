@@ -21,21 +21,23 @@ All commands run from `tools/` (`cd tools && uv run film-ue ...`; below, `film-u
 names and paths; every stage file includes it, so each stage applies by itself; `demo.yaml` includes stages 1-7 in
 order. Every apply prints its steps and ends with `converged` or what is left. `--set name=value` overrides a var.
 
-## 0. The box
+## 0. The box: one resumable command
 
 ```bash
-film-ue --box demo health                         # {"ok": true, "engine": "5.8.4-...", "platform": "linux", ...}
-film-ue --box demo install                        # the bridge from this checkout
-film-ue selftest --list                           # areas, and which will skip here (gpu, epic_login)
-film-ue selftest dx                               # ~30 s: "dx: done OK  2x passed, 0 failed"
-film-ue epic-login                                # only if `selftest --list` says epic_login=no (prints a code)
+film-ue --box demo first-run --epic --voice path/to/demo_line.wav
 ```
-Check: `selftest dx` is OK. If `epic_login=no`, stage 1 cannot run: sign in first (docs/linux/engine.md §12c).
+It checks and fixes, in order: the settings, reaching the box, the editor service, the bridge (installed from this
+checkout), the shader compile, `film-ue doctor`, the Epic sign-in (`--epic`: it prints a code for
+epicgames.com/activate), `film-ue selftest platform dx`, and puts the voice line (any 3-5 s spoken WAV) at
+`/srv/film/demo/demo_line.wav`. On a failure it stops with the exact next command; run it again to continue
+(`film-ue --box demo first-run --status` shows where it is; docs/unreal/platform.md). Expected at the end: every step
+done and "next, film-ue apply examples/unreal/demo/10-character.yaml".
 
-Put the voice line on the box (any 3-5 s spoken WAV, 48 kHz mono or stereo):
+Then, optionally, every area's acceptance test before the demo (~15 min; `film-ue selftest plan` shows the order):
 ```bash
-film-ue push path/to/demo_line.wav /srv/film/demo/demo_line.wav
+film-ue --box demo selftest                       # stops after a failed gate; report in selftest-reports/<time>/
 ```
+Check: first-run ends with every step done (the MetaHuman stage needs the Epic sign-in step).
 
 ## 1. The MetaHuman (WP3)
 

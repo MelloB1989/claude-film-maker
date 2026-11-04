@@ -117,12 +117,12 @@ def test_unzip_refuses_path_escape(ue, tmp_path):
 def test_import_megascans_through_interchange(ue, tmp_path):
     ue.add_asset("/Interchange/Pipelines/DefaultGLTFPipeline", "InterchangeGLTFPipeline")
 
-    class Mgr(ue.Object):
+    class Mgr(ue.InterchangeManager):
         def import_asset(self, content_path, source_data, import_asset_parameters):
             self._props["got"] = (content_path, import_asset_parameters)
             return [ue.add_asset(content_path + "/SM_Rock", "StaticMesh")]
     mgr = Mgr("mgr")
-    ue.stub("InterchangeManager.get_interchange_manager_scripted", lambda: mgr)
+    ue._singletons[ue.InterchangeManager] = mgr  # what get_interchange_manager_scripted returns
     r = run_op("fab.import", path=_megascans_zip(tmp_path))
     assert r["format"] == "megascans_gltf" and r["imported"] == ["/Game/Fab/Megascans/3D/Mossy_Rock_xyz/Medium/SM_Rock"]
     dest, params = mgr._props["got"]
@@ -159,14 +159,23 @@ def test_add_downloads_then_imports(ue, fab, tmp_path, monkeypatch):  # noqa: AR
         def __exit__(self, *a):
             self.f.close()
     monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout=0: Resp())
+
+    class InlineThread:  # the download runs at start(): no race with the fake's instant ticks
+        def __init__(self, target, daemon=None):
+            self.target = target
+
+        def start(self):
+            self.target()
+    import threading
+    monkeypatch.setattr(threading, "Thread", InlineThread)
     monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path / "tmp"))
     ue.add_asset("/Interchange/Pipelines/DefaultGLTFPipeline", "InterchangeGLTFPipeline")
     made = ue.add_asset("/Game/X/SM_A", "StaticMesh")
 
-    class Mgr(ue.Object):
+    class Mgr(ue.InterchangeManager):
         def import_asset(self, content_path, source_data, import_asset_parameters):
             return [made]
-    ue.stub("InterchangeManager.get_interchange_manager_scripted", lambda: Mgr("m"))
+    ue._singletons[ue.InterchangeManager] = Mgr("m")
     r = run_op("fab.add", url="https://download.example/rock.zip?sig=abc", metadata={"AssetId": "a1"})
     assert r["route"] == "python" and r["download"].endswith("rock.zip") and r["format"] == "megascans_gltf"
 

@@ -5,13 +5,9 @@
                 [--user ubuntu] [--local-port N] [--transport ssm|ssh --ssh ubuntu@HOST --ssh-key PATH]
                 [--bridge tunnel|ssm]   ssm: each bridge call is one SSM command (curl on the box), no tunnel
     film-ue up | down | status | password       the workstation (password: Windows only, to the clipboard)
-    film-ue provision --engine-s3 S3 --version 5.8.4 --project-src s3://...|win:UEProjects/NAME --project NAME
-                      [--level /Game/...]
-                                                a fresh Linux box: volume, driver, engine, project, editor unit
-    film-ue editor start|stop|restart|status|enable|log [N]|mode default|offscreen|xvfb   the editor's unit (Linux)
-    film-ue epic-login [--fab]                  Linux: sign the editor in to Epic if it is not (prints a code for
-                                                epicgames.com/activate); kept in S3 (set --epic-s3) for the next box
-    film-ue desktop on|off                      Linux: a temporary desktop (VNC through SSM) for a one-off sign-in
+    film-ue box | profile | sync | provision | epic-login | desktop | sh ...   the platform (cli_platform.py, WP1)
+    film-ue editor status|start|stop|restart|log|crashes|mode|enable    the editor's unit (WP1); other editor
+                                                verbs are its ops (film-ue describe editor)
     film-ue install                             copy unreal/fmbridge + init_unreal.py into the project, start the bridge
     film-ue health                              bridge up? engine, project, queue
     film-ue ops [prefix]                        the bridge's operations with their signatures
@@ -28,9 +24,9 @@ For Claude (docs/unreal/GUIDE.md, docs/unreal/dx.md):
     film-ue <area> <verb> --arg value [--json] [--dry-run] [--async]   any op as a command (filmtools.unreal.opcli)
     film-ue describe [area | area.verb] [--json] [--live]              what the ops are and take (offline)
     film-ue job ID [--wait] [--json]                                   an --async op's state or result
-    film-ue plan SPEC | apply SPEC [--prune] [--json]                  a declarative spec: the diff, then converge
-    film-ue selftest [area|all] [--out DIR] [--keep]                   each area's acceptance test on the box, one report
-    film-ue dx gen | check | lint                                      regenerate / verify the schema, SDK and docs
+    film-ue plan SPEC [--state F] | apply SPEC [--dry-run] [--json]    a declarative spec: the steps, then converge
+    film-ue selftest [area...|all|plan|list] [--keep] [--baseline M]   each area's acceptance test on the box, one report
+    film-ue dx gen|check|lint|docs|sdk|coverage                        the generated layers and the drift checks
 """
 from __future__ import annotations
 
@@ -227,8 +223,10 @@ SETTINGS = ("instance", "region", "os", "project_dir", "key", "bucket", "user", 
             "ssh", "ssh_key", "bridge", "epic_s3")
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+def build_parser():
+    """film-ue's own commands (and every cli_<area>.py hook's): (parser, subparsers, hooks). The generated op
+    commands are not in it (opcli builds those)."""
+    ap = argparse.ArgumentParser(prog="film-ue", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--box", help="which workstation (default: FILM_UE_BOX, else the one in film-ue.json)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("set")
@@ -239,24 +237,14 @@ def main() -> None:
     u.add_argument("--no-wait", action="store_true", help="Linux: do not wait for the bridge")
     for n in ("down", "status", "password", "install", "health", "tunnel", "close"):
         sub.add_parser(n)
-    pv = sub.add_parser("provision")
-    pv.add_argument("--engine-s3", required=True, help="the build's S3 root (holds tools/ue-restore.sh)")
-    pv.add_argument("--version", required=True)
-    pv.add_argument("--project-src", required=True,
-                    help="s3://prefix (the .uproject at its top) or win:<path> on an attached Windows disk")
-    pv.add_argument("--project", required=True, help="the project's name (NAME.uproject)")
-    pv.add_argument("--level", default="", help="a level to open at start, e.g. /Game/Maps/Main")
-    ed = sub.add_parser("editor")
-    ed.add_argument("action", choices=("start", "stop", "restart", "status", "enable", "log", "mode"))
-    ed.add_argument("arg", nargs="?", default="", help="log: lines (80); mode: default|offscreen|xvfb")
-    sub.add_parser("desktop").add_argument("state", choices=("on", "off"))
-    sub.add_parser("epic-login").add_argument("--fab", action="store_true", help="Fab's own sign-in")
+    # provision, editor (the unit), desktop, epic-login: WP1's cli_platform.py (and opcli.EXTENSIONS["editor"])
     sub.add_parser("poc", add_help=False)  # its own arguments: filmtools.unreal.poc
     sub.add_parser("ops").add_argument("prefix", nargs="?", default="")
     o = sub.add_parser("op")
     o.add_argument("name")
     o.add_argument("args", nargs="*")
     o.add_argument("--timeout", type=float, default=900)
+    o.add_argument("--async", dest="async_", action="store_true", help="start it as a job: film-ue job ID --wait")
     e = sub.add_parser("exec")
     e.add_argument("file", nargs="?")
     e.add_argument("-c", dest="code")
@@ -279,6 +267,12 @@ def main() -> None:
             hooks.append(h)
         except Exception as e:  # e.g. two hooks adding the same command
             sys.stderr.write(f"film-ue: {h.__name__}.register failed ({e}); its commands are missing\n")
+    return ap, sub, hooks
+
+
+def main() -> None:
+    ap, sub, hooks = build_parser()
+    from . import dxcli
     argv = sys.argv[1:]
     from . import opcli
     if opcli.wants(_after_box(argv), set(sub.choices)):  # film-ue <area> <verb> ...: the generated op commands
@@ -291,9 +285,6 @@ def main() -> None:
     if a.box:
         os.environ["FILM_UE_BOX"] = a.box
 
-    if a.cmd in ("provision", "editor", "desktop", "epic-login") and not ws.linux():
-        raise SystemExit(f"film-ue {a.cmd} is for a Linux box: film-ue --box NAME set --os linux ...")
-
     for h in hooks:
         if h.dispatch(a):
             return
@@ -305,24 +296,6 @@ def main() -> None:
         print(json.dumps(ws.start(), indent=1, default=str))
         if ws.linux() and not a.no_wait:
             print(json.dumps(wait_bridge(), indent=1))
-    elif a.cmd == "provision":
-        from . import linuxbox
-        print(json.dumps(linuxbox.provision(a.engine_s3, a.version, a.project_src, a.project, a.level), indent=1))
-    elif a.cmd == "editor":
-        if a.action == "log":
-            print(ws.sh(f"journalctl -u {shlex.quote(ws.conf()['service'])} -n {int(a.arg or 80)} --no-pager", root=True))
-        elif a.action == "mode":
-            from . import linuxbox
-            linuxbox.upload_kit()
-            print(linuxbox.step("mode", a.arg or "default", timeout=300))
-        else:
-            print(ws.editor(a.action))
-    elif a.cmd == "epic-login":
-        from . import linuxbox
-        print(linuxbox.epic_login(fab=a.fab))
-    elif a.cmd == "desktop":
-        from . import linuxbox
-        print(linuxbox.desktop(a.state == "on"))
     elif a.cmd == "poc":
         from . import poc
         poc.main(extra)
@@ -345,7 +318,11 @@ def main() -> None:
     elif a.cmd == "ops":
         _print(client.op("list", prefix=a.prefix))
     elif a.cmd == "op":
-        _print(client.op(a.name, timeout=a.timeout, **_kv(a.args)))
+        if a.async_:
+            r = client.op(a.name, timeout=a.timeout, wait=False, **_kv(a.args))
+            print(json.dumps({**r, "hint": f"film-ue job {r.get('job')} --wait"} if r.get("ok") else r, indent=1))
+        else:
+            _print(client.op(a.name, timeout=a.timeout, **_kv(a.args)))
     elif a.cmd == "exec":
         code = a.code if a.code is not None else Path(a.file).read_text()
         _print(client.exec_code(code, a.timeout))

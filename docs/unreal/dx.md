@@ -327,9 +327,8 @@ State (fleet/agent-13/ue-dx, merged into ue-helpers by the lead as it lands):
   the blank level first); (3) the demo's `host_bp` / `face_mesh` paths (where mh.build puts them: README stage 1 says
   how to check and set them); (4) `look.post` setting names in 30-look.yaml (auto_exposure_method/bias); (5) the
   `capabilities()` display check on Linux (DISPLAY env inside the editor).
-- cli.py still has provision/editor/epic-login/desktop: delete them (parsers, branches, the Linux guard) in the first
-  commit after agent-07's cli_platform.py (fleet/agent-07/ue-platform) is in ue-helpers; `opcli.EXTENSIONS["editor"]`
-  already points at `cli_platform:editor_cli`.
+- cli.py's provision/editor/epic-login/desktop are gone (c95ad6c): WP1's cli_platform.py has them; `film-ue editor
+  status|restart|log|...` reach its editor_cli through opcli.EXTENSIONS, `film-ue editor describe|cvar|...` are ops.
 - Known gaps: no `--prune` in the engine (scene has its own `prune:`); `film-ue apply` has no per-step progress output
   (it prints at the end; use `--json` and read `items`); the SDK's Job polls every 2 s (WP1's client.wait with
   on_progress could replace it); kind schemas of other WPs are validated only for what jsonschema_lite supports

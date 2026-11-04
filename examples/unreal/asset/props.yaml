@@ -1,0 +1,26 @@
+# Props for a set, imported from files pushed to the box, with Nanite, LODs, collision and tags for assets.find.
+kind: asset
+version: 1
+name: boulder
+file: /srv/film/props/boulder.fbx
+dest: /Game/Set/Props
+asset: SM_Boulder
+import: {kind: static, collision: none}
+mesh: {nanite: true, collision: convex, convex_hulls: 4}
+tags: {category: rock}
+---
+kind: asset
+version: 1
+name: chair
+file: /srv/film/props/chair.glb
+dest: /Game/Set/Props
+asset: SM_Chair
+mesh: {nanite: false, lods: 3, collision: box}
+tags: {category: furniture, style: mid-century}
+---
+kind: asset
+version: 1
+name: rock-normal
+file: /srv/film/tex/T_Rock_Normal.png
+dest: /Game/Set/Tex
+texture_role: normal
