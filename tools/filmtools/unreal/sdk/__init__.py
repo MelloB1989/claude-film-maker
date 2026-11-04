@@ -94,10 +94,11 @@ class Job:
             r = self.poll()
             if on_progress and (r.get("progress") is not None or r.get("message")):
                 on_progress(r)
-            if r.get("state") in ("cancelled", "lost") and not r.get("error"):
-                r = {**r, "ok": False, "error": f"job {self.id} {r['state']}",
+            if r.get("state") in ("cancelled", "lost") and not r.get("error"):  # keep what the bridge said, fill the rest
+                r = {"ok": False, "error": f"job {self.id} {r['state']}", "code": "job_" + r["state"],
                      "hint": "start it again" + (" (the bridge restarted)" if r["state"] == "lost" else ""),
-                     "code": "job_" + r["state"], "message": f"job {self.id} was {r['state']}"}
+                     "message": f"job {self.id} was {r['state']}", **{k: v for k, v in r.items() if v not in (None, "")}}
+                r["ok"] = False
             if r.get("done") or r.get("state") in ("done", "failed", "cancelled", "lost"):
                 return self.ue._result(r, self.op, {})
             if time.time() > end:
