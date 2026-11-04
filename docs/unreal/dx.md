@@ -76,7 +76,9 @@ Check: `selftest-reports/<time>/summary.md` (status per area, failures with got/
 ```bash
 film-ue dx gen      # rewrite tools/filmtools/unreal/ops_schema.json and sdk/_generated.py from the ops
 film-ue dx check    # exit 1 when they are stale (tests/test_ue_dx.py fails too)
-film-ue dx lint     # ops that are hard for an agent: no docstring, untyped required args, not area.verb, broken
+film-ue dx lint     # ops that are hard for an agent: no docstring, untyped required args, not area.verb, broken;
+                    # kind schemas without descriptions or with additionalProperties not false
+film-ue dx docs     # every `film-ue <area> <verb> --flag` line in the docs parses against the op schema
 ```
 `film-ue dx gen` is a merge-conflict magnet: when two branches both regenerated, take either side and run it again.
 
@@ -91,7 +93,7 @@ film-ue dx lint     # ops that are hard for an agent: no docstring, untyped requ
 | `film-ue plan SPEC... [--state FILE] [--only K] [--set N=V] [--json]` | the steps |
 | `film-ue apply SPEC... [--dry-run] [--stop] [--only K] [--set N=V] [--json]` | converge and verify |
 | `film-ue selftest [AREA...\|all] [--list] [--keep] [--out DIR] [--no-pull] [--json]` | acceptance tests |
-| `film-ue dx gen\|check\|lint` | the generated layers |
+| `film-ue dx gen\|check\|lint\|docs` | the generated layers; op/schema lint; doc commands against the schema |
 
 Bridge ops of this area: `selftest.list`, `selftest.run` (multi-tick), `selftest.cleanup`. `ops.schema` / `ops.broken` /
 `list` are the lead's (ops/__init__.py).
