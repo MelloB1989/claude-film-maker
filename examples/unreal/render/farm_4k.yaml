@@ -1,0 +1,10 @@
+# UHD over two boxes: `film-ue render plan` shows which chunks each box takes; run the same spec on each box with
+# its own `shots`, gather the frames, then `film-ue render stitch SPEC --boxes 2 --local A --local B`.
+kind: render
+version: 1
+name: reel_4k
+sequence: /Game/Reel/SEQ_Reel
+out_dir: /srv/ue/renders/reel_4k
+preset: 4k
+boxes: 2
+cvars: {r.HairStrands.SkyLighting: 0}

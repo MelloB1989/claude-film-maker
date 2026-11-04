@@ -672,6 +672,35 @@ def assemble_wav(parts: list, start: int, end: int, fps: float, out_path: str) -
             "rate": fmt[2], "channels": fmt[0]}
 
 
+def parse_signalstats(text: str, start: int) -> dict:
+    """{frame: mean luma 0..255} from ffmpeg `signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-` output
+    (frames in input order from `start`)."""
+    out, i = {}, start
+    for line in (text or "").splitlines():
+        if "lavfi.signalstats.YAVG=" in line:
+            try:
+                out[i] = float(line.split("=", 1)[1])
+            except ValueError:
+                pass
+            i += 1
+    return out
+
+
+def frame_qa(luma: dict, *, black_luma: float = 4.0, flicker_ratio: float = 4.0, flicker_min: float = 2.0) -> dict:
+    """Black frames (mean luma below black_luma) and flicker (a change from the previous frame over flicker_ratio x
+    the median change and over flicker_min, that the next frame does not continue: a one-frame spike, not a cut or
+    a fade) from {frame: mean luma}. Returns {"black", "flicker", "median_delta"}."""
+    fs = sorted(luma)
+    black = [f for f in fs if luma[f] < black_luma]
+    d = {f: luma[f] - luma[p] for p, f in zip(fs, fs[1:]) if f == p + 1}
+    mags = sorted(abs(x) for x in d.values())
+    med = mags[len(mags) // 2] if mags else 0.0
+    lim = max(flicker_min, flicker_ratio * med)
+    flicker = [f for f, x in d.items() if abs(x) > lim and f + 1 in d and abs(d[f + 1]) > lim and
+               (x > 0) != (d[f + 1] > 0)]
+    return {"black": black, "flicker": sorted(flicker), "median_delta": round(med, 3)}
+
+
 def _rate(fps: float) -> str:
     """ffmpeg rate string: 23.976 -> 24000/1001, 29.97 -> 30000/1001, else the number."""
     for n in (24, 30, 60, 120):
@@ -694,4 +723,4 @@ def estimate(spec: dict, frames: int, state: dict | None = None) -> float:
 __all__ = ["SPEC_VERSION", "PRESETS", "QUALITY_CVARS", "BASE_CVARS", "PASSES", "OUTPUT_KINDS", "SCHEMA", "SpecError",
            "validate", "resolve", "plan", "runs", "split_boxes", "vram_check", "parse_nvidia_smi", "frame_times", "cmdline",
            "encode_args", "concat_args", "mux_audio_args", "missing_frames", "frame_path", "frames_on_disk",
-           "chunk_seconds", "sample_seconds", "estimate", "preset_table", "image_ok", "assemble_wav"]
+           "chunk_seconds", "sample_seconds", "estimate", "preset_table", "image_ok", "assemble_wav", "parse_signalstats", "frame_qa"]
