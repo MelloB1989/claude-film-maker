@@ -18,7 +18,7 @@ import unreal
 
 from ...errors import OpError, closest, not_found
 from ..assets import EAL, load
-from ..level import actor as level_actor
+from .._util import actor as _actor, find_actor
 from ._curves import KEY_INTERPOLATION, interp_from_engine
 from ._model import KINDS, PARTIAL, TRANSFORM_CHANNELS, channel, new_section, new_track, track_id, track_label
 from ._time import Rate, snap
@@ -160,21 +160,15 @@ def binding(seq, label: str, component: str = "", *, create: bool = False):
 
 
 def actor(label: str):
-    try:
-        return level_actor(label)
-    except ValueError:
-        eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
-        labels = [a.get_actor_label() for a in eas.get_all_level_actors()]
-        raise not_found("actor", label, labels, hint="list them with level.actors") from None
+    return _actor(label)  # a not_found OpError naming the nearest labels
 
 
 def _bound_actor(seq, b, label: str):
     """The actor a binding drives: the level actor of that label, else (a spawnable) the spawned object while the
     sequence is open."""
-    try:
-        return level_actor(label)
-    except ValueError:
-        pass
+    a = find_actor(label)
+    if a is not None:
+        return a
     if LSE.get_current_level_sequence() != seq:
         LSE.open_level_sequence(seq)
     objs = LSE.get_bound_objects(seq.get_binding_id(b))
@@ -812,7 +806,9 @@ class EngineResolver:
         a = load(path)
         for get in (lambda: a.get_play_length(), lambda: a.get_editor_property("sequence_length")):
             try:
-                return float(get())
+                v = float(get())
+                if v > 0:
+                    return v
             except Exception:
                 continue
         return None

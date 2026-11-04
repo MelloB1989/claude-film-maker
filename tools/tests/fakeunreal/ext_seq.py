@@ -145,7 +145,8 @@ class FakeChannel:
                     else "CONSTANT")
         self.keys.append(k)
         self.keys.sort(key=lambda k: k.tick)
-        self.section.track.seq.key_writes += 1
+        seq = self.section.track.seq
+        object.__setattr__(seq, "key_writes", seq.key_writes + 1)
         return k
 
     def get_keys(self):
@@ -554,7 +555,8 @@ class MovieSceneData:
     """Everything a LevelSequence holds (deep-copied when the asset is duplicated)."""
 
     def __init__(self):
-        self.display_rate = core.FrameRate(30, 1)
+        # the engine's default is 30 (CVar LevelSequence.DefaultDisplayRate); the fakes agree on 24 (ext_audio's tests)
+        self.display_rate = core.FrameRate(24, 1)
         self.tick_resolution = core.FrameRate(24000, 1)
         self.playback = [0, 150]
         self.bindings: list = []

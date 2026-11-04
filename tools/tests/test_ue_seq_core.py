@@ -284,7 +284,7 @@ def test_lint_finds_gaps_flips_and_unbound():
     by(doc, "transform", "Hero")["sections"][0]["channels"]["rotation.yaw"]["keys"][1][1] = -170.0
     res = C.plan.lint(doc)
     codes = {i["code"] for i in res["issues"]}
-    assert {"binding_unbound", "cut_gap", "rotation_flip"} <= codes and res["pass"] is False
+    assert {"seq.binding_unbound", "seq.cut_gap", "seq.rotation_flip"} <= codes and res["pass"] is False
 
 
 def test_chunks_respect_shot_starts_and_preroll():

@@ -106,7 +106,7 @@ def lint(doc: dict, *, flip_deg: float = 170.0) -> dict:
     names = {b["name"] for b in doc.get("bindings") or []}
     for b in doc.get("bindings") or []:
         if b.get("kind", "possessable") == "possessable" and b.get("bound") is False and not b.get("parent"):
-            issues.append(_issue("binding_unbound", "fail", f"binding {b['name']!r} resolves to no actor in the level",
+            issues.append(_issue("seq.binding_unbound", "fail", f"binding {b['name']!r} resolves to no actor in the level",
                                  f"film-ue op seq.rebind path={path} 'labels=[\"{b['name']}\"]' (after the actor is "
                                  f"back), or remove it", subject=b["name"]))
     keys_total = 0
@@ -114,9 +114,9 @@ def lint(doc: dict, *, flip_deg: float = 170.0) -> dict:
         lab = track_label(t)
         secs = t.get("sections") or []
         if not secs:
-            issues.append(_issue("track_empty", "info", f"{lab} has no sections", subject=lab))
+            issues.append(_issue("seq.track_empty", "info", f"{lab} has no sections", subject=lab))
         if t.get("binding") and t["binding"] not in names:
-            issues.append(_issue("track_orphan", "warn", f"{lab}: binding {t['binding']!r} is not in the sequence",
+            issues.append(_issue("seq.track_orphan", "warn", f"{lab}: binding {t['binding']!r} is not in the sequence",
                                  subject=lab))
         rows: dict = {}
         for s in secs:
@@ -124,24 +124,24 @@ def lint(doc: dict, *, flip_deg: float = 170.0) -> dict:
             if t["kind"] in ("anim", "audio", "shot", "sub", "camera_cut") and s0 is not None:
                 for o in rows.get(s.get("row", 0), []):
                     if o[0] < s1 and s0 < o[1] and t["kind"] in ("shot", "sub", "camera_cut"):
-                        issues.append(_issue("sections_overlap", "warn", f"{lab}: sections [{o[0]}, {o[1]}) and "
+                        issues.append(_issue("seq.sections_overlap", "warn", f"{lab}: sections [{o[0]}, {o[1]}) and "
                                              f"[{s0}, {s1}) overlap on row {s.get('row', 0)}", subject=lab, frame=s0))
                 rows.setdefault(s.get("row", 0), []).append((s0, s1))
                 if end is not None and s0 >= end:
-                    issues.append(_issue("section_after_end", "warn", f"{lab}: a section starts at {s0}, after the "
+                    issues.append(_issue("seq.section_after_end", "warn", f"{lab}: a section starts at {s0}, after the "
                                          f"playback end {end}", subject=lab, frame=s0))
             for cn, c in (s.get("channels") or {}).items():
                 ks = c.get("keys") or []
                 keys_total += len(ks)
                 out = [k[0] for k in ks if (start is not None and k[0] < start) or (end is not None and k[0] > end)]
                 if out:
-                    issues.append(_issue("keys_outside_range", "info", f"{lab}.{cn}: {len(out)} key(s) outside the "
+                    issues.append(_issue("seq.keys_outside_range", "info", f"{lab}.{cn}: {len(out)} key(s) outside the "
                                          f"playback range [{start}, {end}) (first at {out[0]})", subject=lab,
                                          frame=out[0]))
                 if t["kind"] == "transform" and cn.startswith("rotation."):
                     for a, b in zip(ks, ks[1:]):
                         if isinstance(a[1], (int, float)) and abs(b[1] - a[1]) > flip_deg:
-                            issues.append(_issue("rotation_flip", "warn", f"{lab}.{cn} jumps {b[1] - a[1]:+.1f} deg "
+                            issues.append(_issue("seq.rotation_flip", "warn", f"{lab}.{cn} jumps {b[1] - a[1]:+.1f} deg "
                                                  f"between frames {a[0]} and {b[0]} (a +-180 wrap?)",
                                                  "key it unwrapped (the spec's transform unwraps by default)",
                                                  subject=lab, frame=b[0], value=b[1] - a[1]))
@@ -149,17 +149,17 @@ def lint(doc: dict, *, flip_deg: float = 170.0) -> dict:
                   for t in doc.get("tracks") or [] if t["kind"] == "camera_cut" for s in t.get("sections") or [])
     for s0, s1, cam in cuts:
         if cam and cam not in names:
-            issues.append(_issue("cut_camera_missing", "fail", f"the camera cut at {s0} shows {cam!r}, which is not a "
+            issues.append(_issue("seq.cut_camera_missing", "fail", f"the camera cut at {s0} shows {cam!r}, which is not a "
                                  f"binding of the sequence", "seq.apply with camera_cuts naming a bound camera",
                                  frame=s0, camera=cam))
     if cuts and start is not None and end is not None:
         at = start
         for s0, s1, cam in cuts:
             if s0 > at:
-                issues.append(_issue("cut_gap", "warn", f"no camera cut covers [{at}, {s0})", frame=at))
+                issues.append(_issue("seq.cut_gap", "warn", f"no camera cut covers [{at}, {s0})", frame=at))
             at = max(at, s1)
         if at < end:
-            issues.append(_issue("cut_gap", "warn", f"no camera cut covers [{at}, {end})", frame=at))
+            issues.append(_issue("seq.cut_gap", "warn", f"no camera cut covers [{at}, {end})", frame=at))
     metrics = {"bindings": len(names), "tracks": len(doc.get("tracks") or []), "keys": keys_total,
                "cuts": len(cuts), "shots": len(shots_of(doc)), "frames": (end - start) if start is not None and
                end is not None else None}
