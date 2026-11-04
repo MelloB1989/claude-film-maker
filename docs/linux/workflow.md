@@ -36,6 +36,30 @@ path is unchanged (Windows is still the default `os`).
 `films/host-studio/reel/render.py` `PROJECT`, `bodycheck.py`, `build.py`, `stills.py`, `shot.py`): replace with
 `workstation.project("Saved", ...)`. Left to the reel branches' owners to avoid conflicts.
 
+## PoC results (2026-11-04, one g6.4xlarge: 1x L4 24 GB, Ubuntu 22.04, driver 580.178.04-server, UE 5.8.4)
+
+Run with `film-ue --box linux` and `poc.py` against agent-04's run sheet (`docs/linux/engine.md` §9 on
+`fleet/agent-04/linux-engine`, where the verdicts are recorded). Outputs: `s3://<bucket>/ue-linux/poc/agent-07/`.
+
+| Check | Result |
+|---|---|
+| P1 GPU, Vulkan, engine | PASS. Vulkan 1.4 with ray tracing; engine 5.8.4, the same changelist as Windows |
+| P2 editor + bridge, no display | PASS. `-RenderOffscreen -unattended`, no `DISPLAY`, VULKAN_SM6 (this must be set in `[/Script/LinuxTargetPlatform.LinuxTargetSettings]`, or the editor uses SM5). First open: 13,729 shaders, 21.4 min on 8 workers. The DDC is kept in S3, so the next box starts warm |
+| P3 stills, MRQ through the bridge | PASS. `seq.stills` and `look.still` work offscreen. PIE MRQ: 0.73 s per output frame at 1080p TSR x8 (Windows ≈0.9). The new-process executor never started a child: an unsaved level makes it ask to save, and nothing answers unattended. Fixed (`save_dirty`, fail fast) |
+| P4 Lumen HWRT | Active (ProfileGPU shows `HardwareRayTracingCS`, hair BLAS updates). 88.7 ms GPU per temporal sample. The main cost is the virtual shadow maps at film quality (34 ms), not ray tracing. 30-min soak: see engine.md |
+| P5 path tracer | FAIL on 24 GB. With strand hair in the BVH, VRAM reaches 22.5 GB and the Vulkan allocator crashes the editor. Without hair in the BVH it fits (7.2 GB), but the hair is gone. The denoiser (OIDN 2.3 via NNE) runs on CPU, ~2.4 s per frame |
+| P6 frames vs Windows | PASS. S16: SSIM 0.998, crop colour ΔE ≤ 0.2. S15 (two presenters) from the shot start: SSIM 0.994–0.997. Rule: render chunks from the shot start (cloth needs its history), and report the first frame after a cut separately |
+| P7 FBX | PASS. Static props with materials, a skinned garment on `metahuman_base_skel` in cm with a leader pose, and FBX export |
+| P8 groom | Binding on a MetaHuman PASS. Alembic import not tested (no groom `.abc` was available) |
+| P9 MetaHuman Creator | Preset, body, skin and wardrobe work. Build needs the cloud auto-rig, which needs an Epic sign-in |
+| P11 audio to face | PASS. 0.11 s of solver CPU per second of audio (ORT on CPU), 366 frames, lips move |
+| P10/P12 sign-in, Fab | BLOCKED. Xorg and VNC come up, but the editor cannot present to X with this driver setup (the EGL ICD swapchain crashes, the GLX ICD is incompatible), so there is nowhere to sign in. Next box: check `vkcube` on an X screen first |
+
+Code changes from the PoC (on this branch): the bridge idles an offscreen editor (no realtime viewport, 30 fps cap)
+and MRQ lifts the cap; `render.mrq` refuses the process executor with unsaved packages; `mh.rig` runs across ticks
+with a timeout instead of blocking the game thread; `mh.build` raises when nothing was built; the VNC password is a
+root-only file on the box.
+
 ## 0. Verdict
 
 - **The bridge is already almost platform-neutral.** Of ~2,700 lines, the Windows-only parts are `fmbridge/gui.py`
