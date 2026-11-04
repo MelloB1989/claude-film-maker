@@ -1,0 +1,3635 @@
+{
+ "version": 1,
+ "ops": [
+  {
+   "name": "anim.bake_follow",
+   "area": "anim",
+   "verb": "bake_follow",
+   "module": "fmbridge.ops.anim",
+   "file": "unreal/fmbridge/ops/anim.py",
+   "line": 395,
+   "summary": "Make a follower animation (a MetaHuman face's) carry its leader's pose: bake_pose from the leader (the body) into `out` for every non-facial bone the two skeletons share, and switch the face rig's own head control off (headcontrolswitch 0) ",
+   "doc": "Make a follower animation (a MetaHuman face's) carry its leader's pose: bake_pose from the leader (the body)\ninto `out` for every non-facial bone the two skeletons share, and switch the face rig's own head control off\n(headcontrolswitch 0) unless `head_control`, so the head turns only as the body's does. A face playing alone\notherwise keeps its neck and chest apart from the body, and its chest pokes through the clothes. Multi-tick.",
+   "params": [
+    {
+     "name": "sequence",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "actor_label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "anim",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "leader",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "Body"
+    },
+    {
+     "name": "follower",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "Face"
+    },
+    {
+     "name": "bones",
+     "kind": "positional",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "head_control",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "ticks",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 2
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "anim.bake_pose",
+   "area": "anim",
+   "verb": "bake_pose",
+   "module": "fmbridge.ops.anim",
+   "file": "unreal/fmbridge/ops/anim.py",
+   "line": 334,
+   "summary": "Sample `source` (a skeletal mesh component of the actor) as it really plays in `sequence` (animation, rig and post-process correctives included) and write those bones, local to their parents, as bone tracks into `out` (a copy of `anim`), wh",
+   "doc": "Sample `source` (a skeletal mesh component of the actor) as it really plays in `sequence` (animation, rig and\npost-process correctives included) and write those bones, local to their parents, as bone tracks into `out` (a\ncopy of `anim`), which then goes on `target`'s track. Keys past the sequence keep the animation's own pose; curves\nare untouched. A multi-tick job.",
+   "params": [
+    {
+     "name": "sequence",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "actor_label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "source",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "target",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "anim",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "bones",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "ticks",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 2
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "anim.curve",
+   "area": "anim",
+   "verb": "curve",
+   "module": "fmbridge.ops.anim",
+   "file": "unreal/fmbridge/ops/anim.py",
+   "line": 65,
+   "summary": "One curve's keys (every n-th): times and values, with its range.",
+   "doc": "One curve's keys (every n-th): times and values, with its range.",
+   "params": [
+    {
+     "name": "anim",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "every",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 1
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "anim.curves",
+   "area": "anim",
+   "verb": "curves",
+   "module": "fmbridge.ops.anim",
+   "file": "unreal/fmbridge/ops/anim.py",
+   "line": 59,
+   "summary": "A sequence's float curve names.",
+   "doc": "A sequence's float curve names.",
+   "params": [
+    {
+     "name": "anim",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "contains",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "anim.gaze_lock",
+   "area": "anim",
+   "verb": "gaze_lock",
+   "module": "fmbridge.ops.anim",
+   "file": "unreal/fmbridge/ops/anim.py",
+   "line": 157,
+   "summary": "Keep a talking face's eyes on the lens, measured rather than guessed: `out` (a copy of `anim`) goes on `component`'s track in `sequence` (on the sections that play `anim`, wherever they start); the eye-look curves are calibrated on the rig,",
+   "doc": "Keep a talking face's eyes on the lens, measured rather than guessed: `out` (a copy of `anim`) goes on\n`component`'s track in `sequence` (on the sections that play `anim`, wherever they start); the eye-look curves are\ncalibrated on the rig, then solved per frame from the eye bones' real pose (head and body motion included)\ntoward `camera`, with small saccades, and refined `iterations` times against a fresh measurement.\n`target` aims the eyes elsewhere: a point [x, y, z], an actor (+ `target_offset` in its frame) or\n\"Label:Component:bone\" (her eyes: \"Presenter:Face:FACIAL_L_Eye\"); with `frames` [first, last] only in that range\n(the camera, if given, elsewhere). Frames with neither keep the animation's own eye curves. Returns the angle error\nper pass. A multi-tick job.",
+   "params": [
+    {
+     "name": "sequence",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "actor_label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "anim",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "camera",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "Face"
+    },
+    {
+     "name": "saccades",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 0.5
+    },
+    {
+     "name": "seed",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 3
+    },
+    {
+     "name": "every",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 2
+    },
+    {
+     "name": "iterations",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 2
+    },
+    {
+     "name": "target",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "target_offset",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "anim.head_to_body",
+   "area": "anim",
+   "verb": "head_to_body",
+   "module": "fmbridge.ops.anim",
+   "file": "unreal/fmbridge/ops/anim.py",
+   "line": 416,
+   "summary": "Give the body the head motion a face rig makes from speech (HeadYaw/Pitch/Roll spread down the neck): bake the face's spine, neck and head as they play into `out` (a copy of the body's animation), which goes on the body's track.",
+   "doc": "Give the body the head motion a face rig makes from speech (HeadYaw/Pitch/Roll spread down the neck): bake the\nface's spine, neck and head as they play into `out` (a copy of the body's animation), which goes on the body's\ntrack. Then bake_follow puts the whole shared skeleton back on the face, so both move as one. Multi-tick.",
+   "params": [
+    {
+     "name": "sequence",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "actor_label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "body_anim",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "face",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "Face"
+    },
+    {
+     "name": "body",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "Body"
+    },
+    {
+     "name": "bones",
+     "kind": "positional",
+     "type": "list",
+     "required": false,
+     "default": [
+      "spine_04",
+      "spine_05",
+      "neck_01",
+      "neck_02",
+      "head"
+     ]
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "anim.scale_curves",
+   "area": "anim",
+   "verb": "scale_curves",
+   "module": "fmbridge.ops.anim",
+   "file": "unreal/fmbridge/ops/anim.py",
+   "line": 81,
+   "summary": "Multiply (then offset) curves by name: {\"HeadYaw\": 0.6, \"CTRL_expressions_browRaiseInL\": 1.3}.",
+   "doc": "Multiply (then offset) curves by name: {\"HeadYaw\": 0.6, \"CTRL_expressions_browRaiseInL\": 1.3}.",
+   "params": [
+    {
+     "name": "anim",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "scale",
+     "kind": "positional",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "offset",
+     "kind": "positional",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "anim.set_curve",
+   "area": "anim",
+   "verb": "set_curve",
+   "module": "fmbridge.ops.anim",
+   "file": "unreal/fmbridge/ops/anim.py",
+   "line": 72,
+   "summary": "Replace a curve with these keys.",
+   "doc": "Replace a curve with these keys.",
+   "params": [
+    {
+     "name": "anim",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "times",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "values",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "int",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "assets.delete",
+   "area": "assets",
+   "verb": "delete",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 85,
+   "summary": "Delete an asset.",
+   "doc": "Delete an asset.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "bool",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "assets.duplicate",
+   "area": "assets",
+   "verb": "duplicate",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 74,
+   "summary": "Copy an asset (a MetaHuman preset, a material...) to a new path.",
+   "doc": "Copy an asset (a MetaHuman preset, a material...) to a new path.",
+   "params": [
+    {
+     "name": "src",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "dst",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "overwrite",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "assets.import",
+   "area": "assets",
+   "verb": "import",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 43,
+   "summary": "Import files on the workstation (fbx, wav, png, exr, ...) into a content folder; returns the new assets.",
+   "doc": "Import files on the workstation (fbx, wav, png, exr, ...) into a content folder; returns the new assets. An FBX\ncomes in as one static mesh (its parts combined unless `combine` is off) with its materials, without lightmap UVs\n(Lumen needs none).",
+   "params": [
+    {
+     "name": "files",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "dest",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "replace",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "combine",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "assets.list",
+   "area": "assets",
+   "verb": "list",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 19,
+   "summary": "Assets under a path, optionally of one class name ('StaticMesh', 'MetaHumanCharacter', ...): [class, path].",
+   "doc": "Assets under a path, optionally of one class name ('StaticMesh', 'MetaHumanCharacter', ...): [class, path].",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "/Game"
+    },
+    {
+     "name": "recursive",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "limit",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 500
+    }
+   ],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "assets.props",
+   "area": "assets",
+   "verb": "props",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 97,
+   "summary": "An asset's editor properties (all readable ones, or the named).",
+   "doc": "An asset's editor properties (all readable ones, or the named).",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "names",
+     "kind": "positional",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "assets.save_all",
+   "area": "assets",
+   "verb": "save_all",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 91,
+   "summary": "Save every dirty package and map.",
+   "doc": "Save every dirty package and map.",
+   "params": [],
+   "returns": "bool",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "level.actors",
+   "area": "level",
+   "verb": "actors",
+   "module": "fmbridge.ops.level",
+   "file": "unreal/fmbridge/ops/level.py",
+   "line": 59,
+   "summary": "The open level's actors: [label, class, location].",
+   "doc": "The open level's actors: [label, class, location].",
+   "params": [
+    {
+     "name": "contains",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "level.bone",
+   "area": "level",
+   "verb": "bone",
+   "module": "fmbridge.ops.level",
+   "file": "unreal/fmbridge/ops/level.py",
+   "line": 143,
+   "summary": "World locations of bones/sockets on an actor's skeletal mesh component.",
+   "doc": "World locations of bones/sockets on an actor's skeletal mesh component.",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "bones",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "level.delete",
+   "area": "level",
+   "verb": "delete",
+   "module": "fmbridge.ops.level",
+   "file": "unreal/fmbridge/ops/level.py",
+   "line": 115,
+   "summary": "Delete actors by label (missing ones are skipped).",
+   "doc": "Delete actors by label (missing ones are skipped).",
+   "params": [
+    {
+     "name": "labels",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "int",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "level.move",
+   "area": "level",
+   "verb": "move",
+   "module": "fmbridge.ops.level",
+   "file": "unreal/fmbridge/ops/level.py",
+   "line": 97,
+   "summary": "Move, turn, aim (`look_at` [x,y,z]), resize (`size` cm for basic shapes) or scale an actor.",
+   "doc": "Move, turn, aim (`look_at` [x,y,z]), resize (`size` cm for basic shapes) or scale an actor.",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "loc",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "rot_",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "look_at",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "size",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "scale",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "level.new",
+   "area": "level",
+   "verb": "new",
+   "module": "fmbridge.ops.level",
+   "file": "unreal/fmbridge/ops/level.py",
+   "line": 39,
+   "summary": "A new empty level at a content path, opened.",
+   "doc": "A new empty level at a content path, opened.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "level.open",
+   "area": "level",
+   "verb": "open",
+   "module": "fmbridge.ops.level",
+   "file": "unreal/fmbridge/ops/level.py",
+   "line": 46,
+   "summary": "Open a level.",
+   "doc": "Open a level.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "level.save",
+   "area": "level",
+   "verb": "save",
+   "module": "fmbridge.ops.level",
+   "file": "unreal/fmbridge/ops/level.py",
+   "line": 53,
+   "summary": "Save the open level.",
+   "doc": "Save the open level.",
+   "params": [],
+   "returns": "bool",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "level.set",
+   "area": "level",
+   "verb": "set",
+   "module": "fmbridge.ops.level",
+   "file": "unreal/fmbridge/ops/level.py",
+   "line": 128,
+   "summary": "Set editor properties on an actor or one of its components (by class name, e.g. 'RectLightComponent').",
+   "doc": "Set editor properties on an actor or one of its components (by class name, e.g. 'RectLightComponent').",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "props",
+     "kind": "positional",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "level.spawn",
+   "area": "level",
+   "verb": "spawn",
+   "module": "fmbridge.ops.level",
+   "file": "unreal/fmbridge/ops/level.py",
+   "line": 71,
+   "summary": "Spawn an actor: a basic `shape` (cube/sphere/cylinder/cone/plane, `size` in cm), an `asset` (mesh, blueprint) or a `cls` ('RectLight', 'CineCameraActor', ...).",
+   "doc": "Spawn an actor: a basic `shape` (cube/sphere/cylinder/cone/plane, `size` in cm), an `asset` (mesh, blueprint) or a\n`cls` ('RectLight', 'CineCameraActor', ...). Replaces an actor with the same label when `replace`.",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "asset",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "shape",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "loc",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": [
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "name": "rot_",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "size",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "scale",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "material",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "replace",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "list",
+   "area": "",
+   "verb": "list",
+   "module": "fmbridge.ops",
+   "file": "unreal/fmbridge/ops/__init__.py",
+   "line": 30,
+   "summary": "Every op with its signature and the first line of its docstring; the whole docstring with `full`, or when the prefix names one op (`film-ue ops seq.key_float`).",
+   "doc": "Every op with its signature and the first line of its docstring; the whole docstring with `full`, or when the\nprefix names one op (`film-ue ops seq.key_float`).",
+   "params": [
+    {
+     "name": "prefix",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "full",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.apply",
+   "area": "look",
+   "verb": "apply",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 313,
+   "summary": "Put a material on an actor's static meshes, in slot `slot`: its index or its name (an FBX's material name).",
+   "doc": "Put a material on an actor's static meshes, in slot `slot`: its index or its name (an FBX's material name).",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "material",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "slot",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": 0
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.camera",
+   "area": "look",
+   "verb": "camera",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 445,
+   "summary": "A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.",
+   "doc": "A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "loc",
+     "kind": "positional",
+     "type": null,
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "look_at",
+     "kind": "positional",
+     "type": null,
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "focal",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 50.0
+    },
+    {
+     "name": "aperture",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 2.0
+    },
+    {
+     "name": "focus",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "filmback",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": [
+      36.0,
+      20.25
+     ]
+    },
+    {
+     "name": "pilot",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.card",
+   "area": "look",
+   "verb": "card",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 488,
+   "summary": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right way up and unmirrored from the front; `offset` pushes it out along its facing (cm), e.g. to sit on a box's front.",
+   "doc": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right\nway up and unmirrored from the front; `offset` pushes it out along its facing (cm), e.g. to sit on a box's front.",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "loc",
+     "kind": "positional",
+     "type": null,
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "width",
+     "kind": "positional",
+     "type": "float",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "height",
+     "kind": "positional",
+     "type": "float",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "material",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "yaw",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "offset",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.channels",
+   "area": "look",
+   "verb": "channels",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 500,
+   "summary": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which lights reach it.",
+   "doc": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which\nlights reach it. The studio rule: the host's lights on 1 only, the set's on 0, the host itself on 0 and 1.",
+   "params": [
+    {
+     "name": "labels",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "channels",
+     "kind": "positional",
+     "type": "list",
+     "required": false,
+     "default": [
+      0
+     ]
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.collection",
+   "area": "look",
+   "verb": "collection",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 292,
+   "summary": "A material parameter collection with these scalar parameters at these defaults (made, or the missing ones added; existing ones keep their defaults).",
+   "doc": "A material parameter collection with these scalar parameters at these defaults (made, or the missing ones\nadded; existing ones keep their defaults). A sequence keys a collection on a track of its own, with no per-mesh\nmaterial instance in between.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "scalars",
+     "kind": "positional",
+     "type": "dict",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.focus_track",
+   "area": "look",
+   "verb": "focus_track",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 523,
+   "summary": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a MetaHuman's eyes above its feet.",
+   "doc": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a\nMetaHuman's eyes above its feet.",
+   "params": [
+    {
+     "name": "camera_label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "target",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "offset",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.fog",
+   "area": "look",
+   "verb": "fog",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 404,
+   "summary": "Exponential height fog with volumetric fog: haze in the air for light shafts and depth.",
+   "doc": "Exponential height fog with volumetric fog: haze in the air for light shafts and depth.",
+   "params": [
+    {
+     "name": "density",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 0.02
+    },
+    {
+     "name": "volumetric",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "albedo",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": [
+      0.9,
+      0.9,
+      1.0
+     ]
+    },
+    {
+     "name": "extinction",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 0.5
+    },
+    {
+     "name": "height_falloff",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 0.2
+    },
+    {
+     "name": "start",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.light",
+   "area": "look",
+   "verb": "light",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 344,
+   "summary": "A light: kind rect (width/height, barn doors), spot (cone), point; aimed at `look_at`; colour (sRGB 0-1) or temperature (K); intensity in candelas.",
+   "doc": "A light: kind rect (width/height, barn doors), spot (cone), point; aimed at `look_at`; colour (sRGB 0-1) or\ntemperature (K); intensity in candelas.",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "kind",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "rect"
+    },
+    {
+     "name": "loc",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": [
+      0,
+      0,
+      200
+     ]
+    },
+    {
+     "name": "look_at",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "intensity",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 10.0
+    },
+    {
+     "name": "color",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "temperature",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "width",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 100
+    },
+    {
+     "name": "height",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 100
+    },
+    {
+     "name": "cone",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 30
+    },
+    {
+     "name": "radius",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 2000
+    },
+    {
+     "name": "shadows",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "specular",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "volumetric",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "barn_angle",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.material",
+   "area": "look",
+   "verb": "material",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 257,
+   "summary": "A material instance: kind Surface (color, roughness, metallic, specular), Textured (a texture tinted by color, tiled), Screen (an emitted texture x intensity behind glossy glass), Emissive (color x intensity, unlit), Glass (translucent, opa",
+   "doc": "A material instance: kind Surface (color, roughness, metallic, specular), Textured (a texture tinted by color,\ntiled), Screen (an emitted texture x intensity behind glossy glass), Emissive (color x intensity, unlit), Glass\n(translucent, opacity), ScreenBlink (Screen with a baked-in cursor that blinks: scalars Blink 0-1 and the cursor's\nUV rectangle CursorU0, CursorU1, CursorV0, CursorV1), Pbr (texture, normal and mask maps; mask R x roughness,\nG x metallic), PbrMasked (Pbr cut out by the texture's alpha), Sheer (backlit thin fabric: mask B x opacity,\ndithered; transmission colour, glow), Glow (texture x color x intensity, additive) or GlowWipe (Glow revealed\nleft to right: scalars Reveal 0-1 and Softness; it also takes the lower of Reveal and MPC_FM's WipeReveal, and is\nmultiplied by MPC_FM's WipeOn, both 1 unless a sequence keys them). `scalars` sets any other scalar parameters by\nname. Colours are linear. Re-running updates it.",
+   "params": [
+    {
+     "name": "name",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "color",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": [
+      1.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "name": "kind",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "Surface"
+    },
+    {
+     "name": "roughness",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "metallic",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "specular",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "intensity",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "opacity",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "texture",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "tiling",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "normal",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "mask",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "glow",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "transmission",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "folder",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "/Game/FM/Materials"
+    },
+    {
+     "name": "scalars",
+     "kind": "positional",
+     "type": "dict",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.post",
+   "area": "look",
+   "verb": "post",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 420,
+   "summary": "An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).",
+   "doc": "An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).",
+   "params": [
+    {
+     "name": "settings",
+     "kind": "positional",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "FM_Post"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.sky",
+   "area": "look",
+   "verb": "sky",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 379,
+   "summary": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the back wall towards the camera; 90 = shining along +Y) and `elevation` above the horizon, a sky atmosphere and a real-time captured ",
+   "doc": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the\nback wall towards the camera; 90 = shining along +Y) and `elevation` above the horizon, a sky atmosphere and a\nreal-time captured sky light. `shadow_softness` is the sun's source angle in degrees.",
+   "params": [
+    {
+     "name": "elevation",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 30.0
+    },
+    {
+     "name": "azimuth",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "lux",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 60000.0
+    },
+    {
+     "name": "temperature",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 5600.0
+    },
+    {
+     "name": "sky_intensity",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "shadow_softness",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 0.5
+    },
+    {
+     "name": "channels",
+     "kind": "positional",
+     "type": "list",
+     "required": false,
+     "default": [
+      0
+     ]
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.slots",
+   "area": "look",
+   "verb": "slots",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 324,
+   "summary": "An actor's material slots by name ({slot: material}); `materials` sets those named (unknown names are reported, not guessed).",
+   "doc": "An actor's material slots by name ({slot: material}); `materials` sets those named (unknown names are\nreported, not guessed).",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "materials",
+     "kind": "positional",
+     "type": "dict",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "look.still",
+   "area": "look",
+   "verb": "still",
+   "module": "fmbridge.ops.look",
+   "file": "unreal/fmbridge/ops/look.py",
+   "line": 468,
+   "summary": "A still through a camera at the viewport's quality, written to `path` on the workstation (png).",
+   "doc": "A still through a camera at the viewport's quality, written to `path` on the workstation (png). A multi-tick\njob: it returns once the file is on disk.",
+   "params": [
+    {
+     "name": "camera_label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "width",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 1920
+    },
+    {
+     "name": "height",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 1080
+    },
+    {
+     "name": "timeout",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 60.0
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.add_item",
+   "area": "mh",
+   "verb": "add_item",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 121,
+   "summary": "Put a wardrobe item (a groom or garment from mh.wardrobe) in a slot of the character's collection and select it there, replacing what the slot held (slot: Hair, Eyebrows, Beard, Mustache, Eyelashes, Peachfuzz, Outfits; guessed from the item",
+   "doc": "Put a wardrobe item (a groom or garment from mh.wardrobe) in a slot of the character's collection and select\nit there, replacing what the slot held (slot: Hair, Eyebrows, Beard, Mustache, Eyelashes, Peachfuzz, Outfits;\nguessed from the item's path when empty).",
+   "params": [
+    {
+     "name": "character",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "item",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "slot",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.body",
+   "area": "mh",
+   "verb": "body",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 164,
+   "summary": "Shape the parametric body by measurements in cm (Height, Chest, Waist, Hip, Thigh, ...) and the unitless Fat, Muscularity, Masculine/Feminine; each named one becomes an active constraint (None frees it again).",
+   "doc": "Shape the parametric body by measurements in cm (Height, Chest, Waist, Hip, Thigh, ...) and the unitless Fat,\nMuscularity, Masculine/Feminine; each named one becomes an active constraint (None frees it again). Re-rig and\nre-build afterwards.",
+   "params": [
+    {
+     "name": "character",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "measurements",
+     "kind": "positional",
+     "type": "dict",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.build",
+   "area": "mh",
+   "verb": "build",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 186,
+   "summary": "Assemble the character into a Blueprint (cinematic pipeline and quality by default); returns its path.",
+   "doc": "Assemble the character into a Blueprint (cinematic pipeline and quality by default); returns its path.",
+   "params": [
+    {
+     "name": "character",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "cinematic",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.clear_slot",
+   "area": "mh",
+   "verb": "clear_slot",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 139,
+   "summary": "Select nothing in a slot (e.g. no Beard).",
+   "doc": "Select nothing in a slot (e.g. no Beard).",
+   "params": [
+    {
+     "name": "character",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "slot",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.cloth_inflate",
+   "area": "mh",
+   "verb": "cloth_inflate",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 272,
+   "summary": "Push a garment out along its normals by `cm`, so skin under tight cloth stops poking through.",
+   "doc": "Push a garment out along its normals by `cm`, so skin under tight cloth stops poking through. A multi-tick job.\n\nNothing the renderer is drawing is ever edited: a material in use that is reparented or recompiled while frames\nrender trips `UniformExpressionCache... == Material.GetRenderingThreadShaderMap()` and takes the editor down (it\ndid, right after a MetaHuman rebuild had made fresh garment instances). So the worn instance is copied to\n`{folder}/{label}_<name>_Inflate`, the copy is parented on project copies of its plugin chain whose master gains a\nWorld Position Offset (normal x FM_Inflate), every shader finishes compiling, the editor ticks a few frames, and\nonly then does the component swap to the copy. A master already in use is never recompiled (a new one is made);\nre-running on an inflated garment only changes the amount, a plain parameter change that is safe. `which` limits it\nto the garments whose material name contains it (e.g. \"Shirt\": a top pushed out over shorts that stay put, else\nboth move together and the shorts' waistband still shows through the tee); others already inflated go back to 0.",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "cm",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 0.6
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "SkeletalMesh"
+    },
+    {
+     "name": "folder",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "/Game/FM/Cloth"
+    },
+    {
+     "name": "which",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.components",
+   "area": "mh",
+   "verb": "components",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 203,
+   "summary": "An assembled MetaHuman actor's skeletal mesh components: mesh, animation mode and class.",
+   "doc": "An assembled MetaHuman actor's skeletal mesh components: mesh, animation mode and class.",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.drive_face",
+   "area": "mh",
+   "verb": "drive_face",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 214,
+   "summary": "Let a sequence's animation track drive the face: its own Blueprint (ABP_Face) has no slot for Sequencer, so the component plays the animation directly; Epic's post-process rig (RigLogic) still runs on top.",
+   "doc": "Let a sequence's animation track drive the face: its own Blueprint (ABP_Face) has no slot for Sequencer, so the\ncomponent plays the animation directly; Epic's post-process rig (RigLogic) still runs on top.",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "Face"
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.from_preset",
+   "area": "mh",
+   "verb": "from_preset",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 45,
+   "summary": "A new character asset copied from a preset (e.g. 'Trey'), opened for editing.",
+   "doc": "A new character asset copied from a preset (e.g. 'Trey'), opened for editing.",
+   "params": [
+    {
+     "name": "preset",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "dest",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "overwrite",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.garment",
+   "area": "mh",
+   "verb": "garment",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 363,
+   "summary": "Set parameters on a worn garment's material (slots whose name contains `which`): `vectors` take linear [r,g,b], e.g. the default garment's {\"diffuse_color_1\": [...], \"diffuse_color_2\": [...]} is its colour.",
+   "doc": "Set parameters on a worn garment's material (slots whose name contains `which`): `vectors` take linear [r,g,b],\ne.g. the default garment's {\"diffuse_color_1\": [...], \"diffuse_color_2\": [...]} is its colour.",
+   "params": [
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "which",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "Shirt"
+    },
+    {
+     "name": "vectors",
+     "kind": "positional",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "scalars",
+     "kind": "positional",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "SkeletalMesh"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.login",
+   "area": "mh",
+   "verb": "login",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 65,
+   "summary": "Start Epic's sign-in if there is none: the MetaHuman cloud service asks for one when a rig is requested (on a throwaway character), and the engine hands the device sign-in page to the system browser.",
+   "doc": "Start Epic's sign-in if there is none: the MetaHuman cloud service asks for one when a rig is requested (on a\nthrowaway character), and the engine hands the device sign-in page to the system browser. On a box with no\ndesktop that \"browser\" keeps the page for `film-ue epic-login` (ue-epic.sh). Returns at once.",
+   "params": [
+    {
+     "name": "preset",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "folder",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "/Game/FM/Login"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.palette",
+   "area": "mh",
+   "verb": "palette",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 108,
+   "summary": "What the character wears now: its collection's slots and selected items.",
+   "doc": "What the character wears now: its collection's slots and selected items.",
+   "params": [
+    {
+     "name": "character",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.presets",
+   "area": "mh",
+   "verb": "presets",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 32,
+   "summary": "The preset characters MetaHuman Creator ships (needs the engine's Creator Core Data).",
+   "doc": "The preset characters MetaHuman Creator ships (needs the engine's Creator Core Data).",
+   "params": [],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.rig",
+   "area": "mh",
+   "verb": "rig",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 81,
+   "summary": "Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs).",
+   "doc": "Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs). Blocks until done (about\n30 s). Without a sign-in the service would open a browser and wait for one, holding the editor: so with no saved\nsign-in this is an error at once. Sign in once per box (film-ue desktop on, or the device code it shows); the\nsign-in then survives editor restarts. After the rig: mh.textures, then mh.build.",
+   "params": [
+    {
+     "name": "character",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "full",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.skin",
+   "area": "mh",
+   "verb": "skin",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 149,
+   "summary": "The skin tone (MetaHuman Creator's tone palette coordinates u, v) and roughness; returns the new values.",
+   "doc": "The skin tone (MetaHuman Creator's tone palette coordinates u, v) and roughness; returns the new values.",
+   "params": [
+    {
+     "name": "character",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "u",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "v",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "roughness",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.textures",
+   "area": "mh",
+   "verb": "textures",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 97,
+   "summary": "Epic's cloud high-resolution skin textures.",
+   "doc": "Epic's cloud high-resolution skin textures. Blocks until done; returns whether they arrived.",
+   "params": [
+    {
+     "name": "character",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "bool",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "mh.wardrobe",
+   "area": "mh",
+   "verb": "wardrobe",
+   "module": "fmbridge.ops.mh",
+   "file": "unreal/fmbridge/ops/mh.py",
+   "line": 38,
+   "summary": "Wardrobe items (grooms and clothing): kind Hair, Beards, Eyebrows, Eyelashes, Mustaches, Peachfuzz, Clothing.",
+   "doc": "Wardrobe items (grooms and clothing): kind Hair, Beards, Eyebrows, Eyelashes, Mustaches, Peachfuzz, Clothing.",
+   "params": [
+    {
+     "name": "kind",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "render.mrq",
+   "area": "render",
+   "verb": "mrq",
+   "module": "fmbridge.ops.render",
+   "file": "unreal/fmbridge/ops/render.py",
+   "line": 25,
+   "summary": "Start a Movie Render Queue job (returns at once; poll render.progress).",
+   "doc": "Start a Movie Render Queue job (returns at once; poll render.progress). Frames go to `out_dir` as\n{frame}.png|exr|jpg, the audio as a wav; `start`/`end` (end exclusive) render part of the sequence. `executor`:\n\"pie\" (in this editor) or \"process\" (a separate -game process; offscreen where the editor has no desktop). The\nprocess loads the level from disk, and with unsaved changes the executor asks to save first: unattended, that\nquestion goes unanswered and the job never starts, so unsaved packages are an error unless `save_dirty`.",
+   "params": [
+    {
+     "name": "sequence",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "level",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out_dir",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "width",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 1920
+    },
+    {
+     "name": "height",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 1080
+    },
+    {
+     "name": "temporal",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 8
+    },
+    {
+     "name": "spatial",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "path_tracer",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "quality",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "cvars",
+     "kind": "positional",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "fmt",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "png"
+    },
+    {
+     "name": "warmup",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 32
+    },
+    {
+     "name": "name",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "shot"
+    },
+    {
+     "name": "start",
+     "kind": "positional",
+     "type": "int | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "end",
+     "kind": "positional",
+     "type": "int | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "executor",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "pie"
+    },
+    {
+     "name": "save_dirty",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "render.progress",
+   "area": "render",
+   "verb": "progress",
+   "module": "fmbridge.ops.render",
+   "file": "unreal/fmbridge/ops/render.py",
+   "line": 102,
+   "summary": "Frames written so far (and whether Movie Render Queue is still running).",
+   "doc": "Frames written so far (and whether Movie Render Queue is still running).",
+   "params": [
+    {
+     "name": "out_dir",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "expected",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 0
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.anim",
+   "area": "seq",
+   "verb": "anim",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 593,
+   "summary": "Animation sections on an actor's skeletal mesh component (a MetaHuman's \"Body\" or \"Face\"), each {\"anim\", \"start\", \"end\", \"offset\", \"blend_in\", \"blend_out\", \"rate\", \"weight\", \"loop\", \"row\"}: `start`/`end` frames (end default: start + the ani",
+   "doc": "Animation sections on an actor's skeletal mesh component (a MetaHuman's \"Body\" or \"Face\"), each\n{\"anim\", \"start\", \"end\", \"offset\", \"blend_in\", \"blend_out\", \"rate\", \"weight\", \"loop\", \"row\"}: `start`/`end`\nframes (end default: start + the animation's length / rate; past that it loops, `loop` False holds the last\npose), `offset` seconds into the animation where it starts, `blend_in`/`blend_out` frames of ease (weights\ncross-fade where sections overlap: idle -> line -> idle), `weight` (1), `row` (default: the first free one; overlaps\ngo on separate rows). `replace` clears the track's sections first, else these are added. Returns [[anim, start,\nend, row]].",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "sections",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "replace",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.audio",
+   "area": "seq",
+   "verb": "audio",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 663,
+   "summary": "Sounds in a sequence on a named audio track (\"VO\", \"Score\", \"SFX\"): clips [{\"sound\", \"start\", \"end\", \"offset\", \"volume\"}] or [sound, start]: a SoundWave asset (assets.import a WAV first) from frame `start`, `offset` seconds into it, to `end",
+   "doc": "Sounds in a sequence on a named audio track (\"VO\", \"Score\", \"SFX\"): clips [{\"sound\", \"start\", \"end\", \"offset\",\n\"volume\"}] or [sound, start]: a SoundWave asset (assets.import a WAV first) from frame `start`, `offset` seconds\ninto it, to `end` (default: its length), at `volume` (1). For timing in the editor; the mix is made in post.\n`replace` empties the named track first, else adds to it. Returns [[sound, start, end, row]].",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "clips",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "track",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "Audio"
+    },
+    {
+     "name": "replace",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.camera_cuts",
+   "area": "seq",
+   "verb": "camera_cuts",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 216,
+   "summary": "The edit: cuts are [camera label, first frame] in order; each runs to the next (the last to the end).",
+   "doc": "The edit: cuts are [camera label, first frame] in order; each runs to the next (the last to the end).",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "cuts",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.close",
+   "area": "seq",
+   "verb": "close",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 75,
+   "summary": "Close the open sequence.",
+   "doc": "Close the open sequence.",
+   "params": [],
+   "returns": "bool",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.cuts",
+   "area": "seq",
+   "verb": "cuts",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 705,
+   "summary": "The edit as it stands: [camera label, first frame, end frame] for each camera cut, in order.",
+   "doc": "The edit as it stands: [camera label, first frame, end frame] for each camera cut, in order.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.key_collection",
+   "area": "seq",
+   "verb": "key_collection",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 519,
+   "summary": "Key a scalar parameter of a material parameter collection (look.collection) on the sequence's track for that collection: keys [[frame, value(, interp)], ...].",
+   "doc": "Key a scalar parameter of a material parameter collection (look.collection) on the sequence's track for that\ncollection: keys [[frame, value(, interp)], ...]. Sequencer writes the world's instance of the collection, so the\nvalue reaches every material reading it with no mesh binding and no MID in between. Replaces only that\nparameter's keys.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "collection",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "param",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "keys",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "interp",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "auto"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.key_color",
+   "area": "seq",
+   "verb": "key_color",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 409,
+   "summary": "Key a colour property: keys [[frame, [r, g, b(, a)](, interp)], ...].",
+   "doc": "Key a colour property: keys [[frame, [r, g, b(, a)](, interp)], ...]. An FColor property (a light's\n\"LightColor\") takes sRGB 0-1, as look.light does; an FLinearColor one (fog \"FogInscatteringLuminance\", a post\n\"Settings.ColorGain\") takes linear values. `srgb` overrides that guess. Component and replacement as key_float.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "prop",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "keys",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "interp",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "auto"
+    },
+    {
+     "name": "srgb",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.key_float",
+   "area": "seq",
+   "verb": "key_float",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 384,
+   "summary": "Key a float property of an actor or component: keys [[frame, value(, interp)], ...], interp \"auto\" (smooth, eased at held ends), \"linear\" or \"constant\" (stepped).",
+   "doc": "Key a float property of an actor or component: keys [[frame, value(, interp)], ...], interp \"auto\" (smooth,\neased at held ends), \"linear\" or \"constant\" (stepped). `prop` is the C++ name or a path into structs, either\nspelling: \"Intensity\", \"Temperature\", \"FocusSettings.ManualFocusDistance\" (CameraComponent), \"CurrentAperture\",\n\"Settings.AutoExposureBias\" (a PostProcessVolume actor: set its override flag once with look.post), \"FogDensity\".\n`component` by name or class (\"CameraComponent\", \"LightComponent0\"); \"\" = the actor if it has the property, else\nits root component (a light's). `double` for a double property (a UE5 large-world value). Replaces only this\nproperty's track on that binding; the keys hold before the first and after the last.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "prop",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "keys",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "interp",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "auto"
+    },
+    {
+     "name": "double",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.key_material",
+   "area": "seq",
+   "verb": "key_material",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 466,
+   "summary": "Key a material parameter on a mesh component's material slot (the material there must be an instance or material with that parameter): keys [[frame, value(, interp)], ...], a float for a scalar parameter or [r, g, b(, a)] (linear) for a vec",
+   "doc": "Key a material parameter on a mesh component's material slot (the material there must be an instance or\nmaterial with that parameter): keys [[frame, value(, interp)], ...], a float for a scalar parameter or\n[r, g, b(, a)] (linear) for a vector one. `slot` is its index or name (\"M_Sheer\"); `component` \"\" = the actor's\nfirst mesh component. Replaces only that parameter's keys in the slot's track; other parameters keep theirs.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "param",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "keys",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "slot",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "interp",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "auto"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.key_transform",
+   "area": "seq",
+   "verb": "key_transform",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 192,
+   "summary": "Animate an actor in a sequence: keys are [frame, [x, y, z], {\"pitch\", \"yaw\", \"roll\"} | [x, y, z] to look at] with an optional 4th element, the interpolation leaving that key: \"auto\" (smooth, eases at held ends), \"linear\" or \"constant\" (hold",
+   "doc": "Animate an actor in a sequence: keys are [frame, [x, y, z], {\"pitch\", \"yaw\", \"roll\"} | [x, y, z] to look at]\nwith an optional 4th element, the interpolation leaving that key: \"auto\" (smooth, eases at held ends), \"linear\"\nor \"constant\" (hold until the next key, a jump cut). `interp` is the default. Replaces the actor's transform\ntrack (and only that), keeping the actor's scale; yaw is keyed as given, so unwrap it yourself across +-180.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "keys",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "interp",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "auto"
+    }
+   ],
+   "returns": "int",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.key_visible",
+   "area": "seq",
+   "verb": "key_visible",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 433,
+   "summary": "Show and hide an actor (or one of its components) over a sequence: keys [[frame, visible], ...], stepped; the first key holds before it.",
+   "doc": "Show and hide an actor (or one of its components) over a sequence: keys [[frame, visible], ...], stepped; the\nfirst key holds before it. Overrides the level's hidden state while the sequence is open or playing (a\npresenter hidden in the level can appear in the reel). `attached` keys the actors attached to it too (her\nearrings and watch). Replaces only the visibility track.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "keys",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "attached",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.new",
+   "area": "seq",
+   "verb": "new",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 361,
+   "summary": "An empty level sequence for building into (no actor, no camera): playback [start, end) at `fps`.",
+   "doc": "An empty level sequence for building into (no actor, no camera): playback [start, end) at `fps`. If it exists it\nis kept as it is (only its range set), so several scripts can each add their tracks; `replace` starts it afresh.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "start",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "end",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 120
+    },
+    {
+     "name": "fps",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 24
+    },
+    {
+     "name": "replace",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.rebind",
+   "area": "seq",
+   "verb": "rebind",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 728,
+   "summary": "Point a sequence's actor bindings at the level's actors of the same label again, after the level was rebuilt and the old actors are gone (their tracks are kept; a binding removed and remade would lose them).",
+   "doc": "Point a sequence's actor bindings at the level's actors of the same label again, after the level was rebuilt\nand the old actors are gone (their tracks are kept; a binding removed and remade would lose them). `labels` None\n= every actor binding whose name is an actor in the level. Returns {label: \"ok\" | \"missing\"}.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "labels",
+     "kind": "positional",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.sample",
+   "area": "seq",
+   "verb": "sample",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 138,
+   "summary": "Play a sequence frame by frame across editor ticks (so animation and rigs settle) and record bones' world transforms, each [x, y, z, axis_x(3), axis_y(3), axis_z(3)], `camera`'s location, and `target`'s (see seq.aim_point: a point, an actor",
+   "doc": "Play a sequence frame by frame across editor ticks (so animation and rigs settle) and record bones' world\ntransforms, each [x, y, z, axis_x(3), axis_y(3), axis_z(3)], `camera`'s location, and `target`'s (see\nseq.aim_point: a point, an actor, \"Label:Component:bone\"). A multi-tick job.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "actor_label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "bones",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "positional",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "every",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "ticks",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 2
+    },
+    {
+     "name": "camera",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "target",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "target_offset",
+     "kind": "positional",
+     "type": null,
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.scrub",
+   "area": "seq",
+   "verb": "scrub",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 66,
+   "summary": "Open a sequence in Sequencer, locked to its camera, at a frame (for checking a pose in the viewport).",
+   "doc": "Open a sequence in Sequencer, locked to its camera, at a frame (for checking a pose in the viewport).",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frame",
+     "kind": "positional",
+     "type": "int",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "int",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.set_anim",
+   "area": "seq",
+   "verb": "set_anim",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 93,
+   "summary": "Swap the animation on a component's track in a sequence: every section of it, or only those playing `only`.",
+   "doc": "Swap the animation on a component's track in a sequence: every section of it, or only those playing `only`.\n`label` picks the actor when several have a component of that name (both presenters have \"Body\").",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "anim",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "label",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "only",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "str",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.shot",
+   "area": "seq",
+   "verb": "shot",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 23,
+   "summary": "A shot: `anims` maps component names to animations ({\"Body\": idle, \"Face\": talk}); `audio` a SoundWave; the camera cut on `camera`.",
+   "doc": "A shot: `anims` maps component names to animations ({\"Body\": idle, \"Face\": talk}); `audio` a SoundWave; the\ncamera cut on `camera`. Length: `seconds`, else the audio's, else the longest animation's.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "actor_label",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "anims",
+     "kind": "positional",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "camera",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "audio",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "seconds",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "fps",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 24
+    },
+    {
+     "name": "audio_start",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "tail",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 6
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.still",
+   "area": "seq",
+   "verb": "still",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 167,
+   "summary": "A still of a sequence at a frame through `camera`, or, with camera \"\", through the camera the edit (the camera cut track) shows at that frame: scrub there, let it settle `settle` ticks (temporal anti-aliasing, Lumen), capture.",
+   "doc": "A still of a sequence at a frame through `camera`, or, with camera \"\", through the camera the edit (the camera\ncut track) shows at that frame: scrub there, let it settle `settle` ticks (temporal anti-aliasing, Lumen),\ncapture. A multi-tick job.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frame",
+     "kind": "positional",
+     "type": "int",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "camera",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "width",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 1920
+    },
+    {
+     "name": "height",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 1080
+    },
+    {
+     "name": "settle",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 30
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.stills",
+   "area": "seq",
+   "verb": "stills",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 235,
+   "summary": "Stills of a sequence at many frames ({out_dir}/{frame:04d}.png): a contact sheet's worth in one call.",
+   "doc": "Stills of a sequence at many frames ({out_dir}/{frame:04d}.png): a contact sheet's worth in one call. Through\none `camera`, or with camera \"\" each frame through its own shot's camera (the camera cut track): a previs of the\nwhole cut. A multi-tick job; returns [[frame, camera, path]].",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "frames",
+     "kind": "positional",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "camera",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "out_dir",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "width",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 960
+    },
+    {
+     "name": "height",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 540
+    },
+    {
+     "name": "settle",
+     "kind": "positional",
+     "type": "int",
+     "required": false,
+     "default": 20
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "seq.tracks",
+   "area": "seq",
+   "verb": "tracks",
+   "module": "fmbridge.ops.seq",
+   "file": "unreal/fmbridge/ops/seq.py",
+   "line": 759,
+   "summary": "What a sequence holds: for each binding (an actor, or actor.component) its tracks as [class, property or name, sections, keys]; master tracks under \"\".",
+   "doc": "What a sequence holds: for each binding (an actor, or actor.component) its tracks as [class, property or\nname, sections, keys]; master tracks under \"\". For checking what a build script made.",
+   "params": [
+    {
+     "name": "path",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "speech.moods",
+   "area": "speech",
+   "verb": "moods",
+   "module": "fmbridge.ops.speech",
+   "file": "unreal/fmbridge/ops/speech.py",
+   "line": 14,
+   "summary": "The audio solver's moods (AUTO_DETECT, CONFIDENCE, EXCITEMENT, HAPPINESS, ...).",
+   "doc": "The audio solver's moods (AUTO_DETECT, CONFIDENCE, EXCITEMENT, HAPPINESS, ...).",
+   "params": [],
+   "returns": "list",
+   "multi_tick": false,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  },
+  {
+   "name": "speech.to_face",
+   "area": "speech",
+   "verb": "to_face",
+   "module": "fmbridge.ops.speech",
+   "file": "unreal/fmbridge/ops/speech.py",
+   "line": 20,
+   "summary": "Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at `intensity`, and export an animation on `face_mesh`'s skeleton.",
+   "doc": "Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at\n`intensity`, and export an animation on `face_mesh`'s skeleton. Returns the sound, performance and animation.\nA multi-tick job.",
+   "params": [
+    {
+     "name": "wav",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "face_mesh",
+     "kind": "positional",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "mood",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "CONFIDENCE"
+    },
+    {
+     "name": "intensity",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "head",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "blinks",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "folder",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "/Game/Speech"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": true,
+   "mutates": null,
+   "idempotent": null,
+   "tags": []
+  }
+ ],
+ "broken": {},
+ "areas": {
+  "anim": "Animation curves: read and write a sequence's float curves, and lock a talking face's gaze on the camera.",
+  "assets": "Assets: list, import, duplicate, delete, save.",
+  "level": "Levels and actors: new/open/save, list, spawn (shapes, assets, classes), move, aim, delete.",
+  "look": "The look: materials (surface, emissive, glass), lights (rect, spot, point), atmosphere (volumetric fog), post-process and cine cameras, plus quick stills through a camera for checking a frame without a render.",
+  "mh": "MetaHumans: presets, a character from a preset, Epic's cloud rig and high-resolution textures, wardrobe (hair, beard, brows, clothes), the cinematic build to a Blueprint, and how an assembled character is driven.",
+  "render": "Renders with Movie Render Queue: image sequences plus the mixed audio, deferred (Lumen) or path-traced, with temporal/spatial samples and console variables for quality.",
+  "seq": "Level sequences: a shot from an actor, animations per component, audio and a camera; open and scrub.",
+  "speech": "Speech to face: a voice file on the workstation becomes a MetaHuman facial animation (lip-sync, blinks, brows, head movement), through MetaHuman Animator's audio solver with a chosen mood."
+ }
+}

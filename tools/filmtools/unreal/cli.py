@@ -23,6 +23,14 @@
     film-ue log [N]                             the editor log's tail
     film-ue tunnel | close                      open/close the SSM tunnel (opened on demand anyway)
     film-ue poc N [...]                         the Linux proof-of-concept checks (filmtools.unreal.poc)
+
+For Claude (docs/unreal/GUIDE.md, docs/unreal/dx.md):
+    film-ue <area> <verb> --arg value [--json] [--dry-run] [--async]   any op as a command (filmtools.unreal.opcli)
+    film-ue describe [area | area.verb] [--json] [--live]              what the ops are and take (offline)
+    film-ue job ID [--wait] [--json]                                   an --async op's state or result
+    film-ue plan SPEC | apply SPEC [--prune] [--json]                  a declarative spec: the diff, then converge
+    film-ue selftest [area|all] [--out DIR] [--keep]                   each area's acceptance test on the box, one report
+    film-ue dx gen | check | lint                                      regenerate / verify the schema, SDK and docs
 """
 from __future__ import annotations
 
@@ -37,6 +45,11 @@ import urllib.parse
 from pathlib import Path
 
 from . import client, workstation as ws
+
+try:  # WP1's platform commands (box, editor, sync, ...): registered beside these when that module is in the tree
+    from . import cli_platform
+except ImportError:
+    cli_platform = None
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -174,6 +187,23 @@ def wait_bridge(seconds: int = 900) -> dict:
     raise SystemExit(f"the bridge did not answer in {seconds}s: film-ue editor status / film-ue editor log")
 
 
+def _after_box(argv: list) -> list:
+    """argv without a leading --box NAME / --box=NAME."""
+    out, skip = [], False
+    for i, w in enumerate(argv):
+        if skip:
+            skip = False
+            continue
+        if w == "--box":
+            skip = True
+            continue
+        if w.startswith("--box="):
+            os.environ["FILM_UE_BOX"] = w.split("=", 1)[1]
+            continue
+        out.append(w)
+    return out
+
+
 SETTINGS = ("instance", "region", "os", "project_dir", "key", "bucket", "user", "service", "local_port", "transport",
             "ssh", "ssh_key", "bridge", "epic_s3")
 
@@ -221,6 +251,16 @@ def main() -> None:
         p.add_argument("src")
         p.add_argument("dst")
     sub.add_parser("log").add_argument("lines", nargs="?", type=int, default=80)
+    from . import dxcli
+    dxcli.register(sub)
+    if cli_platform:
+        cli_platform.register(sub)
+    argv = sys.argv[1:]
+    from . import opcli
+    if opcli.wants(_after_box(argv), set(sub.choices)):  # film-ue <area> <verb> ...: the generated op commands
+        if "--box" in argv:
+            os.environ["FILM_UE_BOX"] = argv[argv.index("--box") + 1]
+        raise SystemExit(opcli.run(_after_box(argv)))
     a, extra = ap.parse_known_args()
     if extra and a.cmd != "poc":
         ap.error("unrecognized arguments: " + " ".join(extra))
@@ -230,6 +270,10 @@ def main() -> None:
     if a.cmd in ("provision", "editor", "desktop", "epic-login") and not ws.linux():
         raise SystemExit(f"film-ue {a.cmd} is for a Linux box: film-ue --box NAME set --os linux ...")
 
+    if cli_platform and cli_platform.dispatch(a):
+        return
+    if dxcli.dispatch(a):
+        return
     if a.cmd == "set":
         print(json.dumps(ws.save(**{k: getattr(a, k) for k in SETTINGS if getattr(a, k) is not None}), indent=1))
     elif a.cmd == "up":
