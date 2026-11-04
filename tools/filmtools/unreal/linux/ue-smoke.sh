@@ -1,5 +1,5 @@
 #!/bin/bash
-# Smoke-test a Linux Unreal editor headless: start UnrealEditor-Cmd with no RHI on a throwaway project that enables
+# Smoke-test a Linux Unreal editor headless: start UnrealEditor (Linux has no -Cmd binary) with no RHI on a throwaway project that enables
 # the Python plugin, run a Python script, and check what it wrote. Optional: UE_SMOKE_RENDER=1 also tries
 # -RenderOffscreen (needs a Vulkan driver: a GPU, or mesa's lavapipe on a CPU box).
 #
@@ -19,7 +19,7 @@ PY
 chown -R "$UE_USER": "$P"
 run() {  # run <label> <extra args>
   local t0=$(date +%s)
-  sudo -u "$UE_USER" -H timeout 900 "$UE_ROOT/Engine/Binaries/Linux/UnrealEditor-Cmd" "$P/Smoke.uproject" \
+  sudo -u "$UE_USER" -H timeout 900 "$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" "$P/Smoke.uproject" \
     -ExecutePythonScript="$P/smoke.py" -unattended -nosplash -nopause -nosound -stdout -FullStdOutLogOutput $2 \
     > "$P/$1.log" 2>&1
   local rc=$?

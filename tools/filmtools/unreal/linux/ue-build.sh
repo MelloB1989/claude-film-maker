@@ -9,13 +9,15 @@
 #             from $UE_SRC_URL (a short-lived codeload URL; never a token) or src/<tag>/github.tar.gz, + Setup.sh,
 #             then saves prepared.tar.zst so a rebuild never touches GitHub or Epic's CDN
 #   generate  GenerateProjectFiles.sh (not needed by the build itself; kept to check the tree is sane)
-#   build     UnrealEditor + ShaderCompileWorker (+ the plugins a project enables: UE_PROJECT=<.uproject> or
+#   extras    copy extra source plugins from $UE_S3/plugins/<Name>/ into Engine/Plugins/<Name> (e.g. Fab from a
+#             launcher install), without Binaries/ or Intermediate/, so the next build compiles them for Linux
+#   build     UnrealEditor, ShaderCompileWorker, InterchangeWorker, UnrealPak (+ the plugins a project enables: UE_PROJECT=<.uproject> or
 #             UE_PLUGINS="PythonScriptPlugin,MovieRenderPipeline,..." which makes a content-only probe project)
 #   package   zstd tarball of the runnable engine + manifest.json -> $UE_S3/engine/<version>/
 #   smoke     ue-smoke.sh against the built tree
 #
 # Env: UE_TAG (required), UE_S3 (required, e.g. s3://rf-render-788655295054-aps1/ue-linux), UE_WORK (/data),
-#      UE_SRC_URL, UE_PROJECT, UE_PLUGINS, UE_JOBS (parallel actions; default = all cores, memory-capped by UBT),
+#      UE_SRC_URL, UE_COMMIT (recorded in the manifest), UE_PROJECT, UE_PLUGINS, UE_JOBS (parallel actions; default = all cores, memory-capped by UBT),
 #      UE_ZSTD_LEVEL (default 12). Runs as root (SSM); compiles and runs the engine as user $UE_USER (ubuntu): the
 #      editor refuses to run as root.
 set -euo pipefail
@@ -26,6 +28,7 @@ UE_ROOT=$UE_WORK/UnrealEngine
 UE_ZSTD_LEVEL=${UE_ZSTD_LEVEL:-12}
 HERE=$(cd "$(dirname "$0")" && pwd)
 LOG=$UE_WORK/build.log
+export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 mkdir -p "$UE_WORK"
 export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-ap-south-1}
 
@@ -44,8 +47,8 @@ timed() {  # timed <name> <fn>
 
 stage_prep() {
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update -qq
-  apt-get install -y -qq zstd pigz unzip curl jq build-essential xdg-user-dirs >/dev/null
+  apt-get -o DPkg::Lock::Timeout=900 update -qq
+  apt-get -o DPkg::Lock::Timeout=900 install -y -qq zstd pigz unzip curl jq build-essential xdg-user-dirs >/dev/null
   if ! command -v aws >/dev/null; then
     curl -sSfo /tmp/awscliv2.zip https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
     (cd /tmp && unzip -qo awscliv2.zip && ./aws/install --update >/dev/null)
@@ -54,7 +57,8 @@ stage_prep() {
   aws configure set default.s3.multipart_chunksize 64MB
   id "$UE_USER" >/dev/null 2>&1 || useradd -m -s /bin/bash "$UE_USER"
   chown "$UE_USER": "$UE_WORK"
-  # UBT: all cores, and enough memory per action for clang on unity files (default 1.5 GiB already).
+  # UBT: every logical core (default: one action per physical core), 1.5 GiB free per action, the plain parallel
+  # executor (UBA on Linux is new and broke ISPC headers in 5.5), no dump_syms pass (slow; symbols are split anyway).
   local cfg=/home/$UE_USER/.config/Unreal\ Engine/UnrealBuildTool
   mkdir -p "$cfg"
   cat > "$cfg/BuildConfiguration.xml" <<XML
@@ -62,6 +66,10 @@ stage_prep() {
 <Configuration xmlns="https://www.unrealengine.com/BuildConfiguration">
   <BuildConfiguration>
     ${UE_JOBS:+<MaxParallelActions>$UE_JOBS</MaxParallelActions>}
+    <bAllCores>true</bAllCores>
+    <bAllowUBAExecutor>false</bAllowUBAExecutor>
+    <bAllowUBALocalExecutor>false</bAllowUBALocalExecutor>
+    <bDisableDumpSyms>true</bDisableDumpSyms>
   </BuildConfiguration>
   <ParallelExecutor>
     <ProcessorCountMultiplier>2</ProcessorCountMultiplier>
@@ -94,9 +102,10 @@ stage_source() {
     fi
   fi
   rm -rf "$UE_ROOT"; mkdir -p "$UE_ROOT"
-  # GitHub names the top directory <owner>-<repo>-<short sha>: that is the commit
-  local top; top=$(tar -tzf "$tgz" | head -1); top=${top%%/*}
-  echo "${top##*-}" > "$UE_WORK/commit.txt"; say "commit (short): $(cat "$UE_WORK/commit.txt")"
+  # GitHub names the top directory <owner>-<repo>-<sha>; for an annotated tag that is the TAG OBJECT's sha, not the
+  # commit's: the caller resolves the commit (GET /repos/<repo>/git/tags/<sha>) and passes it as UE_COMMIT
+  local top; top=$(set +o pipefail; tar -tzf "$tgz" 2>/dev/null | head -1); top=${top%%/*}
+  echo "${top##*-}" > "$UE_WORK/tarball-id.txt"; say "tarball id: $(cat "$UE_WORK/tarball-id.txt")"
   pigz -dc -p 32 "$tgz" | tar -x -C "$UE_ROOT" --strip-components=1
   chown -R "$UE_USER": "$UE_ROOT"
   wait
@@ -110,6 +119,17 @@ stage_source() {
 }
 
 stage_generate() { as_user bash -c "cd '$UE_ROOT' && ./GenerateProjectFiles.sh" 2>&1 | tail -n 5 | tee -a "$LOG"; }
+
+stage_extras() {
+  local n
+  for n in $(aws s3 ls "$UE_S3/plugins/" | awk '/PRE/{print $2}' | tr -d /); do
+    say "extra plugin $n"
+    rm -rf "$UE_ROOT/Engine/Plugins/$n"
+    aws s3 sync --only-show-errors --exclude 'Binaries/*' --exclude 'Intermediate/*' "$UE_S3/plugins/$n/" "$UE_ROOT/Engine/Plugins/$n/"
+    find "$UE_ROOT/Engine/Plugins/$n" -depth -type d -empty -delete
+  done
+  chown -R "$UE_USER": "$UE_ROOT/Engine/Plugins"
+}
 
 probe_project() {  # a content-only project that enables $UE_PLUGINS, so their modules get built into the engine
   local d=$UE_WORK/Probe; mkdir -p "$d"
@@ -125,14 +145,19 @@ PY
 stage_build() {
   local proj=${UE_PROJECT:-}
   [ -z "$proj" ] && [ -n "${UE_PLUGINS:-}" ] && proj=$(probe_project)
-  local b="Engine/Build/BatchFiles/Linux/Build.sh"
-  say "building ShaderCompileWorker"
-  as_user bash -c "cd '$UE_ROOT' && $b ShaderCompileWorker Linux Development -waitmutex" 2>&1 | tail -n 5 | tee -a "$LOG"
-  say "building UnrealEditor${proj:+ for $proj}"
-  as_user bash -c "cd '$UE_ROOT' && $b UnrealEditor Linux Development ${proj:+-Project=\"$proj\"} -waitmutex" 2>&1 \
-    | tee "$UE_WORK/ubt-editor.log" | grep -E '^\[[0-9]+/[0-9]+\]|error|Total time|Result:|parallel|actions' \
-    | awk 'NR%200==1 || !/^\[/' | tee -a "$LOG"
-  grep -q 'Result: Succeeded' "$UE_WORK/ubt-editor.log"
+  local p=${proj:+ -Project=$proj}
+  # a tag tarball has no prebuilt UnrealBuildTool (GenerateProjectFiles.sh would build it): build it first
+  say "building UnrealBuildTool"
+  as_user bash -c "cd '$UE_ROOT' && Engine/Build/BatchFiles/BuildUBT.sh" 2>&1 | tail -n 3 | tee -a "$LOG"
+  test -e "$UE_ROOT/Engine/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool.dll"
+  # one UBT run for every target, so they share one action queue
+  say "building UnrealEditor, ShaderCompileWorker, InterchangeWorker, UnrealPak${proj:+ with the plugins of $proj}"
+  as_user bash -c "cd '$UE_ROOT' && Engine/Build/BatchFiles/Linux/Build.sh -WaitMutex \
+      '-Target=UnrealEditor Linux Development$p' '-Target=ShaderCompileWorker Linux Development' \
+      '-Target=InterchangeWorker Linux Development' '-Target=UnrealPak Linux Development'" 2>&1 \
+    | tee "$UE_WORK/ubt.log" | grep -E --line-buffered '^\[[0-9]+/[0-9]+\]|error|Total time|Result:|[Pp]arallel|actions|Executor' \
+    | awk '!/^\[/ || NR%250==1 {print; fflush()}' | tee -a "$LOG"
+  grep -q 'Result: Succeeded' "$UE_WORK/ubt.log"
 }
 
 stage_package() {
@@ -145,11 +170,11 @@ stage_package() {
   local sha size usize
   sha=$(sha256sum "$out" | cut -d' ' -f1); size=$(stat -c %s "$out")
   usize=$(du -sb --exclude=Intermediate --exclude=Saved --exclude=DerivedDataCache --exclude='*.debug' --exclude='*.sym' "$UE_ROOT" | cut -f1)
-  jq -n --arg tag "$UE_TAG" --arg commit "$(cat "$UE_WORK/commit.txt" 2>/dev/null)" --arg ver "$ver" \
+  jq -n --arg tag "$UE_TAG" --arg commit "${UE_COMMIT:-}" --arg tobj "$(cat "$UE_WORK/tarball-id.txt" 2>/dev/null)" --arg ver "$ver" \
      --arg sha "$sha" --argjson size "$size" --argjson usize "$usize" --arg plugins "${UE_PLUGINS:-}" \
      --arg built "$(date -u +%FT%TZ)" --arg host "$(curl -s -m 2 http://169.254.169.254/latest/meta-data/instance-type || true)" \
      --arg file "$(basename "$out")" --arg clang "$(ls "$UE_ROOT"/Engine/Extras/ThirdPartyNotUE/SDKs/HostLinux/Linux_x64/ 2>/dev/null | head -1)" \
-     '{tag:$tag, commit:$commit, version:$ver, target:"UnrealEditor Linux Development + ShaderCompileWorker",
+     '{tag:$tag, commit:$commit, tag_object:$tobj, version:$ver, target:"UnrealEditor, ShaderCompileWorker, InterchangeWorker, UnrealPak (Linux Development)",
        plugins:($plugins|split(",")|map(select(length>0))), toolchain:$clang, file:$file, sha256:$sha,
        bytes:$size, unpacked_bytes:$usize, built:$built, built_on:$host, excludes:["Intermediate","Saved","DerivedDataCache","*.debug","*.sym"]}' \
      > "$UE_WORK/manifest.json"

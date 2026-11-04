@@ -11,7 +11,14 @@ export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-ap-south-1}
 UE_USER=${UE_USER:-ubuntu}
 VER=${1:-}; DEST=${2:-/opt/UnrealEngine}
 t0=$(date +%s)
-command -v zstd >/dev/null && command -v jq >/dev/null || { apt-get update -qq; DEBIAN_FRONTEND=noninteractive apt-get install -y -qq zstd jq unzip curl >/dev/null; }
+# zstd/jq for the restore; the rest are libraries UnrealEditor links against that a minimal Ubuntu 22.04 lacks
+# (without pango/cairo it exits 127 at once). UE_RUNTIME_DEPS=0 skips them.
+deps="zstd jq unzip curl"
+[ "${UE_RUNTIME_DEPS:-1}" = 1 ] && deps="$deps libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgtk-3-0 libnss3 libxcomposite1
+  libxdamage1 libxrandr2 libgbm1 libasound2 libatk1.0-0 libatk-bridge2.0-0 libxkbcommon0 libxss1 libxtst6 libsecret-1-0
+  libxcursor1 libxi6 libsdl2-2.0-0 libvulkan1"
+apt-get -o DPkg::Lock::Timeout=900 update -qq
+DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=900 install -y -qq --no-install-recommends $deps >/dev/null
 if ! command -v aws >/dev/null; then
   curl -sSfo /tmp/awscliv2.zip https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
   (cd /tmp && unzip -qo awscliv2.zip && ./aws/install --update >/dev/null)
@@ -30,4 +37,6 @@ sleep 1; got=$(cat /tmp/ue-restore.sha)
 id "$UE_USER" >/dev/null 2>&1 || useradd -m -s /bin/bash "$UE_USER"
 chown -R "$UE_USER": "$DEST"
 cp /tmp/ue-manifest.json "$DEST/ue-manifest.json"
+missing=$(ldd "$DEST/Engine/Binaries/Linux/UnrealEditor" "$DEST"/Engine/Binaries/Linux/libUnrealEditor-*.so 2>/dev/null | awk '/not found/{print $1}' | sort -u | tr '\n' ' ')
+[ -z "$missing" ] || echo "WARNING: libraries not found: $missing" >&2
 echo "restored in $(( $(date +%s) - t0 ))s: $DEST/Engine/Binaries/Linux/UnrealEditor (sha256 ok)"

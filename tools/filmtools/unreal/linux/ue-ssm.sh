@@ -30,7 +30,7 @@ run() {  # run <instance> <script>: send, wait, print stdout/stderr
 }
 
 bootstrap='set -e; mkdir -p /data /opt/ue-tools
-command -v aws >/dev/null || { apt-get update -qq && apt-get install -y -qq unzip curl >/dev/null
+command -v aws >/dev/null || { apt-get -o DPkg::Lock::Timeout=900 update -qq && apt-get -o DPkg::Lock::Timeout=900 install -y -qq unzip curl >/dev/null
   curl -sSfo /tmp/awscliv2.zip https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip && (cd /tmp && unzip -qo awscliv2.zip && ./aws/install --update >/dev/null); }
 aws s3 cp --quiet --recursive '"$UE_S3"'/tools/ /opt/ue-tools/ && chmod +x /opt/ue-tools/*.sh'
 
