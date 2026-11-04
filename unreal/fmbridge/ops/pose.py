@@ -14,6 +14,7 @@ import unreal
 
 from . import call, op
 from . import _pose as P
+from ._scrub import set_frame
 from ._util import find_actor, actors
 from ..errors import OpError, not_found
 
@@ -57,9 +58,9 @@ def bones_of(label: str, component: str = "") -> dict:
 
 
 def _scrub(frame: int, ticks: int = 3):
-    LSE.set_current_time(int(frame) + 1)
+    set_frame(int(frame) + 1)
     yield
-    LSE.set_current_time(int(frame))
+    set_frame(int(frame))
     for _ in range(ticks):
         yield
 
@@ -104,8 +105,9 @@ def _xf(t, delta):
     loc = t.translation
     r = t.rotation
     rot = r.rotator() if hasattr(r, "rotator") else r
+    sc = getattr(t, "scale3d", None)  # keep the control's own scale
     return unreal.Transform(location=unreal.Vector(loc.x + delta[0], loc.y + delta[1], loc.z + delta[2]),
-                            rotation=rot, scale=unreal.Vector(1.0, 1.0, 1.0))
+                            rotation=rot, scale=sc if sc is not None else unreal.Vector(1.0, 1.0, 1.0))
 
 
 def _report(goals: dict, bones: dict, tol: float, frame: int, label: str, used: dict) -> tuple:

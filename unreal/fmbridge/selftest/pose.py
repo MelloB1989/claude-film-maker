@@ -13,6 +13,8 @@ is skipped with a note: e.g. a MetaHuman character asset). Leaves nothing outsid
 from __future__ import annotations
 
 import unreal
+
+from fmbridge.ops._scrub import set_frame
 from ..ops.assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 REQUIRES: list = []
@@ -89,7 +91,7 @@ def run(t):
         again = yield from t.op("pose.apply", label=who, sequence=seq, frame=frame, pose=pose, params=params)
         t.check(f"{pose}: a second apply changes nothing", again["iterations"], 0)
         try:
-            unreal.LevelSequenceEditorBlueprintLibrary.set_current_time(frame)
+            set_frame(frame)
             yield from t.still(f"pose_{pose}", camera=P + "Cam")
         except Exception as e:
             t.note(f"no still: {e}")
