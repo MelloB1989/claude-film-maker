@@ -66,10 +66,10 @@ def write_schemas() -> list:
 
 
 SPEC_KINDS = [
-    {"name": "environment", "plan": plan, "describe": describe, "order": 30,
+    {"name": "environment", "plan": plan, "describe": describe, "order": 40,
      "doc": "Sun/moon by time and place, physical sky, clouds, HDRI, fog, exposure, grade, Lumen quality, "
             "reflection captures, plus lights/rigs/practicals; presets and moods."},
-    {"name": "lighting", "plan": plan, "describe": describe, "order": 35,
+    {"name": "lighting", "plan": plan, "describe": describe, "order": 41,
      "doc": "Lights, rigs relative to a subject and camera, practical fixtures and lighting channels."},
 ]
 

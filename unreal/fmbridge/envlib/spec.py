@@ -210,6 +210,7 @@ def resolve(spec: dict, mood: str = None) -> dict:
     """The effective spec: the preset, then the spec's own fields, then the mood's overlay. Validates everything."""
     if not isinstance(spec, dict):
         raise SpecError("spec", "a spec is one object (mapping)")
+    spec = {k: v for k, v in spec.items() if not str(k).startswith("_")}  # the spec engine's own (_src: the file)
     kind = spec.get("kind", "environment")
     if kind not in KINDS:
         raise SpecError("kind", f"{kind!r} is not a kind this planner handles", f"one of {KINDS}")

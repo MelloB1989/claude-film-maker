@@ -1,0 +1,52 @@
+# A presenter's studio by day, with a night mood: `film-ue apply studio-day-night.yaml` (day), then
+# `film-ue op env.mood name=night spec_name=studio` (or set `mood: night` here and apply again).
+# Needs actors labelled Host (the presenter) and HostCam (a cine camera) in the level.
+kind: environment
+version: 1
+name: studio
+preset: interior_day                 # sun + sky + interior haze + warm film grade + final quality, EV100 8.5
+sun:
+  time: "16:30"                      # local time at the studio (NOAA solar position)
+  lat: 19.07
+  lon: 72.88
+  date: "2026-11-05"
+  tz: 5.5
+  north_yaw_deg: -60                 # the window wall faces north-west
+exposure: {mode: manual, ev100: auto}  # expose for the rig's key (900 lux -> EV100 ~8.5)
+lights:
+  WindowSoft:                        # the window as an area light, so the face gets daylight wrap
+    kind: rect
+    loc: [-246, 205, 150]
+    look_at: [0, 0, 160]
+    nits: 1500
+    width_cm: 140
+    height_cm: 200
+    temperature_k: 6200
+practicals:
+  ShelfStrip: {type: led_strip, loc: [-237, -150, 175]}
+  DeskLamp: {type: desk_lamp, loc: [-200, -60, 140], look_at: [-200, -60, 75]}
+rigs:
+  Host:
+    subject: Host
+    camera: HostCam
+    preset: interview
+    key_lux: 900
+    channels: [1]                    # the rig lights only the presenter (channel 1)
+channels:
+  Host: [0, 1]                       # the presenter takes the room's light and the rig's
+cvars:
+  r.HairStrands.SkyLighting: 0       # hair strands take the sky light unoccluded indoors (README trap)
+checks:
+  camera: HostCam
+  targets: {mean: [0.3, 0.55], clipped_max: 0.01, crushed_max: 0.05, cast_max: 0.3}
+moods:
+  night:
+    sun: false
+    sky_light: {intensity: 0.05}
+    exposure: {mode: manual, ev100: 5.5}
+    grade: {preset: warm_film, white_balance: 4800}
+    lights:
+      WindowSoft: {kind: rect, loc: [-246, 205, 150], look_at: [0, 0, 160], nits: 40, width_cm: 140,
+                   height_cm: 200, temperature_k: 9000}
+    rigs:
+      Host: {subject: Host, camera: HostCam, preset: interview, key_lux: 250, temperature_k: 4300, channels: [1]}

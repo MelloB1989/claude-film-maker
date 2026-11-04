@@ -222,7 +222,7 @@ def _point_of(ref, offset=None, socket: str = "", head: bool = True):
 
 
 @op("light.rig", mutates=True, idempotent=True, tags=["lighting"])
-def rig(*, subject, camera=None, facing_yaw_deg: float = None, preset: str = "three_point", key_lux: float = 800.0,
+def rig(*, subject: str | list, camera: str | list = None, facing_yaw_deg: float = None, preset: str = "three_point", key_lux: float = 800.0,
         ratio: float = None, lights: dict = None, prefix: str = "Rig_", key_side: str = "left", scale: float = 1.0,
         temperature_k: float = None, channels: list = None, subject_offset: list = None, socket: str = "",
         owner: str = "manual") -> dict:

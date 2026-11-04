@@ -2118,6 +2118,1324 @@
    ]
   },
   {
+   "name": "env.apply",
+   "area": "env",
+   "verb": "apply",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 758,
+   "summary": "Converge the level to an ENVIRONMENT (or LIGHTING) spec: diff it against env.describe, run only the needed",
+   "doc": "Converge the level to an ENVIRONMENT (or LIGHTING) spec: diff it against env.describe, run only the needed\nenv/light ops, re-describe and confirm a second plan is empty. A multi-tick job. Remembers the spec so\nenv.mood can switch its moods later.\n\nArgs: spec: the spec object (kind environment|lighting, version 1, name, preset?, sections...; environment.md).\nmood: one of the spec's `moods` (overrides spec.mood). dry_run: only plan.\nReturns: {\"changed\", \"steps\": [{\"op\", \"why\", \"changed\"}], \"converged\", \"remaining\": [steps]}.\nExample: film-ue op env.apply 'spec={\"kind\":\"environment\",\"name\":\"day\",\"preset\":\"exterior_golden\"}'",
+   "params": [
+    {
+     "name": "spec",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "mood",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "dry_run",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "lighting",
+    "spec"
+   ]
+  },
+  {
+   "name": "env.atmosphere",
+   "area": "env",
+   "verb": "atmosphere",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 143,
+   "summary": "A physical sky (Env_Atmosphere, SkyAtmosphere): Earth by default, with presets and multipliers; converges.",
+   "doc": "A physical sky (Env_Atmosphere, SkyAtmosphere): Earth by default, with presets and multipliers; converges.\n\nArgs: preset: clear|crisp|hazy|smoggy|dusty. haze: x Mie scattering (aerosols: whiter sky, hazier distance).\nrayleigh: x Rayleigh (bluer). aerial_distance_scale: x aerial perspective. mie_anisotropy 0-1. ground_albedo\n[r,g,b] linear. The raw engine fields (rayleigh_scattering_scale, mie_scattering_scale, ...) override.\nReturns: {\"label\", \"changed\", \"props\": [changed]}.\nExample: film-ue op env.atmosphere preset=hazy haze=4",
+   "params": [
+    {
+     "name": "preset",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "haze",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "rayleigh",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "aerial_distance_scale",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "mie_anisotropy",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "ground_albedo",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "multi_scattering",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "height_fog_contribution",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "rayleigh_scattering_scale",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "mie_scattering_scale",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "mie_absorption_scale",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "multi_scattering_factor",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "aerial_pespective_view_distance_scale",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment"
+   ]
+  },
+  {
+   "name": "env.captures_rebuild",
+   "area": "env",
+   "verb": "captures_rebuild",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 631,
+   "summary": "Rebuild the reflection captures. The only scriptable route runs a lighting build first",
+   "doc": "Rebuild the reflection captures. The only scriptable route runs a lighting build first\n(LevelEditorSubsystem.build_light_maps with captures; there is no console command), so it is slow on a level\nwith static lighting; with Lumen-only levels it is quick. A multi-tick job.\n\nArgs: quality: preview|medium|high|production (the lighting build's quality).\nReturns: {\"changed\": True, \"built\": bool}.\nExample: film-ue op env.captures_rebuild",
+   "params": [
+    {
+     "name": "quality",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "preview"
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "slow",
+    "experimental"
+   ]
+  },
+  {
+   "name": "env.check",
+   "area": "env",
+   "verb": "check",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 904,
+   "summary": "A numeric verdict on a look: meter through `camera` (env.meter) or read a still `png` on the box (any",
+   "doc": "A numeric verdict on a look: meter through `camera` (env.meter) or read a still `png` on the box (any\nlook.still / render frame), and compare with targets: mean [lo,hi] (display luma), median, clipped_max,\ncrushed_max, cast_max, warm [lo,hi], ev100 [lo,hi] (scene), range_stops_max, stops_over [lo,hi]. Defaults: a\nnatural, well exposed frame. A multi-tick job.\n\nArgs: targets, or `spec` (its checks: {camera, targets}). step: png subsampling.\nReturns: {\"pass\", \"issues\": [{code, severity, message, fix, value, expected}], \"metrics\": {...}}.\nExample: film-ue op env.check camera=HostCam 'targets={\"mean\":[0.3,0.5],\"clipped_max\":0.01}'",
+   "params": [
+    {
+     "name": "camera",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "png",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "targets",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "spec",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "step",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 4
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "qa"
+   ]
+  },
+  {
+   "name": "env.clouds",
+   "area": "env",
+   "verb": "clouds",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 177,
+   "summary": "Volumetric clouds (Env_Clouds): a layer from `bottom_km` up `height_km`, in the engine's simple cloud",
+   "doc": "Volumetric clouds (Env_Clouds): a layer from `bottom_km` up `height_km`, in the engine's simple cloud\nmaterial or `material`; converges. Needs a SkyAtmosphere (env.atmosphere) to look right.\n\nReturns: {\"label\", \"changed\"}.\nExample: film-ue op env.clouds bottom_km=1.5 height_km=4",
+   "params": [
+    {
+     "name": "bottom_km",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 5.0
+    },
+    {
+     "name": "height_km",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 10.0
+    },
+    {
+     "name": "material",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment"
+   ]
+  },
+  {
+   "name": "env.cvars",
+   "area": "env",
+   "verb": "cvars",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 506,
+   "summary": "Set console variables in the editor (they last until the editor restarts; render jobs take theirs from the",
+   "doc": "Set console variables in the editor (they last until the editor restarts; render jobs take theirs from the\nquality preset: env.quality returns them for render.* cvar lists). Converges: only differing ones are sent.\n\nArgs: cvars: {name: value}. Returns: {\"changed\", \"set\": {name: [before, after]}}.\nExample: film-ue op env.cvars 'cvars={\"r.Lumen.HardwareRayTracing\":1}'",
+   "params": [
+    {
+     "name": "cvars",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "rendering"
+   ]
+  },
+  {
+   "name": "env.describe",
+   "area": "env",
+   "verb": "describe",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 676,
+   "summary": "The environment as numbers, in the same terms as the env/light ops and the spec: sun, moon (elevation,",
+   "doc": "The environment as numbers, in the same terms as the env/light ops and the spec: sun, moon (elevation,\nazimuth, lux, K), atmosphere, clouds, sky light, hdri, fog, the post fields Env_Post overrides (exposure, grade,\nquality) with the EV100 it exposes for, cvars, reflection captures, every light, rigs, lighting channels, and\nwhich spec owns each actor. The state env.apply / film-ue plan diff against.\n\nReturns: {\"sun\", \"moon\", \"atmosphere\", \"clouds\", \"sky_light\", \"hdri\", \"fog\", \"post\", \"post_owned_fields\",\n\"exposure\", \"cvars\", \"captures\", \"lights\", \"rigs\", \"channels\", \"owners\", \"other\": {...}}.\nExample: film-ue op env.describe",
+   "params": [],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "lighting"
+   ]
+  },
+  {
+   "name": "env.exposure",
+   "area": "env",
+   "verb": "exposure",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 444,
+   "summary": "Exposure on Env_Post, in photographic EV100 (what a light meter says), converges.",
+   "doc": "Exposure on Env_Post, in photographic EV100 (what a light meter says), converges.\n\nArgs: mode: manual (fixed: expose a scene metering `ev100`; physical camera exposure off, so a camera's\naperture never changes brightness) | physical (the camera's fstop/shutter_s/iso decide; the cine camera's own\naperture overrides fstop) | auto (histogram, adapting within min_ev100..max_ev100 at `speed`). ev100: e.g. 14-15\nsunny, 12 overcast, 8-9 bright interior/studio, 5 dim room, 1 stylised moonlight; 'auto' = from the key light\nor sun lux in the level spec. compensation: stops brighter (+)/darker (-).\nReturns: {\"changed\", \"fields\": {...}, \"ev100\": the scene EV100 exposed for}.\nExample: film-ue op env.exposure mode=manual ev100=8.5",
+   "params": [
+    {
+     "name": "mode",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    },
+    {
+     "name": "ev100",
+     "kind": "keyword",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "compensation",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "fstop",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "shutter_s",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "iso",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "min_ev100",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "max_ev100",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "speed",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "look"
+   ]
+  },
+  {
+   "name": "env.fog",
+   "area": "env",
+   "verb": "fog",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 326,
+   "summary": "Height fog and volumetric fog (Env_Fog): haze for depth and light shafts; a preset plus overrides; converges.",
+   "doc": "Height fog and volumetric fog (Env_Fog): haze for depth and light shafts; a preset plus overrides; converges.\n\nArgs: preset: none|light|haze|mist|dense|ground|interior_haze. density, falloff (height falloff), height_cm\n(the fog's base), start_cm, max_opacity 0-1, cutoff_cm, color (inscattering, linear), volumetric (bool),\nalbedo [r,g,b], extinction, distance_cm (volumetric range), scattering (-0.9..0.9, + forward), emissive.\nReturns: {\"label\", \"changed\", \"props\": [changed]}.\nExample: film-ue op env.fog preset=interior_haze extinction=0.1",
+   "params": [
+    {
+     "name": "preset",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "density",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "falloff",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "height_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "start_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "max_opacity",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "cutoff_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "color",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "volumetric",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "albedo",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "extinction",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "distance_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "scattering",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "emissive",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment"
+   ]
+  },
+  {
+   "name": "env.grade",
+   "area": "env",
+   "verb": "grade",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 486,
+   "summary": "A colour grade on Env_Post: a preset (neutral clean warm_film teal_orange bleach_bypass noir_bw golden_hour",
+   "doc": "A colour grade on Env_Post: a preset (neutral clean warm_film teal_orange bleach_bypass noir_bw golden_hour\nmoonlight pastel high_contrast vintage_fade documentary) plus overrides; re-grading resets the old preset's\nfields (every grade starts from neutral). Converges.\n\nArgs: fields: friendly names or PostProcessSettings fields: white_balance (K), tint, saturation/contrast/\ngamma/gain/offset (a number or [r,g,b]; also color_<wheel>_shadows/_midtones/_highlights), bloom, grain,\nvignette, fringe, lut (a texture path) and lut_intensity, film_slope/toe/shoulder/black_clip/white_clip.\nReturns: {\"changed\", \"set\": [fields]}.\nExample: film-ue op env.grade preset=teal_orange 'fields={\"vignette\":0.2,\"white_balance\":6000}'",
+   "params": [
+    {
+     "name": "preset",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "neutral"
+    },
+    {
+     "name": "fields",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "look"
+   ]
+  },
+  {
+   "name": "env.hdri",
+   "area": "env",
+   "verb": "hdri",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 265,
+   "summary": "Light (and optionally surround) the scene with an HDRI: the sky light from the cubemap, and with `backdrop`",
+   "doc": "Light (and optionally surround) the scene with an HDRI: the sky light from the cubemap, and with `backdrop`\nan HDRIBackdrop (Env_HDRI: a projected dome, needs the HDRIBackdrop plugin). A multi-tick job; converges.\n\nArgs: cubemap: a TextureCube path (import an .hdr as a long-lat cubemap). intensity: sky light scale.\nrotation_deg: yaw of the image. backdrop: also show it. size_cm: the dome's size.\nReturns: {\"changed\", \"sky_light\": {...}, \"backdrop\": label|None, \"warnings\": [...]}.\nExample: film-ue op env.hdri cubemap=/Game/HDRI/T_Courtyard intensity=1 rotation_deg=90",
+   "params": [
+    {
+     "name": "cubemap",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "intensity",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "rotation_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "backdrop",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "size_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 15000.0
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "lighting"
+   ]
+  },
+  {
+   "name": "env.meter",
+   "area": "env",
+   "verb": "meter",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 852,
+   "summary": "Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back",
+   "doc": "Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back\nraw, unclamped) gives the scene's luminance statistics and the EV100 a reflected meter would choose; a second in\nfinal colour gives the image's brightness, clipping, crush and colour cast. A multi-tick job (a few ticks).\n\nArgs: camera: a camera actor label. width/height: capture size (small is enough for statistics).\nexposure_ev100: compare the scene with this exposure (default: what Env_Post exposes for, if manual).\nReturns: {\"scene\": scene_stats, \"display\": display_stats, \"camera\", \"fov_deg\"}.\nExample: film-ue op env.meter camera=HostCam",
+   "params": [
+    {
+     "name": "camera",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "width",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 192
+    },
+    {
+     "name": "height",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 108
+    },
+    {
+     "name": "exposure_ev100",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "qa",
+    "gpu"
+   ]
+  },
+  {
+   "name": "env.mood",
+   "area": "env",
+   "verb": "mood",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 790,
+   "summary": "Switch the last applied spec `spec_name` to one of its moods (day/night, ...): env.apply with that mood;",
+   "doc": "Switch the last applied spec `spec_name` to one of its moods (day/night, ...): env.apply with that mood;\n`name` None goes back to the spec's own mood. A multi-tick job.\n\nReturns: env.apply's result plus {\"mood\"}.\nExample: film-ue op env.mood name=night spec_name=studio",
+   "params": [
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "spec_name",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "env"
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "spec"
+   ]
+  },
+  {
+   "name": "env.moon",
+   "area": "env",
+   "verb": "moon",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 96,
+   "summary": "A moon (Env_Moon): a second atmosphere light (index 1) for night, dim and cool; converges.",
+   "doc": "A moon (Env_Moon): a second atmosphere light (index 1) for night, dim and cool; converges.\n\nArgs: elevation_deg, azimuth_deg (compass), north_yaw_deg. intensity_lux: 'auto' = 0.5 (a full moon is ~0.25;\nstylised nights use 0.5-2 with a low exposure). temperature_k: 'auto' = 4100. softness_deg: angular size.\nReturns: like env.sun.\nExample: film-ue op env.moon elevation_deg=40 azimuth_deg=135 intensity_lux=1.0",
+   "params": [
+    {
+     "name": "elevation_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 35.0
+    },
+    {
+     "name": "azimuth_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 120.0
+    },
+    {
+     "name": "north_yaw_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "intensity_lux",
+     "kind": "keyword",
+     "type": null,
+     "required": false,
+     "default": "auto"
+    },
+    {
+     "name": "temperature_k",
+     "kind": "keyword",
+     "type": null,
+     "required": false,
+     "default": "auto"
+    },
+    {
+     "name": "softness_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "channels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "atmosphere_index",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "lighting"
+   ]
+  },
+  {
+   "name": "env.plan",
+   "area": "env",
+   "verb": "plan",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 743,
+   "summary": "What env.apply would do: the op calls that converge the level to an environment/lighting spec, without",
+   "doc": "What env.apply would do: the op calls that converge the level to an environment/lighting spec, without\ndoing them. Errors name the spec field (did-you-mean) before anything changes.\n\nReturns: {\"steps\": [{\"op\", \"args\", \"why\"}], \"converged\": bool}.\nExample: film-ue op env.plan 'spec={\"kind\":\"environment\",\"name\":\"day\",\"preset\":\"exterior_day\"}'",
+   "params": [
+    {
+     "name": "spec",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "mood",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "spec"
+   ]
+  },
+  {
+   "name": "env.post",
+   "area": "env",
+   "verb": "post",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 385,
+   "summary": "Set PostProcessSettings fields on the environment's unbound volume (Env_Post), each override flag set for",
+   "doc": "Set PostProcessSettings fields on the environment's unbound volume (Env_Post), each override flag set for\nyou; `clear` turns fields' overrides off. Converges; reports what changed.\n\nArgs: fields: {snake_case field: value}: numbers, bools, [r,g,b(,a)] colours and colour wheels, enum strings\n\"AutoExposureMethod.AEM_MANUAL\", texture paths for LUTs. clear: field names to stop overriding.\npriority: the volume's priority (1 wins over default-priority volumes).\nReturns: {\"label\", \"changed\", \"set\": [fields], \"cleared\": [fields]}.\nExample: film-ue op env.post 'fields={\"bloom_intensity\":0.3,\"vignette_intensity\":0.2}'",
+   "params": [
+    {
+     "name": "fields",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "clear",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "priority",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "look"
+   ]
+  },
+  {
+   "name": "env.presets",
+   "area": "env",
+   "verb": "presets",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 811,
+   "summary": "Every named thing the env/light ops and specs take, with what it is for: environment presets, times of day,",
+   "doc": "Every named thing the env/light ops and specs take, with what it is for: environment presets, times of day,\natmosphere and fog presets, grades, quality presets, rig presets and roles, practical types.\n\nExample: film-ue op env.presets",
+   "params": [],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "lighting"
+   ]
+  },
+  {
+   "name": "env.quality",
+   "area": "env",
+   "verb": "quality",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 545,
+   "summary": "Lumen / virtual shadow map / hardware ray tracing quality: preset preview|draft|final|cinematic|no_gi plus",
+   "doc": "Lumen / virtual shadow map / hardware ray tracing quality: preset preview|draft|final|cinematic|no_gi plus\noverrides (gi none|lumen, reflections none|lumen|ssr, shadows vsm|maps, hwrt bool, hit_lighting\nnone|reflections|all, lumen {final_gather, reflection, scene_detail, scene_lighting, max_trace_distance},\nfog_grid [pixel, z], vsm_bias, megalights, cvars). Sets the cvars now and the post fields on Env_Post.\n\nArgs: project: also write the project's renderer settings (URendererSettings GI/reflections/VSM/HWRT; HWRT\nneeds ray tracing on in the project and an editor restart). Returns: {\"changed\", \"cvars\": {...}, \"post\": [...],\n\"render_cvars\": [ \"name value\", ... ] (to pass to a render job)}.\nExample: film-ue op env.quality preset=cinematic",
+   "params": [
+    {
+     "name": "preset",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "final"
+    },
+    {
+     "name": "overrides",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "project",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "rendering"
+   ]
+  },
+  {
+   "name": "env.reflection_capture",
+   "area": "env",
+   "verb": "reflection_capture",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 579,
+   "summary": "A reflection capture (a fallback for reflections Lumen cannot trace, and for translucency): a sphere with an",
+   "doc": "A reflection capture (a fallback for reflections Lumen cannot trace, and for translucency): a sphere with an\ninfluence radius, or a box whose half-size is `extent_cm` (the actor's scale; ReflectionCaptureComponent.cpp:1358);\nconverges. Captures update with env.captures_rebuild.\n\nReturns: {\"label\", \"changed\"}.\nExample: film-ue op env.reflection_capture label=RoomCapture shape=box 'loc=[0,0,150]' 'extent_cm=[400,300,150]'",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "shape",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "sphere"
+    },
+    {
+     "name": "loc",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": [
+      0,
+      0,
+      150
+     ]
+    },
+    {
+     "name": "radius_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 3000.0
+    },
+    {
+     "name": "extent_cm",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": [
+      500,
+      500,
+      250
+     ]
+    },
+    {
+     "name": "transition_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 100.0
+    },
+    {
+     "name": "brightness",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment"
+   ]
+  },
+  {
+   "name": "env.remove",
+   "area": "env",
+   "verb": "remove",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 654,
+   "summary": "Remove environment parts the ops made (sun moon atmosphere clouds sky_light hdri fog post), or everything an",
+   "doc": "Remove environment parts the ops made (sun moon atmosphere clouds sky_light hdri fog post), or everything an\n`owner` (spec name) made with no `parts`. Missing parts are fine; actors the ops did not make are never removed.\n\nReturns: {\"changed\", \"removed\": [labels]}.\nExample: film-ue op env.remove 'parts=[\"fog\",\"clouds\"]'",
+   "params": [
+    {
+     "name": "parts",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment"
+   ]
+  },
+  {
+   "name": "env.schema",
+   "area": "env",
+   "verb": "schema",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 828,
+   "summary": "The JSON Schema of the environment or lighting spec (the same one in tools/filmtools/unreal/schemas/).",
+   "doc": "The JSON Schema of the environment or lighting spec (the same one in tools/filmtools/unreal/schemas/).\n\nExample: film-ue op env.schema kind=lighting",
+   "params": [
+    {
+     "name": "kind",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "environment"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "spec"
+   ]
+  },
+  {
+   "name": "env.sky_light",
+   "area": "env",
+   "verb": "sky_light",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 199,
+   "summary": "The sky light (Env_SkyLight): ambient light from the sky, real-time captured (with an atmosphere), captured",
+   "doc": "The sky light (Env_SkyLight): ambient light from the sky, real-time captured (with an atmosphere), captured\nonce from the scene, or from a cubemap (an HDRI); converges and recaptures when it changed. A multi-tick job.\n\nArgs: mode: realtime|captured|cubemap (default realtime with an atmosphere, else captured). intensity: scale.\ncubemap: a TextureCube path (mode cubemap). cubemap_angle_deg: its yaw. lower_hemisphere_black/_color.\nReturns: {\"label\", \"changed\", \"mode\"}.\nExample: film-ue op env.sky_light mode=cubemap cubemap=/Game/HDRI/T_Studio intensity=1.2",
+   "params": [
+    {
+     "name": "mode",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "intensity",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "cubemap",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "cubemap_angle_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "lower_hemisphere_black",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "lower_hemisphere_color",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "channels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "cast_shadows",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "lighting"
+   ]
+  },
+  {
+   "name": "env.sun",
+   "area": "env",
+   "verb": "sun",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 67,
+   "summary": "The sun (Env_Sun): placed by local time and place (NOAA solar position), a named time of day, or an explicit",
+   "doc": "The sun (Env_Sun): placed by local time and place (NOAA solar position), a named time of day, or an explicit\nelevation/azimuth; converges.\n\nArgs: time: 'HH:MM', decimal hours, or a name (dawn sunrise golden_morning morning noon afternoon golden_evening\nsunset blue_hour dusk night). lat/lon (deg, east +), date 'YYYY-MM-DD', tz (hours east of UTC): with these the\nposition is astronomical (and a name is solved for that day: golden_evening = when the sun is 6 deg up).\nelevation_deg/azimuth_deg (compass, clockwise from north) override. north_yaw_deg: the level yaw of north\n(0 = +X). intensity_lux: 'auto' = 120000 under a SkyAtmosphere (it attenuates and tints), else clear-sky by\nelevation. temperature_k: 'auto' = 6500 with an atmosphere, else by elevation. softness_deg: angular size.\nReturns: {\"label\", \"changed\", \"elevation_deg\", \"azimuth_deg\", \"intensity_lux\", \"temperature_k\", \"hour\"?}.\nExample: film-ue op env.sun time=golden_evening lat=19.07 lon=72.88 date=2026-11-05 tz=5.5",
+   "params": [
+    {
+     "name": "time",
+     "kind": "keyword",
+     "type": null,
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "lat",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "lon",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "date",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "tz",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "elevation_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "azimuth_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "north_yaw_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "intensity_lux",
+     "kind": "keyword",
+     "type": null,
+     "required": false,
+     "default": "auto"
+    },
+    {
+     "name": "temperature_k",
+     "kind": "keyword",
+     "type": null,
+     "required": false,
+     "default": "auto"
+    },
+    {
+     "name": "softness_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.5357
+    },
+    {
+     "name": "channels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "cloud_shadows",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "atmosphere_index",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "lighting"
+   ]
+  },
+  {
    "name": "jobs.cancel",
    "area": "jobs",
    "verb": "cancel",
@@ -3445,6 +4763,690 @@
    "mutates": true,
    "idempotent": true,
    "tags": []
+  },
+  {
+   "name": "light.add",
+   "area": "light",
+   "verb": "add",
+   "module": "fmbridge.ops.light",
+   "file": "unreal/fmbridge/ops/light.py",
+   "line": 114,
+   "summary": "Make or converge one light named `label` (re-running retunes the same light; changing `kind` remakes it).",
+   "doc": "Make or converge one light named `label` (re-running retunes the same light; changing `kind` remakes it).\n\nArgs: kind: rect|spot|point|directional. loc: [x,y,z] cm. look_at: [x,y,z] to aim at (or rotation\n{\"pitch\",\"yaw\",\"roll\"}). Intensity, one of: intensity_cd (candela), lux + at (lux at that point, inverse\nsquare; `at` defaults to look_at), lumens, nits (rect: surface luminance x area), intensity_lux (directional).\ntemperature_k (kelvin, default 6500) or color [r,g,b] linear. width_cm/height_cm (rect), cone_deg/inner_cone_deg\n(spot half-angles), source_radius_cm (soft shadows), radius_cm (attenuation; auto from intensity), shadows,\nchannels [0..2], ies (a TextureLightProfile path), specular/volumetric/indirect/diffuse scales.\nReturns: {\"label\", \"changed\", \"created\", \"props\": [changed engine properties], \"light\": canonical}.\nExample: film-ue op light.add label=Key kind=rect 'loc=[150,120,230]' 'look_at=[0,0,165]' lux=800 temperature_k=5600",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "kind",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "rect"
+    },
+    {
+     "name": "loc",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": [
+      0,
+      0,
+      200
+     ]
+    },
+    {
+     "name": "look_at",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "rotation",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "intensity_cd",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "intensity_lux",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "lux",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "at",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "lumens",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "nits",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "temperature_k",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "color",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "width_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "height_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "barn_door_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "barn_door_length_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "cone_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "inner_cone_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "source_radius_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "soft_radius_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "source_length_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "radius_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "shadows",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "channels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "ies",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "ies_brightness",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "specular",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "volumetric",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "indirect",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "diffuse",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "softness_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "role",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "lighting"
+   ]
+  },
+  {
+   "name": "light.channels",
+   "area": "light",
+   "verb": "channels",
+   "module": "fmbridge.ops.light",
+   "file": "unreal/fmbridge/ops/light.py",
+   "line": 354,
+   "summary": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh/character/groom, which",
+   "doc": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh/character/groom, which\nlights reach it. Re-fetches components by name (a Blueprint actor's construction script replaces them).\n\nArgs: assign: {actor label: [channels]}, e.g. {\"Host\": [0, 1], \"Key\": [1]}.\nReturns: {\"changed\", \"components\": {label: n set}}.\nExample: film-ue op light.channels 'assign={\"Host\":[0,1],\"Host_Key\":[1]}'",
+   "params": [
+    {
+     "name": "assign",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "lighting"
+   ]
+  },
+  {
+   "name": "light.describe",
+   "area": "light",
+   "verb": "describe",
+   "module": "fmbridge.ops.light",
+   "file": "unreal/fmbridge/ops/light.py",
+   "line": 306,
+   "summary": "Every light in the level (or `labels`) as numbers: kind, loc, rotation, forward, intensity (cd, or lux for a",
+   "doc": "Every light in the level (or `labels`) as numbers: kind, loc, rotation, forward, intensity (cd, or lux for a\ndirectional), temperature or colour, size, cone, radius, channels, owner/role/rig; with `at` [x,y,z] also what\neach gives there (light.measure).\n\nReturns: {\"lights\": {label: {...}}, \"rigs\": {prefix: {...}}, \"at\": {...}?}.\nExample: film-ue op light.describe 'at=[0,0,165]'",
+   "params": [
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "at",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "lighting"
+   ]
+  },
+  {
+   "name": "light.measure",
+   "area": "light",
+   "verb": "measure",
+   "module": "fmbridge.ops.light",
+   "file": "unreal/fmbridge/ops/light.py",
+   "line": 335,
+   "summary": "What the lights give at a point, analytically (inverse square, cosine, spot cone, attenuation; no shadows,",
+   "doc": "What the lights give at a point, analytically (inverse square, cosine, spot cone, attenuation; no shadows,\nno bounce): the numeric check of a rig without a render.\n\nArgs: at: [x,y,z] cm. normal: the surface normal there (else each light is measured facing it). labels: only\nthese lights (default all, directional lights included). key/fill: labels to report their lighting ratio.\nReturns: {\"lux\", \"ev100\" (incident), \"per_light\": {label: lux}, \"ratio\"?}.\nExample: film-ue op light.measure 'at=[0,0,165]' key=Host_Key fill=Host_Fill",
+   "params": [
+    {
+     "name": "at",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "normal",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "key",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "fill",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "lighting",
+    "qa"
+   ]
+  },
+  {
+   "name": "light.practical",
+   "area": "light",
+   "verb": "practical",
+   "module": "fmbridge.ops.light",
+   "file": "unreal/fmbridge/ops/light.py",
+   "line": 158,
+   "summary": "A practical light (a fixture seen in frame) by type, with physical output: bulb, lamp, candle, fire,",
+   "doc": "A practical light (a fixture seen in frame) by type, with physical output: bulb, lamp, candle, fire,\ndownlight, desk_lamp, streetlight, tube, led_strip, neon, screen, phone, window (env.presets lists them).\n\nArgs: type: the fixture. loc: [x,y,z] cm (the bulb/face). look_at or rotation to aim (downlights and strips\npoint down by default). lumens/nits/intensity_cd override the preset's output; scale multiplies it.\ntemperature_k or color [r,g,b]. Returns: like light.add. Pair the light with an emissive surface for the\nvisible fixture (mat.* emissive in nits: same number).\nExample: film-ue op light.practical label=DeskLamp type=desk_lamp 'loc=[-180,60,140]' 'look_at=[-180,60,75]'",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "type",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "loc",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "look_at",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "rotation",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "lumens",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "nits",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "intensity_cd",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "temperature_k",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "color",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "scale",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "width_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "height_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "cone_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "radius_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "shadows",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "channels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "lighting"
+   ]
+  },
+  {
+   "name": "light.remove",
+   "area": "light",
+   "verb": "remove",
+   "module": "fmbridge.ops.light",
+   "file": "unreal/fmbridge/ops/light.py",
+   "line": 399,
+   "summary": "Remove lights (and reflection captures) the env/light ops made: by `labels`, every light of a `rig` prefix,",
+   "doc": "Remove lights (and reflection captures) the env/light ops made: by `labels`, every light of a `rig` prefix,\nor everything an `owner` (spec name) made. Actors the ops did not make are never removed; missing ones are fine.\n\nReturns: {\"changed\", \"removed\": [labels]}.\nExample: film-ue op light.remove rig=Host_",
+   "params": [
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "rig",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "lighting"
+   ]
+  },
+  {
+   "name": "light.rig",
+   "area": "light",
+   "verb": "rig",
+   "module": "fmbridge.ops.light",
+   "file": "unreal/fmbridge/ops/light.py",
+   "line": 224,
+   "summary": "Light a subject with a named rig (key/fill/rim/...) placed around it relative to the camera, intensities from",
+   "doc": "Light a subject with a named rig (key/fill/rim/...) placed around it relative to the camera, intensities from\nthe key's lux at the subject and the lighting ratio; converges (re-running moves/retunes, a dropped role is removed).\n\nArgs: subject: an actor label or [x,y,z] cm (a label lights ~eye height of its bounds, or `socket`, or its\nlocation + `subject_offset`). camera: a label or [x,y,z] (else `facing_yaw_deg`). preset: env.presets rigs\n(three_point, interview, loop, rembrandt, butterfly, clamshell, split, high_key, low_key, noir, silhouette,\nwindow). key_lux: lux on the subject from the key. ratio: (key+fill):fill, 2 flat .. 8 noir. lights: per-role\noverrides {\"rim\": {\"rel\": 1.5}, \"fill\": null, \"kicker\": {}} (fields: angle side elevation distance width height\ncone temperature color rel lux candelas shadows channels). prefix: label prefix (lights are <prefix><Role>).\nkey_side: left|right (camera-left/right). scale: x distances/sizes. temperature_k/channels: for every light.\nReturns: {\"changed\", \"lights\": [labels], \"removed\": [labels], \"subject_point\", \"camera_point\",\n\"measured\": {\"lux\", \"per_light\", \"ratio\"}}.\nExample: film-ue op light.rig subject=Host camera=HostCam preset=interview key_lux=900 prefix=Host_",
+   "params": [
+    {
+     "name": "subject",
+     "kind": "keyword",
+     "type": "str | list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "camera",
+     "kind": "keyword",
+     "type": "str | list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "facing_yaw_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "preset",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "three_point"
+    },
+    {
+     "name": "key_lux",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 800.0
+    },
+    {
+     "name": "ratio",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "lights",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "prefix",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Rig_"
+    },
+    {
+     "name": "key_side",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "left"
+    },
+    {
+     "name": "scale",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "temperature_k",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "channels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "subject_offset",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "socket",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "manual"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "lighting"
+   ]
   },
   {
    "name": "list",
@@ -7741,9 +9743,11 @@
   "bridge": "The bridge itself, as an op (the same answers as GET /health, for clients that only speak /op).",
   "cam": "Cameras: cine cameras by label (filmback, lens, aperture, focus), the framing solver on real subjects, camera moves keyed into Sequencer, rail and crane rigs, a scene's coverage, framing feedback (where points land in the frame, optics and ",
   "editor": "The editor itself: what it is and how it is doing (describe), console variables and commands, the idle frame cap of an offscreen editor, waiting for shader/asset compilation to finish, and garbage collection.",
+  "env": "Environments: sun and moon by time of day and place, physical sky (atmosphere, volumetric clouds, sky light), HDRI skies, height and volumetric fog, exposure (manual by EV100, physical camera, auto), colour grading, Lumen/VSM/HWRT quality, ",
   "jobs": "The bridge's jobs as ops (the same as GET /jobs, GET /job, POST /job/cancel, for clients that only speak /op).",
   "layout": "Layout and set dressing: rest things on what is under them, place one actor relative to another, lay out rows, grids, circles and seeded scatters of an asset, align and distribute.",
   "level": "Levels and actors: new/open/save, find and describe, spawn (shapes, assets, classes), move, aim, set, delete.",
+  "light": "Lights by spec: one light that converges (light.add), rigs relative to a subject and camera with intensities from target lux and ratios (light.rig), practical fixtures by type (light.practical), the lights' state as numbers (light.describe)",
   "look": "The look: materials (surface, emissive, glass), lights (rect, spot, point), atmosphere (volumetric fog), post-process and cine cameras, plus quick stills through a camera for checking a frame without a render.",
   "mh": "MetaHumans: presets, a character from a preset, Epic's cloud rig and high-resolution textures, wardrobe (hair, beard, brows, clothes), the cinematic build to a Blueprint, and how an assembled character is driven.",
   "ops": "The bridge's operations: named functions the operator's machine calls through POST /op (fmbridge.server), each a plain Python function over the `unreal` API, registered with @op(\"area.verb\").",
