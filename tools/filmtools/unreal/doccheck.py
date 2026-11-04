@@ -1,5 +1,5 @@
 """Docs that cannot drift: every `film-ue <area> <verb> --flag ...` line in the docs (docs/unreal/*.md, examples/**/
-README.md, .claude/skills/**/SKILL.md, unreal/README.md) is parsed against the op schema: the area, the verb and every
+README.md, .claude/skills/**/SKILL.md, unreal/README.md; not BACKLOG/DECISIONS: plans) is parsed against the op schema: the area, the verb and every
 flag must exist. `film-ue dx docs` lists the problems; tests/test_ue_dx.py holds WP11's own docs to it.
 
 Lines with placeholders (`...`, `<x>`, `NAME`) are checked only up to them; required arguments may be left out
@@ -95,7 +95,7 @@ def check(paths=None, ix: dict | None = None) -> list:
     ix = ix or _schema.index(_schema.load())
     parser = opcli.build(ix)
     own = _own_parser()
-    files = paths or sorted({p for g in GLOBS for p in ROOT.glob(g)})
+    files = paths or sorted({p for g in GLOBS for p in ROOT.glob(g) if p.name not in ("BACKLOG.md", "DECISIONS.md")})
     problems = []
     for f in files:
         f = Path(f)
