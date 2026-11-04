@@ -256,7 +256,8 @@ def _render(a, executor: str, name: str) -> dict:
     t0 = time.time()
     ok(client.op("render.mrq", sequence=a.sequence, level=a.level, out_dir=remote, width=a.width, height=a.height,
                  start=start, end=end, temporal=a.temporal, spatial=1, warmup=32, name=name,
-                 cvars=json.loads(a.cvars) if a.cvars else None, executor=executor, path_tracer=a.path_tracer))
+                 cvars=json.loads(a.cvars) if a.cvars else None, executor=executor, path_tracer=a.path_tracer,
+                 save_dirty=a.save_dirty))
     peak = {"rss_gb": 0.0, "vram_gb": 0.0}
     p = {}
     while time.time() - t0 < a.render_timeout * 60:
@@ -266,6 +267,8 @@ def _render(a, executor: str, name: str) -> dict:
         peak = {k: max(peak[k], m[k]) for k in peak}
         if p["done"]:
             break
+        if not p["rendering"] and not p["frames"]:  # the queue gave up before a frame: say so, do not sit out the timeout
+            raise RuntimeError(f"{executor}: the render stopped with no frames after {round(time.time() - t0)} s")
     dt = time.time() - t0
     files = ws.sh(f"ls {shlex.quote(remote)}", 60).split()
     child = log_grep(r"command line|NewProcess|MoviePipelineNewProcess|Launching", 10) if executor == "process" else []
@@ -399,6 +402,7 @@ def main(argv: list) -> None:
     ap.add_argument("--temporal", type=int, default=8)
     ap.add_argument("--cvars", default="", help='poc 4: JSON, e.g. \'{"r.HairStrands.SkyLighting": 0}\'')
     ap.add_argument("--crops", default="", help='poc 4: JSON {"skin": [x, y, w, h], "eyes": [...], ...} in pixels')
+    ap.add_argument("--save-dirty", action="store_true", help="poc 4: save unsaved packages before a process render")
     ap.add_argument("--path-tracer", action="store_true", help="poc 4: the path tracer instead of the deferred pass")
     ap.add_argument("--executors", default="pie,process", help="poc 4: pie, process or both")
     ap.add_argument("--ref", default="", help="poc 4: reference frames (same names): s3://prefix or a folder on the box")

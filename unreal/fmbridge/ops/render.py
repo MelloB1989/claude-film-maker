@@ -25,10 +25,12 @@ QUALITY_CVARS = {  # Lumen and shadows at film quality for a final
 def mrq(sequence: str, level: str, out_dir: str, width: int = 1920, height: int = 1080, temporal: int = 8,
         spatial: int = 1, path_tracer: bool = False, quality: bool = True, cvars: dict | None = None, fmt: str = "png",
         warmup: int = 32, name: str = "shot", start: int | None = None, end: int | None = None,
-        executor: str = "pie") -> dict:
+        executor: str = "pie", save_dirty: bool = False) -> dict:
     """Start a Movie Render Queue job (returns at once; poll render.progress). Frames go to `out_dir` as
     {frame}.png|exr|jpg, the audio as a wav; `start`/`end` (end exclusive) render part of the sequence. `executor`:
-    "pie" (in this editor) or "process" (a separate -game process; offscreen where the editor has no desktop)."""
+    "pie" (in this editor) or "process" (a separate -game process; offscreen where the editor has no desktop). The
+    process loads the level from disk, and with unsaved changes the executor asks to save first: unattended, that
+    question goes unanswered and the job never starts, so unsaved packages are an error unless `save_dirty`."""
     mq = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem)
     if mq.is_rendering():
         raise RuntimeError("a render is already running")
@@ -64,6 +66,7 @@ def mrq(sequence: str, level: str, out_dir: str, width: int = 1920, height: int 
             cvs.add_or_update_console_variable(k, float(v))
     os.makedirs(out_dir, exist_ok=True)
     if executor == "process":
+        _save_first(save_dirty)
         _offscreen_child()
         mq.render_queue_with_executor(unreal.MoviePipelineNewProcessExecutor)
     elif executor == "pie":
@@ -71,6 +74,16 @@ def mrq(sequence: str, level: str, out_dir: str, width: int = 1920, height: int 
     else:
         raise ValueError(f"executor {executor!r}: pie or process")
     return {"out_dir": out_dir, "started": True, "executor": executor}
+
+
+def _save_first(save: bool):
+    dirty = [p.get_name() for p in list(unreal.EditorLoadingAndSavingUtils.get_dirty_map_packages())
+             + list(unreal.EditorLoadingAndSavingUtils.get_dirty_content_packages())]
+    if dirty and not save:
+        raise RuntimeError(f"unsaved packages {dirty}: the new-process executor renders what is on disk and would wait "
+                           "on its save prompt; save them (save_dirty=True) or use executor='pie'")
+    if dirty:
+        unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
 
 
 def _offscreen_child():
