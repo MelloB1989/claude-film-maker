@@ -24,13 +24,15 @@ def _keys(anim, name):
 
 
 def _curve_id(anim, name):
-    X = unreal.AnimationCurveIdentifierExtensions
-    for args in ((name, FLOAT), (anim.get_skeleton(), name, FLOAT)):
-        try:
-            return X.get_curve_identifier(*args)
-        except Exception:
-            pass
-    return X.find_curve_identifier(anim, name, FLOAT)
+    """An FAnimationCurveIdentifier for a float curve: SetCurveIdentifier on a fresh struct (a ref-self script method:
+    CurveIdentifier.h:150); the skeleton route is deprecated in 5.8 and logs a warning per call, so it is only the
+    fallback."""
+    try:
+        cid = unreal.AnimationCurveIdentifier()
+        cid.set_curve_identifier(name, FLOAT)
+        return cid
+    except Exception:
+        return unreal.AnimationCurveIdentifierExtensions.get_curve_identifier(anim.get_skeleton(), name, FLOAT)
 
 
 def _write(anim, curves: dict) -> None:
@@ -162,6 +164,21 @@ def _await_change(measure, frame: int, bone: str, before: list, timeout: float =
         yield 0.5
 
 
+def section_offset_s(params, tick: float) -> float:
+    """Seconds into the animation where a skeletal animation section starts playing: StartFrameOffset +
+    FirstLoopStartFrameOffset (tick-resolution frames), summed as the engine maps time
+    (MovieSceneSkeletalAnimationSection.cpp:72-78). seq.anim writes the clip offset to StartFrameOffset."""
+    off = 0.0
+    if params is None:
+        return off
+    for k in ("start_frame_offset", "first_loop_start_frame_offset"):
+        try:
+            off += params.get_editor_property(k).value / tick
+        except Exception:
+            pass
+    return off
+
+
 @op("anim.gaze_lock", mutates=True, idempotent=True, tags=["slow"])
 def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str = "", component: str = "Face",
               saccades: float = 0.5, seed: int = 3, every: int = 2, iterations: int = 2, target=None,
@@ -203,13 +220,7 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str 
     prm = sec.get_editor_property("params") if sec else None
     rate = prm.get_editor_property("play_rate") if prm else 1.0
     rate = rate.to_fixed_play_rate() if hasattr(rate, "to_fixed_play_rate") else rate  # a time-warp variant since 5.5
-    off = 0.0
-    for k in ("first_loop_start_frame_offset", "start_frame_offset"):
-        try:
-            off = prm.get_editor_property(k).value / tick
-            break
-        except Exception:
-            pass
+    off = section_offset_s(prm, tick)
 
     def at(f):  # seconds into the animation at sequence frame f
         return off + (f - s0) / fps * rate
@@ -473,6 +484,15 @@ def _tag(ad, name: str):
     return v if v not in ("", None) else None
 
 
+def _object_path(tag: str) -> str:
+    """A registry tag's object reference as a package path: "/Script/Engine.Skeleton'/Game/A/S.S'" -> "/Game/A/S"
+    (the quoted export-text form, or a bare object path)."""
+    tag = str(tag or "")
+    if "'" in tag:
+        tag = tag.split("'")[1]
+    return _pkg(tag)
+
+
 def _skeleton_path(obj) -> str:
     """The skeleton of an animation, skeletal mesh or skeleton, as a package path ("" when none)."""
     if obj is None:
@@ -509,8 +529,9 @@ def find(*, query: str = "", path: str = "/", skeleton: str = "", kind: str = ""
     """
     from ..perfkit import library as LIB
     reg = unreal.AssetRegistryHelpers.get_asset_registry()
+    root = path.rstrip("/")
     flt = unreal.ARFilter(class_paths=[unreal.TopLevelAssetPath("/Script/Engine", "AnimSequence")],
-                          package_paths=[path.rstrip("/") or "/"], recursive_paths=True)
+                          package_paths=[root] if root else [], recursive_paths=True)  # "/" = every mount
     ads = list(reg.get_assets(flt) or [])
     want_sk = ""
     if skeleton:
@@ -523,7 +544,7 @@ def find(*, query: str = "", path: str = "/", skeleton: str = "", kind: str = ""
     out = []
     for r in ranked:
         ad = by[r["path"]]
-        sk = _pkg(_tag(ad, "Skeleton") or "").split("'")[-1].strip("'")
+        sk = _object_path(_tag(ad, "Skeleton") or "")
         if want_sk and sk and _pkg(sk) != want_sk:
             continue
         ln = _tag(ad, "SequenceLength")
@@ -545,7 +566,7 @@ def describe(*, anim: str, curves: bool = False) -> dict:
     bone tracks, additive settings, root motion, and the perf metadata (fingerprint) when perf made it.
 
     Args: anim: AnimSequence path. curves: also list every curve name.
-    Returns: {"path", "length_s", "frames", "fps", "skeleton", "curve_count", "head_curves": [...],
+    Returns: {"path", "length_s", "frames" (key intervals: keys - 1), "fps", "skeleton", "curve_count", "head_curves": [...],
     "face_curves": n, "bone_tracks": n, "additive": {"type", "base"}, "root_motion": bool, "perf": {...}, "curves"?}.
     Example: film-ue op anim.describe anim=/Game/Speech/Anim/AS_line1
     """
@@ -563,7 +584,7 @@ def describe(*, anim: str, curves: bool = False) -> dict:
         if v:
             meta[k.split(".")[-1]] = v
     out = {"path": _pkg(anim), "length_s": round(length, 4), "frames": frames,
-           "fps": round((frames - 1) / length, 3) if length > 0 and frames > 1 else None,
+           "fps": round(frames / length, 3) if length > 0 and frames > 0 else None,
            "skeleton": _skeleton_path(a), "curve_count": len(names),
            "head_curves": [n for n in names if n in R.HEAD], "face_curves": sum(1 for n in names if n in R.CURVES),
            "bone_tracks": len(list(AL.get_animation_track_names(a))),
@@ -860,7 +881,7 @@ def rig_controls(*, sequence: str, label: str, component: str = "") -> dict:
         raise not_found("control rig track", f"{label}.{component}" if component else label,
                         hint="anim.rig_keys with rig_class=... makes one")
     rig = p.get_editor_property("control_rig")
-    keys = rig.get_hierarchy().get_control_keys()
+    keys = rig.get_hierarchy().get_controls()  # ScriptName of GetControlKeys (RigHierarchy.h:1181)
     return {"rig": rig.get_class().get_name(), "controls": [str(k.get_editor_property("name")) for k in keys]}
 
 
@@ -870,8 +891,9 @@ def rig_keys(*, sequence: str, label: str, keys: dict, component: str = "", rig_
     """Key Control Rig controls in a sequence, batched per control (one engine call each, not one per key).
     keys: {control: [[frame, value], ...]} where value is a number (a float control), {"pitch", "yaw", "roll"} (a
     rotator control) or {"loc": [x, y, z], "rot": {...}} (a transform control, local space). The rig track is found
-    on the actor (or `component`'s) binding, or made from `rig_class` (a Control Rig Blueprint path or class path;
-    `layered` for an additive layer over the animation).
+    on the actor (or `component`'s) binding, or made from `rig_class` (a Blueprint-based Control Rig asset path, or
+    a class path; 5.8's independent Control Rig assets cannot be made into a track from Python; `layered` for an
+    additive layer over the animation).
     Returns: {"changed", "controls": n, "keys": n, "rig"}.
     Example: film-ue op anim.rig_keys sequence=/Game/Shots/S010 label=Presenter component=Face 'keys={"CTRL_L_brow_raiseIn": [[0,0],[12,0.6],[30,0]]}'
     """
@@ -888,13 +910,16 @@ def rig_keys(*, sequence: str, label: str, keys: dict, component: str = "", rig_
         if cls is None:
             cls = EAL.load_blueprint_class(_pkg(rig_class))
         if cls is None:
-            raise not_found("control rig class", rig_class, hint="a Control Rig Blueprint asset path")
+            raise not_found("control rig class", rig_class,
+                            hint="a Blueprint-based Control Rig asset path (a legacy ControlRigBlueprint, like the "
+                                 "MetaHuman control boards); 5.8's independent Control Rig assets have no Python route "
+                                 "to their class: add the rig track in the editor once, then key it here")
         CR.find_or_create_control_rig_track(_world(), seq, cls, b, layered)
         p = _rig_on(seq, label, component)
         if p is None:
             raise OpError("the engine made no control rig track", code="engine")
     rig = p.get_editor_property("control_rig")
-    have = {str(k.get_editor_property("name")) for k in rig.get_hierarchy().get_control_keys()}
+    have = {str(k.get_editor_property("name")) for k in rig.get_hierarchy().get_controls()}
     missing = [c for c in keys if c not in have]
     if missing:
         from ..errors import closest

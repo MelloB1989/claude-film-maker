@@ -3,6 +3,7 @@ shell on the box. cli.py finds this module (cli_<area>.py), calls register(sub) 
 
     film-ue box up NAME [--type g6.4xlarge] [--ttl 4h] [--idle 20m] [--stall 15m] [--spot] [--like PROFILE] [--ami ID]
     film-ue box ls | status NAME | extend NAME --ttl 2h | keepalive NAME | down NAME [--forget]
+    film-ue box image NAME [--label L] [--wait] | images | image-rm AMI         (box up --ami latest uses the newest)
     film-ue profile ls | use NAME | show [NAME] | copy SRC DST | rm NAME
     film-ue editor status | start | stop | restart [--wait] [--once-args="..."] | log [N] [--journal] | crashes [N]
                    | mode default|offscreen|xvfb | enable      (editor_cli: hand-written verbs beside the generated
@@ -65,6 +66,12 @@ def register(sub) -> None:
         d = bs.add_parser("down")
         d.add_argument("name")
         d.add_argument("--forget", action="store_true")
+        im = bs.add_parser("image")
+        im.add_argument("name")
+        im.add_argument("--label", default="")
+        im.add_argument("--wait", action="store_true")
+        bs.add_parser("images").add_argument("--region", default="")
+        bs.add_parser("image-rm").add_argument("ami")
     p = _add(sub, "profile", help="box profiles: ls, use, show, copy, rm")
     if p:
         ps = p.add_subparsers(dest="profile_cmd", required=True)
@@ -155,6 +162,12 @@ def dispatch(a) -> bool:
             _out(boxes.keepalive(a.name))
         elif b == "down":
             _out(boxes.down(a.name, forget=a.forget, log=lambda m: print(m, file=sys.stderr)))
+        elif b == "image":
+            _out(boxes.image(a.name, label=a.label, wait=a.wait, log=lambda m: print(m, file=sys.stderr)))
+        elif b == "images":
+            _out(boxes.images(a.region or None))
+        elif b == "image-rm":
+            _out(boxes.image_rm(a.ami))
     elif cmd == "profile":
         from . import profiles
         p = a.profile_cmd

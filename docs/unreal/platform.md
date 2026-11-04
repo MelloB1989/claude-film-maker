@@ -42,6 +42,19 @@ waits out the shader compile. On a failure it stops, prints the exact next comma
 progress in the profile. Running it again continues from there. `--from STEP` reruns from a step, `--restart`
 reruns everything. Steps that need a person (the Epic sign-in, the voice line) say so.
 
+### Bake a ready box into an image (the next box starts in minutes)
+
+```bash
+film-ue box image gpu1 --label hs [--wait]     # editor stopped, sign-in and tokens removed, then an AMI; reboots once
+film-ue box images                             # newest first: ami, project, engine, state, snapshots
+film-ue box up gpu2 --like linux --ami latest  # the newest image for that profile's project
+film-ue box image-rm ami-...                   # deregister + delete its snapshots (they cost money while kept)
+```
+
+The image holds the engine, the project, the warm DDC and the bridge. It holds no Epic sign-in (the new box restores
+it from S3 at the editor's start) and no TTL: the watchdog in it keeps idle protection only, and `box up` gives the
+new box its own TTL.
+
 ### Keep a box, give it more time, end it
 
 ```bash
@@ -213,6 +226,8 @@ None: boxes and the editor are imperative on purpose (a TTL, a restart, a sync h
 | API (Python) | source | note |
 |---|---|---|
 | `unreal.register_slate_post_tick_callback` | Plugins/Experimental/PythonScriptPlugin/.../PySlate.cpp:123 | the bridge's game-thread tick |
+| `unreal.unregister_slate_post_tick_callback` | PySlate.cpp:143 (registered at :201) | server.stop(): the old bridge's tick removed on a reload |
+| `unreal.log_warning` (and `unreal.log`, `unreal.log_error`) | PythonScriptPlugin/.../PyCore.cpp:2067 (:2066, :2068) | LogPython warnings from the bridge |
 | `unreal.find_object(None, "/Script/UnrealEd.Default__EditorPerformanceSettings")` | PythonScriptPlugin/.../PyCore.cpp:2073 | the class is `UCLASS(minimalapi)` with nothing BlueprintVisible: Editor/UnrealEd/Classes/Editor/EditorPerformanceSettings.h:31 |
 | `obj.set_editor_property("bThrottleCPUWhenNotForeground", False)` | PyWrapperObject.cpp:749-771 (FindEditorPropertyImpl: `Class->FindPropertyByName` on the real class) | property at EditorPerformanceSettings.h:74; effect EditorEngine.cpp:1807 (no rendering without focus), :5335 |
 | `LevelEditorSubsystem.editor_set_viewport_realtime` | Editor/LevelEditor/Public/LevelEditorSubsystem.h:69 | idle cap |
@@ -269,11 +284,18 @@ profiles, boxes, watchdog, editor service, sync, CLI), `test_unreal_transport.py
 
 ## 8. HANDOFF
 
-**Done:** everything above (plus B12: editor.plugins/cvars/project_setting; B33: constant-time token, size limits,
-/file roots, /batch; the client-phase selftest), with every AWS call mocked. Nothing in `boxes`/`sync`/`editorsvc` has run against AWS:
+**Done:** everything above, with every AWS call mocked. That includes:
+
+- B12: editor.plugins, editor.cvars and editor.project_setting.
+- B33: constant-time token, size limits, /file roots, /batch.
+- B49: film-ue first-run.
+- B54: box image, images, image-rm, and `box up --ami latest`.
+- The client-phase selftest.
+- The watchdog's on_exit, and `box up --save-ddc-on-exit`. Nothing in `boxes`/`sync`/`editorsvc` has run against AWS:
 the operator's rule for the night.
 
-**Run first on the next GPU box, in this order:**
+**Run first on the next GPU box:** `film-ue --box NAME first-run` does the list below for you and stops with the
+next command. In detail:
 
 1. `box up` (check the user-data runs: `systemctl status ue-watchdog.timer film-ue-ttl.timer`, and
    `/etc/film-ue/watchdog.json`).
@@ -300,5 +322,8 @@ branch is in ue-helpers (cli_platform then serves them; `editor` service verbs v
 still lives in cli.py and sends the bridge in 80 KB printf parts (the lead's fix). It could use `transport.put` (parts
 for both shells) when it moves here.
 
-**Next ideas:** `box up --from-snapshot` (an AMI with the engine and a warm DDC: minutes instead of an hour); the
-watchdog saving the DDC before an idle power-off; `film-ue doctor` (WP0 took B11).
+**Next ideas:**
+
+- A Windows "editor start" through a scheduled task in the logged-in session.
+- `install` moved here onto `transport.put`, so one code path serves both shells.
+- `box image` on a schedule after a long session.

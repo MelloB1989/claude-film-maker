@@ -87,13 +87,13 @@ def test_anim_write_curves_modes_and_convergence(ue):
 def test_anim_new_converges(ue):
     ue.skeletal_mesh("/Game/MH/Face/FaceMesh", FACE_SKEL)
     r = run_op("anim.new", path="/Game/P/AS_blank", skeleton="/Game/MH/Face/FaceMesh", length_s=2.0)
-    assert r["created"] and r["frames"] == 61 and r["length_s"] == pytest.approx(2.0)
+    assert r["created"] and r["frames"] == 60 and r["length_s"] == pytest.approx(2.0)
     a = ue.assets["/Game/P/AS_blank"]
     assert a.get_skeleton() is ue.assets[FACE_SKEL]
     r = run_op("anim.new", path="/Game/P/AS_blank", skeleton="/Game/MH/Face/FaceMesh", length_s=2.0)
     assert not r["created"] and not r["changed"]
     r = run_op("anim.new", path="/Game/P/AS_blank", skeleton=FACE_SKEL, length_s=3.0)
-    assert r["changed"] and r["frames"] == 91
+    assert r["changed"] and r["frames"] == 90
     assert ue.dialogs == []
 
 
@@ -224,3 +224,78 @@ def test_perf_face_and_plot_write_a_png(ue, tmp_path):
     assert r["plot"]["width"] == 1200 and (tmp_path / "f.png").stat().st_size > 1000
     p = run_op("perf.plot", anim="/Game/S/AS_talk_perf", out=str(tmp_path / "g.png"), t0_s=1.0, t1_s=3.0)
     assert p["changed"] and (tmp_path / "g.png").exists()
+
+
+def test_perf_apply_solves_spoken_lines_then_converges(ue, fmb, monkeypatch, tmp_path):
+    """The whole loop with audio: perf.solve per line (speech.to_face on the fake's MetaHuman Animator), compose,
+    and a second apply that does nothing; then a changed mood re-solves only that line."""
+    ue.metahuman("Host")
+    w1, w2 = wav(tmp_path / "l1.wav", 2.0), wav(tmp_path / "l2.wav", 1.5)
+    spec = {"kind": "performance", "version": 1, "name": "spoken", "sequence": "/Game/S/Seq2", "actor": "Host",
+            "lines": [{"id": "l1", "audio": w1, "mood": "confident", "gaze": [{"at_s": 0, "target": {"yaw": 0}}]},
+                      {"id": "l2", "audio": w2, "mood": "warm"}]}
+    calls = _record_seq_ops(monkeypatch)
+    r = run_op("perf.apply", spec=spec)
+    assert r["converged"] and [x["op"] for x in r["ran"]] == ["perf.solve", "perf.solve", "perf.compose"]
+    face = ue.assets["/Game/Perf/spoken/AS_spoken_face"]._data["curves"]
+    t, v = face["CTRL_expressions_jawOpen"]
+    assert t[0] < 0.05 and max(t) > 2.3  # both lines' lip-sync placed, the second after the first
+    assert ue.dialogs == []
+    assert run_op("perf.apply", spec=spec)["ran"] == []
+    spec["lines"][1]["mood"] = "sad"
+    r = run_op("perf.apply", spec=spec)
+    assert [x["op"] for x in r["ran"]] == ["perf.solve", "perf.compose"]
+    assert calls
+
+
+def _face_mesh(ue):
+    return ue.skeletal_mesh("/Game/MH/Face/FaceMesh", FACE_SKEL)
+
+
+def test_speech_to_face_solves_or_says_why(ue, fmb, tmp_path):
+    from fmbridge.errors import OpError
+    _face_mesh(ue)
+    w = wav(tmp_path / "l.wav", 3.0)
+    r = run_op("speech.to_face", wav=w, name="l", face_mesh="/Game/MH/Face/FaceMesh")
+    assert r["anim"] == "/Game/Speech/Anim/AS_l" and r["chunks"] == 1 and not r["fallback"]
+    with pytest.raises(OpError) as e:
+        run_op("speech.to_face", wav=str(tmp_path / "nope.wav"), name="x", face_mesh="/Game/MH/Face/FaceMesh")
+    assert e.value.code == "not_found" and "push" in e.value.hint
+    ue.mh_solve = "NO_FRAMES"
+    with pytest.raises(OpError) as e:
+        run_op("speech.to_face", wav=w, name="l2", face_mesh="/Game/MH/Face/FaceMesh", fallback=False)
+    assert e.value.code == "engine" and "NO_FRAMES" in e.value.message and e.value.hint
+    r = run_op("speech.to_face", wav=w, name="l3", face_mesh="/Game/MH/Face/FaceMesh")
+    assert r["fallback"] and r["errors"] and ue.assets["/Game/Speech/Anim/AS_l3"]._data["curves"]["CTRL_expressions_jawOpen"]
+    ue.mh_solve = "hang"
+    with pytest.raises(OpError) as e:
+        run_op("speech.to_face", wav=w, name="l4", face_mesh="/Game/MH/Face/FaceMesh", fallback=False, timeout_s=0.0001)
+    assert e.value.code == "timeout"
+    assert ue.dialogs == []
+
+
+def test_speech_to_face_chunks_long_audio(ue, fmb, tmp_path):
+    _face_mesh(ue)
+    w = wav(tmp_path / "long.wav", 25.0)  # phrases of 0.7 s, pauses of 0.3 s every second
+    r = run_op("speech.to_face", wav=w, name="long", face_mesh="/Game/MH/Face/FaceMesh", max_chunk_s=10.0)
+    assert r["chunks"] == 3 and not r["fallback"]
+    a = ue.assets["/Game/Speech/Anim/AS_long"]
+    t, _ = a._data["curves"]["CTRL_expressions_jawOpen"]
+    assert t[0] < 0.1 and t[-1] > 24.0 and t == sorted(t)  # three solves stitched end to end
+    assert a.length_s == pytest.approx(25.0, abs=0.1)
+    assert [p for p in ue.assets if p.startswith("/Game/Speech/Chunks/Anim/AS_long_c")] == [
+        f"/Game/Speech/Chunks/Anim/AS_long_c0{k}" for k in range(3)]
+
+
+def test_gaze_lock_reads_both_section_offsets(ue, fmb):
+    """gaze_lock maps sequence frames to seconds into the animation with StartFrameOffset + FirstLoopStartFrameOffset
+    (the engine sums them); seq.anim writes the clip offset to StartFrameOffset."""
+    import unreal
+    from fmbridge.ops.anim import section_offset_s
+    p = unreal.MovieSceneSkeletalAnimationParams()
+    p.set_editor_property("start_frame_offset", unreal.FrameNumber(12000))   # 0.5 s at 24000 ticks/s
+    p.set_editor_property("first_loop_start_frame_offset", unreal.FrameNumber(0))
+    assert section_offset_s(p, 24000.0) == pytest.approx(0.5)
+    p.set_editor_property("first_loop_start_frame_offset", unreal.FrameNumber(6000))
+    assert section_offset_s(p, 24000.0) == pytest.approx(0.75)
+    assert section_offset_s(None, 24000.0) == 0.0

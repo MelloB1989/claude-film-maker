@@ -870,28 +870,22 @@ def _fov_of(cam) -> float:
     return float(c.get_editor_property("field_of_view")) if c is not None else 90.0
 
 
-@op("env.meter", mutates=False, idempotent=True, tags=["environment", "qa", "gpu"])
-def meter(*, camera: str, width: int = 192, height: int = 108, exposure_ev100: float = None):
-    """Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back
-    raw, unclamped) gives the scene's luminance statistics and the EV100 a reflected meter would choose; a second in
-    final colour gives the image's brightness, clipping, crush and colour cast. A multi-tick job (a few ticks).
-
-    Args: camera: a camera actor label. width/height: capture size (small is enough for statistics).
-    exposure_ev100: compare the scene with this exposure (default: what Env_Post exposes for, if manual).
-    Returns: {"scene": scene_stats, "display": display_stats, "camera", "fov_deg"}.
-    Example: film-ue op env.meter camera=HostCam
-    """
+def _camera(camera: str):
     cam = U.find(camera)
     if cam is None:
         from ..errors import not_found
         raise not_found("camera", camera, [a.get_actor_label() for a in U.EAS().get_all_level_actors()
                                            if "Camera" in a.get_class().get_name()], hint="look.camera makes one")
-    if exposure_ev100 is None:
-        e = _exposure_summary(_read_post()[0])
-        exposure_ev100 = e.get("ev100")
+    return cam
+
+
+def _captures(cam, width: int, height: int, which=("scene", "display")):
+    """Scene captures through a camera: {"scene": linear HDR rgb (SceneColorHDR, raw), "display": final colour rgb
+    (0-1)}, each a row-major list of width x height (r, g, b). A generator (a few ticks per capture)."""
     w = U.world()
     RL = unreal.RenderingLibrary
     cap = U.EAS().spawn_actor_from_class(unreal.SceneCapture2D, cam.get_actor_location(), cam.get_actor_rotation())
+    out = {}
     try:
         cap.set_actor_label("Env_Meter")
         cc = cap.get_editor_property("capture_component2d")
@@ -899,8 +893,9 @@ def meter(*, camera: str, width: int = 192, height: int = 108, exposure_ev100: f
         cc.set_editor_property("capture_every_frame", False)
         cc.set_editor_property("capture_on_movement", False)
         cc.set_editor_property("always_persist_rendering_state", True)
-        out = {"camera": camera, "fov_deg": round(_fov_of(cam), 3)}
         for src, fmt, key in (("SCS_SCENE_COLOR_HDR", "RTF_RGBA16F", "scene"), ("SCS_FINAL_COLOR_LDR", "RTF_RGBA8", "display")):
+            if key not in which:
+                continue
             rt = RL.create_render_target2d(w, int(width), int(height), getattr(unreal.TextureRenderTargetFormat, fmt))
             cc.set_editor_property("texture_target", rt)
             cc.set_editor_property("capture_source", getattr(unreal.SceneCaptureSource, src))
@@ -916,10 +911,163 @@ def meter(*, camera: str, width: int = 192, height: int = 108, exposure_ev100: f
             if not rgb:
                 raise OpError(f"the {key} capture read back no pixels", code="engine",
                               hint="is the editor rendering (offscreen needs -RenderOffscreen, not -nullrhi)?")
-            out[key] = ST.scene_stats(rgb, exposure_ev100) if key == "scene" else ST.display_stats(rgb)
+            out[key] = rgb
         return out
     finally:
         U.EAS().destroy_actor(cap)
+
+
+def _crop(rgb: list, width: int, height: int, box) -> list:
+    """The pixels inside box [x0, y0, x1, y1] (0..1 image coordinates, y down); all of them when box is None."""
+    if not box:
+        return rgb
+    x0, y0, x1, y1 = [max(0.0, min(1.0, float(v))) for v in box]
+    if x1 <= x0 or y1 <= y0:
+        raise OpError(f"region {box} is empty", code="bad_args", hint="a box is [x0, y0, x1, y1] in 0..1, y down")
+    cols = range(int(x0 * width), max(int(x0 * width) + 1, int(math.ceil(x1 * width))))
+    rows = range(int(y0 * height), max(int(y0 * height) + 1, int(math.ceil(y1 * height))))
+    n = len(rgb) // max(1, width) if width else 0
+    if n * width != len(rgb):  # a readback of another size: no crop
+        return rgb
+    return [rgb[r * width + c] for r in rows for c in cols if r < n and c < width]
+
+
+@op("env.meter", mutates=False, idempotent=True, tags=["environment", "qa", "gpu"])
+def meter(*, camera: str, width: int = 192, height: int = 108, exposure_ev100: float = None, region: list = None):
+    """Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back
+    raw, unclamped) gives the scene's luminance statistics and the EV100 a reflected meter would choose; a second in
+    final colour gives the image's brightness, clipping, crush and colour cast. A multi-tick job (a few ticks).
+
+    Args: camera: a camera actor label. width/height: capture size (small is enough for statistics).
+    exposure_ev100: compare the scene with this exposure (default: what Env_Post exposes for, if manual).
+    region: only this box [x0, y0, x1, y1] (0..1, y down), e.g. a face box from qa.framing (spot metering).
+    Returns: {"scene": scene_stats, "display": display_stats, "camera", "fov_deg", "region"}.
+    Example: film-ue op env.meter camera=HostCam
+    """
+    cam = _camera(camera)
+    if exposure_ev100 is None:
+        e = _exposure_summary(_read_post()[0])
+        exposure_ev100 = e.get("ev100")
+    caps = yield from _captures(cam, int(width), int(height))
+    return {"camera": camera, "fov_deg": round(_fov_of(cam), 3), "region": region,
+            "scene": ST.scene_stats(_crop(caps["scene"], int(width), int(height), region), exposure_ev100),
+            "display": ST.display_stats(_crop(caps["display"], int(width), int(height), region))}
+
+
+MID_GREY_DISPLAY = 0.46  # what 0.18 scene grey reads as after Unreal's filmic curve, sRGB (selftest: grey_card_display)
+
+
+def _subject_box(subject: str, camera: str, part: str):
+    """A subject's box in the camera (WP10's qa.framing), or its face (the top of a character's box)."""
+    from . import call
+    r = call("qa.framing", subjects=[subject], camera=camera)
+    if hasattr(r, "send"):
+        raise OpError("qa.framing ran as a job here; pass region=[x0,y0,x1,y1] instead", code="unsupported")
+    box = ((r.get("metrics") or {}).get("subjects") or {}).get(subject, {}).get("box")
+    if not box:
+        raise OpError(f"{subject!r} is not in {camera!r}'s frame", code="failed",
+                      hint="qa.framing shows where it is; aim the camera or pass region=")
+    if part == "face":
+        x0, y0, x1, y1 = box
+        h, w = y1 - y0, x1 - x0
+        box = [x0 + 0.3 * w, y0, x1 - 0.3 * w, y0 + 0.14 * h]  # a standing figure's head: the top ~1/7
+    return box
+
+
+@op("env.autoexpose", mutates=True, idempotent=True, tags=["environment", "qa", "gpu"])
+def autoexpose(*, camera: str, region: list = None, subject: str = "", part: str = "body",
+               target_stops: float = 0.0, target_display: float = None, tolerance_stops: float = 0.1,
+               adjust: str = "exposure", lights: list = None, max_iterations: int = 6, width: int = 192,
+               height: int = 108, owner: str = "manual"):
+    """Closed-loop exposure: measure a region through a camera and change the exposure (or the key light) until the
+    region reads at the target, within a tolerance. Converges: already in range -> changed False, no change made.
+
+    Args: camera: a camera label. The region: `region` [x0,y0,x1,y1] (0..1, y down), or `subject` (an actor label:
+    its box from qa.framing; part=face: the top of a standing figure's box), else the whole frame.
+    target_stops: stops above middle grey (0 = a grey card; skin +0.5..+1; a dark mood -1.5); or target_display
+    (0-1 display luma). tolerance_stops: how close. adjust: exposure (Env_Post's manual exposure, switching it to
+    manual if needed) | lights (scale `lights`' intensities, e.g. a rig's key: ["Host_Key"]).
+    Returns: {"changed", "converged", "iterations": [{"setting", "display", "error_stops"}], "before", "after",
+    "ev100"? (the exposure it ended at), "scale"? (the light scale applied)}.
+    Example: film-ue op env.autoexpose camera=HostCam subject=Host part=face target_stops=0.7
+    """
+    if adjust not in ("exposure", "lights"):
+        raise OpError(f"adjust {adjust!r} is not exposure|lights", code="bad_args")
+    if adjust == "lights" and not lights:
+        raise OpError("adjust=lights needs `lights`: the labels to scale (a rig's key, e.g. Host_Key)", code="bad_args")
+    cam = _camera(camera)
+    if subject and not region:
+        region = _subject_box(subject, camera, part)
+    t = MID_GREY_DISPLAY if target_display is None else float(target_display)
+    target_lin = ph.srgb_to_linear(t) * (2.0 ** float(target_stops) if target_display is None else 1.0)
+    if target_lin >= 0.98:
+        raise OpError(f"target {target_stops:+.2f} stops is past white", code="bad_args", hint="use target_stops <= 2")
+    comps, switched, ev = [], False, None
+    if adjust == "lights":
+        from . import light as LT
+        for lab in lights:
+            a = U.find(lab)
+            c = LT._light_component(a)[0] if a is not None else None
+            if c is None:
+                from ..errors import not_found
+                raise not_found("light", lab, [x.get_actor_label() for x in U.EAS().get_all_level_actors()
+                                              if LT._light_component(x)[0] is not None])
+            comps.append((lab, c, float(c.get_editor_property("intensity"))))
+    else:
+        e = _exposure_summary(_read_post()[0])
+        ev = e.get("ev100") if e.get("mode") == "manual" else None
+        if ev is None:  # not manual yet: start from what the scene meters
+            caps = yield from _captures(cam, int(width), int(height), ("scene",))
+            ev = ST.scene_stats(_crop(caps["scene"], int(width), int(height), region))["metered_ev100"]
+            switched = post(fields=S.exposure_fields({"mode": "manual", "ev100": ev}, {}), owner=owner)["changed"]
+
+    def measure():
+        caps = yield from _captures(cam, int(width), int(height), ("display",))
+        d = ST.display_stats(_crop(caps["display"], int(width), int(height), region))
+        lin = max(ph.srgb_to_linear(d["mean"]), 1e-5)
+        return d["mean"], math.log2(lin / target_lin)
+
+    its = []
+    scale = 1.0
+    setting = ev if adjust == "exposure" else scale
+    disp, err = yield from measure()
+    before = {"display": disp, "error_stops": round(err, 4)}
+    its.append({"setting": setting, "display": disp, "error_stops": round(err, 4)})
+    prev = None
+    changed = switched
+    for _ in range(int(max_iterations)):
+        if abs(err) <= tolerance_stops:
+            break
+        # a step in stops: Newton with slope 1 at first, then the secant slope (the tone curve bends it)
+        slope = 1.0
+        if prev is not None and abs(err - prev[1]) > 1e-4 and abs(setting_stops(setting, adjust) - prev[0]) > 1e-4:
+            slope = (err - prev[1]) / (setting_stops(setting, adjust) - prev[0])
+            slope = max(0.2, min(3.0, slope))
+        prev = (setting_stops(setting, adjust), err)
+        step = -err / slope
+        if adjust == "exposure":
+            setting = setting - step  # brighter = a lower EV100
+            post(fields=S.exposure_fields({"mode": "manual", "ev100": setting}, {}), owner=owner)
+        else:
+            setting = setting * 2.0 ** step
+            for lab, c, base in comps:
+                c.set_editor_property("intensity", base * setting)
+        changed = True
+        yield 1
+        disp, err = yield from measure()
+        its.append({"setting": round(setting, 4), "display": disp, "error_stops": round(err, 4)})
+    out = {"changed": changed, "converged": abs(err) <= tolerance_stops, "iterations": its, "before": before,
+           "after": {"display": disp, "error_stops": round(err, 4)}, "region": region}
+    if adjust == "exposure":
+        out["ev100"] = round(setting, 4)
+    else:
+        out["scale"] = round(setting, 4)
+    return out
+
+
+def setting_stops(v: float, adjust: str) -> float:
+    """A setting on a stops axis that grows with brightness: -EV100 for exposure, log2(scale) for lights."""
+    return -v if adjust == "exposure" else math.log2(max(v, 1e-9))
 
 
 @op("env.check", mutates=False, idempotent=True, tags=["environment", "qa"])

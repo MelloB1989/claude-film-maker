@@ -941,13 +941,14 @@ def eval_channels(seq, t: dict, frames: list) -> dict:
 
 def world_transforms(seq, label: str, frames: list) -> list:
     """An actor's world transform at each frame as Sequencer evaluates it, without ticking: [[x, y, z, pitch, yaw,
-    roll], ...]. ControlRigSequencerEditorLibrary evaluates the OPEN sequence (it ignores its sequence argument),
+    roll], ...]. ControlRigSequencerLibrary (Python's name for UControlRigSequencerEditorLibrary: its ScriptName)
+    evaluates the OPEN sequence (it ignores its sequence argument),
     so the sequence is opened first."""
     if LSE.get_current_level_sequence() != seq:
         LSE.open_level_sequence(seq)
     b = binding(seq, label)
     a = _bound_actor(seq, b, label)
-    xs = unreal.ControlRigSequencerEditorLibrary.get_actor_world_transforms(
+    xs = unreal.ControlRigSequencerLibrary.get_actor_world_transforms(
         seq, a, [unreal.FrameNumber(int(f)) for f in frames], _unit())
     out = []
     for x in xs:

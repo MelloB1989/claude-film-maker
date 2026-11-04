@@ -252,7 +252,7 @@ ignored, ScriptName wins). All verified by reading the declaration unless marked
 | `MovieSceneCameraShakeTrack` (not modelled: listed as unsupported) | track | MST/Tracks/MovieSceneCameraShakeTrack.h:30 |
 | `LevelSequenceEditorBlueprintLibrary.open_level_sequence / close_level_sequence / get_current_level_sequence / refresh_current_level_sequence / get_bound_objects / set_current_time / set_lock_camera_cut_to_viewport` (set_current_time deprecated 5.4, still works) | LSE library | LSE/LevelSequenceEditorBlueprintLibrary.h:36, 72, 42, 254, 262, 90, 280 |
 | `LevelSequenceEditorSubsystem.replace_binding_with_actors(actors, binding)` (needs the sequence open; seq.rebind) | subsystem | LSE/LevelSequenceEditorSubsystem.h:149-308 |
-| `ControlRigSequencerEditorLibrary.get_actor_world_transforms(seq, actor, [FrameNumber], time_unit)` (evaluates the OPEN sequence) | ControlRigEditor | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:466; Private/...cpp:202-214 |
+| `ControlRigSequencerLibrary.get_actor_world_transforms(seq, actor, [FrameNumber], time_unit)`: Python's name is the UCLASS's ScriptName "ControlRigSequencerLibrary" (ControlRigSequencerEditorLibrary.h:121), NOT the C++ class name (an earlier version of seq.eval used that and would have failed live); evaluates the OPEN sequence | ControlRigEditor | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:466; Private/...cpp:202-214 |
 | `Transform.translation`, `Transform.rotation` (Quat) `.rotator()` | `Quat_Rotator` ScriptMethod "Rotator" | Runtime/Engine/Classes/Kismet/KismetMathLibrary.h:2908 |
 | `AnimSequence.get_play_length()` (the clip length; `sequence_length` is the deprecated fallback) | UAnimationAsset BlueprintPure | Runtime/Engine/Classes/Animation/AnimationAsset.h:1060 |
 | `EditorAssetLibrary.duplicate_asset / does_asset_exist / load_asset / save_loaded_asset / list_assets` | EditorScriptingUtilities | Engine/Plugins/Editor/EditorScriptingUtilities/Source/EditorScriptingUtilities/Public/EditorAssetLibrary.h:175 |
@@ -262,6 +262,37 @@ ignored, ScriptName wins). All verified by reading the declaration unless marked
 | `CameraComponent` (class token), `SceneComponent.get_socket_transform(name, RelativeTransformSpace.RTS_WORLD)` (seq.py's seq.sample) | USceneComponent UFUNCTION | Runtime/Engine/Classes/Components/SceneComponent.h (GetSocketTransform) |
 | `unreal.load_class(None, "/Script/Module.Class")`, `unreal.EnumBase` (the Python base of reflected enums; a property's enum value) | Python glue, not UFUNCTIONs | Plugins/Experimental/PythonScriptPlugin/Source/PythonScriptPlugin/Private/PyCore.cpp |
 | default tick resolution 24000, display rate 30 (CVars LevelSequence.DefaultTickResolution / DefaultDisplayRate) | ULevelSequence::Initialize | Runtime/LevelSequence/Private/LevelSequence.cpp:78-125 |
+
+### Audit, second pass (every engine call in ops/seq.py, seqcore/_engine.py, seqcore/seq_core.py)
+
+An AST inventory of the three files' method calls and `unreal.*` names, each checked against the 5.8.4 source for
+its name, argument order, out-params and enum members. Nothing needed a code change; the points worth knowing:
+
+| Python (as called) | what the source says | source |
+|---|---|---|
+| bool / integer / string `add_key(time, value, sub_frame, time_unit)` (positional, no interpolation); byte has interpolation | AddKey(const FFrameNumber&, V, float SubFrame, EMovieSceneTimeUnit) | KC/MovieSceneScriptingBool.h:79, Integer.h:81, String.h:81, Byte.h:82 |
+| `RichCurveTangentWeightMode.RCTWM_WEIGHTED_BOTH` | RCTWM_WeightedNone / Arrive / Leave / Both | Runtime/Engine/Classes/Curves/RichCurve.h:35-39 |
+| `LevelVisibility.VISIBLE / HIDDEN` | enum class ELevelVisibility { Visible, Hidden } | MST/Sections/MovieSceneLevelVisibilitySection.h:17 |
+| `MaterialParameterAssociation.GLOBAL_PARAMETER` | LayerParameter, BlendParameter, GlobalParameter | Runtime/Engine/Public/Materials/MaterialParameters.h:25 |
+| `subsystem.replace_binding_with_actors([actor], binding)` | ReplaceBindingWithActors(const TArray<AActor*>&, const FMovieSceneBindingProxy&) | LSE/LevelSequenceEditorSubsystem.h:292 |
+| `actor.get_attached_actors()` returns the list (the out-param OutActors becomes the return value) | GetAttachedActors(TArray<AActor*>& OutActors, bool bResetArray, bool bRecursively...) BlueprintPure | Runtime/Engine/Classes/GameFramework/Actor.h:3559 |
+| `mesh.get_material_slot_names()` | UPrimitiveComponent::GetMaterialSlotNames BlueprintCallable | Runtime/Engine/Classes/Components/PrimitiveComponent.h:1581 |
+| `comp.get_socket_transform(bone, RelativeTransformSpace.RTS_WORLD)`, `get_socket_location(bone)` | USceneComponent UFUNCTIONs | Runtime/Engine/Classes/Components/SceneComponent.h:801, 809 |
+| `comp.get_world_location()`, `actor.get_actor_location()`, `get_actor_rotation()`, `get_actor_transform()`, `get_actor_scale3d()` | ScriptName GetWorldLocation / GetActorLocation / GetActorRotation / GetActorTransform; GetActorScale3D | SceneComponent.h:661; Actor.h:1567, 1588, 1554, 1710 |
+| `transform.transform_location(v)`, `quat.get_axis_x/y/z()`, `quat.rotator()` | ScriptMethod TransformLocation / GetAxisX.. / Rotator | Runtime/Engine/Classes/Kismet/KismetMathLibrary.h:3969, 2828, 2908 |
+| `transform.translation`, `transform.rotation` | FTransform UPROPERTY Translation / Rotation (FQuat) | Runtime/CoreUObject/Public/UObject/NoExportTypes.h:2121-2125 |
+| `MathLibrary.find_look_at_rotation(start, target)` | FindLookAtRotation BlueprintPure | KismetMathLibrary.h:2300 |
+| `MovieSceneTimeWarpExtensions.make_time_warp(rate)` (static), `time_warp.to_fixed_play_rate()` (ScriptMethod), `set_fixed_play_rate` (UPARAM(ref), fallback only) | MakeTimeWarp / ToFixedPlayRate / SetFixedPlayRate | SS/MovieSceneTimeWarpExtensions.h:52, 38, 44 |
+| `anim.get_editor_property("sequence_length")` (seq.shot, seq.anim) | SequenceLength: deprecated 5.0 but still VisibleAnywhere BlueprintReadOnly (get_play_length is the new name, used by seqcore) | Runtime/Engine/Classes/Animation/AnimSequenceBase.h:47-49 |
+| `sound.get_editor_property("duration")` | USoundBase::Duration VisibleAnywhere BlueprintReadOnly | Runtime/Engine/Classes/Sound/SoundBase.h:201 |
+| `binding.set_display_name(str)` (FText: a str converts) | SetDisplayName(const FMovieSceneBindingProxy&, const FText&) | SS/MovieSceneBindingExtensions.h:62 |
+| `LSE.set_current_time(int)`, `get_bound_objects(binding_id)`, `set_lock_camera_cut_to_viewport(bool)` | SetCurrentTime(int32) (deprecated 5.4, still there), GetBoundObjects, SetLockCameraCutToViewport | LSE/LevelSequenceEditorBlueprintLibrary.h:90, 262, 280 |
+| `AssetTools.create_asset(name, folder, LevelSequence, LevelSequenceFactoryNew())` | CreateAsset(AssetName, PackagePath, AssetClass, Factory, CallingContext, bOverwriteExisting=false); ULevelSequenceFactoryNew is a reflected UCLASS in a *private* header (Python still sees it; the reel made sequences with it) | Developer/AssetTools/Public/IAssetTools.h:349; LevelSequenceEditor/Private/Factories/LevelSequenceFactoryNew.h:11 |
+| `EAL.load_asset / does_asset_exist / delete_asset / duplicate_asset / save_loaded_asset(obj, only_if_is_dirty) / save_asset / list_assets(dir, recursive)` | EditorAssetLibrary statics | EditorScriptingUtilities/Public/EditorAssetLibrary.h:37, 70, 144, 175, 262, 281, 328 |
+
+Watch tomorrow (names fine, behaviour unproven): `evaluate_keys(range, rate)` returning one value per display frame
+from the range's start (seq.eval indexes it so); `get_all_channels()` order for colour / vector sections (read by
+order); a material colour parameter's four channels named `<Param>R/G/B/A` (grouped back by that suffix).
 
 ## Selftest
 

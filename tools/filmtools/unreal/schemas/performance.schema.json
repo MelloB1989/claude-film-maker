@@ -346,6 +346,14 @@
      "type": "number",
      "description": "seconds kept after the last line (default 0.5)",
      "minimum": 0
+    },
+    "backchannel": {
+     "type": "boolean",
+     "description": "listen lines without nods get small listener nods every 2.5-5 s (default true)"
+    },
+    "aversion": {
+     "type": "boolean",
+     "description": "while talking to a person (not a lens), brief thinking glances away after pauses (default true)"
     }
    },
    "description": "the face composition"
@@ -566,11 +574,24 @@
         "length_s": {
          "type": "number",
          "description": "the clip's length in seconds (read from the asset when omitted)"
+        },
+        "on_emphasis": {
+         "description": "instead of at_s: on the line's k-th stressed word (1-based), or \"strongest\", \"first\", \"last\"",
+         "anyOf": [
+          {
+           "type": "integer",
+           "minimum": 1
+          },
+          {
+           "enum": [
+            "strongest",
+            "first",
+            "last"
+           ]
+          }
+         ]
         }
-       },
-       "required": [
-        "at_s"
-       ]
+       }
       },
       "description": "body gestures timed to beats"
      },
@@ -643,11 +664,26 @@
         "lead_s": {
          "type": "number",
          "description": "seconds the leading side is ahead (default random 0-0.05)"
+        },
+        "on_emphasis": {
+         "description": "instead of at_s: on the line's k-th stressed word (1-based), or \"strongest\", \"first\", \"last\"",
+         "anyOf": [
+          {
+           "type": "integer",
+           "minimum": 1
+          },
+          {
+           "enum": [
+            "strongest",
+            "first",
+            "last"
+           ]
+          }
+         ]
         }
        },
        "required": [
-        "preset",
-        "at_s"
+        "preset"
        ]
       },
       "description": "expression events over the mood"
@@ -683,11 +719,24 @@
         "speed": {
          "type": "number",
          "description": "1 = natural; 2 = twice as fast"
+        },
+        "on_emphasis": {
+         "description": "instead of at_s: on the line's k-th stressed word (1-based), or \"strongest\", \"first\", \"last\"",
+         "anyOf": [
+          {
+           "type": "integer",
+           "minimum": 1
+          },
+          {
+           "enum": [
+            "strongest",
+            "first",
+            "last"
+           ]
+          }
+         ]
         }
-       },
-       "required": [
-        "at_s"
-       ]
+       }
       },
       "description": "head nods (beats on emphasis are added automatically)"
      },

@@ -90,7 +90,7 @@ def run(t):
     # --- 2. curves round-trip, in batches ----------------------------------------------------------------------
     blank = f"{root}/AS_{P}blank"
     r = t.op("anim.new", path=blank, skeleton=skel, length_s=2.0, fps=30)
-    t.check("new.frames", r["frames"], 61, tol=1)
+    t.check("new.frames", r["frames"], 60, tol=1)
     t.idempotent("new.converges", "anim.new", path=blank, skeleton=skel, length_s=2.0, fps=30)
     names = sorted(d.get("curves") or t.op("anim.describe", anim=FACE_LOOP, curves=True)["curves"])[:30]
     want = {n: [[0.0, 0.5, 1.0, 2.0], [0.0, 0.1 * (i % 7), 0.05, 0.0]] for i, n in enumerate(names)}

@@ -175,7 +175,7 @@ def step_demo0(opts, log) -> str:
     if not have:
         raise Stop("the demo's voice line is not on the box", _cmd("first-run --voice path/to/demo_line.wav") +
                    f"   (or film-ue push FILE {DEMO_VOICE})", needs_you=True)
-    return "the demo's stage 0 is done: next, film-ue apply examples/unreal/demo/10-character.yaml"
+    return "the demo's stage 0 is done: next, film-ue apply ../examples/unreal/demo/10-character.yaml (from tools/)"
 
 
 RUN = {"settings": step_settings, "reach": step_reach, "editor": step_editor, "bridge": step_bridge,
@@ -225,7 +225,7 @@ def run(restart: bool = False, start: str = "", opts: dict | None = None, log=pr
         _save({"done": report["done"], "at": time.time()})
         log(f"    ok: {detail}")
     report["ok"] = True
-    report["next"] = "film-ue apply examples/unreal/demo/10-character.yaml   (the demo's stage 1)"
+    report["next"] = "film-ue apply ../examples/unreal/demo/10-character.yaml   (from tools/: the demo's stage 1)"
     log("first-run complete. next: " + report["next"])
     return report
 

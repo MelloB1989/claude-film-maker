@@ -15,7 +15,8 @@ It proves:
 - one stop more exposure brightens the final image (display mean up), noir_bw has no colour cast;
 - env.apply converges a full spec (second plan empty), env.mood switches day -> night -> day, prune removes only
   what the spec made, a typo is bad_args with did-you-mean;
-- env.check passes a well exposed frame and fails an underexposed one with a fix;
+- env.check passes a well exposed frame and fails an underexposed one with a fix; env.autoexpose brings a card 4
+  stops under back to middle grey (closed loop) and a re-run changes nothing;
 - stills: day, golden hour, night, noir (for the operator's eye).
 """
 from __future__ import annotations
@@ -87,6 +88,14 @@ def run(t):
     bad = yield from t.op("env.check", camera=P + "CardCam")
     t.ok("env.check fails an underexposed card with a fix", not bad["pass"] and bool(bad["issues"])
          and "stops" in bad["issues"][0]["fix"], detail=str(bad["issues"])[:300])
+
+    # closed loop: from 4 stops under, env.autoexpose brings the card back to middle grey
+    ax = yield from t.op("env.autoexpose", camera=P + "CardCam", target_stops=0.0, owner=owner)
+    t.ok("env.autoexpose converges on the grey card", ax["converged"], detail=str(ax["iterations"])[:400])
+    t.metric("autoexpose_iterations", len(ax["iterations"]))
+    t.near("env.autoexpose lands near the card's EV100", ax["ev100"], EXPECTED_EV, rel=0.06)
+    again = yield from t.op("env.autoexpose", camera=P + "CardCam", target_stops=0.0, owner=owner)
+    t.ok("env.autoexpose converges (a re-run changes nothing)", again["changed"] is False, detail=str(again)[:300])
 
     # --- lights one by one ------------------------------------------------------------------------------------------
     key = t.op("light.add", label=P + "Spot", kind="spot", loc=[300, -200, 300], look_at=[0, 0, 100], lux=500,
