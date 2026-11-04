@@ -487,14 +487,122 @@
    "tags": []
   },
   {
+   "name": "assets.audit",
+   "area": "assets",
+   "verb": "audit",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 469,
+   "summary": "What in a folder needs attention: assets nothing uses (and no level), redirectors, materials that do not",
+   "doc": "What in a folder needs attention: assets nothing uses (and no level), redirectors, materials that do not\ncompile (they draw the engine's checker), material instances whose textures do not match their samplers.\n\nArgs: folder: content folder (recursive). unused: report unused assets. broken: compile-check materials (loads\n      them: slower). limit: at most this many of each.\nReturns: {\"pass\", \"issues\": [{\"code\": asset.unused | asset.redirector | material.not_compiling |\n         material.texture_kind, \"severity\", \"subject\", \"message\", \"fix\"}], \"metrics\": {\"assets\", \"unused\",\n         \"redirectors\", \"broken\"}}.\nExample: film-ue op assets.audit folder=/Game/Props",
+   "params": [
+    {
+     "name": "folder",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "/Game"
+    },
+    {
+     "name": "unused",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "broken",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "limit",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 200
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "qa"
+   ]
+  },
+  {
+   "name": "assets.catalog",
+   "area": "assets",
+   "verb": "catalog",
+   "module": "fmbridge.ops.assets_catalog",
+   "file": "unreal/fmbridge/ops/assets_catalog.py",
+   "line": 145,
+   "summary": "The assets of a folder as data, from the asset registry (no loading): path, class, size in cm, triangles,",
+   "doc": "The assets of a folder as data, from the asset registry (no loading): path, class, size in cm, triangles,\nLODs, Nanite, material count, texture size/format, source file. Cached in Saved/fmbridge/catalog.json.\n\nArgs: folder: content folder (recursive). cls: one class (StaticMesh, SkeletalMesh, Texture2D, Material,\n      MaterialInstanceConstant, Blueprint, SoundWave, AnimSequence, GroomAsset, ...). refresh: rebuild now.\n      load: also load meshes whose counts are missing, and read metadata tags (slower). max_age_s: reuse a\n      cached catalog this young. limit: at most this many entries returned.\nReturns: {\"folder\", \"count\", \"built_at\", \"entries\": [{\"path\", \"name\", \"class\", \"size_cm\": [x, y, z],\n         \"triangles\", \"lods\", \"nanite\", \"materials\", \"dimensions\", \"format\", \"source\", \"tags\"}]}.\nExample: film-ue op assets.catalog folder=/Game/Props cls=StaticMesh",
+   "params": [
+    {
+     "name": "folder",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "/Game"
+    },
+    {
+     "name": "cls",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "refresh",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "load",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "max_age_s",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 600.0
+    },
+    {
+     "name": "limit",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 2000
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "catalog"
+   ]
+  },
+  {
    "name": "assets.delete",
    "area": "assets",
    "verb": "delete",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 84,
-   "summary": "Delete an asset.",
-   "doc": "Delete an asset.",
+   "line": 115,
+   "summary": "Delete an asset now, used or not (prefer assets.remove, which checks who uses it first).",
+   "doc": "Delete an asset now, used or not (prefer assets.remove, which checks who uses it first).",
    "params": [
     {
      "name": "path",
@@ -511,14 +619,47 @@
    "tags": []
   },
   {
+   "name": "assets.describe",
+   "area": "assets",
+   "verb": "describe",
+   "module": "fmbridge.ops.assets_catalog",
+   "file": "unreal/fmbridge/ops/assets_catalog.py",
+   "line": 218,
+   "summary": "One asset as numbers: class, size in cm and bounds, triangles/vertices per LOD, Nanite, collision, material",
+   "doc": "One asset as numbers: class, size in cm and bounds, triangles/vertices per LOD, Nanite, collision, material\nslots (meshes); size, sRGB, compression, LOD group (textures); parent and parameters (materials: see\nmat.describe); skeleton, bones (skeletal); duration (sounds); source file; metadata tags; who uses it.\n\nArgs: path: /Game/... asset. refs: include referencers/dependencies.\nReturns: {\"path\", \"class\", ...per class..., \"source\", \"tags\", \"referencers\", \"dependencies\"}.\nExample: film-ue op assets.describe path=/Game/Props/SM_Chair",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "refs",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "catalog"
+   ]
+  },
+  {
    "name": "assets.duplicate",
    "area": "assets",
    "verb": "duplicate",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 73,
-   "summary": "Copy an asset (a MetaHuman preset, a material...) to a new path.",
-   "doc": "Copy an asset (a MetaHuman preset, a material...) to a new path.",
+   "line": 99,
+   "summary": "Copy an asset (a MetaHuman preset, a material...) to a new path; an existing `dst` is kept unless overwrite",
+   "doc": "Copy an asset (a MetaHuman preset, a material...) to a new path; an existing `dst` is kept unless overwrite\n(then it is freed first). Returns dst. Example: film-ue op assets.duplicate src=/Game/M/MI_A dst=/Game/M/MI_B",
    "params": [
     {
      "name": "src",
@@ -549,14 +690,158 @@
    "tags": []
   },
   {
+   "name": "assets.find",
+   "area": "assets",
+   "verb": "find",
+   "module": "fmbridge.ops.assets_catalog",
+   "file": "unreal/fmbridge/ops/assets_catalog.py",
+   "line": 174,
+   "summary": "Search assets by what they are and how big: words (name, folders, tags; a few synonyms: sofa/couch...), a",
+   "doc": "Search assets by what they are and how big: words (name, folders, tags; a few synonyms: sofa/couch...), a\nsize (\"a 45 cm chair\", \"table 120x80 cm\", \"lamp 1.5 m tall\"), class, a name glob, tags, size bounds. Each hit\nsays how far its size is from the asked one and the uniform scale that would make it exact.\n\nArgs: query: plain words with optional sizes (mm/cm/m/in/ft; no unit = cm; tall/wide/long pick the axis).\n      cls: StaticMesh, SkeletalMesh, Texture2D, MaterialInstanceConstant, ... folder: where to look.\n      name: a glob on the asset name (SM_Chair*). tags: {key: value} metadata tags (assets.tag) to match.\n      min_size_cm / max_size_cm: [x, y, z] bounds the size must be within (0 = no bound on that axis).\n      limit: at most this many. refresh: rebuild the catalog first.\nReturns: {\"query\": parsed, \"hits\": [{\"path\", \"class\", \"size_cm\", \"score\" 0..1, \"size_error\", \"scale\", ...}],\n         \"count\"}. Nothing found: hits [] and a hint.\nExample: film-ue op assets.find 'query=a 45 cm chair' cls=StaticMesh",
+   "params": [
+    {
+     "name": "query",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "cls",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "folder",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "/Game"
+    },
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "tags",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "min_size_cm",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "max_size_cm",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "limit",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 10
+    },
+    {
+     "name": "refresh",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "catalog"
+   ]
+  },
+  {
+   "name": "assets.fix_redirectors",
+   "area": "assets",
+   "verb": "fix_redirectors",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 456,
+   "summary": "Repoint everything that references a redirector (left behind by a rename/move) at the real asset and delete",
+   "doc": "Repoint everything that references a redirector (left behind by a rename/move) at the real asset and delete\nthe redirectors, without a dialog.\n\nArgs: folder: where to look (recursive).\nReturns: {\"fixed\": int, \"left\": [redirectors that could not be fixed], \"changed\"}.\nExample: film-ue op assets.fix_redirectors folder=/Game/Props",
+   "params": [
+    {
+     "name": "folder",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "/Game"
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "assets.folder",
+   "area": "assets",
+   "verb": "folder",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 276,
+   "summary": "Content folders: make one, rename/move one (with everything in it), or remove an empty one.",
+   "doc": "Content folders: make one, rename/move one (with everything in it), or remove an empty one.\n\nArgs: path: /Game/... folder. action: make | rename | remove. to: the new folder path for rename.\nReturns: {\"path\", \"changed\", \"to\"}.\nExample: film-ue op assets.folder path=/Game/Props/Chairs",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "action",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "make"
+    },
+    {
+     "name": "to",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "assets.import",
    "area": "assets",
    "verb": "import",
-   "module": "fmbridge.ops.assets",
-   "file": "unreal/fmbridge/ops/assets.py",
-   "line": 42,
-   "summary": "Import files on the workstation (fbx, wav, png, exr, ...) into a content folder; returns the new assets. An FBX",
-   "doc": "Import files on the workstation (fbx, wav, png, exr, ...) into a content folder; returns the new assets. An FBX\ncomes in as one static mesh (its parts combined unless `combine` is off) with its materials, without lightmap UVs\n(Lumen needs none).",
+   "module": "fmbridge.ops.assets_import",
+   "file": "unreal/fmbridge/ops/assets_import.py",
+   "line": 324,
+   "summary": "Import files on the box into a content folder, any format, with no dialog: FBX/OBJ/glTF/GLB (Interchange),",
+   "doc": "Import files on the box into a content folder, any format, with no dialog: FBX/OBJ/glTF/GLB (Interchange),\nAlembic (static, geometry cache, skeletal, or a groom), USD, images (settings by role, see\nassets.import_textures), WAV. Returns the new assets' object paths (or with detail, per file).\n\nArgs: files: paths on the box. dest: content folder. replace: re-import over existing (an Interchange re-import).\n      combine: merge an FBX's parts into one static mesh. kind: static | skeletal | auto (what the file says) |\n      geometry_cache (Alembic). skeleton: /Game/... Skeleton for skeletal meshes/animations (else a new one).\n      scale: uniform import scale (the source's units are converted to cm first). nanite: build Nanite (default\n      on for static). collision: none | box | sphere | capsule | convex | convex10 | convex26 (a simple shape\n      generated). lods: import LODs in the file. materials/textures: import the file's materials and textures.\n      animations: import animations. groom: an Alembic of hair curves -> a Groom asset. abc_preset: maya | max |\n      none (Alembic axis conversion). name: asset name for a single file. detail: return\n      {\"imported\": [{\"file\", \"kind\", \"assets\", \"objects\"}], \"changed\"}.\nExample: film-ue op assets.import 'files=[\"/data/props/chair.fbx\"]' dest=/Game/Props/Chair collision=convex",
    "params": [
     {
      "name": "files",
@@ -585,13 +870,159 @@
      "type": "bool",
      "required": false,
      "default": true
+    },
+    {
+     "name": "kind",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "static"
+    },
+    {
+     "name": "skeleton",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "scale",
+     "kind": "positional",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "nanite",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "collision",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "none"
+    },
+    {
+     "name": "lods",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "materials",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "textures",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "animations",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "groom",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "abc_preset",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": "maya"
+    },
+    {
+     "name": "name",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "detail",
+     "kind": "positional",
+     "type": "bool",
+     "required": false,
+     "default": false
     }
    ],
-   "returns": "list",
+   "returns": null,
    "multi_tick": false,
    "mutates": null,
    "idempotent": null,
    "tags": []
+  },
+  {
+   "name": "assets.import_textures",
+   "area": "assets",
+   "verb": "import_textures",
+   "module": "fmbridge.ops.assets_import",
+   "file": "unreal/fmbridge/ops/assets_import.py",
+   "line": 248,
+   "summary": "Import image files as textures with the right settings for what each is: the role from its name",
+   "doc": "Import image files as textures with the right settings for what each is: the role from its name\n(T_Rock_BaseColor, _Normal, _ORM, _Roughness, _AO, ... see assets.md), a PNG named nothing useful but that looks\nlike a normal map is one, else colour.\n\nArgs: files: images on the box. folder: every image in a box folder. dest: content folder. role: force one\n      role for all. replace: import again over existing textures (else kept).\nReturns: {\"textures\": [{\"file\", \"path\", \"role\", \"imported\"}], \"changed\"}.\nExample: film-ue op assets.import_textures folder=/data/tex/rock dest=/Game/Rock/Textures",
+   "params": [
+    {
+     "name": "files",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": []
+    },
+    {
+     "name": "folder",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "dest",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "role",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "replace",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "import",
+    "textures"
+   ]
   },
   {
    "name": "assets.list",
@@ -599,9 +1030,9 @@
    "verb": "list",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 18,
+   "line": 89,
    "summary": "Assets under a path, optionally of one class name ('StaticMesh', 'MetaHumanCharacter', ...): [class, path].",
-   "doc": "Assets under a path, optionally of one class name ('StaticMesh', 'MetaHumanCharacter', ...): [class, path].",
+   "doc": "Assets under a path, optionally of one class name ('StaticMesh', 'MetaHumanCharacter', ...): [class, path].\n(For search by name, size, tags use assets.find; for one asset's numbers assets.describe.)",
    "params": [
     {
      "name": "path",
@@ -639,12 +1070,139 @@
    "tags": []
   },
   {
+   "name": "assets.mesh",
+   "area": "assets",
+   "verb": "mesh",
+   "module": "fmbridge.ops.assets_import",
+   "file": "unreal/fmbridge/ops/assets_import.py",
+   "line": 356,
+   "summary": "Converge a static mesh's build settings: Nanite, generated LODs, simple collision, lightmap UVs, CPU access.",
+   "doc": "Converge a static mesh's build settings: Nanite, generated LODs, simple collision, lightmap UVs, CPU access.\n\nArgs: path: /Game/... StaticMesh. nanite: on/off. nanite_keep_percent: 0..100 triangles kept by Nanite.\n      lods: number of LODs to generate (1 = just the base; generated by reduction: LOD i keeps lod_percents[i] %\n      of the triangles, default 100, 50, 25, 12.5...). collision: none (remove simple collision) | box | sphere |\n      capsule | convex (a decomposition into convex_hulls hulls) | ndop10 | ndop18 | ndop26. lightmap_uv:\n      generate lightmap UVs. cpu_access: allow CPU access (needed to read vertices at runtime).\n      lod_group: a LOD group name (LargeProp, SmallProp, HighDetail, ...).\nReturns: {\"path\", \"changed\", \"set\": [...], \"lods\", \"triangles\", \"nanite\", \"collision_prims\"}.\nExample: film-ue op assets.mesh path=/Game/Props/SM_Chair nanite=true collision=convex convex_hulls=8",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "nanite",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "nanite_keep_percent",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "lods",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "lod_percents",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "collision",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "convex_hulls",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 4
+    },
+    {
+     "name": "lightmap_uv",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "cpu_access",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "lod_group",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "meshes"
+   ]
+  },
+  {
+   "name": "assets.move",
+   "area": "assets",
+   "verb": "move",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 215,
+   "summary": "Move assets into a folder, keeping their names (references follow).",
+   "doc": "Move assets into a folder, keeping their names (references follow).\n\nArgs: paths: /Game/... assets. folder: destination folder. fix_redirectors: as assets.rename.\nReturns: {\"moved\": {src: dst}, \"changed\"}.\nExample: film-ue op assets.move 'paths=[\"/Game/Imports/SM_Chair\"]' folder=/Game/Props",
+   "params": [
+    {
+     "name": "paths",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "folder",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "fix_redirectors",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "assets.props",
    "area": "assets",
    "verb": "props",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 96,
+   "line": 143,
    "summary": "An asset's editor properties (all readable ones, or the named).",
    "doc": "An asset's editor properties (all readable ones, or the named).",
    "params": [
@@ -670,12 +1228,190 @@
    "tags": []
   },
   {
+   "name": "assets.refs",
+   "area": "assets",
+   "verb": "refs",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 368,
+   "summary": "Who uses an asset (referencers) and what it uses (dependencies), from the asset registry; with depth > 1 the",
+   "doc": "Who uses an asset (referencers) and what it uses (dependencies), from the asset registry; with depth > 1 the\ntree is followed that many levels.\n\nArgs: path: /Game/... asset. depth: levels to follow (1 = direct only, max 5).\nReturns: {\"path\", \"referencers\": [paths], \"dependencies\": [paths], \"level_actors\": [labels using it in the open\n         level], \"tree\": {path: {\"referencers\", \"dependencies\"}} when depth > 1}.\nExample: film-ue op assets.refs path=/Game/Mats/MI_Oak",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "depth",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "assets.reimport",
+   "area": "assets",
+   "verb": "reimport",
+   "module": "fmbridge.ops.assets_import",
+   "file": "unreal/fmbridge/ops/assets_import.py",
+   "line": 451,
+   "summary": "Re-import an asset from its source file (or from a new file), keeping its settings, with no dialog.",
+   "doc": "Re-import an asset from its source file (or from a new file), keeping its settings, with no dialog.\n\nArgs: path: /Game/... asset. file: a new source file on the box (else the one it was imported from).\nReturns: {\"path\", \"source\", \"changed\"}.\nExample: film-ue op assets.reimport path=/Game/Props/SM_Chair file=/data/props/chair_v2.fbx",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "file",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "import"
+   ]
+  },
+  {
+   "name": "assets.remove",
+   "area": "assets",
+   "verb": "remove",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 235,
+   "summary": "Delete assets safely: refused (code conflict, naming who) while another asset or the open level uses them,",
+   "doc": "Delete assets safely: refused (code conflict, naming who) while another asset or the open level uses them,\nunless force. Removing what is not there is fine.\n\nArgs: paths: /Game/... assets. folder: every asset under a content folder (and the folder). force: delete even\n      if referenced (referencers then point at nothing: they render the default material/mesh). dry_run: only\n      report what would go (removed) and what is in use (kept).\nReturns: {\"removed\": [paths], \"kept\": {path: [referencers]}, \"changed\"}.\nExample: film-ue op assets.remove 'paths=[\"/Game/Old/SM_Box\"]'",
+   "params": [
+    {
+     "name": "paths",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": []
+    },
+    {
+     "name": "folder",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "force",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "dry_run",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "assets.rename",
+   "area": "assets",
+   "verb": "rename",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 189,
+   "summary": "Rename or move an asset (references follow), without a dialog; re-running after it moved changes nothing.",
+   "doc": "Rename or move an asset (references follow), without a dialog; re-running after it moved changes nothing.\n\nArgs: src: current /Game/... path. dst: new path (another folder moves it). fix_redirectors: repoint every\n      referencer at the new path and delete the redirector left at src.\nReturns: {\"src\", \"dst\", \"changed\", \"redirectors_fixed\": int}.\nExample: film-ue op assets.rename src=/Game/Imports/chair dst=/Game/Props/Chairs/SM_Chair",
+   "params": [
+    {
+     "name": "src",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "dst",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "fix_redirectors",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "assets.save",
+   "area": "assets",
+   "verb": "save",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 127,
+   "summary": "Save assets by path, or every dirty asset under a folder.",
+   "doc": "Save assets by path, or every dirty asset under a folder.\n\nArgs: paths: /Game/... assets. folder: a content folder (recursive).\nReturns: {\"saved\": [paths], \"failed\": [paths], \"changed\"}.\nExample: film-ue op assets.save folder=/Game/Props",
+   "params": [
+    {
+     "name": "paths",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": []
+    },
+    {
+     "name": "folder",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "assets.save_all",
    "area": "assets",
    "verb": "save_all",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 90,
+   "line": 121,
    "summary": "Save every dirty package and map.",
    "doc": "Save every dirty package and map.",
    "params": [],
@@ -684,6 +1420,226 @@
    "mutates": null,
    "idempotent": null,
    "tags": []
+  },
+  {
+   "name": "assets.set_props",
+   "area": "assets",
+   "verb": "set_props",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 157,
+   "summary": "Set editor properties on an asset (enums by name, e.g. {\"lod_group\": \"TEXTUREGROUP_WORLD\"}).",
+   "doc": "Set editor properties on an asset (enums by name, e.g. {\"lod_group\": \"TEXTUREGROUP_WORLD\"}).\n\nArgs: path: /Game/... asset. props: {property: value}; an enum value is \"ENUM_NAME\" or \"EnumClass.ENUM_NAME\".\n      save: save the asset.\nReturns: {\"path\", \"changed\", \"set\": [names]}.\nExample: film-ue op assets.set_props path=/Game/T/T_Wood_D 'props={\"max_texture_size\": 2048}'",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "props",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "assets.tag",
+   "area": "assets",
+   "verb": "tag",
+   "module": "fmbridge.ops.assets",
+   "file": "unreal/fmbridge/ops/assets.py",
+   "line": 310,
+   "summary": "Metadata tags on an asset (searchable by assets.find tags=...): set or remove key/values.",
+   "doc": "Metadata tags on an asset (searchable by assets.find tags=...): set or remove key/values.\n\nArgs: path: /Game/... asset. set: {key: value} strings. remove: keys to drop.\nReturns: {\"path\", \"tags\": {key: value}, \"changed\"}.\nExample: film-ue op assets.tag path=/Game/Props/SM_Chair 'set={\"category\": \"furniture\", \"style\": \"mid-century\"}'",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "set",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "remove",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": []
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "assets.texture",
+   "area": "assets",
+   "verb": "texture",
+   "module": "fmbridge.ops.assets_import",
+   "file": "unreal/fmbridge/ops/assets_import.py",
+   "line": 229,
+   "summary": "Converge a texture's settings: by role (base_color/emissive/translucency: sRGB colour; normal: TC_NORMALMAP",
+   "doc": "Converge a texture's settings: by role (base_color/emissive/translucency: sRGB colour; normal: TC_NORMALMAP\nlinear; roughness/metallic/ao/orm/opacity/height/specular: TC_MASKS linear; hdr) and/or explicit ones.\n\nArgs: path: /Game/... texture. role: a role (see above). srgb: override. compression: TC_DEFAULT, TC_NORMALMAP,\n      TC_MASKS, TC_GRAYSCALE, TC_HDR, TC_BC7, ... max_size_px: cap (0 = none). flip_green: OpenGL normal maps.\n      lod_group: TEXTUREGROUP_WORLD, TEXTUREGROUP_CHARACTER, ... virtual_texture: virtual texture streaming.\n      mips: TMGS_FROM_TEXTURE_GROUP, TMGS_NO_MIPMAPS, ...\nReturns: {\"path\", \"changed\", \"set\": [settings written]}.\nExample: film-ue op assets.texture path=/Game/T/T_Rock_N role=normal",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "role",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "srgb",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "compression",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "max_size_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "flip_green",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "lod_group",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "virtual_texture",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "mips",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "textures"
+   ]
+  },
+  {
+   "name": "assets.thumbnail",
+   "area": "assets",
+   "verb": "thumbnail",
+   "module": "fmbridge.ops.assets_catalog",
+   "file": "unreal/fmbridge/ops/assets_catalog.py",
+   "line": 278,
+   "summary": "Pictures of an asset with no viewport: a temporary actor of it is placed away from the set, captured alone",
+   "doc": "Pictures of an asset with no viewport: a temporary actor of it is placed away from the set, captured alone\n(WP10's view.turntable with isolate), and removed. One view (a 3/4 shot) or several around it plus a sheet.\nLighting is the open level's: in an empty level the asset is dark (add a light, or use a lit scratch level).\n\nArgs: path: /Game/... StaticMesh, SkeletalMesh or Blueprint. out_dir: where the PNGs go on the box. views: how\n      many. size_px: square size. elevation_deg/yaw_deg: the camera's angle above and around it.\nReturns: {\"path\", \"views\": [{\"yaw\", \"path\"}], \"sheet\", \"size_cm\"}. Multi-tick.\nExample: film-ue op assets.thumbnail path=/Game/Props/SM_Chair out_dir=/tmp/thumbs/chair views=4",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "views",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "size_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 512
+    },
+    {
+     "name": "elevation_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 20.0
+    },
+    {
+     "name": "yaw_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 35.0
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "gpu",
+    "catalog"
+   ]
   },
   {
    "name": "audio.describe",
@@ -2221,6 +3177,199 @@
    "tags": [
     "platform",
     "slow"
+   ]
+  },
+  {
+   "name": "fab.add",
+   "area": "fab",
+   "verb": "add",
+   "module": "fmbridge.ops.fab",
+   "file": "unreal/fmbridge/ops/fab.py",
+   "line": 316,
+   "summary": "Add a Fab asset to the project from its signed download URL (what the Fab page hands the plugin's",
+   "doc": "Add a Fab asset to the project from its signed download URL (what the Fab page hands the plugin's\nAddToProject; tools/filmtools/unreal/fab_shim.py gets it for a listing without a window): download (no auth:\nthe URL is signed), unzip into the plugin's cache, import as fab.import does. With the FabScript project plugin\ninstalled (unreal/plugins/FabScript) and metadata given, Epic's own AddToProject runs instead, for every format\n(including unreal-engine packs).\n\nMulti-tick: downloads in the background and yields until done.\nArgs: url: the signed download URL. metadata: {\"AssetId\", \"AssetName\", \"AssetType\" (gltf|fbx|unreal-engine|...),\n      \"ListingType\", \"AssetNamespace\", \"DistributionPointBaseUrls\", \"IsQuixel\"} as the page gives it.\n      dest: content folder. replace: import again over an earlier import.\nReturns: fab.import's result plus {\"download\": file on the box, \"route\": \"python\"|\"native\"}.\nExample: film-ue op fab.add url=<signed url> 'metadata={\"AssetId\": \"abc\", \"AssetName\": \"Rock\", \"IsQuixel\": true}'",
+   "params": [
+    {
+     "name": "url",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "metadata",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "dest",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "replace",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "fab",
+    "import",
+    "slow",
+    "experimental"
+   ]
+  },
+  {
+   "name": "fab.import",
+   "area": "fab",
+   "verb": "import",
+   "module": "fmbridge.ops.fab",
+   "file": "unreal/fmbridge/ops/fab.py",
+   "line": 258,
+   "summary": "Import a Fab or Megascans download that is on the box (a zip, or a folder): Fab-plugin format (one .gltf +",
+   "doc": "Import a Fab or Megascans download that is on the box (a zip, or a folder): Fab-plugin format (one .gltf +\n.json) the way the plugin does it (Interchange with InterchangeMegascansPipeline, per type: 3D Nanite, plants,\nsurfaces, decals), any other glTF/FBX/OBJ/USD with the generic importer, loose textures as a PBR material.\n\nArgs: path: zip or folder on the box (e.g. /tmp/FabLibrary/<AssetId>/x.zip). dest: content folder (default\n      /Game/Fab/Megascans/<Type>/<Name>_<id>/<Tier> like the plugin, or /Game/Fab/<Name>). kind: force the\n      Megascans type (3D, Plants, Surfaces, Decals, Imperfections). replace: re-import over what is there (else\n      an imported asset is kept: changed false).\nReturns: {\"format\", \"dest\", \"imported\": [paths], \"material\": path|None, \"changed\", \"meta\"}.\nExample: film-ue op fab.import path=/data/fab/rock_4k.zip",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "dest",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "kind",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "replace",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "fab",
+    "import",
+    "slow"
+   ]
+  },
+  {
+   "name": "fab.library",
+   "area": "fab",
+   "verb": "library",
+   "module": "fmbridge.ops.fab",
+   "file": "unreal/fmbridge/ops/fab.py",
+   "line": 154,
+   "summary": "The signed-in account's Fab library (what it owns), from the endpoint the plugin's My Folder uses",
+   "doc": "The signed-in account's Fab library (what it owns), from the endpoint the plugin's My Folder uses\n(GET <fab>/e/accounts/<account>/ue/library, FabMyFolderIntegration.cpp): title, asset id, listing type, the\npage url, and a thumbnail url.\n\nArgs: query: keep items whose title/description contain these words. limit: at most this many. account_id: the\n      Epic account (default: from the token).\nReturns: {\"items\": [{\"title\", \"asset_id\", \"asset_namespace\", \"listing_type\", \"url\", \"image\", \"source\"}],\n         \"count\", \"next_cursor\"}.\nExample: film-ue op fab.library query=chair",
+   "params": [
+    {
+     "name": "query",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "limit",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 100
+    },
+    {
+     "name": "account_id",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "fab",
+    "needs-epic-login",
+    "experimental"
+   ]
+  },
+  {
+   "name": "fab.login",
+   "area": "fab",
+   "verb": "login",
+   "module": "fmbridge.ops.fab",
+   "file": "unreal/fmbridge/ops/fab.py",
+   "line": 102,
+   "summary": "Sign Fab in: by default with the saved sign-in (opening a Fab tab is what makes the plugin try it, and then",
+   "doc": "Sign Fab in: by default with the saved sign-in (opening a Fab tab is what makes the plugin try it, and then\nthe editor's -AUTH_TYPE=exchangecode -AUTH_PASSWORD=<code> if that fails); with portal, start the device-code\nsign-in (Fab.Login): its code and URL are in the editor log for a person to approve once.\n\nMulti-tick: waits up to timeout_s for the sign-in. Already signed in: changes nothing.\nArgs: portal: device-code sign-in instead of the saved one. timeout_s: how long to wait.\nReturns: {\"signed_in\", \"changed\", \"method\", \"waited_s\", \"hint\"}.\nExample: film-ue op fab.login",
+   "params": [
+    {
+     "name": "portal",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "timeout_s",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 60.0
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "fab",
+    "needs-epic-login"
+   ]
+  },
+  {
+   "name": "fab.status",
+   "area": "fab",
+   "verb": "status",
+   "module": "fmbridge.ops.fab",
+   "file": "unreal/fmbridge/ops/fab.py",
+   "line": 75,
+   "summary": "Is Fab usable from code here: plugin loaded, signed in, a saved sign-in on disk, the pack installer library",
+   "doc": "Is Fab usable from code here: plugin loaded, signed in, a saved sign-in on disk, the pack installer library\n(Linux needs ThirdParty/libBuildPatchInstallerLib.so for unreal-engine-format packs), the download cache.\n\nReturns: {\"plugin\", \"signed_in\", \"saved_sign_ins\": int, \"pack_installer\": bool, \"cache_dir\", \"platform\",\n         \"next\": what to do}. No token is returned.\nExample: film-ue op fab.status",
+   "params": [],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "fab"
    ]
   },
   {
@@ -4510,6 +5659,463 @@
    "mutates": null,
    "idempotent": null,
    "tags": []
+  },
+  {
+   "name": "mat.assign",
+   "area": "mat",
+   "verb": "assign",
+   "module": "fmbridge.ops.mat",
+   "file": "unreal/fmbridge/ops/mat.py",
+   "line": 663,
+   "summary": "Set a material on a mesh ASSET's slot (every actor showing the mesh changes). For one actor only use",
+   "doc": "Set a material on a mesh ASSET's slot (every actor showing the mesh changes). For one actor only use\nlevel.material.\n\nArgs: mesh: /Game/... StaticMesh or SkeletalMesh. material: /Game/... material or instance. slot: index or slot\n      name.\nReturns: {\"mesh\", \"slot\", \"slot_name\", \"material\", \"changed\"}.\nExample: film-ue op mat.assign mesh=/Game/Props/SM_Chair material=/Game/Mats/MI_Oak slot=0",
+   "params": [
+    {
+     "name": "mesh",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "material",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "slot",
+     "kind": "keyword",
+     "type": null,
+     "required": false,
+     "default": 0
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "materials"
+   ]
+  },
+  {
+   "name": "mat.check",
+   "area": "mat",
+   "verb": "check",
+   "module": "fmbridge.ops.mat",
+   "file": "unreal/fmbridge/ops/mat.py",
+   "line": 526,
+   "summary": "Does a material render as meant: it compiles (else the engine draws its checker), and every texture it uses",
+   "doc": "Does a material render as meant: it compiles (else the engine draws its checker), and every texture it uses\nhas the compression its sampler needs (a normal map TC_NORMALMAP, a data map TC_MASKS and linear, a colour map\nsRGB and neither).\n\nArgs: path: /Game/... of a Material or instance.\nReturns: {\"pass\", \"issues\": [{\"code\": material.not_compiling | material.texture_kind, \"severity\", \"message\",\n         \"fix\", \"subject\", \"value\", \"expected\"}], \"metrics\": {\"num_samplers\", ..., \"textures_checked\"}}.\nExample: film-ue op mat.check path=/Game/Mats/MI_Rock",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "materials",
+    "qa"
+   ]
+  },
+  {
+   "name": "mat.describe",
+   "area": "mat",
+   "verb": "describe",
+   "module": "fmbridge.ops.mat",
+   "file": "unreal/fmbridge/ops/mat.py",
+   "line": 492,
+   "summary": "A material or instance as JSON: class, parent chain, library master (if any), blend/shading, every parameter",
+   "doc": "A material or instance as JSON: class, parent chain, library master (if any), blend/shading, every parameter\nwith its current value, compile statistics, and which actors in the open level draw it.\n\nArgs: path: /Game/... of a Material or MaterialInstance.\nReturns: {\"path\", \"class\", \"chain\": [paths], \"master\", \"blend\", \"shading\", \"two_sided\", \"params\": {name:\n         {\"kind\", \"value\"}}, \"stats\", \"users\": [labels]}.\nExample: film-ue op mat.describe path=/Game/Mats/MI_RedPaint",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "materials"
+   ]
+  },
+  {
+   "name": "mat.graph",
+   "area": "mat",
+   "verb": "graph",
+   "module": "fmbridge.ops.mat",
+   "file": "unreal/fmbridge/ops/mat.py",
+   "line": 280,
+   "summary": "Build a Material from a node-graph spec (material by spec); re-running the same spec changes nothing.",
+   "doc": "Build a Material from a node-graph spec (material by spec); re-running the same spec changes nothing.\n\nspec: {\"blend\": opaque|masked|translucent|additive|modulate, \"shading\": default_lit|unlit|subsurface|\nsubsurface_profile|two_sided_foliage|cloth|clear_coat|thin_translucent|hair|eye, \"two_sided\": bool,\n\"domain\": surface|deferred_decal|post_process|light_function|ui, \"translucency_lighting\": surface_per_pixel|...,\n\"usage\": [skeletal_mesh, instanced, nanite, groom, morph_targets, ...], \"opacity_mask_clip\": 0.333,\n\"nodes\": {id: {\"type\": Scalar|Vector|Texture|Switch|Const|Multiply|Add|Lerp|OneMinus|Power|TexCoord|Fresnel|\nVertexColor|Function|... or any MaterialExpression class, \"in\": {pin: \"node\" | \"node.R\" | number | [r,g,b]},\nother keys: editor properties (name, default, texture, sampler: color|normal|masks|linear_color|grayscale)}},\n\"outputs\": {BaseColor|Metallic|Specular|Roughness|EmissiveColor|Opacity|OpacityMask|Normal|SubsurfaceColor|\nAmbientOcclusion|Refraction|WorldPositionOffset|CustomData0|...: source}}.\nThe spec is checked before anything is touched (unknown node/pin/source -> bad_args with near names). A\nmaterial drawn in the open level is not rebuilt (conflict) unless force.\nArgs: path: /Game/... of the Material. spec: as above. rebuild: even if unchanged. save: save the asset.\nReturns: {\"path\", \"changed\", \"fingerprint\", \"nodes\", \"stats\": {\"num_samplers\", \"num_pixel_shader_instructions\"}}.\nExample: film-ue op mat.graph path=/Game/Mats/M_Stripes 'spec={\"nodes\": {\"c\": {\"type\": \"Vector\", \"name\": \"Col\",\n         \"default\": [1, 0, 0, 1]}}, \"outputs\": {\"BaseColor\": \"c\"}}'",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "spec",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "rebuild",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "force",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "materials"
+   ]
+  },
+  {
+   "name": "mat.instance",
+   "area": "mat",
+   "verb": "instance",
+   "module": "fmbridge.ops.mat",
+   "file": "unreal/fmbridge/ops/mat.py",
+   "line": 429,
+   "summary": "Make or update a material instance: its parent, and parameters from a dict; only what differs is written.",
+   "doc": "Make or update a material instance: its parent, and parameters from a dict; only what differs is written.\n\nArgs: path: /Game/... of the instance. master: a library master by name (mat.masters: opaque, glass, emissive,\n      ...; built on demand) or parent: any material/instance path. params: {name: value}: a number (scalar), a\n      list [r, g, b(, a)] linear (vector), a /Game texture path (texture), true/false (static switch). Names are\n      checked against the parent's parameters. force: reparent even if the open level draws it (unsafe).\nReturns: {\"path\", \"parent\", \"changed\", \"updated\": [what was written]}.\nExample: film-ue op mat.instance path=/Game/Mats/MI_RedPaint master=opaque\n         'params={\"Tint\": [0.6, 0.05, 0.04], \"Roughness\": 0.35}'",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "master",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "parent",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "params",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "force",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "save",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "materials"
+   ]
+  },
+  {
+   "name": "mat.master",
+   "area": "mat",
+   "verb": "master",
+   "module": "fmbridge.ops.mat",
+   "file": "unreal/fmbridge/ops/mat.py",
+   "line": 263,
+   "summary": "Build (or keep) one library master material in /Game/FM/Lib, with its default textures.",
+   "doc": "Build (or keep) one library master material in /Game/FM/Lib, with its default textures.\n\nA master already built from the same spec is left alone (changed false). One built from an older spec is\nrebuilt in place, but only when nothing in the open level draws it (recompiling a drawn material can crash the\neditor): otherwise it fails with code conflict, unless force.\nArgs: name: a master from mat.masters (opaque, opaque_orm, masked, masked_orm, foliage, glass, emissive, screen,\n      cloth, skin, unlit, decal). rebuild: rebuild even if current. force: skip the drawn-by check.\nReturns: {\"path\", \"changed\", \"fingerprint\", \"nodes\", \"stats\"}.\nExample: film-ue op mat.master name=opaque_orm",
+   "params": [
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "rebuild",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "force",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "materials"
+   ]
+  },
+  {
+   "name": "mat.masters",
+   "area": "mat",
+   "verb": "masters",
+   "module": "fmbridge.ops.mat",
+   "file": "unreal/fmbridge/ops/mat.py",
+   "line": 237,
+   "summary": "The library's master materials: what each is for, its path, whether it is built and current, and its",
+   "doc": "The library's master materials: what each is for, its path, whether it is built and current, and its\nparameters with what they do.\n\nArgs: name: one master (else all).\nReturns: {master: {\"path\", \"description\", \"built\": bool, \"current\": bool, \"params\": {name: {\"kind\",\n         \"default\", \"doc\"}}}}.\nExample: film-ue op mat.masters name=glass",
+   "params": [
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "materials"
+   ]
+  },
+  {
+   "name": "mat.pbr",
+   "area": "mat",
+   "verb": "pbr",
+   "module": "fmbridge.ops.mat",
+   "file": "unreal/fmbridge/ops/mat.py",
+   "line": 579,
+   "summary": "A PBR material instance from a texture set: imports the files (or takes textures already in the project),",
+   "doc": "A PBR material instance from a texture set: imports the files (or takes textures already in the project),\nsets each texture's sRGB/compression by its role, picks the master (opaque, opaque_orm for a packed ORM map,\nmasked/foliage for cut-outs) and wires every map in.\n\nArgs: path: /Game/... of the instance. maps: {role: texture path or file}: roles base_color, normal, orm,\n      roughness, metallic, ao, opacity, translucency, emissive, gloss (inverted into roughness is not\n      supported: convert it first). files: files on the box (a texture set; roles from their names, e.g.\n      T_Rock_BaseColor.png, T_Rock_Normal.png, T_Rock_ORM.png). folder: a folder on the box holding one set.\n      texture_dest: where textures are imported (default: the instance's folder + /Textures). cutout: use the\n      masked master (opacity map, or base colour alpha). foliage: the foliage master. params: other master\n      parameters (Tint, Tiling, NormalStrength, ...).\nReturns: {\"path\", \"master\", \"maps\": {role: texture path}, \"changed\", \"imported\": [paths], \"ignored\": [files]}.\nExample: film-ue op mat.pbr path=/Game/Mats/MI_Rock folder=/data/megascans/rock_4k",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "maps",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "files",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "folder",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "texture_dest",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "cutout",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "foliage",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "params",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "force",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "materials",
+    "import"
+   ]
+  },
+  {
+   "name": "mat.preset",
+   "area": "mat",
+   "verb": "preset",
+   "module": "fmbridge.ops.mat",
+   "file": "unreal/fmbridge/ops/mat.py",
+   "line": 455,
+   "summary": "A ready-made material: an instance of a library master with a named look (chrome, gold, glass_clear, water,",
+   "doc": "A ready-made material: an instance of a library master with a named look (chrome, gold, glass_clear, water,\nplastic_gloss, rubber, emissive_panel, screen, ...), adjusted by a few plain arguments.\n\nArgs: path: /Game/... of the instance. name: a preset (mat.presets lists them with their master and values).\n      color: linear [r, g, b] (Tint, or Color for emitters). roughness, metallic, opacity: 0..1. nits:\n      emitted luminance in cd/m2 for emissive/screen presets. params: any other master parameters.\nReturns: mat.instance's result plus {\"preset\", \"master\"}.\nExample: film-ue op mat.preset path=/Game/Mats/MI_Panel name=emissive_panel nits=400 'color=[1, 0.9, 0.8]'",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "color",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "roughness",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "metallic",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "opacity",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "nits",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "params",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "force",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "materials"
+   ]
+  },
+  {
+   "name": "mat.presets",
+   "area": "mat",
+   "verb": "presets",
+   "module": "fmbridge.ops.mat",
+   "file": "unreal/fmbridge/ops/mat.py",
+   "line": 481,
+   "summary": "The named looks mat.preset makes: {name: {\"master\", \"params\"}}.",
+   "doc": "The named looks mat.preset makes: {name: {\"master\", \"params\"}}.\n\nExample: film-ue op mat.presets",
+   "params": [],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "materials"
+   ]
   },
   {
    "name": "mh.add_item",
@@ -8590,15 +10196,17 @@
  "broken": {},
  "areas": {
   "anim": "Animation curves: read and write a sequence's float curves, and lock a talking face's gaze on the camera.",
-  "assets": "Assets: list, import, duplicate, delete, save.",
+  "assets": "Assets (WP2): the content browser by code.",
   "audio": "Audio in Unreal: WAVs in as SoundWaves, sounds onto named Sequencer audio tracks with their timing, and the audio of a sequence read back.",
   "bridge": "The bridge itself, as an op (the same answers as GET /health, for clients that only speak /op).",
   "cam": "Cameras: cine cameras by label (filmback, lens, aperture, focus), the framing solver on real subjects, camera moves keyed into Sequencer, rail and crane rigs, a scene's coverage, framing feedback (where points land in the frame, optics and ",
   "editor": "The editor itself: what it is and how it is doing (describe), console variables and commands, the idle frame cap of an offscreen editor, waiting for shader/asset compilation to finish, and garbage collection.",
+  "fab": "Fab (WP2): Epic's asset store by code, with no Fab window.",
   "jobs": "The bridge's jobs as ops (the same as GET /jobs, GET /job, POST /job/cancel, for clients that only speak /op).",
   "layout": "Layout and set dressing: rest things on what is under them, place one actor relative to another, lay out rows, grids, circles and seeded scatters of an asset, align and distribute.",
   "level": "Levels and actors: new/open/save, find and describe, spawn (shapes, assets, classes), move, aim, set, delete.",
   "look": "The look: materials (surface, emissive, glass), lights (rect, spot, point), atmosphere (volumetric fog), post-process and cine cameras, plus quick stills through a camera for checking a frame without a render.",
+  "mat": "Materials (WP2): a library of master materials built by code, instances converged from a dict of parameters, PBR materials from a texture set, presets (glass, chrome, emissive in nits...), any material from a node-graph spec, and numbers to",
   "mh": "MetaHumans: presets, a character from a preset, Epic's cloud rig and high-resolution textures, wardrobe (hair, beard, brows, clothes), the cinematic build to a Blueprint, and how an assembled character is driven.",
   "ops": "The bridge's operations: named functions the operator's machine calls through POST /op (fmbridge.server), each a plain Python function over the `unreal` API, registered with @op(\"area.verb\").",
   "qa": "QA checks Claude can read: numbers and issues about pictures, framing, meshes and continuity, and one REVIEW that gathers them for a shot, a sequence, a set or a character.",
