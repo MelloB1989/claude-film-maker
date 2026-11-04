@@ -233,3 +233,42 @@ def ratio_of(lights: list, point, key: str, fill: str) -> float:
     per = illuminance_at(lights, point)["per_light"]
     f = per.get(fill, 0.0)
     return float("inf") if f <= 0 else round((per.get(key, 0.0) + f) / f, 4)
+
+
+def to_lights(planned: list) -> list:
+    """plan()'s light specs as canonical lights (envlib.lights.normalize), each keeping its role."""
+    from . import lights as lights_lib
+    out = []
+    for p in planned:
+        s = {"label": p["label"], "kind": p["kind"], "loc": p["loc"], "look_at": p["look_at"],
+             "intensity_cd": p["candelas"], "shadows": p.get("shadows", True)}
+        if p.get("color") is not None:
+            s["color"] = p["color"]
+        else:
+            s["temperature_k"] = p.get("temperature", 5600.0)
+        for a, b in (("width", "width_cm"), ("height", "height_cm"), ("cone", "cone_deg"), ("barn_angle", "barn_door_deg"),
+                     ("source_radius", "source_radius_cm"), ("ies", "ies"), ("specular", "specular"),
+                     ("volumetric", "volumetric"), ("channels", "channels")):
+            if p.get(a) is not None:
+                s[b] = p[a]
+        L = lights_lib.normalize(s)
+        L["role"] = p["role"]
+        out.append(L)
+    return out
+
+
+# light.rig's argument defaults (a test checks they match the op's signature): the planner fills them in on both
+# sides before comparing a spec's rig with the one recorded on the level
+RIG_DEFAULTS = {"camera": None, "facing_yaw_deg": None, "preset": "three_point", "key_lux": 800.0, "ratio": None,
+                "lights": None, "key_side": "left", "scale": 1.0, "temperature_k": None, "channels": None,
+                "subject_offset": None, "socket": ""}
+
+
+def comparable(args: dict) -> dict:
+    """Rig arguments with the defaults filled in and the empty ones dropped (numbers as floats)."""
+    out = {}
+    for k, v in {**RIG_DEFAULTS, **(args or {})}.items():
+        if v is None or v == "" or k == "owner":
+            continue
+        out[k] = float(v) if isinstance(v, int) and not isinstance(v, bool) else v
+    return out
