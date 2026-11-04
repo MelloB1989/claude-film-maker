@@ -156,6 +156,6 @@ def speak(text: str, *, line_id: str, sequence: str, start_frame: int, face: dic
         if st["op"] == "speech.to_face":
             anim = (st["result"] or {}).get("anim")
         elif st["op"] == "perf.face":
-            anim = (st["result"] or {}).get("anim") or anim
+            anim = (st["result"] or {}).get("out") or (st["result"] or {}).get("anim") or anim  # perf.face: "out"
         log(f"{st['op']}: ok")
     return {"line": line, "steps": steps, "anim": anim, "take": take, "notes": notes}
