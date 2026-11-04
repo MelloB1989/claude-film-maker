@@ -93,7 +93,7 @@ to be checked in P6. `RigLogicEditor` is Win64-only, but **no MetaHuman module d
 | MRQ from the command line | `-game -MoviePipelineConfig=…` and Python executors documented (Windows examples only) | C / L | MRQ CLI doc | P3 |
 | Editor with `-RenderOffscreen`, no desktop | Works on Linux GPU nodes (5.3) and one 5.8 report; behaviour with no `DISPLAY` and the 5.8 SDL3 backend undocumented | L | S12, S15 | **P2** |
 | Python editor scripting | Yes, Python 3.11.8, Linux paths documented | C | Python doc | P2 |
-| `-ExecutePythonScript`, `-run=pythonscript` | Generic, not Linux-specific; `UnrealEditor-Cmd` exists on Linux | C / L | Python doc, forum 735536 | P2 |
+| `-ExecutePythonScript`, `-run=pythonscript` | Generic, not Linux-specific; `UnrealEditor` exists on Linux | C / L | Python doc, forum 735536 | P2 |
 | FBX import / export | FBX SDK `.so` ships for Linux; Interchange FBX uses it | L | forum 1334407 | P7 |
 | Groom import (Alembic) + binding | No Linux statement; Creator depends on Groom and runs on Linux | L | MH plugin index | P8 |
 | MetaHuman Character editor (presets, body, skin, wardrobe) | Yes since 5.7; 5.8 "platform parity" | C | S7, MH 5.7/5.8 notes | P9 |
@@ -128,9 +128,9 @@ renders started by code.
 | Mode | What it gives | Linux status |
 |---|---|---|
 | **A. Long-running editor, offscreen**: `UnrealEditor Proj.uproject /Game/Studio/Studio -RenderOffscreen -vulkan -unattended -nosplash -stdout -log` (+ `init_unreal.py` starts fmbridge) | Everything the bridge does today, including MRQ with the PIE executor | L: BEDLAM runs the full editor this way with `-ExecCmds="py …"` on GPU nodes (5.3.2, S12); a 5.8 user runs `-RenderOffscreen` sessions with no crashes (S15). U: whether 5.8 (SDL3) starts with **no `DISPLAY` at all**. SDL has an `offscreen` EGL video driver that Epic contributed; `SDL_VIDEODRIVER=offscreen` is the first thing to try, `xvfb-run` the fallback (Xvfb is a few MB, needs no GPU and is not a desktop) |
-| **B. One-shot Python**: `UnrealEditor-Cmd Proj.uproject -ExecutePythonScript=job.py -RenderOffscreen …` | A script runs, then the editor quits (or stays alive with `set_keep_python_script_alive`) | C (documented in general), L on Linux |
-| **C. Commandlet**: `UnrealEditor-Cmd Proj.uproject -run=pythonscript -script=job.py` | Asset work without a level or rendering (imports, materials, MH assets?) | C in general; no world, no rendering, so no MRQ and no stills |
-| **D. Command-line MRQ**: `UnrealEditor-Cmd Proj.uproject /Game/Map -game -LevelSequence=… -MoviePipelineConfig=… -RenderOffscreen -unattended` | A render with no editor UI, one process per job | C (doc), L on Linux; Movie Render Graph configs may need the Python route (5.5 reports) |
+| **B. One-shot Python**: `UnrealEditor Proj.uproject -ExecutePythonScript=job.py -RenderOffscreen …` | A script runs, then the editor quits (or stays alive with `set_keep_python_script_alive`) | C (documented in general), L on Linux |
+| **C. Commandlet**: `UnrealEditor Proj.uproject -run=pythonscript -script=job.py` | Asset work without a level or rendering (imports, materials, MH assets?) | C in general; no world, no rendering, so no MRQ and no stills |
+| **D. Command-line MRQ**: `UnrealEditor Proj.uproject /Game/Map -game -LevelSequence=… -MoviePipelineConfig=… -RenderOffscreen -unattended` | A render with no editor UI, one process per job | C (doc), L on Linux; Movie Render Graph configs may need the Python route (5.5 reports) |
 | `-nullrhi` | Starts with no GPU | Renders nothing: only for asset-only jobs |
 
 What still needs a display or a person:
@@ -177,9 +177,10 @@ Two routes. Prefer **source** for the long term, because it is scriptable, repro
 
 ### 6a. Fast build plan (target 15–20 min)
 
-See §10. In short: a 15–20 minute **compile** is plausible on 192 physical cores; the **whole run** (clone,
-dependencies, compile, archive) is more like 35–55 minutes. That is an estimate: no public 192-core Linux benchmark
-exists, so the first run must time it.
+**Measured (agent-06, P0):** on an m8a.48xlarge the compile took **374 s** (6,246 actions at 192 in parallel), well
+under the 15–35 min estimated below. With the prepared source cached in S3, a rebuild of another tag is about
+6 min of compile plus 2 min of packaging. The engine is kept as a 26.6 GB tarball in S3 and restores onto a G6 in
+about 4 min. See §10 and `docs/linux/build.md` on `fleet/agent-06/linux-build`.
 
 ### 6b. Does a Windows project open as-is on Linux?
 
@@ -244,6 +245,9 @@ but the 5.8 HWRT page says to enable Vulkan ray tracing by editing `Engine/Confi
 
 ## 9. Proof-of-concept tests: plan, status and verdicts
 
+Correction from P0: **there is no `UnrealEditor-Cmd` on Linux**. `UnrealEditor` itself takes `-stdout`, and every
+command in this report now uses it.
+
 GO on 2026-11-04. The box is `i-0573d4267ace3d9cc` (agent-06 brings it up); agent-07 runs the tests, one editor at
 a time; agent-04 owns this table and the verdicts. The engine is 5.8.4 from agent-06's source build; the project is
 copied from the workstation snapshot (§9a).
@@ -254,10 +258,10 @@ sizes, metrics). A test without its evidence stays **pending**.
 
 | # | Test | Pass if | Evidence to report | Status |
 |---|---|---|---|---|
-| P0 | Source build 5.8.4 (agent-06) | editor, ShaderCompileWorker and plugins built; `Engine/Plugins/MetaHuman/MetaHumanCharacter/Content/Optional/Presets` present (else copy it from the snapshot's engine) | build times, archive path, `ls` of Presets | pending |
-| P1 | `DISPLAY= vulkaninfo`, grep RT, `shader_atomic_int64`, `mesh_shader` | all present on the L4 | the grep output, `nvidia-smi` | pending |
+| P0 | Source build 5.8.4 (agent-06) | editor, ShaderCompileWorker and plugins built; `Engine/Plugins/MetaHuman/MetaHumanCharacter/Content/Optional/Presets` present (else copy it from the snapshot's engine) | build times, archive path, `ls` of Presets | **PASS**. m8a.48xlarge, 6,246 actions at 192 in parallel, **compile 374 s**; Setup.sh 101 s; package and upload 107 s; restore to the G6 258 s. Engine `s3://…/ue-linux/engine/5.8.4/UnrealEngine-5.8.4-linux.tar.zst` (26.6 GB, 78 GB unpacked, sha256 in `manifest.json`). Presets present (260 MB). No MetaHuman module references RigLogicEditor. Evidence: `docs/linux/build.md` on `fleet/agent-06/linux-build` |
+| P1 | `DISPLAY= vulkaninfo`, grep RT, `shader_atomic_int64`, `mesh_shader` | all present on the L4 | the grep output, `nvidia-smi` | **PASS for RT** (agent-06): NVIDIA L4, driver **580.178.04** (580-server, prebuilt signed modules), Vulkan 1.4.312, `VK_KHR_ray_tracing_pipeline`, `acceleration_structure`, `ray_query`, `deferred_host_operations`. **Fix needed headless**: the packaged ICD points at `libGLX_nvidia.so.0` → `ERROR_INCOMPATIBLE_DRIVER` without X; divert `nvidia_icd.json` to `libEGL_nvidia.so.0` (`ue-gpu-setup.sh`). `shader_atomic_int64`/`mesh_shader` not yet listed (expected on Ada; the editor log in P2 confirms Nanite/VSM) |
 | P2 | Editor on the copied project, bridge auto-starts: `film-ue health`, `exec`, `look.still`, `seq.still`; RSS every minute for 2 h | `RHI=Vulkan`, `SM6`; bridge answers; stills are correct images; RSS flat | launch line; log `LogRHI`/`LogVulkanRHI` lines; still PNGs; RSS series; which display mode (rule D1) | pending |
-| P3 | `render.mrq` deferred PNG+WAV on a 24-frame chunk of one reel shot, through the bridge; then the same job via command-line MRQ (`UnrealEditor-Cmd … -game -MoviePipelineConfig=… -RenderOffscreen`) | frames written; the command-line job also works (needed for `film-ue render`) | frame dir, s/frame, `LogMovieRenderPipeline` errors, WAV length and peak | pending |
+| P3 | `render.mrq` deferred PNG+WAV on a 24-frame chunk of one reel shot, through the bridge; then the same job via command-line MRQ (`UnrealEditor … -game -MoviePipelineConfig=… -RenderOffscreen`) | frames written; the command-line job also works (needed for `film-ue render`) | frame dir, s/frame, `LogMovieRenderPipeline` errors, WAV length and peak | pending |
 | P4 | Same chunk with the project's Lumen **HWRT** as is; then a 30-min soak | log shows ray tracing enabled; no `VK_ERROR_DEVICE_LOST`; image sane | `LogRayTracing`/`LogVulkanRHI` lines, soak duration, crash count | pending |
 | P5 | `render.mrq path_tracer=True`, 8 frames | non-black, denoised | NNE runtime log line, frames | pending |
 | P6 | Reel calibration chunks vs the Windows PNGs of the same frames (`s3://rf-render-788655295054-aps1/ue-linux/reference/reel_1080p/<shot>/NNNN.png`: the 1,599 frames the final cut used, plus `reference/cut.json`), with exactly render.py's settings (§9a.5), after the face-mode check (§9a.6) | rule D5 | per-frame SSIM/PSNR, crop colour deltas, contact sheet path | pending |
@@ -342,6 +346,10 @@ P6), then P5, then P9–P11 (MetaHuman, which needs the sign-in, so last). P7, P
 
 ## 10. Build appendix (fast source build)
 
+**Superseded by measurement**: see agent-06's `docs/linux/build.md` (compile 374 s on m8a.48xlarge). 5.8.4 still
+runs UBT's local executor for `[NoUba]` actions and warns that `bAllowUBALocalExecutor` is deprecated. The plan below
+is kept for the record.
+
 Desk research for agent-06's build PoC (20261104-task-build-the-ue-08c2). Their measurements replace these estimates.
 
 **Instance** (x86_64 only: there is no Linux ARM64 editor host; L):
@@ -374,7 +382,7 @@ The vCPU quota for standard on-demand instances must allow the chosen size (384 
    Linux Development" -Target="ShaderCompileWorker Linux Development" -Target="InterchangeWorker Linux Development"
    -Target="UnrealPak Linux Development"`: **15–35 min (the main unknown)**. `GenerateProjectFiles.sh` and `make` are
    not needed. Do not use the BuildGraph "Installed Build" route: it also compiles game targets and a DDC.
-6. Smoke test: `UnrealEditor-Cmd -nullrhi -unattended -nosplash -ExecCmds=quit`: 1–3 min.
+6. Smoke test: `UnrealEditor -nullrhi -unattended -nosplash -ExecCmds=quit`: 1–3 min.
 7. Archive: `tar -I 'zstd -T0 -3' --exclude=.git --exclude='*/DerivedDataCache'` streamed to the **private** bucket
    (`ue-linux/`). Keep `Engine/Intermediate` (generated headers, UBT makefiles). Excluding `*.debug` roughly halves the
    size but loses callstacks. Estimated 40–80 GB compressed. Also take an **EBS snapshot** for fast EC2 restores
@@ -454,7 +462,7 @@ These are generic, not film-specific, and worth building only once P2 and P3 pas
 - Substrate: https://dev.epicgames.com/documentation/unreal-engine/overview-of-substrate-materials-in-unreal-engine
 - MRQ export formats: https://dev.epicgames.com/documentation/unreal-engine/cinematic-rendering-export-formats-in-unreal-engine; MRQ command line: https://dev.epicgames.com/documentation/en-us/unreal-engine/using-command-line-rendering-with-move-render-queue-in-unreal-engine
 - Python scripting: https://dev.epicgames.com/documentation/en-us/unreal-engine/scripting-the-unreal-editor-using-python; Linux pip paths: https://dev.epicgames.com/documentation/unreal-engine/python-plugin-dependency-management-for-unreal-engine
-- `-RenderOffscreen` on Linux: forums 156716, 1903757 (memory growth), 136834 (segfault); `UnrealEditor-Cmd` on Linux: 735536
+- `-RenderOffscreen` on Linux: forums 156716, 1903757 (memory growth), 136834 (segfault); `UnrealEditor` on Linux: 735536
 - SDL offscreen driver: https://www.phoronix.com/news/SDL-New-Vid-Driver-Offscreen
 - NVIDIA headless Vulkan: https://forums.developer.nvidia.com/t/headless-vulkan-with-multiple-gpus/222832
 - MetaHuman: 5.6 Windows-only https://forums.unrealengine.com/t/ue-5-6-metahuman-character-creator-linux-support/2541069; 5.7 notes https://dev.epicgames.com/documentation/metahuman/metahuman-5-7-release-notes; 5.7 known issues https://dev.epicgames.com/documentation/metahuman/known-issues-5-7; 5.8 notes https://dev.epicgames.com/documentation/metahuman/metahuman-5-8-release-notes-in-unreal-engine; 5.8 known issues https://dev.epicgames.com/documentation/metahuman/metahuman-known-issues-5-8-in-unreal-engine; hardware https://dev.epicgames.com/documentation/metahuman/metahuman-hardware-requirements-in-unreal-engine; plugin index https://dev.epicgames.com/documentation/en-us/unreal-engine/API/PluginIndex/MetaHumanCharacter and …/PluginIndex/MetaHuman
