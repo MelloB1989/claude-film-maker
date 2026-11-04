@@ -166,7 +166,7 @@ def test_scatter_is_seeded_and_avoids(ue):
     assert again["changed"] is False
 
 
-def test_align_distribute_snap_overlaps(ue):
+def test_align_distribute_snap_then_qa_overlaps(ue):
     _shapes(ue)
     for i, x in enumerate((0, 37, 300)):
         run_op("level.spawn", label=f"B{i}", shape="cube", loc=[x, i * 13, 50])
@@ -177,8 +177,9 @@ def test_align_distribute_snap_overlaps(ue):
     run_op("level.move", label="B1", loc=[63.7, 0, 50])
     run_op("layout.snap", labels=["B1"], grid_cm=10)
     assert ue.actor("B1").get_actor_location().x == pytest.approx(60)
-    ov = run_op("layout.overlaps")
-    assert ov["issues"] and ov["issues"][0]["code"] == "overlap" and "B0|B1" == ov["issues"][0]["subject"]
+    run_op("level.move", label="B2", loc=[30, 0, 50])
+    ov = run_op("qa.overlaps", labels=["B0", "B2"])
+    assert not ov["pass"] and ov["issues"]
 
 
 # ---- scene spec
@@ -268,3 +269,58 @@ def test_example_office_applies(ue):
     spec = yaml.safe_load((Path(__file__).resolve().parents[2] / "examples/unreal/scene/office.yaml").read_text())
     r = run_op("scene.apply", spec=spec)
     assert r["remaining"] == [] and ue.actor("Lamp").get_actor_location().z == pytest.approx(75 + 22.5)
+
+
+def test_settle_bakes_where_physics_left_them(ue):
+    _shapes(ue)
+    run_op("level.spawn", label="Book", shape="cube", loc=[0, 0, 300], size=[20, 30, 4])
+    run_op("level.spawn", label="Mug", shape="cylinder", loc=[100, 0, 5], size=[8, 8, 10])
+    comp = ue.actor("Book").static_mesh_component
+    comp._props["mobility"] = "STATIC"
+
+    def physics(world):  # the book falls and tips; the mug stays
+        book = next(a for a in world.actors() if a.get_actor_label() == "Book")
+        book.set_actor_location(ue.Vector(3, -2, 2))
+        book.set_actor_rotation(ue.Rotator(roll=0, pitch=0, yaw=37))
+    ue.on_simulate = physics
+    r = run_op("layout.settle", labels=["Book", "Mug"], seconds=0)
+    assert set(r["moved"]) == {"Book"} and r["still"] == ["Mug"]
+    assert r["moved"]["Book"]["loc"] == [3, -2, 2] and r["moved"]["Book"]["rot"]["yaw"] == 37
+    assert ue.pie is False and comp.is_simulating_physics() is False and comp._props["mobility"] == "STATIC"
+
+
+def test_settle_refuses_during_play(ue):
+    _shapes(ue)
+    run_op("level.spawn", label="Book", shape="cube")
+    ue.pie = True
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError) as e:
+        run_op("layout.settle", labels=["Book"])
+    assert e.value.code == "conflict"
+
+
+def test_data_layers(ue):
+    _shapes(ue)
+    for lab in ("Lamp", "Candle", "Desk"):
+        run_op("level.spawn", label=lab, shape="cube")
+    r = run_op("level.layer_add", name="Night", labels=["Lamp", "Candle"])
+    assert r == {"changed": True, "created": True, "added": ["Lamp", "Candle"]}
+    assert "/Game/DataLayers/Night" in ue.assets
+    assert run_op("level.layer_add", name="Night", labels=["Lamp", "Candle"])["changed"] is False
+    assert run_op("level.layers")["layers"] == [{"name": "Night", "visible": True, "initially_visible": True,
+                                                  "runtime": False, "actors": ["Candle", "Lamp"]}]
+    assert run_op("level.layer_set", name="Night", visible=False)["set"] == ["visible"]
+    assert run_op("level.layer_set", name="Night", visible=False)["changed"] is False
+    assert run_op("level.layer_remove", name="Night", labels=["Lamp", "Desk"])["removed"] == ["Lamp"]
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError) as e:
+        run_op("level.layer_set", name="Nite", visible=True)
+    assert e.value.candidates == ["Night"]
+
+
+def test_data_layers_need_a_partitioned_level(ue):
+    ue.partitioned = False
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError) as e:
+        run_op("level.layer_add", name="Night")
+    assert e.value.code == "unsupported"

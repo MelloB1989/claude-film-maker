@@ -424,11 +424,99 @@ def crop_expr(spec: dict, o: dict, src_w: int, crop_w: int) -> str:
     return f"floor({out})"
 
 
+# The area free of platform UI, as fractions of the frame (top, bottom, left, right). 9:16 is the Reels/TikTok/Shorts
+# overlap (caption bar and buttons); anything else gets the 5% title-safe margin.
+SAFE = {"9:16": (0.12, 0.22, 0.06, 0.12)}
+TITLE_SAFE = (0.05, 0.05, 0.05, 0.05)
+MAX_CAPTION_LINES = 2
+GLYPH_W = 0.55  # a DejaVu Sans glyph's mean advance, in font sizes (for the wrap estimate)
+
+
+def safe_area(size: tuple[int, int]) -> tuple:
+    w, h = size
+    for k, v in SAFE.items():
+        aw, ah = map(int, k.split(":"))
+        if abs(w / h - aw / ah) < 0.01:
+            return v
+    return TITLE_SAFE
+
+
+def caption_style(size: tuple[int, int]) -> dict:
+    """Burned captions' layout in pixels for an output size: font size, side margins and bottom margin inside the
+    safe area (a 1080x1920 output: 54 px type, its bottom edge above the bottom 22%)."""
+    w, h = size
+    top, bottom, left, right = safe_area(size)
+    font = max(12, round(h / (36 if w < h else 26)))
+    return {"font": font, "margin_l": round(w * left) + font // 2, "margin_r": round(w * right) + font // 2,
+            "margin_v": round(h * bottom) + font // 3, "top": round(h * top)}
+
+
+def _wrap_lines(text: str, width_px: float, font: int) -> int:
+    per = max(1, int(width_px / (font * GLYPH_W)))
+    lines, cur = 1, 0
+    for word in text.split():
+        add = len(word) + (1 if cur else 0)
+        if cur and cur + add > per:
+            lines, cur = lines + 1, len(word)
+        else:
+            cur += add
+    return lines
+
+
+def caption_safe_check(cues: list, size: tuple[int, int]) -> dict:
+    """{"pass", "metric", "threshold", "why", "worst"}: every burned caption fits in MAX_CAPTION_LINES lines inside
+    the safe area at this output size (the wrap estimated from the font's mean glyph width)."""
+    st = caption_style(size)
+    w, h = size
+    width = w - st["margin_l"] - st["margin_r"]
+    worst, n = "", 0
+    for _, _, t in cues:
+        k = _wrap_lines(t, width, st["font"])
+        if k > n:
+            worst, n = t, k
+    block_top = h - st["margin_v"] - n * st["font"] * 1.25
+    ok = n <= MAX_CAPTION_LINES and block_top >= st["top"]
+    why = (f"the longest caption wraps to {n} line(s) at {st['font']} px in a {width} px safe width"
+           + ("" if ok else f": over {MAX_CAPTION_LINES}; lower captions.max_chars"))
+    return {"pass": ok, "metric": n, "threshold": MAX_CAPTION_LINES, "why": why, "worst": worst}
+
+
+def _ass_time(f: float, fps: float) -> str:
+    cs = int(round(f * 100 / fps))
+    return f"{cs // 360000}:{cs // 6000 % 60:02d}:{cs // 100 % 60:02d}.{cs % 100:02d}"
+
+
+def ass_text(cues: list, segs: list, fps: float, size: tuple[int, int]) -> str:
+    """The cues as an ASS script laid out in the output's own pixels (PlayRes = its size), centred at the bottom of
+    the safe area. ffmpeg's `subtitles` filter on an SRT lays text out in libass's default 384x288 space instead,
+    so pixel sizes and margins given through force_style come out wrong (badly so at 9:16)."""
+    w, h = size
+    st = caption_style(size)
+    head = (f"[Script Info]\nScriptType: v4.00+\nPlayResX: {w}\nPlayResY: {h}\nWrapStyle: 0\n"
+            "ScaledBorderAndShadow: yes\n\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, "
+            "SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, "
+            "Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+            f"Style: Default,DejaVu Sans,{st['font']},&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,"
+            f"0,1,{max(1, st['font'] // 18)},{max(1, st['font'] // 24)},2,{st['margin_l']},{st['margin_r']},"
+            f"{st['margin_v']},1\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, "
+            "Effect, Text\n")
+    body = ""
+    for a, b, t in cues:
+        for x, y in spans_out(segs, a, b):
+            txt = t.replace("{", "(").replace("}", ")").replace("\n", "\\N")
+            body += f"Dialogue: 0,{_ass_time(x, fps)},{_ass_time(y, fps)},Default,,0,0,0,,{txt}\n"
+    return head + body
+
+
+def ass_path(spec: dict, o: dict) -> Path:
+    return path_of(spec, spec["out"]) / "work" / f"{spec['name']}-{o['name']}.ass"
+
+
 def _sub_path(p: Path) -> str:
     return str(p).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
 
 
-def encode_args(spec: dict, o: dict, seq: Path, audio: Path, src: tuple[int, int], srt: Path | None, out: Path) -> list:
+def encode_args(spec: dict, o: dict, seq: Path, audio: Path, src: tuple[int, int], subs: Path | None, out: Path) -> list:
     """ffmpeg argv for one output: the staged frames (RGB -> BT.709 limited range, explicitly: ffmpeg's implicit
     conversion is BT.601), cropped to the output's aspect if it is narrower, scaled, captions burned in (libass)
     if asked, the cut's audio from 0, exactly the edit's frame count."""
@@ -443,10 +531,8 @@ def encode_args(spec: dict, o: dict, seq: Path, audio: Path, src: tuple[int, int
     elif w / h > sw / sh + 1e-3:
         raise SpecError(f"output {o['name']}: {w}x{h} is wider than the source {sw}x{sh}; crop is only to narrower")
     chain.append(f"scale={w}:{h}:flags=lanczos:out_color_matrix=bt709:out_range=tv")
-    if o.get("captions") == "burn" and srt is not None:
-        size = max(12, round(h / (34 if w < h else 26)))
-        chain.append(f"subtitles='{_sub_path(srt)}':force_style='FontName=DejaVu Sans,FontSize={size},Outline=1,"
-                     f"Shadow=1,MarginV={round(h * (0.2 if w < h else 0.06))}':original_size={w}x{h}")
+    if o.get("captions") == "burn" and subs is not None:  # this output's ASS (ass_text), in its own pixels
+        chain.append(f"ass='{_sub_path(subs)}'")
     if o.get("crf") is not None and "-crf" in vargs:
         vargs = list(vargs)
         vargs[vargs.index("-crf") + 1] = str(o["crf"])
@@ -509,8 +595,12 @@ def plan(spec: dict, src_size: tuple[int, int] | None = None) -> list[Step]:
         steps.append(Step("captions from the timing document's words (SRT, VTT)", [], str(srt)))
     for o in spec["outputs"]:
         p = output_path(spec, o)
+        if srt and o.get("captions") == "burn":
+            steps.append(Step(f"{o['name']}'s captions laid out in its pixels inside the safe area (ASS), checked",
+                              [], str(ass_path(spec, o))))
         steps.append(Step(f"encode {o['name']} ({o['preset']}, {'x'.join(map(str, out_size(o, src)))})",
-                          encode_args(spec, o, work / "seq", cut, src, srt, p), str(p)))
+                          encode_args(spec, o, work / "seq", cut, src, ass_path(spec, o) if srt else None, p),
+                          str(p)))
     steps.append(Step("cut.json: what was made, checked (frames, size, audio length, loudness)", [],
                       str(out / f"cut-{spec['name']}.json")))
     return steps
@@ -555,6 +645,17 @@ def check_output(info: dict, n: int, size: tuple[int, int], fps: float) -> list[
     if abs(ad - n / fps) > 1.5 / fps:
         p.append(f"audio {ad:.3f} s against picture {n / fps:.3f} s")
     return p
+
+
+def loudness_check(measured: dict, lufs: float = -14.0, true_peak: float = -1.0, tol: float = 0.5) -> dict:
+    """{"pass", "metric", "threshold", "why"} for a mix's loudness (filmtools.mix.measure's {"I", "TP", "LRA"}):
+    integrated loudness within tol LU of the target and the true peak at or under the ceiling."""
+    i, tp = float(measured["I"]), float(measured["TP"])
+    ok = abs(i - lufs) <= tol and tp <= true_peak
+    why = (f"{i:.1f} LUFS (target {lufs:g} ±{tol:g}), true peak {tp:.1f} dBTP (ceiling {true_peak:g})"
+           + ("" if ok else ": remaster with filmtools.mix.loudnorm (film-post cut does it for a cut)"))
+    return {"pass": ok, "metric": {"lufs": i, "true_peak": tp, "lra": measured.get("LRA")},
+            "threshold": {"lufs": lufs, "tol": tol, "true_peak": true_peak}, "why": why}
 
 
 def run(spec: dict, only: set | None = None, log=print) -> dict:
@@ -602,7 +703,7 @@ def run(spec: dict, only: set | None = None, log=print) -> dict:
             shutil.move(fixed, cut)
             report["sound"] += f"; the cut remastered to {lufs:g} LUFS"
         report["loudness"] = m
-    srt = None
+    srt, cues = None, []
     if spec.get("captions") is not None:
         if doc is None:
             raise SpecError("captions need audio.timing (the words they are timed on)")
@@ -618,10 +719,17 @@ def run(spec: dict, only: set | None = None, log=print) -> dict:
         if only and o["name"] not in only:
             continue
         p = output_path(spec, o)
-        log(f"encoding {p.name}")
-        _run(encode_args(spec, o, seq, cut, src, srt, p))
         size = out_size(o, src)
+        subs, safe = None, None
+        if srt and o.get("captions") == "burn":
+            subs = ass_path(spec, o)
+            subs.write_text(ass_text(cues, segs, fps, size))
+            safe = caption_safe_check(cues, size)
+        log(f"encoding {p.name}")
+        _run(encode_args(spec, o, seq, cut, src, subs, p))
         problems = check_output(probe(p), length(segs), size, fps)
+        if safe is not None and not safe["pass"]:
+            problems.append(f"captions: {safe['why']} ({safe['worst']!r})")
         report["outputs"].append({"name": o["name"], "file": str(p), "size": list(size), "problems": problems})
     report["ok"] = all(not o["problems"] for o in report["outputs"])
     (out / f"cut-{spec['name']}.json").write_text(json.dumps(report, indent=1, default=str))

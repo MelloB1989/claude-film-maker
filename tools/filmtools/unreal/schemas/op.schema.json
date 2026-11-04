@@ -1,0 +1,66 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "op",
+ "description": "One op call with its arguments: run on every apply, or with `unless` only until a read op says it is done (then it converges like any kind). The escape hatch for what has no kind yet.",
+ "type": "object",
+ "required": [
+  "kind",
+  "name",
+  "op"
+ ],
+ "additionalProperties": false,
+ "properties": {
+  "kind": {
+   "const": "op"
+  },
+  "version": {
+   "type": "integer",
+   "const": 1
+  },
+  "name": {
+   "type": "string",
+   "description": "this step's id (unique among op documents)"
+  },
+  "op": {
+   "type": "string",
+   "pattern": "^[a-z_]+\\.[a-z_0-9]+$",
+   "description": "area.verb"
+  },
+  "args": {
+   "type": "object",
+   "default": {},
+   "description": "the op's keyword arguments"
+  },
+  "why": {
+   "type": "string",
+   "description": "shown in the plan"
+  },
+  "timeout": {
+   "type": "number",
+   "exclusiveMinimum": 0,
+   "description": "seconds to wait for it (900)"
+  },
+  "unless": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "op"
+   ],
+   "description": "a read op whose answer means done: e.g. {op: assets.list, args: {path: /Game/Demo/MH, cls: Blueprint}} (done when the list is not empty)",
+   "properties": {
+    "op": {
+     "type": "string",
+     "description": "area.verb of a read op (mutates false)"
+    },
+    "args": {
+     "type": "object",
+     "description": "its arguments"
+    },
+    "has": {
+     "type": "string",
+     "description": "a dotted path into the answer that must be truthy (default: the whole answer)"
+    }
+   }
+  }
+ }
+}

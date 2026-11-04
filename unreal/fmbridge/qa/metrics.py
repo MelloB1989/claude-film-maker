@@ -261,7 +261,9 @@ def analyze(img: Image, subjects: dict | None = None, limits: dict | None = None
         bg_sharp = sharpness(small)
         for name, s in subs.items():
             if bg_sharp > 20 and s["sharpness"] < L["soft_ratio"] * bg_sharp:
-                issues.append(issue("focus.subject_soft", "warn", f"{name} is soft (detail {s['sharpness']:.0f}) while "
+                # a plain, untextured subject also reads "soft": only a big gap is a likely focus miss
+                sev = "warn" if s["sharpness"] < 0.4 * L["soft_ratio"] * bg_sharp else "info"
+                issues.append(issue("focus.subject_soft", sev, f"{name} is soft (detail {s['sharpness']:.0f}) while "
                                     f"the frame is sharper ({bg_sharp:.0f}): focus missed?", "set focus on the subject "
                                     "(look.focus_track or the camera's manual_focus_distance)", subject=name,
                                     box=s["box"], value=s["sharpness"]))
@@ -270,3 +272,42 @@ def analyze(img: Image, subjects: dict | None = None, limits: dict | None = None
                                     "darker than the frame: the subject sinks into the background",
                                     "add key or fill on the subject", subject=name, box=s["box"], value=s["stops"]))
     return {"size": [img.w, img.h], "exposure": ex, "color": col, "regions": regs, "subjects": subs, "issues": issues}
+
+
+def masked(img: Image, mask, threshold: int = 0) -> dict:
+    """Colour and brightness of the pixels a mask selects (a w*h sequence, truthy/over `threshold` = in; the mask may
+    be at another size of the same aspect: it is resized to the image). Returns {"pixels", "coverage" (fraction of the
+    frame), "mean_rgb" (0..255), "luminance" (mean linear), "stops", "saturation", "hue", "name", "box"} ("pixels": 0
+    and nothing else when the mask is empty)."""
+    r = rgb(img)
+    w, h = r.w, r.h
+    m = bytearray(255 if (v > threshold if isinstance(v, (int, float)) else bool(v)) else 0 for v in mask)
+    if len(m) != w * h:
+        side = int(round(math.sqrt(len(m) * w / h)))
+        mw, mh = side, len(m) // max(1, side)
+        if mw * mh != len(m):
+            raise ValueError(f"mask of {len(m)} values does not fit a {w}x{h} image's aspect")
+        m = _im.resize(_im.Image(mw, mh, 1, m), w, h).data
+    idx = [i for i, v in enumerate(m) if v > 127]
+    if not idx:
+        return {"pixels": 0, "coverage": 0.0}
+    d = r.data
+    sr = sg = sb = 0
+    lum = 0.0
+    xs, ys = [], []
+    for i in idx:
+        R, G, B = d[3 * i], d[3 * i + 1], d[3 * i + 2]
+        sr += R
+        sg += G
+        sb += B
+        lum += 0.2126 * _im.LIN[R] + 0.7152 * _im.LIN[G] + 0.0722 * _im.LIN[B]
+        ys.append(i // w)
+        xs.append(i % w)
+    n = len(idx)
+    mean = (sr / n / 255, sg / n / 255, sb / n / 255)
+    hh, s, v = hsv(*mean)
+    lum /= n
+    return {"pixels": n, "coverage": round(n / (w * h), 5), "mean_rgb": [round(255 * c, 1) for c in mean],
+            "luminance": round(lum, 5), "stops": round(math.log2(max(lum, 1e-6) / 0.18), 2),
+            "saturation": round(s, 3), "hue": round(hh, 1), "name": hue_name(hh, s, v),
+            "box": [round(min(xs) / w, 4), round(min(ys) / h, 4), round((max(xs) + 1) / w, 4), round((max(ys) + 1) / h, 4)]}
