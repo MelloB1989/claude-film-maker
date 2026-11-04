@@ -179,3 +179,86 @@ SPEC_KINDS = [
     {"name": "shot", "plan": plan_shot, "describe": describe_shot, "order": 70,
      "doc": "A shot list shot into a sequence: cameras, moves, focus and the camera cuts."},
 ]
+
+
+# --- a shot list, rendered and reviewed: one pipeline ------------------------------------------------------------
+
+def _shotlist():
+    """camkit.shotlist, imported from the bridge's tree by path (it is pure: no `unreal`)."""
+    import sys
+    root = Path(__file__).resolve().parents[3] / "unreal" / "fmbridge"
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    import camkit.shotlist as sl  # noqa: E402
+    return sl
+
+
+def shot_table(spec: dict) -> list:
+    """The shots of a shot spec resolved offline (no engine): [{"id", "camera", "start", "end", "size",
+    "subjects": [actor labels]}], frames on the sequence's clock. Coverage shots take their size from their name
+    (Guest_OTS is an MCU); `auto` edits need the engine (shot.plan) and are not listed."""
+    sl = _shotlist()
+    spec = resolved_shot(spec)
+    errs = sl.validate(spec)
+    if errs:
+        raise ValueError("; ".join(f"{e['path']}: {e['message']}" for e in errs))
+    if spec.get("auto") and not spec.get("shots"):
+        raise ValueError("an auto edit is resolved in the editor: run shot.plan and use its shots")
+    times = sl.resolve_times(spec)
+    prefix = {**sl.DEFAULTS, **(spec.get("defaults") or {})}["camera_prefix"]
+    actors = {n: s.get("actor", n) for n, s in (spec.get("subjects") or {}).items()}
+    out = []
+    for sh, tm in zip(spec["shots"], times):
+        size, who = None, []
+        if "frame" in sh:
+            fr = sh["frame"]
+            who = [fr["subjects"]] if isinstance(fr["subjects"], str) else list(fr["subjects"])
+            size = sl.framing.size_key(fr.get("size", "MCU"))
+        elif "coverage" in sh:
+            name = sh["coverage"]
+            tail = name.rsplit("_", 1)[-1].upper()
+            size = {"OTS": "MCU", "MASTER": "WS"}.get(tail) or (tail if tail in sl.framing.SIZES else None)
+            if name == "master":
+                size, who = "WS", list(actors)
+            elif name == "two_shot":
+                size, who = "MS", list(actors)[:2]
+            else:
+                who = [name.rsplit("_", 1)[0]] if name.rsplit("_", 1)[0] in actors else []
+        out.append({"id": sh["id"], "camera": sh.get("camera") or f"{prefix}{sh['id']}", "start": tm["start"],
+                    "end": tm["end"], "size": size, "subjects": [actors.get(n, n) for n in who]})
+    return out
+
+
+def pipeline_docs(spec: dict, out_root: str, preset: str = "draft", level: str = "", per_shot: int = 2,
+                  review: bool = True, review_mode: str = "capture", outputs: list | None = None) -> list:
+    """A shot list as the documents `film-ue apply` runs in order: the shot spec (kind shot, order 70: cameras, keys,
+    cuts), one render (kind render, order 90: one pre-rolled chunk per camera cut, resumable), and a review per shot
+    (kind qa, order 95: `per_shot` frames inside the shot, the shot's intended size as the expectation for its
+    subjects). WP9 owns the render, WP10 the review; this only wires them to the shot list."""
+    name = spec["name"]
+    shots = shot_table(spec)
+    docs = [{k: v for k, v in resolved_shot(spec).items()}]
+    rnd = {"kind": "render", "version": 1, "name": f"{name}-{preset}", "sequence": spec["sequence"],
+           "out_dir": f"{out_root.rstrip('/')}/{name}/{preset}", "preset": preset,
+           "shots": list(dict.fromkeys(s["camera"] for s in shots)), "chunking": "shot", "preroll": "cut"}
+    if level:
+        rnd["level"] = level
+    if outputs:
+        rnd["outputs"] = outputs
+    docs.append(rnd)
+    if review:
+        for s in shots:
+            n = max(1, int(per_shot))
+            span = s["end"] - s["start"]
+            frames = sorted({s["start"] + min(span - 1, max(2, round(span * (k + 1) / (n + 1)))) for k in range(n)})
+            rv = {"sequence": spec["sequence"], "frames": frames, "mode": review_mode,
+                  "title": f"{name} {s['id']} {s['camera']} {s['size'] or ''}".strip()}
+            if s["subjects"]:
+                rv["subjects"] = s["subjects"]
+                if s["size"]:
+                    rv["expect"] = {a: {"size": [s["size"]]} for a in s["subjects"][:1]}
+            if level:
+                rv["level"] = level
+            docs.append({"kind": "qa", "version": 1, "name": f"{name}-{s['id']}-review",
+                         "out_dir": f"{out_root.rstrip('/')}/{name}/review/{s['id']}", "review": rv})
+    return docs
