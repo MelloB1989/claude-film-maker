@@ -453,6 +453,44 @@ The operator's one interactive Epic sign-in needs an editor visible on a screen.
 
 Whatever works, P10 also checks that the login **persists** across an offscreen restart (D7). If it does not, each cloud rig/texture request needs a desktop session, and `mh.rig` should batch rig requests per session.
 
+### 12c. Headless Epic sign-in, settled from the 5.8.4 source (2026-11-04, read on the PoC box)
+
+Paths are relative to `Engine/`. MH = `Plugins/MetaHuman/MetaHumanSDK/Source/MetaHumanSDKEditor/Private/Cloud/MetaHumanCloudAuthentication.cpp`; Fab = `Plugins/Fab/Source/Fab/Private/`.
+
+**MetaHuman cloud (auto-rig, texture synthesis)** uses its own EOS platform (Prod client credentials from `UMetaHumanCloudServicesSettings`, MH:409-430), with the overlay disabled. Login order:
+1. `LoginUsingPersist` (MH:322-366) takes the first of these that is set:
+   - CVars `MetaHuman.Cloud.Config.UserEmail` + `MetaHuman.Cloud.Config.Password` → `EOS_LCT_Password` (MH:300-313, 340-346);
+   - CVar **`MetaHuman.Cloud.Config.ExchangeCode`** → **`EOS_LCT_ExchangeCode`** (MH:315-319, 348-353);
+   - otherwise `EOS_LCT_PersistentAuth` (MH:357).
+2. If that fails and the login was not a no-UI check, it **falls back to `EOS_LCT_AccountPortal`** (MH:258-270, 369-388). Account portal opens a browser and waits, which is the silent `mh.rig` hang seen in P9. `-NoMetaHumanAccountPortalLoginFallback` (MH:262) turns that fallback off, so it fails fast instead.
+3. The Epic token is then used for `EOS_Connect_Login` with `EOS_ECT_EPIC` (MH:200-219).
+
+Epic's own test automation uses this exact route: `MetaHumanTDSUtils.cpp:94-135` fetches an exchange code from a test-account service and calls `UpdateExchangeCodeCvar` → `MetaHuman.Cloud.Config.ExchangeCode`.
+
+**Fab** (`FabAuthentication.cpp`), triggered when a Fab tab is created (`FabBrowser.cpp:337`):
+1. `LoginUsingPersist` (`EOS_LCT_PersistentAuth`, :288-311). On failure it falls back to
+2. `LoginUsingExchangeCode("")` (:202), which reads **`-AUTH_TYPE=exchangecode -AUTH_PASSWORD=<code>`** from the command line (:258-264; the launcher's convention).
+3. `Fab.Login` and `UFabBrowserApi::Login` use `EOS_LCT_AccountPortal` (`FabConsoleCommands.cpp:27-32`, `FabBrowserApi.cpp:370-372`).
+
+There is also `UFabSettings::CustomAuthToken` (`FabSettings.h:59-61`, config `EditorPerProjectUserSettings`, DevOnly), returned to the web frontend in place of the EOS token (`FabBrowserApi.cpp:513-522`). **But adding an asset is driven by the Fab web page:** `AddToProject(DownloadUrl, Metadata)` is a plain `UFUNCTION()` called from the page's JavaScript (`FabBrowserApi.h:119-123`), not `BlueprintCallable`, so Python cannot reach it. The signed download URL comes from Fab's web API.
+
+**Not present:** no `EOS_LCT_DeviceCode`, `EOS_LCT_Developer`, or `ExternalAuth` login, and no API or service key path for a user login. The Prod *client* credentials only identify the app; they are not a user login. Neither plugin reads `-AUTH_LOGIN` or `-EpicPortal`.
+
+**Persistent auth on Linux:** stored by the EOS SDK itself, not by UE code. `libEOSSDK-Linux-Shipping.so` contains `/.local/share/`, `XDG_DATA_HOME` and "can't open auth file", so it is a file under `~/.local/share` (L). The PoC user had none, because nobody had logged in. Copying it from another machine is untested and may be bound to the machine or the client (U). Both plugins **delete** the persistent auth on logout (MH ~490-494, Fab `FabAuthentication.cpp` ~391-395).
+
+**Most promising code-only route (MetaHuman: M; Fab: L):**
+1. One-time browser login by the operator, on their own device, to Epic's account site. This is the Legendary flow: `legendary auth` prints a login URL, and the operator pastes back the `authorizationCode`. Done once and kept as a refresh token held by a small token service on the GPU box or kali, not by agents.
+2. On demand: refresh token → access token → `GET /account/api/oauth/exchange` → a single-use exchange code (valid ~5 min). This is the launcher's own mechanism.
+3. MetaHuman: the bridge sets `MetaHuman.Cloud.Config.ExchangeCode` just before the first `mh.rig`/`mh.textures` of an editor session; launch with `-NoMetaHumanAccountPortalLoginFallback` so a bad code fails fast. Fab: start the editor with `-AUTH_TYPE=exchangecode -AUTH_PASSWORD=<code>`.
+
+**Risks:**
+- It uses the launcher's OAuth client outside the launcher. Unofficial, and Epic can change it or object.
+- The refresh token is a full Epic-account credential. It rotates on every use, so it needs a writable store (a fleet secret cannot be rewritten by agents).
+- MFA applies at the first login only.
+- An exchange code set via a console command is echoed into the editor log. It is single-use and short-lived, so the risk is low, but it should be set through `IConsoleVariable` (CVar API), not `Cmd:`.
+- Avoid the password CVar: EOS restricts `EOS_LCT_Password` to approved/dev use, and it fails under MFA.
+- **Fab is only half-solved:** the login can be headless, but "add to project" needs the web page or a patch. We build Fab from source, so a small patch could make `AddToProject` `BlueprintCallable` (plus a signed-URL call to Fab's undocumented API). Alternatively, download Fab assets in a normal browser and import them with `assets.import` (FBX/GLB/USD; not `.uasset` packs).
+
 ## Sources
 
 - S1 5.8 release thread: https://forums.unrealengine.com/t/unreal-engine-5-8-released/2729274
