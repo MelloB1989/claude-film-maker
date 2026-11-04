@@ -294,6 +294,33 @@ Watch tomorrow (names fine, behaviour unproven): `evaluate_keys(range, rate)` re
 from the range's start (seq.eval indexes it so); `get_all_channels()` order for colour / vector sections (read by
 order); a material colour parameter's four channels named `<Param>R/G/B/A` (grouped back by that suffix).
 
+## Day-1 triage (`film-ue selftest seq` on the GPU box)
+
+First move for any convergence failure: `film-ue op seq.diff path=<seq> spec=<the spec>` names the track and
+where it first differs (param, section range, channel key index with both values); `seq.plan` gives the step's `why`.
+Selftest names below are the report's check names; `S` = /Game/_Selftest/seq, `p` = ST_seq_.
+
+| check that fails | likely cause | fix |
+|---|---|---|
+| apply converges / apply again changes nothing / describe round-trips through apply | a track reads back unlike what was written: (1) colour or vector channels returned in another order (read by position); (2) a material colour param's channels not named `<Param>R/G/B/A`; (3) easing or offsets off by the tick conversion | `seq.diff` shows which. (1)(2): `seqcore/_engine.py` `_channels` (map by `_chname`, e.g. "Color.R" / "Vector.X", not by position). (3): `_params` / `_section_params` (ticks = frames × `tpf(seq)`) |
+| same, with differences of ~1e-6 in values | float vs double channel rounding over the 1e-4 relative tolerance | raise `tol` in `_model.channel_equal` / `seq.plan` (the `tol` argument exists) |
+| every binding bound | `locate_bound_objects(binding, world)` gives [] while the sequence is closed | `_engine.is_bound`: open the sequence first, or fall back to `LSE.get_bound_objects(seq.get_binding_id(b))` |
+| nothing unsupported | the engine made a track class the core does not map (5.8 renames) | add the class to `_engine.KIND_OF` (it is read-only data) |
+| cube at its keys (world, cm) | ControlRigSequencerLibrary evaluated before the opened sequence ticked (values = the actor's rest pose) | make `seq.eval` a generator: `yield` twice after `LSE.open_level_sequence` in `_engine.world_transforms` |
+| light intensity on a linear ramp / focal length ramp (values shifted by a frame or None) | `evaluate_keys(range, rate)` does not return one value per display frame from the range start | `_engine.eval_channels`: print `len(vals)` for a known range and fix the index (`vals[f - lo]`) |
+| 20k keys in under 60 s (see metric write_keys_per_s) | per-key `Modify` + channel-changed broadcast is slow with Sequencer open | check the sequence was closed (`_engine.Writing`); reduce bakes with `curves.reduce(samples, tol)`; the cost is per key, the 60 s bar is a target, not a correctness check |
+| the same bake again changes nothing | 20k float keys re-read with tiny drift | as the tolerance row |
+| shots read back (preroll or name wrong) | pre-roll is TICKS (`set_pre_roll_frames(int)`); the shot name read is the sequence's when display name empty | `_engine._params` shot branch / `_section_params` (preroll × `tpf`) |
+| master converges (timescale) | `parameters.time_scale` read back not via `to_fixed_play_rate` | `_engine._rate_of` (add the getter the engine has) |
+| conform keeps time: range in 30 fps frames | `get_playback_start/end` rounding at the new rate | `seq_core.conform`: floor start / ceil end already; check `set_display_rate` kept ticks (it should) |
+| 29.97 needs 60000 ticks | `set_tick_resolution` refused or did not migrate | `seq_core.conform` → `compatible_ticks`; inspect `seq.describe ... keys=false` tick_resolution |
+| copied window range / the copy keeps the second camera | `duplicate_asset` of a sequence open in Sequencer, or cuts not re-pointing | close it first (`seq.close`); check `seq.cuts path=S/pCut` |
+| a typo'd label names candidates | — (pure Python) | — |
+| still at N through cam (no file) | no GPU / still path; also stills of a sequence need it open and settled | legacy `ops/seq.py` `seq_still` (settle ticks); run `film-ue op seq.stills ...` by hand |
+| note "no AnimSequence found" | no animation asset in the project | point `ANIM_ROOTS` in `selftest/seq.py` at one (`assets.list cls=AnimSequence`), rerun |
+| note "audio import unavailable" | WP12's `audio.import` failed | see docs/unreal/post.md; the rest of the selftest does not depend on it |
+| any `no op 'seq.…'` | `ops/seqcore` failed to import | `film-ue op ops.broken` shows the traceback |
+
 ## Selftest
 
 `film-ue selftest seq` (`unreal/fmbridge/selftest/seq.py`), ~1-2 min, GPU only for the stills. It builds a scratch
@@ -305,22 +332,18 @@ cut. Its report names everything it could not exercise (no AnimSequence, no audi
 
 ## HANDOFF
 
-State at the end of the night (agent-06, branch `fleet/agent-06/ue-sequencer`, merged into `ue-helpers` by the lead):
+State at the end of the night (agent-06, branch `fleet/agent-06/ue-sequencer`, all merged into `ue-helpers`):
 
 - Done: the pure core (time incl. drop-frame timecode and compatible tick resolutions, keys and curves, canonical
   document, spec compiler, plan, diff, lint, shots, render chunks, copy / retime / stretch transforms), the engine
-  adapter for every listed track kind, 20 new `seq.*` ops plus flags/examples on the 20 older ones, the `sequence`
-  spec kind for WP11's engine (shot lists: B20), seq.conform (B22), the schema and three examples, the fake
-  Sequencer (B41: keys, ranges, playback and markers in ticks), 64 unit tests, the selftest (dry-run on the fake
-  through the real harness: every check passes up to the GPU stills). Every UE API verified on the 5.8.4 source
-  (table above).
-- Not yet run on an engine: tomorrow's first `film-ue selftest seq` is the acceptance test. Most likely to need a
-  fix: reading colour / vector / byte channels by order (`_engine._channels`), the material section's colour-channel
-  grouping, `get_start_frame` rounding of off-frame sections after a conform (the fake floors).
-- Not done: writing event tracks (read only: needs a director-blueprint endpoint), camera-shake / data-layer tracks
-  (listed as unsupported); `seq.anim`'s `loop: false` still does nothing in 5.8 (no
-  hold-last-frame field), as before.
-- Later the same night: `ops/seq.py` became a layer over seqcore (one engine path; B01's helpers from `_util`). Its
-  results are pinned against the old implementation (golden `tools/tests/data/seq_legacy_golden.json`); three
-  differences are on purpose (anim offset now StartFrameOffset, play rate via make_time_warp, collection keys by
-  FName) and listed in that test.
+  adapter for every listed track kind, 20 `seq.*` ops, the older 20 ops now a thin layer over seqcore (pinned by a
+  golden against their old behaviour), the `sequence` spec kind for WP11's engine (shot lists: B20), seq.conform
+  (B22), the schema and three examples, the fake Sequencer (B41; engine-like channel object names, keys / ranges /
+  playback / markers in ticks), the selftest (dry-run on the fake through the real harness).
+- Audited twice against the 5.8.4 source (API_NOTES): one live-only bug of mine fixed (seq.eval used the C++ name of
+  ControlRigSequencerLibrary); the cross-area audit found and got fixed audio.py's channel lookup (agent-03) and
+  anim.py's clip offset (agent-01); B57 audited WP3 (agent-04 fixed the iris ScriptNames).
+- Not yet run on an engine: tomorrow's first `film-ue selftest seq` is the acceptance test; the Day-1 triage table
+  above lists every check that can plausibly fail, with its fix.
+- Not done: writing event tracks (read only: needs a director-blueprint endpoint); camera-shake / data-layer tracks
+  (listed as unsupported); `seq.anim`'s `loop: false` does nothing in 5.8 (no hold-last-frame field), as before.
