@@ -8,6 +8,7 @@ without one).
 """
 from __future__ import annotations
 
+REQUIRES = ["gpu"]  # the stills and physics; on -nullrhi the harness skips it
 AREAS = ["level", "layout", "scene"]
 NEEDS_LEVEL = True
 TIMEOUT = 600
