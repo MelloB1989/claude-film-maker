@@ -63,6 +63,11 @@ def test_selftest_runs_through_on_the_fake(ue, fmb, monkeypatch, tmp_path):
     st = importlib.import_module("fmbridge.selftest.render")
     monkeypatch.setattr(st, "_out_root", lambda: str(tmp_path / "out"))
     monkeypatch.setattr(st, "_psnr", lambda a, b: 50.0)
+
+    def fake_compare(**k):  # the fake's frames are not real PNGs
+        yield
+        return {"pass": True, "metric": 1.0, "method": "qa"}
+    monkeypatch.setitem(fmb._OPS, "render.compare", fake_compare)
     monkeypatch.setattr(st, "_build", lambda t, root, prefix: {
         "seq": (ue.add_sequence(root + "/SEQ_Render", 0, 48, 24,
                                 cuts=[["ST_render_CamA", 0, 24], ["ST_render_CamB", 24, 48]]) and root + "/SEQ_Render"),
