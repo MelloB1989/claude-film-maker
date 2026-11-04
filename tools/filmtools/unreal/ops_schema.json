@@ -2085,6 +2085,33 @@
    ]
   },
   {
+   "name": "editor.epic_exchange_code",
+   "area": "editor",
+   "verb": "epic_exchange_code",
+   "module": "fmbridge.ops.editor",
+   "file": "unreal/fmbridge/ops/editor.py",
+   "line": 198,
+   "summary": "Hand the MetaHuman cloud services a single-use Epic exchange code (MetaHuman.Cloud.Config.ExchangeCode), so",
+   "doc": "Hand the MetaHuman cloud services a single-use Epic exchange code (MetaHuman.Cloud.Config.ExchangeCode), so\nits next login (mh.rig, mh.textures) signs in without a browser and saves a sign-in for later starts\n(MetaHumanCloudAuthentication.cpp: exchange code before persistent auth). The code itself is never returned or\nkept by the bridge; the console echoes it to the editor log, where it is spent after use (~5 min validity).\nClients: film-ue epic-login --exchange-code-cmd CMD.\n\nArgs: code: the exchange code (from Epic's OAuth exchange endpoint; see docs/unreal/platform.md).\nReturns: {\"set\": true}.\nExample: film-ue epic-login --exchange-code-cmd ./my-exchange-code-helper",
+   "params": [
+    {
+     "name": "code",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": false,
+   "tags": [
+    "platform",
+    "needs-epic-login"
+   ]
+  },
+  {
    "name": "editor.gc",
    "area": "editor",
    "verb": "gc",
