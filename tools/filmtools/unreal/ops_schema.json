@@ -9271,6 +9271,61 @@
    ]
   },
   {
+   "name": "mh.variants",
+   "area": "mh",
+   "verb": "variants",
+   "module": "fmbridge.ops.mh.cast",
+   "file": "unreal/fmbridge/ops/mh/cast.py",
+   "line": 20,
+   "summary": "N distinct, plausible characters from one seed and ranges (age band, sex, height, build, skin tone, hair and",
+   "doc": "N distinct, plausible characters from one seed and ranges (age band, sex, height, build, skin tone, hair and\nwardrobe pools): deterministic per seed, as `character` specs; with `make`, each one is made and converged by\nmh.apply (a multi-tick job).\n\nArgs: cast: the cast object (kind cast: seed, count, folder, presets, ranges; schema cast.schema.json).\nmake: create/converge every member (needs the Epic sign-in unless rig is none or stop_before=\"mh.rig\").\nstop_before: passed to each mh.apply (e.g. \"mh.rig\": shape only). preview: also place a live preview of each\nmember in a row along +Y (labels Preview_<name>), for stills and a contact sheet. spacing_cm: the row spacing.\nReturns: {\"members\": [specs], \"traits\", \"distances\": nearest earlier member, \"changed\", \"made\": [{\"name\",\n\"changed\"}], \"previews\": [labels]}.\nExample: film-ue op mh.variants 'cast={\"seed\": 7, \"count\": 6, \"folder\": \"/Game/Extras\", \"presets\": [\"Ada\", \"Jorge\"], \"rig\": \"none\"}'",
+   "params": [
+    {
+     "name": "cast",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "make",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "stop_before",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "preview",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "spacing_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 70.0
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "metahuman",
+    "slow"
+   ]
+  },
+  {
    "name": "mh.wardrobe",
    "area": "mh",
    "verb": "wardrobe",
