@@ -256,3 +256,46 @@ def test_env_preset_builds_and_switches(ue, fmb):
     with pytest.raises(OpError) as e:
         run_op("env.preset", name="exterior_goldn")
     assert e.value.candidates[0] == "exterior_golden"
+
+
+def _live_capture(ue, lum_of):
+    """A fake capture that answers like a renderer: scene luminance from lum_of(), display = sRGB(L x 2^bias)."""
+    from fmbridge.envlib import photometry as ph
+
+    class Px:
+        def __init__(self, v):
+            self.r = self.g = self.b = v
+
+    def read(world, rt, normalize=True):
+        L = lum_of()
+        if not normalize:
+            return [Px(L)] * (192 * 108)
+        s = ue.actor("Env_Post").get_editor_property("settings") if ue.actor("Env_Post") else None
+        bias = float(s.get_editor_property("auto_exposure_bias")) if s else 0.0
+        return [Px(ph.linear_to_srgb(min(1.0, L * 2 ** bias)))] * (192 * 108)
+    ue.RenderingLibrary.read_render_target_raw = staticmethod(read)
+
+
+def test_autoexpose_converges_by_exposure(ue, fmb):
+    ue.spawn("CineCameraActor", label="Cam", location=ue.Vector(300, 0, 150))
+    _live_capture(ue, lambda: 40.0)
+    r = run_op("env.autoexpose", camera="Cam", target_stops=0.0)
+    assert r["converged"] and r["changed"] and len(r["iterations"]) <= 4
+    assert abs(r["after"]["error_stops"]) <= 0.1
+    again = run_op("env.autoexpose", camera="Cam", target_stops=0.0)
+    assert again["changed"] is False and len(again["iterations"]) == 1
+    brighter = run_op("env.autoexpose", camera="Cam", target_stops=1.0)
+    assert brighter["converged"] and brighter["ev100"] < r["ev100"]
+
+
+def test_autoexpose_by_lights(ue, fmb):
+    ue.spawn("CineCameraActor", label="Cam", location=ue.Vector(300, 0, 150))
+    run_op("light.add", label="Key", kind="rect", loc=[200, 0, 160], look_at=[0, 0, 160], intensity_cd=1000)
+    run_op("env.exposure", mode="manual", ev100=8.0)
+    c = ue.actor("Key").get_component_by_class(ue.RectLightComponent)
+    _live_capture(ue, lambda: float(c.get_editor_property("intensity")) / 200.0)
+    r = run_op("env.autoexpose", camera="Cam", adjust="lights", lights=["Key"], region=[0.4, 0.2, 0.6, 0.4])
+    assert r["converged"] and r["scale"] != 1.0
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError, match="needs `lights`"):
+        run_op("env.autoexpose", camera="Cam", adjust="lights")

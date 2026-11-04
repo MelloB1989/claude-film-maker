@@ -63,6 +63,15 @@ film-ue op env.exposure mode=manual ev100=auto         # from the brightest rig 
 film-ue op env.exposure mode=auto min_ev100=4 max_ev100=12 speed=2
 film-ue op env.meter camera=HostCam                    # scene.metered_ev100 vs the exposure: scene.stops_over
 ```
+Closed loop (B50): measure a region and move the exposure, or the key light, until it reads at the target:
+```bash
+film-ue op env.autoexpose camera=HostCam subject=Host part=face target_stops=0.7      # skin ~2/3 stop over grey
+film-ue op env.autoexpose camera=HostCam 'region=[0.4,0.2,0.6,0.45]' adjust=lights 'lights=["Host_Key","Host_Fill"]'
+```
+Check: `converged`, `iterations` (setting, display, error_stops), `before`/`after`; a re-run is `changed: false`.
+The display target for 0 stops is `MID_GREY_DISPLAY` (0.46); the selftest records what a real grey card reads
+(`grey_card_display`): set the constant to it if they differ.
+
 EV100 guide: sun 14-15, overcast 12-13, bright interior / studio key 800-1000 lux 8.5, living room 5-6, night street
 3-4, stylised moonlight 0-2 (`env.presets` -> `exposure_ev100`).
 
@@ -122,7 +131,8 @@ Lux on a subject and the EV100 to expose it (incident, `photometry.ev100_from_il
 | `env.plan`, `env.apply`, `env.mood` | the spec: plan, converge (multi-tick), switch mood |
 | `env.preset` | a whole environment from a preset (+ overrides): env.apply of a one-line spec |
 | `env.presets`, `env.schema` | names and the JSON Schema |
-| `env.meter`, `env.check` | scene/display statistics through a camera; a pass/issues verdict (camera or PNG) |
+| `env.meter`, `env.check` | scene/display statistics through a camera (or a region); a pass/issues verdict (camera or PNG) |
+| `env.autoexpose` | closed loop: exposure or key light until a region (box, subject, face) hits a target in stops |
 | `light.add` | one light, converging: lux at a point / candelas / lumens / nits, kelvin or colour, size, cone, IES, channels |
 | `light.rig` | rigs: three_point interview loop rembrandt butterfly clamshell split high_key low_key noir silhouette window |
 | `light.practical` | bulb lamp candle fire downlight desk_lamp streetlight tube led_strip neon screen phone window |
