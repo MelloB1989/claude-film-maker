@@ -51,6 +51,9 @@ interpolate between them.
 - **Control names are matched, not assumed** (hand_l_ik_ctrl, foot_l_ik_ctrl, body_ctrl, spine_05..., head...):
   the MetaHuman body rig's names live in its asset, not in engine source, so they were not verifiable tonight.
 - **World-space control writes need the sequence open** in the level editor: the ops open it.
+- **Rig assets**: a 5.8 independent Control Rig asset cannot become a Sequencer track from Python
+  (`load_blueprint_class` returns None, per agent-01); legacy ControlRigBlueprint assets such as the MetaHuman body
+  and face boards work. Pass one of those as `rig_class`.
 - **IK controls**: a hand reaches its goal only if its arm can (reach, elbow); a goal out of reach stays in the
   `errors_cm` and fails the check: that is the signal to change the goal, not to iterate more.
 
@@ -64,6 +67,7 @@ interpolate between them.
 | `.set_control_rig_world_transform(seq, rig, control, frame, transform, time_unit, set_key)` ("sequence must be loaded in the level editor") | same:584 | yes |
 | `.find_or_create_control_rig_track` (through anim.rig_keys) | same:154 | yes |
 | `MovieSceneTimeUnit.DISPLAY_RATE`, `FrameNumber` | (enum EMovieSceneTimeUnit, used by the signatures above) | yes |
+| `RigHierarchy.get_controls()` (ScriptName of GetControlKeys; `get_control_keys` does not exist in Python) | Plugins/Animation/ControlRig/Source/ControlRig/Public/Rigs/RigHierarchy.h:1181 | yes |
 | `SkeletalMeshComponent.does_socket_exist`, `get_socket_location` | Runtime/Engine/Classes/Components/SceneComponent.h:809,832 | yes |
 | `LevelSequenceEditorBlueprintLibrary.open_level_sequence`, `set_current_time`, `refresh_current_level_sequence`, `get_current_level_sequence` | Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:36,90,254 | yes |
 | `EditorAssetLibrary.set_metadata_tag`, `get_metadata_tag` | EditorAssetLibrary.h:385,376 | yes |
