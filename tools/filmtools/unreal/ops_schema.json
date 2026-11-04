@@ -4270,6 +4270,138 @@
    ]
   },
   {
+   "name": "journal.clear",
+   "area": "journal",
+   "verb": "clear",
+   "module": "fmbridge.ops.journal",
+   "file": "unreal/fmbridge/ops/journal.py",
+   "line": 137,
+   "summary": "Empty the journal (start a fresh record, e.g. before building a level you will want to replay).",
+   "doc": "Empty the journal (start a fresh record, e.g. before building a level you will want to replay).\n\nExample: film-ue journal clear",
+   "params": [],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "journal.record",
+   "area": "journal",
+   "verb": "record",
+   "module": "fmbridge.ops.journal",
+   "file": "unreal/fmbridge/ops/journal.py",
+   "line": 150,
+   "summary": "Turn journaling on or off for this editor session (it is on at start). Returns {\"recording\", \"hooked\"}.",
+   "doc": "Turn journaling on or off for this editor session (it is on at start). Returns {\"recording\", \"hooked\"}.\n\nExample: film-ue journal record --no-on",
+   "params": [
+    {
+     "name": "on",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "journal.replay",
+   "area": "journal",
+   "verb": "replay",
+   "module": "fmbridge.ops.journal",
+   "file": "unreal/fmbridge/ops/journal.py",
+   "line": 160,
+   "summary": "Run journal entries again, in order (all, or `entries` as journal.tail gives them, or those matching `prefix`",
+   "doc": "Run journal entries again, in order (all, or `entries` as journal.tail gives them, or those matching `prefix`\n/ `since_s`): rebuild a level from its record. Multi-tick. A failing entry stops the replay unless `keep_going`.\nReturns {\"ran\", \"failed\": [{\"i\", \"op\", \"error\"}], \"skipped_jobs\"} (`dry_run`: what would run).\n\nExample: film-ue journal replay --prefix level. --dry-run",
+   "params": [
+    {
+     "name": "entries",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "prefix",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "since_s",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "dry_run",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "keep_going",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": false,
+   "tags": [
+    "slow"
+   ]
+  },
+  {
+   "name": "journal.tail",
+   "area": "journal",
+   "verb": "tail",
+   "module": "fmbridge.ops.journal",
+   "file": "unreal/fmbridge/ops/journal.py",
+   "line": 125,
+   "summary": "The last `n` journal entries (ops that changed something), oldest first: {\"entries\": [{\"t\", \"op\", \"args\", \"ms\",",
+   "doc": "The last `n` journal entries (ops that changed something), oldest first: {\"entries\": [{\"t\", \"op\", \"args\", \"ms\",\n\"level\", \"result\" | \"job\"}], \"path\", \"recording\"}. `prefix` keeps one area (\"level.\"); `since_s` only the entries\nnewer than that many seconds ago.\n\nExample: film-ue journal tail --n 20 --prefix level.",
+   "params": [
+    {
+     "name": "n",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 30
+    },
+    {
+     "name": "prefix",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "since_s",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "layout.align",
    "area": "layout",
    "verb": "align",
@@ -5650,7 +5782,7 @@
    "verb": "list",
    "module": "fmbridge.ops",
    "file": "unreal/fmbridge/ops/__init__.py",
-   "line": 100,
+   "line": 115,
    "summary": "Every op with its signature and the first line of its docstring; the whole docstring with `full`, or when the",
    "doc": "Every op with its signature and the first line of its docstring; the whole docstring with `full`, or when the\nprefix names one op (`film-ue ops seq.key_float`).",
    "params": [
@@ -8774,7 +8906,7 @@
    "verb": "broken",
    "module": "fmbridge.ops",
    "file": "unreal/fmbridge/ops/__init__.py",
-   "line": 123,
+   "line": 138,
    "summary": "The op modules that failed to import, with their full tracebacks ({} when all loaded).",
    "doc": "The op modules that failed to import, with their full tracebacks ({} when all loaded).",
    "params": [],
@@ -8790,7 +8922,7 @@
    "verb": "schema",
    "module": "fmbridge.ops",
    "file": "unreal/fmbridge/ops/__init__.py",
-   "line": 114,
+   "line": 129,
    "summary": "Every op's signature, docstring and flags as JSON, for generating a CLI or SDK and for discovery:",
    "doc": "Every op's signature, docstring and flags as JSON, for generating a CLI or SDK and for discovery:\n{\"version\": 1, \"ops\": [{\"name\", \"area\", \"verb\", \"params\": [{\"name\", \"type\", \"required\", \"default\"}], ...}],\n\"broken\": {module: error}}. Example: film-ue op ops.schema prefix=seq.",
    "params": [
@@ -14125,6 +14257,7 @@
   "fab": "Fab (WP2): Epic's asset store by code, with no Fab window.",
   "groom": "Hair (grooms) by numbers, on any actor with GroomComponents (a built MetaHuman's Hair/Eyebrows/Beard/...): read it (`groom.describe`), tune it per instance (`groom.set`: strand width, root/tip scale, shadow density, LOD bias, length, and th",
   "jobs": "The bridge's jobs as ops (the same as GET /jobs, GET /job, POST /job/cancel, for clients that only speak /op).",
+  "journal": "The op journal (BACKLOG B32): every op that changes something is appended, with its arguments, how long it took and what it returned, to Saved/fmbridge/journal.jsonl on the box.",
   "layout": "Layout and set dressing: rest things on what is under them, place one actor relative to another, lay out rows, grids, circles and seeded scatters of an asset, align and distribute.",
   "level": "Levels and actors: new/open/save, find and describe, spawn (shapes, assets, classes), move, aim, set, delete.",
   "look": "The look: materials (surface, emissive, glass), lights (rect, spot, point), atmosphere (volumetric fog), post-process and cine cameras, plus quick stills through a camera for checking a frame without a render.",

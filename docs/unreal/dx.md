@@ -53,6 +53,9 @@ Arguments are keyword-only and spelled as the op spells them (`rot_`, `cls`); a 
 (`ue.assets.import_`). `_wait` and `_timeout` are the SDK's own. An argument left out takes the op's default ON THE
 BRIDGE (the SDK sends only what you pass). Argument names are checked against the schema before anything is sent.
 
+Worked scripts: [examples/unreal/sdk](../../examples/unreal/sdk/README.md) (level and set, light + exposure check, a
+MetaHuman, a camera by shot grammar + framing check, a 2 s render).
+
 **Converge the editor to a spec**
 ```bash
 film-ue plan --kinds                  # the kinds; film-ue plan --kinds actor: its fields, types, defaults, units
@@ -72,15 +75,29 @@ film-ue selftest look seq --keep      # keep the scratch levels to look at
 ```
 Check: `selftest-reports/<time>/summary.md` (status per area, failures with got/want, stills) and `summary.json`.
 
+**See what was done to the level, and rebuild it** (the op journal, B32)
+```bash
+film-ue journal tail --n 20 --json                # the last ops that changed something: op, args, ms, result
+film-ue journal tail --prefix level. --since-s 600
+film-ue journal clear                             # before building something you will want to replay
+film-ue journal replay --dry-run                  # what would run; without --dry-run it runs (multi-tick)
+```
+Every op whose `mutates` is True or unset is appended to `Saved/fmbridge/journal.jsonl` by an `ops.after_call` hook
+(journal.*, selftest.*, ops.* are not); a multi-tick op is recorded when it starts and its outcome folded in when the
+job registry reports it (`jobs.on_finish`, when WP1's jobs.py has it).
+
 **After changing or adding ops** (in the same commit)
 ```bash
-film-ue dx gen      # rewrite tools/filmtools/unreal/ops_schema.json and sdk/_generated.py from the ops
+film-ue dx gen      # rewrite tools/filmtools/unreal/ops_schema.json (committed) and sdk/_generated.py (not
+                    # committed: the SDK builds itself in memory from the ops when the file is absent or stale)
 film-ue dx check    # exit 1 when they are stale (tests/test_ue_dx.py fails too)
 film-ue dx lint     # ops that are hard for an agent: no docstring, untyped required args, not area.verb, broken;
                     # kind schemas without descriptions or with additionalProperties not false
 film-ue dx docs     # every `film-ue <area> <verb> --flag` line in the docs parses against the op schema
+film-ue dx sdk      # every ue.<area>.<verb>(...) / ue.call("a.v") in examples/ and films/*/unreal/ matches the schema
 ```
-`film-ue dx gen` is a merge-conflict magnet: when two branches both regenerated, take either side and run it again.
+`ops_schema.json` can conflict in a merge when two branches both regenerated it: take either side and run
+`film-ue dx gen` again.
 
 ## 2. Reference
 
@@ -93,9 +110,10 @@ film-ue dx docs     # every `film-ue <area> <verb> --flag` line in the docs pars
 | `film-ue plan SPEC... [--state FILE] [--only K] [--set N=V] [--json]` | the steps |
 | `film-ue apply SPEC... [--dry-run] [--stop] [--only K] [--set N=V] [--json]` | converge and verify |
 | `film-ue selftest [AREA...\|all] [--list] [--keep] [--out DIR] [--no-pull] [--json]` | acceptance tests |
-| `film-ue dx gen\|check\|lint\|docs` | the generated layers; op/schema lint; doc commands against the schema |
+| `film-ue dx gen\|check\|lint\|docs\|sdk [FILE...]` | the generated layers; op/schema lint; doc commands against the schema |
 
-Bridge ops of this area: `selftest.list`, `selftest.run` (multi-tick), `selftest.cleanup`. `ops.schema` / `ops.broken` /
+Bridge ops of this area: `selftest.list`, `selftest.run` (multi-tick), `selftest.cleanup`; `journal.tail`,
+`journal.clear`, `journal.record`, `journal.replay` (multi-tick). `ops.schema` / `ops.broken` /
 `list` are the lead's (ops/__init__.py).
 
 Files (all WP11 unless noted):
@@ -105,7 +123,7 @@ Files (all WP11 unless noted):
 | `tools/filmtools/unreal/schema.py` | static op schema (AST over `unreal/fmbridge/ops/**`), `index()` for the generators, `lint()` |
 | `tools/filmtools/unreal/ops_schema.json` | the committed snapshot (for a tools/ without unreal/) |
 | `tools/filmtools/unreal/opcli.py` | the generated `film-ue <area> <verb>` |
-| `tools/filmtools/unreal/sdk/` | `Unreal`, `OpError`, `Job`; `_generated.py` (do not edit), `gen.py` |
+| `tools/filmtools/unreal/sdk/` | `Unreal`, `OpError`, `Job`; `gen.py` (writes `_generated.py`, gitignored: a readable copy) |
 | `tools/filmtools/unreal/errors.py` | `Problem`, `explain()` (bridge answer -> code/message/hint/candidates), `check_args()` |
 | `tools/filmtools/unreal/describe.py` | `film-ue describe` |
 | `tools/filmtools/unreal/spec.py`, `jsonschema_lite.py`, `kinds/` | the plan/apply engine; generic kinds level/actor/op |
@@ -217,6 +235,11 @@ def run(t):                 # may be a generator: yield ticks the editor once, y
 - `t.scratch` (`/Game/_Selftest/<area>`) holds every asset you make; the harness deletes it afterwards and goes back to
   the level that was open (or a blank one) unless `--keep`. `t.out` is the report folder on the box, `t.box` the
   engine, platform, command line and capabilities.
+- Outside a selftest (any op or exec'd script that needs a throwaway place): `from fmbridge.ops._scratch import scratch`
+  then `with scratch("/Game/_Scratch/<name>") as s:` (a fresh level at `s.level`, `s.prefix` for labels; back to the
+  previous level and the folder deleted on exit, also on an exception or a closed generator; `level=False` stays in
+  the open level and destroys `s.prefix*` actors on exit; only /Game/_Scratch and /Game/_Selftest are allowed). The
+  harness uses the same code.
 - `t.call(op, ...)` runs a short multi-tick op to its end without ticking (for a test that is not a generator).
 - Report (`<out>/<area>.json`): `{area, ok, status: done|skipped|error, passed, failed, checks: [{name, ok, got, want,
   detail, ms}], ops_covered, ops_missed, stills, artifacts, notes, metrics (incl. op_ms per op), errors, extra, box,
@@ -239,8 +262,8 @@ def run(t):                 # may be a generator: yield ticks the editor once, y
 
 ## 7. Gotchas
 
-- `film-ue dx gen` after every op change, or `test_snapshot_and_sdk_are_current` fails (and the SDK lacks the op;
-  `ue.call("area.verb")` still reaches it).
+- `film-ue dx gen` after every op change, or `test_snapshot_and_sdk_are_current` fails: the SDK follows the ops by
+  itself, only the committed snapshot can be stale (and `ue.call("area.verb")` reaches any op the bridge has).
 - Specs never contain secrets or film-specific paths outside `films/<id>/`.
 - `apply` re-describes everything after running: a kind whose describe is slow makes apply slow; give it
   `describe_many` (one op call for all documents of the kind).
@@ -307,4 +330,7 @@ State (fleet/agent-13/ue-dx, merged into ue-helpers by the lead as it lands):
   (it prints at the end; use `--json` and read `items`); the SDK's Job polls every 2 s (WP1's client.wait with
   on_progress could replace it); kind schemas of other WPs are validated only for what jsonschema_lite supports
   (no `if/then`, `dependentRequired`, `format`).
-- Backlog claimed: B10 scratch context, B32 op journal, B34 SDK example scripts, B35 GUIDE recipes with expected JSON.
+- Backlog: B10 scratch context DONE (ops/_scratch.py); B34 SDK examples DONE (examples/unreal/sdk, `dx sdk` checker).
+  B32 op journal DONE (ops/journal.py + the after_call hook in ops/__init__.py; the job outcome line needs
+  `jobs.on_finish` from WP1: asked agent-07). B35 DONE: docs/unreal/RECIPES.md, generated by tools/tests/recipes_gen.py (20 tasks run on the fake engine through
+  the generated CLI, their --json answers under each command; test_ue_dx_recipes.py keeps it running).

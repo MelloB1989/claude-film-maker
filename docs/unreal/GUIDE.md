@@ -3,7 +3,8 @@
 You are an agent making a film in Unreal Engine 5.8 on a remote box with no screen. Everything goes through
 `film-ue` (from `tools/`: `uv run film-ue ...`) or the Python SDK. This guide is how to approach a task end to end;
 [dx.md](dx.md) is the reference for the tools, [CONVENTIONS.md](CONVENTIONS.md) for units and rules, and each area's
-`docs/unreal/<area>.md` for its recipes. The worked example of everything here is
+`docs/unreal/<area>.md` for its recipes. [RECIPES.md](RECIPES.md) has 20 common tasks with their real JSON answers.
+The worked example of everything here is
 [examples/unreal/demo](../../examples/unreal/demo/README.md).
 
 ## The loop

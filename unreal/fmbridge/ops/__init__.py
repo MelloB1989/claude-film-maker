@@ -16,11 +16,19 @@ import importlib
 import inspect
 import os
 import pkgutil
+import time
 import traceback
 
 _OPS: dict = {}
 _META: dict = {}
 _BROKEN: dict = {}
+_AFTER: list = []  # hooks run after every successful call: fn(op_name, args, result, seconds, meta)
+
+
+def after_call(fn):
+    """Register a hook run after every op that returns (a generator result is passed as-is: never consume it)."""
+    _AFTER.append(fn)
+    return fn
 
 
 def op(name: str, *, mutates: bool | None = None, idempotent: bool | None = None, tags: list | tuple = ()):
@@ -48,7 +56,14 @@ def call(op_name: str, /, **args):
     except TypeError as e:
         from ..errors import OpError
         raise OpError(f"{op_name}: {e}", code="bad_args", hint=f"film-ue ops {op_name} shows what it takes") from None
-    return fn(**args)
+    t0 = time.time()
+    res = fn(**args)
+    for h in _AFTER:
+        try:
+            h(op_name, args, res, time.time() - t0, _META.get(op_name, {}))
+        except Exception:
+            pass
+    return res
 
 
 def _broken_area(op_name: str) -> bool:
