@@ -136,6 +136,11 @@ def install(fake):
             _write_png(os.path.join(file_path, file_name), rt)
 
         @staticmethod
+        def read_render_target_pixel(world, rt, x, y):
+            r, g, b, a = rt.pixels[int(y) * rt.w + int(x)]
+            return fake.Color(r=int(r), g=int(g), b=int(b), a=int(a))
+
+        @staticmethod
         def read_render_target_raw(world, rt, normalize=True):
             return [_Sample(*p) for p in rt.pixels]
 
@@ -258,7 +263,8 @@ def _render(fake, core, comp):
     if depth_mode:
         rt.pixels = [(z, z, z, 1.0) for z in zb]
     else:
-        rt.pixels = [(float(round(r)), float(round(g)), float(round(b)), 255.0) for r, g, b in col]
+        alpha = float(comp._props.get("fake_alpha", 255.0))  # a test sets 0 to mimic an engine's non-coverage alpha
+        rt.pixels = [(float(round(r)), float(round(g)), float(round(b)), alpha) for r, g, b in col]
 
 
 def _write_png(path: str, rt: FakeRT):
