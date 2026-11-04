@@ -193,3 +193,22 @@ def gc() -> dict:
     before = server._rss_mb()
     unreal.SystemLibrary.collect_garbage()
     return {"rss_mb_before": before, "rss_mb_after": server._rss_mb()}
+
+
+@op("editor.epic_exchange_code", mutates=True, idempotent=False, tags=["platform", "needs-epic-login"])
+def epic_exchange_code(*, code: str) -> dict:
+    """Hand the MetaHuman cloud services a single-use Epic exchange code (MetaHuman.Cloud.Config.ExchangeCode), so
+    its next login (mh.rig, mh.textures) signs in without a browser and saves a sign-in for later starts
+    (MetaHumanCloudAuthentication.cpp: exchange code before persistent auth). The code itself is never returned or
+    kept by the bridge; the console echoes it to the editor log, where it is spent after use (~5 min validity).
+    Clients: film-ue epic-login --exchange-code-cmd CMD.
+
+    Args: code: the exchange code (from Epic's OAuth exchange endpoint; see docs/unreal/platform.md).
+    Returns: {"set": true}.
+    Example: film-ue epic-login --exchange-code-cmd ./my-exchange-code-helper
+    """
+    if not code or not code.strip().isalnum():
+        raise OpError("an exchange code is a short alphanumeric string", code="bad_args",
+                      hint="get a fresh one: they are single-use and expire in about 5 minutes")
+    unreal.SystemLibrary.execute_console_command(None, f"MetaHuman.Cloud.Config.ExchangeCode {code.strip()}")
+    return {"set": True}
