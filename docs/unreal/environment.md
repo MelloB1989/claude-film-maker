@@ -84,6 +84,23 @@ film-ue op light.practical label=TV type=screen 'loc=[-250,0,120]' 'look_at=[0,0
 Pair each with an emissive surface at the same nits (WP2's `mat.*` emissive master: `Luminance_nits`), so what the
 camera sees and what the light casts agree.
 
+**The presets, in numbers** (`film-ue op env.preset name=<preset>`; B16)
+
+| preset | sun | sky / fog | exposure (EV100) | grade | what it reads as |
+|---|---|---|---|---|---|
+| exterior_day | afternoon (35 deg), 120 klx above the atmosphere (~60 klx on level ground) | clear atmosphere, clouds, light fog | auto from the sun: 14.6 | neutral | clear afternoon |
+| exterior_golden | golden_evening (6 deg) | hazy (Mie x3), clouds, haze | auto: 10.0 (a 6 deg sun on the ground ~2.3 klx) | golden_hour | low warm sun, long shadows |
+| exterior_overcast | noon, 25 klx, 20 deg soft | hazy, thick clouds, sky light 1.5 | 12.5 | documentary | soft shadowless daylight |
+| exterior_blue_hour | -5 deg (civil twilight) | clear, light fog | 6 | neutral, 7000 K | even blue light |
+| exterior_night | none; moon 0.5 lux, 4100 K | clear, sky light 0.3 | 1 | moonlight | stylised moonlit night |
+| interior_day | afternoon through the windows | clear, sky light 1, interior haze | 8.5 (a room at ~800 lux) | warm_film | a room by day |
+| interior_night | none | sky light 0.05, interior haze | 5 (practicals ~50-100 lux) | warm_film | a room at night |
+| studio_black | none | none | auto from the rig key (800 lux -> 8.3) | clean | black void, your rig only |
+| studio_grey | none | captured sky light 0.5, grey ground | auto from the rig key | clean | soft grey studio |
+
+Lux on a subject and the EV100 to expose it (incident, `photometry.ev100_from_illuminance`): 100000 -> 15.3,
+10000 -> 12.0, 1000 -> 8.6, 800 -> 8.3, 500 -> 7.6, 100 -> 5.3, 50 -> 4.3, 5 -> 1.0, 0.25 (full moon) -> -3.3.
+
 ## 2. Op reference (`film-ue describe env`, `film-ue describe light`)
 
 | op | what |
@@ -103,6 +120,7 @@ camera sees and what the light casts agree.
 | `env.remove` | parts or everything a spec made |
 | `env.describe` | everything above + lights, rigs, channels, owners, as numbers |
 | `env.plan`, `env.apply`, `env.mood` | the spec: plan, converge (multi-tick), switch mood |
+| `env.preset` | a whole environment from a preset (+ overrides): env.apply of a one-line spec |
 | `env.presets`, `env.schema` | names and the JSON Schema |
 | `env.meter`, `env.check` | scene/display statistics through a camera; a pass/issues verdict (camera or PNG) |
 | `light.add` | one light, converging: lux at a point / candelas / lumens / nits, kelvin or colour, size, cone, IES, channels |

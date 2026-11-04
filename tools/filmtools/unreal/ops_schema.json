@@ -3372,7 +3372,7 @@
    "verb": "check",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 904,
+   "line": 924,
    "summary": "A numeric verdict on a look: meter through `camera` (env.meter) or read a still `png` on the box (any",
    "doc": "A numeric verdict on a look: meter through `camera` (env.meter) or read a still `png` on the box (any\nlook.still / render frame), and compare with targets: mean [lo,hi] (display luma), median, clipped_max,\ncrushed_max, cast_max, warm [lo,hi], ev100 [lo,hi] (scene), range_stops_max, stops_over [lo,hi]. Defaults: a\nnatural, well exposed frame. A multi-tick job.\n\nArgs: targets, or `spec` (its checks: {camera, targets}). step: png subsampling.\nReturns: {\"pass\", \"issues\": [{code, severity, message, fix, value, expected}], \"metrics\": {...}}.\nExample: film-ue op env.check camera=HostCam 'targets={\"mean\":[0.3,0.5],\"clipped_max\":0.01}'",
    "params": [
@@ -3837,7 +3837,7 @@
    "verb": "meter",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 852,
+   "line": 872,
    "summary": "Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back",
    "doc": "Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back\nraw, unclamped) gives the scene's luminance statistics and the EV100 a reflected meter would choose; a second in\nfinal colour gives the image's brightness, clipping, crush and colour cast. A multi-tick job (a few ticks).\n\nArgs: camera: a camera actor label. width/height: capture size (small is enough for statistics).\nexposure_ev100: compare the scene with this exposure (default: what Env_Post exposes for, if manual).\nReturns: {\"scene\": scene_stats, \"display\": display_stats, \"camera\", \"fov_deg\"}.\nExample: film-ue op env.meter camera=HostCam",
    "params": [
@@ -4080,12 +4080,60 @@
    ]
   },
   {
+   "name": "env.preset",
+   "area": "env",
+   "verb": "preset",
+   "module": "fmbridge.ops.env",
+   "file": "unreal/fmbridge/ops/env.py",
+   "line": 811,
+   "summary": "Build a whole, consistent environment from a named preset (sky, sun, fog, exposure, grade, quality together):",
+   "doc": "Build a whole, consistent environment from a named preset (sky, sun, fog, exposure, grade, quality together):\nexterior_day exterior_golden exterior_overcast exterior_blue_hour exterior_night interior_day interior_night\nstudio_black studio_grey. The same as env.apply of {kind: environment, name: owner, preset: name, ...overrides};\nre-running converges, switching presets replaces only what differs. A multi-tick job.\n\nArgs: name: the preset (env.presets lists them with their lux and EV100). owner: the spec name it is kept under\n(env.mood and prune use it). overrides: spec sections over the preset, e.g. {\"sun\": {\"time\": \"10:00\"}}.\nReturns: env.apply's result.\nExample: film-ue op env.preset name=exterior_golden 'overrides={\"fog\":{\"preset\":\"mist\"}}'",
+   "params": [
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "owner",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "env"
+    },
+    {
+     "name": "overrides",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "mood",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "environment",
+    "spec"
+   ]
+  },
+  {
    "name": "env.presets",
    "area": "env",
    "verb": "presets",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 811,
+   "line": 831,
    "summary": "Every named thing the env/light ops and specs take, with what it is for: environment presets, times of day,",
    "doc": "Every named thing the env/light ops and specs take, with what it is for: environment presets, times of day,\natmosphere and fog presets, grades, quality presets, rig presets and roles, practical types.\n\nExample: film-ue op env.presets",
    "params": [],
@@ -4268,7 +4316,7 @@
    "verb": "schema",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 828,
+   "line": 848,
    "summary": "The JSON Schema of the environment or lighting spec (the same one in tools/filmtools/unreal/schemas/).",
    "doc": "The JSON Schema of the environment or lighting spec (the same one in tools/filmtools/unreal/schemas/).\n\nExample: film-ue op env.schema kind=lighting",
    "params": [
@@ -7160,9 +7208,9 @@
    "verb": "apply",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 312,
+   "line": 317,
    "summary": "Put a material on an actor's static meshes, in slot `slot`: its index or its name (an FBX's material name).",
-   "doc": "Put a material on an actor's static meshes, in slot `slot`: its index or its name (an FBX's material name).",
+   "doc": "Put a material on an actor's static meshes, in slot `slot`: its index or its name (an FBX's material name).\nExample: film-ue op look.apply label=Wall material=/Game/FM/Materials/MI_Wall",
    "params": [
     {
      "name": "label",
@@ -7188,9 +7236,11 @@
    ],
    "returns": "str",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.camera",
@@ -7198,9 +7248,9 @@
    "verb": "camera",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 444,
+   "line": 465,
    "summary": "A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.",
-   "doc": "A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.",
+   "doc": "A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.\nExample: film-ue op look.camera label=Cam 'loc=[300,0,160]' 'look_at=[0,0,150]' focal=35",
    "params": [
     {
      "name": "label",
@@ -7212,14 +7262,14 @@
     {
      "name": "loc",
      "kind": "positional",
-     "type": null,
+     "type": "list",
      "required": true,
      "default": null
     },
     {
      "name": "look_at",
      "kind": "positional",
-     "type": null,
+     "type": "list",
      "required": true,
      "default": null
     },
@@ -7264,9 +7314,11 @@
    ],
    "returns": "str",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.card",
@@ -7274,9 +7326,9 @@
    "verb": "card",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 487,
+   "line": 512,
    "summary": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right",
-   "doc": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right\nway up and unmirrored from the front; `offset` pushes it out along its facing (cm), e.g. to sit on a box's front.",
+   "doc": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right\nway up and unmirrored from the front; `offset` pushes it out along its facing (cm), e.g. to sit on a box's front.\nExample: film-ue op look.card label=Poster 'loc=[-255,0,170]' width=60 height=90 material=/Game/FM/Materials/MI_Poster",
    "params": [
     {
      "name": "label",
@@ -7288,7 +7340,7 @@
     {
      "name": "loc",
      "kind": "positional",
-     "type": null,
+     "type": "list",
      "required": true,
      "default": null
     },
@@ -7330,9 +7382,11 @@
    ],
    "returns": "str",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.channels",
@@ -7340,9 +7394,9 @@
    "verb": "channels",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 499,
+   "line": 526,
    "summary": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which",
-   "doc": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which\nlights reach it. The studio rule: the host's lights on 1 only, the set's on 0, the host itself on 0 and 1.",
+   "doc": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which\nlights reach it. The studio rule: the host's lights on 1 only, the set's on 0, the host itself on 0 and 1.\nPrefer light.channels.\nExample: film-ue op look.channels 'labels=[\"Key\"]' 'channels=[1]'",
    "params": [
     {
      "name": "labels",
@@ -7363,9 +7417,11 @@
    ],
    "returns": "dict",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.collection",
@@ -7373,9 +7429,9 @@
    "verb": "collection",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 291,
+   "line": 294,
    "summary": "A material parameter collection with these scalar parameters at these defaults (made, or the missing ones",
-   "doc": "A material parameter collection with these scalar parameters at these defaults (made, or the missing ones\nadded; existing ones keep their defaults). A sequence keys a collection on a track of its own, with no per-mesh\nmaterial instance in between.",
+   "doc": "A material parameter collection with these scalar parameters at these defaults (made, or the missing ones\nadded; existing ones keep their defaults). A sequence keys a collection on a track of its own, with no per-mesh\nmaterial instance in between.\nExample: film-ue op look.collection path=/Game/FM/Materials/MPC_FM 'scalars={\"WipeOn\":1}'",
    "params": [
     {
      "name": "path",
@@ -7394,9 +7450,11 @@
    ],
    "returns": "str",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.focus_track",
@@ -7404,9 +7462,9 @@
    "verb": "focus_track",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 522,
+   "line": 552,
    "summary": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a",
-   "doc": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a\nMetaHuman's eyes above its feet.",
+   "doc": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a\nMetaHuman's eyes above its feet.\nExample: film-ue op look.focus_track camera_label=Cam target=Host 'offset=[0,0,165]'",
    "params": [
     {
      "name": "camera_label",
@@ -7436,9 +7494,11 @@
    ],
    "returns": "str",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.fog",
@@ -7446,9 +7506,9 @@
    "verb": "fog",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 403,
+   "line": 418,
    "summary": "Exponential height fog with volumetric fog: haze in the air for light shafts and depth.",
-   "doc": "Exponential height fog with volumetric fog: haze in the air for light shafts and depth.",
+   "doc": "Exponential height fog with volumetric fog: haze in the air for light shafts and depth.\nPrefer env.fog (presets, every field).\nExample: film-ue op look.fog density=0.0006 volumetric=true",
    "params": [
     {
      "name": "density",
@@ -7499,9 +7559,11 @@
    ],
    "returns": "str",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.light",
@@ -7509,9 +7571,9 @@
    "verb": "light",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 343,
+   "line": 352,
    "summary": "A light: kind rect (width/height, barn doors), spot (cone), point; aimed at `look_at`; colour (sRGB 0-1) or",
-   "doc": "A light: kind rect (width/height, barn doors), spot (cone), point; aimed at `look_at`; colour (sRGB 0-1) or\ntemperature (K); intensity in candelas.",
+   "doc": "A light: kind rect (width/height, barn doors), spot (cone), point; aimed at `look_at`; colour (sRGB 0-1) or\ntemperature (K); intensity in candelas.\nPrefer light.add (lux, candelas, converging).\nExample: film-ue op look.light label=Key kind=rect 'loc=[150,120,230]' 'look_at=[0,0,165]' intensity=9",
    "params": [
     {
      "name": "label",
@@ -7625,9 +7687,11 @@
    ],
    "returns": "str",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.material",
@@ -7637,7 +7701,7 @@
    "file": "unreal/fmbridge/ops/look.py",
    "line": 256,
    "summary": "A material instance: kind Surface (color, roughness, metallic, specular), Textured (a texture tinted by color,",
-   "doc": "A material instance: kind Surface (color, roughness, metallic, specular), Textured (a texture tinted by color,\ntiled), Screen (an emitted texture x intensity behind glossy glass), Emissive (color x intensity, unlit), Glass\n(translucent, opacity), ScreenBlink (Screen with a baked-in cursor that blinks: scalars Blink 0-1 and the cursor's\nUV rectangle CursorU0, CursorU1, CursorV0, CursorV1), Pbr (texture, normal and mask maps; mask R x roughness,\nG x metallic), PbrMasked (Pbr cut out by the texture's alpha), Sheer (backlit thin fabric: mask B x opacity,\ndithered; transmission colour, glow), Glow (texture x color x intensity, additive) or GlowWipe (Glow revealed\nleft to right: scalars Reveal 0-1 and Softness; it also takes the lower of Reveal and MPC_FM's WipeReveal, and is\nmultiplied by MPC_FM's WipeOn, both 1 unless a sequence keys them). `scalars` sets any other scalar parameters by\nname. Colours are linear. Re-running updates it.",
+   "doc": "A material instance: kind Surface (color, roughness, metallic, specular), Textured (a texture tinted by color,\ntiled), Screen (an emitted texture x intensity behind glossy glass), Emissive (color x intensity, unlit), Glass\n(translucent, opacity), ScreenBlink (Screen with a baked-in cursor that blinks: scalars Blink 0-1 and the cursor's\nUV rectangle CursorU0, CursorU1, CursorV0, CursorV1), Pbr (texture, normal and mask maps; mask R x roughness,\nG x metallic), PbrMasked (Pbr cut out by the texture's alpha), Sheer (backlit thin fabric: mask B x opacity,\ndithered; transmission colour, glow), Glow (texture x color x intensity, additive) or GlowWipe (Glow revealed\nleft to right: scalars Reveal 0-1 and Softness; it also takes the lower of Reveal and MPC_FM's WipeReveal, and is\nmultiplied by MPC_FM's WipeOn, both 1 unless a sequence keys them). `scalars` sets any other scalar parameters by\nname. Colours are linear. Re-running updates it.\nPrefer mat.* (WP2) for new materials.\nExample: film-ue op look.material name=MI_Wall 'color=[0.6,0.55,0.5]' roughness=0.8",
    "params": [
     {
      "name": "name",
@@ -7758,9 +7822,11 @@
    ],
    "returns": "str",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.post",
@@ -7768,9 +7834,9 @@
    "verb": "post",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 419,
+   "line": 437,
    "summary": "An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).",
-   "doc": "An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).",
+   "doc": "An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).\nPrefer env.post / env.exposure / env.grade.\nExample: film-ue op look.post 'settings={\"bloom_intensity\":0.25}'",
    "params": [
     {
      "name": "settings",
@@ -7789,9 +7855,11 @@
    ],
    "returns": "dict",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.sky",
@@ -7799,9 +7867,9 @@
    "verb": "sky",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 378,
+   "line": 390,
    "summary": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the",
-   "doc": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the\nback wall towards the camera; 90 = shining along +Y) and `elevation` above the horizon, a sky atmosphere and a\nreal-time captured sky light. `shadow_softness` is the sun's source angle in degrees.",
+   "doc": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the\nback wall towards the camera; 90 = shining along +Y) and `elevation` above the horizon, a sky atmosphere and a\nreal-time captured sky light. `shadow_softness` is the sun's source angle in degrees.\nPrefer env.sun / env.atmosphere / env.sky_light (time of day, place).\nExample: film-ue op look.sky elevation=28 azimuth=-28 lux=17000",
    "params": [
     {
      "name": "elevation",
@@ -7857,9 +7925,11 @@
    ],
    "returns": "dict",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.slots",
@@ -7867,9 +7937,9 @@
    "verb": "slots",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 323,
+   "line": 330,
    "summary": "An actor's material slots by name ({slot: material}); `materials` sets those named (unknown names are",
-   "doc": "An actor's material slots by name ({slot: material}); `materials` sets those named (unknown names are\nreported, not guessed).",
+   "doc": "An actor's material slots by name ({slot: material}); `materials` sets those named (unknown names are\nreported, not guessed).\nExample: film-ue op look.slots label=Chair 'materials={\"Seat\":\"/Game/FM/Materials/MI_Leather\"}'",
    "params": [
     {
      "name": "label",
@@ -7888,9 +7958,11 @@
    ],
    "returns": "dict",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "look.still",
@@ -7898,9 +7970,9 @@
    "verb": "still",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 467,
+   "line": 490,
    "summary": "A still through a camera at the viewport's quality, written to `path` on the workstation (png). A multi-tick",
-   "doc": "A still through a camera at the viewport's quality, written to `path` on the workstation (png). A multi-tick\njob: it returns once the file is on disk.",
+   "doc": "A still through a camera at the viewport's quality, written to `path` on the workstation (png). A multi-tick\njob: it returns once the file is on disk.\nExample: film-ue op look.still camera_label=Cam path=/tmp/still.png",
    "params": [
     {
      "name": "camera_label",
@@ -7940,9 +8012,11 @@
    ],
    "returns": null,
    "multi_tick": true,
-   "mutates": null,
-   "idempotent": null,
-   "tags": []
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "look"
+   ]
   },
   {
    "name": "mat.assign",

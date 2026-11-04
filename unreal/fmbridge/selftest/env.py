@@ -195,6 +195,9 @@ def run(t):
     lab = [a[0] for a in t.op("level.actors")]
     t.ok("prune removed what the spec dropped", P + "Lantern" not in lab and "Env_Fog" not in lab, detail=str(lab)[:300])
     t.ok("prune kept the set", P + "Pillar" in lab and P + "Card" in lab)
+    pg = yield from t.op("env.preset", name="studio_grey", owner=owner)
+    t.ok("env.preset studio_grey converges and drops the sun", pg["converged"]
+         and t.op("env.describe")["sun"] is None, detail=str(pg.get("remaining"))[:300])
     t.op("env.remove", owner=owner)
     t.op("light.remove", owner=owner)
     return {"meter_offset_stops": round(off, 3), "grey_card_display": mt["display"]["mean"]}

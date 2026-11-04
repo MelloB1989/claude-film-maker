@@ -808,6 +808,26 @@ def mood(*, mood: str = None, spec_name: str = "env"):
     return res
 
 
+@op("env.preset", mutates=True, idempotent=True, tags=["environment", "spec"])
+def preset(*, name: str, owner: str = "env", overrides: dict = None, mood: str = None):
+    """Build a whole, consistent environment from a named preset (sky, sun, fog, exposure, grade, quality together):
+    exterior_day exterior_golden exterior_overcast exterior_blue_hour exterior_night interior_day interior_night
+    studio_black studio_grey. The same as env.apply of {kind: environment, name: owner, preset: name, ...overrides};
+    re-running converges, switching presets replaces only what differs. A multi-tick job.
+
+    Args: name: the preset (env.presets lists them with their lux and EV100). owner: the spec name it is kept under
+    (env.mood and prune use it). overrides: spec sections over the preset, e.g. {"sun": {"time": "10:00"}}.
+    Returns: env.apply's result.
+    Example: film-ue op env.preset name=exterior_golden 'overrides={"fog":{"preset":"mist"}}'
+    """
+    if name not in S.PRESETS:
+        from ..errors import closest
+        raise OpError(f"no environment preset {name!r}", code="not_found", candidates=closest(name, S.PRESETS),
+                      hint="env.presets lists them")
+    spec = {"kind": "environment", "version": 1, "name": owner, "preset": name, **(overrides or {})}
+    return (yield from apply(spec=spec, mood=mood))
+
+
 @op("env.presets", mutates=False, idempotent=True, tags=["environment", "lighting"])
 def presets() -> dict:
     """Every named thing the env/light ops and specs take, with what it is for: environment presets, times of day,

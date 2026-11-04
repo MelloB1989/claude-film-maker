@@ -27,7 +27,8 @@ def test_env_selftest_on_the_fake(ue, fmb, tmp_path, monkeypatch):
         """A fake still."""
         yield
         path = kw.get("out") or kw.get("path")
-        open(path, "wb").write(b"png")
+        from fmbridge.envlib import stats
+        stats.write_png(path, 16, 9, [(0.46, 0.46, 0.46)] * 144)  # a real (flat grey) PNG: the harness baselines stills
         return {"path": path, "width": 960, "height": 540}
     monkeypatch.setitem(fmb._OPS, "view.still", still)
     rep = run_op("selftest.run", area="env", out_dir=str(tmp_path))

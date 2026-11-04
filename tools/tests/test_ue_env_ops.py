@@ -244,3 +244,14 @@ def test_meter_through_a_camera(ue, fmb):
     assert m["scene"]["metered_ev100"] == pytest.approx(9.0, abs=1e-3)
     assert m["scene"]["stops_over"] == pytest.approx(0.0, abs=1e-3) and m["display"]["mean"] == pytest.approx(0.45, abs=0.01)
     assert "Env_Meter" not in labels(ue)
+
+
+def test_env_preset_builds_and_switches(ue, fmb):
+    r = run_op("env.preset", name="exterior_golden", owner="sky")
+    assert r["converged"] and ue.actor("Env_Clouds") is not None
+    r = run_op("env.preset", name="studio_black", owner="sky")
+    assert r["converged"] and ue.actor("Env_Sun") is None and ue.actor("Env_Atmosphere") is None
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError) as e:
+        run_op("env.preset", name="exterior_goldn")
+    assert e.value.candidates[0] == "exterior_golden"
