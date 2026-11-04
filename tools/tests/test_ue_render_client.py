@@ -49,7 +49,7 @@ def test_offline_plan_and_validate(tmp_path, capsys):
     s, st = tmp_path / "s.json", tmp_path / "state.json"
     s.write_text(json.dumps(SPEC))
     st.write_text(json.dumps(STATE))
-    assert cli.main(["plan", str(s), "--state", str(st), "--boxes", "2"]) == 0
+    assert cli.main(["estimate", str(s), "--state", str(st), "--boxes", "2"]) == 0
     out = json.loads(capsys.readouterr().out)
     assert len(out["chunks"]) == 3 and len(out["boxes"]) == 2
     s.write_text(json.dumps({**SPEC, "preset": "fnal"}))
@@ -109,3 +109,12 @@ def test_example_specs_validate():
             if d and d.get("kind") == "render":
                 assert rs.validate(cli._body(d) | {"kind": "render", "version": 1}) == [], f
                 rs.resolve(cli._body(d))
+
+
+def test_cli_verbs_do_not_shadow_op_verbs():
+    import re
+    ops_src = (ROOT / "unreal/fmbridge/ops/render.py").read_text()
+    verbs = set(re.findall(r'@op\("render\.(\w+)"', ops_src))
+    cli_src = (ROOT / "tools/filmtools/unreal/render.py").read_text()
+    subs = set(re.findall(r'sub\.add_parser\("(\w+)"', cli_src))
+    assert verbs and subs and not verbs & subs, verbs & subs

@@ -1,15 +1,16 @@
 """film-ue render: render specs from the operator's side (docs/unreal/render.md).
 
-    film-ue render presets                         the presets and what each is for
     film-ue render validate SPEC                   check a spec offline (schema + resolve), print the resolved form
-    film-ue render plan SPEC [--boxes N] [--state FILE]   chunks, pre-roll, estimate; offline with a state file
-    film-ue render run SPEC [--no-wait] [--timeout S]     render it to the end (resumes); prints the report
-    film-ue render status | cancel | gpu
-    film-ue render frames SEQUENCE F [F ...] --out DIR [--preset P] [--level L]
-    film-ue render manifest SPEC                   one-process command lines (no editor)
-    film-ue render encode SPEC [--kind h264|h265|prores] [--local DIR]    video from the frames (on the box, or here)
-    film-ue render check SPEC [--local DIR]        per-frame QA of a finished render (missing, corrupt, black, flicker)
-    film-ue render stitch SPEC --boxes N           which frames each box rendered; missing and duplicate frames
+    film-ue render estimate SPEC [--boxes N] [--state FILE]   chunks, pre-roll, time; offline with a state file
+    film-ue render run SPEC [--no-wait] [--timeout S]         render it to the end (resumes); prints the report
+    film-ue render cmdline SPEC                    manifests + command lines for one-process renders (no editor)
+    film-ue render video SPEC [--kind h264|h265|prores] [--local DIR]    video from the frames (on the box, or here)
+    film-ue render check SPEC --local DIR          per-frame QA of a finished render (missing, corrupt, black, flicker)
+    film-ue render stitch SPEC --boxes N --local A --local B   frames per box; missing and duplicate frames
+    film-ue render schema                          the spec's JSON schema
+
+The ops themselves are generated commands beside these (op verbs win, so these names avoid them):
+`film-ue render presets | plan | job | frames | status | cancel | gpu | describe | manifest | encode | concat | mrq`.
 
 The `render` spec kind (film-ue plan/apply, WP11's engine): plan(spec, state) is pure; state is what render.plan
 returns for the spec on the box (its chunks still to render), so a finished render plans nothing.
@@ -61,7 +62,8 @@ def plan(spec: dict, state: dict) -> list:
 
 def _describe(ue, spec: dict):
     body = {k: v for k, v in spec.items() if k not in ("kind", "version", "description")}
-    return ue.render.plan(spec=body)
+    call = getattr(ue, "call", None)
+    return call("render.plan", spec=body) if call else ue.render.plan(spec=body)
 
 
 SPEC_KINDS = [{"name": "render", "plan": plan, "describe": _describe, "order": 90, "schema": "render.schema.json"}]
@@ -224,29 +226,20 @@ def stitch(r: dict, plan_: dict, have_by_dir: dict) -> dict:
 def main(argv: list | None = None) -> int:
     ap = argparse.ArgumentParser(prog="film-ue render", description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("presets", help="the presets")
     sub.add_parser("schema", help="the spec's JSON schema")
     v = sub.add_parser("validate", help="check a spec offline")
     v.add_argument("spec")
-    p = sub.add_parser("plan", help="chunks and estimate")
+    p = sub.add_parser("estimate", help="chunks, pre-roll and time (render.plan)")
     p.add_argument("spec")
     p.add_argument("--boxes", type=int)
     p.add_argument("--state", help="offline: a JSON {playback, fps, cuts, done} instead of asking the box")
-    r = sub.add_parser("run", help="render a spec to the end")
+    r = sub.add_parser("run", help="render a spec to the end (render.job)")
     r.add_argument("spec")
     r.add_argument("--no-wait", action="store_true")
     r.add_argument("--timeout", type=float, default=24 * 3600)
-    for n in ("status", "cancel", "gpu"):
-        sub.add_parser(n)
-    f = sub.add_parser("frames", help="a few frames (stills)")
-    f.add_argument("sequence")
-    f.add_argument("frames", nargs="+", type=int)
-    f.add_argument("--out", required=True)
-    f.add_argument("--preset", default="preview")
-    f.add_argument("--level", default="")
-    m = sub.add_parser("manifest", help="one-process command lines")
+    m = sub.add_parser("cmdline", help="one-process command lines (render.manifest)")
     m.add_argument("spec")
-    e = sub.add_parser("encode", help="video from the frames")
+    e = sub.add_parser("video", help="video from the frames (render.encode, or ffmpeg here with --local)")
     e.add_argument("spec")
     e.add_argument("--kind", action="append", choices=rs.VIDEO_KINDS)
     e.add_argument("--start", type=int)
@@ -259,33 +252,22 @@ def main(argv: list | None = None) -> int:
     c.add_argument("--local", required=True, help="the frames, pulled to this folder")
     c.add_argument("--start", type=int)
     c.add_argument("--end", type=int)
-    s = sub.add_parser("stitch", help="frames per box, missing frames")
+    s = sub.add_parser("stitch", help="frames per box, missing and duplicate frames")
     s.add_argument("spec")
     s.add_argument("--boxes", type=int, required=True)
     s.add_argument("--local", action="append", required=True, help="a folder of frames from one box (repeat per box)")
-    s.add_argument("--state", help="offline state JSON (as for plan)")
+    s.add_argument("--state", help="offline state JSON (as for estimate)")
     a = ap.parse_args(argv)
 
-    if a.cmd == "presets":
-        for k, x in rs.preset_table().items():
-            print(f"{k:10s} {x['about']}")
-        return 0
     if a.cmd == "schema":
         _print(rs.SCHEMA)
-        return 0
-    if a.cmd in ("status", "cancel", "gpu"):
-        _print(_op(f"render.{a.cmd}"))
-        return 0
-    if a.cmd == "frames":
-        _print(_op("render.frames", sequence=a.sequence, frames=a.frames, out_dir=a.out, preset=a.preset,
-                   level=a.level, timeout=3600))
         return 0
     spec = load_spec(a.spec)
     r = _check(spec)
     if a.cmd == "validate":
         _print(r)
         return 0
-    if a.cmd == "plan":
+    if a.cmd == "estimate":
         if a.boxes:
             spec = {**spec, "boxes": a.boxes}
             r = _check(spec)
@@ -313,10 +295,10 @@ def main(argv: list | None = None) -> int:
         rep = res.get("result", {})
         _print({k: v for k, v in rep.items() if k != "spec"})
         return 0 if rep.get("status") == "ok" else 1
-    if a.cmd == "manifest":
+    if a.cmd == "cmdline":
         _print(_op("render.manifest", spec=_body(spec)))
         return 0
-    if a.cmd == "encode":
+    if a.cmd == "video":
         kinds = a.kind or [o["kind"] for o in r["outputs"] if o["kind"] in rs.VIDEO_KINDS] or ["h264"]
         if a.local:
             _print(encode_local(r, a.local, kinds, a.fps, a.start, a.end, a.audio))
