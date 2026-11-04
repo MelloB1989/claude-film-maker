@@ -204,6 +204,25 @@ stills; everything else runs without one. It:
 - moves an actor and re-applies to bring it back, then prunes,
 - writes stills from above and from a camera.
 
+## Day-1 triage (selftest layout)
+
+| failing check | likely cause | fix |
+|---|---|---|
+| `bounds size of a 200x100x75 cube` off | the basic shape isn't 100 cm, or bounds include a collision/extra component | `film-ue op level.get label=ST_layout_Table`: look at `bounds.size` and components; if the engine's cube differs, scale `SHAPES` sizes in `ops/level.py` |
+| `table rests on the floor` / `cup rests on the table top` off by a constant | the plane floor has thickness, or bounds are padded | compare `level.get` bounds with the visual still; adjust `gap_cm`, or use `mode=trace` |
+| `a line trace finds the same table top` fails or None | basic shapes have no collision in this project, or a wrong trace channel | the channel is `_util.visibility_channel()` (ECC_VISIBILITY); check `film-ue op editor.console command="show collision"` in a still; give the support collision or keep `mode=bounds` |
+| `rotated table footprint swaps X and Y` | bounds are local, not world, in this build | `layout.drop` with rotated props is then wrong: switch `_util.bounds_box` to `get_actor_bounds(False, True)` and check |
+| `chair faces the table` yaw off by 180 | the mesh's forward is -X, not +X | pass `face=away` for such assets, or add a `yaw_offset` per asset in the scene spec |
+| `array converges` / `scatter converges` changed:true on the re-run | float drift in the transform read-back beyond 0.01 cm/deg | raise the tolerance in `_converge` (`is_near_equal(..., 0.01)`), then rerun |
+| `scattered rocks do not interpenetrate` | spheres' bounds are boxes; min_dist_cm < their diameter after scale | raise `min_dist_cm` to 2 × max radius × max scale |
+| `scene.apply converged in one pass` has `remaining` | a property `level.set` wrote reads back in another form (an enum, a colour) | look at `remaining[*].why`; add the property to `scene._jsonable`'s conversions |
+| `described spec applies as a no-op` fails | `scene.describe` dropped a field (folder, material) | diff `scene.describe` against the spec; extend `_scene.from_state` |
+| `drift is planned back` lists more than `level.move` | tags or folder are not read back (`get_folder_path` on an editor without folders) | `film-ue op level.get label=...`: if the folder is '' after `level.folder`, the level uses actor folder objects; note it and skip folders |
+| `a dropped crate lands on the floor under physics` (settle) | Simulate didn't start offscreen, or basic shapes have no collision | `film-ue log 80` for PIE errors; if Simulate can't run `-RenderOffscreen`, `layout.settle` is unsupported on this box: use `layout.drop` |
+| `settle reports the crate moved` false | the PIE world's actor labels differ (no `get_actor_label` in PIE) | match by actor name instead (`get_name` minus the PIE prefix) in `layout.settle` |
+| `data layers refuse a non-partitioned level` returns ok | the scratch level is partitioned | fine: run `level.layer_add` for real and check `level.layers` |
+| stills black or missing | no GPU, or the camera is inside geometry | `film-ue doctor`; `qa.image` on the still; move `ST_layout_Cam` |
+
 ## HANDOFF
 
 - **Done:**
