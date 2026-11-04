@@ -223,6 +223,9 @@ floating: {ignore: [Pendant]}
 - **Pure-Python speed in the editor**: without numpy, decoding a 1080p PNG takes a few seconds (the Paeth filter);
   the checks shrink to 480 px first. Prefer `width_px` <= 1280 for stills you will analyse, or run the analysis on
   the client (`film-qa`, numpy). If PythonFoundationPackages is enabled on the box, numpy is used automatically.
+- **Hair can read green in warm light** at mid melanin with some redness (the reel's preset at melanin 0.8 / redness
+  0.25; agent-04): `groom.measure` names the hue per view, so check `name` after a melanin/redness change; full
+  melanin hid it there.
 - **Heuristics, not verdicts**: `focus.subject_soft` also fires on plain untextured subjects (it is `info` unless the
   gap is large); cross-cut exposure/hue jumps are `info` under 1 stop / always for hue. State intent with `expect`.
 
