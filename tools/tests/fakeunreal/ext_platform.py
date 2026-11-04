@@ -39,6 +39,13 @@ class EditorLoadingAndSavingUtils(core.Object):
         return [_Package(n) for n in core._fake().dirty["content"]]
 
 
+class _PerformanceSettings(core.Object):
+    """UEditorPerformanceSettings' defaults object: not exposed to Python by name, found by path (as on a box)."""
+
+
+PERF_SETTINGS = "/Script/UnrealEd.Default__EditorPerformanceSettings"
+
+
 def install(fake):
     core.SystemLibrary.execute_console_command = staticmethod(_execute_console_command)
     core.SystemLibrary.get_console_variable_string_value = staticmethod(_get_console_variable_string_value)
@@ -46,3 +53,4 @@ def install(fake):
     fake.cvars.setdefault("t.MaxFPS", "0")
     fake.cvars.setdefault("r.RayTracing", "1")
     fake.EditorLoadingAndSavingUtils = EditorLoadingAndSavingUtils
+    fake.assets[core._package(PERF_SETTINGS)] = _PerformanceSettings("Default__EditorPerformanceSettings")
