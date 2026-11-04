@@ -63,7 +63,8 @@ def step_settings(opts, log) -> str:
 
 def step_reach(opts, log) -> str:
     try:
-        out = ws.transport().run("echo film-ue-ok" if ws.linux() else "'film-ue-ok'", 120, root=ws.linux())
+        root = ws.linux() and ws.conf().get("transport") != "local"  # as root on a remote box (what provision needs)
+        out = ws.transport().run("echo film-ue-ok" if ws.linux() else "'film-ue-ok'", 120, root=root)
     except SystemExit as e:
         raise Stop(f"no command reaches the box: {e}",
                    _cmd("status") + "   (is it running? film-ue box ls / film-ue up)")
@@ -114,7 +115,7 @@ def step_bridge(opts, log) -> str:
 def step_shaders(opts, log) -> str:
     from . import client
     t0 = time.time()
-    r = client.op("editor.wait_compile", timeout=3700, timeout_s=3600)
+    r = client.op("editor.wait_compile", timeout=3700, timeout_s=3600, settle_s=float(opts.get("settle_s", 6)))
     if not r.get("ok"):
         raise Stop(f"shaders still compiling or the wait failed: {r.get('message') or r.get('error', '')[-300:]}",
                    _cmd("first-run") + "   (it waits again; ~20 min on a first open)")
@@ -155,7 +156,7 @@ def step_selftest(opts, log) -> str:
     import tempfile
     from pathlib import Path
     out = Path(tempfile.mkdtemp(prefix="film-ue-first-run-"))
-    summary = selftest.run_all(Unreal(), ["platform", "dx"], out, log=log)
+    summary = selftest.run_all(Unreal(), list(opts.get("selftest_areas") or ["platform", "dx"]), out, log=log)
     if not summary.get("ok"):
         bad = [k for k, a in (summary.get("areas") or {}).items() if not a.get("ok")]
         first = (summary.get("failures") or [{}])[0]
