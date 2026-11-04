@@ -3,7 +3,7 @@ README.md, .claude/skills/**/SKILL.md, unreal/README.md) is parsed against the o
 flag must exist. `film-ue dx docs` lists the problems; tests/test_ue_dx.py holds WP11's own docs to it.
 
 Lines with placeholders (`...`, `<x>`, `NAME`) are checked only up to them; required arguments may be left out
-(docs abbreviate); film-ue's own commands (plan, apply, selftest, ...) are not op commands and are skipped."""
+(docs abbreviate); a line marked `# exit 2` or `dx-docs: skip` is a deliberate bad call; film-ue's own commands (plan, apply, selftest, ...) are not op commands and are skipped."""
 from __future__ import annotations
 
 import re
@@ -20,6 +20,8 @@ def commands(text: str) -> list:
     """(line number, argv after film-ue) for each film-ue command line in a markdown text (code and inline code)."""
     out = []
     for n, line in enumerate(text.splitlines(), 1):
+        if "# exit 2" in line or "dx-docs: skip" in line:  # a deliberately bad call (it shows the error)
+            continue
         for m in re.finditer(r"(?:^|`|\s)film-ue\s+([^`\n|]+)", line):
             cmd = m.group(1).split(" #")[0].strip()
             try:

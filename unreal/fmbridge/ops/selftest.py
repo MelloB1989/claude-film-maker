@@ -65,10 +65,7 @@ def cleanup(*, area: str = "") -> dict:
     from .. import selftest
     root = selftest.SCRATCH_ROOT + (f"/{area}" if area else "")
     if selftest._current_level().startswith(root):
-        if area:
-            selftest._open_blank()
-        else:  # the blank level is inside the root too: an unsaved new level outside it
-            unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).new_level("/Game/_SelftestBlank/L_Blank")
+        selftest._open_blank()  # /Game/_Scratch/_Blank: outside every selftest folder
     eal = unreal.EditorAssetLibrary
     if not eal.does_directory_exist(root):
         return {"deleted": [], "changed": False}

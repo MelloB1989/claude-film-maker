@@ -2,6 +2,9 @@
 
 Start here:
 
+- [GUIDE.md](GUIDE.md): the loop for Claude (discover, plan, apply, check), per-area recipes, a failure table.
+- [RECIPES.md](RECIPES.md): 20 common tasks with the exact commands and their real JSON answers.
+- `film-ue doctor`: is the box ready? ([doctor.md](doctor.md))
 - [CONVENTIONS.md](CONVENTIONS.md): how ops, specs, tests, selftests and docs are written, and who owns which files.
 - [DECISIONS.md](DECISIONS.md): what was decided and why.
 - [BACKLOG.md](BACKLOG.md): work beyond the packages. Claim an item with the lead.
