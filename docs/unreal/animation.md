@@ -37,6 +37,14 @@ Check: `perf.face` returns `report.pass` true (or only `expression_range` failin
 and `plan.shifts` / `plan.blinks` show what it did. `film-ue op perf.check anim=/Game/Speech/Anim/AS_l1` on the
 raw solve shows what was wrong before. Angles are in the CHARACTER's frame: yaw + = their left, pitch + = up.
 
+**Look at a performance without rendering** (a PNG of head, eyes, blinks, upper face and mouth on one time axis).
+```bash
+film-ue op perf.plot anim=/Game/Speech/Anim/AS_l1_perf out=/tmp/l1_perf.png
+```
+Check (pull the PNG and look): head lines are eased S-curves with a small overshoot, not straight ramps; the eye
+strip jumps at each gaze shift and then drifts back as the head catches up; blinks are irregular, some right after a
+shift; brows rise on the stressed words. `perf.face ... plot=/tmp/x.png` writes the same for its result.
+
 **Calibrate once per face skeleton** (makes the head/eye signs exact; until then perfkit guesses).
 ```bash
 film-ue op perf.calibrate label=Ada            # the face must be Sequencer-driven (mh.drive_face); ~20 s
@@ -132,6 +140,7 @@ film-ue op anim.new path=/Game/Perf/AS_blank skeleton=/Game/MetaHumans/Ada/Face/
 | `speech.to_face` / `speech.moods` | MetaHuman Animator's audio solver |
 | `perf.face` | make one face animation alive (head, eyes, blinks, brows, moods, expressions) |
 | `perf.check` | = anim.check |
+| `perf.plot` | the performance as a PNG of strips (head, eyes, blinks, upper face, mouth) |
 | `perf.calibrate` | measure the rig's head/eye signs and gains (saved per skeleton) |
 | `perf.analyze_audio` | duration, emphasis, pauses, phrase ends, envelope of a WAV |
 | `perf.head_curves` | preview head motion (no engine) |
@@ -321,7 +330,7 @@ perf.calibrate measures signs and eye gains, perf.apply converges a two-line spe
 perf.describe reads it back, the head bone turns > 8 deg toward a 35 deg gaze target (seq.sample), and stills at rest
 and turned. The engine-free parts also run on the fake in `tools/tests/test_ue_anim_ops.py`.
 
-Tests: `tools/tests/test_ue_anim_perfkit.py` (48, pure), `test_ue_anim_ops.py` (13, fake engine),
+Tests: `tools/tests/test_ue_anim_perfkit.py` (49, pure), `test_ue_anim_ops.py` (14, fake engine),
 `test_ue_anim_kind.py` (4, the spec kind on the client).
 
 ## HANDOFF
@@ -348,5 +357,5 @@ State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead as it lands):
   5. `anim.retarget`: the auto-generated chains on a Mixamo skeleton; the progress window under -unattended.
   6. `anim.rig_keys`: `ControlRigSequencerBindingProxy.proxy.get_display_name()` matching the actor/component.
 - Not done / next: procedural additive gestures (author bone-offset additives by code: needs bone axis calibration
-  like the head's); `perf.solve_a2f` (Audio2Face route, design above); a curve plot (SVG) for Claude to look at;
-  B31 pose library (anim.pose) is unclaimed and fits here.
+  like the head's); `perf.solve_a2f` (Audio2Face route, design above). B31 (pose library) went to agent-11 as
+  pose.* calling anim.rig_keys.

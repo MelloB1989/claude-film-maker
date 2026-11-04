@@ -508,3 +508,14 @@ def test_plan_solves_then_composes_then_converges():
     changed = json.loads(json.dumps(SPEC))
     changed["lines"][0]["mood"] = "sad"
     assert [s["op"] for s in S.plan(changed, st)] == ["perf.solve", "perf.compose"]
+
+
+def test_plot_draws_a_strip_per_part(tmp_path):
+    from perfkit import plot as PL
+    from camkit import png
+    r = F.build(0, 6, shifts=[{"t": 1, "yaw": 25}], emphasis=[(2, 1)], moods=[{"t0": 0, "t1": 6, "mood": "happy"}], seed=1)
+    img = PL.performance(r["curves"], marks={"shifts": [1.0], "emphasis": [2.0]}, title="test")
+    png.write(str(tmp_path / "p.png"), img)
+    back = png.read(str(tmp_path / "p.png"))
+    assert (back.w, back.h) == (img.w, img.h) and img.h > 4 * 120  # head, eyes, blinks, upper face, mouth
+    assert len(set(bytes(img.px))) > 10  # something was drawn

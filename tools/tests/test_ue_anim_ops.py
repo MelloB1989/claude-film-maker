@@ -216,3 +216,11 @@ def test_selftest_runs_on_the_fake(ue, fmb, tmp_path):
     failed = [c for c in rep["checks"] if not c["ok"]]
     assert rep["status"] == "done" and failed == [], failed
     assert {"anim.find", "anim.new", "perf.face", "anim.check"} <= set(rep["ops_covered"])
+
+
+def test_perf_face_and_plot_write_a_png(ue, tmp_path):
+    talk(ue)
+    r = run_op("perf.face", anim="/Game/S/AS_talk", plot=str(tmp_path / "f.png"))
+    assert r["plot"]["width"] == 1200 and (tmp_path / "f.png").stat().st_size > 1000
+    p = run_op("perf.plot", anim="/Game/S/AS_talk_perf", out=str(tmp_path / "g.png"), t0_s=1.0, t1_s=3.0)
+    assert p["changed"] and (tmp_path / "g.png").exists()

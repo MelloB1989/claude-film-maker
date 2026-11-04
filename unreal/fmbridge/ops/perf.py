@@ -107,7 +107,7 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
          mood: str = "", moods: list | None = None, expressions: list | None = None, emphasis=None,
          layers: list | None = None, solver_head: str = "soften", blink_mode: str = "replace", blink_state: str = "talk",
          energy: float = 1.0, mouth_mix: float = 0.5, brow_chance: float = 0.55, signs: dict | None = None,
-         seed: int = 0) -> dict:
+         seed: int = 0, plot: str = "") -> dict:
     """Make a face animation (a speech solve, or any MetaHuman face animation) read as alive: write a copy whose head
     turns follow the gaze (eyes lead, the head eases with overshoot and settles), with nods and brow flashes on the
     stressed words, irregular asymmetric blinks (with big gaze shifts and at phrase ends), fixational eye darts, a
@@ -127,8 +127,9 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
       layers: subset of head, eyes, blinks, expressions, brows, nods. solver_head: soften|keep|replace.
       blink_mode: replace|keep|max. blink_state: talk|listen|rest|focus|nervous|calm. energy: >1 brisker head.
       mouth_mix: smile strength on a talking mouth (0..1). signs: rig signs (default perf.calibrate's, else guesses).
+      plot: a PNG path on the box: the result's curves drawn as strips (perf.plot) to look at.
     Returns: {"out", "changed", "plan": {shifts, nods, blinks, expressions, ...}, "report": naturalness checks,
-    "curves": n}.
+    "curves": n, "plot"?: {"path", "width", "height"}}.
     Example: film-ue op perf.face anim=/Game/Speech/Anim/AS_line1 wav=/home/ue/Audio/line1.wav mood=warm 'gaze=[{"t":0,"yaw":0,"scan":"lens"},{"t":2.5,"yaw":25,"pitch":-5}]'
     """
     from .anim import _anim, _skeleton_path, _write, read_all
@@ -164,7 +165,39 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
     _write(o, r["curves"])
     _meta(o, "fm.perf.made_by", "perf.face")
     EAL.save_asset(out)
-    return {"out": out, "changed": True, "plan": r["plan"], "report": r["report"], "curves": len(r["curves"])}
+    res = {"out": out, "changed": True, "plan": r["plan"], "report": r["report"], "curves": len(r["curves"])}
+    if plot:
+        res["plot"] = _plot({**base, **r["curves"]}, plot, r["plan"], signs_for(_skeleton_path(a), signs), out)
+    return res
+
+
+def _plot(curves: dict, path: str, plan_: dict | None, signs: HeadSigns, title: str, t0=None, t1=None) -> dict:
+    from ..camkit import png
+    from ..perfkit import plot as PL
+    marks = {"shifts": [s["t"] for s in (plan_ or {}).get("shifts", [])],
+             "emphasis": [n["t"] for n in (plan_ or {}).get("nods", []) if n.get("kind") == "beat"]}
+    img = PL.performance(curves, t0, t1, marks=marks, signs=signs, title=title.rsplit("/", 1)[-1])
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    png.write(path, img)
+    return {"path": path, "width": img.w, "height": img.h}
+
+
+@op("perf.plot", mutates=True, idempotent=True, tags=["feedback"])
+def plot(*, anim: str, out: str, signs: dict | None = None, t0_s: float | None = None, t1_s: float | None = None) -> dict:
+    """Draw a face animation's performance as a PNG (head yaw/pitch/roll, the left eye in the head, blinks, upper
+    face, mouth, on one time axis): look at it to judge motion without rendering. Straight ramps and flat holds in the
+    head strip are robotic; eased S-curves with a small overshoot and a slight wobble are alive.
+
+    Args: anim: a face AnimSequence. out: PNG path on the box. signs: rig signs (default the calibration).
+    t0_s/t1_s: the time window (default the whole animation).
+    Returns: {"path", "width", "height", "changed": true}.
+    Example: film-ue op perf.plot anim=/Game/Speech/Anim/AS_l1_perf out=/tmp/l1_perf.png
+    """
+    from .anim import _anim, _skeleton_path, read_all
+    a = _anim(anim)
+    cur = read_all(a)
+    r = _plot(cur, out, None, signs_for(_skeleton_path(a), signs), anim, t0_s, t1_s)
+    return {**r, "changed": True}
 
 
 @op("perf.check", mutates=False, idempotent=True)
