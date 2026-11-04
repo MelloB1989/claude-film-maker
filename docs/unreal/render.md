@@ -213,7 +213,7 @@ snake_case of the reflected name.
 | `MoviePipelineGameOverrideSetting.cinematic_quality_settings, texture_streaming (MoviePipelineTextureStreamingMethod NONE/DISABLED/FULLY_LOAD), use_lod_zero, disable_hlods (ScriptName), use_high_quality_shadows, shadow_distance_scale, override_view_distance_scale, view_distance_scale, flush_streaming_managers` | MovieRenderPipelineCore/Public/MoviePipelineGameOverrideSetting.h:14,87-143 | transient default on every job (:66 IgnoreTransientFilters) |
 | `MoviePipelineInProcessExecutorSettings.additional_command_line_arguments` | MovieRenderPipelineCore/Public/MoviePipelineInProcessExecutorSettings.h:50 | -RenderOffscreen for the child on Linux |
 | `MoviePipelineExecutorBase.cancel_all_jobs`, `on_executor_errored_delegate(executor, pipeline, is_fatal, error_text)` | MovieRenderPipelineCore/Public/MoviePipelineExecutor.h:176,313,25 | |
-| `MoviePipelineEditorBlueprintLibrary.save_queue_to_manifest_file(queue) -> (queue, path)` | MovieRenderPipelineEditor/Public/MoviePipelineEditorBlueprintLibrary.h:41 | writes Saved/MovieRenderPipeline/QueueManifest.utxt; we copy it per chunk |
+| `MoviePipelineEditorBlueprintLibrary.save_queue_to_manifest_file(queue) -> (queue, path)` (non-bool return + out: a tuple, PythonScriptPlugin PyGenUtil.cpp:1152-1180) | MovieRenderPipelineEditor/Public/MoviePipelineEditorBlueprintLibrary.h:41 | writes Saved/MovieRenderPipeline/QueueManifest.utxt; we copy it per chunk |
 | Command line `-game -MoviePipelineConfig=<.utxt or asset>` | MovieRenderPipelineCore/Private/MovieRenderPipelineCommandLine.cpp:195-300 | relative paths are under Saved/; exit codes MovieRenderPipelineCoreModule.h:70 |
 | `MovieSceneSequenceExtensions.get_display_rate / get_playback_start / get_playback_end / find_tracks_by_type` | Engine/Plugins/MovieScene/SequencerScripting/.../MovieSceneSequenceExtensions.h:98,174,192,59 | |
 | `LevelSequenceEditorBlueprintLibrary.get_current_level_sequence / close_level_sequence` | Engine/Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:42,72 | an open Sequencer is closed before a render |
@@ -287,7 +287,6 @@ State at 2026-11-05 ~00:00 UTC (agent-05, branch `fleet/agent-05/ue-render`, mer
      (`LogMovieRenderPipeline`). Re-running the spec resumes.
 - **Unproven until then (if a check fails, start from API_NOTES):**
   - the cmdline executor's child command line on Linux (`-vulkan`, `MoviePipelineEntryMap` with a queue manifest);
-  - `save_queue_to_manifest_file` returning a tuple in Python;
   - the AOV folder names MRQ writes (`{render_pass}` for a post-process material is assumed to be the material's
     name);
   - a sub-folder in the WAV's `file_name_format_override`;

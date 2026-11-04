@@ -22,6 +22,7 @@ from __future__ import annotations
 import unreal
 
 from fmbridge.camkit import lens, png
+from ..ops.assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 REQUIRES = ["gpu"]
 AREAS = ["cam", "shot"]
@@ -161,7 +162,7 @@ def run(t):
     mv = yield from t.op("cam.move", camera=cam, sequence=seq, moves_=[{"move": "push_in", "fraction": 0.4, "frames": 48}],
               start_frame=0, end_frame=96, step=4, aim=fig, focus_on=fig)
     t.ok("cam.move keyed", mv["keys"]["transform"] > 5, detail=str(mv["keys"]))
-    LSE.open_level_sequence(unreal.EditorAssetLibrary.load_asset(seq))
+    LSE.open_level_sequence(EAL.load_asset(seq))
     for f, want in ((48, mv["last"]["loc"]),):
         LSE.set_current_time(f + 1)
         yield

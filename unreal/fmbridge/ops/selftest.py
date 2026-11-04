@@ -9,6 +9,7 @@ import unreal
 
 from . import op
 from ..errors import OpError, closest
+from .assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 
 def _default_out() -> str:
@@ -66,7 +67,7 @@ def cleanup(*, area: str = "") -> dict:
     root = selftest.SCRATCH_ROOT + (f"/{area}" if area else "")
     if selftest._current_level().startswith(root):
         selftest._open_blank()  # /Game/_Scratch/_Blank: outside every selftest folder
-    eal = unreal.EditorAssetLibrary
+    eal = EAL
     if not eal.does_directory_exist(root):
         return {"deleted": [], "changed": False}
     if not eal.delete_directory(root):

@@ -25,6 +25,7 @@ from ..envlib import stats as ST
 from ..envlib import sun as SUN
 from ..envlib import lights as LL
 from ..errors import OpError
+from .assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 L = S.LABELS
 PART_CLASS = {"sun": "DirectionalLight", "moon": "DirectionalLight", "atmosphere": "SkyAtmosphere",
@@ -216,7 +217,7 @@ def sky_light(*, mode: str = None, intensity: float = 1.0, cubemap: str = None, 
         canon = S.norm_sky_light(v, _has_atmosphere())
     except ValueError as e:
         raise _bad(e, "env.sky_light") from None
-    if canon.get("cubemap") and not unreal.EditorAssetLibrary.does_asset_exist(canon["cubemap"]):
+    if canon.get("cubemap") and not EAL.does_asset_exist(canon["cubemap"]):
         raise OpError(f"no cubemap {canon['cubemap']!r}", code="not_found",
                       hint="import the .hdr with assets.import as a long-lat cubemap (environment.md: HDRI)")
     a, created = U.ensure(L["sky_light"], "SkyLight", owner, "sky_light", (0, 0, 500))
@@ -277,7 +278,7 @@ def hdri(*, cubemap: str, intensity: float = 1.0, rotation_deg: float = 0.0, bac
                               owner=owner)
     warnings, changed, label = [], sl["changed"], None
     if backdrop:
-        if not unreal.EditorAssetLibrary.does_asset_exist(HDRI_BP):
+        if not EAL.does_asset_exist(HDRI_BP):
             raise OpError("the HDRIBackdrop plugin is not enabled (it is off by default)", code="unsupported",
                           hint="enable HDRIBackdrop in the .uproject Plugins and restart the editor, or use "
                                "backdrop=false (the sky light still lights the scene from the HDRI)")

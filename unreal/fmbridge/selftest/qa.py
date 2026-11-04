@@ -23,6 +23,7 @@ It proves:
 from __future__ import annotations
 
 import os
+from ..ops.assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 REQUIRES = ["gpu"]
 AREAS = ["qa", "view", "groom"]
@@ -233,7 +234,7 @@ def _metahuman(t, out):
     """With a MetaHuman Blueprint in the project: spawn it, list its parts, check its garments from 4 views and
     frame it. Skipped (a note) without one."""
     import unreal
-    eal = unreal.EditorAssetLibrary
+    eal = EAL
     if not eal.does_directory_exist("/Game/MetaHumans"):
         t.note("no /Game/MetaHumans: MetaHuman penetration/framing part skipped")
         return

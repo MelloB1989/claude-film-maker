@@ -299,3 +299,42 @@ def test_gaze_lock_reads_both_section_offsets(ue, fmb):
     p.set_editor_property("first_loop_start_frame_offset", unreal.FrameNumber(6000))
     assert section_offset_s(p, 24000.0) == pytest.approx(0.75)
     assert section_offset_s(None, 24000.0) == 0.0
+
+
+def test_body_life_needs_calibration_then_bakes_an_additive(ue, fmb, tmp_path, monkeypatch):
+    import json as _json
+    from fmbridge.errors import OpError
+    import fmbridge.ops.perf_body as PB
+    ue.skeletal_mesh("/Game/MH/Body/BodyMesh", "/Game/MH/Body/BodyMesh_Skeleton")
+    monkeypatch.setattr(PB, "_saved", lambda name: str(tmp_path / name))
+    with pytest.raises(OpError) as e:
+        run_op("anim.body_life", out="/Game/P/AS_life", body_mesh="/Game/MH/Body/BodyMesh", length_s=4)
+    assert e.value.code == "conflict" and "calibrate_body" in e.value.hint
+    ref = {b: {"t": [0, 0, 10], "q": [0, 0, 0, 1], "s": [1, 1, 1]} for b in PB.BONES}
+    axes = {b: {"flex": ["y", 1.0], "side": ["x", 1.0], "twist": ["z", 1.0]} for b in PB.BONES}
+    (tmp_path / "body_BodyMesh_Skeleton.json").write_text(_json.dumps(
+        {"skeleton": "/Game/MH/Body/BodyMesh_Skeleton", "axes": axes, "shift_axis": ["y", 1.0], "ref": ref}))
+    r = run_op("anim.body_life", out="/Game/P/AS_life", body_mesh="/Game/MH/Body/BodyMesh", length_s=4, state="nervous")
+    a = ue.assets["/Game/P/AS_life"]
+    assert r["bones"] == sorted(PB.BONES) and a._data["bones"] == set(PB.BONES)
+    assert "AAT_LOCAL_SPACE_BASE" in str(a._props["additive_anim_type"])
+    assert "ABPT_LOCAL_ANIM_FRAME" in str(a._props["ref_pose_type"]) and r["breaths_per_min"] > 18
+
+
+def test_spec_body_life_layers_an_additive_or_notes_why_not(ue, fmb, monkeypatch, tmp_path):
+    import json as _json
+    import fmbridge.ops.perf_body as PB
+    ue.metahuman("Host")
+    talk(ue)
+    monkeypatch.setattr(PB, "_saved", lambda name: str(tmp_path / name))
+    calls = _record_seq_ops(monkeypatch)
+    spec = dict(SPEC, character={"body_life": {"state": "calm", "follow": 0.2}})
+    r = run_op("perf.compose", spec=spec)
+    assert any(n.get("skipped") == "body_life" for n in r["notes"])  # not calibrated: applied without it
+    ref = {b: {"t": [0, 0, 10], "q": [0, 0, 0, 1], "s": [1, 1, 1]} for b in PB.BONES}
+    axes = {b: {"flex": ["y", 1.0], "side": ["x", 1.0], "twist": ["z", 1.0]} for b in PB.BONES}
+    (tmp_path / "body_BodyMesh_Skeleton.json").write_text(_json.dumps({"axes": axes, "shift_axis": None, "ref": ref}))
+    calls.clear()
+    run_op("perf.compose", spec=spec)
+    body = next(kw for n, kw in calls if n == "seq.anim" and kw["component"] == "Body")
+    assert body["sections"][-1]["anim"] == "/Game/Perf/demo/AS_demo_face_life"

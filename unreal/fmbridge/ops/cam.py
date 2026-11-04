@@ -21,6 +21,7 @@ from ..camkit import framing, geo, lens, moves
 from ..camkit import png, words
 from ..errors import OpError, not_found
 from ._util import eas, find_actor, rot, vec
+from .assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 EAS = eas
 MANUAL, TRACKING, DISABLE = "MANUAL", "TRACKING", "DISABLE"
@@ -743,7 +744,7 @@ def move(*, camera: str, sequence: str, moves_: list, start_frame: int = 0, end_
     Example: film-ue op cam.move camera=CAM_A sequence=/Game/Seq/S1 'moves_=[{"move":"push_in","fraction":0.2,"frames":72}]' aim=eyes:Presenter
     """
     cam = read(camera)
-    seqobj = unreal.EditorAssetLibrary.load_asset(sequence)
+    seqobj = EAL.load_asset(sequence)
     if seqobj is None:
         raise not_found("level sequence", sequence, [], hint="make it with seq.new")
     if fps is None:
