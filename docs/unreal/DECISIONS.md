@@ -32,3 +32,11 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   `qa.*`/`view.*` stills and contact sheets on it. `look.still` and `seq.still` stay as the quick paths.
 - **WP0 (asked by WP1): CLI hooks.** WP11 owns `cli.py`. Other WPs add subcommands through a
   `register(subparsers)` hook module (`cli_<area>.py`) that WP11 wires in, or through a `main(argv)` entry point.
+- **WP12: one timing document.** Voice line timing is a `timing` document (`filmtools.unreal.audio_timing`): frames
+  on the sequence's clock, words per line. `audio.lines` places it in Unreal, `performance_handoff` gives WP4 the
+  `speech.to_face` args and the face's frame per line, and `film-post` mixes and captions from it, so picture, faces
+  and mix agree by construction. It is kind `timing` (data, never applied); the applied spec kind is `audio`.
+- **WP12: the mix is made in post, not rendered by MRQ.** Unreal's audio tracks are for timing; `film-post` builds
+  and masters the mix (filmtools.mix) from the same timing. MRQ's wave output stays unused.
+- **WP12: captions burn through libass** (ffmpeg `subtitles`) instead of the reel's Pillow overlays; titles are
+  film-specific and stay in films/<id>/.

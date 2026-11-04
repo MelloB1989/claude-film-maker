@@ -180,7 +180,7 @@ nothing.
 
 - **Format:** YAML or JSON. One document is one object with `kind`, `version` (int), `name`, and the kind's
   fields. A file may hold several documents (YAML `---`). Units follow §3.
-- **Kinds:** one per area noun, owned by the area: `character` (WP3), `performance` (WP4), `environment`/`lighting`
+- **Kinds:** one per area noun, owned by the area: `character` (WP3, not "metahuman"), `performance` (WP4), `environment`/`lighting`
   (WP5), `scene`/`layout` (WP6), `camera`/`shot` (WP7), `sequence` (WP8), `render` (WP9), `qa` (WP10),
   `audio`/`delivery` (WP12).
 - **Schema:** each kind has a JSON Schema (draft 2020-12) in `tools/filmtools/unreal/schemas/<kind>.schema.json`,
@@ -201,7 +201,17 @@ Every visual change must be checkable without a UI:
 - Each area exposes `describe` (numbers).
 - Areas whose changes are visual expose `still` or a `qa.*` check (WP10 provides the generic ones: viewport-free
   stills, contact sheets, exposure/histogram, framing of a target in a camera, bounds/penetration, visibility).
-- A check returns `{"pass": bool, "metric": value, "threshold": value, "why": str}`.
+- A check op returns `{"pass": bool, "issues": [issue, ...], "metrics": {...}}`. `pass` is true when no issue has
+  severity `fail`.
+- An issue is `{"code", "severity": "fail"|"warn"|"info", "message", "fix", "frame", "camera", "subject", "box",
+  "value", "expected"}`:
+  - `code`: a stable dotted id, `area.snake_case` (`framing.headroom_low`, `exposure.clipped_highlights`,
+    `mesh.penetration`).
+  - `fix`: the op call or change that would resolve it.
+  - `box`: `[x0, y0, x1, y1]` in 0..1 image coordinates.
+  - Fields that do not apply are omitted.
+
+  WP10 owns the shape. WP7's lens and cut checks use it too.
 - Images return `{"path": <file on the box>, "width", "height"}`. The client pulls them.
 
 ## 9. Shared helpers

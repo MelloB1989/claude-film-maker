@@ -1,0 +1,28 @@
+# A small office set: a desk turned to face +Y, a chair 80 cm in front of it facing it, a lamp on the desk and a
+# key light. Apply: film-ue apply examples/unreal/scene/office.yaml (or scene.apply). Re-running changes nothing.
+kind: scene
+version: 1
+name: office
+folder: Office
+actors:
+  - label: Desk
+    shape: cube
+    size: [160, 80, 75]
+    loc: [0, 0, 0]
+    rot: {yaw: 90}
+    drop: true
+    tags: [hero]
+  - label: Chair
+    shape: cube
+    size: [50, 50, 90]
+    relative: {of: Desk, offset_cm: [80, 0, 0], face: toward}
+    drop: true
+  - label: Lamp
+    shape: cylinder
+    size: [20, 20, 45]
+    loc: [30, 0, 200]
+    drop: true
+  - label: Key
+    class: RectLight
+    loc: [150, 120, 230]
+    rot: {pitch: -30, yaw: -140}
