@@ -194,7 +194,7 @@ snake_case of the reflected name.
 |---|---|---|
 | `MoviePipelineQueueSubsystem.get_queue / render_queue_with_executor / is_rendering / get_active_executor` | MovieRenderPipelineEditor/Public/MoviePipelineQueueSubsystem.h:27,52,67,93 | editor subsystem; render_queue_with_executor returns the executor |
 | `MoviePipelineQueue.allocate_new_job / delete_all_jobs` | MovieRenderPipelineCore/Public/MoviePipelineQueue.h:804,818 | |
-| `MoviePipelineExecutorJob.sequence / map / job_name`, `get_configuration`, `set_config_mode(MoviePipelineConfigMode.PRESET)` | MoviePipelineQueue.h:692,696,688,529,548 | 5.8 jobs have Preset/Graph/Basic modes; we use Preset (legacy settings) |
+| `MoviePipelineExecutorJob.set_sequence(path)` (Sequence's BlueprintSetter), `map / job_name`, `get_configuration`, `set_config_mode(MoviePipelineConfigMode.PRESET)` | MoviePipelineQueue.h:692,696,688,529,548 | 5.8 jobs have Preset/Graph/Basic modes; we use Preset (legacy settings) |
 | `MoviePipelineConfigBase.find_or_add_setting_by_class(cls, include_disabled, exact_match)` | MoviePipelineConfigBase.h:145 | exact_match matters (subclasses) |
 | `MoviePipelineOutputSetting.output_directory, file_name_format, output_resolution, override_existing_output, handle_frame_count, use_custom_playback_range, custom_start_frame, custom_end_frame, zero_pad_frame_numbers` | MovieRenderPipelineCore/Public/MoviePipelineOutputSetting.h:39-108 | custom range overrides the sequence's playback range (MoviePipeline.cpp:202) |
 | `DirectoryPath(path)` (FDirectoryPath.Path) | Engine/Source/Runtime/CoreUObject/Public/UObject/SoftObjectPath.h:759 | USTRUCT(BlueprintType), Path BlueprintReadWrite: the type of output_directory |
