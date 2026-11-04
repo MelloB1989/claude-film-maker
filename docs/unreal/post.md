@@ -80,6 +80,20 @@ uv run film-post edl   spec.yaml > cut.edl   # CMX 3600 for an NLE
 Check: `<out>/cut-<name>.json` lists every output with `problems` (frame count, size, audio length against picture
 within 1.5 frames) and the cut's loudness. `ok: true` when every output is clean.
 
+**QC a delivered file (B53).**
+
+```bash
+uv run film-post qc out/demo/demo-web.mp4 --edl out/demo/demo.edl --captions out/demo/demo.srt \
+    -o out/demo/qc-web.json --md out/demo/qc-web.md          # exit 1 on any fail
+```
+
+Checks, as CONVENTIONS §8 issues (`code`, `severity`, `message`, `fix`, `frame`): one video + one audio stream;
+frames against the EDL's record length and audio against picture (1.5 frames); loudness ±1 LU of -14 LUFS and true
+peak under -1 dBTP; black runs of 0.5 s or more outside the first/last second (fail); frozen runs of 2 s or more
+(warn); captions inside the picture, ordered, not overlapping, at least 0.7 s, under 20 characters a second, not
+straddling a cut (warn), and wrapping to at most 2 lines in the output's safe area. Read the `.md` sheet as a person;
+act on `issues[*].fix` as an agent.
+
 ## Op reference (`film-ue ops audio`)
 
 | op | what | idempotent |
@@ -102,6 +116,8 @@ within 1.5 frames) and the cut's loudness. `ok: true` when every output is clean
   pieces: `to_out`, `spans_out`, `timecode`, `cmx3600`, `caption_cues`, `captions_text`, `crop_expr`,
   `encode_args`, `cut_audio_args`, `vo_bus_args`, `check_output`). The mastering uses `filmtools.mix` (static gain to
   the LUFS target + a delay-free limiter; never two-pass loudnorm, which rides the gain).
+- `filmtools.unreal.post_qc`: B53 (`run` measures through `Probes`, `report` is pure; parsers for ebur128,
+  blackdetect, freezedetect, CMX 3600 and SRT/VTT; `markdown`).
 - `filmtools.unreal.perf_speak`: B29 (`speak`, `synthesize`, `plan`, `emphasis`).
 - `filmtools.unreal.post_cli`: `film-post`.
 
@@ -198,6 +214,9 @@ Not done / next:
 - **Never run against real ffmpeg here** (the fleet container has none): `film-post cut` is unit-tested at the argv
   level only. First thing on a box with ffmpeg: `film-post cut examples/unreal/delivery/two-shots.yaml` with test
   frames (any PNGs in out/renders/S01, S02) and read `cut-two-shots.json`.
+- B53: `post_qc` + `film-post qc` done, tested on canned ffmpeg output with the probes mocked. Untested: the ffmpeg
+  filters' real output format on the box's ffmpeg build (blackdetect/freezedetect/ebur128 log lines are parsed by
+  regex; if a check reads nothing, compare the raw stderr with the parsers' patterns first).
 - B29 (claimed via the lead): `perf_speak` + `film-post speak` done with a fake TTS and a recorded bridge. Untested:
   a real ElevenLabs call (the key comes in the morning: `fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- ...`),
   and `perf.face` against a real editor (args anim, wav, mood, emphasis and its result key `out` confirmed by agent-01).
