@@ -1,7 +1,14 @@
 """film-ue: drive Unreal on the cloud workstation through the bridge (unreal/fmbridge).
 
-    film-ue set --instance i-... [--region ap-south-1] [--project-dir C:\\UEProjects\\HostStudio]
-    film-ue up | down | status | password       the workstation (password goes to the clipboard, never the screen)
+    film-ue [--box NAME] ...                    one of several workstations (settings in film-ue.NAME.json)
+    film-ue set --instance i-... [--region ap-south-1] [--os windows|linux] [--project-dir DIR] [--bucket B]
+                [--user ubuntu] [--local-port N]
+    film-ue up | down | status | password       the workstation (password: Windows only, to the clipboard)
+    film-ue provision --engine-s3 S3 --version 5.8.4 --project-src s3://...|win:UEProjects/NAME --project NAME
+                      [--level /Game/...]
+                                                a fresh Linux box: volume, driver, engine, project, editor unit
+    film-ue editor start|stop|restart|status|enable|log [N]   the editor's systemd unit (Linux)
+    film-ue desktop on|off                      Linux: a temporary desktop (VNC through SSM) for a one-off sign-in
     film-ue install                             copy unreal/fmbridge + init_unreal.py into the project, start the bridge
     film-ue health                              bridge up? engine, project, queue
     film-ue ops [prefix]                        the bridge's operations with their signatures
@@ -12,11 +19,14 @@
     film-ue push LOCAL REMOTE | pull REMOTE LOCAL | pull-dir REMOTE_DIR LOCAL_DIR (through S3, for renders)
     film-ue log [N]                             the editor log's tail
     film-ue tunnel | close                      open/close the SSM tunnel (opened on demand anyway)
+    film-ue poc N [...]                         the Linux proof-of-concept checks (filmtools.unreal.poc)
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import shlex
 import subprocess
 import sys
 import time
@@ -91,9 +101,10 @@ def _bridge_up() -> bool:
 def install() -> str:
     """Copy the bridge into the project's Content/Python and (re)start it in the running editor through the file
     inbox: through the bridge itself when it is up (seconds), else over SSM (the first time; a minute)."""
-    pd = ws.conf()["project_dir"]
     files = [ROOT / "unreal" / "init_unreal.py"] + sorted((ROOT / "unreal" / "fmbridge").rglob("*.py"))
     via_bridge = _bridge_up()
+    if ws.linux() and not via_bridge:
+        return _install_linux(files)
 
     def put(path: str, data: bytes):
         if via_bridge:
@@ -103,17 +114,17 @@ def install() -> str:
 
     def get(path: str) -> str:
         if not via_bridge:
-            return ws.ps(f"if (Test-Path '{path}') {{ Get-Content '{path}' -Raw }}").strip()
+            return ws.read_text(path).strip()
         try:
             return client.request("GET", "/file?path=" + urllib.parse.quote(path), timeout=10).decode()
         except (SystemExit, OSError):
             return ""  # between the old server and the new one
 
     for f in files:
-        put(pd + "\\Content\\Python\\" + str(f.relative_to(ROOT / "unreal")).replace("/", "\\"), f.read_bytes())
-    out = pd + r"\Saved\Bridge\out\install.json"
+        put(ws.project("Content", "Python", *f.relative_to(ROOT / "unreal").parts), f.read_bytes())
+    out = ws.project("Saved", "Bridge", "out", "install.json")
     put(out, b"")
-    put(pd + r"\Saved\Bridge\in\install.py", BOOT.encode())
+    put(ws.project("Saved", "Bridge", "in", "install.py"), BOOT.encode())
     for _ in range(60):  # until the editor has run it: a call sent sooner could still reach the old server
         res = get(out).strip()
         if res:
@@ -126,17 +137,66 @@ def install() -> str:
     raise SystemExit("the editor did not pick up the install (is it running? film-ue screen)")
 
 
+def _install_linux(files: list) -> str:
+    """No bridge to talk to (the first install, or a broken one that cannot run the inbox): unpack the files over SSM in
+    one command and restart the editor through systemd; init_unreal.py starts the new bridge."""
+    import base64
+    import io
+    import tarfile
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as t:
+        for f in files:
+            t.add(f, arcname=str(f.relative_to(ROOT / "unreal")))
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    if len(b64) > 90_000:
+        raise SystemExit("the bridge is too big for one SSM command; install it over the bridge or S3")
+    dest = shlex.quote(ws.project("Content", "Python"))
+    ws.sh(f"mkdir -p {dest} && echo {b64} | base64 -d | tar -xz -C {dest}")
+    ws.editor("restart")
+    health = wait_bridge(3600)  # the first start on a box compiles every shader before the editor settles
+    client.token(refresh=True)
+    return f"installed {len(files)} files (via ssm + editor restart); bridge up on {health.get('engine')}"
+
+
+def wait_bridge(seconds: int = 900) -> dict:
+    """Until the editor (started by systemd at boot) answers /health; the first start compiles shaders for a while."""
+    end = time.time() + seconds
+    while time.time() < end:
+        try:
+            client.token(refresh=True)  # a restarted editor writes a new token
+            return client.health()
+        except (SystemExit, OSError):
+            time.sleep(10)
+    raise SystemExit(f"the bridge did not answer in {seconds}s: film-ue editor status / film-ue editor log")
+
+
+SETTINGS = ("instance", "region", "os", "project_dir", "key", "bucket", "user", "service", "local_port")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--box", help="which workstation (default: FILM_UE_BOX, else the one in film-ue.json)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("set")
-    s.add_argument("--instance")
-    s.add_argument("--region")
-    s.add_argument("--project-dir")
-    s.add_argument("--key")
-    s.add_argument("--bucket")
-    for n in ("up", "down", "status", "password", "install", "health", "tunnel", "close"):
+    for k in SETTINGS:
+        s.add_argument("--" + k.replace("_", "-"), type=int if k == "local_port" else str,
+                       choices=("windows", "linux") if k == "os" else None)
+    u = sub.add_parser("up")
+    u.add_argument("--no-wait", action="store_true", help="Linux: do not wait for the bridge")
+    for n in ("down", "status", "password", "install", "health", "tunnel", "close"):
         sub.add_parser(n)
+    pv = sub.add_parser("provision")
+    pv.add_argument("--engine-s3", required=True, help="the build's S3 root (holds tools/ue-restore.sh)")
+    pv.add_argument("--version", required=True)
+    pv.add_argument("--project-src", required=True,
+                    help="s3://prefix (the .uproject at its top) or win:<path> on an attached Windows disk")
+    pv.add_argument("--project", required=True, help="the project's name (NAME.uproject)")
+    pv.add_argument("--level", default="", help="a level to open at start, e.g. /Game/Maps/Main")
+    ed = sub.add_parser("editor")
+    ed.add_argument("action", choices=("start", "stop", "restart", "status", "enable", "log"))
+    ed.add_argument("lines", nargs="?", type=int, default=80)
+    sub.add_parser("desktop").add_argument("state", choices=("on", "off"))
+    sub.add_parser("poc", add_help=False)  # its own arguments: filmtools.unreal.poc
     sub.add_parser("ops").add_argument("prefix", nargs="?", default="")
     o = sub.add_parser("op")
     o.add_argument("name")
@@ -155,14 +215,32 @@ def main() -> None:
         p.add_argument("src")
         p.add_argument("dst")
     sub.add_parser("log").add_argument("lines", nargs="?", type=int, default=80)
-    a = ap.parse_args()
+    a, extra = ap.parse_known_args()
+    if extra and a.cmd != "poc":
+        ap.error("unrecognized arguments: " + " ".join(extra))
+    if a.box:
+        os.environ["FILM_UE_BOX"] = a.box
 
     if a.cmd == "set":
-        print(json.dumps(ws.save(**{k: v for k, v in (("instance", a.instance), ("region", a.region),
-                                                       ("project_dir", a.project_dir), ("key", a.key), ("bucket", a.bucket)) if v}),
-                         indent=1))
+        print(json.dumps(ws.save(**{k: getattr(a, k) for k in SETTINGS if getattr(a, k) is not None}), indent=1))
     elif a.cmd == "up":
         print(json.dumps(ws.start(), indent=1, default=str))
+        if ws.linux() and not a.no_wait:
+            print(json.dumps(wait_bridge(), indent=1))
+    elif a.cmd == "provision":
+        from . import linuxbox
+        print(json.dumps(linuxbox.provision(a.engine_s3, a.version, a.project_src, a.project, a.level), indent=1))
+    elif a.cmd == "editor":
+        if a.action == "log":
+            print(ws.sh(f"journalctl -u {shlex.quote(ws.conf()['service'])} -n {a.lines} --no-pager", root=True))
+        else:
+            print(ws.editor(a.action))
+    elif a.cmd == "desktop":
+        from . import linuxbox
+        print(linuxbox.desktop(a.state == "on"))
+    elif a.cmd == "poc":
+        from . import poc
+        poc.main(extra)
     elif a.cmd == "down":
         client.close_tunnel()
         print(json.dumps(ws.stop(), indent=1, default=str))

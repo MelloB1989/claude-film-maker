@@ -1,0 +1,23 @@
+# The Unreal editor on a Linux box with no desktop: offscreen, unattended, claude-film-maker's bridge inside it
+# (Content/Python/init_unreal.py starts it). Settings in /etc/default/ue-editor; see unreal/linux/README.md.
+[Unit]
+Description=Unreal Editor (offscreen) with the fmbridge
+After=network-online.target local-fs.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+EnvironmentFile=/etc/default/ue-editor
+ExecStart=/usr/local/bin/ue-editor
+Restart=on-failure
+RestartSec=15
+# a save in progress gets time to finish; then the whole process group goes
+TimeoutStopSec=90
+KillMode=mixed
+LimitNOFILE=1048576
+LimitCORE=0
+
+[Install]
+WantedBy=multi-user.target

@@ -1,8 +1,11 @@
-"""Renders with Movie Render Queue, in the editor (PIE executor): image sequences plus the mixed audio, deferred
-(Lumen) or path-traced, with temporal/spatial samples and console variables for quality."""
+"""Renders with Movie Render Queue: image sequences plus the mixed audio, deferred (Lumen) or path-traced, with
+temporal/spatial samples and console variables for quality. In the editor (PIE executor), or in a separate game
+process the editor starts (`executor="process"`): a crash there does not take the editor down, and the editor is free
+for the next shot while it renders."""
 from __future__ import annotations
 
 import os
+import sys
 
 import unreal
 
@@ -21,9 +24,11 @@ QUALITY_CVARS = {  # Lumen and shadows at film quality for a final
 @op("render.mrq")
 def mrq(sequence: str, level: str, out_dir: str, width: int = 1920, height: int = 1080, temporal: int = 8,
         spatial: int = 1, path_tracer: bool = False, quality: bool = True, cvars: dict | None = None, fmt: str = "png",
-        warmup: int = 32, name: str = "shot", start: int | None = None, end: int | None = None) -> dict:
+        warmup: int = 32, name: str = "shot", start: int | None = None, end: int | None = None,
+        executor: str = "pie") -> dict:
     """Start a Movie Render Queue job (returns at once; poll render.progress). Frames go to `out_dir` as
-    {frame}.png|exr|jpg, the audio as a wav; `start`/`end` (end exclusive) render part of the sequence."""
+    {frame}.png|exr|jpg, the audio as a wav; `start`/`end` (end exclusive) render part of the sequence. `executor`:
+    "pie" (in this editor) or "process" (a separate -game process; offscreen where the editor has no desktop)."""
     mq = unreal.get_editor_subsystem(unreal.MoviePipelineQueueSubsystem)
     if mq.is_rendering():
         raise RuntimeError("a render is already running")
@@ -58,8 +63,25 @@ def mrq(sequence: str, level: str, out_dir: str, width: int = 1920, height: int 
         for k, v in cv.items():
             cvs.add_or_update_console_variable(k, float(v))
     os.makedirs(out_dir, exist_ok=True)
-    mq.render_queue_with_executor(unreal.MoviePipelinePIEExecutor)
-    return {"out_dir": out_dir, "started": True}
+    if executor == "process":
+        _offscreen_child()
+        mq.render_queue_with_executor(unreal.MoviePipelineNewProcessExecutor)
+    elif executor == "pie":
+        mq.render_queue_with_executor(unreal.MoviePipelinePIEExecutor)
+    else:
+        raise ValueError(f"executor {executor!r}: pie or process")
+    return {"out_dir": out_dir, "started": True, "executor": executor}
+
+
+def _offscreen_child():
+    """The new-process executor starts the game with the project's 'Additional Command Line Arguments' (Project
+    Settings > Movie Render Pipeline): with no desktop it must render offscreen too."""
+    if sys.platform == "win32":
+        return
+    st = unreal.get_default_object(unreal.MoviePipelineInProcessExecutorSettings)
+    args = st.get_editor_property("additional_command_line_arguments") or ""
+    if "-RenderOffscreen" not in args:
+        st.set_editor_property("additional_command_line_arguments", (args + " -RenderOffscreen").strip())
 
 
 @op("render.progress")

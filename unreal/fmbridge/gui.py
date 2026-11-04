@@ -13,10 +13,15 @@ import ctypes
 import os
 import struct
 import subprocess
+import sys
 import tempfile
 import time
 import zlib
-from ctypes import wintypes
+
+if sys.platform != "win32":  # no desktop to drive: the server answers /gui and /screen with 501
+    raise ImportError("fmbridge.gui drives a Windows desktop; this editor runs on " + sys.platform)
+
+from ctypes import wintypes  # noqa: E402
 
 user32 = ctypes.windll.user32
 gdi32 = ctypes.windll.gdi32
@@ -177,12 +182,3 @@ def screenshot_png() -> bytes:
     rgb[0::3], rgb[1::3], rgb[2::3] = bgra[2::4], bgra[1::4], bgra[0::4]
     return _png(w, h, bytes(rgb))
 
-
-def log_tail(logs: str, lines: int = 200) -> str:
-    files = sorted((os.path.join(logs, f) for f in os.listdir(logs) if f.endswith(".log")), key=os.path.getmtime)
-    if not files:
-        return ""
-    with open(files[-1], "rb") as f:
-        f.seek(0, 2)
-        f.seek(max(0, f.tell() - 400 * lines))
-        return "\n".join(f.read().decode("utf-8", "replace").splitlines()[-lines:])

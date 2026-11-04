@@ -15,8 +15,12 @@ from pathlib import Path
 
 from . import workstation as ws
 
-STATE = Path.home() / ".config" / "film-ue.tunnel.json"
-TOKEN = Path.home() / ".config" / "film-ue.token"
+def _tunnel_file() -> Path:  # per box (FILM_UE_BOX), beside its settings
+    return ws.state_path("tunnel.json")
+
+
+def _token_file() -> Path:
+    return ws.state_path("token")
 
 
 def _port_open(port: int) -> bool:
@@ -28,42 +32,44 @@ def _port_open(port: int) -> bool:
 def tunnel(local: int | None = None) -> int:
     """Start (or reuse) the SSM port-forward to the bridge; returns the local port."""
     c = ws.conf()
-    local = local or c["port"]
+    local = local or c["local_port"]
     if _port_open(local):
         return local
     if not shutil.which("session-manager-plugin"):
         raise SystemExit("the AWS Session Manager plugin is needed: https://docs.aws.amazon.com/systems-manager/latest/"
                          "userguide/session-manager-working-with-install-plugin.html")
-    log = open(Path.home() / ".config" / "film-ue.tunnel.log", "w")
+    log = open(ws.state_path("tunnel.log"), "w")
     p = subprocess.Popen(["aws", "ssm", "start-session", "--region", c["region"], "--target", c["instance"],
                           "--document-name", "AWS-StartPortForwardingSession", "--parameters",
                           json.dumps({"portNumber": [str(c["port"])], "localPortNumber": [str(local)]})],
                          stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-    STATE.write_text(json.dumps({"pid": p.pid, "port": local}))
+    _tunnel_file().write_text(json.dumps({"pid": p.pid, "port": local}))
     for _ in range(60):
         if _port_open(local):
             return local
         if p.poll() is not None:
-            raise SystemExit("the tunnel exited: " + (Path.home() / ".config" / "film-ue.tunnel.log").read_text()[-500:])
+            raise SystemExit("the tunnel exited: " + ws.state_path("tunnel.log").read_text()[-500:])
         time.sleep(0.5)
     raise SystemExit("the tunnel did not open in 30 s")
 
 
 def close_tunnel() -> None:
-    if STATE.exists():
+    if _tunnel_file().exists():
         try:
-            os.killpg(json.loads(STATE.read_text())["pid"], signal.SIGTERM)
+            os.killpg(json.loads(_tunnel_file().read_text())["pid"], signal.SIGTERM)
         except (ProcessLookupError, PermissionError, KeyError):
             pass
-        STATE.unlink()
+        _tunnel_file().unlink()
 
 
 def token(refresh: bool = False) -> str:
-    if TOKEN.exists() and not refresh:
-        return TOKEN.read_text().strip()
-    t = ws.ps(f"Get-Content '{ws.conf()['project_dir']}\\Saved\\fmbridge.token' -Raw").strip()
-    TOKEN.write_text(t)
-    TOKEN.chmod(0o600)
+    if _token_file().exists() and not refresh:
+        return _token_file().read_text().strip()
+    t = ws.read_text(ws.project("Saved", "fmbridge.token")).strip()
+    if not t:
+        raise SystemExit("no bridge token on the workstation yet: is the editor running? (film-ue editor status)")
+    _token_file().write_text(t)
+    _token_file().chmod(0o600)
     return t
 
 
