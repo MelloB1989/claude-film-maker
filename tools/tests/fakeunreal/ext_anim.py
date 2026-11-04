@@ -178,11 +178,17 @@ class MetaHumanPerformance(core.Object):
         self._props["blocking"] = blocking
 
     def start_pipeline(self, is_scripted=True):
+        """EStartPipelineErrorType; a test makes it fail with `ue.mh_solve = "NO_FRAMES"` (or "hang": it never
+        finishes)."""
         self._props["started"] = True
-        return "EPipelineExitStatus.OK"
+        mode = vars(core._fake()).get("mh_solve", "NONE")  # (getattr on the fake answers a stub)
+        return core.EnumValue("StartPipelineErrorType", "NONE" if mode == "hang" else mode)
 
     def is_processing(self):
-        return False
+        return vars(core._fake()).get("mh_solve", "") == "hang"
+
+    def cancel_pipeline(self):
+        self._props["cancelled"] = True
 
     def get_number_of_processed_frames(self):
         snd = self._props.get("audio")

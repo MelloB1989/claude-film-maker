@@ -573,3 +573,21 @@ def test_on_emphasis_places_things_on_the_stressed_words():
     assert ev["t"] == pytest.approx(1.2 - 0.15)
     with pytest.raises(ValueError):
         S.at_s({"on_emphasis": 1}, [])
+
+
+def test_long_audio_is_cut_in_pauses(tmp_path):
+    segs = []
+    for _ in range(9):  # 9 phrases of 4 s with 0.5 s pauses: 40.5 s
+        segs += [(4.0, 0.4), (0.5, 0.0)]
+    p = _wav(tmp_path / "long.wav", segs)
+    env = AU.Envelope.from_wav(p)
+    cuts = AU.split_points(env, max_s=10.0, min_s=3.0)
+    assert cuts and all(b - a <= 10.0 + 1e-6 for a, b in zip([0.0] + cuts, cuts + [env.duration_s]))
+    for c in cuts:  # each cut in a pause (4.0-4.5, 8.5-9.0, ... every 4.5 s)
+        assert 4.0 - 0.1 <= c % 4.5 <= 4.5 + 0.1 or c % 4.5 < 0.1
+    out = AU.write_chunk(p, str(tmp_path / "c.wav"), 4.5, 9.0)
+    assert abs(AU.Envelope.from_wav(out).duration_s - 4.5) < 0.02
+    assert AU.split_points(env, max_s=60) == []
+    flap = AU.lip_flap(AU.Envelope.from_wav(out))
+    jaw = flap["CTRL_expressions_jawOpen"]
+    assert max(jaw[1]) > 0.2 and C.at(*jaw, 4.3) < 0.05  # open while talking, shut in the pause

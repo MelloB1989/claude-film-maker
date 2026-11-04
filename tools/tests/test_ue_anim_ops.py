@@ -246,3 +246,42 @@ def test_perf_apply_solves_spoken_lines_then_converges(ue, fmb, monkeypatch, tmp
     r = run_op("perf.apply", spec=spec)
     assert [x["op"] for x in r["ran"]] == ["perf.solve", "perf.compose"]
     assert calls
+
+
+def _face_mesh(ue):
+    return ue.skeletal_mesh("/Game/MH/Face/FaceMesh", FACE_SKEL)
+
+
+def test_speech_to_face_solves_or_says_why(ue, fmb, tmp_path):
+    from fmbridge.errors import OpError
+    _face_mesh(ue)
+    w = wav(tmp_path / "l.wav", 3.0)
+    r = run_op("speech.to_face", wav=w, name="l", face_mesh="/Game/MH/Face/FaceMesh")
+    assert r["anim"] == "/Game/Speech/Anim/AS_l" and r["chunks"] == 1 and not r["fallback"]
+    with pytest.raises(OpError) as e:
+        run_op("speech.to_face", wav=str(tmp_path / "nope.wav"), name="x", face_mesh="/Game/MH/Face/FaceMesh")
+    assert e.value.code == "not_found" and "push" in e.value.hint
+    ue.mh_solve = "NO_FRAMES"
+    with pytest.raises(OpError) as e:
+        run_op("speech.to_face", wav=w, name="l2", face_mesh="/Game/MH/Face/FaceMesh", fallback=False)
+    assert e.value.code == "engine" and "NO_FRAMES" in e.value.message and e.value.hint
+    r = run_op("speech.to_face", wav=w, name="l3", face_mesh="/Game/MH/Face/FaceMesh")
+    assert r["fallback"] and r["errors"] and ue.assets["/Game/Speech/Anim/AS_l3"]._data["curves"]["CTRL_expressions_jawOpen"]
+    ue.mh_solve = "hang"
+    with pytest.raises(OpError) as e:
+        run_op("speech.to_face", wav=w, name="l4", face_mesh="/Game/MH/Face/FaceMesh", fallback=False, timeout_s=0.0001)
+    assert e.value.code == "timeout"
+    assert ue.dialogs == []
+
+
+def test_speech_to_face_chunks_long_audio(ue, fmb, tmp_path):
+    _face_mesh(ue)
+    w = wav(tmp_path / "long.wav", 25.0)  # phrases of 0.7 s, pauses of 0.3 s every second
+    r = run_op("speech.to_face", wav=w, name="long", face_mesh="/Game/MH/Face/FaceMesh", max_chunk_s=10.0)
+    assert r["chunks"] == 3 and not r["fallback"]
+    a = ue.assets["/Game/Speech/Anim/AS_long"]
+    t, _ = a._data["curves"]["CTRL_expressions_jawOpen"]
+    assert t[0] < 0.1 and t[-1] > 24.0 and t == sorted(t)  # three solves stitched end to end
+    assert a.length_s == pytest.approx(25.0, abs=0.1)
+    assert [p for p in ue.assets if p.startswith("/Game/Speech/Chunks/Anim/AS_long_c")] == [
+        f"/Game/Speech/Chunks/Anim/AS_long_c0{k}" for k in range(3)]

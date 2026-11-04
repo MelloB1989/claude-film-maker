@@ -48,6 +48,16 @@ strip jumps at each gaze shift and then drifts back as the head catches up; blin
 shift; brows rise on the stressed words. `perf.face ... plot=/tmp/x.png` writes the same for its result.
 A sample: [img/perf_plot_sample.png](img/perf_plot_sample.png) (perfkit alone, 10 s, four gaze shifts, a warm mood).
 
+**Long or flaky audio.** `speech.to_face` cuts recordings longer than `max_chunk_s` (40 s) in pauses, solves each
+chunk (under `{folder}/Chunks`) and stitches one animation; each solve has a time budget (`timeout_s`, default
+60 s + 20 x its length) and is cancelled past it. A failed solve raises `engine`/`timeout` with the reason and a
+hint when `fallback=false`; by default that part becomes a loudness-driven lip flap and the result says
+`"fallback": true` with `errors` (re-solve later; perf.face still adds head, eyes and blinks over it).
+```bash
+film-ue op speech.to_face wav=/home/ue/Audio/monologue.wav name=mono face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh max_chunk_s=30
+```
+Check: `chunks`, `fallback` false, `errors` empty.
+
 **Calibrate once per face skeleton** (makes the head/eye signs exact; until then perfkit guesses).
 ```bash
 film-ue op perf.calibrate label=Ada            # the face must be Sequencer-driven (mh.drive_face); ~20 s
@@ -260,6 +270,8 @@ reflected names; an out-parameter comes back as the return value.
 |---|---|---|---|
 | `AnimationCurveIdentifier().set_curve_identifier(name, RCT_FLOAT)` (ref-self) | `UAnimationCurveIdentifierExtensions::SetCurveIdentifier` (GetCurveIdentifier is deprecated in 5.8) | Engine/Source/Runtime/Engine/Classes/Animation/AnimData/CurveIdentifier.h:150-152 | yes |
 | `ControlRig.get_hierarchy().get_controls()` | `URigHierarchy::GetControlKeys` (ScriptName GetControls) | Engine/Plugins/Animation/ControlRig/Source/ControlRig/Public/Rigs/RigHierarchy.h:1181 | yes |
+| `MetaHumanPerformance.start_pipeline(True)` -> `StartPipelineErrorType` (NONE, NO_FRAMES, DISABLED) | `StartPipeline`, `EStartPipelineErrorType` | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformance.h:486, :65 | yes |
+| `MetaHumanPerformance.is_processing() / cancel_pipeline() / get_number_of_processed_frames()` | `IsProcessing` / `CancelPipeline` / `GetNumberOfProcessedFrames` | MetaHumanPerformance.h:492 / :489 / :563 | yes |
 | `unreal.AnimationLibrary.get_animation_curve_names` | `GetAnimationCurveNames` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:89 | yes |
 | `unreal.AnimationLibrary.get_float_keys` | `GetFloatKeys` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:456 | yes |
 | `unreal.AnimationLibrary.does_curve_exist` | `DoesCurveExist` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:514 | yes |
