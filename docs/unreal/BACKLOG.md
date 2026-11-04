@@ -42,7 +42,7 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B26 | Delivery presets: ProRes 422 HQ, H.264 web, 9:16 crop with safe-area check, burnt-in captions from SRT; ffmpeg argv generated from a spec | WP12 | M | merged (agent-03) |
 | B27 | MetaHuman spec round-trip: `film-ue describe character Host > host.yaml` and apply it to a fresh preset to get the same character (body, skin, hair, wardrobe) | WP3 | L | open |
 | B28 | Groom/hair tuning ops: density, width, melanin/redness, sky-lighting cvar guard (README trap) with numeric before/after | WP3/WP5 | S | open |
-| B29 | Face performance from text: `perf.speak` text → TTS file (client) → speech.to_face → seq.anim on the face, one call | WP4/WP12 | M | open |
+| B29 | Face performance from text: `perf.speak` text → TTS file (client) → speech.to_face → seq.anim on the face, one call | WP4/WP12 | M | claimed agent-03 |
 | B30 | Retargeting: `anim.retarget` a Mixamo/UE mannequin anim onto a MetaHuman body (IK retargeter assets made by code) | WP4 | L | open |
 | B31 | Pose library: `anim.pose` apply a named pose (sit, lean, hands on hips) via control rig or baked anim; numeric check of end-effector positions | WP4 | L | open |
 | B32 | Op call journal: every mutating op appends {op, args, result, ms} to Saved/fmbridge/journal.jsonl; `film-ue journal` shows it; replay a journal on a fresh level | WP1/WP11 | M | open |
