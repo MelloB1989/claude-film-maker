@@ -169,7 +169,7 @@ After `apply`, `remaining` must be `[]` and a second `plan` must be empty (`conv
 | editor property `hidden` | `bHidden`, EditAnywhere | Actor.h:365 |
 | `MeshComponent.set_material / get_num_materials`, `PrimitiveComponent.get_material` | | Components/MeshComponent.h:121, 118; Components/PrimitiveComponent.h:1566 |
 | editor property `static_mesh` | `UStaticMeshComponent::StaticMesh` | Components/StaticMeshComponent.h:133 |
-| `SystemLibrary.line_trace_single(world, start, end, TraceTypeQuery.TRACE_TYPE_QUERY1, complex, ignore, DrawDebugTrace.NONE, ignore_self)` → HitResult or None | `UKismetSystemLibrary::LineTraceSingle` | Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h:1270 |
+| `SystemLibrary.line_trace_single(world, start, end, TraceTypeQuery.ECC_VISIBILITY (TRACE_TYPE_QUERY1 as a deprecated fallback), complex, ignore, DrawDebugTrace.NONE, ignore_self)` → HitResult or None | `UKismetSystemLibrary::LineTraceSingle` | Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h:1270 |
 | `HitResult.to_tuple()`: (blocking_hit, initial_overlap, time, distance, location, impact_point, normal, …) | the `BreakHitResult` native break order | Runtime/Engine/Classes/Kismet/GameplayStatics.h:1078 |
 | `MathLibrary.find_look_at_rotation` | `UKismetMathLibrary::FindLookAtRotation` | Runtime/Engine/Classes/Kismet/KismetMathLibrary.h:2300 |
 | `DataLayerEditorSubsystem.get_all_data_layers / create_data_layer_instance / get_actors_from_data_layer / add_actors_to_data_layer / remove_actors_from_data_layer / set_data_layer_visibility / set_data_layer_is_loaded_in_editor / set_data_layer_is_initially_visible` | UFUNCTION BlueprintCallable | Editor/DataLayerEditor/Public/DataLayer/DataLayerEditorSubsystem.h:672, 612, 461, 255, 275, 497, 534, 650 |

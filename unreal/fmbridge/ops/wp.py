@@ -56,10 +56,8 @@ def _loaded_guids() -> dict:
 def _descs(box=None) -> list | None:
     """Actor descriptors as dicts; None when the editor level is not partitioned."""
     lib = _lib()
-    res = lib.get_intersecting_actor_descs(_box(*box)) if box else lib.get_actor_descs()
-    ok, raw = (res if isinstance(res, tuple) else (True, res))
-    if not ok and not raw:
-        return None
+    # a bool + out-param UFUNCTION comes back as None (false) or the out array (PyGenUtil.cpp:1161)
+    raw = lib.get_intersecting_actor_descs(_box(*box)) if box else lib.get_actor_descs()
     if not raw and not _partitioned():
         return None
     loaded = _loaded_guids()

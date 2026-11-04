@@ -104,21 +104,16 @@ def test_plan_clips_pure(fmb):
     assert abs(gain_to_db(db_to_gain(-6)) + 6) < 1e-9
 
 
-def test_selftest_passes_on_the_fake(ue, fmb):
+def test_selftest_passes_on_the_fake(ue, fmb, tmp_path):
+    """The selftest through WP11's real harness T (not a stand-in: its check/ok/idempotent signatures are the ones
+    the GPU box will call)."""
     import importlib
-
-    class T:
-        scratch = "/Game/_Selftest/audio"
-        results = []
-
-        def check(self, name, ok, **details):
-            self.results.append((name, bool(ok), details))
-
-    t = T()
+    from fmbridge import selftest as harness
+    t = harness.T("audio", str(tmp_path / "report"))
     importlib.import_module("fmbridge.selftest.audio").run(t)
-    failed = [(n, d) for n, ok, d in t.results if not ok]
-    assert len(t.results) >= 13 and failed == []
-
+    failed = [c for c in t.checks if not c["ok"]]
+    assert len(t.checks) >= 17 and failed == [], failed
+    assert {"audio.import", "audio.place", "audio.describe", "audio.lines", "audio.remove"} <= set(t.covered)
 
 def test_fades_are_keys_read_back_and_converge(ue, tmp_path, seq, fmb):
     from fmbridge.errors import OpError

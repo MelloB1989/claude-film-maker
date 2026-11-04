@@ -6487,7 +6487,7 @@
    "verb": "align",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 277,
+   "line": 285,
    "summary": "Line actors up along one axis by their bounds: their min edges, max edges or centres on a common value",
    "doc": "Line actors up along one axis by their bounds: their min edges, max edges or centres on a common value\n(`ref_cm`, the same edge of `ref_label`, or the group's extreme / mean).\n\nExample: film-ue op layout.align 'labels=[\"Book_00\",\"Book_01\",\"Book_02\"]' axis=y to=max",
    "params": [
@@ -6539,7 +6539,7 @@
    "verb": "array",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 184,
+   "line": 192,
    "summary": "Lay out `count` copies of an asset (or a basic shape) as a row, a grid or a circle, labelled",
    "doc": "Lay out `count` copies of an asset (or a basic shape) as a row, a grid or a circle, labelled\n`<prefix>_00`, `<prefix>_01`, ...; re-running moves the same actors, and a smaller count removes the extras.\n\nArgs: pattern: row (start + k * step_cm), grid (rows of `cols`, X by step_cm[0], Y by step_cm[1]) or circle\n(around `center`, radius_cm, from start_deg over arc_deg, counter-clockwise from above). face: none (yaw_deg),\ncenter (circle: each faces the centre), out (faces away). drop: rest each on what is under it.\nReturns: {\"changed\", \"labels\", \"made\", \"moved\", \"removed\"}.\nExample: film-ue op layout.array prefix=Chair asset=/Game/Props/SM_Chair pattern=circle count=6 \\\n         'center=[0,0,0]' radius_cm=120 face=center",
    "params": [
@@ -6708,7 +6708,7 @@
    "verb": "distribute",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 304,
+   "line": 312,
    "summary": "Space actors evenly along an axis, in the order given: centres from start_cm to end_cm (default: the first",
    "doc": "Space actors evenly along an axis, in the order given: centres from start_cm to end_cm (default: the first\nand last actors' current centres), or edge to edge `gap_cm` apart starting at the first one.\n\nExample: film-ue op layout.distribute 'labels=[\"A\",\"B\",\"C\",\"D\"]' axis=x gap_cm=20",
    "params": [
@@ -6760,7 +6760,7 @@
    "verb": "drop",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 57,
+   "line": 65,
    "summary": "Rest each actor on whatever is under it: its bounds' bottom on the highest support below its centre whose",
    "doc": "Rest each actor on whatever is under it: its bounds' bottom on the highest support below its centre whose\nfootprint overlaps (a table top, a rug, a riser), else on `floor_z`. Actors are dropped in the order given, so\nlist a table before the cup that sits on it.\n\nArgs: labels: actors to drop. floor_z: the floor height in cm (None for no floor: an actor over nothing stays\nput). gap_cm: lift above the support. mode: bounds (boxes, deterministic) or trace (a line trace down; needs\ncollision).\nReturns: {\"changed\": bool, \"moved\": {label: dz_cm}, \"unsupported\": [labels with nothing under them]}.\nExample: film-ue op layout.drop 'labels=[\"Desk\",\"Lamp\",\"Mug\"]'",
    "params": [
@@ -6812,7 +6812,7 @@
    "verb": "relative",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 96,
+   "line": 104,
    "summary": "Put `label` at an offset in another actor's frame: [forward, right, up] cm from `of` along its own yaw (a",
    "doc": "Put `label` at an offset in another actor's frame: [forward, right, up] cm from `of` along its own yaw (a\nchair 80 cm in front of a desk: offset_cm=[80, 0, 0]), then turn it and rest it on what is under it.\n\nArgs: face: toward (look at `of`), away, same (copy its yaw), none (keep), or fixed (use yaw_deg).\nReturns: {\"changed\", \"loc\", \"rot\"}.\nExample: film-ue op layout.relative label=Chair of=Desk 'offset_cm=[80,0,0]' face=toward",
    "params": [
@@ -6882,7 +6882,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 264,
+   "line": 272,
    "summary": "Remove every actor a layout.array / layout.scatter with this prefix made (by its tag, not by name).",
    "doc": "Remove every actor a layout.array / layout.scatter with this prefix made (by its tag, not by name).\n\nExample: film-ue op layout.remove prefix=Rock",
    "params": [
@@ -6906,7 +6906,7 @@
    "verb": "scatter",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 225,
+   "line": 233,
    "summary": "Scatter up to `count` copies of an asset over a rectangle, no two closer than min_dist_cm, deterministic for",
    "doc": "Scatter up to `count` copies of an asset over a rectangle, no two closer than min_dist_cm, deterministic for\na seed (Poisson disk), with random yaw and uniform scale in ranges; labelled `<prefix>_00`...; re-running with\nthe same seed gives the same layout, a new seed a new one.\n\nArgs: region: [[x0, y0], [x1, y1]] cm. exclude: rectangles to keep clear ([[x0, y0], [x1, y1]] each). avoid:\nactor labels whose footprints (plus min_dist_cm / 2) are kept clear. z: height before dropping. drop: rest each\non what is under it.\nReturns: {\"changed\", \"labels\", \"made\", \"moved\", \"removed\", \"placed\": n} (n < count when the region is full).\nExample: film-ue op layout.scatter prefix=Rock asset=/Game/Env/SM_Rock count=30 \\\n         'region=[[-1000,-1000],[1000,1000]]' min_dist_cm=150 seed=7 'avoid=[\"Path\"]'",
    "params": [
@@ -7057,7 +7057,7 @@
    "verb": "settle",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 345,
+   "line": 353,
    "summary": "Let props fall and come to rest under physics, then keep where they landed (a pile of books, a dropped",
    "doc": "Let props fall and come to rest under physics, then keep where they landed (a pile of books, a dropped\ncushion, a chair knocked over): runs Simulate in Editor for `seconds`, reads each actor's resting transform from\nthe simulated world and writes it back onto the editor actor. Multi-tick. The actors' meshes need collision, and\nso does what they land on.\n\nArgs: labels: actors to simulate (made Movable, physics on for the run; restored after unless keep_physics).\nseconds: simulated time to let them settle. start_timeout_s: how long to wait for Simulate to start.\nReturns: {\"changed\", \"moved\": {label: {\"loc\", \"rot\", \"dist_cm\"}}, \"still\": [labels that did not move > 0.5 cm]}.\nExample: film-ue op layout.settle 'labels=[\"Book_00\",\"Book_01\",\"Cushion\"]' seconds=3",
    "params": [
@@ -7106,7 +7106,7 @@
    "verb": "snap",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 325,
+   "line": 333,
    "summary": "Snap actor locations to a grid (X and Y; Z untouched) and, with yaw_step_deg, their yaw to multiples of it.",
    "doc": "Snap actor locations to a grid (X and Y; Z untouched) and, with yaw_step_deg, their yaw to multiples of it.\n\nExample: film-ue op layout.snap 'labels=[\"Desk\",\"Chair\"]' grid_cm=5 yaw_step_deg=15",
    "params": [
@@ -17697,7 +17697,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 116,
+   "line": 114,
    "summary": "The open level's partition: whether it is partitioned, its editor and runtime bounds, how many actors it has",
    "doc": "The open level's partition: whether it is partitioned, its editor and runtime bounds, how many actors it has\nand how many are loaded in the editor now, per runtime grid (data layers: level.layers).\n\nReturns: {\"partitioned\", \"editor_bounds\": {\"min\", \"max\", \"size_m\"}, \"runtime_bounds\", \"actors\", \"loaded\",\n\"spatially_loaded\", \"always_loaded\", \"editor_only\", \"grids\": {grid: count}, \"loaded_by_ops\": count}.\nExample: film-ue op wp.describe",
    "params": [],
@@ -17713,7 +17713,7 @@
    "verb": "find",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 135,
+   "line": 133,
    "summary": "Actors of the partitioned level, loaded or not (from their descriptors on disk): filter by label substring,",
    "doc": "Actors of the partitioned level, loaded or not (from their descriptors on disk): filter by label substring,\nclass name, a box [[x, y, z], [x, y, z]] in cm, or loaded state.\n\nReturns: {\"partitioned\", \"count\", \"actors\": [{\"label\", \"guid\", \"class\", \"bounds\", \"grid\", \"spatial\",\n\"editor_only\", \"data_layers\", \"loaded\"}]} (the first `limit`).\nExample: film-ue op wp.find contains=Tree loaded=false limit=20",
    "params": [
@@ -17765,7 +17765,7 @@
    "verb": "load",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 232,
+   "line": 230,
    "summary": "Load part of a World Partition level into the editor: the actors whose bounds meet a box (cm), what a camera",
    "doc": "Load part of a World Partition level into the editor: the actors whose bounds meet a box (cm), what a camera\nsees out to far_cm (its frustum, padded by pad_cm), what a sequence's cameras see through a shot (`sequence` with\n`frames` [start, end) sampled `every` frames, through the camera cuts), a sphere around a point, named actors, or\neverything. Waits (multi-tick) until they are in the editor world. `pin` also pins them.\n\nReturns: {\"partitioned\", \"changed\", \"requested\", \"newly_loaded\", \"already_loaded\", \"missing\": [labels that did\nnot appear], \"box\", \"cameras\" (with sequence)}.\nExample: film-ue op wp.load camera=Cam_A far_cm=8000",
    "params": [
@@ -17873,7 +17873,7 @@
    "verb": "unload",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 270,
+   "line": 268,
    "summary": "Unload actors that wp.load loaded (by label, by box, or all of them). Actors loaded by the editor's own regions",
    "doc": "Unload actors that wp.load loaded (by label, by box, or all of them). Actors loaded by the editor's own regions\n(or always loaded) stay: the library unloads only its own loads.\n\nReturns: {\"partitioned\", \"changed\", \"unloaded\", \"kept\": [labels not loaded by wp.load]}.\nExample: film-ue op wp.unload all=true",
    "params": [
