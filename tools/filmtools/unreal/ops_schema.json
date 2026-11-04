@@ -5654,7 +5654,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 234,
+   "line": 240,
    "summary": "The scatters in the project (or one): their arguments, seed, foliage types and instance counts as placed,",
    "doc": "The scatters in the project (or one): their arguments, seed, foliage types and instance counts as placed,\nand the foliage instances in the level now per mesh (`measured`), so a lost or doubled scatter shows.\n\nExample: film-ue op foliage.describe prefix=Lawn",
    "params": [
@@ -5681,7 +5681,7 @@
    "verb": "pcg",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 310,
+   "line": 316,
    "summary": "Run a PCG graph on an actor with a PCG component, with parameters and a seed, and wait until it has generated.",
    "doc": "Run a PCG graph on an actor with a PCG component, with parameters and a seed, and wait until it has generated.\nWith `loc` (and `extent_cm`, the half size) a PCG Volume named `label` is made there first if missing.\n\nArgs: graph: a PCG graph asset (/Game/...; keep the actor's own when \"\"). seed: the component's seed.\nparams: {graph parameter: value} (bool, int, float, string, [x, y, z], or an asset path).\nReturns: {\"label\", \"graph\", \"seed\", \"generated\", \"instances\": ISM instances on the actor, \"changed\"}.\nExample: film-ue op foliage.pcg label=PCG_Forest graph=/Game/PCG/PG_Forest seed=3 'params={\"Density\":0.6}'",
    "params": [
@@ -5752,7 +5752,7 @@
    "verb": "pcg_clear",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 362,
+   "line": 368,
    "summary": "Clear what a PCG component generated (and delete the actor with `delete`). Missing actors are fine.",
    "doc": "Clear what a PCG component generated (and delete the actor with `delete`). Missing actors are fine.\n\nExample: film-ue op foliage.pcg_clear label=PCG_Forest",
    "params": [
@@ -5787,7 +5787,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 260,
+   "line": 266,
    "summary": "Remove a scatter: its instances and its foliage types (removing nothing is fine).",
    "doc": "Remove a scatter: its instances and its foliage types (removing nothing is fine).\n\nExample: film-ue op foliage.remove prefix=Lawn",
    "params": [
@@ -5814,7 +5814,7 @@
    "verb": "scatter",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 132,
+   "line": 136,
    "summary": "Scatter meshes over a region as foliage instances, the same for the same seed; re-running converges (the",
    "doc": "Scatter meshes over a region as foliage instances, the same for the same seed; re-running converges (the\nscatter's own instances are replaced; nothing else is touched).\n\nArgs: prefix: the scatter's name (its foliage types live in /Game/_Foliage/<prefix>/). meshes: [{\"mesh\":\n\"/Game/...\", \"weight\": 1, \"scale\": [lo, hi], \"height_jitter\": [lo, hi], \"tilt_deg\": 0, \"yaw\": \"random\" | [lo, hi]\n| deg, \"z_offset_cm\": 0, \"align_to_normal\": false}]. region: {\"rect\": [[x0, y0], [x1, y1]]} | {\"circle\": [cx, cy,\nr]} | {\"ring\": [cx, cy, r0, r1]} | {\"polygon\": [[x, y], ...]} (cm). count, or density_per_m2. min_dist_cm:\nspacing (default from the density). exclude: regions to keep clear; exclude_actors: labels whose footprints\n(plus exclude_margin_cm) stay clear. patchiness 0..1 with patch_cm: clumps. surface: \"trace\" (drop onto what is\nbelow, between trace_from_z_cm and trace_to_z_cm; instances over nothing or steeper than max_slope_deg are\ndropped) or \"flat\" (at z_cm). cull_cm: [start, end] distance culling. force: rewrite even when unchanged.\nA multi-tick job (traces yield every 500).\nReturns: {\"prefix\", \"changed\", \"placed\", \"planned\", \"dropped\": {\"no_ground\", \"too_steep\"}, \"per_mesh\",\n\"types\", \"hash\", \"area_m2\"}.\nExample: film-ue op foliage.scatter prefix=Lawn seed=7 'meshes=[{\"mesh\":\"/Game/Env/SM_Grass\",\"scale\":[0.8,1.2]}]' 'region={\"rect\":[[-1000,-1000],[1000,1000]]}' density_per_m2=4",
    "params": [
@@ -6487,7 +6487,7 @@
    "verb": "align",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 285,
+   "line": 278,
    "summary": "Line actors up along one axis by their bounds: their min edges, max edges or centres on a common value",
    "doc": "Line actors up along one axis by their bounds: their min edges, max edges or centres on a common value\n(`ref_cm`, the same edge of `ref_label`, or the group's extreme / mean).\n\nExample: film-ue op layout.align 'labels=[\"Book_00\",\"Book_01\",\"Book_02\"]' axis=y to=max",
    "params": [
@@ -6539,7 +6539,7 @@
    "verb": "array",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 192,
+   "line": 185,
    "summary": "Lay out `count` copies of an asset (or a basic shape) as a row, a grid or a circle, labelled",
    "doc": "Lay out `count` copies of an asset (or a basic shape) as a row, a grid or a circle, labelled\n`<prefix>_00`, `<prefix>_01`, ...; re-running moves the same actors, and a smaller count removes the extras.\n\nArgs: pattern: row (start + k * step_cm), grid (rows of `cols`, X by step_cm[0], Y by step_cm[1]) or circle\n(around `center`, radius_cm, from start_deg over arc_deg, counter-clockwise from above). face: none (yaw_deg),\ncenter (circle: each faces the centre), out (faces away). drop: rest each on what is under it.\nReturns: {\"changed\", \"labels\", \"made\", \"moved\", \"removed\"}.\nExample: film-ue op layout.array prefix=Chair asset=/Game/Props/SM_Chair pattern=circle count=6 \\\n         'center=[0,0,0]' radius_cm=120 face=center",
    "params": [
@@ -6708,7 +6708,7 @@
    "verb": "distribute",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 312,
+   "line": 305,
    "summary": "Space actors evenly along an axis, in the order given: centres from start_cm to end_cm (default: the first",
    "doc": "Space actors evenly along an axis, in the order given: centres from start_cm to end_cm (default: the first\nand last actors' current centres), or edge to edge `gap_cm` apart starting at the first one.\n\nExample: film-ue op layout.distribute 'labels=[\"A\",\"B\",\"C\",\"D\"]' axis=x gap_cm=20",
    "params": [
@@ -6760,7 +6760,7 @@
    "verb": "drop",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 65,
+   "line": 58,
    "summary": "Rest each actor on whatever is under it: its bounds' bottom on the highest support below its centre whose",
    "doc": "Rest each actor on whatever is under it: its bounds' bottom on the highest support below its centre whose\nfootprint overlaps (a table top, a rug, a riser), else on `floor_z`. Actors are dropped in the order given, so\nlist a table before the cup that sits on it.\n\nArgs: labels: actors to drop. floor_z: the floor height in cm (None for no floor: an actor over nothing stays\nput). gap_cm: lift above the support. mode: bounds (boxes, deterministic) or trace (a line trace down; needs\ncollision).\nReturns: {\"changed\": bool, \"moved\": {label: dz_cm}, \"unsupported\": [labels with nothing under them]}.\nExample: film-ue op layout.drop 'labels=[\"Desk\",\"Lamp\",\"Mug\"]'",
    "params": [
@@ -6812,7 +6812,7 @@
    "verb": "relative",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 104,
+   "line": 97,
    "summary": "Put `label` at an offset in another actor's frame: [forward, right, up] cm from `of` along its own yaw (a",
    "doc": "Put `label` at an offset in another actor's frame: [forward, right, up] cm from `of` along its own yaw (a\nchair 80 cm in front of a desk: offset_cm=[80, 0, 0]), then turn it and rest it on what is under it.\n\nArgs: face: toward (look at `of`), away, same (copy its yaw), none (keep), or fixed (use yaw_deg).\nReturns: {\"changed\", \"loc\", \"rot\"}.\nExample: film-ue op layout.relative label=Chair of=Desk 'offset_cm=[80,0,0]' face=toward",
    "params": [
@@ -6882,7 +6882,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 272,
+   "line": 265,
    "summary": "Remove every actor a layout.array / layout.scatter with this prefix made (by its tag, not by name).",
    "doc": "Remove every actor a layout.array / layout.scatter with this prefix made (by its tag, not by name).\n\nExample: film-ue op layout.remove prefix=Rock",
    "params": [
@@ -6906,7 +6906,7 @@
    "verb": "scatter",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 233,
+   "line": 226,
    "summary": "Scatter up to `count` copies of an asset over a rectangle, no two closer than min_dist_cm, deterministic for",
    "doc": "Scatter up to `count` copies of an asset over a rectangle, no two closer than min_dist_cm, deterministic for\na seed (Poisson disk), with random yaw and uniform scale in ranges; labelled `<prefix>_00`...; re-running with\nthe same seed gives the same layout, a new seed a new one.\n\nArgs: region: [[x0, y0], [x1, y1]] cm. exclude: rectangles to keep clear ([[x0, y0], [x1, y1]] each). avoid:\nactor labels whose footprints (plus min_dist_cm / 2) are kept clear. z: height before dropping. drop: rest each\non what is under it.\nReturns: {\"changed\", \"labels\", \"made\", \"moved\", \"removed\", \"placed\": n} (n < count when the region is full).\nExample: film-ue op layout.scatter prefix=Rock asset=/Game/Env/SM_Rock count=30 \\\n         'region=[[-1000,-1000],[1000,1000]]' min_dist_cm=150 seed=7 'avoid=[\"Path\"]'",
    "params": [
@@ -7057,7 +7057,7 @@
    "verb": "settle",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 353,
+   "line": 346,
    "summary": "Let props fall and come to rest under physics, then keep where they landed (a pile of books, a dropped",
    "doc": "Let props fall and come to rest under physics, then keep where they landed (a pile of books, a dropped\ncushion, a chair knocked over): runs Simulate in Editor for `seconds`, reads each actor's resting transform from\nthe simulated world and writes it back onto the editor actor. Multi-tick. The actors' meshes need collision, and\nso does what they land on.\n\nArgs: labels: actors to simulate (made Movable, physics on for the run; restored after unless keep_physics).\nseconds: simulated time to let them settle. start_timeout_s: how long to wait for Simulate to start.\nReturns: {\"changed\", \"moved\": {label: {\"loc\", \"rot\", \"dist_cm\"}}, \"still\": [labels that did not move > 0.5 cm]}.\nExample: film-ue op layout.settle 'labels=[\"Book_00\",\"Book_01\",\"Cushion\"]' seconds=3",
    "params": [
@@ -7106,7 +7106,7 @@
    "verb": "snap",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 333,
+   "line": 326,
    "summary": "Snap actor locations to a grid (X and Y; Z untouched) and, with yaw_step_deg, their yaw to multiples of it.",
    "doc": "Snap actor locations to a grid (X and Y; Z untouched) and, with yaw_step_deg, their yaw to multiples of it.\n\nExample: film-ue op layout.snap 'labels=[\"Desk\",\"Chair\"]' grid_cm=5 yaw_step_deg=15",
    "params": [

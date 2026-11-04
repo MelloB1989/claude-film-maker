@@ -16,6 +16,7 @@ from . import _layout as L
 from . import op
 from ..errors import OpError
 from ._util import actor, actor_info, actors, bounds_box, eas, find_actor, set_tags, vec
+from ._util import visibility_channel as _visibility_channel  # noqa: F401 (foliage imports it from here)
 from ._util import tags as actor_tags
 from .assets import load
 from .level import SHAPES
@@ -37,14 +38,6 @@ def _supports(exclude: set) -> list:
             continue
         out.append(bounds_box(a))
     return out
-
-
-def _visibility_channel():
-    """The Visibility trace channel. Every TraceTypeQueryN is hidden in C++ (EngineTypes.h:1276) and the editor
-    re-exposes the mapped ones under ScriptName ECC_<channel> at start (CollisionProfile.cpp:499-512), so the live name
-    is ECC_VISIBILITY; TRACE_TYPE_QUERY1 survives only as a deprecated alias that warns on every call."""
-    q = unreal.TraceTypeQuery
-    return getattr(q, "ECC_VISIBILITY", None) or q.TRACE_TYPE_QUERY1
 
 
 def _trace_down(a, depth: float) -> float | None:
