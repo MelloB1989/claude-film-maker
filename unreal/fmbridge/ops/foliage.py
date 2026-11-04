@@ -85,10 +85,14 @@ def _ignore_list() -> list:
     return [a for a in actors() if isinstance(a, unreal.InstancedFoliageActor)]
 
 
-def _trace(world, x: float, y: float, z_from: float, z_to: float, ignore: list):
-    """(z, normal) of the first blocking surface straight down at (x, y), or None."""
+def _trace(world, x: float, y: float, z_from: float, z_to: float, ignore: list, channel=None):
+    """(z, normal) of the first blocking surface straight down at (x, y), or None. `channel`: the Visibility trace
+    channel (layout._visibility_channel: ECC_VISIBILITY live, TRACE_TYPE_QUERY1 only as a deprecated alias)."""
+    if channel is None:
+        from .layout import _visibility_channel
+        channel = _visibility_channel()
     hit = unreal.SystemLibrary.line_trace_single(world, unreal.Vector(x, y, z_from), unreal.Vector(x, y, z_to),
-                                                 unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, True, ignore,
+                                                 channel, True, ignore,
                                                  unreal.DrawDebugTrace.NONE, True)
     if not hit:
         return None
@@ -190,13 +194,15 @@ def scatter(*, prefix: str, meshes: list, region: dict, seed: int = 0, count: in
         unreal.InstancedFoliageActor.remove_all_instances(world, EAL.load_asset(t))
         EAL.delete_asset(t)
     ignore = _ignore_list() if surface == "trace" else []
+    from .layout import _visibility_channel
+    channel = _visibility_channel() if surface == "trace" else None
     xf: list = [[] for _ in meshes]
     no_ground = too_steep = 0
     for k, inst in enumerate(p["instances"]):
         m = meshes[inst["mesh"]]
         pitch, roll = inst["tilt"]
         if surface == "trace":
-            got = _trace(world, inst["x"], inst["y"], trace_from_z_cm, trace_to_z_cm, ignore)
+            got = _trace(world, inst["x"], inst["y"], trace_from_z_cm, trace_to_z_cm, ignore, channel)
             if got is None:
                 no_ground += 1
                 continue

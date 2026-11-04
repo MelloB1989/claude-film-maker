@@ -177,8 +177,9 @@ def fades_of(keys: list, start: int, end: int) -> tuple:
     fi = fo = 0
     if len(keys) >= 2 and keys[0][0] == start and keys[0][1] <= 1e-4 and keys[1][1] > 1e-4:
         fi = keys[1][0] - start
-    if len(keys) >= 2 and keys[-1][0] == end and keys[-1][1] <= 1e-4 and keys[-2][1] > 1e-4:
-        fo = end - keys[-2][0]
+    last = end - 1  # a section's range is end-exclusive: end - 1 is the last frame that plays
+    if len(keys) >= 2 and keys[-1][0] == last and keys[-1][1] <= 1e-4 and keys[-2][1] > 1e-4:
+        fo = last - keys[-2][0]
     return fi, fo
 
 
@@ -192,14 +193,16 @@ def _linear():
 
 
 def fade_keys(start: int, end: int, gain: float, fade_in: int, fade_out: int) -> list:
-    """Pure: the Volume keys [(frame, gain)] for a clip's fades (none without fades: the default holds the level)."""
+    """Pure: the Volume keys [(frame, gain)] for a clip's fades (none without fades: the default holds the level).
+    The fade-out reaches silence on end - 1, the last frame the end-exclusive section plays."""
     if not fade_in and not fade_out:
         return []
-    if fade_in < 0 or fade_out < 0 or fade_in + fade_out > end - start:
+    last = end - 1
+    if fade_in < 0 or fade_out < 0 or fade_in + fade_out > last - start:
         raise OpError(f"fades of {fade_in}+{fade_out} frames do not fit a {end - start}-frame clip at {start}",
                       code="bad_args", hint="shorten the fades or lengthen the clip")
     keys = [(start, 0.0), (start + fade_in, gain)] if fade_in else [(start, gain)]
-    keys += [(end - fade_out, gain), (end, 0.0)] if fade_out else [(end, gain)]
+    keys += [(last - fade_out, gain), (last, 0.0)] if fade_out else [(last, gain)]
     return [k for i, k in enumerate(keys) if i == 0 or k[0] != keys[i - 1][0]]
 
 

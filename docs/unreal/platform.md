@@ -156,7 +156,7 @@ HTTP (what the client speaks): `POST /op`, `POST /exec` (`{"async": true}` retur
 `GET /job?id=`, `GET /jobs?state=&name=&limit=`, `POST /job/cancel`, `GET /health`, `GET|PUT /file?path=`,
 `GET /log?lines=`; `/screen` and `/gui` only on a Windows desktop. Every request carries the token from
 `Saved/fmbridge.token` (compared in constant time). JSON requests are capped at 32 MB and a `PUT /file` at 4 GB
-(413 above). `/file` paths must be absolute and inside the project, the temp folder or the editor user's home:
+(413 above). `/file` paths must be absolute and inside the project, the temp folder, the editor user's home or (Linux) `/srv`:
 `FMBRIDGE_FILE_ROOTS` (os.pathsep-separated) adds roots, and anything else is 403.
 
 ### Plugins, console variables and project settings

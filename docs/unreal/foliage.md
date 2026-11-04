@@ -93,6 +93,7 @@ Verified on the UE 5.8.4 source box.
 | `FoliageType.cull_distance` (Int32Interval `min`/`max`), `cast_shadow` | Runtime/Foliage/Public/FoliageType.h:296,304; CoreUObject/Public/UObject/NoExportTypes.h:2486,2490 | yes |
 | `FoliageType_InstancedStaticMeshFactory` (create_asset) | Editor/FoliageEdit/Private/FoliageTypeFactory.h:24 | yes |
 | `InstancedStaticMeshComponent.get_instance_count`, `get_instance_transform`, `static_mesh` | Engine/Classes/Components/InstancedStaticMeshComponent.h:435,338 | yes |
+| `TraceTypeQuery.ECC_VISIBILITY` (live name; every TraceTypeQueryN is UMETA(Hidden), re-exposed at editor start under ScriptName ECC_<channel>; TRACE_TYPE_QUERY1 is a warning alias), through layout._visibility_channel | Runtime/Engine/Classes/Engine/EngineTypes.h:1276; Runtime/Engine/Private/Collision/CollisionProfile.cpp:499-512 | yes (agent-13's note) |
 | `SystemLibrary.line_trace_single` (bool + out hit: Python returns the hit or None), `HitResult.to_tuple` (BreakHitResult order) | Engine/Classes/Kismet/KismetSystemLibrary.h:1270 | yes |
 | `EditorAssetLibrary.list_assets`, `does_directory_exist`, `delete_directory`, `delete_asset`, `set_metadata_tag`, `get_metadata_tag` | Plugins/Editor/EditorScriptingUtilities/.../EditorAssetLibrary.h:328,301,156,144,385,376 | yes |
 | `PCGVolume.pcg_component` | Plugins/PCG/Source/PCG/Public/PCGVolume.h:29 | yes |

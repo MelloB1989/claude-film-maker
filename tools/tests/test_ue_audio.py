@@ -104,21 +104,16 @@ def test_plan_clips_pure(fmb):
     assert abs(gain_to_db(db_to_gain(-6)) + 6) < 1e-9
 
 
-def test_selftest_passes_on_the_fake(ue, fmb):
+def test_selftest_passes_on_the_fake(ue, fmb, tmp_path):
+    """The selftest through WP11's real harness T (not a stand-in: its check/ok/idempotent signatures are the ones
+    the GPU box will call)."""
     import importlib
-
-    class T:
-        scratch = "/Game/_Selftest/audio"
-        results = []
-
-        def check(self, name, ok, **details):
-            self.results.append((name, bool(ok), details))
-
-    t = T()
+    from fmbridge import selftest as harness
+    t = harness.T("audio", str(tmp_path / "report"))
     importlib.import_module("fmbridge.selftest.audio").run(t)
-    failed = [(n, d) for n, ok, d in t.results if not ok]
-    assert len(t.results) >= 13 and failed == []
-
+    failed = [c for c in t.checks if not c["ok"]]
+    assert len(t.checks) >= 17 and failed == [], failed
+    assert {"audio.import", "audio.place", "audio.describe", "audio.lines", "audio.remove"} <= set(t.covered)
 
 def test_fades_are_keys_read_back_and_converge(ue, tmp_path, seq, fmb):
     from fmbridge.errors import OpError
@@ -133,6 +128,8 @@ def test_fades_are_keys_read_back_and_converge(ue, tmp_path, seq, fmb):
     with pytest.raises(OpError, match="do not fit"):
         run_op("audio.place", sequence=seq, clips=[{**clips[0], "fade_in_frames": 40}], track="Music")
     assert fade_keys(0, 48, 1.0, 0, 0) == [] and fades_of(fade_keys(10, 58, 0.5, 4, 0), 10, 58) == (4, 0)
+    assert fade_keys(0, 48, 1.0, 0, 6)[-1] == (47, 0.0)  # silent on the last frame played (ranges end-exclusive)
+    assert fades_of(fade_keys(0, 48, 1.0, 6, 6), 0, 48) == (6, 6)
 
 
 def test_adding_a_line_twice_does_not_duplicate(ue, tmp_path, seq):

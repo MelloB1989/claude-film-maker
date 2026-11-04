@@ -252,8 +252,16 @@ def run(t):                 # may be a generator: yield ticks the editor once, y
   `ClientT` with check/ok/note/metric/skip, `t.scratch = /Game/_Selftest/<area>_client`): run by `film-ue selftest`
   after the bridge phase. Use it for what only the client can test (specs through the SDK, the CLI). Clean up with
   `ue.call("selftest.cleanup", area="<area>_client")`.
-- Unit-test your selftest on the fake: `run_op("selftest.run", area="<area>", out_dir=str(tmp_path))` and assert the
-  report has no failures that the fake can judge (see `tests/test_ue_dx_selftest.py`).
+- Every selftest is dry-run on the fake by one parametrized test (B45, `tools/tests/test_ue_selftest_dryrun.py`):
+  the real harness, every capability forced on, stills faked (t.still, look.still and seq.still write a grey PNG),
+  baselines off. An area passes when the report has no errors, it ends `done` within 90 s (or `skipped` for engine
+  content the fake lacks: `SKIPS`), and every failed check is one only a real renderer or engine can judge
+  (`FAKE_ONLY`, by check name). A new module is picked up with no change there; one that needs more of the fake gets a
+  `SETUP[area]` function (fake assets, a job registry tick, World Partition descriptors). No run may open a modal
+  dialog. Owners' extra terms are there too: `REQUIRED` (named checks that must run and pass), `COVERAGE` (every op
+  under the area's prefixes called, but the ones named) and `OPS_REQUIRED`. Rename a check that is in one of these
+  and rename it there too. `KNOWN` holds a broken selftest (strict xfail, while a telltale text is still in its
+  source) until its owner fixes it. The per-area dry-run tests it replaced were removed with their owners' OK.
 
 ## 6. CLI hooks for other areas
 

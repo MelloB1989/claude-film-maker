@@ -79,6 +79,21 @@ def test_still_adhoc_and_errors(scene, tmp_path):
     assert rig_gone(scene)
 
 
+def test_still_rt_format_names(scene, tmp_path):
+    """Python spells the formats in upper case (RTF_RGBA8_SRGB), any case is taken; a float target would export EXR
+    bytes into the .png (ExportRenderTarget picks by format), so a still refuses it."""
+    from fmbridge.errors import OpError
+    r = run_op("view.still", out=str(tmp_path / "s.png"), camera="CamWide", width_px=32, height_px=18, warmup=0,
+               rt_format="rtf_rgba8_srgb")
+    assert open(r["path"], "rb").read(4) == b"\x89PNG"
+    for bad in ("RTF_RGBA16f", "RTF_RGBA32F", "RGBA8_LINEAR"):
+        with pytest.raises(OpError) as e:
+            run_op("view.still", out=str(tmp_path / "f.png"), camera="CamWide", width_px=32, height_px=18,
+                   rt_format=bad)
+        assert e.value.code == "bad_args" and "RTF_RGBA8" in e.value.candidates
+    assert rig_gone(scene)
+
+
 def test_turntable_and_sheet(scene, tmp_path):
     r = run_op("view.turntable", target="Ada", out_dir=str(tmp_path / "tt"), views=4, width_px=48, height_px=48,
                warmup=0, isolate=True)

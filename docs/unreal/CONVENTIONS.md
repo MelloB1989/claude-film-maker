@@ -259,3 +259,19 @@ are the shared helpers. Import them and do not copy them.
 - No secrets, no engine source (EULA), and no binaries over about 1 MB. Stills for docs go under
   `docs/unreal/img/`, small JPGs.
 - NO AWS tonight (operator's order). The only remote you touch is the read-only UE source box.
+
+## 12. Python return shapes of engine calls (settled tonight, from the source)
+
+PythonScriptPlugin `PyGenUtil.cpp` `PackReturnValues` (5.8.4, ~line 1162):
+
+- **No outputs:** the call returns `None`.
+- **A `bool` return plus out params:** the call returns `None` when the bool is false. Otherwise it returns the out
+  value(s) without the bool: a bare value when there is one out param, a tuple when there are several.
+  Examples:
+  - `InterchangeManager.import_asset` → `None` or the list of objects.
+  - `AssetData.get_tag_value` → `None` or the string.
+  - `SystemLibrary.line_trace_single` → `None` or the HitResult.
+- **Any other return type plus out params:** the call returns a tuple `(return, out1, ...)`.
+- **A struct's `to_tuple()`:** follows its native Break function's parameter order.
+
+Write fakes to the same shapes. A fake that returns a friendlier shape hides the bug until the GPU box.
