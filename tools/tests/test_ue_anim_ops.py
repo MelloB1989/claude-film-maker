@@ -285,3 +285,17 @@ def test_speech_to_face_chunks_long_audio(ue, fmb, tmp_path):
     assert a.length_s == pytest.approx(25.0, abs=0.1)
     assert [p for p in ue.assets if p.startswith("/Game/Speech/Chunks/Anim/AS_long_c")] == [
         f"/Game/Speech/Chunks/Anim/AS_long_c0{k}" for k in range(3)]
+
+
+def test_gaze_lock_reads_both_section_offsets(ue, fmb):
+    """gaze_lock maps sequence frames to seconds into the animation with StartFrameOffset + FirstLoopStartFrameOffset
+    (the engine sums them); seq.anim writes the clip offset to StartFrameOffset."""
+    import unreal
+    from fmbridge.ops.anim import section_offset_s
+    p = unreal.MovieSceneSkeletalAnimationParams()
+    p.set_editor_property("start_frame_offset", unreal.FrameNumber(12000))   # 0.5 s at 24000 ticks/s
+    p.set_editor_property("first_loop_start_frame_offset", unreal.FrameNumber(0))
+    assert section_offset_s(p, 24000.0) == pytest.approx(0.5)
+    p.set_editor_property("first_loop_start_frame_offset", unreal.FrameNumber(6000))
+    assert section_offset_s(p, 24000.0) == pytest.approx(0.75)
+    assert section_offset_s(None, 24000.0) == 0.0

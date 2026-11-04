@@ -164,6 +164,21 @@ def _await_change(measure, frame: int, bone: str, before: list, timeout: float =
         yield 0.5
 
 
+def section_offset_s(params, tick: float) -> float:
+    """Seconds into the animation where a skeletal animation section starts playing: StartFrameOffset +
+    FirstLoopStartFrameOffset (tick-resolution frames), summed as the engine maps time
+    (MovieSceneSkeletalAnimationSection.cpp:72-78). seq.anim writes the clip offset to StartFrameOffset."""
+    off = 0.0
+    if params is None:
+        return off
+    for k in ("start_frame_offset", "first_loop_start_frame_offset"):
+        try:
+            off += params.get_editor_property(k).value / tick
+        except Exception:
+            pass
+    return off
+
+
 @op("anim.gaze_lock", mutates=True, idempotent=True, tags=["slow"])
 def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str = "", component: str = "Face",
               saccades: float = 0.5, seed: int = 3, every: int = 2, iterations: int = 2, target=None,
@@ -205,12 +220,7 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str 
     prm = sec.get_editor_property("params") if sec else None
     rate = prm.get_editor_property("play_rate") if prm else 1.0
     rate = rate.to_fixed_play_rate() if hasattr(rate, "to_fixed_play_rate") else rate  # a time-warp variant since 5.5
-    off = 0.0  # the engine maps time with both offsets summed (MovieSceneSkeletalAnimationSection.cpp:72-78)
-    for k in ("start_frame_offset", "first_loop_start_frame_offset"):
-        try:
-            off += prm.get_editor_property(k).value / tick
-        except Exception:
-            pass
+    off = section_offset_s(prm, tick)
 
     def at(f):  # seconds into the animation at sequence frame f
         return off + (f - s0) / fps * rate
