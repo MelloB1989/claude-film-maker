@@ -965,11 +965,16 @@ def meter(*, camera: str, width: int = 192, height: int = 108, exposure_ev100: f
         e = _exposure_summary(_read_post()[0])
         exposure_ev100 = e.get("ev100")
     caps = yield from _captures(cam, int(width), int(height))
+    if METER_OFFSET_STOPS:
+        k = 2.0 ** -METER_OFFSET_STOPS
+        caps["scene"] = [(r * k, g * k, b * k) for r, g, b in caps["scene"]]
     return {"camera": camera, "fov_deg": round(_fov_of(cam), 3), "region": region,
             "scene": ST.scene_stats(_crop(caps["scene"], int(width), int(height), region), exposure_ev100),
             "display": ST.display_stats(_crop(caps["display"], int(width), int(height), region))}
 
 
+# Day-1 calibration constants (docs/unreal/environment.md: Day-1 triage). The selftest measures both on the box:
+METER_OFFSET_STOPS = 0.0  # selftest metric meter_offset_stops: what SceneColorHDR reads above the photometric truth
 MID_GREY_DISPLAY = 0.46  # what 0.18 scene grey reads as after Unreal's filmic curve, sRGB (selftest: grey_card_display)
 
 
