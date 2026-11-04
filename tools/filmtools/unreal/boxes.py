@@ -31,6 +31,7 @@ from pathlib import Path
 
 from . import workstation as ws
 from . import transport
+from .boxpaths import BoxPaths
 
 ROOT = Path(__file__).resolve().parents[3]
 LINUX = ROOT / "unreal" / "linux"
@@ -88,11 +89,14 @@ def _on(name: str):
             os.environ["FILM_UE_BOX"] = old
 
 
-def user_data(ttl_until: int, idle_min: int, stall_min: int, project_dir: str = "", user: str = "ubuntu") -> str:
-    """The first-boot script: the watchdog and its timer, its settings, and the TTL backstop. Under EC2's 16 KB."""
+def user_data(ttl_until: int, idle_min: int, stall_min: int, project_dir: str = "", user: str = "ubuntu",
+              on_exit: list | None = None) -> str:
+    """The first-boot script: the watchdog and its timer, its settings, and the TTL backstop. Under EC2's 16 KB.
+    `on_exit`: shell commands the watchdog runs (as root) before an idle or TTL power-off."""
     wd = base64.b64encode(gzip.compress((LINUX / "ue_watchdog.py").read_bytes(), mtime=0)).decode()
     cfg = {"ttl_until": ttl_until, "idle_min": idle_min, "stall_min": stall_min,
-           "token": f"{project_dir}/Saved/fmbridge.token" if project_dir else ""}
+           "token": BoxPaths("linux", project_dir).token() if project_dir else "",  # a new box is Linux
+           "on_exit": list(on_exit or [])}
     left = max(60, ttl_until - int(time.time()))
     units = {"ue-watchdog.service": (LINUX / "ue-watchdog.service").read_text(),
              "ue-watchdog.timer": (LINUX / "ue-watchdog.timer").read_text()}
@@ -110,6 +114,29 @@ def user_data(ttl_until: int, idle_min: int, stall_min: int, project_dir: str = 
     if len(text.encode()) > 16000:
         raise SystemExit(f"user-data is {len(text)} bytes; EC2 takes 16 KB")
     return text
+
+
+def _ddc_save_as_user(base: dict, region: str) -> str:
+    """The DDC save (sync.ddc_script) for the box's editor user, from a profile's settings (no box needed yet)."""
+    import shlex
+    from . import sync
+    if not base.get("project_dir") or not (base.get("bucket") or base.get("ddc_s3")):
+        raise SystemExit("--save-ddc-on-exit needs --like a profile with project_dir and bucket (or ddc_s3)")
+    with _temp_conf({**base, "region": region, "os": "linux"}):
+        script = sync.ddc_script("save")
+    user = base.get("user", "ubuntu")
+    return f"runuser -u {shlex.quote(user)} -- bash -lc {shlex.quote(script)}"
+
+
+@contextlib.contextmanager
+def _temp_conf(conf: dict):
+    """workstation.conf() answering `conf` for a moment (to build a script for a box that has no profile yet)."""
+    saved = ws.conf
+    ws.conf = lambda: {**ws.DEFAULTS, **ws.LINUX_DEFAULTS, **conf}
+    try:
+        yield
+    finally:
+        ws.conf = saved
 
 
 def _instance_rows(desc: dict) -> list[dict]:
@@ -145,8 +172,10 @@ def _find(name: str, region: str, aws) -> dict | None:
 def up(name: str, *, instance_type: str = DEFAULT_TYPE, ttl: str = "4h", idle: str = "20m", stall: str = "15m",
        spot: bool = False, ami: str = "", subnet: str = "", security_group: str = "", iam_profile: str = "ue-workstation",
        volume_gb: int = 300, key_name: str = "", like: str = "", region: str = "", wait: bool = True, aws=None,
-       sleep=time.sleep, log=print) -> dict:
-    """Launch a temporary box (or return the one already running under this name) and make its profile."""
+       save_ddc_on_exit: bool = False, sleep=time.sleep, log=print) -> dict:
+    """Launch a temporary box (or return the one already running under this name) and make its profile.
+    `save_ddc_on_exit`: before an idle or TTL power-off, the watchdog saves the DDC (compiled shaders) to S3 (the
+    `--like` profile's bucket/ddc_s3), so the next box starts warm."""
     if not re.match(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,40}$", name):
         raise SystemExit(f"box name {name!r}: letters, digits, - and _")
     base = _profile(like) if like else {}
@@ -165,6 +194,9 @@ def up(name: str, *, instance_type: str = DEFAULT_TYPE, ttl: str = "4h", idle: s
     if not ami:
         ami = aws("ssm", "get-parameter", "--name", UBUNTU_AMI_PARAM)["Parameter"]["Value"]
     project_dir = base.get("project_dir", "")
+    on_exit = []
+    if save_ddc_on_exit:
+        on_exit.append(_ddc_save_as_user(base, region))
     tags = [{"Key": TAG, "Value": name}, {"Key": "Name", "Value": f"film-ue-{name}"},
             {"Key": "film-ue:ttl-until", "Value": str(ttl_until)},
             {"Key": "film-ue:owner", "Value": f"{getpass.getuser()}@{socket.gethostname()}"}]
@@ -176,7 +208,7 @@ def up(name: str, *, instance_type: str = DEFAULT_TYPE, ttl: str = "4h", idle: s
                 "VolumeSize": int(volume_gb), "VolumeType": "gp3", "DeleteOnTermination": True}}]),
             "--tag-specifications", json.dumps([{"ResourceType": "instance", "Tags": tags},
                                                 {"ResourceType": "volume", "Tags": tags}]),
-            "--user-data", user_data(ttl_until, idle_min, stall_min, project_dir, base.get("user", "ubuntu"))]
+            "--user-data", user_data(ttl_until, idle_min, stall_min, project_dir, base.get("user", "ubuntu"), on_exit)]
     if spot:  # a spot box is terminated on interruption, never stopped: its profile then simply finds nothing
         args += ["--instance-market-options", json.dumps({"MarketType": "spot", "SpotOptions": {
             "SpotInstanceType": "one-time", "InstanceInterruptionBehavior": "terminate"}})]

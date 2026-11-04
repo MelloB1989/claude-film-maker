@@ -112,7 +112,8 @@ moves everything after it by 24 frames (animation inside at half rate; audio mov
 | `seq.conform(path, fps, keep=time\|frames, out)` | change the display rate keeping time or frames | yes / yes |
 | `seq.time(value, fps, path)` | conversions | no |
 
-Older ops (`ops/seq.py`, kept with their signatures; WP7's `cam.*`/`shot.*` call them): `seq.new`, `seq.shot`,
+Older ops (`ops/seq.py`, kept with their signatures and results, now a thin layer: every write goes through
+seqcore's `write_track`, `seq.cuts`/`seq.set_anim` read through `describe`; pinned by `tests/test_ue_seq_legacy.py`): `seq.new`, `seq.shot`,
 `seq.key_transform`, `seq.key_float`, `seq.key_color`, `seq.key_visible`, `seq.key_material`, `seq.key_collection`,
 `seq.anim`, `seq.audio`, `seq.camera_cuts`, `seq.cuts`, `seq.rebind`, `seq.tracks`, `seq.set_anim`, `seq.scrub`,
 `seq.close`, `seq.sample` (bones by ticking, for rigs that settle), `seq.still`, `seq.stills` (stills through the cut).
@@ -286,5 +287,9 @@ State at the end of the night (agent-06, branch `fleet/agent-06/ue-sequencer`, m
   fix: reading colour / vector / byte channels by order (`_engine._channels`), the material section's colour-channel
   grouping, `get_start_frame` rounding of off-frame sections after a conform (the fake floors).
 - Not done: writing event tracks (read only: needs a director-blueprint endpoint), camera-shake / data-layer tracks
-  (listed as unsupported); the older `ops/seq.py` ops still write key by key in-process (one call per track, not
-  routed through `seqcore`; WP7 now uses seq.apply).
+  (listed as unsupported); `seq.anim`'s `loop: false` still does nothing in 5.8 (no
+  hold-last-frame field), as before.
+- Later the same night: `ops/seq.py` became a layer over seqcore (one engine path; B01's helpers from `_util`). Its
+  results are pinned against the old implementation (golden `tools/tests/data/seq_legacy_golden.json`); three
+  differences are on purpose (anim offset now StartFrameOffset, play rate via make_time_warp, collection keys by
+  FName) and listed in that test.

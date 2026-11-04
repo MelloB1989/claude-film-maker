@@ -41,14 +41,13 @@ from . import head as H
 
 KIND, VERSION = "performance", 1
 TOP = {"kind", "version", "name", "description", "sequence", "actor", "face_component", "body_component", "camera",
-       "targets", "library", "character", "face", "body", "lines", "actions", "default_gaze", "default_mood",
+       "targets", "library", "character", "face", "lines", "actions", "default_gaze", "default_mood",
        "start_s", "seed", "fps"}
 LINE = {"id", "start_s", "gap_s", "audio", "face_anim", "duration_s", "text", "mood", "intensity", "solver_mood",
-        "emphasis", "gaze", "gestures", "expressions", "nods", "tilts", "listen", "energy", "blink"}
+        "emphasis", "gaze", "gestures", "expressions", "nods", "tilts", "listen"}
 CHARACTER = {"facing_offset_deg", "lead", "head", "energy", "auto_turn_deg", "eye_micro_deg", "signs"}
 FACE = {"out", "layers", "solver_head", "blink_mode", "mouth_mix", "camera_lock", "solve_folder", "brow_chance",
         "beat_every", "tail_s"}
-BODY = {"idle", "gestures", "walks", "blend_s"}
 ACTION = {"at_s", "walk_to", "path", "speed_cm_s", "turn_to", "end_facing"}
 
 
@@ -73,7 +72,7 @@ def validate(spec: dict) -> list:
             _err(errs, k, "required string")
     if isinstance(spec.get("sequence"), str) and not spec["sequence"].startswith("/"):
         _err(errs, "sequence", "an Unreal package path (/Game/...)")
-    for sub, allowed in (("character", CHARACTER), ("face", FACE), ("body", BODY)):
+    for sub, allowed in (("character", CHARACTER), ("face", FACE)):
         for k in sorted(set(spec.get(sub) or {}) - allowed):
             _err(errs, f"{sub}.{k}", f"unknown key (allowed: {', '.join(sorted(allowed))})")
     lead = (spec.get("character") or {}).get("lead", "eyes")
@@ -92,10 +91,11 @@ def validate(spec: dict) -> list:
         w = f"lines[{ln.get('id', i)}]"
         for k in sorted(set(ln) - LINE):
             _err(errs, f"{w}.{k}", f"unknown key (allowed: {', '.join(sorted(LINE))})")
-        if "id" in ln:
-            if ln["id"] in ids:
-                _err(errs, f"{w}.id", "duplicate")
-            ids.add(ln["id"])
+        if "id" not in ln:
+            _err(errs, w, "needs an id (it names the line's speech solve)")
+        elif ln["id"] in ids:
+            _err(errs, f"{w}.id", "duplicate")
+        ids.add(ln.get("id"))
         if not (ln.get("audio") or ln.get("face_anim") or ln.get("duration_s")):
             _err(errs, w, "needs audio, face_anim or duration_s")
         mood = ln.get("mood")
@@ -110,8 +110,9 @@ def validate(spec: dict) -> list:
         for n in ln.get("nods") or []:
             if not isinstance(n, dict) or "at_s" not in n:
                 _err(errs, f"{w}.nods", "each needs at_s")
-            elif n.get("kind", "yes") not in H.Nod.KINDS:
-                _err(errs, f"{w}.nods", f"kind one of {', '.join(H.Nod.KINDS)}")
+            elif H.Nod.ALIASES.get(n.get("kind", "nod"), n.get("kind", "nod")) not in H.Nod.KINDS:
+                _err(errs, f"{w}.nods", f"kind one of {', '.join(H.Nod.KINDS)} (a bare YAML yes/no is a boolean: "
+                                        "write nod/shake)")
         for g in ln.get("gaze") or []:
             if not isinstance(g, dict) or "target" not in g:
                 _err(errs, f"{w}.gaze", "each needs a target (and at_s, default 0)")

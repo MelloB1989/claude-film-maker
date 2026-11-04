@@ -1,0 +1,12 @@
+# Lights only (a lighting spec: no sky or post): a noir rig on a character, a streetlight and a neon sign.
+kind: lighting
+version: 1
+name: alley
+rigs:
+  Detective: {subject: Detective, facing_yaw_deg: 180, preset: noir, key_lux: 600}
+practicals:
+  StreetLamp: {type: streetlight, loc: [300, 200, 600]}
+  Neon: {type: neon, loc: [-150, 400, 280], look_at: [0, 0, 160], color: [0.1, 0.9, 1.0]}
+lights:
+  Bounce: {kind: rect, loc: [0, -300, 40], look_at: [0, 0, 160], lux: 15, width_cm: 300, height_cm: 100,
+           temperature_k: 3500, shadows: false}

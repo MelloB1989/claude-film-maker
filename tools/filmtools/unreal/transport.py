@@ -27,7 +27,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 
 KINDS = ("ssm", "ssh", "local")
 
@@ -61,8 +61,9 @@ class Transport:
         return self.os == "linux"
 
     def path(self, *parts: str) -> str:
-        """A path on the box, joined in its own style."""
-        return str((PurePosixPath if self.linux else PureWindowsPath)(*parts))
+        """A path on the box, joined in its own style (boxpaths.BoxPaths.join)."""
+        from .boxpaths import BoxPaths
+        return BoxPaths("linux" if self.linux else "windows", "").join(*parts)
 
     def as_user(self, script: str) -> str:
         """A bash script run as the editor's user (files it writes belong to the editor) instead of root."""

@@ -13,6 +13,7 @@ shell on the box. cli.py finds this module (cli_<area>.py), calls register(sub) 
     film-ue provision --engine-s3 S3 --version 5.8.4 --project-src s3://...|win:PATH --project NAME [--level L]
                       [--epic-s3 S3] [--watchdog-ttl 4h --idle 20m --stall 15m]
     film-ue desktop on|off
+    film-ue first-run [--restart] [--from STEP] [--epic] [--voice FILE] [--status]   the new-box checklist (resumable)
     film-ue sh 'COMMAND' [--root] [--timeout S]      run it in the box's own shell (bash or PowerShell)
 
 Every command prints JSON (or plain text for logs). A command another module already registered is left to it."""
@@ -53,6 +54,8 @@ def register(sub) -> None:
         u.add_argument("--key-name", default="")
         u.add_argument("--region", default="")
         u.add_argument("--no-wait", action="store_true")
+        u.add_argument("--save-ddc-on-exit", action="store_true", help="the watchdog saves the DDC to S3 before an "
+                                                                         "idle or TTL power-off (needs --like)")
         bs.add_parser("ls").add_argument("--region", default="")
         for n in ("status", "keepalive"):
             bs.add_parser(n).add_argument("name")
@@ -101,6 +104,15 @@ def register(sub) -> None:
     p = _add(sub, "desktop", help="a temporary desktop (VNC through SSM) for a one-off sign-in")
     if p:
         p.add_argument("state", choices=("on", "off"))
+    p = _add(sub, "first-run", help="the resumable checklist for a new box (prints the next command on a failure)")
+    if p:
+        p.add_argument("--restart", action="store_true", help="from the first step again")
+        p.add_argument("--from", dest="from_step", default="", help="from this step (settings, reach, editor, bridge, "
+                                                                     "shaders, doctor, epic, selftest, demo0)")
+        p.add_argument("--epic", action="store_true", help="run the Epic sign-in if there is none (prints a code)")
+        p.add_argument("--voice", default="", help="the demo's voice line (a WAV) to put on the box")
+        p.add_argument("--status", action="store_true", help="where it stopped last time")
+        p.add_argument("--json", action="store_true")
     p = _add(sub, "sh", help="run a command in the box's own shell")
     if p:
         p.add_argument("command")
@@ -131,7 +143,8 @@ def dispatch(a) -> bool:
             _out(boxes.up(a.name, instance_type=a.instance_type, ttl=a.ttl, idle=a.idle, stall=a.stall, spot=a.spot,
                           ami=a.ami, subnet=a.subnet, security_group=a.security_group, iam_profile=a.iam_profile,
                           volume_gb=a.volume_gb, key_name=a.key_name, like=a.like, region=a.region,
-                          wait=not a.no_wait, log=lambda m: print(m, file=sys.stderr)))
+                          wait=not a.no_wait, save_ddc_on_exit=a.save_ddc_on_exit,
+                          log=lambda m: print(m, file=sys.stderr)))
         elif b == "ls":
             _out(boxes.ls(a.region or None))
         elif b == "status":
@@ -183,6 +196,11 @@ def dispatch(a) -> bool:
         _linux_only("desktop")
         from . import linuxbox
         _out(linuxbox.desktop(a.state == "on"))
+    elif cmd == "first-run":
+        from . import firstrun
+        code = firstrun.main_args(a)
+        if code:
+            raise SystemExit(code)
     elif cmd == "sh":
         _out(ws.transport().run(a.command, a.timeout, root=a.root))
     return True

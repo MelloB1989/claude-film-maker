@@ -118,3 +118,17 @@ def test_cli_verbs_do_not_shadow_op_verbs():
     cli_src = (ROOT / "tools/filmtools/unreal/render.py").read_text()
     subs = set(re.findall(r'sub\.add_parser\("(\w+)"', cli_src))
     assert verbs and subs and not verbs & subs, verbs & subs
+
+
+def test_pixel_qa_finds_nan_inf_negative_and_fireflies():
+    np = pytest.importorskip("numpy")
+    img = np.full((32, 32, 3), 0.18, dtype=np.float32)
+    clean = cli.pixel_qa(img)
+    assert clean == {"nan": 0, "inf": 0, "negative": 0, "hot": 0, "max": pytest.approx(0.18)}
+    img[3, 4] = np.nan
+    img[10, 10, 1] = np.inf
+    img[20, 20] = -0.5
+    img[25, 25] = 40.0  # a lone hot sample
+    img[0:4, 28:32] = 50.0  # a bright light: a patch, not a firefly
+    q = cli.pixel_qa(img)
+    assert (q["nan"], q["inf"], q["negative"], q["hot"]) == (1, 1, 1, 1) and q["max"] == 50.0

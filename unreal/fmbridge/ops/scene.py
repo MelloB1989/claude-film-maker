@@ -42,6 +42,7 @@ def _state_of(a, prop_keys=(), rest: bool = False) -> dict:
     info = actor_info(a)
     s = {k: info[k] for k in ("class", "loc", "rot", "scale", "tags", "folder", "hidden")}
     s["mesh"] = info.get("mesh", "")
+    s["blueprint"] = info.get("blueprint", "")
     s["materials"] = _materials(a)
     s["props"] = {}
     for k in prop_keys:

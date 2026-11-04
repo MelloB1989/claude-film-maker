@@ -292,3 +292,13 @@ def test_doccheck_finds_a_bad_flag(tmp_path):
                  "film-ue --box b seq new --path ...\n```\n")
     probs = doccheck.check([p])
     assert [x[3].split(" (")[0] for x in probs] == ["level.move has no --lable", "no op level.mvoe"]
+
+
+def test_sdk_job_lost_is_an_operror():
+    answers = iter([{"ok": True, "job": "j1"}, {"id": "j1", "state": "lost", "done": True, "ok": False,
+                                                 "code": "job_lost", "message": "the editor restarted", "hint": "h"}])
+    ue = Unreal(transport=lambda k, p, t: next(answers))
+    job = ue.call("seq.stills", wait=False, path="/Game/S", frames=[1])
+    with pytest.raises(OpError) as e:
+        job.wait(every=0)
+    assert e.value.code == "job_lost" and e.value.hint == "h"

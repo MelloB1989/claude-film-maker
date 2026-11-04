@@ -9,6 +9,7 @@
     actor.py       mh.components, mh.drive_face, mh.import_garment, mh.dress, mh.leader, mh.leader_check, mh.attach,
                    mh.clip_check, mh.cloth_inflate, mh.garment
     spec.py        mh.apply (converge to a `character` spec), mh.export (a character as a spec)
+    cast.py        mh.variants (N distinct characters from a seed: background extras; pure generator _cast.py)
 
 The guide is docs/unreal/metahuman.md. `from fmbridge.ops import mh` keeps working: the legacy names are here.
 """
@@ -25,6 +26,7 @@ from .build import build, can_build, preview  # noqa: F401
 from .actor import (attach, clip_check, cloth_inflate, components, dress, drive_face, garment,  # noqa: F401
                     import_garment, leader, leader_check)
 from .spec import apply, export  # noqa: F401
+from .cast import variants  # noqa: F401
 
 _char = _core.char  # legacy helper names (films/ and old exec'd scripts)
 

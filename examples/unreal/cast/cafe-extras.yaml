@@ -1,0 +1,26 @@
+# Six background extras for a cafe: mixed sex and age, varied build, skin tone and hair; men sometimes bearded.
+# Shape-only here (rig: none): check the contact sheet (mh.variants preview=true, then view.stills + view.sheet),
+# then switch rig to full to rig, texture and build them all (one Epic sign-in per box).
+kind: cast
+version: 1
+name: cafe-extras
+seed: 7
+count: 6
+folder: /Game/Characters/Extras
+prefix: Cafe
+presets: {female: [Ada, Vivian], male: [Jorge]}
+sex: any
+age: [22, 70]
+height_cm: {female: [156, 176], male: [166, 190]}
+fat: [-2, 1.5]
+muscularity: [-1, 1.2]
+skin_tone: {u: [0.15, 0.85], v: [0.3, 0.65]}
+hair:
+  female: [WI_Hair_L_Straight]
+  male: [WI_Hair_S_BuzzCut]
+  melanin: [0.1, 1.0]
+  redness: [0.0, 0.4]
+beard: {chance: 0.4, items: [WI_Beard_S_Stubble]}
+outfits: [WI_Outfit_Casual]
+rig: none
+build: false

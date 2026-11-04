@@ -25,9 +25,9 @@ from __future__ import annotations
 
 import json
 import shlex
-from pathlib import PurePosixPath
 
 from . import workstation as ws
+from .boxpaths import BoxPaths
 
 PROJECT_EXCLUDES = ("Saved/*", "Intermediate/*", "DerivedDataCache/*", "Binaries/*", "*/Binaries/*",
                     "*/Intermediate/*", ".vs/*", "*.sln", "*.code-workspace")
@@ -42,10 +42,7 @@ def _bucket() -> str:
 
 
 def project_name() -> str:
-    pd = ws.conf().get("project_dir") or ""
-    if not pd:
-        raise SystemExit("no project dir set: film-ue set --project-dir /srv/ue/projects/<Name>")
-    return PurePosixPath(pd.replace("\\", "/")).name
+    return BoxPaths.current().name()
 
 
 def project_s3() -> str:
@@ -81,7 +78,7 @@ def ddc_script(direction: str, version: str = "") -> str:
     s3, region = ddc_s3(version), shlex.quote(c["region"])
     engine = c.get("engine_dir") or "/srv/ue/engine"
     pairs = [(ZEN, f"{s3}/zen-data"), (f"{engine}/Engine/DerivedDataCache", f"{s3}/engine-ddc"),
-             (f"{c['project_dir']}/DerivedDataCache", f"{s3}/project-ddc")]
+             (BoxPaths.current().ddc(), f"{s3}/project-ddc")]
     lines = []
     for local, remote in pairs:
         q_local = f'"{local}"'  # $HOME expands on the box

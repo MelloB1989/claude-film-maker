@@ -50,7 +50,7 @@ def install(fake):
         return a
 
     def _spawn(d):
-        a = fake.spawn("StaticMeshActor", label=d["label"])
+        a = fake.spawn(d.get("cls", "StaticMeshActor"), label=d["label"])
         a.set_editor_property("actor_guid", d["guid"])
 
     def _meets(d, box):

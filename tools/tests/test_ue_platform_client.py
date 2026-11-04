@@ -163,3 +163,36 @@ def test_too_big_a_request_is_refused_and_a_bad_token_is_401(bridge, monkeypatch
     with pytest.raises(urllib.error.HTTPError) as e:
         urllib.request.urlopen(req, timeout=5)
     assert e.value.code == 401
+
+
+class ClientT:
+    """Enough of WP11's ClientT for the client phase."""
+
+    def __init__(self):
+        self.checks, self.notes, self.metrics = [], [], {}
+        self.prefix, self.scratch = "ST_platform_", "/Game/_Selftest/platform_client"
+
+    def check(self, name, got, want, tol=1e-3):
+        self.checks.append((name, got == want, got, want))
+
+    def ok(self, name, cond, detail=""):
+        self.checks.append((name, bool(cond), detail, None))
+
+    def note(self, text):
+        self.notes.append(text)
+
+    def metric(self, name, value, unit=""):
+        self.metrics[name] = value
+
+
+def test_the_client_phase_selftest_passes_against_the_real_server(bridge, monkeypatch):
+    from filmtools.unreal import editorsvc
+    from filmtools.unreal.selftests import platform as st
+    # systemd is not here: the service view is stubbed; everything else runs for real over HTTP and the local shell
+    monkeypatch.setattr(editorsvc, "status", lambda: {"bridge": client.health(), "unit": {"active": "active"}})
+    monkeypatch.setattr(editorsvc, "crashes", lambda n=5: [])
+    t = ClientT()
+    st.run(None, t)
+    failed = [c for c in t.checks if not c[1]]
+    assert not failed, failed
+    assert len(t.checks) >= 12
