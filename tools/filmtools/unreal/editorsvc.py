@@ -2,7 +2,7 @@
 
     film-ue editor status            unit state, restarts, the bridge's health, the last crash, the watchdog's view
     film-ue editor start|stop|restart [--wait]     (Linux: systemd; the first start compiles shaders for a while)
-    film-ue editor restart --once-args "-AUTH_TYPE=exchangecode -AUTH_PASSWORD=..."   extra arguments for one start
+    film-ue editor restart --once-args="-AUTH_TYPE=exchangecode -AUTH_PASSWORD=..."   extra arguments for one start
     film-ue editor log [N] [--journal]             the editor's own log, or the unit's journal
     film-ue editor crashes [N]                     crash reports: when, the exception, the fatal line
 
