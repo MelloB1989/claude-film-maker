@@ -24,7 +24,7 @@ STANDING = {  # a 170 cm adult at the origin, facing +X: the bones the framing s
     "ball_l": [12, -10, 2], "ball_r": [12, 10, 2], "FACIAL_L_Eye": [8, -3, 165], "FACIAL_R_Eye": [8, 3, 165]}
 
 # (kind, name) -> why it cannot converge on the fake (empty when everything converges)
-KNOWN: dict = {}
+KNOWN: dict = {}  # was ("scene", "demo-set"): a Blueprint actor respawned every apply; fixed in WP6 (blueprint match)
 
 
 def _box_content(ue, fmb, tmp_path, monkeypatch, docs_vars):
@@ -35,25 +35,21 @@ def _box_content(ue, fmb, tmp_path, monkeypatch, docs_vars):
     monkeypatch.setattr(mhcore, "signed_in", lambda: True)          # the Epic sign-in (epic-login on the box)
     ue.skeletal_mesh(docs_vars["face_mesh"], docs_vars["face_mesh"] + "_Skeleton")
     idle = ue.anim(docs_vars["idle"], length_s=7.0, skeleton="/Game/MH/Body/BodyMesh_Skeleton")  # the engine's idle
-    idle._props["sequence_length"] = 7.0  # ext_anim's AnimSequence has no sequence_length yet (told agent-01)
+    if "sequence_length" not in idle._props:  # older ext_anim without it
+        idle._props["sequence_length"] = 7.0
 
     host_bp = docs_vars["host_bp"]
     orig = core.EditorActorSubsystem.spawn_actor_from_object
 
     def spawn(self, obj, location=None, rotation=None, transient=False):
-        """A built MetaHuman Blueprint spawns with its Body and Face skeletal mesh components."""
+        """A built MetaHuman Blueprint spawns (as an actor of its class) with Body and Face skeletal meshes."""
+        a = orig(self, obj, location, rotation, transient)
         if getattr(obj, "get_path_name", lambda: "")().split(".")[0] == host_bp:
-            a = ue.metahuman("__mh", face_mesh=docs_vars["face_mesh"])
-            # an actor of the Blueprint's generated class (BP_Host_C), as the engine spawns it: scene.state reports
-            # that Blueprint, so the set converges instead of respawning the host
-            a.__class__ = core._AutoMeta(host_bp.rsplit("/", 1)[-1] + "_C", (type(a),),
-                                         {"__module__": "unreal", "_bp_path": host_bp})
+            for name, mesh in (("Body", "/Game/MH/Body/BodyMesh"), ("Face", docs_vars["face_mesh"])):
+                c = a.add_component(core.SkeletalMeshComponent, name)
+                c._props["skeletal_mesh_asset"] = ue.assets.get(mesh) or ue.skeletal_mesh(mesh, mesh + "_Skeleton")
             ue.pose(a, STANDING)
-            if location is not None:
-                a.set_actor_location(location, False, False)
-            a._props["spawned_from"] = obj
-            return a
-        return orig(self, obj, location, rotation, transient)
+        return a
     monkeypatch.setattr(core.EditorActorSubsystem, "spawn_actor_from_object", spawn)
 
     class Perf(core.Object):
@@ -79,11 +75,12 @@ def _box_content(ue, fmb, tmp_path, monkeypatch, docs_vars):
         def export_animation_sequence(perf, st):
             path = f"{st.get_editor_property('package_path')}/{st.get_editor_property('asset_name')}"
             a = ue.anim(path, length_s=3.0, skeleton=docs_vars["face_mesh"] + "_Skeleton")
-            a._props["sequence_length"] = 3.0
+            a._props.setdefault("sequence_length", 3.0)
             return a
-    ue.MetaHumanPerformance = Perf
-    ue._classes["MetaHumanPerformance"] = Perf
-    ue.MetaHumanPerformanceExportUtils = Export
+    if "MetaHumanPerformance" not in ue._classes:  # ext_anim has its own since agent-01's 15c0d5b: use it then
+        ue.MetaHumanPerformance = Perf
+        ue._classes["MetaHumanPerformance"] = Perf
+        ue.MetaHumanPerformanceExportUtils = Export
 
     wav = tmp_path / "demo_line.wav"
     with wave.open(str(wav), "wb") as w:
