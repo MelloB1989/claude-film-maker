@@ -53,6 +53,9 @@ Arguments are keyword-only and spelled as the op spells them (`rot_`, `cls`); a 
 (`ue.assets.import_`). `_wait` and `_timeout` are the SDK's own. An argument left out takes the op's default ON THE
 BRIDGE (the SDK sends only what you pass). Argument names are checked against the schema before anything is sent.
 
+Worked scripts: [examples/unreal/sdk](../../examples/unreal/sdk/README.md) (level and set, light + exposure check, a
+MetaHuman, a camera by shot grammar + framing check, a 2 s render).
+
 **Converge the editor to a spec**
 ```bash
 film-ue plan --kinds                  # the kinds; film-ue plan --kinds actor: its fields, types, defaults, units
@@ -79,6 +82,7 @@ film-ue dx check    # exit 1 when they are stale (tests/test_ue_dx.py fails too)
 film-ue dx lint     # ops that are hard for an agent: no docstring, untyped required args, not area.verb, broken;
                     # kind schemas without descriptions or with additionalProperties not false
 film-ue dx docs     # every `film-ue <area> <verb> --flag` line in the docs parses against the op schema
+film-ue dx sdk      # every ue.<area>.<verb>(...) / ue.call("a.v") in examples/ and films/*/unreal/ matches the schema
 ```
 `film-ue dx gen` is a merge-conflict magnet: when two branches both regenerated, take either side and run it again.
 
@@ -93,7 +97,7 @@ film-ue dx docs     # every `film-ue <area> <verb> --flag` line in the docs pars
 | `film-ue plan SPEC... [--state FILE] [--only K] [--set N=V] [--json]` | the steps |
 | `film-ue apply SPEC... [--dry-run] [--stop] [--only K] [--set N=V] [--json]` | converge and verify |
 | `film-ue selftest [AREA...\|all] [--list] [--keep] [--out DIR] [--no-pull] [--json]` | acceptance tests |
-| `film-ue dx gen\|check\|lint\|docs` | the generated layers; op/schema lint; doc commands against the schema |
+| `film-ue dx gen\|check\|lint\|docs\|sdk [FILE...]` | the generated layers; op/schema lint; doc commands against the schema |
 
 Bridge ops of this area: `selftest.list`, `selftest.run` (multi-tick), `selftest.cleanup`. `ops.schema` / `ops.broken` /
 `list` are the lead's (ops/__init__.py).
@@ -312,5 +316,5 @@ State (fleet/agent-13/ue-dx, merged into ue-helpers by the lead as it lands):
   (it prints at the end; use `--json` and read `items`); the SDK's Job polls every 2 s (WP1's client.wait with
   on_progress could replace it); kind schemas of other WPs are validated only for what jsonschema_lite supports
   (no `if/then`, `dependentRequired`, `format`).
-- Backlog: B10 scratch context DONE (ops/_scratch.py). Claimed: B32 op journal, B34 SDK example scripts, B35 GUIDE
-  recipes with expected JSON.
+- Backlog: B10 scratch context DONE (ops/_scratch.py); B34 SDK examples DONE (examples/unreal/sdk, `dx sdk` checker).
+  Claimed: B32 op journal, B35 GUIDE recipes with expected JSON.

@@ -45,7 +45,8 @@ def register(sub) -> None:
     s.add_argument("--baseline", default="auto", choices=("auto", "compare", "update", "off"),
                    help="stills against stored baselines (WP10): auto stores the first and compares after")
     x = sub.add_parser("dx", help="the generated layers: gen (schema snapshot + SDK), check (stale?), lint (op docs)")
-    x.add_argument("action", choices=("gen", "check", "lint", "docs"))
+    x.add_argument("action", choices=("gen", "check", "lint", "docs", "sdk"))
+    x.add_argument("paths", nargs="*", help="dx sdk: Python files to check (default examples/ and films/*/unreal/)")
     x.add_argument("--json", action="store_true")
 
 
@@ -84,11 +85,11 @@ def dispatch(a) -> bool:
         from . import selftest
         raise SystemExit(selftest.main(a))
     elif a.cmd == "dx":
-        raise SystemExit(dx(a.action, a.json))
+        raise SystemExit(dx(a.action, a.json, a.paths))
     return True
 
 
-def dx(action: str, as_json: bool = False) -> int:
+def dx(action: str, as_json: bool = False, paths: list | None = None) -> int:
     from . import schema
     from .sdk import gen
     if action == "gen":
@@ -101,6 +102,12 @@ def dx(action: str, as_json: bool = False) -> int:
         _print({"ok": not problems, "stale": problems}, as_json,
                "up to date" if not problems else "STALE: " + "; ".join(problems) + "\n  fix: film-ue dx gen")
         return 1 if problems else 0
+    if action == "sdk":
+        from . import sdkcheck
+        probs = sdkcheck.check(paths or sdkcheck.default_paths())
+        _print({"ok": not probs, "problems": [{"file": f, "line": n, "op": o, "problem": p} for f, n, o, p in probs]},
+               as_json, "\n".join(f"{f}:{n}: {p}" for f, n, o, p in probs) or "every SDK call matches the op schema")
+        return 1 if probs else 0
     if action == "docs":
         from . import doccheck
         probs = doccheck.check()
