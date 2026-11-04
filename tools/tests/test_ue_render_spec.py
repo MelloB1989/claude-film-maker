@@ -258,3 +258,16 @@ def test_presets_are_all_valid():
         r = rs.resolve(spec(preset=name))
         assert r["width"] > 0 and r["outputs"]
     assert rs.resolve(spec(preset="pathtrace"))["path_tracer"] is True
+
+
+def test_ffmpeg_stats_and_ab_summary():
+    ssim_txt = "n:1 Y:0.99 U:0.99 V:0.99 All:0.995 (23.0)\nn:2 Y:0.9 All:0.900 (10.0)\nn:3 All:1.000000 (inf)\n"
+    psnr_txt = "n:1 mse_avg:1.0 psnr_avg:48.13 psnr_y:47\nn:2 mse_avg:9 psnr_avg:30.5\nn:3 mse_avg:0 psnr_avg:inf\n"
+    s = rs.parse_ffmpeg_stats(ssim_txt, "All", 100)
+    p = rs.parse_ffmpeg_stats(psnr_txt, "psnr_avg", 100)
+    assert s == {100: 0.995, 101: 0.9, 102: 1.0} and p == {100: 48.13, 101: 30.5, 102: 100.0}
+    q = rs.ab_summary(s, p, min_ssim=0.98, worst=2)
+    assert q["pass"] is False and q["below"] == [101] and q["worst"][0] == [101, 0.9, 30.5] and q["metric"] == 0.9
+    assert rs.ab_summary({}, {})["pass"] is False
+    argv = rs.compare_args("/a/%04d.exr", "/b/%04d.exr", 10, 5, "C:\\t\\s.log", "/t/p.log", exr=True)
+    assert argv.count("-apply_trc") == 2 and "ssim=stats_file='C\\:/t/s.log'" in argv[argv.index("-lavfi") + 1]

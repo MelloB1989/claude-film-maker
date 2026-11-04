@@ -73,6 +73,12 @@ returns a check (`pass`, `metric`, `why`) with `missing`, `corrupt` (truncated f
 flicker), and for EXR `nan_frames` (NaN/Inf pixels) and `firefly_frames` (a lone pixel over 1.0 and over 20x the
 mean of its 8 neighbours), read as linear float through ffmpeg.
 
+**Compare two renders (A/B).** Run `film-ue op render.compare a=DIR_A b=DIR_B ['frames=[s,e]'] sheet=/path/ab.png`.
+It gives per-frame SSIM/PSNR (ffmpeg's ssim/psnr filters on the box; without ffmpeg, WP10's qa.compare at 480 px on
+PNG), the worst frames, and a check at `min_ssim` (0.98). Use it for a pre-rolled chunk against the full shot
+(`examples/unreal/render/preroll_ab.yaml`), for Linux against Windows reference frames, or for today against
+yesterday. The sheet puts the worst frames side by side.
+
 **How fast will it be?** Run `render.plan` (estimate) before and look at `report.measured` after. The next plan of
 the same job uses the measured seconds per sample.
 
@@ -90,6 +96,7 @@ the same job uses the measured seconds per sample.
 | `render.gpu` | VRAM total/used/free, utilisation (nvidia-smi), editor RSS | |
 | `render.manifest spec=` | per chunk: an MRQ queue manifest (.utxt) and its command line | |
 | `render.encode spec= [start end outputs]` | ffmpeg H.264 / H.265 / ProRes from the frames + WAV chunks | yes |
+| `render.compare a= b= [frames ext min_ssim worst every sheet method]` | per-frame SSIM/PSNR of two renders, worst frames, sheet | yes |
 | `render.concat parts= out_file= [audio audio_offset_s]` | join videos without re-encoding, optional audio | yes |
 | `render.mrq ...` / `render.progress out_dir=` | the older start-and-poll pair (films call them); `preroll_from=` added | |
 
@@ -249,6 +256,7 @@ State at 2026-11-05 (agent-05, branch `fleet/agent-05/ue-render`):
   - whether the pre-roll gives PSNR ≥ 35 dB against the full-shot render with physics.
   If a check fails, start from API_NOTES.
 - **Next:**
-  - a cloth A/B on the reel (S15 1136 chunk vs 1080 full shot, the P6 case) to confirm the pre-roll on real cloth;
+  - the cloth A/B on the reel (S15 1136 chunk vs 1080 full shot, the P6 case) with
+    `examples/unreal/render/preroll_ab.yaml` + `render.compare`, to confirm the pre-roll on real cloth;
   - a Movie Render Graph backend if a feature needs it (we use the legacy preset configuration on purpose: it is
     what was proven on Linux).
