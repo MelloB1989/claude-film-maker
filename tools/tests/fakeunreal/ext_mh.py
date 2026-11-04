@@ -62,11 +62,18 @@ def struct(name: str, fields: dict):
     return type(name, (FakeStruct,), {"_FIELDS": fields})
 
 
+_ENUM_CLASSES: dict = {}
+
+
 def fenum(name: str, members: list):
-    """An engine enum class whose members exist up front (so the ops' name lookup can list them)."""
-    cls = type(name, (), {"__module__": "unreal"})
-    for m in members:
-        setattr(cls, m, core.EnumValue(name, m))
+    """An engine enum class whose members exist up front (so the ops' name lookup can list them); its values are
+    instances of it, as in the engine (type(value) is the enum class)."""
+    cls = _ENUM_CLASSES.get(name)
+    if cls is None:
+        cls = type(name, (core.EnumValue,), {"__module__": "unreal"})
+        for m in members:
+            setattr(cls, m, cls(name, m))
+        _ENUM_CLASSES[name] = cls
     return cls
 
 
@@ -90,7 +97,7 @@ ENUMS = {
 
 
 def _e(enum: str, member: str):
-    return core.EnumValue(enum, member)
+    return getattr(fenum(enum, ENUMS[enum]), member)
 
 
 def _lc(r, g, b, a=1.0):
@@ -99,41 +106,41 @@ def _lc(r, g, b, a=1.0):
 
 SkinProperties = struct("MetaHumanCharacterSkinProperties", {
     "u": 0.5, "v": 0.5, "show_top_underwear": True, "body_texture_index": 0, "face_texture_index": 0,
-    "roughness": 1.06, "palm_lightness": 0.75, "fingernail_tint_color": None, "fingernail_tint_intensity": 0.0})
+    "roughness": 1.06, "palm_lightness": 0.75, "fingernail_tint_color": _lc(0.083, 0.0, 0.005), "fingernail_tint_intensity": 0.0})
 Freckles = struct("MetaHumanCharacterFrecklesProperties", {
-    "density": 0.5, "strength": 0.2, "saturation": 0.6, "tone_shift": 0.65, "mask": None})
+    "density": 0.5, "strength": 0.2, "saturation": 0.6, "tone_shift": 0.65, "mask": _e("MetaHumanCharacterFrecklesMask", "NONE")})
 Accent = struct("MetaHumanCharacterAccentRegionProperties", {"redness": 0.5, "saturation": 0.5, "lightness": 0.5})
 Accents = struct("MetaHumanCharacterAccentRegions", {k: Accent() for k in (
     "scalp", "forehead", "nose", "under_eye", "cheeks", "lips", "chin", "ears")})
-Resolutions = struct("MetaHumanCharacterTextureSourceResolutions", {k: None for k in (
+Resolutions = struct("MetaHumanCharacterTextureSourceResolutions", {k: _e("RequestTextureResolution", "RES2K") for k in (
     "face_albedo", "face_normal", "face_cavity", "face_animated_maps", "body_albedo", "body_normal", "body_cavity",
     "body_masks")})
 SkinSettings = struct("MetaHumanCharacterSkinSettings", {
     "skin": SkinProperties(), "freckles": Freckles(), "accents": Accents(),
     "desired_texture_sources_resolutions": Resolutions(), "enable_texture_overrides": False})
 Iris = struct("MetaHumanCharacterEyeIrisProperties", {
-    "iris_pattern": None, "iris_rotation": 0.0, "primary_color_u": 0.5, "primary_color_v": 0.5,
-    "secondary_color_u": 0.5, "secondary_color_v": 0.5, "color_blend": 0.5, "blend_method": None,
-    "limbal_ring_size": 0.725, "limbal_ring_color": None})
+    "iris_pattern": _e("MetaHumanCharacterEyesIrisPattern", "IRIS001"), "iris_rotation": 0.0, "primary_color_u": 0.5, "primary_color_v": 0.5,
+    "secondary_color_u": 0.5, "secondary_color_v": 0.5, "color_blend": 0.5, "blend_method": _e("MetaHumanCharacterEyesBlendMethod", "STRUCTURAL"),
+    "limbal_ring_size": 0.725, "limbal_ring_color": _lc(0, 0, 0)})
 Pupil = struct("MetaHumanCharacterEyePupilProperties", {"dilation": 0.95, "feather": 0.45})
-Sclera = struct("MetaHumanCharacterEyeScleraProperties", {"rotation": 0.0, "use_custom_tint": False, "tint": None,
+Sclera = struct("MetaHumanCharacterEyeScleraProperties", {"rotation": 0.0, "use_custom_tint": False, "tint": _lc(1, 1, 1),
                                                          "vascularity_intensity": 1.0, "vascularity_coverage": 0.2})
 Cornea = struct("MetaHumanCharacterEyeCorneaProperties", {"size": 0.165, "limbus_softness": 0.09})
 Eye = struct("MetaHumanCharacterEyeProperties", {"iris": Iris(), "pupil": Pupil(), "cornea": Cornea(),
                                                  "sclera": Sclera()})
 EyesSettings = struct("MetaHumanCharacterEyesSettings", {"eye_left": Eye(), "eye_right": Eye()})
 Eyelashes = struct("MetaHumanCharacterEyelashesProperties", {
-    "type": None, "dye_color": None, "melanin": 0.3, "redness": 0.28, "roughness": 0.25, "salt_and_pepper": 0.2,
+    "type": _e("MetaHumanCharacterEyelashesType", "NONE"), "dye_color": _lc(1, 1, 1), "melanin": 0.3, "redness": 0.28, "roughness": 0.25, "salt_and_pepper": 0.2,
     "lightness": 0.5, "enable_grooms": True})
 Teeth = struct("MetaHumanCharacterTeethProperties", {
     "tooth_length": 0.0, "tooth_spacing": 0.0, "upper_shift": 0.0, "lower_shift": 0.0, "overbite": 0.0,
-    "overjet": 0.0, "worn_down": 0.0, "teeth_color": None, "gum_color": None, "plaque_amount": 0.0})
+    "overjet": 0.0, "worn_down": 0.0, "teeth_color": _lc(1, 1, 1), "gum_color": _lc(1, 1, 1), "plaque_amount": 0.0})
 HeadModel = struct("MetaHumanCharacterHeadModelSettings", {"eyelashes": Eyelashes(), "teeth": Teeth()})
-Foundation = struct("MetaHumanCharacterFoundationMakeupProperties", {"apply_foundation": False, "color": None,
+Foundation = struct("MetaHumanCharacterFoundationMakeupProperties", {"apply_foundation": False, "color": _lc(0, 0, 0),
                                                                     "intensity": 0.5, "concealer": 0.57})
-EyeMakeup = struct("MetaHumanCharacterEyeMakeupProperties", {"type": None, "primary_color": None, "opacity": 0.85})
-Blush = struct("MetaHumanCharacterBlushMakeupProperties", {"type": None, "color": None, "intensity": 0.4})
-Lips = struct("MetaHumanCharacterLipsMakeupProperties", {"type": None, "color": None, "opacity": 0.7})
+EyeMakeup = struct("MetaHumanCharacterEyeMakeupProperties", {"type": _e("MetaHumanCharacterEyeMakeupType", "NONE"), "primary_color": _lc(0.086, 0.013, 0.004), "opacity": 0.85})
+Blush = struct("MetaHumanCharacterBlushMakeupProperties", {"type": _e("MetaHumanCharacterBlushMakeupType", "NONE"), "color": _lc(0.224, 0.011, 0.02), "intensity": 0.4})
+Lips = struct("MetaHumanCharacterLipsMakeupProperties", {"type": _e("MetaHumanCharacterLipsMakeupType", "NONE"), "color": _lc(0.22, 0.01, 0.008), "opacity": 0.7})
 Makeup = struct("MetaHumanCharacterMakeupSettings", {"foundation": Foundation(), "eyes": EyeMakeup(),
                                                      "blush": Blush(), "lips": Lips()})
 BodyConstraint = struct("MetaHumanCharacterBodyConstraint", {
@@ -207,6 +214,18 @@ class InstanceParameter(FakeStruct):
     def set_bool(self, v):
         return self._set("BOOL", bool(v))
 
+    def get_name(self):
+        return self._get("NAME")
+
+    def set_name(self, v):
+        return self._set("NAME", str(v))
+
+    def get_string(self):
+        return self._get("STRING")
+
+    def set_string(self, v):
+        return self._set("STRING", str(v))
+
     def get_color(self):
         return self._get("COLOR")
 
@@ -214,7 +233,7 @@ class InstanceParameter(FakeStruct):
         return self._set("COLOR", v)
 
 
-class FakeInstance(core.Object):
+class MetaHumanInstance(core.Object):
     def __init__(self, name=None, outer=None, **props):
         super().__init__(name, outer, **props)
         object.__setattr__(self, "_sel", {})       # slot -> key name
@@ -241,13 +260,13 @@ class FakeInstance(core.Object):
         return out
 
 
-class FakeCollection(core.Object):
+class MetaHumanCollection(core.Object):
     SLOTS = ("Hair", "Eyebrows", "Beard", "Mustache", "Eyelashes", "Peachfuzz", "Outfits")
 
     def __init__(self, name=None, outer=None, **props):
         super().__init__(name, outer, **props)
         object.__setattr__(self, "_items", {})  # key name -> (slot, wardrobe item path)
-        self._props["default_instance"] = FakeInstance("DefaultInstance")
+        self._props["default_instance"] = MetaHumanInstance("DefaultInstance")
 
     def get_slot_names(self):
         return list(self.SLOTS)
@@ -281,7 +300,7 @@ class FakeCollection(core.Object):
 
 # ------------------------------------------------------------------------------------------------- the character
 
-class FakeMetaHumanCharacter(core.Object):
+class MetaHumanCharacter(core.Object):
     def __init__(self, name=None, outer=None, **props):
         props = copy.deepcopy(props)  # EAL.duplicate_asset passes the source's props: a copy owns its own state
         super().__init__(name, outer, **props)
@@ -293,14 +312,14 @@ class FakeMetaHumanCharacter(core.Object):
         p.setdefault("has_high_resolution_textures", False)
         p.setdefault("has_face_dna_blendshapes", False)
         p.setdefault("fixed_body_type", False)
-        p.setdefault("internal_collection", FakeCollection("InternalCollection"))
+        p.setdefault("internal_collection", MetaHumanCollection("InternalCollection"))
         p.setdefault("__fm_face", [0.0] * 8)
         p.setdefault("__fm_landmarks", [core.Vector(float(i), 0.0, 160.0) for i in range(4)])
         p.setdefault("__fm_body", {k: [False, v[0]] for k, v in BODY.items()})
         p.setdefault("__fm_rigged", False)
 
 
-class FakeSubsystem(core.Object):
+class MetaHumanCharacterEditorSubsystem(core.Object):
     """UMetaHumanCharacterEditorSubsystem."""
 
     def __init__(self, name=None, outer=None, **props):
@@ -467,11 +486,11 @@ def install(fake):
     fake.MetaHumanCharacterTextureRequestParams = TexParams
     fake.MetaHumanCharacterEditorBuildParameters = BuildParams
     fake.MetaHumanPaletteItemKey = PaletteKey
-    fake.MetaHumanCharacter = FakeMetaHumanCharacter
-    fake.MetaHumanCharacterEditorSubsystem = FakeSubsystem
-    fake.MetaHumanCollection = FakeCollection
-    fake._classes.update({"MetaHumanCharacter": FakeMetaHumanCharacter,
-                          "MetaHumanCharacterEditorSubsystem": FakeSubsystem})
+    fake.MetaHumanCharacter = MetaHumanCharacter
+    fake.MetaHumanCharacterEditorSubsystem = MetaHumanCharacterEditorSubsystem
+    fake.MetaHumanCollection = MetaHumanCollection
+    fake._classes.update({"MetaHumanCharacter": MetaHumanCharacter,
+                          "MetaHumanCharacterEditorSubsystem": MetaHumanCharacterEditorSubsystem})
     fake.mh_rig_ticks, fake.mh_tex_ticks, fake.mh_fail_rig = 3, 3, False
     logs = os.path.join(fake.root, "Saved", "Logs")
     os.makedirs(logs, exist_ok=True)
@@ -482,7 +501,7 @@ def install(fake):
 def add_presets(fake, names=("Ada", "Jorge", "Vivian")):
     """Preset characters where the engine keeps them, each with a different face and height."""
     for i, n in enumerate(names):
-        c = fake.put_asset(f"/MetaHumanCharacter/Optional/Presets/{n}", FakeMetaHumanCharacter(n))
+        c = fake.put_asset(f"/MetaHumanCharacter/Optional/Presets/{n}", MetaHumanCharacter(n))
         c._props["__fm_face"] = [float(i + 1)] * 8
         c._props["__fm_body"]["Height"] = [True, 160.0 + 10 * i]
     return names

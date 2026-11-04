@@ -148,7 +148,7 @@ def is_enum(v) -> bool:
     eb = getattr(unreal, "EnumBase", None)
     if isinstance(eb, type) and isinstance(v, eb):
         return True
-    return type(v).__name__ == "EnumValue"
+    return any(t.__name__ == "EnumValue" for t in type(v).__mro__)  # the test fake's enums
 
 
 def is_vec(v) -> bool:

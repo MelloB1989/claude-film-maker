@@ -167,7 +167,7 @@ def state(c, path: str, full: bool = False) -> dict:
     s["wardrobe"] = _wardrobe_state(c)
     rig_fp = K.get_tag(c, "Rig")
     s["rig_fingerprint"] = rig_fp
-    s["rig_stale"] = bool(rig_fp) and rig_fp != K.fingerprint(inputs)
+    s["rig_stale"] = bool(rig_fp) and rig_fp.split(":", 1)[-1] != K.fingerprint(inputs)  # tag is "<kind>:<fp>"
     bp = K.get_tag(c, "BuildBP")
     s["build"] = {"bp": bp if bp and EAL.does_asset_exist(bp) else "", "fingerprint": K.get_tag(c, "Build"),
                   "current": build_fingerprint(s)}
