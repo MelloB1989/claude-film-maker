@@ -249,6 +249,7 @@ names are the snake_case of the reflected names. Paths are relative to `Engine/S
 | `RenderingLibrary.create_render_target2d(world, w, h, format, clear, mips, uav)` | KismetRenderingLibrary.h:48 | yes |
 | `RenderingLibrary.export_render_target(world, rt, dir, name)`: PNG for 8-bit, EXR/HDR for float | KismetRenderingLibrary.h:144; Private/KismetRenderingLibrary.cpp:263-279 | yes |
 | `RenderingLibrary.read_render_target_raw(world, rt, normalize)`: RGBA8/16f/32f only; returns the list or None | KismetRenderingLibrary.h:192; KismetRenderingLibrary.cpp:300-360, 497-527 | yes |
+| `RenderingLibrary.read_render_target_pixel(world, rt, x, y)` → FColor (sRGB 8-bit; float targets converted with sRGB; an unsupported format gives FColor::Red, alpha 255, so `_opaque` keeps the PNG) | KismetRenderingLibrary.h:151-152; Private/KismetRenderingLibrary.cpp:381-400 | yes |
 | bool return + out params → Python returns the outs or None | Engine/Plugins/Experimental/PythonScriptPlugin/.../PyGenUtil.cpp:1161 | yes |
 | `unreal.TextureRenderTargetFormat.RTF_RGBA8 / RTF_RGBA8_SRGB / RTF_RGBA16F / RTF_RGBA32F` | Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h:23-43 | yes |
 | `TextureRenderTarget2D.size_x / size_y` (BlueprintReadOnly) | TextureRenderTarget2D.h:107-113 | yes |
@@ -280,6 +281,7 @@ names are the snake_case of the reflected names. Paths are relative to `Engine/S
 | MetaHuman hair material params `hairMelanin, hairRedness, HairRoughness, WhiteAmount, LightAmount, HairDye` | Engine/Plugins/MetaHuman/MetaHumanCharacter/Source/MetaHumanDefaultPipeline/Public/Item/MetaHumanDefaultGroomPipeline.h:26-44 (MaterialParamName) | yes |
 | `PrimitiveComponent.create_dynamic_material_instance(index, source, name)` | Runtime/Engine/Classes/Components/PrimitiveComponent.h:1628-1629 | yes |
 | `MaterialInstanceDynamic.set_scalar_parameter_value / get_scalar_parameter_value (K2_ ScriptName) / set_vector_parameter_value` | Runtime/Engine/Public/Materials/MaterialInstanceDynamic.h:23-24, :56-57, :108-109 | yes |
+| `unreal.MaterialInstanceConstant` (UCLASS BlueprintType; groom `_get_scalar` reads a constant instance through MaterialEditingLibrary) | Runtime/Engine/Public/Materials/MaterialInstanceConstant.h:19-20 | yes |
 | `MaterialEditingLibrary.get_scalar_parameter_names / get_vector_parameter_names / get_material_instance_scalar_parameter_value` | Editor/MaterialEditor/Public/MaterialEditingLibrary.h:501-506, :416-417 | yes |
 | `r.HairStrands.SkyLighting` (cvar), `SystemLibrary.get_console_variable_int_value` | Runtime/Renderer/Private/HairStrands/HairStrandsEnvironment.cpp:38; KismetSystemLibrary.h:630-631 | yes |
 | `Actor.get_actor_forward_vector` | Runtime/Engine/Classes/GameFramework/Actor.h (K2 BlueprintCallable; used by every area) | yes (in use) |
