@@ -56,10 +56,10 @@ def _rigged(c) -> bool:
 
 
 @op("mh.rig")
-def rig(character: str, full: bool = True, timeout: float = 900):
+def rig(character: str, full: bool = True, wait_s: float = 900):
     """Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs). Runs across editor ticks
     and ends when the character can be built. The service needs an Epic sign-in in this editor; without one it never
-    answers and says nothing, so after `timeout` seconds this is an error rather than a game thread held forever
+    answers and says nothing, so after `wait_s` seconds this is an error rather than a game thread held forever
     (sign in once on the temporary desktop: film-ue desktop on)."""
     c = _char(character)
     if _rigged(c):
@@ -68,13 +68,13 @@ def rig(character: str, full: bool = True, timeout: float = 900):
     p.rig_type = unreal.MetaHumanRigType.JOINTS_AND_BLEND_SHAPES if full else unreal.MetaHumanRigType.JOINTS_ONLY
     p.blocking, p.report_progress = False, True
     sub().request_auto_rigging(c, p)
-    end = time.time() + timeout
+    end = time.time() + wait_s
     while time.time() < end:
         yield 2.0
         if _rigged(c):
             EAL.save_asset(character)
             return character
-    raise RuntimeError(f"auto-rig of {character} did not finish in {timeout:.0f} s: is the editor signed in to Epic "
+    raise RuntimeError(f"auto-rig of {character} did not finish in {wait_s:.0f} s: is the editor signed in to Epic "
                        "(film-ue desktop on, then sign in)? See LogMetaHumanCharacterEditor")
 
 
