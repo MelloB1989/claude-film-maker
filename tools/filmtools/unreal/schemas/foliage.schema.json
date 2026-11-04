@@ -1,0 +1,284 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "foliage",
+ "description": "A seeded scatter of meshes as foliage instances, dropped onto the ground by line traces; converges per name (foliage.scatter).",
+ "type": "object",
+ "required": [
+  "kind",
+  "name",
+  "meshes",
+  "region"
+ ],
+ "additionalProperties": false,
+ "properties": {
+  "kind": {
+   "const": "foliage"
+  },
+  "version": {
+   "type": "integer",
+   "const": 1
+  },
+  "name": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9_-]+$",
+   "description": "the scatter's prefix (its foliage types: /Game/_Foliage/<name>/)"
+  },
+  "description": {
+   "type": "string"
+  },
+  "seed": {
+   "type": "integer",
+   "description": "the same seed, the same scatter"
+  },
+  "region": {
+   "type": "object",
+   "description": "cm, seen from above",
+   "additionalProperties": false,
+   "minProperties": 1,
+   "maxProperties": 1,
+   "properties": {
+    "rect": {
+     "type": "array",
+     "items": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+     },
+     "minItems": 2,
+     "maxItems": 2,
+     "description": "[[x0, y0], [x1, y1]]"
+    },
+    "circle": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 3,
+     "maxItems": 3,
+     "description": "[cx, cy, r]"
+    },
+    "ring": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 4,
+     "maxItems": 4,
+     "description": "[cx, cy, r0, r1]"
+    },
+    "polygon": {
+     "type": "array",
+     "items": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+     },
+     "minItems": 3,
+     "description": "[[x, y], ...]"
+    }
+   }
+  },
+  "meshes": {
+   "type": "array",
+   "minItems": 1,
+   "items": {
+    "type": "object",
+    "required": [
+     "mesh"
+    ],
+    "additionalProperties": false,
+    "properties": {
+     "mesh": {
+      "type": "string",
+      "pattern": "^/",
+      "description": "a static mesh /Game/..."
+     },
+     "weight": {
+      "type": "number",
+      "description": "relative share (1)"
+     },
+     "scale": {
+      "type": [
+       "number",
+       "array"
+      ],
+      "description": "a value or [lo, hi]"
+     },
+     "height_jitter": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "Z scale factor [lo, hi]"
+     },
+     "yaw": {
+      "type": [
+       "string",
+       "number",
+       "array"
+      ],
+      "description": "random | degrees | [lo, hi]"
+     },
+     "tilt_deg": {
+      "type": "number",
+      "description": "random lean up to this many degrees"
+     },
+     "z_offset_cm": {
+      "type": "number",
+      "description": "sink (-) or lift (+), cm"
+     },
+     "align_to_normal": {
+      "type": "boolean",
+      "description": "lean with the slope"
+     }
+    }
+   }
+  },
+  "count": {
+   "type": "integer",
+   "minimum": 0,
+   "description": "how many (or density_per_m2)"
+  },
+  "density_per_m2": {
+   "type": "number",
+   "minimum": 0,
+   "description": "instances per square metre of the region"
+  },
+  "min_dist_cm": {
+   "type": "number",
+   "minimum": 0,
+   "description": "spacing (default 0.5 / sqrt(density) m)"
+  },
+  "exclude": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "description": "cm, seen from above",
+    "additionalProperties": false,
+    "minProperties": 1,
+    "maxProperties": 1,
+    "properties": {
+     "rect": {
+      "type": "array",
+      "items": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "[[x0, y0], [x1, y1]]"
+     },
+     "circle": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3,
+      "description": "[cx, cy, r]"
+     },
+     "ring": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "description": "[cx, cy, r0, r1]"
+     },
+     "polygon": {
+      "type": "array",
+      "items": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       },
+       "minItems": 2,
+       "maxItems": 2
+      },
+      "minItems": 3,
+      "description": "[[x, y], ...]"
+     }
+    }
+   },
+   "description": "regions kept clear"
+  },
+  "exclude_actors": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "description": "actor labels whose footprints stay clear"
+  },
+  "exclude_margin_cm": {
+   "type": "number",
+   "description": "around excluded actors (30)"
+  },
+  "patchiness": {
+   "type": "number",
+   "minimum": 0,
+   "maximum": 1,
+   "description": "0 even .. 1 clumped"
+  },
+  "patch_cm": {
+   "type": "number",
+   "description": "clump size, cm (400)"
+  },
+  "surface": {
+   "enum": [
+    "trace",
+    "flat"
+   ],
+   "description": "trace: onto what is below; flat: at z_cm"
+  },
+  "z_cm": {
+   "type": "number"
+  },
+  "trace_from_z_cm": {
+   "type": "number"
+  },
+  "trace_to_z_cm": {
+   "type": "number"
+  },
+  "max_slope_deg": {
+   "type": "number",
+   "description": "drop instances on steeper ground"
+  },
+  "cull_cm": {
+   "type": "array",
+   "items": {
+    "type": "number"
+   },
+   "minItems": 2,
+   "maxItems": 2,
+   "description": "[start, end] cull distance, cm"
+  },
+  "shadows": {
+   "type": "boolean"
+  }
+ },
+ "anyOf": [
+  {
+   "required": [
+    "count"
+   ]
+  },
+  {
+   "required": [
+    "density_per_m2"
+   ]
+  }
+ ]
+}
