@@ -198,3 +198,21 @@ def test_perf_turn_to_keys_the_short_way(ue, monkeypatch):
     assert r["yaw"] == [170.0, 190.0]
     keys = calls[0][1]["keys"]
     assert keys[0][0] == 0 and keys[-1][2]["yaw"] == pytest.approx(190.0)
+
+
+def test_selftest_runs_on_the_fake(ue, fmb, tmp_path):
+    """The GPU-box acceptance test, its engine-free parts: library, curves, perf.face, checks, errors. (The level
+    part needs a face mesh: none on the fake, so it notes that and stops.)"""
+    from fmbridge.selftest import anim as st
+    curves = {f"CTRL_expressions_{n}": ([0.0, 1.0, 2.0], [0.0, 0.3, 0.0]) for n in
+              ("browRaiseInL", "browRaiseInR", "mouthLipsPressL", "mouthLipsPressR", "jawOpen", "eyeBlinkL")}
+    from fmbridge.perfkit import rig
+    curves.update({rig.PREFIX + n: ([0.0, 2.0], [0.0, 0.0]) for n in rig.RAW[:120] if rig.PREFIX + n not in curves})
+    ue.anim(st.FACE_LOOP, length_s=3.0, curves=curves, skeleton=FACE_SKEL)
+    ue.anim("/MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F", length_s=1.1)
+    ue.anim(st.BODY_IDLE, length_s=8)
+    r = run_op("selftest.run", area="anim", out_dir=str(tmp_path))
+    rep = r if "checks" in r else r.get("report", r)
+    failed = [c for c in rep["checks"] if not c["ok"]]
+    assert rep["status"] == "done" and failed == [], failed
+    assert {"anim.find", "anim.new", "perf.face", "anim.check"} <= set(rep["ops_covered"])

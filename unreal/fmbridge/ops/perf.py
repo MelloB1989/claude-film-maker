@@ -484,6 +484,7 @@ def compose(*, spec: dict) -> dict:
     jumps between lines) on the face track, the body's idle/gesture/walk sections, and the actor's transform keys.
     perf.apply calls it after the speech solves; call it yourself to re-key without re-solving.
     Returns: {"face_anim", "fingerprint", "frames", "report", "timeline", "body_sections", "notes", "changed"}.
+    Example: film-ue op perf.compose spec=@examples/unreal/performance/listener.yaml
     """
     from .anim import _write, new as anim_new, read_all
     spec = _spec(spec)
@@ -544,7 +545,9 @@ def _skel_of(mesh_path: str) -> str:
 @op("perf.lock_eyes", mutates=True, idempotent=True, tags=["slow"])
 def lock_eyes(*, spec: dict):
     """Measured eye contact with the spec's camera over the composed face (anim.gaze_lock: the eye curves solved
-    from the eye bones' real pose on the lines that look at the camera). A multi-tick job."""
+    from the eye bones' real pose on the lines that look at the camera). A multi-tick job.
+    Example: film-ue op perf.lock_eyes spec=@examples/unreal/performance/presenter_intro.yaml
+    """
     spec = _spec(spec)
     out = SP.out_anim(spec)
     return (yield from call("anim.gaze_lock", sequence=spec["sequence"], actor_label=spec["actor"], anim=out,
