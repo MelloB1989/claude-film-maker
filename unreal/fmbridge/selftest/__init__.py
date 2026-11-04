@@ -226,7 +226,7 @@ class T:
             self.notes.append(f"still {name}: no camera given, skipped")
             return None
         if "view.still" in ops._OPS:
-            res = self.op("view.still", camera=camera, path=path, width=width, height=height)
+            res = self.op("view.still", out=path, camera=camera, width_px=width, height_px=height)
         else:
             res = self.op("look.still", camera_label=camera, path=path, width=width, height=height)
         if inspect.isgenerator(res):

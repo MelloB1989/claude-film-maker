@@ -46,10 +46,21 @@ from pathlib import Path
 
 from . import client, workstation as ws
 
-try:  # WP1's platform commands (box, editor, sync, ...): registered beside these when that module is in the tree
-    from . import cli_platform
-except ImportError:
-    cli_platform = None
+
+def _hooks() -> list:
+    """Every filmtools/unreal/cli_<area>.py: an area's own subcommands (register(sub) adds them, dispatch(a) runs
+    one and returns True). A hook that fails to import is reported and skipped, never fatal."""
+    import importlib
+    out = []
+    for p in sorted(Path(__file__).parent.glob("cli_*.py")):
+        try:
+            m = importlib.import_module(f"{__package__}.{p.stem}")
+        except Exception as e:
+            sys.stderr.write(f"film-ue: {p.name} did not import ({type(e).__name__}: {e}); its commands are missing\n")
+            continue
+        if hasattr(m, "register") and hasattr(m, "dispatch"):
+            out.append(m)
+    return out
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -253,8 +264,13 @@ def main() -> None:
     sub.add_parser("log").add_argument("lines", nargs="?", type=int, default=80)
     from . import dxcli
     dxcli.register(sub)
-    if cli_platform:
-        cli_platform.register(sub)
+    hooks = []
+    for h in _hooks():
+        try:
+            h.register(sub)
+            hooks.append(h)
+        except Exception as e:  # e.g. two hooks adding the same command
+            sys.stderr.write(f"film-ue: {h.__name__}.register failed ({e}); its commands are missing\n")
     argv = sys.argv[1:]
     from . import opcli
     if opcli.wants(_after_box(argv), set(sub.choices)):  # film-ue <area> <verb> ...: the generated op commands
@@ -270,8 +286,9 @@ def main() -> None:
     if a.cmd in ("provision", "editor", "desktop", "epic-login") and not ws.linux():
         raise SystemExit(f"film-ue {a.cmd} is for a Linux box: film-ue --box NAME set --os linux ...")
 
-    if cli_platform and cli_platform.dispatch(a):
-        return
+    for h in hooks:
+        if h.dispatch(a):
+            return
     if dxcli.dispatch(a):
         return
     if a.cmd == "set":
