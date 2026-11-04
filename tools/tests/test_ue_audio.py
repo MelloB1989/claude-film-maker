@@ -118,3 +118,18 @@ def test_selftest_passes_on_the_fake(ue, fmb):
     importlib.import_module("fmbridge.selftest.audio").run(t)
     failed = [(n, d) for n, ok, d in t.results if not ok]
     assert len(t.results) >= 13 and failed == []
+
+
+def test_fades_are_keys_read_back_and_converge(ue, tmp_path, seq, fmb):
+    from fmbridge.errors import OpError
+    from fmbridge.ops.audio import fade_keys, fades_of
+    s = run_op("audio.import", files=[wav(tmp_path / "a.wav", 2.0)])["sounds"][0]["path"]
+    clips = [{"sound": s, "start_frame": 0, "volume_db": -6, "fade_in_frames": 6, "fade_out_frames": 12}]
+    r = run_op("audio.place", sequence=seq, clips=clips, track="Music")
+    assert r["changed"] and r["clips"][0]["fade_out_frames"] == 12
+    c = run_op("audio.describe", sequence=seq)["tracks"][0]["clips"][0]
+    assert (c["fade_in_frames"], c["fade_out_frames"], c["volume_db"]) == (6, 12, -6.0)
+    assert run_op("audio.place", sequence=seq, clips=clips, track="Music")["changed"] is False
+    with pytest.raises(OpError, match="do not fit"):
+        run_op("audio.place", sequence=seq, clips=[{**clips[0], "fade_in_frames": 40}], track="Music")
+    assert fade_keys(0, 48, 1.0, 0, 0) == [] and fades_of(fade_keys(10, 58, 0.5, 4, 0), 10, 58) == (4, 0)
