@@ -256,7 +256,8 @@ worth it only while some character step is Windows-only (engine task).
 3. **RAM and VRAM**: g6.4xlarge has 64 GiB vs today's 128; peak use unknown. Agent-04 found a known MetaHuman
    assembly OOM on Linux in 5.8 (add swap on the NVMe) and Epic's remark that Linux Vulkan memory management lags
    DX12, so the L4's 22 GiB may be tight at 4K with MetaHumans + groom + Lumen; the step up is g6e (L40S, 44 GiB:
-   2xl $2.693/h OD, $1.423 spot). This is one more reason to prefer gr6 (128 GiB) for building.    Read `Get-Process UnrealEditor` WorkingSet64
+   2xl $2.693/h OD, $1.423 spot). This is one more reason to prefer gr6 (128 GiB) for building.
+   Read `Get-Process UnrealEditor` WorkingSet64
    peak during a MetaHuman build and a 4K render next time.
 4. **Spot**: quota may be 0; advisor data is 7 months old; prices per AZ differ from the feed.
 5. **Precompiled download** may loop on Epic's EULA page; the patch you need may not be offered.
