@@ -253,7 +253,7 @@ def _pbr(m, kind: str, col, param) -> None:
         MEL.connect_material_property(mul(base, "", glow, "", -400, 900), "", P.MP_EMISSIVE_COLOR)
 
 
-@op("look.material")
+@op("look.material", mutates=True, idempotent=True, tags=["look"])
 def material(name: str, color=(1.0, 1.0, 1.0), kind: str = "Surface", roughness: float = None, metallic: float = None,
              specular: float = None, intensity: float = None, opacity: float = None, texture: str = "",
              tiling: float = None, normal: str = "", mask: str = "", glow: float = None, transmission=None,
@@ -266,7 +266,10 @@ def material(name: str, color=(1.0, 1.0, 1.0), kind: str = "Surface", roughness:
     dithered; transmission colour, glow), Glow (texture x color x intensity, additive) or GlowWipe (Glow revealed
     left to right: scalars Reveal 0-1 and Softness; it also takes the lower of Reveal and MPC_FM's WipeReveal, and is
     multiplied by MPC_FM's WipeOn, both 1 unless a sequence keys them). `scalars` sets any other scalar parameters by
-    name. Colours are linear. Re-running updates it."""
+    name. Colours are linear. Re-running updates it.
+    Prefer mat.* (WP2) for new materials.
+    Example: film-ue op look.material name=MI_Wall 'color=[0.6,0.55,0.5]' roughness=0.8
+    """
     path = f"{folder}/{name}"
     parent = _base(kind)
     mi = load(path) if EAL.does_asset_exist(path) else unreal.AssetToolsHelpers.get_asset_tools().create_asset(
@@ -288,11 +291,13 @@ def material(name: str, color=(1.0, 1.0, 1.0), kind: str = "Surface", roughness:
     return path
 
 
-@op("look.collection")
+@op("look.collection", mutates=True, idempotent=True, tags=["look"])
 def collection(path: str, scalars: dict) -> str:
     """A material parameter collection with these scalar parameters at these defaults (made, or the missing ones
     added; existing ones keep their defaults). A sequence keys a collection on a track of its own, with no per-mesh
-    material instance in between."""
+    material instance in between.
+    Example: film-ue op look.collection path=/Game/FM/Materials/MPC_FM 'scalars={"WipeOn":1}'
+    """
     folder, name = path.rsplit("/", 1)
     c = load(path) if EAL.does_asset_exist(path) else unreal.AssetToolsHelpers.get_asset_tools().create_asset(
         name, folder, unreal.MaterialParameterCollection, unreal.MaterialParameterCollectionFactoryNew())
@@ -309,9 +314,11 @@ def collection(path: str, scalars: dict) -> str:
     return path
 
 
-@op("look.apply")
+@op("look.apply", mutates=True, idempotent=True, tags=["look"])
 def apply(label: str, material: str, slot=0) -> str:
-    """Put a material on an actor's static meshes, in slot `slot`: its index or its name (an FBX's material name)."""
+    """Put a material on an actor's static meshes, in slot `slot`: its index or its name (an FBX's material name).
+    Example: film-ue op look.apply label=Wall material=/Game/FM/Materials/MI_Wall
+    """
     for c in actor(label).get_components_by_class(unreal.StaticMeshComponent):
         if isinstance(slot, str):
             c.set_material_by_name(slot, load(material))
@@ -320,10 +327,12 @@ def apply(label: str, material: str, slot=0) -> str:
     return label
 
 
-@op("look.slots")
+@op("look.slots", mutates=True, idempotent=True, tags=["look"])
 def slots(label: str, materials: dict = None) -> dict:
     """An actor's material slots by name ({slot: material}); `materials` sets those named (unknown names are
-    reported, not guessed)."""
+    reported, not guessed).
+    Example: film-ue op look.slots label=Chair 'materials={"Seat":"/Game/FM/Materials/MI_Leather"}'
+    """
     out, missing = {}, []
     for c in actor(label).get_components_by_class(unreal.StaticMeshComponent):
         names = [str(n) for n in c.get_material_slot_names()]
@@ -340,12 +349,15 @@ def slots(label: str, materials: dict = None) -> dict:
     return out
 
 
-@op("look.light")
+@op("look.light", mutates=True, idempotent=True, tags=["look"])
 def light(label: str, kind: str = "rect", loc=(0, 0, 200), look_at=None, intensity: float = 10.0, color=None,
           temperature: float = None, width: float = 100, height: float = 100, cone: float = 30, radius: float = 2000,
           shadows: bool = True, specular: float = 1.0, volumetric: float = 1.0, barn_angle: float = None) -> str:
     """A light: kind rect (width/height, barn doors), spot (cone), point; aimed at `look_at`; colour (sRGB 0-1) or
-    temperature (K); intensity in candelas."""
+    temperature (K); intensity in candelas.
+    Prefer light.add (lux, candelas, converging).
+    Example: film-ue op look.light label=Key kind=rect 'loc=[150,120,230]' 'look_at=[0,0,165]' intensity=9
+    """
     cls = {"rect": "RectLight", "spot": "SpotLight", "point": "PointLight"}[kind]
     spawn(label, cls=cls, loc=loc)
     a = actor(label)
@@ -375,12 +387,15 @@ def light(label: str, kind: str = "rect", loc=(0, 0, 200), look_at=None, intensi
     return label
 
 
-@op("look.sky")
+@op("look.sky", mutates=True, idempotent=True, tags=["look"])
 def sky(elevation: float = 30.0, azimuth: float = 0.0, lux: float = 60000.0, temperature: float = 5600.0,
         sky_intensity: float = 1.0, shadow_softness: float = 0.5, channels: list = (0,)) -> dict:
     """Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the
     back wall towards the camera; 90 = shining along +Y) and `elevation` above the horizon, a sky atmosphere and a
-    real-time captured sky light. `shadow_softness` is the sun's source angle in degrees."""
+    real-time captured sky light. `shadow_softness` is the sun's source angle in degrees.
+    Prefer env.sun / env.atmosphere / env.sky_light (time of day, place).
+    Example: film-ue op look.sky elevation=28 azimuth=-28 lux=17000
+    """
     spawn("FM_Sun", cls="DirectionalLight", loc=(0, 0, 500))
     sun = actor("FM_Sun")
     sun.set_actor_rotation(unreal.Rotator(roll=0.0, pitch=-float(elevation), yaw=float(azimuth)), False)
@@ -400,10 +415,13 @@ def sky(elevation: float = 30.0, azimuth: float = 0.0, lux: float = 60000.0, tem
     return {"sun": "FM_Sun", "sky": "FM_SkyLight", "atmosphere": "FM_Atmosphere"}
 
 
-@op("look.fog")
+@op("look.fog", mutates=True, idempotent=True, tags=["look"])
 def fog(density: float = 0.02, volumetric: bool = True, albedo=(0.9, 0.9, 1.0), extinction: float = 0.5,
         height_falloff: float = 0.2, start: float = 0.0) -> str:
-    """Exponential height fog with volumetric fog: haze in the air for light shafts and depth."""
+    """Exponential height fog with volumetric fog: haze in the air for light shafts and depth.
+    Prefer env.fog (presets, every field).
+    Example: film-ue op look.fog density=0.0006 volumetric=true
+    """
     spawn("FM_Fog", cls="ExponentialHeightFog", loc=(0, 0, 0))
     c = actor("FM_Fog").get_component_by_class(unreal.ExponentialHeightFogComponent)
     for k, v in (("fog_density", density), ("fog_height_falloff", height_falloff), ("start_distance", start),
@@ -416,9 +434,12 @@ def fog(density: float = 0.02, volumetric: bool = True, albedo=(0.9, 0.9, 1.0), 
     return "FM_Fog"
 
 
-@op("look.post")
+@op("look.post", mutates=True, idempotent=True, tags=["look"])
 def post(settings: dict, label: str = "FM_Post") -> dict:
-    """An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you)."""
+    """An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).
+    Prefer env.post / env.exposure / env.grade.
+    Example: film-ue op look.post 'settings={"bloom_intensity":0.25}'
+    """
     try:
         a = actor(label)
     except ValueError:
@@ -441,10 +462,12 @@ def post(settings: dict, label: str = "FM_Post") -> dict:
     return applied
 
 
-@op("look.camera")
-def camera(label: str, loc, look_at, focal: float = 50.0, aperture: float = 2.0, focus: float = None,
+@op("look.camera", mutates=True, idempotent=True, tags=["look"])
+def camera(label: str, loc: list, look_at: list, focal: float = 50.0, aperture: float = 2.0, focus: float = None,
            filmback=(36.0, 20.25), pilot: bool = True) -> str:
-    """A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default."""
+    """A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.
+    Example: film-ue op look.camera label=Cam 'loc=[300,0,160]' 'look_at=[0,0,150]' focal=35
+    """
     spawn(label, cls="CineCameraActor", loc=loc)
     a = actor(label)
     a.set_actor_rotation(look_rot(loc, look_at), False)
@@ -464,10 +487,12 @@ def camera(label: str, loc, look_at, focal: float = 50.0, aperture: float = 2.0,
     return label
 
 
-@op("look.still")
+@op("look.still", mutates=True, idempotent=True, tags=["look"])
 def still(camera_label: str, path: str, width: int = 1920, height: int = 1080, timeout: float = 60.0):
     """A still through a camera at the viewport's quality, written to `path` on the workstation (png). A multi-tick
-    job: it returns once the file is on disk."""
+    job: it returns once the file is on disk.
+    Example: film-ue op look.still camera_label=Cam path=/tmp/still.png
+    """
     import time
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if os.path.exists(path):
@@ -484,10 +509,12 @@ def still(camera_label: str, path: str, width: int = 1920, height: int = 1080, t
     raise TimeoutError(f"no still at {path} after {timeout}s")
 
 
-@op("look.card")
-def card(label: str, loc, width: float, height: float, material: str, yaw: float = 0.0, offset: float = 0.0) -> str:
+@op("look.card", mutates=True, idempotent=True, tags=["look"])
+def card(label: str, loc: list, width: float, height: float, material: str, yaw: float = 0.0, offset: float = 0.0) -> str:
     """A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right
-    way up and unmirrored from the front; `offset` pushes it out along its facing (cm), e.g. to sit on a box's front."""
+    way up and unmirrored from the front; `offset` pushes it out along its facing (cm), e.g. to sit on a box's front.
+    Example: film-ue op look.card label=Poster 'loc=[-255,0,170]' width=60 height=90 material=/Game/FM/Materials/MI_Poster
+    """
     fx, fy = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
     p = [loc[0] + fx * offset, loc[1] + fy * offset, loc[2]]
     # the engine plane: normal +Z, U along +X, V along +Y; this turns the normal to +X, U to -Y, V to -Z
@@ -496,10 +523,13 @@ def card(label: str, loc, width: float, height: float, material: str, yaw: float
     return label
 
 
-@op("look.channels")
+@op("look.channels", mutates=True, idempotent=True, tags=["look"])
 def channels(labels: list, channels: list = (0,)) -> dict:
     """Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which
-    lights reach it. The studio rule: the host's lights on 1 only, the set's on 0, the host itself on 0 and 1."""
+    lights reach it. The studio rule: the host's lights on 1 only, the set's on 0, the host itself on 0 and 1.
+    Prefer light.channels.
+    Example: film-ue op look.channels 'labels=["Key"]' 'channels=[1]'
+    """
     out = {}
     for lab in labels:
         a = actor(lab)
@@ -519,10 +549,12 @@ def channels(labels: list, channels: list = (0,)) -> dict:
     return out
 
 
-@op("look.focus_track")
+@op("look.focus_track", mutates=True, idempotent=True, tags=["look"])
 def focus_track(camera_label: str, target: str, offset=(0.0, 0.0, 0.0)) -> str:
     """Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a
-    MetaHuman's eyes above its feet."""
+    MetaHuman's eyes above its feet.
+    Example: film-ue op look.focus_track camera_label=Cam target=Host 'offset=[0,0,165]'
+    """
     c = actor(camera_label).get_cine_camera_component()
     fs = c.get_editor_property("focus_settings")
     fs.set_editor_property("focus_method", unreal.CameraFocusMethod.TRACKING)

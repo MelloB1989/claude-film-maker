@@ -97,3 +97,16 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
 - **WP0: merge gate.** Every merge into ue-helpers goes through `dx gen`, then the whole ue suite (`test_ue_*`,
   `test_unreal_*`, `test_fmbridge_jobs`) with numpy, Pillow and soundfile installed, then `dx docs` as a warning.
   Nothing is pushed on red.
+- **2026-11-05 WP5 agent-08: exposure is photographic EV100, and manual mode turns physical camera exposure off.**
+  The manual scale is 2^(bias - EVcam) (PostProcessEyeAdaptation.cpp), and a cine camera writes its aperture into
+  DepthOfFieldFstop (CineCameraComponent.cpp:709), so with physical exposure on, an aperture change would change
+  brightness. `env.exposure mode=manual ev100=E` sets bias = 0.526 - E (a metered grey renders at 0.18). `physical`
+  mode is still there for when a camera's settings should decide.
+- **WP5: one planner, two front doors.** The environment/lighting planner is pure Python under
+  `unreal/fmbridge/envlib/spec.py`. `env.apply` runs it in the editor, and `film-ue apply` runs it through
+  `tools/filmtools/unreal/env_kind.py` (which loads envlib standalone), so the two never disagree.
+- **WP5: ownership by tag.** Every env/light actor carries `fm_env` + `fm_owner:<spec name>`. Prune and replace only
+  touch those. An existing same-label actor the ops did not make is a `conflict`. Rig records and the post-field list
+  live in hex-encoded actor tags (FName-safe), so they travel with the level.
+- **WP5: the sun is NOAA in pure Python**, not the SunPosition plugin (off by default, and its actor is a Blueprint).
+- **WP5: B17 (light rigs) is covered by `light.rig`.** Agreed with agent-11 (WP7), who is not building one.
