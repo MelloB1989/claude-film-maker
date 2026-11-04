@@ -311,7 +311,7 @@ def keepalive(name: str, *, run=None) -> str:
     return f"box {name}: idle clock reset"
 
 
-# ------------------------------------------------------------------------------------------------- images (B51)
+# ------------------------------------------------------------------------------------------------- images (B54)
 IMAGE_TAG = "film-ue:image"
 
 PREPARE_IMAGE = r"""set -e
@@ -321,13 +321,13 @@ PREPARE_IMAGE = r"""set -e
 systemctl stop {service} || true
 U={user}
 H=$(getent passwd "$U" | cut -d: -f6)
-rm -rf "$H/.local/share/.eos_sdk" "$H/.film-ue/ue-args-once" "$H/.film-ue/epic-signin.url" /root/vnc-pass /root/fleet-vnc.pass
+rm -rf "$H/.local/share/.eos_sdk" "$H/.film-ue/ue-args-once" "$H/.film-ue/epic-signin.url" {root}/vnc-pass {root}/fleet-vnc.pass
 rm -f {project}/Saved/fmbridge.token
 rm -rf {project}/Saved/Bridge/jobs {project}/Saved/Bridge/cvars
-mkdir -p /etc/film-ue
+mkdir -p {etc}
 python3 - <<'PY'
 import json
-p = "/etc/film-ue/watchdog.json"
+p = "{etc}/watchdog.json"
 try:
     c = json.load(open(p))
 except (OSError, ValueError):
@@ -335,7 +335,7 @@ except (OSError, ValueError):
 c.update(ttl_until=None, on_exit=[])
 json.dump(c, open(p, "w"), indent=1)
 PY
-rm -f /var/lib/film-ue/watchdog.json
+rm -f {state}/watchdog.json
 systemctl stop film-ue-ttl.timer 2>/dev/null || true
 cloud-init clean --logs >/dev/null 2>&1 || true
 journalctl --rotate >/dev/null 2>&1; journalctl --vacuum-time=1s >/dev/null 2>&1 || true
@@ -344,19 +344,25 @@ echo prepared
 """
 
 
+def prepare_image_script(service: str = "ue-editor", user: str = "ubuntu", project_dir: str = "",
+                         etc: str = "/etc/film-ue", state: str = "/var/lib/film-ue", root: str = "/root") -> str:
+    """The root script that readies a box for imaging (PREPARE_IMAGE with its paths filled in)."""
+    import shlex
+    return PREPARE_IMAGE.format(service=shlex.quote(service), user=shlex.quote(user),
+                                project=shlex.quote(project_dir or "/nonexistent"), etc=etc, state=state, root=root)
+
+
 def image(name: str, *, label: str = "", wait: bool = False, aws=None, run=None, log=print) -> dict:
     """Bake a provisioned box into an AMI (engine, project, warm DDC, bridge; no Epic sign-in, no tokens), so the
     next `box up --ami latest` starts in minutes. The box reboots once (a consistent disk) and comes back up."""
-    import shlex
     prof = _profile(name)
     region = prof.get("region") or ws.conf()["region"]
     aws = aws or _aws(region)
     row = _find(name, region, aws)
     if not row or row["state"] != "running":
         raise SystemExit(f"box {name!r} is not running (film-ue box ls)")
-    script = PREPARE_IMAGE.format(service=shlex.quote(prof.get("service") or "ue-editor"),
-                                  user=shlex.quote(prof.get("user") or "ubuntu"),
-                                  project=shlex.quote(prof.get("project_dir") or "/nonexistent"))
+    script = prepare_image_script(prof.get("service") or "ue-editor", prof.get("user") or "ubuntu",
+                                  prof.get("project_dir") or "")
     with _on(name):
         out = (run or (lambda s: ws.sh(s, 600, root=True)))(script)
     if "prepared" not in (out or ""):

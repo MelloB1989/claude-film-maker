@@ -205,3 +205,39 @@ def test_image_refuses_a_box_that_is_not_running_or_not_prepared(conf):
     assert not aws.made("create-image")
     with pytest.raises(SystemExit, match="no film-ue image"):
         boxes.latest_image("Demo", aws=aws)
+
+
+def test_the_prepared_image_holds_no_epic_sign_in_no_token_and_no_ttl(tmp_path):
+    """The real prepare script, run in bash against a fake home and project: the credential is gone afterwards."""
+    import os
+    import subprocess
+    home, proj, etc, state, root, stub = (tmp_path / n for n in ("home", "proj", "etc", "state", "root", "bin"))
+    cred = home / ".local/share/.eos_sdk/keychain/abc/persistent_auth/credential"
+    cred.parent.mkdir(parents=True)
+    cred.write_text("whole-account-credential")
+    (home / ".film-ue").mkdir()
+    (home / ".film-ue/ue-args-once").write_text("-AUTH_PASSWORD=x")
+    (proj / "Saved/Bridge/jobs").mkdir(parents=True)
+    (proj / "Saved/fmbridge.token").write_text("tok")
+    etc.mkdir()
+    (etc / "watchdog.json").write_text(json.dumps({"ttl_until": 123, "idle_min": 20, "on_exit": ["x"]}))
+    state.mkdir()
+    (state / "watchdog.json").write_text("{}")
+    root.mkdir()
+    (root / "fleet-vnc.pass").write_text("pw")
+    stub.mkdir()
+    for tool in ("systemctl", "cloud-init", "journalctl"):
+        (stub / tool).write_text("#!/bin/sh\nexit 0\n")
+        (stub / tool).chmod(0o755)
+    (stub / "getent").write_text(f"#!/bin/sh\necho 'ue:x:1000:1000::{home}:/bin/bash'\n")
+    (stub / "getent").chmod(0o755)
+    script = boxes.prepare_image_script(user="ue", project_dir=str(proj), etc=str(etc), state=str(state), root=str(root))
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                       env={**os.environ, "PATH": f"{stub}:{os.environ['PATH']}"})
+    assert r.returncode == 0 and "prepared" in r.stdout, r.stderr
+    assert not (home / ".local/share/.eos_sdk").exists() and not cred.exists()   # the Epic sign-in is NOT in the image
+    assert not (home / ".film-ue/ue-args-once").exists() and not (root / "fleet-vnc.pass").exists()
+    assert not (proj / "Saved/fmbridge.token").exists() and not (proj / "Saved/Bridge/jobs").exists()
+    cfg = json.loads((etc / "watchdog.json").read_text())
+    assert cfg["ttl_until"] is None and cfg["on_exit"] == [] and cfg["idle_min"] == 20   # idle protection kept
+    assert not (state / "watchdog.json").exists()
