@@ -68,10 +68,22 @@ def _run(kind: str, payload: dict) -> dict:
         if inspect.isgenerator(res):  # a multi-tick job: _tick steps it
             return {"gen": res, "buf": out, "t0": t0}
         return {"ok": True, "result": _jsonable(res), "stdout": out.getvalue(), "ms": int((time.time() - t0) * 1000)}
-    except Exception:
-        return {"ok": False, "error": traceback.format_exc(), "stdout": out.getvalue(), "ms": int((time.time() - t0) * 1000)}
+    except Exception as e:
+        return {**_failure(e), "stdout": out.getvalue(), "ms": int((time.time() - t0) * 1000)}
     finally:
         sys.stdout, sys.stderr = saved
+
+
+def _failure(e: Exception) -> dict:
+    """A failed job's answer: the traceback in `error`; an OpError's code, message, hint and candidates beside it so
+    the caller can act without reading the traceback (fmbridge.errors)."""
+    from .errors import OpError
+    r = {"ok": False, "error": traceback.format_exc()}
+    if isinstance(e, OpError):
+        r.update(e.to_json())
+    else:
+        r.update({"code": "exception", "message": f"{type(e).__name__}: {e}"})
+    return r
 
 
 def _gui():
@@ -124,8 +136,8 @@ def _step(job) -> bool:
         return False
     except StopIteration as e:
         box.update({"ok": True, "result": _jsonable(e.value), "stdout": buf.getvalue(), "ms": int((time.time() - t0) * 1000)})
-    except Exception:
-        box.update({"ok": False, "error": traceback.format_exc(), "stdout": buf.getvalue(), "ms": int((time.time() - t0) * 1000)})
+    except Exception as e:
+        box.update({**_failure(e), "stdout": buf.getvalue(), "ms": int((time.time() - t0) * 1000)})
     finally:
         sys.stdout, sys.stderr = saved
     box["done"] = True
