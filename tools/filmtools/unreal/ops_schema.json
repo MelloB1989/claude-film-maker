@@ -3373,6 +3373,326 @@
    ]
   },
   {
+   "name": "foliage.describe",
+   "area": "foliage",
+   "verb": "describe",
+   "module": "fmbridge.ops.foliage",
+   "file": "unreal/fmbridge/ops/foliage.py",
+   "line": 231,
+   "summary": "The scatters in the project (or one): their arguments, seed, foliage types and instance counts as placed,",
+   "doc": "The scatters in the project (or one): their arguments, seed, foliage types and instance counts as placed,\nand the foliage instances in the level now per mesh (`measured`), so a lost or doubled scatter shows.\n\nExample: film-ue op foliage.describe prefix=Lawn",
+   "params": [
+    {
+     "name": "prefix",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "layout",
+    "foliage"
+   ]
+  },
+  {
+   "name": "foliage.pcg",
+   "area": "foliage",
+   "verb": "pcg",
+   "module": "fmbridge.ops.foliage",
+   "file": "unreal/fmbridge/ops/foliage.py",
+   "line": 307,
+   "summary": "Run a PCG graph on an actor with a PCG component, with parameters and a seed, and wait until it has generated.",
+   "doc": "Run a PCG graph on an actor with a PCG component, with parameters and a seed, and wait until it has generated.\nWith `loc` (and `extent_cm`, the half size) a PCG Volume named `label` is made there first if missing.\n\nArgs: graph: a PCG graph asset (/Game/...; keep the actor's own when \"\"). seed: the component's seed.\nparams: {graph parameter: value} (bool, int, float, string, [x, y, z], or an asset path).\nReturns: {\"label\", \"graph\", \"seed\", \"generated\", \"instances\": ISM instances on the actor, \"changed\"}.\nExample: film-ue op foliage.pcg label=PCG_Forest graph=/Game/PCG/PG_Forest seed=3 'params={\"Density\":0.6}'",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "graph",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "seed",
+     "kind": "keyword",
+     "type": "int | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "params",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "loc",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "extent_cm",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "timeout_s",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 120.0
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "layout",
+    "foliage",
+    "pcg",
+    "experimental"
+   ]
+  },
+  {
+   "name": "foliage.pcg_clear",
+   "area": "foliage",
+   "verb": "pcg_clear",
+   "module": "fmbridge.ops.foliage",
+   "file": "unreal/fmbridge/ops/foliage.py",
+   "line": 359,
+   "summary": "Clear what a PCG component generated (and delete the actor with `delete`). Missing actors are fine.",
+   "doc": "Clear what a PCG component generated (and delete the actor with `delete`). Missing actors are fine.\n\nExample: film-ue op foliage.pcg_clear label=PCG_Forest",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "delete",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "layout",
+    "foliage",
+    "pcg"
+   ]
+  },
+  {
+   "name": "foliage.remove",
+   "area": "foliage",
+   "verb": "remove",
+   "module": "fmbridge.ops.foliage",
+   "file": "unreal/fmbridge/ops/foliage.py",
+   "line": 257,
+   "summary": "Remove a scatter: its instances and its foliage types (removing nothing is fine).",
+   "doc": "Remove a scatter: its instances and its foliage types (removing nothing is fine).\n\nExample: film-ue op foliage.remove prefix=Lawn",
+   "params": [
+    {
+     "name": "prefix",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "layout",
+    "foliage"
+   ]
+  },
+  {
+   "name": "foliage.scatter",
+   "area": "foliage",
+   "verb": "scatter",
+   "module": "fmbridge.ops.foliage",
+   "file": "unreal/fmbridge/ops/foliage.py",
+   "line": 132,
+   "summary": "Scatter meshes over a region as foliage instances, the same for the same seed; re-running converges (the",
+   "doc": "Scatter meshes over a region as foliage instances, the same for the same seed; re-running converges (the\nscatter's own instances are replaced; nothing else is touched).\n\nArgs: prefix: the scatter's name (its foliage types live in /Game/_Foliage/<prefix>/). meshes: [{\"mesh\":\n\"/Game/...\", \"weight\": 1, \"scale\": [lo, hi], \"height_jitter\": [lo, hi], \"tilt_deg\": 0, \"yaw\": \"random\" | [lo, hi]\n| deg, \"z_offset_cm\": 0, \"align_to_normal\": false}]. region: {\"rect\": [[x0, y0], [x1, y1]]} | {\"circle\": [cx, cy,\nr]} | {\"ring\": [cx, cy, r0, r1]} | {\"polygon\": [[x, y], ...]} (cm). count, or density_per_m2. min_dist_cm:\nspacing (default from the density). exclude: regions to keep clear; exclude_actors: labels whose footprints\n(plus exclude_margin_cm) stay clear. patchiness 0..1 with patch_cm: clumps. surface: \"trace\" (drop onto what is\nbelow, between trace_from_z_cm and trace_to_z_cm; instances over nothing or steeper than max_slope_deg are\ndropped) or \"flat\" (at z_cm). cull_cm: [start, end] distance culling. force: rewrite even when unchanged.\nA multi-tick job (traces yield every 500).\nReturns: {\"prefix\", \"changed\", \"placed\", \"planned\", \"dropped\": {\"no_ground\", \"too_steep\"}, \"per_mesh\",\n\"types\", \"hash\", \"area_m2\"}.\nExample: film-ue op foliage.scatter prefix=Lawn seed=7 'meshes=[{\"mesh\":\"/Game/Env/SM_Grass\",\"scale\":[0.8,1.2]}]' 'region={\"rect\":[[-1000,-1000],[1000,1000]]}' density_per_m2=4",
+   "params": [
+    {
+     "name": "prefix",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "meshes",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "region",
+     "kind": "keyword",
+     "type": "dict",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "seed",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "count",
+     "kind": "keyword",
+     "type": "int | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "density_per_m2",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "min_dist_cm",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "exclude",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "exclude_actors",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "exclude_margin_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 30.0
+    },
+    {
+     "name": "patchiness",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "patch_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 400.0
+    },
+    {
+     "name": "surface",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "trace"
+    },
+    {
+     "name": "z_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0
+    },
+    {
+     "name": "trace_from_z_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 10000.0
+    },
+    {
+     "name": "trace_to_z_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": -10000.0
+    },
+    {
+     "name": "max_slope_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 90.0
+    },
+    {
+     "name": "cull_cm",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "shadows",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "force",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "layout",
+    "foliage"
+   ]
+  },
+  {
    "name": "jobs.cancel",
    "area": "jobs",
    "verb": "cancel",
@@ -10202,6 +10522,7 @@
   "cam": "Cameras: cine cameras by label (filmback, lens, aperture, focus), the framing solver on real subjects, camera moves keyed into Sequencer, rail and crane rigs, a scene's coverage, framing feedback (where points land in the frame, optics and ",
   "editor": "The editor itself: what it is and how it is doing (describe), console variables and commands, the idle frame cap of an offscreen editor, waiting for shader/asset compilation to finish, and garbage collection.",
   "fab": "Fab (WP2): Epic's asset store by code, with no Fab window.",
+  "foliage": "Foliage by code: seeded scatters of meshes (grass, rocks, trees, litter) as foliage instances (one InstancedFoliage actor draws them all as hierarchical instanced static meshes, never thousands of actors), placed on the ground by line trace",
   "jobs": "The bridge's jobs as ops (the same as GET /jobs, GET /job, POST /job/cancel, for clients that only speak /op).",
   "layout": "Layout and set dressing: rest things on what is under them, place one actor relative to another, lay out rows, grids, circles and seeded scatters of an asset, align and distribute.",
   "level": "Levels and actors: new/open/save, find and describe, spawn (shapes, assets, classes), move, aim, set, delete.",
