@@ -171,3 +171,60 @@ def test_pcg_with_parameters(stage):
     with pytest.raises(OpError) as e:
         run_op("foliage.pcg", label="Floor")
     assert e.value.code == "bad_args"
+
+
+class _T:
+    """Just enough of WP11's selftest T to run selftest/foliage.py on the fake: results recorded, never raised."""
+
+    def __init__(self, tmp):
+        self.prefix, self.scratch, self.tmp = "ST_foliage_", "/Game/_Selftest/foliage", tmp
+        self.results, self.notes = [], []
+
+    def op(self, name, **args):
+        from fmbridge import ops
+        return ops.call(name, **args)
+
+    def call(self, name, **args):
+        from fakeunreal import drive
+        return drive(self.op(name, **args))[0]
+
+    def _add(self, name, ok):
+        self.results.append((name, bool(ok)))
+
+    def check(self, name, got, want, tol=1e-3):
+        self._add(name, got == want)
+
+    def ok(self, name, cond, detail=""):
+        self._add(name, cond)
+
+    def idempotent(self, name, op, **args):
+        self.call(op, **args)
+        self._add(name, self.call(op, **args).get("changed") is False)
+
+    def still(self, name, camera=None, width=960, height=540):
+        yield
+        return str(self.tmp / f"{name}.png")
+
+    def metric(self, *a, **k):
+        pass
+
+    def note(self, text):
+        self.notes.append(text)
+
+
+def test_selftest_runs_on_the_fake(stage, tmp_path):
+    from fakeunreal import drive
+    import importlib
+    for shape in ("Cone", "Sphere", "Cube"):
+        stage.add_asset(f"/Engine/BasicShapes/{shape}", "StaticMesh")
+    st = importlib.import_module("fmbridge.selftest.foliage")
+    t = _T(tmp_path)
+    drive(st.run(t))
+    res = dict(t.results)
+    for n in ("scatter placed what it planned", "nothing dropped on flat ground", "the instances are in the level",
+              "no actor per instance", "cones sit on the floor's top (z 0)", "nothing inside the excluded circle",
+              "scatter converges", "still the same count", "slope scatter placed its 20",
+              "another seed replaces, never adds", "describe: measured cones", "removed: no instances left",
+              "remove again is fine", "PCG generated", "PCG seed set"):
+        assert res.get(n) is True, (n, t.results, t.notes)
+    assert stage.dialogs == []

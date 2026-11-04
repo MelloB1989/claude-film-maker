@@ -29,6 +29,9 @@ class InstancedStaticMeshComponent(core.StaticMeshComponent):
         self._props["instances"].extend(transforms)
         return list(range(n, n + len(transforms))) if should_return_indices else []
 
+    def get_instance_transform(self, instance_index, world_space=False):
+        return True, self._props["instances"][instance_index]
+
     def clear_instances(self):
         self._props["instances"] = []
 
