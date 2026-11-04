@@ -136,6 +136,7 @@ class Compiler:
         self.r = resolver or NullResolver()
         self.problems: list = []
         self.notes: list = []
+        self.children: list = []  # shot sequences a shot list makes: their specs, converged before this one
         try:
             self.rate = Rate.parse(spec.get("fps", 24))
         except ValueError as e:
@@ -229,6 +230,10 @@ class Compiler:
                 sub = {"Subsequences": sub}
             for name, items in (sub or {}).items():
                 doc["tracks"].append(self.subs(items, "sub", str(name), f"subsequences.{name}"))
+        if "range" not in doc:  # a shot list laid end to end: the master runs from the first shot to the last
+            shot_secs = [x for t in doc["tracks"] if t["kind"] in ("shot", "sub") for x in t["sections"]]
+            if shot_secs:
+                doc["range"] = [min(x["range"][0] for x in shot_secs), max(x["range"][1] for x in shot_secs)]
         for i, t in enumerate(_as_list(s.get("tracks"), "tracks", self.problems)):
             doc["tracks"].append(self.raw_track(t, f"tracks[{i}]"))
         seen = {}
@@ -242,6 +247,8 @@ class Compiler:
         if self.problems:
             raise SpecError(self.problems)
         doc["prune"] = bool(s.get("prune", False))
+        if self.children:
+            doc["children"] = self.children
         return doc, self.notes + getattr(self.r, "notes", [])
 
     # --- bindings ----------------------------------------------------------------------------------------------------
@@ -613,17 +620,25 @@ class Compiler:
         return out
 
     def subs(self, items, kind: str, name: str, w: str) -> dict:
+        """Shot / subsequence sections. A shot list: `start` defaults to the previous shot's end (on its row),
+        `duration` instead of `end`; `camera: <label>` or `shot: {...}` (an inline sequence spec: bindings,
+        camera_cuts, ...) makes the shot's own sequence (at `sequence`, default <master>_<name>), which apply
+        converges first; `handles` frames of it before and after the cut (the section starts that far in)."""
         secs = []
+        at_row: dict = {}
+        master = (self.spec.get("sequence") or "/Game/Seq").rsplit(".", 1)[0]
         for i, it in enumerate(_as_list(items, w, self.problems)):
             at = f"{w}[{i}]"
-            if not isinstance(it, dict) or "sequence" not in it:
-                self.problems.append(f"{at}: {{sequence, start, end(, name, offset, timescale, preroll, postroll, row)}}")
+            if not isinstance(it, dict) or not ({"sequence", "camera", "shot"} & set(it)):
+                self.problems.append(f"{at}: {{sequence | camera | shot, start, end | duration(, name, offset, "
+                                     f"timescale, preroll, postroll, row, handles)}}")
                 continue
             bad = set(it) - {"sequence", "start", "end", "name", "offset", "timescale", "preroll", "postroll", "row",
-                             "duration"}
+                             "duration", "camera", "shot", "handles"}
             if bad:
                 self.problems.append(f"{at}: unknown fields {sorted(bad)}")
-            start = self.t(it.get("start", 0), f"{at}.start")
+            row = int(it.get("row", 0))
+            start = self.t(it["start"], f"{at}.start") if "start" in it else at_row.get(row, 0)
             if "end" in it:
                 end = self.t(it["end"], f"{at}.end")
             elif "duration" in it:
@@ -633,17 +648,42 @@ class Compiler:
                 continue
             if end <= start:
                 self.problems.append(f"{at}: end {end} must be after start {start}")
-            p = {"sequence": it["sequence"]}
+            at_row[row] = end
+            nm = str(it.get("name") or (str(it["sequence"]).rsplit("/", 1)[-1] if "sequence" in it else f"sh{i + 1:03d}"))
+            path = it.get("sequence") or f"{master}_{nm}"
+            handles = self.t(it.get("handles", 0), f"{at}.handles")
+            if handles < 0:
+                self.problems.append(f"{at}.handles: must be >= 0")
+            p = {"sequence": path}
             if kind == "shot":
-                p["name"] = str(it.get("name") or str(it["sequence"]).rsplit("/", 1)[-1])
+                p["name"] = nm
             for k in ("offset", "preroll", "postroll"):
                 p[k] = self.t(it.get(k, 0), f"{at}.{k}")
                 if k != "offset" and p[k] < 0:
                     self.problems.append(f"{at}.{k}: must be >= 0")
+            if handles and "offset" not in it:
+                p["offset"] = handles
             p["timescale"] = float(it.get("timescale", 1.0))
             if p["timescale"] <= 0:
                 self.problems.append(f"{at}.timescale: must be > 0")
-            secs.append(new_section((start, end), int(it.get("row", 0)), p))
+            if "camera" in it or "shot" in it:
+                inner = dict(it.get("shot") or {})
+                stray = {"sequence", "kind", "version"} & set(inner)
+                if stray:
+                    self.problems.append(f"{at}.shot: {sorted(stray)} come from the shot entry, not the inline spec")
+                length = snap(handles * 2 + (end - start) * p["timescale"])
+                child = {"kind": "sequence", "version": 1, "name": nm, "sequence": path,
+                         "fps": self.spec.get("fps", 24), "range": [0, length], **{k: v for k, v in inner.items()
+                                                                                   if k not in stray}}
+                if "camera" in it:
+                    child.setdefault("bindings", {}).setdefault(str(it["camera"]), {})
+                    child.setdefault("camera_cuts", [[str(it["camera"]), 0]])
+                try:
+                    Compiler(child, self.r).compile()
+                except SpecError as e:
+                    self.problems += [f"{at}.shot: {x}" for x in e.problems]
+                self.children.append(child)
+            secs.append(new_section((start, end), row, p))
         rows = {}
         for s in secs:
             for o in rows.get(s["row"], []):

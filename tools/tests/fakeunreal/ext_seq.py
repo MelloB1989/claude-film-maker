@@ -147,11 +147,18 @@ class FakeChannel:
             raise TypeError(f"{self.kind} channel add_key takes no interpolation")
         unit = getattr(time_unit, "name", "DISPLAY_RATE")
         tick = time.value if unit == "TICK_RESOLUTION" else int(round((time.value + sub_frame) * self.seq_tpf()))
-        self.keys = [k for k in self.keys if k.tick != tick]
         k = FakeKey(self, tick, value, getattr(interpolation, "name", "AUTO") if self.kind in ("double", "float")
                     else "CONSTANT")
-        self.keys.append(k)
-        self.keys.sort(key=lambda k: k.tick)
+        if not self.keys or self.keys[-1].tick < tick:  # the usual case: keys arrive in order
+            self.keys.append(k)
+        else:
+            import bisect
+            ticks = [x.tick for x in self.keys]
+            i = bisect.bisect_left(ticks, tick)
+            if i < len(ticks) and ticks[i] == tick:
+                self.keys[i] = k
+            else:
+                self.keys.insert(i, k)
         seq = self.section.track.seq
         object.__setattr__(seq, "key_writes", seq.key_writes + 1)
         return k

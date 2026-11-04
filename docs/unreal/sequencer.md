@@ -58,6 +58,13 @@ Each chunk is `{start, end, eval_from, preroll_frames, shot, first_after_cut, co
 keep `[start, end)`. A chunk never starts a simulation mid-shot (the Linux PoC's open overshirt, docs/linux/engine.md
 P6); `max_preroll` caps the cost and flags `cold`. Judge `first_after_cut` frames on their own (TSR history).
 
+**A shot list → an edit (master + one sequence per shot).** `examples/unreal/sequence/shot_list.yaml`: each shot
+entry takes `duration` (start defaults to the previous shot's end), `camera: <label>` (a one-camera shot sequence)
+or `shot: {...}` (the shot's own tracks, an inline spec), `handles` and `preroll`. Apply converges every shot
+sequence (`<master>_<name>`) first, then the master's shot track; a change inside one shot re-applies only that
+shot. Frame the cameras with WP7 (`cam.frame`, `shot.apply` into the shot sequence); render with `seq.chunks` on the
+master.
+
 **Pull a shot out, move time.**
 
     film-ue op seq.copy src=/Game/Film/SEQ_All dst=/Game/Film/SEQ_sh020 start=120 end=240   # window -> [0, 120)
@@ -140,7 +147,8 @@ bindings:
 camera_cuts: [[CamWide, 0], [CamClose, 3s]]
 audio: {VO: [{sound: /Game/Audio/L1, start: 12}]}
 fade: {color: [0, 0, 0], keys: [[0, 1], [12, 0]]}
-shots: [{sequence: /Game/Shots/SEQ_sh010, start: 0, end: 120, preroll: 24}]
+shots: [{sequence: /Game/Shots/SEQ_sh010, start: 0, end: 120, preroll: 24},   # or a shot list:
+        {name: close, camera: CamClose, duration: 3s, handles: 12}]   # start = previous end; made for you
 collections: [{collection: /Game/MPC_Grade, param: Exposure, keys: [[0, 0], [120, 0.3]]}]
 tracks: []                                    # raw canonical tracks (seq.describe's shape)
 ```
@@ -269,7 +277,7 @@ State at the end of the night (agent-06, branch `fleet/agent-06/ue-sequencer`):
 
 - Done: the pure core (time incl. drop-frame timecode, keys and curves, canonical document, spec compiler, plan,
   lint, shots, render chunks, copy/retime transforms), the engine adapter for every listed track kind, 18 `seq.*`
-  ops (20 with seq.diff and seq.conform: BACKLOG B22), the `sequence` spec kind for WP11's engine, the schema and two examples, the fake Sequencer, 53 unit tests,
+  ops (20 with seq.diff and seq.conform: BACKLOG B22), shot lists (B20), the `sequence` spec kind for WP11's engine, the schema and two examples, the fake Sequencer, 53 unit tests,
   the selftest. All UE APIs verified on the 5.8.4 source (table above).
 - Not yet run on an engine: everything engine-side is proven only against the fake. Tomorrow's first run of
   `film-ue selftest seq` is the acceptance test. The places most likely to need a fix are noted in Gotchas: reading colour/vector/byte channels by order; the material section's colour-channel grouping.

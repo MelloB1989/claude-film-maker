@@ -19,11 +19,13 @@ from .level import actor, look_rot
 LSE = unreal.LevelSequenceEditorBlueprintLibrary
 
 
-@op("seq.shot")
+@op("seq.shot", mutates=True, idempotent=False, tags=["sequencer", "legacy"])
 def shot(path: str, actor_label: str, anims: dict, camera: str, audio: str = "", seconds: float = 0.0, fps: int = 24,
          audio_start: int = 0, tail: int = 6) -> dict:
     """A shot: `anims` maps component names to animations ({"Body": idle, "Face": talk}); `audio` a SoundWave; the
-    camera cut on `camera`. Length: `seconds`, else the audio's, else the longest animation's."""
+    camera cut on `camera`. Length: `seconds`, else the audio's, else the longest animation's.
+    Example: film-ue op seq.shot path=/Game/S/SEQ_A actor_label=Host 'anims={"Body": "/Game/A/Idle"}' camera=CamA seconds=5
+    """
     if EAL.does_asset_exist(path):
         if LSE.get_current_level_sequence():
             LSE.close_level_sequence()
@@ -62,18 +64,22 @@ def shot(path: str, actor_label: str, anims: dict, camera: str, audio: str = "",
     return {"sequence": path, "frames": end, "fps": fps}
 
 
-@op("seq.scrub")
+@op("seq.scrub", mutates=False, idempotent=True, tags=["sequencer", "legacy"])
 def scrub(path: str, frame: int) -> int:
-    """Open a sequence in Sequencer, locked to its camera, at a frame (for checking a pose in the viewport)."""
+    """Open a sequence in Sequencer, locked to its camera, at a frame (for checking a pose in the viewport).
+    Example: film-ue op seq.scrub path=/Game/S/SEQ_A frame=48
+    """
     LSE.open_level_sequence(load(path))
     LSE.set_lock_camera_cut_to_viewport(True)
     LSE.set_current_time(int(frame))
     return frame
 
 
-@op("seq.close")
+@op("seq.close", mutates=False, idempotent=True, tags=["sequencer", "legacy"])
 def close() -> bool:
-    """Close the open sequence."""
+    """Close the open sequence.
+    Example: film-ue op seq.close
+    """
     LSE.close_level_sequence()
     return True
 
@@ -89,10 +95,12 @@ def component_of(actor_label: str, component: str):
     return next(c for c in actor(actor_label).get_components_by_class(unreal.SceneComponent) if c.get_name() == component)
 
 
-@op("seq.set_anim")
+@op("seq.set_anim", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def set_anim(path: str, component: str, anim: str, label: str = "", only: str = "") -> str:
     """Swap the animation on a component's track in a sequence: every section of it, or only those playing `only`.
-    `label` picks the actor when several have a component of that name (both presenters have "Body")."""
+    `label` picks the actor when several have a component of that name (both presenters have "Body").
+    Example: film-ue op seq.set_anim path=/Game/S/SEQ_A component=Body anim=/Game/A/Walk label=Host
+    """
     seq = load(path)
     b = _comp_binding(seq, label, component, create=False) if label else _binding(seq, component)
     tracks = b.find_tracks_by_type(unreal.MovieSceneSkeletalAnimationTrack)
@@ -134,12 +142,14 @@ def aim_point(target, offset=None) -> list:
     return [p.x, p.y, p.z]
 
 
-@op("seq.sample")
+@op("seq.sample", mutates=False, idempotent=True, tags=["sequencer", "legacy"])
 def sample(path: str, actor_label: str, component: str, bones: list, frames: list | None = None, every: int = 1,
            ticks: int = 2, camera: str = "", target=None, target_offset=None):
     """Play a sequence frame by frame across editor ticks (so animation and rigs settle) and record bones' world
     transforms, each [x, y, z, axis_x(3), axis_y(3), axis_z(3)], `camera`'s location, and `target`'s (see
-    seq.aim_point: a point, an actor, "Label:Component:bone"). A multi-tick job."""
+    seq.aim_point: a point, an actor, "Label:Component:bone"). A multi-tick job.
+    Example: film-ue op seq.sample path=/Game/S/SEQ_A actor_label=Host component=Face 'bones=["FACIAL_L_Eye"]' 'frames=[0,24]'
+    """
     LSE.open_level_sequence(load(path))
     seq = LSE.get_current_level_sequence()
     if frames is None:
@@ -163,11 +173,13 @@ def sample(path: str, actor_label: str, component: str, bones: list, frames: lis
     return out
 
 
-@op("seq.still")
+@op("seq.still", mutates=False, idempotent=True, tags=["sequencer", "legacy"])
 def seq_still(path: str, frame: int, camera: str, out: str, width: int = 1920, height: int = 1080, settle: int = 30):
     """A still of a sequence at a frame through `camera`, or, with camera "", through the camera the edit (the camera
     cut track) shows at that frame: scrub there, let it settle `settle` ticks (temporal anti-aliasing, Lumen),
-    capture. A multi-tick job."""
+    capture. A multi-tick job.
+    Example: film-ue op seq.still path=/Game/S/SEQ_A frame=48 camera=CamA out=/tmp/f48.png
+    """
     from .look import still
     camera = camera or cut_camera(path, frame)
     LSE.open_level_sequence(load(path))
@@ -188,12 +200,14 @@ def _bound(seq, label: str):
     return seq.add_possessable(actor(label))
 
 
-@op("seq.key_transform")
+@op("seq.key_transform", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def key_transform(path: str, label: str, keys: list, interp: str = "auto") -> int:
     """Animate an actor in a sequence: keys are [frame, [x, y, z], {"pitch", "yaw", "roll"} | [x, y, z] to look at]
     with an optional 4th element, the interpolation leaving that key: "auto" (smooth, eases at held ends), "linear"
     or "constant" (hold until the next key, a jump cut). `interp` is the default. Replaces the actor's transform
-    track (and only that), keeping the actor's scale; yaw is keyed as given, so unwrap it yourself across +-180."""
+    track (and only that), keeping the actor's scale; yaw is keyed as given, so unwrap it yourself across +-180.
+    Example: film-ue op seq.key_transform path=/Game/S/SEQ_A label=CamA 'keys=[[0,[0,-300,160],{"yaw":90}],[48,[100,-300,160],[0,0,150]]]'
+    """
     seq = load(path)
     b = _bound(seq, label)
     for t in b.find_tracks_by_type(unreal.MovieScene3DTransformTrack):
@@ -212,9 +226,11 @@ def key_transform(path: str, label: str, keys: list, interp: str = "auto") -> in
     return len(keys)
 
 
-@op("seq.camera_cuts")
+@op("seq.camera_cuts", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def camera_cuts(path: str, cuts: list) -> list:
-    """The edit: cuts are [camera label, first frame] in order; each runs to the next (the last to the end)."""
+    """The edit: cuts are [camera label, first frame] in order; each runs to the next (the last to the end).
+    Example: film-ue op seq.camera_cuts path=/Game/S/SEQ_A 'cuts=[["CamA",0],["CamB",72]]'
+    """
     seq = load(path)
     for t in seq.find_tracks_by_type(unreal.MovieSceneCameraCutTrack):
         seq.remove_track(t)
@@ -231,12 +247,14 @@ def camera_cuts(path: str, cuts: list) -> list:
     return out
 
 
-@op("seq.stills")
+@op("seq.stills", mutates=False, idempotent=True, tags=["sequencer", "legacy"])
 def seq_stills(path: str, frames: list, camera: str = "", out_dir: str = "", width: int = 960, height: int = 540,
                settle: int = 20):
     """Stills of a sequence at many frames ({out_dir}/{frame:04d}.png): a contact sheet's worth in one call. Through
     one `camera`, or with camera "" each frame through its own shot's camera (the camera cut track): a previs of the
-    whole cut. A multi-tick job; returns [[frame, camera, path]]."""
+    whole cut. A multi-tick job; returns [[frame, camera, path]].
+    Example: film-ue op seq.stills path=/Game/S/SEQ_A 'frames=[0,48,96]' out_dir=/tmp/sheet
+    """
     import os
     out = []
     for f in frames:
@@ -357,10 +375,12 @@ def _done(path: str):
         LSE.refresh_current_level_sequence()
 
 
-@op("seq.new")
+@op("seq.new", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def new(path: str, start: int = 0, end: int = 120, fps: int = 24, replace: bool = False) -> dict:
     """An empty level sequence for building into (no actor, no camera): playback [start, end) at `fps`. If it exists it
-    is kept as it is (only its range set), so several scripts can each add their tracks; `replace` starts it afresh."""
+    is kept as it is (only its range set), so several scripts can each add their tracks; `replace` starts it afresh.
+    Example: film-ue op seq.new path=/Game/S/SEQ_A start=0 end=240 fps=24
+    """
     if EAL.does_asset_exist(path) and replace:
         if LSE.get_current_level_sequence():
             LSE.close_level_sequence()
@@ -380,7 +400,7 @@ def new(path: str, start: int = 0, end: int = 120, fps: int = 24, replace: bool 
             "fps": _fps(seq)}
 
 
-@op("seq.key_float")
+@op("seq.key_float", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def key_float(path: str, label: str, prop: str, keys: list, component: str = "", interp: str = "auto",
               double: bool = False) -> dict:
     """Key a float property of an actor or component: keys [[frame, value(, interp)], ...], interp "auto" (smooth,
@@ -389,7 +409,9 @@ def key_float(path: str, label: str, prop: str, keys: list, component: str = "",
     "Settings.AutoExposureBias" (a PostProcessVolume actor: set its override flag once with look.post), "FogDensity".
     `component` by name or class ("CameraComponent", "LightComponent0"); "" = the actor if it has the property, else
     its root component (a light's). `double` for a double property (a UE5 large-world value). Replaces only this
-    property's track on that binding; the keys hold before the first and after the last."""
+    property's track on that binding; the keys hold before the first and after the last.
+    Example: film-ue op seq.key_float path=/Game/S/SEQ_A label=Key prop=Intensity 'keys=[[0,5],[24,10]]'
+    """
     seq = load(path)
     comp = _owner(label, component, prop)
     b = _comp_binding(seq, label, comp)
@@ -405,12 +427,14 @@ def _to_linear(c: float) -> float:
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 
 
-@op("seq.key_color")
+@op("seq.key_color", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def key_color(path: str, label: str, prop: str, keys: list, component: str = "", interp: str = "auto",
               srgb: bool = None) -> dict:
     """Key a colour property: keys [[frame, [r, g, b(, a)](, interp)], ...]. An FColor property (a light's
     "LightColor") takes sRGB 0-1, as look.light does; an FLinearColor one (fog "FogInscatteringLuminance", a post
-    "Settings.ColorGain") takes linear values. `srgb` overrides that guess. Component and replacement as key_float."""
+    "Settings.ColorGain") takes linear values. `srgb` overrides that guess. Component and replacement as key_float.
+    Example: film-ue op seq.key_color path=/Game/S/SEQ_A label=Key prop=LightColor 'keys=[[0,[1,0.8,0.6]]]'
+    """
     seq = load(path)
     comp = _owner(label, component, prop)
     owner = _component(label, comp) if comp else actor(label)
@@ -429,12 +453,14 @@ def key_color(path: str, label: str, prop: str, keys: list, component: str = "",
     return {"binding": f"{label}.{comp}" if comp else label, "prop": _path(prop)[0], "keys": len(keys), "srgb": srgb}
 
 
-@op("seq.key_visible")
+@op("seq.key_visible", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def key_visible(path: str, label: str, keys: list, component: str = "", attached: bool = False) -> dict:
     """Show and hide an actor (or one of its components) over a sequence: keys [[frame, visible], ...], stepped; the
     first key holds before it. Overrides the level's hidden state while the sequence is open or playing (a
     presenter hidden in the level can appear in the reel). `attached` keys the actors attached to it too (her
-    earrings and watch). Replaces only the visibility track."""
+    earrings and watch). Replaces only the visibility track.
+    Example: film-ue op seq.key_visible path=/Game/S/SEQ_A label=Prop 'keys=[[0,true],[100,false]]'
+    """
     seq = load(path)
     labels = [label] + ([a.get_actor_label() for a in actor(label).get_attached_actors()] if attached and not component else [])
     for lab in labels:
@@ -462,13 +488,15 @@ def _mesh(label: str, component: str):
     return c[0]
 
 
-@op("seq.key_material")
+@op("seq.key_material", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def key_material(path: str, label: str, param: str, keys: list, slot=0, component: str = "",
                  interp: str = "auto") -> dict:
     """Key a material parameter on a mesh component's material slot (the material there must be an instance or
     material with that parameter): keys [[frame, value(, interp)], ...], a float for a scalar parameter or
     [r, g, b(, a)] (linear) for a vector one. `slot` is its index or name ("M_Sheer"); `component` "" = the actor's
-    first mesh component. Replaces only that parameter's keys in the slot's track; other parameters keep theirs."""
+    first mesh component. Replaces only that parameter's keys in the slot's track; other parameters keep theirs.
+    Example: film-ue op seq.key_material path=/Game/S/SEQ_A label=Sign param=Glow 'keys=[[0,0],[24,1]]'
+    """
     seq = load(path)
     mesh = _mesh(label, component)
     names = [str(n) for n in mesh.get_material_slot_names()]
@@ -515,12 +543,14 @@ def key_material(path: str, label: str, param: str, keys: list, slot=0, componen
     return {"binding": f"{label}.{mesh.get_name()}", "slot": index, "param": param, "keys": len(keys)}
 
 
-@op("seq.key_collection")
+@op("seq.key_collection", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def key_collection(path: str, collection: str, param: str, keys: list, interp: str = "auto") -> dict:
     """Key a scalar parameter of a material parameter collection (look.collection) on the sequence's track for that
     collection: keys [[frame, value(, interp)], ...]. Sequencer writes the world's instance of the collection, so the
     value reaches every material reading it with no mesh binding and no MID in between. Replaces only that
-    parameter's keys."""
+    parameter's keys.
+    Example: film-ue op seq.key_collection path=/Game/S/SEQ_A collection=/Game/MPC_FM param=WipeOn 'keys=[[0,0],[24,1]]'
+    """
     seq = load(path)
     mpc = load(collection)
     track = next((t for t in seq.find_tracks_by_type(unreal.MovieSceneMaterialParameterCollectionTrack)
@@ -589,7 +619,7 @@ def _play_rate(rate: float):
     return v
 
 
-@op("seq.anim")
+@op("seq.anim", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def anim_track(path: str, label: str, component: str, sections: list, replace: bool = True) -> list:
     """Animation sections on an actor's skeletal mesh component (a MetaHuman's "Body" or "Face"), each
     {"anim", "start", "end", "offset", "blend_in", "blend_out", "rate", "weight", "loop", "row"}: `start`/`end`
@@ -597,7 +627,9 @@ def anim_track(path: str, label: str, component: str, sections: list, replace: b
     pose), `offset` seconds into the animation where it starts, `blend_in`/`blend_out` frames of ease (weights
     cross-fade where sections overlap: idle -> line -> idle), `weight` (1), `row` (default: the first free one; overlaps
     go on separate rows). `replace` clears the track's sections first, else these are added. Returns [[anim, start,
-    end, row]]."""
+    end, row]].
+    Example: film-ue op seq.anim path=/Game/S/SEQ_A label=Host component=Body 'sections=[{"anim":"/Game/A/Idle","start":0,"blend_in":6}]'
+    """
     seq = load(path)
     b = _comp_binding(seq, label, component)
     tracks = b.find_tracks_by_type(unreal.MovieSceneSkeletalAnimationTrack)
@@ -659,12 +691,14 @@ def anim_track(path: str, label: str, component: str, sections: list, replace: b
     return out
 
 
-@op("seq.audio")
+@op("seq.audio", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def audio(path: str, clips: list, track: str = "Audio", replace: bool = True) -> list:
     """Sounds in a sequence on a named audio track ("VO", "Score", "SFX"): clips [{"sound", "start", "end", "offset",
     "volume"}] or [sound, start]: a SoundWave asset (assets.import a WAV first) from frame `start`, `offset` seconds
     into it, to `end` (default: its length), at `volume` (1). For timing in the editor; the mix is made in post.
-    `replace` empties the named track first, else adds to it. Returns [[sound, start, end, row]]."""
+    `replace` empties the named track first, else adds to it. Returns [[sound, start, end, row]].
+    Example: film-ue op seq.audio path=/Game/S/SEQ_A track=VO 'clips=[["/Game/Audio/L1",12]]'
+    """
     seq = load(path)
     t = next((x for x in seq.find_tracks_by_type(unreal.MovieSceneAudioTrack) if str(x.get_display_name()) == track), None)
     if t is not None and replace:
@@ -701,9 +735,11 @@ def audio(path: str, clips: list, track: str = "Audio", replace: bool = True) ->
     return out
 
 
-@op("seq.cuts")
+@op("seq.cuts", mutates=False, idempotent=True, tags=["sequencer", "legacy"])
 def cuts(path: str) -> list:
-    """The edit as it stands: [camera label, first frame, end frame] for each camera cut, in order."""
+    """The edit as it stands: [camera label, first frame, end frame] for each camera cut, in order.
+    Example: film-ue op seq.cuts path=/Game/S/SEQ_A
+    """
     seq = load(path)
     by_id = {b.get_id().export_text(): str(b.get_display_name()) for b in seq.get_bindings()}  # a Guid's str() is its repr
     out = []
@@ -724,11 +760,13 @@ def cut_camera(path: str, frame: int) -> str:
     raise ValueError(f"no camera cut at frame {frame} in {path}")
 
 
-@op("seq.rebind")
+@op("seq.rebind", mutates=True, idempotent=True, tags=["sequencer", "legacy"])
 def rebind(path: str, labels: list | None = None) -> dict:
     """Point a sequence's actor bindings at the level's actors of the same label again, after the level was rebuilt
     and the old actors are gone (their tracks are kept; a binding removed and remade would lose them). `labels` None
-    = every actor binding whose name is an actor in the level. Returns {label: "ok" | "missing"}."""
+    = every actor binding whose name is an actor in the level. Returns {label: "ok" | "missing"}.
+    Example: film-ue op seq.rebind path=/Game/S/SEQ_A 'labels=["Host"]'
+    """
     seq = load(path)
     LSE.open_level_sequence(seq)
     lss = unreal.get_editor_subsystem(unreal.LevelSequenceEditorSubsystem)
@@ -755,10 +793,12 @@ def rebind(path: str, labels: list | None = None) -> dict:
     return out
 
 
-@op("seq.tracks")
+@op("seq.tracks", mutates=False, idempotent=True, tags=["sequencer", "legacy"])
 def tracks(path: str) -> dict:
     """What a sequence holds: for each binding (an actor, or actor.component) its tracks as [class, property or
-    name, sections, keys]; master tracks under "". For checking what a build script made."""
+    name, sections, keys]; master tracks under "". For checking what a build script made.
+    Example: film-ue op seq.tracks path=/Game/S/SEQ_A
+    """
     seq = load(path)
 
     def describe(t):

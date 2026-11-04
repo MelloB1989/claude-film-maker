@@ -296,3 +296,26 @@ def test_retime_stretches_a_span(level):
     from fmbridge.errors import OpError
     with pytest.raises(OpError):
         run_op("seq.retime", path=SEQ, start=100, scale=2)
+
+
+def test_shot_list_builds_shot_sequences_and_master(level):
+    level.add_asset("/Game/F/SEQ_existing", "LevelSequence")
+    s = {"sequence": "/Game/F/SEQ_Edit", "fps": 24,
+         "shots": [{"name": "wide", "camera": "CamA", "duration": 72, "handles": 12},
+                   {"name": "close", "duration": 48, "shot": {
+                       "bindings": {"CamB": {"props": {f"{CAM['comp']}/CurrentFocalLength": [[0, 85]]}}},
+                       "camera_cuts": [["CamB", 0]]}},
+                   {"sequence": "/Game/F/SEQ_existing", "duration": 24}]}
+    r = run_op("seq.apply", spec=s)
+    assert r["converged"], r["remaining"]
+    assert [x["op"] for x in r["steps"]][:3] == ["seq.add", "seq.apply", "seq.apply"]
+    wide = run_op("seq.describe", path="/Game/F/SEQ_Edit_wide")
+    assert wide["range"] == [0, 96] and [c["params"]["camera"] for c in tracks(wide, "camera_cut")[0]["sections"]] == ["CamA"]
+    shots = run_op("seq.shots", path="/Game/F/SEQ_Edit")
+    assert [(x["name"], x["start"], x["end"]) for x in shots] == [("wide", 0, 72), ("close", 72, 120),
+                                                                  ("SEQ_existing", 120, 144)]
+    assert run_op("seq.apply", spec=s)["changed"] is False
+    s["shots"][1]["shot"]["bindings"]["CamB"]["props"][f"{CAM['comp']}/CurrentFocalLength"] = [[0, 50]]
+    r = run_op("seq.apply", spec=s)
+    assert [(x["op"], x["result"]["sequence"]) for x in r["steps"]] == [("seq.apply", "/Game/F/SEQ_Edit_close")]
+    assert r["converged"]

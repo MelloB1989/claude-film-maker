@@ -49,6 +49,21 @@ def _compiled(spec: dict) -> tuple:
                       hint="seq.validate lists them; the schema is schemas/sequence.schema.json") from None
 
 
+def _state(want: dict, keys: bool = True) -> dict | None:
+    """The engine's document for a compiled spec, with its shot list's children: {path: {"exists", "steps"}} (how
+    many steps each shot sequence's own spec still needs), so plan() is exact. None: no such sequence."""
+    have = E.describe(want["sequence"], keys=keys)
+    kids = {}
+    for child in want.get("children") or []:
+        cw, _ = _compiled(child)
+        ch = _state(cw)
+        kids[child["sequence"]] = {"exists": ch is not None, "steps": len(make_plan(cw, ch))}
+    if not have["exists"]:
+        return None
+    have["children"] = kids
+    return have
+
+
 @op("seq.describe", mutates=False, idempotent=True, tags=["sequencer", "describe"])
 def describe(*, path: str, spec: dict = None, keys: bool = True, check: bool = False) -> dict:
     """A level sequence as JSON: rate, range, markers, bindings (bound or not), every track with sections and keys.
@@ -65,6 +80,9 @@ def describe(*, path: str, spec: dict = None, keys: bool = True, check: bool = F
     if spec is not None:
         want, notes = _compiled(_spec(spec))
         doc["want"], doc["notes"] = want, doc.get("notes", []) + notes
+        st = _state(want) if doc["exists"] else None
+        if st is not None:
+            doc["children"] = st["children"]
     if check and doc["exists"]:
         doc["lint"] = lint(doc)
     return doc
@@ -90,14 +108,15 @@ def plan(*, spec: dict, prune: bool = None) -> dict:
     """
     spec = _spec(spec)
     want, notes = _compiled(spec)
-    have = E.describe(want["sequence"])
-    steps = make_plan(want, have if have["exists"] else None, prune=prune)
+    steps = make_plan(want, _state(want), prune=prune)
     return {"steps": [_brief(s) for s in steps], "converged": not steps, "notes": notes}
 
 
 def _brief(step: dict) -> dict:
     """A step for display: a track argument summarised (keys counted)."""
     s = copy.deepcopy(step)
+    if isinstance(s["args"].get("spec"), dict):
+        s["args"]["spec"] = {"sequence": s["args"]["spec"].get("sequence"), "name": s["args"]["spec"].get("name")}
     t = s["args"].get("track")
     if t:
         s["args"]["track"] = {"id": track_label(t), "sections": len(t["sections"]),
@@ -119,8 +138,7 @@ def apply(*, spec: dict, prune: bool = None, dry_run: bool = False, save: bool =
     spec = _spec(spec)
     want, notes = _compiled(spec)
     path = want["sequence"]
-    have = E.describe(path)
-    steps = make_plan(want, have if have["exists"] else None, prune=prune)
+    steps = make_plan(want, _state(want), prune=prune)
     if dry_run:
         return {"changed": False, "steps": [_brief(s) for s in steps], "converged": not steps, "notes": notes,
                 "sequence": path, "dry_run": True}
@@ -132,8 +150,7 @@ def apply(*, spec: dict, prune: bool = None, dry_run: bool = False, save: bool =
         seq = E.find(path)
         if seq is not None:
             EAL.save_loaded_asset(seq, False)
-    again = E.describe(path)
-    remaining = make_plan(want, again, prune=prune)
+    remaining = make_plan(want, _state(want), prune=prune)
     return {"changed": bool(steps), "steps": done, "converged": not remaining,
             "remaining": [_brief(s) for s in remaining], "notes": notes, "sequence": path}
 
@@ -152,6 +169,9 @@ def _run_step(step: dict, save: bool):
         return markers(save=save, **a)
     if name == "seq.remove_track":
         return remove_track(save=save, **a)
+    if name == "seq.apply":  # a shot list's shot sequence
+        res = yield from apply(spec=a["spec"], save=save)
+        return {"sequence": res["sequence"], "changed": res["changed"], "converged": res["converged"]}
     if name == "seq.rebind":
         from .. import call
         return call("seq.rebind", **a)
@@ -459,7 +479,7 @@ def retime(*, path: str, offset: float = 0, scale: float = 1.0, pivot: float = 0
 
 
 @op("seq.conform", mutates=True, idempotent=True, tags=["sequencer"])
-def conform(*, path: str, fps, keep: str = "time", out: str = "", save: bool = True):
+def conform(*, path: str, fps: str, keep: str = "time", out: str = "", save: bool = True):
     """Change a sequence's display rate, keeping either its TIME (every key, section and marker stays at its
     moment in seconds; frame numbers change; the default) or its FRAMES (frame numbers stay; the whole thing plays
     faster or slower: animation rates follow, audio sections end where their sound does).
