@@ -36,7 +36,7 @@ class Bridge:
         if name == "perf.face":
             if self.fail == "no-perf":
                 return {"ok": False, "code": "not_found", "message": "no op 'perf.face'"}
-            return {"ok": True, "result": {"anim": args["anim"] + "_perf"}}
+            return {"ok": True, "result": {"out": args["anim"] + "_perf"}}
         if name == "speech.to_face":
             return {"ok": True, "result": {"anim": f"/Game/Speech/Anim/AS_{args['name']}", "seconds": 1.0}}
         return {"ok": True, "result": {"changed": True}}

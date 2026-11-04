@@ -324,3 +324,9 @@ def test_data_layers_need_a_partitioned_level(ue):
     with pytest.raises(OpError) as e:
         run_op("level.layer_add", name="Night")
     assert e.value.code == "unsupported"
+
+
+def test_describe_includes_the_partition(ue):
+    d = run_op("level.describe")
+    assert "partition" in d and "partitioned" in d["partition"]
+    assert "partition" not in run_op("level.describe", partition=False)

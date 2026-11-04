@@ -200,7 +200,7 @@ Not done / next:
   frames (any PNGs in out/renders/S01, S02) and read `cut-two-shots.json`.
 - B29 (claimed via the lead): `perf_speak` + `film-post speak` done with a fake TTS and a recorded bridge. Untested:
   a real ElevenLabs call (the key comes in the morning: `fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- ...`),
-  and `perf.face`'s exact argument names (agent-01's, landing on fleet/agent-01/ue-anim: anim, wav, mood, emphasis).
+  and `perf.face` against a real editor (args anim, wav, mood, emphasis and its result key `out` confirmed by agent-01).
 - B25 (claimed): fades in frames and the client LUFS check are done. Not done: an `audio.mix`-style call that
   places a set of stems (VO/Music/SFX WAVs) with levels in one go; today that is one `audio.place` per track, or an
   `audio` spec with several tracks (which is the declarative way and probably enough).
