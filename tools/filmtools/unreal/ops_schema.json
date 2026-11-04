@@ -1036,7 +1036,7 @@
    "verb": "list",
    "module": "fmbridge.ops",
    "file": "unreal/fmbridge/ops/__init__.py",
-   "line": 30,
+   "line": 101,
    "summary": "Every op with its signature and the first line of its docstring; the whole docstring with `full`, or when the prefix names one op (`film-ue ops seq.key_float`).",
    "doc": "Every op with its signature and the first line of its docstring; the whole docstring with `full`, or when the\nprefix names one op (`film-ue ops seq.key_float`).",
    "params": [
@@ -1057,8 +1057,8 @@
    ],
    "returns": "dict",
    "multi_tick": false,
-   "mutates": null,
-   "idempotent": null,
+   "mutates": false,
+   "idempotent": true,
    "tags": []
   },
   {
@@ -2382,6 +2382,46 @@
    "tags": []
   },
   {
+   "name": "ops.broken",
+   "area": "ops",
+   "verb": "broken",
+   "module": "fmbridge.ops",
+   "file": "unreal/fmbridge/ops/__init__.py",
+   "line": 124,
+   "summary": "The op modules that failed to import, with their full tracebacks ({} when all loaded).",
+   "doc": "The op modules that failed to import, with their full tracebacks ({} when all loaded).",
+   "params": [],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "ops.schema",
+   "area": "ops",
+   "verb": "schema",
+   "module": "fmbridge.ops",
+   "file": "unreal/fmbridge/ops/__init__.py",
+   "line": 115,
+   "summary": "Every op's signature, docstring and flags as JSON, for generating a CLI or SDK and for discovery: {\"version\": 1, \"ops\": [{\"name\", \"area\", \"verb\", \"params\": [{\"name\", \"type\", \"required\", \"default\"}], ...}], \"broken\": {module: error}}.",
+   "doc": "Every op's signature, docstring and flags as JSON, for generating a CLI or SDK and for discovery:\n{\"version\": 1, \"ops\": [{\"name\", \"area\", \"verb\", \"params\": [{\"name\", \"type\", \"required\", \"default\"}], ...}],\n\"broken\": {module: error}}. Example: film-ue op ops.schema prefix=seq.",
+   "params": [
+    {
+     "name": "prefix",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "render.mrq",
    "area": "render",
    "verb": "mrq",
@@ -3649,6 +3689,7 @@
   "level": "Levels and actors: new/open/save, list, spawn (shapes, assets, classes), move, aim, delete.",
   "look": "The look: materials (surface, emissive, glass), lights (rect, spot, point), atmosphere (volumetric fog), post-process and cine cameras, plus quick stills through a camera for checking a frame without a render.",
   "mh": "MetaHumans: presets, a character from a preset, Epic's cloud rig and high-resolution textures, wardrobe (hair, beard, brows, clothes), the cinematic build to a Blueprint, and how an assembled character is driven.",
+  "ops": "The bridge's operations: named functions the operator's machine calls through POST /op (fmbridge.server), each a plain Python function over the `unreal` API, registered with @op(\"area.verb\").",
   "render": "Renders with Movie Render Queue: image sequences plus the mixed audio, deferred (Lumen) or path-traced, with temporal/spatial samples and console variables for quality.",
   "seq": "Level sequences: a shot from an actor, animations per component, audio and a camera; open and scrub.",
   "speech": "Speech to face: a voice file on the workstation becomes a MetaHuman facial animation (lip-sync, blinks, brows, head movement), through MetaHuman Animator's audio solver with a chosen mood."

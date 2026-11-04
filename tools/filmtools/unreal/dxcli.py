@@ -20,16 +20,20 @@ def register(sub) -> None:
     j.add_argument("--timeout", type=float, default=3600)
     j.add_argument("--json", action="store_true")
     for n in ("plan", "apply"):
-        p = sub.add_parser(n, help="a declarative spec (YAML/JSON): " + ("what apply would change" if n == "plan" else
-                                                                        "converge the editor to it"))
-        p.add_argument("spec", nargs="+", help="spec file(s); applied in order")
-        p.add_argument("--prune", action="store_true", help="also delete what the spec's kinds own but it no longer names")
+        p = sub.add_parser(n, help="a declarative spec (YAML/JSON): " + ("the steps apply would run" if n == "plan" else
+                                                                        "run them, then check it converged"))
+        p.add_argument("spec", nargs="*", help="spec file(s), in order")
+        p.add_argument("--kinds", nargs="?", const="", default=None, metavar="KIND",
+                       help="list the kinds (or one kind's fields) and exit")
         p.add_argument("--only", default="", help="kinds to touch, comma-separated (default: all in the spec)")
+        p.add_argument("--set", action="append", default=[], metavar="NAME=VALUE", help="override a spec variable")
         p.add_argument("--json", action="store_true")
-        p.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
-                       help="override a spec variable (vars: in the spec), e.g. --set fps=30")
-        if n == "apply":
-            p.add_argument("--yes", action="store_true", help="apply deletes too (with --prune) without asking")
+        if n == "plan":
+            p.add_argument("--state", default="", metavar="FILE",
+                           help="plan offline against this state ({kind: {name: state}}) instead of the editor")
+        else:
+            p.add_argument("--dry-run", action="store_true", help="plan only (same as film-ue plan)")
+            p.add_argument("--stop", action="store_true", help="stop at the first failing document")
     s = sub.add_parser("selftest", help="each area's acceptance test on the box; one report")
     s.add_argument("areas", nargs="*", default=["all"], help="areas (default all); `film-ue selftest --list`")
     s.add_argument("--list", action="store_true", help="the areas with a selftest, and what each needs")
