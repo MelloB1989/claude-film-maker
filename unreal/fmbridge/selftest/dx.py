@@ -3,13 +3,14 @@ in the real editor. Takes ~10 s. Needs: nothing (no GPU, no sign-in).
 
 It proves: every op module imported (ops.broken is empty); ops.schema has the CONVENTIONS shape and agrees with
 `list`; every op has a docstring and an area.verb name; ops.call rejects an unknown op and a misspelt argument with
-an OpError carrying a hint and candidates; a multi-tick op runs across ticks; level.spawn / level.move do what the
+an OpError carrying a hint and candidates; the op journal records a move and replays it; a multi-tick op runs
+across ticks; level.spawn / level.move do what the
 generic `actor` spec kind plans (spawn, move, converge: a second plan would be empty); stills work (when a camera
 can be made)."""
 from __future__ import annotations
 
 REQUIRES: list = []
-AREAS = ["ops"]
+AREAS = ["ops", "journal"]  # journal.clear is not run: it would empty the box's real journal
 TIMEOUT = 120
 
 SHAPE = {"name", "area", "verb", "module", "file", "line", "summary", "doc", "params", "returns", "multi_tick",
@@ -46,6 +47,18 @@ def run(t):
     loc = t.op("level.move", label=a, loc=[100, 0, 50])
     t.check("level.move moves it", loc, [100, 0, 50], tol=0.01)
     t.check("level.actors sees the move", t.op("level.actors", contains=a)[0][2], [100, 0, 50], tol=0.1)
+
+    rec = t.op("journal.record", on=True)
+    t.ok("the journal hook is installed", rec.get("hooked"), detail=rec)
+    t.op("level.move", label=a, loc=[120, 0, 50])
+    tail = t.op("journal.tail", n=5, prefix="level.", since_s=600)
+    moves = [e for e in tail["entries"] if e["op"] == "level.move" and e["args"].get("label") == a]
+    t.ok("the journal recorded the move", bool(moves), detail=tail.get("path"))
+    if moves:
+        dry = yield from t.op("journal.replay", entries=moves[-1:], dry_run=True)
+        t.check("journal.replay dry_run lists it", dry.get("count"), 1)
+        done = yield from t.op("journal.replay", entries=moves[-1:])
+        t.check("journal.replay re-runs it", done.get("ran"), 1)
 
     ticks = yield from _ticks(3)
     t.check("a generator job ticks the editor", ticks, 3)

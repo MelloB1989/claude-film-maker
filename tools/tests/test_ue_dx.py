@@ -274,3 +274,21 @@ def test_static_schema_equals_live_ops_schema(fmb):
             elif lo[k] != so[k]:
                 diffs.append((n, k, lo[k], so[k]))
     assert not diffs, diffs[:10]
+
+
+def test_wp11_docs_commands_parse():
+    """Every film-ue <area> <verb> --flag line in WP11's docs names a real op and real flags."""
+    from filmtools.unreal import doccheck
+    root = schema.ROOT
+    mine = [root / "docs/unreal/GUIDE.md", root / "docs/unreal/dx.md", root / "examples/unreal/demo/README.md",
+            root / ".claude/skills/film-ue/SKILL.md"]
+    assert doccheck.check(mine) == []
+
+
+def test_doccheck_finds_a_bad_flag(tmp_path):
+    from filmtools.unreal import doccheck
+    p = tmp_path / "x.md"
+    p.write_text("```\nfilm-ue level move --lable K --loc 0,0,1\nfilm-ue level mvoe --label K\n"
+                 "film-ue --box b seq new --path ...\n```\n")
+    probs = doccheck.check([p])
+    assert [x[3].split(" (")[0] for x in probs] == ["level.move has no --lable", "no op level.mvoe"]

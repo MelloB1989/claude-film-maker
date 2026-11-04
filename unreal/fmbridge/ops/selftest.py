@@ -28,7 +28,7 @@ def list_selftests() -> dict:
 
 
 @op("selftest.run", mutates=True, idempotent=True, tags=["slow"])
-def run(*, area: str, out_dir: str = "", keep: bool = False):
+def run(*, area: str, out_dir: str = "", keep: bool = False, baseline: str = "auto"):
     """Run one area's selftest in a fresh scratch level (/Game/_Selftest/<area>), deleted afterwards unless `keep`.
     Multi-tick. Returns the report: {"area", "ok", "status": done|skipped|error, "passed", "failed", "checks": [...],
     "ops_covered", "ops_missed", "stills", "metrics", "errors", "report": <its JSON on the box>}.
@@ -37,6 +37,7 @@ def run(*, area: str, out_dir: str = "", keep: bool = False):
         area: a selftest module's name (selftest.list).
         out_dir: the report folder on the box (default Saved/SelfTest/<time>).
         keep: keep the scratch level and assets to look at afterwards.
+        baseline: stills against their stored baselines (WP10): auto (compare, store the first), compare, update, off.
 
     Example: film-ue selftest run --area dx --keep
     """
@@ -48,7 +49,10 @@ def run(*, area: str, out_dir: str = "", keep: bool = False):
     if known[area].get("error"):
         raise OpError(f"the {area} selftest does not import: {known[area]['error']}", code="engine",
                       hint=f"fix fmbridge/selftest/{area}.py (film-ue install after)")
-    return (yield from selftest.run(area, out_dir or _default_out(), keep))
+    if baseline not in ("auto", "compare", "update", "off"):
+        raise OpError(f"baseline {baseline!r}", code="bad_args", candidates=closest(baseline, ["auto", "compare", "update", "off"]),
+                      hint="auto, compare, update or off")
+    return (yield from selftest.run(area, out_dir or _default_out(), keep, baseline))
 
 
 @op("selftest.cleanup", mutates=True, idempotent=True)
@@ -61,10 +65,7 @@ def cleanup(*, area: str = "") -> dict:
     from .. import selftest
     root = selftest.SCRATCH_ROOT + (f"/{area}" if area else "")
     if selftest._current_level().startswith(root):
-        if area:
-            selftest._open_blank()
-        else:  # the blank level is inside the root too: an unsaved new level outside it
-            unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).new_level("/Game/_SelftestBlank/L_Blank")
+        selftest._open_blank()  # /Game/_Scratch/_Blank: outside every selftest folder
     eal = unreal.EditorAssetLibrary
     if not eal.does_directory_exist(root):
         return {"deleted": [], "changed": False}

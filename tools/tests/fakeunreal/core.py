@@ -890,6 +890,18 @@ class AssetData:
     def get_asset(self):
         return self._obj
 
+    def get_tag_value(self, tag):
+        """Registry tags: _props["__tags"] on the asset, then each area's provider in fake.tag_providers
+        (fn(asset_data, tag) -> str or None; an ext appends one instead of replacing this method)."""
+        v = (self._obj._props.get("__tags") or {}).get(str(tag))
+        if v is not None:
+            return str(v)
+        for p in _fake().tag_providers:
+            v = p(self, tag)
+            if v is not None:
+                return v
+        return None
+
     def get_full_name(self):
         return f"{self.asset_class} {self.object_path}"
 
@@ -1368,6 +1380,7 @@ class FakeUnreal(types.ModuleType):
         self.selection: list = []
         self.viewport_realtime = True
         self.pie = False
+        self.tag_providers: list = []
         self.on_simulate = None
         self.ticks = 0
         self._singletons: dict = {}
@@ -1555,16 +1568,20 @@ def load_fmbridge():
 
 def drive(result, max_ticks: int = 100000):
     """Run a multi-tick job the way the server does: step the generator once per fake tick (a `yield 0.5` wait is
-    one tick here) until it returns; plain results pass through. Returns (result, ticks)."""
+    one tick here, plus up to 2 ms of real time for threads the job waits on) until it returns; plain results pass
+    through. Returns (result, ticks)."""
     import inspect
     if not inspect.isgenerator(result):
         return result, 0
+    import time as _time
     n = 0
     while True:
         try:
-            next(result)
+            v = next(result)
         except StopIteration as e:
             return e.value, n
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+            _time.sleep(min(float(v), 0.002))  # a wait gives real time to threads the op waits on (a download)
         n += 1
         FAKE.tick(1)
         if n >= max_ticks:

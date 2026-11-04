@@ -1,0 +1,14 @@
+# The presenter wearing garments of her own (FBX on the MetaHuman skeleton, in cm, imported with mh.import_garment),
+# on her placed actor; the default garment's shorts cut out. Leader pose is set last on every garment.
+kind: character
+version: 1
+name: Presenter
+asset: /Game/Host/Presenter_F
+body: {Height: 168, Waist: 61, Hip: 94}
+build: {name: Presenter}
+dress:
+  label: Presenter
+  garments:
+    Top: {mesh: /Game/Host/Presenter_Outfit/SKM_Presenter_Top, materials: {M_Top: /Game/Studio/Materials/MI_K_HerTop}}
+    Trousers: {mesh: /Game/Host/Presenter_Outfit/SKM_Presenter_Trousers}
+  hide_slots: {SkeletalMesh: [short]}

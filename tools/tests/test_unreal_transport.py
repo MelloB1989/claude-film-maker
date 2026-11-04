@@ -157,3 +157,29 @@ def test_ssm_folders_through_the_bucket_are_removed_after(monkeypatch, tmp_path)
     assert "aws s3 sync --only-show-errors s3://b/film-ue/up-up-" in sent[0][1]
     with pytest.raises(SystemExit, match="no bucket set"):
         t.SSM({"os": "linux", "region": "r"}, ssm=ssm).pull_dir("/x", str(tmp_path / "y"))
+
+
+def test_a_big_file_goes_in_parts_and_appears_only_when_whole_linux(tmp_path):
+    """The real scripts run in bash here: the file arrives whole, and only at the end."""
+    sizes = []
+
+    class BashBox(t.Transport):
+        def run(self, script, timeout=600, root=False):
+            sizes.append(len(script))
+            assert not (tmp_path / "big.bin").exists() or "mv -f" in script  # nothing at the path until the last step
+            return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True).stdout
+
+    data = bytes(range(256)) * 600  # 150 KB: 200 KB of base64, four parts
+    BashBox({"os": "linux"}).put(str(tmp_path / "big.bin"), data)
+    assert (tmp_path / "big.bin").read_bytes() == data and not (tmp_path / "big.bin.fmpart").exists()
+    assert len(sizes) == 6 and max(sizes) < 90_000
+
+
+def test_a_big_file_goes_in_parts_on_windows():
+    ssm, sent = ssm_fake()
+    data = bytes(range(256)) * 600
+    t.SSM({"os": "windows"}, ssm=ssm).put(r"C:\p\big.bin", data)
+    scripts = [s for _, s, _ in sent]
+    assert len(scripts) == 6 and all(len(x) < 90_000 for x in scripts)
+    parts = [x.split("-Value '", 1)[1].rsplit("'", 1)[0] for x in scripts[1:-1]]
+    assert base64.b64decode("".join(parts)) == data and "Remove-Item" in scripts[-1]

@@ -16,6 +16,13 @@ EDITOR=("$UE_ROOT/Engine/Binaries/Linux/UnrealEditor" "$UE_PROJECT")
 COMMON=(-nosplash -NoLiveCoding -log -stdout -FullStdOutLogOutput)
 # shellcheck disable=SC2206
 EXTRA=(${UE_MAP:-} ${UE_ARGS:-})
+# arguments for this one start only (film-ue editor restart --once-args ...: e.g. a single-use sign-in code)
+ONCE="$HOME/.film-ue/ue-args-once"
+if [ -f "$ONCE" ]; then
+    read -r -a ONCE_ARGS < "$ONCE" || true
+    rm -f "$ONCE"
+    EXTRA+=("${ONCE_ARGS[@]}")
+fi
 # no desktop, no browser: a sign-in the engine starts (Epic's device-code page) is kept for `film-ue epic-login`
 if [ -x /usr/local/bin/ue-epic-url ]; then export BROWSER=/usr/local/bin/ue-epic-url; fi
 case "$mode" in

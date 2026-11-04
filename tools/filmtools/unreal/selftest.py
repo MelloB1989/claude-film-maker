@@ -104,7 +104,7 @@ def _areas(ue, wanted: list) -> tuple[list, dict]:
     return wanted, listing
 
 
-def run_all(ue, wanted: list, out: Path, keep=False, timeout=3600, pull=True, log=print) -> dict:
+def run_all(ue, wanted: list, out: Path, keep=False, timeout=3600, pull=True, log=print, baseline="auto") -> dict:
     out.mkdir(parents=True, exist_ok=True)
     areas, listing = _areas(ue, wanted)
     summary = {"ok": True, "started": time.strftime("%Y-%m-%d %H:%M:%S"), "capabilities": listing.get("capabilities"),
@@ -121,7 +121,7 @@ def run_all(ue, wanted: list, out: Path, keep=False, timeout=3600, pull=True, lo
                    "checks": [], "passed": 0, "failed": 0}
         else:
             try:
-                job = ue.call("selftest.run", wait=False, area=area, out_dir=box_dir, keep=keep)
+                job = ue.call("selftest.run", wait=False, area=area, out_dir=box_dir, keep=keep, baseline=baseline)
                 rep = job.wait(timeout, every=2.0) if hasattr(job, "wait") else job
             except OpError as e:
                 rep = {"area": area, "ok": False, "status": "error", "checks": [], "passed": 0, "failed": 0,
@@ -144,6 +144,7 @@ def run_all(ue, wanted: list, out: Path, keep=False, timeout=3600, pull=True, lo
                                   "skipped": rep.get("skipped", ""), "ms": int((time.time() - t0) * 1000),
                                   "ops_missed": rep.get("ops_missed", []), "stills": rep.get("local_stills", []),
                                   "errors": len(rep.get("errors", [])) + (1 if (cp or {}).get("error") else 0),
+                                  "baselines": rep.get("baselines", []),
                                   "doc": info.get("doc", "")}
         for c in rep.get("checks", []) + (cp or {}).get("checks", []):
             if not c["ok"]:
@@ -215,7 +216,7 @@ def main(a) -> int:
         return 0
     out = Path(a.out or Path("selftest-reports") / time.strftime("%Y%m%d-%H%M%S"))
     log = (lambda m: sys.stderr.write(m + "\n")) if a.json else print
-    s = run_all(ue, a.areas, out, a.keep, a.timeout, not a.no_pull, log)
+    s = run_all(ue, a.areas, out, a.keep, a.timeout, not a.no_pull, log, a.baseline)
     if a.json:
         print(json.dumps(s, indent=1, default=str))
     else:

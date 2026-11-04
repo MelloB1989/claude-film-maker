@@ -276,7 +276,8 @@ def place(*, sequence: str, clips: list, track: str = "Audio", replace: bool = T
     Args: sequence: LevelSequence path. clips: [{"sound": SoundWave path, "start_frame" (or "start_s"),
     "end_frame" or "duration_s" (default: to the sound's end), "offset_s" (seconds into the sound, default 0),
     "volume_db" (default 0), "fade_in_frames"/"fade_out_frames" (linear ramps from/to silence), "id"?}] or [sound, start_frame] pairs. track: the track's name ("VO", "Music", "SFX").
-    replace: the track holds exactly these clips (else they are added to it). extend: lengthen the playback range
+    replace: the track holds exactly these clips (else they are added to it; one already there at the same frame
+    is left as it is). extend: lengthen the playback range
     to the last clip's end.
     Returns: {"changed", "track", "clips": [{"sound", "start_frame", "end_frame", "row", "offset_s", "volume_db"}],
     "end_frame"}.
@@ -294,7 +295,8 @@ def place(*, sequence: str, clips: list, track: str = "Audio", replace: bool = T
     t = _track(seq, track)
     have = [_describe_section(seq, s) for s in t.get_sections()] if t is not None else []
     if not replace:
-        want = [{**h, "end_frame": h["end_frame"]} for h in have] + want
+        there = {(h["sound"], h["start_frame"]) for h in have}  # adding a clip that is already there is a no-op
+        want = [dict(h) for h in have] + [c for c in want if (c["sound"], c["start_frame"]) not in there]
     planned = plan_clips(want, durations, fps)
     for c in planned:  # check fades fit before touching anything
         fade_keys(c["start_frame"], c["end_frame"], 1.0, c["fade_in_frames"], c["fade_out_frames"])
@@ -359,13 +361,14 @@ def remove(*, sequence: str, track: str) -> dict:
 
 @op("audio.lines", mutates=True, idempotent=True, tags=["audio", "sequencer"])
 def lines(*, sequence: str, timing: dict, folder: str = "/Game/Audio/VO", track: str = "VO",
-          wav_root: str = "", extend: bool = True) -> dict:
+          wav_root: str = "", extend: bool = True, replace: bool = True) -> dict:
     """Import a timing document's voice lines and place each at its frame on one track: the voice, timed, in one call.
 
     Args: sequence: LevelSequence path. timing: a timing document (filmtools.unreal.audio_timing:
     {"kind": "timing", "fps", "lines": [{"id", "wav", "start_frame", ...}]}). folder: where the SoundWaves go.
     track: the track's name. wav_root: a box directory the lines' relative `wav` paths are under. extend: lengthen
-    the playback range to the last line.
+    the playback range to the last line. replace: the track holds exactly these lines (False: they are added to
+    what is there, a line already at its frame left alone; for adding one line at a time).
     Returns: {"changed", "lines": [{"id", "sound", "start_frame", "end_frame"}], "fps_note"?}.
     Example: film-ue op audio.lines sequence=/Game/Seq/SQ_Main wav_root=/srv/film/vo timing=@timing.json
     """
@@ -383,7 +386,7 @@ def lines(*, sequence: str, timing: dict, folder: str = "/Game/Audio/VO", track:
     clips = [{"sound": s["path"], "start_frame": int(round(ln["start_frame"] * scale)),
               "offset_s": float(ln.get("offset_s", 0.0)), "volume_db": float(ln.get("volume_db", 0.0))}
              for s, ln in zip(imp["sounds"], timing["lines"])]
-    placed = place(sequence=sequence, clips=clips, track=track, replace=True, extend=extend)
+    placed = place(sequence=sequence, clips=clips, track=track, replace=replace, extend=extend)
     by_start = {(c["sound"], c["start_frame"]): c for c in placed["clips"]}
     out = [{"id": ln.get("id"), "sound": c["sound"], "start_frame": c["start_frame"],
             "end_frame": by_start[(c["sound"], c["start_frame"])]["end_frame"]}

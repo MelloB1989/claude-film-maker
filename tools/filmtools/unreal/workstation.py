@@ -30,7 +30,16 @@ LINUX_DEFAULTS = {"project_dir": "", "user": "ubuntu", "service": "ue-editor", "
 
 
 def box() -> str:
-    return os.environ.get("FILM_UE_BOX", "")
+    """The current box profile: FILM_UE_BOX (or --box), else the one `film-ue profile use` chose, else "" (the
+    default profile, film-ue.json)."""
+    env = os.environ.get("FILM_UE_BOX")
+    if env is not None:
+        return "" if env == "default" else env
+    f = CONF_DIR / "film-ue.current"
+    try:
+        return f.read_text().strip() if f.exists() else ""
+    except OSError:
+        return ""
 
 
 def state_path(kind: str) -> Path:

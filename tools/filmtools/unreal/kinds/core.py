@@ -113,9 +113,41 @@ register_kind("actor", plan_actor, describe_many=describe_actors, order=30,
 
 # ------------------------------------------------------------------------------------------------------------- op
 
+def _truthy(v, path: str = ""):
+    """The value at a dotted path ("result.path", "0") is truthy: a non-empty list/dict/str, True, a non-zero number."""
+    for part in filter(None, path.split(".")):
+        if isinstance(v, list) and part.isdigit():
+            v = v[int(part)] if int(part) < len(v) else None
+        elif isinstance(v, dict):
+            v = v.get(part)
+        else:
+            return False
+    return bool(v)
+
+
 def plan_op(spec: dict, state) -> list:
-    return [{"op": spec["op"], "args": spec.get("args") or {}, "why": spec.get("why", "an op step: runs every apply"),
-             "always": True, **({"timeout": spec["timeout"]} if spec.get("timeout") else {})}]
+    """With `unless` ({op, args, has}): no step when that read op's answer (at the dotted path `has`) is truthy, so
+    the step converges like any kind; without it the step runs on every apply ("always")."""
+    step = {"op": spec["op"], "args": spec.get("args") or {}, "why": spec.get("why", "an op step"),
+            **({"timeout": spec["timeout"]} if spec.get("timeout") else {})}
+    if spec.get("unless"):
+        if state is not None and state.get("done"):
+            return []
+        step["why"] = spec.get("why") or f"{spec['unless']['op']} says it is not there yet"
+        return [step]
+    return [{**step, "always": True, "why": spec.get("why", "an op step: runs every apply")}]
 
 
-register_kind("op", plan_op, order=80, doc="One op call, run on every apply (not diffable): the escape hatch.")
+def describe_op(ue, spec: dict):
+    u = spec.get("unless")
+    if not u:
+        return None
+    try:
+        r = ue.call(u["op"], **(u.get("args") or {}))
+    except Exception as e:  # a read that fails (the thing is absent) means: not done
+        return {"done": False, "error": str(e)[:300]}
+    return {"done": _truthy(r, u.get("has", "")), "answer": r if len(str(r)) < 2000 else str(r)[:2000]}
+
+
+register_kind("op", plan_op, describe_op, order=80,
+              doc="One op call: run on every apply, or, with `unless` (a read op), only until that says it is done.")

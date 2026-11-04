@@ -78,3 +78,22 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
 - **WP7: shot.apply converges by hash.** The spec's hash and camera list are stored as asset metadata on the
   sequence (`fm_shot_spec`, `fm_shot_cameras`); the same spec again changes nothing, a changed one rewrites the
   cameras' tracks and the cut track, and cameras it no longer uses are removed.
+
+- **WP9: renders use MRQ's legacy preset configuration**, not Movie Render Graph: it is what rendered the reel on
+  Windows and passed the Linux PoC (P3/P4/P6); the job sets `set_config_mode(PRESET)` explicitly.
+- **WP9: video is always ffmpeg from image frames.** MRQ's ProRes/DNx outputs are Win64/Mac-only plugins and its MP4
+  encoder has only a Windows backend (5.8.4 source), so in-engine video would differ per OS.
+- **WP9: one MRQ job per camera cut by default, pre-rolled from the cut start** (MRQ camera-cut warm-up) when a chunk
+  starts mid-shot: the cloth rule from docs/linux/engine.md P6, applied by the planner instead of by hand.
+- **WP9: the path tracer is refused under 40 GB VRAM** unless `vram.force` (P5: 1080p with strand hair killed the
+  editor on a 24 GB L4).
+- **2026-11-05 WP0 (from WP11): the SDK's typed layer is not committed.** `tools/filmtools/unreal/sdk/_generated.py`
+  is built in memory from the current ops at import, and git ignores it: it conflicted on every merge and can now
+  never be stale. `ops_schema.json` stays committed. On a conflict, take either side and run `film-ue dx gen`.
+- **WP0: fake engine extensions never replace a core method another area may also need.** They register instead:
+  `fake.tag_providers` for asset registry tags, the bone table on `SkinnedMeshComponent`, and subclasses of core's
+  classes. This came after three cross-area fake collisions tonight: bones, CineCameraComponent's FOV, material
+  parameters and registry tags.
+- **WP0: merge gate.** Every merge into ue-helpers goes through `dx gen`, then the whole ue suite (`test_ue_*`,
+  `test_unreal_*`, `test_fmbridge_jobs`) with numpy, Pillow and soundfile installed, then `dx docs` as a warning.
+  Nothing is pushed on red.
