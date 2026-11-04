@@ -57,21 +57,6 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   positions are not reachable from Python, and bounds or physics capsules are too coarse for cloth.
 - **WP10: issue codes are dotted `area.snake_case`** and every check returns `{"pass", "issues", "metrics"}`
   (CONVENTIONS §8).
-<<<<<<< HEAD
-- **2026-11-05 WP5 agent-08: exposure is photographic EV100, and manual mode turns physical camera exposure off.**
-  The manual scale is 2^(bias - EVcam) (PostProcessEyeAdaptation.cpp), and a cine camera writes its aperture into
-  DepthOfFieldFstop (CineCameraComponent.cpp:709), so with physical exposure on, an aperture change would change
-  brightness. `env.exposure mode=manual ev100=E` sets bias = 0.526 - E (a metered grey renders at 0.18). `physical`
-  mode is still there for when a camera's settings should decide.
-- **WP5: one planner, two front doors.** The environment/lighting planner is pure Python under
-  `unreal/fmbridge/envlib/spec.py`. `env.apply` runs it in the editor, and `film-ue apply` runs it through
-  `tools/filmtools/unreal/env_kind.py` (which loads envlib standalone), so the two never disagree.
-- **WP5: ownership by tag.** Every env/light actor carries `fm_env` + `fm_owner:<spec name>`. Prune and replace only
-  touch those. An existing same-label actor the ops did not make is a `conflict`. Rig records and the post-field list
-  live in hex-encoded actor tags (FName-safe), so they travel with the level.
-- **WP5: the sun is NOAA in pure Python**, not the SunPosition plugin (off by default, and its actor is a Blueprint).
-- **WP5: B17 (light rigs) is covered by `light.rig`.** Agreed with agent-11 (WP7), who is not building one.
-=======
 - **WP7 agent-11: camkit is a pure package at `unreal/fmbridge/camkit/`** (approved by the lead), not `ops/_x.py`:
   the camera maths (lens, framing solver, moves, coverage, shot lists, cut checks, PNG sheets) imports nothing from
   `unreal`, so it is unit-tested without the fake and can be imported by client tools and by WP10's QA (one
@@ -102,4 +87,16 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   starts mid-shot: the cloth rule from docs/linux/engine.md P6, applied by the planner instead of by hand.
 - **WP9: the path tracer is refused under 40 GB VRAM** unless `vram.force` (P5: 1080p with strand hair killed the
   editor on a 24 GB L4).
->>>>>>> origin/ue-helpers
+- **2026-11-05 WP5 agent-08: exposure is photographic EV100, and manual mode turns physical camera exposure off.**
+  The manual scale is 2^(bias - EVcam) (PostProcessEyeAdaptation.cpp), and a cine camera writes its aperture into
+  DepthOfFieldFstop (CineCameraComponent.cpp:709), so with physical exposure on, an aperture change would change
+  brightness. `env.exposure mode=manual ev100=E` sets bias = 0.526 - E (a metered grey renders at 0.18). `physical`
+  mode is still there for when a camera's settings should decide.
+- **WP5: one planner, two front doors.** The environment/lighting planner is pure Python under
+  `unreal/fmbridge/envlib/spec.py`. `env.apply` runs it in the editor, and `film-ue apply` runs it through
+  `tools/filmtools/unreal/env_kind.py` (which loads envlib standalone), so the two never disagree.
+- **WP5: ownership by tag.** Every env/light actor carries `fm_env` + `fm_owner:<spec name>`. Prune and replace only
+  touch those. An existing same-label actor the ops did not make is a `conflict`. Rig records and the post-field list
+  live in hex-encoded actor tags (FName-safe), so they travel with the level.
+- **WP5: the sun is NOAA in pure Python**, not the SunPosition plugin (off by default, and its actor is a Blueprint).
+- **WP5: B17 (light rigs) is covered by `light.rig`.** Agreed with agent-11 (WP7), who is not building one.
