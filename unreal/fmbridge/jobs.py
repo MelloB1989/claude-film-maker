@@ -74,7 +74,7 @@ class Job:
         j.progress, j.message = rec.get("progress"), rec.get("message", "")
         j.result, j.error, j.stdout = rec.get("result"), rec.get("error"), rec.get("stdout", "")
         j.cancel, j.wake, j.payload = False, 0.0, {}
-        j.detail = {k: rec[k] for k in ("code", "hint", "candidates") if k in rec} or None
+        j.detail = {k: rec[k] for k in ("code", "hint", "candidates", "details") if k in rec} or None
         j.event = threading.Event()
         j.event.set()
         return j

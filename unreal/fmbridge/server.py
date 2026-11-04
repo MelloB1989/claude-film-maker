@@ -66,8 +66,22 @@ def _run(kind: str, payload: dict):
 
 def registry() -> "_jobs_mod.Registry":
     if _state["registry"] is None:
-        _state["registry"] = _jobs_mod.Registry(_run, _jsonable, JOURNAL)
+        _state["registry"] = _jobs_mod.Registry(_run, _jsonable, JOURNAL, failure=_failure_detail)
     return _state["registry"]
+
+
+def _failure_detail(e: Exception) -> dict:
+    """A failed job's structured fields beside its traceback: an OpError's code, message, hint and candidates, so the
+    caller can act without reading the traceback (fmbridge.errors); any other exception: code "exception"."""
+    from .errors import OpError
+    if isinstance(e, OpError):
+        return e.to_json()
+    return {"code": "exception", "message": f"{type(e).__name__}: {e}"}
+
+
+def _failure(e: Exception) -> dict:
+    """A failed call's whole answer (ok, error = the traceback, and the structured fields)."""
+    return {"ok": False, "error": traceback.format_exc(), **_failure_detail(e)}
 
 
 def _gui():
