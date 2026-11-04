@@ -33,7 +33,6 @@ def bridge(ue, tmp_path, monkeypatch):
     port = _free_port()
     monkeypatch.setattr(ws, "CONF_DIR", tmp_path / "conf")
     monkeypatch.setenv("FILM_UE_BOX", "here")
-    project = ue.project_dir if hasattr(ue, "project_dir") else str(tmp_path / "project")
     server._state.update(registry=None, server=None, tick=None)
     monkeypatch.setattr(server, "JOURNAL", str(tmp_path / "journal"))
     server.start(port)
