@@ -36,7 +36,7 @@ TIMEOUT = 900
 MH = "/MetaHumanCharacter/Optional/Animation"
 FACE_LOOP = MH + "/TemplateAnimations/Expression_Loops/HappyA/mhc_mh002_fmn_f_facialloop_happy_f_s001"
 BODY_IDLE = MH + "/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle"
-EAL = unreal.EditorAssetLibrary
+from ..ops.assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 
 def _wav(path: str, seconds: float = 3.0, sr: int = 16000) -> str:

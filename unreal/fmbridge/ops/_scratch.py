@@ -15,6 +15,7 @@ import contextlib
 from dataclasses import dataclass
 
 import unreal
+from .assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 ROOTS = ("/Game/_Selftest/", "/Game/_Scratch/")
 BLANK = "/Game/_Scratch/_Blank/L_Blank"
@@ -30,7 +31,7 @@ class Scratch:
 
 
 def _eal():
-    return unreal.EditorAssetLibrary
+    return EAL
 
 
 def _les():

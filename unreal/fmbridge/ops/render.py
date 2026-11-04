@@ -23,6 +23,7 @@ import unreal
 from . import op
 from .. import render_spec as rs
 from ..errors import OpError
+from .assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 QUALITY_CVARS = rs.QUALITY_CVARS  # older callers import it from here
 
@@ -309,7 +310,7 @@ def _check_level(r: dict) -> str:
     """The map to render: the spec's, else the open one; it must exist on disk (MRQ refuses an unsaved map, and
     offscreen it says nothing)."""
     level = _pkg(r["level"]) if r["level"] else _editor_level()
-    if not level or not unreal.EditorAssetLibrary.does_asset_exist(level):
+    if not level or not EAL.does_asset_exist(level):
         raise OpError(f"level {level or '(none open)'!r} is not saved on disk: MRQ renders only a saved map",
                       code="conflict", hint="save it first with level.save, or pass level=/Game/... of a saved map")
     return level

@@ -17,6 +17,7 @@ from ..envlib import lights as LL
 from ..envlib import photometry as ph
 from ..envlib import rig as R
 from ..errors import OpError, not_found
+from .assets import EAL  # EditorAssetLibrary, or the EditorAssetSubsystem when its plugin is off
 
 
 def _light_component(a):
@@ -147,7 +148,7 @@ def add(*, label: str, kind: str = "rect", loc: list = (0, 0, 200), look_at: lis
     except ValueError as e:
         raise OpError(str(e), code="bad_args", hint="film-ue ops light.add shows what it takes") from None
     if canon.get("ies"):
-        if not unreal.EditorAssetLibrary.does_asset_exist(canon["ies"]):
+        if not EAL.does_asset_exist(canon["ies"]):
             raise OpError(f"no IES profile {canon['ies']!r}", code="not_found",
                           hint="import the .ies with assets.import (it becomes a TextureLightProfile)")
     res = _write(canon, owner, role)
