@@ -132,4 +132,4 @@ def test_load_through_a_shot(ue, fmb, monkeypatch):
     r, _ = drive(gen)
     assert r["cameras"] == ["CamA", "CamB"] and ue.actor("Rock_Near") is not None and ue.actor("House") is not None
     assert ue.actor("Tree_Behind") is None
-    assert ue.called("LevelSequenceEditorBlueprintLibrary.close_level_sequence")
+    assert ue.LevelSequenceEditorBlueprintLibrary.get_current_level_sequence() is None  # closed again
