@@ -369,6 +369,10 @@ State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead as it lands):
   plus the older curve/gaze/bake ops with flags and examples), perf.* (face, check, calibrate, analyze_audio,
   head_curves, vocab, state/plan/apply/compose/solve/lock_eyes/describe, idle/gestures/walk_to/turn_to), the
   `performance` kind (schema, client planner, 2 examples), selftest/anim.py, this doc.
+- Every engine call in ops/anim.py, ops/perf.py and the selftest was re-checked by an independent audit against the
+  5.8.4 source (it found `get_controls` vs `get_control_keys` and the deprecated curve-identifier route: fixed).
+- speech.to_face (B52): validation first, time budget + cancel, chunking at pauses, lip-flap fallback; on the fake
+  with injected failures (`ue.mh_solve = "NO_FRAMES" | "hang"`).
 - NOT run on a real editor (no GPU box tonight). First thing on the box: `film-ue selftest anim`. Most likely to
   need a fix, in order:
   1. `perf.calibrate`: whether the face plays the scratch animation (the face component must be Sequencer-driven;
@@ -383,6 +387,10 @@ State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead as it lands):
      one frame: AnimSequenceFactory.cpp:78-79).
   5. `anim.retarget`: the auto-generated chains on a Mixamo skeleton; the progress window under -unattended.
   6. `anim.rig_keys`: `ControlRigSequencerBindingProxy.proxy.get_display_name()` matching the actor/component.
+  7. `_curve_id`: `AnimationCurveIdentifier().set_curve_identifier(...)` relies on a ref-self script method writing
+     back into the struct; if curves stop being written (selftest `read.round_trip` fails), fall back to the
+     deprecated `get_curve_identifier(skeleton, ...)` (it worked on the reel, with a warning per curve).
+  8. speech.to_face chunking: whether a chunk's solved head motion jumps at a seam (perf.face softens it).
 - Not done / next: procedural additive gestures (author bone-offset additives by code: needs bone axis calibration
   like the head's); `perf.solve_a2f` (Audio2Face route, design above). B31 (pose library) went to agent-11 as
   pose.* calling anim.rig_keys.
