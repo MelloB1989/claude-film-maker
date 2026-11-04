@@ -189,6 +189,11 @@ actions:
   - {at_s: 12.0, walk_to: desk, speed_cm_s: 120, end_facing: camera}
 ```
 
+Timing on the words: any nod, expression or gesture may say `on_emphasis: 2` (the line's 2nd stressed word),
+`strongest`, `first` or `last` instead of `at_s`; the stressed words come from the line's audio (or its `emphasis`
+list). An expression put on a word starts 0.15 s before it, so it peaks on it. Listen lines get backchannel nods
+(`face.backchannel`), and lines spoken to a person get brief thinking glances away after pauses (`face.aversion`).
+
 How it composes: one continuous face animation (`AS_<name>_face`) on the face track: every line's lip-sync (its
 speech solve, or `face_anim`) placed at its time and closed between lines, with perfkit's head, eyes, blinks,
 moods and expressions over the whole timeline, so nothing jumps at a line boundary. The body gets idles split around

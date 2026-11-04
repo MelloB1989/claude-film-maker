@@ -556,3 +556,20 @@ def test_perfkit_is_engine_free():
                 names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
                 for n in names:
                     assert n.split(".")[0] not in ("unreal", "numpy", "scipy"), (p.name, n)
+
+
+def test_on_emphasis_places_things_on_the_stressed_words():
+    sp = json.loads(json.dumps(SPEC))
+    sp["lines"][0]["gestures"] = [{"name": "palms", "on_emphasis": "strongest"}]
+    sp["lines"][0]["nods"] = [{"on_emphasis": 2, "kind": "beat"}, {"on_emphasis": 9}]
+    sp["lines"][0]["expressions"] = [{"preset": "brow_raise", "on_emphasis": "first"}]
+    assert S.validate(sp) == []
+    c = S.compile(sp, STATE)  # l1's emphasis: 1.2 (1.0), 2.9 (0.7)
+    g = next(s for s in c["body"] if s["kind"] == "gesture")
+    assert g["stroke_frame"] == round((1.2 - 0.08) * 24)
+    assert any(n["t"] == pytest.approx(2.9) and n["kind"] == "beat" for n in c["face"]["nods"])
+    assert any("on_emphasis 9" in n.get("why", "") for n in c["notes"])
+    ev = next(e for e in c["face"]["expressions"] if e["preset"] == "brow_raise")
+    assert ev["t"] == pytest.approx(1.2 - 0.15)
+    with pytest.raises(ValueError):
+        S.at_s({"on_emphasis": 1}, [])

@@ -106,11 +106,11 @@ def validate(spec: dict) -> list:
             p = e.get("preset") if isinstance(e, dict) else None
             if p not in X.PRESETS:
                 _err(errs, f"{w}.expressions", f"unknown preset {p!r} (presets: {', '.join(sorted(X.PRESETS))})")
-            if isinstance(e, dict) and "at_s" not in e:
-                _err(errs, f"{w}.expressions", "each needs at_s")
+            if isinstance(e, dict) and "at_s" not in e and "on_emphasis" not in e:
+                _err(errs, f"{w}.expressions", "each needs at_s or on_emphasis")
         for n in ln.get("nods") or []:
-            if not isinstance(n, dict) or "at_s" not in n:
-                _err(errs, f"{w}.nods", "each needs at_s")
+            if not isinstance(n, dict) or ("at_s" not in n and "on_emphasis" not in n):
+                _err(errs, f"{w}.nods", "each needs at_s or on_emphasis")
             elif H.Nod.ALIASES.get(n.get("kind", "nod"), n.get("kind", "nod")) not in H.Nod.KINDS:
                 _err(errs, f"{w}.nods", f"kind one of {', '.join(H.Nod.KINDS)} (a bare YAML yes/no is a boolean: "
                                         "write nod/shake)")
@@ -121,8 +121,8 @@ def validate(spec: dict) -> list:
                 _err(errs, f"{w}.gaze", "scan is face, lens or still")
         lib = (spec.get("library") or {}).get("gestures") or {}
         for g in ln.get("gestures") or []:
-            if not isinstance(g, dict) or "at_s" not in g:
-                _err(errs, f"{w}.gestures", "each needs at_s")
+            if not isinstance(g, dict) or ("at_s" not in g and "on_emphasis" not in g):
+                _err(errs, f"{w}.gestures", "each needs at_s or on_emphasis")
             elif g.get("name") and g["name"] not in lib and not g.get("anim"):
                 _err(errs, f"{w}.gestures", f"no gesture {g['name']!r} in library.gestures ({', '.join(sorted(lib)) or 'empty'})")
     for i, a in enumerate(spec.get("actions") or []):
@@ -326,27 +326,31 @@ def compile(spec: dict, state: dict) -> dict:  # noqa: A001 (the spec's verb)
             if auto_turn and abs(gy) > float(auto_turn):
                 notes.append({"warn": f"line {x['id']}: gaze to {g['target']} is {gy:.0f} deg off the body's facing "
                                       f"(past auto_turn_deg {auto_turn}); add a turn_to action"})
+        if ln.get("emphasis", "auto") == "auto":
+            phrase_ends += [t0 + t for t in ((state.get("audio") or {}).get(x["id"]) or {}).get("phrase_ends", [])]
+        line_emph = sorted(_line_emphasis(ln, state, x["id"]))  # (seconds from the line's start, strength)
+        emphasis += [(t0 + t, k) for t, k in line_emph]
+
+        def at(item, what):
+            try:
+                return t0 + at_s(item, line_emph)
+            except ValueError as err:
+                notes.append({"dropped": what, "line": x["id"], "why": str(err)})
+                return None
         for n in ln.get("nods") or []:
-            nods.append({**n, "t": t0 + float(n["at_s"])})
+            t = at(n, "nod")
+            if t is not None:
+                nods.append({**n, "t": t})
         for tlt in ln.get("tilts") or []:
             tilts.append({**tlt, "t": t0 + float(tlt["at_s"]), "until": t0 + float(tlt.get("until_s", tlt["at_s"] + 2.0))})
         for e in ln.get("expressions") or []:
-            d = {k: v for k, v in e.items() if k not in ("at_s", "duration_s")}
-            d["t"] = t0 + float(e["at_s"])
+            d = {k: v for k, v in e.items() if k not in ("at_s", "duration_s", "on_emphasis")}
+            t = at(e, f"expression {e.get('preset')}")
+            if t is None:
+                continue
+            d["t"] = t - (0.15 if "on_emphasis" in e and "at_s" not in e else 0.0)  # it peaks on the word
             d["until"] = d["t"] + float(e.get("duration_s", 1.0))
             events.append(d)
-        emph = ln.get("emphasis", "auto")
-        if emph == "auto":
-            a = (state.get("audio") or {}).get(x["id"]) or {}
-            emph = [(t, k) for t, k in a.get("emphasis", [])]
-            phrase_ends += [t0 + t for t in a.get("phrase_ends", [])]
-        for e in emph or []:
-            if isinstance(e, (int, float)):
-                emphasis.append((t0 + float(e), 1.0))
-            elif isinstance(e, dict):
-                emphasis.append((t0 + float(e["at_s"]), float(e.get("strength", 1.0))))
-            else:
-                emphasis.append((t0 + float(e[0]), float(e[1])))
         line_ends = [t0 + t for t in ((state.get("audio") or {}).get(x["id"]) or {}).get("phrase_ends", [])]
         if x["listen"] and fc.get("backchannel", True) and not ln.get("nods"):
             nods += backchannel(t0, t1, seed=seed + x["index"])
@@ -376,8 +380,12 @@ def compile(spec: dict, state: dict) -> dict:  # noqa: A001 (the spec's verb)
     gestures = []
     for x in tl:
         ln = spec["lines"][x["index"]]
+        le = sorted(_line_emphasis(ln, state, x["id"]))
         for g in ln.get("gestures") or []:
-            gestures.append({**g, "at_s": x["start_s"] + float(g["at_s"])})
+            try:
+                gestures.append({**g, "at_s": x["start_s"] + at_s(g, le)})
+            except ValueError as err:
+                notes.append({"dropped": f"gesture {g.get('name') or g.get('anim')}", "line": x["id"], "why": str(err)})
     gsecs, gnotes = Bd.place_gestures(gestures, gest_lib, fps)
     notes += gnotes
     gaps = [(s["start"] / fps, s["end"] / fps) for s in gsecs if not s["additive"]]
@@ -389,6 +397,43 @@ def compile(spec: dict, state: dict) -> dict:  # noqa: A001 (the spec's verb)
     body = sorted(isecs + gsecs + [s for s, _ in walk_secs], key=lambda s: s["start"])
     return {"timeline": tl, "duration_s": round(total, 4), "fps": fps, "face": face_args, "body": body,
             "transform": keys, "notes": notes, "face_out": out_anim(spec)}
+
+
+def at_s(item: dict, line_emphasis: list) -> float:
+    """When an item (nod, expression, gesture) happens, seconds from its line's start: its `at_s`, or `on_emphasis`:
+    k (the k-th stressed word, 1-based), "strongest", "first" or "last" of the line's emphasis [(t, strength)]."""
+    if "at_s" in item:
+        return float(item["at_s"])
+    k = item.get("on_emphasis")
+    if k is None:
+        raise ValueError("needs at_s or on_emphasis")
+    if not line_emphasis:
+        raise ValueError(f"on_emphasis {k!r} but the line has no emphasis (no audio analysis and none given)")
+    if k == "strongest":
+        return max(line_emphasis, key=lambda e: e[1])[0]
+    if k == "first":
+        return line_emphasis[0][0]
+    if k == "last":
+        return line_emphasis[-1][0]
+    k = int(k)
+    if not 1 <= k <= len(line_emphasis):
+        raise ValueError(f"on_emphasis {k} but the line has {len(line_emphasis)} stressed words")
+    return line_emphasis[k - 1][0]
+
+
+def _line_emphasis(ln: dict, state: dict, lid: str) -> list:
+    emph = ln.get("emphasis", "auto")
+    if emph == "auto":
+        emph = ((state.get("audio") or {}).get(lid) or {}).get("emphasis", [])
+    out = []
+    for e in emph or []:
+        if isinstance(e, (int, float)):
+            out.append((float(e), 1.0))
+        elif isinstance(e, dict):
+            out.append((float(e["at_s"]), float(e.get("strength", 1.0))))
+        else:
+            out.append((float(e[0]), float(e[1])))
+    return out
 
 
 def backchannel(t0: float, t1: float, seed: int = 0) -> list:
