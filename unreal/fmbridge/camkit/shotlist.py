@@ -5,8 +5,9 @@
     name: scene1
     sequence: /Game/Films/demo/Seq_Scene1
     fps: 24
-    lines:                                   # optional: dialogue timing (seconds), for times like "L2.start-6f"
-      - {id: L1, speaker: A, start_s: 0.8, end_s: 3.1}
+    lines:                                   # optional: dialogue timing, for times like "L2.start-6f"
+      - {id: L1, speaker: A, start_s: 0.8, end_s: 3.1}       # (or start_frame/end_frame)
+    timing: {...}                            # or WP12's audio timing document inlined (its words give "L1.w2")
     subjects:                                # who the shots frame: actors in the level
       A: {actor: Presenter}
       B: {actor: Guest}
@@ -42,12 +43,12 @@ SHOT_KEYS = {"id", "start", "end", "duration", "camera", "frame", "place", "cove
              "aperture", "step", "note"}
 FRAME_KEYS = {"subjects", "size", "angle", "side", "height", "focal_mm", "distance_cm", "place", "headroom",
               "dutch_deg", "snap_focal", "lead", "margin"}
-TOP_KEYS = {"kind", "version", "name", "sequence", "fps", "start_frame", "end_frame", "lines", "subjects", "defaults",
-            "shots", "auto", "coverage", "level"}
+TOP_KEYS = {"kind", "version", "name", "description", "sequence", "fps", "start_frame", "end_frame", "lines", "timing",
+            "subjects", "defaults", "shots", "auto", "coverage", "level"}
 DEFAULTS = {"focal_mm": 50.0, "aperture": 2.8, "filmback": lens.DEFAULT_FILMBACK, "camera_prefix": "CAM_", "step": 2,
             "height": "eye", "side": "left", "noise": None, "tail_s": 1.0}
 
-_TIME = re.compile(r"^\s*(?P<base>[A-Za-z_][\w-]*(?:\.(?:start|end))?|-?\d+(?:\.\d+)?(?:s|f)?)\s*"
+_TIME = re.compile(r"^\s*(?P<base>[A-Za-z_][\w-]*(?:\.w\d+)?(?:\.(?:start|end))?|-?\d+(?:\.\d+)?(?:s|f)?)\s*"
                    r"(?P<off>(?:[+-]\s*\d+(?:\.\d+)?\s*(?:s|f)?\s*)*)$")
 _OFF = re.compile(r"([+-])\s*(\d+(?:\.\d+)?)\s*(s|f)?")
 
@@ -64,9 +65,39 @@ def _num(x) -> float:
     return float(x)
 
 
+def lines_of(spec: dict) -> list:
+    """The spec's dialogue lines on its clock: [{"id", "speaker", "start", "end", "words": [[start, end]]}] in frames.
+    From `lines` (start_s/end_s seconds or start_frame/end_frame) and/or `timing`, WP12's audio timing document
+    (kind "audio": lines with start_frame/end_frame and words, at its own fps, rescaled here)."""
+    fps = float(spec.get("fps", 24))
+    out = []
+    timing = spec.get("timing")
+    src = [(ln, float(timing.get("fps", fps))) for ln in (timing or {}).get("lines", [])] if isinstance(timing, dict) \
+        else []
+    src += [(ln, fps) for ln in spec.get("lines") or []]
+    for ln, f in src:
+        k = fps / f
+        if "start_frame" in ln:
+            st = int(round(float(ln["start_frame"]) * k))
+        else:
+            st = int(round(float(ln["start_s"]) * fps))
+        if "end_frame" in ln:
+            en = int(round(float(ln["end_frame"]) * k))
+        elif "end_s" in ln:
+            en = int(round(float(ln["end_s"]) * fps))
+        elif "duration_s" in ln:
+            en = st + int(round(float(ln["duration_s"]) * fps))
+        else:
+            en = st
+        words = [[int(round(float(w["start_frame"]) * k)), int(round(float(w["end_frame"]) * k))]
+                 for w in ln.get("words") or [] if "start_frame" in w]
+        out.append({"id": str(ln["id"]), "speaker": ln.get("speaker"), "start": st, "end": en, "words": words})
+    return sorted(out, key=lambda x: x["start"])
+
+
 def parse_time(expr, fps: float, marks: dict) -> int:
-    """A time in frames: an int (frames), "48f", "2.5s", or a mark ("L1", "L1.start", "L1.end", "S2.end") with
-    offsets ("L1.start-6f", "S1.end+0.5s"). Marks map names to (start_frame, end_frame)."""
+    """A time in frames: an int (frames), "48f", "2.5s", or a mark ("L1", "L1.start", "L1.end", "S2.end", a line's
+    word "L1.w3.start") with offsets ("L1.start-6f", "S1.end+0.5s"). Marks map names to (start_frame, end_frame)."""
     if isinstance(expr, bool):
         raise ValueError(f"time {expr!r}: a number of frames, '2.5s', '48f' or a mark like 'L1.start-6f'")
     if isinstance(expr, (int, float)):
@@ -78,7 +109,7 @@ def parse_time(expr, fps: float, marks: dict) -> int:
     if re.match(r"^-?\d", base):
         frames = float(base[:-1]) * fps if base.endswith("s") else float(base.rstrip("f"))
     else:
-        name, _, edge = base.partition(".")
+        name, edge = (base.rsplit(".", 1) if base.endswith((".start", ".end")) else (base, ""))
         if name not in marks:
             raise ValueError(f"time {expr!r}: no line or shot {name!r} (known: {', '.join(sorted(marks)) or 'none'})")
         frames = marks[name][1 if edge == "end" else 0]
@@ -118,17 +149,24 @@ def validate(spec: dict) -> list:
         if not isinstance(s, dict) or not (s.get("actor") or s.get("points")):
             err(f"subjects.{n}", "each subject needs actor (a label in the level) or points (landmarks)",
                 f"{n}: {{actor: <label>}}")
-    lines = spec.get("lines") or []
+    lines = list(spec.get("lines") or [])
+    timing = spec.get("timing")
+    if timing is not None and not (isinstance(timing, dict) and isinstance(timing.get("lines"), list)):
+        err("timing", "timing is an audio timing document (kind audio: {fps, lines: [...]}) inlined",
+            "load it on the client (filmtools.unreal.audio_timing.load) and put it here")
+        timing = None
     ids = set()
-    for i, ln in enumerate(lines):
-        if not isinstance(ln, dict) or "id" not in ln or "start_s" not in ln:
-            err(f"lines[{i}]", "a line needs id and start_s (and end_s)", "{id: L1, start_s: 0.8, end_s: 3.1}")
+    for i, ln in enumerate(lines + list((timing or {}).get("lines", []))):
+        where = f"lines[{i}]" if i < len(lines) else f"timing.lines[{i - len(lines)}]"
+        if not isinstance(ln, dict) or "id" not in ln or not ("start_s" in ln or "start_frame" in ln):
+            err(where, "a line needs id and start_s or start_frame (and end_s / end_frame)",
+                "{id: L1, start_s: 0.8, end_s: 3.1}")
             continue
         if ln["id"] in ids:
-            err(f"lines[{i}].id", f"duplicate line id {ln['id']!r}")
+            err(f"{where}.id", f"duplicate line id {ln['id']!r}")
         ids.add(ln["id"])
-        if "end_s" in ln and float(ln["end_s"]) < float(ln["start_s"]):
-            err(f"lines[{i}]", "end_s is before start_s")
+        if "end_s" in ln and "start_s" in ln and float(ln["end_s"]) < float(ln["start_s"]):
+            err(where, "end_s is before start_s")
     shots = spec.get("shots") or []
     auto = spec.get("auto")
     if not shots and not auto:
@@ -185,10 +223,11 @@ def resolve_times(spec: dict) -> list:
     """Each shot's [start, end) in frames, in order: [{"id", "start", "end"}]. Raises SpecError."""
     fps = float(spec.get("fps", 24))
     marks = {}
-    for ln in spec.get("lines") or []:
-        s = int(round(float(ln["start_s"]) * fps))
-        e = int(round(float(ln.get("end_s", ln["start_s"])) * fps))
-        marks[ln["id"]] = (s, e)
+    for ln in lines_of(spec):
+        marks[ln["id"]] = (ln["start"], ln["end"])
+        for k, (ws, we) in enumerate(ln["words"]):
+            marks[f"{ln['id']}.w{k}"] = (ws, we)
+    line_ids = set(marks)
     shots = spec.get("shots") or []
     errs, out = [], []
     cursor = int(spec.get("start_frame", 0))
@@ -211,7 +250,7 @@ def resolve_times(spec: dict) -> list:
         marks[sh["id"]] = (st, en)
         out.append({"id": sh["id"], "start": st, "end": en})
         cursor = en if en is not None else st + 1
-    last_line = max((m[1] for k, m in marks.items() if k not in {s["id"] for s in shots}), default=None)
+    last_line = max((m[1] for k, m in marks.items() if k in line_ids), default=None)
     for i, o in enumerate(out):
         if o["end"] is None:
             if i + 1 < len(out):
@@ -243,7 +282,7 @@ def auto_shots(spec: dict, cov: dict, lead_frames: int = 4, size: str = "MCU", m
     speaker's single (`size`, else the over), cutting `lead_frames` before the line starts; consecutive lines of one
     speaker stay on one shot."""
     fps = float(spec.get("fps", 24))
-    lines = sorted(spec.get("lines") or [], key=lambda ln: float(ln["start_s"]))
+    lines = lines_of(spec)
     names = {s["name"] for s in cov["shots"]}
     shots = [{"id": "auto_master", "start": int(spec.get("start_frame", 0)), "coverage": "master"}]
     if not lines:
@@ -254,7 +293,7 @@ def auto_shots(spec: dict, cov: dict, lead_frames: int = 4, size: str = "MCU", m
         pick = next((n for n in (f"{who}_{size}", f"{who}_OTS", f"{who}_MS", f"{who}_CU") if n in names), "master")
         if pick == prev:
             continue
-        st = max(shots[-1]["start"] + 1, int(round(float(ln["start_s"]) * fps)) - lead_frames)
+        st = max(shots[-1]["start"] + 1, ln["start"] - lead_frames)
         shots.append({"id": f"auto_{ln['id']}", "start": st, "coverage": pick})
         prev = pick
     return shots

@@ -540,19 +540,41 @@ def check(*, camera: str, subjects, size: str | None = None, others=None) -> dic
     cam = read(camera)
     subs = _subjects(subjects)
     issues = ck.frame(cam, subs, _subjects(others), camera=camera)
-    try:
-        from ..qa import framing as qaf  # WP10's per-frame framing checks
-        for s in subs:
-            got = qaf.check(cam, s, expect=size) if hasattr(qaf, "check") else []
-            issues += list(got.get("issues", got) if isinstance(got, dict) else got)
-    except ImportError:
-        issues.append(ck.issue("qa_missing", "info", "per-frame framing checks (fmbridge.qa) are not installed",
-                               "merge WP10", camera))
-    except Exception as e:  # their API moved: say so, keep ours
-        issues.append(ck.issue("qa_error", "info", f"fmbridge.qa.framing.check failed: {e}", "", camera))
+    issues += _qa_issues(cam, subjects, subs, size)
     metrics = {"size": {s["name"]: framing.classify(cam, s) for s in subs}, "focus_cm": cam.get("focus"),
                "hfov_deg": cam["hfov_deg"]}
     return {"pass": ck.worst(issues) != "fail", "issues": issues, "metrics": metrics}
+
+
+def _qa_issues(cam: dict, targets, subs: list, size) -> list:
+    """WP10's per-frame framing checks (fmbridge.qa.framing.check) on each subject, when that package is there."""
+    try:
+        from ..qa import framing as qaf
+    except ImportError:
+        return [ck.issue("qa_missing", "info", "per-frame framing checks (fmbridge.qa) are not installed",
+                         "merge WP10's branch", cam.get("label", ""))]
+    out = []
+    labels = targets if isinstance(targets, (list, tuple)) and targets and not isinstance(targets[0], (int, float)) \
+        else [targets]
+    try:
+        qcam = qaf.Camera.from_dict({"loc": cam["loc"], "rot": cam["rot"], "focal": cam["focal"],
+                                     "sensor_width": cam["filmback"][0], "aspect": cam["filmback"][0] / cam["filmback"][1],
+                                     "name": cam.get("label", "")})
+        for lab, s in zip(labels, subs):
+            a = _find(str(lab).split(":")[0]) if isinstance(lab, str) else None
+            bones = dict(_bones_of(a)) if a is not None else {}
+            bones.update({"eyes": s["points"]["eyes"], "head_top": s["points"]["head_top"]})
+            bounds = None
+            if a is not None:
+                o, e = a.get_actor_bounds(False)
+                bounds = (_v3(o), _v3(e))
+            r = qaf.check(qcam, s["name"], bones=bones, bounds=bounds, facing=s["facing"],
+                          expect={"size": framing.size_key(size)} if size else None)
+            out += list(r.get("issues", []) if isinstance(r, dict) else r)
+    except Exception as e:  # their API moved: say so, keep ours
+        out.append(ck.issue("qa_error", "info", f"fmbridge.qa.framing.check failed: {type(e).__name__}: {e}", "",
+                            cam.get("label", "")))
+    return out
 
 
 @op("cam.check_cut", mutates=False, idempotent=True, tags=["camera", "qa"])
