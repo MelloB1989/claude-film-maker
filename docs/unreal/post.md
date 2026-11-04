@@ -207,30 +207,46 @@ no Epic login, no assets. It also runs on the fake engine in `tools/tests/test_u
 Unit tests: `tools/tests/test_ue_audio.py`, `test_ue_audio_timing.py`, `test_ue_audio_kind.py`, `test_ue_post_cut.py`
 (39 tests with the runtime's own, about 2 s).
 
+## Day-1 triage
+
+Run `film-ue selftest audio` first (about 10 s, no GPU). For each check that fails, in order of likelihood:
+
+| failing check | likely cause | exact fix |
+|---|---|---|
+| `import.durations_s` reads 0.0 | the WAV import failed (no SoundWave), or `duration` is not filled in this build | `film-ue log` and grep `LogAudio\|LogImport`; if the asset exists but reads 0, use `wave.get_duration()` in `audio._duration` (audio.py, `_duration`) |
+| `import.names` has a `_1` suffix | an old scratch asset was in the way and `free` did not run | `film-ue op assets.remove path=/Game/_Selftest/audio` (or the harness's keep=false), then re-run |
+| `import.idempotent` changed: true | the engine stored the sound under another name than `destination_name` | `film-ue op assets.list path=/Game/_Selftest/audio/Sounds`; make `asset_name()` (audio.py) produce that name |
+| `describe.volume_db` is 0.0 or `audio.place` raises "no Volume channel" | the channel name is read wrong in this build | `film-ue exec` with `[(c.get_name(), c.get_editor_property("channel_name")) for c in sec.get_all_channels()]`; fix `_channel_name` (audio.py) to what it prints |
+| `describe.offset_s` off by about 1000x | `set_start_offset` takes display frames here, not ticks | in `place` (audio.py) pass `round(offset_s * fps)` without `* tpf`, and divide by `fps` only in `_describe_section` |
+| `describe.fades` is [0, 0] | `get_time()` returned ticks, or `add_key` refused the interpolation argument | in `_volume_keys` call `k.get_time(unreal.MovieSceneTimeUnit.DISPLAY_RATE)`; if `add_key` raised, make `_linear()` return None (2-argument `add_key`) |
+| `place.frames_rows` rows differ | the engine re-packs rows after `add_section` | set the row after `set_range`/`set_sound` (it already is), else accept the engine's rows: compare without `row` in `_same` |
+| `place.idempotent` / `lines.idempotent` changed: true | a read-back float differs from the planned one (volume, offset) | print `audio.describe` against the clips; widen the tolerances in `_same` (audio.py) |
+| `describe.fps` is not 24 | `seq.new` ignored `fps` | WP8 (agent-06): `seq.new` |
+| `lines.frames` wrong | `wav_root` joined in the wrong style, or the 48 fps rescale | check `fps_note` in the result; on Windows pass `wav_root` with backslashes (boxpaths) |
+| `film-post cut`: "No such filter: 'ass'" | ffmpeg built without libass | `apt install ffmpeg` (Ubuntu's has libass) or drop `captions: burn` from the outputs |
+| `film-post cut`: an output's `problems` lists frames | MRQ frames numbered from a handle | set the shot's `offset` (first rendered frame number) in the delivery spec; `film-post frames spec.yaml` shows what is missing |
+| `film-post qc` loudness reads None, or black/freeze never trigger | this ffmpeg's log lines differ from the regexes | run the probe's ffmpeg command by hand and adjust `parse_ebur128` / `parse_black` / `parse_freeze` (post_qc.py) |
+| `film-post speak`: 401 from ElevenLabs | no key in the environment | `fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- uv run film-post speak ...` |
+| `film-post speak` notes "perf.face is not on this bridge" | WP4's op not installed on the box | `film-ue install`; else accept the raw solve (it still plays) |
+
 ## HANDOFF
 
-Done (branch `fleet/agent-03/ue-post`): the audio ops, ext_audio fake, the timing document + WP4 handoff, the `audio`
-spec kind + schema + examples, `post_cut` + `film-post`, the selftest, this doc.
+State at the end of 2026-11-04 (branch `fleet/agent-03/ue-post`, merged into `ue-helpers` by the lead):
 
-Not done / next:
-- **Never run against real ffmpeg here** (the fleet container has none): `film-post cut` is unit-tested at the argv
-  level only. First thing on a box with ffmpeg: `film-post cut examples/unreal/delivery/two-shots.yaml` with test
-  frames (any PNGs in out/renders/S01, S02) and read `cut-two-shots.json`.
-- B53: `post_qc` + `film-post qc` done, tested on canned ffmpeg output with the probes mocked. Untested: the ffmpeg
-  filters' real output format on the box's ffmpeg build (blackdetect/freezedetect/ebur128 log lines are parsed by
-  regex; if a check reads nothing, compare the raw stderr with the parsers' patterns first).
-- B29 (claimed via the lead): `perf_speak` + `film-post speak` done with a fake TTS and a recorded bridge. Untested:
-  a real ElevenLabs call (the key comes in the morning: `fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- ...`),
-  and `perf.face` against a real editor (args anim, wav, mood, emphasis and its result key `out` confirmed by agent-01).
-- B25 (claimed): fades in frames and the client LUFS check are done. Not done: an `audio.mix`-style call that
-  places a set of stems (VO/Music/SFX WAVs) with levels in one go; today that is one `audio.place` per track, or an
-  `audio` spec with several tracks (which is the declarative way and probably enough).
-- B26 (claimed): presets (ProRes 4444 / 422 HQ, H.264, HEVC), 9:16 crop keys, burned captions in the safe area with a
-  check, argv from the spec: done. Not run against a real ffmpeg yet (see the first point).
-- The fade ramp's shape (Linear vs Auto fallback) is unverified until the selftest runs in a real editor: check
-  `audio.describe` on a faded clip and the key interpolation in the editor log if the wrapper lacks the enum.
-- A `cli_post.py` hook so `film-ue post ...` mirrors `film-post` (DECISIONS: WP11 wires `register(subparsers)`).
-- The reel's Pillow title cards / overlay captions (`cut.py`) were not carried over: captions burn through libass;
-  titles are film-specific and belong in `films/<id>/`.
-- MRQ's own audio output (`MoviePipelineWaveOutput`) could render the sequence's mix from Unreal; post builds its
-  mix from the timing instead, so they agree by construction.
+Done and unit-tested (fake engine, mocked ffmpeg): the audio ops (`audio.import/place/describe/remove/lines`, dB
+levels, fades, offsets, rows, converging re-runs), the `timing` document and the WP4 handoff, the `audio` spec kind,
+`film-post` (`plan/cut/frames/edl/captions/timing/handoff/speak/qc/loudness`), the delivery pipeline (`post_cut`),
+B25 (fades, loudness check), B26 (presets, 9:16, safe-area captions as ASS), B29 (`perf_speak`), B42 (`boxpaths`),
+B53 (`post_qc`), and the selftest on WP11's real harness. Fixes from other agents' audits: the Volume channel is found by
+`channel_name` (agent-06); fade-outs are silent on end - 1 (agent-01); the selftest uses the real `T` (agent-09).
+
+Unproven until tomorrow (see Day-1 triage above):
+- Every `audio.*` op on a real editor: run `film-ue selftest audio` first.
+- `film-post cut` and `film-post qc` have never run a real ffmpeg (none on the fleet containers): run
+  `film-post cut examples/unreal/delivery/two-shots.yaml` with any PNGs in `out/renders/S01`, `S02`, then
+  `film-post qc` on an output.
+- `film-post speak` has never called ElevenLabs (the key comes through `fleetctl secret`) or a real `perf.face`.
+
+Not done (optional): a one-call stems op (the rest of B25; an `audio` spec with several tracks covers it); a
+`cli_post.py` hook so `film-ue post ...` mirrors `film-post`; the reel's Pillow title cards (film-specific, belong
+in `films/<id>/`); MRQ's own wave output (post builds the mix from the timing instead, so they agree by construction).
