@@ -46,7 +46,7 @@ TOP = {"kind", "version", "name", "description", "sequence", "actor", "face_comp
        "start_s", "seed", "fps"}
 LINE = {"id", "start_s", "gap_s", "audio", "face_anim", "duration_s", "text", "mood", "intensity", "solver_mood",
         "emphasis", "gaze", "gestures", "expressions", "nods", "tilts", "listen"}
-CHARACTER = {"facing_offset_deg", "lead", "head", "energy", "auto_turn_deg", "eye_micro_deg", "signs"}
+CHARACTER = {"facing_offset_deg", "lead", "head", "energy", "auto_turn_deg", "eye_micro_deg", "signs", "body_life"}
 FACE = {"out", "layers", "solver_head", "blink_mode", "mouth_mix", "camera_lock", "solve_folder", "brow_chance",
         "beat_every", "tail_s", "backchannel", "aversion"}
 ACTION = {"at_s", "walk_to", "path", "speed_cm_s", "turn_to", "end_facing"}

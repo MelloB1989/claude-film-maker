@@ -111,6 +111,17 @@ lists the new animations (suffix `_RTG`); `anim.describe` on one shows the targe
 overwrite the results of the same name. If the auto chains are wrong, make IK Rigs by hand and pass
 `source_rig`/`target_rig`.
 
+**Body life: breathing, weight shifts, the torso following the head** (an additive layer over any idle).
+```bash
+film-ue op perf.calibrate_body label=Ada                      # once per body skeleton, ~1 min
+film-ue op anim.body_life out=/Game/Perf/AS_ada_life body_mesh=/Game/MetaHumans/Ada/Body/m_med_nrw_body length_s=12 state=talk face_anim=/Game/Speech/Anim/AS_l1_perf
+film-ue op seq.anim path=/Game/Shots/S010 label=Ada component=Body replace=false 'sections=[{"anim":"/Game/Perf/AS_ada_life","start":0}]'
+```
+Check: `perf.calibrate_body` returns `axes` for 9 bones and a `shift_axis`; `anim.body_life` returns `breaths_per_min`
+(calm 12, talk 15, nervous 22) and the weight `shifts`. In a spec: `character: {body_life: true}` (or
+`{state, follow, breath_deg, shift_cm}`): perf.compose bakes it over the whole performance (the torso follows the
+composed head) and layers it on the body track; without a calibration it is skipped with a note.
+
 **Layer: an additive gesture over the idle.**
 ```bash
 film-ue op anim.additive anim=/Game/Anim/AS_Shrug out=/Game/Anim/AS_Shrug_Add
@@ -160,6 +171,7 @@ film-ue op anim.new path=/Game/Perf/AS_blank skeleton=/Game/MetaHumans/Ada/Face/
 | `perf.vocab` | presets, moods (and solver moods), nod kinds, layers |
 | `perf.state` / `perf.plan` / `perf.apply` / `perf.compose` / `perf.solve` / `perf.lock_eyes` / `perf.describe` | the PERFORMANCE spec |
 | `perf.idle` / `perf.gestures` / `perf.walk_to` / `perf.turn_to` | body moves without a spec |
+| `perf.calibrate_body` / `anim.body_life` | measure the body's bone axes; bake breathing, weight shifts and torso follow as an additive |
 
 Vocabulary (`perf.vocab`): expression presets `smile` (Duchenne), `smile_soft`, `grin`, `smirk`, `brow_raise`,
 `brow_flash`, `concern`, `sad`, `angry`, `surprise`, `fear`, `disgust`, `contempt`, `thinking`, `skeptical`,
@@ -282,6 +294,8 @@ reflected names; an out-parameter comes back as the return value.
 | `unreal.DataInputType.AUDIO` | `EDataInputType::Audio` (UENUM BlueprintType) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformance.h:34 | yes |
 | `unreal.MetaHumanPerformanceFactoryNew()` | `UMetaHumanPerformanceFactoryNew` (UCLASS, a UFactory) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Private/MetaHumanPerformanceFactoryNew.h:13 | yes |
 | `unreal.PerformanceExportRange.WHOLE_SEQUENCE` | `EPerformanceExportRange::WholeSequence` (UENUM) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformanceExportUtils.h:20 | yes |
+| `SkeletalMeshComponent.get_socket_transform(bone, RTS_PARENT_BONE_SPACE)` | `GetSocketTransform` | Engine/Source/Runtime/Engine/Classes/Components/SceneComponent.h:801 (BlueprintCallable; used by anim.bake_pose since the reel) | yes |
+| `SkeletalMeshComponent.get_num_bones() / get_bone_name(i)` | `GetNumBones` / `GetBoneName` | Engine/Source/Runtime/Engine/Classes/Components/SkinnedMeshComponent.h:1144 / :1165 (BlueprintCallable; used by anim.bake_follow) | yes |
 | `unreal.AnimationLibrary.get_animation_curve_names` | `GetAnimationCurveNames` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:89 | yes |
 | `unreal.AnimationLibrary.get_float_keys` | `GetFloatKeys` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:456 | yes |
 | `unreal.AnimationLibrary.does_curve_exist` | `DoesCurveExist` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:514 | yes |
@@ -401,6 +415,9 @@ State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead as it lands):
      back into the struct; if curves stop being written (selftest `read.round_trip` fails), fall back to the
      deprecated `get_curve_identifier(skeleton, ...)` (it worked on the reel, with a warning per curve).
   8. speech.to_face chunking: whether a chunk's solved head motion jumps at a seam (perf.face softens it).
+- Body life (perf.calibrate_body, anim.body_life, character.body_life) is new tonight and the least proven: the
+  axis calibration assumes the feet (ball_l/r ahead of foot_l/r) give "forward", and that one local axis per bone
+  dominates each of flex/side/twist. Check `raw` in its result if a body bends the wrong way.
 - Not done / next: procedural additive gestures (author bone-offset additives by code: needs bone axis calibration
   like the head's); `perf.solve_a2f` (Audio2Face route, design above). B31 (pose library) went to agent-11 as
   pose.* calling anim.rig_keys.
