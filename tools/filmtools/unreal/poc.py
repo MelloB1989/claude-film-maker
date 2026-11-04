@@ -226,7 +226,7 @@ def _render(a, executor: str, name: str) -> dict:
     t0 = time.time()
     ok(client.op("render.mrq", sequence=a.sequence, level=a.level, out_dir=remote, width=a.width, height=a.height,
                  start=start, end=end, temporal=a.temporal, spatial=1, warmup=32, name=name,
-                 cvars=json.loads(a.cvars) if a.cvars else None, executor=executor))
+                 cvars=json.loads(a.cvars) if a.cvars else None, executor=executor, path_tracer=a.path_tracer))
     peak = {"rss_gb": 0.0, "vram_gb": 0.0}
     p = {}
     while time.time() - t0 < a.render_timeout * 60:
@@ -248,7 +248,7 @@ def poc4(a, tag: str = "") -> dict:
     reference render (same frames, same settings) when --ref names one on the box."""
     out = Path(a.out) / f"poc4{tag}"
     r = {}
-    for executor in ("pie", "process") if not tag else ("pie",):
+    for executor in a.executors.split(",") if not tag else ("pie",):
         name = f"{executor}{tag}"
         try:
             r[executor] = _render(a, executor, name)
@@ -367,6 +367,8 @@ def main(argv: list) -> None:
     ap.add_argument("--height", type=int, default=1080)
     ap.add_argument("--temporal", type=int, default=8)
     ap.add_argument("--cvars", default="", help='poc 4: JSON, e.g. \'{"r.HairStrands.SkyLighting": 0}\'')
+    ap.add_argument("--path-tracer", action="store_true", help="poc 4: the path tracer instead of the deferred pass")
+    ap.add_argument("--executors", default="pie,process", help="poc 4: pie, process or both")
     ap.add_argument("--ref", default="", help="poc 4: reference frames (same names): s3://prefix or a folder on the box")
     ap.add_argument("--render-timeout", type=float, default=120, help="poc 4: minutes")
     ap.add_argument("--wav", default="")
