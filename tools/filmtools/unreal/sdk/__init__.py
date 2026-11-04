@@ -55,7 +55,15 @@ def _client_transport(kind: str, payload: dict, timeout: float) -> dict:
         return client.exec_code(payload["code"], timeout, wait=not payload.get("async"))
     if kind == "job":
         if hasattr(client, "job"):  # WP1's client: retries through a dropped tunnel or a reloaded bridge
-            return client.job(payload["id"])
+            gone = getattr(client, "JobGone", None)
+            try:
+                return client.job(payload["id"])
+            except Exception as e:
+                if gone is not None and isinstance(e, gone):  # the editor restarted (crashed?) while it ran
+                    return {"id": payload["id"], "state": "lost", "done": True, "ok": False, "code": "job_lost",
+                            "message": str(e.code if isinstance(e, SystemExit) else e),
+                            "hint": "film-ue editor status / film-ue editor crashes; then start the op again"}
+                raise
         return json.loads(client.request("GET", f"/job?id={payload['id']}", timeout=60))
     if kind == "cancel":
         if hasattr(client, "cancel"):
