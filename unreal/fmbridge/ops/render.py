@@ -42,6 +42,12 @@ def _pkg(path: str) -> str:
     return str(path).split(".", 1)[0] if "." in str(path).rsplit("/", 1)[-1] else str(path)
 
 
+def _obj(path: str) -> str:
+    """Object path of an asset path (/Game/A/B -> /Game/A/B.B)."""
+    p = _pkg(path)
+    return f"{p}.{p.rsplit('/', 1)[-1]}"
+
+
 def _load_sequence(path: str):
     seq = unreal.load_asset(_pkg(path))
     if seq is None:
@@ -298,12 +304,11 @@ def _new_job(r: dict, chunk: dict, level: str):
     q = _mq().get_queue()
     q.delete_all_jobs()
     job = q.allocate_new_job(unreal.MoviePipelineExecutorJob)
-    path = unreal.SoftObjectPath(_pkg(r["sequence"]))
-    try:
-        job.set_sequence(path)  # Sequence's BlueprintSetter (MoviePipelineQueue.h:616)
-    except AttributeError:
-        job.set_editor_property("sequence", path)
-    job.set_editor_property("map", unreal.SoftObjectPath(level))
+    # Full object paths (/Game/A/B.B): MRQ's {sequence_name}/{level_name} tokens and its current-map check read the
+    # asset name. set_editor_property runs PostEditChangeProperty, which calls the SetSequence setter (Python cannot
+    # call a BlueprintSetter directly: PyGenUtil.cpp:1620; MoviePipelineQueue.cpp:185-193).
+    job.set_editor_property("sequence", unreal.SoftObjectPath(_obj(r["sequence"])))
+    job.set_editor_property("map", unreal.SoftObjectPath(_obj(level)))
     job.set_editor_property("job_name", chunk.get("id") or r["name"])
     _configure(job, r, chunk)
     return q, job

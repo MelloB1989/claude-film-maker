@@ -123,8 +123,6 @@ def install(fake):
         def set_config_mode(self, mode):
             return True
 
-        def set_sequence(self, path):
-            self.set_editor_property("sequence", path)
 
     class Queue(O):
         def __init__(self, *a, **k):
