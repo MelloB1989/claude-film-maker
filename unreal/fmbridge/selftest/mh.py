@@ -69,8 +69,8 @@ def run(t):
     t.idempotent("mh.skin converges (no needless commit: it would drop the cloud textures)", "mh.skin",
                  character=ch, u=0.62, v=0.44)
     t.raises("a misspelt skin field suggests", "mh.skin", code="bad_args", character=ch, settings={"freckels": {}})
-    r = t.op("mh.eyes", path=ch, both={"iris": {"iris_pattern": "Iris003", "primary_color_u": 0.25}})
-    t.check("iris pattern", r["eyes_settings"]["eye_left"]["iris"]["iris_pattern"], "IRIS003")
+    r = t.op("mh.eyes", path=ch, both={"iris": {"pattern": "Iris003", "primary_color_u": 0.25}})
+    t.check("iris pattern", r["eyes_settings"]["eye_left"]["iris"]["pattern"], "IRIS003")
     r = t.op("mh.eyelashes", path=ch, settings={"type": "LongCurl", "melanin": 0.85})
     t.check("eyelashes", [r["eyelashes"]["type"], r["eyelashes"]["melanin"]], ["LONG_CURL", 0.85], tol=1e-3)
     r = t.op("mh.teeth", path=ch, settings={"overbite": 0.2, "worn_down": 0.1})

@@ -106,11 +106,13 @@ def test_skin_commits_only_on_change(mh):
 
 def test_eyes_teeth_lashes_makeup(mh):
     run_op("mh.add", path=P, preset="Ada")
-    r = run_op("mh.eyes", path=P, both={"iris": {"iris_pattern": "Iris003", "primary_color_u": 0.2}},
+    r = run_op("mh.eyes", path=P, both={"iris": {"pattern": "Iris003", "primary_color_u": 0.2}},
                right={"iris": {"primary_color_u": 0.3}})
     assert r["changed"]
     e = mh.assets[P]._props["eyes_settings"]
-    assert e.eye_left.iris.iris_pattern == "IRIS003" and e.eye_right.iris.primary_color_u == 0.3
+    assert e.eye_left.iris.pattern == "IRIS003" and e.eye_right.iris.primary_color_u == 0.3
+    assert run_op("mh.eyes", path=P, both={"iris": {"iris_pattern": "Iris004"}})["changed"]  # the C++ name, aliased
+    assert mh.assets[P]._props["eyes_settings"].eye_left.iris.pattern == "IRIS004"
     assert run_op("mh.eyelashes", path=P, settings={"type": "LongCurl", "melanin": 0.9})["changed"]
     assert mh.assets[P]._props["head_model_settings"].eyelashes.type == "LONG_CURL"
     assert run_op("mh.teeth", path=P, settings={"overbite": 0.3})["teeth"]["overbite"] == 0.3

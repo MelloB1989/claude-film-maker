@@ -9,7 +9,7 @@ ops, and a second plan is empty once the character matches its spec (mh.describe
     body: {Height: 168, Waist: 61, Hip: 94}  # measurement constraints (cm; Fat/Muscularity/Masculine/Feminine unitless)
     face: {blend: {Ada: 0.7, Vivian: 0.3}}   # or {coefficients: [...]}; landmarks: {index: [dx, dy, dz]}
     skin: {u: 0.55, v: 0.45, roughness: 1.0, texture_resolution: 4k, freckles: {density: 0.2}}
-    eyes: {both: {iris: {iris_pattern: Iris003, primary_color_u: 0.2}}}
+    eyes: {both: {iris: {pattern: Iris003, primary_color_u: 0.2}}}
     eyelashes: {type: LongCurl, melanin: 0.9}
     teeth: {overbite: 0.2}
     makeup: {lips: {type: Natural}}
@@ -44,8 +44,11 @@ def snake(name: str) -> str:
     if re.fullmatch(r"b[A-Z]\w*", name):
         name = name[1:]
     s = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", name)
-    s = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", "_", s)
-    return s.lower()
+    s = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", "_", s).lower()
+    return ALIASES.get(s, s)
+
+
+ALIASES = {"iris_pattern": "pattern", "iris_rotation": "rotation"}  # the engine's ScriptNames (ops/mh/_core.py)
 
 
 def norm(s) -> str:

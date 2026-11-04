@@ -21,10 +21,12 @@ from ...errors import OpError
 from . import _core as K
 
 RIG_OK = (r"Auto-Rigging finished in",)
+_REQ_FAIL = (r"RequestAutoRigging (must be called|called with)", r"RequestTextureSources (must be called|called with)",
+             r"that is not (not )?added for editing")  # the request itself refused (MetaHumanCharacterEditorSubsystem.cpp:3262-3274, 4006-4018)
 RIG_FAIL = (r"Auto-Rigging of Face failed with code", r"Auto-Rigging failed due to incompatible DNA",
-            r"Failed to align face DNA from autorigging", r"Service returned invalid DNA")
+            r"Failed to align face DNA from autorigging", r"Service returned invalid DNA") + _REQ_FAIL
 TEX_OK_FACE, TEX_OK_BODY = r"Download of source face textures finished in", r"Download of source body textures finished in"
-TEX_FAIL = (r"Download of source (face|body) textures failed", r"User not logged in, please autorig")
+TEX_FAIL = (r"Download of source (face|body) textures failed", r"User not logged in, please autorig") + _REQ_FAIL
 AUTH_FAIL = (r"LogMetaHumanAuth: .*Login failed", r"LogMetaHumanAuth: .*Invalid user", r"LogMetaHumanAuth: .*MFA required",
              r"LogMetaHumanAuth: .*account is restricted", r"LogMetaHumanAuth: .*pin grant code")
 PORTAL = (r"LaunchAccountPortalWithPlatformBrowser", r"Login using account portal")

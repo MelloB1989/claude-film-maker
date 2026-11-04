@@ -17,7 +17,7 @@ body:
   Masculine/Feminine: -1.6
 skin: {u: 0.62, v: 0.48, roughness: 1.02, texture_resolution: 4k}
 eyes:
-  both: {iris: {iris_pattern: Iris004, primary_color_u: 0.15, primary_color_v: 0.35}}
+  both: {iris: {pattern: Iris004, primary_color_u: 0.15, primary_color_v: 0.35}}
 grooms:
   Hair: {item: WI_Hair_S_BuzzCut, melanin: 0.95, redness: 0.05, params: {Whiteness: 0.08}}
   Beard: {item: WI_Beard_S_Stubble, melanin: 0.9}

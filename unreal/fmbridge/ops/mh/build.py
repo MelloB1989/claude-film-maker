@@ -98,7 +98,8 @@ def build(character: str, name: str = "", cinematic: bool = True, *, bp_name: st
     t0 = time.time()
     K.sub().build_meta_human(c, p)
     seconds = round(time.time() - t0, 1)
-    bp = _find_bp(build_path or K.folder_of(path), name)
+    bp = _find_bp(build_path or K.folder_of(path), name) or (_find_bp("/Game", name) if not build_path else "")
+    # (without build_path the palette's unpack folder decides where it lands: usually <character folder>/Unpacked)
     if not bp:  # the subsystem logs why (LogMetaHumanCharacterEditor) and returns nothing
         raise OpError(f"no BP_{name} after building {path}", code="engine",
                       hint="see the editor log (LogMetaHumanCharacterEditor): 'not ready for assembly' or a pipeline error")
