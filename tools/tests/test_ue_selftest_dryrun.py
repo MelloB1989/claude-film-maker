@@ -24,16 +24,14 @@ BUDGET_S = 90.0  # wall clock per area on the fake (layout.settle waits real sec
 
 # checks only a real renderer, physics or engine data can judge: failing here is expected
 FAKE_ONLY = {
-    "assets": {"the Fab library answers"},  # no Fab sign-in
     "cam": {"marker 1 at (u, v) on 16:9 Digital Film", "marker 2 at (u, v) on 16:9 Digital Film",  # pixels
             "marker 1 at (u, v) on Super 35mm", "marker 2 at (u, v) on Super 35mm",
             "WS: the figure's top on the predicted row", "WS: the feet on the predicted row",
             "MCU: the figure's top on the predicted row", "CU: the figure's top on the predicted row",
             "push-in: Sequencer plays the baked key at 48",  # the fake's Sequencer does not evaluate keys
             "rail: the camera is near the middle of the rail at mid-shot"},
-    "env": {"the grey card meters within 0.5 stop of the prediction", "the grey card reads as a mid grey "
-            "(0.3..0.62 display luma)", "one stop more exposure brightens the image", "env.check passes a well "
-            "exposed card", "env.check fails an underexposed card with a fix", "noir_bw has no colour cast"},
+    "env": {"one stop more exposure brightens the image", "env.check fails an underexposed card with a fix",
+            "noir_bw has no colour cast", "env.autoexpose lands near the card's EV100"},  # a flat grey card
     "foliage": {"instances follow the ramp's surface", "align_to_normal tilts them ~30 deg",  # traces hit boxes
                 "a 20-degree limit drops everything on the 30-degree ramp"},
     "layout": {"rotated table footprint swaps X and Y",  # the fake's bounds do not turn with the actor
@@ -41,18 +39,38 @@ FAKE_ONLY = {
                "data layers refuse a non-partitioned level"},  # the fake's data layers take any level
     "mh": {"assembled actor has Body and Face"},
     "qa": {"capture and viewport show the same picture (SSIM > 0.6)"},  # the viewport still is the grey stand-in
-    "render": {"command-line render (one process, no editor)", "render.gpu sees the GPU"},
+    "render": {"command-line render (one process, no editor)"},  # its process is a stub here
 }
+# coverage: the ops under these prefixes the selftest must call, but for the ones named (owners' terms)
+COVERAGE = {
+    "assets": (("assets.", "mat.", "fab."), {"assets.save_all", "fab.add", "fab.login", "fab.library"}),  # no sign-in
+    "env": (("env.", "light."), set()),
+    "render": (("render.",), {"render.mrq", "render.progress", "render.concat"}),
+}
+# checks that must be in the report and pass (owners' lists from their former per-area dry runs)
+REQUIRED = {
+    "cam": {"focal beyond the lens widens it, not clamped", "cam.add converges", "a missing camera is not_found",
+            "a bad size is bad_args", "WS solved", "MCU solved", "cam.frame MCU converges", "cam.project agrees: MCU",
+            "coverage stays on one side of the line", "cam.coverage converges", "shot.plan cuts",
+            "shot.apply converges", "shot.describe reads the edit back", "a dropped shot's camera is removed",
+            "contact sheet: 3 stills per shot"},
+    "foliage": {"scatter placed what it planned", "nothing dropped on flat ground", "the instances are in the level",
+                "no actor per instance", "cones sit on the floor's top (z 0)", "nothing inside the excluded circle",
+                "scatter converges", "still the same count", "slope scatter placed its 20",
+                "another seed replaces, never adds", "describe: measured cones", "removed: no instances left",
+                "remove again is fine", "PCG generated", "PCG seed set"},
+}
+# ops the selftest must call (beyond COVERAGE's prefixes)
+OPS_REQUIRED = {"anim": {"anim.find", "anim.new", "perf.face", "anim.check"}}
 # areas whose test stops early on the fake for want of engine content: the reason must say so
 SKIPS = {
-    "anim": "MetaHuman optional content",
     "mh": "MetaHuman presets",
     "pose": "no body Control Rig",
 }
 # known breakage, owner told; remove the entry when fixed (the test then passes, or fails loudly as xfail(strict))
-KNOWN = {
-    "audio": "selftest/audio.py calls t.check(name, ok, **details), not the harness's t.check(name, got, want): "
-             "TypeError at the first check (agent-03 told, 2026-11-05)",
+KNOWN = {  # area: (text still in its selftest while broken, why); the xfail lifts by itself once the text is gone
+    "audio": ("paths=paths)", "selftest/audio.py calls t.check(name, ok, **details), not the harness's "
+              "t.check(name, got, want): TypeError at the first check (fixed by agent-03 at 964e048, ue-post)"),
 }
 
 
@@ -302,14 +320,22 @@ def _drive(gen, tick, budget_s):
             raise AssertionError(f"still running after {budget_s:.0f}s ({n} ticks)")
 
 
-@pytest.mark.parametrize("area", [pytest.param(a, marks=pytest.mark.xfail(reason=KNOWN[a], strict=True))
-                                  if a in KNOWN else a for a in AREAS])
+def _broken(area):
+    text, _ = KNOWN.get(area, ("\0", ""))
+    with open(os.path.join(SELFTESTS, area + ".py")) as f:
+        return text in f.read()
+
+
+@pytest.mark.parametrize("area", [pytest.param(a, marks=pytest.mark.xfail(reason=KNOWN[a][1], strict=True))
+                                  if _broken(a) else a for a in AREAS])
 def test_selftest_dry_run(area, ue, fmb, tmp_path, monkeypatch):
     import fmbridge.selftest as st
     monkeypatch.setattr(st, "capabilities", lambda: {k: True for k in st.CAPABILITIES})
     _fake_stills(fmb, st, monkeypatch)
+    ue.dialogs.clear()
     tick = (SETUP.get(area) or (lambda *a: None))(ue, fmb, monkeypatch, tmp_path)
     rep, ticks = _drive(st.run(area, str(tmp_path / "reports"), baseline="off"), tick, BUDGET_S)
+    assert ue.dialogs == [], f"{area} would open a modal dialog on the box: {ue.dialogs}"
     assert not rep["errors"], f"{area}: " + "\n".join(f"[{e['where']}] {e['error'][-1500:]}" for e in rep["errors"])
     if rep["status"] == "skipped":
         assert area in SKIPS and SKIPS[area] in rep.get("skipped", ""), f"{area} skipped: {rep.get('skipped')}"
@@ -318,10 +344,22 @@ def test_selftest_dry_run(area, ue, fmb, tmp_path, monkeypatch):
     bad = [c for c in rep["checks"] if not c["ok"] and c["name"] not in FAKE_ONLY.get(area, ())]
     assert not bad, [{k: c.get(k) for k in ("name", "got", "want", "detail")} for c in bad]
     assert rep["passed"] > 0, f"{area}: no check passed"
+    got = {c["name"]: c["ok"] for c in rep["checks"]}
+    absent = sorted(n for n in REQUIRED.get(area, ()) if got.get(n) is not True)
+    assert not absent, f"{area}: required checks missing or failed: {absent}"
+    assert len(rep["checks"]) >= {"assets": 55, "platform": 25}.get(area, 1), len(rep["checks"])
+    assert OPS_REQUIRED.get(area, set()) <= set(rep["ops_covered"]), OPS_REQUIRED[area] - set(rep["ops_covered"])
+    if area in COVERAGE:
+        prefixes, allowed = COVERAGE[area]
+        allowed = set(allowed) | ({"render.encode"} if "no ffmpeg" in " ".join(rep["notes"]) else set())
+        missed = [o for o in rep["ops_missed"] if o.startswith(prefixes) and o not in allowed]
+        assert not missed, f"{area} selftest does not call {missed}"
+    if area == "env":  # the meter on a grey card of known luminance (the fake's read_render_target_raw)
+        assert abs(rep["extra"]["meter_offset_stops"]) < 0.01, rep["metrics"].get("meter_offset_stops")
 
 
 def test_every_selftest_is_dry_run():
     """Discovery here and the harness's agree: a module the harness lists is a case above."""
     names = sorted(i.name for i in __import__("pkgutil").iter_modules([SELFTESTS]) if not i.name.startswith("_"))
     assert names == AREAS and len(AREAS) >= 15
-    assert set(FAKE_ONLY) | set(SKIPS) | set(KNOWN) | set(SETUP) <= set(AREAS)
+    assert set(FAKE_ONLY) | set(REQUIRED) | set(OPS_REQUIRED) | set(COVERAGE) | set(SKIPS) | set(KNOWN) | set(SETUP) <= set(AREAS)
