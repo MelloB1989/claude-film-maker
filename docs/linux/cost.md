@@ -26,6 +26,8 @@ datacenter "Tesla" driver is enough for headless Vulkan, see §5), and spot is u
   (`Linux_Unreal_Engine_5.8.x.zip`, ~39 GB, ~70 GB unpacked for 5.8.1 per agent-04's engine note) behind an Epic-account login. If the operator downloads it, the one-off
   build cost is zero. If it is built from source, one `c8i.48xlarge` / `m8a.48xlarge` hour (~$9-12) does it. §6.
 - **No cost blocker.** The blockers are in the engine task (MetaHuman Creator / audio-to-face / Fab on Linux).
+  Hybrid is ruled out by the operator (2026-11-04): Linux only. Round 3 entirely on Linux: ~$2.5-8 on spot,
+  ~$7-24 on-demand (§8).
 
 ## 1. Sources (all fetched 2026-11-04)
 
@@ -243,7 +245,30 @@ size). Excludes the operator's own machine and fleet costs.
 | **B'. Full Linux, spot**: gr6.8xlarge spot for building/shooting too (scripts checkpoint by saving the level) | 40 x 0.528 x 1.1 + renders 7.6 = 30.8 | snapshot/AMI 150 GB 7.5 + S3 2 | **~$40** | -77 % |
 | **C. Hybrid**: Windows gr6.4xl for MetaHuman character work (10 h), Linux gr6.4xl OD for the rest (30 h) + spot renders | 25.8 + 55.4 + 7.6 = 88.8 | both volumes 45.6 + 18.2 | **~$153** | -14 % |
 
-One-off for B/B'/C: the engine (§6, $0-12), the first Linux DDC fill (0.5-2 GPU-hours, $1-4), and moving the project
+**Operator decision (2026-11-04): hybrid is out.** Linux only; a step that can't run on Linux gets a code-only
+alternative, not a Windows box. Scenario C stays above only for comparison. Fab content must work on Linux too.
+
+**Round 3 of the reel, re-rendered entirely on Linux** (operator decision: no Windows shots mixed in). Assumed: one
+Linux DDC fill, one 1080p check pass, one 4K final and one 4K re-render of about half the reel:
+
+| Item | gr6.4xlarge OD | gr6.4xlarge spot | g6e.2xlarge OD (if 22 GiB is too tight) |
+|---|---|---|---|
+| Linux DDC fill (once, 0.5-2 h) | 0.9-3.7 | 0.3-1.1 | 1.3-5.4 |
+| 1080p pass | 1.18 | 0.40 | 1.09 |
+| 4K final | 3.35-12.48 | 1.12-4.17 | 2.35-7.67 |
+| 4K re-render, half the reel | 1.8-6.3 | 0.6-2.1 | 1.3-3.9 |
+| **Round 3 total** | **~$7-24** | **~$2.5-8** | **~$6-18** |
+| vs the same on Windows gr6.4xlarge OD (no DDC fill) | ~$6-23 | | |
+
+The Windows comparison row has no shader-cache fill, because the Windows DDC already exists. So the first round on
+Linux costs about the same as on Windows on-demand; the saving starts on spot, and on every round after the first.
+
+**The Epic sign-in costs nothing extra.** The operator's one login (P10/P12) can use a DCV *virtual* session on the
+PoC box: it is free on EC2, needs no GRID driver, and takes minutes of instance time already being paid for. For the
+precompiled zip only, the operator can also download it on the Mac and `aws s3 cp` it to `ue-linux/`: uploads into
+S3 are free; the ~39 GB costs ~$1/month to keep.
+
+One-off for B/B': the engine (§6, $0-12), the first Linux DDC fill (0.5-2 GPU-hours, $1-4), and moving the project
 (S3 in-region: free transfer, cents of storage). Hybrid's saving is eaten by keeping two machines' volumes; it is
 worth it only while some character step is Windows-only (engine task).
 
