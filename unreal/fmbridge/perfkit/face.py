@@ -29,7 +29,7 @@ def _shift(d) -> G.Shift:
 def _nod(d) -> H.Nod:
     if isinstance(d, H.Nod):
         return d
-    return H.Nod(d["t"], d.get("kind", "yes"), d.get("depth_deg"), d.get("count", 1), d.get("speed", 1.0))
+    return H.Nod(d["t"], d.get("kind", "nod"), d.get("depth_deg"), d.get("count", 1), d.get("speed", 1.0))
 
 
 def _tilt(d) -> H.Tilt:

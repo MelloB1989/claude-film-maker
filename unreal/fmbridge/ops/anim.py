@@ -57,20 +57,26 @@ def _set(anim, name, times, values):
 
 @op("anim.curves", mutates=False, idempotent=True)
 def curves(anim: str, contains: str = "") -> list:
-    """A sequence's float curve names."""
+    """A sequence's float curve names (containing `contains`).
+    Example: film-ue op anim.curves anim=/Game/Speech/Anim/AS_line1 contains=eyeLook
+    """
     return [str(n) for n in AL.get_animation_curve_names(load(anim), FLOAT) if contains.lower() in str(n).lower()]
 
 
 @op("anim.curve", mutates=False, idempotent=True)
 def curve(anim: str, name: str, every: int = 1) -> dict:
-    """One curve's keys (every n-th): times and values, with its range."""
+    """One curve's keys (every n-th): times and values, with its range.
+    Example: film-ue op anim.curve anim=/Game/Speech/Anim/AS_line1 name=HeadYaw
+    """
     t, v = _keys(load(anim), name)
     return {"times": t[::every], "values": v[::every], "min": min(v) if v else None, "max": max(v) if v else None}
 
 
 @op("anim.set_curve", mutates=True, idempotent=True)
 def set_curve(anim: str, name: str, times: list, values: list) -> int:
-    """Replace a curve with these keys."""
+    """Replace a curve with these keys (times in seconds). anim.write_curves writes many in one batch.
+    Example: film-ue op anim.set_curve anim=/Game/Perf/AS_face name=CTRL_expressions_browRaiseInL 'times=[0,1,2]' 'values=[0,0.5,0]'
+    """
     a = load(anim)
     _set(a, name, times, values)
     EAL.save_asset(anim)
@@ -79,7 +85,10 @@ def set_curve(anim: str, name: str, times: list, values: list) -> int:
 
 @op("anim.scale_curves", mutates=True, idempotent=False)
 def scale_curves(anim: str, scale: dict, offset: dict | None = None) -> dict:
-    """Multiply (then offset) curves by name: {"HeadYaw": 0.6, "CTRL_expressions_browRaiseInL": 1.3}."""
+    """Multiply (then offset) curves by name: {"HeadYaw": 0.6, "CTRL_expressions_browRaiseInL": 1.3}. Not idempotent:
+    each call scales again.
+    Example: film-ue op anim.scale_curves anim=/Game/Speech/Anim/AS_line1 'scale={"HeadYaw": 0.6}'
+    """
     a, out = load(anim), {}
     for name, k in scale.items():
         if not AL.does_curve_exist(a, name, FLOAT):
@@ -164,7 +173,9 @@ def gaze_lock(sequence: str, actor_label: str, anim: str, out: str, camera: str 
     `target` aims the eyes elsewhere: a point [x, y, z], an actor (+ `target_offset` in its frame) or
     "Label:Component:bone" (her eyes: "Presenter:Face:FACIAL_L_Eye"); with `frames` [first, last] only in that range
     (the camera, if given, elsewhere). Frames with neither keep the animation's own eye curves. Returns the angle error
-    per pass. A multi-tick job."""
+    per pass. A multi-tick job.
+    Example: film-ue op anim.gaze_lock sequence=/Game/Shots/S010 actor_label=Presenter anim=/Game/Speech/Anim/AS_line1 out=/Game/Speech/Anim/AS_line1_eyes camera=CAM_A
+    """
     from .seq import _comp_binding, sample, set_anim
     if not camera and target is None:
         raise ValueError("gaze_lock needs a camera or a target")
@@ -335,7 +346,9 @@ def bake_pose(sequence: str, actor_label: str, source: str, target: str, anim: s
     """Sample `source` (a skeletal mesh component of the actor) as it really plays in `sequence` (animation, rig and
     post-process correctives included) and write those bones, local to their parents, as bone tracks into `out` (a
     copy of `anim`), which then goes on `target`'s track. Keys past the sequence keep the animation's own pose; curves
-    are untouched. A multi-tick job."""
+    are untouched. A multi-tick job.
+    Example: film-ue op anim.bake_pose sequence=/Game/Shots/S010 actor_label=Presenter source=Body target=Face anim=/Game/Speech/Anim/AS_line1 out=/Game/Speech/Anim/AS_line1_baked 'bones=["neck_01","head"]'
+    """
     from .seq import component_of, set_anim
     LSE = unreal.LevelSequenceEditorBlueprintLibrary
     src = component_of(actor_label, source)
@@ -397,7 +410,9 @@ def bake_follow(sequence: str, actor_label: str, anim: str, out: str, leader: st
     """Make a follower animation (a MetaHuman face's) carry its leader's pose: bake_pose from the leader (the body)
     into `out` for every non-facial bone the two skeletons share, and switch the face rig's own head control off
     (headcontrolswitch 0) unless `head_control`, so the head turns only as the body's does. A face playing alone
-    otherwise keeps its neck and chest apart from the body, and its chest pokes through the clothes. Multi-tick."""
+    otherwise keeps its neck and chest apart from the body, and its chest pokes through the clothes. Multi-tick.
+    Example: film-ue op anim.bake_follow sequence=/Game/Shots/S010 actor_label=Presenter anim=/Game/Speech/Anim/AS_line1 out=/Game/Speech/Anim/AS_line1_follow
+    """
     from .seq import component_of
     if bones is None:
         lead, foll = component_of(actor_label, leader), component_of(actor_label, follower)
@@ -417,7 +432,9 @@ def head_to_body(sequence: str, actor_label: str, body_anim: str, out: str, face
                  bones: list = ("spine_04", "spine_05", "neck_01", "neck_02", "head")):
     """Give the body the head motion a face rig makes from speech (HeadYaw/Pitch/Roll spread down the neck): bake the
     face's spine, neck and head as they play into `out` (a copy of the body's animation), which goes on the body's
-    track. Then bake_follow puts the whole shared skeleton back on the face, so both move as one. Multi-tick."""
+    track. Then bake_follow puts the whole shared skeleton back on the face, so both move as one. Multi-tick.
+    Example: film-ue op anim.head_to_body sequence=/Game/Shots/S010 actor_label=Presenter body_anim=/Game/Anim/AS_idle out=/Game/Anim/AS_idle_head
+    """
     return (yield from bake_pose(sequence, actor_label, face, body, body_anim, out, list(bones)))
 
 

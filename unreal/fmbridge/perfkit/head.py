@@ -22,21 +22,25 @@ from .rig import HeadSigns
 
 
 class Nod:
-    """A nod at `t`: kind "yes" (down then up, `count` times, each smaller), "beat" (one small quick drop on a
-    stressed word), "up" (a chin lift: "oh!" / a phrase start), "no" (a yaw shake). `depth_deg` the first swing."""
+    """A nod at `t`: kind "nod" (down then up, `count` times, each smaller), "beat" (one small quick drop on a
+    stressed word), "up" (a chin lift: "oh!" / a phrase start), "shake" (a yaw shake). `depth_deg` the first swing.
+    ("yes"/"no" are accepted for nod/shake, but YAML reads a bare yes/no as true/false: write nod/shake.)"""
 
-    KINDS = ("yes", "beat", "up", "no")
+    KINDS = ("nod", "beat", "up", "shake")
+    ALIASES = {"yes": "nod", "no": "shake"}
     __slots__ = ("t", "kind", "depth_deg", "count", "speed")
 
-    def __init__(self, t: float, kind: str = "yes", depth_deg: float | None = None, count: int = 1, speed: float = 1.0):
+    def __init__(self, t: float, kind: str = "nod", depth_deg: float | None = None, count: int = 1, speed: float = 1.0):
+        kind = self.ALIASES.get(kind, kind)
         if kind not in self.KINDS:
-            raise ValueError(f"nod kind {kind!r}: one of {', '.join(self.KINDS)}")
-        default = {"yes": 5.0, "beat": 2.2, "up": 3.0, "no": 6.0}[kind]
+            raise ValueError(f"nod kind {kind!r}: one of {', '.join(self.KINDS)} (YAML reads a bare yes/no as a "
+                             "boolean)")
+        default = {"nod": 5.0, "beat": 2.2, "up": 3.0, "shake": 6.0}[kind]
         self.t, self.kind, self.count, self.speed = float(t), kind, max(1, int(count)), max(0.3, float(speed))
         self.depth_deg = float(default if depth_deg is None else depth_deg)
 
     def axis(self) -> str:
-        return "yaw" if self.kind == "no" else "pitch"
+        return "yaw" if self.kind == "shake" else "pitch"
 
     def at(self, t: float) -> float:
         """This nod's offset on its axis at `t` (0 outside it)."""
@@ -45,11 +49,11 @@ class Nod:
         s = (t - self.t) * self.speed
         if self.kind == "up":  # lift quickly, hold a beat, come back down slowly
             return self.depth_deg * (C.skewed(s / 0.16, 0.4) - C.skewed((s - 0.3) / 0.45, 0.5))
-        down = {"yes": 0.16, "beat": 0.11, "no": 0.18}[self.kind]
-        back = {"yes": 0.24, "beat": 0.18, "no": 0.22}[self.kind]
-        rebound = {"yes": 0.25, "beat": 0.3, "no": 0.12}[self.kind]
+        down = {"nod": 0.16, "beat": 0.11, "shake": 0.18}[self.kind]
+        back = {"nod": 0.24, "beat": 0.18, "shake": 0.22}[self.kind]
+        rebound = {"nod": 0.25, "beat": 0.3, "shake": 0.12}[self.kind]
         v, depth, start = 0.0, self.depth_deg, 0.0
-        sign = -1.0  # pitch drops first; a "no" turns to one side first
+        sign = -1.0  # pitch drops first; a shake turns to one side first
         for _ in range(self.count):
             u = s - start
             if u <= 0:
@@ -62,7 +66,7 @@ class Nod:
                 v += -sign * rebound * depth * C.settle(u - down - back, 0.35)
             start += down + back * 0.8
             depth *= 0.7
-            if self.kind == "no":
+            if self.kind == "shake":
                 sign = -sign
         return v
 
