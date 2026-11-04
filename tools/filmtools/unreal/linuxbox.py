@@ -11,7 +11,8 @@ from pathlib import Path
 from . import workstation as ws
 
 KIT_SRC = Path(__file__).resolve().parents[3] / "unreal" / "linux"
-KIT_FILES = ("setup.sh", "ue-editor.sh", "ue-editor.service", "ue-epic.sh")
+KIT_FILES = ("setup.sh", "ue-editor.sh", "ue-editor.service", "ue-epic.sh", "ue_watchdog.py", "ue-watchdog.service",
+             "ue-watchdog.timer")
 
 
 def kit_dir() -> str:
