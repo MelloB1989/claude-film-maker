@@ -273,13 +273,18 @@ cut. Its report names everything it could not exercise (no AnimSequence, no audi
 
 ## HANDOFF
 
-State at the end of the night (agent-06, branch `fleet/agent-06/ue-sequencer`):
+State at the end of the night (agent-06, branch `fleet/agent-06/ue-sequencer`, merged into `ue-helpers` by the lead):
 
-- Done: the pure core (time incl. drop-frame timecode, keys and curves, canonical document, spec compiler, plan,
-  lint, shots, render chunks, copy/retime transforms), the engine adapter for every listed track kind, 18 `seq.*`
-  ops (20 with seq.diff and seq.conform: BACKLOG B22), shot lists (B20), the `sequence` spec kind for WP11's engine, the schema and two examples, the fake Sequencer, 53 unit tests,
-  the selftest. All UE APIs verified on the 5.8.4 source (table above).
-- Not yet run on an engine: everything engine-side is proven only against the fake. Tomorrow's first run of
-  `film-ue selftest seq` is the acceptance test. The places most likely to need a fix are noted in Gotchas: reading colour/vector/byte channels by order; the material section's colour-channel grouping.
-- Not done: writing event tracks (read only), camera-shake / data-layer tracks (listed as unsupported), the
-  legacy `ops/seq.py` ops still write key by key in-process (batched per call, not routed through `seqcore`).
+- Done: the pure core (time incl. drop-frame timecode and compatible tick resolutions, keys and curves, canonical
+  document, spec compiler, plan, diff, lint, shots, render chunks, copy / retime / stretch transforms), the engine
+  adapter for every listed track kind, 20 new `seq.*` ops plus flags/examples on the 20 older ones, the `sequence`
+  spec kind for WP11's engine (shot lists: B20), seq.conform (B22), the schema and three examples, the fake
+  Sequencer (B41: keys, ranges, playback and markers in ticks), 64 unit tests, the selftest (dry-run on the fake
+  through the real harness: every check passes up to the GPU stills). Every UE API verified on the 5.8.4 source
+  (table above).
+- Not yet run on an engine: tomorrow's first `film-ue selftest seq` is the acceptance test. Most likely to need a
+  fix: reading colour / vector / byte channels by order (`_engine._channels`), the material section's colour-channel
+  grouping, `get_start_frame` rounding of off-frame sections after a conform (the fake floors).
+- Not done: writing event tracks (read only: needs a director-blueprint endpoint), camera-shake / data-layer tracks
+  (listed as unsupported); the older `ops/seq.py` ops still write key by key in-process (one call per track, not
+  routed through `seqcore`; WP7 now uses seq.apply).
