@@ -86,9 +86,14 @@ def test_linux_install_unpacks_one_bundle_and_restarts(home, ssm, monkeypatch):
     monkeypatch.setattr(client, "token", lambda refresh=False: "t")
     msg = cli.install()
     assert "editor restart" in msg
-    unpack, restart = ssm
+    *unpack, restart = ssm
     assert restart[1].endswith("systemctl restart ue-editor")
-    b64 = unpack[1].split("echo ", 1)[1].split(" ", 1)[0]
+    if len(unpack) == 1:
+        b64 = unpack[0][1].split("echo ", 1)[1].split(" ", 1)[0]
+    else:  # sent in parts (printf %s PART >> file), then unpacked
+        b64 = "".join(u[1].split("printf %s ", 1)[1].split(" ", 1)[0] for u in unpack[:-1])
+        assert all(len(u[1]) < 100_000 for u in unpack)
+    unpack = unpack[-1]
     names = tarfile.open(fileobj=io.BytesIO(base64.b64decode(b64))).getnames()
     assert "init_unreal.py" in names and "fmbridge/server.py" in names and "fmbridge/ops/render.py" in names
     assert "/srv/ue/projects/Demo/Content/Python" in unpack[1]

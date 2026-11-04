@@ -33,6 +33,14 @@ class OpError(Exception):
                 "details": self.details}
 
 
+class NotFoundError(OpError, ValueError):
+    """A missing actor/asset/track. Also a ValueError, so older `except ValueError` around a lookup still works."""
+
+    def __init__(self, message: str, **kw):
+        kw.setdefault("code", "not_found")
+        super().__init__(message, **kw)
+
+
 def closest(name: str, names, n: int = 3) -> list:
     """The few names nearest `name` (case-insensitive), for "did you mean"."""
     names = [str(x) for x in names]
@@ -40,6 +48,6 @@ def closest(name: str, names, n: int = 3) -> list:
     return [low[m] for m in difflib.get_close_matches(str(name).lower(), list(low), n=n, cutoff=0.5)]
 
 
-def not_found(kind: str, name: str, names=(), hint: str = "") -> OpError:
+def not_found(kind: str, name: str, names=(), hint: str = "") -> NotFoundError:
     """An OpError for a missing actor/asset/track/...: `names` are the ones that do exist."""
-    return OpError(f"no {kind} {name!r}", code="not_found", candidates=closest(name, names), hint=hint)
+    return NotFoundError(f"no {kind} {name!r}", candidates=closest(name, names), hint=hint)
