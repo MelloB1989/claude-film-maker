@@ -10,18 +10,22 @@ from .assets import EAL, free, import_files, load
 MOODS = [m for m in dir(unreal.AudioDrivenAnimationMood) if m.isupper()]
 
 
-@op("speech.moods")
+@op("speech.moods", mutates=False, idempotent=True)
 def moods() -> list:
-    """The audio solver's moods (AUTO_DETECT, CONFIDENCE, EXCITEMENT, HAPPINESS, ...)."""
+    """The audio solver's moods (AUTO_DETECT, CONFIDENCE, EXCITEMENT, HAPPINESS, ...).
+    Example: film-ue op speech.moods
+    """
     return MOODS
 
 
-@op("speech.to_face")
+@op("speech.to_face", mutates=True, idempotent=True, tags=["slow"])
 def to_face(wav: str, name: str, face_mesh: str, mood: str = "CONFIDENCE", intensity: float = 1.0,
             head: bool = True, blinks: bool = True, folder: str = "/Game/Speech") -> dict:
     """Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at
     `intensity`, and export an animation on `face_mesh`'s skeleton. Returns the sound, performance and animation.
-    A multi-tick job."""
+    A multi-tick job. Then make it alive with perf.face (head, eyes, blinks, brows over the lip-sync).
+    Example: film-ue op speech.to_face wav=/home/ue/Audio/line1.wav name=line1 face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh mood=CONFIDENCE
+    """
     wave = import_files([wav], f"{folder}/Audio")[0].split(".")[0]
     perf_path = f"{folder}/Perf_{name}"
     free(perf_path)

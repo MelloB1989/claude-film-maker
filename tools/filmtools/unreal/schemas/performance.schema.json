@@ -1,0 +1,922 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "performance.schema.json",
+ "title": "performance",
+ "description": "An actor's performance in a sequence: lines with timing, mood, gaze targets, gestures, expressions and nods, plus walks and turns; compiled by perfkit into one face animation (lip-sync + organic head, eyes, blinks, expressions) and body sections. Converges (perf.apply): the same spec again changes nothing.",
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "kind": {
+   "const": "performance"
+  },
+  "version": {
+   "type": "integer",
+   "const": 1
+  },
+  "name": {
+   "type": "string",
+   "description": "the performance's id (names its assets)",
+   "pattern": "^[A-Za-z0-9_-]+$"
+  },
+  "description": {
+   "type": "string"
+  },
+  "sequence": {
+   "type": "string",
+   "description": "the level sequence to key (made if missing)",
+   "pattern": "^/"
+  },
+  "actor": {
+   "type": "string",
+   "description": "the performer's actor label"
+  },
+  "face_component": {
+   "type": "string",
+   "description": "the face's skeletal mesh component (default Face)"
+  },
+  "body_component": {
+   "type": "string",
+   "description": "the body's skeletal mesh component (default Body)"
+  },
+  "camera": {
+   "type": "string",
+   "description": "the camera actor's label: the target named \"camera\""
+  },
+  "fps": {
+   "type": "number",
+   "description": "the sequence's frame rate when it is made (default 24)"
+  },
+  "start_s": {
+   "type": "number",
+   "description": "when the first line starts, seconds (default 0)",
+   "minimum": 0
+  },
+  "seed": {
+   "type": "integer",
+   "description": "random seed (everything is deterministic for a seed)"
+  },
+  "default_gaze": {
+   "description": "where a line looks when it has no gaze (default: camera when given)",
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ]
+  },
+  "default_mood": {
+   "description": "the mood of lines without one",
+   "enum": [
+    "angry",
+    "bored",
+    "calm",
+    "concerned",
+    "confident",
+    "confused",
+    "disgusted",
+    "excited",
+    "fearful",
+    "happy",
+    "joy",
+    "neutral",
+    "playful",
+    "sad",
+    "skeptical",
+    "surprised",
+    "thoughtful",
+    "warm"
+   ]
+  },
+  "targets": {
+   "type": "object",
+   "description": "named targets: [x, y, z] cm, an actor label, \"Label:Component:bone\", or {actor, offset}",
+   "additionalProperties": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+     },
+     {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+       "actor": {
+        "type": "string",
+        "description": "actor label"
+       },
+       "offset": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "description": "cm in the actor's frame"
+       }
+      },
+      "required": [
+       "actor"
+      ]
+     }
+    ]
+   }
+  },
+  "library": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "idle": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "description": "an idle AnimSequence path"
+     },
+     "description": "idle clips the body cycles through (random offsets and rates)"
+    },
+    "walk": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "anim": {
+       "type": "string",
+       "description": "an in-place walk loop AnimSequence"
+      },
+      "speed_cm_s": {
+       "type": "number",
+       "description": "the speed the clip covers at rate 1, cm/s (play rate = walk speed / this)"
+      },
+      "length_s": {
+       "type": "number",
+       "description": "the clip's length (read from the asset when omitted)"
+      }
+     },
+     "required": [
+      "anim"
+     ],
+     "description": "the walk loop"
+    },
+    "gestures": {
+     "type": "object",
+     "description": "named gestures: {name: {anim, stroke_s, additive, length_s}}",
+     "additionalProperties": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+       "anim": {
+        "type": "string",
+        "description": "the gesture's AnimSequence path"
+       },
+       "stroke_s": {
+        "type": "number",
+        "description": "where its stroke falls, seconds into the clip"
+       },
+       "additive": {
+        "type": "boolean",
+        "description": "an additive animation (anim.additive): rides on top of the idle"
+       },
+       "length_s": {
+        "type": "number",
+        "description": "the clip's length in seconds (read when omitted)"
+       },
+       "tags": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        },
+        "description": "free words"
+       }
+      },
+      "required": [
+       "anim"
+      ]
+     }
+    }
+   },
+   "description": "the animations the body uses"
+  },
+  "character": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "facing_offset_deg": {
+     "type": "number",
+     "description": "degrees between the actor's forward and where its face looks (MetaHumans: 0)"
+    },
+    "lead": {
+     "enum": [
+      "eyes",
+      "head"
+     ],
+     "description": "who moves first in a gaze shift: eyes (natural: eyes jump, the head follows) or head"
+    },
+    "head": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "gain": {
+       "type": "number",
+       "description": "how much the head moves (1 normal, 1.2 animated, 0.7 still)"
+      },
+      "rest_roll_deg": {
+       "type": "number",
+       "description": "resting tilt, degrees"
+      },
+      "rest_pitch_deg": {
+       "type": "number",
+       "description": "resting pitch, degrees"
+      },
+      "micro_deg": {
+       "type": "number",
+       "description": "micro-motion amplitude in degrees (default 0.45)"
+      },
+      "breath_deg": {
+       "type": "number",
+       "description": "breathing pitch amplitude in degrees (default 0.25)"
+      },
+      "breath_hz": {
+       "type": "number",
+       "description": "breaths per second (default 0.24)"
+      },
+      "lean": {
+       "type": "number",
+       "description": "how much roll leans into turns (default 0.12)"
+      },
+      "speech_gain": {
+       "type": "number",
+       "description": "how much the voice animates the head (default 1)"
+      },
+      "seed": {
+       "type": "integer",
+       "description": "random seed of this head's noise"
+      }
+     },
+     "description": "the head's style"
+    },
+    "energy": {
+     "type": "number",
+     "description": "pace of head moves: 1 normal, >1 brisker, <1 slower",
+     "minimum": 0.2
+    },
+    "auto_turn_deg": {
+     "type": "number",
+     "description": "warn when a gaze target is further than this off the body's facing, degrees"
+    },
+    "eye_micro_deg": {
+     "type": "number",
+     "description": "fixational dart size in degrees (default 0.35)"
+    },
+    "signs": {
+     "type": "object",
+     "description": "rig signs from perf.calibrate (default: the saved calibration of the face skeleton)"
+    }
+   },
+   "description": "how this character moves"
+  },
+  "face": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "out": {
+     "type": "string",
+     "description": "the composed face animation's path (default /Game/Perf/<name>/AS_<name>_face)"
+    },
+    "layers": {
+     "type": "array",
+     "items": {
+      "enum": [
+       "head",
+       "eyes",
+       "blinks",
+       "expressions",
+       "brows",
+       "nods"
+      ]
+     },
+     "description": "what perfkit adds over the lip-sync (default all)"
+    },
+    "solver_head": {
+     "enum": [
+      "soften",
+      "keep",
+      "replace"
+     ],
+     "description": "the speech solver's head motion: soften (default), keep, replace (ours only)"
+    },
+    "blink_mode": {
+     "enum": [
+      "replace",
+      "keep",
+      "max"
+     ],
+     "description": "the solver's blinks: replace (default: ours), keep, max (both)"
+    },
+    "mouth_mix": {
+     "type": "number",
+     "description": "smile strength on a talking mouth, 0..1 (default 0.5)",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "camera_lock": {
+     "type": "boolean",
+     "description": "after composing, lock the eyes on the camera with anim.gaze_lock (measured)"
+    },
+    "solve_folder": {
+     "type": "string",
+     "description": "where speech solves go (default /Game/Perf/<name>/Speech)"
+    },
+    "brow_chance": {
+     "type": "number",
+     "description": "share of stressed words that get a brow flash (default 0.55)",
+     "minimum": 0,
+     "maximum": 1
+    },
+    "beat_every": {
+     "type": "integer",
+     "minimum": 1,
+     "description": "a beat nod on 1 in n stressed words (default 1)"
+    },
+    "tail_s": {
+     "type": "number",
+     "description": "seconds kept after the last line (default 0.5)",
+     "minimum": 0
+    }
+   },
+   "description": "the face composition"
+  },
+  "lines": {
+   "type": "array",
+   "minItems": 1,
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "id": {
+      "type": "string",
+      "description": "the line's id (unique; names its speech solve)"
+     },
+     "start_s": {
+      "type": "number",
+      "description": "absolute start in seconds (default: after the previous line + gap_s)",
+      "minimum": 0
+     },
+     "gap_s": {
+      "type": "number",
+      "description": "seconds after the previous line (default 0.35)",
+      "minimum": 0
+     },
+     "audio": {
+      "type": "string",
+      "description": "a WAV on the editor's machine: speech-solved (lip-sync, with the line's mood) and analysed for emphasis"
+     },
+     "face_anim": {
+      "type": "string",
+      "description": "an existing face AnimSequence to use as the line's lip-sync instead of audio"
+     },
+     "duration_s": {
+      "type": "number",
+      "description": "the line's length in seconds (needed without audio/face_anim; trims or pads otherwise)",
+      "minimum": 0
+     },
+     "text": {
+      "type": "string",
+      "description": "the words (for people reading the spec)"
+     },
+     "mood": {
+      "description": "the line's mood: a baseline expression and the speech solver's mood (perf.vocab)",
+      "enum": [
+       "angry",
+       "bored",
+       "calm",
+       "concerned",
+       "confident",
+       "confused",
+       "disgusted",
+       "excited",
+       "fearful",
+       "happy",
+       "joy",
+       "neutral",
+       "playful",
+       "sad",
+       "skeptical",
+       "surprised",
+       "thoughtful",
+       "warm"
+      ]
+     },
+     "intensity": {
+      "type": "number",
+      "description": "mood and solver intensity, 0..1.5 (default 1)",
+      "minimum": 0,
+      "maximum": 1.5
+     },
+     "solver_mood": {
+      "type": "string",
+      "description": "override the solver's mood (AudioDrivenAnimationMood name: NEUTRAL, HAPPINESS, CONFIDENCE, ...)"
+     },
+     "emphasis": {
+      "description": "stressed words: \"auto\" (found in the line's audio), or [seconds | [t, strength] | {at_s, strength}] from the line's start",
+      "anyOf": [
+       {
+        "const": "auto"
+       },
+       {
+        "type": "array",
+        "items": {
+         "anyOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "array",
+           "items": {
+            "type": "number"
+           },
+           "minItems": 2,
+           "maxItems": 2
+          },
+          {
+           "type": "object",
+           "additionalProperties": false,
+           "properties": {
+            "at_s": {
+             "type": "number",
+             "description": "seconds from the line's start"
+            },
+            "strength": {
+             "type": "number",
+             "description": "0..1"
+            }
+           },
+           "required": [
+            "at_s"
+           ]
+          }
+         ]
+        }
+       }
+      ]
+     },
+     "gaze": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "at_s": {
+         "type": "number",
+         "description": "seconds from the line's start (default 0)",
+         "minimum": 0
+        },
+        "target": {
+         "description": "a gaze or walk target: a name from `targets` (or \"camera\"), a point [x, y, z] in cm, or {yaw, pitch} degrees in the character's frame (yaw + = their left, pitch + = up)",
+         "anyOf": [
+          {
+           "type": "string"
+          },
+          {
+           "type": "array",
+           "items": {
+            "type": "number"
+           },
+           "minItems": 3,
+           "maxItems": 3
+          },
+          {
+           "type": "object",
+           "additionalProperties": false,
+           "properties": {
+            "yaw": {
+             "type": "number",
+             "description": "degrees, + = the character's left"
+            },
+            "pitch": {
+             "type": "number",
+             "description": "degrees, + = up"
+            },
+            "dist_cm": {
+             "type": "number",
+             "description": "distance in cm (vergence, face scanning)"
+            }
+           }
+          }
+         ]
+        },
+        "scan": {
+         "description": "how the eyes hold it: face (wander between a person's eyes and mouth), lens (dead on), still; default: lens for camera, small darts otherwise",
+         "enum": [
+          "face",
+          "lens",
+          "still",
+          null
+         ]
+        },
+        "head": {
+         "type": "number",
+         "description": "share of the shift the head takes, 0..1 (default: by amplitude, eyes alone under ~8 deg)",
+         "minimum": 0,
+         "maximum": 1
+        }
+       },
+       "required": [
+        "target"
+       ]
+      },
+      "description": "gaze shifts in this line (default: default_gaze at its start)"
+     },
+     "gestures": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "name": {
+         "type": "string",
+         "description": "a gesture from library.gestures"
+        },
+        "anim": {
+         "type": "string",
+         "description": "an AnimSequence path instead of a library name"
+        },
+        "at_s": {
+         "type": "number",
+         "description": "the beat (stressed word), seconds from the line's start: the stroke lands just before it"
+        },
+        "stroke_s": {
+         "type": "number",
+         "description": "where the stroke falls inside the clip, seconds (default 40% in)"
+        },
+        "hold_s": {
+         "type": "number",
+         "description": "seconds to hold past the clip (default 0)"
+        },
+        "intensity": {
+         "type": "number",
+         "description": "section weight 0..1 (default 1)",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "length_s": {
+         "type": "number",
+         "description": "the clip's length in seconds (read from the asset when omitted)"
+        }
+       },
+       "required": [
+        "at_s"
+       ]
+      },
+      "description": "body gestures timed to beats"
+     },
+     "expressions": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "preset": {
+         "description": "the expression preset (perf.vocab)",
+         "enum": [
+          "angry",
+          "brow_flash",
+          "brow_raise",
+          "concern",
+          "contempt",
+          "disgust",
+          "fear",
+          "grin",
+          "lip_press",
+          "pout",
+          "sad",
+          "skeptical",
+          "smile",
+          "smile_soft",
+          "smirk",
+          "squint",
+          "surprise",
+          "thinking",
+          "wince"
+         ]
+        },
+        "at_s": {
+         "type": "number",
+         "description": "start, seconds from the line's start"
+        },
+        "duration_s": {
+         "type": "number",
+         "description": "how long it is held, seconds (default 1)"
+        },
+        "intensity": {
+         "type": "number",
+         "description": "0..1 (default 0.6)",
+         "minimum": 0,
+         "maximum": 1.5
+        },
+        "asym": {
+         "type": "number",
+         "description": "-1..1: + = the character's left side stronger and earlier (default 0)",
+         "minimum": -1,
+         "maximum": 1
+        },
+        "attack_s": {
+         "type": "number",
+         "description": "rise time in seconds (default 0.25)"
+        },
+        "release_s": {
+         "type": "number",
+         "description": "fall time in seconds (default 0.45)"
+        },
+        "sustain": {
+         "type": "number",
+         "description": "share held after the peak, 0..1 (default 0.85)"
+        },
+        "alive": {
+         "type": "number",
+         "description": "size of the slow drift while held (default 0.05)"
+        },
+        "lead_s": {
+         "type": "number",
+         "description": "seconds the leading side is ahead (default random 0-0.05)"
+        }
+       },
+       "required": [
+        "preset",
+        "at_s"
+       ]
+      },
+      "description": "expression events over the mood"
+     },
+     "nods": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "at_s": {
+         "type": "number",
+         "description": "seconds from the line's start"
+        },
+        "kind": {
+         "description": "nod (down-up), beat (small quick drop), up (chin lift), shake (no); write nod/shake, YAML reads bare yes/no as booleans",
+         "enum": [
+          "nod",
+          "beat",
+          "up",
+          "shake"
+         ]
+        },
+        "depth_deg": {
+         "type": "number",
+         "description": "first swing in degrees (default by kind: nod 5, beat 2.2, up 3, shake 6)"
+        },
+        "count": {
+         "type": "integer",
+         "minimum": 1,
+         "description": "swings (each 30% smaller)"
+        },
+        "speed": {
+         "type": "number",
+         "description": "1 = natural; 2 = twice as fast"
+        }
+       },
+       "required": [
+        "at_s"
+       ]
+      },
+      "description": "head nods (beats on emphasis are added automatically)"
+     },
+     "tilts": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "at_s": {
+         "type": "number",
+         "description": "seconds from the line's start"
+        },
+        "until_s": {
+         "type": "number",
+         "description": "seconds from the line's start (default at_s + 2)"
+        },
+        "roll_deg": {
+         "type": "number",
+         "description": "degrees, + = top of the head to the character's left (default 5)"
+        },
+        "pitch_deg": {
+         "type": "number",
+         "description": "degrees added to pitch while tilted"
+        },
+        "yaw_deg": {
+         "type": "number",
+         "description": "degrees added to yaw while tilted"
+        },
+        "ease_s": {
+         "type": "number",
+         "description": "seconds to ease in/out (default 0.5)"
+        }
+       },
+       "required": [
+        "at_s"
+       ]
+      },
+      "description": "held head tilts"
+     },
+     "listen": {
+      "type": "boolean",
+      "description": "a listening beat: no speech, listening blink rate"
+     }
+    },
+    "required": [
+     "id"
+    ]
+   },
+   "description": "the lines, in order"
+  },
+  "actions": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "at_s": {
+      "type": "number",
+      "description": "absolute seconds when it starts",
+      "minimum": 0
+     },
+     "walk_to": {
+      "description": "a gaze or walk target: a name from `targets` (or \"camera\"), a point [x, y, z] in cm, or {yaw, pitch} degrees in the character's frame (yaw + = their left, pitch + = up)",
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "yaw": {
+          "type": "number",
+          "description": "degrees, + = the character's left"
+         },
+         "pitch": {
+          "type": "number",
+          "description": "degrees, + = up"
+         },
+         "dist_cm": {
+          "type": "number",
+          "description": "distance in cm (vergence, face scanning)"
+         }
+        }
+       }
+      ]
+     },
+     "path": {
+      "type": "array",
+      "items": {
+       "description": "a gaze or walk target: a name from `targets` (or \"camera\"), a point [x, y, z] in cm, or {yaw, pitch} degrees in the character's frame (yaw + = their left, pitch + = up)",
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "array",
+         "items": {
+          "type": "number"
+         },
+         "minItems": 3,
+         "maxItems": 3
+        },
+        {
+         "type": "object",
+         "additionalProperties": false,
+         "properties": {
+          "yaw": {
+           "type": "number",
+           "description": "degrees, + = the character's left"
+          },
+          "pitch": {
+           "type": "number",
+           "description": "degrees, + = up"
+          },
+          "dist_cm": {
+           "type": "number",
+           "description": "distance in cm (vergence, face scanning)"
+          }
+         }
+        }
+       ]
+      },
+      "description": "waypoints before walk_to"
+     },
+     "speed_cm_s": {
+      "type": "number",
+      "description": "cruise speed in cm/s (people: 110-150; default library.walk.speed_cm_s or 140)",
+      "minimum": 10
+     },
+     "turn_to": {
+      "description": "turn in place to face a target, or a yaw in degrees (Unreal's)",
+      "anyOf": [
+       {
+        "description": "a gaze or walk target: a name from `targets` (or \"camera\"), a point [x, y, z] in cm, or {yaw, pitch} degrees in the character's frame (yaw + = their left, pitch + = up)",
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "array",
+          "items": {
+           "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+         },
+         {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+           "yaw": {
+            "type": "number",
+            "description": "degrees, + = the character's left"
+           },
+           "pitch": {
+            "type": "number",
+            "description": "degrees, + = up"
+           },
+           "dist_cm": {
+            "type": "number",
+            "description": "distance in cm (vergence, face scanning)"
+           }
+          }
+         }
+        ]
+       },
+       {
+        "type": "number"
+       }
+      ]
+     },
+     "end_facing": {
+      "description": "a gaze or walk target: a name from `targets` (or \"camera\"), a point [x, y, z] in cm, or {yaw, pitch} degrees in the character's frame (yaw + = their left, pitch + = up)",
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "yaw": {
+          "type": "number",
+          "description": "degrees, + = the character's left"
+         },
+         "pitch": {
+          "type": "number",
+          "description": "degrees, + = up"
+         },
+         "dist_cm": {
+          "type": "number",
+          "description": "distance in cm (vergence, face scanning)"
+         }
+        }
+       }
+      ]
+     }
+    },
+    "required": [
+     "at_s"
+    ]
+   },
+   "description": "body moves on the sequence's timeline"
+  }
+ },
+ "required": [
+  "kind",
+  "version",
+  "name",
+  "sequence",
+  "actor",
+  "lines"
+ ]
+}
