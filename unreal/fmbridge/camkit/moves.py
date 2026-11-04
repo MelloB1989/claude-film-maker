@@ -4,7 +4,8 @@ rotation, focal length, focus distance) every `step` frames, eased and continuou
 A move is a dict {"move": kind, "frames": n | "from"/"to", "ease": ..., kind's own args}; moves run one after
 another, each starting where the last one left the camera. Kinds:
 
-    hold                                  stay put
+    hold                                  stay put (panning to keep a moving `aim` in place)
+    follow                                ride along with a moving `aim` (a path), keeping the offset
     dolly       distance (cm, + forward)  move along the lens axis (level: the horizontal part, unless `free`)
     push_in     distance | fraction (of the distance to `aim`, default 0.25)       a dolly toward the subject
     pull_out    distance | fraction                                               a dolly away
@@ -22,7 +23,8 @@ another, each starting where the last one left the camera. Kinds:
     whip        degrees (+ right)         a whip pan: a fast pan with a hard ease, for a cut hidden in the blur
     rack        to (cm or a point)        pull focus to a new distance or point
 
-With `aim` (a point) the camera keeps the aim point where it sat in the frame at the start of that move (a tracked
+`aim` is a point or a path [[frame, [x, y, z]], ...] (a moving subject, e.g. sampled with seq.sample). With it the
+camera keeps the aim point where it sat in the frame at the start of that move (a tracked
 dolly, a crane that holds its subject); without it the rotation stays as it was (or turns, for pan/tilt/roll/whip).
 `focus_on` (a point) bakes the focus distance to it on every key (a follow-focus).
 
@@ -109,6 +111,28 @@ def noise_fn(spec, fps: float):
     return at
 
 
+def path_fn(aim):
+    """frame -> point, from None, a point [x, y, z], or a path [[frame, [x, y, z]], ...] (linear between samples,
+    held beyond them): a subject that moves during the shot."""
+    if aim is None:
+        return None
+    if callable(aim):
+        return aim
+    if len(aim) and isinstance(aim[0], (list, tuple)) and len(aim[0]) == 2 and isinstance(aim[0][1], (list, tuple)):
+        pts = sorted((float(f), geo.v(p)) for f, p in aim)
+
+        def at(fr):
+            if fr is None or fr <= pts[0][0]:
+                return pts[0][1]
+            for (f0, p0), (f1, p1) in zip(pts, pts[1:]):
+                if fr <= f1:
+                    return geo.lerp(p0, p1, (fr - f0) / (f1 - f0))
+            return pts[-1][1]
+        return at
+    p = geo.v(aim)
+    return lambda fr: p
+
+
 def _offset_in_frame(cam: dict, aim) -> tuple:
     """The aim point's angular offset from the lens axis: (pitch, yaw) to add to a look-at."""
     la = geo.look_at(cam["loc"], aim)
@@ -150,12 +174,11 @@ def plan(start: dict, moves: list, first: int = 0, last: int | None = None, fps:
         a, b = _seg_frames(m, cursor)
         if a > cursor:  # a gap: hold
             states.append((a, _copy(cam)))
-        tgt = m.get("aim", aim)
-        fn = _segment(kind, cam, m, tgt)
-        e = m.get("ease", "expo" if kind == "whip" else "in_out")
+        fn = _segment(kind, cam, m, path_fn(m.get("aim", aim)), a)
+        e = m.get("ease", "linear" if kind == "follow" else "expo" if kind == "whip" else "in_out")
         frames = list(range(a, b, max(1, int(step)))) + [b]
         for fr in frames[1:]:
-            states.append((fr, fn(ease((fr - a) / (b - a), e))))
+            states.append((fr, fn(ease((fr - a) / (b - a), e), fr)))
         cam = states[-1][1]
         segs.append([kind, a, b])
         cursor = b
@@ -164,7 +187,7 @@ def plan(start: dict, moves: list, first: int = 0, last: int | None = None, fps:
     nfn = noise_fn(noise, fps)
     keys = []
     prev_yaw = None
-    fo = focus_on
+    fo = path_fn(focus_on)
     for fr, c in _dense(states, step, nfn is not None):
         loc, r = list(c["loc"]), dict(c["rot"])
         if nfn:
@@ -178,7 +201,7 @@ def plan(start: dict, moves: list, first: int = 0, last: int | None = None, fps:
         key = {"frame": int(fr), "loc": geo.rounded(loc, 3), "rot": geo.rounded_rot(r, 4), "focal": round(c["focal"], 4),
                "focus": None}
         if fo is not None and not c.get("racked"):
-            key["focus"] = round(max(1.0, lens.view({"loc": loc, "rot": r}, fo)[0]), 2)
+            key["focus"] = round(max(1.0, lens.view({"loc": loc, "rot": r}, fo(fr))[0]), 2)
         elif c.get("focus") is not None:
             key["focus"] = round(float(c["focus"]), 2)
         keys.append(key)
@@ -224,8 +247,10 @@ def _num(m: dict, *names, default=None):
     return float(default)
 
 
-def _segment(kind: str, cam: dict, m: dict, aim):
-    """t (eased 0..1) -> camera for one move from `cam`."""
+def _segment(kind: str, cam: dict, m: dict, aim_at, a: int):
+    """(t eased 0..1, frame) -> camera for one move from `cam` starting at frame `a`; `aim_at(frame)` is where the
+    aim point is (a fixed point, or a moving subject's path)."""
+    aim = aim_at(a) if aim_at else None
     c0 = _copy(cam)
     loc0 = geo.v(c0["loc"])
     r0 = c0["rot"]
@@ -233,17 +258,23 @@ def _segment(kind: str, cam: dict, m: dict, aim):
     off = _offset_in_frame(c0, aim) if aim is not None else None
     roll = r0["roll"]
 
-    def place(loc, t, rot=None):
+    def place(loc, fr, rot=None):
         c = _copy(c0)
         c["loc"] = list(loc)
         if rot is not None:
             c["rot"] = rot
         elif aim is not None:
-            c["rot"] = _aimed(loc, aim, off, roll)
+            c["rot"] = _aimed(loc, aim_at(a if fr is None else fr), off, roll)
         return c
 
     if kind == "hold":
-        return lambda t: _copy(c0)
+        if aim is not None and m.get("track", True):  # a held camera still pans with a moving subject
+            return lambda t, fr=None: place(loc0, fr)
+        return lambda t, fr=None: _copy(c0)
+    if kind == "follow":  # ride along with the subject, keeping the offset (a tracking vehicle, a steadicam)
+        if aim is None:
+            raise ValueError("follow needs an aim point or path to ride along with")
+        return lambda t, fr=None: place(geo.add(loc0, geo.sub(aim_at(a if fr is None else fr), aim)), fr)
     if kind in ("dolly", "push_in", "pull_out"):
         level = not m.get("free", False)
         axis = geo.norm((fwd[0], fwd[1], 0.0)) if level and abs(fwd[2]) < 0.999 else fwd
@@ -261,16 +292,16 @@ def _segment(kind: str, cam: dict, m: dict, aim):
                 axis = geo.norm(geo.sub(aim, loc0))
                 if level:
                     axis = geo.norm((axis[0], axis[1], 0.0))
-        return lambda t: place(geo.add(loc0, geo.mul(axis, dist * t)), t)
+        return lambda t, fr=None: place(geo.add(loc0, geo.mul(axis, dist * t)), fr)
     if kind == "truck":
         dist = _num(m, "distance", "cm")
         axis = geo.norm((right[0], right[1], 0.0)) if not m.get("free") else right
-        return lambda t: place(geo.add(loc0, geo.mul(axis, dist * t)), t)
+        return lambda t, fr=None: place(geo.add(loc0, geo.mul(axis, dist * t)), fr)
     if kind in ("pedestal", "boom_up", "boom_down"):
         dist = _num(m, "distance", "cm", "rise")
         if kind == "boom_down":
             dist = -abs(dist)
-        return lambda t: place(geo.add(loc0, (0.0, 0.0, dist * t)), t)
+        return lambda t, fr=None: place(geo.add(loc0, (0.0, 0.0, dist * t)), fr)
     if kind in ("crane", "jib", "boom"):
         rise, reach, swing = _num(m, "rise", default=0), _num(m, "reach", default=0), _num(m, "swing", default=0)
         # the jib's base: `arm` cm behind the camera along its level heading
@@ -278,13 +309,13 @@ def _segment(kind: str, cam: dict, m: dict, aim):
         h = geo.norm((fwd[0], fwd[1], 0.0))
         base = geo.sub(loc0, geo.mul(h, arm))
 
-        def crane(t):
+        def crane(t, fr=None):
             yaw = geo.yaw_of(h) + swing * t
             hh = geo.from_yaw(yaw)
             loc = geo.add(base, geo.add(geo.mul(hh, arm + reach * t), (0.0, 0.0, rise * t)))
             if aim is None:
-                return place(loc, t, geo.rot(r0["pitch"], r0["yaw"] + swing * t, roll))
-            return place(loc, t)
+                return place(loc, fr, geo.rot(r0["pitch"], r0["yaw"] + swing * t, roll))
+            return place(loc, fr)
         return crane
     if kind in ("orbit", "arc"):
         if aim is None:
@@ -296,23 +327,23 @@ def _segment(kind: str, cam: dict, m: dict, aim):
         rise = _num(m, "rise", default=0)
         yaw0 = math.degrees(math.atan2(rel[1], rel[0]))
 
-        def orbit(t):
+        def orbit(t, fr=None):
             # + degrees is counter-clockwise seen from above; in Unreal's left-handed frame that is -yaw
             yaw = yaw0 - deg * t
             rr = r_h + (radius - r_h) * t
             loc = (aim[0] + rr * math.cos(math.radians(yaw)), aim[1] + rr * math.sin(math.radians(yaw)),
                    aim[2] + rel[2] + rise * t)
-            return place(loc, t)
+            return place(loc, fr)
         return orbit
     if kind in ("pan", "tilt", "roll", "whip"):
         deg = _num(m, "degrees", "angle")
         k = {"pan": "yaw", "whip": "yaw", "tilt": "pitch", "roll": "roll"}[kind]
-        return lambda t: place(loc0, t, {**r0, k: r0[k] + deg * t})
+        return lambda t, fr=None: place(loc0, fr, {**r0, k: r0[k] + deg * t})
     if kind == "zoom":
         f1 = _num(m, "focal", "to")
         f0 = c0["focal"]
 
-        def zoom(t):
+        def zoom(t, fr=None):
             c = _copy(c0)
             c["focal"] = f0 * (f1 / f0) ** t  # zooms read evenly in log focal
             return c
@@ -325,10 +356,10 @@ def _segment(kind: str, cam: dict, m: dict, aim):
         d0 = lens.view(c0, aim)[0]
         axis = geo.norm(geo.sub(aim, loc0))
 
-        def vertigo(t):
+        def vertigo(t, fr=None):
             f = f0 * (f1 / f0) ** t
             d = d0 * f / f0  # the subject's size ~ f / d: hold it
-            c = place(geo.sub(aim, geo.mul(axis, d)), t)
+            c = place(geo.sub(aim, geo.mul(axis, d)), fr)
             c["focal"] = f
             return c
         return vertigo
@@ -338,7 +369,7 @@ def _segment(kind: str, cam: dict, m: dict, aim):
         if to is None:
             raise ValueError("rack needs to (cm) or to_point ([x, y, z])")
 
-        def rack(t):
+        def rack(t, fr=None):
             c = _copy(c0)
             target = lens.view(c0, to)[0] if isinstance(to, (list, tuple)) else float(to)
             start = f0 if f0 is not None else target
