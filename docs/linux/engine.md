@@ -18,7 +18,7 @@ cameras, Sequencer keys and stills made by scripts.
 |---|---|---|
 | **Render-only** (open the finished project, MRQ deferred + Lumen, write PNG/EXR + WAV) | **Feasible, likely.** No hard blocker. | Lumen, VSM, Nanite and MRQ run on Vulkan SM6 (C). `-RenderOffscreen` editors render on Linux GPU nodes with no desktop (L, 5.3 and one 5.8 report). Unproven: a 5.8 headless editor with no display server at all, the MRQ WAV with no sound device, and pixel parity of MetaHuman skin, eyes and groom with DX12. All three need a PoC. Path tracer and Lumen HWRT on Vulkan are **Experimental** (C), and the project renders with Lumen HWRT today (agent-02). Software Lumen is the fallback. |
 | **Shoot by script** (Sequencer, cameras, keys, gaze lock, stills) | **Feasible, likely**, after one bridge fix and a new still path. | All the ops are plain editor Python; Python on Linux is documented (C). Today the bridge **cannot start on Linux** because `fmbridge/gui.py` touches `ctypes.windll` at import (repo fact). `look.still` and `seq.show` lean on an editor viewport (`take_high_res_screenshot`, lock-camera-to-viewport), and an offscreen editor may not have a usable one (U). MRQ-based stills are the fallback. |
-| **Full** (MetaHuman Character editor, cloud rig + textures, build/assemble, audio-to-face) | **Plausible, not proven.** Two possible blockers. | Creator has run on Linux since 5.7. 5.8 claims "platform parity", assembly runs on Linux (with an OOM known issue), and MetaHuman Animator's offline facial solve is on Linux in 5.8 (C). Unproven: (a) the **Epic account sign-in** the cloud rig and texture services need, done inside a headless Linux editor (U); (b) **audio-to-face** specifically on Linux. "Offline facial" is documented; audio is not named (U/L). The operator rules out a Windows fallback (2026-11-04): if either fails, use the code-only alternatives in §12a. |
+| **Full** (MetaHuman Character editor, cloud rig + textures, build/assemble, audio-to-face) | **Plausible, not proven.** Two possible blockers. | Creator has run on Linux since 5.7. 5.8 claims "platform parity", assembly runs on Linux (with an OOM known issue), and MetaHuman Animator's offline facial solve is on Linux in 5.8 (C). Unproven: (a) the **Epic account sign-in** the cloud rig and texture services need, done inside a headless Linux editor (U); (b) **audio-to-face** on Linux. The docs don't name it, but the plugin files allow it: Speech2Face has no platform restriction and the ONNX runtime ships for Linux (L, strong; agent-02). The operator rules out a Windows fallback (2026-11-04): if either fails, use the code-only alternatives in §12a. |
 
 **No hard blocker found.** Per the operator's rule, go straight to the PoC (§9).
 
@@ -65,8 +65,8 @@ Read from `origin/anime/rain-ferry` plus the reel branches `origin/fleet/agent-0
 Consequences: the project opens on Linux without code changes, and nothing in its plugin list is Windows-only. One
 thing is **raised in priority**: today's renders use **Lumen hardware ray tracing**, which on Vulkan is Experimental
 (P4). If it misbehaves, the fallback is `r.Lumen.HardwareRayTracing=0` (software Lumen), at the cost of a look change
-to be checked in P6. One risk is open: `RigLogicEditor` is Win64-only. It is the editor-side module for RigLogic/DNA
-assets; whether MetaHuman Character editing, rigging or assembly calls into it is U (P9 shows it).
+to be checked in P6. `RigLogicEditor` is Win64-only, but **no MetaHuman module depends on it** (C, agent-02, read at 16:03 UTC). Across all
+`Engine/Plugins` its only reference is `RigLogicDeveloper.Build.cs:37-38`, which loads it dynamically.
 
 ## 3. Feature matrix: Windows (DX12) vs Linux (Vulkan SM6), UE 5.8
 
@@ -101,7 +101,7 @@ assets; whether MetaHuman Character editing, rigging or assembly calls into it i
 | Identity / conform-from-identity / depth | Not on Linux in 5.7 (DX12-only tracking); 5.8 unclear. **Not used** by the pipeline | C / U | MH 5.7 known issues | — |
 | Cloud auto-rig + texture synthesis | Need an Epic account sign-in in the editor (an EOS overlay) + consent. Works on Linux? **Unknown**; flaky even on Windows (5.8.3 overlay bug, "Server Error") | **U** | forums 2542895, 2844451 | **P10** |
 | MetaHuman Animator, offline facial | Yes on Linux in 5.8 (new); body animation Windows-only | C | MH 5.8 notes | P11 |
-| Audio-to-face (`speech.to_face`) | Not named for Linux; covered only if "offline facial" includes audio; depends on NNERuntimeORT (CPU + DirectML; CPU on Linux likely) | **U / L** | MH 5.8 notes, NNE plugin index | **P11** |
+| Audio-to-face (`speech.to_face`) | Not named for Linux in the docs, but the code allows it. `MetaHuman.uplugin:109` declares `MetaHumanSpeech2Face` (Editor) with **no PlatformAllowList** and a Build.cs with no platform branches. `NNERuntimeORT.uplugin` allows **Win64, Linux, LinuxArm64, Mac** (Beta), and `Binaries/ThirdParty/Onnxruntime/Linux` (`libonnxruntime.so.1.24`) ships even in the Windows install (agent-02) | **L (strong)**: only running it proves it | MH 5.8 notes; agent-02's read of the 5.8.4 install | **P11** |
 | RigLogic, assembled MetaHuman runtime | Yes (5.8 FP16 RigLogic on Linux) | C | 5.8 notes | P9 |
 | Fab in the editor | Separate Linux plugin zip into `Engine/Plugins/Fab`; sign-in from the Fab window worked on 5.8.2 (one report); "Install from launcher" dead-ends for code plugins; Epic Launcher **Preview for Linux** since 14 Oct 2026 | L | forums, GamingOnLinux | P12 |
 | Epic Games Launcher | Linux Preview (Oct 2026), engine install unreliable | L | GamingOnLinux | — |
@@ -233,9 +233,9 @@ but the 5.8 HWRT page says to enable Vulkan ray tracing by editing `Engine/Confi
 ## 8. Exact engine-source items to check (once the source is readable)
 
 - S-1 `Engine/Config/VulkanPC/DataDrivenPlatformInfo.ini` `[ShaderPlatform VULKAN_SM6]`: RT, path tracing and bindless defaults.
-- S-2 `Engine/Plugins/MetaHuman/**/MetaHuman.uplugin` and `MetaHumanCharacter*.uplugin`: `PlatformAllowList` of the
+- S-2 (**settled by agent-02**: no platform restriction on Speech2Face; no MetaHuman dependency on RigLogicEditor) `Engine/Plugins/MetaHuman/**/MetaHuman.uplugin` and `MetaHumanCharacter*.uplugin`: `PlatformAllowList` of the
   Speech2Face / audio-driven modules and the cloud-service (auth) modules.
-- S-3 `Engine/Plugins/NNE/NNERuntimeORT/NNERuntimeORT.uplugin` and `Binaries/ThirdParty/Onnxruntime/Linux`.
+- S-3 (**settled by agent-02**: Linux allowed, Linux onnxruntime binaries present) `Engine/Plugins/NNE/NNERuntimeORT/NNERuntimeORT.uplugin` and `Binaries/ThirdParty/Onnxruntime/Linux`.
 - S-4 `Engine/Plugins/Runtime/HairStrands/HairStrands.uplugin` (Alembic groom importer on Linux).
 - S-5 `Engine/Plugins/Media/AppleProResMedia`, `AvidDNxMedia` `.uplugin` (not needed; only for completeness).
 - S-6 `git tag --contains 11c1d64a…` (Epic's device-lost commit) for 5.8.x.
