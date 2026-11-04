@@ -88,7 +88,7 @@ def test_lines_places_a_timing_document(ue, tmp_path, seq):
     root = tmp_path / "vo"
     wav(root / "L1.wav", 1.0)
     wav(root / "L2.wav", 0.5)
-    doc = {"kind": "audio", "version": 1, "fps": 48,
+    doc = {"kind": "timing", "version": 1, "fps": 48,
            "lines": [{"id": "L1", "wav": "L1.wav", "start_frame": 96}, {"id": "L2", "wav": "L2.wav", "start_frame": 192}]}
     r = run_op("audio.lines", sequence=seq, timing=doc, wav_root=str(root))
     assert r["changed"] and "rescaled" in r["fps_note"]

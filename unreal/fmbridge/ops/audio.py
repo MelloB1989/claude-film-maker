@@ -301,15 +301,15 @@ def lines(*, sequence: str, timing: dict, folder: str = "/Game/Audio/VO", track:
           wav_root: str = "", extend: bool = True) -> dict:
     """Import a timing document's voice lines and place each at its frame on one track: the voice, timed, in one call.
 
-    Args: sequence: LevelSequence path. timing: an `audio` timing document (filmtools.unreal.audio_timing:
-    {"kind": "audio", "fps", "lines": [{"id", "wav", "start_frame", ...}]}). folder: where the SoundWaves go.
+    Args: sequence: LevelSequence path. timing: a timing document (filmtools.unreal.audio_timing:
+    {"kind": "timing", "fps", "lines": [{"id", "wav", "start_frame", ...}]}). folder: where the SoundWaves go.
     track: the track's name. wav_root: a box directory the lines' relative `wav` paths are under. extend: lengthen
     the playback range to the last line.
     Returns: {"changed", "lines": [{"id", "sound", "start_frame", "end_frame"}], "fps_note"?}.
     Example: film-ue op audio.lines sequence=/Game/Seq/SQ_Main wav_root=/srv/film/vo timing=@timing.json
     """
     if not isinstance(timing, dict) or "lines" not in timing:
-        raise OpError("timing is not an audio timing document", code="bad_args",
+        raise OpError("timing is not a timing document", code="bad_args",
                       hint="make one with filmtools.unreal.audio_timing (film-post timing)")
     seq = _seq(sequence)
     fps = _fps(seq)
