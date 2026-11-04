@@ -23,8 +23,6 @@ ALLOWLIST = {  # 2026-11-05, apinotes at ue-helpers 106fb52+: owner in the comme
     "PerformanceExportRange.WHOLE_SEQUENCE",
     # agent-02 (assets/fab)
     "AssetEditorSubsystem", "MaterialInterface", "PointLight", "new_object",
-    # agent-10 (layout/level)
-    "GameplayStatics.get_all_actors_of_class", "ActorComponent",
     # agent-05 (render)
     "DirectoryPath", "IntPoint",
     # agent-07 (server)
