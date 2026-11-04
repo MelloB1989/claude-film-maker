@@ -2177,6 +2177,288 @@
    ]
   },
   {
+   "name": "groom.describe",
+   "area": "groom",
+   "verb": "describe",
+   "module": "fmbridge.ops.groom",
+   "file": "unreal/fmbridge/ops/groom.py",
+   "line": 128,
+   "summary": "An actor's grooms as numbers: per component its groom/binding assets, per group the instance overrides",
+   "doc": "An actor's grooms as numbers: per component its groom/binding assets, per group the instance overrides\n(width_cm, root/tip scale, shadow density, LOD bias, length scale, and whether each is overridden), per material\nslot the hair parameters (melanin, redness, roughness, white, light) and every scalar parameter name; plus the\nsky-lighting cvar.\n\nReturns: {\"label\", \"components\": [{\"name\", \"groom\", \"binding\", \"visible\", \"groups\": [...], \"materials\": [...]}],\n\"cvars\": {\"r.HairStrands.SkyLighting\"}}.\nExample: film-ue op groom.describe label=Ada",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "groom.measure",
+   "area": "groom",
+   "verb": "measure",
+   "module": "fmbridge.ops.groom",
+   "file": "unreal/fmbridge/ops/groom.py",
+   "line": 293,
+   "summary": "What the hair looks like, in numbers: per view, the hair's pixels (a groom-only depth capture), its share of",
+   "doc": "What the hair looks like, in numbers: per view, the hair's pixels (a groom-only depth capture), its share of\nthe head's silhouette (thinner or shorter hair shows more scalp/face: a density proxy), and its colour in the lit\nscene (mean RGB, stops from mid grey, saturation, hue and its name).\n\nArgs: label: the character. component: one groom component (default all). views: around the head from the face\n(2: front, back; 4 adds the sides). size_px: capture size. out_dir: write each view's still and mask.\nReturns: {\"views\": {name: {pixels, share_of_head, mean_rgb, stops, saturation, hue, name, box, still?}},\n\"mean\": {...}}. Multi-tick.\nExample: film-ue op groom.measure label=Ada views=4 out_dir=/srv/qa/hair",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "views",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 2
+    },
+    {
+     "name": "size_px",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 256
+    },
+    {
+     "name": "out_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "gpu"
+   ]
+  },
+  {
+   "name": "groom.set",
+   "area": "groom",
+   "verb": "set",
+   "module": "fmbridge.ops.groom",
+   "file": "unreal/fmbridge/ops/groom.py",
+   "line": 308,
+   "summary": "Tune hair on one actor, per instance, and (with measure_views) measure it before and after.",
+   "doc": "Tune hair on one actor, per instance, and (with measure_views) measure it before and after.\n\nArgs: label: the character. component: one groom component (default all: hair, brows, beard, ...). group: one\nhair group (default all). width_cm: strand width (cm; MetaHuman scalp hair ~0.005-0.01). root_scale/tip_scale:\nwidth multipliers along the strand. shadow_density: how opaque the hair's self-shadow is (thin hair: lower).\nlod_bias: -7..7 (positive: coarser LODs, fewer strands drawn). length_scale: 0..1 of the strand length.\nmelanin/redness/roughness/white/light: 0..1 hair material parameters (hairMelanin, hairRedness, HairRoughness,\nWhiteAmount, LightAmount); dye: [r, g, b] linear (HairDye); params: other material parameters by their names,\n{name: number | [r, g, b]}. strand_fraction: 0..1 of the strands (asset decimation; needs edit_asset=true:\nrebuilds the groom asset for EVERY actor using it, and is saved only with assets.save). measure_views: measure\nwith groom.measure before and after (0: no measuring). out_dir: stills of both measurements.\nReturns: {\"changed\", \"groups\": {component: {group: {arg: [before, after]}}}, \"materials\": {component: {slot:\n{param: [before, after]}}}, \"asset\": {...}?, \"before\"?, \"after\"?, \"delta\"?}. Multi-tick.\nExample: film-ue op groom.set label=Ada melanin=0.95 redness=0.1 width_cm=0.008 measure_views=2",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "group",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": -1
+    },
+    {
+     "name": "width_cm",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "root_scale",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "tip_scale",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "shadow_density",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "lod_bias",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "length_scale",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "melanin",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "redness",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "roughness",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "white",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "light",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "dye",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "params",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "strand_fraction",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "edit_asset",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "measure_views",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "out_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "gpu"
+   ]
+  },
+  {
+   "name": "groom.sky_lighting",
+   "area": "groom",
+   "verb": "sky_lighting",
+   "module": "fmbridge.ops.groom",
+   "file": "unreal/fmbridge/ops/groom.py",
+   "line": 436,
+   "summary": "The hair sky-lighting guard (unreal/README.md: indoors, hair takes the sky light unoccluded and reads white):",
+   "doc": "The hair sky-lighting guard (unreal/README.md: indoors, hair takes the sky light unoccluded and reads white):\nset r.HairStrands.SkyLighting in the editor, and give the cvar to pass to renders.\n\nArgs: enable: false (the guard: 0) or true (1). measure_label: a character to measure (groom.measure) before\nand after, so the effect is a number.\nReturns: {\"changed\", \"before\", \"after\", \"render_cvars\": {\"r.HairStrands.SkyLighting\": 0|1} (pass to render.*\ncvars), \"measure\"?: {\"before\", \"after\", \"delta\"}}. Multi-tick.\nExample: film-ue op groom.sky_lighting enable=false measure_label=Ada",
+   "params": [
+    {
+     "name": "enable",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "measure_label",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "measure_views",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "out_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "jobs.cancel",
    "area": "jobs",
    "verb": "cancel",
@@ -8177,6 +8459,7 @@
   "bridge": "The bridge itself, as an op (the same answers as GET /health, for clients that only speak /op).",
   "cam": "Cameras: cine cameras by label (filmback, lens, aperture, focus), the framing solver on real subjects, camera moves keyed into Sequencer, rail and crane rigs, a scene's coverage, framing feedback (where points land in the frame, optics and ",
   "editor": "The editor itself: what it is and how it is doing (describe), console variables and commands, the idle frame cap of an offscreen editor, waiting for shader/asset compilation to finish, and garbage collection.",
+  "groom": "Hair (grooms) by numbers, on any actor with GroomComponents (a built MetaHuman's Hair/Eyebrows/Beard/...): read it (`groom.describe`), tune it per instance (`groom.set`: strand width, root/tip scale, shadow density, LOD bias, length, and th",
   "jobs": "The bridge's jobs as ops (the same as GET /jobs, GET /job, POST /job/cancel, for clients that only speak /op).",
   "layout": "Layout and set dressing: rest things on what is under them, place one actor relative to another, lay out rows, grids, circles and seeded scatters of an asset, align and distribute.",
   "level": "Levels and actors: new/open/save, find and describe, spawn (shapes, assets, classes), move, aim, set, delete.",
