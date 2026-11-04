@@ -142,3 +142,24 @@ def test_ssh_transport_runs_bash_as_root_with_the_script_on_stdin(home, monkeypa
     assert cmd[0] == "ssh" and cmd[-4:] == ["ubuntu@192.0.2.10", "sudo", "bash", "-s"] and "-i" in cmd
     assert kw["input"].startswith("set -e\nrunuser -u ubuntu -- bash -c ls")
     assert ws.start()["ssh"] == "ubuntu@192.0.2.10"  # never starts or stops a box it does not own
+
+
+def test_bridge_over_ssm_commands_without_a_tunnel(home, monkeypatch):
+    from filmtools.unreal import client
+    monkeypatch.setenv("FILM_UE_BOX", "linux")
+    ws.save(os="linux", project_dir="/srv/ue/projects/Demo", bridge="ssm", bucket="b")
+    seen = []
+
+    def fake_sh(script, timeout=600, root=False):
+        seen.append(script)
+        body = base64.b64encode(b'{"ok": true, "engine": "5.8.4"}').decode()
+        return f"FMCODE=200 FMSIZE=31\nFMBODY\n{body}\n"
+    monkeypatch.setattr(ws, "sh", fake_sh)
+    monkeypatch.setattr(client, "tunnel", lambda *a: pytest.fail("no tunnel in bridge=ssm"))
+    assert client.call("/op", {"name": "list"}) == {"ok": True, "engine": "5.8.4"}
+    s = seen[0]
+    assert "curl -s" in s and "/srv/ue/projects/Demo/Saved/fmbridge.token" in s and "http://127.0.0.1:18765/op" in s
+    assert "base64 -d > /tmp/fmreq_" in s and "--data-binary @/tmp/fmreq_" in s
+    monkeypatch.setattr(ws, "sh", lambda *a, **k: "FMCODE=000 FMSIZE=0\nFMBODY\n\n")
+    with pytest.raises(SystemExit, match="no answer"):
+        client.health()

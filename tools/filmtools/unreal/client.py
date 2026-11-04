@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import signal
 import socket
 import subprocess
@@ -67,8 +66,10 @@ def token(refresh: bool = False) -> str:
 
 
 def request(method: str, path: str, body: bytes | dict | None = None, timeout: float = 900) -> bytes:
-    port = tunnel()
     data = json.dumps(body).encode() if isinstance(body, dict) else body
+    if ws.conf().get("bridge") == "ssm":
+        return _request_on_box(method, path, data, timeout)
+    port = tunnel()
     for attempt in (0, 1):
         req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=data, method=method,
                                      headers={"X-FM-Token": token(refresh=attempt == 1), "Content-Type": "application/json"})
@@ -80,6 +81,51 @@ def request(method: str, path: str, body: bytes | dict | None = None, timeout: f
                 continue  # the editor restarted: a new token
             raise SystemExit(f"bridge {path}: HTTP {e.code} {e.read()[:300]}")
     raise SystemExit("bridge: unauthorised")
+
+
+SMALL = 15000  # bytes of answer that come back in the command's own output (SSM keeps ~24,000 characters of it)
+
+
+def _request_on_box(method: str, path: str, data: bytes | None, timeout: float) -> bytes:
+    """The same call with no tunnel (no Session Manager plugin here): one SSM command runs curl against the bridge
+    on the box's own 127.0.0.1, reading the token there. A big answer comes back through the S3 bucket."""
+    import base64
+    import shlex
+    import uuid
+    c = ws.conf()
+    rid = uuid.uuid4().hex[:12]
+    req, resp = f"/tmp/fmreq_{rid}", f"/tmp/fmresp_{rid}"
+    s3 = f"s3://{c.get('bucket', '')}/film-ue/resp/{rid}"
+    put = f"echo {base64.b64encode(data).decode()} | base64 -d > {req}; " if data else ""
+    body = f"--data-binary @{req}" if data else ""
+    script = (f"{put}code=$(curl -s -o {resp} -w '%{{http_code}}' -X {method} "
+              f"-H \"X-FM-Token: $(cat {shlex.quote(ws.project('Saved', 'fmbridge.token'))})\" "
+              f"-H 'Content-Type: application/json' {body} --max-time {int(timeout)} "
+              f"'http://127.0.0.1:{c['port']}{path}') || true\n"
+              f"size=$(stat -c %s {resp} 2>/dev/null || echo 0)\n"
+              f"echo FMCODE=$code FMSIZE=$size\n"
+              f"if [ \"$size\" -le {SMALL} ]; then echo FMBODY; base64 -w0 {resp} 2>/dev/null; echo; "
+              f"else aws s3 cp --only-show-errors {resp} {s3} && echo FMS3; fi\n"
+              f"rm -f {req} {resp}")
+    out = ws.sh(script, int(timeout) + 60)
+    head = next((line for line in out.splitlines() if line.startswith("FMCODE=")), "FMCODE=000 FMSIZE=0")
+    code = head.split()[0].split("=", 1)[1]
+    if "FMS3" in out:
+        import subprocess
+        import tempfile
+        with tempfile.NamedTemporaryFile() as f:
+            subprocess.run(["aws", "s3", "cp", "--only-show-errors", s3, f.name, "--region", c["region"]], check=True)
+            subprocess.run(["aws", "s3", "rm", "--only-show-errors", s3, "--region", c["region"]], check=True)
+            payload = Path(f.name).read_bytes()
+    else:
+        lines = out.splitlines()
+        i = lines.index("FMBODY") if "FMBODY" in lines else -1
+        payload = base64.b64decode(lines[i + 1]) if 0 <= i < len(lines) - 1 and lines[i + 1] else b""
+    if code == "000":
+        raise SystemExit(f"bridge {path}: no answer on the box (is the editor up? film-ue editor status)")
+    if code != "200":
+        raise SystemExit(f"bridge {path}: HTTP {code} {payload[:300]}")
+    return payload
 
 
 def call(path: str, body: dict, timeout: float = 900) -> dict:

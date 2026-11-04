@@ -6,7 +6,8 @@ Settings live in ~/.config/film-ue.json: {"region", "instance", "os", "project_d
 RSA key pair that decrypts a Windows box's Administrator password; bucket: an S3 bucket for big folders both ways).
 Linux boxes also take {"user": the account the editor runs as, "service": its systemd unit} and may be reached over
 ssh instead of SSM: {"transport": "ssh", "ssh": "ubuntu@<host>", "ssh_key": <path>} (commands over ssh, the bridge
-through `ssh -L`, folders by rsync; for a box someone else starts and stops). Several boxes: set
+through `ssh -L`, folders by rsync; for a box someone else starts and stops). With no Session Manager plugin for a
+tunnel, {"bridge": "ssm"} sends each bridge call as one SSM command (curl on the box). Several boxes: set
 FILM_UE_BOX=<name> (or `film-ue --box <name>`) and they live in film-ue.<name>.json, each with its own token and
 tunnel (give each its own `local_port`). Nothing secret is stored there; the bridge token is cached beside it.
 """

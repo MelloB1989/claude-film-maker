@@ -3,6 +3,7 @@
     film-ue [--box NAME] ...                    one of several workstations (settings in film-ue.NAME.json)
     film-ue set --instance i-... [--region ap-south-1] [--os windows|linux] [--project-dir DIR] [--bucket B]
                 [--user ubuntu] [--local-port N] [--transport ssm|ssh --ssh ubuntu@HOST --ssh-key PATH]
+                [--bridge tunnel|ssm]   ssm: each bridge call is one SSM command (curl on the box), no tunnel
     film-ue up | down | status | password       the workstation (password: Windows only, to the clipboard)
     film-ue provision --engine-s3 S3 --version 5.8.4 --project-src s3://...|win:UEProjects/NAME --project NAME
                       [--level /Game/...]
@@ -131,7 +132,8 @@ def install() -> str:
             r = json.loads(res)
             if not r.get("ok"):
                 raise SystemExit("the bridge did not start:\n" + r.get("error", ""))
-            client.token(refresh=True)
+            if ws.conf().get("bridge") != "ssm":
+                client.token(refresh=True)
             return f"installed {len(files)} files (via {'bridge' if via_bridge else 'ssm'}); bridge {r.get('stdout', '').strip()}"
         time.sleep(0.5 if via_bridge else 0)
     raise SystemExit("the editor did not pick up the install (is it running? film-ue screen)")
@@ -154,7 +156,6 @@ def _install_linux(files: list) -> str:
     ws.sh(f"mkdir -p {dest} && echo {b64} | base64 -d | tar -xz -C {dest}")
     ws.editor("restart")
     health = wait_bridge(3600)  # the first start on a box compiles every shader before the editor settles
-    client.token(refresh=True)
     return f"installed {len(files)} files (via ssm + editor restart); bridge up on {health.get('engine')}"
 
 
@@ -163,7 +164,8 @@ def wait_bridge(seconds: int = 900) -> dict:
     end = time.time() + seconds
     while time.time() < end:
         try:
-            client.token(refresh=True)  # a restarted editor writes a new token
+            if ws.conf().get("bridge") != "ssm":  # on the box the token is read fresh each call
+                client.token(refresh=True)  # a restarted editor writes a new token
             return client.health()
         except (SystemExit, OSError):
             time.sleep(10)
@@ -171,7 +173,7 @@ def wait_bridge(seconds: int = 900) -> dict:
 
 
 SETTINGS = ("instance", "region", "os", "project_dir", "key", "bucket", "user", "service", "local_port", "transport",
-            "ssh", "ssh_key")
+            "ssh", "ssh_key", "bridge")
 
 
 def main() -> None:
@@ -181,7 +183,7 @@ def main() -> None:
     s = sub.add_parser("set")
     for k in SETTINGS:
         s.add_argument("--" + k.replace("_", "-"), type=int if k == "local_port" else str,
-                       choices={"os": ("windows", "linux"), "transport": ("ssm", "ssh")}.get(k))
+                       choices={"os": ("windows", "linux"), "transport": ("ssm", "ssh"), "bridge": ("tunnel", "ssm")}.get(k))
     u = sub.add_parser("up")
     u.add_argument("--no-wait", action="store_true", help="Linux: do not wait for the bridge")
     for n in ("down", "status", "password", "install", "health", "tunnel", "close"):
