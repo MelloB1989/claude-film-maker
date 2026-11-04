@@ -91,9 +91,9 @@ def apply(*, spec: dict, force: bool = False) -> dict:
     """Shoot a shot list into its sequence: make or move each shot's camera (framed by the solver, the coverage or an
     explicit placement), key its moves, focal length and focus, and replace the sequence's camera cuts. Converges:
     the same spec again changes nothing (force=True rewrites anyway); cameras the previous spec made that this one
-    drops are removed.
+    drops are removed. A multi-tick job: the keys and cuts go in one batched seq.apply when WP8's core is there.
 
-    Returns: shot.plan's result plus {"changed", "cameras": {label: {"created", "keys"}}, "removed"}.
+    Returns: shot.plan's result plus {"changed", "cameras": {label: {"created", "keys"}}, "removed", "write"}.
     Example: film-ue op shot.apply spec=@films/demo/shots/scene1.yaml
     """
     p = _plan(spec)
@@ -113,9 +113,8 @@ def apply(*, spec: dict, force: bool = False) -> dict:
         sc = first["start_camera"]
         res = cam.add(label=label, loc=sc["loc"], rot_=sc["rot"], focal_mm=sc["focal"], aperture=first["lens"]["aperture"],
                       sensor_mm=sc["filmback"], focus_cm=sc.get("focus"))
-        keys = cam.write_keys(path, label, c["keys"])
-        done[label] = {"created": res["created"], "keys": keys}
-    call("seq.camera_cuts", path=path, cuts=p["cuts"])
+        done[label] = {"created": res["created"], "keys": len(c["keys"])}
+    write = yield from cam.write_tracks(path, {label: c["keys"] for label, c in p["cameras"].items()}, p["cuts"])
     removed = []
     stale = [c for c in before.get("cameras", []) if c not in p["cameras"]]
     if stale:
@@ -124,7 +123,7 @@ def apply(*, spec: dict, force: bool = False) -> dict:
     EAL.set_metadata_tag(seq, TAG_HASH, h)
     EAL.set_metadata_tag(seq, TAG_CAMS, ",".join(cams_now))
     EAL.save_asset(path)
-    return {**_summary(p), "spec_hash": h, "changed": True, "cameras": done, "removed": removed}
+    return {**_summary(p), "spec_hash": h, "changed": True, "cameras": done, "removed": removed, "write": write}
 
 
 @op("shot.describe", mutates=False, idempotent=True, tags=["camera", "sequencer"])

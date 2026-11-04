@@ -278,9 +278,13 @@ class _T:
     def ok(self, name, cond, detail=""):
         return self._add(name, cond)
 
+    def call(self, name, **args):
+        from fakeunreal import drive
+        return drive(self.op(name, **args))[0]
+
     def idempotent(self, name, op, **args):
-        self.op(op, **args)
-        return self._add(name, not self.op(op, **args).get("changed"))
+        self.call(op, **args)
+        return self._add(name, not self.call(op, **args).get("changed"))
 
     def raises(self, name, op, code=None, **args):
         from fmbridge.errors import OpError
@@ -369,3 +373,26 @@ def test_shoot_and_words_round_trip(ue, fmb):
     with pytest.raises(OpError) as e:
         run_op("cam.shoot", camera="CAM_X", text="close-up of nobody")
     assert e.value.code == "bad_args"
+
+
+def test_batched_writes_through_seq_apply(ue, fmb, seqrec, monkeypatch):
+    """With WP8's seq.apply installed, a shot list's keys and cuts go in one call, as a sequence spec."""
+    calls = []
+
+    def fake_apply(spec, prune=None, dry_run=False, save=True):
+        calls.append(spec)
+        yield
+        return {"changed": True, "steps": [1, 2], "converged": True}
+    monkeypatch.setitem(fmb._OPS, "seq.apply", fake_apply)
+    person(ue, "A", (0, -90), turn=90)
+    person(ue, "B", (0, 90), turn=-90)
+    r = run_op("shot.apply", spec=SPEC)
+    assert r["write"] == {"batched": True, "converged": True, "steps": 2}
+    assert len(calls) == 1 and not [c for c in seqrec if c[0] in ("seq.key_transform", "seq.key_float")]
+    doc = calls[0]
+    assert doc["kind"] == "sequence" and doc["sequence"] == SPEC["sequence"]
+    assert doc["camera_cuts"] == [["CAM_S1", 0], ["CAM_S2", 20], ["CAM_S3", 80]]
+    s2 = doc["bindings"]["CAM_S2"]
+    assert s2["transform"]["keys"][0][0] == 20 and "CameraComponent/FocusSettings.ManualFocusDistance" in s2["props"]
+    mv = run_op("cam.move", camera="CAM_S1", sequence=SPEC["sequence"], moves_=[{"move": "pan", "degrees": 10}])
+    assert mv["write"]["batched"] and list(calls[-1]["bindings"]) == ["CAM_S1"] and "camera_cuts" not in calls[-1]

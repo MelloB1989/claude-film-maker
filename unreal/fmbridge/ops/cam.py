@@ -666,23 +666,64 @@ def _seq(name: str, **args):
     return call(name, **args)
 
 
-def write_keys(sequence: str, label: str, keys: list) -> dict:
-    """Baked camera keys onto a camera's tracks in a sequence: its transform, and the focal length and manual focus
-    distance when they change (each replaces only its own track)."""
-    sk = moves.sequencer_keys(keys)
-    _seq("seq.key_transform", path=sequence, label=label, keys=sk["transform"], interp="auto")
-    n = {"transform": len(sk["transform"])}
-    if len(sk["focal"]) > 1:
-        _seq("seq.key_float", path=sequence, label=label, prop="CurrentFocalLength", keys=sk["focal"],
-             component="CineCameraComponent")
-        n["focal"] = len(sk["focal"])
-    if sk["focus"]:
-        _set_focus(_cine(label), MANUAL, sk["focus"][0][1])
+FOCAL_PROP = "CameraComponent/CurrentFocalLength"
+FOCUS_PROP = "CameraComponent/FocusSettings.ManualFocusDistance"
+
+
+def seq_doc(sequence: str, cameras: dict, cuts=None, fps=None, rng=None) -> dict:
+    """WP8's sequence spec for camera keys: {label: baked keys} as transform tracks (and focal/focus props when they
+    change), plus the camera cuts. Pure: what one seq.apply call converges."""
+    doc = {"kind": "sequence", "version": 1, "name": sequence.rsplit("/", 1)[-1], "sequence": sequence,
+           "bindings": {}}
+    if fps is not None:
+        doc["fps"] = fps
+    if rng is not None:
+        doc["range"] = list(rng)
+    for label, keys in cameras.items():
+        sk = moves.sequencer_keys(keys)
+        b = {"transform": {"interp": "auto", "keys": sk["transform"]}}
+        props = {}
+        if len(sk["focal"]) > 1:
+            props[FOCAL_PROP] = sk["focal"]
+        if len(sk["focus"]) > 1:
+            props[FOCUS_PROP] = sk["focus"]
+        if props:
+            b["props"] = props
+        doc["bindings"][label] = b
+    if cuts:
+        doc["camera_cuts"] = [list(c) for c in cuts]
+    return doc
+
+
+def write_tracks(sequence: str, cameras: dict, cuts=None, fps=None, rng=None):
+    """Write cameras' baked keys (and the cuts) into a sequence: one batched seq.apply when WP8's core is installed,
+    else the per-track ops (seq.key_transform / seq.key_float / seq.camera_cuts). A multi-tick job: `yield from`.
+    Each camera's first focus key also sets its manual focus (Sequencer keys it only when it changes)."""
+    from . import _OPS
+    for label, keys in cameras.items():
+        sk = moves.sequencer_keys(keys)
+        if sk["focus"]:
+            _set_focus(_cine(label), MANUAL, sk["focus"][0][1])
+    if "seq.apply" in _OPS:
+        res = yield from _seq("seq.apply", spec=seq_doc(sequence, cameras, cuts, fps, rng))
+        return {"batched": True, "converged": res.get("converged"), "steps": len(res.get("steps", []))}
+    n = {}
+    for label, keys in cameras.items():
+        sk = moves.sequencer_keys(keys)
+        _seq("seq.key_transform", path=sequence, label=label, keys=sk["transform"], interp="auto")
+        n[label] = {"transform": len(sk["transform"])}
+        if len(sk["focal"]) > 1:
+            _seq("seq.key_float", path=sequence, label=label, prop="CurrentFocalLength", keys=sk["focal"],
+                 component="CineCameraComponent")
+            n[label]["focal"] = len(sk["focal"])
         if len(sk["focus"]) > 1:
             _seq("seq.key_float", path=sequence, label=label, prop="FocusSettings.ManualFocusDistance",
                  keys=sk["focus"], component="CineCameraComponent")
-            n["focus"] = len(sk["focus"])
-    return n
+            n[label]["focus"] = len(sk["focus"])
+    if cuts:
+        _seq("seq.camera_cuts", path=sequence, cuts=[list(c) for c in cuts])
+    yield
+    return {"batched": False, "keys": n}
 
 
 @op("cam.move", mutates=True, idempotent=True, tags=["camera", "sequencer"])
@@ -697,7 +738,8 @@ def move(*, camera: str, sequence: str, moves_: list, start_frame: int = 0, end_
     actor label, "Label:Component:bone", "eyes:Label"). focus_on: the same, baked as a follow-focus. noise: "subtle"
     | "handheld" | "documentary" | "breathing" | "shake" or {"preset", "seed", "scale", "pos", "rot", "hz"}.
     step: frames between baked keys. end_frame: hold the last pose to there.
-    Returns: {"keys": n, "segments", "first", "last", "changed": true}.
+    A multi-tick job (the keys go in one batched seq.apply when WP8's core is there).
+    Returns: {"keys": {"transform", "focal", "focus"}, "segments", "first", "last", "write", "changed": true}.
     Example: film-ue op cam.move camera=CAM_A sequence=/Game/Seq/S1 'moves_=[{"move":"push_in","fraction":0.2,"frames":72}]' aim=eyes:Presenter
     """
     cam = read(camera)
@@ -713,9 +755,12 @@ def move(*, camera: str, sequence: str, moves_: list, start_frame: int = 0, end_
                            focus_on=_point(focus_on) if focus_on is not None else None, noise=noise)
     except ValueError as e:
         raise OpError(str(e), code="bad_args", hint="cam.presets lists the moves") from None
-    n = write_keys(sequence, camera, baked["keys"])
+    w = yield from write_tracks(sequence, {camera: baked["keys"]})
+    sk = moves.sequencer_keys(baked["keys"])
+    n = {"transform": len(sk["transform"]), "focal": len(sk["focal"]) if len(sk["focal"]) > 1 else 0,
+         "focus": len(sk["focus"]) if len(sk["focus"]) > 1 else 0}
     k0, k1 = baked["keys"][0], baked["keys"][-1]
-    return {"keys": n, "segments": baked["segments"], "first": k0, "last": k1, "changed": True}
+    return {"keys": n, "segments": baked["segments"], "first": k0, "last": k1, "write": w, "changed": True}
 
 
 # --- rigs -------------------------------------------------------------------------------------------------------

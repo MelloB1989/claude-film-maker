@@ -1464,9 +1464,9 @@
    "verb": "move",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 688,
+   "line": 729,
    "summary": "Key camera moves into a sequence: dolly, push_in, pull_out, truck, pedestal, crane, orbit/arc, pan, tilt,",
-   "doc": "Key camera moves into a sequence: dolly, push_in, pull_out, truck, pedestal, crane, orbit/arc, pan, tilt,\nroll, zoom, dolly_zoom, whip, rack, follow, hold; eased, one after another from the camera's current pose, with\noptional handheld noise. Replaces the camera's transform (and focal/focus) tracks in that sequence.\n\nArgs: moves_: [{\"move\": kind, \"frames\": n | \"from\"/\"to\", \"ease\": in_out|in|out|linear|sine|smooth|expo, ...}]\n(cam.presets lists kinds; docs/unreal/camera.md their arguments). aim: what the camera keeps framed (a point, an\nactor label, \"Label:Component:bone\", \"eyes:Label\"). focus_on: the same, baked as a follow-focus. noise: \"subtle\"\n| \"handheld\" | \"documentary\" | \"breathing\" | \"shake\" or {\"preset\", \"seed\", \"scale\", \"pos\", \"rot\", \"hz\"}.\nstep: frames between baked keys. end_frame: hold the last pose to there.\nReturns: {\"keys\": n, \"segments\", \"first\", \"last\", \"changed\": true}.\nExample: film-ue op cam.move camera=CAM_A sequence=/Game/Seq/S1 'moves_=[{\"move\":\"push_in\",\"fraction\":0.2,\"frames\":72}]' aim=eyes:Presenter",
+   "doc": "Key camera moves into a sequence: dolly, push_in, pull_out, truck, pedestal, crane, orbit/arc, pan, tilt,\nroll, zoom, dolly_zoom, whip, rack, follow, hold; eased, one after another from the camera's current pose, with\noptional handheld noise. Replaces the camera's transform (and focal/focus) tracks in that sequence.\n\nArgs: moves_: [{\"move\": kind, \"frames\": n | \"from\"/\"to\", \"ease\": in_out|in|out|linear|sine|smooth|expo, ...}]\n(cam.presets lists kinds; docs/unreal/camera.md their arguments). aim: what the camera keeps framed (a point, an\nactor label, \"Label:Component:bone\", \"eyes:Label\"). focus_on: the same, baked as a follow-focus. noise: \"subtle\"\n| \"handheld\" | \"documentary\" | \"breathing\" | \"shake\" or {\"preset\", \"seed\", \"scale\", \"pos\", \"rot\", \"hz\"}.\nstep: frames between baked keys. end_frame: hold the last pose to there.\nA multi-tick job (the keys go in one batched seq.apply when WP8's core is there).\nReturns: {\"keys\": {\"transform\", \"focal\", \"focus\"}, \"segments\", \"first\", \"last\", \"write\", \"changed\": true}.\nExample: film-ue op cam.move camera=CAM_A sequence=/Game/Seq/S1 'moves_=[{\"move\":\"push_in\",\"fraction\":0.2,\"frames\":72}]' aim=eyes:Presenter",
    "params": [
     {
      "name": "camera",
@@ -1540,7 +1540,7 @@
     }
    ],
    "returns": "dict",
-   "multi_tick": false,
+   "multi_tick": true,
    "mutates": true,
    "idempotent": true,
    "tags": [
@@ -1679,7 +1679,7 @@
    "verb": "rig",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 723,
+   "line": 768,
    "summary": "A camera rail or crane (the engine's CameraRig_Rail / CameraRig_Crane), with `camera` mounted on it.",
    "doc": "A camera rail or crane (the engine's CameraRig_Rail / CameraRig_Crane), with `camera` mounted on it.\n\nrail: `points` [[x, y, z], ...] world cm along the track (2+); `position` 0..1 along it; lock_orientation turns\nthe camera with the rail. crane: at `loc`, turned `yaw_deg`, arm `arm_cm` long, raised `pitch_deg`. Drive either\nover time with cam.rig_move.\nExample: film-ue op cam.rig label=Rail_A kind=rail 'points=[[300,-200,150],[300,200,150]]' camera=CAM_A",
    "params": [
@@ -1768,7 +1768,7 @@
    "verb": "rig_move",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 774,
+   "line": 819,
    "summary": "Animate a rig in a sequence: a rail's position along it (0..1), a crane's pitch, yaw and arm.",
    "doc": "Animate a rig in a sequence: a rail's position along it (0..1), a crane's pitch, yaw and arm.\n\nArgs: keys: [[frame, {\"position\": 0..1} | {\"pitch_deg\", \"yaw_deg\", \"arm_cm\"}], ...] (auto-eased).\nExample: film-ue op cam.rig_move rig_label=Rail_A sequence=/Game/Seq/S1 'keys=[[0,{\"position\":0}],[96,{\"position\":1}]]'",
    "params": [
@@ -1924,7 +1924,7 @@
    "verb": "still",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 799,
+   "line": 844,
    "summary": "A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each",
    "doc": "A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each\nsubject's landmarks where the lens math puts them (green crosses), so a mismatch between solver and render shows.\nA multi-tick job. Keep it small (960x540): the overlay is drawn in pure Python.\n\nReturns: {\"path\", \"width\", \"height\", \"raw\": the still without guides}.\nExample: film-ue op cam.still camera=CAM_A out=/tmp/cam_a.png subjects=Presenter",
    "params": [
@@ -6980,7 +6980,7 @@
    "file": "unreal/fmbridge/ops/shot.py",
    "line": 89,
    "summary": "Shoot a shot list into its sequence: make or move each shot's camera (framed by the solver, the coverage or an",
-   "doc": "Shoot a shot list into its sequence: make or move each shot's camera (framed by the solver, the coverage or an\nexplicit placement), key its moves, focal length and focus, and replace the sequence's camera cuts. Converges:\nthe same spec again changes nothing (force=True rewrites anyway); cameras the previous spec made that this one\ndrops are removed.\n\nReturns: shot.plan's result plus {\"changed\", \"cameras\": {label: {\"created\", \"keys\"}}, \"removed\"}.\nExample: film-ue op shot.apply spec=@films/demo/shots/scene1.yaml",
+   "doc": "Shoot a shot list into its sequence: make or move each shot's camera (framed by the solver, the coverage or an\nexplicit placement), key its moves, focal length and focus, and replace the sequence's camera cuts. Converges:\nthe same spec again changes nothing (force=True rewrites anyway); cameras the previous spec made that this one\ndrops are removed. A multi-tick job: the keys and cuts go in one batched seq.apply when WP8's core is there.\n\nReturns: shot.plan's result plus {\"changed\", \"cameras\": {label: {\"created\", \"keys\"}}, \"removed\", \"write\"}.\nExample: film-ue op shot.apply spec=@films/demo/shots/scene1.yaml",
    "params": [
     {
      "name": "spec",
@@ -6998,7 +6998,7 @@
     }
    ],
    "returns": "dict",
-   "multi_tick": false,
+   "multi_tick": true,
    "mutates": true,
    "idempotent": true,
    "tags": [
@@ -7012,7 +7012,7 @@
    "verb": "check",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 161,
+   "line": 160,
    "summary": "Check a sequence's edit numerically: every shot's frame (cam.check: QA's framing plus focus, safe areas,",
    "doc": "Check a sequence's edit numerically: every shot's frame (cam.check: QA's framing plus focus, safe areas,\ndutch) at its start (or \"middle\"), and every cut (180-degree line, 30-degree rule). Scrubs the sequence: a\nmulti-tick job.\n\nReturns: {\"pass\", \"issues\", \"shots\": [{\"camera\", \"start\", \"end\", \"size\"}]}.\nExample: film-ue op shot.check sequence=/Game/Films/demo/Seq_Scene1 'subjects=[\"Host\",\"Guest\"]'",
    "params": [
@@ -7054,7 +7054,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 130,
+   "line": 129,
    "summary": "The edit of a sequence as it stands: each cut's camera and frames with the camera's lens and pose now (its",
    "doc": "The edit of a sequence as it stands: each cut's camera and frames with the camera's lens and pose now (its\nfirst key's pose is what the cut opens on when scrubbed), the size it gives on `subjects`, and the stored spec\nhash.\n\nExample: film-ue op shot.describe sequence=/Game/Films/demo/Seq_Scene1 subjects=Presenter",
    "params": [
@@ -7115,7 +7115,7 @@
    "verb": "sheet",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 192,
+   "line": 191,
    "summary": "A previz contact sheet of a sequence's edit: per shot 1 (its middle) or 3 (start, middle, end) stills",
    "doc": "A previz contact sheet of a sequence's edit: per shot 1 (its middle) or 3 (start, middle, end) stills\nthrough the cut's camera, with thirds and safe-frame guides and a label (shot, camera, frame, focal), in one PNG.\nA multi-tick job: about 2 s per still plus the drawing.\n\nReturns: {\"path\": the sheet, \"width\", \"height\", \"stills\": [[frame, camera, path]]}.\nExample: film-ue op shot.sheet sequence=/Game/Films/demo/Seq_Scene1 out_dir=/tmp/sheet per_shot=3",
    "params": [

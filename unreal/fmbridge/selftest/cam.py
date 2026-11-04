@@ -158,7 +158,7 @@ def run(t):
     t.op("seq.new", path=seq, start=0, end=96, fps=24, replace=True)
     cam = P + "Move"
     t.op("cam.frame", camera=cam, subjects=fig, size="WS", angle=20, focal_mm=35, mode="bounds")
-    mv = t.op("cam.move", camera=cam, sequence=seq, moves_=[{"move": "push_in", "fraction": 0.4, "frames": 48}],
+    mv = yield from t.op("cam.move", camera=cam, sequence=seq, moves_=[{"move": "push_in", "fraction": 0.4, "frames": 48}],
               start_frame=0, end_frame=96, step=4, aim=fig, focus_on=fig)
     t.ok("cam.move keyed", mv["keys"]["transform"] > 5, detail=str(mv["keys"]))
     LSE.open_level_sequence(unreal.EditorAssetLibrary.load_asset(seq))
@@ -207,7 +207,7 @@ def run(t):
                       {"id": "S3", "start": "L2.start-4f", "coverage": "B_OTS"}]}
     pl = t.op("shot.plan", spec=spec)
     t.check("shot.plan cuts", pl["cuts"], [[P + "Shot_S1", 0], [P + "Shot_S2", 20], [P + "Shot_S3", 80]])
-    ap = t.op("shot.apply", spec=spec)
+    ap = yield from t.op("shot.apply", spec=spec)
     t.ok("shot.apply made the cameras", len(ap["cameras"]) == 3, detail=str(ap["cameras"]))
     t.idempotent("shot.apply converges", "shot.apply", spec=spec)
     d = t.op("shot.describe", sequence=spec["sequence"], subjects=[a])
@@ -219,7 +219,7 @@ def run(t):
     t.artifact(sh["path"])
     t.check("contact sheet: 3 stills per shot", len(sh["stills"]), 9)
     spec2 = {**spec, "shots": spec["shots"][:2]}
-    r2 = t.op("shot.apply", spec=spec2)
+    r2 = yield from t.op("shot.apply", spec=spec2)
     t.check("a dropped shot's camera is removed", r2["removed"], [P + "Shot_S3"])
     LSE.close_level_sequence()
     return {"projection": "see metrics", "coverage": [s["name"] for s in cov["shots"]]}
