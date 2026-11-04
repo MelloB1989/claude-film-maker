@@ -128,10 +128,14 @@ step_mode() {
     echo "mode: $mode; editor restarted"
 }
 
+# KNOWN LIMIT (PoC, L4, 580.178.04-server, Vulkan ICD diverted to libEGL_nvidia for headless use): Xorg and VNC come
+# up, but the editor cannot present to X: with the EGL ICD its first swapchain is "outdated" and it crashes, and the
+# stock GLX ICD fails vkCreateInstance with VK_ERROR_INCOMPATIBLE_DRIVER. Check `vkcube` on :0 before relying on this.
 step_desktop() {
     local what="${1:?desktop on|off}" drv bus pw
     if [ "$what" = off ]; then
         systemctl stop ue-vnc ue-xorg 2>/dev/null || true
+        rm -f /root/vnc-pass
         sed -i 's/^UE_SDL=.*/UE_SDL=default/; /^DISPLAY=/d' /etc/default/ue-editor
         systemctl restart ue-editor
         echo "desktop: off; editor offscreen"
@@ -154,7 +158,7 @@ step_desktop() {
     bus="PCI:$((16#$b)):$((16#$d)):$((16#$f))"
     printf '%s\n' 'Section "Device"' '    Identifier "gpu"' '    Driver "nvidia"' "    BusID \"$bus\"" \
         '    Option "AllowEmptyInitialConfiguration" "True"' 'EndSection' 'Section "Screen"' '    Identifier "screen"' \
-        '    Device "gpu"' '    DefaultDepth 24' '    Option "UseDisplayDevice" "None"' '    SubSection "Display"' \
+        '    Device "gpu"' '    DefaultDepth 24' '    SubSection "Display"' \
         '        Depth 24' '        Virtual 1920 1080' '    EndSubSection' 'EndSection' > /etc/X11/xorg-ue.conf
     printf '%s\n' '[Unit]' 'Description=Xorg on the GPU with a virtual screen (temporary desktop)' '[Service]' \
         'ExecStart=/usr/lib/xorg/Xorg :0 -config /etc/X11/xorg-ue.conf -nolisten tcp -noreset' \
@@ -172,8 +176,9 @@ step_desktop() {
     sed -i 's/^UE_SDL=.*/UE_SDL=x11/; /^DISPLAY=/d' /etc/default/ue-editor
     echo "DISPLAY=:0" >> /etc/default/ue-editor
     systemctl restart ue-editor
-    echo "desktop: on (Xorg :0 on $bus, x11vnc 127.0.0.1:5900)"
-    echo "vnc_password=$pw"
+    # the password is never printed (command output lands in logs and messages): root reads it in their own session
+    install -m 600 -o root -g root /dev/null /root/vnc-pass && printf '%s\n' "$pw" > /root/vnc-pass
+    echo "desktop: on (Xorg :0 on $bus, x11vnc 127.0.0.1:5900); VNC password in /root/vnc-pass (sudo cat)"
 }
 
 step_check() {

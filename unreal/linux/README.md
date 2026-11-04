@@ -54,7 +54,8 @@ must not hard-code a project path: use `workstation.project("Saved", "Stills")`,
 The one thing code cannot do is type someone's password. `film-ue --box linux desktop on` starts Xorg on the GPU
 with a virtual 1920x1080 screen, openbox, Firefox and x11vnc on the box's 127.0.0.1:5900, restarts the editor onto
 that screen (without `-unattended`, so the sign-in dialog shows), and forwards the VNC port here through SSM: open
-`vnc://localhost:5901` (macOS: Finder > Go > Connect to Server) with the password it prints. Sign in, then
+`vnc://localhost:5901` (macOS: Finder > Go > Connect to Server) with the password in `/root/vnc-pass` on the box (root only, never
+printed: read it in your own session with `sudo cat`). Sign in, then
 `film-ue --box linux desktop off`: the editor goes back offscreen. Nothing listens on a public port at any time.
 
 ## The proof of concept

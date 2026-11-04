@@ -101,9 +101,8 @@ def desktop(on: bool, local_port: int = 5901) -> str:
         upload_kit()
         return step("desktop", "off", timeout=300).strip()
     upload_kit()
-    out = step("desktop", "on", timeout=1800)
-    pw = next((line.split("=", 1)[1] for line in out.splitlines() if line.startswith("vnc_password=")), "")
+    step("desktop", "on", timeout=1800)
     p = ws.forward(5900, local_port)
     fwd.write_text(json.dumps({"pid": p.pid, "port": local_port}))
-    return (f"desktop on. Open vnc://localhost:{local_port} (macOS: Finder > Go > Connect to Server), "
-            f"password {pw}. When done: film-ue desktop off")
+    return (f"desktop on. Open vnc://localhost:{local_port} (macOS: Finder > Go > Connect to Server); the password is "
+            "in /root/vnc-pass on the box (read it in your own session: sudo cat). When done: film-ue desktop off")
