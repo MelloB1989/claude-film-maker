@@ -14201,7 +14201,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.scene",
    "file": "unreal/fmbridge/ops/scene.py",
-   "line": 113,
+   "line": 114,
    "summary": "Converge the level on a scene spec: spawn what is missing, move/retag/refolder/re-material what differs, rest",
    "doc": "Converge the level on a scene spec: spawn what is missing, move/retag/refolder/re-material what differs, rest\n`drop` actors on what is under them, prune (when the spec says so) tagged actors it no longer lists. Re-running\nit changes nothing. With `verify`, plans again afterwards and reports anything still differing.\n\nArgs: spec: the spec (a mapping, or its JSON; film-ue reads YAML). dry_run: only plan.\nReturns: {\"changed\", \"steps\": [{\"op\", \"args\", \"why\", \"result\"}], \"remaining\": [steps a second plan still wants]}.\nExample: film-ue apply office.yaml   (or: film-ue op scene.apply spec=@office.yaml)",
    "params": [
@@ -14239,7 +14239,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.scene",
    "file": "unreal/fmbridge/ops/scene.py",
-   "line": 137,
+   "line": 138,
    "summary": "The scene's tagged actors as a spec that scene.apply would reproduce (save it as YAML and edit it).",
    "doc": "The scene's tagged actors as a spec that scene.apply would reproduce (save it as YAML and edit it).\n\nExample: film-ue op scene.describe name=office",
    "params": [
@@ -14270,7 +14270,7 @@
    "verb": "list",
    "module": "fmbridge.ops.scene",
    "file": "unreal/fmbridge/ops/scene.py",
-   "line": 149,
+   "line": 150,
    "summary": "Scenes present in the level (from their actors' fm.scene:<name> tags), with their actor counts.",
    "doc": "Scenes present in the level (from their actors' fm.scene:<name> tags), with their actor counts.\n\nExample: film-ue op scene.list",
    "params": [],
@@ -14286,7 +14286,7 @@
    "verb": "plan",
    "module": "fmbridge.ops.scene",
    "file": "unreal/fmbridge/ops/scene.py",
-   "line": 99,
+   "line": 100,
    "summary": "What scene.apply would do, without doing it: [{\"op\", \"args\", \"why\"}] (empty when the level matches).",
    "doc": "What scene.apply would do, without doing it: [{\"op\", \"args\", \"why\"}] (empty when the level matches).\n\nExample: film-ue op scene.plan spec=@office.yaml",
    "params": [
@@ -14310,7 +14310,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.scene",
    "file": "unreal/fmbridge/ops/scene.py",
-   "line": 163,
+   "line": 164,
    "summary": "Delete every actor tagged with this scene.",
    "doc": "Delete every actor tagged with this scene.\n\nExample: film-ue op scene.remove name=office",
    "params": [
@@ -14334,7 +14334,7 @@
    "verb": "state",
    "module": "fmbridge.ops.scene",
    "file": "unreal/fmbridge/ops/scene.py",
-   "line": 78,
+   "line": 79,
    "summary": "The level as the scene planner sees it: each actor the spec names or the scene has tagged, with class, mesh,",
    "doc": "The level as the scene planner sees it: each actor the spec names or the scene has tagged, with class, mesh,\nloc, rot, scale, tags, folder, hidden, materials, the spec's props and how far a `drop` actor is from resting.\nfilm-ue plan feeds this to the same planner offline.\n\nExample: film-ue op scene.state spec=@office.yaml",
    "params": [

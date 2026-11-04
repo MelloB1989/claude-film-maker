@@ -25,7 +25,7 @@ A spec (YAML or JSON):
         asset: /Game/Props/SM_Chair
         relative: {of: Desk, offset_cm: [80, 0, 0], face: toward}   # instead of loc; also yaw_deg with face: fixed
 
-The state the planner diffs against is what `scene.state` returns: {"actors": {label: {"class", "mesh", "loc",
+The state the planner diffs against is what `scene.state` returns: {"actors": {label: {"class", "mesh", "blueprint", "loc",
 "rot", "scale", "tags", "folder", "hidden", "materials", "props", "rest_dz"}}}.
 """
 from __future__ import annotations
@@ -268,7 +268,7 @@ def plan(spec: dict, state: dict) -> list:
         kind, src = _source(a)
         scale = _scale(a)
         fresh = moved_loc = False
-        if have is None or (kind == "mesh" and have.get("mesh") != src) or \
+        if have is None or (kind == "mesh" and src not in (have.get("mesh"), have.get("blueprint"))) or \
                 (kind == "class" and have.get("class") != src):
             why = "missing" if have is None else f"is a {have.get('class')} of {have.get('mesh') or '-'}, want {src}"
             args = {"label": lab, "loc": t["loc"] or (have or {}).get("loc", [0, 0, 0]), "rot_": t["rot"],
@@ -338,7 +338,9 @@ def from_state(name: str, state: dict, folder: str = "") -> dict:
         if tag not in s.get("tags", []):
             continue
         a: dict = {"label": lab}
-        if s.get("mesh"):
+        if s.get("blueprint"):
+            a["asset"] = s["blueprint"]
+        elif s.get("mesh"):
             shape = next((k for k, v in SHAPES.items() if v == s["mesh"]), None)
             a.update({"shape": shape} if shape else {"asset": s["mesh"]})
         else:
