@@ -33,9 +33,9 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B17 | Light rigs: `light.rig` three-point/key-fill-rim around a target actor at distances and angles relative to a camera, with lighting channels | WP5/WP7 | M | covered by agent-08's light.rig (ue-env) |
 | B18 | Camera from description: `cam.frame` "medium close-up of Host from 30° left at eye level" → placement, focal length, focus; inverse `cam.describe` in the same words | WP7 | L | merged (agent-11) |
 | B19 | Camera moves: dolly/truck/crane/orbit/push-in as parametric keyframe generators (ease curves), written in one batched call | WP7/WP8 | M | merged (agent-11) |
-| B20 | Shot list → sequence: a `shotlist` spec (shots with camera, duration_s, subject, action) building subsequences/camera cuts in one apply | WP8 | L | claimed agent-06 |
+| B20 | Shot list → sequence: a `shotlist` spec (shots with camera, duration_s, subject, action) building subsequences/camera cuts in one apply | WP8 | L | merged (agent-06) |
 | B21 | Timecode utilities: frames↔seconds↔SMPTE at any rate (23.976, 29.97 drop-frame), shared by client and bridge (pure module) | WP8 | S | covered by WP8 seqcore time (agent-06) |
-| B22 | Retime/conform: change a sequence's display rate or stretch a section, keeping keys and audio aligned | WP8 | M | claimed agent-06 |
+| B22 | Retime/conform: change a sequence's display rate or stretch a section, keeping keys and audio aligned | WP8 | M | merged (agent-06) |
 | B23 | Render farm split: `render.split` a job into N chunks across boxes with pre-roll, and `render.stitch` back with frame-exact checks (missing/duplicate frames) | WP9 | M | merged (agent-05) |
 | B24 | Render QA: per-frame checks on a finished render (black frames, NaN/firefly detection on EXR, flicker = luma delta spikes, missing frames) | WP9/WP10 | M | merged (agent-05) |
 | B25 | Audio: `audio.mix` stems into a sequence with levels in dB and fades in frames; loudness check (LUFS) client-side | WP12 | M | merged (agent-03) |
