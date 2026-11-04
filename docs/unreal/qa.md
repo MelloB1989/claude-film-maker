@@ -193,6 +193,11 @@ floating: {ignore: [Pendant]}
 
 ## Gotchas
 
+- `view.still rt_format` takes only the 8-bit formats (`RTF_RGBA8`, `RTF_RGBA8_SRGB`, any case). ExportRenderTarget
+  picks the file type by the target's format (KismetRenderingLibrary.cpp:263-279): a float target writes EXR/HDR
+  bytes, which in a `.png` path no reader opens. Depth and other float captures go through `read_pixels`, not export
+  (agent-05's B57 audit).
+
 - **Scene capture is not the final render.** `view.still` mode capture is a SceneCapture2D with the camera's
   post-process settings and 8 warm-up captures (rendering state kept, so TAA and Lumen settle), but no motion blur,
   and DoF only as the post settings carry it. Use it for framing, layout, exposure trends and continuity; use
@@ -254,7 +259,7 @@ names are the snake_case of the reflected names. Paths are relative to `Engine/S
 | `RenderingLibrary.read_render_target_raw(world, rt, normalize)`: RGBA8/16f/32f only; returns the list or None | KismetRenderingLibrary.h:192; KismetRenderingLibrary.cpp:300-360, 497-527 | yes |
 | `RenderingLibrary.read_render_target_pixel(world, rt, x, y)` → FColor (sRGB 8-bit; float targets converted with sRGB; an unsupported format gives FColor::Red, alpha 255, so `_opaque` keeps the PNG) | KismetRenderingLibrary.h:151-152; Private/KismetRenderingLibrary.cpp:381-400 | yes |
 | bool return + out params → Python returns the outs or None | Engine/Plugins/Experimental/PythonScriptPlugin/.../PyGenUtil.cpp:1161 | yes |
-| `unreal.TextureRenderTargetFormat.RTF_RGBA8 / RTF_RGBA8_SRGB / RTF_RGBA16F / RTF_RGBA32F` | Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h:23-43 | yes |
+| `unreal.TextureRenderTargetFormat.RTF_RGBA8 / RTF_RGBA8_SRGB / RTF_RGBA16F / RTF_RGBA32F` (C++ `RTF_RGBA16f`; Python upper-cases: `view._format` normalises and lists `RT_FORMATS`) | Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h:23-43 | yes |
 | `TextureRenderTarget2D.size_x / size_y` (BlueprintReadOnly) | TextureRenderTarget2D.h:107-113 | yes |
 | 8-bit target display gamma (2.2) | Runtime/Engine/Private/TextureRenderTarget2D.cpp:704-720 | yes |
 | `CineCameraActor.get_cine_camera_component()` | Runtime/CinematicCamera/Public/CineCameraActor.h:89-90 | yes |
