@@ -11,7 +11,8 @@ and every result is checked with numbers and pictures you pull back. Read `docs/
 
 ## The loop (every task)
 
-1. Health: `film-ue health`, `film-ue op ops.broken` (must be `{}`); on a new box `film-ue selftest dx`.
+1. Health: on a new box `film-ue --box NAME first-run [--epic]` (resumable checklist, prints the next command on a
+   failure); otherwise `film-ue doctor`, `film-ue op ops.broken` (must be `{}`).
 2. Look: `film-ue describe --live level`, `film-ue <area> describe ... --json`.
 3. Find ops OFFLINE: `film-ue describe` -> `film-ue describe <area>` -> `film-ue describe <area.verb>`.
 4. Prefer a spec when a kind exists (`film-ue plan --kinds`): `film-ue plan X.yaml`, then `film-ue apply X.yaml --json`;
