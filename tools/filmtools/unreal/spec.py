@@ -311,8 +311,8 @@ def plan(docs: list, ue=None, state: dict | None = None, only: set | None = None
     order = sorted(range(len(docs)), key=lambda i: (reg[docs[i]["kind"]].order, i))
     items = []
     by_kind: dict = {}
-    for i in order:
-        by_kind.setdefault(docs[i]["kind"], []).append(docs[i])
+    for i in order:  # readers and planners see the document without the engine's own keys (_src)
+        by_kind.setdefault(docs[i]["kind"], []).append({k: v for k, v in docs[i].items() if not k.startswith("_")})
     states: dict = {}
     for kname, ds in by_kind.items():
         kd = reg[kname]

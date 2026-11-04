@@ -115,3 +115,15 @@ def test_selftest_unknown_area_says_what_exists(ue_sdk, tmp_path):
     with pytest.raises(SystemExit) as e:
         client_selftest.run_all(ue_sdk, ["dxx"], tmp_path, log=lambda m: None)
     assert "did you mean dx" in str(e.value)
+
+
+def test_scene_example_applies_through_film_ue_apply(ue_sdk, ue):
+    """examples/unreal/scene/office.yaml (WP6) through the engine: planned on the bridge, converged, then empty."""
+    from pathlib import Path
+    ex = Path(__file__).resolve().parents[2] / "examples" / "unreal" / "scene" / "office.yaml"
+    docs = spec.load(ex)
+    items = spec.plan(docs, ue_sdk)
+    assert items[0].kind == "scene" and items[0].error is None and len(items[0].steps) >= 4, items[0].as_dict()
+    res = spec.apply(docs, ue_sdk)
+    assert res["ok"] and res["converged"], json.dumps(res, indent=1, default=str)[:3000]
+    assert ue.actor("Desk") is not None and ue.dialogs == []

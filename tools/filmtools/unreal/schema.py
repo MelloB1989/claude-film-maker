@@ -77,7 +77,16 @@ def _literal(node: ast.AST | None):
         v = ast.literal_eval(node)
     except (ValueError, SyntaxError, TypeError):
         return {"expr": ast.unparse(node)}
-    return list(v) if isinstance(v, (tuple, set)) else v
+    return _deep_list(v)
+
+
+def _deep_list(v):
+    """Tuples (and sets) to lists, all the way down: what JSON (and the live ops.schema) makes of them."""
+    if isinstance(v, (tuple, set, list)):
+        return [_deep_list(x) for x in v]
+    if isinstance(v, dict):
+        return {k: _deep_list(x) for k, x in v.items()}
+    return v
 
 
 def _default_type(v) -> str:
@@ -350,4 +359,23 @@ def lint(schema: dict) -> list:
                 out.append((name, f"required argument {p['name']!r} has no annotation"))
     for mod, err in schema.get("broken", {}).items():
         out.append((mod, "broken: " + err))
+    out += lint_kind_schemas()
+    return out
+
+
+def lint_kind_schemas() -> list:
+    """Spec kind schemas (tools/filmtools/unreal/schemas) that break CONVENTIONS §7: not JSON, additionalProperties
+    not false, a property without a description (the envelope kind/version/name/description excepted)."""
+    out = []
+    for p in sorted(Path(__file__).with_name("schemas").glob("*.schema.json")):
+        try:
+            s = json.loads(p.read_text())
+        except ValueError as e:
+            out.append((p.name, f"not JSON: {e}"))
+            continue
+        if s.get("additionalProperties") is not False:
+            out.append((p.name, "additionalProperties is not false (a typo would pass silently)"))
+        for k, v in (s.get("properties") or {}).items():
+            if k not in ("kind", "version", "name", "description") and not (isinstance(v, dict) and v.get("description")):
+                out.append((p.name, f"property {k!r} has no description"))
     return out
