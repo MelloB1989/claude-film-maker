@@ -15,18 +15,10 @@ ALLOWLIST = {  # 2026-11-05, apinotes at ue-helpers 106fb52+: owner in the comme
     "MaterialExpressionScalarParameter", "MaterialExpressionSubtract", "MaterialExpressionTextureCoordinate",
     "MaterialExpressionTextureSampleParameter2D", "MaterialExpressionVectorParameter", "MaterialParameterCollection",
     "MaterialParameterCollectionFactoryNew", "TextureCompressionSettings",
-    # agent-01 (anim/speech)
-    "AnimationCurveIdentifierExtensions", "AutoMapChainType", "AutoMapChainType.FUZZY", "IKRetargeter",
-    "IKRigDefinitionFactory.create_new_ik_rig_asset", "RawCurveTrackTypes", "RawCurveTrackTypes.RCT_FLOAT",
-    "RetargetSourceOrTarget", "RetargetSourceOrTarget.SOURCE", "RetargetSourceOrTarget.TARGET", "RichCurveKey",
-    "DataInputType", "DataInputType.AUDIO", "MetaHumanPerformanceFactoryNew", "PerformanceExportRange",
-    "PerformanceExportRange.WHOLE_SEQUENCE",
     # agent-02 (assets/fab)
     "AssetEditorSubsystem", "MaterialInterface", "PointLight", "new_object",
     # agent-05 (render)
     "DirectoryPath", "IntPoint",
-    # agent-07 (server)
-    "log_warning", "unregister_slate_post_tick_callback",
 }
 
 
