@@ -135,7 +135,7 @@ def scatter(*, prefix: str, meshes: list, region: dict, seed: int = 0, count: in
             exclude_actors: list | None = None, exclude_margin_cm: float = 30.0, patchiness: float = 0.0,
             patch_cm: float = 400.0, surface: str = "trace", z_cm: float = 0.0, trace_from_z_cm: float = 10000.0,
             trace_to_z_cm: float = -10000.0, max_slope_deg: float = 90.0, cull_cm: list | None = None,
-            shadows: bool = True, force: bool = False):
+            shadows: bool = True, force: bool = False, dry_run: bool = False):
     """Scatter meshes over a region as foliage instances, the same for the same seed; re-running converges (the
     scatter's own instances are replaced; nothing else is touched).
 
@@ -176,6 +176,9 @@ def scatter(*, prefix: str, meshes: list, region: dict, seed: int = 0, count: in
         p = F.plan({**args, "exclude": (exclude or []) + _footprints(exclude_actors, exclude_margin_cm)})
     except ValueError as e:
         raise OpError(str(e), code="bad_args", hint="docs/unreal/foliage.md lists the scatter arguments") from None
+    if dry_run:  # what a run would do, changing nothing (the spec kind's state)
+        return {"prefix": prefix, "changed": True, "dry_run": True, "planned": len(p["instances"]), "hash": h,
+                "stored_hash": cur.get("hash"), "area_m2": p["area_m2"]}
     world = _world()
     types = []
     for i, m in enumerate(meshes):

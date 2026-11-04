@@ -53,6 +53,13 @@ has (`timeout_s`), and counts the instances it made. With `loc` (+ `extent_cm`) 
 script-spawned volume has no bounds the op says so (`unsupported`): place one volume by hand and reuse it.
 `foliage.pcg_clear label=... delete=true`.
 
+## Spec kind
+
+`kind: foliage` (`tools/filmtools/unreal/foliage_kind.py`, order 35: after the layout, before cameras; schema
+`schemas/foliage.schema.json`; example `examples/unreal/foliage/garden.yaml`). `name` is the prefix; the other
+fields are foliage.scatter's arguments. The state is the op's `dry_run` (would a run change anything?), so a second
+`film-ue plan` is empty once the level holds the scatter.
+
 ## Op reference
 
 | op | does |

@@ -228,3 +228,26 @@ def test_selftest_runs_on_the_fake(stage, tmp_path):
               "remove again is fine", "PCG generated", "PCG seed set"):
         assert res.get(n) is True, (n, t.results, t.notes)
     assert stage.dialogs == []
+
+
+# --- the spec kind ------------------------------------------------------------------------------------------------
+
+def test_foliage_kind_plans_and_converges(stage):
+    import yaml
+    from pathlib import Path
+    from filmtools.unreal import foliage_kind as K, spec
+    docs = list(yaml.safe_load_all((Path(__file__).resolve().parents[2] / "examples/unreal/foliage/garden.yaml")
+                                   .read_text()))
+    kd = spec.kinds()["foliage"]
+    for d in docs:
+        assert spec.validate_doc(d, kd) == [], d["name"]
+    lawn = {"kind": "foliage", "version": 1, "name": "Lawn", "seed": 3, "meshes": [{"mesh": GRASS}],
+            "region": {"rect": [[-300, -300], [300, 300]]}, "count": 12}
+    state = run_op("foliage.scatter", **K.scatter_args(lawn), dry_run=True)
+    steps = K.plan(lawn, state)
+    assert [s["op"] for s in steps] == ["foliage.scatter"] and "not in the level" in steps[0]["why"]
+    assert ifa_count(stage) == 0  # a dry run changes nothing
+    run_op(steps[0]["op"], **steps[0]["args"])
+    assert K.plan(lawn, run_op("foliage.scatter", **K.scatter_args(lawn), dry_run=True)) == []
+    moved = {**lawn, "seed": 4}
+    assert "changed since" in K.plan(moved, run_op("foliage.scatter", **K.scatter_args(moved), dry_run=True))[0]["why"]

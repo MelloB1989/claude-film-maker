@@ -3378,7 +3378,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 231,
+   "line": 234,
    "summary": "The scatters in the project (or one): their arguments, seed, foliage types and instance counts as placed,",
    "doc": "The scatters in the project (or one): their arguments, seed, foliage types and instance counts as placed,\nand the foliage instances in the level now per mesh (`measured`), so a lost or doubled scatter shows.\n\nExample: film-ue op foliage.describe prefix=Lawn",
    "params": [
@@ -3405,7 +3405,7 @@
    "verb": "pcg",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 307,
+   "line": 310,
    "summary": "Run a PCG graph on an actor with a PCG component, with parameters and a seed, and wait until it has generated.",
    "doc": "Run a PCG graph on an actor with a PCG component, with parameters and a seed, and wait until it has generated.\nWith `loc` (and `extent_cm`, the half size) a PCG Volume named `label` is made there first if missing.\n\nArgs: graph: a PCG graph asset (/Game/...; keep the actor's own when \"\"). seed: the component's seed.\nparams: {graph parameter: value} (bool, int, float, string, [x, y, z], or an asset path).\nReturns: {\"label\", \"graph\", \"seed\", \"generated\", \"instances\": ISM instances on the actor, \"changed\"}.\nExample: film-ue op foliage.pcg label=PCG_Forest graph=/Game/PCG/PG_Forest seed=3 'params={\"Density\":0.6}'",
    "params": [
@@ -3476,7 +3476,7 @@
    "verb": "pcg_clear",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 359,
+   "line": 362,
    "summary": "Clear what a PCG component generated (and delete the actor with `delete`). Missing actors are fine.",
    "doc": "Clear what a PCG component generated (and delete the actor with `delete`). Missing actors are fine.\n\nExample: film-ue op foliage.pcg_clear label=PCG_Forest",
    "params": [
@@ -3511,7 +3511,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 257,
+   "line": 260,
    "summary": "Remove a scatter: its instances and its foliage types (removing nothing is fine).",
    "doc": "Remove a scatter: its instances and its foliage types (removing nothing is fine).\n\nExample: film-ue op foliage.remove prefix=Lawn",
    "params": [
@@ -3677,6 +3677,13 @@
     },
     {
      "name": "force",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "dry_run",
      "kind": "keyword",
      "type": "bool",
      "required": false,
