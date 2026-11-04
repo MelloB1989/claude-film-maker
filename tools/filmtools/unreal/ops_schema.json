@@ -7,8 +7,8 @@
    "verb": "bake_follow",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 395,
-   "summary": "Make a follower animation (a MetaHuman face's) carry its leader's pose: bake_pose from the leader (the body) into `out` for every non-facial bone the two skeletons share, and switch the face rig's own head control off (headcontrolswitch 0) ",
+   "line": 394,
+   "summary": "Make a follower animation (a MetaHuman face's) carry its leader's pose: bake_pose from the leader (the body)",
    "doc": "Make a follower animation (a MetaHuman face's) carry its leader's pose: bake_pose from the leader (the body)\ninto `out` for every non-facial bone the two skeletons share, and switch the face rig's own head control off\n(headcontrolswitch 0) unless `head_control`, so the head turns only as the body's does. A face playing alone\notherwise keeps its neck and chest apart from the body, and its chest pokes through the clothes. Multi-tick.",
    "params": [
     {
@@ -87,8 +87,8 @@
    "verb": "bake_pose",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 334,
-   "summary": "Sample `source` (a skeletal mesh component of the actor) as it really plays in `sequence` (animation, rig and post-process correctives included) and write those bones, local to their parents, as bone tracks into `out` (a copy of `anim`), wh",
+   "line": 333,
+   "summary": "Sample `source` (a skeletal mesh component of the actor) as it really plays in `sequence` (animation, rig and",
    "doc": "Sample `source` (a skeletal mesh component of the actor) as it really plays in `sequence` (animation, rig and\npost-process correctives included) and write those bones, local to their parents, as bone tracks into `out` (a\ncopy of `anim`), which then goes on `target`'s track. Keys past the sequence keep the animation's own pose; curves\nare untouched. A multi-tick job.",
    "params": [
     {
@@ -160,7 +160,7 @@
    "verb": "curve",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 65,
+   "line": 64,
    "summary": "One curve's keys (every n-th): times and values, with its range.",
    "doc": "One curve's keys (every n-th): times and values, with its range.",
    "params": [
@@ -198,7 +198,7 @@
    "verb": "curves",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 59,
+   "line": 58,
    "summary": "A sequence's float curve names.",
    "doc": "A sequence's float curve names.",
    "params": [
@@ -229,8 +229,8 @@
    "verb": "gaze_lock",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 157,
-   "summary": "Keep a talking face's eyes on the lens, measured rather than guessed: `out` (a copy of `anim`) goes on `component`'s track in `sequence` (on the sections that play `anim`, wherever they start); the eye-look curves are calibrated on the rig,",
+   "line": 156,
+   "summary": "Keep a talking face's eyes on the lens, measured rather than guessed: `out` (a copy of `anim`) goes on",
    "doc": "Keep a talking face's eyes on the lens, measured rather than guessed: `out` (a copy of `anim`) goes on\n`component`'s track in `sequence` (on the sections that play `anim`, wherever they start); the eye-look curves are\ncalibrated on the rig, then solved per frame from the eye bones' real pose (head and body motion included)\ntoward `camera`, with small saccades, and refined `iterations` times against a fresh measurement.\n`target` aims the eyes elsewhere: a point [x, y, z], an actor (+ `target_offset` in its frame) or\n\"Label:Component:bone\" (her eyes: \"Presenter:Face:FACIAL_L_Eye\"); with `frames` [first, last] only in that range\n(the camera, if given, elsewhere). Frames with neither keep the animation's own eye curves. Returns the angle error\nper pass. A multi-tick job.",
    "params": [
     {
@@ -337,8 +337,8 @@
    "verb": "head_to_body",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 416,
-   "summary": "Give the body the head motion a face rig makes from speech (HeadYaw/Pitch/Roll spread down the neck): bake the face's spine, neck and head as they play into `out` (a copy of the body's animation), which goes on the body's track.",
+   "line": 415,
+   "summary": "Give the body the head motion a face rig makes from speech (HeadYaw/Pitch/Roll spread down the neck): bake the",
    "doc": "Give the body the head motion a face rig makes from speech (HeadYaw/Pitch/Roll spread down the neck): bake the\nface's spine, neck and head as they play into `out` (a copy of the body's animation), which goes on the body's\ntrack. Then bake_follow puts the whole shared skeleton back on the face, so both move as one. Multi-tick.",
    "params": [
     {
@@ -409,7 +409,7 @@
    "verb": "scale_curves",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 81,
+   "line": 80,
    "summary": "Multiply (then offset) curves by name: {\"HeadYaw\": 0.6, \"CTRL_expressions_browRaiseInL\": 1.3}.",
    "doc": "Multiply (then offset) curves by name: {\"HeadYaw\": 0.6, \"CTRL_expressions_browRaiseInL\": 1.3}.",
    "params": [
@@ -447,7 +447,7 @@
    "verb": "set_curve",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 72,
+   "line": 71,
    "summary": "Replace a curve with these keys.",
    "doc": "Replace a curve with these keys.",
    "params": [
@@ -492,7 +492,7 @@
    "verb": "delete",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 85,
+   "line": 84,
    "summary": "Delete an asset.",
    "doc": "Delete an asset.",
    "params": [
@@ -516,7 +516,7 @@
    "verb": "duplicate",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 74,
+   "line": 73,
    "summary": "Copy an asset (a MetaHuman preset, a material...) to a new path.",
    "doc": "Copy an asset (a MetaHuman preset, a material...) to a new path.",
    "params": [
@@ -554,8 +554,8 @@
    "verb": "import",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 43,
-   "summary": "Import files on the workstation (fbx, wav, png, exr, ...) into a content folder; returns the new assets.",
+   "line": 42,
+   "summary": "Import files on the workstation (fbx, wav, png, exr, ...) into a content folder; returns the new assets. An FBX",
    "doc": "Import files on the workstation (fbx, wav, png, exr, ...) into a content folder; returns the new assets. An FBX\ncomes in as one static mesh (its parts combined unless `combine` is off) with its materials, without lightmap UVs\n(Lumen needs none).",
    "params": [
     {
@@ -599,7 +599,7 @@
    "verb": "list",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 19,
+   "line": 18,
    "summary": "Assets under a path, optionally of one class name ('StaticMesh', 'MetaHumanCharacter', ...): [class, path].",
    "doc": "Assets under a path, optionally of one class name ('StaticMesh', 'MetaHumanCharacter', ...): [class, path].",
    "params": [
@@ -644,7 +644,7 @@
    "verb": "props",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 97,
+   "line": 96,
    "summary": "An asset's editor properties (all readable ones, or the named).",
    "doc": "An asset's editor properties (all readable ones, or the named).",
    "params": [
@@ -675,7 +675,7 @@
    "verb": "save_all",
    "module": "fmbridge.ops.assets",
    "file": "unreal/fmbridge/ops/assets.py",
-   "line": 91,
+   "line": 90,
    "summary": "Save every dirty package and map.",
    "doc": "Save every dirty package and map.",
    "params": [],
@@ -691,7 +691,7 @@
    "verb": "actors",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 59,
+   "line": 58,
    "summary": "The open level's actors: [label, class, location].",
    "doc": "The open level's actors: [label, class, location].",
    "params": [
@@ -722,7 +722,7 @@
    "verb": "bone",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 143,
+   "line": 142,
    "summary": "World locations of bones/sockets on an actor's skeletal mesh component.",
    "doc": "World locations of bones/sockets on an actor's skeletal mesh component.",
    "params": [
@@ -760,7 +760,7 @@
    "verb": "delete",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 115,
+   "line": 114,
    "summary": "Delete actors by label (missing ones are skipped).",
    "doc": "Delete actors by label (missing ones are skipped).",
    "params": [
@@ -784,7 +784,7 @@
    "verb": "move",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 97,
+   "line": 96,
    "summary": "Move, turn, aim (`look_at` [x,y,z]), resize (`size` cm for basic shapes) or scale an actor.",
    "doc": "Move, turn, aim (`look_at` [x,y,z]), resize (`size` cm for basic shapes) or scale an actor.",
    "params": [
@@ -843,7 +843,7 @@
    "verb": "new",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 39,
+   "line": 38,
    "summary": "A new empty level at a content path, opened.",
    "doc": "A new empty level at a content path, opened.",
    "params": [
@@ -867,7 +867,7 @@
    "verb": "open",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 46,
+   "line": 45,
    "summary": "Open a level.",
    "doc": "Open a level.",
    "params": [
@@ -891,7 +891,7 @@
    "verb": "save",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 53,
+   "line": 52,
    "summary": "Save the open level.",
    "doc": "Save the open level.",
    "params": [],
@@ -907,7 +907,7 @@
    "verb": "set",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 128,
+   "line": 127,
    "summary": "Set editor properties on an actor or one of its components (by class name, e.g. 'RectLightComponent').",
    "doc": "Set editor properties on an actor or one of its components (by class name, e.g. 'RectLightComponent').",
    "params": [
@@ -945,8 +945,8 @@
    "verb": "spawn",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 71,
-   "summary": "Spawn an actor: a basic `shape` (cube/sphere/cylinder/cone/plane, `size` in cm), an `asset` (mesh, blueprint) or a `cls` ('RectLight', 'CineCameraActor', ...).",
+   "line": 70,
+   "summary": "Spawn an actor: a basic `shape` (cube/sphere/cylinder/cone/plane, `size` in cm), an `asset` (mesh, blueprint) or a",
    "doc": "Spawn an actor: a basic `shape` (cube/sphere/cylinder/cone/plane, `size` in cm), an `asset` (mesh, blueprint) or a\n`cls` ('RectLight', 'CineCameraActor', ...). Replaces an actor with the same label when `replace`.",
    "params": [
     {
@@ -1036,8 +1036,8 @@
    "verb": "list",
    "module": "fmbridge.ops",
    "file": "unreal/fmbridge/ops/__init__.py",
-   "line": 101,
-   "summary": "Every op with its signature and the first line of its docstring; the whole docstring with `full`, or when the prefix names one op (`film-ue ops seq.key_float`).",
+   "line": 100,
+   "summary": "Every op with its signature and the first line of its docstring; the whole docstring with `full`, or when the",
    "doc": "Every op with its signature and the first line of its docstring; the whole docstring with `full`, or when the\nprefix names one op (`film-ue ops seq.key_float`).",
    "params": [
     {
@@ -1067,7 +1067,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 313,
+   "line": 312,
    "summary": "Put a material on an actor's static meshes, in slot `slot`: its index or its name (an FBX's material name).",
    "doc": "Put a material on an actor's static meshes, in slot `slot`: its index or its name (an FBX's material name).",
    "params": [
@@ -1105,7 +1105,7 @@
    "verb": "camera",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 445,
+   "line": 444,
    "summary": "A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.",
    "doc": "A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.",
    "params": [
@@ -1181,8 +1181,8 @@
    "verb": "card",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 488,
-   "summary": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right way up and unmirrored from the front; `offset` pushes it out along its facing (cm), e.g. to sit on a box's front.",
+   "line": 487,
+   "summary": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right",
    "doc": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right\nway up and unmirrored from the front; `offset` pushes it out along its facing (cm), e.g. to sit on a box's front.",
    "params": [
     {
@@ -1247,8 +1247,8 @@
    "verb": "channels",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 500,
-   "summary": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which lights reach it.",
+   "line": 499,
+   "summary": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which",
    "doc": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which\nlights reach it. The studio rule: the host's lights on 1 only, the set's on 0, the host itself on 0 and 1.",
    "params": [
     {
@@ -1280,8 +1280,8 @@
    "verb": "collection",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 292,
-   "summary": "A material parameter collection with these scalar parameters at these defaults (made, or the missing ones added; existing ones keep their defaults).",
+   "line": 291,
+   "summary": "A material parameter collection with these scalar parameters at these defaults (made, or the missing ones",
    "doc": "A material parameter collection with these scalar parameters at these defaults (made, or the missing ones\nadded; existing ones keep their defaults). A sequence keys a collection on a track of its own, with no per-mesh\nmaterial instance in between.",
    "params": [
     {
@@ -1311,8 +1311,8 @@
    "verb": "focus_track",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 523,
-   "summary": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a MetaHuman's eyes above its feet.",
+   "line": 522,
+   "summary": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a",
    "doc": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a\nMetaHuman's eyes above its feet.",
    "params": [
     {
@@ -1353,7 +1353,7 @@
    "verb": "fog",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 404,
+   "line": 403,
    "summary": "Exponential height fog with volumetric fog: haze in the air for light shafts and depth.",
    "doc": "Exponential height fog with volumetric fog: haze in the air for light shafts and depth.",
    "params": [
@@ -1416,8 +1416,8 @@
    "verb": "light",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 344,
-   "summary": "A light: kind rect (width/height, barn doors), spot (cone), point; aimed at `look_at`; colour (sRGB 0-1) or temperature (K); intensity in candelas.",
+   "line": 343,
+   "summary": "A light: kind rect (width/height, barn doors), spot (cone), point; aimed at `look_at`; colour (sRGB 0-1) or",
    "doc": "A light: kind rect (width/height, barn doors), spot (cone), point; aimed at `look_at`; colour (sRGB 0-1) or\ntemperature (K); intensity in candelas.",
    "params": [
     {
@@ -1542,8 +1542,8 @@
    "verb": "material",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 257,
-   "summary": "A material instance: kind Surface (color, roughness, metallic, specular), Textured (a texture tinted by color, tiled), Screen (an emitted texture x intensity behind glossy glass), Emissive (color x intensity, unlit), Glass (translucent, opa",
+   "line": 256,
+   "summary": "A material instance: kind Surface (color, roughness, metallic, specular), Textured (a texture tinted by color,",
    "doc": "A material instance: kind Surface (color, roughness, metallic, specular), Textured (a texture tinted by color,\ntiled), Screen (an emitted texture x intensity behind glossy glass), Emissive (color x intensity, unlit), Glass\n(translucent, opacity), ScreenBlink (Screen with a baked-in cursor that blinks: scalars Blink 0-1 and the cursor's\nUV rectangle CursorU0, CursorU1, CursorV0, CursorV1), Pbr (texture, normal and mask maps; mask R x roughness,\nG x metallic), PbrMasked (Pbr cut out by the texture's alpha), Sheer (backlit thin fabric: mask B x opacity,\ndithered; transmission colour, glow), Glow (texture x color x intensity, additive) or GlowWipe (Glow revealed\nleft to right: scalars Reveal 0-1 and Softness; it also takes the lower of Reveal and MPC_FM's WipeReveal, and is\nmultiplied by MPC_FM's WipeOn, both 1 unless a sequence keys them). `scalars` sets any other scalar parameters by\nname. Colours are linear. Re-running updates it.",
    "params": [
     {
@@ -1675,7 +1675,7 @@
    "verb": "post",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 420,
+   "line": 419,
    "summary": "An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).",
    "doc": "An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).",
    "params": [
@@ -1706,8 +1706,8 @@
    "verb": "sky",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 379,
-   "summary": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the back wall towards the camera; 90 = shining along +Y) and `elevation` above the horizon, a sky atmosphere and a real-time captured ",
+   "line": 378,
+   "summary": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the",
    "doc": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the\nback wall towards the camera; 90 = shining along +Y) and `elevation` above the horizon, a sky atmosphere and a\nreal-time captured sky light. `shadow_softness` is the sun's source angle in degrees.",
    "params": [
     {
@@ -1774,8 +1774,8 @@
    "verb": "slots",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 324,
-   "summary": "An actor's material slots by name ({slot: material}); `materials` sets those named (unknown names are reported, not guessed).",
+   "line": 323,
+   "summary": "An actor's material slots by name ({slot: material}); `materials` sets those named (unknown names are",
    "doc": "An actor's material slots by name ({slot: material}); `materials` sets those named (unknown names are\nreported, not guessed).",
    "params": [
     {
@@ -1805,8 +1805,8 @@
    "verb": "still",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 468,
-   "summary": "A still through a camera at the viewport's quality, written to `path` on the workstation (png).",
+   "line": 467,
+   "summary": "A still through a camera at the viewport's quality, written to `path` on the workstation (png). A multi-tick",
    "doc": "A still through a camera at the viewport's quality, written to `path` on the workstation (png). A multi-tick\njob: it returns once the file is on disk.",
    "params": [
     {
@@ -1857,8 +1857,8 @@
    "verb": "add_item",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 121,
-   "summary": "Put a wardrobe item (a groom or garment from mh.wardrobe) in a slot of the character's collection and select it there, replacing what the slot held (slot: Hair, Eyebrows, Beard, Mustache, Eyelashes, Peachfuzz, Outfits; guessed from the item",
+   "line": 120,
+   "summary": "Put a wardrobe item (a groom or garment from mh.wardrobe) in a slot of the character's collection and select",
    "doc": "Put a wardrobe item (a groom or garment from mh.wardrobe) in a slot of the character's collection and select\nit there, replacing what the slot held (slot: Hair, Eyebrows, Beard, Mustache, Eyelashes, Peachfuzz, Outfits;\nguessed from the item's path when empty).",
    "params": [
     {
@@ -1895,8 +1895,8 @@
    "verb": "body",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 164,
-   "summary": "Shape the parametric body by measurements in cm (Height, Chest, Waist, Hip, Thigh, ...) and the unitless Fat, Muscularity, Masculine/Feminine; each named one becomes an active constraint (None frees it again).",
+   "line": 163,
+   "summary": "Shape the parametric body by measurements in cm (Height, Chest, Waist, Hip, Thigh, ...) and the unitless Fat,",
    "doc": "Shape the parametric body by measurements in cm (Height, Chest, Waist, Hip, Thigh, ...) and the unitless Fat,\nMuscularity, Masculine/Feminine; each named one becomes an active constraint (None frees it again). Re-rig and\nre-build afterwards.",
    "params": [
     {
@@ -1926,7 +1926,7 @@
    "verb": "build",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 186,
+   "line": 185,
    "summary": "Assemble the character into a Blueprint (cinematic pipeline and quality by default); returns its path.",
    "doc": "Assemble the character into a Blueprint (cinematic pipeline and quality by default); returns its path.",
    "params": [
@@ -1964,7 +1964,7 @@
    "verb": "clear_slot",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 139,
+   "line": 138,
    "summary": "Select nothing in a slot (e.g. no Beard).",
    "doc": "Select nothing in a slot (e.g. no Beard).",
    "params": [
@@ -1995,8 +1995,8 @@
    "verb": "cloth_inflate",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 272,
-   "summary": "Push a garment out along its normals by `cm`, so skin under tight cloth stops poking through.",
+   "line": 271,
+   "summary": "Push a garment out along its normals by `cm`, so skin under tight cloth stops poking through. A multi-tick job.",
    "doc": "Push a garment out along its normals by `cm`, so skin under tight cloth stops poking through. A multi-tick job.\n\nNothing the renderer is drawing is ever edited: a material in use that is reparented or recompiled while frames\nrender trips `UniformExpressionCache... == Material.GetRenderingThreadShaderMap()` and takes the editor down (it\ndid, right after a MetaHuman rebuild had made fresh garment instances). So the worn instance is copied to\n`{folder}/{label}_<name>_Inflate`, the copy is parented on project copies of its plugin chain whose master gains a\nWorld Position Offset (normal x FM_Inflate), every shader finishes compiling, the editor ticks a few frames, and\nonly then does the component swap to the copy. A master already in use is never recompiled (a new one is made);\nre-running on an inflated garment only changes the amount, a plain parameter change that is safe. `which` limits it\nto the garments whose material name contains it (e.g. \"Shirt\": a top pushed out over shorts that stay put, else\nboth move together and the shorts' waistband still shows through the tee); others already inflated go back to 0.",
    "params": [
     {
@@ -2047,7 +2047,7 @@
    "verb": "components",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 203,
+   "line": 202,
    "summary": "An assembled MetaHuman actor's skeletal mesh components: mesh, animation mode and class.",
    "doc": "An assembled MetaHuman actor's skeletal mesh components: mesh, animation mode and class.",
    "params": [
@@ -2071,8 +2071,8 @@
    "verb": "drive_face",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 214,
-   "summary": "Let a sequence's animation track drive the face: its own Blueprint (ABP_Face) has no slot for Sequencer, so the component plays the animation directly; Epic's post-process rig (RigLogic) still runs on top.",
+   "line": 213,
+   "summary": "Let a sequence's animation track drive the face: its own Blueprint (ABP_Face) has no slot for Sequencer, so the",
    "doc": "Let a sequence's animation track drive the face: its own Blueprint (ABP_Face) has no slot for Sequencer, so the\ncomponent plays the animation directly; Epic's post-process rig (RigLogic) still runs on top.",
    "params": [
     {
@@ -2102,7 +2102,7 @@
    "verb": "from_preset",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 45,
+   "line": 44,
    "summary": "A new character asset copied from a preset (e.g. 'Trey'), opened for editing.",
    "doc": "A new character asset copied from a preset (e.g. 'Trey'), opened for editing.",
    "params": [
@@ -2140,8 +2140,8 @@
    "verb": "garment",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 363,
-   "summary": "Set parameters on a worn garment's material (slots whose name contains `which`): `vectors` take linear [r,g,b], e.g. the default garment's {\"diffuse_color_1\": [...], \"diffuse_color_2\": [...]} is its colour.",
+   "line": 362,
+   "summary": "Set parameters on a worn garment's material (slots whose name contains `which`): `vectors` take linear [r,g,b],",
    "doc": "Set parameters on a worn garment's material (slots whose name contains `which`): `vectors` take linear [r,g,b],\ne.g. the default garment's {\"diffuse_color_1\": [...], \"diffuse_color_2\": [...]} is its colour.",
    "params": [
     {
@@ -2192,8 +2192,8 @@
    "verb": "login",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 65,
-   "summary": "Start Epic's sign-in if there is none: the MetaHuman cloud service asks for one when a rig is requested (on a throwaway character), and the engine hands the device sign-in page to the system browser.",
+   "line": 64,
+   "summary": "Start Epic's sign-in if there is none: the MetaHuman cloud service asks for one when a rig is requested (on a",
    "doc": "Start Epic's sign-in if there is none: the MetaHuman cloud service asks for one when a rig is requested (on a\nthrowaway character), and the engine hands the device sign-in page to the system browser. On a box with no\ndesktop that \"browser\" keeps the page for `film-ue epic-login` (ue-epic.sh). Returns at once.",
    "params": [
     {
@@ -2223,7 +2223,7 @@
    "verb": "palette",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 108,
+   "line": 107,
    "summary": "What the character wears now: its collection's slots and selected items.",
    "doc": "What the character wears now: its collection's slots and selected items.",
    "params": [
@@ -2247,7 +2247,7 @@
    "verb": "presets",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 32,
+   "line": 31,
    "summary": "The preset characters MetaHuman Creator ships (needs the engine's Creator Core Data).",
    "doc": "The preset characters MetaHuman Creator ships (needs the engine's Creator Core Data).",
    "params": [],
@@ -2263,8 +2263,8 @@
    "verb": "rig",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 81,
-   "summary": "Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs).",
+   "line": 80,
+   "summary": "Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs). Blocks until done (about",
    "doc": "Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs). Blocks until done (about\n30 s). Without a sign-in the service would open a browser and wait for one, holding the editor: so with no saved\nsign-in this is an error at once. Sign in once per box (film-ue desktop on, or the device code it shows); the\nsign-in then survives editor restarts. After the rig: mh.textures, then mh.build.",
    "params": [
     {
@@ -2294,7 +2294,7 @@
    "verb": "skin",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 149,
+   "line": 148,
    "summary": "The skin tone (MetaHuman Creator's tone palette coordinates u, v) and roughness; returns the new values.",
    "doc": "The skin tone (MetaHuman Creator's tone palette coordinates u, v) and roughness; returns the new values.",
    "params": [
@@ -2339,8 +2339,8 @@
    "verb": "textures",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 97,
-   "summary": "Epic's cloud high-resolution skin textures.",
+   "line": 96,
+   "summary": "Epic's cloud high-resolution skin textures. Blocks until done; returns whether they arrived.",
    "doc": "Epic's cloud high-resolution skin textures. Blocks until done; returns whether they arrived.",
    "params": [
     {
@@ -2363,7 +2363,7 @@
    "verb": "wardrobe",
    "module": "fmbridge.ops.mh",
    "file": "unreal/fmbridge/ops/mh.py",
-   "line": 38,
+   "line": 37,
    "summary": "Wardrobe items (grooms and clothing): kind Hair, Beards, Eyebrows, Eyelashes, Mustaches, Peachfuzz, Clothing.",
    "doc": "Wardrobe items (grooms and clothing): kind Hair, Beards, Eyebrows, Eyelashes, Mustaches, Peachfuzz, Clothing.",
    "params": [
@@ -2387,7 +2387,7 @@
    "verb": "broken",
    "module": "fmbridge.ops",
    "file": "unreal/fmbridge/ops/__init__.py",
-   "line": 124,
+   "line": 123,
    "summary": "The op modules that failed to import, with their full tracebacks ({} when all loaded).",
    "doc": "The op modules that failed to import, with their full tracebacks ({} when all loaded).",
    "params": [],
@@ -2403,8 +2403,8 @@
    "verb": "schema",
    "module": "fmbridge.ops",
    "file": "unreal/fmbridge/ops/__init__.py",
-   "line": 115,
-   "summary": "Every op's signature, docstring and flags as JSON, for generating a CLI or SDK and for discovery: {\"version\": 1, \"ops\": [{\"name\", \"area\", \"verb\", \"params\": [{\"name\", \"type\", \"required\", \"default\"}], ...}], \"broken\": {module: error}}.",
+   "line": 114,
+   "summary": "Every op's signature, docstring and flags as JSON, for generating a CLI or SDK and for discovery:",
    "doc": "Every op's signature, docstring and flags as JSON, for generating a CLI or SDK and for discovery:\n{\"version\": 1, \"ops\": [{\"name\", \"area\", \"verb\", \"params\": [{\"name\", \"type\", \"required\", \"default\"}], ...}],\n\"broken\": {module: error}}. Example: film-ue op ops.schema prefix=seq.",
    "params": [
     {
@@ -2427,8 +2427,8 @@
    "verb": "mrq",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 25,
-   "summary": "Start a Movie Render Queue job (returns at once; poll render.progress).",
+   "line": 24,
+   "summary": "Start a Movie Render Queue job (returns at once; poll render.progress). Frames go to `out_dir` as",
    "doc": "Start a Movie Render Queue job (returns at once; poll render.progress). Frames go to `out_dir` as\n{frame}.png|exr|jpg, the audio as a wav; `start`/`end` (end exclusive) render part of the sequence. `executor`:\n\"pie\" (in this editor) or \"process\" (a separate -game process; offscreen where the editor has no desktop). The\nprocess loads the level from disk, and with unsaved changes the executor asks to save first: unattended, that\nquestion goes unanswered and the job never starts, so unsaved packages are an error unless `save_dirty`.",
    "params": [
     {
@@ -2563,7 +2563,7 @@
    "verb": "progress",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 102,
+   "line": 101,
    "summary": "Frames written so far (and whether Movie Render Queue is still running).",
    "doc": "Frames written so far (and whether Movie Render Queue is still running).",
    "params": [
@@ -2589,13 +2589,93 @@
    "tags": []
   },
   {
+   "name": "selftest.cleanup",
+   "area": "selftest",
+   "verb": "cleanup",
+   "module": "fmbridge.ops.selftest",
+   "file": "unreal/fmbridge/ops/selftest.py",
+   "line": 54,
+   "summary": "Delete a selftest's scratch folder (/Game/_Selftest/<area>, or all of /Game/_Selftest), leaving it first if it",
+   "doc": "Delete a selftest's scratch folder (/Game/_Selftest/<area>, or all of /Game/_Selftest), leaving it first if it\nis the open level. Returns {\"deleted\": [...], \"changed\"}.\n\nExample: film-ue selftest cleanup --area dx",
+   "params": [
+    {
+     "name": "area",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "selftest.list",
+   "area": "selftest",
+   "verb": "list",
+   "module": "fmbridge.ops.selftest",
+   "file": "unreal/fmbridge/ops/selftest.py",
+   "line": 19,
+   "summary": "The areas with a selftest: {area: {\"doc\", \"requires\", \"areas\", \"needs_level\", \"timeout\"}}, plus this editor's",
+   "doc": "The areas with a selftest: {area: {\"doc\", \"requires\", \"areas\", \"needs_level\", \"timeout\"}}, plus this editor's\ncapabilities (what REQUIRES is checked against).\n\nExample: film-ue selftest list",
+   "params": [],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "selftest.run",
+   "area": "selftest",
+   "verb": "run",
+   "module": "fmbridge.ops.selftest",
+   "file": "unreal/fmbridge/ops/selftest.py",
+   "line": 30,
+   "summary": "Run one area's selftest in a fresh scratch level (/Game/_Selftest/<area>), deleted afterwards unless `keep`.",
+   "doc": "Run one area's selftest in a fresh scratch level (/Game/_Selftest/<area>), deleted afterwards unless `keep`.\nMulti-tick. Returns the report: {\"area\", \"ok\", \"status\": done|skipped|error, \"passed\", \"failed\", \"checks\": [...],\n\"ops_covered\", \"ops_missed\", \"stills\", \"metrics\", \"errors\", \"report\": <its JSON on the box>}.\n\nArgs:\n    area: a selftest module's name (selftest.list).\n    out_dir: the report folder on the box (default Saved/SelfTest/<time>).\n    keep: keep the scratch level and assets to look at afterwards.\n\nExample: film-ue selftest run --area dx --keep",
+   "params": [
+    {
+     "name": "area",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "out_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "keep",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "slow"
+   ]
+  },
+  {
    "name": "seq.anim",
    "area": "seq",
    "verb": "anim",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 593,
-   "summary": "Animation sections on an actor's skeletal mesh component (a MetaHuman's \"Body\" or \"Face\"), each {\"anim\", \"start\", \"end\", \"offset\", \"blend_in\", \"blend_out\", \"rate\", \"weight\", \"loop\", \"row\"}: `start`/`end` frames (end default: start + the ani",
+   "line": 592,
+   "summary": "Animation sections on an actor's skeletal mesh component (a MetaHuman's \"Body\" or \"Face\"), each",
    "doc": "Animation sections on an actor's skeletal mesh component (a MetaHuman's \"Body\" or \"Face\"), each\n{\"anim\", \"start\", \"end\", \"offset\", \"blend_in\", \"blend_out\", \"rate\", \"weight\", \"loop\", \"row\"}: `start`/`end`\nframes (end default: start + the animation's length / rate; past that it loops, `loop` False holds the last\npose), `offset` seconds into the animation where it starts, `blend_in`/`blend_out` frames of ease (weights\ncross-fade where sections overlap: idle -> line -> idle), `weight` (1), `row` (default: the first free one; overlaps\ngo on separate rows). `replace` clears the track's sections first, else these are added. Returns [[anim, start,\nend, row]].",
    "params": [
     {
@@ -2646,8 +2726,8 @@
    "verb": "audio",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 663,
-   "summary": "Sounds in a sequence on a named audio track (\"VO\", \"Score\", \"SFX\"): clips [{\"sound\", \"start\", \"end\", \"offset\", \"volume\"}] or [sound, start]: a SoundWave asset (assets.import a WAV first) from frame `start`, `offset` seconds into it, to `end",
+   "line": 662,
+   "summary": "Sounds in a sequence on a named audio track (\"VO\", \"Score\", \"SFX\"): clips [{\"sound\", \"start\", \"end\", \"offset\",",
    "doc": "Sounds in a sequence on a named audio track (\"VO\", \"Score\", \"SFX\"): clips [{\"sound\", \"start\", \"end\", \"offset\",\n\"volume\"}] or [sound, start]: a SoundWave asset (assets.import a WAV first) from frame `start`, `offset` seconds\ninto it, to `end` (default: its length), at `volume` (1). For timing in the editor; the mix is made in post.\n`replace` empties the named track first, else adds to it. Returns [[sound, start, end, row]].",
    "params": [
     {
@@ -2691,7 +2771,7 @@
    "verb": "camera_cuts",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 216,
+   "line": 215,
    "summary": "The edit: cuts are [camera label, first frame] in order; each runs to the next (the last to the end).",
    "doc": "The edit: cuts are [camera label, first frame] in order; each runs to the next (the last to the end).",
    "params": [
@@ -2722,7 +2802,7 @@
    "verb": "close",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 75,
+   "line": 74,
    "summary": "Close the open sequence.",
    "doc": "Close the open sequence.",
    "params": [],
@@ -2738,7 +2818,7 @@
    "verb": "cuts",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 705,
+   "line": 704,
    "summary": "The edit as it stands: [camera label, first frame, end frame] for each camera cut, in order.",
    "doc": "The edit as it stands: [camera label, first frame, end frame] for each camera cut, in order.",
    "params": [
@@ -2762,8 +2842,8 @@
    "verb": "key_collection",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 519,
-   "summary": "Key a scalar parameter of a material parameter collection (look.collection) on the sequence's track for that collection: keys [[frame, value(, interp)], ...].",
+   "line": 518,
+   "summary": "Key a scalar parameter of a material parameter collection (look.collection) on the sequence's track for that",
    "doc": "Key a scalar parameter of a material parameter collection (look.collection) on the sequence's track for that\ncollection: keys [[frame, value(, interp)], ...]. Sequencer writes the world's instance of the collection, so the\nvalue reaches every material reading it with no mesh binding and no MID in between. Replaces only that\nparameter's keys.",
    "params": [
     {
@@ -2814,8 +2894,8 @@
    "verb": "key_color",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 409,
-   "summary": "Key a colour property: keys [[frame, [r, g, b(, a)](, interp)], ...].",
+   "line": 408,
+   "summary": "Key a colour property: keys [[frame, [r, g, b(, a)](, interp)], ...]. An FColor property (a light's",
    "doc": "Key a colour property: keys [[frame, [r, g, b(, a)](, interp)], ...]. An FColor property (a light's\n\"LightColor\") takes sRGB 0-1, as look.light does; an FLinearColor one (fog \"FogInscatteringLuminance\", a post\n\"Settings.ColorGain\") takes linear values. `srgb` overrides that guess. Component and replacement as key_float.",
    "params": [
     {
@@ -2880,8 +2960,8 @@
    "verb": "key_float",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 384,
-   "summary": "Key a float property of an actor or component: keys [[frame, value(, interp)], ...], interp \"auto\" (smooth, eased at held ends), \"linear\" or \"constant\" (stepped).",
+   "line": 383,
+   "summary": "Key a float property of an actor or component: keys [[frame, value(, interp)], ...], interp \"auto\" (smooth,",
    "doc": "Key a float property of an actor or component: keys [[frame, value(, interp)], ...], interp \"auto\" (smooth,\neased at held ends), \"linear\" or \"constant\" (stepped). `prop` is the C++ name or a path into structs, either\nspelling: \"Intensity\", \"Temperature\", \"FocusSettings.ManualFocusDistance\" (CameraComponent), \"CurrentAperture\",\n\"Settings.AutoExposureBias\" (a PostProcessVolume actor: set its override flag once with look.post), \"FogDensity\".\n`component` by name or class (\"CameraComponent\", \"LightComponent0\"); \"\" = the actor if it has the property, else\nits root component (a light's). `double` for a double property (a UE5 large-world value). Replaces only this\nproperty's track on that binding; the keys hold before the first and after the last.",
    "params": [
     {
@@ -2946,8 +3026,8 @@
    "verb": "key_material",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 466,
-   "summary": "Key a material parameter on a mesh component's material slot (the material there must be an instance or material with that parameter): keys [[frame, value(, interp)], ...], a float for a scalar parameter or [r, g, b(, a)] (linear) for a vec",
+   "line": 465,
+   "summary": "Key a material parameter on a mesh component's material slot (the material there must be an instance or",
    "doc": "Key a material parameter on a mesh component's material slot (the material there must be an instance or\nmaterial with that parameter): keys [[frame, value(, interp)], ...], a float for a scalar parameter or\n[r, g, b(, a)] (linear) for a vector one. `slot` is its index or name (\"M_Sheer\"); `component` \"\" = the actor's\nfirst mesh component. Replaces only that parameter's keys in the slot's track; other parameters keep theirs.",
    "params": [
     {
@@ -3012,8 +3092,8 @@
    "verb": "key_transform",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 192,
-   "summary": "Animate an actor in a sequence: keys are [frame, [x, y, z], {\"pitch\", \"yaw\", \"roll\"} | [x, y, z] to look at] with an optional 4th element, the interpolation leaving that key: \"auto\" (smooth, eases at held ends), \"linear\" or \"constant\" (hold",
+   "line": 191,
+   "summary": "Animate an actor in a sequence: keys are [frame, [x, y, z], {\"pitch\", \"yaw\", \"roll\"} | [x, y, z] to look at]",
    "doc": "Animate an actor in a sequence: keys are [frame, [x, y, z], {\"pitch\", \"yaw\", \"roll\"} | [x, y, z] to look at]\nwith an optional 4th element, the interpolation leaving that key: \"auto\" (smooth, eases at held ends), \"linear\"\nor \"constant\" (hold until the next key, a jump cut). `interp` is the default. Replaces the actor's transform\ntrack (and only that), keeping the actor's scale; yaw is keyed as given, so unwrap it yourself across +-180.",
    "params": [
     {
@@ -3057,8 +3137,8 @@
    "verb": "key_visible",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 433,
-   "summary": "Show and hide an actor (or one of its components) over a sequence: keys [[frame, visible], ...], stepped; the first key holds before it.",
+   "line": 432,
+   "summary": "Show and hide an actor (or one of its components) over a sequence: keys [[frame, visible], ...], stepped; the",
    "doc": "Show and hide an actor (or one of its components) over a sequence: keys [[frame, visible], ...], stepped; the\nfirst key holds before it. Overrides the level's hidden state while the sequence is open or playing (a\npresenter hidden in the level can appear in the reel). `attached` keys the actors attached to it too (her\nearrings and watch). Replaces only the visibility track.",
    "params": [
     {
@@ -3109,8 +3189,8 @@
    "verb": "new",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 361,
-   "summary": "An empty level sequence for building into (no actor, no camera): playback [start, end) at `fps`.",
+   "line": 360,
+   "summary": "An empty level sequence for building into (no actor, no camera): playback [start, end) at `fps`. If it exists it",
    "doc": "An empty level sequence for building into (no actor, no camera): playback [start, end) at `fps`. If it exists it\nis kept as it is (only its range set), so several scripts can each add their tracks; `replace` starts it afresh.",
    "params": [
     {
@@ -3161,8 +3241,8 @@
    "verb": "rebind",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 728,
-   "summary": "Point a sequence's actor bindings at the level's actors of the same label again, after the level was rebuilt and the old actors are gone (their tracks are kept; a binding removed and remade would lose them).",
+   "line": 727,
+   "summary": "Point a sequence's actor bindings at the level's actors of the same label again, after the level was rebuilt",
    "doc": "Point a sequence's actor bindings at the level's actors of the same label again, after the level was rebuilt\nand the old actors are gone (their tracks are kept; a binding removed and remade would lose them). `labels` None\n= every actor binding whose name is an actor in the level. Returns {label: \"ok\" | \"missing\"}.",
    "params": [
     {
@@ -3192,8 +3272,8 @@
    "verb": "sample",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 138,
-   "summary": "Play a sequence frame by frame across editor ticks (so animation and rigs settle) and record bones' world transforms, each [x, y, z, axis_x(3), axis_y(3), axis_z(3)], `camera`'s location, and `target`'s (see seq.aim_point: a point, an actor",
+   "line": 137,
+   "summary": "Play a sequence frame by frame across editor ticks (so animation and rigs settle) and record bones' world",
    "doc": "Play a sequence frame by frame across editor ticks (so animation and rigs settle) and record bones' world\ntransforms, each [x, y, z, axis_x(3), axis_y(3), axis_z(3)], `camera`'s location, and `target`'s (see\nseq.aim_point: a point, an actor, \"Label:Component:bone\"). A multi-tick job.",
    "params": [
     {
@@ -3279,7 +3359,7 @@
    "verb": "scrub",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 66,
+   "line": 65,
    "summary": "Open a sequence in Sequencer, locked to its camera, at a frame (for checking a pose in the viewport).",
    "doc": "Open a sequence in Sequencer, locked to its camera, at a frame (for checking a pose in the viewport).",
    "params": [
@@ -3310,7 +3390,7 @@
    "verb": "set_anim",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 93,
+   "line": 92,
    "summary": "Swap the animation on a component's track in a sequence: every section of it, or only those playing `only`.",
    "doc": "Swap the animation on a component's track in a sequence: every section of it, or only those playing `only`.\n`label` picks the actor when several have a component of that name (both presenters have \"Body\").",
    "params": [
@@ -3362,8 +3442,8 @@
    "verb": "shot",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 23,
-   "summary": "A shot: `anims` maps component names to animations ({\"Body\": idle, \"Face\": talk}); `audio` a SoundWave; the camera cut on `camera`.",
+   "line": 22,
+   "summary": "A shot: `anims` maps component names to animations ({\"Body\": idle, \"Face\": talk}); `audio` a SoundWave; the",
    "doc": "A shot: `anims` maps component names to animations ({\"Body\": idle, \"Face\": talk}); `audio` a SoundWave; the\ncamera cut on `camera`. Length: `seconds`, else the audio's, else the longest animation's.",
    "params": [
     {
@@ -3442,8 +3522,8 @@
    "verb": "still",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 167,
-   "summary": "A still of a sequence at a frame through `camera`, or, with camera \"\", through the camera the edit (the camera cut track) shows at that frame: scrub there, let it settle `settle` ticks (temporal anti-aliasing, Lumen), capture.",
+   "line": 166,
+   "summary": "A still of a sequence at a frame through `camera`, or, with camera \"\", through the camera the edit (the camera",
    "doc": "A still of a sequence at a frame through `camera`, or, with camera \"\", through the camera the edit (the camera\ncut track) shows at that frame: scrub there, let it settle `settle` ticks (temporal anti-aliasing, Lumen),\ncapture. A multi-tick job.",
    "params": [
     {
@@ -3508,8 +3588,8 @@
    "verb": "stills",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 235,
-   "summary": "Stills of a sequence at many frames ({out_dir}/{frame:04d}.png): a contact sheet's worth in one call.",
+   "line": 234,
+   "summary": "Stills of a sequence at many frames ({out_dir}/{frame:04d}.png): a contact sheet's worth in one call. Through",
    "doc": "Stills of a sequence at many frames ({out_dir}/{frame:04d}.png): a contact sheet's worth in one call. Through\none `camera`, or with camera \"\" each frame through its own shot's camera (the camera cut track): a previs of the\nwhole cut. A multi-tick job; returns [[frame, camera, path]].",
    "params": [
     {
@@ -3574,8 +3654,8 @@
    "verb": "tracks",
    "module": "fmbridge.ops.seq",
    "file": "unreal/fmbridge/ops/seq.py",
-   "line": 759,
-   "summary": "What a sequence holds: for each binding (an actor, or actor.component) its tracks as [class, property or name, sections, keys]; master tracks under \"\".",
+   "line": 758,
+   "summary": "What a sequence holds: for each binding (an actor, or actor.component) its tracks as [class, property or",
    "doc": "What a sequence holds: for each binding (an actor, or actor.component) its tracks as [class, property or\nname, sections, keys]; master tracks under \"\". For checking what a build script made.",
    "params": [
     {
@@ -3598,7 +3678,7 @@
    "verb": "moods",
    "module": "fmbridge.ops.speech",
    "file": "unreal/fmbridge/ops/speech.py",
-   "line": 14,
+   "line": 13,
    "summary": "The audio solver's moods (AUTO_DETECT, CONFIDENCE, EXCITEMENT, HAPPINESS, ...).",
    "doc": "The audio solver's moods (AUTO_DETECT, CONFIDENCE, EXCITEMENT, HAPPINESS, ...).",
    "params": [],
@@ -3614,8 +3694,8 @@
    "verb": "to_face",
    "module": "fmbridge.ops.speech",
    "file": "unreal/fmbridge/ops/speech.py",
-   "line": 20,
-   "summary": "Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at `intensity`, and export an animation on `face_mesh`'s skeleton.",
+   "line": 19,
+   "summary": "Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at",
    "doc": "Import `wav` (a path on the workstation), solve it with MetaHuman Animator's audio solver in `mood` at\n`intensity`, and export an animation on `face_mesh`'s skeleton. Returns the sound, performance and animation.\nA multi-tick job.",
    "params": [
     {
@@ -3691,6 +3771,7 @@
   "mh": "MetaHumans: presets, a character from a preset, Epic's cloud rig and high-resolution textures, wardrobe (hair, beard, brows, clothes), the cinematic build to a Blueprint, and how an assembled character is driven.",
   "ops": "The bridge's operations: named functions the operator's machine calls through POST /op (fmbridge.server), each a plain Python function over the `unreal` API, registered with @op(\"area.verb\").",
   "render": "Renders with Movie Render Queue: image sequences plus the mixed audio, deferred (Lumen) or path-traced, with temporal/spatial samples and console variables for quality.",
+  "selftest": "Selftests: list the areas that have one, and run one in a scratch level, writing its JSON report and stills on the box (fmbridge/selftest; `film-ue selftest [area|all]` runs them all and merges one report).",
   "seq": "Level sequences: a shot from an actor, animations per component, audio and a camera; open and scrub.",
   "speech": "Speech to face: a voice file on the workstation becomes a MetaHuman facial animation (lip-sync, blinks, brows, head movement), through MetaHuman Animator's audio solver with a chosen mood."
  }

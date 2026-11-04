@@ -249,3 +249,28 @@ def test_generated_code_compiles(ix):
     exec(compile(src.replace("from . import UNSET, _Area", "from filmtools.unreal.sdk import UNSET, _Area"),
                  "<gen>", "exec"), ns)
     assert "WidOps" in ns and "settle" in dir(ns["WidOps"])
+
+
+def test_static_schema_equals_live_ops_schema(fmb):
+    """The offline schema (AST) and the bridge's ops.schema (inspect, here against the fake engine) are the same."""
+    from fakeunreal import run_op
+    live = {o["name"]: o for o in run_op("ops.schema")["ops"]}
+    static = {o["name"]: o for o in schema.extract()["ops"]}
+    assert set(live) == set(static)
+    diffs = []
+    for n, lo in live.items():
+        so = static[n]
+        for k in lo:
+            if k == "params":
+                for lp, sp in zip(lo[k], so[k]):
+                    for pk in lp:
+                        if pk == "default" and sp["default"] is None and isinstance(lp["default"], str) and \
+                                not sp["required"] and lp["default"] not in ("",):
+                            continue  # a non-literal default: the live one is its repr, the static one null
+                        if lp[pk] != sp[pk]:
+                            diffs.append((n, lp["name"], pk, lp[pk], sp[pk]))
+                if len(lo[k]) != len(so[k]):
+                    diffs.append((n, "params", len(lo[k]), len(so[k])))
+            elif lo[k] != so[k]:
+                diffs.append((n, k, lo[k], so[k]))
+    assert not diffs, diffs[:10]

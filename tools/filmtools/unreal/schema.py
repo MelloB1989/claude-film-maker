@@ -210,7 +210,8 @@ def _wire(name: str, meta: dict, fn, doc: str, module: str, file: str, multi: bo
     area, _, verb = name.partition(".")
     tags = meta.get("tags")
     return {"name": name, "area": area if verb else "", "verb": verb or name, "module": module, "file": file,
-            "line": getattr(fn, "lineno", None), "summary": summary(doc), "doc": doc, "params": _wire_params(fn),
+            "line": min([getattr(fn, "lineno", 0)] + [d.lineno for d in getattr(fn, "decorator_list", [])]) or None,
+            "summary": (doc.splitlines() or [""])[0], "doc": doc, "params": _wire_params(fn),
             "returns": ast.unparse(fn.returns) if getattr(fn, "returns", None) else None, "multi_tick": multi,
             "mutates": meta.get("mutates"), "idempotent": meta.get("idempotent"),
             "tags": list(tags) if isinstance(tags, (list, tuple)) else []}
@@ -309,6 +310,7 @@ def index(schema: dict) -> dict:
             params.append(p)
         o["params"] = params
         o["examples"] = examples(o.get("doc") or "")
+        o["summary"] = summary(o.get("doc") or "") or o.get("summary", "")  # the first sentence, for help lines
         ops[o["name"]] = o
         if o["area"]:
             areas.setdefault(o["area"], {"doc": schema.get("areas", {}).get(o["area"], ""), "ops": []})["ops"].append(o["name"])
