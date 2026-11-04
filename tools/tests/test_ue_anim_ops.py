@@ -87,13 +87,13 @@ def test_anim_write_curves_modes_and_convergence(ue):
 def test_anim_new_converges(ue):
     ue.skeletal_mesh("/Game/MH/Face/FaceMesh", FACE_SKEL)
     r = run_op("anim.new", path="/Game/P/AS_blank", skeleton="/Game/MH/Face/FaceMesh", length_s=2.0)
-    assert r["created"] and r["frames"] == 61 and r["length_s"] == pytest.approx(2.0)
+    assert r["created"] and r["frames"] == 60 and r["length_s"] == pytest.approx(2.0)
     a = ue.assets["/Game/P/AS_blank"]
     assert a.get_skeleton() is ue.assets[FACE_SKEL]
     r = run_op("anim.new", path="/Game/P/AS_blank", skeleton="/Game/MH/Face/FaceMesh", length_s=2.0)
     assert not r["created"] and not r["changed"]
     r = run_op("anim.new", path="/Game/P/AS_blank", skeleton=FACE_SKEL, length_s=3.0)
-    assert r["changed"] and r["frames"] == 91
+    assert r["changed"] and r["frames"] == 90
     assert ue.dialogs == []
 
 

@@ -473,6 +473,15 @@ def _tag(ad, name: str):
     return v if v not in ("", None) else None
 
 
+def _object_path(tag: str) -> str:
+    """A registry tag's object reference as a package path: "/Script/Engine.Skeleton'/Game/A/S.S'" -> "/Game/A/S"
+    (the quoted export-text form, or a bare object path)."""
+    tag = str(tag or "")
+    if "'" in tag:
+        tag = tag.split("'")[1]
+    return _pkg(tag)
+
+
 def _skeleton_path(obj) -> str:
     """The skeleton of an animation, skeletal mesh or skeleton, as a package path ("" when none)."""
     if obj is None:
@@ -509,8 +518,9 @@ def find(*, query: str = "", path: str = "/", skeleton: str = "", kind: str = ""
     """
     from ..perfkit import library as LIB
     reg = unreal.AssetRegistryHelpers.get_asset_registry()
+    root = path.rstrip("/")
     flt = unreal.ARFilter(class_paths=[unreal.TopLevelAssetPath("/Script/Engine", "AnimSequence")],
-                          package_paths=[path.rstrip("/") or "/"], recursive_paths=True)
+                          package_paths=[root] if root else [], recursive_paths=True)  # "/" = every mount
     ads = list(reg.get_assets(flt) or [])
     want_sk = ""
     if skeleton:
@@ -523,7 +533,7 @@ def find(*, query: str = "", path: str = "/", skeleton: str = "", kind: str = ""
     out = []
     for r in ranked:
         ad = by[r["path"]]
-        sk = _pkg(_tag(ad, "Skeleton") or "").split("'")[-1].strip("'")
+        sk = _object_path(_tag(ad, "Skeleton") or "")
         if want_sk and sk and _pkg(sk) != want_sk:
             continue
         ln = _tag(ad, "SequenceLength")
@@ -545,7 +555,7 @@ def describe(*, anim: str, curves: bool = False) -> dict:
     bone tracks, additive settings, root motion, and the perf metadata (fingerprint) when perf made it.
 
     Args: anim: AnimSequence path. curves: also list every curve name.
-    Returns: {"path", "length_s", "frames", "fps", "skeleton", "curve_count", "head_curves": [...],
+    Returns: {"path", "length_s", "frames" (key intervals: keys - 1), "fps", "skeleton", "curve_count", "head_curves": [...],
     "face_curves": n, "bone_tracks": n, "additive": {"type", "base"}, "root_motion": bool, "perf": {...}, "curves"?}.
     Example: film-ue op anim.describe anim=/Game/Speech/Anim/AS_line1
     """
@@ -563,7 +573,7 @@ def describe(*, anim: str, curves: bool = False) -> dict:
         if v:
             meta[k.split(".")[-1]] = v
     out = {"path": _pkg(anim), "length_s": round(length, 4), "frames": frames,
-           "fps": round((frames - 1) / length, 3) if length > 0 and frames > 1 else None,
+           "fps": round(frames / length, 3) if length > 0 and frames > 0 else None,
            "skeleton": _skeleton_path(a), "curve_count": len(names),
            "head_curves": [n for n in names if n in R.HEAD], "face_curves": sum(1 for n in names if n in R.CURVES),
            "bone_tracks": len(list(AL.get_animation_track_names(a))),

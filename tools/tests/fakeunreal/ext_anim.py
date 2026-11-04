@@ -107,8 +107,8 @@ class AnimationLibrary(core.Object):
         return anim.length_s
 
     @staticmethod
-    def get_num_frames(anim):
-        return anim._data["frames"] + 1
+    def get_num_frames(anim):  # the engine: sampled keys - 1 (AnimationBlueprintLibrary.cpp:131)
+        return anim._data["frames"]
 
     @staticmethod
     def get_num_keys(anim):
