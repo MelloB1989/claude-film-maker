@@ -2059,6 +2059,32 @@
    ]
   },
   {
+   "name": "editor.doctor",
+   "area": "editor",
+   "verb": "doctor",
+   "module": "fmbridge.ops.doctor",
+   "file": "unreal/fmbridge/ops/doctor.py",
+   "line": 56,
+   "summary": "Check that this editor can do the work: engine 5.8, Python 3.11, a real GPU RHI (not -nullrhi), the plugins",
+   "doc": "Check that this editor can do the work: engine 5.8, Python 3.11, a real GPU RHI (not -nullrhi), the plugins\nthe ops need, every op module imported, free disk, the Epic sign-in (Linux), the render/MetaHuman/data layer\nAPIs reachable from Python, and the hair sky-lighting trap. Read-only.\n\nReturns: {\"pass\": no fail-severity issue, \"issues\": [{\"code\", \"severity\", \"message\", \"fix\"}], \"metrics\":\n{\"engine\", \"python\", \"platform\", \"rhi\", \"offscreen\", \"free_gb\", \"plugins_missing\", \"ops\", \"broken\"}}.\nExample: film-ue doctor   (or: film-ue op editor.doctor)",
+   "params": [
+    {
+     "name": "min_free_gb",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "platform"
+   ]
+  },
+  {
    "name": "editor.gc",
    "area": "editor",
    "verb": "gc",
