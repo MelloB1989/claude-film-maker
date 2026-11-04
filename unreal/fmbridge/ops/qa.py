@@ -368,8 +368,8 @@ def floating(*, labels: list | None = None, ignore: list | None = None, toleranc
     acts = _mesh_actors(labels, set(ignore or []))
     items, ground = {}, {}
     world = _world()
-    from .layout import _visibility_channel
-    channel = _visibility_channel()  # ECC_VISIBILITY live (TraceTypeQueryN are hidden), TRACE_TYPE_QUERY1 fallback
+    from ._util import visibility_channel
+    channel = visibility_channel()  # ECC_VISIBILITY live: the TraceTypeQueryN entries are hidden
     for lab, a in acts.items():
         o, e = _bounds(a)
         items[lab] = (o, e)
