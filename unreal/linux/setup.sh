@@ -49,6 +49,11 @@ step_driver() {
         echo "driver: nvidia $branch installed; reboot needed"
     fi
     apt-get install -y -qq libvulkan1 vulkan-tools xdg-user-dirs >/dev/null
+    # the editor's shared libraries a minimal server image lacks (an installed or source-built Linux engine links
+    # Slate/CEF against them: without libpango/libcairo UnrealEditor exits 127 before writing a log)
+    apt-get install -y -qq libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgtk-3-0 libnss3 libxcomposite1 \
+        libxdamage1 libxrandr2 libgbm1 libasound2 libatk1.0-0 libatk-bridge2.0-0 libxkbcommon0 libxss1 \
+        libxtst6 libsecret-1-0 >/dev/null
     nvidia-smi >/dev/null 2>&1 || echo "reboot=needed"
 }
 
@@ -61,6 +66,9 @@ step_engine() {
     aws s3 cp --only-show-errors "$s3/tools/ue-restore.sh" /tmp/ue-restore.sh
     UE_S3="$s3" UE_USER="$UE_USER" bash /tmp/ue-restore.sh "$version" "$dest"
     echo "engine: $(cat "$dest/Engine/Build/Build.version" | tr -d '\n ' | head -c 200)"
+    local missing
+    missing="$(ldd "$dest/Engine/Binaries/Linux/UnrealEditor" 2>&1 | grep 'not found' || true)"
+    [ -z "$missing" ] || echo "engine: missing libraries: $missing"
 }
 
 step_project() {
