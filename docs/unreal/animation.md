@@ -223,7 +223,8 @@ of their WAV, mood and intensity. Change a mood and only that line re-solves.
 
 ## Audio2Face-3D (design only, offline)
 
-NVIDIA Audio2Face-3D (A2F-3D, open-sourced 2025: SDK + models; inference on an NVIDIA GPU) can replace or complement
+NVIDIA Audio2Face-3D (A2F-3D; NVIDIA published the SDK and models in 2025 — check the current licence and
+packaging before building; inference on an NVIDIA GPU) can replace or complement
 MetaHuman Animator's audio solver. Route, offline and unbuilt (nothing here runs it):
 
 1. On the GPU box (an L4 works), run A2F-3D's offline inference (`audio2face-3d` SDK sample or the Maya/UE ACE
@@ -232,8 +233,9 @@ MetaHuman Animator's audio solver. Route, offline and unbuilt (nothing here runs
 2. Map ARKit blendshapes to MetaHuman curves with a table (`perfkit/a2f.py`, to be written): e.g. `jawOpen ->
    CTRL_expressions_jawOpen`, `mouthSmileLeft -> CTRL_expressions_mouthCornerPullL`, `eyeBlinkLeft ->
    CTRL_expressions_eyeBlinkL`, `browInnerUp -> browRaiseInL/R`, `mouthFunnel -> mouthFunnelUL/UR/DL/DR`, ...;
-   Epic ships an ARKit-to-MetaHuman pose asset (mh_arkit_mapping_pose) in the MetaHuman content: read its pose
-   weights once with anim.read_curves to build the table instead of guessing.
+   MetaHuman content has shipped an ARKit-to-MetaHuman mapping pose asset for Live Link (named like
+   `mh_arkit_mapping_pose`; not in the engine source, so find it on the box with `assets.list` / `anim.find`): read
+   its pose weights once to build the table instead of guessing.
 3. Write the curves with `anim.new` + `anim.write_curves` (one batch), then `perf.face` with `blink_mode=replace`,
    `solver_head=replace` (A2F has no head), and `layers` all: the same head/eyes/blinks/brows as for the solver.
 4. As a spec option: `lines[].solver: a2f` making perf.plan emit `perf.solve_a2f` instead of `perf.solve`.
