@@ -21,7 +21,9 @@ def person(ue, label, at=(0.0, 0.0), turn=0):
 
 @pytest.fixture
 def seqrec(fmb, monkeypatch, ue):
-    """Replace WP8's seq ops with recorders; returns the list of calls."""
+    """Replace WP8's per-track seq ops with recorders (and hide seq.apply, so the per-track path runs); returns the
+    list of calls."""
+    monkeypatch.delitem(fmb._OPS, "seq.apply", raising=False)
     calls = []
     cuts = {}
 
@@ -396,3 +398,17 @@ def test_batched_writes_through_seq_apply(ue, fmb, seqrec, monkeypatch):
     assert s2["transform"]["keys"][0][0] == 20 and "CameraComponent/FocusSettings.ManualFocusDistance" in s2["props"]
     mv = run_op("cam.move", camera="CAM_S1", sequence=SPEC["sequence"], moves_=[{"move": "pan", "degrees": 10}])
     assert mv["write"]["batched"] and list(calls[-1]["bindings"]) == ["CAM_S1"] and "camera_cuts" not in calls[-1]
+
+
+def test_shot_apply_on_wp8_sequencer(ue, fmb):
+    """Against WP8's own Sequencer fake and seq.apply (when installed): the edit and the keys read back."""
+    if "seq.apply" not in fmb._OPS:
+        pytest.skip("WP8's seq.apply is not on this branch")
+    person(ue, "A", (0, -90), turn=90)
+    person(ue, "B", (0, 90), turn=-90)
+    r = run_op("shot.apply", spec=SPEC)
+    assert r["write"]["batched"] and r["write"]["converged"], r["write"]
+    assert [c[:2] for c in run_op("seq.cuts", path=SPEC["sequence"])] == [["CAM_S1", 0], ["CAM_S2", 20],
+                                                                          ["CAM_S3", 80]]
+    assert run_op("shot.apply", spec=SPEC)["changed"] is False
+    assert run_op("shot.apply", spec=SPEC, force=True)["write"]["steps"] == 0  # seq.apply: nothing left to write

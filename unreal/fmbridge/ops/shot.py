@@ -114,7 +114,8 @@ def apply(*, spec: dict, force: bool = False) -> dict:
         res = cam.add(label=label, loc=sc["loc"], rot_=sc["rot"], focal_mm=sc["focal"], aperture=first["lens"]["aperture"],
                       sensor_mm=sc["filmback"], focus_cm=sc.get("focus"))
         done[label] = {"created": res["created"], "keys": len(c["keys"])}
-    write = yield from cam.write_tracks(path, {label: c["keys"] for label, c in p["cameras"].items()}, p["cuts"])
+    write = yield from cam.write_tracks(path, {label: c["keys"] for label, c in p["cameras"].items()}, p["cuts"],
+                                        fps=int(round(p["fps"])), rng=p["range"])
     removed = []
     stale = [c for c in before.get("cameras", []) if c not in p["cameras"]]
     if stale:

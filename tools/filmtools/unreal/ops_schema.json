@@ -7012,7 +7012,7 @@
    "verb": "check",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 160,
+   "line": 161,
    "summary": "Check a sequence's edit numerically: every shot's frame (cam.check: QA's framing plus focus, safe areas,",
    "doc": "Check a sequence's edit numerically: every shot's frame (cam.check: QA's framing plus focus, safe areas,\ndutch) at its start (or \"middle\"), and every cut (180-degree line, 30-degree rule). Scrubs the sequence: a\nmulti-tick job.\n\nReturns: {\"pass\", \"issues\", \"shots\": [{\"camera\", \"start\", \"end\", \"size\"}]}.\nExample: film-ue op shot.check sequence=/Game/Films/demo/Seq_Scene1 'subjects=[\"Host\",\"Guest\"]'",
    "params": [
@@ -7054,7 +7054,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 129,
+   "line": 130,
    "summary": "The edit of a sequence as it stands: each cut's camera and frames with the camera's lens and pose now (its",
    "doc": "The edit of a sequence as it stands: each cut's camera and frames with the camera's lens and pose now (its\nfirst key's pose is what the cut opens on when scrubbed), the size it gives on `subjects`, and the stored spec\nhash.\n\nExample: film-ue op shot.describe sequence=/Game/Films/demo/Seq_Scene1 subjects=Presenter",
    "params": [
@@ -7115,7 +7115,7 @@
    "verb": "sheet",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 191,
+   "line": 192,
    "summary": "A previz contact sheet of a sequence's edit: per shot 1 (its middle) or 3 (start, middle, end) stills",
    "doc": "A previz contact sheet of a sequence's edit: per shot 1 (its middle) or 3 (start, middle, end) stills\nthrough the cut's camera, with thirds and safe-frame guides and a label (shot, camera, frame, focal), in one PNG.\nA multi-tick job: about 2 s per still plus the drawing.\n\nReturns: {\"path\": the sheet, \"width\", \"height\", \"stills\": [[frame, camera, path]]}.\nExample: film-ue op shot.sheet sequence=/Game/Films/demo/Seq_Scene1 out_dir=/tmp/sheet per_shot=3",
    "params": [
