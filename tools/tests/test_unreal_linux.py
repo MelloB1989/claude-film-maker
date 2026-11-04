@@ -107,6 +107,7 @@ def test_compare_reports_psnr_and_the_worst_frame(tmp_path):
         Image.fromarray(np.clip(base.astype(int) + noise, 0, 255).astype("uint8")).save(new / f"{i:04d}.png")
     r = poc.compare(new, ref)
     assert r["matched"] == 3 and r["worst"] == "0002" and r["psnr_min"] < r["psnr_mean"]
+    assert r["frames"][0]["ssim"] == 1.0 and r["ssim_min"] < 1.0 and r["shift_rgb_mean"][0] > 0
     assert (tmp_path / "new_vs_ref_0002.jpg").exists()
 
 

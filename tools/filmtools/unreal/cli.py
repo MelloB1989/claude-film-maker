@@ -7,7 +7,7 @@
     film-ue provision --engine-s3 S3 --version 5.8.4 --project-src s3://...|win:UEProjects/NAME --project NAME
                       [--level /Game/...]
                                                 a fresh Linux box: volume, driver, engine, project, editor unit
-    film-ue editor start|stop|restart|status|enable|log [N]   the editor's systemd unit (Linux)
+    film-ue editor start|stop|restart|status|enable|log [N]|mode default|offscreen|xvfb   the editor's unit (Linux)
     film-ue desktop on|off                      Linux: a temporary desktop (VNC through SSM) for a one-off sign-in
     film-ue install                             copy unreal/fmbridge + init_unreal.py into the project, start the bridge
     film-ue health                              bridge up? engine, project, queue
@@ -194,8 +194,8 @@ def main() -> None:
     pv.add_argument("--project", required=True, help="the project's name (NAME.uproject)")
     pv.add_argument("--level", default="", help="a level to open at start, e.g. /Game/Maps/Main")
     ed = sub.add_parser("editor")
-    ed.add_argument("action", choices=("start", "stop", "restart", "status", "enable", "log"))
-    ed.add_argument("lines", nargs="?", type=int, default=80)
+    ed.add_argument("action", choices=("start", "stop", "restart", "status", "enable", "log", "mode"))
+    ed.add_argument("arg", nargs="?", default="", help="log: lines (80); mode: default|offscreen|xvfb")
     sub.add_parser("desktop").add_argument("state", choices=("on", "off"))
     sub.add_parser("poc", add_help=False)  # its own arguments: filmtools.unreal.poc
     sub.add_parser("ops").add_argument("prefix", nargs="?", default="")
@@ -222,6 +222,9 @@ def main() -> None:
     if a.box:
         os.environ["FILM_UE_BOX"] = a.box
 
+    if a.cmd in ("provision", "editor", "desktop") and not ws.linux():
+        raise SystemExit(f"film-ue {a.cmd} is for a Linux box: film-ue --box NAME set --os linux ...")
+
     if a.cmd == "set":
         print(json.dumps(ws.save(**{k: getattr(a, k) for k in SETTINGS if getattr(a, k) is not None}), indent=1))
     elif a.cmd == "up":
@@ -233,7 +236,11 @@ def main() -> None:
         print(json.dumps(linuxbox.provision(a.engine_s3, a.version, a.project_src, a.project, a.level), indent=1))
     elif a.cmd == "editor":
         if a.action == "log":
-            print(ws.sh(f"journalctl -u {shlex.quote(ws.conf()['service'])} -n {a.lines} --no-pager", root=True))
+            print(ws.sh(f"journalctl -u {shlex.quote(ws.conf()['service'])} -n {int(a.arg or 80)} --no-pager", root=True))
+        elif a.action == "mode":
+            from . import linuxbox
+            linuxbox.upload_kit()
+            print(linuxbox.step("mode", a.arg or "default", timeout=300))
         else:
             print(ws.editor(a.action))
     elif a.cmd == "desktop":

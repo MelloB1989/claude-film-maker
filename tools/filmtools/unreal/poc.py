@@ -159,34 +159,63 @@ def _stats(p: Path) -> dict:
     return {"size": [im.shape[1], im.shape[0]], "mean": round(float(im.mean()), 1), "std": round(float(im.std()), 1)}
 
 
+def ssim(x, y, win: int = 8) -> float:
+    """Mean SSIM of two RGB frames on their luma, over win x win box windows (no SciPy needed)."""
+    import numpy as np
+
+    def luma(a):
+        return a[..., 0] * 0.299 + a[..., 1] * 0.587 + a[..., 2] * 0.114
+
+    def box(a):  # mean over every win x win window, by integral image
+        c = np.pad(a, ((1, 0), (1, 0))).cumsum(0).cumsum(1)
+        return (c[win:, win:] - c[:-win, win:] - c[win:, :-win] + c[:-win, :-win]) / (win * win)
+    a, b = luma(x).astype(np.float64), luma(y).astype(np.float64)
+    c1, c2 = (0.01 * 255) ** 2, (0.03 * 255) ** 2
+    ma, mb = box(a), box(b)
+    va, vb, cov = box(a * a) - ma * ma, box(b * b) - mb * mb, box(a * b) - ma * mb
+    return float((((2 * ma * mb + c1) * (2 * cov + c2)) / ((ma * ma + mb * mb + c1) * (va + vb + c2))).mean())
+
+
 def compare(new: Path, ref: Path) -> dict:
-    """Frame by frame (matching names): PSNR and mean absolute difference; a side-by-side of the worst frame."""
+    """Frame by frame (matching names): SSIM, PSNR, mean absolute difference and the mean colour shift (new - ref,
+    per channel, 0-255); as a baseline, the SSIM between adjacent reference frames (what motion alone costs); a
+    side-by-side of the worst frame."""
     import numpy as np
     from PIL import Image
+
+    def load(p):
+        return np.asarray(Image.open(p).convert("RGB"), dtype=np.float32)
     rows = []
     for f in sorted(new.glob("*.png")):
         g = ref / f.name
         if not g.exists():
             continue
-        x = np.asarray(Image.open(f).convert("RGB"), dtype=np.float32)
-        y = np.asarray(Image.open(g).convert("RGB"), dtype=np.float32)
+        x, y = load(f), load(g)
         if x.shape != y.shape:
             rows.append({"frame": f.stem, "error": f"size {x.shape[:2]} vs {y.shape[:2]}"})
             continue
         mse = float(((x - y) ** 2).mean())
-        rows.append({"frame": f.stem, "psnr": round(10 * np.log10(255 ** 2 / mse), 2) if mse else 99.0,
-                     "mad": round(float(np.abs(x - y).mean()), 2)})
-    good = [r for r in rows if "psnr" in r]
+        rows.append({"frame": f.stem, "ssim": round(ssim(x, y), 4),
+                     "psnr": round(10 * np.log10(255 ** 2 / mse), 2) if mse else 99.0,
+                     "mad": round(float(np.abs(x - y).mean()), 2),
+                     "shift_rgb": [round(float(v), 2) for v in (x - y).reshape(-1, 3).mean(0)]})
+    good = [r for r in rows if "ssim" in r]
     if not good:
         return {"frames": rows, "matched": 0}
-    worst = min(good, key=lambda r: r["psnr"])
+    refs = sorted(ref.glob("*.png"))
+    adjacent = [round(ssim(load(a_), load(b_)), 4) for a_, b_ in zip(refs, refs[1:])][:8]
+    worst = min(good, key=lambda r: r["ssim"])
     a_, b_ = Image.open(new / f"{worst['frame']}.png").convert("RGB"), Image.open(ref / f"{worst['frame']}.png").convert("RGB")
     side = Image.new("RGB", (a_.width * 2, a_.height))
     side.paste(a_, (0, 0))
     side.paste(b_, (a_.width, 0))
     side.save(new.parent / f"{new.name}_vs_ref_{worst['frame']}.jpg", quality=90)
-    return {"matched": len(good), "psnr_min": worst["psnr"], "psnr_mean": round(sum(r["psnr"] for r in good) / len(good), 2),
-            "mad_max": max(r["mad"] for r in good), "worst": worst["frame"], "frames": rows}
+    n = len(good)
+    return {"matched": n, "ssim_min": worst["ssim"], "ssim_mean": round(sum(r["ssim"] for r in good) / n, 4),
+            "psnr_min": min(r["psnr"] for r in good), "psnr_mean": round(sum(r["psnr"] for r in good) / n, 2),
+            "mad_max": max(r["mad"] for r in good),
+            "shift_rgb_mean": [round(sum(r["shift_rgb"][i] for r in good) / n, 2) for i in range(3)],
+            "ref_adjacent_ssim": adjacent, "worst": worst["frame"], "frames": rows}
 
 
 def _render(a, executor: str, name: str) -> dict:

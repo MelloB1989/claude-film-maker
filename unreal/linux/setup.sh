@@ -10,6 +10,7 @@
 #   windisk [MOUNT]                mount a Windows volume (an EBS copy of a workstation's snapshot) read-only
 #   project-copy SRC DIR           the project folder from a mounted disk (SRC e.g. /mnt/win/UEProjects/Name)
 #   service ENGINE UPROJECT [MAP]  /etc/default/ue-editor, /usr/local/bin/ue-editor, ue-editor.service (enabled)
+#   mode default|offscreen|xvfb    the editor's display mode (ue-editor.sh), then restart it
 #   desktop on|off                 a temporary desktop for one interactive step (a sign-in): Xorg on the GPU with a
 #                                  virtual screen, openbox, a browser, x11vnc on 127.0.0.1:5900 (reached only through
 #                                  an SSM port-forward), the editor restarted onto it; off puts it back offscreen
@@ -100,9 +101,10 @@ step_service() {
 UE_ROOT=$engine
 UE_PROJECT=$uproject
 UE_MAP=$map
-UE_SDL=offscreen
+UE_SDL=default
 UE_ARGS=
 EOF
+    apt-get install -y -qq xvfb xauth >/dev/null  # display mode "xvfb" (ue-editor.sh), if the offscreen ones fail
     install -m 755 "$HERE/ue-editor.sh" /usr/local/bin/ue-editor
     sed "s/@USER@/$UE_USER/g" "$HERE/ue-editor.service" > /etc/systemd/system/ue-editor.service
     systemctl daemon-reload
@@ -110,11 +112,19 @@ EOF
     echo "service: ue-editor enabled ($(systemctl is-active ue-editor || true))"
 }
 
+step_mode() {
+    local mode="${1:?mode default|offscreen|xvfb}"
+    install -m 755 "$HERE/ue-editor.sh" /usr/local/bin/ue-editor
+    sed -i "s/^UE_SDL=.*/UE_SDL=$mode/; /^DISPLAY=/d" /etc/default/ue-editor
+    systemctl restart ue-editor
+    echo "mode: $mode; editor restarted"
+}
+
 step_desktop() {
     local what="${1:?desktop on|off}" drv bus pw
     if [ "$what" = off ]; then
         systemctl stop ue-vnc ue-xorg 2>/dev/null || true
-        sed -i 's/^UE_SDL=.*/UE_SDL=offscreen/; /^DISPLAY=/d' /etc/default/ue-editor
+        sed -i 's/^UE_SDL=.*/UE_SDL=default/; /^DISPLAY=/d' /etc/default/ue-editor
         systemctl restart ue-editor
         echo "desktop: off; editor offscreen"
         return
@@ -169,6 +179,6 @@ step_check() {
     echo "ram_gb=$(free -g | awk '/Mem:/{print $2}') disk_free=$(df -h --output=avail /srv/ue 2>/dev/null | tail -1 | tr -d ' ')"
 }
 
-cmd="${1:?usage: setup.sh volume|driver|engine|project|windisk|project-copy|service|desktop|check ...}"
+cmd="${1:?usage: setup.sh volume|driver|engine|project|windisk|project-copy|service|mode|desktop|check ...}"
 shift
 "step_$cmd" "$@"
