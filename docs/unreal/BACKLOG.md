@@ -24,7 +24,7 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B08 | Contact sheet with labels: shots × frames grid with frame number, camera, shot name burnt in; client-side (PIL) from pulled stills | WP10 | S | merged (agent-09) |
 | B09 | Still diff: two stills to a diff image + SSIM/PSNR/mean abs diff; used by selftests to prove "the change changed the picture" and regressions | WP10 | S | merged (agent-09) |
 | B10 | Undo-safe "scratch" context: `with scratch("/Game/_Selftest/x")` creates a temporary level/folder, tears it down even on failure (no dialogs) | WP11 | S | open |
-| B11 | `film-ue doctor`: checks the box end to end (bridge up, engine version, plugins enabled: MRQ, MetaHuman, Python Editor Script; GPU/RHI, disk, DDC, Epic login state) and prints fixes | WP1/WP11 | M | open |
+| B11 | `film-ue doctor`: checks the box end to end (bridge up, engine version, plugins enabled: MRQ, MetaHuman, Python Editor Script; GPU/RHI, disk, DDC, Epic login state) and prints fixes | WP1/WP11 | M | merged (agent-10) |
 | B12 | Plugin/project settings op: `editor.plugins` (list/enable, needs restart flag), `editor.cvars` (get/set/snapshot/restore a set of cvars), `editor.project_setting` | WP1 | M | open |
 | B13 | Asset dependency + reference report: `assets.refs` (who uses this), `assets.deps`; `assets.audit` unused/missing/broken (checkerboard) materials | WP2 | M | claimed agent-02 |
 | B14 | Texture import rules: sRGB/compression by suffix and by content (normal-map detection), virtual textures off/on, max size; `assets.texture_set` imports a PBR set (BaseColor/Normal/ORM) and builds an MI | WP2 | M | claimed agent-02 |
