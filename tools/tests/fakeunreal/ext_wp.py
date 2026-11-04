@@ -70,17 +70,17 @@ def install(fake):
         get_runtime_world_bounds = get_editor_world_bounds
 
         @staticmethod
-        def get_actor_descs():
+        def get_actor_descs():  # bool + out param: None on false, else the array (PyGenUtil.cpp:1161)
             if state["descs"] is None:
-                return False, []
-            return True, [_desc(d) for d in state["descs"]]
+                return None
+            return [_desc(d) for d in state["descs"]]
 
         @staticmethod
         def get_intersecting_actor_descs(box):
             if state["descs"] is None:
-                return False, []
+                return None
             b = type("B", (), {"min_": list(box.min), "max_": list(box.max)})
-            return True, [_desc(d) for d in state["descs"] if _meets(d, b)]
+            return [_desc(d) for d in state["descs"] if _meets(d, b)]
 
         @staticmethod
         def load_actors(guids):
