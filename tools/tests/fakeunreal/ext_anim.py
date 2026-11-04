@@ -151,6 +151,16 @@ class _CurveId:
         self.name = name
 
 
+class AnimationCurveIdentifier:
+    """FAnimationCurveIdentifier: set_curve_identifier fills it in place (a ref-self script method)."""
+
+    def __init__(self):
+        self.name = ""
+
+    def set_curve_identifier(self, name, curve_type):
+        self.name = str(name)
+
+
 class RichCurveKey:
     def __init__(self, time=0.0, value=0.0, interp_mode=None, **kw):
         self.time, self.value, self.interp_mode = time, value, interp_mode
@@ -224,7 +234,7 @@ class TopLevelAssetPath:
 
 def install(fake):
     for cls in (Skeleton, SkeletalMesh, AnimSequence, AnimationLibrary, AnimationCurveIdentifierExtensions,
-                RichCurveKey, AnimSequenceFactory, ARFilter, TopLevelAssetPath, MetaHumanPerformance,
+                RichCurveKey, AnimSequenceFactory, ARFilter, TopLevelAssetPath, AnimationCurveIdentifier, MetaHumanPerformance,
                 MetaHumanPerformanceFactoryNew, MetaHumanPerformanceExportUtils):
         if hasattr(fake, "_classes"):
             fake._classes[cls.__name__] = cls

@@ -223,6 +223,10 @@ of their WAV, mood and intensity. Change a mood and only that line re-solves.
 - **Curves are keyed linearly** (RCIM_LINEAR) at 30-60 Hz before reduction; perfkit's checks sample at frame rate,
   so dense linear keys are not mistaken for robotic straight lines.
 - **Blink rate on short shots** (< 20 s) is judged by count (one per 8 s at least), not rate.
+- **Control Rig tracks from Python need a Blueprint-based rig.** 5.8 makes new Control Rigs as independent assets
+  (`RigVM.BlueprintIndependentAssets` true), which `load_blueprint_class` cannot turn into a class: `anim.rig_keys`
+  with `rig_class` works for legacy ControlRigBlueprint assets (the MetaHuman boards); for others add the track once
+  in the editor and key it by code.
 - **perf.face copies** the source (`out`, default `<anim>_perf`) and re-makes it on each call; the source is never
   touched.
 
@@ -254,6 +258,8 @@ reflected names; an out-parameter comes back as the return value.
 
 | Python | C++ | file:line | verified |
 |---|---|---|---|
+| `AnimationCurveIdentifier().set_curve_identifier(name, RCT_FLOAT)` (ref-self) | `UAnimationCurveIdentifierExtensions::SetCurveIdentifier` (GetCurveIdentifier is deprecated in 5.8) | Engine/Source/Runtime/Engine/Classes/Animation/AnimData/CurveIdentifier.h:150-152 | yes |
+| `ControlRig.get_hierarchy().get_controls()` | `URigHierarchy::GetControlKeys` (ScriptName GetControls) | Engine/Plugins/Animation/ControlRig/Source/ControlRig/Public/Rigs/RigHierarchy.h:1181 | yes |
 | `unreal.AnimationLibrary.get_animation_curve_names` | `GetAnimationCurveNames` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:89 | yes |
 | `unreal.AnimationLibrary.get_float_keys` | `GetFloatKeys` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:456 | yes |
 | `unreal.AnimationLibrary.does_curve_exist` | `DoesCurveExist` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:514 | yes |
@@ -311,7 +317,6 @@ reflected names; an out-parameter comes back as the return value.
 | `ControlRigSequencerLibrary.set_local_control_rig_floats` | `SetLocalControlRigFloats` | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:650 | yes |
 | `ControlRigSequencerLibrary.set_local_control_rig_rotators` | `SetLocalControlRigRotators` | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:917 | yes |
 | `ControlRigSequencerLibrary.set_local_control_rig_euler_transforms` | `SetLocalControlRigEulerTransforms` | Engine/Plugins/Animation/ControlRig/Source/ControlRigEditor/Public/ControlRigSequencerEditorLibrary.h:1024 | yes |
-| `RigHierarchy.GetControls` | `GetControls` | Engine/Plugins/Animation/ControlRig/Source/ControlRig/Public/Rigs/RigHierarchy.h:1181 | yes |
 | `EulerTransform` | `EulerTransform` | Engine/Source/Runtime/AnimationCore/Public/EulerTransform.h:31 | yes |
 | `SkelAnimParams` | `SkelAnimParams` | Engine/Source/Runtime/MovieSceneTracks/Public/Sections/MovieSceneSkeletalAnimationSection.h:20 | yes |
 | `AdditiveInSequencer` | `AdditiveInSequencer` | Engine/Source/Runtime/AnimGraphRuntime/Private/AnimSequencerInstanceProxy.cpp:176 | yes |

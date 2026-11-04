@@ -24,13 +24,15 @@ def _keys(anim, name):
 
 
 def _curve_id(anim, name):
-    X = unreal.AnimationCurveIdentifierExtensions
-    for args in ((name, FLOAT), (anim.get_skeleton(), name, FLOAT)):
-        try:
-            return X.get_curve_identifier(*args)
-        except Exception:
-            pass
-    return X.find_curve_identifier(anim, name, FLOAT)
+    """An FAnimationCurveIdentifier for a float curve: SetCurveIdentifier on a fresh struct (a ref-self script method:
+    CurveIdentifier.h:150); the skeleton route is deprecated in 5.8 and logs a warning per call, so it is only the
+    fallback."""
+    try:
+        cid = unreal.AnimationCurveIdentifier()
+        cid.set_curve_identifier(name, FLOAT)
+        return cid
+    except Exception:
+        return unreal.AnimationCurveIdentifierExtensions.get_curve_identifier(anim.get_skeleton(), name, FLOAT)
 
 
 def _write(anim, curves: dict) -> None:
@@ -870,7 +872,7 @@ def rig_controls(*, sequence: str, label: str, component: str = "") -> dict:
         raise not_found("control rig track", f"{label}.{component}" if component else label,
                         hint="anim.rig_keys with rig_class=... makes one")
     rig = p.get_editor_property("control_rig")
-    keys = rig.get_hierarchy().get_control_keys()
+    keys = rig.get_hierarchy().get_controls()  # ScriptName of GetControlKeys (RigHierarchy.h:1181)
     return {"rig": rig.get_class().get_name(), "controls": [str(k.get_editor_property("name")) for k in keys]}
 
 
@@ -880,8 +882,9 @@ def rig_keys(*, sequence: str, label: str, keys: dict, component: str = "", rig_
     """Key Control Rig controls in a sequence, batched per control (one engine call each, not one per key).
     keys: {control: [[frame, value], ...]} where value is a number (a float control), {"pitch", "yaw", "roll"} (a
     rotator control) or {"loc": [x, y, z], "rot": {...}} (a transform control, local space). The rig track is found
-    on the actor (or `component`'s) binding, or made from `rig_class` (a Control Rig Blueprint path or class path;
-    `layered` for an additive layer over the animation).
+    on the actor (or `component`'s) binding, or made from `rig_class` (a Blueprint-based Control Rig asset path, or
+    a class path; 5.8's independent Control Rig assets cannot be made into a track from Python; `layered` for an
+    additive layer over the animation).
     Returns: {"changed", "controls": n, "keys": n, "rig"}.
     Example: film-ue op anim.rig_keys sequence=/Game/Shots/S010 label=Presenter component=Face 'keys={"CTRL_L_brow_raiseIn": [[0,0],[12,0.6],[30,0]]}'
     """
@@ -898,13 +901,16 @@ def rig_keys(*, sequence: str, label: str, keys: dict, component: str = "", rig_
         if cls is None:
             cls = EAL.load_blueprint_class(_pkg(rig_class))
         if cls is None:
-            raise not_found("control rig class", rig_class, hint="a Control Rig Blueprint asset path")
+            raise not_found("control rig class", rig_class,
+                            hint="a Blueprint-based Control Rig asset path (a legacy ControlRigBlueprint, like the "
+                                 "MetaHuman control boards); 5.8's independent Control Rig assets have no Python route "
+                                 "to their class: add the rig track in the editor once, then key it here")
         CR.find_or_create_control_rig_track(_world(), seq, cls, b, layered)
         p = _rig_on(seq, label, component)
         if p is None:
             raise OpError("the engine made no control rig track", code="engine")
     rig = p.get_editor_property("control_rig")
-    have = {str(k.get_editor_property("name")) for k in rig.get_hierarchy().get_control_keys()}
+    have = {str(k.get_editor_property("name")) for k in rig.get_hierarchy().get_controls()}
     missing = [c for c in keys if c not in have]
     if missing:
         from ..errors import closest
