@@ -359,7 +359,7 @@ def check(*, path: str) -> dict:
 @op("seq.eval", mutates=False, idempotent=True, tags=["sequencer", "qa"])
 def evaluate(*, path: str, frames: list, labels: list = (), tracks: list = ()) -> dict:
     """What the sequence evaluates to at frames, without playing it: actors' world transforms (opens the sequence in
-    Sequencer: ControlRigSequencerEditorLibrary evaluates the open one) and tracks' channel values (curve
+    Sequencer: ControlRigSequencerLibrary evaluates the open one) and tracks' channel values (curve
     evaluation; works closed). For checking keys landed where meant.
 
     Args: frames: display frames. labels: actor labels -> [[x, y, z, pitch, yaw, roll], ...] per frame.

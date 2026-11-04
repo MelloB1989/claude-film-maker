@@ -808,12 +808,13 @@ class _Xform:
         self.translation, self.rotation = loc, _XQuat(rot)
 
 
-class ControlRigSequencerEditorLibrary(core.Object):
+class ControlRigSequencerLibrary(core.Object):
+    """UControlRigSequencerEditorLibrary, by its ScriptName (Python sees only this name)."""
     @staticmethod
     def get_actor_world_transforms(level_sequence, a, frames, time_unit=None):
         seq = LevelSequenceEditorBlueprintLibrary.current  # the engine evaluates the OPEN sequence
         if seq is None:
-            raise RuntimeError("no level sequence open (ControlRigSequencerEditorLibrary needs one)")
+            raise RuntimeError("no level sequence open (ControlRigSequencerLibrary needs one)")
         label = a.get_actor_label()
         b = next((x for x in seq.ms.bindings if x.obj_label == label and not x.comp), None)
         tr = None
@@ -846,6 +847,14 @@ def install(fake) -> None:
     for name in TRACK_CLASSES:
         setattr(fake, name, type(name, (), {}))  # class tokens: add_track(cls) makes a FakeTrack named after it
     for cls in (LevelSequence, MovieSceneMarkedFrame, MaterialParameterInfo, LevelSequenceEditorBlueprintLibrary,
-                LevelSequenceEditorSubsystem, ControlRigSequencerEditorLibrary, MovieSceneTimeWarpExtensions):
+                LevelSequenceEditorSubsystem, MovieSceneTimeWarpExtensions):
         setattr(fake, cls.__name__, cls)
     LevelSequenceEditorBlueprintLibrary.current = None
+    # another area's fake may own ControlRigSequencerLibrary (ext_pose: rigs): add the Sequencer evaluation to it
+    crl = fake.__dict__.get("ControlRigSequencerLibrary")
+    if isinstance(crl, type) and crl is not ControlRigSequencerLibrary:
+        if not hasattr(crl, "get_actor_world_transforms") or isinstance(getattr(crl, "get_actor_world_transforms"),
+                                                                      core.Stub):
+            crl.get_actor_world_transforms = staticmethod(ControlRigSequencerLibrary.get_actor_world_transforms)
+    else:
+        fake.ControlRigSequencerLibrary = ControlRigSequencerLibrary
