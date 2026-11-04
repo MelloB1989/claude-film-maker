@@ -137,13 +137,12 @@ def test_a_render_that_never_starts_stalls_out(stage):
 def test_process_executor_saves_or_refuses_dirty_packages(stage, monkeypatch):
     from fmbridge.errors import OpError
     ue = stage["ue"]
-    pkg = ue.Object("Stage")
-    ue.stub("EditorLoadingAndSavingUtils.get_dirty_map_packages", [pkg])
+    ue.dirty["maps"].append(LEVEL)
     ue.stub("EditorLoadingAndSavingUtils.save_dirty_packages", True)
     with pytest.raises(OpError, match="unsaved packages"):
         run_op("render.job", spec={**stage["spec"], "executor": "process", "save_dirty": False})
     rep = run_op("render.job", spec={**stage["spec"], "executor": "process", "shots": ["CamA"]})
-    assert rep["saved"] == ["Stage"] and ue.called("EditorLoadingAndSavingUtils.save_dirty_packages")
+    assert rep["saved"] == [LEVEL] and ue.called("EditorLoadingAndSavingUtils.save_dirty_packages")
     assert ue.mrq.jobs[-1]["executor"] == "MoviePipelineNewProcessExecutor"
 
 
@@ -266,3 +265,13 @@ def test_encode_runs_ffmpeg_with_the_assembled_audio(stage, monkeypatch):
     v = res["videos"][0]
     assert (v["kind"], v["start"], v["end"], v["frames"]) == ("h264", 10, 16, 6) and v["audio"].endswith("_SEQ_T_10-16.wav")
     assert "-start_number" in calls[0] and calls[0][calls[0].index("-start_number") + 1] == "10"
+
+
+def test_bridge_cancel_closes_the_job_and_stops_mrq(stage, fmb):
+    gen = fmb.call("render.job", spec=stage["spec"])
+    got = [next(gen) for _ in range(3)]
+    assert got[-1]["message"].startswith("SEQ_T_c000_0 (CamA)") and 0 <= got[-1]["progress"] <= 1
+    gen.close()  # what the server's jobs.cancel does
+    assert run_op("render.status")["status"] == "cancelled" and stage["ue"].mrq.active is None
+    with open(os.path.join(stage["out"], "_render", "SEQ_T.report.json")) as f:
+        assert json.load(f)["status"] == "cancelled"

@@ -88,7 +88,7 @@ PASSES = {
     "object_id": ("class", "MoviePipelineObjectIdRenderPass"),  # cryptomatte-style IDs, best in a multilayer EXR
 }
 EXECUTORS = ("pie", "process", "cmdline")
-AA_METHODS = ("none", "fxaa", "taa", "msaa", "tsr")
+AA_METHODS = ("none", "fxaa", "taa", "msaa", "tsr", "smaa")
 EXR_COMPRESSION = ("none", "rle", "zips", "zip", "piz", "pxr24", "b44", "b44a", "dwaa", "dwab")
 
 # Cost model (docs/linux/engine.md P3/P4/P5, UE 5.8.4, L4, Vulkan SM6): ~0.09 s per deferred sample at 1920x1080,

@@ -116,7 +116,8 @@
         "fxaa",
         "taa",
         "msaa",
-        "tsr"
+        "tsr",
+        "smaa"
       ],
       "description": "override the project's anti-aliasing (default: the project's)"
     },

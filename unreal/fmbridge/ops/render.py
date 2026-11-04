@@ -199,7 +199,8 @@ def _setting(cfg, cls_name: str, exact: bool = True):
     return cfg.find_or_add_setting_by_class(cls, False, exact)
 
 
-_AA = {"none": "AAM_NONE", "fxaa": "AAM_FXAA", "taa": "AAM_TEMPORAL_AA", "msaa": "AAM_MSAA", "tsr": "AAM_TSR"}
+_AA = {"none": "AAM_NONE", "fxaa": "AAM_FXAA", "taa": "AAM_TEMPORAL_AA", "msaa": "AAM_MSAA", "tsr": "AAM_TSR",
+       "smaa": "AAM_SMAA"}
 
 
 def _configure(job, r: dict, chunk: dict) -> None:
@@ -392,13 +393,17 @@ def _run_chunk(r: dict, chunk: dict, level: str, stall_s: float):
         _RUN["executor"] = exe
         try:
             exe.on_executor_errored_delegate.add_callable(
-                lambda *a: errors.append(" ".join(str(x) for x in a[2:]) or "MRQ reported an error"))
+                lambda exe_, pipeline, fatal, text: errors.append(("fatal: " if fatal else "") + (str(text) or "MRQ error")))
         except Exception:
             pass
     seen: dict = {}
     last_new, started = time.time(), False
     while True:
-        yield 0.5
+        done = _RUN.get("frames_done", 0) + len(seen)
+        total = max(1, _RUN.get("frames_total") or (chunk["end"] - chunk["start"]))
+        yield {"progress": round(min(1.0, done / total), 3), "wait": 0.5,
+               "message": f"{chunk['id']} ({chunk['camera']}): frame {chunk['start'] + len(seen)} of "
+                          f"[{chunk['start']}, {chunk['end']}); {done}/{total} frames"}
         _sample(rec, r, chunk, seen)
         if len(seen) > rec.get("_n", 0):
             rec["_n"], last_new = len(seen), time.time()
@@ -509,15 +514,24 @@ def _run_job(r: dict, plan: dict, level: str, stall_s: float):
                 except OSError:
                     pass
     _RUN.update(status="running", name=r["name"], report=_report_path(r), cancel=False, started=time.time(),
-                chunks_total=len(plan["chunks"]), chunks_done=0)
+                chunks_total=len(plan["chunks"]), chunks_done=0, frames_done=0,
+                frames_total=sum(c["frames"] for c in plan["chunks"]), finished=None)
     t0 = time.time()
-    for c in plan["chunks"]:
-        rec = yield from _run_chunk(r, c, level, stall_s)
-        rep["chunks"].append(rec)
-        _RUN["chunks_done"] += 1
+    try:
+        for c in plan["chunks"]:
+            rec = yield from _run_chunk(r, c, level, stall_s)
+            rep["chunks"].append(rec)
+            _RUN["chunks_done"] += 1
+            _RUN["frames_done"] += rec.get("frames", 0)
+            _write_report(r, rep)
+            if rec["status"] in ("cancelled", "vram_abort"):
+                break
+    except GeneratorExit:  # the bridge cancelled the job (jobs.cancel): stop MRQ too, keep the report honest
+        _cancel_now()
+        rep.update(status="cancelled", seconds=round(time.time() - t0, 1))
         _write_report(r, rep)
-        if rec["status"] in ("cancelled", "vram_abort"):
-            break
+        _RUN.update(status="cancelled", finished=time.time())
+        raise
     rep["seconds"] = round(time.time() - t0, 1)
     rep["frames"] = sum(c.get("frames", 0) for c in rep["chunks"])
     rep["measured"] = _measure(r, rep["chunks"])
