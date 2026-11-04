@@ -243,20 +243,31 @@ in `tools/tests/test_ue_render_selftest.py`.
 
 ## HANDOFF
 
-State at 2026-11-05 (agent-05, branch `fleet/agent-05/ue-render`):
+State at 2026-11-05 ~00:00 UTC (agent-05, branch `fleet/agent-05/ue-render`, merged into `ue-helpers` by the lead):
 
-- **Done:** spec, schema, presets, planner (chunks, resume, pre-roll, boxes, estimates), every op above, client CLI
-  and spec kind, B23 (split, stitch) and B24 (frame QA), fake MRQ, 70+ unit tests, the selftest, and this doc.
-- **Unproven until the GPU box runs the selftest:**
+- **Done:**
+  - the spec, schema and presets;
+  - the planner: chunks per cut, resume, cut pre-roll, a box split, and estimates calibrated by reports;
+  - every op above, including `render.compare` (B51);
+  - `game_overrides` (opt-in);
+  - the client CLI and spec kind;
+  - B23 (split, stitch) and B24 (frame QA: missing, corrupt, black, flicker, EXR NaN/Inf/fireflies);
+  - the fake MRQ, 80+ unit tests, the selftest (~5 min, GPU), and this doc.
+
+  Also mine: B37 World Partition (`docs/unreal/wp.md`).
+- **First hour on the GPU box:**
+  1. `film-ue selftest render`, then read the report: every check plus the metrics s/frame, sample_s_1080p,
+     vram_peak_gb and ab_min_ssim.
+  2. The reel's cloth A/B: `examples/unreal/render/preroll_ab.yaml` with the reel's sequence, `shots: [Reel_S15]`
+     and `frames: [1136, 1160]`, then `render.compare`. SSIM ≥ 0.98 confirms the pre-roll on real cloth.
+  3. `film-ue render run` of one reel shot at `final`. Compare with the Windows reference PNGs via `render.compare`.
+- **Unproven until then (if a check fails, start from API_NOTES):**
   - the cmdline executor's child command line on Linux (`-vulkan`, `MoviePipelineEntryMap` with a queue manifest);
   - `save_queue_to_manifest_file` returning a tuple in Python;
-  - the EXR/AOV folder names MRQ actually writes (`{render_pass}` for the post-process materials is assumed to be
-    the material name);
-  - the WAV's `file_name_format_override` containing a sub-folder;
-  - whether the pre-roll gives PSNR ≥ 35 dB against the full-shot render with physics.
-  If a check fails, start from API_NOTES.
-- **Next:**
-  - the cloth A/B on the reel (S15 1136 chunk vs 1080 full shot, the P6 case) with
-    `examples/unreal/render/preroll_ab.yaml` + `render.compare`, to confirm the pre-roll on real cloth;
-  - a Movie Render Graph backend if a feature needs it (we use the legacy preset configuration on purpose: it is
-    what was proven on Linux).
+  - the AOV folder names MRQ writes (`{render_pass}` for a post-process material is assumed to be the material's
+    name);
+  - a sub-folder in the WAV's `file_name_format_override`;
+  - the selftest's physics pre-roll PSNR ≥ 35 dB;
+  - `MoviePipelineTextureStreamingMethod` member names (`NONE`/`DISABLED`/`FULLY_LOAD`).
+- **Later:** a Movie Render Graph backend, only if a feature needs it (the legacy preset configuration is used on
+  purpose: it is what was proven on Linux).
