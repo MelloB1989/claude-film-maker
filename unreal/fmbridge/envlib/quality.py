@@ -110,3 +110,19 @@ def post_fields(spec) -> dict:
     if q.get("megalights") is not None:
         out["mega_lights"] = bool(q["megalights"])
     return out
+
+
+INI_SECTION = "[/Script/Engine.RendererSettings]"
+
+
+def project_ini_values(spec) -> dict:
+    """What URendererSettings stores in Config/DefaultEngine.ini for a quality spec (its properties carry the cvar
+    name: RendererSettings.h ConsoleVariable meta), in the form a new project's ini has them."""
+    q = resolve(spec)
+    out = {"r.DynamicGlobalIlluminationMethod": str(GI[q["gi"]]), "r.ReflectionMethod": str(REFLECTIONS[q["reflections"]]),
+           "r.Shadow.Virtual.Enable": "1" if q["shadows"] == "vsm" else "0",
+           "r.Lumen.HardwareRayTracing": "True" if q["hwrt"] else "False"}
+    if q["gi"] == "lumen":
+        out["r.GenerateMeshDistanceFields"] = "True"  # Lumen GI requires it (RendererSettings.cpp:303)
+    return out
+
