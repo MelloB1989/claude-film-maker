@@ -31,6 +31,7 @@ from pathlib import Path
 
 from . import workstation as ws
 from . import transport
+from .boxpaths import BoxPaths
 
 ROOT = Path(__file__).resolve().parents[3]
 LINUX = ROOT / "unreal" / "linux"
@@ -92,7 +93,7 @@ def user_data(ttl_until: int, idle_min: int, stall_min: int, project_dir: str = 
     """The first-boot script: the watchdog and its timer, its settings, and the TTL backstop. Under EC2's 16 KB."""
     wd = base64.b64encode(gzip.compress((LINUX / "ue_watchdog.py").read_bytes(), mtime=0)).decode()
     cfg = {"ttl_until": ttl_until, "idle_min": idle_min, "stall_min": stall_min,
-           "token": f"{project_dir}/Saved/fmbridge.token" if project_dir else ""}
+           "token": BoxPaths("linux", project_dir).token() if project_dir else ""}  # a new box is Linux
     left = max(60, ttl_until - int(time.time()))
     units = {"ue-watchdog.service": (LINUX / "ue-watchdog.service").read_text(),
              "ue-watchdog.timer": (LINUX / "ue-watchdog.timer").read_text()}

@@ -85,6 +85,14 @@ class BoxPaths:
     def bridge_out(self, *parts: str) -> str:
         return self.saved("Bridge", "out", *parts)
 
+    def jobs(self, *parts: str) -> str:
+        """The bridge's job journal (fmbridge.jobs): Saved/Bridge/jobs/..."""
+        return self.saved("Bridge", "jobs", *parts)
+
+    def crashes(self, *parts: str) -> str:
+        """The engine's crash reports: Saved/Crashes/..."""
+        return self.saved("Crashes", *parts)
+
     def renders(self, *parts: str) -> str:
         """Render output: Saved/Renders/<job>/..."""
         return self.saved("Renders", *parts)
@@ -111,7 +119,7 @@ class BoxPaths:
         """Every named location, for `film-ue describe`-style output and for checking a box's layout."""
         return {"os": self.os, "project": self.project(), "uproject": self.uproject(), "saved": self.saved(),
                 "logs": self.logs(), "token": self.token(), "bridge_in": self.bridge_in(),
-                "bridge_out": self.bridge_out(), "renders": self.renders(), "stills": self.stills(),
+                "bridge_out": self.bridge_out(), "jobs": self.jobs(), "crashes": self.crashes(), "renders": self.renders(), "stills": self.stills(),
                 "selftest": self.saved("Selftest"), "audio": self.audio(), "content_python": self.content_python(),
                 "ddc": self.ddc()}
 
