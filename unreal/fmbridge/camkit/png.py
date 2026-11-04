@@ -140,7 +140,7 @@ def read(path: str) -> Image:
 def decode(data: bytes) -> Image:
     if data[:8] != b"\x89PNG\r\n\x1a\n":
         raise ValueError("not a PNG")
-    pos, idat, plte, trns = 8, [], None, None
+    pos, idat, plte = 8, [], None
     w = h = depth = ctype = interlace = None
     while pos < len(data):
         n, typ = struct.unpack(">I4s", data[pos:pos + 8])
@@ -152,8 +152,6 @@ def decode(data: bytes) -> Image:
             idat.append(body)
         elif typ == b"PLTE":
             plte = body
-        elif typ == b"tRNS":
-            trns = body
         elif typ == b"IEND":
             break
     if interlace:
