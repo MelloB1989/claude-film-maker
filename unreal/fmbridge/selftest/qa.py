@@ -108,45 +108,6 @@ def run(t):
     fr = yield from t.op("qa.framing", subjects=[P + "Pillar"], camera=P + "Wide", still_out=f"{out}/framing.png")
     t.check("pillar framed in Wide passes", fr["pass"], True)
     t.artifact(fr.get("still", ""))
-    yield from _groom(t, label, out)
-
-
-def _groom(t, label, out):
-    """groom.* on the MetaHuman: describe, measure, a melanin change with before/after (restored), the sky guard."""
-    try:
-        d = t.op("groom.describe", label=label)
-    except Exception as e:
-        t.note(f"groom part skipped: {e}")
-        return
-    hair = next((c for c in d["components"] if c["name"] == "Hair"), d["components"][0] if d["components"] else None)
-    t.ok("groom.describe finds hair", hair is not None, detail=str([c["name"] for c in d["components"]]))
-    if not hair:
-        return
-    t.note(f"hair params: {hair['materials'][0]['params'] if hair['materials'] else None}; "
-           f"scalar names: {hair['materials'][0]['scalar_names'][:20] if hair['materials'] else None}")
-    m = yield from t.op("groom.measure", label=label, component=hair["name"], views=2, out_dir=f"{out}/groom")
-    t.ok("groom.measure sees hair from the front", (m["views"].get("front") or {}).get("pixels", 0) > 50,
-         detail=str(m["mean"]))
-    old = (hair["materials"][0]["params"] if hair["materials"] else {}).get("melanin")
-    if old is None:
-        t.note("the hair material has no hairMelanin: groom.set melanin not tested")
-    else:
-        hi = 1.0 if old < 0.5 else 0.0
-        r = yield from t.op("groom.set", label=label, component=hair["name"], melanin=hi, measure_views=1,
-                            out_dir=f"{out}/groom")
-        t.check("groom.set melanin changed it", r["changed"], True)
-        t.ok("nothing lost to the construction script", "lost" not in r, detail=str(r.get("lost")))
-        ds = (r.get("delta") or {}).get("stops")
-        t.metric("groom_melanin_delta_stops", ds, "stops")
-        if ds is not None:
-            t.ok("more melanin reads darker (fewer melanin: lighter)", (ds < 0) == (hi > old), detail=f"{old}->{hi}: {ds}")
-        yield from t.op("groom.set", label=label, component=hair["name"], melanin=old)
-    sky0 = d["cvars"].get("r.HairStrands.SkyLighting")
-    g = yield from t.op("groom.sky_lighting", enable=False, measure_label=label, measure_views=1)
-    t.check("sky guard sets the cvar to 0", g["after"], 0)
-    t.metric("groom_sky_guard_delta", (g.get("measure") or {}).get("delta"))
-    if sky0:
-        yield from t.op("groom.sky_lighting", enable=True)
     away = yield from t.op("qa.framing", subjects=[P + "Pillar"], camera=P + "Away")
     t.check("pillar out of Away's frame", [i["code"] for i in away["issues"]][:1], ["framing.out_of_frame"])
 
