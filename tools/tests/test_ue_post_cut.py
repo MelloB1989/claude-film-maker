@@ -93,7 +93,7 @@ def test_encode_args_vertical_crop_and_captions(tmp_path):
                           tmp_path / "o.mp4")
     vf = argv[argv.index("-vf") + 1]
     assert vf.startswith("crop=w=608:h=1080:x='floor(if(lt(n\\,48)")
-    assert "scale=1080:1920" in vf and "subtitles=" in vf
+    assert "scale=1080:1920" in vf and vf.endswith("ass='" + str(tmp_path / "demo.srt") + "'")
     assert argv[argv.index("-frames:v") + 1] == "120"
     assert "-itsoffset" not in argv and "-shortest" not in argv and "-ss" not in argv
     with pytest.raises(pc.SpecError, match="wider"):
@@ -124,7 +124,7 @@ def test_plan_and_cli(tmp_path, capsys):
     (tmp_path / "spec.json").write_text(json.dumps(doc))
     s = pc.load_spec(tmp_path / "spec.json")
     steps = pc.plan(s)
-    assert [x.what.split(" ")[0] for x in steps] == ["stage", "voice", "voice", "sound", "captions", "encode",
+    assert [x.what.split(" ")[0] for x in steps] == ["stage", "voice", "voice", "sound", "captions", "encode", "web's",
                                                      "encode", "cut.json:"]
     assert steps[-2].writes.endswith("out/demo-web.mp4")
     assert post_cli.main(["plan", str(tmp_path / "spec.json"), "--json"]) == 0
@@ -143,3 +143,27 @@ def test_cli_timing_and_handoff(tmp_path, capsys):
     (tmp_path / "faces.json").write_text(json.dumps({"host": {"face_mesh": "/Game/F", "label": "Host"}}))
     assert post_cli.main(["handoff", str(tmp_path / "t.json"), "--faces", str(tmp_path / "faces.json")]) == 0
     assert json.loads(capsys.readouterr().out)[0]["place"]["start_frame"] == 24
+
+
+def test_ass_in_output_pixels_and_safe_area():
+    cues = [[0, 24, "Hello there, my friend."], [30, 60, "A {brace}"]]
+    a = pc.ass_text(cues, [[0, 60]], 24, (1080, 1920))
+    assert "PlayResX: 1080\nPlayResY: 1920" in a
+    st = pc.caption_style((1080, 1920))
+    assert st["font"] == 53 and st["margin_v"] >= 0.22 * 1920  # above the apps' bottom UI
+    assert f",{st['margin_v']},1\n" in a
+    assert "Dialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,Hello there, my friend." in a
+    assert "A (brace)" in a
+    ok = pc.caption_safe_check(cues, (1080, 1920))
+    assert ok["pass"] and ok["metric"] == 1
+    long = [[0, 24, "This caption is far too long to fit on two lines of a vertical phone frame at this size"]]
+    bad = pc.caption_safe_check(long, (1080, 1920))
+    assert not bad["pass"] and bad["metric"] > 2 and "max_chars" in bad["why"]
+    assert pc.safe_area((1920, 1080)) == pc.TITLE_SAFE
+
+
+def test_loudness_check():
+    ok = pc.loudness_check({"I": -14.2, "TP": -1.3, "LRA": 5})
+    assert ok["pass"] and ok["metric"]["lufs"] == -14.2
+    bad = pc.loudness_check({"I": -14.0, "TP": -0.2})
+    assert not bad["pass"] and "loudnorm" in bad["why"]

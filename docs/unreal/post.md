@@ -69,7 +69,7 @@ within 1.5 frames) and the cut's loudness. `ok: true` when every output is clean
 | op | what | idempotent |
 |---|---|---|
 | `audio.import(files, folder, names?, replace?, save?)` | WAVs on the box → SoundWaves; skips any already there | yes |
-| `audio.place(sequence, clips, track, replace?, extend?)` | clips `{sound, start_frame\|start_s, end_frame\|duration_s?, offset_s?, volume_db?}` on a named track | yes (converges) |
+| `audio.place(sequence, clips, track, replace?, extend?)` | clips `{sound, start_frame\|start_s, end_frame\|duration_s?, offset_s?, volume_db?, fade_in_frames?, fade_out_frames?}` on a named track | yes (converges) |
 | `audio.describe(sequence)` | every audio track and clip: frames, seconds, row, offset_s, volume_db | read-only |
 | `audio.remove(sequence, track)` | remove a named track (`"*"` = all audio tracks) | yes |
 | `audio.lines(sequence, timing, folder?, track?, wav_root?, extend?)` | import + place a timing document's lines | yes |
@@ -110,8 +110,10 @@ module docstring of `post_cut.py`.
   (and `film-post` rescales it to the spec's fps). Seconds only where a name ends in `_s`.
 - **A section's start offset is in tick resolution**, not display frames (`set_start_offset` takes an FFrameNumber at
   `get_tick_resolution()`, 24000/s by default). `audio.place` converts from `offset_s`.
-- **The volume channel is a default, not keys.** `volume_db` sets the section's Volume channel default (linear gain
-  10^(dB/20)). Fades in frames would be keys on the same channel (BACKLOG B25).
+- **Levels and fades live on the section's Volume channel.** `volume_db` sets its default (linear gain 10^(dB/20));
+  `fade_in_frames` / `fade_out_frames` add linear keys from/to silence (at most four a clip). `audio.describe` reads
+  the fades back from the keys. `EMovieSceneKeyInterpolation` is a `UENUM()` without BlueprintType: if the Python
+  wrapper does not export it, the keys fall back to add_key's default (Auto), a slightly curved ramp.
 - **MRQ frame numbering**: a shot rendered from the master sequence is numbered on the master's clock; a shot
   rendered as its own sequence from 0. `film-post` finds either; if renders start at a handle (f-12 numbered 0) set
   the shot's `offset`.
@@ -122,8 +124,15 @@ module docstring of `post_cut.py`.
   centred on each cut, so a cut never clicks.
 - **RGB → YUV is explicit BT.709** (`scale=...:out_color_matrix=bt709:out_range=tv`); ffmpeg's implicit conversion of
   PNG frames is BT.601 (a colour shift).
-- **Burned captions need an ffmpeg with libass** (`subtitles` filter). Without it, deliver captions as the SRT/VTT
-  sidecars and drop `captions: burn`.
+- **Burned captions go through an ASS file per output, never `subtitles=x.srt:force_style=...`.** libass lays an SRT
+  out in its default 384x288 script space, so a FontSize or MarginV given in pixels comes out several times too big
+  (and stretched at 9:16). `ass_text` writes PlayResX/Y = the output's size, the type and margins in its pixels,
+  inside the safe area (`SAFE`: 9:16 keeps clear of the top 12%, bottom 22%, left 6%, right 12% that the apps' UI
+  covers; other aspects get 5% title-safe). `caption_safe_check` estimates each cue's wrap and fails over 2 lines:
+  the output's `problems` say so, and the fix is a lower `captions.max_chars`. It needs an ffmpeg with libass
+  (`ass` filter); without one, deliver the SRT/VTT sidecars and drop `captions: burn`.
+- **Loudness**: `film-post loudness mix.wav` gives the check shape (`pass`, `metric`, `threshold`, `why`) against
+  -14 LUFS / -1 dBTP; `film-post cut` remasters a cut that drifts from the target.
 - **WAV names become asset names**: spaces, dots and dashes are `_`; a leading digit gets `S_`. `audio.lines` names
   each SoundWave after its line id.
 
@@ -145,6 +154,7 @@ module docstring of `post_cut.py`.
 | `section.set_sound / get_sound` | UMovieSceneAudioSection UFUNCTIONs | Engine/Source/Runtime/MovieSceneTracks/Public/Sections/MovieSceneAudioSection.h:37-42 |
 | `section.set_start_offset / get_start_offset` (FFrameNumber, tick resolution) | UFUNCTIONs over `StartFrameOffset` | MovieSceneAudioSection.h:49-54, 306-307 |
 | Volume channel name `"Volume"` (and `"Pitch"`) | `SetIdentifiers` in the editor data | Engine/Source/Runtime/MovieSceneTracks/Private/Sections/MovieSceneAudioSection.cpp:85-86, 236 |
+| `channel.add_key(FrameNumber, value, sub_frame, MovieSceneTimeUnit.DISPLAY_RATE, interp) / get_keys`, `key.get_time() / get_value()` | UMovieSceneScriptingFloatChannel / FloatKey UFUNCTIONs; `EMovieSceneTimeUnit` UENUM(BlueprintType); `EMovieSceneKeyInterpolation` UENUM() | MovieSceneScriptingFloat.h:375-376, 410-411, 33, 49; Engine/Source/Runtime/MovieScene/Public/MovieSceneTimeUnit.h:11-15; KeyParams.h:10-22 |
 | `channel.set_default / get_default / has_default` | UMovieSceneScriptingFloatChannel UFUNCTIONs | Plugins/MovieScene/SequencerScripting/Source/SequencerScripting/Private/KeysAndChannels/MovieSceneScriptingFloat.h:598-599, 616-617, 650-651 |
 | (not used yet) MRQ audio: `MoviePipelineWaveOutput.file_name_format_override` | UPROPERTY | Plugins/MovieScene/MovieRenderPipeline/Source/MovieRenderPipelineRenderPasses/Public/MoviePipelineWaveOutput.h:34-35 |
 
@@ -168,9 +178,13 @@ Not done / next:
 - **Never run against real ffmpeg here** (the fleet container has none): `film-post cut` is unit-tested at the argv
   level only. First thing on a box with ffmpeg: `film-post cut examples/unreal/delivery/two-shots.yaml` with test
   frames (any PNGs in out/renders/S01, S02) and read `cut-two-shots.json`.
-- B25: fades in frames (keys on the Volume channel, batched) and an `audio.mix`-style stems call; a client LUFS check
-  is `filmtools.mix.measure`.
-- B26: a 9:16 safe-area check for burned captions (the caption box inside the platform-UI-free area).
+- B25 (claimed): fades in frames and the client LUFS check are done. Not done: an `audio.mix`-style call that
+  places a set of stems (VO/Music/SFX WAVs) with levels in one go; today that is one `audio.place` per track, or an
+  `audio` spec with several tracks (which is the declarative way and probably enough).
+- B26 (claimed): presets (ProRes 4444 / 422 HQ, H.264, HEVC), 9:16 crop keys, burned captions in the safe area with a
+  check, argv from the spec: done. Not run against a real ffmpeg yet (see the first point).
+- The fade ramp's shape (Linear vs Auto fallback) is unverified until the selftest runs in a real editor: check
+  `audio.describe` on a faded clip and the key interpolation in the editor log if the wrapper lacks the enum.
 - A `cli_post.py` hook so `film-ue post ...` mirrors `film-post` (DECISIONS: WP11 wires `register(subparsers)`).
 - The reel's Pillow title cards / overlay captions (`cut.py`) were not carried over: captions burn through libass;
   titles are film-specific and belong in `films/<id>/`.

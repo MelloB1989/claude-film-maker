@@ -142,9 +142,56 @@ def _describe_section(seq, s) -> dict:
         except Exception:
             vol = 1.0
     start, end = int(s.get_start_frame()), int(s.get_end_frame())
+    keys = _volume_keys(ch) if ch is not None else []
+    fi, fo = fades_of(keys, start, end)
+    if keys and (fi or fo):  # the level is the keys' held value, not the default
+        vol = max(v for _, v in keys)
     return {"sound": _pkg(snd.get_path_name()) if snd is not None else None, "start_frame": start, "end_frame": end,
             "row": int(s.get_row_index()), "offset_s": round(off_ticks / tpf / fps, 4),
-            "volume_db": round(gain_to_db(vol), 2), "start_s": round(start / fps, 4), "end_s": round(end / fps, 4)}
+            "volume_db": round(gain_to_db(vol), 2), "fade_in_frames": fi, "fade_out_frames": fo,
+            "start_s": round(start / fps, 4), "end_s": round(end / fps, 4)}
+
+
+def _volume_keys(ch) -> list:
+    """[(display frame, linear gain)] of a Volume channel, in time order."""
+    out = []
+    for k in ch.get_keys():
+        t = k.get_time()
+        fn = getattr(t, "frame_number", t)
+        out.append((int(getattr(fn, "value", fn)), float(k.get_value())))
+    return sorted(out)
+
+
+def fades_of(keys: list, start: int, end: int) -> tuple:
+    """Pure: (fade_in_frames, fade_out_frames) from the keys audio.place writes: silence at the clip's start rising
+    to the level, and the level falling to silence at its end. 0 when there is no such ramp."""
+    fi = fo = 0
+    if len(keys) >= 2 and keys[0][0] == start and keys[0][1] <= 1e-4 and keys[1][1] > 1e-4:
+        fi = keys[1][0] - start
+    if len(keys) >= 2 and keys[-1][0] == end and keys[-1][1] <= 1e-4 and keys[-2][1] > 1e-4:
+        fo = end - keys[-2][0]
+    return fi, fo
+
+
+def _linear():
+    """EMovieSceneKeyInterpolation.Linear, or None if the Python wrapper does not export the enum (it is a UENUM()
+    without BlueprintType; add_key then keys with its default, Auto)."""
+    try:
+        return unreal.MovieSceneKeyInterpolation.LINEAR
+    except AttributeError:
+        return None
+
+
+def fade_keys(start: int, end: int, gain: float, fade_in: int, fade_out: int) -> list:
+    """Pure: the Volume keys [(frame, gain)] for a clip's fades (none without fades: the default holds the level)."""
+    if not fade_in and not fade_out:
+        return []
+    if fade_in < 0 or fade_out < 0 or fade_in + fade_out > end - start:
+        raise OpError(f"fades of {fade_in}+{fade_out} frames do not fit a {end - start}-frame clip at {start}",
+                      code="bad_args", hint="shorten the fades or lengthen the clip")
+    keys = [(start, 0.0), (start + fade_in, gain)] if fade_in else [(start, gain)]
+    keys += [(end - fade_out, gain), (end, 0.0)] if fade_out else [(end, gain)]
+    return [k for i, k in enumerate(keys) if i == 0 or k[0] != keys[i - 1][0]]
 
 
 @op("audio.describe", mutates=False, idempotent=True, tags=["audio"])
@@ -153,7 +200,7 @@ def describe(*, sequence: str) -> dict:
 
     Args: sequence: the LevelSequence path.
     Returns: {"sequence", "fps", "tracks": [{"name", "clips": [{"sound", "start_frame", "end_frame", "row",
-    "offset_s", "volume_db", "start_s", "end_s"}]}]}.
+    "offset_s", "volume_db", "fade_in_frames", "fade_out_frames", "start_s", "end_s"}]}]}.
     Example: film-ue op audio.describe sequence=/Game/Seq/SQ_Main
     """
     seq = _seq(sequence)
@@ -169,11 +216,11 @@ def _clip(c, fps: float) -> dict:
         c = {"sound": c[0], "start_frame": c[1]}
     c = dict(c)
     unknown = set(c) - {"sound", "start_frame", "start_s", "end_frame", "duration_s", "offset_s", "volume_db", "id",
-                        "start", "end", "offset", "volume"}
+                        "start", "end", "offset", "volume", "fade_in_frames", "fade_out_frames"}
     if unknown:
         raise OpError(f"clip {c.get('id') or c.get('sound')}: unknown key(s) {', '.join(sorted(unknown))}",
                       code="bad_args", hint="a clip is {sound, start_frame|start_s, end_frame|duration_s?, offset_s?, "
-                                            "volume_db?, id?}")
+                                            "volume_db?, fade_in_frames?, fade_out_frames?, id?}")
     if "sound" not in c:
         raise OpError(f"clip {c}: no sound", code="bad_args", hint="give the SoundWave path (audio.import makes it)")
     start = c.get("start_frame", c.get("start"))
@@ -188,7 +235,8 @@ def _clip(c, fps: float) -> dict:
     if vol is None and "volume" in c:  # seq.audio's linear gain
         vol = gain_to_db(float(c["volume"]))
     return {"sound": _pkg(c["sound"]), "start_frame": int(start), "end_frame": None if end is None else int(end),
-            "offset_s": float(c.get("offset_s", c.get("offset", 0.0)) or 0.0), "volume_db": float(vol or 0.0)}
+            "offset_s": float(c.get("offset_s", c.get("offset", 0.0)) or 0.0), "volume_db": float(vol or 0.0),
+            "fade_in_frames": int(c.get("fade_in_frames", 0) or 0), "fade_out_frames": int(c.get("fade_out_frames", 0) or 0)}
 
 
 def plan_clips(clips: list, durations: dict, fps: float) -> list:
@@ -216,7 +264,9 @@ def _same(have: list, want: list) -> bool:
         return False
     hv = {key(c): c for c in have}
     return all(abs(hv[key(c)]["offset_s"] - c["offset_s"]) < 1e-3 and
-               abs(hv[key(c)]["volume_db"] - c["volume_db"]) < 0.05 for c in want)
+               abs(hv[key(c)]["volume_db"] - c["volume_db"]) < 0.05 and
+               hv[key(c)].get("fade_in_frames", 0) == c.get("fade_in_frames", 0) and
+               hv[key(c)].get("fade_out_frames", 0) == c.get("fade_out_frames", 0) for c in want)
 
 
 @op("audio.place", mutates=True, idempotent=True, tags=["audio", "sequencer"])
@@ -225,7 +275,7 @@ def place(*, sequence: str, clips: list, track: str = "Audio", replace: bool = T
 
     Args: sequence: LevelSequence path. clips: [{"sound": SoundWave path, "start_frame" (or "start_s"),
     "end_frame" or "duration_s" (default: to the sound's end), "offset_s" (seconds into the sound, default 0),
-    "volume_db" (default 0), "id"?}] or [sound, start_frame] pairs. track: the track's name ("VO", "Music", "SFX").
+    "volume_db" (default 0), "fade_in_frames"/"fade_out_frames" (linear ramps from/to silence), "id"?}] or [sound, start_frame] pairs. track: the track's name ("VO", "Music", "SFX").
     replace: the track holds exactly these clips (else they are added to it). extend: lengthen the playback range
     to the last clip's end.
     Returns: {"changed", "track", "clips": [{"sound", "start_frame", "end_frame", "row", "offset_s", "volume_db"}],
@@ -246,6 +296,8 @@ def place(*, sequence: str, clips: list, track: str = "Audio", replace: bool = T
     if not replace:
         want = [{**h, "end_frame": h["end_frame"]} for h in have] + want
     planned = plan_clips(want, durations, fps)
+    for c in planned:  # check fades fit before touching anything
+        fade_keys(c["start_frame"], c["end_frame"], 1.0, c["fade_in_frames"], c["fade_out_frames"])
     changed = not (t is not None and _same(have, planned))
     if changed:
         if t is None:
@@ -263,11 +315,19 @@ def place(*, sequence: str, clips: list, track: str = "Audio", replace: bool = T
             s.set_sound(load(c["sound"]))
             if c["offset_s"]:
                 s.set_start_offset(unreal.FrameNumber(int(round(c["offset_s"] * fps * tpf))))
-            if c["volume_db"]:
+            keys = fade_keys(c["start_frame"], c["end_frame"], db_to_gain(c["volume_db"]), c["fade_in_frames"],
+                             c["fade_out_frames"])
+            if c["volume_db"] or keys:
                 ch = _volume_channel(s)
                 if ch is None:
                     raise OpError("an audio section has no Volume channel", code="engine")
                 ch.set_default(db_to_gain(c["volume_db"]))
+                lin = _linear()
+                for f, g in keys:  # at most four keys a clip: no batching needed
+                    if lin is not None:
+                        ch.add_key(unreal.FrameNumber(f), g, 0.0, unreal.MovieSceneTimeUnit.DISPLAY_RATE, lin)
+                    else:
+                        ch.add_key(unreal.FrameNumber(f), g)
     end = max((c["end_frame"] for c in planned), default=0)
     if extend and end > seq.get_playback_end():
         seq.set_playback_end(end)
@@ -275,7 +335,8 @@ def place(*, sequence: str, clips: list, track: str = "Audio", replace: bool = T
     if changed:
         EAL.save_asset(_pkg(sequence))
     return {"changed": changed, "track": track, "clips": [{k: c[k] for k in ("sound", "start_frame", "end_frame",
-                                                                             "row", "offset_s", "volume_db")}
+                                                                             "row", "offset_s", "volume_db",
+                                                                             "fade_in_frames", "fade_out_frames")}
                                                           for c in planned], "end_frame": end}
 
 
