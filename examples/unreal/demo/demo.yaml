@@ -1,0 +1,16 @@
+# THE DEMO: a 3-shot scene with a MetaHuman, a set, lights, cameras and a render, exercising every work package.
+# Run it stage by stage (README.md here has the commands, what each prints and what to check):
+#   film-ue plan examples/unreal/demo/demo.yaml          # every stage's steps, nothing changes
+#   film-ue apply examples/unreal/demo/demo.yaml --json  # all of it; re-running changes nothing ("converged": true)
+# Paths and names are vars: change them here or with --set name=value.
+kind: include
+files:
+  - vars.yaml
+  - 10-character.yaml     # WP3 MetaHuman: preset -> cloud rig + textures -> build (needs the Epic sign-in)
+  - 20-set.yaml           # WP6 layout (scene kind) + the generic level kind; WP2 assets (engine shapes)
+  - 30-look.yaml          # WP5 lighting, fog, post
+  - 40-performance.yaml   # WP4 speech to face (MetaHuman Animator); WP12 the WAV in as a SoundWave
+  - 50-sequence.yaml      # WP8 the sequence, body idle + face; WP12 the voice on an audio track
+  - 60-shots.yaml         # WP7 three shots: WS, MCU with a push-in, CU; cuts
+  - 70-qa.yaml            # WP10 one review of the cut (stills, framing, exposure, floating props)
+# 80-render.yaml (WP9) and 90-delivery.yaml (WP12, film-post) run separately: see README.md

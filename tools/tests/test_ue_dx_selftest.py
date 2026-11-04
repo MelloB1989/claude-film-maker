@@ -138,3 +138,49 @@ def test_selftests_are_311_and_documented():
         doc = ast.get_docstring(tree) or ""
         assert "Takes" in doc and "Needs" in doc, f"{p.name}: say 'Takes ~N s/min. Needs: ...' in the docstring"
         assert any(isinstance(n, ast.FunctionDef) and n.name == "run" for n in tree.body), f"{p.name}: def run(t)"
+
+
+def test_op_name_argument_passes_through(st, tmp_path, fmb, monkeypatch):
+    def named(*, name: str) -> dict:
+        """An op with its own `name` argument."""
+        return {"name": name, "changed": False}
+    monkeypatch.setitem(fmb._OPS, "zz.named", named)
+
+    def run(t):
+        t.check("op", t.op("zz.named", name="a")["name"], "a")
+        t.check("call", t.call("zz.named", name="b")["name"], "b")
+        t.idempotent("idempotent", "zz.named", name="c")
+        t.raises("raises", "zz.named", code="bad_args", name="d", extra=1)
+    _module("zzname", run, NEEDS_LEVEL=False)
+    rep, _ = drive(st.run("zzname", str(tmp_path)))
+    assert rep["errors"] == [] and rep["failed"] == 0, rep["checks"]
+
+
+def test_still_checks_its_baseline(st, tmp_path, fmb, monkeypatch):
+    def still(camera_label, path, width=1920, height=1080, timeout=60.0):
+        """A fake still."""
+        yield
+        open(path, "wb").write(b"png")
+        return path
+    monkeypatch.setitem(fmb._OPS, "look.still", still)
+    monkeypatch.delitem(fmb._OPS, "view.still", raising=False)
+    seen = []
+    bl = types.ModuleType("fmbridge.qa.baseline")
+    bl.check = lambda root, suite, name, path, mode, diff_out, meta: (
+        seen.append((suite, name, mode)) or {"status": "different" if name == "b" else "match", "ssim": 0.5,
+                                             "thresholds": {"min_ssim": 0.75}})
+    import fmbridge.ops.qa as opsqa
+    monkeypatch.setitem(sys.modules, "fmbridge.qa.baseline", bl)
+    import fmbridge.qa as qa_pkg
+    monkeypatch.setattr(qa_pkg, "baseline", bl, raising=False)
+    monkeypatch.setattr(opsqa, "baseline_root", lambda: str(tmp_path / "bl"), raising=False)
+
+    def run(t):
+        yield from t.still("a", camera="Cam")
+        yield from t.still("b", camera="Cam")
+    _module("zzbl", run, NEEDS_LEVEL=False)
+    rep, _ = drive(st.run("zzbl", str(tmp_path), baseline="compare"))
+    by = {c["name"]: c["ok"] for c in rep["checks"]}
+    assert by == {"still a": True, "baseline a": True, "still b": True, "baseline b": False}
+    assert seen == [("selftest/zzbl", "a", "compare"), ("selftest/zzbl", "b", "compare")]
+    assert [b["status"] for b in rep["baselines"]] == ["match", "different"]

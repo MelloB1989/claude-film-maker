@@ -54,13 +54,6 @@ def _first_anim(t):
     return None
 
 
-def _op(t, op_name, **args):
-    """t.op for an op with an argument called `name` (T.op's own first parameter is `name`)."""
-    from fmbridge import ops
-    t.covered[op_name] = t.covered.get(op_name, 0) + 1
-    return ops.call(op_name, **args)
-
-
 def run(t):
     p, S = t.prefix, t.scratch
     seq = f"{S}/{p}SEQ"
@@ -174,7 +167,7 @@ def run(t):
     t.ok("20k keys in under 60 s", dt < 60, detail=f"{dt:.1f} s")
     w2 = yield from t.op("seq.write", path=seq, track=bake)
     t.check("the same bake again changes nothing", w2["changed"], False)
-    _op(t, "seq.remove_track", path=seq, kind="float", binding=key, component="LightComponent0",
+    t.op("seq.remove_track", path=seq, kind="float", binding=key, component="LightComponent0",
         name="AttenuationRadius")
     t.op("seq.add", path=seq, end=120)
 

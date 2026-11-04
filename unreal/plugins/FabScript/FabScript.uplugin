@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1",
+	"FriendlyName": "FabScript",
+	"Description": "Calls the Fab plugin's AddToProject/InstallToProject from Python (claude-film-maker fmbridge fab.add), through UObject reflection: no link to Fab's private code.",
+	"Category": "Editor",
+	"CreatedBy": "claude-film-maker",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"Modules": [
+		{
+			"Name": "FabScript",
+			"Type": "Editor",
+			"LoadingPhase": "PostDefault"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "Fab",
+			"Enabled": true
+		}
+	]
+}

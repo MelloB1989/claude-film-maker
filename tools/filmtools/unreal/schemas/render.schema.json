@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://claude-film-maker/schemas/render.schema.json",
+  "title": "render",
+  "description": "A render job for Unreal's Movie Render Queue, driven by film-ue render / the render.job op. Frames are the sequence's display-rate frame numbers, end exclusive; sizes in pixels; times in seconds; memory in GB.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sequence",
+    "out_dir"
+  ],
+  "properties": {
+    "kind": {
+      "const": "render",
+      "description": "spec kind (for film-ue apply)"
+    },
+    "version": {
+      "const": 1,
+      "description": "spec version"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+$",
+      "description": "job name: the report, the manifest and videos are named after it (default: the sequence's asset name)"
+    },
+    "sequence": {
+      "type": "string",
+      "pattern": "^/",
+      "description": "LevelSequence package path, /Game/..."
+    },
+    "level": {
+      "type": "string",
+      "pattern": "^/",
+      "description": "map package path, /Game/... (default: the level open in the editor)"
+    },
+    "out_dir": {
+      "type": "string",
+      "description": "directory on the render box for frames, report and videos"
+    },
+    "preset": {
+      "enum": [
+        "preview",
+        "draft",
+        "final",
+        "final_exr",
+        "4k",
+        "pathtrace"
+      ],
+      "description": "starting point for every setting below (default final)"
+    },
+    "width": {
+      "type": "integer",
+      "description": "output width in pixels",
+      "maximum": 16384,
+      "minimum": 16
+    },
+    "height": {
+      "type": "integer",
+      "description": "output height in pixels",
+      "maximum": 16384,
+      "minimum": 16
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "[start, end) in sequence frames (default: the playback range)"
+    },
+    "shots": {
+      "type": "array",
+      "items": {
+        "type": [
+          "string",
+          "integer"
+        ]
+      },
+      "description": "only these camera cuts: camera labels, or 0-based cut indices (default all)"
+    },
+    "spatial": {
+      "type": "integer",
+      "description": "spatial samples per temporal sample (anti-aliasing; path tracer: samples per pixel)",
+      "maximum": 1024,
+      "minimum": 1
+    },
+    "temporal": {
+      "type": "integer",
+      "description": "temporal samples per frame (motion blur sub-steps)",
+      "maximum": 256,
+      "minimum": 1
+    },
+    "warmup_render": {
+      "type": "integer",
+      "description": "frames rendered and discarded at each shot start (temporal history)",
+      "maximum": 512,
+      "minimum": 0
+    },
+    "warmup_engine": {
+      "type": "integer",
+      "description": "frames the engine ticks without rendering at a chunk start when it has no pre-roll",
+      "maximum": 1024,
+      "minimum": 0
+    },
+    "preroll": {
+      "enum": [
+        "cut",
+        "none"
+      ],
+      "description": "cut (default): a chunk that starts after its camera cut's first frame is pre-rolled from that first frame (the sequence evaluated frame by frame, nothing rendered) so cloth and physics arrive in the state a full-shot render would have"
+    },
+    "aa_method": {
+      "enum": [
+        "none",
+        "fxaa",
+        "taa",
+        "msaa",
+        "tsr",
+        "smaa"
+      ],
+      "description": "override the project's anti-aliasing (default: the project's)"
+    },
+    "path_tracer": {
+      "type": "boolean",
+      "description": "render with the path tracer instead of deferred (Lumen)"
+    },
+    "quality": {
+      "type": "boolean",
+      "description": "apply the film-quality cvars (Lumen, VSM SMRT, hair MSAA, DOF, blur)"
+    },
+    "cvars": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      },
+      "description": "console variables while rendering (on top of the preset's), name: number"
+    },
+    "passes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "beauty",
+          "depth",
+          "motion_vectors",
+          "unlit",
+          "lighting_only",
+          "detail_lighting",
+          "reflections_only",
+          "object_id"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "render passes / AOVs (default [beauty]); more than one writes <out_dir>/<pass>/"
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind"
+        ],
+        "description": "One output. png/jpg/exr/bmp/wav are written by Movie Render Queue; h264/h265/prores are encoded with ffmpeg from the image frames (plus the WAV when there is one) after each render.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "png",
+              "jpg",
+              "exr",
+              "bmp",
+              "wav",
+              "h264",
+              "h265",
+              "prores"
+            ],
+            "description": "the output kind"
+          },
+          "compression": {
+            "enum": [
+              "none",
+              "rle",
+              "zips",
+              "zip",
+              "piz",
+              "pxr24",
+              "b44",
+              "b44a",
+              "dwaa",
+              "dwab"
+            ],
+            "description": "exr: compression (default piz, lossless)"
+          },
+          "multilayer": {
+            "type": "boolean",
+            "description": "exr: every pass in one multilayer file (default false)"
+          },
+          "alpha": {
+            "type": "boolean",
+            "description": "png: write the alpha channel (default false)"
+          },
+          "crf": {
+            "type": "integer",
+            "description": "h264/h265: constant rate factor, 0 = lossless, 18 = visually lossless (default 18)",
+            "maximum": 51,
+            "minimum": 0
+          },
+          "profile": {
+            "type": "integer",
+            "description": "prores: 0 proxy, 1 LT, 2 standard, 3 HQ, 4 4444, 5 4444 XQ (default 3)",
+            "maximum": 5,
+            "minimum": 0
+          },
+          "audio": {
+            "type": [
+              "string",
+              "boolean"
+            ],
+            "description": "video: true (default) muxes the render's WAV, a path muxes that file, false = silent"
+          },
+          "audio_offset": {
+            "type": "number",
+            "description": "video: seconds of audio to skip so it lines up with the first frame (default: the first frame's time in the sequence)"
+          },
+          "file": {
+            "type": "string",
+            "description": "video: output file name in out_dir (default <name>.<ext>)"
+          }
+        }
+      },
+      "minItems": 1,
+      "description": "what to write"
+    },
+    "executor": {
+      "enum": [
+        "pie",
+        "process",
+        "cmdline"
+      ],
+      "description": "pie (default): inside the editor; process: a separate -game process the editor starts and watches; cmdline: a manifest and command line for a process with no editor at all"
+    },
+    "save_dirty": {
+      "type": "boolean",
+      "description": "process/cmdline: save unsaved packages first (default true; false makes unsaved packages an error)"
+    },
+    "chunking": {
+      "type": [
+        "string",
+        "integer"
+      ],
+      "description": "shot (default): one MRQ job per camera cut; none: one job for the range; an integer: per cut, at most that many frames per job"
+    },
+    "resume": {
+      "type": "boolean",
+      "description": "skip frames already on disk (default true)"
+    },
+    "overwrite": {
+      "type": "boolean",
+      "description": "delete the frames in range first (default false)"
+    },
+    "file_name": {
+      "type": "string",
+      "description": "MRQ file name format (default {frame_number}; {render_pass}/{frame_number} with several passes)"
+    },
+    "zero_pad": {
+      "type": "integer",
+      "description": "digits in frame numbers",
+      "maximum": 8,
+      "minimum": 1
+    },
+    "boxes": {
+      "type": "integer",
+      "description": "render boxes to plan for (default 1): chunks are balanced by estimated time",
+      "maximum": 64,
+      "minimum": 1
+    },
+    "vram": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "GPU memory guards",
+      "properties": {
+        "path_tracer_min_gb": {
+          "type": "number",
+          "description": "refuse the path tracer below this total VRAM in GB (default 40)"
+        },
+        "abort_pct": {
+          "type": "number",
+          "description": "cancel the render when VRAM use passes this percentage, before the driver kills the editor (default 97; 0 = off)"
+        },
+        "force": {
+          "type": "boolean",
+          "description": "render even when a guard says no"
+        }
+      }
+    }
+  }
+}
