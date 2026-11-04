@@ -10,8 +10,11 @@ Code: `unreal/fmbridge/ops/env.py`, `ops/light.py`, `ops/_envutil.py` (helpers),
 maths and the planner, pure Python: sun, photometry, lights, rig, grade, quality, stats, spec), the client kinds
 `tools/filmtools/unreal/env_kind.py`, schemas `tools/filmtools/unreal/schemas/{environment,lighting}.schema.json`,
 examples `examples/unreal/{environment,lighting}/`, selftest `unreal/fmbridge/selftest/env.py`. `look.*` (older, in
-`ops/look.py`) still works and is still the way to make materials, cameras and quick stills; for sky, sun, fog, post and
-lights prefer `env.*`/`light.*`, which converge, use physical units and describe themselves.
+`ops/look.py`) still works and is still the way to make materials, cameras and quick stills. Its lighting ops
+(`look.light/sky/fog/post/channels`) are now a thin layer over the same writers as `light.*`/`env.*` (B56: one engine
+path, pinned by `tests/test_ue_look_legacy.py` against the old implementation, deliberate differences listed there):
+they keep their labels (`FM_Sun`, `FM_Fog`, ...), sRGB colours and arguments, and take over (adopt) lights saved by
+the old code instead of failing as a conflict. For new work prefer `env.*`/`light.*`: physical units, specs, describe.
 
 ## 1. Recipes
 
@@ -320,8 +323,6 @@ four stills; `film-ue apply examples/unreal/environment/studio-day-night.yaml` i
 `env.mood mood=night`.
 
 Open / next:
-- `look.sky`, `look.fog`, `look.post`, `look.light` still exist (studio.py uses them); they could become thin
-  wrappers over `env.*`/`light.*` once studio.py moves to a spec.
 - `env.hdri` with a real cubemap and the HDRIBackdrop variables need checking on the box (plugin on).
 - Light functions (`light_function_material`), rect light `source_texture`, IES import helper: APIs verified, ops not
   written.

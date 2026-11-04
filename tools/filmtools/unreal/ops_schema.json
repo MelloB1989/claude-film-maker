@@ -3889,7 +3889,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 758,
+   "line": 764,
    "summary": "Converge the level to an ENVIRONMENT (or LIGHTING) spec: diff it against env.describe, run only the needed",
    "doc": "Converge the level to an ENVIRONMENT (or LIGHTING) spec: diff it against env.describe, run only the needed\nenv/light ops, re-describe and confirm a second plan is empty. A multi-tick job. Remembers the spec so\nenv.mood can switch its moods later.\n\nArgs: spec: the spec object (kind environment|lighting, version 1, name, preset?, sections...; environment.md).\nmood: one of the spec's `moods` (overrides spec.mood). dry_run: only plan.\nReturns: {\"changed\", \"steps\": [{\"op\", \"why\", \"changed\"}], \"converged\", \"remaining\": [steps]}.\nExample: film-ue op env.apply 'spec={\"kind\":\"environment\",\"name\":\"day\",\"preset\":\"exterior_golden\"}'",
    "params": [
@@ -4048,7 +4048,7 @@
    "verb": "autoexpose",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 976,
+   "line": 982,
    "summary": "Closed-loop exposure: measure a region through a camera and change the exposure (or the key light) until the",
    "doc": "Closed-loop exposure: measure a region through a camera and change the exposure (or the key light) until the\nregion reads at the target, within a tolerance. Converges: already in range -> changed False, no change made.\n\nArgs: camera: a camera label. The region: `region` [x0,y0,x1,y1] (0..1, y down), or `subject` (an actor label:\nits box from qa.framing; part=face: the top of a standing figure's box), else the whole frame.\ntarget_stops: stops above middle grey (0 = a grey card; skin +0.5..+1; a dark mood -1.5); or target_display\n(0-1 display luma). tolerance_stops: how close. adjust: exposure (Env_Post's manual exposure, switching it to\nmanual if needed) | lights (scale `lights`' intensities, e.g. a rig's key: [\"Host_Key\"]).\nReturns: {\"changed\", \"converged\", \"iterations\": [{\"setting\", \"display\", \"error_stops\"}], \"before\", \"after\",\n\"ev100\"? (the exposure it ended at), \"scale\"? (the light scale applied)}.\nExample: film-ue op env.autoexpose camera=HostCam subject=Host part=face target_stops=0.7",
    "params": [
@@ -4160,7 +4160,7 @@
    "verb": "captures_rebuild",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 631,
+   "line": 637,
    "summary": "Rebuild the reflection captures. The only scriptable route runs a lighting build first",
    "doc": "Rebuild the reflection captures. The only scriptable route runs a lighting build first\n(LevelEditorSubsystem.build_light_maps with captures; there is no console command), so it is slow on a level\nwith static lighting; with Lumen-only levels it is quick. A multi-tick job.\n\nArgs: quality: preview|medium|high|production (the lighting build's quality).\nReturns: {\"changed\": True, \"built\": bool}.\nExample: film-ue op env.captures_rebuild",
    "params": [
@@ -4188,7 +4188,7 @@
    "verb": "check",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 1072,
+   "line": 1078,
    "summary": "A numeric verdict on a look: meter through `camera` (env.meter) or read a still `png` on the box (any",
    "doc": "A numeric verdict on a look: meter through `camera` (env.meter) or read a still `png` on the box (any\nlook.still / render frame), and compare with targets: mean [lo,hi] (display luma), median, clipped_max,\ncrushed_max, cast_max, warm [lo,hi], ev100 [lo,hi] (scene), range_stops_max, stops_over [lo,hi]. Defaults: a\nnatural, well exposed frame. A multi-tick job.\n\nArgs: targets, or `spec` (its checks: {camera, targets}). step: png subsampling.\nReturns: {\"pass\", \"issues\": [{code, severity, message, fix, value, expected}], \"metrics\": {...}}.\nExample: film-ue op env.check camera=HostCam 'targets={\"mean\":[0.3,0.5],\"clipped_max\":0.01}'",
    "params": [
@@ -4290,7 +4290,7 @@
    "verb": "cvars",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 506,
+   "line": 512,
    "summary": "Set console variables in the editor (they last until the editor restarts; render jobs take theirs from the",
    "doc": "Set console variables in the editor (they last until the editor restarts; render jobs take theirs from the\nquality preset: env.quality returns them for render.* cvar lists). Converges: only differing ones are sent.\n\nArgs: cvars: {name: value}. Returns: {\"changed\", \"set\": {name: [before, after]}}.\nExample: film-ue op env.cvars 'cvars={\"r.Lumen.HardwareRayTracing\":1}'",
    "params": [
@@ -4317,7 +4317,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 676,
+   "line": 682,
    "summary": "The environment as numbers, in the same terms as the env/light ops and the spec: sun, moon (elevation,",
    "doc": "The environment as numbers, in the same terms as the env/light ops and the spec: sun, moon (elevation,\nazimuth, lux, K), atmosphere, clouds, sky light, hdri, fog, the post fields Env_Post overrides (exposure, grade,\nquality) with the EV100 it exposes for, cvars, reflection captures, every light, rigs, lighting channels, and\nwhich spec owns each actor. The state env.apply / film-ue plan diff against.\n\nReturns: {\"sun\", \"moon\", \"atmosphere\", \"clouds\", \"sky_light\", \"hdri\", \"fog\", \"post\", \"post_owned_fields\",\n\"exposure\", \"cvars\", \"captures\", \"lights\", \"rigs\", \"channels\", \"owners\", \"other\": {...}}.\nExample: film-ue op env.describe",
    "params": [],
@@ -4336,7 +4336,7 @@
    "verb": "exposure",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 444,
+   "line": 450,
    "summary": "Exposure on Env_Post, in photographic EV100 (what a light meter says), converges.",
    "doc": "Exposure on Env_Post, in photographic EV100 (what a light meter says), converges.\n\nArgs: mode: manual (fixed: expose a scene metering `ev100`; physical camera exposure off, so a camera's\naperture never changes brightness) | physical (the camera's fstop/shutter_s/iso decide; the cine camera's own\naperture overrides fstop) | auto (histogram, adapting within min_ev100..max_ev100 at `speed`). ev100: e.g. 14-15\nsunny, 12 overcast, 8-9 bright interior/studio, 5 dim room, 1 stylised moonlight; 'auto' = from the key light\nor sun lux in the level spec. compensation: stops brighter (+)/darker (-).\nReturns: {\"changed\", \"fields\": {...}, \"ev100\": the scene EV100 exposed for}.\nExample: film-ue op env.exposure mode=manual ev100=8.5",
    "params": [
@@ -4550,7 +4550,7 @@
    "verb": "grade",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 486,
+   "line": 492,
    "summary": "A colour grade on Env_Post: a preset (neutral clean warm_film teal_orange bleach_bypass noir_bw golden_hour",
    "doc": "A colour grade on Env_Post: a preset (neutral clean warm_film teal_orange bleach_bypass noir_bw golden_hour\nmoonlight pastel high_contrast vintage_fade documentary) plus overrides; re-grading resets the old preset's\nfields (every grade starts from neutral). Converges.\n\nArgs: fields: friendly names or PostProcessSettings fields: white_balance (K), tint, saturation/contrast/\ngamma/gain/offset (a number or [r,g,b]; also color_<wheel>_shadows/_midtones/_highlights), bloom, grain,\nvignette, fringe, lut (a texture path) and lut_intensity, film_slope/toe/shoulder/black_clip/white_clip.\nReturns: {\"changed\", \"set\": [fields]}.\nExample: film-ue op env.grade preset=teal_orange 'fields={\"vignette\":0.2,\"white_balance\":6000}'",
    "params": [
@@ -4653,7 +4653,7 @@
    "verb": "meter",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 934,
+   "line": 940,
    "summary": "Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back",
    "doc": "Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back\nraw, unclamped) gives the scene's luminance statistics and the EV100 a reflected meter would choose; a second in\nfinal colour gives the image's brightness, clipping, crush and colour cast. A multi-tick job (a few ticks).\n\nArgs: camera: a camera actor label. width/height: capture size (small is enough for statistics).\nexposure_ev100: compare the scene with this exposure (default: what Env_Post exposes for, if manual).\nregion: only this box [x0, y0, x1, y1] (0..1, y down), e.g. a face box from qa.framing (spot metering).\nReturns: {\"scene\": scene_stats, \"display\": display_stats, \"camera\", \"fov_deg\", \"region\"}.\nExample: film-ue op env.meter camera=HostCam",
    "params": [
@@ -4709,7 +4709,7 @@
    "verb": "mood",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 790,
+   "line": 796,
    "summary": "Switch the last applied spec `spec_name` to one of its moods (day/night, ...): env.apply with that mood;",
    "doc": "Switch the last applied spec `spec_name` to one of its moods (day/night, ...): env.apply with that mood;\n`mood` None goes back to the spec's own mood. A multi-tick job.\n\nReturns: env.apply's result plus {\"mood\"}.\nExample: film-ue op env.mood mood=night spec_name=studio",
    "params": [
@@ -4826,7 +4826,7 @@
    "verb": "plan",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 743,
+   "line": 749,
    "summary": "What env.apply would do: the op calls that converge the level to an environment/lighting spec, without",
    "doc": "What env.apply would do: the op calls that converge the level to an environment/lighting spec, without\ndoing them. Errors name the spec field (did-you-mean) before anything changes.\n\nReturns: {\"steps\": [{\"op\", \"args\", \"why\"}], \"converged\": bool}.\nExample: film-ue op env.plan 'spec={\"kind\":\"environment\",\"name\":\"day\",\"preset\":\"exterior_day\"}'",
    "params": [
@@ -4908,7 +4908,7 @@
    "verb": "preset",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 811,
+   "line": 817,
    "summary": "Build a whole, consistent environment from a named preset (sky, sun, fog, exposure, grade, quality together):",
    "doc": "Build a whole, consistent environment from a named preset (sky, sun, fog, exposure, grade, quality together):\nexterior_day exterior_golden exterior_overcast exterior_blue_hour exterior_night interior_day interior_night\nstudio_black studio_grey. The same as env.apply of {kind: environment, name: owner, preset: name, ...overrides};\nre-running converges, switching presets replaces only what differs. A multi-tick job.\n\nArgs: name: the preset (env.presets lists them with their lux and EV100). owner: the spec name it is kept under\n(env.mood and prune use it). overrides: spec sections over the preset, e.g. {\"sun\": {\"time\": \"10:00\"}}.\nReturns: env.apply's result.\nExample: film-ue op env.preset name=exterior_golden 'overrides={\"fog\":{\"preset\":\"mist\"}}'",
    "params": [
@@ -4956,7 +4956,7 @@
    "verb": "presets",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 831,
+   "line": 837,
    "summary": "Every named thing the env/light ops and specs take, with what it is for: environment presets, times of day,",
    "doc": "Every named thing the env/light ops and specs take, with what it is for: environment presets, times of day,\natmosphere and fog presets, grades, quality presets, rig presets and roles, practical types.\n\nExample: film-ue op env.presets",
    "params": [],
@@ -4975,7 +4975,7 @@
    "verb": "quality",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 545,
+   "line": 551,
    "summary": "Lumen / virtual shadow map / hardware ray tracing quality: preset preview|draft|final|cinematic|no_gi plus",
    "doc": "Lumen / virtual shadow map / hardware ray tracing quality: preset preview|draft|final|cinematic|no_gi plus\noverrides (gi none|lumen, reflections none|lumen|ssr, shadows vsm|maps, hwrt bool, hit_lighting\nnone|reflections|all, lumen {final_gather, reflection, scene_detail, scene_lighting, max_trace_distance},\nfog_grid [pixel, z], vsm_bias, megalights, cvars). Sets the cvars now and the post fields on Env_Post.\n\nArgs: project: also write the project's renderer settings (URendererSettings GI/reflections/VSM/HWRT; HWRT\nneeds ray tracing on in the project and an editor restart). Returns: {\"changed\", \"cvars\": {...}, \"post\": [...],\n\"render_cvars\": [ \"name value\", ... ] (to pass to a render job)}.\nExample: film-ue op env.quality preset=cinematic",
    "params": [
@@ -5023,7 +5023,7 @@
    "verb": "reflection_capture",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 579,
+   "line": 585,
    "summary": "A reflection capture (a fallback for reflections Lumen cannot trace, and for translucency): a sphere with an",
    "doc": "A reflection capture (a fallback for reflections Lumen cannot trace, and for translucency): a sphere with an\ninfluence radius, or a box whose half-size is `extent_cm` (the actor's scale; ReflectionCaptureComponent.cpp:1358);\nconverges. Captures update with env.captures_rebuild.\n\nReturns: {\"label\", \"changed\"}.\nExample: film-ue op env.reflection_capture label=RoomCapture shape=box 'loc=[0,0,150]' 'extent_cm=[400,300,150]'",
    "params": [
@@ -5106,7 +5106,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 654,
+   "line": 660,
    "summary": "Remove environment parts the ops made (sun moon atmosphere clouds sky_light hdri fog post), or everything an",
    "doc": "Remove environment parts the ops made (sun moon atmosphere clouds sky_light hdri fog post), or everything an\n`owner` (spec name) made with no `parts`. Missing parts are fine; actors the ops did not make are never removed.\n\nReturns: {\"changed\", \"removed\": [labels]}.\nExample: film-ue op env.remove 'parts=[\"fog\",\"clouds\"]'",
    "params": [
@@ -5139,7 +5139,7 @@
    "verb": "schema",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 848,
+   "line": 854,
    "summary": "The JSON Schema of the environment or lighting spec (the same one in tools/filmtools/unreal/schemas/).",
    "doc": "The JSON Schema of the environment or lighting spec (the same one in tools/filmtools/unreal/schemas/).\n\nExample: film-ue op env.schema kind=lighting",
    "params": [
@@ -7782,7 +7782,7 @@
    "verb": "add",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 114,
+   "line": 115,
    "summary": "Make or converge one light named `label` (re-running retunes the same light; changing `kind` remakes it).",
    "doc": "Make or converge one light named `label` (re-running retunes the same light; changing `kind` remakes it).\n\nArgs: kind: rect|spot|point|directional. loc: [x,y,z] cm. look_at: [x,y,z] to aim at (or rotation\n{\"pitch\",\"yaw\",\"roll\"}). Intensity, one of: intensity_cd (candela), lux + at (lux at that point, inverse\nsquare; `at` defaults to look_at), lumens, nits (rect: surface luminance x area), intensity_lux (directional).\ntemperature_k (kelvin, default 6500) or color [r,g,b] linear. width_cm/height_cm (rect), cone_deg/inner_cone_deg\n(spot half-angles), source_radius_cm (soft shadows), radius_cm (attenuation; auto from intensity), shadows,\nchannels [0..2], ies (a TextureLightProfile path), specular/volumetric/indirect/diffuse scales.\nReturns: {\"label\", \"changed\", \"created\", \"props\": [changed engine properties], \"light\": canonical}.\nExample: film-ue op light.add label=Key kind=rect 'loc=[150,120,230]' 'look_at=[0,0,165]' lux=800 temperature_k=5600",
    "params": [
@@ -8043,7 +8043,7 @@
    "verb": "channels",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 358,
+   "line": 359,
    "summary": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh/character/groom, which",
    "doc": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh/character/groom, which\nlights reach it. Re-fetches components by name (a Blueprint actor's construction script replaces them).\n\nArgs: assign: {actor label: [channels]}, e.g. {\"Host\": [0, 1], \"Key\": [1]}.\nReturns: {\"changed\", \"components\": {label: n set}}.\nExample: film-ue op light.channels 'assign={\"Host\":[0,1],\"Host_Key\":[1]}'",
    "params": [
@@ -8069,7 +8069,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 310,
+   "line": 311,
    "summary": "Every light in the level (or `labels`) as numbers: kind, loc, rotation, forward, intensity (cd, or lux for a",
    "doc": "Every light in the level (or `labels`) as numbers: kind, loc, rotation, forward, intensity (cd, or lux for a\ndirectional), temperature or colour, size, cone, radius, channels, owner/role/rig; with `at` [x,y,z] also what\neach gives there (light.measure).\n\nReturns: {\"lights\": {label: {...}}, \"rigs\": {prefix: {...}}, \"at\": {...}?}.\nExample: film-ue op light.describe 'at=[0,0,165]'",
    "params": [
@@ -8102,7 +8102,7 @@
    "verb": "measure",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 339,
+   "line": 340,
    "summary": "What the lights give at a point, analytically (inverse square, cosine, spot cone, attenuation; no shadows,",
    "doc": "What the lights give at a point, analytically (inverse square, cosine, spot cone, attenuation; no shadows,\nno bounce): the numeric check of a rig without a render.\n\nArgs: at: [x,y,z] cm. normal: the surface normal there (else each light is measured facing it). labels: only\nthese lights (default all, directional lights included). key/fill: labels to report their lighting ratio.\nReturns: {\"lux\", \"ev100\" (incident), \"per_light\": {label: lux}, \"ratio\"?}.\nExample: film-ue op light.measure 'at=[0,0,165]' key=Host_Key fill=Host_Fill",
    "params": [
@@ -8157,7 +8157,7 @@
    "verb": "practical",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 158,
+   "line": 159,
    "summary": "A practical light (a fixture seen in frame) by type, with physical output: bulb, lamp, candle, fire,",
    "doc": "A practical light (a fixture seen in frame) by type, with physical output: bulb, lamp, candle, fire,\ndownlight, desk_lamp, streetlight, tube, led_strip, neon, screen, phone, window (env.presets lists them).\n\nArgs: type: the fixture. loc: [x,y,z] cm (the bulb/face). look_at or rotation to aim (downlights and strips\npoint down by default). lumens/nits/intensity_cd override the preset's output; scale multiplies it.\ntemperature_k or color [r,g,b]. Returns: like light.add. Pair the light with an emissive surface for the\nvisible fixture (mat.* emissive in nits: same number).\nExample: film-ue op light.practical label=DeskLamp type=desk_lamp 'loc=[-180,60,140]' 'look_at=[-180,60,75]'",
    "params": [
@@ -8302,7 +8302,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 403,
+   "line": 404,
    "summary": "Remove lights (and reflection captures) the env/light ops made: by `labels`, every light of a `rig` prefix,",
    "doc": "Remove lights (and reflection captures) the env/light ops made: by `labels`, every light of a `rig` prefix,\nor everything an `owner` (spec name) made. Actors the ops did not make are never removed; missing ones are fine.\n\nReturns: {\"changed\", \"removed\": [labels]}.\nExample: film-ue op light.remove rig=Host_",
    "params": [
@@ -8342,7 +8342,7 @@
    "verb": "rig",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 224,
+   "line": 225,
    "summary": "Light a subject with a named rig (key/fill/rim/...) placed around it relative to the camera, intensities from",
    "doc": "Light a subject with a named rig (key/fill/rim/...) placed around it relative to the camera, intensities from\nthe key's lux at the subject and the lighting ratio; converges (re-running moves/retunes, a dropped role is removed).\n\nArgs: subject: an actor label or [x,y,z] cm (a label lights ~eye height of its bounds, or `socket`, or its\nlocation + `subject_offset`). camera: a label or [x,y,z] (else `facing_yaw_deg`). preset: env.presets rigs\n(three_point, interview, loop, rembrandt, butterfly, clamshell, split, high_key, low_key, noir, silhouette,\nwindow). key_lux: lux on the subject from the key. ratio: (key+fill):fill, 2 flat .. 8 noir. lights: per-role\noverrides {\"rim\": {\"rel\": 1.5}, \"fill\": null, \"kicker\": {}} (fields: angle side elevation distance width height\ncone temperature color rel lux candelas shadows channels). prefix: label prefix (lights are <prefix><Role>).\nkey_side: left|right (camera-left/right), or short|broad (from the subject's facing: `facing_yaw_deg` or the\nsubject actor's yaw, +X its front; short keys the side of the face turned away from the lens). scale: x distances/sizes. temperature_k/channels: for every light.\nReturns: {\"changed\", \"lights\": [labels], \"removed\": [labels], \"subject_point\", \"camera_point\",\n\"measured\": {\"lux\", \"per_light\", \"ratio\"}}.\nExample: film-ue op light.rig subject=Host camera=HostCam preset=interview key_lux=900 prefix=Host_",
    "params": [
@@ -8537,7 +8537,7 @@
    "verb": "camera",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 465,
+   "line": 445,
    "summary": "A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.",
    "doc": "A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.\nExample: film-ue op look.camera label=Cam 'loc=[300,0,160]' 'look_at=[0,0,150]' focal=35",
    "params": [
@@ -8615,7 +8615,7 @@
    "verb": "card",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 512,
+   "line": 492,
    "summary": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right",
    "doc": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right\nway up and unmirrored from the front; `offset` pushes it out along its facing (cm), e.g. to sit on a box's front.\nExample: film-ue op look.card label=Poster 'loc=[-255,0,170]' width=60 height=90 material=/Game/FM/Materials/MI_Poster",
    "params": [
@@ -8683,7 +8683,7 @@
    "verb": "channels",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 526,
+   "line": 506,
    "summary": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which",
    "doc": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which\nlights reach it. The studio rule: the host's lights on 1 only, the set's on 0, the host itself on 0 and 1.\nPrefer light.channels.\nExample: film-ue op look.channels 'labels=[\"Key\"]' 'channels=[1]'",
    "params": [
@@ -8751,7 +8751,7 @@
    "verb": "focus_track",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 552,
+   "line": 518,
    "summary": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a",
    "doc": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a\nMetaHuman's eyes above its feet.\nExample: film-ue op look.focus_track camera_label=Cam target=Host 'offset=[0,0,165]'",
    "params": [
@@ -8795,7 +8795,7 @@
    "verb": "fog",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 418,
+   "line": 411,
    "summary": "Exponential height fog with volumetric fog: haze in the air for light shafts and depth.",
    "doc": "Exponential height fog with volumetric fog: haze in the air for light shafts and depth.\nPrefer env.fog (presets, every field).\nExample: film-ue op look.fog density=0.0006 volumetric=true",
    "params": [
@@ -9123,7 +9123,7 @@
    "verb": "post",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 437,
+   "line": 430,
    "summary": "An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).",
    "doc": "An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).\nPrefer env.post / env.exposure / env.grade.\nExample: film-ue op look.post 'settings={\"bloom_intensity\":0.25}'",
    "params": [
@@ -9156,7 +9156,7 @@
    "verb": "sky",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 390,
+   "line": 386,
    "summary": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the",
    "doc": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the\nback wall towards the camera; 90 = shining along +Y) and `elevation` above the horizon, a sky atmosphere and a\nreal-time captured sky light. `shadow_softness` is the sun's source angle in degrees.\nPrefer env.sun / env.atmosphere / env.sky_light (time of day, place).\nExample: film-ue op look.sky elevation=28 azimuth=-28 lux=17000",
    "params": [
@@ -9259,7 +9259,7 @@
    "verb": "still",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 490,
+   "line": 470,
    "summary": "A still through a camera at the viewport's quality, written to `path` on the workstation (png). A multi-tick",
    "doc": "A still through a camera at the viewport's quality, written to `path` on the workstation (png). A multi-tick\njob: it returns once the file is on disk.\nExample: film-ue op look.still camera_label=Cam path=/tmp/still.png",
    "params": [

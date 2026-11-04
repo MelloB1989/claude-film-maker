@@ -44,8 +44,8 @@ def _has_atmosphere() -> bool:
 
 # ------------------------------------------------------------------------------------------------ sun & moon
 
-def _directional(canon: dict, owner: str, role: str) -> dict:
-    a, created = U.ensure(canon["label"], "DirectionalLight", owner, role, (0, 0, 1000), canon["rotation"])
+def _directional(canon: dict, owner: str, role: str, loc=(0, 0, 1000), adopt: bool = False) -> dict:
+    a, created = U.ensure(canon["label"], "DirectionalLight", owner, role, loc, canon["rotation"], adopt=adopt)
     moved = U.place(a, None, canon["rotation"])
     c = U.component(a, "DirectionalLightComponent")
     props = {"intensity": canon["intensity_lux"], "use_temperature": True, "temperature": canon["temperature_k"],
@@ -394,6 +394,12 @@ def post(*, fields: dict = None, clear: list = None, priority: float = 1.0, owne
     Example: film-ue op env.post 'fields={"bloom_intensity":0.3,"vignette_intensity":0.2}'
     """
     a, changed = _post_actor(owner, priority)
+    done, cleared = _post_write(a, fields, clear)
+    return {"label": L["post"], "changed": bool(changed or done or cleared), "set": done, "cleared": cleared}
+
+
+def _post_write(a, fields: dict = None, clear: list = None):
+    """Set (and override) PostProcessSettings fields on a volume, clear others' overrides; (set, cleared)."""
     s = a.get_editor_property("settings")
     done, cleared = [], []
     for k, v in (fields or {}).items():
@@ -418,7 +424,7 @@ def post(*, fields: dict = None, clear: list = None, priority: float = 1.0, owne
     known -= set(cleared)
     if sorted(known) != sorted(_post_fields_tag(a)):
         U.write_blob(a, "post", sorted(known))
-    return {"label": L["post"], "changed": bool(changed or done or cleared), "set": done, "cleared": cleared}
+    return done, cleared
 
 
 def _post_fields_tag(a) -> list:
