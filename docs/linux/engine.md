@@ -242,26 +242,55 @@ but the 5.8 HWRT page says to enable Vulkan ray tracing by editing `Engine/Confi
 - S-7 MetaHuman cloud auth: the EOS login code under `Engine/Plugins/MetaHuman/MetaHumanCharacter/…` (persisted
   refresh token? device-code or exchange-code flow usable without an overlay?).
 
-## 9. Proof-of-concept tests
+## 9. Proof-of-concept tests: plan, status and verdicts
 
-Order: cheapest first, and each settles a row above. The box is a temporary G6 (L4) in ap-south-1 with Ubuntu 22.04
-and the Tesla 580 driver, the engine from agent-06's S3 tarball, and the project from agent-02's S3 copy.
+GO on 2026-11-04. The box is `i-0573d4267ace3d9cc` (agent-06 brings it up); agent-07 runs the tests, one editor at
+a time; agent-04 owns this table and the verdicts. The engine is 5.8.4 from agent-06's source build; the project is
+copied from the workstation snapshot (§9a).
 
-| # | Test | Pass if | Settles |
-|---|---|---|---|
-| P0 | Source build of the exact tag (agent-06) | `UnrealEditor` + `ShaderCompileWorker` + plugins built; MetaHuman plugins and Creator Core Data present | engine route |
-| P1 | `DISPLAY= vulkaninfo \| grep -E 'ray_tracing_pipeline\|ray_query\|acceleration_structure\|shader_atomic_int64\|mesh_shader'` | all present | RHI, RT, Nanite/VSM |
-| P2 | `unset DISPLAY WAYLAND_DISPLAY; UnrealEditor HostStudio.uproject /Game/Studio/Studio -RenderOffscreen -vulkan -unattended -nosplash -stdout`, bridge auto-starts; `film-ue health`, `exec`, `look.still`, `seq.still`. Retry with `SDL_VIDEODRIVER=offscreen`, then `xvfb-run`. Sample RSS for 2 h | editor up with `RHI=Vulkan`, bridge answers, stills written, no RSS creep | **headless editor**, stills, Python |
-| P3 | `render.mrq` (deferred, PNG + WAV) through the bridge; then the same job as `UnrealEditor-Cmd … -game -MoviePipelineConfig=… -RenderOffscreen`. Audio three ways: default, `-deterministicaudio`, PulseAudio null sink | frames + a non-silent WAV; log free of `LogAudioMixer` device errors | **MRQ headless, WAV** |
-| P4 | Lumen HWRT + Hit Lighting on the studio level, 30-min render soak | no device lost; image sane | HWRT |
-| P5 | `render.mrq path_tracer=True` (NNE denoiser, then OIDN) | non-black, denoised; log names the NNE runtime | path tracer |
-| P6 | One reel shot rendered on Linux vs the Windows frame of the same shot (agent-02 / existing renders): skin, eyes, groom, clothing | difference only within noise (PSNR/visual) | MH materials, hair, Vulkan parity |
-| P7 | `assets.import` of an FBX prop (skeletal + static), and an export | assets import with materials | FBX |
-| P8 | Import a groom `.abc` and create a binding to a MetaHuman | binding asset builds, renders | groom |
-| P9 | `mh.from_preset`, `mh.body`, `mh.skin`, `mh.add_item`, `mh.build` (with swap on) | BP_ built, placed, renders | Creator, assembly |
-| P10 | `mh.rig` + `mh.textures`: first in the offscreen editor; if it asks for sign-in, sign in once interactively (Xvfb + VNC), restart offscreen, run again | cloud rig/textures arrive; login reused after restart | **cloud services + sign-in** |
-| P11 | `speech.to_face` with a reel line | animation exported, frames > 0, lip-sync plausible | **audio-to-face** |
-| P12 | Fab plugin zip + sign-in, add one free asset (only if new Fab content will ever be needed on Linux) | asset lands in Content | Fab |
+**Each result report should include:** the exact command or op call; the engine and driver versions (`nvidia-smi`,
+`Build.version`) once; the log lines named in "Evidence"; output paths on the box or in S3; and numbers (times,
+sizes, metrics). A test without its evidence stays **pending**.
+
+| # | Test | Pass if | Evidence to report | Status |
+|---|---|---|---|---|
+| P0 | Source build 5.8.4 (agent-06) | editor, ShaderCompileWorker and plugins built; `Engine/Plugins/MetaHuman/MetaHumanCharacter/Content/Optional/Presets` present (else copy it from the snapshot's engine) | build times, archive path, `ls` of Presets | pending |
+| P1 | `DISPLAY= vulkaninfo`, grep RT, `shader_atomic_int64`, `mesh_shader` | all present on the L4 | the grep output, `nvidia-smi` | pending |
+| P2 | Editor on the copied project, bridge auto-starts: `film-ue health`, `exec`, `look.still`, `seq.still`; RSS every minute for 2 h | `RHI=Vulkan`, `SM6`; bridge answers; stills are correct images; RSS flat | launch line; log `LogRHI`/`LogVulkanRHI` lines; still PNGs; RSS series; which display mode (rule D1) | pending |
+| P3 | `render.mrq` deferred PNG+WAV on a 24-frame chunk of one reel shot, through the bridge; then the same job via command-line MRQ (`UnrealEditor-Cmd … -game -MoviePipelineConfig=… -RenderOffscreen`) | frames written; the command-line job also works (needed for `film-ue render`) | frame dir, s/frame, `LogMovieRenderPipeline` errors, WAV length and peak | pending |
+| P4 | Same chunk with the project's Lumen **HWRT** as is; then a 30-min soak | log shows ray tracing enabled; no `VK_ERROR_DEVICE_LOST`; image sane | `LogRayTracing`/`LogVulkanRHI` lines, soak duration, crash count | pending |
+| P5 | `render.mrq path_tracer=True`, 8 frames | non-black, denoised | NNE runtime log line, frames | pending |
+| P6 | Reel calibration chunks vs the Windows PNGs of the same frames (`Saved/MovieRenders/reel_1080p`), with exactly render.py's settings (§9a.5), after the face-mode check (§9a.6) | rule D5 | per-frame SSIM/PSNR, crop colour deltas, contact sheet path | pending |
+| P7 | `assets.import` an FBX prop (static + skeletal), then export | imported with materials | asset paths, log | pending |
+| P8 | Groom `.abc` import + binding to a MetaHuman | binding builds and renders | asset paths, a still | pending |
+| P9 | `mh.from_preset` → `mh.body` → `mh.skin` → `mh.add_item` → `mh.build` (swap on) | BP built, placed, renders | BP path, still, peak RSS | pending |
+| P10 | `mh.rig` + `mh.textures`: offscreen first; if a sign-in is needed, the operator signs in once (Xvfb + VNC), restart offscreen, run again | rig and hi-res textures arrive; login survives the restart | log `LogMetaHumanAuth`/`LogEOSAuth`, `has_high_resolution_textures` | pending (needs the operator) |
+| P11 | `speech.to_face` on one reel line, mood as REEL_PERF | animation exported, frames > 0, plausible lip-sync (one-frame-per-word check or a short MRQ) | anim path, frames, `LogNNE` runtime line, timing | pending |
+| P12 | Fab plugin (source, from the snapshot's engine) built in; the operator signs in; add one free asset | asset lands in `Content/` and renders | asset path, log | pending (needs the operator) |
+
+### 9.1 Decision rules (agreed before the results, so the verdicts are not argued after)
+
+- **D1 Display mode.** Try in this order and keep the first where P2 passes in full: (1) no `DISPLAY` with
+  `-RenderOffscreen`; (2) `SDL_VIDEODRIVER=offscreen` with `-RenderOffscreen`; (3) `xvfb-run -s "-screen 0 1920x1080x24"`
+  (Xvfb is a few MB, needs no GPU and no desktop, so it still counts as code-only); (4) headless Xorg on the L4.
+  Rendering must use the NVIDIA GPU in every mode (check `LogVulkanRHI` names the L4, not llvmpipe).
+- **D2 Stills.** If `look.still`/`seq.still` fail or come out black with no viewport, do not block: replace them with
+  a one-frame MRQ still op (a helper to build, §11) and go on with P3.
+- **D3 Hardware Lumen.** If P4 shows RT disabled, first check the VULKAN_SM6 `DataDrivenPlatformInfo.ini` keys (§7)
+  and r.RayTracing in the log. On device lost: `r.Vulkan.EnablePipelineLRUCache=1`, then `r.Vulkan.AllowAsyncCompute=0`,
+  then driver 580 ↔ 595. If it is still unstable or wrong, use **software Lumen** (`r.Lumen.HardwareRayTracing 0`)
+  for Round 3, provided P6 shows it acceptable (all of Round 3 is on Linux, so consistency within Round 3 is what matters).
+- **D4 Audio.** The reel's sound is mixed outside Unreal (`films/host-studio/reel/audio/mix/`), so a silent MRQ WAV
+  is **not a blocker**: note it and drop `MoviePipelineWaveOutput` from Linux renders if it misbehaves.
+- **D5 Image check (P6).** A sanity check, not a pixel match (Round 3 is Linux-only). Fail if structural: missing or
+  white hair, black or wrong eyes, grey or yellow skin SSS, missing shadows, flicker, a neutral face. Otherwise pass
+  if full-frame SSIM ≥ 0.90 against the Windows frame of the same number (provisional: calibrate on the first chunk
+  by also comparing two adjacent Windows frames) and crop mean colour differs by ≤ 3 ΔE. A larger but uniform
+  colour shift passes with a note (it's a grade).
+- **D6 Performance.** No pass/fail: record s/frame vs Windows for agent-05. If Linux is more than 2× slower, look at
+  shader compilation in the first frames (exclude warm-up) and at HWRT vs SW Lumen before blaming Vulkan.
+- **D7 MetaHuman cloud (P10).** If the login does not persist, Round 3 still passes (it needs no cloud call, §12a);
+  record that new characters need an interactive session per rig request.
 
 ### 9a. The PoC under the operator's decision (no Windows boots; project from an EBS snapshot)
 
