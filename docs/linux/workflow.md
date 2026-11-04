@@ -21,7 +21,11 @@ is out, so DCV, Pixel Streaming and latency from India matter only as an optiona
 - **No desktop is needed in the target design**: a long-running `UnrealEditor -RenderOffscreen -unattended` under
   systemd with the bridge inside, reached through the same SSM port-forward. That this editor mode ticks Slate (so the
   bridge's post-tick runner works) and draws its level viewport (so `look.still`/`seq.still` work) is **likely**
-  (Epic documents streaming the *full editor* rendered offscreen, marked experimental) but **not proven**: it is PoC 2.
+  (Epic documents streaming the *full editor* rendered offscreen, marked experimental; BEDLAM runs the full
+  `UnrealEditor -RenderOffscreen -vulkan -unattended -ExecCmds='py …'` with MRQ on GPU nodes, 5.3.2,
+  https://github.com/ardithho/Unreal_Linux; one 5.8 user reports crash-free offscreen sessions: agent-04's `docs/linux/engine.md` on `fleet/agent-04/linux-engine`)
+  but **not proven** for a long-running editor with the bridge: it is PoC 2. Try `SDL_VIDEODRIVER=offscreen` (5.8 is on
+  SDL3) before any Xorg/Xvfb.
 - **The fallback lane needs no change to the ops**: a headless Xorg on the NVIDIA GPU (virtual screen, no monitor),
   with the editor on `:0`. It keeps today's model (a desktop exists; `xdotool`/`import` replace SendInput/GDI).
 - **Can be removed by code**: the DCV login that starts the editor (systemd), the scheduled task, the screen grab
@@ -138,11 +142,11 @@ https://repost.aws/articles/ARpObQqWDSTFaHjaBIhddL2Q).
 | Need | Needs a display? | Needs a sign-in? | Removable by code? | Confidence |
 |---|---|---|---|---|
 | Build the scene, key Sequencer, cine cameras, materials, lights (all ops) | no (mode A) | no | — | likely (PoC 2) |
-| Stills through a camera (`look.still`, `seq.still`, `seq.stills`: `take_high_res_screenshot` + `LSE.set_lock_camera_cut_to_viewport`) | needs a **level viewport**, which exists offscreen if Slate runs; otherwise render stills through MRQ (one-frame range) | no | yes (MRQ still op as fallback) | unknown → PoC 3 |
+| Stills through a camera (`look.still`, `seq.still`, `seq.stills`: `take_high_res_screenshot` + `LSE.set_lock_camera_cut_to_viewport`) | needs a **level viewport**, which exists offscreen if Slate runs; otherwise render stills through MRQ (one-frame range) or a `SceneCapture2D` from the camera (agent-04's `docs/linux/engine.md` on `fleet/agent-04/linux-engine`) | no | yes (viewport-free still op as fallback) | unknown → PoC 3 |
 | MRQ renders (PIE executor) | no (offscreen) | no | — | likely → PoC 4 |
 | MRQ audio (`MoviePipelineWaveOutput`) | no, but needs an audio device: headless there is no PulseAudio; whether UE's SDL audio falls back to a null device, or `-nosound` drops the wav, must be tested | no | if broken: render the wav from the sequence's audio tracks outside UE (the reel already mixes in `films/host-studio/reel/sfx.py`/`score.py`) | unknown → PoC 4 |
 | Modal dialogs (overwrite asset, save prompts, restore after crash) | they would block the game thread with no one to click | no | `-unattended` suppresses most; `assets.free` (reel branch) already avoids the overwrite dialog by code; keep "never export over an asset" as a rule | likely |
-| Fab: add new Unreal-format assets | the Fab plugin's in-editor browser | **yes** (Epic account) | **no**, not on Linux today: forum reports of the Fab plugin missing or failing to load on Linux (5.4–5.6). Content already in the project moves with `Content/` and needs no sign-in | likely |
+| Fab: add new Unreal-format assets | the Fab plugin's in-editor browser | **yes** (Epic account) | **unknown**: forum reports of the Fab plugin missing or failing on Linux (5.4–5.6), but a 5.8.2 Linux user got Epic's separate Fab plugin zip (unrealengine.com/linux, unzipped into `Engine/Plugins/Fab`) working after signing in again, and an Epic Launcher Preview for Linux exists since 2026-10-14 (agent-04's `docs/linux/engine.md` on `fleet/agent-04/linux-engine`). Still an interactive sign-in. Content already in the project moves with `Content/` and needs no sign-in | likely |
 | MetaHuman cloud: auto-rig (`mh.rig`), texture synthesis (`mh.textures`) | no | **likely yes** (Epic account; the Windows editor got it from the launcher, which does not exist on Linux) | unknown; keep character *creation* on Windows during the hybrid period; *shooting* an already built MetaHuman needs no cloud call | unknown → PoC 6 |
 | MetaHuman Creator editing (presets, body, wardrobe, build) on Linux | no | no (local) | — | likely: Creator supported on Linux since 5.7 (https://dev.epicgames.com/documentation/metahuman/metahuman-5-7-release-notes) |
 | Audio to face (`speech.to_face`: `MetaHumanPerformance` with AUDIO input) | no | no | — | likely: MetaHuman Animator offline facial on Linux in 5.8 ("Offline and real-time facial MetaHuman Animator functionality available on Linux and macOS"; body animation Windows-only; https://dev.epicgames.com/documentation/metahuman/metahuman-5-8-release-notes-in-unreal-engine). 5.7 had *disabled* Identity and Performance asset creation on Linux, so this is new in 5.8 → PoC 5 |
@@ -250,13 +254,16 @@ operator wants a look from the Mac anyway:
   G6 family (likely: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/nvidia-GRID-driver.html). Mode A needs only
   Vulkan on the device (no X). AWS lists Vulkan for the public datacenter (Tesla) driver on G4dn/G5/G6/Gr6/G6e
   (g6f/gr6f are GRID-only) (confirmed via agent-05's `docs/linux/cost.md`), so mode A can use the Tesla driver;
-  mode E with Xorg/DCV wants GRID.
+  mode E with Xorg/DCV wants GRID. **Default to the Tesla 580.x driver**: 580 is reported most stable (570 crashes
+  with ray tracing, 595 hangs on modal dialogs/resize), and an Epic tech note (Aug 2026) covers a Vulkan-init crash
+  with "licensed" drivers (an OpenSSL ABI clash) (agent-04's `docs/linux/engine.md` on `fleet/agent-04/linux-engine`).
   PoC 1 settles it with `vulkaninfo --summary` and the editor log's chosen device.
 - **UE 5.8 on Linux has fresh reports**: an NVIDIA `VK_ERROR_DEVICE_LOST` crash at start (thread tagged fixed, fix
   not stated), Wayland/SDL3 explicit-sync crashes worked around with `SDL_VIDEODRIVER=x11`, AMD/Mesa black screens
   (https://forums.unrealengine.com/t/my-experience-unreal-engine-5-8-0-preview-on-linux/2721855,
   https://forums.unrealengine.com/t/ue-5-8-release-instant-vulkan-crash-vk-error-device-lost-on-linux-with-rtx-3090-ti-nvidia-driver/2729632).
-  None is on an L4 headless; a server with no compositor avoids the Wayland class entirely. Use the latest 5.8.x.
+  None is on an L4 headless; a server with no compositor avoids the Wayland class entirely. Use **≥ 5.8.2** (device-lost fix UE-385759) and preferably **≥ 5.8.3** (fixes a Linux-only Cinematic Viewport
+  crash) (agent-04's `docs/linux/engine.md` on `fleet/agent-04/linux-engine`); the Windows project must then be on the same patch (step 0).
 - **Engine binaries:** Epic's prebuilt Linux editor zip (download needs an Epic account login; Ubuntu 22.04, glibc ≥
   2.35: https://dev.epicgames.com/documentation/unreal-engine/linux-development-quickstart-for-unreal-engine) or a
   source build of the exact tag (the build task). Whether the zip carries MetaHuman Creator's core data and the
