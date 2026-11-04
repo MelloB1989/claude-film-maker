@@ -8585,6 +8585,199 @@
    "tags": [
     "gpu"
    ]
+  },
+  {
+   "name": "wp.describe",
+   "area": "wp",
+   "verb": "describe",
+   "module": "fmbridge.ops.wp",
+   "file": "unreal/fmbridge/ops/wp.py",
+   "line": 116,
+   "summary": "The open level's partition: whether it is partitioned, its editor and runtime bounds, how many actors it has",
+   "doc": "The open level's partition: whether it is partitioned, its editor and runtime bounds, how many actors it has\nand how many are loaded in the editor now, per runtime grid (data layers: level.layers).\n\nReturns: {\"partitioned\", \"editor_bounds\": {\"min\", \"max\", \"size_m\"}, \"runtime_bounds\", \"actors\", \"loaded\",\n\"spatially_loaded\", \"always_loaded\", \"editor_only\", \"grids\": {grid: count}, \"loaded_by_ops\": count}.\nExample: film-ue op wp.describe",
+   "params": [],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "wp.find",
+   "area": "wp",
+   "verb": "find",
+   "module": "fmbridge.ops.wp",
+   "file": "unreal/fmbridge/ops/wp.py",
+   "line": 135,
+   "summary": "Actors of the partitioned level, loaded or not (from their descriptors on disk): filter by label substring,",
+   "doc": "Actors of the partitioned level, loaded or not (from their descriptors on disk): filter by label substring,\nclass name, a box [[x, y, z], [x, y, z]] in cm, or loaded state.\n\nReturns: {\"partitioned\", \"count\", \"actors\": [{\"label\", \"guid\", \"class\", \"bounds\", \"grid\", \"spatial\",\n\"editor_only\", \"data_layers\", \"loaded\"}]} (the first `limit`).\nExample: film-ue op wp.find contains=Tree loaded=false limit=20",
+   "params": [
+    {
+     "name": "contains",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "cls",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "box",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "loaded",
+     "kind": "keyword",
+     "type": "bool | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "limit",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 200
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "wp.load",
+   "area": "wp",
+   "verb": "load",
+   "module": "fmbridge.ops.wp",
+   "file": "unreal/fmbridge/ops/wp.py",
+   "line": 183,
+   "summary": "Load part of a World Partition level into the editor: the actors whose bounds meet a box (cm), what a camera",
+   "doc": "Load part of a World Partition level into the editor: the actors whose bounds meet a box (cm), what a camera\nsees out to far_cm (its frustum's box, padded), a sphere around a point, named actors, or everything. Waits\n(multi-tick) until they are in the editor world. `pin` also pins them (kept loaded when regions change).\n\nReturns: {\"partitioned\", \"changed\", \"requested\", \"newly_loaded\", \"already_loaded\", \"missing\": [labels that did\nnot appear], \"box\"}.\nExample: film-ue op wp.load camera=Cam_A far_cm=8000",
+   "params": [
+    {
+     "name": "box",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "camera",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "far_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 5000.0
+    },
+    {
+     "name": "pad_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 500.0
+    },
+    {
+     "name": "around",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "radius_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 3000.0
+    },
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "all",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "pin",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "timeout_s",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 60.0
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "wp.unload",
+   "area": "wp",
+   "verb": "unload",
+   "module": "fmbridge.ops.wp",
+   "file": "unreal/fmbridge/ops/wp.py",
+   "line": 222,
+   "summary": "Unload actors that wp.load loaded (by label, by box, or all of them). Actors loaded by the editor's own regions",
+   "doc": "Unload actors that wp.load loaded (by label, by box, or all of them). Actors loaded by the editor's own regions\n(or always loaded) stay: the library unloads only its own loads.\n\nReturns: {\"partitioned\", \"changed\", \"unloaded\", \"kept\": [labels not loaded by wp.load]}.\nExample: film-ue op wp.unload all=true",
+   "params": [
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "box",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "all",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
   }
  ],
  "broken": {},
@@ -8608,6 +8801,7 @@
   "seq": "Level sequences: a shot from an actor, animations per component, audio and a camera; open and scrub.",
   "shot": "Shooting a scene from a shot list: a declarative spec (kind \"shot\", camkit.shotlist) becomes cameras, their keys and the sequence's camera cuts; read back as the edit with each shot's camera and size; checked shot by shot and cut by cut; an",
   "speech": "Speech to face: a voice file on the workstation becomes a MetaHuman facial animation (lip-sync, blinks, brows, head movement), through MetaHuman Animator's audio solver with a chosen mood.",
-  "view": "Claude's eyes in the editor: pictures with no viewport."
+  "view": "Claude's eyes in the editor: pictures with no viewport.",
+  "wp": "World Partition in the editor (B37): what a partitioned level holds, and loading the part of it a still, a check or a layout step needs."
  }
 }
