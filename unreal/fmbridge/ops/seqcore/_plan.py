@@ -214,3 +214,80 @@ def chunks(doc: dict, *, start: int | None = None, end: int | None = None, max_f
             at = stop
     return {"chunks": out, "frames": sum(c["end"] - c["start"] for c in out),
             "preroll_total": sum(c["preroll_frames"] for c in out)}
+
+
+# --- diff ------------------------------------------------------------------------------------------------------------
+
+def _first_key_difference(a: list, b: list, tol: float):
+    from ._curves import values_equal
+    for i in range(max(len(a), len(b))):
+        if i >= len(a):
+            return {"key": i, "only_in_b": b[i]}
+        if i >= len(b):
+            return {"key": i, "only_in_a": a[i]}
+        x, y = a[i], b[i]
+        if x[0] != y[0] or not values_equal(x[1], y[1], tol) or (x[2:3] != y[2:3]):
+            return {"key": i, "a": x, "b": y}
+    return None
+
+
+def _track_difference(a: dict, b: dict, tol: float, claims_only: bool = False) -> dict | None:
+    """Where two tracks of one identity first differ: params, section count, a section's range/row/params, a
+    channel's default or keys."""
+    from ._curves import values_equal
+    from ._model import channel_equal
+    pa, pb = a.get("params") or {}, b.get("params") or {}
+    for k in sorted(set(pb) if claims_only else set(pa) | set(pb)):
+        if not k.startswith("_") and not values_equal(pa.get(k), pb.get(k), tol):
+            return {"where": f"params.{k}", "a": pa.get(k), "b": pb.get(k)}
+    sa, sb = a.get("sections") or [], b.get("sections") or []
+    if len(sa) != len(sb):
+        return {"where": "sections", "a": len(sa), "b": len(sb)}
+    for i, (x, y) in enumerate(zip(sa, sb)):
+        if list(x["range"]) != list(y["range"]) or x.get("row", 0) != y.get("row", 0):
+            return {"where": f"sections[{i}].range", "a": [x["range"], x.get("row", 0)], "b": [y["range"], y.get("row", 0)]}
+        px, py = x.get("params") or {}, y.get("params") or {}
+        for k in sorted(set(py) if claims_only else set(px) | set(py)):
+            if not values_equal(px.get(k), py.get(k), tol):
+                return {"where": f"sections[{i}].params.{k}", "a": px.get(k), "b": py.get(k)}
+        cx, cy = x.get("channels") or {}, y.get("channels") or {}
+        for n in sorted(set(cy) if claims_only else set(cx) | set(cy)):
+            if not channel_equal(cx.get(n), cy.get(n), tol):
+                d = _first_key_difference((cx.get(n) or {}).get("keys") or [], (cy.get(n) or {}).get("keys") or [], tol)
+                return {"where": f"sections[{i}].channels.{n}", **(d or {"a_default": (cx.get(n) or {}).get("default"),
+                                                                       "b_default": (cy.get(n) or {}).get("default")})}
+    return None
+
+
+def diff(a: dict, b: dict, *, tol: float = 1e-4, claims_only: bool = False) -> dict:
+    """What differs from sequence document `a` to `b` (both seq.describe's shape, or a compiled spec): rate, range,
+    markers, bindings added / removed / changed kind, and tracks added / removed / changed with where they first
+    differ. `claims_only` (b is a spec): only what b states counts (params, channels it names; tracks it lists).
+    {"same": bool, "sequence": {...}, "bindings": [...], "tracks": [...]}."""
+    seq = {}
+    for k in ("fps", "range", "tick_resolution"):
+        if k in a and k in b and a[k] != b[k] and not (k == "fps" and Rate.parse(a[k]) == Rate.parse(b[k])):
+            seq[k] = {"a": a[k], "b": b[k]}
+    ma = sorted((m["frame"], m.get("label", "")) for m in a.get("markers") or [])
+    mb = sorted((m["frame"], m.get("label", "")) for m in b.get("markers") or [])
+    if ma != mb:
+        seq["markers"] = {"a": ma, "b": mb}
+    ba = {x["name"]: x for x in a.get("bindings") or []}
+    bb = {x["name"]: x for x in b.get("bindings") or []}
+    bindings = [{"binding": n, "change": "added"} for n in bb if n not in ba] + \
+        [{"binding": n, "change": "removed"} for n in ba if n not in bb] + \
+        [{"binding": n, "change": "kind", "a": ba[n].get("kind"), "b": bb[n].get("kind")} for n in ba
+         if n in bb and ba[n].get("kind", "possessable") != bb[n].get("kind", "possessable")]
+    ia, ib = index(a), index(b)
+    tracks = []
+    for k, t in ib.items():
+        if k not in ia:
+            tracks.append({"track": track_label(t), "change": "added"})
+    for k, t in ia.items():
+        if k not in ib and not claims_only:
+            tracks.append({"track": track_label(t), "change": "removed"})
+        else:
+            d = _track_difference(t, ib[k], tol, claims_only)
+            if d:
+                tracks.append({"track": track_label(t), "change": "changed", **d})
+    return {"same": not (seq or bindings or tracks), "sequence": seq, "bindings": bindings, "tracks": tracks}

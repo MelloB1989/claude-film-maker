@@ -6621,7 +6621,7 @@
    "verb": "check",
    "module": "fmbridge.ops.seqcore.seq_core",
    "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
-   "line": 296,
+   "line": 324,
    "summary": "Numeric checks of a sequence: unbound bindings, camera-cut gaps and missing cameras, keys outside the",
    "doc": "Numeric checks of a sequence: unbound bindings, camera-cut gaps and missing cameras, keys outside the\nrange, rotation flips across +-180, overlapping shots, empty tracks.\n\nReturns: {\"pass\", \"issues\": [{\"code\", \"severity\", \"message\", \"fix\", \"frame\", \"subject\"}], \"metrics\"}.\nExample: film-ue op seq.check path=/Game/Film/SEQ_010",
    "params": [
@@ -6648,7 +6648,7 @@
    "verb": "chunks",
    "module": "fmbridge.ops.seqcore.seq_core",
    "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
-   "line": 344,
+   "line": 372,
    "summary": "Render chunks that never start cloth cold: each lies in one shot and pre-rolls back to its shot's start.",
    "doc": "Render chunks that never start cloth cold: each lies in one shot and pre-rolls back to its shot's start.\n\nCloth (and any simulation) needs its history: a render that starts mid-shot is wrong (the Linux PoC's open\novershirt). Render [eval_from, end) and keep [start, end). max_frames > 0 splits long shots; max_preroll\ncaps the pre-roll (the chunk is then flagged \"cold\"); preroll adds frames before every shot start.\nReturns: {\"chunks\": [{\"start\", \"end\", \"shot\", \"shot_start\", \"preroll_frames\", \"eval_from\", \"first_after_cut\",\n\"cold\"}], \"frames\", \"preroll_total\"}.\nExample: film-ue op seq.chunks path=/Game/Film/SEQ_010 max_frames=48 preroll=8",
    "params": [
@@ -6726,7 +6726,7 @@
    "verb": "copy",
    "module": "fmbridge.ops.seqcore.seq_core",
    "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
-   "line": 436,
+   "line": 464,
    "summary": "Copy a sequence (all of it: the asset duplicated), or a window [start, end) of it moved to begin at `to`:",
    "doc": "Copy a sequence (all of it: the asset duplicated), or a window [start, end) of it moved to begin at `to`:\nsections cut to the window (clips start that much later into themselves), curves holding their values at the\nedges, markers inside kept. For pulling a shot out of a long sequence. A multi-tick job.\n\n`replace` frees an existing `dst` first (no dialog), else an existing dst is an error.\nReturns: {\"sequence\", \"range\", \"tracks\", \"notes\", \"changed\"}.\nExample: film-ue op seq.copy src=/Game/Film/SEQ_All dst=/Game/Film/SEQ_sh020 start=120 end=240",
    "params": [
@@ -6861,12 +6861,60 @@
    ]
   },
   {
+   "name": "seq.diff",
+   "area": "seq",
+   "verb": "diff",
+   "module": "fmbridge.ops.seqcore.seq_core",
+   "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
+   "line": 296,
+   "summary": "What differs between two sequences (`path` vs `other`), or between a sequence and what a spec asks for.",
+   "doc": "What differs between two sequences (`path` vs `other`), or between a sequence and what a spec asks for.\n\nEach track that differs says where first: a param, the section count, a section's range, a channel's key\n(index, both keys). Args: path, other: sequences. spec: a sequence spec instead of `other`. tol: value tolerance.\nReturns: {\"same\", \"sequence\": {fps/range/markers: {a, b}}, \"bindings\": [...], \"tracks\": [{\"track\", \"change\":\nadded|removed|changed, \"where\", \"a\", \"b\"}]}.\nExample: film-ue op seq.diff path=/Game/Film/SEQ_010 other=/Game/Film/SEQ_010_v2",
+   "params": [
+    {
+     "name": "path",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "other",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "spec",
+     "kind": "keyword",
+     "type": "dict",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "tol",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.0001
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "sequencer",
+    "describe"
+   ]
+  },
+  {
    "name": "seq.eval",
    "area": "seq",
    "verb": "eval",
    "module": "fmbridge.ops.seqcore.seq_core",
    "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
-   "line": 310,
+   "line": 338,
    "summary": "What the sequence evaluates to at frames, without playing it: actors' world transforms (opens the sequence in",
    "doc": "What the sequence evaluates to at frames, without playing it: actors' world transforms (opens the sequence in\nSequencer: ControlRigSequencerEditorLibrary evaluates the open one) and tracks' channel values (curve\nevaluation; works closed). For checking keys landed where meant.\n\nArgs: frames: display frames. labels: actor labels -> [[x, y, z, pitch, yaw, roll], ...] per frame.\ntracks: [{\"kind\", \"binding\", \"component\", \"name\"}] -> {channel: [values]}.\nReturns: {\"frames\", \"transforms\": {label: [...]}, \"channels\": {track label: {channel: [...]}}}.\nExample: film-ue op seq.eval path=/Game/S/SEQ_A 'frames=[0,24,48]' 'labels=[\"CamA\"]'",
    "params": [
@@ -7387,7 +7435,7 @@
    "verb": "preroll",
    "module": "fmbridge.ops.seqcore.seq_core",
    "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
-   "line": 362,
+   "line": 390,
    "summary": "Give every shot / subsequence section of a sequence `frames` of pre-roll (and `postroll`): Sequencer then",
    "doc": "Give every shot / subsequence section of a sequence `frames` of pre-roll (and `postroll`): Sequencer then\nevaluates each inner sequence that long before its section starts, so simulations have history at the cut.\n\nReturns: {\"sections\": n, \"changed\"}.\nExample: film-ue op seq.preroll path=/Game/Film/SEQ_Master frames=24",
    "params": [
@@ -7567,7 +7615,7 @@
    "verb": "retime",
    "module": "fmbridge.ops.seqcore.seq_core",
    "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
-   "line": 387,
+   "line": 415,
    "summary": "Move or stretch a sequence's time: f -> pivot + (f - pivot) * scale + offset, keys, sections and range alike.",
    "doc": "Move or stretch a sequence's time: f -> pivot + (f - pivot) * scale + offset, keys, sections and range alike.\n\n`after` makes it a ripple (only what is at or after that frame moves: insert time with offset > 0, close a gap\nwith offset < 0). Animation sections play at rate / scale; audio is moved, never stretched. `out`: write to a\ncopy (made with the asset duplicated) and leave `path` as it is. Tracks of unsupported classes are not moved\n(listed in \"untouched\"). Not idempotent: each call moves again. A multi-tick job.\nReturns: {\"sequence\", \"tracks\", \"notes\", \"untouched\", \"changed\"}.\nExample: film-ue op seq.retime path=/Game/S/SEQ_A offset=12 after=96",
    "params": [
@@ -7885,7 +7933,7 @@
    "verb": "shots",
    "module": "fmbridge.ops.seqcore.seq_core",
    "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
-   "line": 331,
+   "line": 359,
    "summary": "The shots of a sequence in order: its cinematic shot track's sections, else its camera cuts.",
    "doc": "The shots of a sequence in order: its cinematic shot track's sections, else its camera cuts.\n\nReturns: [{\"name\", \"start\", \"end\", \"sequence\" | \"camera\", \"preroll\"}] (frames).\nExample: film-ue op seq.shots path=/Game/Film/SEQ_Master",
    "params": [
@@ -8043,7 +8091,7 @@
    "verb": "time",
    "module": "fmbridge.ops.seqcore.seq_core",
    "file": "unreal/fmbridge/ops/seqcore/seq_core.py",
-   "line": 476,
+   "line": 504,
    "summary": "Convert a time between frames, seconds, timecode and ticks at a sequence's rate (or `fps`).",
    "doc": "Convert a time between frames, seconds, timecode and ticks at a sequence's rate (or `fps`).\n\nArgs: value: 48, \"2s\", \"48f\", \"1m30s\", \"00:00:02:00\". fps: a rate (default: the sequence's, else 24).\nReturns: {\"frame\", \"seconds\", \"timecode\", \"ticks\", \"fps\"}.\nExample: film-ue op seq.time value=00:01:00:00 fps=23.976",
    "params": [

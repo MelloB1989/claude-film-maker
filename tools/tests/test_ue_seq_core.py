@@ -336,3 +336,18 @@ def test_kind_registered_with_the_spec_engine():
     assert k.order == 60
     doc = seq_spec.load(str(EXAMPLES[-1]))[0]
     assert k.plan(doc, None)[0]["op"] == "seq.add"
+
+
+def test_diff_says_where_tracks_first_differ():
+    a = described(compiled())
+    b = copy.deepcopy(a)
+    assert C.plan.diff(a, b)["same"]
+    by(b, "float", "Hero")["sections"][0]["channels"]["value"]["keys"][1][1] = 11.0
+    b["tracks"] = [t for t in b["tracks"] if t["kind"] != "fade"]
+    b["range"] = [0, 200]
+    d = C.plan.diff(a, b)
+    assert not d["same"] and d["sequence"]["range"] == {"a": [0, 240], "b": [0, 200]}
+    ch = {t["track"]: t for t in d["tracks"]}
+    assert ch["/fade"]["change"] == "removed"
+    f = ch["Hero/float:Intensity"]
+    assert f["where"] == "sections[0].channels.value" and f["key"] == 1 and f["b"][1] == 11.0

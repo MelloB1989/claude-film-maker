@@ -18,7 +18,7 @@ from ...errors import OpError
 from ..assets import EAL, free
 from . import _engine as E
 from ._model import index, track_id, track_label, transform_time, clip
-from ._plan import chunks as plan_chunks, lint, plan as make_plan, shots_of
+from ._plan import chunks as plan_chunks, diff as plan_diff, lint, plan as make_plan, shots_of
 from ._spec import SpecError, compile_spec, validate as spec_validate
 from ._time import Rate, snap
 
@@ -291,6 +291,34 @@ def markers(*, path: str, markers: list, save: bool = True) -> dict:
     if save:
         EAL.save_loaded_asset(seq, False)
     return {"markers": len(ms), "changed": True}
+
+
+@op("seq.diff", mutates=False, idempotent=True, tags=["sequencer", "describe"])
+def diff(*, path: str, other: str = "", spec: dict = None, tol: float = 1e-4) -> dict:
+    """What differs between two sequences (`path` vs `other`), or between a sequence and what a spec asks for.
+
+    Each track that differs says where first: a param, the section count, a section's range, a channel's key
+    (index, both keys). Args: path, other: sequences. spec: a sequence spec instead of `other`. tol: value tolerance.
+    Returns: {"same", "sequence": {fps/range/markers: {a, b}}, "bindings": [...], "tracks": [{"track", "change":
+    added|removed|changed, "where", "a", "b"}]}.
+    Example: film-ue op seq.diff path=/Game/Film/SEQ_010 other=/Game/Film/SEQ_010_v2
+    """
+    a = E.describe(path)
+    if not a["exists"]:
+        raise OpError(f"no sequence {path}", code="not_found")
+    if spec is not None:
+        b, _ = _compiled(_spec(spec))
+        b = dict(b, tracks=[dict(t) for t in b["tracks"]], markers=b["markers"] or a.get("markers"))
+        # a spec claims only what it names: compare only its tracks (others are kept by apply)
+        names = {track_id(t) for t in b["tracks"]}
+        a = dict(a, tracks=[t for t in a["tracks"] if track_id(t) in names])
+    elif other:
+        b = E.describe(other)
+        if not b["exists"]:
+            raise OpError(f"no sequence {other}", code="not_found")
+    else:
+        raise OpError("give `other` (a sequence) or `spec`", code="bad_args")
+    return plan_diff(a, b, tol=tol, claims_only=spec is not None)
 
 
 @op("seq.check", mutates=False, idempotent=True, tags=["sequencer", "qa"])

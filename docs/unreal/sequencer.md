@@ -29,7 +29,8 @@ not mention are kept (`prune: true` removes the unlisted tracks of the bindings 
 
 The result's `tracks` is the same shape a spec's `tracks:` takes, so `{"sequence", "fps", "range", "bindings",
 "tracks"}` of a describe applied back is a no-op. `unsupported` lists tracks of classes the core does not model
-(apply never touches them).
+(apply never touches them). `film-ue op seq.diff path=A other=B` (or `spec=`) says what differs and where each
+track first differs (a param, a section's range, a channel's key index with both keys).
 
 **Key one property fast (a bake).** One call writes every key of a track (batched; Sequencer closed while writing; a
 tick yielded every 2000 keys, so 20k keys never freeze the editor):
@@ -84,6 +85,7 @@ is moved, never stretched.
 | `seq.remove_track(path, kind, binding, component, name)`, `seq.remove_binding(path, label)` | remove | yes / yes |
 | `seq.markers(path, markers)` | marked frames (display frames) | yes / yes |
 | `seq.eval(path, frames, labels, tracks)` | engine evaluation: world transforms, channel values | no |
+| `seq.diff(path, other? / spec?)` | what differs, and where each track first differs (a spec: only what it states) | no |
 | `seq.check(path)` | numeric QA verdict | no |
 | `seq.shots(path)`, `seq.chunks(path, ...)`, `seq.preroll(path, frames)` | shots, render chunks, pre-roll | -, -, yes / yes |
 | `seq.copy(src, dst, start?, end?, to, replace)`, `seq.retime(path, offset, scale, pivot, after, out)` | edit time | yes / copy yes, retime no |
@@ -253,7 +255,7 @@ State at the end of the night (agent-06, branch `fleet/agent-06/ue-sequencer`):
 
 - Done: the pure core (time incl. drop-frame timecode, keys and curves, canonical document, spec compiler, plan,
   lint, shots, render chunks, copy/retime transforms), the engine adapter for every listed track kind, 18 `seq.*`
-  ops, the `sequence` spec kind for WP11's engine, the schema and two examples, the fake Sequencer, 53 unit tests,
+  ops (19 with seq.diff), the `sequence` spec kind for WP11's engine, the schema and two examples, the fake Sequencer, 53 unit tests,
   the selftest. All UE APIs verified on the 5.8.4 source (table above).
 - Not yet run on an engine: everything engine-side is proven only against the fake. Tomorrow's first run of
   `film-ue selftest seq` is the acceptance test. The places most likely to need a fix are noted in Gotchas: reading colour/vector/byte channels by order; the material section's colour-channel grouping.

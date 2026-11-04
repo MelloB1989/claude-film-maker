@@ -7,6 +7,7 @@ import pytest
 from fakeunreal import drive, run_op
 
 SEQ = "/Game/T/SEQ_T"
+CAM = {"comp": "CameraComponent"}  # the cine camera component's name in this fake (set by `level`)
 
 
 @pytest.fixture
@@ -16,6 +17,7 @@ def level(ue):
     hero.add_component(ue.StaticMeshComponent, "Mesh")
     ue.spawn("CineCameraActor", "CamA", location=ue.Vector(0, -300, 160))
     ue.spawn("CineCameraActor", "CamB", location=ue.Vector(300, 0, 160))
+    CAM["comp"] = ue.actor("CamA").get_cine_camera_component().get_name()
     light = ue.spawn("PointLight", "Key")
     light._props["point_light_component"]._props["intensity"] = 5.0
     ue.add_asset("/Game/A/Idle", "AnimSequence", sequence_length=5.0)
@@ -38,7 +40,7 @@ def spec(**over):
                 "materials": [{"component": "Mesh", "slot": 0, "param": "Glow", "keys": [[0, 0], [24, 1]]}],
             },
             "Key": {"props": {"point_light_component/Intensity": [[0, 5], [24, 10]]}},
-            "CamA": {"props": {"camera_component/CurrentFocalLength": [[0, 35], [120, 50]]}},
+            "CamA": {"props": {f"{CAM['comp']}/CurrentFocalLength": [[0, 35], [120, 50]]}},
             "CamB": {},
         },
         "camera_cuts": [["CamA", 0], ["CamB", "5s"]],
@@ -250,3 +252,14 @@ def test_bind_rebinds_an_unbound_possessable_keeping_its_tracks(level):
     res = run_op("seq.bind", path=SEQ, label="Hero")
     assert res["changed"] and hero.obj_label == "Hero"
     assert tracks(run_op("seq.describe", path=SEQ), "transform", "Hero")
+
+
+def test_diff_two_sequences_and_against_a_spec(level):
+    run_op("seq.apply", spec=spec())
+    run_op("seq.copy", src=SEQ, dst="/Game/T/SEQ_B")
+    assert run_op("seq.diff", path=SEQ, other="/Game/T/SEQ_B")["same"]
+    assert run_op("seq.diff", path=SEQ, spec=spec())["same"]
+    s = spec()
+    s["fade"]["keys"] = [[0, 1], [24, 0]]
+    d = run_op("seq.diff", path=SEQ, spec=s)
+    assert [t["track"] for t in d["tracks"]] == ["/fade"]
