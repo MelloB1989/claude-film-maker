@@ -9,7 +9,7 @@ the lip-sync, emphasis from the word alignment; skipped with a note when the bri
     perf_speak.speak("Welcome in.", line_id="L1", sequence="/Game/Seq/SQ_Main", start_frame=48,
                      face={"face_mesh": "/Game/MH/Host/Face", "label": "Host"},
                      voice={"voice_id": "...", "model": "eleven_multilingual_v2"},
-                     box_dir="/srv/film/vo", out_dir=Path("out/vo"))
+                     out_dir=Path("out/vo"))          # box_dir: default <project>/Saved/Audio (boxpaths)
 
     film-post speak --text "Welcome in." --id L1 --sequence /Game/Seq/SQ_Main --start-frame 48 \\
         --face-mesh /Game/MH/Host/Face --label Host --voice-id <id> --box-dir /srv/film/vo --out-dir out/vo [--dry-run]
@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Callable
 
 from . import audio_timing
+from .boxpaths import BoxPaths
 
 DEFAULT_MODEL = "eleven_multilingual_v2"
 SR = 48000
@@ -87,7 +88,7 @@ def plan(line: dict, *, sequence: str, face: dict, box_dir: str, track: str = "V
          perf_face: bool = True) -> list:
     """The bridge calls for one timing line, in order: [{"op", "args", "why"}]. `face`: {"face_mesh", "label",
     "component"? ("Face"), "mood"?}. The face animation's path is filled in from speech.to_face's result."""
-    box_wav = f"{box_dir.rstrip('/')}/{Path(line['wav']).name}"
+    box_wav = BoxPaths.style_of(box_dir).join(box_dir, Path(line["wav"]).name)
     mood = line.get("mood") or face.get("mood") or mood
     doc = {"kind": "timing", "version": 1, "fps": line["_fps"],
            "lines": [{k: v for k, v in line.items() if not k.startswith("_")} | {"wav": box_wav}]}
@@ -106,7 +107,7 @@ def plan(line: dict, *, sequence: str, face: dict, box_dir: str, track: str = "V
     ]
 
 
-def speak(text: str, *, line_id: str, sequence: str, start_frame: int, face: dict, voice: dict, box_dir: str,
+def speak(text: str, *, line_id: str, sequence: str, start_frame: int, face: dict, voice: dict, box_dir: str = "",
           out_dir: Path, fps: float | None = None, speaker: str = "", track: str = "VO",
           folder: str = "/Game/Audio/VO", anim_folder: str = "/Game/Speech", mood: str = "CONFIDENCE",
           replace_face: bool = False, perf_face: bool = True, tts=None, op: Callable | None = None, push: Callable | None = None,
@@ -119,6 +120,7 @@ def speak(text: str, *, line_id: str, sequence: str, start_frame: int, face: dic
         op, push = op or client.op, push or client.push
     if fps is None:
         fps = 24.0 if dry_run else float(op("audio.describe", sequence=sequence)["result"]["fps"])
+    box_dir = box_dir or BoxPaths.current().audio()  # default: <project>/Saved/Audio on the box
     wav = Path(out_dir) / f"{line_id}.wav"
     if dry_run and not wav.exists():
         take = {"wav": str(wav), "duration_s": max(1.0, len(text.split()) * 0.4), "words": [], "reused": False}

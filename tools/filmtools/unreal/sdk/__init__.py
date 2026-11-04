@@ -55,7 +55,15 @@ def _client_transport(kind: str, payload: dict, timeout: float) -> dict:
         return client.exec_code(payload["code"], timeout, wait=not payload.get("async"))
     if kind == "job":
         if hasattr(client, "job"):  # WP1's client: retries through a dropped tunnel or a reloaded bridge
-            return client.job(payload["id"])
+            gone = getattr(client, "JobGone", None)
+            try:
+                return client.job(payload["id"])
+            except Exception as e:
+                if gone is not None and isinstance(e, gone):  # the editor restarted (crashed?) while it ran
+                    return {"id": payload["id"], "state": "lost", "done": True, "ok": False, "code": "job_lost",
+                            "message": str(e.code if isinstance(e, SystemExit) else e),
+                            "hint": "film-ue editor status / film-ue editor crashes; then start the op again"}
+                raise
         return json.loads(client.request("GET", f"/job?id={payload['id']}", timeout=60))
     if kind == "cancel":
         if hasattr(client, "cancel"):
@@ -86,10 +94,11 @@ class Job:
             r = self.poll()
             if on_progress and (r.get("progress") is not None or r.get("message")):
                 on_progress(r)
-            if r.get("state") in ("cancelled", "lost") and not r.get("error"):
-                r = {**r, "ok": False, "error": f"job {self.id} {r['state']}",
+            if r.get("state") in ("cancelled", "lost") and not r.get("error"):  # keep what the bridge said, fill the rest
+                r = {"ok": False, "error": f"job {self.id} {r['state']}", "code": "job_" + r["state"],
                      "hint": "start it again" + (" (the bridge restarted)" if r["state"] == "lost" else ""),
-                     "code": "job_" + r["state"], "message": f"job {self.id} was {r['state']}"}
+                     "message": f"job {self.id} was {r['state']}", **{k: v for k, v in r.items() if v not in (None, "")}}
+                r["ok"] = False
             if r.get("done") or r.get("state") in ("done", "failed", "cancelled", "lost"):
                 return self.ue._result(r, self.op, {})
             if time.time() > end:

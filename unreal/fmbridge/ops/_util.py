@@ -105,9 +105,20 @@ def mesh_path(a) -> str:
     return m.get_path_name().rsplit(".", 1)[0] if isinstance(m, unreal.Object) else ""
 
 
+def blueprint_path(a) -> str:
+    """The Blueprint asset an actor was spawned from ('/Game/Chars/BP_Host'), '' for a native class."""
+    try:
+        p = str(a.get_class().get_path_name())
+    except Exception:
+        return ""
+    if not p.startswith("/") or p.startswith("/Script/"):
+        return ""
+    return p.rsplit(".", 1)[0]
+
+
 def actor_info(a, nd: int = 2) -> dict:
     """An actor as JSON: label, class, loc [cm], rot {pitch, yaw, roll}, scale, bounds {min, max, size}, tags,
-    folder, hidden, mesh (static mesh actors)."""
+    folder, hidden, mesh (static mesh actors), blueprint (actors of a Blueprint class)."""
     b = bounds_box(a)
     info = {"label": a.get_actor_label(), "class": a.get_class().get_name(),
             "loc": vec_json(a.get_actor_location(), nd), "rot": rot_json(a.get_actor_rotation()),
@@ -124,4 +135,7 @@ def actor_info(a, nd: int = 2) -> dict:
     m = mesh_path(a)
     if m:
         info["mesh"] = m
+    bp = blueprint_path(a)
+    if bp:
+        info["blueprint"] = bp
     return info

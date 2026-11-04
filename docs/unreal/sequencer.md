@@ -112,7 +112,8 @@ moves everything after it by 24 frames (animation inside at half rate; audio mov
 | `seq.conform(path, fps, keep=time\|frames, out)` | change the display rate keeping time or frames | yes / yes |
 | `seq.time(value, fps, path)` | conversions | no |
 
-Older ops (`ops/seq.py`, kept with their signatures; WP7's `cam.*`/`shot.*` call them): `seq.new`, `seq.shot`,
+Older ops (`ops/seq.py`, kept with their signatures and results, now a thin layer: every write goes through
+seqcore's `write_track`, `seq.cuts`/`seq.set_anim` read through `describe`; pinned by `tests/test_ue_seq_legacy.py`): `seq.new`, `seq.shot`,
 `seq.key_transform`, `seq.key_float`, `seq.key_color`, `seq.key_visible`, `seq.key_material`, `seq.key_collection`,
 `seq.anim`, `seq.audio`, `seq.camera_cuts`, `seq.cuts`, `seq.rebind`, `seq.tracks`, `seq.set_anim`, `seq.scrub`,
 `seq.close`, `seq.sample` (bones by ticking, for rigs that settle), `seq.still`, `seq.stills` (stills through the cut).
@@ -262,6 +263,37 @@ ignored, ScriptName wins). All verified by reading the declaration unless marked
 | `unreal.load_class(None, "/Script/Module.Class")`, `unreal.EnumBase` (the Python base of reflected enums; a property's enum value) | Python glue, not UFUNCTIONs | Plugins/Experimental/PythonScriptPlugin/Source/PythonScriptPlugin/Private/PyCore.cpp |
 | default tick resolution 24000, display rate 30 (CVars LevelSequence.DefaultTickResolution / DefaultDisplayRate) | ULevelSequence::Initialize | Runtime/LevelSequence/Private/LevelSequence.cpp:78-125 |
 
+### Audit, second pass (every engine call in ops/seq.py, seqcore/_engine.py, seqcore/seq_core.py)
+
+An AST inventory of the three files' method calls and `unreal.*` names, each checked against the 5.8.4 source for
+its name, argument order, out-params and enum members. Nothing needed a code change; the points worth knowing:
+
+| Python (as called) | what the source says | source |
+|---|---|---|
+| bool / integer / string `add_key(time, value, sub_frame, time_unit)` (positional, no interpolation); byte has interpolation | AddKey(const FFrameNumber&, V, float SubFrame, EMovieSceneTimeUnit) | KC/MovieSceneScriptingBool.h:79, Integer.h:81, String.h:81, Byte.h:82 |
+| `RichCurveTangentWeightMode.RCTWM_WEIGHTED_BOTH` | RCTWM_WeightedNone / Arrive / Leave / Both | Runtime/Engine/Classes/Curves/RichCurve.h:35-39 |
+| `LevelVisibility.VISIBLE / HIDDEN` | enum class ELevelVisibility { Visible, Hidden } | MST/Sections/MovieSceneLevelVisibilitySection.h:17 |
+| `MaterialParameterAssociation.GLOBAL_PARAMETER` | LayerParameter, BlendParameter, GlobalParameter | Runtime/Engine/Public/Materials/MaterialParameters.h:25 |
+| `subsystem.replace_binding_with_actors([actor], binding)` | ReplaceBindingWithActors(const TArray<AActor*>&, const FMovieSceneBindingProxy&) | LSE/LevelSequenceEditorSubsystem.h:292 |
+| `actor.get_attached_actors()` returns the list (the out-param OutActors becomes the return value) | GetAttachedActors(TArray<AActor*>& OutActors, bool bResetArray, bool bRecursively...) BlueprintPure | Runtime/Engine/Classes/GameFramework/Actor.h:3559 |
+| `mesh.get_material_slot_names()` | UPrimitiveComponent::GetMaterialSlotNames BlueprintCallable | Runtime/Engine/Classes/Components/PrimitiveComponent.h:1581 |
+| `comp.get_socket_transform(bone, RelativeTransformSpace.RTS_WORLD)`, `get_socket_location(bone)` | USceneComponent UFUNCTIONs | Runtime/Engine/Classes/Components/SceneComponent.h:801, 809 |
+| `comp.get_world_location()`, `actor.get_actor_location()`, `get_actor_rotation()`, `get_actor_transform()`, `get_actor_scale3d()` | ScriptName GetWorldLocation / GetActorLocation / GetActorRotation / GetActorTransform; GetActorScale3D | SceneComponent.h:661; Actor.h:1567, 1588, 1554, 1710 |
+| `transform.transform_location(v)`, `quat.get_axis_x/y/z()`, `quat.rotator()` | ScriptMethod TransformLocation / GetAxisX.. / Rotator | Runtime/Engine/Classes/Kismet/KismetMathLibrary.h:3969, 2828, 2908 |
+| `transform.translation`, `transform.rotation` | FTransform UPROPERTY Translation / Rotation (FQuat) | Runtime/CoreUObject/Public/UObject/NoExportTypes.h:2121-2125 |
+| `MathLibrary.find_look_at_rotation(start, target)` | FindLookAtRotation BlueprintPure | KismetMathLibrary.h:2300 |
+| `MovieSceneTimeWarpExtensions.make_time_warp(rate)` (static), `time_warp.to_fixed_play_rate()` (ScriptMethod), `set_fixed_play_rate` (UPARAM(ref), fallback only) | MakeTimeWarp / ToFixedPlayRate / SetFixedPlayRate | SS/MovieSceneTimeWarpExtensions.h:52, 38, 44 |
+| `anim.get_editor_property("sequence_length")` (seq.shot, seq.anim) | SequenceLength: deprecated 5.0 but still VisibleAnywhere BlueprintReadOnly (get_play_length is the new name, used by seqcore) | Runtime/Engine/Classes/Animation/AnimSequenceBase.h:47-49 |
+| `sound.get_editor_property("duration")` | USoundBase::Duration VisibleAnywhere BlueprintReadOnly | Runtime/Engine/Classes/Sound/SoundBase.h:201 |
+| `binding.set_display_name(str)` (FText: a str converts) | SetDisplayName(const FMovieSceneBindingProxy&, const FText&) | SS/MovieSceneBindingExtensions.h:62 |
+| `LSE.set_current_time(int)`, `get_bound_objects(binding_id)`, `set_lock_camera_cut_to_viewport(bool)` | SetCurrentTime(int32) (deprecated 5.4, still there), GetBoundObjects, SetLockCameraCutToViewport | LSE/LevelSequenceEditorBlueprintLibrary.h:90, 262, 280 |
+| `AssetTools.create_asset(name, folder, LevelSequence, LevelSequenceFactoryNew())` | CreateAsset(AssetName, PackagePath, AssetClass, Factory, CallingContext, bOverwriteExisting=false); ULevelSequenceFactoryNew is a reflected UCLASS in a *private* header (Python still sees it; the reel made sequences with it) | Developer/AssetTools/Public/IAssetTools.h:349; LevelSequenceEditor/Private/Factories/LevelSequenceFactoryNew.h:11 |
+| `EAL.load_asset / does_asset_exist / delete_asset / duplicate_asset / save_loaded_asset(obj, only_if_is_dirty) / save_asset / list_assets(dir, recursive)` | EditorAssetLibrary statics | EditorScriptingUtilities/Public/EditorAssetLibrary.h:37, 70, 144, 175, 262, 281, 328 |
+
+Watch tomorrow (names fine, behaviour unproven): `evaluate_keys(range, rate)` returning one value per display frame
+from the range's start (seq.eval indexes it so); `get_all_channels()` order for colour / vector sections (read by
+order); a material colour parameter's four channels named `<Param>R/G/B/A` (grouped back by that suffix).
+
 ## Selftest
 
 `film-ue selftest seq` (`unreal/fmbridge/selftest/seq.py`), ~1-2 min, GPU only for the stills. It builds a scratch
@@ -286,5 +318,9 @@ State at the end of the night (agent-06, branch `fleet/agent-06/ue-sequencer`, m
   fix: reading colour / vector / byte channels by order (`_engine._channels`), the material section's colour-channel
   grouping, `get_start_frame` rounding of off-frame sections after a conform (the fake floors).
 - Not done: writing event tracks (read only: needs a director-blueprint endpoint), camera-shake / data-layer tracks
-  (listed as unsupported); the older `ops/seq.py` ops still write key by key in-process (one call per track, not
-  routed through `seqcore`; WP7 now uses seq.apply).
+  (listed as unsupported); `seq.anim`'s `loop: false` still does nothing in 5.8 (no
+  hold-last-frame field), as before.
+- Later the same night: `ops/seq.py` became a layer over seqcore (one engine path; B01's helpers from `_util`). Its
+  results are pinned against the old implementation (golden `tools/tests/data/seq_legacy_golden.json`); three
+  differences are on purpose (anim offset now StartFrameOffset, play rate via make_time_warp, collection keys by
+  FName) and listed in that test.

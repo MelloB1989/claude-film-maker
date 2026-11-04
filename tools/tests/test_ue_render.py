@@ -282,3 +282,17 @@ def test_frames_overwrite_renders_again(stage):
     run_op("render.frames", sequence=SEQ, level=LEVEL, frames=[3], out_dir=stage["out"])
     res = run_op("render.frames", sequence=SEQ, level=LEVEL, frames=[3], out_dir=stage["out"], overwrite=True)
     assert res["changed"] and len(ue.mrq.jobs) == 2
+
+
+def test_game_overrides_only_when_asked(stage):
+    ue = stage["ue"]
+    run_op("render.job", spec={**stage["spec"], "shots": ["CamB"]})
+    assert "MoviePipelineGameOverrideSetting" not in ue.mrq.jobs[0]["settings"]  # MRQ's transient defaults apply
+    run_op("render.job", spec={**stage["spec"], "shots": ["CamA"], "game_overrides": {
+        "texture_streaming": "fully_load", "lod_zero": False, "view_distance_scale": 3}})
+    g = ue.mrq.jobs[1]["settings"]["MoviePipelineGameOverrideSetting"]
+    assert g.get_editor_property("texture_streaming") == "FULLY_LOAD" and g.get_editor_property("use_lod_zero") is False
+    assert g.get_editor_property("view_distance_scale") == 3 and g.get_editor_property("override_view_distance_scale")
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError, match="did you mean 'lod_zero'"):
+        run_op("render.plan", spec={**stage["spec"], "game_overrides": {"lod_0": True}})

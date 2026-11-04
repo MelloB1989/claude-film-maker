@@ -280,9 +280,15 @@ def import_any(*, files: list, dest: str, kind: str = "auto", skeleton: str = ""
         raise OpError(f"no file {missing[0]} on the box", code="not_found", hint="push it first (client.push)")
     jobs = []
     pipe = None
+    kept = []
     for f in files:
         ext = os.path.splitext(f)[1].lower()
         nm = name if (name and len(files) == 1) else ""
+        if not replace and ext not in AL.IMAGE_EXT:
+            have = already_imported(f, dest)
+            if have:
+                kept.append({"file": f, "kind": "kept", "assets": have, "objects": [AL.object_path(h) for h in have]})
+                continue
         if ext in AL.IMAGE_EXT:
             jobs.append((f, "texture", None))
         elif ext in MESH_EXT:
@@ -299,7 +305,7 @@ def import_any(*, files: list, dest: str, kind: str = "auto", skeleton: str = ""
             jobs.append((f, "usd", _task(f, dest, nm, replace=replace, options=_usd_options(materials))))
         else:
             jobs.append((f, "other", _task(f, dest, nm, replace=replace)))
-    imported = []
+    imported = list(kept)
     tex = [f for f, k, _ in jobs if k == "texture"]
     if tex:
         r = import_textures(files=tex, dest=dest, replace=replace)
@@ -318,10 +324,24 @@ def import_any(*, files: list, dest: str, kind: str = "auto", skeleton: str = ""
                           hint="see film-ue log (LogInterchange); the format's plugin may be off (USD: USDImporter, "
                                "groom: HairStrands)")
         imported.append({"file": f, "kind": k, "assets": sorted({AL.package_path(o) for o in objs}), "objects": objs})
-    return {"imported": imported, "changed": bool(imported)}
+    return {"imported": imported, "changed": any(r["kind"] != "kept" for r in imported)}
 
 
-@op("assets.import")
+def already_imported(f: str, dest: str) -> list:
+    """Assets in `dest` (not below) imported from a file of this name (the AssetImportData registry tag)."""
+    from .assets_catalog import _source
+    base = os.path.basename(f).lower()
+    out = []
+    if not EAL.does_directory_exist(dest):
+        return out
+    for ad in _assets_under(dest, recursive=False):
+        src = _source(ad)
+        if src and os.path.basename(src.replace("\\", "/")).lower() == base:
+            out.append(str(ad.package_name))
+    return sorted(out)
+
+
+@op("assets.import", mutates=True, idempotent=True, tags=["import"])
 def import_files_op(files: list, dest: str, replace: bool = True, combine: bool = True, kind: str = "static",
                     skeleton: str = "", scale: float = 1.0, nanite: bool = None, collision: str = "none",
                     lods: bool = True, materials: bool = True, textures: bool = True, animations: bool = False,
@@ -330,7 +350,8 @@ def import_files_op(files: list, dest: str, replace: bool = True, combine: bool 
     Alembic (static, geometry cache, skeletal, or a groom), USD, images (settings by role, see
     assets.import_textures), WAV. Returns the new assets' object paths (or with detail, per file).
 
-    Args: files: paths on the box. dest: content folder. replace: re-import over existing (an Interchange re-import).
+    Args: files: paths on the box. dest: content folder. replace: re-import over existing (an Interchange re-import);
+          false keeps what an earlier import of the same file made in dest (changed false).
           combine: merge an FBX's parts into one static mesh. kind: static | skeletal | auto (what the file says) |
           geometry_cache (Alembic). skeleton: /Game/... Skeleton for skeletal meshes/animations (else a new one).
           scale: uniform import scale (the source's units are converted to cm first). nanite: build Nanite (default
