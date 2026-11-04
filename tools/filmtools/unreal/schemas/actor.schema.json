@@ -1,0 +1,28 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "actor",
+ "description": "Any actor by label: a basic shape, an asset or a class, at a transform. Converges: a moved actor is moved back, a changed class respawns it (WP11 generic kind until WP6's layout kinds).",
+ "type": "object",
+ "required": ["kind", "name"],
+ "additionalProperties": false,
+ "oneOf": [{"required": ["shape"]}, {"required": ["asset"]}, {"required": ["cls"]}],
+ "properties": {
+  "kind": {"const": "actor"},
+  "version": {"type": "integer", "const": 1},
+  "name": {"type": "string", "minLength": 1, "description": "the actor label (unique in the level)"},
+  "shape": {"enum": ["cube", "sphere", "cylinder", "cone", "plane"], "description": "an engine basic shape (100 cm at scale 1)"},
+  "asset": {"type": "string", "pattern": "^/", "description": "a static mesh or Blueprint, /Game/... or /Engine/..."},
+  "cls": {"type": "string", "description": "an actor class: RectLight, CineCameraActor, PostProcessVolume, ..."},
+  "loc": {"$ref": "#/$defs/vec3", "default": [0, 0, 0], "description": "[x, y, z] cm"},
+  "rot": {"$ref": "#/$defs/rot", "description": "{pitch, yaw, roll} degrees"},
+  "look_at": {"$ref": "#/$defs/vec3", "description": "[x, y, z] cm: aim the actor there (instead of rot)"},
+  "size": {"$ref": "#/$defs/vec3", "description": "[x, y, z] cm, for basic shapes (scale = size / 100)"},
+  "scale": {"type": ["number", "array"], "description": "a factor or [x, y, z] factors"},
+  "material": {"type": "string", "description": "a material for its static meshes, /Game/..."}
+ },
+ "$defs": {
+  "vec3": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+  "rot": {"type": "object", "additionalProperties": false,
+          "properties": {"pitch": {"type": "number"}, "yaw": {"type": "number"}, "roll": {"type": "number"}}}
+ }
+}

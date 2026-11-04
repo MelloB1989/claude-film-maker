@@ -1,0 +1,19 @@
+kind: qa
+version: 1
+name: s010-review
+out_dir: /srv/qa/s010
+review:
+  sequence: /Game/Seq/S010
+  per_shot: 2
+  subjects: [Ada]
+  expect:
+    Ada: {size: [MS, MCU]}
+    image: {stops: [-2, 0]}
+  ignore: [Floor, Walls]
+turntables:
+  - {target: Ada, views: 8, isolate: true}
+penetration:
+  - {label: Ada, views: 6}
+floating: {ignore: [Pendant]}
+overlaps: {ignore: [Floor, Walls]}
+snapshot: /srv/qa/s010/level.json

@@ -8,7 +8,7 @@ occlusion are right, so ops can be tested end to end without an engine.
 
 Test knobs (set on objects):
     actor._props["fake_color"] = (r, g, b)          the box's colour in final captures (default by label)
-    comp._props["fake_bones"] = {name: [x, y, z]}    world positions; get_bone_index / get_socket_location read them
+    fake.pose(actor, {bone: [x, y, z]})              bones (core's table; WP7's ext_cam reads it too)
     comp._props["fake_bounds"] = ([o], [e])          SystemLibrary.get_component_bounds
     comp._props["fake_depth"] = f(u, v) -> cm|None   a component's depth layer (for qa.penetration)
 """
@@ -45,24 +45,13 @@ def install(fake):
     core = __import__(f"{__package__}.core", fromlist=["core"])
     Vector = fake.Vector
 
-    # --- actors and components -------------------------------------------------------------------------------
+    # --- actors and components (only what core and the other ext_ fakes do not define) ------------------------
+    def _add(cls, name, fn):
+        if not any(name in k.__dict__ for k in cls.__mro__):
+            setattr(cls, name, fn)
+
     def is_hidden_ed(self):
         return bool(self._props.get("temporarily_hidden", False) or self._props.get("hidden_ed", False))
-
-    core.Actor.is_hidden_ed = is_hidden_ed
-
-    def get_bone_index(self, name):
-        bones = self._props.get("fake_bones") or {}
-        return list(bones).index(str(name)) if str(name) in bones else -1
-
-    def get_socket_location(self, name):
-        bones = self._props.get("fake_bones") or {}
-        if str(name) in bones:
-            return Vector(*bones[str(name)])
-        return self.get_world_location()
-
-    def get_num_bones(self):
-        return len(self._props.get("fake_bones") or {})
 
     def get_skeletal_mesh_asset(self):
         return self._props.get("skeletal_mesh_asset")
@@ -70,17 +59,23 @@ def install(fake):
     def get_materials(self):
         return list(self._props.get("override_materials", []))
 
-    core.SkeletalMeshComponent.get_skeletal_mesh_asset = get_skeletal_mesh_asset
-    core.MeshComponent.get_materials = get_materials
-
     def hfov(self):
+        """CineCameraComponent::GetHorizontalFieldOfView from the filmback and focal length (no overscan)."""
         fb = self._props.get("filmback")
-        sw = fb.get_editor_property("sensor_width") if fb is not None else 36.0
-        f = self._props.get("current_focal_length", 35.0)
+        try:
+            sw = float(fb.get_editor_property("sensor_width"))
+        except (AttributeError, TypeError, ValueError):
+            sw = 23.76
+        try:
+            f = float(self._props.get("current_focal_length", 35.0))
+        except (TypeError, ValueError):
+            f = 35.0
         return math.degrees(2 * math.atan(sw / (2 * f)))
 
-    core.CineCameraComponent.get_horizontal_field_of_view = hfov
-    fake.CameraFilmbackSettings = type("CameraFilmbackSettings", (core.Object,), {"__module__": "unreal"})
+    _add(core.Actor, "is_hidden_ed", is_hidden_ed)
+    _add(core.SkeletalMeshComponent, "get_skeletal_mesh_asset", get_skeletal_mesh_asset)
+    _add(core.MeshComponent, "get_materials", get_materials)
+    _add(core.CineCameraComponent, "get_horizontal_field_of_view", hfov)
 
     # --- SystemLibrary: component bounds, line traces --------------------------------------------------------
     sl = fake.SystemLibrary
