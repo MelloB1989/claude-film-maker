@@ -203,6 +203,12 @@ _AA = {"none": "AAM_NONE", "fxaa": "AAM_FXAA", "taa": "AAM_TEMPORAL_AA", "msaa":
        "smaa": "AAM_SMAA"}
 
 
+_GAME_OVERRIDES = {"cinematic_quality": "cinematic_quality_settings", "texture_streaming": "texture_streaming",
+                   "lod_zero": "use_lod_zero", "disable_hlods": "disable_hlods",
+                   "high_quality_shadows": "use_high_quality_shadows", "shadow_distance_scale": "shadow_distance_scale",
+                   "view_distance_scale": "view_distance_scale", "flush_streaming": "flush_streaming_managers"}
+
+
 def _configure(job, r: dict, chunk: dict) -> None:
     """Fill a queue job's legacy (preset) configuration from a resolved spec and one chunk."""
     try:
@@ -270,6 +276,18 @@ def _configure(job, r: dict, chunk: dict) -> None:
     if r["aa_method"]:
         aa.set_editor_property("override_anti_aliasing", True)
         aa.set_editor_property("anti_aliasing_method", getattr(unreal.AntiAliasingMethod, _AA[r["aa_method"]]))
+
+    go = r.get("game_overrides")
+    if go:  # absent: MRQ's transient Game Overrides apply with their defaults, as in every earlier render
+        g = _setting(cfg, "MoviePipelineGameOverrideSetting")
+        for key, prop in _GAME_OVERRIDES.items():
+            if key in go:
+                v = go[key]
+                if key == "texture_streaming":
+                    v = getattr(unreal.MoviePipelineTextureStreamingMethod, v.upper())
+                g.set_editor_property(prop, v)
+        if "view_distance_scale" in go:
+            g.set_editor_property("override_view_distance_scale", True)
 
     cvs = _setting(cfg, "MoviePipelineConsoleVariableSetting")
     for name, value in r["cvars"].items():

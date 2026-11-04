@@ -274,6 +274,53 @@
       "maximum": 64,
       "minimum": 1
     },
+    "game_overrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "MRQ Game Overrides to set explicitly (absent = MRQ's own defaults, which every render already gets as a transient setting: cinematic scalability, LOD 0, no HLODs, cloth time-step smoothing off); give only what you want to change",
+      "properties": {
+        "cinematic_quality": {
+          "type": "boolean",
+          "description": "Cinematic scalability while rendering"
+        },
+        "texture_streaming": {
+          "enum": [
+            "none",
+            "disabled",
+            "fully_load"
+          ],
+          "description": "none: leave the project's; disabled: no streaming (most VRAM); fully_load: load used textures fully (less VRAM)"
+        },
+        "lod_zero": {
+          "type": "boolean",
+          "description": "force LOD 0 on every mesh"
+        },
+        "disable_hlods": {
+          "type": "boolean",
+          "description": "no HLOD proxies"
+        },
+        "high_quality_shadows": {
+          "type": "boolean",
+          "description": "raise shadow distance/resolution"
+        },
+        "shadow_distance_scale": {
+          "type": "integer",
+          "description": "with high_quality_shadows: shadow distance multiplier",
+          "maximum": 10,
+          "minimum": 1
+        },
+        "view_distance_scale": {
+          "type": "integer",
+          "description": "view distance multiplier (r.ViewDistanceScale), unset = project's",
+          "maximum": 100,
+          "minimum": 1
+        },
+        "flush_streaming": {
+          "type": "boolean",
+          "description": "flush streaming managers every frame"
+        }
+      }
+    },
     "vram": {
       "type": "object",
       "additionalProperties": false,

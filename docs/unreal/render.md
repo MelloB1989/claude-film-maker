@@ -121,6 +121,7 @@ The schema is `tools/filmtools/unreal/schemas/render.schema.json` (`film-ue rend
 | `resume` / `overwrite` | true / false | skip complete frames / delete the range first |
 | `file_name`, `zero_pad` | {frame_number}, 4 | MRQ format; `{render_pass}/{frame_number}` with several passes |
 | `boxes` | 1 | plan the chunks over N boxes |
+| `game_overrides` | absent | MRQ Game Overrides to set: cinematic_quality, texture_streaming (none/disabled/fully_load), lod_zero, disable_hlods, high_quality_shadows, shadow_distance_scale, view_distance_scale, flush_streaming; absent = MRQ's defaults as before |
 | `vram` | 40 GB, 97 %, false | `path_tracer_min_gb`, `abort_pct` (cancel before the driver OOMs), `force` |
 
 Presets:
@@ -169,7 +170,8 @@ Example specs: `examples/unreal/render/` (reel_final, shot_preview, grade_exr, f
   defaults apply to every render: cinematic scalability, `p.ChaosCloth.UseTimeStepSmoothing 0` (cloth stays right
   with temporal samples), `p.Chaos.ImmPhys.MinStepTime 0`, `Slate.bAllowThrottling 0` and
   `wp.Runtime.BlockOnSlowStreaming 0` (MoviePipelineGameOverrideSetting.cpp:150-170). The reel's renders had them
-  too, so we add nothing.
+  too, so we add nothing. To change one (say `texture_streaming: fully_load` for blurry far textures, or
+  `lod_zero: false` to save memory on a big world), set `game_overrides` in the spec; only the keys you give change.
 - **Frames are numbered by the sequence's display-rate frame** (`{frame_number}`, 4 digits), the same as the
   reel's `<master frame>.png`.
 - **An idle offscreen editor holds the GPU at 97 %**; the bridge caps it (`t.MaxFPS`), and every render sets
@@ -199,6 +201,7 @@ snake_case of the reflected name.
 | `MoviePipelineWaveOutput.file_name_format_override` | MovieRenderPipelineRenderPasses/Public/MoviePipelineWaveOutput.h:35 | |
 | `MoviePipelinePIEExecutor`, `MoviePipelineNewProcessExecutor` | MovieRenderPipelineEditor/Public/*.h | PIE uses job.map as GlobalMapOverride (Private/MoviePipelinePIEExecutor.cpp:206); unsaved map = silent finish offscreen (:119) |
 | NewProcess save prompt | MovieRenderPipelineEditor/Private/MoviePipelineNewProcessExecutor.cpp:36-43 | `SaveDirtyPackages(bPromptUserToSave=true, ...)`: the stall |
+| `MoviePipelineGameOverrideSetting.cinematic_quality_settings, texture_streaming (MoviePipelineTextureStreamingMethod NONE/DISABLED/FULLY_LOAD), use_lod_zero, disable_hlods (ScriptName), use_high_quality_shadows, shadow_distance_scale, override_view_distance_scale, view_distance_scale, flush_streaming_managers` | MovieRenderPipelineCore/Public/MoviePipelineGameOverrideSetting.h:14,87-143 | transient default on every job (:66 IgnoreTransientFilters) |
 | `MoviePipelineInProcessExecutorSettings.additional_command_line_arguments` | MovieRenderPipelineCore/Public/MoviePipelineInProcessExecutorSettings.h:50 | -RenderOffscreen for the child on Linux |
 | `MoviePipelineExecutorBase.cancel_all_jobs`, `on_executor_errored_delegate(executor, pipeline, is_fatal, error_text)` | MovieRenderPipelineCore/Public/MoviePipelineExecutor.h:176,313,25 | |
 | `MoviePipelineEditorBlueprintLibrary.save_queue_to_manifest_file(queue) -> (queue, path)` | MovieRenderPipelineEditor/Public/MoviePipelineEditorBlueprintLibrary.h:41 | writes Saved/MovieRenderPipeline/QueueManifest.utxt; we copy it per chunk |
