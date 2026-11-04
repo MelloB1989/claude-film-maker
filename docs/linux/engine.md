@@ -16,7 +16,7 @@ cameras, Sequencer keys and stills made by scripts.
 
 | Stage | Verdict | Why |
 |---|---|---|
-| **Render-only** (open the finished project, MRQ deferred + Lumen, write PNG/EXR + WAV) | **Feasible, likely.** No hard blocker. | Lumen, VSM, Nanite and MRQ run on Vulkan SM6 (C). `-RenderOffscreen` editors render on Linux GPU nodes with no desktop (L, 5.3 and one 5.8 report). Unproven: a 5.8 headless editor with no display server at all, the MRQ WAV with no sound device, and pixel parity of MetaHuman skin, eyes and groom with DX12. All three need a PoC. Path tracer and Lumen HWRT on Vulkan are **Experimental** (C). |
+| **Render-only** (open the finished project, MRQ deferred + Lumen, write PNG/EXR + WAV) | **Feasible, likely.** No hard blocker. | Lumen, VSM, Nanite and MRQ run on Vulkan SM6 (C). `-RenderOffscreen` editors render on Linux GPU nodes with no desktop (L, 5.3 and one 5.8 report). Unproven: a 5.8 headless editor with no display server at all, the MRQ WAV with no sound device, and pixel parity of MetaHuman skin, eyes and groom with DX12. All three need a PoC. Path tracer and Lumen HWRT on Vulkan are **Experimental** (C), and the project renders with Lumen HWRT today (agent-02). Software Lumen is the fallback. |
 | **Shoot by script** (Sequencer, cameras, keys, gaze lock, stills) | **Feasible, likely**, after one bridge fix and a new still path. | All the ops are plain editor Python; Python on Linux is documented (C). Today the bridge **cannot start on Linux** because `fmbridge/gui.py` touches `ctypes.windll` at import (repo fact). `look.still` and `seq.show` lean on an editor viewport (`take_high_res_screenshot`, lock-camera-to-viewport), and an offscreen editor may not have a usable one (U). MRQ-based stills are the fallback. |
 | **Full** (MetaHuman Character editor, cloud rig + textures, build/assemble, audio-to-face) | **Plausible, not proven.** Two possible blockers. | Creator has run on Linux since 5.7. 5.8 claims "platform parity", assembly runs on Linux (with an OOM known issue), and MetaHuman Animator's offline facial solve is on Linux in 5.8 (C). Unproven: (a) the **Epic account sign-in** the cloud rig and texture services need, done inside a headless Linux editor (U); (b) **audio-to-face** specifically on Linux. "Offline facial" is documented; audio is not named (U/L). Fallback if either fails: do character building and the speech solve on Windows (rare, one-time steps), and shoot and render on Linux. |
 
@@ -43,8 +43,30 @@ Read from `origin/anime/rain-ferry` plus the reel branches `origin/fleet/agent-0
 | Content | `unreal/README.md`, `films/host-studio/README.md` | **Fab** content (one-time sign-in done through the UI, `gui.py`), Blender-made props imported as FBX |
 | Launch | `tools/filmtools/unreal/workstation.py`, `cli.py`, `client.py` | Windows: PowerShell over SSM, a scheduled task that starts the editor **after a DCV login**, `C:\` paths, SSM port-forward to 18765, S3 push/pull |
 
-To be read from the real project (agent-02's inventory): the `.uproject` `Plugins` list, any Fab **code** plugins
-(Win64 binaries would not load on Linux), and whether Substrate is on in `DefaultEngine.ini`.
+**The real project, read live by agent-02 (task 20261104-task-inventory-the-windows-f7e8, 2026-11-04 15:56 UTC):**
+
+- Engine **UE 5.8.4**, Epic's binary installed build (`Build.version`: Changelist 58902052, CompatibleChangelist
+  55116800, `++UE5+Release-5.8`). `.uproject` `EngineAssociation` is a launcher GUID
+  `{1E2924D9-…}`; on Linux set it to `"5.8"` or register the new engine under that GUID.
+- `HostStudio.uproject` is **content-only**: no `Source/`, no `Modules`, no project `Plugins/`, no `Binaries/`.
+  Enabled plugins: MetaHuman, MetaHumanCharacter, MetaHumanCoreTech, MetaHumanAnimationTools, MetaHumanSDK,
+  MetaHumanRuntime, MovieRenderPipeline, PythonScriptPlugin, EditorScriptingUtilities, SequencerScripting.
+- **No Fab/Marketplace code plugins** (only Epic's Fab browser plugin v0.0.21 in the engine, which allows Linux and
+  which the project does not need). All MetaHuman plugins are engine-bundled with full `Source/`. The `MetaHuman`
+  plugin lists `SupportedTargetPlatforms` Win64, Linux, Mac. Build.cs files have Linux branches (`MetaHumanPlatform/
+  Private/Linux`, RigLogic). Win64-only modules: `RigLogicEditor`, `RigLogicLibTest`, `MetaHumanCharacterUAFEditor`
+  (experimental), and `MetaHumanCaptureSource`'s Media Foundation path (live capture, not used).
+- `DefaultEngine.ini`: DX12 SM6, **`r.RayTracing=True`, `r.Lumen.HardwareRayTracing=True`**, Lumen GI + reflections,
+  VSM, skin cache, TSR, no static lighting. **No Substrate** setting, so the project uses legacy materials. No Linux
+  `TargetedRHIs` section, so Linux defaults to Vulkan SM6.
+- Sizes: Content 3.7 GB (Host/ 3.2 GB), DerivedDataCache 1.2 GB (D3D, not reusable for shaders), Saved 14.5 GB
+  (renders and autosaves, not needed on Linux).
+
+Consequences: the project opens on Linux without code changes, and nothing in its plugin list is Windows-only. One
+thing is **raised in priority**: today's renders use **Lumen hardware ray tracing**, which on Vulkan is Experimental
+(P4). If it misbehaves, the fallback is `r.Lumen.HardwareRayTracing=0` (software Lumen), at the cost of a look change
+to be checked in P6. One risk is open: `RigLogicEditor` is Win64-only. It is the editor-side module for RigLogic/DNA
+assets; whether MetaHuman Character editing, rigging or assembly calls into it is U (P9 shows it).
 
 ## 3. Feature matrix: Windows (DX12) vs Linux (Vulkan SM6), UE 5.8
 
@@ -57,13 +79,13 @@ To be read from the real project (agent-02's inventory): the `.uproject` `Plugin
 | Supported distros | Ubuntu 22.04, Rocky/RHEL 8+; glibc ≥ 2.28 (but 5.8.1's `libblake3_dotnet.so` needs 2.30; glibc < 2.35 makes dlopen slow) → use **Ubuntu 22.04** | C | S7, S10, S11 | — |
 | RHI | Vulkan only (SM6 needed for Lumen, Nanite, VSM, PT); NVIDIA driver ≥ 570 | C | S10 | P1 |
 | Lumen SW GI + reflections | Yes (SM6, RTX 2000+ class; L4/L40S/A10G are Ada/Ampere RTX-class) | C | S10 | P4 |
-| Lumen HW RT, Hit Lighting | Yes, **Experimental**; may need engine-config edits (below) | C | S13, HWRT doc | P4 |
+| Lumen HW RT, Hit Lighting | Yes, **Experimental**; may need engine-config edits (§7). **The project uses it today** (`r.Lumen.HardwareRayTracing=True`) | C | S13, HWRT doc | **P4** |
 | Path tracer | Yes, Experimental on Vulkan (since 5.5); hair strands in the PT are experimental on every platform | C | S10, PT doc | P5 |
 | PT denoiser | NNE denoiser (OIDN networks, GPU) is the default; platform list not documented | U | PT / NNE doc | P5 |
 | Virtual Shadow Maps, Nanite | Yes (SM6 + `VK_KHR_shader_atomic_int64`) | C | S10 | P1 |
 | Hair strands (groom) rendering | No Linux SM6 statement; strands worked in 5.0 Linux; MetaHuman hair renders in Linux Creator (5.7+) | L | forum 498241, S7 | P6 |
 | MetaHuman skin / eyes / hair materials | No 5.8 DX12-vs-Vulkan comparison exists; one 2020 report of yellow Burley SSS on Vulkan | U | forum 471496 | P6 |
-| Substrate | Supported on SM6 Linux ("platform testing incomplete"); default only for *new* 5.7+ projects | C | Substrate doc | inventory |
+| Substrate | Supported on SM6 Linux ("platform testing incomplete"); default only for *new* 5.7+ projects. **Not used** by HostStudio (agent-02) | C | Substrate doc | — |
 | MRQ deferred, PNG/EXR/JPG | Formats have no platform limit; MRQ on Linux used in practice (BEDLAM, 5.3) | L | export-formats doc, S12 | P3 |
 | MRQ path-tracer pass | Same as PT above | L | — | P5 |
 | MRQ WAV output | Experimental everywhere; on a box with **no sound device** the SDL backend may fail; 5.8 renders silence when no audio | U | forum, 5.8 notes | P3 |
@@ -95,8 +117,8 @@ To be read from the real project (agent-02's inventory): the `.uproject` `Plugin
 | 5.8.3 | 2026-09-22 | "Linux-only editor crash when opening the Cinematic Viewport" fixed; MetaHuman sign-in overlay bug reported on Windows | C |
 | 5.8.4 | 2026-10-20 | Mac/Linux crash on scripted Live Link Face ingest fixed; MRQ WAV crash with no audio fixed; Substrate PT specular fix; Lumen SceneCapture regression fix | C |
 
-**Use 5.8.4 on Linux** (or at least ≥ 5.8.2), and match the Windows project's version (agent-02 reads it). Content
-saved by a newer patch opens in an older 5.8.x as a rule, but keep the same patch to avoid surprises.
+**Use 5.8.4 on Linux.** The Windows workstation runs 5.8.4 (agent-02, read live), so build tag `5.8.4-release` and
+both platforms stay on the same patch.
 
 ## 4. Headless and code-only (the operator's priority 1)
 
@@ -165,8 +187,9 @@ _See the build appendix (§10)._
 | Shaders | **All recompile** for `SF_VULKAN_SM6`; the Windows DDC holds PCD3D shaders. Expect a long first open (MetaHuman + groom + Lumen); keep the Linux DDC (`DerivedDataCache/` or a Zen/shared DDC) on the persistent disk or in S3 | L |
 | Texture/mesh DDC | Platform-independent entries could be reused through a shared DDC; simplest is to let Linux build its own once | L |
 | `DefaultEngine.ini` | Add `[/Script/LinuxTargetPlatform.LinuxTargetSettings] +TargetedRHIs=SF_VULKAN_SM6`; stale Windows RHI lines have broken startup for some users | L |
-| C++ in the project | Win64 binaries are useless; compile with UBT on Linux (agent-02 checks whether the project has C++; the bridge is Python only) | C |
-| Plugins with `PlatformAllowList` Win64 only (Fab code plugins, vendor plugins) | Will not load; check the `.uproject` and `Plugins/` list | L |
+| C++ in the project | **None**: HostStudio is content-only (agent-02), so nothing to compile; the bridge is Python | C |
+| Plugins with `PlatformAllowList` Win64 only | **None enabled by the project** (agent-02's plugin list, §2); only `RigLogicEditor` among MetaHuman's modules is Win64-only (risk noted in §2) | C / U |
+| `EngineAssociation` | A launcher GUID; set `"5.8"` or register the Linux engine under the GUID (`~/.config/Epic/UnrealEngine/Install.ini` `[Installations]`) | C (agent-02) / L (Linux registry file) |
 | Path case | Linux is case-sensitive; references in assets are fine, but external file paths in scripts must match case (and drop `C:\`) | L |
 | Pixel parity with DX12 | Not guaranteed (Epic confirms Vulkan/DX12 differences, e.g. SingleLayerWater); compare stills (P6) | C |
 
