@@ -46,7 +46,7 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B30 | Retargeting: `anim.retarget` a Mixamo/UE mannequin anim onto a MetaHuman body (IK retargeter assets made by code) | WP4 | L | merged (agent-01, anim.retarget; agent-04 adds mh.body_mesh + recipe) |
 | B31 | Pose library: `anim.pose` apply a named pose (sit, lean, hands on hips) via control rig or baked anim; numeric check of end-effector positions | WP4 | L | open |
 | B32 | Op call journal: every mutating op appends {op, args, result, ms} to Saved/fmbridge/journal.jsonl; `film-ue journal` shows it; replay a journal on a fresh level | WP1/WP11 | M | merged (agent-13 + agent-07 jobs.on_finish) |
-| B33 | Bridge auth hardening + request size limits + `/op` batch endpoint (several ops in one request, one tick budget) | WP1 | S | claimed agent-07 |
+| B33 | Bridge auth hardening + request size limits + `/op` batch endpoint (several ops in one request, one tick budget) | WP1 | S | merged (agent-07) |
 | B34 | SDK examples: 5 end-to-end scripts in `examples/unreal/` (empty level → lit set → character → camera → render 2 s) that run as tomorrow's demo | WP11 | M | merged (agent-13, examples/unreal/sdk) |
 | B35 | `GUIDE.md` for Claude: the 20 most common tasks as copy-paste recipes, with the expected JSON output of each step | WP11 | M | merged (agent-13, RECIPES.md) |
 | B36 | Fab: list/import owned Fab assets by code (Fab plugin at Engine/Plugins/Fab), or document precisely why not headless and the narrowest UI fallback | WP2 | L | review (agent-02: fab.* + FabScript C++ plugin, unproven) |
