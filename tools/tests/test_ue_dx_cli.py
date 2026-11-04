@@ -77,3 +77,11 @@ def test_plan_offline_through_the_cli(monkeypatch, capsys, tmp_path):
     code, out, _ = run(monkeypatch, capsys, "plan", str(p), "--state", str(st), "--json")
     doc = json.loads(out)
     assert code == 0 and doc["items"][0]["steps"][0]["op"] == "level.spawn" and doc["converged"] is False
+
+
+def test_describe_live_kind_state(monkeypatch, capsys):
+    from filmtools.unreal import spec
+    kd = spec.kinds()["actor"]
+    monkeypatch.setattr(kd, "describe_many", lambda ue, docs: {"Box": {"cls": "StaticMeshActor", "loc": [0, 0, 0]}})
+    code, out, _ = run(monkeypatch, capsys, "describe", "--live", "actor", "Box")
+    assert code == 0 and json.loads(out)["state"]["cls"] == "StaticMeshActor"

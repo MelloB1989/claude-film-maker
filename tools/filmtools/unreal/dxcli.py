@@ -11,7 +11,7 @@ NAMES = ("describe", "job", "plan", "apply", "selftest", "dx")
 def register(sub) -> None:
     d = sub.add_parser("describe", help="the ops: areas, one area, one op (offline); --live: the editor's state")
     d.add_argument("name", nargs="*", help="area | area.verb | a prefix; with --live: level | actors TEXT | seq PATH | "
-                                           "cuts PATH | actor LABEL | assets PATH")
+                                           "cuts PATH | components LABEL | assets PATH | <spec kind> NAME (its state: actor Box, scene office, ...)")
     d.add_argument("--json", action="store_true")
     d.add_argument("--live", action="store_true", help="ask the running bridge (its schema, or the editor's state)")
     j = sub.add_parser("job", help="an --async op's state, or its result with --wait")
@@ -70,6 +70,25 @@ def dispatch(a) -> bool:
             for k, v in mk(a.name[1:]).items():
                 argv += ["--" + k.replace("_", "-"), str(v)]
             raise SystemExit(opcli.run(argv + (["--json"] if a.json else [])))
+        if a.live and a.name:
+            from . import spec
+            kd = spec.kinds().get(a.name[0])
+            if kd and (kd.describe or kd.describe_many):  # film-ue describe --live <kind> NAME: its state, as plan sees it
+                from .sdk import Unreal
+                if len(a.name) < 2:
+                    raise SystemExit(f"film-ue describe --live {kd.name} <{kd.key}>: which one?")
+                doc = {"kind": kd.name, kd.key: a.name[1], "name": a.name[1]}
+                ue = Unreal()
+                own = ue.index["ops"].get(f"{kd.name}.describe")
+                own_args = {p["name"] for p in own["params"]} if own else set()
+                if own and (kd.key in own_args or "name" in own_args):  # the area's describe by name (scene.describe)
+                    st = ue.call(own["name"], **{(kd.key if kd.key in own_args else "name"): a.name[1]})
+                elif kd.describe:
+                    st = kd.describe(ue, doc)
+                else:
+                    st = (kd.describe_many(ue, [doc]) or {}).get(a.name[1])
+                print(json.dumps({"kind": kd.name, kd.key: a.name[1], "state": st}, indent=1, default=str))
+                return True
         ix = describe.live_index() if a.live else schema.index(schema.load())
         if a.json:
             _print(describe.data(ix, name), True)

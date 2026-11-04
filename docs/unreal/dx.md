@@ -106,7 +106,8 @@ film-ue dx coverage # which ops each selftest exercises (statically), and the op
 |---|---|
 | `film-ue <area> <verb> [--flags]` | any op (`opcli`), `--json --dry-run --async --timeout --args --verbose --live` |
 | `film-ue describe [area\|area.verb\|prefix] [--json] [--live]` | ops, offline from the schema (`--live`: the bridge's) |
-| `film-ue describe --live level\|actors TEXT\|seq PATH\|cuts PATH\|actor LABEL\|assets PATH` | the editor's state |
+| `film-ue describe --live level\|actors TEXT\|seq PATH\|cuts PATH\|components LABEL\|assets PATH` | the editor's state |
+| `film-ue describe --live <kind> NAME` | one spec kind's state, as plan sees it (`actor Box`, `scene office`, `render demo`) |
 | `film-ue job ID [--wait] [--json]` | an `--async` op's state, or its result |
 | `film-ue plan SPEC... [--state FILE] [--only K] [--set N=V] [--json]` | the steps |
 | `film-ue apply SPEC... [--dry-run] [--stop] [--only K] [--set N=V] [--json]` | converge and verify |
