@@ -4430,7 +4430,7 @@
    "verb": "attach",
    "module": "fmbridge.ops.mh.actor",
    "file": "unreal/fmbridge/ops/mh/actor.py",
-   "line": 454,
+   "line": 470,
    "summary": "Make a prop (an actor in the level) ride a bone of a placed MetaHuman, keeping where it is now: earrings on the",
    "doc": "Make a prop (an actor in the level) ride a bone of a placed MetaHuman, keeping where it is now: earrings on the\nface's ear bones, a watch on the forearm. The prop is made Movable first (a Static root refuses to attach to a\nmoving bone without a word).\n\nArgs: label: the MetaHuman actor. prop: the prop's label. bone: the bone or socket (FACIAL_L_Ear4,\nlowerarm_twist_02_l). component: Body or Face.\nReturns: {\"changed\", \"parent\": component, \"bone\"}.\nExample: film-ue op mh.attach label=Presenter prop=HerWatch bone=lowerarm_twist_02_l",
    "params": [
@@ -4730,7 +4730,7 @@
    "verb": "clip_check",
    "module": "fmbridge.ops.mh.actor",
    "file": "unreal/fmbridge/ops/mh/actor.py",
-   "line": 495,
+   "line": 511,
    "summary": "Does the body poke through a garment in the current pose? A numeric check (multi-tick): the posed body and",
    "doc": "Does the body poke through a garment in the current pose? A numeric check (multi-tick): the posed body and\ngarment are copied as meshes (Geometry Script, render LOD 0), and for body points under the garment (nearer than\nnear_cm) the signed distance to the garment's surface is measured; a point outside the garment by more than\ntolerance_cm pokes through.\n\nNeeds the Geometry Script plugin. Scrub the sequence to the frame first (seq.stills / a pose) to check a pose.\nArgs: label: the MetaHuman actor. garment: its garment component. samples: body points checked (spread evenly).\nmax_poke_fraction: the share of checked points allowed through.\nReturns: {\"pass\", \"metric\": poke fraction, \"threshold\", \"why\", \"checked\", \"pokes\", \"max_cm\", \"worst\": [[x, y, z,\ncm], ...]}.\nExample: film-ue op mh.clip_check label=Presenter garment=Top",
    "params": [
@@ -4799,9 +4799,9 @@
    "verb": "cloth_inflate",
    "module": "fmbridge.ops.mh.actor",
    "file": "unreal/fmbridge/ops/mh/actor.py",
-   "line": 93,
+   "line": 101,
    "summary": "Push a garment out along its normals by `cm`, so skin under tight cloth stops poking through. A multi-tick job.",
-   "doc": "Push a garment out along its normals by `cm`, so skin under tight cloth stops poking through. A multi-tick job.\n\nNothing the renderer is drawing is ever edited: a material in use that is reparented or recompiled while frames\nrender trips `UniformExpressionCache... == Material.GetRenderingThreadShaderMap()` and takes the editor down (it\ndid, right after a MetaHuman rebuild had made fresh garment instances). So the worn instance is copied to\n`{folder}/{label}_<name>_Inflate`, the copy is parented on project copies of its plugin chain whose master gains a\nWorld Position Offset (normal x FM_Inflate), every shader finishes compiling, the editor ticks a few frames, and\nonly then does the component swap to the copy. A master already in use is never recompiled (a new one is made);\nre-running on an inflated garment only changes the amount, a plain parameter change that is safe. `which` limits it\nto the garments whose material name contains it (e.g. \"Shirt\": a top pushed out over shorts that stay put, else\nboth move together and the shorts' waistband still shows through the tee); others already inflated go back to 0.",
+   "doc": "Push a garment out along its normals by `cm`, so skin under tight cloth stops poking through. A multi-tick job.\n\nNothing the renderer is drawing is ever edited: a material in use that is reparented or recompiled while frames\nrender trips `UniformExpressionCache... == Material.GetRenderingThreadShaderMap()` and takes the editor down (it\ndid, right after a MetaHuman rebuild had made fresh garment instances). So the worn instance is copied to\n`{folder}/{label}_<name>_Inflate`, the copy is parented on project copies of its plugin chain whose master gains a\nWorld Position Offset (normal x FM_Inflate), every shader finishes compiling, the editor ticks a few frames, and\nonly then does the component swap to the copy. A master already in use is never recompiled (a new one is made);\nre-running on an inflated garment only changes the amount, a plain parameter change that is safe. `which` limits it\nto the garments whose material name contains it (e.g. \"Shirt\": a top pushed out over shorts that stay put, else\nboth move together and the shorts' waistband still shows through the tee); others already inflated go back to 0.\n\nReturns: {material name: amount or [copies made]}.\nExample: film-ue op mh.cloth_inflate label=Presenter cm=1.0 which=Shirt",
    "params": [
     {
      "name": "label",
@@ -4855,7 +4855,7 @@
    "file": "unreal/fmbridge/ops/mh/actor.py",
    "line": 24,
    "summary": "An assembled MetaHuman actor's skeletal mesh components: mesh, animation mode and class.",
-   "doc": "An assembled MetaHuman actor's skeletal mesh components: mesh, animation mode and class.",
+   "doc": "An assembled MetaHuman actor's skeletal mesh components: mesh, animation mode and class.\n\nReturns: {component name: {\"mesh\", \"mode\", \"anim_class\"}}.\nExample: film-ue op mh.components label=Presenter",
    "params": [
     {
      "name": "label",
@@ -4910,7 +4910,7 @@
    "verb": "dress",
    "module": "fmbridge.ops.mh.actor",
    "file": "unreal/fmbridge/ops/mh/actor.py",
-   "line": 390,
+   "line": 406,
    "summary": "Dress a placed MetaHuman in garments of your own: each a skeletal mesh component under its body, posed by the",
    "doc": "Dress a placed MetaHuman in garments of your own: each a skeletal mesh component under its body, posed by the\nbody (leader pose, set last on every garment), lit like the body; optionally cut slots out of the built-in garment.\n\nConverges: an existing component of that name is updated, not duplicated. Save the level (level.save) to keep it.\nArgs: label: the placed MetaHuman actor. garments: {component name: {\"mesh\": skeletal mesh path (mh.import_garment),\n\"materials\": {slot name: material path}}}. hide_slots: {component: [slot name substrings]} drawn with nothing\n(e.g. {\"SkeletalMesh\": [\"short\"]} cuts the default garment's shorts). body: the body component.\nReturns: {\"changed\", \"garments\": {name: {\"leader\", \"bone_gap_cm\", \"ok\"}}, \"hidden\": [...], \"ok\"}.\nExample: film-ue op mh.dress label=Presenter 'garments={\"Top\": {\"mesh\": \"/Game/Outfits/Ava/SKM_Ava_Top\", \"materials\": {\"M_Top\": \"/Game/Outfits/Ava/MI_Top\"}}}'",
    "params": [
@@ -4957,9 +4957,9 @@
    "verb": "drive_face",
    "module": "fmbridge.ops.mh.actor",
    "file": "unreal/fmbridge/ops/mh/actor.py",
-   "line": 35,
+   "line": 39,
    "summary": "Let a sequence's animation track drive the face: its own Blueprint (ABP_Face) has no slot for Sequencer, so the",
-   "doc": "Let a sequence's animation track drive the face: its own Blueprint (ABP_Face) has no slot for Sequencer, so the\ncomponent plays the animation directly; Epic's post-process rig (RigLogic) still runs on top.",
+   "doc": "Let a sequence's animation track drive the face: its own Blueprint (ABP_Face) has no slot for Sequencer, so the\ncomponent plays the animation directly; Epic's post-process rig (RigLogic) still runs on top.\n\nReturns: the component's animation mode.\nExample: film-ue op mh.drive_face label=Presenter",
    "params": [
     {
      "name": "label",
@@ -5317,9 +5317,9 @@
    "verb": "garment",
    "module": "fmbridge.ops.mh.actor",
    "file": "unreal/fmbridge/ops/mh/actor.py",
-   "line": 184,
+   "line": 196,
    "summary": "Set parameters on a worn garment's material (slots whose name contains `which`): `vectors` take linear [r,g,b],",
-   "doc": "Set parameters on a worn garment's material (slots whose name contains `which`): `vectors` take linear [r,g,b],\ne.g. the default garment's {\"diffuse_color_1\": [...], \"diffuse_color_2\": [...]} is its colour.",
+   "doc": "Set parameters on a worn garment's material (slots whose name contains `which`): `vectors` take linear [r,g,b],\ne.g. the default garment's {\"diffuse_color_1\": [...], \"diffuse_color_2\": [...]} is its colour.\n\nReturns: {material instance: [parameters set]}.\nExample: film-ue op mh.garment label=Presenter which=Shirt 'vectors={\"diffuse_color_1\": [0.2, 0.3, 0.2]}'",
    "params": [
     {
      "name": "label",
@@ -5437,7 +5437,7 @@
    "verb": "import_garment",
    "module": "fmbridge.ops.mh.actor",
    "file": "unreal/fmbridge/ops/mh/actor.py",
-   "line": 238,
+   "line": 254,
    "summary": "Import a garment FBX (authored in cm, skinned to the MetaHuman body skeleton) as a skeletal mesh on that",
    "doc": "Import a garment FBX (authored in cm, skinned to the MetaHuman body skeleton) as a skeletal mesh on that\nskeleton, for mh.dress. Checks the units: a garment that comes in tiny or huge (metres vs cm) is an error.\n\nArgs: fbx: the file on the box (absolute path). dest: the asset path (/Game/Outfits/Ava/SKM_Ava_Top).\nskeleton: the skeleton asset (default the MetaHuman body skeleton). replace: re-import over an existing one.\nReturns: {\"path\", \"changed\", \"bounds_cm\": [x, y, z] half sizes, \"slots\": [material slot names]}.\nExample: film-ue op mh.import_garment fbx=/srv/proj/Saved/Import/her_top.fbx dest=/Game/Outfits/Ava/SKM_Ava_Top",
    "params": [
@@ -5562,7 +5562,7 @@
    "verb": "leader",
    "module": "fmbridge.ops.mh.actor",
    "file": "unreal/fmbridge/ops/mh/actor.py",
-   "line": 357,
+   "line": 373,
    "summary": "Put every garment of a placed MetaHuman back on leader pose to its body, in one pass (a garment that lost it",
    "doc": "Put every garment of a placed MetaHuman back on leader pose to its body, in one pass (a garment that lost it\nstays in its bind pose while the body moves). Run it after any change to the actor's components, after a level\nload, and before rendering.\n\nReturns: {\"garments\": {name: {\"leader\", \"bone_gap_cm\", \"ok\"}}, \"ok\", \"changed\"}.\nExample: film-ue op mh.leader label=Presenter",
    "params": [
@@ -5595,7 +5595,7 @@
    "verb": "leader_check",
    "module": "fmbridge.ops.mh.actor",
    "file": "unreal/fmbridge/ops/mh/actor.py",
-   "line": 373,
+   "line": 389,
    "summary": "Whether every garment follows the body: a verdict for QA. Each garment must lead from the body and sit on the",
    "doc": "Whether every garment follows the body: a verdict for QA. Each garment must lead from the body and sit on the\nbody's bones (the largest gap over pelvis, spine, head, hands, calves under 0.1 cm).\n\nReturns: {\"pass\", \"metric\": worst bone gap cm, \"threshold\": 0.1, \"why\", \"garments\"}.\nExample: film-ue op mh.leader_check label=Presenter",
    "params": [

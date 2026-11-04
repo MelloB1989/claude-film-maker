@@ -23,7 +23,11 @@ from . import _core as K
 
 @op("mh.components", mutates=False, idempotent=True)
 def components(label: str) -> dict:
-    """An assembled MetaHuman actor's skeletal mesh components: mesh, animation mode and class."""
+    """An assembled MetaHuman actor's skeletal mesh components: mesh, animation mode and class.
+
+    Returns: {component name: {"mesh", "mode", "anim_class"}}.
+    Example: film-ue op mh.components label=Presenter
+    """
     out = {}
     for c in actor(label).get_components_by_class(unreal.SkeletalMeshComponent):
         m = c.get_skeletal_mesh_asset()
@@ -35,7 +39,11 @@ def components(label: str) -> dict:
 @op("mh.drive_face", mutates=True, idempotent=True)
 def drive_face(label: str, component: str = "Face") -> str:
     """Let a sequence's animation track drive the face: its own Blueprint (ABP_Face) has no slot for Sequencer, so the
-    component plays the animation directly; Epic's post-process rig (RigLogic) still runs on top."""
+    component plays the animation directly; Epic's post-process rig (RigLogic) still runs on top.
+
+    Returns: the component's animation mode.
+    Example: film-ue op mh.drive_face label=Presenter
+    """
     c = next(c for c in actor(label).get_components_by_class(unreal.SkeletalMeshComponent) if c.get_name() == component)
     c.set_animation_mode(unreal.AnimationMode.ANIMATION_SINGLE_NODE)
     return str(c.get_editor_property("animation_mode"))
@@ -103,7 +111,11 @@ def cloth_inflate(label: str, cm: float = 0.6, component: str = "SkeletalMesh", 
     only then does the component swap to the copy. A master already in use is never recompiled (a new one is made);
     re-running on an inflated garment only changes the amount, a plain parameter change that is safe. `which` limits it
     to the garments whose material name contains it (e.g. "Shirt": a top pushed out over shorts that stay put, else
-    both move together and the shorts' waistband still shows through the tee); others already inflated go back to 0."""
+    both move together and the shorts' waistband still shows through the tee); others already inflated go back to 0.
+
+    Returns: {material name: amount or [copies made]}.
+    Example: film-ue op mh.cloth_inflate label=Presenter cm=1.0 which=Shirt
+    """
     MEL = unreal.MaterialEditingLibrary
 
     def comp():  # fetched afresh: a Blueprint's construction script may have replaced it
@@ -185,7 +197,11 @@ def cloth_inflate(label: str, cm: float = 0.6, component: str = "SkeletalMesh", 
 def garment(label: str, which: str = "Shirt", vectors: dict | None = None, scalars: dict | None = None,
             component: str = "SkeletalMesh") -> dict:
     """Set parameters on a worn garment's material (slots whose name contains `which`): `vectors` take linear [r,g,b],
-    e.g. the default garment's {"diffuse_color_1": [...], "diffuse_color_2": [...]} is its colour."""
+    e.g. the default garment's {"diffuse_color_1": [...], "diffuse_color_2": [...]} is its colour.
+
+    Returns: {material instance: [parameters set]}.
+    Example: film-ue op mh.garment label=Presenter which=Shirt 'vectors={"diffuse_color_1": [0.2, 0.3, 0.2]}'
+    """
     MEL = unreal.MaterialEditingLibrary
     comp = next((c for c in actor(label).get_components_by_class(unreal.SkeletalMeshComponent)
                  if c.get_name() == component), None)
