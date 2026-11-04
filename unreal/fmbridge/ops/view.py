@@ -49,9 +49,7 @@ def find_actor(label: str):
 
 
 def class_name(obj) -> str:
-    """An object's class name (UClass.get_name; the test fake hands back a Python type instead)."""
-    c = obj.get_class()
-    return c.__name__ if isinstance(c, type) else c.get_name()
+    return obj.get_class().get_name()
 
 
 def _xyz(v) -> list:

@@ -95,10 +95,12 @@ def run(t):
     full = qimg.read(cap["path"])
     inner = [box[0] + 0.3 * (box[2] - box[0]), box[1] + 0.3 * (box[3] - box[1]),
              box[2] - 0.3 * (box[2] - box[0]), box[3] - 0.3 * (box[3] - box[1])]
-    pil = qmet.color(qimg.crop_frac(full, inner))
-    t.metric("pillar_color_in_box", pil["mean_rgb"])
-    t.ok("the projected box lands on the pillar (not the sky): a lit grey surface", pil["saturation"] < 0.35,
-         detail=str(pil))
+    pil = qmet.color(qimg.crop_frac(full, inner))["mean_rgb"]
+    left = [max(0.0, box[0] - 0.12), inner[1], max(0.02, box[0] - 0.04), inner[3]]  # just left of the pillar
+    bg = qmet.color(qimg.crop_frac(full, left))["mean_rgb"]
+    t.metric("pillar_vs_beside", {"pillar": pil, "beside": bg})
+    t.ok("the projected box lands on the pillar: it differs from what is beside it",
+         max(abs(a - b) for a, b in zip(pil, bg)) > 8, detail=f"pillar {pil} beside {bg}")
 
     # --- framing -------------------------------------------------------------------------------------------------
     fr = yield from t.op("qa.framing", subjects=[P + "Pillar"], camera=P + "Wide", still_out=f"{out}/framing.png")
