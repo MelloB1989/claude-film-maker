@@ -40,6 +40,23 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   and masters the mix (filmtools.mix) from the same timing. MRQ's wave output stays unused.
 - **WP12: captions burn through libass** (ffmpeg `subtitles`) instead of the reel's Pillow overlays; titles are
   film-specific and stay in films/<id>/.
+- **2026-11-05 WP0: PyYAML is a direct client dependency** (tools/pyproject.toml). uv.lock already resolves pyyaml (it is a transitive dependency), but the lock was not regenerated on the fleet (no uv there): the first `uv run` on a dev machine updates it. Commit that.
+- **WP10: the QA arithmetic is pure Python in `unreal/fmbridge/qa/`** (stdlib, numpy when importable, no PIL), so
+  one implementation runs in the editor (whose Python has no numpy unless PythonFoundationPackages pip-installed it)
+  and on the client (`film-qa`, loaded standalone so `unreal` is never needed), and is unit-tested both ways.
+- **WP10: viewport-free stills default to a SceneCapture2D** (one transient `FMQA_Capture` actor, removed after each
+  op), not MRQ: ~1 s and no level save. `view.still mode=mrq` goes through WP9's `render.frames` (preset draft, PNG,
+  a private folder per still) for a final look. The capture target is RGBA8; the selftest measures RGBA8_SRGB too.
+- **WP10/WP7 split (agreed with agent-11, confirmed by the lead):** WP7 owns the lens (`camkit.lens`) and the grammar
+  between shots (180-degree line, 30-degree rule, DoF, safe areas); WP10 owns per-frame subject framing
+  (`fmbridge.qa.framing.check`: size, headroom, joint/feet/limb cuts, look room) and the review that gathers both.
+  `qa.framing.Camera` keeps its own projection (horizontal FOV kept, the engine's default); it agrees with camkit's
+  when the output aspect is the filmback's.
+- **WP10: garment penetration is measured in screen space** from two depth captures (skin alone, garments alone)
+  per view: what a viewer would see, from a shot's camera or from views around the character. Skinned vertex
+  positions are not reachable from Python, and bounds or physics capsules are too coarse for cloth.
+- **WP10: issue codes are dotted `area.snake_case`** and every check returns `{"pass", "issues", "metrics"}`
+  (CONVENTIONS §8).
 
 - **WP9: renders use MRQ's legacy preset configuration**, not Movie Render Graph: it is what rendered the reel on
   Windows and passed the Linux PoC (P3/P4/P6); the job sets `set_config_mode(PRESET)` explicitly.

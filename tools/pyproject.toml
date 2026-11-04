@@ -10,6 +10,7 @@ dependencies = [
   "fonttools>=4.53",
   "scipy>=1.11",
   "matplotlib>=3.8",
+  "pyyaml>=6",  # spec files for film-ue plan/apply (docs/unreal/CONVENTIONS.md section 7)
 ]
 
 [project.optional-dependencies]
@@ -44,6 +45,7 @@ film-temptrack = "filmtools.temptrack:main"
 film-init = "filmtools.init:main"
 film-ue = "filmtools.unreal.cli:main"
 film-post = "filmtools.unreal.post_cli:main"
+film-qa = "filmtools.unreal.qa_local:main"
 film-anime-fetch = "filmtools.anime.assets:main"
 film-anime-cutout = "filmtools.anime.cutout:main"
 film-anime-depth = "filmtools.anime.depth:main"

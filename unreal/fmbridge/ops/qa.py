@@ -117,6 +117,26 @@ def image_check(*, image: str, subjects: dict | None = None, expect: dict | None
     return _result(iss, r)
 
 
+@op("qa.exposure", mutates=False, idempotent=True)
+def exposure(*, image: str, target_stops: list | None = None, regions: dict | None = None) -> dict:
+    """Exposure of a PNG: histogram, luma mean/median/percentiles, clipped and crushed %, stops from mid grey, per
+    region, and a verdict against a target range.
+
+    Args: image: PNG path. target_stops: [lo, hi] the mean should land in (stops from 18% grey; default -2.5..+1.5).
+    regions: {name: [x0,y0,x1,y1]} (0..1) measured separately, e.g. a face box from qa.framing.
+    Returns: {"pass", "issues", "metrics": {"exposure", "histogram" (32 bins of luma), "regions"}}.
+    Example: film-ue op qa.exposure image=/tmp/qa/a.png 'target_stops=[-2,-0.5]'
+    """
+    if not os.path.isfile(image):
+        raise OpError(f"no image at {image}", code="not_found", hint="make one with view.still")
+    img = _image.fit(_image.read(image), 480)
+    r = _metrics.analyze(img, subjects=regions, expect={"stops": target_stops} if target_stops else None)
+    iss = [i for i in r["issues"] if i["code"].startswith(("exposure.", "image."))]
+    return _result(iss, {"exposure": r["exposure"], "histogram": _metrics.histogram(img, bins=32),
+                         "regions": {k: {x: v[x] for x in ("box", "mean", "stops", "clipped_high_pct", "clipped_low_pct")}
+                                     for k, v in (r["subjects"] or r["regions"]).items()}})
+
+
 @op("qa.compare", mutates=True, idempotent=True)
 def compare(*, image: str, reference: str, out_diff: str = "", min_ssim: float = 0.9, width_px: int = 480,
             grid: list | None = None) -> dict:
@@ -208,8 +228,17 @@ def framing(*, subjects: list, camera: str = "", sequence: str = "", frame: int 
 # --- meshes --------------------------------------------------------------------------------------------------------
 
 def _parts(a, names, kind: str) -> list:
+    """Components of `a` by name; a name that is no component of `a` but another actor's label stands for all of
+    that actor's primitives (a skin and a cloth as separate actors, or a test rig)."""
     comps = {_comp_name(c): c for c in a.get_components_by_class(unreal.PrimitiveComponent)}
-    got = [comps[n] for n in names if n in comps]
+    got = []
+    for n in names:
+        if n in comps:
+            got.append(comps[n])
+            continue
+        other = next((x for x in _eas().get_all_level_actors() if x.get_actor_label() == n), None)
+        if other is not None:
+            got += list(other.get_components_by_class(unreal.PrimitiveComponent))
     if not got:
         raise OpError(f"{a.get_actor_label()} has none of the {kind} components {list(names)}", code="not_found",
                       candidates=sorted(comps)[:12], hint=f"pass {kind}=[component names] (qa.parts lists them)")
@@ -248,7 +277,7 @@ def penetration(*, label: str, body: list | None = None, garments: list | None =
     `tolerance_cm`, skin pokes through.
 
     Args: label: the character. body/garments: component names (default a MetaHuman's Body+Face / Torso+Legs+Feet;
-    qa.parts lists them). camera: look from this camera (with sequence+frame: the shot's camera and pose); views: N
+    qa.parts lists them), or labels of other actors whose meshes form that layer. camera: look from this camera (with sequence+frame: the shot's camera and pose); views: N
     views around the character instead (or as well), at elevation_deg. size_px: capture size (square for views;
     the camera's aspect otherwise). out_dir: write a still per view with the penetrating pixels painted magenta.
     Returns: {"pass", "issues", "metrics": {"views": {name: {fraction, pixels, worst_cm, box}}, "worst_fraction"}}.
@@ -372,7 +401,7 @@ def overlaps(*, labels: list | None = None, ignore: list | None = None, ignore_p
     Args: labels: the actors (default every visible mesh actor). ignore: labels to skip (the floor, walls, the
     set's shell). ignore_pairs: [[a, b]] that may overlap (a book on a shelf). min_fraction: the share of the
     smaller box that counts. touching_cm: resting contact allowed.
-    Returns: {"pass", "issues", "metrics": {"pairs": [[a, b, fraction]]}}. Axis-aligned bounds: confirm a hit
+    Returns: {"pass", "issues", "metrics": {"pairs": [[a, b, fraction, depth_cm]]}}. Axis-aligned bounds: confirm a hit
     with a still.
     Example: film-ue op qa.overlaps 'ignore=["Floor","Walls"]'
     """
