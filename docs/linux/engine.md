@@ -260,7 +260,7 @@ sizes, metrics). A test without its evidence stays **pending**.
 | P3 | `render.mrq` deferred PNG+WAV on a 24-frame chunk of one reel shot, through the bridge; then the same job via command-line MRQ (`UnrealEditor-Cmd … -game -MoviePipelineConfig=… -RenderOffscreen`) | frames written; the command-line job also works (needed for `film-ue render`) | frame dir, s/frame, `LogMovieRenderPipeline` errors, WAV length and peak | pending |
 | P4 | Same chunk with the project's Lumen **HWRT** as is; then a 30-min soak | log shows ray tracing enabled; no `VK_ERROR_DEVICE_LOST`; image sane | `LogRayTracing`/`LogVulkanRHI` lines, soak duration, crash count | pending |
 | P5 | `render.mrq path_tracer=True`, 8 frames | non-black, denoised | NNE runtime log line, frames | pending |
-| P6 | Reel calibration chunks vs the Windows PNGs of the same frames (`Saved/MovieRenders/reel_1080p`), with exactly render.py's settings (§9a.5), after the face-mode check (§9a.6) | rule D5 | per-frame SSIM/PSNR, crop colour deltas, contact sheet path | pending |
+| P6 | Reel calibration chunks vs the Windows PNGs of the same frames (`s3://rf-render-788655295054-aps1/ue-linux/reference/reel_1080p/<shot>/NNNN.png`: the 1,599 frames the final cut used, plus `reference/cut.json`), with exactly render.py's settings (§9a.5), after the face-mode check (§9a.6) | rule D5 | per-frame SSIM/PSNR, crop colour deltas, contact sheet path | pending |
 | P7 | `assets.import` an FBX prop (static + skeletal), then export | imported with materials | asset paths, log | pending |
 | P8 | Groom `.abc` import + binding to a MetaHuman | binding builds and renders | asset paths, a still | pending |
 | P9 | `mh.from_preset` → `mh.body` → `mh.skin` → `mh.add_item` → `mh.build` (swap on) | BP built, placed, renders | BP path, still, peak RSS | pending |
@@ -316,7 +316,7 @@ compared with the existing Windows renders of the reel. Steps:
    /mnt/win/UEProjects/HostStudio/ /data/HostStudio/` excluding `Saved/`, `Intermediate/` and `DerivedDataCache/`
    (Windows D3D shaders, useless on Vulkan). Content is 3.7 GB. Then set `.uproject` `EngineAssociation` to `"5.8"`
    or register the Linux engine under the GUID.
-4. **Reference frames are on the same disk.** `Saved/MovieRenders/reel_1080p/<shot>/<master frame>.png` is 8.5 GB,
+4. **Reference frames:** use `s3://…/ue-linux/reference/reel_1080p/<shot>/NNNN.png` (uploaded from the Mac: all 13 shots, exactly the frames the final cut used, with `cut.json`). The snapshot copy below is only a fallback. Old note: `Saved/MovieRenders/reel_1080p/<shot>/<master frame>.png` is 8.5 GB,
    so no copy from the Mac is needed. Fall back to `out/host-studio/reel/` on the Mac for anything missing. ProRes
    is not a reference: it is a lossy re-encode, so compare against the PNG frames.
 5. **Render exactly as Windows did.** `films/host-studio/reel/render.py` (reel branches) drives
