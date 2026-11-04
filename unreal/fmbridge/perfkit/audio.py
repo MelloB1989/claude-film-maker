@@ -61,18 +61,16 @@ class Envelope:
         else:
             raise ValueError(f"unsupported sample width {width}")
         hop = max(1, int(sample_rate / rate))
-        win = hop * 2
-        frames = len(a) // channels
+        mono = a[::channels] if channels > 1 else a  # the first channel is plenty for loudness
+        # sum of squares per hop, once; each frame's window is two hops
+        sq = [sum(x * x for x in mono[i:i + hop]) for i in range(0, len(mono), hop)]
         dbs = []
-        for start in range(0, max(1, frames - hop), hop):
-            s = start * channels
-            seg = a[s:s + win * channels]
-            if not seg:
+        for k in range(max(1, len(sq) - 1)):
+            n = min(len(mono) - k * hop, 2 * hop)
+            if n <= 0:
                 break
-            acc = 0.0
-            for x in seg[::max(1, channels)]:  # first channel is plenty for loudness
-                acc += x * x
-            rms = math.sqrt(acc / max(1, len(seg) // max(1, channels))) / scale
+            acc = sq[k] + (sq[k + 1] if k + 1 < len(sq) else 0.0)
+            rms = math.sqrt(acc / n) / scale
             dbs.append(20.0 * math.log10(max(rms, 1e-9)))
         if not dbs:
             return cls([0.0], rate, offset_s)
@@ -153,3 +151,58 @@ class Envelope:
         if end > t:
             out.append((round(t, 3), round(end, 3)))
         return out
+
+
+def split_points(env: Envelope, max_s: float = 40.0, min_s: float = 8.0) -> list:
+    """Where to cut a long recording into chunks of at most `max_s` seconds: in the middle of a pause, as late as
+    possible before each limit (never a chunk under `min_s`); a hard cut at the limit when a stretch has no pause.
+    Returns the cut times (seconds), not including 0 and the end."""
+    total = env.duration_s
+    if total <= max_s:
+        return []
+    mids = [(a + b) / 2 for a, b in env.pauses(min_s=0.15) if a > 0.0 and b < total]
+    cuts, start = [], 0.0
+    while total - start > max_s:
+        ok = [m for m in mids if start + min_s <= m <= start + max_s]
+        cut = max(ok) if ok else start + max_s
+        cuts.append(round(cut, 3))
+        start = cut
+    return cuts
+
+
+def write_chunk(src: str, dst: str, t0: float, t1: float) -> str:
+    """Copy [t0, t1) seconds of a PCM WAV to a new WAV (same format)."""
+    with wave.open(src, "rb") as w:
+        params = w.getparams()
+        sr = w.getframerate()
+        w.setpos(min(w.getnframes(), int(t0 * sr)))
+        frames = w.readframes(max(0, int((t1 - t0) * sr)))
+    with wave.open(dst, "wb") as o:
+        o.setparams(params)
+        o.writeframes(frames)
+    return dst
+
+
+def lip_flap(env: Envelope, rate: float = 30.0) -> dict:
+    """A crude mouth from loudness alone, for when the speech solver fails: the jaw opens with the voice (smoothed,
+    a little ahead of the sound), the lips purse a touch on loud peaks and press shut in pauses. Curves {name:
+    (times, values)}. It is a stand-in so a shot is not dead; re-solve when the solver works."""
+    from .rig import PREFIX
+    sm = C.lowpass(env.values, env.rate, 8.0, passes=1)
+    times = C.grid(0.0, env.duration_s, rate)
+    lead = 0.04  # the jaw moves just before the sound it makes
+
+    def loud(t):
+        i = (t + lead) * env.rate
+        k = int(i)
+        if k < 0 or k >= len(sm) - 1:
+            return 0.0
+        return sm[k] + (sm[k + 1] - sm[k]) * (i - k)
+    jaw = [min(0.6, 0.65 * loud(t) ** 1.3) for t in times]
+    purse = [max(0.0, loud(t) - 0.7) * 0.5 for t in times]
+    press = [0.25 if loud(t) < 0.08 else 0.0 for t in times]
+    out = {}
+    for name, v in ((PREFIX + "jawOpen", jaw), (PREFIX + "mouthLipsPurseUL", purse), (PREFIX + "mouthLipsPurseUR", purse),
+                    (PREFIX + "mouthLipsPressL", press), (PREFIX + "mouthLipsPressR", press)):
+        out[name] = C.reduce(times, v, 0.004)
+    return out
