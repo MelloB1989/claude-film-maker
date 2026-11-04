@@ -12,6 +12,9 @@ Knobs: `ue.mat_errors[path] = ["error text"]`.
 """
 from __future__ import annotations
 
+import json
+import os
+
 _OUTS = {"MaterialExpressionTextureSampleParameter2D": ("RGB", "R", "G", "B", "A", "RGBA"),
          "MaterialExpressionTextureSample": ("RGB", "R", "G", "B", "A", "RGBA"),
          "MaterialExpressionVectorParameter": ("RGB", "R", "G", "B", "A", "RGBA"),
@@ -222,6 +225,7 @@ def install(fake):
     fake._classes["MaterialEditingLibrary"] = MEL
     _install_meshes(fake)
     _install_import(fake)
+    _install_import_results(fake)
 
 
 def _install_meshes(fake):
@@ -366,15 +370,57 @@ def _install_meshes(fake):
     core.AssetData.get_tag_value = get_tag_value
     core.AssetData.is_redirector = is_redirector
 
+    def _objs(v):
+        if isinstance(v, core.Object):
+            yield v
+            if not v._path:  # a struct (a static material slot): what it holds
+                for x in v._props.values():
+                    if isinstance(x, core.Object):
+                        yield x
+        elif isinstance(v, (list, tuple)):
+            for x in v:
+                yield from _objs(x)
+        elif isinstance(v, dict):
+            for x in v.values():
+                yield from _objs(x)
+
+    def _derived(pkg):
+        """What an asset points at (parent, slot materials, texture parameters), as the registry records on save."""
+        a = fake.assets.get(str(pkg))
+        out = set()
+        if a is None:
+            return out
+        for k, v in a._props.items():
+            if k in ("__mesh", "__tags", "__expr", "__links", "__roots"):
+                continue
+            for o in _objs(v):
+                q = o._path.split(".")[0] if o._path else ""
+                if q and q != str(pkg) and q in fake.assets:
+                    out.add(q)
+        for e in a._props.get("__expr", []):  # a material's textures
+            for o in _objs(e._props.get("texture")):
+                if o._path:
+                    out.add(o._path.split(".")[0])
+        return out
+
     def _deps(pkg):
-        return sorted(fake.refs.get(str(pkg), set()))
+        return sorted(set(fake.refs.get(str(pkg), set())) | _derived(pkg))
 
     def get_dependencies(self, package_name, dependency_options=None):
         return [fake.Name(x) for x in _deps(package_name)] or None  # bool+out: None when nothing
 
     def get_referencers(self, package_name, dependency_options=None):
-        out = [fake.Name(k) for k, v in sorted(fake.refs.items()) if str(package_name) in v]
+        out = [fake.Name(k) for k in sorted(set(fake.refs) | set(fake.assets)) if str(package_name) in _deps(k)]
         return out or None
+
+    def get_metadata_tag_values(obj):
+        return {fake.Name(k): v for k, v in obj._props.get("__metadata", {}).items()}
+
+    def remove_metadata_tag(obj, tag):
+        obj._props.get("__metadata", {}).pop(str(tag), None)
+
+    core.EditorAssetLibrary.get_metadata_tag_values = staticmethod(get_metadata_tag_values)
+    core.EditorAssetLibrary.remove_metadata_tag = staticmethod(remove_metadata_tag)
 
     core.AssetRegistry.get_dependencies = get_dependencies
     core.AssetRegistry.get_referencers = get_referencers
@@ -424,3 +470,92 @@ def _install_import(fake):
               GroomImportOptions, Mesh, Common, Skel, Anim, Mat, Tex):
         setattr(fake, c.__name__, c)
         fake._classes[c.__name__] = c
+
+
+def _install_import_results(fake):
+    """import_asset_tasks as WP2 needs it: the source file in the AssetImportData registry tag and import data
+    (as the engine writes them), a mesh's size and triangles read from an OBJ / glTF file, a re-import (replace
+    over an existing asset) re-reading the file, and Interchange's reimport_asset."""
+    core = __import__(f"{__package__}.core", fromlist=["core"])
+    tools_cls = core.AssetTools
+    # the core's own import, captured once: install() runs per fresh fake and must not wrap its own wrapper (a
+    # chain of wrappers would write into earlier tests' fakes)
+    if not hasattr(core, "_wp2_core_import"):
+        core._wp2_core_import = tools_cls.import_asset_tasks
+    base_import = core._wp2_core_import
+
+    def read_mesh(f):
+        ext = os.path.splitext(f)[1].lower()
+        try:
+            if ext == ".obj":
+                vs, faces = [], 0
+                for line in open(f):
+                    if line.startswith("v "):
+                        vs.append([float(x) for x in line.split()[1:4]])
+                    elif line.startswith("f "):
+                        faces += len(line.split()) - 3
+                if vs:
+                    return [max(v[i] for v in vs) - min(v[i] for v in vs) for i in range(3)], faces
+            if ext == ".gltf":
+                acc = json.load(open(f))["accessors"][0]
+                return [100.0 * (b - a) for a, b in zip(acc["min"], acc["max"])], 12
+        except (OSError, ValueError, KeyError, IndexError):
+            pass
+        return None, None
+
+    class ImportData(core.Object):
+        def extract_filenames(self):
+            return list(self._props.get("files", []))
+
+        def scripted_add_filename(self, filename, index, label):
+            files = self._props.setdefault("files", [])
+            files[index:index + 1] = [filename]
+
+    def tag_source(asset, f):
+        asset._props.setdefault("__tags", {})["AssetImportData"] = json.dumps([{"RelativeFilename": f}])
+        asset._props["asset_import_data"] = ImportData("AssetImportData", files=[f])
+        size, tris = read_mesh(f)
+        if size and type(asset).__name__ in ("StaticMesh", "SkeletalMesh"):
+            d = asset._props.setdefault("__mesh", {"size": [100.0] * 3, "tris": 1000, "lods": 1, "nanite": False,
+                                                   "keep": 1.0, "simple": 0, "convex": 0, "uv": 1,
+                                                   "lod_group": "None"})
+            d.update(size=[round(v, 3) for v in size], tris=tris)
+            if not asset._props.get("static_materials"):  # one default slot, as an OBJ without a .mtl gets
+                slot = core.Object("StaticMaterial", material_slot_name=fake.Name("DefaultMaterial"),
+                                   material_interface=None)
+                asset._props["static_materials"] = [slot]
+
+    def import_asset_tasks(self, import_tasks):
+        for t in import_tasks:  # replace over an existing asset: the engine re-imports it in place
+            stem = os.path.splitext(os.path.basename(t.filename))[0]
+            path = f"{t.destination_path.rstrip('/')}/{t.destination_name or stem}"
+            if path in fake.assets and t.replace_existing:
+                tag_source(fake.assets[path], t.filename)
+                t.imported_object_paths = [f"{path}.{path.rsplit('/', 1)[-1]}"]
+                fake.imports.append((t.filename, path))
+        base_import(self, [t for t in import_tasks if not t.imported_object_paths])
+        for t in import_tasks:
+            for op_ in t.imported_object_paths or []:
+                tag_source(fake.assets[op_.split(".")[0]], t.filename)
+
+    tools_cls.import_asset_tasks = import_asset_tasks
+
+    class InterchangeManager(core.Object):
+        @staticmethod
+        def get_interchange_manager_scripted():
+            return fake.singleton(InterchangeManager)
+
+        @staticmethod
+        def create_source_data(in_file_name):
+            return core.Object("InterchangeSourceData", filename=in_file_name)
+
+        def reimport_asset(self, object_to_reimport, import_asset_parameters):
+            files = object_to_reimport._props.get("asset_import_data")
+            files = files.extract_filenames() if files is not None else []
+            if not files or not os.path.isfile(files[0]):
+                return None
+            tag_source(object_to_reimport, files[0])
+            return [object_to_reimport]
+
+    fake.InterchangeManager = InterchangeManager  # a test swaps the manager: fake._singletons[InterchangeManager]
+    fake._classes["InterchangeManager"] = InterchangeManager

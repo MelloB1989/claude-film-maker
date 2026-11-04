@@ -87,3 +87,18 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   starts mid-shot: the cloth rule from docs/linux/engine.md P6, applied by the planner instead of by hand.
 - **WP9: the path tracer is refused under 40 GB VRAM** unless `vram.force` (P5: 1080p with strand hair killed the
   editor on a 24 GB L4).
+- **2026-11-05 WP2 agent-02: materials split with WP5.** `mat.*` (ops/mat.py) owns the master materials, built by
+  code into `/Game/FM/Lib` from graph specs (12 masters, presets, `mat.graph` for any material); WP5 keeps `look.*`
+  as it is and may build on `from .mat import master`. Emissive is in nits (`Luminance_nits`, cd/m2) to pair with
+  WP5's photometric practicals. Agreed with agent-08.
+- **WP2: `EAL` falls back to the EditorAssetSubsystem.** EditorAssetLibrary lives in the EditorScriptingUtilities
+  plugin, off by default; `ops/assets.py` exports `EAL = unreal.EditorAssetLibrary if present else the subsystem`
+  (same calls). Modules that call `unreal.EditorAssetLibrary` directly are listed in assets.md HANDOFF.
+- **WP2: material slots belong to the `material` kind.** Assets apply before materials (order 10 vs 12), so a
+  material document names the mesh slots it goes on (`assign`); the `asset` kind has no material field.
+- **WP2: Fab without a window.** Sign-in through the plugin's own saved credential (`fab.login` opens a Fab tab:
+  the only trigger of its persist login); downloads from a signed URL are fetched and imported in Python (Megascans
+  through the plugin's own InterchangeMegascansPipeline); Epic's AddToProject is reachable only through a small C++
+  reflection plugin (`unreal/plugins/FabScript`), optional, needed for unreal-engine packs. A listing id -> signed
+  URL needs Fab's web page: `fab_shim.py` (headless Chromium), experimental.
+- **WP2: redirectors are fixed by resaving referencers** (AssetTools.FixupReferencers has no UFUNCTION).

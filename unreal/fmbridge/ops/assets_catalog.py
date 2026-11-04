@@ -277,13 +277,15 @@ def describe(*, path: str, refs: bool = True) -> dict:
 
 @op("assets.thumbnail", mutates=False, idempotent=True, tags=["gpu", "catalog"])
 def thumbnail(*, path: str, out_dir: str, views: int = 1, size_px: int = 512, elevation_deg: float = 20.0,
-              yaw_deg: float = 35.0):
+              yaw_deg: float = 35.0, loc: list = (0.0, 0.0, -50000.0), light: bool = True):
     """Pictures of an asset with no viewport: a temporary actor of it is placed away from the set, captured alone
     (WP10's view.turntable with isolate), and removed. One view (a 3/4 shot) or several around it plus a sheet.
-    Lighting is the open level's: in an empty level the asset is dark (add a light, or use a lit scratch level).
+    The open level's lights reach it only if it is placed among them (loc); `light` adds a temporary point light
+    above and in front of it, removed afterwards.
 
     Args: path: /Game/... StaticMesh, SkeletalMesh or Blueprint. out_dir: where the PNGs go on the box. views: how
-          many. size_px: square size. elevation_deg/yaw_deg: the camera's angle above and around it.
+          many. size_px: square size. elevation_deg/yaw_deg: the camera's angle above and around it. loc: where the
+          temporary actor stands [x, y, z] cm (default far below the set). light: add a temporary key light.
     Returns: {"path", "views": [{"yaw", "path"}], "sheet", "size_cm"}. Multi-tick.
     Example: film-ue op assets.thumbnail path=/Game/Props/SM_Chair out_dir=/tmp/thumbs/chair views=4
     """
@@ -295,16 +297,31 @@ def thumbnail(*, path: str, out_dir: str, views: int = 1, size_px: int = 512, el
     old = find_actor(label)
     if old is not None:
         eas.destroy_actor(old)
-    actor = eas.spawn_actor_from_object(obj, unreal.Vector(0.0, 0.0, -50000.0), unreal.Rotator(roll=0, pitch=0, yaw=0))
+    actor = eas.spawn_actor_from_object(obj, unreal.Vector(*[float(v) for v in loc]),
+                                        unreal.Rotator(roll=0, pitch=0, yaw=0))
     if actor is None:
         raise OpError(f"cannot place a {type(obj).__name__} to photograph it", code="unsupported",
                       hint="thumbnails work for meshes and actor Blueprints")
     actor.set_actor_label(label)
+    lamp = None
+    if light:
+        size = _bounds_of(obj) or [100.0, 100.0, 100.0]
+        r = max(size) or 100.0
+        lamp = eas.spawn_actor_from_class(unreal.PointLight, unreal.Vector(loc[0] + 1.5 * r, loc[1] + 1.0 * r,
+                                                                          loc[2] + 2.0 * r))
+        if lamp is not None:
+            lamp.set_actor_label(label + "_light")
+            c = lamp.get_component_by_class(unreal.PointLightComponent)
+            if c is not None:
+                c.set_editor_property("attenuation_radius", 10.0 * r)
+                c.set_intensity(8.0 * r * r / 100.0)
     try:
         res = yield from turntable(target=label, out_dir=out_dir, views=int(views), elevation_deg=elevation_deg,
                                    width_px=size_px, height_px=size_px, isolate=True, start_yaw_deg=yaw_deg,
                                    sheet=int(views) > 1)
     finally:
         eas.destroy_actor(actor)
+        if lamp is not None:
+            eas.destroy_actor(lamp)
     return {"path": AL.package_path(path), "views": [{"yaw": v["yaw"], "path": v["path"]} for v in res["views"]],
             "sheet": res.get("sheet"), "size_cm": _bounds_of(obj)}

@@ -1,0 +1,43 @@
+# Materials for a set: a PBR rock from its texture set, a window, a lamp shade in nits, and a rim-lit graph material.
+kind: material
+version: 1
+name: rock
+path: /Game/Set/Mats/MI_Rock
+master: opaque_orm
+params:
+  Tint: [1, 1, 1]
+  BaseColorMap: /Game/Set/Tex/T_Rock_BaseColor
+  NormalMap: /Game/Set/Tex/T_Rock_Normal
+  ORMMap: /Game/Set/Tex/T_Rock_ORM
+  Roughness: 1.0
+  Metallic: 1.0
+  Tiling: 2.0
+assign:
+  - {mesh: /Game/Set/Props/SM_Boulder, slot: 0}
+---
+kind: material
+version: 1
+name: window
+path: /Game/Set/Mats/MI_Window
+preset: glass_clear
+params: {Opacity: 0.1}
+---
+kind: material
+version: 1
+name: lamp-shade
+path: /Game/Set/Mats/MI_LampShade
+master: emissive
+params: {Color: [1.0, 0.85, 0.65], Luminance_nits: 1500}
+---
+kind: material
+version: 1
+name: rim
+path: /Game/Set/Mats/M_Rim
+graph:
+  blend: opaque
+  shading: default_lit
+  nodes:
+    c: {type: Vector, name: Col, default: [0.1, 0.4, 0.8, 1]}
+    f: {type: Fresnel, exponent: 3.0}
+    rim: {type: Lerp, in: {A: c.RGB, B: [1, 1, 1], Alpha: f}}
+  outputs: {BaseColor: rim, Roughness: 0.4}
