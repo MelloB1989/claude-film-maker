@@ -9,6 +9,10 @@
                                           a mix's loudness as a check ({"pass", "metric", "threshold", "why"})
     film-post timing --lines L.json | --vo-json data/vo.json | --cues cues.json  [--fps 24] [-o timing.json]
                                           a timing document (filmtools.unreal.audio_timing)
+    film-post speak --text T --id L1 --sequence /Game/Seq/SQ --start-frame 48 --face-mesh /Game/MH/X/Face --label X
+              --voice-id ID --box-dir /srv/vo --out-dir out/vo [--dry-run]
+                                          B29: text -> TTS -> the voice on VO -> speech.to_face -> the face animation
+                                          (perf_speak; key via fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs --)
     film-post handoff TIMING --faces faces.json [--wav-root /box/dir]
                                           per line, speech.to_face's args and where the face animation goes (WP4)
 
@@ -53,6 +57,22 @@ def main(argv=None) -> int:
     t.add_argument("--name", default="main")
     t.add_argument("--speaker", default="")
     t.add_argument("-o", "--out")
+    sp = sub.add_parser("speak")
+    for k in ("--text", "--id", "--sequence", "--face-mesh", "--label", "--box-dir", "--out-dir"):
+        sp.add_argument(k, required=True)
+    sp.add_argument("--start-frame", type=int, required=True)
+    sp.add_argument("--voice-id", default="")
+    sp.add_argument("--model", default="")
+    sp.add_argument("--speed", type=float)
+    sp.add_argument("--seed", type=int)
+    sp.add_argument("--component", default="Face")
+    sp.add_argument("--mood", default="CONFIDENCE")
+    sp.add_argument("--speaker", default="")
+    sp.add_argument("--track", default="VO")
+    sp.add_argument("--fps", type=float)
+    sp.add_argument("--replace-face", action="store_true")
+    sp.add_argument("--no-perf-face", action="store_true", help="skip WP4's perf.face pass (the raw solve plays)")
+    sp.add_argument("--dry-run", action="store_true")
     h = sub.add_parser("handoff")
     h.add_argument("timing")
     h.add_argument("--faces", required=True, help='JSON: {speaker: {"face_mesh", "label", "component"?, "mood"?}}')
@@ -93,6 +113,17 @@ def main(argv=None) -> int:
                               "same_speaker_overlaps": audio_timing.overlaps(doc)}))
         else:
             print(text)
+        return 0
+    if a.cmd == "speak":
+        from . import perf_speak
+        voice = {"voice_id": a.voice_id, "model": a.model or perf_speak.DEFAULT_MODEL, "speed": a.speed, "seed": a.seed}
+        res = perf_speak.speak(a.text, line_id=a.id, sequence=a.sequence, start_frame=a.start_frame,
+                               face={"face_mesh": a.face_mesh, "label": a.label, "component": a.component},
+                               voice=voice, box_dir=a.box_dir, out_dir=Path(a.out_dir), fps=a.fps, speaker=a.speaker,
+                               track=a.track, mood=a.mood, replace_face=a.replace_face, perf_face=not a.no_perf_face,
+                               dry_run=a.dry_run,
+                               log=lambda m: print(m, file=sys.stderr))
+        print(json.dumps(res, indent=1, default=str))
         return 0
     if a.cmd == "handoff":
         doc = audio_timing.load(a.timing)
