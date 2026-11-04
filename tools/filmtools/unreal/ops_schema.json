@@ -5513,7 +5513,7 @@
    "file": "unreal/fmbridge/ops/level.py",
    "line": 220,
    "summary": "The open level at a glance: its path, actor count by class, lights, cameras, the overall bounds of visible",
-   "doc": "The open level at a glance: its path, actor count by class, lights, cameras, the overall bounds of visible\ngeometry, and every actor (as level.find) with `actors`.\n\nExample: film-ue op level.describe",
+   "doc": "The open level at a glance: its path, actor count by class, lights, cameras, the overall bounds of visible\ngeometry, its World Partition summary (`partition`: wp.describe), and every actor (as level.find) with `actors`.\n\nExample: film-ue op level.describe",
    "params": [
     {
      "name": "actors",
@@ -5521,6 +5521,13 @@
      "type": "bool",
      "required": false,
      "default": false
+    },
+    {
+     "name": "partition",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
     }
    ],
    "returns": "dict",
@@ -5608,7 +5615,7 @@
    "verb": "folder",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 272,
+   "line": 279,
    "summary": "Put actors in an outliner folder (`Set/Props`; '' for none): grouping that scene.describe and level.find",
    "doc": "Put actors in an outliner folder (`Set/Props`; '' for none): grouping that scene.describe and level.find\ncan filter on.\n\nExample: film-ue op level.folder 'labels=[\"Desk\",\"Chair\"]' path=Office/Furniture",
    "params": [
@@ -5808,7 +5815,7 @@
    "verb": "material",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 288,
+   "line": 295,
    "summary": "Put a material on a mesh actor's slot (every mesh component of it).",
    "doc": "Put a material on a mesh actor's slot (every mesh component of it).\n\nExample: film-ue op level.material label=Desk material=/Game/M/MI_Oak",
    "params": [
@@ -6098,7 +6105,7 @@
    "verb": "tag",
    "module": "fmbridge.ops.level",
    "file": "unreal/fmbridge/ops/level.py",
-   "line": 253,
+   "line": 260,
    "summary": "Add and remove actor tags (for grouping: scene membership, QA subjects, render layers).",
    "doc": "Add and remove actor tags (for grouping: scene membership, QA subjects, render layers).\n\nReturns: {\"changed\": [labels whose tags changed]}.\nExample: film-ue op level.tag 'labels=[\"Desk\",\"Chair\"]' 'add=[\"set:office\"]'",
    "params": [

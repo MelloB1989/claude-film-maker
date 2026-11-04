@@ -43,7 +43,7 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B27 | MetaHuman spec round-trip: `film-ue describe character Host > host.yaml` and apply it to a fresh preset to get the same character (body, skin, hair, wardrobe) | WP3 | L | merged (agent-04, mh.export + mh.apply) |
 | B28 | Groom/hair tuning ops: density, width, melanin/redness, sky-lighting cvar guard (README trap) with numeric before/after | WP3/WP5 | S | merged (agent-09) |
 | B29 | Face performance from text: `perf.speak` text → TTS file (client) → speech.to_face → seq.anim on the face, one call | WP4/WP12 | M | merged (agent-03, film-post speak) |
-| B30 | Retargeting: `anim.retarget` a Mixamo/UE mannequin anim onto a MetaHuman body (IK retargeter assets made by code) | WP4 | L | claimed agent-04 (with agent-01: anim.retarget exists) |
+| B30 | Retargeting: `anim.retarget` a Mixamo/UE mannequin anim onto a MetaHuman body (IK retargeter assets made by code) | WP4 | L | merged (agent-01, anim.retarget; agent-04 adds mh.body_mesh + recipe) |
 | B31 | Pose library: `anim.pose` apply a named pose (sit, lean, hands on hips) via control rig or baked anim; numeric check of end-effector positions | WP4 | L | open |
 | B32 | Op call journal: every mutating op appends {op, args, result, ms} to Saved/fmbridge/journal.jsonl; `film-ue journal` shows it; replay a journal on a fresh level | WP1/WP11 | M | merged (agent-13 + agent-07 jobs.on_finish) |
 | B33 | Bridge auth hardening + request size limits + `/op` batch endpoint (several ops in one request, one tick budget) | WP1 | S | claimed agent-07 |
@@ -60,3 +60,4 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B44 | Data layers: level.layers (list, visible, loaded), level.layer_add (create + put actors in), level.layer_set (visible/loaded in editor); partitioned worlds only, a clear `unsupported` otherwise | WP6 | M | merged (agent-10) |
 | B45 | Selftest dry runs in the unit suite: every unreal/fmbridge/selftest/<area>.py run end to end on fakeunreal through the real harness (REQUIRES forced on, stills faked), so a typo, a renamed op or a wrong argument fails tonight instead of on the GPU box; one parametrized test, per-area xfail only with a reason | WP11/WP10 | M | claimed agent-09 |
 | B46 | `film-ue selftest plan`: tomorrow's GPU-box run order with REQUIRES, duration estimates and dependencies, from the selftest modules (docstring, TIMEOUT, REQUIRES), printed so the morning report can quote it | WP11 | S | claimed agent-13 |
+| B47 | MetaHuman variations: N distinct plausible characters from a seed and ranges (age, build, skin, hair/wardrobe pools) as character specs mh.apply converges; contact sheet of previews in the selftest | WP3 | M | claimed agent-04 |
