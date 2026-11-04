@@ -256,7 +256,8 @@ profiles, boxes, watchdog, editor service, sync, CLI), `test_unreal_transport.py
 
 ## 8. HANDOFF
 
-**Done:** everything above, with every AWS call mocked. Nothing in `boxes`/`sync`/`editorsvc` has run against AWS:
+**Done:** everything above (plus B12: editor.plugins/cvars/project_setting; B33: constant-time token, size limits,
+/file roots, /batch; the client-phase selftest), with every AWS call mocked. Nothing in `boxes`/`sync`/`editorsvc` has run against AWS:
 the operator's rule for the night.
 
 **Run first on the next GPU box, in this order:**
@@ -280,6 +281,11 @@ the operator's rule for the night.
 - Windows: `transport.put` in parts and `editorsvc` crashes through PowerShell are tested only as strings;
 - `sync status` against a real bucket;
 - spot interruption (the profile then finds nothing; `box ls` shows it).
+
+**Left for the CLI owner (WP11), agreed:** cli.py's own `provision`/`editor`/`epic-login`/`desktop` go once this
+branch is in ue-helpers (cli_platform then serves them; `editor` service verbs via opcli.EXTENSIONS). `install`
+still lives in cli.py and sends the bridge in 80 KB printf parts (the lead's fix). It could use `transport.put` (parts
+for both shells) when it moves here.
 
 **Next ideas:** `box up --from-snapshot` (an AMI with the engine and a warm DDC: minutes instead of an hour); the
 watchdog saving the DDC before an idle power-off; `film-ue doctor` (WP0 took B11).
