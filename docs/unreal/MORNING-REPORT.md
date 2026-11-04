@@ -7,7 +7,7 @@ is at the bottom.
 
 **What it is:** Unreal Engine 5.8 driven entirely from code for Claude.
 
-- About 300 bridge ops in 25 areas, all discoverable (`film-ue ops`, `film-ue describe`) and callable as
+- 344 bridge ops in 31 areas, all discoverable (`film-ue ops`, `film-ue describe`) and callable as
   `film-ue <area> <verb> --args` or through the Python SDK (`filmtools.unreal.sdk`).
 - Declarative specs that converge (`film-ue plan|apply <spec.yaml>`).
 - Actionable errors: code, message, hint and did-you-mean.
@@ -15,7 +15,8 @@ is at the bottom.
 - A selftest per area for today's GPU box.
 - A demo that exercises every work package.
 
-**Tests:** 832 unit tests green on a fake engine.
+**Tests:** 966 unit tests green on a fake engine, including the whole demo applied end to end (second plan
+empty).
 
 **Not done:** nothing has run on a real editor yet (no GPU box tonight, by order). The selftests are the
 acceptance tests.
@@ -35,10 +36,10 @@ Start here:
 |---|---|---|---|---|
 | WP0 lead/runtime | agent-10 | `ops.*`, registry | ops auto-discovery (a broken module is reported, not fatal), `ops.schema`, OpError(code/message/hint/candidates), shared fake engine `tools/tests/fakeunreal`, CONVENTIONS, the merge gate, `film-ue doctor` (B11), API_NOTES coverage (B40) | CONVENTIONS.md, doctor.md |
 | WP1 platform | agent-07 | `editor.*`, `bridge.*`, `jobs.*`, `journal.*` | job registry with progress, cancel and a journal; transports (ssm/ssh/local); box up/down/TTL watchdog (AWS mocked); editor service; sync; `/batch`; auth and file-root hardening | platform.md |
-| WP2 assets | agent-02 | `assets.*`, `mat.*`, `fab.*` | any-format import (Interchange/FBX/USD/Alembic), catalog search ("a 45 cm chair"), refs/audit/redirectors, 12 master materials as graph specs, `mat.instance` convergence, Fab library/import (FabScript C++ plugin) | (assets.md pending) |
-| WP3 MetaHuman | agent-04 | `mh.*` (43 ops) | create/body/face/skin/eyes/wardrobe/groom colours, non-blocking cloud rig and textures, build skips when current, dress/leader/clip checks, `character` spec kind, export round trip (B27) | metahuman.md |
-| WP4 animation | agent-01 | `anim.*`, `perf.*` | perfkit (eye-head coordination, blinks, moods, emphasis from audio), curves, retarget (B30), `performance` compiler | (animation.md pending) |
-| WP5 env/look | agent-08 | `env.*`, `light.*`, `look.*` | sun/sky (NOAA), photometry/exposure calibration, light rigs (B17), grades | (pending merge) |
+| WP2 assets | agent-02 | `assets.*`, `mat.*`, `fab.*` | any-format import (Interchange/FBX/USD/Alembic), catalog search ("a 45 cm chair"), refs/audit/redirectors, 12 master materials as graph specs, `mat.instance` convergence, `material`/`asset` spec kinds, Fab library/import (Python route; FabScript C++ plugin optional) | assets.md |
+| WP3 MetaHuman | agent-04 | `mh.*` (43 ops) | create/body/face/skin/eyes/wardrobe/groom colours, non-blocking cloud rig and textures, build skips when current, dress/leader/clip checks, `character` spec kind, export round trip (B27), seeded casts of extras (`cast` kind, B47) | metahuman.md |
+| WP4 animation | agent-01 | `anim.*`, `perf.*` | perfkit (eye-head coordination, blinks, moods, emphasis from audio), curves, retarget (B30), `performance` spec kind; pose library `pose.*` (B31, agent-11) | animation.md, pose.md |
+| WP5 env/look | agent-08 | `env.*`, `light.*`, `look.*` | sun/moon/sky/fog/HDRI, photometry with the engine's exposure calibration (EV100), light rigs relative to a camera (B17), presets (B16), grades, `environment`/`lighting` spec kinds | environment.md |
 | WP6 layout | agent-10 (agent-12 stopped) | `level.*`, `layout.*`, `scene.*`, `wp.*` (agent-05) | find/describe/tag/folder, drop on support (bounds or trace), relative placement, row/grid/circle/seeded scatter that own their actors, align/distribute/snap, physics settle (B38), data layers (B44), `scene` spec with plan/apply/describe round trip; World Partition load by frustum/box (B37) | layout.md, wp.md |
 | WP7 cameras | agent-11 | `cam.*`, `shot.*`, `foliage.*` | lens maths equal to CineCameraComponent's, framing solver (ECU..EWS, angles, thirds), moves, coverage on one side of the line, cut checks, shot lists from text (B18), shot list to render to review pipeline, foliage scatter/PCG (B39) | camera.md, foliage.md |
 | WP8 Sequencer | agent-06 | `seq.*` (39) | pure model/plan/diff, `sequence` spec kind, batched writes (one call per track), retime/copy/chunks/pre-roll, timecode incl. drop-frame | sequencer.md |
@@ -51,42 +52,60 @@ Start here:
 
 ```
 cd tools && python -m pytest -q tests/test_ue_*.py tests/test_unreal_*.py tests/test_fmbridge_jobs.py
-832 passed (ue-helpers 0e9bab4)
+966 passed (ue-helpers e6c76b1)
 ```
 
 Also: `film-ue dx docs` checks that every `film-ue ...` line in the docs names real ops and arguments, and
-`python -m filmtools.unreal.apinotes` reports engine APIs used but not in any API_NOTES (240/344 covered at
-22:00 UTC).
+`python -m filmtools.unreal.apinotes` reports engine APIs used but not in any API_NOTES (305/355 covered at
+23:00 UTC).
 
 ## 3. Today on the GPU box
 
-Before anything else:
+**First command:** `film-ue first-run` (B49, agent-07). It is a resumable checklist:
 
-1. `film-ue doctor`
-2. `film-ue install`
-3. `film-ue epic-login` (needed by mh)
+1. settings
+2. reach the box
+3. start the editor
+4. install the bridge
+5. wait for shaders
+6. `film-ue doctor`
+7. Epic sign-in
+8. selftest platform + dx
+9. the demo's stage 0
 
-Then run `film-ue selftest`. It runs in this order and stops after a failed gate. The table is from
-`film-ue selftest plan --md`:
+Each stop prints the next exact command, and a rerun continues where it stopped.
 
-| # | selftest | covers | needs | est. |
-|---|---|---|---|---|
-| 1 | platform (gate) | editor, bridge, jobs | nothing | 60 s |
-| 2 | dx (gate) | ops registry, schema, errors, journal | nothing | 10 s |
-| 3 | layout | level, layout, scene (+ settle, data layers) | GPU for stills/physics | 1.5 min |
-| 4 | mh | mh | presets; Epic sign-in for part 2 | 2 min (+ cloud) |
-| 5 | seq | seq | GPU for stills | 60 s |
-| 6 | cam | cam, shot | GPU | 2 min |
-| 7 | render | render | GPU | 4 min |
-| 8 | qa | qa, view, groom | GPU | 2 min |
-| 9 | audio | audio | nothing | 10 s |
-| 10 | foliage | foliage | GPU for the still | 30 s |
-| 11 | wp | wp | nothing | 30 s |
+Then run the selftests. The plan below is generated by `film-ue selftest plan --md`:
 
-About 15 minutes in all (worst case, every timeout: 2.8 h). The first run also records the visual baselines (B43).
-After that, run the demo (`examples/unreal/demo/README.md`) stage by stage.
+Generated by `film-ue selftest plan --md` from the selftest modules. Run all of it with `film-ue selftest`
+(this order; it stops after a failed gate: platform, dx), or one area at a time with `film-ue selftest <name>`.
 
-What each selftest proves is in its module docstring and the area doc's "Selftest" section.
+Before: `film-ue health`, `film-ue install`, `film-ue selftest --list` (capabilities: gpu, epic_login); `film-ue epic-login` first if epic_login is no (needed by: assets, mh).
+
+| # | selftest | covers | REQUIRES (else skipped) | needs | est. | timeout | gate |
+|---|---|---|---|---|---|---|---|
+| 1 | `platform` | editor, bridge, jobs | - | nothing (no GPU, no Epic sign-in, no assets) | 60 s | 40.0 min | yes |
+| 2 | `dx` | ops, journal | - | nothing (no GPU, no sign-in) | 10 s | 2.0 min | yes |
+| 3 | `assets` | assets, mat, fab | gpu | GPU (stills, shader statistics); Fab sign-in optional | 3.0 min | 15.0 min |  |
+| 4 | `layout` | level, layout, scene | gpu | GPU for the stills (the rest runs without one) | 1.5 min | 10.0 min |  |
+| 5 | `mh` | mh | - | the MetaHuman Creator core data (presets); GPU for the stills; the Epic sign-in for part 2 (film-ue epic-lo... | 2.0 min | 25.0 min |  |
+| 6 | `anim` | anim, perf | gpu | the MetaHuman plugin's optional content (/MetaHumanCharacter/Optional/Animation) and a GPU for the stills; ... | 60 s | 15.0 min |  |
+| 7 | `seq` | seq | - | GPU only for the stills (everything else runs without one); no assets beyond the engine's (an AnimSequence ... | 60 s | 15.0 min |  |
+| 8 | `cam` | cam, shot | gpu | a GPU (stills) | 2.0 min | 15.0 min |  |
+| 9 | `render` | render | gpu | GPU | 4.0 min | 25.0 min |  |
+| 10 | `qa` | qa, view, groom | gpu | GPU (a real RHI; offscreen is fine) | 2.0 min | 10.0 min |  |
+| 11 | `audio` | audio | - | an editor with the bridge (no GPU work, no Epic login, no assets: it writes its own sine-tone WAVs under Sa... | 10 s | 15.0 min |  |
+| 12 | `env` | env, light | gpu | GPU (a real RHI; offscreen is fine) | 4.0 min | 15.0 min |  |
+| 13 | `foliage` | foliage | - | a GPU only for the still (skipped otherwise); no Epic login, no assets beyond the engine's basic shapes | 30 s | 5.0 min |  |
+| 14 | `pose` | pose | - | a GPU for stills; a body Control Rig and its skeletal mesh in the project (else it is skipped with a note: e.g | 60 s | 10.0 min |  |
+| 15 | `wp` | wp | - | nothing (no GPU work, no assets beyond engine shapes) | 30 s | 5.0 min |  |
+
+Estimated total: 23.8 min; worst case (every TIMEOUT): 222.0 min.
+Afterwards: `selftest-reports/<time>/summary.md`; then the demo (examples/unreal/demo/README.md).
+
+
+What each selftest proves is in its module docstring and in the area doc's "Selftest" section. The first run also
+records the visual baselines (B43), and later runs are checked against them.
 
 ## 4. Risks and open decisions for the operator
 

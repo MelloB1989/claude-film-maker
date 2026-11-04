@@ -704,6 +704,52 @@ def parse_signalstats(text: str, start: int) -> dict:
     return out
 
 
+def compare_args(a_pattern: str, b_pattern: str, start: int, frames: int, ssim_log: str, psnr_log: str,
+                 ffmpeg: str = "ffmpeg", exr: bool = False) -> list:
+    """argv comparing two image sequences frame by frame with ffmpeg's ssim and psnr filters (stats files, one line
+    per frame); EXR inputs go through the sRGB curve first, like encode_args."""
+    def inp(pat):
+        return (["-apply_trc", "iec61966_2_1"] if exr else []) + ["-start_number", str(start), "-i", pat]
+    esc = [x.replace("\\", "/").replace(":", "\\:").replace("'", "\\'") for x in (ssim_log, psnr_log)]
+    return [ffmpeg, "-hide_banner", "-loglevel", "error", *inp(a_pattern), *inp(b_pattern), "-frames:v", str(frames),
+            "-lavfi", f"[0:v][1:v]ssim=stats_file='{esc[0]}';[0:v][1:v]psnr=stats_file='{esc[1]}'", "-f", "null", "-"]
+
+
+def parse_ffmpeg_stats(text: str, key: str, start: int) -> dict:
+    """{frame: value} from an ffmpeg ssim (key "All") or psnr (key "psnr_avg") stats file; n is 1-based. 'inf' (two
+    identical frames' PSNR) becomes 100.0."""
+    out = {}
+    for line in (text or "").splitlines():
+        parts = dict(p.split(":", 1) for p in line.split() if ":" in p)
+        if "n" not in parts or key not in parts:
+            continue
+        try:
+            v = parts[key]
+            out[start + int(parts["n"]) - 1] = 100.0 if v.startswith("inf") else float(v)
+        except ValueError:
+            continue
+    return out
+
+
+def ab_summary(ssim: dict, psnr: dict, min_ssim: float = 0.98, worst: int = 5) -> dict:
+    """A check over per-frame SSIM/PSNR of two renders: {"pass", "metric" (min SSIM), "threshold", "why",
+    "mean_ssim", "min_psnr", "mean_psnr", "worst": [[frame, ssim, psnr]], "below": [frames]}."""
+    fs = sorted(ssim)
+    if not fs:
+        return {"pass": False, "metric": None, "threshold": min_ssim, "why": "no frames compared", "worst": [],
+                "below": []}
+    lo = min(ssim[f] for f in fs)
+    below = [f for f in fs if ssim[f] < min_ssim]
+    ps = [psnr[f] for f in fs if f in psnr]
+    order = sorted(fs, key=lambda f: ssim[f])[:worst]
+    return {"pass": not below, "metric": round(lo, 5), "threshold": min_ssim,
+            "why": (f"{len(below)} of {len(fs)} frames under SSIM {min_ssim} (worst {order[0]}: {ssim[order[0]]:.4f})"
+                    if below else f"all {len(fs)} frames at SSIM >= {min_ssim}"),
+            "mean_ssim": round(sum(ssim[f] for f in fs) / len(fs), 5), "min_psnr": round(min(ps), 2) if ps else None,
+            "mean_psnr": round(sum(ps) / len(ps), 2) if ps else None,
+            "worst": [[f, round(ssim[f], 5), psnr.get(f)] for f in order], "below": below}
+
+
 def frame_qa(luma: dict, *, black_luma: float = 4.0, flicker_ratio: float = 4.0, flicker_min: float = 2.0) -> dict:
     """Black frames (mean luma below black_luma) and flicker (a change from the previous frame over flicker_ratio x
     the median change and over flicker_min, that the next frame does not continue: a one-frame spike, not a cut or
@@ -741,4 +787,4 @@ def estimate(spec: dict, frames: int, state: dict | None = None) -> float:
 __all__ = ["SPEC_VERSION", "PRESETS", "QUALITY_CVARS", "BASE_CVARS", "PASSES", "OUTPUT_KINDS", "SCHEMA", "SpecError",
            "validate", "resolve", "plan", "runs", "split_boxes", "vram_check", "parse_nvidia_smi", "frame_times", "cmdline",
            "encode_args", "concat_args", "mux_audio_args", "missing_frames", "frame_path", "frames_on_disk",
-           "chunk_seconds", "sample_seconds", "estimate", "preset_table", "image_ok", "assemble_wav", "parse_signalstats", "frame_qa"]
+           "chunk_seconds", "sample_seconds", "estimate", "preset_table", "image_ok", "assemble_wav", "parse_signalstats", "frame_qa", "compare_args", "parse_ffmpeg_stats", "ab_summary"]

@@ -73,6 +73,12 @@ returns a check (`pass`, `metric`, `why`) with `missing`, `corrupt` (truncated f
 flicker), and for EXR `nan_frames` (NaN/Inf pixels) and `firefly_frames` (a lone pixel over 1.0 and over 20x the
 mean of its 8 neighbours), read as linear float through ffmpeg.
 
+**Compare two renders (A/B).** Run `film-ue op render.compare a=DIR_A b=DIR_B ['frames=[s,e]'] sheet=/path/ab.png`.
+It gives per-frame SSIM/PSNR (ffmpeg's ssim/psnr filters on the box; without ffmpeg, WP10's qa.compare at 480 px on
+PNG), the worst frames, and a check at `min_ssim` (0.98). Use it for a pre-rolled chunk against the full shot
+(`examples/unreal/render/preroll_ab.yaml`), for Linux against Windows reference frames, or for today against
+yesterday. The sheet puts the worst frames side by side.
+
 **How fast will it be?** Run `render.plan` (estimate) before and look at `report.measured` after. The next plan of
 the same job uses the measured seconds per sample.
 
@@ -90,6 +96,7 @@ the same job uses the measured seconds per sample.
 | `render.gpu` | VRAM total/used/free, utilisation (nvidia-smi), editor RSS | |
 | `render.manifest spec=` | per chunk: an MRQ queue manifest (.utxt) and its command line | |
 | `render.encode spec= [start end outputs]` | ffmpeg H.264 / H.265 / ProRes from the frames + WAV chunks | yes |
+| `render.compare a= b= [frames ext min_ssim worst every sheet method]` | per-frame SSIM/PSNR of two renders, worst frames, sheet | yes |
 | `render.concat parts= out_file= [audio audio_offset_s]` | join videos without re-encoding, optional audio | yes |
 | `render.mrq ...` / `render.progress out_dir=` | the older start-and-poll pair (films call them); `preroll_from=` added | |
 
@@ -187,9 +194,11 @@ snake_case of the reflected name.
 |---|---|---|
 | `MoviePipelineQueueSubsystem.get_queue / render_queue_with_executor / is_rendering / get_active_executor` | MovieRenderPipelineEditor/Public/MoviePipelineQueueSubsystem.h:27,52,67,93 | editor subsystem; render_queue_with_executor returns the executor |
 | `MoviePipelineQueue.allocate_new_job / delete_all_jobs` | MovieRenderPipelineCore/Public/MoviePipelineQueue.h:804,818 | |
-| `MoviePipelineExecutorJob.sequence / map / job_name`, `get_configuration`, `set_config_mode(MoviePipelineConfigMode.PRESET)` | MoviePipelineQueue.h:692,696,688,529,548 | 5.8 jobs have Preset/Graph/Basic modes; we use Preset (legacy settings) |
+| `MoviePipelineExecutorJob.set_sequence(path)` (Sequence's BlueprintSetter), `map / job_name`, `get_configuration`, `set_config_mode(MoviePipelineConfigMode.PRESET)` | MoviePipelineQueue.h:692,696,688,529,548 | 5.8 jobs have Preset/Graph/Basic modes; we use Preset (legacy settings) |
 | `MoviePipelineConfigBase.find_or_add_setting_by_class(cls, include_disabled, exact_match)` | MoviePipelineConfigBase.h:145 | exact_match matters (subclasses) |
 | `MoviePipelineOutputSetting.output_directory, file_name_format, output_resolution, override_existing_output, handle_frame_count, use_custom_playback_range, custom_start_frame, custom_end_frame, zero_pad_frame_numbers` | MovieRenderPipelineCore/Public/MoviePipelineOutputSetting.h:39-108 | custom range overrides the sequence's playback range (MoviePipeline.cpp:202) |
+| `DirectoryPath(path)` (FDirectoryPath.Path) | Engine/Source/Runtime/CoreUObject/Public/UObject/SoftObjectPath.h:759 | USTRUCT(BlueprintType), Path BlueprintReadWrite: the type of output_directory |
+| `IntPoint(x, y)` (FIntPoint.X/Y) | Engine/Source/Runtime/CoreUObject/Public/UObject/NoExportTypes.h:1009 | BlueprintType core struct: the type of output_resolution |
 | `MoviePipelineAntiAliasingSetting.spatial_sample_count, temporal_sample_count, override_anti_aliasing, anti_aliasing_method, render_warm_up_count, use_camera_cut_for_warm_up, engine_warm_up_count` | MoviePipelineAntiAliasingSetting.h:49-101 | camera-cut warm-up = the cut's frames before the range, evaluated per frame (MoviePipelineBlueprintLibrary.cpp:745, MoviePipeline.cpp:1235) |
 | `AntiAliasingMethod.AAM_NONE/FXAA/TEMPORAL_AA/MSAA/TSR/SMAA` | Engine/Source/Runtime/Engine/Public/SceneUtils.h:44 | |
 | `MoviePipelineConsoleVariableSetting.add_or_update_console_variable(name, float)` | MovieRenderPipelineSettings/Public/MoviePipelineConsoleVariableSetting.h:103 | |
@@ -236,19 +245,53 @@ in `tools/tests/test_ue_render_selftest.py`.
 
 ## HANDOFF
 
-State at 2026-11-05 (agent-05, branch `fleet/agent-05/ue-render`):
+State at 2026-11-05 ~00:00 UTC (agent-05, branch `fleet/agent-05/ue-render`, merged into `ue-helpers` by the lead):
 
-- **Done:** spec, schema, presets, planner (chunks, resume, pre-roll, boxes, estimates), every op above, client CLI
-  and spec kind, B23 (split, stitch) and B24 (frame QA), fake MRQ, 70+ unit tests, the selftest, and this doc.
-- **Unproven until the GPU box runs the selftest:**
+- **Done:**
+  - the spec, schema and presets;
+  - the planner: chunks per cut, resume, cut pre-roll, a box split, and estimates calibrated by reports;
+  - every op above, including `render.compare` (B51);
+  - `game_overrides` (opt-in);
+  - the client CLI and spec kind;
+  - B23 (split, stitch) and B24 (frame QA: missing, corrupt, black, flicker, EXR NaN/Inf/fireflies);
+  - the fake MRQ, 80+ unit tests, the selftest (~5 min, GPU), and this doc.
+
+  Also mine: B37 World Partition (`docs/unreal/wp.md`).
+- **First hour on the GPU box (morning notes; the lead may quote them).** Each step: the command, then what a
+  pass looks like.
+  1. **Selftest.** `film-ue selftest render` (~5 min). Every check passes, except "path tracer refused under 40 GB",
+     which on an L4 is the expected refusal: it passes when the code is `unsupported`. The report's metrics:
+     - `s_per_frame_480p_draft`: a sanity number only.
+     - `vram_peak_gb`: should stay far under 24 at 480p.
+     - `ab_min_ssim`: ≥ 0.98, the pre-roll on the physics cube.
+     - `psnr_preroll_vs_full_min` ≥ 35 dB and ≥ `psnr_cold_vs_full_min`: the pre-roll beats a cold start.
+     - `process_job_s` and `cmdline_job_s`: they prove the two out-of-editor executors launch; expect a minute or
+       two for the cmdline child's engine start.
+  2. **Calibration against the PoC.** `film-ue render run` of one reel shot with `preset: final` (1080p, 8
+     temporal, 32 warm-up, quality cvars, same as the PoC). Then `film-ue render status`. In the report:
+     - `measured.s_per_frame` should be near **0.73 s** (P3: 0.72-0.75 on the L4). Over ~1 s means something
+       differs from the PoC (shader compile, the DDC, cvars). Check `measured.sample_s_1080p` ≈ 0.09.
+     - `vram_peak_gb` should be ~6-10 GB for one presenter (P4: 6.4-7.1; S15 with two presenters 10.3).
+     - Every chunk has `status: ok` and `missing: []`, and the report's `errors` is empty.
+     The next `render.plan` of the same job uses the measured cost for its estimate.
+  3. **Cloth A/B (the real proof of the pre-roll).** `examples/unreal/render/preroll_ab.yaml` with
+     `sequence: /Game/Reel/SEQ_Reel`, the full doc `shots: [Reel_S15]`, the chunk doc `frames: [1136, 1160]`. Then
+     `render.compare a=<full> b=<chunk> 'frames=[1136,1160]' sheet=...`. Pass is `pass: true` (SSIM ≥ 0.98 on every
+     frame). If it fails, open the sheet: the overshirt hanging open at her right shoulder is the P6 signature of a
+     cold start, which means the camera-cut warm-up did not run. Look in the log for MRQ's "no warmup range was
+     detected" warning, and check that the shot's camera cut section really starts at 1080.
+  4. **VRAM guard.** `film-ue render plan` of a `preset: pathtrace` spec: `vram.ok` is false with the L4 message;
+     `render.job` refuses with `unsupported`. Do not use `vram.force` on the L4: P5 crashed the editor twice.
+  5. **If anything hangs.** `render.status` shows the chunk and its frame count. A chunk with no new frame for
+     `stall_s` (15 min) is cancelled and marked `stalled`. `film-ue log` will show MRQ's lines
+     (`LogMovieRenderPipeline`). Re-running the spec resumes.
+- **Unproven until then (if a check fails, start from API_NOTES):**
   - the cmdline executor's child command line on Linux (`-vulkan`, `MoviePipelineEntryMap` with a queue manifest);
   - `save_queue_to_manifest_file` returning a tuple in Python;
-  - the EXR/AOV folder names MRQ actually writes (`{render_pass}` for the post-process materials is assumed to be
-    the material name);
-  - the WAV's `file_name_format_override` containing a sub-folder;
-  - whether the pre-roll gives PSNR ≥ 35 dB against the full-shot render with physics.
-  If a check fails, start from API_NOTES.
-- **Next:**
-  - a cloth A/B on the reel (S15 1136 chunk vs 1080 full shot, the P6 case) to confirm the pre-roll on real cloth;
-  - a Movie Render Graph backend if a feature needs it (we use the legacy preset configuration on purpose: it is
-    what was proven on Linux).
+  - the AOV folder names MRQ writes (`{render_pass}` for a post-process material is assumed to be the material's
+    name);
+  - a sub-folder in the WAV's `file_name_format_override`;
+  - the selftest's physics pre-roll PSNR ≥ 35 dB;
+  - `MoviePipelineTextureStreamingMethod` member names (`NONE`/`DISABLED`/`FULLY_LOAD`).
+- **Later:** a Movie Render Graph backend, only if a feature needs it (the legacy preset configuration is used on
+  purpose: it is what was proven on Linux).

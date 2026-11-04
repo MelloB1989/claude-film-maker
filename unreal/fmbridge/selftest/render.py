@@ -136,6 +136,10 @@ def run(t):
     t.metric("psnr_cold_vs_full_min", round(min(cold_p), 2), "dB")
     t.ok("pre-rolled chunk matches the full-shot render (PSNR >= 35 dB)", min(pre_p) >= 35.0, detail=str(pre_p))
     t.ok("pre-roll is closer to the full shot than a cold start", min(pre_p) >= min(cold_p), detail=f"{pre_p} {cold_p}")
+    ab = yield from t.op("render.compare", a=keep, b=full, frames=[30, 36], sheet=os.path.join(out, "ab_worst.png"))
+    t.check("render.compare: pre-rolled chunk vs full shot passes", ab["pass"], True)
+    t.metric("ab_min_ssim", ab["metric"])
+    t.metric("ab_method", ab["method"])
 
     # frames for stills
     fr = yield from t.op("render.frames", sequence=seq, level=level, frames=[5, 30], out_dir=os.path.join(out, "stills"),

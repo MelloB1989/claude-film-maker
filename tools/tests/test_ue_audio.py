@@ -147,3 +147,37 @@ def test_adding_a_line_twice_does_not_duplicate(ue, tmp_path, seq):
     assert again["changed"] is False
     clips = run_op("audio.describe", sequence=seq)["tracks"][0]["clips"]
     assert [c["start_frame"] for c in clips] == [0, 48]
+
+
+def test_volume_channel_is_found_by_channel_name_not_object_name(ue, fmb):
+    """The engine names each scripting channel object uniquely per call (Volume_1, Volume_2, ...): only its
+    channel_name is "Volume". Independent of whichever fake supplies sections."""
+    from fmbridge.ops import audio
+
+    class Ch:
+        def __init__(self, obj, chan):
+            self.obj, self.chan = obj, chan
+
+        def get_name(self):
+            return self.obj
+
+        def get_editor_property(self, k):
+            assert k == "channel_name"
+            return self.chan
+
+    class NoProp(Ch):
+        def get_editor_property(self, k):
+            raise AttributeError(k)
+
+    class Sec:
+        def __init__(self, chans):
+            self.chans = chans
+
+        def get_all_channels(self):
+            return self.chans
+
+    vol = Ch("Volume_7", "Volume")
+    assert audio._volume_channel(Sec([Ch("Pitch_7", "Pitch"), vol])) is vol
+    old = NoProp("Volume_12", "")
+    assert audio._volume_channel(Sec([NoProp("Pitch_12", ""), old])) is old  # fallback: the suffix stripped
+    assert audio._volume_channel(Sec([Ch("Volume_1", "Pitch")])) is None

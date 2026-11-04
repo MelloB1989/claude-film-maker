@@ -298,7 +298,11 @@ def _new_job(r: dict, chunk: dict, level: str):
     q = _mq().get_queue()
     q.delete_all_jobs()
     job = q.allocate_new_job(unreal.MoviePipelineExecutorJob)
-    job.set_editor_property("sequence", unreal.SoftObjectPath(_pkg(r["sequence"])))
+    path = unreal.SoftObjectPath(_pkg(r["sequence"]))
+    try:
+        job.set_sequence(path)  # Sequence's BlueprintSetter (MoviePipelineQueue.h:616)
+    except AttributeError:
+        job.set_editor_property("sequence", path)
     job.set_editor_property("map", unreal.SoftObjectPath(level))
     job.set_editor_property("job_name", chunk.get("id") or r["name"])
     _configure(job, r, chunk)
@@ -914,6 +918,96 @@ def concat(*, parts: list, out_file: str, audio: str = "", audio_offset_s: float
         os.remove(target)
     os.remove(lst)
     return {"path": out_file, "parts": len(parts), "bytes": os.path.getsize(out_file), "changed": True}
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# A/B
+
+def _frames_in(d: str, ext: str, pad: int) -> set:
+    import re
+    rx = re.compile(r"^(-?\d{%d,})\.%s$" % (pad, re.escape(ext)))
+    return {int(m.group(1)) for f in (os.listdir(d) if os.path.isdir(d) else []) for m in [rx.match(f)] if m}
+
+
+@op("render.compare", mutates=False, idempotent=True, tags=["slow"])
+def compare(*, a: str, b: str, frames: list | None = None, ext: str = "png", zero_pad: int = 4, min_ssim: float = 0.98,
+            worst: int = 5, every: int = 1, sheet: str = "", method: str = "auto"):
+    """Compare two renders frame by frame (two outputs of the same frames: a pre-rolled chunk against the full-shot
+    render, Linux against Windows, today against yesterday, a render against reference frames): per-frame SSIM and
+    PSNR, the worst frames, a pass/fail check at min_ssim, and optionally a sheet of the worst frames side by side.
+
+    Args: a, b: folders of frames named <frame>.<ext> (the beauty pass: <out_dir> or <out_dir>/FinalImage). frames:
+    [start, end) (default every frame in both). ext: png|jpg|exr. min_ssim: the pass threshold. worst: how many worst
+    frames to list (and sheet). every: compare every n-th frame. sheet: a PNG path for the worst frames side by side
+    (PNG frames). method: auto (ffmpeg ssim/psnr when the box has ffmpeg, else qa.compare at 480 px), ffmpeg or qa.
+    Returns: {"pass", "metric" (min SSIM), "threshold", "why", "mean_ssim", "min_psnr", "mean_psnr", "worst":
+    [[frame, ssim, psnr]], "below", "frames", "per_frame": {frame: [ssim, psnr]}, "method", "sheet"}.
+    Example: film-ue op render.compare a=/srv/r/full b=/srv/r/chunk 'frames=[1136,1160]' sheet=/srv/r/ab.png
+    """
+    if method not in ("auto", "ffmpeg", "qa"):
+        raise OpError(f"method {method!r}: auto, ffmpeg or qa", code="bad_args", candidates=["auto", "ffmpeg", "qa"])
+    for d in (a, b):
+        if not os.path.isdir(d):
+            raise OpError(f"no folder {d!r}", code="not_found", hint="give the folders the frames are in")
+    both = _frames_in(a, ext, zero_pad) & _frames_in(b, ext, zero_pad)
+    if frames:
+        lo, hi = int(frames[0]), int(frames[1])
+        want = [f for f in range(lo, hi)]
+        missing = [f for f in want if f not in both]
+        if missing:
+            raise OpError(f"{len(missing)} frames of [{lo}, {hi}) are not in both folders: {rs.runs(missing)[:5]}",
+                          code="not_found", hint=f"frames in both: {rs.runs(both)[:5]}")
+    else:
+        want = sorted(both)
+    want = want[::max(1, int(every))]
+    if not want:
+        raise OpError(f"no frame named <frame>.{ext} is in both {a} and {b}", code="not_found",
+                      hint="ext=exr? zero_pad? a pass folder (FinalImage)?")
+    ff = shutil.which("ffmpeg")
+    use = "ffmpeg" if method == "ffmpeg" or (method == "auto" and ff and every == 1 and
+                                            rs.runs(want) == [[want[0], want[-1] + 1]]) else "qa"
+    ssim, psnr = {}, {}
+    if use == "ffmpeg":
+        if not ff:
+            raise OpError("ffmpeg is not installed on the box", code="unsupported", hint="method=qa, or install ffmpeg")
+        import tempfile
+        tmp = tempfile.mkdtemp(prefix="render_ab_")
+        sl, pl = os.path.join(tmp, "ssim.log"), os.path.join(tmp, "psnr.log")
+        pat = lambda d: os.path.join(d, f"%0{zero_pad}d.{ext}")  # noqa: E731
+        argv = rs.compare_args(pat(a), pat(b), want[0], len(want), sl, pl, ff, exr=ext == "exr")
+        code, err = yield from _run_proc(argv)
+        if code:
+            raise OpError(f"ffmpeg compare failed ({code}): {err.strip()[-400:]}", code="failed", details={"argv": argv})
+        with open(sl) as f:
+            ssim = rs.parse_ffmpeg_stats(f.read(), "All", want[0])
+        with open(pl) as f:
+            psnr = rs.parse_ffmpeg_stats(f.read(), "psnr_avg", want[0])
+        shutil.rmtree(tmp, ignore_errors=True)
+    else:
+        if ext != "png":
+            raise OpError(f"qa.compare reads PNG only, these are .{ext}", code="unsupported",
+                          hint="install ffmpeg on the box (method=ffmpeg), or render PNG")
+        from ..qa import compare as qcmp, image as qim
+        for i, f in enumerate(want):
+            r = qcmp.compare(qim.read(os.path.join(a, f"{f:0{zero_pad}d}.{ext}")),
+                             qim.read(os.path.join(b, f"{f:0{zero_pad}d}.{ext}")), width=480)
+            ssim[f], psnr[f] = float(r["ssim"]), float(r["psnr"])
+            yield {"progress": round((i + 1) / len(want), 3), "message": f"frame {f}: SSIM {ssim[f]:.4f}"}
+    out = rs.ab_summary(ssim, psnr, min_ssim=min_ssim, worst=worst)
+    out.update(frames=len(ssim), per_frame={f: [round(ssim[f], 5), psnr.get(f)] for f in sorted(ssim)}, method=use,
+               a=a, b=b, sheet=None)
+    if sheet and out["worst"] and ext == "png":
+        from ..qa import image as qim, sheet as qsheet
+        cells = []
+        for f, sv, pv in out["worst"]:
+            pair = qsheet.side_by_side(qim.read(os.path.join(a, f"{f:0{zero_pad}d}.png")),
+                                       qim.read(os.path.join(b, f"{f:0{zero_pad}d}.png")), labels=("A", "B"))
+            cells.append({"image": pair, "label": f"{f}  SSIM {sv:.4f}  PSNR {pv}",
+                          "status": "fail" if sv < min_ssim else "ok"})
+            yield
+        qim.write(qsheet.contact_sheet(cells, cols=1, cell_width=960, title=f"A {a}  |  B {b}"), sheet)
+        out["sheet"] = sheet
+    return out
 
 
 # ---------------------------------------------------------------------------------------------------------------------

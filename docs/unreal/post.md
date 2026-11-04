@@ -80,6 +80,20 @@ uv run film-post edl   spec.yaml > cut.edl   # CMX 3600 for an NLE
 Check: `<out>/cut-<name>.json` lists every output with `problems` (frame count, size, audio length against picture
 within 1.5 frames) and the cut's loudness. `ok: true` when every output is clean.
 
+**QC a delivered file (B53).**
+
+```bash
+uv run film-post qc out/demo/demo-web.mp4 --edl out/demo/demo.edl --captions out/demo/demo.srt \
+    -o out/demo/qc-web.json --md out/demo/qc-web.md          # exit 1 on any fail
+```
+
+Checks, as CONVENTIONS §8 issues (`code`, `severity`, `message`, `fix`, `frame`): one video + one audio stream;
+frames against the EDL's record length and audio against picture (1.5 frames); loudness ±1 LU of -14 LUFS and true
+peak under -1 dBTP; black runs of 0.5 s or more outside the first/last second (fail); frozen runs of 2 s or more
+(warn); captions inside the picture, ordered, not overlapping, at least 0.7 s, under 20 characters a second, not
+straddling a cut (warn), and wrapping to at most 2 lines in the output's safe area. Read the `.md` sheet as a person;
+act on `issues[*].fix` as an agent.
+
 ## Op reference (`film-ue ops audio`)
 
 | op | what | idempotent |
@@ -102,6 +116,8 @@ within 1.5 frames) and the cut's loudness. `ok: true` when every output is clean
   pieces: `to_out`, `spans_out`, `timecode`, `cmx3600`, `caption_cues`, `captions_text`, `crop_expr`,
   `encode_args`, `cut_audio_args`, `vo_bus_args`, `check_output`). The mastering uses `filmtools.mix` (static gain to
   the LUFS target + a delay-free limiter; never two-pass loudnorm, which rides the gain).
+- `filmtools.unreal.post_qc`: B53 (`run` measures through `Probes`, `report` is pure; parsers for ebur128,
+  blackdetect, freezedetect, CMX 3600 and SRT/VTT; `markdown`).
 - `filmtools.unreal.perf_speak`: B29 (`speak`, `synthesize`, `plan`, `emphasis`).
 - `filmtools.unreal.post_cli`: `film-post`.
 
@@ -129,8 +145,9 @@ module docstring of `post_cut.py`.
   `get_tick_resolution()`, 24000/s by default). `audio.place` converts from `offset_s`.
 - **Levels and fades live on the section's Volume channel.** `volume_db` sets its default (linear gain 10^(dB/20));
   `fade_in_frames` / `fade_out_frames` add linear keys from/to silence (at most four a clip). `audio.describe` reads
-  the fades back from the keys. `EMovieSceneKeyInterpolation` is a `UENUM()` without BlueprintType: if the Python
-  wrapper does not export it, the keys fall back to add_key's default (Auto), a slightly curved ramp.
+  the fades back from the keys. `EMovieSceneKeyInterpolation` is a `UENUM()` without BlueprintType but is exported because an
+  exported function takes it (PythonScriptPlugin PyWrapperTypeRegistry.cpp:1174, found by agent-06), so the ramps are
+  Linear; the `_linear()` guard stays as a harmless fallback.
 - **MRQ frame numbering**: a shot rendered from the master sequence is numbered on the master's clock; a shot
   rendered as its own sequence from 0. `film-post` finds either; if renders start at a handle (f-12 numbered 0) set
   the shot's `offset`.
@@ -173,6 +190,7 @@ module docstring of `post_cut.py`.
 | `section.set_row_index / get_row_index` | UMovieSceneSection UFUNCTIONs | Engine/Source/Runtime/MovieScene/Public/MovieSceneSection.h:541-546 |
 | `section.set_sound / get_sound` | UMovieSceneAudioSection UFUNCTIONs | Engine/Source/Runtime/MovieSceneTracks/Public/Sections/MovieSceneAudioSection.h:37-42 |
 | `section.set_start_offset / get_start_offset` (FFrameNumber, tick resolution) | UFUNCTIONs over `StartFrameOffset` | MovieSceneAudioSection.h:49-54, 306-307 |
+| `channel.get_editor_property("channel_name")` (never `get_name()`: the scripting object's name is made unique per call, "Volume_1"...) | `UMovieSceneScriptingChannel::ChannelName` BlueprintReadOnly; MakeUniqueObjectName | Plugins/MovieScene/SequencerScripting/Source/SequencerScripting/Public/MovieSceneScriptingChannel.h:60-61; .../ExtensionLibraries/MovieSceneSectionExtensions.h:304-310 |
 | Volume channel name `"Volume"` (and `"Pitch"`) | `SetIdentifiers` in the editor data | Engine/Source/Runtime/MovieSceneTracks/Private/Sections/MovieSceneAudioSection.cpp:85-86, 236 |
 | `channel.add_key(FrameNumber, value, sub_frame, MovieSceneTimeUnit.DISPLAY_RATE, interp) / get_keys`, `key.get_time() / get_value()` | UMovieSceneScriptingFloatChannel / FloatKey UFUNCTIONs; `EMovieSceneTimeUnit` UENUM(BlueprintType); `EMovieSceneKeyInterpolation` UENUM() | MovieSceneScriptingFloat.h:375-376, 410-411, 33, 49; Engine/Source/Runtime/MovieScene/Public/MovieSceneTimeUnit.h:11-15; KeyParams.h:10-22 |
 | `channel.set_default / get_default / has_default` | UMovieSceneScriptingFloatChannel UFUNCTIONs | Plugins/MovieScene/SequencerScripting/Source/SequencerScripting/Private/KeysAndChannels/MovieSceneScriptingFloat.h:598-599, 616-617, 650-651 |
@@ -198,6 +216,9 @@ Not done / next:
 - **Never run against real ffmpeg here** (the fleet container has none): `film-post cut` is unit-tested at the argv
   level only. First thing on a box with ffmpeg: `film-post cut examples/unreal/delivery/two-shots.yaml` with test
   frames (any PNGs in out/renders/S01, S02) and read `cut-two-shots.json`.
+- B53: `post_qc` + `film-post qc` done, tested on canned ffmpeg output with the probes mocked. Untested: the ffmpeg
+  filters' real output format on the box's ffmpeg build (blackdetect/freezedetect/ebur128 log lines are parsed by
+  regex; if a check reads nothing, compare the raw stderr with the parsers' patterns first).
 - B29 (claimed via the lead): `perf_speak` + `film-post speak` done with a fake TTS and a recorded bridge. Untested:
   a real ElevenLabs call (the key comes in the morning: `fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- ...`),
   and `perf.face` against a real editor (args anim, wav, mood, emphasis and its result key `out` confirmed by agent-01).

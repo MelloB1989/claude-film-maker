@@ -21,8 +21,12 @@ measured.
 
 ## Before anything: is the box healthy?
 
+On a new box, one command does all of this and stops with the exact next command on a failure (resumable):
+`film-ue --box NAME first-run [--epic] [--voice FILE]` ([platform.md](platform.md)). Afterwards, or on a box that
+is already set up:
+
 ```bash
-film-ue doctor                  # FIRST: client, bridge, plugins, RHI, op modules, disk, Epic sign-in; each with a fix
+film-ue doctor                  # client, bridge, plugins, RHI, op modules, disk, Epic sign-in; each with a fix
 film-ue health                  # the bridge answers: engine, platform, queue
 film-ue op ops.broken           # {} = every op module imported (else: each broken one's traceback)
 film-ue selftest --list         # capabilities: gpu, epic_login, ... and which tests will skip
