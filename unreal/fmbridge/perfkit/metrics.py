@@ -66,7 +66,7 @@ def head_linear(curves: dict, limit: float = 0.5, vmin_deg_s: float = 4.0, amax_
         return _check("head_linear", True, 0.0, limit, "no head curves")
     t0 = min(curves[n][0][0] for n in names)
     t1 = max(curves[n][0][-1] for n in names)
-    g = C.grid(t0, t1, 120.0)
+    g = C.grid(t0, t1, 30.0)  # at frame rate: dense keys are not straight lines
     vs = [C.derivative(g, C.resample(*curves[n], g)) for n in names]
     acc = [C.derivative(g, v) for v in vs]
     moving = linear = 0
@@ -147,8 +147,14 @@ def blink_checks(curves: dict, min_shot_s: float = 6.0) -> list:
         ok = dur < min_shot_s
         return [_check("blink_rate", ok, 0.0, [8, 35], f"no blinks in {dur:.1f} s: a face that never blinks stares; "
                        "add the blink layer (perf.face layers=['blinks'])")]
-    out = [_check("blink_rate", 8 <= st["per_min"] <= 35 or st["duration_s"] < min_shot_s, st["per_min"], [8, 35],
-                  f"{st['count']} blinks in {st['duration_s']:.1f} s = {st['per_min']:.1f}/min (people: ~12-26)")]
+    d = st["duration_s"]
+    if d >= 20.0:
+        ok = 8 <= st["per_min"] <= 35
+    else:  # too short for a rate: at least one per 8 s and no more than one per 1.2 s
+        ok = int(d // 8) <= st["count"] <= max(1, math.ceil(d / 1.2))
+    out = [_check("blink_rate", ok, st["per_min"], [8, 35],
+                  f"{st['count']} blinks in {d:.1f} s = {st['per_min']:.1f}/min (people: ~12-26; shots under 20 s "
+                  "are judged by count)")]
     if st["count"] >= 4:
         out.append(_check("blink_regularity", st["interval_cv"] >= 0.25, st["interval_cv"], 0.25,
                           f"the blink intervals vary by {st['interval_cv']:.2f} (std/mean); under 0.25 they tick like "

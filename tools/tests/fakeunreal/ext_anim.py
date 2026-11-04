@@ -173,7 +173,7 @@ def install(fake):
 
     # AssetTools.create_asset with an AnimSequenceFactory: the factory's target skeleton lands on the new animation
     tools_cls = core.AssetTools
-    if not getattr(tools_cls, "_anim_create", False):
+    if "_anim_create" not in tools_cls.__dict__:  # (getattr on a fake class answers a stub)
         orig = tools_cls.create_asset
 
         def create_asset(self, asset_name, package_path, asset_class=None, factory=None, calling_context=""):
@@ -195,7 +195,7 @@ def install(fake):
 
     # the registry's filtered search, and asset-data tags (Skeleton, SequenceLength)
     reg = core.AssetRegistry
-    if not hasattr(reg, "get_assets"):
+    if "get_assets" not in reg.__dict__:
         def get_assets(self, flt, skip_ar_filtered_assets=True):
             p = flt._props
             classes = {str(getattr(c, "asset_name", c)) for c in (p.get("class_paths") or [])}
@@ -210,7 +210,7 @@ def install(fake):
                 out.append(core.AssetData(a, path))
             return out
         reg.get_assets = get_assets
-    if not hasattr(core.AssetData, "get_tag_value"):
+    if "get_tag_value" not in core.AssetData.__dict__:
         def get_tag_value(self, name):
             a = self._obj
             if name == "Skeleton":
@@ -220,6 +220,9 @@ def install(fake):
                 return str(a.length_s)
             return None
         core.AssetData.get_tag_value = get_tag_value
+
+    if "get_skeletal_mesh_asset" not in core.SkeletalMeshComponent.__dict__:
+        core.SkeletalMeshComponent.get_skeletal_mesh_asset = lambda self: self._props.get("skeletal_mesh_asset")
 
     def anim(path: str, length_s: float = 2.0, fps: float = 30.0, curves: dict | None = None, skeleton: str = "",
              bones=()):
@@ -237,3 +240,15 @@ def install(fake):
         sk = fake.assets.get(skeleton) or fake.put_asset(skeleton, Skeleton(skeleton.rsplit("/", 1)[-1]))
         return fake.put_asset(path, SkeletalMesh(path.rsplit("/", 1)[-1], skeleton=sk))
     fake.skeletal_mesh = skeletal_mesh
+
+    def metahuman(label: str, loc=(0.0, 0.0, 0.0), yaw: float = 0.0, face_mesh: str = "/Game/MH/Face/FaceMesh",
+                  body_mesh: str = "/Game/MH/Body/BodyMesh"):
+        """An actor with "Body" and "Face" skeletal mesh components (meshes on their own skeletons) and a head bone
+        165 cm above it: enough of a MetaHuman for perf.state."""
+        a = fake.spawn(core.Actor, label, location=core.Vector(*loc), rotation=core.Rotator(roll=0.0, pitch=0.0, yaw=yaw))
+        for name, mesh in (("Body", body_mesh), ("Face", face_mesh)):
+            c = a.add_component(core.SkeletalMeshComponent, name)
+            c._props["skeletal_mesh_asset"] = fake.assets.get(mesh) or skeletal_mesh(mesh, mesh + "_Skeleton")
+            c._props["bones"] = {"head": [loc[0], loc[1], loc[2] + 165.0]}
+        return a
+    fake.metahuman = metahuman
