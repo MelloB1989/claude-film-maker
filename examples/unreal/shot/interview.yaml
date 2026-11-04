@@ -1,0 +1,32 @@
+# A two-person interview: an establishing wide, singles on the lines, an over for the guest's answer, a slow push
+# on the host's last line. Times come from the dialogue lines (seconds), cutting 4 frames ahead of each line.
+kind: shot
+version: 1
+name: interview
+sequence: /Game/Films/demo/Seq_Interview
+fps: 24
+lines:
+  - {id: L1, speaker: Host, start_s: 1.5, end_s: 4.2, text: "So, how did it start?"}
+  - {id: L2, speaker: Guest, start_s: 4.6, end_s: 9.8, text: "With a broken camera."}
+  - {id: L3, speaker: Host, start_s: 10.2, end_s: 13.0, text: "And look where it got you."}
+subjects:
+  Host: {actor: Host}
+  Guest: {actor: Guest}
+defaults: {focal_mm: 50, aperture: 2.8, camera_prefix: CAM_}
+coverage: {side: left}
+shots:
+  - id: S1_wide
+    start: 0
+    frame: {subjects: [Host, Guest], size: WS, angle: front, focal_mm: 28}
+  - id: S2_host
+    start: L1.start-4f
+    frame: {subjects: [Host], size: MCU, angle: 30, side: right}
+    noise: subtle
+  - id: S3_guest_over
+    start: L2.start-4f
+    coverage: Guest_OTS
+  - id: S4_host_push
+    start: L3.start-4f
+    frame: {subjects: [Host], size: MS, angle: 30, side: right, focal_mm: 50}
+    moves: [{move: push_in, fraction: 0.25, ease: in_out}]
+    focus: Host

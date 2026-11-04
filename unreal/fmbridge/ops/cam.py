@@ -352,6 +352,16 @@ def _point(target, offset=None) -> list:
         raise not_found("actor or bone", t, _labels(), hint=str(e)) from None
 
 
+@op("cam.point", mutates=False, idempotent=True, tags=["camera"])
+def point(*, target, offset=None) -> dict:
+    """Where a target is now, in world cm: a point, an actor label (its location; with `offset` in its own frame),
+    "Label:Component:bone", "eyes:Label" (between its eyes), or a camera's label (its lens).
+
+    Example: film-ue op cam.point target=eyes:Presenter
+    """
+    return {"target": target, "point": [round(v, 3) for v in _point(target, offset)]}
+
+
 @op("cam.set", mutates=True, idempotent=True, tags=["camera"])
 def set_(*, label: str, focal_mm: float | None = None, aperture: float | None = None, sensor_mm=None,
          filmback: str | None = None, lens_preset: str | None = None, near_clip_cm: float | None = None,

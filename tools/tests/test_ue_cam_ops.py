@@ -212,3 +212,46 @@ def test_shot_spec_errors(ue, fmb):
 def test_presets(ue, fmb):
     p = run_op("cam.presets")
     assert "MCU" in p["sizes"] and "dolly_zoom" in p["moves"] and p["default_filmback"] == "16:9 Digital Film"
+
+
+def _fake_png(path, w, h, shade=90):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "unreal" / "fmbridge"))
+    from camkit import png
+    png.write(path, png.Image(w, h, (shade, shade, shade)))
+
+
+def test_still_draws_guides(ue, fmb, monkeypatch, tmp_path):
+    import fmbridge.ops.look as look
+
+    def fake_still(camera_label, path, width=1920, height=1080, timeout=60.0):
+        yield
+        _fake_png(path, width, height)
+        return {"path": path}
+    monkeypatch.setattr(look, "still", fake_still)
+    person(ue, "Presenter")
+    run_op("cam.frame", camera="CAM_A", subjects="Presenter", size="MCU", focal_mm=50)
+    out = str(tmp_path / "a.png")
+    r = run_op("cam.still", camera="CAM_A", out=out, width=320, height=180, subjects="Presenter")
+    assert r["width"] == 320 and r["raw"].endswith("_raw.png")
+    from camkit import png
+    img = png.read(out)
+    assert any(img.get(107, y) != (90, 90, 90) for y in range(img.h))  # the left third's guide
+    assert img.get(5, 5) != (90, 90, 90)  # the lens label
+
+
+def test_sheet_through_the_cut(ue, fmb, seqrec, monkeypatch, tmp_path):
+    person(ue, "A", (0, -90), turn=90)
+    person(ue, "B", (0, 90), turn=-90)
+    run_op("shot.apply", spec=SPEC)
+
+    def fake_seq_still(path, frame, camera, out, width=1920, height=1080, settle=30):
+        yield
+        _fake_png(out, width, height, 40 + frame % 100)
+        return {"path": out}
+    monkeypatch.setitem(fmb._OPS, "seq.still", fake_seq_still)
+    r = run_op("shot.sheet", sequence="/Game/T/Seq_Scene", out_dir=str(tmp_path), per_shot=3, cell_w=160, cols=3)
+    assert len(r["stills"]) == 9 and r["path"].endswith("sheet.png")
+    assert [s[1] for s in r["stills"][::3]] == ["CAM_S1", "CAM_S2", "CAM_S3"]
+    assert r["width"] == 3 * (160 + 6) + 6
