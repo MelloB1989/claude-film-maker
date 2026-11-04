@@ -242,3 +242,57 @@ SPEC_KINDS = [
     {"name": "asset", "plan": plan_asset, "describe": describe_asset, "order": 10,
      "doc": "A file on the box imported to a content path, with its mesh settings, texture role and tags."},
 ]
+
+
+# ---------------------------------------------------------------------------------------------- state -> spec
+
+def material_spec(state: dict, name: str = "") -> dict:
+    """A `material` document from mat.describe's state: the parent as master (a library master) or parent, and
+    every parameter the instance sets (a Material built from a graph cannot be turned back into its graph: it is
+    exported with its fingerprint as a comment field)."""
+    path = state["path"]
+    doc = {"kind": "material", "version": 1, "name": name or path.rsplit("/", 1)[-1], "path": path}
+    chain = state.get("chain") or [path]
+    if len(chain) < 2:
+        doc["description"] = (f"a Material (not an instance){', built from a graph spec ' + state['fingerprint'] if
+                              state.get('fingerprint') else ''}: re-create it with its graph")
+        doc["parent"] = path
+        return doc
+    parent = _pkg(chain[1])
+    lib = _pure("_matlib.py")
+    masters = {master_path(m): m for m in (lib.MASTERS if lib is not None else [])}
+    if parent in masters:
+        doc["master"] = masters[parent]
+    else:
+        doc["parent"] = parent
+    params = {}
+    for k, v in sorted((state.get("params") or {}).items()):
+        val = v.get("value")
+        if val is None:
+            continue
+        if v.get("kind") == "vector" and isinstance(val, list) and len(val) == 4 and val[3] == 1.0:
+            val = val[:3]
+        params[k] = val
+    if params:
+        doc["params"] = params
+    return doc
+
+
+def asset_spec(state: dict, name: str = "") -> dict:
+    """An `asset` document from assets.describe's state (needs the source file recorded at import)."""
+    path = state["path"]
+    src = state.get("source")
+    if not src:
+        raise ValueError(f"{path} has no source file recorded: it cannot be re-imported from a spec")
+    folder, asset = path.rsplit("/", 1)
+    doc = {"kind": "asset", "version": 1, "name": name or asset, "file": src, "dest": folder, "asset": asset}
+    if state.get("class") == "StaticMesh":
+        mesh = {"nanite": bool(state.get("nanite")), "lods": int(state.get("lods") or 1)}
+        if (state.get("collision") or {}).get("convex"):
+            mesh.update(collision="convex", convex_hulls=int(state["collision"]["convex"]))
+        doc["mesh"] = mesh
+    if str(state.get("class", "")).startswith("Texture") and state.get("role_by_name"):
+        doc["texture_role"] = state["role_by_name"]
+    if state.get("tags"):
+        doc["tags"] = dict(state["tags"])
+    return doc
