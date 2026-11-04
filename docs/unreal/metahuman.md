@@ -355,13 +355,54 @@ Not exposed to Python (worked around):
 
 It takes ~6 min with the cloud. Unit-tested on the fake: `tests/test_ue_mh.py::test_selftest_runs_on_the_fake`.
 
+## 6a. Day-1 triage (selftest check that fails -> likely cause -> fix)
+
+Read the report first: `selftest-reports/<time>/mh.json` (`checks`, `errors`, `notes`) and the editor log
+(`film-ue log`, grep `LogMetaHumanCharacterEditor|LogMetaHumanAuth|LogEOS`).
+
+| failing check / symptom | likely cause | fix |
+|---|---|---|
+| `presets ship with the engine` (skipped area) | Creator core data / Optional content missing from the source build | copy `Engine/Plugins/MetaHuman/MetaHumanCharacter/Content/Optional` from the Windows engine (docs/linux/engine.md P0); `film-ue op mh.presets` |
+| `mh.add from a preset` error "refused to open ... for editing" | `try_add_object_to_edit` false: texture synthesis model not loaded | editor log `LogMetaHumanCharacterEditor`; check the plugin's NNE/ORT model loads (CPU on Linux) |
+| any `mh.add` / `mh.body` / `mh.skin` error `exception` mentioning an attribute | a Python name differs from the C++ name (ScriptName/ `b` prefix), like B57's `iris.pattern` | `film-ue op mh.settings_fields path=... which=skin` lists the real names; add the pair to `ALIASES` in `ops/mh/_core.py` and in `tools/filmtools/unreal/mh_spec.py` |
+| `body measurements set` / `the solver holds the targets` off by more than 0.5 | the solver cannot reach a target for this height (range) | read `warnings` in the mh.body result; widen `tol` in the selftest or pick values inside `mh.body_constraints` ranges |
+| `face blend ... changes the face` false (max_delta 0) | `get_face_model_coefficients` returns [] for presets not opened for edit | `_core.char()` opens each source; check `film-ue op mh.describe path=<preset> full=true` has coefficients |
+| face looks wrong in `preview_face.png` | a linear coefficient blend is not Creator's blend tool (experimental) | lower the second weight (0.2-0.3) or blend presets of the same sex; `examples/unreal/character/blended-face.yaml` |
+| `a landmark delta applies once` false | `face.applied` tag not saved (metadata tag on an unsaved asset) | check `EAL.set_metadata_tag` then `save`; `film-ue op mh.describe path=...` shows `face.applied` |
+| `freckle mask by name` / `iris pattern` / `eyelashes` wrong enum spelling | engine enum member names differ (`TYPE1` vs `TYPE_1`) | `_core.enum` matches without underscores/case; if still failing, `film-ue exec` `print(dir(unreal.MetaHumanCharacterFrecklesMask))` and fix the example |
+| `hair worn` error "cannot go in slot Hair" | slot names differ in this palette (pipeline spec) | `film-ue op mh.palette character=...` lists `slots`; pass `slot=` explicitly; fix `GROOM_SLOTS` in `_core.py` |
+| `hair colour set` / `groom parameters listed` empty params | `instance.get_instance_parameters(path)` missing or the item has no instance params | `_params` falls back to `MetaHumanCharacterInstanceBlueprintLibrary.get_instance_parameters_for_item`; check `film-ue op mh.item_params character=... slot=Hair` |
+| `the same groom again changes nothing` false | palette key name does not match the wardrobe item (`to_asset_name_string` gives the binding name) | `wardrobe.py` `_item_path` core-name match; compare `mh.palette` `items` with `mh.wardrobe kind=Hair` |
+| `export is a character spec` then re-apply mismatch on Hair | same key-name issue (export writes the key's asset name) | as above |
+| `preview converges` / `preview_face.png` black or missing | `spawn_meta_human_actor` failed offscreen, or the still has no light | editor log; WP10 `view.still` with a light; preview needs no rig |
+| `mh.apply again changes nothing` false | one op re-commits (a value that does not round-trip, e.g. a clamped field) | the step with `changed: true` in the report; compare its args with `mh.describe`; clamp the example value into the engine range (header ClampMin/Max) |
+| `cast members are distinct` false | `min_distance` too high for the pools given | lower `min_distance` or widen ranges in the cast |
+| part 2 skipped | no Epic sign-in on the box | `film-ue epic-login` (device code) once per box, then `film-ue selftest mh` |
+| `cloud rig` error `unsupported` | no EOS credential under `~/.local/share/.eos_sdk/keychain/*/persistent_auth/credential` | `film-ue epic-login`; or `mh.login exchange_code=<code>` (§12c) |
+| `cloud rig` error `timeout` with "waiting for an Epic sign-in" | the account portal opened (persistent auth expired) | `film-ue epic-login`; launch the editor with `-NoMetaHumanAccountPortalLoginFallback` |
+| `cloud rig` error "Auto-Rigging of Face failed with code" | service refused (auth, quota) or face mesh far from MetaHuman topology | log line in `details.log`; re-sign in; for a blended face try fewer sources |
+| `cloud rig` ok but `rig again: up to date` false | `has_face_dna_blendshapes` not readable from Python, so `rigged()` false | `film-ue exec` `print(c.get_editor_property("has_face_dna_blendshapes"))`; if it raises, `rigged()` relies on `can_build`/the Rig tag: accept null |
+| `cloud textures` timeout although downloads finished | `has_high_resolution_textures` set later than the log lines, or the log file path differs | `_core.log_path()` must be the running editor's log; `textures` also ends on both "finished" lines |
+| `build makes the Blueprint` error "no BP_..." | the build failed ('not ready for assembly', pipeline missing) or landed elsewhere | editor log `LogMetaHumanCharacterEditor`; `film-ue op assets.list path=/Game cls=Blueprint` for BP_<name>; pass `build_path` |
+| build takes > 10 min / editor unresponsive | build blocks the game thread (expected ~3 min on L4) | wait; do not run other jobs; RSS peak ~16 GB: check swap |
+| `assembled actor has Body and Face` false | Blueprint components named differently (pipeline version) | `film-ue op mh.components label=...`; pass `body=` to mh.dress/leader |
+| `garments sit on the body's bones` false (gap > 0.1) | leader lost (construction script) or garment on another skeleton | `film-ue op mh.leader label=...`; `mh.import_garment` with the MetaHuman skeleton |
+| `dress` error "root bone is scaled" | garment FBX in metres under a x100 root | re-export in cm with an unscaled root (gotchas) |
+| `clip_check` note: every point pokes | garment normals point inward, so the sign is reversed | flip `signed` in `actor.py clip_check` (`-d.dot(n)`), or skip: experimental |
+| `clip_check` error unsupported | Geometry Script plugin not enabled | enable GeometryScripting in the .uproject, restart |
+| `a prop rides a bone` false | `attach_to_component` refused (prop root not Movable or a bad socket) | `mh.attach` sets Movable; check the bone with `level.bone` |
+
 ## 7. HANDOFF (agent-04, 2026-11-05)
 
-**Done:**
-- Ops package `ops/mh/` (43 ops, legacy names and signatures kept).
-- The fake `ext_mh.py`, 21 unit tests, the spec kind (schema, planner, 5 examples, convergence tests on the fake).
-- The selftest and this guide.
-- Every engine API is in API_NOTES.
+**Done (pushed, merged up to the lead's d189b5b + this branch):**
+- Ops package `ops/mh/`: 45 ops (legacy names and signatures kept), including `mh.variants` (B47) and
+  `mh.body_mesh` (the B30 glue).
+- The fake `ext_mh.py` (engine names only; unknown fields raise).
+- Tests: `test_ue_mh.py`, `test_ue_mh_spec.py`, `test_ue_mh_cast.py`; the selftest dry run is in agent-09's
+  `test_ue_selftest_dryrun.py`.
+- Spec kinds `character` and `cast` (schemas, planners, 6 examples).
+- The selftest; this guide with API_NOTES and the Day-1 triage (§6a).
+- B57 audit fixes: iris `pattern`/`rotation` ScriptNames, `use_t0_as_ref_pose`, cloud fail-fast.
 
 **Untested on an engine (the GPU box decides; first things to look at):**
 1. `mh.face blend`: does a linear mix of coefficients look like a face? Judge the still.
@@ -375,10 +416,6 @@ It takes ~6 min with the cloud. Unit-tested on the fake: `tests/test_ue_mh.py::t
 6. `mh.textures` waits for `has_high_resolution_textures`. Confirm it turns true only after both downloads.
 7. The `instance.get_instance_parameters(path)` ScriptMethod name on UMetaHumanInstance. `_params` falls back to
    `MetaHumanCharacterInstanceBlueprintLibrary.get_instance_parameters_for_item` when it is missing.
-
-**Also done:**
-- B47 cast generator: `mh.variants`, the `cast` kind, an example, 8 tests, and the selftest's contact sheet.
-- `mh.body_mesh` (B30 glue for agent-01's `anim.retarget`).
 
 **Next:**
 - B27 is covered by `mh.export` + apply. Run it on Host_Trey on the box.
