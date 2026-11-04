@@ -1,0 +1,25 @@
+# A garden: a lawn with pebbles clear of the table, and a ring of shrubs around the fountain.
+# film-ue plan examples/unreal/foliage/garden.yaml   then   film-ue apply ...
+kind: foliage
+version: 1
+name: Lawn
+seed: 7
+region: {rect: [[-1500, -1500], [1500, 1500]]}
+meshes:
+  - {mesh: /Game/Env/SM_Grass, weight: 4, scale: [0.8, 1.3], tilt_deg: 6}
+  - {mesh: /Game/Env/SM_Pebble, weight: 1, scale: [0.5, 1.0], z_offset_cm: -2}
+density_per_m2: 6
+exclude_actors: [Table]
+patchiness: 0.4
+cull_cm: [3000, 4000]
+---
+kind: foliage
+version: 1
+name: Shrubs
+seed: 3
+region: {ring: [0, 0, 400, 650]}
+meshes:
+  - {mesh: /Game/Env/SM_Shrub, scale: [0.9, 1.2], yaw: random, align_to_normal: true}
+count: 24
+min_dist_cm: 120
+max_slope_deg: 25

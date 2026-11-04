@@ -1,0 +1,25 @@
+# A new face from two presets (70/30 blend of the face model), freckled fair skin, long red hair with an ombre,
+# natural makeup. The blend is experimental: judge the still (mh.preview + a still) before the cloud rig.
+kind: character
+version: 1
+name: Maeve
+asset: /Game/Characters/Maeve/MH_Maeve
+from: {preset: Ada}
+face:
+  blend: {Ada: 0.7, Vivian: 0.3}
+body: {Height: 170, Waist: 64, Hip: 96}
+skin:
+  u: 0.2
+  v: 0.55
+  freckles: {density: 0.65, strength: 0.4, mask: Type2}
+  accents: {cheeks: {redness: 0.65}, nose: {redness: 0.6}}
+eyes:
+  both: {iris: {iris_pattern: Iris002, primary_color_u: 0.75, primary_color_v: 0.6}}
+eyelashes: {type: LongCurl, melanin: 0.55, redness: 0.5}
+makeup:
+  lips: {type: Natural, color: [0.32, 0.07, 0.06], opacity: 0.5}
+  blush: {type: Apple, intensity: 0.25}
+grooms:
+  Hair: {item: WI_Hair_L_Straight, melanin: 0.35, redness: 0.85, params: {bUseOmbre: true, OmbreU: 0.2, OmbreIntensity: 0.6}}
+  Eyebrows: {melanin: 0.4, redness: 0.8}
+build: {name: Maeve}

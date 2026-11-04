@@ -359,20 +359,30 @@ def pending(items: list) -> list:
     return [s for it in items for s in it.steps if not s.get("always")]
 
 
-def run(items: list, ue, keep_going: bool = True) -> list:
-    """Run every item's steps in order; a failing step stops that item (and every later one unless keep_going)."""
+def run(items: list, ue, keep_going: bool = True, log=None) -> list:
+    """Run every item's steps in order; a failing step stops that item (and every later one unless keep_going).
+    `log(text)` hears each step as it starts and ends (film-ue apply prints them)."""
+    import time as _time
     for it in items:
         if it.error:
             if not keep_going:
                 break
             continue
         for s in it.steps:
+            t0 = _time.time()
+            if log:
+                log(f"  {it.kind} {it.name}: {s['op']}" + (f"   # {s['why']}" if s.get("why") else ""))
             try:
                 r = ue.call(s["op"], timeout=s.get("timeout", 900), **s["args"])
-                it.done.append({"op": s["op"], "ok": True, "result": r})
+                it.done.append({"op": s["op"], "ok": True, "result": r, "s": round(_time.time() - t0, 2)})
+                if log:
+                    log(f"      ok ({_time.time() - t0:.1f} s)")
             except Exception as e:
                 it.error = {**_problem(e, s["op"]).as_dict(), "step": s}
-                it.done.append({"op": s["op"], "ok": False})
+                it.done.append({"op": s["op"], "ok": False, "s": round(_time.time() - t0, 2)})
+                if log:
+                    log(f"      FAILED [{it.error.get('code')}] {it.error.get('message')}" +
+                        (f"\n      hint: {it.error['hint']}" if it.error.get("hint") else ""))
                 break
         if it.error and not keep_going:
             break
@@ -393,14 +403,14 @@ def stages(docs: list, only: set | None = None) -> list:
     return out
 
 
-def apply(docs: list, ue, only: set | None = None, keep_going: bool = True, verify: bool = True) -> dict:
+def apply(docs: list, ue, only: set | None = None, keep_going: bool = True, verify: bool = True, log=None) -> dict:
     """Stage by stage: each stage is described and planned just before it runs, so a kind sees what the stages before
     it made (the shots see the actor the scene spawned). Then everything is planned again to verify."""
     from . import schema as _schema
     index = _schema.index(_schema.load())
     items: list = []
     for group in stages(docs, only):
-        got = run(plan(group, ue, index=index), ue, keep_going)
+        got = run(plan(group, ue, index=index), ue, keep_going, log)
         items += got
         if not keep_going and any(it.error for it in got):
             break
@@ -494,7 +504,8 @@ def main(a) -> int:
         else:
             print(plan_text(items))
         return 1 if any(i.error for i in items) else 0
-    res = apply(docs, Unreal(), only, keep_going=not a.stop)
+    res = apply(docs, Unreal(), only, keep_going=not a.stop,
+                log=(lambda m: sys.stderr.write(m + "\n")) if a.json else print)
     if a.json:
         print(json.dumps(res, indent=1, default=str))
     else:

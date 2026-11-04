@@ -68,15 +68,35 @@ class Transport:
         """A bash script run as the editor's user (files it writes belong to the editor) instead of root."""
         return f"runuser -u {shlex.quote(self.conf.get('user') or 'ubuntu')} -- bash -c {shlex.quote(script)}"
 
+    PART = 60_000  # base64 characters per command: SSM caps a command near 100 KB
+
     def put(self, path: str, data: bytes) -> None:
-        """A small file onto the box (through the command channel: keep it under ~60 KB; bigger goes by push_dir)."""
+        """A file onto the box through the command channel. Above ~45 KB it goes in parts (each one command) that the
+        last command joins and moves into place, so a half-sent file never appears at `path`. Folders and big
+        files: push_dir."""
         b64 = base64.b64encode(data).decode()
+        parts = [b64[i:i + self.PART] for i in range(0, len(b64), self.PART)] or [""]
         if self.linux:
-            q = shlex.quote(path)
-            self.run(f"mkdir -p \"$(dirname {q})\" && echo {b64} | base64 -d > {q}")
+            q, tmp = shlex.quote(path), shlex.quote(path + ".fmpart")
+            if len(parts) == 1:
+                self.run(f"mkdir -p \"$(dirname {q})\" && echo {b64} | base64 -d > {q}")
+                return
+            self.run(f"mkdir -p \"$(dirname {q})\" && : > {tmp}")
+            for part in parts:
+                self.run(f"printf '%s' {part} >> {tmp}")
+            self.run(f"base64 -d {tmp} > {q}.fmnew && mv -f {q}.fmnew {q} && rm -f {tmp}")
         else:
+            if len(parts) == 1:
+                self.run(f"New-Item -ItemType Directory -Force -Path (Split-Path {_ps(path)}) | Out-Null; "
+                         f"[IO.File]::WriteAllBytes({_ps(path)}, [Convert]::FromBase64String('{b64}'))")
+                return
+            tmp = path + ".fmpart"
             self.run(f"New-Item -ItemType Directory -Force -Path (Split-Path {_ps(path)}) | Out-Null; "
-                     f"[IO.File]::WriteAllBytes({_ps(path)}, [Convert]::FromBase64String('{b64}'))")
+                     f"Set-Content -NoNewline -Path {_ps(tmp)} -Value ''")
+            for part in parts:
+                self.run(f"Add-Content -NoNewline -Path {_ps(tmp)} -Value '{part}'")
+            self.run(f"[IO.File]::WriteAllBytes({_ps(path)}, [Convert]::FromBase64String((Get-Content -Raw {_ps(tmp)}))); "
+                     f"Remove-Item {_ps(tmp)}")
 
     def get(self, path: str) -> bytes | None:
         """A small file from the box, or None when it is not there."""

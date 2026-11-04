@@ -1,0 +1,103 @@
+"""A scratch area that cleans up after itself, even on failure, without a dialog (BACKLOG B10):
+
+    from ._scratch import scratch
+    with scratch("/Game/_Selftest/look") as s:      # s.folder, s.level, s.prefix, s.previous
+        spawn(s.prefix + "Box", shape="cube")        # in a fresh empty level at s.level
+        ...
+    # back on the level that was open before; /Game/_Selftest/look deleted (keep=True keeps it)
+
+`level=False` stays in the open level instead: actors whose label starts with s.prefix are destroyed on exit.
+Works inside a generator (a multi-tick op or selftest): the exit runs when the generator finishes, fails or is closed.
+The folder must be under /Game/_Selftest or /Game/_Scratch: scratch never deletes anything else."""
+from __future__ import annotations
+
+import contextlib
+from dataclasses import dataclass
+
+import unreal
+
+ROOTS = ("/Game/_Selftest/", "/Game/_Scratch/")
+BLANK = "/Game/_Scratch/_Blank/L_Blank"
+
+
+@dataclass
+class Scratch:
+    folder: str
+    level: str
+    prefix: str
+    previous: str
+    keep: bool = False
+
+
+def _eal():
+    return unreal.EditorAssetLibrary
+
+
+def _les():
+    return unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+
+
+def current_level() -> str:
+    try:
+        w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
+        return w.get_path_name().split(".")[0] if w else ""
+    except Exception:
+        return ""
+
+
+def _open_blank() -> None:
+    if _eal().does_asset_exist(BLANK):
+        _les().load_level(BLANK)
+    else:
+        _les().new_level(BLANK)
+
+
+def leave(previous: str, folder: str) -> str:
+    """Back to `previous` when it is a saved level outside the scratch folder, else to a blank level when the open
+    one is inside it (so the folder can be deleted). Returns the level now open."""
+    if previous and previous.startswith("/") and not previous.startswith(folder) and _eal().does_asset_exist(previous):
+        if current_level() != previous:
+            _les().load_level(previous)
+    elif current_level().startswith(folder):
+        _open_blank()
+    return current_level()
+
+
+def fresh_level(path: str) -> None:
+    """A new empty level at `path`, opened; whatever was there is deleted first (never an overwrite dialog)."""
+    if current_level() == path:
+        _open_blank()
+    if _eal().does_asset_exist(path):
+        _eal().delete_asset(path)
+    if not _les().new_level(path):
+        raise RuntimeError(f"could not create the scratch level {path}")
+
+
+def _destroy_prefixed(prefix: str) -> int:
+    eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+    n = 0
+    for a in list(eas.get_all_level_actors()):
+        if a.get_actor_label().startswith(prefix):
+            eas.destroy_actor(a)
+            n += 1
+    return n
+
+
+@contextlib.contextmanager
+def scratch(folder: str, level: bool = True, keep: bool = False, prefix: str = ""):
+    folder = folder.rstrip("/")
+    if not (folder + "/").startswith(ROOTS) or folder + "/" in ROOTS:
+        raise ValueError(f"scratch folder {folder!r} must be inside {' or '.join(ROOTS)} (it is deleted afterwards)")
+    name = folder.rsplit("/", 1)[-1]
+    s = Scratch(folder, f"{folder}/L_{name}" if level else current_level(), prefix or f"ST_{name}_", current_level(),
+                keep)
+    if level:
+        fresh_level(s.level)
+    try:
+        yield s
+    finally:
+        if not level and not keep:
+            _destroy_prefixed(s.prefix)
+        leave(s.previous, folder)
+        if not keep and _eal().does_directory_exist(folder):
+            _eal().delete_directory(folder)
