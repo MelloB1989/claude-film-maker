@@ -291,6 +291,23 @@ def camera_direction(facing, angle, side: str = "left", elevation: float = 0.0) 
     return geo.from_yaw(geo.yaw_of(facing) - a, elevation)
 
 
+def group_facing(subs: list, side: str = "left") -> tuple:
+    """Which way a group "faces" for framing: square to the line through the first two subjects' eyes, on the side
+    their facings lean to (people side by side facing the room); when they face each other (a conversation) the
+    facings cancel and `side` picks: "left" of the line from the first to the second, seen from above."""
+    a, b = geo.v(subs[0]["points"]["eyes"]), geo.v(subs[1]["points"]["eyes"])
+    ab = geo.sub(b, a)
+    if math.hypot(ab[0], ab[1]) < 1e-3:
+        return geo.v(subs[0]["facing"])
+    perp = geo.norm((-ab[1], ab[0], 0.0))  # +90 deg yaw from a->b: the line's right seen from above (Y right of X)
+    mean = [sum(geo.v(s["facing"])[k] for s in subs) / len(subs) for k in range(3)]
+    lean = geo.dot(mean, perp)
+    if abs(lean) > 0.3:
+        return perp if lean > 0 else geo.mul(perp, -1.0)
+    # left of the line a->b (seen from above, X up, Y right) is -perp
+    return geo.mul(perp, -1.0) if _side_sign(side) > 0 else perp
+
+
 def solve(subjects, size: str = "MCU", angle=0.0, side: str = "left", height="eye", focal: float | None = 50.0,
           distance: float | None = None, place="auto", headroom: float | None = None, dutch: float = 0.0,
           filmback=None, aperture: float = 2.8, lead: float = 1.0 / 3.0, margin: float = 0.06,
@@ -301,7 +318,9 @@ def solve(subjects, size: str = "MCU", angle=0.0, side: str = "left", height="ey
     - `size`: ECU CU MCU MS COWBOY MWS WS EWS (or an alias); for a group, the frame spans the highest top anchor and
       the lowest bottom anchor, and widens until every subject fits between the side margins.
     - `angle` (degrees or "front", "3/4", "profile", "3/4 back", "back") toward the subject's own `side` (left or
-      right), measured from the first subject's facing.
+      right), measured from the first subject's facing; for a group from the group's facing (`group_facing`:
+      square to the line between the first two, toward where they face, or on `side` of it when they face each
+      other).
     - `height`: "eye" (level), "high", "low", "slight high", "overhead", "worm" (elevations seen from the eyes), a
       number of degrees, a landmark the lens sits at ("shoulder", "chest", "hip", "knee", "ground"), or
       {"z": cm} for an absolute height.
@@ -322,7 +341,8 @@ def solve(subjects, size: str = "MCU", angle=0.0, side: str = "left", height="ey
     fb = lens.filmback(filmback)
     warnings: list = []
     first = subs[0]
-    facing = geo.v(look) if look is not None else geo.v(first["facing"])
+    facing = geo.v(look) if look is not None else (group_facing(subs, side) if len(subs) > 1 else
+                                                     geo.v(first["facing"]))
     eyes = [geo.v(s["points"]["eyes"]) for s in subs]
     piv = geo.v(pivot) if pivot is not None else geo.mul(
         (sum(p[0] for p in eyes), sum(p[1] for p in eyes), sum(p[2] for p in eyes)), 1.0 / len(eyes))

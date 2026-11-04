@@ -229,11 +229,11 @@ def test_line_and_jump_cut():
     one = framing.solve(a, "MCU", angle=40, side="right", focal=50)["camera"]   # on A's right: -X side
     two = framing.solve(b, "MCU", angle=40, side="left", focal=50)["camera"]    # B's left is -X too
     crossed = framing.solve(b, "MCU", angle=40, side="right", focal=50)["camera"]
-    assert not [i for i in checks.cut(one, two, [a, b], "MCU", "MCU") if i["code"] == "line_180"]
+    assert not [i for i in checks.cut(one, two, [a, b], "MCU", "MCU") if i["code"] == "shot.line_180"]
     bad = checks.cut(one, crossed, [a, b], "MCU", "MCU")
-    assert any(i["code"] == "line_180" and i["severity"] == "fail" for i in bad)
+    assert any(i["code"] == "shot.line_180" and i["severity"] == "fail" for i in bad)
     near = framing.solve(a, "MS", angle=40, side="right", focal=50)["camera"]
-    assert any(i["code"] == "rule_30" for i in checks.cut(one, near, [a], "MCU", "MS"))
+    assert any(i["code"] == "shot.rule_30" for i in checks.cut(one, near, [a], "MCU", "MS"))
     assert not checks.cut(one, framing.solve(a, "WS", angle=40, side="right", focal=50)["camera"], [a])
 
 
@@ -241,10 +241,82 @@ def test_focus_occlusion_and_dutch():
     a = person("A")
     r = framing.solve(a, "MCU", focal=85)
     cam = {**r["camera"], "aperture": 1.4, "focus": r["focus"] + 80}
-    assert any(i["code"] == "focus" and i["severity"] == "fail" for i in checks.frame(cam, [a]))
+    assert any(i["code"] == "cam.focus" and i["severity"] == "fail" for i in checks.frame(cam, [a]))
     assert not checks.frame({**cam, "focus": r["focus"]}, [a])
     blocker = person("B", at=(r["camera"]["loc"][0] / 2, 0))
-    assert any(i["code"] == "occlusion" for i in checks.frame(r["camera"], [a], others=[blocker]))
-    assert any(i["code"] == "horizon" for i in checks.frame({**r["camera"], "rot": {**r["camera"]["rot"], "roll": 2}},
+    assert any(i["code"] == "cam.occlusion" for i in checks.frame(r["camera"], [a], others=[blocker]))
+    assert any(i["code"] == "cam.horizon" for i in checks.frame({**r["camera"], "rot": {**r["camera"]["rot"], "roll": 2}},
                                                              [a]))
     assert checks.worst([]) == "pass"
+
+
+# --- shot list ----------------------------------------------------------------------------------------------------
+
+from camkit import shotlist  # noqa: E402
+
+
+def _spec(**kw):
+    base = {"kind": "shot", "version": 1, "name": "t", "sequence": "/Game/T/Seq", "fps": 24,
+            "subjects": {"A": {"actor": "A"}, "B": {"actor": "B"}},
+            "shots": [{"id": "S1", "frame": {"subjects": ["A"], "size": "MCU"}}]}
+    return {**base, **kw}
+
+
+def test_times_frames_seconds_marks():
+    marks = {"L1": (24, 72), "L1.w2": (40, 50)}
+    assert shotlist.parse_time(48, 24, marks) == 48
+    assert shotlist.parse_time("2.5s", 24, marks) == 60
+    assert shotlist.parse_time("12f", 24, marks) == 12
+    assert shotlist.parse_time("L1", 24, marks) == 24
+    assert shotlist.parse_time("L1.end-6f", 24, marks) == 66
+    assert shotlist.parse_time("L1.start+0.5s-2f", 24, marks) == 34
+    assert shotlist.parse_time("L1.w2.end", 24, marks) == 50
+    with pytest.raises(ValueError, match="no line or shot 'L9'"):
+        shotlist.parse_time("L9.start", 24, marks)
+
+
+def test_timing_document_lines_rescaled():
+    timing = {"kind": "audio", "version": 1, "fps": 30, "lines": [
+        {"id": "L1", "speaker": "A", "start_frame": 30, "end_frame": 90,
+         "words": [{"w": "hi", "start_frame": 33, "end_frame": 45}]}]}
+    ls = shotlist.lines_of(_spec(timing=timing))
+    assert ls[0]["start"] == 24 and ls[0]["end"] == 72 and ls[0]["words"] == [[26, 36]]
+    times = shotlist.resolve_times(_spec(timing=timing, shots=[
+        {"id": "S1", "start": 0, "frame": {"subjects": ["A"]}},
+        {"id": "S2", "start": "L1.w0.start-2f", "frame": {"subjects": ["A"]}}]))
+    assert times == [{"id": "S1", "start": 0, "end": 24}, {"id": "S2", "start": 24, "end": 96}]
+
+
+def test_overlap_and_unknown_keys_are_reported():
+    errs = shotlist.validate(_spec(shots=[{"id": "S1", "frame": {"subjects": ["A"], "sise": "MCU"}, "zoom": 3}]))
+    assert {e["path"] for e in errs} == {"shots[0].frame.sise", "shots[0].zoom"}
+    with pytest.raises(shotlist.SpecError, match="inside S1"):
+        shotlist.resolve_times(_spec(shots=[{"id": "S1", "start": 0, "end": 48, "frame": {"subjects": ["A"]}},
+                                            {"id": "S2", "start": 40, "frame": {"subjects": ["A"]}}]))
+
+
+def test_plan_auto_edit_cuts_on_speakers():
+    a, b = person("A", (0, -90), (0, 1, 0)), person("B", (0, 90), (0, -1, 0))
+    spec = _spec(shots=[], auto={"from_lines": True, "lead_frames": 4},
+                 lines=[{"id": "L1", "speaker": "A", "start_s": 1, "end_s": 2},
+                        {"id": "L2", "speaker": "A", "start_s": 2.2, "end_s": 3},
+                        {"id": "L3", "speaker": "B", "start_s": 3.5, "end_s": 5}])
+    r = shotlist.plan(spec, {"A": a, "B": b})
+    assert [c[0] for c in r["cuts"]] == ["CAM_auto_master", "CAM_auto_L1", "CAM_auto_L3"]
+    assert [c[1] for c in r["cuts"]] == [0, 20, 80]
+    assert r["range"] == [0, 144]  # the last line's end + 1 s
+    assert not [i for i in r["issues"] if i["code"] == "shot.line_180"]
+
+
+def test_plan_moves_focus_and_group_split_focus():
+    a, b = person("A", (0, -90), (0, 1, 0)), person("B", (0, 90), (0, -1, 0))
+    spec = _spec(shots=[
+        {"id": "S1", "duration": 48, "frame": {"subjects": ["A", "B"], "size": "MS", "angle": 0, "focal_mm": 35}},
+        {"id": "S2", "duration": "2s", "frame": {"subjects": ["A"], "size": "MCU", "angle": 30, "side": "right"},
+         "moves": [{"move": "push_in", "fraction": 0.2}], "noise": "subtle"}])
+    r = shotlist.plan(spec, {"A": a, "B": b})
+    s1, s2 = r["shots"]
+    near, far = (lens.view(s1["start_camera"], x["points"]["eyes"])[0] for x in (a, b))
+    assert s1["start_camera"]["focus"] == pytest.approx(2 * near * far / (near + far))
+    assert s2["keys"][0]["frame"] == 48 and s2["keys"][-1]["frame"] == 96
+    assert s2["keys"][-1]["focus"] < s2["keys"][0]["focus"]  # pushed in: the follow-focus came closer

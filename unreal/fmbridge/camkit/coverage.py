@@ -17,11 +17,12 @@ SINGLE = ("WS", "MS", "MCU", "CU")
 
 
 def _line_side(side: str) -> float:
+    # checks.side_of_line is negative on the left of a->b seen from above (Unreal's frame is left-handed)
     s = str(side).lower()
-    if s in ("left", "l", "+"):
-        return 1.0
-    if s in ("right", "r", "-"):
+    if s in ("left", "l"):
         return -1.0
+    if s in ("right", "r"):
+        return 1.0
     raise ValueError(f"side {side!r}: 'left' or 'right' of the line from the first subject to the second")
 
 
@@ -107,7 +108,7 @@ def plan(subjects, side: str = "left", focal: float = 50.0, wide_focal: float = 
     for i, x in enumerate(shots):
         for y in shots[i + 1:]:
             for it in checks.cut(x["solve"]["camera"], y["solve"]["camera"], subs, names=(x["name"], y["name"])):
-                if it["code"] == "line_180":
+                if it["code"] == "shot.line_180":
                     issues.append(it)
     return {"line": [list(pa), list(pb)], "side": side, "shots": shots, "issues": issues}
 
