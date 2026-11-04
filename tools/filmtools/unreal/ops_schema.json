@@ -7,7 +7,7 @@
    "verb": "additive",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 714,
+   "line": 723,
    "summary": "An additive copy of an animation (it then layers on top of whatever plays under it in Sequencer: a gesture or",
    "doc": "An additive copy of an animation (it then layers on top of whatever plays under it in Sequencer: a gesture or\na breath over an idle or a walk, without replacing the legs).\n\nArgs: anim: the source. out: the additive copy's path (re-made on each call). base: what is subtracted:\n\"first_frame\" (the clip's own frame `frame`: the usual for a gesture authored from a rest pose), \"ref_pose\"\n(the skeleton's reference pose), or an AnimSequence path (its frame `frame`). space: \"local\" or \"mesh\"\n(rotation offset in mesh space: aiming layers).\nReturns: {\"out\", \"changed\": true, \"type\", \"base\"}.\nExample: film-ue op anim.additive anim=/Game/Anim/AS_Shrug out=/Game/Anim/AS_Shrug_Add",
    "params": [
@@ -59,7 +59,7 @@
    "verb": "bake_follow",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 409,
+   "line": 418,
    "summary": "Make a follower animation (a MetaHuman face's) carry its leader's pose: bake_pose from the leader (the body)",
    "doc": "Make a follower animation (a MetaHuman face's) carry its leader's pose: bake_pose from the leader (the body)\ninto `out` for every non-facial bone the two skeletons share, and switch the face rig's own head control off\n(headcontrolswitch 0) unless `head_control`, so the head turns only as the body's does. A face playing alone\notherwise keeps its neck and chest apart from the body, and its chest pokes through the clothes. Multi-tick.\nExample: film-ue op anim.bake_follow sequence=/Game/Shots/S010 actor_label=Presenter anim=/Game/Speech/Anim/AS_line1 out=/Game/Speech/Anim/AS_line1_follow",
    "params": [
@@ -141,7 +141,7 @@
    "verb": "bake_pose",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 346,
+   "line": 355,
    "summary": "Sample `source` (a skeletal mesh component of the actor) as it really plays in `sequence` (animation, rig and",
    "doc": "Sample `source` (a skeletal mesh component of the actor) as it really plays in `sequence` (animation, rig and\npost-process correctives included) and write those bones, local to their parents, as bone tracks into `out` (a\ncopy of `anim`), which then goes on `target`'s track. Keys past the sequence keep the animation's own pose; curves\nare untouched. A multi-tick job.\nExample: film-ue op anim.bake_pose sequence=/Game/Shots/S010 actor_label=Presenter source=Body target=Face anim=/Game/Speech/Anim/AS_line1 out=/Game/Speech/Anim/AS_line1_baked 'bones=[\"neck_01\",\"head\"]'",
    "params": [
@@ -211,12 +211,99 @@
    ]
   },
   {
+   "name": "anim.body_life",
+   "area": "anim",
+   "verb": "body_life",
+   "module": "fmbridge.ops.perf_body",
+   "file": "unreal/fmbridge/ops/perf_body.py",
+   "line": 199,
+   "summary": "An additive animation of body life for a body skeleton: breathing (spine extension and clavicle lift on each",
+   "doc": "An additive animation of body life for a body skeleton: breathing (spine extension and clavicle lift on each\ninhale, at a rate by `state`: calm, rest, listen, talk, focus, nervous), slow weight shifts (`shift_cm` of pelvis,\nthe spine bending back over the feet) and, with `face_anim`, the torso following the head's turns (`follow` of\nits yaw, a beat later). Layer it over any idle: seq.anim with replace=false, or a spec's character.body_life.\nNeeds perf.calibrate_body for this skeleton.\n\nArgs: out: the additive animation's path (re-made). body_mesh: the body SkeletalMesh. length_s: seconds.\nface_anim: a face animation whose HeadYaw the torso follows. Others: amplitudes in degrees / cm.\nReturns: {\"out\", \"changed\", \"breaths_per_min\", \"shifts\", \"bones\"}.\nExample: film-ue op anim.body_life out=/Game/Perf/AS_life body_mesh=/Game/MetaHumans/Ada/Body/m_med_nrw_body length_s=12 state=talk",
+   "params": [
+    {
+     "name": "out",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "body_mesh",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "length_s",
+     "kind": "keyword",
+     "type": "float",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "state",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "rest"
+    },
+    {
+     "name": "face_anim",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "follow",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.15
+    },
+    {
+     "name": "breath_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.6
+    },
+    {
+     "name": "clavicle_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "shift_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.5
+    },
+    {
+     "name": "seed",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "anim.check",
    "area": "anim",
    "verb": "check",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 697,
+   "line": 706,
    "summary": "Will this face read as alive? Numeric naturalness checks on an animation's curves (perfkit.metrics): frozen",
    "doc": "Will this face read as alive? Numeric naturalness checks on an animation's curves (perfkit.metrics): frozen\nhead, linear (robotic) head moves, head jitter, blink rate/regularity/shape, left-right asymmetry, upper-face\nrange, gaze activity. Each check {\"name\", \"pass\", \"metric\", \"threshold\", \"why\"}.\n\nArgs: anim: a face animation (MetaHuman face curves). signs: perf.calibrate's result (rig signs/eye gains).\nReturns: {\"pass\", \"failed\": [names], \"checks\": [...], \"blinks\": {...}}.\nExample: film-ue op anim.check anim=/Game/Speech/Anim/AS_line1",
    "params": [
@@ -316,7 +403,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 554,
+   "line": 563,
    "summary": "What an animation is: length, frames, rate, skeleton, its float curves (count, and which face groups),",
    "doc": "What an animation is: length, frames, rate, skeleton, its float curves (count, and which face groups),\nbone tracks, additive settings, root motion, and the perf metadata (fingerprint) when perf made it.\n\nArgs: anim: AnimSequence path. curves: also list every curve name.\nReturns: {\"path\", \"length_s\", \"frames\" (key intervals: keys - 1), \"fps\", \"skeleton\", \"curve_count\", \"head_curves\": [...],\n\"face_curves\": n, \"bone_tracks\": n, \"additive\": {\"type\", \"base\"}, \"root_motion\": bool, \"perf\": {...}, \"curves\"?}.\nExample: film-ue op anim.describe anim=/Game/Speech/Anim/AS_line1",
    "params": [
@@ -347,7 +434,7 @@
    "verb": "find",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 507,
+   "line": 516,
    "summary": "Search the project's animations (AnimSequence) by plain words, ranked: \"happy face loop\", \"walk forward loop\",",
    "doc": "Search the project's animations (AnimSequence) by plain words, ranked: \"happy face loop\", \"walk forward loop\",\n\"idle body\". MetaHuman template names are understood (face/body, emotion, gait, start/loop/stop, direction).\n\nArgs: query: words (empty = everything under `path`). path: folder to search (\"/\" = all mounted content,\n\"/MetaHumanCharacter/Optional/Animation\" = the MetaHuman templates). skeleton: only animations on this skeleton\n(a Skeleton, SkeletalMesh or AnimSequence path: \"the face's skeleton\" = the face mesh). kind: face|body.\nmin_s/max_s: length bounds in seconds (0 = none). limit: how many.\nReturns: {\"found\": [{\"path\", \"score\", \"kind\", \"category\", \"emotion\", \"gait\", \"phase\", \"direction\", \"tags\",\n\"length_s\", \"skeleton\"}], \"total\": n}.\nExample: film-ue op anim.find query='walk forward loop' path=/MetaHumanCharacter",
    "params": [
@@ -413,7 +500,7 @@
    "verb": "gaze_lock",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 167,
+   "line": 182,
    "summary": "Keep a talking face's eyes on the lens, measured rather than guessed: `out` (a copy of `anim`) goes on",
    "doc": "Keep a talking face's eyes on the lens, measured rather than guessed: `out` (a copy of `anim`) goes on\n`component`'s track in `sequence` (on the sections that play `anim`, wherever they start); the eye-look curves are\ncalibrated on the rig, then solved per frame from the eye bones' real pose (head and body motion included)\ntoward `camera`, with small saccades, and refined `iterations` times against a fresh measurement.\n`target` aims the eyes elsewhere: a point [x, y, z], an actor (+ `target_offset` in its frame) or\n\"Label:Component:bone\" (her eyes: \"Presenter:Face:FACIAL_L_Eye\"); with `frames` [first, last] only in that range\n(the camera, if given, elsewhere). Frames with neither keep the animation's own eye curves. Returns the angle error\nper pass. A multi-tick job.\nExample: film-ue op anim.gaze_lock sequence=/Game/Shots/S010 actor_label=Presenter anim=/Game/Speech/Anim/AS_line1 out=/Game/Speech/Anim/AS_line1_eyes camera=CAM_A",
    "params": [
@@ -523,7 +610,7 @@
    "verb": "head_to_body",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 432,
+   "line": 441,
    "summary": "Give the body the head motion a face rig makes from speech (HeadYaw/Pitch/Roll spread down the neck): bake the",
    "doc": "Give the body the head motion a face rig makes from speech (HeadYaw/Pitch/Roll spread down the neck): bake the\nface's spine, neck and head as they play into `out` (a copy of the body's animation), which goes on the body's\ntrack. Then bake_follow puts the whole shared skeleton back on the face, so both move as one. Multi-tick.\nExample: film-ue op anim.head_to_body sequence=/Game/Shots/S010 actor_label=Presenter body_anim=/Game/Anim/AS_idle out=/Game/Anim/AS_idle_head",
    "params": [
@@ -597,7 +684,7 @@
    "verb": "new",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 590,
+   "line": 599,
    "summary": "An empty animation (no keys: the skeleton's reference pose) on a skeleton, `length_s` long at `fps`: a canvas",
    "doc": "An empty animation (no keys: the skeleton's reference pose) on a skeleton, `length_s` long at `fps`: a canvas\nfor perf.face, anim.write_curves or a procedural additive. Converges: an existing one of the same skeleton is\nresized in place (its curves kept) unless `replace`.\n\nArgs: path: /Game/... package path. skeleton: a Skeleton, SkeletalMesh or AnimSequence whose skeleton to use.\nlength_s: seconds. fps: frame rate of the keys.\nReturns: {\"path\", \"changed\", \"created\", \"frames\", \"length_s\"}.\nExample: film-ue op anim.new path=/Game/Perf/AS_blank skeleton=/Game/MetaHumans/Ada/Face/Ada_FaceMesh length_s=5",
    "params": [
@@ -649,7 +736,7 @@
    "verb": "read_curves",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 653,
+   "line": 662,
    "summary": "Float curves of an animation as {name: [times_s, values]}: all, the `names` given, or those whose name",
    "doc": "Float curves of an animation as {name: [times_s, values]}: all, the `names` given, or those whose name\ncontains `contains`; every n-th key. For client-side analysis (perfkit.metrics, plots).\nExample: film-ue op anim.read_curves anim=/Game/Speech/Anim/AS_line1 contains=Head",
    "params": [
@@ -694,7 +781,7 @@
    "verb": "retarget",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 773,
+   "line": 782,
    "summary": "Retarget animations from one skeleton to another (a Mixamo or UE5 mannequin clip onto a MetaHuman body) by",
    "doc": "Retarget animations from one skeleton to another (a Mixamo or UE5 mannequin clip onto a MetaHuman body) by\ncode: IK Rigs for both meshes (auto-generated chains + full-body IK, made once under out_folder/Rigs unless\ngiven), an IK Retargeter (default op stack, chains auto-mapped by name, the target's retarget pose auto-aligned\nto the source), then the engine's batch retarget into `out_folder`, overwriting earlier results of the same name.\n\nArgs: anims: AnimSequence paths on the source skeleton. source_mesh/target_mesh: SkeletalMesh paths.\nout_folder: /Game/... folder for the results and the rigs. source_rig/target_rig/retargeter: existing assets to\nuse instead of making them. suffix: added to each result's name. align: auto-align the target's retarget pose\n(fixes T-pose vs A-pose). include_referenced: also retarget assets the inputs reference.\nReturns: {\"changed\", \"results\": [paths], \"retargeter\", \"rigs\": {\"source\", \"target\"}, \"made\": [paths]}.\nExample: film-ue op anim.retarget 'anims=[\"/Game/Mixamo/Wave\"]' source_mesh=/Game/Mixamo/Y_Bot target_mesh=/Game/MetaHumans/Ada/Body/m_med_nrw_body out_folder=/Game/Anim/Retargeted",
    "params": [
@@ -783,7 +870,7 @@
    "verb": "rig_controls",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 862,
+   "line": 871,
    "summary": "The controls of the Control Rig on an actor (or its component) in a sequence, for anim.rig_keys.",
    "doc": "The controls of the Control Rig on an actor (or its component) in a sequence, for anim.rig_keys.\nReturns: {\"rig\": class name, \"controls\": [names]}.\nExample: film-ue op anim.rig_controls sequence=/Game/Shots/S010 label=Presenter component=Face",
    "params": [
@@ -821,7 +908,7 @@
    "verb": "rig_keys",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 879,
+   "line": 888,
    "summary": "Key Control Rig controls in a sequence, batched per control (one engine call each, not one per key).",
    "doc": "Key Control Rig controls in a sequence, batched per control (one engine call each, not one per key).\nkeys: {control: [[frame, value], ...]} where value is a number (a float control), {\"pitch\", \"yaw\", \"roll\"} (a\nrotator control) or {\"loc\": [x, y, z], \"rot\": {...}} (a transform control, local space). The rig track is found\non the actor (or `component`'s) binding, or made from `rig_class` (a Blueprint-based Control Rig asset path, or\na class path; 5.8's independent Control Rig assets cannot be made into a track from Python; `layered` for an\nadditive layer over the animation).\nReturns: {\"changed\", \"controls\": n, \"keys\": n, \"rig\"}.\nExample: film-ue op anim.rig_keys sequence=/Game/Shots/S010 label=Presenter component=Face 'keys={\"CTRL_L_brow_raiseIn\": [[0,0],[12,0.6],[30,0]]}'",
    "params": [
@@ -963,7 +1050,7 @@
    "verb": "write_curves",
    "module": "fmbridge.ops.anim",
    "file": "unreal/fmbridge/ops/anim.py",
-   "line": 664,
+   "line": 673,
    "summary": "Write many float curves in one batch (one controller bracket, one recompression): {name: [times_s, values]}.",
    "doc": "Write many float curves in one batch (one controller bracket, one recompression): {name: [times_s, values]}.\nmode: \"replace\" (these keys only), \"add\" (added to the curve's current values), \"max\", \"mul\".\n\nReturns: {\"anim\", \"changed\", \"curves\": n, \"keys\": total}.\nExample: film-ue op anim.write_curves anim=/Game/Perf/AS_face 'curves={\"CTRL_expressions_browRaiseInL\": [[0,1,2],[0,0.4,0]]}'",
    "params": [
@@ -11663,7 +11750,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 599,
+   "line": 617,
    "summary": "Converge the editor on a PERFORMANCE spec (kind: performance): speech-solve the lines whose audio or mood",
    "doc": "Converge the editor on a PERFORMANCE spec (kind: performance): speech-solve the lines whose audio or mood\nchanged, compose the face, key the body and the actor's moves in the sequence; re-run safely (a converged spec\ndoes nothing). `dry_run` returns the plan only. A multi-tick job (speech solves take seconds per line).\n\nReturns: {\"converged\", \"rounds\", \"ran\": [{\"op\", \"why\", \"result\"}], \"report\": the face's naturalness checks}.\nExample: film-ue op perf.apply spec=@films/demo/perf/intro.yaml",
    "params": [
@@ -11745,6 +11832,60 @@
    ]
   },
   {
+   "name": "perf.calibrate_body",
+   "area": "perf",
+   "verb": "calibrate_body",
+   "module": "fmbridge.ops.perf_body",
+   "file": "unreal/fmbridge/ops/perf_body.py",
+   "line": 83,
+   "summary": "Measure, on the real body skeleton, which local axis (and sign) of each spine, clavicle and pelvis bone bends the",
+   "doc": "Measure, on the real body skeleton, which local axis (and sign) of each spine, clavicle and pelvis bone bends the\nbody forward (flex), to the character's left (side; for a clavicle: lifts it) and turns it left (twist), and which\nof the pelvis's parent axes shifts it to the left; with the bones' rest pose. Saved per skeleton\n(Saved/fmbridge/perf/body_<skeleton>.json) for anim.body_life. Plays scratch animations on the actor's body in a\nscratch sequence and samples the head, clavicles, upper arms and feet (\"forward\" is where the feet point).\nA multi-tick job, ~1 min.\n\nReturns: {\"skeleton\", \"axes\": {bone: {\"flex\": [axis, sign], \"side\": [...], \"twist\": [...]}}, \"shift_axis\",\n\"file\", \"raw\"}.\nExample: film-ue op perf.calibrate_body label=Presenter",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Body"
+    },
+    {
+     "name": "scratch",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "/Game/_Perf/CalibrateBody"
+    },
+    {
+     "name": "degrees",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 10.0
+    },
+    {
+     "name": "bones",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "slow"
+   ]
+  },
+  {
    "name": "perf.check",
    "area": "perf",
    "verb": "check",
@@ -11781,7 +11922,7 @@
    "verb": "compose",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 513,
+   "line": 518,
    "summary": "Compose a performance spec into the sequence: one continuous face animation (every line's lip-sync placed at",
    "doc": "Compose a performance spec into the sequence: one continuous face animation (every line's lip-sync placed at\nits time, with the head, eyes, blinks, moods and expressions of perfkit over the whole timeline, so nothing\njumps between lines) on the face track, the body's idle/gesture/walk sections, and the actor's transform keys.\nperf.apply calls it after the speech solves; call it yourself to re-key without re-solving.\nReturns: {\"face_anim\", \"fingerprint\", \"frames\", \"report\", \"timeline\", \"body_sections\", \"notes\", \"changed\"}.\nExample: film-ue op perf.compose spec=@examples/unreal/performance/listener.yaml",
    "params": [
@@ -11805,7 +11946,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 633,
+   "line": 651,
    "summary": "An actor's performance in a sequence: the animation sections on its face and body tracks, the face",
    "doc": "An actor's performance in a sequence: the animation sections on its face and body tracks, the face\nanimation's perf metadata (which spec, its fingerprint), and its transform keys.\nExample: film-ue op perf.describe sequence=/Game/Shots/S010 label=Presenter",
    "params": [
@@ -12028,7 +12169,7 @@
    "verb": "gestures",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 760,
+   "line": 778,
    "summary": "Gestures timed to their beats: each {\"anim\" | \"name\", \"at_s\" (the beat: the stressed word), \"stroke_s\" (where",
    "doc": "Gestures timed to their beats: each {\"anim\" | \"name\", \"at_s\" (the beat: the stressed word), \"stroke_s\" (where\nthe stroke falls in the clip; default 40% in), \"hold_s\", \"intensity\"}; the clip starts so its stroke lands\n`lead_s` before the beat. Overlaps are moved or dropped (see notes). Adds the sections to the body track.\nExample: film-ue op perf.gestures sequence=/Game/Shots/S010 label=Presenter 'gestures=[{\"anim\":\"/Game/Anim/AS_OpenPalms\",\"at_s\":2.1,\"stroke_s\":0.7}]'",
    "params": [
@@ -12087,7 +12228,7 @@
    "verb": "head_curves",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 786,
+   "line": 804,
    "summary": "Preview organic head motion with no engine and no animation: the HeadYaw/Pitch/Roll curves (character frame,",
    "doc": "Preview organic head motion with no engine and no animation: the HeadYaw/Pitch/Roll curves (character frame,\ndegrees) perfkit makes for these gaze shifts, nods and tilts, with the plan and the head checks. For trying\nstyles before writing them (perf.face).\nExample: film-ue op perf.head_curves duration_s=6 'gaze=[{\"t\":1,\"yaw\":30},{\"t\":3.5,\"yaw\":-10,\"pitch\":-5}]' 'nods=[{\"t\":4.5,\"kind\":\"nod\"}]'",
    "params": [
@@ -12160,7 +12301,7 @@
    "verb": "idle",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 741,
+   "line": 759,
    "summary": "An idle that never loops visibly on an actor's body track: segments of 4-9 s from the given idle clips at",
    "doc": "An idle that never loops visibly on an actor's body track: segments of 4-9 s from the given idle clips at\nrandom offsets and play rates 0.92-1.08, cross-fading into each other; split around `gaps` [[start, end]]\nframes (where gestures play). end 0 = the sequence's end.\nExample: film-ue op perf.idle sequence=/Game/Shots/S010 label=Presenter 'clips=[\"/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle\"]'",
    "params": [
@@ -12240,7 +12381,7 @@
    "verb": "lock_eyes",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 587,
+   "line": 605,
    "summary": "Measured eye contact with the spec's camera over the composed face (anim.gaze_lock: the eye curves solved",
    "doc": "Measured eye contact with the spec's camera over the composed face (anim.gaze_lock: the eye curves solved\nfrom the eye bones' real pose on the lines that look at the camera). A multi-tick job.\nExample: film-ue op perf.lock_eyes spec=@examples/unreal/performance/presenter_intro.yaml",
    "params": [
@@ -12266,7 +12407,7 @@
    "verb": "plan",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 437,
+   "line": 442,
    "summary": "What perf.apply would do for a performance spec, without doing it: {\"steps\": [{\"op\", \"args\", \"why\"}],",
    "doc": "What perf.apply would do for a performance spec, without doing it: {\"steps\": [{\"op\", \"args\", \"why\"}],\n\"compiled\": timeline, body sections and notes}. Empty steps = converged.\nExample: film-ue op perf.plan spec=@performance.yaml",
    "params": [
@@ -12344,7 +12485,7 @@
    "verb": "solve",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 456,
+   "line": 461,
    "summary": "A line's speech solve (speech.to_face) tagged with the key of what it was made from, so perf.plan knows when",
    "doc": "A line's speech solve (speech.to_face) tagged with the key of what it was made from, so perf.plan knows when\nit is up to date. A multi-tick job.\nExample: film-ue op perf.solve wav=/home/ue/Audio/l1.wav name=intro_l1 face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh mood=HAPPINESS",
    "params": [
@@ -12436,7 +12577,7 @@
    "verb": "turn_to",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 717,
+   "line": 735,
    "summary": "Turn an actor in place to face a target (a point, an actor, \"Label:Component:bone\") or a yaw (degrees),",
    "doc": "Turn an actor in place to face a target (a point, an actor, \"Label:Component:bone\") or a yaw (degrees),\neased with a skewed min-jerk over 0.45 s + 0.5 s per 90 deg (/ speed); keys its transform (replacing the\ntransform track, so give a whole route to perf.walk_to or a spec instead when there are several moves).\nExample: film-ue op perf.turn_to sequence=/Game/Shots/S020 label=Presenter target=Guest at_frame=48",
    "params": [
@@ -12511,7 +12652,7 @@
    "verb": "walk_to",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 676,
+   "line": 694,
    "summary": "Walk an actor to a point in a sequence: turn in place if needed, accelerate, follow `path` waypoints, brake,",
    "doc": "Walk an actor to a point in a sequence: turn in place if needed, accelerate, follow `path` waypoints, brake,\noptionally turn to face `end_facing`; the actor's transform is keyed (replacing its transform track) and the walk\nloop is added on the body track at the play rate that matches its own speed (`clip_speed_cm_s`, default\nspeed_cm_s: rate 1).\n\nArgs: to: [x, y, z] cm, or a target (actor label, \"Label:Component:bone\"). at_frame: when it sets off.\nspeed_cm_s: cruise speed (people: 110-150). facing_offset_deg: the actor's forward vs its mesh's (MetaHumans: 0).\nReturns: {\"changed\", \"keys\", \"frames\": [start, stop], \"distance_cm\", \"walk\": the walk section, \"slide\": check}.\nExample: film-ue op perf.walk_to sequence=/Game/Shots/S020 label=Presenter 'to=[300,120,0]' walk_anim=/MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F at_frame=24",
    "params": [

@@ -390,6 +390,10 @@ def state(*, spec: dict) -> dict:
                         hint="set face_component in the spec") from None
     hp = comp.get_socket_location("head")
     mesh = comp.get_skeletal_mesh_asset()
+    try:
+        bmesh = component_of(spec["actor"], spec.get("body_component", "Body")).get_skeletal_mesh_asset()
+    except StopIteration:
+        bmesh = None
     targets = {}
     if spec.get("camera"):
         targets["camera"] = aim_point(spec["camera"])
@@ -429,7 +433,8 @@ def state(*, spec: dict) -> dict:
     fp = _meta(load(out), "fm.perf.fingerprint") if EAL.does_asset_exist(out) else ""
     return {"fps": fps, "sequence": {"exists": seq_exists},
             "actor": {"loc": [loc.x, loc.y, loc.z], "yaw": yaw, "head_z_cm": round(hp.z - loc.z, 2),
-                      "face_mesh": mesh.get_path_name().split(".")[0] if mesh else ""},
+                      "face_mesh": mesh.get_path_name().split(".")[0] if mesh else "",
+                      "body_mesh": bmesh.get_path_name().split(".")[0] if bmesh else ""},
             "targets": targets, "clips": clips, "audio": audio, "solves": solves,
             "face": {"anim": out if fp or EAL.does_asset_exist(out) else "", "fingerprint": fp}}
 
@@ -568,14 +573,27 @@ def compose(*, spec: dict) -> dict:
     label = spec["actor"]
     call("seq.anim", path=spec["sequence"], label=label, component=spec.get("face_component", "Face"),
          sections=[{"anim": out, "start": 0, "end": frames, "loop": False}], replace=True)
-    if c["body"]:
+    body = list(c["body"])
+    life = (spec.get("character") or {}).get("body_life")
+    if life and st["actor"].get("body_mesh"):
+        opts = life if isinstance(life, dict) else {}
+        talk = any(not x["listen"] for x in c["timeline"])
+        try:
+            r_life = call("anim.body_life", out=f"{out}_life", body_mesh=st["actor"]["body_mesh"],
+                          length_s=c["duration_s"], state=opts.get("state", "talk" if talk else "listen"), face_anim=out,
+                          **{k: v for k, v in opts.items() if k in ("follow", "breath_deg", "clavicle_deg", "shift_cm")},
+                          seed=int(spec.get("seed", 0)))
+            body.append({"anim": r_life["out"], "start": 0, "end": frames, "loop": False, "kind": "life"})
+        except OpError as e:  # not calibrated yet: the performance still applies, without body life
+            c["notes"].append({"skipped": "body_life", "why": e.message, "hint": e.hint})
+    if body:
         call("seq.anim", path=spec["sequence"], label=label, component=spec.get("body_component", "Body"),
-             sections=[{k: v for k, v in s.items() if k not in ("kind", "additive", "stroke_frame")} for s in c["body"]],
+             sections=[{k: v for k, v in s.items() if k not in ("kind", "additive", "stroke_frame")} for s in body],
              replace=True)
     if c["transform"]:
         call("seq.key_transform", path=spec["sequence"], label=label, keys=c["transform"])
     return {"face_anim": out, "fingerprint": fp, "frames": frames, "fps": fps, "report": r["report"],
-            "plan": r["plan"], "timeline": c["timeline"], "body_sections": len(c["body"]), "notes": c["notes"],
+            "plan": r["plan"], "timeline": c["timeline"], "body_sections": len(body), "notes": c["notes"],
             "changed": True}
 
 
