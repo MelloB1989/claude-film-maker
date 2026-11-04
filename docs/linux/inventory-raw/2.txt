@@ -1,0 +1,179 @@
+== engine registration in user hives
+Administrator:
+
+
+{1E2924D9-4D5E-D1CF-3589-2F99FB2B567D} : C:/Program Files/Epic Games/UE_5.8
+PSPath                                 : Microsoft.PowerShell.Core\Registry::HKEY_USERS\inv_Administrator\Software\Epic
+                                          Games\Unreal Engine\Builds
+PSParentPath                           : Microsoft.PowerShell.Core\Registry::HKEY_USERS\inv_Administrator\Software\Epic
+                                          Games\Unreal Engine
+PSChildName                            : Builds
+PSProvider                             : Microsoft.PowerShell.Core\Registry
+
+
+
+
+== engine top
+C:\Program Files\Epic Games\DirectXRedist
+C:\Program Files\Epic Games\GameInputRedist
+C:\Program Files\Epic Games\Launcher
+C:\Program Files\Epic Games\UE_5.8
+.egstore
+Engine
+FeaturePacks
+Templates
+Directory.Build.props
+Directory.Build.targets
+ToolComplete.txt
+zen-manifest.json
+== project plugins
+no Plugins folder
+== project Source
+no Source folder
+== Config files
+### C:\UEProjects\HostStudio\Config\DefaultEngine.ini (1121 B)
+### C:\UEProjects\HostStudio\Config\DefaultInput.ini (9574 B)
+##### DefaultEngine.ini
+[/Script/EngineSettings.GameMapsSettings]
+GameDefaultMap=/Engine/Maps/Templates/OpenWorld
+
+[/Script/WindowsTargetPlatform.WindowsTargetSettings]
+DefaultGraphicsRHI=DefaultGraphicsRHI_DX12
+
+[/Script/Engine.RendererSettings]
+r.SkinCache.CompileShaders=True
+r.SkinCache.DefaultBehavior=1
+r.GPUSkin.Support16BitBoneIndex=True
+r.GPUSkin.UnlimitedBoneInfluences=True
+r.RayTracing=True
+r.Lumen.HardwareRayTracing=True
+r.DynamicGlobalIlluminationMethod=1
+r.ReflectionMethod=1
+r.Shadow.Virtual.Enable=1
+r.GenerateMeshDistanceFields=True
+r.AntiAliasingMethod=4
+r.DefaultFeature.AutoExposure=False
+r.AllowStaticLighting=False
+
+[/Script/AndroidFileServerEditor.AndroidFileServerRuntimeSettings]
+bEnablePlugin=True
+bAllowNetworkConnection=True
+SecurityToken=<redacted>
+bIncludeInShipping=False
+bAllowExternalStartInShipping=False
+bCompileAFSProject=False
+bUseCompression=False
+bLogFiles=False
+bReportStats=False
+ConnectionType=USBOnly
+bUseManualIPAddress=False
+ManualIPAddress=
+
+
+[/Script/WindowsTargetPlatform.WindowsTargetSettings]
++D3D12TargetedShaderFormats=PCD3D_SM6
+
+
+== Saved\Config tree
+C:\UEProjects\HostStudio\Saved\Config\ConsoleHistory.ini 82
+C:\UEProjects\HostStudio\Saved\Config\CrashReportClient\UECC-Windows-0E476D3D449EC5E2B3DC1D8D723432BE\CrashReportClient.ini 239
+C:\UEProjects\HostStudio\Saved\Config\CrashReportClient\UECC-Windows-27DA80C3415CFFE977ABF6B9B053D3FB\CrashReportClient.ini 239
+C:\UEProjects\HostStudio\Saved\Config\CrashReportClient\UECC-Windows-56AB28CB4C4F17EF41756DA616A92341\CrashReportClient.ini 239
+C:\UEProjects\HostStudio\Saved\Config\CrashReportClient\UECC-Windows-6C02AC4C4545F33E58A739829D6E0CFF\CrashReportClient.ini 239
+C:\UEProjects\HostStudio\Saved\Config\CrashReportClient\UECC-Windows-7CA66CFC41F02CE11FB1D68AEA903D37\CrashReportClient.ini 239
+C:\UEProjects\HostStudio\Saved\Config\CrashReportClient\UECC-Windows-91B8B1E240DD90995AD012B6D330E3EA\CrashReportClient.ini 239
+C:\UEProjects\HostStudio\Saved\Config\CrashReportClient\UECC-Windows-9659E12D463D2B1B85B9E28CC62C3430\CrashReportClient.ini 239
+C:\UEProjects\HostStudio\Saved\Config\CrashReportClient\UECC-Windows-AE83D75D42C6D1BCBFDE3B8161100CFB\CrashReportClient.ini 239
+C:\UEProjects\HostStudio\Saved\Config\CrashReportClient\UECC-Windows-E8252E9143150326157BF6BE7C03EFDE\CrashReportClient.ini 239
+C:\UEProjects\HostStudio\Saved\Config\WindowsEditor\Editor.ini 95
+C:\UEProjects\HostStudio\Saved\Config\WindowsEditor\EditorPerProjectUserSettings.ini 154291
+C:\UEProjects\HostStudio\Saved\Config\WindowsEditor\GameUserSettings.ini 1073
+C:\UEProjects\HostStudio\Saved\Config\WorldState\4285640591.json 50
+== Saved top level
+C:\UEProjects\HostStudio\Saved\A08                                 86.4 MB       72 files
+C:\UEProjects\HostStudio\Saved\Autosaves                        4,965.5 MB      360 files
+C:\UEProjects\HostStudio\Saved\BodyCheck                           19.0 MB        8 files
+C:\UEProjects\HostStudio\Saved\Bridge                               0.0 MB       29 files
+C:\UEProjects\HostStudio\Saved\Collections                          0.0 MB        0 files
+C:\UEProjects\HostStudio\Saved\Config                               0.2 MB       14 files
+C:\UEProjects\HostStudio\Saved\Crashes                             22.5 MB       20 files
+C:\UEProjects\HostStudio\Saved\Export                             301.7 MB       40 files
+C:\UEProjects\HostStudio\Saved\Import                             222.5 MB      169 files
+C:\UEProjects\HostStudio\Saved\Logs                                73.3 MB       22 files
+C:\UEProjects\HostStudio\Saved\MovieRenders                     8,531.6 MB     3828 files
+C:\UEProjects\HostStudio\Saved\Previs                             174.6 MB      217 files
+C:\UEProjects\HostStudio\Saved\Reel                                13.3 MB       22 files
+C:\UEProjects\HostStudio\Saved\ShaderDebugInfo                      6.1 MB        3 files
+C:\UEProjects\HostStudio\Saved\SourceControl                        0.1 MB        1 files
+C:\UEProjects\HostStudio\Saved\Stills                              93.7 MB       64 files
+C:\UEProjects\HostStudio\Saved\UnrealBuildTool                      0.0 MB        1 files
+C:\UEProjects\HostStudio\Saved\a06_hairtest3.json                   0.0 MB        1 files
+C:\UEProjects\HostStudio\Saved\a06_hairtest4.json                   0.0 MB        1 files
+C:\UEProjects\HostStudio\Saved\AutoScreenshot.png                   0.0 MB        1 files
+C:\UEProjects\HostStudio\Saved\fmbridge.token                       0.0 MB        1 files
+C:\UEProjects\HostStudio\Saved\fmbridge_white.png                   0.0 MB        1 files
+== sizes
+C:\UEProjects\HostStudio\Content                                3,708.2 MB      842 files
+C:\UEProjects\HostStudio\Config                                     0.0 MB        2 files
+C:\UEProjects\HostStudio\Plugins (absent)
+C:\UEProjects\HostStudio\Source (absent)
+C:\UEProjects\HostStudio\Saved                                 14,510.5 MB     4875 files
+C:\UEProjects\HostStudio\Intermediate                             262.9 MB       12 files
+C:\UEProjects\HostStudio\DerivedDataCache                       1,173.5 MB      158 files
+C:\UEProjects\HostStudio\Binaries (absent)
+C:\UEProjects\HostStudio\Build (absent)
+C:\UEProjects\HostStudio                                       19,655.1 MB     5890 files
+== Content top level
+C:\UEProjects\HostStudio\Content\Audio                              0.7 MB        1 files
+C:\UEProjects\HostStudio\Content\Collections                        0.0 MB        0 files
+C:\UEProjects\HostStudio\Content\Developers                         0.0 MB        0 files
+C:\UEProjects\HostStudio\Content\FM                                 0.9 MB       30 files
+C:\UEProjects\HostStudio\Content\Host                           3,176.4 MB      255 files
+C:\UEProjects\HostStudio\Content\Python                             0.4 MB       29 files
+C:\UEProjects\HostStudio\Content\Reel                             301.8 MB       19 files
+C:\UEProjects\HostStudio\Content\Speech                            53.4 MB       24 files
+C:\UEProjects\HostStudio\Content\Studio                           174.6 MB      481 files
+C:\UEProjects\HostStudio\Content\Test                               0.0 MB        0 files
+C:\UEProjects\HostStudio\Content\Test_agent-09                      0.0 MB        3 files
+== disks
+
+Name         Used         Free
+----         ----         ----
+C    131736870912 190383575040
+
+
+
+== AWS tools
+
+Name          Version
+----          -------
+AWSPowerShell 5.0.313
+
+
+
+aws cli: 
+== C:\UEProjects
+C:\UEProjects\HostStudio                                       19,655.1 MB     5890 files
+== scheduled tasks (non-Microsoft)
+### \MicrosoftEdgeUpdateTaskMachineCore state=Ready
+  exec: C:\Program Files (x86)\Microsoft\EdgeUpdate\MicrosoftEdgeUpdate.exe /c (in )
+  trigger: MSFT_TaskLogonTrigger user=
+  trigger: MSFT_TaskDailyTrigger user=
+  principal: SYSTEM ServiceAccount Highest
+### \MicrosoftEdgeUpdateTaskMachineUA state=Ready
+  exec: C:\Program Files (x86)\Microsoft\EdgeUpdate\MicrosoftEdgeUpdate.exe /ua /installsource scheduler (in )
+  trigger: MSFT_TaskDailyTrigger user=
+  principal: SYSTEM ServiceAccount Highest
+### \OpenHostStudio state=Ready
+  exec: C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe C:\UEProjects\HostStudio\HostStudio.uproject (in )
+  trigger:  user=
+  principal: Administrator Interactive Highest
+### \UEClick state=Ready
+  exec: powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\ue-setup\click.ps1 (in )
+  trigger:  user=
+  principal: Administrator Interactive Highest
+== GPU / OS
+Microsoft Basic Display Adapter driver 10.0.20348.1
+AWS Indirect Display Device driver 1.0.252.0
+NVIDIA L4 driver 32.0.15.9686
+Microsoft Windows Server 2022 Datacenter

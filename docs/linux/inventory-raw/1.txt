@@ -1,0 +1,381 @@
+== uproject
+C:\UEProjects\HostStudio\HostStudio.uproject
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{1E2924D9-4D5E-D1CF-3589-2F99FB2B567D}",
+	"Category": "",
+	"Description": "Tech-explainer host studio",
+	"Plugins": [
+		{
+			"Name": "MetaHuman",
+			"Enabled": true,
+			"SupportedTargetPlatforms": [
+				"Win64",
+				"Linux",
+				"Mac"
+			]
+		},
+		{
+			"Name": "MetaHumanCharacter",
+			"Enabled": true
+		},
+		{
+			"Name": "MetaHumanCoreTech",
+			"Enabled": true
+		},
+		{
+			"Name": "MetaHumanAnimationTools",
+			"Enabled": true
+		},
+		{
+			"Name": "MetaHumanSDK",
+			"Enabled": true
+		},
+		{
+			"Name": "MetaHumanRuntime",
+			"Enabled": true
+		},
+		{
+			"Name": "MovieRenderPipeline",
+			"Enabled": true
+		},
+		{
+			"Name": "PythonScriptPlugin",
+			"Enabled": true
+		},
+		{
+			"Name": "EditorScriptingUtilities",
+			"Enabled": true
+		},
+		{
+			"Name": "SequencerScripting",
+			"Enabled": true
+		}
+	]
+}
+== engine installs (launcher manifest)
+{
+	"InstallationList": []
+}
+== engine registry (source builds)
+
+
+InstalledDirectory : C:\Program Files\Epic Games\4.0\
+PSPath             : Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SOFTWARE\EpicGames\Unreal Engine\4.0
+PSParentPath       : Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SOFTWARE\EpicGames\Unreal Engine
+PSChildName        : 4.0
+PSDrive            : HKLM
+PSProvider         : Microsoft.PowerShell.Core\Registry
+
+
+
+
+== engine at C:\Program Files\Epic Games\UE_5.8
+{
+	"MajorVersion": 5,
+	"MinorVersion": 8,
+	"PatchVersion": 4,
+	"Changelist": 58902052,
+	"CompatibleChangelist": 55116800,
+	"IsLicenseeVersion": 0,
+	"IsPromotedBuild": 1,
+	"BranchName": "++UE5+Release-5.8"
+}
+InstalledBuild.txt: True   SourceBuild marker (Engine\Source\Runtime): True   .git: False  Setup.bat: False
+-- Marketplace/Fab plugins
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Fab\Fab.uplugin
+Source/: True  Binaries: Win64
+{
+	"FileVersion": 3,
+	"Version": 21,
+	"VersionName": "0.0.21",
+	"FriendlyName": "Fab",
+	"Description": "Fab Plugin",
+	"Category": "Other",
+	"CreatedBy": "Epic Games, Inc.",
+	"CreatedByURL": "https://epicgames.com",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EngineVersion": "5.8.0",
+	"EnabledByDefault": true,
+	"CanContainContent": true,
+	"Modules": [
+		{
+			"Name": "Fab",
+			"Type": "Editor",
+			"LoadingPhase": "PostDefault",
+			"PlatformAllowList": [
+				"Linux",
+				"Win64",
+				"Mac"
+			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "Interchange",
+			"Enabled": true,
+			"PlatformAllowList": [
+				"Linux",
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "EditorDataStorageFeatures",
+			"Enabled": true
+		},
+		{
+			"Name": "EditorScriptingUtilities",
+			"Enabled": true
+		},
+		{
+			"Name": "EOSShared",
+			"Enabled": true,
+			"PlatformAllowList": [
+				"Linux",
+				"Win64",
+				"Mac"
+			],
+			"TargetAllowList": [
+				"Editor"
+			]
+		}
+	]
+}
+C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Fab             109.4 MB      194 files
+-- MetaHuman plugins anywhere under Engine\Plugins
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Animation\LiveLink\LiveLink.uplugin
+Source/: True  Binaries: Win64
+VersionName=2.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLink type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkComponents type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkGraphNode type=UncookedOnly PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkMovieScene type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkSequencer type=UncookedOnly PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkMultiUser type=UncookedOnly PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Animation\LiveLinkCurveDebugUI\LiveLinkCurveDebugUI.uplugin
+Source/: True  Binaries: Win64
+VersionName=0.1 EngineVersion= MarketplaceURL= Installed= SupportedTargetPlatforms=
+  module LiveLinkCurveDebugUI type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Animation\LiveLinkDevice\LiveLinkDevice.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkDevice type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Animation\LiveLinkExampleDevice\LiveLinkExampleDevice.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkExampleDevice type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Animation\LiveLinkGenericRecordingDevice\LiveLinkGenericRecordingDevice.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkGenericRecordingDevice type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Animation\LiveLinkHub\LiveLinkHub.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkHub type=EditorAndProgram PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkHubEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkHubMessaging type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Animation\LiveLinkUnrealDevice\LiveLinkUnrealDevice.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkUnrealDevice type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Animation\RigLogic\RigLogic.uplugin
+Source/: True  Binaries: Win64
+VersionName=13.2.5 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module RigLogicLib type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module RigLogicLibTest type=UncookedOnly PlatformAllowList=Win64 PlatformDenyList= TargetAllowList=
+  module RigLogicModule type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module RigLogicDeveloper type=UncookedOnly PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module RigLogicEditor type=Editor PlatformAllowList=Win64 PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Experimental\HairCardGenerator\HairCardGenerator.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module HairCardGeneratorEditor type=Editor PlatformAllowList=Win64,Mac,Linux PlatformDenyList= TargetAllowList=
+  module HairCardGeneratorDataflow type=Editor PlatformAllowList=Win64,Mac,Linux PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Experimental\HairModelingToolset\HairModelingToolset.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module HairCardGeneratorEditor type=Editor PlatformAllowList=Win64,Mac,Linux PlatformDenyList= TargetAllowList=
+  module HairCardGeneratorDataflow type=Editor PlatformAllowList=Win64,Mac,Linux PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Experimental\HairStrandsMutable\HairStrandsMutable.uplugin
+Source/: True  Binaries: Win64
+VersionName=0.1 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module HairStrandsMutable type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module HairStrandsMutableEditor type=UncookedOnly PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Experimental\LiveLinkControlRig\LiveLinkControlRig.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkControlRig type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Experimental\LiveLinkFaceImporter\LiveLinkFaceImporter.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkFaceImporter type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Experimental\LiveLinkOpenVR\LiveLinkOpenVR.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=Win64
+  module LiveLinkOpenVR type=Runtime PlatformAllowList=Win64 PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Experimental\MetaHuman\MetaHumanCalibrationDiagnostics\MetaHumanCalibrationDiagnostics.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=Win64,Linux,Mac
+  module MetaHumanCalibrationDiagnostics type=Editor PlatformAllowList=Win64,Linux,Mac PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Experimental\MetaHuman\MetaHumanCharacterUAF\MetaHumanCharacterUAF.uplugin
+Source/: True  Binaries: Win64
+VersionName=0.0.1 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module MetaHumanCharacterUAFEditor type=Editor PlatformAllowList=Win64 PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Experimental\MetaHuman\MetaHumanRuntime\MetaHumanRuntime.uplugin
+Source/: False  Binaries: 
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Experimental\RigLogicUAF\RigLogicUAF.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module RigLogicUAF type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module RigLogicUAFUncookedOnly type=UncookedOnly PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Experimental\Toolsets\MetaHumanGenerator\MetaHumanGenerator.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module MetaHumanGenerator type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Importers\AlembicHairImporter\AlembicHairImporter.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module AlembicHairTranslatorModule type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\MetaHuman\MetaHumanAnimationTools\MetaHumanAnimationTools.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module MetaHumanAnimationSerialization type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanAnimationSerializationEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\MetaHuman\MetaHumanAnimator\MetaHuman.uplugin
+Source/: True  Binaries: Win64
+VersionName=5.0.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=Win64,Linux,Mac
+  module MetaHumanCore type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCoreEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanImageViewerEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanPipeline type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanFaceContourTracker type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanFaceContourTrackerEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanIdentity type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanIdentityEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCaptureDataEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCaptureSource type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanFootageIngest type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanDepthGenerator type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanPerformance type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanSequencer type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCaptureUtils type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCaptureProtocolStack type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanToolkit type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanSpeech2Face type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanBatchProcessor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanConfig type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanConfigEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanFaceAnimationSolver type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanFaceAnimationSolverEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanFaceFittingSolver type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanFaceFittingSolverEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanPlatform type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanControlsConversionTest type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MeshTrackerInterface type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\MetaHuman\MetaHumanCalibrationProcessing\MetaHumanCalibrationProcessing.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=Win64,Linux,Mac
+  module MetaHumanCalibrationGenerator type=Editor PlatformAllowList=Win64,Linux,Mac PlatformDenyList= TargetAllowList=
+  module MetaHumanCalibrationLib type=Editor PlatformAllowList=Win64,Linux,Mac PlatformDenyList= TargetAllowList=
+  module MetaHumanCalibrationCore type=Editor PlatformAllowList=Win64,Linux,Mac PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\MetaHuman\MetaHumanCharacter\MetaHumanCharacter.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module MetaHumanCharacterEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCharacter type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCharacterPaletteEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCharacterPalette type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanDefaultPipeline type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanDefaultEditorPipeline type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCharacterMigrationEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\MetaHuman\MetaHumanCoreML\MetaHumanCoreML.uplugin
+Source/: False  Binaries: 
+VersionName=1.0.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=Mac,IOS,TVOS,VisionOS
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\MetaHuman\MetaHumanCoreTechLib\MetaHumanCoreTech.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module MetaHumanCoreTechLib type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCoreTech type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanImageViewer type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCaptureData type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanPipelineCore type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanBodyTrackerInterface type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\MetaHuman\MetaHumanCrowd\MetaHumanCrowd.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module MetaHumanCrowd type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanCrowdEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\MetaHuman\MetaHumanLiveLink\MetaHumanLiveLink.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0.0 EngineVersion= MarketplaceURL= Installed= SupportedTargetPlatforms=
+  module MetaHumanLiveLinkSource type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanLiveLinkSourceEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkFaceSource type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkFaceSourceEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkFaceDiscovery type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanLocalLiveLinkSource type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanLocalLiveLinkSourceEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\MetaHuman\MetaHumanSDK\MetaHumanSDK.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed= SupportedTargetPlatforms=
+  module MetaHumanSDKEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module MetaHumanSDKRuntime type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module InterchangeDNA type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Runtime\HairStrands\HairStrands.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module HairStrandsCore type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module HairStrandsDeformer type=Runtime PlatformAllowList= PlatformDenyList=Android,IOS TargetAllowList=
+  module HairStrandsRuntime type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module HairStrandsEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module HairCardGeneratorFramework type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module HairStrandsDataflow type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module HairStrandsSolver type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\Runtime\LiveLinkOvernDisplay\LiveLinkOverNDisplay.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=Win64,Linux
+  module LiveLinkOverNDisplay type=Runtime PlatformAllowList=Win64,Linux PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\VirtualProduction\LiveLinkCamera\LiveLinkCamera.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkCamera type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkCameraEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkCameraRecording type=UncookedOnly PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\VirtualProduction\LiveLinkFreeD\LiveLinkFreeD.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkFreeD type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\VirtualProduction\LiveLinkInputDevice\LiveLinkInputDevice.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkInputDevice type=Runtime PlatformAllowList=Win64 PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\VirtualProduction\LiveLinkKiProDevice\LiveLinkKiProDevice.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkKiProDevice type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\VirtualProduction\LiveLinkLens\LiveLinkLens.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkLens type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\VirtualProduction\LiveLinkMasterLockit\LiveLinkMasterLockit.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkMasterLockit type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+  module LiveLinkMasterLockitEditor type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\VirtualProduction\LiveLinkOBSDevice\LiveLinkOBSDevice.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkOBSDevice type=Editor PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\VirtualProduction\LiveLinkOpenTrackIO\LiveLinkOpenTrackIO.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkOpenTrackIO type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowList=
+### C:\Program Files\Epic Games\UE_5.8\Engine\Plugins\VirtualProduction\LiveLinkPrestonMDR\LiveLinkPrestonMDR.uplugin
+Source/: True  Binaries: Win64
+VersionName=1.0 EngineVersion= MarketplaceURL= Installed=False SupportedTargetPlatforms=
+  module LiveLinkPrestonMDR type=Runtime PlatformAllowList= PlatformDenyList= TargetAllowLis--output truncated--
