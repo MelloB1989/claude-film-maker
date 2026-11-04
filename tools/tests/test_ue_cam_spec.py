@@ -93,3 +93,55 @@ def test_shot_plan_and_timing_file(tmp_path):
     assert steps[0]["op"] == "shot.apply" and steps[0]["args"]["spec"]["timing"]["lines"][0]["id"] == "L1"
     assert cam_kind.plan_shot(spec, {"up_to_date": True}) == []
     assert cam_kind.SPEC_KINDS[1]["order"] > cam_kind.SPEC_KINDS[0]["order"]
+
+
+# --- shot list -> render -> review --------------------------------------------------------------------------------
+
+def _interview():
+    return next(d for _, d in docs("shot") if d["name"] == "interview")
+
+
+def test_shot_table_offline():
+    rows = cam_kind.shot_table(_interview())
+    assert [r["id"] for r in rows] == ["S1_wide", "S2_host", "S3_guest_over", "S4_host_push"]
+    assert rows[0] == {"id": "S1_wide", "camera": "CAM_S1_wide", "start": 0, "end": 32, "size": "WS",
+                       "subjects": ["Host", "Guest"]}
+    assert rows[2]["size"] == "MCU" and rows[2]["subjects"] == ["Guest"]  # Guest_OTS
+    assert all(a["end"] == b["start"] for a, b in zip(rows, rows[1:]))
+
+
+def test_pipeline_docs_validate_and_order():
+    from filmtools.unreal import spec as engine
+    out = cam_kind.pipeline_docs(_interview(), "/srv/renders", preset="final", level="/Game/Maps/Set", per_shot=2)
+    kinds = engine.kinds()
+    assert [d["kind"] for d in out] == ["shot", "render", "qa", "qa", "qa", "qa"]
+    for d in out:
+        assert engine.validate_doc(d, kinds[d["kind"]]) == [], d["name"]
+    assert kinds["shot"].order < kinds["render"].order < kinds["qa"].order
+    r = out[1]
+    assert r["shots"] == ["CAM_S1_wide", "CAM_S2_host", "CAM_S3_guest_over", "CAM_S4_host_push"]
+    assert r["out_dir"] == "/srv/renders/interview/final" and r["preroll"] == "cut"
+    rows = {x["id"]: x for x in cam_kind.shot_table(_interview())}
+    for q in out[2:]:
+        sid = q["name"][len("interview-"):-len("-review")]
+        fr = q["review"]["frames"]
+        assert len(fr) == 2 and all(rows[sid]["start"] <= f < rows[sid]["end"] for f in fr)
+    assert out[3]["review"]["expect"] == {"Host": {"size": ["MCU"]}}
+
+
+def test_shotlist_cli(tmp_path, capsys):
+    import argparse
+    from filmtools.unreal import cli_shotlist
+    import yaml
+    p = argparse.ArgumentParser()
+    sub = p.add_subparsers(dest="cmd")
+    cli_shotlist.register(sub)
+    spec = ROOT / "examples" / "unreal" / "shot" / "interview.yaml"
+    assert cli_shotlist.dispatch(p.parse_args(["shotlist", "table", str(spec)]))
+    assert "CAM_S3_guest_over" in capsys.readouterr().out
+    out = tmp_path / "pipe.yaml"
+    a = p.parse_args(["shotlist", "pipeline", str(spec), "--out", "/srv/r", "--h264", "-o", str(out)])
+    assert cli_shotlist.dispatch(a)
+    docs_ = list(yaml.safe_load_all(out.read_text()))
+    assert docs_[1]["outputs"] == [{"kind": "h264", "crf": 18}] and len(docs_) == 6
+    assert not cli_shotlist.dispatch(argparse.Namespace(cmd="doctor"))

@@ -2447,7 +2447,7 @@
     {
      "name": "look_at",
      "kind": "keyword",
-     "type": null,
+     "type": "str | list | None",
      "required": false,
      "default": null
     },
@@ -2468,7 +2468,7 @@
     {
      "name": "sensor_mm",
      "kind": "keyword",
-     "type": null,
+     "type": "list | None",
      "required": false,
      "default": null
     },
@@ -2496,7 +2496,7 @@
     {
      "name": "focus_on",
      "kind": "keyword",
-     "type": null,
+     "type": "str | list | None",
      "required": false,
      "default": null
     }
@@ -2529,7 +2529,7 @@
     {
      "name": "subjects",
      "kind": "keyword",
-     "type": null,
+     "type": "list",
      "required": true,
      "default": null
     },
@@ -2543,7 +2543,7 @@
     {
      "name": "others",
      "kind": "keyword",
-     "type": null,
+     "type": "list | None",
      "required": false,
      "default": null
     }
@@ -2584,7 +2584,7 @@
     {
      "name": "subjects",
      "kind": "keyword",
-     "type": null,
+     "type": "list",
      "required": true,
      "default": null
     },
@@ -2625,7 +2625,7 @@
     {
      "name": "subjects",
      "kind": "keyword",
-     "type": null,
+     "type": "list",
      "required": true,
      "default": null
     },
@@ -2688,7 +2688,7 @@
     {
      "name": "height",
      "kind": "keyword",
-     "type": null,
+     "type": "str | float | dict",
      "required": false,
      "default": "eye"
     }
@@ -2721,7 +2721,7 @@
     {
      "name": "subjects",
      "kind": "keyword",
-     "type": null,
+     "type": "list | None",
      "required": false,
      "default": null
     }
@@ -2768,14 +2768,14 @@
     {
      "name": "target",
      "kind": "keyword",
-     "type": null,
+     "type": "str | None",
      "required": false,
      "default": null
     },
     {
      "name": "offset",
      "kind": "keyword",
-     "type": null,
+     "type": "list",
      "required": false,
      "default": [
       0.0,
@@ -2819,7 +2819,7 @@
     {
      "name": "subjects",
      "kind": "keyword",
-     "type": null,
+     "type": "list",
      "required": true,
      "default": null
     },
@@ -2833,7 +2833,7 @@
     {
      "name": "angle",
      "kind": "keyword",
-     "type": null,
+     "type": "float | str",
      "required": false,
      "default": 0.0
     },
@@ -2847,7 +2847,7 @@
     {
      "name": "height",
      "kind": "keyword",
-     "type": null,
+     "type": "str | float | dict",
      "required": false,
      "default": "eye"
     },
@@ -2868,7 +2868,7 @@
     {
      "name": "place",
      "kind": "keyword",
-     "type": null,
+     "type": "str | float",
      "required": false,
      "default": "auto"
     },
@@ -2992,21 +2992,21 @@
     {
      "name": "aim",
      "kind": "keyword",
-     "type": null,
+     "type": "str | list | None",
      "required": false,
      "default": null
     },
     {
      "name": "focus_on",
      "kind": "keyword",
-     "type": null,
+     "type": "str | list | None",
      "required": false,
      "default": null
     },
     {
      "name": "noise",
      "kind": "keyword",
-     "type": null,
+     "type": "str | dict | None",
      "required": false,
      "default": null
     },
@@ -3040,14 +3040,14 @@
     {
      "name": "target",
      "kind": "keyword",
-     "type": null,
+     "type": "str",
      "required": true,
      "default": null
     },
     {
      "name": "offset",
      "kind": "keyword",
-     "type": null,
+     "type": "list | None",
      "required": false,
      "default": null
     }
@@ -3098,14 +3098,14 @@
     {
      "name": "points",
      "kind": "keyword",
-     "type": null,
+     "type": "dict | None",
      "required": false,
      "default": null
     },
     {
      "name": "subjects",
      "kind": "keyword",
-     "type": null,
+     "type": "list | None",
      "required": false,
      "default": null
     }
@@ -3316,7 +3316,7 @@
     {
      "name": "sensor_mm",
      "kind": "keyword",
-     "type": null,
+     "type": "list | None",
      "required": false,
      "default": null
     },
@@ -3445,7 +3445,7 @@
     {
      "name": "subjects",
      "kind": "keyword",
-     "type": null,
+     "type": "list | None",
      "required": false,
      "default": null
     }
@@ -3473,7 +3473,7 @@
     {
      "name": "target",
      "kind": "keyword",
-     "type": null,
+     "type": "str",
      "required": true,
      "default": null
     },
@@ -3487,7 +3487,7 @@
     {
      "name": "facing",
      "kind": "keyword",
-     "type": null,
+     "type": "list | None",
      "required": false,
      "default": null
     },
@@ -13820,7 +13820,7 @@
     {
      "name": "subjects",
      "kind": "keyword",
-     "type": null,
+     "type": "list",
      "required": true,
      "default": null
     },
@@ -13862,7 +13862,7 @@
     {
      "name": "subjects",
      "kind": "keyword",
-     "type": null,
+     "type": "list | None",
      "required": false,
      "default": null
     }

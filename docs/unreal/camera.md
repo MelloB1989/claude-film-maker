@@ -113,6 +113,27 @@ line), `CAM_two_shot`, each one's `MS/MCU/CU` single from 30° off the other's e
 (the edit: camera, frames, lens, size per cut), `shot.check` (every shot's frame and every cut; a multi-tick job),
 `shot.sheet sequence=... out_dir=/tmp/sheet per_shot=3` (a contact sheet with guides and labels).
 
+**Shoot, render and review a shot list, end to end.**
+
+```bash
+film-ue shotlist table examples/unreal/shot/interview.yaml          # offline: shots, frames, cameras, sizes
+film-ue shotlist pipeline examples/unreal/shot/interview.yaml --out /srv/renders --preset draft \
+    --level /Game/Maps/Set --per-shot 2 --h264 -o /tmp/interview.pipeline.yaml
+film-ue plan /tmp/interview.pipeline.yaml                           # what will run, in order
+film-ue apply /tmp/interview.pipeline.yaml
+```
+
+The pipeline is three kinds in one file, run in kind order: the `shot` spec (70: cameras, keys, cuts), one
+`render` (90, WP9: `shots` = the shot list's cameras, `chunking: shot`, `preroll: cut`, so every camera cut is its
+own resumable chunk pre-rolled from its start; frames under `<out>/<scene>/<preset>`), and a `qa` review per shot
+(95, WP10: `per_shot` frames inside the shot, the shot's intended size as the expectation for its subject; results
+under `<out>/<scene>/review/<shot id>/review.json|png`). Check: the render report's `status: ok` and every chunk's
+`missing: []` (`<out>/<scene>/<preset>/_render/<name>.report.json`); every review's `pass` (read `review.json`
+first, then `review.png`); `film-ue plan` again is empty. Then the cut grammar: `film-ue op shot.check
+sequence=... 'subjects=[...]'`. Re-running after a change re-shoots only if the shot spec changed, and the render
+resumes (only missing frames). An `auto` edit is resolved in the editor: run `shot.plan` and write its shots into
+the spec before making a pipeline.
+
 **Cut on the dialogue.** Give `lines` (or WP12's timing document as `timing`) and either times like
 `L2.start-4f`, `L1.end`, `L1.w3.start` (a word), `S2.end+0.5s`, or `auto: {from_lines: true}` (the master, then
 each line on its speaker's single, cutting 4 frames early; a speaker's consecutive lines stay on one shot).
@@ -148,6 +169,7 @@ sizes apart).
 | `shot.describe` | the edit as it stands |
 | `shot.check` | every shot and cut checked (multi-tick) |
 | `shot.sheet` | a contact sheet through the cut (multi-tick) |
+| `film-ue shotlist table/pipeline` | client: a shot list offline; the shoot → render → review pipeline YAML |
 
 ## Spec kinds
 
