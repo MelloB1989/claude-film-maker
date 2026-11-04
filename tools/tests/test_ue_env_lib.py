@@ -387,3 +387,12 @@ def test_rig_defaults_match_the_op():
     defaults = {a.arg: ast.literal_eval(d) for a, d in zip(fn.args.kwonlyargs, fn.args.kw_defaults) if d is not None}
     for k, v in R.RIG_DEFAULTS.items():
         assert defaults.get(k, None) == v, k
+
+
+def test_short_and_broad_lighting():
+    # camera at +X looking at the subject; the subject turned 30 deg towards camera-left (yaw 0 + 30 from the axis)
+    short = {x["role"]: x for x in R.plan([0, 0, 160], camera=[300, 0, 160], key_side="short", subject_yaw=30.0)}
+    broad = {x["role"]: x for x in R.plan([0, 0, 160], camera=[300, 0, 160], key_side="broad", subject_yaw=30.0)}
+    assert short["key"]["loc"][1] > 0 > broad["key"]["loc"][1]  # short: camera-left (+Y), the side it turns to
+    with pytest.raises(ValueError, match="needs the subject's facing"):
+        R.plan([0, 0, 160], camera=[300, 0, 160], key_side="short")

@@ -97,7 +97,7 @@ def _sub(a, b):
 
 def plan(subject, camera=None, facing: float = None, preset: str = "three_point", key_lux: float = 800.0,
          ratio: float = None, lights: dict = None, prefix: str = "Rig_", key_side: str = "left", scale: float = 1.0,
-         temperature: float = None, channels=None) -> list:
+         temperature: float = None, channels=None, subject_yaw: float = None) -> list:
     """The lights of a rig as a list of light specs (label, kind, loc, look_at, candelas, lux at the subject, size,
     temperature, ...). `subject` is the point to light [x, y, z] (cm: a face, not the feet); `camera` [x, y, z] or
     `facing` (the subject's yaw) sets the reference axis. `lights` overrides or adds roles ({"rim": {"rel": 2}},
@@ -105,8 +105,8 @@ def plan(subject, camera=None, facing: float = None, preset: str = "three_point"
     sets every light's; `channels` puts every light on those lighting channels."""
     if preset not in PRESETS:
         raise ValueError(f"unknown rig preset {preset!r}; one of {sorted(PRESETS)} (light.rig_presets lists them)")
-    if key_side not in ("left", "right"):
-        raise ValueError(f"key_side must be 'left' or 'right' (camera-left/right), not {key_side!r}")
+    if key_side not in ("left", "right", "short", "broad"):
+        raise ValueError(f"key_side must be left|right (camera-left/right) or short|broad, not {key_side!r}")
     p = PRESETS[preset]
     ratio = p["ratio"] if ratio is None else ratio
     roles = copy.deepcopy(p["lights"])
@@ -125,6 +125,8 @@ def plan(subject, camera=None, facing: float = None, preset: str = "three_point"
         axis = float(facing)
     else:
         raise ValueError("a rig needs the camera position or the subject's facing yaw")
+    if key_side in ("short", "broad"):
+        key_side = short_broad(key_side, axis, subject_yaw)
     other = "right" if key_side == "left" else "left"
     out = []
     for role, over in roles.items():
@@ -186,6 +188,17 @@ def plan(subject, camera=None, facing: float = None, preset: str = "three_point"
             spec["channels"] = list(ch)
         out.append(spec)
     return out
+
+
+def short_broad(kind: str, axis: float, subject_yaw) -> str:
+    """Camera-left/right for short or broad lighting. The face turns away from the lens by d = subject_yaw - axis
+    (axis: the yaw from the subject to the camera); a positive d turns it towards camera-left. Short lighting keys
+    the side of the face turned away from the camera (the side it turns to); broad keys the side facing the lens."""
+    if subject_yaw is None:
+        raise ValueError("short/broad lighting needs the subject's facing (subject_yaw, or a subject actor) and a camera")
+    d = (float(subject_yaw) - axis + 180.0) % 360.0 - 180.0
+    turned = "left" if d >= 0 else "right"
+    return turned if kind == "short" else ("right" if turned == "left" else "left")
 
 
 def _dir(a, b):

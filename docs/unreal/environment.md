@@ -50,6 +50,7 @@ mood lists only what changes (`sun: false`, a lower `exposure.ev100`, a cooler w
 film-ue op light.rig subject=Host camera=HostCam preset=interview key_lux=900 prefix=Host_
 film-ue op light.rig subject=Host camera=HostCam preset=rembrandt key_lux=700 ratio=5 key_side=right \
     'lights={"rim":{"rel":1.6,"temperature":3200},"kicker":{}}' channels='[1]' prefix=Host_
+film-ue op light.rig subject=Host camera=HostCam preset=loop key_side=short prefix=Host_   # key the far cheek
 film-ue op light.measure 'at=[0,0,165]' key=Host_Key fill=Host_Fill      # lux per light, total, EV100, ratio
 film-ue op light.channels 'assign={"Host":[0,1]}'                        # the character takes channel 1 (rig) and 0 (room)
 ```
@@ -224,7 +225,8 @@ prune: true
 - **SceneColorHDR metering**: `env.meter` reads the capture raw (`bNormalize=False`, else values clamp to 0..1).
   Whether SceneColorHDR is pre-exposed in 5.8 is the one number the selftest calibrates (`meter_offset_stops`).
 - **Rig subjects** default to ~eye height of the actor's bounds (0.86 of the half-height above centre); for a seated
-  or posed character pass `socket=` or `subject_offset=`.
+  or posed character pass `socket=` or `subject_offset=`. `key_side: short|broad` takes the subject actor's yaw as
+  the way its face points (+X front); if a character's mesh faces another axis in its actor, pass `facing_yaw_deg`.
 - **Ownership**: a spec prunes only what its `name` made. Two specs that both define `sun` fight over `Env_Sun`.
 - **Lights spawn Stationary** in the engine; the ops make theirs Movable (Lumen is dynamic; a Stationary light in an
   unbuilt level shows "lighting needs rebuild" and preview shadows in stills). Lights made elsewhere keep theirs.
@@ -277,6 +279,21 @@ EditAnywhere: settable with `set_editor_property` only (PropertyAccessUtil.cpp:7
 | .hdr import as long-lat cubemap: `[TextureImporter] LoadHdrAsLongLatCubemap` | UTextureFactory | Editor/UnrealEd/Private/Factories/EditorFactories.cpp:3503-3584 | yes |
 | IES import: UTextureFactory -> UTextureLightProfile | | EditorFactories.cpp:2832/3601 | yes |
 | embedded Python 3.11.8 | | Engine/Source/ThirdParty/Python3/Linux/include/patchlevel.h:26 | yes |
+| `unreal.LightingChannels` (struct: channel0..2) | FLightingChannels (BlueprintType) | Engine/Source/Runtime/Engine/Classes/Engine/EngineTypes.h:563-584 | yes |
+| `unreal.Vector4` (colour wheels: ColorSaturation ...) | FVector4 (noexport) | Engine/Source/Runtime/CoreUObject/Public/UObject/NoExportTypes.h:637 | yes |
+| `unreal.LightingBuildQuality.QUALITY_PREVIEW..QUALITY_PRODUCTION` | ELightingBuildQuality | Engine/Source/Runtime/Engine/Classes/Engine/EngineTypes.h:1006 | yes |
+| `unreal.get_default_object(cls)` | PythonScriptPlugin GetDefaultObject | Engine/Plugins/Experimental/PythonScriptPlugin/Source/PythonScriptPlugin/Private/PyCore.cpp:1624/2080 | yes |
+| look.py (legacy material graphs) `MaterialExpressionCollectionParameter` | UMaterialExpressionCollectionParameter | Engine/Source/Runtime/Engine/Public/Materials/MaterialExpressionCollectionParameter.h:18 | yes |
+| `MaterialExpressionComponentMask` | UMaterialExpressionComponentMask | Engine/Source/Runtime/Engine/Public/Materials/MaterialExpressionComponentMask.h:13 | yes |
+| `MaterialExpressionConstant3Vector` | UMaterialExpressionConstant3Vector | Engine/Source/Runtime/Engine/Public/Materials/MaterialExpressionConstant3Vector.h:12 | yes |
+| `MaterialExpressionDivide` / `Multiply` / `Subtract` / `Min` | UMaterialExpressionDivide / Multiply / Subtract / Min | Engine/Source/Runtime/Engine/Public/Materials/MaterialExpressionDivide.h:13, MaterialExpressionMultiply.h:13, MaterialExpressionSubtract.h:13, MaterialExpressionMin.h:13 | yes |
+| `MaterialExpressionOneMinus` / `Saturate` | UMaterialExpressionOneMinus / Saturate | Engine/Source/Runtime/Engine/Public/Materials/MaterialExpressionOneMinus.h:13, MaterialExpressionSaturate.h:12 | yes |
+| `MaterialExpressionMaterialFunctionCall` | UMaterialExpressionMaterialFunctionCall | Engine/Source/Runtime/Engine/Public/Materials/MaterialExpressionMaterialFunctionCall.h:80 | yes |
+| `MaterialExpressionScalarParameter` / `VectorParameter` | UMaterialExpressionScalarParameter / VectorParameter | Engine/Source/Runtime/Engine/Public/Materials/MaterialExpressionScalarParameter.h:23, MaterialExpressionVectorParameter.h:13 | yes |
+| `MaterialExpressionTextureCoordinate` / `TextureSampleParameter2D` | UMaterialExpressionTextureCoordinate / TextureSampleParameter2D | Engine/Source/Runtime/Engine/Public/Materials/MaterialExpressionTextureCoordinate.h:12, MaterialExpressionTextureSampleParameter2D.h:14 | yes |
+| `MaterialParameterCollection`, `CollectionScalarParameter` | UMaterialParameterCollection, FCollectionScalarParameter | Engine/Source/Runtime/Engine/Public/Materials/MaterialParameterCollection.h:78/43 | yes |
+| `MaterialParameterCollectionFactoryNew` | UMaterialParameterCollectionFactoryNew | Engine/Source/Editor/UnrealEd/Classes/Factories/MaterialParameterCollectionFactoryNew.h:15 | yes |
+| `TextureCompressionSettings` (TC_MASKS ...) | TextureCompressionSettings (UENUM) | Engine/Source/Runtime/Engine/Classes/Engine/TextureDefines.h:391 | yes |
 | SunPosition plugin (`get_sun_position`) | not used: envlib/sun.py is NOAA in pure Python (plugin off by default) | Plugins/Runtime/SunPosition/SunPosition.uplugin:13 | yes |
 
 ## 7. Selftest (`film-ue selftest env`, ~4 min on the L4, needs a GPU)
@@ -305,8 +322,6 @@ four stills; `film-ue apply examples/unreal/environment/studio-day-night.yaml` i
 Open / next:
 - `look.sky`, `look.fog`, `look.post`, `look.light` still exist (studio.py uses them); they could become thin
   wrappers over `env.*`/`light.*` once studio.py moves to a spec.
-- Rig `key_side: short|broad` keyed off the camera's relation to the subject's facing (agent-11's
-  `camkit.words.relation` gives it).
 - `env.hdri` with a real cubemap and the HDRIBackdrop variables need checking on the box (plugin on).
 - Light functions (`light_function_material`), rect light `source_texture`, IES import helper: APIs verified, ops not
   written.
