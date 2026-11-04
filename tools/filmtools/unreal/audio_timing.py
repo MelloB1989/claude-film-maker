@@ -1,10 +1,10 @@
 """Line timing: where each voice line sits on the picture, in one document every stage reads.
 
-The `audio` timing document (kind "audio", version 1) is the handoff between the voice (filmtools vo/edit, or any
+The timing document (kind "timing", version 1) is the handoff between the voice (filmtools vo/edit, or any
 WAVs), Unreal (`audio.lines` puts the lines on a Sequencer track; WP4's performance work drives the faces from it)
 and post (`post_cut` mixes the same lines and times the captions on their words):
 
-    {"kind": "audio", "version": 1, "name": "main", "fps": 24,
+    {"kind": "timing", "version": 1, "name": "main", "fps": 24,
      "lines": [{"id": "L1", "speaker": "host", "wav": "vo/L1.wav", "start_frame": 48, "end_frame": 97,
                 "duration_s": 2.03, "offset_s": 0.0, "volume_db": 0.0, "text": "Hello there.",
                 "words": [{"w": "Hello", "start_frame": 49, "end_frame": 60}, ...]}]}
@@ -23,7 +23,7 @@ import math
 import wave
 from pathlib import Path
 
-KIND, VERSION = "audio", 1
+KIND, VERSION = "timing", 1
 LINE_KEYS = {"id", "speaker", "wav", "start_frame", "start_s", "end_frame", "duration_s", "offset_s", "volume_db",
              "text", "words", "take", "mood"}
 
