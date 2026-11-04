@@ -239,6 +239,18 @@ open while shaders compile, and needs nothing. It proves:
 
 It passes on the fake engine (`tests/test_ue_platform_selftest.py`).
 
+The client phase, `tools/filmtools/unreal/selftests/platform.py`, runs right after it and takes about a minute over
+SSM:
+
+- a 150 KB file round-trips through the bridge and through the command channel (in parts);
+- a job started over HTTP reports progress, keeps answering after the tunnel is dropped, is listed and is
+  cancelled;
+- an unknown job is `JobGone`;
+- a batch stops at its failing call and says why;
+- the editor service status, the crash reports and a dry-run sync plan all answer.
+
+It passes against the real server on the fake engine (`tests/test_ue_platform_client.py`).
+
 Unit tests: `tests/test_fmbridge_jobs.py`, `test_ue_platform_*.py` (ops, client against the real server over HTTP,
 profiles, boxes, watchdog, editor service, sync, CLI), `test_unreal_transport.py`, `test_unreal_linux.py`.
 
