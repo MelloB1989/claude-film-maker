@@ -105,10 +105,11 @@ def test_compare_reports_psnr_and_the_worst_frame(tmp_path):
     for i, noise in enumerate((0, 2, 8)):
         Image.fromarray(base).save(ref / f"{i:04d}.png")
         Image.fromarray(np.clip(base.astype(int) + noise, 0, 255).astype("uint8")).save(new / f"{i:04d}.png")
-    r = poc.compare(new, ref)
+    r = poc.compare(new, ref, {"skin": [4, 4, 10, 8]})
     assert r["matched"] == 3 and r["worst"] == "0002" and r["psnr_min"] < r["psnr_mean"]
     assert r["frames"][0]["ssim"] == 1.0 and r["ssim_min"] < 1.0 and r["shift_rgb_mean"][0] > 0
-    assert (tmp_path / "new_vs_ref_0002.jpg").exists()
+    assert (tmp_path / "new_vs_ref_0002.jpg").exists() and Path(r["sheet"]).exists()
+    assert r["crop_skin"][0] > 0 and "crop_skin" in r["frames"][2]
 
 
 def test_gui_refuses_to_load_without_a_windows_desktop():

@@ -176,7 +176,7 @@ def ssim(x, y, win: int = 8) -> float:
     return float((((2 * ma * mb + c1) * (2 * cov + c2)) / ((ma * ma + mb * mb + c1) * (va + vb + c2))).mean())
 
 
-def compare(new: Path, ref: Path) -> dict:
+def compare(new: Path, ref: Path, crops: dict | None = None) -> dict:
     """Frame by frame (matching names): SSIM, PSNR, mean absolute difference and the mean colour shift (new - ref,
     per channel, 0-255); as a baseline, the SSIM between adjacent reference frames (what motion alone costs); a
     side-by-side of the worst frame."""
@@ -195,10 +195,14 @@ def compare(new: Path, ref: Path) -> dict:
             rows.append({"frame": f.stem, "error": f"size {x.shape[:2]} vs {y.shape[:2]}"})
             continue
         mse = float(((x - y) ** 2).mean())
-        rows.append({"frame": f.stem, "ssim": round(ssim(x, y), 4),
-                     "psnr": round(10 * np.log10(255 ** 2 / mse), 2) if mse else 99.0,
-                     "mad": round(float(np.abs(x - y).mean()), 2),
-                     "shift_rgb": [round(float(v), 2) for v in (x - y).reshape(-1, 3).mean(0)]})
+        row = {"frame": f.stem, "ssim": round(ssim(x, y), 4),
+               "psnr": round(10 * np.log10(255 ** 2 / mse), 2) if mse else 99.0,
+               "mad": round(float(np.abs(x - y).mean()), 2),
+               "shift_rgb": [round(float(v), 2) for v in (x - y).reshape(-1, 3).mean(0)]}
+        for name, (cx, cy, cw, ch) in (crops or {}).items():  # a skin patch, the eyes, the hair, a shirt: x, y, w, h
+            d = x[cy:cy + ch, cx:cx + cw] - y[cy:cy + ch, cx:cx + cw]
+            row[f"crop_{name}"] = [round(float(v), 2) for v in d.reshape(-1, 3).mean(0)]
+        rows.append(row)
     good = [r for r in rows if "ssim" in r]
     if not good:
         return {"frames": rows, "matched": 0}
@@ -211,11 +215,37 @@ def compare(new: Path, ref: Path) -> dict:
     side.paste(b_, (a_.width, 0))
     side.save(new.parent / f"{new.name}_vs_ref_{worst['frame']}.jpg", quality=90)
     n = len(good)
-    return {"matched": n, "ssim_min": worst["ssim"], "ssim_mean": round(sum(r["ssim"] for r in good) / n, 4),
+    picks = sorted({good[0]["frame"], good[n // 2]["frame"], worst["frame"]})
+    _sheet(new, ref, picks, crops or {}, new.parent / f"{new.name}_vs_ref_sheet.jpg")
+    crop_means = {k: [round(sum(r[k][i] for r in good) / n, 2) for i in range(3)] for k in good[0] if k.startswith("crop_")}
+    return {"matched": n, "sheet": str(new.parent / f"{new.name}_vs_ref_sheet.jpg"), **crop_means, "ssim_min": worst["ssim"], "ssim_mean": round(sum(r["ssim"] for r in good) / n, 4),
             "psnr_min": min(r["psnr"] for r in good), "psnr_mean": round(sum(r["psnr"] for r in good) / n, 2),
             "mad_max": max(r["mad"] for r in good),
             "shift_rgb_mean": [round(sum(r["shift_rgb"][i] for r in good) / n, 2) for i in range(3)],
             "ref_adjacent_ssim": adjacent, "worst": worst["frame"], "frames": rows}
+
+
+def _sheet(new: Path, ref: Path, frames: list, crops: dict, out: Path) -> None:
+    """A contact sheet: per frame, Linux on the left and Windows on the right, at half size, crops outlined."""
+    from PIL import Image, ImageDraw
+    tiles = []
+    for fr in frames:
+        pair = []
+        for src in (new, ref):
+            im = Image.open(src / f"{fr}.png").convert("RGB")
+            d = ImageDraw.Draw(im)
+            for name, (cx, cy, cw, ch) in crops.items():
+                d.rectangle([cx, cy, cx + cw, cy + ch], outline=(255, 0, 255), width=3)
+                d.text((cx + 4, cy + 4), name, fill=(255, 0, 255))
+            d.text((12, 12), f"{'Linux' if src == new else 'Windows'} {fr}", fill=(255, 255, 0))
+            pair.append(im.resize((im.width // 2, im.height // 2)))
+        tiles.append(pair)
+    w, h = tiles[0][0].size
+    sheet = Image.new("RGB", (w * 2, h * len(tiles)))
+    for i, (l_, r_) in enumerate(tiles):
+        sheet.paste(l_, (0, i * h))
+        sheet.paste(r_, (w, i * h))
+    sheet.save(out, quality=88)
 
 
 def _render(a, executor: str, name: str) -> dict:
@@ -238,7 +268,8 @@ def _render(a, executor: str, name: str) -> dict:
             break
     dt = time.time() - t0
     files = ws.sh(f"ls {shlex.quote(remote)}", 60).split()
-    return {"executor": executor, "frames": p.get("frames"), "expected": end - start, "s": round(dt),
+    child = log_grep(r"command line|NewProcess|MoviePipelineNewProcess|Launching", 10) if executor == "process" else []
+    return {"child_command_line": child, "executor": executor, "frames": p.get("frames"), "expected": end - start, "s": round(dt),
             "s_per_frame": round(dt / max(1, p.get("frames") or 1), 1), "wav": [f for f in files if f.endswith(".wav")],
             "peak": peak, "dir": remote}
 
@@ -259,7 +290,7 @@ def poc4(a, tag: str = "") -> dict:
         _fetch_ref(a, out / "ref")
         for executor in ("pie", "process"):
             if (out / executor).exists():
-                r[f"{executor}_vs_ref"] = compare(out / executor, out / "ref")
+                r[f"{executor}_vs_ref"] = compare(out / executor, out / "ref", json.loads(a.crops) if a.crops else None)
     r["errors"] = log_grep(r"Error:|Fatal|Assertion|MovieRenderPipeline.*(fail|error)", 15)
     pie = r.get("pie", {})
     r["pass"] = bool(pie.get("frames")) and pie.get("frames") >= pie.get("expected", 1)
@@ -367,6 +398,7 @@ def main(argv: list) -> None:
     ap.add_argument("--height", type=int, default=1080)
     ap.add_argument("--temporal", type=int, default=8)
     ap.add_argument("--cvars", default="", help='poc 4: JSON, e.g. \'{"r.HairStrands.SkyLighting": 0}\'')
+    ap.add_argument("--crops", default="", help='poc 4: JSON {"skin": [x, y, w, h], "eyes": [...], ...} in pixels')
     ap.add_argument("--path-tracer", action="store_true", help="poc 4: the path tracer instead of the deferred pass")
     ap.add_argument("--executors", default="pie,process", help="poc 4: pie, process or both")
     ap.add_argument("--ref", default="", help="poc 4: reference frames (same names): s3://prefix or a folder on the box")
