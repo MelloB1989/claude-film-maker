@@ -210,16 +210,15 @@ def install(fake):
                 out.append(core.AssetData(a, path))
             return out
         reg.get_assets = get_assets
-    if "get_tag_value" not in core.AssetData.__dict__:
-        def get_tag_value(self, name):
-            a = self._obj
-            if name == "Skeleton":
-                sk = a._props.get("skeleton")
-                return sk.get_path_name() if sk is not None else None
-            if name == "SequenceLength" and isinstance(a, AnimSequence):
-                return str(a.length_s)
-            return None
-        core.AssetData.get_tag_value = get_tag_value
+    def get_tag_value(self, name):
+        a = self._obj
+        if name == "Skeleton":
+            sk = a._props.get("skeleton")
+            return sk.get_path_name() if sk is not None else None
+        if name == "SequenceLength" and isinstance(a, AnimSequence):
+            return str(a.length_s)
+        return None
+    fake.tag_providers.append(get_tag_value)
 
     if "get_skeletal_mesh_asset" not in core.SkeletalMeshComponent.__dict__:
         core.SkeletalMeshComponent.get_skeletal_mesh_asset = lambda self: self._props.get("skeletal_mesh_asset")

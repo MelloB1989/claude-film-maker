@@ -363,7 +363,7 @@ def _install_meshes(fake):
     def is_redirector(self):
         return type(self._obj).__name__ == "ObjectRedirector"
 
-    core.AssetData.get_tag_value = get_tag_value
+    fake.tag_providers.append(get_tag_value)
     core.AssetData.is_redirector = is_redirector
 
     def _deps(pkg):
