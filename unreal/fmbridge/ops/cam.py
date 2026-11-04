@@ -11,7 +11,6 @@ chest, waist, knees, feet; any other actor is framed from its bounds), or a poin
 """
 from __future__ import annotations
 
-import os
 
 import unreal
 
@@ -21,9 +20,9 @@ from ..camkit import coverage as cov
 from ..camkit import framing, geo, lens, moves
 from ..camkit import png
 from ..errors import OpError, not_found
-from .level import actor, rot, vec
+from ._util import eas, find_actor, rot, vec
 
-EAS = lambda: unreal.get_editor_subsystem(unreal.EditorActorSubsystem)  # noqa: E731
+EAS = eas
 MANUAL, TRACKING, DISABLE = "MANUAL", "TRACKING", "DISABLE"
 
 
@@ -38,10 +37,7 @@ def _labels(cls=None) -> list:
 
 
 def _find(label: str):
-    for a in EAS().get_all_level_actors():
-        if a.get_actor_label() == label:
-            return a
-    return None
+    return find_actor(label)
 
 
 def _cine(label: str):
@@ -355,6 +351,16 @@ def _point(target, offset=None) -> list:
         raise not_found("actor or bone", t, _labels(), hint=str(e)) from None
 
 
+@op("cam.point", mutates=False, idempotent=True, tags=["camera"])
+def point(*, target, offset=None) -> dict:
+    """Where a target is now, in world cm: a point, an actor label (its location; with `offset` in its own frame),
+    "Label:Component:bone", "eyes:Label" (between its eyes), or a camera's label (its lens).
+
+    Example: film-ue op cam.point target=eyes:Presenter
+    """
+    return {"target": target, "point": [round(v, 3) for v in _point(target, offset)]}
+
+
 @op("cam.set", mutates=True, idempotent=True, tags=["camera"])
 def set_(*, label: str, focal_mm: float | None = None, aperture: float | None = None, sensor_mm=None,
          filmback: str | None = None, lens_preset: str | None = None, near_clip_cm: float | None = None,
@@ -540,19 +546,42 @@ def check(*, camera: str, subjects, size: str | None = None, others=None) -> dic
     cam = read(camera)
     subs = _subjects(subjects)
     issues = ck.frame(cam, subs, _subjects(others), camera=camera)
-    try:
-        from ..qa import framing as qaf  # WP10's per-frame framing checks
-        for s in subs:
-            got = qaf.check(cam, s, expect=size) if hasattr(qaf, "check") else []
-            issues += list(got.get("issues", got) if isinstance(got, dict) else got)
-    except ImportError:
-        issues.append(ck.issue("qa_missing", "info", "per-frame framing checks (fmbridge.qa) are not installed",
-                               "merge WP10", camera))
-    except Exception as e:  # their API moved: say so, keep ours
-        issues.append(ck.issue("qa_error", "info", f"fmbridge.qa.framing.check failed: {e}", "", camera))
+    issues += _qa_issues(cam, subjects, subs, size)
     metrics = {"size": {s["name"]: framing.classify(cam, s) for s in subs}, "focus_cm": cam.get("focus"),
                "hfov_deg": cam["hfov_deg"]}
     return {"pass": ck.worst(issues) != "fail", "issues": issues, "metrics": metrics}
+
+
+def _qa_issues(cam: dict, targets, subs: list, size) -> list:
+    """WP10's per-frame framing checks (fmbridge.qa.framing.check) on each subject, when that package is there."""
+    try:
+        from ..qa import framing as qaf
+    except ImportError:
+        return [ck.issue("cam.qa_missing", "info", "per-frame framing checks (fmbridge.qa) are not installed",
+                         "merge WP10's branch", cam.get("label", ""))]
+    out = []
+    labels = targets if isinstance(targets, (list, tuple)) and targets and not isinstance(targets[0], (int, float)) \
+        else [targets]
+    try:
+        qcam = qaf.Camera.from_dict({"loc": cam["loc"], "rot": cam["rot"], "focal": cam["focal"],
+                                     "sensor_width": cam["filmback"][0], "aspect": cam["filmback"][0] / cam["filmback"][1],
+                                     "name": cam.get("label", "")})
+        for lab, s in zip(labels, subs):
+            a = _find(str(lab).split(":")[0]) if isinstance(lab, str) else None
+            bones = dict(_bones_of(a)) if a is not None else {}
+            if bones:  # a skeleton: add the landmarks it lacks; a prop or stand-in is judged from its bounds alone
+                bones.update({"eyes": s["points"]["eyes"], "head_top": s["points"]["head_top"]})
+            bounds = None
+            if a is not None:
+                o, e = a.get_actor_bounds(False)
+                bounds = (_v3(o), _v3(e))
+            r = qaf.check(qcam, s["name"], bones=bones or None, bounds=bounds, facing=s["facing"],
+                          expect={"size": framing.size_key(size)} if size else None)
+            out += list(r.get("issues", []) if isinstance(r, dict) else r)
+    except Exception as e:  # their API moved: say so, keep ours
+        out.append(ck.issue("cam.qa_error", "info", f"fmbridge.qa.framing.check failed: {type(e).__name__}: {e}", "",
+                            cam.get("label", "")))
+    return out
 
 
 @op("cam.check_cut", mutates=False, idempotent=True, tags=["camera", "qa"])

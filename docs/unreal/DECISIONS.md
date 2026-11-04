@@ -40,3 +40,41 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   and masters the mix (filmtools.mix) from the same timing. MRQ's wave output stays unused.
 - **WP12: captions burn through libass** (ffmpeg `subtitles`) instead of the reel's Pillow overlays; titles are
   film-specific and stay in films/<id>/.
+- **2026-11-05 WP0: PyYAML is a direct client dependency** (tools/pyproject.toml). uv.lock already resolves pyyaml (it is a transitive dependency), but the lock was not regenerated on the fleet (no uv there): the first `uv run` on a dev machine updates it. Commit that.
+- **WP10: the QA arithmetic is pure Python in `unreal/fmbridge/qa/`** (stdlib, numpy when importable, no PIL), so
+  one implementation runs in the editor (whose Python has no numpy unless PythonFoundationPackages pip-installed it)
+  and on the client (`film-qa`, loaded standalone so `unreal` is never needed), and is unit-tested both ways.
+- **WP10: viewport-free stills default to a SceneCapture2D** (one transient `FMQA_Capture` actor, removed after each
+  op), not MRQ: ~1 s and no level save. `view.still mode=mrq` goes through WP9's `render.frames` (preset draft, PNG,
+  a private folder per still) for a final look. The capture target is RGBA8; the selftest measures RGBA8_SRGB too.
+- **WP10/WP7 split (agreed with agent-11, confirmed by the lead):** WP7 owns the lens (`camkit.lens`) and the grammar
+  between shots (180-degree line, 30-degree rule, DoF, safe areas); WP10 owns per-frame subject framing
+  (`fmbridge.qa.framing.check`: size, headroom, joint/feet/limb cuts, look room) and the review that gathers both.
+  `qa.framing.Camera` keeps its own projection (horizontal FOV kept, the engine's default); it agrees with camkit's
+  when the output aspect is the filmback's.
+- **WP10: garment penetration is measured in screen space** from two depth captures (skin alone, garments alone)
+  per view: what a viewer would see, from a shot's camera or from views around the character. Skinned vertex
+  positions are not reachable from Python, and bounds or physics capsules are too coarse for cloth.
+- **WP10: issue codes are dotted `area.snake_case`** and every check returns `{"pass", "issues", "metrics"}`
+  (CONVENTIONS §8).
+- **WP7 agent-11: camkit is a pure package at `unreal/fmbridge/camkit/`** (approved by the lead), not `ops/_x.py`:
+  the camera maths (lens, framing solver, moves, coverage, shot lists, cut checks, PNG sheets) imports nothing from
+  `unreal`, so it is unit-tested without the fake and can be imported by client tools and by WP10's QA (one
+  projection: `camkit.lens.project`).
+- **WP7: default filmback "16:9 Digital Film" (23.76 x 13.365 mm)**, the engine's own default, so "a 50 mm" means
+  what it means on a Super 35 cinema camera. `look.camera` (WP5) defaults to 16:9 DSLR (full frame): a 50 mm there
+  is a 33 mm here (`camkit.lens.equivalent_focal`).
+- **WP7: shot sizes are anchored between joints.** Each size puts the frame's top on the head (headroom per size)
+  and the bottom edge between two landmarks (MCU: 30% of the way from chest to waist), never on a joint. Sizes are
+  measured, not guessed: `framing.classify` names the nearest size of any frame.
+- **WP7: left and right.** A subject's `side` is its own left/right (the camera on its left sees its left cheek). A
+  scene's side of the line is left/right of the line from the first subject to the second, seen from above; in
+  Unreal's left-handed frame `checks.side_of_line` is negative on the left. Shot lists and coverage choose each
+  single's own side so every camera stays on the scene's side.
+- **WP7: moves are baked keys**, not camera-shake assets or rig constraints: every `step` frames (default 2) the
+  camera's transform (and focal/focus when they change) is computed in Python and keyed through WP8's ops, so a
+  move is deterministic, checkable before it is written, and handheld noise is seeded. Rails and cranes (the engine's
+  rigs) are there too (`cam.rig`, `cam.rig_move`) for a physical-looking dolly.
+- **WP7: shot.apply converges by hash.** The spec's hash and camera list are stored as asset metadata on the
+  sequence (`fm_shot_spec`, `fm_shot_cameras`); the same spec again changes nothing, a changed one rewrites the
+  cameras' tracks and the cut track, and cameras it no longer uses are removed.
