@@ -49,7 +49,7 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B33 | Bridge auth hardening + request size limits + `/op` batch endpoint (several ops in one request, one tick budget) | WP1 | S | merged (agent-07) |
 | B34 | SDK examples: 5 end-to-end scripts in `examples/unreal/` (empty level → lit set → character → camera → render 2 s) that run as tomorrow's demo | WP11 | M | merged (agent-13, examples/unreal/sdk) |
 | B35 | `GUIDE.md` for Claude: the 20 most common tasks as copy-paste recipes, with the expected JSON output of each step | WP11 | M | merged (agent-13, RECIPES.md) |
-| B36 | Fab: list/import owned Fab assets by code (Fab plugin at Engine/Plugins/Fab), or document precisely why not headless and the narrowest UI fallback | WP2 | L | review (agent-02: fab.* + FabScript C++ plugin, unproven) |
+| B36 | Fab: list/import owned Fab assets by code (Fab plugin at Engine/Plugins/Fab), or document precisely why not headless and the narrowest UI fallback | WP2 | L | merged (agent-02; FabScript build optional, Python fallback) |
 | B37 | World Partition / large level support: load/unload regions, data layers on/off by op | WP6 | M | merged (agent-05, wp.*) |
 | B38 | Physics settle: drop props with physics sim for N ticks then bake transforms (realistic resting objects), multi-tick | WP6 | M | merged (agent-10) |
 | B39 | Foliage/PCG: scatter foliage by code (InstancedFoliage / PCG graph with parameters), deterministic seed | WP5/WP6 | L | review (agent-11, ue-foliage) |
