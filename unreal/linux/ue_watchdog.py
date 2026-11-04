@@ -5,7 +5,8 @@ money when nobody is using it, and an editor from staying stuck:
   ttl      past its time-to-live (box up --ttl, box extend): power off
   idle     nothing has happened for `idle_min` minutes: power off. Something happens when the bridge was called
            recently or has jobs, the GPU is busy, the CPU is busy (a shader compile, a restore), someone is logged
-           in (ssh or an SSM session), or something touched /run/film-ue/keepalive
+           in (ssh), or something touched /run/film-ue/keepalive (film-ue box keepalive). An open tunnel alone does
+           not count
   stall    the editor answered once and then stopped answering (or its game thread stopped ticking) for
            `stall_min` minutes: restart it; more than `max_restarts` restarts in an hour: power off (a crash loop)
   dead     the editor's unit failed (systemd gave up restarting it): start it again, counted like a stall restart
@@ -133,8 +134,9 @@ def measure(cfg):
     out = _run(["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"])
     m["gpu_pct"] = max((int(x) for x in out.split() if x.strip().isdigit()), default=None)
     m["load1"] = os.getloadavg()[0]
-    m["sessions"] = len([x for x in _run(["who"]).splitlines() if x.strip()]) + \
-        len([x for x in _run(["pgrep", "-f", "ssm-session-worker"]).split() if x.strip()])
+    # logins only (ssh, a console): an SSM port-forward is also an ssm-session-worker, and the bridge's own tunnel
+    # left open must not keep an idle box alive (its calls count through the bridge's idle_s instead)
+    m["sessions"] = len([x for x in _run(["who"]).splitlines() if x.strip()])
     try:
         m["keepalive_age_s"] = now - os.path.getmtime(KEEPALIVE)
     except OSError:
