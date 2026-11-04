@@ -123,9 +123,23 @@ film-ue pull-dir REMOTE_DIR LOCAL_DIR              # a folder (S3 / rsync / copy
 | `bridge.health` | the /health answer as an op |
 | `jobs.list(state, name, limit)`, `jobs.get(id)`, `jobs.cancel(id)` | the bridge's jobs |
 
-HTTP (what the client speaks): `POST /op`, `POST /exec` (`{"async": true}` returns the job id), `GET /job?id=`,
-`GET /jobs?state=&name=&limit=`, `POST /job/cancel`, `GET /health`, `GET|PUT /file?path=`, `GET /log?lines=`;
-`/screen` and `/gui` only on a Windows desktop.
+HTTP (what the client speaks): `POST /op`, `POST /exec` (`{"async": true}` returns the job id), `POST /batch`,
+`GET /job?id=`, `GET /jobs?state=&name=&limit=`, `POST /job/cancel`, `GET /health`, `GET|PUT /file?path=`,
+`GET /log?lines=`; `/screen` and `/gui` only on a Windows desktop. Every request carries the token from
+`Saved/fmbridge.token` (compared in constant time). JSON requests are capped at 32 MB and a `PUT /file` at 4 GB
+(413 above). `/file` paths must be absolute and inside the project, the temp folder or the editor user's home:
+`FMBRIDGE_FILE_ROOTS` (os.pathsep-separated) adds roots, and anything else is 403.
+
+### Several ops in one call
+
+```python
+client.batch([("level.spawn", {"label": "Key", "asset": "/Game/M/SM_Box", "loc": [0, 0, 50]}),
+              ("look.light", {"label": "Key", "kind": "rect"})])
+# {"ok", "result": {"ok", "ran", "of", "results": [{"ok", "i", "name", "result" | "code", "message", "hint", ...}]}}
+```
+
+The ops run in order as one job (plain ops back to back in one tick, a multi-tick one across ticks before the next).
+The batch stops at the first failure unless `stop_on_error=False`, and takes at most 500 calls.
 
 ## 3. Transports and settings
 
