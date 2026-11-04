@@ -1,0 +1,21 @@
+# film-post plan examples/unreal/delivery/two-shots.yaml   (paths are relative to this file)
+kind: delivery
+version: 1
+name: two-shots
+fps: 24
+out: ../../../out/two-shots
+shots:
+  - {id: S01, start: 0, end: 72, frames: ../../../out/renders/S01}
+  - {id: S02, start: 72, end: 144, frames: ../../../out/renders/S02}
+edl: [[0, 60], [84, 144]]
+fill: slate
+audio:
+  timing: ../audio/timing.json
+  lufs: -14
+  true_peak: -1
+captions: {max_chars: 42, hold_frames: 6}
+outputs:
+  - {name: master, preset: prores4444}
+  - {name: web, preset: h264, height: 1080}
+  - {name: social, preset: h264, height: 1080, captions: burn}
+  - {name: vertical, preset: h264, aspect: "9:16", height: 1920, captions: burn, crop: {S01: [[0, 0.35]], S02: [[0, 0.6], [30, 0.4]]}}
