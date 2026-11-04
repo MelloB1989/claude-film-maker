@@ -6,7 +6,7 @@
     film-post edl SPEC                    the edit as CMX 3600 on stdout
     film-post captions SPEC               the SRT on stdout (needs audio.timing)
     film-post timing --lines L.json | --vo-json data/vo.json | --cues cues.json  [--fps 24] [-o timing.json]
-                                          an `audio` timing document (filmtools.unreal.audio_timing)
+                                          a timing document (filmtools.unreal.audio_timing)
     film-post handoff TIMING --faces faces.json [--wav-root /box/dir]
                                           per line, speech.to_face's args and where the face animation goes (WP4)
 

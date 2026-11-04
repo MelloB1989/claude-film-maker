@@ -14,7 +14,7 @@ the sound in, the deliverables out, from one declarative `delivery` spec. Genera
     fill: slate               # optional: a missing frame becomes a black slate instead of an error
     audio:                    # optional (silence otherwise)
       mix: mix.wav            # a finished mix on the sequence's clock, or build one:
-      timing: timing.json     # an `audio` timing document (audio_timing): each line at its frame
+      timing: timing.json     # a timing document (audio_timing): each line at its frame
       music: score.wav        # ducked under the voice (filmtools.mix.premix)
       lufs: -14
       true_peak: -1
