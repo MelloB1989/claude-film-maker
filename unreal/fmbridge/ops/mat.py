@@ -526,50 +526,52 @@ def describe(*, path: str) -> dict:
 @op("mat.check", mutates=False, idempotent=True, tags=["materials", "qa"])
 def check(*, path: str) -> dict:
     """Does a material render as meant: it compiles (else the engine draws its checker), and every texture it uses
-    has the compression its sampler needs (a normal map as TC_NORMALMAP, a data map as TC_MASKS and linear, a colour
-    map sRGB).
+    has the compression its sampler needs (a normal map TC_NORMALMAP, a data map TC_MASKS and linear, a colour map
+    sRGB and neither).
 
     Args: path: /Game/... of a Material or instance.
-    Returns: {"pass", "metric": number of problems, "threshold": 0, "why", "problems": [{"param", "texture",
-             "want", "got"}], "stats"}.
+    Returns: {"pass", "issues": [{"code": material.not_compiling | material.texture_kind, "severity", "message",
+             "fix", "subject", "value", "expected"}], "metrics": {"num_samplers", ..., "textures_checked"}}.
     Example: film-ue op mat.check path=/Game/Mats/MI_Rock
     """
     d = describe(path=path)
-    problems = []
+    issues = []
     if d["stats"].get("num_samplers") == -1:
-        problems.append({"param": None, "texture": None, "want": "compiles", "got": "does not compile"})
-    master_name = d.get("master")
+        issues.append({"code": "material.not_compiling", "severity": "fail", "subject": d["path"],
+                       "message": f"{d['chain'][-1]} does not compile: the engine draws its checker",
+                       "fix": f"film-ue log for the compiler error; rebuild with mat.graph/mat.master rebuild=true"})
     expect = {}
+    master_name = d.get("master")
     if master_name and master_name in LIB.MASTERS:
-        for nid, n in LIB.MASTERS[master_name]()["nodes"].items():
+        for n in LIB.MASTERS[master_name]()["nodes"].values():
             if n.get("type") == "Texture":
                 expect[n["name"]] = n.get("sampler", "color")
+    checked = 0
     for name, info in d["params"].items():
-        if info["kind"] != "texture" or not info["value"]:
-            continue
         sampler = expect.get(name)
-        if sampler is None:
+        if info["kind"] != "texture" or not info["value"] or sampler not in ("normal", "masks", "color"):
             continue
         t = load(info["value"])
         try:
             comp = str(getattr(t.get_editor_property("compression_settings"), "name",
-                               t.get_editor_property("compression_settings")))
+                               t.get_editor_property("compression_settings"))).upper()
             srgb = bool(t.get_editor_property("srgb"))
         except Exception:
             continue
-        want = {"normal": ("TC_NORMALMAP", False), "masks": ("TC_MASKS", False), "color": (None, True)}.get(sampler)
-        if want is None:
-            continue
-        if (want[0] and want[0] not in comp.upper()) or srgb != want[1] or (sampler == "color" and
-                                                                            ("NORMALMAP" in comp.upper() or
-                                                                             "MASKS" in comp.upper())):
-            problems.append({"param": name, "texture": info["value"],
-                             "want": f"{want[0] or 'colour (TC_DEFAULT/BC7)'} srgb={want[1]}",
-                             "got": f"{comp} srgb={srgb}"})
-    why = ("compiles; every texture matches its sampler" if not problems else
-           "; ".join(f"{p['param'] or 'material'}: want {p['want']}, got {p['got']}" for p in problems))
-    return {"pass": not problems, "metric": len(problems), "threshold": 0, "why": why, "problems": problems,
-            "stats": d["stats"]}
+        checked += 1
+        role = {"normal": "normal", "masks": "roughness", "color": "base_color"}[sampler]
+        want_comp, want_srgb = AL.ROLES[role][2], AL.ROLES[role][1]
+        ok_comp = want_comp in comp if sampler != "color" else ("NORMALMAP" not in comp and "MASKS" not in comp)
+        if not ok_comp or srgb != want_srgb:
+            issues.append({"code": "material.texture_kind", "severity": "fail", "subject": name,
+                           "message": f"{name} is a {sampler} sampler but {info['value']} is {comp} srgb={srgb}: "
+                                      f"the engine draws a checker or wrong values",
+                           "value": f"{comp} srgb={srgb}",
+                           "expected": f"{want_comp if sampler != 'color' else 'TC_DEFAULT'} srgb={want_srgb}",
+                           "fix": f"film-ue op assets.texture path={info['value']} role={role}, or set another "
+                                  f"texture with mat.instance"})
+    return {"pass": not any(i["severity"] == "fail" for i in issues), "issues": issues,
+            "metrics": {**d["stats"], "textures_checked": checked}}
 
 
 # ------------------------------------------------------------------------------------------------ PBR from a set

@@ -15,7 +15,7 @@ A graph spec is a dict:
      "outputs": {"BaseColor": "col", "Roughness": "rough"}}
 
 - `type`: a short name from NODE_TYPES (Scalar, Vector, Texture, Switch, Multiply, Lerp, ...) or any engine class
-  name with or without its `MaterialExpression` prefix (it is then passed through unchecked).
+  by its full name (`MaterialExpressionSine`), passed through (pins unchecked).
 - `in`: input pin -> source. A source is "node" (its first output), "node.Output" (a named output: RGB, R, G, B, A
   of a texture), a number, or a list of 2-4 numbers (a constant node is made).
 - other keys are the expression's editor properties (snake_case), with short names for the common ones
@@ -146,11 +146,10 @@ def node_class(t: str) -> str:
     """'Multiply' / 'MaterialExpressionMultiply' / 'TextureSampleParameter2D' -> 'MaterialExpressionMultiply'."""
     if t in NODE_TYPES:
         return NODE_TYPES[t]
-    if t.startswith("MaterialExpression"):
-        return t
-    if t and t[0].isupper() and t.isidentifier() and t not in ("Material",):
-        return "MaterialExpression" + t
-    raise GraphError(f"unknown node type {t!r}", _near(t, NODE_TYPES))
+    if t.startswith("MaterialExpression") and t.isidentifier():
+        return t  # any engine expression class, unchecked here (the bridge checks it exists)
+    raise GraphError(f"unknown node type {t!r} (a short name, or a full MaterialExpression... class name)",
+                     _near(t, NODE_TYPES))
 
 
 def _src(ref, where: str, nodes: dict):
