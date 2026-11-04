@@ -4,7 +4,9 @@ box's `os` setting.
 
 Settings live in ~/.config/film-ue.json: {"region", "instance", "os", "project_dir", "port", "key", "bucket"} (key: the
 RSA key pair that decrypts a Windows box's Administrator password; bucket: an S3 bucket for big folders both ways).
-Linux boxes also take {"user": the account the editor runs as, "service": its systemd unit}. Several boxes: set
+Linux boxes also take {"user": the account the editor runs as, "service": its systemd unit} and may be reached over
+ssh instead of SSM: {"transport": "ssh", "ssh": "ubuntu@<host>", "ssh_key": <path>} (commands over ssh, the bridge
+through `ssh -L`, folders by rsync; for a box someone else starts and stops). Several boxes: set
 FILM_UE_BOX=<name> (or `film-ue --box <name>`) and they live in film-ue.<name>.json, each with its own token and
 tunnel (give each its own `local_port`). Nothing secret is stored there; the bridge token is cached beside it.
 """
@@ -14,6 +16,7 @@ import base64
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import time
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -21,7 +24,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 CONF_DIR = Path.home() / ".config"
 DEFAULTS = {"region": "ap-south-1", "instance": "", "os": "windows", "project_dir": r"C:\UEProjects\HostStudio",
             "port": 18765, "key": str(Path.home() / ".ssh" / "ue-workstation.pem")}
-LINUX_DEFAULTS = {"project_dir": "", "user": "ubuntu", "service": "ue-editor"}
+LINUX_DEFAULTS = {"project_dir": "", "user": "ubuntu", "service": "ue-editor", "transport": "ssm"}
 
 
 def box() -> str:
@@ -56,6 +59,48 @@ def linux() -> bool:
     return conf()["os"] == "linux"
 
 
+def over_ssh() -> bool:
+    return conf().get("transport") == "ssh"
+
+
+def _ssh_base() -> list:
+    c = conf()
+    if not c.get("ssh"):
+        raise SystemExit("no ssh target set: film-ue set --transport ssh --ssh ubuntu@<host> --ssh-key <path>")
+    opts = ["-o", "StrictHostKeyChecking=accept-new", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=30",
+            "-o", "ConnectTimeout=20"]
+    return ["ssh", *(["-i", c["ssh_key"]] if c.get("ssh_key") else []), *opts]
+
+
+def _ssh(script: str, timeout: int) -> str:
+    """bash as root on the box over ssh (the login user has passwordless sudo), the script on stdin."""
+    try:
+        r = subprocess.run([*_ssh_base(), conf()["ssh"], "sudo", "bash", "-s"], input=script, capture_output=True,
+                           text=True, timeout=timeout + 30)
+    except subprocess.TimeoutExpired:
+        raise SystemExit("workstation command timed out")
+    if r.returncode:
+        raise SystemExit(f"workstation command failed ({r.returncode}): {(r.stderr or r.stdout)[-800:]}")
+    return r.stdout
+
+
+def forward(remote_port: int, local_port: int, log_path: Path | None = None) -> subprocess.Popen:
+    """A local port forwarded to the box's 127.0.0.1:remote_port (no inbound port on the box): ssh -L or SSM."""
+    c = conf()
+    out = open(log_path, "w") if log_path else subprocess.DEVNULL
+    if over_ssh():
+        cmd = [*_ssh_base(), "-N", "-o", "ExitOnForwardFailure=yes", "-L", f"127.0.0.1:{local_port}:127.0.0.1:{remote_port}",
+               c["ssh"]]
+    else:
+        if not shutil.which("session-manager-plugin"):
+            raise SystemExit("the AWS Session Manager plugin is needed: https://docs.aws.amazon.com/systems-manager/latest/"
+                             "userguide/session-manager-working-with-install-plugin.html")
+        cmd = ["aws", "ssm", "start-session", "--region", c["region"], "--target", c["instance"],
+               "--document-name", "AWS-StartPortForwardingSession", "--parameters",
+               json.dumps({"portNumber": [str(remote_port)], "localPortNumber": [str(local_port)]})]
+    return subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+
+
 def rjoin(*parts: str) -> str:
     """A path on the workstation, joined in its own style."""
     return str((PurePosixPath if linux() else PureWindowsPath)(*parts))
@@ -88,6 +133,8 @@ def instance() -> dict:
 
 
 def state() -> dict:
+    if over_ssh():
+        return {"ssh": conf()["ssh"], "os": conf()["os"], "uptime": _ssh("uptime", 60).strip()}
     i = instance()
     return {"id": i["InstanceId"], "type": i["InstanceType"], "state": i["State"]["Name"], "ip": i.get("PublicIpAddress"),
             "os": conf()["os"], "launched": i["LaunchTime"]}
@@ -103,6 +150,8 @@ def wait_ssm(tries: int = 60) -> bool:
 
 
 def start(wait: bool = True) -> dict:
+    if over_ssh():
+        return state()  # a box reached over ssh is started and stopped by whoever owns it
     aws("ec2", "start-instances", "--instance-ids", conf()["instance"])
     if wait:
         aws("ec2", "wait", "instance-running", "--instance-ids", conf()["instance"])
@@ -111,6 +160,8 @@ def start(wait: bool = True) -> dict:
 
 
 def stop(wait: bool = False) -> dict:
+    if over_ssh():
+        return state()
     aws("ec2", "stop-instances", "--instance-ids", conf()["instance"])
     if wait:
         aws("ec2", "wait", "instance-stopped", "--instance-ids", conf()["instance"])
@@ -153,6 +204,8 @@ def sh(script: str, timeout: int = 600, root: bool = False) -> str:
     the editor's), or as root (`root=True`: packages, systemd)."""
     if not root:
         script = f"runuser -u {shlex.quote(conf()['user'])} -- bash -c {shlex.quote(script)}"
+    if over_ssh():
+        return _ssh("set -e\n" + script, timeout)
     return _ssm("AWS-RunShellScript", "set -e\n" + script, timeout)
 
 
@@ -199,9 +252,19 @@ def _bucket() -> str:
     return b
 
 
+def _rsync(src: str, dst: str) -> None:
+    c = conf()
+    ssh = " ".join(shlex.quote(x) for x in _ssh_base())
+    subprocess.run(["rsync", "-a", "--mkpath", "-e", ssh, f"--rsync-path=sudo -u {c['user']} rsync", src, dst], check=True)
+
+
 def push_dir(local_dir: str, remote_dir: str) -> int:
     """Send a whole folder (textures, meshes) to the workstation through S3, far faster than the tunnel: this machine
-    syncs it up, the workstation downloads it into `remote_dir`, the bucket copy is deleted. Returns files sent."""
+    syncs it up, the workstation downloads it into `remote_dir`, the bucket copy is deleted (over ssh: rsync).
+    Returns files sent."""
+    if over_ssh():
+        _rsync(local_dir.rstrip("/") + "/", f"{conf()['ssh']}:{remote_dir.rstrip('/')}/")
+        return sum(1 for f in Path(local_dir).rglob("*") if f.is_file())
     c, bucket = conf(), _bucket()
     prefix = "film-ue/up-" + Path(local_dir).name + f"-{int(time.time())}"
     s3 = f"s3://{bucket}/{prefix}"
@@ -219,7 +282,12 @@ def push_dir(local_dir: str, remote_dir: str) -> int:
 
 def pull_dir(remote_dir: str, local_dir: str) -> int:
     """Bring a whole folder back (a render's frames) through S3, far faster than the tunnel: the workstation uploads
-    it to the bucket in settings (`bucket`), this machine syncs it down, the bucket copy is deleted. Returns files."""
+    it to the bucket in settings (`bucket`), this machine syncs it down, the bucket copy is deleted (over ssh: rsync).
+    Returns files."""
+    if over_ssh():
+        Path(local_dir).mkdir(parents=True, exist_ok=True)
+        _rsync(f"{conf()['ssh']}:{remote_dir.rstrip('/')}/", local_dir.rstrip("/") + "/")
+        return sum(1 for _ in Path(local_dir).iterdir())
     c, bucket = conf(), _bucket()
     prefix = "film-ue/" + Path(remote_dir.replace("\\", "/")).name + f"-{int(time.time())}"
     s3 = f"s3://{bucket}/{prefix}"

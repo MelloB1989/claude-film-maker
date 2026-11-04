@@ -30,19 +30,12 @@ def _port_open(port: int) -> bool:
 
 
 def tunnel(local: int | None = None) -> int:
-    """Start (or reuse) the SSM port-forward to the bridge; returns the local port."""
+    """Start (or reuse) the port-forward to the bridge (SSM, or ssh -L); returns the local port."""
     c = ws.conf()
     local = local or c["local_port"]
     if _port_open(local):
         return local
-    if not shutil.which("session-manager-plugin"):
-        raise SystemExit("the AWS Session Manager plugin is needed: https://docs.aws.amazon.com/systems-manager/latest/"
-                         "userguide/session-manager-working-with-install-plugin.html")
-    log = open(ws.state_path("tunnel.log"), "w")
-    p = subprocess.Popen(["aws", "ssm", "start-session", "--region", c["region"], "--target", c["instance"],
-                          "--document-name", "AWS-StartPortForwardingSession", "--parameters",
-                          json.dumps({"portNumber": [str(c["port"])], "localPortNumber": [str(local)]})],
-                         stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    p = ws.forward(c["port"], local, ws.state_path("tunnel.log"))
     _tunnel_file().write_text(json.dumps({"pid": p.pid, "port": local}))
     for _ in range(60):
         if _port_open(local):

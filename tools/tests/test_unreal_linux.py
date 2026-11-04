@@ -123,3 +123,20 @@ def test_bridge_package_does_not_import_gui_at_load():
     assert "import gui" not in src.replace("fmbridge.gui", "")
     server = (ROOT / "unreal" / "fmbridge" / "server.py").read_text()
     assert "from . import gui\n" not in server.replace("        from . import gui\n        return gui", "")
+
+
+def test_ssh_transport_runs_bash_as_root_with_the_script_on_stdin(home, monkeypatch):
+    import subprocess
+    calls = []
+
+    class R:
+        returncode, stdout, stderr = 0, "ok\n", ""
+
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: calls.append((cmd, kw)) or R())
+    monkeypatch.setenv("FILM_UE_BOX", "fleet")
+    ws.save(os="linux", transport="ssh", ssh="ubuntu@192.0.2.10", ssh_key="/tmp/k", project_dir="/srv/ue/projects/Demo")
+    assert ws.sh("ls", 60) == "ok\n"
+    cmd, kw = calls[0]
+    assert cmd[0] == "ssh" and cmd[-4:] == ["ubuntu@192.0.2.10", "sudo", "bash", "-s"] and "-i" in cmd
+    assert kw["input"].startswith("set -e\nrunuser -u ubuntu -- bash -c ls")
+    assert ws.start()["ssh"] == "ubuntu@192.0.2.10"  # never starts or stops a box it does not own

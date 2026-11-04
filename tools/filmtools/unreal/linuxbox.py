@@ -31,6 +31,19 @@ def step(name: str, *args: str, timeout: int = 1800) -> str:
 
 
 def reboot() -> None:
+    if ws.over_ssh():
+        try:
+            ws.sh("systemctl reboot", 60, root=True)
+        except SystemExit:
+            pass  # the connection drops as it goes down
+        time.sleep(45)
+        for _ in range(60):
+            try:
+                ws.sh("true", 30, root=True)
+                return
+            except SystemExit:
+                time.sleep(10)
+        raise SystemExit("the box did not come back on ssh after the reboot")
     ws.aws("ec2", "reboot-instances", "--instance-ids", ws.conf()["instance"])
     time.sleep(45)  # the agent still answers for a moment while the box goes down
     if not ws.wait_ssm(120):
@@ -73,11 +86,10 @@ def provision(engine_s3: str, version: str, project_src: str, project_name: str,
 
 def desktop(on: bool, local_port: int = 5901) -> str:
     """The temporary desktop for one interactive step (a sign-in): on = Xorg on the GPU + VNC on the box's 127.0.0.1
-    + the editor restarted onto it, and an SSM port-forward to it here; off = all of that gone, the editor offscreen."""
+    + the editor restarted onto it, and a port-forward to it here (SSM or ssh); off = all of that gone, the editor offscreen."""
     import json
     import os
     import signal
-    import subprocess
     fwd = ws.state_path("vnc.json")
     if not on:
         if fwd.exists():
@@ -91,11 +103,7 @@ def desktop(on: bool, local_port: int = 5901) -> str:
     upload_kit()
     out = step("desktop", "on", timeout=1800)
     pw = next((line.split("=", 1)[1] for line in out.splitlines() if line.startswith("vnc_password=")), "")
-    c = ws.conf()
-    p = subprocess.Popen(["aws", "ssm", "start-session", "--region", c["region"], "--target", c["instance"],
-                          "--document-name", "AWS-StartPortForwardingSession", "--parameters",
-                          json.dumps({"portNumber": ["5900"], "localPortNumber": [str(local_port)]})],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    p = ws.forward(5900, local_port)
     fwd.write_text(json.dumps({"pid": p.pid, "port": local_port}))
     return (f"desktop on. Open vnc://localhost:{local_port} (macOS: Finder > Go > Connect to Server), "
             f"password {pw}. When done: film-ue desktop off")

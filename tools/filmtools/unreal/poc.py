@@ -227,7 +227,7 @@ def poc4(a, tag: str = "") -> dict:
         except (RuntimeError, SystemExit) as e:
             r[executor] = {"error": str(e)[-800:]}
     if a.ref:
-        ws.pull_dir(a.ref, str(out / "ref"))
+        _fetch_ref(a, out / "ref")
         for executor in ("pie", "process"):
             if (out / executor).exists():
                 r[f"{executor}_vs_ref"] = compare(out / executor, out / "ref")
@@ -235,6 +235,18 @@ def poc4(a, tag: str = "") -> dict:
     pie = r.get("pie", {})
     r["pass"] = bool(pie.get("frames")) and pie.get("frames") >= pie.get("expected", 1)
     return r
+
+
+def _fetch_ref(a, dest: Path) -> None:
+    """The reference frames for --range: from an s3:// prefix (only those frames, synced here) or a folder on the box."""
+    import subprocess
+    start, end = (int(x) for x in a.range.split(":"))
+    if a.ref.startswith("s3://"):
+        inc = [x for f in range(start, end) for x in ("--include", f"{f:04d}.png")]
+        subprocess.run(["aws", "s3", "sync", "--only-show-errors", a.ref.rstrip("/") + "/", str(dest), "--exclude", "*",
+                        *inc, "--region", ws.conf()["region"]], check=True)
+    else:
+        ws.pull_dir(a.ref, str(dest))
 
 
 def poc5(a) -> dict:
@@ -326,7 +338,7 @@ def main(argv: list) -> None:
     ap.add_argument("--height", type=int, default=1080)
     ap.add_argument("--temporal", type=int, default=8)
     ap.add_argument("--cvars", default="", help='poc 4: JSON, e.g. \'{"r.HairStrands.SkyLighting": 0}\'')
-    ap.add_argument("--ref", default="", help="poc 4: a folder of reference frames on the box (same names)")
+    ap.add_argument("--ref", default="", help="poc 4: reference frames (same names): s3://prefix or a folder on the box")
     ap.add_argument("--render-timeout", type=float, default=120, help="poc 4: minutes")
     ap.add_argument("--wav", default="")
     ap.add_argument("--face-mesh", default="")

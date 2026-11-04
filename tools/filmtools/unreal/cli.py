@@ -2,7 +2,7 @@
 
     film-ue [--box NAME] ...                    one of several workstations (settings in film-ue.NAME.json)
     film-ue set --instance i-... [--region ap-south-1] [--os windows|linux] [--project-dir DIR] [--bucket B]
-                [--user ubuntu] [--local-port N]
+                [--user ubuntu] [--local-port N] [--transport ssm|ssh --ssh ubuntu@HOST --ssh-key PATH]
     film-ue up | down | status | password       the workstation (password: Windows only, to the clipboard)
     film-ue provision --engine-s3 S3 --version 5.8.4 --project-src s3://...|win:UEProjects/NAME --project NAME
                       [--level /Game/...]
@@ -170,7 +170,8 @@ def wait_bridge(seconds: int = 900) -> dict:
     raise SystemExit(f"the bridge did not answer in {seconds}s: film-ue editor status / film-ue editor log")
 
 
-SETTINGS = ("instance", "region", "os", "project_dir", "key", "bucket", "user", "service", "local_port")
+SETTINGS = ("instance", "region", "os", "project_dir", "key", "bucket", "user", "service", "local_port", "transport",
+            "ssh", "ssh_key")
 
 
 def main() -> None:
@@ -180,7 +181,7 @@ def main() -> None:
     s = sub.add_parser("set")
     for k in SETTINGS:
         s.add_argument("--" + k.replace("_", "-"), type=int if k == "local_port" else str,
-                       choices=("windows", "linux") if k == "os" else None)
+                       choices={"os": ("windows", "linux"), "transport": ("ssm", "ssh")}.get(k))
     u = sub.add_parser("up")
     u.add_argument("--no-wait", action="store_true", help="Linux: do not wait for the bridge")
     for n in ("down", "status", "password", "install", "health", "tunnel", "close"):
