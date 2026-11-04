@@ -31,8 +31,8 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B15 | Material library: a small set of master materials (opaque PBR, masked foliage, glass, emissive screen, decal) created by code with documented parameters; `mat.instance` converges an MI from a dict of params | WP2/WP5 | L | claimed agent-02 |
 | B16 | HDRI/sky environment presets: `env.preset` (studio, overcast, golden hour, night interior) building sky/sun/fog/post consistently; numbers in lux/EV documented | WP5 | M | open |
 | B17 | Light rigs: `light.rig` three-point/key-fill-rim around a target actor at distances and angles relative to a camera, with lighting channels | WP5/WP7 | M | open |
-| B18 | Camera from description: `cam.frame` "medium close-up of Host from 30° left at eye level" → placement, focal length, focus; inverse `cam.describe` in the same words | WP7 | L | open |
-| B19 | Camera moves: dolly/truck/crane/orbit/push-in as parametric keyframe generators (ease curves), written in one batched call | WP7/WP8 | M | open |
+| B18 | Camera from description: `cam.frame` "medium close-up of Host from 30° left at eye level" → placement, focal length, focus; inverse `cam.describe` in the same words | WP7 | L | claimed agent-11 |
+| B19 | Camera moves: dolly/truck/crane/orbit/push-in as parametric keyframe generators (ease curves), written in one batched call | WP7/WP8 | M | claimed agent-11 (moves merged; batched write waits on WP8 seq.apply) |
 | B20 | Shot list → sequence: a `shotlist` spec (shots with camera, duration_s, subject, action) building subsequences/camera cuts in one apply | WP8 | L | open |
 | B21 | Timecode utilities: frames↔seconds↔SMPTE at any rate (23.976, 29.97 drop-frame), shared by client and bridge (pure module) | WP8 | S | open |
 | B22 | Retime/conform: change a sequence's display rate or stretch a section, keeping keys and audio aligned | WP8 | M | open |
