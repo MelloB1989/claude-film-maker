@@ -26,6 +26,15 @@ class _Channel(core.Object):
     def __init__(self, name=None, outer=None, **props):
         super().__init__(name, outer, **props)
         object.__setattr__(self, "_default", None)
+        object.__setattr__(self, "_keys", [])
+
+    def add_key(self, time, new_value, sub_frame=0.0, time_unit=None, interpolation=None):
+        k = _Key(time, float(new_value))
+        self._keys.append(k)
+        return k
+
+    def get_keys(self):
+        return sorted(self._keys, key=lambda k: k._time.value)
 
     def get_name(self):
         return self._name
@@ -38,6 +47,17 @@ class _Channel(core.Object):
 
     def has_default(self):
         return self._default is not None
+
+
+class _Key:
+    def __init__(self, time, value):
+        self._time, self._value = time, value
+
+    def get_time(self, time_unit=None):
+        return core.FrameTime(self._time)
+
+    def get_value(self):
+        return self._value
 
 
 class MovieSceneAudioSection(core.Object):

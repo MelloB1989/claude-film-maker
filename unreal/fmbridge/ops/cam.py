@@ -11,7 +11,6 @@ chest, waist, knees, feet; any other actor is framed from its bounds), or a poin
 """
 from __future__ import annotations
 
-import os
 
 import unreal
 
@@ -19,11 +18,11 @@ from . import call, op
 from ..camkit import checks as ck
 from ..camkit import coverage as cov
 from ..camkit import framing, geo, lens, moves
-from ..camkit import png
+from ..camkit import png, words
 from ..errors import OpError, not_found
-from .level import actor, rot, vec
+from ._util import eas, find_actor, rot, vec
 
-EAS = lambda: unreal.get_editor_subsystem(unreal.EditorActorSubsystem)  # noqa: E731
+EAS = eas
 MANUAL, TRACKING, DISABLE = "MANUAL", "TRACKING", "DISABLE"
 
 
@@ -38,10 +37,7 @@ def _labels(cls=None) -> list:
 
 
 def _find(label: str):
-    for a in EAS().get_all_level_actors():
-        if a.get_actor_label() == label:
-            return a
-    return None
+    return find_actor(label)
 
 
 def _cine(label: str):
@@ -355,6 +351,16 @@ def _point(target, offset=None) -> list:
         raise not_found("actor or bone", t, _labels(), hint=str(e)) from None
 
 
+@op("cam.point", mutates=False, idempotent=True, tags=["camera"])
+def point(*, target, offset=None) -> dict:
+    """Where a target is now, in world cm: a point, an actor label (its location; with `offset` in its own frame),
+    "Label:Component:bone", "eyes:Label" (between its eyes), or a camera's label (its lens).
+
+    Example: film-ue op cam.point target=eyes:Presenter
+    """
+    return {"target": target, "point": [round(v, 3) for v in _point(target, offset)]}
+
+
 @op("cam.set", mutates=True, idempotent=True, tags=["camera"])
 def set_(*, label: str, focal_mm: float | None = None, aperture: float | None = None, sensor_mm=None,
          filmback: str | None = None, lens_preset: str | None = None, near_clip_cm: float | None = None,
@@ -421,15 +427,49 @@ def focus(*, label: str, mode: str = "manual", distance_cm: float | None = None,
 
 
 @op("cam.describe", mutates=False, idempotent=True, tags=["camera"])
-def describe(*, label: str = "") -> dict:
+def describe(*, label: str = "", subjects=None) -> dict:
     """Every cine camera in the level (or one): location, rotation, focal, aperture, filmback, focus, fields of view,
-    the rig it hangs on.
+    the rig it hangs on; with `subjects`, also each camera's shot in words ("MCU of Host from 3/4 left (41 deg), eye
+    level, 50 mm f/2.8, right third"), which cam.shoot reads back.
 
-    Example: film-ue op cam.describe label=CAM_A
+    Example: film-ue op cam.describe label=CAM_A subjects=Host
     """
-    if label:
-        return {"cameras": [read(label)]}
-    return {"cameras": [read(l) for l in _labels(unreal.CineCameraActor)]}
+    cams = [read(label)] if label else [read(l) for l in _labels(unreal.CineCameraActor)]
+    if subjects:
+        subs = _subjects(subjects)
+        for c in cams:
+            c["words"] = words.describe(c, subs)
+    return {"cameras": cams}
+
+
+@op("cam.shoot", mutates=True, idempotent=True, tags=["camera"])
+def shoot(*, camera: str, text: str, apply: bool = True) -> dict:
+    """Frame a camera from a sentence of shot grammar: "medium close-up of Host from 30 deg left at eye level, 50mm",
+    "two-shot of Host and Guest, low angle, 35mm", "CU of Guest from 3/4 right, 2 m away" (the focal length solved).
+    The subjects are the level's actor labels found in the text. Words it does not understand are returned in
+    `unparsed` (nothing is guessed); the vocabulary is in docs/unreal/camera.md.
+
+    Returns: cam.frame's result plus {"parsed": the arguments it read, "words": the camera described back}.
+    Example: film-ue op cam.shoot camera=CAM_A text='MCU of Host from 3/4 left, eye level, 50mm'
+    """
+    names = _labels()
+    p = words.parse(text, names)
+    if not p.get("subjects"):
+        raise OpError(f"no subject named in {text!r}", code="bad_args", hint="name an actor label (level.find)",
+                      candidates=sorted(n for n in names if not n.startswith(("CAM_", "Cine")))[:12])
+    a = words.solver_args(p)
+    kw = {"camera": camera, "subjects": p["subjects"], "size": a.get("size", "MS" if len(p["subjects"]) > 1 else "MCU"),
+          "angle": a.get("angle", 0.0), "side": a.get("side", "left"), "height": a.get("height", "eye"),
+          "place": a.get("place", "auto"), "dutch_deg": a.get("dutch", 0.0), "apply": apply}
+    if "distance" in a:
+        kw.update(distance_cm=a["distance"], focal_mm=a.get("focal"))
+    elif "focal" in a:
+        kw["focal_mm"] = a["focal"]
+    if "aperture" in a:
+        kw["aperture"] = a["aperture"]
+    r = frame(**kw)
+    cam = r.get("camera") or {**r["plan"], "aperture": a.get("aperture", 2.8)}
+    return {**r, "parsed": p, "words": words.describe(cam, _subjects(p["subjects"]))}
 
 
 @op("cam.remove", mutates=True, idempotent=True, tags=["camera"])
@@ -540,19 +580,42 @@ def check(*, camera: str, subjects, size: str | None = None, others=None) -> dic
     cam = read(camera)
     subs = _subjects(subjects)
     issues = ck.frame(cam, subs, _subjects(others), camera=camera)
-    try:
-        from ..qa import framing as qaf  # WP10's per-frame framing checks
-        for s in subs:
-            got = qaf.check(cam, s, expect=size) if hasattr(qaf, "check") else []
-            issues += list(got.get("issues", got) if isinstance(got, dict) else got)
-    except ImportError:
-        issues.append(ck.issue("qa_missing", "info", "per-frame framing checks (fmbridge.qa) are not installed",
-                               "merge WP10", camera))
-    except Exception as e:  # their API moved: say so, keep ours
-        issues.append(ck.issue("qa_error", "info", f"fmbridge.qa.framing.check failed: {e}", "", camera))
+    issues += _qa_issues(cam, subjects, subs, size)
     metrics = {"size": {s["name"]: framing.classify(cam, s) for s in subs}, "focus_cm": cam.get("focus"),
                "hfov_deg": cam["hfov_deg"]}
     return {"pass": ck.worst(issues) != "fail", "issues": issues, "metrics": metrics}
+
+
+def _qa_issues(cam: dict, targets, subs: list, size) -> list:
+    """WP10's per-frame framing checks (fmbridge.qa.framing.check) on each subject, when that package is there."""
+    try:
+        from ..qa import framing as qaf
+    except ImportError:
+        return [ck.issue("cam.qa_missing", "info", "per-frame framing checks (fmbridge.qa) are not installed",
+                         "merge WP10's branch", cam.get("label", ""))]
+    out = []
+    labels = targets if isinstance(targets, (list, tuple)) and targets and not isinstance(targets[0], (int, float)) \
+        else [targets]
+    try:
+        qcam = qaf.Camera.from_dict({"loc": cam["loc"], "rot": cam["rot"], "focal": cam["focal"],
+                                     "sensor_width": cam["filmback"][0], "aspect": cam["filmback"][0] / cam["filmback"][1],
+                                     "name": cam.get("label", "")})
+        for lab, s in zip(labels, subs):
+            a = _find(str(lab).split(":")[0]) if isinstance(lab, str) else None
+            bones = dict(_bones_of(a)) if a is not None else {}
+            if bones:  # a skeleton: add the landmarks it lacks; a prop or stand-in is judged from its bounds alone
+                bones.update({"eyes": s["points"]["eyes"], "head_top": s["points"]["head_top"]})
+            bounds = None
+            if a is not None:
+                o, e = a.get_actor_bounds(False)
+                bounds = (_v3(o), _v3(e))
+            r = qaf.check(qcam, s["name"], bones=bones or None, bounds=bounds, facing=s["facing"],
+                          expect={"size": framing.size_key(size)} if size else None)
+            out += list(r.get("issues", []) if isinstance(r, dict) else r)
+    except Exception as e:  # their API moved: say so, keep ours
+        out.append(ck.issue("cam.qa_error", "info", f"fmbridge.qa.framing.check failed: {type(e).__name__}: {e}", "",
+                            cam.get("label", "")))
+    return out
 
 
 @op("cam.check_cut", mutates=False, idempotent=True, tags=["camera", "qa"])
@@ -603,23 +666,64 @@ def _seq(name: str, **args):
     return call(name, **args)
 
 
-def write_keys(sequence: str, label: str, keys: list) -> dict:
-    """Baked camera keys onto a camera's tracks in a sequence: its transform, and the focal length and manual focus
-    distance when they change (each replaces only its own track)."""
-    sk = moves.sequencer_keys(keys)
-    _seq("seq.key_transform", path=sequence, label=label, keys=sk["transform"], interp="auto")
-    n = {"transform": len(sk["transform"])}
-    if len(sk["focal"]) > 1:
-        _seq("seq.key_float", path=sequence, label=label, prop="CurrentFocalLength", keys=sk["focal"],
-             component="CineCameraComponent")
-        n["focal"] = len(sk["focal"])
-    if sk["focus"]:
-        _set_focus(_cine(label), MANUAL, sk["focus"][0][1])
+FOCAL_PROP = "CameraComponent/CurrentFocalLength"
+FOCUS_PROP = "CameraComponent/FocusSettings.ManualFocusDistance"
+
+
+def seq_doc(sequence: str, cameras: dict, cuts=None, fps=None, rng=None) -> dict:
+    """WP8's sequence spec for camera keys: {label: baked keys} as transform tracks (and focal/focus props when they
+    change), plus the camera cuts. Pure: what one seq.apply call converges."""
+    doc = {"kind": "sequence", "version": 1, "name": sequence.rsplit("/", 1)[-1], "sequence": sequence,
+           "bindings": {}}
+    if fps is not None:
+        doc["fps"] = fps
+    if rng is not None:
+        doc["range"] = list(rng)
+    for label, keys in cameras.items():
+        sk = moves.sequencer_keys(keys)
+        b = {"transform": {"interp": "auto", "keys": sk["transform"]}}
+        props = {}
+        if len(sk["focal"]) > 1:
+            props[FOCAL_PROP] = sk["focal"]
+        if len(sk["focus"]) > 1:
+            props[FOCUS_PROP] = sk["focus"]
+        if props:
+            b["props"] = props
+        doc["bindings"][label] = b
+    if cuts:
+        doc["camera_cuts"] = [list(c) for c in cuts]
+    return doc
+
+
+def write_tracks(sequence: str, cameras: dict, cuts=None, fps=None, rng=None):
+    """Write cameras' baked keys (and the cuts) into a sequence: one batched seq.apply when WP8's core is installed,
+    else the per-track ops (seq.key_transform / seq.key_float / seq.camera_cuts). A multi-tick job: `yield from`.
+    Each camera's first focus key also sets its manual focus (Sequencer keys it only when it changes)."""
+    from . import _OPS
+    for label, keys in cameras.items():
+        sk = moves.sequencer_keys(keys)
+        if sk["focus"]:
+            _set_focus(_cine(label), MANUAL, sk["focus"][0][1])
+    if "seq.apply" in _OPS:
+        res = yield from _seq("seq.apply", spec=seq_doc(sequence, cameras, cuts, fps, rng))
+        return {"batched": True, "converged": res.get("converged"), "steps": len(res.get("steps", []))}
+    n = {}
+    for label, keys in cameras.items():
+        sk = moves.sequencer_keys(keys)
+        _seq("seq.key_transform", path=sequence, label=label, keys=sk["transform"], interp="auto")
+        n[label] = {"transform": len(sk["transform"])}
+        if len(sk["focal"]) > 1:
+            _seq("seq.key_float", path=sequence, label=label, prop="CurrentFocalLength", keys=sk["focal"],
+                 component="CineCameraComponent")
+            n[label]["focal"] = len(sk["focal"])
         if len(sk["focus"]) > 1:
             _seq("seq.key_float", path=sequence, label=label, prop="FocusSettings.ManualFocusDistance",
                  keys=sk["focus"], component="CineCameraComponent")
-            n["focus"] = len(sk["focus"])
-    return n
+            n[label]["focus"] = len(sk["focus"])
+    if cuts:
+        _seq("seq.camera_cuts", path=sequence, cuts=[list(c) for c in cuts])
+    yield
+    return {"batched": False, "keys": n}
 
 
 @op("cam.move", mutates=True, idempotent=True, tags=["camera", "sequencer"])
@@ -634,7 +738,8 @@ def move(*, camera: str, sequence: str, moves_: list, start_frame: int = 0, end_
     actor label, "Label:Component:bone", "eyes:Label"). focus_on: the same, baked as a follow-focus. noise: "subtle"
     | "handheld" | "documentary" | "breathing" | "shake" or {"preset", "seed", "scale", "pos", "rot", "hz"}.
     step: frames between baked keys. end_frame: hold the last pose to there.
-    Returns: {"keys": n, "segments", "first", "last", "changed": true}.
+    A multi-tick job (the keys go in one batched seq.apply when WP8's core is there).
+    Returns: {"keys": {"transform", "focal", "focus"}, "segments", "first", "last", "write", "changed": true}.
     Example: film-ue op cam.move camera=CAM_A sequence=/Game/Seq/S1 'moves_=[{"move":"push_in","fraction":0.2,"frames":72}]' aim=eyes:Presenter
     """
     cam = read(camera)
@@ -650,9 +755,12 @@ def move(*, camera: str, sequence: str, moves_: list, start_frame: int = 0, end_
                            focus_on=_point(focus_on) if focus_on is not None else None, noise=noise)
     except ValueError as e:
         raise OpError(str(e), code="bad_args", hint="cam.presets lists the moves") from None
-    n = write_keys(sequence, camera, baked["keys"])
+    w = yield from write_tracks(sequence, {camera: baked["keys"]})
+    sk = moves.sequencer_keys(baked["keys"])
+    n = {"transform": len(sk["transform"]), "focal": len(sk["focal"]) if len(sk["focal"]) > 1 else 0,
+         "focus": len(sk["focus"]) if len(sk["focus"]) > 1 else 0}
     k0, k1 = baked["keys"][0], baked["keys"][-1]
-    return {"keys": n, "segments": baked["segments"], "first": k0, "last": k1, "changed": True}
+    return {"keys": n, "segments": baked["segments"], "first": k0, "last": k1, "write": w, "changed": True}
 
 
 # --- rigs -------------------------------------------------------------------------------------------------------

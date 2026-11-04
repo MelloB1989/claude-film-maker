@@ -1,0 +1,8 @@
+# A quick look at two shots: half HD, one sample, JPG. Seconds per shot.
+kind: render
+version: 1
+name: s15_s16_preview
+sequence: /Game/Reel/SEQ_Reel
+out_dir: /srv/ue/renders/preview
+preset: preview
+shots: [Reel_S15, Reel_S16]

@@ -93,14 +93,15 @@ def frames(a_metrics: dict, b_metrics: dict, cmp: dict | None = None, name: str 
     out = []
     ea, eb = a_metrics["exposure"], b_metrics["exposure"]
     js = eb["stops"] - ea["stops"]
-    if abs(js) > max_stop_jump:
-        out.append(issue("continuity.exposure_jump", "warn", f"{name} exposure jumps {js:+.2f} stops",
+    if abs(js) > max_stop_jump:  # some change across a cut is normal (new angle, new background): over 1 stop, look
+        out.append(issue("continuity.exposure_jump", "warn" if abs(js) > 2 * max_stop_jump else "info",
+                         f"{name} exposure jumps {js:+.2f} stops",
                          "match the lights/exposure between the shots", value=round(js, 2)))
     ca, cb = a_metrics["color"], b_metrics["color"]
     if min(ca["hue_strength"], cb["hue_strength"]) > 0.05:
         dh = _ang(ca["hue"], cb["hue"])
         if dh > max_hue_jump:
-            out.append(issue("continuity.hue_jump", "warn", f"{name} overall hue moves {dh:.0f} degrees "
+            out.append(issue("continuity.hue_jump", "info", f"{name} overall hue moves {dh:.0f} degrees "
                              f"({ca['name']} -> {cb['name']})", "match light colours/grade between the shots",
                              value=round(dh, 1)))
     dc = {k: round(cb["cast"][k] - ca["cast"][k], 3) for k in "rgb"}

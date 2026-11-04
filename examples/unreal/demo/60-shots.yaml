@@ -1,0 +1,26 @@
+# Stage 6 (WP7): three shots of the host, framed by the solver from the host's real skeleton, with the cuts.
+kind: include
+files: [vars.yaml]
+---
+kind: shot
+version: 1
+name: demo-shots
+sequence: "${seq}"
+fps: 24
+subjects:
+  H: {actor: "${host}"}
+defaults: {aperture: 2.8, camera_prefix: CAM_Demo_}
+shots:
+  - id: S1
+    start: 0
+    end: 48
+    frame: {subjects: [H], size: WS, angle: front, height: eye, focal_mm: 28}
+  - id: S2
+    end: 120
+    frame: {subjects: [H], size: MCU, angle: 3/4, side: left, focal_mm: 50}
+    moves: [{move: push_in, fraction: 0.15}]
+    focus: H
+  - id: S3
+    end: 168
+    frame: {subjects: [H], size: CU, angle: 3/4, side: right, focal_mm: 85}
+    focus: H

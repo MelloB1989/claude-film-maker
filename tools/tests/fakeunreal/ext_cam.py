@@ -3,8 +3,7 @@
 - CineCameraComponent starts as the engine's default camera (filmback "16:9 Digital Film", lens "Universal Zoom"
   4-1000 mm f/1.2-22, focal 35, f/2.8, manual focus) and clamps current_focal_length / current_aperture to its
   lens settings as CineCameraComponent.cpp:528-529 does.
-- SkeletalMeshComponent answers does_socket_exist / get_socket_location from a bone table set with
-  `fake.pose(actor, {bone: [x, y, z]})` (world cm); without one it answers as core does.
+- Skeletons: core's bone table (`fake.pose(actor, {bone: [x, y, z]})`).
 - CameraRig_Rail (a spline you can set points on) and CameraRig_Crane.
 """
 from . import core
@@ -49,6 +48,17 @@ class CineCameraComponent(core.CineCameraComponent):
             value = min(max(float(value), ls._props["min_f_stop"]), ls._props["max_f_stop"])
         super().set_editor_property(name, value, notify_mode)
 
+    def get_horizontal_field_of_view(self):
+        """CineCameraComponent.cpp:286-301 with no crop, squeeze 1, no overscan."""
+        import math
+        w = self._props["filmback"]._props["sensor_width"]
+        return math.degrees(2 * math.atan(w / (2 * self._props["current_focal_length"])))
+
+    def get_vertical_field_of_view(self):
+        import math
+        h = self._props["filmback"]._props["sensor_height"]
+        return math.degrees(2 * math.atan(h / (2 * self._props["current_focal_length"])))
+
     def set_custom_near_clipping_plane(self, v):
         self._props["custom_near_clipping_plane"] = float(v)
 
@@ -56,19 +66,14 @@ class CineCameraComponent(core.CineCameraComponent):
 class CineCameraActor(core.CameraActor):
     COMPONENTS = (("scene_component", core.SceneComponent), ("camera_component", CineCameraComponent))
 
+    def __init__(self, name=None, outer=None, **props):
+        super().__init__(name, outer, **props)
+        # the engine's subobject names (CameraActor.cpp:19,25; CineCameraActor.cpp:16): Sequencer binds by them
+        object.__setattr__(self._props["scene_component"], "_name", "SceneComponent")
+        object.__setattr__(self._props["camera_component"], "_name", "CameraComponent")
+
     def get_cine_camera_component(self):
         return self._props["camera_component"]
-
-
-def _does_socket_exist(self, name) -> bool:
-    return str(name) in self._props.get("bones", {})
-
-
-def _get_socket_location(self, name, _orig=core.SceneComponent.get_socket_location):
-    b = self._props.get("bones", {})
-    if str(name) in b:
-        return core.Vector(*b[str(name)])
-    return _orig(self, name)
 
 
 class SplineComponent(core.SceneComponent):
@@ -92,13 +97,4 @@ def install(fake):
                 CineCameraComponent, CineCameraActor, SplineComponent, CameraRig_Rail, CameraRig_Crane):
         fake._classes[cls.__name__] = cls
         setattr(fake, cls.__name__, cls)
-
-    def pose(actor, bones: dict):
-        """Give an actor's skeletal mesh a pose: {bone: [x, y, z]} in world cm."""
-        a = fake.actor(actor) if isinstance(actor, str) else actor
-        comp = a.get_components_by_class(core.SkeletalMeshComponent)[0]
-        comp._props["bones"] = {k: list(v) for k, v in bones.items()}
-        return a
-    fake.pose = pose
-    # bones on every skeletal mesh (a superset of core's: without a bone table it answers as before)
-    # bones on skeletal meshes: core.SkinnedMeshComponent's table (shared with WP10's fakes)
+    # bones on skeletal meshes: core's table, set with fake.pose(actor, {bone: [x, y, z]}) (shared with WP10)

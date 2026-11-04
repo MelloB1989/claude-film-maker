@@ -76,7 +76,7 @@ def _parse(spec) -> dict:
 
 
 @op("scene.state", mutates=False, idempotent=True)
-def state(*, spec) -> dict:
+def state(*, spec: dict) -> dict:
     """The level as the scene planner sees it: each actor the spec names or the scene has tagged, with class, mesh,
     loc, rot, scale, tags, folder, hidden, materials, the spec's props and how far a `drop` actor is from resting.
     film-ue plan feeds this to the same planner offline.
@@ -97,7 +97,7 @@ def state(*, spec) -> dict:
 
 
 @op("scene.plan", mutates=False, idempotent=True)
-def plan(*, spec) -> dict:
+def plan(*, spec: dict) -> dict:
     """What scene.apply would do, without doing it: [{"op", "args", "why"}] (empty when the level matches).
 
     Example: film-ue op scene.plan spec=@office.yaml
@@ -111,7 +111,7 @@ def plan(*, spec) -> dict:
 
 
 @op("scene.apply", mutates=True, idempotent=True)
-def apply(*, spec, dry_run: bool = False, verify: bool = True) -> dict:
+def apply(*, spec: dict, dry_run: bool = False, verify: bool = True) -> dict:
     """Converge the level on a scene spec: spawn what is missing, move/retag/refolder/re-material what differs, rest
     `drop` actors on what is under them, prune (when the spec says so) tagged actors it no longer lists. Re-running
     it changes nothing. With `verify`, plans again afterwards and reports anything still differing.
