@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "qa",
+  "description": "QA checks to run on the box (WP10): a review of a sequence or camera, turntables, garment penetration, floating and overlapping props. They change nothing; every apply runs them again.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "name", "out_dir"],
+  "properties": {
+    "kind": {"const": "qa", "description": "the spec kind"},
+    "version": {"const": 1, "description": "the qa kind's version"},
+    "name": {"type": "string", "description": "this check set's name"},
+    "out_dir": {"type": "string", "description": "absolute folder on the box for reports and stills"},
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "description": "qa.review: stills through the cut (or a camera) with every check; review.json + review.png",
+      "properties": {
+        "sequence": {"type": "string", "description": "level sequence path /Game/..."},
+        "camera": {"type": "string", "description": "camera actor label (without sequence: one still from it)"},
+        "frames": {"type": "array", "items": {"type": "integer"}, "description": "frames at the sequence rate (default per_shot per cut)"},
+        "per_shot": {"type": "integer", "minimum": 1, "description": "frames per camera cut when frames is not given (count)"},
+        "subjects": {"type": "array", "items": {"type": "string"}, "description": "actor labels to frame (default every visible character)"},
+        "expect": {"type": "object", "description": "intent: per subject {size, headroom [lo,hi] frame fractions, side} or for all; image: {stops [lo,hi] stops from mid grey, cast warm|cool|neutral}"},
+        "checks": {"type": "array", "items": {"enum": ["image", "framing", "penetration", "floating", "overlaps", "continuity", "reference"]}, "description": "which checks (default all but penetration)"},
+        "reference_dir": {"type": "string", "description": "box folder of reference stills named like the frames ({frame:05d}.png)"},
+        "width_px": {"type": "integer", "minimum": 16, "description": "still width in pixels"},
+        "height_px": {"type": "integer", "minimum": 16, "description": "still height in pixels"},
+        "mode": {"enum": ["capture", "mrq", "viewport"], "description": "how stills are made (view.still)"},
+        "ignore": {"type": "array", "items": {"type": "string"}, "description": "labels skipped by floating/overlaps"},
+        "title": {"type": "string", "description": "the review's title"},
+        "level": {"type": "string", "description": "level path, needed by mode mrq"}
+      }
+    },
+    "turntables": {
+      "type": "array", "description": "view.turntable per actor",
+      "items": {"type": "object", "additionalProperties": false, "required": ["target"], "properties": {
+        "target": {"type": "string", "description": "actor label"},
+        "views": {"type": "integer", "minimum": 1, "description": "views around it (count)"},
+        "elevation_deg": {"type": "number", "description": "camera height angle in degrees"},
+        "distance_cm": {"type": "number", "minimum": 0, "description": "camera distance in cm (0: fit the bounds)"},
+        "fov_deg": {"type": "number", "description": "horizontal field of view in degrees"},
+        "width_px": {"type": "integer", "description": "still width in pixels"},
+        "height_px": {"type": "integer", "description": "still height in pixels"},
+        "isolate": {"type": "boolean", "description": "draw only the target"}
+      }}
+    },
+    "penetration": {
+      "type": "array", "description": "qa.penetration per character",
+      "items": {"type": "object", "additionalProperties": false, "required": ["label"], "properties": {
+        "label": {"type": "string", "description": "character actor label"},
+        "body": {"type": "array", "items": {"type": "string"}, "description": "skin component names (default Body, Face)"},
+        "garments": {"type": "array", "items": {"type": "string"}, "description": "clothing component names (default Torso, Legs, Feet)"},
+        "views": {"type": "integer", "minimum": 1, "description": "views around the character (count)"},
+        "camera": {"type": "string", "description": "look from this camera instead"},
+        "size_px": {"type": "integer", "minimum": 16, "description": "depth capture size in pixels"},
+        "tolerance_cm": {"type": "number", "minimum": 0, "description": "depth margin in cm before skin counts as through"}
+      }}
+    },
+    "floating": {"type": "object", "additionalProperties": false, "description": "qa.floating over the set", "properties": {
+      "labels": {"type": "array", "items": {"type": "string"}, "description": "actors to check (default all mesh actors)"},
+      "ignore": {"type": "array", "items": {"type": "string"}, "description": "labels meant to hang"},
+      "tolerance_cm": {"type": "number", "minimum": 0, "description": "gap in cm that counts as floating"}
+    }},
+    "overlaps": {"type": "object", "additionalProperties": false, "description": "qa.overlaps over the set", "properties": {
+      "labels": {"type": "array", "items": {"type": "string"}, "description": "actors to check (default all mesh actors)"},
+      "ignore": {"type": "array", "items": {"type": "string"}, "description": "labels to skip (floor, walls)"},
+      "ignore_pairs": {"type": "array", "items": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 2}, "description": "[a, b] pairs allowed to overlap"},
+      "min_fraction": {"type": "number", "minimum": 0, "maximum": 1, "description": "share of the smaller box that counts (fraction)"}
+    }},
+    "snapshot": {"type": "string", "description": "box path for a qa.snapshot of the level (JSON) to diff later"}
+  }
+}

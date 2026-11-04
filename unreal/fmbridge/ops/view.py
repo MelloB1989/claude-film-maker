@@ -284,7 +284,11 @@ def still(*, out: str, camera: str = "", sequence: str = "", frame: int | None =
                           hint="use mode=capture, or install the bridge from ue-helpers with WP9 merged")
         if not (sequence and level):
             raise OpError("mode mrq renders a sequence: give sequence, frame and level", code="bad_args")
-        d = os.path.dirname(os.path.abspath(out))
+        # a folder of its own: render.frames reuses frames already on disk, and other stills share out's folder
+        d = os.path.join(os.path.dirname(os.path.abspath(out)), ".mrq_" + os.path.splitext(os.path.basename(out))[0])
+        if os.path.isdir(d):
+            for f in os.listdir(d):
+                os.remove(os.path.join(d, f))
         got = call("render.frames", sequence=sequence, level=level, frames=[int(frame)], out_dir=d,
                    preset="draft", width=width_px, height=height_px)  # draft writes PNG (preview: JPG)
         if inspect.isgenerator(got):
