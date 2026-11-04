@@ -13670,7 +13670,7 @@
    "verb": "cancel",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 707,
+   "line": 725,
    "summary": "Stop the render in progress (the chunk's frames so far stay; a re-run resumes).",
    "doc": "Stop the render in progress (the chunk's frames so far stay; a re-run resumes).\n\nReturns: {\"changed\": bool, \"was\": status}.\nExample: film-ue op render.cancel",
    "params": [],
@@ -13686,7 +13686,7 @@
    "verb": "concat",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 868,
+   "line": 886,
    "summary": "Join video files of the same codec and size (chunks from several boxes, shots) into one without re-encoding,",
    "doc": "Join video files of the same codec and size (chunks from several boxes, shots) into one without re-encoding,\nand optionally lay an audio file under the result.\n\nArgs: parts: video paths in order. out_file: the result. audio: a WAV/AAC to put under it. audio_offset_s: seconds\nof that audio to skip.\nReturns: {\"path\", \"parts\", \"bytes\", \"changed\"}.\nExample: film-ue op render.concat 'parts=[\"/srv/r/a.mp4\",\"/srv/r/b.mp4\"]' out_file=/srv/r/all.mp4",
    "params": [
@@ -13733,7 +13733,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 728,
+   "line": 746,
    "summary": "The render state for planning and for Claude: whether MRQ is rendering, the job in progress, and, given",
    "doc": "The render state for planning and for Claude: whether MRQ is rendering, the job in progress, and, given\nout_dir (and name), the last report's summary and the frames on disk.\n\nReturns: {\"rendering\", \"status\", \"report\": {...} | None, \"frames_on_disk\": int | None}.\nExample: film-ue op render.describe out_dir=/srv/r/reel name=SEQ_Reel",
    "params": [
@@ -13764,7 +13764,7 @@
    "verb": "encode",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 849,
+   "line": 867,
    "summary": "Encode a render's frames into video with ffmpeg on the box: H.264 (yuv420p, CRF), H.265 or ProRes (prores_ks,",
    "doc": "Encode a render's frames into video with ffmpeg on the box: H.264 (yuv420p, CRF), H.265 or ProRes (prores_ks,\n10-bit), with the render's WAV chunks laid on the timeline (or an audio file of yours). Frames must be complete\nin the range; EXR frames are converted from linear with the sRGB curve.\n\nArgs: spec: the RENDER SPEC that rendered them. start/end: frames, end exclusive (default the spec's range).\noutputs: video outputs (default the spec's h264/h265/prores outputs, else one h264).\nReturns: {\"videos\": [{\"kind\", \"path\", \"frames\", \"start\", \"end\", \"audio\", \"bytes\"}], \"changed\", \"fps\"}.\nExample: film-ue op render.encode 'spec={\"sequence\": \"/Game/Reel/SEQ_Reel\", \"out_dir\": \"/srv/r/reel\"}' 'outputs=[{\"kind\": \"prores\", \"profile\": 3}]'",
    "params": [
@@ -13811,7 +13811,7 @@
    "verb": "frames",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 626,
+   "line": 644,
    "summary": "Render a few frames of a sequence through its camera cuts with MRQ, viewport-free (works offscreen on Linux):",
    "doc": "Render a few frames of a sequence through its camera cuts with MRQ, viewport-free (works offscreen on Linux):\nfor stills, contact sheets and checks (WP10's qa.still mode=mrq builds on it). Consecutive frames in one cut are\none MRQ job, pre-rolled from the cut start. Frames already on disk are reused.\n\nArgs: sequence: /Game/... level sequence. frames: sequence frame numbers. out_dir: directory on the box.\nlevel: map (default the open one). preset: preview|draft|final|... width/height: pixels (default the preset's).\ncvars: extra console variables. overwrite: render again even when the frame is on disk (out_dir shared with\nother stills, or the scene changed since).\nReturns: {\"frames\": {frame: png/jpg path}, \"cameras\": {frame: camera label}, \"width\", \"height\", \"seconds\",\n\"changed\", \"report\"}.\nExample: film-ue op render.frames sequence=/Game/Reel/SEQ_Reel 'frames=[1200,1260]' out_dir=/srv/r/stills",
    "params": [
@@ -13911,9 +13911,9 @@
    "verb": "job",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 594,
-   "summary": "Render a RENDER SPEC to the end (multi-tick: the bridge returns a job id at once with wait=false; follow it,",
-   "doc": "Render a RENDER SPEC to the end (multi-tick: the bridge returns a job id at once with wait=false; follow it,\nor render.status): plan the chunks, check the level and the GPU, render each chunk with MRQ (pre-rolled from its\nshot start), watch frames, VRAM and stalls, then write <out_dir>/_render/<name>.report.json. Re-running resumes:\nframes on disk (and complete) are skipped, so a finished job re-runs as a no-op.\n\nArgs: spec: the RENDER SPEC. stall_s: cancel a chunk after this many seconds with no new frame.\nReturns: the report: {\"status\": ok|incomplete|failed|stalled|vram_abort|cancelled, \"changed\", \"frames\",\n\"seconds\", \"chunks\": [{\"id\", \"status\", \"frames\", \"missing\", \"median_s\", \"vram_peak_gb\", \"errors\", ...}],\n\"measured\": {\"s_per_frame\", \"sample_s_1080p\"}, \"report\": path, \"errors\"}.\nExample: film-ue op render.job --no-wait 'spec={\"sequence\": \"/Game/Reel/SEQ_Reel\", \"out_dir\": \"/srv/r/reel\", \"preset\": \"final\", \"shots\": [\"Reel_S16\"]}'",
+   "line": 612,
+   "summary": "Render a RENDER SPEC to the end (multi-tick: with --async the bridge returns a job id at once; follow it with",
+   "doc": "Render a RENDER SPEC to the end (multi-tick: with --async the bridge returns a job id at once; follow it with\nfilm-ue job ID, or render.status): plan the chunks, check the level and the GPU, render each chunk with MRQ (pre-rolled from its\nshot start), watch frames, VRAM and stalls, then write <out_dir>/_render/<name>.report.json. Re-running resumes:\nframes on disk (and complete) are skipped, so a finished job re-runs as a no-op.\n\nArgs: spec: the RENDER SPEC. stall_s: cancel a chunk after this many seconds with no new frame.\nReturns: the report: {\"status\": ok|incomplete|failed|stalled|vram_abort|cancelled, \"changed\", \"frames\",\n\"seconds\", \"chunks\": [{\"id\", \"status\", \"frames\", \"missing\", \"median_s\", \"vram_peak_gb\", \"errors\", ...}],\n\"measured\": {\"s_per_frame\", \"sample_s_1080p\"}, \"report\": path, \"errors\"}.\nExample: film-ue op render.job 'spec={\"sequence\": \"/Game/Reel/SEQ_Reel\", \"out_dir\": \"/srv/r/reel\", \"preset\": \"final\", \"shots\": [\"Reel_S16\"]}' (or film-ue render job ... --async; film-ue render run SPEC)",
    "params": [
     {
      "name": "spec",
@@ -13945,7 +13945,7 @@
    "verb": "manifest",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 752,
+   "line": 770,
    "summary": "Write, per chunk of a spec, an MRQ queue manifest and the command line that renders it in a process with no",
    "doc": "Write, per chunk of a spec, an MRQ queue manifest and the command line that renders it in a process with no\neditor (one process per job: survives editor restarts; run it on this box or another with the same project).\n\nReturns: {\"changed\": True, \"chunks\": [{\"id\", \"start\", \"end\", \"manifest\", \"argv\"}], \"exit_codes\"}.\nExample: film-ue op render.manifest 'spec={\"sequence\": \"/Game/Reel/SEQ_Reel\", \"out_dir\": \"/srv/r/reel\", \"executor\": \"cmdline\"}'",
    "params": [
@@ -13969,7 +13969,7 @@
    "verb": "mrq",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 904,
+   "line": 922,
    "summary": "Start one Movie Render Queue job and return at once (poll render.progress); render.job does a whole spec.",
    "doc": "Start one Movie Render Queue job and return at once (poll render.progress); render.job does a whole spec.\nFrames go to `out_dir` as {frame}.png|exr|jpg, the audio as a wav; `start`/`end` (end exclusive) render part of\nthe sequence. `preroll_from`: the shot's first frame when `start` is mid-shot: the frames between are evaluated\nwithout rendering so cloth arrives as in a full-shot render (needs the camera cut to begin there). `executor`:\n\"pie\" (in this editor) or \"process\" (a separate -game process; offscreen where the editor has no desktop). The\nprocess loads the level from disk, and with unsaved changes the executor asks to save first: unattended, that\nquestion goes unanswered and the job never starts, so unsaved packages are an error unless `save_dirty`.\n\nExample: film-ue op render.mrq sequence=/Game/Reel/SEQ_Reel level=/Game/Studio/Studio out_dir=/srv/r/s16 start=1196 end=1220",
    "params": [
@@ -14114,7 +14114,7 @@
    "verb": "plan",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 574,
+   "line": 592,
    "summary": "What a render spec would do, without rendering: the resolved settings, one chunk per camera cut (or per",
    "doc": "What a render spec would do, without rendering: the resolved settings, one chunk per camera cut (or per\n`chunking` frames) with its pre-roll, frames already on disk that a resume skips, an estimate in seconds, the\nsplit over `boxes`, and whether the GPU passes the VRAM guard.\n\nArgs: spec: a RENDER SPEC (docs/unreal/render.md; schema tools/filmtools/unreal/schemas/render.schema.json).\nReturns: {\"name\", \"spec\", \"range\", \"chunks\": [{\"id\", \"camera\", \"start\", \"end\", \"frames\", \"preroll\", \"seconds\"}],\n\"skipped\", \"frames\", \"seconds\", \"boxes\", \"vram\"}.\nExample: film-ue op render.plan 'spec={\"sequence\": \"/Game/Reel/SEQ_Reel\", \"out_dir\": \"/srv/r/reel\", \"preset\": \"draft\"}'",
    "params": [
@@ -14138,7 +14138,7 @@
    "verb": "presets",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 563,
+   "line": 581,
    "summary": "The render presets (preview, draft, final, final_exr, 4k, pathtrace): what each is for and its settings.",
    "doc": "The render presets (preview, draft, final, final_exr, 4k, pathtrace): what each is for and its settings.\n\nReturns: {preset: {\"about\", \"width\", \"height\", \"spatial\", \"temporal\", \"warmup_render\", \"warmup_engine\",\n\"quality\", \"outputs\", ...}}.\nExample: film-ue op render.presets",
    "params": [],
@@ -14154,7 +14154,7 @@
    "verb": "progress",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 944,
+   "line": 962,
    "summary": "Frames written so far in out_dir (and whether Movie Render Queue is still running).",
    "doc": "Frames written so far in out_dir (and whether Movie Render Queue is still running).\n\nExample: film-ue op render.progress out_dir=/srv/r/s16 expected=24",
    "params": [
@@ -14185,7 +14185,7 @@
    "verb": "status",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 688,
+   "line": 706,
    "summary": "The render in progress (or the last one): status, job name, chunk, chunks done/total, frames written, GPU",
    "doc": "The render in progress (or the last one): status, job name, chunk, chunks done/total, frames written, GPU\nmemory now, and the report path.\n\nReturns: {\"status\": idle|running|ok|..., \"name\", \"chunk\", \"chunks_done\", \"chunks_total\", \"chunk_frames\",\n\"elapsed_s\", \"gpu\", \"report\", \"rendering\"}.\nExample: film-ue op render.status",
    "params": [],
