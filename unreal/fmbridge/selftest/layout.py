@@ -1,5 +1,5 @@
 """WP6 layout, set dressing and scene specs on a real level: level.find/get/describe/tag/folder/material,
-layout.drop (bounds and trace)/relative/array/scatter/align/distribute/snap/overlaps/remove, and scene
+layout.drop (bounds and trace)/relative/array/scatter/align/distribute/snap/remove (with qa.overlaps), and scene
 state/plan/apply/describe/list/remove, with idempotency re-runs and a still of the dressed set from above and
 from a camera. Proves that bounds-based placement agrees with the engine's real bounds (rotated meshes included) and
 that a line trace finds the same table top. Takes ~1 min (two stills). Needs: GPU for the stills (the rest runs
@@ -68,8 +68,8 @@ def run(t):
     t.idempotent("scatter converges for a seed", "layout.scatter", prefix=p + "Rock", shape="sphere", count=25,
                  region=[[-900, -900], [900, 900]], min_dist_cm=150, seed=5, avoid=[p + "Table"],
                  scale_range=[0.3, 0.8])
-    ov = t.op("layout.overlaps", labels=[f["label"] for f in t.op("level.find", label=p + "Rock_*")])
-    t.check("scattered rocks do not interpenetrate", len(ov["issues"]), 0)
+    ov = t.op("qa.overlaps", labels=[f["label"] for f in t.op("level.find", label=p + "Rock_*")])
+    t.check("scattered rocks do not interpenetrate (qa.overlaps)", ov["pass"], True)
     t.op("layout.align", labels=[p + "Stool_00", p + "Stool_01"], axis="z", to="min", ref_cm=0)
     t.op("layout.snap", labels=[p + "Chair"], grid_cm=10, yaw_step_deg=15)
     t.op("layout.distribute", labels=[p + "Stool_00", p + "Stool_01", p + "Stool_02"], axis="z", gap_cm=0)
