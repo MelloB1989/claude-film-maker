@@ -771,9 +771,9 @@
    "verb": "lines",
    "module": "fmbridge.ops.audio",
    "file": "unreal/fmbridge/ops/audio.py",
-   "line": 360,
+   "line": 362,
    "summary": "Import a timing document's voice lines and place each at its frame on one track: the voice, timed, in one call.",
-   "doc": "Import a timing document's voice lines and place each at its frame on one track: the voice, timed, in one call.\n\nArgs: sequence: LevelSequence path. timing: a timing document (filmtools.unreal.audio_timing:\n{\"kind\": \"timing\", \"fps\", \"lines\": [{\"id\", \"wav\", \"start_frame\", ...}]}). folder: where the SoundWaves go.\ntrack: the track's name. wav_root: a box directory the lines' relative `wav` paths are under. extend: lengthen\nthe playback range to the last line.\nReturns: {\"changed\", \"lines\": [{\"id\", \"sound\", \"start_frame\", \"end_frame\"}], \"fps_note\"?}.\nExample: film-ue op audio.lines sequence=/Game/Seq/SQ_Main wav_root=/srv/film/vo timing=@timing.json",
+   "doc": "Import a timing document's voice lines and place each at its frame on one track: the voice, timed, in one call.\n\nArgs: sequence: LevelSequence path. timing: a timing document (filmtools.unreal.audio_timing:\n{\"kind\": \"timing\", \"fps\", \"lines\": [{\"id\", \"wav\", \"start_frame\", ...}]}). folder: where the SoundWaves go.\ntrack: the track's name. wav_root: a box directory the lines' relative `wav` paths are under. extend: lengthen\nthe playback range to the last line. replace: the track holds exactly these lines (False: they are added to\nwhat is there, a line already at its frame left alone; for adding one line at a time).\nReturns: {\"changed\", \"lines\": [{\"id\", \"sound\", \"start_frame\", \"end_frame\"}], \"fps_note\"?}.\nExample: film-ue op audio.lines sequence=/Game/Seq/SQ_Main wav_root=/srv/film/vo timing=@timing.json",
    "params": [
     {
      "name": "sequence",
@@ -816,6 +816,13 @@
      "type": "bool",
      "required": false,
      "default": true
+    },
+    {
+     "name": "replace",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
     }
    ],
    "returns": "dict",
@@ -835,7 +842,7 @@
    "file": "unreal/fmbridge/ops/audio.py",
    "line": 272,
    "summary": "Put sounds on a named audio track of a sequence at their frames; re-running with the same clips changes nothing.",
-   "doc": "Put sounds on a named audio track of a sequence at their frames; re-running with the same clips changes nothing.\n\nArgs: sequence: LevelSequence path. clips: [{\"sound\": SoundWave path, \"start_frame\" (or \"start_s\"),\n\"end_frame\" or \"duration_s\" (default: to the sound's end), \"offset_s\" (seconds into the sound, default 0),\n\"volume_db\" (default 0), \"fade_in_frames\"/\"fade_out_frames\" (linear ramps from/to silence), \"id\"?}] or [sound, start_frame] pairs. track: the track's name (\"VO\", \"Music\", \"SFX\").\nreplace: the track holds exactly these clips (else they are added to it). extend: lengthen the playback range\nto the last clip's end.\nReturns: {\"changed\", \"track\", \"clips\": [{\"sound\", \"start_frame\", \"end_frame\", \"row\", \"offset_s\", \"volume_db\"}],\n\"end_frame\"}.\nExample: film-ue op audio.place sequence=/Game/Seq/SQ_Main track=VO 'clips=[{\"sound\":\"/Game/Audio/VO/L1\",\"start_frame\":48}]'",
+   "doc": "Put sounds on a named audio track of a sequence at their frames; re-running with the same clips changes nothing.\n\nArgs: sequence: LevelSequence path. clips: [{\"sound\": SoundWave path, \"start_frame\" (or \"start_s\"),\n\"end_frame\" or \"duration_s\" (default: to the sound's end), \"offset_s\" (seconds into the sound, default 0),\n\"volume_db\" (default 0), \"fade_in_frames\"/\"fade_out_frames\" (linear ramps from/to silence), \"id\"?}] or [sound, start_frame] pairs. track: the track's name (\"VO\", \"Music\", \"SFX\").\nreplace: the track holds exactly these clips (else they are added to it; one already there at the same frame\nis left as it is). extend: lengthen the playback range\nto the last clip's end.\nReturns: {\"changed\", \"track\", \"clips\": [{\"sound\", \"start_frame\", \"end_frame\", \"row\", \"offset_s\", \"volume_db\"}],\n\"end_frame\"}.\nExample: film-ue op audio.place sequence=/Game/Seq/SQ_Main track=VO 'clips=[{\"sound\":\"/Game/Audio/VO/L1\",\"start_frame\":48}]'",
    "params": [
     {
      "name": "sequence",
@@ -888,7 +895,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.audio",
    "file": "unreal/fmbridge/ops/audio.py",
-   "line": 343,
+   "line": 345,
    "summary": "Remove a named audio track from a sequence (nothing to remove is fine).",
    "doc": "Remove a named audio track from a sequence (nothing to remove is fine).\n\nArgs: sequence: LevelSequence path. track: the track's name, or \"*\" for every audio track.\nReturns: {\"changed\", \"removed\": [names]}.\nExample: film-ue op audio.remove sequence=/Game/Seq/SQ_Main track=VO",
    "params": [
