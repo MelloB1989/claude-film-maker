@@ -10,6 +10,32 @@ inferred from how the engine works; **unknown** = only a test or the engine sour
 stills and renders all come from scripts through the bridge (or another code path). Shooting by hand in the viewport
 is out, so DCV, Pixel Streaming and latency from India matter only as an optional "look" path (section 6).
 
+## Operator decisions (2026-11-04) — these override the hybrid-period parts below
+
+- **Linux only, no hybrid period, no more Windows boots.** Section 5.3 (lease/sync between two boxes) and step 9 of
+  the plan are dropped. If MetaHuman cloud rig/textures or voice-to-face cannot run on Linux, look for a code-only
+  alternative rather than keeping Windows.
+- **The project comes from an EBS snapshot** of the stopped workstation's volume, mounted read-only (ntfs-3g) on the
+  Linux box (`setup.sh windisk` + `project-copy`). Its `Saved/MovieRenders` holds the Windows renders of the reel:
+  the PoC compares Linux frames against them (same shots, frames, settings: `poc 4 --ref`).
+- **Fab must work on Linux; one interactive Epic sign-in** by the operator is allowed, through a temporary remote
+  screen: `film-ue desktop on` (Xorg on the GPU + VNC on the box's localhost, reached only through SSM), then
+  `desktop off`. Everything else stays code-only.
+- **Round 3 of the reel is rendered entirely on Linux.**
+- Facts from the other tasks: the workstation runs UE **5.8.4** (Epic's installed build); the project is content-only
+  (no C++, no project plugins; Content 3.7 GB); every MetaHuman plugin ships source with Linux branches; the Linux
+  engine is built from tag 5.8.4-release (agent-02, agent-06).
+
+**Code (written, untested on a box):** branch `fleet/agent-07/linux-workflow`, commit af0f9d6: the bridge import-safe
+on Linux; `film-ue` with a Linux backend chosen per box (`--os linux`, `--box`); `film-ue provision | editor |
+desktop`; `unreal/linux/` (setup.sh, the systemd unit, the launcher); `render.mrq(executor="process")`; the PoC runner
+`film-ue poc 1..7` (`tools/filmtools/unreal/poc.py`); offline tests `tools/tests/test_unreal_linux.py`. The Windows
+path is unchanged (Windows is still the default `os`).
+
+**Still to change before round 3 runs on Linux:** the reel branches hard-code `C:\UEProjects\HostStudio` (e.g.
+`films/host-studio/reel/render.py` `PROJECT`, `bodycheck.py`, `build.py`, `stills.py`, `shot.py`): replace with
+`workstation.project("Saved", ...)`. Left to the reel branches' owners to avoid conflicts.
+
 ## 0. Verdict
 
 - **The bridge is already almost platform-neutral.** Of ~2,700 lines, the Windows-only parts are `fmbridge/gui.py`
@@ -294,7 +320,7 @@ self-terminating; purpose PoC 1–7. Take gr6.4xlarge instead only if the editor
 (PoC 2 records peak RSS). A g6.xlarge (16 GiB) is likely too small (unknown). Spot (g6.8xlarge ~$0.49/h) suits mode D
 renders later, not the long-running editor.
 
-## 9. Code changes (list; no code yet)
+## 9. Code changes (items 1, 2 (Windows/none split), 4 (process executor), 6–9 and 11 are done in af0f9d6; 3, 5, 10 remain)
 
 Bridge (`unreal/fmbridge`):
 1. `__init__.py`: stop importing `gui` at load. (S)
