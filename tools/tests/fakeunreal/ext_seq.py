@@ -125,7 +125,8 @@ class FakeKey:
 
 
 class FakeChannel:
-    """A scripting channel: kind double/float/bool/int/byte/string; keys in ticks."""
+    """A scripting channel: kind double/float/bool/int/byte/string; keys in ticks. Sections hand out _Handle wrappers
+    (see there), as the engine hands out a new scripting object per call."""
 
     def __init__(self, name: str, kind: str, section):
         self.channel_name, self.kind, self.section = name, kind, section
@@ -139,6 +140,11 @@ class FakeChannel:
 
     def get_name(self):
         return self.channel_name
+
+    def get_editor_property(self, name):
+        if name == "channel_name":
+            return core.Name(self.channel_name)
+        raise AttributeError(f"scripting channel has no editor property {name!r}")
 
     def add_key(self, time, value, sub_frame: float = 0.0, time_unit=None, interpolation=None):
         if self.kind in ("bool",) and not isinstance(value, bool):
@@ -199,6 +205,37 @@ class FakeChannel:
         ks = self.canonical()
         return [_curves().evaluate(ks, f, self.default if self.default is not None else 0.0)
                 for f in range(rng.start, rng.start + rng.duration)]
+
+
+_OBJECT_NAMES: dict = {}  # name -> count, reset by install(): the transient package's names in use
+
+
+class _Handle:
+    """What get_all_channels / get_channel return: like the engine's UMovieSceneScripting*Channel, a NEW object per
+    call whose UObject name is MakeUniqueObjectName(transient, class, ChannelName): "Volume" the first time, then
+    "Volume_1", "Volume_2", ... (MovieSceneSectionExtensions.h:305, 321). The channel's name is `channel_name`; code
+    that matches get_name() breaks on the second call here exactly as it would live."""
+
+    def __init__(self, ch: "FakeChannel"):
+        object.__setattr__(self, "_ch", ch)
+        n = _OBJECT_NAMES.get(ch.channel_name, 0)
+        _OBJECT_NAMES[ch.channel_name] = n + 1
+        object.__setattr__(self, "_obj_name", ch.channel_name if n == 0 else f"{ch.channel_name}_{n}")
+
+    def get_name(self):
+        return self._obj_name
+
+    def __getattr__(self, a):
+        return getattr(self._ch, a)
+
+    def __setattr__(self, a, v):
+        setattr(self._ch, a, v)
+
+    def __eq__(self, o):
+        return isinstance(o, _Handle) and o._ch is self._ch
+
+    def __hash__(self):
+        return id(self._ch)
 
 
 # --- sections ---------------------------------------------------------------------------------------------------------
@@ -296,13 +333,14 @@ class FakeSection(core.Object):
 
     # channels
     def get_all_channels(self):
-        return list(self.channels)
+        return [_Handle(c) for c in self.channels]
 
     def get_channel(self, name):
-        return next((c for c in self.channels if c.channel_name == name), None)
+        c = next((c for c in self.channels if c.channel_name == name), None)
+        return _Handle(c) if c is not None else None
 
     def get_channels_by_type(self, cls):
-        return list(self.channels)
+        return [_Handle(c) for c in self.channels]
 
     # easing / roll (ticks)
     def set_ease_in_duration(self, v):
@@ -850,6 +888,7 @@ def install(fake) -> None:
                 LevelSequenceEditorSubsystem, MovieSceneTimeWarpExtensions):
         setattr(fake, cls.__name__, cls)
     LevelSequenceEditorBlueprintLibrary.current = None
+    _OBJECT_NAMES.clear()
     # another area's fake may own ControlRigSequencerLibrary (ext_pose: rigs): add the Sequencer evaluation to it
     crl = fake.__dict__.get("ControlRigSequencerLibrary")
     if isinstance(crl, type) and crl is not ControlRigSequencerLibrary:
