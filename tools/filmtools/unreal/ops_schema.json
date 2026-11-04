@@ -940,7 +940,7 @@
    "verb": "add",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 302,
+   "line": 298,
    "summary": "Make or converge a cine camera named `label`: place it, aim it, set its lens and focus.",
    "doc": "Make or converge a cine camera named `label`: place it, aim it, set its lens and focus.\n\nArgs: label: actor label. loc: [x, y, z] cm. rot_: {\"pitch\", \"yaw\", \"roll\"} deg, or look_at: a point [x, y, z],\nan actor label or \"Label:Component:bone\" (overrides rot_). focal_mm. aperture: f-stop. sensor_mm: [w, h] mm, or\nfilmback: a preset name (\"16:9 Digital Film\", the engine default; \"16:9 DSLR\" is full frame). lens_preset:\n\"50mm Prime f/1.8\" etc. (sets the lens limits). focus_cm: manual focus distance; focus_on: a point/actor/bone\nto focus on now (manual focus at its distance; for a moving subject key it with cam.move focus_on, or use\ncam.focus mode=track).\nA new camera gets the engine's default filmback and focal 35 mm unless given.\nReturns: cam.describe's dict plus \"changed\", \"created\".\nExample: film-ue op cam.add label=CAM_A 'loc=[400,0,160]' look_at=Presenter focal_mm=50 aperture=2.8",
    "params": [
@@ -1036,7 +1036,7 @@
    "verb": "check",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 530,
+   "line": 536,
    "summary": "Numeric checks of a camera's frame on its subjects: QA's per-frame framing (headroom, cut-offs, feet, size, look",
    "doc": "Numeric checks of a camera's frame on its subjects: QA's per-frame framing (headroom, cut-offs, feet, size, look\nroom; when fmbridge.qa is installed) plus the camera's own: focus, safe areas, an accidental dutch, a subject\nblocked by `others`.\n\nReturns: {\"pass\", \"issues\": [{\"code\", \"severity\", \"message\", \"fix\", ...}], \"metrics\": {\"size\", \"focus_cm\",\n\"hfov_deg\"}}.\nExample: film-ue op cam.check camera=CAM_A subjects=Presenter size=MCU",
    "params": [
@@ -1084,7 +1084,7 @@
    "verb": "check_cut",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 558,
+   "line": 587,
    "summary": "Would a cut from camera A to camera B work: the 180-degree line between the first two subjects, the",
    "doc": "Would a cut from camera A to camera B work: the 180-degree line between the first two subjects, the\n30-degree rule and the size step on the first.\n\nExample: film-ue op cam.check_cut camera_a=CAM_A camera_b=CAM_B 'subjects=[\"Host\",\"Guest\"]'",
    "params": [
@@ -1139,7 +1139,7 @@
    "verb": "coverage",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 571,
+   "line": 600,
    "summary": "The coverage of a scene, all on one side of the line: for one subject a WS/MS/MCU/CU from 3/4 and a profile;",
    "doc": "The coverage of a scene, all on one side of the line: for one subject a WS/MS/MCU/CU from 3/4 and a profile;\nfor two or more a master, a two-shot, each one's MS/MCU/CU single and an over-the-shoulder. Makes a camera per\nshot ({prefix}{name}) unless create=False.\n\nArgs: side: left|right of the line from the first subject to the second, seen from above.\nReturns: {\"line\", \"side\", \"shots\": [{\"name\", \"camera\", \"kind\", \"size\", \"focal\", \"distance\", \"loc\", \"rot\",\n\"warnings\"}], \"issues\"}.\nExample: film-ue op cam.coverage 'subjects=[\"Host\",\"Guest\"]' side=left",
    "params": [
@@ -1228,7 +1228,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 423,
+   "line": 429,
    "summary": "Every cine camera in the level (or one): location, rotation, focal, aperture, filmback, focus, fields of view,",
    "doc": "Every cine camera in the level (or one): location, rotation, focal, aperture, filmback, focus, fields of view,\nthe rig it hangs on.\n\nExample: film-ue op cam.describe label=CAM_A",
    "params": [
@@ -1254,7 +1254,7 @@
    "verb": "focus",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 383,
+   "line": 389,
    "summary": "Set a camera's focus: mode \"manual\" (distance_cm, or the distance to `target` now), \"track\" (follow an actor,",
    "doc": "Set a camera's focus: mode \"manual\" (distance_cm, or the distance to `target` now), \"track\" (follow an actor,\nthe engine's tracking focus: `target` an actor label, or \"eyes:Label\" for its eyes at the current pose, or\n\"Label:Component:bone\"), or \"off\" (no depth of field).\n\nArgs: offset: cm in the tracked actor's own frame, added to the target. smooth_speed: >0 smooths focus changes.\nExample: film-ue op cam.focus label=CAM_A mode=track target=eyes:Presenter",
    "params": [
@@ -1319,7 +1319,7 @@
    "verb": "frame",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 467,
+   "line": 473,
    "summary": "Frame subjects with a camera by shot grammar: \"MCU of Presenter from 3/4 left, eye level, 50 mm\".",
    "doc": "Frame subjects with a camera by shot grammar: \"MCU of Presenter from 3/4 left, eye level, 50 mm\".\n\nArgs: camera: label (made if missing). subjects: an actor label or a list (a two-shot, a group).\nsize: ECU CU MCU MS COWBOY MWS WS EWS (aliases: close-up, medium, wide, full...). angle: degrees or front, 3/4,\nprofile, 3/4 back, back: around from the first subject's facing toward its own `side` (left|right).\nheight: eye, high, low, slight high, slight low, overhead, worm, degrees, shoulder/chest/hip/knee/ground, or\n{\"z\": cm}. focal_mm (distance solved) or distance_cm with focal_mm=None (focal solved; snap_focal rounds to a\nprime). place: auto (thirds with lead room off-axis, centre when frontal), center, left third, right third, or\nu 0..1. headroom: v of the head's top (default per size). dutch_deg: roll. focus: focus on the first subject's\neyes. apply: False only plans (nothing changes).\nReturns: {\"camera\": cam.describe dict, \"solve\": {distance, focal, error, predicted u/v of every landmark,\ndof, warnings}, \"changed\"}.\nExample: film-ue op cam.frame camera=CAM_A subjects=Presenter size=MCU angle=3/4 side=left focal_mm=50",
    "params": [
@@ -1457,7 +1457,7 @@
    "verb": "move",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 625,
+   "line": 654,
    "summary": "Key camera moves into a sequence: dolly, push_in, pull_out, truck, pedestal, crane, orbit/arc, pan, tilt,",
    "doc": "Key camera moves into a sequence: dolly, push_in, pull_out, truck, pedestal, crane, orbit/arc, pan, tilt,\nroll, zoom, dolly_zoom, whip, rack, follow, hold; eased, one after another from the camera's current pose, with\noptional handheld noise. Replaces the camera's transform (and focal/focus) tracks in that sequence.\n\nArgs: moves_: [{\"move\": kind, \"frames\": n | \"from\"/\"to\", \"ease\": in_out|in|out|linear|sine|smooth|expo, ...}]\n(cam.presets lists kinds; docs/unreal/camera.md their arguments). aim: what the camera keeps framed (a point, an\nactor label, \"Label:Component:bone\", \"eyes:Label\"). focus_on: the same, baked as a follow-focus. noise: \"subtle\"\n| \"handheld\" | \"documentary\" | \"breathing\" | \"shake\" or {\"preset\", \"seed\", \"scale\", \"pos\", \"rot\", \"hz\"}.\nstep: frames between baked keys. end_frame: hold the last pose to there.\nReturns: {\"keys\": n, \"segments\", \"first\", \"last\", \"changed\": true}.\nExample: film-ue op cam.move camera=CAM_A sequence=/Game/Seq/S1 'moves_=[{\"move\":\"push_in\",\"fraction\":0.2,\"frames\":72}]' aim=eyes:Presenter",
    "params": [
@@ -1542,12 +1542,45 @@
    ]
   },
   {
+   "name": "cam.point",
+   "area": "cam",
+   "verb": "point",
+   "module": "fmbridge.ops.cam",
+   "file": "unreal/fmbridge/ops/cam.py",
+   "line": 354,
+   "summary": "Where a target is now, in world cm: a point, an actor label (its location; with `offset` in its own frame),",
+   "doc": "Where a target is now, in world cm: a point, an actor label (its location; with `offset` in its own frame),\n\"Label:Component:bone\", \"eyes:Label\" (between its eyes), or a camera's label (its lens).\n\nExample: film-ue op cam.point target=eyes:Presenter",
+   "params": [
+    {
+     "name": "target",
+     "kind": "keyword",
+     "type": null,
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "offset",
+     "kind": "keyword",
+     "type": null,
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "camera"
+   ]
+  },
+  {
    "name": "cam.presets",
    "area": "cam",
    "verb": "presets",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 272,
+   "line": 268,
    "summary": "The filmback and lens presets (the engine's own, from BaseEngine.ini) and the shot sizes, angles and heights",
    "doc": "The filmback and lens presets (the engine's own, from BaseEngine.ini) and the shot sizes, angles and heights\nthe framing solver knows.\n\nReturns: {\"filmbacks\": {name: [w_mm, h_mm]}, \"lenses\": {name: {...}}, \"default_filmback\", \"sizes\": {key: desc},\n\"angles\", \"heights\", \"moves\", \"noise\"}.\nExample: film-ue op cam.presets",
    "params": [],
@@ -1565,7 +1598,7 @@
    "verb": "project",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 510,
+   "line": 516,
    "summary": "Where things land in a camera's frame: u, v (0..1 from the top left; outside = out of frame) and depth (cm),",
    "doc": "Where things land in a camera's frame: u, v (0..1 from the top left; outside = out of frame) and depth (cm),\nfor named points ({\"name\": [x, y, z] | label | \"Label:Component:bone\"}) and every landmark of `subjects`.\n\nExample: film-ue op cam.project camera=CAM_A subjects=Presenter",
    "params": [
@@ -1606,7 +1639,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 435,
+   "line": 441,
    "summary": "Delete cine cameras (and rigs) by label or by label prefix; missing ones are skipped.",
    "doc": "Delete cine cameras (and rigs) by label or by label prefix; missing ones are skipped.\n\nExample: film-ue op cam.remove prefix=CAM_",
    "params": [
@@ -1639,7 +1672,7 @@
    "verb": "rig",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 660,
+   "line": 689,
    "summary": "A camera rail or crane (the engine's CameraRig_Rail / CameraRig_Crane), with `camera` mounted on it.",
    "doc": "A camera rail or crane (the engine's CameraRig_Rail / CameraRig_Crane), with `camera` mounted on it.\n\nrail: `points` [[x, y, z], ...] world cm along the track (2+); `position` 0..1 along it; lock_orientation turns\nthe camera with the rail. crane: at `loc`, turned `yaw_deg`, arm `arm_cm` long, raised `pitch_deg`. Drive either\nover time with cam.rig_move.\nExample: film-ue op cam.rig label=Rail_A kind=rail 'points=[[300,-200,150],[300,200,150]]' camera=CAM_A",
    "params": [
@@ -1728,7 +1761,7 @@
    "verb": "rig_move",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 711,
+   "line": 740,
    "summary": "Animate a rig in a sequence: a rail's position along it (0..1), a crane's pitch, yaw and arm.",
    "doc": "Animate a rig in a sequence: a rail's position along it (0..1), a crane's pitch, yaw and arm.\n\nArgs: keys: [[frame, {\"position\": 0..1} | {\"pitch_deg\", \"yaw_deg\", \"arm_cm\"}], ...] (auto-eased).\nExample: film-ue op cam.rig_move rig_label=Rail_A sequence=/Game/Seq/S1 'keys=[[0,{\"position\":0}],[96,{\"position\":1}]]'",
    "params": [
@@ -1769,7 +1802,7 @@
    "verb": "set",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 358,
+   "line": 364,
    "summary": "Change an existing camera's lens: focal length (or the horizontal field of view it gives), aperture,",
    "doc": "Change an existing camera's lens: focal length (or the horizontal field of view it gives), aperture,\nfilmback, lens limits, near clip plane.\n\nExample: film-ue op cam.set label=CAM_A focal_mm=85 aperture=1.8",
    "params": [
@@ -1844,7 +1877,7 @@
    "verb": "still",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 736,
+   "line": 765,
    "summary": "A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each",
    "doc": "A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each\nsubject's landmarks where the lens math puts them (green crosses), so a mismatch between solver and render shows.\nA multi-tick job. Keep it small (960x540): the overlay is drawn in pure Python.\n\nReturns: {\"path\", \"width\", \"height\", \"raw\": the still without guides}.\nExample: film-ue op cam.still camera=CAM_A out=/tmp/cam_a.png subjects=Presenter",
    "params": [
@@ -1907,7 +1940,7 @@
    "verb": "subject",
    "module": "fmbridge.ops.cam",
    "file": "unreal/fmbridge/ops/cam.py",
-   "line": 453,
+   "line": 459,
    "summary": "What the framing solver sees of an actor: its landmarks (head_top, eyes, nose, mouth, chin, neck, shoulders,",
    "doc": "What the framing solver sees of an actor: its landmarks (head_top, eyes, nose, mouth, chin, neck, shoulders,\nchest, waist, hips, knees, ankles, feet) in world cm, its facing and height, and whether they came from its\nskeleton or its bounds.\n\nArgs: target: actor label. mode: auto (bones, else bounds) | bones | bounds. facing: [x, y, z] override.\ntop_z: the crown's height when hair or a hat makes it higher than the default (eyes + 11.5 cm).\nExample: film-ue op cam.subject target=Presenter",
    "params": [
@@ -2017,6 +2050,32 @@
    "summary": "What the editor is and how it is doing: engine, platform, RHI, project, open level, unsaved packages, idle cap,",
    "doc": "What the editor is and how it is doing: engine, platform, RHI, project, open level, unsaved packages, idle cap,\nshader workers, memory, bridge jobs.\n\nReturns: {\"engine\", \"platform\", \"python\", \"rhi\", \"project\", \"level\", \"dirty\": {\"maps\", \"content\"},\n\"idle_fps\", \"max_fps\", \"shader_workers\", \"rss_mb\", \"jobs\": {\"queued\", \"running\"}, \"uptime_s\"}.\nExample: film-ue op editor.describe",
    "params": [],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "platform"
+   ]
+  },
+  {
+   "name": "editor.doctor",
+   "area": "editor",
+   "verb": "doctor",
+   "module": "fmbridge.ops.doctor",
+   "file": "unreal/fmbridge/ops/doctor.py",
+   "line": 56,
+   "summary": "Check that this editor can do the work: engine 5.8, Python 3.11, a real GPU RHI (not -nullrhi), the plugins",
+   "doc": "Check that this editor can do the work: engine 5.8, Python 3.11, a real GPU RHI (not -nullrhi), the plugins\nthe ops need, every op module imported, free disk, the Epic sign-in (Linux), the render/MetaHuman/data layer\nAPIs reachable from Python, and the hair sky-lighting trap. Read-only.\n\nReturns: {\"pass\": no fail-severity issue, \"issues\": [{\"code\", \"severity\", \"message\", \"fix\"}], \"metrics\":\n{\"engine\", \"python\", \"platform\", \"rhi\", \"offscreen\", \"free_gb\", \"plugins_missing\", \"ops\", \"broken\"}}.\nExample: film-ue doctor   (or: film-ue op editor.doctor)",
+   "params": [
+    {
+     "name": "min_free_gb",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": null
+    }
+   ],
    "returns": "dict",
    "multi_tick": false,
    "mutates": false,
@@ -3106,6 +3165,144 @@
     },
     {
      "name": "components",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "level.layer_add",
+   "area": "level",
+   "verb": "layer_add",
+   "module": "fmbridge.ops.layers",
+   "file": "unreal/fmbridge/ops/layers.py",
+   "line": 58,
+   "summary": "Put actors in a data layer, making the layer (its DataLayerAsset under asset_dir and its instance in this",
+   "doc": "Put actors in a data layer, making the layer (its DataLayerAsset under asset_dir and its instance in this\nlevel) when it does not exist yet. Re-running changes nothing.\n\nReturns: {\"changed\", \"created\": bool, \"added\": [labels newly in it]}.\nExample: film-ue op level.layer_add name=Props_Night 'labels=[\"Lamp\",\"Candle\"]'",
+   "params": [
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list",
+     "required": false,
+     "default": []
+    },
+    {
+     "name": "asset_dir",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "level.layer_remove",
+   "area": "level",
+   "verb": "layer_remove",
+   "module": "fmbridge.ops.layers",
+   "file": "unreal/fmbridge/ops/layers.py",
+   "line": 94,
+   "summary": "Take actors out of a data layer (actors not in it are skipped).",
+   "doc": "Take actors out of a data layer (actors not in it are skipped).\n\nExample: film-ue op level.layer_remove name=Props_Night 'labels=[\"Lamp\"]'",
+   "params": [
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "labels",
+     "kind": "keyword",
+     "type": "list",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "level.layer_set",
+   "area": "level",
+   "verb": "layer_set",
+   "module": "fmbridge.ops.layers",
+   "file": "unreal/fmbridge/ops/layers.py",
+   "line": 109,
+   "summary": "Show/hide a data layer in the editor (`visible`), load/unload its actors in the editor (`loaded`), or set",
+   "doc": "Show/hide a data layer in the editor (`visible`), load/unload its actors in the editor (`loaded`), or set\nwhether it starts visible (`initially_visible`). Only the arguments given change.\n\nExample: film-ue op level.layer_set name=Props_Night visible=false",
+   "params": [
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "visible",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "loaded",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "initially_visible",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "level.layers",
+   "area": "level",
+   "verb": "layers",
+   "module": "fmbridge.ops.layers",
+   "file": "unreal/fmbridge/ops/layers.py",
+   "line": 39,
+   "summary": "The level's data layers: name, visible, initially visible, runtime or editor, and (with `actors`) the labels",
+   "doc": "The level's data layers: name, visible, initially visible, runtime or editor, and (with `actors`) the labels\nof the actors in each.\n\nReturns: {\"layers\": [{\"name\", \"visible\", \"initially_visible\", \"runtime\", \"actors\"?}]}.\nExample: film-ue op level.layers",
+   "params": [
+    {
+     "name": "actors",
      "kind": "keyword",
      "type": "bool",
      "required": false,
@@ -4838,12 +5035,237 @@
    "tags": []
   },
   {
+   "name": "qa.baseline_check",
+   "area": "qa",
+   "verb": "baseline_check",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 547,
+   "summary": "What a test does per still: compare with the baseline, or make it the baseline when there is none.",
+   "doc": "What a test does per still: compare with the baseline, or make it the baseline when there is none.\n\nArgs: suite/name/image: as qa.baseline_compare. mode: auto (compare, or create when missing), compare (never\ncreate), update (replace: accept the new look), off. diff_out: heatmap when it differs. meta: stored on create.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"status\": created|updated|match|differs|different|no_baseline|off, ...}}.\nExample: film-ue op qa.baseline_check suite=selftest/look name=key image=/srv/st/look_key.png",
+   "params": [
+    {
+     "name": "suite",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "image",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "mode",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "auto"
+    },
+    {
+     "name": "diff_out",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "meta",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": false,
+   "tags": []
+  },
+  {
+   "name": "qa.baseline_compare",
+   "area": "qa",
+   "verb": "baseline_compare",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 531,
+   "summary": "A still against its baseline: SSIM, PSNR, changed cells, exposure shift, a diff heatmap when it moved.",
+   "doc": "A still against its baseline: SSIM, PSNR, changed cells, exposure shift, a diff heatmap when it moved.\n\nArgs: suite/name: the baseline. image: the new still (PNG on the box). diff_out: write the heatmap there when it\ndiffers. min_ssim: override the match threshold (default the baseline's own, else 0.95).\nReturns: {\"pass\", \"issues\", \"metrics\": {\"status\": match|differs|different|no_baseline, \"ssim\", \"psnr\",\n\"changed\", \"stops_shift\", \"mean_shift\", \"diff\"?}}. no_baseline passes (with an info issue).\nExample: film-ue op qa.baseline_compare suite=film/s010 name=00048 image=/srv/qa/new/00048.png diff_out=/srv/qa/d.png",
+   "params": [
+    {
+     "name": "suite",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "image",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "diff_out",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "min_ssim",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "qa.baseline_list",
+   "area": "qa",
+   "verb": "baseline_list",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 566,
+   "summary": "The baselines on the box (all, or one suite and its sub-suites).",
+   "doc": "The baselines on the box (all, or one suite and its sub-suites).\n\nReturns: {\"root\", \"baselines\": [{\"suite\", \"name\", \"updated\", \"size\", \"png\", \"json\", \"rel\"}]}; `rel` is the PNG's\npath under root (film-qa baseline pull mirrors it).\nExample: film-ue op qa.baseline_list suite=selftest",
+   "params": [
+    {
+     "name": "suite",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "qa.baseline_remove",
+   "area": "qa",
+   "verb": "baseline_remove",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 578,
+   "summary": "Delete one baseline (nothing there is fine).",
+   "doc": "Delete one baseline (nothing there is fine).\n\nReturns: {\"changed\": bool}.\nExample: film-ue op qa.baseline_remove suite=film/s010 name=00048",
+   "params": [
+    {
+     "name": "suite",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
+   "name": "qa.baseline_save",
+   "area": "qa",
+   "verb": "baseline_save",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 510,
+   "summary": "Keep a still as the golden baseline suite/name (with its exposure/colour numbers).",
+   "doc": "Keep a still as the golden baseline suite/name (with its exposure/colour numbers).\n\nArgs: suite: a group (\"selftest/look\", \"film/s010\"; slashes make folders). name: the still's name in it.\nimage: PNG path on the box. overwrite: replace an existing baseline (accept a change); otherwise an existing one\nis kept. meta: anything to remember (camera, frame, commit). min_ssim: this baseline's own match threshold (a\nnoisy shot).\nReturns: {\"suite\", \"name\", \"png\", \"json\", \"size\", \"metrics\", \"changed\"}.\nExample: film-ue op qa.baseline_save suite=film/s010 name=00048 image=/srv/qa/s010/00048.png",
+   "params": [
+    {
+     "name": "suite",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "name",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "image",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "overwrite",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": false
+    },
+    {
+     "name": "meta",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "min_ssim",
+     "kind": "keyword",
+     "type": "float | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "qa.compare",
    "area": "qa",
    "verb": "compare",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 120,
+   "line": 141,
    "summary": "A PNG against a reference PNG: SSIM, PSNR, which cells changed, mean colour shift, and a diff heatmap.",
    "doc": "A PNG against a reference PNG: SSIM, PSNR, which cells changed, mean colour shift, and a diff heatmap.\n\nArgs: image, reference: PNG paths (same aspect; sizes may differ). out_diff: write the heatmap there (\"\" skips).\nmin_ssim: below this the check fails/warns. width_px: compare size. grid: [cols, rows] for the change map.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"ssim\", \"psnr\", \"grid\", \"changed\", \"mean_shift\", \"verdict\"},\n\"diff\"?: path}.\nExample: film-ue op qa.compare image=/tmp/qa/new/00048.png reference=/tmp/qa/ref/00048.png out_diff=/tmp/qa/d.png",
    "params": [
@@ -4902,7 +5324,7 @@
    "verb": "diff",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 441,
+   "line": 471,
    "summary": "What changed between two snapshots (files from qa.snapshot), or between one and the level now.",
    "doc": "What changed between two snapshots (files from qa.snapshot), or between one and the level now.\n\nArgs: before: snapshot path. after: snapshot path (\"\" = now). ignore: labels or prefixes (\"Light*\") to skip.\nseverity: \"info\" when versions are expected to differ, \"warn\" when they should match. tolerance: {\"loc_cm\",\n\"rot_deg\", \"scale\", \"prop\"}.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"added\", \"removed\", \"changed\", \"summary\"}}.\nExample: film-ue op qa.diff before=/tmp/qa/before.json 'ignore=[\"FMQA_*\"]'",
    "params": [
@@ -4949,12 +5371,50 @@
    "tags": []
   },
   {
+   "name": "qa.exposure",
+   "area": "qa",
+   "verb": "exposure",
+   "module": "fmbridge.ops.qa",
+   "file": "unreal/fmbridge/ops/qa.py",
+   "line": 121,
+   "summary": "Exposure of a PNG: histogram, luma mean/median/percentiles, clipped and crushed %, stops from mid grey, per",
+   "doc": "Exposure of a PNG: histogram, luma mean/median/percentiles, clipped and crushed %, stops from mid grey, per\nregion, and a verdict against a target range.\n\nArgs: image: PNG path. target_stops: [lo, hi] the mean should land in (stops from 18% grey; default -2.5..+1.5).\nregions: {name: [x0,y0,x1,y1]} (0..1) measured separately, e.g. a face box from qa.framing.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"exposure\", \"histogram\" (32 bins of luma), \"regions\"}}.\nExample: film-ue op qa.exposure image=/tmp/qa/a.png 'target_stops=[-2,-0.5]'",
+   "params": [
+    {
+     "name": "image",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "target_stops",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "regions",
+     "kind": "keyword",
+     "type": "dict | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "qa.floating",
    "area": "qa",
    "verb": "floating",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 326,
+   "line": 356,
    "summary": "Actors hovering above the surface under them: a line trace down from the bottom of each one's bounds (its",
    "doc": "Actors hovering above the surface under them: a line trace down from the bottom of each one's bounds (its\nown collision ignored) measures the gap.\n\nArgs: labels: the actors (default every visible mesh actor). ignore: labels to skip (things meant to hang:\nlamps, pictures). tolerance_cm: a gap over this is floating. max_check_cm: how far down to look.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"gaps\": {label: cm or None}}}. Needs collision on what is underneath\n(an object over a floor without collision reads as unsupported).\nExample: film-ue op qa.floating 'ignore=[\"Pendant\"]'",
    "params": [
@@ -4999,7 +5459,7 @@
    "verb": "framing",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 171,
+   "line": 192,
    "summary": "How subjects sit in a camera's frame, measured from their bones (characters) or bounds (anything else).",
    "doc": "How subjects sit in a camera's frame, measured from their bones (characters) or bounds (anything else).\n\nArgs: subjects: actor labels. camera: a camera label; \"\" with sequence+frame: the cut's camera at that frame\n(the sequence is scrubbed there first so animated cameras and bodies are where the shot has them).\nexpect: intent per subject or for all: {\"size\": \"MCU\"|[\"MS\",\"MCU\"], \"headroom\": [lo, hi], \"side\":\n\"left\"|\"right\"|\"center\", \"in_frame\": 1.0}, or {\"Ada\": {...}, \"Ben\": {...}}. width_px/height_px: the output\naspect. still_out: also capture a still there with each subject's box and the problems drawn.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"camera\", \"subjects\": {label: {size, box, headroom, eyes, looks,\nlook_room}}}, \"still\"?}. Multi-tick when sequence or still_out is given.\nExample: film-ue op qa.framing 'subjects=[\"Ada\"]' camera=CamA 'expect={\"size\":\"MCU\"}'",
    "params": [
@@ -5072,7 +5532,7 @@
    "verb": "image",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 101,
+   "line": 102,
    "summary": "Exposure, clipping, colour and focus of a PNG on the box, as numbers and issues.",
    "doc": "Exposure, clipping, colour and focus of a PNG on the box, as numbers and issues.\n\nArgs: image: PNG path. subjects: {name: [x0,y0,x1,y1]} boxes (0..1; qa.framing returns them) for per-subject\nbrightness and focus. expect: intent, so a mood is not flagged: {\"stops\": [-3, -1]} mean exposure range in stops\nfrom mid grey, {\"cast\": \"warm\"|\"cool\"|\"neutral\"}. limits: override thresholds (fmbridge.qa.metrics.LIMITS).\nwidth_px: analysis size.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"exposure\", \"color\", \"regions\", \"subjects\", \"size\"}}.\nExample: film-ue op qa.image image=/tmp/qa/a.png 'expect={\"stops\":[-2,0]}'",
    "params": [
@@ -5124,9 +5584,9 @@
    "verb": "overlaps",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 367,
+   "line": 397,
    "summary": "Actors whose bounds interpenetrate (a chair sunk into a table, two props in one place).",
-   "doc": "Actors whose bounds interpenetrate (a chair sunk into a table, two props in one place).\n\nArgs: labels: the actors (default every visible mesh actor). ignore: labels to skip (the floor, walls, the\nset's shell). ignore_pairs: [[a, b]] that may overlap (a book on a shelf). min_fraction: the share of the\nsmaller box that counts. touching_cm: resting contact allowed.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"pairs\": [[a, b, fraction]]}}. Axis-aligned bounds: confirm a hit\nwith a still.\nExample: film-ue op qa.overlaps 'ignore=[\"Floor\",\"Walls\"]'",
+   "doc": "Actors whose bounds interpenetrate (a chair sunk into a table, two props in one place).\n\nArgs: labels: the actors (default every visible mesh actor). ignore: labels to skip (the floor, walls, the\nset's shell). ignore_pairs: [[a, b]] that may overlap (a book on a shelf). min_fraction: the share of the\nsmaller box that counts. touching_cm: resting contact allowed.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"pairs\": [[a, b, fraction, depth_cm]]}}. Axis-aligned bounds: confirm a hit\nwith a still.\nExample: film-ue op qa.overlaps 'ignore=[\"Floor\",\"Walls\"]'",
    "params": [
     {
      "name": "labels",
@@ -5176,7 +5636,7 @@
    "verb": "parts",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 219,
+   "line": 249,
    "summary": "An actor's primitive components (names, classes, meshes, bounds): what to pass as body/garments.",
    "doc": "An actor's primitive components (names, classes, meshes, bounds): what to pass as body/garments.\n\nReturns: {\"label\", \"components\": [{\"name\", \"class\", \"mesh\", \"visible\", \"bounds\": [origin, extent]}]}.\nExample: film-ue op qa.parts label=Ada",
    "params": [
@@ -5200,9 +5660,9 @@
    "verb": "penetration",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 242,
+   "line": 272,
    "summary": "Body showing through clothes, measured as the viewer would see it: two depth captures from each view (the",
-   "doc": "Body showing through clothes, measured as the viewer would see it: two depth captures from each view (the\nbody parts alone, the garments alone); where a garment covers a pixel and the body is nearer by more than\n`tolerance_cm`, skin pokes through.\n\nArgs: label: the character. body/garments: component names (default a MetaHuman's Body+Face / Torso+Legs+Feet;\nqa.parts lists them). camera: look from this camera (with sequence+frame: the shot's camera and pose); views: N\nviews around the character instead (or as well), at elevation_deg. size_px: capture size (square for views;\nthe camera's aspect otherwise). out_dir: write a still per view with the penetrating pixels painted magenta.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"views\": {name: {fraction, pixels, worst_cm, box}}, \"worst_fraction\"}}.\nMulti-tick.\nExample: film-ue op qa.penetration label=Ada views=6 out_dir=/tmp/qa/pen",
+   "doc": "Body showing through clothes, measured as the viewer would see it: two depth captures from each view (the\nbody parts alone, the garments alone); where a garment covers a pixel and the body is nearer by more than\n`tolerance_cm`, skin pokes through.\n\nArgs: label: the character. body/garments: component names (default a MetaHuman's Body+Face / Torso+Legs+Feet;\nqa.parts lists them), or labels of other actors whose meshes form that layer. camera: look from this camera (with sequence+frame: the shot's camera and pose); views: N\nviews around the character instead (or as well), at elevation_deg. size_px: capture size (square for views;\nthe camera's aspect otherwise). out_dir: write a still per view with the penetrating pixels painted magenta.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"views\": {name: {fraction, pixels, worst_cm, box}}, \"worst_fraction\"}}.\nMulti-tick.\nExample: film-ue op qa.penetration label=Ada views=6 out_dir=/tmp/qa/pen",
    "params": [
     {
      "name": "label",
@@ -5296,9 +5756,9 @@
    "verb": "review",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 475,
+   "line": 599,
    "summary": "Everything wrong with a shot, a sequence or a set, in one JSON and one picture.",
-   "doc": "Everything wrong with a shot, a sequence or a set, in one JSON and one picture.\n\nFor each frame (sequence: `frames`, or `per_shot` per camera cut; no sequence: one still through `camera`) it\ntakes a still, measures exposure and colour, frames every subject (headroom, cuts, size), compares with\n`reference_dir`/{frame:05d}.png when given, and (with \"penetration\") checks garments from the shot's camera;\nonce for the scene it checks floating and overlapping props; across cuts it checks exposure/colour continuity.\n\nArgs: out_dir: where frames, review.json and review.png go. sequence/frames/per_shot/camera: what to look at.\nsubjects: characters/props to frame (default every visible character). expect: per-subject or global intent\nfor qa.framing, plus {\"image\": {...}} for qa.image (e.g. {\"image\": {\"stops\": [-3,-1]}}). checks: a subset of\nimage, framing, penetration, floating, overlaps, continuity, reference (default all but penetration).\nignore: labels skipped by floating/overlaps (floor, walls). mode: still mode (view.still).\nReturns: {\"pass\", \"verdict\", \"counts\", \"summary\": [lines, worst first], \"issues\", \"metrics\": {\"frames\"},\n\"report\": review.json path, \"image\": review.png path}. Multi-tick; ~1 s a frame with mode=capture.\nExample: film-ue op qa.review sequence=/Game/Seq/S010 out_dir=/tmp/qa/s010 per_shot=2",
+   "doc": "Everything wrong with a shot, a sequence or a set, in one JSON and one picture.\n\nFor each frame (sequence: `frames`, or `per_shot` per camera cut; no sequence: one still through `camera`) it\ntakes a still, measures exposure and colour, frames every subject (headroom, cuts, size), compares with\n`reference_dir`/{frame:05d}.png when given, and (with \"penetration\") checks garments from the shot's camera;\nonce for the scene it checks floating and overlapping props; across cuts it checks exposure/colour continuity.\n\nArgs: out_dir: where frames, review.json and review.png go. sequence/frames/per_shot/camera: what to look at.\nsubjects: characters/props to frame (default every visible character). expect: per-subject or global intent\nfor qa.framing, plus {\"image\": {...}} for qa.image (e.g. {\"image\": {\"stops\": [-3,-1]}}). checks: a subset of\nimage, framing, penetration, floating, overlaps, continuity, reference (default all but penetration).\nignore: labels skipped by floating/overlaps (floor, walls). mode: still mode (view.still). baseline: a baseline\nsuite: each frame's still is checked against <suite>/<frame> (qa.baseline_check, `baseline_mode` auto: the first\nrun makes the baselines, later runs regress against them).\nReturns: {\"pass\", \"verdict\", \"counts\", \"summary\": [lines, worst first], \"issues\", \"metrics\": {\"frames\"},\n\"report\": review.json path, \"image\": review.png path}. Multi-tick; ~1 s a frame with mode=capture.\nExample: film-ue op qa.review sequence=/Game/Seq/S010 out_dir=/tmp/qa/s010 per_shot=2",
    "params": [
     {
      "name": "out_dir",
@@ -5404,6 +5864,20 @@
      "type": "str",
      "required": false,
      "default": ""
+    },
+    {
+     "name": "baseline",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "baseline_mode",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "auto"
     }
    ],
    "returns": "dict",
@@ -5421,7 +5895,7 @@
    "verb": "snapshot",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 406,
+   "line": 436,
    "summary": "The level's state as JSON for later diffs: every actor's class, transform, bounds, visibility, materials,",
    "doc": "The level's state as JSON for later diffs: every actor's class, transform, bounds, visibility, materials,\nmeshes, light and lens settings.\n\nArgs: out: also write it to this file. labels: only these actors.\nReturns: {\"actors\": {label: {class, loc, rot, scale, bounds, hidden, mesh, materials, props}}, \"meta\"}.\nExample: film-ue op qa.snapshot out=/tmp/qa/before.json",
    "params": [
@@ -7997,7 +8471,7 @@
    "verb": "camera",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 458,
+   "line": 461,
    "summary": "Where things land in a camera's frame, without rendering: the camera as numbers, and world points or actors'",
    "doc": "Where things land in a camera's frame, without rendering: the camera as numbers, and world points or actors'\nbounds projected to frame fractions (u right, v down, 0..1).\n\nArgs: camera: label (\"\" + sequence/frame: the cut's camera; the sequence is scrubbed there). points: {name:\n[x,y,z]}. actors: labels (their bounds' screen boxes). width_px/height_px: the output aspect.\nReturns: {\"camera\": {name, loc, rot, fov, aspect, focal?, sensor_width?}, \"points\": {name: {u, v, depth_cm,\nin_frame}}, \"actors\": {label: {box, in_frame, area}}, \"aspect_mismatch\"?}.\nExample: film-ue op view.camera camera=CamA 'actors=[\"Ada\",\"Chair\"]'",
    "params": [
@@ -8063,7 +8537,7 @@
    "verb": "overlay",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 435,
+   "line": 438,
    "summary": "Draw composition guides, labelled boxes and points on a copy of an image (no PIL needed).",
    "doc": "Draw composition guides, labelled boxes and points on a copy of an image (no PIL needed).\n\nArgs: image: PNG path. out: where the annotated copy goes. guides: any of thirds, safe (action 93% / title 90%),\ncenter, golden, headroom, grid:4x3, aspect:2.39 (masks to that aspect). boxes: [{\"box\": [x0,y0,x1,y1] (0..1),\n\"label\", \"color\": ok|info|warn|fail|[r,g,b]}]. points: [{\"at\": [x,y], \"label\"}]. caption: a text bar along the\nbottom. width_px: shrink first (0 keeps the size).\nReturns: {\"path\", \"width\", \"height\", \"changed\": true}.\nExample: film-ue op view.overlay image=/tmp/qa/a.png out=/tmp/qa/a_g.png 'guides=[\"thirds\",\"safe\"]'",
    "params": [
@@ -8129,7 +8603,7 @@
    "verb": "sheet",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 411,
+   "line": 414,
    "summary": "A contact sheet from PNG files on the box: a grid of labelled frames in one image.",
    "doc": "A contact sheet from PNG files on the box: a grid of labelled frames in one image.\n\nArgs: images: paths. out: the sheet's PNG path. labels: one per image (default the file names). cols: 0 picks a\nnear-square grid. cell_width_px: each frame's width. title: a bar on top. statuses: ok|info|warn|fail per image\n(a coloured border).\nReturns: {\"path\", \"width\", \"height\", \"cells\", \"changed\": true}.\nExample: film-ue op view.sheet 'images=[\"/tmp/a.png\",\"/tmp/b.png\"]' out=/tmp/sheet.png title=compare",
    "params": [
@@ -8195,9 +8669,9 @@
    "verb": "still",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 234,
+   "line": 232,
    "summary": "A PNG of what a camera sees, with no viewport.",
-   "doc": "A PNG of what a camera sees, with no viewport.\n\nArgs: out: the PNG path on the box. camera: a camera actor label; \"\" with `sequence`+`frame` takes the camera\nthe cut shows at that frame; \"\" with `loc`/`look_at` [x,y,z] cm makes an ad-hoc camera (`fov_deg`, default 40).\nsequence/frame: scrub the sequence there first (frames at its display rate). width_px/height_px: output size.\nmode: \"capture\" (a scene capture: fast, ~0.1-1 s, no motion blur/DoF accumulation), \"mrq\" (Movie Render Queue\nthrough render.frames: the final look, slower; needs sequence+frame and `level`), \"viewport\" (look.still's\nhigh-res screenshot). warmup: captures before the kept one (temporal AA, Lumen). settle_ticks: editor ticks after\na scrub. hide: actor labels left out. guides: overlay guides drawn on a copy saved as <out>.guides.png\n(\"thirds\", \"safe\", ...).\nReturns: {\"path\", \"width\", \"height\", \"camera\", \"mode\", \"frame\", \"camera_info\": {loc, rot, fov, aspect},\n\"guides_path\"?}. A multi-tick job.\nExample: film-ue op view.still out=/tmp/qa/a.png camera=CamA width_px=960 height_px=540",
+   "doc": "A PNG of what a camera sees, with no viewport.\n\nArgs: out: the PNG path on the box. camera: a camera actor label; \"\" with `sequence`+`frame` takes the camera\nthe cut shows at that frame; \"\" with `loc`/`look_at` [x,y,z] cm makes an ad-hoc camera (`fov_deg`, default 40).\nsequence/frame: scrub the sequence there first (frames at its display rate). width_px/height_px: output size.\nmode: \"capture\" (a scene capture: fast, ~0.1-1 s, no motion blur/DoF accumulation), \"mrq\" (Movie Render Queue\nthrough render.frames: the final look, slower; needs sequence+frame and `level`), \"viewport\" (look.still's\nhigh-res screenshot). warmup: captures before the kept one (temporal AA, Lumen). settle_ticks: editor ticks after\na scrub. hide: actor labels left out. guides: overlay guides drawn on a copy saved as <out>.guides.png\n(\"thirds\", \"safe\", ...). rt_format: capture mode's render target format (advanced; default RTF_RGBA8, the\nselftest compares it with RTF_RGBA8_SRGB against a viewport still).\nReturns: {\"path\", \"width\", \"height\", \"camera\", \"mode\", \"frame\", \"camera_info\": {loc, rot, fov, aspect},\n\"guides_path\"?}. A multi-tick job.\nExample: film-ue op view.still out=/tmp/qa/a.png camera=CamA width_px=960 height_px=540",
    "params": [
     {
      "name": "out",
@@ -8303,6 +8777,13 @@
      "type": "list | None",
      "required": false,
      "default": null
+    },
+    {
+     "name": "rt_format",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
     }
    ],
    "returns": null,
@@ -8319,7 +8800,7 @@
    "verb": "stills",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 311,
+   "line": 314,
    "summary": "Stills through a sequence's edit and a contact sheet of them: the whole cut in one picture.",
    "doc": "Stills through a sequence's edit and a contact sheet of them: the whole cut in one picture.\n\nArgs: sequence: the level sequence path. out_dir: where {frame:05d}.png and sheet.png go. frames: the frames to\ntake; None takes `per_shot` per camera cut (first, middle(s), last). camera: force one camera (\"\" follows the\ncut). width_px/height_px/mode/warmup/settle_ticks: as view.still. sheet: also write sheet.png with each frame\nlabelled \"frame camera\". guides: drawn on the sheet's cells.\nReturns: {\"frames\": [{\"frame\", \"camera\", \"path\"}], \"sheet\": path|None, \"width\", \"height\"}. Multi-tick.\nExample: film-ue op view.stills sequence=/Game/Seq/S010 out_dir=/tmp/qa/s010 per_shot=2",
    "params": [
@@ -8430,7 +8911,7 @@
    "verb": "turntable",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 367,
+   "line": 370,
    "summary": "Stills of an actor from all around (a character, a prop, a garment) and a contact sheet of them.",
    "doc": "Stills of an actor from all around (a character, a prop, a garment) and a contact sheet of them.\n\nArgs: target: actor label. out_dir: where view_<yaw>.png and sheet.png go. views: how many, evenly around.\nelevation_deg: the cameras' height angle above the target's centre. distance_cm: 0 frames the bounds with a\nmargin. fov_deg: horizontal. isolate: draw only the target (no set; lights still light it). start_yaw_deg: the\nfirst view's direction from the target (0 = from +X, looking back at it).\nReturns: {\"views\": [{\"yaw\", \"path\", \"camera\": {loc, rot, fov}}], \"sheet\", \"center\", \"distance_cm\"}. Multi-tick.\nExample: film-ue op view.turntable target=Ada out_dir=/tmp/qa/ada views=8 isolate=true",
    "params": [

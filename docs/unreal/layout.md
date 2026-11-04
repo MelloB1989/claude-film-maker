@@ -71,6 +71,15 @@ film-ue op level.folder 'labels=["Desk","Chair"]' path=Office/Furniture
 film-ue op level.material label=Desk material=/Game/M/MI_Oak
 ```
 
+**Data layers** (World Partition levels only; elsewhere `unsupported`)
+
+```bash
+film-ue op level.layer_add name=Props_Night 'labels=["Lamp","Candle"]'   # makes /Game/DataLayers/Props_Night on first use
+film-ue op level.layers
+film-ue op level.layer_set name=Props_Night visible=false               # also loaded=, initially_visible=
+film-ue op level.layer_remove name=Props_Night 'labels=["Lamp"]'
+```
+
 **A whole set from a spec**: write `office.yaml` (the full example is in `examples/unreal/scene/office.yaml`):
 
 ```yaml
@@ -163,6 +172,12 @@ After `apply`, `remaining` must be `[]` and a second `plan` must be empty (`conv
 | `SystemLibrary.line_trace_single(world, start, end, TraceTypeQuery.TRACE_TYPE_QUERY1, complex, ignore, DrawDebugTrace.NONE, ignore_self)` → HitResult or None | `UKismetSystemLibrary::LineTraceSingle` | Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h:1270 |
 | `HitResult.to_tuple()`: (blocking_hit, initial_overlap, time, distance, location, impact_point, normal, …) | the `BreakHitResult` native break order | Runtime/Engine/Classes/Kismet/GameplayStatics.h:1078 |
 | `MathLibrary.find_look_at_rotation` | `UKismetMathLibrary::FindLookAtRotation` | Runtime/Engine/Classes/Kismet/KismetMathLibrary.h:2300 |
+| `DataLayerEditorSubsystem.get_all_data_layers / create_data_layer_instance / get_actors_from_data_layer / add_actors_to_data_layer / remove_actors_from_data_layer / set_data_layer_visibility / set_data_layer_is_loaded_in_editor / set_data_layer_is_initially_visible` | UFUNCTION BlueprintCallable | Editor/DataLayerEditor/Public/DataLayer/DataLayerEditorSubsystem.h:672, 612, 461, 255, 275, 497, 534, 650 |
+| `DataLayerCreationParameters.data_layer_asset` | USTRUCT BlueprintType, BlueprintReadWrite | DataLayerEditorSubsystem.h:54, 63 |
+| `DataLayerInstance.get_data_layer_short_name / is_visible / is_initially_visible / is_runtime` | UFUNCTION BlueprintCallable (`IsLoadedInEditor` is not exposed: loaded= is always applied) | Runtime/Engine/Public/WorldPartition/DataLayer/DataLayerInstance.h:169, 148, 145, 154 |
+| `AssetTools.create_asset(name, dir, DataLayerAsset, DataLayerFactory())` | `UDataLayerFactory` (MinimalAPI, reflected) | Editor/DataLayerEditor/Public/DataLayer/DataLayerFactory.h:19 |
+| `LevelEditorSubsystem.editor_play_simulate / editor_request_end_play / is_in_play_in_editor`, `UnrealEditorSubsystem.get_game_world` (layout.settle) | UFUNCTION BlueprintCallable, DevelopmentOnly | LevelEditorSubsystem.h:63, 81, 84; Editor/UnrealEd/Public/Subsystems/UnrealEditorSubsystem.h:52 |
+| `PrimitiveComponent.set_simulate_physics`, `SceneComponent.is_simulating_physics / set_mobility` | UFUNCTION BlueprintCallable | Components/PrimitiveComponent.h:1661; Components/SceneComponent.h:690, 1296 |
 | `LevelEditorSubsystem.new_level / load_level / save_current_level` | | Editor/LevelEditor/Public/LevelEditorSubsystem.h:147, 167, 174 |
 
 Not yet proven on a running editor:
@@ -196,8 +211,8 @@ stills; everything else runs without one. It:
   - 21 unit tests (`tools/tests/test_ue_layout.py`).
 - **Not done:**
   - Migrating look/seq/anim to `_util` (B01's second half).
-  - World Partition / data layers (B37).
-  - Physics settle (B38).
+  - World Partition region loading (B37). B44 covers data layers; B38 `layout.settle` is done but unproven:
+    Simulate in an offscreen `-unattended` editor is the open question, and the selftest does not run it yet.
   - Foliage/PCG (B39).
   - Registering `scene` with WP11's kind registry once `ue-dx` lands: `_scene.plan(spec, state)` with state from
     `scene.state` is the whole contract.

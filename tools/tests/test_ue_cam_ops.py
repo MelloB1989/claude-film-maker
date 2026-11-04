@@ -112,10 +112,10 @@ def test_check_focus_and_cut(ue, fmb):
     assert ok["pass"] and ok["metrics"]["size"]["A"]["size"] == "MCU"
     run_op("cam.focus", label="C1", mode="manual", distance_cm=50)
     bad = run_op("cam.check", camera="C1", subjects="A")
-    assert not bad["pass"] and any(i["code"] == "focus" for i in bad["issues"])
+    assert not bad["pass"] and any(i["code"] == "cam.focus" for i in bad["issues"])
     run_op("cam.frame", camera="C2", subjects="B", size="MCU", angle=30, side="right", focal_mm=50)
     cut = run_op("cam.check_cut", camera_a="C1", camera_b="C2", subjects=["A", "B"])
-    assert not cut["pass"] and cut["issues"][0]["code"] == "line_180"
+    assert not cut["pass"] and cut["issues"][0]["code"] == "shot.line_180"
     tr = run_op("cam.focus", label="C2", mode="track", target="B")
     assert tr["focus_method"] == "tracking" and tr["focus_track"]["actor"] == "B"
     off = run_op("cam.focus", label="C2", mode="off")
@@ -171,7 +171,7 @@ SPEC = {
     "subjects": {"A": {"actor": "A"}, "B": {"actor": "B"}},
     "shots": [
         {"id": "S1", "start": 0, "end": "L1.start-4f", "frame": {"subjects": ["A", "B"], "size": "WS", "focal_mm": 28}},
-        {"id": "S2", "frame": {"subjects": ["A"], "size": "MCU", "angle": 30, "side": "right"},
+        {"id": "S2", "frame": {"subjects": ["A"], "size": "MCU", "angle": 30},
          "moves": [{"move": "push_in", "fraction": 0.1}], "noise": "subtle"},
         {"id": "S3", "start": "L2.start-4f", "coverage": "B_OTS"},
     ],
@@ -212,3 +212,143 @@ def test_shot_spec_errors(ue, fmb):
 def test_presets(ue, fmb):
     p = run_op("cam.presets")
     assert "MCU" in p["sizes"] and "dolly_zoom" in p["moves"] and p["default_filmback"] == "16:9 Digital Film"
+
+
+def _fake_png(path, w, h, shade=90):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "unreal" / "fmbridge"))
+    from camkit import png
+    png.write(path, png.Image(w, h, (shade, shade, shade)))
+
+
+def test_still_draws_guides(ue, fmb, monkeypatch, tmp_path):
+    import fmbridge.ops.look as look
+
+    def fake_still(camera_label, path, width=1920, height=1080, timeout=60.0):
+        yield
+        _fake_png(path, width, height)
+        return {"path": path}
+    monkeypatch.setattr(look, "still", fake_still)
+    person(ue, "Presenter")
+    run_op("cam.frame", camera="CAM_A", subjects="Presenter", size="MCU", focal_mm=50)
+    out = str(tmp_path / "a.png")
+    r = run_op("cam.still", camera="CAM_A", out=out, width=320, height=180, subjects="Presenter")
+    assert r["width"] == 320 and r["raw"].endswith("_raw.png")
+    from camkit import png
+    img = png.read(out)
+    assert any(img.get(107, y) != (90, 90, 90) for y in range(img.h))  # the left third's guide
+    assert img.get(5, 5) != (90, 90, 90)  # the lens label
+
+
+def test_sheet_through_the_cut(ue, fmb, seqrec, monkeypatch, tmp_path):
+    person(ue, "A", (0, -90), turn=90)
+    person(ue, "B", (0, 90), turn=-90)
+    run_op("shot.apply", spec=SPEC)
+
+    def fake_seq_still(path, frame, camera, out, width=1920, height=1080, settle=30):
+        yield
+        _fake_png(out, width, height, 40 + frame % 100)
+        return {"path": out}
+    monkeypatch.setitem(fmb._OPS, "seq.still", fake_seq_still)
+    r = run_op("shot.sheet", sequence="/Game/T/Seq_Scene", out_dir=str(tmp_path), per_shot=3, cell_w=160, cols=3)
+    assert len(r["stills"]) == 9 and r["path"].endswith("sheet.png")
+    assert [s[1] for s in r["stills"][::3]] == ["CAM_S1", "CAM_S2", "CAM_S3"]
+    assert r["width"] == 3 * (160 + 6) + 6
+
+
+class _T:
+    """Just enough of WP11's selftest T to run selftest/cam.py on the fake: results recorded, never raised."""
+
+    def __init__(self, tmp):
+        self.prefix, self.scratch, self.tmp = "ST_cam_", "/Game/_Selftest/cam", tmp
+        self.results, self.notes = [], []
+
+    def op(self, name, **args):
+        from fmbridge import ops
+        return ops.call(name, **args)
+
+    def _add(self, name, ok):
+        self.results.append((name, bool(ok)))
+        return ok
+
+    def check(self, name, got, want, tol=1e-3):
+        return self._add(name, got == want or (isinstance(got, (int, float)) and abs(got - want) <= tol))
+
+    def ok(self, name, cond, detail=""):
+        return self._add(name, cond)
+
+    def idempotent(self, name, op, **args):
+        self.op(op, **args)
+        return self._add(name, not self.op(op, **args).get("changed"))
+
+    def raises(self, name, op, code=None, **args):
+        from fmbridge.errors import OpError
+        try:
+            self.op(op, **args)
+        except OpError as e:
+            return self._add(name, code is None or e.code == code)
+        return self._add(name, False)
+
+    def still(self, name, camera=None, width=960, height=540):
+        p = self.path(name + ".png")
+        _fake_png(p, width, height)
+        yield
+        return p
+
+    def path(self, name):
+        return str(self.tmp / name)
+
+    def artifact(self, p):
+        pass
+
+    def metric(self, *a, **k):
+        pass
+
+    def note(self, text):
+        self.notes.append(text)
+
+
+def test_selftest_runs_on_the_fake(ue, fmb, seqrec, monkeypatch, tmp_path):
+    import fmbridge.ops.look as look
+    from fakeunreal import drive
+
+    def fake_still(camera_label, path, width=1920, height=1080, timeout=60.0):
+        yield
+        _fake_png(path, width, height)
+        return {"path": path}
+    monkeypatch.setattr(look, "still", fake_still)
+    monkeypatch.setitem(fmb._OPS, "look.still", fake_still)
+
+    def fake_seq_still(path, frame, camera, out, width=1920, height=1080, settle=30):
+        yield
+        _fake_png(out, width, height)
+        return {"path": out}
+    monkeypatch.setitem(fmb._OPS, "seq.still", fake_seq_still)
+    monkeypatch.setitem(fmb._OPS, "level.delete", lambda labels: sum(
+        bool(ue.world.remove(ue.actor(lab))) for lab in labels if ue.actor(lab)))
+    for shape in ("Sphere", "Cylinder"):
+        ue.add_asset(f"/Engine/BasicShapes/{shape}", "StaticMesh")
+    import importlib
+    st = importlib.import_module("fmbridge.selftest.cam")
+    t = _T(tmp_path)
+    out, _ = drive(st.run(t))
+    names = dict(t.results)
+    # pixels cannot be checked on the fake; everything else must hold
+    for n in ("focal beyond the lens widens it, not clamped", "cam.add converges", "a missing camera is not_found",
+              "a bad size is bad_args", "WS solved", "MCU solved", "cam.frame MCU converges",
+              "cam.project agrees: MCU", "coverage stays on one side of the line", "cam.coverage converges",
+              "shot.plan cuts", "shot.apply converges", "shot.describe reads the edit back",
+              "a dropped shot's camera is removed", "contact sheet: 3 stills per shot"):
+        assert names.get(n) is True, (n, t.results)
+    assert ue.dialogs == []
+
+
+def test_shot_plan_keeps_the_line(ue, fmb):
+    person(ue, "A", (0, -90), turn=90)
+    person(ue, "B", (0, 90), turn=-90)
+    p = run_op("shot.plan", spec=SPEC)
+    assert not [i for i in p["issues"] if i["code"] == "shot.line_180"]
+    crossed = {**SPEC, "shots": [SPEC["shots"][0], {**SPEC["shots"][1], "frame": {**SPEC["shots"][1]["frame"],
+                                                                                   "side": "right"}}]}
+    assert [i for i in run_op("shot.plan", spec=crossed)["issues"] if i["code"] == "shot.line_180"]

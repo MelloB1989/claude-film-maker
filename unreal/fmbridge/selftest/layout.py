@@ -2,11 +2,13 @@
 layout.drop (bounds and trace)/relative/array/scatter/align/distribute/snap/remove (with qa.overlaps), and scene
 state/plan/apply/describe/list/remove, with idempotency re-runs and a still of the dressed set from above and
 from a camera. Proves that bounds-based placement agrees with the engine's real bounds (rotated meshes included) and
-that a line trace finds the same table top. Takes ~1 min (two stills). Needs: GPU for the stills (the rest runs
+that a line trace finds the same table top. Also runs layout.settle (Simulate in Editor: the open question for an offscreen -unattended editor) and
+checks that data layers refuse a non-partitioned level. Takes ~1.5 min (two stills, 3 s of physics). Needs: GPU for the stills (the rest runs
 without one).
 """
 from __future__ import annotations
 
+REQUIRES = ["gpu"]  # the stills and physics; on -nullrhi the harness skips it
 AREAS = ["level", "layout", "scene"]
 NEEDS_LEVEL = True
 TIMEOUT = 600
@@ -97,6 +99,21 @@ def run(t):
     t.check("drift is planned back", [s["op"] for s in t.op("scene.plan", spec=spec)["steps"]], ["level.move"])
     t.op("scene.apply", spec=spec)
     t.check("scene.list", t.op("scene.list").get("st_office"), 4)
+
+    # --- physics settle (B38): does Simulate in Editor run in this editor (offscreen, -unattended)? -----------------
+    t.op("level.spawn", label=p + "Crate", shape="cube", loc=[-600, 0, 300], size=[40, 40, 40],
+         rot_={"pitch": 20, "roll": 15})
+    r = yield from t.op("layout.settle", labels=[p + "Crate"], seconds=3)
+    z = t.op("level.get", label=p + "Crate")["bounds"]["min"][2]
+    t.metric("settle_crate_bottom_cm", z)
+    t.check("a dropped crate lands on the floor under physics", z, 0, tol=3.0)
+    t.ok("settle reports the crate moved", p + "Crate" in r.get("moved", {}))
+
+    # --- data layers (B44): partitioned levels only -------------------------------------------------------------
+    t.note("data layers: level.layer_* need a World Partition level; the scratch level is not one, so only the "
+           "refusal is checked here")
+    t.raises("data layers refuse a non-partitioned level", "level.layer_add", code="unsupported",
+             name="ST_Layer", labels=[p + "Table"])
 
     # --- pictures ------------------------------------------------------------------------------------------------
     t.op("level.spawn", label=p + "Sun", cls="DirectionalLight", loc=[0, 0, 1000], rot_={"pitch": -50, "yaw": 30})
