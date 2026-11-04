@@ -42,7 +42,7 @@ from . import head as H
 KIND, VERSION = "performance", 1
 TOP = {"kind", "version", "name", "description", "sequence", "actor", "face_component", "body_component", "camera",
        "targets", "library", "character", "face", "body", "lines", "actions", "default_gaze", "default_mood",
-       "start_s", "seed"}
+       "start_s", "seed", "fps"}
 LINE = {"id", "start_s", "gap_s", "audio", "face_anim", "duration_s", "text", "mood", "intensity", "solver_mood",
         "emphasis", "gaze", "gestures", "expressions", "nods", "tilts", "listen", "energy", "blink"}
 CHARACTER = {"facing_offset_deg", "lead", "head", "energy", "auto_turn_deg", "eye_micro_deg", "signs"}

@@ -5,8 +5,7 @@ runs the lot on an animation's curves ({name: (times, values)}) and adds a summa
 "too robotic" complaints turned into measurements:
 
 - frozen_head      share of time the head is perfectly still (no micro-motion): robotic when over 20%
-- head_profile     how bell-shaped the head's turns are: peak speed / mean speed within a move; linear (constant
-                   speed) moves give ~1.0-1.3, natural ones 1.6-2.2
+- head_linear      share of the head's moving time at constant speed (straight lines between keys): robotic over 50%
 - head_jitter      share of the head's motion energy above 6 Hz: a solver's buzz
 - blink_rate       blinks per minute in 8..35
 - blink_regularity coefficient of variation of the intervals: under 0.25 is a metronome
@@ -59,33 +58,30 @@ def frozen_head(curves: dict, still_deg_s: float = 0.05, limit: float = 0.2) -> 
                   f"always drifts a little: add micro-motion (perf.face head layer)")
 
 
-def moves(t: list, sp: list, start_deg_s: float = 8.0) -> list:
-    """Head moves: spans where the speed is over `start_deg_s`, [(i0, i1)] sample indices."""
-    out, i0 = [], None
-    for i, s in enumerate(sp):
-        if s >= start_deg_s and i0 is None:
-            i0 = i
-        elif s < start_deg_s and i0 is not None:
-            if i - i0 >= 4:
-                out.append((i0, i))
-            i0 = None
-    return out
-
-
-def head_profile(curves: dict, limit: float = 1.45) -> dict:
-    t, sp = head_speed(curves)
-    ms = moves(t, sp)
-    if not ms:
-        return _check("head_profile", True, 0.0, limit, "no head turns to judge (fine for a still listener)")
-    ratios = []
-    for i0, i1 in ms:
-        seg = sp[i0:i1]
-        mean = sum(seg) / len(seg)
-        ratios.append(max(seg) / mean if mean > 0 else 1.0)
-    r = sum(ratios) / len(ratios)
-    return _check("head_profile", r >= limit, r, limit,
-                  f"peak/mean speed within {len(ms)} head move(s) is {r:.2f}: under {limit} the moves are linear "
-                  "(constant speed, robotic); eased moves are bell-shaped (~1.6-2.2)")
+def head_linear(curves: dict, limit: float = 0.5, vmin_deg_s: float = 4.0, amax_deg_s2: float = 6.0) -> dict:
+    """Share of the time the head is moving (over `vmin_deg_s`) at a constant velocity (acceleration under
+    `amax_deg_s2`): keyframes joined by straight lines score ~0.9-1.0, eased organic motion ~0.1-0.3."""
+    names = [n for n in ("HeadYaw", "HeadPitch", "HeadRoll") if n in curves and curves[n][0]]
+    if not names:
+        return _check("head_linear", True, 0.0, limit, "no head curves")
+    t0 = min(curves[n][0][0] for n in names)
+    t1 = max(curves[n][0][-1] for n in names)
+    g = C.grid(t0, t1, 120.0)
+    vs = [C.derivative(g, C.resample(*curves[n], g)) for n in names]
+    acc = [C.derivative(g, v) for v in vs]
+    moving = linear = 0
+    for i in range(len(g)):
+        if math.sqrt(sum(v[i] ** 2 for v in vs)) > vmin_deg_s:
+            moving += 1
+            if math.sqrt(sum(a[i] ** 2 for a in acc)) < amax_deg_s2:
+                linear += 1
+    if not moving:
+        return _check("head_linear", True, 0.0, limit, "the head never moves faster than "
+                      f"{vmin_deg_s} deg/s (fine for a still listener; see frozen_head)")
+    share = linear / moving
+    return _check("head_linear", share <= limit, share, limit,
+                  f"{share:.0%} of the head's motion is at constant speed (straight lines between keys): robotic "
+                  "above 50%; ease it (perf.face solver_head='soften' or 'replace')")
 
 
 def head_jitter(curves: dict, cutoff_hz: float = 6.0, limit: float = 0.25) -> dict:
@@ -225,7 +221,7 @@ def gaze_activity(curves: dict, signs: HeadSigns | None = None, min_shift_deg: f
 
 def report(curves: dict, signs: HeadSigns | None = None) -> dict:
     """Every check on an animation's curves, and {"pass": all passed, "failed": [names]}."""
-    checks = [frozen_head(curves), head_profile(curves), head_jitter(curves), *blink_checks(curves),
+    checks = [frozen_head(curves), head_linear(curves), head_jitter(curves), *blink_checks(curves),
               asymmetry(curves), expression_range(curves), gaze_activity(curves, signs)]
     failed = [c["name"] for c in checks if not c["pass"]]
     return {"pass": not failed, "failed": failed, "checks": checks, "blinks": blink_stats(curves)}

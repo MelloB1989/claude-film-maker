@@ -137,7 +137,7 @@ class GazePlan:
         p = self._chain(self.head_moves["pitch"], self.start_head[1], t)
         for t0, dur, depth in self.dips:
             if t0 < t < t0 + dur * 1.2:
-                p -= depth * math.sin(math.pi * (t - t0) / (dur * 1.2))
+                p -= depth * math.sin(math.pi * (t - t0) / (dur * 1.2)) ** 2  # starts and ends at rest
         return y, p
 
     def shift_at(self, t: float):
