@@ -418,6 +418,12 @@ class Compiler:
                     if end is None:
                         end = snap(start + 1)
                         self.notes.append(f"{at}: end unknown offline (the animation's length); 1 frame assumed")
+                if d.get("loop") is False:  # no hold-last-frame in 5.8: the section stops where the clip ends
+                    length = self.r.anim_length(d["anim"])
+                    if length:
+                        end = min(end, snap(start + self.rate.frames_ceil(max(0.0, length - offset) / rate)))
+                    else:
+                        self.notes.append(f"{at}: loop false needs the clip's length (read in the editor)")
                 if end <= start:
                     self.problems.append(f"{at}: end {end} must be after start {start}")
                 row = d.get("row")
@@ -426,11 +432,11 @@ class Compiler:
                     while any(r == row and s < end and start < e for s, e, r in taken):
                         row += 1
                 taken.append((start, end, row))
-                p = {"anim": d["anim"]}
-                for k in ("offset", "rate", "blend_in", "blend_out", "loop", "slot", "reverse"):
-                    if k in d:
-                        p[k] = d[k] if k in ("loop", "slot", "reverse") else (
-                            self.t(d[k], f"{at}.{k}") if k.startswith("blend") else float(d[k]))
+                # every param seq.describe reports, defaults filled, so a spec that omits one converges to it
+                p = {"anim": d["anim"], "offset": offset, "rate": rate, "slot": str(d.get("slot", "DefaultSlot")),
+                     "reverse": bool(d.get("reverse", False)),
+                     "blend_in": self.t(d.get("blend_in", 0), f"{at}.blend_in"),
+                     "blend_out": self.t(d.get("blend_out", 0), f"{at}.blend_out")}
                 ch = {}
                 if "weight" in d:
                     ch["weight"] = channel([], float(d["weight"])) if isinstance(d["weight"], (int, float)) else \
@@ -466,7 +472,7 @@ class Compiler:
             n = 4 if kind == "color" else max(len(first) if isinstance(first, (list, tuple)) else 3, 2)
             srgb = p.get("srgb", info.get("srgb"))
             if kind == "color":
-                params["srgb"] = bool(srgb)
+                params["_srgb"] = bool(srgb)  # compile-time only: the keys below are linear either way
             names = KINDS[kind][0][:n]
             ks = self.keys(keys, w, value=lambda v: _components(v, n, kind), interp=interp)
             chans = {}
@@ -552,9 +558,7 @@ class Compiler:
                     while any(r == row and s < end and start < e for s, e, r in taken):
                         row += 1
                 taken.append((start, end, row))
-                p = {"sound": c["sound"]}
-                if offset:
-                    p["offset"] = offset
+                p = {"sound": c["sound"], "offset": offset}
                 ch = {}
                 for n in ("volume", "pitch"):
                     if n in c:
@@ -630,15 +634,15 @@ class Compiler:
             if end <= start:
                 self.problems.append(f"{at}: end {end} must be after start {start}")
             p = {"sequence": it["sequence"]}
-            if "name" in it:
-                p["name"] = str(it["name"])
+            if kind == "shot":
+                p["name"] = str(it.get("name") or str(it["sequence"]).rsplit("/", 1)[-1])
             for k in ("offset", "preroll", "postroll"):
-                if k in it:
-                    p[k] = self.t(it[k], f"{at}.{k}")
-                    if k != "offset" and p[k] < 0:
-                        self.problems.append(f"{at}.{k}: must be >= 0")
-            if "timescale" in it:
-                p["timescale"] = float(it["timescale"])
+                p[k] = self.t(it.get(k, 0), f"{at}.{k}")
+                if k != "offset" and p[k] < 0:
+                    self.problems.append(f"{at}.{k}: must be >= 0")
+            p["timescale"] = float(it.get("timescale", 1.0))
+            if p["timescale"] <= 0:
+                self.problems.append(f"{at}.timescale: must be > 0")
             secs.append(new_section((start, end), int(it.get("row", 0)), p))
         rows = {}
         for s in secs:
