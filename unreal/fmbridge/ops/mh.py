@@ -2,6 +2,10 @@
 beard, brows, clothes), the cinematic build to a Blueprint, and how an assembled character is driven."""
 from __future__ import annotations
 
+import glob
+import os
+import sys
+
 import unreal
 
 from . import op
@@ -48,9 +52,39 @@ def from_preset(preset: str, dest: str, overwrite: bool = False) -> str:
     return dest
 
 
+def _signed_in() -> bool:
+    """Whether this machine holds an Epic sign-in the MetaHuman cloud services can use without asking: the EOS SDK's
+    persistent credential (Linux: ~/.local/share/.eos_sdk/keychain/<id>/persistent_auth/credential). Windows keeps it
+    in the credential store, so there it is assumed."""
+    if sys.platform == "win32":
+        return True
+    return bool(glob.glob(os.path.expanduser("~/.local/share/.eos_sdk/keychain/*/persistent_auth/credential")))
+
+
+@op("mh.login")
+def login(preset: str = "", folder: str = "/Game/FM/Login") -> dict:
+    """Start Epic's sign-in if there is none: the MetaHuman cloud service asks for one when a rig is requested (on a
+    throwaway character), and the engine hands the device sign-in page to the system browser. On a box with no
+    desktop that "browser" keeps the page for `film-ue epic-login` (ue-epic.sh). Returns at once."""
+    if _signed_in():
+        return {"signed_in": True}
+    dest = f"{folder}/MH_Login"
+    if not EAL.does_asset_exist(dest):
+        EAL.duplicate_asset(f"{PRESETS}/{preset or presets()[0]}", dest)
+    p = unreal.MetaHumanCharacterAutoRiggingRequestParams()
+    p.rig_type, p.blocking, p.report_progress = unreal.MetaHumanRigType.JOINTS_ONLY, False, False
+    sub().request_auto_rigging(_char(dest), p)
+    return {"signed_in": False, "requested": True}
+
+
 @op("mh.rig")
 def rig(character: str, full: bool = True) -> str:
-    """Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs). Blocks until done."""
+    """Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs). Blocks until done (about
+    30 s). Without a sign-in the service would open a browser and wait for one, holding the editor: so with no saved
+    sign-in this is an error at once. Sign in once per box (film-ue desktop on, or the device code it shows); the
+    sign-in then survives editor restarts. After the rig: mh.textures, then mh.build."""
+    if not _signed_in():
+        raise RuntimeError("no Epic sign-in saved on this machine: sign in once (film-ue desktop on), then rig")
     p = unreal.MetaHumanCharacterAutoRiggingRequestParams()
     p.rig_type = unreal.MetaHumanRigType.JOINTS_AND_BLEND_SHAPES if full else unreal.MetaHumanRigType.JOINTS_ONLY
     p.blocking, p.report_progress = True, True
@@ -160,7 +194,9 @@ def build(character: str, name: str, cinematic: bool = True) -> str:
     sub().build_meta_human(c, p)
     folder = character.rsplit("/", 1)[0]
     bps = [p for k, p in list_assets(folder, "Blueprint") if p.endswith(f"BP_{name}")]
-    return bps[0] if bps else ""
+    if not bps:  # the subsystem logs why (LogMetaHumanCharacterEditor) and returns nothing: an unrigged character, ...
+        raise RuntimeError(f"no BP_{name} built in {folder}: is the character rigged (mh.rig)? see the editor log")
+    return bps[0]
 
 
 @op("mh.components")

@@ -12,11 +12,11 @@ messages while a click lands.
 A job whose result is a generator runs across editor ticks: each `yield` lets the editor tick once (so a scrubbed
 sequence, an animation or a rig settles), `yield 0.5` waits that many seconds; its return value is the result.
     GET  /job?id=                                             an async job's state and result
-    POST /gui    {"actions": [...]}                           desktop input (fmbridge.gui.run)
-    GET  /screen                                              the desktop as PNG
+    POST /gui    {"actions": [...]}                           desktop input (fmbridge.gui.run; Windows only, else 501)
+    GET  /screen                                              the desktop as PNG (Windows only, else 501)
     GET  /file?path=   PUT /file?path=                         read or write any file (bytes)
     GET  /log?lines=N                                         the editor log's tail
-    GET  /health                                              engine version, project, uptime
+    GET  /health                                              engine version, platform, project, uptime
 """
 from __future__ import annotations
 
@@ -74,6 +74,29 @@ def _run(kind: str, payload: dict) -> dict:
         sys.stdout, sys.stderr = saved
 
 
+def _gui():
+    """fmbridge.gui, or None where there is no desktop to drive (an offscreen editor on Linux)."""
+    try:
+        from . import gui
+        return gui
+    except ImportError:
+        return None
+
+
+def log_tail(logs: str, lines: int = 200) -> str:
+    files = sorted((os.path.join(logs, f) for f in os.listdir(logs) if f.endswith(".log")), key=os.path.getmtime)
+    if not files:
+        return ""
+    with open(files[-1], "rb") as f:
+        f.seek(0, 2)
+        f.seek(max(0, f.tell() - 400 * lines))
+        return "\n".join(f.read().decode("utf-8", "replace").splitlines()[-lines:])
+
+
+IDLE_FPS = 30  # offscreen editor between jobs; a bridge op that runs over several ticks advances one step per tick
+NO_DESKTOP = {"ok": False, "error": f"no desktop on {sys.platform}: use look.still / seq.still for pictures"}
+
+
 def _jsonable(v):
     if v is None or isinstance(v, (bool, int, float, str)):
         return v
@@ -114,9 +137,25 @@ def _tick(_dt):
         return
     _state["in_tick"] = True
     try:
+        if not _state.get("idle_set"):
+            _state["idle_set"] = True
+            _idle_offscreen()
         _drain()
     finally:
         _state["in_tick"] = False
+
+
+def _idle_offscreen():
+    """With no desktop nobody looks at the level viewport, but a realtime one still renders the scene every frame
+    (Lumen and all: the GPU at full load between jobs). Off Windows: the viewport redraws only on change, and the
+    editor ticks at most IDLE_FPS (Movie Render Queue lifts the cap with its own t.MaxFPS while it renders)."""
+    if sys.platform == "win32":
+        return
+    try:
+        unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).editor_set_viewport_realtime(False)
+        unreal.SystemLibrary.execute_console_command(None, f"t.MaxFPS {IDLE_FPS}")
+    except Exception as e:
+        unreal.log_warning(f"fmbridge: could not idle the offscreen viewport: {e}")
 
 
 def _drain():
@@ -181,7 +220,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         q = dict(urllib.parse.parse_qsl(u.query))
         if u.path == "/health":
-            self._send(200, {"ok": True, "engine": _state["engine"], "project": _state["project"],
+            self._send(200, {"ok": True, "engine": _state["engine"], "platform": sys.platform, "project": _state["project"],
                              "uptime": int(time.time() - _state["started"]), "queued": _work.qsize()})
         elif u.path == "/job":
             box = _jobs.get(q.get("id", ""))
@@ -197,11 +236,13 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 with open(p, "rb") as f:
                     self._send(200, f.read(), "application/octet-stream")
         elif u.path == "/screen":
-            from . import gui
-            self._send(200, gui.screenshot_png(), "image/png")
+            gui = _gui()
+            if gui:
+                self._send(200, gui.screenshot_png(), "image/png")
+            else:
+                self._send(501, NO_DESKTOP)
         elif u.path == "/log":
-            from . import gui
-            self._send(200, {"ok": True, "log": gui.log_tail(_state["log_dir"], int(q.get("lines", "200")))})
+            self._send(200, {"ok": True, "log": log_tail(_state["log_dir"], int(q.get("lines", "200")))})
         else:
             self._send(404, {"ok": False, "error": "unknown path"})
 
@@ -235,7 +276,10 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 return
             self._send(200, submit(kind, req, float(req.get("timeout", 600)), not req.get("async")))
         elif path == "/gui":
-            from . import gui
+            gui = _gui()
+            if not gui:
+                self._send(501, NO_DESKTOP)
+                return
             try:
                 self._send(200, {"ok": True, "result": gui.run(req.get("actions", []))})
             except Exception:
@@ -246,7 +290,9 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
 class _Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
-    allow_reuse_address = False  # on Windows reuse lets a second server share the port: never
+    # on Windows SO_REUSEADDR lets a second server share the port: never. On Linux it only lets a restarted bridge bind
+    # while the old one's connections sit in TIME_WAIT (two listeners still cannot share it): without it, EADDRINUSE
+    allow_reuse_address = sys.platform != "win32"
 
 
 def start(port: int = PORT) -> str:

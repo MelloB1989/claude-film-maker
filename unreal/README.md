@@ -38,10 +38,12 @@ film-ue / filmtools.unreal.client  ──SSM port-forward──▶  127.0.0.1:18
     re-pointed after a level rebuild (`seq.rebind`) and an inventory (`seq.tracks`).
   - `render`: Movie Render Queue, deferred or path traced, with a frame range.
 - `fmbridge/gui.py`: SendInput clicks, drags, typing and keys, and screenshots (DCV's grabber or GDI), for the few
-  things only the UI does (Fab, some dialogs).
+  things only the UI does (Fab, some dialogs). Windows only: elsewhere `/gui` and `/screen` answer 501.
 - `fmbridge/inbox.py`: the fallback transport: a `.py` dropped in `Saved/Bridge/in` (over SSM, no tunnel) runs the
   same way; the result lands in `Saved/Bridge/out`. `film-ue install` uses it to restart the bridge.
 - `init_unreal.py`: starts the bridge when the editor starts.
+- `linux/`: the same bridge on a Linux GPU box with no desktop: the editor offscreen under systemd, set up and driven by
+  `film-ue --box <name> provision | install | editor | desktop` (see `linux/README.md`).
 
 ## Use
 

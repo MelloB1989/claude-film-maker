@@ -2,10 +2,10 @@
 
 Inside the editor it serves an HTTP endpoint on 127.0.0.1 (fmbridge.server) that runs Python and named operations
 (fmbridge.ops: assets, levels, looks, MetaHumans, speech to face, curves, sequences, renders) on the game thread, sends
-desktop input and grabs the screen (fmbridge.gui), and moves files. A file inbox (fmbridge.inbox) is the fallback when
+desktop input and grabs the screen (fmbridge.gui, Windows only; loaded on demand), and moves files. A file inbox (fmbridge.inbox) is the fallback when
 no tunnel is up. tools/filmtools/unreal is the operator's side (`film-ue`). Started by init_unreal.py at editor start.
 """
-from . import gui, inbox, server  # noqa: F401
+from . import inbox, server  # noqa: F401  (fmbridge.gui is Windows-only: server imports it per request)
 
 
 def start() -> str:
