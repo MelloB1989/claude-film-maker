@@ -14,7 +14,7 @@ PY = {"int": "int", "float": "float", "bool": "bool", "str": "str", "list": "lis
 
 
 def ident(name: str) -> str:
-    return name + "_" if keyword.iskeyword(name) or name in ("self",) else name
+    return name + "_" if keyword.iskeyword(name) or name in ("self", "_wait", "_timeout") else name
 
 
 def class_name(area: str) -> str:

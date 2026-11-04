@@ -198,8 +198,6 @@ def _wire_params(fn) -> list:
     out = []
     for arg, dflt, kind in ([(x, d, "positional") for x, d in zip(pos, defaults)] +
                             [(x, d, "keyword") for x, d in zip(a.kwonlyargs, a.kw_defaults)]):
-        if arg.arg in ("self", "cls"):
-            continue
         v = _literal(dflt) if dflt is not None else None
         if isinstance(v, dict) and set(v) == {"expr"}:
             v = None  # not a JSON literal: the wire shape says null

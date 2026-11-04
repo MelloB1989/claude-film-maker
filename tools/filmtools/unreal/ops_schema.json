@@ -611,6 +611,13 @@
      "default": "/Game"
     },
     {
+     "name": "cls",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
      "name": "recursive",
      "kind": "positional",
      "type": "bool",
@@ -690,6 +697,13 @@
    "params": [
     {
      "name": "contains",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "cls",
      "kind": "positional",
      "type": "str",
      "required": false,
@@ -944,6 +958,13 @@
     },
     {
      "name": "asset",
+     "kind": "positional",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "cls",
      "kind": "positional",
      "type": "str",
      "required": false,
