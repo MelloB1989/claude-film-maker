@@ -5,7 +5,7 @@
 #
 #   ue-epic restore    from $EPIC_S3 if this box has no sign-in yet (the unit runs it before the editor starts)
 #   ue-epic save       to $EPIC_S3, SSE-KMS (the unit runs it after the editor stops: a refreshed token is kept)
-#   ue-epic status     signed_in=yes|no
+#   ue-epic status     signed_in=yes|no, and sign_ins=N (each Epic client keeps its own: MetaHuman, Fab)
 #   ue-epic code       the activation code of a pending device sign-in (code=XXXXXXXX), nothing else of the URL
 #   ue-epic-url URL    the editor's "browser" (BROWSER=ue-epic-url): keeps the sign-in URL in a 0600 file instead of
 #                      opening one, so `film-ue epic-login` can hand the code to a person
@@ -28,7 +28,8 @@ fi
 
 case "${1:-}" in
     status)
-        signed_in && echo signed_in=yes || echo signed_in=no ;;
+        signed_in && echo signed_in=yes || echo signed_in=no
+        echo "sign_ins=$(compgen -G "$SHARE/.eos_sdk/keychain/*/persistent_auth/credential" | wc -l)" ;;
     restore)
         [ -n "${EPIC_S3:-}" ] || { echo "epic: EPIC_S3 unset, nothing to restore"; exit 0; }
         if signed_in; then echo "epic: already signed in here, kept"; exit 0; fi

@@ -193,7 +193,7 @@ def test_ue_epic_never_saves_an_empty_sign_in_and_restores_any_archive_prefix(tm
         pytest.skip("bash")
     r = _ue_epic(tmp_path, "save")
     assert "not signed in" in r.stdout and not list((tmp_path / "s3").iterdir())
-    assert _ue_epic(tmp_path, "status").stdout.strip() == "signed_in=no"
+    assert _ue_epic(tmp_path, "status").stdout.split() == ["signed_in=no", "sign_ins=0"]
     # an archive made elsewhere, with the full home path inside it (tar of /home/<user>/.local/share/.eos_sdk)
     src = tmp_path / "src" / "home" / "op" / ".local" / "share" / ".eos_sdk" / "keychain" / "abc" / "persistent_auth"
     src.mkdir(parents=True)

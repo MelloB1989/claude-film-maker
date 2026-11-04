@@ -86,31 +86,45 @@ def provision(engine_s3: str, version: str, project_src: str, project_name: str,
     return check()
 
 
-def epic_login(wait_minutes: float = 10, log=print) -> str:
-    """Make sure the box's editor is signed in to Epic (MetaHuman cloud services, Fab). Signed in already (a saved
-    sign-in, restored from S3 at start): nothing to do. Otherwise the editor starts Epic's device sign-in, and this
-    prints only its code: a person opens https://www.epicgames.com/activate anywhere, signs in and enters it. The
-    sign-in is then saved to S3 (and again whenever the editor stops)."""
+def _sign_ins() -> int:
+    out = step("epic", "status", timeout=120)
+    return int(next((x.split("=", 1)[1] for x in out.split() if x.startswith("sign_ins=")), "0") or 0)
+
+
+def epic_login(fab: bool = False, wait_minutes: float = 10, log=print) -> str:
+    """Make sure the box's editor is signed in to Epic. The MetaHuman cloud services and Fab are separate Epic clients
+    with a sign-in each (`fab`: Fab's). Signed in already (a saved sign-in, restored from S3 at start): nothing to do
+    for MetaHuman; Fab is always asked (it says itself whether a saved sign-in still works). Otherwise the editor
+    starts Epic's device sign-in, and this prints only its code: a person opens https://www.epicgames.com/activate
+    anywhere, signs in and enters it. The sign-in is then saved to S3 (and again whenever the editor stops). Never
+    sign out in the editor (Fab.Logout, Fab.SetEnvironment): that deletes the saved sign-in."""
     from . import client
-    if "signed_in=yes" in step("epic", "status", timeout=120):
+    before = _sign_ins()
+    if not fab and before:
         return "signed in"
     step("epic", "clear-code", timeout=60)
-    r = client.op("mh.login", timeout=300)
+    if fab:
+        r = client.exec_code('import unreal\nunreal.SystemLibrary.execute_console_command(None, "Fab.Login")\n'
+                             'result = True', timeout=60)
+    else:
+        r = client.op("mh.login", timeout=300)
     if not r.get("ok"):
-        raise SystemExit(f"mh.login: {r.get('error', r)}")
-    if r.get("result", {}).get("signed_in"):
+        raise SystemExit(f"sign-in request: {r.get('error', r)}")
+    if r.get("result") == {"signed_in": True}:
         return "signed in"
     code, end = "", time.time() + 120
     while not code and time.time() < end:
         time.sleep(5)
         code = next((x.split("=", 1)[1] for x in step("epic", "code", timeout=60).split() if x.startswith("code=")), "")
     if not code:
+        if fab and before:
+            return "no new sign-in asked for: Fab used the saved one (see LogFab in film-ue editor log 200)"
         raise SystemExit("no sign-in started: see the editor log (film-ue editor log 200, LogEOSAuth)")
     log(f"open https://www.epicgames.com/activate, sign in to Epic and enter the code {code}")
     end = time.time() + wait_minutes * 60
     while time.time() < end:
         time.sleep(10)
-        if "signed_in=yes" in step("epic", "status", timeout=120):
+        if _sign_ins() > before:
             step("epic", "clear-code", timeout=60)
             log(step("epic", "save", timeout=300).strip())
             return "signed in"
