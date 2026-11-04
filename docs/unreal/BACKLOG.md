@@ -53,6 +53,6 @@ Status: `open`, `claimed <agent>`, `review`, `merged <sha>`.
 | B37 | World Partition / large level support: load/unload regions, data layers on/off by op | WP6 | M | open |
 | B38 | Physics settle: drop props with physics sim for N ticks then bake transforms (realistic resting objects), multi-tick | WP6 | M | open |
 | B39 | Foliage/PCG: scatter foliage by code (InstancedFoliage / PCG graph with parameters), deterministic seed | WP5/WP6 | L | open |
-| B40 | Static analysis gate: a test that every engine API name used under unreal/fmbridge appears in some doc's API_NOTES table (keeps the "verify APIs" rule honest) | WP0 | S | open |
+| B40 | Static analysis gate: a test that every engine API name used under unreal/fmbridge appears in some doc's API_NOTES table (keeps the "verify APIs" rule honest) | WP0 | S | merged (agent-10) |
 | B41 | Fake engine fidelity: a Sequencer fake (ext_seq) good enough to unit-test track/section/key writes and batching | WP8 | M | open |
 | B42 | Cross-platform path helper: box paths (Windows/Linux) for project/Saved/renders used everywhere instead of string joins | WP1 | S | open |

@@ -166,7 +166,7 @@ def test_scatter_is_seeded_and_avoids(ue):
     assert again["changed"] is False
 
 
-def test_align_distribute_snap_overlaps(ue):
+def test_align_distribute_snap_then_qa_overlaps(ue):
     _shapes(ue)
     for i, x in enumerate((0, 37, 300)):
         run_op("level.spawn", label=f"B{i}", shape="cube", loc=[x, i * 13, 50])
@@ -177,8 +177,9 @@ def test_align_distribute_snap_overlaps(ue):
     run_op("level.move", label="B1", loc=[63.7, 0, 50])
     run_op("layout.snap", labels=["B1"], grid_cm=10)
     assert ue.actor("B1").get_actor_location().x == pytest.approx(60)
-    ov = run_op("layout.overlaps")
-    assert ov["issues"] and ov["issues"][0]["code"] == "overlap" and "B0|B1" == ov["issues"][0]["subject"]
+    run_op("level.move", label="B2", loc=[30, 0, 50])
+    ov = run_op("qa.overlaps", labels=["B0", "B2"])
+    assert not ov["pass"] and ov["issues"]
 
 
 # ---- scene spec

@@ -338,27 +338,3 @@ def snap(*, labels: list, grid_cm: float = 10.0, yaw_step_deg: float = 0.0) -> d
             a.set_actor_rotation(r2, False)
             moved.append(lab)
     return {"changed": bool(moved), "moved": moved}
-
-
-@op("layout.overlaps", mutates=False, idempotent=True)
-def overlaps(*, labels: list = (), min_depth_cm: float = 0.5) -> dict:
-    """Pairs of mesh actors whose bounds interpenetrate by more than min_depth_cm (a quick check after dressing a
-    set; boxes are conservative for round shapes, so treat a hit as "look closer"). Uses the check-result shape.
-
-    Returns: {"pass", "issues": [{"code": "overlap", "severity": "warn", "subject": "A|B", "value": depth_cm}],
-    "metrics": {"pairs": n}}.
-    Example: film-ue op layout.overlaps
-    """
-    acts = [a for a in actors() if isinstance(a, (unreal.StaticMeshActor, unreal.SkeletalMeshActor))
-            and (not labels or a.get_actor_label() in labels)]
-    boxes = [(a.get_actor_label(), bounds_box(a)) for a in acts]
-    issues = []
-    for i in range(len(boxes)):
-        for j in range(i + 1, len(boxes)):
-            d = L.overlap_depth(boxes[i][1], boxes[j][1])
-            if d > min_depth_cm:
-                issues.append({"code": "overlap", "severity": "warn", "subject": f"{boxes[i][0]}|{boxes[j][0]}",
-                               "message": f"{boxes[i][0]} and {boxes[j][0]} interpenetrate by {d:.1f} cm",
-                               "fix": f"layout.drop labels=[{boxes[i][0]!r}] or move one", "value": round(d, 2),
-                               "expected": 0})
-    return {"pass": True, "issues": issues, "metrics": {"pairs": len(issues), "actors": len(boxes)}}
