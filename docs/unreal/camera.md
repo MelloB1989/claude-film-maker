@@ -258,7 +258,7 @@ Python names are the snake_case of the reflected names.
 | `SkeletalMeshComponent.does_socket_exist`, `get_socket_location` (bones are sockets) | Components/SceneComponent.h:809,832; SkinnedMeshComponent.h:1361 | yes |
 | `EditorActorSubsystem.spawn_actor_from_class`, `destroy_actor` | Editor/UnrealEd/Public/Subsystems/EditorActorSubsystem.h:228,236 | yes |
 | `EditorAssetLibrary.set_metadata_tag`, `get_metadata_tag`, `save_asset`, `does_asset_exist` | Plugins/Editor/EditorScriptingUtilities/.../EditorAssetLibrary.h:385,376,281,70 | yes |
-| `LevelSequenceEditorBlueprintLibrary.open_level_sequence`, `set_current_time`, `refresh_current_level_sequence`, `close_level_sequence` | Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:36,90,254,72 | yes |
+| `LevelSequenceEditorBlueprintLibrary.open_level_sequence`, `set_current_time` (deprecated since 5.4, still present: agent-06's audit), `refresh_current_level_sequence`, `close_level_sequence` | Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:36,90,254,72 | yes |
 | `AutomationLibrary.take_high_res_screenshot` (through `look.still`) | Developer/FunctionalTesting/Public/AutomationBlueprintFunctionLibrary.h:143 | yes |
 | rotator axes (FRotationTranslationMatrix), look-at (ToOrientationRotator) mirrored in camkit.geo | Core/Public/Math/RotationTranslationMatrix.h:72-84; Core/Private/Math/UnrealMath.cpp:200 | yes |
 | Sequencer writes: `seq.new`, `seq.key_transform`, `seq.key_float`, `seq.camera_cuts`, `seq.cuts`, `seq.still` | WP8's ops (ops/seq.py) | their API |
