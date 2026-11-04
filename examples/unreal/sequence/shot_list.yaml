@@ -1,0 +1,21 @@
+# A shot list becomes an edit: one sequence per shot (made and converged first), laid end to end on a master's
+# cinematic shot track, each with handles (frames before/after the cut) and cloth pre-roll. Frame each shot's camera
+# with WP7 (cam.frame / shot.apply) into its shot sequence, or give its tracks inline under `shot:`.
+kind: sequence
+version: 1
+name: edit
+sequence: /Game/Examples/Seq/SEQ_Edit         # the master; shots become /Game/Examples/Seq/SEQ_Edit_<name>
+fps: 24
+shots:
+  - {name: establishing, camera: CamWide, duration: 4s, handles: 12, preroll: 24}
+  - name: close
+    duration: 3s
+    handles: 12
+    preroll: 24
+    shot:
+      bindings:
+        CamClose:
+          transform: [[0, [180, -40, 160], [0, 0, 160]]]
+          props: {CameraComponent/CurrentFocalLength: [[0, 85]]}
+      camera_cuts: [[CamClose, 0]]
+  - {name: reverse, camera: CamReverse, duration: 2.5s, handles: 12, preroll: 24}

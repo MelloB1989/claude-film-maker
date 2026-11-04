@@ -1,0 +1,143 @@
+"""The MetaHuman face's animation curves: names, groups and the head pose curves.
+
+Verified on the UE 5.8.4 source: the 251 raw control curve names are the list in
+Engine/Plugins/MetaHuman/MetaHumanCoreTechLib/Source/MetaHumanCoreTech/Private/GuiToRawControlsUtils.cpp:202-447
+(each `CTRL_expressions_<name>`); the head curves HeadYaw/HeadPitch/HeadRoll (degrees, the head's rotation relative to
+its neutral frame), HeadTranslationX/Y/Z (cm) and HeadControlSwitch (0/1, 1 = the face rig turns the head from
+these curves) are written by MetaHumanPerformanceExportUtils.cpp:99-109,2684-2702.
+
+Sign conventions of the head curves on a real face rig are measured, not assumed: `perf.calibrate` turns the head by
+each curve and records which way it went; `HeadSigns` carries the result. perfkit itself works in the CHARACTER's
+frame: yaw + = the character turns to their own left, pitch + = looks up, roll + = the top of the head tilts to the
+character's left.
+"""
+from __future__ import annotations
+
+PREFIX = "CTRL_expressions_"
+
+# every raw expression control, without the prefix (GuiToRawControlsUtils.cpp:202-447)
+RAW = (
+    "browDownL", "browDownR", "browLateralL", "browLateralR", "browRaiseInL", "browRaiseInR", "browRaiseOuterL",
+    "browRaiseOuterR", "earUpL", "earUpR", "eyeBlinkL", "eyeBlinkR", "eyeCheekRaiseL", "eyeCheekRaiseR",
+    "eyeFaceScrunchL", "eyeFaceScrunchR", "eyeLidPressL", "eyeLidPressR", "eyeLookDownL", "eyeLookDownR",
+    "eyeLookLeftL", "eyeLookLeftR", "eyeLookRightL", "eyeLookRightR", "eyeLookUpL", "eyeLookUpR", "eyeLowerLidDownL",
+    "eyeLowerLidDownR", "eyeLowerLidUpL", "eyeLowerLidUpR", "eyeParallelLookDirection", "eyePupilNarrowL",
+    "eyePupilNarrowR", "eyePupilWideL", "eyePupilWideR", "eyeRelaxL", "eyeRelaxR", "eyeSquintInnerL",
+    "eyeSquintInnerR", "eyeUpperLidUpL", "eyeUpperLidUpR", "eyeWidenL", "eyeWidenR", "eyelashesDownINL",
+    "eyelashesDownINR", "eyelashesDownOUTL", "eyelashesDownOUTR", "eyelashesUpINL", "eyelashesUpINR",
+    "eyelashesUpOUTL", "eyelashesUpOUTR", "jawBack", "jawChinCompressL", "jawChinCompressR", "jawChinRaiseDL",
+    "jawChinRaiseDR", "jawChinRaiseUL", "jawChinRaiseUR", "jawClenchL", "jawClenchR", "jawFwd", "jawLeft", "jawOpen",
+    "jawOpenExtreme", "jawRight", "mouthCheekBlowL", "mouthCheekBlowR", "mouthCheekSuckL", "mouthCheekSuckR",
+    "mouthCornerDepressL", "mouthCornerDepressR", "mouthCornerDownL", "mouthCornerDownR", "mouthCornerNarrowL",
+    "mouthCornerNarrowR", "mouthCornerPullL", "mouthCornerPullR", "mouthCornerRounderDL", "mouthCornerRounderDR",
+    "mouthCornerRounderUL", "mouthCornerRounderUR", "mouthCornerSharpenDL", "mouthCornerSharpenDR",
+    "mouthCornerSharpenUL", "mouthCornerSharpenUR", "mouthCornerUpL", "mouthCornerUpR", "mouthCornerWideL",
+    "mouthCornerWideR", "mouthDimpleL", "mouthDimpleR", "mouthDown", "mouthFunnelDL", "mouthFunnelDR",
+    "mouthFunnelUL", "mouthFunnelUR", "mouthLeft", "mouthLipsBlowL", "mouthLipsBlowR", "mouthLipsPressL",
+    "mouthLipsPressR", "mouthLipsPullDL", "mouthLipsPullDR", "mouthLipsPullUL", "mouthLipsPullUR",
+    "mouthLipsPurseDL", "mouthLipsPurseDR", "mouthLipsPurseUL", "mouthLipsPurseUR", "mouthLipsPushDL",
+    "mouthLipsPushDR", "mouthLipsPushUL", "mouthLipsPushUR", "mouthLipsStickyLPh1", "mouthLipsStickyLPh2",
+    "mouthLipsStickyLPh3", "mouthLipsStickyRPh1", "mouthLipsStickyRPh2", "mouthLipsStickyRPh3", "mouthLipsThickDL",
+    "mouthLipsThickDR", "mouthLipsThickInwardDL", "mouthLipsThickInwardDR", "mouthLipsThickInwardUL",
+    "mouthLipsThickInwardUR", "mouthLipsThickUL", "mouthLipsThickUR", "mouthLipsThinDL", "mouthLipsThinDR",
+    "mouthLipsThinInwardDL", "mouthLipsThinInwardDR", "mouthLipsThinInwardUL", "mouthLipsThinInwardUR",
+    "mouthLipsThinUL", "mouthLipsThinUR", "mouthLipsTightenDL", "mouthLipsTightenDR", "mouthLipsTightenUL",
+    "mouthLipsTightenUR", "mouthLipsTogetherDL", "mouthLipsTogetherDR", "mouthLipsTogetherUL", "mouthLipsTogetherUR",
+    "mouthLipsTowardsDL", "mouthLipsTowardsDR", "mouthLipsTowardsUL", "mouthLipsTowardsUR", "mouthLowerLipBiteL",
+    "mouthLowerLipBiteR", "mouthLowerLipDepressL", "mouthLowerLipDepressR", "mouthLowerLipRollInL",
+    "mouthLowerLipRollInR", "mouthLowerLipRollOutL", "mouthLowerLipRollOutR", "mouthLowerLipShiftLeft",
+    "mouthLowerLipShiftRight", "mouthLowerLipTowardsTeethL", "mouthLowerLipTowardsTeethR", "mouthPressDL",
+    "mouthPressDR", "mouthPressUL", "mouthPressUR", "mouthRight", "mouthSharpCornerPullL", "mouthSharpCornerPullR",
+    "mouthStickyDC", "mouthStickyDINL", "mouthStickyDINR", "mouthStickyDOUTL", "mouthStickyDOUTR", "mouthStickyUC",
+    "mouthStickyUINL", "mouthStickyUINR", "mouthStickyUOUTL", "mouthStickyUOUTR", "mouthStretchL",
+    "mouthStretchLipsCloseL", "mouthStretchLipsCloseR", "mouthStretchR", "mouthUp", "mouthUpperLipBiteL",
+    "mouthUpperLipBiteR", "mouthUpperLipRaiseL", "mouthUpperLipRaiseR", "mouthUpperLipRollInL",
+    "mouthUpperLipRollInR", "mouthUpperLipRollOutL", "mouthUpperLipRollOutR", "mouthUpperLipShiftLeft",
+    "mouthUpperLipShiftRight", "mouthUpperLipTowardsTeethL", "mouthUpperLipTowardsTeethR", "neckDigastricDown",
+    "neckDigastricUp", "neckMastoidContractL", "neckMastoidContractR", "neckStretchL", "neckStretchR",
+    "neckSwallowPh1", "neckSwallowPh2", "neckSwallowPh3", "neckSwallowPh4", "neckThroatDown", "neckThroatExhale",
+    "neckThroatInhale", "neckThroatUp", "noseNasolabialDeepenL", "noseNasolabialDeepenR", "noseNostrilCompressL",
+    "noseNostrilCompressR", "noseNostrilDepressL", "noseNostrilDepressR", "noseNostrilDilateL", "noseNostrilDilateR",
+    "noseWrinkleL", "noseWrinkleR", "noseWrinkleUpperL", "noseWrinkleUpperR", "teethBackD", "teethBackU",
+    "teethDownD", "teethDownU", "teethFwdD", "teethFwdU", "teethLeftD", "teethLeftU", "teethRightD", "teethRightU",
+    "teethUpD", "teethUpU", "tongueBendDown", "tongueBendUp", "tongueDown", "tongueIn", "tongueLeft", "tongueNarrow",
+    "tongueOut", "tonguePress", "tongueRight", "tongueRoll", "tongueThick", "tongueThin", "tongueTipDown",
+    "tongueTipLeft", "tongueTipRight", "tongueTipUp", "tongueTwistLeft", "tongueTwistRight", "tongueUp",
+    "tongueWide",
+)
+CURVES = frozenset(PREFIX + n for n in RAW)
+
+HEAD_ROT = ("HeadYaw", "HeadPitch", "HeadRoll")
+HEAD_POS = ("HeadTranslationX", "HeadTranslationY", "HeadTranslationZ")
+HEAD_SWITCH = "HeadControlSwitch"
+HEAD = HEAD_ROT + HEAD_POS + (HEAD_SWITCH,)
+
+SIDES = ("L", "R")
+LOOK = ("Left", "Right", "Up", "Down")
+
+
+def c(name: str) -> str:
+    """The full curve name: "eyeBlinkL" -> "CTRL_expressions_eyeBlinkL" (full names pass through)."""
+    return name if name.startswith(PREFIX) or name in HEAD else PREFIX + name
+
+
+def is_face_curve(name: str) -> bool:
+    return name in CURVES or name in HEAD
+
+
+def unknown(names) -> list:
+    """The names in `names` that are not MetaHuman face curves (typos), each with its nearest valid name."""
+    import difflib
+    pool = sorted(CURVES | set(HEAD))
+    bad = []
+    for n in names:
+        full = c(n)
+        if full not in CURVES and full not in HEAD:
+            near = difflib.get_close_matches(full, pool, n=3, cutoff=0.6)
+            bad.append({"name": n, "did_you_mean": near})
+    return bad
+
+
+def group(prefix: str) -> list:
+    """Every full curve name whose raw name starts with `prefix` ("eyeLook", "mouthCorner", "brow")."""
+    return sorted(PREFIX + n for n in RAW if n.startswith(prefix))
+
+
+def eye_look(direction: str, side: str) -> str:
+    """CTRL_expressions_eyeLook{Left,Right,Up,Down}{L,R}."""
+    return f"{PREFIX}eyeLook{direction}{side}"
+
+
+def blink(side: str) -> str:
+    return f"{PREFIX}eyeBlink{side}"
+
+
+BLINKS = (blink("L"), blink("R"))
+EYE_LOOK = tuple(eye_look(d, s) for s in SIDES for d in LOOK)
+# the mouth region: lowered under a talking mouth so an expression does not fight the lip-sync
+MOUTH = frozenset(n for n in CURVES if n[len(PREFIX):].startswith(("mouth", "jaw", "tongue", "teeth")))
+
+
+class HeadSigns:
+    """How the rig's head curves map to the character's frame: +1 or -1 per curve (see the module docstring), and
+    the eye-look gains in degrees at full curve (1.0), and whether eyeLookLeft means the character's left. Defaults are a best guess until `perf.calibrate` measures the
+    real rig; `measured` says which."""
+
+    def __init__(self, yaw: float = 1.0, pitch: float = 1.0, roll: float = 1.0, eye_deg: dict | None = None,
+                 measured: bool = False, eye_flip: bool = False):
+        self.yaw, self.pitch, self.roll = yaw, pitch, roll
+        self.eye_flip = eye_flip  # True when eyeLookLeft turns the eye to the character's right
+        # degrees an eye turns at eyeLook* = 1.0: a guess (MetaHuman's eyes reach roughly 30-40 deg); gaze_lock and
+        # perf.calibrate measure it per rig
+        self.eye_deg = {"Left": 35.0, "Right": 35.0, "Up": 25.0, "Down": 30.0, **(eye_deg or {})}
+        self.measured = measured
+
+    def to_json(self) -> dict:
+        return {"yaw": self.yaw, "pitch": self.pitch, "roll": self.roll, "eye_deg": dict(self.eye_deg),
+                "measured": self.measured, "eye_flip": self.eye_flip}
+
+    @classmethod
+    def from_json(cls, d: dict | None) -> "HeadSigns":
+        d = d or {}
+        return cls(d.get("yaw", 1.0), d.get("pitch", 1.0), d.get("roll", 1.0), d.get("eye_deg"), d.get("measured", False),
+                   d.get("eye_flip", False))

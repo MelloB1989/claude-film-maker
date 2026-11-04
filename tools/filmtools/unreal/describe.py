@@ -122,7 +122,7 @@ LIVE = {
     "actors": ("level.actors", lambda rest: {"contains": rest[0] if rest else ""}),
     "seq": ("seq.tracks", lambda rest: {"path": rest[0]}),
     "cuts": ("seq.cuts", lambda rest: {"path": rest[0]}),
-    "actor": ("mh.components", lambda rest: {"label": rest[0]}),
+    "components": ("mh.components", lambda rest: {"label": rest[0]}),
     "assets": ("assets.list", lambda rest: {"path": rest[0] if rest else "/Game"}),
 }
 

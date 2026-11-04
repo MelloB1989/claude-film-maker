@@ -1,0 +1,1289 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "sequence.schema.json",
+ "title": "sequence",
+ "description": "A level sequence, declaratively (WP8; docs/unreal/sequencer.md). Applied by seq.apply / film-ue apply.",
+ "type": "object",
+ "required": [
+  "sequence"
+ ],
+ "additionalProperties": false,
+ "$defs": {
+  "key": {
+   "description": "a key: [frame, value(, interp(, tangents))] or {frame, value, interp, tangents}",
+   "oneOf": [
+    {
+     "type": "array",
+     "minItems": 2,
+     "maxItems": 4
+    },
+    {
+     "type": "object",
+     "required": [
+      "frame",
+      "value"
+     ],
+     "additionalProperties": false,
+     "properties": {
+      "frame": {
+       "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+       "oneOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "string"
+        }
+       ]
+      },
+      "value": {},
+      "interp": {
+       "description": "interpolation leaving the key",
+       "enum": [
+        "auto",
+        "smart",
+        "linear",
+        "constant",
+        "user",
+        "break",
+        "step",
+        "cubic",
+        "smooth"
+       ]
+      },
+      "tangents": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "arrive": {
+         "type": "number",
+         "description": "slope in value units per frame"
+        },
+        "leave": {
+         "type": "number",
+         "description": "slope in value units per frame"
+        },
+        "arrive_weight": {
+         "type": "number",
+         "description": "tangent weight"
+        },
+        "leave_weight": {
+         "type": "number",
+         "description": "tangent weight"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  "track": {
+   "type": "object",
+   "required": [
+    "kind"
+   ],
+   "description": "a canonical track (seq.describe's shape)",
+   "properties": {
+    "kind": {
+     "enum": [
+      "transform",
+      "float",
+      "double",
+      "bool",
+      "byte",
+      "integer",
+      "string",
+      "visibility",
+      "spawn",
+      "color",
+      "vector",
+      "anim",
+      "audio",
+      "camera_cut",
+      "fade",
+      "level_visibility",
+      "material",
+      "mpc",
+      "event",
+      "shot",
+      "sub"
+     ]
+    },
+    "binding": {
+     "type": "string"
+    },
+    "component": {
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    },
+    "params": {
+     "type": "object"
+    },
+    "sections": {
+     "type": "array"
+    }
+   }
+  }
+ },
+ "properties": {
+  "kind": {
+   "const": "sequence"
+  },
+  "version": {
+   "const": 1
+  },
+  "name": {
+   "type": "string"
+  },
+  "$schema": {
+   "type": "string",
+   "description": "the schema's URL (editor hint; ignored)"
+  },
+  "description": {
+   "type": "string"
+  },
+  "notes": {
+   "description": "free text for people (ignored)"
+  },
+  "sequence": {
+   "type": "string",
+   "pattern": "^/",
+   "description": "LevelSequence package path, made if missing"
+  },
+  "fps": {
+   "description": "display rate: 24, 25, 30, 23.976, 29.97, '30000/1001'",
+   "oneOf": [
+    {
+     "type": "number"
+    },
+    {
+     "type": "string"
+    }
+   ]
+  },
+  "tick_resolution": {
+   "type": "integer",
+   "description": "ticks per second (default 24000)"
+  },
+  "range": {
+   "type": "array",
+   "items": {
+    "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+    "oneOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "string"
+     }
+    ]
+   },
+   "minItems": 2,
+   "maxItems": 2,
+   "description": "playback [start, end) frames"
+  },
+  "duration": {
+   "description": "playback [0, duration)",
+   "oneOf": [
+    {
+     "type": "number"
+    },
+    {
+     "type": "string"
+    }
+   ]
+  },
+  "markers": {
+   "type": "array",
+   "description": "[frame, label] or {frame, label, color}"
+  },
+  "prune": {
+   "type": "boolean",
+   "description": "remove tracks of the named bindings / master kinds that the spec does not list"
+  },
+  "bindings": {
+   "type": "object",
+   "additionalProperties": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "spawn": {
+      "description": "a spawnable the sequence owns: true (from the level actor of this label), {class} or {template}",
+      "oneOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "class": {
+          "type": "string"
+         },
+         "template": {
+          "type": "string"
+         }
+        }
+       }
+      ]
+     },
+     "transform": {
+      "description": "transform keys (a list, or {keys, interp, unwrap, component})",
+      "oneOf": [
+       {
+        "type": "array",
+        "items": {
+         "description": "[frame, [x,y,z] cm, {pitch,yaw,roll} | [x,y,z] look-at point | actor label(, interp)] or a dict",
+         "oneOf": [
+          {
+           "type": "array",
+           "minItems": 2,
+           "maxItems": 4
+          },
+          {
+           "type": "object",
+           "required": [
+            "frame"
+           ],
+           "additionalProperties": false,
+           "properties": {
+            "frame": {
+             "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+             "oneOf": [
+              {
+               "type": "number"
+              },
+              {
+               "type": "string"
+              }
+             ]
+            },
+            "loc": {
+             "type": "array",
+             "items": {
+              "type": "number"
+             },
+             "minItems": 3,
+             "maxItems": 3,
+             "description": "location, cm"
+            },
+            "location": {
+             "type": "array",
+             "items": {
+              "type": "number"
+             },
+             "minItems": 3,
+             "maxItems": 3
+            },
+            "rot": {
+             "type": "object",
+             "additionalProperties": false,
+             "description": "degrees, never positional",
+             "properties": {
+              "pitch": {
+               "type": "number",
+               "description": "pitch, degrees"
+              },
+              "yaw": {
+               "type": "number",
+               "description": "yaw, degrees"
+              },
+              "roll": {
+               "type": "number",
+               "description": "roll, degrees"
+              }
+             }
+            },
+            "rotation": {
+             "type": "object",
+             "additionalProperties": false,
+             "description": "degrees, never positional",
+             "properties": {
+              "pitch": {
+               "type": "number",
+               "description": "pitch, degrees"
+              },
+              "yaw": {
+               "type": "number",
+               "description": "yaw, degrees"
+              },
+              "roll": {
+               "type": "number",
+               "description": "roll, degrees"
+              }
+             }
+            },
+            "look_at": {
+             "description": "aim the X axis at a point [x,y,z] cm or an actor label",
+             "oneOf": [
+              {
+               "type": "array",
+               "items": {
+                "type": "number"
+               },
+               "minItems": 3,
+               "maxItems": 3
+              },
+              {
+               "type": "string"
+              }
+             ]
+            },
+            "scale": {
+             "oneOf": [
+              {
+               "type": "number"
+              },
+              {
+               "type": "array",
+               "items": {
+                "type": "number"
+               },
+               "minItems": 3,
+               "maxItems": 3
+              }
+             ],
+             "description": "scale factors"
+            },
+            "interp": {
+             "description": "interpolation leaving the key",
+             "enum": [
+              "auto",
+              "smart",
+              "linear",
+              "constant",
+              "user",
+              "break",
+              "step",
+              "cubic",
+              "smooth"
+             ]
+            },
+            "tangents": {
+             "type": "object"
+            }
+           }
+          }
+         ]
+        }
+       },
+       {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+         "keys": {
+          "type": "array",
+          "items": {
+           "description": "[frame, [x,y,z] cm, {pitch,yaw,roll} | [x,y,z] look-at point | actor label(, interp)] or a dict",
+           "oneOf": [
+            {
+             "type": "array",
+             "minItems": 2,
+             "maxItems": 4
+            },
+            {
+             "type": "object",
+             "required": [
+              "frame"
+             ],
+             "additionalProperties": false,
+             "properties": {
+              "frame": {
+               "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+               "oneOf": [
+                {
+                 "type": "number"
+                },
+                {
+                 "type": "string"
+                }
+               ]
+              },
+              "loc": {
+               "type": "array",
+               "items": {
+                "type": "number"
+               },
+               "minItems": 3,
+               "maxItems": 3,
+               "description": "location, cm"
+              },
+              "location": {
+               "type": "array",
+               "items": {
+                "type": "number"
+               },
+               "minItems": 3,
+               "maxItems": 3
+              },
+              "rot": {
+               "type": "object",
+               "additionalProperties": false,
+               "description": "degrees, never positional",
+               "properties": {
+                "pitch": {
+                 "type": "number",
+                 "description": "pitch, degrees"
+                },
+                "yaw": {
+                 "type": "number",
+                 "description": "yaw, degrees"
+                },
+                "roll": {
+                 "type": "number",
+                 "description": "roll, degrees"
+                }
+               }
+              },
+              "rotation": {
+               "type": "object",
+               "additionalProperties": false,
+               "description": "degrees, never positional",
+               "properties": {
+                "pitch": {
+                 "type": "number",
+                 "description": "pitch, degrees"
+                },
+                "yaw": {
+                 "type": "number",
+                 "description": "yaw, degrees"
+                },
+                "roll": {
+                 "type": "number",
+                 "description": "roll, degrees"
+                }
+               }
+              },
+              "look_at": {
+               "description": "aim the X axis at a point [x,y,z] cm or an actor label",
+               "oneOf": [
+                {
+                 "type": "array",
+                 "items": {
+                  "type": "number"
+                 },
+                 "minItems": 3,
+                 "maxItems": 3
+                },
+                {
+                 "type": "string"
+                }
+               ]
+              },
+              "scale": {
+               "oneOf": [
+                {
+                 "type": "number"
+                },
+                {
+                 "type": "array",
+                 "items": {
+                  "type": "number"
+                 },
+                 "minItems": 3,
+                 "maxItems": 3
+                }
+               ],
+               "description": "scale factors"
+              },
+              "interp": {
+               "description": "interpolation leaving the key",
+               "enum": [
+                "auto",
+                "smart",
+                "linear",
+                "constant",
+                "user",
+                "break",
+                "step",
+                "cubic",
+                "smooth"
+               ]
+              },
+              "tangents": {
+               "type": "object"
+              }
+             }
+            }
+           ]
+          }
+         },
+         "interp": {
+          "description": "interpolation leaving the key",
+          "enum": [
+           "auto",
+           "smart",
+           "linear",
+           "constant",
+           "user",
+           "break",
+           "step",
+           "cubic",
+           "smooth"
+          ]
+         },
+         "component": {
+          "type": "string"
+         },
+         "unwrap": {
+          "type": "boolean",
+          "description": "make rotations continuous across +-180 (default true)"
+         }
+        }
+       }
+      ]
+     },
+     "visible": {
+      "description": "[[frame, bool], ...] stepped, or {keys, component}",
+      "oneOf": [
+       {
+        "type": "array",
+        "items": {
+         "$ref": "#/$defs/key"
+        },
+        "description": "keys, any order; a later key at the same frame wins"
+       },
+       {
+        "type": "object"
+       }
+      ]
+     },
+     "anim": {
+      "description": "{component, sections} or a list of sections or {component: sections}",
+      "oneOf": [
+       {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "required": [
+          "anim"
+         ],
+         "additionalProperties": false,
+         "properties": {
+          "anim": {
+           "type": "string",
+           "description": "AnimSequence package path"
+          },
+          "start": {
+           "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+           "oneOf": [
+            {
+             "type": "number"
+            },
+            {
+             "type": "string"
+            }
+           ]
+          },
+          "end": {
+           "description": "default: start + the animation's length / rate",
+           "oneOf": [
+            {
+             "type": "number"
+            },
+            {
+             "type": "string"
+            }
+           ]
+          },
+          "offset": {
+           "type": "number",
+           "description": "seconds into the animation where the section starts"
+          },
+          "rate": {
+           "type": "number",
+           "exclusiveMinimum": 0,
+           "description": "play rate (1 = normal)"
+          },
+          "blend_in": {
+           "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+           "oneOf": [
+            {
+             "type": "number"
+            },
+            {
+             "type": "string"
+            }
+           ]
+          },
+          "blend_out": {
+           "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+           "oneOf": [
+            {
+             "type": "number"
+            },
+            {
+             "type": "string"
+            }
+           ]
+          },
+          "weight": {
+           "description": "0..1, or keys",
+           "oneOf": [
+            {
+             "type": "number"
+            },
+            {
+             "type": "array",
+             "items": {
+              "$ref": "#/$defs/key"
+             },
+             "description": "keys, any order; a later key at the same frame wins"
+            }
+           ]
+          },
+          "loop": {
+           "type": "boolean"
+          },
+          "row": {
+           "type": "integer",
+           "minimum": 0
+          },
+          "slot": {
+           "type": "string"
+          },
+          "reverse": {
+           "type": "boolean"
+          }
+         }
+        }
+       },
+       {
+        "type": "object"
+       }
+      ]
+     },
+     "props": {
+      "description": "{'Prop.Path' | 'Component/Prop.Path': keys | {...}}",
+      "oneOf": [
+       {
+        "type": "object",
+        "additionalProperties": {
+         "description": "keys, or {keys | value, type, srgb, interp, component, prop}",
+         "oneOf": [
+          {
+           "type": "array",
+           "items": {
+            "$ref": "#/$defs/key"
+           },
+           "description": "keys, any order; a later key at the same frame wins"
+          },
+          {
+           "type": "object",
+           "additionalProperties": false,
+           "properties": {
+            "keys": {
+             "type": "array",
+             "items": {
+              "$ref": "#/$defs/key"
+             },
+             "description": "keys, any order; a later key at the same frame wins"
+            },
+            "value": {},
+            "type": {
+             "enum": [
+              "float",
+              "double",
+              "bool",
+              "byte",
+              "integer",
+              "string",
+              "color",
+              "vector"
+             ]
+            },
+            "srgb": {
+             "type": "boolean",
+             "description": "colour values are sRGB 0..1 (an FColor property), converted to linear"
+            },
+            "interp": {
+             "description": "interpolation leaving the key",
+             "enum": [
+              "auto",
+              "smart",
+              "linear",
+              "constant",
+              "user",
+              "break",
+              "step",
+              "cubic",
+              "smooth"
+             ]
+            },
+            "component": {
+             "type": "string"
+            },
+            "prop": {
+             "type": "string"
+            }
+           }
+          }
+         ]
+        }
+       },
+       {
+        "type": "array"
+       }
+      ]
+     },
+     "materials": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "param"
+       ],
+       "additionalProperties": false,
+       "properties": {
+        "param": {
+         "type": "string"
+        },
+        "keys": {
+         "type": "array",
+         "items": {
+          "$ref": "#/$defs/key"
+         },
+         "description": "keys, any order; a later key at the same frame wins"
+        },
+        "value": {},
+        "slot": {
+         "oneOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "string"
+          }
+         ]
+        },
+        "component": {
+         "type": "string"
+        },
+        "interp": {
+         "description": "interpolation leaving the key",
+         "enum": [
+          "auto",
+          "smart",
+          "linear",
+          "constant",
+          "user",
+          "break",
+          "step",
+          "cubic",
+          "smooth"
+         ]
+        }
+       }
+      }
+     },
+     "tracks": {
+      "type": "array",
+      "items": {
+       "$ref": "#/$defs/track"
+      }
+     },
+     "description": {
+      "type": "string"
+     }
+    }
+   },
+   "description": "actor label -> its tracks"
+  },
+  "camera_cuts": {
+   "type": "array",
+   "description": "[camera label, first frame(, end)] or {camera, start, end}; each runs to the next"
+  },
+  "audio": {
+   "description": "{track name: clips} or clips; a clip is {sound, start, end, offset (s), volume, pitch, row} or [sound, start]",
+   "oneOf": [
+    {
+     "type": "object"
+    },
+    {
+     "type": "array"
+    }
+   ]
+  },
+  "fade": {
+   "description": "{keys (0 clear .. 1 full colour), color [r,g,b] linear, audio bool, interp} or keys",
+   "oneOf": [
+    {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "keys": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/key"
+       },
+       "description": "keys, any order; a later key at the same frame wins"
+      },
+      "color": {
+       "type": "array"
+      },
+      "audio": {
+       "type": "boolean"
+      },
+      "interp": {
+       "description": "interpolation leaving the key",
+       "enum": [
+        "auto",
+        "smart",
+        "linear",
+        "constant",
+        "user",
+        "break",
+        "step",
+        "cubic",
+        "smooth"
+       ]
+      }
+     }
+    },
+    {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/key"
+     },
+     "description": "keys, any order; a later key at the same frame wins"
+    }
+   ]
+  },
+  "level_visibility": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "levels"
+    ],
+    "additionalProperties": false,
+    "properties": {
+     "start": {
+      "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ]
+     },
+     "end": {
+      "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ]
+     },
+     "visible": {
+      "type": "boolean"
+     },
+     "levels": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "row": {
+      "type": "integer"
+     }
+    }
+   },
+   "description": "sections that show or hide streaming levels: {start, end (frames), visible, levels}"
+  },
+  "collections": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "collection",
+     "param"
+    ],
+    "additionalProperties": false,
+    "properties": {
+     "collection": {
+      "type": "string"
+     },
+     "param": {
+      "type": "string"
+     },
+     "keys": {
+      "type": "array",
+      "items": {
+       "$ref": "#/$defs/key"
+      },
+      "description": "keys, any order; a later key at the same frame wins"
+     },
+     "value": {
+      "type": "number"
+     },
+     "interp": {
+      "description": "interpolation leaving the key",
+      "enum": [
+       "auto",
+       "smart",
+       "linear",
+       "constant",
+       "user",
+       "break",
+       "step",
+       "cubic",
+       "smooth"
+      ]
+     }
+    }
+   },
+   "description": "material parameter collection keys: {collection path, param, keys (frame, value)}"
+  },
+  "shots": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+     "sequence": {
+      "type": "string",
+      "description": "the shot's LevelSequence package path (default with camera/shot: <master>_<name>)"
+     },
+     "start": {
+      "description": "frames; default: the previous shot's end on the same row",
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ]
+     },
+     "end": {
+      "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ]
+     },
+     "duration": {
+      "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ]
+     },
+     "name": {
+      "type": "string"
+     },
+     "offset": {
+      "description": "frames into the inner sequence",
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ]
+     },
+     "timescale": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "preroll": {
+      "description": "frames evaluated before the section (cloth history)",
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ]
+     },
+     "postroll": {
+      "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ]
+     },
+     "row": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "camera": {
+      "type": "string",
+      "description": "shot list: a one-camera shot sequence on this camera (actor label)"
+     },
+     "shot": {
+      "type": "object",
+      "description": "shot list: the shot's own sequence spec inline (bindings, camera_cuts, ...; frames from the shot sequence's 0)"
+     },
+     "handles": {
+      "description": "shot list: frames of the shot sequence before and after the cut",
+      "oneOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "string"
+       }
+      ]
+     }
+    }
+   },
+   "description": "cinematic shot track sections"
+  },
+  "subsequences": {
+   "description": "{track name: [subsequence]} or a list",
+   "oneOf": [
+    {
+     "type": "object",
+     "additionalProperties": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "sequence": {
+         "type": "string",
+         "description": "the shot's LevelSequence package path (default with camera/shot: <master>_<name>)"
+        },
+        "start": {
+         "description": "frames; default: the previous shot's end on the same row",
+         "oneOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "string"
+          }
+         ]
+        },
+        "end": {
+         "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+         "oneOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "string"
+          }
+         ]
+        },
+        "duration": {
+         "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+         "oneOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "string"
+          }
+         ]
+        },
+        "name": {
+         "type": "string"
+        },
+        "offset": {
+         "description": "frames into the inner sequence",
+         "oneOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "string"
+          }
+         ]
+        },
+        "timescale": {
+         "type": "number",
+         "exclusiveMinimum": 0
+        },
+        "preroll": {
+         "description": "frames evaluated before the section (cloth history)",
+         "oneOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "string"
+          }
+         ]
+        },
+        "postroll": {
+         "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+         "oneOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "string"
+          }
+         ]
+        },
+        "row": {
+         "type": "integer",
+         "minimum": 0
+        },
+        "camera": {
+         "type": "string",
+         "description": "shot list: a one-camera shot sequence on this camera (actor label)"
+        },
+        "shot": {
+         "type": "object",
+         "description": "shot list: the shot's own sequence spec inline (bindings, camera_cuts, ...; frames from the shot sequence's 0)"
+        },
+        "handles": {
+         "description": "shot list: frames of the shot sequence before and after the cut",
+         "oneOf": [
+          {
+           "type": "number"
+          },
+          {
+           "type": "string"
+          }
+         ]
+        }
+       }
+      }
+     }
+    },
+    {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+       "sequence": {
+        "type": "string",
+        "description": "the shot's LevelSequence package path (default with camera/shot: <master>_<name>)"
+       },
+       "start": {
+        "description": "frames; default: the previous shot's end on the same row",
+        "oneOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "string"
+         }
+        ]
+       },
+       "end": {
+        "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+        "oneOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "string"
+         }
+        ]
+       },
+       "duration": {
+        "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+        "oneOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "string"
+         }
+        ]
+       },
+       "name": {
+        "type": "string"
+       },
+       "offset": {
+        "description": "frames into the inner sequence",
+        "oneOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "string"
+         }
+        ]
+       },
+       "timescale": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       "preroll": {
+        "description": "frames evaluated before the section (cloth history)",
+        "oneOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "string"
+         }
+        ]
+       },
+       "postroll": {
+        "description": "a time: display frames (number), or '48f', '2s', '1m30s', '500ms', 'HH:MM:SS:FF'",
+        "oneOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "string"
+         }
+        ]
+       },
+       "row": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "camera": {
+        "type": "string",
+        "description": "shot list: a one-camera shot sequence on this camera (actor label)"
+       },
+       "shot": {
+        "type": "object",
+        "description": "shot list: the shot's own sequence spec inline (bindings, camera_cuts, ...; frames from the shot sequence's 0)"
+       },
+       "handles": {
+        "description": "shot list: frames of the shot sequence before and after the cut",
+        "oneOf": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "string"
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  },
+  "tracks": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/track"
+   },
+   "description": "raw canonical tracks, seq.describe's shape (frames, linear colours, offsets in seconds)"
+  }
+ }
+}

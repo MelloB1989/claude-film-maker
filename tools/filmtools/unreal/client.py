@@ -275,6 +275,14 @@ def _run(path: str, body: dict, timeout: float, wait_for: bool) -> dict:
     return wait(r["job"], timeout)
 
 
+def batch(calls: list, timeout: float = 900, wait: bool = True, stop_on_error: bool = True) -> dict:
+    """Several ops in one request and one job, in order: [("level.spawn", {...}), ("look.light", {...})] or
+    [{"name": ..., "args": {...}}]. Returns {"ok", "ran", "of", "results": [{"ok", "i", "name", "result" | "code",
+    "message", "hint", ...}]} as the job's result (stops at the first failure unless stop_on_error=False)."""
+    norm = [c if isinstance(c, dict) else {"name": c[0], "args": dict(c[1]) if len(c) > 1 else {}} for c in calls]
+    return _run("/batch", {"calls": norm, "stop_on_error": stop_on_error}, timeout, wait)
+
+
 def exec_code(code: str, timeout: float = 900, wait: bool = True) -> dict:
     return _run("/exec", {"code": code}, timeout, wait)
 

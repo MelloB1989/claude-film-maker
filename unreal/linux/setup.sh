@@ -17,6 +17,9 @@
 #   desktop on|off                 a temporary desktop for one interactive step (a sign-in): Xorg on the GPU with a
 #                                  virtual screen, openbox, a browser, x11vnc on 127.0.0.1:5900 (reached only through
 #                                  an SSM port-forward), the editor restarted onto it; off puts it back offscreen
+#   watchdog TTL_UNTIL IDLE_MIN STALL_MIN [PROJECT_DIR]
+#                                  the box's watchdog (ue_watchdog.py, every minute): power off past TTL_UNTIL (epoch,
+#                                  0 = none) or after IDLE_MIN idle minutes, restart an editor stalled STALL_MIN minutes
 #   check                          GPU, Vulkan, engine binary, unit state, as key=value lines
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -207,6 +210,32 @@ step_desktop() {
     echo "desktop: on (Xorg :0 on $bus, x11vnc 127.0.0.1:5900); VNC password in /root/vnc-pass (sudo cat)"
 }
 
+step_watchdog() {
+    local ttl="${1:-0}" idle="${2:-20}" stall="${3:-15}" project="${4:-}" token=""
+    [ -n "$project" ] && token="$project/Saved/fmbridge.token"
+    install -d /usr/local/lib/film-ue /etc/film-ue /var/lib/film-ue
+    install -m 755 "$HERE/ue_watchdog.py" /usr/local/lib/film-ue/ue_watchdog.py
+    install -m 644 "$HERE/ue-watchdog.service" /etc/systemd/system/ue-watchdog.service
+    install -m 644 "$HERE/ue-watchdog.timer" /etc/systemd/system/ue-watchdog.timer
+    python3 - "$ttl" "$idle" "$stall" "$token" <<'PY'
+import json, sys
+ttl, idle, stall, token = sys.argv[1:5]
+path = "/etc/film-ue/watchdog.json"
+try:
+    cfg = json.load(open(path))
+except (OSError, ValueError):
+    cfg = {}
+cfg.update(ttl_until=(int(ttl) or None), idle_min=int(idle), stall_min=int(stall))
+if token:
+    cfg["token"] = token
+json.dump(cfg, open(path, "w"), indent=1)
+PY
+    mkdir -p /run/film-ue
+    systemctl daemon-reload
+    systemctl enable --now ue-watchdog.timer >/dev/null 2>&1
+    echo "watchdog: ttl_until=$ttl idle_min=$idle stall_min=$stall ($(systemctl is-active ue-watchdog.timer))"
+}
+
 step_check() {
     echo "gpu=$(nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null || echo none)"
     echo "vulkan=$(vulkaninfo --summary 2>/dev/null | awk -F= '/deviceName/{gsub(/^ +/,"",$2); print $2; exit}' || echo none)"
@@ -218,6 +247,6 @@ step_check() {
     echo "ram_gb=$(free -g | awk '/Mem:/{print $2}') disk_free=$(df -h --output=avail /srv/ue 2>/dev/null | tail -1 | tr -d ' ')"
 }
 
-cmd="${1:?usage: setup.sh volume|driver|engine|project|windisk|project-copy|service|mode|desktop|check ...}"
+cmd="${1:?usage: setup.sh volume|driver|engine|project|windisk|project-copy|service|epic|mode|desktop|watchdog|check ...}"
 shift
 "step_$cmd" "$@"
