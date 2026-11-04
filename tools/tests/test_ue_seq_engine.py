@@ -263,3 +263,36 @@ def test_diff_two_sequences_and_against_a_spec(level):
     s["fade"]["keys"] = [[0, 1], [24, 0]]
     d = run_op("seq.diff", path=SEQ, spec=s)
     assert [t["track"] for t in d["tracks"]] == ["/fade"]
+
+
+def test_conform_keeps_time_or_frames(level):
+    run_op("seq.apply", spec=spec())
+    a = run_op("seq.describe", path=SEQ)
+    r = run_op("seq.conform", path=SEQ, fps=30, keep="time")
+    assert r["changed"] and r["range"] == [0, 300] and r["tick_resolution"] == 24000
+    b = run_op("seq.describe", path=SEQ)
+    assert b["markers"] == [{"frame": 60, "label": "beat"}]
+    cuts = [s["range"] for s in tracks(b, "camera_cut")[0]["sections"]]
+    assert cuts == [[0, 150], [150, 300]]                       # 5 s is still 5 s
+    assert tracks(b, "float", "Key")[0]["sections"][0]["channels"]["value"]["keys"][1][0] == 30
+    assert run_op("seq.conform", path=SEQ, fps=30)["changed"] is False
+    r = run_op("seq.conform", path=SEQ, fps="29.97", keep="time")
+    assert r["tick_resolution"] == 60000                        # 24000 does not land on 29.97 frames
+    run_op("seq.apply", spec=spec())                             # back to 24 fps, frames as the spec says
+    r = run_op("seq.conform", path=SEQ, fps=48, keep="frames", out="/Game/T/SEQ_48")
+    c = run_op("seq.describe", path="/Game/T/SEQ_48")
+    assert c["fps"] == "48" and c["range"] == a["range"]
+    assert [s["range"] for s in tracks(c, "camera_cut")[0]["sections"]] == [[0, 120], [120, 240]]
+    assert tracks(c, "anim", "Hero")[0]["sections"][0]["params"]["rate"] == 2.0
+    assert tracks(c, "audio")[0]["sections"][0]["range"] == [12, 108]   # 2 s of sound at 48 fps
+
+
+def test_retime_stretches_a_span(level):
+    run_op("seq.apply", spec=spec())
+    r = run_op("seq.retime", path=SEQ, start=100, end=140, scale=1.5)
+    doc = run_op("seq.describe", path=SEQ)
+    assert doc["range"] == [0, 260] and [s["range"] for s in tracks(doc, "camera_cut")[0]["sections"]] == \
+        [[0, 130], [130, 260]]
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError):
+        run_op("seq.retime", path=SEQ, start=100, scale=2)

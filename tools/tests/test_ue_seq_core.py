@@ -351,3 +351,21 @@ def test_diff_says_where_tracks_first_differ():
     assert ch["/fade"]["change"] == "removed"
     f = ch["Hero/float:Intensity"]
     assert f["where"] == "sections[0].channels.value" and f["key"] == 1 and f["b"][1] == 11.0
+
+
+def test_stretch_span_ripples_after_and_slows_inside():
+    doc = compiled()
+    out, notes = C.model.stretch(doc, 40, 60, 2.0)
+    x = by(out, "transform", "Hero")["sections"][0]["channels"]["location.x"]["keys"]
+    assert [k[0] for k in x] == [0, 56]          # 48 is inside: 40 + 8 * 2
+    assert out["range"] == [0, 260]              # the end ripples by 20
+    assert by(out, "camera_cut")["sections"][1]["range"] == [140, 260]
+    assert any("straddles" in n for n in notes)   # the anim [0, ...) straddles the span
+    with pytest.raises(ValueError):
+        C.model.stretch(doc, 60, 40, 2.0)
+
+
+def test_compatible_ticks():
+    ct = C.time.compatible_ticks
+    assert ct(["24", "25"]) == 24000 and ct(["23.976", "24"]) == 24000
+    assert ct(["24", "29.97"]) == 60000 and ct(["59.94"]) == 60000 and ct(["29.97"], 60000) == 60000

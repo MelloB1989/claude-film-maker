@@ -68,6 +68,19 @@ Copy without a window duplicates the asset (everything, even unmodelled tracks).
 much later into themselves and curves hold their values at the edges. Retime plays animation at rate/scale; audio
 is moved, never stretched.
 
+**Change the frame rate (conform).**
+
+    film-ue op seq.conform path=/Game/Film/SEQ_010 fps=25                  # keep TIME: every key stays at its second
+    film-ue op seq.conform path=/Game/Film/SEQ_010 fps=48 keep=frames out=/Game/Film/SEQ_010_48   # keep FRAMES
+
+Keeping time only relabels frames (keys, sections and markers live in ticks); `off_frame` counts what now falls
+between frames. Keeping frames rewrites every track at the same frame numbers: the sequence plays faster or slower,
+animation rates follow, audio sections end where their sound does. A rate that does not land on whole ticks (29.97,
+59.94 on 24000) switches the tick resolution to 60000 first, keys migrated.
+
+**Slow down one beat.** `film-ue op seq.retime path=... start=48 end=72 scale=2` plays [48, 72) twice as long and
+moves everything after it by 24 frames (animation inside at half rate; audio moved, not stretched).
+
 **Times.** `film-ue op seq.time value=00:01:00:00 fps=23.976` → frame, seconds, timecode (drop-frame `;` at
 29.97/59.94), ticks. Specs take `48`, `"48f"`, `"2s"`, `"1m30s"`, `"500ms"` or `"HH:MM:SS:FF"` wherever a frame goes.
 
@@ -88,7 +101,8 @@ is moved, never stretched.
 | `seq.diff(path, other? / spec?)` | what differs, and where each track first differs (a spec: only what it states) | no |
 | `seq.check(path)` | numeric QA verdict | no |
 | `seq.shots(path)`, `seq.chunks(path, ...)`, `seq.preroll(path, frames)` | shots, render chunks, pre-roll | -, -, yes / yes |
-| `seq.copy(src, dst, start?, end?, to, replace)`, `seq.retime(path, offset, scale, pivot, after, out)` | edit time | yes / copy yes, retime no |
+| `seq.copy(src, dst, start?, end?, to, replace)`, `seq.retime(path, offset, scale, pivot, after, start?, end?, out)` | edit time | yes / copy yes, retime no |
+| `seq.conform(path, fps, keep=time\|frames, out)` | change the display rate keeping time or frames | yes / yes |
 | `seq.time(value, fps, path)` | conversions | no |
 
 Older ops (`ops/seq.py`, kept with their signatures; WP7's `cam.*`/`shot.*` call them): `seq.new`, `seq.shot`,
@@ -255,7 +269,7 @@ State at the end of the night (agent-06, branch `fleet/agent-06/ue-sequencer`):
 
 - Done: the pure core (time incl. drop-frame timecode, keys and curves, canonical document, spec compiler, plan,
   lint, shots, render chunks, copy/retime transforms), the engine adapter for every listed track kind, 18 `seq.*`
-  ops (19 with seq.diff), the `sequence` spec kind for WP11's engine, the schema and two examples, the fake Sequencer, 53 unit tests,
+  ops (20 with seq.diff and seq.conform: BACKLOG B22), the `sequence` spec kind for WP11's engine, the schema and two examples, the fake Sequencer, 53 unit tests,
   the selftest. All UE APIs verified on the 5.8.4 source (table above).
 - Not yet run on an engine: everything engine-side is proven only against the fake. Tomorrow's first run of
   `film-ue selftest seq` is the acceptance test. The places most likely to need a fix are noted in Gotchas: reading colour/vector/byte channels by order; the material section's colour-channel grouping.

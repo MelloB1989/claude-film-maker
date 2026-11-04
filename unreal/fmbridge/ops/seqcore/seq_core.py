@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 
 import unreal
 
@@ -17,10 +18,10 @@ from .. import op
 from ...errors import OpError
 from ..assets import EAL, free
 from . import _engine as E
-from ._model import index, track_id, track_label, transform_time, clip
+from ._model import clip, index, stretch, track_id, track_label, transform_time
 from ._plan import chunks as plan_chunks, diff as plan_diff, lint, plan as make_plan, shots_of
 from ._spec import SpecError, compile_spec, validate as spec_validate
-from ._time import Rate, snap
+from ._time import Rate, compatible_ticks, convert, snap
 
 
 def _spec(spec) -> dict:
@@ -414,8 +415,9 @@ def preroll(*, path: str, frames: int, postroll: int = 0, save: bool = True) -> 
 
 @op("seq.retime", mutates=True, idempotent=False, tags=["sequencer"])
 def retime(*, path: str, offset: float = 0, scale: float = 1.0, pivot: float = 0, after: float = None,
-           out: str = "", save: bool = True):
-    """Move or stretch a sequence's time: f -> pivot + (f - pivot) * scale + offset, keys, sections and range alike.
+           start: float = None, end: float = None, out: str = "", save: bool = True):
+    """Move or stretch a sequence's time: f -> pivot + (f - pivot) * scale + offset, keys, sections and range alike;
+    or, with `start` and `end`, stretch only that span by `scale` and ripple what follows (a slow-motion beat).
 
     `after` makes it a ripple (only what is at or after that frame moves: insert time with offset > 0, close a gap
     with offset < 0). Animation sections play at rate / scale; audio is moved, never stretched. `out`: write to a
@@ -423,13 +425,21 @@ def retime(*, path: str, offset: float = 0, scale: float = 1.0, pivot: float = 0
     (listed in "untouched"). Not idempotent: each call moves again. A multi-tick job.
     Returns: {"sequence", "tracks", "notes", "untouched", "changed"}.
     Example: film-ue op seq.retime path=/Game/S/SEQ_A offset=12 after=96
+    Example: film-ue op seq.retime path=/Game/S/SEQ_A start=48 end=72 scale=2
     """
+    if (start is None) != (end is None):
+        raise OpError("give both start and end to stretch a span (or neither)", code="bad_args")
+    if start is not None and (end <= start or scale <= 0):
+        raise OpError(f"stretch needs start < end and scale > 0, got [{start}, {end}) x{scale}", code="bad_args")
     target = path
     if out:
         yield from _copy_asset(path, out, replace=True)
         target = out
     doc = E.describe(target)
-    moved, notes = transform_time(doc, offset=offset, scale=scale, pivot=pivot, after=after)
+    if start is not None:
+        moved, notes = stretch(doc, start, end, scale)
+    else:
+        moved, notes = transform_time(doc, offset=offset, scale=scale, pivot=pivot, after=after)
     seq = E.get(target)
     with E.Writing(seq, save=save):
         n = 0
@@ -446,6 +456,73 @@ def retime(*, path: str, offset: float = 0, scale: float = 1.0, pivot: float = 0
     untouched = doc["unsupported"] + [{"binding": t["binding"], "kind": t["kind"]} for t in moved["tracks"]
                                       if t["kind"] in ("event",)]
     return {"sequence": target, "tracks": n, "notes": notes, "untouched": untouched, "changed": True}
+
+
+@op("seq.conform", mutates=True, idempotent=True, tags=["sequencer"])
+def conform(*, path: str, fps, keep: str = "time", out: str = "", save: bool = True):
+    """Change a sequence's display rate, keeping either its TIME (every key, section and marker stays at its
+    moment in seconds; frame numbers change; the default) or its FRAMES (frame numbers stay; the whole thing plays
+    faster or slower: animation rates follow, audio sections end where their sound does).
+
+    The tick resolution is changed too when the new rate does not land on whole ticks (29.97 / 59.94 need 60000),
+    with the keys migrated. `out`: conform a copy. A multi-tick job. Converges: the same fps again changes nothing.
+    Args: fps: 24, 25, 30, 23.976, 29.97, "30000/1001". keep: "time" | "frames".
+    Returns: {"sequence", "from", "to", "keep", "range", "tick_resolution", "off_frame", "notes", "changed"}.
+    Example: film-ue op seq.conform path=/Game/Film/SEQ_010 fps=25 keep=time
+    """
+    if keep not in ("time", "frames"):
+        raise OpError(f"keep is 'time' or 'frames', got {keep!r}", code="bad_args")
+    new = Rate.parse(fps)
+    target = path
+    if out:
+        yield from _copy_asset(path, out, replace=True)
+        target = out
+    seq = E.get(target)
+    old = E.rate(seq)
+    if old == new:
+        return {"sequence": target, "from": str(old), "to": str(new), "keep": keep,
+                "range": [seq.get_playback_start(), seq.get_playback_end()], "tick_resolution": E.ticks(seq).numerator,
+                "off_frame": 0, "notes": [], "changed": bool(out)}
+    notes = []
+    doc = E.describe(target) if keep == "frames" else None
+    a, b = seq.get_playback_start(), seq.get_playback_end()
+    with E.Writing(seq, save=save):
+        t = compatible_ticks([old, new], E.ticks(seq).numerator)
+        if t != E.ticks(seq).numerator:
+            seq.set_tick_resolution(unreal.FrameRate(t, 1))
+            notes.append(f"tick resolution {E.ticks(seq).numerator} -> {t} (keys migrated)")
+        seq.set_display_rate(unreal.FrameRate(new.numerator, new.denominator))
+        if keep == "time":
+            na, nb = convert(a, old, new), convert(b, old, new)
+            seq.set_playback_start(int(math.floor(na + 1e-6)))
+            seq.set_playback_end(int(math.ceil(nb - 1e-6)))
+        else:
+            k = new.fps / old.fps
+            for tr in doc["tracks"]:
+                if tr["kind"] in ("event", "spawn"):
+                    continue
+                for sec in tr["sections"]:
+                    if tr["kind"] == "anim":
+                        sec["params"]["rate"] = float(sec["params"].get("rate", 1.0)) * k
+                    if tr["kind"] == "audio" and None not in sec["range"]:
+                        s0, s1 = sec["range"]
+                        sec["range"] = [s0, snap(s0 + (s1 - s0) * k)]
+                if tr["kind"] == "audio":
+                    notes.append(f"{track_label(tr)}: clips end where their sound does at the new rate")
+                yield from E.write_track(seq, tr)
+            seq.set_playback_start(a)
+            seq.set_playback_end(b)
+            E.set_markers(seq, doc.get("markers") or [])
+    after = E.describe(target)
+    off = sum(1 for tr in after["tracks"] for sec in tr["sections"] for x in sec["range"]
+              if isinstance(x, float)) + sum(1 for tr in after["tracks"] for sec in tr["sections"]
+                                             for c in sec["channels"].values() for kk in c["keys"]
+                                             if isinstance(kk[0], float))
+    if off and keep == "time":
+        notes.append(f"{off} section edges / keys now fall between frames at {new} (seq.describe shows them as "
+                     f"fractional frames)")
+    return {"sequence": target, "from": str(old), "to": str(new), "keep": keep, "range": after["range"],
+            "tick_resolution": E.ticks(seq).numerator, "off_frame": off, "notes": notes, "changed": True}
 
 
 def _copy_asset(src: str, dst: str, replace: bool):
