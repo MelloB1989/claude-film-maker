@@ -94,7 +94,9 @@ def _areas(ue, wanted: list) -> tuple[list, dict]:
     listing = ue.call("selftest.list")
     known = listing["areas"]
     if not wanted or wanted == ["all"]:
-        return sorted(known), listing
+        from . import selftest_plan
+        order = [n for n in selftest_plan.plan()["order"] if n in known]
+        return order + sorted(n for n in known if n not in order), listing
     from .errors import close
     bad = [a for a in wanted if a not in known]
     if bad:
@@ -104,7 +106,8 @@ def _areas(ue, wanted: list) -> tuple[list, dict]:
     return wanted, listing
 
 
-def run_all(ue, wanted: list, out: Path, keep=False, timeout=3600, pull=True, log=print, baseline="auto") -> dict:
+def run_all(ue, wanted: list, out: Path, keep=False, timeout=3600, pull=True, log=print, baseline="auto",
+            keep_going: bool = False) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     areas, listing = _areas(ue, wanted)
     summary = {"ok": True, "started": time.strftime("%Y-%m-%d %H:%M:%S"), "capabilities": listing.get("capabilities"),
@@ -156,6 +159,12 @@ def run_all(ue, wanted: list, out: Path, keep=False, timeout=3600, pull=True, lo
         a = summary["areas"][area]
         log(f"[selftest] {area}: {a['status']} {'OK' if ok else 'FAIL'}  {a['passed']} passed, {a['failed']} failed"
             + (f", skipped: {a['skipped']}" if a["skipped"] else "") + f"  ({a['ms'] / 1000:.0f} s)")
+        from .selftest_plan import GATES
+        if not ok and area in GATES and not keep_going and len(areas) > 1:
+            rest = areas[areas.index(area) + 1:]
+            summary["stopped"] = {"after": area, "not_run": rest}
+            log(f"[selftest] {area} is a gate and failed: not running {', '.join(rest)} (--keep-going runs them)")
+            break
     summary["box_dir"] = box_dir
     (out / "summary.json").write_text(json.dumps(summary, indent=1, default=str))
     (out / "summary.md").write_text(markdown(summary))
@@ -183,6 +192,9 @@ def markdown(s: dict) -> str:
         st = ("ok" if a["ok"] else "**FAIL**") + f" ({a['status']}{': ' + a['skipped'] if a['skipped'] else ''})"
         missed = ", ".join(a["ops_missed"][:8]) + (" ..." if len(a["ops_missed"]) > 8 else "")
         out.append(f"| {area} | {st} | {a['passed']} | {a['failed']} | {a['ms'] / 1000:.0f} s | {missed} |")
+    if s.get("stopped"):
+        out += ["", f"**Stopped after the gate `{s['stopped']['after']}` failed**; not run: "
+                    f"{', '.join(s['stopped']['not_run'])} (`film-ue selftest --keep-going` runs them anyway)."]
     if s["failures"]:
         out += ["", "## Failures", ""]
         for f in s["failures"]:
@@ -199,6 +211,11 @@ def markdown(s: dict) -> str:
 
 
 def main(a) -> int:
+    if a.areas == ["plan"]:
+        from . import selftest_plan as sp
+        p = sp.plan()
+        print(json.dumps(p, indent=1) if a.json else sp.markdown(p) if getattr(a, "md", False) else sp.text(p))
+        return 0
     from .sdk import Unreal
     ue = Unreal()
     if a.list or a.areas == ["list"]:
@@ -216,7 +233,7 @@ def main(a) -> int:
         return 0
     out = Path(a.out or Path("selftest-reports") / time.strftime("%Y%m%d-%H%M%S"))
     log = (lambda m: sys.stderr.write(m + "\n")) if a.json else print
-    s = run_all(ue, a.areas, out, a.keep, a.timeout, not a.no_pull, log, a.baseline)
+    s = run_all(ue, a.areas, out, a.keep, a.timeout, not a.no_pull, log, a.baseline, a.keep_going)
     if a.json:
         print(json.dumps(s, indent=1, default=str))
     else:

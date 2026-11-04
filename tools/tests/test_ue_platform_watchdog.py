@@ -107,3 +107,12 @@ def test_the_box_python_can_run_it():
     import ast
     src = (ROOT / "unreal" / "linux" / "ue_watchdog.py").read_text()
     ast.parse(src, feature_version=(3, 8))  # Ubuntu 22.04's python3 is 3.10; stay well under it
+
+
+def test_poweroff_runs_the_exit_commands_in_time_then_powers_off(monkeypatch):
+    ran = []
+    monkeypatch.setattr(wd, "_run", lambda cmd, timeout=20: ran.append((cmd, timeout)) or "")
+    wd.act({**CFG, "dry_run": False, "on_exit": ["echo save-ddc", "echo two"], "on_exit_s": 600}, [("poweroff", "idle")])
+    cmds = [c for c, _ in ran]
+    assert cmds[0] == ["systemctl", "stop", "ue-editor"] and cmds[1] == ["bash", "-c", "echo save-ddc"]
+    assert cmds[-1] == ["systemctl", "poweroff"] and ran[1][1] <= 600

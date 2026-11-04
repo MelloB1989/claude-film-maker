@@ -120,12 +120,39 @@ film-ue pull-dir REMOTE_DIR LOCAL_DIR              # a folder (S3 / rsync / copy
 | `editor.wait_compile(timeout_s, settle_s, finish)` | multi-tick: until no ShaderCompileWorker, then finish asset compilation |
 | `editor.gc()` | collect garbage; memory before/after |
 | `editor.epic_exchange_code(code)` | hand the MetaHuman services a single-use exchange code (never returned or journaled) |
+| `editor.plugins(enable, disable, prefix)` | enabled plugins; turn plugins on/off in the .uproject (`restart_required`) |
+| `editor.cvars(names, values, snapshot, restore)` | several cvars at once; a named snapshot to put them back later (survives a bridge reload) |
+| `editor.project_setting(file, section, key, value)` | read/write Config/Default<file>.ini, comments and arrays untouched (`restart_required`) |
 | `bridge.health` | the /health answer as an op |
 | `jobs.list(state, name, limit)`, `jobs.get(id)`, `jobs.cancel(id)` | the bridge's jobs |
 
-HTTP (what the client speaks): `POST /op`, `POST /exec` (`{"async": true}` returns the job id), `GET /job?id=`,
-`GET /jobs?state=&name=&limit=`, `POST /job/cancel`, `GET /health`, `GET|PUT /file?path=`, `GET /log?lines=`;
-`/screen` and `/gui` only on a Windows desktop.
+HTTP (what the client speaks): `POST /op`, `POST /exec` (`{"async": true}` returns the job id), `POST /batch`,
+`GET /job?id=`, `GET /jobs?state=&name=&limit=`, `POST /job/cancel`, `GET /health`, `GET|PUT /file?path=`,
+`GET /log?lines=`; `/screen` and `/gui` only on a Windows desktop. Every request carries the token from
+`Saved/fmbridge.token` (compared in constant time). JSON requests are capped at 32 MB and a `PUT /file` at 4 GB
+(413 above). `/file` paths must be absolute and inside the project, the temp folder or the editor user's home:
+`FMBRIDGE_FILE_ROOTS` (os.pathsep-separated) adds roots, and anything else is 403.
+
+### Plugins, console variables and project settings
+
+```bash
+film-ue op editor.plugins prefix=Movie                                # enabled plugins
+film-ue op editor.plugins 'enable=["MovieRenderPipeline"]'            # .uproject; then: film-ue editor restart --wait
+film-ue op editor.cvars 'values={"r.RayTracing": 0}' snapshot=pre      # change several, remember the old values
+film-ue op editor.cvars restore=pre                                   # put them back
+film-ue op editor.project_setting section=/Script/Engine.RendererSettings key=r.RayTracing value=True
+```
+
+### Several ops in one call
+
+```python
+client.batch([("level.spawn", {"label": "Key", "asset": "/Game/M/SM_Box", "loc": [0, 0, 50]}),
+              ("look.light", {"label": "Key", "kind": "rect"})])
+# {"ok", "result": {"ok", "ran", "of", "results": [{"ok", "i", "name", "result" | "code", "message", "hint", ...}]}}
+```
+
+The ops run in order as one job (plain ops back to back in one tick, a multi-tick one across ticks before the next).
+The batch stops at the first failure unless `stop_on_error=False`, and takes at most 500 calls.
 
 ## 3. Transports and settings
 
@@ -189,6 +216,9 @@ None: boxes and the editor are imperative on purpose (a TTL, a restart, a sync h
 | `-NoMetaHumanAccountPortalLoginFallback` | MetaHumanCloudAuthentication.cpp:262 | fail fast instead of a browser |
 | `Fab.Login`, `Fab.Logout`, `Fab.SetEnvironment` | Plugins/Fab/Source/Fab/Private/FabConsoleCommands.cpp:28, :19, :43 | Logout and SetEnvironment delete the persistent auth |
 | `FPlatformProcess::LaunchURL` → `/usr/bin/xdg-open URL` | Runtime/Core/Private/Unix/UnixPlatformProcess.cpp:712 | why `BROWSER=ue-epic-url` captures the device-code page on a box with no desktop |
+| `PluginBlueprintLibrary.get_enabled_plugin_names` | Runtime/Engine/Public/PluginBlueprintLibrary.h:48 | editor.plugins |
+| `PluginBlueprintLibrary.get_plugin_descriptor_file_path` | PluginBlueprintLibrary.h:74 | a bool UFUNCTION with an out parameter returns the out value, or None for false (PythonScriptPlugin/.../PyGenUtil.cpp:1161) |
+| (no API enables a plugin) | — | editor.plugins edits the .uproject's "Plugins" list; the engine reads it at start |
 | embedded Python 3.11 | Engine/Source/ThirdParty/Python3 (python_v3.11.x.tps) | no 3.12 syntax under unreal/ |
 
 ## 7. Selftest
@@ -209,12 +239,25 @@ open while shaders compile, and needs nothing. It proves:
 
 It passes on the fake engine (`tests/test_ue_platform_selftest.py`).
 
+The client phase, `tools/filmtools/unreal/selftests/platform.py`, runs right after it and takes about a minute over
+SSM:
+
+- a 150 KB file round-trips through the bridge and through the command channel (in parts);
+- a job started over HTTP reports progress, keeps answering after the tunnel is dropped, is listed and is
+  cancelled;
+- an unknown job is `JobGone`;
+- a batch stops at its failing call and says why;
+- the editor service status, the crash reports and a dry-run sync plan all answer.
+
+It passes against the real server on the fake engine (`tests/test_ue_platform_client.py`).
+
 Unit tests: `tests/test_fmbridge_jobs.py`, `test_ue_platform_*.py` (ops, client against the real server over HTTP,
 profiles, boxes, watchdog, editor service, sync, CLI), `test_unreal_transport.py`, `test_unreal_linux.py`.
 
 ## 8. HANDOFF
 
-**Done:** everything above, with every AWS call mocked. Nothing in `boxes`/`sync`/`editorsvc` has run against AWS:
+**Done:** everything above (plus B12: editor.plugins/cvars/project_setting; B33: constant-time token, size limits,
+/file roots, /batch; the client-phase selftest), with every AWS call mocked. Nothing in `boxes`/`sync`/`editorsvc` has run against AWS:
 the operator's rule for the night.
 
 **Run first on the next GPU box, in this order:**
@@ -238,6 +281,11 @@ the operator's rule for the night.
 - Windows: `transport.put` in parts and `editorsvc` crashes through PowerShell are tested only as strings;
 - `sync status` against a real bucket;
 - spot interruption (the profile then finds nothing; `box ls` shows it).
+
+**Left for the CLI owner (WP11), agreed:** cli.py's own `provision`/`editor`/`epic-login`/`desktop` go once this
+branch is in ue-helpers (cli_platform then serves them; `editor` service verbs via opcli.EXTENSIONS). `install`
+still lives in cli.py and sends the bridge in 80 KB printf parts (the lead's fix). It could use `transport.put` (parts
+for both shells) when it moves here.
 
 **Next ideas:** `box up --from-snapshot` (an AMI with the engine and a warm DDC: minutes instead of an hour); the
 watchdog saving the DDC before an idle power-off; `film-ue doctor` (WP0 took B11).

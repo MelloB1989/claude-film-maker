@@ -11,7 +11,7 @@ NAMES = ("describe", "job", "plan", "apply", "selftest", "dx")
 def register(sub) -> None:
     d = sub.add_parser("describe", help="the ops: areas, one area, one op (offline); --live: the editor's state")
     d.add_argument("name", nargs="*", help="area | area.verb | a prefix; with --live: level | actors TEXT | seq PATH | "
-                                           "cuts PATH | actor LABEL | assets PATH")
+                                           "cuts PATH | components LABEL | assets PATH | <spec kind> NAME (its state: actor Box, scene office, ...)")
     d.add_argument("--json", action="store_true")
     d.add_argument("--live", action="store_true", help="ask the running bridge (its schema, or the editor's state)")
     j = sub.add_parser("job", help="an --async op's state, or its result with --wait")
@@ -35,7 +35,10 @@ def register(sub) -> None:
             p.add_argument("--dry-run", action="store_true", help="plan only (same as film-ue plan)")
             p.add_argument("--stop", action="store_true", help="stop at the first failing document")
     s = sub.add_parser("selftest", help="each area's acceptance test on the box; one report")
-    s.add_argument("areas", nargs="*", default=["all"], help="areas (default all); `film-ue selftest --list`")
+    s.add_argument("areas", nargs="*", default=["all"],
+                   help="areas (default all, in the plan's order); `list`: what the box has; `plan`: the run order offline")
+    s.add_argument("--md", action="store_true", help="plan: the table as Markdown (for MORNING-REPORT.md)")
+    s.add_argument("--keep-going", action="store_true", help="run every area even when a gate (platform, dx) fails")
     s.add_argument("--list", action="store_true", help="the areas with a selftest, and what each needs")
     s.add_argument("--out", default="", help="local folder for the report (default selftest-reports/<time>)")
     s.add_argument("--keep", action="store_true", help="keep the scratch level and assets afterwards")
@@ -45,7 +48,7 @@ def register(sub) -> None:
     s.add_argument("--baseline", default="auto", choices=("auto", "compare", "update", "off"),
                    help="stills against stored baselines (WP10): auto stores the first and compares after")
     x = sub.add_parser("dx", help="the generated layers: gen (schema snapshot + SDK), check (stale?), lint (op docs)")
-    x.add_argument("action", choices=("gen", "check", "lint", "docs", "sdk"))
+    x.add_argument("action", choices=("gen", "check", "lint", "docs", "sdk", "coverage"))
     x.add_argument("paths", nargs="*", help="dx sdk: Python files to check (default examples/ and films/*/unreal/)")
     x.add_argument("--json", action="store_true")
 
@@ -70,6 +73,25 @@ def dispatch(a) -> bool:
             for k, v in mk(a.name[1:]).items():
                 argv += ["--" + k.replace("_", "-"), str(v)]
             raise SystemExit(opcli.run(argv + (["--json"] if a.json else [])))
+        if a.live and a.name:
+            from . import spec
+            kd = spec.kinds().get(a.name[0])
+            if kd and (kd.describe or kd.describe_many):  # film-ue describe --live <kind> NAME: its state, as plan sees it
+                from .sdk import Unreal
+                if len(a.name) < 2:
+                    raise SystemExit(f"film-ue describe --live {kd.name} <{kd.key}>: which one?")
+                doc = {"kind": kd.name, kd.key: a.name[1], "name": a.name[1]}
+                ue = Unreal()
+                own = ue.index["ops"].get(f"{kd.name}.describe")
+                own_args = {p["name"] for p in own["params"]} if own else set()
+                if own and (kd.key in own_args or "name" in own_args):  # the area's describe by name (scene.describe)
+                    st = ue.call(own["name"], **{(kd.key if kd.key in own_args else "name"): a.name[1]})
+                elif kd.describe:
+                    st = kd.describe(ue, doc)
+                else:
+                    st = (kd.describe_many(ue, [doc]) or {}).get(a.name[1])
+                print(json.dumps({"kind": kd.name, kd.key: a.name[1], "state": st}, indent=1, default=str))
+                return True
         ix = describe.live_index() if a.live else schema.index(schema.load())
         if a.json:
             _print(describe.data(ix, name), True)
@@ -102,6 +124,11 @@ def dx(action: str, as_json: bool = False, paths: list | None = None) -> int:
         _print({"ok": not problems, "stale": problems}, as_json,
                "up to date" if not problems else "STALE: " + "; ".join(problems) + "\n  fix: film-ue dx gen")
         return 1 if problems else 0
+    if action == "coverage":
+        from . import coverage
+        r = coverage.report()
+        _print(r, as_json, coverage.text(r))
+        return 0
     if action == "sdk":
         from . import sdkcheck
         probs = sdkcheck.check(paths or sdkcheck.default_paths())

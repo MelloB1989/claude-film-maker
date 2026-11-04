@@ -190,3 +190,27 @@ def snap(frame: float, tol: float = 1e-6):
     cleanly."""
     r = round(frame)
     return int(r) if abs(frame - r) <= tol else float(frame)
+
+
+STANDARD_TICKS = (24000, 48000, 60000, 120000, 240000)
+
+
+def ticks_per_frame(display: Rate, ticks: "Rate | int") -> float:
+    t = _ticks_rate(ticks)
+    return float(t.fraction / display.fraction)
+
+
+def compatible_ticks(display_rates, current: int = DEFAULT_TICKS) -> int:
+    """A tick resolution (per second) on which every one of `display_rates` lands on whole ticks: `current` when it
+    does already, else the smallest standard one that does (24000 suits 24/25/30/48/60 and 23.976; 29.97 and 59.94
+    need 60000). Sequencer warns, and frames drift by sub-ticks, on an incompatible pair."""
+    rates = [Rate.parse(r) for r in display_rates]
+
+    def ok(t):
+        return all((Fraction(t) / r.fraction).denominator == 1 for r in rates)
+    if ok(current):
+        return int(current)
+    for t in STANDARD_TICKS:
+        if ok(t):
+            return t
+    raise ValueError(f"no standard tick resolution fits {[str(r) for r in rates]}")

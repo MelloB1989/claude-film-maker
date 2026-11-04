@@ -351,3 +351,62 @@ def test_diff_says_where_tracks_first_differ():
     assert ch["/fade"]["change"] == "removed"
     f = ch["Hero/float:Intensity"]
     assert f["where"] == "sections[0].channels.value" and f["key"] == 1 and f["b"][1] == 11.0
+
+
+def test_stretch_span_ripples_after_and_slows_inside():
+    doc = compiled()
+    out, notes = C.model.stretch(doc, 40, 60, 2.0)
+    x = by(out, "transform", "Hero")["sections"][0]["channels"]["location.x"]["keys"]
+    assert [k[0] for k in x] == [0, 56]          # 48 is inside: 40 + 8 * 2
+    assert out["range"] == [0, 260]              # the end ripples by 20
+    assert by(out, "camera_cut")["sections"][1]["range"] == [140, 260]
+    assert any("straddles" in n for n in notes)   # the anim [0, ...) straddles the span
+    with pytest.raises(ValueError):
+        C.model.stretch(doc, 60, 40, 2.0)
+
+
+def test_compatible_ticks():
+    ct = C.time.compatible_ticks
+    assert ct(["24", "25"]) == 24000 and ct(["23.976", "24"]) == 24000
+    assert ct(["24", "29.97"]) == 60000 and ct(["59.94"]) == 60000 and ct(["29.97"], 60000) == 60000
+
+
+SHOTLIST = {"sequence": "/Game/F/SEQ_Edit", "fps": 24,
+            "shots": [{"name": "wide", "camera": "CamA", "duration": "3s", "handles": 12, "preroll": 8},
+                      {"name": "close", "duration": 48, "shot": {
+                          "bindings": {"CamB": {"props": {"CameraComponent/CurrentFocalLength": [[0, 85]]}}},
+                          "camera_cuts": [["CamB", 0]]}},
+                      {"sequence": "/Game/F/SEQ_existing", "duration": 24}]}
+
+
+def test_shot_list_lays_shots_end_to_end_and_makes_children():
+    doc = compiled(SHOTLIST)
+    secs = by(doc, "shot")["sections"]
+    assert [(s["range"], s["params"]["name"], s["params"]["offset"]) for s in secs] == [
+        ([0, 72], "wide", 12), ([72, 120], "close", 0), ([120, 144], "SEQ_existing", 0)]
+    assert doc["range"] == [0, 144]
+    kids = {c["name"]: c for c in doc["children"]}
+    assert set(kids) == {"wide", "close"}
+    assert kids["wide"]["sequence"] == "/Game/F/SEQ_Edit_wide" and kids["wide"]["range"] == [0, 96]  # + 2 handles
+    assert kids["wide"]["camera_cuts"] == [["CamA", 0]] and kids["close"]["range"] == [0, 48]
+
+
+def test_shot_list_plan_applies_children_first_unless_converged():
+    want = compiled(SHOTLIST)
+    steps = C.plan.plan(want, None)
+    assert [s["op"] for s in steps[:3]] == ["seq.add", "seq.apply", "seq.apply"]
+    have = described(want)
+    have["children"] = {c["sequence"]: {"exists": True, "steps": 0} for c in want["children"]}
+    assert C.plan.plan(want, have) == []
+    have["children"]["/Game/F/SEQ_Edit_close"]["steps"] = 2
+    assert [s["args"]["spec"]["name"] for s in C.plan.plan(want, have)] == ["close"]
+
+
+def test_shot_list_errors_name_the_inner_spec():
+    bad = copy.deepcopy(SHOTLIST)
+    bad["shots"][1]["shot"]["camera_cuts"] = [[1, 2]]
+    bad["shots"][0]["shot"] = {"sequence": "/Game/nope"}
+    with pytest.raises(SpecError) as e:
+        C.spec.compile_spec(bad)
+    msg = str(e.value)
+    assert "shots[1].shot: camera_cuts[0]" in msg and "shots[0].shot: ['sequence']" in msg

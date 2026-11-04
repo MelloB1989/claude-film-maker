@@ -53,6 +53,8 @@ def register(sub) -> None:
         u.add_argument("--key-name", default="")
         u.add_argument("--region", default="")
         u.add_argument("--no-wait", action="store_true")
+        u.add_argument("--save-ddc-on-exit", action="store_true", help="the watchdog saves the DDC to S3 before an "
+                                                                         "idle or TTL power-off (needs --like)")
         bs.add_parser("ls").add_argument("--region", default="")
         for n in ("status", "keepalive"):
             bs.add_parser(n).add_argument("name")
@@ -131,7 +133,8 @@ def dispatch(a) -> bool:
             _out(boxes.up(a.name, instance_type=a.instance_type, ttl=a.ttl, idle=a.idle, stall=a.stall, spot=a.spot,
                           ami=a.ami, subnet=a.subnet, security_group=a.security_group, iam_profile=a.iam_profile,
                           volume_gb=a.volume_gb, key_name=a.key_name, like=a.like, region=a.region,
-                          wait=not a.no_wait, log=lambda m: print(m, file=sys.stderr)))
+                          wait=not a.no_wait, save_ddc_on_exit=a.save_ddc_on_exit,
+                          log=lambda m: print(m, file=sys.stderr)))
         elif b == "ls":
             _out(boxes.ls(a.region or None))
         elif b == "status":

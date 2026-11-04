@@ -186,7 +186,8 @@
      "type": "number",
      "description": "seconds the last shot holds after the last line (default 1)"
     }
-   }
+   },
+   "description": "defaults for every shot: lens, filmback, camera label prefix, key step, height, side, noise, tail"
   },
   "coverage": {
    "type": "object",
@@ -507,7 +508,8 @@
       "type": "string"
      }
     }
-   }
+   },
+   "description": "the shots in order: each one frame (the solver), coverage (a coverage shot) or place (explicit), with times, moves, focus"
   }
  },
  "$defs": {
