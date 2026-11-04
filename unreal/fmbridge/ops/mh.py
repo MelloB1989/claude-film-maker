@@ -2,6 +2,8 @@
 beard, brows, clothes), the cinematic build to a Blueprint, and how an assembled character is driven."""
 from __future__ import annotations
 
+import time
+
 import unreal
 
 from . import op
@@ -48,15 +50,32 @@ def from_preset(preset: str, dest: str, overwrite: bool = False) -> str:
     return dest
 
 
+def _rigged(c) -> bool:
+    ok = sub().can_build_meta_human(c)  # (bool, reason) where Python returns the out parameter too
+    return bool(ok[0] if isinstance(ok, tuple) else ok)
+
+
 @op("mh.rig")
-def rig(character: str, full: bool = True) -> str:
-    """Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs). Blocks until done."""
+def rig(character: str, full: bool = True, timeout: float = 900):
+    """Epic's cloud auto-rig (full: joints + blend shapes, what facial animation needs). Runs across editor ticks
+    and ends when the character can be built. The service needs an Epic sign-in in this editor; without one it never
+    answers and says nothing, so after `timeout` seconds this is an error rather than a game thread held forever
+    (sign in once on the temporary desktop: film-ue desktop on)."""
+    c = _char(character)
+    if _rigged(c):
+        return character
     p = unreal.MetaHumanCharacterAutoRiggingRequestParams()
     p.rig_type = unreal.MetaHumanRigType.JOINTS_AND_BLEND_SHAPES if full else unreal.MetaHumanRigType.JOINTS_ONLY
-    p.blocking, p.report_progress = True, True
-    sub().request_auto_rigging(_char(character), p)
-    EAL.save_asset(character)
-    return character
+    p.blocking, p.report_progress = False, True
+    sub().request_auto_rigging(c, p)
+    end = time.time() + timeout
+    while time.time() < end:
+        yield 2.0
+        if _rigged(c):
+            EAL.save_asset(character)
+            return character
+    raise RuntimeError(f"auto-rig of {character} did not finish in {timeout:.0f} s: is the editor signed in to Epic "
+                       "(film-ue desktop on, then sign in)? See LogMetaHumanCharacterEditor")
 
 
 @op("mh.textures")
