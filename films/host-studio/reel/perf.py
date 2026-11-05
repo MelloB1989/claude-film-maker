@@ -776,7 +776,10 @@ def sync(who: str) -> dict:
                      out=f"{ANIM}/AS_reel_{who}_body", timeout=3600))
     c = ok(client.op("anim.bake_follow", sequence=path, actor_label=lab, anim=face, out=f"{ANIM}/AS_reel_{who}_follow",
                      timeout=3600))
-    return {"follow_head": a, "body": b, "follow": c}
+    # round 3: on 5.8 no face curve turns the head and the face takes its neck from the body, so the turn perf.face
+    # planned goes on the body animation just made (fresh each sync: the turn is never applied twice), before gaze
+    d = ok(client.op("perf.turn_head", anim=f"{ANIM}/AS_reel_{who}_body", face_anim=face, timeout=900))
+    return {"follow_head": a, "body": b, "follow": c, "turn": d}
 
 
 # Where the eyes go, master frames: a test camera (the shot's lens) or the partner's eyes. Frames in none of these
