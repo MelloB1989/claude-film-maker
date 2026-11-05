@@ -3615,6 +3615,32 @@
    ]
   },
   {
+   "name": "editor.api_names",
+   "area": "editor",
+   "verb": "api_names",
+   "module": "fmbridge.ops.doctor",
+   "file": "unreal/fmbridge/ops/doctor.py",
+   "line": 153,
+   "summary": "Is every `unreal.<Name>` the bridge's code uses really in this editor's `unreal` module? The fake engine accepts",
+   "doc": "Is every `unreal.<Name>` the bridge's code uses really in this editor's `unreal` module? The fake engine accepts\nany name, so a C++ class name where Python wants the ScriptName (AutomationBlueprintFunctionLibrary vs\nAutomationLibrary) or a plugin that is off only shows up here, or when the op runs.\n\nScans the installed fmbridge sources for `unreal.X` (the first name after `unreal.`), checks each with hasattr.\nReturns: {\"checked\": int, \"missing\": {name: [files]}, \"names\": [all names] (only_missing=false)}.\nA missing name is a bug (wrong name) or a disabled plugin: API_NOTES in docs/unreal/<area>.md says which.\nExample: film-ue op editor.api_names",
+   "params": [
+    {
+     "name": "only_missing",
+     "kind": "keyword",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": false,
+   "idempotent": true,
+   "tags": [
+    "platform"
+   ]
+  },
+  {
    "name": "editor.console",
    "area": "editor",
    "verb": "console",

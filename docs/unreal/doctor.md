@@ -33,6 +33,13 @@ film-ue op editor.doctor  # the editor's half alone
 | `unreal.MoviePipelineQueueSubsystem`, `MetaHumanCharacterEditorSubsystem`, `LevelSequenceEditorBlueprintLibrary`, `DataLayerEditorSubsystem` exposed | warn | enable the plugin |
 | `r.HairStrands.SkyLighting` is 0 | info | `editor.cvar` (the README trap) |
 
+## Every engine name, checked live
+
+`film-ue op editor.api_names` lists every `unreal.<Name>` the bridge's code uses that this editor's `unreal` module
+does not have. The fake engine accepts any name, so this is where a C++ class name used instead of its ScriptName
+(day 1: `AutomationBlueprintFunctionLibrary`, which Python knows as `AutomationLibrary`) or a plugin that is off shows
+up, before an op trips on it. Run it once after `film-ue first-run`. An empty `missing` is the pass.
+
 ## API_NOTES
 
 | Python | source |

@@ -144,3 +144,41 @@ def doctor(*, min_free_gb: float = 50.0) -> dict:
         pass
 
     return {"pass": not any(i["severity"] == "fail" for i in issues), "issues": issues, "metrics": m}
+
+
+def _exposed(name: str) -> bool:
+    return hasattr(unreal, name)
+
+
+@op("editor.api_names", mutates=False, idempotent=True, tags=["platform"])
+def api_names(*, only_missing: bool = True) -> dict:
+    """Is every `unreal.<Name>` the bridge's code uses really in this editor's `unreal` module? The fake engine accepts
+    any name, so a C++ class name where Python wants the ScriptName (AutomationBlueprintFunctionLibrary vs
+    AutomationLibrary) or a plugin that is off only shows up here, or when the op runs.
+
+    Scans the installed fmbridge sources for `unreal.X` (the first name after `unreal.`), checks each with hasattr.
+    Returns: {"checked": int, "missing": {name: [files]}, "names": [all names] (only_missing=false)}.
+    A missing name is a bug (wrong name) or a disabled plugin: API_NOTES in docs/unreal/<area>.md says which.
+    Example: film-ue op editor.api_names
+    """
+    import re
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # the fmbridge package
+    pat = re.compile(r"\bunreal\.([A-Z][A-Za-z0-9_]+)")
+    uses: dict = {}
+    for d, _, files in os.walk(root):
+        for f in files:
+            if not f.endswith(".py"):
+                continue
+            p = os.path.join(d, f)
+            try:
+                with open(p, encoding="utf-8") as fh:
+                    text = fh.read()
+            except OSError:
+                continue
+            for m in set(pat.findall(text)):
+                uses.setdefault(m, set()).add(os.path.relpath(p, root))
+    missing = {n: sorted(fs) for n, fs in sorted(uses.items()) if not _exposed(n)}
+    out = {"checked": len(uses), "missing": missing}
+    if not only_missing:
+        out["names"] = sorted(uses)
+    return out
