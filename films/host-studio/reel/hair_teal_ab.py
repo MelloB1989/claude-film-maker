@@ -119,7 +119,29 @@ for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_
                     "intensity": round(c.get_editor_property("intensity"), 3), "visible": c.is_visible(),
                     "temp_on": bool(c.get_editor_property("use_temperature")),
                     "temp": round(c.get_editor_property("temperature"), 0), "at": [round(p.x), round(p.y), round(p.z)]})
-result = sorted(out, key=lambda x: -x["green"])
+MEL = unreal.MaterialEditingLibrary
+for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+    for c in a.get_components_by_class(unreal.MeshComponent):
+        for i in range(c.get_num_materials()):
+            m = c.get_material(i)
+            if not isinstance(m, unreal.MaterialInstance):
+                continue
+            names = [str(n) for n in MEL.get_vector_parameter_names(m)]
+            sc = {str(n): MEL.get_material_instance_scalar_parameter_value(m, n)
+                  for n in MEL.get_scalar_parameter_names(m) if "emiss" in str(n).lower()}
+            for n in names:
+                if "emiss" not in n.lower() and not (sc and "color" in n.lower()):
+                    continue
+                k = MEL.get_material_instance_vector_parameter_value(m, n)
+                strength = max(sc.values()) if sc else 1.0
+                if max(k.r, k.g, k.b) * strength <= 0:
+                    continue
+                p = c.get_world_location()
+                out.append({"actor": a.get_actor_label(), "comp": c.get_name(), "cls": "emissive:" + m.get_name(),
+                            "param": n, "rgb": [round(k.r, 3), round(k.g, 3), round(k.b, 3)],
+                            "green": round(k.g - k.r / 2 - k.b / 2, 3), "intensity": round(strength, 3),
+                            "visible": c.is_visible(), "at": [round(p.x), round(p.y), round(p.z)]})
+result = sorted(out, key=lambda x: -x["green"])[:60]
 """
 
 
@@ -135,7 +157,7 @@ def main() -> None:
     ap.add_argument("--mode", default="capture", help="view.still mode: capture (seconds) or mrq (the final look)")
     ap.add_argument("--frame", type=int, default=1236, help="S16's master frame (night1's green: 1236, 1300)")
     ap.add_argument("--only", default="", help="comma-separated variant names (default: all)")
-    ap.add_argument("--lights", action="store_true", help="only list the level's lights, greenest first (read-only)")
+    ap.add_argument("--lights", action="store_true", help="only list the level's lights and emissive MIs, greenest first (read-only)")
     a = ap.parse_args()
     if a.lights:
         print(json.dumps(ok(client.exec_code(LIGHTS)), indent=1))
