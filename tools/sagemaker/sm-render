@@ -1,0 +1,351 @@
+#!/usr/bin/env python3
+"""sm-render: render a film's Blender plates on SageMaker GPUs (NVIDIA L40S), paying only while they render.
+
+Every render is a set of SageMaker *training jobs*: each starts, renders its share of the scenes on one GPU, copies the
+plates to S3 as they land, and stops by itself. Nothing is left running between renders (no notebook, no endpoint, no
+instance), so an idle week costs only the S3 storage (the repo copy and Blender, ~1.5 GB: a few cents a month).
+Each job has a hard time limit (--max-hours), after which SageMaker stops it whatever it is doing.
+
+    tools/sagemaker/sm-render setup                 once: S3 bucket, the jobs' IAM role, Blender + the VRM add-on in S3
+    tools/sagemaker/sm-render render [--film F] [--only a,b | --all] [--gpus N] [--spot] [--max-hours H] [--wait]
+    tools/sagemaker/sm-render status [RUN]          the jobs of the last (or a named) run: state, minutes, cost so far
+    tools/sagemaker/sm-render pull [RUN]            copy the run's plates (EXR, proxies, stamps) into out/<film>/plates
+    tools/sagemaker/sm-render stop [RUN]            stop the run's jobs now (you pay for the minutes they ran)
+    tools/sagemaker/sm-render clean [RUN|--all]     delete a run's plates from S3 once pulled
+
+`render` syncs the repo to S3 (only what changed), works out which scenes are stale on this machine
+(film-anime-render --dry-run: a plate is up to date when its stamp matches the code), splits them across --gpus jobs
+(default 3; one job per L40S size, the account's SageMaker quota is one of each) and starts them. Plates rendered in
+the cloud carry the same fingerprints as local ones (the same code), so after `pull` the local render tool sees them
+as up to date, and `uv run film-anime-render --film F` here only makes the video.
+
+Settings: ~/.config/sm-render.env (REGION, BUCKET, ROLE_NAME, IMAGE, BLENDER_URL) or the defaults below.
+Needs: the AWS CLI signed in, and Blender's VRM add-on installed in this Mac's Blender (setup uploads it).
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import time
+from datetime import datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+STATE = Path.home() / ".config" / "sm-render.state.json"
+CONF = Path.home() / ".config" / "sm-render.env"
+
+DEFAULTS = {
+    "REGION": "ap-south-1",
+    "BUCKET": "",  # default: sm-render-<account>-<region>
+    "ROLE_NAME": "rf-sagemaker-render",
+    # AWS's PyTorch GPU training image (Ubuntu 22.04): only the base system is used, Blender comes from S3
+    "IMAGE": "763104351884.dkr.ecr.{region}.amazonaws.com/pytorch-training:2.9.0-gpu-py312-cu130-ubuntu22.04-sagemaker-v1.9",
+    "BLENDER_URL": "https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz",
+    "ADDONS": "vrm",  # extensions/user_default add-ons to carry (comma-separated)
+}
+# one job per size (the quota is one of each), cheapest first; vCPUs decide how many plates render at once in a job
+SIZES = [("ml.g6e.2xlarge", 2, 3.366), ("ml.g6e.xlarge", 2, 3.129), ("ml.g6e.4xlarge", 3, 4.510),
+         ("ml.g6e.8xlarge", 4, 6.798), ("ml.g6e.12xlarge", 4, 0.0), ("ml.g6e.16xlarge", 4, 0.0)]
+SPOT_SHARE = 0.4  # a rough spot price as a share of on-demand, for the estimate only (SageMaker bills the real one)
+EXCLUDES = ["out/*", "*/.venv/*", ".venv/*", "*/node_modules/*", ".git/*", "*__pycache__*", "*.DS_Store", "*.pyc"]
+
+
+def conf() -> dict:
+    c = dict(DEFAULTS)
+    if CONF.exists():
+        for line in CONF.read_text().splitlines():
+            m = re.match(r"\s*([A-Z_]+)\s*=\s*(.*?)\s*$", line)
+            if m and not line.lstrip().startswith("#"):
+                c[m[1]] = m[2].strip("\"'")
+    c["IMAGE"] = c["IMAGE"].format(region=c["REGION"])
+    if not c["BUCKET"]:
+        c["BUCKET"] = f"sm-render-{account()}-{c['REGION']}"
+    return c
+
+
+def aws(*args, json_out: bool = True, check: bool = True, region: str | None = None):
+    cmd = ["aws", *args] + (["--region", region] if region else []) + (["--output", "json"] if json_out else [])
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if check and r.returncode:
+        raise SystemExit(f"aws {' '.join(args[:2])} failed: {r.stderr.strip()[-600:]}")
+    if not json_out:
+        return r
+    return json.loads(r.stdout) if r.stdout.strip() else {}
+
+
+_ACCOUNT = None
+
+
+def account() -> str:
+    global _ACCOUNT
+    _ACCOUNT = _ACCOUNT or aws("sts", "get-caller-identity")["Account"]
+    return _ACCOUNT
+
+
+def load_state() -> dict:
+    return json.loads(STATE.read_text()) if STATE.exists() else {"runs": []}
+
+
+def save_state(s: dict) -> None:
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(json.dumps(s, indent=1))
+
+
+def run_of(name: str | None) -> dict:
+    runs = load_state()["runs"]
+    if not runs:
+        raise SystemExit("no runs yet")
+    if not name:
+        return runs[-1]
+    for r in runs:
+        if r["run"] == name:
+            return r
+    raise SystemExit(f"no run {name!r} (runs: {', '.join(r['run'] for r in runs)})")
+
+
+# ------------------------------------------------------------------------------------------------------------- setup
+
+def cmd_setup(a) -> None:
+    c = conf()
+    region, bucket = c["REGION"], c["BUCKET"]
+    if aws("s3api", "head-bucket", "--bucket", bucket, json_out=False, check=False).returncode:
+        args = ["s3api", "create-bucket", "--bucket", bucket]
+        if region != "us-east-1":
+            args += ["--create-bucket-configuration", f"LocationConstraint={region}"]
+        aws(*args, region=region)
+        aws("s3api", "put-public-access-block", "--bucket", bucket, "--public-access-block-configuration",
+            "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true", json_out=False)
+        print(f"bucket s3://{bucket} (private)")
+    role = c["ROLE_NAME"]
+    if aws("iam", "get-role", "--role-name", role, json_out=False, check=False).returncode:
+        trust = {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "sagemaker.amazonaws.com"},
+                                                         "Action": "sts:AssumeRole"}]}
+        aws("iam", "create-role", "--role-name", role, "--assume-role-policy-document", json.dumps(trust),
+            "--description", "sm-render jobs: their S3 bucket, logs and image pulls only")
+        print(f"role {role}")
+    policy = {"Version": "2012-10-17", "Statement": [
+        {"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket", "s3:GetBucketLocation"],
+         "Resource": [f"arn:aws:s3:::{bucket}", f"arn:aws:s3:::{bucket}/*"]},
+        {"Effect": "Allow", "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams",
+                                       "cloudwatch:PutMetricData"], "Resource": "*"},
+        {"Effect": "Allow", "Action": ["ecr:GetAuthorizationToken", "ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer",
+                                       "ecr:BatchCheckLayerAvailability"], "Resource": "*"}]}
+    aws("iam", "put-role-policy", "--role-name", role, "--policy-name", "sm-render", "--policy-document", json.dumps(policy),
+        json_out=False)
+    # Blender (from blender.org, once) and the add-ons from this Mac's Blender
+    name = c["BLENDER_URL"].rsplit("/", 1)[1]
+    key = f"cache/blender/{name}"
+    if aws("s3api", "head-object", "--bucket", bucket, "--key", key, json_out=False, check=False).returncode:
+        with tempfile.TemporaryDirectory() as d:
+            print(f"Blender: {name} -> s3://{bucket}/{key}")
+            subprocess.run(["curl", "-sfL", "-o", f"{d}/{name}", c["BLENDER_URL"]], check=True)
+            aws("s3", "rm", "--recursive", f"s3://{bucket}/cache/blender/", json_out=False, check=False)
+            aws("s3", "cp", "--only-show-errors", f"{d}/{name}", f"s3://{bucket}/{key}", json_out=False)
+    ext = Path.home() / "Library/Application Support/Blender" / blender_series(name) / "extensions/user_default"
+    for addon in filter(None, c["ADDONS"].split(",")):
+        src = ext / addon
+        if not src.is_dir():
+            raise SystemExit(f"add-on {addon} not found in {ext}: install it in Blender here first")
+        with tempfile.TemporaryDirectory() as d:
+            subprocess.run(["tar", "-czf", f"{d}/{addon}.tar.gz", "--exclude", "__pycache__", "-C", str(ext), addon], check=True)
+            aws("s3", "cp", "--only-show-errors", f"{d}/{addon}.tar.gz", f"s3://{bucket}/cache/addons/{addon}.tar.gz", json_out=False)
+        print(f"add-on {addon} -> s3://{bucket}/cache/addons/")
+    print("setup done")
+
+
+def blender_series(tarball: str) -> str:
+    m = re.search(r"blender-(\d+\.\d+)", tarball)
+    return m[1] if m else "5.2"
+
+
+# ------------------------------------------------------------------------------------------------------------ render
+
+def stale_scenes(film: str) -> list[str]:
+    """The scenes whose plates are not up to date here (film-anime-render's own plan)."""
+    r = subprocess.run(["uv", "run", "film-anime-render", "--film", film, "--dry-run"], cwd=ROOT / "tools",
+                       capture_output=True, text=True)
+    if r.returncode:
+        raise SystemExit(f"film-anime-render --dry-run failed:\n{r.stderr[-800:]}")
+    return [m[1] for m in re.finditer(r"^\[film-anime-render\]\s+(\S+) <- \S+: render$", r.stdout + r.stderr, re.M)]
+
+
+def durations(film: str) -> dict:
+    t = json.loads((ROOT / "films" / film / "data" / "timeline.json").read_text())
+    return {s["id"]: s["end"] - s["start"] for s in t.get("scenes", t)}
+
+
+def split(scenes: list[str], dur: dict, sizes: list[tuple]) -> list[list[str]]:
+    """Longest scenes first, each to the job that would finish it soonest (its load over its plates at once)."""
+    load = [0.0] * len(sizes)
+    out = [[] for _ in sizes]
+    for s in sorted(scenes, key=lambda s: -dur.get(s, 1.0)):
+        k = min(range(len(sizes)), key=lambda i: (load[i] + dur.get(s, 1.0)) / sizes[i][1])
+        load[k] += dur.get(s, 1.0)
+        out[k].append(s)
+    return out
+
+
+def cmd_render(a) -> None:
+    c = conf()
+    region, bucket = c["REGION"], c["BUCKET"]
+    film = a.film
+    dur = durations(film)
+    scenes = list(dur) if a.all else (a.only.split(",") if a.only else stale_scenes(film))
+    if not scenes:
+        print("every plate is up to date: nothing to render")
+        return
+    sizes = [s for s in SIZES if s[2] > 0][: max(1, min(a.gpus, len(scenes)))]
+    jobs = [(sz, part) for sz, part in zip(sizes, split(scenes, dur, sizes)) if part]
+    hours = a.max_hours
+    est = sum(sz[2] * (SPOT_SHARE if a.spot else 1.0) for sz, _ in jobs)
+    print(f"{len(scenes)} scenes on {len(jobs)} L40S jobs ({'spot' if a.spot else 'on-demand'}); each stops by itself when "
+          f"done, and in any case after {hours:g} h.")
+    print(f"cost: ~${est:.2f} per hour while they run; at most ~${est * hours:.2f} if every job hit its limit")
+    for (name, per, price), part in jobs:
+        print(f"  {name:16} ${price:.2f}/h  {per} at once: {','.join(part)}")
+    if not a.yes and input("start them? [y/N] ").strip().lower() != "y":
+        print("not started")
+        return
+
+    print("syncing the repo to S3 (only what changed) ...")
+    ex = [x for e in EXCLUDES for x in ("--exclude", e)]
+    aws("s3", "sync", "--only-show-errors", "--delete", str(ROOT), f"s3://{bucket}/repo/", *ex, json_out=False, region=region)
+
+    run = time.strftime("r%Y%m%d-%H%M%S")
+    role_arn = f"arn:aws:iam::{account()}:role/{c['ROLE_NAME']}"
+    started = []
+    for k, ((name, per, price), part) in enumerate(jobs):
+        job = f"{film}-{run}-{k}"[:63]
+        spec = {
+            "TrainingJobName": job,
+            "RoleArn": role_arn,
+            "AlgorithmSpecification": {"TrainingImage": c["IMAGE"], "TrainingInputMode": "File",
+                                       "ContainerEntrypoint": ["bash", "/opt/ml/input/data/repo/tools/sagemaker/job.sh"]},
+            "InputDataConfig": [
+                {"ChannelName": ch, "DataSource": {"S3DataSource": {"S3DataType": "S3Prefix", "S3Uri": uri,
+                                                                     "S3DataDistributionType": "FullyReplicated"}}}
+                for ch, uri in (("repo", f"s3://{bucket}/repo/"), ("blender", f"s3://{bucket}/cache/blender/"),
+                                ("addons", f"s3://{bucket}/cache/addons/"))],
+            "OutputDataConfig": {"S3OutputPath": f"s3://{bucket}/output/"},
+            "CheckpointConfig": {"S3Uri": f"s3://{bucket}/runs/{run}/{k}/", "LocalPath": "/opt/ml/checkpoints"},
+            "ResourceConfig": {"InstanceType": name, "InstanceCount": 1, "VolumeSizeInGB": 60},
+            "StoppingCondition": {"MaxRuntimeInSeconds": int(hours * 3600)},
+            "Environment": {"FILM": film, "ONLY": ",".join(part), "JOBS": str(per), "NVIDIA_DRIVER_CAPABILITIES": "all"},
+            "Tags": [{"Key": "Project", "Value": "sm-render"}, {"Key": "Run", "Value": run}],
+        }
+        if a.spot:
+            spec["EnableManagedSpotTraining"] = True
+            spec["StoppingCondition"]["MaxWaitTimeInSeconds"] = int(hours * 3600) + 3600  # time to find capacity too
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump(spec, f)
+        try:
+            aws("sagemaker", "create-training-job", "--cli-input-json", f"file://{f.name}", region=region)
+        finally:
+            os.unlink(f.name)
+        started.append({"job": job, "type": name, "price": price, "scenes": part})
+        print(f"started {job} on {name}")
+    s = load_state()
+    s["runs"].append({"run": run, "film": film, "region": region, "bucket": bucket, "spot": a.spot, "jobs": started})
+    save_state(s)
+    print(f"run {run}: `sm-render status` to watch, `sm-render pull` when done")
+    if a.wait:
+        wait(run)
+        cmd_pull(argparse.Namespace(run=run))
+
+
+# ------------------------------------------------------------------------------------------------- status/pull/stop
+
+def describe(region: str, job: str) -> dict:
+    return aws("sagemaker", "describe-training-job", "--training-job-name", job, region=region)
+
+
+def report(run: dict) -> list[str]:
+    states = []
+    total = 0.0
+    for j in run["jobs"]:
+        d = describe(run["region"], j["job"])
+        st, sec = d["TrainingJobStatus"], d.get("SecondaryStatus", "")
+        billed = d.get("BillableTimeInSeconds")
+        if billed is None and d.get("TrainingStartTime"):
+            t0 = datetime.fromisoformat(d["TrainingStartTime"]).timestamp()
+            billed = (time.time() - t0) if st == "InProgress" else 0
+        cost = (billed or 0) / 3600 * j["price"] * (SPOT_SHARE if run["spot"] and st == "InProgress" else 1.0)
+        total += cost
+        why = (" " + d.get("FailureReason", "")[:200]) if st == "Failed" else ""
+        print(f"  {j['job']:34} {j['type']:15} {st:10} {sec:22} {(billed or 0) / 60:5.1f} min  ~${cost:.2f}{why}")
+        states.append(st)
+    print(f"  run {run['run']}: ~${total:.2f} so far")
+    return states
+
+
+def wait(name: str) -> None:
+    run = run_of(name)
+    while True:
+        states = report(run)
+        if all(s in ("Completed", "Failed", "Stopped") for s in states):
+            return
+        time.sleep(60)
+
+
+def cmd_status(a) -> None:
+    report(run_of(a.run))
+
+
+def cmd_pull(a) -> None:
+    run = run_of(a.run)
+    dest = ROOT / "out" / run["film"] / "plates"
+    for k, _ in enumerate(run["jobs"]):
+        src = f"s3://{run['bucket']}/runs/{run['run']}/{k}/out/{run['film']}/plates/"
+        aws("s3", "sync", "--only-show-errors", src, str(dest) + "/", json_out=False, region=run["region"])
+        logs = ROOT / "out" / run["film"] / "logs" / "sagemaker" / run["run"] / str(k)
+        aws("s3", "sync", "--only-show-errors", f"s3://{run['bucket']}/runs/{run['run']}/{k}/logs/", str(logs) + "/",
+            json_out=False, region=run["region"])
+    print(f"pulled into {dest} (job logs in out/{run['film']}/logs/sagemaker/{run['run']}/)")
+
+
+def cmd_stop(a) -> None:
+    run = run_of(a.run)
+    for j in run["jobs"]:
+        if describe(run["region"], j["job"])["TrainingJobStatus"] == "InProgress":
+            aws("sagemaker", "stop-training-job", "--training-job-name", j["job"], json_out=False, region=run["region"])
+            print(f"stopping {j['job']}")
+
+
+def cmd_clean(a) -> None:
+    s = load_state()
+    runs = s["runs"] if a.run == "--all" else [run_of(a.run)]
+    for run in runs:
+        aws("s3", "rm", "--recursive", "--only-show-errors", f"s3://{run['bucket']}/runs/{run['run']}/", json_out=False,
+            region=run["region"])
+        print(f"deleted s3://{run['bucket']}/runs/{run['run']}/")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("setup")
+    r = sub.add_parser("render")
+    r.add_argument("--film", default="rain-ferry")
+    g = r.add_mutually_exclusive_group()
+    g.add_argument("--only", help="these scene ids (default: the stale ones)")
+    g.add_argument("--all", action="store_true", help="every scene, stale or not")
+    r.add_argument("--gpus", type=int, default=3, help="jobs (one L40S each), at most 4 (default 3)")
+    r.add_argument("--spot", action="store_true", help="spot capacity: ~60%% cheaper, may wait or be interrupted")
+    r.add_argument("--max-hours", type=float, default=2.0, help="each job's hard time limit (default 2)")
+    r.add_argument("--wait", action="store_true", help="wait for the jobs, then pull the plates")
+    r.add_argument("--yes", action="store_true", help="start without asking")
+    for name in ("status", "pull", "stop"):
+        sub.add_parser(name).add_argument("run", nargs="?")
+    sub.add_parser("clean").add_argument("run", nargs="?")
+    a = ap.parse_args()
+    {"setup": cmd_setup, "render": cmd_render, "status": cmd_status, "pull": cmd_pull, "stop": cmd_stop,
+     "clean": cmd_clean}[a.cmd](a)
+
+
+if __name__ == "__main__":
+    main()
