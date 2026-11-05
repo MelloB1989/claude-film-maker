@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -51,7 +52,9 @@ PROJECT = ws.project()
 IMPORT = _j(PROJECT, "Saved", "Import", "reel")
 SPEECH = "/Game/Speech"
 ANIM = "/Game/Reel/Perf"
-ME = "agent-10"
+# the owner tag in the test actors' and sequences' names (Test_<ME>_Him, ...): REEL_PERF_ME or --me; cleanup removes
+# every presenter test asset whatever its tag (older runs used "agent-10")
+ME = os.environ.get("REEL_PERF_ME", "perf")
 IDLE = "/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle"
 FACE_MESH = {"him": "/Game/Host/Unpacked/Host/Face/SKM_Host_Trey_FaceMesh",  # fallbacks: face_mesh() asks the level
              "her": "/Game/Host/Unpacked/Presenter/Face/SKM_Presenter_F_FaceMesh"}
@@ -966,17 +969,34 @@ def stills(who: str, frames: list | None = None) -> list:
     return got
 
 
+CLEANUP = r"""
+import json, re, unreal
+P = json.loads(PARAMS)
+EAS = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+EAL = unreal.EditorAssetLibrary
+act = re.compile(P["actors"])
+gone_a = []
+for a in EAS.get_all_level_actors():
+    lab = a.get_actor_label()
+    if act.match(lab):
+        gone_a.append(lab)
+        EAS.destroy_actor(a)
+seq = re.compile(P["seqs"])
+gone_s = [p.split(".")[0] for p in EAL.list_assets("/Game/Reel", recursive=False, include_folder=False)
+          if seq.match(p.split(".")[0].rsplit("/", 1)[-1])]
+gone_s = [p for p in gone_s if EAL.delete_asset(p)]
+result = {"actors": gone_a, "sequences": gone_s}
+"""
+
+
 def cleanup() -> dict:
-    """Remove everything this script put in the level (my presenter copies, cameras, lights) and the test sequences.
-    The animations under ANIM stay: they are the deliverable."""
-    labels = [test_label(w) for w in ("him", "her")] + [cam_label(f"S{k}") for k in range(13, 19)]  # v1 had S14 too
-    labels += [f"Test_{ME}_{k}_{w}" for k in ("Key", "Fill") for w in ("him", "her")]
+    """Remove every presenter test asset this script makes, whoever's tag it carries (Test_<any>_Him/Her, the test
+    cameras Test_<any>_S13..S18, the key/fill lights, the test sequences and the probe): ME changed from agent-10, and
+    old runs' copies must not stay in the level. The animations under ANIM stay: they are the deliverable."""
     ok(client.op("seq.close"))
-    n = ok(client.op("level.delete", labels=labels))
-    gone = ok(client.exec_code("import unreal\nresult = [p for p in %r if unreal.EditorAssetLibrary.does_asset_exist(p) "
-                               "and unreal.EditorAssetLibrary.delete_asset(p)]" % [test_seq("him"), test_seq("her"),
-                                                                                   f"/Game/Reel/Test_{ME}_probe"]))
-    return {"actors": n, "sequences": gone}
+    return ok(client.exec_code("PARAMS = " + json.dumps(json.dumps({
+        "actors": r"^Test_.+_(Him|Her|S1[3-8]|Key_him|Key_her|Fill_him|Fill_her)$",
+        "seqs": r"^Test_.+_(Him|Her|probe)$"})) + "\n" + CLEANUP))
 
 
 # The body's idle around the performance (seq.anim's idle -> line -> idle): from PRE_ROLL frames before START (both
@@ -1038,7 +1058,12 @@ def main() -> None:
     ap.add_argument("--from", dest="start_at", type=int, default=1, help="gaze: resume at this range (1-based)")
     ap.add_argument("--to", dest="stop_at", type=int, default=99, help="gaze: stop after this range (short jobs)")
     ap.add_argument("--only", help="solve: comma-separated SOLVES keys")
+    ap.add_argument("--me", help="the owner tag in test asset names (default REEL_PERF_ME, else 'perf')")
+    ap.add_argument("--cleanup", action="store_true", help="place: then remove every test actor and sequence")
     a = ap.parse_args()
+    if a.me:
+        global ME
+        ME = a.me
     if a.cmd == "push":
         print(json.dumps(push()))
     elif a.cmd == "solve":
@@ -1065,6 +1090,8 @@ def main() -> None:
         print(json.dumps(drive_faces()))
     elif a.cmd == "place":
         print(json.dumps(place(a.seq)))
+        if a.cleanup:
+            print(json.dumps(cleanup()))
 
 
 if __name__ == "__main__":
