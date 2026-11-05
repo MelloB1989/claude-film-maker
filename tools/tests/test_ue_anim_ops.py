@@ -435,3 +435,25 @@ def test_perf_face_turns_the_head_on_the_curve_that_turns_it(ue, fmb):
     span = {n: max(v) - min(v) for n, (_, v) in c.items()}
     assert span["HeadRoll"] > 15.0 and span["HeadYaw"] < 6.0, span
     assert min(c["HeadRoll"][1]) < -15.0  # yaw + (their left) is - on HeadRoll here
+
+
+def test_perf_face_turns_the_head_on_the_bones_when_no_curve_turns_it(ue, fmb):
+    """Round 3 (box, 5.8 MetaHuman faces): HeadYaw nods, HeadPitch tilts and HeadRoll does nothing, so no curve can turn
+    the head. perf.calibrate then measures each neck/head bone's turn axis (yaw_bone) and perf.face writes the
+    planned turn onto those bones (on top of their own rotation): 40% on the head, 30% on each neck bone."""
+    import math
+    t = [i / 30 for i in range(121)]
+    ue.anim("/Game/A/AS_src", length_s=4.0, curves={"CTRL_expressions_jawOpen": (t, [0.0] * len(t))})
+    signs = {"yaw": 1.0, "pitch": -1.0, "roll": -1.0, "measured": True,
+             "curves": {"yaw": "HeadRoll", "pitch": "HeadYaw", "roll": "HeadPitch"}, "dead": ["HeadRoll"],
+             "yaw_bone": {"neck_01": ["x", -1.0], "neck_02": ["x", -1.0], "head": ["z", 1.0]}}
+    r = run_op("perf.face", anim="/Game/A/AS_src", out="/Game/A/AS_out", signs=signs, seed=1,
+               gaze=[{"t": 0.0, "yaw": 0.0, "scan": "lens"}, {"t": 1.0, "yaw": 30.0, "head": 0.8}])
+    assert r["turned_by_bones"]["max_deg"] > 18.0, r.get("turned_by_bones")
+    tracks = ue.assets["/Game/A/AS_out"]._data["tracks"]
+    def deg(q, axis):  # the angle about one local axis of a [x, y, z, w] quaternion
+        return math.degrees(2 * math.atan2(q["xyz".index(axis)], q[3]))
+    head = max(deg(q, "z") for q in tracks["head"][1])
+    neck = min(deg(q, "x") for q in tracks["neck_01"][1])
+    turn = r["turned_by_bones"]["max_deg"]
+    assert abs(head - 0.4 * turn) < 1.0 and abs(neck + 0.3 * turn) < 1.0, (head, neck, turn)

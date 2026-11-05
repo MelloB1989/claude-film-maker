@@ -22,6 +22,7 @@ from .assets import EAL, free, load
 from ..errors import OpError, not_found
 from ..perfkit import audio as AU
 from ..perfkit import blinks as BL
+from ..perfkit import curves as C
 from ..perfkit import body as BD
 from ..perfkit import expressions as X
 from ..perfkit import face as FACE
@@ -163,12 +164,44 @@ def face(*, anim: str, out: str = "", wav: str = "", gaze: list | None = None, s
             raise OpError(f"could not copy {anim} to {out}", code="engine")
     o = load(out)
     _write(o, r["curves"])
+    sg = signs_for(_skeleton_path(a), signs)
+    turned = _turn_by_bones(o, r["curves"], sg) if sg.turns_by_bone() else None
     _meta(o, "fm.perf.made_by", "perf.face")
     EAL.save_asset(out)
     res = {"out": out, "changed": True, "plan": r["plan"], "report": r["report"], "curves": len(r["curves"])}
+    if turned:
+        res["turned_by_bones"] = turned
     if plot:
         res["plot"] = _plot({**base, **r["curves"]}, plot, r["plan"], signs_for(_skeleton_path(a), signs), out)
     return res
+
+
+def _turn_by_bones(o, curves: dict, sg: HeadSigns) -> dict:
+    """Write the planned head turn on the neck and head bones of `o` (on top of their own rotation), for a rig whose
+    turn curve does nothing (5.8: HeadRoll). The turn is the planned yaw: the dead curve's values in the rig's sign.
+    sync's head_to_body then carries it to the body, as it did the curve-driven turn on 5.6."""
+    from .anim import model_keys
+    from .perf_body import _write_tracks
+
+    t, v = curves[sg.curves["yaw"]]
+    n_keys = model_keys(o)
+    length = float(unreal.AnimationLibrary.get_sequence_length(o))
+    times = [k * length / max(1, n_keys - 1) for k in range(n_keys)]
+    yaw = [sg.yaw * C.at(list(t), list(v), x) for x in times]
+    tracks = {str(n) for n in unreal.AnimationLibrary.get_animation_track_names(o)}
+    own, pos, scl = {}, {}, {}
+    for x in times:
+        pose = unreal.AnimPoseExtensions.get_anim_pose_at_time(o, x, unreal.AnimPoseEvaluationOptions())
+        for b in sg.yaw_bone:
+            tr = unreal.AnimPoseExtensions.get_bone_pose(pose, b, unreal.AnimPoseSpaces.LOCAL)
+            q, p, sc = tr.rotation, tr.translation, tr.scale3d
+            own.setdefault(b, []).append([q.x, q.y, q.z, q.w])
+            pos.setdefault(b, []).append([p.x, p.y, p.z])
+            scl.setdefault(b, []).append([sc.x, sc.y, sc.z])
+    rot = HD.turn_bones(own, yaw, sg.yaw_bone)
+    _write_tracks(o, {b: list(zip(pos[b], rot[b], scl[b])) for b in rot}, n_keys)
+    return {"bones": {b: sg.yaw_bone[b] for b in rot}, "keys": n_keys, "had_tracks": sorted(b for b in rot if b in tracks),
+            "max_deg": round(max((abs(y) for y in yaw), default=0.0), 1)}
 
 
 def _plot(curves: dict, path: str, plan_: dict | None, signs: HeadSigns, title: str, t0=None, t1=None) -> dict:
@@ -306,6 +339,36 @@ def calibrate(*, label: str, face_component: str = "Face", scratch: str = "/Game
                            "HeadYaw/HeadPitch/HeadRoll with HeadControlSwitch=1") from None
     dead = [c for c in resp if max(abs(v) for v in resp[c].values()) < LIVE_CM]
     signs = {k: (1.0 if resp[c][k] > 0 else -1.0) if c not in dead else 1.0 for k, c in curves.items()}
+    yaw_bone = None
+    if curves["yaw"] in dead:  # no curve turns this head (5.8): find each neck/head bone's own turn axis
+        from .anim import model_keys
+        from .perf_body import _local_pose, _write_tracks
+        from ..perfkit.bodylife import qmul
+        from ..perfkit.head import NECK_SHARE, axis_quat
+        apply({})
+        last = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0])
+        n_keys = model_keys(a)
+        ref = _local_pose(label, face_component, list(NECK_SHARE))
+        yaw_bone = {}
+        for b in NECK_SHARE:
+            best = None
+            for ax in "xyz":
+                q = qmul(ref[b]["q"], axis_quat(ax, degrees))
+                _write_tracks(a, {b: [(ref[b]["t"], q, ref[b]["s"])] * n_keys}, n_keys)
+                EAL.save_asset(anim_path)
+                m = yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0])
+                last = m
+                l1, r1 = m["bones"]["FACIAL_L_Eye"][0], m["bones"]["FACIAL_R_Eye"][0]
+                d = _sub(_mid(l1[:3], r1[:3]), mid0)
+                yv, rv = _dot(d, left), (r1[2] - l1[2]) - (eR[2] - eL[2])
+                raw[f"{b}.{ax}"] = {"yaw": round(yv, 4), "pitch": round(_dot(d, up), 4), "roll": round(rv, 4)}
+                if abs(rv) < 0.5 * abs(yv) and (best is None or abs(yv) > abs(best[1])):  # a turn leaves the eyes level
+                    best = (ax, yv)
+            _write_tracks(a, {b: [(ref[b]["t"], ref[b]["q"], ref[b]["s"])] * n_keys}, n_keys)  # back to rest
+            EAL.save_asset(anim_path)
+            if best is None or abs(best[1]) < LIVE_CM:
+                raise OpError(f"no local axis of {b} turns {label}'s head: {raw}", code="failed", details={"raw": raw})
+            yaw_bone[b] = [best[0], 1.0 if best[1] > 0 else -1.0]
     apply({})
     yield from _await_change(measure, frame, "FACIAL_L_Eye", last["bones"]["FACIAL_L_Eye"][0])
     rest2 = yield from measure([frame])
@@ -329,7 +392,7 @@ def calibrate(*, label: str, face_component: str = "Face", scratch: str = "/Game
         raw[f"eyeLook{d}L"] = round(ang, 3)
     apply({})
     result = HeadSigns(signs["yaw"], signs["pitch"], signs["roll"], eye_deg, True, bool(flip_votes and flip_votes[0]),
-                       curves)
+                       curves, dead, yaw_bone)
     path = _signs_file(skel)
     with open(path, "w") as f:
         json.dump(result.to_json(), f, indent=1)
