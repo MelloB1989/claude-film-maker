@@ -10,12 +10,13 @@ Windows renders is reused.
 | # | What | File | Frames | When |
 |---|---|---|---|---|
 | 1 | Preview of the whole reel (960x540, 1 sample, JPG), one directory per build | `10-preview.yaml --set build=<film sha>` | 1584 | after every rebuild of SEQ_Reel; agent-09 reviews it, agent-06 roughs the cut |
-| 2 | Calibration A/B: TSR x 8 vs no AA 2 spatial x 8, 24 frames of S17 (two presenters, strand hair) | `20-calibrate.yaml` (twice) | 2 x 24 | once, before finals; I pick the AA and set it in `30-final.yaml` |
+| 2 | Calibration A/B/C: TSR 1x8, no AA 2x8, no AA 4x8; 24 frames of S17 (two presenters, strand hair) | `20-calibrate.yaml` (three times) | 3 x 24 | done 17:39: C picked |
+| 2b | The cut test: 718-721 across V05 -> S11, shutter open vs centre | `25-cuttest.yaml` (`--set shutter=center` for the old look) | 2 x 4 | once the core shutter_timing is in the box tree |
 | 3 | Finals, set shots V01-V05, S11, S12, N01 (no presenters: independent of the MetaHuman and the performances) | `30-final.yaml` | 960 | right after 2 |
 | 4 | Finals, presenter shots S13, S15, S16, S17, S18, one at a time as each is approved (performance, his MetaHuman, her watch/collar/hair, framing) | `30-final.yaml --set batch=S13 --set 'shots=["Reel_S13"]'` | 120 each | as they land |
 | 5 | A shot that changed after its final | `... --set overwrite=true` | 120 | as needed |
 
-Frames: `/srv/ue/reel/r3/<preview/<build>|final|cal_A|cal_B>/<master frame:04d>.png` (S13 is 0960..1079; the
+Frames: `/srv/ue/reel/r3/<preview/<build>|final_c|cal_A|cal_B|cal_C>/<master frame:04d>.png` (S13 is 0960..1079; the
 sequence's 12-frame handles are -0012..-0001 and 1560..1571, so a full pass is 1584 frames), a report per
 job in `_render/<name>.report.json` (time per frame, VRAM peak, missing frames), and the sequence's WAV.
 The frames stay on the box: QA, contact sheets, crops, encodes and the cut run there (ffmpeg/python on the box);
@@ -29,11 +30,11 @@ bucket's default (as core's `sync._sse` does for private uploads): `--sse aws:km
 key in the box setting `kms_key` when it is set (else the account's aws/s3 key):
 
     KMS="--sse aws:kms"   # + " --sse-kms-key-id <the box setting kms_key>" when that setting is set
-    for d in final cal_A cal_B; do
+    for d in final_c cal_A cal_B cal_C; do
       aws s3 sync /srv/ue/reel/r3/$d s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/$d/ $KMS
     done
 
-Each job's report is inside its own out_dir (`final/_render/`, `cal_A/_render/`, ...: render.job writes
+Each job's report is inside its own out_dir (`final_c/_render/`, `cal_A/_render/`, ...: render.job writes
 `<out_dir>/_render/<name>.report.json`), so the reports (settings, timings) go with their frames; there is no
 `r3/_render/` of its own. The previews are not kept.
 
@@ -58,13 +59,21 @@ agent-07's report on the bucket and its policy (the default encryption is not ve
 
 | | AA | samples | s/frame | VRAM peak | RSS peak | fine-detail shimmer | sharpness (Laplacian var) |
 |---|---|---|---|---|---|---|---|
-| **A (picked)** | TSR | 1 x 8 | **0.68** | 11.6 GB | 6.4 GB | 0.00428 | 0.00022 |
+| A | TSR | 1 x 8 | 0.68 | 11.6 GB | 6.4 GB | 0.00428 | 0.00022 |
 | B | none | 2 x 8 | 1.24 | 10.9 GB | 7.7 GB | 0.00494 (+15%) | 0.00049 |
+| **C (picked)** | none | 4 x 8 | **2.49** | 13.3 GB | 9.7 GB | 0.00492 | 0.00047 |
 
-A and B differ by 34 dB PSNR (median). **A for the finals** (the `30-final.yaml` default): B is crisper in the
-beard but shimmers more frame to frame, draws hard white lines along the shelf fronts that A does not, and costs
-1.8x. A full pass (1584 frames) is ~18 min of frames + ~12 s per shot: the finals are cheap, so a changed shot is
-simply re-rendered. Sheet: `/srv/ue/reel/r3/cal_AB_crops.jpg` (A over B, frame 1344).
+**C for the finals** (in `30-final.yaml`, with `shutter_timing: open`). TSR (A) looked calmest but **erased the
+under-shelf LED strips** entirely (1.6 cm, sub-pixel; agent-09 confirmed they are real: only under the shelves above
+the lens), which N01 is about. B and C keep them; C's edges are smoother than B's. C's shimmer equals B's (its
+24 frames were rendered after a performance change, so that number does not separate them). A full pass at C is
+~66 min (1584 x 2.49 s + ~12 s a shot): the set without V04 ~36 min, the presenter shots ~26 min.
+Sheets: `/srv/ue/reel/r3/cal_AB_crops.jpg`, `cal_AC_crops.jpg` (frame 1344).
+
+**The cut flash.** The TSR set finals (16:57, `final/`) had a double exposure on the first frame of S11 (720) and
+S12 (780): MRQ's shutter is centred on the frame, so frame N's temporal samples start before the camera cut keyed on
+N. `shutter_timing: open` (core, fleet/agent-05/render-shutter) samples [N, N+shutter). `25-cuttest.yaml` checks it on
+718-721. Every cut had it; the finals go to `final_c/`, and `final/` is superseded.
 
 A's first run (16:47) crashed at PIE start (a SIGSEGV in Python's GC inside UE's CollectGarbage after a burst of
 bridge probes), not from the settings: start renders from a fresh or quiet editor.
