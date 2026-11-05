@@ -355,8 +355,10 @@ elif STAGE == "measure":
     eyes = [v for v in (z("FACIAL_L_Eye"), z("FACIAL_R_Eye")) if v is not None]
     R["eye_cm"] = round(sum(eyes) / len(eyes), 1) if eyes else None
     R["knee_cm"] = z("calf_l")
-    face = comps.get("Face") or next(iter(comps.values()))
-    t("top_cm", lambda: round(face.bounds.origin.z + face.bounds.box_extent.z - floor, 1))
+    def top():  # the actor's bounds (hair included): its highest point above the mark's floor
+        o_, e_ = a.get_actor_bounds(False)
+        return round(o_.z + e_.z - floor, 1)
+    t("top_cm", top)
     R["head_bone_cm"] = z("head")
 
 R["done"] = True
