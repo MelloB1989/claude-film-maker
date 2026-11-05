@@ -1,4 +1,0 @@
-{
- "why": "PLAN v2 lines, same voices (him Tarun, her Tripti), same settings. Chosen from spectrograms and measures (takes.png, takes2.png), 3-5 takes a line. L1 tarun-4 (speed 0.88: the unhurried, amused drawl the tease wants; 1.3 s, lowest pitch, 16 st of range, a natural exhale after 'enough'); L2 tarun-2 (clean silence, the widest range of the three, 1.1 s); L3a tripti-1 (a light, dry 'Nice try.' at 234 Hz, closest to her other lines); L3b tripti-3 (a 0.24 s beat after 'Some things', lowest and calmest of her takes, 2.4 s); L4a tarun-2 ('What goes around...' trails off, fits its slot, 13 st of range); L4b tripti-2 (text sent without the caption's leading ellipsis, which read aloud as a breathy artefact; a 0.25 s beat before 'That's karma.', clean, 1.7 s).",
- "selects": {"L1": "tarun-4", "L2": "tarun-2", "L3a": "tripti-1", "L3b": "tripti-3", "L4a": "tarun-2", "L4b": "tripti-2"}
-}

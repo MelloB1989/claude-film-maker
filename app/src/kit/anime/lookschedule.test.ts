@@ -33,9 +33,10 @@ test('gradeKeys: one key for a constant, the shot\'s own keys as they are, a key
 });
 
 // the same numbers the Python reader gives (blender/tests/test_look_schedule.py reads this file too)
-test('the rain ferry\'s schedule grades as blender/lib/look_schedule.py does', () => {
-  const p = path.resolve(import.meta.dir, '../../../../films/rain-ferry/data/look.json');
-  if (!existsSync(p)) return;
+// the film lives on its own branch (film/rain-ferry): skipped when it is not checked out
+const RF_LOOK = path.resolve(import.meta.dir, '../../../../films/rain-ferry/data/look.json');
+test.skipIf(!existsSync(RF_LOOK))('the rain ferry\'s schedule grades as blender/lib/look_schedule.py does', () => {
+  const p = RF_LOOK;
   const s = JSON.parse(readFileSync(p, 'utf8')) as LookSchedule;
   expect(gradeAt(s, 'board', 'saturation', 2.75)).toBeCloseTo(0.868, 9);
   expect(gradeAt(s, 'freeze', 'saturation', 0.6)).toBeCloseTo(0.57, 9);

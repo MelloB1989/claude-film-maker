@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.12.*"
 
 [[package]]
@@ -251,6 +251,7 @@ dependencies = [
     { name = "librosa" },
     { name = "matplotlib" },
     { name = "numpy" },
+    { name = "pyyaml" },
     { name = "scipy" },
     { name = "soundfile" },
 ]
@@ -278,6 +279,7 @@ requires-dist = [
     { name = "onnxruntime", marker = "extra == 'anime'", specifier = ">=1.18" },
     { name = "opencv-python-headless", marker = "extra == 'anime'", specifier = ">=4.9" },
     { name = "pillow", marker = "extra == 'anime'", specifier = ">=10" },
+    { name = "pyyaml", specifier = ">=6" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "soundfile", specifier = ">=0.12" },
     { name = "torch", marker = "extra == 'anime'", specifier = ">=2.4" },

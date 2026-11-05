@@ -175,7 +175,11 @@ def stale_scenes(film: str) -> list[str]:
 
 
 def durations(film: str) -> dict:
-    t = json.loads((ROOT / "films" / film / "data" / "timeline.json").read_text())
+    tl = ROOT / "films" / film / "data" / "timeline.json"
+    if not tl.exists():
+        raise SystemExit(f"films/{film} is not in this checkout: each film lives on its own branch "
+                         f"(git checkout film/{film}), or pass --film")
+    t = json.loads(tl.read_text())
     return {s["id"]: s["end"] - s["start"] for s in t.get("scenes", t)}
 
 

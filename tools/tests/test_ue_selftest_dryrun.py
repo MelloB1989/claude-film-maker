@@ -10,6 +10,7 @@ picked up with no change here; one that needs more of the fake gets a SETUP entr
 """
 from __future__ import annotations
 
+import io
 import os
 import time
 
@@ -223,6 +224,9 @@ def _setup_render(ue, fmb, monkeypatch, tmp_path):
         return path
     monkeypatch.setattr(fmb.render, "_write_manifest", manifest)
     monkeypatch.setattr(fmb.render.subprocess, "Popen", _FakeProc)
+    # the box as tested here has no ffmpeg (a dev machine may: the encode steps then skip the same way everywhere)
+    which = fmb.render.shutil.which
+    monkeypatch.setattr(fmb.render.shutil, "which", lambda name, *a, **k: None if name == "ffmpeg" else which(name, *a, **k))
 
 
 def _setup_layout(ue, fmb, monkeypatch, tmp_path):
@@ -290,6 +294,7 @@ class _FakeProc:
 
     def __init__(self, argv, **kw):
         self.argv = argv
+        self.stdout = self.stderr = io.BytesIO(b"")
 
     def poll(self):
         return 0

@@ -85,7 +85,7 @@ class Transport:
             self.run(f"mkdir -p \"$(dirname {q})\" && : > {tmp}")
             for part in parts:
                 self.run(f"printf '%s' {part} >> {tmp}")
-            self.run(f"base64 -d {tmp} > {q}.fmnew && mv -f {q}.fmnew {q} && rm -f {tmp}")
+            self.run(f"base64 -d < {tmp} > {q}.fmnew && mv -f {q}.fmnew {q} && rm -f {tmp}")
         else:
             if len(parts) == 1:
                 self.run(f"New-Item -ItemType Directory -Force -Path (Split-Path {_ps(path)}) | Out-Null; "

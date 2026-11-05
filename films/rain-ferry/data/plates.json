@@ -1,4 +1,0 @@
-{
-  "//": "Which Blender shot (blender/shots/<plate>.py) makes each scene's plate, where it is not the scene's own id. film.ts and the render tools (film-anime-render, film-anime-review) read it.",
-  "plates": { "standoff": "standoff_vroid" }
-}

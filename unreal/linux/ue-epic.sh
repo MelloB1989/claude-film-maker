@@ -29,7 +29,7 @@ fi
 case "${1:-}" in
     status)
         signed_in && echo signed_in=yes || echo signed_in=no
-        echo "sign_ins=$(compgen -G "$SHARE/.eos_sdk/keychain/*/persistent_auth/credential" | wc -l)" ;;
+        echo "sign_ins=$(compgen -G "$SHARE/.eos_sdk/keychain/*/persistent_auth/credential" | wc -l | tr -d ' ')" ;;
     restore)
         [ -n "${EPIC_S3:-}" ] || { echo "epic: EPIC_S3 unset, nothing to restore"; exit 0; }
         if signed_in; then echo "epic: already signed in here, kept"; exit 0; fi

@@ -313,7 +313,11 @@ def stale(film: str) -> list[str]:
 
 
 def durations(film: str) -> dict:
-    t = json.loads((ROOT / "films" / film / "data" / "timeline.json").read_text())
+    tl = ROOT / "films" / film / "data" / "timeline.json"
+    if not tl.exists():
+        raise SystemExit(f"films/{film} is not in this checkout: each film lives on its own branch "
+                         f"(git checkout film/{film}), or pass --film")
+    t = json.loads(tl.read_text())
     return {s["id"]: s["end"] - s["start"] for s in t.get("scenes", t)}
 
 
@@ -323,9 +327,9 @@ def cmd_render(a) -> None:
     ami = state().get("image")
     if not ami:
         raise SystemExit("no image yet: run gpu-render setup, then gpu-render image")
+    dur = durations(a.film)
     print("pulling plates already in S3 ...")
     pull(c, a.film)
-    dur = durations(a.film)
     scenes = list(dur) if a.all else (a.only.split(",") if a.only else stale(a.film))
     if not scenes:
         print("every plate is up to date: nothing to render")

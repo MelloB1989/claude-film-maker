@@ -183,7 +183,7 @@ def _install_linux(files: list) -> str:
         chunks = [b64[i:i + SSM_CHUNK] for i in range(0, len(b64), SSM_CHUNK)]
         for i, c in enumerate(chunks):
             ws.sh(f"printf %s {c} {'>' if i == 0 else '>>'} {part}")
-        ws.sh(f"mkdir -p {dest} && base64 -d {part} | tar -xz -C {dest} && rm -f {part}")
+        ws.sh(f"mkdir -p {dest} && base64 -d < {part} | tar -xz -C {dest} && rm -f {part}")
     ws.editor("restart")
     health = wait_bridge(3600)  # the first start on a box compiles every shader before the editor settles
     return f"installed {len(files)} files (via ssm + editor restart); bridge up on {health.get('engine')}"
