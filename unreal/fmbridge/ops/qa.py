@@ -338,7 +338,9 @@ def penetration(*, label: str, body: list | None = None, garments: list | None =
 
 
 def _mesh_actors(labels=None, ignore=()) -> dict:
-    """Actors to check: given labels, or every visible actor with a static or skeletal mesh (not the QA rig)."""
+    """Actors to check: given labels, or every visible actor with a static or skeletal mesh (not the QA rig, cameras
+    or lights: a camera's bounds take in its editor mesh proxy, so day 1 on the box the demo's cine cameras
+    "interpenetrated" the desk and each other)."""
     out = {}
     if labels:
         for lab in labels:
@@ -346,7 +348,7 @@ def _mesh_actors(labels=None, ignore=()) -> dict:
         return out
     for a in _eas().get_all_level_actors():
         lab = a.get_actor_label()
-        if lab == RIG or lab in ignore or a.is_hidden_ed():
+        if lab == RIG or lab in ignore or a.is_hidden_ed() or isinstance(a, (unreal.CameraActor, unreal.Light)):
             continue
         if list(a.get_components_by_class(unreal.StaticMeshComponent)) or _skel_components(a):
             out[lab] = a
@@ -359,8 +361,8 @@ def floating(*, labels: list | None = None, ignore: list | None = None, toleranc
     """Actors hovering above the surface under them: a line trace down from the bottom of each one's bounds (its
     own collision ignored) measures the gap.
 
-    Args: labels: the actors (default every visible mesh actor). ignore: labels to skip (things meant to hang:
-    lamps, pictures). tolerance_cm: a gap over this is floating. max_check_cm: how far down to look.
+    Args: labels: the actors (default every visible mesh actor but cameras and lights). ignore: labels to skip
+    (things meant to hang: lamps, pictures). tolerance_cm: a gap over this is floating. max_check_cm: how far down to look.
     Returns: {"pass", "issues", "metrics": {"gaps": {label: cm or None}}}. Needs collision on what is underneath
     (an object over a floor without collision reads as unsupported).
     Example: film-ue op qa.floating 'ignore=["Pendant"]'
@@ -401,8 +403,8 @@ def overlaps(*, labels: list | None = None, ignore: list | None = None, ignore_p
              min_fraction: float = 0.05, touching_cm: float = 1.0) -> dict:
     """Actors whose bounds interpenetrate (a chair sunk into a table, two props in one place).
 
-    Args: labels: the actors (default every visible mesh actor). ignore: labels to skip (the floor, walls, the
-    set's shell). ignore_pairs: [[a, b]] that may overlap (a book on a shelf). min_fraction: the share of the
+    Args: labels: the actors (default every visible mesh actor but cameras and lights). ignore: labels to skip
+    (the floor, walls, the set's shell). ignore_pairs: [[a, b]] that may overlap (a book on a shelf). min_fraction: the share of the
     smaller box that counts. touching_cm: resting contact allowed.
     Returns: {"pass", "issues", "metrics": {"pairs": [[a, b, fraction, depth_cm]]}}. Axis-aligned bounds: confirm a hit
     with a still.
