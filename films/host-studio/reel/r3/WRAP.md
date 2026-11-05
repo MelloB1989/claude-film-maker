@@ -197,23 +197,27 @@ done'
 
 ## 6. Power the box off by hand (22:04 -> 22:10)
 
+**This box's instanceInitiatedShutdownBehavior is `terminate`** (agent-07, checked 20:59 UTC on 05 Nov). An OS
+shutdown (`sudo shutdown`, `poweroff`, idle-guard.sh, any OS-level TTL) DELETES the instance and its disk. Never power
+it off from inside the OS. Use the EC2 stop only:
+
 Only once all of these hold:
 - step 3's and step 4's head-objects show `aws:kms`;
-- karmax and agent-10 have the report.
+- karmax and agent-10 have the report;
+- the `/srv/ue/.guard-keepalive` loop of the wrap is stopped.
 
 ```bash
-film-ue status                         # the instance and its state (running)
-# first, read-only, from kali (AWS_PROFILE=nani, ap-south-1): it must say "stop"; if it says "terminate", use film-ue down instead
-aws ec2 describe-instance-attribute --instance-id <id from film-ue status> --attribute instanceInitiatedShutdownBehavior
-film-ue sh 'sudo shutdown -h now'      # cc-64d05f6e's instruction: the box powers itself off (an EC2 stop: the disk survives)
-film-ue status                         # stopping/stopped; again after a minute until stopped
+film-ue status                      # the instance and its state (running)
+film-ue down                        # closes the tunnel, then EC2 stop-instances: the disk survives, private
+film-ue status                      # stopping/stopped; again after a minute until stopped
 ```
 
-- With the shutdown behaviour `stop` (checked above), an OS shutdown on this box stops the instance. It does not terminate it, so the disk, with the frames on it,
-  survives and stays private.
-- `film-ue down` (EC2 stop-instances) is the fallback only if the shutdown does not take. Over the `ssh` transport it
-  does nothing, so in that case ask karmax at once, with the instance id from `film-ue status`.
-- The box's own scheduled poweroff at 22:30 UTC is the backstop, not the plan.
+- If `film-ue down` does nothing (the `ssh` transport only returns the state), do NOT fall back to an OS shutdown.
+  Tell karmax and agent-10 at once, with the instance id.
+- Whether to stop or terminate after the saves is cc-64d05f6e's call (asked 21:00 UTC). Until they answer: stop.
+- During the wrap (steps 3-4: uploads write no new files, and the GPU is idle once the editor stops), touch
+  `/srv/ue/.guard-keepalive` before each sync. Otherwise idle-guard fires 45 min after the last render file, and
+  that is a terminate.
 - Report the final state (`stopped`) to karmax and agent-10.
 
 ## 5. kali cleanup (after 22:10; kali only)
