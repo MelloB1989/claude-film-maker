@@ -158,6 +158,13 @@ class Curve:
                     out[f] = self.at(f) if f < f1 else v1
         return [[f, _round(v)] for f, v in sorted(out.items())]
 
+    def steps(self) -> set:
+        """The frames that end a hold at a step (the key before the jump): keyed constant, the value holds until the
+        next frame exactly. Linear, it ramps between the two frames, and MRQ's temporal samples (motion blur) inside
+        that frame catch the ramp: a frame lit between two states (V03 f479 with the shutter open; the cut frame with
+        it centred)."""
+        return {f1 - 1 for (f0, v0, _), (f1, v1, e) in zip(self.points, self.points[1:]) if e == "hold" and v0 != v1}
+
 
 def _mix(a, b, t):
     if isinstance(a, (tuple, list)):
@@ -313,29 +320,33 @@ def _aim_curves(label: str):
 def payload(t: Track) -> tuple:
     """The R1 op and its arguments for one track (without the sequence path)."""
     if t.kind == "float":
-        return "seq.key_float", dict(label=t.label, prop=t.prop, keys=_lin(t.curve.keys()))
+        return "seq.key_float", dict(label=t.label, prop=t.prop, keys=_lin(t.curve))
     if t.kind == "color":
-        return "seq.key_color", dict(label=t.label, prop=t.prop, keys=_lin(t.curve.keys()))
+        return "seq.key_color", dict(label=t.label, prop=t.prop, keys=_lin(t.curve))
     if t.kind == "material":
-        return "seq.key_material", dict(label=t.label, param=t.prop, slot=t.slot, keys=_lin(t.curve.keys()))
+        return "seq.key_material", dict(label=t.label, param=t.prop, slot=t.slot, keys=_lin(t.curve))
     if t.kind == "collection":
-        return "seq.key_collection", dict(collection=t.label, param=t.prop, keys=_lin(t.curve.keys()))
+        return "seq.key_collection", dict(collection=t.label, param=t.prop, keys=_lin(t.curve))
     if t.kind == "transform":
         frames = sorted({k[0] for k in t.curve.keys()} | {k[0] for k in t.aim.keys()})
+        steps = t.curve.steps() | t.aim.steps()
         keys = []
         for f in frames:
             loc, aim = t.curve.at(f), t.aim.at(f)
+            how = "constant" if f in steps else "linear"
             if t.label == "FM_Sun":  # the sun's aim is its elevation
-                keys.append([f, list(loc), {"pitch": -aim, "yaw": DAY_SUN["azimuth"], "roll": 0.0}, "linear"])
+                keys.append([f, list(loc), {"pitch": -aim, "yaw": DAY_SUN["azimuth"], "roll": 0.0}, how])
             else:
-                keys.append([f, list(loc), list(aim), "linear"])
+                keys.append([f, list(loc), list(aim), how])
         return "seq.key_transform", dict(label=t.label, keys=keys)
     raise ValueError(t.kind)
 
 
-def _lin(keys):
-    """Baked keys play linearly between themselves (a hold's two ends are equal: flat)."""
-    return [k + ["linear"] for k in keys]
+def _lin(c: Curve):
+    """The curve's baked keys, playing linearly between themselves (a hold's two ends are equal: flat), but constant
+    out of the frame before a step, so the jump lands exactly on the step's frame."""
+    st = c.steps()
+    return [k + ["constant" if k[0] in st else "linear"] for k in c.keys()]
 
 
 def apply(seq: str, only: set | None = None) -> list:
