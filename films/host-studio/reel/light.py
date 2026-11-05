@@ -339,13 +339,7 @@ def _lin(keys):
 
 
 def apply(seq: str, only: set | None = None) -> list:
-    from filmtools.unreal import client, workstation as ws
-
-
-def _j(*parts: str) -> str:
-    """A path on the box in its own style (Linux or Windows)."""
-    from filmtools.unreal.boxpaths import BoxPaths
-    return BoxPaths.current().join(*parts)
+    from filmtools.unreal import client
     # a studio rebuild (or rig.py) respawns the lights, and a binding left on the dead actor keys nothing: the S12
     # downlights never popped in MRQ although their keys were right. Point every light's binding at the live actor first.
     labels = sorted({t.label for t in tracks() if t.kind != "collection" and (not only or t.label in only)})
@@ -422,7 +416,20 @@ TEST_CAMS = {  # label: (loc, look-at, focal, aperture); the S02 wide and the S1
     f"Test_{TEST}_Wide": ([255, -35, 150], [WALL, 15, 140], 28.0, 5.6),
     f"Test_{TEST}_Sign": ([-95, 15, 170], [WALL + 4, 25, 228], 40.0, 4.0),
 }
-REMOTE = ws.project("Saved", "Previs", "reel_light")
+
+
+def _j(*parts: str) -> str:
+    """A path on the box in its own style (Linux or Windows)."""
+    from filmtools.unreal.boxpaths import BoxPaths
+    return BoxPaths.current().join(*parts)
+
+
+def _remote() -> str:
+    from filmtools.unreal import workstation as ws
+    return ws.project("Saved", "Previs", "reel_light")
+
+
+REMOTE = _remote()
 DEL_SEQ = """import unreal
 LSE = unreal.LevelSequenceEditorBlueprintLibrary
 if LSE.get_current_level_sequence():
