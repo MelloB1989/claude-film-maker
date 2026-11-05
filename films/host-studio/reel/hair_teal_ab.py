@@ -106,6 +106,23 @@ result = True
 """
 
 
+LIGHTS = """
+import unreal
+out = []
+for a in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors():
+    for c in a.get_components_by_class(unreal.LightComponent):
+        k = c.get_editor_property("light_color")
+        r, g, b = k.r / 255, k.g / 255, k.b / 255
+        p = c.get_world_location()
+        out.append({"actor": a.get_actor_label(), "comp": c.get_name(), "cls": c.get_class().get_name(),
+                    "rgb": [round(r, 3), round(g, 3), round(b, 3)], "green": round(g - max(r, b) / 2 - r / 2, 3),
+                    "intensity": round(c.get_editor_property("intensity"), 3), "visible": c.is_visible(),
+                    "temp_on": bool(c.get_editor_property("use_temperature")),
+                    "temp": round(c.get_editor_property("temperature"), 0), "at": [round(p.x), round(p.y), round(p.z)]})
+result = sorted(out, key=lambda x: -x["green"])
+"""
+
+
 def ok(res):
     if not res.get("ok"):
         raise SystemExit(res.get("stdout", "") + res.get("error", ""))
@@ -118,7 +135,11 @@ def main() -> None:
     ap.add_argument("--mode", default="capture", help="view.still mode: capture (seconds) or mrq (the final look)")
     ap.add_argument("--frame", type=int, default=1236, help="S16's master frame (night1's green: 1236, 1300)")
     ap.add_argument("--only", default="", help="comma-separated variant names (default: all)")
+    ap.add_argument("--lights", action="store_true", help="only list the level's lights, greenest first (read-only)")
     a = ap.parse_args()
+    if a.lights:
+        print(json.dumps(ok(client.exec_code(LIGHTS)), indent=1))
+        return
     names = ok(client.exec_code(f"MIS = {MIS!r}\n" + NAMES))
     have_s = set.intersection(*({x.lower() for x in n["scalars"]} for n in names.values()))  # FNames: any case
     have_v = set.intersection(*({x.lower() for x in n["vectors"]} for n in names.values()))
