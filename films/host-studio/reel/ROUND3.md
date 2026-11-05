@@ -84,7 +84,16 @@ frames (`~/.config/Epic/CaptureManager/Media/HostStudio/`, outside the project) 
 at 17:00 to the normal prefix, which is fine. At the end, the final DDC and project go to `private/ddc/5.8.4/` and
 `private/project/HostStudio/`.
 
-The box ends at **22:30 UTC** (operator's extension). Every finished render is pulled off as it lands.
+The box ends at **22:30 UTC** (operator's extension). Finished work leaves the box only as the small things below.
+
+## Bandwidth and cost: work on the box, bring down only small things
+
+From the orchestrator: kali sits on the operator's 30 Mbps home line, and every box/S3 -> kali download is billed
+AWS egress. So **no bulk frame pulls to kali**. QA, contact sheets, crops, encodes and the cut (agent-06) run on the
+GPU box (ffmpeg/python there: 16 vCPU, 400+ GB free). What comes down: contact sheets, crops, gate numbers and the
+final MP4s for the operator (the orchestrator pulls those). kali `/tmp` is RAM-backed (tmpfs): keep it nearly empty.
+Before the box ends, the frames we keep go box -> S3 (same region, no egress), not to kali. agent-07 lists what is
+under `/home/nikhil/code/.worktrees/agent-07/out` and deletes it once the shoot is delivered.
 
 ## Order of work (the box is never idle)
 
@@ -156,3 +165,4 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
   the left wrist, the collar sits); (c) FAIL, teal_g +0.069 even with MI_K_HerHair on all slots: a material A/B is
   next; (a) S16 PASS on frames, S13 waits for the engine numbers; (d)/(e) FAIL: naturalize was not applied
   (calibrate failed on a dead HeadRoll: fixed in core 45e8146b).
+- Orchestrator rule: no bulk frame pulls to kali; QA, encodes and the cut run on the box; only sheets, crops and final MP4s come down.
