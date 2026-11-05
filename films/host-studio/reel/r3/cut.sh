@@ -8,6 +8,7 @@
 #   films/host-studio/reel/r3/cut.sh preview              # rough cut of the preview pass: 65 s + 45 s, 1080p, captions
 #   films/host-studio/reel/r3/cut.sh final                # the finals (R3_FINAL, default final_c), shots not final yet filled from the preview
 #   films/host-studio/reel/r3/cut.sh final --fill-from none   # the deliverables: every final must be in
+#   films/host-studio/reel/r3/cut.sh final --fill-from none --cuts 65s   # just the 65 s deliverables (then --cuts 45s)
 #   films/host-studio/reel/r3/cut.sh check final_c         # per shot: frames present, size, luma (no encode)
 #   films/host-studio/reel/r3/cut.sh sheet final_c S13     # a contact sheet of one shot (small: fine to bring down)
 #
