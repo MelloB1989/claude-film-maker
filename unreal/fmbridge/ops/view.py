@@ -122,6 +122,9 @@ def remove_rig() -> bool:
 
 
 STILL_FORMATS = ("RTF_RGBA8", "RTF_RGBA8_SRGB")  # ExportRenderTarget writes PNG only for 8-bit targets (EXR for float)
+# The final-colour capture's default target. Day 1 on the box (selftest qa, capture_gamma) RGBA8_SRGB matched the
+# viewport closer than RGBA8 (SSIM 0.60 vs 0.54, mean shift -30 vs -35), and env's grey card agreed.
+STILL_FORMAT = "RTF_RGBA8_SRGB"
 RT_FORMATS = ("RTF_R8", "RTF_RG8", "RTF_RGBA8", "RTF_RGBA8_SRGB", "RTF_R16F", "RTF_RG16F", "RTF_RGBA16F", "RTF_R32F",
               "RTF_RG32F", "RTF_RGBA32F", "RTF_RGB10A2")  # ETextureRenderTargetFormat, TextureRenderTarget2D.h:23-43
 
@@ -138,12 +141,27 @@ def _format(fmt: str, allowed=None) -> str:
     return name
 
 
+def _alive(o) -> bool:
+    """A cached engine object still usable: render targets are created in the open level's world, so a level change
+    (every selftest makes a scratch level) collects them and the Python wrapper is left pointing at nothing (day 1:
+    'ObjectInstance is null', 'Cannot nativize TextureRenderTarget2D')."""
+    try:
+        return o is not None and bool(unreal.SystemLibrary.is_valid(o)) and o.get_name() != ""
+    except Exception:
+        return False
+
+
 def _rt(w: int, h: int, fmt: str):
     fmt = _format(fmt)
-    key = (w, h, fmt)
+    world = _world()
+    key = (w, h, fmt, world.get_path_name() if world else "")
     rt = _RTS.get(key)
+    if not _alive(rt):
+        rt = None
+        for k in [k for k, v in _RTS.items() if not _alive(v)]:
+            del _RTS[k]
     if rt is None:
-        rt = unreal.RenderingLibrary.create_render_target2d(_world(), w, h, getattr(unreal.TextureRenderTargetFormat, fmt),
+        rt = unreal.RenderingLibrary.create_render_target2d(world, w, h, getattr(unreal.TextureRenderTargetFormat, fmt),
                                                            unreal.LinearColor(r=0, g=0, b=0, a=1), False, False)
         if not rt:
             raise OpError(f"could not create a {w}x{h} {fmt} render target", code="engine")
@@ -159,7 +177,7 @@ def capture(cam: dict, width: int, height: int, source: str = "final", show_only
     before the final one."""
     if source not in SOURCES:
         raise OpError(f"source {source!r}: one of {sorted(SOURCES)}", code="bad_args")
-    fmt = fmt or ("RTF_RGBA8" if source == "final" else "RTF_RGBA32F" if source == "depth" else "RTF_RGBA16F")
+    fmt = fmt or (STILL_FORMAT if source == "final" else "RTF_RGBA32F" if source == "depth" else "RTF_RGBA16F")
     rt = _rt(int(width), int(height), fmt)
     rig = _rig()
     rig.set_actor_location_and_rotation(unreal.Vector(*cam["loc"]), unreal.Rotator(**cam["rot"]), False, True)
@@ -173,8 +191,10 @@ def capture(cam: dict, width: int, height: int, source: str = "final", show_only
     if cam.get("post") is not None and source in ("final", "hdr"):
         c.set_editor_property("post_process_settings", cam["post"])
         c.set_editor_property("post_process_blend_weight", 1.0)
+    # ShowOnlyActors / HiddenActors are EditInstanceOnly (SceneCaptureComponent.h:139/147): Python refuses to write
+    # them on this component ("cannot be edited on templates", day 1 on the box), so go through the component's own
+    # lists instead: ClearShowOnlyComponents / ShowOnlyActorComponents, ClearHiddenComponents / HideActorComponents.
     c.clear_show_only_components()
-    c.set_editor_property("show_only_actors", [])
     if show_only:
         c.set_editor_property("primitive_render_mode", unreal.SceneCapturePrimitiveRenderMode.PRM_USE_SHOW_ONLY_LIST)
         for o in show_only:
@@ -184,7 +204,12 @@ def capture(cam: dict, width: int, height: int, source: str = "final", show_only
                 c.show_only_component(o)
     else:
         c.set_editor_property("primitive_render_mode", unreal.SceneCapturePrimitiveRenderMode.PRM_RENDER_SCENE_PRIMITIVES)
-    c.set_editor_property("hidden_actors", [a for a in hidden])
+    c.clear_hidden_components()
+    for a in hidden:
+        if isinstance(a, unreal.Actor):
+            c.hide_actor_components(a, False)
+        else:
+            c.hide_component(a)
     for _ in range(max(0, int(warmup))):
         c.capture_scene()
         yield
@@ -276,8 +301,8 @@ def still(*, out: str, camera: str = "", sequence: str = "", frame: int | None =
     through render.frames: the final look, slower; needs sequence+frame and `level`), "viewport" (look.still's
     high-res screenshot). warmup: captures before the kept one (temporal AA, Lumen). settle_ticks: editor ticks after
     a scrub. hide: actor labels left out. guides: overlay guides drawn on a copy saved as <out>.guides.png
-    ("thirds", "safe", ...). rt_format: capture mode's render target format (advanced; RTF_RGBA8, the default, or
-    RTF_RGBA8_SRGB, any case: a float target would export EXR, so it is refused; the selftest compares the two).
+    ("thirds", "safe", ...). rt_format: capture mode's render target format (advanced; RTF_RGBA8_SRGB, the default,
+    or RTF_RGBA8, any case: a float target would export EXR, so it is refused; the selftest compares the two).
     Returns: {"path", "width", "height", "camera", "mode", "frame", "camera_info": {loc, rot, fov, aspect},
     "guides_path"?}. A multi-tick job.
     Example: film-ue op view.still out=/tmp/qa/a.png camera=CamA width_px=960 height_px=540

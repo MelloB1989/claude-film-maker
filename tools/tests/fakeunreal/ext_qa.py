@@ -142,6 +142,7 @@ def install(fake):
 
         @staticmethod
         def read_render_target_raw(world, rt, normalize=True):
+            # like the engine (day 1): an RGBA8 target reads back 0..255 whatever normalize says; FakeRT holds that
             return [_Sample(*p) for p in rt.pixels]
 
     fake.RenderingLibrary = RenderingLibrary

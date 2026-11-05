@@ -150,7 +150,7 @@ def test_frames_renders_only_what_is_asked_and_reuses(stage):
     ue = stage["ue"]
     res = run_op("render.frames", sequence=SEQ, level=LEVEL, frames=[3, 4, 12, 20], out_dir=stage["out"])
     assert sorted(res["frames"]) == [3, 4, 12, 20] and res["cameras"] == {3: "CamA", 4: "CamA", 12: "CamB", 20: "CamC"}
-    assert all(p.endswith(".jpg") for p in res["frames"].values()) and (res["width"], res["height"]) == (960, 540)
+    assert all(p.endswith(".jpeg") for p in res["frames"].values()) and (res["width"], res["height"]) == (960, 540)
     starts = [(j["settings"]["MoviePipelineOutputSetting"].get_editor_property("custom_start_frame"),
                j["settings"]["MoviePipelineOutputSetting"].get_editor_property("custom_end_frame")) for j in ue.mrq.jobs]
     assert starts == [(3, 5), (12, 13), (20, 21)]
@@ -183,12 +183,49 @@ def test_manifest_writes_one_per_chunk(stage, monkeypatch):
     os.makedirs(stage["out"], exist_ok=True)
     with open(src, "w") as f:
         f.write("manifest")
+    ue.absent.discard("MoviePipelineEditorBlueprintLibrary")  # an editor that has MRQ's manifest writer
     ue.stub("MoviePipelineEditorBlueprintLibrary.save_queue_to_manifest_file", lambda q: (q, src))
     res = run_op("render.manifest", spec={**stage["spec"], "executor": "cmdline"})
     assert [c["id"] for c in res["chunks"]] == ["SEQ_T_c000_0", "SEQ_T_c001_10", "SEQ_T_c002_16"]
     first = res["chunks"][0]
     assert os.path.isfile(first["manifest"]) and f"-MoviePipelineConfig={first['manifest']}" in first["argv"]
     assert "-game" in first["argv"] and res["exit_codes"][3]
+
+
+def test_manifest_without_the_mrq_editor_library_saves_queue_assets(stage, monkeypatch):
+    """Day 1 (5.8.4 Linux): `unreal` has no MoviePipelineEditorBlueprintLibrary, so no .utxt manifest; the queue is
+    saved as an asset, which -MoviePipelineConfig takes too."""
+    ue = stage["ue"]
+    eal, saved = stage["render"].EAL, []  # the library or the subsystem, whichever this run's EAL is
+    monkeypatch.setattr(eal, "save_loaded_asset", lambda a, only_if_is_dirty=True: saved.append(a.get_path_name()) or True,
+                        raising=False)
+    res = run_op("render.manifest", spec={**stage["spec"], "executor": "cmdline"})
+    first = res["chunks"][0]
+    assert first["manifest"] == "/Game/_FilmRender/Queues/SEQ_T_c000_0.SEQ_T_c000_0"
+    assert f"-MoviePipelineConfig={first['manifest']}" in first["argv"]
+    q = ue.load_asset("/Game/_FilmRender/Queues/SEQ_T_c000_0")
+    assert q is not None and len(q.get_jobs()) == 1 and q.get_path_name() in saved
+    assert ue.load_asset("/Game/_FilmRender/Queues/SEQ_T_c002_16") is not None
+    run_op("render.manifest", spec={**stage["spec"], "executor": "cmdline"})  # again: replaces, no overwrite dialog
+    assert not ue.dialogs
+
+
+def test_cmdline_job_without_the_mrq_editor_library(stage, monkeypatch):
+    seen = []
+
+    class Proc:
+        pid, returncode = 4242, 0
+
+        def __init__(self, argv, **kw):
+            seen.append(argv)
+
+        def poll(self):
+            return 0
+    monkeypatch.setattr(stage["render"].subprocess, "Popen", Proc)
+    rep = run_op("render.job", spec={**stage["spec"], "executor": "cmdline", "shots": ["CamB"]}, stall_s=5.0)
+    c = rep["chunks"][0]
+    assert c["manifest"].startswith("/Game/_FilmRender/Queues/") and f"-MoviePipelineConfig={c['manifest']}" in seen[0]
+    assert stage["ue"].load_asset(c["manifest"].split(".")[0]) is None  # dropped after the chunk
 
 
 def test_status_cancel_describe(stage):

@@ -140,6 +140,8 @@ def run(t):
             [1000, 1960, 2920, 4840], tol=0.01)
     t.check("focal length ramp", ch[f"{cam_a}.CameraComponent/float:CurrentFocalLength"]["value"][:2], [24, 34.4],
             tol=0.01)
+    # seq.eval opens the sequence in Sequencer: opening it must not change a track (else every later apply rewrites it)
+    t.check("the plan is still empty after seq.eval", [s["why"] for s in t.op("seq.plan", spec=spec)["steps"]], [])
 
     # --- one change, prune ----------------------------------------------------------------------------------------
     spec2 = dict(spec, bindings=dict(spec["bindings"]))
@@ -147,11 +149,13 @@ def run(t):
                                         "LightComponent0/LightColor": spec["bindings"][key]["props"][
                                             "LightComponent0/LightColor"]}}
     r4 = yield from t.op("seq.apply", spec=spec2)
-    t.check("one changed track, one write", [s["op"] for s in r4["steps"]], ["seq.write"])
+    if not t.check("one changed track, one write", [s["op"] for s in r4["steps"]], ["seq.write"]):
+        t.note(f"one changed track: steps {[s['why'] for s in r4['steps']]}, remaining {r4['remaining']}")
     spec3 = dict(spec2, bindings=dict(spec2["bindings"]))
     spec3["bindings"][cube] = {k: v for k, v in spec2["bindings"][cube].items() if k != "visible"}
     r5 = yield from t.op("seq.apply", spec=spec3, prune=True)
-    t.check("prune removes the dropped visibility track", [s["op"] for s in r5["steps"]], ["seq.remove_track"])
+    if not t.check("prune removes the dropped visibility track", [s["op"] for s in r5["steps"]], ["seq.remove_track"]):
+        t.note(f"prune: steps {[s['why'] for s in r5['steps']]}, remaining {r5['remaining']}")
 
     # --- a big batched write --------------------------------------------------------------------------------------
     n = 20000

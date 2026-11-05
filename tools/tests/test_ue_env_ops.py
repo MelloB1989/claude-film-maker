@@ -108,7 +108,10 @@ def test_sky_fog_clouds_hdri(ue, fmb):
     assert run_op("env.atmosphere")["changed"] is False
     run_op("env.clouds", bottom_km=1.5, height_km=4)
     r = run_op("env.sky_light")
-    assert r["mode"] == "realtime"
+    assert r["mode"] == "realtime" and "channels" not in run_op("env.describe")["sky_light"]
+    from fmbridge.envlib.spec import SpecError, norm_sky_light
+    with pytest.raises(SpecError, match="no lighting channels"):
+        norm_sky_light({"channels": [1]}, True)
     run_op("env.fog", preset="interior_haze")
     assert run_op("env.fog", preset="interior_haze")["changed"] is False
     from fmbridge.errors import OpError
@@ -150,9 +153,48 @@ def test_captures_and_remove(ue, fmb):
     assert ue.actor("Room").get_actor_scale3d() == ue.Vector(400, 300, 150)
     assert run_op("env.reflection_capture", label="Room", shape="box", loc=[0, 0, 150],
                   extent_cm=[400, 300, 150])["changed"] is False
+    rb = run_op("env.captures_rebuild")
+    assert rb["built"] is True and rb["recaptured"] == ["Room"]
     run_op("env.fog")
     assert run_op("env.remove", parts=["fog"])["removed"] == ["Env_Fog"]
     assert run_op("env.remove", parts=["fog"])["changed"] is False
+
+
+def test_captures_rebuild_routes(ue, fmb):
+    """Day 1: build_light_maps fails on a Lumen-only project, so captures_rebuild marks each capture for recapture
+    (a brightness edit and back) instead; with static lighting on and a build that works, it only builds."""
+    def brightness_sets():
+        return [a for a, _ in ue.called("SphereReflectionCaptureComponent.set_editor_property")
+                + ue.called("BoxReflectionCaptureComponent.set_editor_property") if a[0] == "brightness"]
+    assert run_op("env.captures_rebuild") == {"changed": True, "built": False, "route": "recapture",
+                                              "recaptured": []}  # no captures: nothing to rebuild
+    run_op("env.reflection_capture", label="Room", shape="box", loc=[0, 0, 150], brightness=0.8)
+    run_op("env.reflection_capture", label="Hall", loc=[500, 0, 150])
+
+    ue.cvars["r.AllowStaticLighting"] = 0  # Lumen-only: no lighting build at all
+    n = len(brightness_sets())
+    r = run_op("env.captures_rebuild")
+    assert r["route"] == "recapture" and r["built"] is True and sorted(r["recaptured"]) == ["Hall", "Room"]
+    assert not ue.called("LevelEditorSubsystem.build_light_maps")
+    assert len(brightness_sets()) - n == 4  # each capture: an edit and back
+    room = ue.actor("Room").get_component_by_class(ue.BoxReflectionCaptureComponent)
+    assert room.get_editor_property("brightness") == pytest.approx(0.8)  # left as it was
+    assert run_op("env.describe")["captures"]["Room"]["brightness"] == pytest.approx(0.8)
+
+    ue.cvars["r.AllowStaticLighting"] = 1
+    ue.stub("LevelEditorSubsystem.build_light_maps", True)
+    n = len(brightness_sets())
+    r = run_op("env.captures_rebuild", quality="high")
+    assert r == {"changed": True, "built": True, "route": "lighting_build", "recaptured": []}
+    assert len(ue.called("LevelEditorSubsystem.build_light_maps")) == 1 and len(brightness_sets()) == n
+
+    ue.stub("LevelEditorSubsystem.build_light_maps", False)  # the build fails: fall back to recapturing
+    r = run_op("env.captures_rebuild")
+    assert r["route"] == "recapture" and r["built"] is True and len(r["recaptured"]) == 2
+    assert len(ue.called("LevelEditorSubsystem.build_light_maps")) == 2
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError, match="is not preview"):
+        run_op("env.captures_rebuild", quality="ultra")
 
 
 SPEC = {"kind": "environment", "version": 1, "name": "studio", "preset": "interior_day",
@@ -236,8 +278,8 @@ def test_meter_through_a_camera(ue, fmb):
         def __init__(self, v):
             self.r = self.g = self.b = v
 
-    def read(world, rt, normalize=True):
-        return [S(0.45 if normalize else lum)] * 16
+    def read(world, rt, normalize=True):  # an RGBA8 target reads 0..255 whatever normalize says (day 1)
+        return [S(0.45 * 255 if "RGBA8" in str(rt.fmt) else lum)] * 16
     ue.stub("RenderingLibrary.read_render_target_raw", read)
     ue.RenderingLibrary.read_render_target_raw = staticmethod(read)
     run_op("env.exposure", mode="manual", ev100=9.0)
@@ -268,11 +310,12 @@ def _live_capture(ue, lum_of):
 
     def read(world, rt, normalize=True):
         L = lum_of()
-        if not normalize:
+        if "RGBA8" not in str(rt.fmt):
             return [Px(L)] * (192 * 108)
         s = ue.actor("Env_Post").get_editor_property("settings") if ue.actor("Env_Post") else None
         bias = float(s.get_editor_property("auto_exposure_bias")) if s else 0.0
-        return [Px(ph.linear_to_srgb(min(1.0, L * 2 ** bias)))] * (192 * 108)
+        # 8-bit display values 0..255, as the engine reads an RGBA8 target back
+        return [Px(round(255 * ph.linear_to_srgb(min(1.0, L * 2 ** bias))))] * (192 * 108)
     ue.RenderingLibrary.read_render_target_raw = staticmethod(read)
 
 

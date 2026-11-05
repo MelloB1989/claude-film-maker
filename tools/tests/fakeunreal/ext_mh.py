@@ -236,11 +236,33 @@ class InstanceParameter(FakeStruct):
         return self._set("COLOR", v)
 
 
+class Assembled:
+    """unreal.MetaHumanCharacterAssembled: the dynamic delegate MetaHumanInstance.assemble calls when done."""
+
+    def __init__(self):
+        self._fns = []
+
+    def bind_callable(self, fn):
+        import inspect
+        n = len([p for p in inspect.signature(fn).parameters.values()
+                 if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)])
+        if n != 1:  # live 5.8.4: the delegate passes the assembly result
+            raise Exception(f"MetaHumanCharacterAssembled: Callable has the incorrect number of arguments "
+                            f"(expected 1, got {n})")
+        self._fns = [fn]
+
+    def _fire(self):
+        for f in self._fns:
+            f(None)
+
+
 class MetaHumanInstance(core.Object):
     def __init__(self, name=None, outer=None, **props):
         super().__init__(name, outer, **props)
         object.__setattr__(self, "_sel", {})       # slot -> key name
         object.__setattr__(self, "_params", {})    # key name -> {param: value}
+        object.__setattr__(self, "_assembled", False)  # live: no item has instance parameters until assembled
+        object.__setattr__(self, "_pending", None)     # (delegate, polls left) of an assembly not done yet
 
     def get_slot_selection_data(self):
         return [SlotSelectionData(selection=SlotSelection(slot_name=s, selected_item=PaletteKey(name=k)))
@@ -249,9 +271,43 @@ class MetaHumanInstance(core.Object):
     def set_single_slot_selection(self, slot_name, item_key):
         core._fake().calls.append(("MetaHumanInstance.set_single_slot_selection", (slot_name, item_key), {}))
         self._sel[str(slot_name)] = item_key.to_asset_name_string() if item_key is not None else ""
+        object.__setattr__(self, "_assembled", False)  # a new selection needs a new assembly for its parameters
+
+    def is_assembled(self):
+        pend = getattr(self, "_pending", None)
+        if pend:
+            d, n = pend
+            object.__setattr__(self, "_pending", (d, n - 1))
+            if n - 1 <= 0:
+                self._finish()
+        return self._assembled
+
+    ASYNC_POLLS = 0  # >0: the assembly finishes only after that many is_assembled() polls (live it may take ticks)
+
+    def assemble(self, on_assembled):
+        """x.assemble(on_assembled) -> None (live 5.8.4 doc): the delegate is called when the assembly is done."""
+        core._fake().calls.append(("MetaHumanInstance.assemble", (on_assembled,), {}))
+        if not isinstance(on_assembled, Assembled):
+            raise TypeError("assemble() required argument 'on_assembled' (pos 1) not found")
+        object.__setattr__(self, "_pending", (on_assembled, self.ASYNC_POLLS))
+        if not self.ASYNC_POLLS:
+            self._finish()
+
+    def _finish(self):
+        d, _ = self._pending
+        object.__setattr__(self, "_pending", None)
+        object.__setattr__(self, "_assembled", True)
+        d._fire()
+
+    def get_instance_parameter_item_paths(self):
+        if not self._assembled:
+            return []
+        return [ItemPath(item=PaletteKey(name=k)) for k in self._sel.values() if k and k in self._params]
 
     def get_instance_parameters(self, item_path):
         key = item_path.item.to_asset_name_string() if item_path.item is not None else ""
+        if not self._assembled:  # day 1, UE 5.8.4: get_instance_parameter_item_paths() == [] before assembly
+            return []
         bag = self._params.setdefault(key, {})
         out = []
         for n, v in bag.items():
@@ -489,6 +545,7 @@ def install(fake):
     fake.MetaHumanCharacterTextureRequestParams = TexParams
     fake.MetaHumanCharacterEditorBuildParameters = BuildParams
     fake.MetaHumanPaletteItemKey = PaletteKey
+    fake.MetaHumanCharacterAssembled = Assembled
     fake.MetaHumanCharacter = MetaHumanCharacter
     fake.MetaHumanCharacterEditorSubsystem = MetaHumanCharacterEditorSubsystem
     fake.MetaHumanCollection = MetaHumanCollection

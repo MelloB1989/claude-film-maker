@@ -47,6 +47,8 @@ def plan_shot(spec: dict, state: dict | None) -> list:
     fails = [i for i in state.get("issues", []) if i.get("severity") == "fail"]
     why = "the sequence does not hold this shot list yet" if not state.get("spec_hash") else \
         "the shot list changed since it was applied"
+    if state.get("missing_cameras"):
+        why = "cameras missing from the level: " + ", ".join(state["missing_cameras"])
     if fails:
         why += f" ({len(fails)} failing check(s): {fails[0].get('code')}: {fails[0].get('message')})"
     return [{"op": "shot.apply", "args": {"spec": resolved_shot(spec)}, "why": why}]

@@ -9,7 +9,7 @@ from fakeunreal import run_op
 def test_doctor_on_a_healthy_fake(ue):
     ue.stub("PluginBlueprintLibrary.get_enabled_plugin_names", lambda: [
         "PythonScriptPlugin", "EditorScriptingUtilities", "MovieRenderPipeline", "SequencerScripting",
-        "LevelSequenceEditor", "MetaHumanCharacter", "MetaHuman", "Fab"])
+        "LevelSequenceEditor", "MetaHumanCharacter", "MetaHuman", "Fab", "USDImporter"])
     ue.stub("SystemLibrary.get_command_line", lambda: "UnrealEditor Demo.uproject -RenderOffscreen -unattended")
     r = run_op("editor.doctor", min_free_gb=0)
     assert r["pass"], r["issues"]

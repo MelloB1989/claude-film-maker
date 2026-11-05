@@ -1,6 +1,6 @@
 """The AMV Grade node group against its numpy twin: a synthetic ramp + colour chart through `blender -b`.
 
-Run by pytest (spawns Blender; skipped when there is none) and, inside Blender, as the driver:
+Run by pytest (spawns Blender only when BLENDER is set; skipped otherwise) and, inside Blender, as the driver:
     blender -b --factory-startup -P blender/tests/test_amv_grade_blender.py -- <out.npy> <io> <res_scale> [params.json [images.npy]]
 The driver renders the image through build_group() with the compositor on the CPU and saves the display-sRGB result.
 With images.npy (N, H, W, 3 display-sRGB floats) it renders each of them instead (the contact sheets use this).
@@ -20,7 +20,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 from filmtools.amv import grade_np as G  # noqa: E402
 
-BLENDER = os.environ.get("BLENDER") or shutil.which("blender") or "/home/nikhil/code/film-making/bin/blender"
+# Blender runs only when asked for by path (BLENDER=/path/to/blender), never found on its own: no test starts it on a
+# machine that merely has one
+BLENDER = os.environ.get("BLENDER", "")
 W, H = 480, 270
 
 
@@ -108,8 +110,10 @@ def _run_blender(io, params=None, res=0.25):
 
 def _need_blender():
     import pytest
+    if not BLENDER:
+        pytest.skip("set BLENDER=/path/to/blender to run the Blender check")
     if not (Path(BLENDER).exists() or shutil.which(BLENDER)):
-        pytest.skip("no blender")
+        pytest.skip(f"BLENDER={BLENDER} is not there")
 
 
 def _check(io, params=None):

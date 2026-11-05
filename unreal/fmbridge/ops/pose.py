@@ -57,6 +57,38 @@ def bones_of(label: str, component: str = "") -> dict:
     return out
 
 
+BIND_TICKS = 240  # a new rig track's rig is bound to the mesh some ticks after it is made (box: no anim instance yet)
+SETTLE_TICKS = 90  # a keyed control moves its bones only once Sequencer re-evaluates, some ticks later (box, day 1)
+
+
+def _bound(label: str, component: str) -> bool:
+    """Sequencer has bound the rig to the body: the mesh runs its ControlRigLayerInstance. Until then a control reads
+    the origin and a world write lands nowhere (day-1 probe)."""
+    try:
+        return _skeletal(label, component).get_anim_instance() is not None
+    except OpError:
+        raise
+    except Exception:
+        return True
+
+
+def _moved(a: dict, b: dict, eps: float = 0.05) -> bool:
+    return any(max(abs(x - y) for x, y in zip(a[k], b[k])) > eps for k in a if k in b)
+
+
+def _settled(label: str, component: str, before: dict, ticks: int = SETTLE_TICKS):
+    """The bones once they have followed the keys: moved from `before` and the same on two reads in a row (or what
+    they are after `ticks`)."""
+    prev = before
+    for _ in range(int(ticks)):
+        now = bones_of(label, component)
+        if _moved(now, before) and not _moved(now, prev):
+            return now
+        prev = now
+        yield
+    return prev
+
+
 def _scrub(frame: int, ticks: int = 3):
     set_frame(int(frame) + 1)
     yield
@@ -151,7 +183,8 @@ def apply(*, label: str, sequence: str, frame: int, pose: str | dict, params: di
     Goals are relative to the character's REST pose, captured the first time a pose is applied in this sequence
     (stored on it); `reset_rest` captures it again (after the character moved).
     A multi-tick job. Re-running converges (the controls are re-solved to the same goals).
-    Returns: {"pass", "errors_cm": {effector: cm}, "controls": {effector: control}, "iterations", "goals",
+    Returns: {"pass", "errors_cm": {effector: cm}, "controls": {effector: control}, "iterations",
+    "trace_cm" (the largest error before each iteration), "goals",
     "issues", "changed"}.
     Example: film-ue op pose.apply label=Host sequence=/Game/Seq/S010 frame=48 pose=hands_on_hips
     """
@@ -160,6 +193,15 @@ def apply(*, label: str, sequence: str, frame: int, pose: str | dict, params: di
     except ValueError as e:
         raise OpError(str(e), code="bad_args", hint="pose.library lists the poses") from None
     seq, rig, names = _rig(sequence, label, component, rig_class)
+    yield from _scrub(frame)
+    for _ in range(BIND_TICKS):
+        if _bound(label, component):
+            break
+        yield
+    else:
+        raise OpError(f"the Control Rig on {label} never bound to its mesh ({BIND_TICKS} ticks)", code="engine",
+                      hint="the sequence must be open in Sequencer with the actor bound: seq.describe; run again")
+    seq, rig, names = _rig(sequence, label, component, "")  # the rig instance Sequencer bound, not the one it made
     yield from _scrub(frame)
     bones = bones_of(label, component)
     rest = _rest(seq, label, bones, reset_rest)
@@ -176,9 +218,10 @@ def apply(*, label: str, sequence: str, frame: int, pose: str | dict, params: di
     CR = unreal.ControlRigSequencerLibrary
     fn = unreal.FrameNumber(int(frame))
     unit = unreal.MovieSceneTimeUnit.DISPLAY_RATE
-    done = 0
+    done, trace = 0, []
     for it in range(int(iterations)):
         errs = P.errors(goals, bones)
+        trace.append(round(max((dist for dist, _ in errs.values()), default=0.0), 2))
         todo = {e: d for e, (dist, d) in errs.items() if dist > tolerance_cm}
         if not todo:
             break
@@ -189,11 +232,11 @@ def apply(*, label: str, sequence: str, frame: int, pose: str | dict, params: di
         done = it + 1
         LSE.refresh_current_level_sequence()
         yield from _scrub(frame)
-        bones = bones_of(label, component)
+        bones = yield from _settled(label, component, bones)
     errors, issues = _report(goals, bones, tolerance_cm, frame, label, used)
     EAL.save_asset(sequence)
     return {"pass": not any(i["severity"] == "fail" for i in issues), "errors_cm": errors, "controls": used,
-            "iterations": done, "goals": {k: [round(x, 2) for x in v] for k, v in goals.items()}, "issues": issues,
+            "iterations": done, "trace_cm": trace, "goals": {k: [round(x, 2) for x in v] for k, v in goals.items()}, "issues": issues,
             "pose": pose if isinstance(pose, str) else "custom", "frame": int(frame), "changed": done > 0}
 
 

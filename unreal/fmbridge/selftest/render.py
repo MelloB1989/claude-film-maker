@@ -65,7 +65,8 @@ def _build(t, root: str, prefix: str) -> dict:
     seq = root + "/SEQ_Render"
     t.op("seq.new", path=seq, start=0, end=48, fps=24, replace=True)
     t.op("seq.camera_cuts", path=seq, cuts=[[cam_a, 0], [cam_b, 24]])
-    t.op("level.save")
+    # MRQ renders only a saved map (day 1: render.job refused the scratch level as unsaved)
+    t.check("scratch level saved", bool(t.op("level.save")), True)
     level = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world().get_path_name().split(".")[0]
     return {"seq": seq, "level": level, "cams": [cam_a, cam_b]}
 
@@ -154,24 +155,43 @@ def run(t):
                                               "outputs": [{"kind": "exr"}]})
     t.check("AOV job ok", rep["status"], "ok")
     dirs = sorted(d for d in os.listdir(aov) if not d.startswith("_"))
-    t.check("AOV folders", dirs, ["FinalImage", "MovieRenderQueue_MotionVectors", "MovieRenderQueue_WorldDepth"])
+    # live 5.8 names a post-process pass "FinalImage" + its material (FinalImageMovieRenderQueue_MotionVectors): accept
+    # either spelling, require the three passes
+    want = ("MotionVectors", "WorldDepth")
+    t.check("AOV folders", [dirs[0] if dirs else None] + [any(d.endswith(w) for d in dirs) for w in want],
+            ["FinalImage", True, True])
     t.check("EXR frames per pass", [len(glob.glob(os.path.join(aov, d, "*.exr"))) for d in dirs], [4, 4, 4])
 
-    # executors: a separate process after saving, and a command line with no editor
-    proc = os.path.join(out, "process")
-    rep = yield from t.op("render.job", spec={**spec, "out_dir": proc, "name": "process", "frames": [0, 2],
-                                              "executor": "process", "save_dirty": True})
-    t.check("new-process executor renders (no save prompt stall)", [rep["status"], rep["frames"]], ["ok", 2])
-    t.metric("process_job_s", rep["seconds"], "s")
-    man = t.op("render.manifest", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd", "frames": [0, 2],
-                                        "executor": "cmdline"})
-    t.ok("manifest written", man["chunks"] and os.path.isfile(man["chunks"][0]["manifest"]), detail=str(man)[:500])
-    rep = yield from t.op("render.job", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd",
-                                              "frames": [0, 2], "executor": "cmdline"}, stall_s=600.0)
-    t.check("command-line render (one process, no editor)", [rep["status"], rep["frames"]], ["ok", 2])
-    t.metric("cmdline_job_s", rep["seconds"], "s")
-    if rep["chunks"] and rep["chunks"][0].get("log") and hasattr(t, "artifact"):
-        t.artifact(rep["chunks"][0]["log"])
+    # executors: a separate process after saving, and a command line with no editor. The command line takes MRQ's
+    # queue manifest, or (5.8 on Linux has no manifest writer in Python) the queue saved as an asset. PIE stays the
+    # supported route (DECISIONS, day 1): an executor that is unsupported in this editor is a note, not a failure
+    from ..errors import OpError
+    try:
+        proc = os.path.join(out, "process")
+        rep = yield from t.op("render.job", spec={**spec, "out_dir": proc, "name": "process", "frames": [0, 2],
+                                                  "executor": "process", "save_dirty": True})
+        t.check("new-process executor renders (no save prompt stall)", [rep["status"], rep["frames"]], ["ok", 2])
+        t.metric("process_job_s", rep["seconds"], "s")
+        man = t.op("render.manifest", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd", "frames": [0, 2],
+                                            "executor": "cmdline"})
+        from ..ops.assets import EAL
+        m0 = man["chunks"][0]["manifest"] if man["chunks"] else ""
+        t.ok("manifest written (a .utxt or a saved queue asset)",
+             os.path.isfile(m0) or (m0.startswith("/Game/") and bool(EAL.does_asset_exist(
+                 m0.split(".")[0]))), detail=str(man)[:500])
+        t.metric("manifest_kind", "asset" if m0.startswith("/Game/") else "file")
+        rep = yield from t.op("render.job", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd",
+                                                  "frames": [0, 2], "executor": "cmdline"}, stall_s=600.0)
+        t.check("command-line render (one process, no editor)", [rep["status"], rep["frames"]], ["ok", 2])
+        t.metric("cmdline_job_s", rep["seconds"], "s")
+        if rep["chunks"] and rep["chunks"][0].get("log") and hasattr(t, "artifact"):
+            t.artifact(rep["chunks"][0]["log"])
+    except OpError as e:
+        if e.code != "unsupported":
+            raise
+        # DECISIONS (day 1): the in-editor PIE executor is the supported render route; without the MRQ editor library
+        # the other two are unsupported by decision, noted here rather than failed
+        t.note(f"new-process / command-line executors unsupported in this editor (PIE is the route): {e.message}")
 
     # encode
     if shutil.which("ffmpeg"):
@@ -197,13 +217,17 @@ def run(t):
         t.metric("pt_vram_peak_gb", rep.get("vram_peak_gb"), "GB")
 
     # cancel, then resume
-    can = {**spec, "out_dir": os.path.join(out, "cancel"), "name": "cancel", "temporal": 4}
+    # Day 1 on an L4: the 48 draft frames finished inside the fixed 40 ticks, so the cancel landed after the last frame
+    # and the job honestly reported ok. Make the job slow (temporal 16) and cancel once frames are landing.
+    can = {**spec, "out_dir": os.path.join(out, "cancel"), "name": "cancel", "temporal": 16}
     job = t.op("render.job", spec=can)
     first = None
     try:
-        for _ in range(40):
+        for _ in range(3000):
             next(job)
-            yield 0.1
+            yield 0.05
+            if (t.op("render.status").get("chunk_frames") or 0) >= 2:
+                break
         t.check("cancel", t.op("render.cancel")["changed"], True)
         while True:
             next(job)

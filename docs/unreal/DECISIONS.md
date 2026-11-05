@@ -46,7 +46,8 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   and on the client (`film-qa`, loaded standalone so `unreal` is never needed), and is unit-tested both ways.
 - **WP10: viewport-free stills default to a SceneCapture2D** (one transient `FMQA_Capture` actor, removed after each
   op), not MRQ: ~1 s and no level save. `view.still mode=mrq` goes through WP9's `render.frames` (preset draft, PNG,
-  a private folder per still) for a final look. The capture target is RGBA8; the selftest measures RGBA8_SRGB too.
+  a private folder per still) for a final look. The capture target is RGBA8_SRGB (day 1 on the box: closer to the
+  viewport than RGBA8); the selftest measures both.
 - **WP10/WP7 split (agreed with agent-11, confirmed by the lead):** WP7 owns the lens (`camkit.lens`) and the grammar
   between shots (180-degree line, 30-degree rule, DoF, safe areas); WP10 owns per-frame subject framing
   (`fmbridge.qa.framing.check`: size, headroom, joint/feet/limb cuts, look room) and the review that gathers both.
@@ -141,3 +142,15 @@ to make alone (no answer from the lead within 10 minutes), tagged with their WP.
   reflection plugin (`unreal/plugins/FabScript`), optional, needed for unreal-engine packs. A listing id -> signed
   URL needs Fab's web page: `fab_shim.py` (headless Chromium), experimental.
 - **WP2: redirectors are fixed by resaving referencers** (AssetTools.FixupReferencers has no UFUNCTION).
+- **Day 1: renders go through the in-editor PIE executor only** (agent-10, lead). On the 5.8.4 Linux box the MRQ
+  editor library (`MoviePipelineEditorBlueprintLibrary`) never appears in Python, even after
+  `load_module('MovieRenderPipelineEditor')`, and the new-process and command-line executors need it for the queue
+  manifest. PIE rendered the demo's 168 frames and every render selftest check, so it is the route: `render.job`
+  keeps refusing `executor: process|cmdline` with `unsupported` (and a hint to use pie) when the library is missing,
+  and the render selftest notes that instead of failing it. Revisit if a film needs renders that survive an
+  editor crash (the reason for a separate process): then build the module into the project, as FabScript is.
+- **Day 1: the render selftest cancels once frames are landing** (it waited a fixed 40 ticks; on an L4 the draft
+  job finished first, so the cancel came after the last frame and the job rightly said ok).
+- **Day 1, later: the command-line executor can write its queue without the editor library** (agent-05: the queue is
+  saved as an asset under /Game/_FilmRender/Queues and passed by `-MoviePipelineConfig`; agent-07 probed the asset
+  calls live, but no real command-line render ran). PIE stays the route; cmdline is kept as code, unproven (BACKLOG).

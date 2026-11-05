@@ -18,6 +18,7 @@ film-ue --box gpu1 provision --engine-s3 s3://B/ue-linux --version 5.8.4 \
     --project-src s3://B/ue-projects/HostStudio --project HostStudio --level /Game/Studio/Studio \
     --epic-s3 s3://B/ue-linux/secrets/epic/eos_sdk.tgz
 film-ue --box gpu1 sync ddc restore                            # compiled shaders: skips ~20 min of first open
+film-ue --box gpu1 plugin-build FabScript                      # optional: C++ plugins of unreal/plugins (20 s)
 film-ue --box gpu1 install                                     # the bridge (restarts the editor the first time)
 film-ue --box gpu1 editor status                               # unit, bridge, last crash, the watchdog's view
 film-ue --box gpu1 editor wait_compile --timeout-s 3600        # (op) until no shader compiles
@@ -214,7 +215,18 @@ None: boxes and the editor are imperative on purpose (a TTL, a restart, a sync h
 - **A job that was running when the editor crashed is gone.** The journal only records jobs that finished or were
   cancelled cleanly. `client.wait` then raises `JobGone`: look at `film-ue editor crashes`.
 - **`--once-args` values start with a dash:** write `--once-args="-A -B"`.
-- **SSM caps one command near 100 KB.** `transport.put` sends bigger files in parts. Folders go by `push_dir`.
+- **SSM caps one command near 100 KB, and keeps only 24,000 characters of its output.** `transport.put` sends bigger
+  files in parts, and `transport.get` reads them back in 15 KB parts (day 1: a 150 KB file came back cut). Folders go
+  by `push_dir`.
+- **The project must target Vulkan SM6 on Linux** (`[/Script/LinuxTargetPlatform.LinuxTargetSettings]
+  +TargetedRHIs=SF_VULKAN_SM6` in Config/DefaultEngine.ini). Without it the editor runs VULKAN_SM5 and misses the
+  SM6 DDC in S3 (day 1: HostStudio had none; set on the box and saved with `sync project up`).
+- **A C++ plugin built against the restored engine rebuilds the whole engine** (the tarball has no engine
+  Intermediate: ~6000 actions, an hour on 16 cores) unless the engine counts as installed while UBT runs.
+  `film-ue plugin-build NAME` (setup.sh plugin) does that in a scratch project: FabScript compiled and linked in 20 s,
+  same BuildId as the engine.
+- **Python names engine classes by their ScriptName**: `unreal.AutomationLibrary`, not
+  `AutomationBlueprintFunctionLibrary`. The fake `unreal` module accepts any name, so only the box catches this.
 - **Fab reads an exchange code only from the command line, and only when its tab opens** (a desktop). Offscreen,
   use `epic-login --fab` (device code).
 - **The exchange-code route uses Epic's launcher OAuth client outside the launcher** (§12c of
@@ -238,7 +250,7 @@ None: boxes and the editor are imperative on purpose (a TTL, a restart, a sync h
 | `SystemLibrary.get_engine_version` | KismetSystemLibrary.h:215 | health |
 | `EditorLoadingAndSavingUtils.get_dirty_map_packages` / `get_dirty_content_packages` | Editor/UnrealEd/Public/FileHelpers.h:136 / :144 | editor.describe dirty |
 | `UnrealEditorSubsystem.get_editor_world` | Editor/UnrealEd/Public/Subsystems/UnrealEditorSubsystem.h:49 | editor.describe level |
-| `AutomationBlueprintFunctionLibrary.finish_loading_before_screenshot` | Developer/FunctionalTesting/Public/AutomationBlueprintFunctionLibrary.h:80 (impl .cpp:702: FAssetCompilingManager::FinishAllCompilation) | blocks until asset/shader compilation is done; called after the workers drained |
+| `AutomationLibrary.finish_loading_before_screenshot` (C++ UAutomationBlueprintFunctionLibrary, ScriptName AutomationLibrary: verified on the box, day 1) | Developer/FunctionalTesting/Public/AutomationBlueprintFunctionLibrary.h:80 (impl .cpp:702: FAssetCompilingManager::FinishAllCompilation) | blocks until asset/shader compilation is done; called after the workers drained |
 | `unreal.Paths.project_saved_dir / project_log_dir / get_project_file_path / convert_relative_path_to_full` | Runtime/Engine/Classes/Kismet/BlueprintPathsLibrary.h:173 / :284 / :391 / :519 (`ScriptName="Paths"`, :16) | |
 | CVar `MetaHuman.Cloud.Config.ExchangeCode` | Plugins/MetaHuman/MetaHumanSDK/.../Cloud/MetaHumanCloudAuthentication.cpp:316 (Epic's own use: MetaHumanTDSUtils.cpp:131) | editor.epic_exchange_code |
 | `-NoMetaHumanAccountPortalLoginFallback` | MetaHumanCloudAuthentication.cpp:262 | fail fast instead of a browser |
@@ -289,6 +301,11 @@ stands for your profile (`--box B`). The project dir is `P` (`film-ue profile sh
 
 | failing check (selftest / first-run step) | likely cause | exact fix |
 |---|---|---|
+| platform "Vulkan SM6 on Linux" (`VULKAN_SM5`) | the project sets no `TargetedRHIs` for Linux (provision and first-run now set it: setup.sh rhi) | `film-ue --box B first-run --from editor` (sets it, restarts the editor), or by hand: add `[/Script/LinuxTargetPlatform.LinuxTargetSettings]` `-TargetedRHIs=SF_VULKAN_SM5` `+TargetedRHIs=SF_VULKAN_SM6` to P/Config/DefaultEngine.ini, `film-ue --box B editor restart`, then `sync project up` |
+| platform "command-channel file round trip (in parts)" hash differs | an old transport.get (one command; SSM cuts output at 24,000 chars) | update tools/ (transport.get reads in parts, day 1) |
+| first-run `shaders`: AttributeError `AutomationBlueprintFunctionLibrary` | an old bridge (Python's name is `AutomationLibrary`) | update unreal/ and `film-ue --box B install` |
+| `film-ue install` crashes with `'NoneType' object has no attribute 'get'` (the new bridge is up anyway) | an old inbox.py wrote `null` | update unreal/ and install again |
+| `plugin-build` prints thousands of actions or runs long | the engine is not marked installed for the build (an old setup.sh) | update unreal/linux; it builds in /srv/ue/pluginbuild with `Engine/Build/InstalledBuild.txt` present only while UBT runs |
 | first-run `settings` | a profile without instance / project dir | `film-ue box up B --like linux` or `film-ue --box B set --project-dir /srv/ue/projects/<Name>` |
 | first-run `reach` | the box is stopped, or SSM is not online yet (first boot ~2 min) | `film-ue box ls`; `film-ue --box B status`; wait, then `film-ue --box B first-run` |
 | first-run `editor`: unit failed | a crash at start (missing libs, Vulkan ICD, bad args) | `film-ue --box B editor crashes 3`, `film-ue --box B editor log 200 --journal`; a Vulkan/X error: `film-ue --box B editor mode default` |
@@ -300,14 +317,14 @@ stands for your profile (`--box B`). The project dir is `P` (`film-ue profile sh
 | "cvar set reads back" / "idle cap applied" | the cvar was set with a higher priority (ini or code) than the console's | `film-ue --box B op editor.cvar name=t.MaxFPS`; harmless for renders (MRQ sets its own); note it |
 | "unknown cvar is not_found" | `get_console_variable_string_value` answers something for unknown names on this build | fix the test in `ops/editor.py:cvar` (compare `before` with a known-missing sentinel) |
 | "shaders compiled" (`editor.wait_compile` timeout) | the first open of the project (~21 min on 8 cores), with no DDC restored | `film-ue --box B sync ddc restore` (editor stopped) next time; now: `film-ue --box B op editor.wait_compile timeout_s=3600` |
-| `editor.wait_compile` AttributeError on `AutomationBlueprintFunctionLibrary` | the FunctionalTesting module is not loaded in this editor | `film-ue --box B op editor.wait_compile finish=false` (it waits on the workers only); pointer: `ops/editor.py:wait_compile` |
+| `editor.wait_compile` AttributeError on `AutomationBlueprintFunctionLibrary` | an old bridge: Python names the class by its ScriptName, `AutomationLibrary` (fixed day 1) | `film-ue --box B op editor.wait_compile finish=false` (it waits on the workers only); pointer: `ops/editor.py:wait_compile` |
 | "journaled" | `P/Saved/Bridge/jobs` is not writable by the editor's user | `film-ue --box B sh --root "chown -R ubuntu: P/Saved/Bridge"` |
 | client "bridge file round trip": HTTP 403 | the path is outside the project, temp, home and `/srv` | write under `P/Saved/...`, or add `FMBRIDGE_FILE_ROOTS=/other` to `/etc/default/ue-editor` and restart |
 | client "command-channel file round trip" | SSM rejected a part (size or quoting); on Windows, `Add-Content` encoding | lower `transport.Transport.PART` (60000 → 30000); a folder goes by `film-ue pull-dir` instead |
 | client "polling survives a dropped tunnel" | no Session Manager plugin, or the forward fails to reopen | `film-ue --box B tunnel` and read `~/.config/film-ue.B.tunnel.log`; or `film-ue --box B set --bridge ssm` (no tunnel at all) |
 | client "editor status answers" | the unit has another name on this box | `film-ue --box B set --service <unit>` |
 | first-run `epic`: no saved sign-in | the S3 copy could not be read (role, KMS), or there was never one | `film-ue --box B editor log 100 --journal \| grep epic:`; "no access": give the box role `kms:Decrypt` + `s3:GetObject` on `epic_s3`; else `film-ue --box B epic-login` |
-| `epic-login --exchange-code-cmd` says "for this editor session" | an exchange-code login leaves no saved sign-in (untested) | the next start needs a new code, or use the device code once: `film-ue --box B epic-login` |
+| `epic-login --exchange-code-cmd ./helper` says "for this editor session" | an exchange-code login leaves no saved sign-in (untested) | the next start needs a new code, or use the device code once: `film-ue --box B epic-login` |
 | `mh.rig` errors "no Epic sign-in saved" | as above | `film-ue --box B epic-login` |
 | the box powered itself off | TTL reached, or nothing counted as activity for `--idle` | `film-ue box ls` (gone = terminated). Next time: `film-ue box up ... --idle 60m`, `film-ue box keepalive B` before a long pause, `film-ue box extend B --ttl 2h` |
 | the watchdog never ends an idle box | user-data did not run, or the timer is off | `film-ue --box B sh --root "systemctl status ue-watchdog.timer film-ue-ttl.timer; tail -30 /var/log/cloud-init-output.log; cat /var/lib/film-ue/watchdog.json"` |
@@ -331,7 +348,22 @@ stands for your profile (`--box B`). The project dir is `P` (`film-ue profile sh
   image.
 - The Day-1 triage table (§7b).
 
-Nothing in `boxes`, `sync` or `editorsvc` has run against AWS: the operator's rule for the night.
+**Day 1 (2026-11-05, g6.4xlarge L4, i-0f7a… from kali over SSM):** `provision` ran as written: driver 580-server
+loaded without a reboot (580.178.04), engine restored in 273 s, project 3.7 GB, Epic sign-in restored; DDC restored
+(zen 1.7 GB, engine 1.7 GB, project 0.7 GB) in parallel. `first-run` then: editor up 13:43 UTC, bridge installed,
+shaders 23 s (warm DDC), doctor OK, epic OK, selftest platform 48/48 after these fixes (branch
+fleet/agent-07/day1-platform):
+
+- `editor.wait_compile` used `unreal.AutomationBlueprintFunctionLibrary`; Python's name is `AutomationLibrary`.
+- The file inbox wrote `null` (the registry's `_run` returns the bare value), so `install` over a live bridge crashed
+  after it had worked.
+- `transport.get` came back cut over SSM (24,000-character output cap): now in 15 KB parts.
+- The project ran VULKAN_SM5 (no TargetedRHIs): `setup.sh rhi`, called by provision and first-run, sets SM6.
+- FabScript: a plain Build.sh wanted a 5982-action engine rebuild; `film-ue plugin-build` builds the plugin alone in
+  ~20 s, and the editor loads it.
+
+Not exercised on day 1: `box up/down/image` (the orchestrator made the box), the watchdog (the fleet's own watched
+this box), spot.
 
 **Run first on the next GPU box:** `film-ue --box NAME first-run` does the list below for you and stops with the
 next command. In detail:
@@ -353,7 +385,7 @@ next command. In detail:
 - `set_editor_property` by C++ name on the performance settings CDO (the source says yes; watch the log for "could
   not stop background throttling");
 - Windows: `transport.put` in parts and `editorsvc` crashes through PowerShell are tested only as strings;
-- `sync status` against a real bucket;
+- `sync status` against a real bucket (`sync ddc restore` and `sync ddc save` did run on day 1);
 - spot interruption (the profile then finds nothing; `box ls` shows it).
 
 **CLI:** done by WP11. cli.py no longer has `provision`, `editor`, `epic-login` or `desktop`; `cli_platform` serves

@@ -337,9 +337,19 @@ def resolve(spec: dict) -> dict:
     return r
 
 
+# the file extension MRQ writes for an output kind: its JPEG writer names files .jpeg (day 1 on the box: 168 frames
+# rendered, the job counted 0 because it looked for .jpg)
+FILE_EXT = {"jpg": "jpeg"}
+
+
+def _ext(r: dict) -> str:
+    return FILE_EXT.get(next(o["kind"] for o in r["outputs"] if o["kind"] in IMAGE_KINDS),
+                        next(o["kind"] for o in r["outputs"] if o["kind"] in IMAGE_KINDS))
+
+
 def frame_path(r: dict, frame: int, pass_name: str = "beauty", ext: str | None = None) -> str:
     """Where MRQ writes `frame` of a pass (the beauty pass is FinalImage in {render_pass})."""
-    ext = ext or next(o["kind"] for o in r["outputs"] if o["kind"] in IMAGE_KINDS)
+    ext = FILE_EXT.get(ext, ext) if ext else _ext(r)
     rp = PASSES[pass_name][1] if pass_name == "beauty" else (
         PASSES[pass_name][1].rsplit(".", 1)[-1] if PASSES[pass_name][0] == "ppm" else pass_name)
     name = r["file_name"].replace("{render_pass}", rp).replace("{frame_number}", f"{int(frame):0{r['zero_pad']}d}")
@@ -349,8 +359,10 @@ def frame_path(r: dict, frame: int, pass_name: str = "beauty", ext: str | None =
 def frames_on_disk(r: dict, names: list) -> set:
     """Frame numbers present in `names` (paths relative to out_dir, as os.walk would list them) for the beauty pass."""
     fmt = r["file_name"].replace("{render_pass}", PASSES["beauty"][1])
-    ext = next(o["kind"] for o in r["outputs"] if o["kind"] in IMAGE_KINDS)
-    rx = re.compile("^" + re.escape(fmt).replace(re.escape("{frame_number}"), r"(-?\d+)") + re.escape("." + ext) + "$")
+    kind = next(o["kind"] for o in r["outputs"] if o["kind"] in IMAGE_KINDS)
+    exts = sorted({kind, FILE_EXT.get(kind, kind)})  # .jpg and .jpeg both count
+    rx = re.compile("^" + re.escape(fmt).replace(re.escape("{frame_number}"), r"(-?\d+)") +
+                    r"\.(?:" + "|".join(map(re.escape, exts)) + ")$")
     out = set()
     for n in names:
         m = rx.match(n.replace("\\", "/"))
@@ -543,8 +555,9 @@ def frame_times(mtimes: dict) -> dict:
 def cmdline(editor: str, uproject: str, manifest: str, *, offscreen: bool = True, vulkan: bool | None = None,
             log: str = "", extra: list | None = None) -> list:
     """argv of a command-line MRQ render of a saved queue manifest (MovieRenderPipelineCommandLine.cpp, option 1 with
-    a queue): `editor` is UnrealEditor-Cmd(.exe), the manifest a .utxt written by render.manifest. The process loads
-    everything from disk, renders, and exits with 0 on success (1 critical, 2 no asset, 3 no config)."""
+    a queue): `editor` is UnrealEditor-Cmd(.exe), the manifest a .utxt written by render.manifest or a saved queue
+    asset's object path. The process loads everything from disk, renders, and exits with 0 on success (1 critical,
+    2 no asset, 3 no config)."""
     argv = [editor, uproject, "MoviePipelineEntryMap", "-game", f"-MoviePipelineConfig={manifest}", "-windowed",
             "-ResX=1280", "-ResY=720", "-Unattended", "-NoSplash", "-NoLoadingScreen", "-NoTextureStreaming",
             "-deterministicaudio", "-audiomixer", "-stdout", "-FullStdOutLogOutput", "-log"]
@@ -566,7 +579,7 @@ EXIT_CODES = {0: "success", 1: "critical failure (see the log)", 2: "the sequenc
 
 def _pattern(r: dict, pass_name: str = "beauty") -> tuple:
     """(ffmpeg %0Nd pattern, extension) of an image pass."""
-    ext = next(o["kind"] for o in r["outputs"] if o["kind"] in IMAGE_KINDS)
+    ext = _ext(r)
     p = frame_path(r, 0, pass_name, ext)
     pad = r["zero_pad"]
     p = p[: -len(ext) - 1 - pad] + f"%0{pad}d." + ext

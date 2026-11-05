@@ -36,4 +36,13 @@ version: 1
 order: 40
 name: exposure
 op: look.post
-args: {settings: {auto_exposure_method: AEM_MANUAL, auto_exposure_bias: 10.0}, label: Demo_Post}
+args: {settings: {auto_exposure_method: AutoExposureMethod.AEM_MANUAL, auto_exposure_bias: 10.0}, label: Demo_Post}
+---
+# hair strands take the sky light unoccluded: indoors the hair and beard read orange-white (unreal/README.md trap;
+# day 1's close-up showed it)
+kind: op
+version: 1
+order: 40
+name: hair-sky-lighting
+op: editor.cvar
+args: {name: r.HairStrands.SkyLighting, value: "0"}

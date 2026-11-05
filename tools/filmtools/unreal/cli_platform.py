@@ -120,6 +120,9 @@ def register(sub) -> None:
         p.add_argument("--voice", default="", help="the demo's voice line (a WAV) to put on the box")
         p.add_argument("--status", action="store_true", help="where it stopped last time")
         p.add_argument("--json", action="store_true")
+    p = _add(sub, "plugin-build", help="build a C++ plugin of unreal/plugins (FabScript) on a Linux box, into the project")
+    if p:
+        p.add_argument("name")
     p = _add(sub, "sh", help="run a command in the box's own shell")
     if p:
         p.add_argument("command")
@@ -214,6 +217,10 @@ def dispatch(a) -> bool:
         code = firstrun.main_args(a)
         if code:
             raise SystemExit(code)
+    elif cmd == "plugin-build":
+        _linux_only("plugin-build")
+        from . import linuxbox
+        _out(linuxbox.build_plugin(a.name))
     elif cmd == "sh":
         _out(ws.transport().run(a.command, a.timeout, root=a.root))
     return True

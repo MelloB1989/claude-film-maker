@@ -188,8 +188,13 @@ def _build(path: str, spec: dict, *, rebuild: bool = False, force: bool = False,
         if not MEL.connect_material_expressions(made[src], out, made[dst], pin):
             raise OpError(f"could not connect {src}{'.' + out if out else ''} -> {dst}.{pin or '(input)'}",
                           code="bad_args", hint="check the output name (RGB/R/G/B/A) and the input pin name")
+    skipped = []
     for mp, src, out in plan["outputs"]:
-        if not MEL.connect_material_property(made[src], out, _enum("MaterialProperty", mp)):
+        prop = getattr(unreal.MaterialProperty, mp, None)
+        if prop is None:  # e.g. MP_CUSTOM_DATA0/1 are UMETA(Hidden) in 5.8 (SceneTypes.h:165): not in Python
+            skipped.append(mp)
+            continue
+        if not MEL.connect_material_property(made[src], out, prop):
             raise OpError(f"could not connect {src}{'.' + out if out else ''} to the material's {mp}",
                           code="engine", hint="this input may not exist for the material's domain/shading model")
     errors = [str(x) for x in (MEL.recompile_material(m) or [])]  # 5.8 returns the compile errors
@@ -203,8 +208,10 @@ def _build(path: str, spec: dict, *, rebuild: bool = False, force: bool = False,
         raise OpError(f"{path} was built but does not compile (the engine draws its checker): "
                       f"{'; '.join(errors[:3]) or 'no error text'}", code="failed", details={**st, "errors": errors}, hint="mat.check names the texture/sampler mismatches; see film-ue log for the "
                                        "compiler's message")
-    return {"path": path, "changed": True, "fingerprint": plan["fingerprint"], "nodes": len(plan["nodes"]),
-            "stats": st}
+    out = {"path": path, "changed": True, "fingerprint": plan["fingerprint"], "nodes": len(plan["nodes"]), "stats": st}
+    if skipped:
+        out["skipped_outputs"] = skipped  # inputs this engine does not expose to Python (left unconnected)
+    return out
 
 
 def _stats(m) -> dict:

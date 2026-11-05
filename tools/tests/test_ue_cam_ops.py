@@ -56,7 +56,7 @@ def test_add_converges_and_widens_lens(ue, fmb):
     assert len([a for a in ue.world.actors() if a.get_actor_label() == "CAM_A"]) == 1
     # beyond the Universal Zoom's limits: the lens is widened instead of the engine clamping the value
     wide = run_op("cam.set", label="CAM_A", focal_mm=2000, aperture=0.95)
-    assert wide["focal"] == 2000 and wide["aperture"] == 0.95 and wide["lens"]["max_focal_mm"] == 2000
+    assert wide["focal"] == 2000 and wide["aperture"] == pytest.approx(0.95) and wide["lens"]["max_focal_mm"] == 2000
     hf = run_op("cam.set", label="CAM_A", hfov_deg=40, filmback="16:9 DSLR")
     assert hf["hfov_deg"] == pytest.approx(40, abs=1e-3) and hf["filmback"] == [36.0, 20.25]
     assert ue.dialogs == []
@@ -85,6 +85,20 @@ def test_subject_from_bones_and_bounds(ue, fmb):
     ue.spawn("StaticMeshActor", "Lamp", location=ue.Vector(100, 0, 50), extent=(10, 10, 50))
     lamp = run_op("cam.subject", target="Lamp")
     assert lamp["from"] == "bounds" and lamp["height"] == pytest.approx(100)
+
+
+def test_rereading_the_engine_converges(ue, fmb):
+    """Day 1 on the box: every re-run of cam.frame / cam.coverage / cam.shoot said changed. The engine stores the focus
+    distance as a C++ float and reads a rotation back from its quaternion (yaw 200 reads -160): the fake does too."""
+    r = run_op("cam.add", label="CAM_R", loc=[400, 0, 160], rot_={"pitch": -3.3, "yaw": 200.0, "roll": 0},
+               focus_cm=412.345678)
+    assert r["rot"]["yaw"] == pytest.approx(-160) and r["focus"] != 412.345678  # what the engine gives back
+    again = run_op("cam.add", label="CAM_R", loc=[400, 0, 160], rot_={"pitch": -3.3, "yaw": 200.0, "roll": 0},
+                   focus_cm=412.345678)
+    assert not again["changed"]
+    moved = run_op("cam.add", label="CAM_R", rot_={"pitch": -3.3, "yaw": 179.9, "roll": 0}, focus_cm=412.5)
+    assert moved["changed"] and moved["rot"]["yaw"] == pytest.approx(179.9)
+    assert run_op("cam.focus", label="CAM_R", distance_cm=500)["changed"]
 
 
 def test_frame_mcu_three_quarter(ue, fmb):
@@ -192,6 +206,13 @@ def test_shot_apply_converges(ue, fmb, seqrec):
     again = run_op("shot.apply", spec=SPEC)
     assert again["changed"] is False and len(seqrec) == n
     assert run_op("shot.plan", spec=SPEC)["up_to_date"]
+    # day 1: the level reloaded unsaved drops the cameras while the sequence keeps its hash tag
+    run_op("level.delete", labels=["CAM_S1"])
+    stale = run_op("shot.plan", spec=SPEC)
+    assert not stale["up_to_date"] and stale["missing_cameras"] == ["CAM_S1"]
+    from filmtools.unreal.cam_kind import plan_shot
+    assert "CAM_S1" in plan_shot(SPEC, stale)[0]["why"]
+    assert run_op("shot.apply", spec=SPEC)["changed"] and ue.actor("CAM_S1") is not None
     # drop S3: its camera goes
     spec2 = {**SPEC, "shots": SPEC["shots"][:2]}
     r2 = run_op("shot.apply", spec=spec2)
@@ -225,23 +246,31 @@ def _fake_png(path, w, h, shade=90):
 
 
 def test_still_draws_guides(ue, fmb, monkeypatch, tmp_path):
+    """cam.still renders through view.still's scene capture (the camera's FOV, no viewport): on day 1 look.still's
+    viewport screenshot came out at the viewport's 90 degrees. The height defaults to the filmback's aspect."""
     import fmbridge.ops.look as look
+    asked = []
 
-    def fake_still(camera_label, path, width=1920, height=1080, timeout=60.0):
+    def fake_view_still(out, camera="", width_px=1280, height_px=720, **kw):
         yield
-        _fake_png(path, width, height)
-        return {"path": path}
-    monkeypatch.setattr(look, "still", fake_still)
+        asked.append((camera, width_px, height_px))
+        _fake_png(out, width_px, height_px)
+        return {"path": out}
+    monkeypatch.setitem(fmb._OPS, "view.still", fake_view_still)
+    monkeypatch.setattr(look, "still", lambda *a, **k: pytest.fail("cam.still must not use the viewport screenshot"))
     person(ue, "Presenter")
     run_op("cam.frame", camera="CAM_A", subjects="Presenter", size="MCU", focal_mm=50)
     out = str(tmp_path / "a.png")
     r = run_op("cam.still", camera="CAM_A", out=out, width=320, height=180, subjects="Presenter")
-    assert r["width"] == 320 and r["raw"].endswith("_raw.png")
+    assert r["width"] == 320 and r["raw"].endswith("_raw.png") and asked == [("CAM_A", 320, 180)]
     from camkit import png
     img = png.read(out)
     assert any(img.get(107, y) != (90, 90, 90) for y in range(img.h))  # the left third's guide
     assert img.get(5, 5) != (90, 90, 90)  # the lens label
-
+    # a 16:9 still of a Super 35 back is not its picture, so by default the still takes the filmback's aspect
+    run_op("cam.set", label="CAM_A", filmback="Super 35mm")
+    r = run_op("cam.still", camera="CAM_A", out=str(tmp_path / "b.png"), width=320, subjects="Presenter")
+    assert asked[-1] == ("CAM_A", 320, 240) and r["height"] == 240
 
 def test_sheet_through_the_cut(ue, fmb, seqrec, monkeypatch, tmp_path):
     person(ue, "A", (0, -90), turn=90)

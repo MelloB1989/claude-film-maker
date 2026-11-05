@@ -25,11 +25,13 @@ BUDGET_S = 90.0  # wall clock per area on the fake (layout.settle waits real sec
 
 # checks only a real renderer, physics or engine data can judge: failing here is expected
 FAKE_ONLY = {
-    "cam": {"marker 1 at (u, v) on 16:9 Digital Film", "marker 2 at (u, v) on 16:9 Digital Film",  # pixels
-            "marker 1 at (u, v) on Super 35mm", "marker 2 at (u, v) on Super 35mm",
+    "cam": {"marker 0 at (u, v) on 16:9 Digital Film", "marker 0 at (u, v) on Super 35mm",  # pixels (the fake's
+            "marker 1 at (u, v) on 16:9 Digital Film", "marker 2 at (u, v) on 16:9 Digital Film",  # capture is a
+            "marker 1 at (u, v) on Super 35mm", "marker 2 at (u, v) on Super 35mm",  # stand-in picture)
             "WS: the figure's top on the predicted row", "WS: the feet on the predicted row",
             "MCU: the figure's top on the predicted row", "CU: the figure's top on the predicted row",
             "push-in: Sequencer plays the baked key at 48",  # the fake's Sequencer does not evaluate keys
+            "rail: Sequencer plays the rail position at mid-shot",
             "rail: the camera is near the middle of the rail at mid-shot"},
     "env": {"one stop more exposure brightens the image", "env.check fails an underexposed card with a fix",
             "noir_bw has no colour cast", "env.autoexpose lands near the card's EV100"},  # a flat grey card
@@ -52,7 +54,9 @@ COVERAGE = {
 REQUIRED = {
     "cam": {"focal beyond the lens widens it, not clamped", "cam.add converges", "a missing camera is not_found",
             "a bad size is bad_args", "WS solved", "MCU solved", "cam.frame MCU converges", "cam.project agrees: MCU",
+            "cam.frame WS converges", "cam.frame CU converges", "cam.shoot reads its own words back without moving",
             "coverage stays on one side of the line", "cam.coverage converges", "shot.plan cuts",
+            "coverage names its cameras by the subjects' labels", "still coverage_master", "still coverage_A_OTS",
             "shot.apply converges", "shot.describe reads the edit back", "a dropped shot's camera is removed",
             "contact sheet: 3 stills per shot"},
     "foliage": {"scatter placed what it planned", "nothing dropped on flat ground", "the instances are in the level",
@@ -158,8 +162,9 @@ def _setup_env(ue, fmb, monkeypatch, tmp_path):
     class Px:
         def __init__(self, v):
             self.r = self.g = self.b = v
+    # an RGBA8 target reads back 0..255 whatever normalize says (day 1), a float one raw
     ue.RenderingLibrary.read_render_target_raw = staticmethod(lambda world, rt, normalize=True:
-                                                              [Px(0.46 if normalize else lum)] * 64)
+                                                              [Px(0.46 * 255 if "RGBA8" in str(rt.fmt) else lum)] * 64)
 
     def still(**kw):
         """view.still on the fake: a flat grey PNG."""
@@ -217,12 +222,8 @@ def _setup_render(ue, fmb, monkeypatch, tmp_path):
                                 cuts=[["ST_render_CamA", 0, 24], ["ST_render_CamB", 24, 48]]) and root + "/SEQ_Render"),
         "level": "/Game/_Selftest/render/L_Render", "cams": ["ST_render_CamA", "ST_render_CamB"]})
 
-    def manifest(q, path):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as f:
-            f.write("m")
-        return path
-    monkeypatch.setattr(fmb.render, "_write_manifest", manifest)
+    # the cmdline executor's queue goes through the fake's missing MRQ editor library (as on the box): a queue asset
+    ue.mrq.frames_per_tick = 4  # an L4 renders the draft frames this fast: the cancel step must not lose the race
     monkeypatch.setattr(fmb.render.subprocess, "Popen", _FakeProc)
     # the box as tested here has no ffmpeg (a dev machine may: the encode steps then skip the same way everywhere)
     which = fmb.render.shutil.which

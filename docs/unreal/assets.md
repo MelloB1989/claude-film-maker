@@ -291,14 +291,15 @@ LOD/version tokens are skipped); one-letter tokens count only at the end (`_N`, 
 `unreal/plugins/FabScript` calls Fab's own `UFabBrowserApi::AddToProject` through reflection (FindFunction +
 JsonObjectToUStruct + ProcessEvent: no link to Fab's private code), so Epic's exact workflow runs for every format,
 packs included. Nothing needs it: without it `fab.add` downloads and imports in Python, and only unreal-engine packs
-answer `unsupported` with this hint. To build it into a project on the box:
+answer `unsupported` with this hint. To build it into a project on a Linux box (day 1: 2 files compiled, 20 s):
 ```bash
-cp -r unreal/plugins/FabScript <Project>/Plugins/                      # next to the .uproject
-<Engine>/Engine/Build/BatchFiles/Linux/Build.sh <Project>Editor Linux Development -Project=<Project>/<Project>.uproject
+film-ue --box B plugin-build FabScript     # setup.sh plugin: builds against the restored engine, installs in Plugins/
+film-ue --box B editor restart             # loads it
 # Windows: Engine\Build\BatchFiles\Build.bat <Project>Editor Win64 Development -Project=...
 ```
-Restart the editor; `python: unreal.FabScript.is_fab_loaded()` is True. Not compiled tonight (no engine here): if it
-fails, the fixes are header paths in FabScriptLibrary.cpp (JsonObjectConverter.h is in JsonUtilities). For packs on
+A plain `Build.sh` against the restored engine would rebuild the whole engine (the tarball has no engine
+Intermediate): plugin-build marks the engine installed while UBT runs (docs/unreal/platform.md, gotchas). Then
+`python: unreal.FabScript.is_fab_loaded()` is True. For packs on
 Linux also copy `libBuildPatchInstallerLib.so` from Epic's binary Fab plugin into `Engine/Plugins/Fab/ThirdParty/`.
 
 ## 7. API_NOTES
@@ -309,6 +310,7 @@ notes of the same night (same source, same lines).
 
 | API (Python) | source | used by | notes |
 |---|---|---|---|
+| `SystemLibrary.get_game_name` | Engine/Source/Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h (`GetGameName`; line not re-checked: source box down on day 1) | fab.library User-Agent | proven live: assets 64/0 on the box |
 | `AssetImportTask` fields filename, destination_path, destination_name, replace_existing, automated, save, options, factory, imported_object_paths, get_objects() | Engine/Source/Editor/UnrealEd/Public/AssetImportTask.h:36-93 | assets_import | `result` deprecated 5.1; setting `factory` bypasses Interchange (Developer/AssetTools/Private/AssetTools.cpp:3567) |
 | `AssetTools.import_asset_tasks` | Engine/Source/Developer/AssetTools/Public/IAssetTools.h:542 | assets_import, mat | non-modal progress only |
 | `InterchangeGenericAssetsPipeline` + `common_meshes_properties`, `common_skeletal_meshes_and_animations_properties`, `mesh_pipeline`, `animation_pipeline`, `material_pipeline` (`.texture_pipeline`), `import_offset_uniform_scale` | Engine/Plugins/Interchange/Runtime/Source/Pipelines/Public/InterchangeGenericAssetsPipeline.h:57-109 | assets_import | sub-pipelines are default subobjects |
@@ -345,7 +347,7 @@ notes of the same night (same source, same lines).
 | `FFabAssetMetadata` fields | Engine/Plugins/Fab/Source/Fab/Public/Workflows/FabWorkflow.h:16-41 (rg) | FabScript | no BlueprintType |
 | Fab console commands Fab.Login/Logout/SetEnvironment | Engine/Plugins/Fab/Source/Fab/Private/FabConsoleCommands.cpp:18-71 | fab | never Logout/SetEnvironment |
 | persist login only on tab creation | Engine/Plugins/Fab/Source/Fab/Private/FabBrowser.cpp:337; FabAuthentication.cpp:200-266 | fab.login | |
-| library endpoint `<fab>/e/accounts/<id>/ue/library?count=N` | Engine/Plugins/Fab/Source/Fab/Private/Teds/FabMyFolderIntegration.cpp:64-70 | fab.library | account id from the JWT `sub` (an assumption) |
+| library endpoint `<fab>/e/accounts/<id>/ue/library?count=N[&cursor="<next>"]`, headers `accept: application/json` + `Authorization: Bearer <EOS user token>` (the token GetAuthToken returns), engine HTTP User-Agent (Python's default gets a Cloudflare 403 page: the day-1 failure); `<fab>` = `UFabSettings::GetUrlFromEnvironment()`, `https://fab.com` for Prod in the source, but live only `https://www.fab.com` answers (the apex: 404) | Engine/Plugins/Fab/Source/Fab/Private/Teds/FabMyFolderIntegration.cpp:58-76; FabSettings.cpp:60-72 | fab.library, fab.status `host` | account id: the plugin uses EOS `EpicAccountId`, we use the JWT `sub` |
 | Megascans import: per-type pipelines | Engine/Plugins/Fab/Source/Fab/Private/Importers/QuixelGLTFImporter.cpp:144-406 | fab.import | |
 | `InterchangeMegascansPipeline.megascan_import_type`, `MegascanImportType` (Model3D, Surface, Decal, Imperfection, Plant) | Engine/Plugins/Fab/Source/Fab/Private/Pipelines/InterchangeMegascansPipeline.h:32-39 (rg), :104-116 | fab.import | BlueprintType |
 | `FJsonObjectConverter::JsonObjectToUStruct(obj, UStruct*, void*, ...)` | Engine/Source/Runtime/JsonUtilities/Public/JsonObjectConverter.h:239 (rg) | FabScript | |
@@ -395,7 +397,7 @@ category named).
 | "removing a used material is refused" fails | referencers empty (same rescan issue) | as above |
 | "fab.import of loose textures makes a material" fails | mat.pbr path; see the PBR rows | — |
 | "fab.login with the saved sign-in" fails | `OpenInNewTab` does not create a tab offscreen, so the persist login never runs | `film-ue fab login --portal true` (device code, operator approves once) or start the editor with `-AUTH_TYPE=exchangecode -AUTH_PASSWORD=<code>` (`film-ue epic-login --fab`); if still nothing, build FabScript (section 6) and use `unreal.FabScript.open_fab_tab()` |
-| "the Fab library answers" fails with `engine` | private endpoint changed, or account id from the JWT `sub` wrong | pass `--account-id`; check the plugin's own My Folder in the log (`Fab.TEDS.MyFolderIntegration`) |
+| "the Fab library answers" fails with `engine` (HTTP 403) | 403 HTML page: User-Agent refused (must not be Python's default); 404: wrong host (`fab.status` `host`, must be www.fab.com); 401/403 JSON: sign-in expired, or account id from the JWT `sub` wrong | `fab.status` (host), `fab.login`; pass `--account-id`; the plugin's own My Folder logs `Result for (portion of) the My Folder data` |
 | FabScript does not build | header paths / module deps | `JsonObjectConverter.h` is in JsonUtilities (Build.cs has it); `UnrealType.h` for `FindFProperty`; nothing else depends on FabScript: skip it and `fab.add` uses the Python route |
 | `fab.add` of an `unreal-engine` pack → unsupported | no FabScript or no Linux BPS library | build FabScript and copy `libBuildPatchInstallerLib.so` from Epic's binary Fab plugin into `Engine/Plugins/Fab/ThirdParty/` |
 
@@ -416,7 +418,24 @@ and merged into ue-helpers in chunks; nothing has run in a real editor yet (no b
    selftest's thumbnail luma.
 6. **`fab.login` on Linux offscreen**: does `OpenInNewTab` create the CEF tab (or its error tab) and trigger the
    persist login? `fab.library`'s account id from the JWT `sub` is an assumption; the endpoint is private.
-7. **FabScript** has not been compiled.
+   **Day 1 (fixed; the follow-ups are deferred, box time went to the shoot):** sign-in works (device code;
+   the EOS credential restored from S3), but "the Fab library answers" got HTTP 403. A read-only probe in the live
+   editor (agent-07; script: `fab_library_probe.py`, agent-02's worktrees dir in the shared code) found:
+   - `https://www.fab.com/e/accounts/<sub>/ue/library` with Python's default User-Agent: **403**, Cloudflare's
+     HTML challenge page. With an engine-like UA (`UnrealEditor/<ver> Linux/<os>`) or a browser UA: **200** JSON
+     (`results`, `cursors.next`). So the token, the `accept` + `Authorization: Bearer` headers and the JWT `sub` as
+     the account id are all right; only the UA was refused.
+   - `https://fab.com/...` (Prod in the plugin's own `FabSettings.cpp:60-72` GetUrlFromEnvironment): **404**
+     (CloudFront) for every UA. Prod stays `https://www.fab.com`.
+   - The plugin's request (`Teds/FabMyFolderIntegration.cpp:44-76`): GET, `accept: application/json`,
+     `Authorization: Bearer <EOS user token>` (same as GetAuthToken), `count=N`, cursor sent as `&cursor="<next>"`,
+     account `LexToString(EpicAccountId)`; the engine's HTTP module supplies the UA. The plugin's C++ never fetches
+     a download URL: the signed URL only comes from the web page (`fab_shim.py`); `FabDownloader` sets no headers.
+   Fix on `fleet/agent-02/day1-fab` (1dc2a83d): `fab.library` sends the engine UA (`_user_agent`), quotes the cursor,
+   takes the host from FabSettings' environment (`_base_url`, Prod -> www); `fab.add` downloads with the same UA;
+   `fab.status` reports `host`; the fake models the edge (403 for Python's UA, 404 on the apex). **Verified on the
+   box** with 1dc2a83d: `film-ue selftest assets` OK 64/0, "the Fab library answers" passes (agent-07's run 154617).
+7. **FabScript** compiled on day 1 with `film-ue plugin-build FabScript` (20 s) and loads in the Linux editor (log: InternalLoadLibrary FabScript). `fab.add` of a pack through it: see DAY1-REPORT.
 8. **EditorScriptingUtilities**: done. `ops/assets.py` `EAL` falls back to the EditorAssetSubsystem when the plugin
    is off, every module of the bridge now imports it (577192b), and a test fails on any new direct
    `unreal.EditorAssetLibrary`. editor.doctor (B11) can treat the plugin as optional.

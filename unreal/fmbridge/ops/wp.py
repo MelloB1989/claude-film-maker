@@ -29,7 +29,9 @@ def _vec(v) -> list:
 
 
 def _box(lo, hi):
-    return unreal.Box(min=unreal.Vector(*lo), max=unreal.Vector(*hi), is_valid=True)
+    # FBox has a native make (MakeBox(Min, Max), NoExportTypes.h:1559): its Python constructor takes exactly min and
+    # max and returns a valid box; an is_valid argument is refused live ("call() takes at most 2 arguments")
+    return unreal.Box(unreal.Vector(*lo), unreal.Vector(*hi))
 
 
 def _guid_str(g) -> str:

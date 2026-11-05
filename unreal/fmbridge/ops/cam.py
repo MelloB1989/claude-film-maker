@@ -11,6 +11,7 @@ chest, waist, knees, feet; any other actor is framed from its bounds), or a poin
 """
 from __future__ import annotations
 
+import math
 
 import unreal
 
@@ -166,10 +167,13 @@ def _set_lens(a, focal_mm=None, aperture=None, sensor_mm=None, lens_preset=None)
 
 
 def _set_focus(a, method: str, distance_cm=None, track=None, offset=(0.0, 0.0, 0.0), smooth_speed=None) -> bool:
+    """Focus method and distance; True when it changed. ManualFocusDistance is a C++ float: the value read back is the
+    float32 nearest the one written, so it is compared with a tolerance (an exact compare made every re-run of
+    cam.frame/cam.coverage/cam.shoot report changed on day 1)."""
     c = _comp(a)
     fs = c.get_editor_property("focus_settings")
-    before = (_enum_name(fs.get_editor_property("focus_method")),
-              float(fs.get_editor_property("manual_focus_distance") or 0.0))
+    method_before = _enum_name(fs.get_editor_property("focus_method"))
+    dist_before = float(fs.get_editor_property("manual_focus_distance") or 0.0)
     fs.set_editor_property("focus_method", getattr(unreal.CameraFocusMethod, method))
     if method == MANUAL and distance_cm is not None:
         fs.set_editor_property("manual_focus_distance", float(distance_cm))
@@ -182,7 +186,10 @@ def _set_focus(a, method: str, distance_cm=None, track=None, offset=(0.0, 0.0, 0
         fs.set_editor_property("smooth_focus_changes", float(smooth_speed) > 0)
         fs.set_editor_property("focus_smoothing_interp_speed", float(smooth_speed))
     c.set_editor_property("focus_settings", fs)
-    return method == TRACKING or before != (method, float(distance_cm if distance_cm is not None else before[1]))
+    if method == TRACKING:
+        return True
+    return method_before != method or (method == MANUAL and distance_cm is not None
+                                       and not _close(dist_before, distance_cm, max(1e-2, 1e-5 * float(distance_cm))))
 
 
 def _place(a, loc=None, rotation=None) -> bool:
@@ -190,10 +197,17 @@ def _place(a, loc=None, rotation=None) -> bool:
     if loc is not None and not _close(_v3(a.get_actor_location()), loc, 1e-2):
         a.set_actor_location(vec(loc), False, False)
         changed = True
-    if rotation is not None and not _close(_r3(a.get_actor_rotation()), geo.as_rot(rotation), 1e-3):
+    if rotation is not None and not _same_rot(_r3(a.get_actor_rotation()), rotation):
         a.set_actor_rotation(rot(rotation), False)
         changed = True
     return changed
+
+
+def _same_rot(a, b, tol_deg: float = 1e-3) -> bool:
+    """Two rotators turn the same way, within `tol_deg`. Compared by their axes, not their numbers: the engine reads
+    a rotation back from the transform's quaternion, so yaw -180 comes back 180 (and pitch past 90 flips yaw/roll)."""
+    t = math.radians(tol_deg)
+    return all(geo.length(geo.sub(x, y)) <= t for x, y in zip(geo.axes(a), geo.axes(b)))
 
 
 def _ensure(label: str):
@@ -842,20 +856,40 @@ def rig_move(*, rig_label: str, sequence: str, keys: list) -> dict:
 
 # --- pictures ---------------------------------------------------------------------------------------------------
 
+def _render(camera: str, path: str, width: int, height: int):
+    """A raw still through a camera: view.still's scene capture (FOV set from the camera, no viewport), else
+    look.still. A generator."""
+    import inspect
+
+    from . import _OPS
+    if "view.still" in _OPS:
+        got = call("view.still", out=path, camera=camera, width_px=int(width), height_px=int(height))
+    else:
+        got = call("look.still", camera_label=camera, path=path, width=int(width), height=int(height))
+    if inspect.isgenerator(got):
+        got = yield from got
+    return got
+
+
 @op("cam.still", mutates=False, idempotent=True, tags=["camera", "qa", "gpu"])
-def still(*, camera: str, out: str, width: int = 960, height: int = 540, guides: bool = True, subjects: list | None = None):
+def still(*, camera: str, out: str, width: int = 960, height: int | None = None, guides: bool = True,
+          subjects: list | None = None):
     """A still through a camera with the operator's guides drawn on it: thirds, action/title safe, centre, and each
     subject's landmarks where the lens math puts them (green crosses), so a mismatch between solver and render shows.
-    A multi-tick job. Keep it small (960x540): the overlay is drawn in pure Python.
+    A multi-tick job. Keep it small (960 wide): the overlay is drawn in pure Python. height: default the camera's
+    filmback aspect (the picture is the image then). Rendered by view.still's scene capture at the camera's
+    horizontal field of view; look.still's viewport screenshot only when the bridge has no view.still (on day 1 it
+    sometimes rendered at the viewport's own 90 degrees instead of the camera's lens).
 
     Returns: {"path", "width", "height", "raw": the still without guides}.
     Example: film-ue op cam.still camera=CAM_A out=/tmp/cam_a.png subjects=Presenter
     """
-    from .look import still as look_still
     raw = out[:-4] + "_raw.png" if out.lower().endswith(".png") else out + "_raw.png"
     cam = read(camera)
     subs = _subjects(subjects)
-    yield from look_still(camera, raw, width, height)
+    if height is None:
+        height = max(2, round(width / lens.aspect(cam["filmback"])))
+    yield from _render(camera, raw, width, height)
     yield
     img = png.read(raw)
     if guides:

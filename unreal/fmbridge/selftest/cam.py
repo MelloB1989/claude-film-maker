@@ -19,6 +19,9 @@ login, no assets beyond the engine's basic shapes. Leaves nothing outside /Game/
 """
 from __future__ import annotations
 
+import inspect
+import math
+
 import unreal
 
 from fmbridge.camkit import lens, png
@@ -60,12 +63,28 @@ def _bright(img, frac: float = 0.35):
             "bottom": (bottom + 1) / img.h, "left": left / img.w, "right": (right + 1) / img.w, "pixels": n}
 
 
-def _still(t, cam: str, name: str):
+def _still(t, cam: str, name: str, height: int = H):
     """A still through `cam` (no guides) and what is bright in it."""
     p = t.path(f"{name}.png")
-    yield from t.op("look.still", camera_label=cam, path=p, width=W, height=H)
+    # the scene capture (view.still) renders at the camera's own FOV; look.still's viewport screenshot rendered at the
+    # viewport's 90 degrees on day 1 (markers ~3x too central, on both filmbacks)
+    from .. import ops
+    if "view.still" in ops._OPS:
+        r = t.op("view.still", out=p, camera=cam, width_px=W, height_px=height)
+    else:
+        r = t.op("look.still", camera_label=cam, path=p, width=W, height=height)
+    if inspect.isgenerator(r):
+        yield from r
     t.artifact(p)
     return _bright(png.read(p))
+
+
+def _rim_top(cam: dict, x: float, y: float, rx: float, ry: float, z: float) -> float:
+    """The highest row (v) of an upright elliptic cylinder's top rim (centre x, y, half-widths rx, ry, at height z):
+    where the top of its silhouette renders."""
+    vs = [lens.project(cam, (x + rx * math.cos(a), y + ry * math.sin(a), z)) for a in
+          (i * math.pi / 90 for i in range(180))]
+    return min(q["v"] for q in vs if q["depth"] > 0)
 
 
 def run(t):
@@ -101,19 +120,14 @@ def run(t):
             p = lens.unproject(cd, u, v, depth)
             size = 0.02 * lens.frame_height_at(cd, depth)  # about 2% of the frame tall
             t.op("level.spawn", label=P + "Dot", shape="sphere", loc=list(p), size=[size, size, size])
-            b = yield from _still(t, cam, f"proj_{fb.replace(' ', '_').replace(':', '')}_{k}")
+            # the still at the filmback's own aspect: the image is the picture. (Day 1: a 16:9 still of a Super 35
+            # back is the whole picture stretched to 16:9, not pillarboxed: markers read 1.34x too far out.)
+            b = yield from _still(t, cam, f"proj_{fb.replace(' ', '_').replace(':', '')}_{k}",
+                                  height=round(W / lens.aspect(fb)))
             if b is None:
                 t.ok(f"marker {k} visible on {fb}", False, detail="nothing bright in the still")
                 continue
-            # a still that is not the filmback's aspect is letterboxed: map the image to the picture
-            ar_img, ar_fb = W / H, lens.aspect(fb)
-            if ar_fb < ar_img:  # pillarbox
-                pw = ar_fb / ar_img
-                bu = (b["u"] - (1 - pw) / 2) / pw
-                bv = b["v"]
-            else:
-                ph = ar_img / ar_fb
-                bu, bv = b["u"], (b["v"] - (1 - ph) / 2) / ph
+            bu, bv = b["u"], b["v"]
             errs.append(max(abs(bu - u), abs(bv - v)))
             t.check(f"marker {k} at (u, v) on {fb}", [round(bu, 3), round(bv, 3)], [u, v], tol=0.015)
         if errs:
@@ -128,10 +142,13 @@ def run(t):
         r = t.op("cam.frame", camera=cam, subjects=fig, size=size, angle=angle, side="left", focal_mm=50, mode="bounds")
         t.ok(f"{size} solved", r["solve"]["error"] is not None and r["solve"]["error"] < 1e-3,
              detail=str(r["solve"]["warnings"]))
-        pred_top = r["solve"]["predicted"][fig]["head_top"][1]
+        # the stand-in is a flat-topped cylinder: its silhouette's top is the near rim of its top face, which a close
+        # camera below it sees above the axis point the solver frames (day 1: CU 0.015 vs 0.05). Predict the rim.
+        pred_top = _rim_top(r["camera"], 0.0, 0.0, 20.0, 15.0, 175.0)
         b = yield from _still(t, cam, f"frame_{size}")
         if b:
             t.check(f"{size}: the figure's top on the predicted row", round(b["top"], 3), round(pred_top, 3), tol=0.025)
+            t.note(f"{size}: solver's head_top v {r['solve']['predicted'][fig]['head_top'][1]:.3f}, rim {pred_top:.3f}")
             if size == "WS":
                 pred_feet = r["solve"]["predicted"][fig]["feet"][1]
                 t.check("WS: the feet on the predicted row", round(b["bottom"], 3), round(pred_feet, 3), tol=0.03)
@@ -182,8 +199,22 @@ def run(t):
     set_frame(48)
     for _ in range(3):
         yield
+    # Sequencer writes CurrentPositionOnRail straight to the property; the mount follows only in
+    # UpdateRailComponents, which runs from Tick and PostEditChangeProperty (CameraRig_Rail.cpp:205-228). Day 1 in
+    # the offscreen editor the camera stayed at the rail's start (y=-200): check the two halves apart.
+    ra = next(x for x in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors()
+              if x.get_actor_label() == rail)
+    pos = float(ra.get_editor_property("current_position_on_rail"))
     y = t.op("cam.describe", label=rcam)["cameras"][0]["loc"][1]
-    t.ok("rail: the camera is near the middle of the rail at mid-shot", abs(y) < 40, detail=f"y={y:.1f}")
+    t.check("rail: Sequencer plays the rail position at mid-shot", round(pos, 3), 0.5, tol=0.05)
+    t.note(f"rail: the camera after the scrub alone at y={y:.1f} (the mount moves on the rig's tick)")
+    # PostEditChangeProperty -> UpdateRailComponents. Re-setting the same value moved nothing on day 1 (an unchanged
+    # value is not notified), so nudge it away and back: two real changes.
+    ra.set_editor_property("current_position_on_rail", min(1.0, pos + 0.01) if pos < 0.99 else pos - 0.01)
+    ra.set_editor_property("current_position_on_rail", pos)
+    yield
+    y = t.op("cam.describe", label=rcam)["cameras"][0]["loc"][1]
+    t.ok("rail: the camera is near the middle of the rail at mid-shot", abs(y) < 40, detail=f"y={y:.1f} pos={pos:.3f}")
     LSE.close_level_sequence()
 
     # --- 5. coverage and a shot list -------------------------------------------------------------------------
@@ -195,8 +226,12 @@ def run(t):
     t.check("coverage stays on one side of the line", cov["issues"], [])
     t.metric("coverage_shots", len(cov["shots"]))
     t.idempotent("cam.coverage converges", "cam.coverage", subjects=[a, b_], side="left", prefix=P + "Cov_")
-    yield from t.still("coverage_master", camera=P + "Cov_master", width=W, height=H)
-    yield from t.still("coverage_A_OTS", camera=P + "Cov_A_OTS", width=W, height=H)
+    # cam.coverage names a camera {prefix}{shot name}, and a single's shot name starts with the subject's label
+    covcam = {s["name"]: s["camera"] for s in cov["shots"]}
+    t.check("coverage names its cameras by the subjects' labels", [covcam.get("master"), covcam.get(a + "_OTS")],
+            [P + "Cov_master", P + "Cov_" + a + "_OTS"])
+    yield from t.still("coverage_master", camera=covcam.get("master"), width=W, height=H)
+    yield from t.still("coverage_A_OTS", camera=covcam.get(a + "_OTS"), width=W, height=H)
     t.op("cam.remove", prefix=P + "Cov_")
     spec = {"kind": "shot", "version": 1, "name": "selftest", "sequence": root + "/" + P + "Scene", "fps": 24,
             "lines": [{"id": "L1", "speaker": "A", "start_s": 1.0, "end_s": 3.0},

@@ -44,6 +44,9 @@ class Guid:
     def export_text(self) -> str:
         return f"{self.n:032X}"
 
+    def __str__(self):  # the engine's struct str() carries the wrapper's address: two reads never compare equal
+        return f"<Struct 'Guid' ({id(self):#x}) {{a: {self.n}}}>"
+
     def __eq__(self, o):
         return isinstance(o, Guid) and o.n == self.n
 
@@ -303,15 +306,23 @@ class FakeSection(core.Object):
 
     def set_start_frame(self, a):
         object.__setattr__(self, "start", self._t(a))
+        self.bounded[0] = True
 
     def set_end_frame(self, b):
         object.__setattr__(self, "end", self._t(b))
+        self.bounded[1] = True
 
+    # SetStart/EndFrameBounded(true) RESETS the bound to the playback range even when it was already bounded
+    # (MovieSceneSectionExtensions.cpp:359-385); called after set_range it throws the range away
     def set_start_frame_bounded(self, v):
         self.bounded[0] = bool(v)
+        if v:
+            object.__setattr__(self, "start", self.track.seq.ms.playback[0])
 
     def set_end_frame_bounded(self, v):
         self.bounded[1] = bool(v)
+        if v:
+            object.__setattr__(self, "end", self.track.seq.ms.playback[1])
 
     def has_start_frame(self):
         return self.bounded[0]
@@ -571,6 +582,13 @@ class MovieSceneBindingProxy(_Owner):
     def is_valid(self):
         return self.data in self.seq.ms.bindings
 
+    def get_editor_property(self, name: str):  # FMovieSceneBindingProxy's BlueprintReadOnly BindingID / Sequence
+        if name == "binding_id":
+            return Guid(self.data.guid.n)  # a new wrapper per read, like the engine
+        if name == "sequence":
+            return self.seq
+        raise ValueError(f"MovieSceneBindingProxy: Failed to find property '{name}'")
+
     def get_id(self):
         return self.data.guid
 
@@ -803,14 +821,20 @@ class MaterialParameterInfo(core.Object):
 
 class LevelSequenceEditorBlueprintLibrary(core.Object):
     current = None
+    posed = {}  # actor -> its (location, rotation) before the open sequence posed it; closing puts them back
 
     @staticmethod
     def open_level_sequence(s):
+        if LevelSequenceEditorBlueprintLibrary.current is not s:
+            LevelSequenceEditorBlueprintLibrary.close_level_sequence()
         LevelSequenceEditorBlueprintLibrary.current = s
         return True
 
     @staticmethod
     def close_level_sequence():
+        for a, (p, r) in LevelSequenceEditorBlueprintLibrary.posed.items():
+            a.set_actor_location_and_rotation(p, r)
+        LevelSequenceEditorBlueprintLibrary.posed = {}
         LevelSequenceEditorBlueprintLibrary.current = None
 
     @staticmethod
@@ -858,7 +882,8 @@ class ControlRigSequencerLibrary(core.Object):
         tr = None
         if b is not None:
             tr = next((t for t in b.tracks if t.cls == "MovieScene3DTransformTrack"), None)
-        p0, r0 = a.get_actor_location(), a.get_actor_rotation()
+        posed = LevelSequenceEditorBlueprintLibrary.posed
+        p0, r0 = posed.get(a) or (a.get_actor_location(), a.get_actor_rotation())
         base = [p0.x, p0.y, p0.z, r0.roll, r0.pitch, r0.yaw]
         out = []
         for f in frames:
@@ -868,6 +893,9 @@ class ControlRigSequencerLibrary(core.Object):
                     if ch.keys or ch.default is not None:
                         vals[i] = _curves().evaluate(ch.canonical(), f.value, ch.default)
             out.append(_Xform(core.Vector(*vals[:3]), core.Rotator(roll=vals[3], pitch=vals[4], yaw=vals[5])))
+        if out and tr is not None:  # the open Sequencer leaves the level actor posed at the last frame it evaluated
+            posed.setdefault(a, (p0, r0))
+            a.set_actor_location_and_rotation(out[-1].translation, out[-1].rotation.rotator())
         return out
 
 
@@ -888,6 +916,7 @@ def install(fake) -> None:
                 LevelSequenceEditorSubsystem, MovieSceneTimeWarpExtensions):
         setattr(fake, cls.__name__, cls)
     LevelSequenceEditorBlueprintLibrary.current = None
+    LevelSequenceEditorBlueprintLibrary.posed = {}
     _OBJECT_NAMES.clear()
     # another area's fake may own ControlRigSequencerLibrary (ext_pose: rigs): add the Sequencer evaluation to it
     crl = fake.__dict__.get("ControlRigSequencerLibrary")

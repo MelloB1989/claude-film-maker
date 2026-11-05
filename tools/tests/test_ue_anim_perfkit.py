@@ -616,3 +616,15 @@ def test_body_life_to_local_axes_and_quaternions():
     q = BLF.quat_from_euler_xyz(0, 0, 90)
     assert q == pytest.approx([0, 0, math.sqrt(0.5), math.sqrt(0.5)])
     assert BLF.qmul([0, 0, 0, 1], q) == pytest.approx(q)
+
+
+def test_blinks_never_tick_like_a_metronome():
+    """Day-1 (box): a 10.6 s face with phrase ends every second planned blinks whose intervals varied by 0.24
+    (std/mean), under metrics' 0.25. The planner now nudges spontaneous blinks until they vary by 0.3."""
+    ends = [0.7, 1.7, 2.7, 3.7]
+    for seed in range(40):
+        bl = B.plan(0.0, 10.5667, "talk", phrase_ends=ends, seed=seed)
+        ts = [b.t for b in bl]
+        if len(ts) >= 4:
+            assert B._cv(ts) >= 0.25, (seed, ts)
+        assert all(b - a >= 0.0 for a, b in zip(ts, ts[1:]))

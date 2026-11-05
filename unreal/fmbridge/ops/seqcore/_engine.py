@@ -541,7 +541,14 @@ def _write_channel(ch, c: dict, per_tick: float, kind: str):
 
 
 def _set_range(sec, rng):
+    """Bound first, then set: SetStart/EndFrameBounded(true) RESETS that bound to the playback range
+    (MovieSceneSectionExtensions.cpp:359-385), so called after set_range it collapsed every section and camera cut to
+    the whole sequence (day 1 on the box). Unbounded ends are opened; given ends are set (which bounds them)."""
     a, b = rng
+    if a is None:
+        sec.set_start_frame_bounded(False)
+    if b is None:
+        sec.set_end_frame_bounded(False)
     if a is not None and b is not None:
         sec.set_range(int(a), int(b))
     else:
@@ -549,8 +556,6 @@ def _set_range(sec, rng):
             sec.set_start_frame(int(a))
         if b is not None:
             sec.set_end_frame(int(b))
-    sec.set_start_frame_bounded(a is not None)
-    sec.set_end_frame_bounded(b is not None)
 
 
 def _time_warp(rate_: float):

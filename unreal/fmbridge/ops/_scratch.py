@@ -64,14 +64,38 @@ def leave(previous: str, folder: str) -> str:
     return current_level()
 
 
-def fresh_level(path: str) -> None:
-    """A new empty level at `path`, opened; whatever was there is deleted first (never an overwrite dialog)."""
-    if current_level() == path:
+def save_open_level() -> str:
+    """Save the open level when it is a real, saved one (not untitled, not scratch): switching levels discards unsaved
+    changes without asking in an unattended editor (day 1: the demo's cameras vanished when a selftest ran between
+    two demo stages). Returns what was saved ('' when nothing)."""
+    cur = current_level()
+    if not cur.startswith("/Game/") or (cur + "/").startswith(ROOTS) or not _eal().does_asset_exist(cur):
+        return ""
+    try:
+        return cur if _les().save_current_level() else ""
+    except Exception:
+        return ""
+
+
+def fresh_level(path: str) -> str:
+    """A new empty level at `path` (or, when an old one there cannot be deleted, at `path`_<n> beside it), opened;
+    never an overwrite dialog. Returns the level's path. Day 1: a level left by an earlier run (its cleanup refused
+    before the garbage collection fix) could not be deleted after an editor restart, and new_level refused the path."""
+    folder = path.rsplit("/", 1)[0]
+    save_open_level()
+    if current_level().startswith(folder):
         _open_blank()
     if _eal().does_asset_exist(path):
-        _eal().delete_asset(path)
+        delete_dir(folder)  # the whole scratch folder, after a garbage collection
+    if _eal().does_asset_exist(path):
+        for n in range(1, 100):
+            alt = f"{path}_{n}"
+            if not _eal().does_asset_exist(alt):
+                path = alt
+                break
     if not _les().new_level(path):
-        raise RuntimeError(f"could not create the scratch level {path}")
+        raise RuntimeError(f"could not create the scratch level {path} (film-ue op selftest.cleanup; film-ue log)")
+    return path
 
 
 def _destroy_prefixed(prefix: str) -> int:
@@ -84,6 +108,22 @@ def _destroy_prefixed(prefix: str) -> int:
     return n
 
 
+def delete_dir(folder: str) -> bool:
+    """Delete a scratch folder after leaving it: the level just left stays in memory (referenced) until a garbage
+    collection, and delete_directory refuses it until then (day 1: 'could not delete /Game/_Selftest/dx_client').
+    Collects, deletes, and once more if the first try was refused."""
+    if not _eal().does_directory_exist(folder):
+        return True
+    for _ in range(2):
+        try:
+            unreal.SystemLibrary.collect_garbage()
+        except Exception:
+            pass
+        if _eal().delete_directory(folder) or not _eal().does_directory_exist(folder):
+            return True
+    return False
+
+
 @contextlib.contextmanager
 def scratch(folder: str, level: bool = True, keep: bool = False, prefix: str = ""):
     folder = folder.rstrip("/")
@@ -93,12 +133,12 @@ def scratch(folder: str, level: bool = True, keep: bool = False, prefix: str = "
     s = Scratch(folder, f"{folder}/L_{name}" if level else current_level(), prefix or f"ST_{name}_", current_level(),
                 keep)
     if level:
-        fresh_level(s.level)
+        s.level = fresh_level(s.level)
     try:
         yield s
     finally:
         if not level and not keep:
             _destroy_prefixed(s.prefix)
         leave(s.previous, folder)
-        if not keep and _eal().does_directory_exist(folder):
-            _eal().delete_directory(folder)
+        if not keep:
+            delete_dir(folder)

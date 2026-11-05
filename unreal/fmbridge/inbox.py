@@ -2,10 +2,13 @@
 game thread through the same runner as POST /exec; its output lands in Saved/Bridge/out/<name>.json."""
 from __future__ import annotations
 
+import contextlib
 import glob
+import io
 import json
 import os
 import time
+import traceback
 
 import unreal
 
@@ -25,9 +28,20 @@ def _tick(_dt):
         with open(path, encoding="utf-8") as f:
             code = f.read()
         os.remove(path)
-        res = server._run("exec", {"code": code, "name": name})
         with open(os.path.join(OUTBOX, name + ".json"), "w", encoding="utf-8") as f:
-            json.dump(res, f)
+            json.dump(run_file(code, name), f)
+
+
+def run_file(code: str, name: str) -> dict:
+    """Run one dropped file now (it may replace the bridge itself: install.py) and return what /exec would:
+    {"ok", "result", "stdout"} or {"ok": False, "error", "stdout"}. server._run gives only the value."""
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            val = server._run("exec", {"code": code, "name": name})
+        return {"ok": True, "result": server._jsonable(val), "stdout": buf.getvalue()}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc(), "stdout": buf.getvalue()}
 
 
 def start() -> None:

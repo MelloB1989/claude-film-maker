@@ -382,3 +382,41 @@ def test_spec_body_life_layers_an_additive_or_notes_why_not(ue, fmb, monkeypatch
     run_op("perf.compose", spec=spec)
     body = next(kw for n, kw in calls if n == "seq.anim" and kw["component"] == "Body")
     assert body["sections"][-1]["anim"] == "/Game/Perf/demo/AS_demo_face_life"
+
+
+def test_rig_keys_makes_the_track_and_finds_it_by_binding(ue, fmb, monkeypatch):
+    """Day-1 (pose): the track was made but never found again, because the binding ids were compared with str(),
+    which carries each struct wrapper's address. The fake's proxies now hand out a new Guid wrapper per read."""
+    ue.spawn("SkeletalMeshActor", "Host")
+    ue.pose("Host", {"head": [0, 0, 160]})
+    ue.add_asset("/Game/T/Seq", "LevelSequence")
+    CR = ue.ControlRigSequencerLibrary
+    CR.classes["MetaHuman_ControlRig_C"] = {"CTRL_neck": "head"}
+    monkeypatch.setattr(ue.EditorAssetLibrary, "load_blueprint_class",
+                        staticmethod(lambda p: type("MetaHuman_ControlRig_C", (), {})), raising=False)
+    r = run_op("anim.rig_keys", sequence="/Game/T/Seq", label="Host", keys={},
+               rig_class="/MetaHumanCharacter/Common/MetaHuman_ControlRig")
+    assert r["controls"] == 0 and len(CR.rigs) == 1
+    r = run_op("anim.rig_controls", sequence="/Game/T/Seq", label="Host")
+    assert r["controls"] == ["CTRL_neck"]
+    run_op("anim.rig_keys", sequence="/Game/T/Seq", label="Host", keys={},
+           rig_class="/MetaHumanCharacter/Common/MetaHuman_ControlRig")
+    assert len(CR.rigs) == 1  # found again, not made twice
+
+
+def test_curves_listed_in_lower_case_are_the_face_curves(ue, fmb):
+    """Day-1 (box): 5.8's MetaHuman face loops list their curves in lower case (FNames ignore case), so describe
+    counted no face curves and anim.check found no blinks or expressions. The fake's curves are FName-keyed now."""
+    import math
+    t = [i / 10 for i in range(101)]
+    blink = [1.0 if any(abs(x - b) < 0.06 for b in (1, 3, 5, 7, 9)) else 0.0 for x in t]
+    brow = [0.4 * abs(math.sin(x)) for x in t]
+    ue.anim("/Game/A/AS_loop", length_s=10.0, curves={
+        "ctrl_expressions_eyeblinkl": (t, blink), "ctrl_expressions_eyeblinkr": (t, blink),
+        "ctrl_expressions_browraiseinl": (t, brow), "ctrl_expressions_jawopen": (t, [0.0] * len(t))})
+    d = run_op("anim.describe", anim="/Game/A/AS_loop", curves=True)
+    assert d["face_curves"] == 4 and "CTRL_expressions_eyeBlinkL" in d["curves"]
+    got = run_op("anim.read_curves", anim="/Game/A/AS_loop", names=["CTRL_expressions_eyeBlinkL"])
+    assert list(got) == ["CTRL_expressions_eyeBlinkL"] and max(got["CTRL_expressions_eyeBlinkL"][1]) == 1.0
+    chk = run_op("anim.check", anim="/Game/A/AS_loop")
+    assert "blink_rate" not in chk["failed"] and "expression_range" not in chk["failed"], chk["failed"]

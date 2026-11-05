@@ -227,6 +227,21 @@ def test_qa_floating_and_overlaps(ue, fmb):
     assert ov2["metrics"]["pairs"] == [] and ov2["pass"]
 
 
+def test_qa_floating_and_overlaps_leave_out_cameras_and_lights(ue, fmb):
+    """A camera's bounds take in its editor mesh proxy (day 1: the demo's cine cameras sank into the desk)."""
+    ue.spawn("StaticMeshActor", "Floor", location=ue.Vector(0, 0, -5), extent=(600, 600, 5))
+    ue.spawn("StaticMeshActor", "Desk", location=ue.Vector(0, 0, 40), extent=(60, 40, 40))
+    cam = ue.spawn("CineCameraActor", "CAM_S1", location=ue.Vector(20, 0, 60), extent=(80, 80, 80))
+    cam.add_component(ue.StaticMeshComponent, "CameraMesh")
+    lamp = ue.spawn("PointLight", "Key", location=ue.Vector(0, 0, 150), extent=(10, 10, 10))
+    lamp.add_component(ue.StaticMeshComponent, "Bulb")
+    ov = run_op("qa.overlaps", ignore=["Floor"])
+    assert ov["metrics"]["pairs"] == [] and ov["pass"]
+    assert set(run_op("qa.floating", ignore=["Floor"])["metrics"]["gaps"]) == {"Desk"}
+    named = run_op("qa.overlaps", labels=["Desk", "CAM_S1"])  # named, they are still checked
+    assert any({"Desk", "CAM_S1"} == set(p[:2]) for p in named["metrics"]["pairs"])
+
+
 # --- qa: continuity ------------------------------------------------------------------------------------------------
 
 def test_snapshot_and_diff(scene, ue, tmp_path):

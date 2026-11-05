@@ -24,6 +24,7 @@ PLUGINS = {  # plugin name: (why it matters, severity when missing)
     "MetaHumanCharacter": ("mh.* (MetaHuman Creator by code)", "warn"),
     "MetaHuman": ("speech.to_face (MetaHuman Animator)", "warn"),
     "Fab": ("fab.* (the Fab library)", "info"),
+    "USDImporter": ("assets.import of .usd/.usda/.usdc", "info"),
 }
 
 
@@ -144,3 +145,47 @@ def doctor(*, min_free_gb: float = 50.0) -> dict:
         pass
 
     return {"pass": not any(i["severity"] == "fail" for i in issues), "issues": issues, "metrics": m}
+
+
+def _exposed(name: str) -> bool:
+    return hasattr(unreal, name)
+
+
+@op("editor.api_names", mutates=False, idempotent=True, tags=["platform"])
+def api_names(*, only_missing: bool = True) -> dict:
+    """Is every `unreal.<Name>` the bridge's code uses really in this editor's `unreal` module? The fake engine accepts
+    any name, so a C++ class name where Python wants the ScriptName (AutomationBlueprintFunctionLibrary vs
+    AutomationLibrary) or a plugin that is off only shows up here, or when the op runs.
+
+    Parses the installed fmbridge sources for `unreal.X` in code (the first name after `unreal.`), checks each
+    with hasattr.
+    Returns: {"checked": int, "missing": {name: [files]}, "names": [all names] (only_missing=false)}.
+    A missing name is a bug (wrong name) or a disabled plugin: API_NOTES in docs/unreal/<area>.md says which.
+    Example: film-ue op editor.api_names
+    """
+    import ast
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # the fmbridge package
+    uses: dict = {}
+    for d, _, files in os.walk(root):
+        for f in files:
+            if not f.endswith(".py"):
+                continue
+            p = os.path.join(d, f)
+            try:
+                with open(p, encoding="utf-8") as fh:
+                    text = fh.read()
+            except OSError:
+                continue
+            try:
+                tree = ast.parse(text)
+            except SyntaxError:
+                continue
+            for n in ast.walk(tree):  # code only: `unreal.X` in a docstring or a comment is not a use
+                if (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "unreal"
+                        and n.attr[:1].isupper()):
+                    uses.setdefault(n.attr, set()).add(os.path.relpath(p, root))
+    missing = {n: sorted(fs) for n, fs in sorted(uses.items()) if not _exposed(n)}
+    out = {"checked": len(uses), "missing": missing}
+    if not only_missing:
+        out["names"] = sorted(uses)
+    return out

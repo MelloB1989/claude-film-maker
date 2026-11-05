@@ -1,0 +1,186 @@
+# DAY1-REPORT: the Unreal helpers on a real GPU box
+
+Box: i-0f7a6ac044b75e922 (g6.4xlarge, 1x L4 24 GB, Ubuntu 22.04, ap-south-1b), UE 5.8.4 source build, project
+HostStudio, from `main` 31c57577. Runs: `film-ue selftest` in the planned order (`film-ue selftest plan`), then the
+demo (examples/unreal/demo). Fixes go to `fleet/agent-13/day1-<area>` off main, merged by agent-10.
+
+Live table (newest result per area; times are wall clock on the box):
+
+| # | area | result | time | failures | fix (branch / commit) | rerun | stills |
+|---|---|---|---|---|---|---|---|
+| 0 | first-run (agent-07) | OK except dx | ~19:20 | dx: view.still | (dx row) | platform 48/0 | |
+| 1 | platform | OK 48/0 (first-run) | 60 s | | | | |
+| 2 | dx | OK 32/0 (bridge + client) | 13 s | view.capture writes; dx_client delete refused | day1-view 72a80945; day1-dx f8195902 (GC before delete) | OK 32/0 | |
+| 3 | assets | 62/1 | 119 s | only fab.login: Fab needs its own sign-in (FabScript loaded) | day1-mat bb6d57c0; day1-dx da9fa76f | 62/1 | |
+| 4 | layout | OK 36/0 | 11 s | (was: view.capture error) | day1-view | OK 36/0 | stills in report |
+| 5 | mh | ERROR after 25/0 -> 36/2 (melanin skipped, kali-only) | 79 s | no groom has instance params before assembly (Hair Melanin, Eyebrows Whiteness: item_params empty live); 'hair worn' changed False | agent-04 (probe running) | 36/2 | |
+| 6 | anim | 22/5 | 48 s | head curves do not turn the head (0 cm); face.alive; describe.face_curves; clavicle twist axis | agent-01 (task assigned) | 22/5 | |
+| 7 | seq | 42/3 | 25 s | after seq.eval the camera's transform track re-plans (ST_seq_CamA/transform differs) | day1-seq f36288d1; agent-06 (fake-bounded) | 42/3 | |
+| 8 | cam | 43/9 -> rerunning c83bf93e | 31 s | filmback aspect of stills, convergence, coverage names, shot.plan up_to_date with cameras gone | agent-11 day1-cam c83bf93e | rerunning | |
+| 9 | render | 25/2 | 53 s | MRQ editor library missing (new-process/cmdline executors); cancelled job reports ok; (fixed: JPEG frames are .jpeg) | day1-render 48f97794 | 25/2 | |
+| 10 | qa | 30/2 | 28 s | default capture format: RTF_RGBA8_SRGB matches the viewport better (SSIM 0.67 vs 0.59) | agent-09 | 30/2 | |
+| 11 | audio | OK 17/0 | 10 s | | | | |
+| 12 | env | OK 56/0 | 37 s | (was: no lighting_channels on SkyLight; display read 0..255; capture stored linear) | agent-08 env-day1 8eb7dcb9 + 71520e48 | OK 56/0 | |
+| 13 | foliage | OK 20/0 | 30 s | | | | |
+| 14 | pose | ERROR 0/0 | 7 s | anim.py:1008 rig_keys: the engine made no control rig track | needs an owner (agent-01 has no task) | | |
+| 15 | wp | OK 17/0 | 5 s | unreal.Box(min, max, is_valid) refused (FBox native make: 2 args) | day1-wp 8f9320ac | OK 17/0 | |
+| D | demo | CONVERGES (2nd plan 0 to change); 168 frames rendered | stage 1 ~6 min (rig 86 s, textures 19 s, build 251 s) | build raced the textures; enum as string; /srv/film unwritable; no voice (espeak-ng on the box); stale shot hash; JPEG frames .jpeg; qa.review counted cameras as overlaps | day1-demo bd2c487a; day1-render 688a2b3b; day1-dx 1641cf31 (save the level before a scratch level); agent-09 still-srgb; agent-11 | converged | /srv/ue/demo/out/render, qa |
+
+## Log
+
+- 19:28 batch 1 (assets..wp, kali reports/192856-assets): view.capture failed every still (EditInstanceOnly
+  ShowOnlyActors/HiddenActors; then a stale cached render target); seqcore collapsed every section range; plus
+  area-specific live API gaps (see rows). audio, foliage OK first time.
+- 19:34 batch 2 (dx qa layout env, reports/193354-dx) with day1-view installed: layout OK, dx bridge OK, qa 26/6.
+- 19:40 batch 3 (seq render cam qa anim env) with day1-seq installed: seq 42/2, render 20/1, cam 27/14 (projection
+  ~3x too wide: the capture's FOV?), qa 30/2. editor.api_names (242 checked): missing EMetaHuman, MoviePipelineEditor-
+  BlueprintLibrary, UsdStageImportOptions.
+- 14:05 UTC editor restart for agent-07's FabScript (loaded). Batch 4 (assets mh wp pose dx anim render): wp OK, dx OK
+  32/0; assets and mh could not create their scratch level (left by batch 1) -> day1-dx da9fa76f.
+- 14:12 UTC batch 5 (assets mh render cam env anim qa seq) with every fix so far installed.
+- 14:12-14:20 UTC batch 5 (all fixes installed): see rows. Probes: the capture's fov_angle applies (90 -> 33 reads back).
+- 14:25 UTC demo stage 1 on Epic's real cloud: preset, rig, textures OK; mh.build said a cloud request was still
+  running: retried after 30 s. Reports for owners: fleet/agent-13/day1-reports.
+- 14:30 UTC the demo applied end to end (MetaHuman from the real Epic cloud, set, lights, speech-to-face from an
+  espeak-ng line, sequence, audio, 3 shots) and a second plan was empty. The level had been reloaded unsaved by a
+  selftest in between (cameras lost, shot hash kept): fixed by saving the open level before any scratch level
+  (day1-dx 1641cf31) and by shot.plan checking its cameras (agent-11).
+- 14:40 UTC preview render: 168 JPEG frames in /srv/ue/demo/out/render; the job reported 0 (looked for .jpg): fixed.
+- 14:50 UTC env OK 56/0 with agent-08's branch.
+
+## The demo, seen
+
+The cut as a contact sheet (2 stills per shot: WS, MCU with a push-in, CU), first pass:
+
+![demo, first pass](img/day1-demo-sheet-1.jpg)
+
+What the numbers missed and the eye caught: skin through the shirt (frames 119, 120) and the collar off the chest
+(167): the face, played by Sequencer, did not follow the body; and the hair/beard read orange-white in the CU.
+After day1-demo d6c24fa9 (anim.bake_follow, r.HairStrands.SkyLighting 0, penetration in the review):
+
+![demo, second pass](img/day1-demo-sheet-2.jpg)
+
+The shirt holds in 119 and 120; at 167 the collar still slips (the face's own neck motion at the end of the line:
+open), and the CU's warm hair is the 4300 K rim light (a look choice, not a bug).
+
+## HANDOFF (agent-13, 2026-11-05 ~15:00 UTC)
+
+Green on the box (latest runs, code = fleet/agent-10/day1 + the branches below): platform 48/0, dx 32/0, layout 36/0,
+seq 45/0, cam 52/0, qa 32/0, audio 17/0, env 56/0, foliage 20/0, wp 17/0. The demo applies end to end and converges
+(a second plan has nothing to change), rendered preview + final (168 frames), review passes (warnings only).
+
+Open, and why:
+- assets 62/1: fab.login. Fab needs its own Epic sign-in; the device-code URL is redacted in the log and goes to a
+  headless browser, so only the exchange-code route works (an operator gives a one-time code; agent-07's
+  `film-ue epic-login --exchange-code-cmd ./helper` / editor.epic_exchange_code). Asked the orchestrator.
+- render 25/2: the new-process / command-line executors need MoviePipelineEditorBlueprintLibrary, which this build's
+  editor never exposes (unreal.load_module('MovieRenderPipelineEditor') does not bring it); 'cancelled job reports
+  cancelled' got ok. agent-05 has no task: needs an owner.
+- anim 22/5 and pose (rig_keys: no control rig track): agent-01 (task assigned; reports on fleet/agent-13/day1-reports).
+- mh 36/2: no groom has instance parameters before the instance is assembled (probe output on day1-reports);
+  agent-04 is fixing the op; for this run the melanin/redness/whiteness steps were skipped (kali-only patch).
+- demo: frame 167 the collar still slips (the face's neck motion at the end of the line); the CU's warm hair is the
+  4300 K rim (a look choice). The review's penetration check is now on.
+
+How I drive the box (all from kali, 192.168.29.222, user nikhil; the fleet secret kali-ssh is a PASSWORD: use
+SSH_ASKPASS, never print it):
+- Checkout: /tmp/fleet-agent-13-ue (tools, unreal, examples, docs rsynced from a local merge of fleet/agent-10/day1 +
+  the fix branches being tested). Env: AWS_PROFILE=nani AWS_REGION=ap-south-1 FILM_UE_CONF_DIR=/tmp/fleet-agent-13-ue/conf
+  (conf = agent-07's film-ue.json + `film-ue set --local-port 18775`: agent-07's tunnel holds 18765).
+- After changing code: `cd tools && uv run film-ue install` (retry once: the first can fail while the old bridge goes).
+- Selftests: `/tmp/fleet-agent-13-ue/run.sh <areas...|all>` (film-ue selftest --keep-going into
+  /tmp/fleet-agent-13-ue/reports/<time>-<first area>/, log beside it); `python3 /tmp/fleet-agent-13-ue/why.py <dir> [areas]`
+  prints each failure and error in one line.
+- Demo: `uv run film-ue apply ../examples/unreal/demo/demo.yaml`, review `.../70-qa.yaml`, render `.../80-render.yaml
+  [--set preset=final]`; outputs in /srv/ue/demo/out (render/, qa/, stills*/); the voice line /srv/ue/demo/demo_line.wav
+  (espeak-ng on the box).
+- Pictures: `film-ue view stills --sequence /Game/_Demo/SEQ_Demo --out-dir /srv/ue/demo/out/stillsN --per-shot 2`, then
+  `film-ue pull .../sheet.png /tmp/...` and LOOK at it.
+- Read-only engine source on the box (the source box is gone): /srv/ue/engine/Engine/Source and Plugins, through SSM
+  (`aws ssm send-command ... AWS-RunShellScript`; my wrapper /work/ssm.sh).
+- Slot protocol: only one driver; agent-07 gave me the slot after first-run ('slot to agent-13') and takes it back at
+  16:55 UTC for the DDC save ('slot to agent-07'); the box's TTL is 17:27 UTC.
+- Reports for owners: fleet/agent-13/day1-reports (JSON per area). Fix branches: fleet/agent-13/day1-{view,seq,dx,wp,
+  mat,render,demo}, merged by agent-10.
+
+## Final full run (15:05 UTC, `film-ue selftest` all, plan order, kali reports/202355-all)
+
+| area | result | notes |
+|---|---|---|
+| platform | OK 48/0 | |
+| dx | OK 32/0 | |
+| assets | 62/1 | fab.login: needs an operator Epic sign-in for Fab |
+| layout | OK 36/0 | |
+| mh | ERROR after 25/0 | melanin on an un-assembled groom (agent-04 fixing the op) |
+| anim | 20/7 | 5 real (head curves, face.alive, face_curves, clavicle twist: agent-01) + 2 baselines (stills went sRGB) |
+| seq | OK 45/0 | |
+| cam | OK 52/0 | |
+| render | 25/2 | MRQ editor library unavailable (executors); cancel reports ok: needs an owner |
+| qa | OK 32/0 | |
+| audio | OK 17/0 | |
+| env | 54/2 | only 2 baselines (stored before the stills went sRGB): `film-ue selftest env --baseline update` once |
+| foliage | OK 22/0 | |
+| pose | ERROR 0/0 | rig_keys: no control rig track (agent-01) |
+| wp | OK 17/0 | |
+
+Next (agent-07 has the slot from here): `film-ue selftest env anim --baseline update` once; rerun anim + pose when
+agent-01's branch lands, mh when agent-04's lands (merge them into the box checkout, `film-ue install`); re-apply the
+demo (`film-ue apply ../examples/unreal/demo/demo.yaml`) and look at a fresh contact sheet.
+
+
+## Close-out (agent-10, wrap-up for the karma shoot)
+
+Testing stopped on the operator's word: the box goes to the karma shoot (round 3 of the reel, on Linux). Main is the
+shoot's base; everything below is merged through the gate (dx gen, the ue suite, dx docs).
+
+Green on the engine: platform, dx, layout, wp, audio, foliage, env, seq, cam, qa; the demo applies, converges and
+renders (PIE). Merged for the shoot, last box reruns by agent-07: mh (assemble with its on_assembled delegate),
+pose (waits for the rig to bind), render (the scratch level counts as saved when its .umap is on disk).
+
+Deferred to BACKLOG (no more box time): pose IK reach (B65), qa capture format
+(B66, B63), new-process/command-line executors (B67; PIE is the route, DECISIONS), plus B60-B62 from cam. anim's
+face curves are read case-insensitively now (5.8 lists ctrl_expressions_* in lower case: agent-01 bcdeddfd, merged,
+not rerun on the box). Fab came back in time: assets 64/0 with agent-02's User-Agent fix (B64, merged). Not rerun on
+the box: the render level check (8987647f) and mh's hair parameters (still empty on the last run, agent-04). Known: the
+render selftest leaves L_render open when it errors; re-open the shoot's level before stills.
+
+## Merged (agent-10)
+
+Every day-1 fix goes through the gate (dx gen, the ue suite, dx docs) onto `fleet/agent-10/day1`, which main
+fast-forwards to.
+
+| when | what | from | gate |
+|---|---|---|---|
+| before the run | Blender tests start Blender only when `BLENDER` is set | agent-10 06f89092 | 1021 passed |
+| before the run | this report | agent-13 day1-report 84211934 | |
+| first-run | `editor.wait_compile` uses `AutomationLibrary` (the ScriptName); the file inbox writes the /exec result shape | agent-07 f580b805 | 1021 passed |
+| first-run | `editor.api_names`: every `unreal.<Name>` the bridge uses, checked against the live module | agent-10 184437aa | 1025 passed |
+| first-run | `transport.get` in parts (SSM output cap) | agent-07 6a6bc809 | 1027 passed |
+| dx | `view.capture`: show-only/hidden lists through the component's calls (EditInstanceOnly properties) | agent-13 f9bbd4fd | 1027 passed |
+| batch 1-3 | agent-13: `view` render-target cache per world (72a80945), `seq` bounded section ranges set before the range (f36288d1), `dx` scratch cleanup after GC (f8195902) | agent-13 | 1027 passed |
+| batch 1-3 | `wp._box`: `unreal.Box(min, max)` (`is_valid=` is refused live); the fake's Box now refuses it too | agent-10 d06c4b69 + agent-13 8f9320ac | 1027 passed |
+| platform | Vulkan SM6 target in setup/first-run; `film-ue plugin-build` (FabScript built on the box in ~20 s); project sync keeps plugin binaries | agent-07 260a1de2, e1a8d90c | 1034 passed |
+| mat | MP_CUSTOM_DATA0/1 (hidden from Python in 5.8) skipped and reported | agent-13 bb6d57c0 | 1034 passed |
+| api_names | box run: 3 missing of 242. USD import now says the USDImporter plugin is off; `EMetaHuman` was a docstring hit (the scan reads code only now); `MoviePipelineEditorBlueprintLibrary` is agent-13's render fix | agent-10 befdc58d | 1034 passed |
+| batch 5 | dx: scratch level left by an earlier run (da9fa76f); render: MRQ editor module on demand, 5.8 AOV folders, JPEG frames are `.jpeg` (48f97794) | agent-13 | 1034 passed |
+| demo | manual exposure (`AEM_MANUAL`), outputs and voice under /srv/ue/demo | agent-13 bd2c487a | 1035 passed |
+| env | display capture RTF_RGBA8_SRGB (/255), sky light without channels: env 38/6 -> 56/0 on the box | agent-08 68bbed7c | 1035 passed |
+| seq | the fake resets a bounded section's range like the engine; a seq selftest check | agent-06 d94b05af | 1035 passed |
+| cam | convergence on the engine (float32 focus, rotations by axes), stills at the filmback aspect, shot.plan lists missing cameras, coverage names | agent-11 c83bf93e | 1035 passed |
+| batch 6 | env test for the captures_rebuild route (agent-08 4e84b747); a scratch level saves the open level first: an unattended editor discards unsaved changes on a level switch (agent-13 1641cf31); stills default to sRGB, qa overlaps/floating skip cameras and lights: qa 32/0 (agent-09 809765c1) | agent-08, agent-13, agent-09 | 1037 passed |
+| demo | every demo stage opens the demo level (the level doc moved into vars.yaml) | agent-13 411048b0 | |
+| cam | stills through `view.still` at the camera's hfov (look.still used the viewport's 90°); rail nudge. Box: cam 50/2 (both stale baselines) | agent-11 d4134ab7 | |
+| handoff | agent-13's live table, the demo's contact sheets, HANDOFF | agent-13 a90ad397 | |
+| final run | agent-13's final full run (10/15 areas green, open: assets/Fab, render/MRQ, anim/pose, mh); box handed to agent-07 | agent-13 5c2b78b5 | |
+| render | lead's call: PIE is the route (process/cmdline noted without the MRQ editor library); cancel check waits for frames | agent-10 6577d81e | 1038 passed |
+| anim/pose | control rig track found by binding GUID `export_text` (str() carries the struct's address) | agent-01 e780b14d | 1039 passed |
+| mh | assemble before item parameters; preview keeps its actor; selftest wears an unworn groom | agent-04 d4b87b1c | 1039 passed |
+| render | cmdline/manifest without the MRQ editor library (queue saved as an asset, -MoviePipelineConfig); fake lacks the library like the box | agent-05 6db3138d | 1043 passed |
+| render | render.job accepts a level whose .umap is on disk (the scratch level was refused as unsaved); the selftest checks its level saved | agent-10 8987647f | 1043 passed |
+| mh | assemble() with an on_assembled delegate, waited across ticks; selftest import order | agent-04 5db98c50, abb746ec | |
+| pose | pose.apply waits for the rig to bind and the bones to follow before measuring | agent-01 3429580d | |
+| mh | the on_assembled callable takes one argument (live) | agent-04 2b4f560e | |
+
+| assets | Fab library: the engine's User-Agent (Python's default got 403): assets 64/0 on the box | agent-02 6bf70aab | |
+| qa | qa.md HANDOFF; B63 narrowed | agent-09 aa1d2831 | |
+| anim | curve names case-insensitive (5.8 face loops list ctrl_expressions_* in lower case) | agent-01 bcdeddfd | |

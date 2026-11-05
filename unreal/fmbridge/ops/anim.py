@@ -19,6 +19,13 @@ AL = unreal.AnimationLibrary
 FLOAT = unreal.RawCurveTrackTypes.RCT_FLOAT
 
 
+def curve_names(anim) -> list:
+    """The float curves of an animation, in perfkit's spelling (FNames ignore case; 5.8 lists the MetaHuman curves in
+    lower case, so a plain `in` matched none of them: day 1). Reads and writes by these names hit the same curves."""
+    from ..perfkit.rig import canon
+    return [canon(n) for n in AL.get_animation_curve_names(anim, FLOAT)]
+
+
 def _keys(anim, name):
     t, v = AL.get_float_keys(anim, name)
     return list(t), list(v)
@@ -63,7 +70,7 @@ def curves(anim: str, contains: str = "") -> list:
     """A sequence's float curve names (containing `contains`).
     Example: film-ue op anim.curves anim=/Game/Speech/Anim/AS_line1 contains=eyeLook
     """
-    return [str(n) for n in AL.get_animation_curve_names(load(anim), FLOAT) if contains.lower() in str(n).lower()]
+    return [n for n in curve_names(load(anim)) if contains.lower() in n.lower()]
 
 
 @op("anim.curve", mutates=False, idempotent=True)
@@ -583,7 +590,7 @@ def describe(*, anim: str, curves: bool = False) -> dict:
     """
     from ..perfkit import rig as R
     a = _anim(anim)
-    names = [str(n) for n in AL.get_animation_curve_names(a, FLOAT)]
+    names = curve_names(a)
     length = float(AL.get_sequence_length(a))
     frames = int(AL.get_num_frames(a))
     meta = {}
@@ -698,9 +705,10 @@ def _set_rate(a, ctrl, fps: int) -> None:
 
 def read_all(a, names=None) -> dict:
     """{name: (times, values)} of an animation's float curves (all, or `names`)."""
-    have = [str(n) for n in AL.get_animation_curve_names(a, FLOAT)]
+    have = curve_names(a)
+    low = {n.lower(): n for n in have}
     out = {}
-    for n in (have if names is None else [x for x in names if x in have]):
+    for n in (have if names is None else [low[str(x).lower()] for x in names if str(x).lower() in low]):
         out[n] = _keys(a, n)
     return out
 
@@ -907,19 +915,25 @@ def _world():
     return unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
 
 
+def _guid(g) -> str:
+    """A Guid as text, comparable across calls. str() of an engine struct is "<Struct 'Guid' (0x<address>) {...}>",
+    and every get_editor_property returns a new wrapper at a new address, so str() never matched (day-1: pose)."""
+    return g.export_text()
+
+
 def _rig_on(seq, label: str, component: str = ""):
     """The (proxy, control rig, track) on `label`'s binding (or its component's) in `seq`, or None."""
     rigs = unreal.ControlRigSequencerLibrary.get_control_rigs(seq) or []
     try:  # the binding itself: display names collide when two characters each have a "Face"
         from .seq import _comp_binding
-        want = str(_comp_binding(seq, label, component, create=False).get_editor_property("binding_id"))
+        want = _guid(_comp_binding(seq, label, component, create=False).get_editor_property("binding_id"))
     except Exception:
         want = None
     ids = False
     if want:
         for p in rigs:
             try:
-                got = str(p.get_editor_property("proxy").get_editor_property("binding_id"))
+                got = _guid(p.get_editor_property("proxy").get_editor_property("binding_id"))
             except Exception:
                 continue
             ids = True

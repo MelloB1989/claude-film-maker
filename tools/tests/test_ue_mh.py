@@ -264,3 +264,49 @@ def test_body_mesh_from_the_build(mh):
     assert r["body"].endswith("SKM_Ava_Body") and r["face"].endswith("SKM_Ava_FaceMesh")
     e = err(run_op, "mh.body_mesh", bp="/Game/Nope/BP_X")
     assert e.code == "not_found"
+
+
+def test_groom_colour_before_any_build_assembles_once(mh):
+    """Day 1 (UE 5.8.4): an instance that has not been assembled has no instance parameters for any item, so
+    'the item in Hair has no parameter Melanin (mh.item_params lists them: )'. mh.groom assembles it first, once."""
+    ch = run_op("mh.add", path=P, preset="Ada")["path"]
+    hair = run_op("mh.wardrobe", kind="Hair")[0]
+    r = run_op("mh.groom", character=ch, slot="Hair", item=hair, melanin=0.95, redness=0.05)
+    assert r["params"]["Melanin"] == pytest.approx(0.95) and r["params"]["Redness"] == pytest.approx(0.05)
+    n = len([c for c in mh.calls if c[0] == "MetaHumanInstance.assemble"])
+    assert n == 1
+    run_op("mh.item_params", character=ch, slot="Hair")
+    run_op("mh.palette", character=ch)
+    assert len([c for c in mh.calls if c[0] == "MetaHumanInstance.assemble"]) == n  # same selection: no reassembly
+    brow = run_op("mh.wardrobe", kind="Eyebrows")[0]
+    r = run_op("mh.groom", character=ch, slot="Eyebrows", item=brow, params={"Whiteness": 0.3})
+    assert r["params"]["Whiteness"] == pytest.approx(0.3)
+
+
+def test_preview_converges_when_the_level_does_not_list_it(mh, monkeypatch):
+    """Day 1: the second mh.preview with the same label spawned another actor, because live the spawned preview is
+    not among EditorActorSubsystem.get_all_level_actors. mh.preview keeps the actor it spawned."""
+    from fmbridge.ops import _util
+    run_op("mh.add", path=P, preset="Ada")
+    assert run_op("mh.preview", path=P, label="Prev", loc=[0, -300, 0])["changed"] is True
+    monkeypatch.setattr(_util, "actors", lambda: [])
+    spawns = len([c for c in mh.calls if "spawn_meta_human_actor" in c[0]])
+    assert run_op("mh.preview", path=P, label="Prev", loc=[0, -200, 0])["changed"] is False
+    assert len([c for c in mh.calls if "spawn_meta_human_actor" in c[0]]) == spawns
+
+
+def test_groom_colour_waits_for_an_assembly_that_takes_ticks(mh, monkeypatch):
+    """Live, assemble(on_assembled) takes a MetaHumanCharacterAssembled delegate and may finish ticks later: mh.groom
+    returns a generator that waits for it, then sets the colour."""
+    from fakeunreal.ext_mh import MetaHumanInstance
+    monkeypatch.setattr(MetaHumanInstance, "ASYNC_POLLS", 3)
+    ops = __import__("fakeunreal").core.load_fmbridge()
+    run_op("mh.add", path=P, preset="Ada")
+    hair = run_op("mh.wardrobe", kind="Hair")[0]
+    res = ops.call("mh.groom", character=P, slot="Hair", item=hair, melanin=0.9)
+    import inspect
+    assert inspect.isgenerator(res)
+    r, ticks = drive(res)
+    assert r["params"]["Melanin"] == pytest.approx(0.9)
+    again = ops.call("mh.groom", character=P, slot="Hair", item=hair, melanin=0.9)
+    assert isinstance(again, dict) and again["changed"] is False  # assembled for this selection: no wait

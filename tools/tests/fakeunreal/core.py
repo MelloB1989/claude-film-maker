@@ -635,6 +635,9 @@ class Actor(Object):
     def get_path_name(self) -> str:
         return f"{_fake().world.get_path_name()}:PersistentLevel.{self._name}"
 
+    def is_actor_being_destroyed(self) -> bool:
+        return False
+
     def get_actor_label(self) -> str:
         return self._label
 
@@ -1318,6 +1321,10 @@ class SystemLibrary(Object):
         return _fake().engine_version
 
     @staticmethod
+    def get_game_name() -> str:
+        return "Fake"
+
+    @staticmethod
     def execute_console_command(world_context_object, command: str, specific_player=None):
         _fake().console.append(command)
 
@@ -1410,6 +1417,7 @@ class FakeUnreal(types.ModuleType):
         self._tick_callbacks: dict = {}
         self._next_handle = 1
         self._classes = dict(_EXPORTS)
+        self.absent: set = set()  # names this build's `unreal` lacks (a module Python never generated types for)
         os.makedirs(os.path.join(self.root, "Saved", "Logs"), exist_ok=True)
         os.makedirs(os.path.join(self.root, "Content"), exist_ok=True)
         for k, v in self._classes.items():
@@ -1418,7 +1426,7 @@ class FakeUnreal(types.ModuleType):
     # unknown names: CamelCase is a class (an Actor or Component subclass when its name says so), lower_case a
     # recorded function
     def __getattr__(self, name):
-        if name.startswith("__"):
+        if name.startswith("__") or name in self.absent:
             raise AttributeError(name)
         if name[:1].isupper():
             base = (Actor if name.endswith(("Actor", "Volume")) else SceneComponent if name.endswith("Component")

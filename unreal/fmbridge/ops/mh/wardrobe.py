@@ -4,6 +4,9 @@ instance; each selected item has instance parameters (a groom's melanin, redness
 garment's colours) that the build bakes in."""
 from __future__ import annotations
 
+import inspect
+import time
+
 import unreal
 
 from .. import op
@@ -88,16 +91,88 @@ def _selected(inst) -> dict:
     return out
 
 
-def _params(inst, sel) -> list:
+_ASSEMBLED = {}  # instance path -> the selection it was last assembled for
+_PENDING = {}    # instance path -> {"done", "result", "delegate"}: an assembly the engine has not finished yet
+ASSEMBLE_TIMEOUT_S = 300.0
+
+
+def _eager(gen):
+    """Run a multi-tick body as far as it goes without waiting: its result when it never yields (the instance was
+    assembled already, or the engine assembled it at once), else a generator for the bridge to drive across ticks."""
     try:
-        path = sel.get_selected_item_path()
-    except AttributeError:  # the ScriptMethod's static form
-        path = unreal.MetaHumanPipelineSlotSelectionBlueprintLibrary.get_selected_item_path(sel)
+        first = next(gen)
+    except StopIteration as e:
+        return e.value
+
+    def rest():
+        yield first
+        return (yield from gen)
+    return rest()
+
+
+def _assemble(inst):
+    """Assemble the instance, once per selection (a generator: it yields while the engine works). Live (UE 5.8.4,
+    day 1) no item has instance parameters before (get_instance_parameter_item_paths() == []), so a groom's Melanin
+    cannot be read or set until this. `assemble(on_assembled)` takes a MetaHumanCharacterAssembled delegate.
+    Returns False when it was already assembled for this selection (an item without parameters stays so)."""
+    key = inst.get_path_name()
+    sig = tuple(sorted((s, _key_name(x.get_editor_property("selected_item"))) for s, x in _selected(inst).items()))
+    if _ASSEMBLED.get(key) == sig and inst.is_assembled() and key not in _PENDING:
+        return False
+    st = _PENDING.get(key)
+    if st is None or st.get("sig") != sig:
+        st = {"done": False, "result": None, "sig": sig}
+
+        def on_assembled(result):  # live: exactly one argument (the assembly result), *args is refused
+            st["done"], st["result"] = True, result
+        d = unreal.MetaHumanCharacterAssembled()
+        d.bind_callable(on_assembled)
+        st["delegate"] = d  # keep the delegate (and its callable) alive until the engine calls it
+        _PENDING[key] = st
+        inst.assemble(d)
+    t0 = time.time()
+    while not st["done"]:
+        inst.is_assembled()
+        if st["done"]:
+            break
+        if time.time() - t0 > ASSEMBLE_TIMEOUT_S:
+            _PENDING.pop(key, None)
+            raise OpError(f"{key}: the MetaHuman assembly did not finish in {ASSEMBLE_TIMEOUT_S:.0f} s", code="timeout",
+                          hint="editor log LogMetaHuman*; run the op again")
+        yield 0.1
+    _PENDING.pop(key, None)
+    _ASSEMBLED[key] = sig
+    return True
+
+
+def _read_params(inst, path) -> list:
     try:
         got = inst.get_instance_parameters(path)  # ScriptMethod "GetInstanceParameters"
     except AttributeError:
         got = unreal.MetaHumanCharacterInstanceBlueprintLibrary.get_instance_parameters_for_item(inst, path)
     return list(got or [])
+
+
+def _sel_path(sel):
+    try:
+        return sel.get_selected_item_path()
+    except AttributeError:  # the ScriptMethod's static form
+        return unreal.MetaHumanPipelineSlotSelectionBlueprintLibrary.get_selected_item_path(sel)
+
+
+def _params(inst, sel) -> list:
+    """The selected item's instance parameters as they are now (empty before the instance is assembled)."""
+    return _read_params(inst, _sel_path(sel))
+
+
+def _params_assembled(inst, sel):
+    """The selected item's instance parameters, assembling the instance first when they are not there yet
+    (a generator: `got = yield from _params_assembled(...)`)."""
+    got = _params(inst, sel)
+    if not got and not _is_null(sel.get_editor_property("selected_item")):
+        if (yield from _assemble(inst)):
+            got = _params(inst, sel)
+    return got
 
 
 def _param_value(p):
@@ -153,7 +228,11 @@ def selections(c, params: bool = True) -> dict:
         except Exception:
             pass
         if params:
-            e["params"] = {str(p.get_editor_property("name")): _param_value(p) for p in _params(inst, sel)}
+            got = _eager(_params_assembled(inst, sel))
+            if inspect.isgenerator(got):  # the engine assembles across ticks: what is there now (often nothing)
+                got.close()
+                got = _params(inst, sel)
+            e["params"] = {str(p.get_editor_property("name")): _param_value(p) for p in got}
         out[slot] = e
     return out
 
@@ -206,6 +285,10 @@ def add_item(character: str, item: str, slot: str = "", *, params: dict | None =
     Returns: {"slot", "item", "display", "changed", "params"}. Rebuild (mh.build) to see it on the Blueprint.
     Example: film-ue op mh.add_item character=/Game/Characters/Ava/MH_Ava item=WI_Hair_L_Straight 'params={"Melanin": 1.0}'
     """
+    return _eager(_add_item(character, item, slot, params, save))
+
+
+def _add_item(character, item, slot, params, save):
     c = K.char(character)
     coll = _coll(c)
     item = _item_path(item)
@@ -223,7 +306,7 @@ def add_item(character: str, item: str, slot: str = "", *, params: dict | None =
     except Exception:
         pass
     if params:
-        r = _apply_params(inst, slot, params)
+        r = yield from _apply_params(inst, slot, params)
         out["params"], out["changed"] = r["params"], out["changed"] or r["changed"]
     if out["changed"] and save:
         K.save(character)
@@ -248,11 +331,12 @@ def clear_slot(character: str, slot: str, *, save: bool = True) -> dict:
     return {"slot": slot, "changed": changed}
 
 
-def _apply_params(inst, slot: str, params: dict) -> dict:
+def _apply_params(inst, slot: str, params: dict):
+    """Set the worn item's parameters (a generator: it assembles the instance first when they are not there yet)."""
     sel = _selected(inst).get(slot)
     if sel is None or _is_null(sel.get_editor_property("selected_item")):
         raise OpError(f"nothing is worn in slot {slot}", code="conflict", hint="wear an item first with mh.add_item")
-    have = {_pkey(p.get_editor_property("name")): p for p in _params(inst, sel)}
+    have = {_pkey(p.get_editor_property("name")): p for p in (yield from _params_assembled(inst, sel))}
     changed = False
     for name, value in params.items():
         p = have.get(_pkey(name))
@@ -286,12 +370,18 @@ def item_params(*, character: str, slot: str) -> dict:
     Returns: {"slot", "item", "params": {name: value}}.
     Example: film-ue op mh.item_params character=/Game/Characters/Ava/MH_Ava slot=Hair
     """
+    return _eager(_item_params(character, slot))
+
+
+def _item_params(character, slot):
     c = K.char(character)
-    s = selections(c).get(slot)
+    s = selections(c, False).get(slot)
     if s is None:
         raise OpError(f"nothing is worn in slot {slot}", code="not_found",
                       candidates=[k for k, v in selections(c, False).items() if v], hint="mh.palette shows the slots")
-    return {"slot": slot, "item": s["item"], "params": s.get("params", {})}
+    inst = _inst(_coll(c))
+    got = yield from _params_assembled(inst, _selected(inst)[slot])
+    return {"slot": slot, "item": s["item"], "params": {str(p.get_editor_property("name")): _param_value(p) for p in got}}
 
 
 @op("mh.item_set", mutates=True, idempotent=True, tags=["metahuman"])
@@ -302,8 +392,12 @@ def item_set(*, character: str, slot: str, params: dict, save: bool = True) -> d
     Returns: {"slot", "changed", "params"}.
     Example: film-ue op mh.item_set character=/Game/Characters/Ava/MH_Ava slot=Hair 'params={"Melanin": 1.0, "Redness": 0.05}'
     """
+    return _eager(_item_set(character, slot, params, save))
+
+
+def _item_set(character, slot, params, save):
     c = K.char(character)
-    r = _apply_params(_inst(_coll(c)), slot, params)
+    r = yield from _apply_params(_inst(_coll(c)), slot, params)
     if r["changed"] and save:
         K.save(character)
     return {"slot": slot, **r}
@@ -331,5 +425,17 @@ def groom(*, character: str, slot: str, item: str = "", melanin: float = None, r
         p["Redness"] = redness
     if item:
         return add_item(character, item, slot, params=p or None, save=save)
-    r = item_set(character=character, slot=slot, params=p, save=save) if p else {"changed": False}
-    return {"slot": slot, "item": item_params(character=character, slot=slot)["item"], **r}
+    return _eager(_groom_keep(character, slot, p, save))
+
+
+def _run(res):
+    """An op's result, driving it across ticks when it is a generator (`r = yield from _run(op(...))`)."""
+    if inspect.isgenerator(res):
+        return (yield from res)
+    return res
+
+
+def _groom_keep(character, slot, p, save):
+    r = (yield from _run(item_set(character=character, slot=slot, params=p, save=save))) if p else {"changed": False}
+    ip = yield from _run(item_params(character=character, slot=slot))
+    return {"slot": slot, "item": ip["item"], **r}

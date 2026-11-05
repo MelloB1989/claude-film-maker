@@ -16,7 +16,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve()
 ROOT = HERE.parents[2]
-BLENDER = os.environ.get("BLENDER") or shutil.which("blender") or "/home/nikhil/code/film-making/bin/blender"
+# Blender runs only when asked for by path (BLENDER=/path/to/blender), never found on its own: no test starts it on a
+# machine that merely has one
+BLENDER = os.environ.get("BLENDER", "")
 
 
 def inside_blender(out):
@@ -72,8 +74,10 @@ if "bpy" in sys.modules:
 else:
     def test_alpha_zero_colour_does_not_tint():
         import pytest
+        if not BLENDER:
+            pytest.skip("set BLENDER=/path/to/blender to run the Blender check")
         if not (Path(BLENDER).exists() or shutil.which(BLENDER)):
-            pytest.skip("no blender")
+            pytest.skip(f"BLENDER={BLENDER} is not there")
         import numpy as np
         tmp = Path(tempfile.mkdtemp())
         r = subprocess.run([BLENDER, "-b", "--factory-startup", "-P", str(HERE), "--", str(tmp / "o.npy")],
