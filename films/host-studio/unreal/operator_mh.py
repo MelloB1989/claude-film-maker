@@ -8,6 +8,22 @@ Stages: inspect (read-only), ingest, identity, conform, character. PRIVATE: the 
 outside Content); its assets live under /Game/Host/OperatorCapture and are never pushed, rendered for review or
 logged. Only Epic's cloud (rig, textures) sees the face, through the MetaHuman services.
 """
+# STATUS (round 3, 2026-11-05, UE 5.8.4 Linux on the GPU box) - read before round 4
+# Works: inspect; ingest (CD_MySlate_3 + IS_V_/IS_D_ sequences + CC_ calibration; 1508 video frames at 60 fps, 755
+#   depth at 30). Needs Capture Manager's third-party encoder: CaptureManagerEditorSettings enable_third_party_encoder
+#   = True and third_party_encoder = FilePath(ffmpeg >= 5.1: the engine passes -fps_mode; the box's apt 4.4 fails,
+#   the static 8.1 at /srv/ue/tools/ffmpeg works). Frames land in ~/.config/Epic/CaptureManager/Media (private).
+# Fails: identity. The pose takes the footage (capture valid, camera "Video", config "iPhone 13", default tracker
+#   GenericFaceContourTracker, can_track true), promoted frames are added (add_new_promoted_frame, frame_number set),
+#   start_frame_tracking_pipeline(pixels, 720, 1280, depth exr, pose, frame, False) returns, but the frames never get
+#   contours (frame_contours_contain_active_data false, also in a later exec and after the tracker's NNE models were
+#   warmed through the Creator's track_face_landmarks_from_image, which does find the face); conform -> DEPTH_INPUT.
+#   Log: only 'Detected mismatch in image media frame rates ... exclude some frames' (expected: 60 vs 30; even frames
+#   are paired). Lead: the frames' contour data is not initialised for the capture config in a scripted promote (the
+#   toolkit does it on promote); look for the call in unreal.PromotedFrameUtils and Epic's MetaHuman Python samples
+#   (Engine/Plugins/MetaHuman*/**/Python). MetaHumanContourData has no Python-visible fields.
+# Not viable: the no-depth route (the Creator's ConformTargetParams wants a target head mesh + 2D curves from a known
+#   camera, i.e. a head mesh built from the depth by hand). Untested: the teeth pose (needs the solved identity).
 import json
 import os
 
