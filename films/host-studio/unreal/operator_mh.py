@@ -16,6 +16,7 @@ import unreal
 STAGE = globals().get("STAGE", "inspect")
 TAKE_DIR = "/srv/ue/projects/HostStudio/Capture/operator-face/MySlate_3"
 CAPTURE_FOLDER = "/Game/Host/OperatorCapture"
+FOOTAGE = CAPTURE_FOLDER + "/CD_MySlate_3"  # what the ingest made (day 3: 1508 video frames at 60 fps, 755 depth at 30)
 IDENTITY = CAPTURE_FOLDER + "/MHI_Operator"
 CHARACTER = "/Game/Host/Host_Op"
 # promoted frames (60 fps take): neutral front ~1 s, turned left ~6 s, turned right ~11.5 s; teeth ~16 s
@@ -53,7 +54,7 @@ def plain(v):
 
 
 def footage():
-    a = EAL.load_asset(R.get("footage_path") or _find_footage())
+    a = EAL.load_asset(FOOTAGE) if EAL.does_asset_exist(FOOTAGE) else EAL.load_asset(_find_footage())
     if a is None:
         raise RuntimeError("no FootageCaptureData under " + CAPTURE_FOLDER + ": run STAGE=ingest")
     return a
