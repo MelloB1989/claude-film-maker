@@ -28,14 +28,16 @@ w = L.actor("HerWatch")
 w.detach_from_actor(keep, keep, keep)
 a_, b_ = body_.get_socket_location("lowerarm_twist_02_l"), body_.get_socket_location("hand_l")
 fwd = (b_ - a_).normal()
-o = body_.get_socket_location("wrist_outer_l") - body_.get_socket_location("wrist_inner_l")
-up = (o - fwd * o.dot(fwd)).normal()
+across = body_.get_socket_location("index_metacarpal_l") - body_.get_socket_location("pinky_metacarpal_l")
+across = (across - fwd * across.dot(fwd)).normal()
+up = fwd.cross(across).normal()  # the back of the wrist (as studio.py; not wrist_outer - wrist_inner: the side)
 at = b_ - fwd * 3.6
 w.set_actor_location(at, False, False)
 out["HerWatch_ok"] = w.attach_to_component(body_, "lowerarm_twist_02_l", rule, rule, rule, False)
 w.set_actor_rotation(unreal.MathLibrary.make_rot_from_yz(fwd, up), False)  # once attached, as studio.py
 out["HerWatch_axes"] = {"y.forearm": round(w.get_actor_right_vector().dot(fwd), 2),
-                        "z.back_of_wrist": round(w.get_actor_up_vector().dot(up), 2)}
+                        "z.back_of_wrist": round(w.get_actor_up_vector().dot(up), 2),
+                        "z.thumb_side": round(w.get_actor_up_vector().dot(across), 2)}
 for lab, comp, bone in (("HerEarL", face, "FACIAL_L_Ear4"), ("HerEarR", face, "FACIAL_R_Ear4"),
                         ("HerWatch", body_, "lowerarm_twist_02_l")):
     a = L.actor(lab)

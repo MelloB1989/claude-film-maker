@@ -796,7 +796,17 @@ def arrays_object(name, X_cm, faces, mats=(), mat_idx=None):
     return ob
 
 
-def snapshot(path, objs_colors, views=(("front", (0, 1, 0)), ("side", (-1, 0, 0)), ("back", (0, -1, 0)),
+def snapshot(*a, **kw):
+    """A render of the garment (Workbench); on a box with no OpenGL the build goes on without it, and says so."""
+    if "--no-render" in sys.argv:
+        return
+    try:
+        _snapshot(*a, **kw)
+    except Exception as e:  # noqa: BLE001 (renders are a check, not the product)
+        log(f"snapshot {os.path.basename(a[0])} skipped: {type(e).__name__}: {e}")
+
+
+def _snapshot(path, objs_colors, views=(("front", (0, 1, 0)), ("side", (-1, 0, 0)), ("back", (0, -1, 0)),
                                          ("q", (0.6, 1, -0.25))), centre=(0, 0, 1.12), dist=3.2, ortho=1.15,
              res=(900, 1100)):
     """Quick workbench renders of the listed objects (object colour), for checking the fit."""
