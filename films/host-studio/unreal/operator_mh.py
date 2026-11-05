@@ -21,6 +21,10 @@ CHARACTER = "/Game/Host/Host_Op"
 # promoted frames (60 fps take): neutral front ~1 s, turned left ~6 s, turned right ~11.5 s; teeth ~16 s
 FRAMES = {"front": 60, "left": 360, "right": 690}
 TEETH_FRAME = 960
+# his body (keep in step with films/host-studio/bodies.py "op")
+BODY = {"Height": 180, "Across Shoulder": 45, "Front Interscye Length": 40, "Chest": 100, "Underbust": None,
+        "Waist": 79, "High Hip": 85, "Hip": 95, "Neck Base": 40, "Neck": 38, "Bicep": 31.5, "Forearm": 27.5,
+        "Thigh": 54, "Knee": 37, "Calf": 36.5, "Fat": -1.4, "Muscularity": 0.7, "Masculine/Feminine": -1.5}
 
 R = {"stage": STAGE}
 EAL = unreal.EditorAssetLibrary
@@ -56,11 +60,68 @@ def footage():
 
 
 def _find_footage():
-    for p in EAL.list_assets(CAPTURE_FOLDER, True, False):
-        a = EAL.find_asset_data(p)
-        if str(a.asset_class_path.asset_name) == "FootageCaptureData":
-            return p.split(".")[0]
-    return ""
+    """The ingested take: the FootageCaptureData named after the slate, wherever the ingest put it."""
+    reg = unreal.AssetRegistryHelpers.get_asset_registry()
+    hits = [str(a.package_name) for a in reg.get_assets_by_class(unreal.TopLevelAssetPath("/Script/CaptureDataCore",
+                                                                                            "FootageCaptureData"))
+            if "MySlate_3" in str(a.asset_name)]
+    return sorted(hits)[-1] if hits else ""
+
+
+def abs_dir(p: str) -> str:
+    p = p.replace("{project_dir}", unreal.Paths.project_dir()).replace("{engine_dir}", unreal.Paths.engine_dir())
+    return os.path.normpath(p if os.path.isabs(p) else os.path.join(unreal.Paths.project_dir(), p))
+
+
+def frames(seq) -> list:
+    d = abs_dir(seq.get_sequence_path() if hasattr(seq, "get_sequence_path") else str(seq))
+    return [os.path.join(d, f) for f in sorted(os.listdir(d)) if not f.startswith(".")]
+
+
+def png_rgba(path: str):
+    """(width, height, [unreal.Color]) of an 8-bit RGB/RGBA PNG, decoded with the standard library (no PIL in the
+    editor's Python). Only what the ingest writes (8-bit, non-interlaced)."""
+    import struct
+    import zlib
+    with open(path, "rb") as f:
+        data = f.read()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n", path
+    i, idat, w = 8, [], 0
+    while i < len(data):
+        n, typ = struct.unpack(">I4s", data[i:i + 8])
+        body = data[i + 8:i + 8 + n]
+        if typ == b"IHDR":
+            w, h, depth, ctype, _, _, inter = struct.unpack(">IIBBBBB", body)
+            assert depth == 8 and inter == 0 and ctype in (2, 6), (depth, ctype, inter)
+            bpp = 4 if ctype == 6 else 3
+        elif typ == b"IDAT":
+            idat.append(body)
+        i += 12 + n
+    raw = zlib.decompress(b"".join(idat))
+    stride = w * bpp
+    out = bytearray(h * stride)
+    prev = bytearray(stride)
+    for y in range(h):
+        ft = raw[y * (stride + 1)]
+        line = bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for x in range(stride):
+            a = line[x - bpp] if x >= bpp else 0
+            b = prev[x]
+            c = prev[x - bpp] if x >= bpp else 0
+            if ft == 1:
+                line[x] = (line[x] + a) & 255
+            elif ft == 2:
+                line[x] = (line[x] + b) & 255
+            elif ft == 3:
+                line[x] = (line[x] + ((a + b) >> 1)) & 255
+            elif ft == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                line[x] = (line[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        out[y * stride:(y + 1) * stride] = line
+        prev = line
+    cols = [unreal.Color(r=out[k], g=out[k + 1], b=out[k + 2], a=out[k + 3] if bpp == 4 else 255)
+            for k in range(0, len(out), bpp)]
+    return w, h, cols
 
 
 if STAGE == "inspect":
@@ -114,6 +175,64 @@ elif STAGE == "ingest":
                                + fcd.get_editor_property("depth_sequences")])
         t("frames_on_disk", lambda: [len(os.listdir(p)) if os.path.isdir(p) else p for p in R["seq_dirs"]])
         EAL.save_loaded_asset(fcd)
+
+elif STAGE == "identity":
+    # an Identity from the footage: the neutral pose on the take, promoted frames front/left/right, each tracked
+    # (contours from the frame's pixels + its depth map), then the identity solve (conform) - all in the editor, local
+    fcd = footage()
+    R["footage_path"] = fcd.get_path_name().split(".")[0]
+    tools = unreal.AssetToolsHelpers.get_asset_tools()
+    ident = EAL.load_asset(IDENTITY) if EAL.does_asset_exist(IDENTITY) else tools.create_asset(
+        IDENTITY.rsplit("/", 1)[1], CAPTURE_FOLDER, unreal.MetaHumanIdentity, unreal.MetaHumanIdentityFactoryNew())
+    face = ident.get_or_create_part_of_class(unreal.MetaHumanIdentityFace)
+    pose = face.find_pose_by_type(unreal.IdentityPoseType.NEUTRAL)
+    if pose is None:
+        pose = unreal.new_object(unreal.MetaHumanIdentityPose, outer=face)
+        pose.set_editor_property("pose_type", unreal.IdentityPoseType.NEUTRAL)
+        face.add_pose_of_type(unreal.IdentityPoseType.NEUTRAL, pose)
+        pose = face.find_pose_by_type(unreal.IdentityPoseType.NEUTRAL)
+    pose.set_capture_data(fcd)
+    pose.load_default_tracker()
+    t("capture_valid", lambda: pose.is_capture_data_valid())
+    imgs = frames(fcd.get_editor_property("image_sequences")[0])
+    deps = frames(fcd.get_editor_property("depth_sequences")[0])
+    R["n_images"], R["n_depth"] = len(imgs), len(deps)
+    ident.set_blocking_processing(True)
+    have = {int(f.get_editor_property("frame_number")) for f in pose.get_editor_property("promoted_frames")}
+    R["tracked"] = {}
+    for name, n in FRAMES.items():
+        if n in have:
+            continue
+        pf, idx = pose.add_new_promoted_frame()
+        pf.set_editor_property("frame_number", n)
+        pf.set_editor_property("frame_name", name)
+        pf.set_editor_property("is_front_view", name == "front")
+        w, h, cols = png_rgba(imgs[n])
+        dn = min(len(deps) - 1, round(n * len(deps) / len(imgs)))
+        ident.start_frame_tracking_pipeline(cols, w, h, deps[dn], pose, pf, False)
+        R["tracked"][name] = {"frame": n, "depth_frame": dn, "size": [w, h],
+                              "contours": pf.frame_contours_contain_active_data()}
+    t("conform", lambda: str(face.conform(unreal.ConformType.SOLVE)))
+    t("is_conformed", lambda: face.get_editor_property("is_conformed"))
+    EAL.save_loaded_asset(ident)
+    R["identity"] = IDENTITY
+
+elif STAGE == "character":
+    # the character: blank, its face fitted to the identity's conformed mesh (metric scale, eyes), then his body
+    # (bodies.py "op": 180 cm, fit) by the parametric constraints. The cloud rig/textures/build follow (bodies.py).
+    from fmbridge.ops import call
+    from fmbridge.ops.mh import _core as K
+    R["add"] = plain(call("mh.add", path=CHARACTER, blank=True))
+    c = K.char(CHARACTER)
+    ident = EAL.load_asset(IDENTITY)
+    prm = unreal.ImportFromIdentityParams()
+    prm.set_editor_property("use_eye_meshes", True)
+    prm.set_editor_property("use_metric_scale", True)
+    prm.set_editor_property("use_teeth_mesh", False)  # no teeth pose solved yet
+    R["import"] = str(K.sub().import_from_identity(c, ident, prm))
+    R["body"] = plain(call("mh.body", character=CHARACTER, measurements=BODY))
+    K.save(CHARACTER)
+    R["character"] = CHARACTER
 
 R["done"] = True
 result = R
