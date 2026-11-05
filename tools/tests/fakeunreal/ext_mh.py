@@ -236,12 +236,27 @@ class InstanceParameter(FakeStruct):
         return self._set("COLOR", v)
 
 
+class Assembled:
+    """unreal.MetaHumanCharacterAssembled: the dynamic delegate MetaHumanInstance.assemble calls when done."""
+
+    def __init__(self):
+        self._fns = []
+
+    def bind_callable(self, fn):
+        self._fns = [fn]
+
+    def _fire(self):
+        for f in self._fns:
+            f()
+
+
 class MetaHumanInstance(core.Object):
     def __init__(self, name=None, outer=None, **props):
         super().__init__(name, outer, **props)
         object.__setattr__(self, "_sel", {})       # slot -> key name
         object.__setattr__(self, "_params", {})    # key name -> {param: value}
         object.__setattr__(self, "_assembled", False)  # live: no item has instance parameters until assembled
+        object.__setattr__(self, "_pending", None)     # (delegate, polls left) of an assembly not done yet
 
     def get_slot_selection_data(self):
         return [SlotSelectionData(selection=SlotSelection(slot_name=s, selected_item=PaletteKey(name=k)))
@@ -253,11 +268,30 @@ class MetaHumanInstance(core.Object):
         object.__setattr__(self, "_assembled", False)  # a new selection needs a new assembly for its parameters
 
     def is_assembled(self):
+        pend = getattr(self, "_pending", None)
+        if pend:
+            d, n = pend
+            object.__setattr__(self, "_pending", (d, n - 1))
+            if n - 1 <= 0:
+                self._finish()
         return self._assembled
 
-    def assemble(self, *args):
-        core._fake().calls.append(("MetaHumanInstance.assemble", args, {}))
+    ASYNC_POLLS = 0  # >0: the assembly finishes only after that many is_assembled() polls (live it may take ticks)
+
+    def assemble(self, on_assembled):
+        """x.assemble(on_assembled) -> None (live 5.8.4 doc): the delegate is called when the assembly is done."""
+        core._fake().calls.append(("MetaHumanInstance.assemble", (on_assembled,), {}))
+        if not isinstance(on_assembled, Assembled):
+            raise TypeError("assemble() required argument 'on_assembled' (pos 1) not found")
+        object.__setattr__(self, "_pending", (on_assembled, self.ASYNC_POLLS))
+        if not self.ASYNC_POLLS:
+            self._finish()
+
+    def _finish(self):
+        d, _ = self._pending
+        object.__setattr__(self, "_pending", None)
         object.__setattr__(self, "_assembled", True)
+        d._fire()
 
     def get_instance_parameter_item_paths(self):
         if not self._assembled:
@@ -505,6 +539,7 @@ def install(fake):
     fake.MetaHumanCharacterTextureRequestParams = TexParams
     fake.MetaHumanCharacterEditorBuildParameters = BuildParams
     fake.MetaHumanPaletteItemKey = PaletteKey
+    fake.MetaHumanCharacterAssembled = Assembled
     fake.MetaHumanCharacter = MetaHumanCharacter
     fake.MetaHumanCharacterEditorSubsystem = MetaHumanCharacterEditorSubsystem
     fake.MetaHumanCollection = MetaHumanCollection

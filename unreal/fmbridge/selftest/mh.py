@@ -10,6 +10,7 @@ pose (checked on the bones), a prop riding a bone, the clipping check, stills. T
 with it. Needs: the MetaHuman Creator core data (presets); GPU for the stills; the Epic sign-in for part 2
 (film-ue epic-login once per box).
 """
+import inspect
 from __future__ import annotations
 
 AREAS = ["mh"]
@@ -91,11 +92,15 @@ def run(t):
         core = lambda n: n.rsplit("/", 1)[-1].lower().removeprefix("wi_").removesuffix("_binding")
         hair = [h for h in hair if core(h) != core(worn)] + [h for h in hair if core(h) == core(worn)]
         r = t.op("mh.groom", character=ch, slot="Hair", item=hair[0], melanin=0.95, redness=0.05)
+        if inspect.isgenerator(r):  # the instance is assembling (live it may take ticks)
+            r = yield from r
         t.ok("hair worn", r["changed"], detail=str(r))
         t.check("hair colour set", [r["params"]["Melanin"], r["params"]["Redness"]], [0.95, 0.05], tol=1e-3)
         t.idempotent("the same groom again changes nothing (no second palette entry)", "mh.groom", character=ch,
                      slot="Hair", item=hair[0], melanin=0.95, redness=0.05)
         ip = t.op("mh.item_params", character=ch, slot="Hair")
+        if inspect.isgenerator(ip):
+            ip = yield from ip
         t.ok("groom parameters listed", "Melanin" in ip["params"], detail=str(sorted(ip["params"])))
         t.raises("a misspelt parameter suggests", "mh.item_set", code="bad_args", character=ch, slot="Hair",
                  params={"Melanine": 0.5})

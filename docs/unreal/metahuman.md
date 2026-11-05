@@ -233,8 +233,8 @@ Example: `examples/unreal/cast/cafe-extras.yaml`.
   `mh.import_garment` checks the bounds and `mh.dress` checks the root scale.
 - **Item parameters exist only after assembly** (day 1, live). An instance that has not been assembled has no instance
   parameters for any item (`get_instance_parameter_item_paths() == []`), so a groom's Melanin or a brow's Whiteness
-  cannot be read or set yet. `mh.groom`/`mh.item_set`/`mh.item_params` assemble the instance first (`instance.assemble()`,
-  once per selection). A preset already wears a groom: wearing that groom again reports `changed: false`.
+  cannot be read or set yet. `mh.groom`/`mh.item_set`/`mh.item_params` assemble the instance first (`instance.assemble(d)`,
+  once per selection, waiting across ticks for its `on_assembled` delegate). A preset already wears a groom: wearing that groom again reports `changed: false`.
 - **The preview actor is not a level actor** (day 1, live). `spawn_meta_human_actor` gives an actor that
   `get_all_level_actors` does not list, so `mh.preview` keeps the actor it spawned per label.
 - **Leader pose must persist.** Changing any instance component of a Blueprint actor reruns its construction script,
@@ -318,7 +318,7 @@ reflected names. Every row was read in the header/source (✓).
 | instance `set_single_slot_selection(slot, key)`, `get_slot_selection_data()` -> `.selection` (`slot_name`, `selected_item`) | UMetaHumanInstance | MetaHumanCharacterPalette/Public/MetaHumanInstance.h:220, 263; MetaHumanPipelineSlotSelection.h:53-56 | ✓ |
 | `selection.get_selected_item_path()`, `key.to_asset_name_string()`, `key.is_null()`, `unreal.MetaHumanPaletteItemKey()`, `unreal.MetaHumanPaletteKeyBlueprintLibrary` | ScriptMethods | Lib:45, 51, 235 | ✓ |
 | `instance.get_instance_parameters(path)`; param `get_float/set_float/get_bool/set_bool/get_color/set_color/get_name/set_name/get_string/set_string`; `type` | FMetaHumanCharacterInstanceParameter | Lib:146-174, 334 | ✓ |
-| `instance.assemble()`, `is_assembled()`, `get_instance_parameter_item_paths()`, `try_get_instance_parameter` | UMetaHumanInstance | live `dir()` on 5.8.4 (agent-13's probe, day 1) | live |
+| `instance.assemble(on_assembled)` with `unreal.MetaHumanCharacterAssembled()` (`bind_callable`), `is_assembled()`, `get_instance_parameter_item_paths()`, `try_get_instance_parameter` | UMetaHumanInstance; the assembly delegate | live `dir()` and `__doc__` on 5.8.4 (agent-13's and agent-07's probes, day 1) | live |
 | groom instance parameters `Melanin`, `Redness`, `Roughness`, `Whiteness`, `Lightness`, `DyeColor`, `bUseOmbre`, `OmbreU`, ... | UMetaHumanDefaultGroomPipelineMaterialParameters (property names = parameter names) | MetaHumanDefaultPipeline/Public/Item/MetaHumanDefaultGroomPipeline.h:26-101; impl AddRuntimeParameter .cpp:53 | ✓ |
 | cloud log lines read by `mh.rig`/`mh.textures` | "Auto-Rigging finished in", "Auto-Rigging of Face failed with code", "Download of source face/body textures finished/failed", "User not logged in, please autorig" | MetaHumanCharacterEditor/Private/MetaHumanCharacterEditorSubsystem.cpp:3488, 3509, 3549, 4194, 4214, 4218, 4310, 4330, 4334 | ✓ |
 | exchange-code CVar `MetaHuman.Cloud.Config.ExchangeCode`; `-NoMetaHumanAccountPortalLoginFallback` | MetaHumanCloudAuthentication | MetaHuman/MetaHumanSDK/Source/MetaHumanSDKEditor/Private/Cloud/MetaHumanCloudAuthentication.cpp:262, 315-353 | ✓ |
