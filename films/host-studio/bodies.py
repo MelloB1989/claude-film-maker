@@ -48,7 +48,8 @@ def main() -> None:
         print(who, json.dumps(ok(client.op("mh.body", character=char, measurements=m))))
         if a.no_build:
             continue
-        for step, args in (("mh.rig", {"character": char}), ("mh.build", {"character": char, "name": name})):
+        for step, args in (("mh.rig", {"character": char}), ("mh.textures", {"character": char}),
+                           ("mh.build", {"character": char, "name": name})):
             t0 = time.time()
             print(step, ok(client.op(step, timeout=3600, **args)), f"{time.time() - t0:.0f}s")
 
