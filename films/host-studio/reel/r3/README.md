@@ -21,6 +21,17 @@ job in `_render/<name>.report.json` (time per frame, VRAM peak, missing frames),
 The frames stay on the box: QA, contact sheets, crops, encodes and the cut run there (ffmpeg/python on the box);
 only small things come down (sheets, crops, the final MP4s). No bulk frame pulls to kali (home line, AWS egress).
 
+## Keeping them: box -> S3 before the box ends (22:30 UTC)
+
+The presenter shots show the operator's MetaHuman, so every round-3 frame is kept only under the private prefix,
+written from the box (its role; SSE-KMS), never to kali:
+
+    aws s3 sync /srv/ue/reel/r3/final s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/final/
+    aws s3 sync /srv/ue/reel/r3/cal_A s3://rf-render-788655295054-aps1/ue-linux/private/renders/r3/cal_A/   # and cal_B
+
+agent-07 runs it once the last final is in (and again after any re-render); the previews are not kept. The `_render/`
+reports go with the frames (they hold the settings and the timings).
+
 ## Settings (and why)
 
 - `preset: final`: 8 temporal samples (motion blur through the cameras' shutter, the sub-frame motion that keeps the
