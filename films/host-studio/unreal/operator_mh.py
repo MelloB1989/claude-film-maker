@@ -75,6 +75,26 @@ if STAGE == "inspect":
     t("img_media_methods", lambda: [n for n in dir(unreal.ImgMediaSource) if "path" in n or "sequence" in n])
 
 elif STAGE == "ingest":
+    # Linux UE cannot decode the iPhone's H.264/AAC .mov itself (day 3: 'Video file format is unsupported ... Consider
+    # enabling Third Party Encoder in Capture Manager settings'): point Capture Manager at the box's ffmpeg
+    import shutil
+    ffmpeg = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
+    st = unreal.get_default_object(unreal.CaptureManagerEditorSettings)
+    R["settings_props"] = props(unreal.CaptureManagerEditorSettings, 3000)
+    for k in [ln.split("``")[1] for ln in R["settings_props"].splitlines() if ln.startswith("- ``")]:
+        low, v = k.lower(), None
+        try:
+            cur = st.get_editor_property(k)
+        except Exception:
+            continue
+        if isinstance(cur, bool) and ("third" in low or "encoder" in low):
+            v = True
+        elif ("encoder" in low or "ffmpeg" in low) and ("path" in low or "binary" in low or "executable" in low):
+            v = ffmpeg if isinstance(cur, str) else unreal.FilePath(file_path=ffmpeg)
+        if v is not None:
+            st.set_editor_property(k, v)
+            R.setdefault("settings_set", {})[k] = str(v)
+    t("settings_saved", lambda: (st.save_config(), True)[1])
     params = unreal.CaptureManagerConversionParams()
     R["params_before"] = plain(params.to_dict()) if hasattr(params, "to_dict") else str(params)
     for k in list(R["params_before"]) if isinstance(R["params_before"], dict) else []:
