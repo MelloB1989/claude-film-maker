@@ -64,7 +64,7 @@ Branches:
 6. 1080p finals of every shot at pick C into a fresh dir:
    - ~1560 frames at 2.6 s/frame is ~70 min;
    - set shots first.
-7. agent-06's cuts on the box:
+7. agent-06's cuts on the box, per `r3/CUT.md`. First rebuild cues.json on the new box (vo.py cues), then `cut.sh check`:
    - `R3_FINAL=<dir> R3_CUT=/srv/ue/reel/r3/cut/final films/host-studio/reel/r3/cut.sh final --fill-from none --cuts 65s`
    - then the same with `--cuts 45s`.
    - Anything with Host_Op goes ONLY to private/ via `film-ue sync dir up`.
