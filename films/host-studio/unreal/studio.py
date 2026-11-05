@@ -31,6 +31,17 @@ NIGHT = MOOD == "night"
 # clear the old studio (its floor and walls too: the room is a prop now)
 L.delete([a[0] for a in L.actors() if a[0] not in KEEP])
 
+# who plays him (round 3): "trey" (the round-2 MetaHuman, the fallback) or "op" (the operator's MetaHuman, bodies.py
+# "op"); either way the actor is labelled "Host" on the same mark, so the lights, cameras and performance find it
+HOST = globals().get("HOST", os.environ.get("HOST_BODY", "trey"))
+HOST_BP = {"trey": "/Game/Host/Unpacked/Host/BP_Host",
+           "op": "/Game/Host/Unpacked/Host_Op/BP_Host_Op"}[HOST]
+_h = L.actor("Host") if any(a[0] == "Host" for a in L.actors()) else None
+if _h is None or not _h.get_class().get_path_name().startswith(HOST_BP + "."):
+    _loc, _yaw = ((_h.get_actor_location(), _h.get_actor_rotation().yaw) if _h is not None
+                  else (unreal.Vector(30, 40, 0), 0.0))
+    L.spawn("Host", asset=HOST_BP, loc=(_loc.x, _loc.y, _loc.z), rot_=_yaw, replace=True)
+
 
 # ------------------------------------------------------------------------------------------------- materials
 

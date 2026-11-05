@@ -25,7 +25,7 @@ BODIES = {
     # op (round 3): the operator's MetaHuman, replacing him in the Host role. 180 cm, fit: lean-athletic in a tee, NOT
     # bulky (the round-2 note on his over-built chest still says what to avoid): shoulders over the waist without a
     # pronounced V, a flat stomach, natural arms. The face comes from the operator's capture (identity), not from here.
-    "op": ("/Game/Host/Host_Op", "Host", {
+    "op": ("/Game/Host/Host_Op", "Host_Op", {  # its own BP (Unpacked/Host_Op): Trey's stays the fallback
         "Height": 180, "Across Shoulder": 45, "Front Interscye Length": 40, "Chest": 100, "Underbust": None,
         "Waist": 79, "High Hip": 85, "Hip": 95, "Neck Base": 40, "Neck": 38, "Bicep": 31.5, "Forearm": 27.5,
         "Thigh": 54, "Knee": 37, "Calf": 36.5, "Fat": -1.4, "Muscularity": 0.7, "Masculine/Feminine": -1.5}),
