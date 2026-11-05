@@ -138,6 +138,9 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 - **v2's Unreal assets on the box** (`/Game/Speech`, `/Game/Reel/Perf`): agent-07 checks. If they are missing,
   everything is re-solved (`speech.to_face` on Linux 5.8: proven by agent-07's check).
 - **4K**: only if the operator confirms.
+- **His hair, facial hair and brows (note 2)**: not known. Built with a PLACEHOLDER (short dark hair, stubble, medium
+  brows) that the operator should correct. The choices live in one place, `operator_mh.py` `GROOMS`, so a correction
+  is `STAGE='grooms'` plus one `mh.build` (about 95 s). Asked of the operator through the orchestrator.
 
 ## Log
 

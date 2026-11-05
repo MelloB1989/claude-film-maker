@@ -31,6 +31,23 @@ NIGHT = MOOD == "night"
 # clear the old studio (its floor and walls too: the room is a prop now)
 L.delete([a[0] for a in L.actors() if a[0] not in KEEP])
 
+# >>> host swap
+# who plays him (round 3): "trey" (the round-2 MetaHuman, the fallback) or "op" (the operator's MetaHuman, bodies.py
+# "op"); either way the actor is labelled "Host" on the same mark, so the lights, cameras and performance find it
+HOST = globals().get("HOST", os.environ.get("HOST_BODY", "trey"))
+HOST_BP = {"trey": "/Game/Host/Unpacked/Host/BP_Host",
+           "op": "/Game/Host/Unpacked/Host_Op/BP_Host_Op"}[HOST]
+_h = L.actor("Host") if any(a[0] == "Host" for a in L.actors()) else None
+if _h is None or not _h.get_class().get_path_name().startswith(HOST_BP + "."):
+    _loc, _yaw = ((_h.get_actor_location(), _h.get_actor_rotation().yaw) if _h is not None
+                  else (unreal.Vector(30, 40, 0), 0.0))
+    L.spawn("Host", asset=HOST_BP, loc=(_loc.x, _loc.y, _loc.z), rot_=_yaw, replace=True)
+    # the reel's Host binding pointed at the actor just replaced: re-point it (its tracks are kept), and say so
+    if unreal.EditorAssetLibrary.does_asset_exist("/Game/Reel/SEQ_Reel"):
+        from fmbridge.ops import seq as _seq
+        print("SEQ_Reel Host binding:", _seq.rebind("/Game/Reel/SEQ_Reel", ["Host"]))
+# <<< host swap
+
 
 # ------------------------------------------------------------------------------------------------- materials
 
@@ -499,9 +516,16 @@ if unreal.EditorAssetLibrary.does_asset_exist(HIS_TROUSERS):
     for slot_, mi_ in his_mats.items():
         his_part("Trousers").set_material_by_name(slot_, unreal.load_asset(mi_))
     his_part("Trousers").set_editor_property("lighting_channels", his_part("Body").get_editor_property("lighting_channels"))
-    for i, slot_ in enumerate(his_part("SkeletalMesh").get_material_slot_names()):  # the shorts: four slots, one name
-        if "short" in str(slot_).lower():
-            his_part("SkeletalMesh").set_material(i, unreal.load_asset(his_hidden))
+    def his_garment():  # the default garment (tee + shorts): "SkeletalMesh" on Trey, by elimination on another build
+        return his_part("SkeletalMesh") or next((c for c in L.actor("Host").get_components_by_class(
+            unreal.SkeletalMeshComponent) if c.get_name() not in ("Body", "Face", "Trousers")), None)
+
+    if his_garment() is not None:
+        for i, slot_ in enumerate(his_garment().get_material_slot_names()):  # the shorts: four slots, one name
+            if "short" in str(slot_).lower():
+                his_garment().set_material(i, unreal.load_asset(his_hidden))
+    else:
+        print("his outfit: no default garment on Host (no tee): wear one (mh.add_item ... slot=Outfits) and rebuild")
     his_part("Trousers").set_editor_property("use_bounds_from_leader_pose_component", True)
     # leader pose last, on every garment (after agent-02): a change to one instance component re-creates the others,
     # and a re-created component has lost its leader (it then stays in its bind pose while the body moves)
