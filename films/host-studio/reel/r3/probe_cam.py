@@ -3,6 +3,10 @@ compares the engine's camera with shots.py/motion.py's plan for the shot: locati
 of view, and which camera the cut track picks. It changes nothing (no keys, no save; it only moves the playhead).
 
     cd tools && uv run python ../films/host-studio/reel/r3/probe_cam.py V05 [--frames 600,660,719]
+    cd tools && uv run python ../films/host-studio/reel/r3/probe_cam.py V01,V02,V03,V05 --check   # a pre-render gate
+
+--check prints one line per shot and exits 1 when a camera is off its plan (more than 1 cm, 0.1 deg, 0.05 mm of focal
+or of filmback) or when a shot has more or fewer than one camera actor.
 """
 from __future__ import annotations
 
@@ -73,18 +77,51 @@ def plan(shot, frames):
     return out
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("shot")
-    ap.add_argument("--frames", default="")
-    a = ap.parse_args()
-    shot = next(s for s in SHOTS if s.id == a.shot)
-    frames = [int(x) for x in a.frames.split(",")] if a.frames else [shot.start, shot.start + shot.frames // 2,
-                                                                      shot.end - 1]
+def off(plan_row: dict, eng: dict) -> list:
+    """What differs between the plan and the engine's camera at one frame (empty when it is on plan)."""
+    bad = []
+    if max(abs(p - q) for p, q in zip(plan_row["loc"], eng["loc"])) > 1.0:
+        bad.append(f"loc {eng['loc']} (plan {plan_row['loc']})")
+    dy = (eng["rot"][1] - plan_row["rot"][1] + 180) % 360 - 180
+    if abs(eng["rot"][0] - plan_row["rot"][0]) > 0.1 or abs(dy) > 0.1:
+        bad.append(f"rot {eng['rot'][:2]} (plan {plan_row['rot']})")
+    if abs(eng["focal"] - plan_row["focal"]) > 0.05:
+        bad.append(f"focal {eng['focal']} (plan {plan_row['focal']})")
+    if max(abs(p - q) for p, q in zip(eng["filmback"], plan_row["filmback"])) > 0.05:
+        bad.append(f"filmback {eng['filmback']} (plan {plan_row['filmback']})")
+    return bad
+
+
+def probe(shot, frames: list) -> dict:
     res = client.exec_code(f"SEQ = {SEQ!r}\nLABEL = {'Reel_' + shot.id!r}\nFRAMES = {frames!r}\n" + CODE)
     if not res.get("ok"):
         raise SystemExit(res.get("stdout", "") + res.get("error", ""))
-    print(json.dumps({"plan": plan(shot, set(frames)), "engine": res["result"]}, indent=1, default=str))
+    return {"plan": plan(shot, set(frames)), "engine": res["result"]}
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("shots", help="shot ids, comma-separated")
+    ap.add_argument("--frames", default="")
+    ap.add_argument("--check", action="store_true")
+    a = ap.parse_args()
+    bad_any = False
+    for sid in a.shots.split(","):
+        shot = next(s for s in SHOTS if s.id == sid)
+        frames = [int(x) for x in a.frames.split(",")] if a.frames else [shot.start, shot.start + shot.frames // 2,
+                                                                          shot.end - 2]  # keyed (even) frames
+        got = probe(shot, frames)
+        if not a.check:
+            print(json.dumps(got, indent=1, default=str))
+            continue
+        lab, eng = f"Reel_{sid}", got["engine"]
+        bad = [] if [x[0] for x in eng["actors"]] == [lab] else [f"actors {[x[0] for x in eng['actors']]}"]
+        for f, row in got["plan"].items():
+            e = eng["frames"].get(f) or eng["frames"].get(str(f), {})
+            bad += [f"f{f} " + b for b in (off(row, e[lab]) if lab in e else ["no camera"])]
+        print(sid, "OK" if not bad else "OFF: " + "; ".join(bad), flush=True)
+        bad_any = bad_any or bool(bad)
+    raise SystemExit(1 if bad_any else 0)
 
 
 if __name__ == "__main__":
