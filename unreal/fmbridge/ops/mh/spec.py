@@ -58,19 +58,28 @@ def steps(spec: dict) -> list:
     for part in ("eyelashes", "teeth", "makeup"):
         if spec.get(part):
             out.append((f"mh.{part}", {"path": path, "settings": spec[part]}))
+    # item parameters (groom colour, garment colours) exist only once the character's collection is built (live
+    # 5.8.4: 'Failed to assemble Instance ... Collection has not been built'): wear the items here, build, set their
+    # parameters, build again
+    later = []
     for slot, g in (spec.get("grooms") or {}).items():
         if g in (None, "none", False):
             out.append(("mh.groom", {"character": path, "slot": slot, "item": "none"}))
             continue
         g = dict(g)
-        out.append(("mh.groom", {"character": path, "slot": slot, **g}))
+        colour = {k: g.pop(k) for k in ("melanin", "redness", "params") if g.get(k) is not None}
+        if g.get("item"):
+            out.append(("mh.groom", {"character": path, "slot": slot, **g}))
+        if colour:
+            later.append(("mh.groom", {"character": path, "slot": slot, **colour}))
     outfit = spec.get("outfit", "")
     if outfit in (None, "none", False):
         out.append(("mh.clear_slot", {"character": path, "slot": "Outfits"}))
     elif outfit:
         o = dict(outfit)
-        out.append(("mh.add_item", {"character": path, "item": o.pop("item"), "slot": "Outfits",
-                                    **({"params": o.pop("params")} if o.get("params") else {})}))
+        out.append(("mh.add_item", {"character": path, "item": o.pop("item"), "slot": "Outfits"}))
+        if o.get("params"):
+            later.append(("mh.item_set", {"character": path, "slot": "Outfits", "params": o.pop("params")}))
     rig = spec.get("rig", "full")
     if rig and rig != "none":
         out.append(("mh.rig", {"character": path, "full": rig != "joints"}))
@@ -79,7 +88,11 @@ def steps(spec: dict) -> list:
     bld = spec.get("build", {} if rig and rig != "none" else False)
     if bld is not False and bld is not None:
         bld = dict(bld or {})
-        out.append(("mh.build", {"character": path, "name": bld.pop("name", spec.get("name", "")), **bld}))
+        b = ("mh.build", {"character": path, "name": bld.pop("name", spec.get("name", "")), **bld})
+        out.append(b)
+        if later:
+            out += later + [b]
+    # (no build: no item parameters exist, so colours wait for a spec that builds)
     if spec.get("dress"):
         out.append(("mh.dress", dict(spec["dress"])))
     return out
