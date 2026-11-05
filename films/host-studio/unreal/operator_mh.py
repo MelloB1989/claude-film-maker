@@ -197,6 +197,13 @@ elif STAGE == "identity":
     deps = frames(fcd.get_editor_property("depth_sequences")[0])
     R["n_images"], R["n_depth"] = len(imgs), len(deps)
     ident.set_blocking_processing(True)
+    # load the face contour tracker's NNE models first: the Creator's image tracker loads the default tracker (the same
+    # GenericFaceContourTracker the pose uses) synchronously on its first call; the identity pipeline may not (day 3:
+    # zero contours). Only whether a face was found is kept, never the landmarks.
+    w0, h0, c0 = png_rgba(imgs[FRAMES["front"]])
+    sub = unreal.get_editor_subsystem(unreal.MetaHumanCharacterEditorSubsystem)
+    t("warm_tracker_face_found", lambda: sub.track_face_landmarks_from_image(c0, w0, h0) is not None)
+    del c0
     for old in list(pose.get_editor_property("promoted_frames")):  # a rerun starts clean (day 3: empty frames)
         pose.remove_promoted_frame(old)
     R["tracked"] = {}
@@ -222,6 +229,8 @@ elif STAGE == "solve":
     t("processing", lambda: ident.is_frame_tracking_pipeline_processing())
     R["contours"] = {str(f.get_editor_property("frame_name")): f.frame_contours_contain_active_data()
                      for f in pose.get_editor_property("promoted_frames")}
+    for tp in ("ConformTargetParams", "MetaHumanCharacterFitToVerticesParams", "MetaHumanCharacterTargetMeshKey"):
+        t("type:" + tp, lambda tp=tp: props(getattr(unreal, tp), 1500))  # the no-depth fallback's inputs (docs)
     if any(R["contours"].values()) and not R.get("processing") is True:
         t("conform", lambda: str(face.conform(unreal.ConformType.SOLVE)))
         t("is_conformed", lambda: face.get_editor_property("is_conformed"))
