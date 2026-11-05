@@ -5,6 +5,11 @@ A point is projected through the shot's camera at every keyed frame of the cut (
 +1 right), v up (-1 bottom edge, +1 top), the full-frame 16:9 back and the shot's lens. The rules (the operator's):
 presenter shots are cut above the knee (no shoes are made), and a presenter a shot is about keeps the whole head in
 frame. `python framing.py` prints a table; test_framing.py holds the rules.
+
+His measured body (studio.py's measure stage on the box) goes into shots.py with --him, then the table and the rules
+are printed for it (exit 1 when one breaks):
+
+    python3 framing.py --him eyes=168.3 top=180.1 knee=51.2
 """
 from __future__ import annotations
 
@@ -97,7 +102,28 @@ def problems(shots=SHOTS, body=None) -> list:
     return bad
 
 
+def set_him(eyes: float, top: float, knee: float, path=None) -> None:
+    """Write his measured eye, head-top and knee heights (cm) into shots.py."""
+    import re
+    from pathlib import Path
+    p = Path(path or Path(__file__).with_name("shots.py"))
+    src = p.read_text()
+    for pat, new in ((r"^EYES_HIM, EYES_HER = [\d.]+,", f"EYES_HIM, EYES_HER = {eyes:.1f},"),
+                     (r"^TOP_HIM, TOP_HER = [\d.]+,", f"TOP_HIM, TOP_HER = {top:.1f},"),
+                     (r"^KNEE_HIM, KNEE_HER = [^,]+,", f"KNEE_HIM, KNEE_HER = {knee:.1f},")):
+        src, n = re.subn(pat, new, src, count=1, flags=re.M)
+        if n != 1:
+            raise SystemExit(f"shots.py: no line matches {pat}")
+    p.write_text(src)
+
+
 if __name__ == "__main__":
+    import sys
+    if "--him" in sys.argv:
+        kv = dict(a.split("=", 1) for a in sys.argv[sys.argv.index("--him") + 1:])
+        set_him(float(kv["eyes"]), float(kv["top"]), float(kv["knee"]))
+        import subprocess
+        raise SystemExit(subprocess.call([sys.executable, __file__]))
     for s in SHOTS:
         for who, w in worst(s).items():
             print(f"{s.id} {s.lens:>3g}mm {who}: eyes v {w['eyes'][0]:+.2f}..{w['eyes'][1]:+.2f} u {w['u'][0]:+.2f}.."
@@ -105,3 +131,4 @@ if __name__ == "__main__":
                   + (f"  under the sign by {under_sign(s):+.2f}" if s.id in UNDER_SIGN and who == "him" else ""))
     for p in problems():
         print("PROBLEM", *p)
+    raise SystemExit(1 if problems() else 0)

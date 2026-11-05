@@ -183,3 +183,11 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
   - cast3 (95f25d36) is being checked.
 - Core: agent-05's shutter_timing (render-shutter a86f35f2) fixes the double-exposed first frames at cuts (S11 f720, S12 f780). It is bounced only for a missing API_NOTES row.
 - Preview-1 rough cut on the box: 13 of 13 shots, mixes on spec (agent-06). It stays on the box until the gate passes.
+- AA pick C (agent-05): no AA, 4x8, shutter open, out to final_c; 2.49 s/frame, 13.3 GB VRAM. TSR's final/ is superseded (it erased the LED strips and double-exposed the cuts). Core a7de4e4b (shutter_timing) is on main.
+- Cut test with the shutter open: f720 is clean (agent-07). The final_c set re-render started at 17:57:47 (~36 min).
+- Gate on cast3 (agent-09):
+  - (a) PASS: S16 3.64x, S13 2.13x; every line on both.
+  - (b) PASS: the watch holds a steady 3.6 cm from hand_l. The garment flags are the necklines only, which is the depth check's limit. The collar is clean at full res (S15, S16).
+  - (d)/(e) PASS: both eyes shut on 1 frame (f1291, him off screen), which goes to 0 with agent-01's staggered rerun.
+  - (c) FAIL at full size: green patches in her ends over the olive overshirt. It is coverage (thin tips), not colour, so a strand coverage A/B follows (hair_cover_ab).
+- Head turns: core fe5d335f (agent-01) writes the turn on the neck/head bones on 5.8, and verify measures it. Rerun queued as chain13, then the cast4 preview and the gate.
