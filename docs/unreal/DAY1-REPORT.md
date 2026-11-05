@@ -55,3 +55,4 @@ fast-forwards to.
 | cam | convergence on the engine (float32 focus, rotations by axes), stills at the filmback aspect, shot.plan lists missing cameras, coverage names | agent-11 c83bf93e | 1035 passed |
 | batch 6 | env test for the captures_rebuild route (agent-08 4e84b747); a scratch level saves the open level first: an unattended editor discards unsaved changes on a level switch (agent-13 1641cf31); stills default to sRGB, qa overlaps/floating skip cameras and lights: qa 32/0 (agent-09 809765c1) | agent-08, agent-13, agent-09 | 1037 passed |
 | demo | every demo stage opens the demo level (the level doc moved into vars.yaml) | agent-13 411048b0 | |
+| cam | stills through `view.still` at the camera's hfov (look.still used the viewport's 90°); rail nudge. Box: cam 50/2 (both stale baselines) | agent-11 d4134ab7 | |
