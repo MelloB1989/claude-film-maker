@@ -1,0 +1,33 @@
+{
+  "model": "music_v2_5",
+  "global": {
+    "positive": ["cinematic film score", "instrumental", "traditional Japanese instruments", "samurai period drama",
+                 "slow tempo", "lots of space and silence", "intimate, organic, acoustic"],
+    "negative": ["vocals", "singing", "lyrics", "choir", "drum kit", "electronic", "synthesizer", "guitar", "piano",
+                 "pop", "hip hop", "fast tempo"]
+  },
+  "cues": {
+    "road": {
+      "at": 0.0,
+      "sections": [
+        { "name": "Rain Road", "ms": 21500, "positive": ["solo shakuhachi flute, slow and breathy", "low sustained drone",
+          "one distant soft taiko hit", "melancholic, lonely, sparse"], "negative": ["strings", "percussion loops"] },
+        { "name": "The Ferry", "ms": 14500, "positive": ["sparse koto plucks", "quiet low strings", "calm, mysterious",
+          "rain-soaked stillness"], "negative": ["drums"] },
+        { "name": "Rising Tension", "ms": 23600, "positive": ["tension slowly building", "low taiko pulses like a heartbeat",
+          "dark sustained low strings", "biwa accents", "growing menace, restrained"], "negative": ["melody", "major key"] }
+      ]
+    },
+    "dawn": {
+      "at": 76.1,
+      "sections": [
+        { "name": "Aftermath", "ms": 18500, "positive": ["mournful solo shakuhachi", "soft low strings", "very sparse and quiet",
+          "sorrow, defeat, reflection"], "negative": ["drums", "fast notes"] },
+        { "name": "Dawn", "ms": 17000, "positive": ["warm hopeful strings slowly rising", "gentle koto arpeggios",
+          "major pentatonic", "sunlight breaking through clouds", "emotional swell"], "negative": ["dark", "dissonance"] },
+        { "name": "Title", "ms": 8000, "positive": ["one deep taiko hit", "a final soft shakuhachi phrase", "resolving",
+          "fading out to silence"], "negative": ["drum loop"] }
+      ]
+    }
+  }
+}

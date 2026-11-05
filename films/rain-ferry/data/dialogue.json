@@ -1,0 +1,176 @@
+{
+  "cast": {
+    "shinza": {
+      "name": "Shinza",
+      "voice_id": "TlxVR97quVHvTxE8Qkcm",
+      "voice_name": "Samurai - Japanese Natural Male (ElevenLabs voice library)",
+      "model": "eleven_v3",
+      "settings": {
+        "stability": 0.5
+      },
+      "gain_db": 0
+    },
+    "tsuru": {
+      "name": "Tsuru",
+      "voice_id": "xE6NbKmUvY3BhBzNAYsV",
+      "voice_name": "Chieko - Warm, Witty Grandma (ElevenLabs voice library)",
+      "model": "eleven_v3",
+      "settings": {
+        "stability": 0.5
+      },
+      "gain_db": 0
+    }
+  },
+  "lines": [
+    {
+      "id": "L01",
+      "who": "shinza",
+      "shot": "walk",
+      "at": 1.6,
+      "inner": true,
+      "ja": "強くなりたい。",
+      "tts": "[quietly, with burning intensity] 強くなりたい。",
+      "en": "I want to be strong.",
+      "take": 1
+    },
+    {
+      "id": "L02",
+      "who": "shinza",
+      "shot": "eyes",
+      "at": 0.5,
+      "inner": true,
+      "ja": "誰よりも。",
+      "tts": "[quietly, fierce] 誰よりも。",
+      "en": "Stronger than anyone."
+    },
+    {
+      "id": "L03",
+      "who": "shinza",
+      "shot": "ask",
+      "at": 2.4,
+      "ja": "婆さん。向こう岸へ渡してくれ。",
+      "tts": "[gruff, impatient] 婆さん。向こう岸へ、渡してくれ。",
+      "en": "Old woman. Take me across.",
+      "take": 1
+    },
+    {
+      "id": "L04",
+      "who": "tsuru",
+      "shot": "refuse",
+      "at": 0.9,
+      "ja": "雨の日は、渡さないよ。",
+      "tts": "[calmly, unbothered] 雨の日は、渡さないよ。",
+      "en": "I don't cross on rainy days."
+    },
+    {
+      "id": "L05",
+      "who": "shinza",
+      "shot": "demand",
+      "at": 0.4,
+      "ja": "向こう岸に「川鬼」がいると聞いた。",
+      "tts": "[low, intense] 向こう岸に、かわおにがいると聞いた。",
+      "en": "They say the River Demon lives on the other side.",
+      "take": 1
+    },
+    {
+      "id": "L06",
+      "who": "shinza",
+      "shot": "demand",
+      "at": 3.75,
+      "ja": "そいつを斬って、俺が天下一になる。",
+      "tts": "[fierce, proud] そいつを斬って、俺が、天下一になる。",
+      "en": "I'll cut it down, and be the strongest under heaven.",
+      "take": 1
+    },
+    {
+      "id": "L07",
+      "who": "tsuru",
+      "shot": "tap",
+      "at": 2.5,
+      "ja": "川鬼なら、もう死んだよ。",
+      "tts": "[amused, matter-of-fact] かわおになら、もう死んだよ。",
+      "en": "The River Demon is already dead.",
+      "take": 1
+    },
+    {
+      "id": "L08",
+      "who": "tsuru",
+      "shot": "look",
+      "at": 1.0,
+      "ja": "……四十年前にね。",
+      "tts": "[softly, with a dry little laugh] ……四十年前にね。",
+      "en": "...Forty years ago."
+    },
+    {
+      "id": "L09",
+      "who": "shinza",
+      "shot": "draw",
+      "at": 0.6,
+      "ja": "なら……あんたでいい。",
+      "tts": "[grinning, low and dangerous] なら……あんたでいい。",
+      "en": "Then... you'll do."
+    },
+    {
+      "id": "L10",
+      "who": "tsuru",
+      "shot": "rise",
+      "at": 1.2,
+      "ja": "若いねぇ。",
+      "tts": "[amused, with a soft breath of a laugh] わかいねぇ。",
+      "en": "So young.",
+      "take": 1
+    },
+    {
+      "id": "L11",
+      "who": "shinza",
+      "shot": "charge",
+      "at": 0.0,
+      "ja": "うおおおっ！",
+      "tts": "[shouting, battle cry] うおおおおおっ！",
+      "en": "",
+      "take": 1
+    },
+    {
+      "id": "L12",
+      "who": "tsuru",
+      "shot": "lesson",
+      "at": 0.8,
+      "ja": "強さってのはね、斬った数じゃないよ。",
+      "tts": "[calm, quiet, like a teacher] 強さってのはね、……斬った数じゃ、ないよ。",
+      "en": [
+        "Strength...",
+        "...isn't how many you've cut down."
+      ],
+      "splits": [
+        "斬"
+      ]
+    },
+    {
+      "id": "L13",
+      "who": "shinza",
+      "shot": "kneel",
+      "at": 1.4,
+      "ja": "……じゃあ、何だ。",
+      "tts": "[hoarse, broken, barely a whisper] ……じゃあ、何だ。",
+      "en": "...Then what is it?"
+    },
+    {
+      "id": "L14",
+      "who": "tsuru",
+      "shot": "board",
+      "at": 0.6,
+      "ja": "乗りな。",
+      "tts": "[gently] 乗りな。",
+      "en": "Get in."
+    },
+    {
+      "id": "L15",
+      "who": "tsuru",
+      "shot": "board",
+      "at": 2.6,
+      "ja": "雨は、やんだよ。",
+      "tts": "[warmly, looking at the sky] 雨は、やんだよ。",
+      "en": "The rain has stopped."
+    }
+  ]
+}

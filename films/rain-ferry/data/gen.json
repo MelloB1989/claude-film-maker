@@ -1,0 +1,611 @@
+{
+  "clip-after": {
+    "file": "assets/gen/clip-after.mp4",
+    "job": "001ce4ac-194d-4fb7-b7bf-ff836ffc857f",
+    "model": "minimax_hailuo",
+    "prompt": "frozen; broken blade spins down and sticks in the planks",
+    "refs": [
+      "key-after"
+    ],
+    "credits": 6.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_093849_001ce4ac-194d-4fb7-b7bf-ff836ffc857f.mp4",
+    "note": "minimax-2.3 768 6s",
+    "fetched": "2026-10-20T15:17:27"
+  },
+  "clip-ask": {
+    "file": "assets/gen/clip-ask.mp4",
+    "job": "075364ed-1434-490c-8704-147ca1b26ea9",
+    "model": "minimax_hailuo",
+    "prompt": "Shinza walks up the jetty behind Tsuru and stops; she smokes",
+    "refs": [
+      "key-ask"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_092012_075364ed-1434-490c-8704-147ca1b26ea9.mp4",
+    "note": "minimax-2.3-fast 768 6s",
+    "fetched": "2026-10-20T14:54:38"
+  },
+  "clip-board": {
+    "file": "assets/gen/clip-board.mp4",
+    "job": "0aa41814-584e-4a53-8ab2-e6186bd7c591",
+    "model": "minimax_hailuo",
+    "prompt": "looks up, rain stops, warm glow",
+    "refs": [
+      "key-board"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_094624_0aa41814-584e-4a53-8ab2-e6186bd7c591.mp4",
+    "note": "minimax-2.3-fast 768 6s",
+    "fetched": "2026-10-20T15:36:17"
+  },
+  "clip-charge": {
+    "file": "assets/gen/clip-charge.mp4",
+    "job": "c557c160-78be-46f4-aada-2fb6b78b36f3",
+    "model": "minimax_hailuo",
+    "prompt": "charges, huge overhead strike, water explodes",
+    "refs": [
+      "key-charge"
+    ],
+    "credits": 6.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_092425_c557c160-78be-46f4-aada-2fb6b78b36f3.mp4",
+    "note": "minimax-2.3 768 6s",
+    "fetched": "2026-10-20T15:09:03"
+  },
+  "clip-cross": {
+    "file": "assets/gen/clip-cross.mp4",
+    "job": "45c80291-cd7a-4d80-b6a0-25900c7c4766",
+    "model": "minimax_hailuo",
+    "prompt": "boat glides across the golden river, headband drifts",
+    "refs": [
+      "key-cross"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_100606_45c80291-cd7a-4d80-b6a0-25900c7c4766.mp4",
+    "note": "minimax-2.3-fast 768 6s",
+    "fetched": "2026-10-20T15:46:11"
+  },
+  "clip-crow": {
+    "file": "assets/gen/clip-crow.mp4",
+    "job": "0f38130a-2435-4e8c-86b0-f844c4c1550b",
+    "model": "minimax_hailuo",
+    "prompt": "crow shakes, caws, flies off right",
+    "refs": [
+      "key-crow"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_092012_0f38130a-2435-4e8c-86b0-f844c4c1550b.mp4",
+    "note": "minimax-2.3-fast 768 6s",
+    "fetched": "2026-10-20T14:52:02"
+  },
+  "clip-demand": {
+    "file": "assets/gen/clip-demand.mp4",
+    "job": "eb05308a-3080-4e12-adb2-aaca0d538d55",
+    "model": "minimax_hailuo",
+    "prompt": "glares, closes hand on the hilt, push-in",
+    "refs": [
+      "key-demand"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_092012_eb05308a-3080-4e12-adb2-aaca0d538d55.mp4",
+    "note": "minimax-2.3-fast 768 6s",
+    "fetched": "2026-10-20T14:52:04"
+  },
+  "clip-draw": {
+    "file": "assets/gen/clip-draw.mp4",
+    "job": "0acda40a-d1bf-4823-94db-bac36c770a07",
+    "model": "minimax_hailuo",
+    "prompt": "grins, draws the nodachi, ready stance",
+    "refs": [
+      "key-draw"
+    ],
+    "credits": 6.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_092132_0acda40a-d1bf-4823-94db-bac36c770a07.mp4",
+    "note": "minimax-2.3 768 6s",
+    "fetched": "2026-10-20T14:54:42"
+  },
+  "clip-fall": {
+    "file": "assets/gen/clip-fall.mp4",
+    "job": "b5ed2676-5d18-47b2-a1d0-0f88d850aa2a",
+    "model": "minimax_hailuo",
+    "prompt": "headband slips off, sinks to his knees",
+    "refs": [
+      "key-fall"
+    ],
+    "credits": 6.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_093849_b5ed2676-5d18-47b2-a1d0-0f88d850aa2a.mp4",
+    "note": "minimax-2.3 768 6s",
+    "fetched": "2026-10-20T15:17:32"
+  },
+  "clip-lesson": {
+    "file": "assets/gen/clip-lesson.mp4",
+    "job": "d83c9dc3-af10-46af-a816-db99fdb49fb5",
+    "model": "minimax_hailuo",
+    "prompt": "walks away to the boat, he kneels",
+    "refs": [
+      "key-lesson"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_095442_d83c9dc3-af10-46af-a816-db99fdb49fb5.mp4",
+    "note": "minimax-2.3-fast 768 6s",
+    "fetched": "2026-10-20T15:36:19"
+  },
+  "clip-light": {
+    "file": "assets/gen/clip-light.mp4",
+    "job": "54d1bc41-fa12-4f59-90e3-73adc58a13ee",
+    "model": "minimax_hailuo",
+    "prompt": "clouds part, sunbeams sweep, crow glides",
+    "refs": [
+      "key-light"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_100606_54d1bc41-fa12-4f59-90e3-73adc58a13ee.mp4",
+    "note": "minimax-2.3-fast 768 6s",
+    "fetched": "2026-10-20T15:46:09"
+  },
+  "clip-look": {
+    "file": "assets/gen/clip-look.mp4",
+    "job": "80443786-0abf-412f-9325-e398a8322ba3",
+    "model": "minimax_hailuo",
+    "prompt": "lifts her eyes, dangerous smile, push-in",
+    "refs": [
+      "key-look"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_092425_80443786-0abf-412f-9325-e398a8322ba3.mp4",
+    "note": "minimax-2.3-fast 768 6s",
+    "fetched": "2026-10-20T15:08:58"
+  },
+  "clip-rise": {
+    "file": "assets/gen/clip-rise.mp4",
+    "job": "6ad57089-589f-4607-9dd2-5b15d94d4673",
+    "model": "minimax_hailuo",
+    "prompt": "turns her head, plants the pole, push-in",
+    "refs": [
+      "key-rise"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_093849_6ad57089-589f-4607-9dd2-5b15d94d4673.mp4",
+    "note": "minimax-2.3-fast 768 6s",
+    "fetched": "2026-10-20T15:17:23"
+  },
+  "clip-step": {
+    "file": "assets/gen/clip-step.mp4",
+    "job": "8e9c0df1-d686-4260-835c-b80f9e8159cd",
+    "model": "minimax_hailuo",
+    "prompt": "foot lifts out of the puddle, splash",
+    "refs": [
+      "key-step"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_092132_8e9c0df1-d686-4260-835c-b80f9e8159cd.mp4",
+    "note": "minimax-2.3-fast 768 6s",
+    "fetched": "2026-10-20T14:54:39"
+  },
+  "clip-tap": {
+    "file": "assets/gen/clip-tap.mp4",
+    "job": "c6ce4f33-b34c-4bb7-8410-a3eb3ae98588",
+    "model": "minimax_hailuo",
+    "prompt": "taps the pipe twice, ash falls, smile",
+    "refs": [
+      "key-tap"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_094624_c6ce4f33-b34c-4bb7-8410-a3eb3ae98588.mp4",
+    "note": "minimax-2.3-fast 768 6s",
+    "fetched": "2026-10-20T15:36:16"
+  },
+  "key-after": {
+    "file": "assets/gen/key-after.png",
+    "job": "00bd9fb6-3f56-4a1f-9b97-6aeaa1964820",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 20: back to back after the clash, half the blade spinning above",
+    "refs": [
+      "sheet-shinza",
+      "sheet-tsuru",
+      "key-ferry"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091657_00bd9fb6-3f56-4a1f-9b97-6aeaa1964820.png",
+    "fetched": "2026-10-20T14:49:09"
+  },
+  "key-ask": {
+    "file": "assets/gen/key-ask.png",
+    "job": "4f68b9f6-54cf-42bf-a6cc-4e3c5f0d9e42",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 7: side view along the jetty, Tsuru foreground right, Shinza approaching",
+    "refs": [
+      "key-ferry",
+      "sheet-tsuru",
+      "sheet-shinza"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_085618_4f68b9f6-54cf-42bf-a6cc-4e3c5f0d9e42.png",
+    "fetched": "2026-10-20T14:43:28"
+  },
+  "key-board": {
+    "file": "assets/gen/key-board.png",
+    "job": "a85f115b-6ad6-4663-a0df-854b6edd8f64",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 24: Tsuru in the boat looks at the brightening sky",
+    "refs": [
+      "sheet-tsuru",
+      "key-ferry"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091858_a85f115b-6ad6-4663-a0df-854b6edd8f64.png",
+    "fetched": "2026-10-20T14:52:16"
+  },
+  "key-charge": {
+    "file": "assets/gen/key-charge.png",
+    "job": "5961a701-e113-4884-92bc-2dcc02d8d741",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 18: Shinza charges, sword overhead",
+    "refs": [
+      "sheet-shinza",
+      "key-ferry"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091658_5961a701-e113-4884-92bc-2dcc02d8d741.png",
+    "fetched": "2026-10-20T14:49:05"
+  },
+  "key-cross": {
+    "file": "assets/gen/key-cross.png",
+    "job": "5b43d061-2ff3-4e91-bb9d-c95f844013da",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 26: the boat crossing in golden light, headband floating",
+    "refs": [
+      "key-ferry",
+      "sheet-tsuru",
+      "sheet-shinza"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_092143_5b43d061-2ff3-4e91-bb9d-c95f844013da.png",
+    "fetched": "2026-10-20T14:54:44"
+  },
+  "key-crow": {
+    "file": "assets/gen/key-crow.png",
+    "job": "4b814716-2120-42ee-b6b2-28dd4d08cf6e",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 2: crow on the ferry signpost (渡し), rain",
+    "refs": [
+      "key-ferry"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_085520_4b814716-2120-42ee-b6b2-28dd4d08cf6e.png",
+    "fetched": "2026-10-20T14:26:28"
+  },
+  "key-demand": {
+    "file": "assets/gen/key-demand.png",
+    "job": "cad23f64-e2ee-4dca-a824-32f55d431315",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 9: low angle Shinza, hand rising to the hilt",
+    "refs": [
+      "sheet-shinza",
+      "key-ferry"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091306_cad23f64-e2ee-4dca-a824-32f55d431315.png",
+    "fetched": "2026-10-20T14:44:35"
+  },
+  "key-draw": {
+    "file": "assets/gen/key-draw.png",
+    "job": "2d055961-3c79-402b-a677-f70b46aad38d",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 12: Shinza grins and draws the nodachi",
+    "refs": [
+      "sheet-shinza",
+      "key-ferry"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091306_2d055961-3c79-402b-a677-f70b46aad38d.png",
+    "fetched": "2026-10-20T14:44:42"
+  },
+  "key-eye-s": {
+    "file": "assets/gen/key-eye-s.png",
+    "job": "71afd816-53db-463f-b1da-3f22f73bb97e",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 15: Shinza's eye ECU",
+    "refs": [
+      "sheet-shinza"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091419_71afd816-53db-463f-b1da-3f22f73bb97e.png",
+    "fetched": "2026-10-20T14:47:21"
+  },
+  "key-eye-t": {
+    "file": "assets/gen/key-eye-t.png",
+    "job": "eb81844f-ad13-427b-979b-c30dc7619f44",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 16: Tsuru's eye ECU",
+    "refs": [
+      "sheet-tsuru"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091420_eb81844f-ad13-427b-979b-c30dc7619f44.png",
+    "fetched": "2026-10-20T14:47:25"
+  },
+  "key-eyes": {
+    "file": "assets/gen/key-eyes.png",
+    "job": "b99929ca-21bd-480c-b091-1a0253691dd0",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 5: Shinza's eyes under the kasa brim",
+    "refs": [
+      "sheet-shinza"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_085617_b99929ca-21bd-480c-b091-1a0253691dd0.png",
+    "fetched": "2026-10-20T14:43:18"
+  },
+  "key-fall": {
+    "file": "assets/gen/key-fall.png",
+    "job": "01e39058-d28a-4d39-aeef-b89aec0a3151",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 21: cut headband slipping off, shock",
+    "refs": [
+      "sheet-shinza"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091657_01e39058-d28a-4d39-aeef-b89aec0a3151.png",
+    "fetched": "2026-10-20T14:49:11"
+  },
+  "key-ferry": {
+    "file": "assets/gen/key-ferry.png",
+    "job": "74912d59-4136-486c-b662-8e72e6019981",
+    "model": "gpt_image_2_5",
+    "prompt": "Wide establishing shot of the ferry crossing in rain, no people",
+    "refs": [
+      "sheet-shinza"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_085153_74912d59-4136-486c-b662-8e72e6019981.png",
+    "fetched": "2026-10-20T14:23:22"
+  },
+  "key-ferry-tsuru": {
+    "file": "assets/gen/key-ferry-tsuru.png",
+    "job": "9636a2aa-3ec6-4539-850d-16132d3dca84",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 6: the ferry key art with Tsuru sitting at the end of the jetty",
+    "refs": [
+      "key-ferry",
+      "sheet-tsuru"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_085618_9636a2aa-3ec6-4539-850d-16132d3dca84.png",
+    "fetched": "2026-10-20T14:43:21"
+  },
+  "key-flash": {
+    "file": "assets/gen/key-flash.png",
+    "job": "e8bfce55-95e0-4c46-89a0-2fdaf6c6d623",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 19: black and white manga impact panel of the clash",
+    "refs": [
+      "sheet-shinza",
+      "sheet-tsuru"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091656_e8bfce55-95e0-4c46-89a0-2fdaf6c6d623.png",
+    "fetched": "2026-10-20T14:49:06"
+  },
+  "key-kneel": {
+    "file": "assets/gen/key-kneel.png",
+    "job": "fba3ec14-3830-49ec-9c9c-8c58c2203466",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 23: Shinza kneels with the broken blade",
+    "refs": [
+      "sheet-shinza"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091857_fba3ec14-3830-49ec-9c9c-8c58c2203466.png",
+    "fetched": "2026-10-20T14:52:09"
+  },
+  "key-lesson": {
+    "file": "assets/gen/key-lesson.png",
+    "job": "d733f3e9-0199-4f5d-9bb0-6b0021fa456a",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 22: Tsuru walks to the boat, Shinza kneels foreground",
+    "refs": [
+      "sheet-tsuru",
+      "sheet-shinza",
+      "key-ferry"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091856_d733f3e9-0199-4f5d-9bb0-6b0021fa456a.png",
+    "fetched": "2026-10-20T14:52:07"
+  },
+  "key-light": {
+    "file": "assets/gen/key-light.png",
+    "job": "a24b87a5-4a43-4f6f-b361-00451d3ec3ec",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 25: clouds part, sunbeams on the river, crow",
+    "refs": [
+      "key-open"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091857_a24b87a5-4a43-4f6f-b361-00451d3ec3ec.png",
+    "fetched": "2026-10-20T14:52:21"
+  },
+  "key-look": {
+    "file": "assets/gen/key-look.png",
+    "job": "54b06e2c-f2de-4e8c-8d78-9f7213a684c8",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 11: Tsuru raises her eyes, dangerous",
+    "refs": [
+      "sheet-tsuru"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091305_54b06e2c-f2de-4e8c-8d78-9f7213a684c8.png",
+    "fetched": "2026-10-20T14:44:40"
+  },
+  "key-open": {
+    "file": "assets/gen/key-open.png",
+    "job": "0f58c80e-355f-4cc5-b035-6f93a9810354",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 1: wide valley panorama in rain, tiny hut and jetty",
+    "refs": [
+      "key-ferry"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_085617_0f58c80e-355f-4cc5-b035-6f93a9810354.png",
+    "fetched": "2026-10-20T14:43:15"
+  },
+  "key-refuse": {
+    "file": "assets/gen/key-refuse.png",
+    "job": "dbb6f1b4-f442-47c8-9f42-6769423a976e",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 8: Tsuru in profile smoking, facing right",
+    "refs": [
+      "sheet-tsuru"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_085520_dbb6f1b4-f442-47c8-9f42-6769423a976e.png",
+    "fetched": "2026-10-20T14:26:37"
+  },
+  "key-rise": {
+    "file": "assets/gen/key-rise.png",
+    "job": "eba81766-d7d0-46bd-8f26-c07dd974577d",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 13: Tsuru rises, lifts the bamboo pole",
+    "refs": [
+      "sheet-tsuru",
+      "key-ferry"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091421_eba81766-d7d0-46bd-8f26-c07dd974577d.png",
+    "fetched": "2026-10-20T14:47:14"
+  },
+  "key-standoff": {
+    "file": "assets/gen/key-standoff.png",
+    "job": "31aaaed4-cfee-4ba0-bc9e-95b662a59159",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 14: wide standoff on the jetty",
+    "refs": [
+      "sheet-shinza",
+      "sheet-tsuru",
+      "key-ferry"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091420_31aaaed4-cfee-4ba0-bc9e-95b662a59159.png",
+    "fetched": "2026-10-20T14:47:18"
+  },
+  "key-step": {
+    "file": "assets/gen/key-step.png",
+    "job": "5695d75d-646a-4b5b-b238-26f8d4b8477d",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 3: ground level, sandal stepping toward a puddle",
+    "refs": [
+      "sheet-shinza"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_085520_5695d75d-646a-4b5b-b238-26f8d4b8477d.png",
+    "fetched": "2026-10-20T14:26:30"
+  },
+  "key-tap": {
+    "file": "assets/gen/key-tap.png",
+    "job": "b696dd39-c2c2-4156-90bf-126f4d73ce0c",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 10: Tsuru taps her pipe on the jetty post, empty river behind",
+    "refs": [
+      "sheet-tsuru"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_092143_b696dd39-c2c2-4156-90bf-126f4d73ce0c.png",
+    "note": "re-roll: no ship behind",
+    "fetched": "2026-10-20T14:54:48"
+  },
+  "key-tap.v1": {
+    "file": "assets/gen/key-tap.v1.png",
+    "job": "93cdb68b-33b9-4021-bb29-8ce388a94473",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 10: Tsuru taps her pipe on the jetty post",
+    "refs": [
+      "sheet-tsuru"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091306_93cdb68b-33b9-4021-bb29-8ce388a94473.png",
+    "fetched": "2026-10-20T14:44:38"
+  },
+  "key-walk": {
+    "file": "assets/gen/key-walk.png",
+    "job": "aeffd2cd-924a-4a32-80f4-0ec79a81ae83",
+    "model": "gpt_image_2_5",
+    "prompt": "shot 4: Shinza walks out of the mist toward camera, kasa low",
+    "refs": [
+      "sheet-shinza"
+    ],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_085520_aeffd2cd-924a-4a32-80f4-0ec79a81ae83.png",
+    "fetched": "2026-10-20T14:26:33"
+  },
+  "plate-standoff-clean": {
+    "file": "assets/gen/plate-standoff-clean.png",
+    "job": "84cfe7b7-e421-45f4-9feb-8c67f17cdca3",
+    "model": "nano_banana_2",
+    "prompt": "inpaint the masked figures away, continue jetty, river, mist",
+    "refs": [
+      "key-standoff"
+    ],
+    "credits": 2.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_101510_84cfe7b7-e421-45f4-9feb-8c67f17cdca3.png",
+    "note": "inpaint: both figures removed (mask from film-anime-cutout --parts)",
+    "fetched": "2026-10-20T15:46:07"
+  },
+  "sheet-shinza": {
+    "file": "assets/gen/sheet-shinza.png",
+    "job": "72b6f7a5-7c48-4981-b64c-3d7d187ee403",
+    "model": "gpt_image_2_5",
+    "prompt": "Original anime character design sheet: Shinza (see STORY.md), ink-wash anime style, front/side/back + 3 expressions",
+    "refs": [],
+    "credits": 0.5,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_084725_72b6f7a5-7c48-4981-b64c-3d7d187ee403.png",
+    "note": "medium 1k; the house style",
+    "fetched": "2026-10-20T14:23:18"
+  },
+  "sheet-tsuru": {
+    "file": "assets/gen/sheet-tsuru.png",
+    "job": "5358ced5-7604-45c6-b197-e7ceeb5b1223",
+    "model": "gpt_image_2_5",
+    "prompt": "Character design sheet in the reference's style: Tsuru (see STORY.md), front/side/back + 3 expressions",
+    "refs": [
+      "sheet-shinza"
+    ],
+    "credits": 0.5,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_085153_5358ced5-7604-45c6-b197-e7ceeb5b1223.png",
+    "fetched": "2026-10-20T14:23:19"
+  },
+  "test-walk-hailuo": {
+    "file": "assets/gen/test-walk-hailuo.mp4",
+    "job": "ee971afe-725c-404c-9aa4-c708cb989718",
+    "model": "minimax_hailuo",
+    "prompt": "walk toward camera through mist, rain, headband flutters, slow push-in",
+    "refs": [
+      "key-walk"
+    ],
+    "credits": 4.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091406_ee971afe-725c-404c-9aa4-c708cb989718.mp4",
+    "note": "minimax-2.3-fast 768 6s; model test",
+    "fetched": "2026-10-20T14:47:10"
+  },
+  "test-walk-seedance": {
+    "file": "assets/gen/test-walk-seedance.mp4",
+    "job": "aa1f4ea1-2648-4902-8cad-0f6a45576fbc",
+    "model": "seedance_2_0_mini",
+    "prompt": "walk toward camera through mist, rain, headband flutters, slow push-in",
+    "refs": [
+      "key-walk"
+    ],
+    "credits": 5.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_091406_aa1f4ea1-2648-4902-8cad-0f6a45576fbc.mp4",
+    "note": "720p 5s; model test",
+    "fetched": "2026-10-20T14:47:12"
+  },
+  "title-calligraphy": {
+    "file": "assets/gen/title-calligraphy.png",
+    "job": "cb3181fa-e789-4470-8992-3d575cc58b08",
+    "model": "gpt_image_2_5",
+    "prompt": "brush calligraphy 雨渡し vertical, red seal, white ground",
+    "refs": [],
+    "credits": 1.0,
+    "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3AsrXfliJuacEHhpYzJiOhn6DHG/hf_20261020_092143_cb3181fa-e789-4470-8992-3d575cc58b08.png",
+    "fetched": "2026-10-20T14:54:45"
+  }
+}
