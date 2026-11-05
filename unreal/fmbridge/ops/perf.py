@@ -358,6 +358,16 @@ def calibrate(*, label: str, face_component: str = "Face", body_component: str =
         return m
 
     rest = yield from measure([frame])
+    # the rest pose only once it holds still: the scratch sections (the body's rest pose under the face) take some
+    # ticks to replace what the actor played, and a rest taken before that counts the jump as each curve's effect
+    # (round 3, box: "HeadYaw and HeadPitch both yaw the head" at -95 cm)
+    for _ in range(40):
+        yield 0.25
+        m2 = yield from measure([frame])
+        moved = max(abs(x - y) for x, y in zip(m2["bones"]["FACIAL_L_Eye"][0][:3], rest["bones"]["FACIAL_L_Eye"][0][:3]))
+        rest = m2
+        if moved < 0.01:
+            break
     eL, eR = rest["bones"]["FACIAL_L_Eye"][0], rest["bones"]["FACIAL_R_Eye"][0]
     mid0 = _mid(eL[:3], eR[:3])
     head0 = rest["bones"]["head"][0][:3]
