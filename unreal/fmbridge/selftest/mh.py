@@ -10,8 +10,9 @@ pose (checked on the bones), a prop riding a bone, the clipping check, stills. T
 with it. Needs: the MetaHuman Creator core data (presets); GPU for the stills; the Epic sign-in for part 2
 (film-ue epic-login once per box).
 """
-import inspect
 from __future__ import annotations
+
+import inspect
 
 AREAS = ["mh"]
 NEEDS_LEVEL = True
