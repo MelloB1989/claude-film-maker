@@ -89,19 +89,20 @@ def main() -> None:
     ap.add_argument("--mode", default="capture", help="view.still mode: capture (seconds) or mrq (the final look)")
     a = ap.parse_args()
     names = ok(client.exec_code(f"MIS = {MIS!r}\n" + NAMES))
-    have_s = set.intersection(*(set(n["scalars"]) for n in names.values()))
-    have_v = set.intersection(*(set(n["vectors"]) for n in names.values()))
+    have_s = set.intersection(*({x.lower() for x in n["scalars"]} for n in names.values()))  # FNames: any case
+    have_v = set.intersection(*({x.lower() for x in n["vectors"]} for n in names.values()))
     rep = {"names": names, "stills": {}}
     for v in VARIANTS:
-        missing = [k for k in v.get("scalars", {}) if k not in have_s] + [k for k in v.get("vectors", {})
-                                                                          if k not in have_v]
+        missing = [k for k in v.get("scalars", {}) if k.lower() not in have_s] + [
+            k for k in v.get("vectors", {}) if k.lower() not in have_v]
         if missing:
             rep["stills"][v["name"]] = {"skipped": f"the material has no {missing}"}
             continue
         old = ok(client.exec_code(f"MIS = {MIS!r}\nV = {v!r}\n" + SET))
         try:
             r = ok(client.op("view.still", out=f"{a.out}/{v['name']}.png", sequence=SEQ, frame=FRAME, camera=CAM,
-                             width_px=960, height_px=540, mode=a.mode))
+                             width_px=960, height_px=540, mode=a.mode,
+                             **({"level": "/Game/Studio/Studio"} if a.mode == "mrq" else {})))
             rep["stills"][v["name"]] = {"path": r["path"], "set": v}
         finally:
             ok(client.exec_code(f"OLD = {old!r}\n" + RESTORE))
