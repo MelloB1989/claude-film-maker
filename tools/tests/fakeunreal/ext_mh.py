@@ -243,11 +243,17 @@ class Assembled:
         self._fns = []
 
     def bind_callable(self, fn):
+        import inspect
+        n = len([p for p in inspect.signature(fn).parameters.values()
+                 if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)])
+        if n != 1:  # live 5.8.4: the delegate passes the assembly result
+            raise Exception(f"MetaHumanCharacterAssembled: Callable has the incorrect number of arguments "
+                            f"(expected 1, got {n})")
         self._fns = [fn]
 
     def _fire(self):
         for f in self._fns:
-            f()
+            f(None)
 
 
 class MetaHumanInstance(core.Object):
