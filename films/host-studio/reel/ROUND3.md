@@ -59,7 +59,9 @@ next item before the current one ends.
    from code: studio `build.py`, reel `build.py`, `rig.py` (the OutsideNight card and the downlights: `light.py`
    needs them), `light.py --seq`, `vo.py cues --from <project>/Saved/Import/reel`,
    then REEL_PERF.md's 'Re-placing after a studio rebuild' runbook (her garments' leader pose with
-   `restore_leader.py`, `perf.py drive_faces`, `perf.py place`): without it the presenters stand unperformed, then render agent-05's `r3/10-preview.yaml`. agent-09 checks the preview.
+   `restore_leader.py`, `perf.py drive_faces`, `perf.py place`), then `props/her_outfit_ue/her_hair.py` LAST (each
+   of those re-creates her components and drops her hair's material: teal hair): without them the presenters stand
+   unperformed, then render agent-05's `r3/10-preview.yaml`. agent-09 checks the preview.
 2. **The operator's capture** (agent-04, run by agent-07): pull `MySlate_3` on the box (the box role only) and run
    identity from the footage. While the cloud solve runs, the editor is free for item 3.
 3. **AA calibration** (agent-05): `r3/20-calibrate.yaml` (24 frames of S17, A/B). Pick the settings for the finals.
