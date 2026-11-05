@@ -32,8 +32,10 @@ def box(tmp_path, monkeypatch):
 def test_project_scripts_exclude_what_never_travels(box):
     up = sync.project_script("up")
     assert "aws s3 sync" in up and "/srv/ue/projects/Demo s3://bkt/ue-projects/Demo" in up
-    for x in ("'Saved/*'", "'Intermediate/*'", "'DerivedDataCache/*'", "'Binaries/*'"):
+    for x in ("'Saved/*'", "'Intermediate/*'", "'DerivedDataCache/*'", "'Binaries/*'", "'Content/_Selftest/*'"):
         assert f"--exclude {x}" in up
+    # a plugin built on the box (plugin-build) keeps its Linux build: the later filter wins in aws s3 sync
+    assert up.index("--exclude '*/Binaries/*'") < up.index("--include 'Plugins/*/Binaries/Linux/*'")
     down = sync.project_script("down", delete=True)
     assert "--delete" in down and "s3://bkt/ue-projects/Demo /srv/ue/projects/Demo" in down
     with pytest.raises(SystemExit, match="up \\(box -> S3\\) or down"):
