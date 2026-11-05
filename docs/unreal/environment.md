@@ -350,7 +350,8 @@ editor.project_setting, clouds material) done. Full ue suite green.
 Day 1 (2026-11-05, agent-13's GPU run, branch `fleet/agent-08/env-day1`): `selftest env` went from 38 passed / 6 failed
 + an ERROR to 56 passed / 0 failed on the real engine after three fixes (§8 day-1 rows): the 8-bit readback is 0..255, the
 display capture is RTF_RGBA8_SRGB, and the sky light has no lighting channels. MID_GREY_DISPLAY 0.46 holds.
-`env.captures_rebuild`'s recapture route is in, but nothing checks yet whether the captures update.
+`env.captures_rebuild`'s routes are unit-tested on the fake (test_captures_rebuild_routes); whether the captures
+update on a real engine is unverified.
 
 Tomorrow on the GPU box, in order:
 1. `film-ue selftest env` (~4 min). Use §8 for any failure. Read the two calibration numbers: `meter_offset_stops`
