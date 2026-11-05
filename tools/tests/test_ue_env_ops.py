@@ -160,6 +160,43 @@ def test_captures_and_remove(ue, fmb):
     assert run_op("env.remove", parts=["fog"])["changed"] is False
 
 
+def test_captures_rebuild_routes(ue, fmb):
+    """Day 1: build_light_maps fails on a Lumen-only project, so captures_rebuild marks each capture for recapture
+    (a brightness edit and back) instead; with static lighting on and a build that works, it only builds."""
+    def brightness_sets():
+        return [a for a, _ in ue.called("SphereReflectionCaptureComponent.set_editor_property")
+                + ue.called("BoxReflectionCaptureComponent.set_editor_property") if a[0] == "brightness"]
+    assert run_op("env.captures_rebuild") == {"changed": True, "built": False, "route": "recapture",
+                                              "recaptured": []}  # no captures: nothing to rebuild
+    run_op("env.reflection_capture", label="Room", shape="box", loc=[0, 0, 150], brightness=0.8)
+    run_op("env.reflection_capture", label="Hall", loc=[500, 0, 150])
+
+    ue.cvars["r.AllowStaticLighting"] = 0  # Lumen-only: no lighting build at all
+    n = len(brightness_sets())
+    r = run_op("env.captures_rebuild")
+    assert r["route"] == "recapture" and r["built"] is True and sorted(r["recaptured"]) == ["Hall", "Room"]
+    assert not ue.called("LevelEditorSubsystem.build_light_maps")
+    assert len(brightness_sets()) - n == 4  # each capture: an edit and back
+    room = ue.actor("Room").get_component_by_class(ue.BoxReflectionCaptureComponent)
+    assert room.get_editor_property("brightness") == pytest.approx(0.8)  # left as it was
+    assert run_op("env.describe")["captures"]["Room"]["brightness"] == pytest.approx(0.8)
+
+    ue.cvars["r.AllowStaticLighting"] = 1
+    ue.stub("LevelEditorSubsystem.build_light_maps", True)
+    n = len(brightness_sets())
+    r = run_op("env.captures_rebuild", quality="high")
+    assert r == {"changed": True, "built": True, "route": "lighting_build", "recaptured": []}
+    assert len(ue.called("LevelEditorSubsystem.build_light_maps")) == 1 and len(brightness_sets()) == n
+
+    ue.stub("LevelEditorSubsystem.build_light_maps", False)  # the build fails: fall back to recapturing
+    r = run_op("env.captures_rebuild")
+    assert r["route"] == "recapture" and r["built"] is True and len(r["recaptured"]) == 2
+    assert len(ue.called("LevelEditorSubsystem.build_light_maps")) == 2
+    from fmbridge.errors import OpError
+    with pytest.raises(OpError, match="is not preview"):
+        run_op("env.captures_rebuild", quality="ultra")
+
+
 SPEC = {"kind": "environment", "version": 1, "name": "studio", "preset": "interior_day",
         "sun": {"time": "16:30", "lat": 19.07, "lon": 72.88, "date": "2026-11-05", "tz": 5.5},
         "clouds": {"bottom_km": 2},
