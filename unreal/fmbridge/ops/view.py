@@ -173,8 +173,10 @@ def capture(cam: dict, width: int, height: int, source: str = "final", show_only
     if cam.get("post") is not None and source in ("final", "hdr"):
         c.set_editor_property("post_process_settings", cam["post"])
         c.set_editor_property("post_process_blend_weight", 1.0)
+    # ShowOnlyActors / HiddenActors are EditInstanceOnly (SceneCaptureComponent.h:139/147): Python refuses to write
+    # them on this component ("cannot be edited on templates", day 1 on the box), so go through the component's own
+    # lists instead: ClearShowOnlyComponents / ShowOnlyActorComponents, ClearHiddenComponents / HideActorComponents.
     c.clear_show_only_components()
-    c.set_editor_property("show_only_actors", [])
     if show_only:
         c.set_editor_property("primitive_render_mode", unreal.SceneCapturePrimitiveRenderMode.PRM_USE_SHOW_ONLY_LIST)
         for o in show_only:
@@ -184,7 +186,12 @@ def capture(cam: dict, width: int, height: int, source: str = "final", show_only
                 c.show_only_component(o)
     else:
         c.set_editor_property("primitive_render_mode", unreal.SceneCapturePrimitiveRenderMode.PRM_RENDER_SCENE_PRIMITIVES)
-    c.set_editor_property("hidden_actors", [a for a in hidden])
+    c.clear_hidden_components()
+    for a in hidden:
+        if isinstance(a, unreal.Actor):
+            c.hide_actor_components(a, False)
+        else:
+            c.hide_component(a)
     for _ in range(max(0, int(warmup))):
         c.capture_scene()
         yield
