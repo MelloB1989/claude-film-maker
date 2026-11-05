@@ -656,3 +656,14 @@ def test_head_curves_follow_the_measured_assignment():
     assert R.HeadSigns.from_json(s.to_json()).curves == s.curves
     with pytest.raises(ValueError):
         R.HeadSigns(curves={"yaw": "HeadYaw", "pitch": "HeadYaw", "roll": "HeadRoll"})
+
+
+def test_clavicle_axes_from_the_box_need_no_twist():
+    """Day-1 (box): perf.calibrate_body stopped at clavicle_l: turning it about x (its length) moves the arm 0 cm, and
+    twist (which body life never uses on a clavicle) had only that axis left."""
+    from perfkit import bodylife as BLF
+    box = {"x": {"flex": 0.0, "side": 0.0, "twist": 0.0}, "y": {"flex": 0.011, "side": -2.27, "twist": -0.502},
+           "z": {"flex": 2.32, "side": 0.026, "twist": -0.149}}
+    assert BLF.pick_axes("clavicle_l", box) == {"flex": ["z", 1.0], "side": ["y", -1.0], "twist": ["x", 1.0]}
+    with pytest.raises(ValueError):
+        BLF.pick_axes("spine_03", box)  # a spine bone must twist the body
