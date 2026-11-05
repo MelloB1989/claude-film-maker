@@ -32,8 +32,11 @@ def block(src: str, name: str) -> str:
 
 src = open(os.path.join(HERE, "studio.py")).read()
 exec(block(src, "host swap"))
-exec(block(src, "his outfit"))
+# lighting channels first: the host's lights are on channel 1 only, so a new Host on channel 0 alone renders as a black
+# silhouette (round 3: the swap crashed in the outfit block before this ran, and S17 showed him unlit)
 K.channels(["Host"], [0, 1])
+exec(block(src, "his outfit"))
+K.channels(["Host"], [0, 1])  # again for the components the outfit block added or re-created
 _g = his_garment()
 if _g is not None:
     mh.garment("Host", "Shirt", component=_g.get_name(),
