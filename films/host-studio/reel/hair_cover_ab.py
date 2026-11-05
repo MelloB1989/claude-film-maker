@@ -110,6 +110,23 @@ def render(tag: str, run: str) -> None:
         sys.argv = argv
 
 
+def wait_frames(root: Path, want=range(1240, 1244), limit: float = 1200.0) -> None:
+    """The render can land after film-ue apply gives up: in the 18:23 and 002736 runs apply returned in seconds
+    ('the render never started') and S16's 4 frames appeared under the variant's dir later. Wait until all of them
+    are there and their sizes hold, so the next variant's groom change never lands mid-render."""
+    import time
+    t0, sizes = time.time(), None
+    while time.time() - t0 < limit:
+        fr = qa_review.frames(str(root))
+        if all(f in fr for f in want):
+            now = [fr[f].stat().st_size for f in want]
+            if now == sizes:
+                return
+            sizes = now
+        time.sleep(15)
+    raise SystemExit(f"{root}: frames {list(want)} not all there after {limit:.0f} s")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True, help="on the box: the renders' parent dir (the spec's out) and the sheet")
@@ -123,8 +140,7 @@ def main() -> None:
         for v in VARIANTS:
             r = put(groups_for(v, orig))
             render(v["name"], run)
-            if 1241 not in qa_review.frames(str(out / v["name"])):
-                raise SystemExit(f"{v['name']}: no frame 1241 under {out / v['name']}")
+            wait_frames(out / v["name"])
             rep["variants"][v["name"]] = {"groups": groups_for(v, orig), "put": r}
     finally:
         rep["restored"] = put(orig)
