@@ -142,20 +142,16 @@ elif STAGE == "ingest":
     ffmpeg = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
     st = unreal.get_default_object(unreal.CaptureManagerEditorSettings)
     R["settings_props"] = props(unreal.CaptureManagerEditorSettings, 3000)
-    for k in [ln.split("``")[1] for ln in R["settings_props"].splitlines() if ln.startswith("- ``")]:
-        low, v = k.lower(), None
+    want = {"enable_third_party_encoder": True,  # live 5.8.4 field names (agent-07's ingest output, day 3)
+            "third_party_encoder": unreal.FilePath(file_path=ffmpeg),
+            "import_directory": unreal.DirectoryPath(path=CAPTURE_FOLDER),
+            "auto_save_assets": True}
+    for k, v in want.items():
         try:
-            cur = st.get_editor_property(k)
-        except Exception:
-            continue
-        if isinstance(cur, bool) and ("third" in low or "encoder" in low):
-            v = True
-        elif ("encoder" in low or "ffmpeg" in low) and ("path" in low or "binary" in low or "executable" in low):
-            v = ffmpeg if isinstance(cur, str) else unreal.FilePath(file_path=ffmpeg)
-        if v is not None:
             st.set_editor_property(k, v)
             R.setdefault("settings_set", {})[k] = str(v)
-    t("settings_saved", lambda: (st.save_config(), True)[1])
+        except Exception as e:
+            R.setdefault("settings_err", {})[k] = repr(e)[:200]
     params = unreal.CaptureManagerConversionParams()
     R["params_before"] = plain(params.to_dict()) if hasattr(params, "to_dict") else str(params)
     for k in list(R["params_before"]) if isinstance(R["params_before"], dict) else []:
