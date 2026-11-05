@@ -136,3 +136,15 @@ def test_assemble_fills_shots_not_yet_final_from_the_preview(tmp_path):
     d = assemble.merged(tmp_path / "out", [fin, prev])
     assert {p.suffix for p in d.iterdir()} == {".png"} and len(list(d.iterdir())) == cut.TOTAL
     assert (d / f"{s13.start:04d}.png").resolve() == (fin / "S13" / f"{s13.start:04d}.png").resolve()
+
+
+def test_contact_sheet_one_row_per_shot(tmp_path):
+    import assemble
+    from PIL import Image
+    prev = tmp_path / "preview"
+    prev.mkdir()
+    for f in range(cut.TOTAL):
+        Image.new("RGB", (64, 36)).save(prev / f"{f:04d}.jpg")
+    p = assemble.contact([tmp_path / "final", prev], tmp_path, "x", tile=64)
+    with Image.open(p) as im:
+        assert im.size == (3 * 64 + 8, len(SHOTS) * 36 + (len(SHOTS) - 1) * 4)
