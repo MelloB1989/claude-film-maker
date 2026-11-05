@@ -33,7 +33,9 @@ from shots import LINES, SHOTS  # noqa: E402
 SEQ = "/Game/Reel/SEQ_Reel"
 CAST = {"her": "Presenter", "him": "Host"}
 HER_GARMENTS = ["Top", "Trousers", "Overshirt"]
-WATCH, WATCH_BONE, WATCH_MAX_CM = "HerWatch", "lowerarm_twist_02_l", 8.0  # dress_her: 3.6 cm above the wrist
+# her watch: dress_her seats it 3.6 cm above the wrist, so it is measured from hand_l (cast2 read a steady 13 cm
+# from lowerarm_twist_02_l, mid-forearm: riding the arm, the wrong reference), and must hold steady across the frames
+WATCH, WATCH_BONE, WATCH_MAX_CM, WATCH_SPREAD_CM = "HerWatch", "hand_l", 8.0, 1.5
 JAW_ON_OFF = 3.0       # the jaw moves at least this many times more on a speaker's lines than between them
 PEN_MAX = 0.01         # at most 1% of a garment's pixels with skin through (qa.penetration's fraction)
 LIPS_RATIO = 2.0      # frames: mouth-box change on the lines over off them (preview 1, no lip-sync: 1.55; r1: 2.37)
@@ -134,7 +136,7 @@ def lips(who: str, face: list, ok, client) -> dict:
             "anims": {k: v.get("curve") for k, v in curves.items()}}
 
 
-def engine(out: str) -> dict:
+def engine(out: str, stills: str = "") -> dict:
     from filmtools.unreal import client
 
     def ok(res):
@@ -162,7 +164,8 @@ def engine(out: str) -> dict:
             for who in s.cast:
                 lab = CAST[who]
                 p = ok(client.op("qa.penetration", label=lab, body=["Body", "Face"],
-                                 garments=rep["people"][who]["garments"], sequence=SEQ, frame=f, size_px=384))
+                                 garments=rep["people"][who]["garments"], sequence=SEQ, frame=f, size_px=384,
+                                 out_dir=f"{stills}/pen_{s.id}_{f}_{who}" if stills else ""))
                 fr[who] = {"pass": p.get("pass"), "worst_fraction": p["metrics"].get("worst_fraction")}
             if "her" in s.cast:
                 ok(client.op("seq.scrub", path=SEQ, frame=f))
@@ -188,8 +191,9 @@ def summary(rep: dict) -> dict:
     s["b.garments"] = all(v["pass"] and (v["worst_fraction"] or 0) <= PEN_MAX for *_, v in pen)
     s["b.garments_worst"] = sorted(pen, key=lambda x: -(x[3]["worst_fraction"] or 0))[:3]
     w = [(sid, f, fr["watch_cm"]) for sid, r in rep["shots"].items() for f, fr in r.items() if "watch_cm" in fr]
-    s["b.watch"] = all(cm <= WATCH_MAX_CM for *_, cm in w)
-    s["b.watch_worst_cm"] = max((cm for *_, cm in w), default=None)
+    cms = [cm for *_, cm in w]
+    s["b.watch"] = bool(cms) and max(cms) <= WATCH_MAX_CM and max(cms) - min(cms) <= WATCH_SPREAD_CM
+    s["b.watch_cm"] = [min(cms), max(cms)] if cms else None
     return s
 
 
@@ -315,6 +319,7 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     e = sub.add_parser("engine")
     e.add_argument("--out", required=True)
+    e.add_argument("--stills", default="", help="a directory ON THE BOX for qa.penetration's magenta stills")
     f = sub.add_parser("frames")
     f.add_argument("root")
     f.add_argument("--engine", default="")
@@ -323,7 +328,7 @@ def main() -> None:
     h.add_argument("paths", nargs="+")
     h.add_argument("--out", required=True)
     a = ap.parse_args()
-    r = (engine(a.out) if a.cmd == "engine" else hair(a.paths, a.out) if a.cmd == "hair"
+    r = (engine(a.out, a.stills) if a.cmd == "engine" else hair(a.paths, a.out) if a.cmd == "hair"
          else frames(a.root, a.engine or None, a.out))
     print(json.dumps(r, indent=1, default=str))
 
