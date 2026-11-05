@@ -1,5 +1,6 @@
 # film-ue exec tools/mh_params_probe.py   -- read-only: why mh.item_params is empty on a real groom. Set CH to the selftest character (or leave "" for the last MH under /Game)
 CH = ""
+PREVIEW = "ST_mh_Preview"  # the label mh.preview gave the preview actor (selftest: <prefix>Preview)
 import unreal, traceback
 import importlib
 from fmbridge.ops.mh import _core as K
@@ -35,4 +36,14 @@ if sel is not None:
         if "param" in n.lower() and n.startswith("get"):
             t("call:" + n, lambda n=n: str(getattr(inst, n)())[:600])
 t("assembly_output", lambda: str(inst.get_assembly_output())[:400])
+# mh.preview did not find its own actor by label the second time: is it in get_all_level_actors at all?
+from fmbridge.ops import _util as U
+t("preview_in_level_actors", lambda: [a.get_actor_label() for a in U.actors() if PREVIEW.lower() in a.get_actor_label().lower()
+                                      or "preview" in a.get_class().get_name().lower()])
+def _world_hits():
+    w = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
+    return [(a.get_actor_label(), a.get_class().get_name(), a.get_path_name()) for a in
+            unreal.GameplayStatics.get_all_actors_of_class(w, unreal.Actor)
+            if PREVIEW.lower() in a.get_actor_label().lower() or "metahuman" in a.get_class().get_name().lower()]
+t("preview_in_world", _world_hits)
 result = R
