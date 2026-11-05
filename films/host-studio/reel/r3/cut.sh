@@ -2,6 +2,7 @@
 # Round 3's cut, ON THE GPU BOX (the orchestrator's rule: no bulk frame pulls to kali; frames stay on the box, only
 # the MP4s and sheets come down). agent-07 runs it from the box's checkout of film/host-studio:
 #
+#   R3_PREVIEW=preview/<build> films/host-studio/reel/r3/cut.sh preview   # that build's preview pass
 #   films/host-studio/reel/r3/cut.sh preview              # rough cut of the preview pass: 65 s + 45 s, 1080p, captions
 #   films/host-studio/reel/r3/cut.sh final                # the finals, shots not final yet filled from the preview
 #   films/host-studio/reel/r3/cut.sh final --fill-from none   # the deliverables: every final must be in
@@ -21,6 +22,8 @@ FRAMES=${R3_FRAMES:-/srv/ue/reel/r3}
 OUT=${R3_CUT:-/srv/ue/reel/r3/cut}
 TOOLS=${R3_TOOLS:-/srv/ue/tools/ffmpeg}
 CUES=${R3_CUES:-$ROOT/out/host-studio/reel/vo/cues.json}
+PREVIEW=${R3_PREVIEW:-preview}   # the preview pass under R3_FRAMES: preview/<build> when each rebuild has its own
+[ -d "$HOME/.local/bin" ] && export PATH="$HOME/.local/bin:$PATH"   # uv's default install
 
 if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
   if [ ! -x "$TOOLS/bin/ffmpeg" ]; then
@@ -48,10 +51,10 @@ cues=()
 if [ -f "$CUES" ]; then cues=(--cues "$CUES"); else echo "no $CUES: captions timed from LINES"; fi
 mkdir -p "$OUT"
 case "$cmd" in
-  preview) "${asm[@]}" --pass preview check
-           "${asm[@]}" --pass preview preview "${mix[@]}" "${cues[@]}" "$@" ;;
+  preview) "${asm[@]}" --pass "$PREVIEW" check
+           "${asm[@]}" --pass "$PREVIEW" preview "${mix[@]}" "${cues[@]}" "$@" ;;
   final)   "${asm[@]}" --pass final check
-           "${asm[@]}" --pass final final "${mix[@]}" "${cues[@]}" "$@" ;;
+           "${asm[@]}" --pass final final "${mix[@]}" "${cues[@]}" --fill-from "$PREVIEW" "$@" ;;
   check)   "${asm[@]}" --pass "${1:-final}" check "${@:2}" ;;
   sheet)   "${asm[@]}" --pass "${1:-final}" sheet "${@:2}" ;;
   *) echo "usage: cut.sh preview|final|check <pass>|sheet <pass> <shot> [args]" >&2; exit 2 ;;
