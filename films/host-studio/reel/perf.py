@@ -83,7 +83,9 @@ def ok(res: dict):
 
 
 def cues() -> dict:
-    return json.loads((VO / "cues.json").read_text())["lines"]  # vo.py build
+    """vo.py build's cues.json, else the rebuilt copy in git (cues_v2.json: vo.py cues, no words)."""
+    p = VO / "cues.json"
+    return json.loads((p if p.exists() else HERE / "cues_v2.json").read_text())["lines"]
 
 
 def anim_name(key: str) -> str:
