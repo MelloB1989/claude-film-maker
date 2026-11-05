@@ -214,6 +214,21 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
     6. WRAP step 4.
   - The V01/V02/S11 finals were rendered on stale cameras (camcheck_1900: V01 1.14x, V02/S11 differ). Re-render them tomorrow, with level.save + probe_cam --check first.
 
+- **OVERNIGHT PLAN (cc-64d05f6e, 01:15 IST / 19:45 UTC), supersedes the 00:35 decision: the operator is asleep and the work continues.**
+  1. The fixes preview first (unchanged), then its key goes to cc-64d05f6e.
+  2. The operator MetaHuman as HIM:
+     - agent-04's chain from r3-operator-mh @ 82037d27, run by agent-07;
+     - charcoal trousers and a grey tee;
+     - placeholder hair and beard;
+     - heights measured for agent-11;
+     - the face and head-turn pass on both presenters.
+  3. A cast preview through agent-09's gate. Then merge r3-operator-mh and set HOST=op.
+  4. 1080p finals of every shot at pick C. Fresh out_dir, with level.save + probe_cam --check first.
+  5. agent-06's 65 s and 45 s cuts on the box, then the upload to `ue-linux/shoot/r3/final/`.
+  6. The wrap: WRAP steps 3 and 4 (private/, SSE-KMS, head-object) start by 21:45 UTC whatever the state. Power-off by 22:10 UTC (03:40 IST); any extension up to 04:00 IST and beyond is asked for, with frames and minutes.
+  - idle-guard.sh on the box powers it off after 45 min with no new files under /srv/ue and the GPU under 20%. `/srv/ue/.guard-keepalive` is only for real quiet steps.
+  - chain28: her calibrate PASSED (the settle fix). HeadRoll turns weakly and HeadPitch is dead on her, so verify's head_turns at f1100/f1392 is the truth for the gate (agent-01).
+
 ## Tomorrow (round 3, day 2): the list
 
 1. Restore the box from private S3 (project + DDC), then agent-04 re-runs the ingest from the raw take (`private/operator-face/MySlate_3/`, ~1 min). The identity is already solved and Host_Op is already built.
