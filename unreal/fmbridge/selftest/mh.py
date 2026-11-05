@@ -171,11 +171,15 @@ def run(t):
     r = yield from t.op("mh.textures", character=ch)
     t.ok("cloud textures", r["has_high_res_textures"])
     t.metric("textures_s", r["seconds"], "s")
-    if hair:  # item parameters exist now that the character can be assembled
-        r = t.op("mh.groom", character=ch, slot="Hair", melanin=0.95, redness=0.05)
-        if inspect.isgenerator(r):
-            r = yield from r
-        t.check("hair colour set", [r["params"]["Melanin"], r["params"]["Redness"]], [0.95, 0.05], tol=1e-3)
+    r = t.op("mh.build", character=ch, bp_name=p + "A")
+    t.ok("build makes the Blueprint", bool(r["bp"]), detail=str(r))
+    t.metric("build_s", r["seconds"], "s")
+    t.idempotent("build again: up to date", "mh.build", character=ch, bp_name=p + "A")
+    if hair:  # item parameters exist once the collection is built (live 5.8.4): colour, then build again
+        g = t.op("mh.groom", character=ch, slot="Hair", melanin=0.95, redness=0.05)
+        if inspect.isgenerator(g):
+            g = yield from g
+        t.check("hair colour set", [g["params"]["Melanin"], g["params"]["Redness"]], [0.95, 0.05], tol=1e-3)
         t.idempotent("the same colour again changes nothing", "mh.groom", character=ch, slot="Hair", melanin=0.95,
                      redness=0.05)
         ip = t.op("mh.item_params", character=ch, slot="Hair")
@@ -184,10 +188,8 @@ def run(t):
         t.ok("groom parameters listed", "Melanin" in ip["params"], detail=str(sorted(ip["params"])))
         t.raises("a misspelt parameter suggests", "mh.item_set", code="bad_args", character=ch, slot="Hair",
                  params={"Melanine": 0.5})
-    r = t.op("mh.build", character=ch, bp_name=p + "A")
-    t.ok("build makes the Blueprint", bool(r["bp"]), detail=str(r))
-    t.metric("build_s", r["seconds"], "s")
-    t.idempotent("build again: up to date", "mh.build", character=ch, bp_name=p + "A")
+        rb = t.op("mh.build", character=ch, bp_name=p + "A")
+        t.ok("the colour change rebuilds", rb["changed"], detail=str(rb))
     d = t.op("mh.describe", path=ch)
     t.ok("describe: built and not stale", not d["build"]["stale"] and not d["rig_stale"], detail=str(d["build"]))
 
