@@ -24,8 +24,8 @@ FRAMES = {"front": 60, "left": 360, "right": 690}
 TEETH_FRAME = 960
 # his body (keep in step with films/host-studio/bodies.py "op")
 BODY = {"Height": 180, "Across Shoulder": 45, "Front Interscye Length": 40, "Chest": 100, "Underbust": None,
-        "Waist": 79, "High Hip": 85, "Hip": 95, "Neck Base": 40, "Neck": 38, "Bicep": 31.5, "Forearm": 27.5,
-        "Thigh": 54, "Knee": 37, "Calf": 36.5, "Fat": -1.4, "Muscularity": 0.7, "Masculine/Feminine": -1.5}
+        "Waist": 75, "High Hip": 80, "Hip": 92, "Neck Base": 40, "Neck": 38, "Bicep": 31.5, "Forearm": 27.5,
+        "Thigh": 56, "Knee": 34, "Calf": 37, "Fat": -1.4, "Muscularity": 0.7, "Masculine/Feminine": -1.5}
 
 R = {"stage": STAGE}
 EAL = unreal.EditorAssetLibrary

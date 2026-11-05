@@ -25,10 +25,12 @@ BODIES = {
     # op (round 3): the operator's MetaHuman, replacing him in the Host role. 180 cm, fit: lean-athletic in a tee, NOT
     # bulky (the round-2 note on his over-built chest still says what to avoid): shoulders over the waist without a
     # pronounced V, a flat stomach, natural arms. The face comes from the operator's capture (identity), not from here.
+    # Waist down as Trey's (75/80/92, thigh 56, knee 34, calf 37): his charcoal trousers were fitted to that lower body
+    # in Blender and follow any MetaHuman skeleton by their skinning, so they fit without a refit.
     "op": ("/Game/Host/Host_Op", "Host_Op", {  # its own BP (Unpacked/Host_Op): Trey's stays the fallback
         "Height": 180, "Across Shoulder": 45, "Front Interscye Length": 40, "Chest": 100, "Underbust": None,
-        "Waist": 79, "High Hip": 85, "Hip": 95, "Neck Base": 40, "Neck": 38, "Bicep": 31.5, "Forearm": 27.5,
-        "Thigh": 54, "Knee": 37, "Calf": 36.5, "Fat": -1.4, "Muscularity": 0.7, "Masculine/Feminine": -1.5}),
+        "Waist": 75, "High Hip": 80, "Hip": 92, "Neck Base": 40, "Neck": 38, "Bicep": 31.5, "Forearm": 27.5,
+        "Thigh": 56, "Knee": 34, "Calf": 37, "Fat": -1.4, "Muscularity": 0.7, "Masculine/Feminine": -1.5}),
     # her: slim and clearly feminine; a defined bust over a narrow waist, curved hips, slender arms and shoulders
     "her": ("/Game/Host/Presenter_F", "Presenter", {
         "Height": 168, "Across Shoulder": 33, "Front Interscye Length": 31, "Chest": 94, "Bust Span": 19.5,
