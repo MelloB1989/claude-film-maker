@@ -123,8 +123,8 @@ def _assemble(inst):
     if st is None or st.get("sig") != sig:
         st = {"done": False, "result": None, "sig": sig}
 
-        def on_assembled(*args):
-            st["done"], st["result"] = True, args
+        def on_assembled(result):  # live: exactly one argument (the assembly result), *args is refused
+            st["done"], st["result"] = True, result
         d = unreal.MetaHumanCharacterAssembled()
         d.bind_callable(on_assembled)
         st["delegate"] = d  # keep the delegate (and its callable) alive until the engine calls it
