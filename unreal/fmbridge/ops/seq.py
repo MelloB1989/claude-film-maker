@@ -82,7 +82,7 @@ def shot(path: str, actor_label: str, anims: dict, camera: str, audio: str = "",
         free(path)  # create_asset over an existing asset asks in a modal dialog
     wave = load(audio) if audio else None
     secs = seconds or (wave.get_editor_property("duration") if wave else 0) or max(
-        load(a).get_editor_property("sequence_length") for a in anims.values())
+        E.anim_length(load(a)) or 0 for a in anims.values())
     end = int(math.ceil(secs * fps)) + tail
     from .seqcore import seq_core
     seq_core.add(path=path, fps=fps, start=0, end=end, save=False)
@@ -514,7 +514,7 @@ def anim_track(path: str, label: str, component: str, sections: list, replace: b
         rate = float(d.get("rate", 1.0))
         offset = float(d.get("offset", 0.0))
         start = int(d["start"])
-        length = a.get_editor_property("sequence_length")
+        length = E.anim_length(a) or 0.0
         end = int(d.get("end", start + int(math.ceil((length - offset) * fps / rate))))
         row = d.get("row")
         if row is None:

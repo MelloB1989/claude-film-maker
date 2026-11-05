@@ -779,6 +779,19 @@ def set_markers(seq, markers: list) -> None:
 
 # --- the resolver: what a spec needs from the level -------------------------------------------------------------------
 
+def anim_length(a):
+    """An anim asset's play length in seconds, or None. get_play_length() first: the 'sequence_length' property is
+    deprecated since 5.0 (AnimSequenceBase.h:47), kept only as the fallback."""
+    for get in (lambda: a.get_play_length(), lambda: a.get_editor_property("sequence_length")):
+        try:
+            v = float(get())
+            if v > 0:
+                return v
+        except Exception:
+            continue
+    return None
+
+
 class EngineResolver:
     """compile_spec's questions answered from the open level. Spawnable labels (not in the level) get guesses."""
 
@@ -808,15 +821,7 @@ class EngineResolver:
                 "scale": [s.x, s.y, s.z]}
 
     def anim_length(self, path):
-        a = load(path)
-        for get in (lambda: a.get_play_length(), lambda: a.get_editor_property("sequence_length")):
-            try:
-                v = float(get())
-                if v > 0:
-                    return v
-            except Exception:
-                continue
-        return None
+        return anim_length(load(path))
 
     def sound_duration(self, path):
         return float(load(path).get_editor_property("duration"))
