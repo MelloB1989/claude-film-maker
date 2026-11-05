@@ -87,3 +87,15 @@ def test_windows_and_missing_settings_are_explained(tmp_path, monkeypatch):
         sync.project("up")
     with pytest.raises(SystemExit, match="no bucket set"):
         sync.project_s3()
+
+
+def test_a_real_persons_face_assets_never_sync(box):
+    """Round 3: the operator's capture, identity and character stay on the box (and Epic's cloud). Their excludes come
+    after every include, so nothing brings them back; --delete never touches an excluded path on the box."""
+    for direction, kw in (("up", {}), ("down", {"delete": True})):
+        s = sync.project_script(direction, **kw)
+        for x in ("'Content/Host/OperatorCapture/*'", "'Content/Host/Host_Op*'", "'Content/Host/Unpacked/Host/*'"):
+            assert f"--exclude {x}" in s
+            assert s.index(f"--exclude {x}") > s.index("--include 'Plugins/*/Binaries/Linux/*'")
+    ws.save(private_paths=["Content/People/*"])
+    assert "--exclude 'Content/People/*'" in sync.project_script("up")

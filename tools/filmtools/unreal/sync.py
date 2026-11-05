@@ -35,6 +35,10 @@ PROJECT_EXCLUDES = ("Saved/*", "Intermediate/*", "DerivedDataCache/*", "Binaries
 # A C++ plugin's Linux build travels with its source (film-ue plugin-build made it against the same engine): a box
 # that got the source alone could not start the editor (a module it cannot load)
 PROJECT_INCLUDES = ("Plugins/*/Binaries/Linux/*",)
+# Face-derived assets of a real person (the operator's MetaHuman, round 3): they stay on the box and Epic's cloud and
+# are never synced up. Applied last, so no include can bring them back; a `private_paths` list in the box settings adds more.
+PRIVATE_EXCLUDES = ("Content/Host/OperatorCapture/*", "Content/Host/Host_Op*", "Content/Host/Unpacked/Host/*",
+                    "Content/Host/Unpacked/Host_Op*", "*/OperatorCapture/*")
 ZEN = "$HOME/.config/Epic/UnrealEngine/Common/Zen/Data"
 
 
@@ -58,9 +62,15 @@ def ddc_s3(version: str = "") -> str:
     return c.get("ddc_s3") or f"s3://{_bucket()}/ue-linux/ddc/{version or c.get('engine_version') or '5.8.4'}"
 
 
+def private_paths() -> tuple:
+    extra = ws.conf().get("private_paths") or []
+    return PRIVATE_EXCLUDES + tuple(extra if isinstance(extra, (list, tuple)) else [extra])
+
+
 def _excl() -> str:
     return " ".join([f"--exclude {shlex.quote(x)}" for x in PROJECT_EXCLUDES] +
-                    [f"--include {shlex.quote(x)}" for x in PROJECT_INCLUDES])  # the later filter wins
+                    [f"--include {shlex.quote(x)}" for x in PROJECT_INCLUDES] +  # the later filter wins
+                    [f"--exclude {shlex.quote(x)}" for x in private_paths()])  # so the private ones go last
 
 
 def project_script(direction: str, delete: bool = False) -> str:
