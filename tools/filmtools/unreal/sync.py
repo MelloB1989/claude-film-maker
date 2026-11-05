@@ -12,7 +12,7 @@ the DDC under s3://<bucket>/ue-linux/ddc/<engine version>/ (or `ddc_s3`), the si
 the box (its role reads and writes the bucket), as the editor's user. Everything has a --dry-run that prints the exact
 script instead of running it.
 
-  project up      box -> S3: Content, Config, Plugins (source, not binaries), the .uproject. Refused while the editor
+  project up      box -> S3: Content, Config, Plugins (source, and a C++ plugin's Linux build), the .uproject. Refused while the editor
                   holds unsaved packages (they are not on disk yet): save them (assets.save_all / level.save) or pass
                   --allow-dirty. Saved/, Intermediate/, DerivedDataCache/ and Binaries/ never travel.
   project down    S3 -> box. The editor must not be running (it holds files open): --stop-editor stops it first.
@@ -30,7 +30,11 @@ from . import workstation as ws
 from .boxpaths import BoxPaths
 
 PROJECT_EXCLUDES = ("Saved/*", "Intermediate/*", "DerivedDataCache/*", "Binaries/*", "*/Binaries/*",
-                    "*/Intermediate/*", ".vs/*", "*.sln", "*.code-workspace")
+                    "*/Intermediate/*", ".vs/*", "*.sln", "*.code-workspace",
+                    "Content/_Selftest/*")  # what film-ue selftest makes (and cleans up) never reaches the project
+# A C++ plugin's Linux build travels with its source (film-ue plugin-build made it against the same engine): a box
+# that got the source alone could not start the editor (a module it cannot load)
+PROJECT_INCLUDES = ("Plugins/*/Binaries/Linux/*",)
 ZEN = "$HOME/.config/Epic/UnrealEngine/Common/Zen/Data"
 
 
@@ -55,7 +59,8 @@ def ddc_s3(version: str = "") -> str:
 
 
 def _excl() -> str:
-    return " ".join(f"--exclude {shlex.quote(x)}" for x in PROJECT_EXCLUDES)
+    return " ".join([f"--exclude {shlex.quote(x)}" for x in PROJECT_EXCLUDES] +
+                    [f"--include {shlex.quote(x)}" for x in PROJECT_INCLUDES])  # the later filter wins
 
 
 def project_script(direction: str, delete: bool = False) -> str:
