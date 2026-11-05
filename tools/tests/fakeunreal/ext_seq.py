@@ -811,14 +811,20 @@ class MaterialParameterInfo(core.Object):
 
 class LevelSequenceEditorBlueprintLibrary(core.Object):
     current = None
+    posed = {}  # actor -> its (location, rotation) before the open sequence posed it; closing puts them back
 
     @staticmethod
     def open_level_sequence(s):
+        if LevelSequenceEditorBlueprintLibrary.current is not s:
+            LevelSequenceEditorBlueprintLibrary.close_level_sequence()
         LevelSequenceEditorBlueprintLibrary.current = s
         return True
 
     @staticmethod
     def close_level_sequence():
+        for a, (p, r) in LevelSequenceEditorBlueprintLibrary.posed.items():
+            a.set_actor_location_and_rotation(p, r)
+        LevelSequenceEditorBlueprintLibrary.posed = {}
         LevelSequenceEditorBlueprintLibrary.current = None
 
     @staticmethod
@@ -866,7 +872,8 @@ class ControlRigSequencerLibrary(core.Object):
         tr = None
         if b is not None:
             tr = next((t for t in b.tracks if t.cls == "MovieScene3DTransformTrack"), None)
-        p0, r0 = a.get_actor_location(), a.get_actor_rotation()
+        posed = LevelSequenceEditorBlueprintLibrary.posed
+        p0, r0 = posed.get(a) or (a.get_actor_location(), a.get_actor_rotation())
         base = [p0.x, p0.y, p0.z, r0.roll, r0.pitch, r0.yaw]
         out = []
         for f in frames:
@@ -876,6 +883,9 @@ class ControlRigSequencerLibrary(core.Object):
                     if ch.keys or ch.default is not None:
                         vals[i] = _curves().evaluate(ch.canonical(), f.value, ch.default)
             out.append(_Xform(core.Vector(*vals[:3]), core.Rotator(roll=vals[3], pitch=vals[4], yaw=vals[5])))
+        if out and tr is not None:  # the open Sequencer leaves the level actor posed at the last frame it evaluated
+            posed.setdefault(a, (p0, r0))
+            a.set_actor_location_and_rotation(out[-1].translation, out[-1].rotation.rotator())
         return out
 
 
@@ -896,6 +906,7 @@ def install(fake) -> None:
                 LevelSequenceEditorSubsystem, MovieSceneTimeWarpExtensions):
         setattr(fake, cls.__name__, cls)
     LevelSequenceEditorBlueprintLibrary.current = None
+    LevelSequenceEditorBlueprintLibrary.posed = {}
     _OBJECT_NAMES.clear()
     # another area's fake may own ControlRigSequencerLibrary (ext_pose: rigs): add the Sequencer evaluation to it
     crl = fake.__dict__.get("ControlRigSequencerLibrary")

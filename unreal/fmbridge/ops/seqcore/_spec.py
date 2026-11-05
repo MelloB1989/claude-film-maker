@@ -44,7 +44,7 @@ component carries a property, a property's type); `NullResolver` guesses offline
 """
 from __future__ import annotations
 
-from ._curves import KeyError_, look_at, normalize_keys, srgb_to_linear, unwrap
+from ._curves import KeyError_, evaluate, look_at, normalize_keys, srgb_to_linear, unwrap
 from ._model import KINDS, MASTER, TRANSFORM_CHANNELS, channel, new_section, new_track
 from ._time import Rate, snap
 
@@ -137,6 +137,7 @@ class Compiler:
         self.problems: list = []
         self.notes: list = []
         self.children: list = []  # shot sequences a shot list makes: their specs, converged before this one
+        self.aim = True  # resolve look_at; off while compiling a look_at target's own location keys
         try:
             self.rate = Rate.parse(spec.get("fps", 24))
         except ValueError as e:
@@ -347,19 +348,19 @@ class Compiler:
                     raise KeyError_(f"{at}: a transform key is a list or a dict, got {k!r}")
                 if aim is not None and rot is not None:
                     raise KeyError_(f"{at}: give a rotation or a look_at, not both")
-                if aim is not None:
+                fr = snap(self.rate.parse_time(f))
+                if aim is not None and self.aim:
                     src = loc
                     if src is None:
                         raise KeyError_(f"{at}: look_at needs the key's location too")
                     if isinstance(aim, str):
-                        p = self.r.actor_location(aim)
+                        p = self._spec_location(aim, fr) or self.r.actor_location(aim)
                         if p is None:
                             self.notes.append(f"{at}: look_at {aim!r} left unresolved offline")
                             p = None
                         aim = p
                     if aim is not None:
                         rot = look_at(src, _vec3(aim, f"{at}.look_at"))
-                fr = snap(self.rate.parse_time(f))
                 if loc is not None:
                     for c, v in zip(TRANSFORM_CHANNELS[:3], loc):
                         chans[c].append([fr, v, how] + ([tangents.get(c)] if tangents and tangents.get(c) else []))
@@ -385,6 +386,29 @@ class Compiler:
                 if not out[c]["keys"]:
                     out[c]["default"] = float(v)
         return new_track("transform", label, comp, "", sections=[new_section(self._whole(), channels=out)])
+
+    def _spec_location(self, label: str, frame: float):
+        """Where the spec's own transform keys put `label` at `frame`, or None when the spec does not key its location.
+        A look_at aims there rather than at the level actor: an open Sequencer poses that actor at whatever frame it
+        last evaluated (seq.eval opens it), so its level location would re-plan the aiming camera on every apply."""
+        b = (self.spec.get("bindings") or {}).get(label)
+        tr = b.get("transform") if isinstance(b, dict) else None
+        if isinstance(tr, list):
+            tr = {"keys": tr}
+        if not isinstance(tr, dict) or tr.get("component"):
+            return None
+        sub = Compiler(self.spec, self.r)
+        sub.aim = False
+        chans = sub.transform(label, tr, "")["sections"][0]["channels"]
+        xyz = [evaluate(chans[c]["keys"], frame) for c in TRANSFORM_CHANNELS[:3]]
+        if all(v is None for v in xyz):
+            return None
+        if any(v is None for v in xyz):  # an axis the spec leaves unkeyed holds the actor's own value
+            cur = self.r.actor_transform(label)
+            if cur is None:
+                return None
+            xyz = [v if v is not None else float(c) for v, c in zip(xyz, cur["location"])]
+        return xyz
 
     def _whole(self):
         return (None, None)

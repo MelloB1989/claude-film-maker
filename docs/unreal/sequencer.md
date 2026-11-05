@@ -157,7 +157,9 @@ tracks: []                                    # raw canonical tracks (seq.descri
 Keys: `[frame, value(, interp(, tangents))]` or `{frame, value, interp, tangents: {arrive, leave}}` (slopes per
 display frame). Interp leaving a key: `auto` (smooth, clamped), `smart`, `linear`, `constant` (a step), `user`,
 `break`. Rotations are always `{pitch, yaw, roll}` and are unwrapped across ±180 (`unwrap: false` to keep them).
-Transform channels a spec leaves unkeyed hold the actor's current value. Colours are linear; `srgb: true` converts
+Transform channels a spec leaves unkeyed hold the actor's current value. A `look_at` actor label aims at where the
+spec's own transform keys put that actor at the key's frame, else at its level location (an open Sequencer poses
+level actors, so their level location is not stable). Colours are linear; `srgb: true` converts
 (an FColor property such as a light's LightColor). Property owners: `Component/Prop.Path`; without a component, the
 actor if it has the property, else its root component. A float property that is a double in C++: `type: double`.
 Animation sections default `end` to the clip's length / rate; `loop: false` ends the section with the clip.
