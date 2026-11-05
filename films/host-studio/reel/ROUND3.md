@@ -278,4 +278,14 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 14. **The box's shutdown behaviour is `terminate`** (checked 20:59 UTC, 05 Nov). Any OS shutdown, the idle-guard.sh poweroff or an OS-level TTL deletes the instance.
     - Tonight it is powered off with `film-ue down` (EC2 stop).
     - Before the box is restarted and left alone, the operator or karmax decides: flip the attribute to `stop`, or keep the guard aware of it. Changing it is a cloud-resource change, so it is theirs, not ours.
+15. cast_op3 gate (agent-09): NOT SIGNED.
+    - **His lips are really weak.** It is not a box error: on the same curves, Host_Op 1.53 vs Trey 2.15.
+      - Check whether the Host_Op Face post-process AnimBP / rig turns ctrl_expressions_* into joint motion.
+      - Compare FACIAL_C_Jaw travel on vs off the lines, Trey vs Host_Op.
+    - **Watch:** 8.2 cm is what renders. seq_dress re-keys HerWatch's transform track from the actor's current (stale) offset.
+      - Fix: seq_dress computes the seat from dress_her's rule (hand_l - fwd*3.6 in lowerarm_twist_01_l space).
+      - cast_gate's post-scrub watch check gates every render.
+      - Dump the transform-track keys first.
+    - The hair (c) is still open (0.237/0.219). Next: `hair_teal_ab.py --lights` (the lights + emissives, greenest first).
+    - The cast_op3 likeness and the tee clip have not been judged by eye. That waits on cc-64d05f6e's review (face rule).
 
