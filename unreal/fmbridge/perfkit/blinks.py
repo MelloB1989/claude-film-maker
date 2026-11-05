@@ -112,6 +112,36 @@ def plan(t0: float, t1: float, state: str | dict = "talk", gaze_events: list = (
                 out.append(_make(rnd, b.end() + rnd.uniform(0.02, 0.08), "double", partial_p))
         t += gap
     out.sort(key=lambda b: b.t)
+    return _irregular(out, rnd, t0, t1, refractory_s)
+
+
+def _cv(ts: list) -> float:
+    gaps = [b - a for a, b in zip(ts, ts[1:])]
+    if len(gaps) < 2:
+        return 1.0
+    m = sum(gaps) / len(gaps)
+    return math.sqrt(sum((g - m) ** 2 for g in gaps) / len(gaps)) / m if m > 0 else 1.0
+
+
+def _irregular(out: list, rnd, t0: float, t1: float, refractory_s: float, cv_min: float = 0.3,
+               tries: int = 60) -> list:
+    """People do not blink on a beat: while the intervals vary by less than `cv_min` (std/mean; under 0.25 reads as a
+    metronome), move a spontaneous blink by up to half its gaps, keeping the refractory spacing. Day 1: a 10 s face
+    with even phrase ends came out at 0.24."""
+    for _ in range(tries):
+        if _cv([b.t for b in out]) >= cv_min:
+            break
+        idx = [i for i, b in enumerate(out)  # a spontaneous blink, not one with its double right after
+               if b.cause == "spont" and not (i + 1 < len(out) and out[i + 1].cause == "double")]
+        if not idx:
+            break
+        i = rnd.choice(idx)
+        lo = out[i - 1].t if i > 0 else t0
+        hi = out[i + 1].t if i + 1 < len(out) else t1
+        t = out[i].t + rnd.uniform(-0.5, 0.5) * (hi - lo) / 2
+        if t0 <= t <= t1 and all(abs(t - b.t) >= refractory_s for j, b in enumerate(out) if j != i):
+            out[i].t = t
+            out.sort(key=lambda b: b.t)
     return out
 
 
