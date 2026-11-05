@@ -303,15 +303,23 @@ class FakeSection(core.Object):
 
     def set_start_frame(self, a):
         object.__setattr__(self, "start", self._t(a))
+        self.bounded[0] = True
 
     def set_end_frame(self, b):
         object.__setattr__(self, "end", self._t(b))
+        self.bounded[1] = True
 
+    # SetStart/EndFrameBounded(true) RESETS the bound to the playback range even when it was already bounded
+    # (MovieSceneSectionExtensions.cpp:359-385); called after set_range it throws the range away
     def set_start_frame_bounded(self, v):
         self.bounded[0] = bool(v)
+        if v:
+            object.__setattr__(self, "start", self.track.seq.ms.playback[0])
 
     def set_end_frame_bounded(self, v):
         self.bounded[1] = bool(v)
+        if v:
+            object.__setattr__(self, "end", self.track.seq.ms.playback[1])
 
     def has_start_frame(self):
         return self.bounded[0]
