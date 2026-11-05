@@ -81,6 +81,16 @@ def c(name: str) -> str:
     return name if name.startswith(PREFIX) or name in HEAD else PREFIX + name
 
 
+_CANON = {n.lower(): n for n in CURVES | set(HEAD)}
+
+
+def canon(name: str) -> str:
+    """A curve name as the engine listed it, in this module's spelling. Curve names are FNames (case-insensitive):
+    5.8's MetaHuman face loops list "ctrl_expressions_eyeblinkl" for CTRL_expressions_eyeBlinkL (day 1). Names this
+    module does not know pass through."""
+    return _CANON.get(str(name).lower(), str(name))
+
+
 def is_face_curve(name: str) -> bool:
     return name in CURVES or name in HEAD
 

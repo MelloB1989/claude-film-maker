@@ -19,6 +19,13 @@ AL = unreal.AnimationLibrary
 FLOAT = unreal.RawCurveTrackTypes.RCT_FLOAT
 
 
+def curve_names(anim) -> list:
+    """The float curves of an animation, in perfkit's spelling (FNames ignore case; 5.8 lists the MetaHuman curves in
+    lower case, so a plain `in` matched none of them: day 1). Reads and writes by these names hit the same curves."""
+    from ..perfkit.rig import canon
+    return [canon(n) for n in AL.get_animation_curve_names(anim, FLOAT)]
+
+
 def _keys(anim, name):
     t, v = AL.get_float_keys(anim, name)
     return list(t), list(v)
@@ -63,7 +70,7 @@ def curves(anim: str, contains: str = "") -> list:
     """A sequence's float curve names (containing `contains`).
     Example: film-ue op anim.curves anim=/Game/Speech/Anim/AS_line1 contains=eyeLook
     """
-    return [str(n) for n in AL.get_animation_curve_names(load(anim), FLOAT) if contains.lower() in str(n).lower()]
+    return [n for n in curve_names(load(anim)) if contains.lower() in n.lower()]
 
 
 @op("anim.curve", mutates=False, idempotent=True)
@@ -583,7 +590,7 @@ def describe(*, anim: str, curves: bool = False) -> dict:
     """
     from ..perfkit import rig as R
     a = _anim(anim)
-    names = [str(n) for n in AL.get_animation_curve_names(a, FLOAT)]
+    names = curve_names(a)
     length = float(AL.get_sequence_length(a))
     frames = int(AL.get_num_frames(a))
     meta = {}
@@ -698,9 +705,10 @@ def _set_rate(a, ctrl, fps: int) -> None:
 
 def read_all(a, names=None) -> dict:
     """{name: (times, values)} of an animation's float curves (all, or `names`)."""
-    have = [str(n) for n in AL.get_animation_curve_names(a, FLOAT)]
+    have = curve_names(a)
+    low = {n.lower(): n for n in have}
     out = {}
-    for n in (have if names is None else [x for x in names if x in have]):
+    for n in (have if names is None else [low[str(x).lower()] for x in names if str(x).lower() in low]):
         out[n] = _keys(a, n)
     return out
 
