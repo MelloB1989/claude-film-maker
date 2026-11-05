@@ -232,6 +232,14 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
   - idle-guard.sh on the box powers it off after 45 min with no new files under /srv/ue and the GPU under 20%. `/srv/ue/.guard-keepalive` is only for real quiet steps.
   - chain28: her calibrate PASSED (the settle fix). HeadRoll turns weakly and HeadPitch is dead on her, so verify's head_turns at f1100/f1392 is the truth for the gate (agent-01).
 
+- **Finals routing (karmax, 20:10 UTC):**
+  - Anything showing the operator's MetaHuman lives only under `ue-linux/private/` (SSE-KMS). That covers frames, S13-S18 and both full cuts.
+  - None of it goes to kali or to shoot/.
+  - `shoot/r3/final/` takes only the no-face shots and frame-free reports.
+  - The kali disk (not /tmp) takes only the Trey preview, the no-face MP4s and the reports.
+  - The working end is 22:10 UTC: agent-07 powers off by hand after the head-object check. The box's own 22:30 UTC poweroff is the backstop.
+- chain28 verify: the head turns are in (her 26.1/28.3 deg, him -53.1/-21.1 deg) and lip sync passes on both. Her tilt on "yourself" is lost (HeadPitch dead).
+
 ## Tomorrow (round 3, day 2): the list
 
 1. Restore the box from private S3 (project + DDC), then agent-04 re-runs the ingest from the raw take (`private/operator-face/MySlate_3/`, ~1 min). The identity is already solved and Host_Op is already built.
