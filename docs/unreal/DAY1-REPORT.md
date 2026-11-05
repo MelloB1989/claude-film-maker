@@ -159,3 +159,7 @@ fast-forwards to.
 | render | lead's call: PIE is the route (process/cmdline noted without the MRQ editor library); cancel check waits for frames | agent-10 6577d81e | 1038 passed |
 | anim/pose | control rig track found by binding GUID `export_text` (str() carries the struct's address) | agent-01 e780b14d | 1039 passed |
 | mh | assemble before item parameters; preview keeps its actor; selftest wears an unworn groom | agent-04 d4b87b1c | 1039 passed |
+| render | cmdline/manifest without the MRQ editor library (queue saved as an asset, -MoviePipelineConfig); fake lacks the library like the box | agent-05 6db3138d | 1043 passed |
+| render | render.job accepts a level whose .umap is on disk (the scratch level was refused as unsaved); the selftest checks its level saved | agent-10 8987647f | 1043 passed |
+| mh | assemble() with an on_assembled delegate, waited across ticks; selftest import order | agent-04 5db98c50, abb746ec | |
+| pose | pose.apply waits for the rig to bind and the bones to follow before measuring | agent-01 3429580d | |
