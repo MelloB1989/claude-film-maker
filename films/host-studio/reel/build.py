@@ -186,6 +186,21 @@ def cameras() -> None:
         ok(client.op("seq.key_float", path=SEQ, label=lab, component="CameraComponent", prop=FOCUS,
                      keys=[[s.start + f, d] for f, *_, d in sm]))
         print(s.id, f"{s.lens:g}mm T{s.stop:g}", len(keys), "keys", flush=True)
+    cut()
+
+
+def cut() -> None:
+    """The camera cuts on the plan's frames, made afresh and checked. Part of cameras(): CLEAN may drop a camera's
+    binding and keying makes a new one, so cut sections made before would point at a binding that is gone (box, day 1
+    r3: cameras() run on its own left the cut track on dead binding GUIDs)."""
+    ok(client.op("seq.camera_cuts", path=SEQ, cuts=M.cuts()))
+    got = ok(client.op("seq.cuts", path=SEQ))
+    want = [[c, f, (M.cuts() + [[None, END]])[k + 1][1]] for k, (c, f) in enumerate(M.cuts())]
+    # the ranges must match; the camera names too, once seq.cuts gives labels (it gave a Guid's repr on 2026-11-01)
+    if [g[1:3] for g in got] != [w[1:] for w in want] or any(g[0].startswith("Reel_") and g[0] != w[0]
+                                                              for g, w in zip(got, want)):
+        raise SystemExit(f"the cut in SEQ_Reel is not the plan's: {got}")
+    print("cut:", len(got), "shots,", got[0][1], "to", got[-1][2])
 
 
 def marks() -> None:
@@ -256,14 +271,6 @@ def build() -> None:
     cameras()
     marks()
     print("lod0:", lod0())
-    ok(client.op("seq.camera_cuts", path=SEQ, cuts=M.cuts()))
-    got = ok(client.op("seq.cuts", path=SEQ))
-    want = [[c, f, (M.cuts() + [[None, END]])[k + 1][1]] for k, (c, f) in enumerate(M.cuts())]
-    # the ranges must match; the camera names too, once seq.cuts gives labels (it gave a Guid's repr on 2026-11-01)
-    if [g[1:3] for g in got] != [w[1:] for w in want] or any(g[0].startswith("Reel_") and g[0] != w[0]
-                                                              for g, w in zip(got, want)):
-        raise SystemExit(f"the cut in SEQ_Reel is not the plan's: {got}")
-    print("cut:", len(got), "shots,", got[0][1], "to", got[-1][2])
 
 
 def previs(every: int, width: int, only: set | None = None) -> None:
@@ -318,7 +325,12 @@ def main() -> None:
     ap.add_argument("--no-build", action="store_true", help="previs the sequence as it is, without rebuilding")
     ap.add_argument("--lod0", choices=("on", "off"), help="only pin the presenters' hair and bodies to LOD 0 (note 3), "
                     "or put them back on automatic LODs (off: the before of the proof)")
+    ap.add_argument("--cameras", action="store_true", help="only the Reel_ cameras: respawn, rebind, key, and the cut "
+                    "made afresh (after a body or a shots.py change); run r3/probe_cam.py --check after it")
     a = ap.parse_args()
+    if a.cameras:
+        cameras()
+        return
     if a.lod0:
         print("lod0:", lod0(a.lod0 == "on"))
         return
