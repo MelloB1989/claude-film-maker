@@ -1,0 +1,37 @@
+807:			return PyUnicode_FromFormat("<Struct '%s' (%p) %s>", TCHAR_TO_UTF8(*InSelf->ScriptStruct->GetName()), InSelf->StructInstance, TCHAR_TO_UTF8(*ExportedStruct));
+808-		}
+809-
+810-		static PyObject* RichCmp(FPyWrapperStruct* InSelf, PyObject* InOther, int InOp)
+FILE Plugins/Animation/ControlRig/Source/ControlRigEditor/Private/Sequencer/SelectionSets/SelectionSets.cpp
+226-	{
+227-		TArray<UControlRig*> ControlRigs;
+228:		TArray<FControlRigSequencerBindingProxy> Proxies = UControlRigSequencerEditorLibrary::GetControlRigs(LevelSequence);
+229-		for (FControlRigSequencerBindingProxy& Proxy : Proxies)
+230-		{
+231-			if (UControlRig* ControlRig = Proxy.ControlRig.Get())
+232-			{
+233-				ControlRigs.Add(ControlRig);
+234-			}
+235-		}
+236-		const UMovieScene* MovieScene = LevelSequence->GetMovieScene();
+237-		if (MovieScene)
+238-		{
+239-			const TArray<FMovieSceneBinding>& Bindings = MovieScene->GetBindings();
+240-			for (const FMovieSceneBinding& Binding : Bindings)
+241-			{
+242-				for (TWeakObjectPtr<> BoundObject : Sequencer->FindBoundObjects(Binding.GetObjectGuid(), Sequencer->GetFocusedTemplateID()))
+243-				{
+244-					if (AActor* Actor = Cast<AActor>(BoundObject))
+245-					{
+246-						FString ActorName = Actor->GetActorLabel(false);
+247-						for (const TPair<FGuid, FAIESelectionSetItem>& Pair : SelectionSets->SelectionSets)
+248-						{
+249-							if (Pair.Value.ContainsItem(ActorName))
+250-							{
+251-								const bool bExists = ActorsWithSet.Contains(Actor);
+252-								FActorWithSelectionSet& Set = ActorsWithSet.FindOrAdd(Actor);
+253-								Set.SetsThatMatch.Add(Pair.Key);
+254-								Set.Name = FText::FromString(Actor->GetActorLabel());
+255-								if (bExists == false)
+256-								{
+

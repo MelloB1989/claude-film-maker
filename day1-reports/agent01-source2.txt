@@ -1,0 +1,33 @@
+FILE Plugins/Animation/ControlRig/Source/ControlRigEditor/Private/ControlRigSequencerEditorLibrary.cpp
+80-}
+81-
+82:TArray<FControlRigSequencerBindingProxy> UControlRigSequencerEditorLibrary::GetControlRigs(ULevelSequence* LevelSequence)
+83-{
+84-	TArray<FControlRigSequencerBindingProxy> ControlRigBindingProxies;
+85-	if (LevelSequence)
+86-	{
+87-		const UMovieScene* MovieScene = LevelSequence->GetMovieScene();
+88-		if (MovieScene)
+89-		{
+90-			const TArray<FMovieSceneBinding>& Bindings = MovieScene->GetBindings();
+91-			for (const FMovieSceneBinding& Binding : Bindings)
+92-			{
+93-				TArray<UMovieSceneTrack*> Tracks = MovieScene->FindTracks(UMovieSceneControlRigParameterTrack::StaticClass(), Binding.GetObjectGuid(), NAME_None);
+94-				for (UMovieSceneTrack* AnyOleTrack : Tracks)
+95-				{
+96-					UMovieSceneControlRigParameterTrack* Track = Cast<UMovieSceneControlRigParameterTrack>(AnyOleTrack);
+97-					if (Track && Track->GetControlRig())
+98-					{
+99-						FControlRigSequencerBindingProxy BindingProxy;
+100-						BindingProxy.Track = Track;
+101-						
+102-						BindingProxy.ControlRig = Cast<UControlRig>(Track->GetControlRig());
+103-						BindingProxy.Proxy.BindingID = Binding.GetObjectGuid();
+104-						BindingProxy.Proxy.Sequence = LevelSequence;
+105-						ControlRigBindingProxies.Add(BindingProxy);
+106-					}
+107-				}
+108-			}
+109-		}
+110-	}
+

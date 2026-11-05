@@ -1,0 +1,19 @@
+Source exists
+Runtime/CinematicCamera/Private/CameraRig_Rail.cpp:162:void ACameraRig_Rail::UpdateRailComponents()
+Runtime/CinematicCamera/Private/CameraRig_Rail.cpp:207:	UpdateRailComponents();
+Runtime/CinematicCamera/Private/CameraRig_Rail.cpp:213:	UpdateRailComponents();
+Runtime/CinematicCamera/Private/CameraRig_Rail.cpp:219:	UpdateRailComponents();
+Runtime/CinematicCamera/Private/CameraRig_Rail.cpp:228:	UpdateRailComponents();
+Runtime/CinematicCamera/Private/CameraRig_Rail.cpp:231:bool ACameraRig_Rail::ShouldTickIfViewportsOnly() const
+Runtime/CinematicCamera/Public/CameraRig_Rail.h:28:	CINEMATICCAMERA_API virtual bool ShouldTickIfViewportsOnly() const override;
+Runtime/CinematicCamera/Public/CameraRig_Rail.h:56:	UFUNCTION(BlueprintPure, Category = "Rail Components")
+Runtime/CinematicCamera/Public/CameraRig_Rail.h:61:	CINEMATICCAMERA_API virtual void UpdateRailComponents();
+1:1223:UAutomationEditorTask* UAutomationBlueprintFunctionLibrary::TakeHighResScreenshot(int32 ResX, int32 ResY, FString Filename, ACameraActor* Camera, bool bMaskEnabled, bool bCaptureHDR, EComparisonTolerance ComparisonTolerance, FString ComparisonNotes, float Delay, bool bForceGameView)
+19:1241-			// Move Viewport to Camera
+20:1242-			bool bNeedCameraChange = Camera != nullptr;
+21:1243-			if (bNeedCameraChange)
+26:1248-				LevelViewportClient.SetActorLock(Camera);
+34:1256-			Task->BindTask(MakeUnique<FScreenshotTakenState>(bNeedGameViewToggle, bNeedCameraChange));
+21:	float SensorWidth;
+244:	float ManualFocusDistance;
+
