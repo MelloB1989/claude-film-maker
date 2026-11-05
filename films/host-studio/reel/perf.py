@@ -374,7 +374,36 @@ def events(who: str) -> dict:
                       {"t0": s(1212), "t1": s(1380), "mood": "confident", "intensity": 0.7},
                       {"t0": s(1380), "t1": s(END), "mood": "warm", "intensity": 0.7}],
         }
-    raise SystemExit("his round-3 events come with the new character (agent-04): ROUND3.md step 6")
+    # him (the current presenter until agent-04's character replaces him; the beats are the same)
+    return {
+        # S13: a silhouette, head and eyes down; his eyes come up to the lens as the key ramps (f988-1002)
+        # (perfkit starts the head at its share of start_gaze: -30 puts it ~15 deg down, as v2's silhouette)
+        "start_gaze": [0.0, -30.0],
+        "gaze": [{"t": 0.0, "yaw": 0.0, "pitch": -26.0, "scan": "still", "head": 0.1},
+                 {"t": s(988), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0},
+                 # after L2 "Ask her what's next." (ends ~f1120): over his right shoulder to her. She is ~130 deg
+                 # from his front: the head takes ~65, the eyes ~20, the rest is out of view anyway
+                 {"t": s(1128), "yaw": -85.0, "pitch": -5.0, "dist_cm": 125.0, "scan": "face", "head": 0.76},
+                 # back to the front while he is off screen in S16
+                 {"t": s(1290), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0},
+                 # S17: a glance to her as she says "comes around", then the lens
+                 {"t": s(1378), "yaw": -57.0, "pitch": -3.0, "dist_cm": 125.0, "scan": "face", "head": 0.58},
+                 {"t": s(1404), "yaw": 0.0, "pitch": 0.0, "scan": "lens", "head": 1.0}],
+        "expressions": [
+            # after L1 "Took you long enough.": a one-sided smirk (his right side), let go as L2 comes
+            {"preset": "smirk", "t": s(1056), "until": s(1094), "intensity": 0.5, "asym": -0.6},
+            # the hand-off: a small smile as he turns to her
+            {"preset": "smile_soft", "t": s(1126), "until": s(1196), "intensity": 0.45, "asym": 0.1},
+            # a warm smile to the lens after "...to karma.", alive in the hold through S18
+            {"preset": "smile", "t": s(1404), "until": s(END), "intensity": 0.5, "asym": -0.15}],
+        "nods": [{"t": s(1424), "kind": "nod", "depth_deg": 3.0}],
+        # he speaks ~a fifth of his 25 s and makes six big gaze shifts (each may bring a blink): the talking rate
+        # all through came out at 41/min (anim.check: 8..35)
+        "blink_state": "listen",
+        "moods": [{"t0": 0.0, "t1": s(1070), "mood": "confident", "intensity": 0.7},
+                  {"t0": s(1070), "t1": s(1340), "mood": "playful", "intensity": 0.6},
+                  {"t0": s(1340), "t1": s(END), "mood": "warm", "intensity": 0.7}],
+    }
 
 
 def naturalize(who: str, plot: bool = True) -> dict:
@@ -812,7 +841,7 @@ def cleanup() -> dict:
 # are hidden until their first shot; the pre-roll covers the handles and a render's warm-up) to POST_ROLL after END,
 # phased so the idle is where the baked body starts and ends, cross-faded over BLEND frames.
 PRE_ROLL, POST_ROLL, BLEND = 240, 48, 6
-USE_LIFE = {"him": False, "her": True}  # round 3: `life` made AS_reel_<who>_life (his comes with the new character)
+USE_LIFE = {"him": True, "her": True}  # round 3: `life` makes AS_reel_<who>_life (place skips it until then)
 
 
 def drive_faces() -> list:
