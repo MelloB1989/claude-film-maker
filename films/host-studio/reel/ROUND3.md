@@ -204,3 +204,12 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 - Operator MetaHuman: identity conformed (Epic's initialize_contour_data_for_footage_frame); Host_Op built at 19:01. The swap's outfit step crashed and the half-swapped Host rendered unlit; agent-04 is fixing it. Swap back to Trey if not fixed by 19:30.
 - cast4 gate (Trey): (a)(b)(d)(e) PASS. (c) FAIL: the groom dropped to cards from f1217 because an earlier hair_cover run re-created the component without the LOD-0 pin. hair_cover_ab now re-pins it, and build.py --lod0 runs before cast5.
 - Core on main 4ae66b6b: the head turn goes on the body's neck (5.8's face copies its neck from the body), and the faces' blinks avoid each other.
+- **OPERATOR DECISION (00:35 IST / 19:05 UTC): the operator's MetaHuman is built tomorrow.** Tonight's only goal is a full 65 s preview at 960x540 with audio, with the current presenters (Trey + her) and all the fixes, through agent-09's gate, encoded on the box, uploaded to `s3://rf-render-788655295054-aps1/ue-linux/shoot/r3/preview/`. Then the private saves (project, DDC, operator-MH assets) and power off. No more renders.
+  - Box order:
+    1. Trey restored, dress_her, lod0.
+    2. hair_cover_ab (gate c).
+    3. The head-turn chain on Trey (timebox ~20:05 UTC, else no turns).
+    4. level.save + probe_cam, then one whole-reel 960x540 preview render.
+    5. agent-09 QA/gate, agent-06's encode on the box, the upload on agent-10's go.
+    6. WRAP step 4.
+  - The V01/V02/S11 finals were rendered on stale cameras (camcheck_1900: V01 1.14x, V02/S11 differ). Re-render them tomorrow, with level.save + probe_cam --check first.
