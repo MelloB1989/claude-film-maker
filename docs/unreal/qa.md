@@ -193,6 +193,11 @@ floating: {ignore: [Pendant]}
 
 ## Gotchas
 
+- `view.still rt_format` takes only the 8-bit formats (`RTF_RGBA8`, `RTF_RGBA8_SRGB`, any case). ExportRenderTarget
+  picks the file type by the target's format (KismetRenderingLibrary.cpp:263-279): a float target writes EXR/HDR
+  bytes, which in a `.png` path no reader opens. Depth and other float captures go through `read_pixels`, not export
+  (agent-05's B57 audit).
+
 - **Scene capture is not the final render.** `view.still` mode capture is a SceneCapture2D with the camera's
   post-process settings and 8 warm-up captures (rendering state kept, so TAA and Lumen settle), but no motion blur,
   and DoF only as the post settings carry it. Use it for framing, layout, exposure trends and continuity; use
@@ -254,7 +259,7 @@ names are the snake_case of the reflected names. Paths are relative to `Engine/S
 | `RenderingLibrary.read_render_target_raw(world, rt, normalize)`: RGBA8/16f/32f only; returns the list or None | KismetRenderingLibrary.h:192; KismetRenderingLibrary.cpp:300-360, 497-527 | yes |
 | `RenderingLibrary.read_render_target_pixel(world, rt, x, y)` → FColor (sRGB 8-bit; float targets converted with sRGB; an unsupported format gives FColor::Red, alpha 255, so `_opaque` keeps the PNG) | KismetRenderingLibrary.h:151-152; Private/KismetRenderingLibrary.cpp:381-400 | yes |
 | bool return + out params → Python returns the outs or None | Engine/Plugins/Experimental/PythonScriptPlugin/.../PyGenUtil.cpp:1161 | yes |
-| `unreal.TextureRenderTargetFormat.RTF_RGBA8 / RTF_RGBA8_SRGB / RTF_RGBA16F / RTF_RGBA32F` | Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h:23-43 | yes |
+| `unreal.TextureRenderTargetFormat.RTF_RGBA8 / RTF_RGBA8_SRGB / RTF_RGBA16F / RTF_RGBA32F` (C++ `RTF_RGBA16f`; Python upper-cases: `view._format` normalises and lists `RT_FORMATS`) | Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h:23-43 | yes |
 | `TextureRenderTarget2D.size_x / size_y` (BlueprintReadOnly) | TextureRenderTarget2D.h:107-113 | yes |
 | 8-bit target display gamma (2.2) | Runtime/Engine/Private/TextureRenderTarget2D.cpp:704-720 | yes |
 | `CineCameraActor.get_cine_camera_component()` | Runtime/CinematicCamera/Public/CineCameraActor.h:89-90 | yes |
@@ -300,9 +305,36 @@ viewport's gamma. With a MetaHuman under /Game/MetaHumans it also checks its gar
 reports land in the selftest's report folder (`qa/`). It was dry-run end to end on the fake engine (all checks pass
 there except what only an engine can tell).
 
+## Day-1 triage
+
+`film-ue selftest qa` failed? Find the check's name in the report (`qa.json`, `checks[].name`), then the row. The
+stills it names are in the report's `qa/` folder (`film-ue pull-dir` them, then `film-qa image|compare` locally).
+Most rows are the HANDOFF's unproven list: a failure there is new knowledge, so record what you find in this table.
+
+| Check that fails | Likely cause | Exact fix |
+|---|---|---|
+| `view.still capture wrote a PNG` | the editor runs without an RHI (`-nullrhi`), or ExportRenderTarget refused the target | `film-ue log 200 \| grep -i ExportRenderTarget`; `film-ue selftest list` must show `gpu: true`; export is `ops/view.py` `export_png` |
+| `capture is not flat` (black or one colour) | warm-up too short for Lumen/streaming, or the `capture_source` write did not take (an `interp` property) | `film-ue selftest qa --keep`, then `film-ue op view.still out=/tmp/w.png camera=ST_qa_Wide warmup=24`. If still black: `film-ue exec -c "result=str(unreal.SceneCaptureComponent2D().get_editor_property('capture_source'))"`, setter at `ops/view.py:168` |
+| `the default capture format (RTF_RGBA8) matches the viewport's gamma best` | the capture is gamma-encoded the other way round from the guess | read metric `capture_gamma.closest`. If it is `RTF_RGBA8_SRGB`, change the default in `ops/view.py` `capture()` (`fmt = fmt or ("RTF_RGBA8" ...`) to `RTF_RGBA8_SRGB`, rerun, then `film-ue selftest qa --baseline update` |
+| `capture and viewport show the same picture (SSIM > 0.6)` | field of view or aspect differs (CineCamera horizontal FOV, aspect constraint), or exposure differs (auto exposure in the viewport) | compare `wide_capture.png` with `wide_viewport.png`. If framing differs, look at `camera_info` (`ops/view.py:65-99`). If only brightness, turn auto exposure off on the camera (look.camera, env area). Skipped with a note when there is no viewport (offscreen) |
+| `pillar centre projects near the frame centre` / `the projected box lands on the pillar` | the projection's axes or FOV disagree with the renderer (`qa/framing.py` `axes`, `Camera`) | `film-ue op view.camera camera=ST_qa_Wide 'points={"o":[0,0,90]}'` should give u ≈ 0.5. If u is off by a constant, the FOV is wrong (vertical vs horizontal, `camera_info`); if mirrored, the sign of `u` in `qa/framing.py` |
+| `floating cube gap ~20 cm` / `qa.floating flags the floating cube` / `resting cube gap ~0` | the trace hits nothing (channel), or `HitResult.to_tuple()` order differs from BreakHitResult | `film-ue exec` a `SystemLibrary.line_trace_single` under the floating cube and print `fmbridge.ops.qa._hit_tuple(hit)`: [1] initial_overlap, [3] distance. Fix the indices in `ops/qa.py` `_hit_tuple`; channel from `ops/_util.py` `visibility_channel` |
+| `a sphere through a cube is penetration` | empty depth is not ≥ 1e7 cm (EMPTY_DEPTH), or show-only did not isolate the layers | in `pen["metrics"]`: garment pixels = all pixels → empty depth reads lower, so set `EMPTY_DEPTH` (`ops/qa.py:47`) below the max of `view.read_pixels`. 0 garment pixels → show-only failed (`ops/view.py:176-184`) |
+| `a bigger cube covers it: no penetration` | depth noise at the sphere/cube contact over the 0.3 cm tolerance | rerun the op with `tolerance_cm=1.0`. If that passes, raise the default in `ops/qa.py` `penetration` |
+| `the capture rig is gone` | an op raised mid-capture and left `FMQA_Capture` | `film-ue op level.delete 'labels=["FMQA_Capture"]'`, then read the first error in the report |
+| `view.stills: 2 per cut` / `view.stills follows the cut` / `the Away cut is flagged out of frame` | the sequence is not scrubbed to the frame before the capture, or `seq.cuts` read nothing | `film-ue op seq.cuts path=/Game/_Selftest/qa/ST_qa_Seq` (run with `--keep` so it survives); then raise `settle_ticks` (`view.stills settle_ticks=40`) |
+| `MetaHuman framing reads bones (a shot size)` | bone names differ on this MetaHuman (`FACIAL_L_Eye`, `head`) | `film-ue op qa.parts label=<MH>` and `film-ue exec` `get_bone_names()` on its Body; fix `BONES`/`EYES` (`ops/qa.py:44`) |
+| `groom.describe finds hair` | no GroomComponent on the placed actor (built without hair, or hair under another LOD) | `film-ue op groom.describe label=<MH>`; build hair with agent-04's `mh.groom` / `mh.build` |
+| `groom.set melanin changed it` | the hair material's parameter names differ from the pipeline header | `groom.describe` → `scalar_names`; fix `PARAMS` (`ops/groom.py:30`) |
+| `nothing lost to the construction script` | the MetaHuman Blueprint's construction script re-applies GroomGroupsDesc | the op's `lost` lists the fields. Set those at build time on the character instead (agent-04's `mh.groom`), and keep `groom.set` for material params only |
+| `more melanin reads darker (fewer melanin: lighter)` | the hair mask is empty (show-only with grooms) or the param did not reach the render | `groom.measure` → `pixels`: 0 means show-only failed for GroomComponent (same pointer as penetration). Otherwise check `lost` above |
+| `sky guard sets the cvar to 0` | the cvar is renamed or read-only in this build | `film-ue op editor.cvar name=r.HairStrands.SkyLighting`; `SKY_CVAR` at `ops/groom.py:38` |
+| `baseline <name>` (second run: `different`) | render noise above the match threshold, not a regression | look at the `.diff.png`. If it is noise everywhere, lower `MIN_SSIM` (`qa/baseline.py:29`) or re-save that baseline with its own threshold (`film-ue op qa.baseline_save suite=selftest/qa name=<name> image=<still> min_ssim=0.9 overwrite=true`) |
+| run ends `TimeoutError` (600 s) | `read_render_target_raw` far slower than ~0.1 s at 256 px | read `metrics.op_ms` for `qa.penetration` / `groom.measure`; lower `size_px`, or raise `TIMEOUT` in `selftest/qa.py` |
+
 ## HANDOFF
 
-Where WP10 stopped (2026-11-05 night, agent-09):
+Where WP10 stopped (2026-11-05 night, agent-09; updated for B59):
 
 - Done: the pure core (`unreal/fmbridge/qa/`, 60+ unit tests incl. numpy-vs-pure agreement), all `view.*`/`qa.*` ops
   with fake-engine tests (`tools/tests/fakeunreal/ext_qa.py` renders bounds boxes + depth layers), the selftest, the
@@ -311,15 +343,19 @@ Where WP10 stopped (2026-11-05 night, agent-09):
   value (EMPTY_DEPTH), Lumen warm-up count (8) is enough, `capture_source` set through set_editor_property on an
   `interp` property, show-only lists with skeletal meshes (MetaHuman parts), `read_render_target_raw` speed at
   256-384 px (expected ~0.1 s), `HitResult.to_tuple()` field order.
-- B43 baselines (fleet/agent-09/ue-b43-baselines): store/compare/check in `fmbridge/qa/baseline.py`, `qa.baseline_*`
-  ops, `qa.review baseline=`, `film-qa baseline pull|push|check|list`. The harness hook (T.still -> baseline check,
-  `film-ue selftest --baseline auto|compare|update|off`) is agent-13's file: the patch was sent to them. The match
-  threshold (SSIM 0.95 at 480 px) is a guess until two GPU runs of the same scene are compared: tune MIN_SSIM then.
-- B28 grooms (fleet/agent-09/ue-b28-groom): `ops/groom.py` + `fakeunreal/ext_groom.py` + `test_ue_groom.py`. Unproven
-  until a GPU box with a built MetaHuman: that GroomGroupsDesc writes survive the MetaHuman Blueprint's construction
-  script (the op reads back and reports `lost`), and that the hair MIC's params are named as the pipeline header says
-  on a built character (groom.describe's `scalar_names` shows them). agent-04's mh.groom sets the same look at BUILD
-  time (character asset); groom.* is per instance, per shot.
+- B43 baselines (merged): store/compare/check in `fmbridge/qa/baseline.py`, `qa.baseline_*` ops, `qa.review
+  baseline=`, `film-qa baseline pull|push|check|list`; the harness checks every `t.still` against `selftest/<area>`
+  (`film-ue selftest --baseline auto|compare|update|off`). The first GPU run creates them; the match threshold (SSIM
+  0.95 at 480 px) is a guess until two runs of the same scene are compared: tune MIN_SSIM then.
+- B28 grooms (merged): `ops/groom.py`, `fakeunreal/ext_groom.py`, `test_ue_groom.py`. Unproven until a GPU box with a
+  built MetaHuman: GroomGroupsDesc writes surviving the construction script (the op reports `lost`) and the hair MIC
+  param names (`groom.describe` → `scalar_names`). agent-04's mh.groom sets the look at build time; groom.* per shot.
+- B45 (merged): `tools/tests/test_ue_selftest_dryrun.py` dry-runs every area's selftest through the real harness on
+  the fake (dx.md §5). It found a spliced duplicate in `selftest/qa.py` (fixed) and audio's wrong `t.check` calls.
+- B57 fixes (merged): `view.still rt_format` any case, 8-bit only (a float target exports EXR); `qa.floating` traces
+  on `_util.visibility_channel()` (ECC_VISIBILITY live).
+- Day-1: the table above, row per check. Run `film-ue selftest qa` first with `--baseline auto` (creates them), and a
+  second time to see the noise floor before trusting `baseline` failures.
 - Not done / ideas: occlusion of a subject by another actor in frame (a line trace camera→bone; WP7 started one in
   camkit), checker-texture (failed material) detection in stills, per-frame penetration across a whole shot
   (`qa.review checks=["penetration"]` does it per sampled frame; a dense scan would be a separate op), WP7's

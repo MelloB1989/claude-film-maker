@@ -139,3 +139,11 @@ def actor_info(a, nd: int = 2) -> dict:
     if bp:
         info["blueprint"] = bp
     return info
+
+
+def visibility_channel():
+    """The Visibility trace channel. Every TraceTypeQueryN is hidden in C++ (EngineTypes.h:1276) and the editor
+    re-exposes the mapped ones under ScriptName ECC_<channel> at start (CollisionProfile.cpp:499-512), so the live name
+    is ECC_VISIBILITY; TRACE_TYPE_QUERY1 survives only as a deprecated alias that warns on every call."""
+    q = unreal.TraceTypeQuery
+    return getattr(q, "ECC_VISIBILITY", None) or q.TRACE_TYPE_QUERY1

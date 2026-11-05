@@ -358,32 +358,28 @@ def light(label: str, kind: str = "rect", loc=(0, 0, 200), look_at=None, intensi
     Prefer light.add (lux, candelas, converging).
     Example: film-ue op look.light label=Key kind=rect 'loc=[150,120,230]' 'look_at=[0,0,165]' intensity=9
     """
-    cls = {"rect": "RectLight", "spot": "SpotLight", "point": "PointLight"}[kind]
-    spawn(label, cls=cls, loc=loc)
-    a = actor(label)
+    # a thin layer over light.* (one engine path): candelas as before (EditorActorSubsystem spawns through the actor
+    # factories, which give new lights the default unit, r.DefaultFeature.LightUnits = candelas), colour in sRGB 0-1
+    from . import light as LT
+    from ..envlib import lights as LL
+    from ..envlib import photometry as ph
+    spec = {"kind": kind, "loc": list(loc), "intensity_cd": float(intensity), "radius_cm": float(radius),
+            "shadows": bool(shadows), "specular": float(specular), "volumetric": float(volumetric)}
     if look_at is not None:
-        a.set_actor_rotation(look_rot(loc, look_at), False)
-    c = a.get_component_by_class(getattr(unreal, cls + "Component"))
-    c.set_editor_property("intensity", float(intensity))
-    if color is not None:
-        r, g, b = [int(round(max(0.0, min(1.0, x)) * 255)) for x in color]  # sRGB 0-1; FColor by keyword (its order is BGRA)
-        c.set_editor_property("light_color", unreal.Color(r=r, g=g, b=b, a=255))
+        spec["look_at"] = list(look_at)
     if temperature:
-        c.set_editor_property("use_temperature", True)
-        c.set_editor_property("temperature", float(temperature))
-    c.set_editor_property("attenuation_radius", float(radius))
-    c.set_editor_property("cast_shadows", shadows)
-    c.set_editor_property("specular_scale", float(specular))
-    c.set_editor_property("volumetric_scattering_intensity", float(volumetric))
+        spec["temperature_k"] = float(temperature)
+    elif color is not None:
+        spec["color"] = [ph.srgb_to_linear(max(0.0, min(1.0, float(x)))) for x in color]
     if kind == "rect":
-        c.set_editor_property("source_width", float(width))
-        c.set_editor_property("source_height", float(height))
+        spec.update(width_cm=float(width), height_cm=float(height))
         if barn_angle is not None:
-            c.set_editor_property("barn_door_angle", float(barn_angle))
-            c.set_editor_property("barn_door_length", 40.0)
+            spec.update(barn_door_deg=float(barn_angle), barn_door_length_cm=40.0)
     if kind == "spot":
-        c.set_editor_property("outer_cone_angle", float(cone))
-        c.set_editor_property("inner_cone_angle", float(cone) * 0.6)
+        spec["cone_deg"] = float(cone)
+    if kind not in LL.KINDS or kind == "directional":
+        raise ValueError(f"look.light kind {kind!r} is not rect|spot|point (light.add takes directional too)")
+    LT._write(LL.normalize(spec, label), "legacy", adopt=True)
     return label
 
 
@@ -396,22 +392,19 @@ def sky(elevation: float = 30.0, azimuth: float = 0.0, lux: float = 60000.0, tem
     Prefer env.sun / env.atmosphere / env.sky_light (time of day, place).
     Example: film-ue op look.sky elevation=28 azimuth=-28 lux=17000
     """
-    spawn("FM_Sun", cls="DirectionalLight", loc=(0, 0, 500))
-    sun = actor("FM_Sun")
-    sun.set_actor_rotation(unreal.Rotator(roll=0.0, pitch=-float(elevation), yaw=float(azimuth)), False)
-    c = sun.get_component_by_class(unreal.DirectionalLightComponent)
-    for k, v in (("intensity", float(lux)), ("use_temperature", True), ("temperature", float(temperature)),
-                 ("atmosphere_sun_light", True), ("light_source_angle", float(shadow_softness)), ("cast_shadows", True)):
-        c.set_editor_property(k, v)
-    lc = unreal.LightingChannels()
-    for k in range(3):
-        lc.set_editor_property(f"channel{k}", k in channels)
-    c.set_editor_property("lighting_channels", lc)
-    spawn("FM_Atmosphere", cls="SkyAtmosphere", loc=(0, 0, 0))
-    spawn("FM_SkyLight", cls="SkyLight", loc=(0, 0, 400))
-    s = actor("FM_SkyLight").get_component_by_class(unreal.SkyLightComponent)
-    s.set_editor_property("real_time_capture", True)
-    s.set_editor_property("intensity", float(sky_intensity))
+    # a thin layer over env.sun's writer, keeping the FM_ labels, the old azimuth (the light's yaw) and placement
+    from . import _envutil as U
+    from . import env as EV
+    from ..envlib import spec as S
+    canon = S.norm_sun({"elevation_deg": float(elevation), "azimuth_deg": (float(azimuth) - 180.0) % 360.0,
+                        "intensity_lux": float(lux), "temperature_k": float(temperature),
+                        "softness_deg": float(shadow_softness), "channels": list(channels)}, True, "FM_Sun")
+    canon.pop("cloud_shadows", None)
+    canon["rotation"] = {"pitch": -float(elevation), "yaw": float(azimuth), "roll": 0.0}
+    EV._directional(canon, "legacy", "sun", loc=(0, 0, 500), adopt=True)
+    U.ensure("FM_Atmosphere", "SkyAtmosphere", "legacy", "atmosphere", (0, 0, 0), adopt=True)
+    a, _ = U.ensure("FM_SkyLight", "SkyLight", "legacy", "sky_light", (0, 0, 400), adopt=True)
+    U.set_props(U.component(a, "SkyLightComponent"), {"real_time_capture": True, "intensity": float(sky_intensity)})
     return {"sun": "FM_Sun", "sky": "FM_SkyLight", "atmosphere": "FM_Atmosphere"}
 
 
@@ -422,15 +415,15 @@ def fog(density: float = 0.02, volumetric: bool = True, albedo=(0.9, 0.9, 1.0), 
     Prefer env.fog (presets, every field).
     Example: film-ue op look.fog density=0.0006 volumetric=true
     """
-    spawn("FM_Fog", cls="ExponentialHeightFog", loc=(0, 0, 0))
-    c = actor("FM_Fog").get_component_by_class(unreal.ExponentialHeightFogComponent)
-    for k, v in (("fog_density", density), ("fog_height_falloff", height_falloff), ("start_distance", start),
-                 ("volumetric_fog", volumetric), ("volumetric_fog_albedo", unreal.Color(r=int(albedo[0] * 255), g=int(albedo[1] * 255), b=int(albedo[2] * 255), a=255)),
-                 ("volumetric_fog_extinction_scale", extinction), ("fog_max_opacity", 1.0)):
-        try:
-            c.set_editor_property(k, v)
-        except Exception:
-            pass
+    # a thin layer over env.fog's writer, keeping the FM_Fog label and the old albedo (sRGB 0-1)
+    from . import _envutil as U
+    from ..envlib import photometry as ph
+    a, _ = U.ensure("FM_Fog", "ExponentialHeightFog", "legacy", "fog", (0, 0, 0), adopt=True)
+    U.set_props(U.component(a, "ExponentialHeightFogComponent"), {
+        "fog_density": float(density), "fog_height_falloff": float(height_falloff), "start_distance": float(start),
+        "enable_volumetric_fog": bool(volumetric),
+        "volumetric_fog_albedo": [ph.srgb_to_linear(max(0.0, min(1.0, float(x)))) for x in albedo],
+        "volumetric_fog_extinction_scale": float(extinction), "fog_max_opacity": 1.0})
     return "FM_Fog"
 
 
@@ -440,26 +433,13 @@ def post(settings: dict, label: str = "FM_Post") -> dict:
     Prefer env.post / env.exposure / env.grade.
     Example: film-ue op look.post 'settings={"bloom_intensity":0.25}'
     """
-    try:
-        a = actor(label)
-    except ValueError:
-        spawn(label, cls="PostProcessVolume")
-        a = actor(label)
-    a.set_editor_property("unbound", True)
-    s = a.get_editor_property("settings")
-    applied = {}
-    for k, v in settings.items():
-        if isinstance(v, str) and "." in v:  # an enum, e.g. "AutoExposureMethod.AEM_MANUAL"
-            e, m = v.split(".", 1)
-            v = getattr(getattr(unreal, e), m)
-        try:
-            s.set_editor_property("override_" + k, True)
-        except Exception:
-            pass
-        s.set_editor_property(k, v)
-        applied[k] = str(v)
-    a.set_editor_property("settings", s)
-    return applied
+    # a thin layer over env.post's writer, on the volume `label` (unbound), as before
+    from . import _envutil as U
+    from . import env as EV
+    a, _ = U.ensure(label, "PostProcessVolume", "legacy", "post", adopt=True)
+    U.set_props(a, {"unbound": True})
+    EV._post_write(a, settings)
+    return {k: str(U.coerce(None, v, k)) for k, v in settings.items()}
 
 
 @op("look.camera", mutates=True, idempotent=True, tags=["look"])
@@ -530,23 +510,9 @@ def channels(labels: list, channels: list = (0,)) -> dict:
     Prefer light.channels.
     Example: film-ue op look.channels 'labels=["Key"]' 'channels=[1]'
     """
-    out = {}
-    for lab in labels:
-        a = actor(lab)
-        lc = unreal.LightingChannels()
-        for k in range(3):
-            lc.set_editor_property(f"channel{k}", k in channels)
-        n = 0
-        # by name, fetched afresh each time: on a Blueprint actor (a MetaHuman) a property change reruns its
-        # construction script, which replaces the other components, so references taken earlier go stale
-        names = [c.get_name() for c in a.get_components_by_class(unreal.SceneComponent)]
-        for name in names:
-            c = next((c for c in actor(lab).get_components_by_class(unreal.SceneComponent) if c.get_name() == name), None)
-            if isinstance(c, (unreal.LightComponent, unreal.PrimitiveComponent)):
-                c.set_editor_property("lighting_channels", lc)
-                n += 1
-        out[lab] = n
-    return out
+    # a thin layer over light.channels
+    from . import light as LT
+    return LT.channels(assign={lab: list(channels) for lab in labels})["components"]
 
 
 @op("look.focus_track", mutates=True, idempotent=True, tags=["look"])

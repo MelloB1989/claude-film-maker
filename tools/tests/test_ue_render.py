@@ -67,7 +67,7 @@ def test_job_configures_mrq_from_the_spec(stage):
     cv = s["MoviePipelineConsoleVariableSetting"].cvars
     assert cv["r.Foo"] == 2 and cv["r.HairStrands.SkyLighting"] == 0 and cv["r.DepthOfFieldQuality"] == 4
     assert s["MoviePipelineImageSequenceOutput_EXR"].get_editor_property("compression") == "ZIP"
-    assert first["map"] == LEVEL and first["sequence"] == SEQ
+    assert first["map"] == LEVEL + ".Stage" and first["sequence"] == SEQ + ".SEQ_T"
     wavs = sorted(os.listdir(os.path.join(stage["out"], "_render", "audio")))
     assert wavs == ["12-16.wav", "16-20.wav"]
 

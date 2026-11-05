@@ -368,6 +368,8 @@ def floating(*, labels: list | None = None, ignore: list | None = None, toleranc
     acts = _mesh_actors(labels, set(ignore or []))
     items, ground = {}, {}
     world = _world()
+    from ._util import visibility_channel
+    channel = visibility_channel()  # ECC_VISIBILITY live: the TraceTypeQueryN entries are hidden
     for lab, a in acts.items():
         o, e = _bounds(a)
         items[lab] = (o, e)
@@ -375,8 +377,8 @@ def floating(*, labels: list | None = None, ignore: list | None = None, toleranc
         for dx, dy in ((0, 0), (-0.6, -0.6), (0.6, -0.6), (-0.6, 0.6), (0.6, 0.6)):
             start = unreal.Vector(o[0] + dx * e[0], o[1] + dy * e[1], o[2] - e[2] + 2.0)
             end = unreal.Vector(start.x, start.y, start.z - max_check_cm)
-            hit = unreal.SystemLibrary.line_trace_single(world, start, end, unreal.TraceTypeQuery.TRACE_TYPE_QUERY1,
-                                                         True, [a], unreal.DrawDebugTrace.NONE, True)
+            hit = unreal.SystemLibrary.line_trace_single(world, start, end, channel, True, [a],
+                                                         unreal.DrawDebugTrace.NONE, True)
             if hit is None or _hit_tuple(hit)[1]:  # nothing, or it starts inside something (overlap: qa.overlaps)
                 continue
             d = float(_hit_tuple(hit)[3]) - 2.0

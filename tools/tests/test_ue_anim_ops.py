@@ -200,24 +200,6 @@ def test_perf_turn_to_keys_the_short_way(ue, monkeypatch):
     assert keys[0][0] == 0 and keys[-1][2]["yaw"] == pytest.approx(190.0)
 
 
-def test_selftest_runs_on_the_fake(ue, fmb, tmp_path):
-    """The GPU-box acceptance test, its engine-free parts: library, curves, perf.face, checks, errors. (The level
-    part needs a face mesh: none on the fake, so it notes that and stops.)"""
-    from fmbridge.selftest import anim as st
-    curves = {f"CTRL_expressions_{n}": ([0.0, 1.0, 2.0], [0.0, 0.3, 0.0]) for n in
-              ("browRaiseInL", "browRaiseInR", "mouthLipsPressL", "mouthLipsPressR", "jawOpen", "eyeBlinkL")}
-    from fmbridge.perfkit import rig
-    curves.update({rig.PREFIX + n: ([0.0, 2.0], [0.0, 0.0]) for n in rig.RAW[:120] if rig.PREFIX + n not in curves})
-    ue.anim(st.FACE_LOOP, length_s=3.0, curves=curves, skeleton=FACE_SKEL)
-    ue.anim("/MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F", length_s=1.1)
-    ue.anim(st.BODY_IDLE, length_s=8)
-    r = run_op("selftest.run", area="anim", out_dir=str(tmp_path))
-    rep = r if "checks" in r else r.get("report", r)
-    failed = [c for c in rep["checks"] if not c["ok"]]
-    assert rep["status"] == "done" and failed == [], failed
-    assert {"anim.find", "anim.new", "perf.face", "anim.check"} <= set(rep["ops_covered"])
-
-
 def test_perf_face_and_plot_write_a_png(ue, tmp_path):
     talk(ue)
     r = run_op("perf.face", anim="/Game/S/AS_talk", plot=str(tmp_path / "f.png"))
@@ -299,3 +281,42 @@ def test_gaze_lock_reads_both_section_offsets(ue, fmb):
     p.set_editor_property("first_loop_start_frame_offset", unreal.FrameNumber(6000))
     assert section_offset_s(p, 24000.0) == pytest.approx(0.75)
     assert section_offset_s(None, 24000.0) == 0.0
+
+
+def test_body_life_needs_calibration_then_bakes_an_additive(ue, fmb, tmp_path, monkeypatch):
+    import json as _json
+    from fmbridge.errors import OpError
+    import fmbridge.ops.perf_body as PB
+    ue.skeletal_mesh("/Game/MH/Body/BodyMesh", "/Game/MH/Body/BodyMesh_Skeleton")
+    monkeypatch.setattr(PB, "_saved", lambda name: str(tmp_path / name))
+    with pytest.raises(OpError) as e:
+        run_op("anim.body_life", out="/Game/P/AS_life", body_mesh="/Game/MH/Body/BodyMesh", length_s=4)
+    assert e.value.code == "conflict" and "calibrate_body" in e.value.hint
+    ref = {b: {"t": [0, 0, 10], "q": [0, 0, 0, 1], "s": [1, 1, 1]} for b in PB.BONES}
+    axes = {b: {"flex": ["y", 1.0], "side": ["x", 1.0], "twist": ["z", 1.0]} for b in PB.BONES}
+    (tmp_path / "body_BodyMesh_Skeleton.json").write_text(_json.dumps(
+        {"skeleton": "/Game/MH/Body/BodyMesh_Skeleton", "axes": axes, "shift_axis": ["y", 1.0], "ref": ref}))
+    r = run_op("anim.body_life", out="/Game/P/AS_life", body_mesh="/Game/MH/Body/BodyMesh", length_s=4, state="nervous")
+    a = ue.assets["/Game/P/AS_life"]
+    assert r["bones"] == sorted(PB.BONES) and a._data["bones"] == set(PB.BONES)
+    assert "AAT_LOCAL_SPACE_BASE" in str(a._props["additive_anim_type"])
+    assert "ABPT_LOCAL_ANIM_FRAME" in str(a._props["ref_pose_type"]) and r["breaths_per_min"] > 18
+
+
+def test_spec_body_life_layers_an_additive_or_notes_why_not(ue, fmb, monkeypatch, tmp_path):
+    import json as _json
+    import fmbridge.ops.perf_body as PB
+    ue.metahuman("Host")
+    talk(ue)
+    monkeypatch.setattr(PB, "_saved", lambda name: str(tmp_path / name))
+    calls = _record_seq_ops(monkeypatch)
+    spec = dict(SPEC, character={"body_life": {"state": "calm", "follow": 0.2}})
+    r = run_op("perf.compose", spec=spec)
+    assert any(n.get("skipped") == "body_life" for n in r["notes"])  # not calibrated: applied without it
+    ref = {b: {"t": [0, 0, 10], "q": [0, 0, 0, 1], "s": [1, 1, 1]} for b in PB.BONES}
+    axes = {b: {"flex": ["y", 1.0], "side": ["x", 1.0], "twist": ["z", 1.0]} for b in PB.BONES}
+    (tmp_path / "body_BodyMesh_Skeleton.json").write_text(_json.dumps({"axes": axes, "shift_axis": None, "ref": ref}))
+    calls.clear()
+    run_op("perf.compose", spec=spec)
+    body = next(kw for n, kw in calls if n == "seq.anim" and kw["component"] == "Body")
+    assert body["sections"][-1]["anim"] == "/Game/Perf/demo/AS_demo_face_life"

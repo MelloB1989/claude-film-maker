@@ -93,6 +93,7 @@ Verified on the UE 5.8.4 source box.
 | `FoliageType.cull_distance` (Int32Interval `min`/`max`), `cast_shadow` | Runtime/Foliage/Public/FoliageType.h:296,304; CoreUObject/Public/UObject/NoExportTypes.h:2486,2490 | yes |
 | `FoliageType_InstancedStaticMeshFactory` (create_asset) | Editor/FoliageEdit/Private/FoliageTypeFactory.h:24 | yes |
 | `InstancedStaticMeshComponent.get_instance_count`, `get_instance_transform`, `static_mesh` | Engine/Classes/Components/InstancedStaticMeshComponent.h:435,338 | yes |
+| `TraceTypeQuery.ECC_VISIBILITY` (live name; every TraceTypeQueryN is UMETA(Hidden), re-exposed at editor start under ScriptName ECC_<channel>; TRACE_TYPE_QUERY1 is a warning alias), through layout._visibility_channel | Runtime/Engine/Classes/Engine/EngineTypes.h:1276; Runtime/Engine/Private/Collision/CollisionProfile.cpp:499-512 | yes (agent-13's note) |
 | `SystemLibrary.line_trace_single` (bool + out hit: Python returns the hit or None), `HitResult.to_tuple` (BreakHitResult order) | Engine/Classes/Kismet/KismetSystemLibrary.h:1270 | yes |
 | `EditorAssetLibrary.list_assets`, `does_directory_exist`, `delete_directory`, `delete_asset`, `set_metadata_tag`, `get_metadata_tag` | Plugins/Editor/EditorScriptingUtilities/.../EditorAssetLibrary.h:328,301,156,144,385,376 | yes |
 | `PCGVolume.pcg_component` | Plugins/PCG/Source/PCG/Public/PCGVolume.h:29 | yes |
@@ -114,9 +115,29 @@ back within 1 cm) and follow a 30° ramp (and lean with it), a slope limit drops
 isolation between scatters, describe = measured, removal, and the PCG plumbing with a graph made by code. A dry run
 on the fake engine is `tools/tests/test_ue_foliage.py::test_selftest_runs_on_the_fake`.
 
+## Day-1 triage
+
+`film-ue selftest foliage`. Read `checks[].detail` first.
+
+| failing check | likely cause | fix |
+|---|---|---|
+| `scatter placed what it planned` / `nothing dropped on flat ground` (no_ground > 0) | the floor cube has no Visibility collision, or the trace channel name | `film-ue op level.get label=ST_foliage_Floor` (collision); the channel comes from `layout._visibility_channel()` (ECC_VISIBILITY); try `surface=flat` to isolate |
+| `the instances are in the level` (count 0) | `InstancedFoliageActor.add_instances` did nothing (no foliage actor made, or WP level) | log for `AddInstances`; `film-ue op foliage.describe` → `measured` empty; check the FoliageType's `mesh` is set (`_type_for`) |
+| `cones sit on the floor's top (z 0)` off by ~half a cone | the basic Cone's pivot is at its centre, not its base | add `z_offset_cm` = half the scaled height in the selftest's mesh entry (or accept) |
+| `instances follow the ramp's surface` | the ramp's top differs from the formula (the cube's 20 cm thickness / pivot) | open the still; recompute the plane in selftest section b from `get_actor_bounds` |
+| `align_to_normal tilts them ~30 deg` | sign of `normal_rotation` pitch, or `get_instance_transform` returns a tuple shape the selftest does not unpack | print one instance's rotator from `_instances()`; flip `pitch` sign in ops/_foliage.normal_rotation if it is -30 |
+| `a 20-degree limit drops everything on the 30-degree ramp` | the trace hit the ramp's side/edge, or the normal is the impact point's (BreakHitResult index) | `_trace` uses `t[7]` (impact_normal); try `t[6]` (normal) |
+| `scatter converges` false | the measured count per mesh is smaller than stored (instances culled / another scatter shares the mesh type) | `film-ue op foliage.describe`; `force=true` once; check two prefixes do not share an FT name |
+| `describe: measured cones` | `measured()` reads InstancedStaticMeshComponents of the foliage actor; in 5.8 they may be FoliageInstancedStaticMeshComponent under a partition actor | widen `measured()` to every actor whose class name contains "Foliage" |
+| `removed: no instances left` | `remove_all_instances` before the asset delete left an empty component | harmless if the count is 0 after a tick; else call `remove_all_instances` again |
+| `PCG generated` / note "foliage.pcg: unsupported" | a script-spawned PCG Volume has no brush (bounds 0) | place one PCG Volume by hand, save, pass its label (no `loc`); or spawn a Blueprint with a PCGComponent |
+| `PCG generated` times out | `generated` property name differs, or the empty graph never reports | check `comp.get_editor_property("generated")` in `film-ue exec`; raise `timeout_s` |
+
 ## HANDOFF
 
-Done (agent-11, 2026-11-05, branch `fleet/agent-11/ue-foliage`): ops, planner, fake, tests, selftest, this doc.
-Not run in a real editor yet. Tomorrow: `film-ue selftest foliage`. Likely issues: `get_instance_transform`'s
-Python return shape (the selftest accepts a transform or a tuple); whether a script-spawned PCG Volume gets a brush
-(the selftest notes it); trace channel on meshes without Visibility collision.
+State (2026-11-05 night, agent-11; merged into `ue-helpers`, B39 in review until its selftest passes): ops, pure
+planner, fake, tests, selftest, the `foliage` spec kind, this doc; the ground trace uses the live Visibility channel
+(`layout._visibility_channel`). Not run in a real editor. Tomorrow: `film-ue selftest foliage`, then **Day-1
+triage** above. Most likely to need a look: the ramp/align/slope checks (the fake's traces hit boxes, so they were
+never exercised), `measured()` on World Partition foliage actors, and whether a script-spawned PCG Volume has
+bounds.

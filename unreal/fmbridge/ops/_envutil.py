@@ -60,13 +60,17 @@ def set_tags(a, updates: dict) -> None:
     a.set_editor_property("tags", tags)
 
 
-def ensure(label: str, cls_name: str, owner: str = "manual", role: str = "", loc=None, rot=None, asset: str = ""):
+def ensure(label: str, cls_name: str, owner: str = "manual", role: str = "", loc=None, rot=None, asset: str = "",
+           adopt: bool = False):
     """The actor `label` of class `cls_name`, made if missing; (actor, created). An actor with that label of another
     class is replaced when the ops made it, and a conflict otherwise."""
     a = find(label)
     if a is not None:
         cname = a.get_class().get_name().removesuffix("_C")
-        if not is_owned(a):
+        if not is_owned(a) and adopt and (asset or cname == cls_name):  # e.g. a light the old look.* ops made
+            a.set_editor_property("tags", tags_of(a) + [TAG, f"fm_owner:{owner or 'manual'}"]
+                                  + ([f"fm_role:{role}"] if role else []))
+        elif not is_owned(a) and not adopt:
             raise OpError(f"{label!r} exists ({cname}) but was not made by the env/light ops", code="conflict",
                           hint="use another label, or delete it first with level.delete")
         if asset or cname == cls_name:

@@ -10,8 +10,11 @@ Code: `unreal/fmbridge/ops/env.py`, `ops/light.py`, `ops/_envutil.py` (helpers),
 maths and the planner, pure Python: sun, photometry, lights, rig, grade, quality, stats, spec), the client kinds
 `tools/filmtools/unreal/env_kind.py`, schemas `tools/filmtools/unreal/schemas/{environment,lighting}.schema.json`,
 examples `examples/unreal/{environment,lighting}/`, selftest `unreal/fmbridge/selftest/env.py`. `look.*` (older, in
-`ops/look.py`) still works and is still the way to make materials, cameras and quick stills; for sky, sun, fog, post and
-lights prefer `env.*`/`light.*`, which converge, use physical units and describe themselves.
+`ops/look.py`) still works and is still the way to make materials, cameras and quick stills. Its lighting ops
+(`look.light/sky/fog/post/channels`) are now a thin layer over the same writers as `light.*`/`env.*` (B56: one engine
+path, pinned by `tests/test_ue_look_legacy.py` against the old implementation, deliberate differences listed there):
+they keep their labels (`FM_Sun`, `FM_Fog`, ...), sRGB colours and arguments, and take over (adopt) lights saved by
+the old code instead of failing as a conflict. For new work prefer `env.*`/`light.*`: physical units, specs, describe.
 
 ## 1. Recipes
 
@@ -309,19 +312,48 @@ engine it runs end to end in `tests/test_ue_env_selftest.py` (the three picture-
 **If `meter_offset_stops` is not ~0 tomorrow**: SceneColorHDR is pre-exposed (or in other units). Correct it with one
 constant in `env.meter` (scale the HDR pixels by 2^-offset before `scene_stats`) and re-run; nothing else depends on it.
 
-## 8. HANDOFF
+## 8. Day-1 triage (`film-ue selftest env` on the GPU box)
 
-State (2026-11-05, agent-08, branch `fleet/agent-08/ue-env`): code, unit tests (pure, fake ops, spec kinds through
-WP11's engine, selftest on the fake), selftest, examples and this doc are done; all ue tests green after merging
-`ue-helpers`. Not yet run on a GPU box (none tonight).
+Read `selftest-reports/<time>/env.json`: each failed check has `got`/`want`/`detail`; notes and metrics carry the two
+calibration numbers. A check that fails with `status: error` and "has no property X" / "could not set X" is an engine
+name: the row for X in §6 says where to look.
 
-Tomorrow on the box, in order: `film-ue selftest env`; read `meter_offset_stops` (fix per §7 if needed); look at the
-four stills; `film-ue apply examples/unreal/environment/studio-day-night.yaml` in the host studio, then
-`env.mood mood=night`.
+| selftest check (or symptom) | likely cause | fix |
+|---|---|---|
+| "the grey card meters within 0.5 stop of the prediction" (metric `meter_offset_stops` = d) | SceneColorHDR is pre-exposed or not in cd/m2 in 5.8 | set `METER_OFFSET_STOPS = d` in `unreal/fmbridge/ops/env.py` (one constant, applied in env.meter), `film-ue install`, re-run; nothing else depends on it |
+| "the grey card reads as a mid grey (0.3..0.62)" (metric `grey_card_display`) | a scene capture does not take the world's unbound post volume (exposure), or the filmic curve maps grey elsewhere | if the value is steady but not 0.46: set `MID_GREY_DISPLAY` to it (env.py); if it is near 0 or 1: copy Env_Post's settings onto the capture (`_captures`: `cc.set_editor_property("post_process_settings", ...)`, `post_process_blend_weight` 1) |
+| "one stop more exposure brightens the image", "env.check fails an underexposed card", "env.autoexpose converges" | the same: the final-colour capture ignores Env_Post | as the row above (post settings on the capture); then re-run |
+| env.meter error "the scene/display capture read back no pixels" | editor without a real RHI (`-nullrhi`), or `read_render_target_raw` answered in another form | run the editor `-RenderOffscreen` (not -nullrhi); else print `type(px)` in `_captures` and unwrap it (it handles list, tuple, None) |
+| "light.describe reads the candelas back" / "light.add converges" (`props` lists `intensity_units` every run) | `intensity_units` read back as another enum form | `_envutil.to_json` enum branch and `light._candelas` parse `LightUnits.CANDELAS`: print `U.to_json(c.get_editor_property("intensity_units"))` and match it |
+| any "... converges" fails with `props: [light_color]` / `[volumetric_fog_albedo]` / `[ground_albedo]` | an FColor reads back 1 step off | the planner quantises with `photometry.quantize_fcolor`; widen `_envutil.same` for Color to 1/255 |
+| "env.sun elevation is NOAA's" ok but "describe reads the sun's azimuth back" fails | the actor's yaw normalised to another range | `sun.from_rotation` takes yaw modulo 360: check `fm_north` tag on Env_Sun |
+| "env.quality sets its cvars" | a cvar name missing in this build | `film-ue op editor.cvars names='["r.VolumetricFog.GridPixelSize"]'`; drop it from `envlib/quality.py` cvars() |
+| "noir_bw has no colour cast" | colour wheels (FVector4) not applied | `_envutil.coerce` makes `unreal.Vector4` for `color_*` fields: check `env.describe` post `color_saturation` is `[1,1,1,0]` |
+| "the day spec converges" / "a second plan is empty" fails | describe and plan disagree on one value | `film-ue op env.plan spec=@spec.json`: each step's `why` names the field ("differs in ['x']"); compare `env.describe` with `envlib.spec.desired(spec)` for it and fix the normaliser (envlib/spec.py norm_*) |
+| "env.captures_rebuild ran" note / slow | the lighting build runs with static lighting on | harmless with Lumen; skip captures (they are a fallback) |
+| "env.preset studio_grey converges" fails | sky light `captured` recapture timing | re-run; if it persists, add `yield 2` after `recapture_sky` in env.sky_light |
+| stills look "lighting needs to be rebuilt" | a light from elsewhere is Stationary | the ops make theirs Movable; set others with `level.set` (`mobility`) |
+| `env.hdri backdrop=true` warnings | HDRIBackdrop Blueprint variables named differently (unverified) | list them: `film-ue exec -c "import unreal; a=[x for x in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors() if x.get_actor_label()=='Env_HDRI'][0]; result=sorted(p for p in dir(a) if not p.startswith('_'))"` and fix the names in env.hdri (env.py: `("cubemap", ...), ("intensity", ...), ("size", ...)`) |
+| `env.quality project=true` says `restart_required` | expected: GI/VSM/HWRT are project settings | restart the editor (`film-ue --box linux editor restart`); HWRT also needs `r.RayTracing=True` (editor.project_setting) |
 
-Open / next:
-- `look.sky`, `look.fog`, `look.post`, `look.light` still exist (studio.py uses them); they could become thin
-  wrappers over `env.*`/`light.*` once studio.py moves to a spec.
-- `env.hdri` with a real cubemap and the HDRIBackdrop variables need checking on the box (plugin on).
-- Light functions (`light_function_material`), rect light `source_texture`, IES import helper: APIs verified, ops not
-  written.
+## 9. HANDOFF
+
+State (2026-11-05 night, agent-08, branch `fleet/agent-08/ue-env`, all merged into `ue-helpers`): WP5 code, unit
+tests (pure, fake ops, spec kinds through WP11's engine, legacy look.* golden), selftest, examples and this doc are
+done; B16, B17 (light.rig), B50 (env.autoexpose), B56 (look.* as a layer), B57 fixes (project settings through
+editor.project_setting, clouds material) done. Full ue suite green. NOTHING has run on a real engine yet.
+
+Tomorrow on the GPU box, in order:
+1. `film-ue selftest env` (~4 min). Use §8 for any failure. Read the two calibration numbers: `meter_offset_stops`
+   (set `METER_OFFSET_STOPS` if |d| > 0.05) and `grey_card_display` (set `MID_GREY_DISPLAY` if it differs from 0.46).
+2. Look at the stills (calibration_card, noir, golden_hour, night).
+3. In the host studio: `film-ue apply examples/unreal/environment/studio-day-night.yaml`, then
+   `film-ue op env.mood mood=night spec_name=studio`; `env.check camera=HostCam`. studio.py itself still uses
+   look.* (now the same engine path); its volumetric fog will now really be on (B56): check the studio still.
+
+Unproven (no engine tonight): SceneColorHDR units (calibration above); whether scene captures take the unbound post
+volume; HDRIBackdrop Blueprint variables; `env.captures_rebuild` timing; FColor/enum read-back forms (§8 rows).
+
+Not done (ideas, not started): light functions (`light_function_material`) and rect `source_texture` ops (APIs
+verified); an IES import helper (WP2's assets.import makes the TextureLightProfile); studio.py moved onto an
+environment spec.

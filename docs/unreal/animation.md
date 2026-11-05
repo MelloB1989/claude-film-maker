@@ -111,6 +111,17 @@ lists the new animations (suffix `_RTG`); `anim.describe` on one shows the targe
 overwrite the results of the same name. If the auto chains are wrong, make IK Rigs by hand and pass
 `source_rig`/`target_rig`.
 
+**Body life: breathing, weight shifts, the torso following the head** (an additive layer over any idle).
+```bash
+film-ue op perf.calibrate_body label=Ada                      # once per body skeleton, ~1 min
+film-ue op anim.body_life out=/Game/Perf/AS_ada_life body_mesh=/Game/MetaHumans/Ada/Body/m_med_nrw_body length_s=12 state=talk face_anim=/Game/Speech/Anim/AS_l1_perf
+film-ue op seq.anim path=/Game/Shots/S010 label=Ada component=Body replace=false 'sections=[{"anim":"/Game/Perf/AS_ada_life","start":0}]'
+```
+Check: `perf.calibrate_body` returns `axes` for 9 bones and a `shift_axis`; `anim.body_life` returns `breaths_per_min`
+(calm 12, talk 15, nervous 22) and the weight `shifts`. In a spec: `character: {body_life: true}` (or
+`{state, follow, breath_deg, shift_cm}`): perf.compose bakes it over the whole performance (the torso follows the
+composed head) and layers it on the body track; without a calibration it is skipped with a note.
+
 **Layer: an additive gesture over the idle.**
 ```bash
 film-ue op anim.additive anim=/Game/Anim/AS_Shrug out=/Game/Anim/AS_Shrug_Add
@@ -160,6 +171,7 @@ film-ue op anim.new path=/Game/Perf/AS_blank skeleton=/Game/MetaHumans/Ada/Face/
 | `perf.vocab` | presets, moods (and solver moods), nod kinds, layers |
 | `perf.state` / `perf.plan` / `perf.apply` / `perf.compose` / `perf.solve` / `perf.lock_eyes` / `perf.describe` | the PERFORMANCE spec |
 | `perf.idle` / `perf.gestures` / `perf.walk_to` / `perf.turn_to` | body moves without a spec |
+| `perf.calibrate_body` / `anim.body_life` | measure the body's bone axes; bake breathing, weight shifts and torso follow as an additive |
 
 Vocabulary (`perf.vocab`): expression presets `smile` (Duchenne), `smile_soft`, `grin`, `smirk`, `brow_raise`,
 `brow_flash`, `concern`, `sad`, `angry`, `surprise`, `fear`, `disgust`, `contempt`, `thinking`, `skeptical`,
@@ -282,6 +294,8 @@ reflected names; an out-parameter comes back as the return value.
 | `unreal.DataInputType.AUDIO` | `EDataInputType::Audio` (UENUM BlueprintType) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformance.h:34 | yes |
 | `unreal.MetaHumanPerformanceFactoryNew()` | `UMetaHumanPerformanceFactoryNew` (UCLASS, a UFactory) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Private/MetaHumanPerformanceFactoryNew.h:13 | yes |
 | `unreal.PerformanceExportRange.WHOLE_SEQUENCE` | `EPerformanceExportRange::WholeSequence` (UENUM) | Engine/Plugins/MetaHuman/MetaHumanAnimator/Source/MetaHumanPerformance/Public/MetaHumanPerformanceExportUtils.h:20 | yes |
+| `SkeletalMeshComponent.get_socket_transform(bone, RTS_PARENT_BONE_SPACE)` | `GetSocketTransform` | Engine/Source/Runtime/Engine/Classes/Components/SceneComponent.h:801 (BlueprintCallable; used by anim.bake_pose since the reel) | yes |
+| `SkeletalMeshComponent.get_num_bones() / get_bone_name(i)` | `GetNumBones` / `GetBoneName` | Engine/Source/Runtime/Engine/Classes/Components/SkinnedMeshComponent.h:1144 / :1165 (BlueprintCallable; used by anim.bake_follow) | yes |
 | `unreal.AnimationLibrary.get_animation_curve_names` | `GetAnimationCurveNames` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:89 | yes |
 | `unreal.AnimationLibrary.get_float_keys` | `GetFloatKeys` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:456 | yes |
 | `unreal.AnimationLibrary.does_curve_exist` | `DoesCurveExist` | Engine/Source/Editor/AnimationBlueprintLibrary/Public/AnimationBlueprintLibrary.h:514 | yes |
@@ -370,9 +384,41 @@ and turned. The engine-free parts also run on the fake in `tools/tests/test_ue_a
 Tests: `tools/tests/test_ue_anim_perfkit.py` (49, pure), `test_ue_anim_ops.py` (14, fake engine),
 `test_ue_anim_kind.py` (4, the spec kind on the client).
 
+## Day-1 triage
+
+`film-ue selftest anim` failed a check? Find it here (report: `selftest-reports/<time>/anim.json`, `checks[].name`).
+
+| failing check | likely cause | fix |
+|---|---|---|
+| status `skipped` "no MetaHuman optional content" | the MetaHuman plugin's optional content is not in the project | enable the MetaHuman plugin content (or add the MetaHumanCharacter plugin's Content); `film-ue op assets.list path=/MetaHumanCharacter/Optional/Animation` must list files |
+| `find.walk` / `find.happy_face` empty | the asset registry has not scanned the plugin yet, or `get_tag_value` returns another shape | `film-ue op anim.find query=walk path=/MetaHumanCharacter`; if `total` is 0 the scan is missing (open the editor once / wait); if `skeleton` is null fix `_tag`/`_object_path` in ops/anim.py |
+| `describe.face_curves` low | the loop's curves are not named `CTRL_expressions_*` in this plugin version | `film-ue op anim.describe anim=<FACE_LOOP> curves=true` and compare with perfkit/rig.py `RAW` |
+| `new.frames` (got 1) | `set_number_of_frames` did not take after `AnimSequenceFactory` (it initialises 1 frame) | ops/anim.py `new`: call `ctrl.set_frame_rate` then `set_number_of_frames` outside the bracket, or `resize_number_of_frames` |
+| `read.round_trip` / `write.curves` (no keys written) | `AnimationCurveIdentifier().set_curve_identifier()` did not write back into the struct | ops/anim.py `_curve_id`: use the deprecated `unreal.AnimationCurveIdentifierExtensions.get_curve_identifier(anim.get_skeleton(), name, FLOAT)` (worked on the reel; logs a warning per curve) |
+| `audio.emphasis` | the WAV write path (Saved/Selftest/anim) is not writable | check the editor log; any writable path works |
+| `face.mouth_untouched` | perf.face changed a mouthLips curve (a preset touched it) | read `plan.expressions` in the perf.face result; mouth presets are scaled by `mouth_mix`, not removed |
+| `face.alive` fails `head_linear` / `frozen_head` | the source loop has no head curves, or the rig signs are unknown | run `perf.calibrate` (below), then `film-ue op perf.check anim=<out>`; `perf.plot` shows the head strip |
+| `check.catches_robot` | the metrics' thresholds do not suit this engine's key sampling | perfkit/metrics.py `head_linear` (30 Hz resample) and `frozen_head`; adjust the threshold, keep the tests green |
+| `additive.type` | `set_additive_animation_type` takes the enum differently | ops/anim.py `additive`: set `a.set_editor_property("additive_anim_type", ...)` directly |
+| `error.*` | an OpError lost its hint/candidates | the op named in the check; its `raise` must pass `hint=` |
+| `calibrate.measured` "did not move" | the face mesh on a bare SkeletalMeshActor does not turn the head from HeadYaw/Pitch/Roll | run `film-ue op perf.calibrate label=<a built MetaHuman>` after `mh.drive_face`; if the head still does not move, the face AnimBP ignores the head curves: keep `solver_head=keep` and turn the body (`anim.head_to_body`) |
+| `calibrate.eye_gains` out of 5..60 | the eye bone's gaze axis was misread (not the axis along the face) | read `raw` in the result; set `signs.eye_deg` by hand in Saved/fmbridge/perf/signs_<skeleton>.json |
+| `apply.converged` false | a step failed: read `ran` / the OpError | most likely `seq.anim` on a component name: set `face_component` in the spec to what `mh.components label=...` lists |
+| `apply.idempotent` (runs again) | the fingerprint changed between runs (positions or solve keys read differently) | `film-ue op perf.plan spec=...` shows `why`; if it is "the spec or what it depends on changed", diff two `perf.state` outputs |
+| `describe.face_section` | the face track holds another anim (gaze lock swapped `_eyes` in) | expected when `camera_lock` is on; otherwise re-run `perf.compose` |
+| `head.turns_to_target` (< 8 deg) | head curves do not drive the head in Sequencer, or signs flipped | see `calibrate.measured`; the `turned` still shows which way it went; `perf.calibrate` fixes signs |
+| stills empty | no GPU / camera | `film-ue op view.still` alone; WP10's doc |
+| `body.calibrated` fails | the body is not Sequencer-driven, or feet bones differ (ball_l/r) | read `raw`; run on a built MetaHuman body (`mh.body_mesh`); pass `bones=` to calibrate a subset |
+| `body.life_baked` / `body.life_additive` | no calibration file, or additive flags not applied | `perf.calibrate_body` first; then `anim.describe` on the life anim |
+
+Outside the selftest: `anim.rig_keys` with `rig_class` returns not_found for 5.8 independent Control Rig assets (expected: add
+the track once in the editor); `anim.retarget` "produced nothing" = the source anims are not on `source_mesh`'s skeleton
+(`anim.describe`), or the auto chains failed (pass IK rigs made by hand); `speech.to_face` with `fallback: true` in the
+result = the solver failed: read `errors`, retry, check `film-ue log` for MetaHuman Animator messages.
+
 ## HANDOFF
 
-State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead as it lands):
+State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead up to B55; this is the last push of the night):
 
 - Done, tested on the fake and in pure tests (65 tests): perfkit (gaze/head/eyes/blinks/expressions/audio/metrics/
   body/spec/library), anim.* (find, describe, new, read/write curves, check, additive, retarget, rig controls/keys,
@@ -401,6 +447,10 @@ State (fleet/agent-01/ue-anim; merged into ue-helpers by the lead as it lands):
      back into the struct; if curves stop being written (selftest `read.round_trip` fails), fall back to the
      deprecated `get_curve_identifier(skeleton, ...)` (it worked on the reel, with a warning per curve).
   8. speech.to_face chunking: whether a chunk's solved head motion jumps at a seam (perf.face softens it).
+- Body life (perf.calibrate_body, anim.body_life, character.body_life) is new tonight and the least proven: the
+  axis calibration assumes the feet (ball_l/r ahead of foot_l/r) give "forward", and that one local axis per bone
+  dominates each of flex/side/twist. Check `raw` in its result if a body bends the wrong way.
+- Read "Day-1 triage" above first when a selftest check fails.
 - Not done / next: procedural additive gestures (author bone-offset additives by code: needs bone axis calibration
   like the head's); `perf.solve_a2f` (Audio2Face route, design above). B31 (pose library) went to agent-11 as
   pose.* calling anim.rig_keys.

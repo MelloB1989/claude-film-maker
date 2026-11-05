@@ -163,7 +163,7 @@ def member_spec(spec: dict, i: int, t: dict) -> dict:
         "body": {"Height": t["height"], "Fat": t["fat"], "Muscularity": t["muscularity"],
                  "Masculine/Feminine": t["masfem"]},
         "skin": {"u": t["skin_u"], "v": t["skin_v"], "roughness": look["roughness"]},
-        "eyes": {"both": {"iris": {"iris_pattern": t["iris"], "primary_color_u": t["eye_u"],
+        "eyes": {"both": {"iris": {"pattern": t["iris"], "primary_color_u": t["eye_u"],
                                    "primary_color_v": t["eye_v"]}}},
         "teeth": {"worn_down": look["worn_down"], "receding_gums": look["receding_gums"]},
         "grooms": {"Eyebrows": {"melanin": t["melanin"], "redness": t["redness"],

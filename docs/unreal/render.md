@@ -194,7 +194,7 @@ snake_case of the reflected name.
 |---|---|---|
 | `MoviePipelineQueueSubsystem.get_queue / render_queue_with_executor / is_rendering / get_active_executor` | MovieRenderPipelineEditor/Public/MoviePipelineQueueSubsystem.h:27,52,67,93 | editor subsystem; render_queue_with_executor returns the executor |
 | `MoviePipelineQueue.allocate_new_job / delete_all_jobs` | MovieRenderPipelineCore/Public/MoviePipelineQueue.h:804,818 | |
-| `MoviePipelineExecutorJob.set_sequence(path)` (Sequence's BlueprintSetter), `map / job_name`, `get_configuration`, `set_config_mode(MoviePipelineConfigMode.PRESET)` | MoviePipelineQueue.h:692,696,688,529,548 | 5.8 jobs have Preset/Graph/Basic modes; we use Preset (legacy settings) |
+| `MoviePipelineExecutorJob.sequence` (set_editor_property: PostEditChangeProperty calls the SetSequence BlueprintSetter, which Python cannot call; MoviePipelineQueue.cpp:185, PyGenUtil.cpp:1620), `map / job_name` (full object paths /Game/A/B.B, for the {sequence_name}/{level_name} tokens), `get_configuration`, `set_config_mode(MoviePipelineConfigMode.PRESET)` | MoviePipelineQueue.h:692,696,688,529,548 | 5.8 jobs have Preset/Graph/Basic modes; we use Preset (legacy settings) |
 | `MoviePipelineConfigBase.find_or_add_setting_by_class(cls, include_disabled, exact_match)` | MoviePipelineConfigBase.h:145 | exact_match matters (subclasses) |
 | `MoviePipelineOutputSetting.output_directory, file_name_format, output_resolution, override_existing_output, handle_frame_count, use_custom_playback_range, custom_start_frame, custom_end_frame, zero_pad_frame_numbers` | MovieRenderPipelineCore/Public/MoviePipelineOutputSetting.h:39-108 | custom range overrides the sequence's playback range (MoviePipeline.cpp:202) |
 | `DirectoryPath(path)` (FDirectoryPath.Path) | Engine/Source/Runtime/CoreUObject/Public/UObject/SoftObjectPath.h:759 | USTRUCT(BlueprintType), Path BlueprintReadWrite: the type of output_directory |
@@ -213,7 +213,7 @@ snake_case of the reflected name.
 | `MoviePipelineGameOverrideSetting.cinematic_quality_settings, texture_streaming (MoviePipelineTextureStreamingMethod NONE/DISABLED/FULLY_LOAD), use_lod_zero, disable_hlods (ScriptName), use_high_quality_shadows, shadow_distance_scale, override_view_distance_scale, view_distance_scale, flush_streaming_managers` | MovieRenderPipelineCore/Public/MoviePipelineGameOverrideSetting.h:14,87-143 | transient default on every job (:66 IgnoreTransientFilters) |
 | `MoviePipelineInProcessExecutorSettings.additional_command_line_arguments` | MovieRenderPipelineCore/Public/MoviePipelineInProcessExecutorSettings.h:50 | -RenderOffscreen for the child on Linux |
 | `MoviePipelineExecutorBase.cancel_all_jobs`, `on_executor_errored_delegate(executor, pipeline, is_fatal, error_text)` | MovieRenderPipelineCore/Public/MoviePipelineExecutor.h:176,313,25 | |
-| `MoviePipelineEditorBlueprintLibrary.save_queue_to_manifest_file(queue) -> (queue, path)` | MovieRenderPipelineEditor/Public/MoviePipelineEditorBlueprintLibrary.h:41 | writes Saved/MovieRenderPipeline/QueueManifest.utxt; we copy it per chunk |
+| `MoviePipelineEditorBlueprintLibrary.save_queue_to_manifest_file(queue) -> (queue, path)` (non-bool return + out: a tuple, PythonScriptPlugin PyGenUtil.cpp:1152-1180) | MovieRenderPipelineEditor/Public/MoviePipelineEditorBlueprintLibrary.h:41 | writes Saved/MovieRenderPipeline/QueueManifest.utxt; we copy it per chunk |
 | Command line `-game -MoviePipelineConfig=<.utxt or asset>` | MovieRenderPipelineCore/Private/MovieRenderPipelineCommandLine.cpp:195-300 | relative paths are under Saved/; exit codes MovieRenderPipelineCoreModule.h:70 |
 | `MovieSceneSequenceExtensions.get_display_rate / get_playback_start / get_playback_end / find_tracks_by_type` | Engine/Plugins/MovieScene/SequencerScripting/.../MovieSceneSequenceExtensions.h:98,174,192,59 | |
 | `LevelSequenceEditorBlueprintLibrary.get_current_level_sequence / close_level_sequence` | Engine/Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:42,72 | an open Sequencer is closed before a render |
@@ -243,9 +243,37 @@ each of these:
 Metrics: s/frame, measured seconds per sample, VRAM peak, and the job times. On the fake engine it runs end to end
 in `tools/tests/test_ue_render_selftest.py`.
 
+## Day-1 triage
+
+When a `film-ue selftest render` check fails (or a real render misbehaves), find the row and apply the fix. Logs:
+`film-ue log 400 | grep -E "LogMovieRenderPipeline|LogPython|Error"`. The job report is
+`<out_dir>/_render/<name>.report.json`. Code pointers are in `unreal/fmbridge/ops/render.py` unless noted.
+
+| failing check / symptom | likely cause | fix |
+|---|---|---|
+| `render.gpu sees the GPU` | no `nvidia-smi` on PATH for the editor process | harmless for rendering (the VRAM guard is skipped); `sudo apt-get install -y nvidia-utils-<driver>` or add it to the service's PATH |
+| `job ok` false, chunk error "the render never started" | map not on disk, or a modal waiting | `film-ue op level.save`; check the log for `UnsavedMapFailureDialog`; for the process executor make sure `save_dirty` is true |
+| `job ok` false, "MRQ refused to start the queue" / AttributeError on a setting | a Python name differs in 5.8 (`set_config_mode`, `EXRCompressionFormat`, `AntiAliasingMethod`) | `film-ue exec` with `print(dir(unreal.MoviePipelineAntiAliasingSetting))` etc.; correct the name in `_configure` / `_AA`; API_NOTES lists the source line |
+| `job frames` < 48 with no error | `custom_end_frame` interpreted inclusively, or frames written under another name | `ls <out_dir>`; if names are not `NNNN.png`, check `file_name_format` and `zero_pad_frame_numbers` in `_configure`; `rs.frames_on_disk` must match the names |
+| `re-run converges` false | frames failing `image_ok` (a format we do not recognise), so resume re-renders | `python -c` with `render_spec.image_ok` on a frame's head and tail; extend `image_ok` (render_spec.py) |
+| `resume plans one pre-rolled chunk` wrong | camera-cut sections not where `seq.cuts` says | `film-ue op seq.cuts path=...`; the planner trusts it |
+| `pre-rolled chunk matches the full-shot render` / `render.compare ... passes` false | MRQ camera-cut warm-up did not run (log: "no warmup range was detected") or physics/cloth is not deterministic across PIE sessions | log line present: the cut does not start before the chunk (check seq.cuts); no log line but PSNR low: compare `psnr_cold` too; if equal, the warm-up ran but sim differs: report `ab_min_ssim` and render chunks from shot starts (`preroll: none` + `chunking: shot`) as the fallback |
+| `pre-roll is closer ... than a cold start` false, both PSNR high | the falling cube left the frame or landed before frame 30 (scene, not render) | ignore if both ≥ 35 dB; else move the cube (selftest `_build`) |
+| `AOV folders` names differ | MRQ names post-process passes differently from the material name | `ls <out_dir>`; set the right folder names in `render_spec.PASSES` (second field) |
+| `EXR frames per pass` 0 | EXR plugin module (`UEOpenExrRTTI`) missing in the build | check `MovieRenderPipeline.uplugin` modules load; fall back to `outputs: [{kind: png}]` for AOVs |
+| `new-process executor renders` false, status `stalled` | the child did not start: save prompt (dirty packages) or no `-RenderOffscreen` | `film-ue log` for "Launching a new process"; `save_dirty: true`; check Project Settings > Movie Render Pipeline > Additional Command Line Arguments contains `-RenderOffscreen` (`_offscreen_child`) |
+| `command-line render` false, exit code 1-3 | 1: crash/critical (see the chunk's `.log`); 2: sequence path; 3: manifest path | open `<out_dir>/_render/<chunk>.log`; for 3 check the `.utxt` exists and the path has no spaces; the argv is in the report (`chunks[].argv`): run it by hand over ssh |
+| `command-line render` hangs | the child waits on a display / Vulkan device | check `-RenderOffscreen` and `-vulkan` are in the argv (`render_spec.cmdline`) and that the child inherits the editor's environment (no DISPLAY); never add `-nullrhi` (it renders nothing) |
+| `H.264 of 48 frames` false | ffmpeg missing or no libx264 | `apt-get install -y ffmpeg`; or `film-ue render video SPEC --local DIR` on the client |
+| `path tracer refused under 40 GB` false on an L4 | `nvidia-smi` missing, so the guard could not read VRAM | install nvidia-utils (row 1); never `vram.force` on the L4 (P5 killed the editor) |
+| `cancel` / `cancelled job reports cancelled` false | `cancel_all_jobs` did not stop PIE quickly, or the job finished first | harmless if the job finished; else check the log for MRQ's cancel line |
+| a real render: `vram_abort` | VRAM above 97 % | lower `width/height`/`temporal`, drop AOVs, restart the editor (RSS/VRAM growth), or a bigger GPU |
+| a real render: `s_per_frame` ≫ 0.73 at final 1080p | shaders compiling during the job, cold DDC, or different cvars | render a 24-frame chunk twice (second run is the number); check `r.ScreenPercentage` and the quality cvars in the report's `spec.cvars` |
+| a real render: WAV missing or silent | MRQ WAV is experimental; no audio device on Linux | ignore for picture; mix audio outside (WP12 film-post) |
+
 ## HANDOFF
 
-State at 2026-11-05 ~00:00 UTC (agent-05, branch `fleet/agent-05/ue-render`, merged into `ue-helpers` by the lead):
+State at 2026-11-05 ~01:30 UTC (agent-05, branch `fleet/agent-05/ue-render`, merged into `ue-helpers` by the lead):
 
 - **Done:**
   - the spec, schema and presets;
@@ -256,7 +284,8 @@ State at 2026-11-05 ~00:00 UTC (agent-05, branch `fleet/agent-05/ue-render`, mer
   - B23 (split, stitch) and B24 (frame QA: missing, corrupt, black, flicker, EXR NaN/Inf/fireflies);
   - the fake MRQ, 80+ unit tests, the selftest (~5 min, GPU), and this doc.
 
-  Also mine: B37 World Partition (`docs/unreal/wp.md`).
+  Also mine: B37 World Partition (`docs/unreal/wp.md`). B57 audit fixes are in (sequence and map as full object
+  paths; the sequence set by property write). A **Day-1 triage** table sits just above this section.
 - **First hour on the GPU box (morning notes; the lead may quote them).** Each step: the command, then what a
   pass looks like.
   1. **Selftest.** `film-ue selftest render` (~5 min). Every check passes, except "path tracer refused under 40 GB",
@@ -287,7 +316,6 @@ State at 2026-11-05 ~00:00 UTC (agent-05, branch `fleet/agent-05/ue-render`, mer
      (`LogMovieRenderPipeline`). Re-running the spec resumes.
 - **Unproven until then (if a check fails, start from API_NOTES):**
   - the cmdline executor's child command line on Linux (`-vulkan`, `MoviePipelineEntryMap` with a queue manifest);
-  - `save_queue_to_manifest_file` returning a tuple in Python;
   - the AOV folder names MRQ writes (`{render_pass}` for a post-process material is assumed to be the material's
     name);
   - a sub-folder in the WAV's `file_name_format_override`;

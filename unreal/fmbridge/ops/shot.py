@@ -16,6 +16,7 @@ import unreal
 
 from . import call, op
 from . import cam
+from ._scrub import set_frame
 from ..camkit import checks as ck
 from ..camkit import framing, png, shotlist
 from ..errors import OpError, not_found
@@ -152,7 +153,7 @@ def describe(*, sequence: str, subjects: list | None = None) -> dict:
 
 def _cam_at(sequence: str, label: str, frame: int):
     """A camera's pose and lens as the sequence evaluates it at `frame` (scrub there, let it tick)."""
-    LSE.set_current_time(int(frame))
+    set_frame(int(frame))
     yield
     yield
     return cam.read(label)

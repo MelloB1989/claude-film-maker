@@ -211,6 +211,93 @@
    ]
   },
   {
+   "name": "anim.body_life",
+   "area": "anim",
+   "verb": "body_life",
+   "module": "fmbridge.ops.perf_body",
+   "file": "unreal/fmbridge/ops/perf_body.py",
+   "line": 199,
+   "summary": "An additive animation of body life for a body skeleton: breathing (spine extension and clavicle lift on each",
+   "doc": "An additive animation of body life for a body skeleton: breathing (spine extension and clavicle lift on each\ninhale, at a rate by `state`: calm, rest, listen, talk, focus, nervous), slow weight shifts (`shift_cm` of pelvis,\nthe spine bending back over the feet) and, with `face_anim`, the torso following the head's turns (`follow` of\nits yaw, a beat later). Layer it over any idle: seq.anim with replace=false, or a spec's character.body_life.\nNeeds perf.calibrate_body for this skeleton.\n\nArgs: out: the additive animation's path (re-made). body_mesh: the body SkeletalMesh. length_s: seconds.\nface_anim: a face animation whose HeadYaw the torso follows. Others: amplitudes in degrees / cm.\nReturns: {\"out\", \"changed\", \"breaths_per_min\", \"shifts\", \"bones\"}.\nExample: film-ue op anim.body_life out=/Game/Perf/AS_life body_mesh=/Game/MetaHumans/Ada/Body/m_med_nrw_body length_s=12 state=talk",
+   "params": [
+    {
+     "name": "out",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "body_mesh",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "length_s",
+     "kind": "keyword",
+     "type": "float",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "state",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "rest"
+    },
+    {
+     "name": "face_anim",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "follow",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.15
+    },
+    {
+     "name": "breath_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 0.6
+    },
+    {
+     "name": "clavicle_deg",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.0
+    },
+    {
+     "name": "shift_cm",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 1.5
+    },
+    {
+     "name": "seed",
+     "kind": "keyword",
+     "type": "int",
+     "required": false,
+     "default": 0
+    }
+   ],
+   "returns": "dict",
+   "multi_tick": false,
+   "mutates": true,
+   "idempotent": true,
+   "tags": []
+  },
+  {
    "name": "anim.check",
    "area": "anim",
    "verb": "check",
@@ -2183,7 +2270,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.audio",
    "file": "unreal/fmbridge/ops/audio.py",
-   "line": 206,
+   "line": 209,
    "summary": "A sequence's audio tracks and clips, with frames and seconds.",
    "doc": "A sequence's audio tracks and clips, with frames and seconds.\n\nArgs: sequence: the LevelSequence path.\nReturns: {\"sequence\", \"fps\", \"tracks\": [{\"name\", \"clips\": [{\"sound\", \"start_frame\", \"end_frame\", \"row\",\n\"offset_s\", \"volume_db\", \"fade_in_frames\", \"fade_out_frames\", \"start_s\", \"end_s\"}]}]}.\nExample: film-ue op audio.describe sequence=/Game/Seq/SQ_Main",
    "params": [
@@ -2263,7 +2350,7 @@
    "verb": "lines",
    "module": "fmbridge.ops.audio",
    "file": "unreal/fmbridge/ops/audio.py",
-   "line": 371,
+   "line": 374,
    "summary": "Import a timing document's voice lines and place each at its frame on one track: the voice, timed, in one call.",
    "doc": "Import a timing document's voice lines and place each at its frame on one track: the voice, timed, in one call.\n\nArgs: sequence: LevelSequence path. timing: a timing document (filmtools.unreal.audio_timing:\n{\"kind\": \"timing\", \"fps\", \"lines\": [{\"id\", \"wav\", \"start_frame\", ...}]}). folder: where the SoundWaves go.\ntrack: the track's name. wav_root: a box directory the lines' relative `wav` paths are under. extend: lengthen\nthe playback range to the last line. replace: the track holds exactly these lines (False: they are added to\nwhat is there, a line already at its frame left alone; for adding one line at a time).\nReturns: {\"changed\", \"lines\": [{\"id\", \"sound\", \"start_frame\", \"end_frame\"}], \"fps_note\"?}.\nExample: film-ue op audio.lines sequence=/Game/Seq/SQ_Main wav_root=/srv/film/vo timing=@timing.json",
    "params": [
@@ -2332,7 +2419,7 @@
    "verb": "place",
    "module": "fmbridge.ops.audio",
    "file": "unreal/fmbridge/ops/audio.py",
-   "line": 281,
+   "line": 284,
    "summary": "Put sounds on a named audio track of a sequence at their frames; re-running with the same clips changes nothing.",
    "doc": "Put sounds on a named audio track of a sequence at their frames; re-running with the same clips changes nothing.\n\nArgs: sequence: LevelSequence path. clips: [{\"sound\": SoundWave path, \"start_frame\" (or \"start_s\"),\n\"end_frame\" or \"duration_s\" (default: to the sound's end), \"offset_s\" (seconds into the sound, default 0),\n\"volume_db\" (default 0), \"fade_in_frames\"/\"fade_out_frames\" (linear ramps from/to silence), \"id\"?}] or [sound, start_frame] pairs. track: the track's name (\"VO\", \"Music\", \"SFX\").\nreplace: the track holds exactly these clips (else they are added to it; one already there at the same frame\nis left as it is). extend: lengthen the playback range\nto the last clip's end.\nReturns: {\"changed\", \"track\", \"clips\": [{\"sound\", \"start_frame\", \"end_frame\", \"row\", \"offset_s\", \"volume_db\"}],\n\"end_frame\"}.\nExample: film-ue op audio.place sequence=/Game/Seq/SQ_Main track=VO 'clips=[{\"sound\":\"/Game/Audio/VO/L1\",\"start_frame\":48}]'",
    "params": [
@@ -2387,7 +2474,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.audio",
    "file": "unreal/fmbridge/ops/audio.py",
-   "line": 354,
+   "line": 357,
    "summary": "Remove a named audio track from a sequence (nothing to remove is fine).",
    "doc": "Remove a named audio track from a sequence (nothing to remove is fine).\n\nArgs: sequence: LevelSequence path. track: the track's name, or \"*\" for every audio track.\nReturns: {\"changed\", \"removed\": [names]}.\nExample: film-ue op audio.remove sequence=/Game/Seq/SQ_Main track=VO",
    "params": [
@@ -3889,7 +3976,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 759,
+   "line": 775,
    "summary": "Converge the level to an ENVIRONMENT (or LIGHTING) spec: diff it against env.describe, run only the needed",
    "doc": "Converge the level to an ENVIRONMENT (or LIGHTING) spec: diff it against env.describe, run only the needed\nenv/light ops, re-describe and confirm a second plan is empty. A multi-tick job. Remembers the spec so\nenv.mood can switch its moods later.\n\nArgs: spec: the spec object (kind environment|lighting, version 1, name, preset?, sections...; environment.md).\nmood: one of the spec's `moods` (overrides spec.mood). dry_run: only plan.\nReturns: {\"changed\", \"steps\": [{\"op\", \"why\", \"changed\"}], \"converged\", \"remaining\": [steps]}.\nExample: film-ue op env.apply 'spec={\"kind\":\"environment\",\"name\":\"day\",\"preset\":\"exterior_golden\"}'",
    "params": [
@@ -4048,7 +4135,7 @@
    "verb": "autoexpose",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 977,
+   "line": 998,
    "summary": "Closed-loop exposure: measure a region through a camera and change the exposure (or the key light) until the",
    "doc": "Closed-loop exposure: measure a region through a camera and change the exposure (or the key light) until the\nregion reads at the target, within a tolerance. Converges: already in range -> changed False, no change made.\n\nArgs: camera: a camera label. The region: `region` [x0,y0,x1,y1] (0..1, y down), or `subject` (an actor label:\nits box from qa.framing; part=face: the top of a standing figure's box), else the whole frame.\ntarget_stops: stops above middle grey (0 = a grey card; skin +0.5..+1; a dark mood -1.5); or target_display\n(0-1 display luma). tolerance_stops: how close. adjust: exposure (Env_Post's manual exposure, switching it to\nmanual if needed) | lights (scale `lights`' intensities, e.g. a rig's key: [\"Host_Key\"]).\nReturns: {\"changed\", \"converged\", \"iterations\": [{\"setting\", \"display\", \"error_stops\"}], \"before\", \"after\",\n\"ev100\"? (the exposure it ended at), \"scale\"? (the light scale applied)}.\nExample: film-ue op env.autoexpose camera=HostCam subject=Host part=face target_stops=0.7",
    "params": [
@@ -4160,7 +4247,7 @@
    "verb": "captures_rebuild",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 632,
+   "line": 648,
    "summary": "Rebuild the reflection captures. The only scriptable route runs a lighting build first",
    "doc": "Rebuild the reflection captures. The only scriptable route runs a lighting build first\n(LevelEditorSubsystem.build_light_maps with captures; there is no console command), so it is slow on a level\nwith static lighting; with Lumen-only levels it is quick. A multi-tick job.\n\nArgs: quality: preview|medium|high|production (the lighting build's quality).\nReturns: {\"changed\": True, \"built\": bool}.\nExample: film-ue op env.captures_rebuild",
    "params": [
@@ -4188,7 +4275,7 @@
    "verb": "check",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 1073,
+   "line": 1094,
    "summary": "A numeric verdict on a look: meter through `camera` (env.meter) or read a still `png` on the box (any",
    "doc": "A numeric verdict on a look: meter through `camera` (env.meter) or read a still `png` on the box (any\nlook.still / render frame), and compare with targets: mean [lo,hi] (display luma), median, clipped_max,\ncrushed_max, cast_max, warm [lo,hi], ev100 [lo,hi] (scene), range_stops_max, stops_over [lo,hi]. Defaults: a\nnatural, well exposed frame. A multi-tick job.\n\nArgs: targets, or `spec` (its checks: {camera, targets}). step: png subsampling.\nReturns: {\"pass\", \"issues\": [{code, severity, message, fix, value, expected}], \"metrics\": {...}}.\nExample: film-ue op env.check camera=HostCam 'targets={\"mean\":[0.3,0.5],\"clipped_max\":0.01}'",
    "params": [
@@ -4290,7 +4377,7 @@
    "verb": "cvars",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 507,
+   "line": 515,
    "summary": "Set console variables in the editor (they last until the editor restarts; render jobs take theirs from the",
    "doc": "Set console variables in the editor (they last until the editor restarts; render jobs take theirs from the\nquality preset: env.quality returns them for render.* cvar lists). Converges: only differing ones are sent.\n\nArgs: cvars: {name: value}. Returns: {\"changed\", \"set\": {name: [before, after]}}.\nExample: film-ue op env.cvars 'cvars={\"r.Lumen.HardwareRayTracing\":1}'",
    "params": [
@@ -4317,7 +4404,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 677,
+   "line": 693,
    "summary": "The environment as numbers, in the same terms as the env/light ops and the spec: sun, moon (elevation,",
    "doc": "The environment as numbers, in the same terms as the env/light ops and the spec: sun, moon (elevation,\nazimuth, lux, K), atmosphere, clouds, sky light, hdri, fog, the post fields Env_Post overrides (exposure, grade,\nquality) with the EV100 it exposes for, cvars, reflection captures, every light, rigs, lighting channels, and\nwhich spec owns each actor. The state env.apply / film-ue plan diff against.\n\nReturns: {\"sun\", \"moon\", \"atmosphere\", \"clouds\", \"sky_light\", \"hdri\", \"fog\", \"post\", \"post_owned_fields\",\n\"exposure\", \"cvars\", \"captures\", \"lights\", \"rigs\", \"channels\", \"owners\", \"other\": {...}}.\nExample: film-ue op env.describe",
    "params": [],
@@ -4336,7 +4423,7 @@
    "verb": "exposure",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 445,
+   "line": 453,
    "summary": "Exposure on Env_Post, in photographic EV100 (what a light meter says), converges.",
    "doc": "Exposure on Env_Post, in photographic EV100 (what a light meter says), converges.\n\nArgs: mode: manual (fixed: expose a scene metering `ev100`; physical camera exposure off, so a camera's\naperture never changes brightness) | physical (the camera's fstop/shutter_s/iso decide; the cine camera's own\naperture overrides fstop) | auto (histogram, adapting within min_ev100..max_ev100 at `speed`). ev100: e.g. 14-15\nsunny, 12 overcast, 8-9 bright interior/studio, 5 dim room, 1 stylised moonlight; 'auto' = from the key light\nor sun lux in the level spec. compensation: stops brighter (+)/darker (-).\nReturns: {\"changed\", \"fields\": {...}, \"ev100\": the scene EV100 exposed for}.\nExample: film-ue op env.exposure mode=manual ev100=8.5",
    "params": [
@@ -4426,7 +4513,7 @@
    "verb": "fog",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 327,
+   "line": 329,
    "summary": "Height fog and volumetric fog (Env_Fog): haze for depth and light shafts; a preset plus overrides; converges.",
    "doc": "Height fog and volumetric fog (Env_Fog): haze for depth and light shafts; a preset plus overrides; converges.\n\nArgs: preset: none|light|haze|mist|dense|ground|interior_haze. density, falloff (height falloff), height_cm\n(the fog's base), start_cm, max_opacity 0-1, cutoff_cm, color (inscattering, linear), volumetric (bool),\nalbedo [r,g,b], extinction, distance_cm (volumetric range), scattering (-0.9..0.9, + forward), emissive.\nReturns: {\"label\", \"changed\", \"props\": [changed]}.\nExample: film-ue op env.fog preset=interior_haze extinction=0.1",
    "params": [
@@ -4550,7 +4637,7 @@
    "verb": "grade",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 487,
+   "line": 495,
    "summary": "A colour grade on Env_Post: a preset (neutral clean warm_film teal_orange bleach_bypass noir_bw golden_hour",
    "doc": "A colour grade on Env_Post: a preset (neutral clean warm_film teal_orange bleach_bypass noir_bw golden_hour\nmoonlight pastel high_contrast vintage_fade documentary) plus overrides; re-grading resets the old preset's\nfields (every grade starts from neutral). Converges.\n\nArgs: fields: friendly names or PostProcessSettings fields: white_balance (K), tint, saturation/contrast/\ngamma/gain/offset (a number or [r,g,b]; also color_<wheel>_shadows/_midtones/_highlights), bloom, grain,\nvignette, fringe, lut (a texture path) and lut_intensity, film_slope/toe/shoulder/black_clip/white_clip.\nReturns: {\"changed\", \"set\": [fields]}.\nExample: film-ue op env.grade preset=teal_orange 'fields={\"vignette\":0.2,\"white_balance\":6000}'",
    "params": [
@@ -4591,7 +4678,7 @@
    "verb": "hdri",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 266,
+   "line": 268,
    "summary": "Light (and optionally surround) the scene with an HDRI: the sky light from the cubemap, and with `backdrop`",
    "doc": "Light (and optionally surround) the scene with an HDRI: the sky light from the cubemap, and with `backdrop`\nan HDRIBackdrop (Env_HDRI: a projected dome, needs the HDRIBackdrop plugin). A multi-tick job; converges.\n\nArgs: cubemap: a TextureCube path (import an .hdr as a long-lat cubemap). intensity: sky light scale.\nrotation_deg: yaw of the image. backdrop: also show it. size_cm: the dome's size.\nReturns: {\"changed\", \"sky_light\": {...}, \"backdrop\": label|None, \"warnings\": [...]}.\nExample: film-ue op env.hdri cubemap=/Game/HDRI/T_Courtyard intensity=1 rotation_deg=90",
    "params": [
@@ -4653,7 +4740,7 @@
    "verb": "meter",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 935,
+   "line": 951,
    "summary": "Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back",
    "doc": "Meter the scene through a camera without a viewport: a scene capture in linear HDR (SceneColorHDR, read back\nraw, unclamped) gives the scene's luminance statistics and the EV100 a reflected meter would choose; a second in\nfinal colour gives the image's brightness, clipping, crush and colour cast. A multi-tick job (a few ticks).\n\nArgs: camera: a camera actor label. width/height: capture size (small is enough for statistics).\nexposure_ev100: compare the scene with this exposure (default: what Env_Post exposes for, if manual).\nregion: only this box [x0, y0, x1, y1] (0..1, y down), e.g. a face box from qa.framing (spot metering).\nReturns: {\"scene\": scene_stats, \"display\": display_stats, \"camera\", \"fov_deg\", \"region\"}.\nExample: film-ue op env.meter camera=HostCam",
    "params": [
@@ -4709,7 +4796,7 @@
    "verb": "mood",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 791,
+   "line": 807,
    "summary": "Switch the last applied spec `spec_name` to one of its moods (day/night, ...): env.apply with that mood;",
    "doc": "Switch the last applied spec `spec_name` to one of its moods (day/night, ...): env.apply with that mood;\n`mood` None goes back to the spec's own mood. A multi-tick job.\n\nReturns: env.apply's result plus {\"mood\"}.\nExample: film-ue op env.mood mood=night spec_name=studio",
    "params": [
@@ -4826,7 +4913,7 @@
    "verb": "plan",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 744,
+   "line": 760,
    "summary": "What env.apply would do: the op calls that converge the level to an environment/lighting spec, without",
    "doc": "What env.apply would do: the op calls that converge the level to an environment/lighting spec, without\ndoing them. Errors name the spec field (did-you-mean) before anything changes.\n\nReturns: {\"steps\": [{\"op\", \"args\", \"why\"}], \"converged\": bool}.\nExample: film-ue op env.plan 'spec={\"kind\":\"environment\",\"name\":\"day\",\"preset\":\"exterior_day\"}'",
    "params": [
@@ -4860,7 +4947,7 @@
    "verb": "post",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 386,
+   "line": 388,
    "summary": "Set PostProcessSettings fields on the environment's unbound volume (Env_Post), each override flag set for",
    "doc": "Set PostProcessSettings fields on the environment's unbound volume (Env_Post), each override flag set for\nyou; `clear` turns fields' overrides off. Converges; reports what changed.\n\nArgs: fields: {snake_case field: value}: numbers, bools, [r,g,b(,a)] colours and colour wheels, enum strings\n\"AutoExposureMethod.AEM_MANUAL\", texture paths for LUTs. clear: field names to stop overriding.\npriority: the volume's priority (1 wins over default-priority volumes).\nReturns: {\"label\", \"changed\", \"set\": [fields], \"cleared\": [fields]}.\nExample: film-ue op env.post 'fields={\"bloom_intensity\":0.3,\"vignette_intensity\":0.2}'",
    "params": [
@@ -4908,7 +4995,7 @@
    "verb": "preset",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 812,
+   "line": 828,
    "summary": "Build a whole, consistent environment from a named preset (sky, sun, fog, exposure, grade, quality together):",
    "doc": "Build a whole, consistent environment from a named preset (sky, sun, fog, exposure, grade, quality together):\nexterior_day exterior_golden exterior_overcast exterior_blue_hour exterior_night interior_day interior_night\nstudio_black studio_grey. The same as env.apply of {kind: environment, name: owner, preset: name, ...overrides};\nre-running converges, switching presets replaces only what differs. A multi-tick job.\n\nArgs: name: the preset (env.presets lists them with their lux and EV100). owner: the spec name it is kept under\n(env.mood and prune use it). overrides: spec sections over the preset, e.g. {\"sun\": {\"time\": \"10:00\"}}.\nReturns: env.apply's result.\nExample: film-ue op env.preset name=exterior_golden 'overrides={\"fog\":{\"preset\":\"mist\"}}'",
    "params": [
@@ -4956,7 +5043,7 @@
    "verb": "presets",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 832,
+   "line": 848,
    "summary": "Every named thing the env/light ops and specs take, with what it is for: environment presets, times of day,",
    "doc": "Every named thing the env/light ops and specs take, with what it is for: environment presets, times of day,\natmosphere and fog presets, grades, quality presets, rig presets and roles, practical types.\n\nExample: film-ue op env.presets",
    "params": [],
@@ -4975,9 +5062,9 @@
    "verb": "quality",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 546,
+   "line": 554,
    "summary": "Lumen / virtual shadow map / hardware ray tracing quality: preset preview|draft|final|cinematic|no_gi plus",
-   "doc": "Lumen / virtual shadow map / hardware ray tracing quality: preset preview|draft|final|cinematic|no_gi plus\noverrides (gi none|lumen, reflections none|lumen|ssr, shadows vsm|maps, hwrt bool, hit_lighting\nnone|reflections|all, lumen {final_gather, reflection, scene_detail, scene_lighting, max_trace_distance},\nfog_grid [pixel, z], vsm_bias, megalights, cvars). Sets the cvars now and the post fields on Env_Post.\n\nArgs: project: also write the project's renderer settings (URendererSettings GI/reflections/VSM/HWRT; HWRT\nneeds ray tracing on in the project and an editor restart). Returns: {\"changed\", \"cvars\": {...}, \"post\": [...],\n\"render_cvars\": [ \"name value\", ... ] (to pass to a render job)}.\nExample: film-ue op env.quality preset=cinematic",
+   "doc": "Lumen / virtual shadow map / hardware ray tracing quality: preset preview|draft|final|cinematic|no_gi plus\noverrides (gi none|lumen, reflections none|lumen|ssr, shadows vsm|maps, hwrt bool, hit_lighting\nnone|reflections|all, lumen {final_gather, reflection, scene_detail, scene_lighting, max_trace_distance},\nfog_grid [pixel, z], vsm_bias, megalights, cvars). Sets the cvars now and the post fields on Env_Post.\n\nArgs: project: also make it the project's default (GI, reflections, VSM, HWRT, mesh distance fields) in\nConfig/DefaultEngine.ini through editor.project_setting; applies at the next editor start (restart_required).\nHWRT also needs r.RayTracing=True there (editor.project_setting key=r.RayTracing value=True). Returns: {\"changed\", \"cvars\": {...}, \"post\": [...],\n\"render_cvars\": [ \"name value\", ... ] (to pass to a render job), \"project_settings\", \"restart_required\"}.\nExample: film-ue op env.quality preset=cinematic",
    "params": [
     {
      "name": "preset",
@@ -5023,7 +5110,7 @@
    "verb": "reflection_capture",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 580,
+   "line": 596,
    "summary": "A reflection capture (a fallback for reflections Lumen cannot trace, and for translucency): a sphere with an",
    "doc": "A reflection capture (a fallback for reflections Lumen cannot trace, and for translucency): a sphere with an\ninfluence radius, or a box whose half-size is `extent_cm` (the actor's scale; ReflectionCaptureComponent.cpp:1358);\nconverges. Captures update with env.captures_rebuild.\n\nReturns: {\"label\", \"changed\"}.\nExample: film-ue op env.reflection_capture label=RoomCapture shape=box 'loc=[0,0,150]' 'extent_cm=[400,300,150]'",
    "params": [
@@ -5106,7 +5193,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 655,
+   "line": 671,
    "summary": "Remove environment parts the ops made (sun moon atmosphere clouds sky_light hdri fog post), or everything an",
    "doc": "Remove environment parts the ops made (sun moon atmosphere clouds sky_light hdri fog post), or everything an\n`owner` (spec name) made with no `parts`. Missing parts are fine; actors the ops did not make are never removed.\n\nReturns: {\"changed\", \"removed\": [labels]}.\nExample: film-ue op env.remove 'parts=[\"fog\",\"clouds\"]'",
    "params": [
@@ -5139,7 +5226,7 @@
    "verb": "schema",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 849,
+   "line": 865,
    "summary": "The JSON Schema of the environment or lighting spec (the same one in tools/filmtools/unreal/schemas/).",
    "doc": "The JSON Schema of the environment or lighting spec (the same one in tools/filmtools/unreal/schemas/).\n\nExample: film-ue op env.schema kind=lighting",
    "params": [
@@ -5166,7 +5253,7 @@
    "verb": "sky_light",
    "module": "fmbridge.ops.env",
    "file": "unreal/fmbridge/ops/env.py",
-   "line": 200,
+   "line": 202,
    "summary": "The sky light (Env_SkyLight): ambient light from the sky, real-time captured (with an atmosphere), captured",
    "doc": "The sky light (Env_SkyLight): ambient light from the sky, real-time captured (with an atmosphere), captured\nonce from the scene, or from a cubemap (an HDRI); converges and recaptures when it changed. A multi-tick job.\n\nArgs: mode: realtime|captured|cubemap (default realtime with an atmosphere, else captured). intensity: scale.\ncubemap: a TextureCube path (mode cubemap). cubemap_angle_deg: its yaw. lower_hemisphere_black/_color.\nReturns: {\"label\", \"changed\", \"mode\"}.\nExample: film-ue op env.sky_light mode=cubemap cubemap=/Game/HDRI/T_Studio intensity=1.2",
    "params": [
@@ -5567,7 +5654,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 234,
+   "line": 240,
    "summary": "The scatters in the project (or one): their arguments, seed, foliage types and instance counts as placed,",
    "doc": "The scatters in the project (or one): their arguments, seed, foliage types and instance counts as placed,\nand the foliage instances in the level now per mesh (`measured`), so a lost or doubled scatter shows.\n\nExample: film-ue op foliage.describe prefix=Lawn",
    "params": [
@@ -5594,7 +5681,7 @@
    "verb": "pcg",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 310,
+   "line": 316,
    "summary": "Run a PCG graph on an actor with a PCG component, with parameters and a seed, and wait until it has generated.",
    "doc": "Run a PCG graph on an actor with a PCG component, with parameters and a seed, and wait until it has generated.\nWith `loc` (and `extent_cm`, the half size) a PCG Volume named `label` is made there first if missing.\n\nArgs: graph: a PCG graph asset (/Game/...; keep the actor's own when \"\"). seed: the component's seed.\nparams: {graph parameter: value} (bool, int, float, string, [x, y, z], or an asset path).\nReturns: {\"label\", \"graph\", \"seed\", \"generated\", \"instances\": ISM instances on the actor, \"changed\"}.\nExample: film-ue op foliage.pcg label=PCG_Forest graph=/Game/PCG/PG_Forest seed=3 'params={\"Density\":0.6}'",
    "params": [
@@ -5665,7 +5752,7 @@
    "verb": "pcg_clear",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 362,
+   "line": 368,
    "summary": "Clear what a PCG component generated (and delete the actor with `delete`). Missing actors are fine.",
    "doc": "Clear what a PCG component generated (and delete the actor with `delete`). Missing actors are fine.\n\nExample: film-ue op foliage.pcg_clear label=PCG_Forest",
    "params": [
@@ -5700,7 +5787,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 260,
+   "line": 266,
    "summary": "Remove a scatter: its instances and its foliage types (removing nothing is fine).",
    "doc": "Remove a scatter: its instances and its foliage types (removing nothing is fine).\n\nExample: film-ue op foliage.remove prefix=Lawn",
    "params": [
@@ -5727,7 +5814,7 @@
    "verb": "scatter",
    "module": "fmbridge.ops.foliage",
    "file": "unreal/fmbridge/ops/foliage.py",
-   "line": 132,
+   "line": 136,
    "summary": "Scatter meshes over a region as foliage instances, the same for the same seed; re-running converges (the",
    "doc": "Scatter meshes over a region as foliage instances, the same for the same seed; re-running converges (the\nscatter's own instances are replaced; nothing else is touched).\n\nArgs: prefix: the scatter's name (its foliage types live in /Game/_Foliage/<prefix>/). meshes: [{\"mesh\":\n\"/Game/...\", \"weight\": 1, \"scale\": [lo, hi], \"height_jitter\": [lo, hi], \"tilt_deg\": 0, \"yaw\": \"random\" | [lo, hi]\n| deg, \"z_offset_cm\": 0, \"align_to_normal\": false}]. region: {\"rect\": [[x0, y0], [x1, y1]]} | {\"circle\": [cx, cy,\nr]} | {\"ring\": [cx, cy, r0, r1]} | {\"polygon\": [[x, y], ...]} (cm). count, or density_per_m2. min_dist_cm:\nspacing (default from the density). exclude: regions to keep clear; exclude_actors: labels whose footprints\n(plus exclude_margin_cm) stay clear. patchiness 0..1 with patch_cm: clumps. surface: \"trace\" (drop onto what is\nbelow, between trace_from_z_cm and trace_to_z_cm; instances over nothing or steeper than max_slope_deg are\ndropped) or \"flat\" (at z_cm). cull_cm: [start, end] distance culling. force: rewrite even when unchanged.\nA multi-tick job (traces yield every 500).\nReturns: {\"prefix\", \"changed\", \"placed\", \"planned\", \"dropped\": {\"no_ground\", \"too_steep\"}, \"per_mesh\",\n\"types\", \"hash\", \"area_m2\"}.\nExample: film-ue op foliage.scatter prefix=Lawn seed=7 'meshes=[{\"mesh\":\"/Game/Env/SM_Grass\",\"scale\":[0.8,1.2]}]' 'region={\"rect\":[[-1000,-1000],[1000,1000]]}' density_per_m2=4",
    "params": [
@@ -6400,7 +6487,7 @@
    "verb": "align",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 277,
+   "line": 278,
    "summary": "Line actors up along one axis by their bounds: their min edges, max edges or centres on a common value",
    "doc": "Line actors up along one axis by their bounds: their min edges, max edges or centres on a common value\n(`ref_cm`, the same edge of `ref_label`, or the group's extreme / mean).\n\nExample: film-ue op layout.align 'labels=[\"Book_00\",\"Book_01\",\"Book_02\"]' axis=y to=max",
    "params": [
@@ -6452,7 +6539,7 @@
    "verb": "array",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 184,
+   "line": 185,
    "summary": "Lay out `count` copies of an asset (or a basic shape) as a row, a grid or a circle, labelled",
    "doc": "Lay out `count` copies of an asset (or a basic shape) as a row, a grid or a circle, labelled\n`<prefix>_00`, `<prefix>_01`, ...; re-running moves the same actors, and a smaller count removes the extras.\n\nArgs: pattern: row (start + k * step_cm), grid (rows of `cols`, X by step_cm[0], Y by step_cm[1]) or circle\n(around `center`, radius_cm, from start_deg over arc_deg, counter-clockwise from above). face: none (yaw_deg),\ncenter (circle: each faces the centre), out (faces away). drop: rest each on what is under it.\nReturns: {\"changed\", \"labels\", \"made\", \"moved\", \"removed\"}.\nExample: film-ue op layout.array prefix=Chair asset=/Game/Props/SM_Chair pattern=circle count=6 \\\n         'center=[0,0,0]' radius_cm=120 face=center",
    "params": [
@@ -6621,7 +6708,7 @@
    "verb": "distribute",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 304,
+   "line": 305,
    "summary": "Space actors evenly along an axis, in the order given: centres from start_cm to end_cm (default: the first",
    "doc": "Space actors evenly along an axis, in the order given: centres from start_cm to end_cm (default: the first\nand last actors' current centres), or edge to edge `gap_cm` apart starting at the first one.\n\nExample: film-ue op layout.distribute 'labels=[\"A\",\"B\",\"C\",\"D\"]' axis=x gap_cm=20",
    "params": [
@@ -6673,7 +6760,7 @@
    "verb": "drop",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 57,
+   "line": 58,
    "summary": "Rest each actor on whatever is under it: its bounds' bottom on the highest support below its centre whose",
    "doc": "Rest each actor on whatever is under it: its bounds' bottom on the highest support below its centre whose\nfootprint overlaps (a table top, a rug, a riser), else on `floor_z`. Actors are dropped in the order given, so\nlist a table before the cup that sits on it.\n\nArgs: labels: actors to drop. floor_z: the floor height in cm (None for no floor: an actor over nothing stays\nput). gap_cm: lift above the support. mode: bounds (boxes, deterministic) or trace (a line trace down; needs\ncollision).\nReturns: {\"changed\": bool, \"moved\": {label: dz_cm}, \"unsupported\": [labels with nothing under them]}.\nExample: film-ue op layout.drop 'labels=[\"Desk\",\"Lamp\",\"Mug\"]'",
    "params": [
@@ -6725,7 +6812,7 @@
    "verb": "relative",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 96,
+   "line": 97,
    "summary": "Put `label` at an offset in another actor's frame: [forward, right, up] cm from `of` along its own yaw (a",
    "doc": "Put `label` at an offset in another actor's frame: [forward, right, up] cm from `of` along its own yaw (a\nchair 80 cm in front of a desk: offset_cm=[80, 0, 0]), then turn it and rest it on what is under it.\n\nArgs: face: toward (look at `of`), away, same (copy its yaw), none (keep), or fixed (use yaw_deg).\nReturns: {\"changed\", \"loc\", \"rot\"}.\nExample: film-ue op layout.relative label=Chair of=Desk 'offset_cm=[80,0,0]' face=toward",
    "params": [
@@ -6795,7 +6882,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 264,
+   "line": 265,
    "summary": "Remove every actor a layout.array / layout.scatter with this prefix made (by its tag, not by name).",
    "doc": "Remove every actor a layout.array / layout.scatter with this prefix made (by its tag, not by name).\n\nExample: film-ue op layout.remove prefix=Rock",
    "params": [
@@ -6819,7 +6906,7 @@
    "verb": "scatter",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 225,
+   "line": 226,
    "summary": "Scatter up to `count` copies of an asset over a rectangle, no two closer than min_dist_cm, deterministic for",
    "doc": "Scatter up to `count` copies of an asset over a rectangle, no two closer than min_dist_cm, deterministic for\na seed (Poisson disk), with random yaw and uniform scale in ranges; labelled `<prefix>_00`...; re-running with\nthe same seed gives the same layout, a new seed a new one.\n\nArgs: region: [[x0, y0], [x1, y1]] cm. exclude: rectangles to keep clear ([[x0, y0], [x1, y1]] each). avoid:\nactor labels whose footprints (plus min_dist_cm / 2) are kept clear. z: height before dropping. drop: rest each\non what is under it.\nReturns: {\"changed\", \"labels\", \"made\", \"moved\", \"removed\", \"placed\": n} (n < count when the region is full).\nExample: film-ue op layout.scatter prefix=Rock asset=/Game/Env/SM_Rock count=30 \\\n         'region=[[-1000,-1000],[1000,1000]]' min_dist_cm=150 seed=7 'avoid=[\"Path\"]'",
    "params": [
@@ -6970,7 +7057,7 @@
    "verb": "settle",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 345,
+   "line": 346,
    "summary": "Let props fall and come to rest under physics, then keep where they landed (a pile of books, a dropped",
    "doc": "Let props fall and come to rest under physics, then keep where they landed (a pile of books, a dropped\ncushion, a chair knocked over): runs Simulate in Editor for `seconds`, reads each actor's resting transform from\nthe simulated world and writes it back onto the editor actor. Multi-tick. The actors' meshes need collision, and\nso does what they land on.\n\nArgs: labels: actors to simulate (made Movable, physics on for the run; restored after unless keep_physics).\nseconds: simulated time to let them settle. start_timeout_s: how long to wait for Simulate to start.\nReturns: {\"changed\", \"moved\": {label: {\"loc\", \"rot\", \"dist_cm\"}}, \"still\": [labels that did not move > 0.5 cm]}.\nExample: film-ue op layout.settle 'labels=[\"Book_00\",\"Book_01\",\"Cushion\"]' seconds=3",
    "params": [
@@ -7019,7 +7106,7 @@
    "verb": "snap",
    "module": "fmbridge.ops.layout",
    "file": "unreal/fmbridge/ops/layout.py",
-   "line": 325,
+   "line": 326,
    "summary": "Snap actor locations to a grid (X and Y; Z untouched) and, with yaw_step_deg, their yaw to multiples of it.",
    "doc": "Snap actor locations to a grid (X and Y; Z untouched) and, with yaw_step_deg, their yaw to multiples of it.\n\nExample: film-ue op layout.snap 'labels=[\"Desk\",\"Chair\"]' grid_cm=5 yaw_step_deg=15",
    "params": [
@@ -7782,7 +7869,7 @@
    "verb": "add",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 115,
+   "line": 116,
    "summary": "Make or converge one light named `label` (re-running retunes the same light; changing `kind` remakes it).",
    "doc": "Make or converge one light named `label` (re-running retunes the same light; changing `kind` remakes it).\n\nArgs: kind: rect|spot|point|directional. loc: [x,y,z] cm. look_at: [x,y,z] to aim at (or rotation\n{\"pitch\",\"yaw\",\"roll\"}). Intensity, one of: intensity_cd (candela), lux + at (lux at that point, inverse\nsquare; `at` defaults to look_at), lumens, nits (rect: surface luminance x area), intensity_lux (directional).\ntemperature_k (kelvin, default 6500) or color [r,g,b] linear. width_cm/height_cm (rect), cone_deg/inner_cone_deg\n(spot half-angles), source_radius_cm (soft shadows), radius_cm (attenuation; auto from intensity), shadows,\nchannels [0..2], ies (a TextureLightProfile path), specular/volumetric/indirect/diffuse scales.\nReturns: {\"label\", \"changed\", \"created\", \"props\": [changed engine properties], \"light\": canonical}.\nExample: film-ue op light.add label=Key kind=rect 'loc=[150,120,230]' 'look_at=[0,0,165]' lux=800 temperature_k=5600",
    "params": [
@@ -8043,7 +8130,7 @@
    "verb": "channels",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 359,
+   "line": 360,
    "summary": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh/character/groom, which",
    "doc": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh/character/groom, which\nlights reach it. Re-fetches components by name (a Blueprint actor's construction script replaces them).\n\nArgs: assign: {actor label: [channels]}, e.g. {\"Host\": [0, 1], \"Key\": [1]}.\nReturns: {\"changed\", \"components\": {label: n set}}.\nExample: film-ue op light.channels 'assign={\"Host\":[0,1],\"Host_Key\":[1]}'",
    "params": [
@@ -8069,7 +8156,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 311,
+   "line": 312,
    "summary": "Every light in the level (or `labels`) as numbers: kind, loc, rotation, forward, intensity (cd, or lux for a",
    "doc": "Every light in the level (or `labels`) as numbers: kind, loc, rotation, forward, intensity (cd, or lux for a\ndirectional), temperature or colour, size, cone, radius, channels, owner/role/rig; with `at` [x,y,z] also what\neach gives there (light.measure).\n\nReturns: {\"lights\": {label: {...}}, \"rigs\": {prefix: {...}}, \"at\": {...}?}.\nExample: film-ue op light.describe 'at=[0,0,165]'",
    "params": [
@@ -8102,7 +8189,7 @@
    "verb": "measure",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 340,
+   "line": 341,
    "summary": "What the lights give at a point, analytically (inverse square, cosine, spot cone, attenuation; no shadows,",
    "doc": "What the lights give at a point, analytically (inverse square, cosine, spot cone, attenuation; no shadows,\nno bounce): the numeric check of a rig without a render.\n\nArgs: at: [x,y,z] cm. normal: the surface normal there (else each light is measured facing it). labels: only\nthese lights (default all, directional lights included). key/fill: labels to report their lighting ratio.\nReturns: {\"lux\", \"ev100\" (incident), \"per_light\": {label: lux}, \"ratio\"?}.\nExample: film-ue op light.measure 'at=[0,0,165]' key=Host_Key fill=Host_Fill",
    "params": [
@@ -8157,7 +8244,7 @@
    "verb": "practical",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 159,
+   "line": 160,
    "summary": "A practical light (a fixture seen in frame) by type, with physical output: bulb, lamp, candle, fire,",
    "doc": "A practical light (a fixture seen in frame) by type, with physical output: bulb, lamp, candle, fire,\ndownlight, desk_lamp, streetlight, tube, led_strip, neon, screen, phone, window (env.presets lists them).\n\nArgs: type: the fixture. loc: [x,y,z] cm (the bulb/face). look_at or rotation to aim (downlights and strips\npoint down by default). lumens/nits/intensity_cd override the preset's output; scale multiplies it.\ntemperature_k or color [r,g,b]. Returns: like light.add. Pair the light with an emissive surface for the\nvisible fixture (mat.* emissive in nits: same number).\nExample: film-ue op light.practical label=DeskLamp type=desk_lamp 'loc=[-180,60,140]' 'look_at=[-180,60,75]'",
    "params": [
@@ -8302,7 +8389,7 @@
    "verb": "remove",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 404,
+   "line": 405,
    "summary": "Remove lights (and reflection captures) the env/light ops made: by `labels`, every light of a `rig` prefix,",
    "doc": "Remove lights (and reflection captures) the env/light ops made: by `labels`, every light of a `rig` prefix,\nor everything an `owner` (spec name) made. Actors the ops did not make are never removed; missing ones are fine.\n\nReturns: {\"changed\", \"removed\": [labels]}.\nExample: film-ue op light.remove rig=Host_",
    "params": [
@@ -8342,7 +8429,7 @@
    "verb": "rig",
    "module": "fmbridge.ops.light",
    "file": "unreal/fmbridge/ops/light.py",
-   "line": 225,
+   "line": 226,
    "summary": "Light a subject with a named rig (key/fill/rim/...) placed around it relative to the camera, intensities from",
    "doc": "Light a subject with a named rig (key/fill/rim/...) placed around it relative to the camera, intensities from\nthe key's lux at the subject and the lighting ratio; converges (re-running moves/retunes, a dropped role is removed).\n\nArgs: subject: an actor label or [x,y,z] cm (a label lights ~eye height of its bounds, or `socket`, or its\nlocation + `subject_offset`). camera: a label or [x,y,z] (else `facing_yaw_deg`). preset: env.presets rigs\n(three_point, interview, loop, rembrandt, butterfly, clamshell, split, high_key, low_key, noir, silhouette,\nwindow). key_lux: lux on the subject from the key. ratio: (key+fill):fill, 2 flat .. 8 noir. lights: per-role\noverrides {\"rim\": {\"rel\": 1.5}, \"fill\": null, \"kicker\": {}} (fields: angle side elevation distance width height\ncone temperature color rel lux candelas shadows channels). prefix: label prefix (lights are <prefix><Role>).\nkey_side: left|right (camera-left/right), or short|broad (from the subject's facing: `facing_yaw_deg` or the\nsubject actor's yaw, +X its front; short keys the side of the face turned away from the lens). scale: x distances/sizes. temperature_k/channels: for every light.\nReturns: {\"changed\", \"lights\": [labels], \"removed\": [labels], \"subject_point\", \"camera_point\",\n\"measured\": {\"lux\", \"per_light\", \"ratio\"}}.\nExample: film-ue op light.rig subject=Host camera=HostCam preset=interview key_lux=900 prefix=Host_",
    "params": [
@@ -8537,7 +8624,7 @@
    "verb": "camera",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 465,
+   "line": 445,
    "summary": "A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.",
    "doc": "A cine camera aimed at `look_at`, focused on it (or at `focus` cm); full-frame 16:9 filmback by default.\nExample: film-ue op look.camera label=Cam 'loc=[300,0,160]' 'look_at=[0,0,150]' focal=35",
    "params": [
@@ -8615,7 +8702,7 @@
    "verb": "card",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 512,
+   "line": 492,
    "summary": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right",
    "doc": "A flat picture (a screen, a sign, a print) standing upright and facing +X turned by `yaw`, its image the right\nway up and unmirrored from the front; `offset` pushes it out along its facing (cm), e.g. to sit on a box's front.\nExample: film-ue op look.card label=Poster 'loc=[-255,0,170]' width=60 height=90 material=/Game/FM/Materials/MI_Poster",
    "params": [
@@ -8683,7 +8770,7 @@
    "verb": "channels",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 526,
+   "line": 506,
    "summary": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which",
    "doc": "Lighting channels (0-2) for actors: on a light, which surfaces it lights; on a mesh, character or groom, which\nlights reach it. The studio rule: the host's lights on 1 only, the set's on 0, the host itself on 0 and 1.\nPrefer light.channels.\nExample: film-ue op look.channels 'labels=[\"Key\"]' 'channels=[1]'",
    "params": [
@@ -8751,7 +8838,7 @@
    "verb": "focus_track",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 552,
+   "line": 518,
    "summary": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a",
    "doc": "Keep a cine camera focused on an actor as either moves: `offset` is in the target's own frame (cm), e.g. a\nMetaHuman's eyes above its feet.\nExample: film-ue op look.focus_track camera_label=Cam target=Host 'offset=[0,0,165]'",
    "params": [
@@ -8795,7 +8882,7 @@
    "verb": "fog",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 418,
+   "line": 411,
    "summary": "Exponential height fog with volumetric fog: haze in the air for light shafts and depth.",
    "doc": "Exponential height fog with volumetric fog: haze in the air for light shafts and depth.\nPrefer env.fog (presets, every field).\nExample: film-ue op look.fog density=0.0006 volumetric=true",
    "params": [
@@ -9123,7 +9210,7 @@
    "verb": "post",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 437,
+   "line": 430,
    "summary": "An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).",
    "doc": "An unbound post-process volume; `settings` are PostProcessSettings fields (each override flag set for you).\nPrefer env.post / env.exposure / env.grade.\nExample: film-ue op look.post 'settings={\"bloom_intensity\":0.25}'",
    "params": [
@@ -9156,7 +9243,7 @@
    "verb": "sky",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 390,
+   "line": 386,
    "summary": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the",
    "doc": "Daylight: a sun (directional light, `lux`) from `azimuth` degrees (0 = shining along +X, i.e. from behind the\nback wall towards the camera; 90 = shining along +Y) and `elevation` above the horizon, a sky atmosphere and a\nreal-time captured sky light. `shadow_softness` is the sun's source angle in degrees.\nPrefer env.sun / env.atmosphere / env.sky_light (time of day, place).\nExample: film-ue op look.sky elevation=28 azimuth=-28 lux=17000",
    "params": [
@@ -9259,7 +9346,7 @@
    "verb": "still",
    "module": "fmbridge.ops.look",
    "file": "unreal/fmbridge/ops/look.py",
-   "line": 490,
+   "line": 470,
    "summary": "A still through a camera at the viewport's quality, written to `path` on the workstation (png). A multi-tick",
    "doc": "A still through a camera at the viewport's quality, written to `path` on the workstation (png). A multi-tick\njob: it returns once the file is on disk.\nExample: film-ue op look.still camera_label=Cam path=/tmp/still.png",
    "params": [
@@ -9972,7 +10059,7 @@
    "verb": "auth_status",
    "module": "fmbridge.ops.mh.cloud",
    "file": "unreal/fmbridge/ops/mh/cloud.py",
-   "line": 39,
+   "line": 41,
    "summary": "Whether the MetaHuman cloud services can sign in to Epic without asking.",
    "doc": "Whether the MetaHuman cloud services can sign in to Epic without asking.\n\nReturns: {\"signed_in\": true|false|null (Windows: unknown, kept in the credential store), \"credentials\": n saved\nEOS sign-ins on this machine, \"platform\"}.\nExample: film-ue op mh.auth_status",
    "params": [],
@@ -10647,7 +10734,7 @@
    "file": "unreal/fmbridge/ops/mh/appearance.py",
    "line": 242,
    "summary": "The eyes: iris (pattern Iris001..Iris009, colour as palette u/v, blend, limbal ring), pupil, cornea, sclera,",
-   "doc": "The eyes: iris (pattern Iris001..Iris009, colour as palette u/v, blend, limbal ring), pupil, cornea, sclera,\nfor both eyes or each.\n\nArgs: path: the character. both/left/right: FMetaHumanCharacterEyeProperties fields as nested JSON, e.g.\n{\"iris\": {\"iris_pattern\": \"Iris003\", \"primary_color_u\": 0.2, \"primary_color_v\": 0.6}, \"sclera\": {\"vascularity_intensity\": 0.5}}.\n`left`/`right` go over `both`. Returns: {\"changed\", \"eyes_settings\"}.\nExample: film-ue op mh.eyes path=/Game/Characters/Ava/MH_Ava 'both={\"iris\": {\"primary_color_u\": 0.2}}'",
+   "doc": "The eyes: iris (pattern Iris001..Iris009, colour as palette u/v, blend, limbal ring), pupil, cornea, sclera,\nfor both eyes or each.\n\nArgs: path: the character. both/left/right: FMetaHumanCharacterEyeProperties fields as nested JSON, e.g.\n{\"iris\": {\"pattern\": \"Iris003\", \"primary_color_u\": 0.2, \"primary_color_v\": 0.6}, \"sclera\": {\"vascularity_intensity\": 0.5}}.\n`left`/`right` go over `both`. Returns: {\"changed\", \"eyes_settings\"}.\nExample: film-ue op mh.eyes path=/Game/Characters/Ava/MH_Ava 'both={\"iris\": {\"primary_color_u\": 0.2}}'",
    "params": [
     {
      "name": "path",
@@ -11165,7 +11252,7 @@
    "verb": "login",
    "module": "fmbridge.ops.mh.cloud",
    "file": "unreal/fmbridge/ops/mh/cloud.py",
-   "line": 51,
+   "line": 53,
    "summary": "Start Epic's sign-in for the MetaHuman cloud services if there is none, and return at once.",
    "doc": "Start Epic's sign-in for the MetaHuman cloud services if there is none, and return at once.\n\nWith `exchange_code` (a one-time code from Epic's account service, valid ~5 minutes) the next cloud request signs\nin with it, no browser (the code is set in the CVar MetaHuman.Cloud.Config.ExchangeCode; the console echoes it to\nthe log, so use a fresh single-use code). Without it, a rig is requested on a throwaway character so the service\nstarts its device sign-in: the engine hands the page to the system browser, which on a box without a desktop\nkeeps it for `film-ue epic-login`. The sign-in then persists across editor restarts.\nReturns: {\"signed_in\", \"requested\", \"exchange_code_set\"}.\nExample: film-ue op mh.login",
    "params": [
@@ -11285,7 +11372,7 @@
    "verb": "preview",
    "module": "fmbridge.ops.mh.build",
    "file": "unreal/fmbridge/ops/mh/build.py",
-   "line": 112,
+   "line": 113,
    "summary": "A live MetaHuman Editor actor of the character in the open level, with no rig and no build: it follows",
    "doc": "A live MetaHuman Editor actor of the character in the open level, with no rig and no build: it follows\nchanges made to the character (body, face, skin, wardrobe), for stills while shaping one.\n\nRe-running with the same label moves the existing one. Args: label: the actor label (default MHPreview_<name>).\nloc: [x, y, z] cm. yaw_deg: facing. transient: not saved with the level.\nReturns: {\"label\", \"changed\"}.\nExample: film-ue op mh.preview path=/Game/Characters/Ava/MH_Ava 'loc=[0,0,0]'",
    "params": [
@@ -11374,7 +11461,7 @@
    "verb": "rig",
    "module": "fmbridge.ops.mh.cloud",
    "file": "unreal/fmbridge/ops/mh/cloud.py",
-   "line": 120,
+   "line": 122,
    "summary": "Epic's cloud auto-rig, as a multi-tick job (about 30 s once signed in). Needed before mh.textures and",
    "doc": "Epic's cloud auto-rig, as a multi-tick job (about 30 s once signed in). Needed before mh.textures and\nmh.build, and again after any body or face change.\n\nSkips the request when the character is rigged and its body and face are what they were at the last rig\n(`changed: false`); `force` re-rigs anyway. Without a saved Epic sign-in it fails at once (require_login) instead\nof waiting on a browser.\nArgs: character: the character. full: joints + blend shapes (what facial animation needs) or joints only.\ntimeout_s: give up after. force: rig even if up to date. require_login: fail fast without a sign-in.\nReturns: {\"changed\", \"seconds\", \"rig\": \"full\"|\"joints\", \"log\"}.\nExample: film-ue op mh.rig character=/Game/Characters/Ava/MH_Ava",
    "params": [
@@ -11576,7 +11663,7 @@
    "verb": "textures",
    "module": "fmbridge.ops.mh.cloud",
    "file": "unreal/fmbridge/ops/mh/cloud.py",
-   "line": 160,
+   "line": 162,
    "summary": "Epic's cloud high-resolution skin texture sources (face and body), as a multi-tick job (about 20 s). Needs a",
    "doc": "Epic's cloud high-resolution skin texture sources (face and body), as a multi-tick job (about 20 s). Needs a\nrig first (the service signs in during the rig); mh.build needs them.\n\nSkips when the character already has them (`changed: false`); a skin change (mh.skin) discards them. The\nresolution is the skin setting desired_texture_sources_resolutions (mh.skin texture_resolution=4k).\nReturns: {\"changed\", \"seconds\", \"has_high_res_textures\", \"log\"}.\nExample: film-ue op mh.textures character=/Game/Characters/Ava/MH_Ava",
    "params": [
@@ -11782,7 +11869,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 599,
+   "line": 617,
    "summary": "Converge the editor on a PERFORMANCE spec (kind: performance): speech-solve the lines whose audio or mood",
    "doc": "Converge the editor on a PERFORMANCE spec (kind: performance): speech-solve the lines whose audio or mood\nchanged, compose the face, key the body and the actor's moves in the sequence; re-run safely (a converged spec\ndoes nothing). `dry_run` returns the plan only. A multi-tick job (speech solves take seconds per line).\n\nReturns: {\"converged\", \"rounds\", \"ran\": [{\"op\", \"why\", \"result\"}], \"report\": the face's naturalness checks}.\nExample: film-ue op perf.apply spec=@films/demo/perf/intro.yaml",
    "params": [
@@ -11864,6 +11951,60 @@
    ]
   },
   {
+   "name": "perf.calibrate_body",
+   "area": "perf",
+   "verb": "calibrate_body",
+   "module": "fmbridge.ops.perf_body",
+   "file": "unreal/fmbridge/ops/perf_body.py",
+   "line": 83,
+   "summary": "Measure, on the real body skeleton, which local axis (and sign) of each spine, clavicle and pelvis bone bends the",
+   "doc": "Measure, on the real body skeleton, which local axis (and sign) of each spine, clavicle and pelvis bone bends the\nbody forward (flex), to the character's left (side; for a clavicle: lifts it) and turns it left (twist), and which\nof the pelvis's parent axes shifts it to the left; with the bones' rest pose. Saved per skeleton\n(Saved/fmbridge/perf/body_<skeleton>.json) for anim.body_life. Plays scratch animations on the actor's body in a\nscratch sequence and samples the head, clavicles, upper arms and feet (\"forward\" is where the feet point).\nA multi-tick job, ~1 min.\n\nReturns: {\"skeleton\", \"axes\": {bone: {\"flex\": [axis, sign], \"side\": [...], \"twist\": [...]}}, \"shift_axis\",\n\"file\", \"raw\"}.\nExample: film-ue op perf.calibrate_body label=Presenter",
+   "params": [
+    {
+     "name": "label",
+     "kind": "keyword",
+     "type": "str",
+     "required": true,
+     "default": null
+    },
+    {
+     "name": "component",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "Body"
+    },
+    {
+     "name": "scratch",
+     "kind": "keyword",
+     "type": "str",
+     "required": false,
+     "default": "/Game/_Perf/CalibrateBody"
+    },
+    {
+     "name": "degrees",
+     "kind": "keyword",
+     "type": "float",
+     "required": false,
+     "default": 10.0
+    },
+    {
+     "name": "bones",
+     "kind": "keyword",
+     "type": "list | None",
+     "required": false,
+     "default": null
+    }
+   ],
+   "returns": null,
+   "multi_tick": true,
+   "mutates": true,
+   "idempotent": true,
+   "tags": [
+    "slow"
+   ]
+  },
+  {
    "name": "perf.check",
    "area": "perf",
    "verb": "check",
@@ -11900,7 +12041,7 @@
    "verb": "compose",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 513,
+   "line": 518,
    "summary": "Compose a performance spec into the sequence: one continuous face animation (every line's lip-sync placed at",
    "doc": "Compose a performance spec into the sequence: one continuous face animation (every line's lip-sync placed at\nits time, with the head, eyes, blinks, moods and expressions of perfkit over the whole timeline, so nothing\njumps between lines) on the face track, the body's idle/gesture/walk sections, and the actor's transform keys.\nperf.apply calls it after the speech solves; call it yourself to re-key without re-solving.\nReturns: {\"face_anim\", \"fingerprint\", \"frames\", \"report\", \"timeline\", \"body_sections\", \"notes\", \"changed\"}.\nExample: film-ue op perf.compose spec=@examples/unreal/performance/listener.yaml",
    "params": [
@@ -11924,7 +12065,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 633,
+   "line": 651,
    "summary": "An actor's performance in a sequence: the animation sections on its face and body tracks, the face",
    "doc": "An actor's performance in a sequence: the animation sections on its face and body tracks, the face\nanimation's perf metadata (which spec, its fingerprint), and its transform keys.\nExample: film-ue op perf.describe sequence=/Game/Shots/S010 label=Presenter",
    "params": [
@@ -12147,7 +12288,7 @@
    "verb": "gestures",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 760,
+   "line": 778,
    "summary": "Gestures timed to their beats: each {\"anim\" | \"name\", \"at_s\" (the beat: the stressed word), \"stroke_s\" (where",
    "doc": "Gestures timed to their beats: each {\"anim\" | \"name\", \"at_s\" (the beat: the stressed word), \"stroke_s\" (where\nthe stroke falls in the clip; default 40% in), \"hold_s\", \"intensity\"}; the clip starts so its stroke lands\n`lead_s` before the beat. Overlaps are moved or dropped (see notes). Adds the sections to the body track.\nExample: film-ue op perf.gestures sequence=/Game/Shots/S010 label=Presenter 'gestures=[{\"anim\":\"/Game/Anim/AS_OpenPalms\",\"at_s\":2.1,\"stroke_s\":0.7}]'",
    "params": [
@@ -12206,7 +12347,7 @@
    "verb": "head_curves",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 786,
+   "line": 804,
    "summary": "Preview organic head motion with no engine and no animation: the HeadYaw/Pitch/Roll curves (character frame,",
    "doc": "Preview organic head motion with no engine and no animation: the HeadYaw/Pitch/Roll curves (character frame,\ndegrees) perfkit makes for these gaze shifts, nods and tilts, with the plan and the head checks. For trying\nstyles before writing them (perf.face).\nExample: film-ue op perf.head_curves duration_s=6 'gaze=[{\"t\":1,\"yaw\":30},{\"t\":3.5,\"yaw\":-10,\"pitch\":-5}]' 'nods=[{\"t\":4.5,\"kind\":\"nod\"}]'",
    "params": [
@@ -12279,7 +12420,7 @@
    "verb": "idle",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 741,
+   "line": 759,
    "summary": "An idle that never loops visibly on an actor's body track: segments of 4-9 s from the given idle clips at",
    "doc": "An idle that never loops visibly on an actor's body track: segments of 4-9 s from the given idle clips at\nrandom offsets and play rates 0.92-1.08, cross-fading into each other; split around `gaps` [[start, end]]\nframes (where gestures play). end 0 = the sequence's end.\nExample: film-ue op perf.idle sequence=/Game/Shots/S010 label=Presenter 'clips=[\"/MetaHumanCharacter/Optional/Animation/TemplateAnimations/Technical_Loops/Idle/mhc_mh001_fmn_b_idle\"]'",
    "params": [
@@ -12359,7 +12500,7 @@
    "verb": "lock_eyes",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 587,
+   "line": 605,
    "summary": "Measured eye contact with the spec's camera over the composed face (anim.gaze_lock: the eye curves solved",
    "doc": "Measured eye contact with the spec's camera over the composed face (anim.gaze_lock: the eye curves solved\nfrom the eye bones' real pose on the lines that look at the camera). A multi-tick job.\nExample: film-ue op perf.lock_eyes spec=@examples/unreal/performance/presenter_intro.yaml",
    "params": [
@@ -12385,7 +12526,7 @@
    "verb": "plan",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 437,
+   "line": 442,
    "summary": "What perf.apply would do for a performance spec, without doing it: {\"steps\": [{\"op\", \"args\", \"why\"}],",
    "doc": "What perf.apply would do for a performance spec, without doing it: {\"steps\": [{\"op\", \"args\", \"why\"}],\n\"compiled\": timeline, body sections and notes}. Empty steps = converged.\nExample: film-ue op perf.plan spec=@performance.yaml",
    "params": [
@@ -12463,7 +12604,7 @@
    "verb": "solve",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 456,
+   "line": 461,
    "summary": "A line's speech solve (speech.to_face) tagged with the key of what it was made from, so perf.plan knows when",
    "doc": "A line's speech solve (speech.to_face) tagged with the key of what it was made from, so perf.plan knows when\nit is up to date. A multi-tick job.\nExample: film-ue op perf.solve wav=/home/ue/Audio/l1.wav name=intro_l1 face_mesh=/Game/MetaHumans/Ada/Face/Ada_FaceMesh mood=HAPPINESS",
    "params": [
@@ -12555,7 +12696,7 @@
    "verb": "turn_to",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 717,
+   "line": 735,
    "summary": "Turn an actor in place to face a target (a point, an actor, \"Label:Component:bone\") or a yaw (degrees),",
    "doc": "Turn an actor in place to face a target (a point, an actor, \"Label:Component:bone\") or a yaw (degrees),\neased with a skewed min-jerk over 0.45 s + 0.5 s per 90 deg (/ speed); keys its transform (replacing the\ntransform track, so give a whole route to perf.walk_to or a spec instead when there are several moves).\nExample: film-ue op perf.turn_to sequence=/Game/Shots/S020 label=Presenter target=Guest at_frame=48",
    "params": [
@@ -12630,7 +12771,7 @@
    "verb": "walk_to",
    "module": "fmbridge.ops.perf",
    "file": "unreal/fmbridge/ops/perf.py",
-   "line": 676,
+   "line": 694,
    "summary": "Walk an actor to a point in a sequence: turn in place if needed, accelerate, follow `path` waypoints, brake,",
    "doc": "Walk an actor to a point in a sequence: turn in place if needed, accelerate, follow `path` waypoints, brake,\noptionally turn to face `end_facing`; the actor's transform is keyed (replacing its transform track) and the walk\nloop is added on the body track at the play rate that matches its own speed (`clip_speed_cm_s`, default\nspeed_cm_s: rate 1).\n\nArgs: to: [x, y, z] cm, or a target (actor label, \"Label:Component:bone\"). at_frame: when it sets off.\nspeed_cm_s: cruise speed (people: 110-150). facing_offset_deg: the actor's forward vs its mesh's (MetaHumans: 0).\nReturns: {\"changed\", \"keys\", \"frames\": [start, stop], \"distance_cm\", \"walk\": the walk section, \"slide\": check}.\nExample: film-ue op perf.walk_to sequence=/Game/Shots/S020 label=Presenter 'to=[300,120,0]' walk_anim=/MetaHumanCharacter/Optional/Animation/UEFNAnimPreset/Locomotion/AS_MH_Neutral_Walk_Loop_F at_frame=24",
    "params": [
@@ -12724,7 +12865,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.pose",
    "file": "unreal/fmbridge/ops/pose.py",
-   "line": 138,
+   "line": 140,
    "summary": "Pose a character at a frame of a sequence: key its Control Rig so each effector reaches the pose's goal, solved",
    "doc": "Pose a character at a frame of a sequence: key its Control Rig so each effector reaches the pose's goal, solved\nclosed-loop on what the engine evaluates, then report the remaining error per effector.\n\nArgs: label: the character (its body's skeletal mesh; `component` names it, else the one with a pelvis).\npose: a library name (pose.library) or {effector: {\"anchor\", \"offset\": [fwd, right, up]} | \"keep\" | [x,y,z]}.\nparams: {\"drop_cm\": 45} for sit. rig_class: the body's Control Rig Blueprint, to make the rig track if missing.\ncontrols: {effector: control name} overrides for the pattern match. tolerance_cm, iterations: the solve.\nGoals are relative to the character's REST pose, captured the first time a pose is applied in this sequence\n(stored on it); `reset_rest` captures it again (after the character moved).\nA multi-tick job. Re-running converges (the controls are re-solved to the same goals).\nReturns: {\"pass\", \"errors_cm\": {effector: cm}, \"controls\": {effector: control}, \"iterations\", \"goals\",\n\"issues\", \"changed\"}.\nExample: film-ue op pose.apply label=Host sequence=/Game/Seq/S010 frame=48 pose=hands_on_hips",
    "params": [
@@ -12821,7 +12962,7 @@
    "verb": "check",
    "module": "fmbridge.ops.pose",
    "file": "unreal/fmbridge/ops/pose.py",
-   "line": 198,
+   "line": 200,
    "summary": "Is the character in the pose at that frame? Scrub there and measure each effector against the pose's goals.",
    "doc": "Is the character in the pose at that frame? Scrub there and measure each effector against the pose's goals.\nGoals are anchored on the rest pose pose.apply stored on the sequence, else on the bones now (a held pose then\nchecks against itself); `rest` ({bone: [x, y, z]}) overrides both. A multi-tick job.\n\nReturns: {\"pass\", \"issues\", \"metrics\": {\"errors_cm\"}}.\nExample: film-ue op pose.check label=Host sequence=/Game/Seq/S010 frame=60 pose=hands_on_hips",
    "params": [
@@ -12897,7 +13038,7 @@
    "verb": "library",
    "module": "fmbridge.ops.pose",
    "file": "unreal/fmbridge/ops/pose.py",
-   "line": 124,
+   "line": 126,
    "summary": "The named poses: what each looks like and which effectors it sets (hand_l/r, foot_l/r, pelvis, chest, head),",
    "doc": "The named poses: what each looks like and which effectors it sets (hand_l/r, foot_l/r, pelvis, chest, head),\nwith the goal table (anchor + [forward, right, up] cm in the body's frame) for one `pose`.\n\nExample: film-ue op pose.library pose=hands_on_hips",
    "params": [
@@ -12923,7 +13064,7 @@
    "verb": "baseline_check",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 547,
+   "line": 549,
    "summary": "What a test does per still: compare with the baseline, or make it the baseline when there is none.",
    "doc": "What a test does per still: compare with the baseline, or make it the baseline when there is none.\n\nArgs: suite/name/image: as qa.baseline_compare. mode: auto (compare, or create when missing), compare (never\ncreate), update (replace: accept the new look), off. diff_out: heatmap when it differs. meta: stored on create.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"status\": created|updated|match|differs|different|no_baseline|off, ...}}.\nExample: film-ue op qa.baseline_check suite=selftest/look name=key image=/srv/st/look_key.png",
    "params": [
@@ -12982,7 +13123,7 @@
    "verb": "baseline_compare",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 531,
+   "line": 533,
    "summary": "A still against its baseline: SSIM, PSNR, changed cells, exposure shift, a diff heatmap when it moved.",
    "doc": "A still against its baseline: SSIM, PSNR, changed cells, exposure shift, a diff heatmap when it moved.\n\nArgs: suite/name: the baseline. image: the new still (PNG on the box). diff_out: write the heatmap there when it\ndiffers. min_ssim: override the match threshold (default the baseline's own, else 0.95).\nReturns: {\"pass\", \"issues\", \"metrics\": {\"status\": match|differs|different|no_baseline, \"ssim\", \"psnr\",\n\"changed\", \"stops_shift\", \"mean_shift\", \"diff\"?}}. no_baseline passes (with an info issue).\nExample: film-ue op qa.baseline_compare suite=film/s010 name=00048 image=/srv/qa/new/00048.png diff_out=/srv/qa/d.png",
    "params": [
@@ -13034,7 +13175,7 @@
    "verb": "baseline_list",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 566,
+   "line": 568,
    "summary": "The baselines on the box (all, or one suite and its sub-suites).",
    "doc": "The baselines on the box (all, or one suite and its sub-suites).\n\nReturns: {\"root\", \"baselines\": [{\"suite\", \"name\", \"updated\", \"size\", \"png\", \"json\", \"rel\"}]}; `rel` is the PNG's\npath under root (film-qa baseline pull mirrors it).\nExample: film-ue op qa.baseline_list suite=selftest",
    "params": [
@@ -13058,7 +13199,7 @@
    "verb": "baseline_remove",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 578,
+   "line": 580,
    "summary": "Delete one baseline (nothing there is fine).",
    "doc": "Delete one baseline (nothing there is fine).\n\nReturns: {\"changed\": bool}.\nExample: film-ue op qa.baseline_remove suite=film/s010 name=00048",
    "params": [
@@ -13089,7 +13230,7 @@
    "verb": "baseline_save",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 510,
+   "line": 512,
    "summary": "Keep a still as the golden baseline suite/name (with its exposure/colour numbers).",
    "doc": "Keep a still as the golden baseline suite/name (with its exposure/colour numbers).\n\nArgs: suite: a group (\"selftest/look\", \"film/s010\"; slashes make folders). name: the still's name in it.\nimage: PNG path on the box. overwrite: replace an existing baseline (accept a change); otherwise an existing one\nis kept. meta: anything to remember (camera, frame, commit). min_ssim: this baseline's own match threshold (a\nnoisy shot).\nReturns: {\"suite\", \"name\", \"png\", \"json\", \"size\", \"metrics\", \"changed\"}.\nExample: film-ue op qa.baseline_save suite=film/s010 name=00048 image=/srv/qa/s010/00048.png",
    "params": [
@@ -13207,7 +13348,7 @@
    "verb": "diff",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 471,
+   "line": 473,
    "summary": "What changed between two snapshots (files from qa.snapshot), or between one and the level now.",
    "doc": "What changed between two snapshots (files from qa.snapshot), or between one and the level now.\n\nArgs: before: snapshot path. after: snapshot path (\"\" = now). ignore: labels or prefixes (\"Light*\") to skip.\nseverity: \"info\" when versions are expected to differ, \"warn\" when they should match. tolerance: {\"loc_cm\",\n\"rot_deg\", \"scale\", \"prop\"}.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"added\", \"removed\", \"changed\", \"summary\"}}.\nExample: film-ue op qa.diff before=/tmp/qa/before.json 'ignore=[\"FMQA_*\"]'",
    "params": [
@@ -13467,7 +13608,7 @@
    "verb": "overlaps",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 397,
+   "line": 399,
    "summary": "Actors whose bounds interpenetrate (a chair sunk into a table, two props in one place).",
    "doc": "Actors whose bounds interpenetrate (a chair sunk into a table, two props in one place).\n\nArgs: labels: the actors (default every visible mesh actor). ignore: labels to skip (the floor, walls, the\nset's shell). ignore_pairs: [[a, b]] that may overlap (a book on a shelf). min_fraction: the share of the\nsmaller box that counts. touching_cm: resting contact allowed.\nReturns: {\"pass\", \"issues\", \"metrics\": {\"pairs\": [[a, b, fraction, depth_cm]]}}. Axis-aligned bounds: confirm a hit\nwith a still.\nExample: film-ue op qa.overlaps 'ignore=[\"Floor\",\"Walls\"]'",
    "params": [
@@ -13639,7 +13780,7 @@
    "verb": "review",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 599,
+   "line": 601,
    "summary": "Everything wrong with a shot, a sequence or a set, in one JSON and one picture.",
    "doc": "Everything wrong with a shot, a sequence or a set, in one JSON and one picture.\n\nFor each frame (sequence: `frames`, or `per_shot` per camera cut; no sequence: one still through `camera`) it\ntakes a still, measures exposure and colour, frames every subject (headroom, cuts, size), compares with\n`reference_dir`/{frame:05d}.png when given, and (with \"penetration\") checks garments from the shot's camera;\nonce for the scene it checks floating and overlapping props; across cuts it checks exposure/colour continuity.\n\nArgs: out_dir: where frames, review.json and review.png go. sequence/frames/per_shot/camera: what to look at.\nsubjects: characters/props to frame (default every visible character). expect: per-subject or global intent\nfor qa.framing, plus {\"image\": {...}} for qa.image (e.g. {\"image\": {\"stops\": [-3,-1]}}). checks: a subset of\nimage, framing, penetration, floating, overlaps, continuity, reference (default all but penetration).\nignore: labels skipped by floating/overlaps (floor, walls). mode: still mode (view.still). baseline: a baseline\nsuite: each frame's still is checked against <suite>/<frame> (qa.baseline_check, `baseline_mode` auto: the first\nrun makes the baselines, later runs regress against them).\nReturns: {\"pass\", \"verdict\", \"counts\", \"summary\": [lines, worst first], \"issues\", \"metrics\": {\"frames\"},\n\"report\": review.json path, \"image\": review.png path}. Multi-tick; ~1 s a frame with mode=capture.\nExample: film-ue op qa.review sequence=/Game/Seq/S010 out_dir=/tmp/qa/s010 per_shot=2",
    "params": [
@@ -13778,7 +13919,7 @@
    "verb": "snapshot",
    "module": "fmbridge.ops.qa",
    "file": "unreal/fmbridge/ops/qa.py",
-   "line": 436,
+   "line": 438,
    "summary": "The level's state as JSON for later diffs: every actor's class, transform, bounds, visibility, materials,",
    "doc": "The level's state as JSON for later diffs: every actor's class, transform, bounds, visibility, materials,\nmeshes, light and lens settings.\n\nArgs: out: also write it to this file. labels: only these actors.\nReturns: {\"actors\": {label: {class, loc, rot, scale, bounds, hidden, mesh, materials, props}}, \"meta\"}.\nExample: film-ue op qa.snapshot out=/tmp/qa/before.json",
    "params": [
@@ -13809,7 +13950,7 @@
    "verb": "cancel",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 730,
+   "line": 735,
    "summary": "Stop the render in progress (the chunk's frames so far stay; a re-run resumes).",
    "doc": "Stop the render in progress (the chunk's frames so far stay; a re-run resumes).\n\nReturns: {\"changed\": bool, \"was\": status}.\nExample: film-ue op render.cancel",
    "params": [],
@@ -13825,7 +13966,7 @@
    "verb": "compare",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 933,
+   "line": 938,
    "summary": "Compare two renders frame by frame (two outputs of the same frames: a pre-rolled chunk against the full-shot",
    "doc": "Compare two renders frame by frame (two outputs of the same frames: a pre-rolled chunk against the full-shot\nrender, Linux against Windows, today against yesterday, a render against reference frames): per-frame SSIM and\nPSNR, the worst frames, a pass/fail check at min_ssim, and optionally a sheet of the worst frames side by side.\n\nArgs: a, b: folders of frames named <frame>.<ext> (the beauty pass: <out_dir> or <out_dir>/FinalImage). frames:\n[start, end) (default every frame in both). ext: png|jpg|exr. min_ssim: the pass threshold. worst: how many worst\nframes to list (and sheet). every: compare every n-th frame. sheet: a PNG path for the worst frames side by side\n(PNG frames). method: auto (ffmpeg ssim/psnr when the box has ffmpeg, else qa.compare at 480 px), ffmpeg or qa.\nReturns: {\"pass\", \"metric\" (min SSIM), \"threshold\", \"why\", \"mean_ssim\", \"min_psnr\", \"mean_psnr\", \"worst\":\n[[frame, ssim, psnr]], \"below\", \"frames\", \"per_frame\": {frame: [ssim, psnr]}, \"method\", \"sheet\"}.\nExample: film-ue op render.compare a=/srv/r/full b=/srv/r/chunk 'frames=[1136,1160]' sheet=/srv/r/ab.png",
    "params": [
@@ -13914,7 +14055,7 @@
    "verb": "concat",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 891,
+   "line": 896,
    "summary": "Join video files of the same codec and size (chunks from several boxes, shots) into one without re-encoding,",
    "doc": "Join video files of the same codec and size (chunks from several boxes, shots) into one without re-encoding,\nand optionally lay an audio file under the result.\n\nArgs: parts: video paths in order. out_file: the result. audio: a WAV/AAC to put under it. audio_offset_s: seconds\nof that audio to skip.\nReturns: {\"path\", \"parts\", \"bytes\", \"changed\"}.\nExample: film-ue op render.concat 'parts=[\"/srv/r/a.mp4\",\"/srv/r/b.mp4\"]' out_file=/srv/r/all.mp4",
    "params": [
@@ -13961,7 +14102,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 751,
+   "line": 756,
    "summary": "The render state for planning and for Claude: whether MRQ is rendering, the job in progress, and, given",
    "doc": "The render state for planning and for Claude: whether MRQ is rendering, the job in progress, and, given\nout_dir (and name), the last report's summary and the frames on disk.\n\nReturns: {\"rendering\", \"status\", \"report\": {...} | None, \"frames_on_disk\": int | None}.\nExample: film-ue op render.describe out_dir=/srv/r/reel name=SEQ_Reel",
    "params": [
@@ -13992,7 +14133,7 @@
    "verb": "encode",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 872,
+   "line": 877,
    "summary": "Encode a render's frames into video with ffmpeg on the box: H.264 (yuv420p, CRF), H.265 or ProRes (prores_ks,",
    "doc": "Encode a render's frames into video with ffmpeg on the box: H.264 (yuv420p, CRF), H.265 or ProRes (prores_ks,\n10-bit), with the render's WAV chunks laid on the timeline (or an audio file of yours). Frames must be complete\nin the range; EXR frames are converted from linear with the sRGB curve.\n\nArgs: spec: the RENDER SPEC that rendered them. start/end: frames, end exclusive (default the spec's range).\noutputs: video outputs (default the spec's h264/h265/prores outputs, else one h264).\nReturns: {\"videos\": [{\"kind\", \"path\", \"frames\", \"start\", \"end\", \"audio\", \"bytes\"}], \"changed\", \"fps\"}.\nExample: film-ue op render.encode 'spec={\"sequence\": \"/Game/Reel/SEQ_Reel\", \"out_dir\": \"/srv/r/reel\"}' 'outputs=[{\"kind\": \"prores\", \"profile\": 3}]'",
    "params": [
@@ -14039,7 +14180,7 @@
    "verb": "frames",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 649,
+   "line": 654,
    "summary": "Render a few frames of a sequence through its camera cuts with MRQ, viewport-free (works offscreen on Linux):",
    "doc": "Render a few frames of a sequence through its camera cuts with MRQ, viewport-free (works offscreen on Linux):\nfor stills, contact sheets and checks (WP10's qa.still mode=mrq builds on it). Consecutive frames in one cut are\none MRQ job, pre-rolled from the cut start. Frames already on disk are reused.\n\nArgs: sequence: /Game/... level sequence. frames: sequence frame numbers. out_dir: directory on the box.\nlevel: map (default the open one). preset: preview|draft|final|... width/height: pixels (default the preset's).\ncvars: extra console variables. overwrite: render again even when the frame is on disk (out_dir shared with\nother stills, or the scene changed since).\nReturns: {\"frames\": {frame: png/jpg path}, \"cameras\": {frame: camera label}, \"width\", \"height\", \"seconds\",\n\"changed\", \"report\"}.\nExample: film-ue op render.frames sequence=/Game/Reel/SEQ_Reel 'frames=[1200,1260]' out_dir=/srv/r/stills",
    "params": [
@@ -14121,7 +14262,7 @@
    "verb": "gpu",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 185,
+   "line": 191,
    "summary": "The render box's GPU and memory now: name, VRAM total/used/free in GB, utilisation, and the editor's RSS.",
    "doc": "The render box's GPU and memory now: name, VRAM total/used/free in GB, utilisation, and the editor's RSS.\n\nReturns: {\"gpu\": {\"name\", \"total_gb\", \"used_gb\", \"free_gb\", \"util_pct\"} | None, \"rss_gb\", \"rendering\": bool}.\nExample: film-ue op render.gpu",
    "params": [],
@@ -14139,7 +14280,7 @@
    "verb": "job",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 617,
+   "line": 622,
    "summary": "Render a RENDER SPEC to the end (multi-tick: with --async the bridge returns a job id at once; follow it with",
    "doc": "Render a RENDER SPEC to the end (multi-tick: with --async the bridge returns a job id at once; follow it with\nfilm-ue job ID, or render.status): plan the chunks, check the level and the GPU, render each chunk with MRQ (pre-rolled from its\nshot start), watch frames, VRAM and stalls, then write <out_dir>/_render/<name>.report.json. Re-running resumes:\nframes on disk (and complete) are skipped, so a finished job re-runs as a no-op.\n\nArgs: spec: the RENDER SPEC. stall_s: cancel a chunk after this many seconds with no new frame.\nReturns: the report: {\"status\": ok|incomplete|failed|stalled|vram_abort|cancelled, \"changed\", \"frames\",\n\"seconds\", \"chunks\": [{\"id\", \"status\", \"frames\", \"missing\", \"median_s\", \"vram_peak_gb\", \"errors\", ...}],\n\"measured\": {\"s_per_frame\", \"sample_s_1080p\"}, \"report\": path, \"errors\"}.\nExample: film-ue op render.job 'spec={\"sequence\": \"/Game/Reel/SEQ_Reel\", \"out_dir\": \"/srv/r/reel\", \"preset\": \"final\", \"shots\": [\"Reel_S16\"]}' (or film-ue render job ... --async; film-ue render run SPEC)",
    "params": [
@@ -14173,7 +14314,7 @@
    "verb": "manifest",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 775,
+   "line": 780,
    "summary": "Write, per chunk of a spec, an MRQ queue manifest and the command line that renders it in a process with no",
    "doc": "Write, per chunk of a spec, an MRQ queue manifest and the command line that renders it in a process with no\neditor (one process per job: survives editor restarts; run it on this box or another with the same project).\n\nReturns: {\"changed\": True, \"chunks\": [{\"id\", \"start\", \"end\", \"manifest\", \"argv\"}], \"exit_codes\"}.\nExample: film-ue op render.manifest 'spec={\"sequence\": \"/Game/Reel/SEQ_Reel\", \"out_dir\": \"/srv/r/reel\", \"executor\": \"cmdline\"}'",
    "params": [
@@ -14197,7 +14338,7 @@
    "verb": "mrq",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 1017,
+   "line": 1022,
    "summary": "Start one Movie Render Queue job and return at once (poll render.progress); render.job does a whole spec.",
    "doc": "Start one Movie Render Queue job and return at once (poll render.progress); render.job does a whole spec.\nFrames go to `out_dir` as {frame}.png|exr|jpg, the audio as a wav; `start`/`end` (end exclusive) render part of\nthe sequence. `preroll_from`: the shot's first frame when `start` is mid-shot: the frames between are evaluated\nwithout rendering so cloth arrives as in a full-shot render (needs the camera cut to begin there). `executor`:\n\"pie\" (in this editor) or \"process\" (a separate -game process; offscreen where the editor has no desktop). The\nprocess loads the level from disk, and with unsaved changes the executor asks to save first: unattended, that\nquestion goes unanswered and the job never starts, so unsaved packages are an error unless `save_dirty`.\n\nExample: film-ue op render.mrq sequence=/Game/Reel/SEQ_Reel level=/Game/Studio/Studio out_dir=/srv/r/s16 start=1196 end=1220",
    "params": [
@@ -14342,7 +14483,7 @@
    "verb": "plan",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 597,
+   "line": 602,
    "summary": "What a render spec would do, without rendering: the resolved settings, one chunk per camera cut (or per",
    "doc": "What a render spec would do, without rendering: the resolved settings, one chunk per camera cut (or per\n`chunking` frames) with its pre-roll, frames already on disk that a resume skips, an estimate in seconds, the\nsplit over `boxes`, and whether the GPU passes the VRAM guard.\n\nArgs: spec: a RENDER SPEC (docs/unreal/render.md; schema tools/filmtools/unreal/schemas/render.schema.json).\nReturns: {\"name\", \"spec\", \"range\", \"chunks\": [{\"id\", \"camera\", \"start\", \"end\", \"frames\", \"preroll\", \"seconds\"}],\n\"skipped\", \"frames\", \"seconds\", \"boxes\", \"vram\"}.\nExample: film-ue op render.plan 'spec={\"sequence\": \"/Game/Reel/SEQ_Reel\", \"out_dir\": \"/srv/r/reel\", \"preset\": \"draft\"}'",
    "params": [
@@ -14366,7 +14507,7 @@
    "verb": "presets",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 586,
+   "line": 591,
    "summary": "The render presets (preview, draft, final, final_exr, 4k, pathtrace): what each is for and its settings.",
    "doc": "The render presets (preview, draft, final, final_exr, 4k, pathtrace): what each is for and its settings.\n\nReturns: {preset: {\"about\", \"width\", \"height\", \"spatial\", \"temporal\", \"warmup_render\", \"warmup_engine\",\n\"quality\", \"outputs\", ...}}.\nExample: film-ue op render.presets",
    "params": [],
@@ -14382,7 +14523,7 @@
    "verb": "progress",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 1057,
+   "line": 1062,
    "summary": "Frames written so far in out_dir (and whether Movie Render Queue is still running).",
    "doc": "Frames written so far in out_dir (and whether Movie Render Queue is still running).\n\nExample: film-ue op render.progress out_dir=/srv/r/s16 expected=24",
    "params": [
@@ -14413,7 +14554,7 @@
    "verb": "status",
    "module": "fmbridge.ops.render",
    "file": "unreal/fmbridge/ops/render.py",
-   "line": 711,
+   "line": 716,
    "summary": "The render in progress (or the last one): status, job name, chunk, chunks done/total, frames written, GPU",
    "doc": "The render in progress (or the last one): status, job name, chunk, chunks done/total, frames written, GPU\nmemory now, and the report path.\n\nReturns: {\"status\": idle|running|ok|..., \"name\", \"chunk\", \"chunks_done\", \"chunks_total\", \"chunk_frames\",\n\"elapsed_s\", \"gpu\", \"report\", \"rendering\"}.\nExample: film-ue op render.status",
    "params": [],
@@ -16693,7 +16834,7 @@
    "verb": "apply",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 89,
+   "line": 90,
    "summary": "Shoot a shot list into its sequence: make or move each shot's camera (framed by the solver, the coverage or an",
    "doc": "Shoot a shot list into its sequence: make or move each shot's camera (framed by the solver, the coverage or an\nexplicit placement), key its moves, focal length and focus, and replace the sequence's camera cuts. Converges:\nthe same spec again changes nothing (force=True rewrites anyway); cameras the previous spec made that this one\ndrops are removed. A multi-tick job: the keys and cuts go in one batched seq.apply when WP8's core is there.\n\nReturns: shot.plan's result plus {\"changed\", \"cameras\": {label: {\"created\", \"keys\"}}, \"removed\", \"write\"}.\nExample: film-ue op shot.apply spec=@films/demo/shots/scene1.yaml",
    "params": [
@@ -16727,7 +16868,7 @@
    "verb": "check",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 161,
+   "line": 162,
    "summary": "Check a sequence's edit numerically: every shot's frame (cam.check: QA's framing plus focus, safe areas,",
    "doc": "Check a sequence's edit numerically: every shot's frame (cam.check: QA's framing plus focus, safe areas,\ndutch) at its start (or \"middle\"), and every cut (180-degree line, 30-degree rule). Scrubs the sequence: a\nmulti-tick job.\n\nReturns: {\"pass\", \"issues\", \"shots\": [{\"camera\", \"start\", \"end\", \"size\"}]}.\nExample: film-ue op shot.check sequence=/Game/Films/demo/Seq_Scene1 'subjects=[\"Host\",\"Guest\"]'",
    "params": [
@@ -16769,7 +16910,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 130,
+   "line": 131,
    "summary": "The edit of a sequence as it stands: each cut's camera and frames with the camera's lens and pose now (its",
    "doc": "The edit of a sequence as it stands: each cut's camera and frames with the camera's lens and pose now (its\nfirst key's pose is what the cut opens on when scrubbed), the size it gives on `subjects`, and the stored spec\nhash.\n\nExample: film-ue op shot.describe sequence=/Game/Films/demo/Seq_Scene1 subjects=Presenter",
    "params": [
@@ -16803,7 +16944,7 @@
    "verb": "plan",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 64,
+   "line": 65,
    "summary": "Resolve a shot list against the level without changing anything: each shot's camera, frames, size, lens,",
    "doc": "Resolve a shot list against the level without changing anything: each shot's camera, frames, size, lens,\nkeys, the cuts, and every framing/cut issue. The dry run of shot.apply.\n\nArgs: spec: a kind \"shot\" spec (docs/unreal/camera.md; schema tools/filmtools/unreal/schemas/shot.schema.json).\nReturns: {\"sequence\", \"range\", \"cuts\", \"shots\": [...], \"issues\": [...], \"coverage\", \"spec_hash\",\n\"up_to_date\": whether the sequence already holds this exact spec}.\nExample: film-ue op shot.plan spec=@films/demo/shots/scene1.yaml",
    "params": [
@@ -16830,7 +16971,7 @@
    "verb": "sheet",
    "module": "fmbridge.ops.shot",
    "file": "unreal/fmbridge/ops/shot.py",
-   "line": 192,
+   "line": 193,
    "summary": "A previz contact sheet of a sequence's edit: per shot 1 (its middle) or 3 (start, middle, end) stills",
    "doc": "A previz contact sheet of a sequence's edit: per shot 1 (its middle) or 3 (start, middle, end) stills\nthrough the cut's camera, with thirds and safe-frame guides and a label (shot, camera, frame, focal), in one PNG.\nA multi-tick job: about 2 s per still plus the drawing.\n\nReturns: {\"path\": the sheet, \"width\", \"height\", \"stills\": [[frame, camera, path]]}.\nExample: film-ue op shot.sheet sequence=/Game/Films/demo/Seq_Scene1 out_dir=/tmp/sheet per_shot=3",
    "params": [
@@ -17013,7 +17154,7 @@
    "verb": "camera",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 476,
+   "line": 495,
    "summary": "Where things land in a camera's frame, without rendering: the camera as numbers, and world points or actors'",
    "doc": "Where things land in a camera's frame, without rendering: the camera as numbers, and world points or actors'\nbounds projected to frame fractions (u right, v down, 0..1).\n\nArgs: camera: label (\"\" + sequence/frame: the cut's camera; the sequence is scrubbed there). points: {name:\n[x,y,z]}. actors: labels (their bounds' screen boxes). width_px/height_px: the output aspect.\nReturns: {\"camera\": {name, loc, rot, fov, aspect, focal?, sensor_width?}, \"points\": {name: {u, v, depth_cm,\nin_frame}}, \"actors\": {label: {box, in_frame, area}}, \"aspect_mismatch\"?}.\nExample: film-ue op view.camera camera=CamA 'actors=[\"Ada\",\"Chair\"]'",
    "params": [
@@ -17079,7 +17220,7 @@
    "verb": "overlay",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 453,
+   "line": 472,
    "summary": "Draw composition guides, labelled boxes and points on a copy of an image (no PIL needed).",
    "doc": "Draw composition guides, labelled boxes and points on a copy of an image (no PIL needed).\n\nArgs: image: PNG path. out: where the annotated copy goes. guides: any of thirds, safe (action 93% / title 90%),\ncenter, golden, headroom, grid:4x3, aspect:2.39 (masks to that aspect). boxes: [{\"box\": [x0,y0,x1,y1] (0..1),\n\"label\", \"color\": ok|info|warn|fail|[r,g,b]}]. points: [{\"at\": [x,y], \"label\"}]. caption: a text bar along the\nbottom. width_px: shrink first (0 keeps the size).\nReturns: {\"path\", \"width\", \"height\", \"changed\": true}.\nExample: film-ue op view.overlay image=/tmp/qa/a.png out=/tmp/qa/a_g.png 'guides=[\"thirds\",\"safe\"]'",
    "params": [
@@ -17145,7 +17286,7 @@
    "verb": "sheet",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 429,
+   "line": 448,
    "summary": "A contact sheet from PNG files on the box: a grid of labelled frames in one image.",
    "doc": "A contact sheet from PNG files on the box: a grid of labelled frames in one image.\n\nArgs: images: paths. out: the sheet's PNG path. labels: one per image (default the file names). cols: 0 picks a\nnear-square grid. cell_width_px: each frame's width. title: a bar on top. statuses: ok|info|warn|fail per image\n(a coloured border).\nReturns: {\"path\", \"width\", \"height\", \"cells\", \"changed\": true}.\nExample: film-ue op view.sheet 'images=[\"/tmp/a.png\",\"/tmp/b.png\"]' out=/tmp/sheet.png title=compare",
    "params": [
@@ -17211,9 +17352,9 @@
    "verb": "still",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 247,
+   "line": 265,
    "summary": "A PNG of what a camera sees, with no viewport.",
-   "doc": "A PNG of what a camera sees, with no viewport.\n\nArgs: out: the PNG path on the box. camera: a camera actor label; \"\" with `sequence`+`frame` takes the camera\nthe cut shows at that frame; \"\" with `loc`/`look_at` [x,y,z] cm makes an ad-hoc camera (`fov_deg`, default 40).\nsequence/frame: scrub the sequence there first (frames at its display rate). width_px/height_px: output size.\nmode: \"capture\" (a scene capture: fast, ~0.1-1 s, no motion blur/DoF accumulation), \"mrq\" (Movie Render Queue\nthrough render.frames: the final look, slower; needs sequence+frame and `level`), \"viewport\" (look.still's\nhigh-res screenshot). warmup: captures before the kept one (temporal AA, Lumen). settle_ticks: editor ticks after\na scrub. hide: actor labels left out. guides: overlay guides drawn on a copy saved as <out>.guides.png\n(\"thirds\", \"safe\", ...). rt_format: capture mode's render target format (advanced; default RTF_RGBA8, the\nselftest compares it with RTF_RGBA8_SRGB against a viewport still).\nReturns: {\"path\", \"width\", \"height\", \"camera\", \"mode\", \"frame\", \"camera_info\": {loc, rot, fov, aspect},\n\"guides_path\"?}. A multi-tick job.\nExample: film-ue op view.still out=/tmp/qa/a.png camera=CamA width_px=960 height_px=540",
+   "doc": "A PNG of what a camera sees, with no viewport.\n\nArgs: out: the PNG path on the box. camera: a camera actor label; \"\" with `sequence`+`frame` takes the camera\nthe cut shows at that frame; \"\" with `loc`/`look_at` [x,y,z] cm makes an ad-hoc camera (`fov_deg`, default 40).\nsequence/frame: scrub the sequence there first (frames at its display rate). width_px/height_px: output size.\nmode: \"capture\" (a scene capture: fast, ~0.1-1 s, no motion blur/DoF accumulation), \"mrq\" (Movie Render Queue\nthrough render.frames: the final look, slower; needs sequence+frame and `level`), \"viewport\" (look.still's\nhigh-res screenshot). warmup: captures before the kept one (temporal AA, Lumen). settle_ticks: editor ticks after\na scrub. hide: actor labels left out. guides: overlay guides drawn on a copy saved as <out>.guides.png\n(\"thirds\", \"safe\", ...). rt_format: capture mode's render target format (advanced; RTF_RGBA8, the default, or\nRTF_RGBA8_SRGB, any case: a float target would export EXR, so it is refused; the selftest compares the two).\nReturns: {\"path\", \"width\", \"height\", \"camera\", \"mode\", \"frame\", \"camera_info\": {loc, rot, fov, aspect},\n\"guides_path\"?}. A multi-tick job.\nExample: film-ue op view.still out=/tmp/qa/a.png camera=CamA width_px=960 height_px=540",
    "params": [
     {
      "name": "out",
@@ -17342,7 +17483,7 @@
    "verb": "stills",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 329,
+   "line": 348,
    "summary": "Stills through a sequence's edit and a contact sheet of them: the whole cut in one picture.",
    "doc": "Stills through a sequence's edit and a contact sheet of them: the whole cut in one picture.\n\nArgs: sequence: the level sequence path. out_dir: where {frame:05d}.png and sheet.png go. frames: the frames to\ntake; None takes `per_shot` per camera cut (first, middle(s), last). camera: force one camera (\"\" follows the\ncut). width_px/height_px/mode/warmup/settle_ticks: as view.still. sheet: also write sheet.png with each frame\nlabelled \"frame camera\". guides: drawn on the sheet's cells.\nReturns: {\"frames\": [{\"frame\", \"camera\", \"path\"}], \"sheet\": path|None, \"width\", \"height\"}. Multi-tick.\nExample: film-ue op view.stills sequence=/Game/Seq/S010 out_dir=/tmp/qa/s010 per_shot=2",
    "params": [
@@ -17453,7 +17594,7 @@
    "verb": "turntable",
    "module": "fmbridge.ops.view",
    "file": "unreal/fmbridge/ops/view.py",
-   "line": 385,
+   "line": 404,
    "summary": "Stills of an actor from all around (a character, a prop, a garment) and a contact sheet of them.",
    "doc": "Stills of an actor from all around (a character, a prop, a garment) and a contact sheet of them.\n\nArgs: target: actor label. out_dir: where view_<yaw>.png and sheet.png go. views: how many, evenly around.\nelevation_deg: the cameras' height angle above the target's centre. distance_cm: 0 frames the bounds with a\nmargin. fov_deg: horizontal. isolate: draw only the target (no set; lights still light it). start_yaw_deg: the\nfirst view's direction from the target (0 = from +X, looking back at it).\nReturns: {\"views\": [{\"yaw\", \"path\", \"camera\": {loc, rot, fov}}], \"sheet\", \"center\", \"distance_cm\"}. Multi-tick.\nExample: film-ue op view.turntable target=Ada out_dir=/tmp/qa/ada views=8 isolate=true",
    "params": [
@@ -17556,7 +17697,7 @@
    "verb": "describe",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 116,
+   "line": 114,
    "summary": "The open level's partition: whether it is partitioned, its editor and runtime bounds, how many actors it has",
    "doc": "The open level's partition: whether it is partitioned, its editor and runtime bounds, how many actors it has\nand how many are loaded in the editor now, per runtime grid (data layers: level.layers).\n\nReturns: {\"partitioned\", \"editor_bounds\": {\"min\", \"max\", \"size_m\"}, \"runtime_bounds\", \"actors\", \"loaded\",\n\"spatially_loaded\", \"always_loaded\", \"editor_only\", \"grids\": {grid: count}, \"loaded_by_ops\": count}.\nExample: film-ue op wp.describe",
    "params": [],
@@ -17572,7 +17713,7 @@
    "verb": "find",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 135,
+   "line": 133,
    "summary": "Actors of the partitioned level, loaded or not (from their descriptors on disk): filter by label substring,",
    "doc": "Actors of the partitioned level, loaded or not (from their descriptors on disk): filter by label substring,\nclass name, a box [[x, y, z], [x, y, z]] in cm, or loaded state.\n\nReturns: {\"partitioned\", \"count\", \"actors\": [{\"label\", \"guid\", \"class\", \"bounds\", \"grid\", \"spatial\",\n\"editor_only\", \"data_layers\", \"loaded\"}]} (the first `limit`).\nExample: film-ue op wp.find contains=Tree loaded=false limit=20",
    "params": [
@@ -17624,7 +17765,7 @@
    "verb": "load",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 232,
+   "line": 230,
    "summary": "Load part of a World Partition level into the editor: the actors whose bounds meet a box (cm), what a camera",
    "doc": "Load part of a World Partition level into the editor: the actors whose bounds meet a box (cm), what a camera\nsees out to far_cm (its frustum, padded by pad_cm), what a sequence's cameras see through a shot (`sequence` with\n`frames` [start, end) sampled `every` frames, through the camera cuts), a sphere around a point, named actors, or\neverything. Waits (multi-tick) until they are in the editor world. `pin` also pins them.\n\nReturns: {\"partitioned\", \"changed\", \"requested\", \"newly_loaded\", \"already_loaded\", \"missing\": [labels that did\nnot appear], \"box\", \"cameras\" (with sequence)}.\nExample: film-ue op wp.load camera=Cam_A far_cm=8000",
    "params": [
@@ -17732,7 +17873,7 @@
    "verb": "unload",
    "module": "fmbridge.ops.wp",
    "file": "unreal/fmbridge/ops/wp.py",
-   "line": 270,
+   "line": 268,
    "summary": "Unload actors that wp.load loaded (by label, by box, or all of them). Actors loaded by the editor's own regions",
    "doc": "Unload actors that wp.load loaded (by label, by box, or all of them). Actors loaded by the editor's own regions\n(or always loaded) stay: the library unloads only its own loads.\n\nReturns: {\"partitioned\", \"changed\", \"unloaded\", \"kept\": [labels not loaded by wp.load]}.\nExample: film-ue op wp.unload all=true",
    "params": [

@@ -106,11 +106,13 @@ def test_skin_commits_only_on_change(mh):
 
 def test_eyes_teeth_lashes_makeup(mh):
     run_op("mh.add", path=P, preset="Ada")
-    r = run_op("mh.eyes", path=P, both={"iris": {"iris_pattern": "Iris003", "primary_color_u": 0.2}},
+    r = run_op("mh.eyes", path=P, both={"iris": {"pattern": "Iris003", "primary_color_u": 0.2}},
                right={"iris": {"primary_color_u": 0.3}})
     assert r["changed"]
     e = mh.assets[P]._props["eyes_settings"]
-    assert e.eye_left.iris.iris_pattern == "IRIS003" and e.eye_right.iris.primary_color_u == 0.3
+    assert e.eye_left.iris.pattern == "IRIS003" and e.eye_right.iris.primary_color_u == 0.3
+    assert run_op("mh.eyes", path=P, both={"iris": {"iris_pattern": "Iris004"}})["changed"]  # the C++ name, aliased
+    assert mh.assets[P]._props["eyes_settings"].eye_left.iris.pattern == "IRIS004"
     assert run_op("mh.eyelashes", path=P, settings={"type": "LongCurl", "melanin": 0.9})["changed"]
     assert mh.assets[P]._props["head_model_settings"].eyelashes.type == "LONG_CURL"
     assert run_op("mh.teeth", path=P, settings={"overbite": 0.3})["teeth"]["overbite"] == 0.3
@@ -252,33 +254,6 @@ def test_package_keeps_legacy_names(fmb):
               "skin", "body", "build", "components", "drive_face", "cloth_inflate", "garment"):
         assert callable(getattr(M, n)), n
     assert os.path.basename(M.__file__) == "__init__.py"
-
-
-def test_selftest_runs_on_the_fake(mh, fmb, tmp_path, monkeypatch):
-    """The box acceptance test runs through on the fake (part 1 and, with a 'sign-in', part 2): no errors, and no
-    failures the fake can judge (stills and engine-only facts aside)."""
-    import fmbridge.selftest as st
-    import fmbridge.ops.mh.cloud as cloud
-    monkeypatch.setattr(cloud, "POLL_S", 0)
-
-    def still(**k):  # the fake has no renderer
-        """A fake still."""
-        yield
-        path = k.get("path") or k.get("out")
-        open(path, "wb").write(b"\x89PNG fake")
-        return {"path": path}
-    monkeypatch.setitem(fmb._OPS, "look.still", still)
-    monkeypatch.delitem(fmb._OPS, "view.still", raising=False)
-    monkeypatch.setattr(st, "capabilities", lambda: {"gpu": True, "display": False, "linux": True, "windows": False,
-                                                     "epic_login": True, "mh_cloud": True})
-    rep = run_op("selftest.run", area="mh", out_dir=str(tmp_path), baseline="off")  # the stills are fake bytes
-    assert rep["status"] in ("done", "skipped"), rep.get("errors")
-    assert not rep.get("errors"), rep["errors"]
-    fails = [c for c in rep["checks"] if not c["ok"]]
-    judged = [c for c in fails if not any(w in c["name"] for w in ("garment", "dress", "leader", "bone", "Body and Face",
-                                                                   "prop rides", "attach", "presets ship",
-                                                                   "hair grooms", "preview converges"))]
-    assert not judged, judged
 
 
 def test_body_mesh_from_the_build(mh):

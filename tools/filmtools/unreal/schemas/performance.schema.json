@@ -275,6 +275,47 @@
     "signs": {
      "type": "object",
      "description": "rig signs from perf.calibrate (default: the saved calibration of the face skeleton)"
+    },
+    "body_life": {
+     "description": "breathing, weight shifts and the torso following the head as an additive layer on the body (anim.body_life; needs perf.calibrate_body once): true, or {state, follow, breath_deg, clavicle_deg, shift_cm}",
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "object",
+       "additionalProperties": false,
+       "properties": {
+        "state": {
+         "enum": [
+          "calm",
+          "rest",
+          "listen",
+          "talk",
+          "focus",
+          "nervous"
+         ],
+         "description": "breathing rate"
+        },
+        "follow": {
+         "type": "number",
+         "description": "share of the head's yaw the torso follows (default 0.15)"
+        },
+        "breath_deg": {
+         "type": "number",
+         "description": "spine extension per breath, degrees (default 0.6)"
+        },
+        "clavicle_deg": {
+         "type": "number",
+         "description": "clavicle lift per breath, degrees (default 1.0)"
+        },
+        "shift_cm": {
+         "type": "number",
+         "description": "weight shift of the pelvis, cm (default 1.5)"
+        }
+       }
+      }
+     ]
     }
    },
    "description": "how this character moves"

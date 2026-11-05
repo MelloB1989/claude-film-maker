@@ -196,3 +196,42 @@ def test_the_client_phase_selftest_passes_against_the_real_server(bridge, monkey
     failed = [c for c in t.checks if not c[1]]
     assert not failed, failed
     assert len(t.checks) >= 12
+
+
+def test_first_run_end_to_end_against_the_real_server_then_resumes(bridge, monkeypatch, tmp_path):
+    """film-ue first-run on a local box whose editor is the real bridge on the fake engine: it stops where a person
+    is needed (the Epic sign-in), keeps its progress, and a rerun resumes there and finishes, the voice line landing
+    on the box through the bridge."""
+    from filmtools.unreal import editorsvc, firstrun, linuxbox
+    from fmbridge.ops import doctor
+    import unreal
+    unreal.stub("PluginBlueprintLibrary.get_enabled_plugin_names", list(doctor.PLUGINS))  # as on a real box
+    import os
+    logs = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_log_dir())
+    os.makedirs(logs, exist_ok=True)
+    with open(os.path.join(logs, "Fake.log"), "w") as f:  # what a Linux editor writes at start
+        f.write("[2026.11.05-06.00.00:000][  0]LogVulkanRHI: Display: Vulkan RHI ShaderPlatform for SM6: VULKAN_SM6.\n")
+    monkeypatch.setattr(editorsvc, "unit", lambda: {"active": "active", "result": "success", "restarts": 0})  # no systemd
+    signed = {"in": False}
+    monkeypatch.setattr(linuxbox, "upload_kit", lambda: "")
+    monkeypatch.setattr(linuxbox, "step", lambda name, *a, **k: "signed_in=%s\n" % ("yes" if signed["in"] else "no"))
+    voice_dir = tmp_path / "srvfilm"
+    monkeypatch.setattr(firstrun, "DEMO_VOICE", str(voice_dir / "demo_line.wav"))
+    wav = tmp_path / "line.wav"
+    wav.write_bytes(b"RIFF....WAVEfmt fake")
+    opts = {"voice": str(wav), "settle_s": 0.2, "selftest_areas": ["platform"]}
+    log = []
+    r = firstrun.run(opts=opts, log=log.append)
+    assert "epic" in r["steps"], [(k, v) for k, v in r["steps"].items() if not v["ok"]]
+    assert not r["ok"] and r["steps"]["epic"]["needs_you"] and "epic-login" in r["next"]
+    assert r["done"] == ["settings", "reach", "editor", "bridge", "shaders", "doctor"], r["steps"]
+    assert firstrun.status()["stopped_at"] == "epic"
+    signed["in"] = True                                   # the operator signed in
+    log.clear()
+    r = firstrun.run(opts=opts, log=log.append)
+    assert r["ok"], [(k, v) for k, v in r["steps"].items() if not v["ok"]]
+    import re
+    ran = [m.group(1) for m in (re.match(r"^\[\d+/\d+\] (\w+) \.\.\.", x) for x in log) if m]
+    assert ran == ["reach", "epic", "selftest", "demo0"]  # resumed at epic; reach is always rechecked
+    assert (voice_dir / "demo_line.wav").read_bytes() == wav.read_bytes()
+    assert firstrun.status()["done"] == list(firstrun.STEPS)

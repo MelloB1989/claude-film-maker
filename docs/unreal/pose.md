@@ -68,6 +68,8 @@ interpolate between them.
 | `.find_or_create_control_rig_track` (through anim.rig_keys) | same:154 | yes |
 | `MovieSceneTimeUnit.DISPLAY_RATE`, `FrameNumber` | (enum EMovieSceneTimeUnit, used by the signatures above) | yes |
 | `RigHierarchy.get_controls()` (ScriptName of GetControlKeys; `get_control_keys` does not exist in Python) | Plugins/Animation/ControlRig/Source/ControlRig/Public/Rigs/RigHierarchy.h:1181 | yes |
+| `LevelSequenceEditorBlueprintLibrary.set_global_position(MovieSceneSequencePlaybackParams, MovieSceneTimeUnit)` (replaces set_current_time, deprecated 5.4: :88-90), in ops/_scrub.py | Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:107-108 | yes |
+| `MovieSceneSequencePlaybackParams(frame=FrameTime(FrameNumber(f)), position_type=MovieScenePositionType.FRAME, update_method=UpdatePositionMethod.SCRUB)` | Runtime/MovieScene/Public/MovieSceneSequencePlayer.h:91-120 (EMovieScenePositionType :83, EUpdatePositionMethod :39); FrameTime: Runtime/Core/Public/Misc/FrameTime.h | yes |
 | `SkeletalMeshComponent.does_socket_exist`, `get_socket_location` | Runtime/Engine/Classes/Components/SceneComponent.h:809,832 | yes |
 | `LevelSequenceEditorBlueprintLibrary.open_level_sequence`, `set_current_time`, `refresh_current_level_sequence`, `get_current_level_sequence` | Plugins/MovieScene/LevelSequenceEditor/.../LevelSequenceEditorBlueprintLibrary.h:36,90,254 | yes |
 | `EditorAssetLibrary.set_metadata_tag`, `get_metadata_tag` | EditorAssetLibrary.h:385,376 | yes |
@@ -81,9 +83,25 @@ the project (a MetaHuman), else skipped with a note. It poses hands_on_hips, arm
 effector within tolerance and the feet planted, re-applies (nothing changes), notes the rig's controls and the
 matches, and takes a still per pose.
 
+## Day-1 triage
+
+`film-ue selftest pose` (skips without a body Control Rig and body mesh: then nothing to triage).
+
+| failing check / symptom | likely cause | fix |
+|---|---|---|
+| skipped "no body Control Rig" on a MetaHuman project | the body rig is an independent 5.8 Control Rig asset (cannot become a track from Python: agent-01) or named differently | `film-ue op assets.list path=/Game cls=ControlRigBlueprint`; pass the legacy body rig with `rig_class=` in a manual `pose.apply` |
+| error "no control for [...]" | pattern match missed the rig's names | read the note "rig controls (n): [...]"; add the real names first in `_pose.CONTROL_PATTERNS` or pass `controls={effector: name}` |
+| `<pose>: every effector within tolerance` false, error shrinks per iteration | not enough iterations | raise `iterations` (10 → 20) |
+| same, error does not shrink | wrong control matched (e.g. an FK control), or world transform writes ignored (sequence not open) | note "pattern match chose"; `film-ue op anim.rig_controls`; check `LSE.get_current_level_sequence()` is the selftest's sequence |
+| same, error stuck at a few cm for hands | goal out of the arm's reach (proportions differ) | tune the pose's offset in `_pose.POSES` from the still |
+| `<pose>: feet planted` false on sit/crouch | feet are FK-driven, not IK | match `foot_*_ik_ctrl`; if the rig has none, drop "keep" for feet and accept |
+| `a second apply changes nothing` false | rest pose not stored (metadata) or scrub ticks too few | `EAL.get_metadata_tag(seq, "fm_pose_rest:<label>")` must be set; raise `_scrub` ticks |
+| errors mentioning `get_controls` / `get_control_rig_world_transform` | API shape | `rig.get_hierarchy().get_controls()` (ScriptName of GetControlKeys); `unreal.ControlRigSequencerLibrary` (ScriptName) |
+
 ## HANDOFF
 
-Done (agent-11, 2026-11-05, branch `fleet/agent-11/ue-pose`): library, ops, fake rig (ext_pose), tests, selftest,
-this doc. Not run in an editor. First thing tomorrow: `film-ue selftest pose` on the MetaHuman project; read the
-note "pattern match chose" and, if a control was matched wrongly, add its real name to `_pose.CONTROL_PATTERNS`
-(first in the list). The offsets of the library poses are first guesses for an adult: tune them on stills.
+State (2026-11-05 night, agent-11; merged into `ue-helpers`): library, ops, fake rig (ext_pose), tests, selftest, this
+doc; controls listed with `get_controls()`, scrubs through `ops/_scrub.set_frame`, control scale kept. Not run in an
+editor. Tomorrow: `film-ue selftest pose` on the MetaHuman project (it needs a legacy ControlRigBlueprint body rig),
+read the notes "rig controls" and "pattern match chose" first, then **Day-1 triage** above. The library's offsets
+are first guesses for an adult: tune them on the stills.

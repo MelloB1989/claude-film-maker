@@ -7,7 +7,7 @@
  "additionalProperties": false,
  "$defs": {
   "settings": {"type": "object", "description": "engine settings fields as nested JSON (CamelCase or snake_case names; enums by name, e.g. LongCurl; colours [r, g, b] linear 0..1). mh.settings_fields lists them with their values."},
-  "eye": {"type": "object", "description": "FMetaHumanCharacterEyeProperties: iris {iris_pattern Iris001..Iris009, primary_color_u/v 0..1, secondary_color_u/v, color_blend, limbal_ring_size}, pupil {dilation, feather}, cornea {size}, sclera {tint, vascularity_intensity}"},
+  "eye": {"type": "object", "description": "FMetaHumanCharacterEyeProperties: iris {pattern Iris001..Iris009, primary_color_u/v 0..1, secondary_color_u/v, color_blend, limbal_ring_size}, pupil {dilation, feather}, cornea {size}, sclera {tint, vascularity_intensity}"},
   "item": {
    "type": "object",
    "additionalProperties": false,

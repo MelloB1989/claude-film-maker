@@ -232,6 +232,10 @@ def _coerce(cur, val, where: str):
     return val
 
 
+# fields the engine renames for Python with a ScriptName (their C++ names still work here)
+ALIASES = {"iris_pattern": "pattern", "iris_rotation": "rotation"}  # MetaHumanCharacterEyes.h:39, :43
+
+
 def update_struct(struct, values: dict, where: str = ""):
     """Write `values` ({field: value}, nested dicts for nested structs; CamelCase or snake_case names) into an engine
     struct and return it. Engine structs come back from properties as copies, so nested structs are written back to
@@ -241,6 +245,7 @@ def update_struct(struct, values: dict, where: str = ""):
     have = fields(struct)
     for k, val in values.items():
         name = snake(k)
+        name = ALIASES.get(name, name) if name not in have else name
         if name not in have:
             raise OpError(f"{where + '.' if where else ''}{k} is not a field", code="bad_args",
                           candidates=closest(name, have), hint="fields: " + ", ".join(sorted(have)))

@@ -275,26 +275,45 @@ and a rail's positions played back by Sequencer equal the baked keys; `shot.desc
 runs on the fake engine in `tools/tests/test_ue_cam_ops.py::test_selftest_runs_on_the_fake` (everything but the
 pixel and playback checks).
 
+## Day-1 triage
+
+`film-ue selftest cam` on the GPU box. One row per check that can fail on a real engine; read the report's
+`checks[].detail` and the stills in the report folder first.
+
+| failing check | likely cause | fix |
+|---|---|---|
+| `hfov/vfov <filmback> <f>mm = engine` | the camera kept an old filmback (struct copied, not written back) or a crop/squeeze preset is on | `film-ue op cam.describe label=ST_cam_Lens`: `filmback` must equal the preset; `_set_lens` in ops/cam.py writes `filmback` back with `set_editor_property`; if `CropSettings` is set, clear it (camkit.lens assumes no crop) |
+| `focal beyond the lens widens it, not clamped` | lens limits not widened before the focal/aperture write | ops/cam.py `_set_lens`: the `lens_settings` struct must be set (`c.set_editor_property("lens_settings", ls)`) before `current_focal_length` |
+| `marker k visible on <fb>` | still black: no light reached the sphere, or auto exposure blew it out | open `proj_*_k.png`; check `ST_cam_Sun` exists; else add `r.EyeAdaptation...` / a manual exposure post volume in selftest section 2 |
+| `marker k at (u, v) on <fb>` off by a constant on 16:9, OK in the middle | screenshot not the filmback's aspect (letterbox/pillarbox handling) | compare the bright blob in `proj_*` with (u, v); fix the mapping in selftest/cam.py section 2 (`ar_img`/`ar_fb`), not camkit.lens |
+| `marker ...` off by a growing amount toward the edges | projection maths vs the engine's FOV (overscan, sensor offset) | `film-ue op cam.describe`: hfov vs `get_horizontal_field_of_view`; if they differ the FOV checks above fail too: fix `camkit.lens.project` |
+| `<size>: the figure's top on the predicted row` | the cylinder's bounds differ from its size, or the threshold catches the floor/sky | open `frame_<size>.png`; lower `_bright(frac)` or check the figure is the only bright thing; `film-ue op cam.subject target=ST_cam_Figure mode=bounds` |
+| `<size> solved` false | solver missed (error > 1e-3) | read the check's detail (warnings); try `focal_mm` 35/85; report the args: `camkit.framing.solve` with them in a unit test |
+| `cam.shoot: words in, words out` | words differ (angle band / height preset) | detail shows the sentence; compare with `camkit.words.describe` rules (ANGLE_NAMES, PRESET_ELEV) |
+| `cam.move keyed` / `push-in: Sequencer plays the baked key at 48` | keys not written (seq.apply refused) or the camera is not bound in the sequence | `film-ue op seq.describe path=/Game/_Selftest/cam/ST_cam_Seq`: a transform track on `ST_cam_Move`; if missing see `move.write`; if present raise scrub ticks in selftest (`for _ in range(3)`) |
+| `rail: the camera is near the middle of the rail` | camera not attached to the rail mount, or `CurrentPositionOnRail` not keyed | `cam.describe` → `attached_to` must be `ST_cam_Rail`; `seq.describe`: a float track `CurrentPositionOnRail` on the rail binding |
+| `coverage stays on one side of the line` | a cut check failed for stand-ins without bones (facing from bounds = actor forward) | `film-ue op cam.coverage subjects=... create=false`: read `issues`; give the stand-ins the right yaw |
+| `shot.apply converges` / `a dropped shot's camera is removed` | metadata tags not stored (EditorAssetSubsystem path) | `film-ue op shot.describe sequence=...`: `spec_hash` must be set; else check `EAL.set_metadata_tag` in ops/shot.py |
+| `shot.describe reads the edit back` | camera cut bindings not resolved (seq.cuts) | `film-ue op seq.cuts path=...`; rebind with `seq.rebind` |
+| `shot.check: no crossed line` | a single's side picked from a wrong facing | `film-ue op cam.subject target=ST_cam_A`: `facing` should point at B; else pass `side` explicitly in the spec |
+| `contact sheet: 3 stills per shot` | `seq.still` timed out (shader compile on first run) | rerun; or raise `settle` in `shot.sheet` |
+| any scrub-based check, with "SetGlobalPosition" errors in the log | ops/_scrub.set_frame playback-params shape | swap to `LSE.set_current_time(frame)` in ops/_scrub.py (deprecated but works) |
+
 ## HANDOFF
 
-State (2026-11-05, agent-11, branch `fleet/agent-11/ue-cameras`): everything above is written and unit-tested
-(`tools/tests/test_ue_cam_kit.py`, `test_ue_cam_ops.py`, `test_ue_cam_spec.py`; all ue tests green), nothing has
-run in a real editor yet. Tomorrow on the GPU box:
+State (2026-11-05 night, agent-11; everything merged into `ue-helpers`): camkit, `cam.*`, `shot.*`, the camera and
+shot spec kinds, `film-ue shotlist` (shoot → render → review pipeline), B18 (shot grammar in words both ways), B19
+(moves, keys and cuts written through WP8's batched `seq.apply` when installed, else the per-track ops), scrubbing
+through `ops/_scrub.set_frame` (SetGlobalPosition, not the deprecated SetCurrentTime). All unit tests and the
+harness dry run on the fake engine are green. Nothing has run in a real editor.
 
-1. `film-ue selftest cam`. The likely first failures and where to look:
-   - *markers off by a constant*: the still's aspect handling (pillarbox/letterbox in `take_high_res_screenshot`
-     with a constrained-aspect camera) — the mapping is in the selftest's section 2; camkit.lens assumes the picture
-     is the filmback.
-   - *the figure's top off*: exposure/threshold in `_bright` (selftest), or bounds: a basic cylinder's bounds are
-     its size.
-   - *push-in keys not played*: WP8's `seq.key_transform` binding (the camera must be possessable in the sequence)
-     or the scrub needing more ticks.
-2. `cam.check` on a MetaHuman: compare our landmarks (`cam.subject`) with WP10's from the same bones; the crown
-   offset (`CROWN_ABOVE_EYES`) may want tuning per character (hair).
-3. Writes: `cam.write_tracks` is the only Sequencer writer. With WP8's `seq.apply` registered it sends one
-   sequence spec (`cam.seq_doc`: transform keys, `CameraComponent/...` props, camera cuts, range) in one batched
-   call; otherwise the per-track ops. Trial-merged with fleet/agent-06/ue-sequencer@4291b0a: green and converging
-   (`test_shot_apply_on_wp8_sequencer` runs once WP8's core is on ue-helpers).
+Tomorrow on the GPU box, in order:
+1. `film-ue selftest cam`, then work down **Day-1 triage** above for any failing check (the fake cannot judge the
+   pixel, playback and rail checks: those are the ones to watch).
+2. `cam.check` on a real MetaHuman: compare `cam.subject`'s landmarks with WP10's from the same bones; tune
+   `framing.CROWN_ABOVE_EYES` for big hair.
+3. One real shot list end to end: `film-ue shotlist pipeline examples/unreal/shot/interview.yaml --out <dir>` with
+   actors labelled Host and Guest, then `film-ue apply` it and read each review.
 
-Not done: a `film-ue` CLI shortcut beyond `op`/`plan`/`apply` (WP11's call); shot subsequences on a cinematic shot
-track (WP8's `seq.shots`; we cut one sequence with camera cuts); camera shake assets (we bake noise).
+Not done: shot subsequences on a cinematic shot track (we cut one sequence with camera cuts); camera shake assets
+(we bake seeded noise); a `film-ue cam` CLI shortcut beyond `op`/`plan`/`apply`/`shotlist`.

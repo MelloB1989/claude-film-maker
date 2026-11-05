@@ -121,7 +121,7 @@ film-post apply ../examples/unreal/demo/90-delivery.yaml                  # ../o
 Keep it (the next apply converges without redoing anything), or leave the level and delete the folder:
 ```bash
 film-ue level new --path /Game/_Scratch/L_Empty
-film-ue exec -c "import unreal; result = unreal.EditorAssetLibrary.delete_directory('/Game/_Demo')"
+film-ue exec -c "import unreal; result = unreal.get_editor_subsystem(unreal.EditorAssetSubsystem).delete_directory('/Game/_Demo')"
 ```
 
 ## Tested here (without a box)

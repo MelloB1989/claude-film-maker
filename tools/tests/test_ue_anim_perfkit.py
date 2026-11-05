@@ -591,3 +591,28 @@ def test_long_audio_is_cut_in_pauses(tmp_path):
     flap = AU.lip_flap(AU.Envelope.from_wav(out))
     jaw = flap["CTRL_expressions_jawOpen"]
     assert max(jaw[1]) > 0.2 and C.at(*jaw, 4.3) < 0.05  # open while talking, shut in the pause
+
+
+def test_body_life_breathes_shifts_and_follows_the_head():
+    from perfkit import bodylife as BLF
+    life = BLF.plan(0, 40, state="talk", head_yaw=lambda t: 40.0 if t > 20 else 0.0, seed=3)
+    assert 13 < life["breaths_per_min"] < 17
+    t = life["times"]
+    flex = life["bones"]["spine_05"]["flex"]
+    # breathing: periodic extension, inhale shorter than exhale
+    assert min(flex) < -0.15 and max(flex) <= 1e-9
+    assert len(life["shifts"]) >= 3 and max(abs(c) for c in life["pelvis_shift_cm"]) <= 1.5 * 1.3
+    twist = sum(life["bones"][b]["twist"][-1] for b in BLF.SPINE)
+    assert twist == pytest.approx(40 * 0.15, rel=0.01) and life["bones"]["spine_03"]["twist"][t.index(min(t, key=lambda x: abs(x - 19.5)))] == 0
+    assert BLF.plan(0, 5, seed=1) == BLF.plan(0, 5, seed=1)
+
+
+def test_body_life_to_local_axes_and_quaternions():
+    from perfkit import bodylife as BLF
+    life = BLF.plan(0, 2, seed=0)
+    axes = {"spine_05": {"flex": ["z", -1.0], "side": ["x", 1.0], "twist": ["y", 1.0]}}
+    loc = BLF.to_local(life, axes)
+    assert set(loc) == {"spine_05"} and loc["spine_05"]["z"][5] == pytest.approx(-life["bones"]["spine_05"]["flex"][5])
+    q = BLF.quat_from_euler_xyz(0, 0, 90)
+    assert q == pytest.approx([0, 0, math.sqrt(0.5), math.sqrt(0.5)])
+    assert BLF.qmul([0, 0, 0, 1], q) == pytest.approx(q)

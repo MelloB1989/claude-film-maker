@@ -169,7 +169,7 @@ After `apply`, `remaining` must be `[]` and a second `plan` must be empty (`conv
 | editor property `hidden` | `bHidden`, EditAnywhere | Actor.h:365 |
 | `MeshComponent.set_material / get_num_materials`, `PrimitiveComponent.get_material` | | Components/MeshComponent.h:121, 118; Components/PrimitiveComponent.h:1566 |
 | editor property `static_mesh` | `UStaticMeshComponent::StaticMesh` | Components/StaticMeshComponent.h:133 |
-| `SystemLibrary.line_trace_single(world, start, end, TraceTypeQuery.TRACE_TYPE_QUERY1, complex, ignore, DrawDebugTrace.NONE, ignore_self)` → HitResult or None | `UKismetSystemLibrary::LineTraceSingle` | Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h:1270 |
+| `SystemLibrary.line_trace_single(world, start, end, TraceTypeQuery.ECC_VISIBILITY (TRACE_TYPE_QUERY1 as a deprecated fallback), complex, ignore, DrawDebugTrace.NONE, ignore_self)` → HitResult or None | `UKismetSystemLibrary::LineTraceSingle` | Runtime/Engine/Classes/Kismet/KismetSystemLibrary.h:1270 |
 | `HitResult.to_tuple()`: (blocking_hit, initial_overlap, time, distance, location, impact_point, normal, …) | the `BreakHitResult` native break order | Runtime/Engine/Classes/Kismet/GameplayStatics.h:1078 |
 | `MathLibrary.find_look_at_rotation` | `UKismetMathLibrary::FindLookAtRotation` | Runtime/Engine/Classes/Kismet/KismetMathLibrary.h:2300 |
 | `DataLayerEditorSubsystem.get_all_data_layers / create_data_layer_instance / get_actors_from_data_layer / add_actors_to_data_layer / remove_actors_from_data_layer / set_data_layer_visibility / set_data_layer_is_loaded_in_editor / set_data_layer_is_initially_visible` | UFUNCTION BlueprintCallable | Editor/DataLayerEditor/Public/DataLayer/DataLayerEditorSubsystem.h:672, 612, 461, 255, 275, 497, 534, 650 |
@@ -203,6 +203,25 @@ stills; everything else runs without one. It:
 - applies a scene spec, plans it again (empty), and describes it back (a no-op plan),
 - moves an actor and re-applies to bring it back, then prunes,
 - writes stills from above and from a camera.
+
+## Day-1 triage (selftest layout)
+
+| failing check | likely cause | fix |
+|---|---|---|
+| `bounds size of a 200x100x75 cube` off | the basic shape isn't 100 cm, or bounds include a collision/extra component | `film-ue op level.get label=ST_layout_Table`: look at `bounds.size` and components; if the engine's cube differs, scale `SHAPES` sizes in `ops/level.py` |
+| `table rests on the floor` / `cup rests on the table top` off by a constant | the plane floor has thickness, or bounds are padded | compare `level.get` bounds with the visual still; adjust `gap_cm`, or use `mode=trace` |
+| `a line trace finds the same table top` fails or None | basic shapes have no collision in this project, or a wrong trace channel | the channel is `_util.visibility_channel()` (ECC_VISIBILITY); check `film-ue op editor.console command="show collision"` in a still; give the support collision or keep `mode=bounds` |
+| `rotated table footprint swaps X and Y` | bounds are local, not world, in this build | `layout.drop` with rotated props is then wrong: switch `_util.bounds_box` to `get_actor_bounds(False, True)` and check |
+| `chair faces the table` yaw off by 180 | the mesh's forward is -X, not +X | pass `face=away` for such assets, or add a `yaw_offset` per asset in the scene spec |
+| `array converges` / `scatter converges` changed:true on the re-run | float drift in the transform read-back beyond 0.01 cm/deg | raise the tolerance in `_converge` (`is_near_equal(..., 0.01)`), then rerun |
+| `scattered rocks do not interpenetrate` | spheres' bounds are boxes; min_dist_cm < their diameter after scale | raise `min_dist_cm` to 2 × max radius × max scale |
+| `scene.apply converged in one pass` has `remaining` | a property `level.set` wrote reads back in another form (an enum, a colour) | look at `remaining[*].why`; add the property to `scene._jsonable`'s conversions |
+| `described spec applies as a no-op` fails | `scene.describe` dropped a field (folder, material) | diff `scene.describe` against the spec; extend `_scene.from_state` |
+| `drift is planned back` lists more than `level.move` | tags or folder are not read back (`get_folder_path` on an editor without folders) | `film-ue op level.get label=...`: if the folder is '' after `level.folder`, the level uses actor folder objects; note it and skip folders |
+| `a dropped crate lands on the floor under physics` (settle) | Simulate didn't start offscreen, or basic shapes have no collision | `film-ue log 80` for PIE errors; if Simulate can't run `-RenderOffscreen`, `layout.settle` is unsupported on this box: use `layout.drop` |
+| `settle reports the crate moved` false | the PIE world's actor labels differ (no `get_actor_label` in PIE) | match by actor name instead (`get_name` minus the PIE prefix) in `layout.settle` |
+| `data layers refuse a non-partitioned level` returns ok | the scratch level is partitioned | fine: run `level.layer_add` for real and check `level.layers` |
+| stills black or missing | no GPU, or the camera is inside geometry | `film-ue doctor`; `qa.image` on the still; move `ST_layout_Cam` |
 
 ## HANDOFF
 

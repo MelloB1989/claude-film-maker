@@ -77,7 +77,7 @@ already loaded.
 | API (Python) | source | notes |
 |---|---|---|
 | `WorldPartitionBlueprintLibrary.get_editor_world_bounds / get_runtime_world_bounds` | Engine/Source/Runtime/Engine/Public/WorldPartition/WorldPartitionBlueprintLibrary.h:106,113 | invalid box (`is_valid` false) without a partition |
-| `...get_actor_descs() -> (ok, [ActorDesc])`, `get_intersecting_actor_descs(box)` | WorldPartitionBlueprintLibrary.h:144,151 | editor world (UnrealEditorSubsystem), recursing into containers (.cpp:83-110, 243) |
+| `...get_actor_descs() -> [ActorDesc] or None`, `get_intersecting_actor_descs(box)` | WorldPartitionBlueprintLibrary.h:144,151 | editor world (UnrealEditorSubsystem), recursing into containers (.cpp:83-110, 243) |
 | `...load_actors(guids) / unload_actors(guids) / pin_actors(guids)` | WorldPartitionBlueprintLibrary.h:119,125,131; .cpp:193-230 | FLoaderAdapterActorList per world |
 | `ActorDesc.guid, label, name, native_class, bounds, runtime_grid, is_spatially_loaded, actor_is_editor_only, data_layer_assets` | WorldPartitionBlueprintLibrary.h:20-77 | BlueprintReadOnly |
 | `Actor.actor_guid` | Engine/Source/Runtime/Engine/Classes/GameFramework/Actor.h:1097 | BlueprintReadOnly: matches descriptors to loaded actors |
@@ -95,8 +95,21 @@ and a camera, saves it, and reopens it. It then proves `describe` and `find`; th
 in view and not the one behind it, and converges; that `around=` loads the cube behind; that `unload` puts it back;
 and that a plain level answers `partitioned: false`.
 
+## Day-1 triage
+
+| failing check / symptom | likely cause | fix |
+|---|---|---|
+| `a partitioned level` / `reopened` false | `new_level(path, True)` refused (no World Partition template on this build) or the path exists | `film-ue log`; delete `/Game/_Selftest/wp` and re-run; else create a partitioned level once by hand in the project |
+| `partitioned` false after reopen | the level saved without World Partition | `film-ue op wp.describe` on a known Fab/WP map instead |
+| `wp.find lists them all` missing actors | descriptors read before the save finished (actors not external yet) | re-run the selftest; check `Saved/__ExternalActors__/` has files for the level |
+| `the camera's cube is loaded` false | `load_actors` accepted but actors did not appear in `timeout_s`, or the cube was unloaded and `actor_guid` reads differently | raise `timeout_s`; `film-ue exec` printing `a.get_editor_property("actor_guid")` vs `wp.find` guids; if they differ, match on label in `_loaded_guids` (ops/wp.py) |
+| `the cube behind is not` false | the editor reopened with everything loaded (user's last loaded regions) | not a bug: note it; unload-state checks are weaker (the selftest says so) |
+| `wp.unload takes back ...` false | loads made before a level change are forgotten (the library's adapter is per world) | expected after `level.open`; load again |
+| AttributeError on `Guid.to_string` | Guid's string method named differently | `_guid_str` falls back to `str(g)`: if all guids compare equal, use `g.export_text()` |
+
 ## HANDOFF
 
 Done: the ops, the frustum math, the fake, 9 unit tests, the selftest and this doc. Unproven until the box runs the
-selftest: the tuple return of `get_actor_descs` in Python (the code accepts a tuple or a list), `Guid.to_string`, and
-whether the reopened level comes up unloaded. `wp.load sequence=` is unit-tested only (not yet in the selftest).
+selftest: `Guid.to_string` and whether the reopened level comes up unloaded. (The return of `get_actor_descs` is
+settled by the Python plugin's rule: a bool return with out params gives None for false, else the out value;
+PythonScriptPlugin/Private/PyGenUtil.cpp:1161.) `wp.load sequence=` is unit-tested only (not yet in the selftest).

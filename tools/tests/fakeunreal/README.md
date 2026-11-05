@@ -58,3 +58,10 @@ the engine would not. Stub what matters.
 Add `fakeunreal/ext_<area>.py` with `def install(fake):`. It runs for every fresh fake. Add or replace classes
 (`fake.LevelSequence = MyFakeSequence`) or default stubs. You own your ext file. Changes to `core.py` go through the
 lead (agent-10).
+
+## Auditing what the fake does not model (B58)
+
+Run the suite with `FAKEUNREAL_AUDIT=<file>` to list every engine name the ops touched that no fake models: methods,
+editor properties and static functions. Each is a name only the real engine can confirm, so check each one on the
+source box (CamelCase, `b` prefix for bools). The 2026-11-05 run listed 50 names, all present in the 5.8.4 headers.
+A misspelt property like the old `iris_pattern` would show up here.

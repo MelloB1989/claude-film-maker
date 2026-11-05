@@ -16,6 +16,7 @@ from . import _layout as L
 from . import op
 from ..errors import OpError
 from ._util import actor, actor_info, actors, bounds_box, eas, find_actor, set_tags, vec
+from ._util import visibility_channel as _visibility_channel  # noqa: F401 (foliage imports it from here)
 from ._util import tags as actor_tags
 from .assets import load
 from .level import SHAPES
@@ -46,7 +47,7 @@ def _trace_down(a, depth: float) -> float | None:
     start = unreal.Vector(c[0], c[1], b[0][2] - 0.1)
     end = unreal.Vector(c[0], c[1], b[0][2] - depth)
     world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
-    hit = unreal.SystemLibrary.line_trace_single(world, start, end, unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, True,
+    hit = unreal.SystemLibrary.line_trace_single(world, start, end, _visibility_channel(), True,
                                                  [a], unreal.DrawDebugTrace.NONE, True)
     if not hit:
         return None

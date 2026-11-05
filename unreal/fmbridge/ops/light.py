@@ -75,8 +75,9 @@ def read(a) -> dict:
     return out
 
 
-def _write(canon: dict, owner: str, role: str = "", extra_tags: dict = None) -> dict:
-    a, created = U.ensure(canon["label"], LL.KINDS[canon["kind"]], owner, role, canon["loc"], canon.get("rotation"))
+def _write(canon: dict, owner: str, role: str = "", extra_tags: dict = None, adopt: bool = False) -> dict:
+    a, created = U.ensure(canon["label"], LL.KINDS[canon["kind"]], owner, role, canon["loc"], canon.get("rotation"),
+                          adopt=adopt)
     changed = U.place(a, canon["loc"], canon.get("rotation")) or created
     c = U.component(a, LL.COMPONENT[canon["kind"]])
     props = {}
@@ -97,7 +98,7 @@ def _write(canon: dict, owner: str, role: str = "", extra_tags: dict = None) -> 
     if canon.get("temperature_k") is None and canon.get("color") is not None:
         want = U.color_linear_to_fcolor(canon["color"])
         if not U.same(U.to_json(c.get_editor_property("light_color")), U.to_json(want), 1e-3):
-            c.set_light_color(unreal.LinearColor(r=canon["color"][0], g=canon["color"][1], b=canon["color"][2], a=1.0), True)
+            c.set_editor_property("light_color", want)  # the FColor (sRGB 8-bit) the property holds
             changed_props.append("light_color")
     elif "light_color" not in changed_props:  # a temperature light keeps a white filter colour
         white = U.color_linear_to_fcolor([1, 1, 1])
