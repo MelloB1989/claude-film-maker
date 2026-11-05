@@ -596,9 +596,6 @@
       "lower_hemisphere_color": {
        "description": "[r,g,b] linear"
       },
-      "channels": {
-       "description": "lighting channels"
-      },
       "cast_shadows": {
        "description": "bool"
       }
@@ -1127,9 +1124,6 @@
          },
          "lower_hemisphere_color": {
           "description": "[r,g,b] linear"
-         },
-         "channels": {
-          "description": "lighting channels"
          },
          "cast_shadows": {
           "description": "bool"

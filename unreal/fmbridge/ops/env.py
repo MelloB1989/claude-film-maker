@@ -201,19 +201,20 @@ def clouds(*, bottom_km: float = 5.0, height_km: float = 10.0, material: str = N
 
 @op("env.sky_light", mutates=True, idempotent=True, tags=["environment", "lighting"])
 def sky_light(*, mode: str = None, intensity: float = 1.0, cubemap: str = None, cubemap_angle_deg: float = 0.0,
-              lower_hemisphere_black: bool = True, lower_hemisphere_color: list = None, channels: list = None,
+              lower_hemisphere_black: bool = True, lower_hemisphere_color: list = None,
               cast_shadows: bool = None, owner: str = "manual"):
     """The sky light (Env_SkyLight): ambient light from the sky, real-time captured (with an atmosphere), captured
     once from the scene, or from a cubemap (an HDRI); converges and recaptures when it changed. A multi-tick job.
 
     Args: mode: realtime|captured|cubemap (default realtime with an atmosphere, else captured). intensity: scale.
     cubemap: a TextureCube path (mode cubemap). cubemap_angle_deg: its yaw. lower_hemisphere_black/_color.
+    No lighting channels: USkyLightComponent is a ULightComponentBase, and channels live on ULightComponent (day 1).
     Returns: {"label", "changed", "mode"}.
     Example: film-ue op env.sky_light mode=cubemap cubemap=/Game/HDRI/T_Studio intensity=1.2
     """
     v = {k: x for k, x in dict(mode=mode, intensity=intensity, cubemap=cubemap, cubemap_angle_deg=cubemap_angle_deg,
                                lower_hemisphere_black=lower_hemisphere_black,
-                               lower_hemisphere_color=lower_hemisphere_color, channels=channels,
+                               lower_hemisphere_color=lower_hemisphere_color,
                                cast_shadows=cast_shadows).items() if x is not None}
     try:
         canon = S.norm_sky_light(v, _has_atmosphere())
@@ -233,8 +234,6 @@ def sky_light(*, mode: str = None, intensity: float = 1.0, cubemap: str = None, 
         props["source_cubemap_angle"] = canon["cubemap_angle_deg"]
     if "lower_hemisphere_color" in canon:
         props["lower_hemisphere_color"] = canon["lower_hemisphere_color"]
-    if "channels" in canon:
-        props["lighting_channels"] = canon["channels"]
     if "cast_shadows" in canon:
         props["cast_shadows"] = canon["cast_shadows"]
     ch = U.set_props(c, props)
@@ -257,7 +256,6 @@ def _read_sky_light():
     out = {"label": L["sky_light"], "mode": mode, "intensity": U.to_json(float(c.get_editor_property("intensity"))),
            "lower_hemisphere_black": bool(c.get_editor_property("lower_hemisphere_is_black")),
            "lower_hemisphere_color": U.to_json(c.get_editor_property("lower_hemisphere_color")),
-           "channels": U.to_json(c.get_editor_property("lighting_channels")),
            "cast_shadows": bool(c.get_editor_property("cast_shadows")), "owner": U.owner_of(a)}
     if mode == "cubemap":
         out["cubemap"] = U.to_json(c.get_editor_property("cubemap"))
@@ -647,12 +645,14 @@ def _read_captures() -> dict:
 
 @op("env.captures_rebuild", mutates=True, idempotent=True, tags=["environment", "slow", "experimental"])
 def captures_rebuild(*, quality: str = "preview"):
-    """Rebuild the reflection captures. The only scriptable route runs a lighting build first
-    (LevelEditorSubsystem.build_light_maps with captures; there is no console command), so it is slow on a level
-    with static lighting; with Lumen-only levels it is quick. A multi-tick job.
+    """Rebuild the reflection captures. With static lighting allowed the scriptable route is a lighting build
+    (LevelEditorSubsystem.build_light_maps with captures; there is no console command), slow on a static-lit level.
+    Without it (a Lumen-only project: r.AllowStaticLighting 0), or when the build reports failure, each capture is
+    marked for recapture instead (a brightness edit: PostEditChange dirties it) and the editor recaptures it on its
+    next ticks. A multi-tick job.
 
     Args: quality: preview|medium|high|production (the lighting build's quality).
-    Returns: {"changed": True, "built": bool}.
+    Returns: {"changed": True, "built": bool, "route": "lighting_build"|"recapture", "recaptured": [labels]}.
     Example: film-ue op env.captures_rebuild
     """
     q = {"preview": "QUALITY_PREVIEW", "medium": "QUALITY_MEDIUM", "high": "QUALITY_HIGH",
@@ -660,10 +660,41 @@ def captures_rebuild(*, quality: str = "preview"):
     if q is None:
         raise OpError(f"quality {quality!r} is not preview|medium|high|production", code="bad_args")
     yield
-    ok = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).build_light_maps(
-        getattr(unreal.LightingBuildQuality, q), True)
-    yield 1
-    return {"changed": True, "built": bool(ok)}
+    out = {"changed": True, "built": False, "route": "lighting_build", "recaptured": []}
+    if _static_lighting_allowed():
+        out["built"] = bool(unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).build_light_maps(
+            getattr(unreal.LightingBuildQuality, q), True))
+        yield 1
+    if not out["built"]:  # day 1: build_light_maps returned False on the Lumen-only box
+        out["route"] = "recapture"
+        out["recaptured"] = yield from _recapture_all()
+        out["built"] = bool(out["recaptured"])
+    return out
+
+
+def _static_lighting_allowed() -> bool:
+    try:
+        return unreal.SystemLibrary.get_console_variable_int_value("r.AllowStaticLighting") != 0
+    except Exception:  # noqa: BLE001 - no reader: assume the engine default (allowed)
+        return True
+
+
+def _recapture_all():
+    """Mark every reflection capture for recapture (a brightness edit and back: each PostEditChange dirties it), then
+    let the editor tick so it recaptures. A generator; returns the labels."""
+    done = []
+    for a in U.EAS().get_all_level_actors():
+        cname = a.get_class().get_name()
+        if cname not in ("SphereReflectionCapture", "BoxReflectionCapture"):
+            continue
+        c = a.get_component_by_class(getattr(unreal, cname + "Component"))
+        b = float(c.get_editor_property("brightness"))
+        c.set_editor_property("brightness", b + 0.001)
+        c.set_editor_property("brightness", b)
+        done.append(a.get_actor_label())
+    if done:
+        yield 3
+    return done
 
 
 # ------------------------------------------------------------------------------------------------ remove, describe
@@ -909,7 +940,10 @@ def _captures(cam, width: int, height: int, which=("scene", "display")):
         cc.set_editor_property("capture_every_frame", False)
         cc.set_editor_property("capture_on_movement", False)
         cc.set_editor_property("always_persist_rendering_state", True)
-        for src, fmt, key in (("SCS_SCENE_COLOR_HDR", "RTF_RGBA16F", "scene"), ("SCS_FINAL_COLOR_LDR", "RTF_RGBA8", "display")):
+        # the display target is sRGB (day 1): an RTF_RGBA8 one stores the final colour linear, so a grey card read
+        # 0.23 (0.52 encoded); qa's capture_gamma selftest found RTF_RGBA8_SRGB matches the viewport too
+        for src, fmt, key in (("SCS_SCENE_COLOR_HDR", "RTF_RGBA16F", "scene"),
+                              ("SCS_FINAL_COLOR_LDR", "RTF_RGBA8_SRGB", "display")):
             if key not in which:
                 continue
             rt = RL.create_render_target2d(w, int(width), int(height), getattr(unreal.TextureRenderTargetFormat, fmt))
@@ -918,15 +952,21 @@ def _captures(cam, width: int, height: int, which=("scene", "display")):
             for _ in range(3):  # temporal history and streaming settle across a few captures
                 cc.capture_scene()
                 yield
-            # bNormalize False: raw HDR values (True clamps to 0-1: KismetRenderingLibrary.cpp:328); the LDR target
-            # holds display values already. A bool + out-param UFUNCTION returns the array (None on failure).
-            px = RL.read_render_target_raw(w, rt, key == "display")
+            # bNormalize False: raw HDR values (True clamps to 0-1: KismetRenderingLibrary.cpp:328). The 8-bit target
+            # reads back as 0..255 whatever bNormalize says (day 1: a grey card's mean read 58-123; view.read_pixels
+            # says the same), so display values are divided by 255 here. A bool + out-param UFUNCTION returns the
+            # array (None on failure).
+            px = RL.read_render_target_raw(w, rt, False)
             if isinstance(px, tuple):
                 px = next((x for x in px if isinstance(x, (list, tuple))), None)
-            rgb = [(float(p.r), float(p.g), float(p.b)) for p in (px or [])]
+            k = 1.0 / 255.0 if key == "display" else 1.0
+            rgb = [(float(p.r) * k, float(p.g) * k, float(p.b) * k) for p in (px or [])]
             if not rgb:
                 raise OpError(f"the {key} capture read back no pixels", code="engine",
                               hint="is the editor rendering (offscreen needs -RenderOffscreen, not -nullrhi)?")
+            if key == "display" and max(max(p) for p in rgb) > 1.0 + 1e-6:
+                raise OpError("the display capture read back values above 1 after /255", code="engine",
+                              hint="the RGBA8 readback changed form: check RenderingLibrary.read_render_target_raw")
             out[key] = rgb
         return out
     finally:
@@ -976,6 +1016,7 @@ def meter(*, camera: str, width: int = 192, height: int = 108, exposure_ev100: f
 # Day-1 calibration constants (docs/unreal/environment.md: Day-1 triage). The selftest measures both on the box:
 METER_OFFSET_STOPS = 0.0  # selftest metric meter_offset_stops: what SceneColorHDR reads above the photometric truth
 MID_GREY_DISPLAY = 0.46  # what 0.18 scene grey reads as after Unreal's filmic curve, sRGB (selftest: grey_card_display)
+MAX_STEP_STOPS = 3.0  # env.autoexpose never moves more than this per iteration (a clipped or crushed frame lies)
 
 
 def _subject_box(subject: str, camera: str, part: str):
@@ -1065,7 +1106,7 @@ def autoexpose(*, camera: str, region: list = None, subject: str = "", part: str
             slope = (err - prev[1]) / (setting_stops(setting, adjust) - prev[0])
             slope = max(0.2, min(3.0, slope))
         prev = (setting_stops(setting, adjust), err)
-        step = -err / slope
+        step = max(-MAX_STEP_STOPS, min(MAX_STEP_STOPS, -err / slope))
         if adjust == "exposure":
             setting = setting - step  # brighter = a lower EV100
             post(fields=S.exposure_fields({"mode": "manual", "ev100": setting}, {}), owner=owner)
