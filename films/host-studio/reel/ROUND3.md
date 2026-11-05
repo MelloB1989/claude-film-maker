@@ -172,3 +172,4 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
   (calibrate failed on a dead HeadRoll: fixed in core 45e8146b).
 - Orchestrator rule: no bulk frame pulls to kali; QA, encodes and the cut run on the box; only sheets, crops and final MP4s come down.
 - Bucket check (agent-07): default SSE-S3, not KMS, so every private upload passes `--sse aws:kms`; only the box role can read private/. Reported to karmax.
+- AA pick (agent-05): A, TSR 1x8, the 30-final default. On S17: 0.68 s/frame, 11.6 GB VRAM; B shimmers ~15% more, flickers ~7% more and draws hard lines on the shelf fronts. A full pass is ~20 min. The 16:47 crash was a Python GC SIGSEGV at PIE start after bridge probes, so renders start from a quiet editor.
