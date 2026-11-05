@@ -22,6 +22,20 @@ job in `_render/<name>.report.json` (time per frame, VRAM peak, missing frames),
 The frames stay on the box: QA, contact sheets, crops, encodes and the cut run there (ffmpeg/python on the box);
 only small things come down (sheets, crops, the final MP4s). No bulk frame pulls to kali (home line, AWS egress).
 
+## Before every final batch (the camera rule)
+
+V01, V02 and S11's first C finals (17:58) and the old V05 were rendered on cameras that existed only as unsaved editor
+state, lost at the 18:27 re-open from disk. So, before any `30-final.yaml` apply: `level.save`, then agent-07's
+`probe_cam --check` on the shots in the batch (exit 1 = no render). After a batch, two read-only checks on the box
+(`uv run --no-project --with pillow --with numpy python -I <script>` from the box tree):
+
+- `final_check.py`: every report under `final_c/_render`, and each shot's frames: count, missing, unreadable, black,
+  and brightness jumps between frames (`FINAL=<dir>` for another folder).
+- `camcheck.py CAMDIR FINALDIR 90,270,...`: a draft frame per shot rendered with the current cameras
+  (`render.frames ... preset=draft`) against the final's; the zoom and shift that align them. Match = scale
+  1.00 +-0.02 and shift under 1%. A low ncc (under ~0.5) means the fit did not lock (a dark frame): check another
+  frame of the shot.
+
 ## Keeping them: box -> S3 before the box ends (22:30 UTC)
 
 The presenter shots show the operator's MetaHuman, so every round-3 frame is kept only under the private prefix,
