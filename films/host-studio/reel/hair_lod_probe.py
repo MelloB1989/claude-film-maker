@@ -57,6 +57,13 @@ if acts:
         for c in a.get_components_by_class(unreal.LODSyncComponent):
             out["lodsync"].append({k: _prop(c, k) for k in ("forced_lod", "min_lod", "num_lods", "components_to_sync",
                                                             "custom_lod_mapping")})
+    # day 1 of round 3: build.py --lod0 found LODSync/skeletal components named TRASH_* (left by a Blueprint
+    # recompile): which components are live (registered, attached to the actor's root) and which are stale?
+    out["components"] = [{"name": c.get_name(), "class": c.get_class().get_name(), "registered": _try(c.is_registered),
+                          "attach": _try(lambda: c.get_attach_parent().get_name() if c.get_attach_parent() else None),
+                          "visible": _try(c.is_visible) if hasattr(c, "is_visible") else None}
+                         for c in a.get_components_by_class(unreal.ActorComponent)]
+    out["class"] = a.get_class().get_path_name()
     for c in a.get_components_by_class(unreal.SkeletalMeshComponent):
         out["skel"].append({"name": c.get_name(), "forced_lod_model": _prop(c, "forced_lod_model"),
                             "min_lod_model": _prop(c, "min_lod_model")})
