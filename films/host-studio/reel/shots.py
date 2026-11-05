@@ -20,7 +20,20 @@ SIGN = (WALL + 4, SLAT_Y, 228.0)  # the sign's centre: 120 cm across, ~36 cm tal
 # In the scene today both stand at the origin (her hidden): the reel's sequence moves them with transform keys.
 MARK_HIM, MARK_HER = (30.0, 40.0, 0.0), (-50.0, -55.0, 0.0)
 EYES_HIM, EYES_HER = 174.0, 158.0
+# Standing height (bodies.py's Height, the top of the head) and the knee's centre, cm: framing.py checks that every
+# presenter shot cuts above the knee and keeps the head. The knee is ~0.28 of the height until the bodies are measured.
+TOP_HIM, TOP_HER = 182.0, 168.0
+KNEE_HIM, KNEE_HER = TOP_HIM * 0.28, TOP_HER * 0.28
+# His shots were framed (v2) for eyes at 174 cm; they follow his eyes up or down (lifted()) for another body.
+EYES_HIM_V2 = 174.0
 COIN, PICK = [-249.0, -169.0, 172.0], [-251.0, -186.0, 178.0]  # S06's rack: the coin's face, the pickaxe's head
+
+
+def lifted(keys: list, dz: float | None = None) -> list:
+    """A shot's keys with the camera and its look-at raised by dz (default: his eyes above the eyes his shots were
+    framed for), so his eyes keep their place in the frame on a taller or shorter body."""
+    dz = EYES_HIM - EYES_HIM_V2 if dz is None else dz
+    return [[f, [x, y, z + dz], [ax, ay, az + dz]] for f, (x, y, z), (ax, ay, az) in keys]
 
 
 def bar(n: int, beat: int = 1) -> int:
@@ -157,7 +170,7 @@ SHOTS = [
     Shot("S13", "Him", bar(17), bar(19), 35, 2.8,
          "slow push, 30 cm, from a little above his eyeline so his head sits under the sign, not over it; his key "
          "light ramps up on bar 17 beat 3 (12 frames): a light reveal",
-         [[0, [230, 70, 188], [30, 40, 168]], [120, [200, 62, 190], [30, 40, 170]]],
+         lifted([[0, [230, 70, 188], [30, 40, 168]], [120, [200, 62, 190], [30, 40, 170]]]),
          "him on his mark, a silhouette against the halo-lit slats, then lit, the whole word clear above his head; "
          "shelves soft screen-right",
          "NIGHT+KEY", "head down; lifts his gaze to the lens with the key light (bar 17 beat 3); L1 on bar 18 beat 1, "
@@ -166,7 +179,7 @@ SHOTS = [
     # ---------------------------------------------------------------- E. the hand-off and her (bars 19-22)
     Shot("S15", "The hand-off", bar(19), bar(21), 85, 2.0,
          "near locked-off (a 7 cm drift) on his shoulder line; the focus pulls from him (195 cm) to her (304 cm) in 18 frames on bar 20",
-         [[0, [220, 85, 165], [-10, -10, 163]], [120, [214, 80, 165], [-10, -10, 162]]],
+         lifted([[0, [220, 85, 165], [-10, -10, 163]], [120, [214, 80, 165], [-10, -10, 162]]]),
          "him sharp in the foreground frame-left, her soft in the background frame-right by the shelves",
          "NIGHT+KEY", "he says L2 and turns his head to her; she looks up from him to the lens: L3a, a half-smile",
          into="cut on bar 21", focus=[[0, 195], [60, 195], [78, 304]], cast=("him", "her"), previs=0.5, vcrop=0.62,
