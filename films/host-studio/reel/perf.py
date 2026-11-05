@@ -10,6 +10,8 @@ and body made one skeleton, the eyes locked on each shot's lens or on the partne
     cd tools && uv run python ../films/host-studio/reel/perf.py calibrate --who her  # once per face: which curve turns
     cd tools && uv run python ../films/host-studio/reel/perf.py naturalize --who her # perfkit -> AS_reel_<who>_face
     cd tools && uv run python ../films/host-studio/reel/perf.py check --who her      # anim.check, solve vs face
+    cd tools && uv run python ../films/host-studio/reel/perf.py calibrate_body --who her  # once per body skeleton
+    cd tools && uv run python ../films/host-studio/reel/perf.py life --who her       # body life -> AS_reel_<who>_life
     cd tools && uv run python ../films/host-studio/reel/perf.py stage           # Test_ sequences, cameras, marks
     cd tools && uv run python ../films/host-studio/reel/perf.py sync|gaze|stills [--who him]
     cd tools && uv run python ../films/host-studio/reel/perf.py place --seq /Game/Reel/SEQ_Reel   # for R7
@@ -393,6 +395,31 @@ def calibrate(who: str) -> dict:
 def check(who: str) -> dict:
     """anim.check on the solve (v2's base) and on the round-3 face: the before/after numbers."""
     return {k: ok(client.op("anim.check", anim=f"{ANIM}/AS_reel_{who}_{k}")) for k in ("solve", "face")}
+
+
+def calibrate_body(who: str) -> dict:
+    """perf.calibrate_body on the presenter's body (once per body skeleton: which bone axes breathe, sway, turn)."""
+    return ok(client.op("perf.calibrate_body", label=LABEL[who], timeout=900))
+
+
+BODY_MESH = r"""
+import unreal
+from fmbridge.ops.seq import component_of
+m = component_of(PARAMS, "Body").get_skeletal_mesh_asset()
+result = m.get_path_name().split(".")[0] if m else ""
+"""
+
+
+def life(who: str) -> dict:
+    """The body life layer (an additive over the idle/performance body): breathing, small weight shifts and sway, the
+    torso following the head's turns a little -> ANIM/AS_reel_<who>_life, START..END+POST_ROLL, timed like the face.
+    v2's body was the engine idle alone; the life is what keeps a held pose from reading as a mannequin."""
+    mesh = ok(client.exec_code(f"PARAMS = {LABEL[who]!r}\n" + BODY_MESH))
+    if not mesh:
+        raise SystemExit(f"{LABEL[who]} has no Body mesh in the level")
+    return ok(client.op("anim.body_life", out=f"{ANIM}/AS_reel_{who}_life", body_mesh=mesh,
+                        length_s=round((END + POST_ROLL - START[who]) / FPS, 3), state="talk",
+                        face_anim=f"{ANIM}/AS_reel_{who}_face", seed=SEED[who], timeout=600))
 
 
 # ---------------------------------------------------------------------------------------------------- the stage
@@ -783,6 +810,7 @@ def cleanup() -> dict:
 # are hidden until their first shot; the pre-roll covers the handles and a render's warm-up) to POST_ROLL after END,
 # phased so the idle is where the baked body starts and ends, cross-faded over BLEND frames.
 PRE_ROLL, POST_ROLL, BLEND = 240, 48, 6
+USE_LIFE = {"him": False, "her": True}  # round 3: `life` made AS_reel_<who>_life (his comes with the new character)
 
 
 def drive_faces() -> list:
@@ -810,14 +838,17 @@ def place(path: str) -> list:
              "blend_out": BLEND},
             {"anim": body, "start": s0, "end": s1, "blend_in": BLEND, "blend_out": BLEND, "loop": False},
             {"anim": idle, "start": s1 - BLEND, "end": s1 + POST_ROLL, "offset": phase(s1 - BLEND),
-             "blend_in": BLEND}])))
+             "blend_in": BLEND},
+            # round 3: the body life additive over all of it, on its own row
+            *([{"anim": f"{ANIM}/AS_reel_{who}_life", "start": s0, "end": s1 + POST_ROLL, "loop": False,
+                "blend_in": BLEND, "row": 2}] if USE_LIFE[who] else [])])))
     return out
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("cmd", choices=["push", "solve", "compose", "stage", "signs", "sync", "gaze", "stills", "cleanup", "drive_faces", "restage",
-                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check"])
+                                       "place", "arm_axes", "gesture", "calibrate", "naturalize", "check", "calibrate_body", "life"])
     ap.add_argument("--who", default="him,her")
     ap.add_argument("--seq", default="/Game/Reel/SEQ_Reel", help="place: the sequence")
     ap.add_argument("--frames", help="stills: master frames, comma-separated")
@@ -834,7 +865,7 @@ def main() -> None:
         for w in a.who.split(","):
             print(w, json.dumps(compose(w)))
     elif a.cmd in ("stage", "restage", "signs", "sync", "gaze", "stills", "arm_axes", "gesture", "calibrate", "naturalize",
-                   "check"):
+                   "check", "calibrate_body", "life"):
         for w in a.who.split(","):
             if a.cmd == "gaze":
                 r = gaze(w, a.start_at, a.stop_at)
