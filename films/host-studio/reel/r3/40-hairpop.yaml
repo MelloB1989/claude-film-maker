@@ -11,6 +11,7 @@ files: [vars.yaml]
 kind: vars
 vars:
   tag: after
+  lodmode: 1   # r.HairStrands.LODMode: 1 auto (the engine's), 0 manual (LODSync's pin decides); --set lodmode=0 tag=after-manual
 ---
 kind: render
 version: 1
@@ -26,4 +27,4 @@ preroll: cut
 aa_method: tsr          # as 30-final.yaml (follow it if the calibration picks otherwise)
 spatial: 1
 overwrite: true
-cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0}
+cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0, "r.HairStrands.LODMode": ${lodmode}}

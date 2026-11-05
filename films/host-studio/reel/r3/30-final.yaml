@@ -30,4 +30,4 @@ preroll: cut
 aa_method: "${aa}"
 spatial: ${spatial}
 overwrite: ${overwrite}
-cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0}
+cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0, "r.HairStrands.LODMode": 0}  # manual hair LOD: LODSync pins LOD 0 (note 3c)
