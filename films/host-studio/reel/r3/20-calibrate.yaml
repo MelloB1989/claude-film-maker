@@ -5,7 +5,7 @@
 #     film-ue apply .../20-calibrate.yaml --set cal=B --set aa=none --set spatial=2
 # then: film-ue op render.compare a=${out}/cal_A b=${out}/cal_B sheet=${out}/cal_AB.png, and look at hair edges,
 # eyelashes and the watch face. Each report (_render/cal_*.report.json) gives s_per_frame and vram_peak_gb: the
-# finals' time is 1560 x s_per_frame (+ ~12 s per shot).
+# finals' time is 1584 x s_per_frame (+ ~12 s per shot). A second apply of the same cal converges (resume).
 kind: include
 files: [vars.yaml]
 ---
@@ -22,5 +22,4 @@ preset: final
 frames: [1332, 1356]     # mid-S17: pre-rolled from its cut at 1320 (cloth settles as in the full shot)
 aa_method: "${aa}"
 spatial: ${spatial}
-overwrite: true
 cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0}   # full-res skin subsurface: the faces are the point of round 3
