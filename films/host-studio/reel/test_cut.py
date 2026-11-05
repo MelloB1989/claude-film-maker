@@ -96,3 +96,43 @@ def test_wrap_balances_a_widow():
     f = cut.font(40, 500)
     rows = cut.wrap("Tech, explained the way we'd want it explained: calm, honest,", f, f.getlength("x" * 40))
     assert len(rows) == 2 and len(rows[1].split()) > 1
+
+
+def test_stage_keeps_a_jpg_pass_and_its_slates(tmp_path):
+    """A preview pass is .jpg: the staged sequence and the slates standing in for missing frames keep that extension
+    (ffmpeg's image2 picks the decoder by it)."""
+    from PIL import Image
+    d = tmp_path / "preview"
+    d.mkdir()
+    for f in range(0, 100):
+        Image.new("RGB", (64, 36)).save(d / f"{f:04d}.jpg")
+    found = cut.find_frames(d, 0, 180, "{frame:04d}.jpg")
+    seq = cut.stage(found, [(0, 180)], tmp_path / "w", "slate", (64, 36))
+    assert sorted({p.suffix for p in seq.iterdir()}) == [".jpg"] and len(list(seq.iterdir())) == 180
+    assert cut.image_size(found[0]) == (64, 36)
+    with pytest.raises(SystemExit, match="mix"):
+        cut.frame_ext({0: d / "0000.jpg", 1: d / "0001.png"})
+
+
+def test_round3_makes_16x9_only():
+    names = {o.name for o in cut.OUTPUTS}
+    assert "vertical" in cut.OPT_IN and {"1080p", "1080p-clean"} <= names - cut.OPT_IN
+    assert not next(o for o in cut.OUTPUTS if o.name == "1080p-clean").captions
+
+
+def test_assemble_fills_shots_not_yet_final_from_the_preview(tmp_path):
+    import assemble
+    from PIL import Image
+    prev, fin = tmp_path / "preview", tmp_path / "final"
+    prev.mkdir()
+    for f in range(cut.TOTAL):
+        Image.new("RGB", (16, 9)).save(prev / f"{f:04d}.jpg")
+    s13 = next(s for s in SHOTS if s.id == "S13")
+    (fin / "S13").mkdir(parents=True)
+    for f in range(s13.start, s13.end):
+        Image.new("RGB", (32, 18)).save(fin / "S13" / f"{f:04d}.png")
+    assert assemble.pattern(prev) == "{frame:04d}.jpg" and assemble.pattern(fin) == "{frame:04d}.png"
+    assert assemble.whole(fin) == ["S13"] and len(assemble.whole(prev)) == len(SHOTS)
+    d = assemble.merged(tmp_path / "out", [fin, prev])
+    assert {p.suffix for p in d.iterdir()} == {".png"} and len(list(d.iterdir())) == cut.TOTAL
+    assert (d / f"{s13.start:04d}.png").resolve() == (fin / "S13" / f"{s13.start:04d}.png").resolve()

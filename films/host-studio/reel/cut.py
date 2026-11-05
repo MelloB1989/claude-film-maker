@@ -10,22 +10,27 @@ transparent overlays (Geist from fonts/src, the Samarkan wordmark from props/out
                                               the captions on R4's words (--cues only times them; the mix has the VO)
     ... cut.py --test-frames DIR [--scale 0.25]      synthetic placeholder frames (a slate per shot) to cut with
 
-FRAMES holds the renders as Movie Render Queue writes them, <dir>/<frame:04d>.png (--pattern to change it): one
+FRAMES holds the renders as Movie Render Queue writes them, <dir>/<frame:04d>.png (--pattern to change it; a
+preview pass's .jpg works the same: --pattern '{frame:04d}.jpg'): one
 directory per shot (FRAMES/S01/ ...) or one flat directory. Frame numbers are the master sequence's (S03 = 0240-0299)
 or the shot's own (0000-0059); --frame-offset N when they are numbered from somewhere else (a render from the
 sequence's handle at f-12 that starts its numbering at 0: --frame-offset 12). Frames outside a shot (the 12-frame
 handles) are ignored. A missing frame is an error unless --fill slate stands a slate in for it (an animatic cut from
 part of the renders).
 
-Out (DIR, default films/host-studio/reel/out/):
+Out (DIR, default films/host-studio/reel/out/). Round 3 (ROUND3.md) is 1080p and 16:9 only: --source 1080p (the
+default) makes the 1080p master and the two 1080p cuts; --source 2160p adds the 4K ones (only if the operator asks);
+the 9:16 cut is made only when --only names it.
 
-    karma-reel-2160p-textless-prores4444.mov  the master: ProRes 4444 XQ-class 10-bit 4:4:4, PCM 24-bit; graded,
-                                              no title, no captions, no fade (re-versioning starts here)
-    karma-reel-2160p-h264.mp4                 16:9 3840x2160, title and fade; captions as the SRT beside it
-    karma-reel-2160p-hevc.mp4                 the same, HEVC Main10 (hvc1, plays on Apple devices)
+    karma-reel-1080p-textless-prores4444.mov  the master: ProRes 4444 XQ-class 10-bit 4:4:4, PCM 24-bit; graded,
+                                              no title, no captions, no fade (re-versioning starts here; 2160p-
+                                              from 4K frames)
     karma-reel-1080p-h264.mp4                 16:9 1920x1080, title, captions burned in (social)
-    karma-reel-9x16-h264.mp4                  9:16 1080x1920 from each shot's vcrop window, vertical title and
-                                              captions burned in, inside the Reels/TikTok/Shorts safe area
+    karma-reel-1080p-clean-h264.mp4           the same without burned captions: for players that take the SRT
+    karma-reel-2160p-h264.mp4                 (4K only) 16:9 3840x2160, title and fade; captions as the SRT
+    karma-reel-2160p-hevc.mp4                 (4K only) the same, HEVC Main10 (hvc1, plays on Apple devices)
+    karma-reel-9x16-h264.mp4                  (opt-in, not in round 3) 9:16 1080x1920 from each shot's vcrop
+                                              window, vertical title and captions burned in
     karma-reel.srt, karma-reel.vtt            the captions as text
     overlays/                                 the title and caption overlays, for review
     cut.json                                  what was made: loudness, sizes, frames, the source of every shot
@@ -42,7 +47,7 @@ title, captions, fade and the 9:16 crop keys kept on their frames, the sound a m
 on the same edits; the outputs are named karma-reel-45s-... and cut-45s.json. --frames A:B (master frames, B
 exclusive) or --shots S13-S18 cuts part of the reel (a test, a review): the title,
 captions and fade keep their places on the master's clock. --scale S makes everything S times the size (a quick look);
---only picks outputs by name (prores, 2160p, hevc, 1080p, vertical).
+--only picks outputs by name (prores, 2160p, hevc, 1080p, 1080p-clean, vertical).
 """
 from __future__ import annotations
 
@@ -124,9 +129,13 @@ OUTPUTS = [
                   *AAC)),
     Output("1080p", "karma-reel-1080p-h264.mp4", captions=True, height=1080,
            codec=(*X264, "-crf", "17", "-maxrate", "16M", "-bufsize", "32M", "-level:v", "4.2", *AAC)),
+    Output("1080p-clean", "karma-reel-1080p-clean-h264.mp4", height=1080,
+           codec=(*X264, "-crf", "17", "-maxrate", "16M", "-bufsize", "32M", "-level:v", "4.2", *AAC)),
     Output("vertical", "karma-reel-9x16-h264.mp4", vertical=True, captions=True,
            codec=(*X264, "-crf", "17", "-maxrate", "16M", "-bufsize", "32M", "-level:v", "4.2", *AAC)),
 ]
+# Made unless --only names them: round 3 is 16:9 only (ROUND3.md note 4), so the 9:16 cut is opt-in.
+OPT_IN = {"vertical"}
 PRORES = "karma-reel-2160p-textless-prores4444.mov"
 # --source 1080p (a 1920x1080 render pass, before the 4K one): the master and every output come from 1080p frames, so
 # there is no 4K output, and the 9:16 cut, only a 608-px-wide window of the frame before it is scaled, is a preview.
@@ -250,6 +259,7 @@ def stage(found: dict, segs: list, work: Path, fill: str | None, size: tuple[int
     seq = work / "seq"
     shutil.rmtree(seq, ignore_errors=True)
     seq.mkdir(parents=True)
+    ext = frame_ext(found)
     missing = sorted(f for f, p in found.items() if p is None)
     if missing and fill != "slate":
         by = {}
@@ -262,16 +272,25 @@ def stage(found: dict, segs: list, work: Path, fill: str | None, size: tuple[int
         if p is None:
             s = shot_at(f)
             if s.id not in slates:
-                slates[s.id] = slate(work / f"slate_{s.id}.png", s, size, "(not rendered)")
+                slates[s.id] = slate(work / f"slate_{s.id}{ext}", s, size, "(not rendered)")
             p = slates[s.id]
-        (seq / f"{to_out(segs, f):05d}.png").symlink_to(Path(p).resolve())
+        (seq / f"{to_out(segs, f):05d}{ext}").symlink_to(Path(p).resolve())
     return seq
 
 
-def png_size(path: Path) -> tuple[int, int]:
-    with open(path, "rb") as fh:
-        head = fh.read(24)
-    return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+def frame_ext(found: dict) -> str:
+    """The frames' file extension (.png, or .jpg for a preview pass): the staged sequence and its slates use it, since
+    ffmpeg's image2 picks the decoder by extension."""
+    exts = {Path(p).suffix.lower() for p in found.values() if p}
+    if len(exts) > 1:
+        raise SystemExit(f"the frames mix {', '.join(sorted(exts))}: one pass at a time")
+    return exts.pop() if exts else ".png"
+
+
+def image_size(path: Path) -> tuple[int, int]:
+    from PIL import Image
+    with Image.open(path) as im:
+        return im.size
 
 
 # ---------------------------------------------------------------- the 9:16 crop
@@ -664,8 +683,8 @@ def encode(out: Output, src: list, pre: str, src_size: tuple[int, int], audio: P
          "-r", FPS, *out.codec, *BT709, "-shortest", path])
 
 
-def prores(seq: Path, pre: str, audio: Path, n: int, path: Path) -> None:
-    run(["-framerate", FPS, "-i", seq / "%05d.png", "-i", audio, "-vf", pre, "-frames:v", n, "-c:v", "prores_ks",
+def prores(seq: Path, ext: str, pre: str, audio: Path, n: int, path: Path) -> None:
+    run(["-framerate", FPS, "-i", seq / f"%05d{ext}", "-i", audio, "-vf", pre, "-frames:v", n, "-c:v", "prores_ks",
          "-profile:v", "4444", "-pix_fmt", "yuv444p10le", "-vendor", "apl0", "-bits_per_mb", "8000",
          *BT709, "-c:a", "pcm_s24le", "-ar", "48000", path])
 
@@ -736,9 +755,11 @@ def main(argv=None) -> None:
     ap.add_argument("--shots", metavar="S13-S18", help="these shots only")
     ap.add_argument("--edl", metavar="45s|A:B,C:D", help="a cut of the reel: a name in EDLS or master frame ranges; "
                                                        "the outputs are named karma-reel-<name>-...")
-    ap.add_argument("--only", default="", help="outputs: prores,2160p,hevc,1080p,vertical (default all)")
-    ap.add_argument("--source", choices=list(SOURCES), default="2160p",
-                    help="the frames' resolution: 1080p makes a 1080p master, no 4K outputs, the 9:16 as a preview")
+    ap.add_argument("--only", default="", help="outputs: prores,2160p,hevc,1080p,1080p-clean,vertical (default all "
+                                               "but vertical)")
+    ap.add_argument("--source", choices=list(SOURCES), default="1080p",
+                    help="the frames' resolution (round 3: 1080p, a 1080p master and no 4K outputs; 2160p if the "
+                         "operator asks for 4K)")
     ap.add_argument("--scale", type=float, default=1.0, help="every output this many times its size (a quick look)")
     ap.add_argument("--pattern", default="{frame:04d}.png")
     ap.add_argument("--frame-offset", type=int, default=0, help="file number = frame + this")
@@ -773,7 +794,7 @@ def main(argv=None) -> None:
     vo = ([(k, v["wav"], round(v["file_frame"] * 1000 / FPS)) for k, v in sorted(spoken.items())] if spoken else
           [(k, Path(p), round(LINES[k][0] * 1000 / FPS)) for k, p in sorted(vo.items())])
     src_ = SOURCES[a.source]
-    want = set(a.only.split(",")) if a.only else {"prores", *(o.name for o in OUTPUTS)} - src_["skip"]
+    want = set(a.only.split(",")) if a.only else {"prores", *(o.name for o in OUTPUTS)} - src_["skip"] - OPT_IN
     if want & src_["skip"]:
         ap.error(f"--source {a.source} makes no {', '.join(sorted(want & src_['skip']))}")
     base = name
@@ -793,8 +814,9 @@ def main(argv=None) -> None:
                 found[s.start] = found[s.start + 1]
         first = next((p for p in found.values() if p), None)
         SW, SH = src_["size"]
-        size = png_size(first) if first else (even(SW * a.scale), even(SH * a.scale))
+        size = image_size(first) if first else (even(SW * a.scale), even(SH * a.scale))
         seq = stage(found, segs, work, a.fill, size)
+        ext = frame_ext(found)
         mw, mh = even(SW * a.scale), even(SH * a.scale)
         if size != (mw, mh):
             print(f"note: the frames are {size[0]}x{size[1]}, scaled to {mw}x{mh}", file=sys.stderr)
@@ -806,11 +828,11 @@ def main(argv=None) -> None:
         made = []
         if "prores" in want:
             p = a.out / name(PRORES)
-            prores(seq, pre, audio, n, p)
+            prores(seq, ext, pre, audio, n, p)
             made.append(check(p, n, (mw, mh)))
             src, src_pre = ["-i", p], ""
         else:
-            src, src_pre = ["-framerate", FPS, "-i", seq / "%05d.png"], pre
+            src, src_pre = ["-framerate", FPS, "-i", seq / f"%05d{ext}"], pre
         for o in OUTPUTS:
             if o.name in want:
                 p = a.out / name(o.file)
