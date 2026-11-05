@@ -183,6 +183,20 @@ def errors(goals: dict, bones: dict) -> dict:
     return out
 
 
+# a limb's FK/IK blend on the MetaHuman body rig (0.0 on a fresh track, day-1 box): its IK control moves nothing in FK
+IK_SWITCH = {"hand_l": "arm_l_fk_ik_switch", "hand_r": "arm_r_fk_ik_switch",
+             "foot_l": "leg_l_fk_ik_switch", "foot_r": "leg_r_fk_ik_switch"}
+IK_ON = 1.0
+
+
+def ik_switches(used: dict, controls) -> dict:
+    """{switch control: IK value} for the limbs in `used` ({effector: control}) driven through an IK control, when the
+    rig has the limb's switch."""
+    have = set(controls)
+    return {IK_SWITCH[e]: IK_ON for e, c in used.items()
+            if e in IK_SWITCH and "ik" in str(c).lower() and IK_SWITCH[e] in have}
+
+
 def resolve_controls(controls: list, effectors, overrides: dict | None = None) -> tuple:
     """({effector: control name}, {effector: nearest candidates}) from the rig's real control names: an override
     wins, else the first pattern that matches exactly one name (several matches: the shortest name)."""

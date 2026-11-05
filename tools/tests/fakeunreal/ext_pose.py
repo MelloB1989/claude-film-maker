@@ -7,6 +7,8 @@ solve has to iterate). Moving the body control (pelvis) carries every bone but t
 from . import core
 
 IK = ("hand_l", "hand_r", "foot_l", "foot_r")
+SWITCH_OF = {"hand_l": "arm_l_fk_ik_switch", "hand_r": "arm_r_fk_ik_switch", "foot_l": "leg_l_fk_ik_switch",
+             "foot_r": "leg_r_fk_ik_switch"}
 
 
 class _Name(core.Object):
@@ -41,6 +43,8 @@ class FakeControlRig(core.Object):
         object.__setattr__(self, "writes", [])
         object.__setattr__(self, "bound_at", bound_at)
         object.__setattr__(self, "pending", [])  # [(tick due, {bone: delta})]
+        # FK/IK switches ({name: None} in `controls`): 0.0 (FK) on a fresh rig, and a limb in FK ignores its IK control
+        object.__setattr__(self, "floats", {n: 0.0 for n, b in controls.items() if b is None})
         comp = actor.get_components_by_class(core.SkeletalMeshComponent)[0]
         object.__setattr__(comp, "get_anim_instance",
                            lambda: core.Object("ControlRigLayerInstance") if self.bound() else None)
@@ -95,6 +99,14 @@ class ControlRigSequencerLibrary(core.Object):
         return out
 
     @staticmethod
+    def set_local_control_rig_floats(level_sequence, control_rig, control_name, frames, values, time_unit=None):
+        control_rig.floats[str(control_name)] = float(values[-1])
+
+    @staticmethod
+    def get_local_control_rig_floats(level_sequence, control_rig, control_name, frames, time_unit=None):
+        return [control_rig.floats.get(str(control_name), 0.0) for _ in frames]
+
+    @staticmethod
     def find_or_create_control_rig_track(world, level_sequence, control_rig_class, binding, is_layered_control_rig=False):
         """FindOrCreateControlRigTrack: the track on `binding` (a MovieSceneBindingProxy), made with a new rig."""
         for p in ControlRigSequencerLibrary.rigs:
@@ -130,6 +142,10 @@ class ControlRigSequencerLibrary(core.Object):
         t = world_transform.translation
         d = [(t.x - cur[0]) * control_rig._gain, (t.y - cur[1]) * control_rig._gain,
              (t.z - 2.0 - cur[2]) * control_rig._gain]
+        sw = SWITCH_OF.get(bone)
+        if sw in control_rig.floats and control_rig.floats[sw] < 0.5 and "ik" in name.lower():
+            control_rig.writes.append((name, int(getattr(frame, "value", frame))))
+            return  # the limb is in FK: its IK control moves nothing
         movers = [b for b in bones if b not in IK] if bone == "pelvis" else [bone]
         control_rig.pending.append((core._fake().ticks + LAG, {b: d for b in movers}))
         control_rig.writes.append((name, int(getattr(frame, "value", frame))))

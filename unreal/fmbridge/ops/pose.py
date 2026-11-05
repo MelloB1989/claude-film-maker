@@ -184,7 +184,8 @@ def apply(*, label: str, sequence: str, frame: int, pose: str | dict, params: di
     (stored on it); `reset_rest` captures it again (after the character moved).
     A multi-tick job. Re-running converges (the controls are re-solved to the same goals).
     Returns: {"pass", "errors_cm": {effector: cm}, "controls": {effector: control}, "iterations",
-    "trace_cm" (the largest error before each iteration), "goals",
+    "trace_cm" (the largest error before each iteration), "ik_switched" (FK/IK switches keyed to IK: one key, so
+    the limb stays in IK for the whole sequence), "goals",
     "issues", "changed"}.
     Example: film-ue op pose.apply label=Host sequence=/Game/Seq/S010 frame=48 pose=hands_on_hips
     """
@@ -218,6 +219,18 @@ def apply(*, label: str, sequence: str, frame: int, pose: str | dict, params: di
     CR = unreal.ControlRigSequencerLibrary
     fn = unreal.FrameNumber(int(frame))
     unit = unreal.MovieSceneTimeUnit.DISPLAY_RATE
+    # a limb in FK ignores its IK control (day-1: the hands never moved): key the limbs this pose moves to IK
+    off = {e for e, (dist, _) in P.errors(goals, bones).items() if dist > tolerance_cm}
+    switched = []
+    for sw, val in P.ik_switches({e: used[e] for e in off}, names).items():
+        got = list(CR.get_local_control_rig_floats(seq, rig, sw, [fn]) or [])
+        if not got or abs(float(got[0]) - val) > 1e-3:
+            CR.set_local_control_rig_floats(seq, rig, sw, [fn], [val])
+            switched.append(sw)
+    if switched:
+        LSE.refresh_current_level_sequence()
+        yield from _scrub(frame)
+        bones = yield from _settled(label, component, bones)
     done, trace = 0, []
     for it in range(int(iterations)):
         errs = P.errors(goals, bones)
@@ -236,8 +249,8 @@ def apply(*, label: str, sequence: str, frame: int, pose: str | dict, params: di
     errors, issues = _report(goals, bones, tolerance_cm, frame, label, used)
     EAL.save_asset(sequence)
     return {"pass": not any(i["severity"] == "fail" for i in issues), "errors_cm": errors, "controls": used,
-            "iterations": done, "trace_cm": trace, "goals": {k: [round(x, 2) for x in v] for k, v in goals.items()}, "issues": issues,
-            "pose": pose if isinstance(pose, str) else "custom", "frame": int(frame), "changed": done > 0}
+            "iterations": done, "trace_cm": trace, "ik_switched": switched, "goals": {k: [round(x, 2) for x in v] for k, v in goals.items()}, "issues": issues,
+            "pose": pose if isinstance(pose, str) else "custom", "frame": int(frame), "changed": done > 0 or bool(switched)}
 
 
 @op("pose.check", mutates=False, idempotent=True, tags=["animation", "qa"])

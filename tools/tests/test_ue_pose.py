@@ -115,17 +115,27 @@ def test_sit_reapplied_converges(ue, host):
 
 
 def test_apply_waits_for_a_new_rig_to_bind_and_the_bones_to_follow(ue, fmb, monkeypatch):
-    """Day-1 (box): the first apply made the rig track, then keyed the rig before Sequencer had bound it (no anim
+    """Day-1 (box): the MetaHuman body rig's arms start in FK, where hand_*_ik_ctrl moves nothing. And the first
+    apply made the rig track, then keyed the rig before Sequencer had bound it (no anim
     instance, controls read the origin, writes landed nowhere) and read the bones before they followed the keys:
     every effector stayed where it was. The fake's new rigs bind BIND_LAG ticks late and bones follow LAG ticks late."""
     ue.spawn("SkeletalMeshActor", "Host")
     ue.pose("Host", {k: list(v) for k, v in BONES.items()})
     ue.add_asset("/Game/T/Seq", "LevelSequence")
-    ue.ControlRigSequencerLibrary.classes["MetaHuman_ControlRig_C"] = CONTROLS
+    ue.ControlRigSequencerLibrary.classes["MetaHuman_ControlRig_C"] = {
+        **CONTROLS, "arm_l_fk_ik_switch": None, "arm_r_fk_ik_switch": None,
+        "leg_l_fk_ik_switch": None, "leg_r_fk_ik_switch": None}  # the arms start in FK, as on the box
     monkeypatch.setattr(ue.EditorAssetLibrary, "load_blueprint_class",
                         staticmethod(lambda p: type("MetaHuman_ControlRig_C", (), {})), raising=False)
     r = run_op("pose.apply", label="Host", sequence="/Game/T/Seq", frame=20, pose="hands_on_hips",
                rig_class="/MetaHumanCharacter/Common/MetaHuman_ControlRig", iterations=10)
     assert r["pass"] and max(r["errors_cm"].values()) <= 1.0, r["trace_cm"]
+    assert sorted(r["ik_switched"]) == ["arm_l_fk_ik_switch", "arm_r_fk_ik_switch"]  # the feet are kept: their legs stay FK
     again = run_op("pose.apply", label="Host", sequence="/Game/T/Seq", frame=20, pose="hands_on_hips")
     assert again["iterations"] == 0
+
+
+def test_ik_switches_only_for_ik_controls_the_rig_has():
+    names = ["arm_l_fk_ik_switch", "leg_l_fk_ik_switch", "hand_l_ik_ctrl"]
+    assert P.ik_switches({"hand_l": "hand_l_ik_ctrl", "hand_r": "hand_r_ik_ctrl", "foot_l": "foot_l_fk_ctrl"},
+                         names) == {"arm_l_fk_ik_switch": 1.0}
