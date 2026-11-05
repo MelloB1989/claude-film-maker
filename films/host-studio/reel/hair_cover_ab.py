@@ -51,9 +51,21 @@ for d, want in zip(descs, GROUPS):
     for f, v in want.items():
         d.set_editor_property(f, v)
 c.set_editor_property("groom_groups_desc", descs)
-result = [{f: d.get_editor_property(f) for f in want} for d, want in zip(c.get_editor_property("groom_groups_desc"),
-                                                                          GROUPS)]
+# a groom property change re-creates its render state; put her MI_K_HerHair* back on every slot (dress_her: a
+# re-created component loses its materials, which renders the preset's teal-green) and say what each slot has
+c = next(g for g in a.get_components_by_class(unreal.GroomComponent) if g.get_name() == "Hair")
+for i, p in enumerate(HAIR):
+    c.set_material(i, unreal.load_asset(p))
+MEL = unreal.MaterialEditingLibrary
+mats = []
+for i in range(c.get_num_materials()):
+    m = c.get_material(i)
+    mats.append([m.get_path_name() if m else None, MEL.get_material_instance_scalar_parameter_value(m, "hairMelanin")
+                 if isinstance(m, unreal.MaterialInstance) else None])
+result = {"groups": [{f: d.get_editor_property(f) for f in want}
+                     for d, want in zip(c.get_editor_property("groom_groups_desc"), GROUPS)], "materials": mats}
 """
+HAIR = [f"/Game/Studio/Materials/MI_K_HerHair{s}" for s in ("", "_Cards", "_Helmet")]
 
 
 def ok(res):
@@ -99,13 +111,13 @@ def main() -> None:
     rep = {"original": orig, "variants": {}}
     try:
         for v in VARIANTS:
-            ok(client.exec_code(f"GROUPS = {groups_for(v, orig)!r}\n" + PUT))
+            put = ok(client.exec_code(f"GROUPS = {groups_for(v, orig)!r}\nHAIR = {HAIR!r}\n" + PUT))
             render(v["name"], run)
             if 1241 not in qa_review.frames(str(out / v["name"])):
                 raise SystemExit(f"{v['name']}: no frame 1241 under {out / v['name']}")
-            rep["variants"][v["name"]] = {"groups": groups_for(v, orig)}
+            rep["variants"][v["name"]] = {"groups": groups_for(v, orig), "put": put}
     finally:
-        rep["restored"] = ok(client.exec_code(f"GROUPS = {orig!r}\n" + PUT))
+        rep["restored"] = ok(client.exec_code(f"GROUPS = {orig!r}\nHAIR = {HAIR!r}\n" + PUT))
     cells = []
     for v in VARIANTS:
         p = qa_review.crop(str(out / v["name"]), str(out / f"_{v['name']}.jpg"), [1241], ENDS_BOX, 640)
