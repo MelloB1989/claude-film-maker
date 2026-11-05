@@ -4,6 +4,7 @@ each, measured, the selects trimmed and placed on the master's frames.
     cd tools && uv run python ../films/host-studio/reel/vo.py takes [--only L1,L3] [--takes 3] [--voice ID]
     cd tools && uv run python ../films/host-studio/reel/vo.py measure [--only L1] [--align]
     cd tools && uv run python ../films/host-studio/reel/vo.py build          # selects -> line WAVs, stems, cues.json
+    cd tools && uv run python ../films/host-studio/reel/vo.py cues [--from DIR]  # the built line WAVs alone -> stems, cues.json
 
 The key comes from $ELEVENLABS_API_KEY (fleet: `fleetctl secret exec ELEVENLABS_API_KEY=elevenlabs -- ...`). Takes are
 idempotent (an existing WAV + JSON is never paid for twice) and land in out/host-studio/reel/vo/takes/<line>/
@@ -255,9 +256,66 @@ def build() -> dict:
     return cues
 
 
+# ------------------------------------------------------------------------------------- cues from the line WAVs alone
+
+def estimate_words(text: str, t0: float, t1: float) -> list:
+    """Word times spread over the voiced span [t0, t1] by letter count (a short gap between words): an estimate for
+    when the aligner's words are gone. Captions and the face's stressed words read it; marked as estimated."""
+    ws = [w for w in spoken(text).split() if w]
+    n = [max(1, sum(c.isalnum() for c in w)) for w in ws]
+    gap = 0.06 * (len(ws) - 1)
+    span = max(0.1, (t1 - t0) - gap)
+    out, t = [], t0
+    for w, k in zip(ws, n):
+        d = span * k / sum(n)
+        out.append({"w": w, "start": round(t, 3), "end": round(t + d, 3)})
+        t += d + 0.06
+    return out
+
+
+def cues_from_wavs(src: Path | None = None) -> dict:
+    """Round 3: v2's takes and cues.json stayed on the v2 workstation; its built line WAVs survived (the project's
+    Saved/Import/reel). From those alone, with no ElevenLabs call: copy them into OUT, find each voice's start, place
+    it on its line's frame, write the stems and cues.json as `build` does. Word times are estimated
+    (`words_estimated`)."""
+    src = Path(src) if src else OUT
+    OUT.mkdir(parents=True, exist_ok=True)
+    stems = {w: np.zeros(TOTAL * SR // FPS, np.float32) for w in ("him", "her")}
+    sel = json.loads(SELECTS.read_text())["selects"]
+    cues = {}
+    for line in LINES:
+        p = src / f"{line.id}.wav"
+        if not p.exists():
+            raise SystemExit(f"{p} is missing: every line's WAV is needed ({', '.join(BY_ID)})")
+        x, sr = read_wav(p)
+        if sr != SR:
+            raise SystemExit(f"{p}: {sr} Hz, want {SR}")
+        out = OUT / f"{line.id}.wav"
+        if out.resolve() != p.resolve():
+            write_wav(out, x, SR)
+        t0, t1 = speech_span(x)
+        file_frame = line.start - t0 * FPS
+        i0 = max(0, int(round(file_frame / FPS * SR)))
+        stems[line.who][i0:i0 + len(x)] += x[:len(stems[line.who]) - i0]
+        words = [{"w": w["w"], "start": round(line.start + (w["start"] - t0) * FPS, 1),
+                  "end": round(line.start + (w["end"] - t0) * FPS, 1)} for w in estimate_words(line.text, t0, t1)]
+        cues[line.id] = {"who": line.who, "text": line.text, "take": sel.get(line.id), "wav": out.name,
+                         "file_frame": round(file_frame, 2), "voice_frame": line.start,
+                         "end_frame": round(file_frame + len(x) / SR * FPS, 2), "slot_end": line.end,
+                         "mood": line.mood, "intensity": line.intensity, "words": words, "words_estimated": True}
+        print(f"{line.id}: {len(x) / SR:.2f}s from f{file_frame:.1f}, voice ends ~f{words[-1]['end']} (slot to f{line.end})")
+    for w, st in stems.items():
+        write_wav(OUT / f"vo_{w}.wav", st, SR)
+    write_wav(OUT / "vo.wav", stems["him"] + stems["her"], SR)
+    (OUT / "cues.json").write_text(json.dumps({"fps": FPS, "sr": SR, "frames": TOTAL, "lines": cues,
+                                               "words_estimated": True}, indent=1))
+    return cues
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("cmd", choices=["takes", "measure", "build"])
+    ap.add_argument("cmd", choices=["takes", "measure", "build", "cues"])
+    ap.add_argument("--from", dest="src", type=Path, help="cues: the folder holding the built line WAVs (default: OUT)")
     ap.add_argument("--only", help="comma-separated line ids")
     ap.add_argument("--takes", type=int, default=3)
     ap.add_argument("--voice", help="a CANDIDATES name or voice id instead of the line's presenter voice")
@@ -275,6 +333,8 @@ def main() -> None:
                 align(client, p)
             print(json.dumps(measure(p), default=float))
         sheet(paths, OUT / "takes.png")
+    elif a.cmd == "cues":
+        cues_from_wavs(a.src)
     else:
         build()
 
