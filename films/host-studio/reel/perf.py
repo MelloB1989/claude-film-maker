@@ -543,6 +543,30 @@ def head_turns(who: str, path: str = "/Game/Reel/SEQ_Reel") -> dict:
     return {"lens_frame": spec["lens"], "looks": out, "pass": all(x["turned"] for x in out.values())}
 
 
+def blinks_together(closed: float = 0.5) -> dict:
+    """Master frames where both presenters' eyes are shut at once (eyeBlinkL over `closed` on both placed faces),
+    over the frames both are on screen (agent-05's AA still at f1344 caught them blinking together in v2, whose
+    blinks came from two independent solves). Round 3 plans each face's blinks with its own seed."""
+    def shut(who):
+        t, v = ok(client.op("anim.read_curves", anim=final_face(who), names=["CTRL_expressions_eyeBlinkL"])).get(
+            "CTRL_expressions_eyeBlinkL", [[], []])
+        out = set()
+        for f in range(START[who], END + 1):
+            x = (f - START[who]) / FPS
+            i = min(range(len(t)), key=lambda k: abs(t[k] - x)) if t else None
+            if i is not None and v[i] > closed:
+                out.add(f)
+        return out
+    both = sorted(shut("him") & shut("her"))
+    runs = []
+    for f in both:
+        if runs and f == runs[-1][1] + 1:
+            runs[-1][1] = f
+        else:
+            runs.append([f, f])
+    return {"frames_together": len(both), "runs": runs, "pass": not runs}
+
+
 def calibrate_body(who: str) -> dict:
     """perf.calibrate_body on the presenter's body (once per body skeleton: which bone axes breathe, sway, turn)."""
     return ok(client.op("perf.calibrate_body", label=LABEL[who], timeout=900))
