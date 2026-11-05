@@ -1,0 +1,32 @@
+# The finals: 1920x1080 16:9 PNG (+ the sequence's WAV), 8 temporal samples (motion blur from the cameras),
+# 32 warm-up frames per shot, film-quality cvars, one MRQ job per shot from the shot's first frame. Resumes: frames
+# already on disk are skipped, so a re-run after a crash or a cancel renders only what is missing.
+#   set shots, no presenters (start now):  film-ue apply .../30-final.yaml
+#   presenter shots as each is approved:   film-ue apply .../30-final.yaml --set batch=S13 --set 'shots=["Reel_S13"]'
+#   a shot that CHANGED after its final:   ... --set batch=S16b --set 'shots=["Reel_S16"]' --set overwrite=true
+# aa/spatial follow the calibration's winner (edit the vars below, commit, then render).
+kind: include
+files: [vars.yaml]
+---
+kind: vars
+vars:
+  batch: set
+  shots: [Reel_V01, Reel_V02, Reel_V03, Reel_V04, Reel_V05, Reel_S11, Reel_S12, Reel_N01]
+  overwrite: false
+  aa: tsr
+  spatial: 1
+---
+kind: render
+version: 1
+name: "r3_final_${batch}"
+sequence: "${seq}"
+level: "${level}"
+out_dir: "${out}/final"
+preset: final
+shots: ${shots}
+chunking: shot
+preroll: cut
+aa_method: "${aa}"
+spatial: ${spatial}
+overwrite: ${overwrite}
+cvars: {"r.SSS.Quality": 1, "r.SSS.HalfRes": 0}
