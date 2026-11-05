@@ -1318,6 +1318,10 @@ class SystemLibrary(Object):
         return _fake().engine_version
 
     @staticmethod
+    def get_game_name() -> str:
+        return "Fake"
+
+    @staticmethod
     def execute_console_command(world_context_object, command: str, specific_player=None):
         _fake().console.append(command)
 

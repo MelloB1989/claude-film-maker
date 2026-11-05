@@ -1,7 +1,7 @@
 """Fab listing -> signed download URL, with no editor window (WP2, experimental: written from the Fab plugin's
 source, not yet run against fab.com).
 
-The Fab plugin's web page (https://www.fab.com/plugins/ue5) mints the signed download URL in its own JavaScript and
+The Fab plugin's web page (https://fab.com/plugins/ue5) mints the signed download URL in its own JavaScript and
 hands it to the editor by calling `window.ue.fab.addtoproject(url, metadata)` on an object the editor binds
 (UFabBrowserApi, Engine/Plugins/Fab/Source/Fab/Private/FabBrowserApi.h). This module loads that page in headless
 Chromium with a stand-in `window.ue.fab` that answers what the page asks (the access token, the API version,
@@ -24,7 +24,7 @@ import json
 import time
 from pathlib import Path
 
-FAB = "https://www.fab.com"
+FAB = "https://fab.com"  # UFabSettings::GetUrlFromEnvironment (Prod): the plugin's host
 API_VERSION = {"ue": "5.8", "api": "1.1.0", "pluginversion": "0.0.21", "platform": "Linux",
                "supportedfeatures": {"banners": True}, "selectedlocale": "en", "selectedlocalename": "English"}
 SETTINGS = {"preferredformat": "gltf", "preferredquality": "high"}

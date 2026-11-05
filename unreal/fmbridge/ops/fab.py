@@ -30,7 +30,10 @@ from . import op
 from ..errors import OpError
 
 FAB_API_CLASS = "/Script/Fab.FabBrowserApi"
-BASE_URLS = {"prod": "https://www.fab.com"}
+# UFabSettings::GetUrlFromEnvironment (Engine/Plugins/Fab/Source/Fab/Private/FabSettings.cpp:60-72): the apex host,
+# not www (www answers the private /e/ API with 403)
+BASE_URLS = {"prod": "https://fab.com", "gamedev": "https://fab.cceb.dev.use1a.on.epicgames.com",
+             "test": "https://fab.daec.live.use1a.on.epicgames.com"}
 # Megascans subtype by the json's categories[0] (QuixelAssetTypes.cpp ExtractMeta)
 SUBTYPES = {"3d": "3D", "surface": "Surfaces", "3dplant": "Plants", "atlas": "Decals"}
 TIERS = {0: "Raw", 1: "High", 2: "Medium", 3: "Low"}
@@ -78,7 +81,7 @@ def status() -> dict:
     (Linux needs ThirdParty/libBuildPatchInstallerLib.so for unreal-engine-format packs), the download cache.
 
     Returns: {"plugin", "signed_in", "saved_sign_ins": int, "pack_installer": bool, "cache_dir", "platform",
-             "next": what to do}. No token is returned.
+             "host": the Fab host the plugin uses, "next": what to do}. No token is returned.
     Example: film-ue op fab.status
     """
     try:
@@ -96,7 +99,8 @@ def status() -> dict:
            "fab.login portal=true once (device code: an operator approves it), then fab.login")
     return {"plugin": plugin, "signed_in": signed, "saved_sign_ins": saved,
             "pack_installer": os.path.isfile(os.path.join(third, lib)),
-            "cache_dir": os.path.join(tempfile.gettempdir(), "FabLibrary"), "platform": sys.platform, "next": nxt}
+            "cache_dir": os.path.join(tempfile.gettempdir(), "FabLibrary"), "platform": sys.platform,
+            "host": _base_url() if plugin else BASE_URLS["prod"], "next": nxt}
 
 
 @op("fab.login", mutates=True, idempotent=True, tags=["fab", "needs-epic-login"])
@@ -143,18 +147,64 @@ def _account_id(token: str) -> str:
         return ""
 
 
+def _base_url() -> str:
+    """The Fab host the plugin talks to: UFabSettings' environment, as GetUrlFromEnvironment maps it (Prod and
+    anything unknown -> https://fab.com)."""
+    try:
+        s = unreal.get_default_object(unreal.load_class(None, "/Script/Fab.FabSettings"))
+        v = s.get_editor_property("environment")
+        env = str(getattr(v, "name", None) or v).split(":")[0].rsplit(".", 1)[-1].strip("<> ").replace("_", "").lower()
+    except Exception:
+        return BASE_URLS["prod"]
+    if env == "customurl":
+        for k in ("custom_url", "custom_url_override"):
+            try:
+                url = str(s.get_editor_property(k) or "").rstrip("/")
+            except Exception:
+                continue
+            if url:
+                return url
+    return BASE_URLS.get(env, BASE_URLS["prod"])
+
+
+def _user_agent() -> str:
+    """What the editor's HTTP module sends (FGenericPlatformHttp::GetDefaultUserAgent: <project>/<version>
+    <platform>/<os>), not Python's default, which Fab's edge may refuse."""
+    import platform
+    try:
+        proj = str(unreal.SystemLibrary.get_game_name() or "UnrealEditor")
+        ver = str(unreal.SystemLibrary.get_engine_version() or "")
+    except Exception:
+        proj, ver = "UnrealEditor", ""
+    plat = {"linux": "Linux", "win32": "Windows", "darwin": "Mac"}.get(sys.platform, sys.platform)
+    return f"{proj}/{ver} {plat}/{platform.release()}".replace(" /", " ")
+
+
+def _headers(token: str = "") -> dict:
+    """The library request's headers exactly as FabMyFolderIntegration.cpp:66-68 sets them, plus the engine's UA."""
+    return {"accept": "application/json", "User-Agent": _user_agent(),
+            **({"Authorization": f"Bearer {token}"} if token else {})}
+
+
 def _get_json(url: str, token: str = "") -> dict:
     import urllib.request
-    req = urllib.request.Request(url, headers={"accept": "application/json",
-                                               **({"Authorization": f"Bearer {token}"} if token else {})})
+    req = urllib.request.Request(url, headers=_headers(token))
     with urllib.request.urlopen(req, timeout=30) as r:  # noqa: S310 (fixed https host)
         return json.loads(r.read().decode("utf-8"))
+
+
+def _library_url(account: str, count: int, cursor: str = "") -> str:
+    """FabMyFolderIntegration.cpp:58-71: <fab>/e/accounts/<account>/ue/library?count=N[&cursor="<next>"] (the
+    plugin quotes the cursor)."""
+    from urllib.parse import quote
+    return f"{_base_url()}/e/accounts/{quote(account, safe='')}/ue/library?count={int(count)}" + \
+        (f"&cursor={quote(chr(34) + cursor + chr(34), safe='')}" if cursor else "")
 
 
 @op("fab.library", mutates=False, idempotent=True, tags=["fab", "needs-epic-login", "experimental"])
 def library(*, query: str = "", limit: int = 100, account_id: str = "") -> dict:
     """The signed-in account's Fab library (what it owns), from the endpoint the plugin's My Folder uses
-    (GET <fab>/e/accounts/<account>/ue/library, FabMyFolderIntegration.cpp): title, asset id, listing type, the
+    (GET <fab>/e/accounts/<account>/ue/library with the same host, token and headers, FabMyFolderIntegration.cpp): title, asset id, listing type, the
     page url, and a thumbnail url.
 
     Args: query: keep items whose title/description contain these words. limit: at most this many. account_id: the
@@ -172,12 +222,15 @@ def library(*, query: str = "", limit: int = 100, account_id: str = "") -> dict:
                       hint="pass account_id= (the Epic account id)")
     items, cursor, words = [], "", [w.lower() for w in query.split()]
     for _ in range(50):
-        url = f"{BASE_URLS['prod']}/e/accounts/{acc}/ue/library?count=100" + (f"&cursor={cursor}" if cursor else "")
+        url = _library_url(acc, 100, cursor)
         try:
             data = _get_json(url, tok)
         except Exception as e:
+            code = getattr(e, "code", None)
             raise OpError(f"Fab library request failed: {type(e).__name__}: {str(e)[:200]}", code="engine",
-                          hint="fab.status; the endpoint is private and may have changed") from None
+                          details={"status": code, "host": _base_url()},
+                          hint="401/403: the sign-in expired (fab.login) or the host is wrong (FabSettings "
+                               "environment); the endpoint is private and may have changed") from None
         for it in data.get("results", []):
             text = f"{it.get('title', '')} {it.get('description', '')}".lower()
             if words and not all(w in text for w in words):
@@ -349,11 +402,13 @@ def add(*, url: str, metadata: dict = None, dest: str = "", replace: bool = Fals
     target = os.path.join(cache, fname)
     if not os.path.isfile(target):
         box = {"done": False, "error": None}
+        ua = _user_agent()  # on the game thread: the fetch thread makes no unreal calls
 
         def fetch():
             import urllib.request
             try:
-                with urllib.request.urlopen(url, timeout=600) as r, open(target + ".part", "wb") as fh:  # noqa: S310
+                req = urllib.request.Request(url, headers={"User-Agent": ua})  # FabDownloader: no auth
+                with urllib.request.urlopen(req, timeout=600) as r, open(target + ".part", "wb") as fh:  # noqa: S310
                     while True:
                         chunk = r.read(1 << 20)
                         if not chunk:
