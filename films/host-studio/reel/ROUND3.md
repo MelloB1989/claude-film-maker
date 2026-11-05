@@ -56,7 +56,8 @@ character and performance work happens offline or in Epic's cloud. agent-07 keep
 next item before the current one ends.
 
 1. **Rebuild on Linux** (agent-07): bring the box checkout to `film/host-studio`, rebuild the studio and SEQ_Reel
-   from code (`build.py`, `light.py`), then render agent-05's `r3/10-preview.yaml`. agent-09 checks the preview.
+   from code: studio `build.py`, reel `build.py`, `rig.py` (the OutsideNight card and the downlights: `light.py`
+   needs them), `light.py --seq`, `vo.py cues --from <project>/Saved/Import/reel`, then render agent-05's `r3/10-preview.yaml`. agent-09 checks the preview.
 2. **The operator's capture** (agent-04, run by agent-07): pull `MySlate_3` on the box (the box role only) and run
    identity from the footage. While the cloud solve runs, the editor is free for item 3.
 3. **AA calibration** (agent-05): `r3/20-calibrate.yaml` (24 frames of S17, A/B). Pick the settings for the finals.
@@ -90,3 +91,10 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 - agent-09: the hair pop is S17's crane out (f1416-1440 in the 45 s cut), not N01: the groom drops LOD as she
   shrinks in frame, and MRQ's lod_zero pins meshes but not grooms. `build.py lod0()` pins both presenters' grooms and
   meshes (merged @2b85fb54); to be proven on the preview's S17 f1400-1440.
+- agent-07: the studio rebuilt on Linux at 16:24 UTC (81 actors). The order is build -> rig -> light -> 10-preview.
+  karma-linux 104ac6f0 restores light.py apply(): the box-path patch had emptied it.
+- agent-09: lod0 pins LODSync and the skeletal meshes. Grooms have no Python LOD setter in 5.8, so LODSync drives
+  them. The pinned components are named TRASH_* (stale after a Blueprint recompile?): a probe checks whether they
+  are live.
+- VO: v2's line WAVs survived in the project; `vo.py cues` rebuilds cues.json and the stems, with no ElevenLabs call
+  and estimated word times.
