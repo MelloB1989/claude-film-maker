@@ -208,7 +208,63 @@ HAIR_ENDS = [(0.38, 0.62, 0.44, 0.76), (0.56, 0.62, 0.62, 0.76)]
 TEAL_MAX = 0.02  # ends' (g - r) / (r + g + b) over the roots' at most this
 
 
-def frames(root: str, eng: str | None, out: str) -> dict:
+# The mouth box for any presenter, no eyes on the frame (face rule): the speaker's lip bones projected through the
+# shot's camera at frames across the shot (cam.project), their extent plus a margin. MetaHuman face bones; when a face
+# has none of them, from the eyes (the mouth sits ~1 eye-span under their midpoint).
+LIP_BONES = ["FACIAL_C_LipUpper", "FACIAL_C_LipLower", "FACIAL_L_LipCorner", "FACIAL_R_LipCorner", "FACIAL_C_Jaw"]
+EYE_BONES = ["FACIAL_L_Eye", "FACIAL_R_Eye"]
+MOUTH_MARGIN = 0.5  # of the lips' extent, each side (the jaw drops ~that far on an open vowel)
+
+
+def mouth(out: str, shots: list | None = None, step: int = 12) -> dict:
+    from filmtools.unreal import client
+
+    def ok(res):
+        if not res.get("ok"):
+            raise SystemExit(res.get("stdout", "") + res.get("error", ""))
+        return res.get("result")
+
+    res = {}
+    for sid in shots or list(MOUTH):
+        s = next(x for x in SHOTS if x.id == sid)
+        lab = CAST[s.cast[0]]
+        us, vs, used, per = [], [], set(), {}
+        for f in sorted(set(range(s.start + 2, s.end - 2, step)) | {s.end - 3}):
+            ok(client.op("seq.scrub", path=SEQ, frame=f))
+            pts = {}
+            for b in LIP_BONES + EYE_BONES:
+                r = client.op("cam.project", camera=f"Reel_{sid}", points={b: f"{lab}:Face:{b}"})
+                if r.get("ok"):
+                    pts[b] = r["result"]["points"][b]
+            lips = {b: p for b, p in pts.items() if b in LIP_BONES and p.get("visible")}
+            if lips:
+                fu, fv = [p["u"] for p in lips.values()], [p["v"] for p in lips.values()]
+                used |= set(lips)
+            elif all(b in pts for b in EYE_BONES):
+                el, er = pts[EYE_BONES[0]], pts[EYE_BONES[1]]
+                span = max(1e-3, ((el["u"] - er["u"]) ** 2 + (el["v"] - er["v"]) ** 2) ** 0.5)
+                cu, cv = (el["u"] + er["u"]) / 2, (el["v"] + er["v"]) / 2 + span * 16 / 9  # v is in frame heights
+                fu, fv = [cu - span * 0.5, cu + span * 0.5], [cv - span * 0.25, cv + span * 0.25]
+                used.add("eyes")
+            else:
+                continue
+            per[f] = [round(min(fu), 4), round(min(fv), 4), round(max(fu), 4), round(max(fv), 4)]
+            us += fu
+            vs += fv
+        if not us:
+            res[sid] = {"who": s.cast[0], "box": None, "why": "no lip or eye bone projected into the frame"}
+            continue
+        w, h = max(us) - min(us), max(vs) - min(vs)
+        mw, mh = max(0.01, w * MOUTH_MARGIN), max(0.01, h * MOUTH_MARGIN)
+        box = [max(0.0, min(us) - mw), max(0.0, min(vs) - mh), min(1.0, max(us) + mw), min(1.0, max(vs) + mh)]
+        res[sid] = {"who": s.cast[0], "label": lab, "box": [round(x, 4) for x in box], "from": sorted(used),
+                    "per_frame": per}
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    Path(out).write_text(json.dumps(res, indent=1))
+    return {k: {x: v[x] for x in ("who", "box", "from") if x in v} for k, v in res.items()}
+
+
+def frames(root: str, eng: str | None, out: str, mouths: dict | None = None) -> dict:
     import numpy as np
     from PIL import Image
     from qa_review import frames as find
@@ -223,7 +279,10 @@ def frames(root: str, eng: str | None, out: str) -> dict:
                           np.float32)
 
     res = {"lips": {}, "hair": {}}
-    for sid, box in MOUTH.items():
+    boxes = dict(MOUTH)
+    boxes.update({k: tuple(v["box"]) for k, v in (mouths or {}).items() if v.get("box")})
+    res["mouth_boxes"] = boxes
+    for sid, box in boxes.items():
         s = next(x for x in SHOTS if x.id == sid)
         who = s.cast[0]
         on = {f for _, a, b in windows(who) for f in range(a, b)}
@@ -425,6 +484,10 @@ def main() -> None:
     f.add_argument("root")
     f.add_argument("--engine", default="")
     f.add_argument("--out", required=True)
+    f.add_argument("--mouth", default="", help="mouth.json from `mouth`: its boxes replace MOUTH's per shot")
+    m = sub.add_parser("mouth", help="the speaker's mouth box per shot, from the face's lip bones (engine)")
+    m.add_argument("--out", required=True, help="mouth.json")
+    m.add_argument("--shots", default="", help="S13,S16 (default: MOUTH's shots)")
     h = sub.add_parser("hair")
     h.add_argument("paths", nargs="+")
     h.add_argument("--out", required=True)
@@ -438,9 +501,12 @@ def main() -> None:
     if a.cmd == "hue":
         reg = {k: tuple(float(x) for x in v.split(",")) for k, v in (s.split("=", 1) for s in a.region)} or None
         r = hue(a.paths, a.out, [int(x) for x in a.frames.split(",")] if a.frames else None, reg)
+    elif a.cmd == "mouth":
+        r = mouth(a.out, a.shots.split(",") if a.shots else None)
+    elif a.cmd == "frames":
+        r = frames(a.root, a.engine or None, a.out, json.loads(Path(a.mouth).read_text()) if a.mouth else None)
     else:
-        r = (engine(a.out, a.stills) if a.cmd == "engine" else hair(a.paths, a.out) if a.cmd == "hair"
-             else frames(a.root, a.engine or None, a.out))
+        r = engine(a.out, a.stills) if a.cmd == "engine" else hair(a.paths, a.out)
     print(json.dumps(r, indent=1, default=str))
 
 
