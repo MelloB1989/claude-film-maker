@@ -57,7 +57,9 @@ next item before the current one ends.
 
 1. **Rebuild on Linux** (agent-07): bring the box checkout to `film/host-studio`, rebuild the studio and SEQ_Reel
    from code: studio `build.py`, reel `build.py`, `rig.py` (the OutsideNight card and the downlights: `light.py`
-   needs them), `light.py --seq`, `vo.py cues --from <project>/Saved/Import/reel`, then render agent-05's `r3/10-preview.yaml`. agent-09 checks the preview.
+   needs them), `light.py --seq`, `vo.py cues --from <project>/Saved/Import/reel`,
+   then REEL_PERF.md's 'Re-placing after a studio rebuild' runbook (her garments' leader pose with
+   `restore_leader.py`, `perf.py drive_faces`, `perf.py place`): without it the presenters stand unperformed, then render agent-05's `r3/10-preview.yaml`. agent-09 checks the preview.
 2. **The operator's capture** (agent-04, run by agent-07): pull `MySlate_3` on the box (the box role only) and run
    identity from the footage. While the cloud solve runs, the editor is free for item 3.
 3. **AA calibration** (agent-05): `r3/20-calibrate.yaml` (24 frames of S17, A/B). Pick the settings for the finals.
@@ -98,3 +100,5 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
   are live.
 - VO: v2's line WAVs survived in the project; `vo.py cues` rebuilds cues.json and the stems, with no ElevenLabs call
   and estimated word times.
+- agent-07: the first preview (16:29-16:52) ran before the re-place runbook, so its presenter shots don't show the
+  performances; its set shots are fine. 10-preview now takes `--set 'shots=[...]'` to re-render the presenter range.
