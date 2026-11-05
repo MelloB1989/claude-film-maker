@@ -1,0 +1,282 @@
+"""The cast gate (round 3, the orchestrator's rule): nothing with presenters goes to the operator until these pass,
+with numbers. Two halves:
+
+  engine (agent-07 runs it on the box, after the re-place runbook, before the cast preview renders):
+    cd tools && uv run python ../films/host-studio/reel/cast_gate.py engine --out /tmp/cast_gate.json
+  frames (agent-09, on the rendered cast preview, pulled):
+    python reel/cast_gate.py frames FRAMES_DIR --engine cast_gate.json --out DIR
+
+Checks:
+  a. lips: each speaker's face animation moves the jaw on their lines and is still between them (jawOpen per frame
+     from the composed face animation, by the line windows of cues.json); and on the frames, the mouth moves on the
+     lines (close shots: mouth-box change on vs off the lines).
+  b. garments: no skin through her Top/Trousers/Overshirt (or his garments) from the shot's camera at the start,
+     middle and end of every presenter shot (qa.penetration); and her watch on her left wrist (cm from the forearm
+     bone it rides) at the same frames.
+  c. hair: her hair's ends are not greener than its roots (S16 close-up: chromaticity ends minus crown).
+  d. alive: anim.check on each presenter's composed face (blink rate/regularity, head motion, gaze).
+  e. him too: the same checks on Host.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from shots import LINES, SHOTS  # noqa: E402
+
+SEQ = "/Game/Reel/SEQ_Reel"
+CAST = {"her": "Presenter", "him": "Host"}
+HER_GARMENTS = ["Top", "Trousers", "Overshirt"]
+WATCH, WATCH_BONE, WATCH_MAX_CM = "HerWatch", "lowerarm_twist_02_l", 8.0  # dress_her: 3.6 cm above the wrist
+JAW_ON_OFF = 3.0       # the jaw moves at least this many times more on a speaker's lines than between them
+PEN_MAX = 0.01         # at most 1% of a garment's pixels with skin through (qa.penetration's fraction)
+LIPS_RATIO = 2.0      # frames: mouth-box change on the lines over off them (preview 1, no lip-sync: 1.55; r1: 2.37)
+
+
+def presenter_shots():
+    return [s for s in SHOTS if getattr(s, "cast", ())]
+
+
+def windows(who: str) -> list:
+    """[(line, first, last)] master frames of `who`'s lines: cues.json's placement when it is there, else LINES."""
+    try:
+        from perf import cues  # vo.py's cues (cues.json, else cues_v2.json)
+        c = cues()
+        out = []
+        for k, w, f0, f1, _ in LINES:
+            if w == who and k in c:
+                x = c[k]
+                out.append((k, int(x.get("start", f0)), int(x.get("end", f1))))
+            elif w == who:
+                out.append((k, f0, f1))
+        return out
+    except Exception:  # noqa: BLE001 - no cues here: the plan's windows
+        return [(k, f0, f1) for k, w, f0, f1, _ in LINES if w == who]
+
+
+# ------------------------------------------------------------------------------------------------- engine half
+JAW = """
+import unreal
+AL = unreal.AnimationLibrary
+a = unreal.load_asset(ANIM)
+names = [str(n) for n in AL.get_animation_curve_names(a, unreal.RawCurveTrackTypes.RCT_FLOAT)]
+jaw = next((n for n in names if n.lower().endswith("jawopen")), None)
+t, v = (AL.get_float_keys(a, jaw) if jaw else ([], []))
+result = {"curve": jaw, "t": [round(x, 4) for x in t], "v": [round(x, 4) for x in v],
+          "rate": AL.get_frame_rate(a) if hasattr(AL, "get_frame_rate") else None,
+          "length_s": AL.get_sequence_length(a)}
+"""
+
+PARTS = """
+import unreal
+a = next(x for x in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors()
+         if x.get_actor_label() == LABEL)
+result = [c.get_name() for c in a.get_components_by_class(unreal.SkeletalMeshComponent)
+          if c.get_name() not in ("Body", "Face")]
+"""
+
+WATCH_AT = """
+import unreal
+w = next(x for x in unreal.get_editor_subsystem(unreal.EditorActorSubsystem).get_all_level_actors()
+         if x.get_actor_label() == WATCH)
+p = w.get_actor_location()
+result = [p.x, p.y, p.z]
+"""
+
+
+def _jaw_at(curve: dict, f: float, start: int, fps: float = 24.0) -> float:
+    """jawOpen at master frame f of a section starting at `start` (linear between keys)."""
+    t, v = curve["t"], curve["v"]
+    if not t:
+        return 0.0
+    x = (f - start) / fps
+    if x <= t[0]:
+        return v[0]
+    for k in range(1, len(t)):
+        if x <= t[k]:
+            a = (x - t[k - 1]) / max(1e-6, t[k] - t[k - 1])
+            return v[k - 1] + (v[k] - v[k - 1]) * a
+    return v[-1]
+
+
+def lips(who: str, face: list, ok, client) -> dict:
+    """Jaw activity on `who`'s lines vs between them, from the composed face animation(s) on the face track."""
+    curves = {}
+    for s in face or []:
+        if s["anim"] and s["anim"] not in curves:
+            curves[s["anim"]] = ok(client.exec_code(f"ANIM = {s['anim']!r}\n" + JAW))
+    shots = [s for s in presenter_shots() if who in s.cast]
+    span = [f for s in shots for f in range(s.start, s.end)]
+
+    def jaw(f):
+        sec = next((s for s in reversed(face or []) if s["anim"] and (s["start"] or 0) <= f
+                    and (s["end"] is None or f < s["end"])), None)
+        return _jaw_at(curves[sec["anim"]], f, sec["start"] or 0) if sec else 0.0
+
+    vals = {f: jaw(f) for f in span}
+    win = windows(who)
+    on = [f for _, a, b in win for f in range(a, b) if f in vals]
+    off = [f for f in span if f not in set(on)]
+    act = lambda fs: sum(abs(vals[f] - vals.get(f - 1, vals[f])) for f in fs) / max(1, len(fs))  # noqa: E731
+    per = {k: {"frames": [a, b], "jaw_max": round(max((vals[f] for f in range(a, b) if f in vals), default=0), 3),
+               "activity": round(act([f for f in range(a, b) if f in vals]), 4)} for k, a, b in win}
+    a_on, a_off = act(on), act(off)
+    ratio = a_on / max(a_off, 1e-4)
+    silent = [k for k, r in per.items() if r["jaw_max"] < 0.08]
+    return {"pass": bool(on) and ratio >= JAW_ON_OFF and not silent, "on_lines": round(a_on, 4),
+            "between": round(a_off, 4), "ratio": round(ratio, 1), "silent_lines": silent, "lines": per,
+            "anims": {k: v.get("curve") for k, v in curves.items()}}
+
+
+def engine(out: str) -> dict:
+    from filmtools.unreal import client
+
+    def ok(res):
+        if not res.get("ok"):
+            raise SystemExit(res.get("stdout", "") + res.get("error", ""))
+        return res.get("result")
+
+    rep = {"sequence": SEQ, "people": {}, "shots": {}}
+    for who, lab in CAST.items():
+        d = ok(client.op("perf.describe", sequence=SEQ, label=lab))
+        face = d.get("face") or []
+        anims = sorted({s["anim"] for s in face if s["anim"]})
+        checks = {a: ok(client.op("anim.check", anim=a)) for a in anims}
+        rep["people"][who] = {
+            "label": lab, "face_sections": face, "body_sections": d.get("body"),
+            "lips": lips(who, face, ok, client) if face else {"pass": False, "why": "no face animation on the track"},
+            "alive": {a: {"pass": c.get("pass"), "failed": c.get("failed"), "blinks": c.get("blinks")}
+                      for a, c in checks.items()},
+            "garments": ok(client.exec_code(f"LABEL = {lab!r}\n" + PARTS)) if lab != "Presenter" else HER_GARMENTS,
+        }
+    for s in presenter_shots():
+        r = {}
+        for f in (s.start + 2, (s.start + s.end) // 2, s.end - 3):
+            fr = {}
+            for who in s.cast:
+                lab = CAST[who]
+                p = ok(client.op("qa.penetration", label=lab, body=["Body", "Face"],
+                                 garments=rep["people"][who]["garments"], sequence=SEQ, frame=f, size_px=384))
+                fr[who] = {"pass": p.get("pass"), "worst_fraction": p["metrics"].get("worst_fraction")}
+            if "her" in s.cast:
+                ok(client.op("seq.scrub", path=SEQ, frame=f))
+                bone = ok(client.op("level.bone", label="Presenter", component="Body", bones=[WATCH_BONE]))
+                b = bone[WATCH_BONE] if isinstance(bone, dict) else bone[0]
+                w = ok(client.exec_code(f"WATCH = {WATCH!r}\n" + WATCH_AT))
+                cm = sum((x - y) ** 2 for x, y in zip(w, b)) ** 0.5
+                fr["watch_cm"] = round(cm, 1)
+            r[f] = fr
+        rep["shots"][s.id] = r
+    rep["summary"] = summary(rep)
+    Path(out).write_text(json.dumps(rep, indent=1, default=str))
+    return rep["summary"]
+
+
+def summary(rep: dict) -> dict:
+    s = {}
+    for who, p in rep["people"].items():
+        s[f"a.lips.{who}"] = p["lips"].get("pass")
+        s[f"d.alive.{who}"] = all(c["pass"] for c in p["alive"].values()) if p["alive"] else False
+    pen = [(sid, f, who, v) for sid, r in rep["shots"].items() for f, fr in r.items() for who, v in fr.items()
+           if isinstance(v, dict)]
+    s["b.garments"] = all(v["pass"] and (v["worst_fraction"] or 0) <= PEN_MAX for *_, v in pen)
+    s["b.garments_worst"] = sorted(pen, key=lambda x: -(x[3]["worst_fraction"] or 0))[:3]
+    w = [(sid, f, fr["watch_cm"]) for sid, r in rep["shots"].items() for f, fr in r.items() if "watch_cm" in fr]
+    s["b.watch"] = all(cm <= WATCH_MAX_CM for *_, cm in w)
+    s["b.watch_worst_cm"] = max((cm for *_, cm in w), default=None)
+    return s
+
+
+# ------------------------------------------------------------------------------------------------- frames half
+# Boxes (fractions of the 16:9 frame, x0,y0,x1,y1) per shot, set on round 3's preview framings: the speaker's mouth
+# in the close shots, and her hair. Wider shots are judged on the engine numbers and by eye on the sheets.
+MOUTH = {"S16": (0.48, 0.57, 0.56, 0.66), "S13": (0.47, 0.48, 0.53, 0.53)}
+# her hair in S16 (the close-up): the crown (roots) and the lengths beside her shoulders (ends). The defect is the
+# ends turning green/teal against the roots, so the measure is the ends' chromaticity minus the roots'.
+HAIR_ROOTS = (0.44, 0.21, 0.56, 0.28)
+HAIR_ENDS = [(0.38, 0.62, 0.44, 0.76), (0.56, 0.62, 0.62, 0.76)]
+TEAL_MAX = 0.02  # ends' (g - r) / (r + g + b) over the roots' at most this
+
+
+def frames(root: str, eng: str | None, out: str) -> dict:
+    import numpy as np
+    from PIL import Image
+    from qa_review import frames as find
+    fr = find(root)
+    o = Path(out)
+    o.mkdir(parents=True, exist_ok=True)
+
+    def crop(f, box, mode="RGB"):
+        im = Image.open(fr[f]).convert(mode)
+        w, h = im.size
+        return np.asarray(im.crop((round(box[0] * w), round(box[1] * h), round(box[2] * w), round(box[3] * h))),
+                          np.float32)
+
+    res = {"lips": {}, "hair": {}}
+    for sid, box in MOUTH.items():
+        s = next(x for x in SHOTS if x.id == sid)
+        who = s.cast[0]
+        on = {f for _, a, b in windows(who) for f in range(a, b)}
+        d = {}
+        for f in range(s.start + 1, s.end):
+            if f in fr and f - 1 in fr:
+                d[f] = float(np.mean(np.abs(crop(f, box, "L") - crop(f - 1, box, "L"))))
+        a_on = [v for f, v in d.items() if f in on]
+        a_off = [v for f, v in d.items() if f not in on]
+        if a_on and a_off:
+            r = (sum(a_on) / len(a_on)) / max(1e-3, sum(a_off) / len(a_off))
+            res["lips"][sid] = {"who": who, "on": round(sum(a_on) / len(a_on), 3),
+                                "off": round(sum(a_off) / len(a_off), 3), "ratio": round(r, 2), "pass": r >= LIPS_RATIO}
+        else:
+            res["lips"][sid] = {"who": who, "pass": None, "why": "no speaking (or no silent) frames in this shot"}
+    s16 = next(x for x in SHOTS if x.id == "S16")
+
+    def chroma(c):
+        lum = c.sum(axis=2)
+        m = (lum > 24) & (lum < 240)  # the hair: dark, not the black of a gap
+        if m.sum() < 30:
+            return None
+        r, g, b = (c[..., i][m].sum() for i in range(3))
+        t = r + g + b
+        return (g - r) / t, (b - r) / t
+
+    vals = []
+    for f in range(s16.start, s16.end, 8):
+        if f not in fr:
+            continue
+        root = chroma(crop(f, HAIR_ROOTS))
+        ends = [chroma(crop(f, b)) for b in HAIR_ENDS]
+        ends = [e for e in ends if e]
+        if root and ends:
+            g = sum(e[0] for e in ends) / len(ends) - root[0]
+            b = sum(e[1] for e in ends) / len(ends) - root[1]
+            vals.append({"frame": f, "teal_g": round(float(g), 4), "teal_b": round(float(b), 4)})
+    worst = max(vals, key=lambda v: v["teal_g"], default=None)
+    res["hair"]["S16"] = {"pass": worst is not None and worst["teal_g"] <= TEAL_MAX, "worst": worst, "n": len(vals),
+                          "threshold": TEAL_MAX}
+    if eng:
+        res["engine"] = json.loads(Path(eng).read_text()).get("summary")
+    (o / "cast_gate_frames.json").write_text(json.dumps(res, indent=1))
+    return res
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    e = sub.add_parser("engine")
+    e.add_argument("--out", required=True)
+    f = sub.add_parser("frames")
+    f.add_argument("root")
+    f.add_argument("--engine", default="")
+    f.add_argument("--out", required=True)
+    a = ap.parse_args()
+    r = engine(a.out) if a.cmd == "engine" else frames(a.root, a.engine or None, a.out)
+    print(json.dumps(r, indent=1, default=str))
+
+
+if __name__ == "__main__":
+    main()
