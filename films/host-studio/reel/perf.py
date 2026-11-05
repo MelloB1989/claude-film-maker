@@ -511,66 +511,39 @@ def verify(who: str) -> dict:
         if b - a > 24:
             silent.append({"frames": [a, b], **span(sec(a), sec(b))})
     chk = ok(client.op("anim.check", anim=face))
-    turn = ok(client.exec_code(f"PARAMS = {json.dumps(json.dumps([f'{ANIM}/AS_reel_{who}_body', face]))}\n" + TURN))
+    turn = head_turns(who)
     return {"face": face, "curves": sorted(got), "lines": lines, "silences": silent,
             "all_lines_lip_sync": all(x["lip_sync"] for x in lines.values()),
             "check": {"pass": chk.get("pass"), "failed": chk.get("failed")}, "turn": turn}
 
 
-# How far the neck and head turn in the body animation (what the body plays; sync put the face's turn there) and in
-# the placed face: the largest rotation of neck_01 + neck_02 + head from their pose at the start, per animation. On
-# 5.8 no face curve turns the head, so a planned look that never reaches these bones is a head that does not turn.
-TURN = r"""
-import json, math, unreal
-AL, X = unreal.AnimationLibrary, unreal.AnimPoseExtensions
-def angle(a, b):  # degrees between two quaternions
-    d = abs(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w)
-    return math.degrees(2 * math.acos(min(1.0, d)))
-out = {}
-for path in json.loads(PARAMS):
-    a = unreal.load_asset(path)
-    if a is None:
-        out[path] = None
-        continue
-    L = float(AL.get_sequence_length(a))
-    n = max(2, int(L * 10))
-    first, best = None, (0.0, 0.0)
-    for k in range(n + 1):
-        t = L * k / n
-        pose = X.get_anim_pose_at_time(a, t, unreal.AnimPoseEvaluationOptions())
-        qs = [X.get_bone_pose(pose, b, unreal.AnimPoseSpaces.LOCAL).rotation for b in ("neck_01", "neck_02", "head")]
-        if first is None:
-            first = qs
-        tot = sum(angle(q, q0) for q, q0 in zip(qs, first))
-        if tot > best[0]:
-            best = (tot, t)
-    out[path] = {"max_deg": round(best[0], 1), "at_s": round(best[1], 2)}
-result = out
-"""
+# Where each presenter's face points on SEQ_Reel (what renders), sampled at a lens frame and at their planned looks:
+# the horizontal angle between the face's forward (head bone -> between the eyes) there and at the lens frame,
+# + = to the presenter's own left. (On 5.8 no face curve turns the head: a look that never reaches the body's neck
+# shows here as ~0.) The expected values are the planned head share of each look (events()).
+LOOKS = {"her": {"lens": 1240, "looks": {"watching him (S15)": [1100, 30.0], "glance on 'comes around'": [1392, 26.0]}},
+         "him": {"lens": 1050, "looks": {"over his right shoulder (S15)": [1170, -65.0],
+                                         "glance on 'comes around'": [1392, -33.0]}}}
 
 
-def blinks_together(closed: float = 0.5) -> dict:
-    """Master frames where both presenters' eyes are shut at once (eyeBlinkL over `closed` on both placed faces),
-    over the frames both are on screen (agent-05's AA still at f1344 caught them blinking together in v2, whose
-    blinks came from two independent solves). Round 3 plans each face's blinks with its own seed."""
-    def shut(who):
-        t, v = ok(client.op("anim.read_curves", anim=final_face(who), names=["CTRL_expressions_eyeBlinkL"])).get(
-            "CTRL_expressions_eyeBlinkL", [[], []])
-        out = set()
-        for f in range(START[who], END + 1):
-            x = (f - START[who]) / FPS
-            i = min(range(len(t)), key=lambda k: abs(t[k] - x)) if t else None
-            if i is not None and v[i] > closed:
-                out.add(f)
-        return out
-    both = sorted(shut("him") & shut("her"))
-    runs = []
-    for f in both:
-        if runs and f == runs[-1][1] + 1:
-            runs[-1][1] = f
-        else:
-            runs.append([f, f])
-    return {"frames_together": len(both), "runs": runs, "pass": not runs}
+def head_turns(who: str, path: str = "/Game/Reel/SEQ_Reel") -> dict:
+    import math
+    spec = LOOKS[who]
+    frames = [spec["lens"]] + [f for f, _ in spec["looks"].values()]
+    smp = ok(client.op("seq.sample", path=path, actor_label=LABEL[who], component="Face",
+                       bones=["FACIAL_L_Eye", "FACIAL_R_Eye", "head"], frames=frames, ticks=4, timeout=600))
+    b = smp["bones"]
+
+    def heading(i):  # degrees, world, of head -> mid-eye
+        mid = [(b["FACIAL_L_Eye"][i][k] + b["FACIAL_R_Eye"][i][k]) / 2 for k in range(2)]
+        return math.degrees(math.atan2(mid[1] - b["head"][i][1], mid[0] - b["head"][i][0]))
+    h0 = heading(0)
+    out = {}
+    for i, (name, (f, want)) in enumerate(spec["looks"].items(), start=1):
+        d = (heading(i) - h0 + 180) % 360 - 180
+        got = -d  # world yaw + is counter-clockwise from above; Unreal is left-handed, so a turn to the left is -
+        out[name] = {"frame": f, "deg": round(got, 1), "planned": want, "turned": abs(got) >= 0.4 * abs(want)}
+    return {"lens_frame": spec["lens"], "looks": out, "pass": all(x["turned"] for x in out.values())}
 
 
 def calibrate_body(who: str) -> dict:
