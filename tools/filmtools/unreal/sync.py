@@ -67,22 +67,38 @@ def private_paths() -> tuple:
     return PRIVATE_EXCLUDES + tuple(extra if isinstance(extra, (list, tuple)) else [extra])
 
 
-def _excl() -> str:
+def is_private(s3: str) -> bool:
+    """A destination under a .../private/ prefix (SSE-KMS, readable by the box's role only)."""
+    return "/private/" in s3.rstrip("/") + "/"
+
+
+def _guard(up: bool, s3: str, what: str) -> None:
+    """Once a real person's face data is on the box (the box setting face_data, set when it lands), an upload goes to a
+    private prefix or nowhere: the operator's rule (round 3). Downloads are not affected."""
+    if up and ws.conf().get("face_data") and not is_private(s3):
+        raise SystemExit(f"{what}: this box holds face-derived data (face_data is set), so uploads go only under a "
+                         f".../private/ prefix, not {s3}: film-ue set --project-s3 / --ddc-s3 s3://BUCKET/ue-linux/"
+                         "private/...")
+
+
+def _excl(s3: str = "") -> str:
+    priv = [] if s3 and is_private(s3) else private_paths()  # a private destination may hold them; nothing else may
     return " ".join([f"--exclude {shlex.quote(x)}" for x in PROJECT_EXCLUDES] +
                     [f"--include {shlex.quote(x)}" for x in PROJECT_INCLUDES] +  # the later filter wins
-                    [f"--exclude {shlex.quote(x)}" for x in private_paths()])  # so the private ones go last
+                    [f"--exclude {shlex.quote(x)}" for x in priv])  # so the private ones go last
 
 
 def project_script(direction: str, delete: bool = False) -> str:
     """The shell (bash, on the box, as the editor's user) for a project sync."""
     if direction not in ("up", "down"):
         raise SystemExit(f"sync project {direction}: up (box -> S3) or down (S3 -> box)")
+    _guard(direction == "up", project_s3(), "sync project up")
     pd, s3 = shlex.quote(ws.conf()["project_dir"]), shlex.quote(project_s3())
     region = shlex.quote(ws.conf()["region"])
     d = " --delete" if delete else ""
     src, dst = (pd, s3) if direction == "up" else (s3, pd)
     return (f"mkdir -p {pd}\n"
-            f"aws s3 sync --only-show-errors --no-progress --region {region}{d} {_excl()} {src} {dst}\n"
+            f"aws s3 sync --only-show-errors --no-progress --region {region}{d} {_excl(project_s3())} {src} {dst}\n"
             f"echo synced={direction}\n")
 
 
@@ -91,6 +107,7 @@ def ddc_script(direction: str, version: str = "") -> str:
         raise SystemExit(f"sync ddc {direction}: save (box -> S3) or restore (S3 -> box)")
     c = ws.conf()
     s3, region = ddc_s3(version), shlex.quote(c["region"])
+    _guard(direction == "save", s3, "sync ddc save")
     engine = c.get("engine_dir") or "/srv/ue/engine"
     pairs = [(ZEN, f"{s3}/zen-data"), (f"{engine}/Engine/DerivedDataCache", f"{s3}/engine-ddc"),
              (BoxPaths.current().ddc(), f"{s3}/project-ddc")]

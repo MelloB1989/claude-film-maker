@@ -100,3 +100,21 @@ def test_a_real_persons_face_assets_never_sync(box):
             assert s.index(f"--exclude {x}") > s.index("--include 'Plugins/*/Binaries/Linux/*'")
     ws.save(private_paths=["Content/People/*"])
     assert "--exclude 'Content/People/*'" in sync.project_script("up")
+
+
+def test_once_face_data_is_on_the_box_uploads_go_private_only(box):
+    """The operator's rule (round 3): with face-derived data on the box, the project and the DDC are saved only under
+    .../private/ (SSE-KMS, the box's role alone reads it); a private destination keeps the face assets, nothing else may."""
+    assert "--exclude 'Content/Host/OperatorCapture/*'" in sync.project_script("up")
+    sync.ddc_script("save")  # no face data yet: the normal prefix is fine
+    ws.save(face_data="yes")
+    with pytest.raises(SystemExit, match="private"):
+        sync.project_script("up")
+    with pytest.raises(SystemExit, match="private"):
+        sync.ddc_script("save")
+    assert "s3://bkt/ue-projects/Demo /srv/ue/projects/Demo" in sync.project_script("down")  # downloads unaffected
+    sync.ddc_script("restore")
+    ws.save(project_s3="s3://bkt/ue-linux/private/project/HostStudio", ddc_s3="s3://bkt/ue-linux/private/ddc/5.8.4")
+    up = sync.project_script("up")
+    assert "s3://bkt/ue-linux/private/project/HostStudio" in up and "OperatorCapture" not in up
+    assert "s3://bkt/ue-linux/private/ddc/5.8.4/zen-data" in sync.ddc_script("save")

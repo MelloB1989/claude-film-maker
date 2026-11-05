@@ -220,7 +220,7 @@ def _after_box(argv: list) -> list:
 
 
 SETTINGS = ("instance", "region", "os", "project_dir", "key", "bucket", "user", "service", "local_port", "transport",
-            "ssh", "ssh_key", "bridge", "epic_s3")
+            "ssh", "ssh_key", "bridge", "epic_s3", "project_s3", "ddc_s3", "face_data")
 
 
 def build_parser():
@@ -232,7 +232,8 @@ def build_parser():
     s = sub.add_parser("set")
     for k in SETTINGS:
         s.add_argument("--" + k.replace("_", "-"), type=int if k == "local_port" else str,
-                       choices={"os": ("windows", "linux"), "transport": ("ssm", "ssh"), "bridge": ("tunnel", "ssm")}.get(k))
+                       choices={"os": ("windows", "linux"), "transport": ("ssm", "ssh"), "bridge": ("tunnel", "ssm"),
+                                "face_data": ("yes", "")}.get(k))
     u = sub.add_parser("up")
     u.add_argument("--no-wait", action="store_true", help="Linux: do not wait for the bridge")
     for n in ("down", "status", "password", "install", "health", "tunnel", "close"):
