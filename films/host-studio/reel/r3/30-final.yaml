@@ -11,7 +11,8 @@ files: [vars.yaml]
 kind: vars
 vars:
   batch: set
-  shots: [Reel_V01, Reel_V02, Reel_V03, Reel_V04, Reel_V05, Reel_S11, Reel_S12, Reel_N01]
+  # V04 waits for agent-09's fix of the sun-to-zero brightness step at f530: then --set batch=V04 --set 'shots=["Reel_V04"]'
+  shots: [Reel_V01, Reel_V02, Reel_V03, Reel_V05, Reel_S11, Reel_S12, Reel_N01]
   overwrite: false
   aa: tsr
   spatial: 1

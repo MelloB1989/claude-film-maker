@@ -92,19 +92,13 @@ def run(t):
         worn = (t.op("mh.palette", character=ch)["selected"].get("Hair") or {}).get("item", "")
         core = lambda n: n.rsplit("/", 1)[-1].lower().removeprefix("wi_").removesuffix("_binding")
         hair = [h for h in hair if core(h) != core(worn)] + [h for h in hair if core(h) == core(worn)]
-        r = t.op("mh.groom", character=ch, slot="Hair", item=hair[0], melanin=0.95, redness=0.05)
-        if inspect.isgenerator(r):  # the instance is assembling (live it may take ticks)
-            r = yield from r
+        r = t.op("mh.groom", character=ch, slot="Hair", item=hair[0])
         t.ok("hair worn", r["changed"], detail=str(r))
-        t.check("hair colour set", [r["params"]["Melanin"], r["params"]["Redness"]], [0.95, 0.05], tol=1e-3)
         t.idempotent("the same groom again changes nothing (no second palette entry)", "mh.groom", character=ch,
-                     slot="Hair", item=hair[0], melanin=0.95, redness=0.05)
-        ip = t.op("mh.item_params", character=ch, slot="Hair")
-        if inspect.isgenerator(ip):
-            ip = yield from ip
-        t.ok("groom parameters listed", "Melanin" in ip["params"], detail=str(sorted(ip["params"])))
-        t.raises("a misspelt parameter suggests", "mh.item_set", code="bad_args", character=ch, slot="Hair",
-                 params={"Melanine": 0.5})
+                     slot="Hair", item=hair[0])
+        # live 5.8.4: item parameters exist only once the character can be assembled (rigged and textured): part 2
+        t.raises("groom colour before the rig says what to run", "mh.groom", code="not_ready", character=ch,
+                 slot="Hair", melanin=0.95)
     t.op("mh.clear_slot", character=ch, slot="Beard")
     pal = t.op("mh.palette", character=ch)
     t.ok("palette lists slots", "Hair" in pal["slots"], detail=str(pal["slots"]))
@@ -181,6 +175,21 @@ def run(t):
     t.ok("build makes the Blueprint", bool(r["bp"]), detail=str(r))
     t.metric("build_s", r["seconds"], "s")
     t.idempotent("build again: up to date", "mh.build", character=ch, bp_name=p + "A")
+    if hair:  # item parameters exist once the collection is built (live 5.8.4): colour, then build again
+        g = t.op("mh.groom", character=ch, slot="Hair", melanin=0.95, redness=0.05)
+        if inspect.isgenerator(g):
+            g = yield from g
+        t.check("hair colour set", [g["params"]["Melanin"], g["params"]["Redness"]], [0.95, 0.05], tol=1e-3)
+        t.idempotent("the same colour again changes nothing", "mh.groom", character=ch, slot="Hair", melanin=0.95,
+                     redness=0.05)
+        ip = t.op("mh.item_params", character=ch, slot="Hair")
+        if inspect.isgenerator(ip):
+            ip = yield from ip
+        t.ok("groom parameters listed", "Melanin" in ip["params"], detail=str(sorted(ip["params"])))
+        t.raises("a misspelt parameter suggests", "mh.item_set", code="bad_args", character=ch, slot="Hair",
+                 params={"Melanine": 0.5})
+        rb = t.op("mh.build", character=ch, bp_name=p + "A")
+        t.ok("the colour change rebuilds", rb["changed"], detail=str(rb))
     d = t.op("mh.describe", path=ch)
     t.ok("describe: built and not stale", not d["build"]["stale"] and not d["rig_stale"], detail=str(d["build"]))
 

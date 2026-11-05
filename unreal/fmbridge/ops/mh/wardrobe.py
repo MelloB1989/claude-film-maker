@@ -141,6 +141,14 @@ def _assemble(inst):
                           hint="editor log LogMetaHuman*; run the op again")
         yield 0.1
     _PENDING.pop(key, None)
+    if "FAILED" in str(st["result"]).upper():
+        # live 5.8.4 (day 1): LogMetaHumanCharacterPalette 'Failed to assemble Instance ..., as the referenced
+        # Collection ... has not been built' (the callback fires at once with FAILED): no item parameters until then
+        raise OpError(f"{key}: the MetaHuman assembly failed (its collection is not built), so its items have no "
+                      "parameters yet", code="not_ready",
+                      hint="item parameters (groom colour, garment colours) exist once the character has been built: "
+                           "mh.rig, mh.textures, mh.build first, then set them and mh.build again (mh.apply orders "
+                           "it so); the editor log says why under LogMetaHumanCharacterPalette")
     _ASSEMBLED[key] = sig
     return True
 
@@ -228,7 +236,10 @@ def selections(c, params: bool = True) -> dict:
         except Exception:
             pass
         if params:
-            got = _eager(_params_assembled(inst, sel))
+            try:
+                got = _eager(_params_assembled(inst, sel))
+            except OpError:  # not assembled (live: the collection is not built yet): no parameters to show
+                got = []
             if inspect.isgenerator(got):  # the engine assembles across ticks: what is there now (often nothing)
                 got.close()
                 got = _params(inst, sel)
@@ -437,5 +448,5 @@ def _run(res):
 
 def _groom_keep(character, slot, p, save):
     r = (yield from _run(item_set(character=character, slot=slot, params=p, save=save))) if p else {"changed": False}
-    ip = yield from _run(item_params(character=character, slot=slot))
-    return {"slot": slot, "item": ip["item"], **r}
+    worn = selections(K.char(character), False).get(slot)
+    return {"slot": slot, "item": worn["item"] if worn else None, **r}

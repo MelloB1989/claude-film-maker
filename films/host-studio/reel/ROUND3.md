@@ -56,7 +56,10 @@ character and performance work happens offline or in Epic's cloud. agent-07 keep
 next item before the current one ends.
 
 1. **Rebuild on Linux** (agent-07): bring the box checkout to `film/host-studio`, rebuild the studio and SEQ_Reel
-   from code (`build.py`, `light.py`), then render agent-05's `r3/10-preview.yaml`. agent-09 checks the preview.
+   from code: studio `build.py`, reel `build.py`, `rig.py` (the OutsideNight card and the downlights: `light.py`
+   needs them), `light.py --seq`, `vo.py cues --from <project>/Saved/Import/reel`,
+   then REEL_PERF.md's 'Re-placing after a studio rebuild' runbook (her garments' leader pose with
+   `restore_leader.py`, `perf.py drive_faces`, `perf.py place`): without it the presenters stand unperformed, then render agent-05's `r3/10-preview.yaml`. agent-09 checks the preview.
 2. **The operator's capture** (agent-04, run by agent-07): pull `MySlate_3` on the box (the box role only) and run
    identity from the footage. While the cloud solve runs, the editor is free for item 3.
 3. **AA calibration** (agent-05): `r3/20-calibrate.yaml` (24 frames of S17, A/B). Pick the settings for the finals.
@@ -90,3 +93,18 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 - agent-09: the hair pop is S17's crane out (f1416-1440 in the 45 s cut), not N01: the groom drops LOD as she
   shrinks in frame, and MRQ's lod_zero pins meshes but not grooms. `build.py lod0()` pins both presenters' grooms and
   meshes (merged @2b85fb54); to be proven on the preview's S17 f1400-1440.
+- agent-07: the studio rebuilt on Linux at 16:24 UTC (81 actors). The order is build -> rig -> light -> 10-preview.
+  karma-linux 104ac6f0 restores light.py apply(): the box-path patch had emptied it.
+- agent-09: lod0 pins LODSync and the skeletal meshes. Grooms have no Python LOD setter in 5.8, so LODSync drives
+  them. The pinned components are named TRASH_* (stale after a Blueprint recompile?): a probe checks whether they
+  are live.
+- VO: v2's line WAVs survived in the project; `vo.py cues` rebuilds cues.json and the stems, with no ElevenLabs call
+  and estimated word times.
+- agent-07: the first preview (16:29-16:52) ran before the re-place runbook, so its presenter shots don't show the
+  performances; its set shots are fine. 10-preview now takes `--set 'shots=[...]'` to re-render the presenter range.
+- Preview 1 QA (agent-09, 16:30 build): all 1560 frames are there. V01-V03, V05, S11 (the halo letter by letter),
+  S12 (downlights on the beats) and N01 are OK. **V04 has a one-frame brightness step at f530** (luma 98 -> 77): the
+  sun's intensity reaches exactly 0 there. agent-09 is fixing it in light.py (end at ~2 lux, off once BLUE), so V04's
+  final waits. The report marks V01 'incomplete' with all frames on disk: a core counting bug (agent-05).
+- Host and Presenter are fresh after the rebuild: no TRASH_* components. Him placed; she is placed by agent-01's steps.
+- Set-shot finals (without V04) start after the AA calibration.

@@ -243,13 +243,24 @@ def plan(spec: dict, state: dict | None) -> list:
                 step(f"mh.{part}", {"path": path, "settings": spec[part]}, f"{part} differ")
                 looks = True
     ward = state.get("wardrobe") or {}
+    # item parameters (groom colour, garment colours) exist only once the character's collection is built (live
+    # 5.8.4): wear the item now, set its parameters after the build, then build again
+    later = []
+    rig = spec.get("rig", "full")
+    builds = spec.get("build", {} if rig and rig != "none" else False) not in (False, None)
     for slot, g in (spec.get("grooms") or {}).items():
         if slot not in GROOM_SLOTS:
             raise ValueError(f"grooms: {slot!r} is not a groom slot ({', '.join(GROOM_SLOTS)})")
         a = _groom_args(spec, slot, g)
+        if not builds:  # no build, no item parameters: colours wait for a spec that builds
+            a = {k: v for k, v in a.items() if k not in ("melanin", "redness", "params")}
         if fresh or _groom_differs(a, ward.get(slot)):
-            step("mh.groom", a, f"{slot} groom differs")
-            looks = True
+            colour = {k: a.pop(k) for k in ("melanin", "redness", "params") if a.get(k) is not None}
+            if a.get("item") and (fresh or _groom_differs(a, ward.get(slot))):
+                step("mh.groom", a, f"{slot} groom differs")
+                looks = True
+            if colour:  # baked by the build after it
+                later.append(("mh.groom", {"character": path, "slot": slot, **colour}, f"{slot} colour differs"))
     if "outfit" in spec:
         o = spec["outfit"]
         if o in (None, "none", False):
@@ -260,8 +271,13 @@ def plan(spec: dict, state: dict | None) -> list:
             a = {"character": path, "item": o["item"], "slot": "Outfits", **({"params": o["params"]} if o.get("params")
                                                                            else {})}
             if fresh or _groom_differs({**a, "slot": "Outfits"}, ward.get("Outfits")):
-                step("mh.add_item", a, "the outfit differs")
-                looks = True
+                params = a.pop("params", None)
+                if fresh or _groom_differs({**a, "slot": "Outfits"}, ward.get("Outfits")):
+                    step("mh.add_item", a, "the outfit differs")
+                    looks = True
+                if params:
+                    later.append(("mh.item_set", {"character": path, "slot": "Outfits", "params": params},
+                                  "the outfit's colours differ"))
     rig = spec.get("rig", "full")
     if rig and rig != "none":
         if fresh or shaped or state.get("rigged") is False or state.get("rig_stale"):
@@ -283,6 +299,10 @@ def plan(spec: dict, state: dict | None) -> list:
         if fresh or looks or renamed or (state.get("build") or {}).get("stale", True):
             step("mh.build", {"character": path, "name": name, **b},
                  "nothing built yet" if not have_bp else "what the build bakes changed")
+        if later:
+            for op, args, why in later:
+                step(op, args, why)
+            step("mh.build", {"character": path, "name": name, **b}, "bake the item parameters set after the build")
     if spec.get("dress"):
         d = spec["dress"]
         have = state.get("dress") or {}
