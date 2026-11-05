@@ -407,16 +407,43 @@ def events(who: str) -> dict:
     }
 
 
-def naturalize(who: str, plot: bool = True) -> dict:
+def _blink_spans(who: str, plan: list) -> list:
+    """A face's planned blinks as master-frame spans [f0, f1]."""
+    return [[START[who] + b["t"] * FPS, START[who] + (b["t"] + b["dur_s"]) * FPS] for b in plan]
+
+
+def _clash(a: list, b: list, pad: float = 2.0) -> list:
+    """The spans of `a` that overlap a span of `b` (within `pad` frames)."""
+    return [x for x in a if any(x[0] < y[1] + pad and y[0] < x[1] + pad for y in b)]
+
+
+def naturalize(who: str, plot: bool = True, tries: int = 8) -> dict:
     """perf.face over the composed solve -> ANIM/AS_reel_<who>_face (what sync, gaze and place use, as in v2). Needs
-    `compose` (r3) and perf.calibrate on the presenter's face (`calibrate`)."""
+    `compose` (r3) and perf.calibrate on the presenter's face (`calibrate`). When the other presenter's face has been
+    made, the blinks are planned around theirs: two people blinking on the same frame reads as a glitch in a two-shot
+    (agent-05's AA still, f1344), and independent plans meet about once in the 20 s they share; the seed moves on
+    until no blink of this face overlaps one of theirs. The plan's blinks are kept in OUT/blinks_<who>.json."""
     e = events(who)
-    args = {"anim": f"{ANIM}/AS_reel_{who}_solve", "out": f"{ANIM}/AS_reel_{who}_face",
-            "wav": _j(IMPORT, f"stem_{who}.wav"), "solver_head": "soften", "blink_mode": "replace",
-            "mouth_mix": 0.5, "seed": SEED[who], **e}
-    if plot:
-        args["plot"] = _j(REMOTE_STILLS, f"perf_{who}_face.png")
-    return ok(client.op("perf.face", timeout=900, **args))
+    other = "her" if who == "him" else "him"
+    theirs_p = OUT / f"blinks_{other}.json"
+    theirs = json.loads(theirs_p.read_text()) if theirs_p.exists() else []
+    seed, r, clash = SEED[who], None, []
+    for k in range(tries):
+        args = {"anim": f"{ANIM}/AS_reel_{who}_solve", "out": f"{ANIM}/AS_reel_{who}_face",
+                "wav": _j(IMPORT, f"stem_{who}.wav"), "solver_head": "soften", "blink_mode": "replace",
+                "mouth_mix": 0.5, "seed": seed, **e}
+        if plot:
+            args["plot"] = _j(REMOTE_STILLS, f"perf_{who}_face.png")
+        r = ok(client.op("perf.face", timeout=900, **args))
+        mine = _blink_spans(who, r["plan"]["blinks"])
+        clash = _clash(mine, theirs)
+        if not clash:
+            break
+        seed += 100
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / f"blinks_{who}.json").write_text(json.dumps(mine))
+    r["blinks"] = {"seed": seed, "tries": k + 1, "with_" + other: bool(theirs), "clash_frames": clash}
+    return r
 
 
 def calibrate(who: str) -> dict:
@@ -461,6 +488,30 @@ def verify(who: str) -> dict:
     return {"face": face, "curves": sorted(got), "lines": lines, "silences": silent,
             "all_lines_lip_sync": all(x["lip_sync"] for x in lines.values()),
             "check": {"pass": chk.get("pass"), "failed": chk.get("failed")}}
+
+
+def blinks_together(closed: float = 0.5) -> dict:
+    """Master frames where both presenters' eyes are shut at once (eyeBlinkL over `closed` on both placed faces),
+    over the frames both are on screen (agent-05's AA still at f1344 caught them blinking together in v2, whose
+    blinks came from two independent solves). Round 3 plans each face's blinks with its own seed."""
+    def shut(who):
+        t, v = ok(client.op("anim.read_curves", anim=final_face(who), names=["CTRL_expressions_eyeBlinkL"])).get(
+            "CTRL_expressions_eyeBlinkL", [[], []])
+        out = set()
+        for f in range(START[who], END + 1):
+            x = (f - START[who]) / FPS
+            i = min(range(len(t)), key=lambda k: abs(t[k] - x)) if t else None
+            if i is not None and v[i] > closed:
+                out.add(f)
+        return out
+    both = sorted(shut("him") & shut("her"))
+    runs = []
+    for f in both:
+        if runs and f == runs[-1][1] + 1:
+            runs[-1][1] = f
+        else:
+            runs.append([f, f])
+    return {"frames_together": len(both), "runs": runs, "pass": not runs}
 
 
 def calibrate_body(who: str) -> dict:
@@ -947,6 +998,8 @@ def main() -> None:
             else:
                 r = globals()[a.cmd](w)
             print(w, json.dumps(r, default=str))
+        if a.cmd == "verify" and set(a.who.split(",")) == {"him", "her"}:
+            print("both", json.dumps(blinks_together()))
     elif a.cmd == "cleanup":
         print(json.dumps(cleanup()))
     elif a.cmd == "drive_faces":
