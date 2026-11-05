@@ -159,6 +159,12 @@ Updated through the night:
   - The gaze-lock clip offset.
   - The hidden TraceTypeQuery enum (ECC_VISIBILITY).
   - `env.quality` writing project settings on the CDO (modal-dialog risk).
+- **Open from the last audit (agent-02's anim.py pass, sent to agent-01 at the end of the night):** if they are
+  not fixed on `ue-helpers` when you read this, expect these on the anim selftest:
+  - `anim.rig_keys` may write no keys unless the sequence is open in Sequencer (`ops/anim.py` ~933-946).
+  - Setting an additive type skips PostEditChange, so the additive is not recompressed (~743-754).
+  - `anim.new` with fps 24/25/48/50 raises: `set_frame_rate` wants a multiple or divisor of 30 (~644).
+  Details: agent-02's audit table (`fleetctl cp agent-02:/work/handoff/audit-anim.md .`).
 
   The rule for how engine calls return in Python (PyGenUtil.cpp) is now in CONVENTIONS §12.
 - **The orchestrator was offline.** Decisions the lead took alone are in DECISIONS.md.
