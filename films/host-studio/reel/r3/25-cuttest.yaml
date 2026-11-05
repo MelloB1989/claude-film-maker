@@ -1,0 +1,19 @@
+# The cut flash test: frames 718-721 across the V05 -> S11 cut at 720. With MRQ's centred shutter, 720 blended
+# V05's camera into S11's first frame (set finals, 16:57). shutter_timing open must give a clean 720.
+#   film-ue apply .../25-cuttest.yaml                         (open)
+#   film-ue apply .../25-cuttest.yaml --set shutter=center    (the old look, for the A/B)
+kind: include
+files: [vars.yaml]
+---
+kind: vars
+vars: {shutter: open}
+---
+kind: render
+version: 1
+name: "cut_${shutter}"
+sequence: "${seq}"
+level: "${level}"
+out_dir: "${out}/cut_${shutter}"
+preset: final
+frames: [718, 722]       # two chunks (V05 718-719 pre-rolled from 600, S11 720-721 from its cut)
+shutter_timing: "${shutter}"
