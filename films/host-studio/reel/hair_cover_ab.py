@@ -86,6 +86,16 @@ def groups_for(v: dict, orig: list) -> list:
     return out
 
 
+def put(groups: list) -> dict:
+    """Set the groups, then pin the presenters back to LOD 0 (build.py --lod0 on): a groom property change re-creates
+    the component, which drops its forced LOD as well as its materials (cast4's S16: long blue-black strands at f1200,
+    shorter green hair, the cards, from f1217), so an unpinned A/B would compare the cards, not the strands."""
+    import build
+    r = ok(client.exec_code(f"GROUPS = {groups!r}\nHAIR = {HAIR!r}\n" + PUT))
+    r["lod0"] = build.lod0(True)
+    return r
+
+
 def render(tag: str, run: str) -> None:
     """One variant's render; a non-zero exit from film-ue apply is only a failure if its frames did not land."""
     from filmtools.unreal.cli import main as cli
@@ -111,13 +121,13 @@ def main() -> None:
     rep = {"original": orig, "variants": {}}
     try:
         for v in VARIANTS:
-            put = ok(client.exec_code(f"GROUPS = {groups_for(v, orig)!r}\nHAIR = {HAIR!r}\n" + PUT))
+            r = put(groups_for(v, orig))
             render(v["name"], run)
             if 1241 not in qa_review.frames(str(out / v["name"])):
                 raise SystemExit(f"{v['name']}: no frame 1241 under {out / v['name']}")
-            rep["variants"][v["name"]] = {"groups": groups_for(v, orig), "put": put}
+            rep["variants"][v["name"]] = {"groups": groups_for(v, orig), "put": r}
     finally:
-        rep["restored"] = ok(client.exec_code(f"GROUPS = {orig!r}\nHAIR = {HAIR!r}\n" + PUT))
+        rep["restored"] = put(orig)
     cells = []
     for v in VARIANTS:
         p = qa_review.crop(str(out / v["name"]), str(out / f"_{v['name']}.jpg"), [1241], ENDS_BOX, 640)
