@@ -161,21 +161,28 @@ def run(t):
             ["FinalImage", True, True])
     t.check("EXR frames per pass", [len(glob.glob(os.path.join(aov, d, "*.exr"))) for d in dirs], [4, 4, 4])
 
-    # executors: a separate process after saving, and a command line with no editor
-    proc = os.path.join(out, "process")
-    rep = yield from t.op("render.job", spec={**spec, "out_dir": proc, "name": "process", "frames": [0, 2],
-                                              "executor": "process", "save_dirty": True})
-    t.check("new-process executor renders (no save prompt stall)", [rep["status"], rep["frames"]], ["ok", 2])
-    t.metric("process_job_s", rep["seconds"], "s")
-    man = t.op("render.manifest", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd", "frames": [0, 2],
-                                        "executor": "cmdline"})
-    t.ok("manifest written", man["chunks"] and os.path.isfile(man["chunks"][0]["manifest"]), detail=str(man)[:500])
-    rep = yield from t.op("render.job", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd",
-                                              "frames": [0, 2], "executor": "cmdline"}, stall_s=600.0)
-    t.check("command-line render (one process, no editor)", [rep["status"], rep["frames"]], ["ok", 2])
-    t.metric("cmdline_job_s", rep["seconds"], "s")
-    if rep["chunks"] and rep["chunks"][0].get("log") and hasattr(t, "artifact"):
-        t.artifact(rep["chunks"][0]["log"])
+    # executors: a separate process after saving, and a command line with no editor. Both need the MRQ editor
+    # library for the queue manifest; on the day-1 box it was missing, which is one failed check, not the end of the run
+    from ..errors import OpError
+    try:
+        proc = os.path.join(out, "process")
+        rep = yield from t.op("render.job", spec={**spec, "out_dir": proc, "name": "process", "frames": [0, 2],
+                                                  "executor": "process", "save_dirty": True})
+        t.check("new-process executor renders (no save prompt stall)", [rep["status"], rep["frames"]], ["ok", 2])
+        t.metric("process_job_s", rep["seconds"], "s")
+        man = t.op("render.manifest", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd", "frames": [0, 2],
+                                            "executor": "cmdline"})
+        t.ok("manifest written", man["chunks"] and os.path.isfile(man["chunks"][0]["manifest"]), detail=str(man)[:500])
+        rep = yield from t.op("render.job", spec={**spec, "out_dir": os.path.join(out, "cmd"), "name": "cmd",
+                                                  "frames": [0, 2], "executor": "cmdline"}, stall_s=600.0)
+        t.check("command-line render (one process, no editor)", [rep["status"], rep["frames"]], ["ok", 2])
+        t.metric("cmdline_job_s", rep["seconds"], "s")
+        if rep["chunks"] and rep["chunks"][0].get("log") and hasattr(t, "artifact"):
+            t.artifact(rep["chunks"][0]["log"])
+    except OpError as e:
+        if e.code != "unsupported":
+            raise
+        t.ok("new-process / command-line executors available", False, detail=e.message)
 
     # encode
     if shutil.which("ffmpeg"):
