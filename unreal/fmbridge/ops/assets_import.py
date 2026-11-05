@@ -149,6 +149,10 @@ def _abc_options(kind: str, preset: str, scale: float, groom: bool):
 
 
 def _usd_options(materials: bool):
+    if not hasattr(unreal, "UsdStageImportOptions"):  # day 1: the box's project has the USD importer off
+        raise OpError("USD import needs the USDImporter plugin, which is off in this project", code="unsupported",
+                      hint="film-ue op editor.plugins enable=USDImporter, then restart the editor; or export "
+                           "FBX/glTF instead")
     o = unreal.UsdStageImportOptions()
     _set(o, import_actors=False, import_geometry=True, import_materials=bool(materials),
          import_skeletal_animations=True, import_level_sequences=False)

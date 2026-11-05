@@ -24,6 +24,7 @@ PLUGINS = {  # plugin name: (why it matters, severity when missing)
     "MetaHumanCharacter": ("mh.* (MetaHuman Creator by code)", "warn"),
     "MetaHuman": ("speech.to_face (MetaHuman Animator)", "warn"),
     "Fab": ("fab.* (the Fab library)", "info"),
+    "USDImporter": ("assets.import of .usd/.usda/.usdc", "info"),
 }
 
 
@@ -156,14 +157,14 @@ def api_names(*, only_missing: bool = True) -> dict:
     any name, so a C++ class name where Python wants the ScriptName (AutomationBlueprintFunctionLibrary vs
     AutomationLibrary) or a plugin that is off only shows up here, or when the op runs.
 
-    Scans the installed fmbridge sources for `unreal.X` (the first name after `unreal.`), checks each with hasattr.
+    Parses the installed fmbridge sources for `unreal.X` in code (the first name after `unreal.`), checks each
+    with hasattr.
     Returns: {"checked": int, "missing": {name: [files]}, "names": [all names] (only_missing=false)}.
     A missing name is a bug (wrong name) or a disabled plugin: API_NOTES in docs/unreal/<area>.md says which.
     Example: film-ue op editor.api_names
     """
-    import re
+    import ast
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # the fmbridge package
-    pat = re.compile(r"\bunreal\.([A-Z][A-Za-z0-9_]+)")
     uses: dict = {}
     for d, _, files in os.walk(root):
         for f in files:
@@ -175,8 +176,14 @@ def api_names(*, only_missing: bool = True) -> dict:
                     text = fh.read()
             except OSError:
                 continue
-            for m in set(pat.findall(text)):
-                uses.setdefault(m, set()).add(os.path.relpath(p, root))
+            try:
+                tree = ast.parse(text)
+            except SyntaxError:
+                continue
+            for n in ast.walk(tree):  # code only: `unreal.X` in a docstring or a comment is not a use
+                if (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "unreal"
+                        and n.attr[:1].isupper()):
+                    uses.setdefault(n.attr, set()).add(os.path.relpath(p, root))
     missing = {n: sorted(fs) for n, fs in sorted(uses.items()) if not _exposed(n)}
     out = {"checked": len(uses), "missing": missing}
     if not only_missing:
