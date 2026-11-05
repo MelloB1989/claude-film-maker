@@ -204,21 +204,22 @@ def contact(passes: list, out: Path, name: str, tile: int = 480) -> Path:
 
 
 def preview(frames: Path, out: Path, mix: Path, mix45: Path | None, cues: Path | None, scale: float, source: str,
-            hold: str) -> None:
+            hold: str, name: str = "") -> None:
     """The reel so far from one pass: rendered shots and slates for the rest, the mix, title and captions; the 65 s
-    and the 45 s, 1080p 16:9 with captions burned in."""
+    and the 45 s, 1080p 16:9 (times --scale: 0.5 for 960x540) with captions burned in, named <name>.mp4 and
+    <name>_45s.mp4 (default preview_<pass>_<shots>)."""
     n = len(whole(frames))
     work = out / "preview_work"
-    tag = f"{frames.name}_{n}"
+    tag = name.removesuffix(".mp4") if name else f"preview_{frames.name}_{n}"
     args = [str(frames), "--fill", "slate", "--only", "1080p", "--out", str(work), "--pattern", pattern(frames),
             "--scale", str(scale), "--source", source, "--hold-first", hold] + (["--cues", str(cues)] if cues else [])
     cut.main(args + ["--mix", str(mix)])
     cut.main(args + ["--edl", "45s", "--mix", str(mix45 or mix)])
-    (work / "karma-reel-1080p-h264.mp4").replace(out / f"preview_{tag}.mp4")
-    (work / "karma-reel-45s-1080p-h264.mp4").replace(out / f"preview_{tag}_45s.mp4")
-    (work / "cut.json").replace(out / f"preview_{tag}.json")
-    contact([frames], out, f"preview_{tag}")
-    print(out / f"preview_{tag}.mp4", out / f"preview_{tag}_45s.mp4",
+    (work / "karma-reel-1080p-h264.mp4").replace(out / f"{tag}.mp4")
+    (work / "karma-reel-45s-1080p-h264.mp4").replace(out / f"{tag}_45s.mp4")
+    (work / "cut.json").replace(out / f"{tag}.json")
+    contact([frames], out, tag)
+    print(out / f"{tag}.mp4", out / f"{tag}_45s.mp4",
           f"({n} of {len(SHOTS)} shots: {', '.join(whole(frames))})")
 
 
@@ -265,6 +266,8 @@ def main(argv=None) -> None:
     p.add_argument("--mix45", type=Path, help="R5's mix for the 45 s cut (else the full mix, cut on its edits)")
     p.add_argument("--cues", type=Path)
     p.add_argument("--scale", type=float, default=1.0, help="cut.py's --scale (less for a quick look)")
+    p.add_argument("--name", default="", help="the outputs' name: <name>.mp4, <name>_45s.mp4, <name>.json and "
+                                             "sheets/<name>.jpg (default preview_<pass>_<shots>)")
     p = sub.add_parser("final")
     p.add_argument("--mix", type=Path, required=True)
     p.add_argument("--mix45", type=Path, help="R5's mix for the 45 s cut (else the full mix, cut on its edits)")
@@ -284,7 +287,7 @@ def main(argv=None) -> None:
         fill = [] if a.fill_from in ("", "none") else [root / x for x in a.fill_from.split(",")]
         final(frames, a.out, a.mix, a.mix45, a.cues, a.source, a.hold_first, fill)
     else:
-        preview(frames, a.out, a.mix, a.mix45, a.cues, a.scale, a.source, a.hold_first)
+        preview(frames, a.out, a.mix, a.mix45, a.cues, a.scale, a.source, a.hold_first, a.name)
 
 
 if __name__ == "__main__":

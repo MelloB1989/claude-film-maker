@@ -3,6 +3,8 @@
 # the MP4s and sheets come down). agent-07 runs it from the box's checkout of film/host-studio:
 #
 #   R3_PREVIEW=preview/<build> films/host-studio/reel/r3/cut.sh preview   # that build's preview pass
+#   R3_PREVIEW=preview/<build> films/host-studio/reel/r3/cut.sh preview --scale 0.5 --name karma-r3-preview-960x540
+#                                                          # the whole-reel 960x540 preview at its own size, + _45s
 #   films/host-studio/reel/r3/cut.sh preview              # rough cut of the preview pass: 65 s + 45 s, 1080p, captions
 #   films/host-studio/reel/r3/cut.sh final                # the finals (R3_FINAL, default final_c), shots not final yet filled from the preview
 #   films/host-studio/reel/r3/cut.sh final --fill-from none   # the deliverables: every final must be in
