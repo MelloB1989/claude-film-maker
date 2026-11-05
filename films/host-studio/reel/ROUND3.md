@@ -174,3 +174,12 @@ If something blocks the editor (a cloud wait, a fix in progress), agent-07 rende
 - Bucket check (agent-07): default SSE-S3, not KMS, so every private upload passes `--sse aws:kms`; only the box role can read private/. Reported to karmax.
 - AA pick (agent-05): A, TSR 1x8, the 30-final default. On S17: 0.68 s/frame, 11.6 GB VRAM; B shimmers ~15% more, flickers ~7% more and draws hard lines on the shelf fronts. A full pass is ~20 min. The 16:47 crash was a Python GC SIGSEGV at PIE start after bridge probes, so renders start from a quiet editor.
 - AA pick revised, on hold (agent-05): TSR (A) erases the real under-shelf LED strips (1.6 cm, sub-pixel), which matters for N01, V01 and any shot of the upper shelves. Calibration C (no AA, 4x8, ~2.4 s/frame) is running. The 16:57 set finals are not signed off until the pick, and will likely be re-rendered (~40 min).
+- Gate on cast2 (agent-09, 17:35): NOT signed.
+  - (a) lips PASS: jaw on lines vs between lines is her 12.6x, him 8.6x; every line opens the jaw.
+  - (c) hair PASS: ends vs roots -0.024 (cast1 +0.069). The 11-variant A/B is void (scene capture differs), so no material change.
+  - (d)/(e) alive PASS: anim.check passes on both; 12 blinks each.
+  - (b) OPEN: the watch is now measured from hand_l (<= 1.5 cm). qa.penetration stills are needed. There is a neck/collar seam from the body life layer, which is now off (agent-01 95f25d36) until life is baked in before sync.
+  - Head turns: on 5.8 no face curve turns the head, so turns go on the face anim's neck/head bones before sync (agent-01, in progress).
+  - cast3 (95f25d36) is being checked.
+- Core: agent-05's shutter_timing (render-shutter a86f35f2) fixes the double-exposed first frames at cuts (S11 f720, S12 f780). It is bounced only for a missing API_NOTES row.
+- Preview-1 rough cut on the box: 13 of 13 shots, mixes on spec (agent-06). It stays on the box until the gate passes.
