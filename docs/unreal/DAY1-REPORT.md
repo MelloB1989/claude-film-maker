@@ -72,7 +72,7 @@ seq 45/0, cam 52/0, qa 32/0, audio 17/0, env 56/0, foliage 20/0, wp 17/0. The de
 Open, and why:
 - assets 62/1: fab.login. Fab needs its own Epic sign-in; the device-code URL is redacted in the log and goes to a
   headless browser, so only the exchange-code route works (an operator gives a one-time code; agent-07's
-  `film-ue epic-login --exchange-code-cmd` / editor.epic_exchange_code). Asked the orchestrator.
+  `film-ue epic-login --exchange-code-cmd ./helper` / editor.epic_exchange_code). Asked the orchestrator.
 - render 25/2: the new-process / command-line executors need MoviePipelineEditorBlueprintLibrary, which this build's
   editor never exposes (unreal.load_module('MovieRenderPipelineEditor') does not bring it); 'cancelled job reports
   cancelled' got ok. agent-05 has no task: needs an owner.

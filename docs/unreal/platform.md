@@ -324,7 +324,7 @@ stands for your profile (`--box B`). The project dir is `P` (`film-ue profile sh
 | client "polling survives a dropped tunnel" | no Session Manager plugin, or the forward fails to reopen | `film-ue --box B tunnel` and read `~/.config/film-ue.B.tunnel.log`; or `film-ue --box B set --bridge ssm` (no tunnel at all) |
 | client "editor status answers" | the unit has another name on this box | `film-ue --box B set --service <unit>` |
 | first-run `epic`: no saved sign-in | the S3 copy could not be read (role, KMS), or there was never one | `film-ue --box B editor log 100 --journal \| grep epic:`; "no access": give the box role `kms:Decrypt` + `s3:GetObject` on `epic_s3`; else `film-ue --box B epic-login` |
-| `epic-login --exchange-code-cmd` says "for this editor session" | an exchange-code login leaves no saved sign-in (untested) | the next start needs a new code, or use the device code once: `film-ue --box B epic-login` |
+| `epic-login --exchange-code-cmd ./helper` says "for this editor session" | an exchange-code login leaves no saved sign-in (untested) | the next start needs a new code, or use the device code once: `film-ue --box B epic-login` |
 | `mh.rig` errors "no Epic sign-in saved" | as above | `film-ue --box B epic-login` |
 | the box powered itself off | TTL reached, or nothing counted as activity for `--idle` | `film-ue box ls` (gone = terminated). Next time: `film-ue box up ... --idle 60m`, `film-ue box keepalive B` before a long pause, `film-ue box extend B --ttl 2h` |
 | the watchdog never ends an idle box | user-data did not run, or the timer is off | `film-ue --box B sh --root "systemctl status ue-watchdog.timer film-ue-ttl.timer; tail -30 /var/log/cloud-init-output.log; cat /var/lib/film-ue/watchdog.json"` |
